@@ -48,8 +48,8 @@ pub fn sweep(&mut self) -> Result<usize>
 5. Returns the count of successfully deleted nodes
 
 **Background vs Foreground:**
-- **Foreground:** `purgeExpired()` / `purge_expired()` scans all live nodes and deletes those past their deadline. This is a full scan and can be expensive on large datasets.
-- **Background:** In production, `GcWorker::sweep()` runs in a `tokio::spawn` loop on a periodic schedule. This incrementally processes only registered TTL entries without scanning all nodes.
+- **Foreground:** `purgeExpired()` / `purge_expired()` physically purges every record past its deadline (nodes + derived scalar/text indexes) using the expiry index — no full storage scan (MOD-04). Invoked on demand (maintenance endpoint) and reused by the background sweeper.
+- **Background (shipped, WIRE-04):** `spawn_memory_ttl_sweeper` (`src/gc.rs`) runs a tokio loop (interval `VANTADB_TTL_SWEEP_INTERVAL_MS`, default 60 s; `0` disables) that calls `purge_expired` on a blocking thread; cancelled via `watch`/`Drop` and joined on `shutdown()`. `GcWorker::sweep()` remains the caller-driven path for registered thread TTLs — it does not run on its own.
 
 ### When TTL Is Set
 
@@ -118,13 +118,13 @@ This provides **automatic retry** without explicit backoff logic. Permanent fail
 
 ## Configuration
 
-TTL behavior is configured via the SDK, not the engine config:
+TTL behavior is configured per record and, since WIRE-04, per namespace via engine config:
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `ttl_ms` | `Option<u64>` | `None` (no expiry) | Time-to-live in milliseconds from record creation |
-
-There is no global TTL default. Each record must opt in to TTL via the `ttl_ms` parameter.
+| `ttl_ms` (record) | `Option<u64>` | `None` (no expiry) | Time-to-live in milliseconds from record creation; an explicit value always wins |
+| `VANTADB_MEMORY_DEFAULT_TTL_MS` (env) | `namespace:ms,...` map | empty (no default) | Per-namespace default TTL applied to NEW writes only (no backfill); malformed entries warn + skip |
+| `VANTADB_TTL_SWEEP_INTERVAL_MS` (env) | `u64` ms | `60000` | Background sweeper interval; `0` disables the sweeper (read-only mode also skips it) |
 
 Memory limits that interact with GC:
 

@@ -30,7 +30,11 @@ impl<'a> GcWorker<'a> {
         self.index_ttl.entry(expiry_secs).or_default().push(id);
     }
 
-    /// Triggers a sweep that clears old items. In production this runs in a `tokio::spawn` loop.
+    /// Triggers a sweep that clears old items. Registered TTLs are owned by
+    /// callers (e.g. `ThreadStore`), so this runs on demand; production
+    /// memory-record expiry is driven by `spawn_memory_ttl_sweeper` (feature
+    /// `server`), which purges the full memory/index surface via
+    /// `Embedded::purge_expired`.
     pub fn sweep(&mut self) -> Result<usize> {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -86,6 +90,88 @@ impl<'a> GcWorker<'a> {
             ids.retain(|id| active_ids.contains(id));
             !ids.is_empty()
         });
+    }
+}
+
+/// Handle for the background memory TTL sweeper.
+///
+/// Dropping the handle stops the loop (best-effort abort);
+/// [`MemoryTtlSweeper::shutdown`] performs a graceful stop and join.
+#[cfg(feature = "server")]
+pub struct MemoryTtlSweeper {
+    shutdown: tokio::sync::watch::Sender<bool>,
+    handle: Option<tokio::task::JoinHandle<()>>,
+}
+
+#[cfg(feature = "server")]
+impl MemoryTtlSweeper {
+    /// Ask the sweep loop to stop and wait for it to finish (join).
+    pub async fn shutdown(mut self) {
+        let _ = self.shutdown.send(true);
+        if let Some(handle) = self.handle.take() {
+            let _ = handle.await;
+        }
+    }
+}
+
+#[cfg(feature = "server")]
+impl Drop for MemoryTtlSweeper {
+    fn drop(&mut self) {
+        // Signal first, then abort: with a live runtime the loop exits cleanly
+        // at its next select; the abort guarantees no detached task outlives
+        // the handle during shutdown.
+        let _ = self.shutdown.send(true);
+        if let Some(handle) = self.handle.take() {
+            handle.abort();
+        }
+    }
+}
+
+/// Spawn the background TTL sweeper: every `interval`, physically purges
+/// expired memory records (nodes + derived/scalar/text indexes) via
+/// `Embedded::purge_expired`.
+///
+/// Lazy read filtering hides expired records from `get`/`search` but leaves
+/// the node and its index entries in storage; this loop runs the same complete
+/// purge the maintenance endpoint uses, on a blocking thread, so storage
+/// actually shrinks. The first sweep runs immediately (Tokio interval
+/// semantics), so records that expired while the process was down are cleaned
+/// on startup. `interval` must be non-zero — callers that allow disabling
+/// (e.g. `ttl_sweep_interval_ms == 0`) skip this call entirely.
+#[cfg(feature = "server")]
+pub fn spawn_memory_ttl_sweeper(
+    db: crate::sdk::Embedded,
+    interval: std::time::Duration,
+) -> MemoryTtlSweeper {
+    debug_assert!(!interval.is_zero(), "sweep interval must be non-zero");
+    let (shutdown_tx, mut shutdown_rx) = tokio::sync::watch::channel(false);
+    let handle = tokio::spawn(async move {
+        let mut ticker = tokio::time::interval(interval);
+        ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+        loop {
+            tokio::select! {
+                _ = shutdown_rx.changed() => break,
+                _ = ticker.tick() => {
+                    let db = db.clone();
+                    match tokio::task::spawn_blocking(move || db.purge_expired()).await {
+                        Ok(Ok(purged)) if purged > 0 => {
+                            tracing::info!(purged, "ttl sweeper purged expired records");
+                        }
+                        Ok(Ok(_)) => {}
+                        Ok(Err(e)) => {
+                            tracing::warn!(error = %e, "ttl sweeper purge failed; retrying next tick");
+                        }
+                        Err(e) => {
+                            tracing::warn!(error = %e, "ttl sweeper purge task failed to join");
+                        }
+                    }
+                }
+            }
+        }
+    });
+    MemoryTtlSweeper {
+        shutdown: shutdown_tx,
+        handle: Some(handle),
     }
 }
 
@@ -312,6 +398,104 @@ mod tests {
         assert!(
             worker.index_ttl.is_empty(),
             "TTL entry should be cleaned up"
+        );
+    }
+}
+
+/// WIRE-04: the background TTL sweeper (production driver of
+/// [`Embedded::purge_expired`]). Feature-gated because the loop needs Tokio.
+#[cfg(all(test, feature = "server"))]
+#[allow(missing_docs)]
+mod sweeper_tests {
+    use super::*;
+    use crate::config::Config;
+    use crate::sdk::serialization::FIELD_EXPIRES_AT_MS;
+    use crate::sdk::{Embedded, MemoryInput};
+    use crate::storage::BackendKind;
+    use std::time::Duration;
+
+    fn in_memory_db() -> Embedded {
+        Embedded::open_with_config(Config {
+            storage_path: ":memory:".into(),
+            backend_kind: BackendKind::InMemory,
+            ..Default::default()
+        })
+        .expect("open in-memory Embedded")
+    }
+
+    /// Wait (bounded) until `check` holds; fails the test when the deadline lapses.
+    async fn wait_until(timeout: Duration, mut check: impl FnMut() -> bool) {
+        let deadline = tokio::time::Instant::now() + timeout;
+        loop {
+            if check() {
+                return;
+            }
+            assert!(
+                tokio::time::Instant::now() < deadline,
+                "condition not reached within {timeout:?}"
+            );
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+    }
+
+    #[tokio::test]
+    async fn ttl_sweeper_physically_removes_expired_records_and_indexes() {
+        let db = in_memory_db();
+        let sweeper = spawn_memory_ttl_sweeper(db.clone(), Duration::from_millis(20));
+
+        let mut input = MemoryInput::new("sweep", "k1", "physically purged");
+        input.ttl_ms = Some(25);
+        let record = db.put(input).expect("put");
+
+        let engine = db.engine_handle().expect("engine");
+        // While alive: the scalar index must know the expiry field (this is what
+        // `purge_expired` scans — asserting it here proves the index assertion
+        // below is not vacuous).
+        assert!(
+            engine
+                .scalar_lookup_int_le(FIELD_EXPIRES_AT_MS, i64::MAX)
+                .contains(&record.node_id),
+            "fresh TTL record must be present in the scalar index"
+        );
+
+        // The sweeper — not a manual `purge_expired` call — must physically remove
+        // the node (absent from the engine, not merely hidden by lazy read filtering).
+        wait_until(Duration::from_secs(3), || {
+            engine.get(record.node_id).expect("engine get").is_none()
+        })
+        .await;
+
+        // Index-level proof: the expiry entry is gone from the scalar index too.
+        assert!(
+            !engine
+                .scalar_lookup_int_le(FIELD_EXPIRES_AT_MS, i64::MAX)
+                .contains(&record.node_id),
+            "sweeper must purge the derived index entry, not only the node"
+        );
+
+        sweeper.shutdown().await;
+    }
+
+    #[tokio::test]
+    async fn ttl_sweeper_shutdown_joins_and_stops_further_sweeps() {
+        let db = in_memory_db();
+        let sweeper = spawn_memory_ttl_sweeper(db.clone(), Duration::from_millis(20));
+
+        // Graceful shutdown: the join must complete (no detached loop left behind).
+        sweeper.shutdown().await;
+
+        let mut input = MemoryInput::new("sweep", "k2", "survives shutdown");
+        input.ttl_ms = Some(20);
+        let record = db.put(input).expect("put");
+
+        // Wait well past several sweep intervals: a still-running sweeper would
+        // have purged the node by now.
+        tokio::time::sleep(Duration::from_millis(150)).await;
+
+        let engine = db.engine_handle().expect("engine");
+        assert!(
+            engine.get(record.node_id).expect("engine get").is_some(),
+            "no sweep may run after shutdown() joins the loop"
         );
     }
 }

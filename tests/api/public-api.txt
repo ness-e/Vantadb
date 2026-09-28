@@ -1237,6 +1237,7 @@ pub vantadb::config::Config::local_model_path: alloc::string::String
 pub vantadb::config::Config::log_format: vantadb::config::LogFormat
 pub vantadb::config::Config::max_blocking_threads: usize
 pub vantadb::config::Config::max_connections: usize
+pub vantadb::config::Config::memory_default_ttl_ms: alloc::collections::btree::map::BTreeMap<alloc::string::String, u64>
 pub vantadb::config::Config::memory_limit: core::option::Option<u64>
 pub vantadb::config::Config::mmap_hnsw: bool
 pub vantadb::config::Config::openai_api_key: core::option::Option<alloc::string::String>
@@ -1255,6 +1256,7 @@ pub vantadb::config::Config::sync_mode: vantadb::config::SyncMode
 pub vantadb::config::Config::tls_cert_path: core::option::Option<alloc::string::String>
 pub vantadb::config::Config::tls_key_path: core::option::Option<alloc::string::String>
 pub vantadb::config::Config::trusted_proxies: alloc::vec::Vec<core::net::ip_addr::IpAddr>
+pub vantadb::config::Config::ttl_sweep_interval_ms: u64
 pub vantadb::config::Config::version_history_limit: core::option::Option<usize>
 pub vantadb::config::Config::wal_buffer_size: core::option::Option<usize>
 pub vantadb::config::Config::wal_shards: usize
@@ -1529,6 +1531,36 @@ pub fn vantadb::console::progress(&str, core::option::Option<&str>)
 pub fn vantadb::console::section(&str)
 pub fn vantadb::console::separator()
 pub fn vantadb::console::warn(&str, core::option::Option<&str>)
+pub mod vantadb::embedding_health
+pub struct vantadb::embedding_health::EmbeddingHealth
+pub vantadb::embedding_health::EmbeddingHealth::detail: core::option::Option<alloc::string::String>
+pub vantadb::embedding_health::EmbeddingHealth::fallback: core::option::Option<bool>
+pub vantadb::embedding_health::EmbeddingHealth::model_dir: core::option::Option<alloc::string::String>
+pub vantadb::embedding_health::EmbeddingHealth::model_present: core::option::Option<bool>
+pub vantadb::embedding_health::EmbeddingHealth::notice: core::option::Option<alloc::string::String>
+pub vantadb::embedding_health::EmbeddingHealth::provider: alloc::string::String
+pub vantadb::embedding_health::EmbeddingHealth::reason: core::option::Option<alloc::string::String>
+impl core::clone::Clone for vantadb::embedding_health::EmbeddingHealth
+pub fn vantadb::embedding_health::EmbeddingHealth::clone(&self) -> vantadb::embedding_health::EmbeddingHealth
+impl core::cmp::Eq for vantadb::embedding_health::EmbeddingHealth
+impl core::cmp::PartialEq for vantadb::embedding_health::EmbeddingHealth
+pub fn vantadb::embedding_health::EmbeddingHealth::eq(&self, &vantadb::embedding_health::EmbeddingHealth) -> bool
+impl core::fmt::Debug for vantadb::embedding_health::EmbeddingHealth
+pub fn vantadb::embedding_health::EmbeddingHealth::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vantadb::embedding_health::EmbeddingHealth
+impl serde_core::ser::Serialize for vantadb::embedding_health::EmbeddingHealth
+pub fn vantadb::embedding_health::EmbeddingHealth::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vantadb::embedding_health::EmbeddingHealth
+pub fn vantadb::embedding_health::EmbeddingHealth::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for vantadb::embedding_health::EmbeddingHealth
+impl core::marker::Send for vantadb::embedding_health::EmbeddingHealth
+impl core::marker::Sync for vantadb::embedding_health::EmbeddingHealth
+impl core::marker::Unpin for vantadb::embedding_health::EmbeddingHealth
+impl core::marker::UnsafeUnpin for vantadb::embedding_health::EmbeddingHealth
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::embedding_health::EmbeddingHealth
+impl core::panic::unwind_safe::UnwindSafe for vantadb::embedding_health::EmbeddingHealth
+pub const vantadb::embedding_health::REMEDY: &str
+pub fn vantadb::embedding_health::embedding_health() -> vantadb::embedding_health::EmbeddingHealth
 pub mod vantadb::engine
 pub enum vantadb::engine::SourceType
 pub vantadb::engine::SourceType::BitsetFilter
@@ -7171,6 +7203,7 @@ pub vantadb::Config::local_model_path: alloc::string::String
 pub vantadb::Config::log_format: vantadb::config::LogFormat
 pub vantadb::Config::max_blocking_threads: usize
 pub vantadb::Config::max_connections: usize
+pub vantadb::Config::memory_default_ttl_ms: alloc::collections::btree::map::BTreeMap<alloc::string::String, u64>
 pub vantadb::Config::memory_limit: core::option::Option<u64>
 pub vantadb::Config::mmap_hnsw: bool
 pub vantadb::Config::openai_api_key: core::option::Option<alloc::string::String>
@@ -7189,6 +7222,7 @@ pub vantadb::Config::sync_mode: vantadb::config::SyncMode
 pub vantadb::Config::tls_cert_path: core::option::Option<alloc::string::String>
 pub vantadb::Config::tls_key_path: core::option::Option<alloc::string::String>
 pub vantadb::Config::trusted_proxies: alloc::vec::Vec<core::net::ip_addr::IpAddr>
+pub vantadb::Config::ttl_sweep_interval_ms: u64
 pub vantadb::Config::version_history_limit: core::option::Option<usize>
 pub vantadb::Config::wal_buffer_size: core::option::Option<usize>
 pub vantadb::Config::wal_shards: usize

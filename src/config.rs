@@ -11,6 +11,7 @@ use crate::backend::BackendKind;
 use crate::storage::engine::SegmentOptimizerConfig;
 #[cfg(feature = "advanced-tokenizer")]
 use crate::tokenizer::AdvancedTokenizerConfig;
+use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::env;
 use std::str::FromStr;
@@ -718,6 +719,20 @@ pub struct Config {
     /// this cap the oldest version is evicted (FIFO). `None` disables the cap
     /// (unbounded history per key). Default: `Some(32)`.
     pub version_history_limit: Option<usize>,
+    /// Default TTL (ms) applied by `put`/`put_batch` when a record's
+    /// `ttl_ms` is omitted (`None`), keyed by namespace (the "collection").
+    ///
+    /// Configured via `VANTADB_MEMORY_DEFAULT_TTL_MS` as comma-separated
+    /// `namespace:ms` pairs (e.g. `notes:86400000,chat:3600000`). Only new
+    /// writes inherit the default — existing records are never backfilled.
+    /// Malformed entries are warned and skipped.
+    pub memory_default_ttl_ms: BTreeMap<String, u64>,
+    /// Interval in ms for the background TTL sweeper, which physically purges
+    /// expired memory records (nodes + derived/text indexes) on the server:
+    /// same purge as `DELETE /api/v2/maintenance/expired-records`, run
+    /// periodically. `0` disables the sweeper. Default: 60000 (1 minute).
+    /// Configured via `VANTADB_TTL_SWEEP_INTERVAL_MS`.
+    pub ttl_sweep_interval_ms: u64,
     /// Bulk import commit interval — number of records per batch commit (default: 10000).
     /// Configured via `VANTADB_BULK_COMMIT_INTERVAL`.
     pub bulk_commit_interval: Option<usize>,
@@ -1140,6 +1155,34 @@ impl Default for Config {
                     .ok()
                     .filter(|&n: &usize| n > 0);
                 debug!(val = ?v, "VANTADB_VERSION_HISTORY_LIMIT");
+                v
+            },
+            memory_default_ttl_ms: {
+                // Comma-separated `namespace:ms` pairs; malformed entries are
+                // skipped with a warning (config is a trust boundary).
+                let raw = env::var("VANTADB_MEMORY_DEFAULT_TTL_MS").unwrap_or_default();
+                let mut map = BTreeMap::new();
+                for pair in raw.split(',').map(str::trim).filter(|s| !s.is_empty()) {
+                    match pair.split_once(':') {
+                        Some((ns, ms)) if !ns.trim().is_empty() => match ms.trim().parse::<u64>() {
+                            Ok(ttl) => {
+                                map.insert(ns.trim().to_string(), ttl);
+                            }
+                            Err(e) => warn!(
+                                "Invalid VANTADB_MEMORY_DEFAULT_TTL_MS entry {pair:?} ({e}) — skipping"
+                            ),
+                        },
+                        _ => warn!(
+                            "Invalid VANTADB_MEMORY_DEFAULT_TTL_MS entry {pair:?} — expected `namespace:ms`; skipping"
+                        ),
+                    }
+                }
+                debug!(count = map.len(), "VANTADB_MEMORY_DEFAULT_TTL_MS");
+                map
+            },
+            ttl_sweep_interval_ms: {
+                let v = parse_env_or("VANTADB_TTL_SWEEP_INTERVAL_MS", 60_000u64);
+                debug!(val = v, "VANTADB_TTL_SWEEP_INTERVAL_MS");
                 v
             },
             bulk_commit_interval: {
