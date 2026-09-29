@@ -225,7 +225,7 @@ const STDLIB = new Set(['std', 'core', 'alloc', 'crate', 'self', 'super']);
 
 const PY_HELPER = String.raw`
 """Static API verifier for check-doc-examples.mjs. Reads JSON on stdin."""
-import ast, builtins, json, os, sys, tempfile, types, warnings
+import ast, builtins, json, os, shutil, sys, tempfile, types, warnings
 
 warnings.simplefilter("ignore")
 
@@ -245,22 +245,30 @@ def load_sdk():
     # One live Client so the domain sub-clients (db.memory / db.graph / ...) can be
     # resolved. "memory" is a getset_descriptor on the class, so Client.memory is a
     # descriptor, not a MemoryClient; only an instance yields the real type.
+    # A Client preallocates ~320 MB, so this directory is not a scratch file:
+    # without the rmtree every gate run leaks 320 MB into TMPDIR. That is
+    # enough to fill a CI runner and enough to make git fail to write its index
+    # on a developer machine. Cleanup is unconditional, including on the error
+    # paths -- that is the only reason it is a finally and not a tail call.
     tmp = tempfile.mkdtemp(prefix="vanta-doc-gate-")
     try:
-        info["probe"] = vantadb.Client(os.path.join(tmp, "db"))
-    except Exception as e:
-        info["probe_error"] = "%s: %s" % (type(e).__name__, e)
-        info["probe"] = None
-    info["subclients"] = {}
-    if info.get("probe") is not None:
-        for sub in ("memory", "graph", "system", "wiki"):
-            try:
-                s = getattr(info["probe"], sub)
-                info["subclients"][sub] = type(s).__name__
-            except Exception:
-                pass
-    OUT["pkg"] = info
-    return vantadb
+        try:
+            info["probe"] = vantadb.Client(os.path.join(tmp, "db"))
+        except Exception as e:
+            info["probe_error"] = "%s: %s" % (type(e).__name__, e)
+            info["probe"] = None
+        info["subclients"] = {}
+        if info.get("probe") is not None:
+            for sub in ("memory", "graph", "system", "wiki"):
+                try:
+                    s = getattr(info["probe"], sub)
+                    info["subclients"][sub] = type(s).__name__
+                except Exception:
+                    pass
+        OUT["pkg"] = info
+        return vantadb
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 SDK_MOD = load_sdk()
