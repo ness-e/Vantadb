@@ -46,6 +46,34 @@
       ],
       "disabled": false
     },
+    "metasearchmcp": {
+      "command": [
+        "metasearchmcp-mcp"
+      ],
+      "disabled": false,
+      "type": "local",
+      "description": "Búsqueda multi-provider: web, GitHub, académico, código. DuckDuckGo gratis sin key."
+    },
+    "argus": {
+      "command": [
+        "argus",
+        "mcp",
+        "serve"
+      ],
+      "disabled": false,
+      "type": "local",
+      "description": "14 providers, extracci�n 12-step, dead URL recovery, RRF fusion."
+    },
+    "agent-search": {
+      "command": [
+        "npx",
+        "-y",
+        "agent-search-mcp"
+      ],
+      "disabled": false,
+      "type": "local",
+      "description": "Capa keyless permanente: busqueda multi-engine gratis sin API keys (respaldo de metasearchmcp/argus)."
+    },
     "campaign": {
       "command": [
         "bun",

@@ -52,7 +52,7 @@ Every row names the command that produces the verdict. A dimension with a number
 > `dev-tools/coverage-budget.ps1`), restoring the local fast gate to **209.5s warm < 5 min**
 > (measured; was 509.4s with coverage in-line); local on-demand via `verify.ps1 -IncludeCoverage`.
 > This is a **compensated relaxation**, not a weakening: drift is caught per directory
-> (a budget violation fails the nightly job), the CI canonical gate **ADR-018 (root crate ≥80%)
+> (a budget violation fails the nightly job), the CI canonical gate **ADR-0018 (root crate ≥80%)
 > is untouched**, and `dev-tools/floor-guard.ps1` stays green. The `Coverage (project)` row
 > above keeps its "must not fall" direction; the mechanical check moved from
 > `--fail-under-lines 60` to the budget table (CI check column unchanged).
@@ -89,7 +89,7 @@ Every row names the command that produces the verdict. A dimension with a number
 
 Cuando no tienes un numero target, registra donde estas y no empeores:
 
-- Project coverage: per-directory budget en nightly (`coverage-budget`; baseline 2026-09-26, must not fall >1.0 pt below per directory — tabla en `docs/dev/operations/CI_POLICY.md` §Coverage; local on-demand `-IncludeCoverage`; CI ADR-018 root ≥80% unchanged)
+- Project coverage: per-directory budget en nightly (`coverage-budget`; baseline 2026-09-26, must not fall >1.0 pt below per directory — tabla en `docs/dev/operations/CI_POLICY.md` §Coverage; local on-demand `-IncludeCoverage`; CI ADR-0018 root ≥80% unchanged)
 - Binary size: measure today, hold the line
 - p99: first bench is the ratchet baseline
 
