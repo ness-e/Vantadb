@@ -51,7 +51,7 @@ pub const FIELD_QUARANTINE_REVIEW_DUE_MS: &str = "__vanta_quarantine_review_due_
 /// node as interleaved `ListFloat` pairs (ADR-019). Kept out of the
 /// bincode-graph so old databases read missing keys as `None`.
 pub const SPARSE_VECTOR_EXT_KEY: &str = "__vanta_sparse_vector";
-const EXPORT_SCHEMA_VERSION: u32 = 2;
+pub(crate) const EXPORT_SCHEMA_VERSION: u32 = 2;
 pub(crate) const DERIVED_INDEX_SCHEMA_VERSION: u32 = 1;
 pub(crate) const DERIVED_INDEX_STATE_KEY: &[u8] = b"derived_index_state";
 pub(crate) const TEXT_INDEX_STATE_KEY: &[u8] = b"text_index_state";

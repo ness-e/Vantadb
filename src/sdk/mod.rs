@@ -6,6 +6,7 @@ pub(crate) mod builder;
 pub mod connect;
 mod gds;
 mod graph;
+pub mod importers;
 pub(crate) mod search;
 pub(crate) mod serialization;
 pub(crate) mod types;
