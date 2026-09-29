@@ -42,5 +42,9 @@ pub use l1_extractor::{extract_l1_memories, extract_l1_segments, L1ExtractorConf
 pub use l1_reader::{l1_namespace, read_record, read_session_records, recall_candidates};
 pub use l1_writer::{apply_dedup_batch, generate_memory_id, write_memory, EmbedFn, L1Error};
 
+/// Canonical single-record L1 write (vector stripped, node vector separate).
+/// Shared with the dream promotion path (VER-07).
+pub(crate) use l1_writer::put_record;
+
 #[cfg(feature = "embeddings")]
 pub use l1_writer::core_embedding_hook;

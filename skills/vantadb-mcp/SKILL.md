@@ -135,7 +135,7 @@ The full contract for all **85 tools** lives in
 | Context Engine (`context_assemble`) | 1 | `context_assemble` | read-only; session recall needs prior memory capture into the session |
 | Scenes API (`scene_*`) | 5 | `scene_read`, `scene_list`, `scene_query`, `scene_write`, `scene_edit` | reads are query-only; writes need an existing session store |
 | Threads (`thread_*`) | 6 | `thread_create`, `thread_send`, `thread_get`, `thread_list`, `thread_delete`, `thread_purge_expired` | conversation history CRUD; ids are u128 strings; delete is permanent |
-| Dreams (`dream_*`) | 5 | `dream_list`, `dream_load`, `dream_discard`, `dream_consolidate`, `dream_promote` | reviewable consolidation runs; L1 never mutated (`dream_promote` is preview-only) |
+| Dreams (`dream_*`) | 5 | `dream_list`, `dream_load`, `dream_discard`, `dream_consolidate`, `dream_promote` | reviewable consolidation runs; `dream_promote` is **dry-run by default** (`dry_run:true` = plan only, L1 untouched); `dry_run:false` applies the plan to `l1/<session>` (idempotent, gated, destructive-hinted) |
 
 \* `code_files` is a documented not-supported stub: the built-in GraphRAG has no file-per-node concept.
 

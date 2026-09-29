@@ -136,8 +136,9 @@ overlap only (no embedding hook in MCP).
 
 Read wrappers plus a scoped delete over the vanta-memory dream store
 (`dream/<session>/<run_id>`) plus the LLM-free consolidation pass and the
-promote preview. The L1 store is never touched. Domain errors surface as
-error-content messages.
+promotion surface (dry-run plan by default; apply only with `dry_run:false`).
+Consolidation never touches L1; promotion is the module's only mutating entry
+point. Domain errors surface as error-content messages.
 
 | Tool | Purpose | Main params |
 |------|---------|-------------|
@@ -145,7 +146,7 @@ error-content messages.
 | `dream_load` | Load the full persisted dream run (consolidated view; originals never replaced) | `session_key`, `run_id` (req); missing → "not found" — read-only |
 | `dream_discard` | Discard one dream run after review; L1 untouched | `session_key`, `run_id` (req) — scoped destructive (dream namespace only) |
 | `dream_consolidate` | Run one LLM-free consolidation pass and persist the view | `session_key` (req); fails as error-content when not idle — write path |
-| `dream_promote` | PREVIEW ONLY: returns `{preview_count, mutated:false}` without mutating anything | `session_key`, `run_id` (req) — read-only |
+| `dream_promote` | Promote a run into `l1/<session>`: returns `{dry_run, mutated, counts{add,update,delete,noop}, ops[{action: ADD\|UPDATE\|DELETE\|NOOP, key, reason}]}`; applies only with `dry_run:false` (default true = preview). Idempotent; fail-closed quality gate on supersedes; DELETE scoped to the run's scanned inputs | `session_key`, `run_id` (req); `dry_run` (optional bool, default true) — destructive when applied |
 
 ## Python SDK
 

@@ -12,40 +12,42 @@
 //!
 //! ## Invariants (Regla 0 + Pre-mortem)
 //!
-//! 1. **No mutation of `l1/<session>`.** Reads via [`scan_session_records`] are
-//!    strictly read-only. The integration test `tests/dreaming.rs` verifies
-//!    that the L1 records are byte-identical before and after a dream run.
-//! 2. **All writes go to `dream/<session>/<run_id>`.** The `run_id` is a
-//!    unique 16-char hex (uuid-v7 truncated, deterministic in tests).
+//! 1. **The consolidation path never mutates `l1/<session>`.** Reads via
+//!    [`scan_session_records`], [`consolidate_session`] and [`plan_promotion`]
+//!    are strictly read-only. The integration test `tests/dreaming.rs`
+//!    verifies L1 byte-identity for both consolidation and dry-run.
+//! 2. **All consolidation writes go to `dream/<session>/<run_id>`.** The
+//!    `run_id` is a unique 16-char hex (uuid-v7 truncated, deterministic in
+//!    tests).
 //! 3. **LLM tiering is opt-in via the [`Dreamer`] trait.** With no runner
 //!    configured the module degrades to LLM-free operations (hash dedup,
 //!    relative-date table, deterministic contradiction resolution via
 //!    priority+timestamp). Nothing blocks.
-//! 4. **Discard is a real store delete; promote is a stub** (returns the count
-//!    of records the run would touch — actual merge into L1 is out of scope
-//!    for MEM-61 and reserved for MEM-65 in W21, where the pipeline worker
-//!    integration lives).
+//! 4. **Promotion is the only mutating entry point.** [`promote_dream_run`]
+//!    applies a run's consolidated view to `l1/<session>` after a dry-run
+//!    ([`plan_promotion`]; the MCP tool defaults to `dry_run: true`), is
+//!    idempotent (re-promote → all NOOP) and fails closed behind a quality
+//!    gate on supersedes. [`discard_dream_run`] is a real store delete of the
+//!    run namespace.
 //!
 //! ## Pipeline integration
 //!
-//! This module is **deliberately not wired into `pipeline_worker.rs` yet**.
-//! The integration arrives in MEM-65 (W21, parallel) — that task adds a new
-//! [`TaskKind`] and extends [`MemoryTaskHandler::handle`] to call
-//! [`consolidate_session`] when the host enqueues a Dream task. MEM-61 ships
-//! the standalone primitive so MEM-65 can wire it without touching the
-//! worker in this commit.
+//! `consolidate_session` is wired into `services/pipeline_worker.rs`
+//! (`run_dream` on `TaskKind::Dream`): idle consolidation produces reviewable
+//! runs without touching L1. Promotion stays host-driven (CLI/MCP review
+//! loop): review the dry-run plan, then call the apply explicitly.
 
 use std::collections::hash_map::DefaultHasher;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::core::abstractions::{MemoryRecord, MemoryType};
-use crate::core::conversation::sanitize_component;
+use crate::core::conversation::{sanitize_component, sanitize_key};
 use crate::core::record::lifecycle::mark_contradiction;
-use crate::core::record::{read_session_records, L1Error};
+use crate::core::record::{l1_namespace, put_record, read_session_records, L1Error};
 
 // Re-export the canonical contradiction provenance type so dream consumers
 // don't have to reach into MEM-60's lifecycle module.
@@ -163,6 +165,14 @@ pub struct DreamRun {
     pub ended_at_ms: u64,
     /// Number of L1 records scanned (input set size).
     pub inputs_scanned: usize,
+    /// IDs of every L1 record scanned when the run was created (sorted).
+    ///
+    /// Promotion scopes DELETEs to this set: a record added to `l1/<session>`
+    /// **after** the run is left untouched (safe default). Runs persisted
+    /// before VER-07 deserialize this as empty → their promotion never
+    /// deletes (`#[serde(default)]` upgrade path).
+    #[serde(default)]
+    pub input_ids: Vec<String>,
     /// IDs of records marked as duplicates by [`merge_duplicates`].
     #[serde(default)]
     pub merged_ids: Vec<String>,
@@ -230,6 +240,8 @@ pub enum ConsolidationError {
     Runner(String),
     #[error("invalid session id: {0}")]
     InvalidSessionId(String),
+    #[error("promotion blocked by quality gate: {0}")]
+    QualityGate(String),
 }
 
 // ── Public trait (LLM extension point) ────────────────────────────────
@@ -314,11 +326,12 @@ fn bucket_key(scene: &str, content: &str) -> String {
 ///      emit provenance records.** The caller persists the loser's updated
 ///      `superseded_by` field, NOT this function.
 ///
-/// Why pass-through provenance only: the store layer in [`write_dream_run`]
-/// writes the resolved losers as part of the **dream namespace** — the
-/// originals in `l1/<s>` keep their `superseded_by = None` until promotion
-/// is wired (MEM-65). This is the pre-mortem guarantee: "store original
-/// jamás se muta".
+/// Why pass-through provenance only: [`mark_contradiction`] is applied to a
+/// transient clone here. [`consolidate_session`] then stamps the dream-side
+/// copies (see its "contradiction stamping" step) — `run.json` is the target
+/// state, so [`promote_dream_run`] can apply it verbatim (idempotent). The
+/// originals in `l1/<s>` keep `superseded_by = None` until an explicit
+/// promotion.
 pub fn resolve_contradictions(
     records: &[MemoryRecord],
     now_ms: u64,
@@ -479,8 +492,9 @@ fn millis_to_iso8601(ms: u64) -> String {
 ///
 /// Returns a clone of every record — mutating the returned Vec does not
 /// affect the store. This is the only function in the dream module that
-/// touches `l1/<session>`, and it does so **read-only** via the canonical
-/// [`read_session_records`] reader (MEM-11; paged + skips corrupt records).
+/// *reads* `l1/<session>` (via the canonical [`read_session_records`] reader,
+/// MEM-11; paged + skips corrupt records); the only *writer* is
+/// [`promote_dream_run`], behind an explicit plan + quality gate.
 pub fn scan_session_records(
     db: &vantadb::sdk::Embedded,
     session_id: &str,
@@ -602,31 +616,333 @@ pub fn discard_dream_run(
     Ok(())
 }
 
-/// **STUB** for promotion — returns the number of consolidated records the run
-/// would merge into L1, **without mutating** `l1/<session>`. The real
-/// promotion is wired in MEM-65 (W21) where the pipeline worker owns the
-/// lifecycle. Returning the count lets CLI / dashboards preview the diff
-/// before promotion lands.
+// ── Promotion — dry-run plan + real apply (VER-07) ────────────────────
+
+/// One record-level operation in a [`PromotionPlan`].
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PromotionOp {
+    /// What the promotion does with the record.
+    pub action: PromotionAction,
+    /// Namespace the record lives in (`l1/<sanitized-session>`).
+    pub namespace: String,
+    /// Record key inside the namespace (the record id; sanitized on write).
+    pub key: String,
+    /// Why the operation exists (the diff reason).
+    pub reason: PromotionReason,
+}
+
+/// Record-level action of a promotion plan. Wire form is UPPERCASE
+/// (`ADD`/`UPDATE`/`DELETE`/`NOOP`) per the VER-07 contract.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "UPPERCASE")]
+pub enum PromotionAction {
+    /// Record exists in the consolidated view but not in `l1/<session>`.
+    Add,
+    /// Record exists on both sides with different content.
+    Update,
+    /// Record was scanned by the run but dropped from the consolidated view.
+    Delete,
+    /// Record is identical on both sides (safe default).
+    Noop,
+}
+
+/// Why a [`PromotionOp`] exists — the diff reason surfaced by the dry-run.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PromotionReason {
+    /// `ADD`: the record is new in the consolidated view.
+    New,
+    /// `UPDATE`: content differs in fields other than supersede/metadata.
+    Content,
+    /// `UPDATE`: only metadata changed — typically `activity_start_time`
+    /// normalized from a relative phrase.
+    Normalize,
+    /// `UPDATE`: the `superseded_by` pointer was set/changed.
+    Supersede,
+    /// `UPDATE`: the record is a merge participant (`DreamRun::merged_ids`).
+    Merge,
+    /// `DELETE`: the record was scanned and merged away from the view.
+    Dedup,
+    /// `NOOP`: identical on both sides.
+    Unchanged,
+}
+
+/// Operation counters of a [`PromotionPlan`].
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PromotionCounts {
+    pub add: usize,
+    pub update: usize,
+    pub delete: usize,
+    pub noop: usize,
+}
+
+impl PromotionCounts {
+    /// Number of records an apply writes (add + update + delete).
+    pub fn writes(&self) -> usize {
+        self.add + self.update + self.delete
+    }
+}
+
+/// Deterministic, record-level diff between a dream run and the current
+/// `l1/<session>` state. Produced by [`plan_promotion`] (dry-run) and applied
+/// by [`promote_dream_run`].
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PromotionPlan {
+    pub session_id: String,
+    pub run_id: String,
+    /// Ops in run order (consolidated-view order, then deletes sorted by key).
+    pub ops: Vec<PromotionOp>,
+}
+
+impl PromotionPlan {
+    /// Count the ops by action.
+    pub fn counts(&self) -> PromotionCounts {
+        let mut counts = PromotionCounts::default();
+        for op in &self.ops {
+            match op.action {
+                PromotionAction::Add => counts.add += 1,
+                PromotionAction::Update => counts.update += 1,
+                PromotionAction::Delete => counts.delete += 1,
+                PromotionAction::Noop => counts.noop += 1,
+            }
+        }
+        counts
+    }
+}
+
+/// Compute the promotion plan for one run **without touching
+/// `l1/<session>`** (dry-run). Pure read + quality gate; deterministic (same
+/// store + same run → identical plan).
 ///
-/// Invariant (asserted by the integration test): `l1/<session>` byte-identical
-/// before and after `promote_dream_run`. Documented in the public doc comment
-/// because the function name implies mutation but does NOT — this is the
-/// explicit pre-mortem guarantee.
+/// The diff identity is `(namespace, key)` with `key = record id` (the L1
+/// key). `NOOP` is the default for records equal on both sides; records added
+/// to L1 after the run are not part of the plan at all (safe default).
+pub fn plan_promotion(
+    db: &vantadb::sdk::Embedded,
+    session_id: &str,
+    run_id: &str,
+) -> Result<PromotionPlan, ConsolidationError> {
+    build_promotion(db, session_id, run_id).map(|(plan, _run, _l1)| plan)
+}
+
+/// Shared builder for dry-run and apply: loads the run + current L1, derives
+/// the ops (stable order) and enforces the quality gate. Returns the plan,
+/// the loaded run — the apply path writes `run.consolidated` verbatim so
+/// re-promoting an applied run converges to all-NOOP — and the L1 snapshot
+/// (the apply path uses it as the vector fallback for UPDATE ops).
+fn build_promotion(
+    db: &vantadb::sdk::Embedded,
+    session_id: &str,
+    run_id: &str,
+) -> Result<(PromotionPlan, DreamRun, Vec<MemoryRecord>), ConsolidationError> {
+    let run = load_dream_run(db, session_id, run_id)?
+        .ok_or_else(|| ConsolidationError::Read(format!("dream run {run_id} not found")))?;
+    let l1 = scan_session_records(db, session_id)?;
+    let namespace = l1_namespace(session_id);
+
+    let mut consolidated_ids: HashSet<&str> = HashSet::new();
+    for record in &run.consolidated {
+        if !consolidated_ids.insert(record.id.as_str()) {
+            return Err(ConsolidationError::QualityGate(format!(
+                "duplicate key {} in consolidated view of run {run_id}",
+                record.id
+            )));
+        }
+    }
+    let scanned: HashSet<&str> = run.input_ids.iter().map(String::as_str).collect();
+    let l1_by_id: HashMap<&str, &MemoryRecord> = l1.iter().map(|r| (r.id.as_str(), r)).collect();
+
+    let mut ops: Vec<PromotionOp> = Vec::with_capacity(run.consolidated.len() + l1.len());
+    for record in &run.consolidated {
+        let (action, reason) = match l1_by_id.get(record.id.as_str()) {
+            None => (PromotionAction::Add, PromotionReason::New),
+            Some(current) => {
+                if canonical_payload(record)? == canonical_payload(current)? {
+                    (PromotionAction::Noop, PromotionReason::Unchanged)
+                } else {
+                    (
+                        PromotionAction::Update,
+                        classify_update(&run, record, current)?,
+                    )
+                }
+            }
+        };
+        ops.push(PromotionOp {
+            action,
+            namespace: namespace.clone(),
+            key: record.id.clone(),
+            reason,
+        });
+    }
+
+    // DELETE: records the run scanned but the consolidated view dropped
+    // (dedup/merge outcome). Post-run additions — anything outside
+    // `input_ids` — are left untouched. Sorted by key for determinism.
+    let mut deletes: Vec<&MemoryRecord> = l1
+        .iter()
+        .filter(|r| scanned.contains(r.id.as_str()) && !consolidated_ids.contains(r.id.as_str()))
+        .collect();
+    deletes.sort_by(|a, b| a.id.cmp(&b.id));
+    for record in deletes {
+        ops.push(PromotionOp {
+            action: PromotionAction::Delete,
+            namespace: namespace.clone(),
+            key: record.id.clone(),
+            reason: PromotionReason::Dedup,
+        });
+    }
+
+    // Quality gate (fail-closed): every supersede pointer must resolve in the
+    // post-apply view = consolidated ∪ (L1 − deletes).
+    let delete_ids: HashSet<&str> = ops
+        .iter()
+        .filter(|o| o.action == PromotionAction::Delete)
+        .map(|o| o.key.as_str())
+        .collect();
+    for record in &run.consolidated {
+        if let Some(target) = record.superseded_by.as_deref() {
+            let in_view = consolidated_ids.contains(target);
+            let survives_in_l1 = l1_by_id.contains_key(target) && !delete_ids.contains(target);
+            if !in_view && !survives_in_l1 {
+                return Err(ConsolidationError::QualityGate(format!(
+                    "supersede target {target} of {} would not exist after promotion",
+                    record.id
+                )));
+            }
+        }
+    }
+
+    Ok((
+        PromotionPlan {
+            session_id: session_id.to_string(),
+            run_id: run_id.to_string(),
+            ops,
+        },
+        run,
+        l1,
+    ))
+}
+
+/// Payload used for equality checks and L1 persistence: the `vector` field is
+/// stripped because vectors live on the store node, not inside the payload
+/// (mirrors `l1_writer::put_record`). Without the strip, a record read back
+/// from L1 would compare unequal to the same record before persisting.
+fn canonical_payload(record: &MemoryRecord) -> Result<String, ConsolidationError> {
+    let mut stripped = record.clone();
+    stripped.vector = None;
+    serde_json::to_string(&stripped)
+        .map_err(|e| ConsolidationError::Store(format!("serialize record {}: {e}", record.id)))
+}
+
+/// Classify why an `UPDATE` exists (first match wins): supersede pointer >
+/// metadata-only change (normalize) > merge participant > content.
+fn classify_update(
+    run: &DreamRun,
+    dream: &MemoryRecord,
+    current: &MemoryRecord,
+) -> Result<PromotionReason, ConsolidationError> {
+    if dream.superseded_by != current.superseded_by {
+        return Ok(PromotionReason::Supersede);
+    }
+    let mut probe = dream.clone();
+    probe.metadata = current.metadata.clone();
+    if canonical_payload(&probe)? == canonical_payload(current)? {
+        return Ok(PromotionReason::Normalize);
+    }
+    if run.merged_ids.iter().any(|id| id == &dream.id) {
+        return Ok(PromotionReason::Merge);
+    }
+    Ok(PromotionReason::Content)
+}
+
+/// Apply a run's consolidated view to `l1/<session>` — the real promotion.
+///
+/// Computes the same plan as [`plan_promotion`] (quality gate included), then
+/// applies it op by op: `ADD`/`UPDATE` are upserts by key (the record is
+/// written verbatim — `run.json` is the target state; an `UPDATE` keeps the
+/// node's current vector when the run copy carries none), `DELETE` removes
+/// the key, `NOOP` skips. The apply is a **batch of idempotent upserts**, not
+/// a global transaction: a crash mid-apply leaves a partially promoted L1 and
+/// re-running converges (each re-run applies only the remaining diffs).
+/// Re-promoting an already-applied run returns an all-`NOOP` plan and writes
+/// nothing.
 pub fn promote_dream_run(
     db: &vantadb::sdk::Embedded,
     session_id: &str,
     run_id: &str,
-) -> Result<usize, ConsolidationError> {
-    let run = load_dream_run(db, session_id, run_id)?
-        .ok_or_else(|| ConsolidationError::Read(format!("dream run {run_id} not found")))?;
-    Ok(run.consolidated.len())
+) -> Result<PromotionPlan, ConsolidationError> {
+    let (plan, run, l1) = build_promotion(db, session_id, run_id)?;
+    let namespace = l1_namespace(session_id);
+    let view: HashMap<&str, &MemoryRecord> = run
+        .consolidated
+        .iter()
+        .map(|r| (r.id.as_str(), r))
+        .collect();
+    let current: HashMap<&str, &MemoryRecord> = l1.iter().map(|r| (r.id.as_str(), r)).collect();
+
+    let mut written = 0usize;
+    for op in &plan.ops {
+        match op.action {
+            PromotionAction::Add | PromotionAction::Update => {
+                let record = view.get(op.key.as_str()).ok_or_else(|| {
+                    ConsolidationError::Store(format!(
+                        "promotion plan references missing consolidated record {}",
+                        op.key
+                    ))
+                })?;
+                let mut stripped = (*record).clone();
+                let mut vector = stripped.vector.take();
+                if op.action == PromotionAction::Update && vector.is_none() {
+                    // The dream copy carries no vector (e.g. the node gained one
+                    // after the run): keep the node's current vector instead of
+                    // dropping it with the delete+put rewrite. Payload equality
+                    // ignores vectors, so this is the only place one could be
+                    // silently lost during promotion.
+                    vector = current.get(op.key.as_str()).and_then(|r| r.vector.clone());
+                }
+                // UPDATE = delete + put, not a bare overwrite: the engine's
+                // volatile node cache is only refreshed by inserts of `Hot`
+                // nodes, while a cached `Cold` node (memory records are Cold;
+                // the read path can cache them via prefetch) would otherwise
+                // keep serving the pre-promotion payload. `delete` evicts the
+                // cache entry. Mirrors the canonical `l1_writer` update path
+                // (delete targets first, then put the merged record).
+                if op.action == PromotionAction::Update {
+                    db.delete(&namespace, &sanitize_key(&op.key))
+                        .map_err(|e| ConsolidationError::Store(format!("promote delete: {e}")))?;
+                }
+                put_record(db, &namespace, &stripped, vector)
+                    .map_err(|e| ConsolidationError::Store(format!("promote upsert: {e}")))?;
+                written += 1;
+            }
+            PromotionAction::Delete => {
+                db.delete(&namespace, &sanitize_key(&op.key))
+                    .map_err(|e| ConsolidationError::Store(format!("promote delete: {e}")))?;
+                written += 1;
+            }
+            PromotionAction::Noop => {}
+        }
+    }
+    if written > 0 {
+        tracing::info!(
+            session = %session_id,
+            run_id = %run_id,
+            written,
+            "dream promotion applied to l1"
+        );
+    }
+    Ok(plan)
 }
 
 /// One-shot consolidation: scan → dedupe → resolve → normalize → (optional
 /// LLM pass via runner) → persist to `dream/<s>/<run_id>`. Returns the
 /// persisted [`DreamRun`].
 ///
-/// This is the function the pipeline worker will call (MEM-65) once wired.
+/// Wired into the pipeline worker (`run_dream` / `TaskKind::Dream`). The
+/// returned run is the promotion target: relative dates are normalized and
+/// contradiction losers are stamped with `superseded_by` **on the dream-side
+/// copies only** — `l1/<session>` stays byte-identical until an explicit
+/// [`promote_dream_run`].
 pub fn consolidate_session(
     db: &vantadb::sdk::Embedded,
     session_id: &str,
@@ -645,6 +961,10 @@ pub fn consolidate_session(
     let started_at_ms = now_ms;
     let mut records = scan_session_records(db, session_id)?;
     let inputs_scanned = records.len();
+    // Input set of this run: promotion scopes DELETEs to these ids so records
+    // added to L1 after the run survive a stale promote (safe default).
+    let mut input_ids: Vec<String> = records.iter().map(|r| r.id.clone()).collect();
+    input_ids.sort();
 
     // Step 1: dedupe (LLM-free).
     let dupes = merge_duplicates(&records);
@@ -671,7 +991,7 @@ pub fn consolidate_session(
     }
 
     // Step 4: optional LLM-driven consolidation via the host's runner.
-    let consolidated = match &config.dreaming_runner {
+    let mut consolidated = match &config.dreaming_runner {
         Some(runner) => {
             let ctx = DreamContext {
                 session_id: session_id.to_string(),
@@ -684,6 +1004,16 @@ pub fn consolidate_session(
         }
         None => records,
     };
+
+    // Step 5: stamp the contradiction losers on the dream-side copies.
+    // `run.json` is the promotion target state: `promote_dream_run` applies
+    // the copies verbatim, which is what makes re-promote an all-NOOP pass.
+    for p in &contradicted_ids {
+        if let Some(loser) = consolidated.iter_mut().find(|r| r.id == p.old_key) {
+            loser.superseded_by = Some(p.new_key.clone());
+            loser.updated_at = millis_to_iso8601(now_ms);
+        }
+    }
 
     let run_id = generate_run_id(&config.run_id_salt, session_id, now_ms);
     let ended_at_ms = now_ms;
@@ -699,6 +1029,7 @@ pub fn consolidate_session(
         started_at_ms,
         ended_at_ms,
         inputs_scanned,
+        input_ids,
         merged_ids,
         contradicted_ids,
         normalized_count,

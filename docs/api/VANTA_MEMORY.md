@@ -150,7 +150,7 @@ skip; never a silent loss.
 
 | Module | What it does | Code refs |
 |---|---|---|
-| `core::dream` | Idle consolidation (sleep-time tiering, MEM-61): scans `l1/<session>` read-only and writes a consolidated view to `dream/<session>/<run_id>`; promotion (VER-07) applies the view to L1 only via an explicit, gated, idempotent `promote_dream_run` — dry-run by default on the MCP surface | `core/dream/mod.rs:929` (`consolidate_session`), `:725` (`plan_promotion`), `:872` (`promote_dream_run`) |
+| `core::dream` | Idle consolidation (sleep-time tiering, MEM-61): scans `l1/<session>` read-only and writes a consolidated view to `dream/<session>/<run_id>`; promotion (VER-07) applies the view to L1 only via an explicit, gated, idempotent `promote_dream_run` — dry-run by default on the MCP surface | `core/dream/mod.rs:946` (`consolidate_session`), `:720` (`plan_promotion`), `:869` (`promote_dream_run`) |
 | `core::memory_generation_log` | Per-session generation provenance at L1/L2/L3 (MEM-41) under `genlog/<session>`; best-effort, capped keep-recent | `core/memory_generation_log/store.rs:17,35,51` |
 | `gateway::approval_handlers` | Typed handlers behind the MCP `capture_list_pending` / `capture_approve` / `capture_reject` tools (MEM-68) — boundary validation, no transport | `gateway/approval_handlers.rs:90-117` |
 | `ingest::auto_sync` | Pull-based scheduled wiki re-ingest (MEM-45): per-file FNV-1a change detection, disabled by default, interval ≥ 60 s | `ingest/auto_sync.rs:108` (`tick`), `:33-36` |
