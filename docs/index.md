@@ -12,7 +12,7 @@ description: "Canonical index of the VantaDB documentation corpus."
      Grouped by kind, then by status, then by title.
      Source of truth: the frontmatter of the files listed below. -->
 
-1440 documents. This page is generated from frontmatter, so it cannot fall behind the tree. If a document is missing here, its `kind` or `description` is missing.
+1441 documents. This page is generated from frontmatter, so it cannot fall behind the tree. If a document is missing here, its `kind` or `description` is missing.
 
 ## Top level (3)
 
@@ -63,7 +63,7 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [WASM Persistence Documentation](./api/WASM_PERSISTENCE.md)                      | reference | How VantaDB persists data in the browser: what exists, what the verified                                                                                                                          |
 | [WASM Standalone Console (Vanta Studio — mode `wasm`)](./api/WASM_STANDALONE.md) | reference | The Vanta Studio console can run 100% in the browser with no server: the                                                                                                                          |
 
-## Internal / contributor (1292)
+## Internal / contributor (1293)
 
 ### Architecture decision records — 54
 
@@ -392,7 +392,7 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [Workflows — Trigger matrix](./dev/workflow/TRIGGERS.md)                                                       | runbook | Source of truth is each file's on: block (read 2026-09-22, post                                                                                                                                                                                 |
 | [Fuzzing Guide for VantaDB](./dev/operations/FUZZING.md)                                                       | runbook | VantaDB uses a dual fuzzing approach to maximize coverage and compatibility _(archived)_                                                                                                                                                        |
 
-### Task files — 1010
+### Task files — 1011
 
 | Document                                                                                                                                             | Kind | Summary                                                                                                                                                                                                                                                    |
 | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -1109,7 +1109,8 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [SCH-02: Schema v2 (bitemporal + confidence + quarantined + backfill)](./dev/tasks/SCH-02.md)                                                        | task | schema v2 implementado (validat/invalidat + confianza asserted/derived + quarantined, todo #[serde(default)] compatible v1) Y migración v1→v2 determinista (misma DB → mismo resultado) con backfill (validat=createdat...                                 |
 | [SCH-03: Queries AS OF / point-in-time + filtros valid_at + exclude_superseded](./dev/tasks/SCH-03.md)                                               | task | AS OF operable en IQL (con IQLVERSION bumpeado + feature-detect) y params equivalentes en search/list devuelven el estado histórico correcto con tests deterministas Y filtros por ventana de validez sobre v2 (validat/invalidat) Y...                    |
 | [SCH-04: Scores asserted/derived consumibles (slice 0.8.0)](./dev/tasks/SCH-04.md)                                                                   | task | Cláusulas a verificar (matriz de cierre)                                                                                                                                                                                                                   |
-| [SCH-05: Cuarentena operativa + abstención + trust-aware retrieval (slice 0.8.0)](./dev/tasks/SCH-05.md)                                             | task | Cláusulas a verificar (matriz de cierre)                                                                                                                                                                                                                   |
+| [SCH-05: Cuarentena operativa + abstención + trust-aware retrieval (slice 0.8.0)](./dev/tasks/SCH-05.md)                                             | task | Matriz de cierre — default-exclude, gates de inyección, transiciones T1/T1c/T1d/T2/T4, abstención con señal en el wire                                                                                                                                     |
+| [SCH-06: Tests — migración determinista, time-travel, roundtrip export/import y chaos (slice 0.8.0)](./dev/tasks/SCH-06.md)                          | task | Matriz de cierre — doble corrida byte-idéntica, AS OF valid-time con fechas de referencia, roundtrip v1↔v2 y recuperación tras crash mid-migración                                                                                                         |
 | [SDKB-01 — Mapa namespace ↔ método + diseño de sub-clientes](./dev/tasks/SDKB-01.md)                                                                 | task | Tablas por SDK (método→dominio exactamente uno) + diseño sub-clientes v1                                                                                                                                                                                   |
 | [SDKB-02 — Sub-clientes TypeScript](./dev/tasks/SDKB-02.md)                                                                                          | task | Archivos leídos completos                                                                                                                                                                                                                                  |
 | [SDKB-03: Sub-clientes Python (espejo de SDKB-02)](./dev/tasks/SDKB-03.md)                                                                           | task | pytest pasa (suite existente intacta = backward-compat); tests nuevos espejo SDKB-02: db.memory., db.graph., db.system., db.wiki. delegan al método plano con resultado/firma idénticos\"                                                                  |
