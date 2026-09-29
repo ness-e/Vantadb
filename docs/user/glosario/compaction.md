@@ -2,7 +2,7 @@
 title: Compaction
 kind: glossary
 status: stable
-description: "Proceso de reorganizaci├│n del almacenamiento para recuperar espacio, reducir fragmentaci├│n y mantener rendimiento de lectura"
+description: "La compaction (compactaci├│n) es el proceso de reorganizar los datos en disco para eliminar registros obsoletos, fusionar archivos fragmentados y optimizar el rendimiento de lectura. En VantaDB existen dos tipos principales..."
 aliases: [compaction, compactaci├│n, layout-compaction, compact]
 tags: [glosario, storage, mantenimiento, rendimiento, lsm]
 type: glossary-entry

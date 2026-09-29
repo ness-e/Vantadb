@@ -2,16 +2,16 @@
 title: local-first
 kind: glossary
 status: stable
-description: "#Local-First"
+description: "Local-First is a software design philosophy that prioritizes data and processing occurring on the user's device, with the cloud as an optional backup and not a requirement. The software works completely offline and synchronization is an..."
 aliases: [Local-First Software, Local-First Software]
 tags: [concept, filosofia, local-first, privacidad]
 links: "[[README.md]]"
 ---
 
 - `pip install vantadb-py` and it works
-#Local-First
+# Local-First
 
-##Definition
+## Definition
 
 **Local-First** is a software design philosophy that prioritizes **data and processing occurring on the user's device**, with the cloud as an optional backup and not a requirement. The software works completely offline and synchronization is an improvement, not a dependency.
 
@@ -27,7 +27,7 @@ The 7 ideals of local-first software (according to Ink & Switch):
 6. **Default privacy**: Data does not leave the device
 7. **You are the owner**: Full control over your data
 
-##Why it Matters in VantaDB
+## Why it Matters in VantaDB
 
 VantaDB embodies the local-first philosophy for **AI agents and knowledge pipelines**:
 

@@ -6,7 +6,6 @@ description: "Status: Accepted"
 tags: [vantadb, architecture, adr]
 ---
 
-
 # ADR-0004: Storage Backend Selection (Fjall vs RocksDB)
 
 ## Status

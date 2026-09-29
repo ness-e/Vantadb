@@ -2,7 +2,7 @@
 title: Bincode
 kind: glossary
 status: stable
-description: "Legacy binary encoding, no longer used; VantaDB serializes with postcard"
+description: "Legacy dense binary encoding for Rust values, paired with serde derives. VantaDB"
 aliases: [Bincode]
 tags: [concept, serialization, rust, bincode]
 links: "[[README.md]]"

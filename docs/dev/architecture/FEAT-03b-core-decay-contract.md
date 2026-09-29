@@ -2,7 +2,7 @@
 title: FEAT-03b Core Decay Implementation Contract
 kind: concept
 status: active
-description: "Status: ready for vanta-worker · Decision: ADR-0028"
+description: "Status: ready for vanta-worker · Decision: ADR-028"
 tags: [vantadb, architecture]
 ---
 

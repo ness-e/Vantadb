@@ -16,7 +16,7 @@ Each shard is a sequential append-only file with the same record format (header 
 Esto garantiza que el orden de escritura original se preserva exactamente, incluso cuando los shards tienen cantidades desiguales de registros. Probado en `test_wal_replay_mixed_mutations`.
 With shards, the checkpoint is a single global `checkpoint_seq` (the total number of records written so far). Each shard calculates how many records to skip using:
 Compaction (`compact_wal()`) performs a full flush, saves `checkpoint_seq`, and rotates the shard files.
-#WAL—Write-Ahead Log
+# WAL—Write-Ahead Log
 
 ## Definition
 

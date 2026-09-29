@@ -2,7 +2,7 @@
 title: "Single-thread: 1 second"
 kind: glossary
 status: stable
-description: "Global mutex in the CPython interpreter that protects access to Python objects, ensuring that only one thread can execute Python bytecode at a time within a process"
+description: "The GIL (Global Interpreter Lock) is a global mutex in the CPython interpreter that protects access to Python objects, ensuring that only one thread can execute Python bytecode at a time within a process"
 aliases: [Global Interpreter Lock, Python GIL]
 tags: [python, concurrencia, lock, threading]
 type: glossary-entry
@@ -10,9 +10,9 @@ last_reviewed: "2026-09-15"
 links: "[[README.md]]"
 ---
 
-#GIL—Global Interpreter Lock
+# GIL—Global Interpreter Lock
 
-##Definition
+## Definition
 
 The **GIL** (Global Interpreter Lock) is a **global mutex** in the CPython interpreter that protects access to Python objects, ensuring that **only one thread can execute Python bytecode at a time** within a process.
 

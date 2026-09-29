@@ -6,7 +6,6 @@ description: "Status: Accepted"
 tags: [vantadb, architecture, adr]
 ---
 
-
 # ADR-0006: RRF Constant (k=60) for Reciprocal Rank Fusion
 
 ## Status

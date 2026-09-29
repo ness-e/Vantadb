@@ -2,7 +2,7 @@
 title: Python
 kind: glossary
 status: stable
-description: "#FFI—Foreign Function Interface"
+description: "FFI (Foreign Function Interface) is a mechanism that allows code written in one programming language to call functions written in another language. In the context of VantaDB, FFI refers to the boundary between Rust (core engine) and..."
 aliases: [Foreign Function Interface, C FFI]
 tags: [interoperabilidad, ffi, bindings, c-abi]
 type: glossary-entry
@@ -10,9 +10,9 @@ last_reviewed: "2026-09-15"
 links: "[[README.md]]"
 ---
 
-#FFI—Foreign Function Interface
+# FFI—Foreign Function Interface
 
-##Definition
+## Definition
 
 **FFI** (Foreign Function Interface) is a mechanism that allows code written in one programming language to call functions written in another language. In the context of VantaDB, FFI refers to the boundary between **Rust** (core engine) and **Python** (SDK).
 
@@ -281,7 +281,7 @@ pub unsafe extern "C" fn vanta_get(
 
 ## FFI tools in Rust
 
-###PyO3 (Python)
+### PyO3 (Python)
 
 ```rust
 use pyo3::prelude::*;

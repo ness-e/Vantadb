@@ -2,7 +2,7 @@
 title: RocksDB
 kind: glossary
 status: stable
-description: High-performance LSM-tree storage engine developed by Facebook in C++. Alternative/fallback backend in VantaDB for benchmarking and compatibility
+description: "RocksDB is a high-performance lsm-tree storage engine developed by Facebook, written in C++. It is widely used in the industry as a storage backend for databases and distributed systems. In VantaDB, RocksDB is the fallback/alternative..."
 aliases: [RocksDB Storage Engine]
 tags: [storage, backend, lsm-tree, cpp]
 type: glossary-entry

@@ -2,15 +2,15 @@
 title: crc32c
 kind: glossary
 status: stable
-description: "#CRC32C—Cyclic Redundancy Check (Castagnoli)"
+description: "CRC32C is a checksum algorithm that produces a 32-bit hash using the Castagnoli polynomial. It is used to detect data corruption in storage and transmission, with hardware support on modern CPUs (SSE4.2, ARM CRC)"
 aliases: [Cyclic Redundancy Check, CRC32 Castagnoli]
 tags: [integridad, checksum, hash, crc]
 links: "[[README.md]]"
 ---
 
-#CRC32C—Cyclic Redundancy Check (Castagnoli)
+# CRC32C—Cyclic Redundancy Check (Castagnoli)
 
-##Definition
+## Definition
 
 **CRC32C** is a **checksum** algorithm that produces a 32-bit hash using the Castagnoli polynomial. It is used to **detect data corruption** in storage and transmission, with hardware support on modern CPUs (SSE4.2, ARM CRC).
 

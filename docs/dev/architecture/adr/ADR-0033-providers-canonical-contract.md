@@ -6,22 +6,6 @@ description: "Tres providers Python (vantadb-openai, vantadb-litellm, vantadb-ol
 tags: [vantadb, architecture, adr, providers, python, contract, pyi, pyo3, prov-04]
 created: "2026-08-30"
 owner_articulates: pending
-> **⚠️ DRAFT — requiere articulación del owner (Regla 5, AGENTS.md)**
->
-> El cuerpo de este ADR (Contexto, Decisión, Consecuencias, Alternativas,
-> Riesgos) fue redactado por IA durante la implementación PROV-04 para
-> registrar evidencia técnica. **El trade-off central — `usize` vs `i32` vs
-> `i64` para `limit`/`cursor`/`next_cursor` y la decisión de incluir
-> `node_id` en todos los records (era litellm-only) — debe ser articulado
-> por el owner humano en sus propias palabras** para que el ADR cumpla su
-> función de memoria de decisión. La IA aporta los datos y la evidencia
-> mecánica; el humano decide si acepta el trade-off tal cual, lo ajusta, o
-> lo reemplaza por una alternativa.
->
-> Hasta que el owner articule: status `accepted-pending-owner-review`,
-> `owner_articulates: pending`. Las refs internas y el código son válidos
-> independientemente (PROV-05 ya emitió el contrato en `shared_py.rs` y los
-> 3 providers lo importan).
 ---
 
 # ADR-0033: Contrato canónico de salida unificado para providers Python

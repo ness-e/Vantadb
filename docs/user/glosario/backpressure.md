@@ -2,16 +2,16 @@
 title: backpressure
 kind: glossary
 status: stable
-description: "#Backpressure"
+description: "Backpressure is a flow control mechanism that allows a system to signal its clients to reduce the rate of requests when it is under excessive load, preventing collapse due to resource exhaustion"
 tags: [vantadb, glosario, operaciones, resiliencia]
 type: glossary-entry
 last_reviewed: "2026-09-15"
 links: "[[README.md]]"
 ---
 
-#Backpressure
+# Backpressure
 
-##Definition
+## Definition
 
 **Backpressure** is a flow control mechanism that allows a system to signal its clients to reduce the rate of requests when it is under excessive load, preventing collapse due to resource exhaustion.
 
@@ -42,13 +42,10 @@ impl AdmissionFilter {
         let rss = process.memory();  // Resident Set Size
         
         if rss as f64 > (self.max_rss_bytes as f64 * self.threshold as f64) {
-            // `ResourceLimit` carries a pre-formatted message by design (API-01):
-            // the payload is per-call-site, semantics live in code() /
-            // is_retriable() / recovery_hint().
+            // `ResourceLimit(String)` is pre-formatted by design (API-01).
             return Err(Error::ResourceLimit(format!(
                 "backpressure: rss {rss} exceeds {:.0}% of {}",
-                self.threshold * 100.0,
-                self.max_rss_bytes,
+                self.threshold * 100.0, self.max_rss_bytes,
             )));
         }
         
@@ -85,7 +82,7 @@ db = vantadb.Client(
 
 ## Customer Signaling
 
-###Python
+### Python
 
 ```python
 import vantadb

@@ -2,7 +2,7 @@
 title: Benchmarks
 kind: glossary
 status: stable
-description: "##Definition"
+description: "Benchmarks are standardized performance tests that measure quantitative metrics (latency, throughput, recall) under controlled conditions, allowing objective comparisons and detection of regressions"
 aliases: [Performance Testing, Benchmarking]
 tags: [performance, testing, metricas]
 links: "[[README.md]]"
@@ -10,7 +10,7 @@ links: "[[README.md]]"
 
 # Benchmarks
 
-##Definition
+## Definition
 
 **Benchmarks** are **standardized performance tests** that measure quantitative metrics (latency, throughput, recall) under controlled conditions, allowing objective comparisons and detection of regressions.
 

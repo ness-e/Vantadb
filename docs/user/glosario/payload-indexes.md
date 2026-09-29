@@ -2,7 +2,7 @@
 title: Payload Indexes
 kind: glossary
 status: stable
-description: "Payload indexes son índices derivados sobre campos de metadata que permiten filtrado por prefijo (equality) durante búsquedas y listados, evitando el escaneo completo del namespace"
+description: Los payload indexes son índices derivados sobre los campos de metadata de un
 tags: [vantadb, glosario, indices, filtros]
 links: "[Glosario](./README.md)"
 ---

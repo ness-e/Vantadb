@@ -1,5 +1,5 @@
 ---
-title: "MKT-10: \\\\\\\\"AI Agent Memory\\\\\\\\" campaign (rescatar con DoD)"
+title: "MKT-10: \\\\\\\\\"AI Agent Memory\\\\\\\\\" campaign (rescatar con DoD)"
 kind: task
 description: La campaña se reescribe en docs/user/blog/campaign-ai-agent-memory.md con checklist verificable. NO se cierra como cubierta por INV-006/BLOGSERIESPLAN porque
 ---

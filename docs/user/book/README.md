@@ -1,10 +1,10 @@
 ---
-title: "The mdBook layer (retired 2026-09-29)"
+title: The mdBook layer (retired 2026-09-29)
 kind: index
 status: archived
-description: "Why docs/user/book/src/ was deleted, and what survives here. Read this before recreating it."
+description: "An mdBook project whose src/ held 75 files: 69 of them were 6-line"
 tags: [vantadb, documentation, architecture, decision]
-related: ["book.toml", "SUMMARY.md", "../../dev/plans/2026-09-28-docs-consolidation.md"]
+related: [book.toml, SUMMARY.md, ../../dev/plans/2026-09-28-docs-consolidation.md]
 ---
 
 # The mdBook layer (retired 2026-09-29)

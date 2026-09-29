@@ -2,7 +2,7 @@
 title: Embedded (Embedded Database)
 kind: glossary
 status: stable
-description: "Data management system that operates in-process within the same application that consumes it, without requiring a separate server, network daemon or independent process"
+description: "An embedded database is a data management system that operates in-process within the same application that consumes it, without requiring a separate server, network daemon, or independent process. The database is compiled as a library..."
 aliases: [Embedded Database, Embedded Database, In-Process]
 tags: [concept, architecture, embedded, database]
 type: glossary-entry
@@ -12,7 +12,7 @@ links: "[[README.md]]"
 
 # Embedded (Embedded Database)
 
-##Definition
+## Definition
 
 An embedded database is a data management system that operates **in-process** within the same application that consumes it, without requiring a separate server, network daemon, or independent process. The database is compiled as a library that links directly to the application binary.
 
@@ -36,7 +36,7 @@ An embedded database is a data management system that operates **in-process** wi
 | **DuckDB** | C++ | OLAP embebido |
 | **VantaDB** | Rust | Memoria persistente para agentes de IA |
 
-##Why it Matters in VantaDB
+## Why it Matters in VantaDB
 
 VantaDB is defined as **"The SQLite for AI Agents"** because it adopts the embedded philosophy:
 

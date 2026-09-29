@@ -2,7 +2,7 @@
 title: "`gate-docs-secrets.yml` — GATE: Docs — Secret leak"
 kind: runbook
 status: active
-description: Gate que falla un PR si una credencial se escribe en la prosa del árbol de docs publicado. Offline, sin dependencias, presupuesto por severidad
+description: "Escanea la prosa de docs/ (1651 ficheros, incluido README.md) buscando formas de"
 tags: [vantadb, ci, gate-docs, security, documentation]
 related: [.github/workflows/gate-docs-secrets.yml, RULES.md, gate-docs-links.md, gate-docs-21.md]
 ---

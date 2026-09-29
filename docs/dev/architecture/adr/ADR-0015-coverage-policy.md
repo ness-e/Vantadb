@@ -2,11 +2,11 @@
 title: "ADR-0015: Coverage policy gate — root crate vs workspace and bindings"
 kind: adr
 status: superseded
-description: Superseded by ADR-0018 on the gate target; binding expectations remain in force
+description: "Superseded by ADR-0018, which resolves the"
 tags: [vantadb, architecture, adr, ci, coverage, quality-gates]
+superseded_by: docs/dev/architecture/adr/ADR-0018-coverage-gate-target.md
 created: "2026-08-09"
 owner: TBD
-superseded_by: docs/dev/architecture/adr/ADR-0018-coverage-gate-target.md
 ---
 
 # ADR-0015: Coverage policy gate — root crate vs workspace and bindings

@@ -2,7 +2,7 @@
 title: busqueda-vectorial
 kind: glossary
 status: stable
-description: "Indexing algorithm for approximate nearest neighbor search (ANN) that constructs a multi-layer graph of vectors, allowing searches in logarithmic time"
+description: "HNSW is an indexing algorithm for approximate nearest neighbor search (ANN) that constructs a multi-layer graph of vectors, allowing searches in logarithmic time ($O(\log N)$) with high recall (>0.95)"
 aliases: [Hierarchical Navigable Small World, HNSW Index]
 tags: [indice, ann, busqueda-vector, hnsw]
 type: glossary-entry
@@ -10,9 +10,9 @@ last_reviewed: "2026-09-15"
 links: "[[README.md]]"
 ---
 
-#HNSW—Hierarchical Navigable Small World
+# HNSW—Hierarchical Navigable Small World
 
-##Definition
+## Definition
 
 **HNSW** is an indexing algorithm for **approximate nearest neighbor search (ANN)** that constructs a multi-layer graph of vectors, allowing searches in **logarithmic** time ($O(\log N)$) with high recall (>0.95).
 

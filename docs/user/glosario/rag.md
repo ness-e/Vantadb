@@ -2,7 +2,7 @@
 title: RAG — Retrieval-Augmented Generation
 kind: glossary
 status: stable
-description: "##Definition"
+description: "RAG ​​(Retrieval-Augmented Generation) is an architectural pattern that combines an information retrieval system (retrieval) with a generative language model (LLM) to produce responses informed by domain-specific data, reducing..."
 aliases: [Retrieval-Augmented Generation]
 tags: [concept, producto, rag, ia, retrieval]
 links: "[[README.md]]"
@@ -10,7 +10,7 @@ links: "[[README.md]]"
 
 # RAG — Retrieval-Augmented Generation
 
-##Definition
+## Definition
 
 **RAG** ​​(Retrieval-Augmented Generation) is an architectural pattern that combines an **information retrieval system** (retrieval) with a **generative language model** (LLM) to produce responses informed by domain-specific data, reducing hallucinations and improving factual accuracy.
 
@@ -41,7 +41,7 @@ links: "[[README.md]]"
 2. **Retrieval (Online):** Given a query, the most relevant chunks are searched using vector similarity, lexical-search or both.
 3. **Generation (Online):** The recovered context is injected into the LLM prompt along with the original question.
 
-##Why it Matters in VantaDB
+## Why it Matters in VantaDB
 
 VantaDB is designed as **the persistence and retrieval layer for RAG pipelines**:
 
@@ -65,7 +65,7 @@ VantaDB is designed as **the persistence and retrieval layer for RAG pipelines**
 - Vector search → Top-K → Inject at prompt
 - **Limitation:** Does not capture relationships between concepts
 
-###Advanced RAG
+### Advanced RAG
 - Query rewriting + reranking + hybrid search
 - **VantaDB implements:** [rrf](./rrf.md) for ranking fusion
 

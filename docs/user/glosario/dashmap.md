@@ -2,15 +2,15 @@
 title: dashmap
 kind: glossary
 status: stable
-description: "#DashMap"
+description: DashMap is a concurrent and sharded HashMap implementation for Rust that allows parallel access without the need for a global lock
 tags: [vantadb, glosario, concurrencia]
 links: "[[README.md]]"
 ---
 
 | **API compatible** | Similar a `HashMap` estándar |
-#DashMap
+# DashMap
 
-##Definition
+## Definition
 
 **DashMap** is a concurrent and sharded HashMap implementation for Rust that allows parallel access without the need for a global lock.
 

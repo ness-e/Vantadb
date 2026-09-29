@@ -2,7 +2,7 @@
 title: Failpoints
 kind: glossary
 status: stable
-description: "##Definition"
+description: "Failpoints are error injection points inserted in the code that allow specific failures (I/O errors, timeouts, corruption) to be simulated in a controlled way during testing, validating error handling without the need for real failures"
 aliases: [Failpoint Injection, Error Injection]
 tags: [testing, fault-injection, debugging]
 type: glossary-entry
@@ -12,7 +12,7 @@ links: "[[README.md]]"
 
 # Failpoints
 
-##Definition
+## Definition
 
 **Failpoints** are **error injection points** inserted in the code that allow specific failures (I/O errors, timeouts, corruption) to be simulated in a controlled way during testing, validating error handling without the need for real failures.
 

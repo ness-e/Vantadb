@@ -2,7 +2,7 @@
 title: "ADR-0043: S-split-config B+B (datos para firma humana)"
 kind: adr
 status: accepted
-description: Config se parte en 6 dominios (StorageCfg/ServerCfg/LlmCfg/EvictionCfg/PoolCfg/RbacCfg) con fachada plana compatible
+description: Config era un struct plano de ~52 campos donde cada feature solo escribía su sección
 tags: [vantadb, architecture, adr]
 created: "2026-09-14"
 ---

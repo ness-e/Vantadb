@@ -9,9 +9,9 @@ links: "[[README.md]]"
 ---
 
 **Description:** `rebuild_index()` does not acquire an exclusive lock, allowing concurrent reads during rebuild.
-#RwLock—Read-Write Lock
+# RwLock—Read-Write Lock
 
-##Definition
+## Definition
 
 A **RwLock** (Read-Write Lock) is a synchronization primitive that allows **multiple simultaneous readers** or **a single dedicated writer**, optimizing for workloads with more reads than writes.
 

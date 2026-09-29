@@ -9,13 +9,13 @@ links: "[[README.md]]"
 ---
 
 **Mitigation:** Implement advisory lock in `open()`.
-#FileLocking
+# FileLocking
 
-##Definition
+## Definition
 
 **File Locking** is an operating system mechanism to **prevent multiple processes from simultaneously accessing** the same file, avoiding data corruption due to concurrent writes.
 
-##Why it Matters in VantaDB
+## Why it Matters in VantaDB
 
 If two processes open the same VantaDB database simultaneously:
 

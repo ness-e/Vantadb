@@ -2,11 +2,11 @@
 title: "ADR-0018: Coverage gate target — root crate (vantadb), not workspace aggregate"
 kind: adr
 status: accepted
-description: The CI coverage gate targets the root vantadb crate, not the workspace aggregate
+description: "Accepted. Supersedes ADR-0015 §Decision #1 (the"
 tags: [vantadb, architecture, adr, ci, coverage, quality-gates]
+supersedes: docs/dev/architecture/adr/ADR-0015-coverage-policy.md
 created: "2026-08-12"
 owner: vanta-arch
-supersedes: docs/dev/architecture/adr/ADR-0015-coverage-policy.md
 ---
 
 # ADR-0018: Coverage gate target — root crate (vantadb), not workspace aggregate

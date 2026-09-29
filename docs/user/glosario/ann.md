@@ -2,7 +2,7 @@
 title: ANN (Approximate Nearest Neighbor)
 kind: glossary
 status: stable
-description: "##Definition"
+description: "ANN (Approximate Nearest Neighbor Search) is a family of algorithms that find vectors similar to a query without examining all the vectors in the dataset, sacrificing accuracy for speed"
 tags: [vantadb, glosario, indexes, vector]
 type: glossary-entry
 last_reviewed: "2026-09-15"
@@ -11,7 +11,7 @@ links: "[[README.md]]"
 
 # ANN (Approximate Nearest Neighbor)
 
-##Definition
+## Definition
 
 **ANN** (Approximate Nearest Neighbor Search) is a family of algorithms that find vectors similar to a query without examining all the vectors in the dataset, sacrificing accuracy for speed.
 

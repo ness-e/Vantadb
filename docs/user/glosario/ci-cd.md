@@ -2,7 +2,7 @@
 title: CI/CD ΓÇö Continuous Integration / Continuous Deployment
 kind: glossary
 status: stable
-description: "##Definition"
+description: "CI/CD is the practice of automating the integration, testing and deployment of code, allowing frequent and reliable releases through pipelines that validate each change before reaching production"
 aliases: [Continuous Integration, Continuous Deployment]
 tags: [devops, automation, ci, cd]
 type: glossary-entry
@@ -12,7 +12,7 @@ links: "[[README.md]]"
 
 # CI/CD ΓÇö Continuous Integration / Continuous Deployment
 
-##Definition
+## Definition
 
 **CI/CD** is the practice of **automating the integration, testing and deployment** of code, allowing frequent and reliable releases through pipelines that validate each change before reaching production.
 
@@ -60,7 +60,7 @@ jobs:
 | **release.yml** | tag `v*` | Build binarios multi-platform |
 | **heavy-certification-50.yml** | weekly | Stress tests, chaos testing |
 
-##Publishing to PyPI
+## Publishing to PyPI
 
 ```yaml
 # OIDC trusted publishing (sin API tokens)

@@ -2,7 +2,7 @@
 title: PyO3
 kind: glossary
 status: stable
-description: "Rust framework to create Python extensions and bidirectional bindings between Rust and Python, allowing you to expose Rust code as native Python modules"
+description: "PyO3 es un framework de Rust para crear extensiones de Python y bindings bidireccionales entre Rust y Python. Permite exponer código Rust como módulos Python nativos, manteniendo seguridad de tipos y gestión de memoria automática"
 aliases: [PyO3 Bindings, Rust-Python Bindings]
 tags: [ffi, python, rust, bindings]
 type: glossary-entry
@@ -12,7 +12,7 @@ links: "[[README.md]]"
 
 # PyO3
 
-##Definition
+## Definition
 
 **PyO3** es un framework de Rust para crear **extensiones de Python** y **bindings bidireccionales** entre Rust y Python. Permite exponer código Rust como módulos Python nativos, manteniendo seguridad de tipos y gestión de memoria automática.
 

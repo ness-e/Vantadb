@@ -93,16 +93,19 @@ jobs:
       # because proseOf() does not care about segment order -- only the writer
       # reproduced it. 32 files were damaged before it was found.
       #
-      # BUDGET is the count of files that were ALREADY broken in the last commit.
-      # It is a ratchet, not a target: it must only go down. Lower it as files
-      # are repaired, and to 0 once the corpus is clean.
+      # BUDGET counts DAMAGED FILES and is a ratchet, not a target: it must only
+      # go down. It went 109 -> 101 in one pass, because 66 files wrote their
+      # title as `#Fjall` with no space -- GitHub renders that as a paragraph,
+      # so the document had no heading at all, and every heading-anchored check
+      # mis-located the H1 and blamed the surrounding content instead. 498 of
+      # the 511 "stranded prose" findings were that one missing space.
       - name: Segmenter round-trip must be lossless
         run: node scripts/docs/wikilinks-to-md.mjs --self-test
-      - name: Empty sections and prose stranded above the H1
+      - name: Empty sections, stranded prose, malformed headings
         # The budget is a flag, not an env var: check-structure.mjs reads
         # --budget=. Wiring it as BUDGET: silently ran with a budget of 0, so
         # the gate would have failed on a tree whose only damage predates it.
-        run: node scripts/docs/check-structure.mjs --budget=109
+        run: node scripts/docs/check-structure.mjs --budget=101
       - name: Attribute any new defect to this change or to the last commit
         if: failure()
         run: node scripts/docs/attribute-structure.mjs

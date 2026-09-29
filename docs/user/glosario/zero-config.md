@@ -2,7 +2,7 @@
 title: Instalación
 kind: glossary
 status: stable
-description: "Design principle where the software works correctly immediately after installation, without requiring configuration files or manual setup steps"
+description: "Zero-Config is a design principle where software works correctly immediately after installation, without requiring configuration files, environment variables, external services, or manual setup steps"
 aliases: [Zero Configuration, No Configuration, Zero Config]
 tags: [concept, ux, developer-experience, zero-config]
 type: glossary-entry
@@ -10,9 +10,9 @@ last_reviewed: "2026-09-15"
 links: "[[README.md]]"
 ---
 
-#Zero-Config
+# Zero-Config
 
-##Definition
+## Definition
 
 **Zero-Config** is a design principle where software works correctly **immediately after installation**, without requiring configuration files, environment variables, external services, or manual setup steps.
 
@@ -26,7 +26,7 @@ links: "[[README.md]]"
 | **Sin dependencias externas** | No necesita Redis, PostgreSQL, ni servicios adicionales |
 | **Funciona out-of-the-box** | `pip install` → `import` → funciona |
 
-##Why it Matters in VantaDB
+## Why it Matters in VantaDB
 
 VantaDB competes against alternatives that require complex infrastructure:
 
@@ -129,7 +129,7 @@ db = vantadb.Client(
 )
 ```
 
-##Zero-Config vs "Easy-Config"
+## Zero-Config vs "Easy-Config"
 
 | Enfoque | Ejemplo | Problema |
 |---------|---------|----------|
