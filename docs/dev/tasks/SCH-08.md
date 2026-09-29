@@ -126,7 +126,7 @@ description: "UPGRADE.md §'Upgrading to 0.8.0' publicado (campos v2 + semántic
 
 **Hallazgos:**
 
-- **F1 — Bump correcto pero frágil.** release-plz propone **0.8.0** (correcto), pero el MINOR depende de **un solo commit** bien marcado (`aae39059`, del API wave). Los 8 `feat!(scope):` malformados **no cuentan como breaking** (probe B) y el tramo F3 **no tiene ningún marcador** (0 `feat!`, 0 footer). Si ese único commit se pierde en el tránsito a main (squash/rebase selectivo), release-plz propondría **PATCH 0.7.1** con breaking dentro → violación del contrato VERSIONING (PATCH = compatible). Precedente real: el PR release-plz vigente propuso `chore(vantadb): release v0.7.1` (`ea36c74b`, 2026-09-25) cuando no había marcador en rango.
+- **F1 — Bump correcto pero frágil.** release-plz propone **0.8.0** (correcto), pero el MINOR depende de **un solo commit** bien marcado (`aae39059`, del API wave). Los 8 `feat!(scope):` malformados **no cuentan como breaking** (probe B) y el tramo F3 **no tiene ningún marcador** (0 `feat!`, 0 footer). Si ese único commit se pierde en el tránsito a main (squash/rebase selectivo), release-plz propondría **PATCH 0.7.1** con breaking dentro → violación del contrato VERSIONING (PATCH = compatible). Precedente real: el PR release-plz (hoy cerrado, #225) propuso `chore(vantadb): release v0.7.1` (`ea36c74b`, 2026-09-25) cuando no había marcador en rango.
 - **F2 — release-plz strippea el frontmatter de `docs/CHANGELOG.md`.** El header por defecto reemplaza todo lo anterior a `## [Unreleased]` — incluido el frontmatter añadido por `d23e1224` (post-0.7.0). `check-docs.mjs` **gatea** `missingFrontmatter` (exit 1) ⇒ el Release PR tal cual rompe el gate docs al mergear. Verificado en probe A (removido) y remediado/verificado en probe D.
 - **F3 — Sintaxis convencional malformada recurrente.** `feat!(scope):` no es conventional commit válido (el `!` va tras el paréntesis: `feat(scope)!:`). No se reescribe historia: se documenta para futuros commits + R1 cubre el rango.
 
@@ -221,6 +221,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [ ] Release link `[0.8.0](…/compare/v0.7.0...v0.8.0)` presente.
 - [ ] Evidence de semver-check: "✓ API compatible changes" (0.x MINOR licencia los 9 breaks aceptados; en 0.x el job es informativo, no un fail).
 - [ ] Sin ediciones manuales del CHANGELOG (Regla 7); sin tags manuales.
+
+## Review P2-01 (cerrado 2026-09-29)
+
+> **Revisor:** `ses_f123b4fdeffew7UivC2bXx860O` (fresco ≠ autor `ses_f126411a5ffeC5y8xCoikg1gmT`) — ronda 1 **❌ CHANGES REQUIRED** (1 Required: cita del PR release-plz; +2 Optional +3 Nits) → fixes aplicados (exactos) + R2 → **delta ✅** (commit `b9296909` con mensaje R1 verbatim; check-docs verde; sin reescritura).
 
 ## Handoff — lane release (owner/LEAD; post-push)
 
