@@ -8,7 +8,7 @@ description: "SDP: campaign-executor · progreso · writing-plans · planning-an
 
 > **Campaign ID:** ed20beae-edf6-42f5-b41f-e8519830d6cb
 > **Inicio:** 2026-09-26
-> **Estado:** ⏳ EN PROGRESO (32/50 — F0 ✅ · F1 ✅ · F2 ✅ · F3 9/11; siguiente: SCH-07)
+> **Estado:** ⏳ EN PROGRESO (33/50 — F0 ✅ · F1 ✅ · F2 ✅ · F3 10/11; siguiente: SCH-08)
 > **Fuente:** `docs/dev/Backlog.md` (P52–P59 + FIND-*) + planes absorbidos (`2026-09-24-post-investigacion-integral.md` W2–W7, `2026-09-24-estabilizacion-pendiente.md`, `2026-09-24-harness-gaps.md`, `2026-09-24-sesion-continuidad.md`, `2026-09-20-estabilizacion-total.md`) + `docs/dev/strategy/` (13 docs) + Notion "VantaDB Docs" (~28 subpáginas) + investigación de riesgos 2026-09-26 (4 sub-agentes R1–R4, multi-fuente)
 > **Autonomous:** false — el owner gatea push/merge/release. **Push a `develop`: al completar el plan con todo validado/verificado** (decisión owner 2026-09-26, ver §Política de commits/push)
 > **Modo:** PLAN → ejecución con `/pipeline run docs/dev/plans/2026-09-26-master-roadmap.md`
@@ -848,7 +848,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** "los campos v2 (bitemporal + confianza + quarantined) y los params de query (AS OF/valid_at + abstención) cruzan Py/TS/Node/WASM + HTTP (+`openapi.yaml`) + MCP + IQL con los MISMOS nombres de wire Y matriz de paridad verde (`openapi_yaml_parity` + `sdk_serialization` + stub drift `.pyi` + d.ts + meta-tests MCP de conteos) Y `docs/api/` actualizadas en el mismo PR (Regla 3: `validate-docs-coverage` exit 0) Y `public_api` snapshot regenerado deliberadamente (sin cambios Rust no intencionales)"
 - **Task file:** `docs/dev/tasks/SCH-07.md` (a crear en DISCOVERY)
-- **Estado:** ⏳ EN PROGRESO · **Branch:** develop · **Commit:**
+- **Estado:** ✅ COMPLETED (2026-09-29 — commit `aa111979`; review adversarial + delta ✅; docs 0 gaps) · **Branch:** develop · **Commit:**
 - **Cynefin:** 🟨 complicado — paridad de 8 superficies + openapi + docs en el mismo PR sin romper contratos existentes.
 - **Top 3 riesgos:** 1. drift de nombres/shape entre superficies · 2. breaking accidental no marcado (semver-checks vs baseline 0.7.0) · 3. docs/api desincronizadas → gate rojo.
 - **Pre-mortem:** F1: cada binding inventa su forma → wire canónico desde core (serde) + matriz en `BINDINGS_NAMESPACES.md` + tests por binding; F2: WASM/desktop exceden el appetite → stop condition: core+3 bindings+HTTP+MCP+IQL primero y FIND para el resto; F3: docs a medias → `validate-docs-coverage` en el mismo PR + checklist por doc del listado de Archivos clave.
@@ -874,7 +874,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** "UPGRADE.md §'Upgrading to 0.8.0' publicado (campos v2 + semántica valid/transaction + `AS OF` + pasos de migración/backfill + backup pre-upgrade) Y entrada `[0.8.0]` en `docs/CHANGELOG.md` con breaking changes marcados (`feat!`/`BREAKING CHANGE`) Y release notes del GitHub release (release-plz) revisadas Y corte ejecutado SOLO vía release-plz (Release PR merge — nunca tag/versión/CHANGELOG a mano, Regla 7), con verificación post-release de artefactos (crates/wheels/npm)"
 - **Task file:** `docs/dev/tasks/SCH-08.md` (a crear en DISCOVERY)
-- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Estado:** ⏳ EN PROGRESO · **Branch:** develop · **Commit:**
 - **Cynefin:** 🟨 complicado — release-plz como único versionador + guía de migración real + artefactos multi-ecosistema.
 - **Top 3 riesgos:** 1. Release PR sin la migración (bump/CHANGELOG incorrecto o sin breaking notes) · 2. guía incompleta → usuarios 0.7.0 rotos · 3. artefactos post-release fallan (wheels/npm/crates).
 - **Pre-mortem:** F1: ningún commit del tramo usa `feat!` → release-plz propone PATCH → auditar commits + `BREAKING CHANGE` footer antes del PR y verificar el diff del Release PR; F2: guía publicada sin probar el upgrade → smoke de upgrade real (DB v1 0.7.0 → 0.8.0) registrado en el task file; F3: merge sin token/release roto → queda en carril owner (bloqueo registrado, no silencioso; artifacts re-verificados con release-wheels/release-npm).
@@ -1057,6 +1057,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **plan-adjust [2026-09-29a]:** **F3.3a cerrada (30/50)** — SCH-03 (AS OF/valid_at/cursor) + SCH-04 (confidence consumible + filtros): **commit combinado `932b1211`** por changesets entrelazados (`vector_types.rs`/`page.rs`, wave co-batch) — documentado. Reviews adversariales frescos ✅ + fixes post-review (rechazo AS OF duplicado + delta; MCP schema min/max). FIND nuevo: `campaign_get_next_task` no desambigua con `planFile` si hay 2 planes activos (workaround: claim vía `update_task_state`). F3.3b lanzada: SCH-05.
 - **plan-adjust [2026-09-29b]:** **F3.3b cerrada (31/50)** — SCH-05 cuarentena+abstención (`83d65518`): default-exclude + gates de inyección (l1_reader/axioms) + transiciones T1-T5 con audit + sticky raw transport (F4a) + abstención explícita. Review adversarial 2 rondas (❌ F1-F6/N → batch → delta ✅). Docs/api diferidas a SCH-07 (2 gaps declarados). Nota: la sesión de docs commiteó su consolidación (`d23e1224` + `86c55e01`) — WIP ajeno masivo cerrado.
 - **plan-adjust [2026-09-29c]:** **F3.4 cerrada (32/50)** — SCH-06 suite determinista/time-travel/roundtrip/chaos (`b90c494b`; review fast ✅; CI exacto 2/2). FIND-186 registrado (`70196101`: WAL shard-group crash → salvage). Índices regenerados (`e23bc11e`). Nota: sesión docs commiteó consolidación completa (`d23e1224`/`86c55e01`/`10577ec0`). Wave F3.5 lanzada: SCH-07 (recoge docs/api diferidas de SCH-03/04/05 + 2 gaps).
+- **plan-adjust [2026-09-29d]:** **F3.5 cerrada (33/50)** — SCH-07 superficies (`aa111979`): 8 superficies con wire unificado + docs/api mismo-PR (2 gaps cerrados, 0 gaps) + public_api +4 auditado; review adversarial + delta ✅. FIND-187/188 registrados (abstención page-shaped por binding; quarantine ops/import args en HTTP/MCP/CLI). semver-checks: 9 fallas del corte acumulado → SCH-08 (`feat!`). Wave F3.6 lanzada: SCH-08.
 
 ## Recitation
 
@@ -1065,9 +1066,9 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
 Objetivo activo: F3 — Bitemporalidad/confianza/cuarentena + schema v2 (MGR/SCH)
 Estado: in-progress
-Última acción: F3.4 COMPLETA (32/50 — SCH-06 chaos/tests; commit b90c494b); wave F3.5 lanzada (SCH-07)
-Resultado: OK (F0 7/7 · F1 8/8 · F2 7/7 · F3 9/11)
-Próxima acción: SCH-07 (superficies bindings/server/MCP/IQL + docs/api) → SCH-08 (corte 0.8.0) → gate F3
+Última acción: F3.5 COMPLETA (33/50 — SCH-07 superficies+docs; commit aa111979); wave F3.6 lanzada (SCH-08)
+Resultado: OK (F0 7/7 · F1 8/8 · F2 7/7 · F3 10/11)
+Próxima acción: SCH-08 (corte 0.8.0: migration guide + CHANGELOG + release notes) → gate F3
 Contrato: —
 Próxima tarea si completa: HARD-01
 === END RECITATION ===
@@ -1453,10 +1454,21 @@ Próxima tarea si completa: SCH-07
 === RECITATION SCH-07 ===
 Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
 Objetivo activo: SCH-07 — Superficies: bindings/server/MCP/IQL + docs/api mismo-PR
+Estado: completed
+Última acción: 7/7 ✅ + review adversarial APPROVE + batch (Opt 1/2/4 + nit) + delta ✅
+Resultado: OK
+Próxima acción: Wave F3.6: claim SCH-08 (corte 0.8.0)
+Contrato: campos v2 + params + abstención cruzan 8 superficies (mismos nombres) + docs/api 0 gaps + public_api +4 auditado
+Próxima tarea si completa: SCH-08
+=== END RECITATION ===
+
+=== RECITATION SCH-08 ===
+Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
+Objetivo activo: SCH-08 — Corte 0.8.0: migration guide + CHANGELOG + release notes
 Estado: in-progress
-Última acción: Claim (wave F3.5) — desbloqueada por SCH-02..06
+Última acción: Claim (wave F3.6) — desbloqueada por SCH-02..07
 Resultado: PENDING
-Próxima acción: DISCOVERY + implementación (vanta-worker)
-Contrato: campos v2 + params cruzan Py/TS/Node/WASM + HTTP + MCP + IQL (mismos nombres de wire) + matriz paridad verde + docs/api mismo-PR
-Próxima tarea si completa: SCH-07
+Próxima acción: DISCOVERY + implementación (vanta-docs)
+Contrato: migration guide + release notes + corte vía release-plz (nunca manual); CHANGELOG curado por impacto
+Próxima tarea si completa: SCH-08
 === END RECITATION ===
