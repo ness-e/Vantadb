@@ -17,8 +17,19 @@ this page registers instances, it does not restate the policy:
 
 ## Active deprecations
 
-**None.** As of v0.7.0 (updated 2026-09-27) no public API item is deprecated on
-any of the [11 surfaces](VERSIONING.md#the-11-public-api-surfaces).
+### `VantaHeader` → `Header`
+
+- **Surface:** 1 — Rust core SDK
+- **Deprecated in:** v0.8.0 (pending release — release-plz sets the date)
+- **Removal target:** v0.9.0 — ≥ 1 MINOR after deprecation (earliest possible)
+- **Replacement / migration:** use `Header`; `VantaHeader` remains a
+  `#[deprecated(since = "0.8.0")]` type alias, so existing code keeps
+  compiling during the window
+- **Changelog:** [`docs/CHANGELOG.md`](../CHANGELOG.md) § [0.8.0]
+- **Code/doc marker:** `#[deprecated]` attribute in `src/binary_header.rs`
+
+> Until v0.7.0 (updated 2026-09-27) no public API item was deprecated on any of
+> the [11 surfaces](VERSIONING.md#the-11-public-api-surfaces).
 
 ## Entry shape (fill for every new deprecation)
 

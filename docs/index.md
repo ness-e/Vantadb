@@ -12,7 +12,7 @@ description: "Canonical index of the VantaDB documentation corpus."
      Grouped by kind, then by status, then by title.
      Source of truth: the frontmatter of the files listed below. -->
 
-1442 documents. This page is generated from frontmatter, so it cannot fall behind the tree. If a document is missing here, its `kind` or `description` is missing.
+1443 documents. This page is generated from frontmatter, so it cannot fall behind the tree. If a document is missing here, its `kind` or `description` is missing.
 
 ## Top level (3)
 
@@ -63,7 +63,7 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [WASM Persistence Documentation](./api/WASM_PERSISTENCE.md)                      | reference | How VantaDB persists data in the browser: what exists, what the verified                                                                                                                          |
 | [WASM Standalone Console (Vanta Studio — mode `wasm`)](./api/WASM_STANDALONE.md) | reference | The Vanta Studio console can run 100% in the browser with no server: the                                                                                                                          |
 
-## Internal / contributor (1294)
+## Internal / contributor (1295)
 
 ### Architecture decision records — 54
 
@@ -392,7 +392,7 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [Workflows — Trigger matrix](./dev/workflow/TRIGGERS.md)                                                       | runbook | Source of truth is each file's on: block (read 2026-09-22, post                                                                                                                                                                                 |
 | [Fuzzing Guide for VantaDB](./dev/operations/FUZZING.md)                                                       | runbook | VantaDB uses a dual fuzzing approach to maximize coverage and compatibility _(archived)_                                                                                                                                                        |
 
-### Task files — 1012
+### Task files — 1013
 
 | Document                                                                                                                                             | Kind | Summary                                                                                                                                                                                                                                                    |
 | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -1112,6 +1112,7 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [SCH-05: Cuarentena operativa + abstención + trust-aware retrieval (slice 0.8.0)](./dev/tasks/SCH-05.md)                                             | task | Matriz de cierre — default-exclude, gates de inyección, transiciones T1/T1c/T1d/T2/T4, abstención con señal en el wire                                                                                                                                     |
 | [SCH-06: Tests — migración determinista, time-travel, roundtrip export/import y chaos (slice 0.8.0)](./dev/tasks/SCH-06.md)                          | task | Matriz de cierre — doble corrida byte-idéntica, AS OF valid-time con fechas de referencia, roundtrip v1↔v2 y recuperación tras crash mid-migración                                                                                                         |
 | [SCH-07: Superficies — bindings/server/MCP/IQL + docs/api mismo-PR](./dev/tasks/SCH-07.md)                                                           | task | Campos v2 (bitemporal + confianza + quarantined) y params de query (AS OF/valid_at + abstención) cruzan Py/TS/Node/WASM + HTTP + MCP + IQL con los mismos nombres de wire Y matriz de paridad verde Y docs/api mismo-PR.                                   |
+| [SCH-08: Corte 0.8.0 — migration guide + CHANGELOG + release notes](./dev/tasks/SCH-08.md)                                                           | task | UPGRADE.md §'Upgrading to 0.8.0' publicado (campos v2 + semántica valid/transaction + AS OF + pasos de migración/backfill + backup) Y auditoría release-plz del tramo (remedio al bump) Y release notes revisadas; merge/release = lane owner.             |
 | [SDKB-01 — Mapa namespace ↔ método + diseño de sub-clientes](./dev/tasks/SDKB-01.md)                                                                 | task | Tablas por SDK (método→dominio exactamente uno) + diseño sub-clientes v1                                                                                                                                                                                   |
 | [SDKB-02 — Sub-clientes TypeScript](./dev/tasks/SDKB-02.md)                                                                                          | task | Archivos leídos completos                                                                                                                                                                                                                                  |
 | [SDKB-03: Sub-clientes Python (espejo de SDKB-02)](./dev/tasks/SDKB-03.md)                                                                           | task | pytest pasa (suite existente intacta = backward-compat); tests nuevos espejo SDKB-02: db.memory., db.graph., db.system., db.wiki. delegan al método plano con resultado/firma idénticos\"                                                                  |
