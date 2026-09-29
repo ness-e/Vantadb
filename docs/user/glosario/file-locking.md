@@ -8,7 +8,6 @@ tags: [concurrencia, lock, sincronizacion]
 links: "[[README.md]]"
 ---
 
-**Mitigation:** Implement advisory lock in `open()`.
 # FileLocking
 
 ## Definition

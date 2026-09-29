@@ -8,8 +8,6 @@ type: adr
 last_reviewed: "2026-07-10"
 ---
 
-4. **Protected `main` branch** — requires CI, squash merge, Core Team review.
-
 # ADR-0009: Community Governance Model and Contribution Process
 
 ## Status
@@ -27,6 +25,7 @@ This ADR captures the decision rationale behind the governance model.
 1. **BDFL + Core Team model** with graduated responsibility (Committer → Core Team → BDFL).
 2. **CLA requirement** for contributions >15 lines (Individual + Corporate CLA).
 3. **RFC process** for major changes (7-day comment period, Core Team vote).
+4. **Protected `main` branch** - requires CI, squash merge, Core Team review.
 5. **Contributor Covenant v2.1** as Code of Conduct.
 
 ## Rationale

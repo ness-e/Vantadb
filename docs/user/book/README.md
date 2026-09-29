@@ -2,15 +2,16 @@
 title: The mdBook layer (retired 2026-09-29)
 kind: index
 status: archived
-description: "An mdBook project whose src/ held 75 files: 69 of them were 6-line"
+description: "Why docs/user/book/ was deleted, what survives, and what to do if it comes back"
 tags: [vantadb, documentation, architecture, decision]
-related: [book.toml, SUMMARY.md, ../../dev/plans/2026-09-28-docs-consolidation.md]
+related: [book.toml, ../../dev/plans/2026-09-28-docs-consolidation.md]
 ---
 
 # The mdBook layer (retired 2026-09-29)
 
-> **Status: retired.** `docs/user/book/src/` and `docs/user/book/book/` were deleted on
-> 2026-09-29. `book.toml` and `SUMMARY.md` are kept as the record of what it was.
+> **Status: retired.** `docs/user/book/src/`, `docs/user/book/book/` and
+> `docs/user/book/SUMMARY.md` were deleted on 2026-09-29. Only `book.toml` and
+> this file remain, as the record of what it was.
 > Rationale: `docs/dev/plans/2026-09-28-docs-consolidation.md` Task 17.
 
 ## What it was
@@ -64,8 +65,15 @@ still pointed at `docs/architecture/`, `docs/user/strategy/`, `docs/user/operati
 4. Keep `SUMMARY.md` hand-written. Ordering is an editorial judgement, not a filesystem
    fact; a generated one needs a hand-authored policy anyway.
 
-`SUMMARY.md` in this directory is the last version of the table of contents. It is kept
-for the record — do not build from it, most of its targets no longer exist.
+`SUMMARY.md`, the book's table of contents, was also deleted. It was the last thing
+in this directory to go: 47 of the 53 broken links left in `docs/` were its 71
+chapter entries, every one of them pointing at a stub that no longer exists. A
+table of contents whose every target is dead is not a record, it is a count of
+the work that was thrown away. The numbers it contained are reproduced in the
+table above.
+
+`book.toml` stays: it is 12 lines, it is the definition of what the book was, and
+it costs nothing.
 
 ## Related
 

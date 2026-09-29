@@ -8,8 +8,7 @@ tags: [concurrencia, lock, sincronizacion, rust]
 links: "[[README.md]]"
 ---
 
-**Description:** `rebuild_index()` does not acquire an exclusive lock, allowing concurrent reads during rebuild.
-# RwLock—Read-Write Lock
+# RwLock-Read-Write Lock
 
 ## Definition
 
