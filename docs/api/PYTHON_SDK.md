@@ -13,7 +13,7 @@ related: [TS_SDK.md, NODE_SDK.md, EMBEDDED_SDK.md, BINDINGS_NAMESPACES.md]
 
 > **Stability:** the documented Python SDK API is covered by the [Versioning & Stability Policy](VERSIONING.md).
 >
-> **Naming (ADR-041 anti-stutter):** canonical names are `Client`, `Record`,
+> **Naming (ADR-0047 anti-stutter):** canonical names are `Client`, `Record`,
 > `SearchHit` (`Hit` alias), `ListResult`, `Vector`, `SearchRequest`.
 > Legacy `VantaDB`, `VantaMemoryRecord`, `VantaSearchHit`, `VantaListResult`,
 > `VantaVector`, `VantaError` aliases were removed in 0.6.0 (AST-010).
@@ -277,7 +277,7 @@ db.memory.list(
     min_confidence: Optional[float] = None,
 ) -> ListResult
 ```
-Returns a `ListResult` object with `.records`, `.total_count`, and `.next_cursor`. Supports `__getitem__` for dict-style access (`result["records"]`, `result["next_cursor"]`) and `__iter__` for record iteration. The SCH-07 v2 params (`as_of_ms`, `valid_window` `{"from_ms", "to_ms"}`, `include_quarantined`, `min_confidence`) mirror the SDK wire names (ADR-046 §D2/§D3/§D5).
+Returns a `ListResult` object with `.records`, `.total_count`, and `.next_cursor`. Supports `__getitem__` for dict-style access (`result["records"]`, `result["next_cursor"]`) and `__iter__` for record iteration. The SCH-07 v2 params (`as_of_ms`, `valid_window` `{"from_ms", "to_ms"}`, `include_quarantined`, `min_confidence`) mirror the SDK wire names (ADR-0046 §D2/§D3/§D5).
 
 ```python
 page = db.memory.list("ns", limit=10)
@@ -321,7 +321,7 @@ hits = db.search("ns", [0.1] * 384, query_sparse={7: 1.5, 42: 0.75})
 
 The `method` parameter accepts `"ivf"`, `"scann"`, `"flat"`, or `"hnsw"` to explicitly override the dense-vector index backend. `None` (default) keeps automatic engine routing.
 
-The `exclude_superseded` parameter (default `False`) controls whether superseded records are filtered from results (ADR-0028); it also drops records whose validity window already ended (`invalid_at_ms <= now`, ADR-046 §D3-6). The SCH-07 v2 params: `min_confidence` (opt-in floor in `[0, 1]`; out-of-range is rejected, never clamped), `as_of_ms` (valid-time point), `valid_window` (`{"from_ms", "to_ms"}` half-open overlap), `include_quarantined` (default `False`; quarantined records are excluded from search/list/retrieval, while `get` always returns them with visible state).
+The `exclude_superseded` parameter (default `False`) controls whether superseded records are filtered from results (ADR-0028); it also drops records whose validity window already ended (`invalid_at_ms <= now`, ADR-0046 §D3-6). The SCH-07 v2 params: `min_confidence` (opt-in floor in `[0, 1]`; out-of-range is rejected, never clamped), `as_of_ms` (valid-time point), `valid_window` (`{"from_ms", "to_ms"}` half-open overlap), `include_quarantined` (default `False`; quarantined records are excluded from search/list/retrieval, while `get` always returns them with visible state).
 
 `Record` and `SearchHit` expose the v2 fields as typed getters (same wire names):
 `valid_at_ms`, `invalid_at_ms`, `confidence_class`, `confidence`,

@@ -25,7 +25,7 @@ restated, not contradicted, by ADR-0018.
 
 > CI still cites this ADR **by name** in a place that now needs the owner's
 > attention: `.github/workflows/ci-rust.yml:411` (`Enforce coverage threshold
-> (>=80%, ADR-015 coverage policy)`) and the in-file comment at
+> (>=80%, ADR-0015 coverage policy)`) and the in-file comment at
 > `.github/workflows/ci-rust.yml:414`. The step enforces a `--workspace` aggregate
 > (the three `--exclude` flags cover only the experimental crates), which is
 > precisely the target ADR-0018 withdrew. Per the scope of this pass the workflow

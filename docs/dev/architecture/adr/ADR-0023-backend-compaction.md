@@ -122,7 +122,7 @@ Rationale:
 
 ## Related
 
-- ADR-020 — backend default (Fjall) decision record.
+- ADR-0020 — backend default (Fjall) decision record.
 - `benches/backend_compare.rs` — random-read benchmark (reference for
   reopen signal).
 - FND-08 report: `docs/dev/research/FND-08-backend-compaction.md`.

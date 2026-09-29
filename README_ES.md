@@ -67,7 +67,7 @@ pip install vantadb-py
 > `import vantadb` (igual que el crate de Rust y el paquete de npm). `import vantadb_py`
 > sigue disponible sin cambios.
 >
-> **Nombres (ADR-041 anti-stutter):** los nombres canónicos son `Client` (el alias legacy
+> **Nombres (ADR-0047 anti-stutter):** los nombres canónicos son `Client` (el alias legacy
 > `VantaDB` fue removido en 0.6.0, AST-010), `Record`, `SearchHit`, `Config`. Los métodos de memoria
 > viven en el sub-cliente `db.memory` (`memory.get` / `memory.list` / `memory.delete`);
 > la búsqueda híbrida es `db.search(...)` (AST-008/AST-012: `search_memory`/`get_memory` planos removidos),

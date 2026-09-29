@@ -11,7 +11,7 @@ created: "2026-09-27"
 
 > **ACEPTADO — firmado por el owner el 2026-09-27 (Regla 5).** El congelamiento
 > de los 9 artefactos (D1) y la política de alias (D2) están en vigor; el ADR se
-> complementa con ADR-030 (D3). Evidencia: tabla 9/9 verificada `file:line` +
+> complementa con ADR-0030 (D3). Evidencia: tabla 9/9 verificada `file:line` +
 > registry live (2026-09-27). Firma y articulación en [§ Owner sign-off](#owner-sign-off-regla-5).
 
 ## Context
@@ -23,7 +23,7 @@ para congelar nombres sin costo de migración se cierra: renombrar un artefacto 
 publicado cuesta migraciones, soporte y crédito del proyecto (R1 del master
 roadmap).
 
-`ADR-030` (status `proposed`) fijó la convención de identidad de marca y la regla
+`ADR-0030` (status `proposed`) fijó la convención de identidad de marca y la regla
 práctica **"no renames; cada ecosistema conserva el nombre ya publicado"**, pero
 opera a nivel de marca (11 superficies + display + dominio) y deja 5 decisiones
 del owner pendientes (dominio, PyPI ownership, publicar `vantadb-node`, case del
@@ -49,10 +49,10 @@ La documentación de las 11 superficies públicas (`docs/api/VERSIONING.md`) deb
 usar estas grafías para los artefactos listados; la divergencia entre ecosistemas
 — `vantadb` en crates.io/npm vs `vantadb-py` en PyPI — es esperada y se conserva.
 (`vantadb-wasm`, superficie 5, no integra la lista de 9 del contrato; la regla
-"no renames" de `ADR-030` y la política D2 aplican igual a su nombre.)
+"no renames" de `ADR-0030` y la política D2 aplican igual a su nombre.)
 
-**Precedente interno (contexto, no vinculante hacia atrás):** `ADR-041` (renames
-del enum `Error`), `ADR-042` (firmas `pub`), `ADR-044` (acumulado breaking 0.6.0)
+**Precedente interno (contexto, no vinculante hacia atrás):** `ADR-0041` (renames
+del enum `Error`), `ADR-0042` (firmas `pub`), `ADR-0044` (acumulado breaking 0.6.0)
 documentan la práctica pre-usuarios: rename directo, sin aliases, con
 `feat!:`/`BREAKING CHANGE:` — válida con "0 usuarios". Ese régimen queda cerrado
 para nombres de artefacto a partir de `0.7.0` con este ADR.
@@ -82,10 +82,10 @@ mecánica, sin excepciones:
 5. **Prohibido** — el rename silencioso (cambiar la grafía en docs/código sin
    alias + fecha + registro). Es el único invariante no negociable.
 
-**D3 — Relación con ADR-030.** Complementario, no lo supersede: `ADR-030` gobierna
-identidad de marca (display, homepage, cuentas, repo); `ADR-045` congela los
+**D3 — Relación con ADR-0030.** Complementario, no lo supersede: `ADR-0030` gobierna
+identidad de marca (display, homepage, cuentas, repo); `ADR-0045` congela los
 nombres de artefacto y define la mecánica de alias. Las 5 decisiones pendientes
-de `ADR-030` se referencian sin resolver (carril owner / LEG-01).
+de `ADR-0030` se referencian sin resolver (carril owner / LEG-01).
 
 ## Alternatives Considered
 
@@ -93,10 +93,10 @@ de `ADR-030` se referencian sin resolver (carril owner / LEG-01).
 - Pros: consistencia total de nombres.
 - Cons: breaking semver en registries con usuarios; nombres tomados
   (`vantadb-py` ya existe en PyPI); migración forzada.
-- **Rechazada:** costo post-usuarios >> beneficio cosmético (R1; ADR-030 ya la
+- **Rechazada:** costo post-usuarios >> beneficio cosmético (R1; ADR-0030 ya la
   rechazó a nivel de marca).
 
-### Rename directo sin alias (práctica pre-0.7, ADR-041/042/044)
+### Rename directo sin alias (práctica pre-0.7, ADR-0041/042/044)
 - Pros: cero deuda de compatibilidad; la ventana 0.x lo permite.
 - Cons: los usuarios de `0.7.0` rompen sin aviso; el contrato del master lo
   prohíbe ("nunca rename silencioso").
@@ -131,14 +131,14 @@ de `ADR-030` se referencian sin resolver (carril owner / LEG-01).
 
 > **[OWNER]** Firmado vía Gate P (question tool, 2026-09-27): **"Firmo: apruebo D1–D3"**.
 >
-> - **Articulación:** el owner ratifica el congelamiento 9/9 (D1), la política de alias con fecha de remoción obligatoria (D2) y la relación complementaria con ADR-030 (D3) tal como quedaron articuladas en el draft de evidencia.
+> - **Articulación:** el owner ratifica el congelamiento 9/9 (D1), la política de alias con fecha de remoción obligatoria (D2) y la relación complementaria con ADR-0030 (D3) tal como quedaron articuladas en el draft de evidencia.
 > - **Firma:** Eros (owner) — 2026-09-27
 > - **Riesgos aceptados:** divergencia de grafía entre ecosistemas (npm `vantadb` vs PyPI `vantadb-py` — inherente a los registries); `vantadb-node` sin publicar (nombre congelado antes de la primera publicación; publicarlo es deuda owner/MKT).
 
 ## References
 
 - Contrato origen: master roadmap Task 12 (`docs/dev/plans/2026-09-26-master-roadmap.md`) · Backlog `DEF-04`.
-- `ADR-030` — convención de marca (11 superficies; 5 decisiones pendientes del owner).
+- `ADR-0030` — convención de marca (11 superficies; 5 decisiones pendientes del owner).
 - `docs/api/VERSIONING.md` — 11 superficies + §Deprecation policy (freeze + alias).
 - `docs/api/DEPRECATIONS.md` — registro de instancias (HARD-01).
 - Task file: `docs/dev/tasks/DEF-04.md` (evidence pack + verify).

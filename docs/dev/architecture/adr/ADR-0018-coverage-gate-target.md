@@ -22,7 +22,7 @@ ADR-0015 stay in force.
 > still enforces the **workspace aggregate** (`.github/workflows/ci-rust.yml:411-424`
 > runs `cargo llvm-cov nextest --workspace` and gates `pct >= 80.0` over the aggregate,
 > excluding only `vantadb-wasm/-server/-mcp`). The root-only scoping this ADR asks for is
-> therefore **not yet implemented**, and the step name still cites the superseded ADR-015
+> therefore **not yet implemented**, and the step name still cites the superseded ADR-0015
 > by name at `.github/workflows/ci-rust.yml:411`. Closing that is a separate task; the
 > owner was not asked to treat the ADR as unimplemented because the decision itself is
 > settled and in force.
@@ -30,7 +30,7 @@ ADR-0015 stay in force.
 ## Context
 
 The CI coverage gate lives in `.github/workflows/ci-rust.yml` (`coverage`
-job, lines 315–386). ADR-015 recorded the policy but left it internally
+job, lines 315–386). ADR-0015 recorded the policy but left it internally
 inconsistent: its prose says "the gate stays workspace-wide ≥ 80%", while the
 in-tree CI comment (line 363) reads "root-gate 80% en CI (bindings/wasm/server/mcp
 miden en runners nativos)". The two cannot both be true, and this ADR resolves
@@ -61,7 +61,7 @@ This task is DOC-ONLY: the CI YAML is not modified here. Implementing the gate
    suites (pytest for Python, c8 for TS). Gating on it forces low-value Rust
    unit tests for binding glue and breaks CI on every run. The aggregate is
    still measured and reported for visibility.
-3. **This supersedes ADR-015 §Decision #1** ("workspace-wide ≥ 80%"): the
+3. **This supersedes ADR-0015 §Decision #1** ("workspace-wide ≥ 80%"): the
    authoritative gate target is the root crate.
 4. **Binding policy (how bindings enter the gate):**
    - **Python (`vantadb-python`):** gated by pytest coverage on
@@ -92,7 +92,7 @@ This task is DOC-ONLY: the CI YAML is not modified here. Implementing the gate
     gaming the Rust gate to cover JS/Py glue.
   - CLI investment (COV-003) visibly lifts the root number rather than being
     excluded from it.
-  - Resolves the ADR-015 vs CI-comment contradiction for future agents.
+  - Resolves the ADR-0015 vs CI-comment contradiction for future agents.
 - Cons:
   - The workspace aggregate (72.76%) has no enforced floor; a binding crate's
     Rust surface could regress without failing CI — mitigated by per-binding

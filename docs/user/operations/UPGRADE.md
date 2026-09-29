@@ -93,7 +93,7 @@ the ones most likely to touch consumers:
 | CLI | `--json` is now a global flag; the query is a positional argument (alias `--query`); `--limit` is canonical (alias `--top-k`); `--in` / `--out` are symmetric; new `vanta-cli mcp-call`. | Re-check scripts against `vanta-cli --help`; the aliases keep most 0.7.x spellings working. |
 | IQL | `IQL_VERSION` 1 → 2 (adds `AS OF`; version-gated). | Feature-detect with `IQL_VERSION_MIN_AS_OF` / `iql_supports`; v1 statements keep parsing. |
 | HTTP / MCP / TS bindings | The API-standardization wave lands in 0.8.0: OpenAPI-first HTTP routes, canonical MCP tool names/schemas, object-shaped TypeScript API, `u128` as string on every JSON wire. | Align clients with [`HTTP_API.md`](../../api/HTTP_API.md), [`MCP.md`](../../api/MCP.md), [`BINDINGS_NAMESPACES.md`](../../api/BINDINGS_NAMESPACES.md). |
-| Eviction / LLM prompts | Migrated records get `confidence = 1.0` (previously an implicit node-level 0.5 fed the same formula), so eviction weights and prompt scores move. | If you tuned `eviction_weight_confidence` against 0.5, recalibrate per ADR-046 §D4c. |
+| Eviction / LLM prompts | Migrated records get `confidence = 1.0` (previously an implicit node-level 0.5 fed the same formula), so eviction weights and prompt scores move. | If you tuned `eviction_weight_confidence` against 0.5, recalibrate per ADR-0046 §D4c. |
 
 **Migration steps (data directory v1 → v2):**
 

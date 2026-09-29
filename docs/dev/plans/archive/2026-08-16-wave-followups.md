@@ -34,7 +34,7 @@ description: "docs/dev/Backlog.md, .opencode/skills/campaign-executor/tasks/AUD-
 | FND-23-F1 | src/metrics/core/registry.rs, ADR-0024 (nota) | vanta-tuner |
 | FND-13-F2 | docs/user/operations/BENCHMARKS.md, PERFORMANCE_TUNING.md | vanta-docs |
 | FND-13-F1 | web/src/ (claims fantasma) | vanta-worker |
-| FND-04-F1 | docs/dev/architecture/adr/ADR-025-*.md (nuevo) | vanta-docs |
+| FND-04-F1 | docs/dev/architecture/adr/ADR-0025-*.md (nuevo) | vanta-docs |
 | P2R-01 | revisión read-only de todos los fixes + retros TSYS-06/FND-07 | vanta-review |
 | W5 lead | task files metadata, git rm typescript-expert, FND-16 actionlint, FND-24 watch, commits | vanta-lead |
 

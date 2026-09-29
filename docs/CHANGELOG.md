@@ -779,7 +779,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [**breaking**] split Config por dominios + fachada plana + env VANTADB_* (F3C, B+B)
 - [**breaking**] trait-split storage-index con hoja neutral + 6 firmas a traits (F3X, ADR-0042)
 - registro OperatorRegistry + operador ejemplo Dedup sin tocar planner/executor (C2S6)
-- [**breaking**] renames enum Error sin stutter (D4b, ADR-041)
+- [**breaking**] renames enum Error sin stutter (D4b, ADR-0041)
 - [**breaking**] AST-004 TS/WASM anti-stutter renames + deprecated aliases
 - AST-003 PyO3 clean aliases en sub-clientes + wrapper (Client/Record/Hit/get/list/delete/search_vector/nodos)
 - PRX-11-slice3 wiring opt-in translate (hook 5d + map-back)

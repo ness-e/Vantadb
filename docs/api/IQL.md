@@ -94,7 +94,7 @@ FROM <entity> [SIGUE <min>..<max> "<label>" [TYPE <type>] [AS <alias>]] [<alias>
 | `TYPE <type>` | Optional target type filter for traversal. |
 | `AS <alias>` | Alias for traversed nodes. |
 | `<alias>` | Target alias for result nodes (defaults to `"target"`). |
-| `AS OF <unix-ms>` | Valid-time point (SCH-03, ADR-046 §D3, minimum `IQL_VERSION_MIN_AS_OF` = 2): keep only records valid at that instant (`valid_at_ms <= T < invalid_at_ms`). Accepted after the table spec and at the end of the statement; repeating the clause is a parse error (`AS OF specified more than once`). Graph nodes without validity metadata are never excluded by it. |
+| `AS OF <unix-ms>` | Valid-time point (SCH-03, ADR-0046 §D3, minimum `IQL_VERSION_MIN_AS_OF` = 2): keep only records valid at that instant (`valid_at_ms <= T < invalid_at_ms`). Accepted after the table spec and at the end of the statement; repeating the clause is a parse error (`AS OF specified more than once`). Graph nodes without validity metadata are never excluded by it. |
 | `WHERE <cond> AND <cond>...` | Filter conditions (see [Conditions](#conditions)). |
 | `FETCH <field1>, <field2>` | Projection: return only these fields. |
 | `RANK BY <field> [DESC]` | Sort results by a field. |
@@ -276,7 +276,7 @@ Route selection (text-only, vector-only, hybrid) is automatic based on the reque
 
 ## Valid-Time Queries (`AS OF`)
 
-> Added in IQL version 2 (SCH-03, ADR-046 §D3). The equivalent request params
+> Added in IQL version 2 (SCH-03, ADR-0046 §D3). The equivalent request params
 > are `as_of_ms` / `valid_window` on `search`/`list` (see
 > [`EMBEDDED_SDK.md`](EMBEDDED_SDK.md) and the SDK pages).
 
@@ -288,7 +288,7 @@ FROM mmd_s1_history AS OF 1788134400000 WHERE text ~ "deploy plan"
 SELECT * FROM kb WHERE ts > 0 AS OF 1788134400000
 ```
 
-Semantics (ADR-046 §D3): the validity interval is **closed-open**
+Semantics (ADR-0046 §D3): the validity interval is **closed-open**
 `[valid_at_ms, invalid_at_ms)` — the start instant matches, the end instant
 does not; `invalid_at_ms = None` means open-ended. Records without validity
 metadata (plain graph nodes) are never excluded by `AS OF`.

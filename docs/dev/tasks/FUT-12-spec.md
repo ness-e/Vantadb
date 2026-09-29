@@ -21,7 +21,7 @@ description: "SDP: campaign-executor, progreso, ponytail, writing-guidelines, wr
 | 1 | Opt-in vs default | 100% opt-in, default intacto | Plan Task 9 + Gate P 2026-09-04 |
 | 2 | Mecanismo | group-commit ventana tiempo/tamaño, reutiliza `batch_append` | Plan Task 9 |
 | 3 | Aceptación | ≥10× batch + ventana de pérdida declarada y testeable | Plan Task 9 |
-| 4 | Ubicación spec | `docs/dev/architecture/adr/ADR-038-*` (hay 44 ADRs, storage ADRs existen: 001/002/004/020/022/DRV-014/015/COMP-026 → convención ADR, no artifacts) | `ls docs/dev/architecture/adr` |
+| 4 | Ubicación spec | `docs/dev/architecture/adr/ADR-0038-*` (hay 44 ADRs, storage ADRs existen: 001/002/004/020/022/DRV-014/015/COMP-026 → convención ADR, no artifacts) | `ls docs/dev/architecture/adr` |
 
 ## Impacto mapeado (Regla 0 — spec-only, sin edits en src/)
 

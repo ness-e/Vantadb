@@ -98,7 +98,7 @@ There is no Rust-side Wasm connection. The standalone browser console
 (`vite build --mode wasm` → `dist-wasm/`) bundles the `vantadb-wasm`
 wasm-bindgen module: `WasmBackend` lazily imports it, opens OPFS persistence
 (`connect_persistent`, IndexedDB fallback), and persists after mutating
-commands. Scope and closure: ADR-027.
+commands. Scope and closure: ADR-0027.
 
 ## Lifecycle & shutdown
 

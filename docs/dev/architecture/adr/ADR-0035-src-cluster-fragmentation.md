@@ -59,6 +59,6 @@ Accepted.
 ## References
 - codegraph-20260827-143245 (Fase 1)
 - docs/dev/research/FND-06-core-bindings-boundaries
-- ADR-034 (sibling: src→skills boundary, falso positivo)
+- ADR-0034 (sibling: src→skills boundary, falso positivo)
 - plan §W25-2
 - Backlog.md: FIND-41 (migrado 2026-08-30)

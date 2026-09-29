@@ -7,7 +7,7 @@ description: Matriz de cierre — default-exclude, gates de inyección, transici
 # SCH-05: Cuarentena operativa + abstención + trust-aware retrieval (slice 0.8.0)
 
 ## Metadata
-- **Plan file:** `docs/dev/plans/2026-09-26-master-roadmap.md` — Task 30 (F3) · **Origen:** plan L787-811; ADR-046 §D2/§D5/§D5d/§D5e; MGR-13 §3/§4/§5/§7
+- **Plan file:** `docs/dev/plans/2026-09-26-master-roadmap.md` — Task 30 (F3) · **Origen:** plan L787-811; ADR-0046 §D2/§D5/§D5d/§D5e; MGR-13 §3/§4/§5/§7
 - **Fuente del prompt:** sub-agente vanta-worker (orquestador pipeline) — wave F3.3b (única en vuelo); branch `develop`
 - **Esfuerzo:** 🟡 2-3d · **Prioridad:** 🟠 · **Tipo:** feature-add (estado operativo + wire + gates de seguridad)
 - **Creado:** 2026-09-29 · **last-synced:** 2026-09-29
@@ -43,11 +43,11 @@ description: Matriz de cierre — default-exclude, gates de inyección, transici
 
 - **Archivos leídos (completos):** `src/sdk/types/record.rs` (979L) · `src/sdk/serialization/vector_types.rs` (684L) · `src/sdk/search/page.rs` (426L) · `src/sdk/api/memory.rs` (1258L) · `src/sdk/api/namespaces.rs` (397L) · `src/sdk/serialization/impl_export.rs` (763L) · `src/config.rs` (2393L) · `vanta-memory/src/core/record/l1_reader.rs` (317L) · `src/audit.rs` (:1-110)
 - **Archivos leídos (rangos clave — archivos gigantes, precedente SCH-04):** `vantadb-mcp/src/handlers/tools.rs` (:29-36 lista readOnly, :80-174 schemas put/batch, :560-660 schemas, :1033-1150 dispatch, :1303-1452 handler put, :1755-1864 memory_recall, :2025-2110 inject_context, :3101-3170 parse_memory_input) · `vanta-memory/src/core/hooks/auto_recall.rs` (:150-449) · `src/sdk/search/mod.rs` (:1-220) · `src/sdk/search/multi.rs` (92L) · `src/sdk/version_history.rs` (:280-389) · `src/server/handlers.rs` (:235-267, :495-577) · `vantadb-mcp/src/context.rs` (159L) · `vanta-memory/src/core/dream/mod.rs` (:484-633)
-- **Referencias hacia dentro:** ADR-046 §D2 (wire), §D5 (estado/transiciones/sticky/gates), §D5d (deadline 30d/keep), §D5e (import opt-in uniforme); MGR-13 §3.2 (T1-T4), §3.3 (I1-I6), §5.1/§5.2/§5.3 (retrieval/abstención); plan Task 30.
+- **Referencias hacia dentro:** ADR-0046 §D2 (wire), §D5 (estado/transiciones/sticky/gates), §D5d (deadline 30d/keep), §D5e (import opt-in uniforme); MGR-13 §3.2 (T1-T4), §3.3 (I1-I6), §5.1/§5.2/§5.3 (retrieval/abstención); plan Task 30.
 - **Referencias entrantes:** SCH-06 (chaos: TTL+quarantine, supersede+quarantine, migración con cuarentenados) · SCH-07 (superficies + docs/api) · VER-01 (audit hash-chain, cita) · MGR-04 (ABAC, FIND).
 - **Veredicto impacto:** medio-alto — aditivo en wire, pero toca literales de 3 structs públicos + firmas de import en todo el workspace; sin cambio de ranking; gates de seguridad en un choke point de lectura (`l1_reader`). Edits quirúrgicos; sin co-batch activo (SCH-03/04 commiteados).
 
-## Spec (feature-add — decisiones por evidencia, ADR-046 firmado)
+## Spec (feature-add — decisiones por evidencia, ADR-0046 firmado)
 
 | # | Decisión | Alternativas | Elegido | Evidencia |
 |---|----------|--------------|---------|-----------|
@@ -167,13 +167,13 @@ description: Matriz de cierre — default-exclude, gates de inyección, transici
 - Superficies restantes → SCH-07: `SearchPageV2.abstained` (HTTP), args de import (MCP `import` tool/HTTP/CLI), bindings Py/TS/Node/WASM (getters/knobs/stubs), `quarantine_*` ops en HTTP/MCP, `min_confidence` en `MemoryListOptions`, `include_quarantined` en MCP list/search args.
 - T1b (promoción derivada de dream default ON) → MEM-65 (merge real; hoy stub no muta L1).
 - Métrica agregada `quarantine_overdue` → SCH-07/v1.0 (señal base = campo `quarantine_review_due_ms`).
-- **F4 aplicado (batch post-review):** sticky también en el transporte raw — `put_record_exact` preserva la cuarentena existente cuando el registro entrante no trae estado, y `bulk_import_stream` la preserva (lectura metadata-only por registro; cierra el bypass de I2 vía `import`/bulk). **Nota ADR-046 §D5e (enmienda menor: sticky en raw transport) → registrar en SCH-07/cierre de ADR** (no editar el ADR ahora: `docs/**` prohibido por WIP ajeno).
+- **F4 aplicado (batch post-review):** sticky también en el transporte raw — `put_record_exact` preserva la cuarentena existente cuando el registro entrante no trae estado, y `bulk_import_stream` la preserva (lectura metadata-only por registro; cierra el bypass de I2 vía `import`/bulk). **Nota ADR-0046 §D5e (enmienda menor: sticky en raw transport) → registrar en SCH-07/cierre de ADR** (no editar el ADR ahora: `docs/**` prohibido por WIP ajeno).
 - **F5 aplicado (doc-only):** `abstained`/`abstention_reason` solo viajan por el wire del SDK; HTTP `SearchPageV2`, MCP y bindings no propagan la señal aún → **no habilitar `VANTADB_CONFIDENCE_THRESHOLD` en server/MCP hasta SCH-07** (nota en `config.rs`).
 - Hallazgo entorno (no-FIND sin fila, anotado): e2e server con paralelismo default falla por contención de recursos en máquina cargada; `-j 2` estable — no es regresión de este diff.
 - FIND candidato: `inject_context` L0 aislado = v1.0 (MGR-13 §4.4 residual; solapa EXE-07).
 
 ## Dependencias
-- **Consume:** SCH-02 ✅ (`7af34366`; campos + sticky base) · SCH-03 ✅ (`932b1211`; AS OF) · SCH-04 ✅ (`932b1211`; `min_confidence` + fingerprint) · ADR-046 `accepted` ✅ · MGR-13 ✅ (`72f29720`).
+- **Consume:** SCH-02 ✅ (`7af34366`; campos + sticky base) · SCH-03 ✅ (`932b1211`; AS OF) · SCH-04 ✅ (`932b1211`; `min_confidence` + fingerprint) · ADR-0046 `accepted` ✅ · MGR-13 ✅ (`72f29720`).
 - **Bloquea:** SCH-06 (tests chaos: TTL+quarantine, supersede+quarantine, contención). **nextTask:** SCH-06.
 
 ## Herramientas
@@ -199,7 +199,7 @@ description: Matriz de cierre — default-exclude, gates de inyección, transici
 - **Insumos para el revisor:** §Batch post-review (comando → resultado por finding), full **2464/2464**, MCP **245/245**, clippy scoped + CI-form exit 0, `public-api.txt` re-snapshot (`BulkImportReport::quarantined`).
 
 ## Context Save Point
-- **Discovery ✅ (2026-09-29):** gap real = operacionalizar (filtros + gates + ops + abstención + config + import); sticky T1 base ya existía de SCH-02. Task file creado. Gate D: símbolos públicos nuevos pre-aprobados por ADR-046 (firma owner 2026-09-28) + contrato verbatim del plan.
+- **Discovery ✅ (2026-09-29):** gap real = operacionalizar (filtros + gates + ops + abstención + config + import); sticky T1 base ya existía de SCH-02. Task file creado. Gate D: símbolos públicos nuevos pre-aprobados por ADR-0046 (firma owner 2026-09-28) + contrato verbatim del plan.
 - **Implementación completa (2026-09-29):** Steps 1-7 ✅ con verificación mecánica por crate (tabla §Verificación final). Red/Green por test (RED compilación controlada; GREEN 20/20).
 - **Batch post-review ✅ (2026-09-29):** F1–F6 + N1–N3 aplicados (evidencia por finding en §Batch post-review); tests `quarantine_containment` 24/24, MCP 245/245, full core 2464/2464, clippy scoped + CI-form exit 0, `public-api.txt` re-snapshot.
-- **Pendiente (LEAD):** re-review P2-01 adversarial (contexto fresco) + commit local (nada de push). **Docs/api diferidas** (WIP ajeno) → SCH-07; nota F4 (sticky raw transport) → enmienda menor ADR-046 §D5e a registrar en SCH-07/cierre. `nextTask`: SCH-06.
+- **Pendiente (LEAD):** re-review P2-01 adversarial (contexto fresco) + commit local (nada de push). **Docs/api diferidas** (WIP ajeno) → SCH-07; nota F4 (sticky raw transport) → enmienda menor ADR-0046 §D5e a registrar en SCH-07/cierre. `nextTask`: SCH-06.

@@ -208,7 +208,7 @@ so LLM agents can branch on a stable identifier without parsing message text:
 | `thread_*` | 6 | `threads.rs` |
 | `dream_*` | 5 | `dreams.rs` |
 
-> Annotations are display hints (untrusted, not enforcement): `readOnlyHint` true = no persistent mutation, `destructiveHint` true = may delete/overwrite (11 tools), `idempotentHint` true = retry-safe, `openWorldHint` true = host filesystem (wiki_ingest, bulk_import_file only). Clients that ignore annotations assume pessimistic defaults.
+> Annotations are display hints (untrusted, not enforcement): `readOnlyHint` true = no persistent mutation, `destructiveHint` true = may delete/overwrite (13 tools), `idempotentHint` true = retry-safe, `openWorldHint` true = host filesystem (wiki_ingest, bulk_import_file only). Clients that ignore annotations assume pessimistic defaults.
 > Dependent ops (e.g. `put` then `search` over the new record) go in sequential invocations, not one multi-call batch: batches may reorder (smoke Fase 2 note).
 
 ## Legacy & absorbed names (dispatch-only)
@@ -465,7 +465,7 @@ Read wrappers over the vanta-memory gateway scene handlers (`vanta_memory::gatew
 
 ### Dreams API - `dreams.rs` (5)
 
-Read wrappers plus a scoped delete over the vanta-memory dream store (`vanta_memory::core::dream` over `dream/<session>/<run_id>`) — reviewable, discardable idle consolidation — plus the LLM-free consolidation pass and the promote preview. The L1 store is never touched. Domain errors surface as error-content messages.
+Read wrappers plus a scoped delete over the vanta-memory dream store (`vanta_memory::core::dream` over `dream/<session>/<run_id>`) — reviewable, discardable idle consolidation — plus the LLM-free consolidation pass and the promotion surface (dry-run plan by default; apply only with `dry_run:false`, idempotent and gated). Consolidation never touches `l1/<session>`; promotion is the module's only mutating entry point. Domain errors surface as error-content messages.
 
 | Tool | Description |
 |------|-------------|
@@ -473,7 +473,7 @@ Read wrappers plus a scoped delete over the vanta-memory dream store (`vanta_mem
 | `dream_load` | Loads the full persisted dream run (consolidated view; originals never replaced). Missing runs answer "not found". Read-only. |
 | `dream_discard` | Discards one dream run (deletes `dream/<session>/<run_id>`) after review. L1 remains untouched. Idempotent. Scoped destructive (dream namespace only). |
 | `dream_consolidate` | Runs one LLM-free consolidation pass (`dedupe + contradictions + date normalization`) and persists the view to `dream/<session>/<run_id>`. Fails as error-content when not idle. Write path. |
-| `dream_promote` | PREVIEW ONLY: returns `{preview_count, mutated:false}` — the count a run would merge, without mutating anything. Read-only. |
+| `dream_promote` | Promotes a run into `l1/<session>`: returns the record-level diff `{action: ADD\|UPDATE\|DELETE\|NOOP, key, reason}` (`reason`: `normalize`/`supersede`/`merge`/`dedup`/`new`/`content`/`unchanged`) and applies it only with `dry_run:false` (default `dry_run:true` = preview, nothing mutates). Idempotent (re-apply → all NOOP). Fail-closed quality gate on supersedes; DELETE only touches records the run scanned (post-run additions survive). |
 
 ## Prompts (4)
 
@@ -521,7 +521,7 @@ Read at server startup via `McpConfig::from_storage`; clamped to `[min_byte_budg
 |------|-------------------|-------------------|
 | `memory_list` | `content[0].text` is a JSON object `{records, next_cursor, byte_count, truncated}` | Trailing `records` entries are popped until the envelope fits `byte_budget`. `next_cursor` is preserved; `truncated: true` advertises the trim. If the array is fully popped, the `records` key is dropped (consumers should treat absent `records` as "hard-truncated"). |
 | `search_multi` | `content[0].text` stays the raw hits array (back-compat); `structuredContent` carries `{hits, byte_count, truncated}` | Trailing `hits` are popped in both the text and the structuredContent copy. `truncated: true` flags the trim. |
-| `memory_search` / `search_with_method` | Same raw-hits text array (back-compat); `structuredContent` carries `{hits, byte_count, truncated, abstained, abstention_reason}` | Same trailing-hits budget policy. The two extra fields are the selective-abstention signal (ADR-046 §D2, SCH-07) — see [Selective abstention](#selective-abstention-adr-046-d2). |
+| `memory_search` / `search_with_method` | Same raw-hits text array (back-compat); `structuredContent` carries `{hits, byte_count, truncated, abstained, abstention_reason}` | Same trailing-hits budget policy. The two extra fields are the selective-abstention signal (ADR-0046 §D2, SCH-07) — see [Selective abstention](#selective-abstention-adr-046-d2). |
 | `search_semantic` | Same budgeted envelope `{hits, byte_count, truncated}` | Same trailing-hits policy. |
 
 ### When to react
@@ -545,7 +545,7 @@ Read at server startup via `McpConfig::from_storage`; clamped to `[min_byte_budg
 
 After oversize trimming, `truncated` flips to `true` and the last items are dropped from `records`. `next_cursor` remains the next-page marker so the consumer can keep paging.
 
-## Selective abstention (ADR-046 §D2)
+## Selective abstention (ADR-0046 §D2)
 
 When the server runs with `VANTADB_CONFIDENCE_THRESHOLD=<t>` (or
 `Config::confidence_threshold = Some(t)`, `t` finite in `[0, 1]`), search hits
@@ -568,7 +568,7 @@ The per-request `min_confidence` filter is **not** an abstention trigger: it
 narrows results and never sets these fields. Default (`None` = OFF) keeps the
 historic empty page byte-identical.
 
-## Quarantine (ADR-046 §D5)
+## Quarantine (ADR-0046 §D5)
 
 Records written with `memory_put`'s `quarantine: true` flag (T1) enter the
 **quarantined** state — distinct from `superseded` and TTL expiry:

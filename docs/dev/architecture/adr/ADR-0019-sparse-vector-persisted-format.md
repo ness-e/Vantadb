@@ -105,4 +105,4 @@ el beneficio es eliminar parse + alloc del string JSON del hot path.
 - `docs/dev/Backlog.md` § Phase 4 — P2-7
 - AUDIT-02 (2026-08-06) — parse 1.49% del hot path
 - PERF-07 (skip serde_json cuando falta key), PERF-08 (WASM, cerrado)
-- ADR-011 (sparse vectors native) — decisión original de representación
+- ADR-0011 (sparse vectors native) — decisión original de representación

@@ -12,7 +12,7 @@ tags: [vantadb, avance, vanta-memory, tdam, memory, persona, recall]
 ## Cobertura rápida
 
 - **P27 (F1-F4):** port TDAM completo — search profile IQL, entidades/RBAC, auth 3 capas, skills multi-versión, crate `vanta-memory` end-to-end con trait host-neutral `LlmRunner`.
-- **P29 (F5):** superficie de memoria para el context engine — seeds/import CLI, generation-log, recall_scope híbrido, auto-sync scheduler, GC offload, ADR-029.
+- **P29 (F5):** superficie de memoria para el context engine — seeds/import CLI, generation-log, recall_scope híbrido, auto-sync scheduler, GC offload, ADR-0029.
 - **P31 (Cierre Final):** wiring productivo al pipeline, e2e cross-crate MCP, embeddings semánticos opt-in, recall dual-pool RRF, compresión con scores reales.
 
 ---

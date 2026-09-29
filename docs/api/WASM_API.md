@@ -9,7 +9,7 @@ tags: [vantadb, wasm, browser, api]
 
 # WASM API Reference
 
-> **Naming (ADR-041 anti-stutter):** canonical names are `Client`
+> **Naming (ADR-0047 anti-stutter):** canonical names are `Client`
 > (legacy `VantaDB` alias removed in 0.6.0, AST-010), `Config` (legacy
 > `VantaConfig` removed), `SearchHit` / `MemorySearchHit` (legacy
 > `VantaSearchHit` / `VantaMemorySearchHit` removed).
@@ -69,7 +69,7 @@ before writing code that compares or sorts hits.**
   neighbor geometry — for example, thresholding by a distance cutoff, or
   computing your own similarity transform downstream.
 
-## v2 records and query params (SCH-07, ADR-046)
+## v2 records and query params (SCH-07, ADR-0046)
 
 The WASM binding carries the v2 memory wire natively:
 

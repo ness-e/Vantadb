@@ -69,7 +69,7 @@ tags: [vantadb, avance, campana]
 - **Fuente:** `docs/dev/Backlog.md` § P20d (Fase 0 pre-launch)
 - **Fecha:** 2026-08-16
 - **Objetivo:** decisiones ya tomadas en código sin ADR que las documente; complementa FND-12 (método).
-- **Resultado:** ✅ 3 ADRs en `docs/dev/architecture/adr/` con Contexto/Decisión/Consecuencias/Status, numeración sin colisión (ADR-020/021/022; ADR-0019 ya ocupado), evidencia archivo:línea: **ADR-020** consolidación backend default Fjall vs RocksDB (relaciona ADR 0004; `Cargo.toml:97`, `config.rs:582-598`, `init.rs:269-289`), **ADR-021** zero-copy Arrow en bindings (nuevo genuino; `columnar.rs:22`, wasm `lib.rs:1428-1447`; estado bindings Python/Node sin Arrow → FND-04 pendiente), **ADR-022** consolidación WAL async/batch (relaciona DRV-014/DRV-015; `wal.rs:297/340/342/358`, `wal_sharded.rs:9-14/191/198-218`). Commit `b4a86030`.
+- **Resultado:** ✅ 3 ADRs en `docs/dev/architecture/adr/` con Contexto/Decisión/Consecuencias/Status, numeración sin colisión (ADR-0020/021/022; ADR-0019 ya ocupado), evidencia archivo:línea: **ADR-0020** consolidación backend default Fjall vs RocksDB (relaciona ADR 0004; `Cargo.toml:97`, `config.rs:582-598`, `init.rs:269-289`), **ADR-0021** zero-copy Arrow en bindings (nuevo genuino; `columnar.rs:22`, wasm `lib.rs:1428-1447`; estado bindings Python/Node sin Arrow → FND-04 pendiente), **ADR-0022** consolidación WAL async/batch (relaciona DRV-014/DRV-015; `wal.rs:297/340/342/358`, `wal_sharded.rs:9-14/191/198-218`). Commit `b4a86030`.
 - **Ids:** `FND-21`
 
 ### TSYS-06: Chaos/resilience del task-system — decisión (runner DEFER)

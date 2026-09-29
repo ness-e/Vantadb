@@ -10,7 +10,7 @@ tags: [vantadb, api]
 
 > **Stability:** the documented TypeScript SDK API is covered by the [Versioning & Stability Policy](VERSIONING.md).
 >
-> **Naming (ADR-041 anti-stutter):** canonical names are `Client`, `Config`,
+> **Naming (ADR-0047 anti-stutter):** canonical names are `Client`, `Config`,
 > `DbError`, `SearchHit`, `Value`, `Metadata`, `FilterOp`. Legacy `VantaDB`,
 > `VantaConfig`, `VantaError`, `VantaValue`, … aliases were removed in 0.6.0
 > (AST-010). `VANTADB_*` error codes (wire) are intentionally unchanged.
@@ -329,7 +329,7 @@ interface SearchRequest {
 interface ValidWindow { from_ms: number; to_ms: number }
 ```
 
-**v2 params (SCH-07, ADR-046):** `as_of_ms` / `valid_window` filter on the
+**v2 params (SCH-07, ADR-0046):** `as_of_ms` / `valid_window` filter on the
 valid-time axis (start inclusive, end exclusive); `include_quarantined` opts
 into the quarantine view (default excludes quarantined records);
 `min_confidence` is a confidence floor in `[0, 1]` rejected (never clamped)

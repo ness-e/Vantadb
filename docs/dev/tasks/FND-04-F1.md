@@ -1,7 +1,7 @@
 ---
 title: "FND-04-F1: Extraer ADR formal de la decisión zero-copy Arrow (diferida)"
 kind: task
-description: "Extraer docs/dev/architecture/adr/ADR-025-.md formal desde docs/Investigaciones/FND-04-arrow-zero-copy.md (decisión DIFERIR + razón + señal de re-apertura medible), siguiendo la plantilla docs/dev/templates/adr.md. El contenido ya fue..."
+description: "Extraer docs/dev/architecture/adr/ADR-0025-.md formal desde docs/Investigaciones/FND-04-arrow-zero-copy.md (decisión DIFERIR + razón + señal de re-apertura medible), siguiendo la plantilla docs/dev/templates/adr.md. El contenido ya fue..."
 ---
 
 # FND-04-F1: Extraer ADR formal de la decisión zero-copy Arrow (diferida)
@@ -13,7 +13,7 @@ description: "Extraer docs/dev/architecture/adr/ADR-025-.md formal desde docs/In
 - **Prioridad:** 🟢
 
 ## Objetivo
-Extraer `docs/dev/architecture/adr/ADR-025-*.md` formal desde `docs/Investigaciones/FND-04-arrow-zero-copy.md` (decisión DIFERIR + razón + señal de re-apertura medible), siguiendo la plantilla `docs/dev/_templates/adr.md`. El contenido ya fue articulado y aprobado en la campaña — esta tarea consolida en formato ADR (disciplina Regla 5).
+Extraer `docs/dev/architecture/adr/ADR-0025-*.md` formal desde `docs/Investigaciones/FND-04-arrow-zero-copy.md` (decisión DIFERIR + razón + señal de re-apertura medible), siguiendo la plantilla `docs/dev/_templates/adr.md`. El contenido ya fue articulado y aprobado en la campaña — esta tarea consolida en formato ADR (disciplina Regla 5).
 
 ## Archivos clave
 - `docs/Investigaciones/FND-04-arrow-zero-copy.md` (fuente de la decisión), `docs/dev/_templates/adr.md` (plantilla), `docs/dev/architecture/adr/` (numeración: último es ADR-0024), `docs/dev/architecture/adr/ADR-0023-backend-compaction.md` (modelo con señal de reapertura)
@@ -25,7 +25,7 @@ Extraer `docs/dev/architecture/adr/ADR-025-*.md` formal desde `docs/Investigacio
 4. Task file + RESULTADO
 
 ## Contrato (verify mecánico)
-- `ADR-025-*.md` existe en docs/dev/architecture/adr/ con Contexto/Decisión/Consecuencias + señal de reapertura
+- `ADR-0025-*.md` existe en docs/dev/architecture/adr/ con Contexto/Decisión/Consecuencias + señal de reapertura
 - Numeración correcta (tras ADR-0024)
 - Sin contradicción con el reporte FND-04 (misma decisión/evidencia)
 

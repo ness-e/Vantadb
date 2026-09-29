@@ -199,4 +199,4 @@ last-synced: 2026-09-27
 - Stop conditions del plan: floor-guard rojo → revertir coverage a bloqueante; appetite >3d → solo (b)+(c).
 - FIND-134..147 (CI) y FIND-152 (harness residual) se evalúan/cierran acá si siguen vigentes (plan `:96,531`).
 - Título menciona "release dry-run"; el Contrato NO lo exige → evaluar como candidato del nightly/job (solo `--dry-run`/`cargo package --dry-run`; NUNCA publica); si excede appetite, diferir con nota.
-- `verify.ps1` cambia en local únicamente: el CI canónico (ADR-0018) y el presupuesto `<5min` (ADR-031/STABLE-00) quedan como están.
+- `verify.ps1` cambia en local únicamente: el CI canónico (ADR-0018) y el presupuesto `<5min` (ADR-0031/STABLE-00) quedan como están.

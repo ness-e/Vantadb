@@ -115,7 +115,7 @@ Se mantiene `prefetch` tamaño por `payload_len`.
 ### 5 — Migración / versionado
 
 - Escritura nueva: siempre escribe `kind` explícito (FULL incluso para f32) → ficheros nuevos son auto-descriptivos.
-- Lectura vieja: `kind==0` + `vector_len>0` → FULL (correcto). `kind==0` + `vector_len==0` + `HnswNode` con `Binary` → `get()` rescata (compat caliente), pero `rebuild` producirá `None` (los `Binary` legacy no están en vstore). Se documenta como **limitación conocida**: un `rebuild_vector_index()` forzado sobre una DB creada antes de ADR-032 perderá los vectores `Binary` legacy no re-escritos. La mitigación es **lazy migration**: el próximo `put`/`update` de ese key re-escribe el vstore entry con `kind`. Operadores no deben forzar rebuild hasta que los keys críticos hayan sido tocados, o deben mantener el `vector_index.bin` como fuente primaria (flujo normal de `flush` lo mantiene). No se introduce migración one-shot ni bump de `VFILE_VERSION`; el write path dual no es necesario (solo existe vstore como fuente de verdad para nuevo).
+- Lectura vieja: `kind==0` + `vector_len>0` → FULL (correcto). `kind==0` + `vector_len==0` + `HnswNode` con `Binary` → `get()` rescata (compat caliente), pero `rebuild` producirá `None` (los `Binary` legacy no están en vstore). Se documenta como **limitación conocida**: un `rebuild_vector_index()` forzado sobre una DB creada antes de ADR-0032 perderá los vectores `Binary` legacy no re-escritos. La mitigación es **lazy migration**: el próximo `put`/`update` de ese key re-escribe el vstore entry con `kind`. Operadores no deben forzar rebuild hasta que los keys críticos hayan sido tocados, o deben mantener el `vector_index.bin` como fuente primaria (flujo normal de `flush` lo mantiene). No se introduce migración one-shot ni bump de `VFILE_VERSION`; el write path dual no es necesario (solo existe vstore como fuente de verdad para nuevo).
 
 - Future bump: si se requiere romper compat (e.g. nuevo kind >4), se bump `VFILE_VERSION` a 3 y se mantiene reader dual para v2 como ahora.
 
@@ -140,7 +140,7 @@ Se mantiene `prefetch` tamaño por `payload_len`.
 | Opción | Veredicto |
 |--------|-----------|
 | Nuevo campo `u8 vector_kind` en `DiskNodeHeader` (`_pad: [u8;1]` → `kind: u8`) | ❌ Cambia tamaño/layout de header si `_pad` se interpreta; ficheros legacy con `_pad=0` se leerían como `NONE` incluso para `Full` (precisa migración). Requiere bump `VFILE_VERSION` y reader dual más intrusivo que los 4 bits en `flags` |
-| Usar solo `vector_len == 0` como centinela + key relacional `__vanta_vector_kind` (pattern ADR-019 sparse) | ❌ Mueve el tipo al KV backend (`NodeMetadata`) — rebuild escanea solo vstore, no backend, por lo que no lo vería; además añade un `get` por nodo en el scan |
+| Usar solo `vector_len == 0` como centinela + key relacional `__vanta_vector_kind` (pattern ADR-0019 sparse) | ❌ Mueve el tipo al KV backend (`NodeMetadata`) — rebuild escanea solo vstore, no backend, por lo que no lo vería; además añade un `get` por nodo en el scan |
 | No tocar vstore, confiar solo en `vector_index.bin` (status quo) | ❌ Deja el gap de durability abierto para el path `hnsw.nodes.is_empty() → rebuild` y documenta que la única copia es el índice — viola el contrato de que vstore es la fuente de reconstrucción |
 | Variable `header.relational_len` o `tier` para kind | ❌ `relational_len` reserve para metadata relacional, `tier` domina cold/hot — sobrecarga semántica |
 
@@ -161,5 +161,5 @@ Se mantiene `prefetch` tamaño por `payload_len`.
 - `src/storage/archive.rs:237-284` rebuild previo solo `Full`
 - `src/storage/engine/get.rs:167-227` get + rescue Binary
 - Plan `docs/dev/plans/2026-08-27-backlog-v2.md` Task 4 CORE-01 (contrato: `rg vector_len.*0` 0 + nextest + ADR)
-- ADR-019 sparse persisted format (precedente: `ListFloat` sin bump, legacy compat con String)
+- ADR-0019 sparse persisted format (precedente: `ListFloat` sin bump, legacy compat con String)
 

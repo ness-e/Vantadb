@@ -51,7 +51,7 @@ description: "research-doc cerrado con modelo valid-time vs transaction-time, tr
 |---|----------|----------------------|--------------------|----------|
 | 1 | Eje faltante | valid-time nuevo vs transaction-time completo | `valid_at_ms`/`invalid_at_ms` (Backlog:939) + transaction por version_history | ✅ por-evidencia (Backlog:839/939; 0 hits en `src/`) |
 | 2 | Semántica de período | cerrado-abierto `[start,end)` (SQL:2011) vs cerrado-cerrado | cerrado-abierto + `None`=abierto | ✅ por-evidencia (Kulkarni & Michels §2.1) |
-| 3 | Mecanismo de historia | invalidación (ADR-028/Zep) vs append-only/system-versioned | invalidación + snapshots (evita rediseño de engine — stop condition) | ✅ por-evidencia (§2.1 del doc) |
+| 3 | Mecanismo de historia | invalidación (ADR-0028/Zep) vs append-only/system-versioned | invalidación + snapshots (evita rediseño de engine — stop condition) | ✅ por-evidencia (§2.1 del doc) |
 | 4 | Storage historial | full snapshots (actual) / deltas / WAL-exact (P27) | mantener full snapshots; WAL-exact v1.0 | ✅ por-evidencia (§2.2) |
 | 5 | Backfill | `valid_at:=created_at`, `invalid_at:=superseded_at` (pura, idempotente, sin reloj) | el del Backlog:939 | ✅ por-evidencia (§4.1) |
 | 6 | Default de queries | filtrar validez por defecto (SQL:2011) vs opt-in | mantener comportamiento actual (opt-in) | ⬜ pregunta owner §5-1 (SCH-01 ratifica) |

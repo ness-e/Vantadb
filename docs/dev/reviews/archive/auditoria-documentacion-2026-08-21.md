@@ -174,7 +174,7 @@ Tareas que deberían existir en el Backlog según el estado real y no existen:
 | 🟠 Alta | **IDX-01: Regenerar master-index.md** — quitar 2 enlaces rotos (audit-reports:184, PROMPT-MAESTRO-FREEZE:192), indexar las 15 carpetas faltantes y los 3 docs nuevos de api/; corregir frase blog (:161) | Puerta de entrada a toda la doc |
 | 🟠 Alta | **IDX-02: Purgar referencias muertas del Backlog** — 10 refs a `docs/audit-reports/*`, `REPORTE_EVALUACION_COMPLETO.md` ×2, 2 reviews inexistentes (líneas 213, 230, 341, 427-431) | Rompen la trazabilidad que el propio Backlog promete |
 | 🟡 Media | **GOV-01: Decisión de taxonomía** — regla escrita avance↔progreso e Investigaciones↔research en docs/README.md; split del monolito progreso/README.md (372 KB) | Costo de mantenimiento creciente |
-| 🟡 Media | **GOV-02: Mover `ADR-026-*` a `adr/`** y actualizar DESKTOP-27 | Convención rota de ADRs |
+| 🟡 Media | **GOV-02: Mover `ADR-0026-*` a `adr/`** y actualizar DESKTOP-27 | Convención rota de ADRs |
 | 🟢 Baja | **GOV-03:** gitignore `docs/user/book/book/` + `rmdir TDAM-VANTADB` + decidir destino de `.obsidian/` | Higiene de repo |
 | 🟢 Baja | **GOV-04:** corregir fila VS-08 (zustand) y RELEASE-01 (ubicación del gate) | Precisión del registro |
 
@@ -224,7 +224,7 @@ La segunda pasada **confirma el patrón** del Volumen I (doc↔código sano, gob
 2. 🔴 **`case_studies/`: clientes ficticios presentados como deployments reales** ("EdgeSense" RPi5, "CodexAgent" M2 Max con tablas comparativas y benchmarks sin fuente ni disclaimer). Riesgo reputacional directo para Show HN; contradice el propio estándar "honest results" de PERF-03.
 3. 🔴 **`PYTHON_RELEASE_POLICY.md` niega la publicación a PyPI que ya ocurrió** (0.5.0 live 2026-08-01) — política de release operando sobre una premisa falsa.
 4. 🟠 **El mirror `avance/` nació roto**: su contrato (`meta.md`) promete cobertura viva por dominio, pero faltan dominios enteros creados después (vanta-proxy, vanta-memory/TDAM, context engine) y quedó congelado el 20/08. `bitacora.md` muerta desde el 27/07 (narrativa) / 11/08 (git).
-5. 🟠 **4 valores de coverage contradictorios conviviendo**: gate ≥59% (TEST_MAP/CI_POLICY) vs ≥80% ADR-015/018 vs "80.55% CII Silver" (progreso README:32) vs 81.40% root — sin fuente canónica única.
+5. 🟠 **4 valores de coverage contradictorios conviviendo**: gate ≥59% (TEST_MAP/CI_POLICY) vs ≥80% ADR-0015/018 vs "80.55% CII Silver" (progreso README:32) vs 81.40% root — sin fuente canónica única.
 6. 🟠 **Tutoriales rotos para usuarios reales**: `graph_bfs("doc1","doc3")` con firma incorrecta en los 2 tutoriales de migración (TypeError garantizado); `ef_search` como parámetro inexistente en glosario/hnsw.md.
 
 ### Salud documental revisada: **6.5 / 10**
@@ -266,7 +266,7 @@ Otros hallazgos api/:
 
 ## V2.4 — architecture/ + ADRs (51 docs): mayormente sanos
 
-- Los 34 ADRs: implementaciones afirmadas verificadas contra código (supersede(), batch_append, CRC32C, HnswConfig, features Cargo.toml) — coherentes. Drift cosmético de números de línea en ADR-024/025.
+- Los 34 ADRs: implementaciones afirmadas verificadas contra código (supersede(), batch_append, CRC32C, HnswConfig, features Cargo.toml) — coherentes. Drift cosmético de números de línea en ADR-0024/025.
 - **ADR-0008 (WASM storage)**: la queja de WASM_STORAGE_REVIEW.md quedó resuelta en código (opfs.rs, idb.rs, worker.rs) — el review es histórico válido.
 - Problemas estructurales: `ADR-0026-vanta-studio-fase3-rest-dashboard.md` fuera de `adr/`; colisión de numeración "001" (001_unified_config vs ADR-0001); colisión "019" entre series; ARCHITECTURE.md cita `src/node.rs` ×4 cuando el módulo es ahora `src/node/unified.rs`.
 - wiki-links rotos en case_studies hacia ADRs con filenames inexistentes.

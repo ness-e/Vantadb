@@ -16,7 +16,7 @@ description: "cargo test --test sdkserialization verde Y test wire u128 >2^53 re
 - **Creado:** 2026-09-25
 - **last-synced:** 2026-09-25
 - **Estado:** ✅ COMPLETED (2026-09-25) — Review P2-01 ✅ (2 rondas: ❌ → fixes R1/R2/R3 → ✅); contrato mecánico ✅; Steps 0-8 ✅
-- **Incógnitas (uphill):** 0 abiertas (codegen DEFER por stop condition del plan; ADR-041 decidido B 2026-09-25)
+- **Incógnitas (uphill):** 0 abiertas (codegen DEFER por stop condition del plan; ADR-0047 decidido B 2026-09-25)
 - **Pendientes (downhill):** 0 (pendiente de gate: Review P2-01 + cierre)
 
 ## Blast Radius
@@ -48,7 +48,7 @@ description: "cargo test --test sdkserialization verde Y test wire u128 >2^53 re
 | 2 | Errores catch-all (`Generic`/`ResourceLimit`/`InvalidInput`/`Schema`) | A: envelope `code+message+context` documentado + tipado incremental por variante / B: tipar todo ya (rompe 161+ callers) / C: dejar como está | A | ✅ Gate P Eje Errores (`code+message+context`, sin panic; RFC 9457 solo HTTP) — alcance W0: envelope + doc; variantes sin callers que lo justifiquen se tipan, el resto se documenta by-design |
 | 3 | Casing en fronteras | camelCase JSON/MCP · kebab CLI/tools-nuevos · nativo interior (snake Rust/Python, camel TS) | — | ✅ Gate P Eje Casing (API-STD-15) — W0 aplica a tipos de bindings tocados + normativa |
 | 4 | Codegen single-schema | A: codegen desde JSON Schema (dueño sin resolver) / B: manual 1 vez + DEFER codegen | B si no hay consenso | ⏳ incógnita — stop condition del plan: "codegen sin consenso → manual 1 vez + DEFER codegen" |
-| 5 | `VantaHeader` / ADR-041 | A: firmar ADR-041 (excepción permanente) / B: renombrar (anti-stutter; no afecta on-disk — serialización custom por magic bytes) / C: dejar proposed | decidir con ADR-041 leído completo | ✅ **decidido-por-owner 2026-09-25 (B): rename `Header` + alias deprecated aplicado (Step 5)** — firma formal del ADR diferida a HIG-02 (waiver registrado); evidencia en ADR §Evidencia adicional + Step 5 |
+| 5 | `VantaHeader` / ADR-0047 | A: firmar ADR-0047 (excepción permanente) / B: renombrar (anti-stutter; no afecta on-disk — serialización custom por magic bytes) / C: dejar proposed | decidir con ADR-0047 leído completo | ✅ **decidido-por-owner 2026-09-25 (B): rename `Header` + alias deprecated aplicado (Step 5)** — firma formal del ADR diferida a HIG-02 (waiver registrado); evidencia en ADR §Evidencia adicional + Step 5 |
 
 ## Invariantes de dominio (handoff — MUST)
 
@@ -78,7 +78,7 @@ description: "cargo test --test sdkserialization verde Y test wire u128 >2^53 re
           confianza: alta
         - claim: "VantaHeader tiene 4 callers; renombrar no afecta on-disk (serialización custom)"
           evidencia: src/binary_header.rs:20,49-84 + codegraph blast radius
-          confianza: media (confirmar leyendo ADR-041 completo)
+          confianza: media (confirmar leyendo ADR-0047 completo)
       artefactos:
         - docs/dev/tasks/API-01.md
       invariantes: u128_serde único patrón wire; validate_compat intacto; vantadb-pro intocable; sin panic en bindings
@@ -100,7 +100,7 @@ description: "cargo test --test sdkserialization verde Y test wire u128 >2^53 re
 ## Herramientas necesarias
 - Terminal: `cargo` (check/test/clippy/fmt), `pytest`, `npx tsc`, `npm test`
 - `codegraph_explore` (blast radius), `campaign_*` (verify/state), `dev-tools/verify_changed.ps1`
-- **Skills cargadas (SDP):** campaign-executor (base task system) · source-driven-development (APIs externas: serde/FFI) · incremental-implementation (slices verticales) · test-driven-development (RED→GREEN wire tests) · context-engineering (tarea multi-toolchain) · doubt-driven-development (stakes altos: breaking wire) · api-and-interface-design (contratos públicos). Descartadas: frontend-ui-engineering (no toca `web/`), performance-optimization (solo P2-8 complejidad, sin claim de perf), systematic-debugging (no es bug con repro), documentation-and-adrs (solo si ADR-041 se firma).
+- **Skills cargadas (SDP):** campaign-executor (base task system) · source-driven-development (APIs externas: serde/FFI) · incremental-implementation (slices verticales) · test-driven-development (RED→GREEN wire tests) · context-engineering (tarea multi-toolchain) · doubt-driven-development (stakes altos: breaking wire) · api-and-interface-design (contratos públicos). Descartadas: frontend-ui-engineering (no toca `web/`), performance-optimization (solo P2-8 complejidad, sin claim de perf), systematic-debugging (no es bug con repro), documentation-and-adrs (solo si ADR-0047 se firma).
 
 ## Investigation Notes
 - Gate P (API-STD-15) aprobó 4/4 recomendadas; decisiones de W0 citadas en §Spec con fuente por fila.
@@ -113,7 +113,7 @@ description: "cargo test --test sdkserialization verde Y test wire u128 >2^53 re
 
 | Eje | Contador |
 |-----|----------|
-| Incógnitas abiertas (uphill) | 0 — codegen DEFER (stop condition del plan); firma ADR-041 → HIG-02 (waiver 2026-09-25) |
+| Incógnitas abiertas (uphill) | 0 — codegen DEFER (stop condition del plan); firma ADR-0047 → HIG-02 (waiver 2026-09-25) |
 | Pendientes de ejecución (downhill) | 0 |
 | % completado | 100% (9/9 steps ✅ · contrato mecánico 100%) |
 
@@ -128,7 +128,7 @@ description: "cargo test --test sdkserialization verde Y test wire u128 >2^53 re
 - **Archivos:** todos los de §Impacto mapeado (pendientes)
 - **Acción:** leer completos los archivos a modificar; completar la tabla de impacto con referencias entrantes (`git grep`) y veredicto
 - **Verify:** tabla §Impacto mapeado completa + `git grep -c` por archivo
-- **Estado:** ✅ DONE 2026-09-25 — leídos completos: `record.rs`, `error.rs` (1348L), `binary_header.rs`, `lib.rs`, `vantadb-ts/src/types.ts`, `vantadb-node/index.d.ts`, `vantadb-python/src/types.rs`, `vantadb-wasm/src/lib.rs` (función objetivo + tests vecinos), `adr/041`, `ERROR_HANDLING.md`. Nota: `vantadb-wasm/src/lib.rs:752-784` (no `:564-596` — líneas del task file stale, ver Step 7).
+- **Estado:** ✅ DONE 2026-09-25 — leídos completos: `record.rs`, `error.rs` (1348L), `binary_header.rs`, `lib.rs`, `vantadb-ts/src/types.ts`, `vantadb-node/index.d.ts`, `vantadb-python/src/types.rs`, `vantadb-wasm/src/lib.rs` (función objetivo + tests vecinos), `adr/ADR-0047-anti-stutter.md`, `ERROR_HANDLING.md`. Nota: `vantadb-wasm/src/lib.rs:752-784` (no `:564-596` — líneas del task file stale, ver Step 7).
 
 ### Step 1: RED — test wire u128 >2^53 para `Write.node_id`
 - **Archivos:** `tests/sdk_serialization.rs`
@@ -154,7 +154,7 @@ description: "cargo test --test sdkserialization verde Y test wire u128 >2^53 re
 - **Verify:** `rg 'Generic\(' src/error.rs` con tipado o doc-diseño citado en ERROR_HANDLING.md
 - **Estado:** ✅ DONE 2026-09-25 — envelope documentado en `error.rs` (module doc) + ERROR_HANDLING.md (principio 7 + §"The `Generic` catch-all (by design)" + changelog). Evaluación de tipado: `ResourceLimit` 12 callers, `Schema` 14, `InvalidInput` 64, `DatabaseBusy` 14, `NoVectorForKey` 4 → **doc-diseño by-design** en los 5 String + `Generic` (R-6 deuda incremental, NO romper callers). `#[non_exhaustive]` ya presente (`error.rs:121`). Verify: `cargo doc` exit 0 (17.9s); `rg -n -B4 'Generic\('` muestra doc-diseño.
 
-### Step 5: cierre ADR-041 + decisión `VantaHeader`
+### Step 5: cierre ADR-0047 + decisión `VantaHeader`
 - **Archivos:** `docs/dev/architecture/adr/ADR-0047-anti-stutter.md`, `src/binary_header.rs:20`, `src/lib.rs:167`
 - **Acción:** leer ADR completo; decidir A/B/C del Spec #5; si renombrar → `git grep VantaHeader` completo + actualizar re-export; si firmar → estado `accepted` + firma
 - **Verify:** ADR sin `proposed`; `cargo check --workspace` verde; `git grep VantaHeader` sin residuos
@@ -189,7 +189,7 @@ description: "cargo test --test sdkserialization verde Y test wire u128 >2^53 re
 - **Fixes del review (sesión 2):**
   - **R1 ✅ aplicado (bug real — regresión de lectura):** `#[serde(default)]` en `QueryResult::Write.node_id` (`src/sdk/types/graph.rs`) — `deserialize_with` bypassea el `missing_field` path de serde_derive. RED verificado: `Error("missing field node_id", line 1 col 45)` → GREEN: `cargo test --test sdk_serialization` **18/18** (17 + test nuevo `test_query_result_write_missing_node_id_defaults_none`).
   - **R2 ✅ aplicado (evidencia):** docstring de `vantadb-python/tests/test_wire_u128.py` corregido (sin falso RED; `query_structured` no pasa por serde — el mapping `to_string()` es pre-existente desde `d7fc09ba`); `vantadb-node/tests/api.test.ts` precisado (ejercita `MemoryRecord.node_id` vía napi; el binding Node no expone `query`/`QueryResult` → esa variante la cubren TS/WASM).
-  - **R3 ✅ resuelto (lead, 2026-09-25):** waiver registrado en ADR-041 — decisión owner **B** ya aplicada (Step 5); firma formal del umbrella diferida a **HIG-02** (ya catalogada, sin deuda nueva); contadores reconciliados (0 incógnitas / 0 pendientes — la firma NO es deuda de API-01). Spec fila 5 actualizada a decidido-por-owner.
+  - **R3 ✅ resuelto (lead, 2026-09-25):** waiver registrado en ADR-0047 — decisión owner **B** ya aplicada (Step 5); firma formal del umbrella diferida a **HIG-02** (ya catalogada, sin deuda nueva); contadores reconciliados (0 incógnitas / 0 pendientes — la firma NO es deuda de API-01). Spec fila 5 actualizada a decidido-por-owner.
 - **Veredicto:** ✅ **APPROVE** — re-review post R1/R2/R3 (2026-09-25): R1 ✅ (18/18 + método independiente: no-regression), R2 ✅ (Py 2/2, Node 28/28), R3 ✅ (waiver + counters; única corrección restante — tabla P2-03 — aplicada). Regresiones nuevas: ninguna. WIP ajeno (WIRE-10) exento y confirmado.
 
 ## Notas
@@ -197,8 +197,8 @@ description: "cargo test --test sdkserialization verde Y test wire u128 >2^53 re
 - El plan padre (`api-ejecucion.md`) marca `Autonomous: false`: la ejecución se lanza con GO explícito del owner.
 - Stop conditions del plan: appetite >1sem → partir tipos vs errores; codegen sin consenso → manual 1 vez + DEFER codegen.
 - Gate P ya aprobó 4/4 recomendadas (score-todos, array-objetos, cursor+has_more, core-only memory) — no re-abrir.
-- **Progreso 2026-09-25 (lead):** Steps 1-2 ✅ (RED→GREEN). Nota de entorno: el MCP server de esta sesión corre `target/debug/vanta-cli.exe` → el relink del bin está bloqueado; los builds de test usan target dir dedicado `target/session-api01` (check/clippy/fmt del gate no lockean). Evidencia: RED `node_id: 9223372036854775815` → GREEN 17/17 + `verify_changed` 4/4. Pendiente: Steps 3-8 (docs `FilterOp`, error envelope, ADR-041, casing, P2-8, tests wire 4 bindings).
+- **Progreso 2026-09-25 (lead):** Steps 1-2 ✅ (RED→GREEN). Nota de entorno: el MCP server de esta sesión corre `target/debug/vanta-cli.exe` → el relink del bin está bloqueado; los builds de test usan target dir dedicado `target/session-api01` (check/clippy/fmt del gate no lockean). Evidencia: RED `node_id: 9223372036854775815` → GREEN 17/17 + `verify_changed` 4/4. Pendiente: Steps 3-8 (docs `FilterOp`, error envelope, ADR-0047, casing, P2-8, tests wire 4 bindings).
 - **Progreso 2026-09-25 (sesión 2 / vanta-worker):** Steps 3, 4, 6 ✅; Step 0 ✅ (lecturas completas). Step 5 evidencia+recomendación B listas (firma owner = BLOQUEO). Step 7 ✅ pre-existente (commit `9dcbff5a`, HashSet en `lib.rs:752-784`, test `:2720`). Step 8: core 17/17, Python 2/2, Node 28/28, TS 1/1 (pkg wasm prebuilt = bigint exacto; rebuild `wasm-pack build --release` en curso para verificar string del `u128_serde`); WASM test inline añadido, run `wasm-pack test --node` pendiente. Verify: `cargo doc` ×2 ✅, `tsc --noEmit` ✅, `cargo check -p vantadb_py` ✅.
 - **Cierre verificado 2026-09-25 (sesión 2):** contrato mecánico COMPLETO — `cargo test --test sdk_serialization` 17/17 ✅ · wire u128 >2^53 en los 4 bindings ✅ (Py `test_wire_u128.py` 2/2; TS `wire-u128.test.ts` 1/1; Node `api.test.ts` 28/28; WASM `wasm-pack test --node` 30/30) · `rg 'Generic\('` con doc-diseño ✅ · `dev-tools/verify_changed.ps1` 4/4 ✅ (fmt/check/clippy/docs-coverage, `target/session-api01`). Rebuild wasm: `wasm-pack build --release` 3m05s + `node dev-tools/build-wasm-types.mjs`; pkg fresco verificado manualmente → `typeof string, value 9007199254740993`. OCR preview ejecutado (advisory; sin API key no hay rule delegation) → sin Critical/High detectables; self-check contra `api-contract.md` R-1..R-8 OK (solo doc comments + tests; sin unwrap/unsafe/deps nuevas en código no-test). **WIP ajeno detectado en el working tree** (sesión concurrente WIRE-09: `src/sdk/api.rs`, `src/storage/engine/mod.rs`, `vanta-proxy/*`, etc.) — NO tocar/commitear como parte de API-01.
-- **Review-fix 2026-09-25 (sesión 3, R1+R2):** `src/sdk/types/graph.rs` `#[serde(default)]` + test `test_query_result_write_missing_node_id_defaults_none` (RED `missing field node_id` → GREEN 18/18); evidencia corregida en Py/Node tests. R3 (ADR-041 + contadores) delegado al lead. **Nota de gate:** `verify_changed.ps1` global queda rojo por WIP ajeno de la sesión WIRE-10 — `fmt` falla solo en `src/cli_handlers/mcp_call.rs:97` (untracked, sin formatear) y `docs-coverage` solo en `cli.rs → mcp-call` (comando nuevo sin doc). Scoped a API-01: `cargo check` ✅, `cargo clippy -D warnings` ✅, `cargo fmt` sin hallazgos en mis archivos ✅, docs-coverage sin hallazgos en superficies API-01 ✅, `cargo test --test sdk_serialization` 18/18 ✅, pytest 2/2 ✅, Node 28/28 ✅.
+- **Review-fix 2026-09-25 (sesión 3, R1+R2):** `src/sdk/types/graph.rs` `#[serde(default)]` + test `test_query_result_write_missing_node_id_defaults_none` (RED `missing field node_id` → GREEN 18/18); evidencia corregida en Py/Node tests. R3 (ADR-0047 + contadores) delegado al lead. **Nota de gate:** `verify_changed.ps1` global queda rojo por WIP ajeno de la sesión WIRE-10 — `fmt` falla solo en `src/cli_handlers/mcp_call.rs:97` (untracked, sin formatear) y `docs-coverage` solo en `cli.rs → mcp-call` (comando nuevo sin doc). Scoped a API-01: `cargo check` ✅, `cargo clippy -D warnings` ✅, `cargo fmt` sin hallazgos en mis archivos ✅, docs-coverage sin hallazgos en superficies API-01 ✅, `cargo test --test sdk_serialization` 18/18 ✅, pytest 2/2 ✅, Node 28/28 ✅.
 - **Deuda/hallazgos de esta iteración (FIND candidatos, no creados aún):** (a) `vantadb-ts/src/types.ts` declara `Write.node_id?: string` mientras el pkg WASM prebuilt devuelve `bigint` — alinear tras rebuild verificado; (b) `vantadb-wasm/src/vantadb_wasm.d.ts:421-425` documenta shape `IqlResult {kind}` que no coincide con el `QueryResult` externamente etiquetado (`{Read}|{Write}|…`) — drift ya anotado en `vantadb.ts:1112`; (c) `scripts/anti_stutter_map.json:94` cita razón incorrecta para la exclusión `VantaHeader` (ver ADR §Evidencia adicional).

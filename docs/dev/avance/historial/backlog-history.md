@@ -158,7 +158,7 @@ Re-scopeadas (siguen en catálogo, alcance ajustado al modelo Studio):
 
 - **DESKTOP-23** → persistencia de preferencias UI (tema/layout/lentes/filtros), no "vías guardadas".
 - **DESKTOP-26** → tests frontend del Studio (vitest, hoy no configurado); Rust ya tiene tests.
-- **DESKTOP-27** → docs + ADR del modelo real (transporte pluggable; ADR-026/027/028 ya existen), no multi-connection 6 vías.
+- **DESKTOP-27** → docs + ADR del modelo real (transporte pluggable; ADR-0026/027/028 ya existen), no multi-connection 6 vías.
 
 Priorizadas:
 

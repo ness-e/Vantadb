@@ -15,7 +15,7 @@ tags: [vantadb, api, graphrag, retrieval]
 > any binding yet — there is no `graphrag_search` method on the Python, WASM,
 > TypeScript, or Node bindings.
 >
-> **Naming (ADR-041 anti-stutter):** `Embedded` is canonical (legacy
+> **Naming (ADR-0047 anti-stutter):** `Embedded` is canonical (legacy
 > `VantaEmbedded` alias removed in 0.6.0, AST-010).
 
 ## Rust

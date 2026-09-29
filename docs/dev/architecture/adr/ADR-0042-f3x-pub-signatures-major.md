@@ -25,7 +25,7 @@ cambio (B2 del review): `release_mmap_vector` se mueve de módulo con cuerpo id�
 ## Decisión
 
 **ADR + major:** migrar las 6 firmas a los traits en este cambio, documentado como
-breaking en el changelog (mismo precedente que ADR-041). No se deja la hoja a medias:
+breaking en el changelog (mismo precedente que ADR-0041). No se deja la hoja a medias:
 o el ciclo se rompe de verdad o no se hace (la opción parcial B dejaba el gate en rojo).
 
 ## Consecuencias

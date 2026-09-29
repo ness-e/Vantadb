@@ -62,7 +62,7 @@ y dejar `web/` lista para extracción. Sin reescribir historia git en ningún mo
   Dependabot ya está en modo solo-alertas: no vuelve el ruido. Contrato: PRs abiertos = solo vivos.
 - [x] C-08 · ✅ 2026-09-25: check requerido `Analyze` provisto por `sec-codeql.yml` (job `Analyze`, línea 18) — el puntero a `codeql.yml` inexistente ya no existe; `default-setup` = `not-configured` es correcto (advanced setup activo; activarlo lo reemplazaría); 0 alertas abiertas (triage EST-06/07/08 sostenido). Contrato: check verde ✅. Detalle: `docs/dev/avance/activo/ci-cd.md`.
 - [x] C-09 · ✅ 2026-09-22 owner confirma desinstalación (verificado: sin código Greptile en repo — era app de cuenta). Greptile fuera (owner, 2 min, `github.com/settings/installations`).
-- [x] C-10 · README (paridad ES/EN ✅ 7ae4168e; verificado 2026-09-23: workflows de badges existen, links relativos resuelven, colab→develop, Rust→stable; cierre total tras C-02). ✅ 2026-09-25: 4 fixes ES (colab develop, fila examples, ADR-041, Trust block) + verify v3 passed (paridad ES/EN excl. switcher).
+- [x] C-10 · README (paridad ES/EN ✅ 7ae4168e; verificado 2026-09-23: workflows de badges existen, links relativos resuelven, colab→develop, Rust→stable; cierre total tras C-02). ✅ 2026-09-25: 4 fixes ES (colab develop, fila examples, ADR-0047, Trust block) + verify v3 passed (paridad ES/EN excl. switcher).
 
 ## Fase 2 — Extracción `web/` (solo tras Fase 0+1 verdes)
 

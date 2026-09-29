@@ -123,7 +123,7 @@ silently.
 > by the neutral leaf **`src/index_port.rs`** (224 L) + its implementor
 > **`src/index/port_impl.rs`** (424 L), landed in commit **`13f0f729`**
 > ("feat!: trait-split storage-index con hoja neutral + 6 firmas a traits")
-> under **ADR-042** (accepted — human Gate V decision, option A; the six `pub`
+> under **ADR-0042** (accepted — human Gate V decision, option A; the six `pub`
 > signatures that named `CPIndex` concretely migrated to the sealed traits as a
 > documented breaking change). `storage/engine` orchestrates through
 > `IndexPort`/`MmapBackend`/`VectorStoreRef`; the index side names only the leaf

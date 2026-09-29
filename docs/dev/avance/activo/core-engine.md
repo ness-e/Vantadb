@@ -394,7 +394,7 @@ s_len‖ns‖key_len‖key‖ver BE) + hooks put/put_batch/delete/purge_expired 
 ### FIND-44: ADRs iniciales — verificación idempotente (2026-08-28)
 - **Fecha:** 2026-08-28
 - **Objetivo:** Verificar que el proyecto tiene ADRs registrados (contrato: count >= 1 con headers Context/Decision/Consequences)
-- **Resultado:** ✅ 39 ADRs encontrados en `docs/dev/architecture/adr/` (001..013, ADR-0001, ADR-014..032, COMP-*, DRV-*). ADR-0001 (`ADR-0001-unified-config-readonly.md`) tiene Context/Decision/Consequences ✅. CodeGraph reporte Fase 12 ("Sin ADRs registrados") era stale — ADRs existen desde 2026-08-23.
+- **Resultado:** ✅ 39 ADRs encontrados en `docs/dev/architecture/adr/` (001..013, ADR-0001, ADR-0014..032, COMP-*, DRV-*). ADR-0001 (`ADR-0001-unified-config-readonly.md`) tiene Context/Decision/Consequences ✅. CodeGraph reporte Fase 12 ("Sin ADRs registrados") era stale — ADRs existen desde 2026-08-23.
 - **Commit:** `docs: FIND-44 — verify ADRs exist, contract satisfied` (pendiente)
 
 ### CORE-01: Persistencia on-disk de vectores Binary/Turbo/SQ8 en vstore (2026-08-29)

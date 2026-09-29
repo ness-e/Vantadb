@@ -17,7 +17,7 @@ it is disconnected (only tests consume it) and of partial schema (id +
 flattened vectors — does not cover the `VantaMemoryRecord` shape). This ADR
 records the decision to **keep the current per-binding serialization**, the
 rationale (why each copy is deliberate), and the measurable reopen signal.
-It is the deferral branch left open by ADR-021.
+It is the deferral branch left open by ADR-0021.
 
 ## Context
 
@@ -87,7 +87,7 @@ Rationale:
    pyarrow and unsafe FFI at the boundary (Regla 2: requires audit).
 5. **Current volumes do not justify the cost** (see Context).
 
-This ADR resolves the pending item left open by ADR-021 ("FND-04 (Python/Node
+This ADR resolves the pending item left open by ADR-0021 ("FND-04 (Python/Node
 zero-copy plan or deferral ADR) remain open") on the **deferral** branch.
 
 ### Future plan signed (implement only if the reopen signal appears)
@@ -132,7 +132,7 @@ signal.
 
 ## Related
 
-- ADR-021 — zero-copy Arrow architecture record (this ADR is the deferral
+- ADR-0021 — zero-copy Arrow architecture record (this ADR is the deferral
   branch it left open for FND-04).
 - FND-04 report: `docs/dev/research/FND-04-arrow-zero-copy.md` (evidence
   source for this decision).

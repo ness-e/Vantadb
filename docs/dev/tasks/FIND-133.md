@@ -27,7 +27,7 @@ description: src/sdk/types.rs (head + re-exports) · src/metrics/core/snapshot.r
   `src/storage/vfile.rs:112` · `src/server/state.rs:15,114-134` · `src/llm.rs` (vía semver) ·
   `src/graph.rs` (vía semver) · `src/planner.rs:180` · `src/migration.rs:13`.
 - **Relacionados (leídos):** `docs/dev/architecture/adr/ADR-0014-pitr.md` (SUPERSEDED, removal documentado),
-  `ADR-0006-rrf-constant.md`, ADR-041 (major directo sin aliases), ADR-0042 (fallo semver documentado),
+  `ADR-0006-rrf-constant.md`, ADR-0041 (major directo sin aliases), ADR-0042 (fallo semver documentado),
   `release-plz.toml` (semver_check=true), `docs/CHANGELOG.md` ([Unreleased] ya acumula BREAKING 0.x),
   `.github/workflows/ci-rust-10.yml:90-126` (scope: main + PR-a-main; en develop rojo esperado),
   baseline `vantadb-0.5.0` del registry (tipos/firmas originales como evidencia).
@@ -51,7 +51,7 @@ build rustdoc >10 min; resultado completo capturado.
 | 2 | `wal_archiver` mod + `WalArchiver`/`PitrRestorer`/`WalArchiveConfig` + feature `pitr` fuera | eliminado (`Test-Path src/wal_archiver.rs` = False; `pitr` sin match en Cargo.toml) | INTENCIONAL (+ADR existe) | `bde2fc9e FIND-26 remove dead PITR` + ADR-0014 SUPERSEDED (dead code, cero call sites) |
 | 3 | `VantaConfig` fuera | `src/config.rs` (solo `HotReloadConfig` matchea) | INTENCIONAL (+ADR existe) | ADR-0043 F3C split-config-datos |
 | 4 | planner consts (`RRF_K`, `MAX/MIN_CANDIDATE_BUDGET`, `CANDIDATE_MULTIPLIER`) + fns (`trimmed_text_query`, `fuse_rrf[_with_report]`, `hybrid_candidate_budget`, `sort_hits`) fuera | `src/planner.rs` (solo mención en comentario ponytail :180) | INTENCIONAL | `6a50b8ee feat(planner): SearchProfileConfig per request (MEM-01)` los supersede; ADR-0006 contexto RRF |
-| 5 | `LogicalOperator` +`TextFilter`/+`Dedup` (shifts 4→5…8→10); `BackendPartition` +`SparseIndex`/+`Versions` (`InternalMetadata` 7→8); `DistanceMetric::SparseDot`; `Condition::TextMatch`; `WalRecord::Prepare`; `FormatKind::File` nuevo / `::VantaFile` fuera | `query.rs:368-411`, `backend.rs:50-55`, `vector_data.rs:20`, `migration.rs:13`, `wal.rs:80` | INTENCIONAL | features 0.6.0 (sparse ADR-011/019, VS-CORE-07 versions, dedup C2S6, migración formato); shifts = efecto colateral de inserción, no cambio semántico |
+| 5 | `LogicalOperator` +`TextFilter`/+`Dedup` (shifts 4→5…8→10); `BackendPartition` +`SparseIndex`/+`Versions` (`InternalMetadata` 7→8); `DistanceMetric::SparseDot`; `Condition::TextMatch`; `WalRecord::Prepare`; `FormatKind::File` nuevo / `::VantaFile` fuera | `query.rs:368-411`, `backend.rs:50-55`, `vector_data.rs:20`, `migration.rs:13`, `wal.rs:80` | INTENCIONAL | features 0.6.0 (sparse ADR-0011/019, VS-CORE-07 versions, dedup C2S6, migración formato); shifts = efecto colateral de inserción, no cambio semántico |
 | 6 | `QueryResult` struct→enum | `sdk/types/graph.rs:14` | INTENCIONAL | `e3711dea FIND-49 split sdk types por dominio` |
 | 7 | `Commands` growth (`Put.metadata` :58, `Export.format` :117, `Restore.dry_run` :164, `Server.allow_insecure/dashboard_dir`, `Doctor` unit→struct :168, `WalCommand::Salvage` + non-unit :416-424) | `src/cli.rs` | INTENCIONAL | CLI features (export md, doctor fix/force, salvage); leído :40-179 |
 | 8 | Campos nuevos (`OperationalMetricsSnapshot` +14, `ServerState` +7, `Query`/`LogicalPlan.search_profile`, `Edge.created_at_ms`, `Cli.memory_limit`) | `snapshot.rs` (leído completo), `state.rs:114-134`, `query.rs:105,431`, `edge.rs:22`, `cli.rs:32` | INTENCIONAL | MEM-34/MEM-01/OLD-21 métricas; refactor server (pool vs semaphore) |
@@ -66,13 +66,13 @@ build rustdoc >10 min; resultado completo capturado.
 pero `enum_variant_added` persiste en los mismos enums → 21/21 categorías seguirían rojas;
 churn en archivos hot sin cambio de outcome = anti-ponytail. `#[non_exhaustive]`/`#[doc(hidden)]`
 tampoco restauran compat vs 0.5.0 (solo valen para tipos NUEVOS). Aliases de compat rechazados
-por precedente AST-010/ADR-041.
+por precedente AST-010/ADR-0041.
 
 ## Impacto mapeado (Regla 0)
 
 - **Leídos completos:** lista en Alcance + plan file · pipeline-full.md · rules core-engine/release-ci ·
   definition-of-done · dev-tools · release-plz.toml · Cargo.toml (workspace v0.5.0, tag v0.5.0) ·
-  ADR-006/014/041/042 · `ci-rust-10.yml:85-144` · baseline registry 0.5.0.
+  ADR-0006/014/041/042 · `ci-rust-10.yml:85-144` · baseline registry 0.5.0.
 - **Hacia dentro:** revertir cualquier ítem = borrar features de develop (MEM-01/34, OLD-21, FIND-49,
   AST-002/010, FIND-26, F3C, C2S3b…) o reintroducir estado eliminado; compilación interna colapsaría.
 - **Entrantes:** `QueryResult` ← `sdk/types.rs`; `AccessTracker` ← `node/mod.rs`;
@@ -116,4 +116,4 @@ NO PUSH (solo vanta-lead). Recitation in-progress + RESULTADO §7 abajo.
 - **Gate C (pregunta sin tool → motivo):** owner elige (A) aceptar rojo-en-develop hasta release 0.6.0
   vía release-plz (=也会 hacer pasar el job en main post-bump), o (B) exigir verde-ya (= revert masivo
   destructivo, desaconsejado). Sin `question` tool disponible → se registra y se devuelve INCOMPLETO.
-- Precedentes intencional-major: ADR-041, ADR-0042, AST-010, CHANGELOG [Unreleased] "BREAKING (0.x)".
+- Precedentes intencional-major: ADR-0041, ADR-0042, AST-010, CHANGELOG [Unreleased] "BREAKING (0.x)".

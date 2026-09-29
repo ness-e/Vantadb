@@ -17,20 +17,20 @@ El triage exhaustivo (`docs/dev/tasks/FIND-133.md`, 14 grupos con evidencia cód
 concluye que **el 100% es evolución intencional de develop**: de-prefix SDK `Vanta*`
 (AST-002/AST-010, `refactor!:`), split de tipos (FIND-49), SearchProfile per-request (MEM-01),
 métricas L1/L2/L3/recall (MEM-34), routing flat/IVF/HNSW (OLD-21), remoción PITR muerta
-(FIND-26), split config-datos (ADR-043), CacheLayer (C2S3b), rediseño agentic threads,
-contrato providers (ADR-033), CLI features, graceful shutdown WAL. Cero accidentales.
+(FIND-26), split config-datos (ADR-0043), CacheLayer (C2S3b), rediseño agentic threads,
+contrato providers (ADR-0033), CLI features, graceful shutdown WAL. Cero accidentales.
 
 El propio CI ya contempla este estado (`ci-rust-10.yml:97-101`: en develop la comparación
 es "ruido" mientras se acumula pre-release hacia 0.6.0; el job solo corre en main/PR-a-main).
 `cargo-semver-checks --release-type` deriva del número de versión: el verde llega con el
-bump 0.5.0→0.6.0. Precedentes: ADR-041 y ADR-042 (major directo documentado, sin aliases),
+bump 0.5.0→0.6.0. Precedentes: ADR-0041 y ADR-0042 (major directo documentado, sin aliases),
 AST-010 ("rename directo, 0 usuarios"), CHANGELOG [Unreleased] con entradas "BREAKING (0.x)".
 
 ## Decision
 
 No revertir ningún breaking. La versión se bumpa **solo vía release-plz** (los commits
 `refactor!:`/`feat!:` ya en historia + `semver_check=true` producen el minor 0.6.0 en main);
-bump manual prohibido. No se añaden aliases de compatibilidad (precedente AST-010/ADR-041:
+bump manual prohibido. No se añaden aliases de compatibilidad (precedente AST-010/ADR-0041:
 deuda de compatibilidad rechazada). El rojo-en-develop se acepta hasta el release 0.6.0.
 
 ## Consequences

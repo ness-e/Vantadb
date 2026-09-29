@@ -57,7 +57,7 @@ Rules for the migration window:
 > TS-side: [`TS_SDK.md` → "Score, not distance (W1/API-02)"](TS_SDK.md#score-not-distance-w1api-02-supersedes-code-091).
 > Node-side: [`NODE_SDK.md` → Search § "Score is relevance, not a distance (WSM-10)"](NODE_SDK.md#search).
 >
-> **Naming (ADR-041 anti-stutter):** canonical names are `MemorySearchHit.score`
+> **Naming (ADR-0047 anti-stutter):** canonical names are `MemorySearchHit.score`
 > (memory/hybrid search) and `SearchHit.distance` (raw ANN). Legacy aliases
 > `VantaMemorySearchHit` / `VantaSearchHit` were removed in 0.6.0 (AST-010).
 
@@ -100,7 +100,7 @@ the binding source (`search_hit_to_js`, `put_batch`, `search_multi`) is the
 reference implementation for the matrix. A new W1 capability must land in all
 four bindings with a matrix row.
 
-## v2 wire parity (SCH-07, ADR-046)
+## v2 wire parity (SCH-07, ADR-0046)
 
 > **Status:** normative as of SCH-07 (wave F3.5). The v2 fields and query
 > params cross every binding with the **same wire names** as the core serde
