@@ -91,6 +91,12 @@ tags: [vantadb, avance, web, frontend, seo, docs-site]
 
 ### UX-Х por lib.
 
+> **Nota:** el cuerpo de esta sección no está en el documento y no se ha
+> recuperado del historial de git. No se ha escrito aquí porque deducirlo sería
+> inventarlo. El encabezado además está truncado (`UX-Х`): el índice y el texto
+> no son recuperables. Registrado 2026-09-29; véase
+> `docs/dev/plans/2026-09-28-docs-consolidation.md`.
+
 ---
 
 ## Deploy & credibilidad

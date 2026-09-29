@@ -130,14 +130,10 @@ Select-String -Path server.json -Pattern "modelcontextprotocol" | Measure-Object
 
 ### Step 2: Crear `server.json` raíz
 
-### Step 2: Crear `server.json` raíz
-
 - **Archivos:** `server.json` (nuevo, raíz del repo)
 - **Acción:** escribir el JSON conforme a spec — `name=io.github.ness-e/vantadb`, `description`, `title`, `version=0.5.0`, `repository.url=https://github.com/ness-e/Vantadb`, `repository.source=github`, `websiteUrl=https://github.com/ness-e/Vantadb/blob/develop/docs/api/MCP.md`, `$schema=2025-12-11`, `_meta.publisher-provided` con timestamp 2026-08-29. **No** incluir `packages`/`remotes` (instalación via `cargo install --git`).
 - **Verify:** `Test-Path server.json` → True; `node -e "JSON.parse(require('fs').readFileSync('server.json','utf8'))"` o `python -c "import json; json.load(open('server.json','encoding='utf-8'))"` → exit 0.
 - **Estado:** ✅ COMPLETED
-
-### Step 3: Doc `docs/user/operations/MCP_REGISTRY.md`
 
 ### Step 3: Doc `docs/user/operations/MCP_REGISTRY.md`
 
@@ -148,14 +144,10 @@ Select-String -Path server.json -Pattern "modelcontextprotocol" | Measure-Object
 
 ### Step 4: Vincular desde `docs/api/MCP.md`
 
-### Step 4: Vincular desde `docs/api/MCP.md`
-
 - **Archivos:** `docs/api/MCP.md` (existente; agregar una sub-sección al final)
 - **Acción:** sección "## Registry manifest" → link a `server.json` (ruta relativa) + link a `docs/user/operations/MCP_REGISTRY.md`. ~15 líneas.
 - **Verify:** `Select-String -Path docs/api/MCP.md -Pattern "server\.json"` → 1 hit mínimo.
 - **Estado:** ✅ COMPLETED
-
-### Step 5: Verify full del contrato
 
 ### Step 5: Verify full del contrato
 
@@ -166,8 +158,6 @@ Select-String -Path server.json -Pattern "modelcontextprotocol" | Measure-Object
   4. `git status` → solo `server.json` + `docs/user/operations/MCP_REGISTRY.md` + `docs/api/MCP.md` modificados
 - **Verify:** todos ✅.
 - **Estado:** ✅ COMPLETED (medido: Test-Path=True, count=2, parse OK, sections=8, server.json=3, master-index=1)
-
-### Step 6: Stage + reportar (NO commit)
 
 ### Step 6: Stage + reportar (NO commit)
 
