@@ -388,3 +388,138 @@ fn bulk_import_rejects_explicit_zero_valid_at() {
     );
     assert!(db.get("bulk", "z").expect("get").is_none());
 }
+
+// ─── SCH-06: roundtrip v1↔v2 (D7) — fixture v1 + wire v2 full-field ─────
+
+#[test]
+fn v1_fixture_re_exports_as_normalized_v2_and_reimports_lossless() {
+    let source_dir = tempdir().expect("source");
+    let out_dir = tempdir().expect("out");
+    let third_dir = tempdir().expect("third");
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("fixtures")
+        .join("export-v1.jsonl");
+
+    // v1 sigue importable (D7) — 2 lines, one superseded.
+    let source = Embedded::open(source_dir.path()).expect("open source");
+    let report = source.import_file(&fixture, false).expect("import v1");
+    assert_eq!(report.inserted, 2);
+    assert_eq!(report.errors, 0);
+
+    let alpha = source
+        .get("legacy", "v1-alpha")
+        .expect("get")
+        .expect("alpha");
+    assert_eq!(
+        alpha.valid_at_ms, 1000,
+        "v1 normaliza valid_at := created_at"
+    );
+    assert_eq!(alpha.confidence, default_confidence());
+    let superseded = source
+        .get("legacy", "v1-superseded")
+        .expect("get")
+        .expect("superseded");
+    assert_eq!(
+        superseded.invalid_at_ms,
+        Some(1500),
+        "JSONL v1 normaliza invalid_at := superseded_at (D7 #3)"
+    );
+
+    // Re-export: always v2, with the normalized values materialized.
+    let reexport = out_dir.path().join("reexport.jsonl");
+    source.export_all(&reexport).expect("re-export");
+    let content = fs::read_to_string(&reexport).expect("read re-export");
+    let mut seen_superseded = false;
+    for line in content.lines() {
+        let parsed: serde_json::Value = serde_json::from_str(line).expect("parse line");
+        assert_eq!(
+            parsed["schema_version"].as_u64(),
+            Some(2),
+            "export always v2"
+        );
+        if parsed["key"] == serde_json::json!("v1-superseded") {
+            seen_superseded = true;
+            assert_eq!(parsed["invalid_at_ms"].as_u64(), Some(1500));
+            assert_eq!(parsed["confidence"].as_f64(), Some(1.0));
+            assert_eq!(parsed["valid_at_ms"].as_u64(), Some(1000));
+        }
+    }
+    assert!(seen_superseded, "the superseded fixture line re-exports");
+
+    // ida y vuelta: re-import the v2 export — normalized values survive.
+    let third = Embedded::open(third_dir.path()).expect("open third");
+    let import = third.import_file(&reexport, false).expect("re-import");
+    assert_eq!(import.inserted, 2);
+    assert_eq!(import.errors, 0);
+    assert_eq!(
+        third.get("legacy", "v1-superseded").expect("get").unwrap(),
+        superseded
+    );
+}
+
+#[test]
+fn all_new_v2_fields_survive_wire_roundtrip() {
+    let source_dir = tempdir().expect("source");
+    let mid_dir = tempdir().expect("mid");
+    let final_dir = tempdir().expect("final");
+
+    // Hand-written v2 wire lines (schema_version 2). `rich` carries every new
+    // field populated; `derived` carries the computed-score transport shape.
+    let lines = [
+        r#"{"schema_version":2,"namespace":"wire","key":"rich","payload":"wire payload","metadata":{},"vector":[0.5,0.25],"created_at_ms":1000,"updated_at_ms":2000,"version":3,"expires_at_ms":null,"superseded_by":"succ","superseded_at_ms":2222,"valid_at_ms":1111,"invalid_at_ms":2222,"confidence_class":"Asserted","confidence":0.42,"last_validated_at_ms":3333,"derived_from":[],"quarantined_at_ms":4444,"quarantine_reason":"explicit_write","quarantined_by":"system:test","quarantine_review_due_ms":5555}"#,
+        r#"{"schema_version":2,"namespace":"wire","key":"derived","payload":"derived payload","metadata":{},"vector":null,"created_at_ms":3000,"updated_at_ms":3000,"version":1,"expires_at_ms":null,"superseded_by":null,"superseded_at_ms":null,"valid_at_ms":3000,"invalid_at_ms":null,"confidence_class":"Derived","confidence":0.378,"last_validated_at_ms":null,"derived_from":["rich"],"quarantined_at_ms":null,"quarantine_reason":null,"quarantined_by":null,"quarantine_review_due_ms":null}"#,
+    ];
+    let wire_path = source_dir.path().join("wire-v2.jsonl");
+    fs::write(&wire_path, lines.join("\n") + "\n").expect("write wire lines");
+
+    let source = Embedded::open(source_dir.path()).expect("open source");
+    let report = source.import_file(&wire_path, false).expect("import v2");
+    assert_eq!(report.inserted, 2);
+    assert_eq!(report.errors, 0);
+
+    let rich = source.get("wire", "rich").expect("get").expect("rich");
+    assert_eq!(rich.valid_at_ms, 1111);
+    assert_eq!(rich.invalid_at_ms, Some(2222));
+    assert_eq!(rich.confidence, 0.42);
+    assert_eq!(rich.last_validated_at_ms, Some(3333));
+    assert_eq!(rich.quarantined_at_ms, Some(4444));
+    assert_eq!(rich.quarantine_reason.as_deref(), Some("explicit_write"));
+    assert_eq!(rich.quarantined_by.as_deref(), Some("system:test"));
+    assert_eq!(rich.quarantine_review_due_ms, Some(5555));
+    let derived = source
+        .get("wire", "derived")
+        .expect("get")
+        .expect("derived");
+    assert_eq!(derived.confidence_class, ConfidenceClass::Derived);
+    assert_eq!(derived.confidence, 0.378);
+    assert_eq!(derived.derived_from, vec!["rich".to_string()]);
+
+    // Quarantine survives the wire and stays visible-with-state on get.
+    assert_eq!(
+        source
+            .get("wire", "rich")
+            .expect("get")
+            .expect("rich")
+            .quarantined_at_ms,
+        Some(4444)
+    );
+
+    // ida y vuelta ×2: export → import → export → import, full struct equality.
+    let export1 = source_dir.path().join("export1.jsonl");
+    source.export_all(&export1).expect("export 1");
+    let mid = Embedded::open(mid_dir.path()).expect("open mid");
+    mid.import_file(&export1, false).expect("import mid");
+    assert_eq!(mid.get("wire", "rich").expect("get").unwrap(), rich);
+    assert_eq!(mid.get("wire", "derived").expect("get").unwrap(), derived);
+
+    let export2 = mid_dir.path().join("export2.jsonl");
+    mid.export_all(&export2).expect("export 2");
+    let final_db = Embedded::open(final_dir.path()).expect("open final");
+    final_db.import_file(&export2, false).expect("import final");
+    assert_eq!(final_db.get("wire", "rich").expect("get").unwrap(), rich);
+    assert_eq!(
+        final_db.get("wire", "derived").expect("get").unwrap(),
+        derived
+    );
+}
