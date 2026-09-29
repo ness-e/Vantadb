@@ -60,7 +60,9 @@ fn export_import_namespace_round_trip() {
     assert_eq!(export.namespaces, vec!["agent/main".to_string()]);
 
     let target = Embedded::open(target_dir.path()).expect("open target");
-    let import = target.import_file(&export_path).expect("import file");
+    let import = target
+        .import_file(&export_path, false)
+        .expect("import file");
     assert_eq!(import.inserted, 2);
     assert_eq!(import.updated, 0);
     assert_eq!(import.errors, 0);
@@ -117,7 +119,9 @@ fn export_all_import_updates_existing_records() {
         .put(record("agent/main", "a", "stale alpha", "task"))
         .expect("seed stale");
 
-    let import = target.import_file(&export_path).expect("import file");
+    let import = target
+        .import_file(&export_path, false)
+        .expect("import file");
     assert_eq!(import.inserted, 1);
     assert_eq!(import.updated, 1);
     assert_eq!(import.errors, 0);
@@ -205,7 +209,7 @@ fn import_v1_jsonl_line_normalizes_to_v2_defaults() {
     fs::write(&path, format!("{v1_line}\n")).expect("write v1 fixture");
 
     let db = Embedded::open(dir.path()).expect("open");
-    let report = db.import_file(&path).expect("import v1");
+    let report = db.import_file(&path, false).expect("import v1");
     assert_eq!(report.inserted, 1);
     assert_eq!(report.errors, 0);
 
@@ -252,7 +256,7 @@ fn v2_fields_survive_export_import_roundtrip() {
 
     {
         let target = Embedded::open(target_dir.path()).expect("open target");
-        let report = target.import_file(&export_path).expect("import v2");
+        let report = target.import_file(&export_path, false).expect("import v2");
         assert_eq!(report.inserted, 2);
         assert_eq!(report.errors, 0);
 
@@ -267,7 +271,7 @@ fn v2_fields_survive_export_import_roundtrip() {
         target.export_all(&reexport).expect("re-export");
         let third_dir = tempdir().expect("third");
         let third = Embedded::open(third_dir.path()).expect("open third");
-        third.import_file(&reexport).expect("re-import");
+        third.import_file(&reexport, false).expect("re-import");
         let again = third.get("ns/v2", "child").expect("get").expect("child");
         assert_eq!(again, child);
     }

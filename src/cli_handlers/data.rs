@@ -59,6 +59,7 @@ pub fn cmd_export(
                     exclude_superseded: false,
                     as_of_ms: None,
                     valid_window: None,
+                    include_quarantined: true,
                 },
             )
             .map(|p| !p.records.is_empty())
@@ -98,6 +99,7 @@ pub fn cmd_export(
                 exclude_superseded: false,
                 as_of_ms: None,
                 valid_window: None,
+                include_quarantined: true,
             };
             let page = embedded.list(ns, opts)?;
             if page.records.is_empty() {
@@ -175,7 +177,7 @@ pub fn cmd_import(
     let embedded = open_embedded(db_path, false)?;
     spinner.finish_and_clear();
 
-    let report = embedded.import_file(input_path)?;
+    let report = embedded.import_file(input_path, false)?;
     embedded.flush()?;
 
     if json_output {

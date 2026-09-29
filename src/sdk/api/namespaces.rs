@@ -192,6 +192,12 @@ impl Embedded {
         if let Some(window) = &options.valid_window {
             records.retain(|record| record.validity_overlaps(window.from_ms, window.to_ms));
         }
+        // SCH-05 (ADR-046 §D5, MGR-13 §5.1): quarantined content is excluded
+        // by default (same post-filter position as supersession/temporal).
+        // Opt-in via `include_quarantined: true`.
+        if !options.include_quarantined {
+            records.retain(|record| record.quarantined_at_ms.is_none());
+        }
 
         let end_cursor = cursor.saturating_add(limit);
         // A trailing cursor is only valid when this page was actually FULL after
@@ -260,6 +266,10 @@ impl Embedded {
                     exclude_superseded: false,
                     as_of_ms: None,
                     valid_window: None,
+                    // SCH-05: delete_by_filter must still see (and delete)
+                    // quarantined records — the default-exclude is a retrieval
+                    // concern, not a deletion gate (T4 stays reachable).
+                    include_quarantined: true,
                 },
             )?;
             for record in &page.records {
@@ -321,6 +331,10 @@ impl Embedded {
                     exclude_superseded: false,
                     as_of_ms: None,
                     valid_window: None,
+                    // SCH-05: count is not a default-exclude retrieval surface —
+                    // keep counting quarantined records (visible via
+                    // `include_quarantined` list).
+                    include_quarantined: true,
                 },
             )?;
             total += page.records.len() as u64;

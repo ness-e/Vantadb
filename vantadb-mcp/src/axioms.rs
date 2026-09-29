@@ -32,7 +32,11 @@ pub(crate) const HARDCODED_AXIOMS: &str = r#"[
 /// read-only) merged with agent axioms stored as records in the reserved
 /// `_axioms` namespace, sorted by id. Records with an unparseable payload are
 /// skipped rather than failing the whole read.
-pub(crate) fn resolve_axioms(storage: &Arc<StorageEngine>) -> Value {
+///
+/// `include_quarantined` (SCH-05 review F2): `read_axioms` serves only active
+/// axioms (`false`); `write_axiom`'s next-id allocation passes `true` so a
+/// quarantined axiom still occupies its id (ids are never reused).
+pub(crate) fn resolve_axioms(storage: &Arc<StorageEngine>, include_quarantined: bool) -> Value {
     let embedded = vantadb::Embedded::from_engine(storage.clone());
     let mut axioms: Vec<Value> =
         serde_json::from_str(HARDCODED_AXIOMS).unwrap_or_else(|_| Vec::new());
@@ -46,6 +50,7 @@ pub(crate) fn resolve_axioms(storage: &Arc<StorageEngine>) -> Value {
         // SCH-03 temporal params: not exposed here (SCH-07).
         as_of_ms: None,
         valid_window: None,
+        include_quarantined,
     };
     if let Ok(page) = embedded.list(AXIOMS_NAMESPACE, options) {
         for record in page.records {

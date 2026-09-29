@@ -260,6 +260,7 @@ fn arb_list_options_full() -> impl Strategy<Value = MemoryListOptions> {
                 exclude_superseded: false,
                 as_of_ms: None,
                 valid_window: None,
+                include_quarantined: false,
             }
         })
 }
@@ -297,6 +298,7 @@ fn arb_search_request_full() -> impl Strategy<Value = MemorySearchRequest> {
                     exclude_superseded: false,
                     as_of_ms: None,
                     valid_window: None,
+                    include_quarantined: false,
                     min_confidence: None,
                     search_profile: None,
                     range: None,
@@ -394,7 +396,7 @@ proptest! {
     fn test_import_report_json_roundtrip(
         inserted: u64, updated: u64, skipped: u64, errors: u64, duration_ms: u64,
     ) {
-        let report = ImportReport { inserted, updated, skipped, errors, duration_ms };
+        let report = ImportReport { inserted, updated, skipped, errors, duration_ms, quarantined: 0 };
         assert_json(&report);
         assert_postcard(&report);
     }

@@ -7,8 +7,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
 pub use super::super::serialization::vector_types::{
-    GroupByConfig, MemorySearchHit, MemorySearchPage, MemorySearchRequest, MmrConfig, RangeFilter,
-    SearchHit,
+    AbstentionReason, GroupByConfig, MemorySearchHit, MemorySearchPage, MemorySearchRequest,
+    MmrConfig, RangeFilter, SearchHit,
 };
 // WIRE-05: opt-in deterministic entity-cluster boost (fusion-level types,
 // re-exported so the public path is `crate::sdk::types::*`).

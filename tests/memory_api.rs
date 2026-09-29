@@ -154,6 +154,7 @@ fn memory_api_filters() {
                 exclude_superseded: false,
                 as_of_ms: None,
                 valid_window: None,
+                include_quarantined: false,
             },
         )
         .expect("filtered list");
@@ -345,7 +346,7 @@ fn read_only_rejects_mutations_without_changing_db_files() {
 
     assert_read_only_error(read_only.put(MemoryInput::new("agent/main", "blocked-put", "blocked")));
     assert_read_only_error(read_only.delete("agent/main", "readonly"));
-    assert_read_only_error(read_only.import_file(&import_path));
+    assert_read_only_error(read_only.import_file(&import_path, false));
     assert_read_only_error(read_only.rebuild_index());
     assert_read_only_error(read_only.repair_text_index());
     assert_read_only_error(read_only.flush());
@@ -417,6 +418,7 @@ fn memory_euclidean_and_explainable_ranking() {
         min_confidence: None,
         as_of_ms: None,
         valid_window: None,
+        include_quarantined: false,
         search_profile: None,
         range: None,
         group_by: None,
@@ -448,6 +450,7 @@ fn memory_euclidean_and_explainable_ranking() {
         min_confidence: None,
         as_of_ms: None,
         valid_window: None,
+        include_quarantined: false,
         search_profile: None,
         range: None,
         group_by: None,
@@ -530,6 +533,7 @@ fn snippet_with_highlighting() {
         min_confidence: None,
         as_of_ms: None,
         valid_window: None,
+        include_quarantined: false,
         search_profile: None,
         range: None,
         group_by: None,

@@ -69,6 +69,7 @@ impl Embedded {
                     exclude_superseded: false,
                     as_of_ms: None,
                     valid_window: None,
+                    include_quarantined: true,
                 },
             )?;
             if page.records.is_empty() {

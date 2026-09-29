@@ -159,6 +159,12 @@ pub struct MemoryInput {
     /// forbidden (must be ``None``/empty) when asserted (V1).
     #[serde(default)]
     pub derived_from: Option<Vec<String>>,
+    /// Quarantine write-time flag (ADR-046 §D2/§D5, T1): when ``true`` a new
+    /// record enters quarantine (`reason=explicit_write`) and is excluded from
+    /// default retrieval until explicitly promoted. Sticky: a plain re-write
+    /// of an already-quarantined key preserves the state either way (I2).
+    #[serde(default)]
+    pub quarantine: bool,
 }
 
 impl MemoryInput {
@@ -182,6 +188,7 @@ impl MemoryInput {
             confidence_class: None,
             confidence: None,
             derived_from: None,
+            quarantine: false,
         }
     }
 }
@@ -252,7 +259,9 @@ pub struct MemoryRecord {
     #[serde(default)]
     pub quarantined_at_ms: Option<u64>,
     /// Stable reason code: `explicit_write` | `unreviewed_import` |
-    /// `derived_promotion` | `policy_match` (reserved).
+    /// `derived_promotion` | `policy_match` (reserved). The code set is open
+    /// (N3): producers validate lowercase snake_case; future codes don't
+    /// require a schema change.
     #[serde(default)]
     pub quarantine_reason: Option<String>,
     /// Principal that applied the quarantine, or `system:<op>`.
@@ -346,6 +355,11 @@ pub struct MemoryListOptions {
     /// (`from_ms < to_ms`). `None` = no filter (default unchanged).
     #[serde(default)]
     pub valid_window: Option<ValidWindow>,
+    /// SCH-05 (ADR-046 §D5): when `false` (default) quarantined records are
+    /// excluded from the page — same post-filter position as
+    /// `exclude_superseded`. Opt-in with `true` to inspect the quarantine queue.
+    #[serde(default)]
+    pub include_quarantined: bool,
 }
 
 impl Default for MemoryListOptions {
@@ -359,6 +373,7 @@ impl Default for MemoryListOptions {
             exclude_superseded: false,
             as_of_ms: None,
             valid_window: None,
+            include_quarantined: false,
         }
     }
 }
@@ -413,6 +428,10 @@ pub struct ImportReport {
     pub skipped: u64,
     /// Number of records that failed to import.
     pub errors: u64,
+    /// Number of records that entered quarantine because of the import
+    /// `quarantine` option (T1c, ADR-046 §D5; additive v2 field).
+    #[serde(default)]
+    pub quarantined: u64,
     /// Duration of the import in milliseconds.
     pub duration_ms: u64,
 }
@@ -530,6 +549,7 @@ mod tests {
         assert!(input.metadata.is_empty());
         assert!(input.vector.is_none());
         assert!(input.ttl_ms.is_none());
+        assert!(!input.quarantine, "T1 flag defaults off (zero breaking)");
     }
 
     #[test]
@@ -585,10 +605,12 @@ mod tests {
             skipped: 2,
             errors: 1,
             duration_ms: 300,
+            quarantined: 3,
         };
         assert_eq!(r.inserted, 100);
         assert_eq!(r.updated, 10);
         assert_eq!(r.errors, 1);
+        assert_eq!(r.quarantined, 3);
     }
 
     // ---- MemoryRecord ----
@@ -724,6 +746,7 @@ mod tests {
             exclude_superseded: false,
             as_of_ms: None,
             valid_window: None,
+            include_quarantined: false,
         };
         assert_eq!(opts.limit, 50);
         assert_eq!(opts.cursor, Some(10));
@@ -815,6 +838,10 @@ mod tests {
         let back: MemoryListOptions = serde_json::from_str(legacy).unwrap();
         assert_eq!(back.as_of_ms, None);
         assert_eq!(back.valid_window, None);
+        assert!(
+            !back.include_quarantined,
+            "legacy JSON defaults to the default-exclude view (SCH-05)"
+        );
         assert!(back.exclude_superseded);
     }
 
@@ -842,6 +869,7 @@ mod tests {
             skipped: 1,
             errors: 0,
             duration_ms: 100,
+            quarantined: 0,
         };
         let cloned = r.clone();
         assert_eq!(r, cloned);
@@ -937,6 +965,7 @@ mod tests {
         assert_eq!(input.confidence_class, None);
         assert_eq!(input.confidence, None);
         assert_eq!(input.derived_from, None);
+        assert!(!input.quarantine, "v1 absent quarantine flag ⇒ false (T1)");
     }
 
     #[test]

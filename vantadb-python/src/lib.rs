@@ -437,6 +437,7 @@ forward_to_db!(MemoryClient {
                         // (SCH-07); placeholders keep the workspace compiling.
                         as_of_ms: None,
                         valid_window: None,
+                        include_quarantined: false,
                     },
                 )
                 .map_err(map_vanta_error)
@@ -1201,6 +1202,7 @@ impl Client {
             // (SCH-07); placeholders keep the workspace compiling.
             as_of_ms: None,
             valid_window: None,
+            include_quarantined: false,
             search_profile: None,
             range: None,
             group_by: None,
@@ -1305,6 +1307,7 @@ impl Client {
             // SCH-03 temporal params: placeholders (not exposed in Python yet).
             as_of_ms: None,
             valid_window: None,
+            include_quarantined: false,
             search_profile: None,
             range: None,
             group_by: None,
@@ -1505,7 +1508,8 @@ impl Client {
         let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         let path = path.to_string();
-        let report = py.detach(move || engine.import_file(&path).map_err(map_vanta_error))?;
+        let report =
+            py.detach(move || engine.import_file(&path, false).map_err(map_vanta_error))?;
         import_report_to_pydict(py, &report)
     }
 
@@ -2239,6 +2243,7 @@ impl Client {
             min_confidence: None,
             as_of_ms: None,
             valid_window: None,
+            include_quarantined: false,
             search_profile: None,
             range: None,
             group_by: None,
@@ -2409,6 +2414,7 @@ impl Client {
                 min_confidence: None,
                 as_of_ms: None,
                 valid_window: None,
+                include_quarantined: false,
                 search_profile: None,
                 range: None,
                 group_by: None,

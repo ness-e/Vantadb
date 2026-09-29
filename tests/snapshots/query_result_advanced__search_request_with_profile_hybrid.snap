@@ -21,6 +21,7 @@ MemorySearchRequest {
     min_confidence: None,
     as_of_ms: None,
     valid_window: None,
+    include_quarantined: false,
     search_profile: Some(
         SearchProfileConfig {
             mode: Hybrid,

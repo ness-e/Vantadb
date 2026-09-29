@@ -145,6 +145,13 @@ pub struct MemorySearchRequest {
     /// the cursor fingerprint.
     #[serde(default)]
     pub valid_window: Option<ValidWindow>,
+    /// SCH-05 (ADR-046 §D5): when `false` (default) quarantined records are
+    /// excluded from the ranked assembly — quarantined content never reaches
+    /// default retrieval. `true` opts in to inspect the quarantine queue.
+    /// Hashed in the cursor fingerprint (a cursor from another quarantine
+    /// view is rejected).
+    #[serde(default)]
+    pub include_quarantined: bool,
     /// Optional search profile (mode, RRF k, candidate budget) for this request.
     /// `None` uses the core defaults (MEM-01).
     #[serde(default)]
@@ -185,6 +192,7 @@ impl Default for MemorySearchRequest {
             min_confidence: None,
             as_of_ms: None,
             valid_window: None,
+            include_quarantined: false,
             search_profile: None,
             range: None,
             group_by: None,
@@ -200,12 +208,38 @@ impl Default for MemorySearchRequest {
 /// `Some` only when the page is full (`hits.len() == top_k`); a page with fewer
 /// hits is the last page. `next_cursor` is always `None` when `mmr` or
 /// `group_by` is set (pagination is unsupported for those selectors).
+///
+/// Selective abstention (SCH-05, ADR-046 §D2): when a confidence threshold is
+/// configured and no candidates survive it, `abstained` is `true` and
+/// `abstention_reason` carries the stable code — the response is never a
+/// silent empty page. Default (no threshold) leaves both at their defaults.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct MemorySearchPage {
     /// Ranked hits for this page.
     pub hits: Vec<MemorySearchHit>,
     /// Cursor for the next page, or `None` if this was the last page.
     pub next_cursor: Option<String>,
+    /// Explicit abstention signal (mirrors ADR-046 §D2): `true` when the
+    /// configured confidence threshold filtered every candidate.
+    #[serde(default)]
+    pub abstained: bool,
+    /// Stable abstention reason code; `None` unless `abstained`.
+    #[serde(default)]
+    pub abstention_reason: Option<AbstentionReason>,
+}
+
+/// Stable abstention reason codes (ADR-046 §D2, MGR-13 §5.3):
+/// `no_candidates_above_threshold` (the configured threshold filtered every
+/// candidate) or `all_quarantined` (every candidate was quarantined and the
+/// default-exclude gate removed them). `#[non_exhaustive]` — may grow.
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AbstentionReason {
+    /// No candidate reached the configured confidence threshold.
+    NoCandidatesAboveThreshold,
+    /// Every candidate was quarantined (excluded by default).
+    AllQuarantined,
 }
 
 /// Stable vector search hit for external SDKs.
@@ -265,6 +299,7 @@ mod tests {
             min_confidence: None,
             as_of_ms: None,
             valid_window: None,
+            include_quarantined: false,
             search_profile: None,
             range: None,
             group_by: None,
@@ -293,6 +328,7 @@ mod tests {
             min_confidence: None,
             as_of_ms: None,
             valid_window: None,
+            include_quarantined: false,
             search_profile: None,
             range: None,
             group_by: None,
@@ -370,10 +406,30 @@ mod tests {
         let page = MemorySearchPage {
             hits: Vec::new(),
             next_cursor: Some("token".into()),
+            abstained: false,
+            abstention_reason: None,
         };
         let json = serde_json::to_string(&page).unwrap();
         let back: MemorySearchPage = serde_json::from_str(&json).unwrap();
         assert_eq!(back, page);
+
+        // SCH-05: the abstention signal roundtrips with its stable code.
+        let abstained = MemorySearchPage {
+            hits: Vec::new(),
+            next_cursor: None,
+            abstained: true,
+            abstention_reason: Some(AbstentionReason::AllQuarantined),
+        };
+        let json = serde_json::to_string(&abstained).unwrap();
+        assert!(json.contains("\"all_quarantined\""), "code is snake_case");
+        let back: MemorySearchPage = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, abstained);
+
+        // Legacy page JSON (pre-SCH-05) deserializes with defaults off.
+        let legacy = r#"{"hits":[],"next_cursor":null}"#;
+        let back: MemorySearchPage = serde_json::from_str(legacy).unwrap();
+        assert!(!back.abstained);
+        assert_eq!(back.abstention_reason, None);
     }
 
     #[test]

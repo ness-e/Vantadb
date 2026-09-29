@@ -626,7 +626,7 @@ impl Client {
                 .map_err(|e| JsValue::from(js_sys::Error::new(&e.to_string())))?;
             db.populate_cache_from_records(&records);
             if !records.is_empty() {
-                db.inner.import_records(records).map_err(to_js_err)?;
+                db.inner.import_records(records, false).map_err(to_js_err)?;
             }
         }
         // CORE-02: restore the graph store alongside the memory records.
@@ -695,6 +695,7 @@ impl Client {
                     // SCH-03 temporal params: not exposed here (SCH-07).
                     as_of_ms: None,
                     valid_window: None,
+                    include_quarantined: false,
                 };
                 let page = self.inner.list(ns, opts).map_err(to_js_err)?;
                 for record in page.records {
@@ -992,7 +993,9 @@ impl Client {
             .map_err(|e| JsValue::from(js_sys::Error::new(&e.to_string())))?;
         self.populate_cache_from_records(&records);
         if !records.is_empty() {
-            self.inner.import_records(records).map_err(to_js_err)?;
+            self.inner
+                .import_records(records, false)
+                .map_err(to_js_err)?;
         }
         // CORE-02: restore the graph store if a snapshot exists (older
         // snapshots without graph_state.json restore nothing here).
@@ -1023,7 +1026,9 @@ impl Client {
             .map_err(|e| JsValue::from(js_sys::Error::new(&e.to_string())))?;
         self.populate_cache_from_records(&records);
         if !records.is_empty() {
-            self.inner.import_records(records).map_err(to_js_err)?;
+            self.inner
+                .import_records(records, false)
+                .map_err(to_js_err)?;
         }
         // CORE-02: restore the graph store if a snapshot exists (older
         // snapshots without graph_state.json restore nothing here).
@@ -1172,6 +1177,7 @@ impl Client {
             // SCH-03 temporal params: not exposed in WASM yet (SCH-07).
             as_of_ms: None,
             valid_window: None,
+            include_quarantined: false,
         };
         let page = self.inner.list(namespace, vanta_opts).map_err(to_js_err)?;
         let obj = js_sys::Object::new();
@@ -1246,6 +1252,7 @@ impl Client {
             // SCH-03 temporal params: not exposed in WASM yet (SCH-07).
             as_of_ms: None,
             valid_window: None,
+            include_quarantined: false,
             search_profile: None,
             range: None,
             group_by: None,
@@ -1320,6 +1327,7 @@ impl Client {
             // SCH-03 temporal params: not exposed in WASM yet (SCH-07).
             as_of_ms: None,
             valid_window: None,
+            include_quarantined: false,
             search_profile: None,
             range: None,
             group_by: None,
@@ -1464,6 +1472,7 @@ impl Client {
             // SCH-03 temporal params: not exposed in WASM yet (SCH-07).
             as_of_ms: None,
             valid_window: None,
+            include_quarantined: false,
             search_profile: None,
             range: None,
             group_by: None,
@@ -1500,7 +1509,10 @@ impl Client {
                 MAX_BATCH_SIZE
             ))));
         }
-        let report = self.inner.import_records(records).map_err(to_js_err)?;
+        let report = self
+            .inner
+            .import_records(records, false)
+            .map_err(to_js_err)?;
         self.mark_invalid();
         to_js(&report)
     }
@@ -1508,7 +1520,7 @@ impl Client {
     /// Import records from a JSON file at the given path.
     pub fn import_file(&self, path: &str) -> Result<JsValue, JsValue> {
         let _g = enter(&self.op_gate)?;
-        let report = self.inner.import_file(path).map_err(to_js_err)?;
+        let report = self.inner.import_file(path, false).map_err(to_js_err)?;
         self.mark_invalid();
         to_js(&report)
     }

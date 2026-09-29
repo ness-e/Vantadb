@@ -101,6 +101,7 @@ fn test_search_request_serialize() {
         min_confidence: None,
         as_of_ms: None,
         valid_window: None,
+        include_quarantined: false,
         search_profile: None,
         range: None,
         group_by: None,
@@ -272,6 +273,7 @@ fn test_import_report_serialize() {
         updated: 2,
         skipped: 0,
         errors: 0,
+        quarantined: 3,
         duration_ms: 30,
     };
     let json = serde_json::to_string(&report).unwrap();

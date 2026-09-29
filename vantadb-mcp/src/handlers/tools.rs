@@ -99,7 +99,8 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
                     "vector": { "type": "array", "items": {"type": "number"}, "description": "Optional embedding vector" },
                     "sparse_vector": { "type": "object", "additionalProperties": {"type": "number"}, "description": "Optional sparse term-weight vector, e.g. {\"0\": 0.5, \"7\": 1.25} (dimension id -> weight)" },
                     "metadata": { "type": "object", "description": "Optional metadata key-value pairs" },
-                    "expires_at_ms": { "type": "number", "description": "Optional absolute Unix-ms timestamp after which the record expires (TTL)" }
+                    "expires_at_ms": { "type": "number", "description": "Optional absolute Unix-ms timestamp after which the record expires (TTL)" },
+                    "quarantine": { "type": "boolean", "description": "Mark the record as quarantined (untrusted content; excluded from default search/list/recall until explicitly promoted). Default false (SCH-05)." }
                 },
                 "required": ["namespace", "key", "payload"]
             },
@@ -132,7 +133,8 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
                                 "vector": { "type": "array", "items": {"type": "number"} },
                                 "sparse_vector": { "type": "object", "additionalProperties": {"type": "number"} },
                                 "metadata": { "type": "object" },
-                                "expires_at_ms": { "type": "number", "description": "Optional absolute Unix-ms TTL timestamp" }
+                                "expires_at_ms": { "type": "number", "description": "Optional absolute Unix-ms TTL timestamp" },
+                                "quarantine": { "type": "boolean", "description": "Mark this record as quarantined (SCH-05). Default false." }
                             },
                             "required": ["namespace", "key", "payload"],
                             "additionalProperties": false
@@ -1406,6 +1408,8 @@ pub fn handle_tools_call(
                 sparse_vector,
                 metadata,
                 ttl_ms,
+                // SCH-05 (MGR-13 §4.4): write-time quarantine flag (T1).
+                quarantine: parse_optional_bool(args, "quarantine", false)?,
                 ..Default::default()
             };
 
@@ -1608,6 +1612,7 @@ pub fn handle_tools_call(
                 // (SCH-05/SCH-07).
                 as_of_ms: None,
                 valid_window: None,
+                include_quarantined: false,
             };
 
             let embedded = vantadb::Embedded::from_engine(storage.clone());
@@ -2100,7 +2105,9 @@ pub fn handle_tools_call(
             }
         }
 
-        "read_axioms" => Ok(text_content(serialize_content(&resolve_axioms(storage)))),
+        "read_axioms" => Ok(text_content(serialize_content(&resolve_axioms(
+            storage, false,
+        )))),
 
         // MCP-33: agent-managed axioms as records in the reserved `_axioms`
         // namespace. Iron Axioms (hardcoded, ids 1-4) are never written nor
@@ -2120,8 +2127,9 @@ pub fn handle_tools_call(
 
             let embedded = vantadb::Embedded::from_engine(storage.clone());
             // Auto-assign an id above the Iron Axioms (1-4) so agent axioms
-            // never collide with the built-in set.
-            let next_id = resolve_axioms(storage)
+            // never collide with the built-in set. Include quarantined axioms:
+            // they still occupy their id (served? no — but counted? yes).
+            let next_id = resolve_axioms(storage, true)
                 .as_array()
                 .map(|arr| {
                     arr.iter()
@@ -2641,7 +2649,7 @@ pub fn handle_tools_call(
             }
 
             let embedded = vantadb::Embedded::from_engine(storage.clone());
-            match embedded.import_records(records) {
+            match embedded.import_records(records, false) {
                 Ok(mut report) => {
                     report.skipped += skipped;
                     report.errors += malformed;
@@ -3165,8 +3173,25 @@ fn parse_memory_input(obj: &Value, config: &McpConfig) -> Result<vantadb::sdk::M
         sparse_vector,
         metadata,
         ttl_ms,
+        // SCH-05 (MGR-13 §4.4): write-time quarantine flag (T1).
+        quarantine: parse_optional_bool(obj, "quarantine", false)?,
         ..Default::default()
     })
+}
+
+/// Parse an optional boolean flag at the MCP trust boundary (AUD-050 pattern):
+/// absent/`null` ⇒ default; a present non-boolean value is rejected explicitly
+/// instead of being silently coerced.
+fn parse_optional_bool(obj: &Value, field: &str, default: bool) -> Result<bool, Value> {
+    match obj.get(field) {
+        None | Some(Value::Null) => Ok(default),
+        Some(Value::Bool(b)) => Ok(*b),
+        Some(v) => Err(McpError::invalid_params(format!(
+            "'{field}' must be a boolean, got {}",
+            json_value_type_name(v)
+        ))
+        .to_json()),
+    }
 }
 
 /// MCP-21/22: parse an array of node ids (decimal strings, or numbers for
@@ -3420,6 +3445,7 @@ fn parse_search_request(
             // SCH-03 temporal params: not exposed on MCP search yet (SCH-07).
             as_of_ms: None,
             valid_window: None,
+            include_quarantined: false,
             search_profile,
             range: None,
             group_by: None,

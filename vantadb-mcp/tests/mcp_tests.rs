@@ -5948,3 +5948,108 @@ fn test_mcp_search_min_confidence_validated() {
         "clear type error: {text}"
     );
 }
+
+// ── SCH-05: quarantine containment through MCP tool surfaces ──────────────
+
+#[test]
+fn test_mcp_memory_put_quarantine_flag_isolates_record() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    let cfg = default_config();
+
+    // Active record + quarantined record (T1 flag via MCP memory_put).
+    let active = Some(json!({"name": "memory_put", "arguments": {
+        "namespace": "sch05_ns", "key": "safe", "payload": "shared marker content"
+    }}));
+    let out = handle_tools_call(&active, &executor, &storage, &cfg).expect("put active");
+    assert!(out["isError"].is_null(), "active put must succeed");
+
+    let suspect = Some(json!({"name": "memory_put", "arguments": {
+        "namespace": "sch05_ns", "key": "suspect", "payload": "shared marker suspect",
+        "quarantine": true
+    }}));
+    let out = handle_tools_call(&suspect, &executor, &storage, &cfg).expect("put quarantined");
+    assert!(out["isError"].is_null(), "quarantined put must succeed");
+    let text = out["content"][0]["text"].as_str().unwrap_or_default();
+    assert!(
+        text.contains("explicit_write"),
+        "state visible in response: {text}"
+    );
+
+    // memory_list (default view) must exclude the quarantined record.
+    let list = Some(json!({"name": "memory_list", "arguments": {"namespace": "sch05_ns"}}));
+    let out = handle_tools_call(&list, &executor, &storage, &cfg).expect("list");
+    let text = out["content"][0]["text"].as_str().unwrap_or_default();
+    assert!(text.contains("safe"), "active record listed: {text}");
+    assert!(
+        !text.contains("suspect"),
+        "quarantined record hidden: {text}"
+    );
+
+    // A present non-boolean flag is rejected, never silently coerced.
+    let wrong = Some(json!({"name": "memory_put", "arguments": {
+        "namespace": "sch05_ns", "key": "bad", "payload": "x", "quarantine": "yes"
+    }}));
+    assert!(
+        handle_tools_call(&wrong, &executor, &storage, &cfg).is_err(),
+        "non-boolean quarantine must be a param error"
+    );
+}
+
+// ── SCH-05 review F2: quarantined axioms are hidden from `read_axioms`
+//    but still reserve their id for `write_axiom`'s next-id allocation. ────
+
+#[test]
+fn test_mcp_quarantined_axiom_hidden_but_counts_for_next_id() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    let cfg = default_config();
+
+    let write_axiom = |name: &str| {
+        handle_tools_call(
+            &Some(
+                json!({"name": "write_axiom", "arguments": {"name": name, "description": "rule"}}),
+            ),
+            &executor,
+            &storage,
+            &cfg,
+        )
+        .expect("write_axiom tool call")
+    };
+
+    // First agent axiom gets id 5 (above the Iron Axioms 1-4).
+    let first = write_axiom("A");
+    let text = first["content"][0]["text"].as_str().unwrap_or_default();
+    assert!(text.contains("\"id\":5"), "first agent axiom id: {text}");
+
+    // Quarantine it at storage level (the MCP apply surface lands with SCH-07).
+    let db = vantadb::Embedded::from_engine(storage.clone());
+    db.quarantine_apply("_axioms", "A", None)
+        .expect("quarantine axiom");
+
+    // `read_axioms` serves only active axioms.
+    let read = handle_tools_call(
+        &Some(json!({"name": "read_axioms", "arguments": {}})),
+        &executor,
+        &storage,
+        &cfg,
+    )
+    .expect("read_axioms tool call");
+    let text = read["content"][0]["text"].as_str().unwrap_or_default();
+    assert!(
+        !text.contains("\"name\":\"A\""),
+        "quarantined axiom must not be served: {text}"
+    );
+    assert!(
+        text.contains("Topological Axiom"),
+        "Iron axioms must still be served: {text}"
+    );
+
+    // Next-id allocation MUST count the quarantined axiom (no id reuse).
+    let second = write_axiom("B");
+    let text = second["content"][0]["text"].as_str().unwrap_or_default();
+    assert!(
+        text.contains("\"id\":6"),
+        "quarantined axiom must reserve its id: {text}"
+    );
+}

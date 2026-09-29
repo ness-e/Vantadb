@@ -625,6 +625,7 @@ mod fuzzing_tests {
             exclude_superseded: false,
             as_of_ms: None,
             valid_window: None,
+            include_quarantined: false,
         };
         let err = db
             .list("ns", options)

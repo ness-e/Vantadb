@@ -110,6 +110,7 @@ pub fn handle_resources_read(
             // SCH-03 temporal params: not exposed here (SCH-07).
             as_of_ms: None,
             valid_window: None,
+            include_quarantined: false,
         };
         match embedded.list(namespace, options) {
             Ok(page) => {

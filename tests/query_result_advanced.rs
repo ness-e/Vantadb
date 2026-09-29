@@ -36,6 +36,7 @@ fn search_request_with_profile_hybrid_snapshot() {
         cursor: None,
         as_of_ms: None,
         valid_window: None,
+        include_quarantined: false,
         min_confidence: None,
     };
     assert_debug_snapshot!("search_request_with_profile_hybrid", req);
@@ -64,6 +65,7 @@ fn search_request_with_profile_keyword_snapshot() {
         cursor: None,
         as_of_ms: None,
         valid_window: None,
+        include_quarantined: false,
         min_confidence: None,
     };
     assert_debug_snapshot!("search_request_with_profile_keyword", req);
@@ -92,6 +94,7 @@ fn search_request_with_profile_vector_snapshot() {
         cursor: None,
         as_of_ms: None,
         valid_window: None,
+        include_quarantined: false,
         min_confidence: None,
     };
     assert_debug_snapshot!("search_request_with_profile_vector", req);
@@ -119,6 +122,7 @@ fn search_request_exclude_superseded_snapshot() {
         cursor: None,
         as_of_ms: None,
         valid_window: None,
+        include_quarantined: false,
         min_confidence: None,
     };
     assert_debug_snapshot!("search_request_exclude_superseded", req);
@@ -148,6 +152,7 @@ fn search_request_sparse_vector_snapshot() {
         cursor: None,
         as_of_ms: None,
         valid_window: None,
+        include_quarantined: false,
         min_confidence: None,
     };
     assert_debug_snapshot!("search_request_sparse_vector", req);
@@ -184,6 +189,7 @@ fn search_request_full_complex_snapshot() {
         cursor: None,
         as_of_ms: None,
         valid_window: None,
+        include_quarantined: false,
         min_confidence: None,
     };
     assert_debug_snapshot!("search_request_full_complex", req);

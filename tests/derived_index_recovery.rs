@@ -50,6 +50,7 @@ fn corrupt_state_and_missing_entries_rebuild_on_reopen() {
                 exclude_superseded: false,
                 as_of_ms: None,
                 valid_window: None,
+                include_quarantined: false,
             },
         )
         .expect("filtered after repair");

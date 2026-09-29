@@ -14,8 +14,9 @@ use super::super::serialization::{
     memory_node_id, memory_record_to_node_owned, now_ms, record_from_node,
     validate_confidence_fields, validate_key, validate_metadata, validate_namespace,
     DERIVED_INDEX_SCHEMA_VERSION, FIELD_CONFIDENCE_CLASS, FIELD_CREATED_AT_MS, FIELD_EXPIRES_AT_MS,
-    FIELD_KEY, FIELD_NAMESPACE, FIELD_PAYLOAD, FIELD_UPDATED_AT_MS, FIELD_VALID_AT_MS,
-    FIELD_VERSION,
+    FIELD_KEY, FIELD_NAMESPACE, FIELD_PAYLOAD, FIELD_QUARANTINED_AT_MS, FIELD_QUARANTINED_BY,
+    FIELD_QUARANTINE_REASON, FIELD_QUARANTINE_REVIEW_DUE_MS, FIELD_UPDATED_AT_MS,
+    FIELD_VALID_AT_MS, FIELD_VERSION,
 };
 use super::super::types::*;
 use crate::backend::{BackendKind, BackendPartition, BackendWriteOp};
@@ -28,8 +29,15 @@ use web_time::Instant;
 /// Report returned by bulk import operations.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BulkImportReport {
+    /// Total number of records in the stream body.
     pub total_records: usize,
+    /// Number of commit batches flushed to the engine.
     pub batches_committed: usize,
+    /// Number of records that entered quarantine via the write-time flag
+    /// (T1, ADR-046 §D5; additive field, SCH-05 review F3).
+    #[serde(default)]
+    pub quarantined: u64,
+    /// Duration of the import in milliseconds.
     pub duration_ms: u64,
 }
 
@@ -51,6 +59,91 @@ impl QuarantineState {
             by: record.quarantined_by.clone(),
             review_due_ms: record.quarantine_review_due_ms,
         }
+    }
+}
+
+/// Validate a quarantine reason code (ADR-046 §D2): non-empty lowercase
+/// snake_case. The stable set is `explicit_write` | `unreviewed_import` |
+/// `derived_promotion` | `policy_match` (reserved); the format check stays
+/// open so future codes don't require a schema change.
+fn validate_quarantine_reason(reason: &str) -> Result<()> {
+    let valid = !reason.is_empty()
+        && reason.len() <= 64
+        && reason
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_');
+    if !valid {
+        return Err(Error::Validation {
+            field: "quarantine_reason".into(),
+            reason: "must be a non-empty lowercase snake_case code".into(),
+        });
+    }
+    Ok(())
+}
+
+impl Embedded {
+    /// Review deadline for a record entering quarantine (ADR-046 §D5d):
+    /// `now + quarantine_review_default_days` (config); `None` when the
+    /// configured default is `0` (deadline disabled). Read-only signal —
+    /// never triggers promotion by itself (I1).
+    fn quarantine_review_due_ms(&self, now: u64) -> Option<u64> {
+        let days = self.config.quarantine_review_default_days;
+        (days > 0).then(|| now.saturating_add(u64::from(days) * 24 * 60 * 60 * 1000))
+    }
+
+    /// Materialize the quarantine entry (T1/T1c/T1d): sets the four state
+    /// fields from `reason` + `by` (stable `system:<op>` actor) and stamps the
+    /// review deadline. Sticky semantics live in the callers — call this only
+    /// when the record is not already quarantined (I2).
+    pub(crate) fn enter_quarantine(
+        &self,
+        record: &mut MemoryRecord,
+        reason: &str,
+        by: &str,
+        now: u64,
+    ) {
+        record.quarantined_at_ms = Some(now);
+        record.quarantine_reason = Some(reason.to_string());
+        record.quarantined_by = Some(by.to_string());
+        record.quarantine_review_due_ms = self.quarantine_review_due_ms(now);
+    }
+
+    /// F4 (SCH-05 review): metadata-only read of an existing record's
+    /// quarantine state for the raw bulk path, which replaces the node
+    /// wholesale and must not clear an existing quarantine (sticky, I2).
+    /// `Ok(None)` = node absent or not quarantined.
+    fn existing_quarantine_fields(
+        engine: &crate::storage::StorageEngine,
+        node_id: u128,
+    ) -> Result<Option<(i64, Option<String>, Option<String>, Option<i64>)>> {
+        let Some(bytes) =
+            engine.get_from_partition(BackendPartition::Default, &node_id.to_le_bytes())?
+        else {
+            return Ok(None);
+        };
+        let Ok(metadata) = crate::storage::ops::deserialize_node_payload::<
+            crate::storage::ops::NodeMetadata,
+        >(&bytes, "node metadata") else {
+            return Ok(None);
+        };
+        let fields = &metadata.relational;
+        let at = match fields.get(FIELD_QUARANTINED_AT_MS) {
+            Some(FieldValue::Int(at)) if *at > 0 => *at,
+            _ => return Ok(None),
+        };
+        let reason = match fields.get(FIELD_QUARANTINE_REASON) {
+            Some(FieldValue::String(s)) => Some(s.clone()),
+            _ => None,
+        };
+        let by = match fields.get(FIELD_QUARANTINED_BY) {
+            Some(FieldValue::String(s)) => Some(s.clone()),
+            _ => None,
+        };
+        let due = match fields.get(FIELD_QUARANTINE_REVIEW_DUE_MS) {
+            Some(FieldValue::Int(due)) if *due > 0 => Some(*due),
+            _ => None,
+        };
+        Ok(Some((at, reason, by, due)))
     }
 }
 
@@ -246,10 +339,20 @@ impl Embedded {
 
         let (confidence_class, confidence, derived_from) = self.materialize_confidence(&input)?;
         let valid_at_ms = self.materialize_valid_at(input.valid_at_ms, created_at_ms)?;
-        let quarantine = existing
+        let mut quarantine = existing
             .as_ref()
             .map(QuarantineState::from_record)
             .unwrap_or_default();
+        // T1 (ADR-046 §D5, MGR-13 §3.2): an explicit `quarantine: true` write
+        // enters the quarantine state; sticky — an existing quarantine always
+        // wins (I2), only T2/T4 exit.
+        let quarantine_entered = quarantine.at_ms.is_none() && input.quarantine;
+        if quarantine_entered {
+            quarantine.at_ms = Some(timestamp);
+            quarantine.reason = Some("explicit_write".into());
+            quarantine.by = Some("system:put".into());
+            quarantine.review_due_ms = self.quarantine_review_due_ms(timestamp);
+        }
 
         let record = MemoryRecord {
             namespace: input.namespace,
@@ -300,6 +403,16 @@ impl Embedded {
         );
 
         self.replace_derived_indexes(&engine, existing.as_ref(), Some(&record))?;
+
+        if quarantine_entered {
+            self.audit(crate::audit::AuditEvent::new(
+                "quarantine_enter",
+                &record.namespace,
+                &record.key,
+                "ok",
+                Some("explicit_write".to_string()),
+            ));
+        }
 
         Ok(record)
     }
@@ -391,13 +504,15 @@ impl Embedded {
             let timestamp = now_ms();
             let mut nodes: Vec<UnifiedNode> = Vec::with_capacity(chunk.len());
             let mut records: Vec<MemoryRecord> = Vec::with_capacity(chunk.len());
+            // SCH-05 review F3: T1 entries of this chunk, audited post-commit.
+            let mut entered_quarantine: Vec<(String, String)> = Vec::new();
 
             for input in chunk {
                 let node_id = memory_node_id(&input.namespace, &input.key);
                 // Existing record: in-batch duplicate wins (already bumped), else
                 // consult the engine like put_one (pre-existing records from
                 // earlier batches should also increment, not reset to 1).
-                let (prev_version, prev_created_at_ms, quarantine) =
+                let (prev_version, prev_created_at_ms, mut quarantine) =
                     if let Some((v, q)) = seen.get(&node_id) {
                         (Some(*v), Some(timestamp), q.clone())
                     } else {
@@ -425,6 +540,17 @@ impl Embedded {
                     };
                 let created_at_ms = prev_created_at_ms.unwrap_or(timestamp);
                 let version = prev_version.map(|v| v.saturating_add(1)).unwrap_or(1);
+
+                // T1 (ADR-046 §D5): same write-time flag semantics as put_one
+                // (sticky wins; entry only when not already quarantined).
+                let quarantine_entered = quarantine.at_ms.is_none() && input.quarantine;
+                if quarantine_entered {
+                    quarantine.at_ms = Some(timestamp);
+                    quarantine.reason = Some("explicit_write".into());
+                    quarantine.by = Some("system:put_batch".into());
+                    quarantine.review_due_ms = self.quarantine_review_due_ms(timestamp);
+                    entered_quarantine.push((input.namespace.clone(), input.key.clone()));
+                }
 
                 let (confidence_class, confidence, derived_from) =
                     self.materialize_confidence(input)?;
@@ -484,6 +610,18 @@ impl Embedded {
             let chunk_needs_rebuild = opts.needs_rebuild(chunk.len());
             engine.batch_insert_with_opts(&nodes, opts)?;
             rebuild_needed = rebuild_needed || chunk_needs_rebuild;
+
+            // SCH-05 review F3: audit each T1 entry post-commit (mirrors
+            // put_one; the write-time quarantine flag is a domain event).
+            for (ns, key) in &entered_quarantine {
+                self.audit(crate::audit::AuditEvent::new(
+                    "quarantine_enter",
+                    ns,
+                    key,
+                    "ok",
+                    Some("explicit_write".to_string()),
+                ));
+            }
 
             // ── Post-processing (same as put_one but without derived indexes for batch) ──
             for record in &records {
@@ -673,7 +811,7 @@ impl Embedded {
     /// validated them — a hostile `records` payload must not persist
     /// out-of-range scores, inconsistent classes or inverted windows
     /// (ADR-046 §D4/§D7).
-    pub(crate) fn put_record_exact(&self, record: MemoryRecord) -> Result<MemoryRecord> {
+    pub(crate) fn put_record_exact(&self, mut record: MemoryRecord) -> Result<MemoryRecord> {
         self.check_read_only()?;
         validate_namespace(&record.namespace)?;
         validate_key(&record.key)?;
@@ -717,6 +855,21 @@ impl Embedded {
             },
             None => None,
         };
+
+        // F4 (SCH-05 review): sticky on the raw transport — an incoming record
+        // that carries no quarantine state must not clear an existing one
+        // (closes the I2 bypass via the agent-facing `import` tool). Only the
+        // explicit T2/T4 ops leave quarantine.
+        if record.quarantined_at_ms.is_none() {
+            if let Some(prev) = previous.as_ref() {
+                if prev.quarantined_at_ms.is_some() {
+                    record.quarantined_at_ms = prev.quarantined_at_ms;
+                    record.quarantine_reason = prev.quarantine_reason.clone();
+                    record.quarantined_by = prev.quarantined_by.clone();
+                    record.quarantine_review_due_ms = prev.quarantine_review_due_ms;
+                }
+            }
+        }
 
         let (node, record) = memory_record_to_node_owned(record);
         engine.insert(&node)?;
@@ -813,6 +966,135 @@ impl Embedded {
             self.config.version_history_limit,
         );
         Ok(())
+    }
+
+    /// T1d (ADR-046 §D5, MGR-13 §3.2): quarantine an existing record post-hoc
+    /// (`quarantine_apply`).
+    ///
+    /// Sets the four quarantine state fields with the caller's `reason` code
+    /// (default `explicit_write`), the `system:quarantine_apply` applier and
+    /// the review deadline (config, §D5d). Idempotent: a record already
+    /// quarantined is returned as-is (sticky, I2). The state change does not
+    /// bump `version` (state ≠ content; no history snapshot — the audit event
+    /// is the evidence) and is audited as `quarantine_enter`.
+    #[tracing::instrument(skip(self), err)]
+    pub fn quarantine_apply(
+        &self,
+        namespace: &str,
+        key: &str,
+        reason: Option<&str>,
+    ) -> Result<MemoryRecord> {
+        self.check_read_only()?;
+        let reason = reason.unwrap_or("explicit_write");
+        validate_quarantine_reason(reason)?;
+        // REVIEW-13 pattern: serialize the read-modify-write below (same
+        // rationale as `supersede` — the engine's insert_lock only serializes
+        // the individual insert, not the SDK-level get + mutate).
+        let _guard = self.supersede_lock.lock();
+
+        let Some(mut record) = self.get(namespace, key)? else {
+            return Err(Error::NotFound {
+                kind: "memory record".into(),
+                id: format!("{namespace}/{key}"),
+            });
+        };
+        if record.quarantined_at_ms.is_some() {
+            return Ok(record); // sticky: already quarantined (I2)
+        }
+        let now = now_ms();
+        self.enter_quarantine(&mut record, reason, "system:quarantine_apply", now);
+        record.updated_at_ms = now;
+
+        let engine = self.engine_handle()?;
+        let (node, record) = memory_record_to_node_owned(record);
+        engine.insert(&node)?;
+        self.audit(crate::audit::AuditEvent::new(
+            "quarantine_enter",
+            namespace,
+            key,
+            "ok",
+            Some(reason.to_string()),
+        ));
+        Ok(record)
+    }
+
+    /// T2 (ADR-046 §D5, MGR-13 §3.2): promote a quarantined record back to
+    /// active (`quarantine_promote`).
+    ///
+    /// Explicit, audited act — the only exits are T2 and T4 (I1: nothing
+    /// promotes by clock/TTL). Clears the four quarantine fields and bumps
+    /// `updated_at_ms`; `version` does **not** change and no version-history
+    /// snapshot is written (state ≠ content; the audit event is the evidence).
+    /// Errors when the record is missing or not quarantined.
+    #[tracing::instrument(skip(self), err)]
+    pub fn quarantine_promote(&self, namespace: &str, key: &str) -> Result<MemoryRecord> {
+        self.check_read_only()?;
+        let _guard = self.supersede_lock.lock();
+
+        let Some(mut record) = self.get(namespace, key)? else {
+            return Err(Error::NotFound {
+                kind: "memory record".into(),
+                id: format!("{namespace}/{key}"),
+            });
+        };
+        if record.quarantined_at_ms.is_none() {
+            return Err(Error::InvalidInput(format!(
+                "record '{key}' is not quarantined (nothing to promote)"
+            )));
+        }
+        let now = now_ms();
+        record.quarantined_at_ms = None;
+        record.quarantine_reason = None;
+        record.quarantined_by = None;
+        record.quarantine_review_due_ms = None;
+        record.updated_at_ms = now;
+
+        let engine = self.engine_handle()?;
+        let (node, record) = memory_record_to_node_owned(record);
+        engine.insert(&node)?;
+        self.audit(crate::audit::AuditEvent::new(
+            "quarantine_promote",
+            namespace,
+            key,
+            "ok",
+            None,
+        ));
+        Ok(record)
+    }
+
+    /// T4 (ADR-046 §D5, MGR-13 §3.2): reject (delete) a quarantined record
+    /// (`quarantine_reject`; destructive — the call itself is the confirmation).
+    ///
+    /// Errors when the record is missing or not quarantined. The underlying
+    /// delete and the rejection are both audited (`delete` +
+    /// `quarantine_reject`).
+    #[tracing::instrument(skip(self), err)]
+    pub fn quarantine_reject(&self, namespace: &str, key: &str) -> Result<bool> {
+        self.check_read_only()?;
+        // F6 (SCH-05 review): serialize get→check→delete against concurrent
+        // promote/apply (same REVIEW-13 rationale as `supersede`: the engine's
+        // insert_lock only serializes individual writes, not this check-then-act).
+        let _guard = self.supersede_lock.lock();
+        let Some(record) = self.get(namespace, key)? else {
+            return Err(Error::NotFound {
+                kind: "memory record".into(),
+                id: format!("{namespace}/{key}"),
+            });
+        };
+        if record.quarantined_at_ms.is_none() {
+            return Err(Error::InvalidInput(format!(
+                "record '{key}' is not quarantined (nothing to reject)"
+            )));
+        }
+        let deleted = self.delete(namespace, key)?;
+        self.audit(crate::audit::AuditEvent::new(
+            "quarantine_reject",
+            namespace,
+            key,
+            if deleted { "ok" } else { "err" },
+            None,
+        ));
+        Ok(deleted)
     }
 
     /// Scan all memory records and physically delete those whose expiry deadline has passed.
@@ -1155,6 +1437,7 @@ impl Embedded {
         let engine = self.engine_handle()?;
         let commit_interval = self.config.bulk_commit_interval.unwrap_or(10_000);
         let mut batches = 0usize;
+        let mut quarantined = 0u64;
         let imported_at_ms = now_ms();
 
         for chunk in records.chunks(commit_interval) {
@@ -1213,6 +1496,44 @@ impl Embedded {
                     FieldValue::String(ConfidenceClass::Asserted.as_wire_str().to_string()),
                 );
                 node.confidence_score = input.confidence.unwrap_or_else(default_confidence);
+                // T1/F4 (ADR-046 §D5, SCH-05 review): the raw bulk path honors
+                // the write-time flag AND preserves an existing quarantine when
+                // the incoming record carries none (sticky, I2 — only T2/T4
+                // leave quarantine). The metadata-only point read per unflagged
+                // record is the price of closing the bypass;
+                // ponytail: batch the existence checks if bulk-heavy workloads
+                // ever show this read in a profile.
+                if input.quarantine {
+                    node.set_field(
+                        FIELD_QUARANTINED_AT_MS,
+                        FieldValue::Int(imported_at_ms as i64),
+                    );
+                    node.set_field(
+                        FIELD_QUARANTINE_REASON,
+                        FieldValue::String("explicit_write".to_string()),
+                    );
+                    node.set_field(
+                        FIELD_QUARANTINED_BY,
+                        FieldValue::String("system:bulk_import".to_string()),
+                    );
+                    if let Some(due) = self.quarantine_review_due_ms(imported_at_ms) {
+                        node.set_field(FIELD_QUARANTINE_REVIEW_DUE_MS, FieldValue::Int(due as i64));
+                    }
+                    quarantined += 1;
+                } else if let Some((at, reason, by, due)) =
+                    Self::existing_quarantine_fields(&engine, node_id)?
+                {
+                    node.set_field(FIELD_QUARANTINED_AT_MS, FieldValue::Int(at));
+                    if let Some(reason) = reason {
+                        node.set_field(FIELD_QUARANTINE_REASON, FieldValue::String(reason));
+                    }
+                    if let Some(by) = by {
+                        node.set_field(FIELD_QUARANTINED_BY, FieldValue::String(by));
+                    }
+                    if let Some(due) = due {
+                        node.set_field(FIELD_QUARANTINE_REVIEW_DUE_MS, FieldValue::Int(due));
+                    }
+                }
                 if let Some(ref v) = input.vector {
                     node.vector = VectorRepresentations::Full(v.clone());
                     node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
@@ -1238,9 +1559,18 @@ impl Embedded {
         }
 
         let duration_ms = start.elapsed().as_millis() as u64;
+        // SCH-05 review F3: import ops are audited (the bulk path was silent).
+        self.audit(crate::audit::AuditEvent::new(
+            "bulk_import",
+            "N/A",
+            "N/A",
+            "ok",
+            (quarantined > 0).then(|| format!("{quarantined} quarantined")),
+        ));
         Ok(BulkImportReport {
             total_records: total,
             batches_committed: batches,
+            quarantined,
             duration_ms,
         })
     }
