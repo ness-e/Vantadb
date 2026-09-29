@@ -8,7 +8,7 @@ description: "SDP: campaign-executor · progreso · writing-plans · planning-an
 
 > **Campaign ID:** ed20beae-edf6-42f5-b41f-e8519830d6cb
 > **Inicio:** 2026-09-26
-> **Estado:** ⏳ EN PROGRESO (33/50 — F0 ✅ · F1 ✅ · F2 ✅ · F3 10/11; siguiente: SCH-08)
+> **Estado:** ⏳ EN PROGRESO (34/50 — F0 ✅ · F1 ✅ · F2 ✅ · **F3 ✅ 11/11**; siguiente: F4 — bloques primero) | **Gate F3: ✅ local** (migración determinista verde + corte 0.8.0 preparado: guía + marcador R1 `b9296909` + R2; release real = lane owner post-push)
 > **Fuente:** `docs/dev/Backlog.md` (P52–P59 + FIND-*) + planes absorbidos (`2026-09-24-post-investigacion-integral.md` W2–W7, `2026-09-24-estabilizacion-pendiente.md`, `2026-09-24-harness-gaps.md`, `2026-09-24-sesion-continuidad.md`, `2026-09-20-estabilizacion-total.md`) + `docs/dev/strategy/` (13 docs) + Notion "VantaDB Docs" (~28 subpáginas) + investigación de riesgos 2026-09-26 (4 sub-agentes R1–R4, multi-fuente)
 > **Autonomous:** false — el owner gatea push/merge/release. **Push a `develop`: al completar el plan con todo validado/verificado** (decisión owner 2026-09-26, ver §Política de commits/push)
 > **Modo:** PLAN → ejecución con `/pipeline run docs/dev/plans/2026-09-26-master-roadmap.md`
@@ -874,7 +874,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** "UPGRADE.md §'Upgrading to 0.8.0' publicado (campos v2 + semántica valid/transaction + `AS OF` + pasos de migración/backfill + backup pre-upgrade) Y entrada `[0.8.0]` en `docs/CHANGELOG.md` con breaking changes marcados (`feat!`/`BREAKING CHANGE`) Y release notes del GitHub release (release-plz) revisadas Y corte ejecutado SOLO vía release-plz (Release PR merge — nunca tag/versión/CHANGELOG a mano, Regla 7), con verificación post-release de artefactos (crates/wheels/npm)"
 - **Task file:** `docs/dev/tasks/SCH-08.md` (a crear en DISCOVERY)
-- **Estado:** ⏳ EN PROGRESO · **Branch:** develop · **Commit:**
+- **Estado:** ✅ COMPLETED (2026-09-29 — commit `b9296909` mensaje R1; review ❌→fixes→delta ✅; R2 aplicado) · **Branch:** develop · **Commit:**
 - **Cynefin:** 🟨 complicado — release-plz como único versionador + guía de migración real + artefactos multi-ecosistema.
 - **Top 3 riesgos:** 1. Release PR sin la migración (bump/CHANGELOG incorrecto o sin breaking notes) · 2. guía incompleta → usuarios 0.7.0 rotos · 3. artefactos post-release fallan (wheels/npm/crates).
 - **Pre-mortem:** F1: ningún commit del tramo usa `feat!` → release-plz propone PATCH → auditar commits + `BREAKING CHANGE` footer antes del PR y verificar el diff del Release PR; F2: guía publicada sin probar el upgrade → smoke de upgrade real (DB v1 0.7.0 → 0.8.0) registrado en el task file; F3: merge sin token/release roto → queda en carril owner (bloqueo registrado, no silencioso; artifacts re-verificados con release-wheels/release-npm).
@@ -1058,6 +1058,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **plan-adjust [2026-09-29b]:** **F3.3b cerrada (31/50)** — SCH-05 cuarentena+abstención (`83d65518`): default-exclude + gates de inyección (l1_reader/axioms) + transiciones T1-T5 con audit + sticky raw transport (F4a) + abstención explícita. Review adversarial 2 rondas (❌ F1-F6/N → batch → delta ✅). Docs/api diferidas a SCH-07 (2 gaps declarados). Nota: la sesión de docs commiteó su consolidación (`d23e1224` + `86c55e01`) — WIP ajeno masivo cerrado.
 - **plan-adjust [2026-09-29c]:** **F3.4 cerrada (32/50)** — SCH-06 suite determinista/time-travel/roundtrip/chaos (`b90c494b`; review fast ✅; CI exacto 2/2). FIND-186 registrado (`70196101`: WAL shard-group crash → salvage). Índices regenerados (`e23bc11e`). Nota: sesión docs commiteó consolidación completa (`d23e1224`/`86c55e01`/`10577ec0`). Wave F3.5 lanzada: SCH-07 (recoge docs/api diferidas de SCH-03/04/05 + 2 gaps).
 - **plan-adjust [2026-09-29d]:** **F3.5 cerrada (33/50)** — SCH-07 superficies (`aa111979`): 8 superficies con wire unificado + docs/api mismo-PR (2 gaps cerrados, 0 gaps) + public_api +4 auditado; review adversarial + delta ✅. FIND-187/188 registrados (abstención page-shaped por binding; quarantine ops/import args en HTTP/MCP/CLI). semver-checks: 9 fallas del corte acumulado → SCH-08 (`feat!`). Wave F3.6 lanzada: SCH-08.
+- **plan-adjust [2026-09-29e]:** **F3 COMPLETA (34/50) — GATE F3 ✅ local.** SCH-08 (`b9296909`): guía Upgrading-to-0.8.0 + auditoría release-plz (R1: commit marcador `feat(schema)!` + footer BREAKING CHANGE — garantiza 0.8.0 + breaking notes; R2: `[changelog] header` — preserva frontmatter, aplicado) + release notes draft + handoff owner (7 pasos; PR #228 vigente NO mergear). Review ❌→fixes→delta ✅. Release real = lane owner (push bloqueado por política). Siguiente: bloques F4 → wave F4.
 
 ## Recitation
 
@@ -1066,9 +1067,9 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
 Objetivo activo: F3 — Bitemporalidad/confianza/cuarentena + schema v2 (MGR/SCH)
 Estado: in-progress
-Última acción: F3.5 COMPLETA (33/50 — SCH-07 superficies+docs; commit aa111979); wave F3.6 lanzada (SCH-08)
-Resultado: OK (F0 7/7 · F1 8/8 · F2 7/7 · F3 10/11)
-Próxima acción: SCH-08 (corte 0.8.0: migration guide + CHANGELOG + release notes) → gate F3
+Última acción: **F3 COMPLETA (34/50)** — SCH-08 corte 0.8.0 (`b9296909` marcador R1 + R2); gate F3 ✅ local; siguiente: bloques F4
+Resultado: OK (F0 7/7 · F1 8/8 · F2 7/7 · **F3 11/11**)
+Próxima acción: completar bloques F4 (REGLA) → wave F4 (VER-07/VER-01/VER-05/VER-06/VER-02/VER-03/VER-04)
 Contrato: —
 Próxima tarea si completa: HARD-01
 === END RECITATION ===
@@ -1465,10 +1466,10 @@ Próxima tarea si completa: SCH-08
 === RECITATION SCH-08 ===
 Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
 Objetivo activo: SCH-08 — Corte 0.8.0: migration guide + CHANGELOG + release notes
-Estado: in-progress
-Última acción: Claim (wave F3.6) — desbloqueada por SCH-02..07
-Resultado: PENDING
-Próxima acción: DISCOVERY + implementación (vanta-docs)
-Contrato: migration guide + release notes + corte vía release-plz (nunca manual); CHANGELOG curado por impacto
-Próxima tarea si completa: SCH-08
+Estado: completed
+Última acción: 7/8 ✅ (parte local) + review ❌→fixes→delta ✅; commit b9296909 (mensaje R1) + R2 aplicado; gate F3 ✅ local
+Resultado: OK
+Próxima acción: Bloques F4 (REGLA) → wave F4; release real = lane owner (push)
+Contrato: UPGRADE.md §0.8.0 + auditoría release-plz (R1/R2) + release notes draft + handoff owner; CHANGELOG nunca a mano
+Próxima tarea si completa: F4
 === END RECITATION ===
