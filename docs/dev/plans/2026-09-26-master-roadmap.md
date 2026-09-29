@@ -890,38 +890,185 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 
 ### Task 34: VER-07 — Dreams: dry-run + diff report + `promote_dream_run` real
 - **Fase:** F4
-- **Dep:** — · 🟡 2-3d · 🔴 · **Ruta:** vanta-worker · **Contrato:** "dry-run + diff + promote (ADD/UPDATE/DELETE/NOOP) con tests" · **Task file:** `docs/dev/tasks/VER-07.md`
+- **Dep:** — (aditivo; consume MEM-69/70; MGR-08 fuera del plan → clase mínima, no bloquea)
+
+- **Appetite:** max 3d · **Esfuerzo:** 🟡 2-3d · **Prioridad:** 🔴
+- **Ruta:** vanta-worker
+- **Archivos clave:** `vanta-memory/src/core/dream/mod.rs` (`promote_dream_run` stub :615-623; invariante #4 :24-27; `DreamRun` :155; `write_dream_run` :509-528; `load_dream_run` :572-590; `list_dream_runs` :537; `discard_dream_run` :594; `consolidate_session` :630-710) · `vantadb-mcp/src/dreams.rs` (defs :28-128; `dream_promote` "PREVIEW ONLY" :109-110; handler :254-261; dispatch :131-142) · `vantadb-mcp/src/handlers/tools.rs` (readOnlyHint :29/:75-76; lista dream :1239-1246; dispatch :3094-3095) · `vanta-memory/src/services/pipeline_worker.rs` (`run_dream` :545-565; `TaskKind::Dream` :810) · `vanta-memory/tests/dreaming.rs` (:270-294) · docs: `docs/api/MCP.md` + `docs/api/VANTA_MEMORY.md`
+- **Verificación real:** ✅ CÓDIGO-REAL — **gap confirmado**: `promote_dream_run` (:615-623) solo carga el run y devuelve `run.consolidated.len()` — sin diff ni merge (el propio doc-comment :612-614 admite "the function name implies mutation but does NOT"); invariante #4 :24-27 "promote is a stub". MCP lo expone "PREVIEW ONLY ... {preview_count, mutated:false}" (dreams.rs:109-110) con `readOnlyHint true` (tools.rs:29/:75-76 — a flipear cuando muta). `rg 'dry|diff|preview|mutated'` en el módulo = solo el comentario :608 ("lets CLI/dashboards preview the diff", 0 implementación). **Precedente dry-run**: `wal salvage --dry-run` (cli.rs:443-447; `cmd_wal_salvage` cli_handlers/wal.rs:165-244). **Re-baseline del seed**: el doc-comment :29-36 ("deliberately not wired into pipeline_worker yet") está STALE — `run_dream` ya existe (:545) y `TaskKind::Dream` dispatchea (:810): lo que falta es SOLO el promote real + dry-run. Tests existentes `dreaming.rs:270-294` fijan "promote MUST NOT mutate l1" — el contrato nuevo los reemplaza por dry-run byte-identical + promote real idempotente. Backlog:929 refiere `vantadb-mcp/src/handlers/dreams.rs` — path real `vantadb-mcp/src/dreams.rs` (re-baseline). Blast radius: `promote_dream_run` ← 2 callers MCP + test; `DreamRun` consumido por list/load/discard.
+- **Gate Justificación:** dim A7/C4 del corte: el ciclo dream→review→promote queda abierto (stub) — sin diff gobernable no se puede auditar qué se promueve antes de tocar L1, y la promoción es la operación de mayor impacto del tiering (reemplaza registros vivos). Cierra "sleep-time compute" usable antes de ICP-02 (F5), que lo consume como pieza de control.
+- **Gate Result:** ✅ DO
+- **Contrato:** "`dry_run:true` (CLI/MCP) devuelve diff por registro {action: ADD|UPDATE|DELETE|NOOP, key, razón (merge|dedup|supersede|normalize)} con L1 byte-identical (test) Y `promote_dream_run` real aplica el plan a `l1/<session>` (ADD/UPDATE/DELETE/NOOP; idempotente: re-promote → todo NOOP) con puerta de calidad sobre merges/supersedes Y MCP `dream_promote` deja de ser preview (readOnlyHint false + descripción/hints + meta-test de conteos) Y tools MCP + docs (`MCP.md`/`VANTA_MEMORY.md`) al día"
+- **Task file:** `docs/dev/tasks/VER-07.md` (a crear en DISCOVERY)
 - **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Cynefin:** 🟨 complicado — semántica de diff por registro (identidad run↔L1) + promote idempotente sin romper el invariante de no-mutación del módulo.
+- **Top 3 riesgos:** 1. promote que muta L1 sin puerta → corrupción silenciosa · 2. diff no determinista (orden/identidad de registros) → dry-run inverificable · 3. hints MCP inconsistentes (readOnlyHint true con tool que muta).
+- **Pre-mortem:** F1: identidad de registros ambigua → diff por (namespace, key) + node_id explícito, con NOOP como default seguro; F2: promote parcial (crash mid-apply) → apply como batch de upserts idempotentes por key (re-run converge); F3: dry-run que toca L1 por accidente → test byte-identical (precedente `dreaming.rs:270-294`) + implementación pura (solo lee).
+- **Stop conditions:** si la puerta de calidad exige el spec de MGR-08 (fuera del plan, investigación pendiente) → entregar dry-run + diff + promote con las reglas existentes de `consolidate_session` y FIND para la puerta avanzada; rabbit hole: UI/consola de review → NO.
+- **Risk Register:**
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🔴 | Promote sin puerta corrompe L1 | dry-run obligatorio por default + apply idempotente + test byte-identical | review P2-01 |
+  | 🟡×🟠 | Diff no determinista | identidad (ns,key,node_id) + orden estable + test de doble corrida | test doble corrida |
+  | 🟢×🟡 | Hints MCP stale | flip readOnlyHint + meta-test de conteos (precedente WIRE-02) | gate MCP |
+- **Uphill/Downhill:** ⬆️ 2 (semántica de diff + promote idempotente) / ⬇️ 5 steps
+- **DoD task:** contrato ⬜ · task file sync · recitation · **Iteraciones:** 0 · **Notas:** consume MEM-69 (batch, ya wired) y MEM-70 (harness — calibración de calidad queda en VER-08, F5, dep cross-fase); MGR-08 (consolidación automática + grafo de reemplazo) queda fuera del plan → clase mínima y FIND si la puerta lo pide (stop condition). Re-baseline: el stub real está en :615 (no :24-27 — :24-27 es el invariante doc) y "PREVIEW ONLY... mutated:false" es de `dreams.rs:109-110` (MCP). El dry-run no muta: mismo espíritu del invariante #1 del módulo.
 
 ### Task 35: VER-01 — Tamper-evident: hash-chain en WAL + `vanta-cli verify`
 - **Fase:** F4
-- **Dep:** — · 🔴 3-5d · 🔴 · **Ruta:** vanta-worker · **Contrato:** "hash-chain + comando verify + test de manipulación detectada" · **Task file:** `docs/dev/tasks/VER-01.md`
+- **Dep:** — (paralelo; post-API-01 para tipos ✅)
+
+- **Appetite:** max 5d · **Esfuerzo:** 🔴 3-5d · **Prioridad:** 🔴
+- **Ruta:** vanta-worker (+ vanta-audit: revisión del diseño del chain/attestation)
+- **Archivos clave:** `src/wal.rs` (`WalRecord` :47-90; frame `[len u32][postcard][crc u32]` :216-217; `append` :306-329; `batch_append` :332-370; `WalHeader` :96-143 (20B: VWAL+version+schema+CRC); `recover_valid_records` :272; `quarantine_corrupt_tail` :283) · `src/wal_sharded.rs` (append :405/:420; recover :448-491; `verify_shard_counts` :69) · `src/cli.rs` (Commands :47; `WalCommand` :435 — nuevo subcomando verify o `Commands::Verify`) · `src/cli_handlers/wal.rs` (nuevo `cmd_wal_verify`, patrón salvage :165-266) · `src/audit.rs` (`AuditEvent` :21-39 + `memory()` :78-90 — modelo de evento a encadenar) · `benches/wal_throughput.rs` (gate coste ≤5%) · tests: nuevo tamper test + `tests/proptest_wal_roundtrip.rs` + `tests/wal_rollback.rs` · `docs/api/` (formato + verificación)
+- **Verificación real:** ✅ CÓDIGO-REAL — **gap confirmado**: `rg 'hash_chain|prev_hash|chained_hash|chain_hash'` en `src/` = **0 hits**; el WAL hoy es CRC32C por registro (detección de corrupción, NO de manipulación: un rewrite con CRC recalculado pasa). Puntos de extensión verificados: framing append-only :216-217; `WalRecord` postcard :47-90 (Insert/Update/Delete/Checkpoint/Begin/Prepare/Commit/Abort — las ops de memoria add/update/delete/supersede caen aquí); header versionado con `validate_compat` (acepta ≤ `WAL_FORMAT_VERSION`) :146-189 → bump de versión para el chain. **`vanta-cli verify` NO existe**: Commands :47 no lo tiene; `WalCommand` :435 = {Compact, Vacuum, Salvage} (salvage con `--dry-run` :443-447, patrón de handler :165-266). **Precedente audit**: `AuditEvent` (audit.rs:21-39; JSONL append-only + rotación :15-17; opt-in `Config::audit_log_path` config.rs:252). MGR-13 §8 cita el chain como deuda v1.0 "con PROV-O, citado no duplicado" (research/mgr-13-cuarentena.md:228) y SCH-03/SCH-05 lo dejaron explícitamente a VER-01 (plan :803/:811). Backlog:923 DoD: test manipulación (1 registro alterado → verify falla) + bench ≤5% escritura + doc `docs/api/`. Refs: `src/wal*.rs`, `src/storage/engine/`, `src/cli_handlers/`.
+- **Gate Justificación:** la categoría P52 ("memoria verificable y gobernable", VISION.md:25/:140) sin chain no es más que CRC: el claim diferenciador (ninguno de 17+ sistemas analizados lo tiene — Analisis-Arquitectura :38) exige detección de manipulación/extirpación con registro exacto y un comando operable — cimiento del que cuelgan VER-02 (attestation de purga) y VER-04 (audit WORM-ready).
+- **Gate Result:** ✅ DO
+- **Contrato:** "hash-chain incremental por registro en el WAL (prev_hash + hash del frame; sin re-hash total) con coste de escritura medido ≤5% (`wal_throughput` before/after) Y `vanta-cli verify` recorre el WAL y detecta manipulación/extirpación con registro exacto (1 registro alterado o eliminado → exit ≠0 + posición; test dedicado) Y compat: WAL v1 sigue recuperable (bump de `WAL_FORMAT_VERSION` con lectura legacy o migración) Y diseño del chain documentado en `docs/api/` (qué cubre y qué no: límites de truncado legítimo vs extirpación)"
+- **Task file:** `docs/dev/tasks/VER-01.md` (a crear en DISCOVERY)
 - **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Cynefin:** 🔴 complejo — criptografía incremental en hot path + compat de formato + semántica extirpación vs truncado legítimo (crash).
+- **Top 3 riesgos:** 1. coste de escritura >5% (hash por registro en append) · 2. falso positivo: truncado legítimo post-crash (quarantine) reportado como manipulación · 3. rotación/sharding rompen la cadena (¿chain por shard o global?).
+- **Pre-mortem:** F1: cadena global con shards → definir cadena por shard + cross-link en `shard_meta` (o decisión documentada en el diseño); F2: verify sobre WAL vivo (lock) → verify abre read-only con snapshot consistente (patrón `recover` :448) y declara el límite; F3: registros viejos sin hash → verify reporta "pre-chain prefix" explícito (no lo trata como manipulación; decisión de scope en DISCOVERY).
+- **Stop conditions:** si el coste supera 5% estructuralmente (hash por frame en fsync path) → degradar a cadena por checkpoint/batch y FIND (decisión de scope documentada); si la compat legacy exige migración WAL costosa → chain opt-in por config + FIND; rabbit hole: re-chaining histórico completo → NO.
+- **Risk Register:**
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🔴 | Coste >5% en append | medir con `wal_throughput` + hash incremental (no re-hash) | bench before/after |
+  | 🟢×🟠 | Falso positivo truncado legítimo | distinguir prefijo válido/quarantine (gap ≠ tail truncado) | test negativo |
+  | 🟡×🟠 | Shards/rotación rompen cadena | decisión documentada (por shard + link) + tests rotate/recover | review P2-01 |
+- **Uphill/Downhill:** ⬆️ 2 (formato versionado + semántica extirpación) / ⬇️ 6 steps
+- **DoD task:** contrato ⬜ · task file sync · recitation · **Iteraciones:** 0 · **Notas:** MGR-13 §8 queda citado (no duplicado): el chain es la evidencia encadenada de transiciones/purga (consumidores VER-02/VER-04). `AuditEvent` (audit.rs) es el modelo de evento; decidir en DISCOVERY si el chain cubre el WAL completo o un log dedicado de ops de memoria (decisión de scope = stop condition del Backlog:923). Bench `wal_throughput` ya existe (Cargo.toml:338-339). Firma/attestation criptográfica de la cadena (clave del motor) se decide con vanta-audit.
 
 ### Task 36: VER-05 — Importadores Mem0/Zep/Letta→VantaDB + formato de intercambio
 - **Fase:** F4
-- **Dep:** — · 🟢 1-2d · 🟠 · **Ruta:** vanta-worker · **Contrato:** "importadores con roundtrip + formato documentado" · **Task file:** `docs/dev/tasks/VER-05.md`
+- **Dep:** — (aditivo; consume export/import existente `EXPORT_SCHEMA_VERSION=2`)
+
+- **Appetite:** max 2d · **Esfuerzo:** 🟢 1-2d · **Prioridad:** 🟠
+- **Ruta:** vanta-worker
+- **Archivos clave:** `src/sdk/serialization/mod.rs` (formato de intercambio: `EXPORT_SCHEMA_VERSION=2` :54; `export_line_from_record` :622; validación import 1..=2 :692-706 — ADR-046 §D7) · `src/sdk/serialization/impl_export.rs` (`import_records` :306; `import_file` :388) · nuevo `src/sdk/importers/` (destino DISCOVERY: `mem0.rs`/`zep.rs`/`letta.rs` → `MemoryExportLine`) · CLI `Import` (cli.rs:124) o flag de formato · fixtures nuevos `tests/fixtures/importers/{mem0,zep,letta}/` (destino) · `docs/user/tutorials/` (guía nueva; patrón `03-migrating-from-chromadb.md`/`migration-from-lancedb.md`) · `docs/api/` (formato de intercambio documentado)
+- **Verificación real:** ✅ CÓDIGO-REAL — **el formato de intercambio YA existe (re-baseline)**: `MemoryExportLine` JSONL con `EXPORT_SCHEMA_VERSION=2` (mod.rs:54, :622-624) + import compatible v1..v2 (mod.rs:692-706) + `import_records`/`import_file` (impl_export.rs:306/:388) + CLI `import` (cli.rs:124) + MCP `import`/`bulk_import_*` (tools.rs:30). **Importadores de rivales NO existen**: `rg '(?i)mem0|zep|letta'` en `src/` = 0 hits (los paquetes `integrations/` son adapters de uso — te permiten usar VantaDB como backend, no migrar exports; capa distinta). Fixtures de rivales: 0. Guías de migración: patrón ya establecido (`docs/user/tutorials/03-migrating-from-chromadb.md`, `migration-from-lancedb.md`, `migrate-from-vectara.md`, `docs/user/SQLITE_MIGRATION_GUIDE.md`). Formatos objetivo (Backlog:927): Mem0 = memories JSON; Zep/Graphiti = episodios+facts; Letta = archivos/bloques; input = export del usuario (sin credenciales). DoD Backlog: "3 importadores con test + guía de migración publicada". Blast radius: aditivo (módulo nuevo + mapeo a tipos existentes); sin cambios de wire.
+- **Gate Justificación:** captura de usuarios de la competencia (estrategia COGX, cognee.ai/migrating-from-mem0): con el harness (VER-08/09, F5) y los adapters (MKT-18f), los importadores son la pata de switching cost más barata del plan; el formato de intercambio ya normalizado (v2) hace que el costo marginal sea el mapeo por sistema.
+- **Gate Result:** ✅ DO
+- **Contrato:** "3 importadores (Mem0 memories JSON, Zep/Graphiti episodios+facts, Letta archivos/bloques) que mapean a `MemoryExportLine` preservando metadata y procedencia, cada uno con test sobre fixture real Y roundtrip estable (import → export v2 → diff) Y formato de intercambio VantaDB documentado (JSONL v2 + semántica temporal/dedup/conflicto + límites de lo preservable) en `docs/api/` Y guía de migración por sistema publicada en `docs/user/tutorials/` (solo archivos de export; sin credenciales)"
+- **Task file:** `docs/dev/tasks/VER-05.md` (a crear en DISCOVERY)
 - **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Cynefin:** 🟦 obvio→🟨 — mapeo de formatos ajenos; el riesgo es de fidelidad de datos, no de diseño.
+- **Top 3 riesgos:** 1. pérdida silenciosa de campos al mapear (timestamps/procedencia) · 2. formatos rivales versionados (exports cambian) · 3. imports que duplican al re-ejecutar.
+- **Pre-mortem:** F1: campos sin destino → tabla de mapeo campo↔campo con "descartado explícito" documentado + contadores en el reporte de import; F2: export nuevo de un rival → parser tolerante (campos requeridos mínimos) + test con fixture mínimo y fixture real; F3: re-import duplica → reusar idempotencia por content-hash del seed (patrón `md_import`/MEM-39).
+- **Stop conditions:** si un formato exige SDK/API del rival (no solo su export) → solo archivos de export + FIND; rabbit hole: soportar todas las versiones históricas de cada rival → NO (última versión del export).
+- **Risk Register:**
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟠 | Pérdida de campos en mapeo | tabla de mapeo + descartes explícitos + contadores | review P2-01 |
+  | 🟢×🟠 | Formato rival cambia | parser tolerante + fixtures versionados | fixture nuevo en CI |
+  | 🟡×🟡 | Re-import duplica | idempotencia content-hash (precedente MEM-39/`md_import`) | test re-import |
+- **Uphill/Downhill:** ⬆️ 1 (fidelidad de mapeo + fixtures) / ⬇️ 4 steps
+- **DoD task:** contrato ⬜ · task file sync · recitation · **Iteraciones:** 0 · **Notas:** el "formato de intercambio" NO se inventa: es `MemoryExportLine` v2 (mod.rs:54) — la tarea lo documenta y lo usa como contrato de importadores. Coordina con ICP-03 (F5, dep VER-05: "importadores desde Mem0/Zep") y con la guía de migración (MKT-18f no la incluye). Fixtures: usar exports públicos sanitizados (sintéticos si no hay export real a mano).
 
 ### Task 37: VER-06 — Export file-native Markdown + `rebuild_index` (git-friendly)
 - **Fase:** F4
-- **Dep:** — · 🟢 1-2d · 🟡 · **Ruta:** vanta-worker · **Contrato:** "export MD + rebuild_index + roundtrip verde" · **Task file:** `docs/dev/tasks/VER-06.md`
+- **Dep:** — (aditivo; export/import MD + `rebuild_index` ya existen — MEM-62)
+
+- **Appetite:** max 2d · **Esfuerzo:** 🟢 1-2d · **Prioridad:** 🟡
+- **Ruta:** vanta-worker
+- **Archivos clave:** `src/cli_handlers/export_md.rs` (`MD_EXPORT_SCHEMA_VERSION=1` :32; `Frontmatter` :61-75 — sin campos v2; layout `index.json`+checksums :5-13/:87-93; `render_record_md` :100) · `vanta-memory/src/seed/md_import.rs` (`MD_IMPORT_SCHEMA_VERSION` :24; rechazo de versión desconocida :88-91; `import_md_dir` :217) · `vanta-memory/src/bin/vanta-seed.rs` (`import-md` :23/:87) · `src/cli.rs` (Export :106-121; `ExportFormat::Md` :465-474; `RebuildIndex` :88) · `src/cli_handlers/index.rs` (`cmd_rebuild_index` :14 → `db.rebuild_index()` :46) · `src/sdk/serialization/impl_index.rs` (rebuild-on-mismatch :52-67) + `impl_rebuild.rs` · `vanta-memory/tests/md_roundtrip.rs` (:1-135) · docs: `docs/api/VANTA_MEMORY.md` (:60-64) + guía git (destino)
+- **Verificación real:** ✅ CÓDIGO-REAL — **mucho YA existe (re-baseline)**: export MD git-friendly (`vanta-cli export --format md`, cli.rs:106-121; handler con `index.json` + checksums + sanitización de paths) + re-import (`vanta-seed import-md <dir>`, bin :87 → `import_md_dir` :217) + roundtrip test con idempotencia (`md_roundtrip.rs:112-121`; usa `test_render_md`, NO el handler del CLI) + `rebuild_index` (CLI :88 → handler index.rs:14/:46; rebuild-on-mismatch de índices derivados impl_index.rs:52-67). **Gaps reales**: (1) **campos v2 ausentes** del frontmatter MD (:61-75: sin `valid_at_ms`/`invalid_at_ms`/`confidence*`/`quarantined*`; SCH-02 lo difirió explícitamente — SCH-02.md:81 "NO tocar") → el roundtrip pierde la semántica F3; (2) **flujo E2E ausente**: export→editar a mano→import-md→rebuild-index→search no está probado (el test existente no ejecuta el CLI ni busca post-rebuild); (3) **wikilinks** (DoD Backlog:928: "Markdown+frontmatter con wikilinks", ReMe/Claude-filesystem) no existen: `rg` de `[[` en export/import = 0; (4) doc del flujo git (editar/diff/PR/rebuild) mínima (VANTA_MEMORY.md:60-64). DoD Backlog: "export→edit→rebuild→search recupera cambios + doc". FUT-11 → VER-06 (backlog-futuro.md:25).
+- **Gate Justificación:** transparencia/auditabilidad por editor/git es la pata "file-native" del claim verificable (D3/AM7) y la extensión v2 cierra el hueco que SCH-02 dejó a propósito; el índice es regenerable (Markdown NO es fuente de verdad primaria) — con eso el usuario puede versionar su memoria en git y reconstruir.
+- **Gate Result:** ✅ DO
+- **Contrato:** "flujo E2E verde con test: `vanta-cli export --format md` → edición manual de un .md → `vanta-seed import-md` → `vanta-cli rebuild-index` → search/get devuelve el valor editado Y frontmatter MD extendido a v2 (valid_at/invalid_at/confidence/quarantine; `MD_EXPORT_SCHEMA_VERSION` 1→2 con import aceptando 1..=2, sin breaking) Y wikilinks a registros relacionados (superseded_by/derived_from → `[[ns/key]]`) Y doc del flujo git-friendly (editar, diff, PR, rebuild) publicada"
+- **Task file:** `docs/dev/tasks/VER-06.md` (a crear en DISCOVERY)
 - **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Cynefin:** 🟦 obvio→🟨 — extender formato existente + un test E2E orquestado; el riesgo está en la compat de import.
+- **Top 3 riesgos:** 1. bump de frontmatter que rompe imports v1 (consumidores existentes) · 2. wikilinks que el import no resuelve → datos huérfanos · 3. rebuild-index que no re-deriva del contenido editado (confusión de fuente de verdad).
+- **Pre-mortem:** F1: import de un solo lado → import acepta 1..=2 + test explícito de compat (patrón import v1/v2 `serialization/mod.rs:692-706`); F2: wikilink roto → wikilinks informativos (no fuente de joins; resolubles best-effort al import) + reporte de links sin destino; F3: expectativa "Markdown es fuente de verdad" → doc explícita: el store es la fuente; MD es proyección (editar → re-import → rebuild).
+- **Stop conditions:** si los wikilinks exigen resolver relaciones del grafo en export → versión mínima (superseded_by/derived_from como links planos) + FIND para el resto; rabbit hole: bidireccionalidad en vivo (file watcher) → NO.
+- **Risk Register:**
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟠 | Bump rompe imports v1 | import acepta 1..=2 + test de compat | gate roundtrip |
+  | 🟡×🟡 | Wikilinks sin destino | links informativos + reporte en el import | fixture E2E |
+  | 🟢×🟠 | Fuente de verdad confusa | doc explícita (store primario; MD proyección) | review P2-01 |
+- **Uphill/Downhill:** ⬆️ 1 (formato v2 + E2E orquestado) / ⬇️ 4 steps
+- **DoD task:** contrato ⬜ · task file sync · recitation · **Iteraciones:** 0 · **Notas:** re-baseline verificado: export MD + import-md + rebuild-index YA existen (MEM-62) — el slice real es v2 + E2E + wikilinks + doc (el seed "export MD + rebuild_index + roundtrip verde" daría verde con lo hoy existente; no cubre los gaps). `md_roundtrip.rs` usa `test_render_md` (fixture) — el E2E nuevo debe usar el handler real del CLI. Coordinar bump `MD_EXPORT_SCHEMA_VERSION` (SCH-02.md:81 lo dejó explícitamente pendiente).
 
 ### Task 38: VER-02 — Borrado certificado (delete-path shred→GC→WAL + attestation)
 - **Fase:** F4
-- **Dep:** SCH-02 · 🟡 2-3d · 🔴 · **Ruta:** vanta-worker · **Contrato:** "attestation de purga verificable + tests" · **Task file:** `docs/dev/tasks/VER-02.md`
+- **Dep:** SCH-02 (record v2) + coordinar WIRE-09 ✅ (sandbox export/import, sdk/api.rs:777)
+
+- **Appetite:** max 3d · **Esfuerzo:** 🟡 2-3d · **Prioridad:** 🔴
+- **Ruta:** vanta-worker (+ vanta-audit: diseño del certificado)
+- **Archivos clave:** `src/shred/mod.rs` (`ShreddedRowStore` :152; `delete` existe (:362-363, tests :421-422) pero el delete-path NO lo llama — :47-48 "Not yet wired") · `src/storage/engine/delete.rs` (`delete(id,_reason)` :19 → tombstone WAL :44 + `backend.delete` :48; `delete_batch` :160/:220; `purge_permanent` :274; `is_deleted` :294) · `src/sdk/api/memory.rs` (`purge_expired` :1102; put con shred :390/:629) · `src/gc.rs` (`purge_ttl_for_deleted` :88; sweeper :130-165) · `vanta-memory/src/offload/reclaimer.rs` (GC offload, MEM-42) · `src/audit.rs` (`AuditEvent` :21 + `reason` :33) · CLI/MCP: `src/cli_handlers/` (nuevo comando de certificado) + `vantadb-mcp/src/handlers/tools.rs` (`memory_delete` :30) · tests: `tests/security.rs` (o nuevo `tests/certified_delete.rs` — destino) · docs
+- **Verificación real:** ✅ CÓDIGO-REAL — **re-baseline del seed (importante)**: `src/shred/` NO es "shred seguro" (secure delete) — es **JSON Shredding** (:4: columnar typed storage de metadata) y su delete-path está explícitamente sin cablear (:47-48 "shredded entries survive node deletion until garbage collection (Phase 2)") → confirma el "hoy el shred no purga entradas huérfanas" del Backlog:924. Delete-path verificado: `delete(id,_reason)` escribe tombstone WAL ANTES de store I/O (delete.rs:44) y aplica `backend.delete` :48; `_reason` se ignora hoy (:19) aunque `AuditEvent.reason` existe (audit.rs:33). GC: TTL sweeper `purge_ttl_for_deleted` (gc.rs:88/:130-165) + offload reclaimer (`vanta-memory/src/offload/reclaimer.rs`) + `purge_expired` (memory.rs:1102; endpoint maintenance handlers.rs:1173). **Attestation NO existe**: `rg 'attestation'` en `src/` = 0 (solo TLS `certificate`, config.rs:831). `tests/security.rs` cubre inyección/validación — sin purga E2E. DoD Backlog: "test purga E2E (índices+WAL) + certificado emitido por CLI/MCP + doc"; alcance declarado: borrado de índices+WAL+respaldos con attestation (NO unlearning paramétrico — fuera de alcance por diseño).
+- **Gate Justificación:** dim C4/C6 + P52: "forget" certificable es la garantía de privacidad que vende el track ICP-02 (métrica "0 PII en store") y sin cablear el shred y sin certificado la promesa no es verificable; el delete-path ya tiene la infraestructura (tombstones + GC + audit) → costo marginal de cierre bajo.
+- **Gate Result:** ✅ DO
+- **Contrato:** "delete-path completo y verificable: `delete`/`delete_batch`/purga cablean el shred store (`ShreddedRowStore::delete`), remueven de índices derivados (HNSW/text/derived) y dejan rastro WAL verificable Y certificado de purga (JSON con timestamp, key/namespace, superficies barridas y evidencia) emitido por CLI y MCP, consultable y determinista Y test E2E: record borrado → 0 residuos en store/índices/shred + certificado válido (con firma/chain de VER-01 si está; si no, campo reservado) Y doc (alcance: purga lógica/física; NO unlearning paramétrico)"
+- **Task file:** `docs/dev/tasks/VER-02.md` (a crear en DISCOVERY)
 - **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Cynefin:** 🟨 complicado — wiring en 3 capas (shred/GC/WAL) + definición de "purga completa" verificable sin sobre-prometer (unlearning).
+- **Top 3 riesgos:** 1. purga parcial declarada como total (overselling) · 2. romper el delete-path existente (hot path con `insert_lock`) · 3. certificado no verificable (decorativo).
+- **Pre-mortem:** F1: superficies sin cubrir (p.ej. offload o snapshots) → inventario por superficie con estado explícito en el certificado (cubierto/no-cubierto) — nunca silencio; F2: regresión en delete-path → shred purge best-effort post-commit (misma clase de durabilidad que put :390), nunca bloquea el delete core; F3: certificado sin checks → E2E negativo: re-scan encuentra 0 residuos + manipular el certificado rompe la verificación.
+- **Stop conditions:** si VER-01 (chain) no está listo → certificado sin firma criptográfica (campo reservado + FIND); si purgar snapshots/backups exige rediseño → declarar alcance "store+índices+shred+WAL" y FIND para backups (documentado, no silencioso); rabbit hole: unlearning paramétrico (embeddings) → NO (decisión de producto).
+- **Risk Register:**
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🔴 | Purga parcial declarada total | certificado por superficie + inventario explícito | review P2-01 |
+  | 🟡×🟠 | Regresión en delete-path | shred purge best-effort post-commit + tests existentes verdes | test rojo |
+  | 🟢×🟠 | Certificado decorativo | E2E negativo: re-scan 0 residuos + verify detecta manipulación | gate chaos/security |
+- **Uphill/Downhill:** ⬆️ 2 (wiring shred/GC + certificado verificable) / ⬇️ 5 steps
+- **DoD task:** contrato ⬜ · task file sync · recitation · **Iteraciones:** 0 · **Notas:** re-baseline clave: `src/shred/` = JSON Shredding (no secure-delete); el seed "delete-path shred→GC→WAL" se mantiene pero significa "cablear la purga del shredded store + GC + tombstones". `tests/security.rs` es el hogar del E2E nuevo o un `tests/certified_delete.rs` (destino DISCOVERY). Reusar `AuditEvent` para emisión (`reason` ya existe :33). Coordinar con WIRE-09 (sandbox export/import) para que el certificado cubra exports. Consumidor: ICP-02 (F5).
 
 ### Task 39: VER-03 — Redacción-on-write persistida + namespaces cifrados
 - **Fase:** F4
-- **Dep:** WIRE-01 ✅ · 🟡 2-3d · 🔴 · **Ruta:** vanta-worker · **Contrato:** "redacción persistida + envelope por namespace + test PII=0" · **Task file:** `docs/dev/tasks/VER-03.md`
+- **Dep:** WIRE-01 ✅ (proxy capture/write-back) + SCH-02 (record v2)
+
+- **Appetite:** max 3d · **Esfuerzo:** 🟡 2-3d · **Prioridad:** 🔴
+- **Ruta:** vanta-worker (+ vanta-audit: diseño AEAD/rotación)
+- **Archivos clave:** `vanta-proxy/src/redact.rs` (`RedactMode` :26 Block/Log/Mask; `RedactConfig` :41 — patterns :48, default Mask :44; `Redactor` :118-132; `apply`/`mask_body` :181-196 — EGRESS) · `vanta-proxy/src/capture.rs` (write-back L0 SIN redacción — `rg redact` = 0) · `src/crypto.rs` (`Cipher` :137 AES-256-GCM; `EncryptionConfig` :87; `resolve_cipher` :104; env `VANTADB_ENCRYPTION_KEY` :15; `EncryptionStream` :325) · `src/sdk/types/record.rs` + `src/sdk/serialization/mod.rs` (payload/record) · `src/config.rs` (config de cifrado) · `vanta-memory/src/core/hooks/auto_capture.rs` (captura L0) · docs: `docs/user/operations/CONFIGURATION.md` + `docs/api/`
+- **Verificación real:** ✅ CÓDIGO-REAL — **gap confirmado**: redacción existe SOLO en egress del proxy (`Redactor`/`RedactConfig`, redact.rs; aplica sobre la salida :181-196) — el write-back (`capture.rs`) persiste el turno SIN redactar (`rg redact` en capture.rs = 0): "la redacción que el proxy ya hace en vivo" NO se persiste (confirma Backlog:925). Cifrado: existe AES-256-GCM at-rest a nivel storage con clave global (`VANTADB_ENCRYPTION_KEY`, crypto.rs:15/:137) — pero NO hay envelope por namespace (`rg 'namespace_key|secret_key'` = 0; crypto.rs es la única superficie de cifrado). DoD Backlog: "PII no aparece en claro en store/índices + envelope descifrable solo con key + doc"; OS: AEAD por namespace, rotación de claves, degradación explícita sin clave. `RedactConfig` ya clasifica findings por kinds (redact.rs:65) sin valores — insumo directo para persistir "redactado" manteniendo trazabilidad.
+- **Gate Justificación:** cierra la narrativa "la memoria vive en tu proceso y es verificable" (ICP-02, métrica 0 PII): hoy el proxy redacta la salida pero guarda el original en claro (contradicción verificable), y sin namespaces cifrados el multi-tenant local no puede aislar keys por usuario/proyecto. Costo marginal bajo: redactor existente + cifrado existente → componerlos en el write path.
+- **Gate Result:** ✅ DO
+- **Contrato:** "redacción-on-write persistida: lo que se persiste en store/índices es la versión redactada (mismos kinds del `Redactor`; test: PII sintética capturada → scan de store+índices+export v2 = 0 en claro) Y el original solo sobrevive en un envelope AEAD por namespace (descifrable únicamente con su key; rotación de claves declarada y testeada) Y sin key la degradación es explícita (modo configurado + warning; nunca caída silenciosa a claro) Y doc (config, formato del envelope, rotación, degradación)"
+- **Task file:** `docs/dev/tasks/VER-03.md` (a crear en DISCOVERY)
 - **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Cynefin:** 🟨 complicado — componer redacción+cifrado en el write path sin romper búsqueda (¿el índice ve lo redactado?) ni el contrato de capture.
+- **Top 3 riesgos:** 1. redacción que deforma contenido legítimo (falsos positivos) → dato útil perdido · 2. envelope que rompe roundtrip/export (o queda huérfano sin key) · 3. degradación silenciosa a texto claro.
+- **Pre-mortem:** F1: FP del redactor → default Mask FP-safe (:44) + kinds configurables + el original en envelope permite recuperación con key (nada se pierde); F2: envelope fuera del contrato de export → decidir y documentar (export v2 lleva la versión redactada; envelope excluido o incluido con flag) + test de roundtrip; F3: sin key → modo explícito (error tipado o "store sin cifrar declarado") + test del modo.
+- **Stop conditions:** si el envelope por namespace exige tocar el formato del record (breaking) → envelope como capa de campos dedicada (sin tocar el core del record) y FIND; si la rotación completa exige re-encrypt masivo → rotación v1 (nueva key para nuevos writes + re-encrypt lazy) y FIND para el barrido; rabbit hole: KMS/HSM externo → NO (local-first).
+- **Risk Register:**
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟠 | FP de redacción | Mask FP-safe + kinds configurables + original recuperable | review P2-01 |
+  | 🟡×🔴 | Envelope rompe export/roundtrip | contrato de export explícito + test roundtrip | gate export |
+  | 🟢×🔴 | Degradación silenciosa a claro | modo explícito + warning + test de config | test de config |
+- **Uphill/Downhill:** ⬆️ 2 (write path compuesto + envelope por namespace) / ⬇️ 5 steps
+- **DoD task:** contrato ⬜ · task file sync · recitation · **Iteraciones:** 0 · **Notas:** "persistir la redacción que el proxy ya hace en vivo" = mover el `Redactor` al write-back (`capture.rs`) + store; el cifrado existente (crypto.rs, AES-256-GCM global) se reusa como primitiva AEAD, no se reinventa. Alcance declarado: PII en claro = 0 en store/índices (métrica ICP-02); el original cifrado es opcional (config) — si está off, la redacción es la única copia. Coordinar con VER-02 (el forget certificado cubre el envelope) y VER-04 (audit de inyección).
 
 ### Task 40: VER-04 — Governance de inyección (presupuesto + ACLs + audit log)
 - **Fase:** F4
-- **Dep:** WIRE-01 ✅ · 🟡 2-3d · 🟠 · **Ruta:** vanta-worker · **Contrato:** "presupuesto/ACLs enforced + audit log de inyección" · **Task file:** `docs/dev/tasks/VER-04.md`
+- **Dep:** WIRE-01 ✅ (proxy inject + capture) + gates SCH-05 ✅ (l1_reader/quarantine)
+
+- **Appetite:** max 3d · **Esfuerzo:** 🟡 2-3d · **Prioridad:** 🟠
+- **Ruta:** vanta-worker
+- **Archivos clave:** `vanta-proxy/src/inject.rs` (`build_memory_block` :106 — budget `max_tokens`, prioridad persona→scene; tests :589-651) · `vanta-proxy/src/config.rs` (`InjectionConfig` :86-95; default 2000 :84; 0 = off :88-89) · `src/rbac.rs` (`Permission::NamespaceRead/Write` :7-20; `can_access_namespace` :70-85) · `src/server/middleware.rs` (SRV-05 namespace-scoped RBAC :182-216) · `vantadb-mcp/src/handlers/tools.rs` (`inject_context` def :607 / handler :2068-2136; envelope `{hits, byte_count, truncated}` :352-356/:380-384; `search_page_envelope` :3361-3380; `apply_output_budget` :1645-1658) · `vanta-memory/src/core/record/l1_reader.rs` (choke point :51-53) · `vanta-memory/src/core/hooks/auto_recall.rs` (:30/:198) · `src/audit.rs` (`AuditEvent` :21 + `memory()` :78-90) · docs: `docs/api/MCP.md` + `docs/user/operations/CONFIGURATION.md`
+- **Verificación real:** ✅ CÓDIGO-REAL — **parcial (re-baseline)**: (1) **presupuesto YA existe a medias**: bloque `<vanta-memory>` con cap por tokens (`InjectionConfig`, default 2000, config.rs:81-95; `build_memory_block` inject.rs:106; test persona-priority :589-651) + envelope MCP con `byte_count`/`truncated` (tools.rs:352-356; `apply_output_budget` :1645-1658) — falta enforcement/consistencia por request en todas las superficies de inyección (MCP `inject_context` :2068-2136 NO tiene budget del contenido: solo `max_payload_length` :2107). (2) **ACLs existen para HTTP** (`rbac.rs` :7-20/:70-85; middleware SRV-05 :182-216) — NO hay ACL por tool/namespace para la inyección (MCP/auto_recall). (3) **audit log existe** (`AuditEvent` audit.rs:21-39, builders :78-111, opt-in config.rs:252) — NO hay audit de inyección (qué memoria entró a qué prompt con qué score): `rg audit` en vanta-proxy = solo trail de writeback/capture, no inyección. Gates SCH-05 verificados (quarantine: `l1_reader.rs:51-53` choke point `include_quarantined:false`). Backlog:926 DoD: "presupuesto respetado en test e2e + audit consultable + doc"; ref `vanta-proxy/src/server.rs:403` — STALE (real: inject.rs:106). "WORM-ready" + alinear con VER-01 (cita, sin duplicar).
+- **Gate Justificación:** hueco #9 del análisis: solo VantaDB tiene proxy+memoria en el mismo paquete → la governance de inyección (budget/ACL/audit) es diferenciador propietario y prerequisito de la demo ICP-02 (F5): "qué memoria se inyectó, con qué score, bajo qué límite" — con el audit encadenado (VER-01) como consumidor.
+- **Gate Result:** ✅ DO
+- **Contrato:** "presupuesto de inyección enforced y consistente por request (bloque `<vanta-memory>` ≤ budget; budget 0/bajo → inyección vacía o recortada verificada en test e2e del proxy; envelope MCP coherente con `byte_count`/`truncated`) Y ACLs por tool/namespace aplicadas a las superficies de inyección (precedente rbac.rs/middleware SRV-05; deny fuera de scope) Y audit log de inyección consultable: {sesión/prompt, memoria inyectada (ns/key), score, budget/truncado, decisión ACL} como eventos WORM-ready (preparado para el chain de VER-01, citado) Y doc (config + consulta del audit)"
+- **Task file:** `docs/dev/tasks/VER-04.md` (a crear en DISCOVERY)
 - **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Cynefin:** 🟨 complicado — unificar budget/ACL/audit sobre 3 superficies de inyección (proxy, MCP, auto_recall) sin romper prompt-cache ni el contrato read-only.
+- **Top 3 riesgos:** 1. audit de inyección que registra PII (ironía del track privacidad) · 2. ACL que rompe la inyección legítima (deny por defecto mal calibrado) · 3. budget inconsistente entre superficies (proxy vs MCP).
+- **Pre-mortem:** F1: audit con contenido → registrar metadatos (ns/key/score/kinds) sin payload; nunca valores (precedente `RedactConfig` kinds sin valores, redact.rs:65); F2: ACL rompe flujos existentes → ACL opt-in con default actual (compatible) + tests de allow/deny; F3: budget divergente → única fuente `InjectionConfig`/`byte_budget` y test de consistencia por superficie.
+- **Stop conditions:** si ACL por tool/namespace exige motor de políticas (ABAC/MGR-04) → mínimo: ACL por namespace de sesión + FIND; rabbit hole: dashboard/UI de audit → NO (consulta CLI/JSON).
+- **Risk Register:**
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🔴 | Audit registra PII | metadatos (ns/key/score/kinds) sin valores + revisión vanta-audit | review P2-01 |
+  | 🟡×🟠 | ACL rompe inyección | opt-in compatible + tests allow/deny por superficie | test rojo |
+  | 🟢×🟠 | Budget inconsistente | fuente única + test de consistencia proxy/MCP | gate MCP |
+- **Uphill/Downhill:** ⬆️ 2 (audit consultable + ACL sobre 3 superficies) / ⬇️ 5 steps
+- **DoD task:** contrato ⬜ · task file sync · recitation · **Iteraciones:** 0 · **Notas:** re-baseline: ref del Backlog `server.rs:403` es stale (build_memory_block real: inject.rs:106); presupuesto MCP ya existe (`apply_output_budget`/envelope) — el slice cierra enforcement + ACL + audit. Consumidores: ICP-02 (F5, "0 PII en auditoría") y VER-01 (el chain firma los eventos de inyección — cita). Coordinar con SCH-05 (quarantine gate `l1_reader`) y VER-03 (redacción en el payload inyectado).
 
 ### Task 41: MKT-18f — Publicar 9 adapters PyPI (owner-assisted)
 - **Fase:** F5
@@ -1059,6 +1206,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **plan-adjust [2026-09-29c]:** **F3.4 cerrada (32/50)** — SCH-06 suite determinista/time-travel/roundtrip/chaos (`b90c494b`; review fast ✅; CI exacto 2/2). FIND-186 registrado (`70196101`: WAL shard-group crash → salvage). Índices regenerados (`e23bc11e`). Nota: sesión docs commiteó consolidación completa (`d23e1224`/`86c55e01`/`10577ec0`). Wave F3.5 lanzada: SCH-07 (recoge docs/api diferidas de SCH-03/04/05 + 2 gaps).
 - **plan-adjust [2026-09-29d]:** **F3.5 cerrada (33/50)** — SCH-07 superficies (`aa111979`): 8 superficies con wire unificado + docs/api mismo-PR (2 gaps cerrados, 0 gaps) + public_api +4 auditado; review adversarial + delta ✅. FIND-187/188 registrados (abstención page-shaped por binding; quarantine ops/import args en HTTP/MCP/CLI). semver-checks: 9 fallas del corte acumulado → SCH-08 (`feat!`). Wave F3.6 lanzada: SCH-08.
 - **plan-adjust [2026-09-29e]:** **F3 COMPLETA (34/50) — GATE F3 ✅ local.** SCH-08 (`b9296909`): guía Upgrading-to-0.8.0 + auditoría release-plz (R1: commit marcador `feat(schema)!` + footer BREAKING CHANGE — garantiza 0.8.0 + breaking notes; R2: `[changelog] header` — preserva frontmatter, aplicado) + release notes draft + handoff owner (7 pasos; PR #228 vigente NO mergear). Review ❌→fixes→delta ✅. Release real = lane owner (push bloqueado por política). Siguiente: bloques F4 → wave F4.
+- **plan-adjust [2026-09-29f]:** **Bloques F4 completados al nivel F0/F1 (REGLA)** — Tasks 34-40 (VER-07/01/05/06/02/03/04), 23 campos c/u, Paso 0 verificado (codegraph/CBM): re-baselines clave — VER-07 stub en `dream/mod.rs:615-623` (doc :29-36 stale) · VER-01 frame `wal.rs:216-217` + `WalCommand` sin verify (extensión = bump WAL_FORMAT_VERSION) · VER-05 formato de intercambio YA existe (`MemoryExportLine` v2) · VER-02 `src/shred/` = JSON Shredding (certificado por superficie, sin overselling) · VER-03 redact solo egress + crypto global sin envelope per-namespace · VER-04 budget/RBAC/audit ya existen (slice = enforcement). Gate de fase F4 → wave lista.
 
 ## Recitation
 
@@ -1067,9 +1215,9 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
 Objetivo activo: F3 — Bitemporalidad/confianza/cuarentena + schema v2 (MGR/SCH)
 Estado: in-progress
-Última acción: **F3 COMPLETA (34/50)** — SCH-08 corte 0.8.0 (`b9296909` marcador R1 + R2); gate F3 ✅ local; siguiente: bloques F4
+Última acción: bloques F4 completados (Tasks 34-40, 23 campos c/u); wave F4 lista (VER-07/01/05/06/02/03/04)
 Resultado: OK (F0 7/7 · F1 8/8 · F2 7/7 · **F3 11/11**)
-Próxima acción: completar bloques F4 (REGLA) → wave F4 (VER-07/VER-01/VER-05/VER-06/VER-02/VER-03/VER-04)
+Próxima acción: /pipeline run → wave F4 (claim según deps del grafo)
 Contrato: —
 Próxima tarea si completa: HARD-01
 === END RECITATION ===
