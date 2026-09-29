@@ -8,7 +8,7 @@ description: "SDP: campaign-executor · progreso · writing-plans · planning-an
 
 > **Campaign ID:** ed20beae-edf6-42f5-b41f-e8519830d6cb
 > **Inicio:** 2026-09-26
-> **Estado:** ⏳ EN PROGRESO (28/50 — F0 ✅ · F1 ✅ · F2 ✅ · F3 5/11; siguiente: SCH-03)
+> **Estado:** ⏳ EN PROGRESO (30/50 — F0 ✅ · F1 ✅ · F2 ✅ · F3 7/11; siguiente: SCH-05)
 > **Fuente:** `docs/dev/Backlog.md` (P52–P59 + FIND-*) + planes absorbidos (`2026-09-24-post-investigacion-integral.md` W2–W7, `2026-09-24-estabilizacion-pendiente.md`, `2026-09-24-harness-gaps.md`, `2026-09-24-sesion-continuidad.md`, `2026-09-20-estabilizacion-total.md`) + `docs/dev/strategy/` (13 docs) + Notion "VantaDB Docs" (~28 subpáginas) + investigación de riesgos 2026-09-26 (4 sub-agentes R1–R4, multi-fuente)
 > **Autonomous:** false — el owner gatea push/merge/release. **Push a `develop`: al completar el plan con todo validado/verificado** (decisión owner 2026-09-26, ver §Política de commits/push)
 > **Modo:** PLAN → ejecución con `/pipeline run docs/dev/plans/2026-09-26-master-roadmap.md`
@@ -744,7 +744,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** "`AS OF` operable en IQL (con `IQL_VERSION` bumpeado + feature-detect) y params equivalentes en search/list devuelven el estado histórico correcto con tests deterministas Y filtros por ventana de validez sobre v2 (`valid_at`/`invalid_at`) Y `exclude_superseded` extendido a la semántica nueva Y cursor estable con resume sobre los params nuevos"
 - **Task file:** `docs/dev/tasks/SCH-03.md` (a crear en DISCOVERY)
-- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Estado:** ✅ COMPLETED (2026-09-29 — commit `932b1211` wave F3.3a; review adversarial + delta OK)
 - **Cynefin:** 🟨 complicado — semántica temporal en IQL + params + determinismo de cursor.
 - **Top 3 riesgos:** 1. semántica `AS OF` ambigua (valid vs transaction — la fija el ADR SCH-01) · 2. filtros temporales fuera del pipeline → rompen top_k/cursor · 3. cláusula nueva que rompe queries v1.
 - **Pre-mortem:** F1: `AS OF` leyendo el eje equivocado → semántica exacta del ADR + tests de referencia con T conocido; F2: filtrado post-hoc → integrar junto a `exclude_superseded` en el assembly (`page.rs:317`) + hash de request; F3: gramática rota para v1 → bump `IQL_VERSION` + `iql_supports` (patrón PROFILE).
@@ -770,7 +770,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** "`confidence` por registro (valor + clase asserted|derived + `last_validated`, campos fijados por ADR SCH-01) visible en search/get/list del SDK core y propagado en HTTP/MCP vía serde `#[serde(default)]` (sin breaking) Y expuesto en los 4 bindings (Py/TS/Node/WASM con stubs/d.ts sincronizados) Y consultable (filtro opt-in por umbral/clase junto a `range`/`exclude_superseded`, hasheado en el fingerprint de cursor) Y el ranking/UI lo propaga (hits + snapshot deliberado; el orden por defecto NO cambia) Y límites de calibración documentados en `docs/api/scores.md` con derivación completa + grounding con jueces diferida a v1.0 (FIND con dueño) — todo con tests (roundtrip serde + getters + snapshot)"
 - **Task file:** `docs/dev/tasks/SCH-04.md` (a crear en DISCOVERY)
-- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Estado:** ✅ COMPLETED (2026-09-29 — commit `932b1211` wave F3.3a; review adversarial + fixes OK)
 - **Cynefin:** 🟨 complicado — wire cross-binding de campos nuevos + consulta sin romper determinismo del cursor ni el orden del ranking.
 - **Top 3 riesgos:** 1. scores sin calibración (números decorativos) · 2. doble fuente record↔nodo divergente (`confidence_score` de nodo vs record v2) · 3. snapshot/wire cross-binding roto (54 callers de `MemorySearchHit` + `.snap`).
 - **Pre-mortem:** F1: "asserted/derived" sin definición operacional → taxonomía MGR-12 con ejemplos + límites explícitos en `scores.md`; F2: record y nodo divergen → mapeo canónico explícito (precedente `graph.rs:231`) + test de consistencia; F3: drift de wire/snapshot → regeneración deliberada de snapshots + `sdk_serialization` + stub drift verde.
@@ -796,7 +796,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** "cuarentena operativa: contenido `quarantined` EXCLUIDO por defecto de search/list/retrieval (include opt-in; `auto_recall`/`inject_context` nunca inyectan cuarentenado) Y transiciones con dueño+trigger (entrada write-time, promoción/expiración) Y abstención selectiva: con umbral de confianza configurado, una consulta sin candidatos suficientes devuelve señal `abstained` explícita en el wire (nunca resultados silenciosamente degradados; default OFF) Y retrieval trust-aware respeta la clase asserted/derived (semántica ADR SCH-01) Y test de contención verde (dudoso no inyectado por defecto) + threat model de MGR-13 citado por superficie"
 - **Task file:** `docs/dev/tasks/SCH-05.md` (a crear en DISCOVERY)
-- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Estado:** ⏳ EN PROGRESO
 - **Cynefin:** 🟨 complicado — máquina de estados + abstención con semántica honesta + gates write-time sin motor de políticas.
 - **Top 3 riesgos:** 1. falsos positivos aíslan contenido legítimo (default-exclude) · 2. abstención que rompe clientes (vacíos silenciosos) · 3. deep-poisoning vía dream/import no cubierto por el threat model.
 - **Pre-mortem:** F1: criterios de cuarentena opacos → tabla estados×transiciones con señales medibles + promoción revisable (MGR-13); F2: abstención implementada como "menos resultados" sin señal → `abstained` explícito en el wire + test de contrato; F3: import/dream evaden el default-exclude → test de contención por superficie de entrada (no solo API).
@@ -822,7 +822,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** "suite verde: migración v1→v2 determinista (misma DB → mismo resultado; doble corrida byte-idéntica sobre copia) Y time-travel `AS OF` con fechas de referencia (eje valid/transaction según ADR SCH-01) Y roundtrip export/import v1↔v2 (v1 sigue importable; campos nuevos sobreviven ida y vuelta) Y chaos: crash durante migración → recuperación íntegra (failpoint + reopen + integridad de índices) Y bordes (TTL+quarantine, supersede+invalid) — todo corriendo en CI vía chaos.yml + nextest scoped"
 - **Task file:** `docs/dev/tasks/SCH-06.md` (a crear en DISCOVERY)
-- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Estado:** ⏳ EN PROGRESO · **Branch:** develop · **Commit:**
 - **Cynefin:** 🟨 complicado — determinismo byte-exacto + failpoints de migración + semántica temporal correcta en los tests.
 - **Top 3 riesgos:** 1. determinismo frágil (timestamps/orden de records) · 2. failpoints flaky/caros en CI · 3. time-travel mal especificado → tests que fijan la semántica equivocada.
 - **Pre-mortem:** F1: migración no determinista por reloj/orden → reloj inyectado + doble corrida byte-idéntica (copia de DB v1 → v2 ×2); F2: no existe failpoint en el runner de migración → instrumentar con `fail` + abort-antes-de-swap (precedente `snapshot_restore_fail`, `snapshot_certification.rs:1529`); F3: `AS OF` testeado contra el eje equivocado → fechas de referencia fijadas por el ADR + revisión cruzada con SCH-03.
@@ -848,7 +848,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** "los campos v2 (bitemporal + confianza + quarantined) y los params de query (AS OF/valid_at + abstención) cruzan Py/TS/Node/WASM + HTTP (+`openapi.yaml`) + MCP + IQL con los MISMOS nombres de wire Y matriz de paridad verde (`openapi_yaml_parity` + `sdk_serialization` + stub drift `.pyi` + d.ts + meta-tests MCP de conteos) Y `docs/api/` actualizadas en el mismo PR (Regla 3: `validate-docs-coverage` exit 0) Y `public_api` snapshot regenerado deliberadamente (sin cambios Rust no intencionales)"
 - **Task file:** `docs/dev/tasks/SCH-07.md` (a crear en DISCOVERY)
-- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Estado:** ⏳ EN PROGRESO · **Branch:** develop · **Commit:**
 - **Cynefin:** 🟨 complicado — paridad de 8 superficies + openapi + docs en el mismo PR sin romper contratos existentes.
 - **Top 3 riesgos:** 1. drift de nombres/shape entre superficies · 2. breaking accidental no marcado (semver-checks vs baseline 0.7.0) · 3. docs/api desincronizadas → gate rojo.
 - **Pre-mortem:** F1: cada binding inventa su forma → wire canónico desde core (serde) + matriz en `BINDINGS_NAMESPACES.md` + tests por binding; F2: WASM/desktop exceden el appetite → stop condition: core+3 bindings+HTTP+MCP+IQL primero y FIND para el resto; F3: docs a medias → `validate-docs-coverage` en el mismo PR + checklist por doc del listado de Archivos clave.
@@ -1054,6 +1054,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **plan-adjust [2026-09-28e]:** **Bloques F3 completados al nivel F0/F1 (REGLA L412-422)** — Tasks 23-33 (MGR-10/12/13 + SCH-01..08), 23 campos c/u, Paso 0 verificado (codegraph/CBM): SCH-01 re-baseline alcance 0.8.0 (0.7.0 shipped); SCH-03 `exclude_superseded` YA existe (gaps reales = AS OF/valid_at); SCH-04 re-baseline slice 0.8.0; SCH-08 corte 0.8.0 (Backlog stale corregido); deps fuera del plan anotadas (MGR-01/04). Gate de fase F3 ✅ → wave F3.1 lanzada (MGR-10 ‖ MGR-12 ‖ MGR-13).
 - **plan-adjust [2026-09-28f]:** **Owner ratificó los 16 defaults de diseño F3** (question 2026-09-28, opción "Aprobar defaults y avanzar"): MGR-10 (6) + MGR-12 (4) + MGR-13 (6). SCH-01 los consolida en ADR-046; el ADR pasa por revisión owner explícita (Regla 5). Cierre MGR ✅ = pre-req duro SCH-01 cumplido. Wave F3.2 lanzada (SCH-01).
 - **plan-adjust [2026-09-28g]:** **F3.2 cerrada (28/50)** — SCH-01 (ADR-046 firmado por owner) + SCH-02 (schema v2 + migración determinista + backfill; `7af34366`; review adversarial 2 rondas ✅ 2403/2403). Wave F3.3 lista: SCH-03 ‖ SCH-04 ‖ SCH-05 (desbloqueadas).
+- **plan-adjust [2026-09-29a]:** **F3.3a cerrada (30/50)** — SCH-03 (AS OF/valid_at/cursor) + SCH-04 (confidence consumible + filtros): **commit combinado `932b1211`** por changesets entrelazados (`vector_types.rs`/`page.rs`, wave co-batch) — documentado. Reviews adversariales frescos ✅ + fixes post-review (rechazo AS OF duplicado + delta; MCP schema min/max). FIND nuevo: `campaign_get_next_task` no desambigua con `planFile` si hay 2 planes activos (workaround: claim vía `update_task_state`). F3.3b lanzada: SCH-05.
 
 ## Recitation
 
@@ -1062,9 +1063,9 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
 Objetivo activo: F3 — Bitemporalidad/confianza/cuarentena + schema v2 (MGR/SCH)
 Estado: in-progress
-Última acción: F3.2 COMPLETA (28/50 — SCH-01 ADR-046 firmado + SCH-02 schema v2); wave F3.3 lista (SCH-03/04/05)
-Resultado: OK (F0 7/7 · F1 8/8 · F2 7/7 · F3 5/11)
-Próxima acción: /pipeline run → wave F3.3 (SCH-03 ‖ SCH-04 ‖ SCH-05)
+Última acción: F3.3a COMPLETA (30/50 — SCH-03 AS OF/valid_at + SCH-04 confidence; commit 932b1211); F3.3b lanzada (SCH-05)
+Resultado: OK (F0 7/7 · F1 8/8 · F2 7/7 · F3 7/11)
+Próxima acción: cerrar SCH-05 → SCH-06 (chaos) → SCH-07 (superficies+docs) → SCH-08 (corte 0.8.0)
 Contrato: —
 Próxima tarea si completa: HARD-01
 === END RECITATION ===
@@ -1401,4 +1402,37 @@ Resultado: OK
 Próxima acción: Wave F3.3: claim SCH-03/04/05 (desbloqueadas por schema v2)
 Contrato: schema v2 #[serde(default)] v1-compat + migración determinista + backfill + roundtrip v1/v2 + reopen (2403/2403)
 Próxima tarea si completa: SCH-03
+=== END RECITATION ===
+
+=== RECITATION SCH-04 ===
+Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
+Objetivo activo: SCH-04 — Scores asserted/derived consumibles (slice 0.8.0)
+Estado: completed
+Última acción: 8/8 ✅ + review APPROVE + fixes post-review (MCP schema min/max + citas); commit 932b1211 (wave F3.3a)
+Resultado: OK
+Próxima acción: Wave F3.3b: SCH-05
+Contrato: confianza visible SDK/HTTP/MCP + 4 bindings (stubs/d.ts) + filtro min_confidence opt-in (fingerprint/cursor) sin cambio de ranking
+Próxima tarea si completa: SCH-05
+=== END RECITATION ===
+
+=== RECITATION SCH-03 ===
+Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
+Objetivo activo: SCH-03 — Queries AS OF/point-in-time + filtros valid_at + exclude_superseded
+Estado: completed
+Última acción: 8/8 ✅ + review APPROVE + Optional-2 fix + delta ✅; commit 932b1211 (wave F3.3a)
+Resultado: OK
+Próxima acción: Wave F3.3b: claim SCH-05
+Contrato: AS OF IQL (IQL_VERSION 2 + feature-detect + duplicado rechazado) + as_of_ms/valid_window search/list + exclude_superseded extendido + cursor fingerprint (2438/2438)
+Próxima tarea si completa: SCH-05
+=== END RECITATION ===
+
+=== RECITATION SCH-05 ===
+Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
+Objetivo activo: SCH-05 — Cuarentena + abstención + trust-aware retrieval
+Estado: in-progress
+Última acción: Claim (wave F3.3b) — desbloqueada por SCH-02/03/04
+Resultado: PENDING
+Próxima acción: DISCOVERY + implementación (vanta-worker)
+Contrato: cuarentena operativa (default-exclude + include opt-in; auto_recall/inject_context nunca inyectan) + transiciones con dueño+trigger + abstención con señal explícita
+Próxima tarea si completa: SCH-05
 === END RECITATION ===
