@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Backup/Restore Chain (2026-08-25)"
+kind: plan
+status: archived
+description: "Status: ⬇️ downhill = 3 (research RES-02 ya definió el diseño S1-S5; ejecución directa)"
+---
+
 # Plan de Ejecución: Backup/Restore Chain (2026-08-25)
 
 > **Campaign ID:** e997e5cf-fc35-4084-9a02-55648a44b7ee
@@ -90,13 +97,13 @@ Status: ⬇️ downhill = 3 (research RES-02 ya definió el diseño S1-S5; ejecu
 - **Gate Result:** ✅ DO
 - **Contrato (wire path):** rotación de segmentos llama archive_segment + test de roundtrip PITR básico. **Contrato (remove path):** wal_archiver.rs eliminado + 0 referencias colgantes + clippy/fmt limpios
 - **Task file:** `skills/campaign-executor/tasks/FIND-26.md`
-- **Estado:** ✅ COMMITTED `refactor(storage)` - wal_archiver.rs removed, ADR-014 superseded, 432/432
+- **Estado:** ✅ COMMITTED `refactor(storage)` - wal_archiver.rs removed, ADR-0014 superseded, 432/432
 
 === RECITATION FIND-26 ===
 Campaign ID: e997e5cf-fc35-4084-9a02-55648a44b7ee
 Objetivo activo: FIND-26: remover dead code PITR (wal_archiver.rs) con 0 refs colgantes + decisión documentada
 Estado: completed
-Última acción: Regla 0 completa (496L leídos + grep exhaustivo workspace; solo export lib.rs:149 + Cargo.toml pitr feature + tests propios → STOP CONDITION no disparado). Módulo eliminado, docs vivos actualizados (FEATURES/EXPERIMENTAL_FEATURES/ADR-014 superseded/PRO-FEATURES/UNSAFE_INVENTORY/rules x2/Backlog FIND-26 resuelta + CORE-02 bloqueada-con-nota), verify full PASS
+Última acción: Regla 0 completa (496L leídos + grep exhaustivo workspace; solo export lib.rs:149 + Cargo.toml pitr feature + tests propios → STOP CONDITION no disparado). Módulo eliminado, docs vivos actualizados (FEATURES/EXPERIMENTAL_FEATURES/ADR-0014 superseded/PRO-FEATURES/UNSAFE_INVENTORY/rules x2/Backlog FIND-26 resuelta + CORE-02 bloqueada-con-nota), verify full PASS
 Resultado: OK
 Próxima acción: Lead: commit 'refactor: FIND-26 — remove dead-code PITR wal_archiver' (9 archivos + 1 borrado). Cadena del plan TERMINADA (3/3 tasks)
 Contrato: 

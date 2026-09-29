@@ -1,3 +1,10 @@
+---
+title: "TSYS-06: Chaos/resilience del task-system — decisión (runner vs tests puntuales)"
+kind: research
+status: archived
+description: "vanta-chaos fuzzza el código fuente de VantaDB, no a campaign-server.mjs ni a la máquina de estados del task-system (gap-01 §3.3-24, REPORTE-FINAL.md:361). Existe el diseño T19 (task-system-chaos-resilience.md, 12 escenarios C1-C12) con..."
+---
+
 # TSYS-06: Chaos/resilience del task-system — decisión (runner vs tests puntuales)
 
 > **Fecha:** 2026-08-16

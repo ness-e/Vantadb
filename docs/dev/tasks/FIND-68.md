@@ -1,3 +1,9 @@
+---
+title: "FIND-68 — `docs/api/PROXY.md` + config/env documentados (docs-only)"
+kind: task
+description: Archivos leídos completos
+---
+
 # FIND-68 — `docs/api/PROXY.md` + config/env documentados (docs-only)
 
 > **Campaign:** 6ab26f3f-cf16-4416-9255-c18cca0bcaf0 · **Wave:** Wave5 · **Ruta:** vanta-docs

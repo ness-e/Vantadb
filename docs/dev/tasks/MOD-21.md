@@ -1,3 +1,9 @@
+---
+title: MOD-21 — Nits agrupados Python (python.md de P32)
+kind: task
+description: Archivos leídos completos
+---
+
 # MOD-21 — Nits agrupados Python (python.md de P32)
 
 - **Plan:** `docs/dev/plans/2026-08-25-batch-colaterales-deuda-desktop.md` (Task 7)

@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Follow-up Bench + A11y + Node 2026-09-07"
+kind: plan
+status: archived
+description: "Status: ⬆️ uphill = 1 (PERF-BENCH-01 metodología A/B) · ⬇️ downhill = 4"
+---
+
 # Plan de Ejecución: Follow-up Bench + A11y + Node 2026-09-07
 
 > **Campaign ID:** 5ae0f404-9af7-4ffc-8a6e-117290842c97

@@ -1,3 +1,9 @@
+---
+title: "ENT-04: Connection pooling + circuit breaker para server-mode"
+kind: task
+description: "cargo nextest run --profile audit --workspace --build-jobs 2 pasa, cargo clippy --workspace --all-targets --all-features -- -D warnings 0 errores, cargo fmt --check limpio, y los unit tests del circuit breaker verifican la transición..."
+---
+
 # ENT-04: Connection pooling + circuit breaker para server-mode
 
 ## Metadata

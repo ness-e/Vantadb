@@ -1,3 +1,9 @@
+---
+title: "DEF-07: Presupuesto de alcance: core-promise vs labs"
+kind: task
+description: "tabla categorizada (core-promise vs labs) por superficie Y regla de inversión documentada Y referencia desde SPEC — rg -n \"core-promise\" SPEC.md docs/user/operations/EXPERIMENTALFEATURES.md con contenido en ambos Y pwsh..."
+---
+
 # DEF-07: Presupuesto de alcance: core-promise vs labs
 
 ## Metadata
@@ -128,7 +134,7 @@ last-synced: 2026-09-27
 ## Review (GATE — agente distinto, P2-01)
 - **Revisor:** `vanta-review` fresco (sesión `ses_f1b51d51dffeeRzSJuKJlD8TrM`; ≠ autor) — **✅ APPROVE** (2026-09-27)
 - **Enfoque:** criterion test re-ejecutado en filas 7/9/13 + fronteras Studio/server; coherencia VISION/DEF-01/DEF-02; consecuencias de la regla de inversión; gates mecánicos.
-- **Cómo se probó:** `rg -n "core-promise"` → SPEC:149 + EXPERIMENTAL:17,19,21,23,25,27,48,98 ✅ · `validate-docs-coverage` → 0 gaps, exit 0 ✅ · `validate-frontier` → 12 rows all resolved, exit 0 ✅ · `markdownlint-cli2` → 0 issues ✅. Evidencia citada verificada por el revisor: `bootstrap.rs:332` (`conversation_trigger: None`), default-members/ADR-031, gate en CI (`gate-docs.yml:98`).
+- **Cómo se probó:** `rg -n "core-promise"` → SPEC:149 + EXPERIMENTAL:17,19,21,23,25,27,48,98 ✅ · `validate-docs-coverage` → 0 gaps, exit 0 ✅ · `validate-frontier` → 12 rows all resolved, exit 0 ✅ · `markdownlint-cli2` → 0 issues ✅. Evidencia citada verificada por el revisor: `bootstrap.rs:332` (`conversation_trigger: None`), default-members/ADR-0031, gate en CI (`gate-docs.yml:98`).
 - **Checklist anti-hábitos tóxicos:** cumplido (0 clasificaciones arbitrarias; evidencia chequeable por fila).
 - **Fixes post-review (2026-09-27):** Optional (cláusula "for Cargo features and workspace members" en la regla de admisión) + Nit 2 (excepción "guardrails/evidence layer" en el criterion) aplicados en `EXPERIMENTAL_FEATURES.md`; Nit 1 (`evals/`) aceptado como tooling interno.
 - **Veredicto:** ✅ **APPROVE** — 0 Critical / 0 Required / 1 Optional / 2 Nits (fixes aplicados); ACCEPT habilitado (payload review fresh para HARD-07).
@@ -156,7 +162,7 @@ last-synced: 2026-09-27
 | 9 | `vantadb-server` (HTTP wrapper) | labs | wrapper opcional "local dev / network exposure" (EXPERIMENTAL §Optional); research §3 (JWT/rate-limit = overrun); ningún gate ICP lo requiere; único rol core-adyacente = host del scheduler (`src/server/bootstrap.rs:332`, WIRE-01) → no sirve directo hoy |
 | 10 | Vanta Studio (desktop) | labs | DEF-02 "Category: labs"; research §3 (GUI = overrun). El recall del agente no pasa por GUI. Trigger de promoción: viewer mínimo ICP-01 (F5) |
 | 11 | Web console (repo externo) | labs | DEF-02 labs; sitio separado `ness-e/Vantadb-web`; sin superficie en este árbol → no sirve directo |
-| 12 | WASM/TS/Node (`vantadb-wasm`, `vantadb-ts`, `vantadb-node`) | labs | research §3 (overrun); ICP-03 es Python/PyPI (VISION); wasm fuera de `default-members` (Cargo.toml, ADR-031) → no sirve directo a los clientes target (4 IDEs) |
+| 12 | WASM/TS/Node (`vantadb-wasm`, `vantadb-ts`, `vantadb-node`) | labs | research §3 (overrun); ICP-03 es Python/PyPI (VISION); wasm fuera de `default-members` (Cargo.toml, ADR-0031) → no sirve directo a los clientes target (4 IDEs) |
 | 13 | Providers LLM (`remote-inference`: Ollama/OpenAI/litellm) | labs | EXPERIMENTAL §Experimental: "external optional integration, not core dependency" (alternativa a `embed-local`) → no sirve directo |
 
 **Fronteras (resueltas por el criterio; triggers documentados en la regla — no son filas sin clasificar):**

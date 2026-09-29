@@ -1,15 +1,16 @@
 ---
-title: "How Hybrid Search Actually Works"
-version: 0.5.0
+title: How Hybrid Search Actually Works
+kind: howto
+description: By the VantaDB Team
+tags: [hybrid-search, bm25, hnsw, rrf, architecture, vector-search]
+version: "0.5.0"
 slug: how-hybrid-search-works
-date: 2026-04-24
-author: "VantaDB Team"
-tags: ["hybrid-search", "bm25", "hnsw", "rrf", "architecture", "vector-search"]
-description: "A deep dive into VantaDB's hybrid search architecture combining BM25 lexical search, HNSW vector search, and Reciprocal Rank Fusion — all inside a zero-dependency embedded engine."
+date: "2026-04-24"
+author: VantaDB Team
 tag: Engineering
 readTime: "9 min"
-canonical: https://vantadb.vercel.app/blog/how-hybrid-search-works
-draft: true
+canonical: "https://vantadb.vercel.app/blog/how-hybrid-search-works"
+draft: "true"
 ---
 
 # How Hybrid Search Actually Works

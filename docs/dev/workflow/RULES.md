@@ -1,11 +1,9 @@
 ---
-title: "Workflows — Durable rules"
-type: workflow-index
+title: Workflows — Durable rules
+kind: runbook
 status: active
+description: "One verifiable rule per high-severity audit finding. Each rule states Must / Must not / Why, a good/bad example, and a mechanical check. If the check fails, the PR fails"
 tags: [vantadb, ci, workflows, rules, policy]
-last_reviewed: 2026-09-27
-aliases: []
-related: ["docs/dev/workflow/README.md", "docs/dev/workflow/TRIGGERS.md", "docs/dev/workflow/PUBLISH.md", "docs/dev/workflow/RUNBOOK.md", "docs/dev/workflow/FAQ.md"]
 ---
 
 # Workflows — Durable rules

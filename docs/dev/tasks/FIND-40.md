@@ -1,3 +1,9 @@
+---
+title: "TASK-FIND-40: Drift docs/api vs firmas reales (13 archivos → scope 3 core)"
+kind: task
+description: "Scope recortado (Plan decision): priorizar EMBEDDEDSDK.md + PYTHONSDK.md + HTTPAPI.md (3 core). Resto 10 archivos → DEFER con TODO + issue"
+---
+
 # TASK-FIND-40: Drift docs/api vs firmas reales (13 archivos → scope 3 core)
 
 ## Metadata

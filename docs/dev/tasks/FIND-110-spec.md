@@ -1,3 +1,9 @@
+---
+title: "FIND-110-spec: S4 bandeja de aprobación — diseño lifecycle submit→queue→decisión (spec-first, cero código)"
+kind: task
+description: "Objetivo: producir el diseño lifecycle de la bandeja de aprobación S4 que faltaba en FIND-110, para volver el re-DEFER un slice mecánico futuro. Spec-first, cero código"
+---
+
 # FIND-110-spec: S4 bandeja de aprobación — diseño lifecycle submit→queue→decisión (spec-first, cero código)
 
 ## Metadata

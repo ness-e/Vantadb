@@ -1,3 +1,9 @@
+---
+title: "COMP-014: FreshHNSW — Background Repair de Enlaces Huérfanos"
+kind: task
+description: "Estado: ✅ COMPLETED — 2026-07-27"
+---
+
 # COMP-014: FreshHNSW — Background Repair de Enlaces Huérfanos
 
 **Estado:** ✅ COMPLETED — 2026-07-27

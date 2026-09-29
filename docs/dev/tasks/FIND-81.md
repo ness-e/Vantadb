@@ -1,3 +1,9 @@
+---
+title: "FIND-81 — higiene `vantadb-server/` (artefactos junto al crate)"
+kind: task
+description: vantacertification.json movido/borrado con justificación + vantadbdata/ en gitignore (+ limpieza local documentada) + mini README 5 líneas en vantadb-server/README.md (nuevo)
+---
+
 # FIND-81 — higiene `vantadb-server/` (artefactos junto al crate)
 
 - **Estado:** ⏳ IN PROGRESS → ✅ al cerrar

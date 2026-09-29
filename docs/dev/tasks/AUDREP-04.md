@@ -1,3 +1,9 @@
+---
+title: "AUDREP-04: Storage-Durabilidad — compact traga error de flush + sin sync_all antes de rename"
+kind: task
+description: En compactlayout de src/storage/archive.rs
+---
+
 # AUDREP-04: Storage-Durabilidad — compact traga error de flush + sin sync_all antes de rename
 
 ## Metadata

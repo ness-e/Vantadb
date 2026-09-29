@@ -1,9 +1,15 @@
+---
+title: "MGR-10 — Bitemporalidad (dim 5): valid-time vs transaction-time, tradeoffs y plan de migración (Cierre MGR)"
+kind: research
+description: "Los hits de \"point-in-time\" son MVCC/snapshot de storage (src/storage/engine/txn.rs:227, src/backends/rocksdbbackend.rs:350, src/metrics/core/mod.rs:622) y comentarios afines — semántica transaccional/de proceso, no ventanas de validez..."
+---
+
 # MGR-10 — Bitemporalidad (dim 5): valid-time vs transaction-time, tradeoffs y plan de migración (Cierre MGR)
 
 - **Fecha:** 2026-09-28 · **Tipo:** investigación + diseño (cero implementación productiva; doc-only)
 - **Contrato (plan Task 23):** "research-doc cerrado con modelo valid-time vs transaction-time, tradeoffs (append-only vs invalidación + storage del historial) y plan de migración/backfill determinista, listo para SCH-01"
 - **Plan:** `docs/dev/plans/2026-09-26-master-roadmap.md` Task 23 (F3) · **Fuente:** Backlog:839 (P49, dim 5/AM4) + Notion dim 5 (Propuesta Anexo A) + decisión owner 2026-09-24 (migración única MGR-10/12/13)
-- **Destraba:** SCH-01 (ADR-046) → SCH-02 (schema v2), SCH-03 (AS OF), SCH-06 (tests) · **Next:** SCH-01
+- **Destraba:** SCH-01 (ADR-0046) → SCH-02 (schema v2), SCH-03 (AS OF), SCH-06 (tests) · **Next:** SCH-01
 - **Alcance:** 0.8.0 (corte F3). Índices temporales, MVCC y bitemporal per-fact completo = **v1.0** (§3). El ADR formal se consolida en SCH-01 — acá va el insumo.
 
 > **Cierre MGR (Backlog:934 = research-doc + preguntas owner + plan de implementación):** §5 (preguntas owner) + §6 (plan) cierran el ciclo; §1–§4 son el insumo técnico para SCH-01.
@@ -20,7 +26,7 @@ Los hits de "point-in-time" son MVCC/snapshot de storage (`src/storage/engine/tx
 Infra existente que el modelo debe reutilizar sin rediseño (4 piezas):
 
 1. **Transaction-time parcial — historial por versión** (`src/sdk/version_history.rs`): snapshot post-commit en cada `put`, partition `BackendPartition::Versions`, key `ns_len(u32 LE)‖ns‖key_len(u32 LE)‖key‖version(u64 BE)` (:1-8); lectura `get_version` (:219-231) y `versions` (:233-250), API pública VS-CORE-07 (`src/sdk/api/memory.rs:409-432`). Retención FIFO con `version_history_limit` (default **32** por key, `src/config.rs:319`; evicción :252+). Durabilidad **best-effort post-commit** (:10-14): un crash entre el commit WAL y el snapshot deja *gap de versión, nunca corrupción*; crash-exactitud (`WalRecord::VersionSnapshot`) es deuda diferida P27.
-2. **Invalidación explícita key→key** (ADR-028): `superseded_by`/`superseded_at_ms` (`src/sdk/types/record.rs:129-137`), API `supersede()` (`src/sdk/api/memory.rs:535-597`, con lock + guard de idempotencia; actualiza el registro vivo: `updated_at_ms=now`, `version+1`; WAL no atómico — 2 appends, aceptado en ADR-028), filtro de lectura `exclude_superseded` (list `record.rs:156-159`; search `src/sdk/serialization/vector_types.rs:120-123`; assembly `src/sdk/search/page.rs:317-319`). **No es ventana de validez**: es una marca de reemplazo.
+2. **Invalidación explícita key→key** (ADR-0028): `superseded_by`/`superseded_at_ms` (`src/sdk/types/record.rs:129-137`), API `supersede()` (`src/sdk/api/memory.rs:535-597`, con lock + guard de idempotencia; actualiza el registro vivo: `updated_at_ms=now`, `version+1`; WAL no atómico — 2 appends, aceptado en ADR-0028), filtro de lectura `exclude_superseded` (list `record.rs:156-159`; search `src/sdk/serialization/vector_types.rs:120-123`; assembly `src/sdk/search/page.rs:317-319`). **No es ventana de validez**: es una marca de reemplazo.
 3. **Schema header versionado** (`src/schema.rs:11` `CURRENT_SCHEMA_VERSION=1`; `TooOld`/`TooNew` :84-98; `.vanta.schema` :165-179) + maquinaria de migración ya existente: `vanta migrate plan|check|run <dir> [--format vfile|index|wal|schema|all] [--dry-run]` (`src/cli.rs:406-431`, `src/migration.rs` `FormatKind` :11-56, `plan_all` :119, `check_integrity` :359). Hoy la pata `schema` solo reescribe el header (`src/cli_handlers/migrate.rs:247-275`) — **no existe backfill de datos**.
 4. **Export/import JSONL** con `EXPORT_SCHEMA_VERSION=1` (`src/sdk/serialization/mod.rs:35`), `export_line_from_record` (:498-514), `record_from_export_line` **rechaza** `schema_version != 1` (:522-531); CLI `vanta export --namespace <ns> --out <path>` / `vanta import --in <path>` (`src/cli.rs:106-128`).
 
@@ -45,7 +51,7 @@ Borde fuera del alcance de records: `Edge` tiene 5 campos sin properties ni vent
 - SQL:2011 fija precedentes directamente reutilizables: períodos **cerrados-abiertos** `[start, end)`; `FOR SYSTEM_TIME AS OF <ts>` (default `CURRENT_TIMESTAMP`); tablas bitemporales = application-time (valid, la escribe el usuario) + system-versioned (transaction, la escribe el sistema).
 - **Agentes/LLM:** Zep/Graphiti implementan la misma semántica a nivel grafo: "each fact ... has a validity window: when it became true, and when (if ever) it was superseded"; "old facts are invalidated — not deleted". Es el precedente de producto más cercano a VantaDB (memoria de agentes), y ya está referenciado por el plan/Backlog.
 
-**Terminología recomendada para VantaDB:** conservar `valid`/`transaction` (literatura + ADR-046 lo esperan) y nombrar los campos con el sufijo `_ms` del proyecto.
+**Terminología recomendada para VantaDB:** conservar `valid`/`transaction` (literatura + ADR-0046 lo esperan) y nombrar los campos con el sufijo `_ms` del proyecto.
 
 ### §1.2 Los dos ejes, mapeados a VantaDB hoy
 
@@ -56,7 +62,7 @@ Borde fuera del alcance de records: `Edge` tiene 5 campos sin properties ni vent
 
 Nota de precisión: `updated_at_ms` es el tiempo de registro del *estado del registro* (bump en cada put/supersede), no una ventana de verdad; `superseded_at_ms` es el **evento de invalidación** (eje record). Ninguno expresa "cuándo era verdad el contenido" — eso es lo que agrega `valid_at`/`invalid_at`.
 
-### §1.3 Modelo propuesto para 0.8.0 (recomendación para SCH-01/ADR-046)
+### §1.3 Modelo propuesto para 0.8.0 (recomendación para SCH-01/ADR-0046)
 
 **Campos nuevos en `MemoryRecord`** (nombres del Backlog:939; ADR decide finales):
 
@@ -97,14 +103,14 @@ valid_at_ms <= T && (invalid_at_ms.is_none() || invalid_at_ms > T)
 
 | Criterio | **Invalidación** (recomendado 0.8.0) | **Append-only / system-versioned** |
 |---|---|---|
-| Precedente | Zep/Graphiti (invalidar ≠ borrar); ADR-028 ya implementado (`supersede` + `exclude_superseded`); snapshots por versión | SQL:2011 system-versioned; Snodgrass transaction-time tables |
+| Precedente | Zep/Graphiti (invalidar ≠ borrar); ADR-0028 ya implementado (`supersede` + `exclude_superseded`); snapshots por versión | SQL:2011 system-versioned; Snodgrass transaction-time tables |
 | Cambio requerido | Campos + backfill + queries de filtro (aditivo) | **Rediseño del engine**: store append-only + retención/GC propios; los índices derivados (HNSW/text/scalar) hoy apuntan al nodo vivo |
 | Storage | Marca de 2 campos + snapshots completos por versión (cap 32) | Cada versión = fila inmutable completa; duplica storage |
-| Atomicidad | `supersede` = 2 appends WAL (aceptado ADR-028; 2PC es ACID Phase 0) | Insert único de versión |
+| Atomicidad | `supersede` = 2 appends WAL (aceptado ADR-0028; 2PC es ACID Phase 0) | Insert único de versión |
 | Consultas | AS OF valid + invalid por filtro; transaction-time solo por key (snapshots) | AS OF ambos ejes sin límite de retención |
 | Riesgo | Historia transaction acotada (cap/gap) — documentable | Rompe modelo live-record + hot path de escritura; **stop condition del plan** ("si exige rediseño del engine → acotar a records + FIND") |
 
-**Recomendación:** invalidación ahora (mecanismo ADR-028 extendido con ventana de validez) + snapshots como transaction-time parcial; system-time real per-fact queda v1.0.
+**Recomendación:** invalidación ahora (mecanismo ADR-0028 extendido con ventana de validez) + snapshots como transaction-time parcial; system-time real per-fact queda v1.0.
 
 ### §2.2 Storage del historial
 
@@ -213,7 +219,7 @@ Notas: `records` es un `FormatKind`/paso nuevo a definir en SCH-02 (hoy `FormatK
 
 ## §6. Plan de implementación (consume SCH-01 → SCH-02/03/06)
 
-1. **SCH-01 (ADR-046):** modelo §1.3 + semántica exacta (nombres finales, cerrado-abierto, defaults, compat v1) + decisión de preguntas owner + tabla de reconciliación con MGR-12/13 + plan de migración de §4 verbatim.
+1. **SCH-01 (ADR-0046):** modelo §1.3 + semántica exacta (nombres finales, cerrado-abierto, defaults, compat v1) + decisión de preguntas owner + tabla de reconciliación con MGR-12/13 + plan de migración de §4 verbatim.
 2. **SCH-02 (schema v2 + backfill):** campos + reglas §4.1 + migración de los 4 formatos §4.2 + `FormatKind`/paso `records` + tests deterministas (doble corrida) + import v1.
 3. **SCH-03 (queries):** `AS OF` (IQL + params) + filtros de ventana + extensión de `exclude_superseded` + cursor fingerprint + `IQL_VERSION` bump.
 4. **SCH-06 (tests):** migración doble byte-idéntica, crash mid-migration (failpoint/SIGKILL), time-travel con fechas de referencia, bordes (TTL+valid, supersede+invalid, versión evictada), roundtrip v1↔v2.

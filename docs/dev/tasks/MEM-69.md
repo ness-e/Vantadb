@@ -1,3 +1,9 @@
+---
+title: "MEM-69: Batch extracción costo-reducida"
+kind: task
+description: cargo test -p vanta-memory 0 failed + test batch agrupa split+dedup en 1 llamada ✅ + quality gate intacto + clippy 0
+---
+
 # MEM-69: Batch extracción costo-reducida
 
 ## Metadata

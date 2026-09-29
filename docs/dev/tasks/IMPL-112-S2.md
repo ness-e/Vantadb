@@ -1,3 +1,9 @@
+---
+title: "IMPL-112-S2: runners ollama/openai de ingesta (slice mecánico 2 de FIND-112)"
+kind: task
+description: "Objetivo: completar la matriz owner local+ollama/openai (FIND-112 §(a)): G2 observable en ambas variantes — sin servidor/key degrada P4 con el mismo assert que G1 (sourcesskipped == nº fuentes, state consultable, nunca hard error); con..."
+---
+
 # IMPL-112-S2: runners ollama/openai de ingesta (slice mecánico 2 de FIND-112)
 
 ## Metadata

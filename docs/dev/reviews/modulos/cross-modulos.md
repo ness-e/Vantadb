@@ -1,11 +1,9 @@
 ---
-title: "Review Cross-Módulos — VantaDB como Sistema"
-type: review
+title: Review Cross-Módulos — VantaDB como Sistema
+kind: review
 status: archived
+description: "Los módulos individuales promedian 7.05/10 (ver §7). El sistema pierde ~0.5 puntos por defectos que ningún reporte individual podía ver: contratos que divergen entre transportes, duplicación estructural ya derivando, distribución rota..."
 tags: [vantadb, review]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Review Cross-Módulos — VantaDB como Sistema
@@ -176,7 +174,7 @@ Repetido en 4 módulos: mecanismos completos y testeados sin caller en producci�
 - proxy: session state machine `advance()` sin caller (~330 líneas dormidas); `Reporter.add_hook` sin hooks registrados
 - server: feature `sysinfo = []` vacía sin consumidor
 - benchmarks: dos workflows de regresión apuntando a baselines vacíos
-- core: PITR funcional pero desconectado (ADR-014)
+- core: PITR funcional pero desconectado (ADR-0014)
 
 Deuda de integración, no de calidad de código: cada pieza funciona sola; ninguna está conectada.
 

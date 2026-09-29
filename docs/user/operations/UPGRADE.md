@@ -1,10 +1,9 @@
 ---
 title: Upgrade Guide
-type: operations
+kind: runbook
 status: active
+description: "How to upgrade VantaDB between versions, what changes to expect, and how to"
 tags: [vantadb, upgrade, migration]
-last_reviewed: 2026-09-27
-aliases: []
 ---
 
 # Upgrade Guide

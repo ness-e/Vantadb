@@ -1,3 +1,9 @@
+---
+title: "TBH-23: Unify `cargo fmt --check` scope across Justfile/verify.ps1/audit-all.ps1"
+kind: task
+description: "Callers | Callees | Implicaciones"
+---
+
 # TBH-23: Unify `cargo fmt --check` scope across Justfile/verify.ps1/audit-all.ps1
 
 ## Metadata

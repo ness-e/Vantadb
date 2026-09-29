@@ -1,3 +1,8 @@
+---
+title: "TASK-ID: ERR-MCP-01 — From<VantaError> for McpError + isError con code/retriable (CRITICAL, Wave 2)"
+kind: task
+---
+
 # TASK-ID: ERR-MCP-01 — From<VantaError> for McpError + isError con code/retriable (CRITICAL, Wave 2)
 
 ## Metadata

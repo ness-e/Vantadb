@@ -1,3 +1,9 @@
+---
+title: "FIND-28: Casts `u8*`→`f32*` sin chequeo de alineación (UB) en 3 sitios"
+kind: task
+description: "Implementación completa y verificada. Pendiente: commit del lead (worker NO commitea)"
+---
+
 # FIND-28: Casts `u8*`→`f32*` sin chequeo de alineación (UB) en 3 sitios
 
 ## Metadata

@@ -1,3 +1,9 @@
+---
+title: MCP-41 — Memoria conversacional auto-consolidada (DISCOVERY-first)
+kind: task
+description: "Contrato del slice: autoconsolidate(db, sessionkey, turns) determinista, sin LLM,"
+---
+
 # MCP-41 — Memoria conversacional auto-consolidada (DISCOVERY-first)
 
 > **Plan:** `docs/dev/plans/2026-09-10-code.md` Task 17 · **Campaign:** 2c3d4e5f-6a7b-8c9d-0e1f-2a3b4c5d6e01
@@ -64,13 +70,13 @@ con `#[non_exhaustive]` donde aplique. **APTO para ACT.**
 truncado a `MAX_*_BYTES`, skips deterministas) → `extract_scenes` (UPDATE>MERGE>CREATE + heat,
 ya testeado) → recall existente (`scene_list`/`scene_query` keyword, `perform_auto_recall`
 keyword mode). Consolidación profunda L1 opcional vía `consolidate_session` (dream, LLM-free,
-`dream/<s>/<run_id>`, originales intactos) — documentada en ADR-040, no cableada (fuera de appetite).
+`dream/<s>/<run_id>`, originales intactos) — documentada en ADR-0040, no cableada (fuera de appetite).
 
 **Hyrum surface:** nombres `turn-{n}` o `term1-term2-...` son heurísticos y NO se garantizan
 estables entre versiones (documentado); orden de `list` = heat desc (garantizado por `list_scenes`);
 `SceneExtractionResult` shape reutilizado sin cambios.
 
-**Seguimiento MCP:** `scene_consolidate(session_key, turns[])` diseñado en ADR-040 como
+**Seguimiento MCP:** `scene_consolidate(session_key, turns[])` diseñado en ADR-0040 como
 follow-up (validación en boundary MCP con `validate_identifier`/`validate_payload`, perfil Full,
 conteos 76→77 + tests). No implementado en este slice.
 
@@ -79,7 +85,7 @@ conteos 76→77 + tests). No implementado en este slice.
 - [x] Step 0 — DISCOVERY + Spec + Regla 0 + task file (este archivo)
 - [x] Step 1 — GREEN: `auto_consolidate.rs` (`LocalTurn`, `extract_local`, `auto_consolidate`) + re-export `mod.rs` (8 tests nuevos)
 - [x] Step 2 — VERIFY mecánico: `cargo test -p vanta-memory --tests -j 2` 0 failed (336 lib + todas las suites) + `cargo clippy -p vanta-memory --all-targets --all-features -- -D warnings` 0 + `cargo fmt -p vanta-memory --check` OK (1 warning propio corregido + 3 diffs fmt aplicados)
-- [x] Step 3 — CLOSE parcial: ADR-040 escrito; task file verificado; `git add` solo-propio (4 paths);
+- [x] Step 3 — CLOSE parcial: ADR-0040 escrito; task file verificado; `git add` solo-propio (4 paths);
   **commit BLOQUEADO por hook**: `cargo fmt --all --check` del pre-commit falla SOLO en
   `vanta-proxy/src/context.rs` + `server.rs` (WIP ajeno de PRX-13 en paralelo, sin formatear).
   Mis 4 paths están fmt-limpios (sin diffs propios en el hook; clippy ok, actionlint ok).

@@ -1,11 +1,9 @@
 ---
 title: "INV-providers-01 — Investigación profunda: adapters de inference"
-type: review
+kind: review
 status: archived
+description: "providers/ son 3 crates PyO3 independientes (vantadb-openai, vantadb-ollama,"
 tags: [vantadb, review]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # INV-providers-01 — Investigación profunda: adapters de inference
@@ -101,7 +99,7 @@ Sin wheels ese valor es inaccesible para usuarios reales.
 
 | ID | Categoría | Severidad | Esfuerzo | Ubicación | Hallazgo |
 |----|-----------|-----------|----------|-----------|----------|
-| H-01 | APLICAR | Critical | 🟢 | `providers/openai/src/python.rs:296-302`; `src/sdk/types.rs:214-232` | **vantadb-openai NO compila**: `VantaMemoryListOptions` construido sin campo `exclude_superseded` (añadido por ADR-028) ni `..Default::default()` → E0063. El CI check existe (ci-rust-10.yml:431) → rojo o no corrió desde 28a1788d. Fix: añadir `exclude_superseded: false` (1 línea) |
+| H-01 | APLICAR | Critical | 🟢 | `providers/openai/src/python.rs:296-302`; `src/sdk/types.rs:214-232` | **vantadb-openai NO compila**: `VantaMemoryListOptions` construido sin campo `exclude_superseded` (añadido por ADR-0028) ni `..Default::default()` → E0063. El CI check existe (ci-rust-10.yml:431) → rojo o no corrió desde 28a1788d. Fix: añadir `exclude_superseded: false` (1 línea) |
 | H-02 | APLICAR | Critical | 🟡 | `providers/*/tests/test_*.py` | Tests rotos (vigentes desde review 2026-08-23 P1/P2): litellm+openai llaman `search(emb, top_k)` sin `namespace` obligatorio; ollama usa `vanta.VantaDB().create_namespace()` que no existe en vantadb_py |
 | H-03 | APLICAR | High | 🟢 | `providers/*/vantdab_*.pyi` (×3) | Stubs .pyi stale: firman `search(emb, top_k)` sin namespace/text_query/filters/distance_metric/top_k default; omiten get/list/delete/list_namespaces, params model/timeout/base_url |
 | H-04 | ESTRATEGIA | High | 🔴 | `providers/*/Cargo.toml` (`publish = false`) | Sin camino de distribución: sin pyproject.toml/maturin, sin wheels, 404 PyPI. Decidir: publicar a PyPI (requiere CI release multiplataforma) vs declarar experimental-interno en docs |

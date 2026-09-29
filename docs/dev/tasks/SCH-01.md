@@ -1,3 +1,9 @@
+---
+title: "SCH-01: Plan único + ADR de migración (dims 5-6; alcance 0.8.0 vs v1.0)"
+kind: task
+description: "ADR de migración aceptado (campos, semántica valid vs transaction, alcance 0.8.0 vs v1.0, plan de migración/backfill, compat export/import) + plan de implementación único con comandos + revisión owner registrada\""
+---
+
 # SCH-01: Plan único + ADR de migración (dims 5-6; alcance 0.8.0 vs v1.0)
 
 ## Metadata
@@ -5,20 +11,20 @@
 - **Fuente del prompt:** sub-agente vanta-arch (orquestador pipeline) — ejecución directa de SCH-01
 - **Esfuerzo:** 🟡 2-3d · **Prioridad:** 🔴 · **Tipo:** análisis + ADR (doc-only, cero código)
 - **Turns estimados:** 10-15 · **Creado:** 2026-09-28 · **last-synced:** 2026-09-28
-- **Estado:** ⏳ IN PROGRESS (ADR-046 + task file ✅; verify mecánico ✅; review P2-01 + commit/firma = LEAD)
+- **Estado:** ⏳ IN PROGRESS (ADR-0046 + task file ✅; verify mecánico ✅; review P2-01 + commit/firma = LEAD)
 - **Incógnitas (uphill):** 2 → resueltas (reconciliación de insumos + decisión edges SCH-09) · **Pendientes (downhill):** verify + cierre LEAD
 
 ## Blast Radius
 
 | Dirección | Módulos |
 |-----------|---------|
-| Alcance | `docs/dev/architecture/adr/ADR-046-schema-v2-migracion-unica.md` (nuevo), `docs/dev/tasks/SCH-01.md` (nuevo) — docs only |
+| Alcance | `docs/dev/architecture/adr/ADR-0046-schema-v2-migracion-unica.md` (nuevo), `docs/dev/tasks/SCH-01.md` (nuevo) — docs only |
 | Callees | Solo lectura: 3 research-docs MGR-10/12/13 + task files; ADR-045/044/028; `docs/api/{VERSIONING,COMPATIBILITY,DEPRECATIONS}.md`; `release-plz.toml`; `docs/CHANGELOG.md`; código: `src/sdk/types/record.rs`, `src/sdk/serialization/mod.rs`, `src/sdk/version_history.rs`, `src/sdk/api/graph.rs`, `src/schema.rs`, `src/eviction.rs`, `src/llm.rs`, `src/config.rs`, `src/node/unified.rs` |
 | Implicaciones | Cero cambios de código. El ADR fija el contrato que SCH-02..08 (y SCH-09) consumen verbatim; es pre-requisito duro de `record.rs` (Backlog:938). Riesgo de diseño: ambigüedad por insumos divergentes (mitigado: tabla de reconciliación §D8 del ADR) |
 
 ## Impacto mapeado (Regla 0)
-- **Archivos leídos (completos / secciones):** `mgr-10-bitemporalidad.md` (238L, completo), `mgr-12-confianza.md` (286L, completo), `mgr-13-cuarentena.md` (238L, completo); `docs/dev/_templates/adr.md`; `ADR-045-naming-freeze.md` (144L, precedente de estructura/firma); `ADR-044` (precedente breaking acumulado); `docs/api/VERSIONING.md` (119L), `COMPATIBILITY.md` (112L), `DEPRECATIONS.md` (44L); `release-plz.toml`; `CHANGELOG.md:1-30`; plan master Tasks 23-33 (L599-904) + gate F3 (:35) + carril owner (:981-994); Backlog :839-847 (MGR) y :934-946 (SCH); código: `record.rs:40-269`, `serialization/mod.rs:1-70,300-564`, `version_history.rs:60-149`, `graph.rs:195-269`, `schema.rs:1-40`, `eviction.rs:20-79`, `llm.rs:920-954`, `config.rs` (grep), `node/unified.rs` (grep)
-- **Referencias hacia dentro:** plan Task 26 (:677-701); pre-req Backlog:938 (Cierre MGR de los 3 research-docs); 16 defaults ratificados por el owner (question 2026-09-28); convención ADR (template + precedente ADR-045); rails HARD-01
+- **Archivos leídos (completos / secciones):** `mgr-10-bitemporalidad.md` (238L, completo), `mgr-12-confianza.md` (286L, completo), `mgr-13-cuarentena.md` (238L, completo); `docs/dev/_templates/adr.md`; `ADR-0045-naming-freeze.md` (144L, precedente de estructura/firma); `ADR-0044` (precedente breaking acumulado); `docs/api/VERSIONING.md` (119L), `COMPATIBILITY.md` (112L), `DEPRECATIONS.md` (44L); `release-plz.toml`; `CHANGELOG.md:1-30`; plan master Tasks 23-33 (L599-904) + gate F3 (:35) + carril owner (:981-994); Backlog :839-847 (MGR) y :934-946 (SCH); código: `record.rs:40-269`, `serialization/mod.rs:1-70,300-564`, `version_history.rs:60-149`, `graph.rs:195-269`, `schema.rs:1-40`, `eviction.rs:20-79`, `llm.rs:920-954`, `config.rs` (grep), `node/unified.rs` (grep)
+- **Referencias hacia dentro:** plan Task 26 (:677-701); pre-req Backlog:938 (Cierre MGR de los 3 research-docs); 16 defaults ratificados por el owner (question 2026-09-28); convención ADR (template + precedente ADR-0045); rails HARD-01
 - **Referencias entrantes:** SCH-02 (campos+backfill), SCH-03 (semántica AS OF), SCH-04 (scores), SCH-05 (cuarentena/abstención), SCH-06 (tests/determinismo/fechas de referencia), SCH-07 (superficies), SCH-08 (guía), SCH-09 (envelope v2 o FIND); VER-08 (calibración), MGR-18 (post-1.0)
 - **Veredicto impacto:** bajo en código (docs-only; `src/` intacto), alto en contrato (fija la migración única del corte 0.8.0)
 
@@ -26,7 +32,7 @@
 "ADR de migración aceptado (campos, semántica valid vs transaction, alcance 0.8.0 vs v1.0, plan de migración/backfill, compat export/import) + plan de implementación único con comandos + revisión owner registrada"
 
 ## Spec (SDD — Phase 1b)
-Cero implementación, cero símbolos nuevos. El "spec" ES el ADR-046: D1 (corte/alcance/edges), D2 (campos consolidados), D3 (semántica valid vs transaction), D4 (confianza + reglas V1-V5 + tests V2/V4/V5), D5 (cuarentena + deadline), D6 (record↔nodo), D7 (compat export/import), D8 (reconciliación de insumos) + planes de migración/implementación con comandos. No es feature-add: la ejecución del contrato es la revisión owner + review P2-01 (LEAD).
+Cero implementación, cero símbolos nuevos. El "spec" ES el ADR-0046: D1 (corte/alcance/edges), D2 (campos consolidados), D3 (semántica valid vs transaction), D4 (confianza + reglas V1-V5 + tests V2/V4/V5), D5 (cuarentena + deadline), D6 (record↔nodo), D7 (compat export/import), D8 (reconciliación de insumos) + planes de migración/implementación con comandos. No es feature-add: la ejecución del contrato es la revisión owner + review P2-01 (LEAD).
 
 ## Invariantes de dominio (handoff — MUST)
 - **A preservar en SCH-02..08:** un solo breaking (nada de v3 — D1b); `#[serde(default)]` en TODO campo nuevo + normalización v1 en los 4 formatos (D7); backfill función pura sin reloj (idempotente/order-independent); `supersede()` mantiene `invalid_at == superseded_at` (D3-3); gates de inyección de cuarentena sin excepción (D5); invariante anti-divergencia record↔nodo (D6); los únicos deltas observables son los listados en D4c y se documentan en la guía UPGRADE (SCH-08).
@@ -34,8 +40,8 @@ Cero implementación, cero símbolos nuevos. El "spec" ES el ADR-046: D1 (corte/
 - **Comandos de verificación (esta task):** `npx markdownlint-cli2 <archivos>` + `pwsh -NoProfile -File scripts/validate-docs-coverage.ps1`
 
 ## Owner sign-off (Regla 5) — REGISTRO (pre-mortem F3)
-- **Base ratificada (2026-09-28):** los 16 defaults MGR-10/12/13 aprobados vía question ("Aprobar defaults y avanzar") — registrados en ADR-046 §D0; no se re-abren.
-- **Firma del ADR-046:** ⬜ PENDIENTE — status `proposed`; el LEAD eleva la firma tras review P2-01 y la registra en `ADR-046 §Owner sign-off` (slots `[OWNER]`: articulación, firma, riesgos aceptados).
+- **Base ratificada (2026-09-28):** los 16 defaults MGR-10/12/13 aprobados vía question ("Aprobar defaults y avanzar") — registrados en ADR-0046 §D0; no se re-abren.
+- **Firma del ADR-0046:** ⬜ PENDIENTE — status `proposed`; el LEAD eleva la firma tras review P2-01 y la registra en `ADR-0046 §Owner sign-off` (slots `[OWNER]`: articulación, firma, riesgos aceptados).
 - **Decisiones nuevas a firmar:** D4b (rechazo `Derived + Some(confidence)`), D4c (backfill `D_a = 1.0` uniforme + deltas), D6 (precedencia `restore_graph_nodes`), D8 (default de insert `valid_at`), D7 (import ≤2 / >2), D5d (deadline default 30d).
 - **Este task file ES el registro del carril owner** (plan §Carril owner :981-994; pre-mortem F3 del bloque).
 
@@ -44,10 +50,10 @@ Cero implementación, cero símbolos nuevos. El "spec" ES el ADR-046: D1 (corte/
 === RECITATION ===
 Objetivo activo: SCH-01 — Plan único + ADR de migración (dims 5-6; alcance 0.8.0 vs v1.0)
 Estado: in-progress (desde: ⏳ EN PROGRESO del plan)
-Última acción: DISCOVERY completo (3 research-docs + template + ADR-045 + api docs + rails + código citado) + ADR-046 redactado (propuesto; 6 pendientes P2-01 resueltos) + task file creado; verify docs ✅ (markdownlint 0 issues; validate-docs-coverage EXIT=0/0 gaps; 2026-09-28)
+Última acción: DISCOVERY completo (3 research-docs + template + ADR-0045 + api docs + rails + código citado) + ADR-0046 redactado (propuesto; 6 pendientes P2-01 resueltos) + task file creado; verify docs ✅ (markdownlint 0 issues; validate-docs-coverage EXIT=0/0 gaps; 2026-09-28)
 Resultado: PARTIAL
 Próxima acción: LEAD — review P2-01 (tier Fast) + commit docs-only + elevar firma owner (proposed→accepted) + actualizar plan file
-Contrato: ADR con campos/semántica/alcance/plan/compat + reconciliación D8 + owner sign-off registrado → ADR-046 §§D1-D8 + §Migration + §Owner sign-off
+Contrato: ADR con campos/semántica/alcance/plan/compat + reconciliación D8 + owner sign-off registrado → ADR-0046 §§D1-D8 + §Migration + §Owner sign-off
 Invariantes: doc-only; src/ intacto; un solo breaking (v2/0.8.0); 16 defaults ratificados no se re-abren; 6 pendientes resueltos explícitamente
 Deuda: ninguna nueva (docs-only; saldo neto Regla 6 = 0)
 Próxima tarea si completa: SCH-02 (tras firma/review de SCH-01 — no tocar record.rs antes)
@@ -59,7 +65,7 @@ last-synced: 2026-09-28
 **Saldo neto:** Sin deuda (análisis/ADR; cero código). La deuda que el ADR documenta (P27 crash-exactitud, cap de retención 32/key, calibración VER-08) es citada, no creada.
 
 ## Definition of Done (3 niveles)
-- **Task:** contrato — ADR-046 con campos consolidados (D2), semántica valid vs transaction (D3), alcance 0.8.0 vs v1.0 (D1d), plan de migración/backfill con comandos (§Plan de migración), compat export/import (D7), reconciliación de los 3 docs (D8), plan de implementación único (§Plan de implementación) + revisión owner registrada (§Owner sign-off) ✅
+- **Task:** contrato — ADR-0046 con campos consolidados (D2), semántica valid vs transaction (D3), alcance 0.8.0 vs v1.0 (D1d), plan de migración/backfill con comandos (§Plan de migración), compat export/import (D7), reconciliación de los 3 docs (D8), plan de implementación único (§Plan de implementación) + revisión owner registrada (§Owner sign-off) ✅
 - **Commit:** `docs:` + SCH-01 (2 archivos) — **lo ejecuta el LEAD** (sub-agente sin commit ni self-review por instrucción)
 - **Release:** N/A (la migración es el corte 0.8.0 = SCH-08)
 
@@ -94,8 +100,8 @@ last-synced: 2026-09-28
 - **Verify:** cada claim con `archivo:línea`; pre-req Backlog:938 ✅
 - **Estado:** ✅ DONE (2026-09-28)
 
-### Step 2: ADR-046 (diseño consolidado + 6 pendientes)
-- **Archivos:** `docs/dev/architecture/adr/ADR-046-schema-v2-migracion-unica.md`
+### Step 2: ADR-0046 (diseño consolidado + 6 pendientes)
+- **Archivos:** `docs/dev/architecture/adr/ADR-0046-schema-v2-migracion-unica.md`
 - **Acción:** D0 base ratificada; D1 corte/alcance/edges; D2 campos; D3 semántica; D4 confianza + tests V2/V4/V5; D5 cuarentena + deadline; D6 record↔nodo; D7 compat; D8 reconciliación; plan de migración (comandos); plan de implementación SCH-02..08; Owner sign-off con slots `[OWNER]`
 - **Verify:** contrato cubierto por sección (mapeo en RESULTADO); 0 invenciones (citas `archivo:línea`)
 - **Estado:** ✅ DONE (2026-09-28; status `proposed` — firma pendiente)

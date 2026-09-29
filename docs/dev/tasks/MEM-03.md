@@ -1,11 +1,12 @@
 ---
-id: MEM-03
-campaign: 20260902-alta-prioridad-paralelo
 title: "F1 IQL PROFILE clause (src/query.rs, parser) — reuse MEM-01 SearchProfileConfig"
+kind: task
 status: completed
+description: "F1 search profile ya landed en MEM-01 (SearchProfileConfig {mode, rrfk, candidatek} en src/sdk/types.rs, propagado a VantaMemorySearchRequest y LogicalPlan). Faltaba exponer la cláusula IQL PROFILE que permite a Studio/IQL fijar el..."
+id: MEM-03
+campaign: "20260902-alta-prioridad-paralelo"
 estimate: "1-2 turns"
 owner: vanta-engine
-type: rust
 ---
 
 # MEM-03 — F1 IQL PROFILE clause (parser + query + planner)

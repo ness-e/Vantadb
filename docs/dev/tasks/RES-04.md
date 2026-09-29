@@ -1,3 +1,9 @@
+---
+title: "RES-04 — Semántica scores (src/api/scores, docs/api/scores) — scoring semántico"
+kind: task
+description: "Disjoint garantizado: no tocar src/wal.rs, src/storage/engine/, src/vector/, src/iql/ (RES-03), ni registry files (GOV-A5)"
+---
+
 # RES-04 — Semántica scores (src/api/scores, docs/api/scores) — scoring semántico
 
 ## Metadata

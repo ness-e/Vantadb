@@ -1,3 +1,9 @@
+---
+title: DESKTOP-11 - Spawn manager subproceso MCP (sidecar)
+kind: task
+description: "Inicio de la Fase 3 (adaptador MCP stdio): lanzar el binario vantadb-server"
+---
+
 # DESKTOP-11 - Spawn manager subproceso MCP (sidecar)
 
 - **Estado:** ✅ COMPLETED (2026-08-07)

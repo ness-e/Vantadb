@@ -1,18 +1,20 @@
 ---
-title: "RocksDB"
-type: glossary-entry
+title: RocksDB
+kind: glossary
 status: stable
-tags: [storage, backend, lsm-tree, cpp]
-last_reviewed: 2026-09-15
-links: "[[README.md]]"
+description: High-performance LSM-tree storage engine developed by Facebook in C++. Alternative/fallback backend in VantaDB for benchmarking and compatibility
 aliases: [RocksDB Storage Engine]
-description: "High-performance LSM-tree storage engine developed by Facebook in C++. Alternative/fallback backend in VantaDB for benchmarking and compatibility"
+tags: [storage, backend, lsm-tree, cpp]
+type: glossary-entry
+last_reviewed: "2026-09-15"
+links: "[[README.md]]"
 ---
+
 # RocksDB
 
 ## Definition
 
-**RocksDB** is a high-performance **[[lsm-tree]]** storage engine developed by Facebook, written in **C++**. It is widely used in the industry as a storage backend for databases and distributed systems. In VantaDB, RocksDB is the **fallback/alternative backend**, maintained for benchmarking and compatibility.
+**RocksDB** is a high-performance **[lsm-tree](./lsm-tree.md)** storage engine developed by Facebook, written in **C++**. It is widely used in the industry as a storage backend for databases and distributed systems. In VantaDB, RocksDB is the **fallback/alternative backend**, maintained for benchmarking and compatibility.
 
 ## History and Adoption
 
@@ -22,7 +24,7 @@ description: "High-performance LSM-tree storage engine developed by Facebook in 
 | 2013 | Open-source bajo licencia BSD |
 | 2015+ | Adopción masiva: CockroachDB, TiKV, Flink, Kafka |
 | 2020+ | Estándar de facto para LSM-trees en producción |
-| 2024+ | VantaDB adopta RocksDB, luego migra a [[fjall]] como default |
+| 2024+ | VantaDB adopta RocksDB, luego migra a [fjall](./fjall.md) como default |
 
 ## Key Features
 
@@ -261,10 +263,10 @@ opts.set_target_file_size_base(64 * 1024 * 1024);  // 64MB
 
 ## See Also
 
-- [[fjall]] — Default canonical backend
-- [[lsm-tree]] — Underlying data structure
-- [[wal]] — Durability
-- [[embedded]] — Philosophy that RocksDB partially contradicts
+- [fjall](./fjall.md) — Default canonical backend
+- [lsm-tree](./lsm-tree.md) — Underlying data structure
+- [wal](./wal.md) — Durability
+- [embedded](./embedded.md) — Philosophy that RocksDB partially contradicts
 
 ---
 

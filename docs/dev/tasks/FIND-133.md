@@ -1,3 +1,9 @@
+---
+title: "FIND-133 — Semver Checks rojo (develop vs crates.io 0.5.0): triage + veredicto"
+kind: task
+description: src/sdk/types.rs (head + re-exports) · src/metrics/core/snapshot.rs (completo) ·
+---
+
 # FIND-133 — Semver Checks rojo (develop vs crates.io 0.5.0): triage + veredicto
 
 > **Plan:** `docs/dev/plans/2026-09-19-cierre-total.md` (Wave A, archivos disjuntos con CODEX + FIND-128 — no tocar los suyos)
@@ -20,8 +26,8 @@
   `src/agentic/thread.rs:106-292` · `src/wal_shipping.rs:160` · `src/config.rs:107-126,475` ·
   `src/storage/vfile.rs:112` · `src/server/state.rs:15,114-134` · `src/llm.rs` (vía semver) ·
   `src/graph.rs` (vía semver) · `src/planner.rs:180` · `src/migration.rs:13`.
-- **Relacionados (leídos):** `docs/dev/architecture/adr/ADR-014-pitr.md` (SUPERSEDED, removal documentado),
-  `006_rrf_constant.md`, ADR-041 (major directo sin aliases), ADR-042 (fallo semver documentado),
+- **Relacionados (leídos):** `docs/dev/architecture/adr/ADR-0014-pitr.md` (SUPERSEDED, removal documentado),
+  `ADR-0006-rrf-constant.md`, ADR-041 (major directo sin aliases), ADR-0042 (fallo semver documentado),
   `release-plz.toml` (semver_check=true), `docs/CHANGELOG.md` ([Unreleased] ya acumula BREAKING 0.x),
   `.github/workflows/ci-rust-10.yml:90-126` (scope: main + PR-a-main; en develop rojo esperado),
   baseline `vantadb-0.5.0` del registry (tipos/firmas originales como evidencia).
@@ -42,19 +48,19 @@ build rustdoc >10 min; resultado completo capturado.
 | # | Breaking | Sitio actual | Veredicto | Evidencia (código, no opinión) |
 |---|---|---|---|---|
 | 1 | `Vanta*` structs/enums fuera (~25 structs + 6 enums: FilterOp, Value, MemoryInput/Record, OperationalMetrics, QueryResult, Error…) | `src/sdk/types.rs`, `graph.rs`, `builder.rs`, `serialization/*`, `src/error.rs:122` (`pub enum Error`) | INTENCIONAL-0.6.0 | `d524c67b refactor!: AST-002 tipos sin stutter + aliases` → `1a566ef3 refactor!: AST-010 quitar aliases (rename directo, 0 usuarios)`; cero ocurrencias `Vanta*` en `src/` |
-| 2 | `wal_archiver` mod + `WalArchiver`/`PitrRestorer`/`WalArchiveConfig` + feature `pitr` fuera | eliminado (`Test-Path src/wal_archiver.rs` = False; `pitr` sin match en Cargo.toml) | INTENCIONAL (+ADR existe) | `bde2fc9e FIND-26 remove dead PITR` + ADR-014 SUPERSEDED (dead code, cero call sites) |
-| 3 | `VantaConfig` fuera | `src/config.rs` (solo `HotReloadConfig` matchea) | INTENCIONAL (+ADR existe) | ADR-043 F3C split-config-datos |
-| 4 | planner consts (`RRF_K`, `MAX/MIN_CANDIDATE_BUDGET`, `CANDIDATE_MULTIPLIER`) + fns (`trimmed_text_query`, `fuse_rrf[_with_report]`, `hybrid_candidate_budget`, `sort_hits`) fuera | `src/planner.rs` (solo mención en comentario ponytail :180) | INTENCIONAL | `6a50b8ee feat(planner): SearchProfileConfig per request (MEM-01)` los supersede; ADR-006 contexto RRF |
+| 2 | `wal_archiver` mod + `WalArchiver`/`PitrRestorer`/`WalArchiveConfig` + feature `pitr` fuera | eliminado (`Test-Path src/wal_archiver.rs` = False; `pitr` sin match en Cargo.toml) | INTENCIONAL (+ADR existe) | `bde2fc9e FIND-26 remove dead PITR` + ADR-0014 SUPERSEDED (dead code, cero call sites) |
+| 3 | `VantaConfig` fuera | `src/config.rs` (solo `HotReloadConfig` matchea) | INTENCIONAL (+ADR existe) | ADR-0043 F3C split-config-datos |
+| 4 | planner consts (`RRF_K`, `MAX/MIN_CANDIDATE_BUDGET`, `CANDIDATE_MULTIPLIER`) + fns (`trimmed_text_query`, `fuse_rrf[_with_report]`, `hybrid_candidate_budget`, `sort_hits`) fuera | `src/planner.rs` (solo mención en comentario ponytail :180) | INTENCIONAL | `6a50b8ee feat(planner): SearchProfileConfig per request (MEM-01)` los supersede; ADR-0006 contexto RRF |
 | 5 | `LogicalOperator` +`TextFilter`/+`Dedup` (shifts 4→5…8→10); `BackendPartition` +`SparseIndex`/+`Versions` (`InternalMetadata` 7→8); `DistanceMetric::SparseDot`; `Condition::TextMatch`; `WalRecord::Prepare`; `FormatKind::File` nuevo / `::VantaFile` fuera | `query.rs:368-411`, `backend.rs:50-55`, `vector_data.rs:20`, `migration.rs:13`, `wal.rs:80` | INTENCIONAL | features 0.6.0 (sparse ADR-011/019, VS-CORE-07 versions, dedup C2S6, migración formato); shifts = efecto colateral de inserción, no cambio semántico |
 | 6 | `QueryResult` struct→enum | `sdk/types/graph.rs:14` | INTENCIONAL | `e3711dea FIND-49 split sdk types por dominio` |
 | 7 | `Commands` growth (`Put.metadata` :58, `Export.format` :117, `Restore.dry_run` :164, `Server.allow_insecure/dashboard_dir`, `Doctor` unit→struct :168, `WalCommand::Salvage` + non-unit :416-424) | `src/cli.rs` | INTENCIONAL | CLI features (export md, doctor fix/force, salvage); leído :40-179 |
 | 8 | Campos nuevos (`OperationalMetricsSnapshot` +14, `ServerState` +7, `Query`/`LogicalPlan.search_profile`, `Edge.created_at_ms`, `Cli.memory_limit`) | `snapshot.rs` (leído completo), `state.rs:114-134`, `query.rs:105,431`, `edge.rs:22`, `cli.rs:32` | INTENCIONAL | MEM-34/MEM-01/OLD-21 métricas; refactor server (pool vs semaphore) |
 | 9 | `StorageEngine.volatile_cache` + `ServerState.semaphore` fuera | `engine/mod.rs` (hist. `836aece3 C2S3b extraer CacheLayer`), `state.rs:118` (`pool: Arc<ConnectionPool>`) | INTENCIONAL | extracción CacheLayer sin stutter; pool reemplaza semaphore |
 | 10 | `ThreadStore::create/get/list/delete_thread` → `create(CreateThread)`/`get`/`list(limit,offset)`/`delete` + `send_message`/`purge_expired_threads`; `PrefetchMode::is_prefetch_enabled` fuera (enum vive :107) | `thread.rs:157-292`, `config.rs:107-126` | INTENCIONAL | rediseño agentic (builder + paginación) |
-| 11 | Aridades (`cmd_server` 7→10, `cmd_put` 6→7, `cmd_restore` 5→3, `client_ip` 1→2; `bfs/dfs_traverse_filtered` 4→5; `LlmClient`/`Ollama`/`OpenAI::new` 0→1) | `cli_handlers/*`, `middleware.rs:26`, `graph.rs:121,215`, `llm.rs:699,784,895` | INTENCIONAL | crecimiento features + ADR-033 providers contract |
+| 11 | Aridades (`cmd_server` 7→10, `cmd_put` 6→7, `cmd_restore` 5→3, `client_ip` 1→2; `bfs/dfs_traverse_filtered` 4→5; `LlmClient`/`Ollama`/`OpenAI::new` 0→1) | `cli_handlers/*`, `middleware.rs:26`, `graph.rs:121,215`, `llm.rs:699,784,895` | INTENCIONAL | crecimiento features + ADR-0033 providers contract |
 | 12 | `WalShipper::run_loop` `->!` → `->()` | `wal_shipping.rs:160` (base `:132` era `->!`) | INTENCIONAL | graceful shutdown (`shutdown_handle`, `test_run_loop_stops_on_shutdown`) — restaurar `!` es imposible (retorna) |
 | 13 | `AccessTracker` +supertraits (`AccessStats`, `Pinnable`), métodos movidos | `node/flags.rs:113-134` (métodos viven :115-129) | INTENCIONAL | split sin cambio semántico |
-| 14 | `release_mmap_vector` movido; `VantaFile`→`File`; `integrations::ollama_proxy_handler` fuera; `VantaEmbedded`/`VantaNode*`/`VantaSearch*` (alias removidos) | `vfile.rs:112`, AST-002/010, `integrations/` (adapters Python fuera del crate) | INTENCIONAL (+ADR-042 para mmap) | ADR-042 documenta el fallo como aceptado; resto = de-prefix + desacople |
+| 14 | `release_mmap_vector` movido; `VantaFile`→`File`; `integrations::ollama_proxy_handler` fuera; `VantaEmbedded`/`VantaNode*`/`VantaSearch*` (alias removidos) | `vfile.rs:112`, AST-002/010, `integrations/` (adapters Python fuera del crate) | INTENCIONAL (+ADR-0042 para mmap) | ADR-0042 documenta el fallo como aceptado; resto = de-prefix + desacople |
 
 **Reorder append-only (shifts #5) evaluado y DESCARTADO:** mataría 6 lints de discriminante
 pero `enum_variant_added` persiste en los mismos enums → 21/21 categorías seguirían rojas;
@@ -84,7 +90,7 @@ background por timeouts de 300/600s en foreground.)
 Tabla arriba: 14 grupos, todos INTENCIONAL-0.6.0 con evidencia código/commits/ADRs. 0 accidentales.
 
 ### Step 3 — ADR Regla 5 ✅
-`docs/dev/architecture/adr/ADR-044-acumulado-breaking-0.6.0-find-133.md` (Contexto/Decisión/Consecuencias;
+`docs/dev/architecture/adr/ADR-0044-acumulado-breaking-0.6.0-find-133.md` (Contexto/Decisión/Consecuencias;
 sigue plantilla `docs/dev/_templates/adr.md`; detalla mecanismo release-plz + precedente aliases).
 
 ### Step 4 — Fix accidentales ✅ (vacuo documentado)
@@ -101,7 +107,7 @@ Cero refactors, WIP ajeno intacto.
 - 2-fallas-mismo-error → Gate V N/A (0 fallas de edición; 0 ediciones Rust).
 
 ### Step 6 — Commit selectivo NO PUSH ✅
-Commit `3c4f146c` (2 files, +157: este file + ADR-044; pre-commit hook verde).
+Commit `3c4f146c` (2 files, +157: este file + ADR-0044; pre-commit hook verde).
 NO PUSH (solo vanta-lead). Recitation in-progress + RESULTADO §7 abajo.
 
 ## Deuda / Notas
@@ -110,4 +116,4 @@ NO PUSH (solo vanta-lead). Recitation in-progress + RESULTADO §7 abajo.
 - **Gate C (pregunta sin tool → motivo):** owner elige (A) aceptar rojo-en-develop hasta release 0.6.0
   vía release-plz (=也会 hacer pasar el job en main post-bump), o (B) exigir verde-ya (= revert masivo
   destructivo, desaconsejado). Sin `question` tool disponible → se registra y se devuelve INCOMPLETO.
-- Precedentes intencional-major: ADR-041, ADR-042, AST-010, CHANGELOG [Unreleased] "BREAKING (0.x)".
+- Precedentes intencional-major: ADR-041, ADR-0042, AST-010, CHANGELOG [Unreleased] "BREAKING (0.x)".

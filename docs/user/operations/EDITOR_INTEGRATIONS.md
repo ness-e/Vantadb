@@ -1,10 +1,9 @@
 ---
 title: VantaDB Editor Integrations
-type: operations
+kind: runbook
 status: active
+description: This guide explains how to integrate VantaDB with popular code editors and AI-assisted development environments using the Model Context Protocol (MCP)
 tags: [vantadb, operations]
-last_reviewed: 2026-07-01
-aliases: []
 ---
 
 # VantaDB Editor Integrations

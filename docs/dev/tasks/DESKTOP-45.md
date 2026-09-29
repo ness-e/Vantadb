@@ -1,3 +1,8 @@
+---
+title: DESKTOP-45 — Bench app + specs E2E (recortado)
+kind: task
+---
+
 # DESKTOP-45 — Bench app + specs E2E (recortado)
 
 > **Plan:** `docs/dev/plans/2026-09-10-code.md` (Task 12, Wave3) · **Estado:** ⏳ IN PROGRESS

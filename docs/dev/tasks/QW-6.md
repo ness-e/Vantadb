@@ -1,3 +1,9 @@
+---
+title: "TASK QW-6: decisión letta — README declara estado experimental"
+kind: task
+description: N/A — doc-fix con contrato mecánico (Wave 2 QW-6). No agrega símbolos públicos nuevos; solo declara estado experimental en README
+---
+
 # TASK QW-6: decisión letta — README declara estado experimental
 
 ## Metadata

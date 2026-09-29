@@ -1,8 +1,14 @@
+---
+title: "FIND-89: Consolidar lecturas directas de env en `Config` (única fuente de verdad)"
+kind: task
+description: "Saldo neto de deuda por PR: Sin deuda — la consolidación elimina deuda existente (duplicación de fuentes de env)"
+---
+
 # FIND-89: Consolidar lecturas directas de env en `Config` (única fuente de verdad)
 
 ## Metadata
 - **Plan file:** docs/dev/plans/2026-09-14-find89-env-consolidation.md
-- **Fuente:** docs/dev/Backlog.md fila FIND-89 + ADR-043 + reconocimiento 2026-09-14
+- **Fuente:** docs/dev/Backlog.md fila FIND-89 + ADR-0043 + reconocimiento 2026-09-14
 - **Esfuerzo:** 🟡 1d
 - **Prioridad:** 🟠
 - **Tipo:** Rust (src/** — 7 ficheros con `env::var` real + config.rs + docs)
@@ -222,7 +228,7 @@ last-synced: 2026-09-14T15:30
 > Lo ejecuta un agente DISTINTO al implementador. Sin esto registrado, la tarea no está COMPLETED.
 
 - **Revisor:** vanta-audit (sesión 2026-09-14, LEAF read-only — distinto del implementador vanta-worker)
-- **Enfoque:** ✅ mirror `VANTADB_*` sin shims CORRECTO per ADR-043 C7/Q3=A; 8/8 decisiones Spec validadas; sin alternativa mejor no evaluada; defaults preservan valores (una unificación dual-feature→`ollama` documentada, no bloqueante); B2b preservada + test verificado con `--features remote-inference` 1/1.
+- **Enfoque:** ✅ mirror `VANTADB_*` sin shims CORRECTO per ADR-0043 C7/Q3=A; 8/8 decisiones Spec validadas; sin alternativa mejor no evaluada; defaults preservan valores (una unificación dual-feature→`ollama` documentada, no bloqueante); B2b preservada + test verificado con `--features remote-inference` 1/1.
 - **Cómo se probó:** corridas propias del revisor: `rg env::var`→4 hits esperados ✅; `rg VANTA_`→8 hits solo comentarios config.rs ✅; `cargo check -p vantadb --tests` 0.92s ✅; `clippy --lib --all-features -D warnings` 1.45s ✅; `fmt --check` ✅; nextest llm/crypto/telemetry/prefetch/maintenance/metadata 118/118 ✅; fallos `--all-targets` confirmados pre-existentes F3X (mcp handlers + durability:433, toque `13f0f729`, no tocado por FIND-89).
 - **Checklist anti-hábitos tóxicos:**
   - [x] No inventar salidas de comandos/herramientas que no se ejecutaron.

@@ -1,3 +1,9 @@
+---
+title: "AUDIT-03: Miri guard sobre el CORE Rust (7 bloques UB_POTENTIAL de INV-024)"
+kind: task
+description: Ejecutar Miri sobre el core Rust (cargo +nightly miri test -p vantadb) con
+---
+
 # AUDIT-03: Miri guard sobre el CORE Rust (7 bloques UB_POTENTIAL de INV-024)
 
 ## Metadata

@@ -1,3 +1,9 @@
+---
+title: "FIND-98 — reinstalar `vanta-cli` (parity 79→87)"
+kind: task
+description: "Objetivo: el binario que usa el usuario (C:/Users/Eros/.cargo/bin/vanta-cli.exe) miente 8 tools (sirve 79 vs 87 de la fuente); cero fricción exige parity. Reinstalar desde fuente"
+---
+
 # FIND-98 — reinstalar `vanta-cli` (parity 79→87)
 
 > **Estado:** 🟡 STOP — lock Windows persistente (2/2 en retry), re-DEFER vigente; rebuild con motor COMPLETO y verificado en fuente (87 + `fallback:false`)

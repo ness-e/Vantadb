@@ -1,11 +1,9 @@
 ---
-title: "INV-024 — Unsafe Audit Report (Memory Safety + Supply Chain)"
-type: review
+title: INV-024 — Unsafe Audit Report (Memory Safety + Supply Chain)
+kind: review
 status: archived
+description: "Fecha: 2026-07-30"
 tags: [vantadb, review]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # INV-024 — Unsafe Audit Report (Memory Safety + Supply Chain)

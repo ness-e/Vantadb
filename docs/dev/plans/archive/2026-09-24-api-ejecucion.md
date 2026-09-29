@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Estandarización 11 APIs — Ejecución W0–W8"
+kind: plan
+status: archived
+description: "Status: ⬆️ uphill = 3 (codegen single-schema, YAML owner efectivo, IQLVERSION gate) · ⬇️ downhill = 9 tasks con contrato mecánico"
+---
+
 # Plan de Ejecución: Estandarización 11 APIs — Ejecución W0–W8
 
 > **Campaign ID:** beca0c27-fd85-4489-8f93-8361888d662c

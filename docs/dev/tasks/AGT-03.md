@@ -1,3 +1,9 @@
+---
+title: AGT-03 — Spot-check refs deuda P2 (Regla 6)
+kind: task
+description: "Verificar vigencia de las refs file:line de la tabla de deuda P2 (Regla 6) en"
+---
+
 # AGT-03 — Spot-check refs deuda P2 (Regla 6)
 
 - **Plan:** `docs/dev/plans/2026-08-25-batch-colaterales-deuda-desktop.md` (Task 11)

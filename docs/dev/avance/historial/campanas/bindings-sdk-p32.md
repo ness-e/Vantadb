@@ -1,11 +1,9 @@
 ---
-title: "Campaña P32 — Bindings SDK (sub-clientes TS/Python)"
-type: registro
+title: Campaña P32 — Bindings SDK (sub-clientes TS/Python)
+kind: review
 status: archived
+description: "MEM-36 pagada: sub-clientes por dominio en TS y Python con backward-compat 100%. Suites: TS 246/246 (17 nuevos), Python 105 passed (16 nuevos), docs coverage 0 gaps"
 tags: [vantadb, avance, campana]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Campaña P32 — Bindings SDK (sub-clientes TS/Python)

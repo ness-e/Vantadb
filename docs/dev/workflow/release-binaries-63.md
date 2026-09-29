@@ -1,11 +1,9 @@
 ---
 title: "`release-binaries.yml` — RELEASE: Binaries — Build & Upload"
-type: workflow
+kind: runbook
 status: active
+description: "Construye los binarios compilados de VantaDB (vanta-cli, vantadb-server, vantadb-mcp) para 5 targets/platforms diferentes y los sube como assets al GitHub Release"
 tags: [vantadb, ci, release-binaries]
-last_reviewed: 2026-09-15
-aliases: []
-related: [".github/workflows/release-binaries.yml"]
 ---
 
 # `release-binaries.yml` — RELEASE: Binaries — Build & Upload

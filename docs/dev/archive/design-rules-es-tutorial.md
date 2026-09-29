@@ -1,7 +1,8 @@
 ---
-title: "ARCHIVADO — Estructura Visual de la Información en Diseño Web (tutorial ES)"
-type: archive-note
+title: ARCHIVADO — Estructura Visual de la Información en Diseño Web (tutorial ES)
+kind: research
 status: archived
+description: "title: \"Estructura Visual de la Información en Diseño Web\""
 ---
 
 > **ARCHIVADO 2026-08-22 (GOV-E1 post-aprobación owner):** tutorial en español de teoría de

@@ -1,3 +1,9 @@
+---
+title: "WIRE-08: Range/group_by + cursor con resume + RRF en CBO + rewriting + MMR"
+kind: task
+description: range/radius + groupby + cursor con resume en search implementados con tests (resume estable con writes intercalados y page-full/last-page) Y paridad Milvus/Qdrant documentada en tabla capacidad×capacidad Y RRF-CBO/rewriting/MMR...
+---
+
 # WIRE-08: Range/group_by + cursor con resume + RRF en CBO + rewriting + MMR
 
 ## Metadata

@@ -1,11 +1,9 @@
 ---
 title: "Waves julio — quick wins, SIMD, governance, PERF/P1-P3"
-type: registro
+kind: review
 status: archived
+description: Tareas completadas y movidas del backlog a progreso
 tags: [vantadb, avance, campana]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Waves julio — quick wins, SIMD, governance, PERF/P1-P3

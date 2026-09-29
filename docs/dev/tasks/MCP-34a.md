@@ -1,3 +1,9 @@
+---
+title: "MCP-34a: wrapper MCP snapshot_create"
+kind: task
+description: "tool snapshotcreate (name + result {\"path\",\"createdat\"}); cargo test -p vantadb-mcp --test mcptests pasa; docs ×2 hash SAME\""
+---
+
 # MCP-34a: wrapper MCP snapshot_create
 
 ## Metadata

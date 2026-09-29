@@ -1,3 +1,8 @@
+---
+title: "MEM-02: F1 Exponer search profile en MCP/search"
+kind: task
+---
+
 # MEM-02: F1 Exponer search profile en MCP/search
 
 ## Metadata

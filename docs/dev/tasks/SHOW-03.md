@@ -1,3 +1,9 @@
+---
+title: "SHOW-03 — prototipo estrella RAG-sobre-PDFs (100% local)"
+kind: task
+description: "Objetivo: prototipo estrella RAG-sobre-PDFs 100% local (subir PDF → chunk → embed → chat con citas). Demo que vende el caso RAG local con citas; sin ella el anuncio no tiene prueba pública (Gate Justificación del plan)"
+---
+
 # SHOW-03 — prototipo estrella RAG-sobre-PDFs (100% local)
 
 > **Plan:** `docs/dev/plans/2026-09-19-publicacion.md` (Wave1, primera en secuencia) · **Ruta:** vanta-worker

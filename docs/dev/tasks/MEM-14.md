@@ -1,3 +1,9 @@
+---
+title: "MEM-14: F4 Strategy UPDATE>MERGE>CREATE + heat + soft-delete"
+kind: task
+description: "cargo check -p vanta-memory pasa, cargo nextest run -p vanta-memory pasa (incluye tests dedicados de strategy escena D19), cargo fmt --check pasa, cargo clippy -p vanta-memory --all-targets --no-deps -- -D warnings pasa, y el..."
+---
+
 # MEM-14: F4 Strategy UPDATE>MERGE>CREATE + heat + soft-delete
 
 ## Metadata

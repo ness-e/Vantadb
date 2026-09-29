@@ -1,18 +1,20 @@
 ---
-title: "similar_to_key"
-type: glossary-entry
+title: similar_to_key
+kind: glossary
 status: stable
-tags: [glosario, api, busqueda, similaridad]
-last_reviewed: 2026-09-15
+description: Método de búsqueda por similitud que extrae el vector de un registro existente (clave) y ejecuta búsqueda vectorial contra él
 aliases: [similar_to_key, search-by-key, buscar-por-clave]
-description: "Método de búsqueda por similitud que extrae el vector de un registro existente (clave) y ejecuta búsqueda vectorial contra él"
+tags: [glosario, api, busqueda, similaridad]
+type: glossary-entry
+last_reviewed: "2026-09-15"
 ---
+
 
 # similar_to_key
 
 ## Definición
 
-**`similar_to_key`** es un método de la API de VantaDB que permite buscar registros similares a uno existente, identificado por su clave (`namespace` + `key`). Internamente obtiene el vector del registro origen y ejecuta una búsqueda **[[vector-search]]** con ese vector como query.
+**`similar_to_key`** es un método de la API de VantaDB que permite buscar registros similares a uno existente, identificado por su clave (`namespace` + `key`). Internamente obtiene el vector del registro origen y ejecuta una búsqueda **[vector-search](./vector-search.md)** con ese vector como query.
 
 ## Firma
 
@@ -41,8 +43,8 @@ db.similar_to_key(
 
 ## Véase También
 
-- [[vector-search]] — Búsqueda por similitud vectorial
-- [[hnsw]] — Índice subyacente
-- [[put_batch]] — Inserción por lote
-- [[python-sdk]] — SDK de Python
-- [[../api/PYTHON_SDK.md|Python SDK Reference]]
+- [vector-search](./vector-search.md) — Búsqueda por similitud vectorial
+- [hnsw](./hnsw.md) — Índice subyacente
+- [put_batch](./put_batch.md) — Inserción por lote
+- [python-sdk](./python-sdk.md) — SDK de Python
+- [Python SDK Reference](../../api/PYTHON_SDK.md)

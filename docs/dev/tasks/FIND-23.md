@@ -1,3 +1,9 @@
+---
+title: "FIND-23: vanta-http-map envía namespace vacío en ingest/get"
+kind: task
+description: "desktop/src/vanta-http-map.ts manda namespace: item.namespace ?? \"\" (línea 93) y"
+---
+
 # FIND-23: vanta-http-map envía namespace vacío en ingest/get
 
 > Plan: `docs/dev/plans/2026-08-25-batch-core-fixes-research.md` · Task 1 · Campaign `aa2cde2b-e52f-4dae-910a-b274373a5bda`

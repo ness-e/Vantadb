@@ -1,3 +1,9 @@
+---
+title: "GOV-A2: Reconciliar cifras tests (docs/reports, coverage, nextest)"
+kind: task
+description: "Select-String -Path \"docs/TESTMAP.md\" -Pattern \"2034.2026-08\" | Measure-Object Count >=1 AND contextualización histórica 1492/1902/2568+ en el mismo doc"
+---
+
 # GOV-A2: Reconciliar cifras tests (docs/reports, coverage, nextest)
 
 ## Metadata
@@ -37,7 +43,7 @@ N/A — docs-only reconciliación, sin símbolos públicos nuevos. Decisión ya 
 ## Invariantes de dominio (handoff — MUST)
 - **Invariantes a preservar:** No duplicar cifra tests en docs/dev/reports/dora.md (ese reporte es DORA flow, no test count); no modificar .config/nextest.toml ni Cargo.toml; validate-docs-coverage.ps1 debe seguir pasando (6 checks); .codegraph no se regenera en esta task
 - **Comandos de verificación:** `Select-String -Path "docs/TEST_MAP.md" -Pattern "2034.*2026-08"` >=1 ; `Select-String -Path "docs/TEST_MAP.md" -Pattern "coverage"` >=1 ; `cargo nextest list --profile default -p vantadb` (2074 lines lista) ; `pwsh scripts/validate-docs-coverage.ps1 -ReportOnly` ; `Test-Path .codegraph/codegraph.db`
-- **Deuda pendiente:** ninguna — cifras reconciliadas, coverage threshold ≥80% (ADR-018 gate 81.40%) documentado en TEST_MAP.md:91 sin drift; llvm-cov ICE Windows 2026-08-22 ticket GOV-A1 mitigado por fallback ADR-018
+- **Deuda pendiente:** ninguna — cifras reconciliadas, coverage threshold ≥80% (ADR-0018 gate 81.40%) documentado en TEST_MAP.md:91 sin drift; llvm-cov ICE Windows 2026-08-22 ticket GOV-A1 mitigado por fallback ADR-0018
 
 ## Recitation (canónico — estructura única)
 | Campo recitation (MCP) | ← fuente en este task file |
@@ -72,7 +78,7 @@ Sin deuda nueva (docs-only, 0 líneas Rust nuevas). Saldo neto 0. Reutiliza TEST
 - brainstorming (reconciliación cifras — ambigüedad 3 fuentes)
 - progreso (sync Backlog→avance, anti-drift)
 - ponytail(full) (diff mínimo docs-only, reuse TEST_MAP.md)
-- documentation-and-adrs (validate-docs-coverage, coverage ADR-018, dora report)
+- documentation-and-adrs (validate-docs-coverage, coverage ADR-0018, dora report)
 - test-driven-development (tests/nextest contract — cargo nextest list/profile)
 
 > Base 6 + 2 extras descubiertas por keywords contrato ("tests"→test-driven-development, "coverage/validate-docs/dora"→documentation-and-adrs). Grep SKILLS-MANIFEST.md: "coverage/test-driven/documentation" hits; systematic-debugging descartado (no hay flake en esta task, nextest list estable 2074).
@@ -135,7 +141,7 @@ Sin deuda nueva (docs-only, 0 líneas Rust nuevas). Saldo neto 0. Reutiliza TEST
 - Sin commit por worker: regla explícita — lead commitea. Worker solo edita GOV-A2.md + plan file last-synced.
 - Verify full cargo (fmt/clippy/nextest audit) no aplica completo: docs-only, contrato es Select-String + nextest list + validate-docs ReportOnly.
 - Cifras 2568+/1902/1492 ya contextualizadas en TEST_MAP.md:92 como "snapshots anteriores con perfiles distintos" — no replicar en dora.md (DORA flow, no test count).
-- Coverage: llvm-cov ICE Windows 2026-08-22 mitigado por ADR-018 baseline 81.40% (TEST_MAP.md:91 + plan fila 961); re-medición opcional `cargo llvm-cov --workspace --summary-only` si GOV-A1 no ICE.
+- Coverage: llvm-cov ICE Windows 2026-08-22 mitigado por ADR-0018 baseline 81.40% (TEST_MAP.md:91 + plan fila 961); re-medición opcional `cargo llvm-cov --workspace --summary-only` si GOV-A1 no ICE.
 
 ## Referencias
 - `docs/TEST_MAP.md:91-92` — Coverage + cifra canónica 2034 + históricas

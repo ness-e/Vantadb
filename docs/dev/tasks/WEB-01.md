@@ -1,3 +1,9 @@
+---
+title: "TASK WEB-01: REST — superficie de la consola (CRUD + search + list + IQL + health/metrics/audit)"
+kind: task
+description: "Callers: appwithcors (3 callers en src/cliserver.rs) · app (27 callers) · vantadb-server crate re-exporta vantadb::cliserver::{app, authmiddleware, inittelemetry, run, AuthState, NodeDTO, QueryRequest, QueryResponse, ServerState}..."
+---
+
 # TASK WEB-01: REST — superficie de la consola (CRUD + search + list + IQL + health/metrics/audit)
 
 ## Metadata

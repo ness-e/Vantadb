@@ -1,3 +1,9 @@
+---
+title: "FIND-129: Triage 20 PRs abiertos (19 dependabot + release-plz #161) — merge por lotes"
+kind: task
+description: "(a) #180 veredicto staging (NO merge a main sin proof en develop — decisión owner Step 0; verificable: gh pr view 180 --json state → OPEN con veredicto)"
+---
+
 # FIND-129: Triage 20 PRs abiertos (19 dependabot + release-plz #161) — merge por lotes
 
 ## Metadata

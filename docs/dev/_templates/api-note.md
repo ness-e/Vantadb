@@ -1,11 +1,9 @@
 ---
 title: "{{title}}"
-type: api
+kind: research
 status: active
+description: Qué documenta esta referencia
 tags: [vantadb, api]
-last_reviewed: {{date}}
-aliases: []
-related: []
 ---
 
 # {{title}}

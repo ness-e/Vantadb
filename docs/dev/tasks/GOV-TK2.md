@@ -1,3 +1,8 @@
+---
+title: "GOV-TK2 — Re-verificar gap tools MCP (VERIFICACIÓN, 0 código)"
+kind: task
+---
+
 # GOV-TK2 — Re-verificar gap tools MCP (VERIFICACIÓN, 0 código)
 
 ## Metadata

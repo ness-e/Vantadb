@@ -1,3 +1,9 @@
+---
+title: EMB-15 — embed de query con el MISMO proveedor + prueba sinónimos
+kind: task
+description: "Objetivo: searchmemory/memorysearch con texto embeben la query con el proveedor activo (el MISMO que guardó los docs vía EMB-14) y memoryrecall deja de pasar hook None al auto-recall; prueba de sinónimos felino↔gato sin palabras..."
+---
+
 # EMB-15 — embed de query con el MISMO proveedor + prueba sinónimos
 
 > **Plan:** `docs/dev/plans/2026-09-16-embeddings-auto.md` (Wave4, tras EMB-14 ✅; paralela EMB-17 salvo colisión tools.rs → secuencial interno)

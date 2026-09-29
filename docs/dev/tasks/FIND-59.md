@@ -1,3 +1,9 @@
+---
+title: "FIND-59: Serialización global `insert_lock` — DISCOVERY granularidad (vanta-arch)"
+kind: task
+description: El ADR docs/dev/architecture/adr/ADR-0037-insert-lock-granularity.md existe con invariantes + matriz alternativas×riesgo×ganancia + recomendación explícita (d) Y fila FIND-59 ELIMINada de Backlog con registro en...
+---
+
 # FIND-59: Serialización global `insert_lock` — DISCOVERY granularidad (vanta-arch)
 
 ## Metadata
@@ -32,16 +38,16 @@
 - **Veredicto:** cambio de granularidad tocaría el invariante ERR-010 + protocolo FND-02 + orden Regla 8 en 6+ paths; blast radius alto, ganancia acotada por fsync (mitad FUT-12). Recomendación (d) + spike FIND-61. 0 código en esta tarea.
 
 ## Contrato
-El ADR `docs/dev/architecture/adr/ADR-037-insert-lock-granularity.md` existe con invariantes + matriz alternativas×riesgo×ganancia + recomendación explícita (d) Y fila FIND-59 ELIMINada de Backlog con registro en `docs/dev/avance/activo/core-engine.md` Y nota de 2 líneas en BENCHMARKS §13 Y (spike follow-up) fila FIND-61 creada Y `cargo fmt` N/A (0 código) + markdownlint 0 en archivos tocados + `git status` sin `src/` modificado.
+El ADR `docs/dev/architecture/adr/ADR-0037-insert-lock-granularity.md` existe con invariantes + matriz alternativas×riesgo×ganancia + recomendación explícita (d) Y fila FIND-59 ELIMINada de Backlog con registro en `docs/dev/avance/activo/core-engine.md` Y nota de 2 líneas en BENCHMARKS §13 Y (spike follow-up) fila FIND-61 creada Y `cargo fmt` N/A (0 código) + markdownlint 0 en archivos tocados + `git status` sin `src/` modificado.
 
 ## Steps
 ### Step 1: Discovery completo (codegraph + lectura)
 - **Acción:** localizar locks, holders, invariantes, alternativas (a/b/c/d), riesgos R1/R2/Regla 8/durabilidad/WASM, baseline §13.
 - **Verify:** matriz poblada con evidencia file:línea.
-- **Estado:** ✅ DONE (2026-09-04 — ver ADR-037 § Invariantes y § Matriz).
+- **Estado:** ✅ DONE (2026-09-04 — ver ADR-0037 § Invariantes y § Matriz).
 
-### Step 2: Redactar ADR-037
-- **Archivos:** `docs/dev/architecture/adr/ADR-037-insert-lock-granularity.md` (nuevo; sigue frontmatter de ADR-036 + plantilla `docs/dev/_templates/adr.md`).
+### Step 2: Redactar ADR-0037
+- **Archivos:** `docs/dev/architecture/adr/ADR-0037-insert-lock-granularity.md` (nuevo; sigue frontmatter de ADR-0036 + plantilla `docs/dev/_templates/adr.md`).
 - **Verify:** existe + matriz + recomendación explícita (d) + assessment de contrato (api-and-interface-design).
 - **Estado:** ✅ DONE (2026-09-04).
 
@@ -64,5 +70,5 @@ El ADR `docs/dev/architecture/adr/ADR-037-insert-lock-granularity.md` existe con
 - RES-03 + FIND-57 (baselines §13) — landed. FUT-12 (mitad WAL) — prerequisite de política de durabilidad para cualquier batching con ventana de pérdida; NO bloquea (d).
 
 ## Notas
-- El análisis NO pudo cuantificar el desglose fsync-vs-lock sin medir — declarado explícitamente en ADR-037 § Ganancia estimada; el spike FIND-61 lo resuelve (no se implementó acá por contrato de la tarea).
+- El análisis NO pudo cuantificar el desglose fsync-vs-lock sin medir — declarado explícitamente en ADR-0037 § Ganancia estimada; el spike FIND-61 lo resuelve (no se implementó acá por contrato de la tarea).
 - Sin empate: (d) converge con rationale; (c) queda como follow-up condicionado a FUT-12, no como alternativa empatada.

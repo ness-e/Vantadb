@@ -1,7 +1,14 @@
+---
+title: FND-08 — Backend validado contra patrón de acceso real + auditoría de compactación
+kind: research
+status: archived
+description: "Verificar que la config de compactación del backend (Fjall default, RocksDB"
+---
+
 # FND-08 — Backend validado contra patrón de acceso real + auditoría de compactación
 
 > **Fecha:** 2026-08-16 · **Tipo:** auditoría de config backend (P20a) · **Estado:** ✅ COMPLETO
-> **Task file:** `.opencode/skills/campaign-executor/tasks/FND-08.md` · **ADR:** `ADR-023-backend-compaction.md`
+> **Task file:** `.opencode/skills/campaign-executor/tasks/FND-08.md` · **ADR:** `ADR-0023-backend-compaction.md`
 
 ## Objetivo
 
@@ -81,7 +88,7 @@ no a la dimensión vectorial.
 - **ok (todo lo demás):** block 4 KiB, memtable 64 MiB, worker threads,
   journal policy, bloom+pin+LRU, mmap governance.
 
-## Decisión (ADR-023)
+## Decisión (ADR-0023)
 
 **Mantener la config actual. Diferir ambos gaps marginales.** Sin cambio de
 código. Rationale:
@@ -104,7 +111,7 @@ código. Rationale:
   sobre 5k records, p50/p95/p99 (`bench_get_latency_distribution:125-155`).
   Verificado que **compila** con `cargo check -p vantadb --bench backend_compare
   --features rocksdb` (2026-08-16, ✅).
-- **Señal de reapertura (ADR-023):** aplicar tuning cuando (a) un bench con
+- **Señal de reapertura (ADR-0023):** aplicar tuning cuando (a) un bench con
   working set > 32 MiB muestre regresión de latencia vs baseline, o (b) RocksDB
   pase a primario con write amplification medida. Entonces: `cache_size` desde
   `effective_memory` (20–25% RAM) y `level_compaction_dynamic_level_bytes(true)`.
@@ -113,7 +120,7 @@ código. Rationale:
 
 | Archivo | Acción |
 |---------|--------|
-| `docs/dev/architecture/adr/ADR-023-backend-compaction.md` | ✅ nuevo (numerado tras ADR-022) |
+| `docs/dev/architecture/adr/ADR-0023-backend-compaction.md` | ✅ nuevo (numerado tras ADR-0022) |
 | `.opencode/rules/durability.md` | ✅ regla agregada (config backend = patrón de acceso documentado) |
 | `.opencode/skills/campaign-executor/tasks/FND-08.md` | ✅ nuevo |
 | `benches/backend_compare.rs` | referenciado, verificado que compila |

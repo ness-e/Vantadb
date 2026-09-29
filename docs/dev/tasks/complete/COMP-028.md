@@ -1,3 +1,9 @@
+---
+title: "COMP-028: Semantic Cost Estimator (SCE) unificado"
+kind: task
+description: "Extraer la estimación de costos de query, hoy distribuida en tres componentes, a un"
+---
+
 # COMP-028: Semantic Cost Estimator (SCE) unificado
 
 ## Metadata

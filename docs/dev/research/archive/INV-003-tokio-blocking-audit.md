@@ -1,3 +1,10 @@
+---
+title: "Auditoría — INV-003: Tokio Blocking Audit (uso de spawn_blocking)"
+kind: research
+status: archived
+description: "Las llamadas sincrónicas al sistema de archivos (std::fs::) y los mutexes sincrónicos de largo bloqueo (std::sync::Mutex / parkinglot::Mutex) ejecutados dentro del context del runtime asincrónico de Tokio pueden provocar la inanición de..."
+---
+
 # Auditoría — INV-003: Tokio Blocking Audit (uso de spawn_blocking)
 
 > **ID:** `INV-003`  

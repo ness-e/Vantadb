@@ -1,11 +1,11 @@
 ---
 title: "Avance — Bindings (SDK, Adapters, MCP)"
-type: domain-log
+kind: review
 status: active
+description: "fuente (#[napi(tsreturntype = \"Promise<bigint>\")], patrón existente ×12) +"
 tags: [vantadb, avance, bindings, python, wasm, typescript, mcp, adapters]
-last_reviewed: 2026-08-07
-aliases: []
 ---
+
 
 # Avance — Bindings (SDK, Adapters, MCP)
 
@@ -35,7 +35,7 @@ aliases: []
 
 ### PY-03: DeprecationWarning en `import vantadb_py` (alias deprecado, canónico = `vantadb`)
 - **Fecha:** 2026-08-29
-- **Resultado:** ✅ Cierre idempotente. Código en disco desde `4ffb833b`+`9a5e5305`: `vantadb-py/__init__.py:15-21` emite `DeprecationWarning(stacklevel=2)` al importar el alias legacy; `vantadb/__init__.py:13-16` suprime el warning internamente con `warnings.catch_warnings()` para que `import vantadb` sea silencioso. Contrato verificado: `python -W error::DeprecationWarning -c "import vantadb_py" 2>&1 | grep -c DeprecationWarning` = 1 ✅; `import vantadb` = sin warnings ✅. Plan: remover `vantadb_py` en 0.6.0 (1 minor de aviso). Mejora docs esta iteración: sección "Import name" en `docs/api/PYTHON_SDK.md:56-68` enlaza ADR-030 y explica la convención distro `vantadb-py` ↔ módulo `vantadb_py` ↔ import `vantadb`. 89 refs adicionales a `vantadb_py` en docs markdown (glosario/integraciones/planes-archivados) NO migradas — fuera de scope (deuda DEFER: MKT-18 docs sync).
+- **Resultado:** ✅ Cierre idempotente. Código en disco desde `4ffb833b`+`9a5e5305`: `vantadb-py/__init__.py:15-21` emite `DeprecationWarning(stacklevel=2)` al importar el alias legacy; `vantadb/__init__.py:13-16` suprime el warning internamente con `warnings.catch_warnings()` para que `import vantadb` sea silencioso. Contrato verificado: `python -W error::DeprecationWarning -c "import vantadb_py" 2>&1 | grep -c DeprecationWarning` = 1 ✅; `import vantadb` = sin warnings ✅. Plan: remover `vantadb_py` en 0.6.0 (1 minor de aviso). Mejora docs esta iteración: sección "Import name" en `docs/api/PYTHON_SDK.md:56-68` enlaza ADR-0030 y explica la convención distro `vantadb-py` ↔ módulo `vantadb_py` ↔ import `vantadb`. 89 refs adicionales a `vantadb_py` en docs markdown (glosario/integraciones/planes-archivados) NO migradas — fuera de scope (deuda DEFER: MKT-18 docs sync).
 
 
 ### PERF-31: NumPy output batch
@@ -68,7 +68,7 @@ aliases: []
 
 ### COMP-029: Bindings Node.js/TS mediante napi-rs (backend adicional)
 - **Fecha:** 2026-08-02
-- **Resultado:** ✅ Crate standalone **`vantadb-node/`** (NO workspace member): `lib = "vantadb_native"` (cdylib), `napi 3` + `napi-derive` sobre `vantadb` (features `fjall, memmap2, rayon`). Aislamiento standalone evita crash del linker MSVC con cdylib en workspace. API isomórfica con wrapper WASM: `connect`, `flush`, `close`, `put`, `put_batch`, `get`, `delete`, `list`, `list_namespaces`, `search`, `capabilities` (patrón `engine.clone()` + `spawn_blocking`). Persistencia real (fjall/WAL/fsync) en Node.js — WASM no puede. Wrapper TS `vantadb-ts/src/native.ts` + dep `vantadb-node`. `npm test` vitest 3/3 (put/get, persistencia cross-reconnect, search ordenado). ADR `docs/dev/architecture/adr/COMP-029-napi-rs-node-bindings.md`.
+- **Resultado:** ✅ Crate standalone **`vantadb-node/`** (NO workspace member): `lib = "vantadb_native"` (cdylib), `napi 3` + `napi-derive` sobre `vantadb` (features `fjall, memmap2, rayon`). Aislamiento standalone evita crash del linker MSVC con cdylib en workspace. API isomórfica con wrapper WASM: `connect`, `flush`, `close`, `put`, `put_batch`, `get`, `delete`, `list`, `list_namespaces`, `search`, `capabilities` (patrón `engine.clone()` + `spawn_blocking`). Persistencia real (fjall/WAL/fsync) en Node.js — WASM no puede. Wrapper TS `vantadb-ts/src/native.ts` + dep `vantadb-node`. `npm test` vitest 3/3 (put/get, persistencia cross-reconnect, search ordenado). ADR `docs/dev/architecture/adr/ADR-0050-napi-rs-node-bindings.md`.
 
 ### BND-11: Tipado fuerte index.d.ts (eliminar any)
 - **Fecha:** 2026-08-28
@@ -246,7 +246,7 @@ aliases: []
 ### COV-001 (Python AsyncVantaDB async smoke, 3 tests) + COV-002 (vantadb-ts coverage vía c8) — migrados 2026-08-12 (ver docs/progreso/README.md)
 
 ### FND-04: Zero-copy Arrow en bindings — DIFERIDO — migrado 2026-08-16 (ver docs/progreso/README.md)
-- **Resultado:** ✅ DIFERIDO con ADR-021 + señal de reapertura explícita en `docs/dev/research/FND-04-arrow-zero-copy.md` (umbrales documentados). Commit `95a67fd3`.
+- **Resultado:** ✅ DIFERIDO con ADR-0021 + señal de reapertura explícita en `docs/dev/research/FND-04-arrow-zero-copy.md` (umbrales documentados). Commit `95a67fd3`.
 
 ### FND-05: SDK idiomático (no wrapper 1:1 de Rust) — migrado 2026-08-16 (ver docs/progreso/README.md)
 - **Resultado:** ✅ análisis en `docs/dev/research/FND-05-sdk-idiomatico.md` (gaps PY-*/TS-*) + prototipos `with VantaDB(path) as db` (Python) y `await using db` (TS, ejemplos en `docs/user/examples/`). Sin rewrite; async nativo NO (cubre FND-04). Commit `14183fc4`.
@@ -634,7 +634,7 @@ aliases: []
 - **Fecha:** 2026-08-30
 - **Plan:** `docs/dev/plans/2026-08-29-full-backlog-parallel.md` (Wave 16-3)
 - **Objetivo:** Aplicar contrato canonico en los puntos donde divergian post-PROV-05 (openai::list() firma, ollama::list() docstring, test_litellm.py legacy `"payload"` pin).
-- **Decisiones arquitectónicas (ADR-033 redactado, owner_articulates=pending per Regla 5):**
+- **Decisiones arquitectónicas (ADR-0033 redactado, owner_articulates=pending per Regla 5):**
   1. **Record key = `"text"`** (canónico desde PROV-05; revertir sería breaking para 3 crates)
   2. **`list(limit, cursor): usize, Option<usize>`** (rechazado `i32`/`i64` — sin beneficio >2B por namespace; **fail loud** sobre hidden coercion)
   3. **`list()` return = `Py<PyAny>`** (rechazado `Py<PyDict>` — 2/3 providers ya)
@@ -654,9 +654,9 @@ aliases: []
   - `cargo test --features python × 3`: 1 passed cada uno (PROV-07 sanity test) ✅
 - **Resultado:** ✅ Aplicación mecánica sin uphill restante (contrato ya fijado por PROV-05).
 - **Regla 6 (deuda):** saldo neto **neutral**. Quita: 2 cast `as i32`/`as usize` (deuda) + 2 hidden coercions `.max(1)`/`.max(0)` (deuda) + 1 docstring inexacto + 3 asserts legacy pinned. Agrega: 0 deuda nueva.
-- **ADR:** `docs/dev/architecture/adr/ADR-033-providers-canonical-contract.md` (status `accepted-pending-owner-review` per Regla 5 — owner debe articular trade-off central `usize` vs `i32` vs `i64`).
+- **ADR:** `docs/dev/architecture/adr/ADR-0033-providers-canonical-contract.md` (status `accepted-pending-owner-review` per Regla 5 — owner debe articular trade-off central `usize` vs `i32` vs `i64`).
 - **Breaking changes:** ya documentado en PROV-05 commit `294486e3` (litellm users consumían `result["payload"]` → ahora `result["text"]`). PROV-04 es coherente, sin nuevos breaking adicionales.
-- **Decisión de no-commit:** vanta-worker stageó 5 archivos (3 fixes código + ADR-033 NEW + task file sync). vanta-lead integra el PR con conventional commit `feat: PROV-04 — Canonical contract providers (text/next_cursor/limit usize)`.
+- **Decisión de no-commit:** vanta-worker stageó 5 archivos (3 fixes código + ADR-0033 NEW + task file sync). vanta-lead integra el PR con conventional commit `feat: PROV-04 — Canonical contract providers (text/next_cursor/limit usize)`.
 
 ### Test status
 - **Compile:** openai/litellm/ollama → `cargo check` OK

@@ -1,3 +1,10 @@
+---
+title: "Prompt Maestro: Feature Freeze — Estabilización y Zero-Bug Policy"
+kind: plan
+status: archived
+description: "Ejecutá el siguiente plan de forma secuencial, fase por fase. No avances a la siguiente fase sin confirmar que la anterior está completa y certificada. Usá todas las herramientas disponibles: MCP tools, skills, sub-agents, commands, y..."
+---
+
 # Prompt Maestro: Feature Freeze — Estabilización y Zero-Bug Policy
 
 ```

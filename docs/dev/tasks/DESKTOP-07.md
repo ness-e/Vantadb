@@ -1,3 +1,9 @@
+---
+title: DESKTOP-07 — Frontend React+Vite MVP (desktop UI)
+kind: task
+description: "Frontend del desktop app: bridge TS tipado sobre los commands Tauri (DESK-03/06),"
+---
+
 # DESKTOP-07 — Frontend React+Vite MVP (desktop UI)
 
 > Plan: `docs/dev/plans/2026-08-06-desktop-mvp.md` (Task 6)

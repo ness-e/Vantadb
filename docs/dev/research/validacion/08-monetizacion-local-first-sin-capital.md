@@ -1,12 +1,11 @@
 ---
-title: "Monetización Local-First Sin Nube y Sin Capital — Corrección de la Estrategia v1"
-type: research
+title: Monetización Local-First Sin Nube y Sin Capital — Corrección de la Estrategia v1
+kind: research
 status: active
+description: "Fecha: 2026-08-25 · Autor: vanta-lead (corrección post-feedback) · Reemplaza a: las recomendaciones de monetización de validacion/02, validacion/03 y validacion/00-SINTESIS-EJECUTIVA.md"
 tags: [vantadb, research, monetizacion, local-first]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
+
 # Monetización Local-First Sin Nube y Sin Capital — Corrección de la Estrategia v1
 
 **Fecha:** 2026-08-25 · **Autor:** vanta-lead (corrección post-feedback) · **Reemplaza a:** las recomendaciones de monetización de `validacion/02`, `validacion/03` y `validacion/00-SINTESIS-EJECUTIVA.md`

@@ -1,3 +1,9 @@
+---
+title: "WIRE-11: `llm-driver` always-on en consumidores shipped (MCP/proxy)"
+kind: task
+description: "VANTADBINGESTPROVIDER=ollama|openai funciona o falla con mensaje claro (nunca no-op silencioso); cargo check/test -p vantadb-mcp -p vanta-proxy verdes.\""
+---
+
 # WIRE-11: `llm-driver` always-on en consumidores shipped (MCP/proxy)
 
 ## Metadata

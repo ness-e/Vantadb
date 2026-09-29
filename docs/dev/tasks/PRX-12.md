@@ -1,3 +1,9 @@
+---
+title: PRX-12 — Compat suite contra releases de coding agents
+kind: task
+description: "vanta-proxy/tests/toolloop.rs:1-80 (patrón mock scripted), vanta-proxy/Cargo.toml (reqwest+tokio"
+---
+
 # PRX-12 — Compat suite contra releases de coding agents
 
 - **Estado:** ✅ COMPLETED (S0-S4 ✅ — commit pendiente de hash)

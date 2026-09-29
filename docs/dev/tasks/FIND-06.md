@@ -1,3 +1,9 @@
+---
+title: FIND-06 — READMEs SDK en español → inglés
+kind: task
+description: Alcance identificado (Regla 0)
+---
+
 # FIND-06 — READMEs SDK en español → inglés
 
 - **Plan:** docs/dev/plans/2026-08-25-batch-core-server-mcp.md (Task 14)

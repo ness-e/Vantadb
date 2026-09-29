@@ -7,7 +7,7 @@ description: Cláusulas a verificar (matriz de cierre)
 # SCH-04: Scores asserted/derived consumibles (slice 0.8.0)
 
 ## Metadata
-- **Plan file:** `docs/dev/plans/2026-09-26-master-roadmap.md` — Task 29 (F3) · **Origen:** plan L761-785; ADR-046 §D2/§D4b/§D4c/§D4d; MGR-12 §6.1
+- **Plan file:** `docs/dev/plans/2026-09-26-master-roadmap.md` — Task 29 (F3) · **Origen:** plan L761-785; ADR-0046 §D2/§D4b/§D4c/§D4d; MGR-12 §6.1
 - **Fuente del prompt:** sub-agente vanta-engine (orquestador pipeline) — wave F3.3a, co-batch con SCH-03 (regiones disjuntas; `vector_types.rs`/`page.rs` compartidos al final)
 - **Esfuerzo:** 🟡 2-3d · **Prioridad:** 🟠 · **Tipo:** feature-add (wire cross-binding + filtro opt-in)
 - **Branch:** develop · **Commit:** (LEAD) · **Creado:** 2026-09-28 · **last-synced:** 2026-09-28
@@ -26,7 +26,7 @@ description: Cláusulas a verificar (matriz de cierre)
 | C4 | Filtro opt-in `min_confidence` hasheado en fingerprint | `MemorySearchRequest` + `page.rs` | tests: filtra, default None no-op, fingerprint mismatch, boundary reject |
 | C5 | Ranking/orden por defecto NO cambia | `fusion.rs`/assembly | diff nulo en ranking; tests existentes verdes |
 
-**Alcance del filtro por superficie (precedente `range`/`exclude_superseded`):** core + HTTP (auto por `#[serde(flatten)]`) + Py kwarg + WASM `SearchRequest` + TS `SearchRequest` + MCP arg/schema **+ Node `parse_search_request`** (necesario para que el passthrough TS-native no fuera un drop silencioso; `range`/`exclude_superseded` siguen sin exponerse en Node). **`MemoryListOptions` NO** (región SCH-03; su `min_confidence` de list queda a SCH-05/07). **Filtro por clase: NO** (ADR-046 solo fija `min_confidence`; "umbral/clase" del plan → umbral).
+**Alcance del filtro por superficie (precedente `range`/`exclude_superseded`):** core + HTTP (auto por `#[serde(flatten)]`) + Py kwarg + WASM `SearchRequest` + TS `SearchRequest` + MCP arg/schema **+ Node `parse_search_request`** (necesario para que el passthrough TS-native no fuera un drop silencioso; `range`/`exclude_superseded` siguen sin exponerse en Node). **`MemoryListOptions` NO** (región SCH-03; su `min_confidence` de list queda a SCH-05/07). **Filtro por clase: NO** (ADR-0046 solo fija `min_confidence`; "umbral/clase" del plan → umbral).
 
 ## Re-baseline post-SCH-02 (re-verificado 2026-09-28, HEAD `aae4f7e5`)
 - **Los campos YA EXISTEN** en `MemoryRecord` (`src/sdk/types/record.rs:225-235`: `confidence_class`, `confidence` con `default_confidence`, `last_validated_at_ms`, `derived_from`) y viajan por serde (snapshots `list_page_*`/`search_hit_basic` ya los muestran). `rg 'confidence'` en bindings = **0 hits de record** (solo `confidence_score` de grafo).
@@ -44,9 +44,9 @@ description: Cláusulas a verificar (matriz de cierre)
 
 ## Impacto mapeado (Regla 0)
 
-- **Archivos leídos (completos):** `docs/dev/architecture/adr/ADR-046-schema-v2-migracion-unica.md` · `docs/dev/research/mgr-12-confianza.md` · `.opencode/rules/api-contract.md` · `.opencode/references/clean-code-clean-architecture.md` (Apéndice V) · `docs/dev/tasks/SCH-02.md` · `docs/dev/tasks/WIRE-03.md` · `vantadb-ts/src/guards.ts` · `vantadb-python/tests/test_stub_drift.py` · `vantadb-wasm/src/vantadb_wasm.d.ts` (:135-264).
+- **Archivos leídos (completos):** `docs/dev/architecture/adr/ADR-0046-schema-v2-migracion-unica.md` · `docs/dev/research/mgr-12-confianza.md` · `.opencode/rules/api-contract.md` · `.opencode/references/clean-code-clean-architecture.md` (Apéndice V) · `docs/dev/tasks/SCH-02.md` · `docs/dev/tasks/WIRE-03.md` · `vantadb-ts/src/guards.ts` · `vantadb-python/tests/test_stub_drift.py` · `vantadb-wasm/src/vantadb_wasm.d.ts` (:135-264).
 - **Archivos leídos (rangos clave):** `src/sdk/types/record.rs` (:52-181, :225-235, :416-425) · `src/sdk/serialization/vector_types.rs` (:95-169) · `src/sdk/search/page.rs` (:40-119, :120-209, :248-363) · `src/sdk/search/mod.rs` (:60-144) · `vantadb-python/src/types.rs` (:52-181, :280-419) + `vantadb_py/vantadb_py.pyi` (:95-174) + `vantadb-python/src/lib.rs` (:1155-1204, :2300-2409) · `vantadb-node/src/lib.rs` (:80-149, :780-839) · `vantadb-ts/src/types.ts` (:40-199) · `vantadb-wasm/src/lib.rs` (:140-214, :1150-1358, :2235-2301) · `vantadb-mcp/src/handlers/tools.rs` (:313-412, :1504-1633, :1780-1859, :3200-3319) · `vantadb-mcp/src/validation.rs` (:380-450) · `src/server/handlers.rs` (:495-554) · `tests/sdk_serialization.rs` (:1-120) · `tests/query_result_advanced.rs` (:1-100) · `tests/snapshots/query_result_basic__search_hit_basic.snap` · `scripts/validate-docs-coverage.ps1` (:1-219).
-- **Referencias hacia dentro:** ADR-046 §D2 (wire `min_confidence` + fingerprint), §D4b (rechazo Derived), §D4c/D4d (backfill/tests ya en SCH-02), §D6 (record canónico); MGR-12 §6.1 (exposición + filtro); plan Task 29 (:761-785).
+- **Referencias hacia dentro:** ADR-0046 §D2 (wire `min_confidence` + fingerprint), §D4b (rechazo Derived), §D4c/D4d (backfill/tests ya en SCH-02), §D6 (record canónico); MGR-12 §6.1 (exposición + filtro); plan Task 29 (:761-785).
 - **Referencias entrantes:** SCH-05 (consume `min_confidence`/abstención; `include_quarantined` en `MemoryListOptions`), SCH-06 (roundtrip/chaos), SCH-07 (superficies + docs/api), VER-08 (calibración), ICP-03 (paridad).
 - **Veredicto impacto:** medio — aditivo en wire; sin cambio de ranking; blast radius mecánico por literales de `MemorySearchRequest` + snapshots deliberados. **Coexistencia SCH-03:** sus regiones (`parser/`, `executor.rs`, params temporales, `MemoryListOptions`, `memory.rs`) NO se tocan; edits a `vector_types.rs`/`page.rs` al FINAL, re-leídos justo antes.
 
@@ -55,7 +55,7 @@ description: Cláusulas a verificar (matriz de cierre)
 | # | Decisión | Alternativas | Elegido | Evidencia |
 |---|----------|--------------|---------|-----------|
 | 1 | Alcance real del slice | (a) re-implementar campos / (b) **exposición + filtro + tests** (campos ya en SCH-02) | (b) | `record.rs:225-235` + `rg` bindings 0 hits; re-baseline del prompt |
-| 2 | Wire del filtro | (a) `MemorySearchRequest.min_confidence: Option<f32>` / (b) struct nuevo / (c) `MemoryListOptions` también | (a) | ADR-046 §D2 (verbatim); list = región SCH-03 (reparto wave) |
+| 2 | Wire del filtro | (a) `MemorySearchRequest.min_confidence: Option<f32>` / (b) struct nuevo / (c) `MemoryListOptions` también | (a) | ADR-0046 §D2 (verbatim); list = región SCH-03 (reparto wave) |
 | 3 | Semántica | (a) post-ranking junto a `exclude_superseded` / (b) pre-ranking en el pipeline | (a): `hit.record.confidence >= min` en assembly; **`selectors_can_shorten` SÍ incluye `min_confidence`** (`page.rs:344`) — puede acortar la página, espejo de los filtros temporales de SCH-03 | plan "sin index change" (:768); test `test_search_min_confidence_page_fills_when_enough_candidates_exist` |
 | 4 | Validación boundary | (a) finito + `[0,1]` ⇒ `SEARCH_OPTIONS_INVALID` / (b) clamp silencioso | (a) | patrón `range`/`mmr.lambda` (`page.rs:72-117`); D4b rationale (nunca mudo) |
 | 5 | Fingerprint | hashear `min_confidence.map(f32::to_bits)` | sí | ADR §D2 "hasheados en el fingerprint (`page.rs:157`)" |
@@ -66,7 +66,7 @@ description: Cláusulas a verificar (matriz de cierre)
 
 ## Invariantes de dominio (handoff — MUST)
 - **Aditivo puro:** `#[serde(default)]` en el campo nuevo; default `None` = comportamiento actual. Sin breaking.
-- **No tocar `MemoryRecord`** (campos fijos por ADR-046; solo lectura) **ni el ranking** (`fusion.rs`, orden del assembly, `mmr`, `group_by`).
+- **No tocar `MemoryRecord`** (campos fijos por ADR-0046; solo lectura) **ni el ranking** (`fusion.rs`, orden del assembly, `mmr`, `group_by`).
 - **Regiones SCH-03 intactas:** `src/parser/`, `src/executor.rs`, params temporales, `MemoryListOptions`, `memory.rs` histórico. Edits a `vector_types.rs`/`page.rs` mínimos y re-leídos justo antes.
 - **PROHIBIDOS:** `docs/**`, `Backlog.md`, `perf-bench.yml`, `opencode.jsonc`, plan file. NO cuarentena/abstención (SCH-05).
 - Stubs/d.ts sincronizados: `test_stub_drift` (py) / `tsc` (ts) / `napi build` (node) / d.ts wasm.
@@ -129,12 +129,12 @@ description: Cláusulas a verificar (matriz de cierre)
 ## Pendientes (§Pendientes)
 - **Review P2-01 ✅ APPROVE (2026-09-29) — hallazgos aplicados en este pase** (Optional 1: `minimum`/`maximum` en el schema MCP; Optional 2 + Nits: citas/spec del task file corregidas; FYI `-0.0` sin acción por instrucción del owner). **Único pendiente de la task: commit local (LEAD).**
 - **docs/api diferidas por WIP ajeno — retomar en SCH-07/LEAD:** `docs/api/scores.md` (límites L1-L5 + `min_confidence`), `EMBEDDED_SDK.md`/`HTTP_API.md`/`MCP.md`/`openapi.yaml`/`PYTHON_SDK.md`/`TS_SDK.md`/`NODE_SDK.md`/`WASM_API.md` (campos + kwarg). Regla 3 exige doc en el mismo PR del corte → SCH-07 (contrato propio) o LEAD. **NO editar ahora (WIP ajeno sin commitear).**
-- `min_confidence` en `MemoryListOptions` (ADR-046 §D2) → SCH-05/SCH-07 (región SCH-03 hoy).
-- Filtro por `confidence_class` (si el owner lo pide) → extender `MemorySearchRequest` con enum (no en ADR-046).
+- `min_confidence` en `MemoryListOptions` (ADR-0046 §D2) → SCH-05/SCH-07 (región SCH-03 hoy).
+- Filtro por `confidence_class` (si el owner lo pide) → extender `MemorySearchRequest` con enum (no en ADR-0046).
 - Grounding con jueces = v1.0 (FIND con dueño; ya citado en plan/MGR-12 §6.3 — no duplicar).
 
 ## Dependencias
-- **Consume:** SCH-02 ✅ (`7af34366`; campos + serde defaults + snapshots base) · ADR-046 `accepted` ✅ · MGR-12 ✅.
+- **Consume:** SCH-02 ✅ (`7af34366`; campos + serde defaults + snapshots base) · ADR-0046 `accepted` ✅ · MGR-12 ✅.
 - **Destraba:** SCH-05 (abstención consume `min_confidence`), SCH-06 (roundtrip/chaos), SCH-07 (superficies + docs), VER-08 (calibración).
 - **nextTask:** SCH-05 · **Co-batch:** SCH-03 (regiones disjuntas; verificar coexistencia al cierre).
 

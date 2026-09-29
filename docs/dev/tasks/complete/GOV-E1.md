@@ -1,3 +1,9 @@
+---
+title: "Task: GOV-E1 — Documento de propuestas de limpieza de artefactos"
+kind: task
+description: Correcciones a la auditoría V1+II (hallazgos de esta sesión)
+---
+
 # Task: GOV-E1 — Documento de propuestas de limpieza de artefactos
 
 - **Plan:** `docs/dev/plans/2026-08-22-doc-governance-plan.md` (NO editable)

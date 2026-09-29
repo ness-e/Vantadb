@@ -1,3 +1,9 @@
+---
+title: "WEB-08: Specs Playwright E2E del flujo crítico landing→docs→playground (1 spec mínimo, patrón desktop/e2e)"
+kind: task
+description: "Callers | Callees | Implicaciones"
+---
+
 # WEB-08: Specs Playwright E2E del flujo crítico landing→docs→playground (1 spec mínimo, patrón desktop/e2e)
 
 ## Metadata

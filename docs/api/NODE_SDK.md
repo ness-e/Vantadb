@@ -1,10 +1,9 @@
 ---
 title: Node.js Native SDK Documentation
-type: api
+kind: reference
 status: active
+description: "vantadb-node is the native Node.js binding for VantaDB, built with"
 tags: [vantadb, api, node]
-last_reviewed: 2026-09-07
-aliases: []
 ---
 
 # Node.js Native SDK Documentation
@@ -176,7 +175,7 @@ Full typed surface: `index.d.ts` (auto-generated at build time by napi-rs — se
 | `graphDegree(roots)` | Degree centrality entries `{ id, in_degree, out_degree }` |
 | `versions(ns, key)` | Every retained version of a record, ascending (v1..vN) |
 | `getVersion(ns, key, version)` | One historical version, or `null` |
-| `supersede(ns, oldKey, newKey)` | Mark `oldKey` superseded by `newKey` (ADR-028) |
+| `supersede(ns, oldKey, newKey)` | Mark `oldKey` superseded by `newKey` (ADR-0028) |
 | `vacuum()` | Purge HNSW tombstones → `VacuumReport` |
 | `rebuildIndex()` | Rebuild vector/derived/text/scalar indexes → `RebuildReport` |
 | `compactLayout()` | Compact vector store file → estimated bytes reclaimed (`bigint`) |

@@ -1,11 +1,9 @@
 ---
-title: "VantaDB — Troubleshooting"
-type: reference
+title: VantaDB — Troubleshooting
+kind: research
 status: active
+description: Comandos exactos
 tags: [vantadb, references, troubleshooting]
-last_reviewed: 2026-09-27
-aliases: []
-related: [bug-workflow.md, reading-nextest-output.md]
 ---
 
 # VantaDB — Troubleshooting

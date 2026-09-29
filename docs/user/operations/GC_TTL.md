@@ -1,10 +1,9 @@
 ---
-title: Garbage Collection & TTL Guide
-type: operations
+title: "Garbage Collection & TTL Guide"
+kind: runbook
 status: active
+description: "VantaDB uses a TTL-based garbage collector implemented in src/gc.rs. The GcWorker tracks node expiration timestamps via a BTreeMap<u64, Vec<u64>> that maps expiration timestamps (seconds since UNIX epoch) to lists of node IDs"
 tags: [gc, ttl, operations]
-last_reviewed: 2026-07-04
-aliases: []
 ---
 
 # Garbage Collection & TTL Guide

@@ -1,11 +1,9 @@
 ---
 title: "Server/infra/security — ENT-04, P13, AUD-020, serie CI"
-type: registro
+kind: review
 status: archived
+description: "Objetivo: Robustez del server-mode bajo carga/concurrencia. Implementar pool de conexiones con límite de concurrencia y circuit breaker con estados closed/open/half-open. (No estaba implementado previamente — solo existía la métrica.)"
 tags: [vantadb, avance, campana]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Server/infra/security — ENT-04, P13, AUD-020, serie CI
@@ -124,7 +122,7 @@ related: []
 - **Fuente:** Backlog § Phase 4 (deuda indexada AGENTS.md Regla 5 + AUDIT-02 2026-08-06)
 - **Fecha:** 2026-08-12
 - **Objetivo:** Eliminar la serialización full JSON del write path del sparse vector (antes `FieldValue::String(serde_json)` en `SPARSE_VECTOR_EXT_KEY`, `from_str`/`to_string` ~1.49% del hot-path de búsqueda). Redesign del formato de persistencia con compat de lectura backward.
-- **Resultado:** ✅ ADR-019: sparse se persiste como `FieldValue::ListFloat(Vec<f64>)` con pares intercalados `[dim, val]` (u32→f64 y f32→f64 lossless, orden determinista por BTreeMap). Write path `sparse_vector_to_field` sin serde_json; read path dual: `ListFloat` decode directo + `String` legacy (`serde_json::from_str`) para compat backward; faltante → `None` (PERF-07); corrupto (odd-length / JSON inválido) → warn + `None`. `VantaMemoryRecord.sparse_vector` público intacto. Sin migración one-shot — nodos viejos migran lazy en próximo put; shim legacy hasta gate de versionado de storage. 7 tests nuevos en serialization + 1 integración en search (recall idéntico). 1885/1885 tests + clippy `-D warnings` + fmt --check ✅. Review P2-01 (vanta-review) APPROVE. Commit `2f1a94e1`.
+- **Resultado:** ✅ ADR-0019: sparse se persiste como `FieldValue::ListFloat(Vec<f64>)` con pares intercalados `[dim, val]` (u32→f64 y f32→f64 lossless, orden determinista por BTreeMap). Write path `sparse_vector_to_field` sin serde_json; read path dual: `ListFloat` decode directo + `String` legacy (`serde_json::from_str`) para compat backward; faltante → `None` (PERF-07); corrupto (odd-length / JSON inválido) → warn + `None`. `VantaMemoryRecord.sparse_vector` público intacto. Sin migración one-shot — nodos viejos migran lazy en próximo put; shim legacy hasta gate de versionado de storage. 7 tests nuevos en serialization + 1 integración en search (recall idéntico). 1885/1885 tests + clippy `-D warnings` + fmt --check ✅. Review P2-01 (vanta-review) APPROVE. Commit `2f1a94e1`.
 - **Ids:** `P2-7`
 
 ### AUD-025: BM25 zero-alloc hot path (per-posting allocations)

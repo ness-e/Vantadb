@@ -1,3 +1,9 @@
+---
+title: "API-01: W0 fundación — tipos base + error envelope + casing + u128 wire"
+kind: task
+description: "cargo test --test sdkserialization verde Y test wire u128 >2^53 redondo en los 4 bindings (Py/TS/Node/WASM) Y rg 'Generic\(' src/error.rs con tipado o doc-diseño Y dev-tools/verifychanged.ps1 verde\""
+---
+
 # API-01: W0 fundación — tipos base + error envelope + casing + u128 wire
 
 ## Metadata
@@ -25,7 +31,7 @@
 
 > **GATE ANTES DE CUALQUIER EDICIÓN:** el ejecutor debe leer COMPLETOS los archivos a modificar antes del primer edit y completar esta tabla (los paths ya fueron leídos parcialmente en discovery; el gate exige lectura completa en ejecución).
 
-- **Archivos leídos (completos):** `src/sdk/types/graph.rs` ✅ (leído completo en discovery), `src/binary_header.rs` ✅ (leído completo 2026-09-25), `src/error.rs` ✅ (completo 1348L), `src/sdk/types/record.rs` ✅, `src/sdk/types.rs` ✅ (u128_serde), `vantadb-wasm/src/lib.rs` ✅ (función P2-8 + módulos de test vecinos), `vantadb-python/src/types.rs` ✅, `vantadb-ts/src/types.ts` ✅, `vantadb-node/index.d.ts` ✅, `vantadb-wasm/src/vantadb_wasm.d.ts` ✅ (header + tipos W0), `docs/dev/architecture/adr/041_anti_stutter.md` ✅, `docs/api/ERROR_HANDLING.md` ✅ (417L completo), `docs/api/BINDINGS_NAMESPACES.md` ✅ (secciones iniciales), `src/lib.rs` ✅ (completo 215L). Pendientes de lectura completa (no modificados en esta iteración): `src/sdk/version_history.rs`, `src/cli_handlers/crud.rs:445` — inspeccionados; `version_history.rs` ya usa `node_id_str` postcard-safe (no requiere cambio W0).
+- **Archivos leídos (completos):** `src/sdk/types/graph.rs` ✅ (leído completo en discovery), `src/binary_header.rs` ✅ (leído completo 2026-09-25), `src/error.rs` ✅ (completo 1348L), `src/sdk/types/record.rs` ✅, `src/sdk/types.rs` ✅ (u128_serde), `vantadb-wasm/src/lib.rs` ✅ (función P2-8 + módulos de test vecinos), `vantadb-python/src/types.rs` ✅, `vantadb-ts/src/types.ts` ✅, `vantadb-node/index.d.ts` ✅, `vantadb-wasm/src/vantadb_wasm.d.ts` ✅ (header + tipos W0), `docs/dev/architecture/adr/ADR-0047-anti-stutter.md` ✅, `docs/api/ERROR_HANDLING.md` ✅ (417L completo), `docs/api/BINDINGS_NAMESPACES.md` ✅ (secciones iniciales), `src/lib.rs` ✅ (completo 215L). Pendientes de lectura completa (no modificados en esta iteración): `src/sdk/version_history.rs`, `src/cli_handlers/crud.rs:445` — inspeccionados; `version_history.rs` ya usa `node_id_str` postcard-safe (no requiere cambio W0).
 - **Archivos referenciados hacia dentro (imports/includes/dependencias):** `use super::u128_serde` (graph.rs:9, record.rs:6); `map_vanta_error`/`to_js_err` en bindings; `crate::error::{Error, Result}` en 161+ sitios del core
 - **Archivos que referencian a los editados (referencias entrantes):** `git grep -n 'QueryResult'` (bindings + server + mcp); `git grep -n 'VantaHeader'` (migration/vfile/wal/index-serialize); `git grep -n 'FilterOp'` (record.rs + 3 .d.ts + TS)
 - **Veredicto impacto:** **alto** en wire (4 bindings + HTTP + MCP leen `QueryResult`; cambio breaking `feat!:`), **medio** en errores (envelope + doc; no eliminar variantes con callers), **bajo** en `VantaHeader` (renombre no afecta bytes on-disk)
@@ -149,7 +155,7 @@
 - **Estado:** ✅ DONE 2026-09-25 — envelope documentado en `error.rs` (module doc) + ERROR_HANDLING.md (principio 7 + §"The `Generic` catch-all (by design)" + changelog). Evaluación de tipado: `ResourceLimit` 12 callers, `Schema` 14, `InvalidInput` 64, `DatabaseBusy` 14, `NoVectorForKey` 4 → **doc-diseño by-design** en los 5 String + `Generic` (R-6 deuda incremental, NO romper callers). `#[non_exhaustive]` ya presente (`error.rs:121`). Verify: `cargo doc` exit 0 (17.9s); `rg -n -B4 'Generic\('` muestra doc-diseño.
 
 ### Step 5: cierre ADR-041 + decisión `VantaHeader`
-- **Archivos:** `docs/dev/architecture/adr/041_anti_stutter.md`, `src/binary_header.rs:20`, `src/lib.rs:167`
+- **Archivos:** `docs/dev/architecture/adr/ADR-0047-anti-stutter.md`, `src/binary_header.rs:20`, `src/lib.rs:167`
 - **Acción:** leer ADR completo; decidir A/B/C del Spec #5; si renombrar → `git grep VantaHeader` completo + actualizar re-export; si firmar → estado `accepted` + firma
 - **Verify:** ADR sin `proposed`; `cargo check --workspace` verde; `git grep VantaHeader` sin residuos
 - **Estado:** ✅ DONE 2026-09-25 (decisión owner B: rename `VantaHeader`→`Header` + alias deprecated; 66 refs código + 17 docs; ADR exclusión retirada + decisión registrada; mapa `resolved`). Verify: check/clippy/verify_changed verdes (commit del lead).

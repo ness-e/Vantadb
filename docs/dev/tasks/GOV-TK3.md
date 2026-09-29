@@ -1,3 +1,9 @@
+---
+title: "GOV-TK3 — drift yaml↔real ×3 (Wave 0, Task 4)"
+kind: task
+description: Los 3 drifts resueltos uno por uno con evidencia (doc corregida o código alineado) + suite afectada verde
+---
+
 # GOV-TK3 — drift yaml↔real ×3 (Wave 0, Task 4)
 
 > Plan: `docs/dev/plans/2026-09-04-durability-release-readiness.md` (Task 4, Wave 0) · Backlog P38/GOV-TK · Ruta: vanta-docs

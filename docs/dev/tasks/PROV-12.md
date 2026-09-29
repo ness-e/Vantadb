@@ -1,3 +1,9 @@
+---
+title: "PROV-12 — publicar wheels PyPI vía CI (lista para publicar, sin publish local)"
+kind: task
+description: "Objetivo: dejar el release de wheels PyPI listo y verificado en seco, SIN publish local (el token vive en GitHub Secrets / OIDC, inaccesible desde esta máquina)"
+---
+
 # PROV-12 — publicar wheels PyPI vía CI (lista para publicar, sin publish local)
 
 > **Plan:** `docs/dev/plans/2026-09-19-publicacion.md` · **Wave:** Wave2 primera en secuencia · **Ruta:** vanta-lead

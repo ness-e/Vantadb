@@ -1,3 +1,9 @@
+---
+title: 🔬 INFORME DE ANÁLISIS INTEGRAL — VantaDB
+kind: concept
+description: "VantaDB es un motor de memoria/vector embebido en Rust para agentes de IA: 214,646 líneas de Rust, 32,530 de TS/TSX, 18,273 de Python, 1,712 archivos de documentación (237K LOC — más documentación que código), 26 workflows de CI, 87..."
+---
+
 # 🔬 INFORME DE ANÁLISIS INTEGRAL — VantaDB
 
 > **Repositorio:** https://github.com/ness-e/Vantadb · **Rama:** `develop` · **Versión:** 0.6.1
@@ -92,7 +98,7 @@ Vantadb/ (rama develop, 2,992 archivos, 45MB)
 
 **Fallas y riesgos de corrección:**
 1. **126 líneas de comentarios con mojibake** (`ΓÇö`, `Ã©`) en 10+ archivos críticos (`storage/engine/insert.rs`, `txn.rs`, `get.rs`…) — corrompe la documentación de invariantes ACID.
-2. **Durabilidad por defecto = `SyncMode::Periodic`** (`config.rs:256`): pérdida posible hasta `flush_threshold` en crash de SO (trade-off consciente de ADR-038, pero no surfaced al usuario).
+2. **Durabilidad por defecto = `SyncMode::Periodic`** (`config.rs:256`): pérdida posible hasta `flush_threshold` en crash de SO (trade-off consciente de ADR-0038, pero no surfaced al usuario).
 3. **Escritura multi-store no atómica in-process** (documentada en `insert.rs:146-153`): WAL→File→KV; error a mitad deja estado parcial hasta compactación.
 4. **Salvage de WAL sin fsync del truncado** (`wal_sharded.rs:262-285`): ventana de pérdida del quarantine.
 5. **`engine.rs` "Fase 1" duplica semántica** del StorageEngine sin índices ni SIMD (búsqueda O(n) secuencial).
@@ -180,7 +186,7 @@ Vantadb/ (rama develop, 2,992 archivos, 45MB)
 
 - **bootstrap.rs (refuse-to-start, FIND-07):** host no-loopback sin api_key → error accionable con 3 remedios; `is_loopback_host` fail-closed. **Ejemplar** — el proxy debería copiarlo.
 - **RBAC 3 capas reales** (Bearer opaco constant-time + service-id + user-key deny-by-default); roles hardcodeados en `router.rs:135-137` (rígido); namespace-scoping solo en records/search/list — snapshots/maintenance quedan con permiso global.
-- **JWT HS256 (ADR-039):** algoritmo pineado (anti alg-confusion), `exp` obligatorio con leeway 0, fallo → 401 genérico sin oráculo. Adecuado para MVP single-instance; rotación = env + restart (deuda asumida).
+- **JWT HS256 (ADR-0039):** algoritmo pineado (anti alg-confusion), `exp` obligatorio con leeway 0, fallo → 401 genérico sin oráculo. Adecuado para MVP single-instance; rotación = env + restart (deuda asumida).
 - **TLS** rustls 1.2+1.3 feature-gated; middleware en capas correcto (breaker → 1MB body limit → CORS → governor → auth → timeout); XFF solo de trusted proxies (5 tests).
 - **37 paths / 44 operaciones** — `openapi.yaml` coincide **exactamente** (verificado con `check_openapi_parity.mjs`), pero el gate que vigila la paridad (`gate-docs.yml`) tiene el trigger corrupto → la paridad de hoy es fragilidad mañana.
 - Dashboard HTTP: mount point correcto, **SPA inexistente en el repo** (404 con hint).
@@ -318,7 +324,7 @@ Vantadb/ (rama develop, 2,992 archivos, 45MB)
 1. 🔴 `docs/CHANGELOG.md` corrupto: **dos changelogs concatenados** (2× `# Changelog`, 2× `## [Unreleased]`, frontmatter cosido en línea ~1836).
 2. 🔴 `gate-docs.yml` trigger corrupto (`branches: ain, develop]`) → markdownlint + paridad openapi **sin vigilancia en push/PR**.
 3. 🟠 `docs/user/web/` = **4,528 LOC de documentación fantasma** ("status: active") de un frontend Next.js que se movió a repo propio el 2026-09-22.
-4. 🟠 ADR-041 duplicado (anti_stutter proposed vs error-variant-renames accepted — el README cita el no-aceptado); ADR-021 vs ADR-025 contradictorios sin supersession; 3 convenciones de numeración.
+4. 🟠 ADR-041 duplicado (anti_stutter proposed vs error-variant-renames accepted — el README cita el no-aceptado); ADR-0021 vs ADR-0025 contradictorios sin supersession; 3 convenciones de numeración.
 5. 🟠 Cementerio: 939 archivos de task con 604 completadas sin archivar; IDs reutilizados (FIND-63 = 3 bugs distintos); contadores stale (Backlog declara "70 abiertas" con 109 filas reales).
 6. 🟡 MCP.md se contradice internamente (línea 12 "0.6.1" vs línea 512 "0.5.0 as of this doc"); TRIGGERS.md documenta el estado deseado del trigger corrupto; graphrag README overclaima "LLM-powered Semantic Compression Engine" como primitiva core (vive en vanta-memory).
 7. 🟡 README_ES con drift (badge Colab `main` vs `develop`; omite fila de examples y nota de naming); 7 blogs con `version: 0.5.0`; MCP_REGISTRY.md y hardening.md en 0.5.0.
@@ -379,7 +385,7 @@ Vantadb/ (rama develop, 2,992 archivos, 45MB)
 | A14 | vanta-memory: scheduler ~1,700 LOC (~40% del crate) sin host productivo | `bootstrap.rs:332` (`conversation_trigger: None`) |
 
 ### 🟡 MEDIOS (22)
-SyncMode::Periodic default sin surfaced · escritura multi-store no atómica in-process · salvage WAL sin fsync · mojibake 126 líneas · engine.rs fase-1 duplicado · bloom filter FPR 2% sin cablear · eviction.rs muerto (311 LOC) · shred delete-path no cableado · io_budget vaporware · inyección proxy sin presupuesto de tokens · timeout 600s corta streams · config proxy sin deny_unknown_fields · RBAC roles hardcodeados + scoping parcial · text-only search y query_sparse no expuestos en 3 SDKs · formato de filtros no intercambiable py/js · node: distance_metric→Cosine silencioso · node: index.d.ts stale falla tsc · CRASH_MODEL.md stale ×3 · docs/user/web/ 4.5K LOC fantasma · ADR-041 duplicado / ADR-021↔025 contradictorios · versiones stale cruzadas (node, homebrew, llms.txt, CITATION, Dockerfile, 7 blogs) · healthcheck compose wget/curl.
+SyncMode::Periodic default sin surfaced · escritura multi-store no atómica in-process · salvage WAL sin fsync · mojibake 126 líneas · engine.rs fase-1 duplicado · bloom filter FPR 2% sin cablear · eviction.rs muerto (311 LOC) · shred delete-path no cableado · io_budget vaporware · inyección proxy sin presupuesto de tokens · timeout 600s corta streams · config proxy sin deny_unknown_fields · RBAC roles hardcodeados + scoping parcial · text-only search y query_sparse no expuestos en 3 SDKs · formato de filtros no intercambiable py/js · node: distance_metric→Cosine silencioso · node: index.d.ts stale falla tsc · CRASH_MODEL.md stale ×3 · docs/user/web/ 4.5K LOC fantasma · ADR-041 duplicado / ADR-0021↔025 contradictorios · versiones stale cruzadas (node, homebrew, llms.txt, CITATION, Dockerfile, 7 blogs) · healthcheck compose wget/curl.
 
 ### ⚪ BAJOS (15+)
 Clamping con `eprintln!` · dashboard SPA fantasma · notebook/tests duplicados en examples · 6 esqueletos emulando frameworks · GloVe sin checksum · benches durmientes 13/22 + huérfano + no-determinista · `update_markdown` no-op · sbom-web artifact muerto · cron colisionado · `npx markdownlint` sin pin · cargo-watch en builder prod · tokens Bearer en localStorage · `test_empty` en metrics.rs prod · temp DB por health probe · i18n slice 3 pendiente · 3 runners de test superpuestos · fail-open generalizado del proxy (documentado) · checksum fail-open instaladores · CRE checks: README_ES drift.
@@ -388,7 +394,7 @@ Clamping con `eprintln!` · dashboard SPA fantasma · notebook/tests duplicados 
 
 ## 5. OPTIMIZACIONES DE RENDIMIENTO (priorizadas por impacto)
 
-1. **Productizar el batch insert (FUT-12/ADR-038)** — el prototype ya alcanzó **1,016 ops/s (9.1×)**; el techo actual (74 rec/s) es `insert_lock` global + HNSW serial (98.5% del tiempo; fsync solo 1.5%). Es el gap competitivo #1 (598 vs 114,583 ingest-QPS de LanceDB).
+1. **Productizar el batch insert (FUT-12/ADR-0038)** — el prototype ya alcanzó **1,016 ops/s (9.1×)**; el techo actual (74 rec/s) es `insert_lock` global + HNSW serial (98.5% del tiempo; fsync solo 1.5%). Es el gap competitivo #1 (598 vs 114,583 ingest-QPS de LanceDB).
 2. Kernels SIMD (`f32x8/f32x16`, ya existen) + rayon en el motor "Fase 1" (`engine.rs`) o eliminarlo.
 3. `Arc<[f32]>` compartido en re-add HNSW y staging de batch (eliminar clones de vectores completos en hot paths: `insert.rs:96`, `maintenance.rs:176`).
 4. API borrow/COW para `get()` (hoy clona payload+vector+edges por lectura).
@@ -488,7 +494,7 @@ Clamping con `eprintln!` · dashboard SPA fantasma · notebook/tests duplicados 
 | security@/enterprise@ | ❌ dominio muerto |
 
 ### 7.4 Modelo de negocio y riesgos legales
-- **Open Core (ADR-013) coherente:** core Apache-2.0 intocable; `vantadb-pro` propietario (repo privado con `license.rs` + verificación offline, sin call-home); Pro = features nuevas (RBAC multi-tenancy, replicación, PITR, admin), nunca features movidas del core. Pricing en papel (Cloud $99/$499; on-prem $10-50K/año). CLAs bien redactados pero **fricción innecesaria con 0 contribuidores externos** (DCO sería mejor hoy).
+- **Open Core (ADR-0013) coherente:** core Apache-2.0 intocable; `vantadb-pro` propietario (repo privado con `license.rs` + verificación offline, sin call-home); Pro = features nuevas (RBAC multi-tenancy, replicación, PITR, admin), nunca features movidas del core. Pricing en papel (Cloud $99/$499; on-prem $10-50K/año). CLAs bien redactados pero **fricción innecesaria con 0 contribuidores externos** (DCO sería mejor hoy).
 - ⚠️ **Conflicto de marca "Vanta" (riesgo serio y asimétrico):** Vanta Inc. (vanta.com) es un unicornio de compliance (~$2.4B) con marcas VANTA registradas en clases 9/42; ambos venden software a developers. El sufijo "DB" es diferenciador débil. El riesgo llega exactamente cuando el producto empiece a valer algo — justo cuando rebrandear es más caro. **Hacer el filing de LEG-01 sin dictamen puede atraer la atención que hoy no existe.** Recomendación: consulta formal de marcas ($500-1,500) antes de invertir un dólar en marca; preparar nombre de respaldo para la capa comercial.
 
 ### 7.5 Riesgos top 8
@@ -509,7 +515,7 @@ Clamping con `eprintln!` · dashboard SPA fantasma · notebook/tests duplicados 
 | Stack completo: core + 4 SDKs + REST + MCP + proxy + desktop | Marca débil: dominio/Discord muertos, conflicto Vanta |
 | Embeddings locales ES/EN + honestidad de fallbacks | Números públicos no reproducibles-committed |
 | Cultura de honestidad (Regla 11) — activo de marca real | Adapters listos y no publicados; marketing redactado y no publicado |
-| Open-core bien diseñado (ADR-013) | Embudo público roto en sus 3 primeros peldaños |
+| Open-core bien diseñado (ADR-0013) | Embudo público roto en sus 3 primeros peldaños |
 
 | **Oportunidades** | **Amenazas** |
 |---|---|

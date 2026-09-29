@@ -1,9 +1,9 @@
 ---
-title: "MCP (Model Context Protocol)"
-type: glossary-entry
+title: MCP (Model Context Protocol)
+kind: glossary
 status: stable
+description: MCP (Model Context Protocol) es un protocolo estándar abierto que permite a modelos de lenguaje (LLMs) y agentes de IA interactuar con herramientas y fuentes de datos externas de manera estructurada y segura
 tags: [vantadb, glosario, protocolo, ia, agentes]
-last_reviewed: 2026-09-15
 links: "[Glosario](./README.md)"
 ---
 
@@ -218,12 +218,12 @@ LLM: "Esta semana se discutieron 3 temas principales..."
 
 ## Véase También
 
-- [RAG](RAG.md) — Caso de uso principal
+- [RAG](./rag.md) — Caso de uso principal
 - [GraphRAG](graphrag.md) — Búsqueda con contexto relacional
 - [Agentes de IA](ai-agents.md) — Consumidores del protocolo
 
 ### Documentación de Implementación Relacionada
-- [[../api/MCP|MCP API Integration]]
+- [MCP](./mcp.md)
 
 ---
 

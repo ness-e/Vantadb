@@ -1,3 +1,9 @@
+---
+title: "FND-02: Regla de coordinación multi-índice + auditoría de deadlocks y contención"
+kind: task
+description: "cargo check -p vantadb pasa; regla nueva en .opencode/rules/concurrency-async.md; test de deadlock nuevo compila y pasa; reporte docs/Investigaciones/FND-02-multi-index-locks.md con orden de locks mapeado (archivo:línea)\""
+---
+
 # FND-02: Regla de coordinación multi-índice + auditoría de deadlocks y contención
 
 ## Metadata

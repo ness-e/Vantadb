@@ -1,3 +1,9 @@
+---
+title: "WSM-13: Estrategia de bundle documentada"
+kind: task
+description: Files to read
+---
+
 # WSM-13: Estrategia de bundle documentada
 
 ## Metadata

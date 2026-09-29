@@ -1,3 +1,9 @@
+---
+title: FIND-72 — CLI + pins + Chroma en benches py
+kind: task
+description: "Objetivo: benchmarks/batchvssequentialbench.py no tiene argparse y su main corre ambos benches → --help ejecuta todo (peor que lo reportado). benchmarks/requirements.txt sin pins (solo vantadb-py>=0.5.0). benchmarks/competitivebench.py..."
+---
+
 # FIND-72 — CLI + pins + Chroma en benches py
 
 > **Plan:** `docs/dev/plans/2026-09-15-find-correcciones.md` (Task 27, Wave8)

@@ -1,3 +1,9 @@
+---
+title: "GOV-T03: TIR-08c — criterios research-agent.md (saturación<20% + broadening/narrowing + WONTFIT-jitter)"
+kind: task
+description: "Contrato plan 2026-09-02 (verificable): Select-String -Path \".opencode/task-system/prompts/research-agent.md\" -Pattern \"saturaci.20%|broadening|WONTFIT\" | Measure-Object Count >=3"
+---
+
 # GOV-T03: TIR-08c — criterios research-agent.md (saturación<20% + broadening/narrowing + WONTFIT-jitter)
 
 ## Metadata

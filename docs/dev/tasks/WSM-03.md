@@ -1,3 +1,8 @@
+---
+title: WSM-03 — Auto-save en visibilitychange/pagehide
+kind: task
+---
+
 # WSM-03 — Auto-save en visibilitychange/pagehide
 
 ## Estado: ✅ COMPLETED

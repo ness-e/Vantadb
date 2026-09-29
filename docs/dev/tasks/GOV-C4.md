@@ -1,3 +1,8 @@
+---
+title: Task GOV-C4 — Regeneración master-index taxonomía (operations/master-index)
+kind: task
+---
+
 # Task GOV-C4 — Regeneración master-index taxonomía (operations/master-index)
 
 ## Estado: ✅ COMPLETED

@@ -1,3 +1,9 @@
+---
+title: "HARD-06 — Deuda quick wins (FIND-162, FIND-160, FIND-154, decisión FIND-161)"
+kind: task
+description: Verificación mecánica del contrato
+---
+
 # HARD-06 — Deuda quick wins (FIND-162, FIND-160, FIND-154, decisión FIND-161)
 
 ## Metadata

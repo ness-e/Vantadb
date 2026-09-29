@@ -1,11 +1,9 @@
 ---
-title: "Bindings Namespace Map"
-type: api
+title: Bindings Namespace Map
+kind: reference
 status: active
+description: Rules for the migration window
 tags: [vantadb, api, bindings, namespaces]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Bindings Namespace Map

@@ -1,13 +1,13 @@
 ---
-title: "fsync — File Synchronization"
-type: glossary-entry
+title: fsync — File Synchronization
+kind: glossary
 status: stable
-tags: [persistence, durabilidad, io, syscall]
-last_reviewed: 2026-09-15
-links: "[[README.md]]"
+description: "##Definition"
 aliases: [File Sync, Disk Synchronization]
-description: "Syscall from the operating system that forces the writing of all buffers in memory to the physical disk, ensuring that data survives power outages"
+tags: [persistence, durabilidad, io, syscall]
+links: "[[README.md]]"
 ---
+
 # fsync — File Synchronization
 
 ##Definition
@@ -75,7 +75,7 @@ db.put("doc1", vector, text)
 # Reboot
 import vantadb
 db = vantadb.Client("./data")
-result = db.get("doc1")
+result = db.memory.get("default", "doc1")
 # result = None ❌ The data was lost!
 ```
 
@@ -101,56 +101,43 @@ result = db.memory.get("default", "doc1")
 ### Writing Flow with fsync
 
 ```rust
-impl VantaEmbedded {
-    pub fn put(&self, key: &str, vector: &[f32], text: &str) -> Result<()> {
-        // 1. Serializar mutación
-        let mutation = Mutation::Put {
-            key: key.to_string(),
-            vector: vector.to_vec(),
-            text: text.to_string(),
-        };
-        
-        // 2. Append al WAL
-        self.wal.append(&mutation)?;
-        
-        // 3. fsync() del WAL ← DURABILIDAD
-        self.wal.fsync()?;
-        
-        // 4. Aplicar a storage
-        self.storage.apply(&mutation)?;
-        
-        // 5. ACK al cliente (solo después de fsync)
-        Ok(())
+// src/sdk/api/memory.rs:335
+impl Embedded {
+    pub fn put(&self, input: MemoryInput) -> Result<MemoryRecord> {
+        // 1. El WAL se appendea con el record serializado (postcard)
+        //    y `maybe_sync` decide si sincroniza según SyncMode.
+        // 2. Aplicar a storage + índices derivados.
+        // 3. ACK al cliente — solo después del sync del WAL.
     }
 }
 ```
-*Note: Write operations are logged to the [[wal|Write-Ahead Log (WAL)]] prior to fsync.*
+
+> La firma real es `put(&self, input: MemoryInput) -> Result<MemoryRecord>`
+> (namespace + key + payload + metadata + vector), no un `put(key, vector, text)`
+> posicional. El sync no es una llamada explícita en el camino de escritura:
+> ocurre dentro de `WalWriter::maybe_sync`, que el writer invoca en cada
+> append.
+*Note: Write operations are logged to the [Write-Ahead Log (WAL)](./wal.md) prior to fsync.*
 
 ### fsync implementation
 
 ```rust
-use std::fs::File;
-use std::os::unix::io::AsRawFd;
-
+// src/wal.rs:397
 impl WalWriter {
-    pub fn fsync(&self) -> Result<()> {
-        #[cfg(unix)]
-        unsafe {
-            let ret = libc::fsync(self.file.as_raw_fd());
-            if ret != 0 {
-                return Err(Error::Io(std::io::Error::last_os_error()));
-            }
-        }
-        
-        #[cfg(windows)]
-        {
-            self.file.sync_all()?;
-        }
-        
+    pub fn sync(&mut self) -> Result<()> {
+        self.writer.flush()?;
+        self.writer.get_ref().sync_data()?;  // fdatasync en POSIX
+        self.records_since_sync = 0;
         Ok(())
     }
 }
 ```
+
+> El método real se llama `WalWriter::sync()`, no `fsync()`, y usa
+> `File::sync_data()` — es decir **`fdatasync`** en POSIX, no `fsync` completo.
+> La diferencia práctica es menor para el WAL (el tamaño del archivo no se
+> sincroniza en cada write), pero conviene saberlo al razonar sobre
+> rendimiento.
 
 ## fsync cost
 
@@ -175,40 +162,37 @@ impl WalWriter {
 
 ##Sync Modes
 
-### 1. SyncAlways (Maximum Durability)
+VantaDB implementa los tres modos vía `SyncMode` (`src/config.rs:88`). **No son
+toggles-fiction: el código los evalúa en `WalWriter::maybe_sync`**
+(`src/wal.rs:377`).
 
 ```rust
 pub enum SyncMode {
-    Always,  // fsync en cada write
+    Always,   // fsync en cada write
+    Periodic, // fsync cada N registros (default)
+    Never,    // sin sync automático; solo el page cache del OS
 }
-
-// Use: Financial, medical, legal systems
-// Latency: High (~1-5 ms per write)
-// Data loss: Zero
 ```
 
-### 2. SyncPeriodic (Balance)
+| Modo | Comportamiento en `maybe_sync` | Uso | Riesgo |
+|------|--------------------------------|-----|--------|
+| `Always` | `self.sync()?` en cada append | Financial, medical, legal | Cero pérdida (salvo hardware) |
+| `Periodic` *(default)* | `sync()` cuando `records_since_sync >= flush_threshold`; si no hay threshold, usa `DEFAULT_PERIODIC_THRESHOLD = 1` → **fsync en cada write** | General | ≤ `flush_threshold - 1` registros |
+| `Never` | No hace nada; el OS decide | Caches, datos temporales | Pérdida de los últimos writes en crash |
+
+> **Default real:** `Periodic` **con threshold 1** equivale a fsync por write.
+> El modo por defecto NO es "batching perezoso": solo se relaja si subes
+> `flush_threshold` (constructor `with_flush_threshold(n)`, env
+> `VANTADB_FLUSH_THRESHOLD`, o `Config { flush_threshold: Some(n) }`). El doc
+> canónico es [DURABILITY_GUARANTEES](../operations/DURABILITY_GUARANTEES.md).
+
+Configuración:
 
 ```rust
-pub enum SyncMode {
-    Periodic(Duration),  // fsync cada N ms
-}
-
-// Use: General applications
-// Latency: Low (<1 ms)
-// Data loss: Last N ms (ex: 100 ms)
-```
-
-### 3. SyncNever (Maximum Performance)
-
-```rust
-pub enum SyncMode {
-    Never,  // OS decide cuándo hacer fsync
-}
-
-// Use: Caches, temporary data, logs
-// Latency: Minimal (~0.1 ms)
-// Data loss: Potentially high
+// Rust: sin fsync por batch (persistimos 1000 writes por sync)
+let config = Config::default()
+    .with_sync_mode(SyncMode::Periodic)
+    .with_flush_threshold(1_000);
 ```
 
 ## fdatasync vs fsync
@@ -235,42 +219,44 @@ unsafe {
 
 ## Known Issues
 
-### AUD-01: fsync Not Verified
+### ~~AUD-01: fsync Not Verified~~ — resuelto
 
-**Severity:** 🔒 Blocking
+**Estado:** ✅ Cerrado. El sync-before-ACK está implementado y es verificable en
+el código:
 
-**Description:** The VantaDB snapshot does not demonstrate that fsync() is executed before the ACK to the client.
+- `WalWriter::maybe_sync` (`src/wal.rs:377`) se invoca en cada append y llama a
+  `WalWriter::sync()` (`src/wal.rs:397`), que hace `flush()` + `sync_data()`
+  **antes** de que el writer retorne al camino de escritura.
+- El modo por defecto `Periodic` usa `DEFAULT_PERIODIC_THRESHOLD = 1`
+  (`src/wal.rs:375`), es decir sincroniza en cada write.
+- La suite de crash-injection (`tests/storage/crash_injection.rs`) valida que un
+  `SIGKILL` no pierde datos comprometidos.
 
-**Impact:** Unverifiable durability claims. Possible data loss in crashes.
+```rust
+// src/wal.rs:375-402
+const DEFAULT_PERIODIC_THRESHOLD: u64 = 1;
 
-**Mitigation Required:**
-``rust
-pub fn put(&self, mutation: &Mutation) -> Result<()> {
-    self.wal.append(mutation)?;
-    
-    // CRITICAL: fsync before ACK
-    self.wal.fsync()?;
-    
-    // Only now confirm
+fn maybe_sync(&mut self) -> Result<()> {
+    match self.sync_mode {
+        SyncMode::Always => self.sync()?,
+        SyncMode::Never => {}
+        SyncMode::Periodic => {
+            let threshold = self.flush_threshold
+                .map(|t| t as u64)
+                .unwrap_or(Self::DEFAULT_PERIODIC_THRESHOLD);
+            if self.records_since_sync >= threshold {
+                self.sync()?;
+            }
+        }
+    }
     Ok(())
 }
-```
 
-**Validation Test:**
-``rust
-#[test]
-fn test_fsync_before_ack() {
-    let db = VantaEmbedded::open("./test_data")?;
-    
-    // Insert data
-    db.put("key1", &vec![1.0, 2.0], "test")?;
-    
-    // Simulate immediate crash
-    std::process::exit(1);
-    
-    // In another process:
-    let db = VantaEmbedded::open("./test_data")?;
-    assert!(db.get("key1")?.is_some());  // Must exist
+pub fn sync(&mut self) -> Result<()> {
+    self.writer.flush()?;
+    self.writer.get_ref().sync_data()?;
+    self.records_since_sync = 0;
+    Ok(())
 }
 ```
 
@@ -289,7 +275,7 @@ Some enterprise SSDs have **capacitors** that allow writes to be completed on th
 
 | Sistema | fsync Default | Configurable |
 |---------|---------------|--------------|
-| **VantaDB** | ⚠️ No verificado | ⬜ Pendiente |
+| **VantaDB** | ✅ Sí (`Periodic`, threshold 1 = sync por write) | ✅ `SyncMode` + `flush_threshold` |
 | **SQLite** | Siempre | Sí (PRAGMA synchronous) |
 | **PostgreSQL** | Siempre | Sí (synchronous_commit) |
 | **RocksDB** | Configurable | Sí (sync_wal) |
@@ -304,12 +290,14 @@ PRAGMA synchronous = NORMAL;  -- fsync en checkpoints
 PRAGMA synchronous = OFF;     -- Sin fsync (rápido pero riesgoso)
 ```
 
-**VantaDB should implement something similar:**
+**VantaDB ofrece el equivalente**, vía `SyncMode` + `flush_threshold` en la config
+del engine Rust (el constructor Python no expone el knob de sync):
+
 ```python
 import vantadb
 
 # fsync policy is controlled by the Rust engine config, not the constructor
-db = vantadb.Client("./data")  # fsync siempre (máxima durabilidad)
+db = vantadb.Client("./data")  # Periodic + threshold 1 → sync por write
 ```
 
 ## Durability Testing
@@ -338,10 +326,10 @@ echo "✅ 1000 simulated crashes, zero corruption"
 
 ## See Also
 
-- [[wal]] — System that uses fsync for durability
-- [[transactional]] — Property that fsync guarantees
-- [[crc32c]] — Integrity complementary to durability
-- [[chaos-testing]] — How to validate durability
+- [wal](./wal.md) — System that uses fsync for durability
+- [transactional](./transactional.md) — Property that fsync guarantees
+- [crc32c](./crc32c.md) — Integrity complementary to durability
+- [chaos-testing](./chaos-testing.md) — How to validate durability
 
 ---
 

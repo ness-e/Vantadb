@@ -1,11 +1,14 @@
 ---
-title: "backpressure"
-type: glossary-entry
+title: backpressure
+kind: glossary
 status: stable
+description: "#Backpressure"
 tags: [vantadb, glosario, operaciones, resiliencia]
-last_reviewed: 2026-09-15
+type: glossary-entry
+last_reviewed: "2026-09-15"
 links: "[[README.md]]"
 ---
+
 #Backpressure
 
 ##Definition
@@ -32,18 +35,21 @@ pub struct AdmissionFilter {
 }
 
 impl AdmissionFilter {
-    pub fn check(&mut self) -> Result<(), VantaError> {
+    pub fn check(&mut self) -> Result<(), Error> {
         self.sys.refresh_memory();
         
         let process = self.sys.process(getpid()).unwrap();
         let rss = process.memory();  // Resident Set Size
         
         if rss as f64 > (self.max_rss_bytes as f64 * self.threshold as f64) {
-            return Err(VantaError::BackpressureActive {
-                current_rss: rss,
-                limit: self.max_rss_bytes,
-                threshold: self.threshold,
-            });
+            // `ResourceLimit` carries a pre-formatted message by design (API-01):
+            // the payload is per-call-site, semantics live in code() /
+            // is_retriable() / recovery_hint().
+            return Err(Error::ResourceLimit(format!(
+                "backpressure: rss {rss} exceeds {:.0}% of {}",
+                self.threshold * 100.0,
+                self.max_rss_bytes,
+            )));
         }
         
         Ok(())
@@ -99,7 +105,7 @@ except RuntimeError as e:
 async fn handle_put(req: Request) -> Response {
     match db.put(req.body) {
         Ok(_) => Response::ok(),
-        Err(VantaError::BackpressureActive { .. }) => {
+        Err(Error::ResourceLimit(_)) => {
             Response::builder()
                 .status(429)
                 .header("Retry-After", "1")
@@ -183,9 +189,9 @@ class PriorityInsertQueue:
 
 ## See Also
 
-- [[mmap]] — Memory-mapped I/O
-- [[wal]] — Write-ahead log
-- [[chaos-testing]] — Backpressure validation
+- [mmap](./mmap.md) — Memory-mapped I/O
+- [wal](./wal.md) — Write-ahead log
+- [chaos-testing](./chaos-testing.md) — Backpressure validation
 
 ---
 

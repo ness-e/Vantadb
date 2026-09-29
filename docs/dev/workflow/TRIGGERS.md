@@ -1,11 +1,9 @@
 ---
-title: "Workflows — Trigger matrix"
-type: workflow-index
+title: Workflows — Trigger matrix
+kind: runbook
 status: active
+description: "Source of truth is each file's on: block (read 2026-09-22, post"
 tags: [vantadb, ci, workflows, triggers]
-last_reviewed: 2026-09-22
-aliases: []
-related: ["docs/dev/workflow/README.md", "docs/dev/workflow/FAQ.md"]
 ---
 
 # Workflows — Trigger matrix

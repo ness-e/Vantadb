@@ -1,11 +1,8 @@
 ---
-title: "Wave SKL (P21) — skills/vantadb sincronizadas"
-type: registro
+title: Wave SKL (P21) — skills/vantadb sincronizadas
+kind: review
 status: archived
 tags: [vantadb, avance, campana]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Wave SKL (P21) — skills/vantadb sincronizadas

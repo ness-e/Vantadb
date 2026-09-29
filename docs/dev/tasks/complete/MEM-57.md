@@ -1,3 +1,9 @@
+---
+title: "TASK-6: MEM-57 — Parser claude-code (classify + extract user text)"
+kind: task
+description: "tests D19 port de TDAM agent-adapters/claude-code.ts: classifyCcRequest (main/fork/sidequery vía cachecontrol marker) + extractLastUserText (salta system-reminder blocks)\""
+---
+
 # TASK-6: MEM-57 — Parser claude-code (classify + extract user text)
 
 ## Metadata

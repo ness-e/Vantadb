@@ -1,3 +1,9 @@
+---
+title: "REVIEW-13: supersede() TOCTOU concurrente — serializar read-modify-write"
+kind: task
+description: "cargo nextest run -p vantadb supersede pasa; test concurrente nuevo (2 threads supersede mismo key → exactamente 1 gana, el otro recibe \"already superseded\", estado final consistente); cargo check -p vantadb + cargo fmt + cargo clippy..."
+---
+
 # REVIEW-13: supersede() TOCTOU concurrente — serializar read-modify-write
 
 ## Metadata

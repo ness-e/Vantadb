@@ -1,10 +1,8 @@
 ---
-title: "Auditoría — Seguridad"
-type: audit-log
+title: Auditoría — Seguridad
+kind: review
 status: active
 tags: [vantadb, avance, security, audit, fuzz, miri, ffi]
-last_reviewed: 2026-08-07
-aliases: []
 ---
 
 # Auditoría — Seguridad

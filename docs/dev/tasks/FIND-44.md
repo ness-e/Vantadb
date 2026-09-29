@@ -1,7 +1,13 @@
+---
+title: "Task: FIND-44 — Crear ADRs iniciales (proyecto sin ADRs registrados)"
+kind: task
+description: "Get-ChildItem docs/dev/architecture/adr/.md | Measure-Object | Select-Object Count >= 1 (ADR-0001 con headers Context/Decisión/Consecuencias según AGENTS.md Regla 5)"
+---
+
 # Task: FIND-44 — Crear ADRs iniciales (proyecto sin ADRs registrados)
 
 ## Contract
-`Get-ChildItem docs/dev/architecture/adr/*.md | Measure-Object | Select-Object Count` >= 1 (ADR-001 con headers Context/Decisión/Consecuencias según AGENTS.md Regla 5)
+`Get-ChildItem docs/dev/architecture/adr/*.md | Measure-Object | Select-Object Count` >= 1 (ADR-0001 con headers Context/Decisión/Consecuencias según AGENTS.md Regla 5)
 
 ## Archivos clave
 - `docs/dev/architecture/adr/` (ya contiene 30+ ADRs)
@@ -10,22 +16,22 @@
 
 ## Estado actual
 **CONTRATO YA SATISFECHO** — El directorio `docs/dev/architecture/adr/` contiene 30+ archivos ADR, todos con formato Nygard (Context, Decision, Consequences, Benefits, Technical Debt/Costs, Alternatives Considered). Verificados:
-- `001_unified_config_readonly.md` — Context ✅ Decision ✅ Consequences ✅
-- `ADR-0001-ADOPTAMOS-ADRS.md` — Meta-ADR que establece el proceso
-- ADR-002 a ADR-013, ADR-014 a ADR-032, COMP-*, DRV-*
+- `ADR-0001-unified-config-readonly.md` — Context ✅ Decision ✅ Consequences ✅
+- `ADR-0000-adoptamos-adrs.md` — Meta-ADR que establece el proceso
+- ADR-0002 a ADR-0013, ADR-0014 a ADR-0032, COMP-*, DRV-*
 
 El reporte CodeGraph Fase 12 ("Sin ADRs registrados") es stale — los ADRs existen desde 2026-08-23.
 
 ## Plan original (plan 2026-08-28-backlog-triage.md)
 Crear ADR-001..006 mínimos: PURPOSE, STACK, ARCHITECTURE, PATTERNS, TRADEOFFS, PHILOSOPHY (cada uno 15-20 líneas, basado en decisiones ya tomadas en docs/dev/research).
 
-**Conflicto:** ADR-001 a ADR-006 YA EXISTEN con contenido distinto (Config, WAL, Sync/Async, Storage, HNSW, RRF). La numeración no puede reusarse.
+**Conflicto:** ADR-0001 a ADR-0006 YA EXISTEN con contenido distinto (Config, WAL, Sync/Async, Storage, HNSW, RRF). La numeración no puede reusarse.
 
 ## Discovery Steps
 
 ### Step 1: Verify Contract (COMPLETED ✅)
 - [x] Ejecutar `Get-ChildItem docs/dev/architecture/adr/*.md | Measure-Object | Select-Object Count` → **39**
-- [x] Verificar que ADR-001 tiene headers Context/Decision/Consequences → **3 matches**
+- [x] Verificar que ADR-0001 tiene headers Context/Decision/Consequences → **3 matches**
 - [x] Confirmar count >= 1 → **SATISFECHO**
 
 ### Step 2: Gate D Evaluation (COMPLETED ✅)
@@ -37,8 +43,8 @@ Crear ADR-001..006 mínimos: PURPOSE, STACK, ARCHITECTURE, PATTERNS, TRADEOFFS, 
 
 ### Step 3: Gate P Evaluation (COMPLETED ✅)  
 - [x] Task type: Documentation (no feature-add)
-- [x] Gate P: NO aplicable (Regla 5: ADR requiere forcing function humano, pero ADRs YA EXISTEN y fueron escritos por humanos — ver `ADR-0001-ADOPTAMOS-ADRS.md` y commits históricos)
-- [x] Si se desearan ADRs PURPOSE/STACK/etc. → nueva tarea separada (ADR-033+)
+- [x] Gate P: NO aplicable (Regla 5: ADR requiere forcing function humano, pero ADRs YA EXISTEN y fueron escritos por humanos — ver `ADR-0000-adoptamos-adrs.md` y commits históricos)
+- [x] Si se desearan ADRs PURPOSE/STACK/etc. → nueva tarea separada (ADR-0033+)
 
 ### Step 4: Close Task (COMPLETED ✅)
 - [x] Actualizar plan file: marcar FIND-44 como ✅ COMPLETED
@@ -57,7 +63,7 @@ Crear ADR-001..006 mínimos: PURPOSE, STACK, ARCHITECTURE, PATTERNS, TRADEOFFS, 
 | Prob×Impacto | Riesgo | Respuesta |
 |--------------|--------|-----------|
 | 🟢×🟢 | Task file no existe (creación) | Crear y cerrar idempotente |
-| 🟢×🟡 | Plan pide ADR-001..006 específicos que colisionan | Documentar que ya existen ADR-001..006 con otro contenido; si se quieren los fundacionales, crear ADR-033+ en tarea aparte |
+| 🟢×🟡 | Plan pide ADR-001..006 específicos que colisionan | Documentar que ya existen ADR-001..006 con otro contenido; si se quieren los fundacionales, crear ADR-0033+ en tarea aparte |
 
 ## SDP Skills Cargadas
 - `documentation-and-adrs` (base + lifecycle)

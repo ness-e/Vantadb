@@ -1,3 +1,9 @@
+---
+title: "OLD-03: Chaos Testing (Failpoint Framework Formal)"
+kind: task
+description: "Fuente: Backlog Phase 9 (Old Docs Rescue)"
+---
+
 # OLD-03: Chaos Testing (Failpoint Framework Formal)
 
 **Fuente:** Backlog Phase 9 (Old Docs Rescue)  

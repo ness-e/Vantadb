@@ -1,11 +1,10 @@
 ---
-title: {{title}}
-type: documentation
+title: "{{title}}"
+kind: research
 status: active
+description: Provide a brief overview of the note here
 tags: [vantadb]
-created: {{date}}
-last_reviewed: {{date}}
-aliases: []
+created: "{{date}}"
 ---
 
 # {{title}}

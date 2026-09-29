@@ -1,11 +1,9 @@
 ---
 title: "INV-vantadb-ts-01 — Investigación profunda: SDK TypeScript/WASM multi-runtime (`vantadb-ts`)"
-type: review
+kind: review
 status: archived
+description: "Fecha: 2026-08-25 · Comando: /research vantadb-ts · Modo: read-only"
 tags: [vantadb, review]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # INV-vantadb-ts-01 — Investigación profunda: SDK TypeScript/WASM multi-runtime (`vantadb-ts`)

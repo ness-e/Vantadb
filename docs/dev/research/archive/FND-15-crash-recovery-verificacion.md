@@ -1,3 +1,10 @@
+---
+title: FND-15 — Crash recovery / WAL en la práctica (Verificación)
+kind: research
+status: archived
+description: "Verificar que un kill a mitad de escritura recupera estado consistente (WAL replay), usando los"
+---
+
 # FND-15 — Crash recovery / WAL en la práctica (Verificación)
 
 > **Categoría:** Durabilidad · **Backlog:** P20c · **Prioridad:** 🔴 · **Esfuerzo:** 🟡

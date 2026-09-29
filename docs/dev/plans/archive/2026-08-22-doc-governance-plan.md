@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Gobernanza Documental — corrección integral post-auditoría"
+kind: plan
+status: archived
+description: "Status: ⬆️ uphill = 4 incógnitas abiertas · ⬇️ downhill = 96 steps pendientes"
+---
+
 # Plan de Ejecución: Gobernanza Documental — corrección integral post-auditoría
 
 > **Campaign ID: 25511c4f-042b-4e94-baf1-a91eee779a68
@@ -107,7 +114,7 @@ Status: ⬆️ uphill = 4 incógnitas abiertas · ⬇️ downhill = 96 steps pen
 - **Gate Result:** ✅ DO
 - **Contrato:** llvm-cov corre exit 0; tras la tarea, exactamente UNA cifra aparece en los 4 documentos (grep cruzado sin contradicciones) con fecha y entorno.
 - **Pre-mortem:** (1) build coverage falla por RAM/LLD SIGBUS histórico → usar flags documentados en TEST_MAP (runner 8GB); (2) cifra real <59% gate actual → NO cambiar el gate en esta tarea, registrar hallazgo y ticket aparte.
-- **Stop conditions:** 2 intentos fallidos de llvm-cov → registrar imposibilidad, adoptar valor ADR-018 provisional marcado "por re-medir".
+- **Stop conditions:** 2 intentos fallidos de llvm-cov → registrar imposibilidad, adoptar valor ADR-0018 provisional marcado "por re-medir".
 - **Risk Register:**
   | Prob×Impacto | Riesgo | Respuesta | Trigger/Due |
   |---|---|---|---|
@@ -472,15 +479,15 @@ Status: ⬆️ uphill = 4 incógnitas abiertas · ⬇️ downhill = 96 steps pen
 - **Estado:** ⬜ PENDING
 - **Task file:** bajo demanda
 
-#### Task 26: GOV-D5 — ADR-026 a adr/
+#### Task 26: GOV-D5 — ADR-0026 a adr/
 - **Appetite:** max 30min
 - **Esfuerzo:** 🟢 | **Prioridad:** 🟡
-- **Archivos clave:** `docs/dev/architecture/ADR-026-vanta-studio-fase3-rest-dashboard.md` → `docs/dev/architecture/adr/`; citas en Backlog DESKTOP-27 e informe auditoría
+- **Archivos clave:** `docs/dev/architecture/ADR-0026-vanta-studio-fase3-rest-dashboard.md` → `docs/dev/architecture/adr/`; citas en Backlog DESKTOP-27 e informe auditoría
 - **Verificación real:** ✅ AUDITORÍA — único ADR fuera de adr/ (los demás 34 viven en adr/)
 - **Gate Justificación:** convención de ubicación rota; fix trivial con git mv + grep de citas
 - **Gate Result:** ✅ DO
 - **Contrato:** archivo vive en adr/ junto a sus pares; método AUD-007 = 0 citas con path viejo
-- **Pre-mortem:** (1) wikilinks Obsidian al path viejo → sweep específico [[ADR-026]]
+- **Pre-mortem:** (1) wikilinks Obsidian al path viejo → sweep específico [[ADR-0026]]
 - **Stop conditions:** —
 - **Risk Register:** 🟢×🟢 —
 - **Cynefin:** 🟦 obvio
@@ -596,7 +603,7 @@ Próxima tarea si completa: 3
 | GOV-T01 | ✅ | commit 1c7660dc — node evals/dora.mjs exit 0, Recovery Time con 12.56h/28.59h/16.8s (dora.md:304-310) |
 | GOV-T02 | ✅ | commit 1c7660dc — RULES.md Apéndice B + subagent-recovery ESCALATE cita tasks/closed (2 archivos) |
 | GOV-T03 | ✅ | commit 1c7660dc — research-agent.md criterios saturación<20%/broadening/WONTFIT-jitter TIR-08 |
-| GOV-A1 | ⬛ CANCELADO por stop condition | 2× llvm-cov ICE rustc 0xc0000409 Windows (intentos: default, -j 2 mal aplicado corregido a flag llvm-cov, interrumpido) → fallback pre-autorizado aplicado: cifra canónica ADR-018 (root ≥80%, baseline 81.40%) fijada en TEST_MAP+CI_POLICY+progreso con marca "re-medición pendiente". Commit  6d8c619. Ticket: llvm-cov ICE local. |
+| GOV-A1 | ⬛ CANCELADO por stop condition | 2× llvm-cov ICE rustc 0xc0000409 Windows (intentos: default, -j 2 mal aplicado corregido a flag llvm-cov, interrumpido) → fallback pre-autorizado aplicado: cifra canónica ADR-0018 (root ≥80%, baseline 81.40%) fijada en TEST_MAP+CI_POLICY+progreso con marca "re-medición pendiente". Commit  6d8c619. Ticket: llvm-cov ICE local. |
 | GOV-A2 | ✅ | commit 4fc8be24 — cifra canónica 2034/2034/1 skip (nextest default, 122s, Windows 2026-08-22) en TEST_MAP:92 |
 | GOV-A3 | ✅ | probes validados end-to-end en sandbox temp (put→backup manifest 36 files→restore --force→doctor exit 0→get recupera); procedimiento diario listo para GOV-B2; sin cambios de archivo |
 | GOV-A4 | ✅ | commit d147df5d — validate_doc_snippets.py: 21 PASS/31 FAIL/6 SKIP determinístico ×2; detecta graph_bfs ×2 + hallazgos extra (add_edge string IDs, IndentationError 05:133, input() interactivo 01:169) → insumo GOV-B3 ampliado |
@@ -642,7 +649,7 @@ plan-adjust [2026-08-22]: GOV-C2 parcialmente pre-ejecutado por sesión SDKB (48
 | GOV-D2 | ✅ | split por campaña: 37 archivos en campanas/, README índice ≤50KB, dedup evento ×3, cobertura 103.98% (0 líneas perdidas), 2 links entrantes corregidos |
 | GOV-D3 | ✅ | 25f6d5a2+5b18fba9 — bitácora revivida: regla de uso + draft agosto para articulación del autor |
 | GOV-D4 | ✅ | d83a4bdb — 49 ítems git mv a research/, sweep citas en 64 archivos, convención documentada, INV-019→INV-026 |
-| GOV-D5 | ✅ | ADR-026 en adr/; única cita de path viejo = informe auditoría (histórica) |
+| GOV-D5 | ✅ | ADR-0026 en adr/; única cita de path viejo = informe auditoría (histórica) |
 | GOV-D6 | ✅ | CRASH_MODEL.md modelo diferencial con file:línea; grep "ALL records"=0 |
 
 ### Wave E cierre

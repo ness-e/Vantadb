@@ -1,10 +1,9 @@
 ---
-title: Compatibility Matrix & 1.0 Readiness
-type: api
+title: "Compatibility Matrix & 1.0 Readiness"
+kind: reference
 status: active
+description: "What each public API surface promises, how that promise is enforced"
 tags: [vantadb, api, compatibility, semver]
-last_reviewed: 2026-09-27
-aliases: []
 ---
 
 # Compatibility Matrix & 1.0 Readiness

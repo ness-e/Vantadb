@@ -1,11 +1,9 @@
 ---
 title: "Research: vantadb-node — binding nativo napi-rs vs estado del arte"
-type: review
+kind: review
 status: archived
+description: "Fecha: 2026-08-25 · Comando: /research vantadb-node · Modo: read-only"
 tags: [vantadb, review]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Research: vantadb-node — binding nativo napi-rs vs estado del arte

@@ -1,3 +1,9 @@
+---
+title: BLOG-CTA — CTAs + metadata serie blogs + posts 6-7
+kind: task
+description: "Plan: docs/dev/plans/2026-09-08-backlog.md → Task 10 · Estado: ⏳ IN PROGRESS"
+---
+
 # BLOG-CTA — CTAs + metadata serie blogs + posts 6-7
 
 **Plan:** `docs/dev/plans/2026-09-08-backlog.md` → Task 10 · **Estado:** ⏳ IN PROGRESS

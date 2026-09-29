@@ -1,3 +1,10 @@
+---
+title: "Reporte de Investigación — INV-004: mimalloc como Global Allocator"
+kind: research
+status: archived
+description: "En sistemas intensivos en memoria como VantaDB (que manejan índices HNSW, grafos en RAM y serialización frecuente de vectores f32), el asignador de memoria por defecto del sistema operativo (glibc malloc en Linux, MSVC CRT en Windows..."
+---
+
 # Reporte de Investigación — INV-004: mimalloc como Global Allocator
 
 > **ID:** `INV-004`  

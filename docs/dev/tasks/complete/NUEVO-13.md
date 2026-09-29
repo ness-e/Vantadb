@@ -1,3 +1,9 @@
+---
+title: "NUEVO-13: HNSW ef_search auto-tuning (heuristic doubling)"
+kind: task
+description: Lo que ya existe y funciona
+---
+
 # NUEVO-13: HNSW ef_search auto-tuning (heuristic doubling)
 
 ## Metadata

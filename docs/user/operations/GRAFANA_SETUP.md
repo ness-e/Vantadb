@@ -1,10 +1,9 @@
 ---
 title: Grafana Dashboard Setup
-type: operations
+kind: runbook
 status: active
+description: VantaDB exposes Prometheus metrics at /metrics on the HTTP port (default 8080)
 tags: [vanta, operations]
-last_reviewed: 2026-07-21
-aliases: []
 ---
 
 # Grafana Dashboard Setup

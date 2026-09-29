@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Vanta Última Milla — integración producto end-to-end"
+kind: plan
+status: archived
+description: "Objetivo: cerrar los 3 huecos críticos 🔴 y las brechas medias que impiden que el producto funcione como sistema end-to-end: write-back conectado, executor agéntico de tools en el proxy (O2 interceptor stream), wiki con fachada..."
+---
+
 # Plan de Ejecución: Vanta Última Milla — integración producto end-to-end
 
 > **Inicio:** 2026-08-22
@@ -93,7 +100,7 @@ Status: ⬆️ uphill = 0 (todas las decisiones cerradas) · ⬇️ downhill = ~
 - **Appetite:** max ½d
 - **Esfuerzo:** 🟢 | **Prioridad:** 🟡
 - **Archivos clave:** `vanta-memory/Cargo.toml` (feature), `context_engine/token_estimator.rs` (rama tiktoken)
-- **Verificación real:** ✅ ADR-029 enmienda — decisión del autor tras walkthrough
+- **Verificación real:** ✅ ADR-0029 enmienda — decisión del autor tras walkthrough
 - **Gate Result:** ✅ DO
 - **Contrato:** "`cargo check -p vanta-memory` default pasa (chars/3 intacto); con `--features precise-tokens`: estimate usa tiktoken-rs, tests comparan contra valores conocidos de cl100k; CJK/código ahora precisos"
 - **Pre-mortem:** peso binario solo en builds con feature; verificar WASM build sin feature sigue liviano

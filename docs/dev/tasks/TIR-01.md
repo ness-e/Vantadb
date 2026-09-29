@@ -1,3 +1,9 @@
+---
+title: "TIR-01: Compaction de contexto runtime"
+kind: task
+description: "docs/Investigaciones/TIR-01-contexto-compaction.md existe con: (1) análisis de mecanismos de compactación (resumen incremental por fase, qué se conserva, comparación contra claim original multi-turn compaction); (2) recomendación..."
+---
+
 # TIR-01: Compaction de contexto runtime
 
 ## Metadata

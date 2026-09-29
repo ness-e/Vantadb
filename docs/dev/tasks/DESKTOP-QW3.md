@@ -1,3 +1,9 @@
+---
+title: "TASK DESKTOP-QW3: statusReport.ts markdown EN→ES (H-05)"
+kind: task
+description: "statusReport.ts genera markdown ES consistente con UI (toda la UI desktop es ES); cd desktop && npm run build y npm test verde; tests actualizados a ES (asertan strings ES)"
+---
+
 # TASK DESKTOP-QW3: statusReport.ts markdown EN→ES (H-05)
 
 ## Metadata

@@ -1,3 +1,10 @@
+---
+title: "Plan: Post-investigación integral — ejecución P52–P56 (2026-09-24)"
+kind: plan
+status: archived
+description: "Renumeración documentada: el análisis post-investigación propuso \"Fase P51 — Verificabilidad\" y \"Fase P52 — Tracks ICP\"; por colisión con Phase 51 (Estandarización 11 APIs) creada el mismo día, quedan como P52 (VER) y P54 (ICP). La fila..."
+---
+
 # Plan: Post-investigación integral — ejecución P52–P56 (2026-09-24)
 
 > **Inicio:** 2026-09-24

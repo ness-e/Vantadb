@@ -1,3 +1,9 @@
+---
+title: "PROV-01: Fix compile openai — añadir exclude_superseded: false"
+kind: task
+description: cargo check --manifest-path providers/openai/Cargo.toml exit 0
+---
+
 # PROV-01: Fix compile openai — añadir exclude_superseded: false
 
 ## Metadata
@@ -100,7 +106,7 @@ No aplica — fix mecánico sin símbolos públicos nuevos. No agrega `pub fn`/e
 ## Fase 1 — Evidencia de Debugging (GATE — solo tipo Bug)
 
 - **Repro:** `cargo check --manifest-path providers/openai/Cargo.toml` → E0063 missing field `exclude_superseded` in initializer of `VantaMemoryListOptions` (y `VantaMemorySearchRequest`) contra core actual (src/sdk/types.rs:214-232 añade campo sin Default en literal).
-- **Hipótesis:** VantaMemoryListOptions añadió `exclude_superseded: bool` (ADR-028) sin actualizar providers/openai literal; Rust exige campo en struct literal salvo `..Default::default()`.
+- **Hipótesis:** VantaMemoryListOptions añadió `exclude_superseded: bool` (ADR-0028) sin actualizar providers/openai literal; Rust exige campo en struct literal salvo `..Default::default()`.
 - **1 variable controlada:** añadir `exclude_superseded: false` en `VantaMemoryListOptions` literal (y `VantaMemorySearchRequest`) — sin tocar otro campo.
 - **Test RED:** cargo check falla antes del fix (evidencia histórica INV-providers-01 score 4.0/10, Backlog PROV-01); GREEN tras fix — verificado en commit 2754c783 y re-verificado ahora.
 

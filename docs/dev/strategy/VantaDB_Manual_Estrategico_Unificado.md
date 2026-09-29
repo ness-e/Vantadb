@@ -1,10 +1,12 @@
 ---
-title: "VantaDB — De Código a Empresa"
-subtitle: "Manual Estratégico Unificado"
-author: "Eros · Founder de VantaDB"
+title: VantaDB — De Código a Empresa
+kind: concept
+description: Cómo transformar VantaDB en un negocio rentable
+subtitle: Manual Estratégico Unificado
+author: Eros · Founder de VantaDB
 date: "31 de julio de 2026"
 version: "Unificado v1.0 (Gemini + GPT + Sonnet + GLM) + validación externa 2026-09-14 (ver docs/dev/research/manual-estrategico-validacion-2026-09-14.md: fe de erratas, números corregidos, plan D vencido)"
-context: "Solo-founder · Venezuela · Sin presupuesto"
+context: Solo-founder · Venezuela · Sin presupuesto
 horizon: "4 meses (Sep 2026 → Ene 2027)"
 meta: "Meta: USD 5.000 en ganancias antes del 01/01/2027"
 ---

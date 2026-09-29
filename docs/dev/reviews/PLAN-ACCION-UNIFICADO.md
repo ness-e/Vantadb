@@ -1,12 +1,12 @@
 ---
-title: "Plan de Acción Unificado — Validación de 30 reviews (2026-08-26)"
-type: plan
+title: Plan de Acción Unificado — Validación de 30 reviews (2026-08-26)
+kind: review
 status: active
-date: 2026-08-26
-scope: Consolidación de docs/dev/reviews/* (30 archivos) — solo pendientes VIGENTES accionables
-method: lectura completa + verificación mecánica contra código/registries/backlog de cada claim (git log, grep, Test-Path, npm/PyPI/DNS/discord)
-verdict: los hallazgos críticos de 2026-08-25 ya se resolvieron en su mayoría; quedan ~20 pendientes vigentes (1 P0, 7 alta, 6 media, 6 baja)
-related: [review-full-20260910-modulos.md]
+description: Estos hallazgos de los reportes ya fueron implementados por commits posteriores a su redacción. Se documentan para evitar duplicación
+date: "2026-08-26"
+scope: "Consolidación de docs/dev/reviews/* (30 archivos) — solo pendientes VIGENTES accionables"
+method: "lectura completa + verificación mecánica contra código/registries/backlog de cada claim (git log, grep, Test-Path, npm/PyPI/DNS/discord)"
+verdict: "los hallazgos críticos de 2026-08-25 ya se resolvieron en su mayoría; quedan ~20 pendientes vigentes (1 P0, 7 alta, 6 media, 6 baja)"
 ---
 
 # Plan de Acción Unificado — VantaDB
@@ -97,7 +97,7 @@ Estos hallazgos de los reportes ya fueron implementados por commits posteriores 
 | vantadb-ts vitest gate + smoke-pack + async `_native` (TS-02/05/06/07/08) | ✅ RESUELTO | `c141c1ce` |
 | case_studies ficticios (V2.1) | ✅ RESUELTO — archivados con disclaimer | `docs/dev/archive/case-studies-unverified/` |
 | TDAM-VANTADB vacía (GOV-03) | ✅ RESUELTO — eliminada | dir no existe |
-| ADR-026 fuera de adr/ (GOV-02) | ✅ RESUELTO — movido | `docs/dev/architecture/adr/ADR-026-*` |
+| ADR-0026 fuera de adr/ (GOV-02) | ✅ RESUELTO — movido | `docs/dev/architecture/adr/ADR-026-*` |
 | master-index congelado (IDX-01) | ✅ RESUELTO — regenerado 24/08, indexa VANTA_MEMORY/avance/research | `docs/master-index.md` |
 | avance/activo sin vanta-memory/proxy (V2.7) | ✅ RESUELTO — dominios creados | `docs/dev/avance/activo/{vanta-memory,vanta-proxy,context-engine}.md` |
 | AGENTS skills count 111 vs 193 | ✅ RESUELTO | `.opencode/AGENTS.md:22` = "193 skills (162+31)" |

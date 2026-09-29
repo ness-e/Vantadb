@@ -1,3 +1,9 @@
+---
+title: "STABLE-05: Validar vantadb-wasm (gates 1-8)"
+kind: task
+description: "Cobertura índice: vantadb-wasm/src/ indexado OK; pkg/ + e2e/pkg-nomodules/ excluidos por diseño (gitignore) — coverage knowngaps esperado"
+---
+
 # STABLE-05: Validar vantadb-wasm (gates 1-8)
 
 ## Metadata

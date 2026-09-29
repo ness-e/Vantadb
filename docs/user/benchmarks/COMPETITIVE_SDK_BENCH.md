@@ -1,11 +1,10 @@
 ---
-title: "VantaDB Competitive SDK Benchmark — Honest Results (PERF-03)"
-type: benchmark
+title: VantaDB Competitive SDK Benchmark — Honest Results (PERF-03)
+kind: report
 status: active
-tags: [vantadb, benchmarks, sdk-bench, comparison]
-last_reviewed: 2026-09-15
+description: python benchmarks/competitivebench.py --engines milvus --dataset synthetic --size 2000 --queries 50 --json-output docs/user/benchmarks/competitivesdkbenchmilvus.json --output benchmarks/n.md --yes
 aliases: [PERF-03]
-related: []
+tags: [vantadb, benchmarks, sdk-bench, comparison]
 ---
 
 # VantaDB Competitive SDK Benchmark — Honest Results (PERF-03)

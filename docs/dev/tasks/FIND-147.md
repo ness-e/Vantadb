@@ -1,3 +1,9 @@
+---
+title: "FIND-147 — warnings `unused_imports` en `src/sdk/search/debug_ops.rs` (perfil release/bench)"
+kind: task
+description: Eliminar los 5 warnings unusedimports que vantadb (lib) emite en perfil bench/release
+---
+
 # FIND-147 — warnings `unused_imports` en `src/sdk/search/debug_ops.rs` (perfil release/bench)
 
 > **Plan:** (standalone, fix directo) · **Estado:** ⬜ PENDIENTE

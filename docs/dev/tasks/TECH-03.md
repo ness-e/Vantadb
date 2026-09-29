@@ -1,3 +1,9 @@
+---
+title: TECH-03 — Corregir 3 stale-docs reales (de 4)
+kind: task
+description: "Plan: docs/dev/plans/2026-08-05-backlog-validation-actions.md — Task 20"
+---
+
 # TECH-03 — Corregir 3 stale-docs reales (de 4)
 
 **Plan:** `docs/dev/plans/2026-08-05-backlog-validation-actions.md` — Task 20

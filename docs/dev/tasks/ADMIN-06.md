@@ -1,3 +1,9 @@
+---
+title: "ADMIN-06: SOP operational panels (WAL replay, reindex, health) — desktop UI"
+kind: task
+description: "npm run build en desktop/ pasa (tsc + vite).\""
+---
+
 # ADMIN-06: SOP operational panels (WAL replay, reindex, health) — desktop UI
 
 ## Metadata

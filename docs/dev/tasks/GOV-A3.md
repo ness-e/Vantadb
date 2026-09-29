@@ -1,3 +1,9 @@
+---
+title: "GOV-A3: Probes CLI reales doctor/backup/restore"
+kind: task
+description: "vanta-cli doctor --help 2>&1 | Select-String \"doctor\" | Measure-Object Count >=1 AND transcripción adjunta en este task record (backup→manifest 36 files→restore temp --force→doctor→get recupera) AND cargo check -p vantadb exit 0"
+---
+
 # GOV-A3: Probes CLI reales doctor/backup/restore
 
 ## Metadata

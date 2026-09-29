@@ -1,3 +1,9 @@
+---
+title: "DEF-01: Decisión única de producto + alineación SPEC/README/VISION"
+kind: task
+description: "SPEC/README/VISION declaran la MISMA jerarquía (1 núcleo + 3 puertas) sin contradicciones Y Gate P registrado (owner) Y pwsh scripts/validate-docs-coverage.ps1 verde\""
+---
+
 # DEF-01: Decisión única de producto + alineación SPEC/README/VISION
 
 ## Metadata

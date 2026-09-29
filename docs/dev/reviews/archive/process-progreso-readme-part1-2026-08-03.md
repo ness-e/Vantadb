@@ -1,8 +1,10 @@
 ---
-title: "Audit Report — docs/progreso/README.md (líneas 1-1100)"
+title: Audit Report — docs/progreso/README.md (líneas 1-1100)
+kind: review
 status: audit
+description: "Fecha: 2026-08-03"
 tags: [vantadb, audit, docs, progreso]
-date: 2026-08-03
+date: "2026-08-03"
 scope: lines 1-1100 (de 3320 totales)
 ---
 

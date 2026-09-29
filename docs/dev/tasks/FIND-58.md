@@ -1,3 +1,9 @@
+---
+title: "FIND-58: Gate wasm32 crudo rojo tras 175790a9 — `wasm_js` unificado en crate equivocado"
+kind: task
+description: "cargo check -p vantadb --target wasm32-unknown-unknown --no-default-features --features wasm exit 0 Y cargo check -p vantadb --all-targets (default, host) exit 0 Y cargo check --workspace --all-targets sin regresión vs HEAD (si ya..."
+---
+
 # FIND-58: Gate wasm32 crudo rojo tras 175790a9 — `wasm_js` unificado en crate equivocado
 
 ## Metadata

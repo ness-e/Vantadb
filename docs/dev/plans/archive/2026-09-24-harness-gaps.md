@@ -1,3 +1,10 @@
+---
+title: "Plan: gaps pendientes del harness `.opencode/` (handoff entre chats)"
+kind: plan
+status: archived
+description: "Contexto: los 11 agents/vanta-.md usan vocabulario de permisos v1 (bash:,"
+---
+
 # Plan: gaps pendientes del harness `.opencode/` (handoff entre chats)
 
 > **Campaign ID:** 7d276566-4a14-4761-bd19-048c1cc5a4fb

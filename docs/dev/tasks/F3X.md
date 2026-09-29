@@ -1,3 +1,9 @@
+---
+title: "F3X — diseño trait-split storage↔index (hoja neutral, patrón M3)"
+kind: task
+description: "Base: F3G firmó A1 contra 5a1dae99; este diseño re-mide contra dd892c4c (F3G encima)"
+---
+
 # F3X — diseño trait-split storage↔index (hoja neutral, patrón M3)
 
 ## Metadata
@@ -241,7 +247,7 @@ SKILLS_CARGADAS: campaign-executor, progreso, systematic-debugging, code-review-
 - Worktree esperado: `M src/lib.rs`, `M src/index/mod.rs`, `?? src/index_port.rs`, `?? src/index/port_impl.rs` (+ este file).
 - nextTask: F3C sigue en cola tras la resolución de Q-F3X-impl.
 
-## F3X-impl — ejecución Opción A (2026-09-14, ADR-042) — COMPLETO ✅
+## F3X-impl — ejecución Opción A (2026-09-14, ADR-0042) — COMPLETO ✅
 
 ### X1b ✅ — migración storage→index (full-dyn, 6 firmas pub + internos)
 - `StorageEngine.hnsw: ArcSwap<Box<dyn IndexPort>>` (Box: `Arc` exige `Sized` para `RefCnt`; verificado contra fuente vendored arc-swap 1.9.2) + `vec_index() -> Guard<Arc<Box<dyn>>>` + `replay_write_node(&dyn)` + `FLAG_TOMBSTONE` alias a kernel.
@@ -251,7 +257,7 @@ SKILLS_CARGADAS: campaign-executor, progreso, systematic-debugging, code-review-
 - `delete/get/insert/ops/txn/stats`: swaps mecánicos (`storage_offset_of`, `remove_node`, `add_node*`, `node_count`, `entry_point*`, `is_sq8_vector`, `stored_vector`/`node_view` en rescates legacy con lookup único).
 - `cache_warmer::hnsw_top_layer_ids(&dyn)` + `cost_estimator` (getters `index_kind/flat_threshold/node_count`) + `sdk/api` (`distance_metric`) + `sdk/vector` (sin cambio: `IndexPort::search` vía dyn) + `physical_plan` (`Some(&*vs)`).
 - Patrón `&***/&*` documentado (Guard→Arc→Box→dyn vs Box→dyn); llamadas a métodos `dyn` NO requieren import (probado: layer.rs); sigs sí.
-- Desviaciones forzadas del contrato (compilador/grafo, no gusto): D1 traits `pub` (benches externos llaman métodos dyn); D2 caídos `IndexBackendKind/resident_bytes/Snapshot/fresh_like(Sized)` (fábricas los superan) + ~25 métodos vivos por censo; D3 fábricas free fns (dyn no llama statics `Sized`); D4 `FreshHnswReport`+`IndexType` movidos a hoja (re-exports BND-04, sigs intactos); D5 `release_mmap_vector` a storage; D6 Box+`Arc::new` en stores; D7 7º cambio pub-clase: path de `release_mmap_vector` (flaggeado por semver-checks; misma clase ADR-042); D8 `MmapMut` cfg re-escrito a path canónico `vfile_mmap`; D9 iteración snapshot≡live (todo bajo `insert_lock`); D10 pairing `total_nodes` preservado (solo vacuum decrementa, comentado); D11 una indirección Box extra por load (ruido vs DashMap; red F3B).
+- Desviaciones forzadas del contrato (compilador/grafo, no gusto): D1 traits `pub` (benches externos llaman métodos dyn); D2 caídos `IndexBackendKind/resident_bytes/Snapshot/fresh_like(Sized)` (fábricas los superan) + ~25 métodos vivos por censo; D3 fábricas free fns (dyn no llama statics `Sized`); D4 `FreshHnswReport`+`IndexType` movidos a hoja (re-exports BND-04, sigs intactos); D5 `release_mmap_vector` a storage; D6 Box+`Arc::new` en stores; D7 7º cambio pub-clase: path de `release_mmap_vector` (flaggeado por semver-checks; misma clase ADR-0042); D8 `MmapMut` cfg re-escrito a path canónico `vfile_mmap`; D9 iteración snapshot≡live (todo bajo `insert_lock`); D10 pairing `total_nodes` preservado (solo vacuum decrementa, comentado); D11 una indirección Box extra por load (ruido vs DashMap; red F3B).
 
 ### X2 ✅ — migración index→storage
 - B4a/B4b + `search/tests.rs` → `NodeFlags::TOMBSTONE` (kernel existente); `VecIndex::search` + 8 sigs → `Option<&dyn VectorStoreRef>`; `layer.rs` vía trait (`read_header`+`mmap_bytes` añadidos tras hallazgo empírico E0599); `file.rs`/`types.rs` MmapMut al path canónico (cfg-fantasma bajo default); `search_nearest/with_metric` con dyn.
@@ -262,10 +268,10 @@ SKILLS_CARGADAS: campaign-executor, progreso, systematic-debugging, code-review-
 - `nextest -p vantadb --lib storage index --build-jobs 2`: **783 passed, 0 failed** (incl. roundtrips mmap, rebuild idempotente, vacuum, quantize, recall parity, concurrent 130s) → sin cambio semántico probado.
 - `cargo modules --acyclic`: SOLO artefacto accumulator (BND-03X exceptuado F3G) ✅ · focus-graphs: cero aristas storage↔index en ambas direcciones; storage→leaf e index→leaf según diseño ✅.
 - Edge-audit rg: P1 scoped 0 (2× `cfg(test)` archive-shim/tests); P2 0; P3/P6 test-only (`search/tests.rs` es `#[cfg(test)]`, fixtures necesitan `File` concreto); P4 3× cfg-gated `vfile_mmap`; P5 ventana types.rs ×3; H1 7/7 migradas; FLAG alias ✅.
-- `cargo semver-checks -p vantadb --baseline-rev 0afa8181` (0.49.0, ~14min): **195 pass / 1 fail** — solo `function_missing: index::release_mmap_vector` (movido, D7). Las 6 firmas ADR-042 no las flaggea la tool (cobertura); el major va por ADR-042 + release-plz del lead. Rojo major = esperado y documentado.
+- `cargo semver-checks -p vantadb --baseline-rev 0afa8181` (0.49.0, ~14min): **195 pass / 1 fail** — solo `function_missing: index::release_mmap_vector` (movido, D7). Las 6 firmas ADR-0042 no las flaggea la tool (cobertura); el major va por ADR-0042 + release-plz del lead. Rojo major = esperado y documentado.
 - TEMP `allow(dead_code)`: retirado orgánicamente (todo el surface tiene callers; clippy -D lo prueba; `rg TEMP(F3X` = 0).
-- `vanta-review`: SIN runner disponible → **visa pendiente del lead** (diff + este file + ADR-042 como paquete de revisión).
-- Gates: P:no (GO-A vigente) · D:no (diseño+ADR-042) · V:resuelto-ejecutado (opción A) · C:no (commitea el lead).
+- `vanta-review`: SIN runner disponible → **visa pendiente del lead** (diff + este file + ADR-0042 como paquete de revisión).
+- Gates: P:no (GO-A vigente) · D:no (diseño+ADR-0042) · V:resuelto-ejecutado (opción A) · C:no (commitea el lead).
 - Worktree final: 41 archivos (lista en `git status`); SIN commit. nextTask: **F3C**.
 
 ## F3X-impl — post-review vanta-review (CHANGES-REQUIRED atendido, SIN commit)
@@ -274,10 +280,10 @@ SKILLS_CARGADAS: campaign-executor, progreso, systematic-debugging, code-review-
 - **H2-MEDIA ✅:** vacuum un solo Guard (`let hnsw = self.hnsw.load();` una vez, reutilizado en scan + removal). Sin `insert_lock` (cambio de concurrencia no pedido, no hecho).
 - **H3-MEDIA ✅:** traits sellados con `#[doc(hidden)] pub mod sealed` + bounds en los 3 traits + impls (`port_impl.rs` ×2, `vfile.rs` ×1). Nota mecánica: `mod private` literal es inimplementable (los impls deben vivir cross-module + E0365) y `pub(crate) mod` tripea `private_bounds` bajo `-D warnings`; la forma doc-hidden es el sello viable (llamar ✅, implementar fuera solo nombrando hidden = unsupported). clippy -D verde lo prueba.
 - **H4 ✅ (pre-cumplido):** `IndexBackendKind` ya no existe (borrado en S0a/D2 al quedar superado por fábricas); `rg IndexBackendKind` = 0 en todo el repo. Sin acción.
-- **B2:** hecho por el lead (7º item en ADR-042) — no tocado aquí.
+- **B2:** hecho por el lead (7º item en ADR-0042) — no tocado aquí.
 - **B1 ✅:** precisión §X3: evidencia = nivel `use` (P1 scoped-0, P2 0, P3/P6 test-only, P4 cfg-ghosts) + focus-graph (cero aristas cruzadas ambas direcciones); residual aceptado diseño-bendecido listado explícito = `graph/types.rs:74,89,99` (`get_resident_bytes` ×2, `Mmap::map` ×1; body-FQ invisible a cargo-modules, unidireccional).
 - **B3 ✅:** comentario `// &***: Guard → Arc → Box → dyn (one deref per wrapper).` en los 4 sitios (maintenance.rs:501,505,511 — numeración pre-review; get.rs:399).
 - **B4 (anotado, no renombrar):** en futuros splits, no repetir patrón stutter (`fresh_index_like`→`fresh_like`→`fresh_box` convivieron); nombrar 1 sola vez desde el diseño.
 - **Re-verify mínimo:** `cargo check -p vantadb --tests --all-targets` ✅ · `cargo clippy -p vantadb --all-targets -- -D warnings` ✅ · `cargo fmt --check -p vantadb` ✅ · `cargo nextest run -p vantadb --lib storage index --build-jobs 2` → **783 passed, 0 failed** (incl. H1 GREEN + vacuum/quantize/rebuild/roundtrips/recall-parity/concurrent) ✅. SIN commit (commitea el lead con visa final).
 
-> **Cierre 2026-09-14:** COMPLETED (diseno A + impl X1-X3 + review changes-required atendido 7/7 + 783/783 + semver major esperado; commits 0afa8181 diseno + 13f0f729 codigo, ADR-042).
+> **Cierre 2026-09-14:** COMPLETED (diseno A + impl X1-X3 + review changes-required atendido 7/7 + 783/783 + semver major esperado; commits 0afa8181 diseno + 13f0f729 codigo, ADR-0042).

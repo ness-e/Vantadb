@@ -1,10 +1,9 @@
 ---
 title: VantaDB 5-Minute Quickstart
-type: documentation
+kind: howto
 status: active
+description: This quickstart validates the current v0.6.1 boundary from pre-built artifacts
 tags: [vantadb]
-last_reviewed: 2026-09-27
-aliases: []
 ---
 
 # VantaDB 5-Minute Quickstart

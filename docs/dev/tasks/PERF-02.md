@@ -1,3 +1,9 @@
+---
+title: "PERF-02: Baseline riguroso post-publicación"
+kind: task
+description: "cargo bench --no-run compila sin error; cargo bench --bench <editado> -- <overrides> corre con perfil fijo sin error; benches/data/syntheticdataset.bin existe y es determinístico (re-hash estable); workflow heavy-bench-nightly-51.yml..."
+---
+
 # PERF-02: Baseline riguroso post-publicación
 
 ## Metadata

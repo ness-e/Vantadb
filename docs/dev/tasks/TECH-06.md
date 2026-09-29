@@ -1,3 +1,9 @@
+---
+title: TECH-06 — CORS como feature request (reformular)
+kind: task
+description: Cerrar documentando la decisión (opción b del plan). No se tocó código
+---
+
 # TECH-06 — CORS como feature request (reformular)
 
 - **Estado:** ✅ CERRADO (2026-08-05) — sin consumidor browser real

@@ -1,3 +1,9 @@
+---
+title: "DESKTOP-20: Lifecycle shutdown_all"
+kind: task
+description: cargo check --manifest-path desktop/src-tauri/Cargo.toml pasa; shutdownall en el evento de cierre; sin procesos huérfanos tras cierre (código revisado + test)
+---
+
 # DESKTOP-20: Lifecycle shutdown_all
 
 ## Metadata

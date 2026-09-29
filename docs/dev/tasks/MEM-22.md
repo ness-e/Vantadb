@@ -1,3 +1,9 @@
+---
+title: "MEM-22: Context Engine — assemble + cascada mild/aggressive"
+kind: task
+description: "cargo check -p vanta-memory pasa; tests D19: (a) assemble ratio<0.5 → skip sin tocar mensajes; (b) mild cascade conserva los top-score hasta bajar del presupuesto, nunca parte pares toolcall; (c) summary más largo que original se..."
+---
+
 # MEM-22: Context Engine — assemble + cascada mild/aggressive
 
 ## Metadata

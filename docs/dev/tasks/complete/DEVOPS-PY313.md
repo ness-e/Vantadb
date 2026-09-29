@@ -1,3 +1,9 @@
+---
+title: "DEVOPS-PY313: Python 3.13 wheels en CI matrix"
+kind: task
+description: ".github/workflows/pythonwheels.yml incluye 3.13 en la matrix de Python. cibuildwheel no falla en dry-run.\""
+---
+
 # DEVOPS-PY313: Python 3.13 wheels en CI matrix
 
 ## Metadata

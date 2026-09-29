@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Task System Hardening — concurrencia, dedup y HITL"
+kind: plan
+status: archived
+description: "Decisiones del usuario (Gate P, 2026-08-23)"
+---
+
 # Plan de Ejecución: Task System Hardening — concurrencia, dedup y HITL
 
 > **Campaign ID:** be3e7379-79e8-46a5-b5c9-dc20e62336ca

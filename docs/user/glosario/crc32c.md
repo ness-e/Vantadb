@@ -1,13 +1,13 @@
 ---
-title: "crc32c"
-type: glossary-entry
+title: crc32c
+kind: glossary
 status: stable
-tags: [integridad, checksum, hash, crc]
-last_reviewed: 2026-09-15
-links: "[[README.md]]"
+description: "#CRC32C—Cyclic Redundancy Check (Castagnoli)"
 aliases: [Cyclic Redundancy Check, CRC32 Castagnoli]
-description: "Checksum algorithm that produces a 32-bit hash using the Castagnoli polynomial, used to detect hardware-supported data corruption on modern CPUs"
+tags: [integridad, checksum, hash, crc]
+links: "[[README.md]]"
 ---
+
 #CRC32C—Cyclic Redundancy Check (Castagnoli)
 
 ##Definition
@@ -64,7 +64,7 @@ else:
 
 ## Usage in VantaDB
 
-### Integrity of [[wal]]
+### Integrity of [wal](./wal.md)
 
 ```rust
 pub struct WalRecord {
@@ -97,7 +97,7 @@ impl WalRecord {
 impl WalWriter {
     pub fn append(&mut self, mutation: &Mutation) -> Result<()> {
         // 1. Serializar
-        let payload = bincode::serialize(mutation)?;
+        let payload = postcard::to_extend(mutation, Vec::new())?;
         
         // 2. Calcular CRC32C
         let checksum = crc32c::crc32c(&payload);
@@ -141,7 +141,7 @@ impl WalReader {
                     }
                     
                     // ✅ Checksum válido
-                    let mutation: Mutation = bincode::deserialize(&record.payload)?;
+                    let mutation: Mutation = postcard::from_bytes(&record.payload)?;
                     mutations.push(mutation);
                 }
                 Err(Error::UnexpectedEof) => {
@@ -215,39 +215,24 @@ $$
 
 ## Known Issues
 
-### AUD-02: WAL without Checksums
+### ~~AUD-02: WAL without Checksums~~ — resuelto
 
-**Severity:** 🔒 Blocking
+**Estado:** ✅ Cerrado. El crate `crc32c` está declarado en `Cargo.toml`
+(`crc32c = "0.5"`) y **todo** registro WAL lleva CRC32C.
 
-**Description:** The VantaDB snapshot does not show that every record in the WAL has CRC32C.
-
-**Impact:** 
-- Cannot detect data corruption
-- Recovery can apply corrupted records
-- Silent loss of integrity
-
-**Mitigación Requerida:**
-```rust
-// Cada registro debe tener checksum
-pub struct WalRecord {
-    pub length: u32,
-    pub payload: Vec<u8>,
-    pub checksum: u32,  // CRC32C(payload)
-}
-
-// Recovery must verify checksum
-fn replay(&mut self) -> Result<()> {
-    for record in self.read_records() {
-        if !record.verify() {
-            // Truncate at this point
-            self.truncate()?;
-            break;
-        }
-        self.apply(&record)?;
-    }
-    Ok(())
-}
-```
+- `compute_crc32c(data)` (`src/wal.rs:31`) es el único punto de cálculo; el
+  header base tiene su propio checksum de 4 bytes (`src/wal.rs:99`).
+- El checksum se computa en cada append (`src/wal.rs:316`, `:356`).
+- En lectura, la validación es explícita: un registro se acepta solo si el CRC
+  almacenado coincide **y** el payload deserializa con postcard
+  (`src/wal.rs:529-530`):
+  ```rust
+  stored_crc == computed_crc && postcard::from_bytes::<WalRecord>(payload).is_ok()
+  ```
+- El replay re-verifica cada record y trunca en el primero inválido
+  (`src/wal.rs:714`). El estado del índice también se cubre con CRC32C
+  (`src/wal.rs:794`, `:816`).
+- El backup CLI reporta el CRC32C hex de cada archivo (`src/cli_handlers/backup.rs:53`).
 
 ### Issue: Corruption vs Truncation
 
@@ -322,10 +307,10 @@ fn test_wal_recovery_with_corruption() {
 
 ## See Also
 
-- [[wal]] — System using CRC32C for integrity
-- [[fsync]] — Durability complementary to integrity
-- [[transactional]] — Property that CRC32C helps ensure
-- [[chaos-testing]] — How to validate corruption detection
+- [wal](./wal.md) — System using CRC32C for integrity
+- [fsync](./fsync.md) — Durability complementary to integrity
+- [transactional](./transactional.md) — Property that CRC32C helps ensure
+- [chaos-testing](./chaos-testing.md) — How to validate corruption detection
 
 ---
 

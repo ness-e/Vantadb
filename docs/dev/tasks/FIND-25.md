@@ -1,3 +1,9 @@
+---
+title: Task FIND-25 — create_snapshot sin quiesce/subdirs
+kind: task
+description: "test: snapshot durante writes concurrentes → reopen del snapshot es consistente"
+---
+
 # Task FIND-25 — create_snapshot sin quiesce/subdirs
 
 ## Contrato

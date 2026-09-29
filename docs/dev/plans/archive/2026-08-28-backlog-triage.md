@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Backlog Triage 2026-08-28 — Cierre de deuda crítica + paridad SDKs"
+kind: plan
+status: archived
+description: "Status: ⬆️ uphill = 7 · ⬇️ downhill = 16 (ver § uphill/downhill)"
+---
+
 # Plan de Ejecución: Backlog Triage 2026-08-28 — Cierre de deuda crítica + paridad SDKs
 
 > **Campaign ID:** b28f-20260828-backlog-triage
@@ -125,10 +132,10 @@ Ver plan.md § Reglas del gate + Paso 0 Verificación de Realidad (codegraph_exp
 - **Esfuerzo:** 🟢 0.5h (verificación + cierre idempotente)
 - **Prioridad:** 🔴 Alta
 - **Archivos clave:** `docs/dev/architecture/adr/` (39 ADRs existentes), `docs/dev/_templates/adr.md`, `codegraph-20260827-143245 Fase 12` (stale)
-- **Verificación real:** `Get-ChildItem docs/dev/architecture/adr/*.md | Measure-Object | Select-Object Count` → **39 ADRs**. ADR-001 (`001_unified_config_readonly.md`) tiene headers Context/Decision/Consequences ✅. CodeGraph reporte Fase 12 ("Sin ADRs registrados") es stale — ADRs existen desde 2026-08-23.
+- **Verificación real:** `Get-ChildItem docs/dev/architecture/adr/*.md | Measure-Object | Select-Object Count` → **39 ADRs**. ADR-0001 (`ADR-0001-unified-config-readonly.md`) tiene headers Context/Decision/Consequences ✅. CodeGraph reporte Fase 12 ("Sin ADRs registrados") es stale — ADRs existen desde 2026-08-23.
 - **Gate Justificación:** ADRs son memoria arquitectónica (Regla 5) — YA EXISTEN 39 ADRs con formato Nygard completo escritos por humanos. Contrato SATISFECHO sin trabajo adicional.
 - **Gate Result:** ✅ DO → **CERRADO IDEMPOTENTE**
-- **Contrato:** `Get-ChildItem docs/dev/architecture/adr/*.md | Measure-Object | Select-Object Count` >= 1 (ADR-001 con headers Context/Decisión/Consecuencias según AGENTS.md Regla 5) → **39 ≥ 1 ✅**
+- **Contrato:** `Get-ChildItem docs/dev/architecture/adr/*.md | Measure-Object | Select-Object Count` >= 1 (ADR-0001 con headers Context/Decisión/Consecuencias según AGENTS.md Regla 5) → **39 ≥ 1 ✅**
 - **Task file:** `.opencode/skills/campaign-executor/tasks/FIND-44.md` (creado y completado)
 - **Estado:** ✅ COMPLETED
 - **Pre-mortem:** N/A — trabajo ya hecho en campaña previa (2026-08-23)
@@ -137,7 +144,7 @@ Ver plan.md § Reglas del gate + Paso 0 Verificación de Realidad (codegraph_exp
   | Prob×Impacto | Riesgo | Respuesta | Trigger |
   |--------------|--------|-----------|---------|
   | 🟢×🟢 | Task file no existía | Creado y cerrado idempotente | — |
-  | 🟢×🟡 | Plan original pedía ADR-001..006 específicos que colisionan | Documentado: ADR-001..006 ya existen con contenido distinto; si se quieren fundacionales (PURPOSE/STACK/etc.) → nueva tarea ADR-033+ | — |
+  | 🟢×🟡 | Plan original pedía ADR-001..006 específicos que colisionan | Documentado: ADR-001..006 ya existen con contenido distinto; si se quieren fundacionales (PURPOSE/STACK/etc.) → nueva tarea ADR-0033+ | — |
 - **Cynefin:** 🟦 Obvio — verificación mecánica
 - **Top 3 riesgos:** Ninguno
 - **Uphill/Downhill:** ⬆️ 0 · ⬇️ 1
@@ -640,7 +647,7 @@ Al terminar cada tarea: `campaign_verify_cmd` → commit conventional + task ID 
 | WSM-04..14 (except 02/03) | Typed errors, d.ts, batch parity, DX worker, limits, score, metadata, counts, bundle, adoption | 🟡/🔴 | WSM-06 requiere DISCOVERY nicho browser, WSM-14 adopción es marketing — no P0 | Q4 |
 | INTG-01/02 | LangGraph + CrewAI | 🔴/🟡 | Estrategias aprobadas pero requieren MKT-18f adapters primero | Tras MKT-18f |
 | DESKTOP-40..45 | i18n, smoke VM, macOS/Linux bundles, auto-update, proxy validation | 🔴/🟡/🟢 | DESKTOP-42/43 requieren firma (wontfix DEVOPS-10), resto polish post-Vanta Studio F4 | Q4 |
-| STABLE-01..09 | Validación default-members | 🟡/🟢 | STABLE-08 ya midió >5 min cold (495s) — promoción bloqueada hasta owner decida A vs B (ADR-031 §9) — todos DEFER hasta decisión owner | Tras ADR-031 decisión |
+| STABLE-01..09 | Validación default-members | 🟡/🟢 | STABLE-08 ya midió >5 min cold (495s) — promoción bloqueada hasta owner decida A vs B (ADR-0031 §9) — todos DEFER hasta decisión owner | Tras ADR-0031 decisión |
 | MEM-59..70 (12) | Memory recall, heat+decay, dreaming, export, etc | 🔴/🟡/🟢 | Todos requieren vanta-memory L1 vigente + DISCOVERY (vanta-arch) — agendados P28 Wave2, no P0 | Tras MEM-13/14 |
 | PROV-01..12 (except 05?) | Providers compile/fix | 🟡 | PROV-01 fix compile ya pero backlog marca ?? esfuerzo — todos bloquean publish wheels PROV-12 pero no P0 core | Sprint providers |
 | DEC-02 | Billing quota | 🟠 | Decisión producto (÷1000 vs ÷10000) — requiere ADR, no código | Tras TDAM SYNTHESIS |
@@ -657,7 +664,7 @@ Al terminar cada tarea: `campaign_verify_cmd` → commit conventional + task ID 
 | AUD-044 | Shim MmapMut write-back | ✅ Completada 2026-08-25 (shim flush + 4 tests) — `src/storage/vfile_mmap.rs:130-141` ya tiene write-back |
 | AUD-047 | Duplicación layer.rs ~50 líneas | ✅ Completada 2026-08-25 — `metric_score` closure -35 líneas |
 | FIND-23 | vanta-http-map namespace "" | ✅ Completada 2026-08-25 — `DEFAULT_NS` en http-map + test |
-| FIND-26 | PITR wal_archiver.rs | ✅ RESUELTA (remove, 2026-08-25): `src/wal_archiver.rs` eliminado, ADR-014 superseded |
+| FIND-26 | PITR wal_archiver.rs | ✅ RESUELTA (remove, 2026-08-25): `src/wal_archiver.rs` eliminado, ADR-0014 superseded |
 | CORE-01 (wal_archiver) | PITR wiring | Mismo que FIND-26 — código en git history, no re-introducir sin ADR |
 | AUD-042 | Upgrade tantivy ≥0.18 | Verificado 2026-08-13: tantivy 0.26.1 fija lru 0.16.3, fix en main 0.27.0 no publicado crates.io 404 — SKIP temporal hasta publish (BLOQUEADO upstream) — movido a BLOQUEADO |
 | P12 DESKTOP-23..39 | Tauri app | ✅ Cerrada 2026-08-24 (17/17, `docs/dev/avance/activo/desktop.md`) |
@@ -665,10 +672,10 @@ Al terminar cada tarea: `campaign_verify_cmd` → commit conventional + task ID 
 | P14 P13 P15 | AUDREP/REVIEW/ERR | ✅ Cerrados 2026-08-25 (batch 36+10+62) |
 | P11 PERF | PERF-01..09 | ✅ Migradas a progreso 2026-08-12 |
 | P23 GOV | 29/30 tareas | ✅ Completada 2026-08-22 (doc-gobernanza, `docs/progreso/campanas/doc-gobernanza-gov.md`) |
-| P26 Vanta Studio F0-F4 | 54 tareas | ✅ Completada 2026-08-20 (ADR-027, `docs/dev/plans/archive/2026-08-18-vanta-studio-fase*.md`) |
+| P26 Vanta Studio F0-F4 | 54 tareas | ✅ Completada 2026-08-20 (ADR-0027, `docs/dev/plans/archive/2026-08-18-vanta-studio-fase*.md`) |
 | P11 P27 EMB-01..09 | Embeddings local | ✅ Completada 2026-08-28 (9/9, commits 2c185021→d24eeb1c) |
 | SKL-01..04 | Skills VantaDB | ✅ Cerrada 2026-08-17 |
-| P47 STABLE-08 | Medición Fast Gate | ✅ Ya medida (495.5s cold, ADR-031) — no repetir sin decisión owner |
+| P47 STABLE-08 | Medición Fast Gate | ✅ Ya medida (495.5s cold, ADR-0031) — no repetir sin decisión owner |
 | P38 CRIT-01..09 | Informe 28-07 | ✅ Todos resueltos (archive.rs, wal_sharded, wal.rs, Dockerfile, providers) |
 | RES-* descartados | Vectara/Chroma, PERFORMANCE_TUNING.md, INV-008 | ✅ Verificados 2026-08-25 (no re-proponer) |
 | DEC-01 | Session layer | ✅ Resuelta 2026-08-25 defer-as-scoped (research res03) |
@@ -684,7 +691,7 @@ Al terminar cada tarea: `campaign_verify_cmd` → commit conventional + task ID 
 |----|-------------|---------------|----------|------------|
 | AUD-042 | Upgrade tantivy+lru 0.18 | tantivy ≥0.27.0 no publicado crates.io (404) | 🟡 | Re-evaluar cuando tantivy 0.27.0 publique |
 | AUD-045 | Clones vector per-candidate IVF | `canonical_p99` baseline no medido (Regla 9) — no optimizar sin medir | 🟡 | Medir baseline vs slice variant |
-| CORE-01 | Persistencia Binary vstore | ADR formato on-disk (DiskNodeHeader flag) no decidido | 🟡 | Crear ADR-032 primero |
+| CORE-01 | Persistencia Binary vstore | ADR formato on-disk (DiskNodeHeader flag) no decidido | 🟡 | Crear ADR-0032 primero |
 | CORE-02 | PITR engine wiring | FIND-26 removió wal_archiver.rs — restaurar desde history + ADR | 🔴 | Git restore + DISCOVERY vanta-arch |
 | FIND-24 | list fan-out 10k timeout 408 | Cursor cross-namespace server-side requiere SDK change (breaking) | 🟠 | Diseño `indexed_ids_by_namespace` + `get_many` perf |
 | FIND-33 | Snapshot KV Fjall/RocksDB | Layout snapshot solo imagea `data_dir` — requiere mover backend bajo data_dir o copiar backend (rediseño) | 🟠 | ADR layout snapshot (vanta-arch) |
@@ -727,7 +734,7 @@ Al dispararse: task → ⬛ CANCELADO, documentar motivo en plan file, `plan-adj
 | 🟡×🔴 | Fix tus bindings (TS/PY/node) rompe semver (breaking) | `cargo semver-checks` antes de publish + `feat!:` si breaking | pre-publish |
 | 🟡×🟠 | `wasm32` toolchain no instalado en CI | Documentar `rustup target add wasm32-unknown-unknown` en CI_POLICY + verify.ps1 | WSM-02/03 |
 | 🟢×🔴 | `cargo deny` licencia MIT/Apache-2.0 gate falla (tantivy lru 0.16) | Allowlist documentada en deny.toml:14-18 (AUD-042) | deny check |
-| 🟢×🟠 | `just verify` excede 5 min cold (495s) → Fast Gate no cumple | Etiquetar como Heavy per ADR-031, no promover a default-members sin sccache | STABLE |
+| 🟢×🟠 | `just verify` excede 5 min cold (495s) → Fast Gate no cumple | Etiquetar como Heavy per ADR-0031, no promover a default-members sin sccache | STABLE |
 
 ## Uphill / Downhill
 

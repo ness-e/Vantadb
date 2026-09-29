@@ -1,3 +1,9 @@
+---
+title: "MEM-19: F4 sanitize_text + truncación code-point"
+kind: task
+description: "cargo check -p vanta-memory pasa; tests dedicados de sanitize (D19) pasan (cargo nextest run -p vanta-memory); cargo fmt --check pasa; cargo clippy -p vanta-memory --all-targets --no-deps -- -D warnings pasa.\""
+---
+
 # MEM-19: F4 sanitize_text + truncación code-point
 
 ## Metadata

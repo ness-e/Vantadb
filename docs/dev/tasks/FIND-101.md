@@ -1,3 +1,9 @@
+---
+title: "FIND-101 — `vanta-cli query` doc-vs-fix (INSERT/UPDATE/DELETE por CLI)"
+kind: task
+description: Gana FIX. Evidencia (no gusto)
+---
+
 # FIND-101 — `vanta-cli query` doc-vs-fix (INSERT/UPDATE/DELETE por CLI)
 
 - **Objetivo:** `vanta-cli query` abre read-only (`src/cli_handlers/data.rs:212`) → todo IQL mutante falla. Decidir en el mismo slice (doc límite vs abrir read-write) + implementar + `--help` coherente.

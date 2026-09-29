@@ -1,3 +1,9 @@
+---
+title: "TASK-REVIEW-12: Split api.rs (~2610L) por dominio (memory/search/namespaces/admin/graph)"
+kind: task
+description: "Saldo: 0 (refactor aditivo sin nuevos unsafe, sin nuevos clones en hot paths)"
+---
+
 # TASK-REVIEW-12: Split api.rs (~2610L) por dominio (memory/search/namespaces/admin/graph)
 
 ## Metadata

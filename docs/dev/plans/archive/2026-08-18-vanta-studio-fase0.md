@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Vanta Studio — Fase 0 (consola human-facing desktop)"
+kind: plan
+status: archived
+description: "Integración por contratos, no por ejecución — campañas independientes. Nada de esto bloquea la Fase 0; la integración real se toca cuando vanta-memory F4/F5 exista (2ª iteración). Punto de unión principal ya decidido en vanta-memory..."
+---
+
 # Plan de Ejecución: Vanta Studio — Fase 0 (consola human-facing desktop)
 
 > **Campaign ID:** 7f1c9a4e-8b2d-4c3e-9a6f-2d5b8e1a9c40

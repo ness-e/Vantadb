@@ -1,3 +1,8 @@
+---
+title: MKT-18h — Wheels ARM64 Linux + SHA256 reales del Formula Homebrew
+kind: task
+---
+
 # MKT-18h — Wheels ARM64 Linux + SHA256 reales del Formula Homebrew
 
 - **Plan:** docs/dev/plans/2026-09-03-quality-gtm-wave.md (Task 4, Wave 1)

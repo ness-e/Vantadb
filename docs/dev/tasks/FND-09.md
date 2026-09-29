@@ -1,3 +1,9 @@
+---
+title: "FND-09: Regla 8 — Concurrencia paranoica en PRs"
+kind: task
+description: "grep .opencode/AGENTS.md contiene 'Regla 8' con las 3 señales (multi-índice o dashmap/parkinglot o Tokio + '10k w/s' + '1k r/s' + delegación vanta-chaos/vanta-review) Y vanta-worker.md referencia 'Regla 8'\""
+---
+
 # FND-09: Regla 8 — Concurrencia paranoica en PRs
 
 ## Metadata

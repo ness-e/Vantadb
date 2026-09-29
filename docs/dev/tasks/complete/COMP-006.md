@@ -1,3 +1,9 @@
+---
+title: "COMP-006: Edge Label Interning (String → u32 label_id)"
+kind: task
+description: "Métodos: new(), intern(&mut self, label: &str) -> u32, resolve(&self, id: u32) -> Option<&str>, lookup(&self, label: &str) -> Option<u32>, len() -> usize"
+---
+
 # COMP-006: Edge Label Interning (String → u32 label_id)
 
 ## Metadata

@@ -1,11 +1,9 @@
 ---
-title: "Revisión por módulo — 19 módulos — 2026-09-10"
-type: review
+title: Revisión por módulo — 19 módulos — 2026-09-10
+kind: review
 status: archived
+description: "Funciona; nightly los corre (9). Gaps: ingestionconcurrent se saltea en silencio sin --features async-ingestion (→ FIND-70); 17/23 sin mención en BENCHMARKS.md; sin benches/README.md; OOM en Windows sin -j 2; listwindow sin entrada..."
 tags: [vantadb, review]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Revisión por módulo — 19 módulos — 2026-09-10

@@ -1,3 +1,9 @@
+---
+title: "DEF-05: North-star + success criteria (SPEC/VISION)"
+kind: task
+description: "SPEC/VISION declaran North Star + guardrails (0 hallazgo crítico seguridad, latencia) Y la métrica es medible con el proxy actual (comando/consulta documentada)\""
+---
+
 # DEF-05: North-star + success criteria (SPEC/VISION)
 
 ## Metadata

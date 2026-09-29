@@ -1,3 +1,9 @@
+---
+title: "MEM-10: F4 L1 extractor (split + 1 call LLM JSON + parse reparación)"
+kind: task
+description: "cargo check -p vanta-memory pasa, cargo nextest run -p vanta-memory pasa (incluye tests dedicados de L1), cargo fmt --check pasa, cargo clippy -p vanta-memory --all-targets --no-deps -- -D warnings pasa, y el comportamiento específico..."
+---
+
 # MEM-10: F4 L1 extractor (split + 1 call LLM JSON + parse reparación)
 
 ## Metadata

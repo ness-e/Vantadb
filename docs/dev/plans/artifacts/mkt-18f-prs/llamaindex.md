@@ -1,3 +1,9 @@
+---
+title: Upstream PR draft — LlamaIndex
+kind: plan
+description: "Prereq (bloquea merge upstream): publicar vantadb-llamaindex en PyPI (tag adapters-v0.5.0)"
+---
+
 # Upstream PR draft — LlamaIndex
 
 **Prereq (bloquea merge upstream):** publicar `vantadb-llamaindex` en PyPI (tag `adapters-v0.5.0`).

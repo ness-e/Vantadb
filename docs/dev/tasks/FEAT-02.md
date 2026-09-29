@@ -1,3 +1,9 @@
+---
+title: FEAT-02 — Superficie Índices/salud (placeholder de VS-03 → real)
+kind: task
+description: "Surface ÍNDICES real: counts por namespace (REST-05), dims, hnswnodescount, LSM/WAL status (si el core lo expone — verificar; si no, exponer wrapper mínimo), salud (health endpoint); charts simples (reuso de patterns ScoreBars..."
+---
+
 # FEAT-02 — Superficie Índices/salud (placeholder de VS-03 → real)
 
 > Plan: `docs/dev/plans/2026-08-19-vanta-studio-fase4.md` (Task 16) · Estado: ⏳ PENDING → in-progress al delegar

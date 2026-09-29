@@ -1,3 +1,9 @@
+---
+title: "WIRE-10: Distribución P0 — `install.sh` macOS, Colab a `Client`, hooks sin `pwsh`"
+kind: task
+description: "Install macOS verde en CI/docs + notebook ejecuta (Client/search) + hooks inyectan contexto real sin pwsh (vanta-cli mcp-call one-shot).\""
+---
+
 # WIRE-10: Distribución P0 — `install.sh` macOS, Colab a `Client`, hooks sin `pwsh`
 
 ## Metadata

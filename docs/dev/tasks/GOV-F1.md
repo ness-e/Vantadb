@@ -1,3 +1,9 @@
+---
+title: GOV-F1 — Auditoría raíz pública (README ×2 + governance files)
+kind: task
+description: "Tarea completa. Deuda → 2 tickets owner (dominio vantadb.dev sin DNS; copy wheels ARM64 ↔ MKT-18h). Commit pendiente: delegar al lead (docs: GOV-F1 audit root public files)"
+---
+
 # GOV-F1 — Auditoría raíz pública (README ×2 + governance files)
 
 ## Impacto mapeado (Regla 0)

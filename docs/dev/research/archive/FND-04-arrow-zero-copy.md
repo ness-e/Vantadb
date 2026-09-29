@@ -1,3 +1,10 @@
+---
+title: "FND-04 — Zero-copy Arrow en bindings (Python/Node): plan firmado"
+kind: research
+status: archived
+description: "El core de VantaDB ya construye un RecordBatch Arrow (src/columnar.rs:22"
+---
+
 # FND-04 — Zero-copy Arrow en bindings (Python/Node): plan firmado
 
 - **Plan file:** docs/dev/plans/2026-08-16-wave-p20-tsys.md (Task FND-04)
@@ -118,7 +125,7 @@ probado en WASM.
 
 **Decisión:** NO implementar zero-copy Arrow en bindings Python/Node hoy. ADR de
 diferimiento con las siguientes razones. **Formalizado en**
-`docs/dev/architecture/adr/ADR-025-zero-copy-arrow-deferred.md` (misma decisión/evidencia):
+`docs/dev/architecture/adr/ADR-0025-zero-copy-arrow-deferred.md` (misma decisión/evidencia):
 
 1. **RecordBatch desconectado y de schema parcial.** El único RecordBatch del core
    (`src/columnar.rs:22`) tiene solo id + vectores flatten — no cubre

@@ -1,3 +1,9 @@
+---
+title: "TASK-3: MEM-45 — Auto-sync scheduler (re-ingest programado del wiki)"
+kind: task
+description: "cargo check -p vanta-memory pasa; tests D19 con FakeClock: (a) intervalo configurable dispara re-ingest del wiki; (b) respeta busy guard (no re-ingesta si pending/processing); (c) disabled by default; (d) usa runid fresco por build..."
+---
+
 # TASK-3: MEM-45 — Auto-sync scheduler (re-ingest programado del wiki)
 
 ## Metadata

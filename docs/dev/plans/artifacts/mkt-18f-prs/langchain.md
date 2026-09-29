@@ -1,3 +1,9 @@
+---
+title: Upstream PR draft — LangChain
+kind: plan
+description: "Prereq (bloquea merge upstream): publicar vantadb-langchain en PyPI (tag adapters-v0.5.0). Upstream no linkea paquetes 404"
+---
+
 # Upstream PR draft — LangChain
 
 **Prereq (bloquea merge upstream):** publicar `vantadb-langchain` en PyPI (tag `adapters-v0.5.0`). Upstream no linkea paquetes 404.

@@ -1,11 +1,9 @@
 ---
-title: "Errores Encontrados — Revisión Multi-Agente"
-type: review
+title: Errores Encontrados — Revisión Multi-Agente
+kind: review
 status: archived
+description: Prioridad de accion sugerida
 tags: [vantadb, review]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Errores Encontrados — Revisión Multi-Agente

@@ -1,3 +1,9 @@
+---
+title: Upstream PR draft — Mem0
+kind: plan
+description: "Prereq (bloquea merge upstream): publicar vantadb-mem0 en PyPI (tag adapters-v0.5.0)"
+---
+
 # Upstream PR draft — Mem0
 
 **Prereq (bloquea merge upstream):** publicar `vantadb-mem0` en PyPI (tag `adapters-v0.5.0`).

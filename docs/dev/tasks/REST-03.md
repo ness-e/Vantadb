@@ -1,3 +1,8 @@
+---
+title: "REST-03 — Endpoint `graph_v2` con DTO desktop (u128-safe)"
+kind: task
+---
+
 # REST-03 — Endpoint `graph_v2` con DTO desktop (u128-safe)
 
 ## Metadata

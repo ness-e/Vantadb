@@ -1,3 +1,8 @@
+---
+title: "TBH-07: Configure `cargo-mutants` weekly job in heavy-certification-50.yml"
+kind: task
+---
+
 # TBH-07: Configure `cargo-mutants` weekly job in heavy-certification-50.yml
 
 ## Metadata

@@ -1,11 +1,9 @@
 ---
-title: "Wave P20-TSYS — endurecimiento del task-system"
-type: registro
+title: Wave P20-TSYS — endurecimiento del task-system
+kind: review
 status: archived
+description: "Cierre de campaña: 25 tareas, 21 commits en develop (desde ec7f947a hasta a159211b). Migradas a este registry el mismo día. Destacados"
 tags: [vantadb, avance, campana]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Wave P20-TSYS — endurecimiento del task-system

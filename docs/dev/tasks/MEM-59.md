@@ -1,3 +1,9 @@
+---
+title: "TASK-MEM-59: Recall MCP público"
+kind: task
+description: "El worktree tiene cambios parciales en src/cli.rs, src/clihandlers/mod.rs,"
+---
+
 # TASK-MEM-59: Recall MCP público
 
 ## Metadata

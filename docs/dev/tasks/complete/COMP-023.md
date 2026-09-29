@@ -1,3 +1,9 @@
+---
+title: "COMP-023: 3 Filtering Strategies (Pre/In/Post) with Selectivity-Based Optimizer"
+kind: task
+description: "Estado: ✅ COMPLETED — 2026-07-28"
+---
+
 # COMP-023: 3 Filtering Strategies (Pre/In/Post) with Selectivity-Based Optimizer
 
 **Estado:** ✅ COMPLETED — 2026-07-28

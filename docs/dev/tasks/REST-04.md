@@ -1,3 +1,8 @@
+---
+title: REST-04 — Cursor real en server (paginación list/search — gap VS-CORE-01)
+kind: task
+---
+
 # REST-04 — Cursor real en server (paginación list/search — gap VS-CORE-01)
 
 ## Metadata

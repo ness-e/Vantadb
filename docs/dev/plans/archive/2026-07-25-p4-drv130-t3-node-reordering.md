@@ -1,3 +1,10 @@
+---
+title: "DRV-130 T3: Node Reordering for SSD Locality"
+kind: plan
+status: archived
+description: "compactlayoutbfs rewrites the VantaFile in BFS order but is only triggered by tombstone ratio (>20%). It was designed for compaction (hole-closing), not search locality"
+---
+
 # DRV-130 T3: Node Reordering for SSD Locality
 
 ## Status: ❌ WONTFIX — Phase 1 complete, <20% improvement

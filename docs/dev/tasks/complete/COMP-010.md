@@ -1,3 +1,9 @@
+---
+title: "COMP-010: Auto-embedding function abstraction"
+kind: task
+description: "Tipo: Rust core — refactor"
+---
+
 # COMP-010: Auto-embedding function abstraction
 
 **Tipo:** Rust core — refactor

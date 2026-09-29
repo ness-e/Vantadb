@@ -1,14 +1,13 @@
 ---
-title: "VantaDB — Roadmap de Ejecución"
-type: strategy
+title: VantaDB — Roadmap de Ejecución
+kind: concept
 status: active
-tags: [vantadb, roadmap, execution, timeline, priorities]
-version: 2.0
-created: 2026-07-16
-supersedes: 2026-07-01
-last_reviewed: 2026-09-15
+description: Estos riesgos no tienen item dedicado en el backlog o están subestimados. Son condiciones necesarias para cualquier release
 aliases: [Roadmap, Milestones, Engineering Plan, Timeline, Plan de Acción]
-related: [GO_TO_MARKET.md, SHOW_HN_PREP.md, VANTADB-PRO-FEATURES.md]
+tags: [vantadb, roadmap, execution, timeline, priorities]
+supersedes: "2026-07-01"
+version: "2.0"
+created: "2026-07-16"
 ---
 
 # VantaDB — Roadmap de Ejecución
@@ -258,7 +257,7 @@ R8 (claims) ─── Fase 0 (WEB-02)
 | Orden | Item | Descripción | Esfuerzo | Dependencias |
 |-------|------|-------------|----------|-------------|
 | 48 | **COMP-030** | Survival Mode: backpressure + Docker OOM prevention. Integrar memory_governor con cgroups | 🟡 1-2 sem | — |
-| 49 | ~~**COMP-019**~~ | ~~Binary protocol (rkyv/FlatBuffers): reemplazar JSON por binario zero-copy~~ — ❌ **WONTFIX** (ADR `COMP-019-binary-protocol-wontfix.md`) | ~~🟡 1-2 sem~~ | — |
+| 49 | ~~**COMP-019**~~ | ~~Binary protocol (rkyv/FlatBuffers): reemplazar JSON por binario zero-copy~~ — ❌ **WONTFIX** (ADR `ADR-0048-binary-protocol-wontfix.md`) | ~~🟡 1-2 sem~~ | — |
 | 50 | **COMP-013** | Segment optimizer: Vacuum/Merge/Index optimizadores background | 🟡 1-2 sem | 35 (tombstones) |
 | 51 | **COMP-026** | Multi-level LSM compaction: L0→L1→L2→L3, spread compaction cost | 🟡 1-2 sem | 50 |
 

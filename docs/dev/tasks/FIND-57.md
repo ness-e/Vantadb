@@ -1,3 +1,9 @@
+---
+title: "FIND-57: Default `worker_count` 4→1 en AsyncIngestionPipeline (Gate D aprobado)"
+kind: task
+description: "rg -n \"workercount\" src/ingestion.rs | rg -c \"1\" ≥1 Y rg \"workercount: 4|workercount = 4|= 4\" src/ingestion.rs == 0 Y cargo test -p vantadb --lib ingestion --features async-ingestion 0 failed Y BENCHMARKS §13 con números post-default Y..."
+---
+
 # FIND-57: Default `worker_count` 4→1 en AsyncIngestionPipeline (Gate D aprobado)
 
 ## Metadata

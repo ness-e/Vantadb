@@ -1,3 +1,9 @@
+---
+title: "TIR-06: Post-release / monitoring en el loop"
+kind: task
+description: "docs/Investigaciones/TIR-06-post-release-monitoring.md existe con: (1) análisis del gap (el pipeline cierra en CLOSE sin verificación post-merge; DoD (d) monitoring); (2) comparación paso-verificación-post-release-opcional vs delegación..."
+---
+
 # TIR-06: Post-release / monitoring en el loop
 
 ## Metadata

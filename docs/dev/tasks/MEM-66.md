@@ -1,3 +1,9 @@
+---
+title: "MEM-66: claimStaleTasks (recuperación multi-worker)"
+kind: task
+description: cargo test -p vanta-memory 0 failed + test nuevo worker-muerto→reclaim ✅ + cargo clippy -p vanta-memory -- -D warnings 0
+---
+
 # MEM-66: claimStaleTasks (recuperación multi-worker)
 
 ## Metadata

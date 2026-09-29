@@ -1,3 +1,9 @@
+---
+title: "PROV-11: Embed batching/async"
+kind: task
+description: cargo check ×3 crates 0 warnings/errors + test batch/async ✅ + sin regresión sync (embed() firma y comportamiento intactos)
+---
+
 # PROV-11: Embed batching/async
 
 ## Metadata

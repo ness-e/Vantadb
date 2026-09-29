@@ -1,3 +1,9 @@
+---
+title: "TASK DESKTOP-QW1: CommandPalette — sincronizar union completa Surface (H-02)"
+kind: task
+description: "CommandPalette sincroniza union completa Surface: verificar que PaletteSurface incluye memoria/proxy/ajustes y que CommandPalette.tsx las expone todas con PaletteItem + keywords. Si falta alguna, agregar. cd desktop && npm run build y..."
+---
+
 # TASK DESKTOP-QW1: CommandPalette — sincronizar union completa Surface (H-02)
 
 ## Metadata

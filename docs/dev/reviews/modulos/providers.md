@@ -1,11 +1,9 @@
 ---
 title: "Review de Módulo — `providers/`"
-type: review
+kind: review
 status: archived
+description: "Fecha: 2026-08-23 · Revisor: ox-alpha (worker) · Alcance: providers/openai, providers/ollama, providers/litellm"
 tags: [vantadb, review]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Review de Módulo — `providers/`

@@ -1,3 +1,9 @@
+---
+title: "MEM-21: F4 Tools MCP scene_read/list/query"
+kind: task
+description: "cargo check -p vanta-memory pasa; tests dedicados de scene tools (D19) pasan (cargo nextest run -p vanta-memory); cargo fmt --check pasa; cargo clippy -p vanta-memory --all-targets --no-deps -- -D warnings pasa.\""
+---
+
 # MEM-21: F4 Tools MCP scene_read/list/query
 
 ## Metadata

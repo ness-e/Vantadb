@@ -1,3 +1,9 @@
+---
+title: "MOD-14: Endurecer test e2e de rate-limit para exigir >=1 429"
+kind: task
+description: "cargo nextest run -p vantadb-server --test e2e teste2eratelimitoverhttp pasa Y el test endurecido exige >=1 respuesta 429 en un burst que excede el límite conocido del governor"
+---
+
 # MOD-14: Endurecer test e2e de rate-limit para exigir >=1 429
 
 ## Metadata

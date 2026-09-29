@@ -1,11 +1,8 @@
 ---
 title: "CI/infraestructura junio-julio — AUD-WORK, WASM, TSK, CLI-EPIC"
-type: registro
+kind: review
 status: archived
 tags: [vantadb, avance, campana]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # CI/infraestructura junio-julio — AUD-WORK, WASM, TSK, CLI-EPIC

@@ -1,3 +1,9 @@
+---
+title: MCP-38 — Tool annotations (readOnlyHint/destructiveHint/idempotentHint/openWorldHint)
+kind: task
+description: "Evidencia adicional: grep -n annotations vantadb-mcp/src/handlers/tools.rs → hit por tool, cargo clippy -p vantadb-mcp ✅, tools/list response contiene annotations por tool"
+---
+
 # MCP-38 — Tool annotations (readOnlyHint/destructiveHint/idempotentHint/openWorldHint)
 
 ## Metadata

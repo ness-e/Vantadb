@@ -1,3 +1,9 @@
+---
+title: Task API-STD-09 — INDIVIDUAL (8/11) IQL
+kind: task
+description: "Ficha individual IQL: funcionamiento + uso + código + veredicto"
+---
+
 # Task API-STD-09 — INDIVIDUAL (8/11) IQL
 
 > **Plan:** `docs/dev/plans/2026-09-24-api-estandarizacion.md`

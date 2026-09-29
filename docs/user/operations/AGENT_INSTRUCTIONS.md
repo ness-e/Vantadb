@@ -1,10 +1,9 @@
 ---
-title: "VantaDB - Agent Instructions"
-type: operations
+title: VantaDB - Agent Instructions
+kind: runbook
 status: active
+description: Welcome to the VantaDB codebase
 tags: [vantadb, operations]
-last_reviewed: 2026-07-01
-aliases: []
 ---
 
 # VantaDB - Agent Instructions

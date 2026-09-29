@@ -1,3 +1,9 @@
+---
+title: WIRE-05 — Entity linking determinista + boost multi-señal en RRF (Fellegi-Sunter + embeddings)
+kind: task
+description: "matching multi-señal determinista (Fellegi-Sunter + embeddings, sin LLM-juez) con tests (mismos inputs → mismo score) Y boost de entidades en fuserrf opt-in, reversible y con proveniencia Y suites sdk::search/entity verdes (boost OFF..."
+---
+
 # WIRE-05 — Entity linking determinista + boost multi-señal en RRF (Fellegi-Sunter + embeddings)
 
 > **Fase:** F2 · **Plan:** `docs/dev/plans/2026-09-26-master-roadmap.md` (Task 19) · **Branch:** develop

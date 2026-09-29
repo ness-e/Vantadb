@@ -1,3 +1,9 @@
+---
+title: "QW-8: posicionamiento en READMEs"
+kind: task
+description: "cada README de adapter tiene sección 'Why VantaDB' honesta: engine embebido Rust local-first vs zep (requiere servidor) / cognee (KG runtime propio) / memoria nativa del framework (cuándo basta la nativa). Sin claims de performance sin..."
+---
+
 # QW-8: posicionamiento en READMEs
 
 ## Metadata

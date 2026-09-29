@@ -1,3 +1,9 @@
+---
+title: "MEM-32 - MCP tools code_* query-only (8 tools sobre graphrag propio)"
+kind: task
+description: "Plan: docs/dev/plans/2026-08-21-vanta-proxy-knowledge.md Task 1 · Ruta: vanta-worker"
+---
+
 # MEM-32 - MCP tools code_* query-only (8 tools sobre graphrag propio)
 
 Plan: `docs/dev/plans/2026-08-21-vanta-proxy-knowledge.md` Task 1 · Ruta: vanta-worker

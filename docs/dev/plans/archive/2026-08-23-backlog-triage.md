@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Correctness Sprint + Agent Exposure (triage Backlog 2026-08-23)"
+kind: plan
+status: archived
+description: "SKIP: REVIEW-07 (resuelto por BND-06 db337b00 — exclusiones scope-safe en .config/nextest.toml, verificado hoy) · REVIEW-20 (STALE — scripts/validate-docs-coverage.ps1 existe y corrió 0 gaps hoy)"
+---
+
 # Plan de Ejecución: Correctness Sprint + Agent Exposure (triage Backlog 2026-08-23)
 
 > **Campaign ID:** 82c5ed20-2086-4619-b471-dbafeb63aead

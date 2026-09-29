@@ -1,3 +1,10 @@
+---
+title: "Plan: estabilización pendiente pre-0.7.0 (verificado 2026-09-24)"
+kind: plan
+status: archived
+description: "Contexto: job Lurkr capability scan muere en 3s en Set up job: el SHA e797f83b… no existe"
+---
+
 # Plan: estabilización pendiente pre-0.7.0 (verificado 2026-09-24)
 
 > Estado base: `develop` en `4b5b137e` (pusheado y verificado en origen), 1954 commits sobre `main`.

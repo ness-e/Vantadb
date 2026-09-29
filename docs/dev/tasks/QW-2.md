@@ -1,3 +1,9 @@
+---
+title: "TASK QW-2: langchain ids parciales — generar UUIDs para docs sin id ANTES de filtrar"
+kind: task
+description: "Callers | Callees | Implicaciones"
+---
+
 # TASK QW-2: langchain ids parciales — generar UUIDs para docs sin id ANTES de filtrar
 
 ## Metadata

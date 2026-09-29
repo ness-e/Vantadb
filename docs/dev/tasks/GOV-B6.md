@@ -1,3 +1,8 @@
+---
+title: GOV-B6 — Skill MCP como fuente única (79 tools = 49 core + 30 ext) + MCP.md stub
+kind: task
+---
+
 # GOV-B6 — Skill MCP como fuente única (79 tools = 49 core + 30 ext) + MCP.md stub
 
 > Plan: `docs/dev/plans/2026-09-02-alta-prioridad-paralelo.md` · Wave2 · 🟡 🟠 · Appetite max 4h

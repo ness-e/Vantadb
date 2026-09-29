@@ -1,3 +1,9 @@
+---
+title: Task WDA-06 — F6 Escritura / i18n residual
+kind: task
+description: "Estado: ✅ COMPLETED (2026-08-24, inline por vanta-lead — proveedor de sub-agentes caído)"
+---
+
 # Task WDA-06 — F6 Escritura / i18n residual
 
 **Estado:** ✅ COMPLETED (2026-08-24, inline por vanta-lead — proveedor de sub-agentes caído)

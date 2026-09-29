@@ -1,3 +1,9 @@
+---
+title: MEM-42 — Reclaimer GC de artefactos offload
+kind: task
+description: "Plan: docs/dev/plans/2026-08-21-vanta-context-engine.md · Task 8 · Wave 2"
+---
+
 # MEM-42 — Reclaimer GC de artefactos offload
 
 **Plan:** docs/dev/plans/2026-08-21-vanta-context-engine.md · Task 8 · Wave 2

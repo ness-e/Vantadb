@@ -1,10 +1,8 @@
 ---
 title: "Avance — Operaciones & API"
-type: domain-log
+kind: review
 status: active
 tags: [vantadb, avance, ops, api, docs, backup, enterprise]
-last_reviewed: 2026-08-29
-aliases: []
 ---
 
 # Avance — Operaciones & API
@@ -154,7 +152,7 @@ aliases: []
 
 ### GOV-TK9: Verificar URL `vantadb-examples` del checklist (Wave0 Task 3)
 - **Fecha:** 2026-09-03
-- **Objetivo:** el checklist piloto (doc de venta enterprise) tenía un paso clone a la org `vantadb` que no existe (FIND-17/ADR-030: owner real `ness-e/*`).
+- **Objetivo:** el checklist piloto (doc de venta enterprise) tenía un paso clone a la org `vantadb` que no existe (FIND-17/ADR-0030: owner real `ness-e/*`).
 - **Resultado:** ✅ ambas URLs verificadas live 404 (`github.com/vantadb/vantadb-examples` y `github.com/ness-e/vantadb-examples`); ningún repo existe en ninguna org → rama TODO-humano del contrato (no crear repos desde el agente). `docs/dev/operations/pilot-onboarding-checklist.md:51` ahora TODO explícito en inglés; `rg "vantadb/vantadb-examples" docs/user/operations/ docs/api/` = 0. Fila Backlog eliminada (con ella muere la cita a la ruta vieja `pilot-onboarding-checklist.md` — la canónica es `docs/user/operations/...`).
 - **Archivos tocados:** `docs/dev/operations/pilot-onboarding-checklist.md`, `docs/dev/Backlog.md` (fila removida), `docs/dev/plans/2026-09-03-quality-gtm-wave.md` (Task 3 → ✅)
 - **Deuda abierta:** crear el repo `vantadb-examples` (o apuntar a ejemplos reales) es acción humana externa.
@@ -281,9 +279,9 @@ aliases: []
 
 ### SRV-06: JWT HS256 offline (plan 2026-09-10-code Wave2)
 - **Fecha:** 2026-09-10
-- **Objetivo:** DISCOVERY arch + MVP auth (OIDC discovery DEFER vía ADR-039).
+- **Objetivo:** DISCOVERY arch + MVP auth (OIDC discovery DEFER vía ADR-0039).
 - **Resultado:** ✅ server 58/58 + auth 3/3 + rotation/rbac 13/13 + server 42/42 + clippy/fmt 0; race git-add paralela revertida.
-- **Commit:** a0a3087f (+ADR-039)
+- **Commit:** a0a3087f (+ADR-0039)
 
 ### PRX-09-wiring: verificada ya-implementada (sin cambios)
 - **Fecha:** 2026-09-10

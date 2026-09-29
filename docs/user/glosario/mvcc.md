@@ -1,13 +1,13 @@
 ---
-title: "mvcc"
-type: glossary-entry
+title: mvcc
+kind: glossary
 status: stable
-tags: [concurrencia, aislamiento, transacciones]
-last_reviewed: 2026-09-15
-links: "[[README.md]]"
+description: "#MVCC—Multi-Version Concurrency Control"
 aliases: [Multi-Version Concurrency Control, MVCC]
-description: "Concurrency control method where each transaction sees a consistent snapshot of the database, allowing readers and writers to operate simultaneously without blocking"
+tags: [concurrencia, aislamiento, transacciones]
+links: "[[README.md]]"
 ---
+
 #MVCC—Multi-Version Concurrency Control
 
 ##Definition
@@ -35,13 +35,13 @@ Result:
 
 ## Usage in VantaDB
 
-MVCC is implemented by the [[fjall]] backend for concurrent transactions.
+MVCC is implemented by the [fjall](./fjall.md) backend for concurrent transactions.
 
 ## See Also
 
-- [[fjall]] — Backend with native MVCC
-- [[transactional]] — Property that MVCC enables
-- [[rwlock]] — Simpler alternative
+- [fjall](./fjall.md) — Backend with native MVCC
+- [transactional](./transactional.md) — Property that MVCC enables
+- [rwlock](./rwlock.md) — Simpler alternative
 
 ---
 

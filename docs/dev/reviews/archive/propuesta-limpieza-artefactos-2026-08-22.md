@@ -1,10 +1,11 @@
 ---
-title: "Propuesta de limpieza de artefactos documentales"
-type: review
+title: Propuesta de limpieza de artefactos documentales
+kind: review
 status: pending-owner-approval
-date: 2026-08-22
-source: "GOV-E1 — docs/dev/plans/2026-08-22-doc-governance-plan.md"
-audit_source: "docs/dev/reviews/auditoria-documentacion-2026-08-21.md (V1+II)"
+description: "Conclusión: de los 7 candidatos originales, solo el #4 requiere una acción de repo real"
+date: "2026-08-22"
+source: GOV-E1 — docs/dev/plans/2026-08-22-doc-governance-plan.md
+audit_source: docs/dev/reviews/auditoria-documentacion-2026-08-21.md (V1+II)
 ---
 
 # Propuesta de limpieza de artefactos — 2026-08-22

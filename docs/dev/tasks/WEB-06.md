@@ -1,3 +1,8 @@
+---
+title: "WEB-06 — Bloque instalación copiable arriba del fold (home) o ancla #quickstart prominente en /docs"
+kind: task
+---
+
 # WEB-06 — Bloque instalación copiable arriba del fold (home) o ancla #quickstart prominente en /docs
 
 ## Metadata

@@ -1,3 +1,9 @@
+---
+title: Task API-STD-15 — Síntesis normativa + Gate P HITL
+kind: task
+description: "Primera ronda: usuario pidió investigación profunda por decisión antes de elegir. Segunda ronda con evidencia (Qdrant score, batch objetos, scroll-cursor; Stripe cursor; MCP spec; RFC 9457): las 4 aprobadas con la recomendada —..."
+---
+
 # Task API-STD-15 — Síntesis normativa + Gate P HITL
 
 > **Plan:** `docs/dev/plans/2026-09-24-api-estandarizacion.md`

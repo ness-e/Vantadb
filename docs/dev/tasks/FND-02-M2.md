@@ -1,3 +1,9 @@
+---
+title: "FND-02-M2: Stress test de evicción *_locked bajo contención"
+kind: task
+description: "Test de estrés que EJERZA la evicción locked bajo contención real: config con maxnodes bajo (p.ej. 5-10k) + watermark que dispare + threads concurrentes de insert/deletebatch/getmany. Validar que evictcoldnodeswithreasonlocked y..."
+---
+
 # FND-02-M2: Stress test de evicción *_locked bajo contención
 
 ## Metadata

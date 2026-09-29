@@ -1,3 +1,9 @@
+---
+title: FIND-80 — seed corpus + crash upload + fuzz-pr
+kind: task
+description: Seed mínimo commiteado en fuzz/corpus/ + upload corpus/crashes en fuzz-40.yml + doc fuzz-pr en docs/dev/workflow/fuzz-40.md + cargo check --manifest-path fuzz/Cargo.toml --bins exit 0
+---
+
 # FIND-80 — seed corpus + crash upload + fuzz-pr
 
 ## Metadata

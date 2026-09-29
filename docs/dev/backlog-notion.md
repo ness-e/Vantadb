@@ -1,3 +1,8 @@
+---
+title: Backlog Notion — tareas sobre páginas VantaDB Docs
+kind: research
+---
+
 # Backlog Notion — tareas sobre páginas VantaDB Docs
 
 > **Propósito:** registrar todo el trabajo pendiente sobre las páginas Notion (edición, mejora, investigación y sincronización con código). Fuente: análisis integral 2026-09-18 (código vs Backlog vs Notion).

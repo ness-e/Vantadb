@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Stutter Interno (entity/scene + misceláneos)"
+kind: plan
+status: archived
+description: "Status: ⬆️ uphill = 0 (decisiones tomadas) · ⬇️ downhill = 4"
+---
+
 # Plan de Ejecución: Stutter Interno (entity/scene + misceláneos)
 
 > **Campaign ID:** 69be5375-44c1-4169-ad63-84589614b196

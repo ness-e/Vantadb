@@ -78,7 +78,7 @@ pip install vantadb-py
 > **Naming convention:** the product is **VantaDB**; the Rust crate is `vantadb`,
 > the PyPI package is `vantadb-py`, the npm packages are `vantadb` (TypeScript/WASM)
 > and `vantadb-node` (native), and the GitHub repository is `ness-e/Vantadb`.
-> See [ADR-030](docs/dev/architecture/adr/ADR-030-brand-identity-naming-convention.md)
+> See [ADR-0030](docs/dev/architecture/adr/ADR-0030-brand-identity-naming-convention.md)
 > for the full audit and rationale.
 
 For development from source:

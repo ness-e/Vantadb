@@ -1,3 +1,9 @@
+---
+title: FND-04 — Zero-copy Arrow en bindings (Python/Node)
+kind: task
+description: "Plan: 2026-08-16-wave-p20-tsys.md · Prio: 🟡 · Esfuerzo: 🔴 · Tipo: research/analysis (multi: rust, python, typescript)"
+---
+
 # FND-04 — Zero-copy Arrow en bindings (Python/Node)
 
 **Plan:** 2026-08-16-wave-p20-tsys.md · **Prio:** 🟡 · **Esfuerzo:** 🔴 · **Tipo:** research/analysis (multi: rust, python, typescript)

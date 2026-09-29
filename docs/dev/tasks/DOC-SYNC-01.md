@@ -1,3 +1,8 @@
+---
+title: DOC-SYNC-01 — Sincronizar descripciones stales del Backlog
+kind: task
+---
+
 # DOC-SYNC-01 — Sincronizar descripciones stales del Backlog
 
 - **Plan:** `docs/dev/plans/2026-09-07-cleanup-gates.md` Task 3

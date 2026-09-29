@@ -1,3 +1,9 @@
+---
+title: "HARD-02: Tuning de gates (coverage reporte, review risk-tiered, nightly, release dry-run)"
+kind: task
+description: "coverage ya no bloquea (reporte + presupuesto por directorio documentado en CIPOLICY) Y review risk-tiered documentado y activo en prompts (solo diffs docs/api|sdk|parser|storage|wire → adversarial; resto verify fast) Y workflow nightly..."
+---
+
 # HARD-02: Tuning de gates (coverage reporte, review risk-tiered, nightly, release dry-run)
 
 ## Metadata
@@ -16,14 +22,14 @@
 | Dirección | Módulos |
 |-----------|---------|
 | Callers | `dev-tools/verify.ps1` ← `.githooks/pre-push` + flujo mínimo AGENTS.md + `just verify`; `.config/nextest.toml` ← jobs CI (test/test-windows/coverage) + verify.ps1; `.opencode/task-system/prompts/pipeline-full.md:158` (gate P2-01) ← `/pipeline run`; `CONSTRAINTS.md` ← `constraint-driven-development` + floor-guard |
-| Callees | `.github/workflows/ci-rust.yml` (coverage job `:331-403`, ADR-018), `heavy-certification.yml` (semanal `cron: "0 3 * * 0"` `:14-15`), `heavy-bench-nightly.yml` (diario), `dev-tools/floor-guard.ps1`, `dev-tools/gate-common.ps1` (`Get-CoreFeatures`), `docs/dev/workflow/RULES.md` (§1/§2/§4/§6/§7 gobiernan workflows) |
-| Implicaciones | Cambia la POLÍTICA de gates (no código de engine). Fast gate local deja de bloquear por coverage → debe compensarse con reporte + presupuesto (CI ADR-018 ≥80% intacto). Nuevo workflow nightly (o schedule diario) → inventario de workflows (`docs/dev/workflow/README.md`/`TRIGGERS.md`) debe actualizarse. Review tiering cambia comportamiento del pipeline (`.opencode/`). |
+| Callees | `.github/workflows/ci-rust.yml` (coverage job `:331-403`, ADR-0018), `heavy-certification.yml` (semanal `cron: "0 3 * * 0"` `:14-15`), `heavy-bench-nightly.yml` (diario), `dev-tools/floor-guard.ps1`, `dev-tools/gate-common.ps1` (`Get-CoreFeatures`), `docs/dev/workflow/RULES.md` (§1/§2/§4/§6/§7 gobiernan workflows) |
+| Implicaciones | Cambia la POLÍTICA de gates (no código de engine). Fast gate local deja de bloquear por coverage → debe compensarse con reporte + presupuesto (CI ADR-0018 ≥80% intacto). Nuevo workflow nightly (o schedule diario) → inventario de workflows (`docs/dev/workflow/README.md`/`TRIGGERS.md`) debe actualizarse. Review tiering cambia comportamiento del pipeline (`.opencode/`). |
 
 ## Impacto mapeado (Regla 0)
 
 - **Archivos leídos (completos):** `dev-tools/verify.ps1` (102 L), `.config/nextest.toml` (107 L), `docs/dev/operations/CI_POLICY.md` (480 L), `CONSTRAINTS.md` (161 L), `docs/dev/workflow/RULES.md` (182 L), `.github/workflows/ci-rust.yml` (667 L); parciales: `.opencode/task-system/prompts/pipeline-full.md` (`:120-199`), `heavy-certification.yml` (`:1-80`)
 - **Archivos referenciados hacia dentro (imports/includes/dependencias):** `dev-tools/gate-common.ps1` (`. $PSScriptRoot/gate-common.ps1` en verify.ps1:46); `junit.xml` (profile audit); jobs CI referencian `--profile audit`/`ci-windows` (nextest.toml); `floor-guard.ps1` (CONSTRAINTS.md:23)
-- **Archivos que referencian a los editados (referencias entrantes):** `.opencode/AGENTS.md` (flujo mínimo + Pre-Flight), `CONTRIBUTING.md:49-68` (Code Quality/CI gates), `docs/dev/operations/CI_POLICY.md:19-34` (rutas canónicas de scripts), `Justfile` (`just verify`), `.githooks/pre-push`, STABLE-00/ADR-031 (presupuesto `<5min`), plan master `:535-541`
+- **Archivos que referencian a los editados (referencias entrantes):** `.opencode/AGENTS.md` (flujo mínimo + Pre-Flight), `CONTRIBUTING.md:49-68` (Code Quality/CI gates), `docs/dev/operations/CI_POLICY.md:19-34` (rutas canónicas de scripts), `Justfile` (`just verify`), `.githooks/pre-push`, STABLE-00/ADR-0031 (presupuesto `<5min`), plan master `:535-541`
 - **Veredicto impacto:** medio-alto — toca el gate que corre en cada push local (verify.ps1) y el pipeline (`pipeline-full.md`); mitigación = floor-guard verde + CONSTRAINTS.md actualizado + CI canónico intacto + Gate H.
 
 ## Contrato
@@ -33,7 +39,7 @@
 
 | # | Decisión | Opciones (+tradeoff) | Default recomendado | Resuelto |
 |---|----------|----------------------|--------------------|----------|
-| 1 | Alcance del cambio de coverage | A) solo fast gate local (`verify.ps1`) → reporte + presupuesto; CI ADR-018 (≥80%) intacto / B) relajar también el CI | A | ✅ decidido-por-evidencia: `CI_POLICY.md:379-390` ("Nunca bajar el umbral de 80%") + plan `:79` cita solo verify.ps1 (`:49,77-85`) |
+| 1 | Alcance del cambio de coverage | A) solo fast gate local (`verify.ps1`) → reporte + presupuesto; CI ADR-0018 (≥80%) intacto / B) relajar también el CI | A | ✅ decidido-por-evidencia: `CI_POLICY.md:379-390` ("Nunca bajar el umbral de 80%") + plan `:79` cita solo verify.ps1 (`:49,77-85`) |
 | 2 | Mecanismo del presupuesto | A) reporte JSON por directorio + check contra presupuesto (warn no-bloqueante; documentado) / B) solo reporte sin referencia | A | ✅ decidido-por-evidencia: contrato del plan `:82` ("reporte + presupuesto por directorio") |
 | 3 | Paths adversariales del tiering | A) lista explícita `docs/api|sdk|parser|storage|wire` (regla mecánica) / B) heurística por tamaño de diff | A | ✅ decidido-por-evidencia: contrato del plan `:82` (lista explícita) |
 | 4 | Nightly: archivo nuevo vs extender heavy | A) nuevo `nightly.yml` / B) schedule diario sobre `heavy-certification.yml` (hoy semanal `0 3 * * 0`) — evaluar solape | decidir con evidencia en Step 4 | ✅ resuelto (HARD-02): **A) nuevo `nightly.yml`** — evidencia: (i) el full incluye jobs deliberadamente weekly (stress_protocol ~2h, mutation no-gating, memory-concurrency) cuyo valor diario marginal es bajo y multiplica exposición a flake; (ii) el contrato pide "subset"; (iii) `nightly.yml` es el punto de recepción de gates lentos de HARD-01 (stop condition del plan); (iv) repo público → minutos no discriminan; duplicación acotada a 5 jobs copiados con acoplamiento documentado (CI_POLICY §2b). Solape: slot 05:00 UTC (bench 02:00, cert Sun 03:00, ocr 04:00) |
@@ -42,7 +48,7 @@
 
 ## Invariantes de dominio (handoff — MUST)
 
-- **Invariantes a preservar:** el **floor** de `CONSTRAINTS.md` no se debilita — `pwsh dev-tools/floor-guard.ps1` exit 0 antes y después; **CI canónico ADR-018 (root crate ≥80%) intacto**; fast gate sigue determinista/offline y **<5min**; toda exclusión nueva de tests requiere tabla + categoría en CI_POLICY (Regla 2, solo vanta-lead); `verify.ps1` sigue siendo el gate del pre-push y no se redefine la jerarquía de gates (AGENTS.md Regla 1); cambios en `.opencode/` → **Gate H (`/harness` verde) ANTES del commit** (y `.opencode/` es repo separado — commit propio).
+- **Invariantes a preservar:** el **floor** de `CONSTRAINTS.md` no se debilita — `pwsh dev-tools/floor-guard.ps1` exit 0 antes y después; **CI canónico ADR-0018 (root crate ≥80%) intacto**; fast gate sigue determinista/offline y **<5min**; toda exclusión nueva de tests requiere tabla + categoría en CI_POLICY (Regla 2, solo vanta-lead); `verify.ps1` sigue siendo el gate del pre-push y no se redefine la jerarquía de gates (AGENTS.md Regla 1); cambios en `.opencode/` → **Gate H (`/harness` verde) ANTES del commit** (y `.opencode/` es repo separado — commit propio).
 - **Comandos de verificación:** `pwsh dev-tools/floor-guard.ps1` (exit 0) + `pwsh dev-tools/verify.ps1` (ALL PASS) + `pwsh scripts/validate-docs-coverage.ps1` (para docs) + `/harness` (para `.opencode/`).
 - **Deuda pendiente:** FIND-134..147 (CI) y FIND-152 (harness residual) se evalúan/cierran acá si siguen vigentes (plan `:96`).
 
@@ -65,7 +71,7 @@ Estado: completed
 Resultado: OK
 Próxima acción: commit local del changeset por el lead (VantaDB + .opencode por separado; NO push sin OK del owner); siguiente tarea HARD-04
 Contrato: 4/4 ✅ — ver ## Contrato; evidencia en CI_POLICY §Coverage/§2b/§"Fast Gate wall-time measurement" + logs hard02-verify*.log
-Invariantes: floor-guard verde (5/5); ADR-018 intacto; Gate H verde; el presupuesto sigue fallando en violación explícita (nightly)
+Invariantes: floor-guard verde (5/5); ADR-0018 intacto; Gate H verde; el presupuesto sigue fallando en violación explícita (nightly)
 Deuda: RULES.md:13,195 "27 files" (HARD-03); gitleaks historia 197 leaks (diff-scoped por diseño); primer nightly ubuntu: recalibrar si el delta de plataforma viola un bucket (plan documentado en CI_POLICY §Coverage)
 Próxima tarea si completa: HARD-04
 last-synced: 2026-09-27
@@ -74,7 +80,7 @@ last-synced: 2026-09-27
 
 ## Deuda técnica (Regla 6 — MUST)
 
-**Saldo neto de deuda por PR:** Sin deuda neta — la relajación del gate local se compensa con (1) presupuesto por directorio verificable y documentado, (2) CI ADR-018 intacto, (3) floor-guard verde + registro de la decisión owner en CONSTRAINTS.md. Sin suppressions nuevas.
+**Saldo neto de deuda por PR:** Sin deuda neta — la relajación del gate local se compensa con (1) presupuesto por directorio verificable y documentado, (2) CI ADR-0018 intacto, (3) floor-guard verde + registro de la decisión owner en CONSTRAINTS.md. Sin suppressions nuevas.
 
 ## Definition of Done (contrato multi-nivel — P2-08)
 
@@ -94,7 +100,7 @@ last-synced: 2026-09-27
 ## Investigation Notes
 
 - `verify.ps1:49` `$CoverageThreshold = 60` (P2-06) y `:79` step bloqueante `--fail-under-lines 60`; si falta llvm-cov, skippea con warning (`:83-84`). El cambio owner (a) es SOLO acá (fast gate local).
-- CI tiene su propio coverage job (`ci-rust.yml:331-403`) con gate ≥80% root (ADR-018, `CI_POLICY.md:379-390`): **no se toca**.
+- CI tiene su propio coverage job (`ci-rust.yml:331-403`) con gate ≥80% root (ADR-0018, `CI_POLICY.md:379-390`): **no se toca**.
 - `heavy-certification.yml` YA corre semanal (`cron: "0 3 * * 0"`, `:14-15`) y `heavy-bench-nightly.yml` corre diario → el "nightly de certificación pesada" puede solaparse; decidir con evidencia (Step 4) si es archivo nuevo o schedule diario extendido, y qué subset corre (candidatos: gates lentos derivados de HARD-01).
 - `pipeline-full.md:158` contiene el gate Review P2-01 → ahí (y coherente con `task.md` Fase 5) va el tiering.
 - `CONSTRAINTS.md:23` referencia floor-guard (`dev-tools/floor-guard.ps1` existe, `:122` "VantaDB is at 2"); `:36-37` filas de coverage + ratchet 68.2% → actualizar con la decisión owner y `Last reviewed`.
@@ -123,7 +129,7 @@ last-synced: 2026-09-27
 
 ### Step 2: Presupuesto por directorio con evidencia + registro owner
 - **Archivos:** `docs/dev/operations/CI_POLICY.md` (§Coverage `:313-390`), `CONSTRAINTS.md` (`:36-37`, `Last reviewed`)
-- **Acción:** medir coverage actual por directorio (`cargo llvm-cov report --json` → agregación); fijar presupuesto por directorio (ratchet: no perder más de X pt rel. a baseline); documentar tabla (directorio | baseline | presupuesto | comando) en CI_POLICY; registrar la decisión owner en CONSTRAINTS.md (explícito: CI ADR-018 intacto; floor-guard sigue verde).
+- **Acción:** medir coverage actual por directorio (`cargo llvm-cov report --json` → agregación); fijar presupuesto por directorio (ratchet: no perder más de X pt rel. a baseline); documentar tabla (directorio | baseline | presupuesto | comando) en CI_POLICY; registrar la decisión owner en CONSTRAINTS.md (explícito: CI ADR-0018 intacto; floor-guard sigue verde).
 - **Verify:** números reproducibles con el comando citado + `pwsh dev-tools/floor-guard.ps1` exit 0 + `rg` de la tabla en CI_POLICY
 - **Estado:** ✅ DONE — CI_POLICY §"Coverage — Report & Per-Directory Budget" con tabla (6 buckets, baseline 2026-09-26 full-pass, budget = baseline−1.0pt, comando exacto); CONSTRAINTS.md con nota owner (aditivo — check 5 floor-guard PASS) + Ratchets actualizado; floor-guard **exit 0** (tras fix del check 4 gitleaks, pre-existente: flag `--config-path` inexistente en gitleaks 8.30 + config ausente + falsa lectura del error como leak → ahora diff-scoped con `--pipe`)
 
@@ -184,7 +190,7 @@ last-synced: 2026-09-27
   - [x] No copiar sin citar ni presentar supuestos propios como evidencia. (citas: STORAGE_VERSIONING.md:129, CI_POLICY, logs)
   - [x] No reintentar en bucle sin diagnóstico. (timeouts diagnosticados como contención de máquina, no código)
   - [x] No dejar huérfanos los pasos: cada paso conectado al objetivo.
-  - [x] No degradar el chequeo de errores en paths de dinero/seguridad. (coverage budget sigue fallando en violación explícita; CI ADR-018 intacto; gitleaks reparado, no silenciado)
+  - [x] No degradar el chequeo de errores en paths de dinero/seguridad. (coverage budget sigue fallando en violación explícita; CI ADR-0018 intacto; gitleaks reparado, no silenciado)
   - [x] No gastar presupuesto infinito; paradas explícitas. (2 fallos mismo-entorno documentados; verificación final acotada)
 - **Veredicto:** Gate H ✅ APROBADO (vanta-harness) · P2-01 full-task: ✅ **APROBADO (3 rondas; contrato 4/4 — condición 4 resuelta por decisión owner (c): 209.5s warm < 5min)**.
 
@@ -193,4 +199,4 @@ last-synced: 2026-09-27
 - Stop conditions del plan: floor-guard rojo → revertir coverage a bloqueante; appetite >3d → solo (b)+(c).
 - FIND-134..147 (CI) y FIND-152 (harness residual) se evalúan/cierran acá si siguen vigentes (plan `:96,531`).
 - Título menciona "release dry-run"; el Contrato NO lo exige → evaluar como candidato del nightly/job (solo `--dry-run`/`cargo package --dry-run`; NUNCA publica); si excede appetite, diferir con nota.
-- `verify.ps1` cambia en local únicamente: el CI canónico (ADR-018) y el presupuesto `<5min` (ADR-031/STABLE-00) quedan como están.
+- `verify.ps1` cambia en local únicamente: el CI canónico (ADR-0018) y el presupuesto `<5min` (ADR-031/STABLE-00) quedan como están.

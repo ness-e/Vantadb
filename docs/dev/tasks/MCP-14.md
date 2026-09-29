@@ -1,3 +1,8 @@
+---
+title: "MCP-14: I1/I2/I3/I4 — Contradicciones internas de la skill"
+kind: task
+---
+
 # MCP-14: I1/I2/I3/I4 — Contradicciones internas de la skill
 
 ## Metadata

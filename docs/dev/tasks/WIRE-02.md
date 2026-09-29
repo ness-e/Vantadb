@@ -1,3 +1,9 @@
+---
+title: "WIRE-02: MCP — enforce de perfil en `tools/call` + default `agent` + fusión de superficie + fix doc"
+kind: task
+description: "tools/call de tool fuera de perfil → error real Tool not found: <name> (not in profile <profile>) (test) Y default agent con smoke tools/list ≤45 Y superficie fusionada con conteo real documentado en MCP.md (tabla + error, consistente..."
+---
+
 # WIRE-02: MCP — enforce de perfil en `tools/call` + default `agent` + fusión de superficie + fix doc
 
 ## Metadata

@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Error Handling & Observability Excellence — VantaDB"
+kind: plan
+status: archived
+description: "systematic-debugging (8/10 root-cause), code-review-and-quality (9/10 multi-axis), constraint-driven-development (CONSTRAINTS.md), doubt-driven-development (adversarial), security-and-hardening (validación FFI/boundary..."
+---
+
 # Plan de Ejecución: Error Handling & Observability Excellence — VantaDB
 
 > **Inicio:** 2026-09-02
@@ -84,7 +91,7 @@ SDP: `campaign_discover_skills` por tarea — base campaign-executor + lifecycle
 Ver plan.md §Reglas del gate + Paso 0 Verificación de Realidad. Gate P: 🔴/ambigua confirmada vía question. Pre-mortem y Cynefin obligatorios para 🔴/ambiguas. Appetite declarado ANTES de Effort.
 
 **SKIP verificados (premisa falsa):** FIND-44 22 ADRs ya existen, TS-01/02 ya async, FIND-24 cursor resuelto, SRV-01/WSM-02 ya implementados — no re-triage.
-**BLOQUEADO (persisten):** AUD-042 tantivy, CORE-02 PITR, FIND-33 snapshot layout, STABLE-* ADR-031, MCP-34b depende FIND-33, BND-08..10 npm, SRV-06 OIDC, TS-10/11 WSM-06 (core expose wiki/skills).
+**BLOQUEADO (persisten):** AUD-042 tantivy, CORE-02 PITR, FIND-33 snapshot layout, STABLE-* ADR-0031, MCP-34b depende FIND-33, BND-08..10 npm, SRV-06 OIDC, TS-10/11 WSM-06 (core expose wiki/skills).
 **DEFER:** P5/P6 launch, P24 I+D, P32-P34 reviews, P38 RES-04/06/07/09, MEM-*/PRX-*/WEB-09 gate humano, config.rs split si >2000L.
 
 ### Question Gates — Gate P (HITL, obligatorio)

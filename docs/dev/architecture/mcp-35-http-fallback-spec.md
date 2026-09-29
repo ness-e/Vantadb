@@ -1,10 +1,9 @@
 ---
 title: MCP-35 HTTP Fallback Discovery
-type: architecture
+kind: concept
 status: active
+description: "Enable N simultaneous vanta-cli server --mcp --db <same-path> instances to share a single database. The first instance becomes the owner (holds the exclusive lock, serves HTTP + MCP stdio). Subsequent instances become proxies (forward..."
 tags: [vantadb, architecture]
-last_reviewed: 2026-09-23
-aliases: []
 ---
 
 # Spec: MCP-35 HTTP Fallback Discovery for Multi-Instance MCP
@@ -346,13 +345,13 @@ Before implementation complete:
 - [ ] No data corruption after promotion (verify with `audit_text_index`)
 - [ ] `cargo check -p vantadb --tests` exits 0
 - [ ] `cargo test -p vantadb-mcp --test mcp_integration` passes
-- [ ] ADR-036 approved by vanta-lead
+- [ ] ADR-0036 approved by vanta-lead
 
 ---
 
 ## Related Docs
 
-- ADR-036: MCP-35 HTTP Fallback Discovery for Multi-Instance MCP
-- ADR-026: Vanta Studio Fase 3 REST Dashboard (established `/api/v2/*`)
+- ADR-0036: MCP-35 HTTP Fallback Discovery for Multi-Instance MCP
+- ADR-0026: Vanta Studio Fase 3 REST Dashboard (established `/api/v2/*`)
 - `docs/user/operations/DURABILITY_GUARANTEES.md` — lock file semantics
 - `vantadb-mcp/SKILL.md` — MCP tool annotations & profiles

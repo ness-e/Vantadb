@@ -1,3 +1,9 @@
+---
+title: Task API-STD-04 — INDIVIDUAL (3/11) TypeScript SDK
+kind: task
+description: "Ficha individual TS: funcionamiento + uso + código + veredicto por fallo"
+---
+
 # Task API-STD-04 — INDIVIDUAL (3/11) TypeScript SDK
 
 > **Plan:** `docs/dev/plans/2026-09-24-api-estandarizacion.md`

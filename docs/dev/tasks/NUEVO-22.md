@@ -1,3 +1,9 @@
+---
+title: Task NUEVO-22 — Sparse indexed search (inverted index)
+kind: task
+description: "Plan: docs/dev/plans/2026-08-05-backlog-validation-actions.md → Task 49 (ex NUEVO-18)"
+---
+
 # Task NUEVO-22 — Sparse indexed search (inverted index)
 
 **Plan:** `docs/dev/plans/2026-08-05-backlog-validation-actions.md` → Task 49 (ex NUEVO-18).

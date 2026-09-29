@@ -1,3 +1,9 @@
+---
+title: "Task WEB-00 — Abstraer `vanta.ts` de Tauri invoke (transporte pluggable)"
+kind: task
+description: "Toda la consola desktop habla con Tauri invoke vía desktop/src/vanta.ts (35+ funciones, 24 con invoke). Para servir la misma consola vía HTTP (o WASM en Fase 4) sin reescribir componentes, el transporte debe ser pluggable: interface..."
+---
+
 # Task WEB-00 — Abstraer `vanta.ts` de Tauri invoke (transporte pluggable)
 
 > **Plan:** `docs/dev/plans/2026-08-18-vanta-studio-fase3.md` — Wave 0, Task 1

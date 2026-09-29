@@ -1,12 +1,11 @@
 ---
-title: "Agente-03 — Orquestación y Colaboración Multi-Agente (Orquestador + Sub-agentes)"
-type: research
+title: Agente-03 — Orquestación y Colaboración Multi-Agente (Orquestador + Sub-agentes)
+kind: research
 status: stable
+description: La orquestación multi-agente (patrón orchestrator-workers) es el mecanismo por el
 tags: [vantadb, research, multi-agente, orquestacion]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
+
 # Agente-03 — Orquestación y Colaboración Multi-Agente (Orquestador + Sub-agentes)
 
 > **Investigación:** 2026-08-10-agent-engineering

@@ -1,3 +1,9 @@
+---
+title: "MCP-40: Registro en el ecosistema MCP — `server.json` + listings"
+kind: task
+description: Publicar VantaDB MCP server (vantadb-mcp) en el Official MCP Registry
+---
+
 # MCP-40: Registro en el ecosistema MCP — `server.json` + listings
 
 > **Plan:** `docs/dev/plans/2026-08-29-full-backlog-parallel.md`

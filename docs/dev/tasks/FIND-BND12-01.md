@@ -1,3 +1,9 @@
+---
+title: FIND-BND12-01 — index.d.ts u64 → BigInt (4 decls)
+kind: task
+description: "No disparado: blast radius 2 archivos, sin símbolos públicos nuevos (solo corrección de tipo), contrato mecánico no ambiguo. (Sin tool question disponible en este entorno; decisión registrada.)"
+---
+
 # FIND-BND12-01 — index.d.ts u64 → BigInt (4 decls)
 
 > **Plan:** `docs/dev/plans/2026-09-07-followup-bench-a11y.md` (Task 1, Wave0)

@@ -1,11 +1,9 @@
 ---
-title: "Workflows — FAQ"
-type: workflow-index
+title: Workflows — FAQ
+kind: runbook
 status: active
+description: "By design of GitHub, not a bug (evidence: FIND-128 — same SHA cb954abc"
 tags: [vantadb, ci, workflows, faq]
-last_reviewed: 2026-09-22
-aliases: []
-related: ["docs/dev/workflow/README.md", "docs/dev/workflow/TRIGGERS.md", "docs/dev/workflow/RUNBOOK.md"]
 ---
 
 # Workflows — FAQ

@@ -1,16 +1,14 @@
 ---
 title: "Vanta Memory Engine — API Reference (`vanta-memory`)"
-type: api
+kind: reference
 status: active
+description: "Crate LLM-driven para memoria de agentes: captura L0, extracción/dedup L1, escenas L2,"
 tags: [vantadb, api, vanta-memory, memory-engine]
-last_reviewed: 2026-09-27
-aliases: []
-related: []
 ---
 
 # Vanta Memory Engine — API Reference (`vanta-memory`)
 
-> **Estado:** ✅ documentación canónica del crate (cierra la cita de ADR-029 §Nota mecánica).
+> **Estado:** ✅ documentación canónica del crate (cierra la cita de ADR-0029 §Nota mecánica).
 > **Nota:** `scripts/validate-docs-coverage.ps1` hoy NO escanea `vanta-memory`; esta página es
 > la referencia manual. Las superficies F1-F3 (search profile, entity_*, skills) viven en
 > `EMBEDDED_SDK.md`.
@@ -278,7 +276,7 @@ merges requeridos se registran como skipped.
    `embed-local` auto-wires the local provider. *Residual (founded DEFER):* without a
    provider attached the pipeline stays keyword-only by design (P4) — trigger to revisit:
    a host attaches a provider / hosted-embeddings demand.
-2. **D21 — `TokenEstimator`**: paid by the ADR-029 amendment + BND-03 (`784b27b9`).
+2. **D21 — `TokenEstimator`**: paid by the ADR-0029 amendment + BND-03 (`784b27b9`).
    `precise-tokens` gives exact cl100k counts (golden tests pinned); the `chars/3` default is
    an accepted ±20% approximation (CJK ~2×). *Trigger:* drift >15% or CJK default-precision
    demand.
@@ -298,5 +296,5 @@ merges requeridos se registran como skipped.
 5. **Fetcher HTTPS/git** — deferred (D30/D36); implement with a non-disableable SSRF
    blocklist when remote sources land.
 
-See ADR-029 for the full D21–D23 rationale and `API-STD-15` for the Gate P decision
+See ADR-0029 for the full D21–D23 rationale and `API-STD-15` for the Gate P decision
 (core-only + stable Rust API).

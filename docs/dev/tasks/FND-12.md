@@ -1,3 +1,9 @@
+---
+title: "FND-12: ADRs como forcing function — reforzar Regla 5 (autor humano, IA solo evidencia)"
+kind: task
+description: "grep .opencode/AGENTS.md contiene en Regla 5 la política 'el ADR lo escribe el autor humano articulando el trade-off; la IA solo aporta evidencia' (forcing function) Y el ejemplo de formato con Contexto/Decisión/Consecuencias + quién..."
+---
+
 # FND-12: ADRs como forcing function — reforzar Regla 5 (autor humano, IA solo evidencia)
 
 ## Metadata

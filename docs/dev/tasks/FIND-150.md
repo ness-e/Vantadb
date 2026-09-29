@@ -1,3 +1,9 @@
+---
+title: "FIND-150: Higiene dependencias + DoD v2 — llvm-cov, machete, OSV-Scanner"
+kind: task
+description: "coverage gate ≥70% vigente en CI (job coverage 80% existente) + cargo machete --with-metadata exit 0 + OSV-Scanner job en CI junto a cargo audit + DoD v2 actualizado con las 3 herramientas + CI YAML válido\""
+---
+
 # FIND-150: Higiene dependencias + DoD v2 — llvm-cov, machete, OSV-Scanner
 
 ## Metadata

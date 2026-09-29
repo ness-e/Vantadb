@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Desktop MVP — DESKTOP-02..11 (Tauri v2 multi-connection)"
+kind: plan
+status: archived
+description: "Nota de scoping heredado (Task 54): DESKTOP-06 + 07 son \"commands + UI = mismo demo\"; en este plan se listan separadas para preservar los IDs del backlog, pero se ejecutan en la misma wave y el contrato de 07 valida el demo completo de 06"
+---
+
 # Plan de Ejecución: Desktop MVP — DESKTOP-02..11 (Tauri v2 multi-connection)
 
 > **Campaign ID: 6d527f85-4943-453d-bb9e-4b95d31cb0ea

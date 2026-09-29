@@ -1,3 +1,10 @@
+---
+title: "INV-011: Core-Server Separation — auditoría"
+kind: research
+status: archived
+description: "Fecha: 2026-08-03"
+---
+
 # INV-011: Core-Server Separation — auditoría
 
 **Fecha:** 2026-08-03

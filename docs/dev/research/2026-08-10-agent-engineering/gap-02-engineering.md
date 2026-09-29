@@ -1,12 +1,11 @@
 ---
 title: "GAP-02: Sistema de Tareas Automático vs Buenas Prácticas de Ingeniería"
-type: research
+kind: research
 status: stable
+description: "El análisis se ejecutó a partir de la definición de cada práctica como un juicio verificable: \"¿el documento declara la práctica Y el pipeline la enforceda mecánicamente?\" La distinción declarado/enforced recorre todo el reporte y..."
 tags: [vantadb, research, gap-analysis, ingenieria]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
+
 # GAP-02: Sistema de Tareas Automático vs Buenas Prácticas de Ingeniería
 
 > **Fecha:** 2026-08-10

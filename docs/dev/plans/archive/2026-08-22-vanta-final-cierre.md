@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Vanta Cierre Final — integración, recall semántico y gobierno de decisiones"
+kind: plan
+status: archived
+description: "Objetivo: cerrar el port TDAM al 100% funcional — cablear el context engine productivamente, probar el roundtrip cross-crate del wiki, portar auto-sync, pagar la deuda #1 (recall semántico con embeddings), consumir scores reales en..."
+---
+
 # Plan de Ejecución: Vanta Cierre Final — integración, recall semántico y gobierno de decisiones
 
 > **Inicio:** 2026-08-22
@@ -21,7 +28,7 @@
 - **D38:** recall/dedup/query usan **vector similarity cuando el record tenga vector**; fallback keyword-overlap para records sin vector — nunca se rompe un record legacy.
 - **D39:** fuente de embeddings = lo que el core ya exponga. **Paso 0 obligatorio de Task 4:** verificar si existe auto-embedding real (COMP-010 del SYNTHESIS mapping NO está verificado contra código). Si no existe → trait `EmbeddingProvider` opcional en vanta-memory con implementación host, sin deps nuevas.
 - **D40:** MEM-45 auto-sync = port del scheduler programado (decisión usuario), sobre el run_id/throttle de MEM-31.
-- **D41:** ADR-029 y las decisiones D24-D37 requieren **articulación humana** (Regla 5) — Task 7 es human-in-loop: la IA prepara el material, el autor escribe.
+- **D41:** ADR-0029 y las decisiones D24-D37 requieren **articulación humana** (Regla 5) — Task 7 es human-in-loop: la IA prepara el material, el autor escribe.
 - **Principios heredados vigentes:** P4 LLM/embedding opcional · sanitización · D19 · sin unwrap/expect · errores #[non_exhaustive] · verify mecánico del lead por tarea · SARL completo.
 
 Status: ⬆️ uphill = 1 (existencia de auto-embedding en core — Task 4 Paso 0 decide) · ⬇️ downhill = ~28 steps estimados
@@ -156,14 +163,14 @@ Status: ⬆️ uphill = 1 (existencia de auto-embedding en core — Task 4 Paso 
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-48.md`
 - **Notas:** Ruta: vanta-worker. Independiente — cualquier wave.
 
-### Task 7: MEM-49 — ADR-029 articulación humana + gate D24-D37 (human-in-loop)
+### Task 7: MEM-49 — ADR-0029 articulación humana + gate D24-D37 (human-in-loop)
 - **Appetite:** max 1d (humano) / 🟢 prep IA
 - **Esfuerzo:** 🟢 (prep IA) | **Prioridad:** 🟠 (gobierno)
 - **Archivos clave:** `docs/dev/architecture/adr/ADR-029-*` (el AUTOR edita), `docs/dev/architecture/adr/ADR-0XX-proxy-knowledge.md` (borrador nuevo)
-- **Verificación real:** ✅ REAL — Regla 5: forcing function del autor humano; ADR-029 en borrador desde P29; D24-D37 de P30 sin ADR
+- **Verificación real:** ✅ REAL — Regla 5: forcing function del autor humano; ADR-0029 en borrador desde P29; D24-D37 de P30 sin ADR
 - **Gate Justificación:** las decisiones arquitectónicas no están cerradas hasta que el autor las articule con sus palabras
 - **Gate Result:** ✅ DO
-- **Contrato:** "Tarea HUMANA: (1) IA genera documento-guía con cada decisión + evidencia + preguntas socráticas (NO redacta la decisión final); (2) el AUTOR edita ADR-029 con sus palabras y aprueba; (3) IA transcribe a ADR nuevo el racional del proxy/knowledge una vez articulado. Gate: commit del autor con las decisiones en primera persona"
+- **Contrato:** "Tarea HUMANA: (1) IA genera documento-guía con cada decisión + evidencia + preguntas socráticas (NO redacta la decisión final); (2) el AUTOR edita ADR-0029 con sus palabras y aprueba; (3) IA transcribe a ADR nuevo el racional del proxy/knowledge una vez articulado. Gate: commit del autor con las decisiones en primera persona"
 - **Pre-mortem:** la IA redacta por el humano → pierde la función (Regla 5 explícito) — IA solo aporta datos y estructura
 - **Stop conditions:** si el autor no dispone tiempo → tarea queda abierta honestamente (no marcar completed)
 - **Risk Register:**

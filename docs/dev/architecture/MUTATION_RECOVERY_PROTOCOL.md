@@ -1,10 +1,9 @@
 ---
 title: Mutation and Recovery Protocol
-type: architecture
+kind: concept
 status: active
+description: "Date: 2026-04-29"
 tags: [vantadb, architecture]
-last_reviewed: 2026-07-21
-aliases: []
 ---
 
 # Mutation and Recovery Protocol

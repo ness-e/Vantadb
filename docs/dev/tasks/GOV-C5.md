@@ -1,3 +1,9 @@
+---
+title: Task GOV-C5 — operations/master-index 26→32 (taxonomía operations)
+kind: task
+description: "Get-ChildItem docs/user/operations/.md | Measure-Object Count == Select-String -Path \"docs/user/operations/master-index.md\" -Pattern \"^\|\" | Measure-Object Count corregido a paridad semántica: todo .md filesystem indexado exactamente..."
+---
+
 # Task GOV-C5 — operations/master-index 26→32 (taxonomía operations)
 
 ## Estado: ✅ COMPLETED

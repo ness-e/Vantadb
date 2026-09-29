@@ -1,3 +1,9 @@
+---
+title: "EMB-13 — `embed_texts` al proveedor real + fallback avisado (FIND-99 núcleo, Q5)"
+kind: task
+description: "Objetivo: cablear el handler MCP embedtexts al proveedor real de embeddings (factory getembeddingprovider) con fallback determinista avisado — núcleo de FIND-99, owner Q5"
+---
+
 # EMB-13 — `embed_texts` al proveedor real + fallback avisado (FIND-99 núcleo, Q5)
 
 > **Plan:** `docs/dev/plans/2026-09-16-embeddings-auto.md` (Wave2, Q5 owner)

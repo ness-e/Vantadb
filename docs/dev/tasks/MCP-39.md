@@ -1,3 +1,8 @@
+---
+title: "MCP-39: Output budgeting (truncado explícito + next_cursor)"
+kind: task
+---
+
 # MCP-39: Output budgeting (truncado explícito + next_cursor)
 
 ## Metadata

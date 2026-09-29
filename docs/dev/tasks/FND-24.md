@@ -1,3 +1,9 @@
+---
+title: FND-24 — ICP + JTBD definidos con evidencia de usuarios reales
+kind: task
+description: "VantaDB es una base de datos vectorial Rust embebida (WAL + HNSW + BM25 + RRF) con bindings Python/TS + WASM. La tarea pregunta: ¿para quién es? (¿dev de chatbot local o de edge computing?) y ¿qué job cumple? (¿por qué VantaDB sobre..."
+---
+
 # FND-24 — ICP + JTBD definidos con evidencia de usuarios reales
 
 > **Estado:** ✅ COMPLETO (2026-08-16) — steps 1-4 ✅

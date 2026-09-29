@@ -1,3 +1,9 @@
+---
+title: "SRV-06: OIDC/JWT authentication (DISCOVERY-first)"
+kind: task
+description: "DISCOVERY arch registrado en ADR-0039 + cargo test -p vantadb --features server 0 failed (incl. tests JWT nuevos) + cargo clippy --workspace --all-targets --all-features -- -D warnings 0 + cargo fmt --check limpio\""
+---
+
 # SRV-06: OIDC/JWT authentication (DISCOVERY-first)
 
 ## Metadata
@@ -9,7 +15,7 @@
 - **Turns estimados:** 15-20
 - **Creado:** 2026-09-10
 - **Estado:** ✅ COMPLETED (commit a0a3087f, 20 archivos solo-propios)
-- **Incógnitas (uphill):** 0 (HS256 gana por evidencia; OIDC DEFER documentado en ADR-039)
+- **Incógnitas (uphill):** 0 (HS256 gana por evidencia; OIDC DEFER documentado en ADR-0039)
 - **Pendientes (downhill):** 0
 
 ## Blast Radius
@@ -29,7 +35,7 @@
 
 ## Contrato
 
-"DISCOVERY arch registrado en ADR-039 + `cargo test -p vantadb --features server` 0 failed (incl. tests JWT nuevos) + `cargo clippy --workspace --all-targets --all-features -- -D warnings` 0 + `cargo fmt --check` limpio"
+"DISCOVERY arch registrado en ADR-0039 + `cargo test -p vantadb --features server` 0 failed (incl. tests JWT nuevos) + `cargo clippy --workspace --all-targets --all-features -- -D warnings` 0 + `cargo fmt --check` limpio"
 
 ## Spec (SDD — feature-add: nuevo módulo `jwt` + campo config + dep)
 
@@ -45,17 +51,17 @@
 
 - **Invariantes a preservar:** Bearer api_key/alt_api_key intacto cuando `jwt_secret` unset; refuse-to-start FIND-07 sin cambios; L2/L3 resolution sin cambios; 401 body byte-idéntico; dev-mode (sin key) sin cambios; feature matrix compila con/sin `server`.
 - **Comandos de verificación:** `cargo test -p vantadb --features server jwt` + `cargo test -p vantadb --features server auth` ; `cargo clippy --workspace --all-targets --all-features -- -D warnings` ; `cargo fmt --check`
-- **Deuda pendiente:** OIDC discovery (JWKS/issuer) DEFER — ADR-039; `--jwt-secret` flag CLI DEFER (env-only en MVP); `src/cli_server_auth_tests.rs` raíz huérfano (sin `mod`, no compila — pre-existente, NO tocar)
+- **Deuda pendiente:** OIDC discovery (JWKS/issuer) DEFER — ADR-0039; `--jwt-secret` flag CLI DEFER (env-only en MVP); `src/cli_server_auth_tests.rs` raíz huérfano (sin `mod`, no compila — pre-existente, NO tocar)
 
 ## Recitation (canónico — estructura única)
 
 | Campo recitation (MCP) | Valor |
 |------------------------|-------|
 | `activeGoal` | SRV-06 OIDC/JWT auth — DISCOVERY-first + MVP HS256 offline |
-| `lastAction` | DISCOVERY completo: ganador HS256 offline, ADR-039 + task file creados |
+| `lastAction` | DISCOVERY completo: ganador HS256 offline, ADR-0039 + task file creados |
 | `result` | PARTIAL (steps 1/6 ✅) |
 | `nextAction` | Step 2: Cargo.toml + config.rs + state.rs + jwt.rs |
-| `contract` | verificacion: pendiente | evidencia: plan Task 8 + docs.rs jsonwebtoken 11.0.0 | artefactos: docs/dev/tasks/SRV-06.md, docs/dev/architecture/adr/ADR-039-jwt-hs256-offline.md | invariantes: ver arriba | deuda: OIDC DEFER | queda_pendiente: MVP + verify + commit |
+| `contract` | verificacion: pendiente | evidencia: plan Task 8 + docs.rs jsonwebtoken 11.0.0 | artefactos: docs/dev/tasks/SRV-06.md, docs/dev/architecture/adr/ADR-0039-jwt-hs256-offline.md | invariantes: ver arriba | deuda: OIDC DEFER | queda_pendiente: MVP + verify + commit |
 | `nextTask` | ninguno (una tarea por invocación) |
 
 ## Deuda técnica (Regla 6 — MUST)
@@ -75,7 +81,7 @@
 - Terminal cargo (check, nextest scoped, clippy, fmt) + codegraph_explore (ya usado)
 - `campaign_verify_cmd` (contrato; bug exit -1 → bash directa)
 
-**Skills cargadas (SDP):** api-and-interface-design (contract-first del módulo jwt + Hyrum/error-semantics) · test-driven-development (RED→GREEN tests JWT) · documentation-and-adrs (ADR-039) · security-and-hardening (FASE SECURITY: threat-model auth, sin oráculo, rate-limit intacto) · doubt-driven-development (security-sensitive + 🔴; RED tests como doubt-step para claims de comportamiento) · incremental-implementation (slices ≤100L) · source-driven-development (jsonwebtoken docs.rs verificado) · campaign-executor/progreso/ponytail (base). SDP Paso 0b: `campaign_discover_skills_v2` BUILD (10 candidatos) — `frontend-ui-engineering` y `context-engineering` descartadas (sin UI web; contexto ya mapeado vía codegraph).
+**Skills cargadas (SDP):** api-and-interface-design (contract-first del módulo jwt + Hyrum/error-semantics) · test-driven-development (RED→GREEN tests JWT) · documentation-and-adrs (ADR-0039) · security-and-hardening (FASE SECURITY: threat-model auth, sin oráculo, rate-limit intacto) · doubt-driven-development (security-sensitive + 🔴; RED tests como doubt-step para claims de comportamiento) · incremental-implementation (slices ≤100L) · source-driven-development (jsonwebtoken docs.rs verificado) · campaign-executor/progreso/ponytail (base). SDP Paso 0b: `campaign_discover_skills_v2` BUILD (10 candidatos) — `frontend-ui-engineering` y `context-engineering` descartadas (sin UI web; contexto ya mapeado vía codegraph).
 
 ## Investigation Notes
 
@@ -99,8 +105,8 @@
 
 ## Steps
 
-### Step 1: DISCOVERY + task file + ADR-039
-- **Archivos:** `docs/dev/tasks/SRV-06.md`, `docs/dev/architecture/adr/ADR-039-jwt-hs256-offline.md`
+### Step 1: DISCOVERY + task file + ADR-0039
+- **Archivos:** `docs/dev/tasks/SRV-06.md`, `docs/dev/architecture/adr/ADR-0039-jwt-hs256-offline.md`
 - **Acción:** registrar decisión HS256 vs OIDC con evidencia
 - **Verify:** archivos existen + Spec llena
 - **Estado:** ✅ COMPLETED

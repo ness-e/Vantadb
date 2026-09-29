@@ -1,3 +1,8 @@
+---
+title: REST-01 — Calibrar rate limiter para ráfagas UI (429 en consola)
+kind: task
+---
+
 # REST-01 — Calibrar rate limiter para ráfagas UI (429 en consola)
 
 > **Plan:** `docs/dev/plans/2026-08-19-vanta-studio-fase4.md` — Wave 1

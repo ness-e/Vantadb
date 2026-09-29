@@ -1,10 +1,8 @@
 ---
-title: "Avance — Context Engine"
-type: domain-log
+title: Avance — Context Engine
+kind: review
 status: active
 tags: [vantadb, avance, context-engine, compression, budget, recall, mmd]
-last_reviewed: 2026-08-22
-aliases: []
 ---
 
 # Avance — Context Engine

@@ -1,3 +1,9 @@
+---
+title: "TBH-22 — release-binaries-63.yml: add `push tags v*` trigger"
+kind: task
+description: "Workflow release-binaries-63.yml solo dispara con release: types: [published]"
+---
+
 # TBH-22 — release-binaries-63.yml: add `push tags v*` trigger
 
 ## Contexto (CI infra hardening — Phase 1 closeout)

@@ -1,11 +1,10 @@
 ---
-title: "VantaDB Desktop (Vanta Studio)"
-type: reference
+title: VantaDB Desktop (Vanta Studio)
+kind: index
 status: active
-tags: [vantadb, desktop, overview, vanta-studio]
-last_reviewed: 2026-09-15
+description: Desktop console for VantaDB built with Tauri v2 (Rust shell + React frontend)
 aliases: [VANTA-STUDIO]
-related: []
+tags: [vantadb, desktop, overview, vanta-studio]
 ---
 
 # VantaDB Desktop (Vanta Studio)
@@ -82,7 +81,7 @@ dispatched to the **active** connection by the `ConnectionManager`.
 
 | Symptom | Cause / Fix |
 |---------|-------------|
-| `VantaError::Lock` on connect | Another connection/process holds the writer lock on that path. Disconnect it first or pick another path. |
+| `DatabaseBusy` (`VANTADB_BUSY`) on connect | Another connection/process holds the writer lock on that path. Disconnect it first or pick another path. |
 | "no active connection; call vanta_connect first" | No connection registered yet — connect before issuing data commands. |
 | `401 Unauthorized` over HTTP | Server has auth enabled; configure Bearer credentials in the server connection config. |
 | OPFS unavailable in browser | Private-mode/incognito browsers block OPFS; the app falls back to IndexedDB automatically. |
@@ -91,9 +90,9 @@ dispatched to the **active** connection by the `ConnectionManager`.
 ## Design Docs
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) — multi-connection model, transports, lifecycle.
-- ADRs: [ADR-026](../../dev/architecture/adr/ADR-026-vanta-studio-fase3-rest-dashboard.md)
+- ADRs: [ADR-0026](../../dev/architecture/adr/ADR-0026-vanta-studio-fase3-rest-dashboard.md)
   (REST `/api/v2/*` + embedded dashboard),
-  [ADR-027](../../dev/architecture/adr/ADR-027-fase4-cierre-deuda-rest-wasm-opfs.md)
+  [ADR-0027](../../dev/architecture/adr/ADR-0027-fase4-cierre-deuda-rest-wasm-opfs.md)
   (WASM/OPFS backbone),
-  [ADR-028](../../dev/architecture/adr/ADR-028-core-decay-supersession.md)
+  [ADR-0028](../../dev/architecture/adr/ADR-0028-core-decay-supersession.md)
   (core decay supersession).

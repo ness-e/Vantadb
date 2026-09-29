@@ -1,3 +1,9 @@
+---
+title: "TECH-01 — Fix `--db` en MCP server (P0)"
+kind: task
+description: "Estado: ✅ COMPLETADO (2026-08-05)"
+---
+
 # TECH-01 — Fix `--db` en MCP server (P0)
 
 **Estado:** ✅ COMPLETADO (2026-08-05)
@@ -8,16 +14,16 @@
 
 El hijo `vantadb-server --mcp` resuelve storage vía `VantaConfig::from_env()` → `VANTADB_STORAGE_PATH` (`src/config.rs:408`, fallback `"vantadb_data"`), pero el padre setea solo `VANTA_DB` (`src/cli_handlers/server.rs:244`) → la DB caía en `vantadb_data` del CWD en vez del path pedido con `--db`.
 
-## Fix (1-línea + comentario ADR-012)
+## Fix (1-línea + comentario ADR-0012)
 
 ```rust
 cmd.env("VANTA_DB", db_path);
-// ADR-012: el child resuelve storage via VantaConfig::from_env()
+// ADR-0012: el child resuelve storage via VantaConfig::from_env()
 // -> VANTADB_STORAGE_PATH (config.rs). VANTA_DB es solo flag CLI.
 cmd.env("VANTADB_STORAGE_PATH", db_path);
 ```
 
-AÑADIR, no reemplazar — ver `docs/dev/architecture/adr/012_env_var_naming.md`.
+AÑADIR, no reemplazar — ver `docs/dev/architecture/adr/ADR-0012-env-var-naming.md`.
 
 ## Verificación
 

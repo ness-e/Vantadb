@@ -1,3 +1,9 @@
+---
+title: "TASK PROV-06: Pasar timeout a kwargs de litellm.embedding()"
+kind: task
+description: "grep timeout en embed kwargs; crate compila (cargo check --manifest-path providers/litellm/Cargo.toml exit 0)\""
+---
+
 # TASK PROV-06: Pasar timeout a kwargs de litellm.embedding()
 
 ## Metadata

@@ -1,3 +1,10 @@
+---
+title: "Plan: Integrations Quick Wins (H-01..H-05, H-08..H-11)"
+kind: plan
+status: archived
+description: fromdict reconstruye embedding callable desde config (no pasa el string crudo)
+---
+
 # Plan: Integrations Quick Wins (H-01..H-05, H-08..H-11)
 
 > **Origen:** `/research integrations` → `docs/dev/reviews/research-integrations-20260825.md` (score 6.3/10)

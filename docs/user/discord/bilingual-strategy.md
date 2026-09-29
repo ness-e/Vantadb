@@ -1,9 +1,9 @@
 ---
-title: "Bilingual Strategy — Single-Channel Model"
-type: discord
+title: Bilingual Strategy — Single-Channel Model
+kind: howto
 status: active
+description: The server uses a single set of shared channels where English and Spanish coexist. No language-gated categories
 tags: [vantadb, discord, bilingual]
-last_reviewed: 2026-07-21
 ---
 
 # Bilingual Strategy — English / Spanish

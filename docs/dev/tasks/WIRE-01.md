@@ -1,3 +1,9 @@
+---
+title: "WIRE-01: Loop de memoria del proxy completo + cost real + presupuesto de inyección"
+kind: task
+description: "E2E sesión-1-captura → sesión-2-recupera con hits; outputtokens ≠ 0; presupuesto del bloque respetado; cargo test -p vanta-proxy verde.\""
+---
+
 # WIRE-01: Loop de memoria del proxy completo + cost real + presupuesto de inyección
 
 ## Metadata

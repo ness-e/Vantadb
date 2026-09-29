@@ -1,3 +1,9 @@
+---
+title: "F3C — S-split-config B+B: diseño (anidado + fachada + unificación env breaking)"
+kind: task
+description: "Anclas estables (sin movimiento desde D0): HotReloadConfig:151, fromconfig:187, applyto:203 (8 update!: prefetchmode, logformat, ratelimitrpm, batchsize, walbuffersize, flushthreshold, insertlocktimeoutms, syncmode), pub struct..."
+---
+
 # F3C — S-split-config B+B: diseño (anidado + fachada + unificación env breaking)
 
 > **Plan:** `docs/dev/plans/2026-09-13-cleanCA-fase3.md` · **Wave:** 2 (tras F3X ✅) · **Ruta:** vanta-arch (diseño + ADR-datos) → vanta-worker (F3C-impl por slices)
@@ -36,7 +42,7 @@ Anclas estables (sin movimiento desde D0): `HotReloadConfig:151`, `from_config:1
 Watcher confinado: `rg -l "watch_config|apply_hot_reload_from_value" src/` → **solo `src/config.rs`** ✅ (constraint INTACTO).
 `git log -- src/config.rs` → **63 commits** (D0: 62; el 63.º es `e5dc9022` C2S2, que solo refactorizó el parseo de `VANTA_BACKEND` vía `BackendKind::from_name` — **cero campos añadidos/eliminados**).
 Struct `Config`: **55 campos `pub`** (53 incondicionales + 2 bajo `#[cfg]` — `advanced-tokenizer`, `hot-reload`) — D0 decía "≈52 (+2)". Como C2S2 no tocó campos, el delta es **ruido de aproximación de D0, NO HALLAZGO**.
-F3X verificado: `13f0f729` creó `src/index/port_impl.rs` (hoja neutral, 424L) + ADR-042; `storage/engine/init.rs` ya migrado — la dependencia "tras F3X" está **SATISFECHA**; F3C-impl relee `init.rs` post-F3X sin colisión activa.
+F3X verificado: `13f0f729` creó `src/index/port_impl.rs` (hoja neutral, 424L) + ADR-0042; `storage/engine/init.rs` ya migrado — la dependencia "tras F3X" está **SATISFECHA**; F3C-impl relee `init.rs` post-F3X sin colisión activa.
 
 ### HALLAZGO H1 — blast radius 102 → 108 ficheros con `Config {` (64 en `src/` + 44 en `tests/`)
 
@@ -137,7 +143,7 @@ Pre-mortem (plan): 108 sitios mecánicos con compilador como red; breaking env c
   `VANTADB_*`; `rg -n "VANTA_" src/config.rs` vacío; `tests/prefetch_benchmark.rs`
   migrado; nota de migración en `docs/user/operations/CONFIGURATION.md` (changelog vía
   release-plz `feat!:` + `BREAKING CHANGE:`, Regla 7); FIND-89 para los 12 ficheros;
-  ADR-043 solo datos (firma = humano, Regla 5).
+  ADR-0043 solo datos (firma = humano, Regla 5).
 - Verify: `cargo check -p vantadb --tests --all-targets` ✅ ·
   `cargo clippy -p vantadb --all-targets -- -D warnings` ✅ (1 `clone_on_copy` fixed) ·
   `cargo fmt --check -p vantadb` ✅ · `cargo test -p vantadb --lib config` 57 ✅
@@ -148,4 +154,4 @@ Pre-mortem (plan): 108 sitios mecánicos con compilador como red; breaking env c
 - **Estado:** ⏳ IN PROGRESS (implementado + verificado, SIN commit — commitea el lead
   con `feat!:` + footer `BREAKING CHANGE:`). nextTask: cierre de campaña.
 
-> **Cierre 2026-09-14:** COMPLETED (diseno + impl C1-C7 B/B/A + 57/57 + 0 legacy; commit d75459fe feat!:+BREAKING CHANGE; ADR-043 datos, firma humana pendiente Regla 5).
+> **Cierre 2026-09-14:** COMPLETED (diseno + impl C1-C7 B/B/A + 57/57 + 0 legacy; commit d75459fe feat!:+BREAKING CHANGE; ADR-0043 datos, firma humana pendiente Regla 5).

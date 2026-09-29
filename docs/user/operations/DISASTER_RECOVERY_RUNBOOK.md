@@ -1,10 +1,9 @@
 ---
 title: VantaDB Disaster Recovery Runbook
-type: operations
+kind: runbook
 status: active
+description: This runbook covers incident response and recovery procedures for VantaDB production deployments. It assumes a single-node embedded deployment (the primary deployment model). Multi-node replication is not yet supported
 tags: [vantadb, operations, dr]
-last_reviewed: 2026-08-22
-aliases: []
 ---
 
 # VantaDB Disaster Recovery Runbook

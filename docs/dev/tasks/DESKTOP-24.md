@@ -1,3 +1,9 @@
+---
+title: "DESKTOP-24: Empaquetado NSIS/MSI (Windows primero) — instalador que conecta nativo + server sin dev env"
+kind: task
+description: "Callers: tauri.conf.json, src-tauri/build.rs, GitHub Actions desktop.yml"
+---
+
 # DESKTOP-24: Empaquetado NSIS/MSI (Windows primero) — instalador que conecta nativo + server sin dev env
 
 ## Metadata

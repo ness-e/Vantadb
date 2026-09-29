@@ -1,3 +1,9 @@
+---
+title: "GOV-TK1: `vanta-cli doctor --fix` con dry-run seguro"
+kind: task
+description: Código real — callback helper error/string (patrón del handler)
+---
+
 # GOV-TK1: `vanta-cli doctor --fix` con dry-run seguro
 
 ## Metadata

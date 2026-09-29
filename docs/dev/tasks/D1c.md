@@ -1,3 +1,8 @@
+---
+title: "D1c — Adelgazar `records_list` (~103) moviendo paginación a caso de uso 🟡"
+kind: task
+---
+
 # D1c — Adelgazar `records_list` (~103) moviendo paginación a caso de uso 🟡
 
 ## 1. Descubrimiento (auto-detect tipo → codegraph blast radius → web si ambigüedad → baseline `/cleanCA <scope>`)

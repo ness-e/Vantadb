@@ -1,3 +1,8 @@
+---
+title: "Task 35: INV-005-A - error.tsx boundary + drop @mdxeditor/editor"
+kind: task
+---
+
 # Task 35: INV-005-A - error.tsx boundary + drop @mdxeditor/editor
 
 ## Metadata

@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Estabilización total + imagen del proyecto — 2026-09-20"
+kind: plan
+status: archived
+description: "Cerrar la release 0.6.0 en los 3 registros, dejar main verde e igual a develop,"
+---
+
 # Plan de Ejecución: Estabilización total + imagen del proyecto — 2026-09-20
 
 > **Campaign ID:** 550f7331-35bf-469f-ba10-1959407cbaf9

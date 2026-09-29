@@ -1,3 +1,9 @@
+---
+title: "ADMIN-01: Exponer snapshot de métricas operativas como comando Tauri `vanta_metrics`"
+kind: task
+description: "cargo check --manifest-path desktop/src-tauri/Cargo.toml pasa; el snapshot incluye derivedprefixscans.\""
+---
+
 # ADMIN-01: Exponer snapshot de métricas operativas como comando Tauri `vanta_metrics`
 
 ## Metadata

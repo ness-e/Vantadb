@@ -1,3 +1,9 @@
+---
+title: "DEF-02: `EXPERIMENTAL_FEATURES.md` regenerado a 0.7.0 + categorías labs"
+kind: task
+description: "cada fila verificada contra código/feature real (evidencia file:line o comando) Y versión 0.7.0 declarada Y categorías labs explícitas Y 0 claims sin respaldo (Regla 11) — pwsh scripts/validate-docs-coverage.ps1 exit 0 (= 0 gaps) Y npx..."
+---
+
 # DEF-02: `EXPERIMENTAL_FEATURES.md` regenerado a 0.7.0 + categorías labs
 
 ## Metadata

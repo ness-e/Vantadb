@@ -1,9 +1,11 @@
 ---
-taskId: MKT-15
-title: "Add competitive benchmark table (VantaDB vs LanceDB vs ChromaDB + Pinecone/Weaviate) to /benchmarks"
+title: Add competitive benchmark table (VantaDB vs LanceDB vs ChromaDB + Pinecone/Weaviate) to /benchmarks
+kind: task
 status: completed
+description: Added a competitive benchmark section (§03) to /benchmarks (BenchmarksView) comparing
+taskId: MKT-15
 branch: develop
-commit: 68e18405e9dcca1254d39f699d9e0ddaad70e483
+commit: "68e18405e9dcca1254d39f699d9e0ddaad70e483"
 ---
 
 ## Summary

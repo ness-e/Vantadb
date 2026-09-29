@@ -1,11 +1,9 @@
 ---
 title: "Review profunda — `vantadb-wasm` (binding wasm-bindgen, OPFS/IndexedDB)"
-type: review
+kind: review
 status: archived
+description: "Fecha: 2026-08-22 · Alcance: lectura completa de src/lib.rs (1937 líneas), src/opfs.rs, src/idb.rs, src/worker.rs, src/opfsbridge.js, Cargo.toml, glue pkg/ (.d.ts), tests (tests/wasmtests.rs, inline, e2e/e2e-persistence.mjs). Contexto..."
 tags: [vantadb, review]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Review profunda — `vantadb-wasm` (binding wasm-bindgen, OPFS/IndexedDB)

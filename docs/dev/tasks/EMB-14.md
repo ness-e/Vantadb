@@ -1,3 +1,9 @@
+---
+title: "EMB-14 — auto-embed en `memory_put`/`put_batch` (cierra FIND-99 con EMB-13)"
+kind: task
+description: "Objetivo: el MCP deje de guardar sin vector siempre: memoryput/memoryputbatch sin vector embeben el payload con el proveedor activo vía UN embedbatch (no 1×1); vector provisto se respeta byte-exacto (no re-embed); fallo del proveedor →..."
+---
+
 # EMB-14 — auto-embed en `memory_put`/`put_batch` (cierra FIND-99 con EMB-13)
 
 > **Plan:** `docs/dev/plans/2026-09-16-embeddings-auto.md` (Wave3, secuencial tras EMB-13)

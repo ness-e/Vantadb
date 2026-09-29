@@ -1,3 +1,9 @@
+---
+title: "FIND-29: Último cast manual `u8*`→`f32*` (from_raw_parts) en layer.rs → align_to canónico"
+kind: task
+description: "Implementación completa y verificada. Pendiente: commit del lead (worker NO commitea — regla del plan)"
+---
+
 # FIND-29: Último cast manual `u8*`→`f32*` (from_raw_parts) en layer.rs → align_to canónico
 
 ## Metadata

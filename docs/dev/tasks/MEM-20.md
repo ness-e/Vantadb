@@ -1,3 +1,9 @@
+---
+title: "MEM-20: F4 Cursor persistente por sesión"
+kind: task
+description: "cargo check -p vanta-memory pasa; tests dedicados de cursor (D19) pasan (cargo nextest run -p vanta-memory), incluido test de idempotencia del cursor (re-procesar el mismo tool call no duplica); cargo fmt --check pasa; cargo clippy -p..."
+---
+
 # MEM-20: F4 Cursor persistente por sesión
 
 ## Metadata

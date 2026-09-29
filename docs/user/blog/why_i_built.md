@@ -1,15 +1,16 @@
 ---
 title: "Why I Built VantaDB: A Local Memory Engine"
-version: 0.5.0
+kind: howto
+description: By ness-e
+tags: [ai-agents, rust, local-first, memory-engine, embedded-database, llm]
+version: "0.5.0"
 slug: why-i-built-vantadb-local-memory-engine
-date: 2026-06-05
-author: "ness-e"
-tags: ["ai-agents", "rust", "local-first", "memory-engine", "embedded-database", "llm"]
-description: "The motivation and architectural decisions behind VantaDB — an embedded, persistent, hybrid retrieval engine purpose-built for local-first AI agent memory."
+date: "2026-06-05"
+author: ness-e
 tag: Story
 readTime: "5 min"
-canonical: https://vantadb.vercel.app/blog/why-i-built-vantadb-local-memory-engine
-draft: true
+canonical: "https://vantadb.vercel.app/blog/why-i-built-vantadb-local-memory-engine"
+draft: "true"
 ---
 
 # Why I Built VantaDB: A Local Memory Engine

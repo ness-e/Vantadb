@@ -1,10 +1,9 @@
 ---
 title: Storage Tiers
-type: architecture
+kind: concept
 status: active
+description: "Vector segments in VantaDB are stored as level-mapped VantaFile (mmap) blocks,"
 tags: [vantadb, architecture]
-last_reviewed: 2026-09-23
-aliases: []
 ---
 
 # Storage Tiers (hot / warm / cold / archive)

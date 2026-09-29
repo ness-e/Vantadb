@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Vanta Studio — Fase 2 (grafo R3F + espacio + operaciones)"
+kind: plan
+status: archived
+description: "Integración por contratos, no por ejecución. La lente GRAFO/IQL de Fase 2 consume el grafo core existente (GraphTraverser, IQL query) — sin cambios de contrato. Cuando vanta-memory F4 añada nodos escena (MEM-12), el visor R3F los..."
+---
+
 # Plan de Ejecución: Vanta Studio — Fase 2 (grafo R3F + espacio + operaciones)
 
 > **Campaign ID:** 8f3a1c6e-5d2b-4a7f-9c01-3e6d8b2f4a70

@@ -1,11 +1,14 @@
 ---
-title: "Antes de cada interacción"
-type: glossary-entry
+title: Antes de cada interacción
+kind: glossary
 status: stable
+description: "#AI Agents"
 tags: [vantadb, glosario, ia, agentes, caso-de-uso]
-last_reviewed: 2026-09-15
+type: glossary-entry
+last_reviewed: "2026-09-15"
 links: "[[README.md]]"
 ---
+
 #AI Agents
 
 ##Definition
@@ -204,10 +207,10 @@ past_reflections = db.search(
 
 ## See Also
 
-- [[rag]] — Retrieval-Augmented Generation
-- [[graphrag]] — Rich context with graphs
-- [[mcp]] — Agent communication protocol
-- [[embedded]] — Local-first architecture
+- [rag](./rag.md) — Retrieval-Augmented Generation
+- [graphrag](./graphrag.md) — Rich context with graphs
+- [mcp](./mcp.md) — Agent communication protocol
+- [embedded](./embedded.md) — Local-first architecture
 
 ---
 

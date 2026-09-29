@@ -1,10 +1,10 @@
 ---
-title: "busqueda-hibrida"
-type: glossary-entry
+title: busqueda-hibrida
+kind: glossary
 status: stable
-tags: [glosario, búsqueda, híbrida, rrf, fusion]
-last_reviewed: 2026-09-15
+description: La busqueda-hibrida combina múltiples estrategias de recuperación (típicamente vectorial + léxica) para aprovechar las fortalezas de cada una y mejorar el recall general del sistema
 aliases: [hybrid search, search fusion, combined search]
+tags: [glosario, busqueda, hibrida, rrf, fusion]
 ---
 
 # busqueda-hibrida
@@ -17,8 +17,8 @@ La **busqueda-hibrida** combina múltiples estrategias de recuperación (típica
 
 | Estrategia | Fortaleza | Debilidad |
 |------------|-----------|-----------|
-| **Vectorial** ([HNSW](HNSW.md)) | Similitud semántica, sinónimos | Keywords exactos, códigos |
-| **Léxica** ([BM25](BM25.md)) | Coincidencia exacta, terminología | Significado contextual |
+| **Vectorial** ([HNSW](./hnsw.md)) | Similitud semántica, sinónimos | Keywords exactos, códigos |
+| **Léxica** ([BM25](./bm25.md)) | Coincidencia exacta, terminología | Significado contextual |
 | **Híbrida** | Ambos | Complejidad de fusión |
 
 ### Ejemplo de Complementariedad
@@ -33,7 +33,7 @@ La **busqueda-hibrida** combina múltiples estrategias de recuperación (típica
 
 El documento #1 rankea alto en ambos métodos → score híbrido superior.
 
-## Reciprocal Rank Fusion ([RRF](RRF.md))
+## Reciprocal Rank Fusion ([RRF](./rrf.md))
 
 VantaDB utiliza RRF para fusionar los rankings de múltiples recuperadores.
 
@@ -227,9 +227,9 @@ En VantaDB:
 
 ## Véase También
 
-- [RRF](RRF.md) - Algoritmo de fusión
+- [RRF](./rrf.md) - Algoritmo de fusión
 - [busqueda-vectorial](vector-search.md) - Similitud semántica
 - [busqueda-lexica](lexical-search.md) - Coincidencia de keywords
-- [HNSW](HNSW.md) - Índice vectorial
-- [BM25](BM25.md) - Scoring léxico
+- [HNSW](./hnsw.md) - Índice vectorial
+- [BM25](./bm25.md) - Scoring léxico
 - [GraphRAG](graphrag.md) - Extensión con grafos

@@ -1,11 +1,9 @@
 ---
-title: "Auditoría Final de Integración del Producto — post roadmap TDAM"
-type: review
+title: Auditoría Final de Integración del Producto — post roadmap TDAM
+kind: review
 status: archived
+description: "Los módulos están construidos y testeado individualmente, pero la integración producto-level tiene 3 huecos críticos donde capacidades terminadas no llegan al usuario final"
 tags: [vantadb, review]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Auditoría Final de Integración del Producto — post roadmap TDAM

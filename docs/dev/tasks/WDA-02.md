@@ -1,3 +1,9 @@
+---
+title: Task WDA-02 — F2 Estructura
+kind: task
+description: "Plan: docs/dev/plans/2026-08-19-web-design-audit.md §6 Task 3 · Ruta: vanta-worker · Estado: ⏳ IN PROGRESS"
+---
+
 # Task WDA-02 — F2 Estructura
 
 **Plan:** docs/dev/plans/2026-08-19-web-design-audit.md §6 Task 3 · **Ruta:** vanta-worker · **Estado:** ⏳ IN PROGRESS

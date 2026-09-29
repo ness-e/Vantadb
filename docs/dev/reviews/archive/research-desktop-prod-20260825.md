@@ -1,11 +1,9 @@
 ---
 title: "INV-desktop-prod — Investigación de producto: Vanta Studio (desktop Tauri 2)"
-type: review
+kind: review
 status: archived
+description: "Usuario: dev AI/backend que corre agentes con VantaDB (embedded local, server HTTP remoto, proxy con upstream LLM, MCP spawn) y necesita inspeccionar/editar/debuggear memorias sin CLI"
 tags: [vantadb, review]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # INV-desktop-prod — Investigación de producto: Vanta Studio (desktop Tauri 2)

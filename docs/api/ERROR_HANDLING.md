@@ -1,10 +1,10 @@
 ---
 title: VantaDB Error Handling Reference
-type: api
+kind: reference
 status: active
+description: This is the canonical contract for how VantaDB surfaces errors across every
+aliases: [DbError, Error, ERROR_CODES, McpError]
 tags: [vantadb, api, errors]
-last_reviewed: 2026-09-26
-aliases: [VantaError, ERROR_CODES, McpError]
 ---
 
 # VantaDB Error Handling Reference
@@ -290,6 +290,24 @@ preserving the error chain natively. The legacy `details.original` /
 The Python binding exposes an `Error(RuntimeError)` base and 10 typed
 subclasses (`MOD-20`). All inherit from `RuntimeError` for backward compat.
 
+> **The base class is named `Error`, not `VantaError`.** There is no
+> `VantaError` in any binding: the `VantaError` name is the *legacy alias* that
+> AST-010 **removed** in 0.6.0, and a separate TS *string* `name` (see below).
+> `catch`/`except` the base as `except vantadb.Error`, or narrow to a subclass.
+
+**Do not conflate the three same-ish names:**
+
+| Language | Type | Defined in |
+|----------|------|-----------|
+| Python | `vantadb.Error` (exception class, extends `RuntimeError`) + 10 subclasses | `vantadb-python/src/convert.rs` (`create_exception!`), re-exported from `vantadb/src/lib.rs` |
+| TypeScript | `DbError` (class) — **its `name` string is `"VantaError"`** | `vantadb-ts/src/errors.ts` |
+| Rust | `vantadb::Error` (`#[non_exhaustive]` enum, 32 variants) | `src/error.rs` |
+
+The Python subclasses mirror the Rust enum 1:1 (`NotFoundError` ←
+`NodeNotFound`/`NotFound`, `BusyError` ← `DatabaseBusy`/`NotInitialized`, …), so
+"an `Error` subclass" and "some `vantadb::Error` variant" usually mean the same
+condition in different languages.
+
 ```
 Error (RuntimeError)
 ├── NotFoundError         # NodeNotFound, NotFound
@@ -442,6 +460,13 @@ with HTTP status codes `400 / 404 / 409 / 422 / 429 / 500`. Mapping from
 
 ## Changelog
 
+- **2026-09-29** — §5 gains a disambiguation table. The Python base class is
+  `Error`, not `VantaError` (the `VantaError` alias was removed in 0.6.0,
+  AST-010); the TS class is `DbError`, whose serialized `name` string remains
+  `"VantaError"` (AST-004); the Rust type is `vantadb::Error`. The Python
+  hierarchy in §5 was already correct and is unchanged. Frontmatter alias
+  `VantaError` → `DbError`/`Error`; changelog `VantaError::code()` →
+  `Error::code()`. No API or wire change.
 - **2026-09-25 (API-01)** — Design Principles gain principle 7 (cross-binding
   envelope `code` + `message` + `context`, no panic) and the
   "`Generic` catch-all (by design)" subsection documenting why `Generic` and
@@ -450,15 +475,15 @@ with HTTP status codes `400 / 404 / 409 / 422 / 429 / 500`. Mapping from
   `code()` / `Display` untouched.
 - **2026-09-02 (ERR-TS-01)** — TS/WASM/Node aligned to the canonical
   `VANTADB_*` wire values: `vantadb-wasm`'s `to_js_err` now calls
-  `VantaError::code()` directly (local 30→8 table removed);
+  `Error::code()` directly (local 30→8 table removed);
   `vantadb-node`'s `map_err` emits `"{CODE}: {Display}"`;
   `vantadb-ts`'s `ERROR_CODES` keeps unprefixed keys but prefixed values
   (BREAKING for `err.code === "VALIDATION_ERROR"`-style comparisons);
   `wrapNativeError` recovers the code (no invented `NATIVE_ERROR`);
-  `guards.validateVector` throws `VantaError(VANTADB_VALIDATION_ERROR)`
+  `guards.validateVector` throws `DbError(ERROR_CODES.VALIDATION_ERROR)`
   instead of `TypeError`/`RangeError` (BREAKING for TypeError catchers);
   `cause` chain set by both wrappers (§4.3).
-- **2026-09-02 (ERR-CORE-01)** — `VantaError::code()` implemented in
+- **2026-09-02 (ERR-CORE-01)** — `Error::code()` implemented in
   `src/error.rs`: 10 canonical `VANTADB_*` codes, exhaustive match, snapshot
   test `error::tests::code_snapshot_all_variants`. Final mapping resolved
    (`IqlParse` → `VANTADB_VALIDATION_ERROR`). Typed overflow variants

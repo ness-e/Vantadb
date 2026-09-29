@@ -1,3 +1,9 @@
+---
+title: FIND-142 — Quitar numeración de filenames de workflows
+kind: task
+description: "Quitar numeración (ci-rust-10.yml→ci-rust.yml, etc.) vía git mv + actualizar todas las referencias en el mismo commit. Contrato: actionlint 0 + checks requeridos resuelven con nuevos nombres + badges 200 + 0 refs rotas (grep en alcance)"
+---
+
 # FIND-142 — Quitar numeración de filenames de workflows
 
 > **Plan:** docs/dev/plans/2026-09-21-workflows-repair.md (Wave 3, tras Waves 0-2 verdes)

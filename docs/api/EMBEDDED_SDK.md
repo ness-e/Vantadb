@@ -1,15 +1,16 @@
 ---
 title: Embedded SDK Reference
-type: api
+kind: reference
 status: active
+description: "Source: src/sdk/mod.rs, src/sdk/builder.rs, src/sdk/api/.rs, src/sdk/graph.rs, src/sdk/search/mod.rs"
 tags: [vantadb, api]
-last_reviewed: 2026-09-01
-aliases: []
+type: api
+last_reviewed: "2026-09-01"
 ---
 
 # Embedded SDK Reference
 
-> Core Rust SDK struct `Embedded` — the primary entry point for all embedded database operations. Used directly in Rust and exposed via [[pyo3|PyO3]] (Python), wasm-bindgen (TypeScript), and [[mcp|MCP]].
+> Core Rust SDK struct `Embedded` — the primary entry point for all embedded database operations. Used directly in Rust and exposed via [PyO3](../user/glosario/pyo3.md) (Python), wasm-bindgen (TypeScript), and [MCP](./MCP.md).
 >
 > **Naming (ADR-041 anti-stutter):** canonical names are `Embedded`, `Config`,
 > `MemoryRecord`, `SearchHit`, `Error`, `MemoryInput`, `MemoryFilter`. Legacy
@@ -78,7 +79,7 @@ CRUD operations for persistent memory records identified by `(namespace, key)` p
 | `count(namespace, filter)` | Count memory records in a namespace, optionally filtered by metadata. Returns `u64`. Filter uses `MemoryFilter` (equality + operators). `None` counts all records |
 | `list(namespace, options)` | List records in a namespace with cursor pagination. Returns `MemoryListPage` |
 | `list_namespaces()` | List all namespaces. Returns `Vec<String>` |
-| `search(request: MemorySearchRequest)` | [[hybrid-search\|Hybrid]] (vector + lexical) search. Returns `Vec<MemorySearchHit>` |
+| `search(request: MemorySearchRequest)` | [hybrid-search](../user/glosario/hybrid-search.md) (vector + lexical) search. Returns `Vec<MemorySearchHit>` |
 | `search_page(request: MemorySearchRequest)` | Same pipeline as `search` with cursor-based pagination (WIRE-08). Returns `MemorySearchPage { hits, next_cursor }`: `next_cursor` is `Some` only when the page is full (`hits.len() == top_k`); a short page is the last page. Resume by passing the token back in `MemorySearchRequest::cursor` — the next page returns hits after the last returned hit's identity in the current ranking. Resume is **best-effort, not a snapshot**: a hit returned in a previous page can be returned again (or skipped) when interleaved writes reorder its rank across the anchor (BM25/IDF are recalculated corpus-wide on every write); writes that rank *before* the anchor are never duplicated. The token is bound to the request's plan fingerprint (mismatch → `SEARCH_CURSOR_INVALID`) and to the current process; pagination is rejected with `mmr`/`group_by`. See [[SEARCH_PARITY\|SEARCH_PARITY]] for the Milvus/Qdrant mapping |
 | `search_with_method(request, method)` | Same as `search` with an explicit index backend override for the dense-vector portion: `Some(IndexType::Ivf)` / `Some(IndexType::Scann)` / `Some(IndexType::Flat)` / `Some(IndexType::Hnsw)`. `None` (default) keeps automatic engine routing untouched; the shared engine config is never mutated (thread-safe, per-search override) |
 | `search_with_entity_boost(request, boost)` | Same as `search` with the opt-in deterministic entity-cluster boost (WIRE-05). Hits sharing an entity cluster with other fused candidates receive an additive delta (`weight × peers × 1/(rrf_k+1)`) before the final ranking. Returns `EntityBoostedSearch { hits, boost_report }` with per-hit provenance (cluster, peers, `base_score`, `delta`) — reversible, no stored data mutated; an empty `EntityBoost` is byte-identical to `search`. Single-channel routes (text-only/vector-only/sparse-only) are returned unchanged |
@@ -124,7 +125,7 @@ pub struct MemorySearchRequest {
     pub top_k: usize,                 // default: 10
     pub distance_metric: DistanceMetric, // Cosine (default) or Euclidean
     pub explain: bool,                // include score breakdown
-    pub exclude_superseded: bool,     // ADR-028 soft-delete filter
+    pub exclude_superseded: bool,     // ADR-0028 soft-delete filter
     pub search_profile: Option<SearchProfileConfig>, // MEM-01 (mode, rrf_k, candidate_k)
     pub range: Option<RangeFilter>,   // WIRE-08: score bounds [min_score, max_score]
     pub group_by: Option<GroupByConfig>, // WIRE-08: { field, group_size }
@@ -133,7 +134,7 @@ pub struct MemorySearchRequest {
 }
 ```
 
-*Note: Lexical search uses the [[bm25|BM25]] algorithm.*
+*Note: Lexical search uses the [BM25](../user/glosario/bm25.md) algorithm.*
 
 #### WIRE-08 search options
 
@@ -325,7 +326,7 @@ Low-level operations on the node-graph model (numeric node IDs, edges, graph tra
 | `graph_accumulator_add(acc, node_id, delta)` | Atomically add `delta` to the accumulator for `node_id`. Returns the previous value |
 | `graph_accumulator_get(acc, node_id)` | Get the current value for `node_id`. Returns `Option<f64>` |
 | `graph_accumulator_snapshot(acc)` | Capture a consistent snapshot of all accumulator values. Returns `HashMap<u128, f64>` |
-| `search_vector(vector, top_k)` | Pure [[hnsw\|HNSW]] vector search. Returns `Vec<SearchHit>` |
+| `search_vector(vector, top_k)` | Pure [hnsw](../user/glosario/hnsw.md) vector search. Returns `Vec<SearchHit>` |
 | `query(iql_query)` | Execute IQL query string. Returns `QueryResult` |
 | `vacuum()` | Purge tombstoned nodes from the HNSW index. Returns a `VacuumReport` with counts and timing |
 | `pipeline(mode)` | Run the segment optimizer pipeline (vacuum → merge → reindex). Each phase is logged independently; a phase failure does not abort subsequent phases |
@@ -452,14 +453,14 @@ per `(owner_agent, name)` while a head exists. Content is stored as-is
 
 | Method | Description |
 |--------|-------------|
-| `flush()` | Flush [[wal\|WAL]] + [[hnsw\|HNSW]] to disk for durability |
-| `compact_wal()` | Archive [[wal\|WAL]] file and start fresh |
-| `vacuum()` | Purge tombstoned nodes from the [[hnsw\|HNSW]] index. Returns a `VacuumReport` with counts and timing |
+| `flush()` | Flush [wal](../user/glosario/wal.md) + [hnsw](../user/glosario/hnsw.md) to disk for durability |
+| `compact_wal()` | Archive [wal](../user/glosario/wal.md) file and start fresh |
+| `vacuum()` | Purge tombstoned nodes from the [hnsw](../user/glosario/hnsw.md) index. Returns a `VacuumReport` with counts and timing |
 | `pipeline()` | Run the segment optimizer pipeline (vacuum → merge → reindex). Each phase is logged independently; a phase failure does not abort subsequent phases |
 | `optimizer_config()` | Return the current segment optimizer configuration |
 | `set_optimizer_config(config)` | Override the segment optimizer configuration. Takes effect on the next pipeline invocation |
 | `purge_expired()` | Delete TTL-expired records. Returns count purged |
-| `rebuild_index()` | Rebuild ANN ([[hnsw\|HNSW]]), derived, and text indexes. Returns `IndexRebuildReport` |
+| `rebuild_index()` | Rebuild ANN ([hnsw](../user/glosario/hnsw.md)), derived, and text indexes. Returns `IndexRebuildReport` |
 | `reindex_hnsw_from_text(namespace, page_size)` | Rebuild the vector index from text records using cursor-based pagination (`page_size` default 1000, max 1000). Safe alternative to unbounded enumeration |
 | `compact_layout()` | BFS-order physical compaction of vector store. Returns nodes compacted |
 
@@ -755,7 +756,7 @@ which can change without a major bump. The HTTP error envelopes in
 - `Error::DimensionMismatch { expected: usize, got: usize }` — vector dimension mismatch
 - `Error::Wal(ChainedError)` — WAL operation failure
 - `Error::WALVersionMismatch { expected: u32, found: u32, hint: String }` — incompatible WAL version
-- `Error::Serialization(#[source] Box<dyn StdError + Send + Sync>)` — bincode/serde failures
+- `Error::Serialization(#[source] Box<dyn StdError + Send + Sync>)` — postcard/serde failures
 - `Error::Io(std::io::Error)` — filesystem errors
 - `Error::IncompatibleFormat { expected_magic, expected_version, found_magic, found_version, hint }` — incompatible binary format
 - `Error::NotInitialized` — engine not open

@@ -1,3 +1,9 @@
+---
+title: "MCP-01: S1 — text_query/hybrid/filters-text rotos vía MCP (text_index not found: bm25)"
+kind: task
+description: "python C:\Users\Eros\AppData\Local\Temp\opencode\test-busqueda.py pasa T09 (textquery solo), T11 (hybrid) y T13 (filters text) contra vanta-cli server --mcp --db <temp-fresh>; además cargo check -p vantadb-mcp -p vantadb-server y cargo..."
+---
+
 # MCP-01: S1 — text_query/hybrid/filters-text rotos vía MCP (text_index not found: bm25)
 
 ## Metadata

@@ -1,3 +1,9 @@
+---
+title: "HARD-01: Rails de breaking changes (semver-checks + public-api + docs de migración)"
+kind: task
+description: cargo semver-checks check-release exit 0 (o findings triados y documentados) Y cargo test -p vantadb --test publicapi verde con snapshot commiteado Y DEPRECATIONS.md + COMPATIBILITY.md + UPGRADE.md (en docs/user/operations/) existen con...
+---
+
 # HARD-01: Rails de breaking changes (semver-checks + public-api + docs de migración)
 
 ## Metadata

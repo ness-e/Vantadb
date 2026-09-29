@@ -1,3 +1,9 @@
+---
+title: "PERF-03: Bench competitivo de SDKs (VantaDB vs Qdrant/Chroma/Milvus-frugal)"
+kind: task
+description: "benchmarks/competitivebench.py corre en este HW (Python 3.11.9, vantadbpy+lancedb+chromadb+qdrantclient+pymilvus 2.5.18+milvus-lite 3.2.0 disponibles) produciendo tabla honesta publicada en docs/user/benchmarks/COMPETITIVESDKBENCH.md..."
+---
+
 # PERF-03: Bench competitivo de SDKs (VantaDB vs Qdrant/Chroma/Milvus-frugal)
 
 ## Metadata

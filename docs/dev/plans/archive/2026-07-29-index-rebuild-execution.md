@@ -1,3 +1,10 @@
+---
+title: Index Rebuild Optimization — Execution Plan
+kind: plan
+status: archived
+description: "Goal: Implementar Propuesta 1b (incremental threshold) + Propuesta 3 (layer-wise) + Propuesta 4 (flatten) del documento INDEXREBUILDOPTIMIZATION.md. Dejar Propuesta 2 (NN-Descent) para fase posterior"
+---
+
 # Index Rebuild Optimization — Execution Plan
 
 > **For sub-agents:** Implementación por fases, cada fase es una tarea independiente delegable a un sub-agente con contexto limitado.

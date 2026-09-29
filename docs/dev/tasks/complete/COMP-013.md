@@ -1,3 +1,9 @@
+---
+title: COMP-013 — Segment Optimizer Pipeline (Vacuum/Merge/Index)
+kind: task
+description: "Estado: ✅ COMPLETED — 2026-07-27"
+---
+
 # COMP-013 — Segment Optimizer Pipeline (Vacuum/Merge/Index)
 
 **Estado:** ✅ COMPLETED — 2026-07-27

@@ -1,3 +1,9 @@
+---
+title: "AUDREP-01: Storage-Panic — compact_layout panic sobre datos truncados"
+kind: task
+description: Prevenir panic fatal del proceso en compactlayout cuando el vstore tiene un
+---
+
 # AUDREP-01: Storage-Panic — compact_layout panic sobre datos truncados
 
 ## Metadata

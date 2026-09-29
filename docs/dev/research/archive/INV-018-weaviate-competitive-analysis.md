@@ -1,16 +1,19 @@
 ---
 title: "INV-018 — Weaviate: Análisis Competitivo de Arquitectura de Almacenamiento y Recuperación"
+kind: research
+status: archived
+description: "Scope: Análisis de ingeniería de sistemas de la arquitectura interna de Weaviate (almacenamiento, indexación vectorial, memoria, concurrencia, API), evaluado desde la perspectiva de qué decisiones informan el diseño de VantaDB en Rust"
+tags: [weaviate, competitive-analysis, hnsw, lsm, quantization, gc, benchmarks]
 tipo: investigacion
 id: INV-018
-titulo: "Weaviate — Análisis Competitivo de Arquitectura de Almacenamiento y Recuperación"
-fecha: 2026-08-04
-fecha_extraccion: 2026-08-04
-fuente: "VANTADB DOC OLD/weaviate.md (eliminado)"
+titulo: Weaviate — Análisis Competitivo de Arquitectura de Almacenamiento y Recuperación
+fecha: "2026-08-04"
+fecha_extraccion: "2026-08-04"
+fuente: VANTADB DOC OLD/weaviate.md (eliminado)
 estado: extracted/archived
-referencias_citadas: 34
+referencias_citadas: "34"
 gap_cubierto: "B1 — latencias Weaviate (~20-80ms) pasan de 'sin validar' a respaldadas (ver docs/user/web/standards/product-positioning.md §4)"
 relacionada: INV-007 (competitive-benchmark-lancedb-chroma)
-tags: [weaviate, competitive-analysis, hnsw, lsm, quantization, gc, benchmarks]
 ---
 
 # INV-018 — Weaviate: Análisis Competitivo de Arquitectura

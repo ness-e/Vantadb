@@ -1,3 +1,9 @@
+---
+title: "Task API-04 — W3 MCP: nombres canónicos + schemas estrictos + errores tipados + refresh local"
+kind: task
+description: "Estandarizar la superficie MCP según Gate P (API-STD-15, eje MCP): 1 nombre canónico por tool (quitar alias doble), JSON Schema estricto, invalidparams temprano, errores tipados (no string), separar prompts/resources/tools, threadid..."
+---
+
 # Task API-04 — W3 MCP: nombres canónicos + schemas estrictos + errores tipados + refresh local
 
 > **Plan:** `docs/dev/plans/2026-09-24-api-ejecucion.md` (§Task 4)

@@ -1,26 +1,32 @@
-# MEM-49 - ADR-029 articulación humana + gate D24-D37
+---
+title: MEM-49 - ADR-0029 articulación humana + gate D24-D37
+kind: task
+description: "Plan: docs/dev/plans/2026-08-22-vanta-final-cierre.md → Task 7 → Estado inicial ⬜ PENDING"
+---
+
+# MEM-49 - ADR-0029 articulación humana + gate D24-D37
 
 **Plan:** `docs/dev/plans/2026-08-22-vanta-final-cierre.md` → Task 7 → Estado inicial ⬜ PENDING
 **Crate:** ninguno (docs-only) · **Ruta:** vanta-docs prepara → AUTOR HUMANO edita → lead commitea · Human-in-loop (D41, Regla 5)
 
 ## Objetivo
-La IA prepara el material de revisión (documento-guía socrático con contexto, evidencia file:line, consecuencias y preguntas socráticas por decisión D21-D36). **NO redacta decisiones en primera persona.** El AUTOR HUMANO edita ADR-029 con sus palabras, firma y commitea. La tarea IA queda COMPLETED cuando el material está preparado; la articulación humana queda AGENDADA explícitamente para el usuario.
+La IA prepara el material de revisión (documento-guía socrático con contexto, evidencia file:line, consecuencias y preguntas socráticas por decisión D21-D36). **NO redacta decisiones en primera persona.** El AUTOR HUMANO edita ADR-0029 con sus palabras, firma y commitea. La tarea IA queda COMPLETED cuando el material está preparado; la articulación humana queda AGENDADA explícitamente para el usuario.
 
 ## Impacto mapeado (Regla 0)
-- **Leídos completos:** `docs/dev/architecture/adr/ADR-029-vanta-memory-context-engine.md` (155L), `docs/dev/plans/2026-08-22-vanta-final-cierre.md` (Task 7 + encabezado D38-D41), `docs/dev/plans/archive/2026-08-21-vanta-proxy-knowledge.md` (294L — definiciones D24-D37).
+- **Leídos completos:** `docs/dev/architecture/adr/ADR-0029-vanta-memory-context-engine.md` (155L), `docs/dev/plans/2026-08-22-vanta-final-cierre.md` (Task 7 + encabezado D38-D41), `docs/dev/plans/archive/2026-08-21-vanta-proxy-knowledge.md` (294L — definiciones D24-D37).
 - **Fuentes de evidencia consultadas:** `docs/dev/research/tdam/07-proxy.md`, `docs/dev/research/tdam/08-knowledge-panel-sdk.md`; código: `vanta-proxy/src/{rate_limit,auth,session,inject,mem_command,config}.rs`, `src/wiki/{sources,chunker,state,store}.rs`, `src/graph.rs`, `vanta-memory/src/ingest/callback.rs`.
-- **Referencias entrantes:** ninguna en código; ADR-029 recibirá un puntero al documento-guía.
-- **Veredicto:** cambio aditivo docs-only (2 archivos nuevos + 1 bloque en ADR-029). Cero blast radius en Rust/bindings. Sin deps.
+- **Referencias entrantes:** ninguna en código; ADR-0029 recibirá un puntero al documento-guía.
+- **Veredicto:** cambio aditivo docs-only (2 archivos nuevos + 1 bloque en ADR-0029). Cero blast radius en Rust/bindings. Sin deps.
 
 ## Steps
 - [x] S1 - Task file creado + Regla 0 mapeada.
-- [x] S2 - `docs/dev/architecture/adr/guia-revision-ADR-029-y-D24-D37.md`: una entrada por decisión (D21, D22, D23, D24, D25+D34, D26, D27, D28, D29, D30, D31, D32, D33, D35, D36) con: trade-off/alternativas, evidencia técnica (file:line), consecuencias asumidas, preguntas socráticas (en segunda persona, para el autor). Sección final: checklist del autor (editar ADR-029 en primera persona, firmar, commit propio). D37 (riesgos aceptados 2026-08-21) referenciada como marco transversal.
-- [x] S3 - ADR-029: bloque `> ⏳ BORRADOR — pendiente articulación humana...` insertado al inicio (no existía el puntero a la guía).
+- [x] S2 - `docs/dev/architecture/adr/ADR-0053-adr-029-review-guide.md`: una entrada por decisión (D21, D22, D23, D24, D25+D34, D26, D27, D28, D29, D30, D31, D32, D33, D35, D36) con: trade-off/alternativas, evidencia técnica (file:line), consecuencias asumidas, preguntas socráticas (en segunda persona, para el autor). Sección final: checklist del autor (editar ADR-0029 en primera persona, firmar, commit propio). D37 (riesgos aceptados 2026-08-21) referenciada como marco transversal.
+- [x] S3 - ADR-0029: bloque `> ⏳ BORRADOR — pendiente articulación humana...` insertado al inicio (no existía el puntero a la guía).
 - [x] S4 - Verify: ambos archivos existen; rutas citadas verificadas contra filesystem (sin rutas rotas); inglés técnico.
 - [x] S5 - `campaign_update_task_state` taskId=7 completed + recitation §3 aclarando: trabajo IA hecho, articulación humana AGENDADA para el usuario.
 
 ## Contrato de verificación
-Docs-only: no aplica cargo verify. Verificación mecánica = existencia de archivos + grep de referencias internas resuelve (paths existen) + ADR-029 contiene el bloque BORRADOR apuntando a la guía. Sin commit (regla explícita del orquestador: NO commitear).
+Docs-only: no aplica cargo verify. Verificación mecánica = existencia de archivos + grep de referencias internas resuelve (paths existen) + ADR-0029 contiene el bloque BORRADOR apuntando a la guía. Sin commit (regla explícita del orquestador: NO commitear).
 
 ## Context Save Point
 - REGLA 5 CRÍTICA: la guía NO redacta decisiones en primera persona. Las preguntas socráticas verifican comprensión del autor; las respuestas las escribe él en el ADR.

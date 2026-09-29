@@ -1,3 +1,9 @@
+---
+title: PRX-05 — Model discovery + endpoints auxiliares
+kind: task
+description: cargo test -p vanta-proxy 0 failed + GET /v1/models + counttokens + beta headers ✅ + cargo clippy -p vanta-proxy -- -D warnings 0
+---
+
 # PRX-05 — Model discovery + endpoints auxiliares
 
 > **Plan:** docs/dev/plans/2026-09-09-backlog.md (Task 4, Wave1)

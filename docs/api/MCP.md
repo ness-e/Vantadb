@@ -1,10 +1,9 @@
 ---
 title: VantaDB Model Context Protocol (MCP) Server
-type: api
+kind: reference
 status: active
+description: "Current MCP implementation version: 0.7.0"
 tags: [vantadb, api]
-last_reviewed: 2026-09-02
-aliases: []
 ---
 
 # VantaDB Model Context Protocol (MCP) Server
@@ -109,7 +108,7 @@ over stdio. Every error response carries both a **JSON-RPC transport code**
 from the 10-element contract in [`docs/api/ERROR_HANDLING.md`](ERROR_HANDLING.md).
 
 > **Canonical reference:** [`docs/api/ERROR_HANDLING.md`](ERROR_HANDLING.md) §6
-> — full code table, LLM retry guidance, and the upcoming `From<VantaError>
+> — full code table, LLM retry guidance, and the upcoming `From<Error>
 > for McpError` impl from `ERR-MCP-01`.
 
 ### JSON-RPC standard factories (5)
@@ -128,12 +127,13 @@ unknown method, invalid params, internal failure):
 
 ### Vanta custom `-320xx` codes
 
-Implemented in `ERR-MCP-01` as `impl From<VantaError> for McpError`
-(`vantadb-mcp/src/error.rs`). The mapping is driven by the canonical
-`VantaError::code()` string — never by re-matching variants — so the table
-below is a projection of the core §1.1 codes onto the JSON-RPC range:
+Implemented in `ERR-MCP-01` as `impl From<Error> for McpError`
+(`vantadb-mcp/src/error.rs`, from the Rust core `vantadb::Error`). The mapping
+is driven by the canonical `Error::code()` string — never by re-matching
+variants — so the table below is a projection of the core §1.1 codes onto the
+JSON-RPC range:
 
-| JSON-RPC code | `VantaError::code()` source | Canonical `data.code` | LLM retry? |
+| JSON-RPC code | `Error::code()` source | Canonical `data.code` | LLM retry? |
 |---------------|------------------------------|------------------------|:----------:|
 | `-32001` | `VANTADB_BUSY` (`DatabaseBusy`, `NotInitialized`) | `VANTADB_BUSY` | ✅/❌ per `data.retriable` |
 | `-32002` | `VANTADB_CORRUPT` (`WALVersionMismatch`, `IncompatibleFormat`, `SchemaError`, `SerializationError`, `RestoreError`, `BackupError`) | `VANTADB_CORRUPT` | ❌ |
@@ -162,7 +162,7 @@ domain failures expose the same fields as JSON-RPC errors. The legacy
 ### Response envelope
 
 Every JSON-RPC error response from VantaDB MCP carries the canonical code in
-`data.code` (the prefixed `VANTADB_*` value returned by `VantaError::code()`;
+`data.code` (the prefixed `VANTADB_*` value returned by `Error::code()`;
 `data.hint` is omitted when the error has no recovery hint), plus `retriable`
 so LLM agents can branch on a stable identifier without parsing message text:
 

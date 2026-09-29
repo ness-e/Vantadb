@@ -1,4 +1,16 @@
+---
+title: "FND-01: Regla de presupuesto de memoria (compute/storage separation) + benchmark OOM + back-pressure"
+kind: research
+status: archived
+description: "Estado: ✅ Resuelto (benchmark + regla normativa + fix FND-01-F1 aplicado)"
+---
+
 # FND-01: Regla de presupuesto de memoria (compute/storage separation) + benchmark OOM + back-pressure
+
+> ⚠️ **STALE.** La mención a `VantaError::ResourceLimit` es una observación de
+> la investigación. La variante real del back-pressure en el core es
+> `vantadb::Error::ResourceLimit(String)` (`src/error.rs`) → `ResourceLimitError`
+> en Python. Ver `docs/api/ERROR_HANDLING.md` §5.
 
 **Estado:** ✅ Resuelto (benchmark + regla normativa + fix FND-01-F1 aplicado)
 **Fecha:** 2026-08-16

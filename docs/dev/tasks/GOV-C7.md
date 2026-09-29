@@ -1,3 +1,8 @@
+---
+title: GOV-C7 — Contador Backlog corrección+regla + ROADMAP banner sin cifra (Wave3) + taxonomía ops follow-up
+kind: task
+---
+
 # GOV-C7 — Contador Backlog corrección+regla + ROADMAP banner sin cifra (Wave3) + taxonomía ops follow-up
 
 ## Metadata

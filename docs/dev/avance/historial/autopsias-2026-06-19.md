@@ -1,10 +1,8 @@
 ---
-title: "Historial — Autopsias 2026-06-19 (AUD-01..44)"
-type: historial
+title: Historial — Autopsias 2026-06-19 (AUD-01..44)
+kind: review
 status: active
-tags: [vantadb, avance, auditoria, autopsias, 2026-06]
-last_reviewed: 2026-08-07
-aliases: []
+tags: [vantadb, avance, auditoria, autopsias, "2026-06"]
 ---
 
 # Historial — Autopsias 2026-06-19

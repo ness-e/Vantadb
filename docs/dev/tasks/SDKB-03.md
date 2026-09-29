@@ -1,3 +1,9 @@
+---
+title: "SDKB-03: Sub-clientes Python (espejo de SDKB-02)"
+kind: task
+description: "pytest pasa (suite existente intacta = backward-compat); tests nuevos espejo SDKB-02: db.memory., db.graph., db.system., db.wiki. delegan al método plano con resultado/firma idénticos\""
+---
+
 # SDKB-03: Sub-clientes Python (espejo de SDKB-02)
 
 ## Metadata

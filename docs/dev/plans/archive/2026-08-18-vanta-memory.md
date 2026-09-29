@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Vanta Memory Engine — port de TDAM (F1–F7)"
+kind: plan
+status: archived
+description: "Integración por contratos, no por ejecución — campañas independientes (velocidades distintas: Studio Fase 0 en curso; este plan draft). Ningún contrato es bloqueante; la integración real se toca cuando F4/F5 existan (2ª iteración, D11..."
+---
+
 # Plan de Ejecución: Vanta Memory Engine — port de TDAM (F1–F7)
 
 > **Campaign ID: 41757e63-d72d-423a-95eb-12d5ea849d1a

@@ -1,3 +1,9 @@
+---
+title: "MCP-05: D1 — Sección \\\\\\\\"Hybrid Search\\\\\\\\" declara búsqueda textual/híbrida no funcional"
+kind: task
+description: "skills/vantadb-mcp/SKILL.md ya no promete text search/hybrid sin nota; tras el fix MCP-01 verificado, la doc coincide con el comportamiento real (o marca la limitación con referencia a MCP-01); copia sync a .opencode/skills/vantadb-mcp/..."
+---
+
 # MCP-05: D1 — Sección "Hybrid Search" declara búsqueda textual/híbrida no funcional
 
 ## Metadata

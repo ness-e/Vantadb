@@ -1,3 +1,9 @@
+---
+title: "AGT-04: Limpieza .opencode/opencode-loop/ — corrupt/tmp + rotación"
+kind: task
+description: "corrupt/tmp eliminados; rotación agregada al loop server\" — verify"
+---
+
 # AGT-04: Limpieza .opencode/opencode-loop/ — corrupt/tmp + rotación
 
 ## Metadata

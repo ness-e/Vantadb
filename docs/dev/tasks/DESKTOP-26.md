@@ -1,3 +1,9 @@
+---
+title: "DESKTOP-26: Tests frontend Vanta Studio — vitest unit stores/lentes + integración bridge mock"
+kind: task
+description: N/A — test infrastructure con contrato mecánico
+---
+
 # DESKTOP-26: Tests frontend Vanta Studio — vitest unit stores/lentes + integración bridge mock
 
 ## Metadata

@@ -1,3 +1,9 @@
+---
+title: "CORE-02 — Bug IQL transporte WASM: graph-store vacío en modo standalone"
+kind: task
+description: "El comentario de vantaquery: unsupported en desktop/src/vanta-wasm-map.ts:167-174"
+---
+
 # CORE-02 — Bug IQL transporte WASM: graph-store vacío en modo standalone
 
 ## Estado: ✅ COMPLETED

@@ -1,3 +1,9 @@
+---
+title: Task MCP-28 — Bulk import no escribe __vanta_namespace/__vanta_key
+kind: task
+description: "Fuente de verdad: docs/dev/Backlog.md → fase P25 → fila MCP-28 (leer ANTES de ejecutar)"
+---
+
 # Task MCP-28 — Bulk import no escribe __vanta_namespace/__vanta_key
 
 **Fuente de verdad:** `docs/dev/Backlog.md` → fase **P25** → fila `MCP-28` (leer ANTES de ejecutar).

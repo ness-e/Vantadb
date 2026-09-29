@@ -1,3 +1,8 @@
+---
+title: "Task File: INV-013-B"
+kind: task
+---
+
 # Task File: INV-013-B
 
 > **Plan:** `docs/dev/plans/2026-08-05-backlog-validation-actions.md` — Task 36 (Fase 5 Web Frontend)

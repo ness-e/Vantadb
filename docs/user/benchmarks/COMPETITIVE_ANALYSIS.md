@@ -1,11 +1,9 @@
 ---
-title: "VantaDB Competitive Analysis"
-type: benchmark
+title: VantaDB Competitive Analysis
+kind: report
 status: active
+description: "De 184 QPS → 3,157 QPS (GloVe baseline pre-regresión). Empate técnico con ChromaDB (~2,905 vs ~2,981 QPS GloVe)"
 tags: [vantadb, benchmarks, competitive-analysis, comparison]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # VantaDB Competitive Analysis

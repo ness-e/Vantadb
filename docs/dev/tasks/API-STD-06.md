@@ -1,3 +1,9 @@
+---
+title: Task API-STD-06 — INDIVIDUAL (5/11) WASM
+kind: task
+description: "Ficha individual WASM: funcionamiento + uso + código + veredicto"
+---
+
 # Task API-STD-06 — INDIVIDUAL (5/11) WASM
 
 > **Plan:** `docs/dev/plans/2026-09-24-api-estandarizacion.md`

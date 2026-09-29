@@ -1,3 +1,9 @@
+---
+title: "HIGH-007: Re-validar Skills tras Discovery — skills actualizadas si tipo cambia"
+kind: task
+description: Contrato del plan (HIGH-007)
+---
+
 # HIGH-007: Re-validar Skills tras Discovery — skills actualizadas si tipo cambia
 
 ## Metadata

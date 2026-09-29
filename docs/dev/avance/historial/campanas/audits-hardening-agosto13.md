@@ -1,11 +1,9 @@
 ---
-title: "Serie AUD-0xx — hardening y auditoría 2026-08-13"
-type: registro
+title: Serie AUD-0xx — hardening y auditoría 2026-08-13
+kind: review
 status: archived
+description: "Fuente: Backlog AUD-031 (derivado del audit full 2026-08-12, docs/dev/reviews/audit-full-20260812-231204.md)"
 tags: [vantadb, avance, campana]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Serie AUD-0xx — hardening y auditoría 2026-08-13

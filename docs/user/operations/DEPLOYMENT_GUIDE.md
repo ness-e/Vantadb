@@ -1,10 +1,9 @@
 ---
 title: VantaDB Deployment Guide
-type: operations
+kind: runbook
 status: active
+description: "VantaDB runs as a single binary with zero external runtime dependencies (no JVM, no Python, no system database). This makes it straightforward to deploy in production, embedded or as a standalone HTTP/MCP server"
 tags: [vantadb, operations, deployment]
-last_reviewed: 2026-07-10
-aliases: []
 ---
 
 # VantaDB Deployment Guide

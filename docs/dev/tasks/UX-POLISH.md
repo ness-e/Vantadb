@@ -1,3 +1,9 @@
+---
+title: "UX-POLISH: Grupo pulido UX desktop (UX-09, 10, 11, 12, 13, 14, 15, 17)"
+kind: task
+description: "cd desktop && npm run build exit 0 + npx vitest run pasa; empty states con acción (DataExplorer/ResultsList); fmtBytes compartido (1 implementación, re-export desde indices-core); PersonaPanel propaga error real (onError +..."
+---
+
 # UX-POLISH: Grupo pulido UX desktop (UX-09, 10, 11, 12, 13, 14, 15, 17)
 
 ## Metadata

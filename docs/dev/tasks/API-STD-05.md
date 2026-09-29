@@ -1,3 +1,9 @@
+---
+title: Task API-STD-05 — INDIVIDUAL (4/11) Node nativo
+kind: task
+description: "Ficha individual Node NAPI: funcionamiento + uso + código + veredicto"
+---
+
 # Task API-STD-05 — INDIVIDUAL (4/11) Node nativo
 
 > **Plan:** `docs/dev/plans/2026-09-24-api-estandarizacion.md`

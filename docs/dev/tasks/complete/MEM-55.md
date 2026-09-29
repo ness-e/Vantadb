@@ -1,3 +1,9 @@
+---
+title: MEM-55 — conversation/add dispara extracción L1 (H6)
+kind: task
+description: "Plan: docs/dev/plans/2026-08-22-vanta-ultima-milla.md · Task 7 · Estado inicial: ⬜ PENDING"
+---
+
 # MEM-55 — conversation/add dispara extracción L1 (H6)
 
 **Plan:** docs/dev/plans/2026-08-22-vanta-ultima-milla.md · Task 7 · Estado inicial: ⬜ PENDING

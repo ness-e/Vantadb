@@ -1,3 +1,9 @@
+---
+title: "FIND-48: Split src/index/graph.rs 2031L por concern"
+kind: task
+description: "RIESGO: bajo (refactor mecánico con precedente: impl CPIndex ya distribuido en search/, serialize/, stats.rs)"
+---
+
 # FIND-48: Split src/index/graph.rs 2031L por concern
 
 ## Metadata

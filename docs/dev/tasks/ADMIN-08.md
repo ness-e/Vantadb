@@ -1,3 +1,9 @@
+---
+title: "ADMIN-08: Processes & Connections — panel de procesos y conexiones con kill/remove"
+kind: task
+description: npm run build en desktop/ ✅ (verificable); panel lista conexiones activas del ConnectionManager con acción shutdown por entrada (manager.remove vía vantadisconnect); subprocesos como futura extensión documentada (no hay registry en el...
+---
+
 # ADMIN-08: Processes & Connections — panel de procesos y conexiones con kill/remove
 
 ## Metadata

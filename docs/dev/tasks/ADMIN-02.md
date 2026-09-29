@@ -1,3 +1,9 @@
+---
+title: "ADMIN-02: Métricas vivas — deltas entre snapshots de `vanta_metrics` en desktop UI"
+kind: task
+description: "npm run build en desktop/ pasa; el frontend muestra deltas de contadores (imports, queries, scans), RSS actual, y poll interval.\""
+---
+
 # ADMIN-02: Métricas vivas — deltas entre snapshots de `vanta_metrics` en desktop UI
 
 ## Metadata

@@ -1,13 +1,13 @@
 ---
-title: "Transactional"
-type: glossary-entry
+title: Transactional
+kind: glossary
 status: stable
-tags: [concept, acid, durabilidad, consistencia]
-last_reviewed: 2026-09-15
-links: "[[README.md]]"
+description: "##Definition"
 aliases: [Transaccional, ACID, Transactional]
-description: "Propiedad de un sistema que garantiza que las operaciones sobre datos cumplan las propiedades ACID (Atomicidad, Consistencia, Aislamiento, Durabilidad)"
+tags: [concept, acid, durabilidad, consistencia]
+links: "[[README.md]]"
 ---
+
 # Transactional
 
 ##Definition
@@ -18,10 +18,10 @@ A **transactional** system guarantees that operations on data comply with the **
 
 | Propiedad | Definición | Implementación en VantaDB |
 |-----------|-----------|--------------------------|
-| **Atomicidad** | Todo o nada: una transacción se completa entera o no se aplica | [[wal]] + rollback automático |
+| **Atomicidad** | Todo o nada: una transacción se completa entera o no se aplica | [wal](./wal.md) — replay trunca en el primer registro inválido; batch-append con `batch_insert_with_opts` bajo un único guard |
 | **Consistencia** | El sistema pasa de un estado válido a otro estado válido | Validación de constraints + índices derivados |
-| **Aislamiento** | Transacciones concurrentes no interfieren entre sí | [[mvcc]] en [[fjall]] + [[rwlock]] |
-| **Durabilidad** | Una transacción confirmada sobrevive a crashes | [[wal]] con [[fsync]] + [[crc32c]] |
+| **Aislamiento** | Escrituras serializadas; lecturas concurrentes coherentes por orden WAL→storage | `insert_lock` global (`RwLock`) + orden del WAL — **no** MVCC |
+| **Durabilidad** | Una transacción confirmada sobrevive a crashes | [wal](./wal.md) con [fsync](./fsync.md) + [crc32c](./crc32c.md) |
 
 ##Why it Matters in VantaDB
 
@@ -46,7 +46,7 @@ Agente de IA                VantaDB                    Disco
 
 ### Fundamental Rule
 
-> **No mutation is confirmed to the client until the [[wal]] is synchronized to physical disk using [[fsync]].**
+> **No mutation is confirmed to the client until the [wal](./wal.md) is synchronized to physical disk using [fsync](./fsync.md).**
 
 Esto diferencia a VantaDB de sistemas que:
 - Escriben en memoria y hacen flush periódico (riesgo de pérdida)
@@ -65,7 +65,7 @@ Transacción Atómica
 ├── Metadatos tipados (payload)
 └── Índices derivados (hnsw, bm25)
 ```
-*Components linked in transaction:* [[vectors]], [[graph]], [[hnsw]], [[bm25]]
+*Components linked in transaction:* [vectors](./vectors.md), [graph](./graph.md), [hnsw](./hnsw.md), [bm25](./bm25.md)
 
 
 If you update a document:
@@ -79,21 +79,32 @@ If you update a document:
 
 ## Configurable Durability Levels
 
-VantaDB supports (or should support) multiple synchronization modes:
+VantaDB implementa tres modos de sincronización configurables (`SyncMode`,
+`src/config.rs:88`), evaluados en `WalWriter::maybe_sync` (`src/wal.rs:377`):
 
 | Modo | Descripción | Latencia | Riesgo |
 |------|-------------|----------|--------|
-| **SyncAlways** | fsync en cada write | Alta (~5-10ms) | Cero pérdida de datos |
-| **SyncPeriodic** | fsync cada N ms | Baja (<1ms) | Pérdida de últimos N ms |
-| **SyncNever** | Sin fsync (OS decide) | Mínima | Pérdida potencial alta |
+| `SyncMode::Always` | sync en cada write | Alta (~5-10ms) | Cero pérdida de datos |
+| `SyncMode::Periodic` *(default)* | sync cada `flush_threshold` registros; threshold default = 1 → **equivale a sync por write** | Baja | ≤ `flush_threshold - 1` registros |
+| `SyncMode::Never` | Sin sync automático (OS decide) | Mínima | Pérdida potencial de los últimos writes |
 
-> ⚠️ **Audit Finding (AUD-01):** The snapshot does not demonstrate that VantaDB implements configurable synchronous fsync. This is **blocking** for durability claims.
+> ✅ **AUD-01 cerrado:** el sync-before-ACK está implementado y verificado
+> (`maybe_sync` → `WalWriter::sync()` = `flush()` + `sync_data()`), y los modos
+> son configurables vía `with_sync_mode()` / `with_flush_threshold()` o
+> `VANTADB_FLUSH_THRESHOLD`. Ver [fsync](./fsync.md).
+
+**Matiz importante sobre aislamiento:** el mecanismo real no es MVCC. VantaDB
+serializa las escrituras con un `insert_lock` global (`RwLock`) de proceso; la
+coherencia entre réplicas concurrentes de lectura y escritura la garantiza el
+orden WAL→storage, no el aislamiento snapshot. Los "transaction buffers" del
+commit path existen (`src/ingestion.rs`, `commit_transaction`) pero no ofrecen
+aislamiento multi-versión.
 
 ## Comparison with Alternatives
 
 | Sistema | Transaccional | Atomicidad Multi-Modelo | Durabilidad Real |
 |---------|--------------|------------------------|------------------|
-| **VantaDB** | ✅ ACID completo | ✅ Doc + Vector + Grafo | ✅ WAL + fsync |
+| **VantaDB** | ⚠️ Parcial — A y D sólidas (WAL + CRC32C + sync configurable); I por serialización (`insert_lock`), no MVCC | ✅ Doc + Vector + Grafo | ✅ WAL + CRC32C + sync por write (default) |
 | **Pinecone** | Parcial | ❌ Solo vectores | ✅ Cloud-managed |
 | **ChromaDB** | ⚠️ Básico | ⚠️ Doc + Vector | ⚠️ Dependiente de backend |
 | **Qdrant** | ✅ ACID | ⚠️ Doc + Vector + Payload | ✅ WAL |
@@ -107,17 +118,16 @@ Many systems claim to be transactional but:
 - Rebuild indexes from inconsistent state
 
 VantaDB must **demonstrate** transactionality by:
-1. Crash-injection tests ([[chaos-testing]])
-2. Checksum verification [[crc32c]] in replay
+1. Crash-injection tests ([chaos-testing](./chaos-testing.md))
+2. Checksum verification [crc32c](./crc32c.md) in replay
 3. Post-recovery consistency validation
 
 ## See Also
 
-- [[wal]] — Mechanism that enables durability
-- [[fsync]] — Physical persistence guarantee
-- [[crc32c]] — Record Integrity
-- [[mvcc]] — Isolation of concurrent transactions
-- [[fjall]] — Backend with native transactional support
+- [wal](./wal.md) — Mechanism that enables durability
+- [fsync](./fsync.md) — Physical persistence guarantee
+- [crc32c](./crc32c.md) — Record Integrity
+- [file-locking](./file-locking.md) — Exclusión entre procesos (`.vanta.lock`)
 
 ---
 

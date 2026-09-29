@@ -1,3 +1,9 @@
+---
+title: "DESKTOP-08 — Cliente IQL tipado + tests mock (Wave 0, paralelo)"
+kind: task
+description: "La API real del servidor VantaDB tiene 3 endpoints (/health, /metrics,"
+---
+
 # DESKTOP-08 — Cliente IQL tipado + tests mock (Wave 0, paralelo)
 
 - **Estado:** ✅ COMPLETED (2026-08-06)

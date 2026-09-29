@@ -1,3 +1,9 @@
+---
+title: "FND-02-M3: Race delete-vs-consolidate (maintenance.rs:311-312 + delete.rs:68-69)"
+kind: task
+description: "Race pre-existente entre consolidatenode (maintenance.rs:311-312 — re-aplica entrada HNSW antes de release mmap) y delete (delete.rs:68-69 — elimina nodo del índice). Se volvió más frecuente desde que la evicción dejó de ser no-op..."
+---
+
 # FND-02-M3: Race delete-vs-consolidate (maintenance.rs:311-312 + delete.rs:68-69)
 
 ## Metadata

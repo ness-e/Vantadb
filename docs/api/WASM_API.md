@@ -1,10 +1,10 @@
 ---
 title: WASM API Reference
-type: api
+kind: reference
 status: active
-tags: [vantadb, wasm, browser, api]
-last_reviewed: 2026-08-30
+description: "This page is the canonical entry point for VantaDB's WebAssembly surface — the"
 aliases: [WASM_API]
+tags: [vantadb, wasm, browser, api]
 ---
 
 # WASM API Reference

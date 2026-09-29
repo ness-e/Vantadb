@@ -1,3 +1,9 @@
+---
+title: EMB-12 — script lanzador (env + arranque MCP)
+kind: task
+description: "Objetivo: script vanta-mcp-local.ps1 (raíz del repo) que deja las env vars de embeddings explícitas en la sesión y arranca vanta-cli server --mcp --db <arg> para que el proceso MCP nazca con el modelo correcto — verificable vía dim en..."
+---
+
 # EMB-12 — script lanzador (env + arranque MCP)
 
 > **Plan:** `docs/dev/plans/2026-09-16-embeddings-auto.md` (Wave1, instalador)

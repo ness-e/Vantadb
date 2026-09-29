@@ -1,9 +1,9 @@
 ---
-title: "ACID Transaction System for VantaDB"
+title: ACID Transaction System for VantaDB
+kind: research
 status: draft
+description: "Define what ACID means for VantaDB's specific architecture ΓÇö an embedded, multi-threaded persistent memory and vector retrieval engine"
 tags: [vantadb, research, database, transactions]
-last_reviewed: 2026-07-03
-aliases: []
 ---
 
 # ACID Transaction System for VantaDB

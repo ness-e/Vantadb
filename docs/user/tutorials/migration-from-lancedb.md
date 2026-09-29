@@ -1,9 +1,9 @@
 ---
-title: "Migrating from LanceDB to VantaDB"
+title: Migrating from LanceDB to VantaDB
+kind: tutorial
 status: active
+description: "If you're using LanceDB today, switching to VantaDB unlocks GraphRAG traversal, built-in hybrid search (BM25 + HNSW), TTL-based record expiry, and the VantaDB PyPI integration ecosystem — while keeping your existing vector workflow..."
 tags: [vantadb, tutorial, guide, migration, lancedb]
-last_reviewed: 2026-08-02
-aliases: []
 ---
 
 # Migrating from LanceDB to VantaDB

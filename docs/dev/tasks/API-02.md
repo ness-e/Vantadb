@@ -1,3 +1,9 @@
+---
+title: "API-02: W1 bindings — score + firmas + getNode + u128 (4 toolchains)"
+kind: task
+description: "cargo test --test pythonsdkboundary verde Y tsc --noEmit + npm test verdes Y matriz 4 bindings pareja (método×firma) Y rg \\"distance: h.score\\" = 0\""
+---
+
 # API-02: W1 bindings — score + firmas + getNode + u128 (4 toolchains)
 
 ## Metadata

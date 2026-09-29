@@ -1,3 +1,9 @@
+---
+title: "TASK FIND-34: Ciclo WAL Writer (4 nodos: open↔open_with_buffer↔recover_valid_records↔quarantine_corrupt_tail)"
+kind: task
+description: "Contrato mecánico cubierto: no se añaden pub fn nuevos (solo tests #[cfg(test)] + comentario doc). No requiere spec-first gate para feature-add. Gate D no dispara (blast radius 2 archivos, sin API pública nueva)"
+---
+
 # TASK FIND-34: Ciclo WAL Writer (4 nodos: open↔open_with_buffer↔recover_valid_records↔quarantine_corrupt_tail)
 
 ## Metadata

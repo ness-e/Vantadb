@@ -1,3 +1,9 @@
+---
+title: "GOV-TK7 — put_batch metadatas solo-str (Wave 1, Task 5)"
+kind: task
+description: "Doc y API coinciden (una dirección, documentada) + test de coercion verde + suite afectada verde + clippy/fmt limpios"
+---
+
 # GOV-TK7 — put_batch metadatas solo-str (Wave 1, Task 5)
 
 > Plan: `docs/dev/plans/2026-09-04-durability-release-readiness.md` (Task 5, Wave 1) · Backlog P417/GOV-TK7 · Ruta: vanta-worker

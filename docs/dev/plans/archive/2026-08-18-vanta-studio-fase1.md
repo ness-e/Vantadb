@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Vanta Studio — Fase 1 (Explicabilidad y tiempo)"
+kind: plan
+status: archived
+description: Contratos compartidos ya documentados en plan Fase 0 §Relación (líneas 170-181). En Fase 1 se tocan dos
+---
+
 # Plan de Ejecución: Vanta Studio — Fase 1 (Explicabilidad y tiempo)
 
 > **Campaign ID:** 8c5e2a9f-1b3d-4e6f-8a7c-9d2b4f6a8e10

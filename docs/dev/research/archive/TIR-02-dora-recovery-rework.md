@@ -1,3 +1,10 @@
+---
+title: "TIR-02: DORA recovery time + rework rate — viabilidad con telemetría actual"
+kind: research
+status: archived
+description: "IMPLEMENTAR — parcial, con split explícito"
+---
+
 # TIR-02: DORA recovery time + rework rate — viabilidad con telemetría actual
 
 > **Tipo:** Investigación/Decisión (read-only). **Estado:** cerrado 2026-08-17.

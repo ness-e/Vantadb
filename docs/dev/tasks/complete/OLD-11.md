@@ -1,3 +1,9 @@
+---
+title: "OLD-11: CLI/TUI Interactivo"
+kind: task
+description: "Fuente: Backlog Phase 9 (Old Docs Rescue)"
+---
+
 # OLD-11: CLI/TUI Interactivo
 
 **Fuente:** Backlog Phase 9 (Old Docs Rescue)  

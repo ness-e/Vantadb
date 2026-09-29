@@ -1,3 +1,9 @@
+---
+title: Benchmark Optimization — VantaDB 2026
+kind: report
+description: "Conclusión: CPU con AVX2 + FMA, sin AVX-512. El runtime dispatch en distance.rs usará kernels f32x8 (AVX2) para todas las operaciones"
+---
+
 # Benchmark Optimization — VantaDB 2026
 
 > **Propósito:** Documentar el ciclo completo de cada optimización aplicada a los benchmarks de VantaDB.

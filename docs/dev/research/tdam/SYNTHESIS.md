@@ -1,12 +1,11 @@
 ---
-title: "TDAM → VantaDB — SYNTHESIS de la investigación (9 reportes)"
-type: research
+title: TDAM → VantaDB — SYNTHESIS de la investigación (9 reportes)
+kind: research
 status: active
+description: "Los 9 reportes confirman una sola cosa: TDAM es una orquestación LLM encima de un SQLite; VantaDB es el motor que TDAM no tiene. TDAM gana en semántica de sesión y gestión de ventana de contexto; VantaDB gana en almacenamiento, grafo y..."
 tags: [vantadb, research, tdam, synthesis]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
+
 # TDAM → VantaDB — SYNTHESIS de la investigación (9 reportes)
 
 > Fecha: 2026-08-18 · Fuente: `docs/dev/research/tdam/01..09-*.md` (8 sub-agentes + cobertura deploy/uso, clone completo `feat/server_team` v2.0.0-beta.1)

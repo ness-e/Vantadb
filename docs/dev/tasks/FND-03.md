@@ -1,3 +1,9 @@
+---
+title: "FND-03: Feature set mínimo + wheels CI compile matrix verde"
+kind: task
+description: "cargo check -p vantadb --no-default-features pasa; reporte documenta features por target + abi3/manylinux declarado (o gap anotado); si hubo cambios de CI, actionlint pasa (release-wheels-60.yml si se tocó).\""
+---
+
 # FND-03: Feature set mínimo + wheels CI compile matrix verde
 
 ## Metadata

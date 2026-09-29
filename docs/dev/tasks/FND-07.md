@@ -1,3 +1,9 @@
+---
+title: FND-07 — Regla de observabilidad real (prometheus) + probe endpoint
+kind: task
+description: Cerrar el gap entre prometheus declarado en Cargo.toml y lo consultable
+---
+
 # FND-07 — Regla de observabilidad real (prometheus) + probe endpoint
 
 > **Wave:** P20a — Reglas de ingeniería · **Prio:** 🔴 · **Estado:** ✅ COMPLETED

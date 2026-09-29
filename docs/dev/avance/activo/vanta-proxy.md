@@ -1,10 +1,8 @@
 ---
-title: "Avance — Vanta Proxy"
-type: domain-log
+title: Avance — Vanta Proxy
+kind: review
 status: active
 tags: [vantadb, avance, vanta-proxy, proxy, gateway, knowledge, wiki, rate-limit]
-last_reviewed: 2026-08-22
-aliases: []
 ---
 
 # Avance — Vanta Proxy

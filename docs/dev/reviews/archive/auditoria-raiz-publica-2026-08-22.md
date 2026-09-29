@@ -1,11 +1,9 @@
 ---
-title: "Auditoría — Raíz pública (README ×2 + governance files)"
-type: review
+title: Auditoría — Raíz pública (README ×2 + governance files)
+kind: review
 status: archived
+description: "Fixes triviales aplicados inline: 10. Pendientes de decisión owner: 2"
 tags: [vantadb, review]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Auditoría — Raíz pública (README ×2 + governance files)

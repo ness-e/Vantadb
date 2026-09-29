@@ -1,3 +1,9 @@
+---
+title: "VULN-B3: js-yaml node/web + nanoid desktop (bumps mínimos, solo lockfiles)"
+kind: task
+description: npm ls js-yaml en vantadb-node y web muestra ≥4.3.2 sin 4.3.1 residual; npm ls nanoid en desktop muestra ≥3.3.18 sin 3.3.17 residual; npx tsc --noEmit verde en web (y donde aplique); cero cambios en /src/; commit selectivo en rama...
+---
+
 # VULN-B3: js-yaml node/web + nanoid desktop (bumps mínimos, solo lockfiles)
 
 ## Metadata

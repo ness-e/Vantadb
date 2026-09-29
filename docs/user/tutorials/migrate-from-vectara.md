@@ -1,9 +1,9 @@
 ---
-title: "Migrating from Vectara to VantaDB"
+title: Migrating from Vectara to VantaDB
+kind: tutorial
 status: active
+description: "Vectara shut down its self-service RAG-as-a-Service tier in 2026 and repositioned as an enterprise agent platform. If you were on the self-service tier, you need a new home for your corpora. VantaDB is a drop-in local-first replacement..."
 tags: [vantadb, tutorial, guide, migration, vectara]
-last_reviewed: 2026-08-04
-aliases: []
 ---
 
 # Migrating from Vectara to VantaDB

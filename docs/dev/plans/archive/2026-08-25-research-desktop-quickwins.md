@@ -1,3 +1,10 @@
+---
+title: Plan — Quick wins INV-desktop-prod (research-desktop-prod-20260825)
+kind: plan
+status: archived
+description: "Campaign ID: 39b59c48-a98a-40bd-bc5d-149dd5191263"
+---
+
 # Plan — Quick wins INV-desktop-prod (research-desktop-prod-20260825)
 
 > **Origen:** `/research desktop` 2026-08-25 · Informe: `docs/dev/reviews/research-desktop-prod-20260825.md`

@@ -1,3 +1,9 @@
+---
+title: "TASK DESKTOP-QW2: Handler keydown global F1/F2 → HelpPanel (H-03)"
+kind: task
+description: "Handler keydown global F1/F2 → HelpPanel funciona (F1 = ayuda general, F2 = proxy/ajustes según contexto); cd desktop && npm run build y npm test verde; E2E critico no regresa"
+---
+
 # TASK DESKTOP-QW2: Handler keydown global F1/F2 → HelpPanel (H-03)
 
 ## Metadata

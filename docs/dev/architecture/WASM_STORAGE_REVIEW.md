@@ -1,10 +1,9 @@
 ---
 title: WASM Storage Review
-type: architecture
+kind: concept
 status: active
+description: Review of all storage backends used when VantaDB runs in a browser WASM environment
 tags: [vantadb, architecture]
-last_reviewed: 2026-09-23
-aliases: []
 ---
 
 # WASM Storage Review — 2026-07-22
@@ -95,8 +94,8 @@ coordination, crash consistency, test coverage, and documentation.
 | | ✅ Crash consistency | 4 tests in `wasm_tests.rs`: CRC valid round-trip, backward compat (no footer), corrupted CRC footer detection, tmp-file cleanup after atomic write. |
 | | ❌ Multi-tab | No test for BroadcastChannel notification delivery or multi-tab coordination. |
 | | ❌ CI execution | `wasm_tests.rs` requires `wasm-pack test --chrome`. Not run in CI. Not run on Firefox/Safari. |
-| **Documentation** | ⚠️ ADR-008 exists | Documents Phase 1 (InMemory) and Phase 2 (OPFS Future). However, the code has already surpassed the documented state: OPFS and IDB persistence exist, but ADR-008 still calls them "Future: OPFS Persistence (Phase 2)". |
-| | ❌ ADR outdated | ADR-008 talks about `FileSystemSyncAccessHandle` and `SharedArrayBuffer` which aren't used. The actual implementation uses async handles and BroadcastChannel — undocumented. |
+| **Documentation** | ⚠️ ADR-0008 exists | Documents Phase 1 (InMemory) and Phase 2 (OPFS Future). However, the code has already surpassed the documented state: OPFS and IDB persistence exist, but ADR-0008 still calls them "Future: OPFS Persistence (Phase 2)". |
+| | ❌ ADR outdated | ADR-0008 talks about `FileSystemSyncAccessHandle` and `SharedArrayBuffer` which aren't used. The actual implementation uses async handles and BroadcastChannel — undocumented. |
 | | ❌ TS SDK docs misleading | `vantadb.ts:105` says "WASM backend always uses an in-memory engine", but `connect_persistent()` and `connect_idb()` exist and provide persistent backends. |
 | | ❌ Storage differences | No documentation explaining how OPFS/IndexedDB semantics differ from filesystem storage (no `fsync`, no atomic rename, no directory fsync, quota limits). |
 | | ❌ Crash model | No documented guarantees about what survives a crash/tab reload. Users have no way to know they must call `save()` explicitly. |
@@ -112,7 +111,7 @@ coordination, crash consistency, test coverage, and documentation.
 
 2. **Add persistence round-trip test** — The most critical missing test: `save()` then `load()` and verify records survive. This is the primary user-facing persistence path.
 
-3. **Fix ADR-008 to reflect reality** — The code has OPFS + IDB + Worker persistence. Update the ADR to document the actual implementation, not the planned one. Remove "Future Phase 2" language for features that exist today.
+3. **Fix ADR-0008 to reflect reality** — The code has OPFS + IDB + Worker persistence. Update the ADR to document the actual implementation, not the planned one. Remove "Future Phase 2" language for features that exist today.
 
 ### P2 — High (correctness / DX)
 
@@ -188,4 +187,4 @@ coordination, crash consistency, test coverage, and documentation.
 2. ❌ **No persistence round-trip test** — the primary user flow (save → load) is untested
 3. ❌ **OPFS crash writes can corrupt data** — no atomic rename, no checksum, no rollback
 4. ❌ **No Web Locks** — two tabs with OPFS storage will corrupt each other
-5. ⚠️ **ADR-008 is factually outdated** — documents Phase 1 as current, but Phase 2 features exist
+5. ⚠️ **ADR-0008 is factually outdated** — documents Phase 1 as current, but Phase 2 features exist

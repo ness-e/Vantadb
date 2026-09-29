@@ -1,10 +1,9 @@
 ---
 title: Experimental Features and Product Boundary
-type: operations
+kind: runbook
 status: active
+description: This document classifies the current v0.7.0 repository surface. It is the operational reference for
 tags: [vantadb, operations]
-last_reviewed: 2026-09-27
-aliases: []
 ---
 
 # Experimental Features and Product Boundary
@@ -39,7 +38,7 @@ Every surface spends one of two budgets. **core-promise** surfaces spend the bud
 | `vantadb-server` (HTTP wrapper) | **labs** | Freeze — optional wrapper (local dev / network exposure); maintenance only. Only core-adjacent role: prospective host of the `vanta-memory` scheduler (`src/server/bootstrap.rs:332`, WIRE-01) — promote that role via the inversion rule if it lands there | Optional section below; research §3 (JWT/rate-limit = overrun); no ICP gate requires it |
 | Vanta Studio (desktop) | **labs** | Freeze the 12-surface GUI product. Promotion candidate: ICP-01's minimal "viewer" if F5 evidence requires it — viewer only, not the Studio | DEF-02 "Category: labs"; research §3 (GUI = overrun) |
 | Web console | **labs** | Freeze — separate site ([`ness-e/Vantadb-web`](https://github.com/ness-e/Vantadb-web)); no surface in this tree | Experimental section below; DEF-02 "Category: labs" |
-| WASM/TS/Node bindings (`vantadb-wasm`, `vantadb-ts`, `vantadb-node`) | **labs** | Freeze — published artifacts stay; no new feature budget. Promotion requires North Star evidence from JS runtimes or an ICP gate pulling them | research §3 (overrun); ICP-03 is Python/PyPI only (`VISION.md`); `vantadb-wasm` outside `default-members` (Cargo.toml, ADR-031) |
+| WASM/TS/Node bindings (`vantadb-wasm`, `vantadb-ts`, `vantadb-node`) | **labs** | Freeze — published artifacts stay; no new feature budget. Promotion requires North Star evidence from JS runtimes or an ICP gate pulling them | research §3 (overrun); ICP-03 is Python/PyPI only (`VISION.md`); `vantadb-wasm` outside `default-members` (Cargo.toml, ADR-0031) |
 | LLM providers (`remote-inference`: Ollama/OpenAI/litellm) | **labs** | Freeze — external optional integration, alternative to `embed-local` | Experimental section below ("not core dependency") |
 
 ### Inversion rule (admission → promotion → freeze)
@@ -48,7 +47,7 @@ Every surface spends one of two budgets. **core-promise** surfaces spend the bud
 2. **Promotion.** A labs surface becomes core-promise only with evidence tied to the North Star or an ICP gate metric: sessions with successful recall in the 7-day window (proxy/MCP instrumentation), an ICP pilot that requires it, or the falsification of a core alternative. Promotion is recorded as a row change here. Demos, roadmap proximity, and symmetric effort do not count.
 3. **Freeze.** Labs surfaces are frozen: security fixes and release-blocking regressions still apply, but no new product features. Frozen is the default state; thawing requires promotion.
 
-**Mechanical consequences.** Core-promise surfaces carry the promise's quality bars (SPEC success criteria + North Star guardrails: p99 regression gate, Regla 11 claims, install SLO per DEF-08). Labs surfaces cannot block a core release — precedent: `vanta-proxy` and `vantadb-wasm` already sit outside `default-members`/Fast Gate (Cargo.toml CATEGORY comment, ADR-031). When labs and core-promise compete for the same budget (attention, CI time, release risk, doc surface), core-promise wins by default.
+**Mechanical consequences.** Core-promise surfaces carry the promise's quality bars (SPEC success criteria + North Star guardrails: p99 regression gate, Regla 11 claims, install SLO per DEF-08). Labs surfaces cannot block a core release — precedent: `vanta-proxy` and `vantadb-wasm` already sit outside `default-members`/Fast Gate (Cargo.toml CATEGORY comment, ADR-0031). When labs and core-promise compete for the same budget (attention, CI time, release risk, doc surface), core-promise wins by default.
 
 **Promotion watchlist (next triggers).** `vanta-proxy` gateway features: only with session telemetry showing gateway use drives successful recalls · Vanta Studio: ICP-01/F5 evidence that a minimal viewer is required · WASM/TS/Node: JS-runtime North Star evidence or a new JS gate · `vantadb-server`: the WIRE-01 scheduler-host decision or ICP-02 network-deployment evidence. **Review cadence:** re-checked every release together with the frontier gate, and on every new-surface proposal (rule 1).
 

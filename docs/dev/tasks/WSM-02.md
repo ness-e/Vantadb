@@ -1,3 +1,9 @@
+---
+title: Task WSM-02 — Manejo cuotas storage browser (QuotaExceededError)
+kind: task
+description: Archivos leídos completos
+---
+
 # Task WSM-02 — Manejo cuotas storage browser (QuotaExceededError)
 
 ## Estado: ✅ COMPLETED

@@ -1,3 +1,9 @@
+---
+title: "MEM-11: F4 L1 dedup 2 fases (store/update/merge/skip)"
+kind: task
+description: "cargo check -p vanta-memory pasa, cargo nextest run -p vanta-memory pasa (incluye tests dedicados de dedup), cargo fmt --check pasa, cargo clippy -p vanta-memory --all-targets --no-deps -- -D warnings pasa, y el comportamiento..."
+---
+
 # MEM-11: F4 L1 dedup 2 fases (store/update/merge/skip)
 
 ## Metadata

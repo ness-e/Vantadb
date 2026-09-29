@@ -1,3 +1,9 @@
+---
+title: "HIGH-008: Autonomous Flag en Plan File — template + parsing"
+kind: task
+description: Contrato del plan (HIGH-008)
+---
+
 # HIGH-008: Autonomous Flag en Plan File — template + parsing
 
 ## Metadata

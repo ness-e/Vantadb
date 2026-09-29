@@ -1,3 +1,9 @@
+---
+title: FIND-71 — embeddings peso + verify + sizes (download patterns + smoke)
+kind: task
+description: "Recortar ALLOWPATTERNS amplios (.safetensors + .bin duplicados descargan 3-4× lo declarado) a base recortada + override por modelo; aclarar verify.py:135-192 como smoke (dummies/skips, no verificación numérica); re-medir sizes reales en..."
+---
+
 # FIND-71 — embeddings peso + verify + sizes (download patterns + smoke)
 
 > **Plan:** `docs/dev/plans/2026-09-15-find-correcciones.md` Task 12 (Wave3) · **Appetite:** 1d · **Esfuerzo:** 🟡 · **Prioridad:** 🟡

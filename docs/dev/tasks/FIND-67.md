@@ -1,3 +1,9 @@
+---
+title: "FIND-67 — QUICKSTART a 0.5.0 (+ legacy `WANTA_*`)"
+kind: task
+description: "campaigndiscoverskillsv2 archivosClave=\"docs/user/QUICKSTART.md:6,12,90,188-189\" phase=\"BUILD\" contractKeywords=[\"quickstart-docs\",\"version-boundary\",\"env-var-rename\",\"doc-revalidation\"] maxSkills=8 →"
+---
+
 # FIND-67 — QUICKSTART a 0.5.0 (+ legacy `WANTA_*`)
 
 > Campaign: `6ab26f3f-cf16-4416-9255-c18cca0bcaf0` · Plan: `docs/dev/plans/2026-09-15-find-correcciones.md` (Task 16, Wave5)

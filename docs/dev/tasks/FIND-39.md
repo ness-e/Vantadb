@@ -1,3 +1,9 @@
+---
+title: "FIND-39: ScalarIndex.remove sin test (public API sin coverage)"
+kind: task
+description: "cargo nextest run -p vantadb scalarindex --profile audit ✅ con nuevo test testscalarremove verde + cargo nextest list -p vantadb --profile audit muestra 1 test nuevo (total +1) + rg -n \"pub fn remove\" src/scalarindex.rs → 2 hits (remove..."
+---
+
 # FIND-39: ScalarIndex.remove sin test (public API sin coverage)
 
 ## Metadata

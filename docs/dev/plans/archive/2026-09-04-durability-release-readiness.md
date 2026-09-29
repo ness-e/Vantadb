@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Durability + Release-Readiness (2026-09-04)"
+kind: plan
+status: archived
+description: "Wave 0 → Wave 1 → Wave 2 → Wave 3 (arriba). BND-09 gated por BND-08. STABLE-09 excluido a propósito (requiere STABLE-05/07 fuera del plan). Limpieza de filas al cerrar: REVIEW-10, FIND-53 (stale) → backlog-history con nota"
+---
+
 # Plan de Ejecución: Durability + Release-Readiness (2026-09-04)
 
 > **Campaign ID:** a6f16be4-a2a2-44eb-bfdb-1a84a4b573cf
@@ -108,7 +115,7 @@
 - **Gate Justificación:** decisiones del usuario ya tomadas (opt-in only, group-commit, ≥10× + ventana declarada). La spec es el deliverable.
 - **Contrato:** spec escrita con objetivo/diseño group-commit/ACEPTACIÓN (≥10× batch + ventana declarada y testeable)/límites (default intacto) + registrada para futura implementación. Cero código productivo.
 - **Task file:** `tasks/FUT-12-spec.md`
-- **Estado:** ✅ COMPLETO (2026-09-05, spec-only sin código — ADR-038 proposed: group-commit opt-in ventana tiempo/tamaño sobre `batch_append`, aceptación ≥10× + ventana declarada/testeable, default intacto; suite wal no tocada por diseño)
+- **Estado:** ✅ COMPLETO (2026-09-05, spec-only sin código — ADR-0038 proposed: group-commit opt-in ventana tiempo/tamaño sobre `batch_append`, aceptación ≥10× + ventana declarada/testeable, default intacto; suite wal no tocada por diseño)
 - **Ruta:** vanta-arch
 - **Branch:** develop
 - **Commit:** `docs(adr): spec WAL fsync-batching opt-in (FUT-12-spec)`
@@ -219,7 +226,7 @@ Estado: completed
 Última acción: EJECUCION+CIERRE: S1 registry 404 + S2 npm pack 6 files + S3 publish --dry-run exit 0 + S4 checklist + commit e9843100 (solo 1 archivo) + plan Task 8 COMPLETO sin stagear
 Resultado: OK
 Próxima acción: ninguno (orquestador: push + Wave 2 STABLE-04/FUT-12-spec; BND-09 desbloqueada)
-Contrato: verificacion: npm view 404 (nunca publicado) + npm pack exit 0 (6 files, shasum 30130fb5) + npm publish --dry-run exit 0 (+ vantadb-node@0.5.0) + checklist docs/dev/plans/artifacts/bnd-08-publish-checklist.md + pre-commit hook OK; evidencia: claim OIDC -> workflow id-token:write + environment npm (alta); claim pack -> tarball 6 files respeta files (alta); claim dry-run -> exit 0 sin publish real (alta); claim orden -> GOV-TK2 /ship GO primero en checklist (alta); artefactos: e9843100 (1 file), tasks/BND-08.md; invariantes: 0 publish real, 0 edits workflow/package/Cargo, .tgz borrado, ajenos intactos (M .opencode + ADR-038 FUT-12-spec sin tocar); deuda: ninguna; queda_pendiente: orquestador push + STABLE-04/FUT-12-spec
+Contrato: verificacion: npm view 404 (nunca publicado) + npm pack exit 0 (6 files, shasum 30130fb5) + npm publish --dry-run exit 0 (+ vantadb-node@0.5.0) + checklist docs/dev/plans/artifacts/bnd-08-publish-checklist.md + pre-commit hook OK; evidencia: claim OIDC -> workflow id-token:write + environment npm (alta); claim pack -> tarball 6 files respeta files (alta); claim dry-run -> exit 0 sin publish real (alta); claim orden -> GOV-TK2 /ship GO primero en checklist (alta); artefactos: e9843100 (1 file), tasks/BND-08.md; invariantes: 0 publish real, 0 edits workflow/package/Cargo, .tgz borrado, ajenos intactos (M .opencode + ADR-0038 FUT-12-spec sin tocar); deuda: ninguna; queda_pendiente: orquestador push + STABLE-04/FUT-12-spec
 Próxima tarea si completa: STABLE-04
 === END RECITATION ===
 

@@ -1,3 +1,9 @@
+---
+title: "DEF-03: Frontera verificable en CI (`validate-frontier`)"
+kind: task
+description: pwsh scripts/validate-frontier.ps1 exit 0 sobre el repo actual Y exit ≠0 al perturbar (fila Production-facing con ruta/feature inexistente o feature/workspace-member real no listado) Y job check-frontier presente en...
+---
+
 # DEF-03: Frontera verificable en CI (`validate-frontier`)
 
 ## Metadata

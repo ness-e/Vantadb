@@ -1,3 +1,9 @@
+---
+title: Task FND-16 — Multi-target CI (wheels + WASM por PR)
+kind: task
+description: "Determinar si los builds multi-target (wheels Windows/Mac/Linux + WASM) corren en cada PR o solo en release, analizar el costo, y entregar un plan aprobable o una decisión de defer justificada. NO implementar el job"
+---
+
 # Task FND-16 — Multi-target CI (wheels + WASM por PR)
 
 - **Prioridad:** 🟢 · **Wave:** P20c · **Estado:** ✅ IMPLEMENTADO (commit fb878cba: trigger PR con paths filter + acción wasm/ts; actionlint validado)

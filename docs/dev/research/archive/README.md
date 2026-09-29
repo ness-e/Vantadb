@@ -1,3 +1,10 @@
+---
+title: Research — hogar único de investigaciones
+kind: index
+status: archived
+description: El ID INV-019 estuvo asignado a dos documentos distintos (Advanced Tokenizer — registrada en
+---
+
 # Research — hogar único de investigaciones
 
 > **Convención (GOV-D4, 2026-08-22):** `docs/dev/research/` absorbió a `docs/Investigaciones/` (49 ítems migrados con git mv).

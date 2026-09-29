@@ -1,3 +1,9 @@
+---
+title: SHOW-04 — demo agente-con-memoria (prueba de aceptación viva del MVP)
+kind: task
+description: "Objetivo: demo agente-con-memoria = prueba de aceptación viva del MVP. Un agente guarda un dato en la sesión 1 y lo recuerda en la sesión 2, con assert mecánico (no timing), 1 comando, 100% local, cero credenciales"
+---
+
 # SHOW-04 — demo agente-con-memoria (prueba de aceptación viva del MVP)
 
 > **Plan:** `docs/dev/plans/2026-09-17-mvp-memoria-agentes.md` (Wave0, Task 3) · **Campaign:** b2ece025-e9d3-4f8b-835d-1d0143a86b66

@@ -1,3 +1,9 @@
+---
+title: GOV-TK4 — Re-medición coverage local (llvm-cov)
+kind: task
+description: None — task verify-only. La cobertura ya se mide en CI workflow
+---
+
 # GOV-TK4 — Re-medición coverage local (llvm-cov)
 
 ## Metadata
@@ -21,7 +27,7 @@ OR `Test-Path .github/workflows/ci-rust-10.yml` == true AND `Select-String -Path
 ### Step 1: Rama A — CI artifact
 - ✅ `Test-Path .github/workflows/ci-rust-10.yml` == True
 - ✅ `Select-String coverage-lcov` Count = 2 (≥ 1)
-- ✅ Job "Code Coverage (cargo-llvm-cov)" emite artifact `coverage-lcov` con enforcement ≥80% per ADR-015
+- ✅ Job "Code Coverage (cargo-llvm-cov)" emite artifact `coverage-lcov` con enforcement ≥80% per ADR-0015
 
 ### Step 2: Rama B — Local -j 2
 - ✅ `cargo llvm-cov -p vantadb -j 2 --no-report` exit 101 (gate fail), 0 ICE
@@ -31,7 +37,7 @@ OR `Test-Path .github/workflows/ci-rust-10.yml` == true AND `Select-String -Path
 
 ## Verificación
 - OR lógico de contrato cumplido
-- CI artifact Rama A es el camino canónico (ADR-015)
+- CI artifact Rama A es el camino canónico (ADR-0015)
 - Local Rama B mide instrumentación correctamente, no test outcome
 
 ## Notas
@@ -44,6 +50,6 @@ OR `Test-Path .github/workflows/ci-rust-10.yml` == true AND `Select-String -Path
 - **Fecha:** 2026-08-30
 - **Branch:** develop
 - **CI pendiente:** sí (artifact ya configurado, no requiere cambio)
-- **Decisiones:** Rama A (CI artifact) es canónica per ADR-015; Rama B es sanity check
+- **Decisiones:** Rama A (CI artifact) es canónica per ADR-0015; Rama B es sanity check
 - **Problemas conocidos:** ningún
 - **Próxima tarea:** ninguna (task verify-only)

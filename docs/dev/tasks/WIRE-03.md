@@ -1,3 +1,9 @@
+---
+title: "WIRE-03: `query_sparse` + text-only en 3 bindings + filtros avanzados (`$and`/`$or`, range/datetime)"
+kind: task
+description: Matriz de verificación (por binding)
+---
+
 # WIRE-03: `query_sparse` + text-only en 3 bindings + filtros avanzados (`$and`/`$or`, range/datetime)
 
 ## Metadata

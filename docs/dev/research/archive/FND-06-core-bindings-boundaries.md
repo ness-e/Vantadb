@@ -1,3 +1,10 @@
+---
+title: "FND-06: Boundaries core↔bindings — lógica de negocio no filtrada a capas de interfaz"
+kind: research
+status: archived
+description: "Estado: ✅ Resuelto (regla R-8 + reporte + hallazgos señalados; fixes estructurales diferidos a spec)"
+---
+
 # FND-06: Boundaries core↔bindings — lógica de negocio no filtrada a capas de interfaz
 
 **Estado:** ✅ Resuelto (regla R-8 + reporte + hallazgos señalados; fixes estructurales diferidos a spec)

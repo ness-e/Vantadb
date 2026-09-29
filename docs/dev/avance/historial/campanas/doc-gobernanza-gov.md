@@ -1,11 +1,8 @@
 ---
-title: "Gobernanza Documental — entradas GOV"
-type: registro
+title: Gobernanza Documental — entradas GOV
+kind: review
 status: archived
 tags: [vantadb, avance, campana]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Gobernanza Documental — entradas GOV

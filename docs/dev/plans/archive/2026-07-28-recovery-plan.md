@@ -1,3 +1,10 @@
+---
+title: "Plan de Recuperación — SDK Gaps, Features Perdidas y Deuda de Implementación"
+kind: plan
+status: archived
+description: "Hallazgo principal: 12 puntos investigados contra código real, git history, Python/WASM/CLI. Se identificaron 3 categorías de trabajo"
+---
+
 # Plan de Recuperación — SDK Gaps, Features Perdidas y Deuda de Implementación
 
 ```

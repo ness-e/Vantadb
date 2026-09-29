@@ -1,3 +1,8 @@
+---
+title: "D1b — Partir `vector_search` (~133) y `run_pipeline` (~132) en helpers SLAP ≤20"
+kind: task
+---
+
 # D1b — Partir `vector_search` (~133) y `run_pipeline` (~132) en helpers SLAP ≤20
 
 ## 1. Descubrimiento (auto-detect tipo → codegraph blast radius → web si ambigüedad → baseline `/cleanCA <scope>`)

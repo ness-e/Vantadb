@@ -1,3 +1,8 @@
+---
+title: "FIND-24b: Fix docs drift MCP skill (links rotos + conteo tools)"
+kind: task
+---
+
 # FIND-24b: Fix docs drift MCP skill (links rotos + conteo tools)
 
 ## Metadata
