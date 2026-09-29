@@ -11,7 +11,7 @@ description: Matriz de cierre — default-exclude, gates de inyección, transici
 - **Fuente del prompt:** sub-agente vanta-worker (orquestador pipeline) — wave F3.3b (única en vuelo); branch `develop`
 - **Esfuerzo:** 🟡 2-3d · **Prioridad:** 🟠 · **Tipo:** feature-add (estado operativo + wire + gates de seguridad)
 - **Creado:** 2026-09-29 · **last-synced:** 2026-09-29
-- **Estado:** ⏳ IN PROGRESS — implementación + verify mecánico ✅; **pendiente review P2-01 (tier adversarial) + commit (LEAD)**
+- **Estado:** ⏳ IN PROGRESS — implementación + verify mecánico ✅ + **batch post-review (F1–F6/N1–N3) ✅**; pendiente **re-review P2-01 + commit (LEAD)**
 - **Incógnitas (uphill):** 0 · **Pendientes (downhill):** 0 steps de ejecución (7/7 ✅)
 
 ## Contrato (verbatim del prompt de tarea)
@@ -107,7 +107,7 @@ description: Matriz de cierre — default-exclude, gates de inyección, transici
 
 ### Step 3: GREEN — filtros + ops + abstención + import T1c
 - **Archivos:** `page.rs`, `namespaces.rs`, `memory.rs`, `impl_export.rs`
-- **Estado:** ✅ **20/20** tests `quarantine_containment` (default-exclude list/search · opt-in · get visible · sticky · T1d/T2/T4 · deadline 30d/0 · I1 · T1c import/roundtrip · bulk flag · abstención ×4 · min_confidence+quarantine · audit transiciones · fingerprint cursor)
+- **Estado:** ✅ **20/20** tests `quarantine_containment` (default-exclude list/search · opt-in · get visible · sticky · T1d/T2/T4 · deadline 30d/0 · I1 · T1c import/roundtrip · bulk flag · abstención ×4 · min_confidence+quarantine · audit transiciones · fingerprint cursor) — **ampliado a 24/24 en el batch post-review (ver §Batch post-review P2-01)**
 
 ### Step 4: Literales/firmas workspace + bindings (fix mecánico)
 - **Estado:** ✅ `cargo check --workspace --all-targets` clean · wasm32 clean · python/node/server (manifest-path) clean · 9 snapshots `search_request_*` regen deliberada (+1 línea c/u)
@@ -135,7 +135,9 @@ description: Matriz de cierre — default-exclude, gates de inyección, transici
 | `cargo check --workspace --all-targets` | ✅ exit 0 |
 | `cargo check -p vantadb-wasm --target wasm32-unknown-unknown --all-targets` | ✅ exit 0 |
 | `cargo check` python/node/server (manifest-path) | ✅ exit 0 |
-| `cargo clippy` (vantadb · vanta-memory · vantadb-mcp · server · wasm · python · node, `-D warnings`, `--all-targets`) | ✅ 0 warnings |
+| `cargo clippy -p vantadb --all-targets -- -D warnings` (comando REAL del gate; re-corrido en batch post-review) | ✅ exit 0 |
+| `cargo clippy --workspace --all-targets --all-features -- -D warnings` (forma CI; batch post-review) | ✅ exit 0 |
+| `cargo clippy` (vanta-memory · vantadb-mcp · server · wasm · python · node, `-D warnings`, `--all-targets`) | ✅ 0 warnings |
 | `cargo fmt --all -- --check` (+ python/wasm manifest) | ✅ 0 diffs |
 | `cargo test --doc -p vantadb` | ✅ 13 passed · 1 ignored (pre-existente) |
 | `tests/api/public-api.txt` | ✅ regenerado y verificado (solo símbolos SCH-05; firmas import con `bool`) |
@@ -144,12 +146,29 @@ description: Matriz de cierre — default-exclude, gates de inyección, transici
 
 **Contrato (matriz):** C1 ✅ · C2 ✅ · C3 ✅ · C4 ✅ · C5 ✅ · C6 ✅ (threat model por superficie arriba).
 
+### Batch post-review P2-01 (2026-09-29) — evidencia por finding
+
+| # | Fix | Evidencia (comando → resultado) |
+|---|-----|---------------------------------|
+| F1 | `tests/quarantine_containment.rs:534` sin borrow redundante (`format!` pasado directo) | `cargo clippy -p vantadb --all-targets -- -D warnings` → **exit 0**; forma CI `cargo clippy --workspace --all-targets --all-features -- -D warnings` → **exit 0** (FIND-184 no bloqueó: no se usó el scoped multi-crate combinado) |
+| F2 | `resolve_axioms(storage, include_quarantined)`: `read_axioms`→`false`; next-id de `write_axiom`→`true` | test nuevo `test_mcp_quarantined_axiom_hidden_but_counts_for_next_id` → PASS; suite MCP **245/245** |
+| F3 | `quarantine_enter` por registro en `put_batch` (post-commit) + audit en `import_records` directo + `bulk_import` + `BulkImportReport.quarantined` | tests `batch_import_and_bulk_quarantine_entries_are_audited` y `bulk_import_honors_the_quarantine_write_flag` (contador) → **24/24** |
+| F4 | Sticky en transporte raw: `put_record_exact` preserva cuarentena existente; `bulk_import_stream` idem (lectura metadata-only) | tests `import_plain_over_quarantined_key_preserves_state` + `bulk_plain_over_quarantined_key_preserves_state` → **24/24**; wording del task file corregido (§Pendientes) |
+| F5 | Doc-only: señal `abstained` solo en el wire SDK; HTTP/MCP/bindings no la propagan | nota en `src/config.rs` (`confidence_threshold`) + §Pendientes (no habilitar en server/MCP hasta SCH-07) |
+| F6 | `quarantine_reject` toma `supersede_lock` y re-chequea bajo guard | `quarantine_reject_deletes_record_and_is_auditable_transition` → **24/24** |
+| N1 | `ImportReport.quarantined` cuenta solo puts persistidos | `import_quarantined_count_only_includes_persisted_records` → **24/24** |
+| N2 | resuelto por F3 | — |
+| N3 | doc: set de reason codes abierto (formato lowercase snake validado) | `src/sdk/types/record.rs` doc |
+| — | Re-snapshot `public-api.txt` (`BulkImportReport::quarantined`, campo público) | `VANTADB_PUBLIC_API_UPDATE=1 … public_api` → PASS; luego full |
+| — | Re-verificación full | `cargo nextest run --profile audit -p vantadb --build-jobs 2 --no-fail-fast` → **2464/2464** (2 skipped, 272s); `-E 'test(quarantine) or test(abstain) or test(axiom)'` → 23/23; MCP 245/245; `cargo fmt --all -- --check` → 0 diffs; `validate-docs-coverage.ps1` → solo los 2 gaps declarados (`confidence_threshold`, `quarantine_review_default_days` → SCH-07) |
+
 ## Pendientes (§Pendientes)
 - **docs diferidas por WIP ajeno → SCH-07:** `docs/api/` (`CONFIGURATION.md` 2 campos, EMBEDDED_SDK/MCP/HTTP_API/scores…) + `llms.txt` con cambios de otra sesión SIN COMMITEAR — NO editar (instrucción del orquestador). Doc de cuarentena/abstención (Regla 3) se entrega en SCH-07/LEAD.
 - Superficies restantes → SCH-07: `SearchPageV2.abstained` (HTTP), args de import (MCP `import` tool/HTTP/CLI), bindings Py/TS/Node/WASM (getters/knobs/stubs), `quarantine_*` ops en HTTP/MCP, `min_confidence` en `MemoryListOptions`, `include_quarantined` en MCP list/search args.
 - T1b (promoción derivada de dream default ON) → MEM-65 (merge real; hoy stub no muta L1).
 - Métrica agregada `quarantine_overdue` → SCH-07/v1.0 (señal base = campo `quarantine_review_due_ms`).
-- Residuales documentados: import/bulk son transporte exacto/raw — pueden reemplazar estado de cuarentena de una key existente (comentado en `impl_export.rs`/`memory.rs`; inherente a su función, T1c + audit es el gate); sticky no aplica en bulk.
+- **F4 aplicado (batch post-review):** sticky también en el transporte raw — `put_record_exact` preserva la cuarentena existente cuando el registro entrante no trae estado, y `bulk_import_stream` la preserva (lectura metadata-only por registro; cierra el bypass de I2 vía `import`/bulk). **Nota ADR-046 §D5e (enmienda menor: sticky en raw transport) → registrar en SCH-07/cierre de ADR** (no editar el ADR ahora: `docs/**` prohibido por WIP ajeno).
+- **F5 aplicado (doc-only):** `abstained`/`abstention_reason` solo viajan por el wire del SDK; HTTP `SearchPageV2`, MCP y bindings no propagan la señal aún → **no habilitar `VANTADB_CONFIDENCE_THRESHOLD` en server/MCP hasta SCH-07** (nota en `config.rs`).
 - Hallazgo entorno (no-FIND sin fila, anotado): e2e server con paralelismo default falla por contención de recursos en máquina cargada; `-j 2` estable — no es regresión de este diff.
 - FIND candidato: `inject_context` L0 aislado = v1.0 (MGR-13 §4.4 residual; solapa EXE-07).
 
@@ -174,11 +193,13 @@ description: Matriz de cierre — default-exclude, gates de inyección, transici
 | 7 Verify full | ✅ | full core 2458/2458; fmt/clippy/doc-test verdes |
 
 ## Review (GATE — agente distinto, P2-01; tier adversarial por `src/sdk/**`)
-- **Estado:** ⬜ PENDIENTE (LEAD agenda `vanta-review`/`vanta-audit` — contexto distinto, `reviewer_context ≠ author_context`).
-- **Tier mechanical (HARD-02):** diff toca `src/sdk/**` (wire/serialización) → **adversarial obligatorio**. Casos de prueba sugeridos: filtro default-exclude + fingerprint (cursor mismatch), sticky post-rewrite, gates de inyección, abstención default OFF, contratos serde v1.
-- **Insumos para el revisor:** §Verificación final (evidencia mecánica), §Threat model, OCR advisory acotado; `public-api.txt` y 9 snapshots regenerados deliberadamente.
+> **Revisor:** `ses_f13840ac8ffemmiGx03HvEyn17` (fresco ≠ autor `ses_f14231baaffeN8BlPkEGhshYcr`) — ronda 1 **❌ CHANGES REQUIRED** (F1 Critical clippy; F2/F3 Required; F4-F6 Optional; N1-N3) → batch aplicado → **delta ✅** (clippy exit 0; containment 24/24; axiom test PASS; sin regresión en lo aprobado). Residuos declarados: full suites del worker (2464/2464 · MCP 245/245 · vanta-memory 550/550); nit de trazabilidad import-refresh → SCH-06/v1.0.
+- **Ronda 1 (2026-09-29): ❌ CHANGES REQUIRED** — F1 Critical + F2/F3 Required + F4–F6 Optional + N1–N3. **Batch completo aplicado** (evidencia por finding en §Batch post-review P2-01).
+- **Estado:** ⏳ pendiente **re-review P2-01 (contexto fresco)** + commit (LEAD). Diff sigue tocando `src/sdk/**` → tier adversarial.
+- **Insumos para el revisor:** §Batch post-review (comando → resultado por finding), full **2464/2464**, MCP **245/245**, clippy scoped + CI-form exit 0, `public-api.txt` re-snapshot (`BulkImportReport::quarantined`).
 
 ## Context Save Point
 - **Discovery ✅ (2026-09-29):** gap real = operacionalizar (filtros + gates + ops + abstención + config + import); sticky T1 base ya existía de SCH-02. Task file creado. Gate D: símbolos públicos nuevos pre-aprobados por ADR-046 (firma owner 2026-09-28) + contrato verbatim del plan.
 - **Implementación completa (2026-09-29):** Steps 1-7 ✅ con verificación mecánica por crate (tabla §Verificación final). Red/Green por test (RED compilación controlada; GREEN 20/20).
-- **Pendiente (LEAD):** review P2-01 adversarial + commit local (nada de push). **Docs/api diferidas** (WIP ajeno) → SCH-07. `nextTask`: SCH-06.
+- **Batch post-review ✅ (2026-09-29):** F1–F6 + N1–N3 aplicados (evidencia por finding en §Batch post-review); tests `quarantine_containment` 24/24, MCP 245/245, full core 2464/2464, clippy scoped + CI-form exit 0, `public-api.txt` re-snapshot.
+- **Pendiente (LEAD):** re-review P2-01 adversarial (contexto fresco) + commit local (nada de push). **Docs/api diferidas** (WIP ajeno) → SCH-07; nota F4 (sticky raw transport) → enmienda menor ADR-046 §D5e a registrar en SCH-07/cierre. `nextTask`: SCH-06.

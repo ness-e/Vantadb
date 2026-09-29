@@ -23,6 +23,7 @@ MemorySearchRequest {
     min_confidence: None,
     as_of_ms: None,
     valid_window: None,
+    include_quarantined: false,
     search_profile: None,
     range: None,
     group_by: None,

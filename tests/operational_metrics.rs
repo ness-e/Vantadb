@@ -117,7 +117,7 @@ fn metrics_track_rebuild_export_import_and_replay() {
     let import_dir = tempdir().expect("import tempdir");
     let imported = Embedded::open(import_dir.path()).expect("open imported");
     let before_import = imported.operational_metrics();
-    let import = imported.import_file(&export_path).expect("import");
+    let import = imported.import_file(&export_path, false).expect("import");
     assert_eq!(import.inserted, 1);
     let after_import = imported.operational_metrics();
     assert!(after_import.records_imported > before_import.records_imported);
@@ -131,7 +131,9 @@ fn metrics_track_import_errors() {
     std::fs::write(&import_path, "{not valid json}\n").expect("write invalid import");
 
     let before = db.operational_metrics();
-    let report = db.import_file(&import_path).expect("import invalid file");
+    let report = db
+        .import_file(&import_path, false)
+        .expect("import invalid file");
     assert_eq!(report.errors, 1);
 
     let after = db.operational_metrics();

@@ -1214,6 +1214,7 @@ pub vantadb::config::Config::batch_size: core::option::Option<usize>
 pub vantadb::config::Config::bulk_commit_interval: core::option::Option<usize>
 pub vantadb::config::Config::circuit_breaker_failure_threshold: u32
 pub vantadb::config::Config::circuit_breaker_open_timeout_secs: u64
+pub vantadb::config::Config::confidence_threshold: core::option::Option<f32>
 pub vantadb::config::Config::dashboard_dir: core::option::Option<std::path::PathBuf>
 pub vantadb::config::Config::embedding_provider: alloc::string::String
 pub vantadb::config::Config::encryption_key: core::option::Option<alloc::string::String>
@@ -1246,6 +1247,7 @@ pub vantadb::config::Config::openai_model: alloc::string::String
 pub vantadb::config::Config::pool_acquire_timeout_ms: u64
 pub vantadb::config::Config::port: u16
 pub vantadb::config::Config::prefetch_mode: vantadb::config::PrefetchMode
+pub vantadb::config::Config::quarantine_review_default_days: u32
 pub vantadb::config::Config::rate_limit_rpm: u32
 pub vantadb::config::Config::rbac_config: vantadb::config::RbacConfig
 pub vantadb::config::Config::read_only: bool
@@ -4866,6 +4868,29 @@ pub fn vantadb::schema::load_or_create_schema(&std::path::Path) -> vantadb::erro
 pub mod vantadb::sdk
 pub mod vantadb::sdk::connect
 pub fn vantadb::sdk::connect::connect(&str) -> vantadb::error::Result<vantadb::Embedded>
+#[non_exhaustive] pub enum vantadb::sdk::AbstentionReason
+pub vantadb::sdk::AbstentionReason::AllQuarantined
+pub vantadb::sdk::AbstentionReason::NoCandidatesAboveThreshold
+impl core::clone::Clone for vantadb::AbstentionReason
+pub fn vantadb::AbstentionReason::clone(&self) -> vantadb::AbstentionReason
+impl core::cmp::Eq for vantadb::AbstentionReason
+impl core::cmp::PartialEq for vantadb::AbstentionReason
+pub fn vantadb::AbstentionReason::eq(&self, &vantadb::AbstentionReason) -> bool
+impl core::fmt::Debug for vantadb::AbstentionReason
+pub fn vantadb::AbstentionReason::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vantadb::AbstentionReason
+impl core::marker::StructuralPartialEq for vantadb::AbstentionReason
+impl serde_core::ser::Serialize for vantadb::AbstentionReason
+pub fn vantadb::AbstentionReason::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vantadb::AbstentionReason
+pub fn vantadb::AbstentionReason::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for vantadb::AbstentionReason
+impl core::marker::Send for vantadb::AbstentionReason
+impl core::marker::Sync for vantadb::AbstentionReason
+impl core::marker::Unpin for vantadb::AbstentionReason
+impl core::marker::UnsafeUnpin for vantadb::AbstentionReason
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::AbstentionReason
+impl core::panic::unwind_safe::UnwindSafe for vantadb::AbstentionReason
 #[non_exhaustive] pub enum vantadb::sdk::ConfidenceClass
 pub vantadb::sdk::ConfidenceClass::Asserted
 pub vantadb::sdk::ConfidenceClass::Derived
@@ -5084,6 +5109,7 @@ impl core::panic::unwind_safe::UnwindSafe for vantadb::Bm25TermContribution
 pub struct vantadb::sdk::BulkImportReport
 pub vantadb::sdk::BulkImportReport::batches_committed: usize
 pub vantadb::sdk::BulkImportReport::duration_ms: u64
+pub vantadb::sdk::BulkImportReport::quarantined: u64
 pub vantadb::sdk::BulkImportReport::total_records: usize
 impl core::clone::Clone for vantadb::BulkImportReport
 pub fn vantadb::BulkImportReport::clone(&self) -> vantadb::BulkImportReport
@@ -5177,6 +5203,9 @@ pub fn vantadb::Embedded::get_version(&self, &str, &str, u64) -> vantadb::error:
 pub fn vantadb::Embedded::purge_expired(&self) -> vantadb::error::Result<u64>
 pub fn vantadb::Embedded::put(&self, vantadb::MemoryInput) -> vantadb::error::Result<vantadb::MemoryRecord>
 pub fn vantadb::Embedded::put_batch(&self, alloc::vec::Vec<vantadb::MemoryInput>) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemoryRecord>>
+pub fn vantadb::Embedded::quarantine_apply(&self, &str, &str, core::option::Option<&str>) -> vantadb::error::Result<vantadb::MemoryRecord>
+pub fn vantadb::Embedded::quarantine_promote(&self, &str, &str) -> vantadb::error::Result<vantadb::MemoryRecord>
+pub fn vantadb::Embedded::quarantine_reject(&self, &str, &str) -> vantadb::error::Result<bool>
 pub fn vantadb::Embedded::supersede(&self, &str, &str, &str) -> vantadb::error::Result<()>
 pub fn vantadb::Embedded::versions(&self, &str, &str) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemoryRecord>>
 impl vantadb::Embedded
@@ -5216,8 +5245,8 @@ pub fn vantadb::Embedded::explain_memory_search(&self, vantadb::MemorySearchRequ
 impl vantadb::Embedded
 pub fn vantadb::Embedded::export_all(&self, impl core::convert::AsRef<std::path::Path>) -> vantadb::error::Result<vantadb::ExportReport>
 pub fn vantadb::Embedded::export_namespace(&self, impl core::convert::AsRef<std::path::Path>, &str, core::option::Option<vantadb::MemoryFilter>) -> vantadb::error::Result<vantadb::ExportReport>
-pub fn vantadb::Embedded::import_file(&self, impl core::convert::AsRef<std::path::Path>) -> vantadb::error::Result<vantadb::ImportReport>
-pub fn vantadb::Embedded::import_records(&self, alloc::vec::Vec<vantadb::MemoryRecord>) -> vantadb::error::Result<vantadb::ImportReport>
+pub fn vantadb::Embedded::import_file(&self, impl core::convert::AsRef<std::path::Path>, bool) -> vantadb::error::Result<vantadb::ImportReport>
+pub fn vantadb::Embedded::import_records(&self, alloc::vec::Vec<vantadb::MemoryRecord>, bool) -> vantadb::error::Result<vantadb::ImportReport>
 impl vantadb::Embedded
 pub fn vantadb::Embedded::graph_accumulator_add(&self, &vantadb::accumulator::GraphAccumulator, u128, f64) -> vantadb::error::Result<f64>
 pub fn vantadb::Embedded::graph_accumulator_get(&self, &vantadb::accumulator::GraphAccumulator, u128) -> vantadb::error::Result<core::option::Option<f64>>
@@ -5411,6 +5440,7 @@ pub struct vantadb::sdk::ImportReport
 pub vantadb::sdk::ImportReport::duration_ms: u64
 pub vantadb::sdk::ImportReport::errors: u64
 pub vantadb::sdk::ImportReport::inserted: u64
+pub vantadb::sdk::ImportReport::quarantined: u64
 pub vantadb::sdk::ImportReport::skipped: u64
 pub vantadb::sdk::ImportReport::updated: u64
 impl core::clone::Clone for vantadb::ImportReport
@@ -5532,6 +5562,7 @@ pub vantadb::sdk::MemoryInput::key: alloc::string::String
 pub vantadb::sdk::MemoryInput::metadata: vantadb::MemoryMetadata
 pub vantadb::sdk::MemoryInput::namespace: alloc::string::String
 pub vantadb::sdk::MemoryInput::payload: alloc::string::String
+pub vantadb::sdk::MemoryInput::quarantine: bool
 pub vantadb::sdk::MemoryInput::sparse_vector: core::option::Option<vantadb::SparseVector>
 pub vantadb::sdk::MemoryInput::ttl_ms: core::option::Option<u64>
 pub vantadb::sdk::MemoryInput::valid_at_ms: core::option::Option<u64>
@@ -5564,6 +5595,7 @@ pub vantadb::sdk::MemoryListOptions::cursor: core::option::Option<usize>
 pub vantadb::sdk::MemoryListOptions::exclude_superseded: bool
 pub vantadb::sdk::MemoryListOptions::filter_ops: core::option::Option<vantadb::MemoryFilter>
 pub vantadb::sdk::MemoryListOptions::filters: vantadb::MemoryMetadata
+pub vantadb::sdk::MemoryListOptions::include_quarantined: bool
 pub vantadb::sdk::MemoryListOptions::limit: usize
 pub vantadb::sdk::MemoryListOptions::valid_window: core::option::Option<vantadb::ValidWindow>
 impl core::clone::Clone for vantadb::MemoryListOptions
@@ -5677,6 +5709,8 @@ impl core::marker::UnsafeUnpin for vantadb::MemorySearchHit
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::MemorySearchHit
 impl core::panic::unwind_safe::UnwindSafe for vantadb::MemorySearchHit
 pub struct vantadb::sdk::MemorySearchPage
+pub vantadb::sdk::MemorySearchPage::abstained: bool
+pub vantadb::sdk::MemorySearchPage::abstention_reason: core::option::Option<vantadb::AbstentionReason>
 pub vantadb::sdk::MemorySearchPage::hits: alloc::vec::Vec<vantadb::MemorySearchHit>
 pub vantadb::sdk::MemorySearchPage::next_cursor: core::option::Option<alloc::string::String>
 impl core::clone::Clone for vantadb::MemorySearchPage
@@ -5705,6 +5739,7 @@ pub vantadb::sdk::MemorySearchRequest::exclude_superseded: bool
 pub vantadb::sdk::MemorySearchRequest::explain: bool
 pub vantadb::sdk::MemorySearchRequest::filters: vantadb::MemoryMetadata
 pub vantadb::sdk::MemorySearchRequest::group_by: core::option::Option<vantadb::GroupByConfig>
+pub vantadb::sdk::MemorySearchRequest::include_quarantined: bool
 pub vantadb::sdk::MemorySearchRequest::min_confidence: core::option::Option<f32>
 pub vantadb::sdk::MemorySearchRequest::mmr: core::option::Option<vantadb::MmrConfig>
 pub vantadb::sdk::MemorySearchRequest::namespace: alloc::string::String
@@ -7291,6 +7326,29 @@ pub const vantadb::wiki::SOURCE_CHAR_BUDGET: usize
 pub fn vantadb::wiki::canonical_path(&str, &str) -> alloc::string::String
 pub fn vantadb::wiki::chunk_text(&str, usize, usize) -> alloc::vec::Vec<alloc::string::String>
 pub fn vantadb::wiki::scan_local_sources(&std::path::Path) -> vantadb::error::Result<alloc::vec::Vec<vantadb::wiki::sources::SourceFile>>
+#[non_exhaustive] pub enum vantadb::AbstentionReason
+pub vantadb::AbstentionReason::AllQuarantined
+pub vantadb::AbstentionReason::NoCandidatesAboveThreshold
+impl core::clone::Clone for vantadb::AbstentionReason
+pub fn vantadb::AbstentionReason::clone(&self) -> vantadb::AbstentionReason
+impl core::cmp::Eq for vantadb::AbstentionReason
+impl core::cmp::PartialEq for vantadb::AbstentionReason
+pub fn vantadb::AbstentionReason::eq(&self, &vantadb::AbstentionReason) -> bool
+impl core::fmt::Debug for vantadb::AbstentionReason
+pub fn vantadb::AbstentionReason::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vantadb::AbstentionReason
+impl core::marker::StructuralPartialEq for vantadb::AbstentionReason
+impl serde_core::ser::Serialize for vantadb::AbstentionReason
+pub fn vantadb::AbstentionReason::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vantadb::AbstentionReason
+pub fn vantadb::AbstentionReason::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for vantadb::AbstentionReason
+impl core::marker::Send for vantadb::AbstentionReason
+impl core::marker::Sync for vantadb::AbstentionReason
+impl core::marker::Unpin for vantadb::AbstentionReason
+impl core::marker::UnsafeUnpin for vantadb::AbstentionReason
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::AbstentionReason
+impl core::panic::unwind_safe::UnwindSafe for vantadb::AbstentionReason
 pub enum vantadb::BackendKind
 pub vantadb::BackendKind::Fjall
 pub vantadb::BackendKind::InMemory
@@ -7757,6 +7815,7 @@ impl core::panic::unwind_safe::UnwindSafe for vantadb::Bm25TermContribution
 pub struct vantadb::BulkImportReport
 pub vantadb::BulkImportReport::batches_committed: usize
 pub vantadb::BulkImportReport::duration_ms: u64
+pub vantadb::BulkImportReport::quarantined: u64
 pub vantadb::BulkImportReport::total_records: usize
 impl core::clone::Clone for vantadb::BulkImportReport
 pub fn vantadb::BulkImportReport::clone(&self) -> vantadb::BulkImportReport
@@ -7813,6 +7872,7 @@ pub vantadb::Config::batch_size: core::option::Option<usize>
 pub vantadb::Config::bulk_commit_interval: core::option::Option<usize>
 pub vantadb::Config::circuit_breaker_failure_threshold: u32
 pub vantadb::Config::circuit_breaker_open_timeout_secs: u64
+pub vantadb::Config::confidence_threshold: core::option::Option<f32>
 pub vantadb::Config::dashboard_dir: core::option::Option<std::path::PathBuf>
 pub vantadb::Config::embedding_provider: alloc::string::String
 pub vantadb::Config::encryption_key: core::option::Option<alloc::string::String>
@@ -7845,6 +7905,7 @@ pub vantadb::Config::openai_model: alloc::string::String
 pub vantadb::Config::pool_acquire_timeout_ms: u64
 pub vantadb::Config::port: u16
 pub vantadb::Config::prefetch_mode: vantadb::config::PrefetchMode
+pub vantadb::Config::quarantine_review_default_days: u32
 pub vantadb::Config::rate_limit_rpm: u32
 pub vantadb::Config::rbac_config: vantadb::config::RbacConfig
 pub vantadb::Config::read_only: bool
@@ -8011,6 +8072,9 @@ pub fn vantadb::Embedded::get_version(&self, &str, &str, u64) -> vantadb::error:
 pub fn vantadb::Embedded::purge_expired(&self) -> vantadb::error::Result<u64>
 pub fn vantadb::Embedded::put(&self, vantadb::MemoryInput) -> vantadb::error::Result<vantadb::MemoryRecord>
 pub fn vantadb::Embedded::put_batch(&self, alloc::vec::Vec<vantadb::MemoryInput>) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemoryRecord>>
+pub fn vantadb::Embedded::quarantine_apply(&self, &str, &str, core::option::Option<&str>) -> vantadb::error::Result<vantadb::MemoryRecord>
+pub fn vantadb::Embedded::quarantine_promote(&self, &str, &str) -> vantadb::error::Result<vantadb::MemoryRecord>
+pub fn vantadb::Embedded::quarantine_reject(&self, &str, &str) -> vantadb::error::Result<bool>
 pub fn vantadb::Embedded::supersede(&self, &str, &str, &str) -> vantadb::error::Result<()>
 pub fn vantadb::Embedded::versions(&self, &str, &str) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemoryRecord>>
 impl vantadb::Embedded
@@ -8050,8 +8114,8 @@ pub fn vantadb::Embedded::explain_memory_search(&self, vantadb::MemorySearchRequ
 impl vantadb::Embedded
 pub fn vantadb::Embedded::export_all(&self, impl core::convert::AsRef<std::path::Path>) -> vantadb::error::Result<vantadb::ExportReport>
 pub fn vantadb::Embedded::export_namespace(&self, impl core::convert::AsRef<std::path::Path>, &str, core::option::Option<vantadb::MemoryFilter>) -> vantadb::error::Result<vantadb::ExportReport>
-pub fn vantadb::Embedded::import_file(&self, impl core::convert::AsRef<std::path::Path>) -> vantadb::error::Result<vantadb::ImportReport>
-pub fn vantadb::Embedded::import_records(&self, alloc::vec::Vec<vantadb::MemoryRecord>) -> vantadb::error::Result<vantadb::ImportReport>
+pub fn vantadb::Embedded::import_file(&self, impl core::convert::AsRef<std::path::Path>, bool) -> vantadb::error::Result<vantadb::ImportReport>
+pub fn vantadb::Embedded::import_records(&self, alloc::vec::Vec<vantadb::MemoryRecord>, bool) -> vantadb::error::Result<vantadb::ImportReport>
 impl vantadb::Embedded
 pub fn vantadb::Embedded::graph_accumulator_add(&self, &vantadb::accumulator::GraphAccumulator, u128, f64) -> vantadb::error::Result<f64>
 pub fn vantadb::Embedded::graph_accumulator_get(&self, &vantadb::accumulator::GraphAccumulator, u128) -> vantadb::error::Result<core::option::Option<f64>>
@@ -8208,6 +8272,7 @@ pub struct vantadb::ImportReport
 pub vantadb::ImportReport::duration_ms: u64
 pub vantadb::ImportReport::errors: u64
 pub vantadb::ImportReport::inserted: u64
+pub vantadb::ImportReport::quarantined: u64
 pub vantadb::ImportReport::skipped: u64
 pub vantadb::ImportReport::updated: u64
 impl core::clone::Clone for vantadb::ImportReport
@@ -8317,6 +8382,7 @@ pub vantadb::MemoryInput::key: alloc::string::String
 pub vantadb::MemoryInput::metadata: vantadb::MemoryMetadata
 pub vantadb::MemoryInput::namespace: alloc::string::String
 pub vantadb::MemoryInput::payload: alloc::string::String
+pub vantadb::MemoryInput::quarantine: bool
 pub vantadb::MemoryInput::sparse_vector: core::option::Option<vantadb::SparseVector>
 pub vantadb::MemoryInput::ttl_ms: core::option::Option<u64>
 pub vantadb::MemoryInput::valid_at_ms: core::option::Option<u64>
@@ -8349,6 +8415,7 @@ pub vantadb::MemoryListOptions::cursor: core::option::Option<usize>
 pub vantadb::MemoryListOptions::exclude_superseded: bool
 pub vantadb::MemoryListOptions::filter_ops: core::option::Option<vantadb::MemoryFilter>
 pub vantadb::MemoryListOptions::filters: vantadb::MemoryMetadata
+pub vantadb::MemoryListOptions::include_quarantined: bool
 pub vantadb::MemoryListOptions::limit: usize
 pub vantadb::MemoryListOptions::valid_window: core::option::Option<vantadb::ValidWindow>
 impl core::clone::Clone for vantadb::MemoryListOptions
@@ -8462,6 +8529,8 @@ impl core::marker::UnsafeUnpin for vantadb::MemorySearchHit
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::MemorySearchHit
 impl core::panic::unwind_safe::UnwindSafe for vantadb::MemorySearchHit
 pub struct vantadb::MemorySearchPage
+pub vantadb::MemorySearchPage::abstained: bool
+pub vantadb::MemorySearchPage::abstention_reason: core::option::Option<vantadb::AbstentionReason>
 pub vantadb::MemorySearchPage::hits: alloc::vec::Vec<vantadb::MemorySearchHit>
 pub vantadb::MemorySearchPage::next_cursor: core::option::Option<alloc::string::String>
 impl core::clone::Clone for vantadb::MemorySearchPage
@@ -8490,6 +8559,7 @@ pub vantadb::MemorySearchRequest::exclude_superseded: bool
 pub vantadb::MemorySearchRequest::explain: bool
 pub vantadb::MemorySearchRequest::filters: vantadb::MemoryMetadata
 pub vantadb::MemorySearchRequest::group_by: core::option::Option<vantadb::GroupByConfig>
+pub vantadb::MemorySearchRequest::include_quarantined: bool
 pub vantadb::MemorySearchRequest::min_confidence: core::option::Option<f32>
 pub vantadb::MemorySearchRequest::mmr: core::option::Option<vantadb::MmrConfig>
 pub vantadb::MemorySearchRequest::namespace: alloc::string::String

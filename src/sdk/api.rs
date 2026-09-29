@@ -547,6 +547,7 @@ mod tests {
                     exclude_superseded: false,
                     as_of_ms: None,
                     valid_window: None,
+                    include_quarantined: false,
                 },
             )
             .unwrap();
@@ -570,6 +571,7 @@ mod tests {
                     exclude_superseded: false,
                     as_of_ms: None,
                     valid_window: None,
+                    include_quarantined: false,
                 },
             )
             .unwrap();
@@ -622,6 +624,7 @@ mod tests {
                     exclude_superseded: false,
                     as_of_ms: None,
                     valid_window: None,
+                    include_quarantined: false,
                 },
             )
             .unwrap();
@@ -765,7 +768,7 @@ mod tests {
         assert!(matches!(err, Error::Validation { .. }), "got: {err}");
         assert!(!outside.exists(), "no file may be written outside the base");
         // import_file: same sandbox.
-        let err = db.import_file(&outside).unwrap_err();
+        let err = db.import_file(&outside, false).unwrap_err();
         assert!(matches!(err, Error::Validation { .. }), "got: {err}");
     }
 
@@ -922,6 +925,7 @@ mod tests {
                     exclude_superseded: false,
                     as_of_ms: None,
                     valid_window: None,
+                    include_quarantined: false,
                 },
             )
             .unwrap();
@@ -939,6 +943,7 @@ mod tests {
                     exclude_superseded: true,
                     as_of_ms: None,
                     valid_window: None,
+                    include_quarantined: false,
                 },
             )
             .unwrap();
@@ -969,6 +974,7 @@ mod tests {
                 min_confidence: None,
                 as_of_ms: None,
                 valid_window: None,
+                include_quarantined: false,
                 search_profile: None,
                 range: None,
                 group_by: None,
@@ -992,6 +998,7 @@ mod tests {
                 min_confidence: None,
                 as_of_ms: None,
                 valid_window: None,
+                include_quarantined: false,
                 search_profile: None,
                 range: None,
                 group_by: None,
@@ -1502,7 +1509,7 @@ mod tests {
         bad.node_id = crate::sdk::serialization::memory_node_id("ns", "bad");
         bad.confidence = 42.0; // out of [0,1]
 
-        let report = db.import_records(vec![good, bad]).expect("import");
+        let report = db.import_records(vec![good, bad], false).expect("import");
         assert_eq!(report.inserted, 1);
         assert_eq!(report.errors, 1);
         assert!(db.get("ns", "good").expect("get").is_some());

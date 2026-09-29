@@ -795,6 +795,24 @@ pub struct Config {
     /// writes inherit the default — existing records are never backfilled.
     /// Malformed entries are warned and skipped.
     pub memory_default_ttl_ms: BTreeMap<String, u64>,
+    /// Default quarantine review deadline in days, applied when a record enters
+    /// quarantine without an explicit deadline (ADR-046 §D5d, SCH-05). `0`
+    /// disables the automatic deadline. Never promotes by itself (I1).
+    /// Configured via `VANTADB_QUARANTINE_REVIEW_DEFAULT_DAYS` (default: 30).
+    pub quarantine_review_default_days: u32,
+    /// Selective-abstention threshold (ADR-046 §D2, SCH-05): when set (finite,
+    /// within `[0,1]`), search results below the threshold are dropped and an
+    /// empty result set carries an explicit `abstained` signal instead of
+    /// silently degrading. `None` (default) = OFF. Distinct from the
+    /// per-request `min_confidence` filter (which never emits the signal).
+    /// Configured via `VANTADB_CONFIDENCE_THRESHOLD`.
+    ///
+    /// NOTE (SCH-05 review F5): the `abstained` signal currently travels only
+    /// on the SDK wire (`MemorySearchPage`). HTTP `SearchPageV2`, MCP search
+    /// and the bindings do **not** propagate it yet (SCH-07, Task 32) — do not
+    /// enable this knob on the server/MCP until SCH-07 lands, or the signal
+    /// would die silently at the surface.
+    pub confidence_threshold: Option<f32>,
     /// Interval in ms for the background TTL sweeper, which physically purges
     /// expired memory records (nodes + derived/text indexes) on the server:
     /// same purge as `DELETE /api/v2/maintenance/expired-records`, run
@@ -1265,6 +1283,31 @@ impl Default for Config {
                 }
                 debug!(count = map.len(), "VANTADB_MEMORY_DEFAULT_TTL_MS");
                 map
+            },
+            quarantine_review_default_days: {
+                let v = parse_env_or("VANTADB_QUARANTINE_REVIEW_DEFAULT_DAYS", 30u32);
+                debug!(val = v, "VANTADB_QUARANTINE_REVIEW_DEFAULT_DAYS");
+                v
+            },
+            confidence_threshold: {
+                let raw = env::var("VANTADB_CONFIDENCE_THRESHOLD").ok();
+                let v = raw.as_deref().and_then(|s| match s.trim().parse::<f32>() {
+                    Ok(t) if t.is_finite() && (0.0..=1.0).contains(&t) => Some(t),
+                    Ok(t) => {
+                        warn!(
+                            "Invalid VANTADB_CONFIDENCE_THRESHOLD={t} — expected a value in [0,1]; ignoring"
+                        );
+                        None
+                    }
+                    Err(e) => {
+                        warn!(
+                            "Invalid VANTADB_CONFIDENCE_THRESHOLD={s:?} ({e}) — ignoring"
+                        );
+                        None
+                    }
+                });
+                debug!(?v, "VANTADB_CONFIDENCE_THRESHOLD");
+                v
             },
             ttl_sweep_interval_ms: {
                 let v = parse_env_or("VANTADB_TTL_SWEEP_INTERVAL_MS", 60_000u64);
@@ -1957,6 +2000,8 @@ mod tests {
         assert_eq!(cfg.insert_lock_timeout_ms, 5000);
         assert_eq!(cfg.file_lock_timeout_ms, 1000);
         assert_eq!(cfg.flat_threshold, Some(10000));
+        assert_eq!(cfg.quarantine_review_default_days, 30, "D5d default");
+        assert_eq!(cfg.confidence_threshold, None, "abstention default OFF");
         assert_eq!(cfg.audit_log_path, None);
         assert_eq!(cfg.audit_max_bytes, 10 * 1024 * 1024);
         assert_eq!(cfg.audit_max_files, 5);

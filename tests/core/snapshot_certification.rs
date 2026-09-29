@@ -308,7 +308,7 @@ fn export_format_schema_version_roundtrip() {
 
             {
                 let target = Embedded::open(target_dir.path()).expect("open target");
-                let import = target.import_file(&export1).expect("import");
+                let import = target.import_file(&export1, false).expect("import");
                 assert_eq!(import.inserted, 2);
                 assert_eq!(import.errors, 0);
 
@@ -355,7 +355,7 @@ fn export_format_updates_existing_records_version_tracking() {
             .put(record("ns/upd", "a", "stale payload", "test"))
             .expect("seed stale");
 
-        let import = target.import_file(&export_path).expect("import");
+        let import = target.import_file(&export_path, false).expect("import");
         assert_eq!(import.updated, 1);
         assert_eq!(import.inserted, 0);
         assert_eq!(import.errors, 0);
@@ -400,7 +400,7 @@ fn export_format_preserves_all_record_fields() {
 
         let restore_dir = tempdir().expect("restore dir");
         let restored = Embedded::open(restore_dir.path()).expect("open restored");
-        restored.import_file(&export_path).expect("import");
+        restored.import_file(&export_path, false).expect("import");
 
         let record = restored
             .get("ns/fidelity", "key-f")
@@ -438,7 +438,7 @@ fn export_format_empty_lines_skipped() {
         fs::write(&export_path, &content).expect("write mixed jsonl");
 
         let target = Embedded::open(target_dir.path()).expect("open target");
-        let import = target.import_file(&export_path).expect("import");
+        let import = target.import_file(&export_path, false).expect("import");
         assert_eq!(import.inserted, 3);
         // str::lines() yields 3 blank lines (two between a–b, one between
         // b–c); the trailing newline after line_c is not a blank line.
@@ -1132,7 +1132,7 @@ fn vantafile_export_golden_file() {
             // Round-trip: import into fresh DB
             let restore_dir = tempdir().expect("restore dir");
             let restored = Embedded::open(restore_dir.path()).expect("open restored");
-            let import = restored.import_file(&export_path).expect("import");
+            let import = restored.import_file(&export_path, false).expect("import");
             assert_eq!(import.inserted, 1);
             assert_eq!(import.errors, 0);
 

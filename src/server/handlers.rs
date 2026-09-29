@@ -777,12 +777,13 @@ pub async fn import_v2(
     // BulkImportReport); normalize to a JSON value to keep one response path.
     match run_db_op(&state, move |db| -> Result<serde_json::Value> {
         let value = if let Some(records) = records {
-            serde_json::to_value(db.import_records(records)?).map_err(Error::serialization)?
+            serde_json::to_value(db.import_records(records, false)?)
+                .map_err(Error::serialization)?
         } else if let Some(path) = path {
             if format.as_deref() == Some("bulk") {
                 serde_json::to_value(db.bulk_import_file(&path)?).map_err(Error::serialization)?
             } else {
-                serde_json::to_value(db.import_file(&path)?).map_err(Error::serialization)?
+                serde_json::to_value(db.import_file(&path, false)?).map_err(Error::serialization)?
             }
         } else {
             return Err(Error::InvalidInput(

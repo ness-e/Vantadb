@@ -30,7 +30,8 @@
 use super::super::builder::Embedded;
 use super::super::serialization::now_ms;
 use super::super::serialization::vector_types::{
-    GroupByConfig, MemorySearchHit, MemorySearchPage, MemorySearchRequest, RangeFilter,
+    AbstentionReason, GroupByConfig, MemorySearchHit, MemorySearchPage, MemorySearchRequest,
+    RangeFilter,
 };
 use super::fusion::{EntityBoost, EntityBoostReport};
 use super::mmr;
@@ -176,6 +177,9 @@ pub(crate) fn plan_fingerprint(request: &MemorySearchRequest) -> u64 {
     format!("{:?}", request.distance_metric).hash(&mut hasher);
     request.explain.hash(&mut hasher);
     request.exclude_superseded.hash(&mut hasher);
+    // SCH-05 (ADR-046 §D5): the quarantine view is part of the plan identity —
+    // a cursor from the default view must not continue over quarantined hits.
+    request.include_quarantined.hash(&mut hasher);
     // SCH-04 (ADR-046 §D2): the confidence threshold is part of the plan
     // identity — a cursor from a different threshold must be rejected.
     request.min_confidence.map(f32::to_bits).hash(&mut hasher);
@@ -297,6 +301,8 @@ pub(crate) fn run_search_page(
             MemorySearchPage {
                 hits: Vec::new(),
                 next_cursor: None,
+                abstained: false,
+                abstention_reason: None,
             },
             EntityBoostReport::default(),
         ));
@@ -331,6 +337,15 @@ pub(crate) fn run_search_page(
     // - `group_by`: saturated groups skip candidates.
     // The PRE-selector ranked length distinguishes "list exhausted" from
     // "selector consumed the page".
+    // SCH-05 (ADR-046 §D2): the config threshold is the abstention trigger —
+    // it drops ranked hits below the bar and turns an emptied page into an
+    // explicit `abstained` signal (never a silent empty page). Sanitized at
+    // read (config is a trust boundary); `None` = OFF (default, zero change).
+    let confidence_threshold = db
+        .config
+        .confidence_threshold
+        .filter(|t| t.is_finite() && (0.0..=1.0).contains(t));
+
     let selectors_can_shorten = cursor.is_some()
         || request
             .range
@@ -341,17 +356,36 @@ pub(crate) fn run_search_page(
         || request.valid_window.is_some()
         // SCH-04: the confidence filter can shorten the page below `top_k`
         // (same reason as the temporal filters above).
-        || request.min_confidence.is_some();
+        || request.min_confidence.is_some()
+        // SCH-05: the default quarantine exclude and the configured threshold
+        // can also shorten the page below `top_k`.
+        || !request.include_quarantined
+        || confidence_threshold.is_some();
     // SCH-03: the supersession reference is read ONCE per request at the
     // boundary — the retain predicates below stay pure `(record, ref)`.
     // Read lazily: the default path (flag off) must not touch the clock.
     let supersession_ref_ms = request.exclude_superseded.then(now_ms);
+    // SCH-05: tracks whether the last (widest) fetch window had candidates and
+    // every one of them was quarantined — the `all_quarantined` abstention
+    // reason is decided on that state, not on the threshold filter.
+    let mut all_candidates_quarantined;
     let (mut hits, boost_report) = loop {
         let mut effective = request.clone();
         effective.top_k = window;
         effective.cursor = None;
         let (mut fetched, report) = db.search_impl(effective, method, boost)?;
         let ranked_len = fetched.len();
+
+        if !request.include_quarantined {
+            // SCH-05 (ADR-046 §D5, MGR-13 §5.1): quarantined content is
+            // excluded from default retrieval at final assembly — no index
+            // change, ranking untouched (same position as `exclude_superseded`).
+            let before = fetched.len();
+            fetched.retain(|hit| hit.record.quarantined_at_ms.is_none());
+            all_candidates_quarantined = before > 0 && fetched.is_empty();
+        } else {
+            all_candidates_quarantined = false;
+        }
 
         if request.exclude_superseded {
             // ADR-028 + ADR-046 §D3-6 (SCH-03): drop superseded records and
@@ -381,6 +415,11 @@ pub(crate) fn run_search_page(
             // no index change, ranking untouched (drops post-ranking only).
             fetched.retain(|hit| hit.record.confidence >= min_confidence);
         }
+        if let Some(threshold) = confidence_threshold {
+            // SCH-05 (ADR-046 §D2): the config threshold filters AND triggers
+            // abstention when every candidate falls below it.
+            fetched.retain(|hit| hit.record.confidence >= threshold);
+        }
         if let Some(range) = &request.range {
             apply_range(&mut fetched, range);
         }
@@ -407,6 +446,24 @@ pub(crate) fn run_search_page(
         window = window.saturating_mul(2).min(MAX_PAGE_WINDOW);
     };
 
+    // SCH-05 (ADR-046 §D2): explicit abstention signal — only when a
+    // threshold is configured (`None` = OFF keeps the historic empty page).
+    // `AllQuarantined` distinguishes "isolated by decision" (every candidate
+    // was quarantined and the default-exclude gate removed them) from
+    // "no candidate reached the bar".
+    let (abstained, abstention_reason) = if confidence_threshold.is_some() && hits.is_empty() {
+        (
+            true,
+            Some(if all_candidates_quarantined {
+                AbstentionReason::AllQuarantined
+            } else {
+                AbstentionReason::NoCandidatesAboveThreshold
+            }),
+        )
+    } else {
+        (false, None)
+    };
+
     // Emit a cursor only when the page is full (a short page is the last page —
     // `MemoryListPage` convention).
     let next_offset = cursor
@@ -422,5 +479,13 @@ pub(crate) fn run_search_page(
         None
     };
 
-    Ok((MemorySearchPage { hits, next_cursor }, boost_report))
+    Ok((
+        MemorySearchPage {
+            hits,
+            next_cursor,
+            abstained,
+            abstention_reason,
+        },
+        boost_report,
+    ))
 }

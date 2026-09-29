@@ -487,7 +487,9 @@ fn text_index_export_import_round_trip_rebuildable() {
         .expect("export namespace");
 
     let target = Embedded::open(target_dir.path()).expect("open target");
-    let imported = target.import_file(&export_path).expect("import file");
+    let imported = target
+        .import_file(&export_path, false)
+        .expect("import file");
     assert_eq!(imported.inserted, 1);
     assert_eq!(imported.errors, 0);
 
@@ -842,7 +844,7 @@ fn hybrid_respects_metadata_filters_and_reopen_import_export() {
     source.close().expect("close source");
 
     let target = Embedded::open(target_dir.path()).expect("open target");
-    target.import_file(&export_path).expect("import");
+    target.import_file(&export_path, false).expect("import");
     target.flush().expect("flush target");
     target.close().expect("close target");
 

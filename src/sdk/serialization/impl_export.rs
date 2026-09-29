@@ -14,6 +14,17 @@ use std::path::{Path, PathBuf};
 use tracing;
 use web_time::Instant;
 
+/// Audit reason for an import (SCH-05): the quarantined count when the import
+/// option marked records (T1c), else `None`.
+fn quarantine_reason_from_report(
+    report: Option<&super::super::types::ImportReport>,
+) -> Option<String> {
+    match report {
+        Some(r) if r.quarantined > 0 => Some(format!("{} quarantined", r.quarantined)),
+        _ => None,
+    }
+}
+
 impl Embedded {
     /// Validate a path against the configured export base dir, falling back to
     /// bare `..` traversal protection when no base dir is configured.
@@ -28,6 +39,7 @@ impl Embedded {
             }
         }
     }
+
     /// Stream all node IDs for a namespace prefix-scan, with optional `skip`
     /// and `take` early-exit bounds (zero-allocation: the prefix iterator is
     /// consumed until both bounds are satisfied; unused IDs are never copied
@@ -211,6 +223,7 @@ impl Embedded {
                             exclude_superseded: false,
                             as_of_ms: None,
                             valid_window: None,
+                            include_quarantined: true,
                         },
                     )?;
                     records.extend(page.records);
@@ -292,6 +305,27 @@ impl Embedded {
     pub fn import_records(
         &self,
         records: Vec<super::super::types::MemoryRecord>,
+        quarantine: bool,
+    ) -> Result<super::super::types::ImportReport> {
+        // SCH-05 review F3: the public entry audits itself (the direct
+        // `import_records` path was un-audited; `import_file` already audited).
+        // `import_file` calls `import_records_inner` so each public entry
+        // audits exactly once.
+        let res = self.import_records_inner(records, quarantine);
+        self.audit(crate::audit::AuditEvent::new(
+            "import_records",
+            "N/A",
+            "N/A",
+            if res.is_ok() { "ok" } else { "err" },
+            quarantine_reason_from_report(res.as_ref().ok()),
+        ));
+        res
+    }
+
+    fn import_records_inner(
+        &self,
+        records: Vec<super::super::types::MemoryRecord>,
+        quarantine: bool,
     ) -> Result<super::super::types::ImportReport> {
         if self.config.read_only {
             return Err(Error::Validation {
@@ -305,14 +339,39 @@ impl Embedded {
             updated: 0,
             skipped: 0,
             errors: 0,
+            quarantined: 0,
             duration_ms: 0,
         };
+        // T1c (ADR-046 §D5, MGR-13 §3.2/§4.3): the import-level quarantine
+        // option marks records that do not already carry quarantine state.
+        // Records imported with their own state (roundtrip) keep it verbatim —
+        // exact transport reproduces the exported state.
+        let imported_at_ms = super::now_ms();
 
-        for record in records {
+        for mut record in records {
+            let entered = quarantine && record.quarantined_at_ms.is_none();
+            if entered {
+                self.enter_quarantine(
+                    &mut record,
+                    "unreviewed_import",
+                    "system:import",
+                    imported_at_ms,
+                );
+            }
             let existed = matches!(self.get(&record.namespace, &record.key), Ok(Some(_)));
             match self.put_record_exact(record) {
-                Ok(_) if existed => report.updated += 1,
-                Ok(_) => report.inserted += 1,
+                Ok(_) => {
+                    // SCH-05 review N1: count only records that actually
+                    // persisted (a failed put must not inflate the report).
+                    if entered {
+                        report.quarantined += 1;
+                    }
+                    if existed {
+                        report.updated += 1;
+                    } else {
+                        report.inserted += 1;
+                    }
+                }
                 Err(_) => report.errors += 1,
             }
         }
@@ -325,14 +384,18 @@ impl Embedded {
     }
 
     #[tracing::instrument(skip(self, path), err)]
-    pub fn import_file(&self, path: impl AsRef<Path>) -> Result<super::super::types::ImportReport> {
-        let res = self.import_file_inner(path);
+    pub fn import_file(
+        &self,
+        path: impl AsRef<Path>,
+        quarantine: bool,
+    ) -> Result<super::super::types::ImportReport> {
+        let res = self.import_file_inner(path, quarantine);
         self.audit(crate::audit::AuditEvent::new(
             "import_file",
             "N/A",
             "N/A",
             if res.is_ok() { "ok" } else { "err" },
-            None,
+            quarantine_reason_from_report(res.as_ref().ok()),
         ));
         res
     }
@@ -340,6 +403,7 @@ impl Embedded {
     fn import_file_inner(
         &self,
         path: impl AsRef<Path>,
+        quarantine: bool,
     ) -> Result<super::super::types::ImportReport> {
         let resolved = self.resolve_export_path(path.as_ref())?;
         if self.config.read_only {
@@ -371,7 +435,7 @@ impl Embedded {
             }
         }
 
-        let mut report = self.import_records(records)?;
+        let mut report = self.import_records_inner(records, quarantine)?;
         report.skipped += skipped;
         report.errors += errors;
         if errors > 0 {
@@ -539,7 +603,7 @@ mod tests {
             superseded_at_ms: None,
             ..Default::default()
         };
-        let report = db.import_records(vec![record]).unwrap();
+        let report = db.import_records(vec![record], false).unwrap();
         assert_eq!(report.inserted, 1);
         assert_eq!(report.updated, 0);
         assert_eq!(report.errors, 0);
@@ -576,7 +640,7 @@ mod tests {
             superseded_at_ms: None,
             ..Default::default()
         };
-        let report = db.import_records(vec![record]).unwrap();
+        let report = db.import_records(vec![record], false).unwrap();
         assert_eq!(report.updated, 1);
 
         let retrieved = db.get("upd", "k1").unwrap().unwrap();
@@ -602,7 +666,7 @@ mod tests {
             superseded_at_ms: None,
             ..Default::default()
         };
-        let report = db.import_records(vec![record]).unwrap();
+        let report = db.import_records(vec![record], false).unwrap();
         assert_eq!(report.errors, 1);
     }
 
@@ -634,7 +698,7 @@ mod tests {
         let json = serde_json::to_string(&line).unwrap();
         std::fs::write(&path, json + "\n").unwrap();
 
-        let report = db.import_file(&path).unwrap();
+        let report = db.import_file(&path, false).unwrap();
         assert_eq!(report.inserted, 1);
         assert_eq!(report.errors, 0);
 
@@ -673,7 +737,7 @@ mod tests {
         content.push('\n'); // another empty line
         std::fs::write(&path, content).unwrap();
 
-        let report = db.import_file(&path).unwrap();
+        let report = db.import_file(&path, false).unwrap();
         assert_eq!(report.inserted, 1);
         assert_eq!(report.skipped, 2);
     }
@@ -685,7 +749,7 @@ mod tests {
         let path = dir.path().join("bad.jsonl");
         std::fs::write(&path, "not json\n{\"bad\": true}\n").unwrap();
 
-        let report = db.import_file(&path).unwrap();
+        let report = db.import_file(&path, false).unwrap();
         assert_eq!(report.errors, 2);
     }
 
@@ -701,7 +765,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("x.jsonl");
         std::fs::write(&path, "").unwrap();
-        let err = db.import_file(&path).unwrap_err();
+        let err = db.import_file(&path, false).unwrap_err();
         assert!(err.to_string().contains("read-only"));
     }
 
@@ -751,7 +815,7 @@ mod tests {
         assert_eq!(report.records_exported, 2);
 
         let db2 = in_memory_db();
-        let import_report = db2.import_file(&path).unwrap();
+        let import_report = db2.import_file(&path, false).unwrap();
         assert_eq!(import_report.inserted, 2);
 
         // Verify content

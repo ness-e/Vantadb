@@ -46,6 +46,11 @@ pub fn read_namespace_records(
         let options = MemoryListOptions {
             limit: 1000,
             cursor,
+            // SCH-05 (ADR-046 §D5, MGR-13 §5.2): hard injection gate — L1
+            // reads that feed auto-recall / context assembly never return
+            // quarantined records. This is the single choke point for every
+            // recall read path (`perform_auto_recall`, `context_assemble`).
+            include_quarantined: false,
             ..Default::default()
         };
         let page: MemoryListPage = db.list(namespace, options)?;

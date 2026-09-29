@@ -644,6 +644,7 @@ pub(crate) fn for_each_record(
             // SCH-03 temporal params: not exposed here (SCH-07).
             as_of_ms: None,
             valid_window: None,
+            include_quarantined: true,
         };
         match embedded.list(namespace, options) {
             Ok(page) => {

@@ -795,6 +795,7 @@ fn parse_list_options(value: Option<&Value>) -> napi::Result<MemoryListOptions> 
         // SCH-03 temporal params: not exposed in Node yet (SCH-07).
         as_of_ms: None,
         valid_window: None,
+        include_quarantined: false,
     })
 }
 
@@ -832,6 +833,7 @@ fn parse_search_request(value: &Value) -> napi::Result<MemorySearchRequest> {
         // SCH-03 temporal params: not exposed in Node yet (SCH-07).
         as_of_ms: None,
         valid_window: None,
+        include_quarantined: false,
         search_profile: None,
         range: None,
         group_by: None,
