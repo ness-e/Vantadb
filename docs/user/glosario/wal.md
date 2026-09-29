@@ -8,14 +8,6 @@ tags: [persistence, wal, durability, recovery]
 links: "[[README.md]]"
 ---
 
-VantaDB uses a **sharded WAL** (`ShardedWal`) that distributes records in round-robin fashion across N shard files to reduce contention and improve write throughput.
-Each shard is a sequential append-only file with the same record format (header + payload + CRC32C). Shard count is configured via `wal_shards` (default: `4`, env: `VANTADB_WAL_SHARDS`).
-2. Calcular la posición global de cada registro: `global_seq = shard_idx + N * local_pos`
-3. Saltar registros con `global_seq ≤ checkpoint_seq`
-4. Ordenar registros restantes por `global_seq`
-Esto garantiza que el orden de escritura original se preserva exactamente, incluso cuando los shards tienen cantidades desiguales de registros. Probado en `test_wal_replay_mixed_mutations`.
-With shards, the checkpoint is a single global `checkpoint_seq` (the total number of records written so far). Each shard calculates how many records to skip using:
-Compaction (`compact_wal()`) performs a full flush, saves `checkpoint_seq`, and rotates the shard files.
 # WAL—Write-Ahead Log
 
 ## Definition
@@ -60,6 +52,18 @@ INCORRECT order (data loss):
 
 ## Implementation in VantaDB
 
+VantaDB uses a **sharded WAL** (`ShardedWal`) that distributes records in round-robin fashion across N shard files to reduce contention and improve write throughput.
+Each shard is a sequential append-only file with the same record format (header + payload + CRC32C). Shard count is configured via `wal_shards` (default: `4`, env: `VANTADB_WAL_SHARDS`).
+2. Calcular la posición global de cada registro: `global_seq = shard_idx + N * local_pos`
+3. Saltar registros con `global_seq ≤ checkpoint_seq`
+4. Ordenar registros restantes por `global_seq`
+Esto garantiza que el orden de escritura original se preserva exactamente, incluso cuando los shards tienen cantidades desiguales de registros. Probado en `test_wal_replay_mixed_mutations`.
+With shards, the checkpoint is a single global `checkpoint_seq` (the total number of records written so far). Each shard calculates how many records to skip using:
+Compaction (`compact_wal()`) performs a full flush, saves `checkpoint_seq`, and rotates the shard files.
+
+> **Nota:** la lista de replay empieza en «2». El paso 1 no está en el
+> documento; no se ha añadido aquí porque deducirlo sería inventarlo.
+> Probablemente era leer el `checkpoint_seq` global, pero eso es una suposición.
 
 ```
 Archivos WAL típicos (N=4):

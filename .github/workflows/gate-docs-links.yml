@@ -105,7 +105,7 @@ jobs:
         # The budget is a flag, not an env var: check-structure.mjs reads
         # --budget=. Wiring it as BUDGET: silently ran with a budget of 0, so
         # the gate would have failed on a tree whose only damage predates it.
-        run: node scripts/docs/check-structure.mjs --budget=101
+        run: node scripts/docs/check-structure.mjs --budget=96
       - name: Attribute any new defect to this change or to the last commit
         if: failure()
         run: node scripts/docs/attribute-structure.mjs

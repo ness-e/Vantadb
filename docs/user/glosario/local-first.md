@@ -8,7 +8,6 @@ tags: [concept, filosofia, local-first, privacidad]
 links: "[[README.md]]"
 ---
 
-- `pip install vantadb-py` and it works
 # Local-First
 
 ## Definition

@@ -7,7 +7,6 @@ tags: [vantadb, glosario, concurrencia]
 links: "[[README.md]]"
 ---
 
-| **API compatible** | Similar a `HashMap` estándar |
 # DashMap
 
 ## Definition
@@ -21,6 +20,7 @@ links: "[[README.md]]"
 | **Sharding** | Divide el mapa en múltiples shards independientes |
 | **Lock-free reads** | Lecturas sin bloqueo en la mayoría de casos |
 | **Fine-grained locks** | Cada shard tiene su propio lock |
+| **API compatible** | Similar a `HashMap` estándar |
 
 ## Usage in VantaDB
 
