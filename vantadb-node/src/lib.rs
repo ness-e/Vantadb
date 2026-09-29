@@ -718,6 +718,9 @@ fn parse_memory_input(value: &Value) -> napi::Result<MemoryInput> {
         vector: get_opt_f32_vec(obj, "vector")?,
         ttl_ms: get_opt_u64(obj, "ttl_ms")?,
         sparse_vector: parse_sparse_vector(obj, "sparse_vector")?,
+        // SCH-02 v2 fields (confidence/temporal/quarantine) are not exposed on
+        // the Node put door yet (SCH-07): defaults (asserted / D_a / None).
+        ..Default::default()
     })
 }
 
@@ -789,6 +792,9 @@ fn parse_list_options(value: Option<&Value>) -> napi::Result<MemoryListOptions> 
         limit,
         cursor,
         exclude_superseded: false,
+        // SCH-03 temporal params: not exposed in Node yet (SCH-07).
+        as_of_ms: None,
+        valid_window: None,
     })
 }
 
@@ -812,6 +818,20 @@ fn parse_search_request(value: &Value) -> napi::Result<MemorySearchRequest> {
         },
         explain: obj.get("explain").and_then(Value::as_bool).unwrap_or(false),
         exclude_superseded: false,
+        // SCH-04: opt-in confidence filter (ADR-046 §D2) — finiteness/range
+        // validated at the core boundary (`min_confidence` in the error).
+        min_confidence: match obj.get("min_confidence") {
+            None | Some(Value::Null) => None,
+            Some(Value::Number(n)) => Some(n.as_f64().unwrap_or(f64::NAN) as f32),
+            Some(_) => {
+                return Err(Error::from_reason(
+                    "`min_confidence` must be a number in [0, 1]",
+                ))
+            }
+        },
+        // SCH-03 temporal params: not exposed in Node yet (SCH-07).
+        as_of_ms: None,
+        valid_window: None,
         search_profile: None,
         range: None,
         group_by: None,

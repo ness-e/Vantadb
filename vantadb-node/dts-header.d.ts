@@ -77,6 +77,16 @@ export interface MemoryRecord {
   expires_at_ms: number | null
   superseded_by?: string | null
   superseded_at_ms?: number | null
+  /** Provenance class (ADR-046): `"Asserted"` (direct writer claim) or
+   * `"Derived"` (computed by the engine from `derived_from` parents). */
+  confidence_class: 'Asserted' | 'Derived'
+  /** Confidence range in [0, 1] — a declared/computed range, NOT a calibrated
+   * probability (see `docs/api/scores.md`). Default 1.0 for asserted. */
+  confidence: number
+  /** Last successful re-validation timestamp (ms); `null` = never validated. */
+  last_validated_at_ms: number | null
+  /** Parent record keys for a `derived` record (empty for asserted). */
+  derived_from: string[]
 }
 
 /** Options for `list()`. */
@@ -103,6 +113,10 @@ export interface SearchRequest {
   text_query?: string
   top_k?: number
   distance_metric?: 'Cosine' | 'Euclidean'
+  /** Opt-in confidence filter (SCH-04, ADR-046): keep only hits whose record
+   * `confidence` is `>= min_confidence` (finite, in [0, 1]). Omit/null = no
+   * filter (default). */
+  min_confidence?: number | null
   explain?: boolean
 }
 

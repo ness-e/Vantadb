@@ -197,6 +197,8 @@ pub fn cmd_export_md(
                 limit: BATCH_SIZE,
                 cursor,
                 exclude_superseded: false,
+                as_of_ms: None,
+                valid_window: None,
             };
             let page = embedded.list(ns, opts)?;
             if page.records.is_empty() {

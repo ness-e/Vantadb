@@ -371,6 +371,8 @@ export class NativeVantaDB {
       // type is `Record<number, number>` (same shape MemoryInput.sparse_vector
       // documents). Erased cast: zero runtime change.
       query_sparse: (request.query_sparse as unknown as Record<string, number> | null | undefined) ?? undefined,
+      // SCH-04: opt-in confidence filter passthrough (ADR-046 §D2).
+      min_confidence: request.min_confidence ?? undefined,
     };
   }
 

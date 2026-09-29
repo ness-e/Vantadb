@@ -157,6 +157,17 @@ export interface MemoryRecord {
     vector?: Float32Array;
     /** Optional TTL expiry as a decimal string (only present if set). */
     expires_at_ms?: string;
+    /** Provenance class (ADR-046): "Asserted" (direct writer claim) or
+     * "Derived" (computed by the engine from `derived_from` parents). */
+    confidence_class: "Asserted" | "Derived";
+    /** Confidence range in [0, 1] — declared/computed, NOT a calibrated
+     * probability (see `docs/api/scores.md`). Default 1.0 for asserted. */
+    confidence: number;
+    /** Last successful re-validation timestamp as a decimal string
+     * (policy string-u64); absent = never re-validated. */
+    last_validated_at_ms?: string;
+    /** Parent record keys for a derived record (empty for asserted). */
+    derived_from: string[];
     /** Arbitrary metadata key-value pairs. Values are JSON-shaped. */
     metadata: Record<string, MetadataValue>;
 }
@@ -229,6 +240,10 @@ export interface SearchRequestInput {
     filters?: Record<string, MetadataValue>;
     /** Hide records already superseded by another record. */
     exclude_superseded?: boolean;
+    /** Opt-in confidence filter (SCH-04): keep only hits whose record
+     * `confidence` is `>= min_confidence` (finite, in [0, 1]). `null`/omitted =
+     * no filter (default). */
+    min_confidence?: number | null;
     /** Optional text query for BM25 hybrid search. */
     text_query?: string;
     /** Top-K results to return (default: 10, hard cap: 1000). */

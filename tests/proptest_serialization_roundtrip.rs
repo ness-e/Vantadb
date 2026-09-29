@@ -258,6 +258,8 @@ fn arb_list_options_full() -> impl Strategy<Value = MemoryListOptions> {
                 limit,
                 cursor,
                 exclude_superseded: false,
+                as_of_ms: None,
+                valid_window: None,
             }
         })
 }
@@ -293,6 +295,9 @@ fn arb_search_request_full() -> impl Strategy<Value = MemorySearchRequest> {
                     explain,
                     query_sparse: None,
                     exclude_superseded: false,
+                    as_of_ms: None,
+                    valid_window: None,
+                    min_confidence: None,
                     search_profile: None,
                     range: None,
                     group_by: None,

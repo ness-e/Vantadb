@@ -4171,6 +4171,7 @@ impl core::marker::UnsafeUnpin for vantadb::parser::WhereItem
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::parser::WhereItem
 impl core::panic::unwind_safe::UnwindSafe for vantadb::parser::WhereItem
 pub const vantadb::parser::IQL_VERSION: u32
+pub const vantadb::parser::IQL_VERSION_MIN_AS_OF: u32
 pub const vantadb::parser::IQL_VERSION_MIN_PROFILE: u32
 pub fn vantadb::parser::autocomplete_prefix(&str) -> alloc::vec::Vec<alloc::string::String>
 pub const fn vantadb::parser::iql_supports(u32) -> bool
@@ -4603,6 +4604,7 @@ impl core::marker::UnsafeUnpin for vantadb::query::LogicalPlan
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::query::LogicalPlan
 impl core::panic::unwind_safe::UnwindSafe for vantadb::query::LogicalPlan
 pub struct vantadb::query::Query
+pub vantadb::query::Query::as_of_ms: core::option::Option<u64>
 pub vantadb::query::Query::fetch: core::option::Option<alloc::vec::Vec<alloc::string::String>>
 pub vantadb::query::Query::from_entity: alloc::string::String
 pub vantadb::query::Query::owner_role: core::option::Option<alloc::string::String>
@@ -4671,6 +4673,7 @@ impl core::marker::UnsafeUnpin for vantadb::query::RelateStatement
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::query::RelateStatement
 impl core::panic::unwind_safe::UnwindSafe for vantadb::query::RelateStatement
 pub struct vantadb::query::SelectStatement
+pub vantadb::query::SelectStatement::as_of_ms: core::option::Option<u64>
 pub vantadb::query::SelectStatement::from: vantadb::query::FromClause
 pub vantadb::query::SelectStatement::projections: alloc::vec::Vec<alloc::string::String>
 pub vantadb::query::SelectStatement::subquery_conditions: alloc::vec::Vec<vantadb::query::SubqueryCondition>
@@ -5556,11 +5559,13 @@ impl core::marker::UnsafeUnpin for vantadb::MemoryInput
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::MemoryInput
 impl core::panic::unwind_safe::UnwindSafe for vantadb::MemoryInput
 pub struct vantadb::sdk::MemoryListOptions
+pub vantadb::sdk::MemoryListOptions::as_of_ms: core::option::Option<u64>
 pub vantadb::sdk::MemoryListOptions::cursor: core::option::Option<usize>
 pub vantadb::sdk::MemoryListOptions::exclude_superseded: bool
 pub vantadb::sdk::MemoryListOptions::filter_ops: core::option::Option<vantadb::MemoryFilter>
 pub vantadb::sdk::MemoryListOptions::filters: vantadb::MemoryMetadata
 pub vantadb::sdk::MemoryListOptions::limit: usize
+pub vantadb::sdk::MemoryListOptions::valid_window: core::option::Option<vantadb::ValidWindow>
 impl core::clone::Clone for vantadb::MemoryListOptions
 pub fn vantadb::MemoryListOptions::clone(&self) -> vantadb::MemoryListOptions
 impl core::cmp::PartialEq for vantadb::MemoryListOptions
@@ -5626,6 +5631,9 @@ pub vantadb::sdk::MemoryRecord::updated_at_ms: u64
 pub vantadb::sdk::MemoryRecord::valid_at_ms: u64
 pub vantadb::sdk::MemoryRecord::vector: core::option::Option<alloc::vec::Vec<f32>>
 pub vantadb::sdk::MemoryRecord::version: u64
+impl vantadb::MemoryRecord
+pub fn vantadb::MemoryRecord::is_valid_at(&self, u64) -> bool
+pub fn vantadb::MemoryRecord::validity_overlaps(&self, u64, u64) -> bool
 impl core::clone::Clone for vantadb::MemoryRecord
 pub fn vantadb::MemoryRecord::clone(&self) -> vantadb::MemoryRecord
 impl core::cmp::PartialEq for vantadb::MemoryRecord
@@ -5690,12 +5698,14 @@ impl core::marker::UnsafeUnpin for vantadb::MemorySearchPage
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::MemorySearchPage
 impl core::panic::unwind_safe::UnwindSafe for vantadb::MemorySearchPage
 pub struct vantadb::sdk::MemorySearchRequest
+pub vantadb::sdk::MemorySearchRequest::as_of_ms: core::option::Option<u64>
 pub vantadb::sdk::MemorySearchRequest::cursor: core::option::Option<alloc::string::String>
 pub vantadb::sdk::MemorySearchRequest::distance_metric: vantadb::DistanceMetric
 pub vantadb::sdk::MemorySearchRequest::exclude_superseded: bool
 pub vantadb::sdk::MemorySearchRequest::explain: bool
 pub vantadb::sdk::MemorySearchRequest::filters: vantadb::MemoryMetadata
 pub vantadb::sdk::MemorySearchRequest::group_by: core::option::Option<vantadb::GroupByConfig>
+pub vantadb::sdk::MemorySearchRequest::min_confidence: core::option::Option<f32>
 pub vantadb::sdk::MemorySearchRequest::mmr: core::option::Option<vantadb::MmrConfig>
 pub vantadb::sdk::MemorySearchRequest::namespace: alloc::string::String
 pub vantadb::sdk::MemorySearchRequest::query_sparse: core::option::Option<vantadb::SparseVector>
@@ -5704,6 +5714,7 @@ pub vantadb::sdk::MemorySearchRequest::range: core::option::Option<vantadb::Rang
 pub vantadb::sdk::MemorySearchRequest::search_profile: core::option::Option<vantadb::search_profile::SearchProfileConfig>
 pub vantadb::sdk::MemorySearchRequest::text_query: core::option::Option<alloc::string::String>
 pub vantadb::sdk::MemorySearchRequest::top_k: usize
+pub vantadb::sdk::MemorySearchRequest::valid_window: core::option::Option<vantadb::ValidWindow>
 impl core::clone::Clone for vantadb::MemorySearchRequest
 pub fn vantadb::MemorySearchRequest::clone(&self) -> vantadb::MemorySearchRequest
 impl core::cmp::PartialEq for vantadb::MemorySearchRequest
@@ -6267,6 +6278,31 @@ impl core::marker::Unpin for vantadb::TextIndexRepairReport
 impl core::marker::UnsafeUnpin for vantadb::TextIndexRepairReport
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::TextIndexRepairReport
 impl core::panic::unwind_safe::UnwindSafe for vantadb::TextIndexRepairReport
+pub struct vantadb::sdk::ValidWindow
+pub vantadb::sdk::ValidWindow::from_ms: u64
+pub vantadb::sdk::ValidWindow::to_ms: u64
+impl core::clone::Clone for vantadb::ValidWindow
+pub fn vantadb::ValidWindow::clone(&self) -> vantadb::ValidWindow
+impl core::cmp::Eq for vantadb::ValidWindow
+impl core::cmp::PartialEq for vantadb::ValidWindow
+pub fn vantadb::ValidWindow::eq(&self, &vantadb::ValidWindow) -> bool
+impl core::fmt::Debug for vantadb::ValidWindow
+pub fn vantadb::ValidWindow::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for vantadb::ValidWindow
+pub fn vantadb::ValidWindow::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for vantadb::ValidWindow
+impl core::marker::StructuralPartialEq for vantadb::ValidWindow
+impl serde_core::ser::Serialize for vantadb::ValidWindow
+pub fn vantadb::ValidWindow::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vantadb::ValidWindow
+pub fn vantadb::ValidWindow::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for vantadb::ValidWindow
+impl core::marker::Send for vantadb::ValidWindow
+impl core::marker::Sync for vantadb::ValidWindow
+impl core::marker::Unpin for vantadb::ValidWindow
+impl core::marker::UnsafeUnpin for vantadb::ValidWindow
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::ValidWindow
+impl core::panic::unwind_safe::UnwindSafe for vantadb::ValidWindow
 pub const vantadb::sdk::DERIVATION_DISCOUNT: f32
 pub const vantadb::sdk::FIELD_CREATED_AT_MS: &str
 pub const vantadb::sdk::FIELD_EXPIRES_AT_MS: &str
@@ -8308,11 +8344,13 @@ impl core::marker::UnsafeUnpin for vantadb::MemoryInput
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::MemoryInput
 impl core::panic::unwind_safe::UnwindSafe for vantadb::MemoryInput
 pub struct vantadb::MemoryListOptions
+pub vantadb::MemoryListOptions::as_of_ms: core::option::Option<u64>
 pub vantadb::MemoryListOptions::cursor: core::option::Option<usize>
 pub vantadb::MemoryListOptions::exclude_superseded: bool
 pub vantadb::MemoryListOptions::filter_ops: core::option::Option<vantadb::MemoryFilter>
 pub vantadb::MemoryListOptions::filters: vantadb::MemoryMetadata
 pub vantadb::MemoryListOptions::limit: usize
+pub vantadb::MemoryListOptions::valid_window: core::option::Option<vantadb::ValidWindow>
 impl core::clone::Clone for vantadb::MemoryListOptions
 pub fn vantadb::MemoryListOptions::clone(&self) -> vantadb::MemoryListOptions
 impl core::cmp::PartialEq for vantadb::MemoryListOptions
@@ -8378,6 +8416,9 @@ pub vantadb::MemoryRecord::updated_at_ms: u64
 pub vantadb::MemoryRecord::valid_at_ms: u64
 pub vantadb::MemoryRecord::vector: core::option::Option<alloc::vec::Vec<f32>>
 pub vantadb::MemoryRecord::version: u64
+impl vantadb::MemoryRecord
+pub fn vantadb::MemoryRecord::is_valid_at(&self, u64) -> bool
+pub fn vantadb::MemoryRecord::validity_overlaps(&self, u64, u64) -> bool
 impl core::clone::Clone for vantadb::MemoryRecord
 pub fn vantadb::MemoryRecord::clone(&self) -> vantadb::MemoryRecord
 impl core::cmp::PartialEq for vantadb::MemoryRecord
@@ -8442,12 +8483,14 @@ impl core::marker::UnsafeUnpin for vantadb::MemorySearchPage
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::MemorySearchPage
 impl core::panic::unwind_safe::UnwindSafe for vantadb::MemorySearchPage
 pub struct vantadb::MemorySearchRequest
+pub vantadb::MemorySearchRequest::as_of_ms: core::option::Option<u64>
 pub vantadb::MemorySearchRequest::cursor: core::option::Option<alloc::string::String>
 pub vantadb::MemorySearchRequest::distance_metric: vantadb::DistanceMetric
 pub vantadb::MemorySearchRequest::exclude_superseded: bool
 pub vantadb::MemorySearchRequest::explain: bool
 pub vantadb::MemorySearchRequest::filters: vantadb::MemoryMetadata
 pub vantadb::MemorySearchRequest::group_by: core::option::Option<vantadb::GroupByConfig>
+pub vantadb::MemorySearchRequest::min_confidence: core::option::Option<f32>
 pub vantadb::MemorySearchRequest::mmr: core::option::Option<vantadb::MmrConfig>
 pub vantadb::MemorySearchRequest::namespace: alloc::string::String
 pub vantadb::MemorySearchRequest::query_sparse: core::option::Option<vantadb::SparseVector>
@@ -8456,6 +8499,7 @@ pub vantadb::MemorySearchRequest::range: core::option::Option<vantadb::RangeFilt
 pub vantadb::MemorySearchRequest::search_profile: core::option::Option<vantadb::search_profile::SearchProfileConfig>
 pub vantadb::MemorySearchRequest::text_query: core::option::Option<alloc::string::String>
 pub vantadb::MemorySearchRequest::top_k: usize
+pub vantadb::MemorySearchRequest::valid_window: core::option::Option<vantadb::ValidWindow>
 impl core::clone::Clone for vantadb::MemorySearchRequest
 pub fn vantadb::MemorySearchRequest::clone(&self) -> vantadb::MemorySearchRequest
 impl core::cmp::PartialEq for vantadb::MemorySearchRequest
@@ -9177,6 +9221,31 @@ impl core::marker::Unpin for vantadb::UnifiedNode
 impl core::marker::UnsafeUnpin for vantadb::UnifiedNode
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::UnifiedNode
 impl core::panic::unwind_safe::UnwindSafe for vantadb::UnifiedNode
+pub struct vantadb::ValidWindow
+pub vantadb::ValidWindow::from_ms: u64
+pub vantadb::ValidWindow::to_ms: u64
+impl core::clone::Clone for vantadb::ValidWindow
+pub fn vantadb::ValidWindow::clone(&self) -> vantadb::ValidWindow
+impl core::cmp::Eq for vantadb::ValidWindow
+impl core::cmp::PartialEq for vantadb::ValidWindow
+pub fn vantadb::ValidWindow::eq(&self, &vantadb::ValidWindow) -> bool
+impl core::fmt::Debug for vantadb::ValidWindow
+pub fn vantadb::ValidWindow::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for vantadb::ValidWindow
+pub fn vantadb::ValidWindow::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for vantadb::ValidWindow
+impl core::marker::StructuralPartialEq for vantadb::ValidWindow
+impl serde_core::ser::Serialize for vantadb::ValidWindow
+pub fn vantadb::ValidWindow::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vantadb::ValidWindow
+pub fn vantadb::ValidWindow::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for vantadb::ValidWindow
+impl core::marker::Send for vantadb::ValidWindow
+impl core::marker::Sync for vantadb::ValidWindow
+impl core::marker::Unpin for vantadb::ValidWindow
+impl core::marker::UnsafeUnpin for vantadb::ValidWindow
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::ValidWindow
+impl core::panic::unwind_safe::UnwindSafe for vantadb::ValidWindow
 pub struct vantadb::WalReader
 impl vantadb::wal::WalReader
 pub fn vantadb::wal::WalReader::next_record(&mut self) -> vantadb::error::Result<core::option::Option<vantadb::wal::WalRecord>>

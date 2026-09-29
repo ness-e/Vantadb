@@ -1549,6 +1549,9 @@ MemorySearchRequest {
     distance_metric: Cosine,
     explain: false,
     exclude_superseded: false,
+    min_confidence: None,
+    as_of_ms: None,
+    valid_window: None,
     search_profile: Some(
         SearchProfileConfig {
             mode: Vector,

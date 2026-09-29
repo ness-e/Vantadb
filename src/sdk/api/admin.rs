@@ -67,6 +67,8 @@ impl Embedded {
                     limit: batch_size,
                     cursor,
                     exclude_superseded: false,
+                    as_of_ms: None,
+                    valid_window: None,
                 },
             )?;
             if page.records.is_empty() {

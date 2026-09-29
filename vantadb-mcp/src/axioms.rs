@@ -43,6 +43,9 @@ pub(crate) fn resolve_axioms(storage: &Arc<StorageEngine>) -> Value {
         filters: vantadb::sdk::MemoryMetadata::new(),
         filter_ops: None,
         exclude_superseded: false,
+        // SCH-03 temporal params: not exposed here (SCH-07).
+        as_of_ms: None,
+        valid_window: None,
     };
     if let Ok(page) = embedded.list(AXIOMS_NAMESPACE, options) {
         for record in page.records {

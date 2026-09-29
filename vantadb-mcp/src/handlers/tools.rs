@@ -329,6 +329,7 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
                     "distance_metric": { "type": "string", "enum": ["cosine", "euclidean"] },
                     "explain": { "type": "boolean" },
                     "filters": { "type": "object" },
+                    "min_confidence": { "type": "number", "minimum": 0, "maximum": 1, "description": "Opt-in confidence filter (ADR-046 §D2, SCH-04): keep only hits whose record confidence is >= this value (finite, within [0, 1]); omit for no filter (default)" },
                     "search_profile": { "type": "object", "properties": {
                         "mode": { "type": "string", "enum": ["keyword", "vector", "hybrid"] },
                         "rrf_k": { "type": "number", "description": "RRF k parameter (1..max_rrf_k, default core)" },
@@ -394,6 +395,7 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
                     "explain": { "type": "boolean" },
                     "filters": { "type": "object" },
                     "method": { "type": "string", "enum": ["hnsw", "ivf", "flat", "diskann", "scann"], "description": "Dense-index backend override (MCP-24); omit to keep automatic routing" },
+                    "min_confidence": { "type": "number", "minimum": 0, "maximum": 1, "description": "Opt-in confidence filter (ADR-046 §D2, SCH-04): keep only hits whose record confidence is >= this value (finite, within [0, 1]); omit for no filter (default)" },
                     "search_profile": { "type": "object", "properties": {
                         "mode": { "type": "string", "enum": ["keyword", "vector", "hybrid"] },
                         "rrf_k": { "type": "number", "description": "RRF k parameter (1..max_rrf_k, default core)" },
@@ -432,6 +434,7 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
                     "distance_metric": { "type": "string", "enum": ["cosine", "euclidean"] },
                     "explain": { "type": "boolean" },
                     "filters": { "type": "object" },
+                    "min_confidence": { "type": "number", "minimum": 0, "maximum": 1, "description": "Opt-in confidence filter (ADR-046 §D2, SCH-04): keep only hits whose record confidence is >= this value (finite, within [0, 1]); omit for no filter (default)" },
                     "search_profile": { "type": "object", "properties": {
                         "mode": { "type": "string", "enum": ["keyword", "vector", "hybrid"] },
                         "rrf_k": { "type": "number", "description": "RRF k parameter (1..max_rrf_k, default core)" },
@@ -1601,6 +1604,10 @@ pub fn handle_tools_call(
                 filters: vantadb::sdk::MemoryMetadata::new(),
                 filter_ops,
                 exclude_superseded: false,
+                // SCH-03 temporal params: not exposed on memory_list yet
+                // (SCH-05/SCH-07).
+                as_of_ms: None,
+                valid_window: None,
             };
 
             let embedded = vantadb::Embedded::from_engine(storage.clone());
@@ -3335,6 +3342,21 @@ fn parse_search_request(
 
     let explain = args["explain"].as_bool().unwrap_or(false);
 
+    // SCH-04: opt-in confidence filter (ADR-046 §D2). Non-numbers are a
+    // param-level rejection (actionable, LLM can self-correct); finiteness and
+    // range are validated at the core boundary (`SEARCH_OPTIONS_INVALID`).
+    let min_confidence = match args.get("min_confidence") {
+        None | Some(Value::Null) => None,
+        Some(Value::Number(n)) => Some(n.as_f64().unwrap_or(f64::NAN) as f32),
+        Some(other) => {
+            return Ok(ParsedSearchRequest::Rejected(error_content_mcp(
+                McpError::validation(format!(
+                    "min_confidence must be a number in [0, 1], got {other}"
+                )),
+            )))
+        }
+    };
+
     // AUD-048: unified filter semantics with the CLI channel. The search
     // request (`MemorySearchRequest`) is flat-only — it has no
     // `filter_ops` slot — so flat values and explicit `$eq` both fold into the
@@ -3393,6 +3415,11 @@ fn parse_search_request(
             distance_metric,
             explain,
             exclude_superseded: false,
+            // SCH-04: opt-in confidence filter (ADR-046 §D2).
+            min_confidence,
+            // SCH-03 temporal params: not exposed on MCP search yet (SCH-07).
+            as_of_ms: None,
+            valid_window: None,
             search_profile,
             range: None,
             group_by: None,

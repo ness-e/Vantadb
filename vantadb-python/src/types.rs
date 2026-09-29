@@ -135,6 +135,32 @@ impl VantaPyMemoryRecord {
         self.inner.superseded_at_ms
     }
 
+    /// Provenance class (ADR-046): `"Asserted"` (direct writer claim) or
+    /// `"Derived"` (computed by the engine from `derived_from` parents).
+    #[getter]
+    fn confidence_class(&self) -> &'static str {
+        self.inner.confidence_class.as_wire_str()
+    }
+
+    /// Declared/computed confidence range in `[0, 1]` (not a calibrated
+    /// probability — see `docs/api/scores.md`; default `1.0` for asserted).
+    #[getter]
+    fn confidence(&self) -> f32 {
+        self.inner.confidence
+    }
+
+    /// Last successful re-validation timestamp (ms); `None` = never validated.
+    #[getter]
+    fn last_validated_at_ms(&self) -> Option<u64> {
+        self.inner.last_validated_at_ms
+    }
+
+    /// Parent record keys for a `derived` record (empty for `asserted`).
+    #[getter]
+    fn derived_from(&self) -> Vec<String> {
+        self.inner.derived_from.clone()
+    }
+
     fn __getitem__<'py>(&self, py: Python<'py>, key: &str) -> PyResult<Bound<'py, PyAny>> {
         use pyo3::conversion::IntoPyObject;
         Ok(match key {
@@ -153,6 +179,10 @@ impl VantaPyMemoryRecord {
             "expires_at_ms" => self.expires_at_ms().into_pyobject(py)?.into_any(),
             "superseded_by" => self.superseded_by().into_pyobject(py)?.into_any(),
             "superseded_at_ms" => self.superseded_at_ms().into_pyobject(py)?.into_any(),
+            "confidence_class" => self.confidence_class().into_pyobject(py)?.into_any(),
+            "confidence" => self.confidence().into_pyobject(py)?.into_any(),
+            "last_validated_at_ms" => self.last_validated_at_ms().into_pyobject(py)?.into_any(),
+            "derived_from" => self.derived_from().into_pyobject(py)?.into_any(),
             _ => {
                 return Err(pyo3::exceptions::PyKeyError::new_err(format!(
                     "Record has no field '{key}'"
@@ -374,6 +404,32 @@ impl VantaPySearchHit {
     #[getter]
     fn superseded_at_ms(&self) -> Option<u64> {
         self.inner.superseded_at_ms
+    }
+
+    /// Provenance class (ADR-046): `"Asserted"` (direct writer claim) or
+    /// `"Derived"` (computed by the engine from `derived_from` parents).
+    #[getter]
+    fn confidence_class(&self) -> &'static str {
+        self.inner.confidence_class.as_wire_str()
+    }
+
+    /// Declared/computed confidence range in `[0, 1]` (not a calibrated
+    /// probability — see `docs/api/scores.md`; default `1.0` for asserted).
+    #[getter]
+    fn confidence(&self) -> f32 {
+        self.inner.confidence
+    }
+
+    /// Last successful re-validation timestamp (ms); `None` = never validated.
+    #[getter]
+    fn last_validated_at_ms(&self) -> Option<u64> {
+        self.inner.last_validated_at_ms
+    }
+
+    /// Parent record keys for a `derived` record (empty for `asserted`).
+    #[getter]
+    fn derived_from(&self) -> Vec<String> {
+        self.inner.derived_from.clone()
     }
 
     fn __repr__(&self) -> String {

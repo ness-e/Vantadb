@@ -433,6 +433,10 @@ forward_to_db!(MemoryClient {
                         limit,
                         cursor,
                         exclude_superseded,
+                        // SCH-03 temporal params: not exposed in Python yet
+                        // (SCH-07); placeholders keep the workspace compiling.
+                        as_of_ms: None,
+                        valid_window: None,
                     },
                 )
                 .map_err(map_vanta_error)
@@ -1159,7 +1163,7 @@ impl Client {
     ///     True
     ///     ```
     // PyO3 keyword argument binding requires matching function parameters in Rust.
-    #[pyo3(signature = (namespace, query_vector, filters=None, text_query=None, top_k=10, distance_metric=None, method=None, explain=false, exclude_superseded=false, query_sparse=None))]
+    #[pyo3(signature = (namespace, query_vector, filters=None, text_query=None, top_k=10, distance_metric=None, method=None, explain=false, exclude_superseded=false, query_sparse=None, min_confidence=None))]
     #[allow(clippy::too_many_arguments)]
     fn search(
         &self,
@@ -1174,6 +1178,7 @@ impl Client {
         explain: bool,
         exclude_superseded: bool,
         query_sparse: Option<&Bound<'_, PyDict>>,
+        min_confidence: Option<f32>,
     ) -> PyResult<Vec<VantaPySearchHit>> {
         let _g = enter(&self.op_gate)?;
         let metric = parse_distance_metric(distance_metric)?;
@@ -1189,6 +1194,13 @@ impl Client {
             distance_metric: metric,
             explain,
             exclude_superseded,
+            // SCH-04: opt-in confidence filter (ADR-046 §D2). Range/finiteness
+            // validated at the core boundary (`SEARCH_OPTIONS_INVALID`).
+            min_confidence,
+            // SCH-03 temporal params: not exposed in the Python door yet
+            // (SCH-07); placeholders keep the workspace compiling.
+            as_of_ms: None,
+            valid_window: None,
             search_profile: None,
             range: None,
             group_by: None,
@@ -1253,7 +1265,7 @@ impl Client {
     ///     >>> len(hits) >= 1
     ///     True
     ///     ```
-    #[pyo3(signature = (namespaces, query_vector, filters=None, text_query=None, top_k=10, distance_metric=None, explain=false, exclude_superseded=false, query_sparse=None))]
+    #[pyo3(signature = (namespaces, query_vector, filters=None, text_query=None, top_k=10, distance_metric=None, explain=false, exclude_superseded=false, query_sparse=None, min_confidence=None))]
     #[allow(clippy::too_many_arguments)]
     fn search_multi(
         &self,
@@ -1267,6 +1279,7 @@ impl Client {
         explain: bool,
         exclude_superseded: bool,
         query_sparse: Option<&Bound<'_, PyDict>>,
+        min_confidence: Option<f32>,
     ) -> PyResult<Vec<VantaPySearchHit>> {
         let _g = enter(&self.op_gate)?;
         if namespaces.is_empty() {
@@ -1287,6 +1300,11 @@ impl Client {
             distance_metric: metric,
             explain,
             exclude_superseded,
+            // SCH-04: opt-in confidence filter (ADR-046 §D2).
+            min_confidence,
+            // SCH-03 temporal params: placeholders (not exposed in Python yet).
+            as_of_ms: None,
+            valid_window: None,
             search_profile: None,
             range: None,
             group_by: None,
@@ -2216,6 +2234,11 @@ impl Client {
             distance_metric: metric,
             explain: true,
             exclude_superseded: false,
+            // SCH-03 temporal params + SCH-04 filter: not exposed on the
+            // explain path (parity with `exclude_superseded`) — placeholders.
+            min_confidence: None,
+            as_of_ms: None,
+            valid_window: None,
             search_profile: None,
             range: None,
             group_by: None,
@@ -2381,6 +2404,11 @@ impl Client {
                 distance_metric,
                 explain,
                 exclude_superseded: false,
+                // SCH-03 temporal params + SCH-04 filter: batch request objects
+                // do not carry them yet (parity with `exclude_superseded`).
+                min_confidence: None,
+                as_of_ms: None,
+                valid_window: None,
                 search_profile: None,
                 range: None,
                 group_by: None,

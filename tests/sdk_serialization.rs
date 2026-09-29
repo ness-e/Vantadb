@@ -98,6 +98,9 @@ fn test_search_request_serialize() {
         explain: true,
         query_sparse: None,
         exclude_superseded: false,
+        min_confidence: None,
+        as_of_ms: None,
+        valid_window: None,
         search_profile: None,
         range: None,
         group_by: None,
@@ -446,4 +449,68 @@ fn test_query_result_write_node_id_u128_wire_string() {
         QueryResult::Write { node_id, .. } => assert_eq!(node_id, Some(42)),
         other => panic!("expected Write, got {other:?}"),
     }
+}
+
+// ── SCH-04: confidence fields on the serde wire (HTTP/MCP propagate the
+// record/hit JSON by serde; these tests pin the D2 contract) ────────────────
+
+#[test]
+fn memory_record_confidence_fields_serialize_with_declared_values() {
+    let record = MemoryRecord {
+        confidence_class: ConfidenceClass::Derived,
+        confidence: 0.45,
+        last_validated_at_ms: Some(1_700_000_000_000),
+        derived_from: vec!["parent-1".into(), "parent-2".into()],
+        ..Default::default()
+    };
+
+    let json = serde_json::to_value(&record).unwrap();
+    assert_eq!(json["confidence_class"], serde_json::json!("Derived"));
+    // serde_json widens f32 → f64 on the wire (JSON has no f32): compare
+    // against the exact widened value, not the decimal literal.
+    assert_eq!(json["confidence"].as_f64(), Some(f64::from(0.45f32)));
+    assert_eq!(
+        json["last_validated_at_ms"],
+        serde_json::json!(1_700_000_000_000u64)
+    );
+    assert_eq!(
+        json["derived_from"],
+        serde_json::json!(["parent-1", "parent-2"])
+    );
+
+    let back: MemoryRecord = serde_json::from_value(json).unwrap();
+    assert_eq!(back.confidence_class, ConfidenceClass::Derived);
+    assert_eq!(back.confidence, 0.45);
+    assert_eq!(back.last_validated_at_ms, Some(1_700_000_000_000));
+    assert_eq!(
+        back.derived_from,
+        vec!["parent-1".to_string(), "parent-2".into()]
+    );
+}
+
+#[test]
+fn memory_record_v1_json_without_confidence_defaults_to_d_a() {
+    // v1 payload (pre-0.8.0) has none of the confidence fields: serde defaults
+    // must normalize it to the ratified D_a semantics (asserted, 1.0, never
+    // validated, no parents).
+    let json = serde_json::json!({
+        "namespace": "ns",
+        "key": "k",
+        "payload": "p",
+        "metadata": {},
+        "created_at_ms": 1,
+        "updated_at_ms": 2,
+        "version": 1,
+        "node_id": 7,
+        "vector": null,
+        "expires_at_ms": null,
+        "superseded_by": null,
+        "superseded_at_ms": null,
+    });
+
+    let record: MemoryRecord = serde_json::from_value(json).unwrap();
+    assert_eq!(record.confidence_class, ConfidenceClass::Asserted);
+    assert_eq!(record.confidence, 1.0);
+    assert_eq!(record.last_validated_at_ms, None);
+    assert!(record.derived_from.is_empty());
 }

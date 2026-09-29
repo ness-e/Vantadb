@@ -120,6 +120,8 @@ fn memory_volume_kpi_10k_records_namespaces_filters_export_import_rebuild() {
                 limit: 50,
                 cursor: None,
                 exclude_superseded: false,
+                as_of_ms: None,
+                valid_window: None,
             },
         )
         .expect("filtered list");

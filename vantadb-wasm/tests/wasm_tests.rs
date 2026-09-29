@@ -1603,3 +1603,46 @@ async fn test_save_clears_dirty_flag() {
     }
     db.delete_idb().await.unwrap();
 }
+
+// ── SCH-04: confidence fields on the WASM wire ────────────────────────
+
+/// SCH-04 (ADR-046 §D2): records returned by get/put/list/search carry the
+/// confidence fields; a search hit carries the record's values.
+#[wasm_bindgen_test]
+fn test_confidence_fields_exposed_on_records() {
+    let db = create_db();
+    db.put(make_put("sch04", "k1", "confidence probe")).unwrap();
+
+    let got = db.get("sch04", "k1").unwrap();
+    assert!(!got.is_null());
+    let class = js_sys::Reflect::get(&got, &"confidence_class".into()).unwrap();
+    assert_eq!(class.as_string().as_deref(), Some("Asserted"));
+    let confidence = js_sys::Reflect::get(&got, &"confidence".into()).unwrap();
+    assert_eq!(confidence.as_f64(), Some(1.0));
+    let last_validated = js_sys::Reflect::get(&got, &"last_validated_at_ms".into()).unwrap();
+    assert!(
+        last_validated.is_undefined(),
+        "never validated → field absent"
+    );
+    let derived_from = js_sys::Reflect::get(&got, &"derived_from".into()).unwrap();
+    assert_eq!(js_sys::Array::from(&derived_from).length(), 0);
+
+    // Search hits nest the record — same fields.
+    db.put(make_put_with_vector(
+        "sch04",
+        "k2",
+        "vectorized",
+        vec![1.0, 0.0],
+    ))
+    .unwrap();
+    let request = json_to_js(&serde_json::json!({
+        "namespace": "sch04",
+        "query_vector": [1.0, 0.0],
+        "top_k": 1
+    }));
+    let hits = db.search(request).unwrap();
+    let first = js_sys::Array::from(&hits).get(0);
+    let record = js_sys::Reflect::get(&first, &"record".into()).unwrap();
+    let class = js_sys::Reflect::get(&record, &"confidence_class".into()).unwrap();
+    assert_eq!(class.as_string().as_deref(), Some("Asserted"));
+}

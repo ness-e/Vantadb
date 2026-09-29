@@ -145,6 +145,7 @@ class AsyncClient:
         explain: bool = False,
         exclude_superseded: bool = False,
         query_sparse: dict | None = None,
+        min_confidence: float | None = None,
     ) -> list[SearchHit]: ...
     async def search_multi(
         self,
@@ -158,6 +159,7 @@ class AsyncClient:
         explain: bool = False,
         exclude_superseded: bool = False,
         query_sparse: dict | None = None,
+        min_confidence: float | None = None,
     ) -> list[SearchHit]: ...
     @property
     def memory(self) -> AsyncMemoryClient: ...

@@ -31,6 +31,6 @@ pub use types::{
     OperationalMetrics, QueryResult, RangeFilter, RuntimeProfile, SearchExplanation,
     SearchExplanationHit, SearchHit, SearchProfileConfig, SearchProfileMode, SkillCreateInput,
     SkillListOptions, SkillListPage, SkillPatchInput, SkillRecord, SkillUpdateInput,
-    SkillWriteResult, StorageTier, TextIndexAuditReport, TextIndexRepairReport, Value,
+    SkillWriteResult, StorageTier, TextIndexAuditReport, TextIndexRepairReport, ValidWindow, Value,
     DERIVATION_DISCOUNT, MAX_DERIVATION_DEPTH,
 };

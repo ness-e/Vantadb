@@ -94,6 +94,7 @@ def test_search_multi_signature_matches_matrix():
         "explain",
         "exclude_superseded",
         "query_sparse",  # WIRE-03: sparse parity (additive, end of signature)
+        "min_confidence",  # SCH-04: confidence filter (additive, end of signature)
     ], f"search_multi params {params} drifted from the W1 matrix"
 
 
