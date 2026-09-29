@@ -67,9 +67,9 @@ re-abren**:
 | MGR-12 Q1–Q4 (`mgr-12-confianza.md:243-246`) | `D_a = 1.0` para `asserted`; `last_validated_at_ms` = solo éxito (`Option`); exponer + filtro opt-in `min_confidence`; derivación `min(padres) × 0.9`. |
 | MGR-13 Q1–Q6 (`mgr-13-cuarentena.md:206-211`) | import con cuarentena **opt-in** + recomendación documentada; expiración `keep` + señal de vencido (deadline default se fija en D5d); separación reviewer/writer **auditable** (no dura) en 0.8.0; cuarentena **sticky** (I2); `get` por key devuelve cuarentenados con estado visible; `quarantine_apply` en 0.8.0. |
 
-Las decisiones **nuevas** de este ADR (los 6 carry-overs P2-01: D4b, D4c, D5d, D6, D7, D8) +
-los canónicos consolidados (D1–D3, plan de migración) quedan sujetos a la firma del owner
-(status `proposed` → `accepted`).
+Las decisiones **nuevas** de este ADR (D4b, D4c, D5d, D5e, D6, D7, D8) +
+los canónicos consolidados (D1–D3, plan de migración) quedaron **firmados por el owner**
+(2026-09-28; status `accepted` — ver §Owner sign-off).
 
 ### D1 — Corte único: schema v2 dentro de 0.8.0 (sin segundo breaking)
 
@@ -306,7 +306,7 @@ contrato de schema/compat:
   default ON (T1b); opción de import; `quarantine_apply` (T1d). Sin heurísticas automáticas
   (I6 — cero falsos positivos por contenido).
 - **D5d — Deadline default de revisión: 30 días** *(carry-over P2-01 #6; única sub-pregunta
-  de MGR-13 sin recomendación, `mgr-13:207`)*. Propuesta (sujeta a firma):
+  de MGR-13 sin recomendación, `mgr-13:207`)*. Decisión firmada (2026-09-28):
   - Al entrar en cuarentena sin deadline explícito:
     `quarantine_review_due_ms := quarantined_at_ms + 30 días`; override por registro;
     config `quarantine_review_default_days: u32 = 30` (`0` = sin deadline default).
@@ -557,13 +557,13 @@ El corte se ejecuta **solo** vía release-plz (Regla 7; nunca tags/versión/CHAN
 
 ## Owner sign-off (Regla 5)
 
-> **[OWNER]** **Firma pendiente** — status `proposed`. El LEAD eleva la firma tras el review
-> P2-01 (no hay auto-aprobación; el registro vive también en `docs/dev/tasks/SCH-01.md`).
+> **[OWNER]** **Firmado** — status `accepted` (2026-09-28). Firma y articulación abajo;
+> el registro vive también en `docs/dev/tasks/SCH-01.md`.
 >
 > **Base ya ratificada (2026-09-28, question "Aprobar defaults y avanzar"):** los 16 defaults
 > recomendados de MGR-10/12/13 (D0) — no se re-abren.
 >
-> **A firmar con este ADR (decisiones nuevas):**
+> **Firmado con este ADR (decisiones nuevas):**
 >
 > 1. **D4b** — rechazo en boundary de `Derived + Some(confidence)` + tests V2/V4/V5.
 > 2. **D4c** — backfill uniforme `confidence = D_a = 1.0`; deltas observables de eviction/
