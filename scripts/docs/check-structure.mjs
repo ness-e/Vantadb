@@ -17,7 +17,7 @@
 // Exits non-zero when any finding exceeds --budget (default 0: this is a defect
 // class, not a metric to be tolerated).
 import { readFileSync } from 'node:fs';
-import { listDocs } from './lib.mjs';
+import { listDocs, segment } from './lib.mjs';
 
 const argv = process.argv.slice(2);
 const JSON_OUT = argv.includes('--json');
@@ -79,23 +79,50 @@ const levelOf = (l) => (HEADING.test(l) ? l.match(/^(#{1,6})\s/)[1].length : 0);
 function findEmptySections(body, startLine) {
   const out = [];
   const lines = body.split('\n');
-  let inFence = false;
+  // Fence state from segment(), NOT a boolean toggle. A toggle cannot represent
+  // nesting: a ``` closing a ```` block looks identical to it, so every
+  // `# comment` inside a nested template was read as structure. lib.mjs already
+  // tracks marker character and length, and re-implementing that worse is how
+  // this file reported 8 phantom empty-sections in
+  // research/archive/Investigacion-plan.md for months.
+  const isFenceLine = fenceLineMask(body);
   for (let i = 0; i < lines.length; i++) {
-    const l = lines[i];
-    if (FENCE.test(l)) { inFence = !inFence; continue; }
-    if (inFence || !HEADING.test(l)) continue;
+    if (isFenceLine[i]) continue;
+    if (!HEADING.test(lines[i])) continue;
 
-    const level = levelOf(l);
+    const level = levelOf(lines[i]);
     let j = i + 1;
+    // Skip only BLANK lines. A fence delimiter must NOT be skipped: a code
+    // block is the section's body. An earlier version skipped fence lines too,
+    // which walked straight past the block and reported every section that
+    // documents itself in a fence as empty.
     while (j < lines.length && isBlankish(lines[j])) j++;
 
-    if (j >= lines.length) { out.push({ line: startLine + i, heading: l.trim() }); continue; }
-    const n = lines[j];
-    if (HEADING.test(n) && levelOf(n) <= level) {
-      out.push({ line: startLine + i, heading: l.trim() });
+    if (j >= lines.length) { out.push({ line: startLine + i, heading: lines[i].trim() }); continue; }
+    if (HEADING.test(lines[j]) && levelOf(lines[j]) <= level) {
+      out.push({ line: startLine + i, heading: lines[i].trim() });
     }
   }
   return out;
+}
+
+/**
+ * A per-line mask of which lines are a code fence, honouring marker character
+ * and length so nesting works. Delegates to lib.mjs segment(), which already
+ * implements CommonMark's rule and is the same function the link checkers and
+ * the wikilink converter use -- so this gate cannot drift from them again.
+ */
+function fenceLineMask(src) {
+  const mask = new Array(src.split('\n').length).fill(false);
+  // segment() reports the 1-based line each segment starts on, so the mask is
+  // indexed directly rather than by counting characters. Counting characters is
+  // what made the first version of this drift out of step.
+  for (const seg of segment(src)) {
+    if (seg.why === 'code-fence' && seg.line >= 1 && seg.line <= mask.length) {
+      mask[seg.line - 1] = true;
+    }
+  }
+  return mask;
 }
 
 /**
@@ -157,6 +184,13 @@ if (SELF_TEST) {
     ['######Six is malformed', '######Six\n', 1],
     ['#######Seven is not a heading', '#######Seven\n', 0],
     ['a #hashtag in prose is not a heading', 'see #hashtag here\n', 0],
+    // The nesting case. A ``` inside a ```` block is literal content: not a
+    // closer, and not a heading. A boolean toggle cannot tell those apart, and
+    // got every one of these wrong.
+    ['a hash comment inside a NESTED fence is not a heading',
+      '#A\n\n````\n```bash\n#nested\n```\n````\n', 1],
+    ['a heading inside a nested fence is not a heading',
+      '#A\n\n````\n```\n## Fake\n```\n````\n', 1],
   ];
   let bad = 0;
   for (const [name, src, want] of cases) {
@@ -171,13 +205,31 @@ if (SELF_TEST) {
   if (!okO) bad++;
   console.log(`  ${okO ? 'ok  ' : 'FAIL'} orphan prose detection  got=${o1.length}/${o0.length} want=1/0`);
 
+  // The fence mask must mark every line of a nested block, and must do it by
+  // LINE NUMBER. A character-offset mask and a segment() whose fence regex only
+  // fired on a file's last line both produce a mask that looks plausible and is
+  // wrong, which is exactly how this stayed broken.
+  {
+    const nested = '#A\n\n````\n```bash\n#nested\n```\n````\n';
+    const m = fenceLineMask(nested);
+    // split('\n') on a trailing-newline string yields a final empty element, so
+    // the mask has one more slot than there are lines of content.
+    const wantMask = [false, false, true, true, true, true, true, false];
+    const okMask = JSON.stringify(m) === JSON.stringify(wantMask);
+    if (!okMask) bad++;
+    console.log(`  ${okMask ? 'ok  ' : 'FAIL'}  nested fence mask covers the whole block  got=${JSON.stringify(m)}`);
+    const rt = segment(nested).every((s) => s.line >= 1 && s.line <= 7);
+    if (!rt) bad++;
+    console.log(`  ${rt ? 'ok  ' : 'FAIL'}  every segment reports a real line number`);
+  }
+
   const countBad = (src) => {
-    let fence = false;
+    const isFenceLine = fenceLineMask(src);
     let n = 0;
-    for (const l of src.split('\n')) {
-      if (FENCE.test(l)) { fence = !fence; continue; }
-      if (!fence && MALFORMED_HEADING.test(l)) n++;
-    }
+    src.split('\n').forEach((l, i) => {
+      if (isFenceLine[i]) return;
+      if (MALFORMED_HEADING.test(l)) n++;
+    });
     return n;
   };
   for (const [name, src, want] of badHeadings) {
@@ -210,10 +262,9 @@ for (const rel of files) {
   // Malformed headings: `#Fjall` instead of `# Fjall`. Reported by line, and
   // skipped inside fences where a `#` comment is legitimate.
   {
-    let fence = false;
+    const isFenceLine = fenceLineMask(body);
     body.split('\n').forEach((l, i) => {
-      if (FENCE.test(l)) { fence = !fence; return; }
-      if (fence) return;
+      if (isFenceLine[i]) return;
       const m = l.match(MALFORMED_HEADING);
       if (m) {
         findings.push({
