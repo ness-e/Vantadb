@@ -8,7 +8,7 @@ description: "SDP: campaign-executor · progreso · writing-plans · planning-an
 
 > **Campaign ID:** ed20beae-edf6-42f5-b41f-e8519830d6cb
 > **Inicio:** 2026-09-26
-> **Estado:** ⏳ EN PROGRESO (31/50 — F0 ✅ · F1 ✅ · F2 ✅ · F3 8/11; siguiente: SCH-06)
+> **Estado:** ⏳ EN PROGRESO (32/50 — F0 ✅ · F1 ✅ · F2 ✅ · F3 9/11; siguiente: SCH-07)
 > **Fuente:** `docs/dev/Backlog.md` (P52–P59 + FIND-*) + planes absorbidos (`2026-09-24-post-investigacion-integral.md` W2–W7, `2026-09-24-estabilizacion-pendiente.md`, `2026-09-24-harness-gaps.md`, `2026-09-24-sesion-continuidad.md`, `2026-09-20-estabilizacion-total.md`) + `docs/dev/strategy/` (13 docs) + Notion "VantaDB Docs" (~28 subpáginas) + investigación de riesgos 2026-09-26 (4 sub-agentes R1–R4, multi-fuente)
 > **Autonomous:** false — el owner gatea push/merge/release. **Push a `develop`: al completar el plan con todo validado/verificado** (decisión owner 2026-09-26, ver §Política de commits/push)
 > **Modo:** PLAN → ejecución con `/pipeline run docs/dev/plans/2026-09-26-master-roadmap.md`
@@ -822,7 +822,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** "suite verde: migración v1→v2 determinista (misma DB → mismo resultado; doble corrida byte-idéntica sobre copia) Y time-travel `AS OF` con fechas de referencia (eje valid/transaction según ADR SCH-01) Y roundtrip export/import v1↔v2 (v1 sigue importable; campos nuevos sobreviven ida y vuelta) Y chaos: crash durante migración → recuperación íntegra (failpoint + reopen + integridad de índices) Y bordes (TTL+quarantine, supersede+invalid) — todo corriendo en CI vía chaos.yml + nextest scoped"
 - **Task file:** `docs/dev/tasks/SCH-06.md` (a crear en DISCOVERY)
-- **Estado:** ⏳ EN PROGRESO
+- **Estado:** ✅ COMPLETED (2026-09-29 — commit `b90c494b`; review fast ✅; H1→FIND-186)
 - **Cynefin:** 🟨 complicado — determinismo byte-exacto + failpoints de migración + semántica temporal correcta en los tests.
 - **Top 3 riesgos:** 1. determinismo frágil (timestamps/orden de records) · 2. failpoints flaky/caros en CI · 3. time-travel mal especificado → tests que fijan la semántica equivocada.
 - **Pre-mortem:** F1: migración no determinista por reloj/orden → reloj inyectado + doble corrida byte-idéntica (copia de DB v1 → v2 ×2); F2: no existe failpoint en el runner de migración → instrumentar con `fail` + abort-antes-de-swap (precedente `snapshot_restore_fail`, `snapshot_certification.rs:1529`); F3: `AS OF` testeado contra el eje equivocado → fechas de referencia fijadas por el ADR + revisión cruzada con SCH-03.
@@ -1056,6 +1056,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **plan-adjust [2026-09-28g]:** **F3.2 cerrada (28/50)** — SCH-01 (ADR-0046 firmado por owner) + SCH-02 (schema v2 + migración determinista + backfill; `7af34366`; review adversarial 2 rondas ✅ 2403/2403). Wave F3.3 lista: SCH-03 ‖ SCH-04 ‖ SCH-05 (desbloqueadas).
 - **plan-adjust [2026-09-29a]:** **F3.3a cerrada (30/50)** — SCH-03 (AS OF/valid_at/cursor) + SCH-04 (confidence consumible + filtros): **commit combinado `932b1211`** por changesets entrelazados (`vector_types.rs`/`page.rs`, wave co-batch) — documentado. Reviews adversariales frescos ✅ + fixes post-review (rechazo AS OF duplicado + delta; MCP schema min/max). FIND nuevo: `campaign_get_next_task` no desambigua con `planFile` si hay 2 planes activos (workaround: claim vía `update_task_state`). F3.3b lanzada: SCH-05.
 - **plan-adjust [2026-09-29b]:** **F3.3b cerrada (31/50)** — SCH-05 cuarentena+abstención (`83d65518`): default-exclude + gates de inyección (l1_reader/axioms) + transiciones T1-T5 con audit + sticky raw transport (F4a) + abstención explícita. Review adversarial 2 rondas (❌ F1-F6/N → batch → delta ✅). Docs/api diferidas a SCH-07 (2 gaps declarados). Nota: la sesión de docs commiteó su consolidación (`d23e1224` + `86c55e01`) — WIP ajeno masivo cerrado.
+- **plan-adjust [2026-09-29c]:** **F3.4 cerrada (32/50)** — SCH-06 suite determinista/time-travel/roundtrip/chaos (`b90c494b`; review fast ✅; CI exacto 2/2). FIND-186 registrado (`70196101`: WAL shard-group crash → salvage). Índices regenerados (`e23bc11e`). Nota: sesión docs commiteó consolidación completa (`d23e1224`/`86c55e01`/`10577ec0`). Wave F3.5 lanzada: SCH-07 (recoge docs/api diferidas de SCH-03/04/05 + 2 gaps).
 
 ## Recitation
 
@@ -1064,9 +1065,9 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
 Objetivo activo: F3 — Bitemporalidad/confianza/cuarentena + schema v2 (MGR/SCH)
 Estado: in-progress
-Última acción: F3.3b COMPLETA (31/50 — SCH-05 cuarentena+abstención; commit 83d65518); siguiente wave F3.4 (SCH-06)
-Resultado: OK (F0 7/7 · F1 8/8 · F2 7/7 · F3 8/11)
-Próxima acción: SCH-06 (chaos/tests: migración determinista, time-travel, roundtrip, crash) → SCH-07 → SCH-08
+Última acción: F3.4 COMPLETA (32/50 — SCH-06 chaos/tests; commit b90c494b); wave F3.5 lanzada (SCH-07)
+Resultado: OK (F0 7/7 · F1 8/8 · F2 7/7 · F3 9/11)
+Próxima acción: SCH-07 (superficies bindings/server/MCP/IQL + docs/api) → SCH-08 (corte 0.8.0) → gate F3
 Contrato: —
 Próxima tarea si completa: HARD-01
 === END RECITATION ===
@@ -1440,11 +1441,22 @@ Próxima tarea si completa: SCH-06
 
 === RECITATION SCH-06 ===
 Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
-Objetivo activo: SCH-06 — Tests: migración determinista, time-travel, roundtrip export/import, chaos
+Objetivo activo: SCH-06 — Tests: migración determinista, time-travel, roundtrip, chaos
+Estado: completed
+Última acción: 7/7 ✅ + review fast APPROVE; suites nuevas + wiring CI; FIND-186 registrado
+Resultado: OK
+Próxima acción: Wave F3.5: claim SCH-07 (superficies + docs/api)
+Contrato: migración determinista byte-idéntica + time-travel + roundtrip v1↔v2 + chaos mid-migración + bordes (CI exacto 2/2 · 2475/2475)
+Próxima tarea si completa: SCH-07
+=== END RECITATION ===
+
+=== RECITATION SCH-07 ===
+Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
+Objetivo activo: SCH-07 — Superficies: bindings/server/MCP/IQL + docs/api mismo-PR
 Estado: in-progress
-Última acción: Claim (wave F3.4) — desbloqueada por SCH-02..05
+Última acción: Claim (wave F3.5) — desbloqueada por SCH-02..06
 Resultado: PENDING
-Próxima acción: DISCOVERY + implementación (vanta-chaos)
-Contrato: suite verde: migración determinista + time-travel AS OF + roundtrip export/import + chaos/crash-recovery
-Próxima tarea si completa: SCH-06
+Próxima acción: DISCOVERY + implementación (vanta-worker)
+Contrato: campos v2 + params cruzan Py/TS/Node/WASM + HTTP + MCP + IQL (mismos nombres de wire) + matriz paridad verde + docs/api mismo-PR
+Próxima tarea si completa: SCH-07
 === END RECITATION ===
