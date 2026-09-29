@@ -135,9 +135,9 @@ UI doesn't crash, but the cosine similarity is meaningless.
 - [`docs/dev/desktop/ARCHITECTURE.md`](../docs/dev/desktop/ARCHITECTURE.md) —
   multi-connection model, transports, lifecycle
 - [`docs/user/desktop/GUIDE.md`](../docs/user/desktop/GUIDE.md) — per-mode user guide
-- ADRs: [ADR-026](../docs/dev/architecture/adr/ADR-026-vanta-studio-fase3-rest-dashboard.md),
-  [ADR-027](../docs/dev/architecture/adr/ADR-027-fase4-cierre-deuda-rest-wasm-opfs.md),
-  [ADR-028](../docs/dev/architecture/adr/ADR-028-core-decay-supersession.md)
+- ADRs: [ADR-0026](../docs/dev/architecture/adr/ADR-0026-vanta-studio-fase3-rest-dashboard.md),
+  [ADR-0027](../docs/dev/architecture/adr/ADR-0027-fase4-cierre-deuda-rest-wasm-opfs.md),
+  [ADR-0028](../docs/dev/architecture/adr/ADR-0028-core-decay-supersession.md)
 
 ## License
 

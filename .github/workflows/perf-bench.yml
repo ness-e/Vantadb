@@ -26,7 +26,7 @@ on:
       update_baseline:
         description: 'Rebaseline: write benchmarks/python_baseline.json (median of 3 runs) and upload as artifact instead of comparing'
         required: false
-        default: 'false'
+        default: false
         type: boolean
 
 concurrency:
