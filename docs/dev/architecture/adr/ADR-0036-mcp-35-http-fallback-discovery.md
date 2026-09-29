@@ -256,6 +256,6 @@ Try StorageEngine::open_with_config()
 - [ ] 2× `vanta-cli server --mcp --db <same>` simultaneous → both respond to `tools/list`
 
 ## Related ADRs
-- ADR-026: Vanta Studio Fase 3 REST Dashboard (established `/api/v2/*` surface)
-- ADR-020: Storage Backend Default (Fjall with file locking)
-- ADR-014: PITR (point-in-time recovery context for crash safety)
+- ADR-0026: Vanta Studio Fase 3 REST Dashboard (established `/api/v2/*` surface)
+- ADR-0020: Storage Backend Default (Fjall with file locking)
+- ADR-0014: PITR (point-in-time recovery context for crash safety)

@@ -35,7 +35,7 @@ Escribir ADRs retroactivos para: (a) Fjall vs RocksDB como backend por defecto,
   consolidación/retro-documentación con evidencia archivo:línea, **no duplicados**
   (referencian los existentes en frontmatter `related:` y en secciones).
 - (b) no tenía ADR → ADR nuevo genuino.
-- Números libres verificados: ADR-020/021/022 (ADR-0019 ya ocupado).
+- Números libres verificados: ADR-0020/021/022 (ADR-0019 ya ocupado).
 
 ## Steps
 

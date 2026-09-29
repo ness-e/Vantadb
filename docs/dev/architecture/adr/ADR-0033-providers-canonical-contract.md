@@ -224,7 +224,7 @@ litellm consumers pierden info".
 2. **Drift latente si nuevos providers se agregan sin usar `shared_py`**:
    si en el futuro alguien agrega `vantadb-anthropic` o similar sin
    importar `#[path = "../../shared_py.rs"] mod common;`, el contrato
-   vuelve a divergir. Mitigación: ADR-016 (adapter tiers) + review
+   vuelve a divergir. Mitigación: ADR-0016 (adapter tiers) + review
    checklist pre-merge requiere `import common::record_to_pydict`.
 3. **Hidden coercion removida (`limit.max(1)`)**: callers openai que
    pasaban `limit=-1` ahora reciben `PyValueError` explícito en lugar
@@ -270,5 +270,5 @@ litellm consumers pierden info".
 - `docs/dev/plans/2026-08-29-full-backlog-parallel.md` §W16-3 (PROV-04)
 - `docs/dev/research/2026-08-25-research-providers-quickwins.md` (origen del hallazgo)
 - `docs/dev/architecture/adr/ADR-0016-adapter-tiers.md` (política adapters)
-- `docs/dev/architecture/adr/ADR-005-error-handling.md` (taxonomía errores)
+- `docs/dev/architecture/adr/ADR-0005-error-handling.md` (taxonomía errores)
 - Skill `api-and-interface-design` (Hyrum's Law, One-Version Rule)

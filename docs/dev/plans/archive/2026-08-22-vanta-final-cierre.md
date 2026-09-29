@@ -166,7 +166,7 @@ Status: ⬆️ uphill = 1 (existencia de auto-embedding en core — Task 4 Paso 
 ### Task 7: MEM-49 — ADR-0029 articulación humana + gate D24-D37 (human-in-loop)
 - **Appetite:** max 1d (humano) / 🟢 prep IA
 - **Esfuerzo:** 🟢 (prep IA) | **Prioridad:** 🟠 (gobierno)
-- **Archivos clave:** `docs/dev/architecture/adr/ADR-029-*` (el AUTOR edita), `docs/dev/architecture/adr/ADR-0XX-proxy-knowledge.md` (borrador nuevo)
+- **Archivos clave:** `docs/dev/architecture/adr/ADR-0029-*` (el AUTOR edita), `docs/dev/architecture/adr/ADR-0XX-proxy-knowledge.md` (borrador nuevo)
 - **Verificación real:** ✅ REAL — Regla 5: forcing function del autor humano; ADR-0029 en borrador desde P29; D24-D37 de P30 sin ADR
 - **Gate Justificación:** las decisiones arquitectónicas no están cerradas hasta que el autor las articule con sus palabras
 - **Gate Result:** ✅ DO

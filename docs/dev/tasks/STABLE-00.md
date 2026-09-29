@@ -55,7 +55,7 @@ kind: task
 | Decisión | Elección | Evidencia |
 |----------|----------|-----------|
 | Número de ADR | `ADR-0031-default-members-promotion.md` (siguiente libre tras 030) | `docs/dev/architecture/adr/` lista ADR-0030 como último; secuencia incremental |
-| Formato ADR | Frontmatter `title/status/tags/created/last_reviewed/owner` + §Context/§Decision/§Consequences/§Alternatives/§References siguiendo `docs/dev/_templates/adr.md` y ADR-027/028 como ejemplo | Template 24 líneas + ADRs reales 80-116 líneas |
+| Formato ADR | Frontmatter `title/status/tags/created/last_reviewed/owner` + §Context/§Decision/§Consequences/§Alternatives/§References siguiendo `docs/dev/_templates/adr.md` y ADR-0027/028 como ejemplo | Template 24 líneas + ADRs reales 80-116 líneas |
 | Tabla 10 checks | Reproducir exactamente contrato P47 (Backlog:721-736) numerados 1..10 con comando y criterio de pass | Backlog:726-736 define 10 gates con 3 corridas, cargo clean/npm ci |
 | Coste por crate | Tabla con 7 columnas: crate, `cargo check` (s), `clippy` (s), `nextest`/`vitest` (s), toolchain extra, `Cargo.lock` delta (KB), nota Fast/Heavy | Medición local 2026-08-27: `cargo check -p` ~3-32s (wasm 3.5s, mcp 6.6s, server ~21s, proxy 32s, memory 36s); sin toolchain extra salvo wasm (`wasm32`+`wasm-pack`) y node (`napi`); Cargo.lock no crece (crates ya en workspace) |
 | Gate reversible | Sección §Reversibilidad: `git revert` de 1 línea en `Cargo.toml:636` + revert CI_POLICY §default-members; `publish=false` intacto, no afecta `cargo publish` | P47 origen: "deja la promoción como cambio reversible en 1 línea" + STABLE-09 contrato |

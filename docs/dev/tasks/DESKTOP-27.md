@@ -34,7 +34,7 @@ N/A — documentación con contrato mecánico
 
 ### Step 2: Crear ARCHITECTURE.md del modelo real ✅
 - **Archivos:** `docs/dev/desktop/ARCHITECTURE.md` (nuevo)
-- **Acción:** Documentar arquitectura: `ConnectionManager` (registry + active_id), transportes (NativeConnection, ServerConnection, WasmConnection), `ConnectionSelector` eliminado (ADMIN-03), path lock via NativeConnection, shutdown_all lifecycle. Referenciar ADR-026/027/028 — NO duplicar
+- **Acción:** Documentar arquitectura: `ConnectionManager` (registry + active_id), transportes (NativeConnection, ServerConnection, WasmConnection), `ConnectionSelector` eliminado (ADMIN-03), path lock via NativeConnection, shutdown_all lifecycle. Referenciar ADR-0026/027/028 — NO duplicar
 - **Verify:** Archivo existe y es consistente con código
 
 ### Step 3: Guía de usuario por modo de transporte ✅
@@ -49,7 +49,7 @@ N/A — documentación con contrato mecánico
 - **Verify:** ADR del modelo Studio revisado por vanta-arch
 
 ## Dependencias
-- ADR-026/027/028 ya existen (verificados en backlog)
+- ADR-0026/027/028 ya existen (verificados en backlog)
 
 ## Notas
 - DoD: ADR del modelo Studio revisado por vanta-arch; guía cubre nativo + server + wasm

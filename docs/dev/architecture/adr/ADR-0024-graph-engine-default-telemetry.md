@@ -116,9 +116,9 @@ ADR's reopen signal is now measurable.
 
 ## Related
 
-- ADR-020 — storage backend default decision record (same "default vs opt-in"
+- ADR-0020 — storage backend default decision record (same "default vs opt-in"
   pattern: Fjall default, RocksDB opt-in).
-- ADR-023 — backend config deferred until benchmark evidence exists (same
+- ADR-0023 — backend config deferred until benchmark evidence exists (same
   "defer until measured" discipline, Regla 9).
 - `src/metrics/core/registry.rs` — existing telemetry inventory.
 - `src/cli_server.rs:147` — `/metrics` endpoint (FND-07 deliverable).

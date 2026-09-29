@@ -900,7 +900,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** "`dry_run:true` (CLI/MCP) devuelve diff por registro {action: ADD|UPDATE|DELETE|NOOP, key, razón (merge|dedup|supersede|normalize)} con L1 byte-identical (test) Y `promote_dream_run` real aplica el plan a `l1/<session>` (ADD/UPDATE/DELETE/NOOP; idempotente: re-promote → todo NOOP) con puerta de calidad sobre merges/supersedes Y MCP `dream_promote` deja de ser preview (readOnlyHint false + descripción/hints + meta-test de conteos) Y tools MCP + docs (`MCP.md`/`VANTA_MEMORY.md`) al día"
 - **Task file:** `docs/dev/tasks/VER-07.md` (a crear en DISCOVERY)
-- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Estado:** ⏳ EN PROGRESO · **Branch:** develop · **Commit:**
 - **Cynefin:** 🟨 complicado — semántica de diff por registro (identidad run↔L1) + promote idempotente sin romper el invariante de no-mutación del módulo.
 - **Top 3 riesgos:** 1. promote que muta L1 sin puerta → corrupción silenciosa · 2. diff no determinista (orden/identidad de registros) → dry-run inverificable · 3. hints MCP inconsistentes (readOnlyHint true con tool que muta).
 - **Pre-mortem:** F1: identidad de registros ambigua → diff por (namespace, key) + node_id explícito, con NOOP como default seguro; F2: promote parcial (crash mid-apply) → apply como batch de upserts idempotentes por key (re-run converge); F3: dry-run que toca L1 por accidente → test byte-identical (precedente `dreaming.rs:270-294`) + implementación pura (solo lee).
@@ -926,7 +926,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** "hash-chain incremental por registro en el WAL (prev_hash + hash del frame; sin re-hash total) con coste de escritura medido ≤5% (`wal_throughput` before/after) Y `vanta-cli verify` recorre el WAL y detecta manipulación/extirpación con registro exacto (1 registro alterado o eliminado → exit ≠0 + posición; test dedicado) Y compat: WAL v1 sigue recuperable (bump de `WAL_FORMAT_VERSION` con lectura legacy o migración) Y diseño del chain documentado en `docs/api/` (qué cubre y qué no: límites de truncado legítimo vs extirpación)"
 - **Task file:** `docs/dev/tasks/VER-01.md` (a crear en DISCOVERY)
-- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Estado:** ⏳ EN PROGRESO · **Branch:** develop · **Commit:**
 - **Cynefin:** 🔴 complejo — criptografía incremental en hot path + compat de formato + semántica extirpación vs truncado legítimo (crash).
 - **Top 3 riesgos:** 1. coste de escritura >5% (hash por registro en append) · 2. falso positivo: truncado legítimo post-crash (quarantine) reportado como manipulación · 3. rotación/sharding rompen la cadena (¿chain por shard o global?).
 - **Pre-mortem:** F1: cadena global con shards → definir cadena por shard + cross-link en `shard_meta` (o decisión documentada en el diseño); F2: verify sobre WAL vivo (lock) → verify abre read-only con snapshot consistente (patrón `recover` :448) y declara el límite; F3: registros viejos sin hash → verify reporta "pre-chain prefix" explícito (no lo trata como manipulación; decisión de scope en DISCOVERY).
@@ -946,13 +946,13 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 
 - **Appetite:** max 2d · **Esfuerzo:** 🟢 1-2d · **Prioridad:** 🟠
 - **Ruta:** vanta-worker
-- **Archivos clave:** `src/sdk/serialization/mod.rs` (formato de intercambio: `EXPORT_SCHEMA_VERSION=2` :54; `export_line_from_record` :622; validación import 1..=2 :692-706 — ADR-046 §D7) · `src/sdk/serialization/impl_export.rs` (`import_records` :306; `import_file` :388) · nuevo `src/sdk/importers/` (destino DISCOVERY: `mem0.rs`/`zep.rs`/`letta.rs` → `MemoryExportLine`) · CLI `Import` (cli.rs:124) o flag de formato · fixtures nuevos `tests/fixtures/importers/{mem0,zep,letta}/` (destino) · `docs/user/tutorials/` (guía nueva; patrón `03-migrating-from-chromadb.md`/`migration-from-lancedb.md`) · `docs/api/` (formato de intercambio documentado)
+- **Archivos clave:** `src/sdk/serialization/mod.rs` (formato de intercambio: `EXPORT_SCHEMA_VERSION=2` :54; `export_line_from_record` :622; validación import 1..=2 :692-706 — ADR-0046 §D7) · `src/sdk/serialization/impl_export.rs` (`import_records` :306; `import_file` :388) · nuevo `src/sdk/importers/` (destino DISCOVERY: `mem0.rs`/`zep.rs`/`letta.rs` → `MemoryExportLine`) · CLI `Import` (cli.rs:124) o flag de formato · fixtures nuevos `tests/fixtures/importers/{mem0,zep,letta}/` (destino) · `docs/user/tutorials/` (guía nueva; patrón `03-migrating-from-chromadb.md`/`migration-from-lancedb.md`) · `docs/api/` (formato de intercambio documentado)
 - **Verificación real:** ✅ CÓDIGO-REAL — **el formato de intercambio YA existe (re-baseline)**: `MemoryExportLine` JSONL con `EXPORT_SCHEMA_VERSION=2` (mod.rs:54, :622-624) + import compatible v1..v2 (mod.rs:692-706) + `import_records`/`import_file` (impl_export.rs:306/:388) + CLI `import` (cli.rs:124) + MCP `import`/`bulk_import_*` (tools.rs:30). **Importadores de rivales NO existen**: `rg '(?i)mem0|zep|letta'` en `src/` = 0 hits (los paquetes `integrations/` son adapters de uso — te permiten usar VantaDB como backend, no migrar exports; capa distinta). Fixtures de rivales: 0. Guías de migración: patrón ya establecido (`docs/user/tutorials/03-migrating-from-chromadb.md`, `migration-from-lancedb.md`, `migrate-from-vectara.md`, `docs/user/SQLITE_MIGRATION_GUIDE.md`). Formatos objetivo (Backlog:927): Mem0 = memories JSON; Zep/Graphiti = episodios+facts; Letta = archivos/bloques; input = export del usuario (sin credenciales). DoD Backlog: "3 importadores con test + guía de migración publicada". Blast radius: aditivo (módulo nuevo + mapeo a tipos existentes); sin cambios de wire.
 - **Gate Justificación:** captura de usuarios de la competencia (estrategia COGX, cognee.ai/migrating-from-mem0): con el harness (VER-08/09, F5) y los adapters (MKT-18f), los importadores son la pata de switching cost más barata del plan; el formato de intercambio ya normalizado (v2) hace que el costo marginal sea el mapeo por sistema.
 - **Gate Result:** ✅ DO
 - **Contrato:** "3 importadores (Mem0 memories JSON, Zep/Graphiti episodios+facts, Letta archivos/bloques) que mapean a `MemoryExportLine` preservando metadata y procedencia, cada uno con test sobre fixture real Y roundtrip estable (import → export v2 → diff) Y formato de intercambio VantaDB documentado (JSONL v2 + semántica temporal/dedup/conflicto + límites de lo preservable) en `docs/api/` Y guía de migración por sistema publicada en `docs/user/tutorials/` (solo archivos de export; sin credenciales)"
 - **Task file:** `docs/dev/tasks/VER-05.md` (a crear en DISCOVERY)
-- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Estado:** ⏳ EN PROGRESO · **Branch:** develop · **Commit:**
 - **Cynefin:** 🟦 obvio→🟨 — mapeo de formatos ajenos; el riesgo es de fidelidad de datos, no de diseño.
 - **Top 3 riesgos:** 1. pérdida silenciosa de campos al mapear (timestamps/procedencia) · 2. formatos rivales versionados (exports cambian) · 3. imports que duplican al re-ejecutar.
 - **Pre-mortem:** F1: campos sin destino → tabla de mapeo campo↔campo con "descartado explícito" documentado + contadores en el reporte de import; F2: export nuevo de un rival → parser tolerante (campos requeridos mínimos) + test con fixture mínimo y fixture real; F3: re-import duplica → reusar idempotencia por content-hash del seed (patrón `md_import`/MEM-39).
@@ -1142,7 +1142,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 | **PRs #228/#224** | Decidir al momento del release | #228 = release-plz (se actualiza a 0.8.0); #224 = dependabot (croaring) | Owner decide merge/close |
 | **BIZ-04/10/11/12/13** | ToS/Privacy/Refund, Lemon Squeezy, Binance Pay, Payoneer→Airtm, invoice | Carril negocio (bloquea cobros) | `docs/dev/strategy/GO_TO_MARKET.md` |
 | **LEG-01** | Dictamen de marca antes de filing | Riesgo legal | Owner |
-| **HIG-02** | Firma del waiver ADR-041 (firma formal diferida) | Cierra deuda API-01 | Owner firma |
+| **HIG-02** | Firma del waiver ADR-0047 (firma formal diferida) | Cierra deuda API-01 | Owner firma |
 | **DEC-01** | ADR pendiente de escribir (P38 ✅) | Regla 5 (lo articula el owner) | Owner |
 | **MCP refresh** | Rebuild `target/debug` + restart (frescura total) | Binario local puede ser pre-API-04 | Cerrar OpenCode → rebuild → reabrir |
 
@@ -1620,4 +1620,37 @@ Resultado: OK
 Próxima acción: Bloques F4 (REGLA) → wave F4; release real = lane owner (push)
 Contrato: UPGRADE.md §0.8.0 + auditoría release-plz (R1/R2) + release notes draft + handoff owner; CHANGELOG nunca a mano
 Próxima tarea si completa: F4
+=== END RECITATION ===
+
+=== RECITATION VER-07 ===
+Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
+Objetivo activo: VER-07 — wave F4.1
+Estado: in-progress
+Última acción: Claim (wave F4.1)
+Resultado: PENDING
+Próxima acción: DISCOVERY + implementación (vanta-worker)
+Contrato: ver bloque Task 34-36 del plan
+Próxima tarea si completa: VER-07
+=== END RECITATION ===
+
+=== RECITATION VER-01 ===
+Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
+Objetivo activo: VER-01 — wave F4.1
+Estado: in-progress
+Última acción: Claim (wave F4.1)
+Resultado: PENDING
+Próxima acción: DISCOVERY + implementación (vanta-worker)
+Contrato: ver bloque Task 34-36 del plan
+Próxima tarea si completa: VER-01
+=== END RECITATION ===
+
+=== RECITATION VER-05 ===
+Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
+Objetivo activo: VER-05 — wave F4.1
+Estado: in-progress
+Última acción: Claim (wave F4.1)
+Resultado: PENDING
+Próxima acción: DISCOVERY + implementación (vanta-worker)
+Contrato: ver bloque Task 34-36 del plan
+Próxima tarea si completa: VER-05
 === END RECITATION ===

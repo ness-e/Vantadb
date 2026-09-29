@@ -73,7 +73,7 @@ All hybrid results are **RRF-fused scores** (not raw BM25/cosine) — explanatio
 ## Record Confidence (`MemoryRecord.confidence`)
 
 Every memory record carries a declared/computed confidence in `[0, 1]` plus its
-provenance class (ADR-046 §D2/§D4, SCH-04):
+provenance class (ADR-0046 §D2/§D4, SCH-04):
 
 - `confidence_class: "Asserted"` — a direct writer claim; absent score defaults
   to `D_a = 1.0` ("trust the writer" policy).
@@ -82,7 +82,7 @@ provenance class (ADR-046 §D2/§D4, SCH-04):
   Declaring a score on a derived record is rejected at the boundary.
 - Filters: `min_confidence` (per request, opt-in) and
   `confidence_threshold` (config, opt-in — also triggers the explicit
-  `abstained` signal when it empties the page, ADR-046 §D2).
+  `abstained` signal when it empties the page, ADR-0046 §D2).
 
 ### Calibration limits (L1–L5) — declared ranges, not probabilities
 

@@ -149,7 +149,7 @@ description: "Objetivo: eliminar el drift entre el SDK Python 0.5.0 y los 9 adap
 
 ## 8. INVESTIGACIÓN PROBLEMA
 
-**Drift PROV:** SDK 0.5.0 removió/renombró `VantaDB` (clase) + `*_memory` (métodos) + `Vanta*` (tipos) sin migrar los 9 adapters, que quedaron pineados a la API pre-0.5.0. Causa raíz (systematic-debugging Fase 1): el rename nativo AST-010 + paridad TS `MemoryClient` (AST-012) + política ADR-041 anti-stutter se aplicaron al binding pero no a `integrations/`. El síntoma (`AttributeError: module 'vantadb_py' has no attribute 'VantaDB'`) es total: 12 hits × 9 adapters, verificado FIND-69 (dspy 5 failed + 3 errors; `hasattr is False`).
+**Drift PROV:** SDK 0.5.0 removió/renombró `VantaDB` (clase) + `*_memory` (métodos) + `Vanta*` (tipos) sin migrar los 9 adapters, que quedaron pineados a la API pre-0.5.0. Causa raíz (systematic-debugging Fase 1): el rename nativo AST-010 + paridad TS `MemoryClient` (AST-012) + política ADR-0047 anti-stutter se aplicaron al binding pero no a `integrations/`. El síntoma (`AttributeError: module 'vantadb_py' has no attribute 'VantaDB'`) es total: 12 hits × 9 adapters, verificado FIND-69 (dspy 5 failed + 3 errors; `hasattr is False`).
 
 **Tradeoff:**
 - **Migración (elegida):** superficie mínima (Propuesta §3), deuda cero, ~100 líneas mecánicas + 10 líneas especiales; riesgo = tocar 11 archivos (mitigado por slices por adapter + pytest por adapter + `git diff --check`). Revierte el drift en la dirección correcta (adapters → SDK vigente).

@@ -26,7 +26,7 @@ este ADR registra el cierre real y el estado final del contrato.
 | F4.0 | Reconciliación documental (registro canónico) | ✅ DOC-01..04 (lead, wave W0): Backlog P26, task files, plan, changelog reconciliados |
 | F4.1 | Deuda REST | ✅ REST-01..06: rate limiter sin escape, `/api/v2/metrics` JSON, graph_v2 (u128-safe), paginación cursor, namespace_stats, IQL server |
 | F4.2 | WASM/OPFS backbone | ✅ WASM-01..04: cuota verificada, backend wasm, persistencia OPFS con reload, drag&drop import |
-| F4.3 | 3 diferenciadores del research | ✅ FEAT-01..03: slider de pesos híbridos (RRF weighted client-side), superficie Índices/salud real, consolidación asistida + supersession durable (ADR-028) |
+| F4.3 | 3 diferenciadores del research | ✅ FEAT-01..03: slider de pesos híbridos (RRF weighted client-side), superficie Índices/salud real, consolidación asistida + supersession durable (ADR-0028) |
 
 ### D14 — Reconciliación documental: ejecutada
 
@@ -87,4 +87,4 @@ Limitación documentada: el bundle Playwright no expone `navigator.storage`
 
 - Plan: `docs/dev/plans/2026-08-19-vanta-studio-fase4.md` (D13:13, D14:14, D15:15, VER-01 Task 18:188).
 - E2E: `desktop/scripts/selfcheck-web-e2e.ts` (REST-02/03/06), `desktop/scripts/selfcheck-wasm-e2e.ts`.
-- ADR-028: supersession durable (core decay, FEAT-03b).
+- ADR-0028: supersession durable (core decay, FEAT-03b).

@@ -15,7 +15,7 @@ created: "2026-09-05"
 Becomes `accepted` when the implementation lands with the §Acceptance evidence
 (≥10× bench + bounded loss-window test + `wal_resilience`/`chaos_integrity` green).
 Supersedes nothing; extends `DRV-015` Phase 1 (group commit) from roadmap to buildable spec
-and is grounded in `ADR-022` (current-state pin).
+and is grounded in `ADR-0022` (current-state pin).
 
 ## Context
 
@@ -38,7 +38,7 @@ Current write path (verified against code, 2026-09-05):
   sizes, 10k records/iter, cold fsync per iter).
 
 The remaining bottleneck is the **fsync, not the write** (`DRV-015` §Context,
-`ADR-022` §Decision): each batch pays a full blocking `fdatasync` on the writer
+`ADR-0022` §Decision): each batch pays a full blocking `fdatasync` on the writer
 thread. `DRV-015` Phase 1 (group commit, platform-agnostic) is the agreed
 direction but was roadmap-only — no coordinator, no config, no bench, no test.
 This ADR turns Phase 1 into a buildable, opt-in spec.
@@ -247,7 +247,7 @@ read-your-writes.
 
 ### Acceptance mapping (§Acceptance → WIRE-06)
 
-| ADR-038 criterion | Status under WIRE-06 |
+| ADR-0038 criterion | Status under WIRE-06 |
 |---|---|
 | ≥10× batch throughput (wal bench) | Not re-run for the WAL-only path; the ingestion A/B carries the plan gate (≥5× end-to-end). `benches/wal_throughput.rs` stays the witness rig for the `batch_append` effect. |
 | Declared loss window, tested | Subsumed: with ack-after-commit there is no acked-then-lost window; in-flight un-acked tasks are lost only as any client error (retry). Integrity tests (WAL count, reopen/replay, batch-atomic error, txn isolation) are green. |

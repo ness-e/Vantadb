@@ -120,7 +120,7 @@ interno del core con su propio sub-módulo `SkillStore`.
 - **Inversión de dependencia**: NO EXISTE. El plan file (W25-3) y
   codegraph-20260827 Fase 1 midieron mal por **path-homonymy**.
 - El **contrato pasa con `Count == 0`** sin necesidad de fix mecánico.
-- El **ADR-034** documenta (a) por qué el codegraph reportó la métrica,
+- El **ADR-0034** documenta (a) por qué el codegraph reportó la métrica,
   (b) por qué NO indica inversión real, (c) la métrica correcta que
   distinguiría `src/skills` (sub-módulo interno) de `.agents/skills`
   (skills de agente) en futuros reportes.

@@ -121,7 +121,7 @@ Decisiones de diseño que importan:
 **Estado:** COMPLETADO
 
 **Escala de confianza** (todas exigen coincidencia única): ruta exacta → ruta insensible a
-mayúsculas → intercambio de convención ADR (`001_x.md` ↔ `ADR-001-x.md`) → normalización
+mayúsculas → intercambio de convención ADR (`001_x.md` ↔ `ADR-0001-x.md`) → normalización
 de separadores → basename único → stem único.
 
 **Bug de alcance encontrado y corregido:** la primera versión indexaba sólo `docs/` y

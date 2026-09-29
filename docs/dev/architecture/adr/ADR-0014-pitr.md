@@ -99,4 +99,4 @@ integration** to a future feature task:
 - `docs/dev/strategy/VANTADB-PRO-FEATURES.md` (Pro candidate map)
 - `.opencode/rules/durability.md` (WAL durability rules; scope lists
   `wal_archiver.rs` (pitr))
-- ADR-013 (open-core licensing; `pitr` named among commercial candidates)
+- ADR-0013 (open-core licensing; `pitr` named among commercial candidates)

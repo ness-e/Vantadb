@@ -31,7 +31,7 @@ Estado del código hoy (verificado contra HEAD; detalle en cada research-doc):
   dominio en `src/` (`mgr-10-bitemporalidad.md:14`).
 - La infra reutilizable existe y no se rediseña: transaction-time parcial por key
   (`version_history.rs`, retención 32/key), invalidación por `supersede`/`superseded_at_ms`
-  (ADR-028), header `.vanta.schema` con `TooOld`/`TooNew` (`src/schema.rs:11,84-98`),
+  (ADR-0028), header `.vanta.schema` con `TooOld`/`TooNew` (`src/schema.rs:11,84-98`),
   comando `vanta migrate` (`src/cli_handlers/migrate.rs:175-279`) y export/import JSONL
   versionado (`serialization/mod.rs:35,498-531`).
 - La confianza existe a nivel **nodo** (`unified.rs:42`, default `0.5` `:92`) y alimenta
@@ -589,7 +589,7 @@ El corte se ejecuta **solo** vía release-plz (Regla 7; nunca tags/versión/CHAN
   pre-launch) + :939-946 (SCH-02..09).
 - Insumos (Cierre MGR ✅): `docs/dev/research/mgr-10-bitemporalidad.md` (commit `b6614e1e`) ·
   `mgr-12-confianza.md` (`50df4efd`) · `mgr-13-cuarentena.md` (`72f29720`).
-- Precedentes: ADR-028 (supersession), ADR-044 (acumulado breaking 0.x), ADR-045 (naming
+- Precedentes: ADR-0028 (supersession), ADR-0044 (acumulado breaking 0.x), ADR-0045 (naming
   freeze + régimen de breaking pre-usuarios).
 - Política/rails: `docs/api/VERSIONING.md:16-27` · `docs/api/COMPATIBILITY.md:17-30,53-76` ·
   `docs/api/DEPRECATIONS.md` · `release-plz.toml:22` · `docs/CHANGELOG.md:10`.

@@ -1,7 +1,7 @@
 ---
 title: "FND-23-F1: Instrumentar vanta_graph_ops_total (deuda ADR-0024)"
 kind: task
-description: "Instrumentar el contador vantagraphopstotal (operaciones de grafo: addedge, traverse BFS en src/engine.rs:349) en src/metrics/ — la métrica nombrada como pendiente en ADR-024. NO cambia el default-on (decisión ADR-0024 intacta); solo..."
+description: "Instrumentar el contador vantagraphopstotal (operaciones de grafo: addedge, traverse BFS en src/engine.rs:349) en src/metrics/ — la métrica nombrada como pendiente en ADR-0024. NO cambia el default-on (decisión ADR-0024 intacta); solo..."
 ---
 
 # FND-23-F1: Instrumentar vanta_graph_ops_total (deuda ADR-0024)
@@ -13,7 +13,7 @@ description: "Instrumentar el contador vantagraphopstotal (operaciones de grafo:
 - **Prioridad:** 🟡
 
 ## Objetivo
-Instrumentar el contador `vanta_graph_ops_total` (operaciones de grafo: `add_edge`, `traverse` BFS en `src/engine.rs:349`) en `src/metrics/` — la métrica nombrada como pendiente en ADR-024. NO cambia el default-on (decisión ADR-0024 intacta); solo telemetría.
+Instrumentar el contador `vanta_graph_ops_total` (operaciones de grafo: `add_edge`, `traverse` BFS en `src/engine.rs:349`) en `src/metrics/` — la métrica nombrada como pendiente en ADR-0024. NO cambia el default-on (decisión ADR-0024 intacta); solo telemetría.
 
 ## Archivos clave
 - `src/metrics/core/registry.rs` (1168L — donde vive METRICS_REGISTRY), `src/metrics/core/mod.rs` (record_* helpers), `src/engine.rs:349` (traverse BFS), `src/edge_index.rs` (add_edge), `docs/dev/architecture/adr/ADR-0024-graph-engine-default-telemetry.md` (nota: señal ahora instrumentada)
@@ -56,7 +56,7 @@ BLOQUEO: ninguno
 
 - **Steps 1-5:** ✅ completados. DISCOVERY leyó registry.rs (patrón IntCounterVec de
   HTTP_REQUESTS_TOTAL), engine.rs:351 traverse, api.rs add_edge/remove_edge,
-  sdk/graph.rs (6 métodos edge_query), ADR-024. Implementación: GRAPH_OPS_TOTAL
+  sdk/graph.rs (6 métodos edge_query), ADR-0024. Implementación: GRAPH_OPS_TOTAL
   (IntCounterVec label `op`) en registry.rs; `record_graph_op(op)` cfg-dual en
   mod.rs; increments en engine.rs:358 (traverse), api.rs:1051 (add_edge),
   api.rs:1087 (remove_edge), sdk/graph.rs ×6 (edge_query). Test

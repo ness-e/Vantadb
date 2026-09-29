@@ -19,7 +19,7 @@ description: "ADR de migración aceptado (campos, semántica valid vs transactio
 | Dirección | Módulos |
 |-----------|---------|
 | Alcance | `docs/dev/architecture/adr/ADR-0046-schema-v2-migracion-unica.md` (nuevo), `docs/dev/tasks/SCH-01.md` (nuevo) — docs only |
-| Callees | Solo lectura: 3 research-docs MGR-10/12/13 + task files; ADR-045/044/028; `docs/api/{VERSIONING,COMPATIBILITY,DEPRECATIONS}.md`; `release-plz.toml`; `docs/CHANGELOG.md`; código: `src/sdk/types/record.rs`, `src/sdk/serialization/mod.rs`, `src/sdk/version_history.rs`, `src/sdk/api/graph.rs`, `src/schema.rs`, `src/eviction.rs`, `src/llm.rs`, `src/config.rs`, `src/node/unified.rs` |
+| Callees | Solo lectura: 3 research-docs MGR-10/12/13 + task files; ADR-0045/044/028; `docs/api/{VERSIONING,COMPATIBILITY,DEPRECATIONS}.md`; `release-plz.toml`; `docs/CHANGELOG.md`; código: `src/sdk/types/record.rs`, `src/sdk/serialization/mod.rs`, `src/sdk/version_history.rs`, `src/sdk/api/graph.rs`, `src/schema.rs`, `src/eviction.rs`, `src/llm.rs`, `src/config.rs`, `src/node/unified.rs` |
 | Implicaciones | Cero cambios de código. El ADR fija el contrato que SCH-02..08 (y SCH-09) consumen verbatim; es pre-requisito duro de `record.rs` (Backlog:938). Riesgo de diseño: ambigüedad por insumos divergentes (mitigado: tabla de reconciliación §D8 del ADR) |
 
 ## Impacto mapeado (Regla 0)
@@ -95,7 +95,7 @@ last-synced: 2026-09-28
 
 ## Steps
 ### Step 1: DISCOVERY (insumos + reconciliación + código citado)
-- **Archivos:** 3 research-docs + template ADR + ADR-045/044 + api/{VERSIONING,COMPATIBILITY,DEPRECATIONS} + release-plz + CHANGELOG + plan/Backlog + código citado
+- **Archivos:** 3 research-docs + template ADR + ADR-0045/044 + api/{VERSIONING,COMPATIBILITY,DEPRECATIONS} + release-plz + CHANGELOG + plan/Backlog + código citado
 - **Acción:** lectura completa; verify de deps (3 Cierres MGR ✅); identificación de divergencias campo×spec; verificación directa de citas de los 6 pendientes
 - **Verify:** cada claim con `archivo:línea`; pre-req Backlog:938 ✅
 - **Estado:** ✅ DONE (2026-09-28)

@@ -61,7 +61,7 @@ Este plan fusiona 6 auditorías independientes en UN solo programa de trabajo. T
 - **Verificación real:** Duplicado exacto confirmado (misma investigación Perplexity, 822 líneas, 0 refs a la copia `.opencode/`). `docs/dev/research/` queda con 0 archivos → deprecar carpeta (regla ya la prohíbe como destino).
 - **Refs a actualizar (solo vivas):** `docs/dev/Backlog.md:18,51,448`, `docs/dev/architecture/adr/ADR-0014-pitr.md:68`, `campaign-executor/tasks/complete/VFY-011.md:44`, `docs/progreso/bitacora.md:386`.
 - **Gate Result:** 🔵 DO
-- **Estado:** ✅ COMPLETED (2026-08-10) — `git mv` de `docs/investigacion/investigacion-equipo-2026-08-09.md` → `docs/dev/research/`, `docs/dev/research/{COGNEE_EVALUATION,MVCC_SNAPSHOT_ISOLATION}.md` → `docs/dev/research/`; `.opencode/Investigaciones/VantaDB-28-07-2026.md` ELIMINADO en commit `6d686f23`; refs de Backlog/ADR-014/VFY-011/bitacora actualizadas (commit `6b80c6dd`).
+- **Estado:** ✅ COMPLETED (2026-08-10) — `git mv` de `docs/investigacion/investigacion-equipo-2026-08-09.md` → `docs/dev/research/`, `docs/dev/research/{COGNEE_EVALUATION,MVCC_SNAPSHOT_ISOLATION}.md` → `docs/dev/research/`; `.opencode/Investigaciones/VantaDB-28-07-2026.md` ELIMINADO en commit `6d686f23`; refs de Backlog/ADR-0014/VFY-011/bitacora actualizadas (commit `6b80c6dd`).
 - **Notas:** Riesgo ALTO en refs de `docs/dev/Backlog.md` (3) — es el doc más activo; actualizar en el mismo commit que el move.
 
 ### Task 4: Corregir drift del workflow research.json
@@ -103,7 +103,7 @@ Este plan fusiona 6 auditorías independientes en UN solo programa de trabajo. T
 
 ### Task 8: Resolver `docs/archived-decisions/` (≈ inactiva)
 - **Esfuerzo:** 🟢 | **Prioridad:** P1 | **Ruta:** vanta-docs
-- **Archivos clave:** `docs/archived-decisions/ADR-001-ADAPTER-TIERS.md`, `docs/archived-decisions/stabilization-report.md`
+- **Archivos clave:** `docs/archived-decisions/ADR-0001-ADAPTER-TIERS.md`, `docs/archived-decisions/stabilization-report.md`
 - **Verificación real:** ADR-0001 (2026-07-22) duplica tema de `docs/dev/architecture/adr/ADR-0010-adapter-language-classification.md` y el nombre colisiona con `ADR-0001`; `stabilization-report.md` es un reporte, no una decisión. Solo leído por `TEST_MAP.md` (x2).
 - **Gate Result:** 🔵 DO
 - **Contrato:** ADR-0001 → mover/renombrar a `docs/dev/architecture/adr/` (nueva numeración) y actualizar `docs/dev/operations/TEST_MAP.md:130` + `docs/TEST_MAP.md:130`; stabilization-report → `docs/dev/reviews/`; carpeta vaciada y eliminada.

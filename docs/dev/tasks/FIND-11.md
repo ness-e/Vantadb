@@ -16,7 +16,7 @@ kind: task
 ## Blast Radius
 | Callers | Callees | Implicaciones |
 |---|---|---|
-| `desktop/README.md` (nuevo) — sin callers | refs a `docs/user/desktop/*`, ADR-026/027/028, package.json scripts, src-tauri | File nuevo, cero riesgo |
+| `desktop/README.md` (nuevo) — sin callers | refs a `docs/user/desktop/*`, ADR-0026/027/028, package.json scripts, src-tauri | File nuevo, cero riesgo |
 | `vantadb-ts/README.md` — referenciado por `docs/api/BINDINGS_NAMESPACES.md:7` (anchor `#domain-sub-clients`), `vantadb-ts/package.json` files (npm), progreso skill (tabla Trigger 1.A) | refs a `docs/user/QUICKSTART.md`, `docs/api/*`, `../vantadb-node` | Adición de secciones — anchors existentes intactos |
 
 ## Contrato
@@ -50,7 +50,7 @@ kind: task
 
 ### Step 3: Nota lazy-load wasm + aclaración npm en `vantadb-ts/README.md`
 - **Archivos:** `vantadb-ts/README.md` (edición aditiva)
-- **Acción:** sección "WASM bundle & lazy loading": .wasm 1.3MB (`vantadb-wasm/pkg/vantadb_wasm_bg.wasm`), cómo se carga (glue wasm-bindgen estático vía `vantadb-wasm`; bundlers requieren vite-plugin-wasm; desktop/web code-split externaliza el glue → nunca se descarga en modos Tauri/HTTP; `--mode wasm` lo bundlea fetch+instantiate), recomendación SSR/hooks (no instanciar engine en server; crear client en cliente/useEffect; en Node usar `NativeVantaDB` lazy). Sección "vantadb vs vantadb-node (npm)": `vantadb` = SDK TS WASM publicado 0.5.0 (browser/Node/Bun/Deno, ESM-only); `vantadb-node` = bindings nativos napi-rs, NO publicado en npm (404), FS real fjall/WAL, async, carga lazy. Referenciar ADR-030.
+- **Acción:** sección "WASM bundle & lazy loading": .wasm 1.3MB (`vantadb-wasm/pkg/vantadb_wasm_bg.wasm`), cómo se carga (glue wasm-bindgen estático vía `vantadb-wasm`; bundlers requieren vite-plugin-wasm; desktop/web code-split externaliza el glue → nunca se descarga en modos Tauri/HTTP; `--mode wasm` lo bundlea fetch+instantiate), recomendación SSR/hooks (no instanciar engine en server; crear client en cliente/useEffect; en Node usar `NativeVantaDB` lazy). Sección "vantadb vs vantadb-node (npm)": `vantadb` = SDK TS WASM publicado 0.5.0 (browser/Node/Bun/Deno, ESM-only); `vantadb-node` = bindings nativos napi-rs, NO publicado en npm (404), FS real fjall/WAL, async, carga lazy. Referenciar ADR-0030.
 - **Verify:** grep "1.3" y "lazy" y "vantadb-node" en README = matches; anchors existentes intactos
 - **Estado:** ✅ COMPLETED
 

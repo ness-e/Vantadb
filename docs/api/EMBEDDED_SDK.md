@@ -12,7 +12,7 @@ last_reviewed: "2026-09-01"
 
 > Core Rust SDK struct `Embedded` — the primary entry point for all embedded database operations. Used directly in Rust and exposed via [PyO3](../user/glosario/pyo3.md) (Python), wasm-bindgen (TypeScript), and [MCP](./MCP.md).
 >
-> **Naming (ADR-041 anti-stutter):** canonical names are `Embedded`, `Config`,
+> **Naming (ADR-0047 anti-stutter):** canonical names are `Embedded`, `Config`,
 > `MemoryRecord`, `SearchHit`, `Error`, `MemoryInput`, `MemoryFilter`. Legacy
 > `Vanta*` aliases (`VantaEmbedded`, `VantaConfig`, …) were removed in 0.6.0
 > (AST-010). `Header` (on-disk format)
@@ -80,7 +80,7 @@ CRUD operations for persistent memory records identified by `(namespace, key)` p
 | `list(namespace, options)` | List records in a namespace with cursor pagination. Returns `MemoryListPage` |
 | `list_namespaces()` | List all namespaces. Returns `Vec<String>` |
 | `search(request: MemorySearchRequest)` | [hybrid-search](../user/glosario/hybrid-search.md) (vector + lexical) search. Returns `Vec<MemorySearchHit>` |
-| `search_page(request: MemorySearchRequest)` | Same pipeline as `search` with cursor-based pagination (WIRE-08). Returns `MemorySearchPage { hits, next_cursor, abstained, abstention_reason }`: `next_cursor` is `Some` only when the page is full (`hits.len() == top_k`); a short page is the last page. `abstained`/`abstention_reason` carry the selective-abstention signal (ADR-046 §D2, SCH-07) when the configured `confidence_threshold` empties the page. Resume by passing the token back in `MemorySearchRequest::cursor` — the next page returns hits after the last returned hit's identity in the current ranking. Resume is **best-effort, not a snapshot**: a hit returned in a previous page can be returned again (or skipped) when interleaved writes reorder its rank across the anchor (BM25/IDF are recalculated corpus-wide on every write); writes that rank *before* the anchor are never duplicated. The token is bound to the request's plan fingerprint (mismatch → `SEARCH_CURSOR_INVALID`) and to the current process; pagination is rejected with `mmr`/`group_by`. See [[SEARCH_PARITY\|SEARCH_PARITY]] for the Milvus/Qdrant mapping |
+| `search_page(request: MemorySearchRequest)` | Same pipeline as `search` with cursor-based pagination (WIRE-08). Returns `MemorySearchPage { hits, next_cursor, abstained, abstention_reason }`: `next_cursor` is `Some` only when the page is full (`hits.len() == top_k`); a short page is the last page. `abstained`/`abstention_reason` carry the selective-abstention signal (ADR-0046 §D2, SCH-07) when the configured `confidence_threshold` empties the page. Resume by passing the token back in `MemorySearchRequest::cursor` — the next page returns hits after the last returned hit's identity in the current ranking. Resume is **best-effort, not a snapshot**: a hit returned in a previous page can be returned again (or skipped) when interleaved writes reorder its rank across the anchor (BM25/IDF are recalculated corpus-wide on every write); writes that rank *before* the anchor are never duplicated. The token is bound to the request's plan fingerprint (mismatch → `SEARCH_CURSOR_INVALID`) and to the current process; pagination is rejected with `mmr`/`group_by`. See [[SEARCH_PARITY\|SEARCH_PARITY]] for the Milvus/Qdrant mapping |
 | `search_with_method(request, method)` | Same as `search` with an explicit index backend override for the dense-vector portion: `Some(IndexType::Ivf)` / `Some(IndexType::Scann)` / `Some(IndexType::Flat)` / `Some(IndexType::Hnsw)`. `None` (default) keeps automatic engine routing untouched; the shared engine config is never mutated (thread-safe, per-search override) |
 | `search_page_with_method(request, method)` | SCH-07: the page-shaped mirror of `search_with_method` — same hits as `search_with_method` plus the `MemorySearchPage` envelope (`next_cursor`, `abstained`, `abstention_reason`). Used by page-shaped transports (MCP `search_with_method`) so the abstention signal is never dropped at the `Vec` edge |
 | `search_with_entity_boost(request, boost)` | Same as `search` with the opt-in deterministic entity-cluster boost (WIRE-05). Hits sharing an entity cluster with other fused candidates receive an additive delta (`weight × peers × 1/(rrf_k+1)`) before the final ranking. Returns `EntityBoostedSearch { hits, boost_report }` with per-hit provenance (cluster, peers, `base_score`, `delta`) — reversible, no stored data mutated; an empty `EntityBoost` is byte-identical to `search`. Single-channel routes (text-only/vector-only/sparse-only) are returned unchanged |
@@ -122,7 +122,7 @@ pub struct MemoryInput {
 
 Records written as `Derived` must declare `derived_from` (≥1 same-namespace parent
 key) and must **not** declare `confidence` — the engine computes
-`min(parents) × 0.9` (ADR-046 §D4a/D4b; violations are `Validation` errors).
+`min(parents) × 0.9` (ADR-0046 §D4a/D4b; violations are `Validation` errors).
 
 ### `MemorySearchRequest`
 
@@ -151,7 +151,7 @@ pub struct MemorySearchRequest {
 
 *Note: Lexical search uses the [BM25](../user/glosario/bm25.md) algorithm.*
 
-#### v2 search options (ADR-046, SCH-03/04/05)
+#### v2 search options (ADR-0046, SCH-03/04/05)
 
 | Field | Contract |
 |-------|----------|
@@ -159,7 +159,7 @@ pub struct MemorySearchRequest {
 | `valid_window: ValidWindow { from_ms, to_ms }` | Valid-time window **overlap** filter: keep records whose `[valid_at_ms, invalid_at_ms)` intersects `[from_ms, to_ms)`. `from_ms < to_ms` is validated at the boundary (`SEARCH_OPTIONS_INVALID`). `None` = no filter |
 | `min_confidence: Option<f32>` | Opt-in confidence floor: keep only hits whose record `confidence >= min_confidence` (finite, within `[0, 1]`; rejected otherwise — never clamped). Does **not** emit the abstention signal (that is `Config::confidence_threshold`) |
 | `include_quarantined: bool` | Quarantine view: `false` (default) excludes quarantined records from search/list/retrieval; `true` includes them. `get` always returns a quarantined record with visible state — never a silent 404 |
-| `exclude_superseded` (extended) | Beyond ADR-028 supersession, also drops records whose validity window ended (`invalid_at_ms <= now`). The reference instant is read once per request |
+| `exclude_superseded` (extended) | Beyond ADR-0028 supersession, also drops records whose validity window ended (`invalid_at_ms <= now`). The reference instant is read once per request |
 
 #### WIRE-08 search options
 
@@ -517,6 +517,8 @@ per `(owner_agent, name)` while a head exists. Content is stored as-is
 | `bulk_import_stream(reader)` | Bulk-import records from a binary stream. Format: 8-byte magic `VDBJSON\n`, 1-byte version `0x01`, 8-byte LE record count, then serde_json-serialized `Vec<MemoryInput>`. Same batching/validation behavior as `bulk_import_file` |
 
 Free-function helper (used by the MCP `import` tool to rebuild records from JSONL content received as a string): `vantadb::sdk::record_from_export_line(MemoryExportLine) -> Result<MemoryRecord>` — the inverse of [`export_line_from_record`](#export--import); recomputes the deterministic node id from namespace/key.
+
+Third-party importers (Mem0 / Zep / Letta → JSONL v2): `vantadb::sdk::importers::{mem0, zep, letta}` — each exposes `convert_str`/`convert_file` returning `Conversion { lines, stats }`, plus `Conversion::into_records` (import through the canonical transport) and `Conversion::write_jsonl` (the `vanta-cli import` input). The interchange contract, per-source mapping tables and declared discards live in [MEMORY_INTERCHANGE_FORMAT.md](./MEMORY_INTERCHANGE_FORMAT.md).
 
 ## Text Index Diagnostics
 

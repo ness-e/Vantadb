@@ -137,7 +137,7 @@ FIND-42 se resuelve **documentalmente, sin fix mecánico**:
 1. **No hay código a eliminar.** El contrato `Select-String ... | Count == 0`
    ya pasa (`0` hits). La "violación" reportada por codegraph-20260827
    no existe como código real.
-2. **Se escribe este ADR-034** para explicar (a) por qué el reporte
+2. **Se escribe este ADR-0034** para explicar (a) por qué el reporte
    reportó 173/184 edges, (b) por qué esos edges NO representan
    inversión de dependencia, (c) la métrica correcta a usar en
    futuros análisis de boundary.
@@ -232,7 +232,7 @@ Implementar path-prefix-disambiguation en codegraph durante FIND-42.
    reaparece mucho.
 2. **Otros reports basados en codegraph-20260827 Fase 1** pueden
    contener el mismo falso positivo. FIND-24, FIND-41 y FIND-45
-   citan métricas derivadas — owners deben leer ADR-034 antes de
+   citan métricas derivadas — owners deben leer ADR-0034 antes de
    actuar sobre esas.
 3. **El ADR queda `accepted-pending-owner-review`** hasta que el
    owner humano articule el trade-off (Regla 5). Mientras tanto,
@@ -280,4 +280,4 @@ Implementar path-prefix-disambiguation en codegraph durante FIND-42.
   este ADR es el resultado de Regla 0 aplicada a la "inversión
   reportada")
 - **Plantilla:** `docs/dev/_templates/adr.md`
-- **Último ADR existente:** ADR-033 (prov-04, contrato providers)
+- **Último ADR existente:** ADR-0033 (prov-04, contrato providers)

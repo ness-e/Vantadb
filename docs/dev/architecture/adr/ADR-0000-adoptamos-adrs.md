@@ -72,7 +72,7 @@ styles, and the split is now closed.
 - `0000` is reserved for this meta-ADR (the one describing the ADR process itself).
 - Every ADR, whatever series it arrived from, takes a number from the same space.
   A number is never reused or shared by two decisions; the 041 collision
-  (`041_anti_stutter.md` vs `ADR-041-error-variant-renames.md`, backlog `HIG-02`)
+  (`041_anti_stutter.md` vs `ADR-0041-error-variant-renames.md`, backlog `HIG-02`)
   resolved in favour of the nine inbound references: the anti-stutter umbrella
   became `ADR-0047`.
 - Slugs are lowercase kebab-case. Version numbers and dotted identifiers inside a

@@ -1,5 +1,5 @@
 ---
-title: "Review Guide: ADR-029 articulation + decisions D24-D37"
+title: "Review Guide: ADR-0029 articulation + decisions D24-D37"
 kind: adr
 status: accepted
 description: "Evidence notation: file:line verified against the working tree on 2026-08-22"
@@ -7,7 +7,7 @@ tags: [vantadb, architecture, adr, vanta-memory, vanta-proxy, governance]
 created: "2026-08-22"
 ---
 
-# Review Guide: ADR-029 articulation + decisions D24-D37
+# Review Guide: ADR-0029 articulation + decisions D24-D37
 
 > **Purpose (Regla 5 / D41).** Architectural decisions are not closed until the
 > **human author** articulates them in their own words. This document is prep
@@ -35,7 +35,7 @@ correctness or persistence.
 
 **Evidence.**
 - `vanta-memory/src/context_engine/token_estimator.rs::TokenEstimator` — `chars_per_token: 3` over role-line + content (TDAM parity `extractLlmVisibleText`).
-- ADR-029 §D21 documents the rejected tiktoken alternative (new heavy dep, versioned vocabularies, coupling of a generic crate to one tokenizer).
+- ADR-0029 §D21 documents the rejected tiktoken alternative (new heavy dep, versioned vocabularies, coupling of a generic crate to one tokenizer).
 - Compression always cuts *below* budget (never exact), so estimation error only moves the trigger point.
 
 **Consequences assumed.**
@@ -374,15 +374,15 @@ not need to re-decide them, but your ADR text should acknowledge they exist:
    Fill the `Decision` and `Consequences` sections for D21-D23; keep the
    technical evidence tables, rewrite the framing. Do not paste this guide's
    prose — paraphrasing is the point.
-3. **Decide where D24-D37 live:** either extend ADR-029 or create a companion
+3. **Decide where D24-D37 live:** either extend ADR-0029 or create a companion
    ADR (e.g., `ADR-0XX-proxy-knowledge.md`) covering the proxy/knowledge
    decisions (D24-D36) using the evidence above. The plan's contract says step
    3 (AI transcription into the new ADR) happens AFTER you articulate.
-4. **Remove both draft banner blockquotes** from ADR-029 once articulated, set
+4. **Remove both draft banner blockquotes** from ADR-0029 once articulated, set
    `status: accepted`, update `last_reviewed`.
 5. **Sign it**: add your name/date under the title.
 6. **Commit yourself** (your commit is the gate): e.g.
-   `docs(adr): ADR-029 articulation + D24-D37 decisions (author-signed)`.
+   `docs(adr): ADR-0029 articulation + D24-D37 decisions (author-signed)`.
    Per plan Notas: the lead commits only after your articulation exists.
 7. If time is not available now: leave everything as-is (draft banners intact);
    the honest state is "open" — do NOT mark accepted to close the loop.

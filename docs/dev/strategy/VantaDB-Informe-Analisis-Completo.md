@@ -324,7 +324,7 @@ Vantadb/ (rama develop, 2,992 archivos, 45MB)
 1. 🔴 `docs/CHANGELOG.md` corrupto: **dos changelogs concatenados** (2× `# Changelog`, 2× `## [Unreleased]`, frontmatter cosido en línea ~1836).
 2. 🔴 `gate-docs.yml` trigger corrupto (`branches: ain, develop]`) → markdownlint + paridad openapi **sin vigilancia en push/PR**.
 3. 🟠 `docs/user/web/` = **4,528 LOC de documentación fantasma** ("status: active") de un frontend Next.js que se movió a repo propio el 2026-09-22.
-4. 🟠 ADR-041 duplicado (anti_stutter proposed vs error-variant-renames accepted — el README cita el no-aceptado); ADR-0021 vs ADR-0025 contradictorios sin supersession; 3 convenciones de numeración.
+4. 🟠 ADR-0047/ADR-0041 duplicados (anti_stutter proposed vs error-variant-renames accepted — el README cita el no-aceptado); ADR-0021 vs ADR-0025 contradictorios sin supersession; 3 convenciones de numeración.
 5. 🟠 Cementerio: 939 archivos de task con 604 completadas sin archivar; IDs reutilizados (FIND-63 = 3 bugs distintos); contadores stale (Backlog declara "70 abiertas" con 109 filas reales).
 6. 🟡 MCP.md se contradice internamente (línea 12 "0.6.1" vs línea 512 "0.5.0 as of this doc"); TRIGGERS.md documenta el estado deseado del trigger corrupto; graphrag README overclaima "LLM-powered Semantic Compression Engine" como primitiva core (vive en vanta-memory).
 7. 🟡 README_ES con drift (badge Colab `main` vs `develop`; omite fila de examples y nota de naming); 7 blogs con `version: 0.5.0`; MCP_REGISTRY.md y hardening.md en 0.5.0.
@@ -385,7 +385,7 @@ Vantadb/ (rama develop, 2,992 archivos, 45MB)
 | A14 | vanta-memory: scheduler ~1,700 LOC (~40% del crate) sin host productivo | `bootstrap.rs:332` (`conversation_trigger: None`) |
 
 ### 🟡 MEDIOS (22)
-SyncMode::Periodic default sin surfaced · escritura multi-store no atómica in-process · salvage WAL sin fsync · mojibake 126 líneas · engine.rs fase-1 duplicado · bloom filter FPR 2% sin cablear · eviction.rs muerto (311 LOC) · shred delete-path no cableado · io_budget vaporware · inyección proxy sin presupuesto de tokens · timeout 600s corta streams · config proxy sin deny_unknown_fields · RBAC roles hardcodeados + scoping parcial · text-only search y query_sparse no expuestos en 3 SDKs · formato de filtros no intercambiable py/js · node: distance_metric→Cosine silencioso · node: index.d.ts stale falla tsc · CRASH_MODEL.md stale ×3 · docs/user/web/ 4.5K LOC fantasma · ADR-041 duplicado / ADR-0021↔025 contradictorios · versiones stale cruzadas (node, homebrew, llms.txt, CITATION, Dockerfile, 7 blogs) · healthcheck compose wget/curl.
+SyncMode::Periodic default sin surfaced · escritura multi-store no atómica in-process · salvage WAL sin fsync · mojibake 126 líneas · engine.rs fase-1 duplicado · bloom filter FPR 2% sin cablear · eviction.rs muerto (311 LOC) · shred delete-path no cableado · io_budget vaporware · inyección proxy sin presupuesto de tokens · timeout 600s corta streams · config proxy sin deny_unknown_fields · RBAC roles hardcodeados + scoping parcial · text-only search y query_sparse no expuestos en 3 SDKs · formato de filtros no intercambiable py/js · node: distance_metric→Cosine silencioso · node: index.d.ts stale falla tsc · CRASH_MODEL.md stale ×3 · docs/user/web/ 4.5K LOC fantasma · ADR-0047/ADR-0041 duplicados / ADR-0021↔025 contradictorios · versiones stale cruzadas (node, homebrew, llms.txt, CITATION, Dockerfile, 7 blogs) · healthcheck compose wget/curl.
 
 ### ⚪ BAJOS (15+)
 Clamping con `eprintln!` · dashboard SPA fantasma · notebook/tests duplicados en examples · 6 esqueletos emulando frameworks · GloVe sin checksum · benches durmientes 13/22 + huérfano + no-determinista · `update_markdown` no-op · sbom-web artifact muerto · cron colisionado · `npx markdownlint` sin pin · cargo-watch en builder prod · tokens Bearer en localStorage · `test_empty` en metrics.rs prod · temp DB por health probe · i18n slice 3 pendiente · 3 runners de test superpuestos · fail-open generalizado del proxy (documentado) · checksum fail-open instaladores · CRE checks: README_ES drift.
@@ -438,7 +438,7 @@ Clamping con `eprintln!` · dashboard SPA fantasma · notebook/tests duplicados 
 24. Wire del scheduler de vanta-memory: `HttpCaptureBridge` al ServerState + drenador, o exponer `scheduler_run_once` como tool MCP (diseño FIND-113), o congelar documentado.
 25. Firmar binarios (cosign/minisign); Homebrew 0.6.1 automatizado post-release.
 26. Cablear los 2 tests estrella huérfanos a `ci-examples.yml`; activar gates de regresión.
-27. Archivar 604 tasks completadas + docs/user/web/ (4.5K LOC) + resolver ADR-041 duplicado; contadores de Backlog scriptados (GOV-C7).
+27. Archivar 604 tasks completadas + docs/user/web/ (4.5K LOC) + resolver ADR-0047/ADR-0041 duplicado; contadores de Backlog scriptados (GOV-C7).
 28. Partir `WorkspaceShell.tsx` (<300 líneas); consolidar a 1 runner de test; DTOs TS generados desde Rust (ts-rs).
 29. Eliminar código muerto core (`eviction.rs`, `duplicate_prevention.rs`) o moverlo a `experimental/`.
 30. Decidir destino de `shred` delete-path y de `io_budget` (implementar o reformular como contrato documental).

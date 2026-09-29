@@ -148,7 +148,7 @@ Wave 2: F3C + F3B (disjuntas: src/config.rs vs workflows/benches)
 
 | Riesgo | Respuesta |
 |--------|-----------|
-| Traits pub = semver major | verificar visibilidad en DISCOVERY de F3X; si pub, ADR + major documentado (precedente ADR-041) |
+| Traits pub = semver major | verificar visibilidad en DISCOVERY de F3X; si pub, ADR + major documentado (precedente ADR-0041) |
 | Hot path (F3X moves, F3C) | sin optimizar, solo mover; bench en CI (F3B) como red |
 | Toolchain CI también rota (tantivy) | F3B-B1 lo detecta primero; `question`: arreglar toolchain vs documentar (no verde falso) |
 | Estimaciones con confianza media | cada ejecutor re-mide en DISCOVERY y reporta divergencia como HALLAZGO |

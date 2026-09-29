@@ -1,7 +1,7 @@
 ---
 title: "FND-23: Decidir grafos default-on vs opt-in con telemetría real (ADR)"
 kind: task
-description: "ADR numerado tras 023 (ADR-024-.md) existe en docs/dev/architecture/adr/ con: decisión explícita, métrica de telemetría nombrada (existente o pendiente de instrumentar), umbral + acción + señal de reapertura. Verify: grep de la métrica..."
+description: "ADR numerado tras 023 (ADR-0024-.md) existe en docs/dev/architecture/adr/ con: decisión explícita, métrica de telemetría nombrada (existente o pendiente de instrumentar), umbral + acción + señal de reapertura. Verify: grep de la métrica..."
 ---
 
 # FND-23: Decidir grafos default-on vs opt-in con telemetría real (ADR)
@@ -46,7 +46,7 @@ description: "ADR numerado tras 023 (ADR-024-.md) existe en docs/dev/architectur
 
 ## Contrato
 
-"ADR numerado tras 023 (`ADR-024-*.md`) existe en `docs/dev/architecture/adr/` con: decisión explícita, métrica de telemetría nombrada (existente **o** pendiente de instrumentar), umbral + acción + señal de reapertura. Verify: grep de la métrica citada en `src/metrics/` confirma existencia o la anota como pendiente."
+"ADR numerado tras 023 (`ADR-0024-*.md`) existe en `docs/dev/architecture/adr/` con: decisión explícita, métrica de telemetría nombrada (existente **o** pendiente de instrumentar), umbral + acción + señal de reapertura. Verify: grep de la métrica citada en `src/metrics/` confirma existencia o la anota como pendiente."
 
 ## Invariantes de dominio (handoff — MUST)
 

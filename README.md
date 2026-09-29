@@ -69,7 +69,7 @@ pip install vantadb-py
 
 > **Note:** The distribution name is `vantadb-py`, and the canonical import is `import vantadb` (same as the Rust crate and the npm package). `import vantadb_py` still works but emits a `DeprecationWarning`.
 >
-> **Naming (ADR-041 anti-stutter):** canonical names are `Client` (legacy
+> **Naming (ADR-0047 anti-stutter):** canonical names are `Client` (legacy
 > `VantaDB` alias removed in 0.6.0, AST-010), `Record`, `SearchHit`, `Config`. Memory methods
 > live on the `db.memory` sub-client (`memory.get` / `memory.list` / `memory.delete`);
 > hybrid search is `db.search(...)` (AST-008/AST-012: flat `search_memory`/`get_memory` removed),

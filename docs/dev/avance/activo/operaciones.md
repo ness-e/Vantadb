@@ -378,7 +378,7 @@ tags: [vantadb, avance, ops, api, docs, backup, enterprise]
 ### C-10: cierre README (paridad ES/EN + badges)
 - **Fecha:** 2026-09-25
 - **Objetivo:** Cierre total de paridad README tras C-02.
-- **Resultado:** ✅ 4 fixes en `README_ES.md` (colab `blob/main`→`blob/develop`; fila "Ejecutar ejemplos ejecutables"; nota ADR-041; **Trust block traducido** + nota "Fuente vigente" reubicada a §2 para paridad estructural con EN); verify v3 `campaign_verify_cmd` passed=true (0 missing links md+HTML, 0 badge drift shields.io, paridad ES/EN excl. switcher, colab positivo+negativo, Trust OK). Review P2-01 ✅ ronda 3 (ronda 1: badge-check muerto + Trust ausente; ronda 2: falso positivo del switcher → fix v3).
+- **Resultado:** ✅ 4 fixes en `README_ES.md` (colab `blob/main`→`blob/develop`; fila "Ejecutar ejemplos ejecutables"; nota ADR-0047; **Trust block traducido** + nota "Fuente vigente" reubicada a §2 para paridad estructural con EN); verify v3 `campaign_verify_cmd` passed=true (0 missing links md+HTML, 0 badge drift shields.io, paridad ES/EN excl. switcher, colab positivo+negativo, Trust OK). Review P2-01 ✅ ronda 3 (ronda 1: badge-check muerto + Trust ausente; ronda 2: falso positivo del switcher → fix v3).
 - **Commit:** ac46911d (+02e7d32a docs)
 
 ### WIRE-01: Loop de memoria del proxy + cost real + presupuesto de inyección

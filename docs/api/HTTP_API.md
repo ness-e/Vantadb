@@ -366,7 +366,7 @@ SDK's `VantaMemorySearchRequest` plus cursor pagination: `limit` = page size (de
 `distance_metric` is one of `Cosine`, `Euclidean`, `SparseDot`; `explain: true` adds a
 `VantaSearchExplanation` per result.
 
-SCH-07 query params (ADR-046, all optional): `min_confidence` (`[0, 1]`; rejects
+SCH-07 query params (ADR-0046, all optional): `min_confidence` (`[0, 1]`; rejects
 out-of-range at the boundary), `as_of_ms` (valid-time point), `valid_window`
 (`{from_ms, to_ms}` half-open overlap), `include_quarantined` (default `false`:
 quarantined records are excluded). An empty `namespace` searches **all**
@@ -408,7 +408,7 @@ namespaces (merged by score).
 }
 ```
 
-`abstained`/`abstention_reason` are the selective-abstention signal (ADR-046 §D2):
+`abstained`/`abstention_reason` are the selective-abstention signal (ADR-0046 §D2):
 when the server runs with `VANTADB_CONFIDENCE_THRESHOLD` set and every candidate
 falls below it, `abstained` is `true` and `abstention_reason` reports the stable
 code (`no_candidates_above_threshold` | `all_quarantined`) — never a silent empty
@@ -604,7 +604,7 @@ Web console entry point and static asset fallback for Vanta Studio. Requires sta
 server with `--dashboard-dir <dir>`; otherwise `/dashboard` responds 404 with a hint.
 
 > Promoted from experimental to stable 2026-08-25: covered by e2e tests and served as the
-> Vanta Studio admin surface (ADR-026/ADR-0027).
+> Vanta Studio admin surface (ADR-0026/ADR-0027).
 
 ## Experimental endpoints
 

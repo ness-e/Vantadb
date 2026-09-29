@@ -193,7 +193,7 @@ API-STD-12 (2026-09-24) citó el test de degradación en `:209-218`. Hoy `:207-2
 - **Cómo se probó (no auto-reporte):** el revisor re-ejecutó las verificaciones del contrato con `--target-dir target/session-api01` (suite 28 targets/0 failed; focused degrade 1/1; golden precise-tokens 1/1; grep bindings 0) + `fmt --check`, `clippy -D warnings`, `validate-docs-coverage` (0 gaps); verificó por arqueología git el mapeo `:209-218 → :237-250` (`git show 84cb2d19~1`); contrastó una a una las claims "ya pagada" contra código (MEM-46/47/63, BND-03, MEM-43) y las tablas de feature flags/degradación; inspeccionó el diff completo (sin código nuevo, 0 `pub` items).
 - **Checklist anti-hábitos tóxicos** (contrato §12 agent-02-task-execution) — evaluado por el revisor:
   - [x] No inventar salidas de comandos → re-ejecutó todo fresh (rondas 1 y 2).
-  - [x] No saltarse la clarificación por "ya sé qué quiere" → decisiones por evidencia Gate P/ADR-029.
+  - [x] No saltarse la clarificación por "ya sé qué quiere" → decisiones por evidencia Gate P/ADR-0029.
   - [x] No declarar done sin verificar acceptance criteria → contrato 4/4 re-verificado.
   - [x] No ignorar fallos → ronda 1 🔴 R1 (deriva MEM-48) atendido, no silenciado.
   - [x] No hacer un solo intento de búsqueda → spot-checks multi-fuente (código + commits + changelog + avance).

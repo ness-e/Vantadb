@@ -24,13 +24,13 @@ description: "ADR con los 9 artefactos congelados (vantadb, vantadb-py, vantadb-
 | Dirección | Módulos |
 |-----------|---------|
 | Callers | `docs/api/VERSIONING.md` (referencia desde §Deprecation policy) · `docs/api/DEPRECATIONS.md` (HARD-01 — política de alias) · READMEs que citan ADR-0030 (`README.md:80`, `README_ES.md:79`, `docs/api/PYTHON_SDK.md:79`, `vantadb-ts/README.md:163`) · LEG-01 (owner — dictamen de marca) · MKT-18f (publicación adapters con nombres congelados) |
-| Callees | `ADR-0030` (evidencia de marca) · `ADR-041`/`ADR-0042` (precedente de renames/anti-stutter) · `docs/dev/_templates/adr.md` · `VERSIONING.md` §Deprecation policy |
+| Callees | `ADR-0030` (evidencia de marca) · `ADR-0041`/`ADR-0047`/`ADR-0042` (precedente de renames/anti-stutter) · `docs/dev/_templates/adr.md` · `VERSIONING.md` §Deprecation policy |
 | Implicaciones | Doc-only; **cero renames** (ADR-0030 regla práctica) · no cambia nada publicado (crates.io `vantadb`, PyPI `vantadb-py`, npm `vantadb`) · ADR queda `proposed` hasta firma owner |
 
 ## Impacto mapeado (Regla 0)
 
 - **Archivos leídos (completos):** `docs/dev/architecture/adr/ADR-0030-brand-identity-naming-convention.md` (104L) · `docs/api/VERSIONING.md` (102L) · `docs/dev/_templates/adr.md` · `docs/dev/Backlog.md` (fila `DEF-04`, L939)
-- **Archivos referenciados hacia dentro (imports/dependencias):** ADR-0030 referencia `docs/dev/_templates/adr.md` (template) y estilo ADR-027/030 (`ADR-0031:205`); DEF-04 depende del template para el draft
+- **Archivos referenciados hacia dentro (imports/dependencias):** ADR-0030 referencia `docs/dev/_templates/adr.md` (template) y estilo ADR-0027/030 (`ADR-0031:205`); DEF-04 depende del template para el draft
 - **Archivos que referencian a los editados (referencias entrantes):** ADR-0030 citada por `README.md:80`, `README_ES.md:79`, `docs/api/PYTHON_SDK.md:79`, `vantadb-ts/README.md:163`, `CHANGELOG.md:1925`, `ADR-0031:205` — **no se editan** (solo el ADR nuevo las referencia)
 - **Veredicto impacto:** **bajo** — 1 archivo nuevo (ADR) + 1 referencia en `VERSIONING.md`; sin código; `DEPRECATIONS.md` no existe aún (lo crea HARD-01 — solo coordinar).
 
@@ -107,9 +107,9 @@ description: "ADR con los 9 artefactos congelados (vantadb, vantadb-py, vantadb-
   (master Task 12 + Backlog `DEF-04` fila L946 — drift: el task file citaba L939.)
 - **ADR-0030 (status `proposed`):** tabla de 11 superficies/artefactos con evidencia live 2026-08-25 (crates.io/PyPI/npm/GitHub/DNS) + 5 decisiones pendientes del owner (dominio, PyPI ownership `DevpNess`→`ness-e`, publicar `vantadb-node`, case del repo, metadata PyPI). Regla práctica: "no renames; cada ecosistema conserva el nombre publicado".
 - **Numeración (verificado 2026-09-27):** máximo = `ADR-0044`; **`ADR-0045` libre** (`Get-ChildItem *045*` → vacío) → archivo `ADR-0045-naming-freeze.md` (convención `ADR-NNN-slug` + template `docs/dev/_templates/adr.md`).
-- **Precedente:** ADR-041 (error variant renames) y ADR-0042 (pub signatures major) — cómo el repo trató renames pre-0.7; API-01..09 completadas = último breaking pre-lanzamiento (base lista).
+- **Precedente:** ADR-0041 (error variant renames) y ADR-0042 (pub signatures major) — cómo el repo trató renames pre-0.7; API-01..09 completadas = último breaking pre-lanzamiento (base lista).
 - **VERSIONING.md (re-verificado 2026-09-27):** §Deprecation policy: deprecación ≥1 MINOR + removal con `feat!:`/`BREAKING CHANGE:`; §Enforcement: `validate-docs-coverage` + tests. **`docs/api/DEPRECATIONS.md` YA EXISTE** (HARD-01 avanzó; `last_reviewed: 2026-09-27`; registra instancias y linkea a VERSIONING §Deprecation policy) → el cross-link es ejecutable ahora, sin esperar a HARD-01.
-- **Coordinaciones:** HARD-01 (mismo F0; `DEPRECATIONS.md` + `COMPATIBILITY.md`) · LEG-01 (owner — dictamen de marca informa display/repo, no bloquea el freeze de nombres de artefactos) · HIG-02 (firma waiver ADR-041 — carril owner, contexto).
+- **Coordinaciones:** HARD-01 (mismo F0; `DEPRECATIONS.md` + `COMPATIBILITY.md`) · LEG-01 (owner — dictamen de marca informa display/repo, no bloquea el freeze de nombres de artefactos) · HIG-02 (firma waiver ADR-0047 — carril owner, contexto).
 
 ## Incógnitas (uphill) vs Pendientes (downhill) — P2-03
 

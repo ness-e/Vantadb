@@ -72,7 +72,7 @@ here before promotion.
 | Crate / package | `cargo check` | `clippy -- -D warnings` | `nextest -p <crate> --profile audit -j 2` / `vitest run` | Toolchain extra | `Cargo.lock` delta | Note |
 |-----------------|---------------|--------------------------|-----------------------------------------------------------|-----------------|--------------------|------|
 | `vantadb` (root, current default) | ~18-22s local (gate `cli,fjall,memmap2,fs2,roaring`) | ~25s (core only) | audit profile ~90-120s (suite core, excludes `RESOURCE-GUARD` 3 tests) | none | 0 | Baseline Fast Gate; does not include experimental crates |
-| `vantadb-python` | ~12-15s (PyO3 glue) | ~18s | `cargo test -p vantadb-python` does not run as Rust suite; Python wrapper measured via `pytest` (~15s, 96% coverage) | `maturin` for wheels, `python` 3.11+ | 0 | Already in `default-members`; Python side gated by `pytest` ≥85% (ADR-015) |
+| `vantadb-python` | ~12-15s (PyO3 glue) | ~18s | `cargo test -p vantadb-python` does not run as Rust suite; Python wrapper measured via `pytest` (~15s, 96% coverage) | `maturin` for wheels, `python` 3.11+ | 0 | Already in `default-members`; Python side gated by `pytest` ≥85% (ADR-0015) |
 | `vanta-memory` (`publish=false`) | ~36s (`cargo check -p vanta-memory --all-targets`) | ~40s | `nextest -p vanta-memory` ~20-40s (suite small, host-neutral) | none (depends on `vantadb` without `server`) | 0 (already in `[workspace].members`) | No `server` feature; expected Fast |
 | `vanta-proxy` (`publish=false`, `axum+tokio+reqwest`) | ~32s (`cargo check -p vanta-proxy --all-targets`) | ~45s | `nextest -p vanta-proxy` + e2e with upstream mock (~30s) | none | 0 | Heaviest Rust compile in P47; if `check` >60s on CI → candidate **Heavy** |
 | `vantadb-server` | ~21s (`cargo check -p vantadb-server --all-targets`) | ~25s (with `server` feature) | `cargo test -p vantadb-server` 42 tests ~15-25s | none | 0 | Already polished (SRV-01/02/06); expected Fast |
@@ -202,4 +202,4 @@ appended to this section with the Owner's name and date; the ADR status then mov
 - `.github/workflows/release-npm-61.yml:42-82` (`tests` job, `vitest run` 264 tests, timeout 10, ~26s measured) and `release-npm-node.yml` (7-target matrix, `npm pack` with `*.node`)
 - `docs/dev/Backlog.md:721-736` (P47 10-check contract) + `docs/dev/Backlog.md:738-749` (STABLE-00..09)
 - `.opencode/references/definition-of-done.md` (VantaDB-specific DoR/DoD)
-- `docs/dev/_templates/adr.md` (template) and ADR-027/ADR-030 (reference style)
+- `docs/dev/_templates/adr.md` (template) and ADR-0027/ADR-0030 (reference style)

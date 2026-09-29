@@ -1158,9 +1158,9 @@ last-synced: 2026-09-02T23:59
 
 #### GOV-D5 — ADR-0026 a adr/
 - **Descripción:** git mv ADR-0026-vanta-studio-fase3-rest-dashboard.md → docs/dev/architecture/adr/ + grep citas
-- **Archivos clave:** `docs/dev/architecture/ADR-026*` → `docs/dev/architecture/adr/`
+- **Archivos clave:** `docs/dev/architecture/ADR-0026*` → `docs/dev/architecture/adr/`
 - **Gate Justificación:** único ADR fuera de adr/; 30min
-- **Contrato:** `Test-Path docs/dev/architecture/adr/ADR-026*` == true AND `Select-String -Path "docs/dev/Backlog.md" -Pattern "ADR-026.*architecture/ADR-0026" | Measure-Object Count` ==0
+- **Contrato:** `Test-Path docs/dev/architecture/adr/ADR-0026*` == true AND `Select-String -Path "docs/dev/Backlog.md" -Pattern "ADR-0026.*architecture/ADR-0026" | Measure-Object Count` ==0
 - **Task file:** `.opencode/skills/campaign-executor/tasks/GOV-D5.md`
 - **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00

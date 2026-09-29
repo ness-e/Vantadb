@@ -108,8 +108,8 @@ Status: ⬆️ uphill = 4 incógnitas abiertas · ⬇️ downhill = 96 steps pen
 #### Task 4: GOV-A1 — Coverage canónico: medir y fijar
 - **Appetite:** max 2h (incluye build)
 - **Esfuerzo:** 🟡 | **Prioridad:** 🟠
-- **Archivos clave:** `docs/dev/architecture/adr/ADR-018*`, `docs/TEST_MAP.md`, `docs/dev/operations/CI_POLICY.md`, `docs/dev/avance/COBERTURA.md`, comando `cargo llvm-cov --workspace --summary-only`
-- **Verificación real:** ✅ AUDITORÍA — 4 valores contradictorios coexistiendo: ≥59% (TEST_MAP:91, CI_POLICY), ≥80% (ADR-015/018), 80.55% CII Silver (progreso README:32), 81.40% root (coverage review 08-09).
+- **Archivos clave:** `docs/dev/architecture/adr/ADR-0018*`, `docs/TEST_MAP.md`, `docs/dev/operations/CI_POLICY.md`, `docs/dev/avance/COBERTURA.md`, comando `cargo llvm-cov --workspace --summary-only`
+- **Verificación real:** ✅ AUDITORÍA — 4 valores contradictorios coexistiendo: ≥59% (TEST_MAP:91, CI_POLICY), ≥80% (ADR-0015/018), 80.55% CII Silver (progreso README:32), 81.40% root (coverage review 08-09).
 - **Gate Justificación:** D7 decidió "medir y fijar"; sin cifra única, todo claim de coverage queda inválido (Regla 11 aplicada a docs internas).
 - **Gate Result:** ✅ DO
 - **Contrato:** llvm-cov corre exit 0; tras la tarea, exactamente UNA cifra aparece en los 4 documentos (grep cruzado sin contradicciones) con fecha y entorno.

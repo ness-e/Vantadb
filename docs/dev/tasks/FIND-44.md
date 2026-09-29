@@ -23,7 +23,7 @@ description: "Get-ChildItem docs/dev/architecture/adr/.md | Measure-Object | Sel
 El reporte CodeGraph Fase 12 ("Sin ADRs registrados") es stale — los ADRs existen desde 2026-08-23.
 
 ## Plan original (plan 2026-08-28-backlog-triage.md)
-Crear ADR-001..006 mínimos: PURPOSE, STACK, ARCHITECTURE, PATTERNS, TRADEOFFS, PHILOSOPHY (cada uno 15-20 líneas, basado en decisiones ya tomadas en docs/dev/research).
+Crear ADR-0001..006 mínimos: PURPOSE, STACK, ARCHITECTURE, PATTERNS, TRADEOFFS, PHILOSOPHY (cada uno 15-20 líneas, basado en decisiones ya tomadas en docs/dev/research).
 
 **Conflicto:** ADR-0001 a ADR-0006 YA EXISTEN con contenido distinto (Config, WAL, Sync/Async, Storage, HNSW, RRF). La numeración no puede reusarse.
 
@@ -63,7 +63,7 @@ Crear ADR-001..006 mínimos: PURPOSE, STACK, ARCHITECTURE, PATTERNS, TRADEOFFS, 
 | Prob×Impacto | Riesgo | Respuesta |
 |--------------|--------|-----------|
 | 🟢×🟢 | Task file no existe (creación) | Crear y cerrar idempotente |
-| 🟢×🟡 | Plan pide ADR-001..006 específicos que colisionan | Documentar que ya existen ADR-001..006 con otro contenido; si se quieren los fundacionales, crear ADR-0033+ en tarea aparte |
+| 🟢×🟡 | Plan pide ADR-0001..006 específicos que colisionan | Documentar que ya existen ADR-0001..006 con otro contenido; si se quieren los fundacionales, crear ADR-0033+ en tarea aparte |
 
 ## SDP Skills Cargadas
 - `documentation-and-adrs` (base + lifecycle)

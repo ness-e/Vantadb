@@ -2,13 +2,13 @@
 title: FEAT-03b Core Decay Implementation Contract
 kind: concept
 status: active
-description: "Status: ready for vanta-worker · Decision: ADR-028"
+description: "Status: ready for vanta-worker · Decision: ADR-0028"
 tags: [vantadb, architecture]
 ---
 
 # FEAT-03b — Core Decay Implementation Contract
 
-Status: **ready for vanta-worker** · Decision: **ADR-028**
+Status: **ready for vanta-worker** · Decision: **ADR-0028**
 Deliverable of FEAT-03b (plan Task 17, D16 "Quiero todo" — (b) core decay).
 This is a contract only: the core changes below are to be implemented by
 vanta-worker in a separate task, NOT by this task.

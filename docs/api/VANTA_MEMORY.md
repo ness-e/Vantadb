@@ -150,7 +150,7 @@ skip; never a silent loss.
 
 | Module | What it does | Code refs |
 |---|---|---|
-| `core::dream` | Idle consolidation (sleep-time tiering, MEM-61): scans `l1/<session>` read-only and writes a consolidated view to `dream/<session>/<run_id>` — never mutates the originals | `core/dream/mod.rs:629` (`consolidate_session`), `:614` (`promote_dream_run`) |
+| `core::dream` | Idle consolidation (sleep-time tiering, MEM-61): scans `l1/<session>` read-only and writes a consolidated view to `dream/<session>/<run_id>`; promotion (VER-07) applies the view to L1 only via an explicit, gated, idempotent `promote_dream_run` — dry-run by default on the MCP surface | `core/dream/mod.rs:929` (`consolidate_session`), `:725` (`plan_promotion`), `:872` (`promote_dream_run`) |
 | `core::memory_generation_log` | Per-session generation provenance at L1/L2/L3 (MEM-41) under `genlog/<session>`; best-effort, capped keep-recent | `core/memory_generation_log/store.rs:17,35,51` |
 | `gateway::approval_handlers` | Typed handlers behind the MCP `capture_list_pending` / `capture_approve` / `capture_reject` tools (MEM-68) — boundary validation, no transport | `gateway/approval_handlers.rs:90-117` |
 | `ingest::auto_sync` | Pull-based scheduled wiki re-ingest (MEM-45): per-file FNV-1a change detection, disabled by default, interval ≥ 60 s | `ingest/auto_sync.rs:108` (`tick`), `:33-36` |
@@ -161,10 +161,16 @@ default 10 min) and degrades without a runner to LLM-free primitives: hash-bucke
 dedup (`merge_duplicates`), deterministic contradiction resolution by
 priority+timestamp (`resolve_contradictions`, reusing MEM-60 provenance) and an
 es-first relative-date table (`normalize_relative_dates`). LLM tiering is opt-in
-via the `Dreamer` trait; `promote_dream_run` is a count-only stub (no mutation) —
-the real promotion into L1 is MEM-65; `discard_dream_run` deletes the run
-namespace. Integration test `tests/dreaming.rs` pins the byte-identical-L1
-invariant.
+via the `Dreamer` trait. The consolidation path never mutates L1; promotion is
+the only mutating entry point: `plan_promotion` returns the per-record diff
+(`ADD|UPDATE|DELETE|NOOP` with `normalize`/`supersede`/`merge`/`dedup` reasons)
+with L1 byte-identical, and `promote_dream_run` applies it — idempotent
+(re-apply → all NOOP), fail-closed quality gate on supersedes, and DELETEs
+scoped to the run's scanned inputs (`DreamRun::input_ids`; runs persisted before
+VER-07 deserialize empty and never delete). The MCP `dream_promote` tool
+defaults to `dry_run:true`. `discard_dream_run` deletes the run namespace.
+Integration test `tests/dreaming.rs` pins the dry-run L1 byte-identity and the
+idempotent-promote invariants.
 
 **`core::memory_generation_log`** — one `GenerationLogEntry` (`{layer, status,
 anchor_id, session_key, ts_ms, error?}`) per L1/L2/L3 generation, queryable per
@@ -259,7 +265,7 @@ merges requeridos se registran como skipped.
 | `offload/<session>` · `offload_state/<session>` | entradas offload · cursor |
 | `pipeline_checkpoint` | contadores del orquestador |
 | `genlog/<session>` | provenance de generaciones (best-effort, cap 100) |
-| `dream/<session>/<run_id>` | vista consolidada por corrida (MEM-61; `discard` real, promote stub) |
+| `dream/<session>/<run_id>` | vista consolidada por corrida (MEM-61; `discard` real; `promote` real con dry-run/gate — VER-07) |
 | skills_extract/<scope> | seed/import CLI |
 
 ## CLI

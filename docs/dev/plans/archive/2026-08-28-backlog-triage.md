@@ -144,7 +144,7 @@ Ver plan.md § Reglas del gate + Paso 0 Verificación de Realidad (codegraph_exp
   | Prob×Impacto | Riesgo | Respuesta | Trigger |
   |--------------|--------|-----------|---------|
   | 🟢×🟢 | Task file no existía | Creado y cerrado idempotente | — |
-  | 🟢×🟡 | Plan original pedía ADR-001..006 específicos que colisionan | Documentado: ADR-001..006 ya existen con contenido distinto; si se quieren fundacionales (PURPOSE/STACK/etc.) → nueva tarea ADR-0033+ | — |
+  | 🟢×🟡 | Plan original pedía ADR-0001..006 específicos que colisionan | Documentado: ADR-0001..006 ya existen con contenido distinto; si se quieren fundacionales (PURPOSE/STACK/etc.) → nueva tarea ADR-0033+ | — |
 - **Cynefin:** 🟦 Obvio — verificación mecánica
 - **Top 3 riesgos:** Ninguno
 - **Uphill/Downhill:** ⬆️ 0 · ⬇️ 1
