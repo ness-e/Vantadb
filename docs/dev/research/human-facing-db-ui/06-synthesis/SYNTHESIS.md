@@ -1,5 +1,5 @@
 ---
-title: "Síntesis — Representación humana de VantaDB: concepto \\\\\\\\\"Vanta Studio\\\\\\\\\""
+title: "Síntesis — Representación humana de VantaDB: concepto \\\\\\\\\\"Vanta Studio\\\\\\\\\\""
 kind: research
 status: stable
 description: Toda la investigación converge en un mismo hueco

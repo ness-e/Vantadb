@@ -2,7 +2,7 @@
 title: LSM-Tree—Log-Structured Merge-Tree
 kind: glossary
 status: stable
-description: "##Definition"
+description: "A LSM-Tree (Log-Structured Merge-Tree) is a data structure optimized for sequential writes, which maintains data in memory (MemTable) and periodically dumps it to disk in immutable files (SSTables), with background compaction to..."
 aliases: [Log-Structured Merge-Tree, LSM Tree]
 tags: [storage, lsm, estructura-datos, write-optimized]
 links: "[[README.md]]"
@@ -10,7 +10,7 @@ links: "[[README.md]]"
 
 # LSM-Tree—Log-Structured Merge-Tree
 
-##Definition
+## Definition
 
 A **LSM-Tree** (Log-Structured Merge-Tree) is a data structure optimized for **sequential writes**, which maintains data in memory (MemTable) and periodically dumps it to disk in immutable files (SSTables), with background compaction to maintain read performance.
 

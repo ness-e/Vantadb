@@ -2,7 +2,7 @@
 title: "ADR-0026: Vanta Studio Fase 3 — REST completo del SDK + dashboard embebido"
 kind: adr
 status: accepted
-description: "Fase 3 de Vanta Studio: REST completo del SDK (/health, /api/v2/query, /metrics) más dashboard embebido"
+description: "solo /health, /api/v2/query, /metrics) — decisión documentada en P25"
 tags: [vantadb, architecture, rest, http, dashboard, web, embedded]
 ---
 

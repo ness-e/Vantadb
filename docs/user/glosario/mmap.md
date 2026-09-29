@@ -2,7 +2,7 @@
 title: mmap — Memory-Mapped I/O
 kind: glossary
 status: stable
-description: "##Definition"
+description: "mmap (memory mapping) is an operating system syscall that maps a disk file directly to the virtual address space of a process, allowing access to the contents of the file as if it were RAM, without explicit copies"
 aliases: [Memory-Mapped I/O, Memory Mapping]
 tags: [io, memoria, zero-copy, performance]
 links: "[[README.md]]"
@@ -10,7 +10,7 @@ links: "[[README.md]]"
 
 # mmap — Memory-Mapped I/O
 
-##Definition
+## Definition
 
 **mmap** (memory mapping) is an operating system syscall that **maps a disk file directly to the virtual address space** of a process, allowing access to the contents of the file as if it were RAM, without explicit copies.
 

@@ -2,15 +2,15 @@
 title: vector-similarity
 kind: glossary
 status: stable
-description: "#VectorSimilarity"
+description: Vector Similarity refers to the mathematical metrics used to measure how similar two vectors are in a high-dimensional space. It is the basis of vector-search in hnsw
 aliases: [Vector Distance Metrics]
 tags: [vectores, distancia, metricas, busqueda]
 links: "[[README.md]]"
 ---
 
-#VectorSimilarity
+# VectorSimilarity
 
-##Definition
+## Definition
 
 **Vector Similarity** refers to the **mathematical metrics** used to measure how similar two vectors are in a high-dimensional space. It is the basis of vector-search in [hnsw](./hnsw.md).
 

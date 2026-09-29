@@ -2,7 +2,7 @@
 title: Transactional
 kind: glossary
 status: stable
-description: "##Definition"
+description: "A transactional system guarantees that operations on data comply with the ACID properties (Atomicity, Consistency, Isolation, Durability), ensuring that mutations are reliable even in the face of system failures, crashes or concurrency"
 aliases: [Transaccional, ACID, Transactional]
 tags: [concept, acid, durabilidad, consistencia]
 links: "[[README.md]]"
@@ -10,7 +10,7 @@ links: "[[README.md]]"
 
 # Transactional
 
-##Definition
+## Definition
 
 A **transactional** system guarantees that operations on data comply with the **ACID** properties (Atomicity, Consistency, Isolation, Durability), ensuring that mutations are reliable even in the face of system failures, crashes or concurrency.
 
@@ -23,7 +23,7 @@ A **transactional** system guarantees that operations on data comply with the **
 | **Aislamiento** | Escrituras serializadas; lecturas concurrentes coherentes por orden WAL→storage | `insert_lock` global (`RwLock`) + orden del WAL — **no** MVCC |
 | **Durabilidad** | Una transacción confirmada sobrevive a crashes | [wal](./wal.md) con [fsync](./fsync.md) + [crc32c](./crc32c.md) |
 
-##Why it Matters in VantaDB
+## Why it Matters in VantaDB
 
 VantaDB manages **persistent memory for AI agents**. If an agent stores important context (conversations, decisions, acquired knowledge), it **cannot be lost** due to a crash or power outage.
 

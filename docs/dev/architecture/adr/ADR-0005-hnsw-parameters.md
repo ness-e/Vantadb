@@ -6,7 +6,6 @@ description: "Status: Accepted"
 tags: [vantadb, architecture, adr]
 ---
 
-
 # ADR-0005: HNSW Graph Parameters (M, M_max0, ef_construction, ef_search, ml)
 
 ## Status

@@ -172,8 +172,8 @@ rustc/docker/codeql/vercel/triage) devolvió base+lifecycle (sin keyword-mapped)
 Comandos owner (orden): `gh pr review 180 --approve && gh pr merge 180 --squash`
 (está BLOCKED: requiere review + CI); luego familia rutina (patch/minor, EXCLUIR #174 toml
 0.9→1.1 y #175 rocksdb 0.24→0.25 — nativos/majors fuera de este triage): #183 rust-patch,
-#162/#163/#164 actions+tools, #165/#168 codeql, #166/#167/#169/#170/#171 web minors,
-#173 smallvec, #176 tower-http, #177 tokenizers, #178 mach2, #179 rcgen.
+# 162/#163/#164 actions+tools, #165/#168 codeql, #166/#167/#169/#170/#171 web minors,
+# 173 smallvec, #176 tower-http, #177 tokenizers, #178 mach2, #179 rcgen.
 
 ### ACEPTAR-RIESGO (motivo escrito por CVE; review al renovar la herramienta madre)
 

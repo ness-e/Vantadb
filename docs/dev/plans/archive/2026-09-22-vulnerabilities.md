@@ -23,7 +23,7 @@ description: "8 HIGH + 6 MEDIUM, todas ubicadas. 9/14 se cierran con 4 PRs ya ab
 ## Resumen
 
 8 HIGH + 6 MEDIUM, todas ubicadas. 9/14 se cierran con 4 PRs ya abiertos (#195, #198,
-#199, #196); 4/14 exigen PRs nuevos (gaps sin cobertura); 1/14 (glib) es accept-risk
+# 199, #196); 4/14 exigen PRs nuevos (gaps sin cobertura); 1/14 (glib) es accept-risk
 documentado. Seguridad-primero: SSRF/DoS primero, dev-only después, UB no-alcanzable al final.
 
 ## Wave A — Merge PRs existentes (seguridad primero; batch remotion junto)

@@ -2,7 +2,7 @@
 title: "`gate-doc-examples.yml` — GATE: Docs — code examples are real API"
 kind: runbook
 status: active
-description: "The gate a link checker cannot be: every self-contained example in docs/ has its attributes resolved against the real installed package"
+description: "One number: how many code examples in docs/ reference API that does not exist"
 tags: [vantadb, ci, gate-docs, documentation, python]
 related: [.github/workflows/gate-doc-examples.yml, RULES.md, gate-docs-links.md, TRIGGERS.md]
 ---

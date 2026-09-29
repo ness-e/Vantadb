@@ -2,7 +2,7 @@
 title: rrf
 kind: glossary
 status: stable
-description: "Algorithm to merge multiple ranking lists into a unified ranking, based solely on the ordinal position (rank) of each document, without the need to normalize heterogeneous scores"
+description: "RRF (Reciprocal Rank Fusion) is an algorithm to merge multiple ranking lists into a unified ranking, based solely on the ordinal position (rank) of each document in each list, without the need to normalize heterogeneous scores"
 aliases: [Reciprocal Rank Fusion, Rank Fusion]
 tags: [busqueda, fusion, ranking, hybrid-search]
 type: glossary-entry
@@ -10,9 +10,9 @@ last_reviewed: "2026-09-15"
 links: "[[README.md]]"
 ---
 
-#RRFΓÇöReciprocal Rank Fusion
+# RRFΓÇöReciprocal Rank Fusion
 
-##Definition
+## Definition
 
 **RRF** (Reciprocal Rank Fusion) is an algorithm to **merge multiple ranking lists** into a unified ranking, based solely on the **ordinal position** (rank) of each document in each list, without the need to normalize heterogeneous scores.
 

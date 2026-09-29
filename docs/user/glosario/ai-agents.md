@@ -2,16 +2,16 @@
 title: Antes de cada interacción
 kind: glossary
 status: stable
-description: "#AI Agents"
+description: "AI agents are autonomous systems based on language models that can perceive their environment, make decisions and execute actions to achieve specific objectives, maintaining state and context over time"
 tags: [vantadb, glosario, ia, agentes, caso-de-uso]
 type: glossary-entry
 last_reviewed: "2026-09-15"
 links: "[[README.md]]"
 ---
 
-#AI Agents
+# AI Agents
 
-##Definition
+## Definition
 
 **AI agents** are autonomous systems based on language models that can perceive their environment, make decisions and execute actions to achieve specific objectives, maintaining state and context over time.
 
@@ -95,7 +95,7 @@ db.put(
 
 ## Popular Frameworks
 
-###LangChain
+### LangChain
 
 ```python
 from langchain.agents import initialize_agent
@@ -110,7 +110,7 @@ agent = initialize_agent(
 )
 ```
 
-###CrewAI
+### CrewAI
 
 ```python
 from crewai import Agent

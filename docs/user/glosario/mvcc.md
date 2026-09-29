@@ -2,15 +2,15 @@
 title: mvcc
 kind: glossary
 status: stable
-description: "#MVCC—Multi-Version Concurrency Control"
+description: "MVCC is a method of concurrency control where each transaction sees a consistent snapshot of the database, allowing readers and writers to operate simultaneously without blocking each other"
 aliases: [Multi-Version Concurrency Control, MVCC]
 tags: [concurrencia, aislamiento, transacciones]
 links: "[[README.md]]"
 ---
 
-#MVCC—Multi-Version Concurrency Control
+# MVCC—Multi-Version Concurrency Control
 
-##Definition
+## Definition
 
 **MVCC** is a method of concurrency control where **each transaction sees a consistent snapshot** of the database, allowing readers and writers to operate simultaneously without blocking each other.
 

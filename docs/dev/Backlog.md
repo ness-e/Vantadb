@@ -7,7 +7,6 @@ tags: [vantadb, backlog, engineering, phases, priorities]
 verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-history.md"
 ---
 
-
 # Active Backlog — VantaDB
 
 > **Purpose:** Single source of truth for all project tasks — organized by execution order.

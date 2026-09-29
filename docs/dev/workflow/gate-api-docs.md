@@ -2,7 +2,7 @@
 title: "`gate-api-docs.yml` — GATE: API — surface vs documentation"
 kind: runbook
 status: active
-description: Falla el PR que cambia la superficie pública de la API sin cambiar un solo documento
+description: "Una regla, y es la regla completa: si la superficie pública de la API cambia y"
 tags: [vantadb, ci, gate-api-docs, documentation, api]
 related: [.github/workflows/gate-api-docs.yml, scripts/docs/check-api-docs.mjs, RULES.md, gate-docs-links.md, TRIGGERS.md]
 ---

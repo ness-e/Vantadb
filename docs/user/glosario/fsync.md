@@ -2,7 +2,7 @@
 title: fsync — File Synchronization
 kind: glossary
 status: stable
-description: "##Definition"
+description: "fsync is an operating system syscall that forces the writing of all in-memory buffers to the physical disk, ensuring that data is persistently stored and survives power outages or system crashes"
 aliases: [File Sync, Disk Synchronization]
 tags: [persistence, durabilidad, io, syscall]
 links: "[[README.md]]"
@@ -10,7 +10,7 @@ links: "[[README.md]]"
 
 # fsync — File Synchronization
 
-##Definition
+## Definition
 
 **fsync** is an operating system syscall that **forces the writing of all in-memory buffers to the physical disk**, ensuring that data is persistently stored and survives power outages or system crashes.
 
@@ -160,7 +160,7 @@ impl WalWriter {
 
 **Trade-off:** Durability vs Performance.
 
-##Sync Modes
+## Sync Modes
 
 VantaDB implementa los tres modos vía `SyncMode` (`src/config.rs:88`). **No son
 toggles-fiction: el código los evalúa en `WalWriter::maybe_sync`**

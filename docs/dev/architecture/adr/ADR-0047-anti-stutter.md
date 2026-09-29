@@ -2,7 +2,7 @@
 title: "ADR-0047: Anti-stutter total (eliminar prefijo Vanta redundante)"
 kind: adr
 status: accepted
-description: "Anti-stutter total — elimination of the redundant Vanta prefix"
+description: "Accepted. La firma formal se difirió a HIG-02 y se cierra en esa pasada: la umbrella quedó"
 tags: [vantadb, architecture, adr, naming, breaking]
 created: "2026-09-11"
 ---

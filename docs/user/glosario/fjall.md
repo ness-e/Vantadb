@@ -2,7 +2,7 @@
 title: Linux
 kind: glossary
 status: stable
-description: "LSM-tree storage engine written in 100% Rust-safe, designed to be embeddable, transactional and high-performance. VantaDB Default Canonical Backend"
+description: "Fjall is a lsm-tree (Log-Structured Merge-Tree) storage engine written in 100% secure Rust, designed to be embeddable, transactional and high-performance. It is the default canonical VantaDB backend since version 0.1.4"
 aliases: [Fjall Storage Engine]
 tags: [storage, backend, lsm-tree, rust]
 type: glossary-entry
@@ -10,9 +10,9 @@ last_reviewed: "2026-09-15"
 links: "[[README.md]]"
 ---
 
-#Fjall
+# Fjall
 
-##Definition
+## Definition
 
 **Fjall** is a **[lsm-tree](./lsm-tree.md)** (Log-Structured Merge-Tree) storage engine written in **100% secure Rust**, designed to be embeddable, transactional and high-performance. It is the **default canonical** VantaDB backend since version 0.1.4.
 
@@ -129,7 +129,7 @@ let vec = tx.get(&vectors_ks, b"doc1")?;
 // Both reads see the same snapshot
 ```
 
-###Trait StorageBackend
+### Trait StorageBackend
 
 VantaDB abstracts Fjall behind a generic trait:
 

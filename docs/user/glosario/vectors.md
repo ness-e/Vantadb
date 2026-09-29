@@ -2,7 +2,7 @@
 title: Vectores
 kind: glossary
 status: stable
-description: "Array of floating point numbers representing an object (text, image, audio) in a high-dimensional space, capturing semantic similarity"
+description: "In the context of databases and ML, a vector is an array of floating point numbers (typically f32) that represents an object (text, image, audio) in a high-dimensional space. Vectors capture semantic similarity: similar objects have..."
 aliases: [Vectors, Embeddings, High Dimensional Vectors]
 tags: [concept, ml, embeddings, vectores, alta-dimensionalidad]
 type: glossary-entry
@@ -84,7 +84,7 @@ $$
 \mathbf{a} \cdot \mathbf{b} = \sum _{i=1}^{d} a_i \cdot b_i
 $$
 
-##Why it Matters in VantaDB
+## Why it Matters in VantaDB
 
 VantaDB is a **vector database** as well as a documentary:
 

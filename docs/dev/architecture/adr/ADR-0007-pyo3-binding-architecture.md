@@ -6,7 +6,6 @@ description: "Status: Accepted"
 tags: [vantadb, architecture, adr]
 ---
 
-
 # ADR-0007: PyO3 Binding Architecture for Python SDK
 
 ## Status

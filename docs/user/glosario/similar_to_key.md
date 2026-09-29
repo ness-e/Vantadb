@@ -2,7 +2,7 @@
 title: similar_to_key
 kind: glossary
 status: stable
-description: Método de búsqueda por similitud que extrae el vector de un registro existente (clave) y ejecuta búsqueda vectorial contra él
+description: "similartokey es un método de la API de VantaDB que permite buscar registros similares a uno existente, identificado por su clave (namespace + key). Internamente obtiene el vector del registro origen y ejecuta una búsqueda vector-search..."
 aliases: [similar_to_key, search-by-key, buscar-por-clave]
 tags: [glosario, api, busqueda, similaridad]
 type: glossary-entry

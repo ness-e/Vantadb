@@ -2,7 +2,7 @@
 title: Error Observability — VantaDB
 kind: runbook
 status: active
-description: Every vantadb::Error carries a full debugging chain. From the client surface
+description: "Every vantadb::Error (the Rust core error enum; surfaced to Python as an"
 tags: [vantadb, operations, observability, errors]
 ---
 

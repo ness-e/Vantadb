@@ -2,7 +2,7 @@
 title: chaos_test_wal.sh
 kind: glossary
 status: stable
-description: "#ChaosTesting"
+description: "Chaos Testing (or Chaos Engineering) is the practice of injecting controlled faults into a system to validate its resilience and recovery, ensuring that it behaves correctly under adverse conditions"
 aliases: [Chaos Engineering, Fault Injection Testing]
 tags: [testing, resiliencia, fault-injection]
 type: glossary-entry
@@ -10,9 +10,9 @@ last_reviewed: "2026-09-15"
 links: "[[README.md]]"
 ---
 
-#ChaosTesting
+# ChaosTesting
 
-##Definition
+## Definition
 
 **Chaos Testing** (or Chaos Engineering) is the practice of **injecting controlled faults** into a system to validate its resilience and recovery, ensuring that it behaves correctly under adverse conditions.
 

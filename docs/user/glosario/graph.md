@@ -2,7 +2,7 @@
 title: Grafo
 kind: glossary
 status: stable
-description: "Data structure composed of nodes (entities) and edges (relationships), where both can have associated properties, modeling connectivity and explicit relationships"
+description: "A graph (or property graph) is a data structure composed of nodes (entities) and edges (relationships), where both can have associated properties. Graphs model connectivity and explicit relationships between entities, allowing traversal..."
 aliases: [Graph, Knowledge Graph, Knowledge Graph, Property Graph]
 tags: [concept, graph, knowledge-graph, relaciones]
 type: glossary-entry
@@ -12,7 +12,7 @@ links: "[[README.md]]"
 
 # Grafo
 
-##Definition
+## Definition
 
 A **graph** (or **property graph**) is a data structure composed of **nodes** (entities) and **edges** (relationships), where both can have associated properties. Graphs model **connectivity and explicit relationships** between entities, allowing traversal queries and multi-hop reasoning.
 
@@ -58,7 +58,7 @@ Arista: works_at
     └── role: "Engineer"
 ```
 
-##Why it Matters in VantaDB
+## Why it Matters in VantaDB
 
 VantaDB implements a **multi-model** that includes graphs natively:
 

@@ -11,7 +11,8 @@ description: Matriz de cierre — default-exclude, gates de inyección, transici
 - **Fuente del prompt:** sub-agente vanta-worker (orquestador pipeline) — wave F3.3b (única en vuelo); branch `develop`
 - **Esfuerzo:** 🟡 2-3d · **Prioridad:** 🟠 · **Tipo:** feature-add (estado operativo + wire + gates de seguridad)
 - **Creado:** 2026-09-29 · **last-synced:** 2026-09-29
-- **Estado:** ⏳ IN PROGRESS · **Incógnitas (uphill):** 0 · **Pendientes (downhill):** steps abajo
+- **Estado:** ⏳ IN PROGRESS — implementación + verify mecánico ✅; **pendiente review P2-01 (tier adversarial) + commit (LEAD)**
+- **Incógnitas (uphill):** 0 · **Pendientes (downhill):** 0 steps de ejecución (7/7 ✅)
 
 ## Contrato (verbatim del prompt de tarea)
 > "cuarentena operativa: contenido `quarantined` EXCLUIDO por defecto de search/list/retrieval (include opt-in; `auto_recall`/`inject_context` nunca inyectan cuarentenado) Y transiciones con dueño+trigger (entrada write-time, promoción/expiración) Y abstención selectiva: con umbral de confianza configurado, una consulta sin candidatos suficientes devuelve señal `abstained` explícita en el wire (nunca resultados silenciosamente degradados; default OFF) Y retrieval trust-aware respeta la clase asserted/derived (semántica ADR SCH-01) Y test de contención verde (dudoso no inyectado por defecto) + threat model de MGR-13 citado por superficie"
@@ -98,48 +99,58 @@ description: Matriz de cierre — default-exclude, gates de inyección, transici
 
 ### Step 1: RED — test de contención (campos/ops no existen ⇒ falla de compilación controlada)
 - **Archivos:** `tests/quarantine_containment.rs` (nuevo)
-- **Acción:** escribir los tests núcleo (C1-C4) que usan `quarantine`, `include_quarantined`, `quarantine_apply/promote/reject`, `abstained`
-- **Verify:** `cargo nextest run -p vantadb --test quarantine_containment` → falla (API inexistente = RED documentado)
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ RED capturado — 21 errores de compilación (E0609 `abstained`/`abstention_reason`; E0560/E0063 campos; E0599/E0061 ops; E0432 `AbstentionReason` no exportado)
 
 ### Step 2: Wire + config (aditivo, mecánico)
-- **Archivos:** `src/sdk/types/record.rs`, `src/sdk/serialization/vector_types.rs`, `src/config.rs`
-- **Acción:** `MemoryInput.quarantine`; `MemoryListOptions.include_quarantined`; `MemorySearchRequest.include_quarantined`; `AbstentionReason` + `MemorySearchPage.abstained/abstention_reason`; `ImportReport.quarantined`; config `quarantine_review_default_days` (30) + `confidence_threshold` (None)
-- **Verify:** `cargo check -p vantadb`
-- **Estado:** ⬜ PENDING
+- **Archivos:** `src/sdk/types/record.rs`, `src/sdk/serialization/vector_types.rs`, `src/config.rs`, exports (`sdk/types/search.rs`, `sdk/mod.rs`, `lib.rs`)
+- **Estado:** ✅ `cargo check -p vantadb` (tras fixes de literales); `public-api.txt` regen deliberada (+72/-4)
 
 ### Step 3: GREEN — filtros + ops + abstención + import T1c
 - **Archivos:** `page.rs`, `namespaces.rs`, `memory.rs`, `impl_export.rs`
-- **Acción:** filtro default-exclude + fingerprint + abstención (page); list (namespaces); T1 en put/put_batch + T1d/T2/T4 + bulk (memory); T1c import (impl_export)
-- **Verify:** `cargo nextest run -p vantadb --test quarantine_containment` → verde
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ **20/20** tests `quarantine_containment` (default-exclude list/search · opt-in · get visible · sticky · T1d/T2/T4 · deadline 30d/0 · I1 · T1c import/roundtrip · bulk flag · abstención ×4 · min_confidence+quarantine · audit transiciones · fingerprint cursor)
 
 ### Step 4: Literales/firmas workspace + bindings (fix mecánico)
-- **Archivos:** cli, server, providers, py/wasm/node/ts call sites, tests existentes (guiado por compilador)
-- **Verify:** `cargo check --workspace --all-targets` + `cargo check -p vantadb-python` (+ wasm32 si toca wasm)
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ `cargo check --workspace --all-targets` clean · wasm32 clean · python/node/server (manifest-path) clean · 9 snapshots `search_request_*` regen deliberada (+1 línea c/u)
 
 ### Step 5: Gate de inyección vanta-memory + test de recall
 - **Archivos:** `vanta-memory/src/core/record/l1_reader.rs`, `vanta-memory/tests/recall.rs`
-- **RED:** test `quarantined_l1_records_are_not_recalled` (falla: hoy sí se inyecta)
-- **GREEN:** `include_quarantined: false` explícito en el choke point
-- **Verify:** `cargo nextest run -p vanta-memory --test recall` (scoped)
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ nuevo test `quarantined_l1_records_are_never_recalled`; recall **16/16**; suite vanta-memory **550/550**
 
 ### Step 6: MCP — flag T1 en memory_put/memory_put_batch
-- **Archivos:** `vantadb-mcp/src/handlers/tools.rs` (schema ×2 + handler + parse)
-- **Verify:** `cargo nextest run -p vantadb-mcp --ignore-default-filter -E 'test(memory_put)'` + test de recall MCP si el harness lo permite
-- **Estado:** ⬜ PENDING
+- **Archivos:** `vantadb-mcp/src/handlers/tools.rs` (schema ×2 + handler + `parse_optional_bool`)
+- **Estado:** ✅ test `test_mcp_memory_put_quarantine_flag_isolates_record` PASS; suite MCP completa **244/244**
 
 ### Step 7: Verify full + cierre
-- **Verify:** `cargo fmt --check` · clippy `-D warnings` (crates tocadas) · `cargo nextest run --profile audit -p vantadb --build-jobs 2` (full, timeout 900; flake HNSW conocido) · `scripts/validate-docs-coverage.ps1` · OCR advisory acotado
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ mecánico (ver §Verificación final) — **pendiente review P2-01 + commit (LEAD)**
+
+## Verificación final (2026-09-29 — evidencia mecánica)
+
+| Comando | Resultado |
+|---|---|
+| `cargo nextest run -p vantadb --test quarantine_containment` | ✅ **20/20** (RED→GREEN documentado) |
+| `cargo nextest run --profile audit -p vantadb --build-jobs 2 --no-fail-fast` | ✅ **2458/2458** (2 skipped; 393s) — incluye `public_api` re-snapshot y snapshots regen |
+| `cargo nextest run -p vanta-memory` (completa) | ✅ **550/550** |
+| `cargo nextest run -p vantadb-mcp --ignore-default-filter` (completa) | ✅ **244/244** |
+| `cargo nextest run -p vantadb-server -E 'binary(e2e)' --ignore-default-filter -j 2` | ✅ **19/19** (default parallelism = contención de recursos de la máquina; `-j 2` estable) |
+| `cargo check --workspace --all-targets` | ✅ exit 0 |
+| `cargo check -p vantadb-wasm --target wasm32-unknown-unknown --all-targets` | ✅ exit 0 |
+| `cargo check` python/node/server (manifest-path) | ✅ exit 0 |
+| `cargo clippy` (vantadb · vanta-memory · vantadb-mcp · server · wasm · python · node, `-D warnings`, `--all-targets`) | ✅ 0 warnings |
+| `cargo fmt --all -- --check` (+ python/wasm manifest) | ✅ 0 diffs |
+| `cargo test --doc -p vantadb` | ✅ 13 passed · 1 ignored (pre-existente) |
+| `tests/api/public-api.txt` | ✅ regenerado y verificado (solo símbolos SCH-05; firmas import con `bool`) |
+| `pwsh scripts/validate-docs-coverage.ps1` | ⚠️ 2 gaps docs (`confidence_threshold`, `quarantine_review_default_days` en `docs/api/CONFIGURATION.md`) — **diferido SCH-07 por WIP ajeno (prohibido editar docs/**)**; resto 0 gaps |
+| OCR advisory (`dev-tools/ocr-review.ps1 -Format json`) | ✅ spec generado; pase cognitivo acotado a archivos de la task: sin Critical/High (sin `unsafe`/`unwrap` nuevos en producción; lock pattern preexistente REVIEW-13; validación de reason code + trust boundary MCP tipada) |
+
+**Contrato (matriz):** C1 ✅ · C2 ✅ · C3 ✅ · C4 ✅ · C5 ✅ · C6 ✅ (threat model por superficie arriba).
 
 ## Pendientes (§Pendientes)
-- **docs diferidas por WIP ajeno → SCH-07:** `docs/api/` (EMBEDDED_SDK/MCP/HTTP_API/scores…) + `llms.txt` con cambios de otra sesión SIN COMMITEAR — NO editar (instrucción del orquestador). Doc de cuarentena/abstención (Regla 3) se entrega en SCH-07/LEAD.
-- Superficies restantes → SCH-07: `SearchPageV2.abstained` (HTTP), args de import (MCP/HTTP/CLI), bindings Py/TS/Node/WASM (getters/knobs), `quarantine_*` ops en HTTP/MCP, `min_confidence` en `MemoryListOptions`.
+- **docs diferidas por WIP ajeno → SCH-07:** `docs/api/` (`CONFIGURATION.md` 2 campos, EMBEDDED_SDK/MCP/HTTP_API/scores…) + `llms.txt` con cambios de otra sesión SIN COMMITEAR — NO editar (instrucción del orquestador). Doc de cuarentena/abstención (Regla 3) se entrega en SCH-07/LEAD.
+- Superficies restantes → SCH-07: `SearchPageV2.abstained` (HTTP), args de import (MCP `import` tool/HTTP/CLI), bindings Py/TS/Node/WASM (getters/knobs/stubs), `quarantine_*` ops en HTTP/MCP, `min_confidence` en `MemoryListOptions`, `include_quarantined` en MCP list/search args.
 - T1b (promoción derivada de dream default ON) → MEM-65 (merge real; hoy stub no muta L1).
 - Métrica agregada `quarantine_overdue` → SCH-07/v1.0 (señal base = campo `quarantine_review_due_ms`).
+- Residuales documentados: import/bulk son transporte exacto/raw — pueden reemplazar estado de cuarentena de una key existente (comentado en `impl_export.rs`/`memory.rs`; inherente a su función, T1c + audit es el gate); sticky no aplica en bulk.
+- Hallazgo entorno (no-FIND sin fila, anotado): e2e server con paralelismo default falla por contención de recursos en máquina cargada; `-j 2` estable — no es regresión de este diff.
 - FIND candidato: `inject_context` L0 aislado = v1.0 (MGR-13 §4.4 residual; solapa EXE-07).
 
 ## Dependencias
@@ -154,13 +165,20 @@ description: Matriz de cierre — default-exclude, gates de inyección, transici
 
 | Step | Estado | Evidencia |
 |------|--------|-----------|
-| 1 RED test contención | ⬜ | — |
-| 2 Wire + config | ⬜ | — |
-| 3 GREEN filtros/ops/abstención/import | ⬜ | — |
-| 4 Literales workspace | ⬜ | — |
-| 5 Gate vanta-memory | ⬜ | — |
-| 6 MCP flag T1 | ⬜ | — |
-| 7 Verify full | ⬜ | — |
+| 1 RED test contención | ✅ | 21 errores de compilación (API inexistente) |
+| 2 Wire + config | ✅ | `cargo check -p vantadb`; exports + public-api regen |
+| 3 GREEN filtros/ops/abstención/import | ✅ | `quarantine_containment` 20/20 |
+| 4 Literales workspace | ✅ | workspace/wasm32/python/node/server check clean; 9 snaps regen |
+| 5 Gate vanta-memory | ✅ | recall 16/16; vanta-memory 550/550 |
+| 6 MCP flag T1 | ✅ | test MCP PASS; MCP 244/244 |
+| 7 Verify full | ✅ | full core 2458/2458; fmt/clippy/doc-test verdes |
+
+## Review (GATE — agente distinto, P2-01; tier adversarial por `src/sdk/**`)
+- **Estado:** ⬜ PENDIENTE (LEAD agenda `vanta-review`/`vanta-audit` — contexto distinto, `reviewer_context ≠ author_context`).
+- **Tier mechanical (HARD-02):** diff toca `src/sdk/**` (wire/serialización) → **adversarial obligatorio**. Casos de prueba sugeridos: filtro default-exclude + fingerprint (cursor mismatch), sticky post-rewrite, gates de inyección, abstención default OFF, contratos serde v1.
+- **Insumos para el revisor:** §Verificación final (evidencia mecánica), §Threat model, OCR advisory acotado; `public-api.txt` y 9 snapshots regenerados deliberadamente.
 
 ## Context Save Point
-- **Discovery ✅ (2026-09-29):** estado post-SCH-02/03/04 verificado; sticky T1 ya parcial en SCH-02; gap real = operacionalizar (filtros + gates + ops + abstención + config + import). Task file creado. Gate D: símbolos públicos nuevos pre-aprobados por ADR-046 (firma owner 2026-09-28) + contrato verbatim del plan — sin ronda new question.
+- **Discovery ✅ (2026-09-29):** gap real = operacionalizar (filtros + gates + ops + abstención + config + import); sticky T1 base ya existía de SCH-02. Task file creado. Gate D: símbolos públicos nuevos pre-aprobados por ADR-046 (firma owner 2026-09-28) + contrato verbatim del plan.
+- **Implementación completa (2026-09-29):** Steps 1-7 ✅ con verificación mecánica por crate (tabla §Verificación final). Red/Green por test (RED compilación controlada; GREEN 20/20).
+- **Pendiente (LEAD):** review P2-01 adversarial + commit local (nada de push). **Docs/api diferidas** (WIP ajeno) → SCH-07. `nextTask`: SCH-06.
