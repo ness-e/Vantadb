@@ -222,6 +222,11 @@ Gate D evaluado: símbolos `pub` nuevos (`ExactCache`, `CacheConfig`, `CachedEnt
 
 ## Notas
 
+> **Nota:** el cuerpo de esta sección no está en el documento y no se ha
+> recuperado del historial de git. No se ha escrito aquí porque deducirlo sería
+> inventarlo. Registrado 2026-09-29; véase
+> `docs/dev/plans/2026-09-28-docs-consolidation.md`.
+
 ## Slice 4 — Wiring server-side `with_embedder` (PRX-09-wiring, 2026-09-10)
 
 - **Estado:** ✅ COMPLETED

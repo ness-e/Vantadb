@@ -94,18 +94,22 @@ jobs:
       # reproduced it. 32 files were damaged before it was found.
       #
       # BUDGET counts DAMAGED FILES and is a ratchet, not a target: it must only
-      # go down. It went 109 -> 101 in one pass, because 66 files wrote their
-      # title as `#Fjall` with no space -- GitHub renders that as a paragraph,
-      # so the document had no heading at all, and every heading-anchored check
-      # mis-located the H1 and blamed the surrounding content instead. 498 of
-      # the 511 "stranded prose" findings were that one missing space.
+      # go down. It has come down 109 -> 101 -> 96 -> 87 -> 40, and two of those
+      # steps were the gate's own bugs, not the docs getting better:
+      #   109 -> 101  66 files wrote their title as `#Fjall` with no space, so
+      #               GitHub rendered them as a paragraph and every
+      #               heading-anchored check blamed the surrounding content.
+      #               498 of 511 "stranded prose" findings were that one space.
+      #   96  -> 40   the blank-line test treated any `Key: value` as YAML, so
+      #               every ADR's `## Status` read as an empty section. 47 of
+      #               87 damaged files were sections that are perfectly full.
       - name: Segmenter round-trip must be lossless
         run: node scripts/docs/wikilinks-to-md.mjs --self-test
       - name: Empty sections, stranded prose, malformed headings
         # The budget is a flag, not an env var: check-structure.mjs reads
         # --budget=. Wiring it as BUDGET: silently ran with a budget of 0, so
         # the gate would have failed on a tree whose only damage predates it.
-        run: node scripts/docs/check-structure.mjs --budget=96
+        run: node scripts/docs/check-structure.mjs --budget=40
       - name: Attribute any new defect to this change or to the last commit
         if: failure()
         run: node scripts/docs/attribute-structure.mjs

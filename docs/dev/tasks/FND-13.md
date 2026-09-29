@@ -18,8 +18,6 @@ description: "Backlog: docs/dev/Backlog.md:501"
 - Fixes aplicados: tabla baseline README alineada a fuente citada (74.0 rec/s, p50 13.2/2.0/3.1 ms; antes 61.5/16.0/3.3/12.1), 2 links rotos a BENCHMARK_OPTIMIZATION_2026.md corregidos (README + README_ES), nota de outlier BM25 corregida (0.0035 ms).
 - Deuda anotada (no tocada): BENCH01 frontend, comandos faltantes en BENCHMARKS §4/§6/§7, PERFORMANCE_TUNING T2-T12 sin fuente.
 
-## Steps
-
 ## Objetivo
 
 Los claims de performance en READMEs/docs DEBEN citar benchmark reproducible (archivo bench + comando) + números, no adjetivos. Revisar claims existentes, clasificarlos, aplicar fixes de 1 línea donde sean claramente falsos/obsoletos, documentar el inventario.

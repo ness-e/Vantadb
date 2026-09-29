@@ -97,8 +97,6 @@ All categories grant ViewChannel + SendMessages to @everyone. **Single-channel b
 
 ## Integrations
 
-## Integrations
-
 ### GitHub → Discord webhook
 
 A **repository webhook** (GitHub events → Discord channel webhook URL) forwards

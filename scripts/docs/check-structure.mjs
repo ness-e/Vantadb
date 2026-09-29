@@ -41,12 +41,25 @@ const HTML = /^\s*(<!--|-->)/;
 const MALFORMED_HEADING = /^(#{1,6})(?=[^#\s])/;
 
 /** Lines that carry no renderable content. A table row DOES carry content. */
+/**
+ * Lines that carry no renderable content, scanning a document BODY.
+ *
+ * Deliberately does NOT include the frontmatter-key rule. `Status: Accepted`,
+ * `Callers: src/`, `LanceDB:` and `SDP:` are ordinary prose that a section body
+ * can legitimately open with -- every ADR in docs/ has a `## Status` whose body
+ * is exactly that. Treating them as blank reported 47 of 87 damaged files as
+ * empty sections when they are perfectly full. The rule only makes sense where
+ * YAML actually is: between the opening `---` and its close, which is what
+ * `findOrphanProse` scans.
+ */
 const isBlankish = (l) =>
   !l.trim() ||
   /^\s*[-*_]{3,}\s*$/.test(l) ||
   HTML.test(l) ||
-  FRONTMATTER_KEY.test(l) ||
   /^---\s*$/.test(l);
+
+/** As above, plus the frontmatter-key rule. Only valid above the body's start. */
+const isBlankishWithKeys = (l) => isBlankish(l) || FRONTMATTER_KEY.test(l);
 
 const levelOf = (l) => (HEADING.test(l) ? l.match(/^(#{1,6})\s/)[1].length : 0);
 
@@ -101,7 +114,7 @@ function findOrphanProse(text) {
   const base = text.slice(0, bodyStart).split('\n').length - 1;
   return pre
     .map((text2, i) => ({ line: base + i + 1, text: text2 }))
-    .filter(({ text: l }) => !isBlankish(l) && !/^\s*>/.test(l));
+    .filter(({ text: l }) => !isBlankishWithKeys(l) && !/^\s*>/.test(l));
 }
 
 // ------------------------------------------------------------------ self-test
@@ -125,6 +138,16 @@ if (SELF_TEST) {
       'a\n\n## One\n\n### Sub\n\nbody\n', []],
     ['thematic break does not fill a section',
       'a\n\n## One\n\n---\n\n## Two\n\nb\n', ['One']],
+    // These four are the 47 false positives. A body opening with `Key: value`
+    // is prose, not YAML, and the section is full.
+    ['Status: as a body is content, not frontmatter',
+      '## Status\n\nStatus: Accepted\n\n## Next\n\nb\n', []],
+    ['Callers: as a body is content',
+      '## Context\n\nCallers: src/\n\n## Next\n\nb\n', []],
+    ['SDP: as a body is content',
+      '## Note\n\nSDP: 4 in 15 min\n\n## Next\n\nb\n', []],
+    ['a bare Key: line with no value is still content',
+      '## Status\n\nRead-only:\n\n## Next\n\nb\n', []],
     ['heading inside a fence is not a heading',
       'a\n\n## One\n\n```\n## Fake\n```\n\nbody\n', []],
   ];

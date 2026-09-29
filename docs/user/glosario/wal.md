@@ -212,6 +212,11 @@ Shard k: skip hasta local_pos = full_rounds + (k < remainder ? 1 : 0)
 
 ## Known Issues
 
+> **Nota:** el cuerpo de esta sección no está en el documento y no se ha
+> recuperado del historial de git. No se ha escrito aquí porque deducirlo sería
+> inventarlo. Registrado 2026-09-29; véase
+> `docs/dev/plans/2026-09-28-docs-consolidation.md`.
+
 ## Comparison with Other Systems
 
 | System | WAL | fsync Default | Checksum | Recovery |
