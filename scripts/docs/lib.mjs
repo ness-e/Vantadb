@@ -417,7 +417,7 @@ export function segment(src) {
   let lineNo = 1;
 
   const push = (text, safe, why) => {
-    if (text) segs.push({ text, safe, why, line: lineNo });
+    if (text) segs.push({ text, safe, why, line: lineNo - 1 });
   };
 
   while (pos < n) {
@@ -428,7 +428,13 @@ export function segment(src) {
     pos = lineEnd;
     lineNo++;
 
-    const fenceMatch = line.match(/^\s{0,3}(`{3,}|~{3,})(.*)$/);
+    // Match against the line WITHOUT its newline. In JavaScript `$` does not
+    // match before a trailing newline (unlike Python), so matching the raw slice
+    // meant the fence pattern only ever fired on a file's LAST line. Every
+    // consumer of segment() -- proseOf(), check-links, check-secrets,
+    // wikilinks-to-md -- was therefore reading code-block contents as prose.
+    const bare = line.replace(/\r?\n$/, '');
+    const fenceMatch = bare.match(/^\s{0,3}(`{3,}|~{3,})(.*)$/);
     if (fenceMatch) {
       const marker = fenceMatch[1][0];
       const len = fenceMatch[1].length;
@@ -455,7 +461,9 @@ export function segment(src) {
     // that writes segments back (wikilinks-to-md.mjs) reproduced the damage.
     let cursor = 0;
     let sawCode = false;
-    lineNo = thisLine;
+    // `lineNo` is already this line's number: it was captured as `thisLine` and
+    // incremented above. Resetting it here (an earlier version did) pinned every
+    // segment to line 1, so a consumer indexing by `seg.line` saw one long file.
     for (const m of line.matchAll(/(`+)([^`]|[^`][\s\S]*?)\1/g)) {
       if (m.index > cursor) push(line.slice(cursor, m.index), true, 'prose');
       push(m[0], false, 'inline-code');

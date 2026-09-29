@@ -66,7 +66,7 @@ Si alguien instala VantaDB y no funciona, se va y no vuelve. La primera impresi�
 
 **Formato de README (copia y adapta):**
 
-```
+````
 # VantaDB
 
 > **Estado:** v0.5.0 - Early Access (Beta)
@@ -148,7 +148,7 @@ Apache 2.0. Uso personal y comercial permitido.
 ---
 
 **SyntropyOS** — Orden desde el caos.
-```
+````
 
 **Checklist para README:**
 
@@ -216,7 +216,7 @@ Ver Roadmap
 
 #### `installation.md`
 
-```
+````
 # Instalación
 
 ## Python
@@ -262,11 +262,11 @@ Asegúrate de estar usando Python 3.11+ y de haber instalado en el environment c
 Asegúrate de estar usando Node 18+ o Bun.
 
 Reportar un problema
-```
+````
 
 #### `quickstart.md`
 
-```
+````
 # Quickstart (5 minutos)
 
 ## Python
@@ -347,11 +347,11 @@ console.log(result);
 
 - API Reference para más detalles
 - FAQ para preguntas comunes
-```
+````
 
 #### `api-reference.md`
 
-```
+````
 # API Reference
 
 ## VantaDB Class
@@ -407,7 +407,7 @@ result = db.graph_bfs([1], 2)
 ```
 
 Ver API completa en GitHub
-```
+````
 
 #### `faq.md`
 
@@ -564,7 +564,7 @@ jobs:
 
 #### `bug_report.md`
 
-```
+````
 ---
 name: Bug Report
 about: Reportar un bug
@@ -607,7 +607,7 @@ Si aplica, agrega screenshots.
 **Contexto adicional**
 
 Cualquier otra cosa que ayude a debuggear.
-```
+````
 
 #### `feature_request.md`
 
@@ -896,7 +896,7 @@ Los agentes de IA actuales son frágiles. No tienen memoria persistente, no pued
 
 #### `CONTRIBUTING.md`
 
-```
+````
 # Contribuir a SyntropyOS
 
 ¡Gracias por querer contribuir! 🎉
@@ -962,7 +962,7 @@ npm test
 ---
 
 **SyntropyOS** — Orden desde el caos.
-```
+````
 
 #### `ROADMAP.md`
 
@@ -1552,7 +1552,7 @@ Discord = "https://discord.gg/g8nqB3NtXt"
 
 **Formato de README para PyPI:**
 
-```
+````
 # VantaDB (Python)
 
 > **Estado:** v0.5.0 - Early Access
@@ -1587,7 +1587,7 @@ print(result)
 ## Licencia
 
 Apache 2.0. Uso personal y comercial permitido.
-```
+````
 
 ---
 
@@ -1731,7 +1731,7 @@ twine upload dist/*
 
 **Formato de README para npm:**
 
-```
+````
 # VantaDB (TypeScript)
 
 > **Estado:** v0.5.0 - Early Access
@@ -1766,7 +1766,7 @@ console.log(result);
 ## Licencia
 
 Apache 2.0. Uso personal y comercial permitido.
-```
+````
 
 ---
 
@@ -1867,7 +1867,7 @@ Ya detallé `index.md`, `installation.md`, `quickstart.md`, `api-reference.md`, 
 
 #### `contributing.md`
 
-```
+````
 # Contribuir
 
 ¡Gracias por querer contribuir! 🎉
@@ -1917,7 +1917,7 @@ npm test
 ## Preguntas?
 
 Únete a Discord o abre un issue.
-```
+````
 
 #### `changelog.md`
 
@@ -2117,7 +2117,7 @@ VantaDB v0.5.0 - Early Access (Lanzamiento)
 
 Mismo contenido que el post de SyntropyOS, pero enfocado en VantaDB:
 
-```
+````
 # VantaDB v0.5.0 - Early Access (Lanzamiento)
 
 ¡Hola! 👋
@@ -2205,7 +2205,7 @@ Ver CONTRIBUTING.md | Únete a Discord
 ---
 
 **SyntropyOS** — Orden desde el caos.
-```
+````
 
 **Tareas:**
 
@@ -2383,7 +2383,7 @@ Si es una pregunta, pregunta aquí mismo. ¡Estoy para ayudar!
 
 **Formato de Respuesta a Bug Fix:**
 
-```
+````
 ¡Bug fixado! 🎉
 
 El issue estaba en [archivo/línea]. Lo fixeé en PR #XX.
@@ -2397,7 +2397,7 @@ npm install vantadb@latest
 ```
 
 ¡Gracias por reportar esto! Ayudaste a mejorar VantaDB.
-```
+````
 
 ---
 
@@ -3052,7 +3052,7 @@ Publicar v0.6.0 con 1-2 features pedidas por usuarios + fixes de bugs.
 
 **Formato de Post:**
 
-```
+````
 # VantaDB v0.6.0 - [Nombre de la Feature Principal]
 
 ¡Hola comunidad! 👋
@@ -3101,7 +3101,7 @@ Ver Roadmap
 ---
 
 **SyntropyOS** — Orden desde el caos.
-```
+````
 
 - Publica en Discord (`#📢anuncios`)
 - Tweet (si tienes Twitter)
@@ -3275,7 +3275,7 @@ Publicar v0.7.0 con governance básica (entity resolution, conflict detection si
 
 - Agrega página `governance.md` en docs:
 
-```
+````
 # Governance
 
 VantaDB v0.7.0 introduce governance del ciclo de vida de la memoria.
@@ -3315,7 +3315,7 @@ for skill in skills:
 ```
 
 Ver API Reference
-```
+````
 
 - Actualiza Quickstart con ejemplos de governance
 
@@ -3339,7 +3339,7 @@ Ver API Reference
 
 **Formato de Post:**
 
-```
+````
 # VantaDB v0.7.0 - Governance Ready
 
 ¡Hola comunidad! 👋
@@ -3393,7 +3393,7 @@ Ver Roadmap
 ---
 
 **SyntropyOS** — Orden desde el caos.
-```
+````
 
 ---
 
@@ -3462,7 +3462,7 @@ Todas las features de governance completas y funcionales.
 - **Docs para Entity Resolution**:
     - Página `entity-resolution.md` en docs:
         
-        ```
+        ````
         # Entity Resolution
         
         Entity resolution detecta duplicados automáticamente.
@@ -3482,7 +3482,7 @@ Todas las features de governance completas y funcionales.
         ```
         
         Ver API Reference
-        ```
+        ````
         
     - Ejemplos en Quickstart
 
@@ -3505,7 +3505,7 @@ Todas las features de governance completas y funcionales.
 - **Docs para Conflict Detection**:
     - Página `conflict-detection.md` en docs:
         
-        ```
+        ````
         # Conflict Detection
         
         Conflict detection detecta contradicciones en la memoria.
@@ -3525,7 +3525,7 @@ Todas las features de governance completas y funcionales.
         ```
         
         Ver API Reference
-        ```
+        ````
         
     - Ejemplos en Quickstart
 
@@ -3548,7 +3548,7 @@ Todas las features de governance completas y funcionales.
 - **Docs para Skills Extract**:
     - Página `skills-extract.md` en docs:
         
-        ```
+        ````
         # Skills Extract
         
         Skills extract extrae memoria procedimental (cómo hacer cosas).
@@ -3568,7 +3568,7 @@ Todas las features de governance completas y funcionales.
         ```
         
         Ver API Reference
-        ```
+        ````
         
     - Ejemplos en Quickstart
 
@@ -3591,7 +3591,7 @@ Todas las features de governance completas y funcionales.
 - **Docs para Consolidación**:
     - Página `consolidation.md` en docs:
         
-        ```
+        ````
         # Consolidación L2→L3
         
         Consolidación automática de memoria corto plazo (L2) a largo plazo (L3).
@@ -3607,7 +3607,7 @@ Todas las features de governance completas y funcionales.
         En v1.0.0, consolidación ocurre automáticamente cada X horas.
         
         Ver API Reference
-        ```
+        ````
         
     - Ejemplos en Quickstart
 
@@ -3630,7 +3630,7 @@ Todas las features de governance completas y funcionales.
 - **Docs para Auditoría**:
     - Página `vigency-audit.md` en docs:
         
-        ```
+        ````
         # Auditoría de Vigencia
         
         Auditoría automática de vigencia de registros (TTL, supersession).
@@ -3646,7 +3646,7 @@ Todas las features de governance completas y funcionales.
         En v1.0.0, auditoría ocurre automáticamente cada X horas.
         
         Ver API Reference
-        ```
+        ````
         
     - Ejemplos en Quickstart
 
@@ -3738,7 +3738,7 @@ Docs que cualquier usuario nuevo pueda seguir sin ayuda.
 
 - **Crear `user-guide.md`**:
 
-```
+````
 # User Guide
 
 ## Instalación
@@ -3821,7 +3821,7 @@ Ver FAQ
 ## API Reference
 
 Ver API Reference
-```
+````
 
 - **Crear Casos de Uso**:
     - `use-cases/personal-agent.md`
@@ -3830,7 +3830,7 @@ Ver API Reference
 
 **Formato de Caso de Uso:**
 
-```
+````
 # Caso de Uso: Agente Personal
 
 ## Descripción
@@ -3893,7 +3893,7 @@ for dup in duplicates:
 - Usa grafos para conectar entidades (persona → decisión)
 
 Ver otros casos de uso
-```
+````
 
 ---
 
@@ -3903,7 +3903,7 @@ Ver otros casos de uso
 
 - **Actualizar `api-reference.md`**:
 
-```
+````
 # API Reference
 
 ## VantaDB Class
@@ -4042,7 +4042,7 @@ result = db.graph_bfs([1], 2)
 ```
 
 Ver código fuente
-```
+````
 
 ---
 
@@ -4054,7 +4054,7 @@ Ver código fuente
 
 **Tutorial 1: "Tu Primer Agente Personal"**
 
-```
+````
 # Tutorial: Tu Primer Agente Personal
 
 En este tutorial, crearás un agente personal que recuerda tus preferencias y historial.
@@ -4108,7 +4108,7 @@ print(result)
 
 - Ver más casos de uso
 - Ver API Reference
-```
+````
 
 **Tutorial 2: "RAG para Documentos"**
 
@@ -4176,7 +4176,7 @@ Sí. v1.0.0 tiene conflict detection y resolución. Ver Conflict Detection.
 
 - **Crear `migration-guide.md`** (si hubo breaking changes):
 
-```
+````
 # Migration Guide
 
 ## v0.7.0 → v1.0.0
@@ -4216,7 +4216,7 @@ db.put(namespace="sesion", key="token", payload="Bearer abc", ttl_ms=90*24*3600*
 - Auditoría automática de vigencia
 
 Ver Changelog
-```
+````
 
 ---
 
