@@ -195,6 +195,11 @@ pub enum Commands {
     #[cfg(feature = "tui")]
     Tui,
 
+    /// Verify the WAL hash-chain integrity (tamper-evident, VER-01): detects
+    /// altered or removed records with their exact position. Read-only and
+    /// offline — no engine open. Exit code ≠0 when integrity fails.
+    Verify,
+
     /// Generate shell completion scripts
     Completions {
         /// Shell type for the completion script

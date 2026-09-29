@@ -221,16 +221,18 @@ fn wal_v2_prepared_without_commit_is_recoverable_but_rollback_signal() {
     let _ = std::fs::remove_file(&path);
 }
 
-/// 5. WAL format version constant is 2 (RES-01 keystone).
+/// 5. WAL format version constant is 3 (RES-01 + VER-01 keystone).
 ///
-/// This is the cheapest possible gate: if `WAL_FORMAT_VERSION` ever regresses
-/// to 1, this test fails. Pinned here so the bump-and never gets silently
-/// reverted by an unrelated refactor.
+/// This is the cheapest possible gate: if `WAL_FORMAT_VERSION` ever regresses,
+/// this test fails. Pinned here so a bump never gets silently reverted by an
+/// unrelated refactor. History: v1 original; v2 added the RES-01 `Prepare`
+/// marker (two-phase commit); v3 adds the VER-01 hash-chain framing
+/// (`prev_hash` + `record_hash` per record, SHA-256).
 #[test]
-fn wal_format_version_is_v2() {
+fn wal_format_version_is_v3() {
     assert_eq!(
         vantadb::wal::WAL_FORMAT_VERSION,
-        2,
-        "RES-01 keystone: WAL_FORMAT_VERSION must be 2"
+        3,
+        "keystone: WAL_FORMAT_VERSION must be 3 (RES-01 v2 + VER-01 chain)"
     );
 }
