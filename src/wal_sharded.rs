@@ -324,6 +324,39 @@ pub(crate) fn salvage(base_path: &Path, num_shards: usize) -> Result<SalvageDone
     })
 }
 
+/// Verify every on-disk shard of a (potentially sharded) WAL (VER-01).
+///
+/// Returns one report per existing shard file plus the round-robin coherence
+/// verdict (`verify_shard_counts` — reused, not duplicated). `num_shards` must
+/// come from `detect_shard_count`/`read_shard_meta` (same resolution as
+/// recovery and salvage). Read-only: never truncates, quarantines or mutates.
+#[cfg(any(feature = "cli", test))]
+pub(crate) fn verify_shards(
+    base_path: &Path,
+    num_shards: usize,
+) -> Result<(Vec<crate::wal::WalVerifyReport>, Option<String>)> {
+    let mut reports = Vec::new();
+    let mut counts = vec![0u64; num_shards];
+    for (i, count) in counts.iter_mut().enumerate() {
+        let p = salvage_shard_path(base_path, i, num_shards);
+        if !p.exists() {
+            continue;
+        }
+        let report = crate::wal::verify_wal_file(&p)?;
+        *count = report.records;
+        reports.push(report);
+    }
+    // A whole-record tail deletion inside one shard does not break that
+    // shard's chain (documented limit); the round-robin layout guard still
+    // surfaces it for multi-shard WALs.
+    let incoherence = if num_shards > 1 {
+        verify_shard_counts(&counts)
+    } else {
+        None
+    };
+    Ok((reports, incoherence))
+}
+
 impl ShardedWal {
     /// Create a new `ShardedWal` with the given base path, shard count, and sync mode.
     pub fn new(
@@ -569,6 +602,17 @@ mod tests {
             let _ = std::fs::remove_file(&shard_path);
         }
         let _ = std::fs::remove_file(shard_meta_path(base));
+    }
+
+    /// VER-01: extra frame bytes (`prev_hash` ‖ `record_hash`) for the
+    /// on-disk format version of a WAL byte image.
+    fn chain_extra(bytes: &[u8]) -> usize {
+        let version = u16::from_le_bytes(bytes[4..6].try_into().unwrap());
+        if version >= 3 {
+            64
+        } else {
+            0
+        }
     }
 
     // ─── Construction ───────────────────────────────────────────
@@ -1088,11 +1132,12 @@ mod tests {
         // (Truncating shard 1 would give [2,1], still coherent.)
         let shard0 = salvage_shard_path(&path, 0, 2);
         let bytes = std::fs::read(&shard0).unwrap();
+        let extra = chain_extra(&bytes);
         let mut off = 20usize;
         let mut last = 20usize;
         while off + 8 <= bytes.len() {
             let len = u32::from_le_bytes(bytes[off..off + 4].try_into().unwrap()) as usize;
-            let end = off + 4 + len + 4;
+            let end = off + 4 + len + 4 + extra;
             if end > bytes.len() {
                 break;
             }
@@ -1128,11 +1173,12 @@ mod tests {
         }
         let shard0 = salvage_shard_path(&path, 0, 2);
         let bytes = std::fs::read(&shard0).unwrap();
+        let extra = chain_extra(&bytes);
         let mut off = 20usize;
         let mut last = 20usize;
         while off + 8 <= bytes.len() {
             let len = u32::from_le_bytes(bytes[off..off + 4].try_into().unwrap()) as usize;
-            let end = off + 4 + len + 4;
+            let end = off + 4 + len + 4 + extra;
             if end > bytes.len() {
                 break;
             }

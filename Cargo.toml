@@ -131,6 +131,9 @@ tracing = "0.1"
 notify = { version = "8", optional = true }
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"] }
 twox-hash = "2.1.2"
+# VER-01: the WAL hash-chain (tamper-evidence) needs SHA-256 in every build,
+# not only under `encryption` — promoted from optional to a direct dep.
+sha2 = { version = "0.11" }
 fail = { version = "0.5", optional = true, features = ["failpoints"] }
 tempfile = { version = "3", optional = true }
 opentelemetry = { version = "0.33.0", optional = true }
@@ -139,7 +142,6 @@ tantivy = { version = "0.26", optional = true, features = ["stopwords"] }
 web-time = "1.1.0"
 # ── Encryption (optional, behind feature = "encryption") ──
 aes-gcm = { version = "0.11", optional = true }
-sha2 = { version = "0.11", optional = true }
 # ring is already in the lockfile (transitive via rustls/reqwest); reusing it
 # as a direct dep avoids pulling a new KDF crate into the tree.
 ring = { version = "0.17", optional = true }
@@ -171,7 +173,7 @@ opentelemetry = [
     "opentelemetry_sdk/rt-tokio",
 ]
 hot-reload = ["dep:notify"]
-encryption = ["dep:aes-gcm", "dep:sha2", "dep:ring"]
+encryption = ["dep:aes-gcm", "dep:ring"]
 wal-shipping = ["dep:reqwest"]
 bayesian_decay = []
 server = [

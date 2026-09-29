@@ -6,7 +6,7 @@
 
 Every link below points to the raw Markdown source, not a rendered page. Read the
 page you need; do not read this file end to end. This index covers the
-430 documentation pages; it deliberately omits the 1013 task files,
+434 documentation pages; it deliberately omits the 1016 task files,
 which are work items rather than documentation. The full inventory of every file
 is in docs/index.md in the repository.
 
@@ -70,7 +70,7 @@ is in docs/index.md in the repository.
 - [ADR-0050: Node.js/TS bindings nativos vía napi-rs (backend adicional a WASM)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/adr/ADR-0050-napi-rs-node-bindings.md): vantadb-ts expone el SDK vía WASM (vantadb-wasm, wasm-bindgen). WASM cubre el
 - [ADR-0051: WAL batch-append tradeoff (DRV-014 reverted)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/adr/ADR-0051-wal-batch-tradeoff.md): Accepted (2026-07-31)
 - [ADR-0052: WAL async roadmap — io_uring/aio + fsync group commit](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/adr/ADR-0052-wal-async-roadmap.md): The WAL is the durability backbone of VantaDB: every mutation is appended
-- [Review Guide: ADR-029 articulation + decisions D24-D37](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/adr/ADR-0053-adr-029-review-guide.md): Evidence notation: file:line verified against the working tree on 2026-08-22
+- [Review Guide: ADR-0029 articulation + decisions D24-D37](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/adr/ADR-0053-adr-029-review-guide.md): Evidence notation: file:line verified against the working tree on 2026-08-22
 - [ADR-0014: PITR — experimental standalone API, engine integration deferred](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/adr/ADR-0014-pitr.md): The pitr feature is declared in Cargo.toml (pitr = []) and gates
 - [ADR-0015: Coverage policy gate — root crate vs workspace and bindings](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/adr/ADR-0015-coverage-policy.md): Superseded by ADR-0018, which resolves the
 
@@ -85,7 +85,7 @@ is in docs/index.md in the repository.
 - [Advanced Tokenizer](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/ADVANCED_TOKENIZER.md): The advanced tokenizer provides multilingual text processing with stemming, stopwords removal, and Unicode folding for improved text search quality across multiple languages. It is built on top of Tantivy. The feature is enabled by...
 - [Blog Series Completion Plan](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/strategy/BLOG_SERIES_PLAN.md): The blog series is 4 of 5 posts complete as drafts in docs/user/blog/, but the production site exposes 4 posts (one of them, introducing-vantadb, has no source draft in docs/user/blog/). Every live post has metadata drift between the...
 - [Cargo Feature Registry — per-feature status](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/FEATURES.md): Inventario honesto de las features declaradas en Cargo.toml [features]
-- [FEAT-03b Core Decay Implementation Contract](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/FEAT-03b-core-decay-contract.md): Status: ready for vanta-worker · Decision: ADR-028
+- [FEAT-03b Core Decay Implementation Contract](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/FEAT-03b-core-decay-contract.md): Status: ready for vanta-worker · Decision: ADR-0028
 - [FND-20: HNSW Trade-off (ef_search/M: recall vs latency) and why not IVF/FAISS](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/FND-20-hnsw-tradeoff.md): src/index/mod.rs:27-30) with M=32, Mmax0=64, efconstruction=100,
 - [MCP-35 HTTP Fallback Discovery](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/mcp-35-http-fallback-spec.md): Enable N simultaneous vanta-cli server --mcp --db <same-path> instances to share a single database. The first instance becomes the owner (holds the exclusive lock, serves HTTP + MCP stdio). Subsequent instances become proxies (forward...
 - [Mutation and Recovery Protocol](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/MUTATION_RECOVERY_PROTOCOL.md): Date: 2026-04-29
@@ -196,7 +196,6 @@ is in docs/index.md in the repository.
 - [VantaDB 5-Minute Quickstart](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/QUICKSTART.md): This quickstart validates the current v0.6.1 boundary from pre-built artifacts
 - [VantaDB as Persistent Memory for Claude Code (MCP)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/blog/claude_code_mcp_memory.md): By the VantaDB Team
 - [VantaDB Desktop — Architecture](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/desktop/ARCHITECTURE.md): This document describes the actual multi-connection model of the desktop
-- [VantaDB Documentation](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/book/SUMMARY.md): Welcome
 - [VantaDB vs Alternatives — Honest Comparison & Practical Limits](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/COMPARISON.md): This page answers \"why not X?\" (sqlite-vec, LanceDB, Qdrant, Chroma) with three rules
 - [VantaDB vs LanceDB vs ChromaDB: Real Numbers from an Embedded Engine](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/blog/benchmarks_vs_lancedb_chroma.md): By the VantaDB Team
 - [Why I Built VantaDB: A Local Memory Engine](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/blog/why_i_built.md): By ness-e
@@ -219,7 +218,7 @@ is in docs/index.md in the repository.
 - [VantaDB Tutorials](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/tutorials/index.md): Step-by-step guides for using VantaDB, ordered by increasing complexity
 - [Workflows — Inventory (28 active)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/workflow/README.md): Per-workflow detail pages live next to this index (ci-gate.md,
 - [Reviews archivados (2026-08-26)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/reviews/README.md): Estos 30 reportes son snapshots históricos de auditorías/reviews/investigaciones
-- [The mdBook layer (retired 2026-09-29)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/book/README.md): An mdBook project whose src/ held 75 files: 69 of them were 6-line
+- [The mdBook layer (retired 2026-09-29)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/book/README.md): Why docs/user/book/ was deleted, what survives, and what to do if it comes back
 
 ## Plans
 
@@ -240,6 +239,7 @@ is in docs/index.md in the repository.
 - [Embedded SDK Reference](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/EMBEDDED_SDK.md): Source: src/sdk/mod.rs, src/sdk/builder.rs, src/sdk/api/.rs, src/sdk/graph.rs, src/sdk/search/mod.rs
 - [Embeddings — BYO-Vector + embed-local](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/EMBEDDINGS.md): VantaDB is BYO-vector by default (“does not embed text for you”) and offers an opt-in local embedding path via the embed-local Cargo feature. No breaking changes — EmbeddingProvider is additive
 - [GraphRAG API](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/GRAPH_RAG.md): GraphRAG runs through the embedded SDK handle (Embedded). The default
+- [Memory interchange format (JSONL v2)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/MEMORY_INTERCHANGE_FORMAT.md): The JSONL v2 contract shared by VantaDB export, import and the third-party importers (Mem0, Zep/Graphiti, Letta), with mapping tables and declared limits
 - [Node.js Native SDK Documentation](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/NODE_SDK.md): vantadb-node is the native Node.js binding for VantaDB, built with
 - [Python SDK Documentation](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/PYTHON_SDK.md): Note: For more details on search execution, see Hybrid Search
 - [Scoring Semantics — VantaDB Official Score Contract](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/scores.md): VantaDB hybrid search combines two independent rankers
@@ -252,6 +252,7 @@ is in docs/index.md in the repository.
 - [VantaDB IQL Reference](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/IQL.md): The parser implements IQL version 2 (adds the AS OF valid-time clause). The version is exposed as IQL_VERSION
 - [VantaDB Model Context Protocol (MCP) Server](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/MCP.md): Current MCP implementation version: 0.7.0
 - [Versioning & Stability Policy](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/VERSIONING.md): VantaDB follows Semantic Versioning with the standard
+- [WAL Integrity — tamper-evident hash-chain](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/WAL_INTEGRITY.md): Hash-chain per WAL record (VER-01): detects altered, removed or reordered frames with exact position; documented limits (suffix truncation, consistent rewrite, archived segments) and on-demand detection via vanta-cli verify
 - [WASM API Reference](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/WASM_API.md): This page is the canonical entry point for VantaDB's WebAssembly surface — the
 - [WASM Persistence Documentation](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/WASM_PERSISTENCE.md): How VantaDB persists data in the browser: what exists, what the verified
 - [WASM Standalone Console (Vanta Studio — mode `wasm`)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/WASM_STANDALONE.md): The Vanta Studio console can run 100% in the browser with no server: the
@@ -484,4 +485,7 @@ is in docs/index.md in the repository.
 - [Local RAG Pipeline with VantaDB + Ollama](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/tutorials/02-local-rag-pipeline.md): Retrieval-Augmented Generation (RAG) lets you ask natural language questions over your own documents — without sending data to a third-party API. This tutorial builds a fully local RAG pipeline using
 - [Migrating from ChromaDB to VantaDB](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/tutorials/03-migrating-from-chromadb.md): If you're using ChromaDB today, switching to VantaDB unlocks graph edges, MCP protocol support, WASM browser runtime, and hybrid search — while keeping your existing vector workflow. This tutorial shows the exact API mappings and...
 - [Migrating from LanceDB to VantaDB](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/tutorials/migration-from-lancedb.md): If you're using LanceDB today, switching to VantaDB unlocks GraphRAG traversal, built-in hybrid search (BM25 + HNSW), TTL-based record expiry, and the VantaDB PyPI integration ecosystem — while keeping your existing vector workflow...
+- [Migrating from Letta to VantaDB](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/tutorials/migrating-from-letta.md): Export a Letta agent file (.af), convert its memory blocks and message history with the built-in importer, and import them into VantaDB
+- [Migrating from Mem0 to VantaDB](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/tutorials/migrating-from-mem0.md): Export your Mem0 memories without credentials, convert them with the built-in importer, and import them into VantaDB — metadata, timestamps and provenance preserved
 - [Migrating from Vectara to VantaDB](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/tutorials/migrate-from-vectara.md): Vectara shut down its self-service RAG-as-a-Service tier in 2026 and repositioned as an enterprise agent platform. If you were on the self-service tier, you need a new home for your corpora. VantaDB is a drop-in local-first replacement...
+- [Migrating from Zep / Graphiti to VantaDB](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/tutorials/migrating-from-zep.md): Export your Zep or Graphiti graph without credentials, convert episodes and facts — valid-time windows and episode provenance included — and import them into VantaDB

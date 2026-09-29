@@ -276,6 +276,13 @@ fn run() -> anyhow::Result<()> {
             }
         },
 
+        Commands::Verify => {
+            let code = cli_handlers::cmd_verify(&args.db, args.json)?;
+            if code != 0 {
+                std::process::exit(code);
+            }
+        }
+
         Commands::Completions { shell } => cli_handlers::cmd_completions(shell),
 
         Commands::McpCall {

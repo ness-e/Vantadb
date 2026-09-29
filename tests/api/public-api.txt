@@ -441,6 +441,7 @@ pub vantadb::cli::Commands::SimilarToKey::namespace: alloc::string::String
 pub vantadb::cli::Commands::Snapshot(vantadb::cli::SnapshotCommand)
 pub vantadb::cli::Commands::Stats
 pub vantadb::cli::Commands::Status
+pub vantadb::cli::Commands::Verify
 pub vantadb::cli::Commands::Wal(vantadb::cli::WalCommand)
 impl clap_builder::derive::FromArgMatches for vantadb::cli::Commands
 pub fn vantadb::cli::Commands::from_arg_matches(&clap_builder::parser::matches::arg_matches::ArgMatches) -> core::result::Result<Self, clap_builder::Error>
@@ -886,6 +887,7 @@ pub mod vantadb::cli_handlers::util
 pub fn vantadb::cli_handlers::util::dir_size(&std::path::Path) -> core::io::error::Result<usize>
 pub fn vantadb::cli_handlers::util::human_readable_size(u64) -> alloc::string::String
 pub mod vantadb::cli_handlers::wal
+pub fn vantadb::cli_handlers::wal::cmd_verify(&str, bool) -> vantadb::error::Result<i32>
 pub fn vantadb::cli_handlers::wal::cmd_wal_compact(&str, bool) -> vantadb::error::Result<()>
 pub fn vantadb::cli_handlers::wal::cmd_wal_salvage(&str, bool, bool) -> vantadb::error::Result<()>
 pub fn vantadb::cli_handlers::wal::cmd_wal_vacuum(&str, bool) -> vantadb::error::Result<()>
@@ -1104,6 +1106,7 @@ pub fn vantadb::cli_handlers::cmd_snapshot_create(&str, &str, bool, bool) -> van
 pub fn vantadb::cli_handlers::cmd_snapshot_list(&str, bool) -> vantadb::error::Result<()>
 pub fn vantadb::cli_handlers::cmd_stats(&str, bool, bool) -> vantadb::error::Result<()>
 pub fn vantadb::cli_handlers::cmd_status(&str, bool, bool) -> vantadb::error::Result<()>
+pub fn vantadb::cli_handlers::cmd_verify(&str, bool) -> vantadb::error::Result<i32>
 pub fn vantadb::cli_handlers::cmd_wal_compact(&str, bool) -> vantadb::error::Result<()>
 pub fn vantadb::cli_handlers::cmd_wal_salvage(&str, bool, bool) -> vantadb::error::Result<()>
 pub fn vantadb::cli_handlers::cmd_wal_vacuum(&str, bool) -> vantadb::error::Result<()>
@@ -4868,6 +4871,54 @@ pub fn vantadb::schema::load_or_create_schema(&std::path::Path) -> vantadb::erro
 pub mod vantadb::sdk
 pub mod vantadb::sdk::connect
 pub fn vantadb::sdk::connect::connect(&str) -> vantadb::error::Result<vantadb::Embedded>
+pub mod vantadb::sdk::importers
+pub mod vantadb::sdk::importers::letta
+pub fn vantadb::sdk::importers::letta::convert_file(impl core::convert::AsRef<std::path::Path>) -> vantadb::error::Result<vantadb::sdk::importers::Conversion>
+pub fn vantadb::sdk::importers::letta::convert_str(&str) -> vantadb::error::Result<vantadb::sdk::importers::Conversion>
+pub mod vantadb::sdk::importers::mem0
+pub fn vantadb::sdk::importers::mem0::convert_file(impl core::convert::AsRef<std::path::Path>) -> vantadb::error::Result<vantadb::sdk::importers::Conversion>
+pub fn vantadb::sdk::importers::mem0::convert_str(&str) -> vantadb::error::Result<vantadb::sdk::importers::Conversion>
+pub mod vantadb::sdk::importers::zep
+pub fn vantadb::sdk::importers::zep::convert_file(impl core::convert::AsRef<std::path::Path>) -> vantadb::error::Result<vantadb::sdk::importers::Conversion>
+pub fn vantadb::sdk::importers::zep::convert_str(&str) -> vantadb::error::Result<vantadb::sdk::importers::Conversion>
+pub struct vantadb::sdk::importers::Conversion
+pub vantadb::sdk::importers::Conversion::lines: alloc::vec::Vec<vantadb::sdk::MemoryExportLine>
+pub vantadb::sdk::importers::Conversion::stats: vantadb::sdk::importers::ConversionStats
+impl vantadb::sdk::importers::Conversion
+pub fn vantadb::sdk::importers::Conversion::into_records(self) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemoryRecord>>
+pub fn vantadb::sdk::importers::Conversion::write_jsonl(&self, impl core::convert::AsRef<std::path::Path>) -> vantadb::error::Result<()>
+impl core::clone::Clone for vantadb::sdk::importers::Conversion
+pub fn vantadb::sdk::importers::Conversion::clone(&self) -> vantadb::sdk::importers::Conversion
+impl core::fmt::Debug for vantadb::sdk::importers::Conversion
+pub fn vantadb::sdk::importers::Conversion::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Freeze for vantadb::sdk::importers::Conversion
+impl core::marker::Send for vantadb::sdk::importers::Conversion
+impl core::marker::Sync for vantadb::sdk::importers::Conversion
+impl core::marker::Unpin for vantadb::sdk::importers::Conversion
+impl core::marker::UnsafeUnpin for vantadb::sdk::importers::Conversion
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::sdk::importers::Conversion
+impl core::panic::unwind_safe::UnwindSafe for vantadb::sdk::importers::Conversion
+pub struct vantadb::sdk::importers::ConversionStats
+pub vantadb::sdk::importers::ConversionStats::converted: u64
+pub vantadb::sdk::importers::ConversionStats::discarded: alloc::collections::btree::map::BTreeMap<alloc::string::String, u64>
+pub vantadb::sdk::importers::ConversionStats::skipped: u64
+impl core::clone::Clone for vantadb::sdk::importers::ConversionStats
+pub fn vantadb::sdk::importers::ConversionStats::clone(&self) -> vantadb::sdk::importers::ConversionStats
+impl core::cmp::Eq for vantadb::sdk::importers::ConversionStats
+impl core::cmp::PartialEq for vantadb::sdk::importers::ConversionStats
+pub fn vantadb::sdk::importers::ConversionStats::eq(&self, &vantadb::sdk::importers::ConversionStats) -> bool
+impl core::default::Default for vantadb::sdk::importers::ConversionStats
+pub fn vantadb::sdk::importers::ConversionStats::default() -> vantadb::sdk::importers::ConversionStats
+impl core::fmt::Debug for vantadb::sdk::importers::ConversionStats
+pub fn vantadb::sdk::importers::ConversionStats::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vantadb::sdk::importers::ConversionStats
+impl core::marker::Freeze for vantadb::sdk::importers::ConversionStats
+impl core::marker::Send for vantadb::sdk::importers::ConversionStats
+impl core::marker::Sync for vantadb::sdk::importers::ConversionStats
+impl core::marker::Unpin for vantadb::sdk::importers::ConversionStats
+impl core::marker::UnsafeUnpin for vantadb::sdk::importers::ConversionStats
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::sdk::importers::ConversionStats
+impl core::panic::unwind_safe::UnwindSafe for vantadb::sdk::importers::ConversionStats
 #[non_exhaustive] pub enum vantadb::sdk::AbstentionReason
 pub vantadb::sdk::AbstentionReason::AllQuarantined
 pub vantadb::sdk::AbstentionReason::NoCandidatesAboveThreshold

@@ -1,11 +1,13 @@
-//! WAL command handlers — compact, vacuum, salvage.
+//! WAL command handlers — compact, vacuum, salvage, verify.
 
 use console::Term;
+use std::path::Path;
 use web_time::Instant;
 
 use crate::cli_handlers::fmt::{header_style, success_style};
 use crate::cli_handlers::{create_spinner, open_embedded, print_error, print_json, print_success};
 use crate::error::Result;
+use crate::wal::{WalVerifyReport, WalVerifyStatus};
 
 #[tracing::instrument]
 /// Compact the WAL: flush all data, archive the current WAL file, start a fresh one.
@@ -265,4 +267,157 @@ pub fn cmd_wal_salvage(db_path: &str, dry_run: bool, json_output: bool) -> Resul
     ));
     print_success("WAL salvage complete");
     Ok(())
+}
+
+#[tracing::instrument]
+/// Verify the WAL hash-chain integrity (VER-01, tamper-evident).
+///
+/// Read-only and offline: walks every on-disk shard of `<db>/data/vanta.wal`
+/// without opening the engine (works on a closed/locked DB). Detects altered
+/// records (even with a recomputed CRC), removed/inserted/reordered records
+/// (chain link break) and frame damage, reporting the exact byte offset +
+/// 1-based record index. Legacy (pre-chain v1/v2) files are reported
+/// explicitly, never as tampering.
+///
+/// Exit code: 0 = verified / legacy / crash-tail only; 1 = tampered or corrupt.
+/// `docs/api/` documents the chain's coverage and its limits (clean-boundary
+/// truncation, consistent whole-file rewrite and whole-segment deletion are
+/// undetectable without an external anchor — v1.0 follow-up).
+pub fn cmd_verify(db_path: &str, json_output: bool) -> Result<i32> {
+    let term = Term::stdout();
+    if !json_output {
+        let _ = term.write_line("");
+        let _ = term.write_line(&format!(
+            "{}",
+            header_style()
+                .apply_to("╔═══════════════════════════════════════════════════════════╗")
+        ));
+        let _ = term.write_line(&format!(
+            "{}",
+            header_style().apply_to("║           VantaDB WAL Verify (tamper-evident)            ║")
+        ));
+        let _ = term.write_line(&format!(
+            "{}",
+            header_style()
+                .apply_to("╚═══════════════════════════════════════════════════════════╝")
+        ));
+        let _ = term.write_line("");
+    }
+
+    let wal_base = Path::new(db_path).join("data").join("vanta.wal");
+    let num_shards = crate::wal_sharded::detect_shard_count(&wal_base)
+        .or_else(|| crate::wal_sharded::read_shard_meta(&wal_base))
+        .unwrap_or(4)
+        .max(1);
+
+    let spinner = create_spinner("Verifying WAL hash-chain (read-only)...");
+    let (reports, incoherence) = crate::wal_sharded::verify_shards(&wal_base, num_shards)?;
+    spinner.finish_and_clear();
+
+    let ok = reports.iter().all(|r| r.status.is_ok()) && incoherence.is_none();
+    let exit_code = if ok { 0 } else { 1 };
+
+    if json_output {
+        let result = serde_json::json!({
+            "command": "verify",
+            "ok": ok,
+            "wal": wal_base.display().to_string(),
+            "shards": reports.iter().map(status_json).collect::<Vec<_>>(),
+            "shard_counts_coherent": incoherence.is_none(),
+            "shard_coherence_error": incoherence,
+        });
+        print_json(&result)?;
+        return Ok(exit_code);
+    }
+
+    if reports.is_empty() {
+        let _ = term.write_line(&format!("│  No WAL files found at {}", wal_base.display()));
+        print_success("Nothing to verify");
+        return Ok(0);
+    }
+
+    for report in &reports {
+        let _ = term.write_line(&format!(
+            "│  File:    {} (format v{})",
+            report.path.display(),
+            report.format_version
+        ));
+        let _ = term.write_line(&format!("│  Records: {}", report.records));
+        match &report.status {
+            WalVerifyStatus::Verified => {
+                let _ = term.write_line("│  Status:  ✓ chain verified (SHA-256)");
+            }
+            WalVerifyStatus::Legacy => {
+                let _ = term.write_line(
+                    "│  Status:  • legacy format (pre-chain) — CRC walk only, no chain to verify",
+                );
+            }
+            WalVerifyStatus::Tampered {
+                offset,
+                record,
+                reason,
+            } => {
+                let _ = term.write_line(&format!(
+                    "│  Status:  ✗ TAMPERED at record {record} (offset {offset}): {reason}"
+                ));
+            }
+            WalVerifyStatus::Corrupt {
+                offset,
+                record,
+                reason,
+            } => {
+                let _ = term.write_line(&format!(
+                    "│  Status:  ✗ CORRUPT at record {record} (offset {offset}): {reason}"
+                ));
+            }
+            WalVerifyStatus::IncompleteTail { offset } => {
+                let _ = term.write_line(&format!(
+                    "│  Status:  △ incomplete tail at offset {offset} (unclean shutdown; recovery will quarantine)"
+                ));
+            }
+        }
+        let _ = term.write_line("");
+    }
+    if let Some(msg) = &incoherence {
+        let _ = term.write_line(&format!("│  ✗ Shard layout incoherent: {msg}"));
+        let _ = term.write_line("");
+    }
+
+    if ok {
+        print_success("WAL hash-chain verified");
+    } else {
+        print_error("WAL integrity FAILED — positions above");
+    }
+    Ok(exit_code)
+}
+
+/// JSON projection of one per-file verification report.
+fn status_json(report: &WalVerifyReport) -> serde_json::Value {
+    let mut value = serde_json::json!({
+        "path": report.path.display().to_string(),
+        "format_version": report.format_version,
+        "records": report.records,
+        "status": report.status.as_str(),
+    });
+    match &report.status {
+        WalVerifyStatus::Tampered {
+            offset,
+            record,
+            reason,
+        }
+        | WalVerifyStatus::Corrupt {
+            offset,
+            record,
+            reason,
+        } => {
+            value["offset"] = serde_json::json!(offset);
+            value["record"] = serde_json::json!(record);
+            value["reason"] = serde_json::json!(reason);
+        }
+        WalVerifyStatus::IncompleteTail { offset } => {
+            value["offset"] = serde_json::json!(offset);
+        }
+        WalVerifyStatus::Verified | WalVerifyStatus::Legacy => {}
+    }
+    value
 }

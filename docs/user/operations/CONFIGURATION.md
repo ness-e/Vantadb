@@ -396,6 +396,7 @@ The CLI uses the embedded core directly and does not require the optional HTTP s
 | `wal compact` | Compact the WAL: flush all data, archive the current WAL file, and start a fresh one |
 | `wal vacuum` | Remove tombstoned nodes from HNSW and reclaim space |
 | `wal salvage [--dry-run]` | Salvage a truncated sharded WAL (explicit opt-in): replay the coherent prefix and report explicit discards (tails quarantined to `<shard>.salvage[.N]`); `--dry-run` previews without mutating |
+| `verify [--json]` | Verify the WAL hash-chain integrity (tamper-evident, VER-01): detects altered or removed records with their exact position; read-only (no engine open); exit code ≠0 when integrity fails |
 | `server [--http] [--mcp] [--port <N>] [--host <host>] [--dashboard-dir <dir>]` | Start the HTTP or MCP server wrapper; `--dashboard-dir` (env `VANTADB_DASHBOARD_DIR`) serves the Vanta Studio static console at `/dashboard` (WEB-03) |
 | `mcp-call --tool <name> [--args <json>] [--timeout-secs <N>]` | Call one MCP tool through a one-shot stdio server (no pwsh): prints the tool `result` verbatim; exit 0 ok, 1 infra, 2 tool error; `--args` supports `{{dotted.path}}` placeholders resolved against hook-input JSON on stdin |
 | `repl` | Interactive rustyline REPL with tab autocomplete |
