@@ -807,11 +807,11 @@ pub struct Config {
     /// per-request `min_confidence` filter (which never emits the signal).
     /// Configured via `VANTADB_CONFIDENCE_THRESHOLD`.
     ///
-    /// NOTE (SCH-05 review F5): the `abstained` signal currently travels only
-    /// on the SDK wire (`MemorySearchPage`). HTTP `SearchPageV2`, MCP search
-    /// and the bindings do **not** propagate it yet (SCH-07, Task 32) — do not
-    /// enable this knob on the server/MCP until SCH-07 lands, or the signal
-    /// would die silently at the surface.
+    /// SCH-07 (Task 32) propagation: the `abstained` signal travels on the SDK
+    /// wire (`MemorySearchPage`), the single-namespace HTTP `SearchPageV2` and
+    /// the MCP search envelope (`structuredContent`). The array-shaped binding
+    /// APIs (Py/TS/Node/WASM) have no page to carry it — declared in
+    /// `docs/api/BINDINGS_NAMESPACES.md`.
     pub confidence_threshold: Option<f32>,
     /// Interval in ms for the background TTL sweeper, which physically purges
     /// expired memory records (nodes + derived/text indexes) on the server:

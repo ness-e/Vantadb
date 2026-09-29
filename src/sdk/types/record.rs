@@ -360,6 +360,11 @@ pub struct MemoryListOptions {
     /// `exclude_superseded`. Opt-in with `true` to inspect the quarantine queue.
     #[serde(default)]
     pub include_quarantined: bool,
+    /// Opt-in confidence filter (ADR-046 §D2, SCH-07): keep only records whose
+    /// `confidence` is `>= min_confidence` (finite, within `[0, 1]` — validated
+    /// at the boundary, never clamped). `None` = no filter (default unchanged).
+    #[serde(default)]
+    pub min_confidence: Option<f32>,
 }
 
 impl Default for MemoryListOptions {
@@ -374,6 +379,7 @@ impl Default for MemoryListOptions {
             as_of_ms: None,
             valid_window: None,
             include_quarantined: false,
+            min_confidence: None,
         }
     }
 }
@@ -747,6 +753,7 @@ mod tests {
             as_of_ms: None,
             valid_window: None,
             include_quarantined: false,
+            min_confidence: None,
         };
         assert_eq!(opts.limit, 50);
         assert_eq!(opts.cursor, Some(10));

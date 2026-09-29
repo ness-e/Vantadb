@@ -95,6 +95,9 @@ def test_search_multi_signature_matches_matrix():
         "exclude_superseded",
         "query_sparse",  # WIRE-03: sparse parity (additive, end of signature)
         "min_confidence",  # SCH-04: confidence filter (additive, end of signature)
+        "as_of_ms",  # SCH-07: valid-time point (ADR-046 §D3)
+        "valid_window",  # SCH-07: valid-time window overlap
+        "include_quarantined",  # SCH-07: quarantine view (ADR-046 §D5)
     ], f"search_multi params {params} drifted from the W1 matrix"
 
 

@@ -421,8 +421,17 @@ pub(crate) fn text_content_structured(value: &impl Serialize) -> Value {
 /// `budget_value` helper trims trailing hits if the array alone exceeds
 /// `byte_budget`.
 ///
-/// Kept for tests and potential future use (e.g., other search tools).
-pub(crate) fn text_content_hits_with_budget<T: Serialize>(hits: &T, byte_budget: usize) -> Value {
+/// SCH-07: `abstention` carries `(abstained, reason_code)` for the
+/// page-shaped search tools (`memory_search`, `search_with_method`) — the
+/// stable signal lands in `structuredContent` (`abstained` +
+/// `abstention_reason`) so an emptied page is never silent. Callers with no
+/// abstention concept (`search_semantic`) pass `None` and keep the historic
+/// envelope shape unchanged.
+pub(crate) fn text_content_hits_with_budget<T: Serialize>(
+    hits: &T,
+    byte_budget: usize,
+    abstention: Option<(bool, Option<&str>)>,
+) -> Value {
     // Serialize the raw hits into the text payload (preserves the array
     // shape clients and tests expect).
     let text_hits = serde_json::to_value(hits).unwrap_or_else(|e| {
@@ -441,8 +450,8 @@ pub(crate) fn text_content_hits_with_budget<T: Serialize>(hits: &T, byte_budget:
     });
 
     // structuredContent: the new envelope (machine-readable) carrying
-    // hits + budget metadata.
-    let structured = match budgeted_hits {
+    // hits + budget metadata (+ the abstention signal when provided).
+    let mut structured = match budgeted_hits {
         Value::Array(arr) => json!({
             "hits": arr,
             "byte_count": byte_count,
@@ -454,6 +463,16 @@ pub(crate) fn text_content_hits_with_budget<T: Serialize>(hits: &T, byte_budget:
             "truncated": truncated,
         }),
     };
+    if let (Some((abstained, reason)), Some(map)) = (abstention, structured.as_object_mut()) {
+        map.insert("abstained".to_string(), json!(abstained));
+        map.insert(
+            "abstention_reason".to_string(),
+            match reason {
+                Some(code) => json!(code),
+                None => Value::Null,
+            },
+        );
+    }
 
     json!({
         "content": [{"type": "text", "text": text}],
@@ -645,6 +664,7 @@ pub(crate) fn for_each_record(
             as_of_ms: None,
             valid_window: None,
             include_quarantined: true,
+            min_confidence: None,
         };
         match embedded.list(namespace, options) {
             Ok(page) => {
@@ -872,7 +892,7 @@ mod tests {
             {"record": {"key": "a"}, "score": 0.9},
             {"record": {"key": "b"}, "score": 0.5},
         ]);
-        let envelope = text_content_hits_with_budget(&hits, 10 * 1024);
+        let envelope = text_content_hits_with_budget(&hits, 10 * 1024, None);
         let text = envelope["content"][0]["text"].as_str().unwrap();
         // Text payload must parse as a JSON array (preserved shape).
         let parsed: serde_json::Value = serde_json::from_str(text).unwrap();
@@ -896,6 +916,27 @@ mod tests {
                 .unwrap()
                 > 0
         );
+        // No abstention → the historic envelope shape is untouched.
+        assert!(envelope["structuredContent"]["abstained"].is_null());
+    }
+
+    /// SCH-07: when an abstention signal is provided, the structured envelope
+    /// carries `abstained` + the stable `abstention_reason` code.
+    #[test]
+    fn text_content_hits_with_budget_carries_abstention_signal() {
+        let hits = serde_json::json!([]);
+        let envelope = text_content_hits_with_budget(
+            &hits,
+            10 * 1024,
+            Some((true, Some("no_candidates_above_threshold"))),
+        );
+        assert_eq!(envelope["structuredContent"]["abstained"], true);
+        assert_eq!(
+            envelope["structuredContent"]["abstention_reason"],
+            "no_candidates_above_threshold"
+        );
+        // Text payload stays the raw (empty) hits array.
+        assert_eq!(envelope["content"][0]["text"], "[]");
     }
 
     /// MCP-39: when the hits array exceeds the byte budget, the helper
@@ -909,7 +950,7 @@ mod tests {
             {"record": {"key": "b", "payload": big.clone()}},
             {"record": {"key": "c", "payload": big.clone()}},
         ]);
-        let envelope = text_content_hits_with_budget(&hits, 600);
+        let envelope = text_content_hits_with_budget(&hits, 600, None);
         assert_eq!(envelope["structuredContent"]["truncated"], true);
         let text = envelope["content"][0]["text"].as_str().unwrap();
         let parsed: serde_json::Value = serde_json::from_str(text).unwrap();

@@ -230,6 +230,10 @@ db.search_multi(
     explain: bool = False,
     exclude_superseded: bool = False,
     query_sparse: Optional[dict] = None,
+    min_confidence: Optional[float] = None,
+    as_of_ms: Optional[int] = None,
+    valid_window: Optional[dict] = None,
+    include_quarantined: bool = False,
 ) -> List[SearchHit]
 ```
 
@@ -267,9 +271,13 @@ db.memory.list(
     limit: int = 100,
     cursor: Optional[int] = None,
     exclude_superseded: bool = False,
+    as_of_ms: Optional[int] = None,
+    valid_window: Optional[dict] = None,
+    include_quarantined: bool = False,
+    min_confidence: Optional[float] = None,
 ) -> ListResult
 ```
-Returns a `ListResult` object with `.records`, `.total_count`, and `.next_cursor`. Supports `__getitem__` for dict-style access (`result["records"]`, `result["next_cursor"]`) and `__iter__` for record iteration.
+Returns a `ListResult` object with `.records`, `.total_count`, and `.next_cursor`. Supports `__getitem__` for dict-style access (`result["records"]`, `result["next_cursor"]`) and `__iter__` for record iteration. The SCH-07 v2 params (`as_of_ms`, `valid_window` `{"from_ms", "to_ms"}`, `include_quarantined`, `min_confidence`) mirror the SDK wire names (ADR-046 §D2/§D3/§D5).
 
 ```python
 page = db.memory.list("ns", limit=10)
@@ -294,6 +302,10 @@ db.memory.search(
     explain: bool = False,
     exclude_superseded: bool = False,
     query_sparse: Optional[dict] = None,
+    min_confidence: Optional[float] = None,
+    as_of_ms: Optional[int] = None,
+    valid_window: Optional[dict] = None,
+    include_quarantined: bool = False,
 ) -> List[SearchHit]
 ```
 Search namespace-scoped persistent memory records by vector + filters + text_query.
@@ -309,7 +321,14 @@ hits = db.search("ns", [0.1] * 384, query_sparse={7: 1.5, 42: 0.75})
 
 The `method` parameter accepts `"ivf"`, `"scann"`, `"flat"`, or `"hnsw"` to explicitly override the dense-vector index backend. `None` (default) keeps automatic engine routing.
 
-The `exclude_superseded` parameter (default `False`) controls whether superseded records are filtered from results (ADR-0028).
+The `exclude_superseded` parameter (default `False`) controls whether superseded records are filtered from results (ADR-0028); it also drops records whose validity window already ended (`invalid_at_ms <= now`, ADR-046 §D3-6). The SCH-07 v2 params: `min_confidence` (opt-in floor in `[0, 1]`; out-of-range is rejected, never clamped), `as_of_ms` (valid-time point), `valid_window` (`{"from_ms", "to_ms"}` half-open overlap), `include_quarantined` (default `False`; quarantined records are excluded from search/list/retrieval, while `get` always returns them with visible state).
+
+`Record` and `SearchHit` expose the v2 fields as typed getters (same wire names):
+`valid_at_ms`, `invalid_at_ms`, `confidence_class`, `confidence`,
+`last_validated_at_ms`, `derived_from`, `quarantined_at_ms`,
+`quarantine_reason`, `quarantined_by`, `quarantine_review_due_ms`. `Record`
+also mirrors them in `__getitem__`. Semantics and calibration limits:
+[`scores.md`](scores.md).
 #### `search_vector()`
 ```python
 db.search_vector(
@@ -476,9 +495,14 @@ db.search(
     method: Optional[str] = None,
     explain: bool = False,
     exclude_superseded: bool = False,
+    query_sparse: Optional[dict] = None,
+    min_confidence: Optional[float] = None,
+    as_of_ms: Optional[int] = None,
+    valid_window: Optional[dict] = None,
+    include_quarantined: bool = False,
 ) -> List[SearchHit]
 ```
-Flat alias of `db.memory.search()` — hybrid memory search over a namespace (vector + BM25 fused via RRF). AST-008: ex-`search_memory`; pure ANN over graph nodes is `search_vector()`.
+Flat alias of `db.memory.search()` — hybrid memory search over a namespace (vector + BM25 fused via RRF). AST-008: ex-`search_memory`; pure ANN over graph nodes is `search_vector()`. Same SCH-07 v2 params as `memory.search()` (see above).
 
 ```python
 hits = db.search("ns", query_vector=[0.1] * 384, top_k=5)

@@ -51,6 +51,7 @@ fn corrupt_state_and_missing_entries_rebuild_on_reopen() {
                 as_of_ms: None,
                 valid_window: None,
                 include_quarantined: false,
+                min_confidence: None,
             },
         )
         .expect("filtered after repair");

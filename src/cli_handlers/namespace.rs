@@ -109,6 +109,7 @@ pub fn cmd_namespace_info(db_path: &str, namespace: &str, json_output: bool) -> 
         as_of_ms: None,
         valid_window: None,
         include_quarantined: true,
+        min_confidence: None,
     };
     let page = db.list(namespace, options)?;
     spinner.finish_and_clear();

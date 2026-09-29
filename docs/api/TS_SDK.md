@@ -319,8 +319,27 @@ interface SearchRequest {
   top_k?: number;               // default: 10
   distance_metric?: "Cosine" | "Euclidean";  // default: "Cosine"
   explain?: boolean;            // include score breakdown
+  exclude_superseded?: boolean; // hide superseded + ended-window records (ADR-028/§D3-6)
+  min_confidence?: number;      // opt-in confidence floor [0, 1] (ADR-046 §D2)
+  as_of_ms?: number;            // valid-time point (ADR-046 §D3, SCH-07)
+  valid_window?: ValidWindow;   // {from_ms, to_ms} half-open overlap (SCH-07)
+  include_quarantined?: boolean;// quarantine view, default false (ADR-046 §D5)
 }
+
+interface ValidWindow { from_ms: number; to_ms: number }
 ```
+
+**v2 params (SCH-07, ADR-046):** `as_of_ms` / `valid_window` filter on the
+valid-time axis (start inclusive, end exclusive); `include_quarantined` opts
+into the quarantine view (default excludes quarantined records);
+`min_confidence` is a confidence floor in `[0, 1]` rejected (never clamped)
+when out of range. The same fields exist on `ListOptions` for `list()`, plus
+`min_confidence`. `MemoryRecord` exposes the v2 fields (`valid_at_ms`,
+`invalid_at_ms`, `confidence_class`, `confidence`, `last_validated_at_ms`,
+`derived_from`, `quarantined_at_ms`, `quarantine_reason`, `quarantined_by`,
+`quarantine_review_due_ms`); the wire stays additive — old payloads without
+them remain valid. The selective-abstention signal is page-shaped and lives on
+the HTTP/MCP envelopes only (see [`BINDINGS_NAMESPACES.md`](BINDINGS_NAMESPACES.md)).
 
 **Text-only and sparse (WIRE-03):** an empty `query_vector` with `text_query`
 selects text-only (BM25) search. `query_sparse` is fused with the dense/text

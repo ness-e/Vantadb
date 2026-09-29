@@ -80,8 +80,9 @@ CRUD operations for persistent memory records identified by `(namespace, key)` p
 | `list(namespace, options)` | List records in a namespace with cursor pagination. Returns `MemoryListPage` |
 | `list_namespaces()` | List all namespaces. Returns `Vec<String>` |
 | `search(request: MemorySearchRequest)` | [hybrid-search](../user/glosario/hybrid-search.md) (vector + lexical) search. Returns `Vec<MemorySearchHit>` |
-| `search_page(request: MemorySearchRequest)` | Same pipeline as `search` with cursor-based pagination (WIRE-08). Returns `MemorySearchPage { hits, next_cursor }`: `next_cursor` is `Some` only when the page is full (`hits.len() == top_k`); a short page is the last page. Resume by passing the token back in `MemorySearchRequest::cursor` — the next page returns hits after the last returned hit's identity in the current ranking. Resume is **best-effort, not a snapshot**: a hit returned in a previous page can be returned again (or skipped) when interleaved writes reorder its rank across the anchor (BM25/IDF are recalculated corpus-wide on every write); writes that rank *before* the anchor are never duplicated. The token is bound to the request's plan fingerprint (mismatch → `SEARCH_CURSOR_INVALID`) and to the current process; pagination is rejected with `mmr`/`group_by`. See [[SEARCH_PARITY\|SEARCH_PARITY]] for the Milvus/Qdrant mapping |
+| `search_page(request: MemorySearchRequest)` | Same pipeline as `search` with cursor-based pagination (WIRE-08). Returns `MemorySearchPage { hits, next_cursor, abstained, abstention_reason }`: `next_cursor` is `Some` only when the page is full (`hits.len() == top_k`); a short page is the last page. `abstained`/`abstention_reason` carry the selective-abstention signal (ADR-046 §D2, SCH-07) when the configured `confidence_threshold` empties the page. Resume by passing the token back in `MemorySearchRequest::cursor` — the next page returns hits after the last returned hit's identity in the current ranking. Resume is **best-effort, not a snapshot**: a hit returned in a previous page can be returned again (or skipped) when interleaved writes reorder its rank across the anchor (BM25/IDF are recalculated corpus-wide on every write); writes that rank *before* the anchor are never duplicated. The token is bound to the request's plan fingerprint (mismatch → `SEARCH_CURSOR_INVALID`) and to the current process; pagination is rejected with `mmr`/`group_by`. See [[SEARCH_PARITY\|SEARCH_PARITY]] for the Milvus/Qdrant mapping |
 | `search_with_method(request, method)` | Same as `search` with an explicit index backend override for the dense-vector portion: `Some(IndexType::Ivf)` / `Some(IndexType::Scann)` / `Some(IndexType::Flat)` / `Some(IndexType::Hnsw)`. `None` (default) keeps automatic engine routing untouched; the shared engine config is never mutated (thread-safe, per-search override) |
+| `search_page_with_method(request, method)` | SCH-07: the page-shaped mirror of `search_with_method` — same hits as `search_with_method` plus the `MemorySearchPage` envelope (`next_cursor`, `abstained`, `abstention_reason`). Used by page-shaped transports (MCP `search_with_method`) so the abstention signal is never dropped at the `Vec` edge |
 | `search_with_entity_boost(request, boost)` | Same as `search` with the opt-in deterministic entity-cluster boost (WIRE-05). Hits sharing an entity cluster with other fused candidates receive an additive delta (`weight × peers × 1/(rrf_k+1)`) before the final ranking. Returns `EntityBoostedSearch { hits, boost_report }` with per-hit provenance (cluster, peers, `base_score`, `delta`) — reversible, no stored data mutated; an empty `EntityBoost` is byte-identical to `search`. Single-channel routes (text-only/vector-only/sparse-only) are returned unchanged |
 | `search_multi(namespaces, request)` | Search across multiple namespaces, merging results by descending score, capped at `request.top_k`. Namespaces that produce no results or fail validation are silently skipped; an empty `namespaces` slice returns an empty `Vec` |
 | `similar_to_key(namespace, key, top_k)` | Vector similarity search from an existing record's vector, post-filtered to `namespace`. Errors `NotFound` if the key does not exist and `NoVectorForKey` if the record carries no vector |
@@ -110,8 +111,18 @@ pub struct MemoryInput {
     pub metadata: MemoryMetadata,  // BTreeMap<String, Value>
     pub vector: Option<Vec<f32>>,       // 384-dim embedding
     pub ttl_ms: Option<u64>,            // auto-expiry in ms from now
+    // v2 (ADR-046 §D2, SCH-02/SCH-05) — all optional, additive:
+    pub valid_at_ms: Option<u64>,             // valid-time start (default: created_at)
+    pub confidence_class: Option<ConfidenceClass>, // Asserted (default) | Derived
+    pub confidence: Option<f32>,              // asserted only; derived scores are computed
+    pub derived_from: Option<Vec<String>>,    // required non-empty when Derived
+    pub quarantine: bool,                     // T1 write-time quarantine (default false)
 }
 ```
+
+Records written as `Derived` must declare `derived_from` (≥1 same-namespace parent
+key) and must **not** declare `confidence` — the engine computes
+`min(parents) × 0.9` (ADR-046 §D4a/D4b; violations are `Validation` errors).
 
 ### `MemorySearchRequest`
 
@@ -125,7 +136,11 @@ pub struct MemorySearchRequest {
     pub top_k: usize,                 // default: 10
     pub distance_metric: DistanceMetric, // Cosine (default) or Euclidean
     pub explain: bool,                // include score breakdown
-    pub exclude_superseded: bool,     // ADR-0028 soft-delete filter
+    pub exclude_superseded: bool,     // ADR-0028 soft-delete filter (+ ended windows, ADR-046 §D3-6)
+    pub min_confidence: Option<f32>,  // SCH-04: opt-in confidence floor [0, 1]
+    pub as_of_ms: Option<u64>,        // SCH-03: valid-time point (ADR-046 §D3)
+    pub valid_window: Option<ValidWindow>, // SCH-03: { from_ms, to_ms } overlap
+    pub include_quarantined: bool,    // SCH-05: quarantine view (default false)
     pub search_profile: Option<SearchProfileConfig>, // MEM-01 (mode, rrf_k, candidate_k)
     pub range: Option<RangeFilter>,   // WIRE-08: score bounds [min_score, max_score]
     pub group_by: Option<GroupByConfig>, // WIRE-08: { field, group_size }
@@ -136,6 +151,16 @@ pub struct MemorySearchRequest {
 
 *Note: Lexical search uses the [BM25](../user/glosario/bm25.md) algorithm.*
 
+#### v2 search options (ADR-046, SCH-03/04/05)
+
+| Field | Contract |
+|-------|----------|
+| `as_of_ms: Option<u64>` | Valid-time point: keep only records valid at that instant, `valid_at_ms <= T < invalid_at_ms` (start inclusive, end exclusive). The **valid-time** axis — not transaction time. `None` = no filter (default unchanged) |
+| `valid_window: ValidWindow { from_ms, to_ms }` | Valid-time window **overlap** filter: keep records whose `[valid_at_ms, invalid_at_ms)` intersects `[from_ms, to_ms)`. `from_ms < to_ms` is validated at the boundary (`SEARCH_OPTIONS_INVALID`). `None` = no filter |
+| `min_confidence: Option<f32>` | Opt-in confidence floor: keep only hits whose record `confidence >= min_confidence` (finite, within `[0, 1]`; rejected otherwise — never clamped). Does **not** emit the abstention signal (that is `Config::confidence_threshold`) |
+| `include_quarantined: bool` | Quarantine view: `false` (default) excludes quarantined records from search/list/retrieval; `true` includes them. `get` always returns a quarantined record with visible state — never a silent 404 |
+| `exclude_superseded` (extended) | Beyond ADR-028 supersession, also drops records whose validity window ended (`invalid_at_ms <= now`). The reference instant is read once per request |
+
 #### WIRE-08 search options
 
 | Field | Contract |
@@ -145,7 +170,13 @@ pub struct MemorySearchRequest {
 | `mmr: MmrConfig { lambda, fetch_k }` | Maximal Marginal Relevance reranking: `lambda` in `[0, 1]` (default `0.5`; `1.0` = pure relevance = identity order, `0.0` = pure diversity). `fetch_k` is the candidate window (default `top_k * 5`, clamped to `[top_k, 16384]`). Relevance is min-max normalized inside the window so `lambda` is comparable across fusion routes; diversity uses cosine between the records' dense vectors (records without vectors compete on relevance only). Mutually exclusive with `cursor` |
 | `cursor: Option<String>` | Opaque continuation token returned by `search_page`. Valid only for the same plan fingerprint (namespace, query, filters, metric, profile, range) and the same process — never persist or parse it. Resuming skips past the anchor hit's identity; the fetch window grows (bounded by 10 000) to compensate for writes that landed before the anchor. Mutually exclusive with `mmr`/`group_by` |
 
-`search_page` returns `MemorySearchPage { hits: Vec<MemorySearchHit>, next_cursor: Option<String> }`.
+`search_page`/`search_page_with_method` return
+`MemorySearchPage { hits: Vec<MemorySearchHit>, next_cursor: Option<String>, abstained: bool, abstention_reason: Option<AbstentionReason> }`.
+When `Config::confidence_threshold` is set and every candidate falls below it,
+`abstained = true` and `abstention_reason` carries the stable code
+(`no_candidates_above_threshold` | `all_quarantined`) — never a silent empty
+page. The signal also propagates to the single-namespace HTTP `SearchPageV2`
+and the MCP search envelope (SCH-07); array-shaped binding APIs have no page.
 
 ### `MemoryRecord`
 
@@ -161,6 +192,17 @@ pub struct MemoryRecord {
     pub node_id: u128,
     pub vector: Option<Vec<f32>>,
     pub expires_at_ms: Option<u64>,
+    // v2 (ADR-046 §D2, SCH-02/SCH-05) — all serde-defaulted:
+    pub valid_at_ms: u64,                    // start of the validity window
+    pub invalid_at_ms: Option<u64>,          // end (exclusive); None = open
+    pub confidence_class: ConfidenceClass,   // Asserted | Derived
+    pub confidence: f32,                     // [0, 1]; D_a = 1.0 for asserted
+    pub last_validated_at_ms: Option<u64>,   // last successful re-validation
+    pub derived_from: Vec<String>,           // parent keys (derived only)
+    pub quarantined_at_ms: Option<u64>,      // Some(t) = quarantined since t
+    pub quarantine_reason: Option<String>,   // explicit_write | unreviewed_import | ...
+    pub quarantined_by: Option<String>,      // principal or system:<op>
+    pub quarantine_review_due_ms: Option<u64>, // T3 review deadline (never auto-promotes)
 }
 ```
 
@@ -524,8 +566,14 @@ pub enum Value {
 ```rust
 pub struct MemoryListOptions {
     pub filters: MemoryMetadata,  // equality filter on metadata fields
+    pub filter_ops: Option<MemoryFilter>, // operator filters ($gt/$gte/...)
     pub limit: usize,                  // max records to return (default: 100)
     pub cursor: Option<usize>,         // pagination cursor from previous page
+    pub exclude_superseded: bool,      // drop superseded + ended windows
+    pub as_of_ms: Option<u64>,         // v2: valid-time point (SCH-03)
+    pub valid_window: Option<ValidWindow>, // v2: { from_ms, to_ms } overlap
+    pub include_quarantined: bool,     // v2: quarantine view (SCH-05)
+    pub min_confidence: Option<f32>,   // v2: confidence floor [0, 1] (SCH-07)
 }
 ```
 

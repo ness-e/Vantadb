@@ -60,6 +60,7 @@ pub fn cmd_export(
                     as_of_ms: None,
                     valid_window: None,
                     include_quarantined: true,
+                    min_confidence: None,
                 },
             )
             .map(|p| !p.records.is_empty())
@@ -100,6 +101,7 @@ pub fn cmd_export(
                 as_of_ms: None,
                 valid_window: None,
                 include_quarantined: true,
+                min_confidence: None,
             };
             let page = embedded.list(ns, opts)?;
             if page.records.is_empty() {

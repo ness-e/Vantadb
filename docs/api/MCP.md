@@ -286,7 +286,7 @@ VANTADB_MCP_PROFILE=memory vanta-cli server --mcp --db ~/.vantadb
 | `memory_get` | Retrieves a memory record by namespace and key. |
 | `memory_delete` | Deletes a memory record by namespace and key. |
 | `memory_delete_by_filter` | Batch-deletes every record in a namespace whose metadata matches the given filters (AND semantics). |
-| `memory_list` | Lists memory records in a namespace with optional pagination and metadata filters. Response is bounded by `byte_budget` (default 40 KB); see [Output budgeting](#output-budgeting-byte_budget-mcp-39) for the truncation semantics. |
+| `memory_list` | Lists memory records in a namespace with optional pagination and metadata filters. SCH-07 query params: `as_of_ms` / `valid_window` (valid time), `include_quarantined`, `min_confidence`. Response is bounded by `byte_budget` (default 40 KB); see [Output budgeting](#output-budgeting-byte_budget-mcp-39) for the truncation semantics. |
 | `memory_list_namespaces` | Lists all available namespaces in the database (API-04 canonical name). The legacy `collection_list` alias stays dispatchable but is not listed — it returns rich collection metadata (record_count/has_vector_index/created_at) while this tool returns the bare namespace list. |
 | `memory_versions` | Lists every retained version of a memory record, ascending (v1..vN); empty if the key does not exist or has no history. Expired versions are included as historical data until purged. |
 | `memory_supersede` | Marks an existing record as superseded by another existing record (durable, recoverable soft-delete). Errors if either key is missing, if old_key equals new_key, or if the old record is already superseded. |
@@ -295,10 +295,10 @@ VANTADB_MCP_PROFILE=memory vanta-cli server --mcp --db ~/.vantadb
 
 | Tool | Description |
 |------|-------------|
-| `memory_search` | Hybrid memory search in a namespace (API-04 canonical name, mem0/Letta parity): text/vector/hybrid modes, filters, distance metric, RRF tuning, and explain output. The legacy `search_memory` alias stays dispatchable but is not listed. |
+| `memory_search` | Hybrid memory search in a namespace (API-04 canonical name, mem0/Letta parity): text/vector/hybrid modes, filters, distance metric, RRF tuning, and explain output. SCH-07 query params: `as_of_ms` / `valid_window` (valid time), `include_quarantined`, `min_confidence`; the response envelope carries the selective-abstention signal (`abstained`, `abstention_reason`) — see [Selective abstention](#selective-abstention-adr-046-d2). The legacy `search_memory` alias stays dispatchable but is not listed. |
 | `search_semantic` | Raw semantic vector search directly in the HNSW index. |
-| `search_with_method` | Memory search with an explicit dense-index backend override (`method`: hnsw \| ivf \| flat \| diskann \| scann); omit to keep automatic routing. Same parameters as `memory_search`. |
-| `search_multi` | Run one search request across multiple namespaces and merge results (sorted by score, capped at `top_k` globally). Response is bounded by `byte_budget` (default 40 KB); see [Output budgeting](#output-budgeting-byte_budget-mcp-39). |
+| `search_with_method` | Memory search with an explicit dense-index backend override (`method`: hnsw \| ivf \| flat \| diskann \| scann); omit to keep automatic routing. Same parameters as `memory_search` (temporal/quarantine/confidence included) and the same abstention signal. |
+| `search_multi` | Run one search request across multiple namespaces and merge results (sorted by score, capped at `top_k` globally). Same request params as `memory_search` (temporal/quarantine/confidence included); the multi-namespace merge has no page-level abstention signal (N/A). Response is bounded by `byte_budget` (default 40 KB); see [Output budgeting](#output-budgeting-byte_budget-mcp-39). |
 | `query_iql` | Executes an IQL statement against typed graph nodes and memory namespaces (each namespace is queryable as a table named by its sanitized form: `/` and `-` → `_`, leading digit/`.` gets a `_` prefix). LISP not supported. Param-level failures (empty/NUL/oversize query) are JSON-RPC `invalid_params` (-32602). |
 | `memory_recall` | MEM-59: High-level recall mirroring vanta-memory's auto-recall hook (MEM-18) over the public MCP surface. Runs keyword/embedding/hybrid search over L1 records visible under the given scope (session/agent/team), ranks with D38 dual-pool + RRF logic, and returns structured hits plus prepended context block. Read-only; idempotent; does not require a session_key. Param-level failures are JSON-RPC `invalid_params`. |
 | `embed_texts` | Embeds a batch of texts into dense float vectors with the active provider (local ONNX real; `ollama`/`openai` when configured) and an explicit deterministic fallback. Inputs: `texts` (required, 1–128 items of 1–8000 chars), optional `model` (manifest id override, EMB-17), `cursor` pagination offset. Response always carries `fallback: false` (real vectors) or `fallback: true` + `warning` (deterministic hash, no semantic signal — never silent, Q5). Supports `max_embed_tokens` (25k) / `max_embed_batch_size` (128) budgeting. Read-only; idempotent. Verified EMB-19 (`a5d549af`): `multilingual-e5-small` dim 384 `fallback:false`, `s(par)=0.9158` vs `0.8427/0.8423` gap `0.0732`. See [Embeddings](#embeddings-providers-model-selection-and-dim-gate) below. |
@@ -520,7 +520,9 @@ Read at server startup via `McpConfig::from_storage`; clamped to `[min_byte_budg
 | Tool | Shape on the wire | Truncation policy |
 |------|-------------------|-------------------|
 | `memory_list` | `content[0].text` is a JSON object `{records, next_cursor, byte_count, truncated}` | Trailing `records` entries are popped until the envelope fits `byte_budget`. `next_cursor` is preserved; `truncated: true` advertises the trim. If the array is fully popped, the `records` key is dropped (consumers should treat absent `records` as "hard-truncated"). |
-| `search_multi` | `content[0].text` stays the raw hits array (back-compat); `structuredContent` carries `{hits, byte_count, truncated}` | Trailing `hits` are popped in both the text and the structuredContent copy. `truncated: true` flags the trim. `memory_search` / `search_semantic` / `search_with_method` are NOT budgeted in this release — their `top_k` cap is the documented upper bound; tracked as debt for a follow-up. |
+| `search_multi` | `content[0].text` stays the raw hits array (back-compat); `structuredContent` carries `{hits, byte_count, truncated}` | Trailing `hits` are popped in both the text and the structuredContent copy. `truncated: true` flags the trim. |
+| `memory_search` / `search_with_method` | Same raw-hits text array (back-compat); `structuredContent` carries `{hits, byte_count, truncated, abstained, abstention_reason}` | Same trailing-hits budget policy. The two extra fields are the selective-abstention signal (ADR-046 §D2, SCH-07) — see [Selective abstention](#selective-abstention-adr-046-d2). |
+| `search_semantic` | Same budgeted envelope `{hits, byte_count, truncated}` | Same trailing-hits policy. |
 
 ### When to react
 
@@ -543,9 +545,50 @@ Read at server startup via `McpConfig::from_storage`; clamped to `[min_byte_budg
 
 After oversize trimming, `truncated` flips to `true` and the last items are dropped from `records`. `next_cursor` remains the next-page marker so the consumer can keep paging.
 
+## Selective abstention (ADR-046 §D2)
+
+When the server runs with `VANTADB_CONFIDENCE_THRESHOLD=<t>` (or
+`Config::confidence_threshold = Some(t)`, `t` finite in `[0, 1]`), search hits
+whose record `confidence` is below `t` are dropped and an emptied page carries
+an explicit signal instead of a silent `[]`:
+
+| Field (`structuredContent`) | Value |
+|-----------------------------|-------|
+| `abstained` | `true` when the threshold removed every candidate |
+| `abstention_reason` | `no_candidates_above_threshold` — every candidate fell below `t`; `all_quarantined` — every candidate was quarantined and the default-exclude gate removed it |
+
+Surfaces: `memory_search` (and legacy `search_memory`), `search_with_method`,
+and the single-namespace HTTP `SearchPageV2` (`abstained` +
+`abstention_reason` top-level). `search_multi` merges per-namespace rankings
+with no page object — the signal is N/A there. The array-shaped binding APIs
+(Python/TS/Node/WASM `search`) return hit arrays and have no page either; the
+declared parity note lives in `docs/api/BINDINGS_NAMESPACES.md`.
+
+The per-request `min_confidence` filter is **not** an abstention trigger: it
+narrows results and never sets these fields. Default (`None` = OFF) keeps the
+historic empty page byte-identical.
+
+## Quarantine (ADR-046 §D5)
+
+Records written with `memory_put`'s `quarantine: true` flag (T1) enter the
+**quarantined** state — distinct from `superseded` and TTL expiry:
+
+- Excluded by default from `memory_search`, `memory_list` and every recall
+  path (`memory_recall`, `context_assemble`); `include_quarantined: true` is
+  the explicit opt-in to inspect the queue.
+- `memory_get` always returns a quarantined record with **visible state**
+  (`quarantined_at_ms`, `quarantine_reason`, `quarantined_by`,
+  `quarantine_review_due_ms`) — never a silent 404.
+- **Sticky:** a re-`put` over a quarantined key preserves the state.
+- **Never auto-promoted:** the review deadline is a metric signal only
+  (`keep` policy); promotion/rejection are explicit core SDK operations
+  (`Embedded::quarantine_promote` / `quarantine_reject`). MCP-level
+  quarantine transition tools are a declared follow-up — the current MCP
+  surface supports flagging at write time and the opt-in views.
+
 ## Parity
 
-Tool coverage on this page is enforced mechanically by `scripts/validate-docs-coverage.ps1` against `handle_tools_list()` in `vantadb-mcp/src/handlers/tools.rs`. Last sync: **2026-09-27** (WIRE-02: 85→79 listed — 6 redundant `code_*` projections absorbed dispatch-only; default profile `full`→`agent`; `tools/call` profile enforcement live. Prior — 2026-09-25, API-04: 87→85 — canonicalized `search_memory`/`collection_list` out of the listing; prompts renamed `recall_search`; `thread_id` is now a u128 decimal string).
+Tool coverage on this page is enforced mechanically by `scripts/validate-docs-coverage.ps1` against `handle_tools_list()` in `vantadb-mcp/src/handlers/tools.rs`. Last sync: **2026-09-29** (SCH-07/F3.5: v2 query params — `as_of_ms`, `valid_window`, `include_quarantined`, `min_confidence` — on `memory_search`/`search_with_method`/`search_multi`/`memory_list`, plus the selective-abstention section; tool count unchanged at 79 listed). Prior — 2026-09-27 (WIRE-02: 85→79 listed — 6 redundant `code_*` projections absorbed dispatch-only; default profile `full`→`agent`; `tools/call` profile enforcement live. Prior — 2026-09-25, API-04: 87→85 — canonicalized `search_memory`/`collection_list` out of the listing; prompts renamed `recall_search`; `thread_id` is now a u128 decimal string).
 
 ## Registry manifest
 

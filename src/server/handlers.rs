@@ -22,6 +22,7 @@ use crate::server::errors::{
 use crate::server::list_records::{ListRecordsCommand, ListRecordsUseCase, ServerListPorts};
 use crate::server::pagination::{decode_cursor, encode_cursor, list_skills_page, page_meta};
 use crate::server::state::{NodeDTO, QueryRequest, QueryResponse, RequestId, ServerState};
+use crate::AbstentionReason;
 use crate::Error;
 use axum::{
     extract::{Path as AxumPath, Query, State},
@@ -520,11 +521,23 @@ pub struct SearchPageRequest {
 
 /// Page-shaped search response so the web console paginates search the same
 /// way it paginates list (REST-04/REST-06).
+///
+/// SCH-07: single-namespace searches are page-shaped (`Embedded::search_page`)
+/// and carry the selective-abstention signal (ADR-046 §D2): `abstained=true`
+/// plus the stable `abstention_reason` code when the configured
+/// `confidence_threshold` filtered every candidate (`no_candidates_above_threshold`)
+/// or the default quarantine gate removed them all (`all_quarantined`).
+/// All-namespaces searches merge per-namespace rankings (`search_all`) and have
+/// no page object in the SDK, so the signal is N/A there (always `false`/`null`).
 #[derive(Serialize)]
 struct SearchPageV2 {
     records: Vec<MemorySearchHit>,
     next_cursor: Option<String>,
     has_more: bool,
+    /// Explicit abstention signal; `false` unless a threshold is configured.
+    abstained: bool,
+    /// Stable reason code, `null` unless `abstained`.
+    abstention_reason: Option<AbstentionReason>,
 }
 
 #[tracing::instrument(skip(state))]
@@ -550,16 +563,23 @@ pub async fn records_search(
         None => 0,
     };
     request.top_k = clamp_limit(position.saturating_add(page_size).saturating_add(1));
-    match run_db_op(&state, move |db| {
+    let paged = run_db_op(&state, move |db| {
         if all_namespaces {
-            db.search_all(request)
+            // Multi-namespace merges (`search_all`) have no page object in the
+            // SDK: the abstention signal is declared N/A on this path
+            // (documented in `docs/api/openapi.yaml` / `HTTP_API.md`).
+            let hits = db.search_all(request)?;
+            Ok((hits, false, None))
         } else {
-            db.search(request)
+            // Page-shaped path: carries the selective-abstention signal
+            // (ADR-046 §D2, SCH-07) instead of dropping it at the array edge.
+            let page = db.search_page(request)?;
+            Ok((page.hits, page.abstained, page.abstention_reason))
         }
     })
-    .await
-    {
-        Ok(hits) => {
+    .await;
+    match paged {
+        Ok((hits, abstained, abstention_reason)) => {
             let start = position.min(hits.len());
             let end = (start + page_size).min(hits.len());
             let records = hits[start..end].to_vec();
@@ -569,6 +589,8 @@ pub async fn records_search(
                 records,
                 next_cursor,
                 has_more,
+                abstained,
+                abstention_reason,
             })
             .into_response()
         }

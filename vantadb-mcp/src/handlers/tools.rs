@@ -215,7 +215,11 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
                     "namespace": { "type": "string" },
                     "limit": { "type": "number", "description": "Max records, default 100" },
                     "cursor": { "type": "number", "description": "Optional pagination cursor" },
-                    "filters": { "type": "object", "description": "Optional metadata filters" }
+                    "filters": { "type": "object", "description": "Optional metadata filters" },
+                    "as_of_ms": { "type": "number", "description": "Valid-time point (ADR-046 §D3, SCH-03/SCH-07): keep only records whose validity window contains this unix-ms instant. Omit for no temporal filter (default)" },
+                    "valid_window": { "type": "object", "properties": { "from_ms": { "type": "number" }, "to_ms": { "type": "number" } }, "description": "Valid-time window overlap (SCH-03/SCH-07): half-open `[from_ms, to_ms)`; `from_ms < to_ms` validated at the core boundary. Omit for no filter" },
+                    "include_quarantined": { "type": "boolean", "description": "Include quarantined records (SCH-05/SCH-07). Default false: quarantined content is excluded by default" },
+                    "min_confidence": { "type": "number", "minimum": 0, "maximum": 1, "description": "Opt-in confidence filter (ADR-046 §D2, SCH-07): keep only records whose confidence is >= this value (finite, within [0, 1]); omit for no filter (default)" }
                 },
                 "required": ["namespace"]
             }
@@ -313,7 +317,7 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
         },
         {
             "name": "memory_search",
-            "description": "Hybrid memory search in a namespace (API-04 canonical name, mem0/Letta parity): text/vector/hybrid modes, filters, distance metric, RRF tuning, and explain output. The legacy `search_memory` alias stays dispatchable but is not listed.",
+            "description": "Hybrid memory search in a namespace (API-04 canonical name, mem0/Letta parity): text/vector/hybrid modes, filters, distance metric, RRF tuning, and explain output. SCH-07: accepts the temporal (`as_of_ms`/`valid_window`) and quarantine-view (`include_quarantined`) query params and reports the selective-abstention signal (`abstained`/`abstention_reason`) in structuredContent when the configured `confidence_threshold` filters every candidate. The legacy `search_memory` alias stays dispatchable but is not listed.",
             "annotations": {
                 "title": "Memory Search",
                 "readOnlyHint": true,
@@ -332,6 +336,9 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
                     "explain": { "type": "boolean" },
                     "filters": { "type": "object" },
                     "min_confidence": { "type": "number", "minimum": 0, "maximum": 1, "description": "Opt-in confidence filter (ADR-046 §D2, SCH-04): keep only hits whose record confidence is >= this value (finite, within [0, 1]); omit for no filter (default)" },
+                    "as_of_ms": { "type": "number", "description": "Valid-time point (ADR-046 §D3, SCH-03): keep only records whose validity window contains this unix-ms instant (`valid_at_ms <= as_of_ms < invalid_at_ms`). Omit for no temporal filter (default)" },
+                    "valid_window": { "type": "object", "properties": { "from_ms": { "type": "number" }, "to_ms": { "type": "number" } }, "description": "Valid-time window overlap (SCH-03): half-open `[from_ms, to_ms)`; `from_ms < to_ms` is validated at the core boundary. Omit for no filter" },
+                    "include_quarantined": { "type": "boolean", "description": "Include quarantined records (SCH-05, ADR-046 §D5). Default false: quarantined content is excluded from search/list/retrieval" },
                     "search_profile": { "type": "object", "properties": {
                         "mode": { "type": "string", "enum": ["keyword", "vector", "hybrid"] },
                         "rrf_k": { "type": "number", "description": "RRF k parameter (1..max_rrf_k, default core)" },
@@ -342,11 +349,13 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
             },
             "outputSchema": {
                 "type": "object",
-                "description": "Budgeted envelope {hits, byte_count, truncated} (text payload stays the raw hits array)",
+                "description": "Budgeted envelope {hits, byte_count, truncated, abstained, abstention_reason} (text payload stays the raw hits array). `abstained=true` + a stable reason code (`no_candidates_above_threshold` | `all_quarantined`) when the configured `confidence_threshold` emptied the page — never a silent empty page (ADR-046 §D2, SCH-07)",
                 "properties": {
                     "hits": { "type": "array" },
                     "byte_count": { "type": "number" },
-                    "truncated": { "type": "boolean" }
+                    "truncated": { "type": "boolean" },
+                    "abstained": { "type": "boolean" },
+                    "abstention_reason": { "type": ["string", "null"] }
                 }
             }
         },
@@ -378,7 +387,7 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
         },
         {
             "name": "search_with_method",
-            "description": "MCP-24: memory search with an explicit dense-index backend override. Same parameters as search_memory plus `method` (hnsw | ivf | flat | diskann | scann); omit `method` to keep automatic engine routing.",
+            "description": "MCP-24: memory search with an explicit dense-index backend override. Same parameters as search_memory plus `method` (hnsw | ivf | flat | diskann | scann); omit `method` to keep automatic engine routing. SCH-07: also reports the selective-abstention signal (`abstained`/`abstention_reason`) in structuredContent.",
             "annotations": {
                 "title": "Search With Method",
                 "readOnlyHint": true,
@@ -398,6 +407,9 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
                     "filters": { "type": "object" },
                     "method": { "type": "string", "enum": ["hnsw", "ivf", "flat", "diskann", "scann"], "description": "Dense-index backend override (MCP-24); omit to keep automatic routing" },
                     "min_confidence": { "type": "number", "minimum": 0, "maximum": 1, "description": "Opt-in confidence filter (ADR-046 §D2, SCH-04): keep only hits whose record confidence is >= this value (finite, within [0, 1]); omit for no filter (default)" },
+                    "as_of_ms": { "type": "number", "description": "Valid-time point (ADR-046 §D3, SCH-03): keep only records whose validity window contains this unix-ms instant (`valid_at_ms <= as_of_ms < invalid_at_ms`). Omit for no temporal filter (default)" },
+                    "valid_window": { "type": "object", "properties": { "from_ms": { "type": "number" }, "to_ms": { "type": "number" } }, "description": "Valid-time window overlap (SCH-03): half-open `[from_ms, to_ms)`; `from_ms < to_ms` is validated at the core boundary. Omit for no filter" },
+                    "include_quarantined": { "type": "boolean", "description": "Include quarantined records (SCH-05, ADR-046 §D5). Default false: quarantined content is excluded from search/list/retrieval" },
                     "search_profile": { "type": "object", "properties": {
                         "mode": { "type": "string", "enum": ["keyword", "vector", "hybrid"] },
                         "rrf_k": { "type": "number", "description": "RRF k parameter (1..max_rrf_k, default core)" },
@@ -408,17 +420,19 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
             },
             "outputSchema": {
                 "type": "object",
-                "description": "Budgeted envelope {hits, byte_count, truncated} (text payload stays the raw hits array)",
+                "description": "Budgeted envelope {hits, byte_count, truncated, abstained, abstention_reason} (text payload stays the raw hits array). `abstained=true` + a stable reason code when the configured `confidence_threshold` emptied the page (ADR-046 §D2, SCH-07)",
                 "properties": {
                     "hits": { "type": "array" },
                     "byte_count": { "type": "number" },
-                    "truncated": { "type": "boolean" }
+                    "truncated": { "type": "boolean" },
+                    "abstained": { "type": "boolean" },
+                    "abstention_reason": { "type": ["string", "null"] }
                 }
             }
         },
         {
             "name": "search_multi",
-            "description": "MCP-24: run one search request across multiple namespaces and merge the results (sorted by descending score, capped at `top_k` globally). `namespaces` is required; the other parameters match search_memory. Returns a flat hit array.",
+            "description": "MCP-24: run one search request across multiple namespaces and merge the results (sorted by descending score, capped at `top_k` globally). `namespaces` is required; the other parameters match search_memory (temporal/quarantine/confidence params included, SCH-07). Returns a flat hit array; the multi-namespace merge has no page-level abstention signal (N/A).",
             "annotations": {
                 "title": "Search Multi",
                 "readOnlyHint": true,
@@ -437,6 +451,9 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
                     "explain": { "type": "boolean" },
                     "filters": { "type": "object" },
                     "min_confidence": { "type": "number", "minimum": 0, "maximum": 1, "description": "Opt-in confidence filter (ADR-046 §D2, SCH-04): keep only hits whose record confidence is >= this value (finite, within [0, 1]); omit for no filter (default)" },
+                    "as_of_ms": { "type": "number", "description": "Valid-time point (ADR-046 §D3, SCH-03): keep only records whose validity window contains this unix-ms instant (`valid_at_ms <= as_of_ms < invalid_at_ms`). Omit for no temporal filter (default)" },
+                    "valid_window": { "type": "object", "properties": { "from_ms": { "type": "number" }, "to_ms": { "type": "number" } }, "description": "Valid-time window overlap (SCH-03): half-open `[from_ms, to_ms)`; `from_ms < to_ms` is validated at the core boundary. Omit for no filter" },
+                    "include_quarantined": { "type": "boolean", "description": "Include quarantined records (SCH-05, ADR-046 §D5). Default false: quarantined content is excluded from search/list/retrieval" },
                     "search_profile": { "type": "object", "properties": {
                         "mode": { "type": "string", "enum": ["keyword", "vector", "hybrid"] },
                         "rrf_k": { "type": "number", "description": "RRF k parameter (1..max_rrf_k, default core)" },
@@ -1601,6 +1618,14 @@ pub fn handle_tools_call(
                 None
             };
 
+            // SCH-07 (ADR-046 §D2/§D3/§D5): same query params as the SDK list
+            // wire — valid-time point/window, quarantine view, confidence floor.
+            let as_of_ms = parse_optional_u64(args, "as_of_ms")?;
+            let valid_window = parse_valid_window(args, "valid_window")?;
+            let include_quarantined = parse_optional_bool(args, "include_quarantined", false)?;
+            let min_confidence = parse_optional_min_confidence(args)
+                .map_err(|msg| McpError::validation(msg).to_json())?;
+
             let options = vantadb::sdk::MemoryListOptions {
                 limit,
                 cursor,
@@ -1608,11 +1633,10 @@ pub fn handle_tools_call(
                 filters: vantadb::sdk::MemoryMetadata::new(),
                 filter_ops,
                 exclude_superseded: false,
-                // SCH-03 temporal params: not exposed on memory_list yet
-                // (SCH-05/SCH-07).
-                as_of_ms: None,
-                valid_window: None,
-                include_quarantined: false,
+                as_of_ms,
+                valid_window,
+                include_quarantined,
+                min_confidence,
             };
 
             let embedded = vantadb::Embedded::from_engine(storage.clone());
@@ -1881,8 +1905,10 @@ pub fn handle_tools_call(
             };
 
             let embedded = vantadb::Embedded::from_engine(storage.clone());
-            match embedded.search_with_method(request, method) {
-                Ok(hits) => Ok(text_content_hits_with_budget(&hits, config.byte_budget)),
+            match embedded.search_page_with_method(request, method) {
+                // SCH-07: page-shaped envelope carries the abstention signal
+                // (never drop it at the Vec edge).
+                Ok(page) => Ok(search_page_envelope(page, config.byte_budget)),
                 Err(e) => Ok(error_content_vanta(e)),
             }
         }
@@ -2004,7 +2030,11 @@ pub fn handle_tools_call(
                     }));
                 }
             }
-            Ok(text_content_hits_with_budget(&results, config.byte_budget))
+            Ok(text_content_hits_with_budget(
+                &results,
+                config.byte_budget,
+                None,
+            ))
         }
 
         "get_node_neighbors" => {
@@ -3194,6 +3224,68 @@ fn parse_optional_bool(obj: &Value, field: &str, default: bool) -> Result<bool, 
     }
 }
 
+/// SCH-07: parse the optional `as_of_ms` valid-time point (ADR-046 §D3).
+/// Absent/null ⇒ `None`; a present non-integer (or negative/float) value is
+/// rejected with an actionable message instead of being coerced.
+fn parse_optional_u64(obj: &Value, field: &str) -> Result<Option<u64>, Value> {
+    match obj.get(field) {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::Number(n)) => n.as_u64().map(Some).ok_or_else(|| {
+            McpError::validation(format!(
+                "'{field}' must be a non-negative integer (unix milliseconds), got {n}"
+            ))
+            .to_json()
+        }),
+        Some(v) => Err(McpError::invalid_params(format!(
+            "'{field}' must be an integer (unix milliseconds), got {}",
+            json_value_type_name(v)
+        ))
+        .to_json()),
+    }
+}
+
+/// SCH-07: parse the optional `valid_window` object (`{from_ms, to_ms}`,
+/// ADR-046 §D3). Shape/type validation here; `from_ms < to_ms` is enforced by
+/// the core boundary (`SEARCH_OPTIONS_INVALID`) — never silently swapped.
+fn parse_valid_window(
+    obj: &Value,
+    field: &str,
+) -> Result<Option<vantadb::sdk::ValidWindow>, Value> {
+    match obj.get(field) {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::Object(map)) => {
+            let from_ms = map.get("from_ms").and_then(Value::as_u64).ok_or_else(|| {
+                McpError::validation(format!("'{field}.from_ms' must be a non-negative integer"))
+                    .to_json()
+            })?;
+            let to_ms = map.get("to_ms").and_then(Value::as_u64).ok_or_else(|| {
+                McpError::validation(format!("'{field}.to_ms' must be a non-negative integer"))
+                    .to_json()
+            })?;
+            Ok(Some(vantadb::sdk::ValidWindow { from_ms, to_ms }))
+        }
+        Some(v) => Err(McpError::invalid_params(format!(
+            "'{field}' must be an object {{from_ms, to_ms}}, got {}",
+            json_value_type_name(v)
+        ))
+        .to_json()),
+    }
+}
+
+/// SCH-07: parse the optional `min_confidence` number at the MCP trust
+/// boundary. Returns the raw message on type error so each caller keeps its
+/// own error channel (search: actionable rejected envelope; list: JSON-RPC
+/// invalid-params). Finiteness/range are validated at the core boundary.
+fn parse_optional_min_confidence(args: &Value) -> Result<Option<f32>, String> {
+    match args.get("min_confidence") {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::Number(n)) => Ok(Some(n.as_f64().unwrap_or(f64::NAN) as f32)),
+        Some(other) => Err(format!(
+            "min_confidence must be a number in [0, 1], got {other}"
+        )),
+    }
+}
+
 /// MCP-21/22: parse an array of node ids (decimal strings, or numbers for
 /// backward compat via `parse_node_id`) into u128 roots.
 fn parse_node_ids(arr: &[Value]) -> Result<Vec<u128>, Value> {
@@ -3263,10 +3355,31 @@ fn dispatch_search_memory(
     };
 
     let embedded = vantadb::Embedded::from_engine(storage.clone());
-    match embedded.search(request) {
-        Ok(hits) => Ok(text_content_hits_with_budget(&hits, config.byte_budget)),
+    match embedded.search_page(request) {
+        // SCH-07: page-shaped envelope carries the abstention signal
+        // (ADR-046 §D2) — `abstained`/`abstention_reason` on structuredContent.
+        Ok(page) => Ok(search_page_envelope(page, config.byte_budget)),
         Err(e) => Ok(error_content_vanta(e)),
     }
+}
+
+/// SCH-07: emit a page-shaped MCP search envelope — budgeted hits plus the
+/// selective-abstention signal (ADR-046 §D2) as stable machine-readable
+/// fields on `structuredContent` (`abstained` + `abstention_reason`). Shared
+/// by `memory_search` and `search_with_method` so the two tools cannot drift.
+fn search_page_envelope(page: vantadb::sdk::MemorySearchPage, byte_budget: usize) -> Value {
+    // Stable snake_case wire code via serde (robust to new `#[non_exhaustive]`
+    // variants without matching exhaustively across the crate boundary).
+    let reason: Option<String> = page
+        .abstention_reason
+        .as_ref()
+        .and_then(|r| serde_json::to_value(r).ok())
+        .and_then(|v| v.as_str().map(str::to_string));
+    text_content_hits_with_budget(
+        &page.hits,
+        byte_budget,
+        Some((page.abstained, reason.as_deref())),
+    )
 }
 
 /// MCP-24: shared parsing for `search_memory` / `search_with_method` /
@@ -3370,17 +3483,22 @@ fn parse_search_request(
     // SCH-04: opt-in confidence filter (ADR-046 §D2). Non-numbers are a
     // param-level rejection (actionable, LLM can self-correct); finiteness and
     // range are validated at the core boundary (`SEARCH_OPTIONS_INVALID`).
-    let min_confidence = match args.get("min_confidence") {
-        None | Some(Value::Null) => None,
-        Some(Value::Number(n)) => Some(n.as_f64().unwrap_or(f64::NAN) as f32),
-        Some(other) => {
+    let min_confidence = match parse_optional_min_confidence(args) {
+        Ok(v) => v,
+        Err(msg) => {
             return Ok(ParsedSearchRequest::Rejected(error_content_mcp(
-                McpError::validation(format!(
-                    "min_confidence must be a number in [0, 1], got {other}"
-                )),
+                McpError::validation(msg),
             )))
         }
     };
+
+    // SCH-07: temporal + quarantine query params (ADR-046 §D3/§D5) — same
+    // wire names as the SDK (`as_of_ms`, `valid_window{from_ms,to_ms}`,
+    // `include_quarantined`). Shape/type validated here; semantic boundaries
+    // (`valid_window.from_ms < to_ms`, threshold range) at the core.
+    let as_of_ms = parse_optional_u64(args, "as_of_ms")?;
+    let valid_window = parse_valid_window(args, "valid_window")?;
+    let include_quarantined = parse_optional_bool(args, "include_quarantined", false)?;
 
     // AUD-048: unified filter semantics with the CLI channel. The search
     // request (`MemorySearchRequest`) is flat-only — it has no
@@ -3442,10 +3560,10 @@ fn parse_search_request(
             exclude_superseded: false,
             // SCH-04: opt-in confidence filter (ADR-046 §D2).
             min_confidence,
-            // SCH-03 temporal params: not exposed on MCP search yet (SCH-07).
-            as_of_ms: None,
-            valid_window: None,
-            include_quarantined: false,
+            // SCH-07 (ADR-046 §D3/§D5): temporal + quarantine query params.
+            as_of_ms,
+            valid_window,
+            include_quarantined,
             search_profile,
             range: None,
             group_by: None,

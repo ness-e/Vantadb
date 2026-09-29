@@ -199,6 +199,10 @@ class AsyncMemoryClient:
         limit: int = 100,
         cursor: int | None = None,
         exclude_superseded: bool = False,
+        as_of_ms: int | None = None,
+        valid_window: dict | None = None,
+        include_quarantined: bool = False,
+        min_confidence: float | None = None,
     ):
         return await self._run(
             self._sync.memory.list,
@@ -207,6 +211,10 @@ class AsyncMemoryClient:
             limit,
             cursor,
             exclude_superseded,
+            as_of_ms,
+            valid_window,
+            include_quarantined,
+            min_confidence,
         )
 
     async def delete(self, namespace: str, key: str) -> bool:
@@ -265,6 +273,9 @@ class AsyncClient:
         exclude_superseded: bool = False,
         query_sparse: dict | None = None,
         min_confidence: float | None = None,
+        as_of_ms: int | None = None,
+        valid_window: dict | None = None,
+        include_quarantined: bool = False,
     ):
         return await self._run(
             self._sync.search,
@@ -279,6 +290,9 @@ class AsyncClient:
             exclude_superseded,
             query_sparse,
             min_confidence,
+            as_of_ms,
+            valid_window,
+            include_quarantined,
         )
 
     async def search_multi(
@@ -294,6 +308,9 @@ class AsyncClient:
         exclude_superseded: bool = False,
         query_sparse: dict | None = None,
         min_confidence: float | None = None,
+        as_of_ms: int | None = None,
+        valid_window: dict | None = None,
+        include_quarantined: bool = False,
     ):
         """Hybrid search across several namespaces (W1/API-02)."""
         return await self._run(
@@ -308,6 +325,9 @@ class AsyncClient:
             exclude_superseded,
             query_sparse,
             min_confidence,
+            as_of_ms,
+            valid_window,
+            include_quarantined,
         )
 
     @property

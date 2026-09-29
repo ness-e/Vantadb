@@ -548,6 +548,7 @@ mod tests {
                     as_of_ms: None,
                     valid_window: None,
                     include_quarantined: false,
+                    min_confidence: None,
                 },
             )
             .unwrap();
@@ -572,11 +573,56 @@ mod tests {
                     as_of_ms: None,
                     valid_window: None,
                     include_quarantined: false,
+                    min_confidence: None,
                 },
             )
             .unwrap();
         assert!(page.records.is_empty());
         assert!(page.next_cursor.is_none());
+    }
+
+    #[test]
+    fn test_list_min_confidence_filters_and_rejects_out_of_range() {
+        // SCH-07 (ADR-046 §D2): list carries the same opt-in confidence
+        // threshold as search (records: default 1.0 asserted + a declared 0.4).
+        let db = make_embedded_real();
+        db.put(MemoryInput::new("ns", "high", "trusted"))
+            .expect("put high");
+        db.put(MemoryInput {
+            confidence: Some(0.4),
+            ..MemoryInput::new("ns", "low", "shaky")
+        })
+        .expect("put low");
+
+        let page = db
+            .list(
+                "ns",
+                MemoryListOptions {
+                    min_confidence: Some(0.5),
+                    ..MemoryListOptions::default()
+                },
+            )
+            .expect("list with threshold");
+        let keys: Vec<&str> = page.records.iter().map(|r| r.key.as_str()).collect();
+        assert_eq!(keys, vec!["high"], "only hits >= threshold: {keys:?}");
+
+        // Boundary: out-of-range / non-finite thresholds are rejected, never
+        // clamped (same predicate as search's `validate_search_options`).
+        for bad in [1.5_f32, f32::NAN] {
+            let err = db
+                .list(
+                    "ns",
+                    MemoryListOptions {
+                        min_confidence: Some(bad),
+                        ..MemoryListOptions::default()
+                    },
+                )
+                .unwrap_err();
+            assert!(
+                matches!(err, Error::InvalidInput(ref msg) if msg.contains("min_confidence")),
+                "threshold {bad} must be rejected at the boundary, got {err:?}"
+            );
+        }
     }
 
     #[test]
@@ -625,6 +671,7 @@ mod tests {
                     as_of_ms: None,
                     valid_window: None,
                     include_quarantined: false,
+                    min_confidence: None,
                 },
             )
             .unwrap();
@@ -926,6 +973,7 @@ mod tests {
                     as_of_ms: None,
                     valid_window: None,
                     include_quarantined: false,
+                    min_confidence: None,
                 },
             )
             .unwrap();
@@ -944,6 +992,7 @@ mod tests {
                     as_of_ms: None,
                     valid_window: None,
                     include_quarantined: false,
+                    min_confidence: None,
                 },
             )
             .unwrap();

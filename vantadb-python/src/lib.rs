@@ -13,7 +13,9 @@ use std::collections::HashMap;
 use vantadb::config::Config;
 use vantadb::index::IndexType;
 use vantadb::metadata;
-use vantadb::sdk::{Embedded, MemoryInput, MemoryListOptions, MemorySearchRequest, NodeInput};
+use vantadb::sdk::{
+    Embedded, MemoryInput, MemoryListOptions, MemorySearchRequest, NodeInput, ValidWindow,
+};
 // FFI guards: single source of truth from core (WSM-09).
 use vantadb::{DistanceMetric, MAX_K};
 // Durability gate + ERR-022 clamp policy: shared std-only leaf (WIRE-07).
@@ -406,7 +408,7 @@ forward_to_db!(MemoryClient {
     ///     >>> page[0].key
     ///     'task-1'
     ///     ```
-    #[pyo3(signature = (namespace, filters=None, limit=100, cursor=None, exclude_superseded=false))]
+    #[pyo3(signature = (namespace, filters=None, limit=100, cursor=None, exclude_superseded=false, as_of_ms=None, valid_window=None, include_quarantined=false, min_confidence=None))]
     fn list(
         &self,
         py: Python,
@@ -415,12 +417,17 @@ forward_to_db!(MemoryClient {
         limit: usize,
         cursor: Option<usize>,
         exclude_superseded: bool,
+        as_of_ms: Option<u64>,
+        valid_window: Option<&Bound<'_, PyDict>>,
+        include_quarantined: bool,
+        min_confidence: Option<f32>,
     ) -> PyResult<VantaPyListResult> {
         let db = self.db.bind(py);
         let client = db.borrow();
         let _g = enter(&client.op_gate)?;
         let namespace = namespace.to_string();
         let filters_meta = py_dict_to_metadata(filters)?;
+        let valid_window = py_valid_window(valid_window)?;
         let engine = client.engine.clone();
         let page = py.detach(move || {
             engine
@@ -433,11 +440,12 @@ forward_to_db!(MemoryClient {
                         limit,
                         cursor,
                         exclude_superseded,
-                        // SCH-03 temporal params: not exposed in Python yet
-                        // (SCH-07); placeholders keep the workspace compiling.
-                        as_of_ms: None,
-                        valid_window: None,
-                        include_quarantined: false,
+                        // SCH-07: temporal + quarantine + confidence params
+                        // (ADR-046 §D2/§D3/§D5) — same wire names as the SDK.
+                        as_of_ms,
+                        valid_window,
+                        include_quarantined,
+                        min_confidence,
                     },
                 )
                 .map_err(map_vanta_error)
@@ -1164,7 +1172,7 @@ impl Client {
     ///     True
     ///     ```
     // PyO3 keyword argument binding requires matching function parameters in Rust.
-    #[pyo3(signature = (namespace, query_vector, filters=None, text_query=None, top_k=10, distance_metric=None, method=None, explain=false, exclude_superseded=false, query_sparse=None, min_confidence=None))]
+    #[pyo3(signature = (namespace, query_vector, filters=None, text_query=None, top_k=10, distance_metric=None, method=None, explain=false, exclude_superseded=false, query_sparse=None, min_confidence=None, as_of_ms=None, valid_window=None, include_quarantined=false))]
     #[allow(clippy::too_many_arguments)]
     fn search(
         &self,
@@ -1180,6 +1188,9 @@ impl Client {
         exclude_superseded: bool,
         query_sparse: Option<&Bound<'_, PyDict>>,
         min_confidence: Option<f32>,
+        as_of_ms: Option<u64>,
+        valid_window: Option<&Bound<'_, PyDict>>,
+        include_quarantined: bool,
     ) -> PyResult<Vec<VantaPySearchHit>> {
         let _g = enter(&self.op_gate)?;
         let metric = parse_distance_metric(distance_metric)?;
@@ -1198,11 +1209,11 @@ impl Client {
             // SCH-04: opt-in confidence filter (ADR-046 §D2). Range/finiteness
             // validated at the core boundary (`SEARCH_OPTIONS_INVALID`).
             min_confidence,
-            // SCH-03 temporal params: not exposed in the Python door yet
-            // (SCH-07); placeholders keep the workspace compiling.
-            as_of_ms: None,
-            valid_window: None,
-            include_quarantined: false,
+            // SCH-07: temporal + quarantine query params (ADR-046 §D3/§D5) —
+            // same wire names as the SDK JSON shape.
+            as_of_ms,
+            valid_window: py_valid_window(valid_window)?,
+            include_quarantined,
             search_profile: None,
             range: None,
             group_by: None,
@@ -1267,7 +1278,7 @@ impl Client {
     ///     >>> len(hits) >= 1
     ///     True
     ///     ```
-    #[pyo3(signature = (namespaces, query_vector, filters=None, text_query=None, top_k=10, distance_metric=None, explain=false, exclude_superseded=false, query_sparse=None, min_confidence=None))]
+    #[pyo3(signature = (namespaces, query_vector, filters=None, text_query=None, top_k=10, distance_metric=None, explain=false, exclude_superseded=false, query_sparse=None, min_confidence=None, as_of_ms=None, valid_window=None, include_quarantined=false))]
     #[allow(clippy::too_many_arguments)]
     fn search_multi(
         &self,
@@ -1282,6 +1293,9 @@ impl Client {
         exclude_superseded: bool,
         query_sparse: Option<&Bound<'_, PyDict>>,
         min_confidence: Option<f32>,
+        as_of_ms: Option<u64>,
+        valid_window: Option<&Bound<'_, PyDict>>,
+        include_quarantined: bool,
     ) -> PyResult<Vec<VantaPySearchHit>> {
         let _g = enter(&self.op_gate)?;
         if namespaces.is_empty() {
@@ -1304,10 +1318,10 @@ impl Client {
             exclude_superseded,
             // SCH-04: opt-in confidence filter (ADR-046 §D2).
             min_confidence,
-            // SCH-03 temporal params: placeholders (not exposed in Python yet).
-            as_of_ms: None,
-            valid_window: None,
-            include_quarantined: false,
+            // SCH-07: temporal + quarantine query params (same wire names).
+            as_of_ms,
+            valid_window: py_valid_window(valid_window)?,
+            include_quarantined,
             search_profile: None,
             range: None,
             group_by: None,
@@ -2442,6 +2456,27 @@ fn parse_search_method(value: Option<&str>) -> PyResult<Option<IndexType>> {
             "Unknown search method \"{other}\" — known values: ivf, scann, hnsw, flat"
         ))),
     }
+}
+
+/// SCH-07: parse the Python `valid_window` dict (`{"from_ms": int, "to_ms": int}`)
+/// into the core [`ValidWindow`] — same wire names as the SDK/JSON shape
+/// (ADR-046 §D3). Shape/type errors raise `ValueError`; the semantic boundary
+/// (`from_ms < to_ms`) is validated by the core boundary.
+fn py_valid_window(value: Option<&Bound<'_, PyDict>>) -> PyResult<Option<ValidWindow>> {
+    let Some(dict) = value else { return Ok(None) };
+    let from_ms = dict
+        .get_item("from_ms")?
+        .ok_or_else(|| PyValueError::new_err("valid_window requires 'from_ms'"))?
+        .extract::<u64>()
+        .map_err(|_| {
+            PyValueError::new_err("valid_window.from_ms must be a non-negative integer")
+        })?;
+    let to_ms = dict
+        .get_item("to_ms")?
+        .ok_or_else(|| PyValueError::new_err("valid_window requires 'to_ms'"))?
+        .extract::<u64>()
+        .map_err(|_| PyValueError::new_err("valid_window.to_ms must be a non-negative integer"))?;
+    Ok(Some(ValidWindow { from_ms, to_ms }))
 }
 
 /// Connect to a VantaDB database.

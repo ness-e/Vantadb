@@ -100,6 +100,44 @@ the binding source (`search_hit_to_js`, `put_batch`, `search_multi`) is the
 reference implementation for the matrix. A new W1 capability must land in all
 four bindings with a matrix row.
 
+## v2 wire parity (SCH-07, ADR-046)
+
+> **Status:** normative as of SCH-07 (wave F3.5). The v2 fields and query
+> params cross every binding with the **same wire names** as the core serde
+> shapes; the parity note for abstention is declared, not silent.
+
+| Capability | WASM (`vantadb-wasm`) | TS (`vantadb-ts`) | Node (`vantadb-node`) | Python (`vantadb-python`) |
+|---|---|---|---|---|
+| v2 record fields on reads | `memory_record_to_js` + `vantadb_wasm.d.ts` | `MemoryRecord` in `types.ts` (passthrough) | `MemoryRecord` in `index.d.ts` (serde wire) | `Record`/`SearchHit` getters + `__getitem__` + `.pyi` |
+| `as_of_ms` / `valid_window` on `search` | `SearchRequest` struct | passthrough (native + wasm) | `parse_search_request` | `search`/`memory.search` kwargs |
+| `as_of_ms` / `valid_window` on `list` | `ListOptions` struct | `ListOptions` passthrough | `parse_list_options` | `memory.list` kwargs |
+| `include_quarantined` (search + list) | ✅ | ✅ | ✅ | ✅ |
+| `min_confidence` (search + list) | ✅ | ✅ | ✅ | ✅ |
+| Abstention signal (`abstained`/`abstention_reason`) | ❌ (array result) | ❌ (array result) | ❌ (array result) | ❌ (array result) |
+
+**Wire names (one casing per payload, snake_case):** `valid_at_ms`,
+`invalid_at_ms`, `confidence_class`, `confidence`, `last_validated_at_ms`,
+`derived_from`, `quarantined_at_ms`, `quarantine_reason`, `quarantined_by`,
+`quarantine_review_due_ms`, `as_of_ms`, `valid_window{from_ms,to_ms}`,
+`include_quarantined`, `min_confidence`, `abstained`, `abstention_reason`.
+
+**Declared parity note (abstention):** the signal is produced by the SDK's
+page object (`MemorySearchPage`) and therefore only travels on **page-shaped
+transports** — the single-namespace HTTP `SearchPageV2` and the MCP search
+envelope (`structuredContent`). The four binding `search` APIs return hit
+arrays and have no page to carry it; consumers on those transports detect the
+threshold-empty case by setting `VANTADB_CONFIDENCE_THRESHOLD` only where the
+signal is surfaced (HTTP/MCP), or by using `search_page` from Rust. Tracked as
+a follow-up if a page-shaped binding API is ever requested.
+
+**Per-binding evidence (same-PR):** Python `tests/test_sch07.py` ·
+Node `tests/sch07.test.ts` · TS `src/__tests__/sch07.test.ts` ·
+WASM `tests/wasm_tests.rs` (`test_v2_fields_and_temporal_params_on_the_wire`,
+browser CI) · MCP `tests/mcp_tests.rs`
+(`test_mcp_search_and_list_temporal_quarantine_args`,
+`test_mcp_search_abstention_signal_in_structured_content`) · HTTP
+`vantadb-server/tests/e2e.rs` (`test_e2e_search_abstention_signal_and_v2_fields`).
+
 ## SDK Surface Differences (verified 2026-09-15 via grep en `vantadb-ts/src/vantadb.ts`)
 
 | Capability | WASM | TS | Python |
