@@ -142,6 +142,7 @@ fn put_task_memory(
         vector: None,
         sparse_vector: None,
         ttl_ms: None,
+        ..Default::default()
     })?;
     Ok(())
 }

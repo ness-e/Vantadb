@@ -474,6 +474,7 @@ mod tests {
                 sparse_vector: None,
                 superseded_by: None,
                 superseded_at_ms: None,
+                ..Default::default()
             },
             score,
             explanation: None,

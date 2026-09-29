@@ -46,6 +46,7 @@ fn test_memory_input_serialize_roundtrip() {
         vector: Some(vec![0.1, 0.2, 0.3]),
         sparse_vector: None,
         ttl_ms: Some(60000),
+        ..Default::default()
     };
     let json = serde_json::to_string(&input).unwrap();
     let back: MemoryInput = serde_json::from_str(&json).unwrap();
@@ -75,6 +76,7 @@ fn test_memory_record_serialize() {
         expires_at_ms: None,
         superseded_by: None,
         superseded_at_ms: None,
+        ..Default::default()
     };
     let json = serde_json::to_string(&record).unwrap();
     let back: MemoryRecord = serde_json::from_str(&json).unwrap();
@@ -125,6 +127,7 @@ fn test_search_hit_serialize() {
         expires_at_ms: None,
         superseded_by: None,
         superseded_at_ms: None,
+        ..Default::default()
     };
     let hit = MemorySearchHit {
         record: record.clone(),

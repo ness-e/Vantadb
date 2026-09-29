@@ -402,6 +402,7 @@ mod tests {
             vector: None,
             sparse_vector: None,
             ttl_ms: None,
+            ..Default::default()
         }
     }
 
@@ -416,6 +417,7 @@ mod tests {
             vector: None,
             sparse_vector: None,
             ttl_ms: None,
+            ..Default::default()
         }
     }
 
@@ -533,6 +535,7 @@ mod tests {
             expires_at_ms: None,
             superseded_by: None,
             superseded_at_ms: None,
+            ..Default::default()
         };
         let report = db.import_records(vec![record]).unwrap();
         assert_eq!(report.inserted, 1);
@@ -569,6 +572,7 @@ mod tests {
             expires_at_ms: None,
             superseded_by: None,
             superseded_at_ms: None,
+            ..Default::default()
         };
         let report = db.import_records(vec![record]).unwrap();
         assert_eq!(report.updated, 1);
@@ -594,6 +598,7 @@ mod tests {
             expires_at_ms: None,
             superseded_by: None,
             superseded_at_ms: None,
+            ..Default::default()
         };
         let report = db.import_records(vec![record]).unwrap();
         assert_eq!(report.errors, 1);
@@ -621,6 +626,7 @@ mod tests {
             expires_at_ms: None,
             superseded_by: None,
             superseded_at_ms: None,
+            ..Default::default()
         };
         let line = super::super::export_line_from_record(record);
         let json = serde_json::to_string(&line).unwrap();
@@ -656,6 +662,7 @@ mod tests {
             expires_at_ms: None,
             superseded_by: None,
             superseded_at_ms: None,
+            ..Default::default()
         };
         let line = super::super::export_line_from_record(record);
         content.push_str(&serde_json::to_string(&line).unwrap());

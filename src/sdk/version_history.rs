@@ -16,7 +16,7 @@
 use crate::backend::{BackendPartition, BackendWriteOp};
 use crate::error::{Error, Result};
 use crate::node::SparseVector;
-use crate::sdk::types::{MemoryMetadata, MemoryRecord};
+use crate::sdk::types::{default_confidence, ConfidenceClass, MemoryMetadata, MemoryRecord};
 use crate::storage::engine::StorageEngine;
 use serde::{Deserialize, Serialize};
 
@@ -87,6 +87,64 @@ struct SnapshotRecord {
     vector: Option<Vec<f32>>,
     sparse_vector: Option<SparseVector>,
     expires_at_ms: Option<u64>,
+    // ── v2 (ADR-046 §D7 formato 2): appended AFTER the v1 fields so the
+    // postcard wire stays forward-compatible (old trailing fields keep their
+    // offsets; missing trailing fields decode via `#[serde(default)]`). ──
+    /// Key of the superseding record (the v1 mirror dropped this — gap fixed).
+    #[serde(default)]
+    superseded_by: Option<String>,
+    /// Unix-ms supersession event (v1 mirror dropped this too).
+    #[serde(default)]
+    superseded_at_ms: Option<u64>,
+    /// Start of the validity window (0 = v1 unset sentinel ⇒ created_at).
+    #[serde(default)]
+    valid_at_ms: u64,
+    /// End of validity (exclusive).
+    #[serde(default)]
+    invalid_at_ms: Option<u64>,
+    /// Provenance class.
+    #[serde(default)]
+    confidence_class: ConfidenceClass,
+    /// Confidence (v1 default ⇒ D_a).
+    #[serde(default = "default_confidence")]
+    confidence: f32,
+    /// Last successful re-validation.
+    #[serde(default)]
+    last_validated_at_ms: Option<u64>,
+    /// Derivation parents.
+    #[serde(default)]
+    derived_from: Vec<String>,
+    /// Quarantine state (4 fields).
+    #[serde(default)]
+    quarantined_at_ms: Option<u64>,
+    /// Stable quarantine reason code.
+    #[serde(default)]
+    quarantine_reason: Option<String>,
+    /// Principal that applied the quarantine.
+    #[serde(default)]
+    quarantined_by: Option<String>,
+    /// Review deadline signal.
+    #[serde(default)]
+    quarantine_review_due_ms: Option<u64>,
+}
+
+/// v1 wire shape of the mirror (pre-ADR-046, 11 fields): used only as the
+/// deterministic V1 fallback of the V2-first decode order (ADR-046 §D7).
+/// Never written — re-encode is always V2.
+#[derive(Serialize, Deserialize)]
+struct SnapshotRecordV1 {
+    namespace: String,
+    key: String,
+    payload: String,
+    metadata: MemoryMetadata,
+    created_at_ms: u64,
+    updated_at_ms: u64,
+    version: u64,
+    #[serde(with = "node_id_str")]
+    node_id: u128,
+    vector: Option<Vec<f32>>,
+    sparse_vector: Option<SparseVector>,
+    expires_at_ms: Option<u64>,
 }
 
 /// `node_id` as decimal string — postcard-safe (no untagged enums).
@@ -123,6 +181,18 @@ impl From<&MemoryRecord> for SnapshotRecord {
             vector: r.vector.clone(),
             sparse_vector: r.sparse_vector.clone(),
             expires_at_ms: r.expires_at_ms,
+            superseded_by: r.superseded_by.clone(),
+            superseded_at_ms: r.superseded_at_ms,
+            valid_at_ms: r.valid_at_ms,
+            invalid_at_ms: r.invalid_at_ms,
+            confidence_class: r.confidence_class,
+            confidence: r.confidence,
+            last_validated_at_ms: r.last_validated_at_ms,
+            derived_from: r.derived_from.clone(),
+            quarantined_at_ms: r.quarantined_at_ms,
+            quarantine_reason: r.quarantine_reason.clone(),
+            quarantined_by: r.quarantined_by.clone(),
+            quarantine_review_due_ms: r.quarantine_review_due_ms,
         }
     }
 }
@@ -141,8 +211,55 @@ impl From<SnapshotRecord> for MemoryRecord {
             vector: s.vector,
             sparse_vector: s.sparse_vector,
             expires_at_ms: s.expires_at_ms,
+            superseded_by: s.superseded_by,
+            superseded_at_ms: s.superseded_at_ms,
+            // v1 normalization (ADR-046 §D7): the 0 sentinel is "unset".
+            valid_at_ms: if s.valid_at_ms == 0 {
+                s.created_at_ms
+            } else {
+                s.valid_at_ms
+            },
+            invalid_at_ms: s.invalid_at_ms,
+            confidence_class: s.confidence_class,
+            confidence: s.confidence,
+            last_validated_at_ms: s.last_validated_at_ms,
+            derived_from: s.derived_from,
+            quarantined_at_ms: s.quarantined_at_ms,
+            quarantine_reason: s.quarantine_reason,
+            quarantined_by: s.quarantined_by,
+            quarantine_review_due_ms: s.quarantine_review_due_ms,
+        }
+    }
+}
+
+impl From<SnapshotRecordV1> for MemoryRecord {
+    fn from(s: SnapshotRecordV1) -> Self {
+        Self {
+            namespace: s.namespace,
+            key: s.key,
+            payload: s.payload,
+            metadata: s.metadata,
+            created_at_ms: s.created_at_ms,
+            updated_at_ms: s.updated_at_ms,
+            version: s.version,
+            node_id: s.node_id,
+            vector: s.vector,
+            sparse_vector: s.sparse_vector,
+            expires_at_ms: s.expires_at_ms,
+            // v1 defaults of the D2 table: superseded_* were dropped by the
+            // v1 mirror itself; valid_at := created_at; class/conf ⇒ D_a.
             superseded_by: None,
             superseded_at_ms: None,
+            valid_at_ms: s.created_at_ms,
+            invalid_at_ms: None,
+            confidence_class: ConfidenceClass::Asserted,
+            confidence: default_confidence(),
+            last_validated_at_ms: None,
+            derived_from: Vec::new(),
+            quarantined_at_ms: None,
+            quarantine_reason: None,
+            quarantined_by: None,
+            quarantine_review_due_ms: None,
         }
     }
 }
@@ -151,10 +268,32 @@ fn encode_snapshot(record: &MemoryRecord) -> Result<Vec<u8>> {
     postcard::to_allocvec(&SnapshotRecord::from(record)).map_err(Error::serialization)
 }
 
+/// Decode a stored snapshot with the deterministic **V2-first → V1-fallback**
+/// order (ADR-046 §D7): postcard decodes structs as fixed-length tuples, so
+/// V1 bytes fail the V2 shape at EOF — missing trailing fields are an error,
+/// NOT `#[serde(default)]` (the derive never gets to apply it). The V1 mirror
+/// shape is the fallback that applies the D2 normalization defaults. V1-first
+/// would silently accept V2 bytes (postcard ignores trailing bytes) and drop
+/// the v2 fields, so it is never tried. Re-encode is always V2
+/// ([`encode_snapshot`]); the fallback ordering is guarded by
+/// `snapshot_v1_bytes_fail_the_v2_shape_and_use_the_v1_fallback` (if postcard
+/// ever changes this, put a version prefix in the value instead).
 fn decode_snapshot(bytes: &[u8]) -> Result<MemoryRecord> {
-    postcard::from_bytes::<SnapshotRecord>(bytes)
-        .map(MemoryRecord::from)
-        .map_err(Error::serialization)
+    match postcard::from_bytes::<SnapshotRecord>(bytes) {
+        Ok(snapshot) => Ok(MemoryRecord::from(snapshot)),
+        Err(v2_err) => postcard::from_bytes::<SnapshotRecordV1>(bytes)
+            .map(MemoryRecord::from)
+            .map_err(|_| Error::serialization(v2_err)),
+    }
+}
+
+/// Canonical V2 re-encoding of a stored snapshot value (migration support,
+/// ADR-046 §D7 formato 2): decodes V1 or V2 and always re-encodes as V2.
+/// Deterministic — callers use a byte-compare against the input to skip
+/// already-canonical entries (idempotency).
+pub(crate) fn reencode_snapshot_v2(bytes: &[u8]) -> Result<Vec<u8>> {
+    let record = decode_snapshot(bytes)?;
+    encode_snapshot(&record)
 }
 
 /// Write the snapshot of a single record (used by `put_one`), then evict
@@ -436,6 +575,7 @@ mod tests {
             vector: None,
             sparse_vector: None,
             ttl_ms: Some(1),
+            ..Default::default()
         })
         .expect("put with ttl");
         db.put(MemoryInput::new("docs", "keep", "stays"))
@@ -483,12 +623,94 @@ mod tests {
             vector: Some(vec![0.5; 1536]),
             sparse_vector: Some(SparseVector(BTreeMap::from([(0, 1.0), (5, 0.25)]))),
             expires_at_ms: Some(1_700_000_000_000),
-            superseded_by: None,
-            superseded_at_ms: None,
+            superseded_by: Some("newer".into()),
+            superseded_at_ms: Some(1_700_000_000_000),
+            valid_at_ms: 999,
+            invalid_at_ms: Some(1_700_000_000_000),
+            confidence_class: ConfidenceClass::Derived,
+            confidence: 0.45,
+            last_validated_at_ms: Some(1_700_000_000_001),
+            derived_from: vec!["p1".into(), "p2".into()],
+            quarantined_at_ms: Some(1_700_000_000_002),
+            quarantine_reason: Some("unreviewed_import".into()),
+            quarantined_by: Some("system:test".into()),
+            quarantine_review_due_ms: Some(1_700_000_000_003),
         };
         let bytes = encode_snapshot(&rec).expect("serialize");
         let back = decode_snapshot(&bytes).expect("deserialize");
         assert_eq!(back, rec);
+    }
+
+    #[test]
+    fn snapshot_v1_bytes_decode_with_defaults_and_reencode_is_v2() {
+        // "V1 bytes reales" (ADR-046 §D7 formato 2): serialize the v1 mirror
+        // shape and decode it through the V2-first → V1-fallback path. The
+        // result must carry the D2 normalization defaults, and re-encoding
+        // must produce V2 bytes (decode → same record).
+        let v1 = SnapshotRecordV1 {
+            namespace: "docs".into(),
+            key: "legacy".into(),
+            payload: "old".into(),
+            metadata: MemoryMetadata::new(),
+            created_at_ms: 1000,
+            updated_at_ms: 2000,
+            version: 3,
+            node_id: 77,
+            vector: None,
+            sparse_vector: None,
+            expires_at_ms: None,
+        };
+        let v1_bytes = postcard::to_allocvec(&v1).expect("serialize v1 mirror");
+
+        let decoded = decode_snapshot(&v1_bytes).expect("v1 bytes decode");
+        assert_eq!(decoded.valid_at_ms, 1000, "valid_at := created_at");
+        assert_eq!(decoded.invalid_at_ms, None, "v1 normalization: open window");
+        assert_eq!(decoded.confidence_class, ConfidenceClass::Asserted);
+        assert_eq!(decoded.confidence, 1.0, "v1 normalization: D_a");
+        assert_eq!(decoded.last_validated_at_ms, None);
+        assert!(decoded.derived_from.is_empty());
+        assert_eq!(decoded.quarantined_at_ms, None);
+        assert_eq!(decoded.superseded_by, None);
+
+        // Re-encode always V2: decoding the re-encoded bytes roundtrips.
+        let v2_bytes = encode_snapshot(&decoded).expect("re-encode v2");
+        let redecoded = decode_snapshot(&v2_bytes).expect("v2 bytes decode");
+        assert_eq!(redecoded, decoded);
+        assert!(
+            v2_bytes.len() > v1_bytes.len(),
+            "v2 re-encode carries the appended fields"
+        );
+    }
+
+    #[test]
+    fn snapshot_v1_bytes_fail_the_v2_shape_and_use_the_v1_fallback() {
+        // Regression guard (ADR-046 §D7 / N1): postcard decodes structs as
+        // fixed-length tuples, so V2-decoding-V1 bytes fails at EOF — serde
+        // defaults do NOT apply to truncated struct input; the V1 fallback is
+        // load-bearing. If postcard ever changes this, revisit the fallback
+        // ordering (put a version prefix in the value instead).
+        let v1 = SnapshotRecordV1 {
+            namespace: "docs".into(),
+            key: "legacy".into(),
+            payload: "old".into(),
+            metadata: MemoryMetadata::new(),
+            created_at_ms: 1000,
+            updated_at_ms: 2000,
+            version: 3,
+            node_id: 77,
+            vector: None,
+            sparse_vector: None,
+            expires_at_ms: None,
+        };
+        let v1_bytes = postcard::to_allocvec(&v1).expect("serialize v1 mirror");
+        assert!(
+            postcard::from_bytes::<SnapshotRecord>(&v1_bytes).is_err(),
+            "V2 struct must fail on V1 bytes — the V1 fallback is load-bearing"
+        );
+        assert!(
+            decode_snapshot(&v1_bytes).is_ok(),
+            "the V1 fallback decodes V1 bytes"
+        );
     }
 
     #[test]

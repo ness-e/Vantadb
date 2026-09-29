@@ -504,6 +504,7 @@ fn snippet_with_highlighting() {
         sparse_vector: None,
         metadata: Default::default(),
         ttl_ms: None,
+        ..Default::default()
     };
     db.put(input).expect("put");
 
@@ -537,4 +538,99 @@ fn snippet_with_highlighting() {
     let snippet = explanation.snippet.as_ref().unwrap();
     // El snippet debería contener parte del texto original
     assert!(!snippet.is_empty());
+}
+
+// ─── ADR-046 §D6: restore_graph_nodes precedence (CORE-02 intacto) ───
+
+#[test]
+fn restore_graph_nodes_preserves_confidence_and_memory_put_renormalizes() {
+    use vantadb::{Fields, NodeRecord, StorageTier};
+
+    fn node_record(id: u128, fields: Fields, confidence_score: f32) -> NodeRecord {
+        NodeRecord {
+            id,
+            fields,
+            vector: None,
+            vector_dimensions: 0,
+            edges: Vec::new(),
+            confidence_score,
+            importance: 0.1,
+            hits: 0,
+            last_accessed: 0,
+            epoch: 0,
+            tier: StorageTier::Cold,
+            is_alive: true,
+        }
+    }
+
+    let dir = tempdir().expect("tempdir");
+    let db = Embedded::open(dir.path()).expect("open");
+
+    // (1) CORE-02 intacto: a graph restore preserves the transported score
+    // verbatim (no recompute, no discard).
+    db.restore_graph_nodes(vec![node_record(777, Fields::new(), 0.42)])
+        .expect("restore graph node");
+    let graph_node = db.get_node(777).expect("get node").expect("node 777");
+    assert_eq!(graph_node.confidence_score, 0.42);
+
+    // (2) D6 coherence after a memory write: record.confidence is projected
+    // into node.confidence_score.
+    let record = db
+        .put(MemoryInput {
+            confidence: Some(0.3),
+            ..MemoryInput::new("ns/d6", "k", "payload")
+        })
+        .expect("put with confidence");
+    let node = db
+        .get_node(record.node_id)
+        .expect("get memory node")
+        .expect("memory node");
+    assert_eq!(
+        node.confidence_score, record.confidence,
+        "D6: memory write is the normalizer (record.confidence == node.confidence_score)"
+    );
+
+    // (3) A restore landing on a memory node id is a verbatim transport writer
+    // (last-writer-wins); a later memory put re-normalizes the v2 projection.
+    let mut fields = Fields::new();
+    fields.insert("__vanta_namespace".into(), Value::String("ns/d6".into()));
+    fields.insert("__vanta_key".into(), Value::String("k".into()));
+    fields.insert("__vanta_payload".into(), Value::String("payload".into()));
+    fields.insert(
+        "__vanta_created_at_ms".into(),
+        Value::Int(record.created_at_ms as i64),
+    );
+    fields.insert(
+        "__vanta_updated_at_ms".into(),
+        Value::Int(record.updated_at_ms as i64),
+    );
+    fields.insert("__vanta_version".into(), Value::Int(record.version as i64));
+    fields.insert(
+        "__vanta_valid_at_ms".into(),
+        Value::Int(record.valid_at_ms as i64),
+    );
+    fields.insert(
+        "__vanta_confidence_class".into(),
+        Value::String("Asserted".into()),
+    );
+    db.restore_graph_nodes(vec![node_record(record.node_id, fields, 0.9)])
+        .expect("restore memory node");
+    let after_restore = db.get("ns/d6", "k").expect("get").expect("record");
+    assert_eq!(
+        after_restore.confidence, 0.9,
+        "D6: restore preserves the transported score verbatim"
+    );
+
+    let reput = db
+        .put(MemoryInput {
+            confidence: Some(0.5),
+            ..MemoryInput::new("ns/d6", "k", "payload v2")
+        })
+        .expect("re-put");
+    assert_eq!(reput.confidence, 0.5);
+    let node_after = db.get_node(reput.node_id).expect("get node").expect("node");
+    assert_eq!(
+        node_after.confidence_score, 0.5,
+        "D6: a later memory put re-normalizes the node projection"
+    );
 }

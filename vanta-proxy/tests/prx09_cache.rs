@@ -113,6 +113,7 @@ fn seed_memory(db: &Embedded, session_key: &str) {
         vector: None,
         sparse_vector: None,
         ttl_ms: None,
+        ..Default::default()
     })
     .expect("seed persona");
     upsert_scene(db, session_key, "cache-runbook", "deploys", "how to deploy").expect("seed scene");

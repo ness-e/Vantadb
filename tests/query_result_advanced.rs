@@ -193,6 +193,7 @@ fn search_hit_with_explanation_snapshot() {
             expires_at_ms: None,
             superseded_by: None,
             superseded_at_ms: None,
+            ..Default::default()
         },
         score: 0.987,
         explanation: Some(SearchExplanationHit {
@@ -241,6 +242,7 @@ fn search_hit_superseded_chain_snapshot() {
             expires_at_ms: None,
             superseded_by: Some("1004".into()),
             superseded_at_ms: Some(1_700_000_030_000),
+            ..Default::default()
         },
         score: 0.85,
         explanation: None,
@@ -266,6 +268,7 @@ fn list_page_multi_page_snapshot() {
                 expires_at_ms: None,
                 superseded_by: None,
                 superseded_at_ms: None,
+                ..Default::default()
             })
             .collect(),
         next_cursor: Some(50),
@@ -290,6 +293,7 @@ fn list_page_last_page_snapshot() {
             expires_at_ms: None,
             superseded_by: None,
             superseded_at_ms: None,
+            ..Default::default()
         }],
         next_cursor: None,
     };

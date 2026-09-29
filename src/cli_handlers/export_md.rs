@@ -306,6 +306,7 @@ mod tests {
             expires_at_ms: None,
             superseded_by: None,
             superseded_at_ms: None,
+            ..Default::default()
         };
         let body = render_record_md(&rec);
         assert!(body.starts_with("---\n"));

@@ -191,3 +191,196 @@ fn fjall_cold_copy_restore_preserves_memory_text_and_hybrid_search() {
         .expect("restored hybrid search");
     assert_eq!(hybrid_hits[0].record.key, "restore");
 }
+
+// ─── ADR-046 (SCH-02): v2 schema — v1 import, roundtrip, reopen ─────
+
+use vantadb::sdk::{default_confidence, ConfidenceClass};
+
+#[test]
+fn import_v1_jsonl_line_normalizes_to_v2_defaults() {
+    let dir = tempdir().expect("tempdir");
+    // A real v1 export line (13 fields, schema_version 1) with supersession.
+    let v1_line = r#"{"schema_version":1,"namespace":"legacy","key":"a","payload":"old data","metadata":{},"vector":null,"created_at_ms":1000,"updated_at_ms":2000,"version":2,"expires_at_ms":null,"superseded_by":"b","superseded_at_ms":1500}"#;
+    let path = dir.path().join("v1.jsonl");
+    fs::write(&path, format!("{v1_line}\n")).expect("write v1 fixture");
+
+    let db = Embedded::open(dir.path()).expect("open");
+    let report = db.import_file(&path).expect("import v1");
+    assert_eq!(report.inserted, 1);
+    assert_eq!(report.errors, 0);
+
+    let record = db.get("legacy", "a").expect("get").expect("record");
+    assert_eq!(
+        record.valid_at_ms, 1000,
+        "v1 normalization: valid_at := created_at"
+    );
+    assert_eq!(
+        record.invalid_at_ms,
+        Some(1500),
+        "v1 normalization: invalid_at := superseded_at"
+    );
+    assert_eq!(record.confidence_class, ConfidenceClass::Asserted);
+    assert_eq!(record.confidence, default_confidence());
+    assert_eq!(record.quarantined_at_ms, None);
+}
+
+#[test]
+fn v2_fields_survive_export_import_roundtrip() {
+    let source_dir = tempdir().expect("source");
+    let target_dir = tempdir().expect("target");
+    let export_path = source_dir.path().join("v2.jsonl");
+
+    {
+        let source = Embedded::open(source_dir.path()).expect("open source");
+        source
+            .put(MemoryInput {
+                confidence: Some(0.8),
+                ..MemoryInput::new("ns/v2", "parent", "parent payload")
+            })
+            .expect("put parent");
+        let derived = source
+            .put(MemoryInput {
+                confidence_class: Some(ConfidenceClass::Derived),
+                derived_from: Some(vec!["parent".to_string()]),
+                ..MemoryInput::new("ns/v2", "child", "derived payload")
+            })
+            .expect("put derived");
+        assert_eq!(derived.confidence, 0.8 * 0.9);
+        source.flush().expect("flush");
+        source.export_all(&export_path).expect("export");
+    }
+
+    {
+        let target = Embedded::open(target_dir.path()).expect("open target");
+        let report = target.import_file(&export_path).expect("import v2");
+        assert_eq!(report.inserted, 2);
+        assert_eq!(report.errors, 0);
+
+        let child = target.get("ns/v2", "child").expect("get").expect("child");
+        assert_eq!(child.confidence_class, ConfidenceClass::Derived);
+        assert_eq!(child.confidence, 0.8 * 0.9, "v2 score is transported");
+        assert_eq!(child.derived_from, vec!["parent".to_string()]);
+        assert_eq!(child.valid_at_ms, child.created_at_ms);
+
+        // Re-export → import into a third DB keeps the fields (idempotent wire).
+        let reexport = target_dir.path().join("reexport.jsonl");
+        target.export_all(&reexport).expect("re-export");
+        let third_dir = tempdir().expect("third");
+        let third = Embedded::open(third_dir.path()).expect("open third");
+        third.import_file(&reexport).expect("re-import");
+        let again = third.get("ns/v2", "child").expect("get").expect("child");
+        assert_eq!(again, child);
+    }
+}
+
+#[test]
+fn reopen_preserves_v2_fields() {
+    let dir = tempdir().expect("tempdir");
+    {
+        let db = Embedded::open(dir.path()).expect("open");
+        db.put(MemoryInput {
+            confidence: Some(0.9),
+            valid_at_ms: Some(1234),
+            ..MemoryInput::new("ns/reopen", "a", "payload a")
+        })
+        .expect("put a");
+        db.put(MemoryInput {
+            confidence_class: Some(ConfidenceClass::Derived),
+            derived_from: Some(vec!["a".to_string()]),
+            ..MemoryInput::new("ns/reopen", "b", "payload b")
+        })
+        .expect("put b");
+        db.put(MemoryInput::new("ns/reopen", "c", "payload c"))
+            .expect("put c");
+        db.supersede("ns/reopen", "c", "a").expect("supersede c");
+        db.flush().expect("flush");
+        db.close().expect("close");
+    }
+
+    let db = Embedded::open(dir.path()).expect("reopen");
+    let a = db.get("ns/reopen", "a").expect("get a").expect("a");
+    assert_eq!(a.confidence, 0.9);
+    assert_eq!(a.valid_at_ms, 1234);
+    assert_eq!(a.confidence_class, ConfidenceClass::Asserted);
+
+    let b = db.get("ns/reopen", "b").expect("get b").expect("b");
+    assert_eq!(b.confidence_class, ConfidenceClass::Derived);
+    assert_eq!(b.confidence, 0.9 * 0.9, "score survives reopen");
+    assert_eq!(b.derived_from, vec!["a".to_string()]);
+
+    let c = db.get("ns/reopen", "c").expect("get c").expect("c");
+    assert_eq!(
+        c.invalid_at_ms, c.superseded_at_ms,
+        "D3 alignment survives reopen"
+    );
+    assert!(c.valid_at_ms <= c.invalid_at_ms.expect("superseded has invalid_at"));
+
+    // Version history mirror roundtrips the v2 fields too (ADR-046 §D7 #2).
+    let versions = db.versions("ns/reopen", "a").expect("versions");
+    assert_eq!(versions.len(), 1);
+    assert_eq!(versions[0].confidence, 0.9);
+    assert_eq!(versions[0].valid_at_ms, 1234);
+}
+
+#[test]
+fn bulk_import_v0x01_payload_still_imports_with_v2_defaults() {
+    let dir = tempdir().expect("tempdir");
+    // v0x01 bulk payload: MemoryInput JSON WITHOUT any v2 field (pre-SCH-02 wire).
+    let inputs = serde_json::json!([
+        {"namespace":"bulk","key":"k1","payload":"p1","metadata":{},"vector":null,"ttl_ms":null},
+        {"namespace":"bulk","key":"k2","payload":"p2","metadata":{},"vector":null,"ttl_ms":null}
+    ]);
+    let body = serde_json::to_vec(&inputs).expect("serialize inputs");
+    let mut framed = Vec::new();
+    framed.extend_from_slice(b"VDBJSON\n");
+    framed.push(0x01);
+    framed.extend_from_slice(&(2u64).to_le_bytes());
+    framed.extend_from_slice(&body);
+    let path = dir.path().join("bulk.vdbdump");
+    fs::write(&path, &framed).expect("write bulk file");
+
+    let db = Embedded::open(dir.path()).expect("open");
+    let report = db
+        .bulk_import_file(path.to_str().unwrap())
+        .expect("bulk import");
+    assert_eq!(report.total_records, 2);
+
+    let record = db.get("bulk", "k1").expect("get").expect("record");
+    assert_eq!(
+        record.confidence,
+        default_confidence(),
+        "v0x01 payload ⇒ D_a"
+    );
+    assert_eq!(record.confidence_class, ConfidenceClass::Asserted);
+    assert_eq!(record.valid_at_ms, record.created_at_ms);
+    assert_eq!(record.invalid_at_ms, None);
+}
+
+#[test]
+fn bulk_import_rejects_explicit_zero_valid_at() {
+    // N2: boundary alignment — `Some(0)` is rejected on the validated put path
+    // (0 = v1 unset sentinel); the raw bulk path must not silently reinterpret
+    // it as "default".
+    let dir = tempdir().expect("tempdir");
+    let inputs = serde_json::json!([
+        {"namespace":"bulk","key":"z","payload":"p","metadata":{},"vector":null,"ttl_ms":null,"valid_at_ms":0}
+    ]);
+    let body = serde_json::to_vec(&inputs).expect("serialize inputs");
+    let mut framed = Vec::new();
+    framed.extend_from_slice(b"VDBJSON\n");
+    framed.push(0x01);
+    framed.extend_from_slice(&(1u64).to_le_bytes());
+    framed.extend_from_slice(&body);
+    let path = dir.path().join("bulk-zero.vdbdump");
+    fs::write(&path, &framed).expect("write bulk file");
+
+    let db = Embedded::open(dir.path()).expect("open");
+    let err = db
+        .bulk_import_file(path.to_str().unwrap())
+        .expect_err("explicit valid_at_ms=0 must be rejected");
+    assert!(
+        err.to_string().contains("valid_at_ms"),
+        "error must name the field, got: {err}"
+    );
+    assert!(db.get("bulk", "z").expect("get").is_none());
+}

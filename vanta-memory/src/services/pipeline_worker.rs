@@ -773,6 +773,7 @@ impl<'a, R: LlmRunner> MemoryTaskHandler<'a, R> {
                 vector: None,
                 sparse_vector: None,
                 ttl_ms: None,
+                ..Default::default()
             })
             .map(|_| ())
             .map_err(|e| format!("assembled context write failed: {e}"))?;

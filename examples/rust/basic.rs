@@ -31,6 +31,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             vector: Some(vec![0.1, 0.2, 0.3]),
             sparse_vector: None,
             ttl_ms: None,
+            ..Default::default()
         })?;
     }
 

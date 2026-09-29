@@ -109,6 +109,7 @@ fn seed_l1(storage: &Arc<StorageEngine>, session: &str, id: &str, content: &str)
         sparse_vector: None,
         metadata: vantadb::sdk::MemoryMetadata::new(),
         ttl_ms: None,
+        ..Default::default()
     })
     .expect("seed l1 record");
 }

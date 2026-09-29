@@ -116,6 +116,7 @@ fn test_ttl_boundary_purge_expired() {
         vector: None,
         sparse_vector: None,
         ttl_ms: Some(1),
+        ..Default::default()
     };
 
     let record = db.put(input).unwrap();

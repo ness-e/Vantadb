@@ -93,6 +93,7 @@ fn seed_l1(storage: &Arc<StorageEngine>, session: &str) {
         vector: None,
         sparse_vector: None,
         ttl_ms: None,
+        ..Default::default()
     })
     .expect("put l1");
 }

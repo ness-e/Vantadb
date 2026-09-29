@@ -44,6 +44,7 @@ fn put_record(db: &Embedded, session_id: &str, r: &MemoryRecord) {
         vector: None,
         sparse_vector: None,
         ttl_ms: None,
+        ..Default::default()
     })
     .expect("put l1");
 }

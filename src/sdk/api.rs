@@ -230,6 +230,7 @@ mod tests {
             vector: None,
             sparse_vector: None,
             ttl_ms: Some(1),
+            ..Default::default()
         };
         let record = db.put(input).unwrap();
         std::thread::sleep(std::time::Duration::from_millis(20));
@@ -527,6 +528,7 @@ mod tests {
                 vector: None,
                 sparse_vector: None,
                 ttl_ms: None,
+                ..Default::default()
             });
         }
         let page = db
@@ -586,6 +588,7 @@ mod tests {
             vector: None,
             sparse_vector: None,
             ttl_ms: None,
+            ..Default::default()
         })
         .unwrap();
         db.put(MemoryInput {
@@ -596,6 +599,7 @@ mod tests {
             vector: None,
             sparse_vector: None,
             ttl_ms: None,
+            ..Default::default()
         })
         .unwrap();
         let page = db
@@ -980,5 +984,364 @@ mod tests {
             })
             .unwrap();
         assert_eq!(hits_hide.len(), 1);
+    }
+
+    // ─── ADR-046 §D4: confidence rules V1–V5 ───────────────────────
+
+    fn derived_input(ns: &str, key: &str, parents: &[&str]) -> MemoryInput {
+        MemoryInput {
+            confidence_class: Some(ConfidenceClass::Derived),
+            derived_from: Some(parents.iter().map(|p| p.to_string()).collect()),
+            ..MemoryInput::new(ns, key, "derived payload")
+        }
+    }
+
+    #[test]
+    fn v2_derived_score_is_min_parents_times_0_9() {
+        let db = make_embedded(false);
+        db.put(MemoryInput {
+            confidence: Some(0.8),
+            ..MemoryInput::new("ns", "p1", "parent one")
+        })
+        .expect("put parent 1");
+        db.put(MemoryInput {
+            confidence: Some(0.5),
+            ..MemoryInput::new("ns", "p2", "parent two")
+        })
+        .expect("put parent 2");
+
+        let derived = db
+            .put(derived_input("ns", "child", &["p1", "p2"]))
+            .expect("put derived");
+        assert_eq!(derived.confidence_class, ConfidenceClass::Derived);
+        assert_eq!(derived.confidence, 0.45, "0.5 * 0.9");
+        assert_eq!(derived.derived_from, vec!["p1", "p2"]);
+        // V2 monotonicity: derived ≤ min(parents).
+        assert!(derived.confidence <= 0.5);
+    }
+
+    #[test]
+    fn v2_derived_with_declared_confidence_is_rejected() {
+        let db = make_embedded(false);
+        db.put(MemoryInput::new("ns", "p", "parent"))
+            .expect("put parent");
+        let err = db
+            .put(MemoryInput {
+                confidence: Some(0.9),
+                ..derived_input("ns", "child", &["p"])
+            })
+            .unwrap_err();
+        match err {
+            Error::Validation { field, reason } => {
+                assert_eq!(field, "confidence");
+                assert!(reason.contains("derived score is computed from parents"));
+            }
+            other => panic!("expected Validation, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn v1_derived_requires_parents_and_asserted_forbids_them() {
+        let db = make_embedded(false);
+        let err = db
+            .put(MemoryInput {
+                confidence_class: Some(ConfidenceClass::Derived),
+                ..MemoryInput::new("ns", "orphan", "no parents")
+            })
+            .unwrap_err();
+        assert!(matches!(
+            err,
+            Error::Validation { ref field, .. } if field == "derived_from"
+        ));
+
+        let err = db
+            .put(MemoryInput {
+                derived_from: Some(vec!["p".into()]),
+                ..MemoryInput::new("ns", "k", "asserted with parents")
+            })
+            .unwrap_err();
+        assert!(matches!(
+            err,
+            Error::Validation { ref field, .. } if field == "derived_from"
+        ));
+
+        let err = db
+            .put(MemoryInput {
+                confidence_class: Some(ConfidenceClass::Derived),
+                derived_from: Some(vec!["missing".into()]),
+                ..MemoryInput::new("ns", "k2", "missing parent")
+            })
+            .unwrap_err();
+        assert!(matches!(
+            err,
+            Error::Validation { ref field, .. } if field == "derived_from"
+        ));
+    }
+
+    #[test]
+    fn v3_derivation_cycle_and_depth_are_rejected() {
+        let db = make_embedded(false);
+        // Self-reference is a cycle.
+        let err = db.put(derived_input("ns", "self", &["self"])).unwrap_err();
+        assert!(matches!(
+            err,
+            Error::Validation { ref reason, .. } if reason.contains("cycle")
+        ));
+
+        // A chain longer than MAX_DERIVATION_DEPTH is rejected.
+        let base = db
+            .put(MemoryInput::new("ns", "d0", "level 0"))
+            .expect("base");
+        assert_eq!(base.confidence, 1.0);
+        let mut previous = "d0".to_string();
+        for depth in 1..=MAX_DERIVATION_DEPTH {
+            let key = format!("d{depth}");
+            db.put(derived_input("ns", &key, &[previous.as_str()]))
+                .expect("chain within the cap");
+            previous = key;
+        }
+        let err = db
+            .put(derived_input("ns", "too_deep", &[previous.as_str()]))
+            .unwrap_err();
+        assert!(matches!(
+            err,
+            Error::Validation { ref reason, .. } if reason.contains("MAX_DERIVATION_DEPTH")
+        ));
+    }
+
+    #[test]
+    fn v4_derived_score_recomputable_deterministically() {
+        let db = make_embedded(false);
+        db.put(MemoryInput {
+            confidence: Some(0.8),
+            ..MemoryInput::new("ns", "p1", "p1")
+        })
+        .expect("p1");
+        db.put(MemoryInput {
+            confidence: Some(0.6),
+            ..MemoryInput::new("ns", "p2", "p2")
+        })
+        .expect("p2");
+
+        let first = db
+            .put(derived_input("ns", "c1", &["p1", "p2"]))
+            .expect("c1");
+        let second = db
+            .put(derived_input("ns", "c2", &["p2", "p1"]))
+            .expect("c2");
+        assert_eq!(
+            first.confidence, second.confidence,
+            "same parents ⇒ same score"
+        );
+        assert_eq!(first.confidence, 0.6 * DERIVATION_DISCOUNT);
+
+        // Recompute from the stored parents equals the persisted score.
+        let p1 = db.get("ns", "p1").unwrap().unwrap();
+        let p2 = db.get("ns", "p2").unwrap().unwrap();
+        let recomputed = (p1.confidence.min(p2.confidence) * DERIVATION_DISCOUNT).clamp(0.0, 1.0);
+        assert_eq!(recomputed, first.confidence);
+    }
+
+    #[test]
+    fn v5_reput_replaces_class_and_score_no_inheritance() {
+        let db = make_embedded(false);
+        let asserted = db
+            .put(MemoryInput {
+                confidence: Some(0.9),
+                ..MemoryInput::new("ns", "k", "v1 asserted")
+            })
+            .expect("asserted put");
+        assert_eq!(asserted.confidence_class, ConfidenceClass::Asserted);
+        assert_eq!(asserted.confidence, 0.9);
+
+        db.put(MemoryInput {
+            confidence: Some(0.7),
+            ..MemoryInput::new("ns", "parent", "parent")
+        })
+        .expect("parent");
+        let derived = db
+            .put(derived_input("ns", "k", &["parent"]))
+            .expect("re-put derived");
+        assert_eq!(derived.confidence_class, ConfidenceClass::Derived);
+        assert_eq!(
+            derived.confidence,
+            0.7 * DERIVATION_DISCOUNT,
+            "no inheritance"
+        );
+
+        let back = db
+            .put(MemoryInput::new("ns", "k", "v3 asserted"))
+            .expect("re-put asserted");
+        assert_eq!(back.confidence_class, ConfidenceClass::Asserted);
+        assert_eq!(back.confidence, 1.0, "asserted default returns to D_a");
+    }
+
+    #[test]
+    fn valid_at_defaults_to_created_at_and_explicit_zero_is_rejected() {
+        let db = make_embedded(false);
+        let record = db.put(MemoryInput::new("ns", "k", "payload")).expect("put");
+        assert_eq!(record.valid_at_ms, record.created_at_ms);
+        assert_eq!(record.invalid_at_ms, None);
+
+        let explicit = db
+            .put(MemoryInput {
+                valid_at_ms: Some(record.created_at_ms.saturating_sub(10)),
+                ..MemoryInput::new("ns", "k2", "backdated")
+            })
+            .expect("backdated put");
+        assert_eq!(explicit.valid_at_ms, record.created_at_ms - 10);
+
+        let err = db
+            .put(MemoryInput {
+                valid_at_ms: Some(0),
+                ..MemoryInput::new("ns", "k3", "epoch zero")
+            })
+            .unwrap_err();
+        assert!(matches!(
+            err,
+            Error::Validation { ref field, .. } if field == "valid_at_ms"
+        ));
+    }
+
+    #[test]
+    fn confidence_range_is_validated_at_the_boundary() {
+        let db = make_embedded(false);
+        for invalid in [f32::NAN, f32::INFINITY, -0.1, 1.1] {
+            let err = db
+                .put(MemoryInput {
+                    confidence: Some(invalid),
+                    ..MemoryInput::new("ns", format!("bad-{invalid}"), "p")
+                })
+                .unwrap_err();
+            assert!(matches!(
+                err,
+                Error::Validation { ref field, .. } if field == "confidence"
+            ));
+        }
+    }
+
+    #[test]
+    fn supersede_aligns_invalid_at_with_superseded_at() {
+        let db = make_embedded(false);
+        db.put(MemoryInput::new("ns", "old", "old"))
+            .expect("put old");
+        db.put(MemoryInput::new("ns", "new", "new"))
+            .expect("put new");
+        db.supersede("ns", "old", "new").expect("supersede");
+
+        let old = db.get("ns", "old").unwrap().unwrap();
+        assert_eq!(old.superseded_by.as_deref(), Some("new"));
+        assert_eq!(
+            old.invalid_at_ms, old.superseded_at_ms,
+            "ADR-046 §D3: aligned by supersede()"
+        );
+        assert!(old.valid_at_ms <= old.invalid_at_ms.unwrap());
+    }
+
+    #[test]
+    fn quarantine_state_survives_reput_and_roundtrips_through_node() {
+        let db = make_embedded(false);
+        // Seed a quarantined record through the v2 import path.
+        let record = db.put(MemoryInput::new("ns", "k", "v1")).expect("put");
+        let line = crate::sdk::serialization::export_line_from_record(record);
+        let mut json = serde_json::to_value(line).unwrap();
+        json["quarantined_at_ms"] = serde_json::json!(1234);
+        json["quarantine_reason"] = serde_json::json!("explicit_write");
+        let imported = crate::sdk::serialization::record_from_export_line(
+            serde_json::from_value(json).unwrap(),
+        )
+        .expect("line with quarantine");
+        let stored = db.put_record_exact(imported).expect("import exact");
+        assert_eq!(stored.quarantined_at_ms, Some(1234));
+
+        // I2 sticky: a re-put preserves the quarantine state.
+        let reput = db.put(MemoryInput::new("ns", "k", "v2")).expect("re-put");
+        assert_eq!(reput.quarantined_at_ms, Some(1234));
+        assert_eq!(reput.quarantine_reason.as_deref(), Some("explicit_write"));
+        assert_eq!(reput.version, stored.version + 1);
+    }
+
+    // ─── R2: put_record_exact boundary validation (raw import choke point) ───
+
+    #[test]
+    fn put_record_exact_rejects_invalid_confidence_and_window() {
+        let db = make_embedded(false);
+        let base = db.put(MemoryInput::new("ns", "k", "p")).expect("put");
+
+        let mut out_of_range = base.clone();
+        out_of_range.confidence = 1e9;
+        let err = db.put_record_exact(out_of_range).unwrap_err();
+        assert!(matches!(err, Error::Validation { ref field, .. } if field == "confidence"));
+
+        let mut derived_without_parents = base.clone();
+        derived_without_parents.confidence_class = ConfidenceClass::Derived;
+        derived_without_parents.derived_from = Vec::new();
+        let err = db.put_record_exact(derived_without_parents).unwrap_err();
+        assert!(matches!(err, Error::Validation { ref field, .. } if field == "derived_from"));
+
+        let mut inverted_window = base.clone();
+        inverted_window.valid_at_ms = 2000;
+        inverted_window.invalid_at_ms = Some(1000);
+        let err = db.put_record_exact(inverted_window).unwrap_err();
+        assert!(matches!(err, Error::Validation { ref field, .. } if field == "invalid_at_ms"));
+
+        // Valid record still imports (no regression).
+        let mut valid = base.clone();
+        valid.key = "valid".into();
+        valid.node_id = crate::sdk::serialization::memory_node_id("ns", "valid");
+        valid.confidence = 0.4;
+        assert!(db.put_record_exact(valid).is_ok());
+    }
+
+    #[test]
+    fn import_records_counts_invalid_raw_records_as_errors() {
+        // HTTP `import` records / WASM `import_records` go through
+        // `put_record_exact`: a hostile record must be rejected per-record
+        // (ImportReport.errors) and never persisted.
+        let db = make_embedded(false);
+        let base = db.put(MemoryInput::new("ns", "ok", "p")).expect("put");
+
+        let mut good = base.clone();
+        good.key = "good".into();
+        good.node_id = crate::sdk::serialization::memory_node_id("ns", "good");
+        let mut bad = base.clone();
+        bad.key = "bad".into();
+        bad.node_id = crate::sdk::serialization::memory_node_id("ns", "bad");
+        bad.confidence = 42.0; // out of [0,1]
+
+        let report = db.import_records(vec![good, bad]).expect("import");
+        assert_eq!(report.inserted, 1);
+        assert_eq!(report.errors, 1);
+        assert!(db.get("ns", "good").expect("get").is_some());
+        assert!(
+            db.get("ns", "bad").expect("get").is_none(),
+            "invalid record must not be persisted"
+        );
+    }
+
+    // ─── O2: supersede guard for future-valid records ───
+
+    #[test]
+    fn supersede_rejects_record_valid_only_in_the_future() {
+        let db = make_embedded(false);
+        db.put(MemoryInput::new("ns", "new", "new"))
+            .expect("put new");
+        let future = now_ms().saturating_add(1_000_000);
+        db.put(MemoryInput {
+            valid_at_ms: Some(future),
+            ..MemoryInput::new("ns", "future", "future fact")
+        })
+        .expect("put future");
+
+        let err = db.supersede("ns", "future", "new").unwrap_err();
+        assert!(
+            matches!(err, Error::Validation { ref field, .. } if field == "valid_at_ms"),
+            "future-valid supersede must be rejected, got {err:?}"
+        );
+        // The record is untouched (not superseded, window intact).
+        let record = db.get("ns", "future").expect("get").expect("record");
+        assert!(record.superseded_by.is_none());
+        assert!(record.invalid_at_ms.is_none());
+        assert_eq!(record.valid_at_ms, future);
     }
 }

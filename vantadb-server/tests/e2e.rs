@@ -873,3 +873,47 @@ async fn test_e2e_search_zero_limit_cursor_progresses() {
         "a page claiming has_more must advance the cursor"
     );
 }
+
+/// R3 (ADR-046 §D7 path test — HTTP): `POST /api/v2/import` with a JSONL path
+/// accepts v1 lines and normalizes them (valid_at := created_at,
+/// invalid_at := superseded_at, confidence := D_a).
+#[tokio::test]
+async fn test_e2e_import_v1_jsonl_path_normalizes() {
+    let (_dir, state) = build_e2e_context(None, 10);
+    let (base, _handle) = spawn_server(state, 0).await;
+    let client = reqwest::Client::new();
+
+    // Host-side v1 fixture (temp path: the export sandbox rejects `..`).
+    let fixture_dir = tempfile::tempdir().unwrap();
+    let fixture = fixture_dir.path().join("export-v1.jsonl");
+    std::fs::write(
+        &fixture,
+        concat!(
+            r#"{"schema_version":1,"namespace":"v1ns","key":"a","payload":"old data","metadata":{},"vector":null,"created_at_ms":1000,"updated_at_ms":2000,"version":2,"expires_at_ms":null,"superseded_by":"b","superseded_at_ms":1500}"#,
+            "\n"
+        ),
+    )
+    .unwrap();
+
+    let resp = client
+        .post(format!("{}/api/v2/import", base))
+        .json(&serde_json::json!({"path": fixture.to_str().unwrap()}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let report: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(report["inserted"], 1);
+    assert_eq!(report["errors"], 0);
+
+    let resp = client
+        .get(format!("{}/api/v2/records/v1ns/a", base))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let rec: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(rec["valid_at_ms"], 1000, "valid_at := created_at");
+    assert_eq!(rec["invalid_at_ms"], 1500, "invalid_at := superseded_at");
+    assert_eq!(rec["confidence"], 1.0, "v1 normalization: D_a");
+}

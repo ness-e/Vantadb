@@ -3088,6 +3088,40 @@ fn test_mcp_tool_flow_backup_restore_roundtrip() {
     assert_eq!(report["skipped"], 1);
 }
 
+/// R3 (ADR-046 §D7 path test — MCP): the `import` tool accepts v1 JSONL lines
+/// and normalizes them (valid_at := created_at, invalid_at := superseded_at,
+/// confidence := D_a).
+#[test]
+fn test_mcp_import_v1_line_normalizes() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    let v1 = r#"{"schema_version":1,"namespace":"v1ns","key":"a","payload":"old data","metadata":{},"vector":null,"created_at_ms":1000,"updated_at_ms":2000,"version":2,"expires_at_ms":null,"superseded_by":"b","superseded_at_ms":1500}"#;
+    let import = Some(json!({
+        "name": "import",
+        "arguments": {"content": format!("{v1}\n")}
+    }));
+    let res = handle_tools_call(&import, &executor, &storage, &default_config()).unwrap();
+    assert!(
+        res["isError"].is_null(),
+        "v1 import failed: {}",
+        res["content"][0]["text"]
+    );
+    let report: Value = serde_json::from_str(res["content"][0]["text"].as_str().unwrap()).unwrap();
+    assert_eq!(report["inserted"], 1);
+    assert_eq!(report["errors"], 0);
+
+    let get = Some(json!({
+        "name": "memory_get",
+        "arguments": {"namespace": "v1ns", "key": "a"}
+    }));
+    let res = handle_tools_call(&get, &executor, &storage, &default_config()).unwrap();
+    let rec: Value = serde_json::from_str(res["content"][0]["text"].as_str().unwrap()).unwrap();
+    assert_eq!(rec["valid_at_ms"], 1000, "valid_at := created_at");
+    assert_eq!(rec["invalid_at_ms"], 1500, "invalid_at := superseded_at");
+    assert_eq!(rec["confidence"], 1.0, "v1 normalization: D_a");
+}
+
 /// MCP-25: NDJSON bulk import via stream (count correct + record landed), and
 /// a nonexistent host path returns clear error_content instead of an Err.
 #[test]

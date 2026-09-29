@@ -3577,6 +3577,7 @@ pub fn vantadb::metrics::record_vector_index_routing(vantadb::index_port::IndexT
 pub mod vantadb::migration
 pub enum vantadb::migration::FormatKind
 pub vantadb::migration::FormatKind::File
+pub vantadb::migration::FormatKind::Records
 pub vantadb::migration::FormatKind::Schema
 pub vantadb::migration::FormatKind::VectorIndex
 pub vantadb::migration::FormatKind::Wal
@@ -3605,9 +3606,11 @@ impl vantadb::migration::MigrationEngine
 pub fn vantadb::migration::MigrationEngine::check_integrity(&self) -> vantadb::error::Result<alloc::vec::Vec<alloc::string::String>>
 pub fn vantadb::migration::MigrationEngine::dry_run(&self) -> bool
 pub fn vantadb::migration::MigrationEngine::migrate_format(&self, vantadb::migration::FormatKind) -> vantadb::error::Result<()>
+pub fn vantadb::migration::MigrationEngine::migrate_records(&self) -> vantadb::error::Result<vantadb::migration::RecordsBackfillReport>
 pub fn vantadb::migration::MigrationEngine::new(impl core::convert::Into<std::path::PathBuf>) -> Self
 pub fn vantadb::migration::MigrationEngine::path(&self) -> &std::path::Path
 pub fn vantadb::migration::MigrationEngine::plan_all(&self) -> vantadb::error::Result<alloc::vec::Vec<vantadb::migration::MigrationPlan>>
+pub fn vantadb::migration::MigrationEngine::records_backfill_pending(&self) -> vantadb::error::Result<bool>
 pub fn vantadb::migration::MigrationEngine::set_dry_run(&mut self, bool)
 impl core::marker::Freeze for vantadb::migration::MigrationEngine
 impl core::marker::Send for vantadb::migration::MigrationEngine
@@ -3632,6 +3635,29 @@ impl core::marker::Unpin for vantadb::migration::MigrationPlan
 impl core::marker::UnsafeUnpin for vantadb::migration::MigrationPlan
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::migration::MigrationPlan
 impl core::panic::unwind_safe::UnwindSafe for vantadb::migration::MigrationPlan
+pub struct vantadb::migration::RecordsBackfillReport
+pub vantadb::migration::RecordsBackfillReport::already_v2: u64
+pub vantadb::migration::RecordsBackfillReport::backfilled: u64
+pub vantadb::migration::RecordsBackfillReport::duration_ms: u64
+pub vantadb::migration::RecordsBackfillReport::scanned: u64
+pub vantadb::migration::RecordsBackfillReport::snapshots_migrated: u64
+impl core::clone::Clone for vantadb::migration::RecordsBackfillReport
+pub fn vantadb::migration::RecordsBackfillReport::clone(&self) -> vantadb::migration::RecordsBackfillReport
+impl core::cmp::Eq for vantadb::migration::RecordsBackfillReport
+impl core::cmp::PartialEq for vantadb::migration::RecordsBackfillReport
+pub fn vantadb::migration::RecordsBackfillReport::eq(&self, &vantadb::migration::RecordsBackfillReport) -> bool
+impl core::default::Default for vantadb::migration::RecordsBackfillReport
+pub fn vantadb::migration::RecordsBackfillReport::default() -> vantadb::migration::RecordsBackfillReport
+impl core::fmt::Debug for vantadb::migration::RecordsBackfillReport
+pub fn vantadb::migration::RecordsBackfillReport::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vantadb::migration::RecordsBackfillReport
+impl core::marker::Freeze for vantadb::migration::RecordsBackfillReport
+impl core::marker::Send for vantadb::migration::RecordsBackfillReport
+impl core::marker::Sync for vantadb::migration::RecordsBackfillReport
+impl core::marker::Unpin for vantadb::migration::RecordsBackfillReport
+impl core::marker::UnsafeUnpin for vantadb::migration::RecordsBackfillReport
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::migration::RecordsBackfillReport
+impl core::panic::unwind_safe::UnwindSafe for vantadb::migration::RecordsBackfillReport
 pub mod vantadb::node
 pub enum vantadb::node::DistanceMetric
 pub vantadb::node::DistanceMetric::Cosine
@@ -4837,6 +4863,33 @@ pub fn vantadb::schema::load_or_create_schema(&std::path::Path) -> vantadb::erro
 pub mod vantadb::sdk
 pub mod vantadb::sdk::connect
 pub fn vantadb::sdk::connect::connect(&str) -> vantadb::error::Result<vantadb::Embedded>
+#[non_exhaustive] pub enum vantadb::sdk::ConfidenceClass
+pub vantadb::sdk::ConfidenceClass::Asserted
+pub vantadb::sdk::ConfidenceClass::Derived
+impl vantadb::ConfidenceClass
+pub fn vantadb::ConfidenceClass::as_wire_str(&self) -> &'static str
+impl core::clone::Clone for vantadb::ConfidenceClass
+pub fn vantadb::ConfidenceClass::clone(&self) -> vantadb::ConfidenceClass
+impl core::cmp::Eq for vantadb::ConfidenceClass
+impl core::cmp::PartialEq for vantadb::ConfidenceClass
+pub fn vantadb::ConfidenceClass::eq(&self, &vantadb::ConfidenceClass) -> bool
+impl core::default::Default for vantadb::ConfidenceClass
+pub fn vantadb::ConfidenceClass::default() -> vantadb::ConfidenceClass
+impl core::fmt::Debug for vantadb::ConfidenceClass
+pub fn vantadb::ConfidenceClass::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vantadb::ConfidenceClass
+impl core::marker::StructuralPartialEq for vantadb::ConfidenceClass
+impl serde_core::ser::Serialize for vantadb::ConfidenceClass
+pub fn vantadb::ConfidenceClass::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vantadb::ConfidenceClass
+pub fn vantadb::ConfidenceClass::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for vantadb::ConfidenceClass
+impl core::marker::Send for vantadb::ConfidenceClass
+impl core::marker::Sync for vantadb::ConfidenceClass
+impl core::marker::Unpin for vantadb::ConfidenceClass
+impl core::marker::UnsafeUnpin for vantadb::ConfidenceClass
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::ConfidenceClass
+impl core::panic::unwind_safe::UnwindSafe for vantadb::ConfidenceClass
 pub enum vantadb::sdk::FilterOp
 pub vantadb::sdk::FilterOp::Eq
 pub vantadb::sdk::FilterOp::Gt
@@ -5406,21 +5459,33 @@ impl core::marker::UnsafeUnpin for vantadb::IndexRebuildReport
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::IndexRebuildReport
 impl core::panic::unwind_safe::UnwindSafe for vantadb::IndexRebuildReport
 pub struct vantadb::sdk::MemoryExportLine
+pub vantadb::sdk::MemoryExportLine::confidence: f32
+pub vantadb::sdk::MemoryExportLine::confidence_class: vantadb::ConfidenceClass
 pub vantadb::sdk::MemoryExportLine::created_at_ms: u64
+pub vantadb::sdk::MemoryExportLine::derived_from: alloc::vec::Vec<alloc::string::String>
 pub vantadb::sdk::MemoryExportLine::expires_at_ms: core::option::Option<u64>
+pub vantadb::sdk::MemoryExportLine::invalid_at_ms: core::option::Option<u64>
 pub vantadb::sdk::MemoryExportLine::key: alloc::string::String
+pub vantadb::sdk::MemoryExportLine::last_validated_at_ms: core::option::Option<u64>
 pub vantadb::sdk::MemoryExportLine::metadata: vantadb::MemoryMetadata
 pub vantadb::sdk::MemoryExportLine::namespace: alloc::string::String
 pub vantadb::sdk::MemoryExportLine::payload: alloc::string::String
+pub vantadb::sdk::MemoryExportLine::quarantine_reason: core::option::Option<alloc::string::String>
+pub vantadb::sdk::MemoryExportLine::quarantine_review_due_ms: core::option::Option<u64>
+pub vantadb::sdk::MemoryExportLine::quarantined_at_ms: core::option::Option<u64>
+pub vantadb::sdk::MemoryExportLine::quarantined_by: core::option::Option<alloc::string::String>
 pub vantadb::sdk::MemoryExportLine::schema_version: u32
 pub vantadb::sdk::MemoryExportLine::sparse_vector: core::option::Option<vantadb::SparseVector>
 pub vantadb::sdk::MemoryExportLine::superseded_at_ms: core::option::Option<u64>
 pub vantadb::sdk::MemoryExportLine::superseded_by: core::option::Option<alloc::string::String>
 pub vantadb::sdk::MemoryExportLine::updated_at_ms: u64
+pub vantadb::sdk::MemoryExportLine::valid_at_ms: u64
 pub vantadb::sdk::MemoryExportLine::vector: core::option::Option<alloc::vec::Vec<f32>>
 pub vantadb::sdk::MemoryExportLine::version: u64
 impl core::clone::Clone for vantadb::sdk::MemoryExportLine
 pub fn vantadb::sdk::MemoryExportLine::clone(&self) -> vantadb::sdk::MemoryExportLine
+impl core::default::Default for vantadb::sdk::MemoryExportLine
+pub fn vantadb::sdk::MemoryExportLine::default() -> Self
 impl core::fmt::Debug for vantadb::sdk::MemoryExportLine
 pub fn vantadb::sdk::MemoryExportLine::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl serde_core::ser::Serialize for vantadb::sdk::MemoryExportLine
@@ -5457,12 +5522,16 @@ impl core::marker::UnsafeUnpin for vantadb::MemoryFilterItem
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::MemoryFilterItem
 impl core::panic::unwind_safe::UnwindSafe for vantadb::MemoryFilterItem
 pub struct vantadb::sdk::MemoryInput
+pub vantadb::sdk::MemoryInput::confidence: core::option::Option<f32>
+pub vantadb::sdk::MemoryInput::confidence_class: core::option::Option<vantadb::ConfidenceClass>
+pub vantadb::sdk::MemoryInput::derived_from: core::option::Option<alloc::vec::Vec<alloc::string::String>>
 pub vantadb::sdk::MemoryInput::key: alloc::string::String
 pub vantadb::sdk::MemoryInput::metadata: vantadb::MemoryMetadata
 pub vantadb::sdk::MemoryInput::namespace: alloc::string::String
 pub vantadb::sdk::MemoryInput::payload: alloc::string::String
 pub vantadb::sdk::MemoryInput::sparse_vector: core::option::Option<vantadb::SparseVector>
 pub vantadb::sdk::MemoryInput::ttl_ms: core::option::Option<u64>
+pub vantadb::sdk::MemoryInput::valid_at_ms: core::option::Option<u64>
 pub vantadb::sdk::MemoryInput::vector: core::option::Option<alloc::vec::Vec<f32>>
 impl vantadb::MemoryInput
 pub fn vantadb::MemoryInput::new(impl core::convert::Into<alloc::string::String>, impl core::convert::Into<alloc::string::String>, impl core::convert::Into<alloc::string::String>) -> Self
@@ -5470,6 +5539,8 @@ impl core::clone::Clone for vantadb::MemoryInput
 pub fn vantadb::MemoryInput::clone(&self) -> vantadb::MemoryInput
 impl core::cmp::PartialEq for vantadb::MemoryInput
 pub fn vantadb::MemoryInput::eq(&self, &vantadb::MemoryInput) -> bool
+impl core::default::Default for vantadb::MemoryInput
+pub fn vantadb::MemoryInput::default() -> vantadb::MemoryInput
 impl core::fmt::Debug for vantadb::MemoryInput
 pub fn vantadb::MemoryInput::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vantadb::MemoryInput
@@ -5532,23 +5603,35 @@ impl core::marker::UnsafeUnpin for vantadb::MemoryListPage
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::MemoryListPage
 impl core::panic::unwind_safe::UnwindSafe for vantadb::MemoryListPage
 pub struct vantadb::sdk::MemoryRecord
+pub vantadb::sdk::MemoryRecord::confidence: f32
+pub vantadb::sdk::MemoryRecord::confidence_class: vantadb::ConfidenceClass
 pub vantadb::sdk::MemoryRecord::created_at_ms: u64
+pub vantadb::sdk::MemoryRecord::derived_from: alloc::vec::Vec<alloc::string::String>
 pub vantadb::sdk::MemoryRecord::expires_at_ms: core::option::Option<u64>
+pub vantadb::sdk::MemoryRecord::invalid_at_ms: core::option::Option<u64>
 pub vantadb::sdk::MemoryRecord::key: alloc::string::String
+pub vantadb::sdk::MemoryRecord::last_validated_at_ms: core::option::Option<u64>
 pub vantadb::sdk::MemoryRecord::metadata: vantadb::MemoryMetadata
 pub vantadb::sdk::MemoryRecord::namespace: alloc::string::String
 pub vantadb::sdk::MemoryRecord::node_id: u128
 pub vantadb::sdk::MemoryRecord::payload: alloc::string::String
+pub vantadb::sdk::MemoryRecord::quarantine_reason: core::option::Option<alloc::string::String>
+pub vantadb::sdk::MemoryRecord::quarantine_review_due_ms: core::option::Option<u64>
+pub vantadb::sdk::MemoryRecord::quarantined_at_ms: core::option::Option<u64>
+pub vantadb::sdk::MemoryRecord::quarantined_by: core::option::Option<alloc::string::String>
 pub vantadb::sdk::MemoryRecord::sparse_vector: core::option::Option<vantadb::SparseVector>
 pub vantadb::sdk::MemoryRecord::superseded_at_ms: core::option::Option<u64>
 pub vantadb::sdk::MemoryRecord::superseded_by: core::option::Option<alloc::string::String>
 pub vantadb::sdk::MemoryRecord::updated_at_ms: u64
+pub vantadb::sdk::MemoryRecord::valid_at_ms: u64
 pub vantadb::sdk::MemoryRecord::vector: core::option::Option<alloc::vec::Vec<f32>>
 pub vantadb::sdk::MemoryRecord::version: u64
 impl core::clone::Clone for vantadb::MemoryRecord
 pub fn vantadb::MemoryRecord::clone(&self) -> vantadb::MemoryRecord
 impl core::cmp::PartialEq for vantadb::MemoryRecord
 pub fn vantadb::MemoryRecord::eq(&self, &vantadb::MemoryRecord) -> bool
+impl core::default::Default for vantadb::MemoryRecord
+pub fn vantadb::MemoryRecord::default() -> Self
 impl core::fmt::Debug for vantadb::MemoryRecord
 pub fn vantadb::MemoryRecord::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vantadb::MemoryRecord
@@ -6184,6 +6267,7 @@ impl core::marker::Unpin for vantadb::TextIndexRepairReport
 impl core::marker::UnsafeUnpin for vantadb::TextIndexRepairReport
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::TextIndexRepairReport
 impl core::panic::unwind_safe::UnwindSafe for vantadb::TextIndexRepairReport
+pub const vantadb::sdk::DERIVATION_DISCOUNT: f32
 pub const vantadb::sdk::FIELD_CREATED_AT_MS: &str
 pub const vantadb::sdk::FIELD_EXPIRES_AT_MS: &str
 pub const vantadb::sdk::FIELD_KEY: &str
@@ -6191,7 +6275,9 @@ pub const vantadb::sdk::FIELD_NAMESPACE: &str
 pub const vantadb::sdk::FIELD_PAYLOAD: &str
 pub const vantadb::sdk::FIELD_UPDATED_AT_MS: &str
 pub const vantadb::sdk::FIELD_VERSION: &str
+pub const vantadb::sdk::MAX_DERIVATION_DEPTH: usize
 pub fn vantadb::sdk::connect(&str) -> vantadb::error::Result<vantadb::Embedded>
+pub fn vantadb::sdk::default_confidence() -> f32
 pub fn vantadb::sdk::export_line_from_record(vantadb::MemoryRecord) -> vantadb::sdk::MemoryExportLine
 pub fn vantadb::sdk::memory_record_from_node(&vantadb::UnifiedNode) -> core::option::Option<vantadb::MemoryRecord>
 pub fn vantadb::sdk::record_from_export_line(vantadb::sdk::MemoryExportLine) -> vantadb::error::Result<vantadb::MemoryRecord>
@@ -7193,6 +7279,33 @@ impl core::marker::Unpin for vantadb::BackendKind
 impl core::marker::UnsafeUnpin for vantadb::BackendKind
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::BackendKind
 impl core::panic::unwind_safe::UnwindSafe for vantadb::BackendKind
+#[non_exhaustive] pub enum vantadb::ConfidenceClass
+pub vantadb::ConfidenceClass::Asserted
+pub vantadb::ConfidenceClass::Derived
+impl vantadb::ConfidenceClass
+pub fn vantadb::ConfidenceClass::as_wire_str(&self) -> &'static str
+impl core::clone::Clone for vantadb::ConfidenceClass
+pub fn vantadb::ConfidenceClass::clone(&self) -> vantadb::ConfidenceClass
+impl core::cmp::Eq for vantadb::ConfidenceClass
+impl core::cmp::PartialEq for vantadb::ConfidenceClass
+pub fn vantadb::ConfidenceClass::eq(&self, &vantadb::ConfidenceClass) -> bool
+impl core::default::Default for vantadb::ConfidenceClass
+pub fn vantadb::ConfidenceClass::default() -> vantadb::ConfidenceClass
+impl core::fmt::Debug for vantadb::ConfidenceClass
+pub fn vantadb::ConfidenceClass::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vantadb::ConfidenceClass
+impl core::marker::StructuralPartialEq for vantadb::ConfidenceClass
+impl serde_core::ser::Serialize for vantadb::ConfidenceClass
+pub fn vantadb::ConfidenceClass::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vantadb::ConfidenceClass
+pub fn vantadb::ConfidenceClass::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for vantadb::ConfidenceClass
+impl core::marker::Send for vantadb::ConfidenceClass
+impl core::marker::Sync for vantadb::ConfidenceClass
+impl core::marker::Unpin for vantadb::ConfidenceClass
+impl core::marker::UnsafeUnpin for vantadb::ConfidenceClass
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::ConfidenceClass
+impl core::panic::unwind_safe::UnwindSafe for vantadb::ConfidenceClass
 pub enum vantadb::DistanceMetric
 pub vantadb::DistanceMetric::Cosine
 pub vantadb::DistanceMetric::Euclidean
@@ -8161,12 +8274,16 @@ impl core::marker::UnsafeUnpin for vantadb::MemoryFilterItem
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::MemoryFilterItem
 impl core::panic::unwind_safe::UnwindSafe for vantadb::MemoryFilterItem
 pub struct vantadb::MemoryInput
+pub vantadb::MemoryInput::confidence: core::option::Option<f32>
+pub vantadb::MemoryInput::confidence_class: core::option::Option<vantadb::ConfidenceClass>
+pub vantadb::MemoryInput::derived_from: core::option::Option<alloc::vec::Vec<alloc::string::String>>
 pub vantadb::MemoryInput::key: alloc::string::String
 pub vantadb::MemoryInput::metadata: vantadb::MemoryMetadata
 pub vantadb::MemoryInput::namespace: alloc::string::String
 pub vantadb::MemoryInput::payload: alloc::string::String
 pub vantadb::MemoryInput::sparse_vector: core::option::Option<vantadb::SparseVector>
 pub vantadb::MemoryInput::ttl_ms: core::option::Option<u64>
+pub vantadb::MemoryInput::valid_at_ms: core::option::Option<u64>
 pub vantadb::MemoryInput::vector: core::option::Option<alloc::vec::Vec<f32>>
 impl vantadb::MemoryInput
 pub fn vantadb::MemoryInput::new(impl core::convert::Into<alloc::string::String>, impl core::convert::Into<alloc::string::String>, impl core::convert::Into<alloc::string::String>) -> Self
@@ -8174,6 +8291,8 @@ impl core::clone::Clone for vantadb::MemoryInput
 pub fn vantadb::MemoryInput::clone(&self) -> vantadb::MemoryInput
 impl core::cmp::PartialEq for vantadb::MemoryInput
 pub fn vantadb::MemoryInput::eq(&self, &vantadb::MemoryInput) -> bool
+impl core::default::Default for vantadb::MemoryInput
+pub fn vantadb::MemoryInput::default() -> vantadb::MemoryInput
 impl core::fmt::Debug for vantadb::MemoryInput
 pub fn vantadb::MemoryInput::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vantadb::MemoryInput
@@ -8236,23 +8355,35 @@ impl core::marker::UnsafeUnpin for vantadb::MemoryListPage
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::MemoryListPage
 impl core::panic::unwind_safe::UnwindSafe for vantadb::MemoryListPage
 pub struct vantadb::MemoryRecord
+pub vantadb::MemoryRecord::confidence: f32
+pub vantadb::MemoryRecord::confidence_class: vantadb::ConfidenceClass
 pub vantadb::MemoryRecord::created_at_ms: u64
+pub vantadb::MemoryRecord::derived_from: alloc::vec::Vec<alloc::string::String>
 pub vantadb::MemoryRecord::expires_at_ms: core::option::Option<u64>
+pub vantadb::MemoryRecord::invalid_at_ms: core::option::Option<u64>
 pub vantadb::MemoryRecord::key: alloc::string::String
+pub vantadb::MemoryRecord::last_validated_at_ms: core::option::Option<u64>
 pub vantadb::MemoryRecord::metadata: vantadb::MemoryMetadata
 pub vantadb::MemoryRecord::namespace: alloc::string::String
 pub vantadb::MemoryRecord::node_id: u128
 pub vantadb::MemoryRecord::payload: alloc::string::String
+pub vantadb::MemoryRecord::quarantine_reason: core::option::Option<alloc::string::String>
+pub vantadb::MemoryRecord::quarantine_review_due_ms: core::option::Option<u64>
+pub vantadb::MemoryRecord::quarantined_at_ms: core::option::Option<u64>
+pub vantadb::MemoryRecord::quarantined_by: core::option::Option<alloc::string::String>
 pub vantadb::MemoryRecord::sparse_vector: core::option::Option<vantadb::SparseVector>
 pub vantadb::MemoryRecord::superseded_at_ms: core::option::Option<u64>
 pub vantadb::MemoryRecord::superseded_by: core::option::Option<alloc::string::String>
 pub vantadb::MemoryRecord::updated_at_ms: u64
+pub vantadb::MemoryRecord::valid_at_ms: u64
 pub vantadb::MemoryRecord::vector: core::option::Option<alloc::vec::Vec<f32>>
 pub vantadb::MemoryRecord::version: u64
 impl core::clone::Clone for vantadb::MemoryRecord
 pub fn vantadb::MemoryRecord::clone(&self) -> vantadb::MemoryRecord
 impl core::cmp::PartialEq for vantadb::MemoryRecord
 pub fn vantadb::MemoryRecord::eq(&self, &vantadb::MemoryRecord) -> bool
+impl core::default::Default for vantadb::MemoryRecord
+pub fn vantadb::MemoryRecord::default() -> Self
 impl core::fmt::Debug for vantadb::MemoryRecord
 pub fn vantadb::MemoryRecord::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vantadb::MemoryRecord
@@ -9078,8 +9209,10 @@ impl core::marker::Unpin for vantadb::wal::WalWriter
 impl core::marker::UnsafeUnpin for vantadb::wal::WalWriter
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::wal::WalWriter
 impl core::panic::unwind_safe::UnwindSafe for vantadb::wal::WalWriter
+pub const vantadb::DERIVATION_DISCOUNT: f32
 pub const vantadb::IQL_VERSION: u32
 pub const vantadb::MAX_BATCH_SIZE: usize
+pub const vantadb::MAX_DERIVATION_DEPTH: usize
 pub const vantadb::MAX_F32_VEC_LEN: usize
 pub const vantadb::MAX_K: usize
 pub const vantadb::MAX_VEC_DIM: usize
@@ -9089,6 +9222,7 @@ pub const vantadb::WAL_FORMAT_VERSION: u16
 pub const vantadb::WAL_POSTCARD_VERSION: u16
 pub fn vantadb::compute_confidence_friction(&std::collections::hash::map::HashMap<alloc::string::String, (u64, f32)>) -> f32
 pub fn vantadb::connect(&str) -> vantadb::error::Result<vantadb::Embedded>
+pub fn vantadb::default_confidence() -> f32
 pub type vantadb::Fields = alloc::collections::btree::map::BTreeMap<alloc::string::String, vantadb::Value>
 pub type vantadb::MemoryFilter = alloc::vec::Vec<vantadb::MemoryFilterItem>
 pub type vantadb::MemoryMetadata = vantadb::Fields

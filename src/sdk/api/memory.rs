@@ -11,9 +11,10 @@
 
 use super::super::builder::Embedded;
 use super::super::serialization::{
-    memory_node_id, memory_record_to_node_owned, now_ms, record_from_node, validate_key,
-    validate_metadata, validate_namespace, DERIVED_INDEX_SCHEMA_VERSION, FIELD_CREATED_AT_MS,
-    FIELD_EXPIRES_AT_MS, FIELD_KEY, FIELD_NAMESPACE, FIELD_PAYLOAD, FIELD_UPDATED_AT_MS,
+    memory_node_id, memory_record_to_node_owned, now_ms, record_from_node,
+    validate_confidence_fields, validate_key, validate_metadata, validate_namespace,
+    DERIVED_INDEX_SCHEMA_VERSION, FIELD_CONFIDENCE_CLASS, FIELD_CREATED_AT_MS, FIELD_EXPIRES_AT_MS,
+    FIELD_KEY, FIELD_NAMESPACE, FIELD_PAYLOAD, FIELD_UPDATED_AT_MS, FIELD_VALID_AT_MS,
     FIELD_VERSION,
 };
 use super::super::types::*;
@@ -21,7 +22,7 @@ use crate::backend::{BackendKind, BackendPartition, BackendWriteOp};
 use crate::error::{Error, Result};
 use crate::node::{FieldValue, UnifiedNode, VectorRepresentations};
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use web_time::Instant;
 
 /// Report returned by bulk import operations.
@@ -30,6 +31,27 @@ pub struct BulkImportReport {
     pub total_records: usize,
     pub batches_committed: usize,
     pub duration_ms: u64,
+}
+
+/// Quarantine state carried across re-writes of an existing key (I2 sticky,
+/// ADR-046 §D5): a `put` never clears a quarantine.
+#[derive(Clone, Default)]
+struct QuarantineState {
+    at_ms: Option<u64>,
+    reason: Option<String>,
+    by: Option<String>,
+    review_due_ms: Option<u64>,
+}
+
+impl QuarantineState {
+    fn from_record(record: &MemoryRecord) -> Self {
+        Self {
+            at_ms: record.quarantined_at_ms,
+            reason: record.quarantine_reason.clone(),
+            by: record.quarantined_by.clone(),
+            review_due_ms: record.quarantine_review_due_ms,
+        }
+    }
 }
 
 impl Embedded {
@@ -59,6 +81,129 @@ impl Embedded {
     /// when the default is configured (or changed) later.
     fn effective_ttl_ms(&self, namespace: &str, ttl_ms: Option<u64>) -> Option<u64> {
         ttl_ms.or_else(|| self.config.memory_default_ttl_ms.get(namespace).copied())
+    }
+
+    /// Validate + materialize the confidence fields of a write (ADR-046 §D4):
+    /// - range: finite `[0,1]`;
+    /// - V1: `derived` requires non-empty parents; `asserted` forbids them;
+    /// - D4b: `derived` + declared score ⇒ rejection;
+    /// - V3: bounded derivation depth / acyclicity;
+    /// - score: `clamp(min(parents) × DERIVATION_DISCOUNT, 0, 1)`.
+    fn materialize_confidence(
+        &self,
+        input: &MemoryInput,
+    ) -> Result<(ConfidenceClass, f32, Vec<String>)> {
+        if let Some(value) = input.confidence {
+            if !value.is_finite() || !(0.0..=1.0).contains(&value) {
+                return Err(Error::Validation {
+                    field: "confidence".into(),
+                    reason: "confidence must be a finite number in [0,1]".into(),
+                });
+            }
+        }
+        let class = input.confidence_class.unwrap_or_default();
+        let parents = input.derived_from.clone().unwrap_or_default();
+
+        match class {
+            ConfidenceClass::Asserted => {
+                if !parents.is_empty() {
+                    return Err(Error::Validation {
+                        field: "derived_from".into(),
+                        reason: "asserted records cannot declare derived_from parents".into(),
+                    });
+                }
+                Ok((
+                    class,
+                    input.confidence.unwrap_or_else(default_confidence),
+                    Vec::new(),
+                ))
+            }
+            ConfidenceClass::Derived => {
+                if parents.is_empty() {
+                    return Err(Error::Validation {
+                        field: "derived_from".into(),
+                        reason: "derived records require a non-empty derived_from parent list (V1)"
+                            .into(),
+                    });
+                }
+                if input.confidence.is_some() {
+                    return Err(Error::Validation {
+                        field: "confidence".into(),
+                        reason: "derived score is computed from parents; declared scores are not allowed on derived records".into(),
+                    });
+                }
+                self.validate_derivation_chain(&input.namespace, &input.key, &parents)?;
+
+                let mut min_parent = f32::INFINITY;
+                for parent_key in &parents {
+                    let parent = self.get(&input.namespace, parent_key)?.ok_or_else(|| {
+                        Error::Validation {
+                            field: "derived_from".into(),
+                            reason: format!(
+                                "parent '{parent_key}' not found in namespace '{}'",
+                                input.namespace
+                            ),
+                        }
+                    })?;
+                    min_parent = min_parent.min(parent.confidence);
+                }
+                let score = (min_parent * DERIVATION_DISCOUNT).clamp(0.0, 1.0);
+                Ok((class, score, parents))
+            }
+        }
+    }
+
+    /// V3 (ADR-046 §D4): reject derivation cycles (including self-reference)
+    /// and chains deeper than [`MAX_DERIVATION_DEPTH`]. Walks existing
+    /// ancestors only — direct parent existence is enforced by the caller.
+    fn validate_derivation_chain(
+        &self,
+        namespace: &str,
+        key: &str,
+        parents: &[String],
+    ) -> Result<()> {
+        let mut visited: HashSet<String> = HashSet::new();
+        let mut frontier: Vec<(String, usize)> =
+            parents.iter().map(|p| (p.clone(), 1usize)).collect();
+        while let Some((parent_key, depth)) = frontier.pop() {
+            if parent_key == key {
+                return Err(Error::Validation {
+                    field: "derived_from".into(),
+                    reason: format!("derivation cycle detected: '{key}' is its own ancestor"),
+                });
+            }
+            if depth > MAX_DERIVATION_DEPTH {
+                return Err(Error::Validation {
+                    field: "derived_from".into(),
+                    reason: format!(
+                        "derivation chain exceeds MAX_DERIVATION_DEPTH ({MAX_DERIVATION_DEPTH})"
+                    ),
+                });
+            }
+            if !visited.insert(parent_key.clone()) {
+                continue;
+            }
+            if let Some(parent) = self.get(namespace, &parent_key)? {
+                for grandparent in parent.derived_from {
+                    frontier.push((grandparent, depth + 1));
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// `valid_at_ms` materialization (ADR-046 §D8): an absent value defaults to
+    /// `created_at_ms`; `Some(0)` is rejected because `0` is the v1 "unset"
+    /// sentinel — an explicit epoch-0 validity is not representable.
+    fn materialize_valid_at(&self, input: Option<u64>, created_at_ms: u64) -> Result<u64> {
+        match input {
+            None => Ok(created_at_ms),
+            Some(0) => Err(Error::Validation {
+                field: "valid_at_ms".into(),
+                reason: "must be greater than 0; omit the field to default to created_at_ms".into(),
+            }),
+            Some(value) => Ok(value),
+        }
     }
 
     /// Shared logic for inserting/updating a single memory record.
@@ -99,6 +244,13 @@ impl Embedded {
             .effective_ttl_ms(&input.namespace, input.ttl_ms)
             .map(|ttl| timestamp.saturating_add(ttl));
 
+        let (confidence_class, confidence, derived_from) = self.materialize_confidence(&input)?;
+        let valid_at_ms = self.materialize_valid_at(input.valid_at_ms, created_at_ms)?;
+        let quarantine = existing
+            .as_ref()
+            .map(QuarantineState::from_record)
+            .unwrap_or_default();
+
         let record = MemoryRecord {
             namespace: input.namespace,
             key: input.key,
@@ -113,6 +265,16 @@ impl Embedded {
             expires_at_ms,
             superseded_by: None,
             superseded_at_ms: None,
+            valid_at_ms,
+            invalid_at_ms: None,
+            confidence_class,
+            confidence,
+            last_validated_at_ms: None,
+            derived_from,
+            quarantined_at_ms: quarantine.at_ms,
+            quarantine_reason: quarantine.reason,
+            quarantined_by: quarantine.by,
+            quarantine_review_due_ms: quarantine.review_due_ms,
         };
         let (node, record) = memory_record_to_node_owned(record);
 
@@ -219,10 +381,11 @@ impl Embedded {
         let batch_size = self.config.batch_size.unwrap_or(1000);
         let mut all_results: Vec<MemoryRecord> = Vec::with_capacity(inputs.len());
         let mut rebuild_needed = false;
-        // Track versions for keys seen earlier in this batch (in-batch dedup,
-        // mirrors put_one's UPSERT semantics). Persisted before the chunk loop
-        // so duplicate keys split across chunks still bump correctly.
-        let mut seen_versions: HashMap<u128, u64> = HashMap::with_capacity(inputs.len());
+        // Track versions + quarantine state for keys seen earlier in this
+        // batch (in-batch dedup, mirrors put_one's UPSERT semantics). Persisted
+        // before the chunk loop so duplicate keys split across chunks still
+        // bump correctly.
+        let mut seen: HashMap<u128, (u64, QuarantineState)> = HashMap::with_capacity(inputs.len());
 
         for chunk in inputs.chunks(batch_size) {
             let timestamp = now_ms();
@@ -234,33 +397,39 @@ impl Embedded {
                 // Existing record: in-batch duplicate wins (already bumped), else
                 // consult the engine like put_one (pre-existing records from
                 // earlier batches should also increment, not reset to 1).
-                let existing = if let Some(v) = seen_versions.get(&node_id) {
-                    Some((*v, timestamp))
-                } else {
-                    match engine.get(node_id)? {
-                        Some(node) => match record_from_node(&node) {
-                            Some(record)
-                                if record.namespace == input.namespace
-                                    && record.key == input.key =>
-                            {
-                                Some((record.version, record.created_at_ms))
-                            }
-                            _ => {
-                                return Err(Error::NodeIdCollision(memory_node_id(
-                                    &input.namespace,
-                                    &input.key,
-                                )));
-                            }
-                        },
-                        None => None,
-                    }
-                };
-                let (prev_version, prev_created_at_ms) = existing
-                    .map(|(v, c)| (Some(v), Some(c)))
-                    .unwrap_or((None, None));
+                let (prev_version, prev_created_at_ms, quarantine) =
+                    if let Some((v, q)) = seen.get(&node_id) {
+                        (Some(*v), Some(timestamp), q.clone())
+                    } else {
+                        match engine.get(node_id)? {
+                            Some(node) => match record_from_node(&node) {
+                                Some(record)
+                                    if record.namespace == input.namespace
+                                        && record.key == input.key =>
+                                {
+                                    (
+                                        Some(record.version),
+                                        Some(record.created_at_ms),
+                                        QuarantineState::from_record(&record),
+                                    )
+                                }
+                                _ => {
+                                    return Err(Error::NodeIdCollision(memory_node_id(
+                                        &input.namespace,
+                                        &input.key,
+                                    )));
+                                }
+                            },
+                            None => (None, None, QuarantineState::default()),
+                        }
+                    };
                 let created_at_ms = prev_created_at_ms.unwrap_or(timestamp);
                 let version = prev_version.map(|v| v.saturating_add(1)).unwrap_or(1);
-                seen_versions.insert(node_id, version);
+
+                let (confidence_class, confidence, derived_from) =
+                    self.materialize_confidence(input)?;
+                let valid_at_ms = self.materialize_valid_at(input.valid_at_ms, created_at_ms)?;
+                seen.insert(node_id, (version, quarantine.clone()));
 
                 let record = MemoryRecord {
                     namespace: input.namespace.clone(),
@@ -278,6 +447,16 @@ impl Embedded {
                         .map(|ttl| timestamp.saturating_add(ttl)),
                     superseded_by: None,
                     superseded_at_ms: None,
+                    valid_at_ms,
+                    invalid_at_ms: None,
+                    confidence_class,
+                    confidence,
+                    last_validated_at_ms: None,
+                    derived_from,
+                    quarantined_at_ms: quarantine.at_ms,
+                    quarantine_reason: quarantine.reason,
+                    quarantined_by: quarantine.by,
+                    quarantine_review_due_ms: quarantine.review_due_ms,
                 };
                 let (node, record) = memory_record_to_node_owned(record);
                 nodes.push(node);
@@ -487,11 +666,34 @@ impl Embedded {
     }
 
     /// Insert or update a record with exact fields (used internally by import).
+    ///
+    /// Raw transport choke point (SDK Rust / HTTP `import` records / WASM
+    /// `import_records`): re-validates the confidence boundary + validity
+    /// window even though the JSONL path (`record_from_export_line`) already
+    /// validated them — a hostile `records` payload must not persist
+    /// out-of-range scores, inconsistent classes or inverted windows
+    /// (ADR-046 §D4/§D7).
     pub(crate) fn put_record_exact(&self, record: MemoryRecord) -> Result<MemoryRecord> {
         self.check_read_only()?;
         validate_namespace(&record.namespace)?;
         validate_key(&record.key)?;
         validate_metadata(&record.metadata)?;
+        validate_confidence_fields(
+            record.confidence_class,
+            &record.derived_from,
+            record.confidence,
+        )?;
+        if let Some(invalid_at) = record.invalid_at_ms {
+            if record.valid_at_ms > invalid_at {
+                return Err(Error::Validation {
+                    field: "invalid_at_ms".into(),
+                    reason: format!(
+                        "valid_at_ms ({}) must be <= invalid_at_ms ({invalid_at})",
+                        record.valid_at_ms
+                    ),
+                });
+            }
+        }
 
         let expected_node_id = memory_node_id(&record.namespace, &record.key);
         if record.node_id != expected_node_id {
@@ -572,8 +774,25 @@ impl Embedded {
 
         let now = now_ms();
         let mut record = old;
+        // O2 (ADR-046 §D3-2/§D3-3): `invalid_at = now` would invert the window
+        // (`valid_at > invalid_at`) for a record whose validity starts in the
+        // future. Guard instead of writing an inconsistent state; superseding
+        // a not-yet-valid record is rejected explicitly (no silent clamp, no
+        // D3-3 divergence).
+        if record.valid_at_ms > now {
+            return Err(Error::Validation {
+                field: "valid_at_ms".into(),
+                reason: format!(
+                    "cannot supersede a record whose validity starts in the future (valid_at_ms {} > now {now})",
+                    record.valid_at_ms
+                ),
+            });
+        }
         record.superseded_by = Some(new_key.to_string());
         record.superseded_at_ms = Some(now);
+        // ADR-046 §D3-3: 0.8.0 keeps the validity window aligned with the
+        // supersession event (divergence only via a retroactive setter, v1.0).
+        record.invalid_at_ms = Some(now);
         record.updated_at_ms = now;
         record.version = record.version.saturating_add(1);
 
@@ -679,6 +898,7 @@ impl Embedded {
                     expires_at_ms: Some(expires),
                     superseded_by: None,
                     superseded_at_ms: None,
+                    ..Default::default()
                 });
             }
         }
@@ -951,6 +1171,48 @@ impl Embedded {
                 node.set_field(FIELD_CREATED_AT_MS, FieldValue::Int(imported_at_ms as i64));
                 node.set_field(FIELD_UPDATED_AT_MS, FieldValue::Int(imported_at_ms as i64));
                 node.set_field(FIELD_VERSION, FieldValue::Int(1));
+
+                // v2 projection (ADR-046 §D2/§D6): the raw bulk path bypasses
+                // the validated put path, so declared `derived` records (which
+                // need parent lookups + score derivation) are rejected
+                // explicitly instead of being silently downgraded.
+                if input.confidence_class == Some(ConfidenceClass::Derived)
+                    || input
+                        .derived_from
+                        .as_ref()
+                        .is_some_and(|parents| !parents.is_empty())
+                {
+                    return Err(Error::Validation {
+                        field: "confidence_class".into(),
+                        reason: "derived records are not supported by bulk import; use put_batch"
+                            .into(),
+                    });
+                }
+                if let Some(value) = input.confidence {
+                    if !value.is_finite() || !(0.0..=1.0).contains(&value) {
+                        return Err(Error::Validation {
+                            field: "confidence".into(),
+                            reason: "confidence must be a finite number in [0,1]".into(),
+                        });
+                    }
+                }
+                // Boundary alignment with the validated put path (N2): `Some(0)`
+                // is rejected there (`valid_at_ms` must be > 0; omit for
+                // default); the raw bulk path must not silently reinterpret it.
+                if input.valid_at_ms == Some(0) {
+                    return Err(Error::Validation {
+                        field: "valid_at_ms".into(),
+                        reason: "must be greater than 0; omit the field to default to the import timestamp"
+                            .into(),
+                    });
+                }
+                let valid_at_ms = input.valid_at_ms.unwrap_or(imported_at_ms);
+                node.set_field(FIELD_VALID_AT_MS, FieldValue::Int(valid_at_ms as i64));
+                node.set_field(
+                    FIELD_CONFIDENCE_CLASS,
+                    FieldValue::String(ConfidenceClass::Asserted.as_wire_str().to_string()),
+                );
+                node.confidence_score = input.confidence.unwrap_or_else(default_confidence);
                 if let Some(ref v) = input.vector {
                     node.vector = VectorRepresentations::Full(v.clone());
                     node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
