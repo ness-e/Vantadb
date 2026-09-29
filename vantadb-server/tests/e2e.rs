@@ -1018,3 +1018,115 @@ async fn test_e2e_search_confidence_fields_and_min_confidence_filter() {
     assert_eq!(records[0]["record"]["key"], "parent-1");
     assert_eq!(records[0]["record"]["confidence"], 1.0, "{body}");
 }
+
+/// SCH-07: `/api/v2/search` carries the selective-abstention signal
+/// (ADR-046 §D2) on the page-shaped single-namespace path: with
+/// `confidence_threshold` configured and every candidate below it, the
+/// response is an explicit `abstained: true` + reason code — never a silent
+/// empty page. The all-namespaces fan-out has no page object in the SDK, so
+/// the signal is declared N/A (`false`/`null`). Also pins the v2
+/// bitemporal/quarantine fields on the HTTP record wire.
+#[tokio::test]
+async fn test_e2e_search_abstention_signal_and_v2_fields() {
+    // `build_server_state` opens with the default config (threshold OFF), so
+    // build the state literally with the core threshold set.
+    let dir = tempfile::tempdir().unwrap();
+    let storage_path = dir.path().join("db");
+    let storage = Arc::new(
+        StorageEngine::open_with_config(
+            storage_path.to_str().unwrap(),
+            Some(vantadb::config::Config {
+                confidence_threshold: Some(0.9),
+                ..Default::default()
+            }),
+        )
+        .unwrap(),
+    );
+    let db = vantadb::Embedded::from_engine(storage.clone());
+    db.ensure_indexes_current().expect("ensure indexes");
+    let state = Arc::new(ServerState {
+        storage,
+        db,
+        circuit_breaker: Arc::new(CircuitBreaker::new(5, Duration::from_secs(30))),
+        pool: Arc::new(ConnectionPool::new(10, Duration::from_millis(5000))),
+        api_key: None,
+        alt_api_key: None,
+        jwt_secret: None,
+        rbac_config: Default::default(),
+        trusted_proxies: vec![],
+        conversation_trigger: None,
+    });
+    let (base, _handle) = spawn_server(state, 0).await;
+    let client = reqwest::Client::new();
+
+    // One asserted record declared at 0.2 — below the 0.9 threshold.
+    let resp = client
+        .post(format!("{}/api/v2/records", base))
+        .json(&serde_json::json!({
+            "namespace": "sch07", "key": "shaky",
+            "payload": "below threshold", "metadata": {}, "vector": [1.0, 0.0],
+            "confidence": 0.2
+        }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 201);
+
+    // Single-namespace search: page-shaped → explicit abstention signal.
+    let resp = client
+        .post(format!("{}/api/v2/search", base))
+        .json(&serde_json::json!({
+            "namespace": "sch07", "query_vector": [1.0, 0.0], "top_k": 5,
+            "filters": {}, "distance_metric": "Cosine", "explain": false
+        }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let body: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(
+        body["records"].as_array().map(Vec::len),
+        Some(0),
+        "threshold filters every candidate: {body}"
+    );
+    assert_eq!(body["abstained"], true, "explicit signal: {body}");
+    assert_eq!(
+        body["abstention_reason"], "no_candidates_above_threshold",
+        "{body}"
+    );
+
+    // All-namespaces fan-out: signal declared N/A (no page object in the SDK).
+    let resp = client
+        .post(format!("{}/api/v2/search", base))
+        .json(&serde_json::json!({
+            "namespace": "", "query_vector": [1.0, 0.0], "top_k": 5,
+            "filters": {}, "distance_metric": "Cosine", "explain": false
+        }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let body: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(
+        body["abstained"], false,
+        "multi-namespace path is N/A: {body}"
+    );
+    assert!(body["abstention_reason"].is_null(), "{body}");
+
+    // v2 bitemporal/quarantine fields travel on the record wire (SCH-07).
+    let resp = client
+        .post(format!("{}/api/v2/records", base))
+        .json(&serde_json::json!({
+            "namespace": "sch07", "key": "v2", "payload": "fields",
+            "metadata": {}, "vector": [1.0, 0.0],
+            "valid_at_ms": 1000, "quarantine": true
+        }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 201);
+    let rec: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(rec["valid_at_ms"], 1000, "{rec}");
+    assert_eq!(rec["quarantine_reason"], "explicit_write", "{rec}");
+    assert!(rec["quarantined_at_ms"].is_number(), "{rec}");
+}
