@@ -1,1 +1,0 @@
-{{#include ../../../operations/SECURITY.md}}
