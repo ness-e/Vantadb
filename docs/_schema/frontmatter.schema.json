@@ -50,8 +50,8 @@
     },
     "description": {
       "type": "string",
-      "maxLength": 250,
-      "description": "One line, no trailing period. This is the text that appears in every generated index and in llms.txt. If absent, the file is omitted from generated indexes. 250 rather than 120 because several task files derive a description from a command line; long enough not to produce false failures, short enough to keep an index row scannable."
+      "maxLength": 400,
+      "description": "One line, no trailing period. This is the text that appears in every generated index and in llms.txt. If absent, the file is omitted from generated indexes. 400 rather than 120 because several task files derive a description from a command line; 400 because a task whose description is a real sentence with measured percentages will otherwise have to be truncated mid-clause, and a gate that fires on that teaches you to write worse descriptions. The ceiling is still bounded: llms.txt is 120 KB across 503 entries, and 400 characters cannot make an index row unreadable on its own."
     },
     "aliases": {
       "type": "array",

@@ -20,7 +20,7 @@ métricas L1/L2/L3/recall (MEM-34), routing flat/IVF/HNSW (OLD-21), remoción PI
 (FIND-26), split config-datos (ADR-0043), CacheLayer (C2S3b), rediseño agentic threads,
 contrato providers (ADR-0033), CLI features, graceful shutdown WAL. Cero accidentales.
 
-El propio CI ya contempla este estado (`ci-rust-10.yml:97-101`: en develop la comparación
+El propio CI ya contempla este estado (`ci-rust.yml:97-101`: en develop la comparación
 es "ruido" mientras se acumula pre-release hacia 0.6.0; el job solo corre en main/PR-a-main).
 `cargo-semver-checks --release-type` deriva del número de versión: el verde llega con el
 bump 0.5.0→0.6.0. Precedentes: ADR-0041 y ADR-0042 (major directo documentado, sin aliases),

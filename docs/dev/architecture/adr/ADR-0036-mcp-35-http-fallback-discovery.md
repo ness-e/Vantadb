@@ -11,7 +11,7 @@ created: "2026-09-02"
 
 ## Context
 
-**Problem:** Currently, `vanta-cli server --mcp --db <path>` spawns `vantadb-server --mcp` which opens the `StorageEngine` directly. The engine uses an exclusive file lock (`.vanta.lock`) to enforce single-writer semantics. When a second MCP instance tries to open the same database, it fails with `VantaError::DatabaseBusy` and exits with code 1. This prevents multiple OpenCode sessions (or any MCP clients) from sharing the same database concurrently.
+**Problem:** Currently, `vanta-cli server --mcp --db <path>` spawns `vantadb-server --mcp` which opens the `StorageEngine` directly. The engine uses an exclusive file lock (`.vanta.lock`) to enforce single-writer semantics. When a second MCP instance tries to open the same database, it fails with `Error::DatabaseBusy` and exits with code 1. This prevents multiple OpenCode sessions (or any MCP clients) from sharing the same database concurrently.
 
 **Incident:** 2026-08-25 — Two OpenCode sessions on the same DB; the second session had no tools available because it couldn't acquire the lock.
 
@@ -61,7 +61,7 @@ Try StorageEngine::open_with_config()
     │     ├─► Run MCP stdio server (existing run_stdio_server)
     │     └─► On shutdown: delete discovery file, flush, exit
     │
-    └─► Err(VantaError::DatabaseBusy) → Subsequent instance (PROXY CANDIDATE)
+    └─► Err(Error::DatabaseBusy) → Subsequent instance (PROXY CANDIDATE)
           │
           ├─► Read discovery file
           │     │
