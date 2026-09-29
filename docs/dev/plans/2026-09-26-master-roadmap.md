@@ -1,8 +1,14 @@
+---
+title: "Plan de Ejecución: Master Roadmap VantaDB — de 0.7.x a 1.0 (fuente única)"
+kind: plan
+description: "SDP: campaign-executor · progreso · writing-plans · planning-and-task-breakdown · api-and-interface-design · spec-driven-development · documentation-and-adrs · writing-guidelines"
+---
+
 # Plan de Ejecución: Master Roadmap VantaDB — de 0.7.x a 1.0 (fuente única)
 
 > **Campaign ID:** ed20beae-edf6-42f5-b41f-e8519830d6cb
 > **Inicio:** 2026-09-26
-> **Estado:** ⏳ EN PROGRESO (1/50 — HARD-08 SDP v3 ✅ pre-run; siguiente: F0)
+> **Estado:** ⏳ EN PROGRESO (28/50 — F0 ✅ · F1 ✅ · F2 ✅ · F3 5/11; siguiente: SCH-03)
 > **Fuente:** `docs/dev/Backlog.md` (P52–P59 + FIND-*) + planes absorbidos (`2026-09-24-post-investigacion-integral.md` W2–W7, `2026-09-24-estabilizacion-pendiente.md`, `2026-09-24-harness-gaps.md`, `2026-09-24-sesion-continuidad.md`, `2026-09-20-estabilizacion-total.md`) + `docs/dev/strategy/` (13 docs) + Notion "VantaDB Docs" (~28 subpáginas) + investigación de riesgos 2026-09-26 (4 sub-agentes R1–R4, multi-fuente)
 > **Autonomous:** false — el owner gatea push/merge/release. **Push a `develop`: al completar el plan con todo validado/verificado** (decisión owner 2026-09-26, ver §Política de commits/push)
 > **Modo:** PLAN → ejecución con `/pipeline run docs/dev/plans/2026-09-26-master-roadmap.md`
@@ -685,8 +691,8 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Justificación:** pre-requisito duro de SCH-02..08 (Backlog:938); consolida dims 5-6 en UNA decisión + UNA migración (evita breakings múltiples); sin ADR aceptado + revisión owner no se toca `record.rs`; el corte 0.8.0 ES esta migración.
 - **Gate Result:** ✅ DO
 - **Contrato:** "ADR de migración aceptado (campos, semántica valid vs transaction, alcance 0.8.0 vs v1.0, plan de migración/backfill, compat export/import) + plan de implementación único con comandos + revisión owner registrada"
-- **Task file:** `docs/dev/tasks/SCH-01.md` (a crear en DISCOVERY)
-- **Estado:** ⏳ EN PROGRESO · **Branch:** develop · **Commit:**
+- **Task file:** `docs/dev/tasks/SCH-01.md`
+- **Estado:** ✅ COMPLETED (2026-09-28 — commit `f24d8b55`; ADR-046 firmado por owner; review fresco OK)
 - **Cynefin:** 🟨 complicado — consolidar 3 investigaciones en una decisión + alcance + compat.
 - **Top 3 riesgos:** 1. insumos divergentes/incompletos → ADR ambiguo · 2. segundo breaking accidental (edges SCH-09) · 3. alcance 0.8.0 inflado con v1.0 (derivación/jueces).
 - **Pre-mortem:** F1: ADR sin comandos de migración → DoD exige plan con comandos (Backlog:938); F2: specs contradictorias → tabla de reconciliación campo×spec en el ADR; F3: "revisión owner" sin registro → registrarla en el task file (carril owner, §Carril owner L750-763).
@@ -711,8 +717,8 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Justificación:** el corte 0.8.0 ES esta migración (Backlog:934); el gate F3 exige "migración determinista verde" (plan :35) — backfill + roundtrip + reopen son ese gate; sin v2 no existen SCH-03..07.
 - **Gate Result:** ✅ DO
 - **Contrato:** "schema v2 implementado (`valid_at`/`invalid_at` + confianza asserted/derived + `quarantined`, todo `#[serde(default)]` compatible v1) Y migración v1→v2 determinista (misma DB → mismo resultado) con backfill (`valid_at=created_at`, `invalid_at=superseded_at` si existe) Y roundtrip export/import verde (v1 sigue importable) Y reopen/durabilidad verdes"
-- **Task file:** `docs/dev/tasks/SCH-02.md` (a crear en DISCOVERY)
-- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Task file:** `docs/dev/tasks/SCH-02.md`
+- **Estado:** ✅ COMPLETED (2026-09-28 — commit `7af34366`; review adversarial 2 rondas OK)
 - **Cynefin:** 🟨 complicado — campos nuevos × 4 formatos de persistencia + backfill determinista.
 - **Top 3 riesgos:** 1. crash mid-migration → DB inconsistente · 2. formatos anidados desincronizados (snapshot mirror/export/WAL) · 3. DB v1 real que no reabre post-migración.
 - **Pre-mortem:** F1: campo sin `#[serde(default)]` rompe DBs v1 → default en TODO campo nuevo + test de lectura v1; F2: backfill no idempotente → migración con versión explícita + doble corrida determinista (SCH-06); F3: mirror postcard olvidado → checklist por formato (record/WAL/snapshot/export) + roundtrip por formato.
@@ -1047,6 +1053,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **plan-adjust [2026-09-27d]:** **Bloques F2 completados al nivel F0/F1 (REGLA L412-422)** — Tasks 16-22 (WIRE-02..08), 23 campos c/u, Paso 0 verificado (codegraph/CBM): WIRE-02 re-baseline 85 listadas (`MCP.md:265`); WIRE-04 re-scope (TTL HTTP ya existe → default por colección + sweeper); WIRE-07 trait-split ya ejecutado → bookkeeping + OpGate/server→cli; deps MGR-05/09/16 anotadas. Gate de fase F2 ✅ → wave F2 lanzada (WIRE-03 ‖ WIRE-04; WIRE-02 en cola). Commit `0b6f9822`.
 - **plan-adjust [2026-09-28e]:** **Bloques F3 completados al nivel F0/F1 (REGLA L412-422)** — Tasks 23-33 (MGR-10/12/13 + SCH-01..08), 23 campos c/u, Paso 0 verificado (codegraph/CBM): SCH-01 re-baseline alcance 0.8.0 (0.7.0 shipped); SCH-03 `exclude_superseded` YA existe (gaps reales = AS OF/valid_at); SCH-04 re-baseline slice 0.8.0; SCH-08 corte 0.8.0 (Backlog stale corregido); deps fuera del plan anotadas (MGR-01/04). Gate de fase F3 ✅ → wave F3.1 lanzada (MGR-10 ‖ MGR-12 ‖ MGR-13).
 - **plan-adjust [2026-09-28f]:** **Owner ratificó los 16 defaults de diseño F3** (question 2026-09-28, opción "Aprobar defaults y avanzar"): MGR-10 (6) + MGR-12 (4) + MGR-13 (6). SCH-01 los consolida en ADR-046; el ADR pasa por revisión owner explícita (Regla 5). Cierre MGR ✅ = pre-req duro SCH-01 cumplido. Wave F3.2 lanzada (SCH-01).
+- **plan-adjust [2026-09-28g]:** **F3.2 cerrada (28/50)** — SCH-01 (ADR-046 firmado por owner) + SCH-02 (schema v2 + migración determinista + backfill; `7af34366`; review adversarial 2 rondas ✅ 2403/2403). Wave F3.3 lista: SCH-03 ‖ SCH-04 ‖ SCH-05 (desbloqueadas).
 
 ## Recitation
 
@@ -1055,9 +1062,9 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
 Objetivo activo: F3 — Bitemporalidad/confianza/cuarentena + schema v2 (MGR/SCH)
 Estado: in-progress
-Última acción: F3.1 COMPLETA (26/50 — 3 research-docs); owner ratificó 16 defaults; wave F3.2 lanzada (SCH-01)
-Resultado: OK (F0 7/7 · F1 8/8 · F2 7/7 · MGR 3/3)
-Próxima acción: SCH-01 (ADR-046 + revisión owner) → SCH-02 (schema v2)
+Última acción: F3.2 COMPLETA (28/50 — SCH-01 ADR-046 firmado + SCH-02 schema v2); wave F3.3 lista (SCH-03/04/05)
+Resultado: OK (F0 7/7 · F1 8/8 · F2 7/7 · F3 5/11)
+Próxima acción: /pipeline run → wave F3.3 (SCH-03 ‖ SCH-04 ‖ SCH-05)
 Contrato: —
 Próxima tarea si completa: HARD-01
 === END RECITATION ===
@@ -1372,4 +1379,26 @@ Resultado: OK
 Próxima acción: LEAD: commit docs (hecho) → ronda consolidada de preguntas owner → SCH-01
 Contrato: modelo asserted/derived (V1-V5 + min(padres)×0.9) + last_validated + mapeo canónico + calibración diferida VER-08
 Próxima tarea si completa: SCH-01
+=== END RECITATION ===
+
+=== RECITATION SCH-01 ===
+Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
+Objetivo activo: SCH-01 — Plan único + ADR de migración (ADR-046, 0.8.0)
+Estado: completed
+Última acción: Steps 4/5 ✅ + review fresco APPROVE + fixes + FIRMA OWNER (set completo); ADR-046 accepted + commit
+Resultado: OK
+Próxima acción: LEAD: claim SCH-02 (schema v2) — desbloqueada
+Contrato: ADR aceptado (campos + semántica + alcance 0.8.0 + plan migración + compat) + revisión owner ✅
+Próxima tarea si completa: SCH-02
+=== END RECITATION ===
+
+=== RECITATION SCH-02 ===
+Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
+Objetivo activo: SCH-02 — Schema v2 (bitemporal + confidence + quarantined + backfill)
+Estado: completed
+Última acción: Steps 9/9 ✅ — schema v2 + migración determinista + fixes R1/R2/R3; review adversarial 2 rondas ✅; commit 7af34366
+Resultado: OK
+Próxima acción: Wave F3.3: claim SCH-03/04/05 (desbloqueadas por schema v2)
+Contrato: schema v2 #[serde(default)] v1-compat + migración determinista + backfill + roundtrip v1/v2 + reopen (2403/2403)
+Próxima tarea si completa: SCH-03
 === END RECITATION ===
