@@ -4593,10 +4593,12 @@ fn test_mcp_structured_output_and_output_schema() {
 /// hints per spec 2025-06-18 (blog.modelcontextprotocol.io 2026-03-16).
 /// Verifies: 79 listed tools (85 defined − 6 WIRE-02 absorbed code_*
 /// projections), each has title + 4 bools, destructiveHint true only on
-/// mutating deletes, openWorldHint only on fs paths. MEM-59 added
-/// `memory_recall` and `memory_search` (both read-only/idempotent); API-04
-/// canonicalized the legacy `search_memory`/`collection_list` aliases out of
-/// the listing — see the contract comment at the top of handlers/tools.rs.
+/// mutating tools that overwrite or delete, openWorldHint only on fs paths.
+/// MEM-59 added `memory_recall` and `memory_search` (both read-only/idempotent);
+/// API-04 canonicalized the legacy `search_memory`/`collection_list` aliases out
+/// of the listing — see the contract comment at the top of handlers/tools.rs.
+/// VER-07 flipped `dream_promote` (preview stub → real promotion with
+/// destructive DELETE potential; still idempotent).
 #[test]
 fn test_mcp_tool_annotations_coverage() {
     let res = handle_tools_list(&default_config()).unwrap();
@@ -4621,6 +4623,7 @@ fn test_mcp_tool_annotations_coverage() {
         "thread_delete",
         "thread_purge_expired",
         "dream_discard",
+        "dream_promote",
     ]
     .into_iter()
     .collect();

@@ -4,14 +4,16 @@
 //! (`dream_discard`, S2) wrap `vanta_memory::core::dream`'s pure store
 //! functions over `&Embedded` (`list_dream_runs` / `load_dream_run` /
 //! `discard_dream_run` over `dream/<session>/<run_id>`). Write tools
-//! (`dream_consolidate`/`dream_promote`, S3) wrap `consolidate_session`
-//! (LLM-free: no runner injected, same degraded mode the crate documents)
-//! and `promote_dream_run` — which is a **preview stub** returning the count
-//! it would merge **without mutating** `l1/<session>` (MEM-61; the real merge
-//! is MEM-65's pipeline worker). The L1 store is never touched by any tool
-//! here. Domain errors surface as `error_content` results the LLM can
-//! self-correct (MEM-32) while param errors are JSON-RPC invalid-params
-//! (same contract as `scenes.rs`).
+//! (`dream_consolidate`/`dream_promote`, S3 + VER-07) wrap
+//! `consolidate_session` (LLM-free: no runner injected, same degraded mode
+//! the crate documents) and the promotion surface: `dream_promote` returns
+//! the record-level dry-run plan by default and **applies it to
+//! `l1/<session>` only with `dry_run:false`** (idempotent; fail-closed
+//! quality gate on supersedes; DELETE scoped to the run's scanned inputs).
+//! Consolidation never touches L1; promotion is the module's only mutating
+//! entry point and defaults to preview. Domain errors surface as
+//! `error_content` results the LLM can self-correct (MEM-32) while param
+//! errors are JSON-RPC invalid-params (same contract as `scenes.rs`).
 
 use crate::config::McpConfig;
 use crate::error::McpError;
@@ -19,8 +21,8 @@ use crate::validation::{error_content, serialize_content, text_content, validate
 use serde_json::{json, Value};
 use std::sync::Arc;
 use vanta_memory::core::dream::{
-    consolidate_session, discard_dream_run, list_dream_runs, load_dream_run, promote_dream_run,
-    DreamConfig,
+    consolidate_session, discard_dream_run, list_dream_runs, load_dream_run, plan_promotion,
+    promote_dream_run, DreamConfig,
 };
 use vantadb::storage::StorageEngine;
 
@@ -107,11 +109,11 @@ pub(crate) fn dream_tool_definitions() -> Vec<Value> {
         }),
         json!({
             "name": "dream_promote",
-            "description": "PREVIEW ONLY: returns the number of consolidated records a dream run would merge into L1, without mutating anything (the real merge is the pipeline worker's job). Response is {preview_count, mutated:false}. Read-only.",
+            "description": "Promotes a dream run into l1/<session>: reports the record-level diff {action: ADD|UPDATE|DELETE|NOOP, key, reason} and, with dry_run:false, applies it (ADD/UPDATE upsert the record; DELETE removes a record the run scanned and dropped). Defaults to dry_run:true — the plan is reported and nothing mutates. Idempotent: re-promoting an applied run returns an all-NOOP plan and writes nothing. Fail-closed quality gate on supersedes; post-run additions to L1 are never part of the plan.",
             "annotations": {
-                "title": "Dream Promote Preview",
-                "readOnlyHint": true,
-                "destructiveHint": false,
+                "title": "Dream Promote",
+                "readOnlyHint": false,
+                "destructiveHint": true,
                 "idempotentHint": true,
                 "openWorldHint": false
             },
@@ -119,7 +121,8 @@ pub(crate) fn dream_tool_definitions() -> Vec<Value> {
                 "type": "object",
                 "properties": {
                     "session_key": { "type": "string", "description": "Session that owns the run" },
-                    "run_id": { "type": "string", "description": "Run id returned by dream_list" }
+                    "run_id": { "type": "string", "description": "Run id returned by dream_list" },
+                    "dry_run": { "type": "boolean", "description": "true (default) = report the promotion plan only; false = apply it to l1/<session>" }
                 },
                 "required": ["session_key", "run_id"]
             }
@@ -249,8 +252,12 @@ fn dream_consolidate_tool(
     }
 }
 
-/// `dream_promote(session_key, run_id)`: preview count only — the stub never
-/// mutates L1, so this tool is honestly read-only (`mutated:false` on the wire).
+/// `dream_promote(session_key, run_id, dry_run=true)`: returns the
+/// record-level promotion plan (`{dry_run, mutated, counts, ops}`). With the
+/// default `dry_run:true` nothing mutates; `dry_run:false` applies the plan
+/// to `l1/<session>` (idempotent — a second apply is all-NOOP). `mutated` is
+/// `true` only when an apply actually wrote at least one record. Domain
+/// errors (missing run, quality gate) surface as error-content messages.
 fn dream_promote_tool(
     args: &Value,
     storage: &Arc<StorageEngine>,
@@ -258,10 +265,26 @@ fn dream_promote_tool(
 ) -> Result<Value, Value> {
     let session_key = session_key_arg(args, config)?;
     let run_id = run_id_arg(args, config)?;
-    match promote_dream_run(&db_from(storage), &session_key, &run_id) {
-        Ok(count) => Ok(text_content(serialize_content(
-            &json!({ "preview_count": count, "mutated": false }),
-        ))),
+    // A missing OR non-boolean `dry_run` falls back to the safe default
+    // (plan only, never an implicit apply).
+    let dry_run = args["dry_run"].as_bool().unwrap_or(true);
+    let db = db_from(storage);
+    let result = if dry_run {
+        plan_promotion(&db, &session_key, &run_id)
+    } else {
+        promote_dream_run(&db, &session_key, &run_id)
+    };
+    match result {
+        Ok(plan) => {
+            let counts = plan.counts();
+            let mutated = !dry_run && counts.writes() > 0;
+            Ok(text_content(serialize_content(&json!({
+                "dry_run": dry_run,
+                "mutated": mutated,
+                "counts": counts,
+                "ops": plan.ops,
+            }))))
+        }
         Err(e) => Ok(error_content(e.to_string())),
     }
 }
