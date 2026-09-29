@@ -72,7 +72,7 @@ Default (`enabled = false`) compiles and behaves exactly as today.
   reported durable **only after** the coordinator's `sync()` covering it
   completes. Readers/checkpoints wait on the watermark, never on "returned".
 - Failure rule (`DRV-015` R2): coordinator flush failure surfaces as
-  `VantaError::WalError` (loud) and un-acked requests stay un-acked; the
+  `Error::Wal` (loud) and un-acked requests stay un-acked; the
   coordinator is supervised by the engine (restart or fail-loud, never
   silent loss). Coordinator death with in-flight queued bytes = those bytes
   are **not** acknowledged (they fall inside the declared loss window on crash,
@@ -103,7 +103,7 @@ pub struct WalBatchConfig {
 - Validation at boundaries only: env parsing (`VANTADB_WAL_BATCH_*`) and builder
   args validate ranges (`max_batch_records > 0`, `max_wait_ms > 0`); the
   engine↔storage↔wal core trusts the typed struct (no re-validation inside).
-- Error semantics: single `VantaError` (`WalError` + stable `code`), never
+- Error semantics: single `Error` (`Wal` + stable `code`), never
   `panic`/`Option`-silence on the write path.
 - Naming follows the project table: `WalBatchConfig::{enabled, max_batch_records,
   max_wait_ms, max_queued_records}`, `is_durable(seq) -> bool` on the watermark.

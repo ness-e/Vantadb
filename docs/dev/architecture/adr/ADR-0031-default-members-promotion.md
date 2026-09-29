@@ -31,7 +31,7 @@ need an equivalent npm Fast Gate.
 Phase P47 (`docs/dev/Backlog.md:721-736`) was opened 2026-08-27 to answer the missing question:
 **what must pass before we can call a crate "100% stable and promotable to default"** and to keep the
 promotion itself a **1-line reversible** change. Until P47 there was no written DoD — the `experimental-check`
-job (`ci-rust-10.yml:experimental-check`) was non-blocking and the promotion path was implicit.
+job (`ci-rust.yml:experimental-check`) was non-blocking and the promotion path was implicit.
 
 This ADR is **STABLE-00** (P47 foundation): it writes the 10-check DoD, the per-crate cost table, and
 the Owner gate on the Fast Gate `<5 min` threshold **before** any `Cargo.toml` edit. The actual
@@ -130,7 +130,7 @@ promotion is **scoped** (promote only the subset that keeps `<5 min`, defer the 
 
 - **(B) `<5 min` is a soft target** — if STABLE-08 measures `5-8 min`, promote anyway and **re-label**
   the Fast Gate as `~8 min` in `CI_POLICY.md` and `.opencode/AGENTS.md` CI table, update
-  `dev-tools/verify.ps1` comments and `ci-rust-10.yml:coverage` `timeout-minutes`, and accept the
+  `dev-tools/verify.ps1` comments and `ci-rust.yml:coverage` `timeout-minutes`, and accept the
   velocity cost. Beyond `>8 min` still requires Heavy split (e.g., keep `vanta-proxy` out).
 
 **Recorded answer:**
@@ -198,7 +198,7 @@ appended to this section with the Owner's name and date; the ADR status then mov
 - `dev-tools/verify.ps1` (local Fast Gate: fmt → check → clippy → audit → deny → nextest → coverage → docs-coverage)
 - `dev-tools/gate-common.ps1:Get-CoreFeatures` (`cli,fjall,memmap2,fs2,roaring`)
 - `scripts/validate-docs-coverage.ps1` (6 checks: SDK/config/error/CLI/python/MCP)
-- `.github/workflows/ci-rust-10.yml` (`fmt`, `clippy --workspace`, `experimental-check`, `coverage`, `wasm-test` with `continue-on-error: true`)
+- `.github/workflows/ci-rust.yml` (`fmt`, `clippy --workspace`, `experimental-check`, `coverage`, `wasm-test` with `continue-on-error: true`)
 - `.github/workflows/release-npm-61.yml:42-82` (`tests` job, `vitest run` 264 tests, timeout 10, ~26s measured) and `release-npm-node.yml` (7-target matrix, `npm pack` with `*.node`)
 - `docs/dev/Backlog.md:721-736` (P47 10-check contract) + `docs/dev/Backlog.md:738-749` (STABLE-00..09)
 - `.opencode/references/definition-of-done.md` (VantaDB-specific DoR/DoD)

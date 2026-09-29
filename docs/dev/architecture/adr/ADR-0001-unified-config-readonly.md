@@ -26,7 +26,7 @@ Additionally, write operations (such as inserts, updates, and deletes) would pro
    ```rust
    pub fn guard_write_allowed(config: &VantaConfig) -> Result<()> {
        if config.read_only {
-           return Err(VantaError::ReadOnlyViolation);
+           return Err(Error::Validation { field: "read_only", .. });
        }
        Ok(())
    }

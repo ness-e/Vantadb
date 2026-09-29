@@ -101,7 +101,7 @@ verification. Folded into FIND-61's scope rather than asserted as a finding.
 
 ## API Contract Assessment
 
-- **Contrato definido:** none new — (d) changes no trait, struct, enum, endpoint, or error variant. The write-path contract (`insert`/`batch_insert`/`delete` semantics + `VantaError::Timeout` on contended `acquire_insert_lock`) is unchanged.
+- **Contrato definido:** none new — (d) changes no trait, struct, enum, endpoint, or error variant. The write-path contract (`insert`/`batch_insert`/`delete` semantics + `Error::Timeout` on contended `acquire_insert_lock`) is unchanged.
 - **Hyrum surface:** unchanged by (d). Noted cost of (a): a shard count / hash function / per-shard ordering guarantee would become observable behavior consumers depend on (shard-count config, cross-shard ordering) — surface expansion with no reachable gain is exactly what Hyrum's Law warns against.
 - **Evolución:** no additive or breaking change under (d). If FIND-61 ever justifies pipeline batching, it must land as an **additive opt-in** (new pipeline mode/options, default `insert()` untouched) per the One-Version Rule — never a silent default change (cf. FIND-57 precedent).
 - **Validación:** boundaries unchanged (FFI/HTTP/CLI validate; engine internals trust typed contracts). No new validation sites.
@@ -133,7 +133,7 @@ No implementation. Follow-up is the measurement spike FIND-61 (timeboxed
 ## Verification Checklist
 
 - [x] Contrato tipado definido antes de implementar — N/A, 0 código; decisión documentada antes de cualquier cambio futuro
-- [x] `VantaError` mapping consistente — sin cambios; `Timeout` en `acquire_insert_lock` intacto
+- [x] `Error` mapping consistente — sin cambios; `Timeout` en `acquire_insert_lock` intacto
 - [x] `#[non_exhaustive]` — sin enums nuevos/extendidos
 - [x] Sin ciclos — 0 código, boundaries intactos
 - [x] Feature matrix — 0 código; nota: `async-ingestion` fuera del build wasm (verificado en RES-03)

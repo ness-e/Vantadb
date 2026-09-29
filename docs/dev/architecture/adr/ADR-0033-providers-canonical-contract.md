@@ -270,5 +270,7 @@ litellm consumers pierden info".
 - `docs/dev/plans/2026-08-29-full-backlog-parallel.md` §W16-3 (PROV-04)
 - `docs/dev/research/2026-08-25-research-providers-quickwins.md` (origen del hallazgo)
 - `docs/dev/architecture/adr/ADR-0016-adapter-tiers.md` (política adapters)
-- `docs/dev/architecture/adr/ADR-0005-error-handling.md` (taxonomía errores)
+- `docs/api/ERROR_HANDLING.md` (taxonomía errores — no hay ADR para esto; la
+  cita original apuntaba a `ADR-0005-error-handling.md`, un fichero que nunca
+  existió bajo ese nombre, y el 0005 real es el de parámetros HNSW)
 - Skill `api-and-interface-design` (Hyrum's Law, One-Version Rule)

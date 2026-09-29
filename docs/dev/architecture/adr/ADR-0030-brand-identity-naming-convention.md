@@ -43,7 +43,7 @@ con verificación live de cada registry:
 5. **Case del repo:** `ness-e/Vantadb` vs producto `VantaDB`. GitHub es case-insensitive en routing (los links funcionan), por lo que es cosmético — pero la URL canónica publicada en 60+ lugares usa `Vantadb`.
 6. **Branch drift del README:** local (develop) documenta import canónico `vantadb`; el README publicado en GitHub (main) muestra `import vantadb_py` — drift entre ramas, no una decisión de naming.
 
-**Verificación de links:** NO hay badges rotos — todos los workflows referenciados en README (`ci-rust-10.yml`, `gate-docs-21.yml`, `sec-codeql-30.yml`, `heavy-certification-50.yml`) existen en `.github/workflows/`. La única URL muerta es `vantadb.dev` (metadata de packaging + `enterprise@vantadb.dev` en SUPPORT.md), cuya resolución depende de la decisión de dominio del owner.
+**Verificación de links:** NO hay badges rotos — todos los workflows referenciados en README (`ci-rust.yml`, `gate-docs-21.yml`, `sec-codeql-30.yml`, `heavy-certification-50.yml`) existen en `.github/workflows/`. La única URL muerta es `vantadb.dev` (metadata de packaging + `enterprise@vantadb.dev` en SUPPORT.md), cuya resolución depende de la decisión de dominio del owner.
 
 ## Decisión (PROPUESTA — owner confirma)
 

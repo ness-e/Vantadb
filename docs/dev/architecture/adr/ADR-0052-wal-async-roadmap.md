@@ -138,7 +138,7 @@ Windows/macOS gates.
     (`tokio-uring` or `rio`); raises the maintenance/audit cost (a new
     `unsafe`/FFI boundary → must pass `vanta-audit` + Miri before merge).
   - Async error propagation (a coordinator flush failure) must surface as a
-    `VantaError::wal_error` and trigger graceful degradation, not silent loss.
+    `Error::Wal` and trigger graceful degradation, not silent loss.
 - **Tradeoff summary:** the blocking fsync is the simplest correct thing
   today. Phase 1 buys most of the latency win (offloading) with minimal risk;
   Phase 2 buys the rest (true async submit) but only on Linux and at higher
