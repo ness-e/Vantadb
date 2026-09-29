@@ -1,3 +1,8 @@
+---
+title: "D4b — Enum `Error`: `IoError→Io`, `BackendError→Backend`, … (DISEÑO, cero código)"
+kind: task
+---
+
 # D4b — Enum `Error`: `IoError→Io`, `BackendError→Backend`, … (DISEÑO, cero código)
 
 > **Plan file:** `docs/dev/plans/2026-09-11-cleanCA-remediation.md` (§6-D4b, §10 Adaptador)

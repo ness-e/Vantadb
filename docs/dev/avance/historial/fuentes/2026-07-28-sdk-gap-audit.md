@@ -1,10 +1,10 @@
 ---
-title: "SDK Gap Audit + Recovery Plan — Recitation"
-type: session-report
+title: SDK Gap Audit + Recovery Plan — Recitation
+kind: review
 status: completed
+description: "Campaign: auditoria-sdk-2026-07-28"
 tags: [vantadb, audit, sdk, cli, recitation]
-session_date: 2026-07-28
-aliases: []
+session_date: "2026-07-28"
 ---
 
 # Session: 2026-07-28 — SDK Gap Audit + Recovery Plan

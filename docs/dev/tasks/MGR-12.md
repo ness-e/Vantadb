@@ -1,3 +1,9 @@
+---
+title: "MGR-12: Jerarquía asserted/derived + scores + derivación (D6/AM1/AM7 — research, cero implementación)"
+kind: task
+description: "research-doc cerrado con modelo de confianza asserted/derived (scores por registro + reglas de derivación + lastvalidated + calibración básica), tradeoffs y mapeo al confidencescore de nodo, listo para SCH-01.\""
+---
+
 # MGR-12: Jerarquía asserted/derived + scores + derivación (D6/AM1/AM7 — research, cero implementación)
 
 ## Metadata

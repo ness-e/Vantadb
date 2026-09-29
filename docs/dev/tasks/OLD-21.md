@@ -1,3 +1,9 @@
+---
+title: "OLD-21: CP-Index formal (query routing inteligente)"
+kind: task
+description: "CostEstimator::selectivity / estimateoperator / estimateplan /"
+---
+
 # OLD-21: CP-Index formal (query routing inteligente)
 
 ## Metadata

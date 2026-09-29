@@ -1,3 +1,9 @@
+---
+title: "FIND-107 — Exponer lo que falta de `vanta-memory` en el MCP"
+kind: task
+description: "Objetivo: exponer la superficie útil de vanta-memory que hoy no tiene mostrador MCP (mostrador incompleto). Sub-módulos del gateway → handlers"
+---
+
 # FIND-107 — Exponer lo que falta de `vanta-memory` en el MCP
 
 > **Plan:** `docs/dev/plans/2026-09-17-mvp-memoria-agentes.md` (Wave0, appetite 3d, branch `develop`, commit `feat: FIND-107 — ...`)

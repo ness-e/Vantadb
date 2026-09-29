@@ -1,3 +1,9 @@
+---
+title: E2E-VISUAL — smoke E2E guard (UX-19) + verificación visual runtime (DAUD-01)
+kind: task
+description: Convertir el smoke E2E manual (ingest→teclado→borrar→papelera→restore→paleta) en test
+---
+
 # E2E-VISUAL — smoke E2E guard (UX-19) + verificación visual runtime (DAUD-01)
 
 > Plan: `docs/dev/plans/2026-08-25-batch-desktop-ux-core.md` · Task 4 · Campaign `6a6c322a-6a6a-4d17-9b34-3166181cbc4a`

@@ -1,11 +1,9 @@
 ---
 title: "`release-sbom.yml` — RELEASE: SBOM — Generate"
-type: workflow
+kind: runbook
 status: active
+description: Genera SBOMs (Software Bill of Materials) en formato CycloneDX JSON para los tres ecosistemas del proyecto y los sube como artifacts separados
 tags: [vantadb, ci, release-sbom]
-last_reviewed: 2026-09-15
-aliases: []
-related: [".github/workflows/release-sbom.yml"]
 ---
 
 # `release-sbom.yml` — RELEASE: SBOM — Generate

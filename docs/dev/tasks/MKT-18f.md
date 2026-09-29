@@ -1,3 +1,8 @@
+---
+title: MKT-18f — PyPI packaging for 5 adapters + release workflow
+kind: task
+---
+
 # MKT-18f — PyPI packaging for 5 adapters + release workflow
 
 - **Plan:** docs/dev/plans/2026-09-03-quality-gtm-wave.md (Task 8, Wave 2)

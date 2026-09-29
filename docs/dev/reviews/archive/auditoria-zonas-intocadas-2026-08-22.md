@@ -1,8 +1,9 @@
 ---
-title: "Auditoría zonas intocadas — segunda ola (GOV-F2)"
-type: audit
+title: Auditoría zonas intocadas — segunda ola (GOV-F2)
+kind: review
 status: final
-date: 2026-08-22
+description: "Severidades: 🔴 2 · 🟡 6 · 🟢 5 (incluye 2 OK que corrigen premisas de la auditoría V1)"
+date: "2026-08-22"
 method: vanta-research read-only (ses_fd427f217ffecyvZuj3ypx2app)
 ---
 

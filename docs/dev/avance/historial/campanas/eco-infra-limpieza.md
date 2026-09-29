@@ -1,11 +1,9 @@
 ---
-title: "ECO/GH-143 — limpieza hooks y sccache"
-type: registro
+title: ECO/GH-143 — limpieza hooks y sccache
+kind: review
 status: archived
+description: "Objetivo: Eliminar hooks muertos de Claude Code (.opencode/hooks/hooks.json y session-start.sh) que nunca se ejecutan en OpenCode/Windows"
 tags: [vantadb, avance, campana]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # ECO/GH-143 — limpieza hooks y sccache

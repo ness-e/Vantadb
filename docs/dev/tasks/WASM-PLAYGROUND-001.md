@@ -1,3 +1,9 @@
+---
+title: "WASM-PLAYGROUND-001 (legacy: WEB-001)"
+kind: task
+description: El playground pasó de simulador a ejecución WASM real del core de VantaDB en el browser
+---
+
 # WASM-PLAYGROUND-001 (legacy: WEB-001)
 
 ## Metadata

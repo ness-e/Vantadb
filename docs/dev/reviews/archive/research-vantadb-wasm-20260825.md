@@ -1,11 +1,9 @@
 ---
 title: "INV-vantadb-wasm-01 — Investigación profunda: `vantadb-wasm` (bindings WASM standalone)"
-type: review
+kind: review
 status: archived
+description: "Fecha: 2026-08-25 · Tipo: Bindings WASM standalone · Ecosistema: npm (pkg)"
 tags: [vantadb, review]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # INV-vantadb-wasm-01 — Investigación profunda: `vantadb-wasm` (bindings WASM standalone)

@@ -1,3 +1,9 @@
+---
+title: "FIND-138 — Diagnosticar flake \\\\\\\\"Generate API reference (rustdoc)\\\\\\\\" 0-1s sin log (BlobNotFound)"
+kind: task
+description: "Diagnóstico del flake + fix si es nuestro o deuda escrita si es externo; 3 runs verdes o causa declarada; actionlint 0 si se toca YAML\""
+---
+
 # FIND-138 — Diagnosticar flake "Generate API reference (rustdoc)" 0-1s sin log (BlobNotFound)
 
 > **Plan:** `docs/dev/plans/2026-09-21-workflows-repair.md` Wave 1 (paralelo ×3 disjunto: 137/138/139; este task es SOLO observación — prohibido editar `ci-rustdoc.yml`/`rustdoc-70.yml`, resto workflows, `src`/`web`/`desktop`/locks/plans/Backlog, secretos).

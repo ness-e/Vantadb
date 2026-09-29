@@ -1,3 +1,9 @@
+---
+title: FIND-100 — graceful ante onnxruntime incompatible
+kind: task
+description: "Objetivo: el init ORT en src/llm.rs:308 (let = ort::init().commit(), sin pre-chequeo)"
+---
+
 # FIND-100 — graceful ante onnxruntime incompatible
 
 > **Plan:** `docs/dev/plans/2026-09-17-mvp-memoria-agentes.md` (Wave0, sin dependencias)

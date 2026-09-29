@@ -1,11 +1,13 @@
 ---
-title: "dashmap"
-type: glossary-entry
+title: dashmap
+kind: glossary
 status: stable
+description: "#DashMap"
 tags: [vantadb, glosario, concurrencia]
-last_reviewed: 2026-09-15
 links: "[[README.md]]"
 ---
+
+| **API compatible** | Similar a `HashMap` estándar |
 #DashMap
 
 ##Definition
@@ -19,7 +21,6 @@ links: "[[README.md]]"
 | **Sharding** | Divide el mapa en múltiples shards independientes |
 | **Lock-free reads** | Lecturas sin bloqueo en la mayoría de casos |
 | **Fine-grained locks** | Cada shard tiene su propio lock |
-| **API compatible** | Similar a `HashMap` estándar |
 
 ## Usage in VantaDB
 
@@ -143,9 +144,9 @@ map.entry("key")
 
 ## See Also
 
-- [[rwlock]] — Alternative with global lock
-- [[hnsw]] — Index used by DashMap
-- [[file-locking]] — Lock at the process level
+- [rwlock](./rwlock.md) — Alternative with global lock
+- [hnsw](./hnsw.md) — Index used by DashMap
+- [file-locking](./file-locking.md) — Lock at the process level
 
 ---
 

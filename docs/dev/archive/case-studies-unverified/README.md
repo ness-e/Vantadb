@@ -1,6 +1,6 @@
 ---
 title: Case Studies — ARCHIVO INTERNO (no público)
-type: archive-note
+kind: index
 status: archived
 ---
 

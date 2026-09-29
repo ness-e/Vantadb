@@ -1,3 +1,9 @@
+---
+title: "Task MEM-30 — Ingest merge serial + límite concurrencia LLM global (Task 5, P30)"
+kind: task
+description: Archivos leídos completos / verificados vía codegraph (verbatim)
+---
+
 # Task MEM-30 — Ingest merge serial + límite concurrencia LLM global (Task 5, P30)
 
 ## Estado: ✅ COMPLETADO (verify mecánico 4/4 exit 0)

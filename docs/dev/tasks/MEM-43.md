@@ -1,3 +1,9 @@
+---
+title: MEM-43 — Wire context engine → pipeline worker
+kind: task
+description: "Plan: docs/dev/plans/2026-08-22-vanta-final-cierre.md — Task 1"
+---
+
 # MEM-43 — Wire context engine → pipeline worker
 
 **Plan:** docs/dev/plans/2026-08-22-vanta-final-cierre.md — Task 1

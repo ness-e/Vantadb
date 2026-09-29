@@ -1,3 +1,9 @@
+---
+title: GOV-D2 — Split del monolito progreso/README.md por campaña
+kind: task
+description: "README ≤50KB = índice + resumen vivo; cada campaña ≥1 archivo en campanas/; dedup del evento triplicado; 0 links rotos hacia progreso/ desde otros docs; suma bytes ≥97% original menos dedup; spot-checks ×5 OK; markdownlint 0 issues.\""
+---
+
 # GOV-D2 — Split del monolito progreso/README.md por campaña
 
 ## Metadata

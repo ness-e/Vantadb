@@ -1,10 +1,11 @@
 ---
-title: "Mapa de Cobertura — Migration docs/progreso → docs/dev/avance"
-type: verification
+title: Mapa de Cobertura — Migration docs/progreso → docs/dev/avance
+kind: review
 status: active
-date: 2026-08-07
-generated_by: scripts/check-avance-coverage.ps1
+description: Los 393 IDs restantes viven en los snapshots espejo (copia íntegra verbatim de los fuentes) — no hay pérdida de información; son IDs que aún no tienen entrada redactada en un archivo de dominio (típicamente ítems detalle de registros...
 tags: [vantadb, avance, migracion, cobertura, verificacion]
+date: "2026-08-07"
+generated_by: scripts/check-avance-coverage.ps1
 ---
 
 # Mapa de Cobertura (fuente → destino)

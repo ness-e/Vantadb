@@ -1,10 +1,9 @@
 ---
 title: FEAT-03b Core Decay Implementation Contract
-type: architecture
+kind: concept
 status: active
+description: "Status: ready for vanta-worker · Decision: ADR-0028"
 tags: [vantadb, architecture]
-last_reviewed: 2026-09-23
-aliases: []
 ---
 
 # FEAT-03b — Core Decay Implementation Contract
@@ -20,7 +19,7 @@ Make the consolidation marker from FEAT-03a **durable and first-class in the
 core**: record A can be marked as *superseded by* record B, and superseded
 records can be excluded from search/list without being destroyed. Explicitly
 **not** Mem0-style recency scoring, **not** automatic consolidation (see
-ADR-028 Alternatives).
+ADR-0028 Alternatives).
 
 ## API surface (final)
 
@@ -108,7 +107,7 @@ pytest vantadb-python/tests/test_sdk.py
 
 - No search scoring changes; `last_accessed` is NOT written on search hits.
 - No background/consolidation worker; no thresholds/config.
-- No `exclude_expired` / TTL read-filter (separate follow-up, ADR-028 "Noted gap").
+- No `exclude_expired` / TTL read-filter (separate follow-up, ADR-0028 "Noted gap").
 - No `desktop/` changes (FEAT-03a, parallel task).
 - No migration script: serde defaults make existing data compatible.
 
@@ -123,5 +122,5 @@ pytest vantadb-python/tests/test_sdk.py
 ## Done when
 
 - All steps merged with tests green (verification block), API surface matches
-  this contract, Python smoke tests pass, ADR-028 status flipped to `accepted`
+  this contract, Python smoke tests pass, ADR-0028 status flipped to `accepted`
   by the lead after review.

@@ -1,3 +1,8 @@
+---
+title: "B2b — Eliminar `unwrap` prod con `Result` + `?`"
+kind: task
+---
+
 # B2b — Eliminar `unwrap` prod con `Result` + `?`
 
 ## 1. Descubrimiento (auto-detect tipo → codegraph blast radius → web si ambigüedad → baseline `/cleanCA <scope>`)

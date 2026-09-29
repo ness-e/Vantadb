@@ -1,10 +1,9 @@
 ---
-title: Show HN — VantaDB — Embedded, Persistent Memory & Hybrid Search Engine in Rust
-type: operations
+title: "Show HN — VantaDB — Embedded, Persistent Memory & Hybrid Search Engine in Rust"
+kind: concept
 status: active
+description: "This document contains the official draft for the VantaDB HackerNews launch, along with a defensive risk analysis (Q&A) covering the 10 most likely technical criticisms"
 tags: [vantadb, operations, launch, hn]
-last_reviewed: 2026-08-23
-aliases: []
 ---
 
 # Show HN: VantaDB — Embedded, Persistent Memory & Hybrid Search Engine in Rust

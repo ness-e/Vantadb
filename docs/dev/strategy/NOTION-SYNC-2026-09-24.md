@@ -1,11 +1,9 @@
 ---
-title: "Notion Sync 2026-09-24 — adiciones post-investigación (drafts listos para aplicar)"
-type: strategy
+title: Notion Sync 2026-09-24 — adiciones post-investigación (drafts listos para aplicar)
+kind: concept
 status: active
+description: "Añadir sección: \"Evidencia 2026 (investigación integral)\""
 tags: [vantadb, notion, sync, investigacion, post-investigacion]
-last_reviewed: 2026-09-24
-aliases: []
-related: [GO_TO_MARKET.md, ../Backlog.md]
 ---
 
 # Notion Sync — 2026-09-24

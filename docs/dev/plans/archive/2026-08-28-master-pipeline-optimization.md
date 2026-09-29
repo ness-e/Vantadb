@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Master Pipeline Optimization — VantaDB"
+kind: plan
+status: archived
+description: "Status: ⬆️ uphill = 0 · ⬇️ downhill = 19 (MED-019 → DEFER)"
+---
+
 # Plan de Ejecución: Master Pipeline Optimization — VantaDB
 
 > **Campaign ID:** cecc8468-9451-4d56-a3ef-1684e123ab8a

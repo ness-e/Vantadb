@@ -1,10 +1,9 @@
 ---
-title: "VantaDB — Troubleshooting Común (Windows)"
-type: reference
+title: VantaDB — Troubleshooting Común (Windows)
+kind: howto
 status: active
+description: "Síntoma: error: linking with link.exe failed: exit code: 0xc0000409"
 tags: [vantadb, troubleshooting, windows]
-last_reviewed: 2026-07-10
-language: es
 ---
 
 # VantaDB — Troubleshooting Común (Windows)

@@ -1,11 +1,9 @@
 ---
 title: "Historial junio — heavy certification, CI batch, jemalloc"
-type: registro
+kind: review
 status: archived
+description: "Objetivo: Corregir los 4 tests que causaban fallas en la pipeline VantaDB Heavy Certification de GitHub Actions"
 tags: [vantadb, avance, campana]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Historial junio — heavy certification, CI batch, jemalloc

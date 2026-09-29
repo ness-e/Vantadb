@@ -1,3 +1,10 @@
+---
+title: "Investigación — INV-019: Arquitectura de Pinecone (Competitor Deep-Dive)"
+kind: research
+status: archived
+description: "Pinecone es una base de datos vectorial serverless que separa almacenamiento de cómputo. El corazón de su persistencia no es una tabla tradicional sino un sistema jerárquico de archivos inmutables denominados Slabs, inspirado en los..."
+---
+
 # Investigación — INV-019: Arquitectura de Pinecone (Competitor Deep-Dive)
 
 > **ID:** `INV-019`

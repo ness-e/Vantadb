@@ -1,3 +1,9 @@
+---
+title: "FIND-125 — resync tipos `vantadb-ts` contra core/wasm (`tsc` 0)"
+kind: task
+description: "Objetivo: eliminar los 16 errores tsc en vantadb-ts/src/vantadb.ts causados por drift entre los tipos del SDK TS (vantadb-ts/src/types.ts), el .d.ts hand-written del binding (vantadb-wasm pkg) y el código Rust real (fuente de verdad)"
+---
+
 # FIND-125 — resync tipos `vantadb-ts` contra core/wasm (`tsc` 0)
 
 > **Plan:** `docs/dev/plans/2026-09-19-ci-green.md` (Wave1, primera en secuencia) · **Campaign:** 0ad2d7e2-94e3-4313-8f5c-e8d57c08a6af

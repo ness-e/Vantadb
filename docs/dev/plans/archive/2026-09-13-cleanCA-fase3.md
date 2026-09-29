@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: CleanCA Fase 3 — cerrar el gate + trait-split storage↔index (2026-09-13)"
+kind: plan
+status: archived
+description: "Status: ⬇️ downhill = 4 (ninguna uphill: todo tiene precedente M1/M3/S3 o decisión humana tomada)"
+---
+
 # Plan de Ejecución: CleanCA Fase 3 — cerrar el gate + trait-split storage↔index (2026-09-13)
 
 > **Fuente:** plan Fase 2 archivado (`docs/dev/plans/archive/2026-09-13-cleanCA-fase2.md` §Cierre y §Fase 3:
@@ -102,13 +109,13 @@ Status: ⬇️ downhill = 4 (ninguna uphill: todo tiene precedente M1/M3/S3 o de
 ## Cierre (2026-09-14, 4/4 + retrospectiva)
 
 > Verificación de cierre: 4/4 con verify verde + 6 commits (F3G `dd892c4c`, F3X-diseño
-> `0afa8181`, F3X-impl `13f0f729` feat!:+ADR-042, F3B `e33c307f`, F3C-diseño + F3C-impl
+> `0afa8181`, F3X-impl `13f0f729` feat!:+ADR-0042, F3B `e33c307f`, F3C-diseño + F3C-impl
 > `d75459fe` feat!:+BREAKING CHANGE) + `cargo fmt --check` limpio + tree limpio salvo
 > ajeno. Gate Fase 2: 4/4 verde con evidencia. `skill progreso`: campaña registrada en
 > `docs/dev/avance/` + nota en `meta.md`; plan archivado a `docs/dev/plans/archive/`.
 
 ### Retrospectiva Start/Stop/Continue
-- **Start:** Gate V con `question` ante muros reales (F3X pub-sigs → ADR-042 en el acto;
+- **Start:** Gate V con `question` ante muros reales (F3X pub-sigs → ADR-0042 en el acto;
   sin el gate, la hoja quedaba muerta o el breaking entraba sin ADR).
 - **Stop:** asumir que el diseño sobrevive intacto a la implementación (F3X requirió
   ajuste H2 + traits `pub` por benches; F3C fachada-vistas en vez de sub-structs
@@ -121,7 +128,7 @@ Status: ⬇️ downhill = 4 (ninguna uphill: todo tiene precedente M1/M3/S3 o de
 ### Estado DEFER tras Fase 3
 - **Sigue DEFER:** reorg física Screaming — ahora COTIZABLE (gate 4/4 verde), no ejecutada
   (nunca fue parte de ningún plan). Próximo paso si se quiere: plan de mudanza incremental.
-- **Futuro con dueño:** firma humana ADR-043 (Regla 5) + revisit FIND-89 (env::var directos).
+- **Futuro con dueño:** firma humana ADR-0043 (Regla 5) + revisit FIND-89 (env::var directos).
 
 ## SKIP / DEFER / BLOQUEADO
 

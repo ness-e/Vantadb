@@ -1,3 +1,9 @@
+---
+title: Task API-STD-08 — INDIVIDUAL (7/11) MCP
+kind: task
+description: "Ficha individual MCP: funcionamiento + uso + código + veredicto"
+---
+
 # Task API-STD-08 — INDIVIDUAL (7/11) MCP
 
 > **Plan:** `docs/dev/plans/2026-09-24-api-estandarizacion.md`

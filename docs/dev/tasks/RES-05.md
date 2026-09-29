@@ -1,3 +1,9 @@
+---
+title: "RES-05: Benchmark semántica scores — bench criterion minimal (Wave1c P38 follow-up RES-04)"
+kind: task
+description: "Bench criterion minimal para src/api/scores.rs (follow-up RES-04). Mide overhead puro de helpers rrfcontribution, cosinedistanceto (f32, no alloc, inline) en batch 10k — reuse canonicalp99 pattern: common::applyfixedprofile..."
+---
+
 # RES-05: Benchmark semántica scores — bench criterion minimal (Wave1c P38 follow-up RES-04)
 
 ## Metadata

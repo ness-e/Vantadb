@@ -1,3 +1,10 @@
+---
+title: Plan Detallado de Lanzamiento Híbrido para SyntropyOS + VantaDB
+kind: research
+status: archived
+description: Pide que sigan solo el README y registren por persona
+---
+
 > ## Informe de validación (2026-09-08, verificado en código + internet + APIs)
 > Este documento fue auditado contra: `vantadb-python/src/lib.rs` (firmas PyO3), `vantadb-ts/src/{vantadb.ts,types.ts}`, `src/wal.rs` + `src/gds.rs`, PyPI/npm registries, `git tag v0.5.0` (2026-08-01), GitHub API (labels, releases, issues, discussions) y docs oficiales (HN, Reddit, PyPI, npm, GitHub, shields.io).
 > **Regla de marcas del documento:** [REAL v0.5.0] = existe y corre hoy · [PROPUESTA] = especificación futura, no publicar como existente · [BLOQUEADO ness-e] = requiere editar `ness-e/Vantadb` (prohibido sin orden del owner).

@@ -1,3 +1,9 @@
+---
+title: MEM-58 — Consolidación UI ↔ context engine real (H4-bis)
+kind: task
+description: "Plan: docs/dev/plans/2026-08-22-vanta-ultima-milla.md Task 9 · Wave 2 · deps Task 1 (engine) ✅ + Task 8 (IPC) ✅"
+---
+
 # MEM-58 — Consolidación UI ↔ context engine real (H4-bis)
 
 Plan: `docs/dev/plans/2026-08-22-vanta-ultima-milla.md` Task 9 · Wave 2 · deps Task 1 (engine) ✅ + Task 8 (IPC) ✅

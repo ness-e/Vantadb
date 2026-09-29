@@ -1,3 +1,9 @@
+---
+title: "STABLE-02 — Validar vanta-proxy (gates 1-6, wall time medido)"
+kind: task
+description: "Contrato mecánico cubierto: no se añaden pub fn nuevos, no se publica crate, solo metadata Cargo.toml si gate 6 exige. Gate D no dispara (blast radius ≤3 archivos, sin API pública nueva). Gate spec-first N/A justificado (validate-only..."
+---
+
 # STABLE-02 — Validar vanta-proxy (gates 1-6, wall time medido)
 
 ## Metadata
@@ -15,7 +21,7 @@
 
 | Dirección | Módulos |
 |-----------|---------|
-| Callers | `Cargo.toml` workspace `[workspace].members` lista `vanta-proxy`; `docs/dev/operations/CI_POLICY.md` experimental-check; ADR-031 coste per crate |
+| Callers | `Cargo.toml` workspace `[workspace].members` lista `vanta-proxy`; `docs/dev/operations/CI_POLICY.md` experimental-check; ADR-0031 coste per crate |
 | Callees | `vanta-proxy/src/*` 16 archivos (auth, capture, config, error, forward, inject, langfuse, lib, main, mem_command, memory_tools, rate_limit, report, server, session, sse_intercept, writeback) + handlers/{anthropic, openai, responses, mod} + session/claude_code + `vantadb` core (path dep sin default-features), `vanta-memory` |
 | Implicaciones | Solo validación + fix metadata `Cargo.toml` si gate 6 falla (reversible 1 línea). No publica crate (`publish=false` intacto). Tests ya existen: `tests/proxy_wire.rs`, `tests/pipeline.rs`, `tests/tool_loop.rs`. NO añade deps nuevas. NO toca `src/wal.rs`/`src/vector/`/`src/storage/` (propiedad Arch/Engine — out of scope). |
 
@@ -30,14 +36,14 @@
   - `vanta-proxy/tests/` — 3 integration tests (tool_loop, proxy_wire, pipeline)
   - `Cargo.toml:620-642` — `[workspace] members` (vanta-proxy ya es member)
   - `deny.toml` — licenses MIT/Apache-2.0, advisories ignore RUSTSEC-2023-0089 + RUSTSEC-2026-0253
-  - `docs/dev/architecture/adr/ADR-031-default-members-promotion.md` — 10 checks DoD, gate 6 = cargo package
+  - `docs/dev/architecture/adr/ADR-0031-default-members-promotion.md` — 10 checks DoD, gate 6 = cargo package
 - **Referencias hacia dentro (qué importa este archivo):**
   - `vanta-proxy/Cargo.toml` → `vantadb` (path, default-features false), `vanta-memory` (path, default-features false), `axum`, `tokio`, `reqwest`
   - `vanta-proxy/src/lib.rs` → 14 sub-mods, exporta handler types
   - `vanta-proxy/src/server.rs` → axum router + state mgmt; requiere tokio runtime
 - **Referencias entrantes (quién depende de lo que cambia):**
   - `Cargo.toml:workspace.members` → `vanta-proxy` ya es member (verificado)
-  - `docs/dev/operations/CI_POLICY.md` → tier EXPERIMENTAL excluye vanta-proxy por ahora (pre-mortem: si gates pasan, documentar ADR-031 promotion candidacy)
+  - `docs/dev/operations/CI_POLICY.md` → tier EXPERIMENTAL excluye vanta-proxy por ahora (pre-mortem: si gates pasan, documentar ADR-0031 promotion candidacy)
   - Ningún path dep desde vantadb core → vanta-proxy; dependencias son salientes (vanta-proxy depende de vantadb, no al revés)
 - **Veredicto impacto:** validación pura + posible fix metadata `Cargo.toml` (gate 6). Reversible. `publish=false` intacto. No toca core. Pre-mortem dead-lock en rate-limit/session/memory_tools requiere tests específicos (ya existen pipeline.rs + tool_loop.rs con Tokio). NO se modifica código fuente — solo se ejecuta.
 
@@ -50,7 +56,7 @@
 | Pre-mortem Fallo 1 (axum+tokio+reqwest advisories) | Ejecutar `cargo deny check` gate 4 — si RUSTSEC surge, ver `deny.toml` (ignore RUSTSEC-2023-0089 + RUSTSEC-2026-0253); si nuevo advisory, NO se ignora → documentar como deuda FIND-* | Pre-emptive `cargo audit` aparte | `cargo deny check` ya cubre advisories; añadir `cargo audit` sería duplicación (Regla 4: zero-copy evita duplicación). Si RUSTSEC nuevo no ignorado, escalar Gate V al usuario antes de FAILED. |
 | Pre-mortem Fallo 2 (e2e con LLM mock) | Tests pre-existentes (`tests/{tool_loop,proxy_wire,pipeline}.rs`) ya cubren e2e con mock — ejecutar tal cual, NO añadir nuevos | Crear test nuevo e2e | 3 integration tests ya en repo verificados 2026-08-30 vía `Get-ChildItem`. Ponytail: reusar lo que ya existe, NO duplicar (Regla 0 + ladder runga 2). |
 | Pre-mortem Fallo 3 (dead-lock rate-limit/session) | Tests Tokio existentes + `cargo test` integration ya cubren concurrencia — si falla, NO es dead-lock nuevo, es regresión pre-existente; sysmatic-debugging root cause | Añadir test stress ad-hoc | Concurrencia en axum+tokio es dominio vanta-audit (Regla 8 auditoría chaos); STABLE-02 solo verifica gates mecánicos, NO introduce load test. Si tests fallan, anotar como FIND-*. |
-| Wall time medición | Medir `cargo check -p vanta-proxy --all-targets` con `Measure-Command` y registrar segundos. Si >60s → documentar `Heavy` en ADR-031 coset table (referencia) y task file | 3 corridas cold `cargo clean` + promedio | STABLE-08 mide Fast Gate ampliado (3 corridas cold); STABLE-02 mide 1 corrida warm suficiente para validar. Cold cache overkill para este gate. |
+| Wall time medición | Medir `cargo check -p vanta-proxy --all-targets` con `Measure-Command` y registrar segundos. Si >60s → documentar `Heavy` en ADR-0031 coset table (referencia) y task file | 3 corridas cold `cargo clean` + promedio | STABLE-08 mide Fast Gate ampliado (3 corridas cold); STABLE-02 mide 1 corrida warm suficiente para validar. Cold cache overkill para este gate. |
 | Nextest -j flag | `-j 2` (mismo flag STABLE-01) por riesgo memoria Windows | Default -j (nCPU) | Risk Register vanta-proxy: heavy crate (axum+tokio+reqwest+3 deps workspace) → -j 2 mitiga OOM. Consistencia con STABLE-01/03. |
 | Fix gate 6 metadata | Si falla: añadir `version="0.5.0"` a path deps (vantadb + vanta-memory) en `vanta-proxy/Cargo.toml` — mismo patrón STABLE-01 | `version.workspace=true` | `version.workspace=true` en inline dep table → cargo `invalid type: map`. Hardcode coherente con `workspace.package.version=0.5.0`. STABLE-01 ya validó este patrón 2026-08-27. |
 
@@ -188,7 +194,7 @@ vanta-memory = { path = "../vanta-memory", default-features = false, version = "
 
 ## Notas
 
-- **Heavy crate wall time:** ✅ confirmado Heavy (cargo check 76.12s > 60s, clippy 95.83s > 60s). Anotar en ADR-031 coste table cuando vanta-lead integre.
+- **Heavy crate wall time:** ✅ confirmado Heavy (cargo check 76.12s > 60s, clippy 95.83s > 60s). Anotar en ADR-0031 coste table cuando vanta-lead integre.
 - **Heavy implication:** vanta-proxy es candidato a Fast Gate **NO** (EXPERIMENTAL tier). Si se quiere mover a default-members requiere 3 corridas verdes + optimización build (ver STABLE-08 + WSM-09 ya unificó límites).
 - **Ponytail:** no añadir crates nuevas, no tocar código fuente salvo metadata `Cargo.toml`. `// ponytail:` ceiling: el fix metadata es reversible 1 commit revert.
 - **Publish=false:** intacto. `cargo package` siempre intenta verificar build published-state (descarga vanta-memory de crates.io → falla porque publish=false). Eso es **correcto comportamiento**: confirma que el crate NO es publicable. La validación del package metadata pasa (gate 6c ✅).

@@ -1,10 +1,9 @@
 ---
 title: GraphRAG README
-type: guide
+kind: index
 status: active
+description: "VantaDB was designed from day one as a unified vector-graph database. Unlike projects that bolt a graph abstraction on top of a vector store, VantaDB's core primitives — nodes with typed relational fields, labeled weighted edges..."
 tags: [vantadb, graphrag]
-last_reviewed: 2026-07-21
-aliases: []
 ---
 
 # GraphRAG on VantaDB

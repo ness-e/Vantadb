@@ -1,3 +1,9 @@
+---
+title: "MEM-44 — E2e ingest→tools wiki_* roundtrip (P31 Task 2)"
+kind: task
+description: "Estado: ✅ COMPLETED · Plan: docs/dev/plans/2026-08-22-vanta-final-cierre.md (Task 2) · Ruta: vanta-worker"
+---
+
 # MEM-44 — E2e ingest→tools wiki_* roundtrip (P31 Task 2)
 
 **Estado:** ✅ COMPLETED · **Plan:** docs/dev/plans/2026-08-22-vanta-final-cierre.md (Task 2) · **Ruta:** vanta-worker

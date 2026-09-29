@@ -1,3 +1,9 @@
+---
+title: "ISSUE-TS-001: Fix TS SDK (vitest-first)"
+kind: task
+description: "Cero cambios necesarios. Premisa del issue (unreachable! 80/219) stale: unreachable! = 0 matches en todo vantadb-ts/ (grep 2026-09-10). Suite corre verde en develop. Blast a vantadb-wasm no materializado (sin fix → sin blast)"
+---
+
 # ISSUE-TS-001: Fix TS SDK (vitest-first)
 
 ## Metadata

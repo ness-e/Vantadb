@@ -1,12 +1,10 @@
 ---
 title: "{{term}}"
-type: glossary-entry
+kind: research
 status: stable
+description: Provide a formal definition of the concept
 tags: [concept, architecture]
-last_reviewed: {{date}}
 links: "[[README.md]]"
-aliases: []
-description: "Brief 1-2 sentence description of the concept."
 ---
 
 # {{title}}

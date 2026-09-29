@@ -1,8 +1,14 @@
+---
+title: "WIRE-06: Batching productizado (`insert_lock` → group-commit opt-in)"
+kind: task
+description: "Corrida final (28-09 ~04:0x, ventana quieta) — todos los grupos wire06 en una invocación"
+---
+
 # WIRE-06: Batching productizado (`insert_lock` → group-commit opt-in)
 
 ## Metadata
 - **Plan file:** `docs/dev/plans/2026-09-26-master-roadmap.md` (Task 20, Fase F2b)
-- **Fuente:** plan Task 20 · dependencia FUT-12-spec ✅ (`docs/dev/tasks/FUT-12-spec.md` + `ADR-038-wal-fsync-batching-opt-in.md` spec-only)
+- **Fuente:** plan Task 20 · dependencia FUT-12-spec ✅ (`docs/dev/tasks/FUT-12-spec.md` + `ADR-0038-wal-fsync-batching-opt-in.md` spec-only)
 - **Esfuerzo:** 🔴 1sem · **Prioridad:** 🔴
 - **Tipo:** Rust (core) + benches + docs
 - **Turns estimados:** 30-60 (uphill: 3 → resueltas, ver Incógnitas)
@@ -46,7 +52,7 @@
 
 ## Impacto mapeado (Regla 0)
 
-- **Archivos leídos (completos):** `src/ingestion.rs` (145L) · `src/wal.rs` (1434L) · `src/wal_sharded.rs` (1162L) · `src/storage/engine/insert.rs` (937L) · `benches/ingestion_concurrent.rs` (344L) · `benches/wal_throughput.rs` (158L) · `benches/canonical_p99.rs` (135L) · `src/storage/engine/mod.rs:300-659` (struct + `acquire_insert_lock`) · `src/storage/engine/init.rs:20-169` (wiring) · `src/config.rs` (secciones: `SyncMode` 86-104, `StorageCfg` 151-172, `PoolCfg` 230-241, `Config` 573-819, Default 909-1289, builders 1380-1569, tests) · `src/storage/engine/stats.rs:1-29` (`ensure_writable`) · `src/error.rs:130-160` + helpers · `ADR-038` completo · `FUT-12-spec` completo · `BENCHMARKS.md` §13/§13.1 (422-663) · `docs/user/operations/CONFIGURATION.md` (tabla de flags) · `.github/workflows/heavy-bench-nightly.yml`.
+- **Archivos leídos (completos):** `src/ingestion.rs` (145L) · `src/wal.rs` (1434L) · `src/wal_sharded.rs` (1162L) · `src/storage/engine/insert.rs` (937L) · `benches/ingestion_concurrent.rs` (344L) · `benches/wal_throughput.rs` (158L) · `benches/canonical_p99.rs` (135L) · `src/storage/engine/mod.rs:300-659` (struct + `acquire_insert_lock`) · `src/storage/engine/init.rs:20-169` (wiring) · `src/config.rs` (secciones: `SyncMode` 86-104, `StorageCfg` 151-172, `PoolCfg` 230-241, `Config` 573-819, Default 909-1289, builders 1380-1569, tests) · `src/storage/engine/stats.rs:1-29` (`ensure_writable`) · `src/error.rs:130-160` + helpers · `ADR-0038` completo · `FUT-12-spec` completo · `BENCHMARKS.md` §13/§13.1 (422-663) · `docs/user/operations/CONFIGURATION.md` (tabla de flags) · `.github/workflows/heavy-bench-nightly.yml`.
 - **Referencias hacia dentro:** `AsyncIngestionPipeline::new` ← `benches/ingestion_concurrent.rs:43,165` + `src/ingestion.rs` tests; `Config` ← workspace entero (struct literal con `..Config::default()`); `ShardedWal::batch_append` ← `insert.rs:367` + `delete.rs` + `txn.rs`; `acquire_insert_lock` ← 13 callers (delete/ops/insert/maintenance/...) — ninguno cambia.
 - **Referencias entrantes:** `rg AsyncIngestionPipeline` = 5 hits (def + bench + test). `engine.config` es `pub` → los bindings leen config; campo nuevo aditivo no rompe literales (todos usan `..Default::default()`; verificado por compilación workspace).
 - **Veredicto impacto:** BAJO-MEDIO — superficie aditiva con default OFF; el riesgo real es el *modo ON* (comportamiento nuevo del pipeline) → mitigado con tests de integridad (WAL/reopen/atomicidad) + A/B bench + invariante OFF byte-idéntico.
@@ -68,9 +74,9 @@ Traducción verificable:
 
 | # | Decisión | Opción elegida | Evidencia |
 |---|----------|----------------|-----------|
-| 1 | Opt-in vs default | 100% opt-in, default OFF byte-idéntico | ADR-038 §Decision (decisión owner 1) + patrón `SyncMode`/`segment_optimizer` |
+| 1 | Opt-in vs default | 100% opt-in, default OFF byte-idéntico | ADR-0038 §Decision (decisión owner 1) + patrón `SyncMode`/`segment_optimizer` |
 | 2 | Mecanismo de batching | **Group-commit a nivel de operación**: el pipeline acumula N tasks y commitea con UN `batch_insert_with_opts` (1× insert_lock + 1× WAL batch_append/shard + HNSW bulk) | FIND-61 Tabla 2 (N=32 → 1016 ops/s / 9.1×, BENCHMARKS:608-612) + fsync≈1.5% (BENCHMARKS:588-597) → el término dominante es lock+serial; agrupar *operaciones* lo amortiza |
-| 3 | ADR-038 (queue de fsync dedicado, `returned=queued`) — ¿implementación literal? | **No**: se consume su POLÍTICA (opt-in, ventana máx. declarada y testeable, cola acotada, un sync por shard por ciclo) y su efecto WAL se logra vía `batch_append` (≤1 `maybe_sync`/shard por batch). El ack es *después del apply* (más fuerte que watermark: `returned ⇒ aplicado + durable per SyncMode`) | FIND-61 §Tabla 1: fsync 0.16ms (~1.5%) → una queue dedicada solo para fsync no alcanza ≥5×; batch_append ya colapsa los fsyncs (un sync por shard por llamada). `sync()` = flush+sync_data (wal.rs:397-402) llamado por `maybe_sync` 1×/batch (`wal.rs:376-394`); `ShardedWal::batch_append` agrupa por shard (wal_sharded.rs:407-427) |
+| 3 | ADR-0038 (queue de fsync dedicado, `returned=queued`) — ¿implementación literal? | **No**: se consume su POLÍTICA (opt-in, ventana máx. declarada y testeable, cola acotada, un sync por shard por ciclo) y su efecto WAL se logra vía `batch_append` (≤1 `maybe_sync`/shard por batch). El ack es *después del apply* (más fuerte que watermark: `returned ⇒ aplicado + durable per SyncMode`) | FIND-61 §Tabla 1: fsync 0.16ms (~1.5%) → una queue dedicada solo para fsync no alcanza ≥5×; batch_append ya colapsa los fsyncs (un sync por shard por llamada). `sync()` = flush+sync_data (wal.rs:397-402) llamado por `maybe_sync` 1×/batch (`wal.rs:376-394`); `ShardedWal::batch_append` agrupa por shard (wal_sharded.rs:407-427) |
 | 4 | Dónde vive el batching | `AsyncIngestionPipeline` (feature `async-ingestion`) lee `engine.config.insert_batch`; el engine (insert.rs) NO cambia | El harness A/B (infra find61, BATCH=400 DIM=16) es la medición contractual y su worker es **serial por diseño** (1 `spawn_blocking` en vuelo, ingestion.rs:74-103) → un coordinator en `insert()` no podría agrupar nada en ese régimen (batches de 1). El pipeline es la superficie que sí acumula |
 | 5 | Opciones del batch | `skip_existing_check: false` (correcto para UPSERTs), `skip_wal: false`, `InsertMode::Incremental` forzado | `BatchInsertOptions` (ops.rs:31) — skip_existing=true exige IDs frescos (prototipo lo usaba: FIND-61); el pipeline no puede garantizarlo. Incremental evita que `Auto` elija Rebuild si `max_batch_records > incremental_threshold` (1000) y deje el HNSW sin entradas |
 | 6 | Ventana declarada | `enabled` (false) · `max_batch_records` (32) · `max_wait_ms` (1) · `max_queued_records` (1024) | 32 = celda mejor medida FIND-61 (9.1×); 1ms ≤ worst-case idle ≤ +15% (medido en celda `on_serial`); 1024 = capacidad actual del canal (ingestion.rs:46) |
@@ -87,7 +93,7 @@ Traducción verificable:
   5. Txn activa ⇒ sin batching (fallback per-task).
   6. `Error` en batch ⇒ todos los waiters reciben Err (nunca hang: canal oneshot muere si el worker cae).
 - **Comandos de verificación:** `cargo nextest run --profile audit -p vantadb --features async-ingestion -E 'test(ingestion)'` · `cargo bench -p vantadb --bench ingestion_concurrent --features async-ingestion -- "wire06_group_commit"` · `cargo fmt --check` · `cargo clippy --workspace --all-targets --all-features -- -D warnings`
-- **Deuda pendiente:** appendables/segmentos (diferido con diseño → FIND nueva + nota en ADR-038); variant engine-level para callers concurrentes (SDK/MCP/server) no implementada (documentada como límite en ADR-038 addendum); baseline de las celdas nuevas en `benchmarks/criterion_baseline.json` queda a promoción manual (workflow existente).
+- **Deuda pendiente:** appendables/segmentos (diferido con diseño → FIND nueva + nota en ADR-0038); variant engine-level para callers concurrentes (SDK/MCP/server) no implementada (documentada como límite en ADR-0038 addendum); baseline de las celdas nuevas en `benchmarks/criterion_baseline.json` queda a promoción manual (workflow existente).
 
 ## Deuda técnica (Regla 6 — MUST)
 
@@ -110,7 +116,7 @@ Traducción verificable:
 ## Investigation Notes
 
 - **FIND-61 (2026-09-04, cerrado con números):** t_Always=10.36ms/op · t_Never*=10.20ms · **t_fsync≈0.16ms (1.5%)** → el techo es lock+HNSW, no fsync. Prototipo `batch_insert_with_opts` por chunks: N=8→433 (3.9×), N=16→713 (6.4×), **N=32→1016 ops/s (9.1×)** vs baseline §13 111.5. Decisión: cerrar sin slice; infra A/B queda para FUT-12 (BENCHMARKS:561-663).
-- **ADR-038 (spec-only, Proposed):** decisiones owner: opt-in 100%, group-commit ventana tiempo/tamaño reutilizando `batch_append`, aceptación ≥10× batch + ventana declarada. Nuestro diseño la consume en política; el mecanismo literal (queue + coordinator thread) queda en `Future tracking` del ADR (no aporta ≥5× por fsync=1.5%).
+- **ADR-0038 (spec-only, Proposed):** decisiones owner: opt-in 100%, group-commit ventana tiempo/tamaño reutilizando `batch_append`, aceptación ≥10× batch + ventana declarada. Nuestro diseño la consume en política; el mecanismo literal (queue + coordinator thread) queda en `Future tracking` del ADR (no aporta ≥5× por fsync=1.5%).
 - **Baseline §13** (p1/w1 sin batching): **111.5 ops/s** (114/109) — `benches/ingestion_concurrent.rs` (BATCH=400, DIM=16, canal 1024, DB fjall fresca por iter, `sample_size(10)`).
 - **Nightly:** `heavy-bench-nightly.yml` (cron diario 02:00 UTC) corre `ingestion_concurrent --features async-ingestion` + `canonical_p99` + análisis `scripts/bench_regression.py extract/compare --fail-on-regression` contra `benchmarks/criterion_baseline.json` (9 labels semilla; las celdas nuevas son informativas hasta promoción). **No se toca `perf-bench.yml`** (WIP ajeno).
 - **Ventana de pérdida (modo ON):** el caller recibe ack solo después del commit del batch; un crash pierde únicamente tasks *en vuelo sin ack* (el cliente reintenta) — nunca un ack. No se degrada la durabilidad de `SyncMode` (el WAL sync ocurre dentro del batch).
@@ -120,7 +126,7 @@ Traducción verificable:
 
 | Eje | Contador |
 |-----|----------|
-| Incógnitas abiertas (uphill) | 0 — resueltas: (a) mecanismo = batch de operaciones (FIND-61 + fsync 1.5%); (b) engine-level no batchea en el harness (worker serial por diseño); (c) ADR-038 se consume como política, no como queue literal |
+| Incógnitas abiertas (uphill) | 0 — resueltas: (a) mecanismo = batch de operaciones (FIND-61 + fsync 1.5%); (b) engine-level no batchea en el harness (worker serial por diseño); (c) ADR-0038 se consume como política, no como queue literal |
 | Pendientes de ejecución (downhill) | 7 steps |
 | % completado | 0% |
 
@@ -131,7 +137,7 @@ Traducción verificable:
 
 ## Steps
 
-### Step 1: Task file + consumo ADR-038 (docs-only)
+### Step 1: Task file + consumo ADR-0038 (docs-only)
 - **Archivos:** `docs/dev/tasks/WIRE-06.md`
 - **Acción:** DISCOVERY completo (arriba) + verificar `docs/user/operations/CONFIGURATION.md` (punto de sync docs).
 - **Verify:** archivo existe; `git status` limpio de ajenos.
@@ -162,8 +168,8 @@ Traducción verificable:
 - **Estado:** ✅ DONE
 
 ### Step 6: Medición before/after + docs
-- **Archivos:** `docs/user/operations/BENCHMARKS.md` (§13 subsección WIRE-06 con números/env/comando/tradeoffs/sensibilidad), `docs/user/operations/CONFIGURATION.md` (flags), `ADR-038` (addendum de implementación + mapeo de aceptación), `docs/dev/Backlog.md` (FIND-182 appendables/engine-level), `tests/api/public-api.txt` (snapshot regenerado — incluye símbolos WIRE-05 staged, atribución FIND-178).
-- **Acción:** ✅ BENCHMARKS §13 (64→~100 líneas), ✅ CONFIGURATION row, ✅ ADR-038 addendum, ✅ FIND-182, ✅ snapshot.
+- **Archivos:** `docs/user/operations/BENCHMARKS.md` (§13 subsección WIRE-06 con números/env/comando/tradeoffs/sensibilidad), `docs/user/operations/CONFIGURATION.md` (flags), `ADR-0038` (addendum de implementación + mapeo de aceptación), `docs/dev/Backlog.md` (FIND-182 appendables/engine-level), `tests/api/public-api.txt` (snapshot regenerado — incluye símbolos WIRE-05 staged, atribución FIND-178).
+- **Acción:** ✅ BENCHMARKS §13 (64→~100 líneas), ✅ CONFIGURATION row, ✅ ADR-0038 addendum, ✅ FIND-182, ✅ snapshot.
 - **Verify:** logs persistidos en `$env:TEMP\opencode\wire06_*`; números en docs.
 - **Estado:** ✅ DONE
 
@@ -192,7 +198,7 @@ Traducción verificable:
 
 ## Dependencias
 
-- FUT-12-spec ✅ (spec cerrada + ADR-038 proposed) — consumida.
+- FUT-12-spec ✅ (spec cerrada + ADR-0038 proposed) — consumida.
 - WIRE-05 (en progreso, otro agente): archivos PROHIBIDOS ajenos: `src/entity/**`, `src/sdk/search/**`, `src/graph.rs`.
 - WIRE-07: `Cargo.toml` raíz, `vantadb-ffi-core/`, bindings — PROHIBIDOS.
 - `.github/workflows/perf-bench.yml` — PROHIBIDO ABSOLUTO (WIP ajeno); el nightly de benches se coordina vía `heavy-bench-nightly.yml` (no se toca).
@@ -202,11 +208,11 @@ Traducción verificable:
 > Ejecutado por el LEAD (instrucción del orquestador: NO self-review). Tier adversarial (paths `src/storage/**`? no; `src/ingestion.rs` + `src/config.rs` + `docs/user/**` + benches → Fast tier, pero el modo ON toca el write path → se recomienda review adversarial igual por `vanta-review`).
 
 - **Revisor:** `vanta-review` fresco adversarial (sesión `ses_f19250359ffezPsisDqLL66HhB`; ≠ autor) — **✅ APPROVE** (2026-09-28)
-- **Enfoque:** ¿el approach (batching de operaciones en el pipeline, ADR-038 como política) es correcto? ¿alternativas (queue de fsync literal, engine-level) evaluadas con evidencia?
+- **Enfoque:** ¿el approach (batching de operaciones en el pipeline, ADR-0038 como política) es correcto? ¿alternativas (queue de fsync literal, engine-level) evaluadas con evidencia?
 - **Cómo se probó (revisor):** rerun independiente `ingestion_concurrent --features async-ingestion` pareado → **min 5.93×** / mediana 6.22× · nextest **220/220** · clippy ambos feature sets `-D warnings` 0 · fmt 0 · coverage 0 gaps · canonical `--no-run` ✅ · lectura de durabilidad (ack post-commit, muerte del timer, fallback txn ERR-013) · OFF byte-idéntico.
 - **Veredicto:** ✅ **APPROVE** — 0 Critical/Required; Optional aplicados (alternación por muestra `(i+sample)%2`, clamp `sanitized()` ≤60 s / batch ≤ queue, doc de aplanado de errores) + nit de cola-OFF documentado. **Desviación consciente registrada:** `canonical_p99` medido por construcción (compile-guard + ruta default código-idéntica; corrida completa ~10.7 h inviable en laptop).
 
 ## Notas
 
 - El plan citaba `src/storage/engine/insert.rs` y `src/wal.rs` como archivos esperados; el diseño final NO los toca (re-baseline verificado: el batch path ya amortiza lock/WAL/HNSW; tocar el path single no cierra el gate). El group-commit de fsync queda absorbido por `batch_append` (1 sync/shard/ciclo).
-- `insert_lock` NO se elimina ni se cambia de granularidad (ADR-037: load-bearing; FIND-59 (d) intacta) — se **amortiza** 1 toma por batch de N.
+- `insert_lock` NO se elimina ni se cambia de granularidad (ADR-0037: load-bearing; FIND-59 (d) intacta) — se **amortiza** 1 toma por batch de N.

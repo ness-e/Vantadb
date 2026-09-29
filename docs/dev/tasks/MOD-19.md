@@ -1,3 +1,9 @@
+---
+title: MOD-19 — Exponer API core faltante en binding Python (PyO3)
+kind: task
+description: "Exponer en vantadb-python (PyO3) las funciones core que faltan: count, deletebyfilter, similartokey (y cualquier equivalente core faltante), con tipos/nombres consistentes con la convención del SDK Python y del resto del ecosistema..."
+---
+
 # MOD-19 — Exponer API core faltante en binding Python (PyO3)
 
 > **Campaign:** 4b9e337a-2fd0-4625-9cba-e26ea37f780b · **Plan:** docs/dev/plans/2026-08-24-batch-review-mod-find.md

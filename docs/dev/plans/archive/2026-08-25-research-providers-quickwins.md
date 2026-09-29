@@ -1,3 +1,10 @@
+---
+title: "Plan: Quick wins Research providers (INV-providers-01)"
+kind: plan
+status: archived
+description: Solo hallazgos 🟢 mecánicos aprobados. Los estratégicos (PROV-04/05/10/11/12) quedan
+---
+
 # Plan: Quick wins Research providers (INV-providers-01)
 
 > **Fecha:** 2026-08-25 · **Origen:** `/research providers` → Fase D (decisiones HITL)

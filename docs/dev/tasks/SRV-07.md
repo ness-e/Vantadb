@@ -1,3 +1,9 @@
+---
+title: SRV-07 — Dockerfile unprivileged + wiring release
+kind: task
+description: "SDP: base-only (keywords: docker, unprivileged, release wiring; el contrato inline del orquestador cubrió discovery; ninguna skill de manifest aporta sobre Docker/CI infra además de ci-cd-and-automation conceptual)"
+---
+
 # SRV-07 — Dockerfile unprivileged + wiring release
 
 - **Plan:** docs/dev/plans/2026-09-03-quality-gtm-wave.md (Task 5) | **Ruta:** vanta-worker | **Fecha:** 2026-09-03

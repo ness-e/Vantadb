@@ -1,3 +1,9 @@
+---
+title: EMB-11 — asistente de instalación con defaults (Q1+Q2 owner)
+kind: task
+description: "Objetivo: asistente setup-embeddings.ps1 que deja a un usuario nuevo con modelo local funcionando tras Enter-Enter, sin fricción de paths/vars/features y sin riesgo de filtrar secrets a disco"
+---
+
 # EMB-11 — asistente de instalación con defaults (Q1+Q2 owner)
 
 > **Plan:** `docs/dev/plans/2026-09-16-embeddings-auto.md` (Wave1, instalador)

@@ -1,3 +1,9 @@
+---
+title: "COMP-025: JSON Shredding — Dynamic Schema to Typed Columns"
+kind: task
+description: "8 tests. Schema inference + columnar storage + filter fast path (equality only). Verificado"
+---
+
 # COMP-025: JSON Shredding — Dynamic Schema to Typed Columns
 
 > **Ponytail scope:** Phase 1 = schema inference on insert + columnar storage + basic query integration.

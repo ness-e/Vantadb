@@ -1,3 +1,9 @@
+---
+title: "AUDREP-03: Errores de tombstone tragados — registros fantasma"
+kind: task
+description: "cargo check -p vantadb pasa; cargo clippy -p vantadb -- -D warnings pasa; los 3 sitios let = vstore.writeheader ya no tragan el error (propagan o loguean con tracing::error!); test unitario verifica que un fallo de writeheader produce..."
+---
+
 # AUDREP-03: Errores de tombstone tragados — registros fantasma
 
 ## Metadata

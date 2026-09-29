@@ -1,11 +1,9 @@
 ---
-title: "Serie DRV — refactors y performance (julio 24-25)"
-type: registro
+title: Serie DRV — refactors y performance (julio 24-25)
+kind: review
 status: archived
+description: "Fuente: Backlog Phase 2 DRV-014"
 tags: [vantadb, avance, campana]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Serie DRV — refactors y performance (julio 24-25)

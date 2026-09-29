@@ -1,3 +1,9 @@
+---
+title: "FIND-124 — migrar `desktop/src-tauri` a la API actual (compila ×3 OS)"
+kind: task
+description: "Objetivo: migrar desktop/src-tauri a la API actual del core — compila ×3 OS (Build & Test rojo en Linux/Windows/macOS del PR #182, log CI run 35413944127)"
+---
+
 # FIND-124 — migrar `desktop/src-tauri` a la API actual (compila ×3 OS)
 
 > **Plan:** `docs/dev/plans/2026-09-19-ci-green.md` (Wave0, primera en secuencia) · **Campaign:** 0ad2d7e2-94e3-4313-8f5c-e8d57c08a6af

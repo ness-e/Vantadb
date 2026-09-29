@@ -1,3 +1,9 @@
+---
+title: "MCP-10: F1 — Sintaxis IQL real NO documentada (la más grave)"
+kind: task
+description: "skills/vantadb-mcp/SKILL.md incluye sección 'IQL Syntax' con la gramática verificada y 1 ejemplo por statement (INSERT/FROM/UPDATE/DELETE/RELATE) + nota 'LISP no soportado'; copia sync a .opencode/skills/ con hash SAME\""
+---
+
 # MCP-10: F1 — Sintaxis IQL real NO documentada (la más grave)
 
 ## Metadata

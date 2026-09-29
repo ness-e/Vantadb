@@ -1,3 +1,10 @@
+---
+title: "Reporte de Investigación — INV-007: Competitive Benchmark vs LanceDB/Chroma — Investigación y Diseño"
+kind: research
+status: archived
+description: "Se investigó ann-benchmarks, la metodología de benchmark de LanceDB Enterprise, benchmarks"
+---
+
 # Reporte de Investigación — INV-007: Competitive Benchmark vs LanceDB/Chroma — Investigación y Diseño
 
 > **ID:** `INV-007`

@@ -1,13 +1,14 @@
 ---
-title: "local-first"
-type: glossary-entry
+title: local-first
+kind: glossary
 status: stable
-tags: [concept, filosofia, local-first, privacidad]
-last_reviewed: 2026-09-15
-links: "[[README.md]]"
+description: "#Local-First"
 aliases: [Local-First Software, Local-First Software]
-description: "Software design philosophy that prioritizes data and processing occurring on the user's device, with the cloud as an optional backup and not a requirement"
+tags: [concept, filosofia, local-first, privacidad]
+links: "[[README.md]]"
 ---
+
+- `pip install vantadb-py` and it works
 #Local-First
 
 ##Definition
@@ -32,7 +33,7 @@ VantaDB embodies the local-first philosophy for **AI agents and knowledge pipeli
 
 | Principio Local-First | Implementación en VantaDB |
 |----------------------|--------------------------|
-| **Sin espera** | Latencia sub-ms al ser [[embedded]] |
+| **Sin espera** | Latencia sub-ms al ser [embedded](./embedded.md) |
 | **Privacidad por defecto** | Datos nunca salen del host sin consentimiento |
 | **Funciona offline** | No requiere conexión a APIs de vectores externas |
 | **Tú eres el dueño** | Archivos locales, sin vendor lock-in de cloud |
@@ -83,7 +84,6 @@ VantaDB embodies the local-first philosophy for **AI agents and knowledge pipeli
 - No cold starts of cloud services
 
 ### 4. Developer Experience
-- `pip install vantadb-py` and it works
 - No accounts, API keys, or cloud dashboards
 - Local testing without mocks of external services
 
@@ -103,15 +103,15 @@ Local-First
     ├── Zero-Config (experiencia de usuario)
     └── Privacy-by-Design (principio legal)
 ```
-*Platform details:* [[embedded]], [[zero-config]]
+*Platform details:* [embedded](./embedded.md), [zero-config](./zero-config.md)
 
 
 ## See Also
 
-- [[embedded]] — The technical implementation of local-first
-- [[zero-config]] — Enabling experience
-- [[transactional]] — Integrity guarantee in local data
-- [[rag]] — Use case that benefits from local privacy
+- [embedded](./embedded.md) — The technical implementation of local-first
+- [zero-config](./zero-config.md) — Enabling experience
+- [transactional](./transactional.md) — Integrity guarantee in local data
+- [rag](./rag.md) — Use case that benefits from local privacy
 
 ---
 

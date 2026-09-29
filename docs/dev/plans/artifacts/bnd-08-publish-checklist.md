@@ -1,3 +1,9 @@
+---
+title: "BND-08 — Checklist de publicación `vantadb-node` (para el humano)"
+kind: plan
+description: "Nota local vs CI: el tarball local incluye UN solo .node (win32-x64-msvc, el build de"
+---
+
 # BND-08 — Checklist de publicación `vantadb-node` (para el humano)
 
 > **Scope:** SOLO dry-run verificado por el worker. El publish real lo ejecuta el humano

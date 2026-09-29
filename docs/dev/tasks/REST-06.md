@@ -1,3 +1,8 @@
+---
+title: REST-06 — ServerConnection.query (IQL en consola web)
+kind: task
+---
+
 # REST-06 — ServerConnection.query (IQL en consola web)
 
 ## Metadata

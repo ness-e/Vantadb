@@ -1,3 +1,8 @@
+---
+title: "TECH-07 — Publicar pkg WASM con feature `opfs`"
+kind: task
+---
+
 # TECH-07 — Publicar pkg WASM con feature `opfs`
 
 - **Estado:** ✅ COMPLETED

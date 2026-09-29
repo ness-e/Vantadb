@@ -1,3 +1,8 @@
+---
+title: "D5d — Simetrizar DTO id `number|bigint` en get/delete/addEdge (+removeEdge)"
+kind: task
+---
+
 # D5d — Simetrizar DTO id `number|bigint` en get/delete/addEdge (+removeEdge)
 
 ## 1. Descubrimiento (auto-detect tipo → codegraph blast radius → web si ambigüedad → baseline)

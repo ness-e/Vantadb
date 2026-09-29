@@ -1,3 +1,8 @@
+---
+title: ERR-WEB-01 — Web toast por código de error + catch sin silenciar
+kind: task
+---
+
 # ERR-WEB-01 — Web toast por código de error + catch sin silenciar
 
 - **Plan:** `docs/dev/plans/2026-09-02-error-observability-excellence.md` · Task 7 (Wave 3)

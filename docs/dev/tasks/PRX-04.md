@@ -1,3 +1,8 @@
+---
+title: PRX-04 — Cache-preserving injection
+kind: task
+---
+
 # PRX-04 — Cache-preserving injection
 
 - **Estado:** ✅ COMPLETED

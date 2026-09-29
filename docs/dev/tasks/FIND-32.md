@@ -1,3 +1,9 @@
+---
+title: "FIND-32: tests unitarios rate-limit obsoletos vs burst=rpm (REST-01)"
+kind: task
+description: "cargo test -p vantadb-server --test server testratelimit pasa (3/3: disabled + enforcesafterburst + healthunaffected) + cargo check -p vantadb-server + fmt/clippy del archivo sin warnings nuevos"
+---
+
 # FIND-32: tests unitarios rate-limit obsoletos vs burst=rpm (REST-01)
 
 ## Metadata

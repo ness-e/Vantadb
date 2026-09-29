@@ -1,3 +1,9 @@
+---
+title: "OLD-08: Life Insurance — Snapshots via Hard Links"
+kind: task
+description: "Fuente: Backlog Phase 9 (Old Docs Rescue)"
+---
+
 # OLD-08: Life Insurance — Snapshots via Hard Links
 
 **Fuente:** Backlog Phase 9 (Old Docs Rescue)  

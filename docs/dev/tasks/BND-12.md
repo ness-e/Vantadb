@@ -1,3 +1,8 @@
+---
+title: BND-12 — Cobertura tests vantadb-node 8→~20 (search/explain_search/put_batch/capabilities/close-drain)
+kind: task
+---
+
 # BND-12 — Cobertura tests vantadb-node 8→~20 (search/explain_search/put_batch/capabilities/close-drain)
 
 - **Plan:** `docs/dev/plans/2026-09-07-backlog-triage.md` (Task 4, Wave1)

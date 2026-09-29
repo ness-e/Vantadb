@@ -1,3 +1,9 @@
+---
+title: MOD-11 — Nits agrupados MCP server (mcp.md H4-H8 de P32)
+kind: task
+description: Archivos leídos completos
+---
+
 # MOD-11 — Nits agrupados MCP server (mcp.md H4-H8 de P32)
 
 - **Plan:** `docs/dev/plans/2026-08-25-batch-colaterales-deuda-desktop.md` Task 6

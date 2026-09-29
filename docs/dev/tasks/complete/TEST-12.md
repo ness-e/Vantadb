@@ -1,3 +1,9 @@
+---
+title: "TEST-12: Security fuzzing + regression suite"
+kind: task
+description: "Security testing: fuzzing expand + regression/snapshot suite. 4 fuzz targets existentes (WAL, parser, nodedeserialize, archive). Regression/snapshot suite: pendiente"
+---
+
 # TEST-12: Security fuzzing + regression suite
 
 ## Metadata

@@ -1,9 +1,9 @@
 ---
 title: Pilot Weekly Feedback Form — Template
-type: operations
+kind: runbook
 status: active
+description: "Describe any successes, smooth integrations, or pleasant surprises this week"
 tags: [vantadb, operations, pilot, feedback, template]
-last_reviewed: 2026-07-26
 ---
 
 # VantaDB Pilot — Weekly Feedback Form

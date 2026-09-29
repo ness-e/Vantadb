@@ -1,3 +1,9 @@
+---
+title: WDA-04 — F4 UI (Toaster muerto · contrastes · touch targets · a11y fina · interactivos)
+kind: task
+description: "Archivos leídos completos: layout.tsx, site-navbar.tsx, back-to-top.tsx, easter-egg.tsx,"
+---
+
 # WDA-04 — F4 UI (Toaster muerto · contrastes · touch targets · a11y fina · interactivos)
 
 > Plan: `docs/dev/plans/2026-08-19-web-design-audit.md` Task 5 §6. Tracking manual (MCP corrupto — no usar campaign_update_task_state).

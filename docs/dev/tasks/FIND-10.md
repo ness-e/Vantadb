@@ -1,3 +1,9 @@
+---
+title: "FIND-10: TS packaging ESM-only + errores genéricos (WASM_ERROR indistinguible)"
+kind: task
+description: "npm run build (vantadb-ts) exit 0; require(\"vantadb\") funciona (condición require en exports → require(esm), Node ≥22.12) O decisión documentada — se implementa el exports + engines + README; errores distinguen..."
+---
+
 # FIND-10: TS packaging ESM-only + errores genéricos (WASM_ERROR indistinguible)
 
 ## Metadata

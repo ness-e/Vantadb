@@ -1,3 +1,9 @@
+---
+title: "FIND-119: Sync counts stale mirrors `.opencode/skills/vantadb-mcp/` 86→87 (solo strings, sin commit submodule)"
+kind: task
+description: "0 hits 86 tools en esos 6 paths + coverage 0 gaps + cero commit submodule (working tree, precedente FIND-103) + resto árbol dirty intacto\""
+---
+
 # FIND-119: Sync counts stale mirrors `.opencode/skills/vantadb-mcp/` 86→87 (solo strings, sin commit submodule)
 
 ## Metadata

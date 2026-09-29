@@ -1,3 +1,9 @@
+---
+title: WEB-06 — E2E Playwright contra server real (solo parte E2E)
+kind: task
+description: Archivos leídos completos
+---
+
 # WEB-06 — E2E Playwright contra server real (solo parte E2E)
 
 > **Plan:** `docs/dev/plans/2026-08-18-vanta-studio-fase3.md` · **Wave 3** · **Estado:** ✅ COMPLETO (parte E2E)

@@ -1,10 +1,9 @@
 ---
 title: Task-System Chaos and Resilience Suite
-type: architecture
+kind: concept
 status: active
+description: "vanta-chaos fuzzes the Rust source code (fuzz/ targets, chaosintegrity"
 tags: [vantadb, architecture]
-last_reviewed: 2026-09-23
-aliases: []
 ---
 
 # Task-System: Chaos & Resilience Suite (TSYS-06)

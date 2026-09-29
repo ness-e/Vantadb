@@ -1,3 +1,9 @@
+---
+title: "API-08: W7 vanta-memory — API Rust estable (NO exponer, Gate P core-only)"
+kind: task
+description: "cargo test -p vanta-memory verde Y degradado sin llm-driver verificado (test :209-218 pasa) Y D37/D21/MEM-16 con benchmark o DEFER fundado Y 0 símbolos nuevos en bindings\""
+---
+
 # API-08: W7 vanta-memory — API Rust estable (NO exponer, Gate P core-only)
 
 ## Metadata
@@ -24,9 +30,9 @@
 ## Impacto mapeado (Regla 0)
 
 - **Archivos leídos (completos):** `vanta-memory/src/lib.rs` (57L) ✅ · `vanta-memory/src/adapters/standalone/llm_runner.rs` (251L) ✅ · `vanta-memory/src/context_engine/token_estimator.rs` (325L) ✅ · `vanta-memory/src/core/hooks/auto_recall.rs` (635L) ✅ · `vanta-memory/Cargo.toml` (69L) ✅ · `docs/api/VANTA_MEMORY.md` (112L) ✅ · `vanta-memory/tests/llm_runner_contract.rs` (122L) ✅ · `vanta-memory/tests/generation_log.rs:1-130` ✅ · `docs/dev/tasks/API-STD-12.md` ✅
-- **Archivos leídos (secciones relevantes):** `vanta-memory/src/services/pipeline_worker.rs:600-799` (MEM-43 `run_context_assembly` post-L3) · `vanta-memory/src/core/record/l1_writer.rs:58-91` (hooks `core_embedding_hook`/`local_embedding_hook`) · `vanta-memory/src/core/record/l1_dedup.rs:47-91,518` (auto-on MEM-63) · `vanta-memory/tests/e2e_flow.rs:330-449` (D19/MEM-43 + MEM-37 shared budget) · `vanta-memory/tests/semantic_recall.rs` (listado) · `docs/dev/architecture/adr/ADR-029-vanta-memory-context-engine.md:59-187` (D21 enmienda) · `docs/dev/architecture/adr/guia-revision-ADR-029-y-D24-D37.md:29-42,356-364`
+- **Archivos leídos (secciones relevantes):** `vanta-memory/src/services/pipeline_worker.rs:600-799` (MEM-43 `run_context_assembly` post-L3) · `vanta-memory/src/core/record/l1_writer.rs:58-91` (hooks `core_embedding_hook`/`local_embedding_hook`) · `vanta-memory/src/core/record/l1_dedup.rs:47-91,518` (auto-on MEM-63) · `vanta-memory/tests/e2e_flow.rs:330-449` (D19/MEM-43 + MEM-37 shared budget) · `vanta-memory/tests/semantic_recall.rs` (listado) · `docs/dev/architecture/adr/ADR-0029-vanta-memory-context-engine.md:59-187` (D21 enmienda) · `docs/dev/architecture/adr/ADR-0053-adr-029-review-guide.md:29-42,356-364`
 - **Archivos referenciados hacia dentro (imports):** `src/lib.rs` no importa nada (doc + `pub mod`); `llm_runner.rs` → `crate::core::abstractions::{LlmError, LlmRunParams, LlmRunner}`; `token_estimator.rs` → `context_engine::types`; `auto_recall.rs` → `vantadb::sdk::Embedded` + core record/persona/scene.
-- **Archivos que referencian a los editados (referencias entrantes):** `rg VANTA_MEMORY.md` → ADR-029:158 (cita "superficies públicas F5"), `docs/dev/master-index.md:77`, API-STD-01/12/17, plan ejecución/estandarización, avance `activo/vanta-memory.md:56`, MEM-38. Ninguna referencia depende de las líneas que cambian (solo de la existencia de la página); sin enlaces rotos.
+- **Archivos que referencian a los editados (referencias entrantes):** `rg VANTA_MEMORY.md` → ADR-0029:158 (cita "superficies públicas F5"), `docs/dev/master-index.md:77`, API-STD-01/12/17, plan ejecución/estandarización, avance `activo/vanta-memory.md:56`, MEM-38. Ninguna referencia depende de las líneas que cambian (solo de la existencia de la página); sin enlaces rotos.
 - **Veredicto impacto:** **bajo** — doc-comment + referencia API: sin cambios de contrato, sin símbolos, sin consumers afectados. El riesgo real es la deriva doc↔código, que este task corrige (las deudas documentadas como abiertas ya están pagadas o parcialmente pagadas en código).
 
 ## Contrato
@@ -46,7 +52,7 @@ Mapeo al estado real del repo (2026-09-26):
 | # | Decisión | Opciones (+tradeoff) | Resuelto |
 |---|----------|----------------------|----------|
 | 1 | D37 (recall/dedup keyword-overlap "hasta embeddings") | A: benchmark + implementar embeddings en API-08 / B: constatar pago existente + DEFER residual fundado | **B** — ✅ decidido-por-evidencia: ya pagada por MEM-46 `e22b496a` + MEM-47 `f32e4d51` + MEM-63 `6058cc84` (`auto_recall.rs:11-21,336-451` dual-pool RRF; `l1_dedup.rs:72,91` auto-on con `embed-local`). Residual: sin provider adjunto degrada a keyword (diseño P4, `RecallMode::effective` — `auto_recall.rs:87-98`). DEFER con trigger: host adjunta provider / demanda de embeddings hosted. Regla 9 no aplica (no hay optimización nueva). |
-| 2 | D21 (`TokenEstimator chars/3`) | A: benchmark de calibración ahora / B: DEFER fundado con enmienda existente | **B** — ✅ decidido-por-evidencia: enmienda ADR-029 + BND-03 `784b27b9` implementó `precise-tokens` opt-in (cl100k exacto, `token_estimator.rs:51-61`) con golden tests (`:299-324`, verificado GREEN hoy). Default chars/3 aceptado (±20%; CJK ~2×, `guia-revision:38-42`). Trigger de revisión: drift >15% o demanda CJK. |
+| 2 | D21 (`TokenEstimator chars/3`) | A: benchmark de calibración ahora / B: DEFER fundado con enmienda existente | **B** — ✅ decidido-por-evidencia: enmienda ADR-0029 + BND-03 `784b27b9` implementó `precise-tokens` opt-in (cl100k exacto, `token_estimator.rs:51-61`) con golden tests (`:299-324`, verificado GREEN hoy). Default chars/3 aceptado (±20%; CJK ~2×, `guia-revision:38-42`). Trigger de revisión: drift >15% o demanda CJK. |
 | 3 | MEM-16 (context engine ↔ pipeline worker) | A: wirear ahora (ya estaba pendiente de decisión) / B: constatar MEM-43 + DEFER | **B** — ✅ decidido-por-evidencia: **ya cableado** por MEM-43 `a0bcb112` (`pipeline_worker.rs:663-755` fase post-L3, budget compartido; e2e `d19_worker_assembles_context_post_l3_with_compression_active`, `e2e_flow.rs:397+`). Doc decía "pendiente de decisión" (deriva). Sin residual. |
 | 4 | Exponer vanta-memory en bindings | A: exponer "de paso" / B: NO (Gate P core-only) | **B** — ✅ decidido por Gate P (`API-STD-15:30`): "core-only + API Rust estable; exponer post-release con demanda". Prohibición explícita del task; D42/D43 en `BINDINGS_NAMESPACES.md:14,25-27`. |
 | 5 | Forma de "API Rust estable" | A: cambios de código/attributes (`#[non_exhaustive]`, etc.) / B: contrato de estabilidad documentado + verificación mecánica | **B** — ✅ decidido-por-evidencia: la API ya es estable (pub modules L0–L3 sin deuda de diseño abierta); el gap real es doc-deriva (3 deudas) + ausencia de declaración de scope/estabilidad. Añadir attributes sin consumidor = churn (ponytail: `#[non_exhaustive]` se agrega cuando haya enum que crezca; no hay señal). |
@@ -118,7 +124,7 @@ Mapeo al estado real del repo (2026-09-26):
 | Deuda (API-STD-12) | Cita investigación | Estado real HOY | Evidencia |
 |---|---|---|---|
 | D37 keyword-overlap "hasta embeddings" | `VANTA_MEMORY.md:69,101-102` | **PAGADA** (MEM-46 `e22b496a` + MEM-47 `f32e4d51` + MEM-63 `6058cc84`): dual-pool cosine+keyword con RRF; auto-on `local_embedding_hook()` con `embed-local`; sin provider → keyword (diseño P4) | `auto_recall.rs:11-21,87-98,336-451`; `l1_writer.rs:58-91`; `l1_dedup.rs:72,91`; `tests/semantic_recall.rs` 5/5 |
-| D21 `chars/3` | `VANTA_MEMORY.md:102` | **PAGADA** (enmienda ADR-029 + BND-03 `784b27b9`): `precise-tokens` opt-in cl100k exacto + golden tests; default chars/3 aceptado (±20%, CJK ~2×) | `token_estimator.rs:7-11,51-61,296-324`; golden run 1/1 GREEN; `guia-revision:38-42` |
+| D21 `chars/3` | `VANTA_MEMORY.md:102` | **PAGADA** (enmienda ADR-0029 + BND-03 `784b27b9`): `precise-tokens` opt-in cl100k exacto + golden tests; default chars/3 aceptado (±20%, CJK ~2×) | `token_estimator.rs:7-11,51-61,296-324`; golden run 1/1 GREEN; `guia-revision:38-42` |
 | MEM-16 context↔worker | `VANTA_MEMORY.md:104` | **PAGADA** (MEM-43 `a0bcb112`): fase post-L3 con budget compartido + report persistido | `pipeline_worker.rs:663-799`; `e2e_flow.rs:397+` 6/6 |
 
 ### Deuda de docs detectada (lo que este task corrige)

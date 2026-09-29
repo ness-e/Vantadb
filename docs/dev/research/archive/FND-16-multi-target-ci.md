@@ -1,3 +1,10 @@
+---
+title: FND-16 — Multi-target CI (wheels + WASM por PR)
+kind: research
+status: archived
+description: "Fecha: 2026-08-16 · Wave: P20c · Prio: 🟢 · Tipo: análisis (sin implementación)"
+---
+
 # FND-16 — Multi-target CI (wheels + WASM por PR)
 
 **Fecha:** 2026-08-16 · **Wave:** P20c · **Prio:** 🟢 · **Tipo:** análisis (sin implementación)

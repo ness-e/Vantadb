@@ -1,3 +1,9 @@
+---
+title: AUDIT-04 — Root-cause crash benchmark Python (0xC0000409)
+kind: task
+description: NO es stack overflow (daría 0xC00000FD + sin mensaje de allocación). El log real
+---
+
 # AUDIT-04 — Root-cause crash benchmark Python (0xC0000409)
 
 > **Task:** Task 14 del plan `docs/dev/plans/2026-08-05-backlog-validation-actions.md`

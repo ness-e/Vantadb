@@ -1,9 +1,9 @@
 ---
 title: Reddit Launch Posts — VantaDB
-type: marketing
+kind: concept
 status: ready-to-publish
+description: "Title: VantaDB — Embedded hybrid (BM25 + HNSW) search engine in Rust"
 tags: [vantadb, launch, reddit, marketing]
-last_reviewed: 2026-09-02
 ---
 
 # Reddit Launch Posts

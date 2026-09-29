@@ -1,3 +1,10 @@
+---
+title: "Plan: WASM Quick Wins (H-01/H-05/H-07/H-08/H-16)"
+kind: plan
+status: archived
+description: "(calcular posición con tamaño actual antes de write, como ya hace el bridge JS)"
+---
+
 # Plan: WASM Quick Wins (H-01/H-05/H-07/H-08/H-16)
 
 > **Origen:** `/research vantadb-wasm` → `docs/dev/reviews/research-vantadb-wasm-20260825.md`

@@ -1,3 +1,9 @@
+---
+title: "FEAT-03a — Consolidación asistida: UI (candidatos + diff visible + superseded_by)"
+kind: task
+description: "Nueva surface/lente de consolidación: detectar candidatos duplicados/superados por similitud (search kNN), diff visible entre pares, sugerencia \"superado por\" → escribir metadata supersededby en el record superado (put/ingest). MVP..."
+---
+
 # FEAT-03a — Consolidación asistida: UI (candidatos + diff visible + superseded_by)
 
 > Plan: `docs/dev/plans/2026-08-19-vanta-studio-fase4.md` (Task 17) · Estado: ⏳ PENDING → in-progress al delegar

@@ -1,3 +1,9 @@
+---
+title: "TIR-02: DORA recovery time + rework rate"
+kind: task
+description: "docs/Investigaciones/TIR-02-dora-recovery-rework.md existe con: (1) viabilidad de recovery time (tiempo en volver a DE tras fallo) y rework rate (tareas reabiertas/total) con la telemetría ACTUAL — estado real de verify-log.jsonl..."
+---
+
 # TIR-02: DORA recovery time + rework rate
 
 ## Metadata

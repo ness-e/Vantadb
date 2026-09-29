@@ -1,3 +1,8 @@
+---
+title: "TASK-MEM-60: Lifecycle heat+decay L1 + contradicciones (con provenance)"
+kind: task
+---
+
 # TASK-MEM-60: Lifecycle heat+decay L1 + contradicciones (con provenance)
 
 ## Metadata

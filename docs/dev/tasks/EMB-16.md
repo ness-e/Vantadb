@@ -1,3 +1,9 @@
+---
+title: "EMB-16 — prefijos e5 (`query:`/`passage:`) por familia + margen medido"
+kind: task
+description: "Objetivo: que LocalOnnxProvider embeba con los prefijos que la familia e5 espera (query: para queries, passage: para documentos) y ninguno para MiniLM, con cat test de margen documentado con números medidos"
+---
+
 # EMB-16 — prefijos e5 (`query:`/`passage:`) por familia + margen medido
 
 > **Plan:** `docs/dev/plans/2026-09-16-embeddings-auto.md` (Wave2, paralela con EMB-13/18)

@@ -1,3 +1,9 @@
+---
+title: "MGR-19 — Benchmarks propios y externos: baseline, reconciliación y suites (Cierre MGR)"
+kind: research
+description: "Causas: (1) README citaba un artefacto gitignored no versionado cuyos números ni siquiera coinciden con el artefacto actual (2.0 vs 2.78, 3.1 vs 5.70 — corrida de otra máquina/fecha nunca commiteada); (2) §2 es serie CI congelada..."
+---
+
 # MGR-19 — Benchmarks propios y externos: baseline, reconciliación y suites (Cierre MGR)
 
 - **Fecha:** 2026-09-25 · **Tipo:** validación/research (cero implementación productiva)

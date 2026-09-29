@@ -1,3 +1,9 @@
+---
+title: "MGR-19: Benchmarks propios y externos (Track G — validación, cero implementación)"
+kind: task
+description: "BENCHMARKS.md con baseline canónico + §2 reconciliada (0 claims sin comando reproducible); research-doc + Cierre MGR.\""
+---
+
 # MGR-19: Benchmarks propios y externos (Track G — validación, cero implementación)
 
 ## Metadata

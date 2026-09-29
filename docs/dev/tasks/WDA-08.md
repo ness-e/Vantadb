@@ -1,3 +1,9 @@
+---
+title: Task WDA-08 — F8 Triage + Reporte final
+kind: task
+description: "Estado: ✅ COMPLETED (2026-08-24, ejecutada por vanta-lead)"
+---
+
 # Task WDA-08 — F8 Triage + Reporte final
 
 **Estado:** ✅ COMPLETED (2026-08-24, ejecutada por vanta-lead)

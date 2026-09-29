@@ -1,10 +1,10 @@
 ---
 title: ACID Rollback — Multi-Layer Design
-type: research
+kind: research
 status: active
-tags: [vantadb, architecture, acid, transactions, wal, mvcc, rollback]
-last_reviewed: 2026-08-03
+description: "Date: 2026-08-03"
 aliases: [INV-010, ACID_ROLLBACK_DESIGN]
+tags: [vantadb, architecture, acid, transactions, wal, mvcc, rollback]
 ---
 
 # ACID Rollback — Multi-Layer Design (INV-010)

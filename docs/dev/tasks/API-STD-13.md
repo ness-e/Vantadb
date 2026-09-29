@@ -1,3 +1,9 @@
+---
+title: "Task API-STD-13 — CONJUNTO: arquitectura + orquestador + IPC (responder con código)"
+kind: task
+description: "Responder con código: ¿quién orquesta? ¿cómo se comunican? Fijar single-ownership + fronteras IPC"
+---
+
 # Task API-STD-13 — CONJUNTO: arquitectura + orquestador + IPC (responder con código)
 
 > **Plan:** `docs/dev/plans/2026-09-24-api-estandarizacion.md`

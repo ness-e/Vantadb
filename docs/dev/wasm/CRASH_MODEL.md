@@ -1,11 +1,10 @@
 ---
-title: "WASM Crash and Durability Model"
-type: reference
+title: WASM Crash and Durability Model
+kind: research
 status: active
-tags: [vantadb, wasm, crash-model, durability]
-last_reviewed: 2026-09-15
+description: "Differential persistence changes when work happens, not the durability model. These gaps are tracked in WASMSTANDALONE.md (\"Known limits (verified)\")"
 aliases: [WASM]
-related: []
+tags: [vantadb, wasm, crash-model, durability]
 ---
 
 # WASM Crash and Durability Model
@@ -78,7 +77,7 @@ Differential persistence changes *when* work happens, not the durability model. 
 ## Related Documentation
 
 - [WASM Storage Review](../architecture/WASM_STORAGE_REVIEW.md) — Full gap analysis with recommendations
-- [ADR-008](../architecture/adr/008_wasm_support_strategy.md) — WASM architecture decisions
+- [ADR-0008](../architecture/adr/ADR-0008-wasm-support-strategy.md) — WASM architecture decisions
 - `vantadb-wasm/src/opfs.rs` — OPFS backend implementation
 - `vantadb-wasm/src/idb.rs` — IndexedDB backend implementation
 - `vantadb-wasm/src/worker.rs` — Worker bridge implementation

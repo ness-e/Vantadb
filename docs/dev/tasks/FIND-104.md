@@ -1,3 +1,9 @@
+---
+title: "FIND-104: Instalador interactivo completo end-to-end"
+kind: task
+description: "wizard simulado end-to-end exit 0 + -NonInteractive exit 0 sin prompts + grep secrets 0 en artefactos + vanta-cli put→get→search verde en DB temporal\""
+---
+
 # FIND-104: Instalador interactivo completo end-to-end
 
 ## Metadata

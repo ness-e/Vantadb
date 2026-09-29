@@ -1,3 +1,10 @@
+---
+title: Sesión 2026-09-24 — handoff de continuidad (estabilización pre-0.7.0)
+kind: plan
+status: archived
+description: Cerrar la estabilización pendiente (CI rojo del PR + CodeQL + higiene API) para
+---
+
 # Sesión 2026-09-24 — handoff de continuidad (estabilización pre-0.7.0)
 
 > **Propósito:** continuar en otro chat sin perder contexto. Todo número aquí fue

@@ -1,3 +1,9 @@
+---
+title: FIND-144 — Durable workflow rules + CI_POLICY refresh + AGENTS pointer
+kind: task
+description: "Crear docs/dev/workflow/RULES.md (nuevo) + refresh docs/dev/operations/CIPOLICY.md (conteo/triggers) + 1 fila puntero en AGENTS.md raíz. Contrato: lint verdes; una regla verificable por cada hallazgo Alta; 0 links rotos"
+---
+
 # FIND-144 — Durable workflow rules + CI_POLICY refresh + AGENTS pointer
 
 > **Plan:** `docs/dev/plans/2026-09-21-workflows-repair.md` (Wave 5, tras FIND-143)

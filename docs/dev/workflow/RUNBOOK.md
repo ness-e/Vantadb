@@ -1,11 +1,9 @@
 ---
-title: "Workflows — Runbook"
-type: workflow-index
+title: Workflows — Runbook
+kind: runbook
 status: active
+description: Commands use GitHub CLI (gh). All publish environments are approval-gated
 tags: [vantadb, ci, workflows, runbook]
-last_reviewed: 2026-09-22
-aliases: []
-related: ["docs/dev/workflow/README.md", "docs/dev/workflow/PUBLISH.md", "docs/dev/workflow/FAQ.md"]
 ---
 
 # Workflows — Runbook

@@ -1,12 +1,11 @@
 ---
 title: "TDAM — 03: Skill Memory — Investigación profunda"
-type: research
+kind: research
 status: active
+description: "TDAM implementa un sistema de \"skills\" (SKILL.md + recursos) con snapshot inmutables multi-versión en una sola tabla SQLite (skills), búsqueda BM25 (FTS5 + jieba) con embedding vec0 opcional, extracción automática desde conversaciones..."
 tags: [vantadb, research, tdam, skill-memory]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
+
 # TDAM — 03: Skill Memory — Investigación profunda
 
 > Fecha: 2026-08-18 · Agente: vanta-research · Scope: core/skill (+ conversation-add, prompts, queue) — handlers HTTP en `src/gateway/skill-handlers.ts` (no core/skill/) · Stack: **TypeScript/Node** (no Rust)

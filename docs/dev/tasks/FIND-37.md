@@ -1,3 +1,9 @@
+---
+title: "FIND-37: Eliminar `query_sparse.unwrap()` sin validar en dispatcher híbrido (6 sitios)"
+kind: task
+description: "cargo nextest run -p vantadb --profile audit -E 'test(search)' ✅ (0 unwrap panics) + rg -n \"querysparse.unwrap\" src/sdk/search/mod.rs → 0 hits + cargo clippy -p vantadb --all-targets --all-features -- -D warnings sin nuevos warnings en..."
+---
+
 # FIND-37: Eliminar `query_sparse.unwrap()` sin validar en dispatcher híbrido (6 sitios)
 
 ## Metadata

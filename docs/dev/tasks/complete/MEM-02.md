@@ -1,3 +1,9 @@
+---
+title: "MEM-02: Exponer search_profile en el tool MCP search_memory (passthrough a VantaMemorySearchRequest)"
+kind: task
+description: "cargo check -p vantadb-mcp pasa; test de paridad IQL/API/MCP (D19)\""
+---
+
 # MEM-02: Exponer search_profile en el tool MCP search_memory (passthrough a VantaMemorySearchRequest)
 
 ## Metadata

@@ -1,3 +1,10 @@
+---
+title: INV-009 — Phrase Queries + Term Positions (diseño)
+kind: research
+status: archived
+description: La infraestructura de positions y phrases YA EXISTE y está en producción
+---
+
 # INV-009 — Phrase Queries + Term Positions (diseño)
 
 - **Estado:** DISEÑO — parcialmente implementado (ver Gate 2026-08-03)

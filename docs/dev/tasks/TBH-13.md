@@ -1,3 +1,9 @@
+---
+title: TBH-13 — SHA-pin remaining workflows (supply chain hardening)
+kind: task
+description: VantaDB tiene 17 GH Actions workflows; 14 ya usan SHA-pins para actions de terceros
+---
+
 # TBH-13 — SHA-pin remaining workflows (supply chain hardening)
 
 > Plan: `docs/dev/plans/2026-08-30-testing-bench-harden.md` — TASK-13 (Phase 2 — MED)

@@ -1,3 +1,9 @@
+---
+title: "MOD-18: Consolidar stubs `.pyi` duplicados + test anti-drift firma↔stub"
+kind: task
+description: "python -m pytest tests/ verde (118+new pasando, 4 slow deselected); test anti-drift tests/teststubdrift.py pasa contra el módulo compilado; vantadbpy.pyi declara TODOS los métodos nativos reales (verificado por el test..."
+---
+
 # MOD-18: Consolidar stubs `.pyi` duplicados + test anti-drift firma↔stub
 
 ## Metadata

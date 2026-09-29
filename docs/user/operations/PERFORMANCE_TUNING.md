@@ -1,10 +1,9 @@
 ---
-title: "VantaDB Performance Tuning Guide"
-type: operations
+title: VantaDB Performance Tuning Guide
+kind: runbook
 status: active
+description: "This guide covers all knobs, tradeoffs, and recommended configurations for"
 tags: [vantadb, operations, performance, tuning]
-last_reviewed: 2026-07-03
-aliases: []
 ---
 
 # VantaDB Performance Tuning Guide
@@ -99,14 +98,22 @@ D hash-map overhead and SmallVec capacity.
 
 ## 2. Memory Limits
 
-### `VANTADB_MEMORY_LIMIT` (⚠️ no verificada)
+### `VANTADB_MEMORY_LIMIT`
 
-> ⚠️ `VANTADB_MEMORY_LIMIT` **no se parsea como env var** en `VantaConfig::default()`.  
-> `memory_limit` solo se configura por constructor (`VantaConfig::with_memory_limit()`) o
-> mediante el argumento `memory_limit_bytes` del constructor Python.
-> La env var `VANTADB_MEMORY_LIMIT` no tiene efecto en el engine actual.
+> ✅ **Verificada.** `Config::default()` **sí parsea** `VANTADB_MEMORY_LIMIT`
+> (`src/config.rs`, bloque `memory_limit`). El valor pasa por
+> `parse_memory_limit()`, que acepta bytes pelados o sufijos (`512MB`, `2GB`, …);
+> un valor inválido se ignora con un warning en vez de abortar. La variable no
+> encontrada deja `memory_limit: None` (sin techo), y un valor no-Unicode también
+> se descarta con warning.
 
-This is a **budget hint** — it influences:
+Precedencia: el argumento explícito del constructor gana sobre la env var —
+`memory_limit` se fija por `with_memory_limit()`, o en Python por el argumento
+`memory_limit_bytes` de `Client`. Configurar la env var establish el default
+para cualquier apertura que no lo sobrescriba; es la opción correcta cuando no
+controlas el código que construye el `Client`.
+
+This is a **budget hint** (not a hard RSS ceiling) — it influences:
 
 - Whether `mmap_hnsw` is enabled (auto-enabled on systems with < 16 GB RAM).
 - Backpressure thresholds (combined with `rss_threshold`).
@@ -119,7 +126,7 @@ This is a **budget hint** — it influences:
 
 ```rust
 // Rust: programmatic override
-let config = VantaConfig::default()
+let config = Config::default()
     .with_memory_limit(4_096_000_000)  // 4 GB budget
     .with_rss_threshold(0.85);
 

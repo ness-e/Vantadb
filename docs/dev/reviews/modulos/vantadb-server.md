@@ -1,11 +1,9 @@
 ---
 title: "Review de Módulo — `vantadb-server/`"
-type: review
+kind: review
 status: archived
+description: "vantadb-server es un crate binario thin, no un servidor propio: src/server.rs (4 líneas) y src/middleware.rs (1 línea) son re-exports puros de vantadb::cliserver. Todo el server HTTP real (router, auth, rate-limit, handlers, TLS..."
 tags: [vantadb, review]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Review de Módulo — `vantadb-server/`

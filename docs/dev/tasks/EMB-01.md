@@ -1,3 +1,9 @@
+---
+title: "EMB-01: Infra embeddings/ + manifest + download.py + verify.py + .gitignore"
+kind: task
+description: "Get-ChildItem embeddings | Measure == 5 antes de descarga; python -m pycompile embeddings/download.py sale 0; .gitignore contiene /embeddings/models/; manifest.json tiene 9 modelos con dim y rev pinned\""
+---
+
 # EMB-01: Infra embeddings/ + manifest + download.py + verify.py + .gitignore
 
 ## Metadata

@@ -1,9 +1,9 @@
 ---
-title: "Local RAG Pipeline with VantaDB + Ollama"
+title: Local RAG Pipeline with VantaDB + Ollama
+kind: tutorial
 status: active
+description: Retrieval-Augmented Generation (RAG) lets you ask natural language questions over your own documents — without sending data to a third-party API. This tutorial builds a fully local RAG pipeline using
 tags: [vantadb, tutorial, guide, rag, ollama]
-last_reviewed: 2026-08-02
-aliases: []
 ---
 
 # Local RAG Pipeline with VantaDB + Ollama

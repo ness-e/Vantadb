@@ -1,3 +1,9 @@
+---
+title: "TASK DESKTOP-QW7: Rename namespace preserva sparse_vector (H-04)"
+kind: task
+description: "Rename namespace preserva sparsevector (copiar campo en el ingestBatch del rename + test que lo fije); cd desktop && npm run build y npm test verde; cargo check -p vantadb si toca bridge Rust"
+---
+
 # TASK DESKTOP-QW7: Rename namespace preserva sparse_vector (H-04)
 
 ## Metadata

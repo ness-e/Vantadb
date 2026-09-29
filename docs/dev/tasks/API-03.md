@@ -1,3 +1,9 @@
+---
+title: "Task API-03 — W2 HTTP/OpenAPI-first: REST + paginación (cursor único)"
+kind: task
+description: "Alinear el servidor HTTP a OpenAPI-first: plurales sin verbos, /api/v2 total, status=YAML (201 para creates), paginación cursor único (cursor opaco string + hasmore + limit; cero offset), RecordInput opcional, nextcursor 1 tipo..."
+---
+
 # Task API-03 — W2 HTTP/OpenAPI-first: REST + paginación (cursor único)
 
 > **Plan:** `docs/dev/plans/2026-09-24-api-ejecucion.md` (§Task 3)

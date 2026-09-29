@@ -1,10 +1,9 @@
 ---
 title: SQLite to VantaDB Migration Guide
-type: operations
+kind: runbook
 status: active
+description: "If you are using SQLite as the persistence layer for an AI agent, local RAG pipeline, or embedded application, you may find that the workload pattern — dense vector storage, semantic search, high-frequency writes — is a poor fit for a..."
 tags: [vantadb, operations, migration]
-last_reviewed: 2026-07-10
-aliases: []
 ---
 
 # SQLite to VantaDB Migration Guide

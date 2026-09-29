@@ -1,3 +1,9 @@
+---
+title: "MGR-13: Cuarentena semántica + abstención (research-doc, cero implementación)"
+kind: task
+description: "research-doc cerrado con estados + transiciones (entrada/promoción/expiración con dueño y trigger) + threat model write-time por superficie (API/dream/import), listo para SCH-01\""
+---
+
 # MGR-13: Cuarentena semántica + abstención (research-doc, cero implementación)
 
 ## Metadata

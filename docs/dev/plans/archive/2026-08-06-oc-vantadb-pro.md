@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Open Core VantaDB + VantaDB Pro/Enterprise (licenciamiento comercial)"
+kind: plan
+status: archived
+description: Mapa de decisiones condicionales para que el agente sepa qué ejecutar cuando el usuario elige; y qué hacer si falla algo
+---
+
 # Plan de Ejecución: Open Core VantaDB + VantaDB Pro/Enterprise (licenciamiento comercial)
 
 > **Campaign ID:** ea6ae974-7d79-4978-b8c7-7b2f2186edae
@@ -45,7 +52,7 @@
   - **A) Apache-2.0 (recomendado)** — máxima adopción, cero fricción enterprise, es lo que ya tienes. No protege contra clona al detalle pero tu moat = features + marca. Mantener `LICENSE` y `Cargo.toml:7` tal cual. **Elegida en Estrategia (C3).**
   - B) relicen a AGPL — NO recomendado: mata adopción de empresas de IA (justo tu ICP). Fricción legal intensa con contribuidores.
   - C) relicen a BSL motor (modelo SurrealDB) — protege el motor de DBaaS al años4, pero dejas de ser "Open Source" (OSI) y HN/comunidad lo penaliza. Diferente de lo que C3 eligió.
-- **Contrato:** core sigue Apache-2.0; ADR-013 aceptado y registrado en memoria.
+- **Contrato:** core sigue Apache-2.0; ADR-0013 aceptado y registrado en memoria.
 - **Estado:** ✅ COMPLETED
 
 ### Task 2 — ¿Licencia del PRODUCTO Pro/Enterprise?

@@ -1,3 +1,9 @@
+---
+title: "MEM-05: F2 Auth 3 capas en server (L1/L2/L3) + audit auth events"
+kind: task
+description: Arquitectura (verificada con codegraph + Read)
+---
+
 # MEM-05: F2 Auth 3 capas en server (L1/L2/L3) + audit auth events
 
 ## Metadata

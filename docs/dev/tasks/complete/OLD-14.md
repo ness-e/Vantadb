@@ -1,3 +1,9 @@
+---
+title: "OLD-14: MessageThread / GcWorker for Agentic Chat"
+kind: task
+description: "cargo check -p vantadb pasa, cargo nextest run --test messagethreadtest pasa (4+ tests), y el comportamiento específico es: crear/send/readmessages/listthreads/delete funcionan con persistencia\""
+---
+
 # OLD-14: MessageThread / GcWorker for Agentic Chat
 
 ## Metadata

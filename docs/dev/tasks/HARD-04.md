@@ -1,3 +1,9 @@
+---
+title: "HARD-04: vanta-memory — spec de fachada + triggers de exposición"
+kind: task
+description: "docs/api/VANTAMEMORY.md incluye §Facade (capture/recall/seed/ingest, firma conceptual + degradación) Y §Exposure triggers T1–T4 (≥5 pedidos externos / adapter ICP-03 bloqueado / 2 releases sin breaking / stranger-tests confirman demanda..."
+---
+
 # HARD-04: vanta-memory — spec de fachada + triggers de exposición
 
 ## Metadata
@@ -25,7 +31,7 @@
 
 - **Archivos leídos (completos):** `docs/api/VANTA_MEMORY.md` (181L) · `vanta-memory/src/lib.rs` (66L) · `docs/dev/tasks/API-STD-15.md` · `docs/dev/Backlog.md` (fila `FIND-160`, L258)
 - **Archivos referenciados hacia dentro (imports/dependencias):** `vanta-memory/src/lib.rs:26` cita `docs/api/VANTA_MEMORY.md` como superficie estable; la crate depende de `vantadb::sdk::Embedded`
-- **Archivos que referencian a los editados (referencias entrantes):** `docs/api/VERSIONING.md:48` (superficie #11 → `VANTA_MEMORY.md`) · ADR-029 (cita la página) · doc comment en `vanta-memory/src/lib.rs:26`
+- **Archivos que referencian a los editados (referencias entrantes):** `docs/api/VERSIONING.md:48` (superficie #11 → `VANTA_MEMORY.md`) · ADR-0029 (cita la página) · doc comment en `vanta-memory/src/lib.rs:26`
 - **Veredicto impacto:** **bajo** — solo se agregan 2 secciones; ningún consumidor compila contra el doc; sin código ni bindings.
 
 ## Contrato

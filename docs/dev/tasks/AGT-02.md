@@ -1,3 +1,9 @@
+---
+title: "AGT-02: Verificar stats CodeGraph en AGENTS.md"
+kind: task
+description: "Números de CodeGraph verificados/actualizados en AGENTS.md § CodeGraph\" — verify"
+---
+
 # AGT-02: Verificar stats CodeGraph en AGENTS.md
 
 ## Metadata

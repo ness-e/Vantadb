@@ -1,3 +1,9 @@
+---
+title: "Task: SRV-04 — Multi API keys + rotación sin downtime"
+kind: task
+description: "Campaign ID: b28f-20260828-backlog-triage"
+---
+
 # Task: SRV-04 — Multi API keys + rotación sin downtime
 
 **Campaign ID:** b28f-20260828-backlog-triage

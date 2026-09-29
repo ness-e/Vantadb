@@ -1,10 +1,9 @@
 ---
 title: Roadmap v0.7 (governance manual) → v1.0 (governance automática)
-type: strategy
+kind: concept
 status: active
+description: "Capacidades con docs + tests de integración, operadas por el usuario"
 tags: [vantadb, roadmap, governance]
-last_reviewed: 2026-09-24
-aliases: []
 ---
 
 # Roadmap v0.7 → v1.0 — Gobernanza del ciclo de vida

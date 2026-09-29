@@ -1,10 +1,10 @@
 ---
 title: Blog Series Completion Plan
-type: strategy
+kind: concept
 status: active
-tags: [vantadb, marketing, blog, content, launch, hn, seo]
-last_reviewed: 2026-08-02
+description: "The blog series is 4 of 5 posts complete as drafts in docs/user/blog/, but the production site exposes 4 posts (one of them, introducing-vantadb, has no source draft in docs/user/blog/). Every live post has metadata drift between the..."
 aliases: [BLOG_SERIES_PLAN, Blog Plan, Blog Calendar, Blog Series]
+tags: [vantadb, marketing, blog, content, launch, hn, seo]
 ---
 
 # Blog Series Completion Plan

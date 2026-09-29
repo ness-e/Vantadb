@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Anti-Stutter Total VantaDB"
+kind: plan
+status: archived
+description: "Status: ⬆️ uphill = 2 (overload search Python global-vs-namespace; nombre final Error vs DbError en TS) · ⬇️ downhill = 7 tasks pendientes (ver § Tasks)"
+---
+
 # Plan de Ejecución: Anti-Stutter Total VantaDB
 
 > **Campaign ID:** ca2e7931-6c31-4d30-97fb-5941e79ec806
@@ -49,7 +56,7 @@ Regla universal: ninguna entidad repite su contenedor. `vantadb::VantaConfig` �
   |---|--------|-----------|-------------|
   | 1 | DISCOVERY inline: inventarios rg + CodeGraph + referencias | 38 Rust + 10 TS + 8 Py classes + 5 métodos; Gate D no dispara | rg, codegraph_explore |
   | 2 | scripts/anti_stutter_map.json congelado | JSON parsea, counts 38/10/3/8/4/5/6/4 | write + python json |
-  | 3 | docs/dev/architecture/adr/041_anti_stutter.md | proposed, pendiente firma humana | write |
+  | 3 | docs/dev/architecture/adr/ADR-0047-anti-stutter.md | proposed, pendiente firma humana | write |
   | 4 | verify contrato + commit chore | contrato verde | campaign_verify_cmd |
 
   **Notas:**
@@ -296,7 +303,7 @@ Estado: completed
 Última acción: Steps 1-3 completados: JSON congelado + ADR-041 + contrato verde + commit 8d32fde7 (hook ok). Plan file Task 1 -> COMPLETED con Iteraciones 1-4.
 Resultado: OK
 Próxima acción: Humano firma ADR-041; luego /pipeline task AST-002 (vanta-worker, Rust tipos + aliases deprecated)
-Contrato: Contrato: Test-Path scripts/anti_stutter_map.json + Get-Item docs/dev/architecture/adr/*anti_stutter*.md -> True (campaign_verify_cmd exit 0). JSON parsea: counts rust 38 / typescript 10 / wasm_dts 3 / python_classes 8 / python_methods 4 / rust_methods 5 / exclusions 6 / open_decisions 4. Evidencia: commit 8d32fde7 (4 files, +587, hook pre-commit ok). Artefactos: scripts/anti_stutter_map.json, docs/dev/architecture/adr/041_anti_stutter.md, docs/dev/tasks/AST-001.md. Invariantes: engine/storage intactos; VantaHeader + VANTADB_* + fns libres excluidos; ADR-041 proposed pendiente firma humana. Deuda: ninguna. Queda_pendiente: firma humana ADR-041; review post-hoc vanta-review; AST-002 consume el mapa.
+Contrato: Contrato: Test-Path scripts/anti_stutter_map.json + Get-Item docs/dev/architecture/adr/*anti_stutter*.md -> True (campaign_verify_cmd exit 0). JSON parsea: counts rust 38 / typescript 10 / wasm_dts 3 / python_classes 8 / python_methods 4 / rust_methods 5 / exclusions 6 / open_decisions 4. Evidencia: commit 8d32fde7 (4 files, +587, hook pre-commit ok). Artefactos: scripts/anti_stutter_map.json, docs/dev/architecture/adr/ADR-0047-anti-stutter.md, docs/dev/tasks/AST-001.md. Invariantes: engine/storage intactos; VantaHeader + VANTADB_* + fns libres excluidos; ADR-041 proposed pendiente firma humana. Deuda: ninguna. Queda_pendiente: firma humana ADR-041; review post-hoc vanta-review; AST-002 consume el mapa.
 Próxima tarea si completa: AST-002
 === END RECITATION ===
 

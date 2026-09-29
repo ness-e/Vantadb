@@ -1,13 +1,13 @@
 ---
-title: "mmap — Memory-Mapped I/O"
-type: glossary-entry
+title: mmap — Memory-Mapped I/O
+kind: glossary
 status: stable
-tags: [io, memoria, zero-copy, performance]
-last_reviewed: 2026-09-15
-links: "[[README.md]]"
+description: "##Definition"
 aliases: [Memory-Mapped I/O, Memory Mapping]
-description: "Operating system syscall that maps a disk file directly to the virtual address space of a process, allowing zero-copy access to the file's contents"
+tags: [io, memoria, zero-copy, performance]
+links: "[[README.md]]"
 ---
+
 # mmap — Memory-Mapped I/O
 
 ##Definition
@@ -68,7 +68,7 @@ Total: 0 copies, 1 context switch
 
 ## Usage in VantaDB
 
-### Persistencia del Índice [[hnsw]]
+### Persistencia del Índice [hnsw](./hnsw.md)
 
 ```rust
 use memmap2::Mmap;
@@ -316,13 +316,13 @@ fn safe_unmap(mmap: Mmap, path: &Path) -> Result<()> {
 
 ## See Also
 
-- [[hnsw]] — Index used by mmap for persistence
-- [[vectors]] — Data stored via mmap
-- [[zero-config]] — mmap enables instant loading
+- [hnsw](./hnsw.md) — Index used by mmap for persistence
+- [vectors](./vectors.md) — Data stored via mmap
+- [zero-config](./zero-config.md) — mmap enables instant loading
 
 ### Related Implementation Documentation
 - [[../architecture/hnsw_index|HNSW Index Architecture]]
-- [[../operations/memory_telemetry|Memory Telemetry]]
+- [Memory Telemetry](../operations/MEMORY_TELEMETRY.md)
 
 ---
 

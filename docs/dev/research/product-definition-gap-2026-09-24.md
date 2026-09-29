@@ -1,11 +1,9 @@
 ---
 title: "Brecha de definición de producto (revisión definición vs repo shippeado, 2026-09-24)"
-type: research
+kind: research
 status: active
+description: "EXPERIMENTALFEATURES.md se declara para \"v0.1.x\" (lastreviewed: 2026-07-01) mientras el changelog está en 0.7.0. Claims falsos verificados"
 tags: [vantadb, research, producto, definicion, frontera, naming]
-last_reviewed: 2026-09-24
-aliases: []
-related: [VISION.md, GO_TO_MARKET.md, EXPERIMENTAL_FEATURES.md]
 ---
 
 # Brecha de definición de producto (2026-09-24)

@@ -1,3 +1,10 @@
+---
+title: Wave Follow-Ups P20 — Aplicar y arreglar los 15 follow-ups post-campaña
+kind: plan
+status: archived
+description: "docs/dev/Backlog.md, .opencode/skills/campaign-executor/tasks/AUD-024.md, .opencode/task-system/enforcement/verify-log.jsonl, completions/vanta-cli.ps1, docs/dev/plans/2026-08-16-wave-followups.md, .opencode/AGENTS.md, .opencode/agents/"
+---
+
 # Wave Follow-Ups P20 — Aplicar y arreglar los 15 follow-ups post-campaña
 
 > **Estado:** in-progress · **Campaign ID:** fup-2026-08-16
@@ -24,7 +31,7 @@
 | FND-05-F1 | vantadb-python/*.pyi, __init__.py, pyproject.toml | vanta-worker |
 | TSYS-06-F1 | .opencode/task-system/mcp/campaign-server.mjs, parsers.mjs (nuevo) | vanta-arch |
 | FND-02-M2 | src/storage/engine/tests/ops.rs (stress test) | vanta-chaos |
-| FND-23-F1 | src/metrics/core/registry.rs, ADR-024 (nota) | vanta-tuner |
+| FND-23-F1 | src/metrics/core/registry.rs, ADR-0024 (nota) | vanta-tuner |
 | FND-13-F2 | docs/user/operations/BENCHMARKS.md, PERFORMANCE_TUNING.md | vanta-docs |
 | FND-13-F1 | web/src/ (claims fantasma) | vanta-worker |
 | FND-04-F1 | docs/dev/architecture/adr/ADR-025-*.md (nuevo) | vanta-docs |
@@ -54,6 +61,6 @@
 - Task-system con 3 behavior changes + parsers extraídos (TSYS-06-F1)
 - Métrica vanta_graph_ops_total instrumentada (FND-23-F1)
 - BENCHMARKS/PERFORMANCE_TUNING sin inconsistencias ni claims sin fuente (FND-13-F2)
-- ADR-025 formal (FND-04-F1)
+- ADR-0025 formal (FND-04-F1)
 - Gates P2-01 retro + post-fixes (P2R-01)
 - Metadata task files sync + git rm typescript-expert + FND-16 validado (W5)

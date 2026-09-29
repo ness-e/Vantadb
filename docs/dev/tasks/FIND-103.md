@@ -1,3 +1,9 @@
+---
+title: FIND-103 — Skills correctas + motor de recall continuo
+kind: task
+description: "Objetivo: revisión profunda y corrección total de skills/vantadb-mcp/ + diseño del motor de recall continuo (recall mid-conversación + traductor temporal + umbrales + curaduría). La skill es lo que lee el agente"
+---
+
 # FIND-103 — Skills correctas + motor de recall continuo
 
 > **Plan:** `docs/dev/plans/2026-09-17-mvp-memoria-agentes.md` (Wave1 sola, appetite 2d, branch `develop`, commit `docs:`/`fix: FIND-103 — ...`)

@@ -1,3 +1,9 @@
+---
+title: "REVIEW-09: Bug lógico cache_warmer — latch `saturated` monotónico mata el aprendizaje"
+kind: task
+description: "test: simular ciclos — warm hasta saturar → decay reduce tabla bajo maxpairs → latch reseteado cuando post-decay total < maxpairs → warmer VUELVE a aprender pares nuevos y re-satura al cruzar el umbral. Sin thrashing: decays que dejan..."
+---
+
 # REVIEW-09: Bug lógico cache_warmer — latch `saturated` monotónico mata el aprendizaje
 
 ## Metadata

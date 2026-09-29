@@ -1,3 +1,9 @@
+---
+title: "FND-13 — Benchmarks honestos (P20b, prio 🟡)"
+kind: task
+description: "Backlog: docs/dev/Backlog.md:501"
+---
+
 # FND-13 — Benchmarks honestos (P20b, prio 🟡)
 
 **Backlog:** docs/dev/Backlog.md:501

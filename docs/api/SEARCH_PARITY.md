@@ -1,3 +1,8 @@
+---
+title: Search Capability Parity — VantaDB vs Milvus vs Qdrant
+kind: reference
+description: "1. topk semantics under groupby — VantaDB caps total hits; Milvus/Qdrant cap the number of groups. Choose topk = groups × groupsize to emulate the vendor behavior"
+---
 # Search Capability Parity — VantaDB vs Milvus vs Qdrant
 
 > **Status:** ✅ WIRE-08 (2026-09-28) — capabilities implemented in `src/sdk/search/` and `src/planner.rs`.

@@ -1,11 +1,8 @@
 ---
 title: "Sistema de agentes — R1-R10, FND-01..24, TSYS-06"
-type: registro
+kind: review
 status: archived
 tags: [vantadb, avance, campana]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Sistema de agentes — R1-R10, FND-01..24, TSYS-06
@@ -65,14 +62,14 @@ related: []
 - **Fuente:** `docs/dev/Backlog.md` § P20d (Fase 0 pre-launch)
 - **Fecha:** 2026-08-16
 - **Objetivo:** nota técnica defensible para Show HN ("¿por qué no FAISS?"), con parámetros actuales citados.
-- **Resultado:** ✅ `docs/dev/architecture/FND-20-hnsw-tradeoff.md` (inglés): parámetros HNSW actuales (M=32, ef=100) con citas archivo:línea (`src/index/graph.rs:255-269`, `search/nearest.rs:71-77`, `neighbors.rs:57-62`, `ivf.rs:79-228`, `auto_tune.rs:11-53`), trade-off recall vs latencia/memoria, sección "Why not FAISS/IVF" para local-first. Drift documentado: ADR 005 (ef_construction=200) y PERFORMANCE_TUNING.md (=400) no coinciden con el código (=100) — la nota cita el código como fuente de verdad. Commit `4051a850`.
+- **Resultado:** ✅ `docs/dev/architecture/FND-20-hnsw-tradeoff.md` (inglés): parámetros HNSW actuales (M=32, ef=100) con citas archivo:línea (`src/index/graph.rs:255-269`, `search/nearest.rs:71-77`, `neighbors.rs:57-62`, `ivf.rs:79-228`, `auto_tune.rs:11-53`), trade-off recall vs latencia/memoria, sección "Why not FAISS/IVF" para local-first. Drift documentado: ADR 0005 (ef_construction=200) y PERFORMANCE_TUNING.md (=400) no coinciden con el código (=100) — la nota cita el código como fuente de verdad. Commit `4051a850`.
 - **Ids:** `FND-20`
 
 ### FND-21: ADRs retroactivos de decisiones ya tomadas (Fjall vs RocksDB, zero-copy Arrow, WAL async/batch)
 - **Fuente:** `docs/dev/Backlog.md` § P20d (Fase 0 pre-launch)
 - **Fecha:** 2026-08-16
 - **Objetivo:** decisiones ya tomadas en código sin ADR que las documente; complementa FND-12 (método).
-- **Resultado:** ✅ 3 ADRs en `docs/dev/architecture/adr/` con Contexto/Decisión/Consecuencias/Status, numeración sin colisión (ADR-020/021/022; ADR-019 ya ocupado), evidencia archivo:línea: **ADR-020** consolidación backend default Fjall vs RocksDB (relaciona ADR 004; `Cargo.toml:97`, `config.rs:582-598`, `init.rs:269-289`), **ADR-021** zero-copy Arrow en bindings (nuevo genuino; `columnar.rs:22`, wasm `lib.rs:1428-1447`; estado bindings Python/Node sin Arrow → FND-04 pendiente), **ADR-022** consolidación WAL async/batch (relaciona DRV-014/DRV-015; `wal.rs:297/340/342/358`, `wal_sharded.rs:9-14/191/198-218`). Commit `b4a86030`.
+- **Resultado:** ✅ 3 ADRs en `docs/dev/architecture/adr/` con Contexto/Decisión/Consecuencias/Status, numeración sin colisión (ADR-020/021/022; ADR-0019 ya ocupado), evidencia archivo:línea: **ADR-020** consolidación backend default Fjall vs RocksDB (relaciona ADR 0004; `Cargo.toml:97`, `config.rs:582-598`, `init.rs:269-289`), **ADR-021** zero-copy Arrow en bindings (nuevo genuino; `columnar.rs:22`, wasm `lib.rs:1428-1447`; estado bindings Python/Node sin Arrow → FND-04 pendiente), **ADR-022** consolidación WAL async/batch (relaciona DRV-014/DRV-015; `wal.rs:297/340/342/358`, `wal_sharded.rs:9-14/191/198-218`). Commit `b4a86030`.
 - **Ids:** `FND-21`
 
 ### TSYS-06: Chaos/resilience del task-system — decisión (runner DEFER)
@@ -156,7 +153,7 @@ related: []
 - **Fuente:** `docs/dev/Backlog.md` § P20a
 - **Fecha:** 2026-08-16
 - **Objetivo:** analizar viabilidad de exponer buffers Arrow sin copia en Python/Node y firmar plan (implementación o ADR de diferimiento).
-- **Resultado:** ✅ DIFERIDO con ADR-021 + señal de reapertura explícita en `docs/dev/research/FND-04-arrow-zero-copy.md` (umbrales de reapertura documentados). Commit `95a67fd3`.
+- **Resultado:** ✅ DIFERIDO con ADR-0021 + señal de reapertura explícita en `docs/dev/research/FND-04-arrow-zero-copy.md` (umbrales de reapertura documentados). Commit `95a67fd3`.
 - **Ids:** `FND-04`
 
 ### FND-05: SDK idiomático (no wrapper 1:1 de Rust)
@@ -184,7 +181,7 @@ related: []
 - **Fuente:** `docs/dev/Backlog.md` § P20a
 - **Fecha:** 2026-08-16
 - **Objetivo:** evaluar si la compactación de fjall/rocksdb está tuneada para random reads (similitud vectorial) vs default de escritura secuencial.
-- **Resultado:** ✅ ADR-023 (backend compaction — diferir marginal, justificado con bench de lectura) + regla en `.opencode/rules/durability.md`. Commit `e5e76684`.
+- **Resultado:** ✅ ADR-0023 (backend compaction — diferir marginal, justificado con bench de lectura) + regla en `.opencode/rules/durability.md`. Commit `e5e76684`.
 - **Ids:** `FND-08`
 
 ### FND-10: Regla 9 — No optimizar sin medir + benchmark canónico P99
@@ -240,7 +237,7 @@ related: []
 - **Fuente:** `docs/dev/Backlog.md` § P20d
 - **Fecha:** 2026-08-16
 - **Objetivo:** usar señales reales de adopción para decidir si el motor de grafos queda default-on o pasa a opt-in.
-- **Resultado:** ✅ ADR-024: motor de grafos **default-on hasta señal de telemetría** (métrica `vanta_graph_ops_total`) — no decidir por intuición; complementa FND-03. Commit `bde23fd3`.
+- **Resultado:** ✅ ADR-0024: motor de grafos **default-on hasta señal de telemetría** (métrica `vanta_graph_ops_total`) — no decidir por intuición; complementa FND-03. Commit `bde23fd3`.
 - **Ids:** `FND-23`
 
 ### FND-24: JTBD/ICP: entrevistas post-Show HN

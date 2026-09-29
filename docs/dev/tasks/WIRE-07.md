@@ -1,3 +1,9 @@
+---
+title: "WIRE-07 — Refactors de frontera: crate `vantadb-ffi-core` (OpGate×3) + desacople `server→cli` + bookkeeping trait-split"
+kind: task
+description: "crate vantadb-ffi-core consumido por node/py/wasm (rg 'struct OpGate' = 1 en el workspace) Y server sin"
+---
+
 # WIRE-07 — Refactors de frontera: crate `vantadb-ffi-core` (OpGate×3) + desacople `server→cli` + bookkeeping trait-split
 
 > **Fase:** F2 · **Plan:** `docs/dev/plans/2026-09-26-master-roadmap.md` (Task 21) · **Branch:** develop
@@ -35,7 +41,7 @@ SDP: `campaign-executor` · `progreso` · `security-and-hardening` (pinned: trus
   por el crash MSVC de cdylib; comparte `target/`). Es el mismo patrón que su dep actual `vantadb = { path = ".." }`:
   una path-dep a un miembro del workspace raíz funciona sin cambios.
 - ✅ **trait-split YA EJECUTADO** (commit `13f0f729` "feat!: trait-split storage-index con hoja neutral + 6 firmas
-  a traits (F3X, ADR-042)": `src/index_port.rs` 224L + `src/index/port_impl.rs` 424L + ADR-042 accepted).
+  a traits (F3X, ADR-0042)": `src/index_port.rs` 224L + `src/index/port_impl.rs` 424L + ADR-0042 accepted).
   Verificado HOY: `storage → index` sólo queda en shims/fixtures `#[cfg(test)]` (`archive.rs:205-211` fn
   test-only, `archive.rs:470` mod tests, `index/core.rs:156` dentro de un `#[test]`); `index → storage` sólo usa
   la capa `vfile_mmap`/`vfile` movida a la hoja + `search/tests.rs` (test). **La pata del seed es bookkeeping**:
@@ -52,7 +58,7 @@ SDP: `campaign-executor` · `progreso` · `security-and-hardening` (pinned: trus
 ## Impacto mapeado (Regla 0)
 
 **Archivos leídos completos:** `Cargo.toml` (raíz, 792L) · `src/lib.rs` (220L) · `src/index_port.rs` (224L) ·
-`docs/dev/architecture/BOUNDARIES.md` (262L) · `docs/dev/architecture/adr/ADR-042-f3x-pub-signatures-major.md` ·
+`docs/dev/architecture/BOUNDARIES.md` (262L) · `docs/dev/architecture/adr/ADR-0042-f3x-pub-signatures-major.md` ·
 `vantadb-node/Cargo.toml` · `vantadb-python/Cargo.toml` · `vantadb-wasm/Cargo.toml` · `vantadb-server/Cargo.toml` ·
 `vantadb-mcp/Cargo.toml` · `vanta-memory/Cargo.toml` · `vanta-proxy/Cargo.toml` · `vantadb-server/src/lib.rs` ·
 `vantadb-server/src/main.rs` · `src/console.rs` (1-214/312; resto = format helpers sin deps nuevas) ·
@@ -118,7 +124,7 @@ server` sin cli pasa a compilar (capacidad nueva) sin clap/indicatif/anyhow.
 | extra: server-only all-targets | `cargo check -p vantadb --no-default-features --features fjall,fs2,memmap2,server --all-targets` | ✅ (incluye los tests `required-features=["server"]`) |
 | extra: cli opt-in | `cargo check -p vantadb-server --features cli` | ✅ (el escape hatch al comportamiento previo compila) |
 | extra: memory http-server | `cargo check -p vanta-memory --features http-server` | ✅ (consumidor de `vantadb/server` sin cli) |
-| BOUNDARIES | §3 flip a CLOSED + §5 ítem 5 ✅ con `13f0f729` + ADR-042 | ✅ |
+| BOUNDARIES | §3 flip a CLOSED + §5 ítem 5 ✅ con `13f0f729` + ADR-0042 | ✅ |
 
 ## Context Save Point
 

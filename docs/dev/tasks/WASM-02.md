@@ -1,3 +1,8 @@
+---
+title: "WASM-02: Transporte WASM en el desktop (WasmBackend + mapper vanta_*)"
+kind: task
+---
+
 # WASM-02: Transporte WASM en el desktop (WasmBackend + mapper vanta_*)
 
 ## Metadata

@@ -1,3 +1,9 @@
+---
+title: "GOV-T02: TIR-04b — contenedor tasks/closed/ — formalizar Failed-task container en RULES.md"
+kind: task
+description: "Contrato plan 2026-09-02 (verificable): Select-String -Path \".opencode/skills/campaign-executor/RULES.md\" -Pattern \"tasks/closed|Failed-task container\" | Measure-Object Count >=2"
+---
+
 # GOV-T02: TIR-04b — contenedor tasks/closed/ — formalizar Failed-task container en RULES.md
 
 ## Metadata

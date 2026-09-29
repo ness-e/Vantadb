@@ -1,11 +1,9 @@
 ---
-title: "VantaDB Tutorials"
-type: tutorial
+title: VantaDB Tutorials
+kind: index
 status: active
+description: "Step-by-step guides for using VantaDB, ordered by increasing complexity"
 tags: [vantadb, tutorials, getting-started, guides]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # VantaDB Tutorials

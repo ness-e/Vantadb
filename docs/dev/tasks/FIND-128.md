@@ -1,3 +1,9 @@
+---
+title: "FIND-128: fix script ADR-Gate + matriz triggers push-vs-PR (duplicados)"
+kind: task
+description: El step Detect API surface + ADR changes escribe adr en $GITHUBOUTPUT como UNA línea (válido para el file-command parser con N ADRs cambiados); actionlint verde en ci-rust-10.yml; matriz triggers 28 workflows + propuesta dedup...
+---
+
 # FIND-128: fix script ADR-Gate + matriz triggers push-vs-PR (duplicados)
 
 ## Metadata
@@ -65,7 +71,7 @@ N/A — bug-fix CI, Phase 1b negativa: no agrega `pub fn`, tools, endpoints ni m
 
 ## Investigation Notes
 
-- **Root cause (evidencia alta):** `gh run view 35467546726 --job 105962550017 --log` → step `Detect API surface + ADR changes` imprime `--- changed files ---` y el runner emite `##[error]Unable to process file command 'output' successfully.` + `##[error]Invalid format 'docs/dev/architecture/adr/ADR-015-coverage-policy.md'`. Causa: PR #182 cambió 40 ficheros bajo `docs/dev/architecture/adr/` (30 matchean `ADR-[0-9]{3}`) → `$adr` multiline → `echo "adr=$adr" >> $GITHUB_OUTPUT` escribe líneas 2..N sin formato `name=value` → el parser del runner falla. La línea 1 (`adr=...ADR-014...`) es válida; la 2ª (`docs/...ADR-015...`) dispara el error. Fix: `| paste -sd' ' -` (una línea, `paste` es coreutils en `ubuntu-latest`).
+- **Root cause (evidencia alta):** `gh run view 35467546726 --job 105962550017 --log` → step `Detect API surface + ADR changes` imprime `--- changed files ---` y el runner emite `##[error]Unable to process file command 'output' successfully.` + `##[error]Invalid format 'docs/dev/architecture/adr/ADR-0015-coverage-policy.md'`. Causa: PR #182 cambió 40 ficheros bajo `docs/dev/architecture/adr/` (30 matchean `ADR-[0-9]{3}`) → `$adr` multiline → `echo "adr=$adr" >> $GITHUB_OUTPUT` escribe líneas 2..N sin formato `name=value` → el parser del runner falla. La línea 1 (`adr=...ADR-014...`) es válida; la 2ª (`docs/...ADR-015...`) dispara el error. Fix: `| paste -sd' ' -` (una línea, `paste` es coreutils en `ubuntu-latest`).
 - **Ruido secundario (no fix):** `printf: write error: Broken pipe` — `grep -q` cierra el pipe tras el primer match; stderr cosmético, exit 0. Se deja (cambio mínimo).
 - **Duplicados (evidencia alta):** mismo commit `cb954abc` en `develop` disparó 2 runs con 6s de diferencia: `35467540846` (`push`, success) y `35467546726` (`pull_request` PR #182, failure). Par completo en ci-rust-10: push-verde vs PR-rojo = confusión pass/fail. `github.ref` difiere (`refs/heads/develop` vs `refs/pull/182/merge`) → `concurrency.group: ${{ workflow }}-${{ ref }}` NO los cancela entre sí. Workflows con doble disparo en push-develop con PR abierto (paths mediante): chaos-45, ci-examples-12, ci-rust-10, ci-rustdoc, ci-web-11, desktop, gate-docs-21, providers-ci (push sin branches!), rustdoc-70 (PR incluye develop).
 - **Conteo CI_POLICY:** `docs/dev/operations/CI_POLICY.md:17` dice 26; real 28 (incluye `ci-gate.yml` + `opencode.yml` probablemente). NO se toca (cero refactors) — propuesta escrita abajo.
@@ -119,7 +125,7 @@ N/A — bug-fix CI, Phase 1b negativa: no agrega `pub fn`, tools, endpoints ni m
 - **Archivos:** ninguno (bash efímero)
 - **Acción:** simular con 2+ paths ADR reales: old escribe 2 líneas (inválido), new escribe 1 (válido)
 - **Verify:** `campaign_verify_cmd` (si bug exit -1 → bash directo + mención)
-- **Estado:** ✅ COMPLETED (bash: OLD=2 líneas INVALID incl. ADR-015 idéntico al log; NEW=1 línea VALID; empty=`adr=` correcto; `campaign_verify_cmd` devolvió error de resolución de plan —sin planFile en schema— documentado, bash hace fe)
+- **Estado:** ✅ COMPLETED (bash: OLD=2 líneas INVALID incl. ADR-0015 idéntico al log; NEW=1 línea VALID; empty=`adr=` correcto; `campaign_verify_cmd` devolvió error de resolución de plan —sin planFile en schema— documentado, bash hace fe)
 
 ### Step 5: actionlint archivo tocado
 

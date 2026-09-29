@@ -1,3 +1,9 @@
+---
+title: "MCP-08: D4 — `VantaError::DimensionMismatch` documentado pero no ocurre vía MCP"
+kind: task
+description: "skills/vantadb-mcp/references/api-reference.md documenta el error DimensionMismatch tal como se entrega vía MCP (isError content con expected/got) tras MCP-04; copia sync a .opencode/skills/ con hash SAME\""
+---
+
 # MCP-08: D4 — `VantaError::DimensionMismatch` documentado pero no ocurre vía MCP
 
 ## Metadata

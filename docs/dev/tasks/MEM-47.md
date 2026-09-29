@@ -1,3 +1,9 @@
+---
+title: MEM-47 — Semantic recall end-to-end (swap overlap→vector + fallback D38)
+kind: task
+description: "P31 Task 5. Paga la deuda #1: recall/dedup/query rankean por similitud semántica cuando"
+---
+
 # MEM-47 — Semantic recall end-to-end (swap overlap→vector + fallback D38)
 
 ## Contexto

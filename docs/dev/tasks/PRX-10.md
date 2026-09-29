@@ -1,3 +1,9 @@
+---
+title: PRX-10 — Guardrails y MCP governance (tras PRX-03)
+kind: task
+description: cargo test -p vanta-proxy 0 failed + cargo clippy -p vanta-proxy --all-targets --all-features -- -D warnings 0 + cargo fmt --check scoped limpio
+---
+
 # PRX-10 — Guardrails y MCP governance (tras PRX-03)
 
 > **Plan:** docs/dev/plans/2026-09-10-code.md Task 18 · **Estado:** ✅ COMPLETO

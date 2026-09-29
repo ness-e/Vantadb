@@ -1,10 +1,9 @@
 ---
-title: vanta-proxy Reference (Endpoints, Opt-in Features, Config)
-type: api
+title: "vanta-proxy Reference (Endpoints, Opt-in Features, Config)"
+kind: reference
 status: active
+description: "vanta-proxy is a transparent LLM wire proxy: by default it forwards bytes"
 tags: [vantadb, api, proxy]
-last_reviewed: 2026-09-25
-aliases: []
 ---
 
 # vanta-proxy Reference

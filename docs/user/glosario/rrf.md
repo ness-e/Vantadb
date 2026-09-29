@@ -1,14 +1,16 @@
 ---
-title: "rrf"
-type: glossary-entry
+title: rrf
+kind: glossary
 status: stable
-tags: [busqueda, fusion, ranking, hybrid-search]
-last_reviewed: 2026-09-15
-links: "[[README.md]]"
-aliases: [Reciprocal Rank Fusion, Rank Fusion]
 description: "Algorithm to merge multiple ranking lists into a unified ranking, based solely on the ordinal position (rank) of each document, without the need to normalize heterogeneous scores"
+aliases: [Reciprocal Rank Fusion, Rank Fusion]
+tags: [busqueda, fusion, ranking, hybrid-search]
+type: glossary-entry
+last_reviewed: "2026-09-15"
+links: "[[README.md]]"
 ---
-#RRF—Reciprocal Rank Fusion
+
+#RRFΓÇöReciprocal Rank Fusion
 
 ##Definition
 
@@ -24,7 +26,7 @@ $$
 
 Donde:
 - $r(d)$ = rango del documento $d$ en la lista $r$ (1-indexed)
-- $k$ = constante de suavizado (típicamente 60)
+- $k$ = constante de suavizado (t├¡picamente 60)
 - $\mathcal{M}$ = conjunto de listas de resultados a fusionar
 
 ## Practical Example
@@ -43,32 +45,32 @@ Donde:
 | **doc12** | 2 | 3 | 1/(60+2) + 1/(60+3) = 0.01613 + 0.01587 = **0.03200** |
 | **doc7** | 4 | 2 | 1/(60+4) + 1/(60+2) = 0.01563 + 0.01613 = **0.03176** |
 | **doc45** | 5 | 4 | 1/(60+5) + 1/(60+4) = 0.01538 + 0.01563 = **0.03101** |
-| **doc5** | 1 | — | 1/(60+1) = **0.01639** |
-| **doc3** | — | 1 | 1/(60+1) = **0.01639** |
-| **doc23** | 3 | — | 1/(60+3) = **0.01587** |
-| **doc8** | — | 5 | 1/(60+5) = **0.01538** |
+| **doc5** | 1 | ΓÇö | 1/(60+1) = **0.01639** |
+| **doc3** | ΓÇö | 1 | 1/(60+1) = **0.01639** |
+| **doc23** | 3 | ΓÇö | 1/(60+3) = **0.01587** |
+| **doc8** | ΓÇö | 5 | 1/(60+5) = **0.01538** |
 
 ### Merged Final Ranking
 
-1. **doc12** (0.03200) — Appears in both, good ranking in both
-2. **doc7** (0.03176) — Appears in both, excellent in HNSW
-3. **doc45** (0.03101) — Appears in both
-4. **doc5** (0.01639) — Only on BM25, but #1
-5. **doc3** (0.01639) — Only in HNSW, but #1
-6. **doc23** (0.01587) — BM25 only
-7. **doc8** (0.01538) — HNSW only
+1. **doc12** (0.03200) ΓÇö Appears in both, good ranking in both
+2. **doc7** (0.03176) ΓÇö Appears in both, excellent in HNSW
+3. **doc45** (0.03101) ΓÇö Appears in both
+4. **doc5** (0.01639) ΓÇö Only on BM25, but #1
+5. **doc3** (0.01639) ΓÇö Only in HNSW, but #1
+6. **doc23** (0.01587) ΓÇö BM25 only
+7. **doc8** (0.01538) ΓÇö HNSW only
 
 ## Why RRF Works
 
 ### Problema: Scores Incompatibles
 
-| Método | Rango de Score | Distribución |
+| M├⌐todo | Rango de Score | Distribuci├│n |
 |--------|---------------|--------------|
 | **BM25** | $[0, \infty)$ | No acotado, depende del corpus |
 | **Coseno** | $[-1, 1]$ | Normalizado |
 | **Euclidiana** | $[[bm25|0, \infty)$ | No acotado |
 
-**Intento ingenuo:** Promediar scores → **Sesgo hacia el método con scores más altos**
+**Intento ingenuo:** Promediar scores ΓåÆ **Sesgo hacia el m├⌐todo con scores m├ís altos**
 
 ### RRF Solution: Use Only Ranges
 
@@ -120,7 +122,7 @@ results = db.search(
 
 ## Effect of Parameter k
 
-### k Small (k → 1)
+### k Small (k ΓåÆ 1)
 
 ```
 k = 1:
@@ -144,7 +146,7 @@ Rango 3: 1/(60+3) = 0.01587
 **Soft decay:** Balance between methods.
 **Use:** General case (default in VantaDB).
 
-### k Grande (k → ∞)
+### k Grande (k ΓåÆ Γê₧)
 
 ```
 k = 1000:
@@ -158,30 +160,30 @@ Rango 3: 1/(1000+3) = 0.000997
 
 ## Advantages of RRF
 
-| Ventaja | Descripción |
+| Ventaja | Descripci├│n |
 |---------|-------------|
-| **Simple** | Una línea de código por documento |
-| **Robusto** | No requiere normalización de scores |
-| **Rápido** | $O(N \cdot M)$ donde N = docs, M = métodos |
-| **Efectivo** | Empíricamente funciona tan bien como métodos complejos |
+| **Simple** | Una l├¡nea de c├│digo por documento |
+| **Robusto** | No requiere normalizaci├│n de scores |
+| **R├ípido** | $O(N \cdot M)$ donde N = docs, M = m├⌐todos |
+| **Efectivo** | Emp├¡ricamente funciona tan bien como m├⌐todos complejos |
 | **Universal** | Funciona con cualquier sistema de ranking |
 
 ## Limitations of RRF
 
-| Limitación | Descripción |
+| Limitaci├│n | Descripci├│n |
 |-----------|-------------|
 | **Ignora magnitud** | No diferencia entre #1 por poco o por mucho |
 | **Sin learning** | No aprende de feedback del usuario |
-| **k fijo** | Requiere tuning manual del parámetro |
-| **Sin contexto** | No considera correlación entre métodos |
+| **k fijo** | Requiere tuning manual del par├ímetro |
+| **Sin contexto** | No considera correlaci├│n entre m├⌐todos |
 
 ## Alternatives to RRF
 
-| Método | Complejidad | Requiere Training | Calidad |
+| M├⌐todo | Complejidad | Requiere Training | Calidad |
 |--------|-------------|-------------------|---------|
 | **RRF** | Baja | No | Alta |
 | **Linear Combination** | Baja | No (pesos manuales) | Media |
-| **Learning to Rank** | Alta | Sí | Muy alta |
+| **Learning to Rank** | Alta | S├¡ | Muy alta |
 | **Cross-Encoder Reranking** | Muy alta | No | Excelente |
 
 ### When to Use Each
@@ -191,11 +193,11 @@ Rango 3: 1/(1000+3) = 0.000997
 - **Learning to Rank:** When you have clicks/relevance labels
 - **Cross-Encoder:** For top-K reranking (maximum quality)
 
-## Comparación de Resultados
+## Comparaci├│n de Resultados
 
 ### Dataset: MS MARCO (Information Retrieval)
 
-| Método | NDCG@10 | MRR@10 |
+| M├⌐todo | NDCG@10 | MRR@10 |
 |--------|---------|--------|
 | BM25 solo | 0.38 | 0.36 |
 | HNSW solo | 0.42 | 0.40 |
@@ -209,27 +211,27 @@ Rango 3: 1/(1000+3) = 0.000997
 
 ### Hybrid-Seek Latency
 
-| Operación | Latencia p50 | Speedup vs Secuencial |
+| Operaci├│n | Latencia p50 | Speedup vs Secuencial |
 |-----------|--------------|----------------------|
-| BM25 solo | 115 ms | — |
-| HNSW solo | 62 ms | — |
-| **Híbrida (RRF)** | 180 ms | 1.0x (baseline) |
-| **Híbrida (paralela + RRF)** | 125 ms | 1.44x |
+| BM25 solo | 115 ms | ΓÇö |
+| HNSW solo | 62 ms | ΓÇö |
+| **H├¡brida (RRF)** | 180 ms | 1.0x (baseline) |
+| **H├¡brida (paralela + RRF)** | 125 ms | 1.44x |
 
 ### Improved Recall
 
-| Método | Recall@10 |
+| M├⌐todo | Recall@10 |
 |--------|-----------|
 | BM25 solo | 0.78 |
 | HNSW solo | 0.89 |
-| **RRF (híbrido)** | **0.94** |
+| **RRF (h├¡brido)** | **0.94** |
 
 ## See Also
 
-- [BM25]] — Lexical ranking
-- [[hnsw]] — Vector ranking
-- [[vectors]] — Embeddings for semantic search
-- [[rag]] — Hybrid-search main use case
+- [BM25]] ΓÇö Lexical ranking
+- [hnsw](./hnsw.md) ΓÇö Vector ranking
+- [vectors](./vectors.md) ΓÇö Embeddings for semantic search
+- [rag](./rag.md) ΓÇö Hybrid-search main use case
 
 ---
 

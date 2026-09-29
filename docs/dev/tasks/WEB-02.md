@@ -1,3 +1,8 @@
+---
+title: "WEB-02 — Benchmarks propios en /benchmarks (plan 2026-09-07-backlog-triage, Task 7)"
+kind: task
+---
+
 # WEB-02 — Benchmarks propios en /benchmarks (plan 2026-09-07-backlog-triage, Task 7)
 
 > Plan: `docs/dev/plans/2026-09-07-backlog-triage.md` (Task 7, Wave2)

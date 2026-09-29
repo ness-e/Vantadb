@@ -1,24 +1,24 @@
 ---
-title: "busqueda-lexica"
-type: glossary-entry
+title: busqueda-lexica
+kind: glossary
 status: stable
-tags: [glosario, búsqueda, léxica, bm25, text]
-last_reviewed: 2026-09-15
+description: "La busqueda-lexica es una técnica de recuperación de información basada en la coincidencia exacta de términos (keywords) entre la consulta y los documentos, utilizando modelos estadísticos como BM25 para calcular la relevancia"
 aliases: [lexical search, text search, keyword search, BM25]
+tags: [glosario, busqueda, lexica, bm25, text]
 ---
 
 # busqueda-lexica
 
 ## Definición
 
-La **busqueda-lexica** es una técnica de recuperación de información basada en la coincidencia exacta de términos (keywords) entre la consulta y los documentos, utilizando modelos estadísticos como [BM25](BM25.md) para calcular la relevancia.
+La **busqueda-lexica** es una técnica de recuperación de información basada en la coincidencia exacta de términos (keywords) entre la consulta y los documentos, utilizando modelos estadísticos como [BM25](./bm25.md) para calcular la relevancia.
 
 ## Diferencias con busqueda-vectorial
 
 | Característica | busqueda-lexica | busqueda-vectorial |
 |----------------|-----------------|-------------------|
 | **Tipo** | Coincidencia exacta | Similitud semántica |
-| **Modelo** | [BM25](BM25.md), TF-IDF | Embeddings neuronales |
+| **Modelo** | [BM25](./bm25.md), TF-IDF | Embeddings neuronales |
 | **Fuerza** | Keywords específicos | Significado contextual |
 | **Debilidad** | Sinónimos, polisemia | Términos exactos |
 | **Velocidad** | Rápida (índice invertido) | Media (ANN) |
@@ -141,7 +141,7 @@ results_vector = db.search(
 )
 # Encuentra documentos semánticamente similares
 
-# Híbrida ([RRF](RRF.md))
+# Híbrida ([RRF](./rrf.md))
 results_hybrid = db.search(
     namespace="default",
     query_vector=embed(query),
@@ -161,7 +161,7 @@ results_hybrid = db.search(
 
 ## Véase También
 
-- [BM25](BM25.md) - Algoritmo de scoring
+- [BM25](./bm25.md) - Algoritmo de scoring
 - [busqueda-hibrida](hybrid-search.md) - Combinación con vectorial
-- [RRF](RRF.md) - Fusión de rankings
-- [HNSW](HNSW.md) - Índice vectorial
+- [RRF](./rrf.md) - Fusión de rankings
+- [HNSW](./hnsw.md) - Índice vectorial

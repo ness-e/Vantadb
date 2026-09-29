@@ -1,3 +1,9 @@
+---
+title: "DESKTOP-27: Docs + ADR Vanta Studio — README desktop + ARCHITECTURE.md modelo real (transporte pluggable)"
+kind: task
+description: "Callers: docs/user/desktop/ (nuevo), docs/dev/architecture/adr/"
+---
+
 # DESKTOP-27: Docs + ADR Vanta Studio — README desktop + ARCHITECTURE.md modelo real (transporte pluggable)
 
 ## Metadata
@@ -8,7 +14,7 @@
 
 ## Blast Radius
 Callers: docs/user/desktop/ (nuevo), docs/dev/architecture/adr/
-Callees: ADR-026, ADR-027, ADR-028 (ya existen)
+Callees: ADR-0026, ADR-0027, ADR-0028 (ya existen)
 Implicaciones: Documentación completa del modelo Studio para usuarios y desarrolladores
 
 ## Spec

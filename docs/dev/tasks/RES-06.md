@@ -1,3 +1,9 @@
+---
+title: "RES-06 — docs/api/scores follow-up bench (vantadb-ts bench, docs/api/scores) — Wave3"
+kind: task
+description: "Disjoint garantizado: no tocar docs/user/operations/ (GOV-C6) — verificado git diff --name-only no lista docs/user/operations"
+---
+
 # RES-06 — docs/api/scores follow-up bench (vantadb-ts bench, docs/api/scores) — Wave3
 
 ## Metadata

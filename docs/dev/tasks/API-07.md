@@ -1,3 +1,9 @@
+---
+title: "API-07: W6 CLI — POSIX + `--json` global + flags simétricos"
+kind: task
+description: "--help × comando capturado (script, exit 0 por comando) Y --json en TODOS con salida completa (diff humano vs json: json parsea + payload íntegro sin ...) Y count sin DB → exit≠0 Y rg \\"println!\\(\\\\"{count}\\\\"\\)\\" = 0 Y lecturas sin..."
+---
+
 # API-07: W6 CLI — POSIX + `--json` global + flags simétricos
 
 ## Metadata

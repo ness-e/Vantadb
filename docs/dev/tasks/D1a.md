@@ -1,3 +1,8 @@
+---
+title: D1a — Partir batch_insert_with_opts (~339) e ingest get (~282)
+kind: task
+---
+
 # D1a — Partir batch_insert_with_opts (~339) e ingest get (~282)
 
 ## 1. Descubrimiento (auto-detect tipo → codegraph blast radius → web si ambigüedad → baseline `/cleanCA <scope>`)

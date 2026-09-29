@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Anti-Stutter Cierre Directo (sin usuarios, sin aliases)"
+kind: plan
+status: archived
+description: "Status: ⬆️ uphill = 0 · ⬇️ downhill = 4 tasks"
+---
+
 # Plan de Ejecución: Anti-Stutter Cierre Directo (sin usuarios, sin aliases)
 
 > **Campaign ID:** 11eb06a6-bcc5-4894-ad55-697637426a63

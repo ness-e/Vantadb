@@ -1,3 +1,10 @@
+---
+title: "Extracción Documental — INV-020: Evidencia de Arquitectura Milvus"
+kind: research
+status: archived
+description: VANTADB DOC OLD/milvus.md fue el único deep-dive de arquitectura de Milvus en el
+---
+
 # Extracción Documental — INV-020: Evidencia de Arquitectura Milvus
 
 > **ID:** `INV-020`

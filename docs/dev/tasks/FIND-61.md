@@ -1,3 +1,9 @@
+---
+title: "FIND-61: Spike medición insert_lock vs fsync — desglose + decisión batch (vanta-tuner)"
+kind: task
+description: "BENCHMARKS §13 (o subsección spike §13.1 FIND-61) con tabla Always/Never/batch-N (ops/s + p50-ack-latency + ventana de pérdida explícita) + decisión explícita (ABRIR slice con números ≥2× Y FUT-12 decidido, o CERRAR con números) Y fila..."
+---
+
 # FIND-61: Spike medición insert_lock vs fsync — desglose + decisión batch (vanta-tuner)
 
 ## Metadata
@@ -6,7 +12,7 @@
 - **Estado:** ✅ COMPLETO (medido ×2 corridas + §13.1 + decisión CERRAR, 0 código prod)
 - **SDP:** `performance-optimization` + `observability-and-instrumentation` + `source-driven-development` + `doubt-driven-development` cargadas vía `skill` (base fija del agente vanta-tuner §9). Lifecycle mapping + grep manifest: `campaign_discover_skills_v2` (phase BUILD, keywords benchmark/throughput/fsync/insert_lock/batching/WAL/tracing/metrics) devolvió 8 (campaign-executor, source-driven-development, doubt-driven-development, incremental-implementation, test-driven-development, context-engineering, frontend-ui-engineering, api-and-interface-design) — filtradas a las 4 del agente + `performance-optimization`/`observability-and-instrumentation` por keywords (las de frontend/TDD/incremental no aplican a spike 0-prod-code; TDD N/A con rationale: el spike mide, no implementa lógica). Keywords: `insert_lock`, `fsync`, `SyncMode`, `batching`, `WAL ordering`, `ERR-010`, `bench §13`.
 - **Sub-agente / Ruta:** vanta-tuner (spike MEDICIÓN — NO implementa, NO optimiza sin bench A/B Regla 9)
-- **Área:** `benches/ingestion_concurrent.rs` (solo lectura + extensión bench-only), `docs/user/operations/BENCHMARKS.md` §13 (subsección spike), `docs/dev/architecture/adr/ADR-037-insert-lock-granularity.md` (contexto), `src/storage/engine/txn.rs:119-213` (solo lectura ERR-010). NADA en `src/` se escribe. NADA en `Cargo.toml`.
+- **Área:** `benches/ingestion_concurrent.rs` (solo lectura + extensión bench-only), `docs/user/operations/BENCHMARKS.md` §13 (subsección spike), `docs/dev/architecture/adr/ADR-0037-insert-lock-granularity.md` (contexto), `src/storage/engine/txn.rs:119-213` (solo lectura ERR-010). NADA en `src/` se escribe. NADA en `Cargo.toml`.
 - **Paralelo declarado:** FUT-12 (mitad WAL, P24 ❌ Sin implementar — gate 2/2 pendiente, ver Gate de salida). NO tocar archivos de otros agentes. NO stagear `completions/`, `Cargo.lock`, `.opencode`; NO tocar `stash@{0}` (14 stashes en develop, verificado `git stash list`).
 
 ## Gate D (question-gates.md) — NO dispara
@@ -19,14 +25,14 @@
 - `src/storage/wal.rs:8-25` `init_wal`: `flush_threshold = config.flush_threshold` → `ShardedWal::new_with_buffer(path, shards, sync_mode, buf, threshold)` — plumbing confirmado.
 - `src/wal_sharded.rs:133-235`: `batch_append(Vec<WalRecord>)` agrupa por shard (moved, no clones) → 1 lock + 1 write_all + ≤1 maybe_sync por shard. Por op individual (`append`) = 1 lock + 1 write + maybe_sync por op.
 - `src/storage/engine/insert.rs:36-117` `insert()`: WAL `append` + `apply_insert` + `drain_hnsw_batch_locked` bajo UN `insert_lock` (ERR-010 L92-116). `batch_insert_with_opts()` (L517-805): fases 3-4 (WAL `batch_append` + KV `write_batch` + HNSW bulk `add_with_level` con RNG local seed 42) bajo UN guard (L750); `skip_wal` (L753) y `InsertMode::{Incremental,Rebuild,Auto}` + `BatchInsertOptions { skip_existing_check, skip_wal, insert_mode, incremental_threshold }` (`ops.rs:11-60`).
-- `src/storage/engine/txn.rs:119-213` `commit_transaction()`: WAL `batch_append([Begin+ops+Prepare])` (L159-161) + apply loop (`apply_insert_with_txn`/`apply_delete`, L167-195) + `Commit` marker (L208-210) — **SIN `acquire_insert_lock` en ningún punto** (solo `active_txns`/`txn_buffers` locks + `try_push` oportunista dentro de apply). Contraste: todos los demás paths mutantes lo toman (insert, batch_insert, delete, flush, consolidate, rebuild...). Hueco ERR-010 colateral de ADR-037 confirmado por lectura.
+- `src/storage/engine/txn.rs:119-213` `commit_transaction()`: WAL `batch_append([Begin+ops+Prepare])` (L159-161) + apply loop (`apply_insert_with_txn`/`apply_delete`, L167-195) + `Commit` marker (L208-210) — **SIN `acquire_insert_lock` en ningún punto** (solo `active_txns`/`txn_buffers` locks + `try_push` oportunista dentro de apply). Contraste: todos los demás paths mutantes lo toman (insert, batch_insert, delete, flush, consolidate, rebuild...). Hueco ERR-010 colateral de ADR-0037 confirmado por lectura.
 - `src/storage/engine/maintenance.rs:36-93` `flush()`: guard ERR-010 `[drain → serialize → count checkpoint_seq → write]` (L47-48); `checkpoint_seq` DESPUÉS de serializar (L67-93). `ops.rs:124-204` `flush_pending_hnsw` / `drain_hnsw_batch_locked` / `try_push_pending_hnsw` (oportunista, nunca bloquea).
 - `src/backends/fjall_backend.rs:234-243` `flush()`: `persist(PersistMode::SyncAll)` = fsync datos+metadata; pero `insert()` per-op NO llama `backend.flush()` — el único fsync per-op es el WAL `maybe_sync`. Aislar WAL-fsync aísla el techo.
-- `docs/user/operations/BENCHMARKS.md` §13 (matriz + post-FIND-57 111.5 + nota FIND-59) y `ADR-037` (matriz a/b/c/d, decisión (d), gate FIND-61: batch ≥2× + FUT-12 para abrir slice).
+- `docs/user/operations/BENCHMARKS.md` §13 (matriz + post-FIND-57 111.5 + nota FIND-59) y `ADR-0037` (matriz a/b/c/d, decisión (d), gate FIND-61: batch ≥2× + FUT-12 para abrir slice).
 - `docs/dev/backlog-futuro.md` P24 FUT-12: ❌ Sin implementar (WAL fsync-batching, requiere decisión de política de sync antes de implementar). Gate 2/2 YA pendiente al abrir el spike → salvo decisión FUT-12 durante el timebox, la salida es CERRAR con números.
 
 ## Impacto mapeado (Regla 0)
-- **Archivos leídos completos:** benches/ingestion_concurrent.rs, ingestion.rs, txn.rs, insert.rs (parcial 30-120/495-840), ops.rs (parcial 1-80/120-210), maintenance.rs (parcial 30-100), wal.rs (parcial 210-440), wal_sharded.rs (parcial 130-260), storage/wal.rs, config.rs (parcial SyncMode/flush_threshold/builders), fjall_backend.rs (parcial flush), BENCHMARKS §13, ADR-037, Backlog L220 + P24 FUT-12, performance-checklist.md, observability-checklist.md, definition-of-done.md.
+- **Archivos leídos completos:** benches/ingestion_concurrent.rs, ingestion.rs, txn.rs, insert.rs (parcial 30-120/495-840), ops.rs (parcial 1-80/120-210), maintenance.rs (parcial 30-100), wal.rs (parcial 210-440), wal_sharded.rs (parcial 130-260), storage/wal.rs, config.rs (parcial SyncMode/flush_threshold/builders), fjall_backend.rs (parcial flush), BENCHMARKS §13, ADR-0037, Backlog L220 + P24 FUT-12, performance-checklist.md, observability-checklist.md, definition-of-done.md.
 - **Referencias hacia dentro:** el prototype batch bench-only llamará `batch_insert_with_opts` (ya ERR-010-conforme, UN guard) o acumulará N tasks y hará 1 `batch_append` lógico — NO tocará `commit_transaction` (path sin lock). El bench `Never*` usará `open_with_config` con `VantaConfig::default().with_sync_mode(Never).with_flush_threshold(HUGE)` — solo harness.
 - **Referencias entrantes:** ningún caller productivo depende del bench; `AsyncIngestionPipeline::process` sigue `engine.insert` (default intacto por PROHIBIDO cambiar defaults).
 - **Veredicto:** BAJO y contenido. 0 `src/`, 0 `Cargo.toml`, 0 defaults. Reversible por construcción (docs + bench). Gate Regla 0 ✅ — se puede entrar a ACT (solo bench/docs).
@@ -38,7 +44,7 @@ BENCHMARKS §13 (o subsección spike `§13.1 FIND-61`) con tabla Always/Never*/b
 ### Step 1: A/B Always vs Never* (desglose lock vs fsync) — bench-only
 - **Acción:** en `benches/ingestion_concurrent.rs` (o harness auxiliar bench-only si el flag lo requiere) abrir el engine con `open_with_config`: (A) `SyncMode::Always` (≈ baseline §13, revalidar ~111.5 ops/s p1/w1) vs (B) `SyncMode::Never + flush_threshold=Some(1_000_000)` (`Never*`, WAL bytes sin fsync = solo lock+HNSW+memcpy). Misma matriz mínima p1/w1 (+ p1/w4 como testigo convoy). ×2 corridas + mediana (regla §13). Registrar ops/s por celda. Desglose: `t_fsync ≈ 1/opsA − 1/opsB` por op.
 - **Verify:** tabla A/B con 2 corridas + mediana; `cargo bench -p vantadb --bench ingestion_concurrent --features async-ingestion -- "p1/1"` compila y corre.
-- **Estado:** ✅ DONE (2026-09-04 — Run B: Always 97 / Never* p1w1 103 / Never* p1w4 63; Run C: Always 96 / Never* p1w1 93 / Never* p1w4 60; medianas: Always **96.5**, Never* **98.0** (+1.6%), Never* p1w4 **61.5** (−37% convoy sin fsync). `t_fsync ≈ 0.16 ms/op ~1.5%` — lock+HNSW-dominado, revisa "fsync-dominado" acotado de ADR-037 con evidencia; decisión (d) intacta).
+- **Estado:** ✅ DONE (2026-09-04 — Run B: Always 97 / Never* p1w1 103 / Never* p1w4 63; Run C: Always 96 / Never* p1w1 93 / Never* p1w4 60; medianas: Always **96.5**, Never* **98.0** (+1.6%), Never* p1w4 **61.5** (−37% convoy sin fsync). `t_fsync ≈ 0.16 ms/op ~1.5%` — lock+HNSW-dominado, revisa "fsync-dominado" acotado de ADR-0037 con evidencia; decisión (d) intacta).
 
 ### Step 2: Prototype micro-batching bench-only N={8,16,32} + p50-ack-latency + ventana de pérdida
 - **Acción:** SOLO en el pipeline del harness (flag bench-only, nunca `src/ingestion.rs`): acumular N `IngestionTask` → 1 `batch_insert_with_opts` (`skip_existing_check=true` IDs frescos, `skip_wal=false`, `InsertMode::Incremental`) bajo UN guard. Medir por N: ops/s end-to-end + p50-ack-latency (tiempo submit→ack por task dentro del batch: el primero espera al batch completo) + ventana de pérdida explícita (N writes ante crash entre batches; con `skip_wal=false` la ventana es N ops en memoria no-acked, NO durables). Comparar contra §13 (111.5). Gate ≥2× = ≥223 ops/s.
@@ -61,7 +67,7 @@ BENCHMARKS §13 (o subsección spike `§13.1 FIND-61`) con tabla Always/Never*/b
 - **Estado:** ✅ DONE (2026-09-04 — bench-test 12/12 Success exit 0 + lib ingestion 1/0 + clippy bench-scope 0 + fmt 0 + Backlog sin fila (header 104) + memory decisions + commit scoped docs/bench `perf(spike): ... (FIND-61)`; `.opencode` (task file) sin stagear por precedente FIND-59; stash@{0} intacto; completions/Cargo.lock no tocados)
 
 ## Dependencias
-- FIND-59/ADR-037 (decisión (d), baseline §13 111.5) — landed. FUT-12 (política ventana de pérdida) — ❌ Sin implementar, gate 2/2 pendiente. RES-03/FIND-57 (harness + matriz) — landed.
+- FIND-59/ADR-0037 (decisión (d), baseline §13 111.5) — landed. FUT-12 (política ventana de pérdida) — ❌ Sin implementar, gate 2/2 pendiente. RES-03/FIND-57 (harness + matriz) — landed.
 
 ## Notas
 - Metric-honesty (Regla 2b): sin artifacts el scorecard es `not measured`; cada hallazgo es `potential impact` hasta que el bench lo mida. Bench ≠ live: los números son sintéticos (BATCH=400 DIM=16 fjall tempdir Win11), no usuarios reales.

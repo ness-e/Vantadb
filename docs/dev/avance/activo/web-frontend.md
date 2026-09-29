@@ -1,10 +1,8 @@
 ---
-title: "Avance — Web Frontend"
-type: domain-log
+title: Avance — Web Frontend
+kind: review
 status: active
 tags: [vantadb, avance, web, frontend, seo, docs-site]
-last_reviewed: 2026-08-07
-aliases: []
 ---
 
 # Avance — Web Frontend

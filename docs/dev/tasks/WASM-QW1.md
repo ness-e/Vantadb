@@ -1,3 +1,9 @@
+---
+title: "TASK WASM-QW1: Fix OpfsFile::append sobreescribe desde offset 0"
+kind: task
+description: Callers → Callees → Implicaciones
+---
+
 # TASK WASM-QW1: Fix OpfsFile::append sobreescribe desde offset 0
 
 ## Metadata

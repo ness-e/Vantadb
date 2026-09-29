@@ -1,3 +1,9 @@
+---
+title: "TECH-02 — Fix wrapper TS `reindexHnswFromText`"
+kind: task
+description: "Estado: ✅ COMPLETED"
+---
+
 # TECH-02 — Fix wrapper TS `reindexHnswFromText`
 
 **Estado:** ✅ COMPLETED

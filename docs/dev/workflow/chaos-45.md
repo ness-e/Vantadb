@@ -1,11 +1,9 @@
 ---
 title: "`chaos.yml` — Chaos: Failpoint Injection & Resilience Tests"
-type: workflow
+kind: runbook
 status: active
+description: "Ejecuta los tests de caos de VantaDB con inyección de failpoints para verificar resiliencia ante fallos inyectados (errores de I/O, panics en puntos críticos, cortes) durante operaciones normales"
 tags: [vantadb, ci, chaos]
-last_reviewed: 2026-09-15
-aliases: []
-related: [".github/workflows/chaos.yml"]
 ---
 
 # `chaos.yml` — Chaos: Failpoint Injection & Resilience Tests

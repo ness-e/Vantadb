@@ -1,10 +1,11 @@
 ---
 title: Python SDK Documentation
-type: api
+kind: reference
 status: active
+description: "Note: For more details on search execution, see Hybrid Search"
 tags: [vantadb, api]
-last_reviewed: 2026-09-15
-aliases: []
+type: api
+last_reviewed: "2026-09-15"
 related: [TS_SDK.md, NODE_SDK.md, EMBEDDED_SDK.md, BINDINGS_NAMESPACES.md]
 ---
 
@@ -46,16 +47,17 @@ db.put(
 )
 
 # Hybrid search (memory API)
-results = db.search(
+# `search()` returns a plain Python list of `SearchHit` objects.
+hits = db.search(
     namespace="agent/main",
     text_query="What display mode does the user prefer?",
     query_vector=[0.1] * 384,
 )
-print(results)
+print(hits)
 
 # Generate a snippet highlighting the match
-if results and results.get("records"):
-    payload = results["records"][0]["record"]["payload"]
+if hits:
+    payload = hits[0].payload
     snippet = db.generate_snippet(
         payload=payload,
         text_query="display mode",
@@ -63,7 +65,7 @@ if results and results.get("records"):
     )
     print(f"Snippet: {snippet}")
 ```
-*Note: For more details on search execution, see [[hybrid-search|Hybrid Search]].*
+*Note: For more details on search execution, see [Hybrid Search](../user/glosario/hybrid-search.md).*
 
 ## Import name
 
@@ -76,7 +78,7 @@ import vantadb
 `import vantadb_py` still works (it points at the same compiled module) but
 emits a `DeprecationWarning`. The legacy name will be removed in the next minor
 release (0.6.0). The distribution on PyPI is `vantadb-py`; the importable
-module is `vantadb`. See [ADR-030](../dev/architecture/adr/ADR-030-brand-identity-naming-convention.md)
+module is `vantadb`. See [ADR-0030](../dev/architecture/adr/ADR-0030-brand-identity-naming-convention.md)
 for the full brand-identity decision.
 
 ## Domain Sub-clients
@@ -307,7 +309,7 @@ hits = db.search("ns", [0.1] * 384, query_sparse={7: 1.5, 42: 0.75})
 
 The `method` parameter accepts `"ivf"`, `"scann"`, `"flat"`, or `"hnsw"` to explicitly override the dense-vector index backend. `None` (default) keeps automatic engine routing.
 
-The `exclude_superseded` parameter (default `False`) controls whether superseded records are filtered from results (ADR-028).
+The `exclude_superseded` parameter (default `False`) controls whether superseded records are filtered from results (ADR-0028).
 #### `search_vector()`
 ```python
 db.search_vector(
@@ -456,7 +458,7 @@ db.supersede(
     new_key: str,
 ) -> None
 ```
-Mark an existing memory record as superseded by another existing record (ADR-028). The old record keeps its data but gains `superseded_by`/`superseded_at_ms` and can be hidden from search/list with `exclude_superseded=True`. Raises `RuntimeError` if either key is missing, if `old_key == new_key`, or if the old record is already superseded. GIL-released.
+Mark an existing memory record as superseded by another existing record (ADR-0028). The old record keeps its data but gains `superseded_by`/`superseded_at_ms` and can be hidden from search/list with `exclude_superseded=True`. Raises `RuntimeError` if either key is missing, if `old_key == new_key`, or if the old record is already superseded. GIL-released.
 
 ```python
 db.supersede(namespace="agents/summary", old_key="draft-v1", new_key="draft-v2")
@@ -1126,13 +1128,18 @@ all use 128-bit unsigned integers.
 
 ## Error Handling
 
-Every VantaDB error raised by this binding is an instance of `VantaError`,
+Every VantaDB error raised by this binding is an instance of `Error`,
 which inherits from `RuntimeError`. This keeps existing `except RuntimeError` /
 `except Exception` callers working while letting you catch the specific family:
 
 ```python
+except Error:
+    ...
+```
+
+```python
 from vantadb import (
-    VantaError,
+    Error,
     NotFoundError,
     ValidationError,
     CorruptError,
@@ -1156,26 +1163,26 @@ except NotFoundError as exc:
 ### Hierarchy
 
 ```
-VantaError (base, inherits RuntimeError)
-├── NotFoundError          # VantaError::NodeNotFound, VantaError::NotFound
-├── ValidationError        # VantaError::DimensionMismatch, DuplicateNode, Validation, InvalidInput, IqlParse, NoVectorForKey, UnsupportedOperation, CycleDetected, NodeIdCollision
-├── CorruptError           # VantaError::IncompatibleFormat, WALVersionMismatch, Serialization, Schema, Restore, Backup
-├── StorageError           # VantaError::Io, Wal, Backend, Cli, Search, Runtime
-├── ConflictError          # VantaError::ExecutionConflict
-├── UnsupportedError       # VantaError::UnsupportedOperation (typed alias)
-├── ResourceLimitError     # VantaError::ResourceLimit
-├── BusyError              # VantaError::DatabaseBusy, VantaError::NotInitialized
-├── NoVectorError          # VantaError::NoVectorForKey
-└── TimeoutError           # VantaError::Timeout
+Error (base, inherits RuntimeError)
+├── NotFoundError          # Error::NodeNotFound, Error::NotFound
+├── ValidationError        # Error::DimensionMismatch, DuplicateNode, Validation, InvalidInput, IqlParse, NoVectorForKey, UnsupportedOperation, CycleDetected, NodeIdCollision
+├── CorruptError           # Error::IncompatibleFormat, WALVersionMismatch, Serialization, Schema, Restore, Backup
+├── StorageError           # Error::Io, Wal, Backend, Cli, Search, Runtime
+├── ConflictError          # Error::ExecutionConflict
+├── UnsupportedError       # Error::UnsupportedOperation (typed alias)
+├── ResourceLimitError     # Error::ResourceLimit
+├── BusyError              # Error::DatabaseBusy, Error::NotInitialized
+├── NoVectorError          # Error::NoVectorForKey
+└── TimeoutError           # Error::Timeout
 ```
 
 Catch the base class to handle any VantaDB error uniformly:
-`except VantaError:`.
+`except Error:`.
 
 ### Canonical codes (10)
 
 Every error raised through the typed hierarchy carries a `.code` attribute -
-the exact `VANTADB_*` wire value produced by Rust `VantaError::code()`
+the exact `VANTADB_*` wire value produced by Rust `Error::code()`
 (ERR-PY-01; identical strings as on the TS/MCP wire). **Branch on `.code` for
 cross-binding logic; the variant class is for human-readable dispatch only.**
 
@@ -1185,11 +1192,11 @@ cross-binding logic; the variant class is for human-readable dispatch only.**
 | `VANTADB_VALIDATION_ERROR` | `ValidationError`, `ConflictError`, `UnsupportedError`, `NoVectorError` |
 | `VANTADB_INVALID_ARGUMENT` | `ValidationError` (runtime IQL path) |
 | `VANTADB_CORRUPT` | `CorruptError` |
-| `VANTADB_IO_ERROR` | `StorageError`, `VantaError` base (`Cli`/`Search`/`Runtime`) |
+| `VANTADB_IO_ERROR` | `StorageError`, `Error` base (`Cli`/`Search`/`Runtime`) |
 | `VANTADB_RESOURCE_LIMIT` | `ResourceLimitError` |
 | `VANTADB_BUSY` | `BusyError` |
 | `VANTADB_TIMEOUT` | `TimeoutError` |
-| `VANTADB_WASM_ERROR` | `VantaError` base (WASM `Generic` fallback) |
+| `VANTADB_WASM_ERROR` | `Error` base (WASM `Generic` fallback) |
 | `VANTADB_CLOSED` | (handle lifecycle, not raised via `code()`) |
 
 > **Implemented (ERR-CORE-01 + ERR-PY-01):** `.code` carries the prefixed
@@ -1215,13 +1222,13 @@ Example — retry policy with `.retriable`:
 
 ```python
 import time
-from vantadb import VantaError, BusyError
+from vantadb import Error, BusyError
 
 def put_with_retry(db, **kwargs):
     for attempt in range(5):
         try:
             return db.put(**kwargs)
-        except VantaError as exc:
+        except Error as exc:
             if exc.retriable and attempt < 4:
                 time.sleep(0.1 * (2 ** attempt))
                 continue
@@ -1233,7 +1240,7 @@ def put_with_retry(db, **kwargs):
 The Python exception classes are built with PyO3 `create_exception!`, which
 cannot carry methods - so the spec's `exc.to_dict()` is exposed as a
 module-level helper instead (ERR-PY-01 decision). It returns the same plain
-dict shape as the TypeScript `VantaError.toJSON()` so logs and traces line up
+dict shape as the TypeScript `DbError.toJSON()` so logs and traces line up
 across Rust/Python/TS/MCP:
 
 ```python
@@ -1241,7 +1248,7 @@ import vantadb
 
 try:
     db.get_node(...)
-except vantadb.VantaError as exc:
+except vantadb.Error as exc:
     log.error("vanta_error", extra=vantadb.error_to_dict(exc))
     # {
     #   "name": "NotFoundError",
@@ -1262,17 +1269,17 @@ type objects from `vantadb_py`'s - catch them per module.
 
 The binding previously mapped core errors to standard-library exceptions
 (`KeyError`, `ValueError`, `FileNotFoundError`, …). These now raise the typed
-`VantaError` subclasses above. The one behavior change to be aware of:
+`Error` subclasses above. The one behavior change to be aware of:
 
 | Before | After |
 |--------|-------|
 | missing key/node → `KeyError` | `NotFoundError` |
 | validation / duplicate / dimension → `ValueError` | `ValidationError` |
 | file not found / permission / OSError | `StorageError` |
-| other engine errors → `RuntimeError` | `VantaError` (still a `RuntimeError`) |
+| other engine errors → `RuntimeError` | `Error` (still a `RuntimeError`) |
 
 `except RuntimeError` and `except Exception` remain fully compatible because
-`VantaError` is a `RuntimeError`.
+`Error` is a `RuntimeError`.
 
 ## Roadmap (not yet available)
 

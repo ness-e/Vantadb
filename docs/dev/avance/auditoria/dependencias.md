@@ -1,10 +1,8 @@
 ---
-title: "Auditoría — Dependencias"
-type: audit-log
+title: Auditoría — Dependencias
+kind: review
 status: active
 tags: [vantadb, avance, dependencies, deny, dependabot, advisories, cargo]
-last_reviewed: 2026-08-07
-aliases: []
 ---
 
 # Auditoría — Dependencias

@@ -1,3 +1,9 @@
+---
+title: MEM-41 — Generation-log provenance (L1/L2/L3 consultable)
+kind: task
+description: "Plan: docs/dev/plans/2026-08-21-vanta-context-engine.md Task 3 · Ruta: vanta-worker"
+---
+
 # MEM-41 — Generation-log provenance (L1/L2/L3 consultable)
 
 Plan: `docs/dev/plans/2026-08-21-vanta-context-engine.md` Task 3 · Ruta: vanta-worker

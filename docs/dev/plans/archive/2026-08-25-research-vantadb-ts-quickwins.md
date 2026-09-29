@@ -1,3 +1,10 @@
+---
+title: Plan — Quick wins INV-vantadb-ts (2026-08-25)
+kind: plan
+status: archived
+description: MAXCONCURRENT = 3. Sub-agentes NO commitean; lead verifica mecánico y commitea por tarea
+---
+
 # Plan — Quick wins INV-vantadb-ts (2026-08-25)
 
 > **Origen:** `/research vantadb-ts` → `docs/dev/reviews/research-vantadb-ts-20260825.md` (score 7.2/10).

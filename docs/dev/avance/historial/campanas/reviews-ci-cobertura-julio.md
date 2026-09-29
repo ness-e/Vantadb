@@ -1,11 +1,9 @@
 ---
 title: "Reviews julio — clippy, cobertura REV-003, INT/REL, P1/P2 CI"
-type: registro
+kind: review
 status: archived
+description: "Verificación: cargo clippy -p vantadb --all-features 0 warnings, cargo fmt --check clean, 576/577 tests pass"
 tags: [vantadb, avance, campana]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Reviews julio — clippy, cobertura REV-003, INT/REL, P1/P2 CI

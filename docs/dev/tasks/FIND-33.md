@@ -1,3 +1,9 @@
+---
+title: "FIND-33: Snapshot filesystem NO captura backend KV (consistency reopen)"
+kind: task
+description: Archivos leídos completos
+---
+
 # FIND-33: Snapshot filesystem NO captura backend KV (consistency reopen)
 
 ## Metadata

@@ -1,10 +1,10 @@
 ---
 title: "MCP Registry — server.json & ecosystem listings"
-type: operations
+kind: runbook
 status: active
-tags: [vantadb, mcp, registry, ecosystem]
-last_reviewed: 2026-08-29
+description: "This document covers VantaDB's presence in the Model Context Protocol (MCP)"
 aliases: [MCP_REGISTRY, registry-manifest]
+tags: [vantadb, mcp, registry, ecosystem]
 ---
 
 # MCP Registry — `server.json` & ecosystem listings
@@ -105,7 +105,7 @@ parallel manifests in the meantime (Ponytail: don't duplicate state).
 | Schema bump breaks `server.json` validation | `server.json` validator is part of the registry's PR CI. Bump `$schema` URL to latest date when a new version drops. Not a release blocker. |
 | GitHub namespace verification fails | `ness-e` must remain an active GitHub org with admin push access. Confirmed 2026-08-29. |
 | Registry maintainer changes requirements | Spec is followed literally. Read the [official-registry-requirements.md](https://github.com/modelcontextprotocol/registry/blob/main/docs/reference/server-json/official-registry-requirements.md) at submission time — it changes. |
-| A future VantaDB Pro / Enterprise feature conflicts with registry `publish = false` policy | License is Apache-2.0 for the core. The MCP server is part of the core, so registry listing is OK. `vantadb-pro` is a separate artifact (see `docs/dev/architecture/adr/007_open_core_split.md` if it exists, or the open-core rules). |
+| A future VantaDB Pro / Enterprise feature conflicts with registry `publish = false` policy | License is Apache-2.0 for the core. The MCP server is part of the core, so registry listing is OK. `vantadb-pro` is a separate artifact (see `docs/dev/architecture/adr/ADR-0013-oc-licensing-vantadb-pro.md` if it exists, or the open-core rules). |
 
 ## How to update `server.json`
 
@@ -123,6 +123,6 @@ For every release:
 
 - [`docs/api/MCP.md`](../../api/MCP.md) — VantaDB MCP server reference (tools, config, profiles).
 - [`docs/user/operations/EDITOR_INTEGRATIONS.md`](EDITOR_INTEGRATIONS.md) — How to wire VantaDB MCP into Cursor, VS Code, OpenCode, etc.
-- [`docs/dev/operations/CI_POLICY.md`](CI_POLICY.md) — CI/certification policy (note: `server.json` is **not** a CI gate today).
+- [`docs/dev/operations/CI_POLICY.md`](../../dev/operations/CI_POLICY.md) — CI/certification policy (note: `server.json` is **not** a CI gate today).
 - [Official MCP registry](https://registry.modelcontextprotocol.io/) — Public listing.
 - [MCP spec](https://modelcontextprotocol.io/) — Protocol definition.

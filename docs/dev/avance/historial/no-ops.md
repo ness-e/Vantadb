@@ -1,10 +1,8 @@
 ---
-title: "Historial — No-ops / SKIPs"
-type: historial
+title: Historial — No-ops / SKIPs
+kind: review
 status: active
 tags: [vantadb, avance, noops, skip, historial]
-last_reviewed: 2026-08-07
-aliases: []
 ---
 
 # Historial — No-ops / SKIPs

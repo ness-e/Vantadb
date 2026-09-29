@@ -1,11 +1,9 @@
 ---
-title: "GraphRAG API"
-type: api
+title: GraphRAG API
+kind: reference
 status: active
+description: GraphRAG runs through the embedded SDK handle (Embedded). The default
 tags: [vantadb, api, graphrag, retrieval]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # GraphRAG API

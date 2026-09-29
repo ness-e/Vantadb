@@ -1,3 +1,9 @@
+---
+title: "HARD-08: SDP v3 — mejoras de búsqueda/lectura/revisión/selección automática de skills (PRE-RUN)"
+kind: task
+description: "bun .opencode/task-system/scripts/sdp-selftest.mjs → 15/15 Y bun .opencode/task-system/scripts/smoke-mcp-sdp.mjs → OK (sdpVersion=v3 + v1 operativo) Y índice 195 skills Y Gate H ✅ (vanta-harness)\""
+---
+
 # HARD-08: SDP v3 — mejoras de búsqueda/lectura/revisión/selección automática de skills (PRE-RUN)
 
 ## Metadata

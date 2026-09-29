@@ -1,3 +1,9 @@
+---
+title: "FIND-91: Fallout F3X — `tests/durability_recovery.rs:433` sobre `dyn IndexPort` (E0609)"
+kind: task
+description: "Saldo neto de deuda por PR: Sin deuda — el fix elimina deuda (test roto por F3X)"
+---
+
 # FIND-91: Fallout F3X — `tests/durability_recovery.rs:433` sobre `dyn IndexPort` (E0609)
 
 ## Metadata

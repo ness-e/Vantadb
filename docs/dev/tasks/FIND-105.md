@@ -1,3 +1,9 @@
+---
+title: "FIND-105: Comando único de instalación (one-liner por OS + wizard chain)"
+kind: task
+description: sh scripts/install.sh --dry-run y pwsh -NoProfile -File scripts/install.ps1 -DryRun salen 0 mostrando la cadena instalador→wizard sin efectos; Select-String halla one-liner por OS en README.md y docs/user/QUICKSTART.md; ambos...
+---
+
 # FIND-105: Comando único de instalación (one-liner por OS + wizard chain)
 
 ## Metadata

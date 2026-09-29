@@ -1,12 +1,11 @@
 ---
-title: "UX/UI para edición y administración de datos"
-type: research
+title: UX/UI para edición y administración de datos
+kind: research
 status: stable
+description: Investigación de campo (2024–2026) sobre cómo editar y administrar datos estructurados y
 tags: [vantadb, research, data-editor, ux]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
+
 # UX/UI para edición y administración de datos
 
 Investigación de campo (2024–2026) sobre cómo editar y administrar datos estructurados y

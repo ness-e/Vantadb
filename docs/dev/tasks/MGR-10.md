@@ -1,3 +1,9 @@
+---
+title: "MGR-10: research-doc — bitemporalidad (dim 5)"
+kind: task
+description: "research-doc cerrado con modelo valid-time vs transaction-time, tradeoffs (append-only vs invalidación + storage del historial) y plan de migración/backfill determinista, listo para SCH-01\""
+---
+
 # MGR-10: research-doc — bitemporalidad (dim 5)
 
 ## Metadata
@@ -15,13 +21,13 @@
 | Dirección | Módulos |
 |-----------|---------|
 | Callers | ninguno (2 archivos NUEVOS: research-doc + task file; `src/` no se toca) |
-| Callees | ninguno (docs-only; se apoya en lectura de `src/sdk/types/record.rs`, `src/sdk/version_history.rs`, `src/schema.rs`, `src/sdk/serialization/mod.rs`, `src/migration.rs`, ADR-028) |
-| Implicaciones | Cero cambio de contrato/API/serialización. El research-doc es insumo de SCH-01 (ADR-046) → SCH-02/03/06. Los consumidores nuevos serán por path (SCH-01 cita `docs/dev/research/mgr-10-bitemporalidad.md`). |
+| Callees | ninguno (docs-only; se apoya en lectura de `src/sdk/types/record.rs`, `src/sdk/version_history.rs`, `src/schema.rs`, `src/sdk/serialization/mod.rs`, `src/migration.rs`, ADR-0028) |
+| Implicaciones | Cero cambio de contrato/API/serialización. El research-doc es insumo de SCH-01 (ADR-0046) → SCH-02/03/06. Los consumidores nuevos serán por path (SCH-01 cita `docs/dev/research/mgr-10-bitemporalidad.md`). |
 
 ## Impacto mapeado (Regla 0)
 
 - **Archivos leídos (completos o regiones citadas):**
-  - `src/sdk/types/record.rs` (completo, 553 L), `src/sdk/version_history.rs` (:1-160, :219-250, :252+), `src/schema.rs` (completo), `src/sdk/api/memory.rs` (:383-432, :520-609), `src/sdk/serialization/mod.rs` (:20-30, :340-357, :446-465, :480-539), `src/cli_handlers/migrate.rs` (:1-140, :165-279), `src/migration.rs` (:1-60, `plan_all` :119, `check_integrity` :359), `src/cli.rs` (:92-136, :395-448), `docs/dev/architecture/adr/ADR-028-core-decay-supersession.md` (completo), `docs/dev/research/mgr-19-benchmarks-baseline-suites.md` (convención, completo), `docs/dev/Backlog.md` (filas :51,:55,:839-847,:932-946), plan master-roadmap L560-834.
+  - `src/sdk/types/record.rs` (completo, 553 L), `src/sdk/version_history.rs` (:1-160, :219-250, :252+), `src/schema.rs` (completo), `src/sdk/api/memory.rs` (:383-432, :520-609), `src/sdk/serialization/mod.rs` (:20-30, :340-357, :446-465, :480-539), `src/cli_handlers/migrate.rs` (:1-140, :165-279), `src/migration.rs` (:1-60, `plan_all` :119, `check_integrity` :359), `src/cli.rs` (:92-136, :395-448), `docs/dev/architecture/adr/ADR-0028-core-decay-supersession.md` (completo), `docs/dev/research/mgr-19-benchmarks-baseline-suites.md` (convención, completo), `docs/dev/Backlog.md` (filas :51,:55,:839-847,:932-946), plan master-roadmap L560-834.
   - Evidencia de gap: `rg "valid_at|valid_from|bitemporal|as_of" src/` → **0 hits (exit 1)**; `rg "point-in-time" src/` → solo MVCC/métricas/snapshots (txn.rs:227, rocksdb_backend.rs:350, metrics/core/mod.rs:622 …).
 - **Archivos referenciados hacia dentro (imports/dependencias):** N/A — archivos nuevos de documentación; no importan código.
 - **Archivos que referencian a los editados (referencias entrantes):** el plan master-roadmap (§Task 23 / §Task 26 SCH-01) nombra el path `docs/dev/research/mgr-10-bitemporalidad.md`; `docs/dev/tasks/MGR-19.md` fija la convención (research-doc + Cierre MGR). Ningún otro.
@@ -105,12 +111,12 @@
 ## Fases explícitas — SECURITY | PERFORMANCE (P2-07)
 
 - [x] **SECURITY** — N/A justificado: doc-only; no toca trust boundaries ni input de usuario; no agrega dependencias.
-- [x] **PERFORMANCE** — N/A justificado: doc-only; cero hot path. El diseño propone filtros en assembly (patrón ADR-028 "no index change") y difiere índices temporales a v1.0 explícitamente.
+- [x] **PERFORMANCE** — N/A justificado: doc-only; cero hot path. El diseño propone filtros en assembly (patrón ADR-0028 "no index change") y difiere índices temporales a v1.0 explícitamente.
 
 ## Steps
 
 ### Step 1: Discovery + re-verificación de gap
-- **Archivos:** `src/sdk/types/record.rs`, `src/sdk/version_history.rs`, `src/schema.rs`, `src/sdk/serialization/mod.rs`, `src/migration.rs`, `src/cli.rs`, ADR-028, Backlog/plan
+- **Archivos:** `src/sdk/types/record.rs`, `src/sdk/version_history.rs`, `src/schema.rs`, `src/sdk/serialization/mod.rs`, `src/migration.rs`, `src/cli.rs`, ADR-0028, Backlog/plan
 - **Acción:** confirmar gap (0 hits de dominio) + mapear los 4 formatos de persistencia y la maquinaria `vanta migrate`
 - **Verify:** `rg -n "valid_at|valid_from|bitemporal|as_of" src/` → exit 1 (0 hits) ✅ ; `rg -n "point-in-time" src/` → solo storage/métricas ✅
 - **Estado:** ✅ DONE

@@ -1,42 +1,44 @@
 ---
-title: "Compaction"
-type: glossary-entry
+title: Compaction
+kind: glossary
 status: stable
+description: "Proceso de reorganizaci├│n del almacenamiento para recuperar espacio, reducir fragmentaci├│n y mantener rendimiento de lectura"
+aliases: [compaction, compactaci├│n, layout-compaction, compact]
 tags: [glosario, storage, mantenimiento, rendimiento, lsm]
-last_reviewed: 2026-09-15
-aliases: [compaction, compactación, layout-compaction, compact]
-description: "Proceso de reorganización del almacenamiento para recuperar espacio, reducir fragmentación y mantener rendimiento de lectura"
+type: glossary-entry
+last_reviewed: "2026-09-15"
 ---
+
 
 # Compaction
 
-## Definición
+## Definici├│n
 
-La **compaction** (compactación) es el proceso de reorganizar los datos en disco para eliminar registros obsoletos, fusionar archivos fragmentados y optimizar el rendimiento de lectura. En VantaDB existen dos tipos principales: compactación de almacenamiento LSM y compactación de layout del vector store.
+La **compaction** (compactaci├│n) es el proceso de reorganizar los datos en disco para eliminar registros obsoletos, fusionar archivos fragmentados y optimizar el rendimiento de lectura. En VantaDB existen dos tipos principales: compactaci├│n de almacenamiento LSM y compactaci├│n de layout del vector store.
 
 ## Tipos de Compaction en VantaDB
 
 ### 1. Compaction de Layout (Vector Store)
 
-Reorganiza los nodos del grafo HNSW en disco siguiendo un orden BFS desde el entry point del índice, agrupando nodos vecinos en regiones contiguas para minimizar page faults durante búsquedas **[[mmap]]**:
+Reorganiza los nodos del grafo HNSW en disco siguiendo un orden BFS desde el entry point del ├¡ndice, agrupando nodos vecinos en regiones contiguas para minimizar page faults durante b├║squedas **[mmap](./mmap.md)**:
 
 ```rust
 // src/storage/engine/maintenance.rs
 pub fn trigger_compaction(&self) -> Result<()> {
-    // Mide la fragmentación por tombstones contra
+    // Mide la fragmentaci├│n por tombstones contra
     // segment_optimizer.vacuum_threshold_pct (default 15%) y delega a
-    // merge_segments(), que compacta vía compact_layout_bfs().
+    // merge_segments(), que compacta v├¡a compact_layout_bfs().
 }
 
 pub fn compact_layout_bfs(&self) -> Result<u64> {
-    // Compactación que itera el grafo HNSW en BFS
+    // Compactaci├│n que itera el grafo HNSW en BFS
     // y reescribe los nodos en ese orden
 }
 ```
 
 ### 2. Compaction de WAL
 
-Archiva el WAL actual y comienza uno nuevo, eliminando registros de mutación ya aplicados al almacenamiento canónico:
+Archiva el WAL actual y comienza uno nuevo, eliminando registros de mutaci├│n ya aplicados al almacenamiento can├│nico:
 
 ```rust
 // src/sdk/api.rs
@@ -52,8 +54,8 @@ Manejo interno del motor de almacenamiento:
 
 | Backend | Estrategia | Manual |
 |---------|-----------|--------|
-| **[[fjall]]** | Automática (background threads) | No soportada |
-| **[[rocksdb]]** | Automática + manual | `request_compaction()` |
+| **[fjall](./fjall.md)** | Autom├ítica (background threads) | No soportada |
+| **[rocksdb](./rocksdb.md)** | Autom├ítica + manual | `request_compaction()` |
 
 ```rust
 pub fn request_compaction(&self) {
@@ -65,20 +67,20 @@ pub fn request_compaction(&self) {
 }
 ```
 
-## Cuándo Ejecutar Compaction
+## Cu├índo Ejecutar Compaction
 
-| Señal | Acción |
+| Se├▒al | Acci├│n |
 |-------|--------|
-| Fragmentación > `vacuum_threshold_pct` (default 15%) | `trigger_compaction()` |
-| WAL crece sin límite | `compact_wal()` |
+| Fragmentaci├│n > `vacuum_threshold_pct` (default 15%) | `trigger_compaction()` |
+| WAL crece sin l├¡mite | `compact_wal()` |
 | Post-import masivo | `compact_layout_bfs()` |
 | Mantenimiento programado | `request_compaction()` |
 
-## Véase También
+## V├⌐ase Tambi├⌐n
 
-- [[lsm-tree]] — Estructura de almacenamiento subyacente
-- [[wal]] — Write-Ahead Log
-- [[fjall]] — Backend con compaction automática
-- [[rocksdb]] — Backend con compaction manual
-- [[mmap]] — Memory-mapped I/O
-- [[persistence]] — Persistencia general
+- [lsm-tree](./lsm-tree.md) ΓÇö Estructura de almacenamiento subyacente
+- [wal](./wal.md) ΓÇö Write-Ahead Log
+- [fjall](./fjall.md) ΓÇö Backend con compaction autom├ítica
+- [rocksdb](./rocksdb.md) ΓÇö Backend con compaction manual
+- [mmap](./mmap.md) ΓÇö Memory-mapped I/O
+- [persistence](./persistence.md) ΓÇö Persistencia general

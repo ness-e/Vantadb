@@ -1,10 +1,9 @@
 ---
 title: VantaDB IQL Reference
-type: api
+kind: reference
 status: active
+description: The parser implements IQL version 1. The version is exposed as IQLVERSION
 tags: [vantadb, api, iql]
-last_reviewed: 2026-09-25
-aliases: []
 ---
 
 # VantaDB IQL Reference

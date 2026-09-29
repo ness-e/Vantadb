@@ -1,10 +1,9 @@
 ---
 title: Deprecations Registry
-type: api
+kind: reference
 status: active
+description: Concrete deprecations of the public API surfaces and their removal windows
 tags: [vantadb, api, deprecation]
-last_reviewed: 2026-09-27
-aliases: []
 ---
 
 # Deprecations Registry

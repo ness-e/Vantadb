@@ -1,11 +1,9 @@
 ---
-title: "Scoring Semantics — VantaDB Official Score Contract"
-type: api
+title: Scoring Semantics — VantaDB Official Score Contract
+kind: reference
 status: active
+description: VantaDB hybrid search combines two independent rankers
 tags: [vantadb, api, scoring, search-scores]
-last_reviewed: 2026-09-26
-aliases: []
-related: []
 ---
 
 # Scoring Semantics — VantaDB Official Score Contract

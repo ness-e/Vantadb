@@ -1,3 +1,9 @@
+---
+title: DESKTOP-06 — Commands CRUD async + ConnectionManager registry
+kind: task
+description: "Reemplazar el placeholder manager: () de AppState por un ConnectionManager"
+---
+
 # DESKTOP-06 — Commands CRUD async + ConnectionManager registry
 
 > Plan: `docs/dev/plans/2026-08-06-desktop-mvp.md` (Task 5)

@@ -1,4 +1,10 @@
-# BND-03 — tiktoken feature-gate `precise-tokens` (enmienda D21 del ADR-29)
+---
+title: "BND-03 — tiktoken feature-gate `precise-tokens` (enmienda D21 del ADR-0029)"
+kind: task
+description: "Task ID: 5 (plan P33 docs/dev/plans/2026-08-22-vanta-ultima-milla.md)"
+---
+
+# BND-03 — tiktoken feature-gate `precise-tokens` (enmienda D21 del ADR-0029)
 
 **Task ID:** 5 (plan P33 `docs/dev/plans/2026-08-22-vanta-ultima-milla.md`)
 **Estado:** ⬜ PENDING → IN PROGRESS
@@ -24,7 +30,7 @@
 Cero cambios de firma pública → callers intactos. Bajo la feature, chars_per_token sigue
 leyéndose en `new()` (validación) → sin dead_code. Default build no toca tiktoken-rs (dep optional).
 
-## Decisión D21 revisada (ADR-029 enmienda)
+## Decisión D21 revisada (ADR-0029 enmienda)
 
 Integrar tiktoken-rs detrás de feature opt-in `precise-tokens`. Default SIN feature =
 chars/3 liviano intacto. Peso binario (+2-6MB) solo paga quien activa la feature.

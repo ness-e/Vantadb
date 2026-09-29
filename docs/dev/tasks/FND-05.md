@@ -1,3 +1,9 @@
+---
+title: "FND-05 — SDK idiomático (no wrapper 1:1 de Rust)"
+kind: task
+description: "Plan: 2026-08-16-wave-p20-tsys.md · Prio: 🟡 · Esfuerzo: 🟡 · Tipo: research/analysis (multi: rust, python, typescript)"
+---
+
 # FND-05 — SDK idiomático (no wrapper 1:1 de Rust)
 
 **Plan:** 2026-08-16-wave-p20-tsys.md · **Prio:** 🟡 · **Esfuerzo:** 🟡 · **Tipo:** research/analysis (multi: rust, python, typescript)

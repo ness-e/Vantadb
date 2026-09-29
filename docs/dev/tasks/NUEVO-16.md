@@ -1,3 +1,9 @@
+---
+title: NUEVO-16 — Product Quantization (roadmap)
+kind: task
+description: "Scoping técnico + investigación de corpus + doc de viabilidad. Decisión: @defer"
+---
+
 # NUEVO-16 — Product Quantization (roadmap)
 
 > **Status:** ✅ COMPLETED 2026-08-05

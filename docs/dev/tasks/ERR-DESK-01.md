@@ -1,3 +1,9 @@
+---
+title: "ERR-DESK-01 - Desktop: preservar HttpErrorKind/code en memory commands"
+kind: task
+description: "Eliminar la degradación: commands/memory.rs:91 memerr = VantaError::Native(e.tostring())"
+---
+
 # ERR-DESK-01 - Desktop: preservar HttpErrorKind/code en memory commands
 
 > **Status:** ✅ COMPLETED (2026-09-02, vanta-worker)

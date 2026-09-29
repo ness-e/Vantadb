@@ -1,3 +1,9 @@
+---
+title: HARD-07 — Review gate mecanizado (reviewer_context ≠ author_context)
+kind: task
+description: "Interpretación operativa del contrato (registrada en Spec): el payload de review es obligatorio para completed; mode=fresh exige reviewercontext no vacío y ≠ authorcontext; mode=degraded bloquea el ACCEPT salvo waiver registrado del..."
+---
+
 # HARD-07 — Review gate mecanizado (reviewer_context ≠ author_context)
 
 ## Metadata

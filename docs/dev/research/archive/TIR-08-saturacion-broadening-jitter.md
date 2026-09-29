@@ -1,3 +1,10 @@
+---
+title: "TIR-08 — Saturación <20% + Broadening/Narrowing + jitter en retry"
+kind: research
+status: archived
+description: "Fecha: 2026-08-17 · Tarea: TIR-08 (read-only) · Fuente: backlog P18"
+---
+
 # TIR-08 — Saturación <20% + Broadening/Narrowing + jitter en retry
 
 **Fecha:** 2026-08-17 · **Tarea:** TIR-08 (read-only) · **Fuente:** backlog P18

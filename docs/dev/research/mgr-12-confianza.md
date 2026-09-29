@@ -1,3 +1,9 @@
+---
+title: "MGR-12 — Confianza: jerarquía asserted/derived, scores por registro y derivación (Cierre MGR)"
+kind: research
+description: Dos ejes ortogonales por registro — nunca confundirlos
+---
+
 # MGR-12 — Confianza: jerarquía asserted/derived, scores por registro y derivación (Cierre MGR)
 
 - **Fecha:** 2026-09-28 · **Tipo:** research/design (cero implementación productiva)
@@ -66,7 +72,7 @@ En cualquier otro caso la escritura es **`asserted`**: un actor (humano, agente,
 | `write_axiom` (namespace `_axioms`) | `asserted` | Regla declarada por el agente |
 | Dream/consolidación resume N episodios → 1 resumen | `derived` | Proceso del motor; padres = episodios |
 | Summarización produce nodo `type=SemanticSummary` | `derived` | Ídem; hoy ya existe el marcador de tipo (`executor.rs:224-227`) |
-| `supersede` (ADR-028) | *(ninguna)* | Supersesión = invalidación temporal, eje ortogonal (MGR-10) |
+| `supersede` (ADR-0028) | *(ninguna)* | Supersesión = invalidación temporal, eje ortogonal (MGR-10) |
 | Iron Axioms (`axioms.rs:24-29`) | *(fuera)* | Constantes del motor, no records |
 | Decaimiento por eviction | *(ninguna)* | Señal de mantenimiento, no procedencia |
 
@@ -215,7 +221,7 @@ Calibración = acuerdo entre el score y la frecuencia empírica de corrección (
 | # | Decisión | Alternativas | Elegido (rationale) |
 |---|---|---|---|
 | 1 | Clase + score separados | solo score / solo clase | **Ambos ortogonales**: la clase responde procedencia (auditable, PROV-O), el score responde confianza; un derived puede ser muy confiable y un asserted dudoso |
-| 2 | Almacenamiento del score | record-only / nodo-only / header + campos reservados | **Header `confidence_score` (ya existe) + `__vanta_*` en relational** (precedente ADR-019/ADR-028): cero cambios de layout en disk header, roundtrip por KV existente |
+| 2 | Almacenamiento del score | record-only / nodo-only / header + campos reservados | **Header `confidence_score` (ya existe) + `__vanta_*` en relational** (precedente ADR-019/ADR-0028): cero cambios de layout en disk header, roundtrip por KV existente |
 | 3 | Fórmula de derivación | media / min / min×factor / sin cómputo | **min×0.9** (Q4): weakest-link es explicable y monótona (V2); el factor descuenta la pérdida de la transformación; sin calibración empírica no se justifica nada más complejo |
 | 4 | Default asserted | 1.0 declarado / 0.5 neutral / obligatorio | **Q1** — 1.0 "trust the writer" (semántica limpia, límites L1); 0.5 mantiene continuidad con el default del nodo pero es "no dice nada" |
 | 5 | Calibración | ahora (temperatura en 0.8.0) / diferir | **Diferir a VER-08**: stop condition del plan; sin harness no hay ground truth; fórmula ya especificada (§5.2) |

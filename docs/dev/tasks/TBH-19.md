@@ -1,3 +1,9 @@
+---
+title: "TBH-19: Markdownlint-cli2 pre-commit hook (mirror de gate-docs-21)"
+kind: task
+description: El proyecto tiene .markdownlint-cli2.yaml con reglas de lint para docs. El CI
+---
+
 # TBH-19: Markdownlint-cli2 pre-commit hook (mirror de gate-docs-21)
 
 ## Metadata

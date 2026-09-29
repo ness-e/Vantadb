@@ -1,11 +1,9 @@
 ---
-title: "Extracción Histórica — VANTADB DOC OLD (audit-reports) — 2026-08-05"
-type: plan
+title: Extracción Histórica — VANTADB DOC OLD (audit-reports) — 2026-08-05
+kind: research
 status: archived
+description: "1. ROOT1-007 — release-binaries catch-22 (bloqueante real de release)"
 tags: [vantadb, archive, extraccion-historica, audit-reports]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Extracción Histórica — VANTADB DOC OLD (audit-reports) — 2026-08-05

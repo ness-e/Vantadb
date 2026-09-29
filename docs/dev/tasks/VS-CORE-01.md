@@ -1,3 +1,8 @@
+---
+title: "VS-CORE-01: Cursor/paginación en el bridge desktop (re-scopeado)"
+kind: task
+---
+
 # VS-CORE-01: Cursor/paginación en el bridge desktop (re-scopeado)
 
 ## Metadata

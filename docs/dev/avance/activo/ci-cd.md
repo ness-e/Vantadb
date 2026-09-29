@@ -1,10 +1,8 @@
 ---
 title: "Avance — CI/CD & Release"
-type: domain-log
+kind: review
 status: active
 tags: [vantadb, avance, ci, cd, release, github-actions, docker]
-last_reviewed: 2026-08-07
-aliases: []
 ---
 
 # Avance — CI/CD & Release
@@ -115,7 +113,7 @@ aliases: []
 - `cargo check -p vantadb` ✅ en cada wave.
 - CI Fast Gate <5 min vs Heavy Certification hasta 2h (separados por diseño).
 ### ERR-009 (job Miri en CI cubierto) — migrado 2026-08-12 (ver docs/progreso/README.md)
-### COV-004 (ADR-018 coverage gate = root crate vantadb ≥80%, supersede ADR-015) — migrado 2026-08-12 (ver docs/progreso/README.md)
+### COV-004 (ADR-0018 coverage gate = root crate vantadb ≥80%, supersede ADR-0015) — migrado 2026-08-12 (ver docs/progreso/README.md)
 
 ### CI-04: CodeQL multi-lenguaje (rust + python + javascript-typescript) — migrado 2026-08-12 (ver docs/progreso/README.md)
 - **Resultado:** ✅ `sec-codeql-30.yml` `languages: rust` → `rust, python, javascript-typescript`; timeout 30→45 min. Sin tocar queries (suite default del codeql-action). actionlint exit 0. Commits `202af1f6`, `6477aa87`.
@@ -209,10 +207,10 @@ aliases: []
 - **Fecha:** 2026-08-27
 - **Plan:** `docs/dev/plans/2026-08-27-backlog-pipeline.md` Task 7 · P47 · `vanta-docs`
 - **Objetivo:** Sin ADR de criterios no hay definición de "100% estable" → promoción ad-hoc sin trace; `Cargo.toml:636` deja `server/mcp/wasm/memory/proxy` fuera del Fast Gate.
-- **Resultado:** ✅ `docs/dev/architecture/adr/ADR-031-default-members-promotion.md` (nuevo, 205L) `status: proposed`: Context (Cargo:636), §1 tabla 10 checks (check/fmt/clippy, nextest/vitest, deny, docs-coverage, workflow timeout/continue-on-error, cargo package, wasm-pack/wasm32, napi 7-target, verify <5min, ADR reversible) en 3 corridas limpias, §2 cost table per crate (vantadb ~22s / python 12s / vanta-memory 36s / vanta-proxy 32s / server 21s / mcp 6.7s / wasm 3.6s / ts ~26s / node 8s), §3 Reversibilidad 1 línea `git revert Cargo.toml:636`, §4 Question to Owner A (<5 hard) vs B (<5 soft → ~8min) pending `Owner:___ Date:___ Choice:[ ]A [ ]B` (bloquea STABLE-09). `docs/dev/operations/CI_POLICY.md` §Promotion to default-members añadida (4 hits ADR-031, 6 hits default-members, 10 checks). Verify: fmt ✅ + clippy ✅ + docs-coverage 0 gaps. Commit `fa5f04f0`.
+- **Resultado:** ✅ `docs/dev/architecture/adr/ADR-0031-default-members-promotion.md` (nuevo, 205L) `status: proposed`: Context (Cargo:636), §1 tabla 10 checks (check/fmt/clippy, nextest/vitest, deny, docs-coverage, workflow timeout/continue-on-error, cargo package, wasm-pack/wasm32, napi 7-target, verify <5min, ADR reversible) en 3 corridas limpias, §2 cost table per crate (vantadb ~22s / python 12s / vanta-memory 36s / vanta-proxy 32s / server 21s / mcp 6.7s / wasm 3.6s / ts ~26s / node 8s), §3 Reversibilidad 1 línea `git revert Cargo.toml:636`, §4 Question to Owner A (<5 hard) vs B (<5 soft → ~8min) pending `Owner:___ Date:___ Choice:[ ]A [ ]B` (bloquea STABLE-09). `docs/dev/operations/CI_POLICY.md` §Promotion to default-members añadida (4 hits ADR-0031, 6 hits default-members, 10 checks). Verify: fmt ✅ + clippy ✅ + docs-coverage 0 gaps. Commit `fa5f04f0`.
 - **Gates:** D: no-disparado (docs-only) · V: no-disparado · C: no-disparado
-- **Contrato:** `Test-Path ADR-031` True + `Select-String \| [0-9]` 10 rows + `Question to Owner` hit + `grep ADR-031 CI_POLICY` 4 hits + `grep default-members CI_POLICY` 6 hits + `cargo fmt --check` ✅ + `clippy` ✅ + `docs-coverage` 0 gaps
-- **Archivos:** `docs/dev/architecture/adr/ADR-031-default-members-promotion.md`, `docs/dev/operations/CI_POLICY.md`, `.opencode/skills/campaign-executor/tasks/STABLE-00.md`
+- **Contrato:** `Test-Path ADR-0031` True + `Select-String \| [0-9]` 10 rows + `Question to Owner` hit + `grep ADR-0031 CI_POLICY` 4 hits + `grep default-members CI_POLICY` 6 hits + `cargo fmt --check` ✅ + `clippy` ✅ + `docs-coverage` 0 gaps
+- **Archivos:** `docs/dev/architecture/adr/ADR-0031-default-members-promotion.md`, `docs/dev/operations/CI_POLICY.md`, `.opencode/skills/campaign-executor/tasks/STABLE-00.md`
 
 ---
 
@@ -432,7 +430,7 @@ aliases: []
 
 ### FIND-128: fix ADR-Gate multiline + matriz triggers 28 workflows
 - **Fecha:** 2026-09-19
-- **Objetivo:** ADR Gate rojo (`Invalid format ADR-015` + `output` command) + duplicados push-vs-PR en PR #182.
+- **Objetivo:** ADR Gate rojo (`Invalid format ADR-0015` + `output` command) + duplicados push-vs-PR en PR #182.
 - **Resultado:** 1 línea (`paste -sd`) + comentario; matriz 28 triggers (duplicados = push[develop]+PR[main] mismo SHA); dedup como propuesta escrita; P2-01 approve.
 - **Commit:** 50c799d9 (rebase de ddd9d58c)
 
@@ -445,7 +443,7 @@ aliases: []
 ### FIND-133: triage semver ~20 breakings intencional-0.6.0
 - **Fecha:** 2026-09-19
 - **Objetivo:** Semver Checks rojo (develop vs crates.io 0.5.0) — HACERLO PASAR con triage, no con revert ciego.
-- **Resultado:** 21 cats/~100 ítems, 0 accidentales; ADR-044 sin-revert; verde real solo con bump 0.6.0 vía release-plz en main (rojo-en-develop bendecido por scope main-only); P2-01 approve.
+- **Resultado:** 21 cats/~100 ítems, 0 accidentales; ADR-0044 sin-revert; verde real solo con bump 0.6.0 vía release-plz en main (rojo-en-develop bendecido por scope main-only); P2-01 approve.
 - **Commit:** 30b6a1f2/ab3eb373 (rebase de 3c4f146c/6afbe06e)
 
 ### C-06 fast/heavy + otel quartet

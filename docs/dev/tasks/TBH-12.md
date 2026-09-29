@@ -1,3 +1,9 @@
+---
+title: TBH-12 — data/README.md + datasets/README.md
+kind: task
+description: "Status: ⬜ PENDING → ✅ COMPLETO"
+---
+
 # TBH-12 — data/README.md + datasets/README.md
 
 **Status:** ⬜ PENDING → ✅ COMPLETO

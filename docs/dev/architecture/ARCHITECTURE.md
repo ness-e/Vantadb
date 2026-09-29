@@ -1,10 +1,11 @@
 ---
 title: VantaDB Internal Architecture
-type: architecture
+kind: concept
 status: active
+description: "This document reflects the current repo truth for v0.6.1 (verified 2026-09-23: WAL layout, record variants, HTTP ownership). It describes the embedded core, the durability path, the current retrieval model, and the limits that still..."
 tags: [vantadb, architecture]
-last_reviewed: 2026-09-23
-aliases: []
+type: architecture
+last_reviewed: "2026-09-23"
 ---
 
 # VantaDB Internal Architecture
@@ -31,7 +32,7 @@ VantaDB is an **embedded library**, not a service. The core (`vantadb`) has zero
 │  └────────────────────────────────────┘ │
 └─────────────────────────────────────────┘
 ```
-*Components:* [[wal|WAL]], [[hnsw|HNSW]]
+*Components:* [WAL](../../user/glosario/wal.md), [HNSW](../../user/glosario/hnsw.md)
 
 ### 2. Canonical Data + Derived Indexes
 
@@ -48,23 +49,23 @@ Derived Indexes (Rebuildable):
 ├── BM25 (lexical search)
 └── Payload indexes (structured filters)
 ```
-*Derived Indexes:* [[hnsw|HNSW]], [[bm25|BM25]]
+*Derived Indexes:* [HNSW](../../user/glosario/hnsw.md), [BM25](../../user/glosario/bm25.md)
 
 ### 3. Zero-Cost Abstractions
 
 Rust enables high-level abstractions with zero runtime overhead:
 - **Traits** for static polymorphism
-- **Zero-copy** where possible ([[mmap]])
-- **[[simd|SIMD]]** for vector operations
+- **Zero-copy** where possible ([mmap](../../user/glosario/mmap.md))
+- **[SIMD](../../user/glosario/simd.md)** for vector operations
 
 ### 4. Durability Before Performance
 
 Write path order — NEVER acknowledge before fsync:
 
-1. Append mutation to [[wal|WAL]]
-2. fsync() the [[wal|WAL]] ← **DURABILITY GUARANTEED**
-3. Apply to storage backend ([[fjall|Fjall]]/[[rocksdb|RocksDB]])
-4. Update derived indexes ([[hnsw|HNSW]], [[bm25|BM25]])
+1. Append mutation to [WAL](../../user/glosario/wal.md)
+2. fsync() the [WAL](../../user/glosario/wal.md) ← **DURABILITY GUARANTEED**
+3. Apply to storage backend ([Fjall](../../user/glosario/fjall.md)/[RocksDB](../../user/glosario/rocksdb.md))
+4. Update derived indexes ([HNSW](../../user/glosario/hnsw.md), [BM25](../../user/glosario/bm25.md))
 5. ACK to client
 
 ---
@@ -151,9 +152,9 @@ have unequal record counts.
 
 ---
 
-## Storage Backend: [[fjall|Fjall]] vs [[rocksdb|RocksDB]]
+## Storage Backend: [Fjall](../../user/glosario/fjall.md) vs [RocksDB](../../user/glosario/rocksdb.md)
 
-| Feature | [[fjall\|Fjall]] (Default) | [[rocksdb\|RocksDB]] (Fallback) |
+| Feature | [fjall](../../user/glosario/fjall.md) (Default) | [rocksdb](../../user/glosario/rocksdb.md) (Fallback) |
 |---------|-----------------|-------------------|
 | Language | 100% Rust | C++ (C bindings) |
 | Build Time | ~30s | ~5-10min |
@@ -231,7 +232,7 @@ Client: db.put("doc1", vector, text, metadata)
            ▼
       ACK to client
 ```
-*Backend and indexes details:* [[fjall|Fjall]], [[hnsw|HNSW]], [[bm25|BM25]]
+*Backend and indexes details:* [Fjall](../../user/glosario/fjall.md), [HNSW](../../user/glosario/hnsw.md), [BM25](../../user/glosario/bm25.md)
 
 ### Hybrid Search Path
 

@@ -1,3 +1,9 @@
+---
+title: "API-06: W5 IQL — versión + sintaxis + literales + AST"
+kind: task
+description: "rg IQLVERSION src/ ≥1 (definido + gateado) Y tests parser verdes (--lib parser + --test parser + --test openapiyamlparity) Y repros == / 42→Int / from minúscula / 'quote' con comportamiento decidido (tests + docs) Y ejemplo YAML válido..."
+---
+
 # API-06: W5 IQL — versión + sintaxis + literales + AST
 
 ## Metadata

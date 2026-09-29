@@ -1,3 +1,9 @@
+---
+title: "MOD-15: Nits agrupados del server (middleware.rs re-export, feature sysinfo, main.rs raw engine, ServerState para tests)"
+kind: task
+description: cargo check -p vantadb-server pasa + cargo test -p vantadb-server verde + cargo fmt --check + cargo clippy -p vantadb-server --all-targets -- -D warnings (0 warnings); nits resueltos o documentados
+---
+
 # MOD-15: Nits agrupados del server (middleware.rs re-export, feature sysinfo, main.rs raw engine, ServerState para tests)
 
 ## Metadata

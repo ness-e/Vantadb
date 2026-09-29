@@ -1,3 +1,9 @@
+---
+title: SDKB-04 — Docs + gate backward-compat final
+kind: task
+description: "npm test + pytest completos exit 0; READMEs actualizados; validate-docs-coverage 0 gaps\""
+---
+
 # SDKB-04 — Docs + gate backward-compat final
 
 > Plan: `docs/dev/plans/2026-08-22-vantadb-bindings-sdk.md` · Ruta: vanta-docs · Cynefin: 🟦 obvio

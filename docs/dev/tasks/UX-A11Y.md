@@ -1,3 +1,9 @@
+---
+title: UX-A11Y — UX-02 + UX-03 + UX-04 + UX-06 + UX-07 + UX-08 (grupo a11y desktop)
+kind: task
+description: "Veredicto global: cambios aditivos de accesibilidad sobre 14 archivos UI (sin API pública, sin hot path, sin bindings). No se rompe ningún import entrante"
+---
+
 # UX-A11Y — UX-02 + UX-03 + UX-04 + UX-06 + UX-07 + UX-08 (grupo a11y desktop)
 
 > **Campaign:** 6a6c322a-6a6a-4d17-9b34-3166181cbc4a · **Plan:** docs/dev/plans/2026-08-25-batch-desktop-ux-core.md

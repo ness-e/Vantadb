@@ -1,3 +1,9 @@
+---
+title: SHOW-02 — recetas clicables del playground (5-6)
+kind: task
+description: "Objetivo: showcase que prueba valor público — 5-6 recetas clicables corriendo contra el playground WASM existente (RAG, híbrido, grafo, TTL, batch, persistencia). Prerrequisito del anuncio"
+---
+
 # SHOW-02 — recetas clicables del playground (5-6)
 
 > **Plan:** `docs/dev/plans/2026-09-19-publicacion.md` (Wave0, segunda en secuencia) · **Ruta:** vanta-worker

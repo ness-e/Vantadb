@@ -1,3 +1,9 @@
+---
+title: "PROV-openai: Fix compilación provider openai (verify-first)"
+kind: task
+description: "Cero cambios necesarios. Historial muestra fixes ya aplicados: 2754c783 (PROV-01 E0063 excludesuperseded + stubs .pyi + timeout litellm), e078cd28 (PROV-07 validación), 294486e3 (PROV-05 shared helpers), 86784baa (PROV-10 custom key..."
+---
+
 # PROV-openai: Fix compilación provider openai (verify-first)
 
 ## Metadata

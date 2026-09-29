@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Seguimiento MVP (DEFER + pendientes) — 2026-09-17"
+kind: plan
+status: archived
+description: "Status: ⬆️ uphill = 3 (diseño lifecycle S4 · dueño backend S6b · alcance salvage 109) · ⬇️ downhill = 9 tasks con contrato definido"
+---
+
 # Plan de Ejecución: Seguimiento MVP (DEFER + pendientes) — 2026-09-17
 
 > **Campaign ID:** 64985e0b-0570-431c-a1e9-1d0d551ad54e

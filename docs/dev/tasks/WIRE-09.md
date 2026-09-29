@@ -1,3 +1,9 @@
+---
+title: "WIRE-09: Seguridad P0 — sandbox de paths export/import/snapshots + refuse-to-start proxy"
+kind: task
+description: "cargo test -p vantadb snapshottraversal exportpaths + cargo test -p vanta-proxy refusestart verdes; name=../x y path fuera de base devuelven error; bind no-loopback sin key no arranca.\""
+---
+
 # WIRE-09: Seguridad P0 — sandbox de paths export/import/snapshots + refuse-to-start proxy
 
 ## Metadata

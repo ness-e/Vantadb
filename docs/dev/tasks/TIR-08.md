@@ -1,3 +1,9 @@
+---
+title: "TIR-08: Criterios de investigación (saturación + re-enfoque) en research-agent"
+kind: task
+description: "research-agent.md contiene los criterios 1-2; verificación con rg\""
+---
+
 # TIR-08: Criterios de investigación (saturación + re-enfoque) en research-agent
 
 ## Metadata

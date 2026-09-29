@@ -1,3 +1,9 @@
+---
+title: "WEB-18: Alinear pricing web con GO_TO_MARKET"
+kind: task
+description: "Conflicto: web vendía plan \"Team $49/mo PER DEV SEAT\" (SLA 48h, soporte privado)"
+---
+
 # WEB-18: Alinear pricing web con GO_TO_MARKET
 
 ## Metadata

@@ -1,13 +1,15 @@
 ---
-title: "PyO3"
-type: glossary-entry
+title: PyO3
+kind: glossary
 status: stable
-tags: [ffi, python, rust, bindings]
-last_reviewed: 2026-09-15
-links: "[[README.md]]"
-aliases: [PyO3 Bindings, Rust-Python Bindings]
 description: "Rust framework to create Python extensions and bidirectional bindings between Rust and Python, allowing you to expose Rust code as native Python modules"
+aliases: [PyO3 Bindings, Rust-Python Bindings]
+tags: [ffi, python, rust, bindings]
+type: glossary-entry
+last_reviewed: "2026-09-15"
+links: "[[README.md]]"
 ---
+
 # PyO3
 
 ##Definition
@@ -40,7 +42,7 @@ description: "Rust framework to create Python extensions and bidirectional bindi
 │  impl VantaEmbedded { ... }          │
 └─────────────────────────────────────┘
 ```
-*Concurrency management:* [[gil|GIL]]
+*Concurrency management:* [GIL](./gil.md)
 
 
 ### Binding Example
@@ -138,11 +140,11 @@ results = db.search(
 )
 ```
 
-## Management of [[gil]]
+## Management of [gil](./gil.md)
 
 ### The Problem
 
-Python's [[gil]] (Global Interpreter Lock) prevents multiple threads from executing Python code simultaneously. If a Rust operation is long and keeps the GIL, it **crashes the entire Python interpreter**.
+Python's [gil](./gil.md) (Global Interpreter Lock) prevents multiple threads from executing Python code simultaneously. If a Rust operation is long and keeps the GIL, it **crashes the entire Python interpreter**.
 
 ### Solution: `py.allow_threads()`
 
@@ -308,9 +310,9 @@ Some metadata types are not validated correctly at the FFI border.
 
 ## See Also
 
-- [[gil]] — Lock that PyO3 must manage
-- [[ffi]] — Boundary that PyO3 crosses
-- [[transactional]] — Guarantees maintained through FFI
+- [gil](./gil.md) — Lock that PyO3 must manage
+- [ffi](./ffi.md) — Boundary that PyO3 crosses
+- [transactional](./transactional.md) — Guarantees maintained through FFI
 
 ---
 

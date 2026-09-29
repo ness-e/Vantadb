@@ -1,3 +1,9 @@
+---
+title: "TBH-18 — Evaluar `dhat` 0.3.3 para heap-usage testing (DOC-ONLY)"
+kind: task
+description: NO agregar dhat al workspace. Justificación
+---
+
 # TBH-18 — Evaluar `dhat` 0.3.3 para heap-usage testing (DOC-ONLY)
 
 ## Estado

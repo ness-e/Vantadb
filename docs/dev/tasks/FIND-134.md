@@ -1,3 +1,9 @@
+---
+title: "FIND-134: hardening `ci-rust-10.yml` sin cambiar qué valida"
+kind: task
+description: "actionlint exit 0 + git diff --check limpio + (a) push solo main · (b) 7 jobs pesados con needs: [fmt, clippy] · (c) cero continue-on-error sin # CATEGORY: (los 5 existentes ya tageados; se quitan los 2 || echo que fuerzan exit 0) · (d..."
+---
+
 # FIND-134: hardening `ci-rust-10.yml` sin cambiar qué valida
 
 ## Metadata

@@ -1,3 +1,9 @@
+---
+title: "HARD-03: Continuidad local + release trains"
+kind: task
+description: "pwsh scripts/git-backup.ps1 crea bundle con timestamp y git bundle verify exit 0 Y política de commits/push/trenes documentada en docs/dev/workflow/RULES.md Y CONTRIBUTING.md referencia el script\""
+---
+
 # HARD-03: Continuidad local + release trains
 
 ## Metadata

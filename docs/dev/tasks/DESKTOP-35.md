@@ -1,3 +1,9 @@
+---
+title: "DESKTOP-35: Slider híbrido cableado a search_profile real — eliminar re-rank client-side"
+kind: task
+description: "Callers: desktop/src/components/RetrievalLens.tsx, desktop/src/components/retrieval-core.ts"
+---
+
 # DESKTOP-35: Slider híbrido cableado a search_profile real — eliminar re-rank client-side
 
 ## Metadata

@@ -1,11 +1,9 @@
 ---
 title: "{{title}}"
-type: research
+kind: research
 status: active
+description: "Hechos con fuente (archivo:línea o URL)"
 tags: [vantadb, research]
-last_reviewed: {{date}}
-aliases: []
-related: []
 ---
 
 # {{title}}

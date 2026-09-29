@@ -1,3 +1,9 @@
+---
+title: "BND-13 — docs/api/NODE_SDK.md completa (plan 2026-09-07-backlog-triage, Task 5, Wave2)"
+kind: task
+description: ampliados + nota runtime truth bigint (FIND-BND12-01) + sección Benchmark
+---
+
 # BND-13 — docs/api/NODE_SDK.md completa (plan 2026-09-07-backlog-triage, Task 5, Wave2)
 
 > Plan: `docs/dev/plans/2026-09-07-backlog-triage.md` (Task 5, Wave2)

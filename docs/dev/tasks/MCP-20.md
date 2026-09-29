@@ -1,3 +1,9 @@
+---
+title: "Task MCP-20 — Recovery índices: rebuild_index + audit_text_index"
+kind: task
+description: "Fuente de verdad: docs/dev/Backlog.md → fase P25 - Exposición MCP/HTTP → fila MCP-20 (leer ANTES de ejecutar: problema, acciones numeradas, archivos exactos)"
+---
+
 # Task MCP-20 — Recovery índices: rebuild_index + audit_text_index
 
 **Fuente de verdad:** `docs/dev/Backlog.md` → fase **P25 - Exposición MCP/HTTP** → fila `MCP-20` (leer ANTES de ejecutar: problema, acciones numeradas, archivos exactos).

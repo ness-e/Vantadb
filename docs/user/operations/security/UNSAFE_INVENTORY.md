@@ -1,3 +1,9 @@
+---
+title: Unsafe/Unwrap Inventory — 2026-07-21
+kind: runbook
+description: "TODO: Los siguientes archivos contienen .unwrap() exclusivamente dentro de mod tests { } o #[cfg(test)]. No se listan individualmente"
+---
+
 # Unsafe/Unwrap Inventory — 2026-07-21
 
 > Baseline de todo código `unsafe`, `.unwrap()`, y `.expect()` en producción del workspace VantaDB.

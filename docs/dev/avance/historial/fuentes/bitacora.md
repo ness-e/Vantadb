@@ -1,10 +1,9 @@
 ---
 title: Bitacora — Development Log
-type: documentation
+kind: review
 status: active
+description: "Scores: 7.3/10 (Jul-09) → 7.8/10 (Jul-11, ↑0.5)"
 tags: [vantadb]
-last_reviewed: 2026-08-22
-aliases: []
 ---
 
 # bitacora — Development Log

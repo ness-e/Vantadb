@@ -1,3 +1,9 @@
+---
+title: "TBH-01 — `verify_datasets.{sh,ps1}` + CI gate"
+kind: task
+description: "Plan: docs/dev/plans/2026-08-30-testing-bench-harden.md (Phase 1 — ALTA)"
+---
+
 # TBH-01 — `verify_datasets.{sh,ps1}` + CI gate
 
 **Plan:** `docs/dev/plans/2026-08-30-testing-bench-harden.md` (Phase 1 — ALTA)

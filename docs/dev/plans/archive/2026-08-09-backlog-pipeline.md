@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Backlog Pipeline — Release Blockers + Err Fix + Feature Honesty"
+kind: plan
+status: archived
+description: (no duplicar)
+---
+
 # Plan de Ejecución: Backlog Pipeline — Release Blockers + Err Fix + Feature Honesty
 
 > **Campaign ID: 55f15aab-80fd-47fc-8080-fa466cdb70af
@@ -232,7 +239,7 @@ _(no duplicar)_
 - **Gate:** dead feature phantom → **DO** (solo ADR + decidir: integrar / experimental / defer)
 - **Contrato:** ADR file exists (`docs/dev/architecture/adr/ADR-0XX-pitr.md`) + `rgba "pitr" Cargo.toml` (feature docs)
 - **Estado:** ✅ COMPLETED
-- **Ejecutado:** `b52ae2f0` — PITR/WAL-shipping decision: ADR-014 (experimental standalone API, engine integration deferred) + honest `pitr` feature docs in Cargo.toml
+- **Ejecutado:** `b52ae2f0` — PITR/WAL-shipping decision: ADR-0014 (experimental standalone API, engine integration deferred) + honest `pitr` feature docs in Cargo.toml
 
 ### Task 29: FEAT-02 — DiskANN: honest rename o implementar v1
 
@@ -295,7 +302,7 @@ _(no duplicar)_
 
 - **Esfuerzo:** 🟢 · **Prig:** 🟡 · **Archivos:** `.github/workflows/ci-rust-10.yml`, ADR | **DO** (decisión documentada) | **Contrato:** ADR expresa root (81.40%) vs workspace (72.76%) y expectativa de bindings
 - **Estado:** ✅ DONE
-- **Ejecutado:** `2c9ddbc5` — `docs/dev/architecture/adr/ADR-015-coverage-policy.md`: gate real = workspace-wide ≥80% llvm-cov (root 81.40% pasa, workspace 72.76% diluido por crate binding); step "(>=70%)" es stale; bindings: python ≥85% vía pytest propio, wasm/mcp/server excluidos (experimental), node fuera del workspace coverage.
+- **Ejecutado:** `2c9ddbc5` — `docs/dev/architecture/adr/ADR-0015-coverage-policy.md`: gate real = workspace-wide ≥80% llvm-cov (root 81.40% pasa, workspace 72.76% diluido por crate binding); step "(>=70%)" es stale; bindings: python ≥85% vía pytest propio, wasm/mcp/server excluidos (experimental), node fuera del workspace coverage.
 
 ### PERF
 

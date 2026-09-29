@@ -1,12 +1,15 @@
 ---
-title: "chaos_test_wal.sh"
-type: glossary-entry
+title: chaos_test_wal.sh
+kind: glossary
 status: stable
-tags: [testing, resiliencia, fault-injection]
-last_reviewed: 2026-09-15
-links: "[[README.md]]"
+description: "#ChaosTesting"
 aliases: [Chaos Engineering, Fault Injection Testing]
+tags: [testing, resiliencia, fault-injection]
+type: glossary-entry
+last_reviewed: "2026-09-15"
+links: "[[README.md]]"
 ---
+
 #ChaosTesting
 
 ##Definition
@@ -20,7 +23,7 @@ aliases: [Chaos Engineering, Fault Injection Testing]
 | **Process kill** | `kill -9` del proceso | Crash recovery |
 | **Disk full** | Llenar disco durante write | Error handling |
 | **Network partition** | Aislar nodos (si distribuido) | Consistencia |
-| **Power loss** | Corte de energía simulado | Durabilidad [[wal]] |
+| **Power loss** | Corte de energía simulado | Durabilidad [wal](./wal.md) |
 | **Corrupt data** | Modificar archivos en disco | Detección de corrupción |
 
 ## Chaos Testing in VantaDB
@@ -111,10 +114,10 @@ fn test_wal_corruption_recovery() {
 
 ## See Also
 
-- [[wal]] — Main component validated by chaos testing
-- [[crc32c]] — Corruption detection
-- [[failpoints]] — Code-level fault injection
-- [[ci-cd]] — Chaos tests in nightly pipeline
+- [wal](./wal.md) — Main component validated by chaos testing
+- [crc32c](./crc32c.md) — Corruption detection
+- [failpoints](./failpoints.md) — Code-level fault injection
+- [ci-cd](./ci-cd.md) — Chaos tests in nightly pipeline
 
 ---
 

@@ -1,11 +1,9 @@
 ---
-title: "Correcciones DOC-API (2026-07-21)"
-type: registro
+title: Correcciones DOC-API (2026-07-21)
+kind: review
 status: archived
+description: "Objetivo: Corregir 9 incidencias (5 críticas, 4 medias) encontradas en auditoría de docs/api/ — tipos desactualizados, referencias rotas, métodos faltantes, creación de documentación faltante"
 tags: [vantadb, avance, campana]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Correcciones DOC-API (2026-07-21)

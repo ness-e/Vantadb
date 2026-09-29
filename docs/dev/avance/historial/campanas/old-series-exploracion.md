@@ -1,11 +1,9 @@
 ---
 title: "Serie OLD — exploración y fundaciones (chaos, snapshots, WAL, GraphRAG)"
-type: registro
+kind: review
 status: archived
+description: "Fuente: Backlog Phase 9 (Old Docs Rescue) OLD-03"
 tags: [vantadb, avance, campana]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Serie OLD — exploración y fundaciones (chaos, snapshots, WAL, GraphRAG)

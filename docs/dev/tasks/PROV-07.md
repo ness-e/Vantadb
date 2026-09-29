@@ -1,3 +1,9 @@
+---
+title: "TASK PROV-07: ValueError en distance_metric inválido; warning en metadata descartada (los 3 crates)"
+kind: task
+description: "Compila + caso de test manual documentado (distancemetric inválido → ValueError; metadata descartada → warning)\" — docs/dev/plans/2026-08-25-research-providers-quickwins.md:19 — Wave 1 Task 4"
+---
+
 # TASK PROV-07: ValueError en distance_metric inválido; warning en metadata descartada (los 3 crates)
 
 ## Metadata

@@ -1,3 +1,9 @@
+---
+title: COMP-009 — Binary Bulk Import
+kind: task
+description: Implementar un protocolo binario de importación masiva (.vdbdump) que sea 5-10x más rápido que putbatch() actual. Hoy putbatch() itera cada registro con validación individual + putone() por registro — sin aprovechar batch commits ni...
+---
+
 # COMP-009 — Binary Bulk Import
 
 > **Estado:** ✅ COMPLETED — 2026-07-27

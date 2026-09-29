@@ -1,3 +1,9 @@
+---
+title: "NUEVO-10: Benchmark suite pública reproducible"
+kind: task
+description: "RIESGO: bajo. Sin cambios en src/, CI jobs, ni API"
+---
+
 # NUEVO-10: Benchmark suite pública reproducible
 
 ## Metadata

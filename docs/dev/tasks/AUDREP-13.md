@@ -1,3 +1,9 @@
+---
+title: "AUDREP-13: Dev mode bypassa toda autenticación silenciosamente"
+kind: task
+description: cargo check -p vantadb --features server pasa; cargo clippy -p vantadb -- -D warnings pasa; cada request en dev mode (sin API key) emite un log de warning identificable; comportamiento allow-all preservado; no hay warning por request en...
+---
+
 # AUDREP-13: Dev mode bypassa toda autenticación silenciosamente
 
 ## Metadata

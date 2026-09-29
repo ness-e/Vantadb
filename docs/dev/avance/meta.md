@@ -1,10 +1,9 @@
 ---
-title: "Avance — Meta / Proceso"
-type: meta
+title: Avance — Meta / Proceso
+kind: review
 status: active
+description: "Los archivos de docs/dev/avance/activo/ se actualizan al cierre de cada campaña (no daily); los dominios del mirror = crates activos del workspace. Un crate nuevo ⇒ archivo de dominio nuevo en el mismo cierre. Verificación: muestreo..."
 tags: [vantadb, avance, meta, proceso, housekeeping]
-last_reviewed: 2026-08-22
-aliases: []
 ---
 
 # Avance — Meta / Proceso
@@ -146,7 +145,7 @@ Los archivos de `docs/dev/avance/activo/` **se actualizan al cierre de cada camp
 - **Outputs de research:** RES-01 GO condicional (WAL v2 Prepare tras flag+bench) · RES-02 restore físico S1-S5 recomendado (+MCP-34b/FIND-25/FIND-26) · RES-03 session layer defer-as-scoped (DEC-01 resuelta).
 
 ## Retrospectiva — Backup/Restore Chain (plan 2026-08-25-batch-backup-restore-chain)
-- **Cierre:** 3/3 tareas secuenciales (FIND-25 → MCP-34b → FIND-26), 3 commits. 0 failed. La cadena completa backup/restore física quedó operativa: create_snapshot consistente (quiesce+mirror recursivo) → snapshot_restore (core+SDK+MCP con confirm destructiva) → PITR dead code removida (ADR-014 superseded).
+- **Cierre:** 3/3 tareas secuenciales (FIND-25 → MCP-34b → FIND-26), 3 commits. 0 failed. La cadena completa backup/restore física quedó operativa: create_snapshot consistente (quiesce+mirror recursivo) → snapshot_restore (core+SDK+MCP con confirm destructiva) → PITR dead code removida (ADR-0014 superseded).
 - **Start:** research previa (RES-02) con diseño file:line verificado hizo la ejecución directa (0 incógnitas); plan secuencial por dependencias evitó colisiones; hallazgo colateral ruteado en el momento (FIND-33: snapshot tras compact_wal pierde datos — backend KV fuera de data_dir).
 - **Stop:** cargo clean -p vantadb durante compilación de la otra sesión rompió el target dir compartido (48GB, STATUS_STACK_BUFFER_OVERRUN). NUNCA limpiar cache compartido con otra sesión compilando — esperar o verificar con --target aislado.
 - **Continue:** verify mecánico del lead antes de cada commit; Regla 0 antes de eliminar (FIND-26: grep exhaustivo confirmó solo export+tests propios).
@@ -215,7 +214,7 @@ Plan archivado con retrospectiva: 12/12 en 5 waves, 0 failed. -11 filas Backlog 
 
 ## Archivo 2026-09-09: campana backlog splits+gates+proxy (5b5a8ce1)
 
-Plan `docs/dev/plans/archive/2026-09-08-backlog.md` (+budget) archivado: 9/10 ✅ + 1 carryover (STABLE-09 subset PR, Owner A 2026-09-09, ADR-031 accepted). Backlog: -8 filas (FIND-48/49/50, BND-08, PRX-04/08, MEM-66, STABLE-06, BLOG-CTA), STABLE-09 re-scopeada a subset <5min. Avance: core-engine (FIND splits), ci-cd (BND-08, STABLE-06), operaciones (PRX-04/08), vanta-memory (MEM-66), web-frontend (BLOG-CTA). check-avance-coverage 1038/1038 (100%); validate-docs-coverage roto pre-existente (24d0b86d, verificado manual). Nota: quedan .budget.json huérfanos en raíz de campañas previas (08-25/08-28/09-01/09-04/09-07) — fuera de scope, no tocados.
+Plan `docs/dev/plans/archive/2026-09-08-backlog.md` (+budget) archivado: 9/10 ✅ + 1 carryover (STABLE-09 subset PR, Owner A 2026-09-09, ADR-0031 accepted). Backlog: -8 filas (FIND-48/49/50, BND-08, PRX-04/08, MEM-66, STABLE-06, BLOG-CTA), STABLE-09 re-scopeada a subset <5min. Avance: core-engine (FIND splits), ci-cd (BND-08, STABLE-06), operaciones (PRX-04/08), vanta-memory (MEM-66), web-frontend (BLOG-CTA). check-avance-coverage 1038/1038 (100%); validate-docs-coverage roto pre-existente (24d0b86d, verificado manual). Nota: quedan .budget.json huérfanos en raíz de campañas previas (08-25/08-28/09-01/09-04/09-07) — fuera de scope, no tocados.
 
 **Retrospectiva Start/Stop/Continue:**
 - **Start:** sub-agentes secuenciales con pipeline-full + bloque RESULTADO (tras abort de waves paralelas); SARL RESUME real — PRX-08 🟡→MEM-66→RESUME ✅ y rate-limit recovery sin pérdida (ses_f7af54d41).
@@ -272,19 +271,19 @@ Plan `docs/dev/plans/archive/2026-09-10-fixes.md` (+budget) archivado: 6/6 ✅ e
 - **DEFER hecho despues:** S6 (DEFER-activo → GO humano → c2cdbf3e) + S3-slice2 CacheLayer (deuda → C2S3b → 836aece3). Sigue DEFER: reorg fisica (gate Fase 3). Futuro: S-split-config (D0 B+B).
 
 ## Archivo plan 2026-09-13-cleanCA-fase3 (2026-09-14)
-- **Plan:** docs/dev/plans/archive/2026-09-13-cleanCA-fase3.md - 4/4 COMPLETED (F3G,F3X,F3C,F3B; diseno-primero + Gates V: Q-F3X-impl A/ADR-042, Q-F3C B/B/A).
+- **Plan:** docs/dev/plans/archive/2026-09-13-cleanCA-fase3.md - 4/4 COMPLETED (F3G,F3X,F3C,F3B; diseno-primero + Gates V: Q-F3X-impl A/ADR-0042, Q-F3C B/B/A).
 - **Retrospectiva:** Start: Gate V ante muros (F3X pub-sigs). Stop: asumir diseno intacto (F3X-H2, F3C-vistas). Continue: diseno-primero + review P2-01 pre-commit.
 - **Accion medible:** HALLAZGO + Gate V ante divergencia diseno→impl (metrica: 0 divergencias no registradas).
-- **DEFER ahora cotizable:** reorg fisica (gate 4/4). Futuro: firma ADR-043 + revisit FIND-89.
+- **DEFER ahora cotizable:** reorg fisica (gate 4/4). Futuro: firma ADR-0043 + revisit FIND-89.
 
-## Excepcion Regla 5 en ADR-043 (2026-09-14)
+## Excepcion Regla 5 en ADR-0043 (2026-09-14)
 - **Orden:** owner pidio firma por el lead + eliminar la regla; alcance elegido: excepcion local (recomendado).
 - **Motivo:** Regla 5 vive en .opencode/AGENTS.md (submodulo configOpencode compartido); borrarla ahi rige todos los proyectos.
-- **Efecto:** ADR-043 firmado por vanta-lead articulando decisiones humanas D0-B+B y F3C-Q1=B/Q2=B/Q3=A; la regla sigue vigente en el compartido.
+- **Efecto:** ADR-0043 firmado por vanta-lead articulando decisiones humanas D0-B+B y F3C-Q1=B/Q2=B/Q3=A; la regla sigue vigente en el compartido.
 
 ## Archivo plan 2026-09-14-find89-env-consolidation (2026-09-14)
 - **Plan:** docs/dev/plans/archive/2026-09-14-find89-env-consolidation.md - 1/1 COMPLETED (FIND-89, slices S1→S2→S3→S4 + fix clippy; review P2-01 vanta-audit ✅ approve).
-- **Retrospectiva:** Start: reconocimiento con `rg` antes de heredar listas (ADR-043 decía 12, reales 7). Stop: `Default` impls delegando a shims deprecated `from_env` (rompe `clippy -D warnings`; fix 410b9b57). Continue: slices verticales compilables + tabla var→campo en task file + review de agente distinto con corridas propias.
+- **Retrospectiva:** Start: reconocimiento con `rg` antes de heredar listas (ADR-0043 decía 12, reales 7). Stop: `Default` impls delegando a shims deprecated `from_env` (rompe `clippy -D warnings`; fix 410b9b57). Continue: slices verticales compilables + tabla var→campo en task file + review de agente distinto con corridas propias.
 - **Accion medible:** 0 lectores legacy funcionales (`rg VANTA_`→solo comentarios); metrica: `rg "env::var" src/ --glob '!src/config.rs'` = solo excepciones documentadas.
 
 ## Archivo plan 2026-09-15-find-correcciones (2026-09-16)
@@ -322,7 +321,7 @@ Plan `docs/dev/plans/archive/2026-09-10-fixes.md` (+budget) archivado: 6/6 ✅ e
 - **Accion medible:** rate-fails 0% (0/8) baseline secuencial+backoff; mantener.
 
 ## Archivo plan 2026-09-19-cierre-total (2026-09-19)
-- **Plan:** docs/dev/plans/archive/2026-09-19-cierre-total.md - Wave A (FIND-133 triage+ADR-044 · CODEX-130/131/132 · FIND-128 ADR-fix) + Wave B (FIND-129 4 merges · WIN-flaky fix · P2-01 approve). Backlog −6, avance 4 dominios. Deuda: bump 0.6.0 en main, #180 a main, Lote1b/2, ruleset↔triggers, Vercel owner-side.
+- **Plan:** docs/dev/plans/archive/2026-09-19-cierre-total.md - Wave A (FIND-133 triage+ADR-0044 · CODEX-130/131/132 · FIND-128 ADR-fix) + Wave B (FIND-129 4 merges · WIN-flaky fix · P2-01 approve). Backlog −6, avance 4 dominios. Deuda: bump 0.6.0 en main, #180 a main, Lote1b/2, ruleset↔triggers, Vercel owner-side.
 - **Retrospectiva:** Start: waves disjuntas + paralelo ×3 sin colisiones. Stop: python -c en pwsh. Continue: verify lead + P2-01 batch + transcripción.
 - **Accion medible:** duplicados push-vs-PR mismo SHA como detector de flakies; mantener.
 

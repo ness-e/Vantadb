@@ -1,12 +1,14 @@
 ---
-title: "rwlock"
-type: glossary-entry
+title: rwlock
+kind: glossary
 status: stable
-tags: [concurrencia, lock, sincronizacion, rust]
-last_reviewed: 2026-09-15
-links: "[[README.md]]"
+description: "Description: rebuildindex() does not acquire an exclusive lock, allowing concurrent reads during rebuild"
 aliases: [Read-Write Lock]
+tags: [concurrencia, lock, sincronizacion, rust]
+links: "[[README.md]]"
 ---
+
+**Description:** `rebuild_index()` does not acquire an exclusive lock, allowing concurrent reads during rebuild.
 #RwLock—Read-Write Lock
 
 ##Definition
@@ -61,7 +63,6 @@ fn put(&self, key: &str, value: Value) -> Result<()> {
 
 **Severity:** ⚠️ High
 
-**Description:** `rebuild_index()` does not acquire an exclusive lock, allowing concurrent reads during rebuild.
 
 **Impact:** Readers can see partially reconstructed index.
 
@@ -75,9 +76,9 @@ fn rebuild_index(&self) -> Result<()> {
 
 ## See Also
 
-- [[file-locking]] — Lock at the process level
-- [[gil]] — Python global lock (different)
-- [[transactional]] — RwLock helps ensure isolation
+- [file-locking](./file-locking.md) — Lock at the process level
+- [gil](./gil.md) — Python global lock (different)
+- [transactional](./transactional.md) — RwLock helps ensure isolation
 
 ---
 

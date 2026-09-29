@@ -1,3 +1,9 @@
+---
+title: "HARD-05 — Entorno local blindado (regla `-p`, required-features, target dir)"
+kind: task
+description: Verificación mecánica del contrato
+---
+
 # HARD-05 — Entorno local blindado (regla `-p`, required-features, target dir)
 
 ## Metadata

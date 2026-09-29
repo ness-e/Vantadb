@@ -1,3 +1,9 @@
+---
+title: Task API-STD-01 — Inventario funcional 11 superficies + mapa conjunto vs individual
+kind: task
+description: Fijar las 11 superficies API y el mapa conjunto vs individual antes de investigar
+---
+
 # Task API-STD-01 — Inventario funcional 11 superficies + mapa conjunto vs individual
 
 > **Plan:** `docs/dev/plans/2026-09-24-api-estandarizacion.md`

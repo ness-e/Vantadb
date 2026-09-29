@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Reparación integral de workflows (28 archivos) — 2026-09-21"
+kind: plan
+status: archived
+description: ni duplicadas en AGENTS.md raíz (su cabecera lo prohíbe; solo 1 fila puntero en su tabla)
+---
+
 # Plan de Ejecución: Reparación integral de workflows (28 archivos) — 2026-09-21
 
 > **Campaign ID:** c56e3f17-2f32-4c20-b5e9-f7d1d3f00b36

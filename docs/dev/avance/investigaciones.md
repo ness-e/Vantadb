@@ -1,10 +1,9 @@
 ---
-title: "Avance — Investigaciones (INV)"
-type: catalog
+title: Avance — Investigaciones (INV)
+kind: review
 status: active
+description: "COMP-001/002/003/004/005/007/011/015/020/030 catalogados en historial/backlog-history.md → P10. Incluyen SQ8/PQ, HNSW persist, in-filter, bitset, params, inline u128, CRUD tombstones, hybrid pipeline, RRF fusion, survival mode"
 tags: [vantadb, avance, investigacion, research]
-last_reviewed: 2026-08-07
-aliases: []
 ---
 
 # Avance — Investigaciones (INV)

@@ -1,10 +1,9 @@
 ---
 title: VantaDB HTTP API
-type: api
+kind: reference
 status: active
+description: "Default: http://127.0.0.1:8080"
 tags: [vantadb, api]
-last_reviewed: 2026-09-26
-aliases: []
 ---
 
 # VantaDB HTTP API
@@ -587,7 +586,7 @@ Web console entry point and static asset fallback for Vanta Studio. Requires sta
 server with `--dashboard-dir <dir>`; otherwise `/dashboard` responds 404 with a hint.
 
 > Promoted from experimental to stable 2026-08-25: covered by e2e tests and served as the
-> Vanta Studio admin surface (ADR-026/ADR-027).
+> Vanta Studio admin surface (ADR-026/ADR-0027).
 
 ## Experimental endpoints
 
@@ -677,7 +676,7 @@ Once the binary is on your `PATH`, see [Starting the Server](#starting-the-serve
   `docs/dev/research/2026-08-25-vantadb-server/` for the distributed-mode
   roadmap and explicit non-goals.
 - **No OIDC / SSO yet.** SRV-06 MVP ships offline HS256 JWT Bearer
-  (`VANTADB_JWT_SECRET`, ADR-039); OIDC discovery stays delegated. Until
+  (`VANTADB_JWT_SECRET`, ADR-0039); OIDC discovery stays delegated. Until
   OIDC lands, API keys, JWT, and bearer tokens are the auth surface.
 - **No mTLS for inter-node.** SRV-09 is on the roadmap. Today the HTTP
   server is single-node, so the gap is not user-visible.

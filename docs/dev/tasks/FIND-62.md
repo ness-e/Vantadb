@@ -1,3 +1,9 @@
+---
+title: "FIND-62: commit_transaction bajo insert_lock + test de interleaving (vanta-worker)"
+kind: task
+description: "Test commitflushinterleaving (flush concurrente durante commit → todos los records visibles post-recovery) verde + suite storage verde + cargo clippy -D warnings + cargo fmt --check limpios. Commit: fix(storage): committransaction bajo..."
+---
+
 # FIND-62: commit_transaction bajo insert_lock + test de interleaving (vanta-worker)
 
 ## Metadata
@@ -25,7 +31,7 @@
 - Reglas cargadas: `durability.md` (scope storage/engine — sin Must violado: no se cambia backend ni WAL format), `core-engine.md` R-3 (propagar `?`, 0 unwrap nuevo) + R-4 (0 unsafe nuevo), `concurrency-async.md` R-8 (orden de locks + variante `_locked`/`acquire=false`).
 
 ## Impacto mapeado (Regla 0)
-- **Archivos leídos completos:** txn.rs (514L), maintenance.rs flush (36-125), delete.rs (318L), insert.rs (60-326 + 740-848), ops.rs (100-229), mod.rs (300-400), tests/ops.rs (1-250 + 1000-1370), tests/mod.rs, tests/maintenance.rs (400-520 + 660-707), tests/init.rs (349-530), config.rs (insert_lock_timeout_ms), tools.rs (2080-2140), rules (durability, core-engine, concurrency-async), ADR-037, BENCHMARKS §13.1, Backlog FIND-62, plan Task 1.
+- **Archivos leídos completos:** txn.rs (514L), maintenance.rs flush (36-125), delete.rs (318L), insert.rs (60-326 + 740-848), ops.rs (100-229), mod.rs (300-400), tests/ops.rs (1-250 + 1000-1370), tests/mod.rs, tests/maintenance.rs (400-520 + 660-707), tests/init.rs (349-530), config.rs (insert_lock_timeout_ms), tools.rs (2080-2140), rules (durability, core-engine, concurrency-async), ADR-0037, BENCHMARKS §13.1, Backlog FIND-62, plan Task 1.
 - **Referencias hacia dentro:** el fix toca `commit_transaction` + `apply_delete_inner(id,false)` (variante existente, 0 código nuevo fuera de txn.rs) + `drain_hnsw_batch_locked()` (existente). WAL format intacto (mismo batch + Commit marker).
 - **Referencias entrantes:** 1 caller productivo (MCP collection_delete) + tests. MVCC visibility intacta (stamps sin cambio). Recovery intacto (Commit marker igual).
 - **Veredicto:** BAJO y contenido. 1 guard + 1 drain + 1 flag `false`. Reversible (un commit atómico). Gate Regla 0 ✅ — se puede entrar a ACT.
@@ -50,7 +56,7 @@ Test `commit_flush_interleaving` (flush concurrente durante commit → todos los
 - **Estado:** ✅ DONE (2026-09-05 — commit `19a9651c` 3 files +119/-12, hooks pre-commit ok; plan Task 1 COMPLETO + recitation sin stagear; ajenos intactos)
 
 ## Dependencias
-- FIND-61 Step 3 (root cause VIOLA documentado) — landed. ADR-037 (ERR-010 invariante) — landed. Regla 8 (variantes locked) — landed.
+- FIND-61 Step 3 (root cause VIOLA documentado) — landed. ADR-0037 (ERR-010 invariante) — landed. Regla 8 (variantes locked) — landed.
 
 ## Notas
 - Si Step 2 mostrara contención medible (commit serializado con inserts) → es el tradeoff declarado de ERR-010 (correctness > throughput); NO optimizar sin bench (Regla 9). Registrar como nota, no como bloqueo.

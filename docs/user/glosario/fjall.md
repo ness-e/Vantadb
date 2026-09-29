@@ -1,18 +1,20 @@
 ---
-title: "Linux"
-type: glossary-entry
+title: Linux
+kind: glossary
 status: stable
-tags: [storage, backend, lsm-tree, rust]
-last_reviewed: 2026-09-15
-links: "[[README.md]]"
-aliases: [Fjall Storage Engine]
 description: "LSM-tree storage engine written in 100% Rust-safe, designed to be embeddable, transactional and high-performance. VantaDB Default Canonical Backend"
+aliases: [Fjall Storage Engine]
+tags: [storage, backend, lsm-tree, rust]
+type: glossary-entry
+last_reviewed: "2026-09-15"
+links: "[[README.md]]"
 ---
+
 #Fjall
 
 ##Definition
 
-**Fjall** is a **[[lsm-tree]]** (Log-Structured Merge-Tree) storage engine written in **100% secure Rust**, designed to be embeddable, transactional and high-performance. It is the **default canonical** VantaDB backend since version 0.1.4.
+**Fjall** is a **[lsm-tree](./lsm-tree.md)** (Log-Structured Merge-Tree) storage engine written in **100% secure Rust**, designed to be embeddable, transactional and high-performance. It is the **default canonical** VantaDB backend since version 0.1.4.
 
 ## Características Clave
 
@@ -20,7 +22,7 @@ description: "LSM-tree storage engine written in 100% Rust-safe, designed to be 
 |---------------|-------------|
 | **100% Safe Rust** | Sin `unsafe`, sin dependencias C++ |
 | **LSM-Tree** | Estructura optimizada para escrituras |
-| **MVCC** | [[mvcc]] nativo para transacciones concurrentes |
+| **MVCC** | [mvcc](./mvcc.md) nativo para transacciones concurrentes |
 | **Keyspaces** | Aislamiento lógico (similar a column families) |
 | **Transacciones ACID** | Soporte completo para atomicidad y durabilidad |
 | **Compresión** | LZ4 por defecto, configurable |
@@ -49,7 +51,7 @@ description: "LSM-tree storage engine written in 100% Rust-safe, designed to be 
 3. ✅ Safer (safe Rust)
 4. ✅ Aligned with VantaDB's Rust-native identity
 
-**[[rocksdb]] as fallback** for:
+**[rocksdb](./rocksdb.md) as fallback** for:
 - Comparative benchmarking
 - Users who require specific RocksDB features
 - Migration from existing systems
@@ -270,15 +272,15 @@ vanta migrate --from rocksdb --to fjall --data ./vantadb_data
 
 ## See Also
 
-- [[rocksdb]] — Alternative backend
-- [[lsm-tree]] — Underlying data structure
-- [[mvcc]] — Concurrency control
-- [[wal]] — Durability
-- [[transactional]] — ACID Guarantees
+- [rocksdb](./rocksdb.md) — Alternative backend
+- [lsm-tree](./lsm-tree.md) — Underlying data structure
+- [mvcc](./mvcc.md) — Concurrency control
+- [wal](./wal.md) — Durability
+- [transactional](./transactional.md) — ACID Guarantees
 
 ### Related Implementation Docs
-- [[../operations/CONFIGURATION|Backend Configuration]]
-- [[../operations/BACKUP_POLICY|Backup Policy]]
+- [Backend Configuration](../operations/CONFIGURATION.md)
+- [Backup Policy](../operations/BACKUP_POLICY.md)
 
 ---
 

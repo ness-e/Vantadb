@@ -1,3 +1,9 @@
+---
+title: "MEM-18: F4 Recall prepend/append + 3 modos"
+kind: task
+description: "cargo check -p vanta-memory pasa; tests dedicados de recall (D19) pasan (cargo nextest run -p vanta-memory); cargo fmt --check pasa; cargo clippy -p vanta-memory --all-targets --no-deps -- -D warnings pasa.\""
+---
+
 # MEM-18: F4 Recall prepend/append + 3 modos
 
 ## Metadata

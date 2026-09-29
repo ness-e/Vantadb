@@ -1,11 +1,9 @@
 ---
 title: "{{title}}"
-type: operations
+kind: research
 status: active
+description: Qué opera esta guía y cuándo usarla
 tags: [vantadb, operations]
-last_reviewed: {{date}}
-aliases: []
-related: []
 ---
 
 # {{title}}

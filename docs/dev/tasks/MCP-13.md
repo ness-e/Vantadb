@@ -1,3 +1,8 @@
+---
+title: "MCP-13: R1/R2/R3 — Enlaces y comandos muertos en la skill"
+kind: task
+---
+
 # MCP-13: R1/R2/R3 — Enlaces y comandos muertos en la skill
 
 ## Metadata

@@ -1,11 +1,9 @@
 ---
 title: "Deep Module Review — `src/` (Core Engine VantaDB)"
-type: review
+kind: review
 status: archived
+description: "Fecha: 2026-08-22"
 tags: [vantadb, review]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Deep Module Review — `src/` (Core Engine VantaDB)

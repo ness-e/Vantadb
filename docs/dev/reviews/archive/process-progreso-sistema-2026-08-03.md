@@ -1,17 +1,18 @@
 ---
-title: "Auditoría del Sistema de Tareas — Integración Backlog / Progreso"
-type: audit-report
+title: Auditoría del Sistema de Tareas — Integración Backlog / Progreso
+kind: review
 status: completed
+description: "Fecha: 2026-08-03"
 tags: [vantadb, audit, task-system, backlog, progreso, docs]
-audit_date: 2026-08-03
+audit_date: "2026-08-03"
 auditor: vanta-docs
-scope: .opencode/ (commands, skills, prompts, config, mcp) vs docs/dev/Backlog.md + docs/progreso/
+scope: ".opencode/ (commands, skills, prompts, config, mcp) vs docs/dev/Backlog.md + docs/progreso/"
 ---
 
 # Auditoría del Sistema de Tareas — Integración Backlog / Progreso
 
 **Fecha:** 2026-08-03
-**Alcance:** Cómo el sistema `.opencode/` usa `docs/dev/Backlog.md` y `docs/progreso/README.md`, tras la limpieza del backlog (346→321 líneas), la creación de `docs/progreso/BACKLOG_HISTORY.md`, `docs/progreso/2026-07-28-sdk-gap-audit.md`, `docs/dev/architecture/adr/DRV-014-wal-batch-tradeoff.md` y `.opencode/references/definition-of-done.md`.
+**Alcance:** Cómo el sistema `.opencode/` usa `docs/dev/Backlog.md` y `docs/progreso/README.md`, tras la limpieza del backlog (346→321 líneas), la creación de `docs/progreso/BACKLOG_HISTORY.md`, `docs/progreso/2026-07-28-sdk-gap-audit.md`, `docs/dev/architecture/adr/ADR-0051-wal-batch-tradeoff.md` y `.opencode/references/definition-of-done.md`.
 
 ## Archivos auditados (leídos completos)
 

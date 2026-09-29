@@ -1,12 +1,14 @@
 ---
-title: "Experimental Governance — Proposed Design (NOT Implemented)"
-type: architecture
+title: Experimental Governance — Proposed Design (NOT Implemented)
+kind: concept
 status: draft
-implemented: false
-tags: [vantadb, architecture, governance, admission-control, conflict-resolution, consistency]
-links: "[[Backlog]], [[LISP_ANALYSIS]]"
-last_reviewed: 2026-08-05
+description: The only existing code related to this document is src/gds.rs
 aliases: [gov-design-doc, experimental-governance]
+tags: [vantadb, architecture, governance, admission-control, conflict-resolution, consistency]
+type: architecture
+implemented: "false"
+links: "[Backlog](../Backlog.md), [[LISP_ANALYSIS]]"
+last_reviewed: "2026-08-05"
 ---
 
 # Experimental Governance — Design Document
@@ -281,6 +283,6 @@ All governance actions (block, resolve, purge, slash) should write to an append-
 
 ## See Also
 
-- [[Backlog]] — `GOV-01`: Rediseño de governance (Phase 5, Q4 2026)
-- [[LISP_ANALYSIS]] — Capabilities from the deleted LISP experiment that influenced governance design
-- [[docs/dev/strategy/ROADMAP.md]] — Phase 5 definition and timeline
+- [Backlog](../Backlog.md) — `GOV-01`: Rediseño de governance (Phase 5, Q4 2026)
+- [LISP_ANALYSIS](./LISP_ANALYSIS.md) — Capabilities from the deleted LISP experiment that influenced governance design
+- [ROADMAP.md](../strategy/ROADMAP.md) — Phase 5 definition and timeline

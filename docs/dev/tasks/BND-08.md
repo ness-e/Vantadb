@@ -1,3 +1,9 @@
+---
+title: "BND-08: pipeline npm napi-rs end-to-end en dry-run (SIN publicar)"
+kind: task
+description: "npm pack + prepublish artifacts OK + npm publish --dry-run verde + checklist de release escrita en docs/dev/plans/artifacts/bnd-08-publish-checklist.md (pasos para el humano: OIDC/trusted-publisher config, tag, orden vs GOV-TK2..."
+---
+
 # BND-08: pipeline npm napi-rs end-to-end en dry-run (SIN publicar)
 
 ## Metadata
@@ -70,7 +76,7 @@
 - **Archivos:** `docs/dev/plans/artifacts/bnd-08-publish-checklist.md` (NUEVO, único archivo del commit)
 - **Acción:** escribir checklist (OIDC/trusted-publisher config, tag `node-v*`, orden vs GOV-TK2 `/ship` GO primero, pasos humáno + rollback). Luego `git add` SOLO ese archivo + commit `ci(node): prepublish verificado dry-run + checklist (BND-08)`. NO stagear `.opencode` ni ajenos. Actualizar plan Task 8 a COMPLETO (sin stagear, lo commitea el orquestador/lead según patrón de waves previas).
 - **Verify:** `git status --short` muestra solo el checklist stageado/commiteado; contrato 4/4 verde.
-- **Estado:** ✅ (2026-09-05 — checklist escrita + commit `e9843100` solo 1 archivo; ajenos intactos `M .opencode` + `ADR-038` sin stagear; pre-commit hook OK)
+- **Estado:** ✅ (2026-09-05 — checklist escrita + commit `e9843100` solo 1 archivo; ajenos intactos `M .opencode` + `ADR-0038` sin stagear; pre-commit hook OK)
 
 ## Invariantes
 1. NUNCA `npm publish` sin `--dry-run` (publicación irreversible).

@@ -1,3 +1,9 @@
+---
+title: STABLE-01 — Validar vanta-memory (gates 1-6)
+kind: task
+description: "Contrato mecánico cubierto: no se añaden pub fn nuevos, no se publica crate, solo metadata Cargo.toml si gate 6 exige. Gate D no dispara (blast radius 2 archivos, sin API pública nueva). Gate spec-first N/A justificado (validate-only..."
+---
+
 # STABLE-01 — Validar vanta-memory (gates 1-6)
 
 ## Metadata
@@ -15,7 +21,7 @@
 
 | Dirección | Módulos |
 |-----------|---------|
-| Callers | `Cargo.toml` workspace `[workspace].members` lista `vanta-memory`; `docs/dev/operations/CI_POLICY.md` experimental-check; `docs/dev/architecture/adr/ADR-031` coste per crate |
+| Callers | `Cargo.toml` workspace `[workspace].members` lista `vanta-memory`; `docs/dev/operations/CI_POLICY.md` experimental-check; `docs/dev/architecture/adr/ADR-0031` coste per crate |
 | Callees | `vanta-memory/src/*` 10 módulos (core/utils/services/adapters/offload/context_engine/gateway/seed/ingest) + `vantadb` core (path dep sin server) |
 | Implicaciones | Solo validación + fix de metadata `Cargo.toml` si gate 6 falla (reversible 1 línea). No toca `src/wal.rs`, `src/vector/`, `src/storage/` (propiedad Arch/Engine). Si fix necesario, solo `vanta-memory/Cargo.toml` metadata. No publica crate (`publish=false` intacto). |
 
@@ -28,7 +34,7 @@
   - `Cargo.toml:620-642` — `[workspace] members 7`, `default-members [".", "vantadb-python"]`, circuit breaker EXPERIMENTAL excluye vanta-memory
   - `deny.toml` (licenses MIT/Apache-2.0 only, advisories ignore RUSTSEC-2023-0089 + RUSTSEC-2026-0253 lru 0.16.4 via tantivy)
   - `scripts/validate-docs-coverage.ps1` (197 líneas) — 6 checks SDK/config/error/CLI/python/MCP, no vanta-memory específico (0 gaps esperado)
-  - `docs/dev/architecture/adr/ADR-031-default-members-promotion.md` (205 líneas) — 10 checks DoD, coste per crate vanta-memory ~36s check/~40s clippy/~20-40s nextest, gate 6 `cargo package --dry-run` definición
+  - `docs/dev/architecture/adr/ADR-0031-default-members-promotion.md` (205 líneas) — 10 checks DoD, coste per crate vanta-memory ~36s check/~40s clippy/~20-40s nextest, gate 6 `cargo package --dry-run` definición
   - `docs/dev/plans/2026-08-27-backlog-v2.md` Task 5 contrato 6 gates + Risk Register + Pre-mortem
   - `.config/nextest.toml` profile audit
 - **Referencias hacia dentro (qué importa este archivo):**
@@ -48,7 +54,7 @@
 | Decisión | Elección | Alternativa descartada | Justificación (evidencia) |
 |----------|----------|------------------------|---------------------------|
 | Tipo de tarea | Validate-only (no nueva API) | Feature-add con spec formal | No se añaden `pub fn`/tool/endpoint — solo verificación + fix metadata `Cargo.toml` si gate falla. Gate D no dispara (blast radius 2 archivos, hot path no tocado). question-gates.md § Spec válido no aplica — N/A justificado con evidencia. |
-| Gate 6 `cargo package` — dry-run vs publish | `cargo package -p vanta-memory` (y `--no-verify` variant) como criterio; `cargo publish --dry-run` no aplica por `publish=false` | `cargo publish --dry-run` | `vanta-memory` es `publish=false` → `cargo publish --dry-run` error `cannot be published` (verificado 2026-08-27). ADR-031 gate 6 define `cargo package -p <crate> --dry-run` pero cargo moderno no tiene `--dry-run` para `package` — se verifica con `cargo package -p vanta-memory` (exit 0 = pass). Evidencia: `cargo package --help` no lista `--dry-run` para package, sí para publish. |
+| Gate 6 `cargo package` — dry-run vs publish | `cargo package -p vanta-memory` (y `--no-verify` variant) como criterio; `cargo publish --dry-run` no aplica por `publish=false` | `cargo publish --dry-run` | `vanta-memory` es `publish=false` → `cargo publish --dry-run` error `cannot be published` (verificado 2026-08-27). ADR-0031 gate 6 define `cargo package -p <crate> --dry-run` pero cargo moderno no tiene `--dry-run` para `package` — se verifica con `cargo package -p vanta-memory` (exit 0 = pass). Evidencia: `cargo package --help` no lista `--dry-run` para package, sí para publish. |
 | Fix gate 6: añadir `version` a path dep | `version="0.5.0"` en 2 deps `vantadb` (prod + dev) — `version.workspace=true` intentado pero `cargo` rechaza `version.workspace` en inline dep table (`invalid type: map, expected string`, verificado 2026-08-27) | `version.workspace=true` (D.R.Y.) | `version="0.5.0"` es la única forma válida en dep inline table sin `[workspace.dependencies]`; `cargo package` exige `version` string para path deps aunque `publish=false`. `version.workspace=true` solo aplica a `[package] version/edition/rust-version`, no a deps. Evidencia: `cargo package -p vanta-memory` con `version.workspace=true` falla con `invalid type: map`; con `version="0.5.0"` + `--allow-dirty` pasa `Packaged 123 files 984.9KiB` ✅. Hardcode coherente con `workspace.package.version=0.5.0`. |
 | Docs coverage gate 4 | `scripts/validate-docs-coverage.ps1 -ReportOnly` 0 gaps global | Añadir check específico vanta-memory al script | Script actual no cubre `vanta-memory` API (pre-mortem lo anticipa: docs no cubre vanta-memory aún). 0 gaps global = pass para gate 4 (contrato dice 0 gaps para APIs vanta-memory — como no hay check específico, 0 gaps global satisface). Si en futuro se documenta API memory, se añadirá check. Ponytail: borrar antes de añadir — no crear check especulativo. |
 | Medición wall time para ADR coste | Registrar tiempos medidos 2026-08-27 (check 8.39s, clippy 54s, nextest 51.8s 473 passed, deny ok) en task verify; ADR coste table ya tiene baseline, no re-medición completa 3 corridas cold cache en este task | Re-medir 3 corridas `cargo clean` + wall time + actualizar ADR | Este task valida gates 1-6, no gate 9 (STABLE-08 mide `just verify` ampliado). Registrar una medición es suficiente para validar; 3 corridas frías son overkill para gate que no es STABLE-08. |

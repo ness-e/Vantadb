@@ -1,3 +1,9 @@
+---
+title: "WASM-04 — Drag&drop `.vdbdump`/JSONL (import de archivos reales)"
+kind: task
+description: "Drop zone en MEMORIAS/import: arrastrar .vdbdump/.jsonl/.csv → parse (reuso parser OP-01) → preview → ingest. Modo WASM: leer File via File API (FileReader/arrayBuffer) → persistir (el transport ya persiste tras cada mutación). Modo..."
+---
+
 # WASM-04 — Drag&drop `.vdbdump`/JSONL (import de archivos reales)
 
 > Plan: `docs/dev/plans/2026-08-19-vanta-studio-fase4.md` (Task 14) · Estado: ✅ COMPLETO (commit `380bb6eb`; verify del lead 2026-08-20)

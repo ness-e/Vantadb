@@ -1,3 +1,9 @@
+---
+title: "Task 10 — MEM-56: Hook Langfuse/OTLP sobre ReportHook"
+kind: task
+description: "tests D19 con collector mockeado: turno → spans emitidos; disabled default; fallo de red nunca bloquea proxy (P4)\""
+---
+
 # Task 10 — MEM-56: Hook Langfuse/OTLP sobre ReportHook
 
 ## Estado: ✅ COMPLETED

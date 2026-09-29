@@ -1,11 +1,9 @@
 ---
 title: "Review de Módulo — `vantadb-python/`"
-type: review
+kind: review
 status: archived
+description: "El binding PyO3 está bien construido en su núcleo: el fix SEC-01 (UAF por"
 tags: [vantadb, review]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Review de Módulo — `vantadb-python/`

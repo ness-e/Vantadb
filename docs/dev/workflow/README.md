@@ -1,11 +1,9 @@
 ---
-title: "Workflows — Inventory (28 active)"
-type: workflow-index
+title: Workflows — Inventory (28 active)
+kind: index
 status: active
+description: "Per-workflow detail pages live next to this index (ci-gate.md,"
 tags: [vantadb, ci, workflows, inventory]
-last_reviewed: 2026-09-27
-aliases: []
-related: ["docs/dev/workflow/TRIGGERS.md", "docs/dev/workflow/PUBLISH.md", "docs/dev/workflow/RUNBOOK.md", "docs/dev/workflow/FAQ.md"]
 ---
 
 # Workflows — Inventory (28 active)

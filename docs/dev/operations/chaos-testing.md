@@ -1,11 +1,9 @@
 ---
-title: "Chaos Testing in VantaDB"
-type: operations
+title: Chaos Testing in VantaDB
+kind: runbook
 status: active
+description: Chaos testing validates that VantaDB survives injected I/O failures without
 tags: [vantadb, operations, chaos-testing, resilience]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Chaos Testing in VantaDB
@@ -74,7 +72,7 @@ silent data loss.
 #[cfg(feature = "failpoints")]
 {
     fail::fail_point!("my_new_failpoint", |_| {
-        Err(VantaError::Io(std::io::Error::other(
+        Err(Error::Io(std::io::Error::other(
             "Simulated failure description",
         )))
     });

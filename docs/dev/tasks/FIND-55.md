@@ -1,3 +1,9 @@
+---
+title: "FIND-55: Sanitizar body 500 — chain solo a logs, code al cliente"
+kind: task
+description: cargo test -p vantadb --lib --features server 0 failed AND tests nuevos de sanitización green AND cargo clippy --workspace --all-targets --all-features -- -D warnings 0 AND cargo fmt --all -- --check 0 AND grep del body 500 genérico...
+---
+
 # FIND-55: Sanitizar body 500 — chain solo a logs, code al cliente
 
 ## Metadata

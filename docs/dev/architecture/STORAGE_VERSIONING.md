@@ -1,9 +1,9 @@
 ---
-title: "Physical Storage Format Versioning Strategy"
+title: Physical Storage Format Versioning Strategy
+kind: concept
 status: implemented
+description: "Status: Implemented (WEB-04)"
 tags: [vantadb, architecture, storage]
-last_reviewed: 2026-07-25
-aliases: []
 ---
 
 # Physical Storage Format Versioning Strategy
@@ -118,7 +118,7 @@ The current `Header::validate()` performs an **exact match** on both magic bytes
 ```rust
 // src/binary_header.rs:80
 if self.magic != expected_magic || self.format_version != expected_version {
-    return Err(VantaError::IncompatibleFormat { ... });
+    return Err(Error::IncompatibleFormat { .. });
 }
 ```
 
@@ -235,11 +235,11 @@ pub fn validate_compat(
 ) -> Result<CompatResult> {
     // Reject unknown magic
     if self.magic != expected_magic {
-        return Err(VantaError::IncompatibleFormat { ... });
+        return Err(Error::IncompatibleFormat { .. });
     }
     // Reject future versions (newer file, older software)
     if self.format_version > software_version {
-        return Err(VantaError::IncompatibleFormat {
+        return Err(Error::IncompatibleFormat {
             hint: format!("File version {} is newer than this software (max {})", ...)
         });
     }
@@ -247,7 +247,7 @@ pub fn validate_compat(
     if self.format_version < self.schema_version  // schema_version used as min_compat
        || self.format_version + MAX_JUMP < software_version
     {
-        return Err(VantaError::IncompatibleFormat {
+        return Err(Error::IncompatibleFormat {
             hint: "Please migrate incrementally".into()
         });
     }

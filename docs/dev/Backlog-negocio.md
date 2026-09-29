@@ -1,10 +1,9 @@
 ---
-title: "Backlog de Negocio — VantaDB"
-type: backlog-tracking
+title: Backlog de Negocio — VantaDB
+kind: research
 status: active
 tags: [vantadb, backlog, negocio, gtm, legal]
-last_reviewed: 2026-09-03
-verified_by: "Split ejecutado 2026-09-03 por RES-15-C desde docs/dev/Backlog.md (criterio Gate P)"
+verified_by: Split ejecutado 2026-09-03 por RES-15-C desde docs/dev/Backlog.md (criterio Gate P)
 ---
 
 # Backlog de Negocio — VantaDB
@@ -57,7 +56,7 @@ verified_by: "Split ejecutado 2026-09-03 por RES-15-C desde docs/dev/Backlog.md 
 |----|-------------|----------|------|--------|--------|
 | `PRO-01` | **Multi-tenancy / RBAC** — aislamiento cifras org | `vantadb-pro`: solo `lib.rs`+`license.rs` | 🔴 2-3 sem | 🔵 | ❌ Sin código |
 | `PRO-02` | **Replicación multi-copy / Sync** — DR | ídem | 🔴 3-4 sem | 🔵 | ❌ Sin código |
-| `PRO-03` | **WAL shipping + PITR (gates ya existen en core)** — failover | gate `wal-shipping` en core (`src/lib.rs:155-156`); nota 2026-09-14: el gate `pitr` fue removido (FIND-26, ADR-014 superseded) — al activar Pro, PITR se rediseña, no se reutiliza | 🟠 2-3 sem | 🔵 | ❌ Sin código |
+| `PRO-03` | **WAL shipping + PITR (gates ya existen en core)** — failover | gate `wal-shipping` en core (`src/lib.rs:155-156`); nota 2026-09-14: el gate `pitr` fue removido (FIND-26, ADR-0014 superseded) — al activar Pro, PITR se rediseña, no se reutiliza | 🟠 2-3 sem | 🔵 | ❌ Sin código |
 | `PRO-04` | **TTL / retention policies** — compliance | ídem | 🟡 1-2 sem | 🔵 | ❌ Sin código |
 | `PRO-05` | **Admin server + dashboard** — UX enterprise | ídem | 🟠 2-3 sem | 🔵 | ❌ Sin código |
 | `PRO-06` | **Audit trail / compliance** — ídem | ídem | 🟡 1-2 sem | 🔵 | ❌ Sin código |

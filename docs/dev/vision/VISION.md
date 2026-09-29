@@ -1,11 +1,10 @@
 ---
-title: VantaDB Vision & Strategic Positioning
-type: vision
+title: "VantaDB Vision & Strategic Positioning"
+kind: concept
 status: stable
-tags: [vantadb, product, strategy, uvp, icp, competitive, positioning]
-last_reviewed: 2026-09-27
+description: "VantaDB is an embedded, local-first, transactional cognitive memory engine for AI agents. One core with three entry points — AI-IDEs via MCP, local-LLM/private deployments, and agent frameworks (see §Update 2026-09-24 — Tracks ICP) —..."
 aliases: [Vision, Positioning, UVP, ICP, Competitive Analysis]
-related: [GO_TO_MARKET.md, VANTADB-PRO-FEATURES.md]
+tags: [vantadb, product, strategy, uvp, icp, competitive, positioning]
 ---
 
 # VantaDB Vision & Strategic Positioning

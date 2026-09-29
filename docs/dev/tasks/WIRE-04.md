@@ -1,3 +1,9 @@
+---
+title: WIRE-04 — TTL superficie completa (server HTTP + default por colección + sweeper)
+kind: task
+description: TTL HTTP verificado con test E2E (put ttlms → expira → get None / purgeexpired ≥1) Y default TTL por
+---
+
 # WIRE-04 — TTL superficie completa (server HTTP + default por colección + sweeper)
 
 > **Fase:** F2 · **Plan:** `docs/dev/plans/2026-09-26-master-roadmap.md` (Task 18) · **Branch:** develop

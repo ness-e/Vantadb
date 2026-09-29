@@ -1,9 +1,9 @@
 ---
-title: "SLSA (Supply-chain Levels for Software Artifacts)"
-type: glossary-entry
+title: SLSA (Supply-chain Levels for Software Artifacts)
+kind: glossary
 status: stable
+description: "SLSA (Supply-chain Levels for Software Artifacts) es un framework de seguridad que define niveles de madurez para la cadena de suministro de software, desde código fuente hasta artefactos binarios"
 tags: [vantadb, glosario, seguridad, ci-cd]
-last_reviewed: 2026-09-15
 links: "[Glosario](./README.md)"
 ---
 
@@ -19,7 +19,7 @@ links: "[Glosario](./README.md)"
 |-------|-------------|------------|
 | **SLSA 0** | Sin garantías | Ninguno |
 | **SLSA 1** | Build documentado | Script de build, provenance básica |
-| **SLSA 2** | Build firmado | [OIDC](OIDC.md), [Sigstore](Sigstore.md), source versionado |
+| **SLSA 2** | Build firmado | [OIDC](./oidc.md), [Sigstore](./sigstore.md), source versionado |
 | **SLSA 3** | Build aislado | Hermetic builds, no user input |
 | **SLSA 4** | Two-party review | Code review + approval |
 
@@ -31,7 +31,7 @@ links: "[Glosario](./README.md)"
 ✅ **Build script:** GitHub Actions workflows
 ✅ **Build service:** GitHub-hosted runners
 ✅ **Provenance:** Generada automáticamente por GitHub
-✅ **Firma:** [Sigstore](Sigstore.md) via OIDC
+✅ **Firma:** [Sigstore](./sigstore.md) via OIDC
 
 ### Verificación de Artefactos
 
@@ -99,8 +99,8 @@ gh attestation verify \
 
 ## Véase También
 
-- [OIDC](OIDC.md) — Autenticación para builds
-- [Sigstore](Sigstore.md) — Firma de artefactos
+- [OIDC](./oidc.md) — Autenticación para builds
+- [Sigstore](./sigstore.md) — Firma de artefactos
 - [CI/CD](ci-cd.md) — Pipeline de build
 
 ---

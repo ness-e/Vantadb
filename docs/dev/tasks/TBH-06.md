@@ -1,3 +1,8 @@
+---
+title: "TBH-06: Add insta 1.48 snapshot testing (3 parser + 2 query result tests)"
+kind: task
+---
+
 # TBH-06: Add insta 1.48 snapshot testing (3 parser + 2 query result tests)
 
 ## Metadata

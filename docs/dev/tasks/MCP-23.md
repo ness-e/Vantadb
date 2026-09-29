@@ -1,3 +1,9 @@
+---
+title: "Task MCP-23 — Extender mantenimiento: flush + compact_layout"
+kind: task
+description: "Fuente de verdad: docs/dev/Backlog.md → fase P25 - Exposición MCP/HTTP → fila MCP-23 (leer ANTES de ejecutar: problema, acciones numeradas, archivos exactos)"
+---
+
 # Task MCP-23 — Extender mantenimiento: flush + compact_layout
 
 **Fuente de verdad:** `docs/dev/Backlog.md` → fase **P25 - Exposición MCP/HTTP** → fila `MCP-23` (leer ANTES de ejecutar: problema, acciones numeradas, archivos exactos).

@@ -1,3 +1,9 @@
+---
+title: "FIND-108: integración completa open-code-review"
+kind: task
+description: "Objetivo: completar la integración open-code-review (ocr v1.12.5 instalado vía npm) más allá del delegation ya integrado (dev-tools/ocr-review.ps1 + gates; .opencode/references/ocr-review.md). Hoy SIN integrar: review-rules por path..."
+---
+
 # FIND-108: integración completa open-code-review
 
 ## Metadata

@@ -1,3 +1,9 @@
+---
+title: "Task: GOV-B2 — Runbook DR sin comandos fantasma"
+kind: task
+description: "Leídos completos: DISASTERRECOVERYRUNBOOK.md (416L), src/cli.rs (410L), backup.rs:14-113, grep clihandlers/diagnostics.rs"
+---
+
 # Task: GOV-B2 — Runbook DR sin comandos fantasma
 
 - **Plan:** docs/dev/plans/2026-08-22-doc-governance-plan.md (NO editar)

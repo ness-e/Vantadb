@@ -1,10 +1,9 @@
 ---
 title: Task-System Parallel Waves
-type: architecture
+kind: concept
 status: active
+description: "The task harness currently runs plans as a single loop: one task at a time,"
 tags: [vantadb, architecture]
-last_reviewed: 2026-09-23
-aliases: []
 ---
 
 # Task-System: Parallel Waves + Lead Merge (TSYS-12)

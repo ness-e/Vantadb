@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Embeddings automáticos (cualquiera del manifest) vía MCP — 2026-09-16"
+kind: plan
+status: archived
+description: "Status: ⬆️ uphill = 2 (EMB-17 caché multi-modelo · EMB-11 UX instalador) · ⬇️ resto con contrato mecánico"
+---
+
 # Plan de Ejecución: Embeddings automáticos (cualquiera del manifest) vía MCP — 2026-09-16
 
 > **Campaign ID:** 6a794efa-ad83-4a19-9fb8-5e6385f36016

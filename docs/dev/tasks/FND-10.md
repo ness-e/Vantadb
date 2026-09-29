@@ -1,3 +1,9 @@
+---
+title: "FND-10: Regla 9 (No optimizar sin medir) + benchmark canónico P99"
+kind: task
+description: "FND-11 (otra wave, ya commiteada) tomó Regla 10 (AI Guardian). Las reglas existentes llegan hasta 8. Esta tarea crea Regla 9 — libre — en .opencode/AGENTS.md"
+---
+
 # FND-10: Regla 9 (No optimizar sin medir) + benchmark canónico P99
 
 - **ID:** FND-10

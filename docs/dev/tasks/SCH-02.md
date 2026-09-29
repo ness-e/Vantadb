@@ -1,13 +1,13 @@
 ---
 title: "SCH-02: Schema v2 (bitemporal + confidence + quarantined + backfill)"
 kind: task
-description: "\"schema v2 implementado (validat/invalidat + confianza asserted/derived + quarantined, todo #[serde(default)] compatible v1) Y migración v1→v2 determinista (misma DB → mismo resultado..."
+description: "schema v2 implementado (validat/invalidat + confianza asserted/derived + quarantined, todo #[serde(default)] compatible v1) Y migración v1→v2 determinista (misma DB → mismo resultado) con backfill (validat=createdat..."
 ---
 
 # SCH-02: Schema v2 (bitemporal + confidence + quarantined + backfill)
 
 ## Metadata
-- **Plan file:** `docs/dev/plans/2026-09-26-master-roadmap.md` — Task 27 (F3) · **Origen:** `docs/dev/Backlog.md:939` (+ ADR-046 accepted 2026-09-28)
+- **Plan file:** `docs/dev/plans/2026-09-26-master-roadmap.md` — Task 27 (F3) · **Origen:** `docs/dev/Backlog.md:939` (+ ADR-0046 accepted 2026-09-28)
 - **Fuente del prompt:** sub-agente vanta-worker (orquestador pipeline) — ejecución directa de SCH-02
 - **Esfuerzo:** 🔴 3-5d · **Prioridad:** 🔴 · **Tipo:** feature-add (schema v2 + migración)
 - **Turns estimados:** — · **Creado:** 2026-09-28 · **last-synced:** 2026-09-28
@@ -24,27 +24,27 @@ description: "\"schema v2 implementado (validat/invalidat + confianza asserted/d
 
 ## Impacto mapeado (Regla 0)
 
-- **Archivos leídos (completos / secciones):** `docs/dev/architecture/adr/ADR-046-schema-v2-migracion-unica.md` (completo, verbatim) · `docs/dev/research/mgr-10-bitemporalidad.md` (§4), `mgr-12-confianza.md` (§2-§10), `mgr-13-cuarentena.md` (§2-§8) · `src/sdk/types/record.rs` (553L, completo) · `src/sdk/version_history.rs` (542L, completo) · `src/sdk/serialization/mod.rs` (1-600) · `src/sdk/serialization/impl_export.rs` (1-200) · `src/sdk/api/memory.rs` (1-620, 885-996) · `src/schema.rs` (272L, completo) · `src/migration.rs` (699L, completo) · `src/cli_handlers/migrate.rs` (415L, completo) · `src/wal.rs` (1-135) · `src/node/unified.rs` (1-120) · `src/storage/ops.rs` (1-200) · `src/storage/engine/insert.rs` (140-240, 414-500, 867-905) · `.opencode/rules/{durability,core-engine,api-contract,release-ci}.md` · `.opencode/references/clean-code-clean-architecture.md` (Apéndice V) · `.opencode/references/definition-of-done.md`
-- **Referencias hacia dentro:** ADR-046 §D2 (campos), §D3 (semántica), §D4 (reglas V1-V5 + tests D4d), §D5/D5d (cuarentena + 30d), §D6 (record↔nodo), §D7 (4 formatos + predicate), §D8 (backfill); plan Task 27 (:703-727); Backlog:939; `tests/{core/snapshot_certification,sdk_serialization,durability_recovery,text_index_recovery}.rs`
+- **Archivos leídos (completos / secciones):** `docs/dev/architecture/adr/ADR-0046-schema-v2-migracion-unica.md` (completo, verbatim) · `docs/dev/research/mgr-10-bitemporalidad.md` (§4), `mgr-12-confianza.md` (§2-§10), `mgr-13-cuarentena.md` (§2-§8) · `src/sdk/types/record.rs` (553L, completo) · `src/sdk/version_history.rs` (542L, completo) · `src/sdk/serialization/mod.rs` (1-600) · `src/sdk/serialization/impl_export.rs` (1-200) · `src/sdk/api/memory.rs` (1-620, 885-996) · `src/schema.rs` (272L, completo) · `src/migration.rs` (699L, completo) · `src/cli_handlers/migrate.rs` (415L, completo) · `src/wal.rs` (1-135) · `src/node/unified.rs` (1-120) · `src/storage/ops.rs` (1-200) · `src/storage/engine/insert.rs` (140-240, 414-500, 867-905) · `.opencode/rules/{durability,core-engine,api-contract,release-ci}.md` · `.opencode/references/clean-code-clean-architecture.md` (Apéndice V) · `.opencode/references/definition-of-done.md`
+- **Referencias hacia dentro:** ADR-0046 §D2 (campos), §D3 (semántica), §D4 (reglas V1-V5 + tests D4d), §D5/D5d (cuarentena + 30d), §D6 (record↔nodo), §D7 (4 formatos + predicate), §D8 (backfill); plan Task 27 (:703-727); Backlog:939; `tests/{core/snapshot_certification,sdk_serialization,durability_recovery,text_index_recovery}.rs`
 - **Referencias entrantes:** SCH-03 (`valid_at`/`invalid_at` en queries), SCH-04 (scores consumibles + `min_confidence`), SCH-05 (cuarentena operativa + T1 + sticky), SCH-06 (doble corrida/crash/chaos), SCH-07 (superficies), SCH-08 (guía 0.8.0); `restore_graph_nodes` (D6 test); eviction/prompt/executor (cambio observable D4c)
 - **Veredicto impacto:** alto — API pública + 4 formatos de persistencia + migración; toda la workspace compila contra los structs extendidos
 
 ## Contrato
 "schema v2 implementado (`valid_at`/`invalid_at` + confianza asserted/derived + `quarantined`, todo `#[serde(default)]` compatible v1) Y migración v1→v2 determinista (misma DB → mismo resultado) con backfill (`valid_at=created_at`, `invalid_at=superseded_at` si existe) Y roundtrip export/import verde (v1 sigue importable) Y reopen/durabilidad verdes"
 
-## Spec (SDD — Phase 1b; decisiones por evidencia, ADR-046 = spec)
+## Spec (SDD — Phase 1b; decisiones por evidencia, ADR-0046 = spec)
 
 | Decisión | Alternativas | Elegido | Evidencia / por qué |
 |---|---|---|---|
-| Forma de extensión | `MemoryRecordV2` vs extender record | **Extender record** (One-Version) | ADR-046 §D2 ("aditivo puro — One-Version: se extiende el record, nunca un `MemoryRecordV2`") |
-| `confidence` default | plano 0.0 vs `default_confidence` | **`#[serde(default = "default_confidence")]` (D_a=1.0)** | ADR-046 §D2 tabla + §D4c; test enumera el default |
-| `valid_at_ms` tipo | `Option<u64>` vs `u64` | **`u64` + normalización `ausente ⇒ created_at_ms`** | ADR-046 §D2/§D8 ("**`u64`** + default de insert `:= created_at_ms`") |
-| Rechazo `Derived + Some(confidence)` | clamp vs solo-interno vs rechazo | **Rechazo en boundary** con `Error::Validation{field:"confidence"}` | ADR-046 §D4b (verbatim) |
-| Backfill confidence | 0.5 continuidad vs 1.0 uniforme | **1.0 uniforme (D_a)** | ADR-046 §D4c (aceptado por owner; deltas documentados) |
-| Snapshot decode orden | V1-first vs V2-first | **V2-first → V1-fallback; re-encode siempre V2** | ADR-046 §D7 tabla #2 (verbatim) |
-| Import predicate | exacto ==2 vs `∈{1,2}` | **aceptar ∈{1,2} / rechazar >2** (v1 normaliza; export siempre 2) | ADR-046 §D7 (verbatim) |
-| `records` como formato | sub-paso de `schema` vs `FormatKind::Records` | **`FormatKind::Records`** + orden `all` = backfill ANTES del bump de header | ADR-046 §Plan (comandos `--format records`); mgr-10:193 permite sub-paso pero los comandos piden `records` |
-| Índices derivados | migrar in-place vs rebuild | **NO migrar in-place** (rebuild-on-mismatch existente) | ADR-046 §D1d rabbit hole + `impl_index.rs:52` |
+| Forma de extensión | `MemoryRecordV2` vs extender record | **Extender record** (One-Version) | ADR-0046 §D2 ("aditivo puro — One-Version: se extiende el record, nunca un `MemoryRecordV2`") |
+| `confidence` default | plano 0.0 vs `default_confidence` | **`#[serde(default = "default_confidence")]` (D_a=1.0)** | ADR-0046 §D2 tabla + §D4c; test enumera el default |
+| `valid_at_ms` tipo | `Option<u64>` vs `u64` | **`u64` + normalización `ausente ⇒ created_at_ms`** | ADR-0046 §D2/§D8 ("**`u64`** + default de insert `:= created_at_ms`") |
+| Rechazo `Derived + Some(confidence)` | clamp vs solo-interno vs rechazo | **Rechazo en boundary** con `Error::Validation{field:"confidence"}` | ADR-0046 §D4b (verbatim) |
+| Backfill confidence | 0.5 continuidad vs 1.0 uniforme | **1.0 uniforme (D_a)** | ADR-0046 §D4c (aceptado por owner; deltas documentados) |
+| Snapshot decode orden | V1-first vs V2-first | **V2-first → V1-fallback; re-encode siempre V2** | ADR-0046 §D7 tabla #2 (verbatim) |
+| Import predicate | exacto ==2 vs `∈{1,2}` | **aceptar ∈{1,2} / rechazar >2** (v1 normaliza; export siempre 2) | ADR-0046 §D7 (verbatim) |
+| `records` como formato | sub-paso de `schema` vs `FormatKind::Records` | **`FormatKind::Records`** + orden `all` = backfill ANTES del bump de header | ADR-0046 §Plan (comandos `--format records`); mgr-10:193 permite sub-paso pero los comandos piden `records` |
+| Índices derivados | migrar in-place vs rebuild | **NO migrar in-place** (rebuild-on-mismatch existente) | ADR-0046 §D1d rabbit hole + `impl_index.rs:52` |
 | `MemoryInput.quarantine` (T1) | SCH-02 vs SCH-05 | **SCH-05** (flag + ops + gates) | mgr-13 §7.3 ("flag T1 y opción de import T1c" en SCH-05); §7.2 SCH-02 = campos + mirrors + migración `None` |
 | `include_quarantined`/`min_confidence` wire | SCH-02 vs SCH-04/05 | **SCH-04/05** | mgr-12 §6.1 (SCH-04) + mgr-13 §7.3 (SCH-05) |
 | `valid_at_ms = Some(0)` | aceptar 0 vs rechazar | **Rechazar en boundary** (0 ⇒ unset en v1; "salvo valor explícito" no cubre epoch) | ADR §D8; elimina ambigüedad sentinel v1 sin cambio silencioso |
@@ -184,7 +184,7 @@ last-synced: 2026-09-28
 - **FIND-184 (pre-existente):** `cargo nextest --workspace` falla por unificación de features (`vanta-memory/tests/smoke.rs` E0080 con `llm-driver` de mcp/proxy) — NO es de este diff; gate canónico corre `-p vantadb`; ya registrado en Backlog.
 
 ## Dependencias
-- **Consume:** SCH-01 ✅ (ADR-046 `accepted`, firmado 2026-09-28) + MGR-10/12/13 ✅.
+- **Consume:** SCH-01 ✅ (ADR-0046 `accepted`, firmado 2026-09-28) + MGR-10/12/13 ✅.
 - **Destraba:** SCH-03 (`valid_at`/`invalid_at`), SCH-04 (scores), SCH-05 (cuarentena T1/sticky), SCH-06 (suite determinismo).
 
 ## Review (GATE P2-01)

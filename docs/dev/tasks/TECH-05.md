@@ -1,3 +1,9 @@
+---
+title: "TECH-05 — Implementar resource MCP `schema://`"
+kind: task
+description: "Plan: docs/dev/plans/2026-08-05-backlog-validation-actions.md → Task 21"
+---
+
 # TECH-05 — Implementar resource MCP `schema://`
 
 **Plan:** `docs/dev/plans/2026-08-05-backlog-validation-actions.md` → Task 21

@@ -1,3 +1,9 @@
+---
+title: "MCP-06: D2 — `distance_metric` documentado como funcional (sin efecto observable)"
+kind: task
+description: "skills/vantadb-mcp/SKILL.md y api-reference.md describen correctamente si distancemetric es por-request (post-fix MCP-02) o config-time (si MCP-02 eligió (b)); copia sync a .opencode/skills/ con hash SAME\""
+---
+
 # MCP-06: D2 — `distance_metric` documentado como funcional (sin efecto observable)
 
 ## Metadata

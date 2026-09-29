@@ -1,3 +1,9 @@
+---
+title: "TASK FIND-35: Ciclo StorageEngine get/prefetch (2 nodos)"
+kind: task
+description: "Contrato mecánico cubierto: no se añaden pub fn nuevos, solo //! doc header + comentario ampliado (si aplica). No requiere spec-first gate para feature-add. Gate D no dispara (blast radius 2 archivos, sin API pública nueva)"
+---
+
 # TASK FIND-35: Ciclo StorageEngine get/prefetch (2 nodos)
 
 ## Metadata

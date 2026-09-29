@@ -1,3 +1,9 @@
+---
+title: "WSM-09: Unificar límites FFI en core (MAX_VEC_DIM, MAX_F32)"
+kind: task
+description: Hoy existen 4 constantes duplicadas/límites divergentes en las fronteras FFI
+---
+
 # WSM-09: Unificar límites FFI en core (MAX_VEC_DIM, MAX_F32)
 
 ## Metadata

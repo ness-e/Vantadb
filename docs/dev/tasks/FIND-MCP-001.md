@@ -1,3 +1,9 @@
+---
+title: "FIND-MCP-001: Fix `MemoryRecord { ... }` literal faltan `heat`/`superseded_by` en..."
+kind: task
+description: "Cero cambios necesarios. El fix ya fue aplicado en commit 43e0779e (chore(cleanup): post-P48 residues). La línea 70 original del plan ahora es línea 86-90 con los campos agregados"
+---
+
 # FIND-MCP-001: Fix `MemoryRecord { ... }` literal faltan `heat`/`superseded_by` en `vantadb-mcp/tests/context_tests.rs:70`
 
 ## Metadata

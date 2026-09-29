@@ -1,3 +1,9 @@
+---
+title: "TASK WEB-04: Unificar idioma de metadata en layouts (about/*, playground)"
+kind: task
+description: Asegurar title === openGraph.title y description === openGraph.description mismo locale (ES). Verificar las 5 variantes con grep
+---
+
 # TASK WEB-04: Unificar idioma de metadata en layouts (about/*, playground)
 
 ## Metadata

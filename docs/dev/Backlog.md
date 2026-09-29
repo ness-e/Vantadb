@@ -1,11 +1,12 @@
 ---
-title: "Active Backlog — VantaDB"
-type: backlog-tracking
+title: Active Backlog — VantaDB
+kind: research
 status: active
+description: "Hallazgos >= medium derivados de reportes de auditoría. Fuente: docs/dev/reviews/audit-full-20260812-231204.md (2026-08-12)"
 tags: [vantadb, backlog, engineering, phases, priorities]
-last_reviewed: 2026-09-25
 verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-history.md"
 ---
+
 
 # Active Backlog — VantaDB
 
@@ -1010,7 +1011,7 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/dev/revie
 
 | ID | Descripción | Archivos | Esfuerzo | Prio | Estado Real |
 |----|-------------|----------|----------|------|-------------|
-| `HIG-02` | **ADR-041: numeración duplicada (anti-stutter vs error-variant-renames) + firma humana** — 🎯 OP: dos ADR distintos comparten el número 041: `041_anti_stutter.md` (proposed, umbrella, firma humana pendiente) y `ADR-041-error-variant-renames.md` (accepted 2026-09-12); renumerar el propuesto al siguiente número libre (o marcarlo superseded), actualizar refs (`scripts/anti_stutter_map.json`, tasks AST-*) y cerrar la firma del umbrella (owner). Evidencia: ambos archivos existen (verificado 2026-09-25); deuda de firma registrada en AST-001/007. Tipo: gobernanza docs. Dep: firma = owner. DoD: 0 números ADR duplicados + refs actualizadas + firma o supersession. | `docs/dev/architecture/adr/`, `scripts/anti_stutter_map.json` | 🟢 0.5d | 🟡 | 🆕 Pendiente (P58 2026-09-25) |
+| `HIG-02` | **ADR-041: numeración duplicada (anti-stutter vs error-variant-renames) + firma humana** — 🎯 OP: dos ADR distintos comparten el número 041: `ADR-0047-anti-stutter.md` (proposed, umbrella, firma humana pendiente) y `ADR-0041-error-variant-renames.md` (accepted 2026-09-12); renumerar el propuesto al siguiente número libre (o marcarlo superseded), actualizar refs (`scripts/anti_stutter_map.json`, tasks AST-*) y cerrar la firma del umbrella (owner). Evidencia: ambos archivos existen (verificado 2026-09-25); deuda de firma registrada en AST-001/007. Tipo: gobernanza docs. Dep: firma = owner. DoD: 0 números ADR duplicados + refs actualizadas + firma o supersession. | `docs/dev/architecture/adr/`, `scripts/anti_stutter_map.json` | 🟢 0.5d | 🟡 | 🆕 Pendiente (P58 2026-09-25) |
 | `HIG-03` | **Auditoría de dead code: 44 `#[allow(dead_code)]` en `src/` (20 archivos)** — 🎯 OP: auditar cada supresión: borrar el código muerto o cablearlo (si el ítem ya tiene tarea de cableado — p.ej. FUT-09 bloom/`DuplicatePreventionFilter` — enlazar, no borrar); objetivo: 0 supresiones sin justificación documentada. Evidencia: 44 hits en 20 archivos (verificado 2026-09-25). Tipo: limpieza. Dep: ninguna. DoD: supresiones ≤ justificadas + `cargo clippy -D warnings` verde. | `src/` (20 archivos) | 🟡 1-2d | 🟡 | 🆕 Pendiente (P58 2026-09-25) |
 
 ---

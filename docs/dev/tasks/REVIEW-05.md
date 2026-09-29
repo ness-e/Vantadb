@@ -1,3 +1,9 @@
+---
+title: "REVIEW-05: God files restantes — serialize.rs, distance.rs, physical_plan.rs"
+kind: task
+description: "cargo check -p vantadb pasa, cargo nextest run --profile audit -p vantadb --build-jobs 2 pasa, cargo clippy -p vantadb --all-targets --all-features -- -D warnings sin warnings nuevos, cargo fmt --check pasa, re-exports idénticos (grep..."
+---
+
 # REVIEW-05: God files restantes — serialize.rs, distance.rs, physical_plan.rs
 
 ## Metadata

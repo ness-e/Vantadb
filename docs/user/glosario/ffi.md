@@ -1,12 +1,15 @@
 ---
-title: "Python"
-type: glossary-entry
+title: Python
+kind: glossary
 status: stable
-tags: [interoperabilidad, ffi, bindings, c-abi]
-last_reviewed: 2026-09-15
-links: "[[README.md]]"
+description: "#FFI—Foreign Function Interface"
 aliases: [Foreign Function Interface, C FFI]
+tags: [interoperabilidad, ffi, bindings, c-abi]
+type: glossary-entry
+last_reviewed: "2026-09-15"
+links: "[[README.md]]"
 ---
+
 #FFI—Foreign Function Interface
 
 ##Definition
@@ -82,7 +85,7 @@ FFI Boundary (C ABI)
   ▼
 Rust Core (VantaDB Engine)
 ```
-*Platform:* [[pyo3]]
+*Platform:* [pyo3](./pyo3.md)
 
 ### Example of FFI Crossover
 
@@ -138,7 +141,7 @@ fn good_ffi(&self) -> String {
 
 ```rust
 // Rust: Result<T, E>
-fn search(&self, vector: &[f32]) -> Result<Vec<SearchResult>, VantaError> {
+fn search(&self, vector: &[f32]) -> Result<Vec<SearchResult>, Error> {
     // ...
 }
 
@@ -148,15 +151,21 @@ impl VantaEmbedded {
     fn search(&self, vector: Vec<f32>) -> PyResult<Vec<SearchResult>> {
         self.engine.search(&vector)
             .map_err(|e| match e {
-                VantaError::InvalidVector => PyErr::new::<pyo3::exceptions::PyValueError, _>("Invalid vector"),
-                VantaError::NotFound => PyErr::new::<pyo3::exceptions::PyKeyError, _>("Not found"),
-                _ => PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()),
+                Error::DimensionMismatch { .. } => ValidationError::new_err(e.to_string()),
+                Error::NodeNotFound(_) | Error::NotFound { .. } => NotFoundError::new_err(e.to_string()),
+                _ => Error::new_err(e.to_string()),
             })
     }
 }
 ```
 
-### 4. Concurrency and [[gil]]
+The Rust `Error` enum maps to the Python hierarchy by variant — see
+`map_vanta_error` in `vantadb-python/src/convert.rs` for the authoritative
+table, and [`docs/api/ERROR_HANDLING.md` §5](../../api/ERROR_HANDLING.md). The
+Python base class is `vantadb.Error` (there is no `VantaError`; that alias was
+removed in 0.6.0).
+
+### 4. Concurrency and [gil](./gil.md)
 
 ```rust
 // Liberar GIL antes de operación pesada
@@ -167,7 +176,7 @@ fn search(&self, py: Python<'_>, vector: Vec<f32>) -> PyResult<Vec<SearchResult>
     })
 }
 ```
-*Note: Thread management requires releasing the [[gil|GIL]].*
+*Note: Thread management requires releasing the [GIL](./gil.md).*
 
 ## FFI Overhead
 
@@ -341,9 +350,9 @@ fn put(&self, metadata: HashMap<String, Value>) -> PyResult<()> {
 
 ## See Also
 
-- [[pyo3]] — Framework FFI para Python
-- [[gil]] — Lock que se libera en FFI
-- [[transactional]] — Garantías que cruzan FFI
+- [pyo3](./pyo3.md) — Framework FFI para Python
+- [gil](./gil.md) — Lock que se libera en FFI
+- [transactional](./transactional.md) — Garantías que cruzan FFI
 
 ---
 

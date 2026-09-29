@@ -1,13 +1,15 @@
 ---
-title: "Grafo"
-type: glossary-entry
+title: Grafo
+kind: glossary
 status: stable
-tags: [concept, graph, knowledge-graph, relaciones]
-last_reviewed: 2026-09-15
-links: "[[README.md]]"
-aliases: [Graph, Knowledge Graph, Knowledge Graph, Property Graph]
 description: "Data structure composed of nodes (entities) and edges (relationships), where both can have associated properties, modeling connectivity and explicit relationships"
+aliases: [Graph, Knowledge Graph, Knowledge Graph, Property Graph]
+tags: [concept, graph, knowledge-graph, relaciones]
+type: glossary-entry
+last_reviewed: "2026-09-15"
+links: "[[README.md]]"
 ---
+
 # Grafo
 
 ##Definition
@@ -133,7 +135,7 @@ edges: Vec<Edge>
 
 ### Storage
 
-- **Nodos:** Almacenados como `UnifiedNode` en el backend ([[fjall]]/[[rocksdb]])
+- **Nodos:** Almacenados como `UnifiedNode` en el backend ([fjall](./fjall.md)/[rocksdb](./rocksdb.md))
 - **Aristas:** Embebidas en el nodo fuente (edge list)
 - **Índice de adyacencia:** Para lookup rápido de relaciones
 
@@ -244,10 +246,10 @@ On separate systems (Neo4j + Pinecone), you would need:
 
 ## See Also
 
-- [[vectors]] — Complementary model (semantics vs relationships)
-- [[rag]] — GraphRAG improves traditional RAG
-- [[transactional]] — Atomicity between graph and vectors
-- [[rrf]] — Vector-search fusion + graph traversal
+- [vectors](./vectors.md) — Complementary model (semantics vs relationships)
+- [rag](./rag.md) — GraphRAG improves traditional RAG
+- [transactional](./transactional.md) — Atomicity between graph and vectors
+- [rrf](./rrf.md) — Vector-search fusion + graph traversal
 
 ---
 

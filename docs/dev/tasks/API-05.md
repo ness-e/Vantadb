@@ -1,3 +1,9 @@
+---
+title: "API-05: W4 proxy — auth `/snapshot` + endpoints + config (SEGURIDAD)"
+kind: task
+description: "curl /snapshot sin credencial → 401 Y con credencial → 200 (HTTP real, local) Y cargo test --target-dir target/session-api01 -p vanta-proxy verde Y rg spaceId vanta-proxy/src/server.rs = 0"
+---
+
 # API-05: W4 proxy — auth `/snapshot` + endpoints + config (SEGURIDAD)
 
 ## Metadata

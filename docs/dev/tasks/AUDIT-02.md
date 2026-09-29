@@ -1,3 +1,9 @@
+---
+title: "AUDIT-02: Sparse hot-path micro-opt (gate de medición)"
+kind: task
+description: "La premisa original (\"sparsememorysearch full-scan\") es FALSA desde NUEVO-22"
+---
+
 # AUDIT-02: Sparse hot-path micro-opt (gate de medición)
 
 ## Metadata

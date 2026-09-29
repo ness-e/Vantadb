@@ -1,3 +1,9 @@
+---
+title: "MGR-13 — Cuarentena semántica + abstención: estados, transiciones y threat model write-time (Cierre MGR)"
+kind: research
+description: "No existe cuarentena de contenido en VantaDB: el único uso del término está en el salvage de WAL corrupto (src/wal.rs:614, integridad de storage, no estado de contenido). Los registros no tienen estado de confianza, la inyección..."
+---
+
 # MGR-13 — Cuarentena semántica + abstención: estados, transiciones y threat model write-time (Cierre MGR)
 
 - **Fecha:** 2026-09-28 · **Tipo:** research/design documental (cero implementación productiva; `src/` no se toca)
@@ -27,7 +33,7 @@ Lo que este documento **NO** propone: namespaces trusted/tainted (MGR-04), motor
 |---|-----------|-----------|
 | 1 | No existe cuarentena de **contenido** | `rg 'quarantine\|quarantined'` en `src/` → solo salvage de WAL: `src/wal.rs:614-638` (`quarantine_corrupt_tail`: respalda el tail corrupto y trunca), `:640-642` (`quarantine_backup_path`); `src/wal_sharded.rs:259,287-313` (trunca a prefijo coherente + backup). Semántica de **storage**, no de contenido |
 | 2 | Sin taxonomía de taint/trust de contenido | `rg 'tainted'` en `src/` = 0 hits de contenido (los `trusted_proxies` de `src/config.rs:246` son de red, no de contenido) |
-| 3 | `MemoryRecord` (SDK) sin estado/trust | `src/sdk/types/record.rs:102-138` — 13 campos; los únicos estados "ocultables" hoy son `superseded_by`/`superseded_at_ms` (:129-137, ADR-028) y `expires_at_ms` (:126-128, TTL) |
+| 3 | `MemoryRecord` (SDK) sin estado/trust | `src/sdk/types/record.rs:102-138` — 13 campos; los únicos estados "ocultables" hoy son `superseded_by`/`superseded_at_ms` (:129-137, ADR-0028) y `expires_at_ms` (:126-128, TTL) |
 | 4 | Sin abstención | plan Task 25 L658: `rg 'abstain\|abstention'` en `src/` = 0 hits |
 | 5 | Superficies write-time sin gate de confianza | API: `src/server/middleware.rs:42-258` (auth) + `src/server/handlers.rs:248-265` (`records_put`/`records_put_batch`); dream: `vanta-memory/src/core/dream/mod.rs` (promotion stub :614-622, invariantes :13-27); import: `src/sdk/serialization/impl_export.rs:290-323` (`import_records`), `:326-364` (`import_file`), gate de schema en `src/sdk/serialization/mod.rs:522-531` |
 | 6 | La inyección no filtra estado | `vanta-memory/src/core/hooks/auto_recall.rs:198-257` (`perform_auto_recall`); MCP `memory_recall` `vantadb-mcp/src/handlers/tools.rs:1818-1841`; `inject_context` (write para consolidación) :585-599 |
@@ -42,7 +48,7 @@ MGR-12 co-batch: la clase de confianza asserted/derived y `confidence` por regis
 | Precedente | Qué aporta | Diferencia con cuarentena |
 |-----------|------------|---------------------------|
 | `quarantine_corrupt_tail` (`src/wal.rs:614`) | Léxico "quarantine" ya usado en el proyecto + principio "nunca destruir evidencia" (backup antes de truncar) | Es integridad de storage; no hay estado por registro ni revisión |
-| ADR-028 supersession (`record.rs:129-137`) | Estado ocultable, soft-dead, recuperable, con filtro opt-in (`exclude_superseded`), hasheado en fingerprint (`src/sdk/search/page.rs:157,317`) y roundtrip export (`impl_export.rs:211`) | Supersede ≠ trust: lo reemplazado fue válido; lo cuarentenado es **dudoso** y su default es **excluir** (inverso a `exclude_superseded: false`) |
+| ADR-0028 supersession (`record.rs:129-137`) | Estado ocultable, soft-dead, recuperable, con filtro opt-in (`exclude_superseded`), hasheado en fingerprint (`src/sdk/search/page.rs:157,317`) y roundtrip export (`impl_export.rs:211`) | Supersede ≠ trust: lo reemplazado fue válido; lo cuarentenado es **dudoso** y su default es **excluir** (inverso a `exclude_superseded: false`) |
 | TTL `expires_at_ms` + `purge_expired` (MCP tool, `tools.rs:30`) | Semántica de expiración/recolección ya existente | TTL = ciclo de vida; cuarentena = ciclo de **revisión** |
 | `confidence_score` de nodo (`src/node/unified.rs:41-42`, default 0.5 :92) | Confianza a nivel nodo ya ponderada en eviction/executor | Nivel registro, con semántica MGR-12 (asserted/derived) |
 
@@ -73,7 +79,7 @@ Hay dos records homónimos: el **storage record** (`src/sdk/types/record.rs:102-
 
 ### 2.4 Compatibilidad (Hyrum)
 
-`include_quarantined` default `false` con **cero efecto sobre datos legacy**: ningún registro pre-0.8.0 puede estar `Some(quarantined_at_ms)` (campo nuevo) → el default-exclude es un cambio observable solo para registros que el propio 0.8.0 escriba en cuarentena. Igual que ADR-028, los campos se omiten en el wire cuando son `None` (`skip_serializing_if`) y viajan con `#[serde(default)]` en export/import. **Regla One-Version**: extender `MemoryInput`/`MemorySearchRequest`/`MemoryListOptions` con campos opcionales — nunca un `MemoryInputV2`.
+`include_quarantined` default `false` con **cero efecto sobre datos legacy**: ningún registro pre-0.8.0 puede estar `Some(quarantined_at_ms)` (campo nuevo) → el default-exclude es un cambio observable solo para registros que el propio 0.8.0 escriba en cuarentena. Igual que ADR-0028, los campos se omiten en el wire cuando son `None` (`skip_serializing_if`) y viajan con `#[serde(default)]` en export/import. **Regla One-Version**: extender `MemoryInput`/`MemorySearchRequest`/`MemoryListOptions` con campos opcionales — nunca un `MemoryInputV2`.
 
 ## §3. Estados + transiciones (contrato para SCH-01/SCH-05)
 

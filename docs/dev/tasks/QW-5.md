@@ -1,3 +1,9 @@
+---
+title: "TASK QW-5: nits agrupados — categorize() eliminada, _normalize_score mem0 documentada, haystack count_documents(..."
+kind: task
+description: "N/A — cleanup/dedup con contrato mecánico (Wave 2 QW-5). No agrega símbolos públicos nuevos; solo elimina código DEPRECATED, documenta heurística y optimiza conteo por páginas. Tres cambios mecánicos ya pinneados por tests"
+---
+
 # TASK QW-5: nits agrupados — categorize() eliminada, _normalize_score mem0 documentada, haystack count_documents() cursor paging
 
 ## Metadata

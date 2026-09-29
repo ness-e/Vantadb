@@ -1,3 +1,9 @@
+---
+title: "API-09: W8 cierre — VERSIONING 11 superficies + docs/api sincronizadas + gates de cierre"
+kind: task
+description: "VERSIONING.md lista 11 superficies Y scripts/validate-docs-coverage.ps1 verde Y dev-tools/verify.ps1 verde Y MCP re-smoke verde Y dev-tools/ocr-review.ps1 sin Critical/High Y plan 18/18 + este 9/9 para /ship\""
+---
+
 # API-09: W8 cierre — VERSIONING 11 superficies + docs/api sincronizadas + gates de cierre
 
 ## Metadata

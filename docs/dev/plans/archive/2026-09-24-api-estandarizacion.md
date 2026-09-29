@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Estandarización 11 APIs VantaDB — Investigación + Síntesis + Validación"
+kind: plan
+status: archived
+description: "Status: ⬆️ uphill = 6 (orquestador/IPC, AST bindings, IQLVERSION, OpenAPI-first owner, MCP local refresh, codegen single-schema) · ⬇️ downhill = 18 tasks con contrato mecánico definido"
+---
+
 # Plan de Ejecución: Estandarización 11 APIs VantaDB — Investigación + Síntesis + Validación
 
 > **Inicio:** 2026-09-24
@@ -58,7 +65,7 @@ Las 11 superficies: (1) Rust core SDK, (2) Python, (3) TS, (4) Node nativo, (5) 
 - **Appetite:** max 1d
 - **Esfuerzo:** 🟡 1d
 - **Prioridad:** 🔴
-- **Archivos clave:** `src/lib.rs:9-196`, `src/sdk/api/memory.rs:29-44`, `src/sdk/types/record.rs:13-114`, `src/sdk/types/graph.rs:18-29`, `src/error.rs:184-287`, `src/binary_header.rs:20`, `src/engine/`, `docs/api/EMBEDDED_SDK.md`, `docs/dev/architecture/adr/041_anti_stutter.md:43-64`, `.opencode/rules/core-engine.md`, `.opencode/rules/api-contract.md`
+- **Archivos clave:** `src/lib.rs:9-196`, `src/sdk/api/memory.rs:29-44`, `src/sdk/types/record.rs:13-114`, `src/sdk/types/graph.rs:18-29`, `src/error.rs:184-287`, `src/binary_header.rs:20`, `src/engine/`, `docs/api/EMBEDDED_SDK.md`, `docs/dev/architecture/adr/ADR-0047-anti-stutter.md:43-64`, `.opencode/rules/core-engine.md`, `.opencode/rules/api-contract.md`
 - **Verificación real:** ✅ CÓDIGO-REAL — `Embedded` en `src/lib.rs:19`; stutter `VantaHeader` en `binary_header.rs:20` + re-export `lib.rs:167`; `Generic(ChainedError)` `error.rs:275-276`, `ResourceLimit(String)` `:184`, `InvalidInput(String)` `:283`; `QueryResult::Write.node_id: Option<u128>` sin serde `graph.rs:18-24` vs `StaleContext.node_id` con serde `:29`; aliases eliminados 0.6.0 + flat `get_memory/list_memory/delete_memory` removidos AST-012 (`BINDINGS_NAMESPACES.md:37-39,240-244`); `SnapshotRecord→MemoryRecord` pierde `superseded_by/at_ms` (`version_history.rs:144-145` None).
 - **Gate Justificación:** Single-owner del estado — todo drift nace aquí y se hereda a 4 bindings + HTTP + MCP.
 - **Gate Result:** ✅ DO

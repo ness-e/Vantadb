@@ -1,3 +1,9 @@
+---
+title: "MCP-34: snapshot create/restore vía MCP"
+kind: task
+description: "Pregunta: ¿existen métodos públicos snapshotcreate / snapshotrestore en StorageEngine?"
+---
+
 # MCP-34: snapshot create/restore vía MCP
 
 ## Metadata

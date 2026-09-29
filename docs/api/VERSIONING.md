@@ -1,10 +1,9 @@
 ---
-title: Versioning & Stability Policy
-type: api
+title: "Versioning & Stability Policy"
+kind: reference
 status: active
+description: VantaDB follows Semantic Versioning with the standard
 tags: [vantadb, api, semver]
-last_reviewed: 2026-09-27
-aliases: []
 ---
 
 # Versioning & Stability Policy
@@ -106,7 +105,7 @@ The contracts above are checked mechanically, not by convention:
 - The 9 artifact names (`vantadb`, `vantadb-py`, `vantadb-node`,
   `vantadb-ts`, `vantadb-server`, `vantadb-mcp`, `vanta-cli`, `vanta-proxy`,
   `vanta-memory`) are frozen through `1.0.0` by the naming freeze
-  [ADR-045](../dev/architecture/adr/ADR-045-naming-freeze.md) — renaming one is
+  [ADR-0045](../dev/architecture/adr/ADR-0045-naming-freeze.md) — renaming one is
   never silent: it ships an alias with a mandatory removal date, registered in
   `DEPRECATIONS.md` (after `1.0.0`, a breaking name change requires a MAJOR).
 

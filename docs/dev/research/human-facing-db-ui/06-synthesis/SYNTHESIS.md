@@ -1,12 +1,11 @@
 ---
-title: "Síntesis — Representación humana de VantaDB: concepto \"Vanta Studio\""
-type: research
+title: "Síntesis — Representación humana de VantaDB: concepto \\\\\\\\\"Vanta Studio\\\\\\\\\""
+kind: research
 status: stable
+description: Toda la investigación converge en un mismo hueco
 tags: [vantadb, research, vanta-studio, sintesis]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
+
 # Síntesis — Representación humana de VantaDB: concepto "Vanta Studio"
 
 > Documento integrador de los 5 reportes de `docs/dev/research/human-facing-db-ui/01..05`,

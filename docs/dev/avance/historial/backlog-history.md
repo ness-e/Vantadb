@@ -1,10 +1,9 @@
 ---
 title: "Backlog History — Items Removed & Migrated"
-type: tracking
+kind: review
 status: active
+description: "71+ items removidos: ~25 originales + 6 P0 stale + 9 P1 resueltos + 24 P2 stale + 7 P3 stale + 10 P4 completados + 7 P9 completados + 11 P10 completados + 1 P7 completado + 24 crates de integración nunca implementados"
 tags: [vantadb, backlog, history]
-last_reviewed: 2026-08-07
-aliases: []
 ---
 
 # Backlog History — Items Removed & Migrated
@@ -35,7 +34,7 @@ Todos los items P1 originales resueltos/deferidos en campañas anteriores.
 
 `DRV-014` ✅, `DRV-028` ✅, `DRV-041` ✅, `VFY-006` ✅, `VFY-007` ✅, `REV-012` ✅, `DRV-136` ✅ + 24 stale items de la auditoría original.
 
-> ⚠️ **Nota DRV-014:** el fix fue revertido por `cae92db3` — ver `docs/dev/architecture/adr/DRV-014-wal-batch-tradeoff.md`. Tradeoff de performance posterior, no deuda pendiente.
+> ⚠️ **Nota DRV-014:** el fix fue revertido por `cae92db3` — ver `docs/dev/architecture/adr/ADR-0051-wal-batch-tradeoff.md`. Tradeoff de performance posterior, no deuda pendiente.
 
 ### P3 — Test Coverage (14 removidos)
 
@@ -309,7 +308,7 @@ Re-escaladas en el propio Backlog (misma fecha): RES-09 (fila WAL a fsync-batchi
 - **AUD-042** (tantivy/lru allowlist) - ✅ RESUELTO: allowlist RUSTSEC-2026-0253 removida 2026-09-11 (AST-007, `deny.toml`), `lru = "0.18"` directo en `Cargo.toml`. El bloqueo upstream desapareció por el camino del bypass, no del bump.
 - **REVIEW-10** (god-file `cli_server.rs`) - ✅ RESUELTO: el archivo mide 721 bytes; el server vive en `src/server/` (bootstrap, router, handlers, middleware, jwt, telemetry...). El split ya ocurrió.
 - **TBH-01** (verify_datasets + gate) - ✅ completado 2026-08-31 (commit `0e67f354`).
-- **FIND-26** (wal_archiver/PITR remove) - ✅ resuelta 2026-08-25 (remove + ADR-014 superseded).
+- **FIND-26** (wal_archiver/PITR remove) - ✅ resuelta 2026-08-25 (remove + ADR-0014 superseded).
 - **ISSUE-TS-001** (TS SDK `unreachable!`) - ✅ resuelto-stale 2026-09-10 (0 matches + vitest 280/280, cero código).
 
 - **FIND-89** (consolidar `env::var` en `Config`) - ✅ completado 2026-09-14 por sesión paralela (commits `1ca57649`/`3a0e42d7`/`4cdc1970`/`c4ddb217`, BREAKING: vars `VANTA_*` → `VANTADB_*`; excepciones: test `llm.rs`, `ENV_REPORTED_VERSION`, `OTEL_*`). Fila removida del catálogo en auditoría backlog misma fecha.

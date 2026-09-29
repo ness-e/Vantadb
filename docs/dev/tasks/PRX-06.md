@@ -1,3 +1,9 @@
+---
+title: "PRX-06: Task-aware routing por tier"
+kind: task
+description: cargo test -p vanta-proxy 0 failed + test tier→modelo/upstream ✅ + /v1/responses en tool-loop ✅ + cargo clippy -p vanta-proxy --all-targets --all-features -- -D warnings 0
+---
+
 # PRX-06: Task-aware routing por tier
 
 ## Metadata

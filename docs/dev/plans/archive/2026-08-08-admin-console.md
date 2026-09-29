@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Consola Administrativa Desktop (ADMIN-01..09 + DESKTOP-20)"
+kind: plan
+status: archived
+description: Iteraciones
+---
+
 # Plan de Ejecución: Consola Administrativa Desktop (ADMIN-01..09 + DESKTOP-20)
 
 > **Campaign ID: 3a8eae36-baf2-4982-ac7d-bec69c105233

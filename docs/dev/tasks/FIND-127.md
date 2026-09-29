@@ -1,3 +1,9 @@
+---
+title: FIND-127 — triage infra CI + Dependabot
+kind: task
+description: "Objetivo: triage infra CI + Dependabot del PR #182 para que el PR pueda ponerse verde"
+---
+
 # FIND-127 — triage infra CI + Dependabot
 
 > **Plan:** `docs/dev/plans/2026-09-19-ci-green.md` · **Wave2 última** · **Ruta:** vanta-lead

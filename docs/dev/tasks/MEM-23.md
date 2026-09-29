@@ -1,3 +1,9 @@
+---
+title: "MEM-23: Token estimator + emergency truncate + report types"
+kind: task
+description: "cargo check -p vanta-memory pasa; tests D19: estimatetokens determinista (casos conocido vacío/ascii/unicode), truncado respeta pares toolcall/toolresult (nunca los parte), CompactionReport serde roundtrip.\""
+---
+
 # MEM-23: Token estimator + emergency truncate + report types
 
 ## Metadata

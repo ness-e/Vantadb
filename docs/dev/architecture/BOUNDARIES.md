@@ -1,10 +1,9 @@
 ---
 title: VantaDB Module Boundaries
-type: architecture
+kind: concept
 status: active
+description: Every top-level module in src/ has exactly one owner. The owner approves
 tags: [vantadb, architecture]
-last_reviewed: 2026-09-27
-aliases: []
 ---
 
 # VantaDB Module Boundaries
@@ -22,7 +21,7 @@ aliases: []
 > **A1 review:** vanta-arch — verified against tree 5a1dae99 on 2026-09-13, no material drift; deriva trivial: engine/mod.rs 34-35, engine/init.rs 12, executor.rs 13; nota: index/flat.rs:18 es fn-local prod (no test-mod), index/search/layer.rs:13 FLAG_TOMBSTONE prod no tabulado — cubierto por plan FLAG_TOMBSTONE→kernel.
 > **WIRE-07 update (2026-09-27):** §3 flipped from open debt to CLOSED and §5
 > item 5 marked satisfied, recording the F3X trait-split already landed in
-> `13f0f729` (ADR-042). Bookkeeping only — no new boundary change; §1/§2/§4 and
+> `13f0f729` (ADR-0042). Bookkeeping only — no new boundary change; §1/§2/§4 and
 > the BND rules are unchanged.
 
 ## 1. Ownership map
@@ -165,7 +164,7 @@ toward `vfile`; the two `FLAG_TOMBSTONE` prod imports were the smell).
 
 **Plan (pick one, no silent third option):**
 
-1. **Trait-split task** — ✅ **EXECUTED (F3X, `13f0f729`, ADR-042).** The
+1. **Trait-split task** — ✅ **EXECUTED (F3X, `13f0f729`, ADR-0042).** The
    `IndexPort`-shaped port lives in the neutral leaf and `index` implements it;
    `FLAG_TOMBSTONE` no longer crosses the boundary (index code reads
    `NodeFlags::TOMBSTONE` from the Shared kernel).
@@ -225,7 +224,7 @@ after Phase 2 (plan §Cierre + §Fase 3, restated here as the citable gate):
 4. **This document signed** — owners named (§1) and BND-01…BND-08 accepted.
 5. **storage↔index** has its own trait-split task closed OR an explicit
    DEFER row (§3, option 2). — **✅ SATISFIED (`13f0f729` — commit 2026-09-13, recorded 2026-09-23;
-   ADR-042; evidence and post-F3X residual in §3).**
+   ADR-0042; evidence and post-F3X residual in §3).**
 
 Even then: incremental per domain (one at a time, cleanest first),
 never big-bang; stable code is not touched.

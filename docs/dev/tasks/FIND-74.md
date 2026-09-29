@@ -1,3 +1,9 @@
+---
+title: FIND-74 — requirements + enlaces + decisión TS
+kind: task
+description: "Objetivo: Fijar ejemplo instalable roto por deriva de versión + enlazar ejemplos desde puertas de entrada + cerrar decisión TS sin mover archivos"
+---
+
 # FIND-74 — requirements + enlaces + decisión TS
 
 > Campaign: `6ab26f3f-cf16-4416-9255-c18cca0bcaf0` · Plan: `docs/dev/plans/2026-09-15-find-correcciones.md` (Task 25, Wave8)
@@ -41,7 +47,7 @@
 
 **Relacionados (callers/callees vía lectura directa + rg):**
 - Callers de `examples/README.md`: `examples/demo/README.md:33,44` (rutas demo propias), plan file `:370,:424` (cita FIND-74), `docs/user/QUICKSTART.md:5` (link inverso ya existe desde examples → QUICKSTART, falta QUICKSTART → examples)
-- Callers de QUICKSTART: `README.md:60` (`[5-Minute Quickstart](docs/user/QUICKSTART.md)`), `examples/README.md:5` (`[QUICKSTART](../../user/QUICKSTART.md)`), `SUPPORT.md:11`, plan FIND-67/FIND-74
+- Callers de QUICKSTART: `README.md:60` (`[5-Minute Quickstart](../../user/QUICKSTART.md)`), `examples/README.md:5` (`[QUICKSTART](../../user/QUICKSTART.md)`), `SUPPORT.md:11`, plan FIND-67/FIND-74
 - Callees: `vantadb-ts/examples/` (3 `.mjs` + 3 subdirs: `langchain/`, `llamaindex/`, `vercel-ai/`) — destino TS referenciado, no tocado
 - `Get-ChildItem -Recurse -Filter *.md | Select-String "QUICKSTART"` → callers conocidos (README, README_ES, SUPPORT, AGENTS, skills) — ningún import de código depende del .md; cambio texto no rompe build
 - `Get-ChildItem -Recurse -Filter *.md | Select-String "examples/demo"` → solo `examples/demo/README.md:33,44` + plans + tasks legacy — sin links frágiles que romper

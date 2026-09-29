@@ -1,3 +1,8 @@
+---
+title: DESKTOP-42 — Bundles macOS/Linux + CI matrix
+kind: task
+---
+
 # DESKTOP-42 — Bundles macOS/Linux + CI matrix
 
 > **Plan:** `docs/dev/plans/2026-09-10-code.md` (Task 6, Wave1) · **Estado:** ⏳ IN PROGRESS

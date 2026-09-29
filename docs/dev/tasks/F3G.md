@@ -1,3 +1,8 @@
+---
+title: F3G — cerrar gate Fase 2 a 4/4 (re-medicion M1 post-Fase-2 + excepcion accumulator firmada + firma A1)
+kind: task
+---
+
 # F3G — cerrar gate Fase 2 a 4/4 (re-medicion M1 post-Fase-2 + excepcion accumulator firmada + firma A1)
 
 ## Metadata

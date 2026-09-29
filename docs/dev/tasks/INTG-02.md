@@ -1,3 +1,9 @@
+---
+title: Task INTG-02 — Backend Memory unificada CrewAI (spec-first)
+kind: task
+description: "Fuentes oficiales (source-driven-development, verificadas 2026-09-10)"
+---
+
 # Task INTG-02 — Backend Memory unificada CrewAI (spec-first)
 
 - **Plan:** `docs/dev/plans/2026-09-10-code.md` (Task 14, Wave4)

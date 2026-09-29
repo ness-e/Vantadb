@@ -1,10 +1,9 @@
 ---
-title: VantaDB Distribution & Adoption Plan
-type: operations
+title: "VantaDB Distribution & Adoption Plan"
+kind: concept
 status: active
+description: "Strategy combining Backlog TS-10 (distribution/adoption: playground +"
 tags: [vantadb, distribution, npm, adoption, comparison]
-last_reviewed: 2026-09-27
-aliases: []
 ---
 
 # VantaDB Distribution & Adoption Plan

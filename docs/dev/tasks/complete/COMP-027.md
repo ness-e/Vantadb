@@ -1,3 +1,9 @@
+---
+title: "COMP-027: Multiple Index Types (IVF, DiskANN, SCANN)"
+kind: task
+description: "Estado: ✅ COMPLETED — 2026-07-28"
+---
+
 # COMP-027: Multiple Index Types (IVF, DiskANN, SCANN)
 
 **Estado:** ✅ COMPLETED — 2026-07-28

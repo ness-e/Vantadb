@@ -1,3 +1,9 @@
+---
+title: "TASK DESKTOP-QW4: Botón FILTROS activo = reglas >0 (H-14, DAUD-02)"
+kind: task
+description: "Botón FILTROS activo = reglas >0 (filterActive); cd desktop && npm run build y npm test verde; E2E no regresa (2 specs existentes intactos)"
+---
+
 # TASK DESKTOP-QW4: Botón FILTROS activo = reglas >0 (H-14, DAUD-02)
 
 ## Metadata

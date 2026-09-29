@@ -1,3 +1,9 @@
+---
+title: "FIND-30 — unused var `ns` en cli_server.rs:1302 (clippy -D warnings blocker)"
+kind: task
+description: REVIEW-17 apuntaba al bloque; la línea real del closure es 1330)
+---
+
 # FIND-30 — unused var `ns` en cli_server.rs:1302 (clippy -D warnings blocker)
 
 - **Plan:** `docs/dev/plans/2026-08-25-batch-colaterales-deuda-desktop.md`

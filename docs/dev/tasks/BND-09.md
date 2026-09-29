@@ -1,3 +1,9 @@
+---
+title: BND-09 — targets linux musl en napi
+kind: task
+description: El contrato de BND-09 (targets musl presentes en napi.targets + matriz CI los incluye) ya
+---
+
 # BND-09 — targets linux musl en napi
 
 > **Campaign:** a6f16be4-a2a2-44eb-bfdb-1a84a4b573cf

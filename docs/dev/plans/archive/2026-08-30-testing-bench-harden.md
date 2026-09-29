@@ -1,3 +1,10 @@
+---
+title: "Implementation Plan: Testing & Benchmarking Hardening (audit 2026-08-30)"
+kind: plan
+status: archived
+description: "Date: 2026-08-30"
+---
+
 # Implementation Plan: Testing & Benchmarking Hardening (audit 2026-08-30)
 
 **Date:** 2026-08-30

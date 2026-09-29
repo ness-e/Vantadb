@@ -1,3 +1,9 @@
+---
+title: WDA-01 — F1 Diseño
+kind: task
+description: ✅ COMPLETO (2026-08-24) — sin commit (orquestador commitea)
+---
+
 # WDA-01 — F1 Diseño
 
 ## Estado

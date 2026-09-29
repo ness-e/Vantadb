@@ -1,3 +1,9 @@
+---
+title: "PRX-09: Semantic caching — exact primero (slice 1)"
+kind: task
+description: cargo test -p vanta-proxy 0 failed + test cache-hit exact byte-a-byte ✅ + sin regresión PRX-04 (prefijo estable) + cargo clippy -p vanta-proxy --all-targets -- -D warnings 0
+---
+
 # PRX-09: Semantic caching — exact primero (slice 1)
 
 ## Metadata

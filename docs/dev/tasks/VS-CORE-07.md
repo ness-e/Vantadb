@@ -1,3 +1,9 @@
+---
+title: "VS-CORE-07 — Retención de versiones históricas en `VantaMemoryRecord` (D2)"
+kind: task
+description: "Decisión: retener todas las versiones v1..vN con cap FIFO VantaConfig.versionhistorylimit: Option<usize> (default Some(32), None = sin límite). Al llegar al cap, cada put nuevo evicta la versión más vieja (1 delete + 1 insert). El cap..."
+---
+
 # VS-CORE-07 — Retención de versiones históricas en `VantaMemoryRecord` (D2)
 
 - **Plan:** `docs/dev/plans/2026-08-18-vanta-studio-fase1.md` (Task 3, Wave 0)
@@ -48,7 +54,7 @@
 - **put_batch_inner:** los snapshots del chunk se agrupan en **un solo `backend.write_batch`** por chunk (atómico entre sí). `seen_versions` ya da la versión correcta por clave incluso con duplicados intra-batch. Coste total ≈ 1 write extra por registro del batch.
 - **Import (`put_record_exact`):** **NO genera snapshots** por defecto. El import es bulk y su fuente de verdad es el archivo; duplicar cada registro duplicaría la escritura sin valor de historial (el historial vivo arranca con los puts posteriores). Opción `import_version_history: bool` en el import si P27 lo necesita. **Decisión a confirmar por el humano.**
 - **Expiración:** `purge_expired()` (api.rs:770) ya tiene el record completo (ns/key) antes de `engine.delete` → ahí se purgan los snapshots del key (scan_prefix + delete por versión). Sin purga, los snapshots de keys expirados quedan huérfanos (misma clase de basura que el record expirado no purgado — hoy la expiración es lazy).
-- **Compacción:** LSM (Fjall auto; RocksDB background) maneja los tombstones de evicción/delete. Sin cambios de config backend (ADR-023: no tocar opciones sin bench — no hace falta tocar nada).
+- **Compacción:** LSM (Fjall auto; RocksDB background) maneja los tombstones de evicción/delete. Sin cambios de config backend (ADR-0023: no tocar opciones sin bench — no hace falta tocar nada).
 - **Storage rough:** record 1536d ≈ 6.3 KB (postcard) + payload + metadata. Con cap 32: ≤ ~200 KB por hot key; para el uso típico (records < 1 KB) es despreciable.
 
 ### 3. Clave en Fjall y partición nueva

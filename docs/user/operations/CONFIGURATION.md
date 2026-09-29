@@ -1,10 +1,11 @@
 ---
 title: "Operations & Configuration Manual"
-type: operations
+kind: runbook
 status: active
+description: This document tracks the current runtime knobs for the embedded core and the optional local server wrapper
 tags: [vantadb, operations]
-last_reviewed: 2026-09-02
-aliases: []
+type: operations
+last_reviewed: "2026-09-02"
 ---
 
 # Operations & Configuration Manual
@@ -23,7 +24,7 @@ All configuration fields available in `VantaConfig` (Rust) and via environment v
 | `memory_limit` | `Option<u64>` | `None` | `VANTADB_MEMORY_LIMIT` | Memory budget hint for backend and mmap selection (string with optional KB/MB/GB suffix, e.g. `500MB`) |
 | `read_only` | `bool` | `false` | — | Opens engine in read-only mode |
 | `force_mmap` | `bool` | `false` | — | Force memory-mapped I/O for vector store |
-| `mmap_hnsw` | `bool` | `true` | — | Enable memory-mapped [[hnsw\|HNSW]] index |
+| `mmap_hnsw` | `bool` | `true` | — | Enable memory-mapped [hnsw](../glosario/hnsw.md) index |
 | `prefetch_mode` | `PrefetchMode` | `Disabled` | `VANTADB_PREFETCH`, `VANTADB_DISABLE_PREFETCH` | MMap prefetch strategy (Auto/Enabled/Disabled; default OFF, PERF-04) |
 | `rss_threshold` | `f64` | `0.80` | — | RSS pressure threshold for backpressure eviction (0.0-1.0) |
 | `eviction_weight_hits` | `f64` | `1.0` | — | Weight for access frequency in eviction score |
@@ -31,18 +32,18 @@ All configuration fields available in `VantaConfig` (Rust) and via environment v
 | `eviction_weight_importance` | `f64` | `3.0` | — | Weight for importance score in eviction |
 | `eviction_weight_recency` | `f64` | `1.0` | — | Weight for recency in eviction |
 | `eviction_ratio` | `f64` | `0.20` | — | Fraction of hot nodes to evict when memory pressure triggers |
-| `backend_kind` | `BackendKind` | `Fjall` | `VANTADB_BACKEND` | KV backend: `[[fjall]]`, `[[rocksdb]]`, `memory` |
+| `backend_kind` | `BackendKind` | `Fjall` | `VANTADB_BACKEND` | KV backend: `[fjall](../glosario/fjall.md)`, `[rocksdb](../glosario/rocksdb.md)`, `memory` |
 | `max_blocking_threads` | `usize` | `16` | `VANTADB_MAX_BLOCKING_THREADS` | Max threads for blocking thread pool |
 | `max_connections` | `usize` | `max_blocking_threads * 2` | `VANTADB_MAX_CONNECTIONS` | Max concurrent HTTP query pool permits |
 | `pool_acquire_timeout_ms` | `u64` | `5000` | `VANTADB_POOL_ACQUIRE_TIMEOUT_MS` | Timeout acquiring a pool permit before the query fails fast with 503 |
 | `circuit_breaker_failure_threshold` | `u32` | `5` | `VANTADB_CIRCUIT_BREAKER_FAILURE_THRESHOLD` | Consecutive 5xx failures before the circuit breaker opens |
 | `circuit_breaker_open_timeout_secs` | `u64` | `30` | `VANTADB_CIRCUIT_BREAKER_OPEN_TIMEOUT_SECS` | Seconds the breaker stays open before probing half-open |
-| `sync_mode` | `SyncMode` | `Periodic` | — | [[wal\|WAL]] sync: `Always`, `Periodic`, `Never` |
-| `insert_lock_timeout_ms` | `u64` | `5000` | `VANTADB_INSERT_LOCK_TIMEOUT_MS` | [[hnsw\|HNSW]] insert lock timeout in ms |
+| `sync_mode` | `SyncMode` | `Periodic` | — | [wal](../glosario/wal.md) sync: `Always`, `Periodic`, `Never` |
+| `insert_lock_timeout_ms` | `u64` | `5000` | `VANTADB_INSERT_LOCK_TIMEOUT_MS` | [hnsw](../glosario/hnsw.md) insert lock timeout in ms |
 | `file_lock_timeout_ms` | `u64` | `1000` | `VANTADB_FILE_LOCK_TIMEOUT_MS` | .vanta.lock file lock timeout in ms |
 | `api_key` | `Option<String>` | `None` | `VANTADB_API_KEY` | Bearer token for HTTP auth |
 | `alt_api_key` | `Option<String>` | `None` | `VANTADB_ALT_API_KEY` | Alternative bearer token for zero-downtime API key rotation. When set, both `api_key` and `alt_api_key` are accepted. Deploy new key as `alt_api_key`, switch clients, then promote to `api_key` (SRV-04, Qdrant v1.17 pattern). |
-| `jwt_secret` | `Option<String>` | `None` | `VANTADB_JWT_SECRET` | HS256 secret for JWT Bearer auth (SRV-06, ADR-039). When set, the server additionally accepts `Authorization: Bearer <jwt>` with present `sub` and non-expired `exp` (offline verification). If `None`, only `api_key`/`alt_api_key` are accepted. |
+| `jwt_secret` | `Option<String>` | `None` | `VANTADB_JWT_SECRET` | HS256 secret for JWT Bearer auth (SRV-06, ADR-0039). When set, the server additionally accepts `Authorization: Bearer <jwt>` with present `sub` and non-expired `exp` (offline verification). If `None`, only `api_key`/`alt_api_key` are accepted. |
 | `rate_limit_rpm` | `u32` | `600` | `VANTADB_RATE_LIMIT_RPM` | Rate limit in requests per minute (`0` = disabled) |
 | `trusted_proxies` | `Vec<IpAddr>` | `[]` | `VANTADB_TRUSTED_PROXIES` | Comma-separated reverse-proxy IPs whose `X-Forwarded-For` header is honored for client-IP resolution (rate limiter / logs). Empty = header ignored; direct socket addr is authoritative (clients cannot spoof their IP). |
 | `allowed_origins` | `Vec<String>` | `[]` | `VANTADB_ALLOWED_ORIGINS` | Comma-separated origins allowed to make cross-origin (CORS) requests to the HTTP server (e.g. `https://app.example.com,https://admin.example.com`). Empty (default) = CORS middleware omitted; the server sends no `Access-Control-Allow-Origin` header and browsers block cross-origin web calls. Repeatable via `Config::with_allowed_origins`. |
@@ -57,7 +58,7 @@ All configuration fields available in `VantaConfig` (Rust) and via environment v
 | `openai_api_key` | `Option<String>` | `None` | `VANTADB_OPENAI_API_KEY` | OpenAI API key for remote embeddings (optional; missing key defers error to embed call, B2b) |
 | `openai_model` | `String` | `text-embedding-3-small` | `VANTADB_OPENAI_MODEL` | OpenAI embedding model name |
 | `embedding_provider` | `String` | `ollama` | `VANTADB_EMBEDDING_PROVIDER` | Embedding provider selector: `ollama`, `openai`, `local` (ONNX) |
-| `wal_shards` | `usize` | `4` | `VANTADB_WAL_SHARDS` | Number of round-robin [[wal\|WAL]] shard files for write parallelism |
+| `wal_shards` | `usize` | `4` | `VANTADB_WAL_SHARDS` | Number of round-robin [wal](../glosario/wal.md) shard files for write parallelism |
 | `wal_buffer_size` | `Option<usize>` | `65536` (64KB) | `VANTADB_WAL_BUFFER_SIZE` | Per-shard WAL buffer in bytes (`None` = OS default) |
 | `flush_threshold` | `Option<usize>` | `None` (disabled) | `VANTADB_FLUSH_THRESHOLD` | Auto-flush after N nodes inserted (`None` = disabled) |
 | `advanced_tokenizer_config` | `Option<...>` | `None` | — | Advanced tokenizer config (feature-gated) |
@@ -139,9 +140,9 @@ Each line is one JSON object:
 | Enum | Variants | Description |
 |------|----------|-------------|
 | `LogFormat` | `Compact`, `Json`, `Full` | Log output format |
-| `SyncMode` | `Always` (fsync every write), `Periodic` (fsync every 5s), `Never` | [[wal\|WAL]] durability sync mode |
+| `SyncMode` | `Always` (fsync every write), `Periodic` (fsync every 5s), `Never` | [wal](../glosario/wal.md) durability sync mode |
 | `PrefetchMode` | `Disabled` (default), `Enabled`, `Auto` (behaves like Enabled) | MMap prefetch strategy; default OFF (PERF-04) |
-| `BackendKind` | `[[fjall\|Fjall]]` (default), `[[rocksdb\|RocksDb]]`, `InMemory` | KV storage backend |
+| `BackendKind` | `[fjall](../glosario/fjall.md)` (default), `[rocksdb](../glosario/rocksdb.md)`, `InMemory` | KV storage backend |
 
 ### Builder API
 
@@ -322,20 +323,20 @@ db = vantadb.Client(
     backend=None,     # "rocksdb", "memory", or None (fjall)
 )
 ```
-*Note: Available backends include [[rocksdb]] and [[fjall]] (default).*
+*Note: Available backends include [rocksdb](../glosario/rocksdb.md) and [fjall](../glosario/fjall.md) (default).*
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `db_path` | `str` | required | Filesystem path (maps to `storage_path`) |
 | `read_only` | `bool` | `False` | Opens the engine in read-only mode |
 | `memory_limit_bytes` | `int \| None` | `None` | Memory budget hint (maps to `memory_limit`) |
-| `backend` | `str \| None` | `None` | Backend selection: `"[[rocksdb]]"`, `"memory"`, or `None` ([[fjall]]) |
+| `backend` | `str \| None` | `None` | Backend selection: `"[rocksdb](../glosario/rocksdb.md)"`, `"memory"`, or `None` ([fjall](../glosario/fjall.md)) |
 
 ## 3. Embedded Runtime Notes
 
-- [[fjall|Fjall]] is the default storage backend.
-- [[rocksdb|RocksDB]] remains an explicit fallback path in the core.
-- Vector search is cosine-based [[hnsw|HNSW]].
+- [Fjall](../glosario/fjall.md) is the default storage backend.
+- [RocksDB](../glosario/rocksdb.md) remains an explicit fallback path in the core.
+- Vector search is cosine-based [HNSW](../glosario/hnsw.md).
 - Memory records use `namespace + key` identity with scalar metadata and optional vectors.
 - Derived namespace/payload indexes are persisted and rebuilt from canonical records.
 
@@ -352,7 +353,7 @@ The CLI uses the embedded core directly and does not require the optional HTTP s
 | `--json` | — | `false` | Output in JSON format |
 | `--quiet` | — | `false` | Suppress non-essential output |
 
-> **Note (ADR-012, 2026-08-05; updated FIND-89 2026-09-14):** `VANTADB_STORAGE_PATH` is the unified config env for both CLI flag `--db` and `VantaConfig::from_env()`. Precedence: CLI flag `--db` > `VANTADB_STORAGE_PATH` env > defaults. The `vantadb-server` child sets `VANTADB_STORAGE_PATH` from `--db` so the MCP/config path resolves correctly (fix TECH-01). Legacy `VANTA_DB` is deprecated. See `docs/dev/architecture/adr/012_env_var_naming.md`.
+> **Note (ADR-0012, 2026-08-05; updated FIND-89 2026-09-14):** `VANTADB_STORAGE_PATH` is the unified config env for both CLI flag `--db` and `VantaConfig::from_env()`. Precedence: CLI flag `--db` > `VANTADB_STORAGE_PATH` env > defaults. The `vantadb-server` child sets `VANTADB_STORAGE_PATH` from `--db` so the MCP/config path resolves correctly (fix TECH-01). Legacy `VANTA_DB` is deprecated. See `docs/dev/architecture/adr/ADR-0012-env-var-naming.md`.
 
 ### Commands
 

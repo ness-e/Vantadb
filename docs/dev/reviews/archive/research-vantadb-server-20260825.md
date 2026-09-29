@@ -1,11 +1,9 @@
 ---
 title: "INV-vantadb-server-01 — Investigación profunda: `vantadb-server`"
-type: review
+kind: review
 status: archived
+description: "Self-hosters y equipos que necesitan HTTP API. Flujo esperado: descargar binario"
 tags: [vantadb, review]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # INV-vantadb-server-01 — Investigación profunda: `vantadb-server`
@@ -92,7 +90,7 @@ canales de distribución (sin Docker, sin crates.io).
 | Docs & ejemplos | 9 | Narrativa + spec machine-readable + parity CI — top de la categoría |
 | Observabilidad | 8 | Prometheus opcional + metrics v2 JSON + audit consultable; sin tracing-id |
 | Testabilidad | 8 | 33 tests socket-real; rate-limit e2e endurecido (MOD-14) |
-| Paridad inter-módulo | 8 | REST completo post-ADR-026; gaps solo en canal MCP (trackeados) |
+| Paridad inter-módulo | 8 | REST completo post-ADR-0026; gaps solo en canal MCP (trackeados) |
 | Diferenciación vs Qdrant | 7 | Único con grafo+IQL+híbrido BM25+cognitiva+MCP embebido y defaults seguros; sin cluster/gRPC/Docker |
 | **Global** | **8.0** | |
 

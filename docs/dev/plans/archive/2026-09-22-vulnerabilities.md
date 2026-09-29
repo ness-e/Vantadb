@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Cierre de 14 vulnerabilidades Dependabot abiertas — 2026-09-22"
+kind: plan
+status: archived
+description: "8 HIGH + 6 MEDIUM, todas ubicadas. 9/14 se cierran con 4 PRs ya abiertos (#195, #198,"
+---
+
 # Plan de Ejecución: Cierre de 14 vulnerabilidades Dependabot abiertas — 2026-09-22
 
 > **Campaign ID:** 67262f34-0fe8-4046-9f0c-9023f081e2eb

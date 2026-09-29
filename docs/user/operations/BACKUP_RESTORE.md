@@ -1,10 +1,9 @@
 ---
-title: Backup & Restore Guide
-type: operations
+title: "Backup & Restore Guide"
+kind: runbook
 status: active
+description: How to back up your embedded VantaDB data and restore it. This is the
 tags: [vantadb, operations, backup, restore]
-last_reviewed: 2026-08-23
-aliases: []
 ---
 
 # Backup & Restore Guide

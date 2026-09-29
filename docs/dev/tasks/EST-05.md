@@ -1,3 +1,9 @@
+---
+title: "EST-05: Verificar benchmark verde post-`4b5b137e` (perf-bench + API Docs Version)"
+kind: task
+description: "N/A — no es feature-add: no agrega símbolos/contratos públicos nuevos, no toca bindings/endpoints/tools. Es una verificación de CI con cero ediciones (justificación válida por Phase 1b)"
+---
+
 # EST-05: Verificar benchmark verde post-`4b5b137e` (perf-bench + API Docs Version)
 
 ## Metadata

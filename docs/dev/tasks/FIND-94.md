@@ -1,3 +1,9 @@
+---
+title: "FIND-94 — drift SDK 0.5.0 vs 9 adapters (`vanta.VantaDB` ausente)"
+kind: task
+description: "Objetivo: eliminar el drift entre el SDK Python 0.5.0 y los 9 adapters de integrations/: el módulo compilado ya NO expone VantaDB (solo Client/connect + sub-clientes memory/graph/system/wiki + Record/SearchHit), pero 11 call-sites..."
+---
+
 # FIND-94 — drift SDK 0.5.0 vs 9 adapters (`vanta.VantaDB` ausente)
 
 > Campaign: 6ab26f3f-cf16-4416-9255-c18cca0bcaf0 · Wave9 (plan-adjust 2026-09-16) · Appetite 🟡 Media · Branch develop

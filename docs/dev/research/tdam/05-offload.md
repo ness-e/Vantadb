@@ -1,12 +1,11 @@
 ---
 title: "TDAM — 05: Context Window Management (offload) — Investigación profunda (REVISADO)"
-type: research
+kind: research
 status: active
+description: "Sistema dual de gestión de ventana de contexto: (a) plugin OpenClaw en offload/ con hooks + compresión L3 local y (b) servidor standalone v2 en offloadserver/ (PipelineWorker + locks distribuidos + tareas async) consumido por..."
 tags: [vantadb, research, tdam, context-offload]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
+
 # TDAM — 05: Context Window Management (offload) — Investigación profunda (REVISADO)
 
 > **Fecha:** 2026-08-18 · **Agente:** vanta-research · **Scope:** `MemoryCore/src/offload/` (plugin), `MemoryCore/src/offload_server/` (servidor v2), `MemoryCore/src/offload-client/` (cliente), `MemoryCore/src/gateway/server.ts` + `services/pipeline-worker.ts` + `core/state/types.ts` (integración)

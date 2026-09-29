@@ -1,11 +1,9 @@
 ---
 title: TypeScript SDK Documentation
-type: api
+kind: reference
 status: active
+description: "Create a new in-memory instance. Accepts an optional Config object. To use persistent storage, call connect() or open() instead"
 tags: [vantadb, api]
-last_reviewed: 2026-09-15
-aliases: []
-related: [PYTHON_SDK.md, NODE_SDK.md, BINDINGS_NAMESPACES.md]
 ---
 
 # TypeScript SDK Documentation
@@ -38,7 +36,7 @@ db.put({
   namespace: "agent/main",
   key: "memory-1",
   payload: "The user prefers dark mode in all applications.",
-  metadata: { theme: { type: "String", value: "dark" } },
+  metadata: { theme: { String: "dark" } },
   vector: [0.1, 0.2, 0.3],
 });
 
@@ -130,7 +128,7 @@ db.put({
   namespace: "notes",
   key: "note-1",
   payload: "IndexedDB persists VantaDB state in the browser.",
-  metadata: { source: { type: "String", value: "docs" } },
+  metadata: { source: { String: "docs" } },
   vector: [0.1, 0.2, 0.3],
 });
 
@@ -138,7 +136,7 @@ db.put({
   namespace: "notes",
   key: "note-2",
   payload: "Use save_idb() to write in-memory state to IndexedDB.",
-  metadata: { source: { type: "String", value: "docs" } },
+  metadata: { source: { String: "docs" } },
   vector: [0.4, 0.5, 0.6],
 });
 
@@ -294,8 +292,8 @@ These methods accept two interchangeable filter forms:
   A flat object is AND-combined; unknown `$op` keys throw
   `VANTADB_VALIDATION_ERROR` (never ignored).
 
-Values accept plain JS values, tagged `Value`s, and `Date` instances (wire form
-`DateTime`, RFC 3339).
+Values accept plain JS values, tagged `Value`s (`{ String: "dark" }`), and `Date`
+instances (wire form `DateTime`, RFC 3339).
 
 ```ts
 db.count({ namespace: "docs", filters: { when: { $gte: new Date("2026-06-01"), $lt: new Date("2026-12-01") } } });
@@ -504,16 +502,37 @@ Execute an IQL query string against the graph. Returns `QueryResult` which can b
 
 ```ts
 type Value =
-  | { type: "String"; value: string }
-  | { type: "Int"; value: number }
-  | { type: "Float"; value: number }
-  | { type: "Bool"; value: boolean }
-  | { type: "Null" }
-  | { type: "ListString"; value: string[] }
-  | { type: "ListInt"; value: number[] }
-  | { type: "ListFloat"; value: number[] }
-  | { type: "ListBool"; value: boolean[] };
+  | { String: string }
+  | { Int: number }
+  | { Float: number }
+  | { Bool: boolean }
+  | { DateTime: string }
+  | { Null: null }
+  | { ListString: string[] }
+  | { ListInt: number[] }
+  | { ListFloat: number[] }
+  | { ListBool: boolean[] }
+  | { ListDateTime: string[] };
 ```
+
+`Value` is an **externally-tagged** union: the variant name is the sole key and
+the value sits directly under it (`{ String: "dark" }`), not a
+`{ type, value }` pair. The variant names match the Rust `Value` enum in
+`src/sdk/types.rs` and are what crosses the WASM/native boundary.
+
+**Input accepts three shapes** (`MetadataInput` = `Record<string, UntrustedInput>`),
+normalized to the tagged form on the way in:
+
+| You may pass | Normalized to |
+| :--- | :--- |
+| Plain JS value — `{ lang: "en" }`, `{ n: 3 }`, `{ ok: true }`, `{ x: null }` | `String` / `Int` · `Float` / `Bool` / `Null` (number → `Float` unless integral) |
+| JS `Date` | `DateTime` (RFC 3339 string) |
+| Already-tagged `Value` — `{ lang: { String: "en" } }` | passed through unchanged |
+
+So `{ theme: "dark" }` and `{ theme: { String: "dark" } }` are equivalent inputs;
+**records returned by the engine always use the tagged form**. `normalizeValue()`
+(`vantadb-ts/src/metadata.ts`) rejects a mismatched payload (e.g. `{ ListInt: [1.5] }`)
+with a `DbError` rather than coercing it.
 
 ### `MemoryRecord`
 

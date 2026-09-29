@@ -1,3 +1,9 @@
+---
+title: "Task MEM-40 — Recall scope híbrido (session|agent|team, default agent)"
+kind: task
+description: "Plan: docs/dev/plans/2026-08-21-vanta-context-engine.md · Task 2 · Estado: ✅ COMPLETED"
+---
+
 # Task MEM-40 — Recall scope híbrido (session|agent|team, default agent)
 
 Plan: `docs/dev/plans/2026-08-21-vanta-context-engine.md` · Task 2 · Estado: ✅ COMPLETED

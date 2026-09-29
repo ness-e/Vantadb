@@ -1,10 +1,16 @@
+---
+title: "TASK CORE-01: Persistencia on-disk de vectores Binary (y no-F32) en vstore"
+kind: task
+description: "Contrato mecánico cubierto: no se añaden pub fn nuevos al SDK (solo pub(crate) flags constants + internal kind decode). No requiere major bump (additive: neuen flags bits, reader dual). Gate D no dispara pregunta al owner — blast radius..."
+---
+
 # TASK CORE-01: Persistencia on-disk de vectores Binary (y no-F32) en vstore
 
 ## Metadata
 - **Plan file:** `docs/dev/plans/2026-08-27-backlog-v2.md`
 - **Creado:** 2026-08-28T00:00
 - **last-synced:** 2026-08-28T00:00
-- **Estado:** ✅ COMPLETED (vanta-arch — 2026-08-28 — Binary persistence ADR-032)
+- **Estado:** ✅ COMPLETED (vanta-arch — 2026-08-28 — Binary persistence ADR-0032)
 - **Ruta:** vanta-arch
 - **Prioridad:** 🟡 Media | **Esfuerzo:** 🟡 1d | **Appetite:** max 1d
 
@@ -51,7 +57,7 @@
   - `src/index/search/layer.rs` (374 líneas) — search_layer vstore f32 branch (67-98,214-248) y fast_similarity
   - `src/vector/quantization.rs` (743 líneas) — rabitq/turbo/sq8 encode/decode
   - `src/storage/engine/mod.rs` (773 líneas) — replay_write_node 382-411, storage_offset packing
-  - `docs/dev/architecture/adr/019_sparse_vector_persisted_format.md` (precedente sin bump)
+  - `docs/dev/architecture/adr/ADR-0019-sparse-vector-persisted-format.md` (precedente sin bump)
   - `docs/dev/plans/2026-08-27-backlog-v2.md` Task 4 CORE-01 (contrato + pre-mortem)
   - `docs/dev/_templates/adr.md` plantilla
   - `Cargo.toml` workspace (no tocado)
@@ -73,7 +79,7 @@
 
 1. `rg -n "vector_len.*0" src/storage/ops.rs` → 0 hits tras fix (no hay `else {0}` para Binary) (file-level grep contract)
 2. `cargo nextest run -p vantadb --profile audit -E 'test(persistence|vstore|rebuild)'` ✅ (roundtrip Binary persist→flush→reopen→get/search; incluye `test_rebuild_*`, `test_compact_layout_*`, nuevos `test_write_node_to_vstore_binary_persist_roundtrip`, `test_rebuild_binary_vector`, `test_persistence_binary_roundtrip_search`)
-3. ADR `docs/dev/architecture/adr/ADR-032-binary-vector-persistence.md` existe con tabla de formato + migración/versionado ( Gate spec-first)
+3. ADR `docs/dev/architecture/adr/ADR-0032-binary-vector-persistence.md` existe con tabla de formato + migración/versionado ( Gate spec-first)
 4. `cargo nextest run -p vantadb -E 'test(persistence|vstore)'` también verde en verify final (contrato del plan file)
 5. `cargo fmt --check` + `cargo clippy --workspace --all-targets --all-features -- -D warnings` 0
 
@@ -101,10 +107,10 @@ Verificación mecánica:
 
 ### Step 1: Discovery + ADR (PLAN) — ponytail rung 1
 
-- **Archivos:** `docs/dev/architecture/adr/ADR-032-binary-vector-persistence.md` (nuevo), `src/storage/ops.rs`, `src/node/disk.rs`, `src/node/flags.rs`
+- **Archivos:** `docs/dev/architecture/adr/ADR-0032-binary-vector-persistence.md` (nuevo), `src/storage/ops.rs`, `src/node/disk.rs`, `src/node/flags.rs`
 - **Acción:** ADR existe con tabla formato + migración/versionado (ya creado 2026-08-28). Verificar blast radius y Spec table arriba. No edita código aún.
-- **Verify:** `Test-Path docs/dev/architecture/adr/ADR-032-binary-vector-persistence.md` True + `rg -n "VECTOR_KIND|vector_len" src/node/disk.rs` 1 def + `cargo check -p vantadb --all-targets` verde sin cambios
-- **Estado:** ✅ COMPLETED (2026-08-28 — ADR-032 creado con tabla 5 kinds + payload spec + legacy compat + riesgos)
+- **Verify:** `Test-Path docs/dev/architecture/adr/ADR-0032-binary-vector-persistence.md` True + `rg -n "VECTOR_KIND|vector_len" src/node/disk.rs` 1 def + `cargo check -p vantadb --all-targets` verde sin cambios
+- **Estado:** ✅ COMPLETED (2026-08-28 — ADR-0032 creado con tabla 5 kinds + payload spec + legacy compat + riesgos)
 
 ### Step 2: Encode/decode — flags kind + write_node_to_vstore + readers + compact/rebuild (ACT)
 
@@ -147,7 +153,7 @@ Verificación mecánica:
 - **Fecha:** 2026-08-28
 - **Branch:** develop
 - **CI pendiente:** `cargo nextest --profile audit -E 'test(persistence|vstore|rebuild)'` (Step 2/3), `cargo clippy --workspace --all-targets --all-features -- -D warnings`
-- **Decisiones:** ADR-032 accepted con 5-kind table + payload spec + legacy kind==0 fallback; flags bits 10-13; VFILE_VERSION stays 2; lazy migration.
+- **Decisiones:** ADR-0032 accepted con 5-kind table + payload spec + legacy kind==0 fallback; flags bits 10-13; VFILE_VERSION stays 2; lazy migration.
 - **Problemas conocidos:** Ninguno; `cargo check -p vantadb --all-targets` verde pre-Step2.
 - **Próxima tarea:** Step 2 ACT (flags + ops + archive + get/txn)
 

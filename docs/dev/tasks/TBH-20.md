@@ -1,3 +1,9 @@
+---
+title: "TBH-20 — ci-examples-12.yml: 3-OS matrix (ubuntu + windows + macos)"
+kind: task
+description: Workflow ci-examples-12.yml corre solo en ubuntu-latest para los
+---
+
 # TBH-20 — ci-examples-12.yml: 3-OS matrix (ubuntu + windows + macos)
 
 ## Contexto (CI infra hardening — Phase 1)

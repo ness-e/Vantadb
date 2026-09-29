@@ -1,11 +1,8 @@
 ---
-title: "Serie REVIEW — release engineering (2026-08-06)"
-type: registro
+title: Serie REVIEW — release engineering (2026-08-06)
+kind: review
 status: archived
 tags: [vantadb, avance, campana]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Serie REVIEW — release engineering (2026-08-06)

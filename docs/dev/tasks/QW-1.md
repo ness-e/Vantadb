@@ -1,3 +1,9 @@
+---
+title: "TASK QW-1: crewai from_dict + cursor"
+kind: task
+description: "Callers | Callees | Implicaciones"
+---
+
 # TASK QW-1: crewai from_dict + cursor
 
 ## Metadata

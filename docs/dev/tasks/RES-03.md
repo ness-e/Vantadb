@@ -1,3 +1,8 @@
+---
+title: RES-03 — Phrase queries gap TextMatch literal (INV-009) — Wave1 P38
+kind: task
+---
+
 # RES-03 — Phrase queries gap TextMatch literal (INV-009) — Wave1 P38
 
 ## Metadata

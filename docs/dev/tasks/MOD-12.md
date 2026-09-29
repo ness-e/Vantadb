@@ -1,3 +1,9 @@
+---
+title: "MOD-12 — `ensure_indexes_current` ausente en path HTTP (text search rota DB fresca)"
+kind: task
+description: "Búsqueda textual/híbrida vía HTTP falla en DB fresca (textindex not found: bm25)"
+---
+
 # MOD-12 — `ensure_indexes_current` ausente en path HTTP (text search rota DB fresca)
 
 > **Estado:** ✅ COMPLETED · **Appetite:** max 2h · **Esfuerzo:** 🟢 · **Prioridad:** 🔴

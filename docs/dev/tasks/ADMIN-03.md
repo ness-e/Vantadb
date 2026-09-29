@@ -1,3 +1,9 @@
+---
+title: "ADMIN-03: Migrar UI del desktop al design system web (modo claro)"
+kind: task
+description: "npm run build en desktop/ pasa; la app abre en modo claro con tokens web; ConnectionSelector.tsx eliminado sin referencias rotas.\""
+---
+
 # ADMIN-03: Migrar UI del desktop al design system web (modo claro)
 
 ## Metadata

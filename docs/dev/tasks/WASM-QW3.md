@@ -1,3 +1,9 @@
+---
+title: "TASK WASM-QW3 (H-05): flush() deja de engañar"
+kind: task
+description: "Implicaciones: Cambio de semántica documentada, no de API binaria. Blast radius ≤2 archivos (lib.rs + tests), sin concurrencia, sin unsafe, sin nueva dependencia. Reversible"
+---
+
 # TASK WASM-QW3 (H-05): flush() deja de engañar
 
 ## Metadata

@@ -1,3 +1,9 @@
+---
+title: "DEF-08: Install SLO + telemetría opt-in + fallback visible"
+kind: task
+description: "SLO definido (tiempo al primer recall + tasa de éxito) con método de medición Y telemetría opt-in especificada (privacy-first, default off) Y fallback visible especificado (mensaje + docs) — secciones verificables por rg en..."
+---
+
 # DEF-08: Install SLO + telemetría opt-in + fallback visible
 
 ## Metadata

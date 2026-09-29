@@ -1,10 +1,8 @@
 ---
-title: "Avance — Vanta Memory"
-type: domain-log
+title: Avance — Vanta Memory
+kind: review
 status: active
 tags: [vantadb, avance, vanta-memory, tdam, memory, persona, recall]
-last_reviewed: 2026-08-22
-aliases: []
 ---
 
 # Avance — Vanta Memory
@@ -32,9 +30,9 @@ aliases: []
 
 ## Campaña P29 — Vanta Context Engine (superficie de memoria, F5)
 
-### MEM-38..42 (+ADR-029): Superficie F5 sobre vanta-memory — catch-up por campaña
+### MEM-38..42 (+ADR-0029): Superficie F5 sobre vanta-memory — catch-up por campaña
 - **Fecha:** 2026-08-20 → 2026-08-21
-- **Objetivo:** Preparar la memoria como fuente del context engine: seed/import CLI vía bin propio `src/bin/vanta-seed.rs` con idempotencia content-hash (`d3eba4fc`, `MEM-39`), generation-log provenance best-effort L1/L2/L3 bajo `genlog/<session>` cap 100 (`1f89c0b6`, `MEM-41`), `recall_scope` híbrido session|agent|team default agent + primer test `search_multi` (`89777704`, `MEM-40`), auto-sync scheduler con ManagedTimer pull-based + busy guard (`2dba254f`, `MEM-45`*), reclaimer GC offload con retention_days post-cursor estricto e idempotente (`214a7820`, `MEM-42`), ADR-029 borrador + superficies F5 documentadas en EMBEDDED_SDK (`badb5b9c`, `MEM-38`).
+- **Objetivo:** Preparar la memoria como fuente del context engine: seed/import CLI vía bin propio `src/bin/vanta-seed.rs` con idempotencia content-hash (`d3eba4fc`, `MEM-39`), generation-log provenance best-effort L1/L2/L3 bajo `genlog/<session>` cap 100 (`1f89c0b6`, `MEM-41`), `recall_scope` híbrido session|agent|team default agent + primer test `search_multi` (`89777704`, `MEM-40`), auto-sync scheduler con ManagedTimer pull-based + busy guard (`2dba254f`, `MEM-45`*), reclaimer GC offload con retention_days post-cursor estricto e idempotente (`214a7820`, `MEM-42`), ADR-0029 borrador + superficies F5 documentadas en EMBEDDED_SDK (`badb5b9c`, `MEM-38`).
 - **Nota:** \*MEM-45 se materializó dentro de la ventana P31 (commit `2dba254f` posterior al cierre formal de P29 `00f18662`); se registra aquí por pertenecer a la línea de auto-sync de F5.
 - **Resultado:** ✅ 9/9 tareas de campaña (las de ensamblado puro viven en `context-engine.md`). Plan cerrado (`00f18662`).
 - **Ids:** `MEM-38`, `MEM-39`, `MEM-40`, `MEM-41`, `MEM-42`
@@ -52,8 +50,8 @@ aliases: []
   - **MEM-46** (`e22b496a`): embeddings en L1 writer vía `EmbeddingProvider` core, feature opt-in (Principio 4 best-effort).
   - **MEM-47** (`f32e4d51`): semantic recall dual-pool + fusión RRF en recall/dedup/query, fallback keyword D38.
   - **MEM-48** (`4fbaa4a3`): compresión consume scores L1 reales (MemoryScoreMap + fallback heurístico).
-  - **MEM-49** (`437bfee3`): guía socrática de revisión ADR-029 + decisiones D21-D37 (prep articulación humana, Regla 5).
-- **Resultado:** ✅ 8/8 tareas de campaña. Auditoría final con hallazgos registrados en `docs/api/VANTA_MEMORY.md` canónico (`673f18af`). ADR-029 ACEPTADO con articulación humana completa (`9e76caff`). Plan cerrado (`460ce60a`).
+  - **MEM-49** (`437bfee3`): guía socrática de revisión ADR-0029 + decisiones D21-D37 (prep articulación humana, Regla 5).
+- **Resultado:** ✅ 8/8 tareas de campaña. Auditoría final con hallazgos registrados en `docs/api/VANTA_MEMORY.md` canónico (`673f18af`). ADR-0029 ACEPTADO con articulación humana completa (`9e76caff`). Plan cerrado (`460ce60a`).
 - **Ids:** `MEM-43`, `MEM-44`, `MEM-45`, `MEM-46`, `MEM-47`, `MEM-48`, `MEM-49`
 
 ---
@@ -106,12 +104,12 @@ aliases: []
 ### MCP-41: auto-consolidación local-first (plan 2026-09-10-code Wave5)
 - **Fecha:** 2026-09-10
 - **Objetivo:** DISCOVERY arch + slice extract→consolidate→recall sin LLM key.
-- **Resultado:** ✅ suite 0 failed + clippy/fmt 0 + ADR-040; commit tras RESUME (bloqueo fmt ajeno).
+- **Resultado:** ✅ suite 0 failed + clippy/fmt 0 + ADR-0040; commit tras RESUME (bloqueo fmt ajeno).
 - **Commit:** 6bf42a89
 
 ### FIND-86: wiring MEM-69 (dream TaskKind + batch opt-in) + tool 77 + MEM-70
 - **Fecha:** 2026-09-16
-- **Objetivo:** cablear memoria diferida ADR-040 (Gate D A/A/B vía `question`): `TaskKind::Dream` + rama handle + flag batch opt-in + 4 tests wiring; tool 77 ratificada diseñada; MEM-70 DEFER-ratificado.
+- **Objetivo:** cablear memoria diferida ADR-0040 (Gate D A/A/B vía `question`): `TaskKind::Dream` + rama handle + flag batch opt-in + 4 tests wiring; tool 77 ratificada diseñada; MEM-70 DEFER-ratificado.
 - **Resultado:** ✅ 542 passed / 0 failed (336 lib + 205 integración + 1 doc) + clippy 0 + fmt; review P2-01 approve.
 - **Commit:** 0be84203 (discovery+spec) + 29ec9f02 (feat wiring)
 

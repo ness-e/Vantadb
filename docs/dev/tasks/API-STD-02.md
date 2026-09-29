@@ -1,3 +1,9 @@
+---
+title: Task API-STD-02 — INDIVIDUAL (1/11) Rust core SDK
+kind: task
+description: "Ficha individual Rust core: funcionamiento + uso + código + veredicto por fallo"
+---
+
 # Task API-STD-02 — INDIVIDUAL (1/11) Rust core SDK
 
 > **Plan:** `docs/dev/plans/2026-09-24-api-estandarizacion.md`

@@ -1,3 +1,10 @@
+---
+title: "INV-012: Anti-Locality Disk Layout — re-evaluación"
+kind: research
+status: archived
+description: "Fecha: 2026-08-03"
+---
+
 # INV-012: Anti-Locality Disk Layout — re-evaluación
 
 **Fecha:** 2026-08-03

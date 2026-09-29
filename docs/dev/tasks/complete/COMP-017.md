@@ -1,3 +1,9 @@
+---
+title: "COMP-017: Accumulators for parallel graph algorithms"
+kind: task
+description: "Estado: ✅ COMPLETED"
+---
+
 # COMP-017: Accumulators for parallel graph algorithms
 
 **Estado:** ✅ COMPLETED
