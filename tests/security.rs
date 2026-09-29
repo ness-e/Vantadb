@@ -623,6 +623,8 @@ mod fuzzing_tests {
             limit: 10,
             cursor: None,
             exclude_superseded: false,
+            as_of_ms: None,
+            valid_window: None,
         };
         let err = db
             .list("ns", options)

@@ -2269,3 +2269,443 @@ fn test_mmr_rejects_invalid_lambda_and_fetch_k() {
         assert!(err.to_string().contains("SEARCH_OPTIONS_INVALID"));
     }
 }
+
+// ── SCH-03: AS OF / valid-time filters (ADR-046 §D3) ──────────────────
+
+/// Force an exact validity window on an existing record. Deterministic
+/// time-travel fixture: no clock involvement anywhere in the assertions.
+fn set_window(
+    db: &Embedded,
+    namespace: &str,
+    key: &str,
+    valid_at_ms: u64,
+    invalid_at_ms: Option<u64>,
+) {
+    let mut record = db.get(namespace, key).expect("get").expect("record");
+    record.valid_at_ms = valid_at_ms;
+    record.invalid_at_ms = invalid_at_ms;
+    db.put_record_exact(record)
+        .expect("put record with exact window");
+}
+
+fn search_keys(db: &Embedded, request: MemorySearchRequest) -> Vec<String> {
+    let mut keys: Vec<String> = db
+        .search(request)
+        .expect("search")
+        .into_iter()
+        .map(|hit| hit.record.key)
+        .collect();
+    keys.sort();
+    keys
+}
+
+#[test]
+fn test_search_as_of_returns_state_at_known_t() {
+    let db = setup();
+    insert(
+        &db,
+        "tt",
+        "old",
+        "alpha shared term",
+        None,
+        MemoryMetadata::new(),
+    );
+    insert(
+        &db,
+        "tt",
+        "new",
+        "alpha shared term",
+        None,
+        MemoryMetadata::new(),
+    );
+    set_window(&db, "tt", "old", 1000, Some(2000));
+    set_window(&db, "tt", "new", 2000, Some(3000));
+
+    let at = |t: u64| {
+        search_keys(
+            &db,
+            MemorySearchRequest {
+                namespace: "tt".into(),
+                text_query: Some("alpha".into()),
+                top_k: 10,
+                as_of_ms: Some(t),
+                ..Default::default()
+            },
+        )
+    };
+    assert!(at(999).is_empty(), "before any window");
+    assert_eq!(at(1000), vec!["old"], "start is inclusive");
+    assert_eq!(at(1999), vec!["old"]);
+    assert_eq!(at(2000), vec!["new"], "end is exclusive");
+    assert_eq!(at(2999), vec!["new"]);
+    assert!(at(3000).is_empty(), "after both windows");
+
+    // Default (no `as_of_ms`) is unchanged: both records remain searchable.
+    let default = search_keys(
+        &db,
+        MemorySearchRequest {
+            namespace: "tt".into(),
+            text_query: Some("alpha".into()),
+            top_k: 10,
+            ..Default::default()
+        },
+    );
+    assert_eq!(default, vec!["new", "old"]);
+}
+
+#[test]
+fn test_search_valid_window_overlap_filters() {
+    let db = setup();
+    insert(&db, "tw", "old", "beta shared", None, MemoryMetadata::new());
+    insert(&db, "tw", "new", "beta shared", None, MemoryMetadata::new());
+    set_window(&db, "tw", "old", 1000, Some(2000));
+    set_window(&db, "tw", "new", 2000, Some(3000));
+
+    let in_window = |from: u64, to: u64| {
+        search_keys(
+            &db,
+            MemorySearchRequest {
+                namespace: "tw".into(),
+                text_query: Some("beta".into()),
+                top_k: 10,
+                valid_window: Some(ValidWindow {
+                    from_ms: from,
+                    to_ms: to,
+                }),
+                ..Default::default()
+            },
+        )
+    };
+    assert!(in_window(0, 1000).is_empty(), "query ends at old.start");
+    assert_eq!(in_window(0, 1001), vec!["old"]);
+    assert_eq!(in_window(1500, 2500), vec!["new", "old"]);
+    assert_eq!(in_window(1999, 2000), vec!["old"], "touching old.end");
+    assert_eq!(in_window(2000, 3000), vec!["new"]);
+    assert!(in_window(3000, 4000).is_empty(), "query starts at new.end");
+}
+
+#[test]
+fn test_search_rejects_empty_valid_window() {
+    let db = setup();
+    let err = db
+        .search(MemorySearchRequest {
+            namespace: "tt".into(),
+            text_query: Some("alpha".into()),
+            valid_window: Some(ValidWindow {
+                from_ms: 10,
+                to_ms: 10,
+            }),
+            ..Default::default()
+        })
+        .expect_err("empty window must be rejected at the boundary");
+    assert!(err.to_string().contains("SEARCH_OPTIONS_INVALID"));
+}
+
+#[test]
+fn test_exclude_superseded_also_drops_ended_validity_windows() {
+    let db = setup();
+    insert(
+        &db,
+        "ex",
+        "ended",
+        "gamma term",
+        None,
+        MemoryMetadata::new(),
+    );
+    insert(&db, "ex", "open", "gamma term", None, MemoryMetadata::new());
+    insert(
+        &db,
+        "ex",
+        "future_end",
+        "gamma term",
+        None,
+        MemoryMetadata::new(),
+    );
+    // Ended in the distant past → dropped under any real clock (deterministic).
+    set_window(&db, "ex", "ended", 1, Some(2));
+    set_window(&db, "ex", "open", 1, None);
+    // Ends far in the future → not "ended yet".
+    set_window(&db, "ex", "future_end", 1, Some(u64::MAX / 2));
+
+    let hidden = search_keys(
+        &db,
+        MemorySearchRequest {
+            namespace: "ex".into(),
+            text_query: Some("gamma".into()),
+            top_k: 10,
+            exclude_superseded: true,
+            ..Default::default()
+        },
+    );
+    assert_eq!(hidden, vec!["future_end", "open"], "ended window dropped");
+
+    let shown = search_keys(
+        &db,
+        MemorySearchRequest {
+            namespace: "ex".into(),
+            text_query: Some("gamma".into()),
+            top_k: 10,
+            ..Default::default()
+        },
+    );
+    assert_eq!(
+        shown,
+        vec!["ended", "future_end", "open"],
+        "default keeps every record"
+    );
+}
+
+#[test]
+fn test_search_page_cursor_is_bound_to_temporal_params() {
+    let db = setup();
+    insert(&db, "cp", "a", "delta term", None, MemoryMetadata::new());
+    insert(&db, "cp", "b", "delta term", None, MemoryMetadata::new());
+    set_window(&db, "cp", "a", 1000, None);
+    set_window(&db, "cp", "b", 2000, None);
+
+    let first = db
+        .search_page(MemorySearchRequest {
+            namespace: "cp".into(),
+            text_query: Some("delta".into()),
+            top_k: 1,
+            as_of_ms: Some(1500),
+            ..Default::default()
+        })
+        .expect("first page");
+    assert_eq!(first.hits.len(), 1);
+    assert_eq!(first.hits[0].record.key, "a", "only `a` is valid at T=1500");
+    let cursor = first.next_cursor.expect("full page yields a cursor");
+
+    // Resuming with a different valid-time param is rejected (fingerprint).
+    let err = db
+        .search_page(MemorySearchRequest {
+            namespace: "cp".into(),
+            text_query: Some("delta".into()),
+            top_k: 1,
+            as_of_ms: Some(2500),
+            cursor: Some(cursor.clone()),
+            ..Default::default()
+        })
+        .expect_err("cursor from a different temporal plan must be rejected");
+    assert!(err.to_string().contains("SEARCH_CURSOR_INVALID"));
+
+    // Same params resume without duplicates (page is exhausted at T=1500).
+    let second = db
+        .search_page(MemorySearchRequest {
+            namespace: "cp".into(),
+            text_query: Some("delta".into()),
+            top_k: 1,
+            as_of_ms: Some(1500),
+            cursor: Some(cursor),
+            ..Default::default()
+        })
+        .expect("resume");
+    assert!(second.hits.is_empty(), "no other record is valid at T=1500");
+    assert!(second.next_cursor.is_none());
+}
+
+#[test]
+fn test_search_as_of_page_fills_top_k_when_enough_valid_candidates_exist() {
+    let db = setup();
+    // 10 records; 8 end before T so the selector eats the ranking head.
+    for index in 0..10 {
+        let key = format!("k{index}");
+        insert(
+            &db,
+            "gw",
+            &key,
+            "epsilon shared",
+            None,
+            MemoryMetadata::new(),
+        );
+        let window_end = if index < 8 { Some(2) } else { None };
+        set_window(&db, "gw", &key, 1, window_end);
+    }
+
+    let page = db
+        .search_page(MemorySearchRequest {
+            namespace: "gw".into(),
+            text_query: Some("epsilon".into()),
+            top_k: 2,
+            as_of_ms: Some(1500),
+            ..Default::default()
+        })
+        .expect("page");
+    assert_eq!(
+        page.hits.len(),
+        2,
+        "the selector must not shorten the page below top_k"
+    );
+    assert!(page.next_cursor.is_some(), "full page yields a cursor");
+    for hit in &page.hits {
+        assert!(
+            hit.record.is_valid_at(1500),
+            "every returned hit must be valid at T"
+        );
+    }
+}
+
+// ── SCH-04: confidence threshold filter (ADR-046 §D2) ──────────────────────
+
+/// Put an asserted record with a declared confidence (score kept verbatim).
+fn insert_with_confidence(
+    db: &Embedded,
+    namespace: &str,
+    key: &str,
+    payload: &str,
+    confidence: f32,
+) -> MemoryRecord {
+    let input = MemoryInput {
+        namespace: namespace.into(),
+        key: key.into(),
+        payload: payload.into(),
+        confidence: Some(confidence),
+        ..Default::default()
+    };
+    db.put(input).expect("put with declared confidence")
+}
+
+#[test]
+fn test_search_min_confidence_filters_below_threshold() {
+    let db = setup();
+    // Parent asserted at 0.5; derived child = min(0.5) × 0.9 = 0.45 (D4a).
+    insert_with_confidence(&db, "conf", "weak-parent", "shared wording", 0.5);
+    let derived = MemoryInput {
+        namespace: "conf".into(),
+        key: "derived-child".into(),
+        payload: "shared wording".into(),
+        confidence_class: Some(ConfidenceClass::Derived),
+        derived_from: Some(vec!["weak-parent".into()]),
+        ..Default::default()
+    };
+    let rec = db.put(derived).expect("derived put");
+    assert_eq!(rec.confidence_class, ConfidenceClass::Derived);
+    assert!(
+        (rec.confidence - 0.45).abs() < 1e-6,
+        "derived score = min(parents) × 0.9, got {}",
+        rec.confidence
+    );
+
+    // Default (`None`) keeps both hits — no behavior change.
+    let all = db
+        .search(MemorySearchRequest {
+            namespace: "conf".into(),
+            text_query: Some("shared".into()),
+            top_k: 10,
+            ..Default::default()
+        })
+        .expect("search");
+    assert_eq!(all.len(), 2, "unfiltered search keeps both records");
+
+    // Threshold 0.5 drops the derived child (0.45) and keeps the parent.
+    let filtered = db
+        .search(MemorySearchRequest {
+            namespace: "conf".into(),
+            text_query: Some("shared".into()),
+            top_k: 10,
+            min_confidence: Some(0.5),
+            ..Default::default()
+        })
+        .expect("filtered search");
+    assert_eq!(filtered.len(), 1, "only the parent passes the threshold");
+    assert_eq!(filtered[0].record.key, "weak-parent");
+    assert!(filtered[0].record.confidence >= 0.5);
+}
+
+#[test]
+fn test_search_min_confidence_out_of_range_is_rejected() {
+    let db = setup();
+    insert_with_confidence(&db, "conf", "k1", "alpha", 1.0);
+
+    for bad in [1.5_f32, -0.1, f32::NAN, f32::INFINITY] {
+        let err = db
+            .search(MemorySearchRequest {
+                namespace: "conf".into(),
+                text_query: Some("alpha".into()),
+                min_confidence: Some(bad),
+                ..Default::default()
+            })
+            .expect_err("out-of-range threshold must be rejected");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("SEARCH_OPTIONS_INVALID"),
+            "stable marker expected, got: {msg}"
+        );
+        assert!(msg.contains("min_confidence"), "field name in error: {msg}");
+    }
+}
+
+#[test]
+fn test_search_min_confidence_is_part_of_the_cursor_fingerprint() {
+    let db = setup();
+    insert_with_confidence(&db, "conf", "k1", "alpha beta", 1.0);
+    insert_with_confidence(&db, "conf", "k2", "alpha gamma", 1.0);
+
+    let first = db
+        .search_page(MemorySearchRequest {
+            namespace: "conf".into(),
+            text_query: Some("alpha".into()),
+            top_k: 1,
+            ..Default::default()
+        })
+        .expect("first page");
+    assert_eq!(first.hits.len(), 1);
+    let cursor = first.next_cursor.expect("full page yields a cursor");
+
+    // Reusing the cursor with a different threshold must be rejected (the
+    // threshold is part of the plan fingerprint).
+    let err = db
+        .search_page(MemorySearchRequest {
+            namespace: "conf".into(),
+            text_query: Some("alpha".into()),
+            top_k: 1,
+            min_confidence: Some(0.5),
+            cursor: Some(cursor),
+            ..Default::default()
+        })
+        .expect_err("cursor from a different threshold must be rejected");
+    let msg = err.to_string();
+    assert!(msg.contains("SEARCH_CURSOR_INVALID"), "got: {msg}");
+}
+
+#[test]
+fn test_search_min_confidence_page_fills_when_enough_candidates_exist() {
+    let db = setup();
+    // Weak records rank first (higher term frequency) but are filtered by the
+    // threshold; the window must grow until the strong ones fill the page.
+    for index in 0..6 {
+        let key = format!("weak-{index}");
+        insert_with_confidence(
+            &db,
+            "conf",
+            &key,
+            "theta theta theta theta theta theta theta theta",
+            0.4,
+        );
+    }
+    for index in 0..5 {
+        let key = format!("strong-{index}");
+        insert_with_confidence(&db, "conf", &key, "theta", 1.0);
+    }
+
+    let page = db
+        .search_page(MemorySearchRequest {
+            namespace: "conf".into(),
+            text_query: Some("theta".into()),
+            top_k: 3,
+            min_confidence: Some(0.5),
+            ..Default::default()
+        })
+        .expect("page");
+    assert_eq!(
+        page.hits.len(),
+        3,
+        "the confidence selector must not shorten the page below top_k"
+    );
+    for hit in &page.hits {
+        assert!(
+            hit.record.confidence >= 0.5,
+            "every returned hit must pass the threshold"
+        );
+    }
+}

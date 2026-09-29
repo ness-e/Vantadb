@@ -9,8 +9,9 @@
 //!
 //! The token is an opaque JSON string carrying:
 //! - a **plan fingerprint** (namespace, query vector/text/sparse, filters,
-//!   metric, explain, superseded flag, profile, range) — resuming with a
-//!   different plan is rejected with a stable marker;
+//!   metric, explain, superseded flag, valid-time params, confidence
+//!   threshold, profile, range) — resuming with a different plan is rejected
+//!   with a stable marker;
 //! - the **rank offset** consumed so far (fetch-window budget);
 //! - an **identity anchor** `(key, node_id)` — the last hit returned.
 //!
@@ -27,6 +28,7 @@
 //! must never be persisted or parsed by clients.
 
 use super::super::builder::Embedded;
+use super::super::serialization::now_ms;
 use super::super::serialization::vector_types::{
     GroupByConfig, MemorySearchHit, MemorySearchPage, MemorySearchRequest, RangeFilter,
 };
@@ -103,6 +105,25 @@ pub(crate) fn validate_search_options(request: &MemorySearchRequest) -> Result<(
             )));
         }
     }
+    if let Some(window) = &request.valid_window {
+        // SCH-03: the query window is half-open `[from_ms, to_ms)`; an empty
+        // or inverted window would silently match nothing (or everything).
+        if window.from_ms >= window.to_ms {
+            return Err(Error::InvalidInput(format!(
+                "{SEARCH_OPTIONS_MARKER}: valid_window.from_ms ({}) must be < valid_window.to_ms ({})",
+                window.from_ms, window.to_ms
+            )));
+        }
+    }
+    if let Some(min_confidence) = request.min_confidence {
+        // SCH-04 (ADR-046 §D2): an out-of-range threshold would silently drop
+        // (or keep) everything — reject at the boundary, never clamp.
+        if !min_confidence.is_finite() || !(0.0..=1.0).contains(&min_confidence) {
+            return Err(Error::InvalidInput(format!(
+                "{SEARCH_OPTIONS_MARKER}: min_confidence must be finite and within [0, 1]"
+            )));
+        }
+    }
     if let Some(mmr) = &request.mmr {
         if !(0.0..=1.0).contains(&mmr.lambda) {
             return Err(Error::InvalidInput(format!(
@@ -155,6 +176,15 @@ pub(crate) fn plan_fingerprint(request: &MemorySearchRequest) -> u64 {
     format!("{:?}", request.distance_metric).hash(&mut hasher);
     request.explain.hash(&mut hasher);
     request.exclude_superseded.hash(&mut hasher);
+    // SCH-04 (ADR-046 §D2): the confidence threshold is part of the plan
+    // identity — a cursor from a different threshold must be rejected.
+    request.min_confidence.map(f32::to_bits).hash(&mut hasher);
+    // SCH-03: valid-time params are part of the plan identity.
+    request.as_of_ms.hash(&mut hasher);
+    if let Some(window) = &request.valid_window {
+        window.from_ms.hash(&mut hasher);
+        window.to_ms.hash(&mut hasher);
+    }
     if let Some(profile) = &request.search_profile {
         format!("{profile:?}").hash(&mut hasher);
     }
@@ -306,7 +336,16 @@ pub(crate) fn run_search_page(
             .range
             .as_ref()
             .is_some_and(|range| range.max_score.is_some())
-        || request.group_by.is_some();
+        || request.group_by.is_some()
+        || request.as_of_ms.is_some()
+        || request.valid_window.is_some()
+        // SCH-04: the confidence filter can shorten the page below `top_k`
+        // (same reason as the temporal filters above).
+        || request.min_confidence.is_some();
+    // SCH-03: the supersession reference is read ONCE per request at the
+    // boundary — the retain predicates below stay pure `(record, ref)`.
+    // Read lazily: the default path (flag off) must not touch the clock.
+    let supersession_ref_ms = request.exclude_superseded.then(now_ms);
     let (mut hits, boost_report) = loop {
         let mut effective = request.clone();
         effective.top_k = window;
@@ -315,8 +354,32 @@ pub(crate) fn run_search_page(
         let ranked_len = fetched.len();
 
         if request.exclude_superseded {
-            // ADR-028: drop superseded records at final assembly — no index change.
-            fetched.retain(|hit| hit.record.superseded_by.is_none());
+            // ADR-028 + ADR-046 §D3-6 (SCH-03): drop superseded records and
+            // records whose validity window already ended
+            // (`invalid_at_ms <= now`) at final assembly — no index change.
+            // `supersession_ref_ms` is `Some` whenever this branch runs.
+            if let Some(ref_ms) = supersession_ref_ms {
+                fetched.retain(|hit| {
+                    hit.record.superseded_by.is_none()
+                        && hit
+                            .record
+                            .invalid_at_ms
+                            .is_none_or(|invalid| invalid > ref_ms)
+                });
+            }
+        }
+        if let Some(as_of_ms) = request.as_of_ms {
+            // ADR-046 §D3 (SCH-03): valid-time point filter, final assembly.
+            fetched.retain(|hit| hit.record.is_valid_at(as_of_ms));
+        }
+        if let Some(window) = &request.valid_window {
+            // SCH-03: validity-window overlap filter, final assembly.
+            fetched.retain(|hit| hit.record.validity_overlaps(window.from_ms, window.to_ms));
+        }
+        if let Some(min_confidence) = request.min_confidence {
+            // SCH-04 (ADR-046 §D2): confidence threshold at final assembly —
+            // no index change, ranking untouched (drops post-ranking only).
+            fetched.retain(|hit| hit.record.confidence >= min_confidence);
         }
         if let Some(range) = &request.range {
             apply_range(&mut fetched, range);

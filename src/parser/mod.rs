@@ -13,11 +13,16 @@ pub use lexer::*;
 /// Bump when the grammar or literal semantics change in a way consumers must
 /// detect (new clause, changed literal semantics, removed syntax). Version-gated
 /// clauses document their minimum version — e.g. `PROFILE` (MEM-01) is accepted
-/// from [`IQL_VERSION_MIN_PROFILE`] onwards.
-pub const IQL_VERSION: u32 = 1;
+/// from [`IQL_VERSION_MIN_PROFILE`] onwards and `AS OF` (SCH-03) from
+/// [`IQL_VERSION_MIN_AS_OF`].
+pub const IQL_VERSION: u32 = 2;
 
 /// Minimum IQL version that accepts the optional `PROFILE` clause (MEM-01).
 pub const IQL_VERSION_MIN_PROFILE: u32 = 1;
+
+/// Minimum IQL version that accepts the optional `AS OF <unix-ms>` valid-time
+/// clause (SCH-03, ADR-046 §D3).
+pub const IQL_VERSION_MIN_AS_OF: u32 = 2;
 
 /// True when syntax whose minimum version is `min_version` is accepted by this
 /// parser (i.e. `min_version <= `[`IQL_VERSION`]). Consumers use it to
@@ -1403,17 +1408,121 @@ mod tests {
     fn test_iql_version_defined_and_gated() {
         // A concrete version is defined and exposed (crate root re-export
         // in src/lib.rs).
-        assert_eq!(IQL_VERSION, 1);
+        assert_eq!(IQL_VERSION, 2);
         // The gate is the single source of truth for versioned syntax.
         assert!(iql_supports(IQL_VERSION_MIN_PROFILE));
+        assert!(iql_supports(IQL_VERSION_MIN_AS_OF));
         assert!(
             !iql_supports(IQL_VERSION + 1),
             "syntax from a future version must not be silently enabled"
         );
-        // The gated clause parses at the current version (MEM-01).
+        // The gated clauses parse at the current version (MEM-01, SCH-03).
         let (_, q) = parse_query("FROM Node PROFILE vector").unwrap();
         let profile = q.search_profile.expect("PROFILE parsed at IQL_VERSION");
         assert_eq!(profile.mode, SearchProfileMode::Vector);
+        let (_, q) = parse_query("FROM Node AS OF 42").unwrap();
+        assert_eq!(q.as_of_ms, Some(42), "AS OF parsed at IQL_VERSION");
+    }
+
+    // ─── AS OF / valid-time clause (SCH-03) ──────────────────────
+
+    #[test]
+    fn test_parse_query_as_of_clause_after_table() {
+        let (_, q) = parse_query("FROM Person AS OF 1700000000000").unwrap();
+        assert_eq!(q.as_of_ms, Some(1_700_000_000_000));
+    }
+
+    #[test]
+    fn test_parse_query_as_of_clause_before_where() {
+        let (_, q) = parse_query(r#"FROM Person p AS OF 42 WHERE edad > 18"#).unwrap();
+        assert_eq!(q.as_of_ms, Some(42));
+        assert_eq!(q.where_clause.as_ref().map(|c| c.len()), Some(1));
+    }
+
+    #[test]
+    fn test_parse_query_as_of_clause_after_where() {
+        let (_, q) = parse_query(r#"FROM Person WHERE edad > 18 AS OF 42"#).unwrap();
+        assert_eq!(q.as_of_ms, Some(42));
+        assert_eq!(q.where_clause.as_ref().map(|c| c.len()), Some(1));
+    }
+
+    #[test]
+    fn test_parse_query_without_as_of_is_none() {
+        let (_, q) = parse_query("FROM Person").unwrap();
+        assert_eq!(q.as_of_ms, None);
+    }
+
+    #[test]
+    fn test_parse_query_as_of_requires_numeric_timestamp() {
+        // A malformed clause must fail the parse — never silently drop the
+        // time filter and run an unfiltered query.
+        assert!(parse_query("FROM Person AS OF abc").is_err());
+        assert!(parse_query("FROM Person AS OF").is_err());
+        assert!(parse_query("FROM Person AS OF 12.5").is_err());
+    }
+
+    #[test]
+    fn test_parse_query_as_of_is_not_swallowed_by_traversal_alias() {
+        let (_, q) = parse_query(r#"FROM Usuario SIGUE 1..2 "amigo" AS OF 7"#).unwrap();
+        assert_eq!(q.as_of_ms, Some(7));
+        assert_eq!(q.traversal.unwrap().alias, None);
+    }
+
+    #[test]
+    fn test_parse_select_as_of_clause() {
+        let (_, stmt) = parse_statement("SELECT * FROM ProbeNs AS OF 123").unwrap();
+        match stmt {
+            Statement::Select(sel) => assert_eq!(sel.as_of_ms, Some(123)),
+            other => panic!("expected Select, got {other:?}"),
+        }
+        let (_, stmt) = parse_statement("SELECT name FROM ns p WHERE x = 1 AS OF 9").unwrap();
+        match stmt {
+            Statement::Select(sel) => assert_eq!(sel.as_of_ms, Some(9)),
+            other => panic!("expected Select, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_parse_select_without_as_of_is_none() {
+        let (_, stmt) = parse_statement("SELECT * FROM ProbeNs").unwrap();
+        match stmt {
+            Statement::Select(sel) => assert_eq!(sel.as_of_ms, None),
+            other => panic!("expected Select, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_subquery_with_as_of_is_a_parse_error() {
+        // Sub-plans carry no valid-time filter — AS OF inside a subquery must
+        // fail fast instead of being silently dropped.
+        let res = parse_statement(r#"SELECT * FROM ns WHERE x > (SELECT * FROM other AS OF 5)"#);
+        assert!(res.is_err(), "AS OF inside a subquery must not parse");
+    }
+
+    #[test]
+    fn test_duplicate_as_of_is_a_parse_error() {
+        // Two `AS OF` clauses would silently keep the first and drop the
+        // second (SCH-03 review Optional-2) — reject at parse time instead.
+        assert!(parse_query("FROM Person AS OF 1 AS OF 2").is_err());
+        assert!(parse_query(r#"FROM Person AS OF 1 WHERE edad > 18 AS OF 3"#).is_err());
+        assert!(parse_statement("SELECT * FROM ProbeNs AS OF 1 AS OF 2").is_err());
+        assert!(
+            parse_statement(r#"SELECT * FROM ns WHERE x > (SELECT * FROM other AS OF 1 AS OF 2)"#)
+                .is_err(),
+            "duplicate AS OF inside a subquery must not parse either"
+        );
+        // Control: a single clause in either canonical position still parses.
+        assert_eq!(
+            parse_query("FROM Person AS OF 1").unwrap().1.as_of_ms,
+            Some(1)
+        );
+        assert_eq!(
+            parse_query(r#"FROM Person WHERE edad > 18 AS OF 3"#)
+                .unwrap()
+                .1
+                .as_of_ms,
+            Some(3)
+        );
     }
 
     #[test]

@@ -5846,3 +5846,105 @@ fn test_api04_prompts_are_separated_from_tools() {
         "prompt text must point at the canonical tool name: {msg}"
     );
 }
+
+// ── SCH-04: confidence fields on the MCP wire (serde propagation) ──────────
+
+/// `memory_get` returns the full `MemoryRecord` JSON — the v2 confidence
+/// fields (ADR-046 §D2) must be visible with their D_a defaults.
+#[test]
+fn test_mcp_memory_get_exposes_confidence_fields() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    let cfg = default_config();
+
+    let put = Some(json!({"name": "memory_put", "arguments": {
+        "namespace": "sch04_ns", "key": "k1", "payload": "confidence probe"
+    }}));
+    let _ = handle_tools_call(&put, &executor, &storage, &cfg).expect("memory_put");
+
+    let get = Some(json!({"name": "memory_get", "arguments": {
+        "namespace": "sch04_ns", "key": "k1"
+    }}));
+    let got = text_of_mcp_result(handle_tools_call(&get, &executor, &storage, &cfg));
+
+    assert_eq!(got["confidence_class"], json!("Asserted"), "{got}");
+    assert_eq!(got["confidence"], json!(1.0), "{got}");
+    assert!(got["last_validated_at_ms"].is_null(), "{got}");
+    assert_eq!(got["derived_from"], json!([]), "{got}");
+}
+
+/// `memory_search` hits carry the record confidence fields (the hit envelope
+/// serializes `MemorySearchHit` by serde — same propagation as HTTP).
+#[test]
+fn test_mcp_search_hit_exposes_confidence_fields() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    let cfg = default_config();
+
+    let put = Some(json!({"name": "memory_put", "arguments": {
+        "namespace": "sch04_ns", "key": "k1", "payload": "confidence probe",
+        "vector": [1.0, 0.0]
+    }}));
+    let _ = handle_tools_call(&put, &executor, &storage, &cfg).expect("memory_put");
+
+    let search = Some(json!({"name": "memory_search", "arguments": {
+        "namespace": "sch04_ns", "query_vector": [1.0, 0.0], "top_k": 1
+    }}));
+    // `content[0].text` is the raw hits array (MCP-39 kept that shape for
+    // back-compat); the envelope lives under `structuredContent`.
+    let hits = text_of_mcp_result(handle_tools_call(&search, &executor, &storage, &cfg));
+    let record = &hits[0]["record"];
+
+    assert_eq!(record["confidence_class"], json!("Asserted"), "{hits}");
+    assert_eq!(record["confidence"], json!(1.0), "{hits}");
+    assert!(record["last_validated_at_ms"].is_null(), "{hits}");
+    assert_eq!(record["derived_from"], json!([]), "{hits}");
+}
+
+/// `memory_search` accepts the opt-in `min_confidence` filter and rejects
+/// out-of-range / non-numeric values with an actionable error (SCH-04).
+#[test]
+fn test_mcp_search_min_confidence_validated() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    let cfg = default_config();
+
+    let put = Some(json!({"name": "memory_put", "arguments": {
+        "namespace": "sch04_ns", "key": "k1", "payload": "confidence probe",
+        "vector": [1.0, 0.0]
+    }}));
+    let _ = handle_tools_call(&put, &executor, &storage, &cfg).expect("memory_put");
+
+    // Valid threshold: asserted D_a = 1.0 passes.
+    let ok = Some(json!({"name": "memory_search", "arguments": {
+        "namespace": "sch04_ns", "query_vector": [1.0, 0.0], "top_k": 1,
+        "min_confidence": 0.95
+    }}));
+    let hits = text_of_mcp_result(handle_tools_call(&ok, &executor, &storage, &cfg));
+    assert_eq!(hits.as_array().map(Vec::len), Some(1), "{hits}");
+
+    // Out of range: core boundary rejects with the stable marker.
+    let bad = Some(json!({"name": "memory_search", "arguments": {
+        "namespace": "sch04_ns", "query_vector": [1.0, 0.0], "top_k": 1,
+        "min_confidence": 1.5
+    }}));
+    let out = handle_tools_call(&bad, &executor, &storage, &cfg).expect("tool call");
+    assert!(
+        !out["isError"].is_null(),
+        "out-of-range threshold must be an error: {out}"
+    );
+    let text = out["content"][0]["text"].as_str().unwrap_or_default();
+    assert!(text.contains("min_confidence"), "actionable error: {text}");
+
+    // Wrong type: param-level rejection.
+    let wrong = Some(json!({"name": "memory_search", "arguments": {
+        "namespace": "sch04_ns", "query_vector": [1.0, 0.0],
+        "min_confidence": "high"
+    }}));
+    let out = handle_tools_call(&wrong, &executor, &storage, &cfg).expect("tool call");
+    let text = out["content"][0]["text"].as_str().unwrap_or_default();
+    assert!(
+        text.contains("min_confidence must be a number"),
+        "clear type error: {text}"
+    );
+}

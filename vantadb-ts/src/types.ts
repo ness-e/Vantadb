@@ -72,6 +72,18 @@ export interface MemoryRecord {
   // iterable; consumers must accept either form.
   vector?: Float32Array | number[];
   expires_at_ms?: string | number;
+  /** Provenance class (ADR-046): `"Asserted"` (direct writer claim) or
+   * `"Derived"` (computed by the engine from `derived_from` parents). */
+  confidence_class?: "Asserted" | "Derived";
+  /** Confidence range in [0, 1] — declared (asserted) or computed by the
+   * engine (derived, `min(parents) × 0.9`). A range, NOT a calibrated
+   * probability (see `docs/api/scores.md`). Default 1.0 for asserted. */
+  confidence?: number;
+  /** Last successful re-validation timestamp (ms); `null`/absent = never
+   * re-validated (failures never touch this field). */
+  last_validated_at_ms?: string | number | null;
+  /** Parent record keys for a `derived` record (empty for asserted). */
+  derived_from?: string[];
 }
 
 export interface ListOptions {
@@ -162,6 +174,11 @@ export interface SearchRequest {
   /** When true, hide records marked as superseded (ADR-028). Default false:
    * superseded records remain searchable for backward compatibility. */
   exclude_superseded?: boolean;
+  /** Opt-in confidence filter (ADR-046 §D2/SCH-04): keep only hits whose
+   * record `confidence` is `>= min_confidence`. Must be a finite number in
+   * `[0, 1]`; `undefined`/`null` = no filter (default). Part of the cursor
+   * plan fingerprint — a cursor from a different threshold is rejected. */
+  min_confidence?: number | null;
 }
 
 /** A list of namespaces to search in batch. Used by `searchMulti`. */

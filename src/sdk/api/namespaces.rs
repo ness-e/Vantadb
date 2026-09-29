@@ -54,6 +54,16 @@ impl Embedded {
     pub fn list(&self, namespace: &str, options: MemoryListOptions) -> Result<MemoryListPage> {
         validate_namespace(namespace)?;
         super::super::serialization::validate_metadata(&options.filters)?;
+        if let Some(window) = &options.valid_window {
+            // SCH-03: the query window is half-open `[from_ms, to_ms)`; an
+            // empty or inverted window would silently match nothing.
+            if window.from_ms >= window.to_ms {
+                return Err(crate::error::Error::InvalidInput(format!(
+                    "valid_window.from_ms ({}) must be < valid_window.to_ms ({})",
+                    window.from_ms, window.to_ms
+                )));
+            }
+        }
 
         let engine = self.engine_handle()?;
         let limit = options.limit;
@@ -161,11 +171,26 @@ impl Embedded {
             }
         }
 
-        // ADR-028: drop superseded records at final assembly. Pagination may
-        // yield a page with fewer than `limit` records when the flag is set —
-        // same guarantee as the post-filter path (a non-full page is last).
+        // SCH-03: valid-time filters + extended supersession at final assembly
+        // (ADR-046 §D3) — no index change, same place as ADR-028. The
+        // supersession reference is read ONCE per request; the retain
+        // predicates stay pure `(record, ref)`. Pagination may yield a page
+        // with fewer than `limit` records when a filter drops entries — same
+        // guarantee as the post-filter path (a non-full page is last).
         if options.exclude_superseded {
-            records.retain(|record| record.superseded_by.is_none());
+            let supersession_ref_ms = now_ms();
+            records.retain(|record| {
+                record.superseded_by.is_none()
+                    && record
+                        .invalid_at_ms
+                        .is_none_or(|invalid| invalid > supersession_ref_ms)
+            });
+        }
+        if let Some(as_of_ms) = options.as_of_ms {
+            records.retain(|record| record.is_valid_at(as_of_ms));
+        }
+        if let Some(window) = &options.valid_window {
+            records.retain(|record| record.validity_overlaps(window.from_ms, window.to_ms));
         }
 
         let end_cursor = cursor.saturating_add(limit);
@@ -233,6 +258,8 @@ impl Embedded {
                     limit: PAGE_SIZE,
                     cursor,
                     exclude_superseded: false,
+                    as_of_ms: None,
+                    valid_window: None,
                 },
             )?;
             for record in &page.records {
@@ -292,6 +319,8 @@ impl Embedded {
                     limit: PAGE_SIZE,
                     cursor,
                     exclude_superseded: false,
+                    as_of_ms: None,
+                    valid_window: None,
                 },
             )?;
             total += page.records.len() as u64;

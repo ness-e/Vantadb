@@ -117,6 +117,10 @@ class SearchHit:
     version: int
     node_id: int
     expires_at_ms: int | None
+    confidence_class: str
+    confidence: float
+    last_validated_at_ms: int | None
+    derived_from: list[str]
 
     def __repr__(self) -> str: ...
 
@@ -134,6 +138,10 @@ class Record:
     version: int
     node_id: int
     expires_at_ms: int | None
+    confidence_class: str
+    confidence: float
+    last_validated_at_ms: int | None
+    derived_from: list[str]
 
     def __getitem__(self, key: str) -> Any: ...
     def __repr__(self) -> str: ...
@@ -221,6 +229,7 @@ class Client:
         explain: bool = False,
         exclude_superseded: bool = False,
         query_sparse: dict | None = None,
+        min_confidence: float | None = None,
     ) -> list[SearchHit]: ...
     def search_multi(
         self,
@@ -233,6 +242,7 @@ class Client:
         explain: bool = False,
         exclude_superseded: bool = False,
         query_sparse: dict | None = None,
+        min_confidence: float | None = None,
     ) -> list[SearchHit]: ...
     def search_vector(self, vector: Any, top_k: int = 10) -> list[tuple[int, float]]: ...
     def search_batch(
@@ -390,6 +400,7 @@ class MemoryClient:
         explain: bool = False,
         exclude_superseded: bool = False,
         query_sparse: dict | None = None,
+        min_confidence: float | None = None,
     ) -> list[SearchHit]: ...
     def search_multi(
         self,
@@ -402,6 +413,7 @@ class MemoryClient:
         explain: bool = False,
         exclude_superseded: bool = False,
         query_sparse: dict | None = None,
+        min_confidence: float | None = None,
     ) -> list[SearchHit]: ...
     def search_vector(self, vector: Any, top_k: int = 10) -> list[tuple[int, float]]: ...
     def search_batch(

@@ -209,6 +209,8 @@ impl Embedded {
                             limit: PAGE_SIZE,
                             cursor,
                             exclude_superseded: false,
+                            as_of_ms: None,
+                            valid_window: None,
                         },
                     )?;
                     records.extend(page.records);

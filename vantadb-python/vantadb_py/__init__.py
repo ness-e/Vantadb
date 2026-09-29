@@ -264,6 +264,7 @@ class AsyncClient:
         explain: bool = False,
         exclude_superseded: bool = False,
         query_sparse: dict | None = None,
+        min_confidence: float | None = None,
     ):
         return await self._run(
             self._sync.search,
@@ -277,6 +278,7 @@ class AsyncClient:
             explain,
             exclude_superseded,
             query_sparse,
+            min_confidence,
         )
 
     async def search_multi(
@@ -291,6 +293,7 @@ class AsyncClient:
         explain: bool = False,
         exclude_superseded: bool = False,
         query_sparse: dict | None = None,
+        min_confidence: float | None = None,
     ):
         """Hybrid search across several namespaces (W1/API-02)."""
         return await self._run(
@@ -304,6 +307,7 @@ class AsyncClient:
             explain,
             exclude_superseded,
             query_sparse,
+            min_confidence,
         )
 
     @property

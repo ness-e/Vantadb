@@ -54,6 +54,20 @@ pub struct MemoryFilterItem {
 /// Lista de filtros combinados con AND lógico.
 pub type MemoryFilter = Vec<MemoryFilterItem>;
 
+/// Half-open valid-time query window `[from_ms, to_ms)` (ADR-046 §D3, SCH-03).
+///
+/// Semantics: a record matches when its own validity window
+/// `[valid_at_ms, invalid_at_ms)` **intersects** this window — the record was
+/// valid at some instant inside `[from_ms, to_ms)`. Empty or inverted windows
+/// (`from_ms >= to_ms`) are rejected at the request boundary.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct ValidWindow {
+    /// Start of the query window, inclusive (unix ms).
+    pub from_ms: u64,
+    /// End of the query window, exclusive (unix ms). Must be `> from_ms`.
+    pub to_ms: u64,
+}
+
 /// Semantic default confidence for `asserted` records (D_a, ADR-046 §D4c):
 /// "trust the writer". Used by `#[serde(default = "default_confidence")]` so a
 /// v1 record/line without the field normalizes to `1.0` instead of `0.0`.
@@ -283,6 +297,22 @@ impl Default for MemoryRecord {
     }
 }
 
+impl MemoryRecord {
+    /// ADR-046 §D3 predicate (verbatim): the record is valid at `t_ms` iff
+    /// `valid_at_ms <= t_ms < invalid_at_ms`; `invalid_at_ms = None` means the
+    /// window is open-ended (valid forever after `valid_at_ms`).
+    pub fn is_valid_at(&self, t_ms: u64) -> bool {
+        self.valid_at_ms <= t_ms && self.invalid_at_ms.is_none_or(|inv| inv > t_ms)
+    }
+
+    /// True when the record's validity window `[valid_at_ms, invalid_at_ms)`
+    /// intersects the query window `[from_ms, to_ms)` (ADR-046 §D3, SCH-03).
+    /// Callers validate `from_ms < to_ms` at the request boundary.
+    pub fn validity_overlaps(&self, from_ms: u64, to_ms: u64) -> bool {
+        self.valid_at_ms < to_ms && self.invalid_at_ms.is_none_or(|inv| inv > from_ms)
+    }
+}
+
 /// Stable list options for namespace-scoped memory records.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct MemoryListOptions {
@@ -299,10 +329,23 @@ pub struct MemoryListOptions {
     pub limit: usize,
     /// Zero-based cursor for pagination. `None` starts from the beginning.
     pub cursor: Option<usize>,
-    /// When true, records marked as superseded (ADR-028) are dropped from the
-    /// page. Defaults to false: superseded records remain visible.
+    /// When true, records that are no longer current are dropped: superseded
+    /// records (ADR-028) **and** records whose validity window ended at or
+    /// before now (`invalid_at_ms <= now`, ADR-046 §D3-6, SCH-03). Defaults to
+    /// false: superseded/ended records remain visible.
     #[serde(default)]
     pub exclude_superseded: bool,
+    /// Valid-time point (ADR-046 §D3, SCH-03): when set, only records whose
+    /// validity window contains `as_of_ms` are listed
+    /// (`valid_at_ms <= as_of_ms < invalid_at_ms`; `None` window end = open).
+    /// `None` = no temporal filter (default unchanged).
+    #[serde(default)]
+    pub as_of_ms: Option<u64>,
+    /// Valid-time window overlap filter (ADR-046 §D3, SCH-03): only records
+    /// valid at some instant inside `[from_ms, to_ms)`. Boundary-validated
+    /// (`from_ms < to_ms`). `None` = no filter (default unchanged).
+    #[serde(default)]
+    pub valid_window: Option<ValidWindow>,
 }
 
 impl Default for MemoryListOptions {
@@ -314,6 +357,8 @@ impl Default for MemoryListOptions {
             limit: 100,
             cursor: None,
             exclude_superseded: false,
+            as_of_ms: None,
+            valid_window: None,
         }
     }
 }
@@ -677,11 +722,100 @@ mod tests {
             limit: 50,
             cursor: Some(10),
             exclude_superseded: false,
+            as_of_ms: None,
+            valid_window: None,
         };
         assert_eq!(opts.limit, 50);
         assert_eq!(opts.cursor, Some(10));
         #[allow(deprecated)]
         let _ = opts.filters.get("type").unwrap() == &Value::String("doc".into());
+    }
+
+    // ---- SCH-03: valid-time helpers + ValidWindow ----
+
+    fn record_with_window(valid_at_ms: u64, invalid_at_ms: Option<u64>) -> MemoryRecord {
+        MemoryRecord {
+            valid_at_ms,
+            invalid_at_ms,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn is_valid_at_is_inclusive_at_start_exclusive_at_end() {
+        let rec = record_with_window(1000, Some(2000));
+        assert!(!rec.is_valid_at(999), "before start is invalid");
+        assert!(rec.is_valid_at(1000), "start is inclusive");
+        assert!(rec.is_valid_at(1999), "inside the window");
+        assert!(!rec.is_valid_at(2000), "end is exclusive");
+        assert!(!rec.is_valid_at(2001), "after end is invalid");
+    }
+
+    #[test]
+    fn is_valid_at_open_ended_window_never_expires() {
+        let rec = record_with_window(1000, None);
+        assert!(!rec.is_valid_at(999));
+        assert!(rec.is_valid_at(1000));
+        assert!(rec.is_valid_at(u64::MAX));
+    }
+
+    #[test]
+    fn validity_overlaps_is_half_open_intersection() {
+        let rec = record_with_window(1000, Some(2000));
+        assert!(!rec.validity_overlaps(0, 1000), "window ends at start");
+        assert!(rec.validity_overlaps(999, 1001));
+        assert!(rec.validity_overlaps(1500, 1501));
+        assert!(rec.validity_overlaps(1999, 2000), "touching at end");
+        assert!(!rec.validity_overlaps(2000, 3000), "window starts at end");
+
+        let open = record_with_window(1000, None);
+        assert!(
+            open.validity_overlaps(0, 1001),
+            "open window reaches any query window extending past valid_at"
+        );
+        assert!(
+            !open.validity_overlaps(0, 1000),
+            "query window ending exactly at valid_at does not intersect"
+        );
+    }
+
+    #[test]
+    fn valid_window_serialization_roundtrip_and_hash() {
+        let window = ValidWindow {
+            from_ms: 10,
+            to_ms: 20,
+        };
+        let json = serde_json::to_string(&window).unwrap();
+        let back: ValidWindow = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, window);
+        let mut set = std::collections::HashSet::new();
+        assert!(set.insert(window), "ValidWindow must be hashable");
+    }
+
+    #[test]
+    fn memory_list_options_temporal_fields_default_to_none_and_roundtrip() {
+        let opts = MemoryListOptions::default();
+        assert_eq!(opts.as_of_ms, None);
+        assert_eq!(opts.valid_window, None);
+
+        let opts = MemoryListOptions {
+            as_of_ms: Some(42),
+            valid_window: Some(ValidWindow {
+                from_ms: 1,
+                to_ms: 2,
+            }),
+            ..Default::default()
+        };
+        let json = serde_json::to_string(&opts).unwrap();
+        let back: MemoryListOptions = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, opts);
+
+        // Legacy JSON (pre-SCH-03) deserializes with `None` temporal defaults.
+        let legacy = r#"{"filters":{},"filter_ops":null,"limit":10,"cursor":null,"exclude_superseded":true}"#;
+        let back: MemoryListOptions = serde_json::from_str(legacy).unwrap();
+        assert_eq!(back.as_of_ms, None);
+        assert_eq!(back.valid_window, None);
+        assert!(back.exclude_superseded);
     }
 
     // ---- ExportReport clone ----

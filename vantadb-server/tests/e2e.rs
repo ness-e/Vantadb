@@ -917,3 +917,104 @@ async fn test_e2e_import_v1_jsonl_path_normalizes() {
     assert_eq!(rec["invalid_at_ms"], 1500, "invalid_at := superseded_at");
     assert_eq!(rec["confidence"], 1.0, "v1 normalization: D_a");
 }
+
+/// SCH-04: `/api/v2/search` propagates the record confidence fields on every
+/// hit (serde — same `MemorySearchHit` JSON as the SDK) and honors the opt-in
+/// `min_confidence` filter: a `derived` child (score = min(parents) × 0.9 =
+/// 0.9) falls below a 0.95 threshold while the asserted parent stays.
+#[tokio::test]
+async fn test_e2e_search_confidence_fields_and_min_confidence_filter() {
+    let (_dir, state) = build_e2e_context(None, 10);
+    let (base, _handle) = spawn_server(state, 0).await;
+    let client = reqwest::Client::new();
+
+    // Asserted parent (D_a = 1.0).
+    let resp = client
+        .post(format!("{}/api/v2/records", base))
+        .json(&serde_json::json!({
+            "namespace": "sch04", "key": "parent-1",
+            "payload": "parent fact", "metadata": {}, "vector": [1.0, 0.0]
+        }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 201);
+
+    // Derived child: the engine computes the score from the declared parents.
+    let resp = client
+        .post(format!("{}/api/v2/records", base))
+        .json(&serde_json::json!({
+            "namespace": "sch04", "key": "child-1",
+            "payload": "derived summary", "metadata": {}, "vector": [1.0, 0.0],
+            "confidence_class": "Derived", "derived_from": ["parent-1"]
+        }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 201, "derived put must be accepted");
+
+    // No filter: both hits, confidence fields visible on each record.
+    let resp = client
+        .post(format!("{}/api/v2/search", base))
+        .json(&serde_json::json!({
+            "namespace": "sch04", "query_vector": [1.0, 0.0], "top_k": 5,
+            "filters": {}, "distance_metric": "Cosine", "explain": false
+        }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let body: serde_json::Value = resp.json().await.unwrap();
+    let records = body["records"].as_array().expect("records array");
+    assert_eq!(records.len(), 2, "{body}");
+
+    let parent_hit = records
+        .iter()
+        .find(|h| h["record"]["key"] == "parent-1")
+        .expect("parent hit");
+    assert_eq!(parent_hit["record"]["confidence_class"], "Asserted");
+    assert_eq!(parent_hit["record"]["confidence"], 1.0);
+    assert!(parent_hit["record"]["last_validated_at_ms"].is_null());
+    assert_eq!(parent_hit["record"]["derived_from"], serde_json::json!([]));
+
+    let child_hit = records
+        .iter()
+        .find(|h| h["record"]["key"] == "child-1")
+        .expect("child hit");
+    assert_eq!(child_hit["record"]["confidence_class"], "Derived");
+    // f32 shortest-repr on the HTTP serializer ("0.9") vs the widened f32
+    // value: compare with tolerance, not bit equality.
+    let child_confidence = child_hit["record"]["confidence"]
+        .as_f64()
+        .expect("confidence number");
+    assert!(
+        (child_confidence - 0.9).abs() < 1e-6,
+        "derived score = min(parents) × 0.9, got {child_confidence}"
+    );
+    assert_eq!(
+        child_hit["record"]["derived_from"],
+        serde_json::json!(["parent-1"])
+    );
+
+    // Opt-in threshold 0.95 excludes the derived child (0.9), keeps the parent.
+    let resp = client
+        .post(format!("{}/api/v2/search", base))
+        .json(&serde_json::json!({
+            "namespace": "sch04", "query_vector": [1.0, 0.0], "top_k": 5,
+            "filters": {}, "distance_metric": "Cosine", "explain": false,
+            "min_confidence": 0.95
+        }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let body: serde_json::Value = resp.json().await.unwrap();
+    let records = body["records"].as_array().expect("records array");
+    assert_eq!(
+        records.len(),
+        1,
+        "filter must drop the derived child: {body}"
+    );
+    assert_eq!(records[0]["record"]["key"], "parent-1");
+    assert_eq!(records[0]["record"]["confidence"], 1.0, "{body}");
+}

@@ -545,6 +545,8 @@ mod tests {
                     limit: 100,
                     cursor: None,
                     exclude_superseded: false,
+                    as_of_ms: None,
+                    valid_window: None,
                 },
             )
             .unwrap();
@@ -566,6 +568,8 @@ mod tests {
                     limit: 0,
                     cursor: None,
                     exclude_superseded: false,
+                    as_of_ms: None,
+                    valid_window: None,
                 },
             )
             .unwrap();
@@ -616,6 +620,8 @@ mod tests {
                     limit: 100,
                     cursor: None,
                     exclude_superseded: false,
+                    as_of_ms: None,
+                    valid_window: None,
                 },
             )
             .unwrap();
@@ -914,6 +920,8 @@ mod tests {
                     limit: 100,
                     cursor: None,
                     exclude_superseded: false,
+                    as_of_ms: None,
+                    valid_window: None,
                 },
             )
             .unwrap();
@@ -929,6 +937,8 @@ mod tests {
                     limit: 100,
                     cursor: None,
                     exclude_superseded: true,
+                    as_of_ms: None,
+                    valid_window: None,
                 },
             )
             .unwrap();
@@ -956,6 +966,9 @@ mod tests {
                 distance_metric: DistanceMetric::Cosine,
                 explain: false,
                 exclude_superseded: false,
+                min_confidence: None,
+                as_of_ms: None,
+                valid_window: None,
                 search_profile: None,
                 range: None,
                 group_by: None,
@@ -976,6 +989,9 @@ mod tests {
                 distance_metric: DistanceMetric::Cosine,
                 explain: false,
                 exclude_superseded: true,
+                min_confidence: None,
+                as_of_ms: None,
+                valid_window: None,
                 search_profile: None,
                 range: None,
                 group_by: None,
@@ -984,6 +1000,183 @@ mod tests {
             })
             .unwrap();
         assert_eq!(hits_hide.len(), 1);
+    }
+
+    // ─── SCH-03: AS OF / valid-time filters on list ─────────────────
+
+    /// Force an exact validity window on an existing record (deterministic
+    /// fixture; no clock in the assertions).
+    fn set_list_window(db: &Embedded, ns: &str, key: &str, valid: u64, invalid: Option<u64>) {
+        let mut record = db.get(ns, key).unwrap().unwrap();
+        record.valid_at_ms = valid;
+        record.invalid_at_ms = invalid;
+        db.put_record_exact(record).unwrap();
+    }
+
+    fn list_keys(db: &Embedded, ns: &str, options: MemoryListOptions) -> Vec<String> {
+        let mut keys: Vec<String> = db
+            .list(ns, options)
+            .unwrap()
+            .records
+            .into_iter()
+            .map(|record| record.key)
+            .collect();
+        keys.sort();
+        keys
+    }
+
+    #[test]
+    fn test_list_as_of_and_valid_window_filters() {
+        let db = make_embedded_real();
+        put_mem(&db, "ns", "old", "p");
+        put_mem(&db, "ns", "new", "p");
+        set_list_window(&db, "ns", "old", 1000, Some(2000));
+        set_list_window(&db, "ns", "new", 2000, Some(3000));
+
+        assert_eq!(
+            list_keys(
+                &db,
+                "ns",
+                MemoryListOptions {
+                    as_of_ms: Some(1500),
+                    ..Default::default()
+                }
+            ),
+            vec!["old"]
+        );
+        assert_eq!(
+            list_keys(
+                &db,
+                "ns",
+                MemoryListOptions {
+                    as_of_ms: Some(2500),
+                    ..Default::default()
+                }
+            ),
+            vec!["new"]
+        );
+        assert!(list_keys(
+            &db,
+            "ns",
+            MemoryListOptions {
+                as_of_ms: Some(999),
+                ..Default::default()
+            }
+        )
+        .is_empty());
+
+        let window = |from: u64, to: u64| {
+            list_keys(
+                &db,
+                "ns",
+                MemoryListOptions {
+                    valid_window: Some(ValidWindow {
+                        from_ms: from,
+                        to_ms: to,
+                    }),
+                    ..Default::default()
+                },
+            )
+        };
+        assert!(window(0, 1000).is_empty(), "query ends at old.start");
+        assert_eq!(window(0, 1001), vec!["old"]);
+        assert_eq!(window(1500, 2500), vec!["new", "old"]);
+        assert_eq!(window(2000, 4000), vec!["new"]);
+
+        // Default (no temporal params) keeps every record.
+        assert_eq!(
+            list_keys(&db, "ns", MemoryListOptions::default()),
+            vec!["new", "old"]
+        );
+    }
+
+    #[test]
+    fn test_list_rejects_empty_valid_window() {
+        let db = make_embedded_real();
+        put_mem(&db, "ns", "k", "p");
+        let err = db
+            .list(
+                "ns",
+                MemoryListOptions {
+                    valid_window: Some(ValidWindow {
+                        from_ms: 5,
+                        to_ms: 5,
+                    }),
+                    ..Default::default()
+                },
+            )
+            .unwrap_err();
+        assert!(err.to_string().contains("valid_window"));
+    }
+
+    #[test]
+    fn test_list_exclude_superseded_also_drops_ended_validity_windows() {
+        let db = make_embedded_real();
+        put_mem(&db, "ns", "ended", "p");
+        put_mem(&db, "ns", "open", "p");
+        put_mem(&db, "ns", "future_end", "p");
+        set_list_window(&db, "ns", "ended", 1, Some(2)); // ended long ago
+        set_list_window(&db, "ns", "open", 1, None);
+        set_list_window(&db, "ns", "future_end", 1, Some(u64::MAX / 2));
+
+        assert_eq!(
+            list_keys(
+                &db,
+                "ns",
+                MemoryListOptions {
+                    exclude_superseded: true,
+                    ..Default::default()
+                }
+            ),
+            vec!["future_end", "open"],
+            "ended validity window is dropped, open/future ones stay"
+        );
+        assert_eq!(
+            list_keys(&db, "ns", MemoryListOptions::default()),
+            vec!["ended", "future_end", "open"],
+            "default keeps every record"
+        );
+    }
+
+    #[test]
+    fn test_list_cursor_walks_with_temporal_params_without_duplicates() {
+        let db = make_embedded_real();
+        for key in ["a", "b", "c"] {
+            put_mem(&db, "ns", key, "p");
+            set_list_window(&db, "ns", key, 1, None); // all valid at T=1000
+        }
+
+        let mut seen: Vec<String> = Vec::new();
+        let mut cursor: Option<usize> = None;
+        loop {
+            let page = db
+                .list(
+                    "ns",
+                    MemoryListOptions {
+                        limit: 1,
+                        cursor,
+                        as_of_ms: Some(1000),
+                        valid_window: Some(ValidWindow {
+                            from_ms: 0,
+                            to_ms: 2000,
+                        }),
+                        ..Default::default()
+                    },
+                )
+                .unwrap();
+            assert!(
+                page.records.iter().all(|record| record.is_valid_at(1000)),
+                "filters travel with every page"
+            );
+            seen.extend(page.records.into_iter().map(|record| record.key));
+            cursor = page.next_cursor;
+            if cursor.is_none() {
+                break;
+            }
+        }
+        seen.sort();
+        seen.dedup();
+        assert_eq!(seen, vec!["a", "b", "c"], "resume walks every match once");
     }
 
     // ─── ADR-046 §D4: confidence rules V1–V5 ───────────────────────

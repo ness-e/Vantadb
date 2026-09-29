@@ -50,6 +50,7 @@ pub(crate) const RESERVED_KEYWORDS: &[&str] = &[
     "LIMIT",
     "MATCH",
     "MESSAGE",
+    "OF",
     "ON",
     "PROFILE",
     "RANK",
@@ -123,6 +124,19 @@ pub(crate) fn string_literal(input: &str) -> IResult<&str, String> {
 
 pub(crate) fn parse_u128_id(i: &str) -> IResult<&str, u128> {
     map_res(digit1, str::parse)(i)
+}
+
+/// Unsigned decimal literal for unix-ms timestamps (`AS OF <ms>`, SCH-03).
+/// Rejects a float tail (`.`/`e`/`E`) so `12.5` fails instead of silently
+/// parsing as `12` with a dangling remainder.
+pub(crate) fn parse_u64_id(i: &str) -> IResult<&str, u64> {
+    map_res(
+        recognize(tuple((
+            digit1,
+            not(peek(alt((char('.'), char('e'), char('E'))))),
+        ))),
+        str::parse,
+    )(i)
 }
 
 /// Integer literal: optional sign + digits, rejecting a float tail (`.`, `e`,

@@ -614,6 +614,9 @@ export class Client {
       filters: normalizeMetadata(request.filters) ?? {},
       text_query: request.text_query ?? null,
       exclude_superseded: request.exclude_superseded ?? false,
+      // SCH-04: opt-in confidence filter (ADR-046 §D2) — the WASM `SearchRequest`
+      // struct carries it natively (no serde drop).
+      min_confidence: request.min_confidence ?? null,
     } as unknown as SearchRequestInput;
   }
 

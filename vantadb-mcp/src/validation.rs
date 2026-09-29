@@ -641,6 +641,9 @@ pub(crate) fn for_each_record(
             filters: vantadb::sdk::MemoryMetadata::new(),
             filter_ops: None,
             exclude_superseded: false,
+            // SCH-03 temporal params: not exposed here (SCH-07).
+            as_of_ms: None,
+            valid_window: None,
         };
         match embedded.list(namespace, options) {
             Ok(page) => {

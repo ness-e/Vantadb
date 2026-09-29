@@ -109,6 +109,12 @@ pub struct Query {
     /// Optional search profile (mode, RRF k, candidate budget) — cláusula IQL
     /// PROFILE (MEM-01).
     pub search_profile: Option<SearchProfileConfig>,
+    /// Optional `AS OF <unix-ms>` valid-time point (SCH-03, ADR-046 §D3):
+    /// results are narrowed to nodes whose validity window contains the
+    /// timestamp (`__vanta_valid_at_ms <= T < __vanta_invalid_at_ms`). `None`
+    /// = no filter (default unchanged). Version-gated: accepted from
+    /// [`IQL_VERSION_MIN_AS_OF`](crate::parser::IQL_VERSION_MIN_AS_OF).
+    pub as_of_ms: Option<u64>,
 }
 
 /// Graph traversal specification.
@@ -202,6 +208,10 @@ pub struct SelectStatement {
     pub subquery_conditions: Vec<SubqueryCondition>,
     /// Query temperature.
     pub temperature: Option<f32>,
+    /// Optional `AS OF <unix-ms>` valid-time point (SCH-03, ADR-046 §D3).
+    /// Only accepted on the top-level SELECT — subqueries with `AS OF` fail
+    /// to parse (silent no-op prevention). `None` = no filter.
+    pub as_of_ms: Option<u64>,
 }
 
 /// The FROM clause of a SELECT — either a single entity or a JOIN of two sub-clauses.
@@ -619,6 +629,7 @@ mod tests {
             temperature: None,
             owner_role: None,
             search_profile: None,
+            as_of_ms: None,
         };
         assert_eq!(q.from_entity, "Node");
         assert!(q.traversal.is_none());
@@ -643,6 +654,7 @@ mod tests {
             temperature: None,
             owner_role: None,
             search_profile: None,
+            as_of_ms: None,
         };
         assert_eq!(q.traversal.as_ref().unwrap().min_depth, 1);
         assert_eq!(q.traversal.as_ref().unwrap().max_depth, 3);
@@ -663,6 +675,7 @@ mod tests {
             temperature: None,
             owner_role: None,
             search_profile: None,
+            as_of_ms: None,
         };
         let plan = q.into_logical_plan();
         assert_eq!(plan.operators.len(), 1);
@@ -692,6 +705,7 @@ mod tests {
             temperature: None,
             owner_role: None,
             search_profile: None,
+            as_of_ms: None,
         };
         let plan = q.into_logical_plan();
         assert_eq!(plan.operators.len(), 2);
@@ -716,6 +730,7 @@ mod tests {
             temperature: None,
             owner_role: None,
             search_profile: None,
+            as_of_ms: None,
         };
         let plan = q.into_logical_plan();
         let ops: Vec<&str> = plan

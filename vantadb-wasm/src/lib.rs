@@ -159,6 +159,11 @@ struct SearchRequest {
     /// Hide superseded records from results.
     #[serde(default)]
     exclude_superseded: bool,
+    /// Opt-in confidence filter (SCH-04, ADR-046 §D2): keep only hits whose
+    /// record `confidence` is `>= min_confidence` (finite, in [0, 1] — core
+    /// validates). `null`/omitted = no filter (default).
+    #[serde(default)]
+    min_confidence: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     text_query: Option<String>,
     #[serde(default = "default_top_k")]
@@ -687,6 +692,9 @@ impl Client {
                     limit: 10_000,
                     cursor,
                     exclude_superseded: false,
+                    // SCH-03 temporal params: not exposed here (SCH-07).
+                    as_of_ms: None,
+                    valid_window: None,
                 };
                 let page = self.inner.list(ns, opts).map_err(to_js_err)?;
                 for record in page.records {
@@ -1161,6 +1169,9 @@ impl Client {
             limit: opts.limit,
             cursor: opts.cursor,
             exclude_superseded: opts.exclude_superseded,
+            // SCH-03 temporal params: not exposed in WASM yet (SCH-07).
+            as_of_ms: None,
+            valid_window: None,
         };
         let page = self.inner.list(namespace, vanta_opts).map_err(to_js_err)?;
         let obj = js_sys::Object::new();
@@ -1230,6 +1241,11 @@ impl Client {
             distance_metric: distance,
             explain: req.explain,
             exclude_superseded: req.exclude_superseded,
+            // SCH-04: opt-in confidence filter (ADR-046 §D2).
+            min_confidence: req.min_confidence,
+            // SCH-03 temporal params: not exposed in WASM yet (SCH-07).
+            as_of_ms: None,
+            valid_window: None,
             search_profile: None,
             range: None,
             group_by: None,
@@ -1299,6 +1315,11 @@ impl Client {
             distance_metric: distance,
             explain: true,
             exclude_superseded: req.exclude_superseded,
+            // SCH-04: opt-in confidence filter (ADR-046 §D2).
+            min_confidence: req.min_confidence,
+            // SCH-03 temporal params: not exposed in WASM yet (SCH-07).
+            as_of_ms: None,
+            valid_window: None,
             search_profile: None,
             range: None,
             group_by: None,
@@ -1438,6 +1459,11 @@ impl Client {
             distance_metric: distance,
             explain: req.explain,
             exclude_superseded: req.exclude_superseded,
+            // SCH-04: opt-in confidence filter (ADR-046 §D2).
+            min_confidence: req.min_confidence,
+            // SCH-03 temporal params: not exposed in WASM yet (SCH-07).
+            as_of_ms: None,
+            valid_window: None,
             search_profile: None,
             range: None,
             group_by: None,
@@ -2288,6 +2314,30 @@ fn memory_record_to_js(rec: MemoryRecord) -> JsValue {
         )
         .ok();
     }
+    // SCH-04 (ADR-046 §D2): confidence fields — class as the serde wire name
+    // ("Asserted"/"Derived"), score as f64, optional last-validated timestamp
+    // as a decimal string (policy string-u64, same as `expires_at_ms`), and
+    // the parent keys (`[]` for asserted).
+    js_sys::Reflect::set(
+        &obj,
+        &"confidence_class".into(),
+        &rec.confidence_class.as_wire_str().into(),
+    )
+    .ok();
+    js_sys::Reflect::set(&obj, &"confidence".into(), &(rec.confidence as f64).into()).ok();
+    if let Some(validated_at) = rec.last_validated_at_ms {
+        js_sys::Reflect::set(
+            &obj,
+            &"last_validated_at_ms".into(),
+            &validated_at.to_string().into(),
+        )
+        .ok();
+    }
+    let derived_from = js_sys::Array::new();
+    for parent in &rec.derived_from {
+        derived_from.push(&parent.as_str().into());
+    }
+    js_sys::Reflect::set(&obj, &"derived_from".into(), &derived_from).ok();
     if let Ok(meta) = serde_wasm_bindgen::to_value(&rec.metadata) {
         js_sys::Reflect::set(&obj, &"metadata".into(), &meta).ok();
     } else {
