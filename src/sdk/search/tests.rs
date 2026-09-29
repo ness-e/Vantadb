@@ -26,6 +26,7 @@ fn insert(
         vector,
         sparse_vector: None,
         ttl_ms: None,
+        ..Default::default()
     };
     db.put(input).expect("put should succeed")
 }
@@ -1005,6 +1006,7 @@ fn test_sparse_search_roundtrip_recall_identical() {
         vector: None,
         sparse_vector: Some(sparse),
         ttl_ms: None,
+        ..Default::default()
     };
     let record = db.put(input).expect("put should succeed");
     assert!(record.sparse_vector.is_some(), "sparse survives put");

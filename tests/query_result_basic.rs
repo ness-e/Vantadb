@@ -93,6 +93,7 @@ fn search_hit_basic_snapshot() {
             expires_at_ms: None,
             superseded_by: None,
             superseded_at_ms: None,
+            ..Default::default()
         },
         score: 0.95,
         explanation: None,
@@ -136,6 +137,7 @@ fn list_page_with_records_snapshot() {
                 expires_at_ms: None,
                 superseded_by: None,
                 superseded_at_ms: None,
+                ..Default::default()
             },
             MemoryRecord {
                 namespace: "ns1".into(),
@@ -151,6 +153,7 @@ fn list_page_with_records_snapshot() {
                 expires_at_ms: None,
                 superseded_by: None,
                 superseded_at_ms: None,
+                ..Default::default()
             },
         ],
         next_cursor: Some(2),

@@ -521,6 +521,7 @@ pub fn write_dream_run(
         vector: None,
         sparse_vector: None,
         ttl_ms: None,
+        ..Default::default()
     })
     .map_err(|e| ConsolidationError::Store(format!("write dream run: {e}")))?;
     Ok(())

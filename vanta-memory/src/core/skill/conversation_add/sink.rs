@@ -137,6 +137,7 @@ impl<'a> SkillCoreSink<'a> {
             vector: None,
             sparse_vector: None,
             ttl_ms: None,
+            ..Default::default()
         })?;
         Ok(())
     }
@@ -240,6 +241,7 @@ impl<'a> SkillCoreSink<'a> {
             vector: None,
             sparse_vector: None,
             ttl_ms: None,
+            ..Default::default()
         })?;
         Ok(Some(counts))
     }
@@ -281,6 +283,7 @@ impl<'a> SkillCoreSink<'a> {
             vector: None,
             sparse_vector: None,
             ttl_ms: None,
+            ..Default::default()
         })?;
         Ok(())
     }

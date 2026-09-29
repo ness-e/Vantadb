@@ -100,6 +100,7 @@ fn parse_md_str(raw: &str, path: &Path) -> Result<MemoryInput, MdImportError> {
         vector: None, // MD export does not inline the dense vector
         sparse_vector: None,
         ttl_ms: None,
+        ..Default::default()
     })
 }
 

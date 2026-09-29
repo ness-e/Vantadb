@@ -615,6 +615,7 @@ mod tests {
             vector: None,
             sparse_vector: None,
             ttl_ms: None,
+            ..Default::default()
         })
         .expect("seed persona");
         // Una escena: alimenta `<current-scene>` + `<scene-index>`.

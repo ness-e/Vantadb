@@ -80,6 +80,7 @@ fn write_persona(db: &Embedded, body: &str) {
         vector: None,
         sparse_vector: None,
         ttl_ms: None,
+        ..Default::default()
     })
     .expect("put persona");
 }
@@ -95,6 +96,7 @@ fn put_l1(db: &Embedded, record: &MemoryRecord) {
         vector: None,
         sparse_vector: None,
         ttl_ms: None,
+        ..Default::default()
     })
     .expect("put l1 record");
 }
@@ -570,6 +572,7 @@ fn search_multi_merges_hits_across_namespaces() {
             vector: None,
             sparse_vector: None,
             ttl_ms: None,
+            ..Default::default()
         })
         .expect("put l1 payload");
     }

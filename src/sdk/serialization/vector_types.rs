@@ -390,6 +390,7 @@ mod tests {
                 expires_at_ms: None,
                 superseded_by: None,
                 superseded_at_ms: None,
+                ..Default::default()
             },
             score: 0.95,
             explanation: None,
@@ -514,6 +515,7 @@ mod tests {
             expires_at_ms: None,
             superseded_by: None,
             superseded_at_ms: None,
+            ..Default::default()
         }
     }
 

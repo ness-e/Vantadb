@@ -119,6 +119,7 @@ fn make_hits(n: usize) -> Vec<MemorySearchHit> {
                 expires_at_ms: None,
                 superseded_by: None,
                 superseded_at_ms: None,
+                ..Default::default()
             },
             score: ((i % 97) as f32) * 0.01,
             explanation: None,

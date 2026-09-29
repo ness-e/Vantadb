@@ -31,6 +31,7 @@ fn round_trip_put_export_import_get() {
         vector: None,
         sparse_vector: None,
         ttl_ms: None,
+        ..Default::default()
     })
     .expect("put intro");
 
@@ -47,6 +48,7 @@ fn round_trip_put_export_import_get() {
         vector: None,
         sparse_vector: None,
         ttl_ms: None,
+        ..Default::default()
     })
     .expect("put handbook");
 
@@ -60,6 +62,7 @@ fn round_trip_put_export_import_get() {
         vector: None,
         sparse_vector: None,
         ttl_ms: None,
+        ..Default::default()
     })
     .expect("put oncall");
 

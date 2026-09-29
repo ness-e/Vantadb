@@ -8,7 +8,13 @@ const MAGIC_BYTES: &[u8; 8] = b"VTDBv001";
 /// Size of the storage header in bytes.
 pub const HEADER_SIZE: usize = 72;
 /// Current schema version.
-pub const CURRENT_SCHEMA_VERSION: u32 = 1;
+///
+/// v2 (ADR-046, corte 0.8.0): bitemporalidad (`valid_at`/`invalid_at`),
+/// confianza por registro y cuarentena. The header bump is the
+/// migration-complete marker — `vanta migrate run --format records` backfills
+/// before the bump; a v2 binary reads v1 databases through the normalization
+/// boundaries (see `MIN_COMPAT_VERSION`).
+pub const CURRENT_SCHEMA_VERSION: u32 = 2;
 /// Minimum compatible schema version.
 pub const MIN_COMPAT_VERSION: u32 = 1;
 

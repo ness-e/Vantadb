@@ -92,6 +92,7 @@ pub fn cmd_put(
         vector: vector_data,
         sparse_vector: None,
         ttl_ms: None,
+        ..Default::default()
     })?;
     // ERR-050b: the write is WAL-buffered until flushed; a later read-only
     // open does not replay the WAL, so flush before returning.

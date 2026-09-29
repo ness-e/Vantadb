@@ -329,6 +329,7 @@ fn put_record(
         vector,
         sparse_vector: None,
         ttl_ms: None,
+        ..Default::default()
     })?;
     Ok(())
 }

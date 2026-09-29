@@ -182,7 +182,7 @@ pub fn cmd_migrate(
             Some(f) => vec![f],
             None => {
                 print_error(&format!(
-                    "Unknown format: {}. Valid values: all, vfile, index, wal, schema",
+                    "Unknown format: {}. Valid values: all, vfile, index, wal, records, schema",
                     format
                 ));
                 return Err(crate::error::Error::Cli(ChainedError::msg(format!(
@@ -194,8 +194,71 @@ pub fn cmd_migrate(
     };
 
     let mut schema_json = serde_json::Value::Null;
+    let mut records_json = serde_json::Value::Null;
     let mut plans_json: Vec<serde_json::Value> = Vec::new();
     let mut issues_json: Vec<String> = Vec::new();
+
+    let mut engine = MigrationEngine::new(target_path);
+    engine.set_dry_run(dry_run);
+    // Whether this run already ensured the records backfill — the schema bump
+    // below must never run while the backfill is pending (ADR-046).
+    let mut records_processed = false;
+
+    // ADR-046 §Migration: expand → backfill → bump. The records backfill runs
+    // BEFORE the schema header bump — a crash mid-backfill leaves header v1 +
+    // partially backfilled nodes (both binaries keep reading; re-run completes).
+    if formats.contains(&FormatKind::Records) {
+        records_processed = true;
+        if engine.records_backfill_pending()? {
+            if !dry_run {
+                if json_output && !force {
+                    return Err(crate::error::Error::Cli(ChainedError::msg(
+                        "migrate run --json requires --force (JSON mode never prompts interactively)",
+                    )));
+                }
+                if !force {
+                    let _ = term.write_line("");
+                    print_warning(
+                        "The v1 → v2 record backfill will rewrite memory-record nodes and snapshots.",
+                    );
+                    if !confirm_action("Proceed with record backfill?")? {
+                        print_warning("Migration cancelled by user");
+                        return Ok(());
+                    }
+                }
+            }
+            let report = engine.migrate_records()?;
+            records_json = serde_json::json!({
+                "status": if dry_run { "dry-run" } else { "migrated" },
+                "scanned": report.scanned,
+                "backfilled": report.backfilled,
+                "already_v2": report.already_v2,
+                "snapshots_migrated": report.snapshots_migrated,
+                "duration_ms": report.duration_ms,
+            });
+            if !json_output {
+                if dry_run {
+                    print_info(&format!(
+                        "[dry-run] Records backfill: {} of {} memory records need v2 fields; {} snapshots need re-encode",
+                        report.backfilled, report.scanned, report.snapshots_migrated
+                    ));
+                } else {
+                    print_success(&format!(
+                        "Records backfilled: {} nodes ({} already v2), {} snapshots re-encoded ({} ms)",
+                        report.backfilled,
+                        report.already_v2,
+                        report.snapshots_migrated,
+                        report.duration_ms
+                    ));
+                }
+            }
+        } else {
+            records_json = serde_json::json!({ "status": "current" });
+            if !json_output {
+                print_info("Memory records are already at the latest schema version");
+            }
+        }
+    }
 
     // Schema migration uses the existing logic
     if formats.contains(&FormatKind::Schema) || format == "all" {
@@ -211,24 +274,41 @@ pub fn cmd_migrate(
                 header
             }
             None => {
-                let header = StorageHeader::current();
-                header.write_to(&schema_path)?;
+                // No header yet (pre-versioning DB). The bump-is-the-marker
+                // rule cannot apply to a header-less DB (any engine open would
+                // create the current header anyway) — but `dry_run` still must
+                // not modify files (cli.rs "Preview changes without modifying").
+                if !dry_run {
+                    let header = StorageHeader::current();
+                    header.write_to(&schema_path)?;
+                }
                 if json_output {
                     return print_json(&serde_json::json!({
                         "target": target_path,
                         "format": format,
                         "dry_run": dry_run,
-                        "schema": {"status": "written", "version": CURRENT_SCHEMA_VERSION},
+                        "schema": {
+                            "status": if dry_run { "dry-run" } else { "written" },
+                            "version": CURRENT_SCHEMA_VERSION,
+                        },
+                        "records": records_json,
                         "plans": plans_json,
                         "integrity_issues": issues_json,
                     }));
                 }
                 print_warning("No schema file found; database may be pre-versioning.");
-                print_info("Writing current schema header...");
-                print_success(&format!(
-                    "Schema header written: version={}",
-                    CURRENT_SCHEMA_VERSION
-                ));
+                if dry_run {
+                    print_info(&format!(
+                        "[dry-run] Would write schema header version={}",
+                        CURRENT_SCHEMA_VERSION
+                    ));
+                } else {
+                    print_info("Writing current schema header...");
+                    print_success(&format!(
+                        "Schema header written: version={}",
+                        CURRENT_SCHEMA_VERSION
+                    ));
+                }
                 return Ok(());
             }
         };
@@ -245,32 +325,76 @@ pub fn cmd_migrate(
         }
 
         if current_header.version != CURRENT_SCHEMA_VERSION {
-            let spinner = create_spinner("Migrating schema...");
-            let start = Instant::now();
+            if dry_run {
+                // cli.rs contract: dry-run previews without modifying files.
+                schema_json = serde_json::json!({
+                    "status": "dry-run",
+                    "from": current_header.version,
+                    "to": CURRENT_SCHEMA_VERSION,
+                });
+                if !json_output {
+                    print_info(&format!(
+                        "[dry-run] Schema would migrate: version {} → {}",
+                        current_header.version, CURRENT_SCHEMA_VERSION
+                    ));
+                    if !records_processed {
+                        print_info(
+                            "[dry-run] Records backfill is pending — run `--format records` (or `--format all`) before the schema bump",
+                        );
+                    }
+                }
+            } else {
+                // ADR-046 §Migration (expand → backfill → bump): the header
+                // bump is the migration-complete marker. Never write it while
+                // the records backfill hasn't run — `--format schema` alone
+                // would otherwise disable the backfill forever (the pending
+                // predicate is `header.version < CURRENT`). If `records` was
+                // not part of this run, ensure it now (idempotent).
+                if !records_processed {
+                    let report = engine.migrate_records()?;
+                    records_json = serde_json::json!({
+                        "status": "ensured-before-schema-bump",
+                        "scanned": report.scanned,
+                        "backfilled": report.backfilled,
+                        "already_v2": report.already_v2,
+                        "snapshots_migrated": report.snapshots_migrated,
+                        "duration_ms": report.duration_ms,
+                    });
+                    if !json_output {
+                        print_info(&format!(
+                            "Records backfill ensured before the schema bump: {} nodes ({} already v2), {} snapshots",
+                            report.backfilled, report.already_v2, report.snapshots_migrated
+                        ));
+                    }
+                }
 
-            let new_header = StorageHeader::current();
-            new_header.write_to(&schema_path)?;
+                let spinner = create_spinner("Migrating schema...");
+                let start = Instant::now();
 
-            let elapsed = start.elapsed();
-            spinner.finish_and_clear();
+                let new_header = StorageHeader::current();
+                new_header.write_to(&schema_path)?;
 
-            schema_json = serde_json::json!({
-                "status": "migrated",
-                "from": current_header.version,
-                "to": CURRENT_SCHEMA_VERSION,
-            });
+                let elapsed = start.elapsed();
+                spinner.finish_and_clear();
 
-            if !json_output {
-                print_success(&format!(
-                    "Schema migrated: version {} → {} ({} ms)",
-                    current_header.version,
-                    CURRENT_SCHEMA_VERSION,
-                    elapsed.as_millis()
-                ));
+                schema_json = serde_json::json!({
+                    "status": "migrated",
+                    "from": current_header.version,
+                    "to": CURRENT_SCHEMA_VERSION,
+                });
 
-                if verbose {
-                    print_info(&format!("Schema file: {}", schema_path.display()));
-                    print_info(&format!("Header size: {} bytes", HEADER_SIZE));
+                if !json_output {
+                    print_success(&format!(
+                        "Schema migrated: version {} → {} ({} ms)",
+                        current_header.version,
+                        CURRENT_SCHEMA_VERSION,
+                        elapsed.as_millis()
+                    ));
+
+                    if verbose {
+                        print_info(&format!("Schema file: {}", schema_path.display()));
+                        print_info(&format!("Header size: {} bytes", HEADER_SIZE));
+                    }
                 }
             }
         } else {
@@ -284,16 +408,14 @@ pub fn cmd_migrate(
         }
     }
 
-    // Physical format migration
+    // Physical format migration (Records ran before the schema bump above;
+    // Schema is also handled there).
     let physical_formats: Vec<FormatKind> = formats
         .into_iter()
-        .filter(|f| *f != FormatKind::Schema)
+        .filter(|f| *f != FormatKind::Schema && *f != FormatKind::Records)
         .collect();
 
     if !physical_formats.is_empty() {
-        let mut engine = MigrationEngine::new(target_path);
-        engine.set_dry_run(dry_run);
-
         if dry_run {
             if !json_output {
                 print_info("--- Dry Run: checking migration requirements ---");
@@ -405,6 +527,7 @@ pub fn cmd_migrate(
             "target": target_path,
             "format": format,
             "dry_run": dry_run,
+            "records": records_json,
             "schema": schema_json,
             "plans": plans_json,
             "integrity_issues": issues_json,

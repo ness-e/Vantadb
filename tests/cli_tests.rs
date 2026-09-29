@@ -35,6 +35,7 @@ fn seed_embedded(db_path: &str, namespace: &str, key: &str, payload: &str) {
         vector: None,
         sparse_vector: None,
         ttl_ms: None,
+        ..Default::default()
     })
     .expect("seed embedded put failed");
     // ERR-050b: put is buffered in WAL; a later read-only reopen (open_database)
@@ -1106,6 +1107,7 @@ fn seed_embedded_with_meta(db_path: &str, namespace: &str, key: &str, payload: &
         vector: None,
         sparse_vector: None,
         ttl_ms: None,
+        ..Default::default()
     })
     .expect("seed embedded put failed");
     // ERR-050b: put is buffered in WAL; a later read-only reopen (open_database)
@@ -1490,15 +1492,19 @@ fn test_migrate_run_missing_target() {
 }
 
 #[test]
-fn test_migrate_run_schema_write() {
-    let (_dir, path) = setup_temp_db();
-    seed_record(&path, "migr_ns", "k1", "data");
-    // format "all" dry_run: fresh db has no .vanta.schema -> writes header, Ok
-    let result = vantadb::cli_handlers::cmd_migrate(&path, "all", true, false, false, false);
+fn test_migrate_run_dry_run_does_not_write_schema() {
+    // R1 (cli.rs contract "Preview changes without modifying files"): a
+    // dry-run on a header-less directory must NOT create `.vanta.schema`.
+    let dir = tempfile::tempdir().expect("temp dir");
+    let path = dir.path().to_string_lossy().to_string();
+    let result = vantadb::cli_handlers::cmd_migrate(&path, "all", true, false, false, true);
     assert!(
         result.is_ok(),
-        "migrate (schema write) should succeed: {:?}",
-        result
+        "migrate dry-run (no schema) should succeed: {result:?}"
+    );
+    assert!(
+        !dir.path().join(".vanta.schema").exists(),
+        "dry-run must not write the schema header"
     );
 }
 
@@ -1515,12 +1521,205 @@ fn test_migrate_run_dry_run_physical() {
     );
 }
 
+/// ADR-046 helper: build a v1-style database (schema header v1 + one record
+/// node without the v2 fields) and return the db path.
+fn seed_v1_database(dir: &tempfile::TempDir) -> String {
+    use vantadb::node::{FieldValue, UnifiedNode};
+    use vantadb::schema::StorageHeader;
+    use vantadb::storage::StorageEngine;
+
+    let path = dir.path().to_string_lossy().to_string();
+    let v1_header = StorageHeader {
+        version: 1,
+        flags: 0,
+        min_compat_version: 1,
+    };
+    v1_header
+        .write_to(&dir.path().join(".vanta.schema"))
+        .expect("write v1 header");
+    let config = vantadb::config::Config {
+        storage_path: path.clone(),
+        ..Default::default()
+    };
+    let engine = StorageEngine::open_with_config(&path, Some(config)).expect("open engine");
+    let mut node = UnifiedNode::new(42);
+    node.set_field(
+        vantadb::sdk::FIELD_NAMESPACE,
+        FieldValue::String("cli_mig".into()),
+    );
+    node.set_field(vantadb::sdk::FIELD_KEY, FieldValue::String("k".into()));
+    node.set_field(
+        vantadb::sdk::FIELD_PAYLOAD,
+        FieldValue::String("payload".into()),
+    );
+    node.set_field(vantadb::sdk::FIELD_CREATED_AT_MS, FieldValue::Int(1000));
+    node.set_field(vantadb::sdk::FIELD_UPDATED_AT_MS, FieldValue::Int(1000));
+    node.set_field(vantadb::sdk::FIELD_VERSION, FieldValue::Int(1));
+    engine.insert(&node).expect("insert v1 node");
+    drop(engine);
+    path
+}
+
+fn read_schema_header(dir: &tempfile::TempDir) -> Option<vantadb::schema::StorageHeader> {
+    vantadb::schema::StorageHeader::read_from(&dir.path().join(".vanta.schema"))
+        .expect("read header")
+}
+
+/// Node 42 carries the v2 marker (`__vanta_valid_at_ms`) after a backfill.
+fn v1_node_has_v2_fields(path: &str) -> bool {
+    use vantadb::storage::StorageEngine;
+    let config = vantadb::config::Config {
+        storage_path: path.to_string(),
+        ..Default::default()
+    };
+    let engine = StorageEngine::open_with_config(path, Some(config)).expect("open engine");
+    engine
+        .get(42)
+        .expect("get node")
+        .expect("node 42")
+        .get_field("__vanta_valid_at_ms")
+        .is_some()
+}
+
+#[test]
+fn test_migrate_run_records_backfill_then_all_bumps_header() {
+    // ADR-046 §Migration (expand → backfill → bump): `--format records`
+    // backfills a v1 database WITHOUT touching the header; `--format all`
+    // completes the remaining formats and bumps the header LAST.
+    let dir = tempfile::tempdir().expect("temp dir");
+    let path = seed_v1_database(&dir);
+
+    // Step 5 of the ADR sequence: backfill only (header stays v1).
+    let result = vantadb::cli_handlers::cmd_migrate(&path, "records", false, true, false, true);
+    assert!(
+        result.is_ok(),
+        "records backfill should succeed: {result:?}"
+    );
+    assert!(v1_node_has_v2_fields(&path), "backfill wrote the v2 fields");
+    assert_eq!(
+        read_schema_header(&dir).expect("header present").version,
+        1,
+        "backfill must not bump the header"
+    );
+
+    // Step 6: `--format all` completes the migration and bumps the header.
+    let result = vantadb::cli_handlers::cmd_migrate(&path, "all", false, true, false, true);
+    assert!(result.is_ok(), "migrate all should succeed: {result:?}");
+    let header = read_schema_header(&dir).expect("header present");
+    assert_eq!(header.version, 2, "schema bumped to v2 after the backfill");
+    assert_eq!(header.min_compat_version, 1, "MIN_COMPAT stays at 1");
+}
+
+#[test]
+fn test_migrate_schema_alone_ensures_backfill_before_bump() {
+    // R1: `--format schema` alone must NOT bump the header while the records
+    // backfill is pending (a v2 header disables the backfill forever —
+    // `records_backfill_pending` = header.version < CURRENT). The CLI ensures
+    // the backfill (idempotent) before the bump.
+    let dir = tempfile::tempdir().expect("temp dir");
+    let path = seed_v1_database(&dir);
+
+    // Dry-run first: header stays v1, nodes stay un-backfilled (still
+    // executable afterwards).
+    let result = vantadb::cli_handlers::cmd_migrate(&path, "schema", true, false, false, true);
+    assert!(result.is_ok(), "schema dry-run should succeed: {result:?}");
+    assert_eq!(
+        read_schema_header(&dir).expect("header present").version,
+        1,
+        "schema dry-run must not bump the header"
+    );
+    assert!(
+        !v1_node_has_v2_fields(&path),
+        "schema dry-run must not backfill"
+    );
+
+    // Real run: ensures the backfill, then bumps.
+    let result = vantadb::cli_handlers::cmd_migrate(&path, "schema", false, true, false, true);
+    assert!(
+        result.is_ok(),
+        "schema-only migration should succeed: {result:?}"
+    );
+    assert!(
+        v1_node_has_v2_fields(&path),
+        "records backfill ran before the schema bump"
+    );
+    assert_eq!(
+        read_schema_header(&dir).expect("header present").version,
+        2,
+        "header bumped after the backfill"
+    );
+}
+
+#[test]
+fn test_migrate_all_dry_run_writes_nothing() {
+    // R1: `--format all --dry-run` on a v1 database must preview without
+    // modifying files — header stays v1 and the nodes stay un-backfilled
+    // (the backfill remains executable afterwards).
+    let dir = tempfile::tempdir().expect("temp dir");
+    let path = seed_v1_database(&dir);
+
+    let result = vantadb::cli_handlers::cmd_migrate(&path, "all", true, false, false, true);
+    assert!(result.is_ok(), "dry-run should succeed: {result:?}");
+    assert_eq!(
+        read_schema_header(&dir).expect("header present").version,
+        1,
+        "dry-run must not bump the header"
+    );
+    assert!(
+        !v1_node_has_v2_fields(&path),
+        "dry-run must not backfill nodes"
+    );
+
+    // The backfill is still executable after the dry-run (not disabled).
+    let result = vantadb::cli_handlers::cmd_migrate(&path, "records", false, true, false, true);
+    assert!(result.is_ok(), "post-dry-run backfill: {result:?}");
+    assert!(v1_node_has_v2_fields(&path));
+}
+
 #[test]
 fn test_migrate_unknown_format() {
     let (_dir, path) = setup_temp_db();
     // valid target but bogus format string -> format parse error branch
     let result = vantadb::cli_handlers::cmd_migrate(&path, "bogus", true, false, false, false);
     assert!(result.is_err(), "unknown format must error");
+}
+
+#[test]
+fn test_import_cli_v1_fixture_normalizes() {
+    // R3 (ADR-046 §D7 path test — CLI): `vanta import` of the committed v1
+    // fixture goes through `record_from_export_line` and normalizes the v2
+    // fields (valid_at := created_at, invalid_at := superseded_at, D_a).
+    let (_dir, path) = setup_temp_db();
+    let result =
+        vantadb::cli_handlers::cmd_import(&path, "tests/fixtures/export-v1.jsonl", false, true);
+    assert!(
+        result.is_ok(),
+        "v1 fixture import should succeed: {result:?}"
+    );
+
+    let config = vantadb::config::Config {
+        storage_path: path.clone(),
+        read_only: false,
+        ..Default::default()
+    };
+    let db = vantadb::Embedded::open_with_config(config).expect("open imported db");
+
+    let alpha = db.get("legacy", "v1-alpha").expect("get").expect("alpha");
+    assert_eq!(alpha.valid_at_ms, 1000);
+    assert_eq!(alpha.invalid_at_ms, None);
+    assert_eq!(alpha.confidence, 1.0);
+    assert_eq!(
+        alpha.confidence_class,
+        vantadb::sdk::ConfidenceClass::Asserted
+    );
+
+    let superseded = db
+        .get("legacy", "v1-superseded")
+        .expect("get")
+        .expect("superseded");
+    assert_eq!(superseded.valid_at_ms, 1000);
+    assert_eq!(superseded.invalid_at_ms, Some(1500));
+    assert_eq!(superseded.superseded_at_ms, Some(1500));
 }
 
 #[test]

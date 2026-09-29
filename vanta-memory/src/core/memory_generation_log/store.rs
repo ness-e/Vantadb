@@ -42,6 +42,7 @@ pub fn try_record(db: &Embedded, entry: &GenerationLogEntry) -> Result<(), GenLo
         vector: None,
         sparse_vector: None,
         ttl_ms: None,
+        ..Default::default()
     })?;
     enforce_cap(db, &ns)
 }

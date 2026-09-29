@@ -258,7 +258,7 @@ fn export_format_schema_version_roundtrip() {
     TerminalReporter::suite_banner("EXPORT FORMAT SCHEMA VERSION SNAPSHOT", 1);
     let mut harness = VantaHarness::new("EXPORT FORMAT SNAPSHOT");
 
-    harness.execute("Export produces schema_version=1", || {
+    harness.execute("Export produces schema_version=2", || {
         let source_dir = tempdir().expect("source tempdir");
         let export_path = source_dir.path().join("export.jsonl");
 
@@ -278,12 +278,12 @@ fn export_format_schema_version_roundtrip() {
         let parsed: serde_json::Value = serde_json::from_str(line).expect("parse export line");
         assert_eq!(
             parsed["schema_version"].as_u64(),
-            Some(1),
-            "Export schema_version must be 1, got: {:?}",
+            Some(2),
+            "Export schema_version must be 2 (ADR-046 §D7), got: {:?}",
             parsed["schema_version"]
         );
 
-        TerminalReporter::success("Export format schema_version=1 snapshot confirmed.");
+        TerminalReporter::success("Export format schema_version=2 snapshot confirmed.");
     });
 
     harness.execute(
@@ -1104,7 +1104,7 @@ fn vantafile_export_golden_file() {
                 serde_json::from_str(lines[0]).expect("parse JSONL line");
 
             // Validate golden structure
-            assert_eq!(parsed["schema_version"].as_u64(), Some(1));
+            assert_eq!(parsed["schema_version"].as_u64(), Some(2));
             assert_eq!(parsed["namespace"].as_str(), Some("ns/golden"));
             assert_eq!(parsed["key"].as_str(), Some("golden-key"));
             assert_eq!(parsed["payload"].as_str(), Some("golden payload"));

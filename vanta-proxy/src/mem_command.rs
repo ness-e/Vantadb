@@ -156,6 +156,7 @@ pub fn execute(memory: &Embedded, session_key: &str, cmd: &MemCommand) -> String
                 vector: None,
                 sparse_vector: None,
                 ttl_ms: None,
+                ..Default::default()
             };
             match memory.put(input) {
                 Ok(record) => format!(

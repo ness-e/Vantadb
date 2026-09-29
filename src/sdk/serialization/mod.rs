@@ -28,11 +28,30 @@ pub const FIELD_EXPIRES_AT_MS: &str = "__vanta_expires_at_ms";
 pub const FIELD_SUPERSEDED_BY: &str = "__vanta_superseded_by";
 /// Internal field name storing the Unix-ms timestamp when the supersession was recorded (ADR-028).
 pub const FIELD_SUPERSEDED_AT_MS: &str = "__vanta_superseded_at_ms";
+/// v2 (ADR-046 §D2): start of the validity window. Presence of this field also
+/// marks a node as v2 — a v1 node lacks it and normalizes `valid_at := created_at`.
+pub const FIELD_VALID_AT_MS: &str = "__vanta_valid_at_ms";
+/// v2 (ADR-046 §D2): end of the validity window (exclusive).
+pub const FIELD_INVALID_AT_MS: &str = "__vanta_invalid_at_ms";
+/// v2 (ADR-046 §D2): provenance class wire name (`Asserted`/`Derived`).
+pub const FIELD_CONFIDENCE_CLASS: &str = "__vanta_confidence_class";
+/// v2 (ADR-046 §D2): last successful re-validation timestamp.
+pub const FIELD_LAST_VALIDATED_AT_MS: &str = "__vanta_last_validated_at_ms";
+/// v2 (ADR-046 §D2): same-namespace derivation parent keys.
+pub const FIELD_DERIVED_FROM: &str = "__vanta_derived_from";
+/// v2 (ADR-046 §D5): quarantine entry timestamp (`Some` = quarantined).
+pub const FIELD_QUARANTINED_AT_MS: &str = "__vanta_quarantined_at_ms";
+/// v2 (ADR-046 §D5): stable quarantine reason code.
+pub const FIELD_QUARANTINE_REASON: &str = "__vanta_quarantine_reason";
+/// v2 (ADR-046 §D5): principal that applied the quarantine.
+pub const FIELD_QUARANTINED_BY: &str = "__vanta_quarantined_by";
+/// v2 (ADR-046 §D5): quarantine review deadline signal.
+pub const FIELD_QUARANTINE_REVIEW_DUE_MS: &str = "__vanta_quarantine_review_due_ms";
 /// Internal `ext_metadata` key storing the sparse vector on a memory record
 /// node as interleaved `ListFloat` pairs (ADR-019). Kept out of the
 /// bincode-graph so old databases read missing keys as `None`.
 pub const SPARSE_VECTOR_EXT_KEY: &str = "__vanta_sparse_vector";
-const EXPORT_SCHEMA_VERSION: u32 = 1;
+const EXPORT_SCHEMA_VERSION: u32 = 2;
 pub(crate) const DERIVED_INDEX_SCHEMA_VERSION: u32 = 1;
 pub(crate) const DERIVED_INDEX_STATE_KEY: &[u8] = b"derived_index_state";
 pub(crate) const TEXT_INDEX_STATE_KEY: &[u8] = b"text_index_state";
@@ -268,6 +287,13 @@ pub(crate) fn get_u64_field(fields: &Fields, key: &str) -> Option<u64> {
     }
 }
 
+pub(crate) fn get_string_list_field(fields: &Fields, key: &str) -> Option<Vec<String>> {
+    match fields.get(key) {
+        Some(Value::ListString(values)) => Some(values.clone()),
+        _ => None,
+    }
+}
+
 /// Encode a `SparseVector` into the persisted `ListFloat` field format:
 /// interleaved `[dim_0, val_0, dim_1, val_1, ...]` (ADR-019). Both `u32` dims
 /// and `f32` weights are exactly representable in `f64`, so the round-trip is
@@ -343,6 +369,15 @@ fn memory_record_from_node_inner(node: &UnifiedNode, apply_lazy_ttl: bool) -> Op
         FIELD_EXPIRES_AT_MS,
         FIELD_SUPERSEDED_BY,
         FIELD_SUPERSEDED_AT_MS,
+        FIELD_VALID_AT_MS,
+        FIELD_INVALID_AT_MS,
+        FIELD_CONFIDENCE_CLASS,
+        FIELD_LAST_VALIDATED_AT_MS,
+        FIELD_DERIVED_FROM,
+        FIELD_QUARANTINED_AT_MS,
+        FIELD_QUARANTINE_REASON,
+        FIELD_QUARANTINED_BY,
+        FIELD_QUARANTINE_REVIEW_DUE_MS,
         SPARSE_VECTOR_EXT_KEY,
     ];
 
@@ -355,6 +390,39 @@ fn memory_record_from_node_inner(node: &UnifiedNode, apply_lazy_ttl: bool) -> Op
     let expires_at_ms = get_u64_field(&fields, FIELD_EXPIRES_AT_MS);
     let superseded_by = get_string_field(&fields, FIELD_SUPERSEDED_BY);
     let superseded_at_ms = get_u64_field(&fields, FIELD_SUPERSEDED_AT_MS);
+
+    // v2 fields (ADR-046 §D2/§D7). A node without FIELD_VALID_AT_MS is a v1
+    // node — normalize to the D2 defaults (`valid_at := created_at`, class
+    // `Asserted`, `confidence := D_a`) instead of reading the legacy 0.5
+    // `confidence_score`. `0` is the documented "unset" sentinel.
+    let is_v2 = fields.contains_key(FIELD_VALID_AT_MS);
+    let valid_at_ms = match get_u64_field(&fields, FIELD_VALID_AT_MS) {
+        Some(value) if value != 0 => value,
+        _ => created_at_ms,
+    };
+    let invalid_at_ms = get_u64_field(&fields, FIELD_INVALID_AT_MS);
+    let confidence_class = match get_string_field(&fields, FIELD_CONFIDENCE_CLASS) {
+        Some(wire) => ConfidenceClass::from_wire_str(&wire).unwrap_or_else(|| {
+            tracing::warn!(
+                node_id = %node.id,
+                value = %wire,
+                "unknown confidence_class value ignored during read"
+            );
+            ConfidenceClass::Asserted
+        }),
+        None => ConfidenceClass::Asserted,
+    };
+    let confidence = if is_v2 {
+        node.confidence_score
+    } else {
+        default_confidence()
+    };
+    let derived_from = get_string_list_field(&fields, FIELD_DERIVED_FROM).unwrap_or_default();
+    let last_validated_at_ms = get_u64_field(&fields, FIELD_LAST_VALIDATED_AT_MS);
+    let quarantined_at_ms = get_u64_field(&fields, FIELD_QUARANTINED_AT_MS);
+    let quarantine_reason = get_string_field(&fields, FIELD_QUARANTINE_REASON);
+    let quarantined_by = get_string_field(&fields, FIELD_QUARANTINED_BY);
+    let quarantine_review_due_ms = get_u64_field(&fields, FIELD_QUARANTINE_REVIEW_DUE_MS);
 
     for reserved in RESERVED_FIELDS {
         fields.remove(*reserved);
@@ -427,6 +495,16 @@ fn memory_record_from_node_inner(node: &UnifiedNode, apply_lazy_ttl: bool) -> Op
         expires_at_ms,
         superseded_by,
         superseded_at_ms,
+        valid_at_ms,
+        invalid_at_ms,
+        confidence_class,
+        confidence,
+        last_validated_at_ms,
+        derived_from,
+        quarantined_at_ms,
+        quarantine_reason,
+        quarantined_by,
+        quarantine_review_due_ms,
     })
 }
 
@@ -463,6 +541,52 @@ pub(crate) fn memory_record_to_node_owned(mut record: MemoryRecord) -> (UnifiedN
         node.set_field(
             FIELD_SUPERSEDED_AT_MS,
             FieldValue::Int(superseded_at as i64),
+        );
+    }
+
+    // v2 fields (ADR-046 §D2/§D6): the record is canonical; the node is a
+    // projection. FIELD_VALID_AT_MS is always written — its presence marks the
+    // node as v2 for read-side normalization.
+    node.set_field(
+        FIELD_VALID_AT_MS,
+        FieldValue::Int(record.valid_at_ms as i64),
+    );
+    if let Some(invalid_at) = record.invalid_at_ms {
+        node.set_field(FIELD_INVALID_AT_MS, FieldValue::Int(invalid_at as i64));
+    }
+    node.set_field(
+        FIELD_CONFIDENCE_CLASS,
+        FieldValue::String(record.confidence_class.as_wire_str().to_string()),
+    );
+    node.confidence_score = record.confidence;
+    if let Some(last_validated) = record.last_validated_at_ms {
+        node.set_field(
+            FIELD_LAST_VALIDATED_AT_MS,
+            FieldValue::Int(last_validated as i64),
+        );
+    }
+    if !record.derived_from.is_empty() {
+        node.set_field(
+            FIELD_DERIVED_FROM,
+            FieldValue::ListString(record.derived_from.clone()),
+        );
+    }
+    if let Some(quarantined_at) = record.quarantined_at_ms {
+        node.set_field(
+            FIELD_QUARANTINED_AT_MS,
+            FieldValue::Int(quarantined_at as i64),
+        );
+    }
+    if let Some(reason) = record.quarantine_reason.clone() {
+        node.set_field(FIELD_QUARANTINE_REASON, FieldValue::String(reason));
+    }
+    if let Some(by) = record.quarantined_by.clone() {
+        node.set_field(FIELD_QUARANTINED_BY, FieldValue::String(by));
+    }
+    if let Some(review_due) = record.quarantine_review_due_ms {
+        node.set_field(
+            FIELD_QUARANTINE_REVIEW_DUE_MS,
+            FieldValue::Int(review_due as i64),
         );
     }
 
@@ -510,6 +634,53 @@ pub fn export_line_from_record(record: MemoryRecord) -> MemoryExportLine {
         expires_at_ms: record.expires_at_ms,
         superseded_by: record.superseded_by,
         superseded_at_ms: record.superseded_at_ms,
+        valid_at_ms: record.valid_at_ms,
+        invalid_at_ms: record.invalid_at_ms,
+        confidence_class: record.confidence_class,
+        confidence: record.confidence,
+        last_validated_at_ms: record.last_validated_at_ms,
+        derived_from: record.derived_from,
+        quarantined_at_ms: record.quarantined_at_ms,
+        quarantine_reason: record.quarantine_reason,
+        quarantined_by: record.quarantined_by,
+        quarantine_review_due_ms: record.quarantine_review_due_ms,
+    }
+}
+
+/// Boundary validation shared by import (v2 lines) and the SDK put path
+/// (mgr-12 §3.1): finite `[0,1]` confidence + V1 class/parents consistency.
+/// Deeper derivation checks (parent existence, depth) run on the validated
+/// write path, not on transport.
+pub(crate) fn validate_confidence_fields(
+    class: ConfidenceClass,
+    derived_from: &[String],
+    confidence: f32,
+) -> Result<()> {
+    if !confidence.is_finite() || !(0.0..=1.0).contains(&confidence) {
+        return Err(Error::Validation {
+            field: "confidence".into(),
+            reason: "confidence must be a finite number in [0,1]".into(),
+        });
+    }
+    match class {
+        ConfidenceClass::Asserted => {
+            if !derived_from.is_empty() {
+                return Err(Error::Validation {
+                    field: "derived_from".into(),
+                    reason: "asserted records cannot declare derived_from parents".into(),
+                });
+            }
+            Ok(())
+        }
+        ConfidenceClass::Derived => {
+            if derived_from.is_empty() {
+                return Err(Error::Validation {
+                    field: "derived_from".into(),
+                    reason: "derived records require a non-empty derived_from parent list".into(),
+                });
+            }
+            Ok(())
+        }
     }
 }
 
@@ -518,17 +689,82 @@ pub fn export_line_from_record(record: MemoryRecord) -> MemoryExportLine {
 /// [`export_line_from_record`] — used by import paths that receive JSONL
 /// content as a string (e.g. the MCP `import` tool) instead of a file.
 ///
-/// Fails if `schema_version` is not the current export schema.
+/// ADR-046 §D7: accepts `schema_version ∈ {1, 2}` (v1 lines are normalized
+/// with the backfill defaults; v2 lines are preserved) and rejects anything
+/// else (TooNew for `> 2`, invalid for `0`). Export always emits v2.
 pub fn record_from_export_line(line: MemoryExportLine) -> Result<MemoryRecord> {
-    if line.schema_version != EXPORT_SCHEMA_VERSION {
+    if !(1..=EXPORT_SCHEMA_VERSION).contains(&line.schema_version) {
         return Err(Error::Validation {
             field: "schema_version".into(),
             reason: format!(
-                "unsupported memory export schema_version {}",
-                line.schema_version
+                "unsupported memory export schema_version {}; supported: 1..={}",
+                line.schema_version, EXPORT_SCHEMA_VERSION
             ),
         });
     }
+
+    let is_v1 = line.schema_version == 1;
+    // v1 normalization (ADR-046 §D7 table #3 + §Migration): valid_at =
+    // created_at, invalid_at = superseded_at (if superseded), class Asserted,
+    // confidence D_a, last_validated None, derived_from [], quarantine None×4.
+    let valid_at_ms = if line.valid_at_ms == 0 {
+        line.created_at_ms
+    } else {
+        line.valid_at_ms
+    };
+    let invalid_at_ms = if is_v1 {
+        if line.superseded_by.is_some() {
+            line.superseded_at_ms
+        } else {
+            None
+        }
+    } else {
+        line.invalid_at_ms
+    };
+    let confidence_class = if is_v1 {
+        ConfidenceClass::Asserted
+    } else {
+        line.confidence_class
+    };
+    let confidence = if is_v1 {
+        default_confidence()
+    } else {
+        line.confidence
+    };
+    let last_validated_at_ms = if is_v1 {
+        None
+    } else {
+        line.last_validated_at_ms
+    };
+    let derived_from = if is_v1 { Vec::new() } else { line.derived_from };
+    let (quarantined_at_ms, quarantine_reason, quarantined_by, quarantine_review_due_ms) = if is_v1
+    {
+        (None, None, None, None)
+    } else {
+        (
+            line.quarantined_at_ms,
+            line.quarantine_reason,
+            line.quarantined_by,
+            line.quarantine_review_due_ms,
+        )
+    };
+
+    validate_confidence_fields(confidence_class, &derived_from, confidence)?;
+    if let Some(invalid_at) = invalid_at_ms {
+        if valid_at_ms > invalid_at {
+            return Err(Error::Validation {
+                field: "invalid_at_ms".into(),
+                reason: format!(
+                    "valid_at_ms ({valid_at_ms}) must be <= invalid_at_ms ({invalid_at})"
+                ),
+            });
+        }
+    }
+    // O1 — D3-3 alignment is deliberately NOT enforced on import: 0.8.0 always
+    // writes `invalid_at == superseded_at`, but the future retroactive setter
+    // (API v1.0) may diverge them. The transport tolerates and preserves both
+    // values verbatim (documented tolerance); only the window order is
+    // validated above. Test: `record_from_export_line_tolerates_d3_divergence`.
 
     let node_id = memory_node_id(&line.namespace, &line.key);
     Ok(MemoryRecord {
@@ -545,6 +781,16 @@ pub fn record_from_export_line(line: MemoryExportLine) -> Result<MemoryRecord> {
         expires_at_ms: line.expires_at_ms,
         superseded_by: line.superseded_by,
         superseded_at_ms: line.superseded_at_ms,
+        valid_at_ms,
+        invalid_at_ms,
+        confidence_class,
+        confidence,
+        last_validated_at_ms,
+        derived_from,
+        quarantined_at_ms,
+        quarantine_reason,
+        quarantined_by,
+        quarantine_review_due_ms,
     })
 }
 
@@ -1032,6 +1278,7 @@ mod tests {
             expires_at_ms: None,
             superseded_by: None,
             superseded_at_ms: None,
+            ..Default::default()
         };
 
         let (node, returned_record) = memory_record_to_node_owned(record);
@@ -1069,6 +1316,7 @@ mod tests {
             expires_at_ms: Some(999_999_999_999),
             superseded_by: None,
             superseded_at_ms: None,
+            ..Default::default()
         };
         let (node, _) = memory_record_to_node_owned(record);
         assert_eq!(
@@ -1093,6 +1341,7 @@ mod tests {
             expires_at_ms: None,
             superseded_by: None,
             superseded_at_ms: None,
+            ..Default::default()
         };
         let (node, returned) = memory_record_to_node_owned(record);
         assert!(returned.vector.is_none());
@@ -1123,10 +1372,14 @@ mod tests {
             expires_at_ms: None,
             superseded_by: None,
             superseded_at_ms: None,
+            ..Default::default()
         };
 
         let line = export_line_from_record(record.clone());
-        assert_eq!(line.schema_version, 1);
+        assert_eq!(
+            line.schema_version, 2,
+            "export always emits v2 (ADR-046 §D7)"
+        );
         assert_eq!(line.namespace, "ns");
         assert_eq!(line.key, "k");
         assert_eq!(line.version, 2);
@@ -1155,10 +1408,292 @@ mod tests {
             expires_at_ms: None,
             superseded_by: None,
             superseded_at_ms: None,
+            ..Default::default()
         };
         let err = record_from_export_line(line).unwrap_err();
         assert!(err.to_string().contains("unsupported"));
         assert!(err.to_string().contains("999"));
+    }
+
+    // ─── ADR-046 §D7: import predicate {1,2} + v1 normalization ───
+
+    #[test]
+    fn record_from_export_line_v1_normalizes_window_and_confidence() {
+        let line = MemoryExportLine {
+            schema_version: 1,
+            namespace: "ns".into(),
+            key: "k".into(),
+            payload: "p".into(),
+            metadata: MemoryMetadata::new(),
+            vector: None,
+            sparse_vector: None,
+            created_at_ms: 1000,
+            updated_at_ms: 2000,
+            version: 3,
+            expires_at_ms: None,
+            superseded_by: Some("newer".into()),
+            superseded_at_ms: Some(1500),
+            ..Default::default()
+        };
+        let record = record_from_export_line(line).expect("v1 line imports");
+        assert_eq!(record.valid_at_ms, 1000, "valid_at := created_at");
+        assert_eq!(
+            record.invalid_at_ms,
+            Some(1500),
+            "invalid_at := superseded_at when superseded"
+        );
+        assert_eq!(record.confidence_class, ConfidenceClass::Asserted);
+        assert_eq!(record.confidence, 1.0, "D_a");
+        assert_eq!(record.last_validated_at_ms, None);
+        assert!(record.derived_from.is_empty());
+        assert_eq!(record.quarantined_at_ms, None);
+        assert_eq!(record.quarantine_reason, None);
+        assert_eq!(record.quarantined_by, None);
+        assert_eq!(record.quarantine_review_due_ms, None);
+    }
+
+    #[test]
+    fn record_from_export_line_v1_without_supersession_keeps_open_window() {
+        let line = MemoryExportLine {
+            schema_version: 1,
+            namespace: "ns".into(),
+            key: "k".into(),
+            payload: "p".into(),
+            metadata: MemoryMetadata::new(),
+            vector: None,
+            sparse_vector: None,
+            created_at_ms: 1000,
+            updated_at_ms: 2000,
+            version: 1,
+            expires_at_ms: None,
+            superseded_by: None,
+            superseded_at_ms: None,
+            ..Default::default()
+        };
+        let record = record_from_export_line(line).expect("v1 line imports");
+        assert_eq!(record.valid_at_ms, 1000);
+        assert_eq!(record.invalid_at_ms, None);
+    }
+
+    #[test]
+    fn record_from_export_line_v2_preserves_v2_fields() {
+        let line = MemoryExportLine {
+            schema_version: 2,
+            namespace: "ns".into(),
+            key: "derived".into(),
+            payload: "p".into(),
+            metadata: MemoryMetadata::new(),
+            vector: None,
+            sparse_vector: None,
+            created_at_ms: 1000,
+            updated_at_ms: 2000,
+            version: 4,
+            expires_at_ms: None,
+            superseded_by: None,
+            superseded_at_ms: None,
+            valid_at_ms: 1200,
+            invalid_at_ms: None,
+            confidence_class: ConfidenceClass::Derived,
+            // Stored score is transported, not re-derived (import preserves v2).
+            confidence: 0.45,
+            last_validated_at_ms: Some(1900),
+            derived_from: vec!["parent-a".into(), "parent-b".into()],
+            quarantined_at_ms: Some(2100),
+            quarantine_reason: Some("unreviewed_import".into()),
+            quarantined_by: Some("system:test".into()),
+            quarantine_review_due_ms: Some(9999),
+        };
+        let record = record_from_export_line(line).expect("v2 line imports");
+        assert_eq!(record.valid_at_ms, 1200);
+        assert_eq!(record.confidence_class, ConfidenceClass::Derived);
+        assert_eq!(record.confidence, 0.45);
+        assert_eq!(record.last_validated_at_ms, Some(1900));
+        assert_eq!(record.derived_from, vec!["parent-a", "parent-b"]);
+        assert_eq!(record.quarantined_at_ms, Some(2100));
+        assert_eq!(
+            record.quarantine_reason.as_deref(),
+            Some("unreviewed_import")
+        );
+        assert_eq!(record.quarantined_by.as_deref(), Some("system:test"));
+        assert_eq!(record.quarantine_review_due_ms, Some(9999));
+    }
+
+    #[test]
+    fn record_from_export_line_rejects_schema_zero_and_invalid_v2_shapes() {
+        let zero = MemoryExportLine {
+            schema_version: 0,
+            ..MemoryExportLine::default()
+        };
+        assert!(record_from_export_line(zero).is_err(), "0 is not a version");
+
+        let derived_without_parents = MemoryExportLine {
+            schema_version: 2,
+            confidence_class: ConfidenceClass::Derived,
+            confidence: 0.5,
+            ..MemoryExportLine::default()
+        };
+        assert!(record_from_export_line(derived_without_parents).is_err());
+
+        let asserted_with_parents = MemoryExportLine {
+            schema_version: 2,
+            confidence_class: ConfidenceClass::Asserted,
+            derived_from: vec!["p".into()],
+            ..MemoryExportLine::default()
+        };
+        assert!(record_from_export_line(asserted_with_parents).is_err());
+
+        let out_of_range = MemoryExportLine {
+            schema_version: 2,
+            confidence: 1.5,
+            ..MemoryExportLine::default()
+        };
+        assert!(record_from_export_line(out_of_range).is_err());
+
+        let reversed_window = MemoryExportLine {
+            schema_version: 2,
+            created_at_ms: 1000,
+            valid_at_ms: 2000,
+            invalid_at_ms: Some(1500),
+            ..MemoryExportLine::default()
+        };
+        assert!(record_from_export_line(reversed_window).is_err());
+    }
+
+    #[test]
+    fn record_from_export_line_tolerates_d3_divergence() {
+        // O1: 0.8.0 always aligns `invalid_at`/`superseded_at` (D3-3), but the
+        // future retroactive setter (API v1.0) may diverge them — import
+        // preserves both values verbatim (documented tolerance; only the
+        // window order is validated).
+        let line = MemoryExportLine {
+            schema_version: 2,
+            namespace: "ns".into(),
+            key: "k".into(),
+            payload: "p".into(),
+            created_at_ms: 1000,
+            superseded_by: Some("newer".into()),
+            superseded_at_ms: Some(1500),
+            valid_at_ms: 1000,
+            invalid_at_ms: Some(1800), // diverges from superseded_at (1500)
+            ..MemoryExportLine::default()
+        };
+        let record = record_from_export_line(line).expect("divergence tolerated");
+        assert_eq!(record.superseded_at_ms, Some(1500));
+        assert_eq!(record.invalid_at_ms, Some(1800));
+    }
+
+    // ─── ADR-046 §D6: record ↔ node v2 mapping ────────────────────
+
+    #[test]
+    fn memory_record_v2_fields_roundtrip_through_node() {
+        let record = MemoryRecord {
+            namespace: "ns".into(),
+            key: "v2".into(),
+            payload: "data".into(),
+            metadata: MemoryMetadata::new(),
+            created_at_ms: 1000,
+            updated_at_ms: 2000,
+            version: 5,
+            node_id: memory_node_id("ns", "v2"),
+            vector: None,
+            sparse_vector: None,
+            expires_at_ms: None,
+            superseded_by: None,
+            superseded_at_ms: None,
+            valid_at_ms: 1100,
+            invalid_at_ms: Some(1800),
+            confidence_class: ConfidenceClass::Derived,
+            confidence: 0.45,
+            last_validated_at_ms: Some(1700),
+            derived_from: vec!["parent-a".into(), "parent-b".into()],
+            quarantined_at_ms: Some(1900),
+            quarantine_reason: Some("explicit_write".into()),
+            quarantined_by: Some("system:dream_promote".into()),
+            quarantine_review_due_ms: Some(9999),
+        };
+        let (node, _) = memory_record_to_node_owned(record.clone());
+        assert_eq!(
+            node.confidence_score, 0.45,
+            "D6: the write path projects record.confidence into the node header"
+        );
+        let recovered = record_from_node(&node).expect("record roundtrip");
+        assert_eq!(recovered.valid_at_ms, 1100);
+        assert_eq!(recovered.invalid_at_ms, Some(1800));
+        assert_eq!(recovered.confidence_class, ConfidenceClass::Derived);
+        assert_eq!(
+            recovered.confidence, 0.45,
+            "D6: the read path reads it back"
+        );
+        assert_eq!(recovered.last_validated_at_ms, Some(1700));
+        assert_eq!(recovered.derived_from, vec!["parent-a", "parent-b"]);
+        assert_eq!(recovered.quarantined_at_ms, Some(1900));
+        assert_eq!(
+            recovered.quarantine_reason.as_deref(),
+            Some("explicit_write")
+        );
+        assert_eq!(
+            recovered.quarantined_by.as_deref(),
+            Some("system:dream_promote")
+        );
+        assert_eq!(recovered.quarantine_review_due_ms, Some(9999));
+    }
+
+    #[test]
+    fn v1_node_without_v2_fields_normalizes_on_read() {
+        // Hand-built v1 node: no `__vanta_valid_at_ms` marker and the legacy
+        // 0.5 confidence_score must NOT leak into the record (ADR-046 §D4c).
+        let mut node = crate::node::UnifiedNode::new(7);
+        node.set_field(
+            FIELD_NAMESPACE,
+            crate::node::FieldValue::String("ns".into()),
+        );
+        node.set_field(FIELD_KEY, crate::node::FieldValue::String("k".into()));
+        node.set_field(FIELD_PAYLOAD, crate::node::FieldValue::String("p".into()));
+        node.set_field(FIELD_CREATED_AT_MS, crate::node::FieldValue::Int(1000));
+        node.set_field(FIELD_UPDATED_AT_MS, crate::node::FieldValue::Int(2000));
+        node.set_field(FIELD_VERSION, crate::node::FieldValue::Int(1));
+        node.confidence_score = 0.5; // legacy node default
+
+        let record = record_from_node(&node).expect("v1 node read");
+        assert_eq!(record.valid_at_ms, 1000, "v1: valid_at := created_at");
+        assert_eq!(record.invalid_at_ms, None);
+        assert_eq!(record.confidence_class, ConfidenceClass::Asserted);
+        assert_eq!(
+            record.confidence, 1.0,
+            "v1 normalization: D_a, not the node's 0.5"
+        );
+        assert_eq!(record.quarantined_at_ms, None);
+    }
+
+    #[test]
+    fn node_write_always_marks_v2_and_strips_internal_fields_from_metadata() {
+        let record = MemoryRecord {
+            namespace: "ns".into(),
+            key: "marker".into(),
+            payload: "data".into(),
+            metadata: [("user".into(), Value::String("field".into()))].into(),
+            created_at_ms: 1000,
+            updated_at_ms: 2000,
+            version: 1,
+            node_id: memory_node_id("ns", "marker"),
+            vector: None,
+            sparse_vector: None,
+            expires_at_ms: None,
+            superseded_by: None,
+            superseded_at_ms: None,
+            valid_at_ms: 1000,
+            confidence_class: ConfidenceClass::Asserted,
+            confidence: 0.7,
+            ..Default::default()
+        };
+        let (node, _) = memory_record_to_node_owned(record);
+        assert!(
+            node.get_field(FIELD_VALID_AT_MS).is_some(),
+            "v2 marker present"
+        );
+        let recovered = record_from_node(&node).expect("roundtrip");
+        assert_eq!(recovered.metadata.len(), 1);
+        assert_eq!(recovered.confidence, 0.7);
     }
 
     #[test]
@@ -1177,6 +1712,7 @@ mod tests {
             expires_at_ms: None,
             superseded_by: Some("successor".into()),
             superseded_at_ms: Some(1234),
+            ..Default::default()
         };
         let json = serde_json::to_string(&line).unwrap();
         let deserialized: MemoryExportLine = serde_json::from_str(&json).unwrap();
@@ -1211,6 +1747,7 @@ mod tests {
             expires_at_ms: None,
             superseded_by: Some("new".into()),
             superseded_at_ms: Some(4321),
+            ..Default::default()
         };
 
         let line = export_line_from_record(record.clone());
@@ -1240,6 +1777,7 @@ mod tests {
             expires_at_ms: None,
             superseded_by: Some("new".into()),
             superseded_at_ms: Some(4321),
+            ..Default::default()
         };
 
         let (node, _) = memory_record_to_node_owned(record.clone());
@@ -1296,6 +1834,7 @@ mod tests {
             expires_at_ms: None,
             superseded_by: None,
             superseded_at_ms: None,
+            ..Default::default()
         };
         record
             .metadata
@@ -1326,6 +1865,7 @@ mod tests {
             expires_at_ms: None,
             superseded_by: None,
             superseded_at_ms: None,
+            ..Default::default()
         };
         assert!(matches_memory_filters(&record, &MemoryMetadata::new()));
     }
@@ -1346,6 +1886,7 @@ mod tests {
             expires_at_ms: None,
             superseded_by: None,
             superseded_at_ms: None,
+            ..Default::default()
         };
         record.metadata.insert("a".into(), Value::Int(1));
         record
@@ -1380,6 +1921,7 @@ mod tests {
             expires_at_ms: None,
             superseded_by: None,
             superseded_at_ms: None,
+            ..Default::default()
         };
         for (k, v) in pairs {
             record.metadata.insert(k.to_string(), v.clone());
@@ -1565,6 +2107,7 @@ mod tests {
             expires_at_ms: None,
             superseded_by: None,
             superseded_at_ms: None,
+            ..Default::default()
         }
     }
 

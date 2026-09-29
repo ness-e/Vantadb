@@ -1070,6 +1070,7 @@ impl Client {
             vector: input.vector,
             sparse_vector: input.sparse_vector,
             ttl_ms: input.ttl_ms,
+            ..Default::default()
         };
         let record = self.inner.put(vanta_input).map_err(to_js_err)?;
         self.mark_dirty(&input.namespace, &input.key);
@@ -1111,6 +1112,7 @@ impl Client {
                 vector: i.vector,
                 sparse_vector: i.sparse_vector,
                 ttl_ms: i.ttl_ms,
+                ..Default::default()
             })
             .collect();
         let records = self.inner.put_batch(vanta_inputs).map_err(to_js_err)?;

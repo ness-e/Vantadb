@@ -111,6 +111,7 @@ pub fn turn_job(
             vector: None,
             sparse_vector: None,
             ttl_ms: None,
+            ..Default::default()
         };
         let l1_record = l1_record.clone();
         let l1_namespace = l1_namespace.clone();
@@ -131,6 +132,7 @@ pub fn turn_job(
                     vector: None,
                     sparse_vector: None,
                     ttl_ms: None,
+                    ..Default::default()
                 })
                 .map(|_| ())
                 .map_err(|e| e.to_string())

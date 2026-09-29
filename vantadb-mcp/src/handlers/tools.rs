@@ -1403,6 +1403,7 @@ pub fn handle_tools_call(
                 sparse_vector,
                 metadata,
                 ttl_ms,
+                ..Default::default()
             };
 
             let embedded = vantadb::Embedded::from_engine(storage.clone());
@@ -3157,6 +3158,7 @@ fn parse_memory_input(obj: &Value, config: &McpConfig) -> Result<vantadb::sdk::M
         sparse_vector,
         metadata,
         ttl_ms,
+        ..Default::default()
     })
 }
 

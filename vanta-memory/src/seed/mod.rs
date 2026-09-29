@@ -204,6 +204,7 @@ fn apply_skill(
         vector: None,
         sparse_vector: None,
         ttl_ms: None,
+        ..Default::default()
     })?;
     if existing_hash.is_some() {
         counts.updated += 1;
@@ -246,6 +247,7 @@ fn apply_persona(
         vector: None,
         sparse_vector: None,
         ttl_ms: None,
+        ..Default::default()
     })?;
     if existing.is_some() {
         counts.updated += 1;

@@ -162,6 +162,7 @@ fn arb_memory_input_full() -> impl Strategy<Value = MemoryInput> {
                 vector,
                 sparse_vector: None,
                 ttl_ms,
+                ..Default::default()
             },
         )
 }
@@ -217,6 +218,7 @@ fn arb_memory_record_json() -> impl Strategy<Value = MemoryRecord> {
                     expires_at_ms,
                     superseded_by: None,
                     superseded_at_ms: None,
+                    ..Default::default()
                 }
             },
         )
