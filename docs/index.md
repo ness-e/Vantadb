@@ -12,7 +12,7 @@ description: "Canonical index of the VantaDB documentation corpus."
      Grouped by kind, then by status, then by title.
      Source of truth: the frontmatter of the files listed below. -->
 
-1441 documents. This page is generated from frontmatter, so it cannot fall behind the tree. If a document is missing here, its `kind` or `description` is missing.
+1442 documents. This page is generated from frontmatter, so it cannot fall behind the tree. If a document is missing here, its `kind` or `description` is missing.
 
 ## Top level (3)
 
@@ -56,14 +56,14 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [vanta-proxy Reference (Endpoints, Opt-in Features, Config)](./api/PROXY.md)     | reference | vanta-proxy is a transparent LLM wire proxy: by default it forwards bytes                                                                                                                         |
 | [VantaDB Error Handling Reference](./api/ERROR_HANDLING.md)                      | reference | This is the canonical contract for how VantaDB surfaces errors across every                                                                                                                       |
 | [VantaDB HTTP API](./api/HTTP_API.md)                                            | reference | Default: http://127.0.0.1:8080                                                                                                                                                                    |
-| [VantaDB IQL Reference](./api/IQL.md)                                            | reference | The parser implements IQL version 1. The version is exposed as IQLVERSION                                                                                                                         |
+| [VantaDB IQL Reference](./api/IQL.md)                                            | reference | The parser implements IQL version 2 (adds the AS OF valid-time clause). The version is exposed as IQL_VERSION                                                                                     |
 | [VantaDB Model Context Protocol (MCP) Server](./api/MCP.md)                      | reference | Current MCP implementation version: 0.7.0                                                                                                                                                         |
 | [Versioning & Stability Policy](./api/VERSIONING.md)                             | reference | VantaDB follows Semantic Versioning with the standard                                                                                                                                             |
 | [WASM API Reference](./api/WASM_API.md)                                          | reference | This page is the canonical entry point for VantaDB's WebAssembly surface — the                                                                                                                    |
 | [WASM Persistence Documentation](./api/WASM_PERSISTENCE.md)                      | reference | How VantaDB persists data in the browser: what exists, what the verified                                                                                                                          |
 | [WASM Standalone Console (Vanta Studio — mode `wasm`)](./api/WASM_STANDALONE.md) | reference | The Vanta Studio console can run 100% in the browser with no server: the                                                                                                                          |
 
-## Internal / contributor (1293)
+## Internal / contributor (1294)
 
 ### Architecture decision records — 54
 
@@ -392,7 +392,7 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [Workflows — Trigger matrix](./dev/workflow/TRIGGERS.md)                                                       | runbook | Source of truth is each file's on: block (read 2026-09-22, post                                                                                                                                                                                 |
 | [Fuzzing Guide for VantaDB](./dev/operations/FUZZING.md)                                                       | runbook | VantaDB uses a dual fuzzing approach to maximize coverage and compatibility _(archived)_                                                                                                                                                        |
 
-### Task files — 1011
+### Task files — 1012
 
 | Document                                                                                                                                             | Kind | Summary                                                                                                                                                                                                                                                    |
 | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -1111,6 +1111,7 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [SCH-04: Scores asserted/derived consumibles (slice 0.8.0)](./dev/tasks/SCH-04.md)                                                                   | task | Cláusulas a verificar (matriz de cierre)                                                                                                                                                                                                                   |
 | [SCH-05: Cuarentena operativa + abstención + trust-aware retrieval (slice 0.8.0)](./dev/tasks/SCH-05.md)                                             | task | Matriz de cierre — default-exclude, gates de inyección, transiciones T1/T1c/T1d/T2/T4, abstención con señal en el wire                                                                                                                                     |
 | [SCH-06: Tests — migración determinista, time-travel, roundtrip export/import y chaos (slice 0.8.0)](./dev/tasks/SCH-06.md)                          | task | Matriz de cierre — doble corrida byte-idéntica, AS OF valid-time con fechas de referencia, roundtrip v1↔v2 y recuperación tras crash mid-migración                                                                                                         |
+| [SCH-07: Superficies — bindings/server/MCP/IQL + docs/api mismo-PR](./dev/tasks/SCH-07.md)                                                           | task | Campos v2 (bitemporal + confianza + quarantined) y params de query (AS OF/valid_at + abstención) cruzan Py/TS/Node/WASM + HTTP + MCP + IQL con los mismos nombres de wire Y matriz de paridad verde Y docs/api mismo-PR.                                   |
 | [SDKB-01 — Mapa namespace ↔ método + diseño de sub-clientes](./dev/tasks/SDKB-01.md)                                                                 | task | Tablas por SDK (método→dominio exactamente uno) + diseño sub-clientes v1                                                                                                                                                                                   |
 | [SDKB-02 — Sub-clientes TypeScript](./dev/tasks/SDKB-02.md)                                                                                          | task | Archivos leídos completos                                                                                                                                                                                                                                  |
 | [SDKB-03: Sub-clientes Python (espejo de SDKB-02)](./dev/tasks/SDKB-03.md)                                                                           | task | pytest pasa (suite existente intacta = backward-compat); tests nuevos espejo SDKB-02: db.memory., db.graph., db.system., db.wiki. delegan al método plano con resultado/firma idénticos\"                                                                  |

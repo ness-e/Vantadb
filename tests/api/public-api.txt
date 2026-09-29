@@ -5264,6 +5264,7 @@ pub fn vantadb::Embedded::graph_page_rank(&self, &[u128], usize, f64, f64) -> va
 impl vantadb::Embedded
 pub fn vantadb::Embedded::search(&self, vantadb::MemorySearchRequest) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemorySearchHit>>
 pub fn vantadb::Embedded::search_page(&self, vantadb::MemorySearchRequest) -> vantadb::error::Result<vantadb::MemorySearchPage>
+pub fn vantadb::Embedded::search_page_with_method(&self, vantadb::MemorySearchRequest, core::option::Option<vantadb::index_port::IndexType>) -> vantadb::error::Result<vantadb::MemorySearchPage>
 pub fn vantadb::Embedded::search_with_entity_boost(&self, vantadb::MemorySearchRequest, &vantadb::sdk::EntityBoost) -> vantadb::error::Result<vantadb::sdk::EntityBoostedSearch>
 pub fn vantadb::Embedded::search_with_method(&self, vantadb::MemorySearchRequest, core::option::Option<vantadb::index_port::IndexType>) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemorySearchHit>>
 impl vantadb::Embedded
@@ -5597,6 +5598,7 @@ pub vantadb::sdk::MemoryListOptions::filter_ops: core::option::Option<vantadb::M
 pub vantadb::sdk::MemoryListOptions::filters: vantadb::MemoryMetadata
 pub vantadb::sdk::MemoryListOptions::include_quarantined: bool
 pub vantadb::sdk::MemoryListOptions::limit: usize
+pub vantadb::sdk::MemoryListOptions::min_confidence: core::option::Option<f32>
 pub vantadb::sdk::MemoryListOptions::valid_window: core::option::Option<vantadb::ValidWindow>
 impl core::clone::Clone for vantadb::MemoryListOptions
 pub fn vantadb::MemoryListOptions::clone(&self) -> vantadb::MemoryListOptions
@@ -8133,6 +8135,7 @@ pub fn vantadb::Embedded::graph_page_rank(&self, &[u128], usize, f64, f64) -> va
 impl vantadb::Embedded
 pub fn vantadb::Embedded::search(&self, vantadb::MemorySearchRequest) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemorySearchHit>>
 pub fn vantadb::Embedded::search_page(&self, vantadb::MemorySearchRequest) -> vantadb::error::Result<vantadb::MemorySearchPage>
+pub fn vantadb::Embedded::search_page_with_method(&self, vantadb::MemorySearchRequest, core::option::Option<vantadb::index_port::IndexType>) -> vantadb::error::Result<vantadb::MemorySearchPage>
 pub fn vantadb::Embedded::search_with_entity_boost(&self, vantadb::MemorySearchRequest, &vantadb::sdk::EntityBoost) -> vantadb::error::Result<vantadb::sdk::EntityBoostedSearch>
 pub fn vantadb::Embedded::search_with_method(&self, vantadb::MemorySearchRequest, core::option::Option<vantadb::index_port::IndexType>) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemorySearchHit>>
 impl vantadb::Embedded
@@ -8417,6 +8420,7 @@ pub vantadb::MemoryListOptions::filter_ops: core::option::Option<vantadb::Memory
 pub vantadb::MemoryListOptions::filters: vantadb::MemoryMetadata
 pub vantadb::MemoryListOptions::include_quarantined: bool
 pub vantadb::MemoryListOptions::limit: usize
+pub vantadb::MemoryListOptions::min_confidence: core::option::Option<f32>
 pub vantadb::MemoryListOptions::valid_window: core::option::Option<vantadb::ValidWindow>
 impl core::clone::Clone for vantadb::MemoryListOptions
 pub fn vantadb::MemoryListOptions::clone(&self) -> vantadb::MemoryListOptions

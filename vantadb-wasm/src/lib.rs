@@ -164,6 +164,19 @@ struct SearchRequest {
     /// validates). `null`/omitted = no filter (default).
     #[serde(default)]
     min_confidence: Option<f32>,
+    /// Valid-time point (SCH-07, ADR-046 §D3): keep only records whose
+    /// validity window contains this unix-ms instant. `null`/omitted = no
+    /// temporal filter (default unchanged).
+    #[serde(default)]
+    as_of_ms: Option<u64>,
+    /// Valid-time window overlap (SCH-07): half-open `[from_ms, to_ms)`;
+    /// `from_ms < to_ms` is validated at the core boundary.
+    #[serde(default)]
+    valid_window: Option<ValidWindow>,
+    /// Include quarantined records (SCH-07, ADR-046 §D5). Default `false`:
+    /// quarantined content is excluded from search/list/retrieval.
+    #[serde(default)]
+    include_quarantined: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     text_query: Option<String>,
     #[serde(default = "default_top_k")]
@@ -193,6 +206,18 @@ struct ListOptions {
     /// Hide superseded records from the listing (consistency with `search`).
     #[serde(default)]
     exclude_superseded: bool,
+    /// Valid-time point (SCH-07, ADR-046 §D3). `null`/omitted = no filter.
+    #[serde(default)]
+    as_of_ms: Option<u64>,
+    /// Valid-time window overlap (SCH-07): half-open `[from_ms, to_ms)`.
+    #[serde(default)]
+    valid_window: Option<ValidWindow>,
+    /// Include quarantined records (SCH-07, ADR-046 §D5). Default `false`.
+    #[serde(default)]
+    include_quarantined: bool,
+    /// Opt-in confidence filter (SCH-07, ADR-046 §D2).
+    #[serde(default)]
+    min_confidence: Option<f32>,
 }
 
 fn default_limit() -> usize {
@@ -696,6 +721,7 @@ impl Client {
                     as_of_ms: None,
                     valid_window: None,
                     include_quarantined: false,
+                    min_confidence: None,
                 };
                 let page = self.inner.list(ns, opts).map_err(to_js_err)?;
                 for record in page.records {
@@ -1174,10 +1200,12 @@ impl Client {
             limit: opts.limit,
             cursor: opts.cursor,
             exclude_superseded: opts.exclude_superseded,
-            // SCH-03 temporal params: not exposed in WASM yet (SCH-07).
-            as_of_ms: None,
-            valid_window: None,
-            include_quarantined: false,
+            // SCH-07: temporal + quarantine + confidence params (ADR-046
+            // §D2/§D3/§D5) — same wire names as the SDK.
+            as_of_ms: opts.as_of_ms,
+            valid_window: opts.valid_window,
+            include_quarantined: opts.include_quarantined,
+            min_confidence: opts.min_confidence,
         };
         let page = self.inner.list(namespace, vanta_opts).map_err(to_js_err)?;
         let obj = js_sys::Object::new();
@@ -1249,10 +1277,10 @@ impl Client {
             exclude_superseded: req.exclude_superseded,
             // SCH-04: opt-in confidence filter (ADR-046 §D2).
             min_confidence: req.min_confidence,
-            // SCH-03 temporal params: not exposed in WASM yet (SCH-07).
-            as_of_ms: None,
-            valid_window: None,
-            include_quarantined: false,
+            // SCH-07: temporal + quarantine query params (ADR-046 §D3/§D5).
+            as_of_ms: req.as_of_ms,
+            valid_window: req.valid_window,
+            include_quarantined: req.include_quarantined,
             search_profile: None,
             range: None,
             group_by: None,
@@ -1324,10 +1352,10 @@ impl Client {
             exclude_superseded: req.exclude_superseded,
             // SCH-04: opt-in confidence filter (ADR-046 §D2).
             min_confidence: req.min_confidence,
-            // SCH-03 temporal params: not exposed in WASM yet (SCH-07).
-            as_of_ms: None,
-            valid_window: None,
-            include_quarantined: false,
+            // SCH-07: temporal + quarantine query params (ADR-046 §D3/§D5).
+            as_of_ms: req.as_of_ms,
+            valid_window: req.valid_window,
+            include_quarantined: req.include_quarantined,
             search_profile: None,
             range: None,
             group_by: None,
@@ -1469,10 +1497,10 @@ impl Client {
             exclude_superseded: req.exclude_superseded,
             // SCH-04: opt-in confidence filter (ADR-046 §D2).
             min_confidence: req.min_confidence,
-            // SCH-03 temporal params: not exposed in WASM yet (SCH-07).
-            as_of_ms: None,
-            valid_window: None,
-            include_quarantined: false,
+            // SCH-07: temporal + quarantine query params (ADR-046 §D3/§D5).
+            as_of_ms: req.as_of_ms,
+            valid_window: req.valid_window,
+            include_quarantined: req.include_quarantined,
             search_profile: None,
             range: None,
             group_by: None,
@@ -2350,6 +2378,45 @@ fn memory_record_to_js(rec: MemoryRecord) -> JsValue {
         derived_from.push(&parent.as_str().into());
     }
     js_sys::Reflect::set(&obj, &"derived_from".into(), &derived_from).ok();
+    // SCH-07 (ADR-046 §D2/§D3/§D5): bitemporal + quarantine fields. u64s
+    // travel as decimal strings (policy string-u64, same as `expires_at_ms`);
+    // optional fields are omitted when `None` (same convention).
+    js_sys::Reflect::set(
+        &obj,
+        &"valid_at_ms".into(),
+        &rec.valid_at_ms.to_string().into(),
+    )
+    .ok();
+    if let Some(invalid_at) = rec.invalid_at_ms {
+        js_sys::Reflect::set(
+            &obj,
+            &"invalid_at_ms".into(),
+            &invalid_at.to_string().into(),
+        )
+        .ok();
+    }
+    if let Some(quarantined_at) = rec.quarantined_at_ms {
+        js_sys::Reflect::set(
+            &obj,
+            &"quarantined_at_ms".into(),
+            &quarantined_at.to_string().into(),
+        )
+        .ok();
+    }
+    if let Some(reason) = &rec.quarantine_reason {
+        js_sys::Reflect::set(&obj, &"quarantine_reason".into(), &reason.as_str().into()).ok();
+    }
+    if let Some(by) = &rec.quarantined_by {
+        js_sys::Reflect::set(&obj, &"quarantined_by".into(), &by.as_str().into()).ok();
+    }
+    if let Some(due) = rec.quarantine_review_due_ms {
+        js_sys::Reflect::set(
+            &obj,
+            &"quarantine_review_due_ms".into(),
+            &due.to_string().into(),
+        )
+        .ok();
+    }
     if let Ok(meta) = serde_wasm_bindgen::to_value(&rec.metadata) {
         js_sys::Reflect::set(&obj, &"metadata".into(), &meta).ok();
     } else {

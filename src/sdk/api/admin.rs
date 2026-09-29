@@ -70,6 +70,7 @@ impl Embedded {
                     as_of_ms: None,
                     valid_window: None,
                     include_quarantined: true,
+                    min_confidence: None,
                 },
             )?;
             if page.records.is_empty() {

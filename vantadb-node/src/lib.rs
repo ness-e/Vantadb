@@ -24,7 +24,7 @@ use vantadb::index::IndexType;
 use vantadb::node::DistanceMetric;
 use vantadb::sdk::{
     Embedded, MemoryFilterItem, MemoryInput, MemoryListOptions, MemoryMetadata,
-    MemorySearchRequest, NodeInput, SearchExplanation,
+    MemorySearchRequest, NodeInput, SearchExplanation, ValidWindow,
 };
 // FFI guards: single source of truth from core (WSM-09).
 use vantadb::{SparseVector, MAX_K, MAX_VEC_DIM};
@@ -763,6 +763,10 @@ fn parse_list_options(value: Option<&Value>) -> napi::Result<MemoryListOptions> 
     let mut filters = MemoryMetadata::new();
     let mut limit = 100usize;
     let mut cursor = None;
+    let mut as_of_ms = None;
+    let mut valid_window = None;
+    let mut include_quarantined = false;
+    let mut min_confidence = None;
     if let Some(opts) = value {
         let obj = opts
             .as_object()
@@ -784,6 +788,12 @@ fn parse_list_options(value: Option<&Value>) -> napi::Result<MemoryListOptions> 
                     as usize,
             );
         }
+        // SCH-07: temporal + quarantine-view + confidence params (ADR-046
+        // §D2/§D3/§D5) — same wire names as the SDK.
+        as_of_ms = get_opt_u64(obj, "as_of_ms")?;
+        valid_window = get_opt_valid_window(obj, "valid_window")?;
+        include_quarantined = get_opt_bool(obj, "include_quarantined")?;
+        min_confidence = opt_min_confidence(obj, "min_confidence")?;
     }
     Ok(MemoryListOptions {
         #[allow(deprecated)]
@@ -792,10 +802,10 @@ fn parse_list_options(value: Option<&Value>) -> napi::Result<MemoryListOptions> 
         limit,
         cursor,
         exclude_superseded: false,
-        // SCH-03 temporal params: not exposed in Node yet (SCH-07).
-        as_of_ms: None,
-        valid_window: None,
-        include_quarantined: false,
+        as_of_ms,
+        valid_window,
+        include_quarantined,
+        min_confidence,
     })
 }
 
@@ -821,19 +831,11 @@ fn parse_search_request(value: &Value) -> napi::Result<MemorySearchRequest> {
         exclude_superseded: false,
         // SCH-04: opt-in confidence filter (ADR-046 §D2) — finiteness/range
         // validated at the core boundary (`min_confidence` in the error).
-        min_confidence: match obj.get("min_confidence") {
-            None | Some(Value::Null) => None,
-            Some(Value::Number(n)) => Some(n.as_f64().unwrap_or(f64::NAN) as f32),
-            Some(_) => {
-                return Err(Error::from_reason(
-                    "`min_confidence` must be a number in [0, 1]",
-                ))
-            }
-        },
-        // SCH-03 temporal params: not exposed in Node yet (SCH-07).
-        as_of_ms: None,
-        valid_window: None,
-        include_quarantined: false,
+        min_confidence: opt_min_confidence(obj, "min_confidence")?,
+        // SCH-07: temporal + quarantine-view params (ADR-046 §D3/§D5).
+        as_of_ms: get_opt_u64(obj, "as_of_ms")?,
+        valid_window: get_opt_valid_window(obj, "valid_window")?,
+        include_quarantined: get_opt_bool(obj, "include_quarantined")?,
         search_profile: None,
         range: None,
         group_by: None,
@@ -881,6 +883,49 @@ fn get_opt_u64(obj: &Map<String, Value>, key: &str) -> napi::Result<Option<u64>>
             }
         }
         Some(_) => Err(Error::from_reason(format!("`{key}` must be a number"))),
+    }
+}
+
+/// SCH-07: parse the optional `valid_window` object (`{from_ms, to_ms}`,
+/// ADR-046 §D3). Shape/type validated here; `from_ms < to_ms` is enforced by
+/// the core boundary (`SEARCH_OPTIONS_INVALID`) — never silently swapped.
+fn get_opt_valid_window(obj: &Map<String, Value>, key: &str) -> napi::Result<Option<ValidWindow>> {
+    match obj.get(key) {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::Object(map)) => {
+            let from_ms = get_opt_u64(map, "from_ms")?.ok_or_else(|| {
+                Error::from_reason(format!("`{key}.from_ms` must be a non-negative integer"))
+            })?;
+            let to_ms = get_opt_u64(map, "to_ms")?.ok_or_else(|| {
+                Error::from_reason(format!("`{key}.to_ms` must be a non-negative integer"))
+            })?;
+            Ok(Some(ValidWindow { from_ms, to_ms }))
+        }
+        Some(_) => Err(Error::from_reason(format!(
+            "`{key}` must be an object {{from_ms, to_ms}}"
+        ))),
+    }
+}
+
+/// SCH-07: optional boolean flag (absent/`null` ⇒ `false`; a present
+/// non-boolean is rejected instead of being coerced).
+fn get_opt_bool(obj: &Map<String, Value>, key: &str) -> napi::Result<bool> {
+    match obj.get(key) {
+        None | Some(Value::Null) => Ok(false),
+        Some(Value::Bool(b)) => Ok(*b),
+        Some(_) => Err(Error::from_reason(format!("`{key}` must be a boolean"))),
+    }
+}
+
+/// SCH-04/SCH-07: optional `min_confidence` number; finiteness/range are
+/// validated at the core boundary (never clamped here).
+fn opt_min_confidence(obj: &Map<String, Value>, key: &str) -> napi::Result<Option<f32>> {
+    match obj.get(key) {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::Number(n)) => Ok(Some(n.as_f64().unwrap_or(f64::NAN) as f32)),
+        Some(_) => Err(Error::from_reason(format!(
+            "`{key}` must be a number in [0, 1]"
+        ))),
     }
 }
 

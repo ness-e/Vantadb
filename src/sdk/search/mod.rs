@@ -152,6 +152,21 @@ impl Embedded {
         Ok(page.hits)
     }
 
+    /// Same as [`search_with_method`](Self::search_with_method) but returns the
+    /// full [`MemorySearchPage`] (cursor + abstention signal), mirroring
+    /// [`search_page`](Self::search_page). SCH-07: page-shaped transports
+    /// (MCP search tools) need `abstained`/`abstention_reason` even when the
+    /// dense-index backend is overridden; `search_with_method` alone would drop
+    /// the signal silently.
+    pub fn search_page_with_method(
+        &self,
+        request: MemorySearchRequest,
+        method: Option<crate::index::IndexType>,
+    ) -> Result<MemorySearchPage> {
+        let (page, _boost_report) = page::run_search_page(self, request, method, None)?;
+        Ok(page)
+    }
+
     /// Search with an opt-in deterministic entity-cluster boost (WIRE-05).
     ///
     /// Behaves like [`search`](Self::search) but additionally applies the

@@ -333,6 +333,11 @@ export class NativeVantaDB {
         // backends — WASM emits decimal strings); napi only takes numbers, so
         // narrow at the boundary. Erased cast: zero runtime change.
         cursor: options.cursor as number | undefined,
+        // SCH-07: temporal + quarantine-view + confidence passthrough.
+        as_of_ms: options.as_of_ms,
+        valid_window: options.valid_window,
+        include_quarantined: options.include_quarantined,
+        min_confidence: options.min_confidence,
       };
       const raw = await this.inner.list(namespace, wire);
       const items: unknown[] = raw.records ?? [];
@@ -373,6 +378,10 @@ export class NativeVantaDB {
       query_sparse: (request.query_sparse as unknown as Record<string, number> | null | undefined) ?? undefined,
       // SCH-04: opt-in confidence filter passthrough (ADR-046 §D2).
       min_confidence: request.min_confidence ?? undefined,
+      // SCH-07: temporal + quarantine-view passthrough (ADR-046 §D3/§D5).
+      as_of_ms: request.as_of_ms ?? undefined,
+      valid_window: request.valid_window ?? undefined,
+      include_quarantined: request.include_quarantined ?? undefined,
     };
   }
 

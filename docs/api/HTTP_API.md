@@ -366,6 +366,12 @@ SDK's `VantaMemorySearchRequest` plus cursor pagination: `limit` = page size (de
 `distance_metric` is one of `Cosine`, `Euclidean`, `SparseDot`; `explain: true` adds a
 `VantaSearchExplanation` per result.
 
+SCH-07 query params (ADR-046, all optional): `min_confidence` (`[0, 1]`; rejects
+out-of-range at the boundary), `as_of_ms` (valid-time point), `valid_window`
+(`{from_ms, to_ms}` half-open overlap), `include_quarantined` (default `false`:
+quarantined records are excluded). An empty `namespace` searches **all**
+namespaces (merged by score).
+
 > Text search works on fresh databases out of the box: the server ensures index state
 > at startup (MOD-12). `POST /api/v2/maintenance/index-rebuilds` remains available for
 > explicit rebuilds of existing data.
@@ -390,15 +396,27 @@ SDK's `VantaMemorySearchRequest` plus cursor pagination: `limit` = page size (de
 {
   "records": [
     {
-      "record": { "...record wire shape..." : "" },
+      "record": { "...record wire shape (incl. v2 bitemporal/confidence/quarantine fields)..." : "" },
       "score": 0.57536423,
       "explanation": null
     }
   ],
   "next_cursor": null,
-  "has_more": false
+  "has_more": false,
+  "abstained": false,
+  "abstention_reason": null
 }
 ```
+
+`abstained`/`abstention_reason` are the selective-abstention signal (ADR-046 §D2):
+when the server runs with `VANTADB_CONFIDENCE_THRESHOLD` set and every candidate
+falls below it, `abstained` is `true` and `abstention_reason` reports the stable
+code (`no_candidates_above_threshold` | `all_quarantined`) — never a silent empty
+page. The signal is produced on the single-namespace path; the all-namespaces
+fan-out merges per-namespace rankings without a page object, so it reports
+`false`/`null` (N/A). With the threshold unset (default) the response behaves
+exactly as before: `abstained` travels as `false` and `abstention_reason` as
+`null`, the two additive fields being the only difference.
 
 ### `GET /api/v2/autocomplete?prefix=<prefix>`
 

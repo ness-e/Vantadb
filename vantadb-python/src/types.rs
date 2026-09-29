@@ -161,6 +161,44 @@ impl VantaPyMemoryRecord {
         self.inner.derived_from.clone()
     }
 
+    /// Start of the validity window (ADR-046 §D3, SCH-02); v1 records
+    /// normalize to `created_at_ms`.
+    #[getter]
+    fn valid_at_ms(&self) -> u64 {
+        self.inner.valid_at_ms
+    }
+
+    /// End of the validity window (exclusive); `None` = open-ended.
+    #[getter]
+    fn invalid_at_ms(&self) -> Option<u64> {
+        self.inner.invalid_at_ms
+    }
+
+    /// Quarantine entry timestamp (SCH-05); `None` = active.
+    #[getter]
+    fn quarantined_at_ms(&self) -> Option<u64> {
+        self.inner.quarantined_at_ms
+    }
+
+    /// Stable quarantine reason code (`explicit_write`, `unreviewed_import`,
+    /// `derived_promotion`, `policy_match`); the code set may grow.
+    #[getter]
+    fn quarantine_reason(&self) -> Option<String> {
+        self.inner.quarantine_reason.clone()
+    }
+
+    /// Principal that applied the quarantine (or `system:<op>`).
+    #[getter]
+    fn quarantined_by(&self) -> Option<String> {
+        self.inner.quarantined_by.clone()
+    }
+
+    /// Review deadline (ms); `None` = no default deadline configured.
+    #[getter]
+    fn quarantine_review_due_ms(&self) -> Option<u64> {
+        self.inner.quarantine_review_due_ms
+    }
+
     fn __getitem__<'py>(&self, py: Python<'py>, key: &str) -> PyResult<Bound<'py, PyAny>> {
         use pyo3::conversion::IntoPyObject;
         Ok(match key {
@@ -183,6 +221,15 @@ impl VantaPyMemoryRecord {
             "confidence" => self.confidence().into_pyobject(py)?.into_any(),
             "last_validated_at_ms" => self.last_validated_at_ms().into_pyobject(py)?.into_any(),
             "derived_from" => self.derived_from().into_pyobject(py)?.into_any(),
+            "valid_at_ms" => self.valid_at_ms().into_pyobject(py)?.into_any(),
+            "invalid_at_ms" => self.invalid_at_ms().into_pyobject(py)?.into_any(),
+            "quarantined_at_ms" => self.quarantined_at_ms().into_pyobject(py)?.into_any(),
+            "quarantine_reason" => self.quarantine_reason().into_pyobject(py)?.into_any(),
+            "quarantined_by" => self.quarantined_by().into_pyobject(py)?.into_any(),
+            "quarantine_review_due_ms" => self
+                .quarantine_review_due_ms()
+                .into_pyobject(py)?
+                .into_any(),
             _ => {
                 return Err(pyo3::exceptions::PyKeyError::new_err(format!(
                     "Record has no field '{key}'"
@@ -430,6 +477,42 @@ impl VantaPySearchHit {
     #[getter]
     fn derived_from(&self) -> Vec<String> {
         self.inner.derived_from.clone()
+    }
+
+    /// Start of the validity window (ADR-046 §D3, SCH-02).
+    #[getter]
+    fn valid_at_ms(&self) -> u64 {
+        self.inner.valid_at_ms
+    }
+
+    /// End of the validity window (exclusive); `None` = open-ended.
+    #[getter]
+    fn invalid_at_ms(&self) -> Option<u64> {
+        self.inner.invalid_at_ms
+    }
+
+    /// Quarantine entry timestamp (SCH-05); `None` = active.
+    #[getter]
+    fn quarantined_at_ms(&self) -> Option<u64> {
+        self.inner.quarantined_at_ms
+    }
+
+    /// Stable quarantine reason code; the code set may grow.
+    #[getter]
+    fn quarantine_reason(&self) -> Option<String> {
+        self.inner.quarantine_reason.clone()
+    }
+
+    /// Principal that applied the quarantine (or `system:<op>`).
+    #[getter]
+    fn quarantined_by(&self) -> Option<String> {
+        self.inner.quarantined_by.clone()
+    }
+
+    /// Review deadline (ms); `None` = no default deadline configured.
+    #[getter]
+    fn quarantine_review_due_ms(&self) -> Option<u64> {
+        self.inner.quarantine_review_due_ms
     }
 
     fn __repr__(&self) -> String {

@@ -160,7 +160,7 @@ Two npm packages exist; they are **not** the same thing:
 
 `vantadb-node` is the **native backend** you reach via
 `NativeVantaDB.connect()` (lazy-loaded); `vantadb` is the **WASM backend**
-(`Client.create()`). See ADR-030 (`docs/dev/architecture/adr/ADR-030-brand-identity-naming-convention.md`)
+(`Client.create()`). See ADR-0030 (`docs/dev/architecture/adr/ADR-0030-brand-identity-naming-convention.md`)
 for the full naming convention across registries.
 
 ## Errors

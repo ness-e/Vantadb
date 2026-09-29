@@ -2709,3 +2709,52 @@ fn test_search_min_confidence_page_fills_when_enough_candidates_exist() {
         );
     }
 }
+
+// ── SCH-07: `search_page_with_method` (page + method mirror) ──────────
+
+#[test]
+fn test_search_page_with_method_matches_search_with_method_and_carries_the_page() {
+    let db = setup();
+    insert(
+        &db,
+        "spwm",
+        "a",
+        "alpha shared",
+        Some(vec![1.0, 0.0]),
+        MemoryMetadata::new(),
+    );
+    insert(
+        &db,
+        "spwm",
+        "b",
+        "alpha shared",
+        Some(vec![0.9, 0.1]),
+        MemoryMetadata::new(),
+    );
+    let request = MemorySearchRequest {
+        namespace: "spwm".into(),
+        text_query: Some("alpha".into()),
+        top_k: 1,
+        ..Default::default()
+    };
+
+    let page = db
+        .search_page_with_method(request.clone(), Some(crate::index::IndexType::Flat))
+        .expect("page");
+    let hits = db
+        .search_with_method(request, Some(crate::index::IndexType::Flat))
+        .expect("hits");
+    assert_eq!(
+        page.hits, hits,
+        "the page mirror must return exactly the Vec hits of `search_with_method`"
+    );
+    assert_eq!(page.hits.len(), 1, "top_k is the page size");
+    assert!(
+        page.next_cursor.is_some(),
+        "a full page carries the continuation cursor"
+    );
+    assert!(
+        !page.abstained && page.abstention_reason.is_none(),
+        "no configured threshold → no abstention signal"
+    );
+}

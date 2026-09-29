@@ -121,6 +121,12 @@ class SearchHit:
     confidence: float
     last_validated_at_ms: int | None
     derived_from: list[str]
+    valid_at_ms: int
+    invalid_at_ms: int | None
+    quarantined_at_ms: int | None
+    quarantine_reason: str | None
+    quarantined_by: str | None
+    quarantine_review_due_ms: int | None
 
     def __repr__(self) -> str: ...
 
@@ -142,6 +148,12 @@ class Record:
     confidence: float
     last_validated_at_ms: int | None
     derived_from: list[str]
+    valid_at_ms: int
+    invalid_at_ms: int | None
+    quarantined_at_ms: int | None
+    quarantine_reason: str | None
+    quarantined_by: str | None
+    quarantine_review_due_ms: int | None
 
     def __getitem__(self, key: str) -> Any: ...
     def __repr__(self) -> str: ...
@@ -230,6 +242,9 @@ class Client:
         exclude_superseded: bool = False,
         query_sparse: dict | None = None,
         min_confidence: float | None = None,
+        as_of_ms: int | None = None,
+        valid_window: dict | None = None,
+        include_quarantined: bool = False,
     ) -> list[SearchHit]: ...
     def search_multi(
         self,
@@ -243,6 +258,9 @@ class Client:
         exclude_superseded: bool = False,
         query_sparse: dict | None = None,
         min_confidence: float | None = None,
+        as_of_ms: int | None = None,
+        valid_window: dict | None = None,
+        include_quarantined: bool = False,
     ) -> list[SearchHit]: ...
     def search_vector(self, vector: Any, top_k: int = 10) -> list[tuple[int, float]]: ...
     def search_batch(
@@ -401,6 +419,9 @@ class MemoryClient:
         exclude_superseded: bool = False,
         query_sparse: dict | None = None,
         min_confidence: float | None = None,
+        as_of_ms: int | None = None,
+        valid_window: dict | None = None,
+        include_quarantined: bool = False,
     ) -> list[SearchHit]: ...
     def search_multi(
         self,
@@ -414,6 +435,9 @@ class MemoryClient:
         exclude_superseded: bool = False,
         query_sparse: dict | None = None,
         min_confidence: float | None = None,
+        as_of_ms: int | None = None,
+        valid_window: dict | None = None,
+        include_quarantined: bool = False,
     ) -> list[SearchHit]: ...
     def search_vector(self, vector: Any, top_k: int = 10) -> list[tuple[int, float]]: ...
     def search_batch(
@@ -452,6 +476,10 @@ class MemoryClient:
         limit: int = 100,
         cursor: int | None = None,
         exclude_superseded: bool = False,
+        as_of_ms: int | None = None,
+        valid_window: dict | None = None,
+        include_quarantined: bool = False,
+        min_confidence: float | None = None,
     ) -> ListResult: ...
     def delete(self, namespace: str, key: str) -> bool: ...
 

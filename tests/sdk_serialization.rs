@@ -157,6 +157,46 @@ fn test_list_page_serialize() {
 }
 
 #[test]
+fn test_search_page_serialize_with_abstention_signal() {
+    // SCH-07 (ADR-046 §D2): the page wire carries the selective-abstention
+    // signal with stable snake_case codes — the same shape every page-shaped
+    // transport (HTTP `SearchPageV2`, MCP structuredContent) mirrors.
+    let page = MemorySearchPage {
+        hits: vec![],
+        next_cursor: None,
+        abstained: true,
+        abstention_reason: Some(AbstentionReason::NoCandidatesAboveThreshold),
+    };
+    let json = serde_json::to_value(&page).unwrap();
+    assert_eq!(json["abstained"], serde_json::json!(true));
+    assert_eq!(
+        json["abstention_reason"],
+        serde_json::json!("no_candidates_above_threshold")
+    );
+    let back: MemorySearchPage = serde_json::from_value(json).unwrap();
+    assert!(back.abstained);
+    assert_eq!(
+        back.abstention_reason,
+        Some(AbstentionReason::NoCandidatesAboveThreshold)
+    );
+
+    // Default (no threshold / no quarantine drain): both fields at defaults,
+    // and a v1-style payload without them still deserializes (serde default).
+    let page = MemorySearchPage {
+        hits: vec![],
+        next_cursor: None,
+        abstained: false,
+        abstention_reason: None,
+    };
+    let json = serde_json::to_value(&page).unwrap();
+    assert_eq!(json["abstention_reason"], serde_json::Value::Null);
+    let legacy: MemorySearchPage =
+        serde_json::from_value(serde_json::json!({"hits": [], "next_cursor": null})).unwrap();
+    assert!(!legacy.abstained);
+    assert_eq!(legacy.abstention_reason, None);
+}
+
+#[test]
 fn test_node_record_serialize() {
     let record = NodeRecord {
         id: 1,

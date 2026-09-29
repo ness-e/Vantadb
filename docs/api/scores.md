@@ -70,6 +70,30 @@ Helper centralization (this crate `src/api/scores.rs`): `cosine_distance_to_simi
 
 All hybrid results are **RRF-fused scores** (not raw BM25/cosine) — explanation ranks in `debug.rs` reconstruct per-arm contributions (`desktop/retrieval-core.ts:computeSegments`).
 
+## Record Confidence (`MemoryRecord.confidence`)
+
+Every memory record carries a declared/computed confidence in `[0, 1]` plus its
+provenance class (ADR-046 §D2/§D4, SCH-04):
+
+- `confidence_class: "Asserted"` — a direct writer claim; absent score defaults
+  to `D_a = 1.0` ("trust the writer" policy).
+- `confidence_class: "Derived"` — computed by the engine from `derived_from`
+  parents: `score = clamp(min(parents) × 0.9, 0, 1)` (`DERIVATION_DISCOUNT`).
+  Declaring a score on a derived record is rejected at the boundary.
+- Filters: `min_confidence` (per request, opt-in) and
+  `confidence_threshold` (config, opt-in — also triggers the explicit
+  `abstained` signal when it empties the page, ADR-046 §D2).
+
+### Calibration limits (L1–L5) — declared ranges, not probabilities
+
+| # | Limit |
+|---|-------|
+| **L1** | `D_a = 1.0` and the `0.9` discount are **declared policy**, not measurement. Empirical calibration (ECE/temperature) is scheduled for VER-08. |
+| **L2** | Scores are **not calibrated probabilities**. Consumers must treat them as ranges and pick configurable thresholds — never statistical significance. |
+| **L3** | No temporal decay: freshness is tracked separately by `last_validated_at_ms`. |
+| **L4** | `derived_from` is same-namespace in 0.8.0 (cross-namespace parents are v1.0). |
+| **L5** | No reactive recomputation: a derived record keeps its stored score until an explicit re-consolidation. |
+
 ## Verification
 
 ```powershell

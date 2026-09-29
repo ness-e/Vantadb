@@ -6053,3 +6053,198 @@ fn test_mcp_quarantined_axiom_hidden_but_counts_for_next_id() {
         "quarantined axiom must reserve its id: {text}"
     );
 }
+
+// ── SCH-07: temporal/quarantine params + selective-abstention signal ─────
+
+/// SCH-07: `memory_search`/`memory_list` accept the temporal
+/// (`as_of_ms`/`valid_window`) and quarantine-view (`include_quarantined`)
+/// params with the same wire names as the SDK; bad types/shapes are rejected
+/// at the MCP trust boundary instead of being coerced.
+#[test]
+fn test_mcp_search_and_list_temporal_quarantine_args() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    let cfg = default_config();
+    let embedded = vantadb::Embedded::from_engine(storage.clone());
+    // MOD-12: mirror production startup — text/BM25 indexes must be current
+    // before lexical searches on a freshly opened engine.
+    embedded.ensure_indexes_current().expect("ensure indexes");
+
+    let put = |key: &str, valid_at: u64, quarantine: bool| {
+        let mut input = vantadb::MemoryInput::new("sch07_ns", key, "alpha temporal");
+        input.valid_at_ms = Some(valid_at);
+        input.quarantine = quarantine;
+        embedded.put(input).expect("put");
+    };
+    put("early", 1000, false);
+    put("late", 5000, false);
+    put("hidden", 1000, true);
+
+    let call = |args: Value| Some(json!({"name": "memory_search", "arguments": args}));
+
+    // as_of_ms = 1000: only the record valid at T; quarantined excluded (default).
+    let out = handle_tools_call(
+        &call(
+            json!({"namespace": "sch07_ns", "text_query": "alpha", "top_k": 10, "as_of_ms": 1000}),
+        ),
+        &executor,
+        &storage,
+        &cfg,
+    )
+    .expect("search as_of");
+    let text = out["content"][0]["text"].as_str().unwrap_or_default();
+    assert!(text.contains("early"), "valid-at-T record visible: {text}");
+    assert!(
+        !text.contains("late"),
+        "record valid only later hidden: {text}"
+    );
+    assert!(
+        !text.contains("hidden"),
+        "quarantined record excluded by default: {text}"
+    );
+
+    // Opt-in quarantine view at the same instant.
+    let out = handle_tools_call(
+        &call(
+            json!({"namespace": "sch07_ns", "text_query": "alpha", "top_k": 10,
+                     "as_of_ms": 1000, "include_quarantined": true}),
+        ),
+        &executor,
+        &storage,
+        &cfg,
+    )
+    .expect("search as_of + quarantined");
+    let text = out["content"][0]["text"].as_str().unwrap_or_default();
+    assert!(text.contains("early") && text.contains("hidden"), "{text}");
+
+    // valid_window overlap [1000, 3000).
+    let out = handle_tools_call(
+        &call(
+            json!({"namespace": "sch07_ns", "text_query": "alpha", "top_k": 10,
+                     "valid_window": {"from_ms": 1000, "to_ms": 3000}}),
+        ),
+        &executor,
+        &storage,
+        &cfg,
+    )
+    .expect("search window");
+    let text = out["content"][0]["text"].as_str().unwrap_or_default();
+    assert!(text.contains("early") && !text.contains("late"), "{text}");
+
+    // Inverted window: core boundary rejects (never silently swapped).
+    let out = handle_tools_call(
+        &call(json!({"namespace": "sch07_ns", "text_query": "alpha",
+                     "valid_window": {"from_ms": 3000, "to_ms": 1000}})),
+        &executor,
+        &storage,
+        &cfg,
+    )
+    .expect("tool call");
+    assert!(
+        !out["isError"].is_null(),
+        "inverted window must be an error: {out}"
+    );
+
+    // Bad types are param errors (actionable, never coerced).
+    for bad in [
+        json!({"namespace": "sch07_ns", "as_of_ms": "soon"}),
+        json!({"namespace": "sch07_ns", "valid_window": {"from_ms": -1, "to_ms": 5}}),
+        json!({"namespace": "sch07_ns", "include_quarantined": "yes"}),
+    ] {
+        assert!(
+            handle_tools_call(&call(bad.clone()), &executor, &storage, &cfg).is_err(),
+            "expected param error for {bad}"
+        );
+    }
+
+    // memory_list: quarantine view opt-in + temporal point.
+    let list = Some(json!({"name": "memory_list", "arguments": {
+        "namespace": "sch07_ns", "include_quarantined": true
+    }}));
+    let out = handle_tools_call(&list, &executor, &storage, &cfg).expect("list");
+    let text = out["content"][0]["text"].as_str().unwrap_or_default();
+    assert!(
+        text.contains("hidden"),
+        "quarantined shown on opt-in: {text}"
+    );
+
+    let list_at = Some(json!({"name": "memory_list", "arguments": {
+        "namespace": "sch07_ns", "as_of_ms": 1000
+    }}));
+    let out = handle_tools_call(&list_at, &executor, &storage, &cfg).expect("list as_of");
+    let text = out["content"][0]["text"].as_str().unwrap_or_default();
+    assert!(text.contains("early") && !text.contains("late"), "{text}");
+
+    // min_confidence on list (ADR-046 §D2, SCH-07): low-confidence record filtered.
+    let mut low = vantadb::MemoryInput::new("sch07_ns", "low", "alpha temporal");
+    low.confidence = Some(0.3);
+    embedded.put(low).expect("put low");
+    let list_floor = Some(json!({"name": "memory_list", "arguments": {
+        "namespace": "sch07_ns", "include_quarantined": true, "min_confidence": 0.9
+    }}));
+    let out = handle_tools_call(&list_floor, &executor, &storage, &cfg).expect("list floor");
+    let text = out["content"][0]["text"].as_str().unwrap_or_default();
+    assert!(
+        !text.contains("low"),
+        "threshold filters 0.3 record: {text}"
+    );
+    let bad = Some(json!({"name": "memory_list", "arguments": {
+        "namespace": "sch07_ns", "min_confidence": "high"
+    }}));
+    assert!(
+        handle_tools_call(&bad, &executor, &storage, &cfg).is_err(),
+        "non-numeric min_confidence must be a param error"
+    );
+}
+
+/// SCH-07: with `confidence_threshold` configured, an emptied `memory_search`
+/// page carries the explicit abstention signal (`abstained` + stable reason)
+/// in `structuredContent` — never a silent empty page. `search_with_method`
+/// shares the same envelope.
+#[test]
+fn test_mcp_search_abstention_signal_in_structured_content() {
+    let storage = Arc::new(
+        StorageEngine::open_with_config(
+            ":memory:",
+            Some(vantadb::config::Config {
+                backend_kind: vantadb::storage::BackendKind::InMemory,
+                confidence_threshold: Some(0.9),
+                ..vantadb::config::Config::default()
+            }),
+        )
+        .expect("open with threshold"),
+    );
+    let executor = Executor::new(&storage);
+    let cfg = default_config();
+    let embedded = vantadb::Embedded::from_engine(storage.clone());
+    embedded.ensure_indexes_current().expect("ensure indexes");
+    let mut input = vantadb::MemoryInput::new("sch07_abs", "shaky", "below bar");
+    input.confidence = Some(0.2);
+    embedded.put(input).expect("put");
+
+    let call = Some(json!({"name": "memory_search", "arguments": {
+        "namespace": "sch07_abs", "text_query": "below", "top_k": 5
+    }}));
+    let out = handle_tools_call(&call, &executor, &storage, &cfg).expect("search");
+    assert!(out["isError"].is_null(), "{out}");
+    let structured = &out["structuredContent"];
+    assert_eq!(structured["abstained"], true, "explicit signal: {out}");
+    assert_eq!(
+        structured["abstention_reason"], "no_candidates_above_threshold",
+        "{out}"
+    );
+    // Text payload stays the raw (empty) hits array (MCP-39 back-compat).
+    assert_eq!(out["content"][0]["text"], "[]", "{out}");
+
+    // search_with_method shares the same page-shaped envelope.
+    let call = Some(json!({"name": "search_with_method", "arguments": {
+        "namespace": "sch07_abs", "text_query": "below", "top_k": 5, "method": "flat"
+    }}));
+    let out = handle_tools_call(&call, &executor, &storage, &cfg).expect("search method");
+    assert!(out["isError"].is_null(), "{out}");
+    assert_eq!(out["structuredContent"]["abstained"], true, "{out}");
+    assert_eq!(
+        out["structuredContent"]["abstention_reason"], "no_candidates_above_threshold",
+        "{out}"
+    );
+}

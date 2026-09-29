@@ -64,6 +64,12 @@ impl Embedded {
                 )));
             }
         }
+        if let Some(min_confidence) = options.min_confidence {
+            // SCH-07 (ADR-046 §D2): same boundary predicate + stable
+            // `SEARCH_OPTIONS_INVALID` marker as search — shared via
+            // `search::page::validate_min_confidence` (never clamps).
+            crate::sdk::search::page::validate_min_confidence(min_confidence)?;
+        }
 
         let engine = self.engine_handle()?;
         let limit = options.limit;
@@ -198,6 +204,11 @@ impl Embedded {
         if !options.include_quarantined {
             records.retain(|record| record.quarantined_at_ms.is_none());
         }
+        if let Some(min_confidence) = options.min_confidence {
+            // SCH-07 (ADR-046 §D2): confidence threshold at final assembly —
+            // no index change, same post-filter position as search.
+            records.retain(|record| record.confidence >= min_confidence);
+        }
 
         let end_cursor = cursor.saturating_add(limit);
         // A trailing cursor is only valid when this page was actually FULL after
@@ -270,6 +281,7 @@ impl Embedded {
                     // quarantined records — the default-exclude is a retrieval
                     // concern, not a deletion gate (T4 stays reachable).
                     include_quarantined: true,
+                    min_confidence: None,
                 },
             )?;
             for record in &page.records {
@@ -335,6 +347,7 @@ impl Embedded {
                     // keep counting quarantined records (visible via
                     // `include_quarantined` list).
                     include_quarantined: true,
+                    min_confidence: None,
                 },
             )?;
             total += page.records.len() as u64;

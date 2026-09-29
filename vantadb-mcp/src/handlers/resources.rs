@@ -111,6 +111,7 @@ pub fn handle_resources_read(
             as_of_ms: None,
             valid_window: None,
             include_quarantined: false,
+            min_confidence: None,
         };
         match embedded.list(namespace, options) {
             Ok(page) => {

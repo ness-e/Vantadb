@@ -244,10 +244,23 @@ const hits = await db.search({
   top_k: 10,
   distance_metric: "Cosine",     // or "Euclidean"
   filters: { lang: { String: "en" } },
+  min_confidence: 0.5,           // opt-in confidence floor [0, 1] (SCH-04)
+  as_of_ms: 1788134400000,       // valid-time point (ADR-046 §D3, SCH-07)
+  valid_window: { from_ms: 0, to_ms: 1788134400000 }, // half-open overlap
+  include_quarantined: false,    // quarantine view, default false (ADR-046 §D5)
 });
 // text-only: db.search({ namespace: "docs", query_vector: [], text_query: "rust" })
 // hit: { record: MemoryRecord, score: number, explanation?: SearchExplanationHit }
 ```
+
+`list(namespace, options)` accepts the same v2 params plus `min_confidence`
+(`MemoryListOptions`: `as_of_ms`, `valid_window`, `include_quarantined`,
+`min_confidence`). Records returned by `get`/`list`/`search` carry the v2
+fields (`valid_at_ms`, `invalid_at_ms`, `confidence_class`, `confidence`,
+`last_validated_at_ms`, `derived_from`, `quarantined_at_ms`,
+`quarantine_reason`, `quarantined_by`, `quarantine_review_due_ms`); u64
+timestamps travel as numbers (the id fields stay decimal strings). Inverted
+`valid_window` (`from_ms >= to_ms`) is rejected by the core boundary.
 
 **Score is relevance, not a distance (WSM-10):** the `score` field is
 **higher-is-better** — it is a relevance score (BM25 for text, cosine

@@ -116,6 +116,10 @@ class AsyncMemoryClient:
         limit: int = 100,
         cursor: int | None = None,
         exclude_superseded: bool = False,
+        as_of_ms: int | None = None,
+        valid_window: dict | None = None,
+        include_quarantined: bool = False,
+        min_confidence: float | None = None,
     ) -> ListResult: ...
     async def delete(self, namespace: str, key: str) -> bool: ...
     def __repr__(self) -> str: ...
@@ -146,6 +150,9 @@ class AsyncClient:
         exclude_superseded: bool = False,
         query_sparse: dict | None = None,
         min_confidence: float | None = None,
+        as_of_ms: int | None = None,
+        valid_window: dict | None = None,
+        include_quarantined: bool = False,
     ) -> list[SearchHit]: ...
     async def search_multi(
         self,
@@ -160,6 +167,9 @@ class AsyncClient:
         exclude_superseded: bool = False,
         query_sparse: dict | None = None,
         min_confidence: float | None = None,
+        as_of_ms: int | None = None,
+        valid_window: dict | None = None,
+        include_quarantined: bool = False,
     ) -> list[SearchHit]: ...
     @property
     def memory(self) -> AsyncMemoryClient: ...

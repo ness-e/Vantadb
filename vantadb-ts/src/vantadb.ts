@@ -617,6 +617,11 @@ export class Client {
       // SCH-04: opt-in confidence filter (ADR-046 §D2) — the WASM `SearchRequest`
       // struct carries it natively (no serde drop).
       min_confidence: request.min_confidence ?? null,
+      // SCH-07: temporal + quarantine-view params (ADR-046 §D3/§D5) — carried
+      // natively by the WASM `SearchRequest` struct.
+      as_of_ms: request.as_of_ms ?? null,
+      valid_window: request.valid_window ?? null,
+      include_quarantined: request.include_quarantined ?? false,
     } as unknown as SearchRequestInput;
   }
 

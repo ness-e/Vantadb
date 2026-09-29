@@ -261,6 +261,7 @@ fn arb_list_options_full() -> impl Strategy<Value = MemoryListOptions> {
                 as_of_ms: None,
                 valid_window: None,
                 include_quarantined: false,
+                min_confidence: None,
             }
         })
 }

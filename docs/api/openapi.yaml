@@ -515,7 +515,15 @@ paths:
         Vector / sparse / BM25 hybrid similarity search over a namespace,
         with cursor pagination: `limit` is the page size (defaults to `top_k`)
         and `cursor` is the opaque `next_cursor` from the previous page. Wire
-        format mirrors the SDK's `MemorySearchRequest`.
+        format mirrors the SDK's `MemorySearchRequest` (v2 query params
+        included: `min_confidence`, `as_of_ms`, `valid_window`,
+        `include_quarantined`).
+
+        When the server runs with `VANTADB_CONFIDENCE_THRESHOLD` set and every
+        candidate falls below it, the response carries the selective-abstention
+        signal (`abstained: true` + a stable `abstention_reason` code) instead of
+        a silent empty page — single-namespace search only; the all-namespaces
+        fan-out reports `false`/`null` (no page object).
 
         **Fresh database note:** `ensure_indexes_current()` runs ONCE at server
         startup (see `src/server/bootstrap.rs`; skipped when `read_only`) and
@@ -1837,6 +1845,46 @@ components:
             Time-to-live in milliseconds from now. When null/omitted, the record
             inherits the namespace's default TTL if one is configured; otherwise it
             never expires. An explicit value always wins.
+        valid_at_ms:
+          type: integer
+          format: int64
+          nullable: true
+          minimum: 0
+          description: >-
+            Valid-time start (ADR-046 §D2/§D3). Omitted = `created_at_ms`. The
+            validity interval is `[valid_at_ms, invalid_at_ms)`.
+        confidence_class:
+          type: string
+          nullable: true
+          enum: [Asserted, Derived]
+          description: >-
+            Provenance class (ADR-046 §D2): `Asserted` (default; direct writer
+            claim) or `Derived` (engine-computed from `derived_from` parents).
+        confidence:
+          type: number
+          format: float
+          nullable: true
+          minimum: 0
+          maximum: 1
+          description: >-
+            Declared confidence in [0, 1] for `Asserted` records (default 1.0).
+            Derived records must not declare it — the engine computes
+            `min(parents) × 0.9` (rejected at the boundary otherwise).
+        derived_from:
+          type: array
+          nullable: true
+          items:
+            type: string
+          description: >-
+            Parent record keys (same namespace) required non-empty when
+            `confidence_class` is `Derived`; forbidden for `Asserted`.
+        quarantine:
+          type: boolean
+          default: false
+          description: >-
+            Write-time quarantine flag T1 (ADR-046 §D5): the record enters
+            quarantine (excluded from default search/list/retrieval until
+            explicitly promoted; sticky across re-puts).
 
     SearchPageRequest:
       description: |
@@ -1891,6 +1939,50 @@ components:
           type: boolean
           default: false
           description: Drop superseded records (ADR-028) from results
+        min_confidence:
+          type: number
+          format: float
+          nullable: true
+          minimum: 0
+          maximum: 1
+          description: >-
+            Opt-in confidence floor (ADR-046 §D2): keep only hits whose record
+            `confidence` is >= this value (finite, within [0, 1]; rejected at the
+            boundary otherwise). Does not emit the abstention signal.
+        as_of_ms:
+          type: integer
+          format: int64
+          nullable: true
+          minimum: 0
+          description: >-
+            Valid-time point (ADR-046 §D3): keep only records whose validity
+            window contains this unix-ms instant (`valid_at_ms <= T <
+            invalid_at_ms`). Omit for no temporal filter (default).
+        valid_window:
+          description: >-
+            Valid-time window overlap (ADR-046 §D3): keep records whose
+            `[valid_at_ms, invalid_at_ms)` intersects the half-open
+            `[from_ms, to_ms)` window. `from_ms < to_ms` is validated at the
+            boundary (400 otherwise).
+          type: object
+          nullable: true
+          required: [from_ms, to_ms]
+          properties:
+            from_ms:
+              type: integer
+              format: int64
+              minimum: 0
+            to_ms:
+              type: integer
+              format: int64
+              minimum: 0
+        include_quarantined:
+          type: boolean
+          default: false
+          description: >-
+            Include quarantined records (ADR-046 §D5): default false excludes
+            them from search/list/retrieval. `get` always returns a quarantined
+            record with visible state.
         search_profile:
           description: Optional search profile (mode, RRF k, candidate budget); null uses core defaults
           type: object
@@ -2013,6 +2105,7 @@ components:
         - records
         - next_cursor
         - has_more
+        - abstained
       properties:
         records:
           type: array
@@ -2025,6 +2118,22 @@ components:
         has_more:
           type: boolean
           description: True when another page is available (equivalent to `next_cursor != null`).
+        abstained:
+          type: boolean
+          default: false
+          description: >-
+            Selective-abstention signal (ADR-046 §D2). Always present: true when
+            the configured `confidence_threshold` removed every candidate.
+            Single-namespace searches only; the all-namespaces fan-out reports
+            false (N/A).
+        abstention_reason:
+          type: string
+          nullable: true
+          description: >-
+            Stable abstention reason code; null unless `abstained`. Known values:
+            `no_candidates_above_threshold` | `all_quarantined`. The code set is
+            open (Rust `#[non_exhaustive]`, ADR-046 §D2): clients must tolerate
+            unknown codes instead of rejecting the response.
 
     AuditPageResponse:
       description: Cursor-paginated audit events, newest-first.

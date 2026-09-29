@@ -69,6 +69,24 @@ before writing code that compares or sorts hits.**
   neighbor geometry — for example, thresholding by a distance cutoff, or
   computing your own similarity transform downstream.
 
+## v2 records and query params (SCH-07, ADR-046)
+
+The WASM binding carries the v2 memory wire natively:
+
+- **`MemoryRecord`** (get/put/list/search): `valid_at_ms`, `invalid_at_ms`,
+  `confidence_class`, `confidence`, `last_validated_at_ms`, `derived_from`,
+  `quarantined_at_ms`, `quarantine_reason`, `quarantined_by`,
+  `quarantine_review_due_ms`. Optionals are omitted when absent; u64
+  timestamps travel as decimal strings (policy string-u64).
+- **`SearchRequestInput` / `ListOptionsInput`**: `as_of_ms`, `valid_window`
+  (`{from_ms, to_ms}` half-open), `include_quarantined`, `min_confidence` —
+  same wire names as the SDK (semantics in
+  [`EMBEDDED_SDK.md`](EMBEDDED_SDK.md) → v2 search options).
+- The selective-abstention signal (`abstained`, `abstention_reason`) is
+  page-shaped; the WASM `search()` returns an array and does not carry it —
+  declared parity note in
+  [`BINDINGS_NAMESPACES.md`](BINDINGS_NAMESPACES.md#v2-wire-parity-sch-07).
+
 ### Cross-binding pointer
 
 The full rationale and the pinned-CI tests live in

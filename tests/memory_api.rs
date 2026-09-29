@@ -155,6 +155,7 @@ fn memory_api_filters() {
                 as_of_ms: None,
                 valid_window: None,
                 include_quarantined: false,
+                min_confidence: None,
             },
         )
         .expect("filtered list");

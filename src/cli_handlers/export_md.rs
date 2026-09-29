@@ -200,6 +200,7 @@ pub fn cmd_export_md(
                 as_of_ms: None,
                 valid_window: None,
                 include_quarantined: true,
+                min_confidence: None,
             };
             let page = embedded.list(ns, opts)?;
             if page.records.is_empty() {

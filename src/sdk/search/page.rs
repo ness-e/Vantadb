@@ -70,6 +70,20 @@ struct Anchor {
     node_id: u128,
 }
 
+/// Boundary validation for the opt-in confidence threshold (ADR-046 §D2),
+/// shared by `search` ([`validate_search_options`]) and `list`
+/// (`sdk/api/namespaces.rs`) so both surfaces reject with the same stable
+/// `SEARCH_OPTIONS_INVALID` marker. Out-of-range values are rejected — never
+/// clamped.
+pub(crate) fn validate_min_confidence(min_confidence: f32) -> Result<()> {
+    if !min_confidence.is_finite() || !(0.0..=1.0).contains(&min_confidence) {
+        return Err(Error::InvalidInput(format!(
+            "{SEARCH_OPTIONS_MARKER}: min_confidence must be finite and within [0, 1]"
+        )));
+    }
+    Ok(())
+}
+
 /// Validate the WIRE-08 request options at the boundary (dim/NaN-style checks
 /// live here, never in the inner loop).
 pub(crate) fn validate_search_options(request: &MemorySearchRequest) -> Result<()> {
@@ -118,12 +132,9 @@ pub(crate) fn validate_search_options(request: &MemorySearchRequest) -> Result<(
     }
     if let Some(min_confidence) = request.min_confidence {
         // SCH-04 (ADR-046 §D2): an out-of-range threshold would silently drop
-        // (or keep) everything — reject at the boundary, never clamp.
-        if !min_confidence.is_finite() || !(0.0..=1.0).contains(&min_confidence) {
-            return Err(Error::InvalidInput(format!(
-                "{SEARCH_OPTIONS_MARKER}: min_confidence must be finite and within [0, 1]"
-            )));
-        }
+        // (or keep) everything — reject at the boundary, never clamp (shared
+        // helper with `list`; same stable marker on both surfaces).
+        validate_min_confidence(min_confidence)?;
     }
     if let Some(mmr) = &request.mmr {
         if !(0.0..=1.0).contains(&mmr.lambda) {

@@ -51,6 +51,7 @@ pub(crate) fn resolve_axioms(storage: &Arc<StorageEngine>, include_quarantined: 
         as_of_ms: None,
         valid_window: None,
         include_quarantined,
+        min_confidence: None,
     };
     if let Ok(page) = embedded.list(AXIOMS_NAMESPACE, options) {
         for record in page.records {
