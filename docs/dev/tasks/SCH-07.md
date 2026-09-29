@@ -160,7 +160,7 @@ description: "Campos v2 (bitemporal + confianza + quarantined) y params de query
 
 ## Review P2-01
 
-> **Revisor:** [LEAD: anteponer la línea del revisor — sesión fresca ≠ autor] — **✅ APPROVE** (0 Critical/Required; 4 Optional + 3 Nits). Batch de hallazgos aplicado en este pase; 2 hallazgos **NO aplicados por decisión del owner** (documentados en §Pendientes).
+> **Revisor:** `ses_f128e58a7ffeVvI2jlFLGwvMiz` (fresco ≠ autor `ses_f1300a34affeYqwOhSMrbFPRk7`) — **✅ APPROVE** (0 Critical/Required; 4 Optional + 3 Nits). Batch de hallazgos aplicado en este pase; 2 hallazgos **NO aplicados por decisión del owner** (documentados en §Pendientes).
 
 | # | Hallazgo → Fix | Evidencia (comando → resultado) |
 |---|-----|---------------------------------|
