@@ -8,7 +8,7 @@ description: "SDP: campaign-executor · progreso · writing-plans · planning-an
 
 > **Campaign ID:** ed20beae-edf6-42f5-b41f-e8519830d6cb
 > **Inicio:** 2026-09-26
-> **Estado:** ⏳ EN PROGRESO (30/50 — F0 ✅ · F1 ✅ · F2 ✅ · F3 7/11; siguiente: SCH-05)
+> **Estado:** ⏳ EN PROGRESO (31/50 — F0 ✅ · F1 ✅ · F2 ✅ · F3 8/11; siguiente: SCH-06)
 > **Fuente:** `docs/dev/Backlog.md` (P52–P59 + FIND-*) + planes absorbidos (`2026-09-24-post-investigacion-integral.md` W2–W7, `2026-09-24-estabilizacion-pendiente.md`, `2026-09-24-harness-gaps.md`, `2026-09-24-sesion-continuidad.md`, `2026-09-20-estabilizacion-total.md`) + `docs/dev/strategy/` (13 docs) + Notion "VantaDB Docs" (~28 subpáginas) + investigación de riesgos 2026-09-26 (4 sub-agentes R1–R4, multi-fuente)
 > **Autonomous:** false — el owner gatea push/merge/release. **Push a `develop`: al completar el plan con todo validado/verificado** (decisión owner 2026-09-26, ver §Política de commits/push)
 > **Modo:** PLAN → ejecución con `/pipeline run docs/dev/plans/2026-09-26-master-roadmap.md`
@@ -796,7 +796,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** "cuarentena operativa: contenido `quarantined` EXCLUIDO por defecto de search/list/retrieval (include opt-in; `auto_recall`/`inject_context` nunca inyectan cuarentenado) Y transiciones con dueño+trigger (entrada write-time, promoción/expiración) Y abstención selectiva: con umbral de confianza configurado, una consulta sin candidatos suficientes devuelve señal `abstained` explícita en el wire (nunca resultados silenciosamente degradados; default OFF) Y retrieval trust-aware respeta la clase asserted/derived (semántica ADR SCH-01) Y test de contención verde (dudoso no inyectado por defecto) + threat model de MGR-13 citado por superficie"
 - **Task file:** `docs/dev/tasks/SCH-05.md` (a crear en DISCOVERY)
-- **Estado:** ⏳ EN PROGRESO
+- **Estado:** ✅ COMPLETED (2026-09-29 — commit `83d65518`; review adversarial 2 rondas: ❌→fixes→delta ✅)
 - **Cynefin:** 🟨 complicado — máquina de estados + abstención con semántica honesta + gates write-time sin motor de políticas.
 - **Top 3 riesgos:** 1. falsos positivos aíslan contenido legítimo (default-exclude) · 2. abstención que rompe clientes (vacíos silenciosos) · 3. deep-poisoning vía dream/import no cubierto por el threat model.
 - **Pre-mortem:** F1: criterios de cuarentena opacos → tabla estados×transiciones con señales medibles + promoción revisable (MGR-13); F2: abstención implementada como "menos resultados" sin señal → `abstained` explícito en el wire + test de contrato; F3: import/dream evaden el default-exclude → test de contención por superficie de entrada (no solo API).
@@ -822,7 +822,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** "suite verde: migración v1→v2 determinista (misma DB → mismo resultado; doble corrida byte-idéntica sobre copia) Y time-travel `AS OF` con fechas de referencia (eje valid/transaction según ADR SCH-01) Y roundtrip export/import v1↔v2 (v1 sigue importable; campos nuevos sobreviven ida y vuelta) Y chaos: crash durante migración → recuperación íntegra (failpoint + reopen + integridad de índices) Y bordes (TTL+quarantine, supersede+invalid) — todo corriendo en CI vía chaos.yml + nextest scoped"
 - **Task file:** `docs/dev/tasks/SCH-06.md` (a crear en DISCOVERY)
-- **Estado:** ⏳ EN PROGRESO · **Branch:** develop · **Commit:**
+- **Estado:** ⏳ EN PROGRESO
 - **Cynefin:** 🟨 complicado — determinismo byte-exacto + failpoints de migración + semántica temporal correcta en los tests.
 - **Top 3 riesgos:** 1. determinismo frágil (timestamps/orden de records) · 2. failpoints flaky/caros en CI · 3. time-travel mal especificado → tests que fijan la semántica equivocada.
 - **Pre-mortem:** F1: migración no determinista por reloj/orden → reloj inyectado + doble corrida byte-idéntica (copia de DB v1 → v2 ×2); F2: no existe failpoint en el runner de migración → instrumentar con `fail` + abort-antes-de-swap (precedente `snapshot_restore_fail`, `snapshot_certification.rs:1529`); F3: `AS OF` testeado contra el eje equivocado → fechas de referencia fijadas por el ADR + revisión cruzada con SCH-03.
@@ -1055,6 +1055,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **plan-adjust [2026-09-28f]:** **Owner ratificó los 16 defaults de diseño F3** (question 2026-09-28, opción "Aprobar defaults y avanzar"): MGR-10 (6) + MGR-12 (4) + MGR-13 (6). SCH-01 los consolida en ADR-0046; el ADR pasa por revisión owner explícita (Regla 5). Cierre MGR ✅ = pre-req duro SCH-01 cumplido. Wave F3.2 lanzada (SCH-01).
 - **plan-adjust [2026-09-28g]:** **F3.2 cerrada (28/50)** — SCH-01 (ADR-0046 firmado por owner) + SCH-02 (schema v2 + migración determinista + backfill; `7af34366`; review adversarial 2 rondas ✅ 2403/2403). Wave F3.3 lista: SCH-03 ‖ SCH-04 ‖ SCH-05 (desbloqueadas).
 - **plan-adjust [2026-09-29a]:** **F3.3a cerrada (30/50)** — SCH-03 (AS OF/valid_at/cursor) + SCH-04 (confidence consumible + filtros): **commit combinado `932b1211`** por changesets entrelazados (`vector_types.rs`/`page.rs`, wave co-batch) — documentado. Reviews adversariales frescos ✅ + fixes post-review (rechazo AS OF duplicado + delta; MCP schema min/max). FIND nuevo: `campaign_get_next_task` no desambigua con `planFile` si hay 2 planes activos (workaround: claim vía `update_task_state`). F3.3b lanzada: SCH-05.
+- **plan-adjust [2026-09-29b]:** **F3.3b cerrada (31/50)** — SCH-05 cuarentena+abstención (`83d65518`): default-exclude + gates de inyección (l1_reader/axioms) + transiciones T1-T5 con audit + sticky raw transport (F4a) + abstención explícita. Review adversarial 2 rondas (❌ F1-F6/N → batch → delta ✅). Docs/api diferidas a SCH-07 (2 gaps declarados). Nota: la sesión de docs commiteó su consolidación (`d23e1224` + `86c55e01`) — WIP ajeno masivo cerrado.
 
 ## Recitation
 
@@ -1063,9 +1064,9 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
 Objetivo activo: F3 — Bitemporalidad/confianza/cuarentena + schema v2 (MGR/SCH)
 Estado: in-progress
-Última acción: F3.3a COMPLETA (30/50 — SCH-03 AS OF/valid_at + SCH-04 confidence; commit 932b1211); F3.3b lanzada (SCH-05)
-Resultado: OK (F0 7/7 · F1 8/8 · F2 7/7 · F3 7/11)
-Próxima acción: cerrar SCH-05 → SCH-06 (chaos) → SCH-07 (superficies+docs) → SCH-08 (corte 0.8.0)
+Última acción: F3.3b COMPLETA (31/50 — SCH-05 cuarentena+abstención; commit 83d65518); siguiente wave F3.4 (SCH-06)
+Resultado: OK (F0 7/7 · F1 8/8 · F2 7/7 · F3 8/11)
+Próxima acción: SCH-06 (chaos/tests: migración determinista, time-travel, roundtrip, crash) → SCH-07 → SCH-08
 Contrato: —
 Próxima tarea si completa: HARD-01
 === END RECITATION ===
@@ -1429,10 +1430,21 @@ Próxima tarea si completa: SCH-05
 === RECITATION SCH-05 ===
 Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
 Objetivo activo: SCH-05 — Cuarentena + abstención + trust-aware retrieval
+Estado: completed
+Última acción: 7/7 ✅ + review adversarial 2 rondas (❌ F1-F6/N → batch → delta ✅); commit 83d65518
+Resultado: OK
+Próxima acción: Wave F3.4: claim SCH-06 (chaos/tests)
+Contrato: default-exclude + gates de inyección + transiciones T1-T5 con audit + sticky raw transport + abstención explícita (2464/2464 · containment 24/24 · MCP 245)
+Próxima tarea si completa: SCH-06
+=== END RECITATION ===
+
+=== RECITATION SCH-06 ===
+Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
+Objetivo activo: SCH-06 — Tests: migración determinista, time-travel, roundtrip export/import, chaos
 Estado: in-progress
-Última acción: Claim (wave F3.3b) — desbloqueada por SCH-02/03/04
+Última acción: Claim (wave F3.4) — desbloqueada por SCH-02..05
 Resultado: PENDING
-Próxima acción: DISCOVERY + implementación (vanta-worker)
-Contrato: cuarentena operativa (default-exclude + include opt-in; auto_recall/inject_context nunca inyectan) + transiciones con dueño+trigger + abstención con señal explícita
-Próxima tarea si completa: SCH-05
+Próxima acción: DISCOVERY + implementación (vanta-chaos)
+Contrato: suite verde: migración determinista + time-travel AS OF + roundtrip export/import + chaos/crash-recovery
+Próxima tarea si completa: SCH-06
 === END RECITATION ===
