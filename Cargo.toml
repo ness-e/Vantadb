@@ -614,6 +614,22 @@ path = "tests/storage/multi_process_lock.rs"
 name = "crash_injection"
 path = "tests/storage/crash_injection.rs"
 
+# SCH-06: migration chaos (failpoints required, chaos profile in CI).
+[[test]]
+name = "chaos_migration"
+path = "tests/chaos_migration.rs"
+required-features = ["failpoints"]
+
+# SCH-06: v1 -> v2 migration determinism suite (ADR-046).
+[[test]]
+name = "schema_v2_migration"
+path = "tests/schema_v2_migration.rs"
+
+# SCH-06: time-travel (AS OF / valid-time) integration suite (ADR-046 D3).
+[[test]]
+name = "time_travel"
+path = "tests/time_travel.rs"
+
 [[test]]
 name = "benchmark_datasets"
 path = "tests/benchmark_datasets.rs"

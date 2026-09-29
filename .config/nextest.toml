@@ -52,6 +52,7 @@ and not (package(vantadb-server) and binary(server)) \
 and not (package(vantadb) and binary(antilocality_layout)) \
 and not (package(vantadb) and binary(backend_tests)) \
 and not (package(vantadb) and binary(chaos_integrity)) \
+and not (package(vantadb) and binary(chaos_migration)) \
 and not (package(vantadb) and binary(crash_injection)) \
 and not (package(vantadb) and binary(gc)) \
 and not (package(vantadb) and binary(mmap_index)) \
@@ -98,7 +99,7 @@ slow-timeout = { period = "60s", terminate-after = 3 }
 leak-timeout = { period = "500ms", result = "fail" }
 
 [profile.chaos]
-default-filter = "test(chaos_integrity_failpoints)"
+default-filter = "test(chaos_integrity_failpoints) or test(chaos_migration)"
 fail-fast = false
 failure-output = "immediate-final"
 test-threads = 1

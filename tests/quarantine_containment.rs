@@ -12,6 +12,8 @@ use vantadb::{
     AbstentionReason, BackendKind, Embedded, MemoryInput, MemoryListOptions, MemorySearchRequest,
 };
 
+use std::time::{Duration, Instant};
+
 fn in_memory_db() -> Embedded {
     Embedded::open_with_config(Config {
         storage_path: ":memory:".into(),
@@ -698,4 +700,139 @@ fn batch_import_and_bulk_quarantine_entries_are_audited() {
         .find(|e| e["op"] == "bulk_import")
         .expect("bulk event");
     assert_eq!(bulk_event["reason"], "1 quarantined");
+}
+
+// ── SCH-06: bordes TTL+quarantine y supersede+invalid (I3 ortogonalidad) ──
+
+#[test]
+fn quarantined_record_with_live_ttl_stays_isolated_and_purge_skips_it() {
+    let db = in_memory_db();
+    let record = db
+        .put(MemoryInput {
+            ttl_ms: Some(600_000),
+            ..quarantined_input("ns", "ttl-live", "content ttl")
+        })
+        .unwrap();
+    assert!(record.quarantined_at_ms.is_some(), "T1 entered quarantine");
+    assert!(
+        record.expires_at_ms.is_some(),
+        "TTL is set beside quarantine"
+    );
+
+    assert_eq!(
+        db.purge_expired().unwrap(),
+        0,
+        "a live TTL must not purge anything"
+    );
+    assert!(
+        listed_keys(&db, "ns", false).is_empty(),
+        "quarantine excludes even with a live TTL"
+    );
+    assert_eq!(listed_keys(&db, "ns", true), vec!["ttl-live"]);
+    let fetched = db.get("ns", "ttl-live").unwrap().unwrap();
+    assert_eq!(
+        fetched.quarantined_at_ms, record.quarantined_at_ms,
+        "reads never mutate/promote the quarantine state (I1)"
+    );
+}
+
+#[test]
+fn expired_ttl_purges_quarantined_record_without_promoting_it() {
+    let db = in_memory_db();
+    let record = db
+        .put(MemoryInput {
+            ttl_ms: Some(1),
+            ..quarantined_input("ns", "ttl-dead", "content ttl")
+        })
+        .unwrap();
+    assert!(
+        record.quarantined_at_ms.is_some(),
+        "entered quarantine at write time"
+    );
+
+    // Condition-driven bounded wait: `purge_expired` returns >0 once the
+    // deadline passes (no sleep-then-assert, no fixed sleep).
+    let deadline = Instant::now() + Duration::from_secs(10);
+    let mut purged = 0;
+    while purged == 0 {
+        purged = db.purge_expired().unwrap();
+        if purged == 0 {
+            assert!(
+                Instant::now() < deadline,
+                "TTL record never became purgeable"
+            );
+            std::thread::sleep(Duration::from_millis(5));
+        }
+    }
+    assert_eq!(purged, 1);
+
+    // Physical delete (TTL axis) — never a promotion, never a ghost in any view.
+    assert!(
+        db.get("ns", "ttl-dead").unwrap().is_none(),
+        "expired record is physically purged"
+    );
+    assert!(listed_keys(&db, "ns", false).is_empty());
+    assert!(
+        listed_keys(&db, "ns", true).is_empty(),
+        "no lingering quarantined ghost after TTL purge"
+    );
+}
+
+#[test]
+fn supersede_keeps_quarantine_and_aligns_invalid_at_orthogonally() {
+    let db = in_memory_db();
+    let mut old_input = quarantined_input("ns", "old", "content old");
+    old_input.valid_at_ms = Some(1_000); // fixed reference date (past)
+    db.put(old_input).unwrap();
+    db.put(MemoryInput::new("ns", "new", "content new"))
+        .unwrap();
+    db.supersede("ns", "old", "new").unwrap();
+
+    let old = db.get("ns", "old").unwrap().unwrap();
+    assert!(
+        old.quarantined_at_ms.is_some(),
+        "I3: supersede must not clear quarantine"
+    );
+    assert_eq!(old.superseded_by.as_deref(), Some("new"));
+    assert_eq!(
+        old.invalid_at_ms, old.superseded_at_ms,
+        "D3-3: invalid_at stays aligned with superseded_at"
+    );
+    assert!(old.valid_at_ms <= old.invalid_at_ms.unwrap());
+
+    // Both gates independent: default hides it (quarantine); opt-in shows it
+    // even though it is superseded (supersede is visible by default).
+    assert_eq!(listed_keys(&db, "ns", false), vec!["new"]);
+    assert!(listed_keys(&db, "ns", true).contains(&"old".to_string()));
+
+    // Valid axis is orthogonal: opt-in AS OF before invalid includes it; at
+    // the boundary (end exclusive) it is out.
+    let t_inv = old.invalid_at_ms.unwrap();
+    let as_of = |t: u64| -> Vec<String> {
+        db.search_page(MemorySearchRequest {
+            namespace: "ns".into(),
+            text_query: Some("content".into()),
+            top_k: 10,
+            as_of_ms: Some(t),
+            include_quarantined: true,
+            ..Default::default()
+        })
+        .unwrap()
+        .hits
+        .into_iter()
+        .map(|hit| hit.record.key)
+        .collect()
+    };
+    assert!(as_of(t_inv - 1).contains(&"old".to_string()));
+    assert!(!as_of(t_inv).contains(&"old".to_string()));
+
+    // T2 clears quarantine but leaves the supersession axis untouched (I3).
+    let promoted = db.quarantine_promote("ns", "old").unwrap();
+    assert!(promoted.quarantined_at_ms.is_none());
+    assert_eq!(
+        promoted.superseded_by.as_deref(),
+        Some("new"),
+        "promote must not clear supersede"
+    );
+    assert_eq!(promoted.invalid_at_ms, Some(t_inv));
 }
