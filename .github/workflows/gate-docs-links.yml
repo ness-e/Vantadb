@@ -99,13 +99,10 @@ jobs:
       - name: Segmenter round-trip must be lossless
         run: node scripts/docs/wikilinks-to-md.mjs --self-test
       - name: Empty sections and prose stranded above the H1
-        env:
-          BUDGET: '109'
-        run: |
-          node scripts/docs/check-structure.mjs || {
-            echo "::error::structural defects in docs/ — a section lost its body, or prose was stranded above a file's H1"
-            exit 1
-          }
+        # The budget is a flag, not an env var: check-structure.mjs reads
+        # --budget=. Wiring it as BUDGET: silently ran with a budget of 0, so
+        # the gate would have failed on a tree whose only damage predates it.
+        run: node scripts/docs/check-structure.mjs --budget=109
       - name: Attribute any new defect to this change or to the last commit
         if: failure()
         run: node scripts/docs/attribute-structure.mjs

@@ -304,6 +304,14 @@ def classify(src):
         # Signature-only blocks ("db.put(namespace: str, ...) -> Record") and
         # prose-in-a-fence land here. They are illustrations, not programs.
         return "fragment", "unparseable:" + (e.msg or "SyntaxError"), None
+    except (ValueError, TypeError, RecursionError) as e:
+        # ValueError covers the embedded-NUL and lone-surrogate cases: a source
+        # string carrying a surrogate (from a WTF-8 encoded doc) is not valid
+        # text and ast.parse raises rather than returning. That must be a
+        # classification of ONE snippet, never a crash of the whole analyzer --
+        # crashing here made the gate report "vantadb is not importable",
+        # blaming the SDK for a bad byte in a Markdown file.
+        return "fragment", "undecodable:" + type(e).__name__, None
     for n in ast.walk(tree):
         if isinstance(n, ast.Expr) and isinstance(n.value, ast.Constant) and n.value.value is Ellipsis:
             return "fragment", "ellipsis", tree

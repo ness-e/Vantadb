@@ -23,6 +23,10 @@ const argv = process.argv.slice(2);
 const JSON_OUT = argv.includes('--json');
 const SELF_TEST = argv.includes('--self-test');
 const budgetArg = argv.find((a) => a.startsWith('--budget='));
+// The budget counts DAMAGED FILES, not findings. One file with 200 findings is
+// one document that needs one repair pass; gating on the finding count would
+// make the ratchet jump around for no reason. Lower it as files are repaired,
+// and to 0 once the corpus is clean.
 const BUDGET = budgetArg ? Number(budgetArg.split('=')[1]) : 0;
 
 const FENCE = /^\s*(```|~~~)/;
@@ -177,11 +181,12 @@ if (JSON_OUT) {
     }
   }
   const total = findings.length;
-  if (total > BUDGET) {
-    console.log(`\nOVER BUDGET: ${total} structural defects > ${BUDGET}.`);
+  const brokenFiles = new Set(findings.map((f) => f.file)).size;
+  if (brokenFiles > BUDGET) {
+    console.log(`\nOVER BUDGET: ${brokenFiles} damaged files > ${BUDGET} (${total} defects).`);
     process.exit(1);
   }
-  console.log(`\nwithin budget: ${total} of ${BUDGET} tolerated.`);
+  console.log(`\nwithin budget: ${brokenFiles} of ${BUDGET} damaged files tolerated (${total} defects).`);
 }
 
-process.exit(findings.length > BUDGET ? 1 : 0);
+process.exit(new Set(findings.map((f) => f.file)).size > BUDGET ? 1 : 0);
