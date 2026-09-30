@@ -72,6 +72,19 @@ Deterministic hooks wire `memory_recall` into each session: recall on session st
 
 The demo is the acceptance test of this track: session 1 stores a note (`memory_put` with embed-on-put), session 2 recalls it with a **synonym query that shares zero literal tokens** with the stored text (a keyword-only path could never hit it — the test asserts the zero-overlap property itself). Embeddings come from a deterministic in-process fake provider, declared as a test double: it proves the pipeline (embed → store → embed query → similarity ranking), not model quality. Offline, no tokens, no model files — a regression turns CI red.
 
+Run it locally (offline, no tokens; expected: the test passes — session 2 recalls the session-1 note):
+
+```bash
+cargo nextest run -p vantadb-mcp --features remote-inference --test demo_ai_ides --build-jobs 2
+```
+
+Expected output (abridged):
+
+```text
+PASS [   1.415s] (1/1) vantadb-mcp::demo_ai_ides session_one_stores_session_two_recalls_by_synonym
+Summary [   1.415s] 1 test run: 1 passed, 0 skipped
+```
+
 ## Honest limits
 
 - **No live repo-map / incremental repo indexing yet.** The structural MCP tools (`code_search`, `code_callers`, `code_impact`, …) answer on-demand graph queries, but a persistent "map of your repo" with a file watcher that re-indexes changes is **not shipped** — it is a declared research line on the roadmap. Do not expect `CLAUDE.md`-style project overviews generated automatically.

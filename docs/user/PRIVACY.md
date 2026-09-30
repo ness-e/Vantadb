@@ -144,6 +144,66 @@ pwsh -NoProfile -File scripts/demo-privacy-e2e.ps1
 It runs in CI (`.github/workflows/icp02-privacy-demo.yml`) on every change to
 the proxy or the delete paths, and locally on Windows or Linux (pwsh 7).
 
+## Prove it: WAL verification and injection governance
+
+Two more demos run the same way — offline, deterministic, PR-blocking: if the
+guarantee breaks, CI goes red.
+
+### WAL tamper detection (`vanta-cli verify`)
+
+The [WAL hash-chain](../api/WAL_INTEGRITY.md) is verifiable offline with the
+real CLI: a clean WAL exits 0; a WAL with a record **removed** (chain link
+broken) or **rewritten with its CRC32C recomputed** — invisible to CRC alone —
+exits non-zero with `status: tampered`. The demo also runs the certified-delete
+roundtrip (`put` → `delete --attest` → `certificate verify`, exit 0 ×3):
+
+```powershell
+pwsh -NoProfile -File scripts/demo-verify-e2e.ps1
+```
+
+Expected output (abridged):
+
+```text
+== [2/4] Clean WAL: vanta-cli verify -> exit 0
+   clean: exit 0, ok:true, statuses: verified
+== [3/4] Tampered WALs: vanta-cli verify -> exit != 0 (negative control)
+   tampered_removed: exit 1, ok:false, statuses: tampered (tamper detected)
+   tampered_rewritten: exit 1, ok:false, statuses: tampered (tamper detected)
+== [4/4] Certified delete: put -> delete --attest -> certificate verify
+   put + delete --attest + certificate verify: exit 0 x3
+```
+
+CI: [wal-verify-demo.yml](../../.github/workflows/wal-verify-demo.yml).
+
+### Injection governance (budget, ACL, audit)
+
+One governed request proves the three knobs of §4: the block stays within
+`[injection] max_tokens` (60 in the demo — a visible `…[truncated]` cut), a
+namespace outside `namespace_allow_prefixes` never reaches the prompt, and
+both decisions leave consultable, metadata-only audit rows:
+
+```powershell
+pwsh -NoProfile -File scripts/demo-governance-e2e.ps1
+```
+
+Expected output (abridged):
+
+```text
+== [2/3] Audit consult: op=injection rows
+   audit: 2 injection rows (1 ok+truncated, 1 denied)
+== [3/3] Negative control: audit must not contain the payload marker
+   metadata-only: PERSONA-MARKER absent from the audit
+```
+
+The audit rows for that run (timestamp omitted; one per decision, no payload):
+
+| namespace | outcome | reason |
+|-----------|---------|--------|
+| `persona/sess-1` | `ok` | `…;kind=persona;budget=60/60;truncated=true;acl=allow` |
+| `scene/sess-1` | `denied` | `…;budget=60/60;acl=deny;…` |
+
+CI: [injection-governance-demo.yml](../../.github/workflows/injection-governance-demo.yml).
+
 ## Covered / not covered
 
 | Claim | Status |

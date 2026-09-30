@@ -328,3 +328,111 @@ async fn acl_denials_are_audited_with_deny_outcome() {
         );
     }
 }
+
+// ── EXE-01 demo producer (CI: `injection-governance-demo.yml`) ──────────────
+
+/// Demo directory: `GOVERNANCE_DEMO_DIR` or
+/// `<workspace>/target/injection-governance-demo`.
+fn demo_dir() -> std::path::PathBuf {
+    std::env::var("GOVERNANCE_DEMO_DIR")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| {
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .parent()
+                .expect("workspace root")
+                .join("target/injection-governance-demo")
+        })
+}
+
+/// Seeds the fixtures `scripts/demo-governance-e2e.ps1` replays through the
+/// injection-audit JSONL. One request (low budget + ACL allowing only
+/// `persona/`) produces every governance row the demo contract names:
+/// `outcome=ok` with `truncated=true` (block under budget, visible cut) and
+/// `outcome=denied` with `acl=deny` (scene outside scope). Metadata-only is
+/// asserted (no payload marker in the audit file). Writes `<demo>/handoff.json`.
+#[tokio::test]
+#[ignore = "demo producer: run via scripts/demo-governance-e2e.ps1 (--run-ignored ignored-only)"]
+async fn governance_demo_producer() {
+    let demo = demo_dir();
+    if demo.exists() {
+        std::fs::remove_dir_all(&demo).expect("clean demo dir");
+    }
+    std::fs::create_dir_all(&demo).expect("demo dir");
+    let audit_path = demo.join("injection-audit.jsonl");
+
+    // Low budget → persona injected hard-truncated (≤ budget, visible marker);
+    // ACL allows persona/ only → the scene is denied by policy.
+    let env = setup_with(InjectionConfig {
+        max_tokens: 60,
+        namespace_allow_prefixes: vec!["persona/".into()],
+        audit_log_path: audit_path.to_string_lossy().to_string(),
+    })
+    .await;
+    assert_eq!(post_chat(&env).await.status(), 200);
+
+    let prefix = forwarded_prefix(&env).await;
+    assert!(
+        prefix.starts_with("<vanta-memory>"),
+        "block injected: {prefix}"
+    );
+    let end = prefix.find("</vanta-memory>").expect("block closed") + "</vanta-memory>".len();
+    let block = &prefix[..end];
+    assert!(
+        vanta_proxy::cost::estimate_text_tokens(block.len()) <= 60,
+        "block over budget: {} tokens",
+        vanta_proxy::cost::estimate_text_tokens(block.len())
+    );
+    assert!(
+        block.contains("…[truncated]"),
+        "low budget must truncate visibly: {block}"
+    );
+    // Self-contained ACL check (the workflow runs only this test): the denied
+    // scene's content must never reach the forwarded prompt.
+    assert!(
+        !prefix.contains("how to deploy the service"),
+        "ACL-denied scene must never enter the prompt: {prefix}"
+    );
+
+    let rows = audit_rows(&audit_path);
+    let persona = rows
+        .iter()
+        .find(|r| r["namespace"] == "persona/sess-1" && r["outcome"] == "ok")
+        .expect("persona injection audited");
+    let reason = persona["reason"].as_str().unwrap_or_default();
+    assert!(reason.contains("truncated=true"), "reason: {reason}");
+    assert!(reason.contains("budget="), "reason: {reason}");
+    assert!(reason.contains("acl=allow"), "reason: {reason}");
+    let denied = rows
+        .iter()
+        .find(|r| r["namespace"] == "scene/sess-1" && r["outcome"] == "denied")
+        .expect("scene ACL denial audited");
+    assert!(
+        denied["reason"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("acl=deny"),
+        "deny reason: {:?}",
+        denied["reason"]
+    );
+    let raw = std::fs::read_to_string(&audit_path).unwrap_or_default();
+    assert!(
+        !raw.contains("PERSONA-MARKER"),
+        "payload leaked into the audit: {raw}"
+    );
+
+    let handoff = serde_json::json!({
+        "generated_by": "ver04_governance demo producer",
+        "audit": audit_path.display().to_string(),
+        "session": "sess-1",
+    });
+    std::fs::write(
+        demo.join("handoff.json"),
+        serde_json::to_string_pretty(&handoff).expect("handoff json"),
+    )
+    .expect("write handoff");
+    println!(
+        "injection governance demo fixtures OK — audit: {} ({} rows, metadata-only)",
+        audit_path.display(),
+        rows.len()
+    );
+}

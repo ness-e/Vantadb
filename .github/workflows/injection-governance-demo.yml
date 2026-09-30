@@ -1,0 +1,66 @@
+name: 'Demo: injection governance (budget, ACL, audit)'
+
+# EXE-01 (F6): the injection-governance demo runs on every relevant PR. One
+# governed request through the real proxy wire proves the three VER-04
+# guarantees with controls: the `<vanta-memory>` block stays within its
+# budget (visible `…[truncated]` cut — asserted on the forwarded prompt AND
+# re-consulted in the audit), a namespace outside the ACL never reaches the
+# prompt and leaves an `outcome=denied` audit row, and the audit JSONL is
+# consultable while carrying metadata only (no payload — negative control).
+# A regression turns this red; the consult re-checks the audit rows the test
+# asserted.
+#
+# Deterministic and offline by design: in-memory store, mock upstream on
+# loopback (127.0.0.1:0), no network, no tokens. Ubuntu only: the demo
+# exercises the proxy governance pipeline, not platform-specific behavior.
+#
+# No `continue-on-error` anywhere: a broken demo blocks the PR.
+
+on:
+  push:
+    branches: [ "main", "develop" ]
+    paths:
+      - 'vanta-proxy/**'
+      - 'vanta-memory/**'
+      - 'scripts/demo-governance-e2e.ps1'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/injection-governance-demo.yml'
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - 'vanta-proxy/**'
+      - 'vanta-memory/**'
+      - 'scripts/demo-governance-e2e.ps1'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/injection-governance-demo.yml'
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+concurrency:
+  group: injection-governance-demo-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  injection-governance:
+    name: "Budget + ACL + audit (proxy wire)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/rust-setup
+        with:
+          install-system-deps: true
+          install-nextest: true
+          swap-mb: 4096
+
+      - name: Run injection governance demo
+        run: pwsh -NoProfile -File scripts/demo-governance-e2e.ps1

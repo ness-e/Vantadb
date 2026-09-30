@@ -6,7 +6,7 @@
 
 Every link below points to the raw Markdown source, not a rendered page. Read the
 page you need; do not read this file end to end. This index covers the
-438 documentation pages; it deliberately omits the 1025 task files,
+439 documentation pages; it deliberately omits the 1027 task files,
 which are work items rather than documentation. The full inventory of every file
 is in docs/index.md in the repository.
 
@@ -89,7 +89,7 @@ is in docs/index.md in the repository.
 - [FND-20: HNSW Trade-off (ef_search/M: recall vs latency) and why not IVF/FAISS](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/FND-20-hnsw-tradeoff.md): src/index/mod.rs:27-30) with M=32, Mmax0=64, efconstruction=100,
 - [MCP-35 HTTP Fallback Discovery](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/mcp-35-http-fallback-spec.md): Enable N simultaneous vanta-cli server --mcp --db <same-path> instances to share a single database. The first instance becomes the owner (holds the exclusive lock, serves HTTP + MCP stdio). Subsequent instances become proxies (forward...
 - [Mutation and Recovery Protocol](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/MUTATION_RECOVERY_PROTOCOL.md): Date: 2026-04-29
-- [Notion Sync 2026-09-24 — adiciones post-investigación (drafts listos para aplicar)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/strategy/NOTION-SYNC-2026-09-24.md): Añadir sección: \"Evidencia 2026 (investigación integral)\"
+- [Notion Sync 2026-09-24 — adiciones post-investigación (drafts listos para aplicar)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/strategy/NOTION-SYNC-2026-09-24.md): Añadir sección: \"Evidencia 2026 (investigación integral)\" — re-baseline 2026-09-30: mapeo verificado + deltas post-campaña (F0-F5 completas, corte 0.8.0 preparado)
 - [Persistent Text Index Design](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/TEXT_INDEX_DESIGN.md): Date: 2026-05-04
 - [Physical Storage Format Versioning Strategy](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/STORAGE_VERSIONING.md): Status: Implemented (WEB-04)
 - [PQ Feasibility - Product Quantization](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/PQ_FEASIBILITY.md): src/vector/quantization.rs exposes stateless packed quantizers (no codebooks,
@@ -202,6 +202,7 @@ is in docs/index.md in the repository.
 - [VantaDB vs Alternatives — Honest Comparison & Practical Limits](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/COMPARISON.md): This page answers \"why not X?\" (sqlite-vec, LanceDB, Qdrant, Chroma) with three rules
 - [VantaDB vs LanceDB vs ChromaDB: Real Numbers from an Embedded Engine](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/blog/benchmarks_vs_lancedb_chroma.md): By the VantaDB Team
 - [Why I Built VantaDB: A Local Memory Engine](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/blog/why_i_built.md): By ness-e
+- [VantaDB vs Mem0: a head-to-head on LongMemEval-S (protocol first, numbers second)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/blog/head_to_head_mem0_zep_letta.md): We ran Mem0 OSS and VantaDB through the same public harness on a declared LongMemEval-S slice, published the protocol, and report the result honestly — including the recall cells we lost
 
 ## Index
 
