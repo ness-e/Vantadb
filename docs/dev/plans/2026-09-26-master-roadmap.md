@@ -8,7 +8,7 @@ description: "SDP: campaign-executor · progreso · writing-plans · planning-an
 
 > **Campaign ID:** ed20beae-edf6-42f5-b41f-e8519830d6cb
 > **Inicio:** 2026-09-26
-> **Estado:** ⏳ EN PROGRESO (44/50 — F0 ✅ · F1 ✅ · F2 ✅ · F3 ✅ 11/11 · F4 ✅ 7/7 · **F5 4/6**; siguiente: F5.2 — ICP-03/ DEF-06) | **Gates F3/F4: ✅ local** (corte 0.8.0 preparado: guía + marcador R1 `b9296909` + R2; features verificables con tests + attestations; release real = lane owner post-push)
+> **Estado:** ⏳ EN PROGRESO (46/50 — F0 ✅ · F1 ✅ · F2 ✅ · F3 ✅ 11/11 · F4 ✅ 7/7 · **F5 ✅ 6/6**; siguiente: F6 — bloques primero) | **Gates F3/F4: ✅ local** (corte 0.8.0 preparado: guía + marcador R1 `b9296909` + R2; features verificables con tests + attestations; release real = lane owner post-push)
 > **Fuente:** `docs/dev/Backlog.md` (P52–P59 + FIND-*) + planes absorbidos (`2026-09-24-post-investigacion-integral.md` W2–W7, `2026-09-24-estabilizacion-pendiente.md`, `2026-09-24-harness-gaps.md`, `2026-09-24-sesion-continuidad.md`, `2026-09-20-estabilizacion-total.md`) + `docs/dev/strategy/` (13 docs) + Notion "VantaDB Docs" (~28 subpáginas) + investigación de riesgos 2026-09-26 (4 sub-agentes R1–R4, multi-fuente)
 > **Autonomous:** false — el owner gatea push/merge/release. **Push a `develop`: al completar el plan con todo validado/verificado** (decisión owner 2026-09-26, ver §Política de commits/push)
 > **Modo:** PLAN → ejecución con `/pipeline run docs/dev/plans/2026-09-26-master-roadmap.md`
@@ -1160,7 +1160,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** "one-pager del track (frameworks: LangGraph/CrewAI/DSPy/Haystack/LlamaIndex; aislamiento multi-usuario; migración desde Mem0/Zep/Letta) Y demo CI verde de 'dev→prod sin cambiar código' (LangGraph: mismo grafo, solo cambia el checkpointer a VantaDB; test/workflow que falla si el código de negocio difiere) Y instalación de adapters desde PyPI verde (`pip install vantadb-langchain` + smoke) o disposición documentada si MKT-18f queda Alpha Y entrada en `COMPARISON.md` Y métrica installs/semana documentada con método (PyPI stats) — baseline 0 hasta publicar"
 - **Task file:** `docs/dev/tasks/ICP-03.md` (a crear en DISCOVERY)
-- **Estado:** ⏳ EN PROGRESO · **Branch:** develop · **Commit:**
+- **Estado:** ⏳ EN PROGRESO
 - **Cynefin:** 🟨 complicado — dep de publicación externa + demo cross-framework + medición externa.
 - **Top 3 riesgos:** 1. MKT-18f sin publicar → "instalación verde" imposible · 2. demo dev→prod que en realidad cambia código/config (hueco del claim) · 3. métrica installs/semana sin fuente (PyPI stats externa).
 - **Pre-mortem:** F1: publish pendiente → contrato admite disposición Alpha + demo con instalación in-repo (como ya hace ci-examples :123); F2: claim dev→prod frágil → demo comparativa (mismo script, `InMemorySaver` vs `VantaDBCheckpointer`, diff = conexión) + assert en CI; F3: métrica inventada → documentar definición (pypistats/last-week) y reportar solo número real (Regla 11).
@@ -1212,7 +1212,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** "claim corregido: README declara 'Fjall default; RocksDB opt-in por feature/env' consistente con `config.rs` (0 menciones de 'fallback' de storage) Y §2 regenerada: corrida `benchmarks/vantadb_local_bench.py` con bindings release + hardware documentado (Regla 11) → tabla reemplazada, banner FROZEN retirado, README puede volver a citar SDK-scope Y hardware normalizado: cada sección numérica declara su entorno y README cita solo lo citable Y 0 claims no reproducibles en README/BENCHMARKS (rg de números sin comando/fuente = 0; lo no medido queda como 'en progreso') Y `validate-docs-coverage` verde"
 - **Task file:** `docs/dev/tasks/DEF-06.md` (a crear en DISCOVERY)
-- **Estado:** ⏳ EN PROGRESO · **Branch:** develop · **Commit:**
+- **Estado:** ⏳ EN PROGRESO
 - **Cynefin:** 🟦 obvio→🟨 — edición de claims + una corrida; el riesgo es de honestidad/consistencia cross-doc.
 - **Top 3 riesgos:** 1. regen §2 sin contexto de hardware → claim nuevo igual de flojo · 2. tocar §2 sin retirar el banner (o viceversa) → doc contradictoria · 3. números viejos replicados en más sitios (README/COMPARISON/glosario) sin rastrillar todos.
 - **Pre-mortem:** F1: hardware no documentado → plantilla de entorno por corrida (patrón §12 :395-398); F2: doc dual → PR único que reemplaza tabla + banner + README + COMPARISON a la vez + `validate-docs-coverage`; F3: claims escondidos → rg de "ms|qps|faster|×" en README/docs-user con conteo antes/después (grep-evidence en el PR).
@@ -1338,6 +1338,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **plan-adjust [2026-09-29i]:** **F4 COMPLETA (41/50) — GATE F4 ✅ local.** VER-04 (`575ce8dd`): presupuesto enforced + ACLs boundary-aware + audit `outcome=denied` (incl. deny-all) + docs. Review vanta-audit: F1 (deny-all silenciado) → fix + 2 e2e; delta ✅. FIND-193..195 registrados. Siguiente: bloques F5 → wave F5.
 - **plan-adjust [2026-09-29j]:** **Bloques F5 completados al nivel F0/F1 (REGLA)** — Tasks 41-46, 23 campos c/u, Paso 0 verificado: MKT-18f (9 adapters existen `integrations/*`; **PyPI live 9/9 → 404**; pin `<0.7.0` stale; task file existe) · ICP-01 (hooks ✅; repo-map 0 hits → MGR-22 cross-track ⬜) · ICP-02 (VER-02/03/04 ✅ → "demostrar"; auditoría PII de producto = gap) · ICP-03 (VER-05 ✅) · VER-08 (canonical_p99 ✅ 4.9987ms + CI informativo; datasets no commiteados; ECE mandato MGR-12 §5) · DEF-06 (claim falso README:201 "RocksDB fallback"). Pendings: MGR-22, pin adapters, server.json 0.6.1.
 - **plan-adjust [2026-09-30a]:** **F5.1 cerrada (44/50)** — ICP-01 (`f80ddadc`; C1 gate + R1 paginación), ICP-02 (`48fb88d0`; Critical fail-open binario → scan byte-oriented), VER-08 (`0405eeda`; F1 recall_any vs recall_all → headline all 0.7617). MKT-18f local (`3815afa3`; publish owner). FIND-196..198. F5.2 lanzada: ICP-03 ‖ DEF-06.
+- **plan-adjust [2026-09-30b]:** **F5 COMPLETA (46/50)** — ICP-03 (`ea60cc0c` demo dev→prod + handoff publish), DEF-06 (`48861905` claims + §2 regen + FROZEN retirado). Reviews ✅ + batches. FIND-199..204. Siguiente: bloques F6 → wave F6 (última).
 
 ## Recitation
 
@@ -1346,9 +1347,9 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
 Objetivo activo: F3 — Bitemporalidad/confianza/cuarentena + schema v2 (MGR/SCH)
 Estado: in-progress
-Última acción: F5.1 COMPLETA (44/50 — ICP-01/02 + VER-08; f80ddadc/0405eeda/48fb88d0); F5.2 lanzada (ICP-03 ‖ DEF-06)
-Resultado: OK (F0 7/7 · F1 8/8 · F2 7/7 · F3 11/11 · F4 7/7 · F5 4/6)
-Próxima acción: F5.2 (ICP-03 ‖ DEF-06) → F6 (anuncio) → cierre de campaña
+Última acción: **F5 COMPLETA (46/50)** — ICP-03 (`ea60cc0c`) + DEF-06 (`48861905`); siguiente: bloques F6
+Resultado: OK (F0 7/7 · F1 8/8 · F2 7/7 · F3 11/11 · F4 7/7 · F5 6/6)
+Próxima acción: completar bloques F6 (REGLA) → wave F6 (VER-09/EXE-01/N-17) → cierre de campaña
 Contrato: —
 Próxima tarea si completa: HARD-01
 === END RECITATION ===
@@ -1865,22 +1866,22 @@ Próxima tarea si completa: DEF-06
 
 === RECITATION ICP-03 ===
 Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
-Objetivo activo: ICP-03 — wave F5.2
+Objetivo activo: ICP-03 — Track frameworks (wave F5.2)
 Estado: in-progress
-Última acción: Claim (wave F5.2)
-Resultado: PENDING
-Próxima acción: DISCOVERY + implementación
-Contrato: ver bloque Task 44/46 del plan
-Próxima tarea si completa: ICP-03
+Última acción: Batch post-review ronda 1 (✅ APPROVE, 2 Optional + 3 Nits) aplicado y re-verificado: Opt1 wording fingerprint (same-file display invariant; gates reales = token assert backend-free + equivalencia dev-first==prod-first), Opt2 baseline '0 for the adapters' (core vantadb-py se mide aparte), Nit SDK `pip install vantadb-py` explícito (API verificada en tag v0.7.0), Nit2 campos child documentados. Re-verify: DEMO PASSED exit 0 (6/6) + control negativo exit 1 + markdownlint 0 + check-docs all clear + check-links 45/58 (0 nuevos) + gen-index --check 0.
+Resultado: PARTIAL
+Próxima acción: LEAD: commit local (review ronda 1 ✅ + batch aplicado); post-adapters-v*: switch PyPI (FIND propuesto)
+Contrato: Task 44: one-pager ✅ · demo CI dev→prod ✅ (DEMO PASSED + control negativo) · PyPI-o-disposición Alpha ✅ (404 9/9 live) · COMPARISON §9 ✅ · métrica pypistats + baseline 0 ✅ · batch post-review ✅ 4/4 ítems
+Próxima tarea si completa: F6
 === END RECITATION ===
 
 === RECITATION DEF-06 ===
 Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
-Objetivo activo: DEF-06 — wave F5.2
+Objetivo activo: DEF-06 — README↔BENCHMARKS reconciliados (claims) — wave F5.2
 Estado: in-progress
-Última acción: Claim (wave F5.2)
-Resultado: PENDING
-Próxima acción: DISCOVERY + implementación
-Contrato: ver bloque Task 44/46 del plan
-Próxima tarea si completa: DEF-06
+Última acción: Review ronda 1 ✅ APPROVE (0 Critical/Required). Optional aplicado: nota de método Throughput en BENCHMARKS §2:67 (search qps = 1000/p50_ms, indicativo; ingestión vía JSON; rebuild derivado; mismo método en Retired series). Nits NO aplicados (justificados en task file). Re-verify post-fix: validate-docs-coverage 0 gaps + check-docs 0 + check-links 0 + markdownlint 0. Trabajo 7/7 steps completo.
+Resultado: OK
+Próxima acción: LEAD: commit local del changeset DEF-06 (README.md, README_ES.md, BENCHMARKS.md, docs/dev/tasks/DEF-06.md) + inserción de 4 filas FIND + actualización COMPARISON.md (stale §2.2, región ICP-03) → F6
+Contrato: ✅ claim corregido (0 'fallback') · ✅ §2 regenerada+env+FROZEN retirado+nota método qps · ✅ hardware normalizado §1/§2/§5/§8 · ✅ 0 claims sin fuente en README/BENCHMARKS · ✅ validate-docs-coverage 0 gaps · ✅ review r1 APPROVE
+Próxima tarea si completa: F6 (Tasks 47-49: VER-09/EXE-01/N-17)
 === END RECITATION ===
