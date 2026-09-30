@@ -37,3 +37,15 @@ kind: task
 
 1. **Workflow nuevo → existente (C3):** re-uso, no duplicado (ponytail rung 2). El `release-adapters-62.yml` usa OIDC (mejor que secret nombrado) y matrix de 9. Si se quisiera path-filter adicional sobre `integrations/**` para pre-build checks, es un `on.pull_request.paths` menor — no requerido por el contrato.
 2. **Pre-mortem #2 (extras vs base deps) → NO aplicado:** `langchain`/`llamaindex`/`mem0` importan el framework top-level y `__init__.py` re-exporta → mover la dep pesada a extras rompe el install base (ImportError). Convención del repo (`vantadb-openai`: `openai>=1.0` en base) y del ecosistema (llama-index-vector-stores-*, langchain partners) mantienen la dep en base. Re-abrir solo con guards de import ×3 (tarea nueva).
+
+## Re-baseline 2026-09-29 (LEAD) + checklist owner refrescado
+
+- **Estado live (verificado 2026-09-29):** los 9 nombres en PyPI = **404** (libres); `vantadb-py` 0.7.0 live (200). Pins actuales: `vantadb-py>=0.5.0,<0.7.0` ×9 (excluyen el core 0.7.0 vigente → decisión de bump pendiente del owner al publicar; opciones: bump a `<0.8.0`/`<0.9.0` + correr `adapters-compat.yml`, o mantener con fricción documentada).
+- **Workflow:** `release-adapters.yml` (matriz 9, OIDC, `fail-fast:false`, `skip-existing`, tag manual `adapters-v*`). Stale refs corregidos en `integrations/README.md` + docstring de `test_pins.py` (`-62`, `<0.6.0`).
+
+### Checklist owner (refrescado — publish = lane owner con tokens)
+1. **Habilitar publicación:** GitHub environment `pypi` (+ `testpypi`) en el repo; en PyPI, pending publisher por cada uno de los 9 nombres (o trusted publishing por proyecto).
+2. **Dry-run TestPyPI:** `gh workflow run release-adapters.yml -f publish_testpypi=true` → verificar 9 dists en test.pypi.org.
+3. **Tag release:** `git tag adapters-v0.5.0 && git push --tags` → publish-pypi (9). Post: quitar "Not on PyPI yet" de los 9 READMEs + commit post-release.
+
+**Stop condition activa:** si el owner no dispone de environment/tokens → disposición por adapter: "Alpha no publicado" + `pip install ./integrations/<adapter>` (precedente en README).
