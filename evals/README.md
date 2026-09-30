@@ -6,6 +6,7 @@
 | `memory_harness.py` | **Harness real (VER-08)**: schema LongMemEval-S contra bindings `vantadb` — recall_all@k + recall_any@k (session-level), p50/p99, ingest QPS, write-quality, abstención, token-economy, aislamiento per-user | ✅ |
 | `calibration.py` | **ECE + temperature scaling** (spec MGR-12 §5.2): ECE antes/después, T*, reliability data | ✅ |
 | `data/` | Sub-muestra LongMemEval-S commiteada (MIT) + procedencia/licencias | ✅ |
+| `runners/` | **Head-to-head (VER-09)**: capa de runners Mem0/Zep/Letta sobre el MISMO harness — adapters + driver + protocolo/skips (ver `runners/README.md`) | ✅ |
 | `agent/` | Eval de agentes propios (FIND-151, judge determinista) | ✅ |
 
 ## Comandos (Regla 11)
@@ -21,6 +22,10 @@ python evals/memory_harness.py --label subset-5q
 # corrida completa local (descarga 277 MB una vez; datasets/ está gitignoreado)
 python evals/data/fetch_longmemeval_subset.py            # verifica sha256 del cache
 python evals/memory_harness.py --data datasets/longmemeval/longmemeval_s_cleaned.json --label s-full-500q
+
+# head-to-head con competidores (VER-09 — mismo harness, capa de runners)
+python evals/runners/head_to_head.py --check
+python evals/runners/head_to_head.py --systems vantadb,mem0 --label h2h-5q
 ```
 
 ## Protocolo (pinned)
@@ -35,4 +40,4 @@ python evals/memory_harness.py --data datasets/longmemeval/longmemeval_s_cleaned
   umbral de score en `_abs`; write-quality = fidelidad get exacto. Ver docstring
   de `memory_harness.py` y `docs/user/operations/BENCHMARKS.md` §19.
 - Licencias y procedencia de datasets: `evals/data/README.md`.
-- VER-09 (head-to-head Mem0/Zep/Letta) reusa este harness — no duplicar.
+- VER-09 (head-to-head Mem0/Zep/Letta) reusa este harness — no duplicar: la capa de runners vive en `runners/`.

@@ -253,6 +253,7 @@ benchmarks/vanta_benchmark_report.json
 benchmarks/competitive_data/
 evals/memory_bench_report.json
 evals/memory_harness_report*.json
+evals/runners/report_h2h_*.json
 
 # Random build artifacts
 *.rar
