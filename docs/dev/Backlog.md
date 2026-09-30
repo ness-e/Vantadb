@@ -21,7 +21,7 @@ verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-hist
 
 | Phase | Items | Est. Effort | Priority |
 |-------|-------|-------------|----------|
-| **DELTA** 🚀 Próximo plan (post-campaña F0–F6, 2026-09-30) | **45** (DIST · MEMG · DUR · BENCH · DX · STRAT) | ~10–16 semanas | 🔴 P0–P3 | 📥 **Fuente del próximo plan → §DELTA (abajo)** |
+| **DELTA** 🚀 Próximo plan (post-campaña F0–F6, 2026-09-30) | **55** (DIST · MEMG · DUR · BENCH · DX · STRAT) | ~13–20 semanas | 🔴 P0–P3 | 📥 **Fuente del próximo plan → §DELTA (abajo)** |
 | **P0** 🚀 Release Blockers | 0 — ✅ 3/3 ejecutadas (plan 2026-08-09: RELEASE-01 semver-checks, RELEASE-02 publish 0.5.0 verificado live, RELEASE-03 artefactos) | — | ✅ Cerrada |
 | **P1** 🛡️ Security & Critical | 0 — ✅ 1/1 ejecutada (SEC-01 UAF `__array_interface__` fix) | — | ✅ Cerrada |
 | **P2** ⚡ Quick Wins Técnicos | 0 | — | ✅ Cerrado |
@@ -97,7 +97,7 @@ verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-hist
 > - banner RAM ✅ código actual correcto (`src/hardware/mod.rs:313`: `RAM {}GB`) · log default ✅ `info` (`src/console.rs:117`)
 >
 > **Estado del repo al 2026-09-30:** 139 commits locales en `develop` (sin push) · 0.8.0 preparada (guía + marcador breaking `b9296909` + R2) · FINDs 189–207 ya registrados arriba.
-> **Añadido 2026-09-30 (post-cierre):** MEMG-11..13 — gaps de adopción del motor core por `vanta-memory` (análisis vanta-memory↔core 2026-09-30).
+> **Añadido 2026-09-30 (post-cierre):** MEMG-11..13 — adopción del motor core por `vanta-memory` · MEMG-14..23 — validación externa del marco (≈100 fuentes) + huecos de taxonomía (portabilidad/sharing/rollback/multimodal/etc.).
 
 ### Índice
 
@@ -121,6 +121,16 @@ verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-hist
 | MEMG-11 | P1 | Adopción del motor core en `vanta-memory` (recall híbrido + escritura batch) | feat | 1-2sem | análisis vanta-memory↔core 2026-09-30 |
 | MEMG-12 | P1 | Semántica v2 write-side en el pipeline (`confidence`/`valid_at`/TTL) | feat | 1-1.5sem | análisis vanta-memory↔core 2026-09-30 |
 | MEMG-13 | P2 | Superficies core restantes en memoria (IQL/versiones/snapshots/filtros) | feat | 3-5d | análisis vanta-memory↔core 2026-09-30 |
+| MEMG-14 | P1 | Marco 2.0: núcleo + extensiones (áreas 7/8, ámbitos +4, ejes, cadencia) | research/docs | 2-3d | validación externa 2026-09-30 |
+| MEMG-15 | P1 | Portabilidad/interoperabilidad de memoria (AGENTS.md/MCP/IETF + export firmado) | feat | 3-5d | validación externa 2026-09-30 |
+| MEMG-16 | P1 | Compartir/colaboración multi-agente (scopes + permisos + revocación) | feat | 1-2sem | validación externa 2026-09-30 |
+| MEMG-17 | P1 | Rollback + verificabilidad + erasure criptográfica | feat | 3-5d | validación externa 2026-09-30 |
+| MEMG-18 | P2 | Multimodalidad: decisión + spec (extensión de modalidad vs 9ª dim) | research | 1-2d | validación externa 2026-09-30 |
+| MEMG-19 | P2 | Prospectiva + descartes documentados (sensorial/emocional) | docs | 1d | validación externa 2026-09-30 |
+| MEMG-20 | P2 | Checkpoints reanudables de tarea (dim1) | feat | 3-5d | validación externa 2026-09-30 |
+| MEMG-21 | P2 | Scoring multi-señal L1 (recencia+importancia) + reflexión periódica (dim2) | feat | 2-3d | validación externa 2026-09-30 |
+| MEMG-22 | P3 | Procedencia multi-fuente por campo (`track_property_source`) | feat | 1-2d | validación externa 2026-09-30 |
+| MEMG-23 | P3 | Evaluación "mejora con experiencia" (STATE-Bench-style) | verify | 2-3d | validación externa 2026-09-30 |
 | DUR-01 | P1 | Auditoría del fsync real | fix | 1-2d | research §1 |
 | DUR-02 | P1 | Auditoría cobertura AES (WAL/índices) | fix | 1-2d | Master #15 |
 | DUR-03 | P1 | H-023: re-put sobre expirado → colisión (bug engine) | fix | 1-2d | H-023 |
@@ -270,6 +280,34 @@ verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-hist
 - **Esfuerzo:** 1-1.5sem · **Dueño:** vanta-worker (+ vanta-arch para la política)
 - **Referencias:** análisis vanta-memory↔core 2026-09-30 · SCH-02/04/05 · MEMG-01/02 · MGR-09 · FIND-188/199
 
+#### MEMG-14 — Marco 2.0: núcleo + extensiones (taxonomía abierta)
+- **Qué:** reformular el marco 8/6/10/PI como "núcleo + extensiones" tras la validación externa: (a) áreas candidatas 7/8 — **portabilidad/interoperabilidad** y **compartir/colaboración multi-agente** — + meta-área **observabilidad/evaluación**; (b) ámbitos candidatos (privacidad/compliance+portabilidad, economía operacional, multimodalidad, multi-agente) y ampliaciones (#1 abstención/calibración, #9 test-time learning); (c) ejes ortogonales (sustrato/forma token-paramétrico-latente; sujeto single/multi-agente) + cadencia multiescala L0→L3; (d) corregir "taxonomía cerrada en seis" → núcleo+extensiones; (e) sync a Notion + respaldos al repo.
+- **Por qué:** la validación externa 2026 muestra que la taxonomía no es cerrada (survey de seguridad arXiv 2604.16548 propone otro lifecycle de 6 fases incl. Share y Forget/Rollback; DAMA-DMBOK tiene Interoperabilidad como knowledge area); mantener el claim "cerrada" es riesgo de credibilidad (Regla 11).
+- **Evidencia (2026-09-30):** 4 research (≈100 fuentes, ~50 fetch-verificadas) · arXiv 2604.16548 · DAMA-DMBOK · W3C CG AI Agent Memory Interop · dims hub §Validación (candidatas descartadas).
+- **Esfuerzo:** 2-3d · **Dueño:** vanta-docs (+ vanta-research)
+- **Referencias:** análisis 2026-09-30 · arXiv 2604.16548/2512.13564 · W3C/IETF drafts · Notion dims hub
+
+#### MEMG-15 — Portabilidad/interoperabilidad de memoria
+- **Qué:** formatos de frontera + export/import firmado: mapear/adoptar AGENTS.md + MCP memory + drafts IETF/W3C (AAIF, AIMEM, ALF, AMP); export con checksum/firma; versionado y migración de formatos de memoria (churn del sector: microagents→Skills, Knowledge→Skills, Memories→Rules).
+- **Por qué:** el ecosistema 2026 tiene drafts activos (W3C CG con firmas post-cuánticas; Portable Agent Memory criptográfico); Anthropic vende "no lock-in" con import/export; VantaDB ya tiene VER-05/06 → extender a estándares evita isla y habilita ICP-03.
+- **Evidencia (2026-09-30):** `w3.org/groups/cg/ai-agent-memory-interop` · `draft-schemacommons-aaif` · `draft-vu-aimem-bundle` · `agent-life/agentmemoryprotocol` (GitHub) · VER-05/06 ✅.
+- **Esfuerzo:** 3-5d · **Dueño:** vanta-worker (+ vanta-docs)
+- **Referencias:** análisis 2026-09-30 · VER-05/06 · FIND-200 · W3C/IETF
+
+#### MEMG-16 — Compartir/colaboración multi-agente (scopes + permisos + revocación)
+- **Qué:** memoria compartida con scopes (org/team/proyecto), permisos y revocación (sharing contracts: temporary/permanent/syndicate + revocation); compartida entre agentes (parent/subagente) y entre usuarios; consume MEMG-04/05 + EXE-07.
+- **Por qué:** "Share & Propagate" es fase propia del lifecycle académico 2026; Letta (shared blocks), Cognee (shared graphs) y CrewAI (scopes) ya lo ofrecen; MAST (NeurIPS 2025) documenta fallos de inter-agent misalignment; sin esto no hay caso "equipo".
+- **Evidencia (2026-09-30):** arXiv 2604.16548 (fase Share & Propagate + revocación) · `docs.letta.com` (shared blocks) · W3C sharing contracts · EXE-07 (P50) pendiente.
+- **Esfuerzo:** 1-2sem · **Dueño:** vanta-arch + vanta-worker
+- **Referencias:** análisis 2026-09-30 · arXiv 2604.16548 · MEMG-04/05 · EXE-07
+
+#### MEMG-17 — Rollback + verificabilidad + erasure criptográfica
+- **Qué:** (a) rollback semántico de memoria (volver a versión/snapshot con linaje); (b) recibos/firmas verificables (audit anchors; firmas post-cuánticas ML-DSA-65) extendiendo el hash-chain VER-01; (c) erasure criptográfica (destrucción de DEK + tombstone; GDPR Art.17 "verified forgetting").
+- **Por qué:** VMG lista Rollbackability + Verified Forgetting como primitivas de primera clase; ChronoMem (rollback semántico); EDPS exige "verifiable proof of unlearning"; hoy hay versions (MEMG-13) y hash-chain (VER-01) pero no rollback/recibos/erasure como capacidades.
+- **Evidencia (2026-09-30):** arXiv 2604.16548 (VMG 5 primitivas) · arXiv 2607.27773 (ChronoMem) · W3C CG (firmas post-cuánticas + erasure GDPR) · VER-01/02 ✅ · FIND-194 · MEMG-13.
+- **Esfuerzo:** 3-5d · **Dueño:** vanta-worker (+ vanta-audit)
+- **Referencias:** análisis 2026-09-30 · VER-01/02 · FIND-194 · MEMG-13
+
 #### DUR-01 — Auditoría del fsync real
 - **Qué:** auditar y endurecer la barrera de durabilidad: dónde hace falta `fsync`/`sync_all` real (WAL, snapshots, GC) y medirlo.
 - **Evidencia:** `fsync` = 15 hits / `sync_all` = 7 en 93k LOC de `src/` (research §1 — puntuó 7.0 por esto).
@@ -399,6 +437,34 @@ verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-hist
 - **Esfuerzo:** 3-5d · **Dueño:** vanta-worker
 - **Referencias:** análisis vanta-memory↔core 2026-09-30 · STU-03 · FIND-156/158 · WIRE-03/08
 
+#### MEMG-18 — Multimodalidad: decisión + spec (extensión de modalidad vs 9ª dimensión)
+- **Qué:** decidir y especificar multimodalidad: extensión de modalidad transversal (contenido multimodal en episódica/semántica + embeddings multi-modal) vs 9ª dimensión explícita; refinar FUT-15 (trigger actual = MGR-25 + caso de uso) con la evidencia 2026.
+- **Por qué:** es la candidata más fuerte a "dimensión faltante" según los 5 surveys 2026 (mecanismo "sensory"); MIRIX demuestra implementación real (+35% ScreenshotVQA, −99.9% storage); el descarte actual vale solo como "almacén sensorial dedicado".
+- **Evidencia (2026-09-30):** arXiv 2602.06052 (sensory) · arXiv 2507.07957 (MIRIX) · arXiv 2512.13564 (frontera multimodal) · FUT-15 (registro 2026-09-14).
+- **Esfuerzo:** 1-2d (research + decisión owner) · **Dueño:** owner + vanta-research
+- **Referencias:** análisis 2026-09-30 · FUT-15 · arXiv 2602.06052/2507.07957
+
+#### MEMG-19 — Prospectiva + descartes documentados (sensorial/emocional)
+- **Qué:** documentar en el repo: (a) prospectiva/intencional como patrón de uso (working+temporal+procedimental; no almacén) con benchmarks de referencia; (b) descartes sensorial-como-almacén y emocional/motivacional con respaldos teóricos + criterio de revisión (emocional: re-evaluar en 6-12m).
+- **Por qué:** los respaldos y descartes hoy viven solo en Notion; el repo no los tiene (grep 0 hits) y son parte del contrato del marco ("extensiones futuras, no normativas").
+- **Evidencia (2026-09-30):** dims hub §Validación (candidatas evaluadas y descartadas) · arXiv 2607.12385 (PM-Bench, máx 65.1% F1) · arXiv 2606.23459 (TriggerBench) · arXiv 2602.23944 (MemEmo/HLME).
+- **Esfuerzo:** 1d · **Dueño:** vanta-docs
+- **Referencias:** análisis 2026-09-30 · dims hub §Validación
+
+#### MEMG-20 — Checkpoints reanudables de tarea (dim1)
+- **Qué:** checkpoints reanudables de tarea en `vanta-memory`: paso actual + resultados parciales + resume tras interrupción/compactación; base `utils/checkpoint.rs` (persistencia) existe — falta la semántica de resume e integración con `pipeline_worker`.
+- **Por qué:** la dim1 lo propone [PROPUESTA] ("checkpoints reanudables de paso + parciales"); es el gap operativo #1 de la memoria de trabajo (MemGPT/ACT-R validan: ventana=RAM, paginación y "cosecha" de metas).
+- **Evidencia (2026-09-30):** dim1 hub (propuesta) · `vanta-memory/src/utils/checkpoint.rs` (base) · MemGPT arXiv 2310.08560.
+- **Esfuerzo:** 3-5d · **Dueño:** vanta-worker
+- **Referencias:** análisis 2026-09-30 · dim1 hub · MemGPT
+
+#### MEMG-21 — Scoring multi-señal L1 (recencia+importancia) + reflexión periódica (dim2)
+- **Qué:** scoring de recuperación L1 con señales recencia+relevancia+importancia (Park-style) + reflexión periódica sobre episódica (lecciones); extiende MEMG-07 (decay) y MGR-15 (Reflexion/doble bucle).
+- **Por qué:** la dim2 lo marca como gap ("falta scoring recency-relevance-importance con decaimiento, reflexión periódica"); Generative Agents: sin reflexión el sistema degenera en 48h simuladas; CrewAI ya vende composite scoring.
+- **Evidencia (2026-09-30):** dim2 hub (gaps) · arXiv 2304.03442 (recency/relevance/importance) · `docs.crewai.com` (composite scoring + forget) · MGR-15 · MEMG-07.
+- **Esfuerzo:** 2-3d · **Dueño:** vanta-worker (+ vanta-engine)
+- **Referencias:** análisis 2026-09-30 · dim2 hub · MGR-15 · MEMG-07
+
 ### P3 — Estratégico
 
 | ID | Qué | Dueño |
@@ -410,6 +476,20 @@ verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-hist
 | **STRAT-05** | **Ruta object storage** (S3/blob: hoy 100% local). | vanta-arch |
 | **STRAT-06** | **Research:** licencias Khoj/Jan/Reor/OpenWebUI/Letta + ACV real de OSS DBs (los bands de revenue son modelado, no datos). | vanta-research |
 | **STRAT-07** | **Decisiones owner de campaña:** Q5 (enforcement p99) + calibración runtime de confianza (VER-08 entregó el harness; aplicarla es v1.0). | owner |
+
+#### MEMG-22 — Procedencia multi-fuente por campo (`track_property_source`)
+- **Qué:** trazabilidad de fuente por campo/propiedad (p.ej. "email" de fuente A, "teléfono" de fuente B con linaje separado) sobre metadata v2; extiende MEMG-12 y el modelo W3C PROV.
+- **Por qué:** el ámbito 7 lo marca como brecha explícita ("falta track_property_source multi-fuente"); sin esto la procedencia es a nivel registro y se pierde en merges.
+- **Evidencia (2026-09-30):** ámbito 7 hub (brechas MGR-12/13 declaradas) · W3C PROV-DM · SCH-02 (campos v2) · MEMG-12.
+- **Esfuerzo:** 1-2d · **Dueño:** vanta-worker
+- **Referencias:** análisis 2026-09-30 · ámbito 7 · W3C PROV
+
+#### MEMG-23 — Evaluación "mejora con experiencia" (STATE-Bench-style)
+- **Qué:** extender el harness VER-08 con una métrica de mejora con experiencia (¿el agente mejora al acumular memoria en tareas repetidas?) estilo STATE-Bench + MemoryAgentBench (test-time learning); declarar la economía (tokens/costo) como criterio de primera clase (ya en pares accuracy+tokens).
+- **Por qué:** la métrica de la industria 2026 ya no es "¿recupera?" sino "¿el agente mejora?"; cierra el ángulo test-time learning que los ámbitos no listan.
+- **Evidencia (2026-09-30):** STATE-Bench (Microsoft, may-2026) · arXiv 2507.05257 (MemoryAgentBench) · VER-08 ✅ · eRAG (economía).
+- **Esfuerzo:** 2-3d · **Dueño:** vanta-tuner (+ vanta-research)
+- **Referencias:** análisis 2026-09-30 · VER-08 · STATE-Bench · arXiv 2507.05257
 
 ### Migración H-findings → Backlog (estado 2026-09-30)
 
