@@ -1160,7 +1160,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** "one-pager del track (frameworks: LangGraph/CrewAI/DSPy/Haystack/LlamaIndex; aislamiento multi-usuario; migración desde Mem0/Zep/Letta) Y demo CI verde de 'dev→prod sin cambiar código' (LangGraph: mismo grafo, solo cambia el checkpointer a VantaDB; test/workflow que falla si el código de negocio difiere) Y instalación de adapters desde PyPI verde (`pip install vantadb-langchain` + smoke) o disposición documentada si MKT-18f queda Alpha Y entrada en `COMPARISON.md` Y métrica installs/semana documentada con método (PyPI stats) — baseline 0 hasta publicar"
 - **Task file:** `docs/dev/tasks/ICP-03.md` (a crear en DISCOVERY)
-- **Estado:** ⏳ EN PROGRESO
+- **Estado:** ✅ COMPLETED (2026-09-30 — commit `ea60cc0c`; review ✅ + batch)
 - **Cynefin:** 🟨 complicado — dep de publicación externa + demo cross-framework + medición externa.
 - **Top 3 riesgos:** 1. MKT-18f sin publicar → "instalación verde" imposible · 2. demo dev→prod que en realidad cambia código/config (hueco del claim) · 3. métrica installs/semana sin fuente (PyPI stats externa).
 - **Pre-mortem:** F1: publish pendiente → contrato admite disposición Alpha + demo con instalación in-repo (como ya hace ci-examples :123); F2: claim dev→prod frágil → demo comparativa (mismo script, `InMemorySaver` vs `VantaDBCheckpointer`, diff = conexión) + assert en CI; F3: métrica inventada → documentar definición (pypistats/last-week) y reportar solo número real (Regla 11).
@@ -1212,7 +1212,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** "claim corregido: README declara 'Fjall default; RocksDB opt-in por feature/env' consistente con `config.rs` (0 menciones de 'fallback' de storage) Y §2 regenerada: corrida `benchmarks/vantadb_local_bench.py` con bindings release + hardware documentado (Regla 11) → tabla reemplazada, banner FROZEN retirado, README puede volver a citar SDK-scope Y hardware normalizado: cada sección numérica declara su entorno y README cita solo lo citable Y 0 claims no reproducibles en README/BENCHMARKS (rg de números sin comando/fuente = 0; lo no medido queda como 'en progreso') Y `validate-docs-coverage` verde"
 - **Task file:** `docs/dev/tasks/DEF-06.md` (a crear en DISCOVERY)
-- **Estado:** ⏳ EN PROGRESO
+- **Estado:** ✅ COMPLETED (2026-09-30 — commit `48861905`; review ✅ + Optional qps)
 - **Cynefin:** 🟦 obvio→🟨 — edición de claims + una corrida; el riesgo es de honestidad/consistencia cross-doc.
 - **Top 3 riesgos:** 1. regen §2 sin contexto de hardware → claim nuevo igual de flojo · 2. tocar §2 sin retirar el banner (o viceversa) → doc contradictoria · 3. números viejos replicados en más sitios (README/COMPARISON/glosario) sin rastrillar todos.
 - **Pre-mortem:** F1: hardware no documentado → plantilla de entorno por corrida (patrón §12 :395-398); F2: doc dual → PR único que reemplaza tabla + banner + README + COMPARISON a la vez + `validate-docs-coverage`; F3: claims escondidos → rg de "ms|qps|faster|×" en README/docs-user con conteo antes/después (grep-evidence en el PR).
@@ -1228,18 +1228,81 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 
 ### Task 47: VER-09 — Head-to-head Mem0/Zep/Letta con protocolo publicado (absorbe EXE-02)
 - **Fase:** F6
-- **Dep:** VER-08 · 🔴 1-2sem · 🟠 · **Ruta:** vanta-tuner · **Contrato:** "reporte win/loss con protocolo + dataset reproducible" · **Task file:** `docs/dev/tasks/VER-09.md`
+- **Dep:** VER-08 ✅ (`0405eeda` — harness + `calibration.py` + `evals/data/`; se reusa íntegro, sin fork) · absorbe EXE-02 (Backlog:913 — fila madre P50 conservada, Backlog:947)
+
+- **Appetite:** max 2sem · **Esfuerzo:** 🔴 1-2sem · **Prioridad:** 🟠
+- **Ruta:** vanta-tuner (+ vanta-docs: reporte + post; vanta-audit: protocolo)
+- **Archivos clave:** `evals/memory_harness.py` (harness VER-08: juez DETERMINISTA :12-16, hardware en reporte :23, `VantaStore` :138-141, `--backend` :501 = backend vantadb) + `evals/calibration.py` (ECE) + `evals/data/` (LongMemEval-S MIT commiteado; LoCoMo/BEAM con disposición :24-41) · runner layer destino `evals/runners/` (a crear en DISCOVERY — mismo contrato de métricas del harness) · `docs/user/operations/BENCHMARKS.md` (§19 :1164-1243: recall_all@5 0.7617 :1194, ECE :1203, entorno :1216; §Planificado :1245-1251 — head-to-head declarado) · `docs/user/COMPARISON.md` (:17 capa pendiente; :151 "no claim out of head-to-head"; :169-170 pending layer) · `docs/dev/research/validacion/01-competidores-memoria-agentes-ia.md` (Mem0 :23-33 · Zep/Graphiti :35-45 · Letta :47-57 — pricing/licencia/distribución) · `docs/dev/research/mgr-19-benchmarks-baseline-suites.md` (§4 owner Qs :62-68; §5.4 :75) · `docs/dev/strategy/VantaDB-Informe-Analisis-Completo.md` (:447 EXE-02; :531/:553 timing del anuncio) · post técnico destino `docs/user/blog/` (precedente `benchmarks_vs_lancedb_chroma.md`)
+- **Verificación real:** ✅ CÓDIGO-REAL — **re-baseline**: (1) harness VER-08 ✅ (`0405eeda`): recall_all@5 **0.7617** (358/470, headline upstream-comparable) + recall_any@5 0.9213 + write-quality 1.0 + ECE 0.0787→0.0003, con entorno documentado (BENCHMARKS.md :1194/:1203/:1216) y protocolo pineado en el docstring (:12-23) → la base "protocolo publicado" ya existe. (2) **NO hay runners de competidores**: `rg "mem0|zep|letta|runner" evals/*.py` = 0 hits; el harness solo corre el binding vantadb (`VantaStore` :138-141; `--backend` :501); `benchmarks/competitive_bench.py:1-5` mide LanceDB/ChromaDB/Qdrant/Milvus (vector DBs, NO memory systems) → gap real = capa de runners con las MISMAS métricas. (3) El harness **no corre en CI** (solo `evals/agent/run_eval.py` en `lurkr-informational.yml:58`) → el head-to-head es corrida manual protocolizada, no gate. (4) Licencias/disposición resueltas: LongMemEval-S committeado; LoCoMo CC BY-NC no commiteable (FIND-197, Backlog:304); BEAM runner opt-in (FIND-198, Backlog:305) (`evals/data/README.md` :24-41). (5) Material de competidores ✅ (:23-57) + contexto de credibilidad (LoCoMo auditado 6.4%/63%, BENCHMARKS:1251). Blast radius: `evals/` (runner layer nuevo), `BENCHMARKS.md`, `COMPARISON.md`, `docs/user/blog/`.
+- **Gate Justificación:** gate F6 = anuncio (plan :44) y VER-09 es prerequisito del mismo: el informe fija "EXE-03 verde + EXE-02/VER-09 publicado → lanzamiento" (:531/:553) y NOTION-SYNC:57 lo lista como gate de anuncio; con LoCoMo auditado (6.4% del answer-key erróneo / juez acepta hasta 63%), publicar protocolo completo + win/loss honesto convierte la desventaja de comparabilidad del sector en credibilidad (BENCHMARKS:1251; hueco #12).
+- **Gate Result:** ✅ DO
+- **Contrato:** "head-to-head publicado: Mem0/Zep/Letta corridos con el MISMO harness VER-08 (mismo dataset/top_k/hardware fijado; 0 forks del harness) Y protocolo completo publicado (versiones pineadas por sistema + stack LLM/embedding/reranking + juez determinista + comandos de reproducción, Regla 11) Y win/loss honesto por capacidad (recall@k, p50/p99, ingest QPS, tokens — pares accuracy+tokens) en `BENCHMARKS.md` §19/Planificado Y post técnico con metodología (draft en `docs/user/blog/`) Y `COMPARISON.md` :17/:169 actualizado (capa pendiente → corrida) Y EXE-02 absorbido: 0 claims vs competidores sin la tabla propia"
+- **Task file:** `docs/dev/tasks/VER-09.md` (a crear en DISCOVERY)
 - **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Cynefin:** 🔴 complejo — 3 sistemas externos con stacks de extracción LLM distintos + comparabilidad estricta del protocolo + costos de corrida.
+- **Top 3 riesgos:** 1. comparación no comparable (versiones/stacks distintos; extraction-LLM vs store) → win/loss sin valor · 2. costo/keys LLM de los competidores (Mem0/Zep/Letta extraen con LLM) → corrida cara/nondeterminista · 3. cherry-picking → credibilidad quemada (justo el punto de la auditoría LoCoMo).
+- **Pre-mortem:** F1: runner que no instala/pinea → correr los disponibles + disposición por sistema + FIND (nunca inventar números); F2: comparación unfair (derrotas ocultas) → win/loss por capacidad con derrotas incluidas (precedente COMPARISON.md:151) + sección de límites; F3: costo LLM desborda → sub-muestra commiteada primero + full split si el presupuesto lo permite; juez determinista; n declarado.
+- **Stop conditions:** si un runner de competidor no se puede pinear/instalar con licencia compatible → correr los disponibles + disposición documentada por sistema + FIND (no bloquear el reporte); si el costo LLM excede presupuesto → subset reducido + declarar n (Regla 11); si el head-to-head no cierra antes del anuncio → publicar harness + protocolo + resultados propios y diferir el win/loss (documentado, no silencioso); rabbit hole: leaderboard público / track 10M → NO.
+- **Risk Register:**
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🔴 | Sistemas no comparables | mismas métricas/entrada + versiones y stack pineados + límites declarados | review P2-01 |
+  | 🟡×🟠 | Costo/keys LLM | subset acotado + juez determinista + presupuesto declarado | corrida > presupuesto |
+  | 🟢×🔴 | Cherry-picking | win/loss por capacidad con derrotas + sección de límites | review P2-01 |
+- **Uphill/Downhill:** ⬆️ 3 (runners de 3 sistemas + protocolo pineado + reporte/post) / ⬇️ 5 steps
+- **DoD task:** contrato ⬜ · task file sync · recitation · **Iteraciones:** 0 · **Notas:** absorbe EXE-02 (Backlog:913; fila madre P50 conservada — Backlog:947; informe:447) — citarlo, no duplicar. Reusa TODO el harness VER-08 (`evals/README.md:38` "no duplicar"). Timing: gate de anuncio (NOTION-SYNC:57) exige VER-09 publicado → coordinar con EXE-03 (owner). Post técnico sigue el patrón de `BLOG_SERIES_PLAN.md` (posts de benchmark al publicar datos).
 
 ### Task 48: EXE-01 — Demos CI (3 casos: memory/verify/governance)
 - **Fase:** F6
-- **Dep:** — · 🟡 2-3d · 🟠 · **Ruta:** vanta-worker · **Contrato:** "3 demos ejecutables en CI + output documentado" · **Task file:** `docs/dev/tasks/EXE-01.md`
+- **Dep:** — (superficies ✅: VER-01 `0cc14247` · VER-02 `ccc51d09` · VER-04 `575ce8dd`; demos F5 ✅: ICP-01 `f80ddadc` · ICP-02 `48fb88d0` · ICP-03 `ea60cc0c` — patrón)
+
+- **Appetite:** max 3d · **Esfuerzo:** 🟡 2-3d · **Prioridad:** 🟠
+- **Ruta:** vanta-worker (+ vanta-docs: output documentado y linkeo)
+- **Archivos clave:** `.github/workflows/ci-ai-ides-demo.yml` (caso memory ✅: sesión 1 put → sesión 2 recall por sinónimo; offline fake-Ollama :10-11) · `.github/workflows/ci-examples.yml` (smokes de ejemplos: Rust :61-67; Python :127-146) · `.github/workflows/icp02-privacy-demo.yml` (verify/governance parcial: `delete --attest` + `certificate verify` + `op:"injection"` :5-8; run :66) · `scripts/demo-privacy-e2e.ps1` (4 pasos :53-107: captura→audit→forget certificado→injection) · `tests/wal_chain_verify.rs` (material del demo verify :4-21: clean/delete/altered/legacy) · `vanta-proxy/tests/ver04_governance.rs` (material governance :4-6: budget 0/low/roomy + ACL + audit JSONL) · `src/cli.rs` (`Verify` :198-201; `CertificateCommand::Verify` :467-478) · `docs/user/PRIVACY.md` + `docs/user/AI_IDES.md` + `docs/user/tutorials/01-ai-agent-memory.md` (destino de links; precedente: `PRIVACY.md`/`COMPARISON.md` ya linkean `demo-privacy-e2e.ps1`) · scripts/workflows de los demos verify+governance (nuevos o extensión de los existentes — a crear en DISCOVERY)
+- **Verificación real:** ✅ CÓDIGO-REAL — **re-baseline (parcial)**: (1) **memory ✅ ya existe**: `ci-ai-ides-demo.yml:1-31` (aceptación ICP-01: sesión 1 guarda → sesión 2 recupera por sinónimo sin tokens compartidos, assert por test, offline) + `ci-examples.yml` smokes de ejemplos (:61-67 Rust; :127-146 Python agent_memory/demo/graphrag…). (2) **verify 🟡 parcial**: `icp02-privacy-demo.yml:5-8` corre `scripts/demo-privacy-e2e.ps1:67-84` = `delete --attest` + `certificate verify` exit 0 (VER-02 ✅ `ccc51d09`); el tamper del WAL (`vanta-cli verify` — VER-01 ✅ `0cc14247`; `src/cli.rs:198-201`) existe SOLO como test (`tests/wal_chain_verify.rs:4-21`) — `rg "vanta-cli verify" .github/workflows` = 0 → sin demo en CI. (3) **governance 🟡 parcial**: paso [4/4] del demo ICP-02 consulta el audit de inyección (`demo-privacy-e2e.ps1:96-105`); budget/ACL e2e solo como test (`vanta-proxy/tests/ver04_governance.rs:4-6`; VER-04 ✅ `575ce8dd`) — sin demo dedicado con output documentado. Blast radius: workflows/scripts nuevos + links en `docs/user/` (bajo; ningún código de producto).
+- **Gate Justificación:** gate F6 = anuncio: `/audit certify` + `/ship` GO (plan :44); EXE-01 materializa el DoD "3 demos verdes en CI + docs linkeadas" (Backlog:912) sobre las 3 garantías de la categoría "memoria verificable y gobernable" (P52): las superficies ya están shipped (F4) y F5 dejó 3 workflows demo dedicados (`ci-ai-ides-demo`/`icp02-privacy-demo`/`ci-frameworks-demo`) + `ci-examples` (smokes) como patrón — falta cerrar verify/governance con output documentado para el anuncio (NOTION-SYNC:57).
+- **Gate Result:** ✅ DO
+- **Contrato:** "3 demos ejecutables en CI con output documentado: **memory** (sesión 1 guarda → sesión 2 recupera; `ci-ai-ides-demo.yml`) Y **verify** (tamper en WAL → `vanta-cli verify` exit ≠0 + `delete --attest`/`certificate verify` exit 0 — CI rojo si no detecta) Y **governance** (budget/ACL/audit de inyección: fuera de ACL → `denied` en audit, bloque ≤ budget, consulta `op:"injection"`) Y cada demo con comando + output esperado documentado y linkeado desde `docs/user/` Y 0 `continue-on-error`"
+- **Task file:** `docs/dev/tasks/EXE-01.md` (a crear en DISCOVERY)
 - **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Cynefin:** 🟨 complicado — 3 demos deterministas/offline en CI reusando superficies ya demoed sin duplicar.
+- **Top 3 riesgos:** 1. demos decorativos (verde sin probar la garantía) · 2. solape/duplicación con `icp02-privacy-demo` (verify/governance ya parciales) · 3. docs desincronizadas del output real.
+- **Pre-mortem:** F1: demo que pasa sin verificar nada → asserts de detección (tamper → exit≠0; deny fuera de ACL → fila `denied`) + CI rojo si la garantía se rompe; F2: duplicar ICP-02 → reusar `demo-privacy-e2e.ps1`/su patrón y declarar qué añade cada demo; F3: fragilidad pwsh/paths → patrón F5 (`pwsh -NoProfile -File` :66; script versionado; offline fake-Ollama :10-11).
+- **Stop conditions:** si un demo exige red/keys → in-process/determinista (precedente fake Ollama :10-11); si verify exige binario release → `cargo run -p vantadb --bin vanta-cli` (precedente `demo-privacy-e2e.ps1:76`); si el runner Windows complica pwsh → portar el demo a python/stdlib; rabbit hole: demos desktop/UI → NO.
+- **Risk Register:**
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟠 | Demo decorativo | assert de detección (tamper/deny) + CI rojo | CI rojo |
+  | 🟡×🟡 | Solape con ICP-02 | reusar script/patrón + alcance por demo declarado | review P2-01 |
+  | 🟢×🟠 | Docs desincronizadas | comando+output en el doc en el mismo PR | gate-docs |
+- **Uphill/Downhill:** ⬆️ 2 (demo verify + demo governance; memory ya existe) / ⬇️ 4 steps
+- **DoD task:** contrato ⬜ · task file sync · recitation · **Iteraciones:** 0 · **Notas:** re-baseline: memory ✅ (`ci-ai-ides-demo.yml`), verify/governance parciales en ICP-02 (`icp02-privacy-demo.yml`) → el slice cierra los demos faltantes + output documentado/linkeo. Backlog P50:912 pedía agente-personal/RAG-docs/grafos → re-baseline F6 a memory/verify/governance (garantías P52 con superficies shipped en F4). Material directo: `tests/wal_chain_verify.rs`, `vanta-proxy/tests/ver04_governance.rs`, `scripts/demo-privacy-e2e.ps1`. Consumidor: anuncio F6 + docs públicas.
 
 ### Task 49: N-17 — Notion sync (drafts NOTION-SYNC-2026-09-24.md → páginas)
 - **Fase:** F6
-- **Dep:** — · 🟢 0.5d · 🟡 · **Ruta:** vanta-lead (Notion MCP) · **Contrato:** "10 páginas sincronizadas (0.7.0 vigente, no stale) + draft aplicado" · **Task file:** `docs/dev/tasks/N-17.md`
+- **Dep:** — (draft ✅ `docs/dev/strategy/NOTION-SYNC-2026-09-24.md`; Notion MCP live read-only verificado 2026-09-30)
+
+- **Appetite:** max 1d · **Esfuerzo:** 🟢 0.5d · **Prioridad:** 🟡
+- **Ruta:** vanta-lead (Notion MCP) — publicación en workspace = lane owner
+- **Archivos clave:** `docs/dev/strategy/NOTION-SYNC-2026-09-24.md` (draft: §1 Problema … §10 Definición oficial + §11 higiene + §12 checklist 11 ítems) · `docs/dev/backlog-notion.md` (:22 fila N-17) · Notion (verificado live 2026-09-30 vía Notion MCP): hub `VantaDB Docs` (`3d4d0445-9756-80f2-a5fc-e53ad196a8ba`) · `Problema` (`3d4d0445-9756-8051-bbe6-cbb8a876e7b7`) · `Propuesta` (`3d4d0445-9756-80cf-9b5e-cde4dd944c7c`) · `SDKs y Quickstarts (Python + TypeScript)` (`3dbd0445-9756-8134-8746-d5ce6088f63c`) · `Cómo Construir Benchmarks para VantaDB: Guía Completa 2026` (`3d6d0445-9756-801f-ad5f-cf9d7560f915`, bajo Propuesta) · `Roadmap, changelog y criterios de release` (`3dbd0445-9756-81ee-b7fd-e541a545c526` — el draft la llama "Roadmap") · `Seguridad de la memoria` (`3dbd0445-9756-81ce-8fd7-e96e0b1c4a99` — draft "Seguridad") · `Observabilidad, benchmarks y métricas` (`3dbd0445-9756-81e4-bfff-c6c4c7fe649e` — draft "Observabilidad") · `Gobernanza del ciclo de vida de la memoria` (`3dbd0445-9756-817f-b172-ff6498e203f9` — draft "Gobernanza") · `Casos de uso` (`3d4d0445-9756-8047-b392-eacfbdd82d4b`) · stale a corregir: `Referencia API verificada (REAL v0.6.1)` (`3dbd0445-9756-815c-9f68cb05f0a01a1b`) · higiene: `VantaDB Docs (1)` (`3dbd0445-9756-8046-9d38-d0e6b04f2f80`) + `VantaDB OLD` ×2 (`3d0d0445-9756-8098-b82c-ec71fa8acc21`, `224d0445-9756-826e-8c85-01e1765a44c3`) · claim-check contra repo: `docs/user/operations/BENCHMARKS.md` · `docs/api/{WAL_INTEGRITY,CERTIFIED_DELETE,MCP,PROXY}.md` · `docs/user/COMPARISON.md`
+- **Verificación real:** ✅ DOCS-REAL — **re-baseline**: (1) draft ✅ existe (10 secciones + higiene + checklist §12). (2) **Notion MCP live verificado (read-only, 2026-09-30)**: hub + 9/10 destinos existen; 4 con nombre ≠ al del draft (el draft pedía "verificar nombres exactos al aplicar" ✅ hecho); "Definición oficial" NO existe como página (el hub tiene "Definición de trabajo" inline) → disposición en DISCOVERY. (3) **stale confirmado**: página `Referencia API verificada (REAL v0.6.1)` vs workspace 0.7.0 → cubierta por la cláusula "0.7.0 vigente, no stale" del contrato. (4) higiene confirmada live: `VantaDB Docs (1)` + `VantaDB OLD` ×2. (5) La conexión tiene las tools necesarias (`search`/`fetch`/`update_page`/`create_pages` = available) — la escritura en el workspace es lane owner (`backlog-notion.md:22` N-17 ⬜ desde 2026-09-24). Blast radius: workspace Notion (externo) + `backlog-notion.md`; 0 código.
+- **Gate Justificación:** gate F6 = anuncio (plan :44) y Notion es la cara externa del proyecto: el draft post-investigación 2026-09-24 (evidencia AgentPoison/MINJA, decisiones owner, roadmap P52–P56, gates de anuncio) sigue ⬜ → desalineado con 0.7.0 y con lo shipped (VER-08 ✅, ICP ✅); costo 0.5d y contrato "10 páginas + draft aplicado" — el último artefacto de comunicación pre-anuncio.
+- **Gate Result:** ✅ DO
+- **Contrato:** "draft `NOTION-SYNC-2026-09-24.md` aplicado: 10 páginas del hub `VantaDB Docs` con sección nueva fechada + claims verificados contra repo (Regla 11; marcas [REAL]/[PARCIAL]/[PROPUESTA]) + links cruzados Y 0 páginas stale: claims a 0.7.0 vigente (incluye corregir `Referencia API verificada (REAL v0.6.1)`) Y higiene: `VantaDB Docs (1)` consolidado/archivado + `VantaDB OLD` archivado Y checklist §12 11/11 Y fila N-17 de `backlog-notion.md` actualizada con fecha de sync"
+- **Task file:** `docs/dev/tasks/N-17.md` (a crear en DISCOVERY)
 - **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Cynefin:** 🟦 obvio — aplicación de contenido curado + verificación claim↔repo; el riesgo es de exactitud, no de diseño.
+- **Top 3 riesgos:** 1. claims que queden stale al publicar (0.6.1 vs 0.7.0, conteos de tools) · 2. nombres de páginas ≠ draft → editar página equivocada (mitigado: mapa de IDs verificado) · 3. permisos de escritura del workspace (lane owner) → bloqueo parcial.
+- **Pre-mortem:** F1: página renombrada/inexistente → mapa de IDs verificado live (esta tabla) + re-verificar al aplicar; F2: claim stale colado (~87 tools; nombres viejos) → checklist por claim contra repo + fecha por sección; F3: consolidar borrando → archivar (no borrar) `VantaDB Docs (1)`/`VantaDB OLD` (contenido histórico intacto).
+- **Stop conditions:** si la conexión no tiene permiso de escritura en alguna página → aplicar las accesibles + handoff owner para el resto (documentado en la fila N-17, no bloqueante); si "Definición oficial" no existe → crear página o fundir la sección en el hub (decisión DISCOVERY, anotada); si una tool exige plan superior → alcance minimal con `update_page`; rabbit hole: reorganizar el resto del workspace → NO (solo las 10 + higiene §11).
+- **Risk Register:**
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟠 | Claims stale al publicar | checklist claim↔repo (Regla 11) + fecha por sección | review P2-01 |
+  | 🟡×🟡 | Página equivocada (nombres) | mapa de IDs verificado live (2026-09-30) | DISCOVERY |
+  | 🟢×🟠 | Sin permiso de escritura | aplicar accesibles + handoff owner | 1er write falla |
+- **Uphill/Downhill:** ⬆️ 2 (aplicación en workspace externo + resolución "Definición oficial"/página stale) / ⬇️ 4 steps
+- **DoD task:** contrato ⬜ · task file sync · recitation · **Iteraciones:** 0 · **Notas:** seed "10 páginas sincronizadas (0.7.0 vigente, no stale) + draft aplicado" → re-baseline con mapa de páginas live (4 nombres difieren; "Definición oficial" inexistente). Publicación = lane owner (workspace personal; `notion` MCP — plan :1294); si se bloquea, el entregable degrada a draft + instrucciones por página (stop condition). Registrar fecha de sync + checklist en `backlog-notion.md`.
 
 ---
 
@@ -1339,6 +1402,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **plan-adjust [2026-09-29j]:** **Bloques F5 completados al nivel F0/F1 (REGLA)** — Tasks 41-46, 23 campos c/u, Paso 0 verificado: MKT-18f (9 adapters existen `integrations/*`; **PyPI live 9/9 → 404**; pin `<0.7.0` stale; task file existe) · ICP-01 (hooks ✅; repo-map 0 hits → MGR-22 cross-track ⬜) · ICP-02 (VER-02/03/04 ✅ → "demostrar"; auditoría PII de producto = gap) · ICP-03 (VER-05 ✅) · VER-08 (canonical_p99 ✅ 4.9987ms + CI informativo; datasets no commiteados; ECE mandato MGR-12 §5) · DEF-06 (claim falso README:201 "RocksDB fallback"). Pendings: MGR-22, pin adapters, server.json 0.6.1.
 - **plan-adjust [2026-09-30a]:** **F5.1 cerrada (44/50)** — ICP-01 (`f80ddadc`; C1 gate + R1 paginación), ICP-02 (`48fb88d0`; Critical fail-open binario → scan byte-oriented), VER-08 (`0405eeda`; F1 recall_any vs recall_all → headline all 0.7617). MKT-18f local (`3815afa3`; publish owner). FIND-196..198. F5.2 lanzada: ICP-03 ‖ DEF-06.
 - **plan-adjust [2026-09-30b]:** **F5 COMPLETA (46/50)** — ICP-03 (`ea60cc0c` demo dev→prod + handoff publish), DEF-06 (`48861905` claims + §2 regen + FROZEN retirado). Reviews ✅ + batches. FIND-199..204. Siguiente: bloques F6 → wave F6 (última).
+- **plan-adjust [2026-09-30c]:** **Bloques F6 completados al nivel F0/F1 (REGLA)** — Tasks 47-49, 23 campos c/u, Paso 0: VER-09 (harness ✅ pero 0 runners de competidores; gap = capa `evals/runners/` con MISMAS métricas) · EXE-01 (memory ✅; verify/governance parciales → slice demos faltantes) · N-17 (Notion live: 9/10 destinos, 4 renombrados, "Definición oficial" falta; stop: permisos escritura). Wave F6 lista.
 
 ## Recitation
 
@@ -1347,9 +1411,9 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
 Objetivo activo: F3 — Bitemporalidad/confianza/cuarentena + schema v2 (MGR/SCH)
 Estado: in-progress
-Última acción: **F5 COMPLETA (46/50)** — ICP-03 (`ea60cc0c`) + DEF-06 (`48861905`); siguiente: bloques F6
+Última acción: bloques F6 completados (Tasks 47-49, 23 campos c/u); wave F6 lista (VER-09/EXE-01/N-17)
 Resultado: OK (F0 7/7 · F1 8/8 · F2 7/7 · F3 11/11 · F4 7/7 · F5 6/6)
-Próxima acción: completar bloques F6 (REGLA) → wave F6 (VER-09/EXE-01/N-17) → cierre de campaña
+Próxima acción: /pipeline run → wave F6 (última) → 50/50 → /audit certify + /ship
 Contrato: —
 Próxima tarea si completa: HARD-01
 === END RECITATION ===
@@ -1866,22 +1930,22 @@ Próxima tarea si completa: DEF-06
 
 === RECITATION ICP-03 ===
 Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
-Objetivo activo: ICP-03 — Track frameworks (wave F5.2)
-Estado: in-progress
-Última acción: Batch post-review ronda 1 (✅ APPROVE, 2 Optional + 3 Nits) aplicado y re-verificado: Opt1 wording fingerprint (same-file display invariant; gates reales = token assert backend-free + equivalencia dev-first==prod-first), Opt2 baseline '0 for the adapters' (core vantadb-py se mide aparte), Nit SDK `pip install vantadb-py` explícito (API verificada en tag v0.7.0), Nit2 campos child documentados. Re-verify: DEMO PASSED exit 0 (6/6) + control negativo exit 1 + markdownlint 0 + check-docs all clear + check-links 45/58 (0 nuevos) + gen-index --check 0.
-Resultado: PARTIAL
-Próxima acción: LEAD: commit local (review ronda 1 ✅ + batch aplicado); post-adapters-v*: switch PyPI (FIND propuesto)
-Contrato: Task 44: one-pager ✅ · demo CI dev→prod ✅ (DEMO PASSED + control negativo) · PyPI-o-disposición Alpha ✅ (404 9/9 live) · COMPARISON §9 ✅ · métrica pypistats + baseline 0 ✅ · batch post-review ✅ 4/4 ítems
-Próxima tarea si completa: F6
+Objetivo activo: ICP-03 — Track frameworks
+Estado: completed
+Última acción: 7/7 ✅ + review APPROVE + batch (wording/nits) ✅; commit ea60cc0c
+Resultado: OK
+Próxima acción: F6
+Contrato: one-pager + demo dev→prod (DEMO PASSED, control negativo) + disposiciones PyPI + handoff publish
+Próxima tarea si completa: VER-09
 === END RECITATION ===
 
 === RECITATION DEF-06 ===
 Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
-Objetivo activo: DEF-06 — README↔BENCHMARKS reconciliados (claims) — wave F5.2
-Estado: in-progress
-Última acción: Review ronda 1 ✅ APPROVE (0 Critical/Required). Optional aplicado: nota de método Throughput en BENCHMARKS §2:67 (search qps = 1000/p50_ms, indicativo; ingestión vía JSON; rebuild derivado; mismo método en Retired series). Nits NO aplicados (justificados en task file). Re-verify post-fix: validate-docs-coverage 0 gaps + check-docs 0 + check-links 0 + markdownlint 0. Trabajo 7/7 steps completo.
+Objetivo activo: DEF-06 — README↔BENCHMARKS reconciliados
+Estado: completed
+Última acción: 7/7 ✅ + review APPROVE + Optional qps ✅; commit 48861905
 Resultado: OK
-Próxima acción: LEAD: commit local del changeset DEF-06 (README.md, README_ES.md, BENCHMARKS.md, docs/dev/tasks/DEF-06.md) + inserción de 4 filas FIND + actualización COMPARISON.md (stale §2.2, región ICP-03) → F6
-Contrato: ✅ claim corregido (0 'fallback') · ✅ §2 regenerada+env+FROZEN retirado+nota método qps · ✅ hardware normalizado §1/§2/§5/§8 · ✅ 0 claims sin fuente en README/BENCHMARKS · ✅ validate-docs-coverage 0 gaps · ✅ review r1 APPROVE
-Próxima tarea si completa: F6 (Tasks 47-49: VER-09/EXE-01/N-17)
+Próxima acción: F6
+Contrato: claims corregidos + §2 regen (hardware+protocolo) + FROZEN retirado
+Próxima tarea si completa: VER-09
 === END RECITATION ===
