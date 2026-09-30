@@ -143,6 +143,25 @@ ever preserves an original that redaction actually masked (`Mask`/`Block`).
 The effective mode and key version are visible in `GET /snapshot` under
 `"envelope"` (`redacted_only` · `active` · `disarmed`).
 
+### PII audit (`vanta-pii-audit`)
+
+The zero-cleartext guarantee is auditable on a real store with the versioned
+scan binary — the same built-in detectors as `[redact]`, byte-oriented
+(binary-safe: non-UTF-8 files are scanned byte-wise, never skipped) so
+records, derived indexes, WAL and column stores are covered in one sweep:
+
+```bash
+cargo run -p vanta-proxy --bin vanta-pii-audit -- --json ./db ./export-v2.jsonl
+```
+
+Output is value-free (`path`, `kind`, `offset` — never the matched text).
+`--pattern <regex>` adds the operator patterns the `[redact]` config uses.
+Exit `0` = every byte of every file scanned, nothing matched; `1` = findings
+and/or `unscanned` files (oversize > 64 MiB, symlink, unreadable) — **not
+audited is not clean**; `2` = usage error. On Windows, run it against a closed
+store: an open engine byte-range-locks its lock files. Full walkthrough:
+[PRIVACY.md](../user/PRIVACY.md).
+
 ## Injection governance (VER-04)
 
 The `<vanta-memory>` system-prompt block (persona + scene navigation, WIRE-01)
@@ -196,6 +215,37 @@ This JSONL is WORM-ready (append-only + rotation). Cryptographic chaining of
 the audit is deliberately out of scope here: the tamper-evident hash-chain of
 the WAL (`vanta-cli verify`, VER-01) is the chained evidence surface — cited,
 not duplicated.
+
+## North Star metric (ICP-01)
+
+The product North Star — *sessions with put + search in a 7-day window*
+(`SPEC.md` §North Star) — is measurable directly from the proxy store. Both
+halves are persisted in the proxy's own database (`[auth] db_path`):
+
+| Half | Where it lands | Shape |
+|------|----------------|-------|
+| **PUT** | `proxy-turns` — every completed proxied turn (automatic L0 capture) | key `{ms}-{seq}`, payload `{session, protocol, space, model, text, …}` |
+| **SEARCH** | `proxy-memory-events` — one record per executed `vanta_memory_search` tool call | key `{ms}-{seq}`, payload `{session, kind:"search", hits}` |
+
+The search event is written through the same fire-and-forget L0 write-back as
+turn capture (`WriteBack::track`) and is **metadata-only**: session, kind and
+hit count — the query text and the recalled content never land there. It adds
+no latency to the wire (the tool result returns before the write settles).
+
+The metric is the intersection of sessions present in **both** namespaces
+(search side with `hits >= 1`) inside the same window, filtered client-side by
+the `{ms}` head of each key:
+
+```bash
+# Requires a vanta-cli with the `mcp-call` subcommand (0.8.0 train; on `develop` today).
+python scripts/north_star_metric.py --db <proxy-db-path> [--days 7] [--json]
+```
+
+`--self-test` exercises the windowing logic offline. Under the hood the script
+issues two read-only `memory_list` MCP calls —
+`vanta-cli mcp-call --db <path> --tool memory_list --args '{"namespace":"proxy-turns"}'`
+and the same for `proxy-memory-events` — and intersects them; any MCP-capable
+client can run the equivalent queries by hand.
 
 ## Defaults
 

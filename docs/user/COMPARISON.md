@@ -151,3 +151,44 @@ Single table, each limit tied to code or docs:
 - No claim that VantaDB outperforms any competitor. Our only head-to-head (§2.4) is one dataset on one machine and shows mixed results — including dimensions where competitors were faster.
 - No uptime/distribution claims: VantaDB today targets the single-node embedded case; Qdrant's distributed story is its own and we link it rather than rank it.
 - Any adjective like "fast" or "efficient" without a §2 citation is a bug in this document — report it.
+
+## 7. Track note — agent memory for AI-IDEs (MCP)
+
+This page compares vector stores; the AI-IDE question is different: *does your
+assistant remember the project across sessions?* VantaDB's entry point there is
+a single MCP server ([MCP.md](../api/MCP.md)) that Claude Code, Cursor,
+VS Code, OpenCode, OpenClaw, Devin and Antigravity can all speak, plus
+deterministic recall hooks for four clients (Claude Code, Codex, Cursor,
+OpenCode — [hooks](../../skills/vantadb-mcp/assets/hooks/README.md)) and a
+desktop viewer (Memory Lens). Cross-session recall ("session 1 stores →
+session 2 recalls by a synonym with zero shared tokens") is CI-verified and
+PR-blocking; the track one-pager — including what is **not** shipped yet
+(live repo-map / incremental indexing) — is [AI_IDES.md](AI_IDES.md).
+
+Qualitative only, same rules as above: no competitor figures, no performance
+claims without a BENCHMARKS.md citation. The head-to-head with hosted memory
+services (Mem0/Zep/Letta/LangMem/…) remains the pending layer announced at the
+top of this page (P54 ICP-01..03 + VER-09).
+
+---
+
+## 8. Privacy & local LLMs — the guarantee layer (ICP-02)
+
+The table above compares storage engines. This section covers what the
+**local-first memory stack** guarantees once your turns are written by
+`vanta-proxy`: four guarantees — plus the audit that proves they hold on a real
+store — none of them "trust us".
+
+| Guarantee | What it does | Evidence |
+|-----------|--------------|----------|
+| Redaction-on-write | masks `email` / `aws_key` / `aws_secret` / `token` before persistence; provenance keeps kind labels only | [`PROXY.md` §Redaction-on-write](../api/PROXY.md#redaction-on-write--encrypted-namespaces-ver-03) |
+| Encrypted originals (optional) | per-namespace AES-256-GCM envelope; a missing key degrades to explicit `Disarmed`, never cleartext | [`PROXY.md`](../api/PROXY.md#redaction-on-write--encrypted-namespaces-ver-03) |
+| Certified delete | `vanta-cli delete --attest` + `certificate verify` (exit 0) with a per-surface residue inventory | [`CERTIFIED_DELETE.md`](../api/CERTIFIED_DELETE.md) |
+| Injection governance | budget + namespace ACL + metadata-only JSONL audit (`op:"injection"`) | [`PROXY.md` §Injection governance](../api/PROXY.md#injection-governance-ver-04) · [`MCP.md`](../api/MCP.md#injection-governance-ver-04) |
+| PII audit | `vanta-pii-audit` scans raw store bytes (store + indexes + export = 0 cleartext, fail-closed) | [PRIVACY.md](PRIVACY.md) |
+
+**What this is not** (declared, not silent): logical purge rather than secure
+erase; no parametric unlearning; backups, exports and audit logs follow each
+certificate's `out_of_scope` list. Every command and the full covered / not
+covered table: [Privacy & local LLMs](PRIVACY.md). Run the whole chain locally
+with `pwsh scripts/demo-privacy-e2e.ps1` (it also runs in CI).
