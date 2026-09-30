@@ -40,6 +40,15 @@ remote-inference = ["vantadb/remote-inference"]
 [dev-dependencies]
 tempfile = "3"
 
+# ICP-01: the AI-IDE demo drives the env-selected embedding provider path
+# (`remote-inference`) through a fake Ollama; without the feature it cannot
+# pass by design (no embed-on-put), so the binary is skipped — not failed —
+# on lanes that don't enable it. The dedicated PR-blocking lane
+# (`.github/workflows/ci-ai-ides-demo.yml`) enables it and asserts 1/1.
+[[test]]
+name = "demo_ai_ides"
+required-features = ["remote-inference"]
+
 [lints]
 workspace = true
 
