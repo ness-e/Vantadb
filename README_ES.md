@@ -197,7 +197,7 @@ python examples/python/dspy_retriever.py
 
 | Motor | Mecanismo | Detalles |
 | :--- | :--- | :--- |
-| **Núcleo persistente** | `StorageBackend` + VantaFile + WAL | Fjall (por defecto) o fallback a RocksDB. Recuperación automática de fallos mediante Write-Ahead Log con checksums CRC32C. |
+| **Núcleo persistente** | `StorageBackend` + VantaFile + WAL | Fjall (por defecto); RocksDB opt-in (feature Cargo `rocksdb` + `VANTADB_BACKEND=rocksdb`), in-memory vía `VANTADB_BACKEND=memory`. Recuperación automática de fallos mediante Write-Ahead Log con checksums CRC32C. |
 | **Búsqueda híbrida** | BM25 + HNSW vía RRF | Fusiona la puntuación léxica y la similitud de vectores usando Reciprocal Rank Fusion. Se enruta automáticamente por el planificador de consultas. |
 | **Recuperación vectorial** | HNSW nativo | Similitud del coseno con `M`, `ef_construction` y `ef_search` configurables. Validado en datasets sintéticos de 10 K–100 K. |
 | **API de memoria** | Registros `namespace + key` | `put/get/delete/list/search` almacenan payloads UTF-8, metadatos escalares, vectores opcionales, marcas de tiempo, versiones e IDs de nodo deterministas. |
@@ -345,19 +345,19 @@ export VANTADB_HOST=0.0.0.0
 
 ## Benchmarks y línea base de rendimiento
 
-VantaDB incluye una suite formal de benchmarks nativos de Python (**BENCH-01**) para capturar la tasa de ingesta y los perfiles de latencia de consultas bajo cargas de trabajo realistas de un solo hilo.
+VantaDB incluye una suite formal de benchmarks nativos de Python (**BENCH-01**) para capturar la tasa de ingesta y los perfiles de latencia de consultas bajo cargas sintéticas de un solo hilo.
 
 ### Línea base de rendimiento en proceso (10K vectores, 128d, Coseno)
 
-Las líneas base medidas del SDK de un solo hilo (incluido el límite PyO3/GIL) están publicadas en [docs/user/operations/BENCHMARKS.md](docs/user/operations/BENCHMARKS.md): latencias de operación del SDK (`put`, BM25, HNSW, híbrido) y los resultados certificados del stress protocol Rust (10K–100K, recall, memoria, escalado). Los números dependen del hardware y del build — regenera localmente con la suite inferior para reproducirlos en tu máquina.
+Las líneas base medidas se publican en [docs/user/operations/BENCHMARKS.md](docs/user/operations/BENCHMARKS.md): los resultados certificados del stress protocol Rust (10K–100K, recall, memoria, escalado — §1) y la tabla de operaciones del SDK de Python (`put`, rebuild, HNSW, híbrido — §2, corrida local única 2026-09-30 con entorno documentado). Los números dependen del hardware y del build — regenera localmente con la suite inferior para reproducirlos en tu máquina.
 
-| Métrica | Línea base local más reciente (`vanta_benchmark_report.json`, 10K×128d, regenerar localmente) |
+| Métrica | Línea base canónica (BENCHMARKS.md §1 — núcleo Rust 10K×128d, sin PyO3/GIL) |
 | :--- | :--- |
-| **Ingesta** (Insert + WAL + Flush) | 74,0 registros/seg (p50 13,2 ms) |
-| **Búsqueda (HNSW vectorial)** | p50 2,0 ms (~500 consultas/seg) |
-| **Búsqueda (fusión híbrida)** | p50 3,1 ms (~320 consultas/seg) |
+| **Búsqueda (HNSW vectorial)** | p50 1,2 ms |
+| **Escalado** (10K → 50K) | 4,88x sub-lineal (p50 6,1 ms @50K) |
+| **Recall@10** | 0,9560 @10K (Bloque 1) / 0,9980 @100K (escalado) |
 
-*Fuente: [`benchmarks/vanta_benchmark_report.json`](benchmarks/vanta_benchmark_report.json) — regenerable con `python benchmarks/vantadb_local_bench.py --size 10000 --dim 128 --queries 1000` (gitignored; no es un artefacto commiteado).* La latencia de búsqueda de texto BM25 se excluye arriba porque el artefacto local reporta un outlier degenerado (p50 0,0035 ms para una consulta de texto de documento único); ver la tabla completa de la serie CI en [BENCHMARKS.md §2](docs/user/operations/BENCHMARKS.md).
+*Fuente: [BENCHMARKS.md §1](docs/user/operations/BENCHMARKS.md) — Stress Protocol en hardware CI con AVX2 (Regla 11: bench + entorno versionados en el repo).* Las latencias de alcance SDK (`put` p50 13,5 ms · HNSW p50 2,4 ms · híbrido RRF p50 5,6 ms — PyO3/GIL, un solo hilo) están publicadas en [§2](docs/user/operations/BENCHMARKS.md), regenerada 2026-09-30 con su entorno documentado; nunca comparar ni restar entre los alcances §1/§2. Regenera localmente con `python benchmarks/vantadb_local_bench.py --size 10000 --dim 128 --queries 1000` (la salida `benchmarks/vanta_benchmark_report.json` es gitignored — local a la máquina; los números publicados viven en §2 con su entorno). La latencia léxica BM25 no se reclama aquí: en este corpus sintético las consultas de la suite no matchean registros (ver la nota de §2).
 
 ### Benchmarks competitivos SIFT-1M (escala 100K) — Fase 2
 
@@ -398,7 +398,7 @@ maturin develop --release --manifest-path vantadb-python/Cargo.toml
 python benchmarks/vantadb_local_bench.py --size 10000 --dim 128 --queries 1000
 ```
 
-Los resultados se imprimen directamente en la consola y se escriben en `vanta_benchmark_report.json` para el seguimiento del CI.
+Los resultados se imprimen en la consola y se escriben en `vanta_benchmark_report.json` (gitignored, local a la máquina — el registro publicado vive en [BENCHMARKS.md §2](docs/user/operations/BENCHMARKS.md)).
 
 ---
 
