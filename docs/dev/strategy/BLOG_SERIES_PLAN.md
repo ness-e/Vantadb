@@ -18,6 +18,8 @@ tags: [vantadb, marketing, blog, content, launch, hn, seo]
 ## Status Summary
 
 > **Status update 2026-08-17 (verificación multi-agente):** M1 ✅ **RESUELTO** — `docs/user/blog/introducing_vantadb.md` existe (commit `f51b2263`, live en `vanta-data.ts:862`). M2 ✅ author alineado (`ness-e`). M5 ✅ slugs vía frontmatter. M6 ✅ version `0.5.0` en drafts. **Pendientes:** M3 🟡 date drift (2026-06-06 vs web 2025), M4 🟡 title drift, CTA débil en 2 posts, posts 6-7 no redactados (→ BLOG-CTA en backlog).
+>
+> **Actualización 2026-09-30:** versión vigente **0.7.0** — re-verificar los drafts con `0.5.0` al publicar; publicación sigue **en pausa hasta Fase A** (`EXE-03`).
 
 The blog series is **4 of 5 posts complete** as drafts in `docs/user/blog/`, but the production site exposes **4 posts** (one of them, `introducing-vantadb`, has no source draft in `docs/user/blog/`). Every live post has metadata drift between the web manifest and its markdown draft. See [Section 1](#1-content-inventory).
 

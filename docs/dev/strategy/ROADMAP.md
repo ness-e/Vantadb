@@ -16,6 +16,7 @@ created: "2026-07-16"
 > **Backlog de negocio:** [`docs/dev/Backlog-negocio.md`](../Backlog-negocio.md) — filas humano-dependientes (legal/ventas/publicación) separadas del técnico el 2026-09-03 (RES-15-C); los conteos viven solo en las cabeceras de cada backlog (regla GOV-C7, no duplicar aquí)
 > **Última revisión del proyecto:** 2026-07-16 (537 commits desde el roadmap anterior)
 > **⚠️ REVISIÓN 2026-08-17 (verificación multi-agente):** Este roadmap es **histórico** — las fases Sem 1-16 ya se ejecutaron (versión real **0.5.0** publicada 2026-08-01, no 0.2.0; ver `docs/dev/Backlog.md` P0). Los riesgos R2/R5/R8 están **resueltos**; R4 (MSVC linker) y R6/R7 (SQ8, HNSW rebuild) **siguen vigentes** (ver tabla de riesgos). El estado actual de ejecución vive en `docs/dev/Backlog.md` + `docs/dev/avance/README.md`; este documento se conserva como registro del plan original y de decisiones arquitectónicas (§6).
+> **2026-09-30:** el plan vigente es `docs/dev/plans/2026-09-26-master-roadmap.md` (campaña F0–F6, 49/50) + `docs/dev/Backlog.md` §DELTA (55 ítems — fuente del próximo plan).
 > **Estas fuentes fueron analizadas para este roadmap:**
 > - Auditorías: 10 reports en `docs/audit-reports/`
 > - Deep analysis: Vector DB (372L), Graph DB (392L), Arquitectura (306L)
