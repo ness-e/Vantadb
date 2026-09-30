@@ -398,3 +398,10 @@ tags: [vantadb, avance, ops, api, docs, backup, enterprise]
 - **Objetivo:** provider ollama/openai decorativo en silencio → funciona o falla con mensaje claro
 - **Resultado:** ✅ 2 líneas Cargo (MCP + proxy) + test `llm_driver_fails_loud_on_unreachable_endpoint`; reqwest v0.12.28 única (dual TLS = patrón workspace); lead verify 1/1; P2-01 vanta-review approve
 - **Commit:** 84cb2d19
+
+### Notion N-17: sync páginas VantaDB Docs (2026-09-30)
+- **Fecha:** 2026-09-30
+- **Objetivo:** aplicar los borradores de `docs/dev/strategy/NOTION-SYNC-2026-09-24.md` (10 páginas + higiene) — aprobación owner via question.
+- **Resultado:** ✅ 9 páginas actualizadas (append, sin borrados): Problema · Propuesta · Roadmap · SDKs · Benchmarks · Seguridad · Observabilidad · Gobernanza · Casos de uso + `Definición oficial` creada (`3ebd0445-9756-81bb-a6f2-c3b67157b866`) + higiene (3 duplicados archivados) + verificación reviewer + link fix. **Sync #2 (mismo día):** validación externa del marco — 6 páginas (áreas/Problema/dims/Propuesta/ámbitos/PI) con notas + 2 calificaciones inline, verificadas 6/6 + 2/2 (`NOTION-SYNC-2026-09-24.md` §14).
+- **Filas removidas de backlog-notion.md:** N-17.
+- **Commits:** `bc4958cd` (N-17) · `b9d1e459` (Sync #2).
