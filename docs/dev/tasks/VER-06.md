@@ -1,3 +1,9 @@
+---
+title: "VER-06: Export file-native Markdown + rebuild_index (git-friendly)"
+kind: task
+description: "Markdown file-native v2 git-friendly: frontmatter 1->2 (import 1..=2), wikilinks informativos recortables, export byte-estable, E2E export->import-md->rebuild->search"
+---
+
 # VER-06: Export file-native Markdown + `rebuild_index` (git-friendly)
 
 ## Metadata
