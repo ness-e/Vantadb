@@ -117,6 +117,14 @@ tags: [vantadb, notion, sync, investigacion, post-investigacion]
 
 ## 12. Proceso de aplicación (checklist N-17)
 
-1. [ ] `Problema` §1 · 2. [ ] `Propuesta` §2 · 3. [ ] `Roadmap…` §3 · 4. [ ] `SDKs…` §4 · 5. [ ] `Benchmarks…` §5 · 6. [ ] `Seguridad de la memoria` §6 · 7. [ ] `Observabilidad` §7 · 8. [ ] `Gobernanza` §8 · 9. [ ] `Casos de uso` §9 · 10. [ ] `Definición oficial` §10 (crear) · 11. [ ] Higiene §11.
+1. [x] `Problema` §1 · 2. [x] `Propuesta` §2 · 3. [x] `Roadmap…` §3 · 4. [x] `SDKs…` §4 · 5. [x] `Benchmarks…` §5 · 6. [x] `Seguridad de la memoria` §6 · 7. [x] `Observabilidad` §7 · 8. [x] `Gobernanza` §8 · 9. [x] `Casos de uso` §9 · 10. [x] `Definición oficial` §10 (crear) · 11. [x] Higiene §11.
 > Al cerrar cada página: verificación de claims contra código (Regla 11) + nota de fecha + link cruzado al doc del repo correspondiente.
 > **Ejecución:** Notion MCP (`notion-update-page`/`notion-create-pages` disponibles; lane owner para el workspace).
+
+## 13. Sync EJECUTADO — 2026-09-30 (aprobación owner via question)
+
+- **9 páginas actualizadas** (append, sin borrados): `Problema` (`3d4d0445-…e7b7`) · `Propuesta` (`…44c7c`) · `Roadmap…` (`…c526`) · `SDKs…` (`…f63c`) · `Benchmarks…` (`…f915`) · `Seguridad de la memoria` (`…a99`) · `Observabilidad…` (`…649e`) · `Gobernanza…` (`…adb`/`…f39` según mapeo) · `Casos de uso` (`…d4b`).
+- **Creada:** `Definición oficial` → `3ebd0445-9756-81bb-a6f2-c3b67157b866` (bajo el hub).
+- **Higiene:** `[ARCHIVED 2026-09-30] VantaDB Docs (1) — ver hub` (`…2f80`) · `[ARCHIVED 2026-09-30] VantaDB OLD (Plantilla)` ×2 (`…44c3`, `…cc21`).
+- **Nota histórica:** `Seguridad de la memoria` conserva su informe verbatim 2026-09-08 (refs v0.5.0 históricas) + sección "Estado 2026-09-30" que marca el estado vigente (0.7.0 / 0.8.0-pending).
+- **Estado:** N-17 ejecutado; verificación independiente pendiente (reviewer).
