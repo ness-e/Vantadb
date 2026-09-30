@@ -81,6 +81,8 @@ pub(crate) fn execute(
     model: &str,
     call: &MemoryCall,
     guard: &capture::WriteGuard<'_>,
+    governance: &crate::governance::Governance,
+    recall_budget_chars: u64,
 ) -> String {
     match call.name.as_str() {
         TOOL_CAPTURE => {
@@ -106,15 +108,26 @@ pub(crate) fn execute(
             writeback.track(format!("tool:{session_key}:{}", call.id), job);
             "Memory captured.".to_string()
         }
-        TOOL_SEARCH => search(memory, session_key, call),
+        TOOL_SEARCH => search(memory, session_key, call, governance, recall_budget_chars),
         other => format!("Unknown memory tool `{other}`."),
     }
 }
 
 /// Synchronous recall (D46): run one auto-recall pass scoped to the session
 /// and format the hits as the standard `<relevant-memories>` block.
-fn search(memory: &Embedded, session_key: &str, call: &MemoryCall) -> String {
-    use vanta_memory::core::hooks::{perform_auto_recall, AutoRecallParams, RecallConfig};
+///
+/// VER-04: the pass runs under the injection ACL (`governance.policy()`) and
+/// is audited per hit (source ns/key + score). `recall_budget_chars` caps the
+/// recalled lines (0 = unbounded; derived from the `<vanta-memory>` token
+/// budget when injection is enabled).
+fn search(
+    memory: &Embedded,
+    session_key: &str,
+    call: &MemoryCall,
+    governance: &crate::governance::Governance,
+    recall_budget_chars: u64,
+) -> String {
+    use vanta_memory::core::hooks::{perform_auto_recall_governed, AutoRecallParams, RecallConfig};
 
     let query = call
         .args
@@ -125,16 +138,24 @@ fn search(memory: &Embedded, session_key: &str, call: &MemoryCall) -> String {
     if query.trim().is_empty() {
         return "Search rejected: no `query` provided.".to_string();
     }
+    let budget = (recall_budget_chars > 0).then_some(recall_budget_chars as usize);
     let params = AutoRecallParams {
         user_text: query,
         session_key,
         isolation: None,
-        config: RecallConfig::default(),
+        config: RecallConfig {
+            max_chars_per_memory: budget,
+            max_total_recall_chars: budget,
+            ..RecallConfig::default()
+        },
     };
-    match perform_auto_recall(memory, params, None) {
-        Ok(Some(result)) => result
-            .prepend_context
-            .unwrap_or_else(|| NO_MEMORIES.to_string()),
+    match perform_auto_recall_governed(memory, params, None, governance.policy()) {
+        Ok(Some(result)) => {
+            governance.audit_recall("mem:search", session_key, &result, recall_budget_chars);
+            result
+                .prepend_context
+                .unwrap_or_else(|| NO_MEMORIES.to_string())
+        }
         Ok(None) => NO_MEMORIES.to_string(),
         Err(e) => format!("Memory search failed: {e}"),
     }
@@ -432,6 +453,8 @@ mod tests {
                 args: json!({"text": "   "}),
             },
             &guard,
+            &governance(),
+            0,
         );
         assert!(result.contains("rejected"));
         std::thread::sleep(std::time::Duration::from_millis(50));
@@ -460,6 +483,8 @@ mod tests {
                 args: json!({"query": "anything"}),
             },
             &guard,
+            &governance(),
+            0,
         );
         assert_eq!(result, NO_MEMORIES);
 
@@ -476,8 +501,15 @@ mod tests {
                 args: json!({}),
             },
             &guard,
+            &governance(),
+            0,
         );
         assert!(unknown.contains("Unknown memory tool"));
+    }
+
+    /// VER-04: allow-all ACL, audit disabled (legacy behavior).
+    fn governance() -> crate::governance::Governance {
+        crate::governance::Governance::from_config(&[], "")
     }
 
     /// Default guard: redaction + envelope disabled (legacy behavior).

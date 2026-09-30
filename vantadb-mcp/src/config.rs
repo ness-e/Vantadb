@@ -112,6 +112,14 @@ pub struct McpConfig {
     /// server is asked to render responses larger than typical MCP clients
     /// can display.
     pub max_byte_budget: usize,
+    /// VER-04: injection ACL for the memory surfaces (`memory_recall`,
+    /// `context_assemble`) — namespace prefixes the recall may read from.
+    /// Empty = allow-all (default, current behavior). Set via
+    /// `VANTADB_MCP_INJECT_NAMESPACES` (comma-separated prefixes).
+    pub injection_namespaces: Vec<String>,
+    /// VER-04: injection-audit sink (append-only JSONL + rotation). `None`
+    /// (default) disables audit. Set via `VANTADB_MCP_AUDIT_LOG`.
+    pub audit: Option<std::sync::Arc<vantadb::audit::AuditLogger>>,
 }
 
 impl Default for McpConfig {
@@ -138,6 +146,8 @@ impl Default for McpConfig {
             byte_budget: 40 * 1024,
             min_byte_budget: 1024,
             max_byte_budget: 1024 * 1024,
+            injection_namespaces: Vec::new(),
+            audit: None,
         }
     }
 }
@@ -162,6 +172,26 @@ impl McpConfig {
                 config.byte_budget = parsed.clamp(config.min_byte_budget, config.max_byte_budget);
             }
         }
+        // VER-04: opt-in injection ACL (empty → allow-all).
+        if let Ok(raw) = std::env::var("VANTADB_MCP_INJECT_NAMESPACES") {
+            config.injection_namespaces = raw
+                .split(',')
+                .map(|p| p.trim().to_string())
+                .filter(|p| !p.is_empty())
+                .collect();
+        }
+        // VER-04: opt-in injection audit (failed open → warn + disabled).
+        if let Ok(path) = std::env::var("VANTADB_MCP_AUDIT_LOG") {
+            config.audit = crate::governance::open_audit(&path);
+        }
         config
+    }
+
+    /// VER-04: the injection ACL derived from `injection_namespaces`
+    /// (empty → allow-all).
+    pub fn injection_policy(&self) -> vanta_memory::core::hooks::InjectionPolicy {
+        vanta_memory::core::hooks::InjectionPolicy::from_prefixes(
+            self.injection_namespaces.iter().cloned(),
+        )
     }
 }

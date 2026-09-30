@@ -78,6 +78,7 @@ Related but **not** opt-in (documented here to avoid confusion):
 | `[auth]` | local VantaDB store path for auth/sessions; every route (incl. `/snapshot`) resolves `x-vanta-user-key` against its `user` collection | `db_path = "vantadb_data"` (`config.rs:298-310`) |
 | `[writeback]` | L0 write-back crash-audit file | `persist_path = "vanta-proxy-writeback-pending.json"` (`config.rs:88-103`) |
 | `[[upstreams]]` | PRX-02 failover list, tried in order after `upstream`; empty (default) → legacy single-upstream behavior | `config.rs:22-25,66-75` |
+| `[injection]` | `<vanta-memory>` block budget is **on by default** (`max_tokens = 2000`, `0` disables injection); the VER-04 ACL + audit sub-keys are opt-in — see § Injection governance | `config.rs` (`InjectionConfig`) |
 
 ## Redaction-on-write & encrypted namespaces (VER-03)
 
@@ -142,6 +143,60 @@ ever preserves an original that redaction actually masked (`Mask`/`Block`).
 The effective mode and key version are visible in `GET /snapshot` under
 `"envelope"` (`redacted_only` · `active` · `disarmed`).
 
+## Injection governance (VER-04)
+
+The `<vanta-memory>` system-prompt block (persona + scene navigation, WIRE-01)
+is built under three governance rules. All three are enforced per request:
+
+**1. Budget.** `[injection] max_tokens` (default `2000`) caps the block with
+the canonical `estimate_text_tokens` heuristic (`ceil(len/4)`, wrapper tags
+included). Sections enter in priority order — persona, current scene, scene
+index — and the first one that would overflow is dropped with everything below
+it; when even the top section alone overflows it is hard-truncated to fit with
+a visible `…[truncated]` marker. `max_tokens = 0` disables injection entirely
+(empty block → the request is forwarded untouched). The same budget bounds the
+`vanta_memory_search` tool result (char cap = `max_tokens * 4`).
+
+**2. Namespace ACL (opt-in).** `[injection] namespace_allow_prefixes = ["l1/",
+"persona/", "scene/"]` restricts which namespaces the block (and the search
+tool) may read from. Empty (default) allows everything — current behavior.
+Matching is boundary-aware: `l1/sess-1` allows `l1/sess-1` and
+`l1/sess-1/...` but never `l1/sess-12`. Anything not matched is skipped
+(`deny fuera de scope`) and recorded as a `denied` audit event — never silent
+(the governance lists are bounded to 16 entries; when more namespaces were
+involved the last slot degrades to `…overflow`, so the bound never hides the
+ACL's existence). A pass where the ACL denied every source still audits: the
+`denied` events are emitted even though nothing was injected.
+
+**3. Injection audit (opt-in).** `[injection] audit_log_path = "injection-audit.jsonl"`
+turns on an append-only JSONL audit (rotated like the core audit log: 10 MiB ×
+5 files) where every injected memory and every ACL denial leaves one event:
+
+```json
+{"timestamp":"2026-09-29T12:00:00Z","op":"injection","namespace":"persona/sess-1","key":"persona.md","outcome":"ok","reason":"surface=proxy;tool=prompt_block;session=sess-1;kind=persona;budget=42/2000;truncated=false;acl=allow"}
+```
+
+Metadata only — namespace, key, score, budget, truncation and ACL decision;
+the memory content never lands in the audit (pre-mortem F1 of VER-04).
+
+**Consulting the audit** (``rg``/`jq` over the JSONL; no UI by design):
+
+```bash
+# every memory injected into a session's prompts, with scores
+rg '"op":"injection"' injection-audit.jsonl
+
+# only ACL denials (nothing was injected from those namespaces)
+jq -c 'select(.op=="injection" and .outcome=="denied")' injection-audit.jsonl
+
+# injections that hit the budget cap
+jq -c 'select(.reason | contains("truncated=true"))' injection-audit.jsonl
+```
+
+This JSONL is WORM-ready (append-only + rotation). Cryptographic chaining of
+the audit is deliberately out of scope here: the tamper-evident hash-chain of
+the WAL (`vanta-cli verify`, VER-01) is the chained evidence surface — cited,
+not duplicated.
+
 ## Defaults
 
 ### `[server]` / `[upstream]`
@@ -176,6 +231,9 @@ These are the only two sections present in the shipped
 | `context.max_input_tokens` | `8000` | `context.rs:25-28,74-84` |
 | `context.max_scan_bytes` | `2 MiB` (larger bodies fail open) | `context.rs:30-33,74-84` |
 | `translate` token clamp | default `1024` (`DEFAULT_MAX_TOKENS`), hard cap `128_000` (`MAX_MAX_TOKENS`) | `translate.rs:15-23` |
+| `injection.max_tokens` | `2000` (`DEFAULT_INJECTION_MAX_TOKENS`); `0` disables memory injection | `config.rs` (`InjectionConfig`) |
+| `injection.namespace_allow_prefixes` | `[]` — empty = allow-all (VER-04 ACL off) | `config.rs` (`InjectionConfig`) |
+| `injection.audit_log_path` | `""` — empty = injection audit disabled | `config.rs` (`InjectionConfig`) |
 
 ### `[cost]` price table (USD per 1K tokens)
 

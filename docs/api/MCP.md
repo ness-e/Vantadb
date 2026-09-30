@@ -300,7 +300,7 @@ VANTADB_MCP_PROFILE=memory vanta-cli server --mcp --db ~/.vantadb
 | `search_with_method` | Memory search with an explicit dense-index backend override (`method`: hnsw \| ivf \| flat \| diskann \| scann); omit to keep automatic routing. Same parameters as `memory_search` (temporal/quarantine/confidence included) and the same abstention signal. |
 | `search_multi` | Run one search request across multiple namespaces and merge results (sorted by score, capped at `top_k` globally). Same request params as `memory_search` (temporal/quarantine/confidence included); the multi-namespace merge has no page-level abstention signal (N/A). Response is bounded by `byte_budget` (default 40 KB); see [Output budgeting](#output-budgeting-byte_budget-mcp-39). |
 | `query_iql` | Executes an IQL statement against typed graph nodes and memory namespaces (each namespace is queryable as a table named by its sanitized form: `/` and `-` → `_`, leading digit/`.` gets a `_` prefix). LISP not supported. Param-level failures (empty/NUL/oversize query) are JSON-RPC `invalid_params` (-32602). |
-| `memory_recall` | MEM-59: High-level recall mirroring vanta-memory's auto-recall hook (MEM-18) over the public MCP surface. Runs keyword/embedding/hybrid search over L1 records visible under the given scope (session/agent/team), ranks with D38 dual-pool + RRF logic, and returns structured hits plus prepended context block. Read-only; idempotent; does not require a session_key. Param-level failures are JSON-RPC `invalid_params`. |
+| `memory_recall` | MEM-59: High-level recall mirroring vanta-memory's auto-recall hook (MEM-18) over the public MCP surface. Runs keyword/embedding/hybrid search over L1 records visible under the given scope (session/agent/team), ranks with D38 dual-pool + RRF logic, and returns structured hits plus prepended context block (`{prepend_context, recalled, effective_mode, byte_count, truncated}`; hits carry `source_namespace`/`source_key`). Budgeted and ACL-governed — see [Injection governance](#injection-governance-ver-04). Read-only; idempotent; does not require a session_key. Param-level failures are JSON-RPC `invalid_params`. |
 | `embed_texts` | Embeds a batch of texts into dense float vectors with the active provider (local ONNX real; `ollama`/`openai` when configured) and an explicit deterministic fallback. Inputs: `texts` (required, 1–128 items of 1–8000 chars), optional `model` (manifest id override, EMB-17), `cursor` pagination offset. Response always carries `fallback: false` (real vectors) or `fallback: true` + `warning` (deterministic hash, no semantic signal — never silent, Q5). Supports `max_embed_tokens` (25k) / `max_embed_batch_size` (128) budgeting. Read-only; idempotent. Verified EMB-19 (`a5d549af`): `multilingual-e5-small` dim 384 `fallback:false`, `s(par)=0.9158` vs `0.8427/0.8423` gap `0.0732`. See [Embeddings](#embeddings-providers-model-selection-and-dim-gate) below. |
 
 ## Embeddings — providers, model selection, and dim gate
@@ -356,7 +356,7 @@ Model catalog source of truth: `embeddings/manifest.json` (9 ids, rev pinned). F
 
 | Tool | Description |
 |------|-------------|
-| `inject_context` | Injects external state or context connected to a specific thread for subsequent consolidation. |
+| `inject_context` | Injects external state or context connected to a specific thread for subsequent consolidation. Fail-closed injection budget: content above `byte_budget` (default 40 KB, `VANTADB_MCP_BYTE_BUDGET`) is rejected with a validation error; the response carries `byte_count` and the call is audited (see [Injection governance](#injection-governance-ver-04)). |
 | `read_axioms` | Returns the active Devil's Advocate Axioms (Iron Axioms) in the database. |
 | `write_axiom` | Registers or updates an agent axiom (invariant rule) in the reserved `_axioms` namespace; returns `{id, name, description}`. |
 | `delete_axiom` | Removes an agent axiom by name from the `_axioms` namespace; returns `{deleted}`. |
@@ -449,7 +449,7 @@ Dispatched via `tools/call`, defined outside `handlers/tools.rs` (8+7+6+5+6+1+5 
 
 | Tool | Description |
 |------|-------------|
-| `context_assemble` | Assembles a context window under a token budget with the vanta-memory context engine (MCP-31): compacts the provided chat history and injects session recall (relevant L1 memories, persona, scene navigation). Returns `{messages, report, mmd_injected, recall_injected}`. Read-only. |
+| `context_assemble` | Assembles a context window under a token budget with the vanta-memory context engine (MCP-31): compacts the provided chat history and injects session recall (relevant L1 memories, persona, scene navigation). Returns `{messages, report, mmd_injected, recall_injected, byte_count, truncated}`; recall is ACL-governed and audited per the [Injection governance](#injection-governance-ver-04) rules. Read-only. |
 
 ### Scenes API - `scenes.rs` (5)
 
@@ -544,6 +544,67 @@ Read at server startup via `McpConfig::from_storage`; clamped to `[min_byte_budg
 ```
 
 After oversize trimming, `truncated` flips to `true` and the last items are dropped from `records`. `next_cursor` remains the next-page marker so the consumer can keep paging.
+
+> VER-04: within the same byte budget, the **memory-injection** surfaces
+> (`memory_recall`, `context_assemble`, `inject_context`) enforce the identical
+> cap — see [Injection governance](#injection-governance-ver-04).
+
+## Injection governance (VER-04)
+
+The surfaces that feed memory into a model context (`memory_recall`,
+`context_assemble`, `inject_context`) run under three per-request rules:
+
+**1. Budget.** `memory_recall` caps its recalled lines at the source
+(`max_chars_per_memory` / `max_total_recall_chars` = `byte_budget`) and then
+measures its envelope against `byte_budget` with a 64-byte reserve for the
+`byte_count`/`truncated` metadata — the delivered payload stays within the
+cap; `truncated: true` flags popped trailing hits and `byte_count` reports
+the delivered envelope size. `inject_context` content is **fail-closed**:
+content above `byte_budget` is rejected with a validation error (raise
+`VANTADB_MCP_BYTE_BUDGET` to allow more) — never silently truncated.
+`context_assemble` budgets by its own `token_budget` parameter (the shared
+MEM-37 assembly budget, unchanged); its additive `byte_count` reports the
+serialized messages size and `truncated` means the history had to be
+compacted/dropped to fit that token budget — neither is measured against the
+MCP byte budget.
+
+**2. Namespace ACL (opt-in).** Set `VANTADB_MCP_INJECT_NAMESPACES` to a
+comma-separated list of namespace prefixes to restrict which namespaces the
+recall surfaces may read:
+
+```bash
+VANTADB_MCP_INJECT_NAMESPACES="l1/,persona/,scene/" vanta-cli server --mcp --db ~/.vantadb
+```
+
+Empty (default) allows everything — current behavior. Matching is
+boundary-aware (`l1/sess-1` allows `l1/sess-1/...` but never `l1/sess-12`).
+Anything not matched is skipped and recorded as a `denied` audit event —
+never silent (the governance lists are bounded to 16 entries; when more
+namespaces were involved the last slot degrades to `…overflow`, so the bound
+never hides the ACL's existence). A pass where the ACL denies every source
+still audits: nothing is injected, but the `denied` events are recorded.
+
+**3. Injection audit (opt-in).** Set `VANTADB_MCP_AUDIT_LOG` to a file path to
+record one metadata-only event per injected memory and per ACL denial
+(append-only JSONL, rotated 10 MiB × 5):
+
+```json
+{"timestamp":"2026-09-29T12:00:00Z","op":"injection","namespace":"l1/mcp","key":"m1","outcome":"ok","reason":"surface=mcp;tool=memory_recall;session=mcp;kind=l1;score=3;budget=40960;acl=allow"}
+```
+
+Registered fields: source namespace/key, score, budget, ACL decision, tool and
+session. Memory **content never lands in the audit**. Consult with `jq`:
+
+```bash
+jq -c 'select(.op=="injection" and .outcome=="denied")' audit.jsonl
+jq -c 'select(.op=="injection" and (.reason | contains("tool=memory_recall")))' audit.jsonl
+```
+
+Both knobs are read once at startup (`McpConfig::from_storage`, same as
+`VANTADB_MCP_PROFILE`/`VANTADB_MCP_BYTE_BUDGET`); changing them requires a
+server restart. This JSONL is WORM-ready; cryptographic chaining is out of
+scope here — the WAL hash-chain (`vanta-cli verify`, VER-01) is the chained
+evidence surface, cited not duplicated.
 
 ## Selective abstention (ADR-0046 §D2)
 

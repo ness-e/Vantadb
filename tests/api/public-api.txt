@@ -416,6 +416,7 @@ pub vantadb::audit::AuditEvent::request_id: core::option::Option<alloc::string::
 pub vantadb::audit::AuditEvent::timestamp: alloc::string::String
 impl vantadb::audit::AuditEvent
 pub fn vantadb::audit::AuditEvent::auth(&str, &str, &str, &str, core::option::Option<alloc::string::String>) -> Self
+pub fn vantadb::audit::AuditEvent::injection(&str, &str, &str, core::option::Option<alloc::string::String>) -> Self
 pub fn vantadb::audit::AuditEvent::memory(&str, &str, &str, &str, core::option::Option<alloc::string::String>) -> Self
 pub fn vantadb::audit::AuditEvent::new(&str, &str, &str, &str, core::option::Option<alloc::string::String>) -> Self
 pub fn vantadb::audit::AuditEvent::with_request_id(self, impl core::convert::Into<alloc::string::String>) -> Self
