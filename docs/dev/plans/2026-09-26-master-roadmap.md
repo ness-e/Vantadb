@@ -8,7 +8,7 @@ description: "SDP: campaign-executor · progreso · writing-plans · planning-an
 
 > **Campaign ID:** ed20beae-edf6-42f5-b41f-e8519830d6cb
 > **Inicio:** 2026-09-26
-> **Estado:** ⏳ EN PROGRESO (46/50 — F0 ✅ · F1 ✅ · F2 ✅ · F3 ✅ 11/11 · F4 ✅ 7/7 · **F5 ✅ 6/6**; siguiente: F6 — bloques primero) | **Gates F3/F4: ✅ local** (corte 0.8.0 preparado: guía + marcador R1 `b9296909` + R2; features verificables con tests + attestations; release real = lane owner post-push)
+> **Estado:** ⏳ EN PROGRESO (**49/50** — F0 ✅ · F1 ✅ · F2 ✅ · F3 ✅ 11/11 · F4 ✅ 7/7 · F5 ✅ 6/6 · **F6 ✅ 3/3**; MKT-18f = lane owner (publish PyPI)) | **Campaña: cierre pendiente** (certify + ship) | **Gates F3/F4: ✅ local** (corte 0.8.0 preparado: guía + marcador R1 `b9296909` + R2; features verificables con tests + attestations; release real = lane owner post-push)
 > **Fuente:** `docs/dev/Backlog.md` (P52–P59 + FIND-*) + planes absorbidos (`2026-09-24-post-investigacion-integral.md` W2–W7, `2026-09-24-estabilizacion-pendiente.md`, `2026-09-24-harness-gaps.md`, `2026-09-24-sesion-continuidad.md`, `2026-09-20-estabilizacion-total.md`) + `docs/dev/strategy/` (13 docs) + Notion "VantaDB Docs" (~28 subpáginas) + investigación de riesgos 2026-09-26 (4 sub-agentes R1–R4, multi-fuente)
 > **Autonomous:** false — el owner gatea push/merge/release. **Push a `develop`: al completar el plan con todo validado/verificado** (decisión owner 2026-09-26, ver §Política de commits/push)
 > **Modo:** PLAN → ejecución con `/pipeline run docs/dev/plans/2026-09-26-master-roadmap.md`
@@ -1238,7 +1238,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** "head-to-head publicado: Mem0/Zep/Letta corridos con el MISMO harness VER-08 (mismo dataset/top_k/hardware fijado; 0 forks del harness) Y protocolo completo publicado (versiones pineadas por sistema + stack LLM/embedding/reranking + juez determinista + comandos de reproducción, Regla 11) Y win/loss honesto por capacidad (recall@k, p50/p99, ingest QPS, tokens — pares accuracy+tokens) en `BENCHMARKS.md` §19/Planificado Y post técnico con metodología (draft en `docs/user/blog/`) Y `COMPARISON.md` :17/:169 actualizado (capa pendiente → corrida) Y EXE-02 absorbido: 0 claims vs competidores sin la tabla propia"
 - **Task file:** `docs/dev/tasks/VER-09.md` (a crear en DISCOVERY)
-- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Estado:** ✅ COMPLETED (2026-09-30 — commit `2de9c004`; review vanta-audit + fixes F1-F6 + delta ✅)
 - **Cynefin:** 🔴 complejo — 3 sistemas externos con stacks de extracción LLM distintos + comparabilidad estricta del protocolo + costos de corrida.
 - **Top 3 riesgos:** 1. comparación no comparable (versiones/stacks distintos; extraction-LLM vs store) → win/loss sin valor · 2. costo/keys LLM de los competidores (Mem0/Zep/Letta extraen con LLM) → corrida cara/nondeterminista · 3. cherry-picking → credibilidad quemada (justo el punto de la auditoría LoCoMo).
 - **Pre-mortem:** F1: runner que no instala/pinea → correr los disponibles + disposición por sistema + FIND (nunca inventar números); F2: comparación unfair (derrotas ocultas) → win/loss por capacidad con derrotas incluidas (precedente COMPARISON.md:151) + sección de límites; F3: costo LLM desborda → sub-muestra commiteada primero + full split si el presupuesto lo permite; juez determinista; n declarado.
@@ -1264,7 +1264,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** "3 demos ejecutables en CI con output documentado: **memory** (sesión 1 guarda → sesión 2 recupera; `ci-ai-ides-demo.yml`) Y **verify** (tamper en WAL → `vanta-cli verify` exit ≠0 + `delete --attest`/`certificate verify` exit 0 — CI rojo si no detecta) Y **governance** (budget/ACL/audit de inyección: fuera de ACL → `denied` en audit, bloque ≤ budget, consulta `op:"injection"`) Y cada demo con comando + output esperado documentado y linkeado desde `docs/user/` Y 0 `continue-on-error`"
 - **Task file:** `docs/dev/tasks/EXE-01.md` (a crear en DISCOVERY)
-- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Estado:** ✅ COMPLETED (2026-09-30 — commit `b9a03ceb`; review ✅ + micro-batch ✅)
 - **Cynefin:** 🟨 complicado — 3 demos deterministas/offline en CI reusando superficies ya demoed sin duplicar.
 - **Top 3 riesgos:** 1. demos decorativos (verde sin probar la garantía) · 2. solape/duplicación con `icp02-privacy-demo` (verify/governance ya parciales) · 3. docs desincronizadas del output real.
 - **Pre-mortem:** F1: demo que pasa sin verificar nada → asserts de detección (tamper → exit≠0; deny fuera de ACL → fila `denied`) + CI rojo si la garantía se rompe; F2: duplicar ICP-02 → reusar `demo-privacy-e2e.ps1`/su patrón y declarar qué añade cada demo; F3: fragilidad pwsh/paths → patrón F5 (`pwsh -NoProfile -File` :66; script versionado; offline fake-Ollama :10-11).
@@ -1290,7 +1290,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** "draft `NOTION-SYNC-2026-09-24.md` aplicado: 10 páginas del hub `VantaDB Docs` con sección nueva fechada + claims verificados contra repo (Regla 11; marcas [REAL]/[PARCIAL]/[PROPUESTA]) + links cruzados Y 0 páginas stale: claims a 0.7.0 vigente (incluye corregir `Referencia API verificada (REAL v0.6.1)`) Y higiene: `VantaDB Docs (1)` consolidado/archivado + `VantaDB OLD` archivado Y checklist §12 11/11 Y fila N-17 de `backlog-notion.md` actualizada con fecha de sync"
 - **Task file:** `docs/dev/tasks/N-17.md` (a crear en DISCOVERY)
-- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Estado:** ✅ COMPLETED (2026-09-30 — commit `bc4958cd`; sync Notion + verificación ✅ ✅) · **Branch:** develop · **Commit:**
 - **Cynefin:** 🟦 obvio — aplicación de contenido curado + verificación claim↔repo; el riesgo es de exactitud, no de diseño.
 - **Top 3 riesgos:** 1. claims que queden stale al publicar (0.6.1 vs 0.7.0, conteos de tools) · 2. nombres de páginas ≠ draft → editar página equivocada (mitigado: mapa de IDs verificado) · 3. permisos de escritura del workspace (lane owner) → bloqueo parcial.
 - **Pre-mortem:** F1: página renombrada/inexistente → mapa de IDs verificado live (esta tabla) + re-verificar al aplicar; F2: claim stale colado (~87 tools; nombres viejos) → checklist por claim contra repo + fecha por sección; F3: consolidar borrando → archivar (no borrar) `VantaDB Docs (1)`/`VantaDB OLD` (contenido histórico intacto).
@@ -1403,6 +1403,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **plan-adjust [2026-09-30a]:** **F5.1 cerrada (44/50)** — ICP-01 (`f80ddadc`; C1 gate + R1 paginación), ICP-02 (`48fb88d0`; Critical fail-open binario → scan byte-oriented), VER-08 (`0405eeda`; F1 recall_any vs recall_all → headline all 0.7617). MKT-18f local (`3815afa3`; publish owner). FIND-196..198. F5.2 lanzada: ICP-03 ‖ DEF-06.
 - **plan-adjust [2026-09-30b]:** **F5 COMPLETA (46/50)** — ICP-03 (`ea60cc0c` demo dev→prod + handoff publish), DEF-06 (`48861905` claims + §2 regen + FROZEN retirado). Reviews ✅ + batches. FIND-199..204. Siguiente: bloques F6 → wave F6 (última).
 - **plan-adjust [2026-09-30c]:** **Bloques F6 completados al nivel F0/F1 (REGLA)** — Tasks 47-49, 23 campos c/u, Paso 0: VER-09 (harness ✅ pero 0 runners de competidores; gap = capa `evals/runners/` con MISMAS métricas) · EXE-01 (memory ✅; verify/governance parciales → slice demos faltantes) · N-17 (Notion live: 9/10 destinos, 4 renombrados, "Definición oficial" falta; stop: permisos escritura). Wave F6 lista.
+- **plan-adjust [2026-09-30d]:** **F6 COMPLETA — CAMPAÑA 49/50.** VER-09 (`2de9c004`; head-to-head honesto: mem0 gana recall, vantadb latencia ~850x/ingest ~187x), EXE-01 (`b9a03ceb`; demos verify/governance PR-blocking), N-17 (`bc4958cd`; sync Notion 10 páginas + higiene, verificado). Único pendiente: **MKT-18f** (publish PyPI = lane owner). Cierre de campaña: `/audit certify` → `/ship` → push/release (owner).
 
 ## Recitation
 
@@ -1411,9 +1412,9 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
 Objetivo activo: F3 — Bitemporalidad/confianza/cuarentena + schema v2 (MGR/SCH)
 Estado: in-progress
-Última acción: bloques F6 completados (Tasks 47-49, 23 campos c/u); wave F6 lista (VER-09/EXE-01/N-17)
-Resultado: OK (F0 7/7 · F1 8/8 · F2 7/7 · F3 11/11 · F4 7/7 · F5 6/6)
-Próxima acción: /pipeline run → wave F6 (última) → 50/50 → /audit certify + /ship
+Última acción: **F6 COMPLETA (49/50)** — VER-09/EXE-01/N-17 (2de9c004/b9a03ceb/bc4958cd); cierre de campaña
+Resultado: OK (**49/50** — F0 7/7 · F1 8/8 · F2 7/7 · F3 11/11 · F4 7/7 · F5 6/6 · F6 3/3; MKT-18f owner)
+Próxima acción: /audit certify → /ship → push + PR + release 0.8.0 (owner) + MKT-18f publish (owner)
 Contrato: —
 Próxima tarea si completa: HARD-01
 === END RECITATION ===
@@ -1948,4 +1949,37 @@ Resultado: OK
 Próxima acción: F6
 Contrato: claims corregidos + §2 regen (hardware+protocolo) + FROZEN retirado
 Próxima tarea si completa: VER-09
+=== END RECITATION ===
+
+=== RECITATION VER-09 ===
+Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
+Objetivo activo: VER-09 — Head-to-head Mem0/Zep/Letta
+Estado: completed
+Última acción: 6/6 ✅ + review vanta-audit APPROVE + fixes F1-F6 + delta ✅ (mutation test); commit pendiente inmediato
+Resultado: OK
+Próxima acción: Cierre de campaña: /audit certify + /ship
+Contrato: runners sin forks + protocolo publicado + derrota honesta (mem0 gana recall; vantadb latencia ~850x/ingest ~187x)
+Próxima tarea si completa: CIERRE
+=== END RECITATION ===
+
+=== RECITATION EXE-01 ===
+Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
+Objetivo activo: EXE-01 — Demos CI (memory/verify/governance)
+Estado: completed
+Última acción: 5/5 ✅ + review APPROVE + micro-batch (Opt1/Opt2/Nit1); commit pendiente inmediato
+Resultado: OK
+Próxima acción: Cierre de campaña
+Contrato: 3 demos PR-blocking con control negativo + docs linkeadas
+Próxima tarea si completa: CIERRE
+=== END RECITATION ===
+
+=== RECITATION N-17 ===
+Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
+Objetivo activo: N-17 — Notion sync
+Estado: completed
+Última acción: Sync EJECUTADO (aprobación owner) — 9 páginas + Definición oficial creada + 3 archivadas; verificación independiente APPROVE + link fix
+Resultado: OK
+Próxima acción: Cierre de campaña
+Contrato: 10 páginas sincronizadas + higiene (verificado por reviewer read-only)
+Próxima tarea si completa: CIERRE
 === END RECITATION ===
