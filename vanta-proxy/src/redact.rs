@@ -115,6 +115,18 @@ pub enum ApplyOutcome {
     Block(Vec<String>),
 }
 
+/// Outcome of on-write redaction (VER-03): what gets persisted and what is
+/// recorded for traceability.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WriteRedaction {
+    /// Text to persist — masked when findings exist (Block/Mask modes).
+    pub text: String,
+    /// Deduped kind labels of the findings (never values).
+    pub kinds: Vec<String>,
+    /// `true` when `text` differs from the input (mask actually applied).
+    pub masked: bool,
+}
+
 /// Compiled redactor: build once from [`RedactConfig`], reuse per request.
 pub struct Redactor {
     enabled: bool,
@@ -194,6 +206,67 @@ impl Redactor {
                 ApplyOutcome::Pass(body.to_vec())
             }
             RedactMode::Mask => ApplyOutcome::Pass(mask_body(body, &findings)),
+        }
+    }
+
+    /// `true` when redaction is enabled (gates on-write provenance fields).
+    #[must_use]
+    pub fn enabled(&self) -> bool {
+        self.enabled
+    }
+
+    /// On-write application (VER-03): redact a to-be-persisted turn.
+    ///
+    /// Reuses the egress detectors and stays consistent with egress modes:
+    /// `Block` and `Mask` mask findings (a completed turn is never dropped or
+    /// blocked — which is why `Block` masks here instead of rejecting), and
+    /// `Log` observes only, the same invariant as the wire. Disabled or no
+    /// findings → the text passes through unchanged.
+    #[must_use]
+    pub fn for_write(&self, text: &str) -> WriteRedaction {
+        // F-03: fail-open over the scan cap is explicit on the write path —
+        // oversized turns persist unscanned (and therefore unsealed).
+        if self.enabled && text.len() > self.max_scan_bytes {
+            tracing::warn!(
+                bytes = text.len(),
+                cap = self.max_scan_bytes,
+                "on-write redaction skipped: turn exceeds scan cap \
+                 (persisted unscanned, no envelope)"
+            );
+            return WriteRedaction {
+                text: text.to_string(),
+                kinds: Vec::new(),
+                masked: false,
+            };
+        }
+        let findings = self.scan(text.as_bytes());
+        if findings.is_empty() {
+            return WriteRedaction {
+                text: text.to_string(),
+                kinds: Vec::new(),
+                masked: false,
+            };
+        }
+        let kinds = dedup_kinds(&findings);
+        match self.mode {
+            RedactMode::Block | RedactMode::Mask => {
+                // Masked output is valid UTF-8 by construction (matches are
+                // char-boundary slices; placeholders are ASCII). The fallback
+                // is lossy (F-02): it must NEVER re-emit the clear original
+                // alongside `masked: true`.
+                let masked =
+                    String::from_utf8_lossy(&mask_body(text.as_bytes(), &findings)).into_owned();
+                WriteRedaction {
+                    text: masked,
+                    kinds,
+                    masked: true,
+                }
+            }
+            RedactMode::Log => WriteRedaction {
+                text: text.to_string(),
+                kinds,
+                masked: false,
+            },
         }
     }
 }
@@ -423,5 +496,86 @@ mod tests {
             },
         ];
         assert_eq!(mask_body(body, &findings), b"[REDACTED_AWS_KEY]");
+    }
+
+    // ── VER-03: on-write application ─────────────────────────────────────────
+
+    #[test]
+    fn for_write_masks_in_block_and_mask_modes() {
+        for mode in [RedactMode::Block, RedactMode::Mask] {
+            let r = Redactor::new(&RedactConfig {
+                enabled: true,
+                mode,
+                ..RedactConfig::default()
+            })
+            .expect("builds");
+            let out = r.for_write("deploy AKIAIOSFODNN7EXAMPLE now");
+            assert!(
+                out.masked,
+                "{mode:?} must mask on write (never drop a turn)"
+            );
+            assert!(out.text.contains("[REDACTED_AWS_KEY]"));
+            assert!(!out.text.contains("AKIAIOSFODNN7EXAMPLE"));
+            assert_eq!(out.kinds, vec!["aws_key"]);
+        }
+    }
+
+    #[test]
+    fn for_write_log_mode_observes_without_mutating() {
+        let r = Redactor::new(&RedactConfig {
+            enabled: true,
+            mode: RedactMode::Log,
+            ..RedactConfig::default()
+        })
+        .expect("builds");
+        let out = r.for_write("deploy AKIAIOSFODNN7EXAMPLE now");
+        assert!(
+            !out.masked,
+            "log observes, never mutates the persisted text"
+        );
+        assert_eq!(out.text, "deploy AKIAIOSFODNN7EXAMPLE now");
+        assert_eq!(out.kinds, vec!["aws_key"], "kinds stay traceable");
+    }
+
+    #[test]
+    fn for_write_disabled_is_identity() {
+        let r = Redactor::new(&RedactConfig::default()).expect("builds");
+        assert!(!r.enabled());
+        let out = r.for_write("deploy AKIAIOSFODNN7EXAMPLE now");
+        assert!(!out.masked);
+        assert!(out.kinds.is_empty());
+        assert_eq!(out.text, "deploy AKIAIOSFODNN7EXAMPLE now");
+    }
+
+    #[test]
+    fn for_write_masks_multibyte_text_without_losing_non_pii() {
+        let r = Redactor::new(&enabled_mask()).expect("builds");
+        let out = r.for_write("contacto jane.doe@example.com señor 日本語 ok");
+        assert!(out.masked);
+        assert!(out.text.contains("[REDACTED_EMAIL]"));
+        assert!(!out.text.contains("jane.doe@example.com"));
+        assert!(
+            out.text.contains("señor 日本語"),
+            "non-PII multibyte text must survive masking: {}",
+            out.text
+        );
+    }
+
+    #[test]
+    fn for_write_oversize_fails_open_unmasked() {
+        // F-03: over the scan cap the write path persists unscanned — declared
+        // fail-open, never a partial mask.
+        let cfg = RedactConfig {
+            enabled: true,
+            mode: RedactMode::Mask,
+            max_scan_bytes: 16,
+            ..RedactConfig::default()
+        };
+        let r = Redactor::new(&cfg).expect("builds");
+        let text = format!("AKIAIOSFODNN7EXAMPLE {}", "x".repeat(32));
+        let out = r.for_write(&text);
+        assert!(!out.masked, "oversize fails open");
+        assert!(out.kinds.is_empty());
+        assert_eq!(out.text, text, "persisted unscanned (declared cap)");
     }
 }

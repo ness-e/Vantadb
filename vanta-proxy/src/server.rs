@@ -20,6 +20,7 @@ use crate::capture;
 use crate::config::{ProxyConfig, UpstreamConfig};
 use crate::context::{self, ContextOptimizer};
 use crate::cost::{self, BudgetDecision, CostTracker, VirtualKey};
+use crate::envelope::Envelope;
 use crate::forward::Forwarder;
 use crate::guardrails::GuardrailDecision;
 use crate::handlers;
@@ -67,6 +68,10 @@ pub struct AppState {
     /// Egress PII/secret redaction (PRX-07). Disabled by default; compiled
     /// once at startup so per-request work is only the scan.
     pub redactor: Arc<Redactor>,
+    /// Per-namespace AEAD envelope for captured originals (VER-03). Built once
+    /// at startup; `Disarmed` (explicit degradation + startup warning) when
+    /// `[envelope] enabled` but the key is missing/invalid.
+    pub envelope: Arc<Envelope>,
     /// Context optimization in transit (PRX-13). Disabled by default;
     /// stateless over config, built once at startup.
     pub optimizer: Arc<ContextOptimizer>,
@@ -156,6 +161,17 @@ impl AppState {
         // PRX-07: compile custom patterns once — invalid patterns fail
         // closed here (proxy refuses to start) instead of per-request.
         let redactor = Redactor::new(&config.redact)?;
+        // VER-03: per-namespace envelope build is infallible — a missing or
+        // unusable key degrades EXPLICITLY to redacted-only (warn, never a
+        // silent fallback to clear originals).
+        let envelope = Envelope::from_config(&config.envelope);
+        if let Some(reason) = envelope.disarm_reason() {
+            tracing::warn!(
+                reason,
+                "[envelope] enabled without a usable VANTADB_ENCRYPTION_KEY — \
+                 captured originals will NOT be persisted (redacted-only)"
+            );
+        }
         // PRX-13: stateless over config — infallible build.
         let optimizer = ContextOptimizer::new(&config.context);
         Ok(Self {
@@ -166,6 +182,7 @@ impl AppState {
             cache: Arc::new(std::sync::Mutex::new(cache)),
             cost: cost.into(),
             redactor: redactor.into(),
+            envelope: Arc::new(envelope),
             optimizer: optimizer.into(),
             config: Arc::new(config),
             forwarder: Arc::new(forwarder),
@@ -624,6 +641,10 @@ impl AppState {
             space_id,
             model,
             &text,
+            &capture::WriteGuard {
+                redactor: &self.redactor,
+                envelope: &self.envelope,
+            },
         );
         self.writeback.track(format!("turn:{session}"), job);
     }
@@ -771,6 +792,10 @@ impl AppState {
                         space_id,
                         model,
                         call,
+                        &capture::WriteGuard {
+                            redactor: &self.redactor,
+                            envelope: &self.envelope,
+                        },
                     );
                     (call.id.clone(), text)
                 })
@@ -883,6 +908,11 @@ async fn snapshot(
         "writeback": {
             "pending_labels": pending_labels,
             "pending_count": state.writeback.pending_count(),
+        },
+        "envelope": {
+            "configured": state.config.envelope.enabled,
+            "mode": state.envelope.mode().as_str(),
+            "key_version": state.envelope.key_version(),
         },
         "rate_limit": {
             "limit_per_minute": state.limiter.limit(),

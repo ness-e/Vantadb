@@ -31,7 +31,7 @@ registrations covering **8 logical endpoints** (`/v1/models`,
 | Method | Path | Handler | Source |
 |--------|------|---------|--------|
 | GET | `/health` | returns `{"status":"ok"}` | `server.rs:790,825` |
-| GET | `/snapshot` | live ops snapshot: recent turn reports, active sessions, write-back queue, rate-limit telemetry, cost snapshot + budget/enforce flags; **requires auth (API-05)**, no loopback bypass | `server.rs:791,871` |
+| GET | `/snapshot` | live ops snapshot: recent turn reports, active sessions, write-back queue, rate-limit telemetry, cost snapshot + budget/enforce flags, envelope mode (VER-03); **requires auth (API-05)**, no loopback bypass | `server.rs:791,871` |
 | POST | `/sessions/advance` | explicit session-stage trigger; body `{ "target": "team"\|"agent"\|"task", "entity_id": "<id>" }`; requires auth (401), bad target/key → 400 | `server.rs:792,834` |
 | POST | `/{agent}/{space_id}/v1/chat/completions` | OpenAI chat completions (forward) | `server.rs:793-796` |
 | POST | `/{agent}/{space_id}/v1/messages` | Anthropic messages (forward) | `server.rs:797-800` |
@@ -52,11 +52,11 @@ The desktop Proxy Dashboard
 ([`desktop/src/components/proxy/ProxyDashboard.tsx`](../../desktop/src/components/proxy/ProxyDashboard.tsx))
 does not send the header yet — tracked as `FIND-155`.
 
-## Opt-in features (8)
+## Opt-in features (9)
 
 Invariant: the wire stays a transparent proxy unless explicitly opted in —
 each feature below is **off by default** (`enabled: false`, or empty endpoint).
-Config keys live on `ProxyConfig` (`config.rs:17-56`).
+Config keys live on `ProxyConfig` (`config.rs:17-61`).
 
 | TOML section | What it does | Default (off) | Source |
 |--------------|--------------|---------------|--------|
@@ -64,10 +64,11 @@ Config keys live on `ProxyConfig` (`config.rs:17-56`).
 | `[cache]` | exact + semantic response cache (PRX-09); active only when `enabled` **and** `ttl_secs > 0` | `enabled = false`, `ttl_secs = 0` | `config.rs:137-166` |
 | `[report]` | per-turn span export to Langfuse/OTel over OTLP-JSON (MEM-56) | `langfuse_endpoint = ""` (empty disables export) | `config.rs:140-155` |
 | `[routing]` | task-aware routing by tier (PRX-06); `Shadow` (default) vs `Enforce` | `enabled = false`, `mode = Shadow` | `config.rs:41-43`, `routing.rs:59-95` |
-| `[redact]` | PII/secret redaction on egress (PRX-07) | `enabled = false`, `mode = Mask` | `config.rs:44-46`, `redact.rs:41-63` |
+| `[redact]` | PII/secret redaction on egress (PRX-07) — and, when enabled, the same policy redacts captured turns **before they are persisted** (VER-03) | `enabled = false`, `mode = Mask` | `config.rs:44-46`, `redact.rs:41-63` |
 | `[context]` | conversation-history trimming to a token budget (PRX-13); never blocks (`Pass` only) | `enabled = false`, `mode = Performance` | `config.rs:47-49`, `context.rs:58-84` |
 | `[guardrails]` | per-key model allowlists (PRX-10); unknown key or empty entry allows | `enabled = false` | `config.rs:50-52`, `guardrails.rs:13-21,30-48` |
 | `[translate]` | Anthropic→OpenAI request translation (PRX-11); off → byte-identical forward | `enabled = false` | `config.rs:53-55`, `translate.rs:29-50` |
+| `[envelope]` | per-namespace AEAD envelope preserving the pre-redaction original of a captured turn (VER-03); requires `[redact] enabled` + a 32-byte `VANTADB_ENCRYPTION_KEY` | `enabled = false`, `key_version = 1` | `config.rs:59-61`, `envelope.rs` |
 
 Related but **not** opt-in (documented here to avoid confusion):
 
@@ -77,6 +78,69 @@ Related but **not** opt-in (documented here to avoid confusion):
 | `[auth]` | local VantaDB store path for auth/sessions; every route (incl. `/snapshot`) resolves `x-vanta-user-key` against its `user` collection | `db_path = "vantadb_data"` (`config.rs:298-310`) |
 | `[writeback]` | L0 write-back crash-audit file | `persist_path = "vanta-proxy-writeback-pending.json"` (`config.rs:88-103`) |
 | `[[upstreams]]` | PRX-02 failover list, tried in order after `upstream`; empty (default) → legacy single-upstream behavior | `config.rs:22-25,66-75` |
+
+## Redaction-on-write & encrypted namespaces (VER-03)
+
+`[redact]` applies to **persistence** too: a captured turn — automatic L0
+capture and the `vanta_memory_capture` tool both go through
+[`capture::turn_job`](../../vanta-proxy/src/capture.rs) — is stored redacted.
+Both destinations carry the masked text: `proxy-turns` (audit payload) and
+`l1/{session}` (the search-facing record, the only surface recall/injection
+reads). The audit payload also records the kind labels found
+(`"redacted": ["email", "aws_key", …]` — labels only, never values).
+
+Mode mapping on write: `Mask` and `Block` mask (a completed turn is never
+dropped or rejected — masking is the only lossless outcome); `Log` observes
+only, the same semantic as the wire. With `[redact] disabled` nothing is
+scanned and persistence is byte-identical to the pre-VER-03 behavior.
+
+Scan cap (shared with egress): turns above `redact.max_scan_bytes` (2 MiB)
+fail open — a warning is logged, the turn is persisted **unscanned** and gets
+**no envelope**. The zero-cleartext guarantee holds under the cap; shorten
+turn capture or raise the cap if your traffic exceeds it.
+
+When `[envelope] enabled = true`, the **pre-redaction original** of a turn
+additionally survives — and only — inside an AEAD envelope attached to the
+`proxy-turns` audit payload:
+
+```json
+{ "v": 1, "k": 1, "ns": "proxy-turns", "ct": "<hex>" }
+```
+
+| Field | Meaning |
+|-------|---------|
+| `v` | envelope framing version (bump on format change) |
+| `k` | key version used for the derivation (rotation marker) |
+| `ns` | namespace whose derived key seals the payload |
+| `ct` | hex of AES-256-GCM `[nonce ‖ ciphertext ‖ tag]` |
+
+Key derivation: `key(ns, k) = HKDF-SHA256(master, salt =
+"vanta-namespace-envelope-v1", info = "ns" ‖ ns ‖ [k])`, where `master` is the
+project-wide 32-byte `VANTADB_ENCRYPTION_KEY` (same AEAD primitive as storage
+encryption, domain-separated by salt + info). Namespace and version are part
+of the key: a blob re-labelled with another `ns` or `k` does not authenticate.
+
+**Rotation (v1):** bump `key_version` — new writes seal under the new derived
+key while previous envelopes stay readable under the same master key.
+Rotating the master key itself requires re-encrypting existing envelopes (not
+automated yet — declared limit). **Recovery** is programmatic via
+`Envelope::open` (same crate); there is no CLI for it yet.
+
+**Degradation is explicit — never a silent fallback to clear text:**
+
+| `[envelope]` | key | `[redact]` | Result |
+|--------------|-----|------------|--------|
+| off (default) | — | any | redacted text is the only copy (or nothing redacted when `[redact]` is off) |
+| on | valid 32-byte | on | envelopes active: the original is recoverable only with its key |
+| on | missing / invalid / passphrase | on | **disarmed**: startup warning, envelopes skipped, the original is NOT persisted — it is never written in clear |
+| on | valid | off | no redaction ran → no envelope (there is nothing to hide) |
+
+`mode = "log"` observes without mutating (same semantic as the wire): the
+persisted text stays as-is and **no envelope is written** — the envelope only
+ever preserves an original that redaction actually masked (`Mask`/`Block`).
+
+The effective mode and key version are visible in `GET /snapshot` under
+`"envelope"` (`redacted_only` · `active` · `disarmed`).
 
 ## Defaults
 

@@ -101,6 +101,7 @@ async fn setup_with_capture() -> (String, Shared) {
         guardrails: Default::default(),
         translate: Default::default(),
         injection: Default::default(),
+        envelope: Default::default(),
     };
     let proxy_url = spawn(server::router(
         server::AppState::from_engine(cfg, seeded_engine()).unwrap(),

@@ -2,6 +2,11 @@
 //! through [`crate::writeback::WriteBack`] so the conversation turn lands in
 //! memory without ever blocking or failing the wire. This is the single write
 //! path for L0 turns — the same one the capture tool uses.
+//!
+//! VER-03: both destinations (`proxy-turns` and `l1/{session}`) persist the
+//! **redacted** text (same detector kinds as the egress [`Redactor`]); the
+//! pre-redaction original only survives inside the per-namespace AEAD
+//! envelope attached to the audit payload — never in clear.
 
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
@@ -14,10 +19,21 @@ use vantadb::sdk::{
     Embedded, MemoryInput, MemoryListOptions, MemoryMetadata, MemoryRecord, Value as SdkValue,
 };
 
+use crate::envelope::Envelope;
+use crate::redact::Redactor;
 use crate::writeback::L0Job;
 
 /// Namespace holding proxied conversation turns.
 pub const TURNS_NAMESPACE: &str = "proxy-turns";
+
+/// Write-path guard (VER-03): the on-write redaction policy plus the optional
+/// per-namespace envelope that keeps the pre-redaction original.
+pub struct WriteGuard<'a> {
+    /// Redaction policy (the egress `[redact]` config), reused on write.
+    pub redactor: &'a Redactor,
+    /// Per-namespace AEAD envelope (off/disarmed → redacted-only).
+    pub envelope: &'a Envelope,
+}
 
 /// Monotonic disambiguator so two turns in the same millisecond keep both
 /// records (`key = {now_ms}-{seq}`; upsert semantics would drop one otherwise).
@@ -50,6 +66,11 @@ pub fn last_user_text(body: &[u8]) -> Option<String> {
 /// Tenancy stays `None` (LLM08: session-only, never cross-session). Either
 /// put failing returns `Err` so WriteBack retries both (idempotent upsert by
 /// key — a retry overwrites the same two records).
+///
+/// VER-03: `guard` applies redaction-on-write over `text`; both persisted
+/// records carry the masked version and the pre-redaction original only
+/// survives inside the per-namespace envelope (audit payload). This function
+/// never blocks or drops a turn (D47) and never persists a clear original.
 pub fn turn_job(
     memory: Embedded,
     session_key: &str,
@@ -57,20 +78,37 @@ pub fn turn_job(
     space_id: &str,
     model: &str,
     text: &str,
+    guard: &WriteGuard<'_>,
 ) -> L0Job {
     let now_ms = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
         .as_millis() as u64;
     let key = format!("{now_ms}-{}", TURN_SEQ.fetch_add(1, Ordering::Relaxed));
-    let payload = serde_json::json!({
+    // VER-03: persist the redacted text — the egress policy, applied on write.
+    let write = guard.redactor.for_write(text);
+    let mut payload = serde_json::json!({
         "session": session_key,
         "protocol": protocol,
         "space": space_id,
         "model": model,
-        "text": text,
-    })
-    .to_string();
+        "text": write.text.clone(),
+    });
+    if guard.redactor.enabled() {
+        // Kind labels only (never values): traceability of what was redacted.
+        payload["redacted"] = serde_json::json!(write.kinds);
+    }
+    // Envelope only when masking changed the text: if nothing was redacted the
+    // original IS the persisted text, so sealing would duplicate it.
+    let original_envelope = if write.masked {
+        guard.envelope.seal(TURNS_NAMESPACE, text)
+    } else {
+        None
+    };
+    if let Some(blob) = original_envelope {
+        payload["original_envelope"] = serde_json::to_value(blob).unwrap_or(Value::Null);
+    }
+    let payload = payload.to_string();
     // Canonical L1 shape (mirrors `l1_writer::put_record`: namespace
     // `l1/{session}`, key = record id, payload = serialized record,
     // metadata tags {type, priority}). Keys are `[0-9-]` by construction,
@@ -79,7 +117,7 @@ pub fn turn_job(
     let now_rfc = epoch_ms_to_rfc3339(now_ms);
     let l1_record = L1Record {
         id: key.clone(),
-        content: text.to_string(),
+        content: write.text.clone(),
         memory_type: MemoryType::Episodic,
         priority: 50,
         scene_name: String::new(),
@@ -203,6 +241,17 @@ mod tests {
         // in the pending queue; the post-flush invocation succeeds.
         let remaining = Arc::new(AtomicU64::new(u64::from(DEFAULT_ATTEMPTS)));
         let left = remaining.clone();
+        // Default guard: redaction off + envelope off — legacy write shape.
+        let redactor = crate::redact::Redactor::new(&crate::redact::RedactConfig::default())
+            .expect("redactor");
+        let envelope = crate::envelope::Envelope::with_master(
+            &crate::envelope::EnvelopeConfig::default(),
+            None,
+        );
+        let guard = WriteGuard {
+            redactor: &redactor,
+            envelope: &envelope,
+        };
         let inner = turn_job(
             db.clone(),
             "sess-d19",
@@ -210,6 +259,7 @@ mod tests {
             "space",
             "m",
             "hello world",
+            &guard,
         );
         let job: L0Job = Arc::new(move || {
             let left = left.clone();
@@ -251,6 +301,16 @@ mod tests {
     async fn turn_job_dual_writes_l1_record_for_recall() {
         use vanta_memory::core::record::l1_reader::read_session_records;
         let db = memory();
+        let redactor = crate::redact::Redactor::new(&crate::redact::RedactConfig::default())
+            .expect("redactor");
+        let envelope = crate::envelope::Envelope::with_master(
+            &crate::envelope::EnvelopeConfig::default(),
+            None,
+        );
+        let guard = WriteGuard {
+            redactor: &redactor,
+            envelope: &envelope,
+        };
         let job = turn_job(
             db.clone(),
             "sess-l1",
@@ -258,6 +318,7 @@ mod tests {
             "space",
             "m",
             "xylophone-quasar-7429 prefers concise answers",
+            &guard,
         );
         job().await.expect("l0 job runs");
         let records = read_session_records(&db, "sess-l1").expect("read l1");

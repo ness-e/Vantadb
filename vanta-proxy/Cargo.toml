@@ -26,7 +26,10 @@ futures = "0.3"
 # Workspace deps for the MEM-26 cycle: local RBAC entity_* auth (D25/D34) and
 # persona/scene injection via the memory lib (D29). Graph stays acyclic:
 # proxy → {memory, vantadb}.
-vantadb = { path = "..", default-features = false }
+# VER-03: `encryption` (existing workspace feature) exposes `vantadb::crypto`
+# for the per-namespace AEAD envelope — no new external crates (ring is
+# already in the graph via reqwest/rustls).
+vantadb = { path = "..", default-features = false, features = ["encryption"] }
 vanta-memory = { path = "../vanta-memory", default-features = false, features = ["llm-driver"] }
 
 [dev-dependencies]

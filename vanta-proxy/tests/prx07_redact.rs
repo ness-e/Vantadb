@@ -226,6 +226,7 @@ fn state_with_redact(upstream: &str, redact: RedactConfig) -> server::AppState {
         guardrails: Default::default(),
         translate: Default::default(),
         injection: Default::default(),
+        envelope: Default::default(),
     };
     server::AppState::from_engine(cfg, seeded_engine()).unwrap()
 }
