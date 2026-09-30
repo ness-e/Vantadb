@@ -9,6 +9,12 @@
 //! `size_limit`/`dfa_size_limit`, and bodies over `max_scan_bytes` fail open
 //! (transparent proxy invariant). Findings never carry matched values —
 //! only [`RedactKind`] labels — so logs and 422 responses can't echo secrets.
+//!
+//! Two entry points over the SAME detectors: [`Redactor::scan`] is the wire
+//! path (non-UTF-8 fails open — documented proxy invariant) and
+//! [`Redactor::scan_bytes`] scans raw bytes binary-safe, used by the PII
+//! audit (`vanta-pii-audit`) so non-UTF-8 store files are covered instead of
+//! silently skipped.
 
 use serde::Deserialize;
 
@@ -132,6 +138,8 @@ pub struct Redactor {
     enabled: bool,
     mode: RedactMode,
     customs: Vec<regex::Regex>,
+    /// Same patterns compiled for the byte-oriented scan ([`Self::scan_bytes`]).
+    customs_bytes: Vec<regex::bytes::Regex>,
     max_scan_bytes: usize,
 }
 
@@ -143,24 +151,33 @@ impl Redactor {
     /// (fail-closed: the proxy refuses to start with a bad pattern).
     pub fn new(cfg: &RedactConfig) -> Result<Self, ProxyError> {
         let mut customs = Vec::with_capacity(cfg.patterns.len());
+        let mut customs_bytes = Vec::with_capacity(cfg.patterns.len());
         for p in &cfg.patterns {
             let re = regex::RegexBuilder::new(p)
                 .size_limit(1 << 20)
                 .dfa_size_limit(1 << 20)
                 .build()
                 .map_err(|e| ProxyError::Config(format!("invalid redact pattern: {e}")))?;
+            let re_bytes = regex::bytes::RegexBuilder::new(p)
+                .size_limit(1 << 20)
+                .dfa_size_limit(1 << 20)
+                .build()
+                .map_err(|e| ProxyError::Config(format!("invalid redact pattern: {e}")))?;
             customs.push(re);
+            customs_bytes.push(re_bytes);
         }
         Ok(Self {
             enabled: cfg.enabled,
             mode: cfg.mode,
             customs,
+            customs_bytes,
             max_scan_bytes: cfg.max_scan_bytes,
         })
     }
 
     /// Scan `body`, returning findings sorted by offset. Empty when disabled,
-    /// non-UTF-8, or over the scan cap (fail-open paths).
+    /// non-UTF-8, or over the scan cap (fail-open paths — documented wire
+    /// invariant). For a binary-safe scan use [`Self::scan_bytes`].
     #[must_use]
     pub fn scan(&self, body: &[u8]) -> Vec<Finding> {
         if !self.enabled || body.len() > self.max_scan_bytes {
@@ -170,12 +187,38 @@ impl Redactor {
             return Vec::new();
         };
         let mut out = Vec::new();
-        scan_aws_keys(text, &mut out);
-        scan_aws_secrets(text, &mut out);
-        scan_tokens(text, &mut out);
-        scan_emails(text, &mut out);
+        scan_builtins_bytes(text.as_bytes(), &mut out);
         for re in &self.customs {
             for m in re.find_iter(text) {
+                out.push(Finding {
+                    kind: RedactKind::Custom,
+                    start: m.start(),
+                    end: m.end(),
+                });
+            }
+        }
+        out.sort_by_key(|f| (f.start, f.end));
+        out
+    }
+
+    /// Byte-oriented scan: the SAME built-in detectors plus the same operator
+    /// `patterns` (compiled as `regex::bytes`), applied to raw bytes —
+    /// non-UTF-8 content IS scanned instead of skipped.
+    ///
+    /// Used by the PII audit (`vanta-pii-audit`, ICP-02) so binary store
+    /// files (journals, column data, WAL) are covered instead of failing
+    /// open. Over the scan cap this still fails open; callers that must not
+    /// fail open (the audit) enforce their own cap and treat unscanned input
+    /// as not-clean.
+    #[must_use]
+    pub fn scan_bytes(&self, body: &[u8]) -> Vec<Finding> {
+        if !self.enabled || body.len() > self.max_scan_bytes {
+            return Vec::new();
+        }
+        let mut out = Vec::new();
+        scan_builtins_bytes(body, &mut out);
+        for re in &self.customs_bytes {
+            for m in re.find_iter(body) {
                 out.push(Finding {
                     kind: RedactKind::Custom,
                     start: m.start(),
@@ -305,9 +348,18 @@ fn is_aws_key_char(b: u8) -> bool {
     b.is_ascii_uppercase() || b.is_ascii_digit()
 }
 
+/// All built-in detectors over raw bytes (binary-safe: every one is an
+/// ASCII-shape linear scan). Shared by [`Redactor::scan`] and
+/// [`Redactor::scan_bytes`] so the two paths cannot drift apart.
+fn scan_builtins_bytes(bytes: &[u8], out: &mut Vec<Finding>) {
+    scan_aws_keys(bytes, out);
+    scan_aws_secrets(bytes, out);
+    scan_tokens(bytes, out);
+    scan_emails(bytes, out);
+}
+
 /// `AKIA` + 16 uppercase/digits (AWS access key ID shape).
-fn scan_aws_keys(text: &str, out: &mut Vec<Finding>) {
-    let bytes = text.as_bytes();
+fn scan_aws_keys(bytes: &[u8], out: &mut Vec<Finding>) {
     let mut i = 0;
     while i + 20 <= bytes.len() {
         if &bytes[i..i + 4] == b"AKIA" && bytes[i + 4..i + 20].iter().all(|&b| is_aws_key_char(b)) {
@@ -329,8 +381,7 @@ fn is_secret_char(b: u8) -> bool {
 
 /// 40-char secret-ish run shortly after an `aws_secret` marker
 /// (case-insensitive).
-fn scan_aws_secrets(text: &str, out: &mut Vec<Finding>) {
-    let bytes = text.as_bytes();
+fn scan_aws_secrets(bytes: &[u8], out: &mut Vec<Finding>) {
     let needle = b"aws_secret";
     let mut i = 0;
     while i + needle.len() <= bytes.len() {
@@ -372,8 +423,7 @@ fn is_token_char(b: u8) -> bool {
 }
 
 /// Known token prefixes + a run of token chars (suffix ≥ 10).
-fn scan_tokens(text: &str, out: &mut Vec<Finding>) {
-    let bytes = text.as_bytes();
+fn scan_tokens(bytes: &[u8], out: &mut Vec<Finding>) {
     for prefix in TOKEN_PREFIXES {
         let p = prefix.as_bytes();
         let mut i = 0;
@@ -410,8 +460,7 @@ fn is_domain_char(b: u8) -> bool {
 
 /// `local@domain.tld` heuristic: non-empty local part, domain with a dot
 /// and a ≥2-letter TLD.
-fn scan_emails(text: &str, out: &mut Vec<Finding>) {
-    let bytes = text.as_bytes();
+fn scan_emails(bytes: &[u8], out: &mut Vec<Finding>) {
     let mut i = 0;
     while i < bytes.len() {
         if bytes[i] == b'@' {
@@ -424,13 +473,10 @@ fn scan_emails(text: &str, out: &mut Vec<Finding>) {
                 end += 1;
             }
             if start < i && end > i + 1 {
-                let domain = &text[i + 1..end];
-                if let Some(dot) = domain.rfind('.') {
+                let domain = &bytes[i + 1..end];
+                if let Some(dot) = domain.iter().rposition(|&b| b == b'.') {
                     let tld = &domain[dot + 1..];
-                    if !tld.is_empty()
-                        && tld.len() >= 2
-                        && tld.bytes().all(|b| b.is_ascii_alphabetic())
-                    {
+                    if tld.len() >= 2 && tld.iter().all(|b| b.is_ascii_alphabetic()) {
                         out.push(Finding {
                             kind: RedactKind::Email,
                             start,
@@ -478,6 +524,51 @@ mod tests {
         let r = Redactor::new(&enabled_mask()).expect("builds");
         let raw = vec![0xff, 0xfe, b'A'];
         assert!(matches!(r.apply(&raw), ApplyOutcome::Pass(_)));
+    }
+
+    /// ICP-02 review (Critical): the byte-oriented scan must see leaks inside
+    /// non-UTF-8 content — while the wire `scan` keeps its documented
+    /// fail-open for non-UTF-8 (transparent-proxy invariant, unchanged).
+    #[test]
+    fn scan_bytes_detects_leaks_inside_non_utf8_binary() {
+        let r = Redactor::new(&enabled_mask()).expect("builds");
+        let mut body = Vec::new();
+        body.extend_from_slice(
+            b"\x00\xff\xfe leaked jane.doe@example.com and AKIAIOSFODNN7EXAMPLE ",
+        );
+        body.extend_from_slice(&[0x80, 0x81, 0xfe]);
+        let findings = r.scan_bytes(&body);
+        let kinds: Vec<&str> = findings.iter().map(|f| f.kind.as_str()).collect();
+        assert!(kinds.contains(&"email"), "kinds: {kinds:?}");
+        assert!(kinds.contains(&"aws_key"), "kinds: {kinds:?}");
+        assert!(
+            r.scan(&body).is_empty(),
+            "the wire scanner stays fail-open for non-UTF-8"
+        );
+    }
+
+    #[test]
+    fn scan_bytes_matches_scan_on_valid_utf8() {
+        let r = Redactor::new(&enabled_mask()).expect("builds");
+        let body = b"contact jane.doe@example.com deploy AKIAIOSFODNN7EXAMPLE token sk-demo0123456789abcdef se\xc3\xb1or";
+        assert_eq!(r.scan(body), r.scan_bytes(body));
+    }
+
+    #[test]
+    fn scan_bytes_applies_custom_patterns_to_binary() {
+        let r = Redactor::new(&RedactConfig {
+            enabled: true,
+            patterns: vec![r"SECRET-\d{4}".into()],
+            ..RedactConfig::default()
+        })
+        .expect("builds");
+        let mut body = b"\xffSECRET-1234\xfe".to_vec();
+        body.push(0x80);
+        let findings = r.scan_bytes(&body);
+        assert!(
+            findings.iter().any(|f| f.kind == RedactKind::Custom),
+            "custom byte pattern missed: {findings:?}"
+        );
     }
 
     #[test]

@@ -1,0 +1,66 @@
+name: 'Demo: privacy chain (ICP-02)'
+
+# ICP-02: end-to-end privacy demo on one on-disk store —
+#   capture synthetic PII through the proxy wire -> PII audit
+#   (store + indexes + export = 0 cleartext, versioned `vanta-pii-audit`
+#   binary with a negative control) -> certified forget via the real CLI
+#   (`vanta-cli delete --attest` + `certificate verify`, exit 0) ->
+#   injection audit consult (`"op":"injection"`).
+# Runs the same script users run locally: scripts/demo-privacy-e2e.ps1.
+# No `continue-on-error`: a failing audit/demo blocks the PR.
+
+on:
+  push:
+    branches: [ "main", "develop" ]
+    paths:
+      - 'vanta-proxy/**'
+      - 'src/attestation.rs'
+      - 'src/crypto.rs'
+      - 'src/cli.rs'
+      - 'src/cli_handlers/**'
+      - 'src/sdk/**'
+      - 'scripts/demo-privacy-e2e.ps1'
+      - 'docs/user/PRIVACY.md'
+      - '.github/workflows/icp02-privacy-demo.yml'
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - 'vanta-proxy/**'
+      - 'src/attestation.rs'
+      - 'src/crypto.rs'
+      - 'src/cli.rs'
+      - 'src/cli_handlers/**'
+      - 'src/sdk/**'
+      - 'scripts/demo-privacy-e2e.ps1'
+      - 'docs/user/PRIVACY.md'
+      - '.github/workflows/icp02-privacy-demo.yml'
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+concurrency:
+  group: icp02-privacy-demo-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  privacy-chain:
+    name: "Privacy chain E2E (ubuntu)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/rust-setup
+        with:
+          install-system-deps: true
+          install-nextest: true
+          swap-mb: 4096
+
+      - name: Run privacy chain demo
+        run: pwsh -NoProfile -File scripts/demo-privacy-e2e.ps1
