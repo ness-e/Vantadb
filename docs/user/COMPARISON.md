@@ -192,3 +192,34 @@ erase; no parametric unlearning; backups, exports and audit logs follow each
 certificate's `out_of_scope` list. Every command and the full covered / not
 covered table: [Privacy & local LLMs](PRIVACY.md). Run the whole chain locally
 with `pwsh scripts/demo-privacy-e2e.ps1` (it also runs in CI).
+
+---
+
+## 9. Agent frameworks — same code in dev and prod (ICP-03)
+
+The table above compares storage engines; the frameworks question is the one
+Vertical 2 of the go-to-market plan asks: *does your agent keep its memory
+without a second stack in production?* LangGraph pairs `InMemorySaver` in dev
+with `PostgresSaver` in prod; CrewAI's native memory lacks per-user
+isolation. VantaDB's answer is a set of framework adapters over the same
+embedded engine — the graph code does not change, only the checkpointer.
+
+- Nine Python adapters (LangGraph, CrewAI, DSPy, Haystack, LlamaIndex, Mem0,
+  Letta, OpenAI, Ollama): [FRAMEWORKS.md](FRAMEWORKS.md).
+- The dev→prod claim is CI-verified by a dedicated five-process demo
+  ([examples/langgraph_dev_to_prod](../../examples/langgraph_dev_to_prod/README.md) ·
+  [ci-frameworks-demo.yml](../../.github/workflows/ci-frameworks-demo.yml)):
+  the same graph runs with `InMemorySaver` (dev) and `VantaDBCheckpointer`
+  (prod); the demo fails if the business code differs, if prod does not
+  resume state across processes, or if two threads leak into each other.
+- Migrating from hosted memory services keeps the data: file-only importers
+  from Mem0 / Zep / Letta, no API keys
+  ([tutorials](tutorials/migrating-from-mem0.md)).
+- Distribution honesty: the adapters are **Alpha and not on PyPI yet**
+  (all nine names return 404). Install is from a repo checkout today; the
+  PyPI command arrives with the first `adapters-v*` release. Install paths,
+  pin caveats and the adoption metric (pypistats, baseline 0) live in
+  [FRAMEWORKS.md](FRAMEWORKS.md).
+
+Qualitative only, same rules as above: no competitor figures, no performance
+claims without a BENCHMARKS.md citation.
