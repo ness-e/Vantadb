@@ -45,12 +45,12 @@ pip install vantadb-py
 
 #### 2. crates.io (Rust Package Registry)
 
-**Status:** ✅ Active (v0.6.1)
+**Status:** ✅ Active (v0.7.0)
 **URL:** https://crates.io/crates/vantadb
 
 ```toml
 [dependencies]
-vantadb = "0.6.1"
+vantadb = "0.7.0"
 ```
 
 **Features:**

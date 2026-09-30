@@ -23,7 +23,7 @@ Written strategy only — zero code, zero web changes.
 | Channel | Artifact | Install | Source of truth |
 | :--- | :--- | :--- | :--- |
 | **PyPI** | `vantadb-py` (`import vantadb`) | `pip install vantadb-py` | [README → Installation](../../../README.md#installation) · [PYTHON_RELEASE_POLICY](../../user/operations/PYTHON_RELEASE_POLICY.md) · TestPyPI first (`TEST_PYPI_API_TOKEN`), then PyPI — pending `PROV-12` |
-| **npm (browser/Node)** | `vantadb` 0.5.0 (WASM, ESM-only, `engines: node>=22.19`) | `npm install vantadb` · browser via `esm.sh` (verified 2026-08-26); jsDelivr `+esm` does **not** work (Rollup limitation) | [`vantadb-ts/README.md`](../../../vantadb-ts/README.md) · [`vantadb-ts/package.json`](../../../vantadb-ts/package.json) |
+| **npm (browser/Node)** | `vantadb` 0.7.0 (WASM, ESM-only, `engines: node>=22.19`) | `npm install vantadb` · browser via `esm.sh` (verified 2026-08-26); jsDelivr `+esm` does **not** work (Rollup limitation) | [`vantadb-ts/README.md`](../../../vantadb-ts/README.md) · [`vantadb-ts/package.json`](../../../vantadb-ts/package.json) |
 | **npm (native Node)** | `vantadb-node` (napi-rs, async, real fjall/WAL persistence) | **Not yet published** (registry 404) — do not advertise as installable | [`vantadb-ts/README.md` §"vantadb vs vantadb-node"](../../../vantadb-ts/README.md#vantadb-vs-vantadb-node-npm) |
 | **GitHub Releases** | `vanta-cli` / `vantadb-server` binaries + wheels | One-liner without clone: `install.sh` / `install.ps1` (sha256-verified, chains to setup wizard) | [QUICKSTART §0](../../user/QUICKSTART.md#0-install-without-cloning-no-cloner-no-rust-toolchain) · [README → Embedded CLI](../../../README.md#embedded-cli) |
 | **From source** | Rust workspace + maturin develop | Contributors only | [QUICKSTART §1-§4](../../user/QUICKSTART.md#1-prerequisites) |
@@ -66,7 +66,7 @@ nav confirms Vector, Hybrid, BM25, Facets, Filters, Geosearch pages).
 | Library | Version | Gzipped | Source |
 | :--- | :--- | :--- | :--- |
 | `@orama/orama` | 3.1.18 | **23.8 KB** (75.2 KB min) | <https://bundlephobia.com/package/@orama/orama>, measured 2026-08-30 |
-| VantaDB WASM | 0.5.x | **~671 KB transfer** (1.58 MB raw) | `vantadb-wasm/pkg/` via .NET GzipStream, measured 2026-09-15 (`pkg/` built 2026-09-11) |
+| VantaDB WASM | 0.5.x → **0.7.0** | **~671 KB transfer** (1.58 MB raw; medido sobre 0.5.x — **re-medir `pkg/` 0.7.0 antes de citar**) | `vantadb-wasm/pkg/` via .NET GzipStream, measured 2026-09-15 (`pkg/` built 2026-09-11) |
 
 Full table (MiniSearch 5.9 KB, Lunr 8.1 KB) and the 7-item feature-gap list live
 in [`vantadb-wasm/README.md` §4](../../../vantadb-wasm/README.md#4-honest-comparison-vs-javascript-only-search-engines)
