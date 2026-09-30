@@ -109,6 +109,25 @@ impl AuditEvent {
         };
         Self::new(&op, namespace, key, outcome, reason)
     }
+
+    /// Build an injection-governance event (`injection` op) — VER-04: which
+    /// memory entered which prompt, under which budget and ACL decision.
+    ///
+    /// - `namespace`: source namespace of the injected memory (e.g.
+    ///   `l1/<session>`, `persona/<session>`), or the session for a
+    ///   block-level record.
+    /// - `key`: source record key (or `"N/A"` for aggregate records).
+    /// - `outcome`: `"ok"` when injected, `"denied"` when skipped by the ACL.
+    /// - `reason`: compact `k=v;` metadata — `surface`, `tool`, `session`,
+    ///   `kind`, `score`, `budget`, `truncated`, `acl`. **Never** payload
+    ///   values (metadata-only by contract; VER-03 kinds precedent).
+    ///
+    /// WORM-ready: append-only JSONL via [`AuditLogger`] (rotation included);
+    /// the VER-01 WAL hash-chain is the tamper-evidence consumer of memory
+    /// transitions — cited, not duplicated here.
+    pub fn injection(namespace: &str, key: &str, outcome: &str, reason: Option<String>) -> Self {
+        Self::new("injection", namespace, key, outcome, reason)
+    }
 }
 
 /// Append-only JSONL writer for audit events. One JSON object per line.
@@ -285,6 +304,33 @@ mod tests {
             AuditEvent::auth("bogus", "auth", "k", "ok", None).op,
             "auth_bogus"
         );
+    }
+
+    #[test]
+    fn test_injection_event_is_metadata_only() {
+        let event = AuditEvent::injection(
+            "l1/sess-1",
+            "m1",
+            "ok",
+            Some("surface=proxy;kind=l1;score=3;budget=120/2000;truncated=false;acl=allow".into()),
+        );
+        let json = serde_json::to_string(&event).unwrap();
+        let back: AuditEvent = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.op, "injection");
+        assert_eq!(back.namespace, "l1/sess-1");
+        assert_eq!(back.key, "m1");
+        assert_eq!(back.outcome, "ok");
+        assert!(back
+            .reason
+            .as_deref()
+            .unwrap_or_default()
+            .contains("acl=allow"));
+        // ACL denials are first-class outcomes (never a silently dropped row).
+        assert_eq!(
+            AuditEvent::injection("l1/x", "N/A", "denied", None).outcome,
+            "denied"
+        );
+        assert!(!back.timestamp.is_empty());
     }
 
     #[test]

@@ -17,6 +17,7 @@ pub mod cost;
 pub mod envelope;
 pub mod error;
 pub mod forward;
+pub mod governance;
 pub mod guardrails;
 pub mod handlers;
 pub mod inject;

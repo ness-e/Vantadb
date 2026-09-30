@@ -75,6 +75,9 @@ pub struct AppState {
     /// Context optimization in transit (PRX-13). Disabled by default;
     /// stateless over config, built once at startup.
     pub optimizer: Arc<ContextOptimizer>,
+    /// VER-04: injection governance — namespace ACL + audit sink for the
+    /// memory surfaces (both opt-in; defaults are allow-all / no audit).
+    pub governance: Arc<crate::governance::Governance>,
 }
 
 /// PRX-01: true when an Anthropic request is a standalone CC sidequery
@@ -174,6 +177,12 @@ impl AppState {
         }
         // PRX-13: stateless over config — infallible build.
         let optimizer = ContextOptimizer::new(&config.context);
+        // VER-04: injection governance (ACL + audit). Both opt-in: empty
+        // prefixes = allow-all, empty audit path = disabled.
+        let governance = crate::governance::Governance::from_config(
+            &config.injection.namespace_allow_prefixes,
+            &config.injection.audit_log_path,
+        );
         Ok(Self {
             limiter: RateLimiter::new(config.server.rate_limit_per_minute).into(),
             upstream_health: UpstreamHealth::new().into(),
@@ -184,6 +193,7 @@ impl AppState {
             redactor: redactor.into(),
             envelope: Arc::new(envelope),
             optimizer: optimizer.into(),
+            governance: Arc::new(governance),
             config: Arc::new(config),
             forwarder: Arc::new(forwarder),
             auth: AuthDb::new(engine.clone()).into(),
@@ -431,9 +441,16 @@ impl AppState {
         // pass through untouched. WIRE-01: the block is capped by the
         // configured token budget (persona/scenes only — turns live in
         // l1/{session} for the search path, keeping this prefix stable).
-        let memory_block =
-            inject::build_memory_block(&self.memory, &key, self.config.injection.max_tokens);
-        let body = match inject::inject_into(&body, protocol, &memory_block) {
+        // VER-04: the ACL policy gates every source namespace and the block
+        // metadata (sources/denials/budget) feeds the injection audit.
+        let memory_block = inject::build_memory_block(
+            &self.memory,
+            &key,
+            self.config.injection.max_tokens,
+            self.governance.policy(),
+        );
+        self.governance.audit_block(&key, &memory_block);
+        let body = match inject::inject_into(&body, protocol, &memory_block.block) {
             Ok(Some(modified)) => Bytes::from(modified),
             Ok(None) => body,
             Err(e) => return e.into_response(),
@@ -796,6 +813,8 @@ impl AppState {
                             redactor: &self.redactor,
                             envelope: &self.envelope,
                         },
+                        &self.governance,
+                        self.config.injection.max_tokens.saturating_mul(4),
                     );
                     (call.id.clone(), text)
                 })

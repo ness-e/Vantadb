@@ -129,7 +129,7 @@ Each line is one JSON object:
 ```
 
 - `timestamp`: ISO 8601 UTC (RFC 3339, second precision).
-- `op`: `put`, `put_batch`, `delete`, `delete_by_filter`, `export_namespace`, `export_all`, `import_file`.
+- `op`: `put`, `put_batch`, `delete`, `delete_by_filter`, `export_namespace`, `export_all`, `import_file`, `injection` (VER-04 memory-injection governance — emitted by the proxy and the MCP server into their own audit paths; see [PROXY.md § Injection governance](../../api/PROXY.md#injection-governance-ver-04) and [MCP.md § Injection governance](../../api/MCP.md#injection-governance-ver-04)).
 - `outcome`: `ok` or `err`. Failures still record the attempt; error details go to the `reason` field where available.
 - `reason`: optional contextual detail (e.g. `memory delete` on delete, deleted count on `delete_by_filter`).
 - Read-only operations (`search`, `get`, `list`) are **not** audited.

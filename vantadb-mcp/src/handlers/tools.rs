@@ -1805,7 +1805,8 @@ pub fn handle_tools_call(
         // not require a session_key (clients do not own internal sessions).
         "memory_recall" => {
             use vanta_memory::core::hooks::{
-                perform_auto_recall, AutoRecallParams, RecallConfig, RecallMode, RecallScope,
+                perform_auto_recall_governed, AutoRecallParams, RecallConfig, RecallMode,
+                RecallScope,
             };
 
             let query = args["query"]
@@ -1841,13 +1842,17 @@ pub fn handle_tools_call(
             let raw_top_k = args["top_k"].as_u64().unwrap_or(5);
             let top_k = (raw_top_k as usize).min(config.max_top_k).max(1);
 
+            // VER-04: the recall runs under the injection ACL and its lines +
+            // envelope are capped by the same `byte_budget` as every response
+            // (char caps at the source; envelope truncation via budget_value).
+            let budget_chars = config.byte_budget;
             let config_recall = RecallConfig {
                 mode: RecallMode::Hybrid, // degrades to keyword without an embed hook (D38)
                 scope,
                 max_results: top_k,
                 min_overlap: 1,
-                max_chars_per_memory: None,
-                max_total_recall_chars: None,
+                max_chars_per_memory: Some(budget_chars),
+                max_total_recall_chars: Some(budget_chars),
             };
             let params = AutoRecallParams {
                 user_text: query,
@@ -1869,8 +1874,20 @@ pub fn handle_tools_call(
             if hook.is_none() {
                 warn!("memory_recall: embedding unavailable — keyword fallback");
             }
-            match perform_auto_recall(&embedded, params, hook.as_ref()) {
+            match perform_auto_recall_governed(
+                &embedded,
+                params,
+                hook.as_ref(),
+                &config.injection_policy(),
+            ) {
                 Ok(Some(result)) => {
+                    crate::governance::audit_recall(
+                        config,
+                        "memory_recall",
+                        "mcp",
+                        &result,
+                        budget_chars,
+                    );
                     let recalled: Vec<Value> = result
                         .recalled_memories
                         .into_iter()
@@ -1879,6 +1896,8 @@ pub fn handle_tools_call(
                                 "content": m.content,
                                 "score": m.score,
                                 "type": m.memory_type,
+                                "source_namespace": m.source_namespace,
+                                "source_key": m.source_key,
                             })
                         })
                         .collect();
@@ -1892,14 +1911,17 @@ pub fn handle_tools_call(
                         "recalled": recalled,
                         "effective_mode": mode_str,
                     });
-                    Ok(text_content_structured(&envelope))
+                    Ok(recall_envelope(envelope, config.byte_budget))
                 }
-                Ok(None) => Ok(text_content_structured(&json!({
-                    "prepend_context": null,
-                    "recalled": [],
-                    "effective_mode": "keyword",
-                    "message": "No relevant memories, persona, or scenes found."
-                }))),
+                Ok(None) => Ok(recall_envelope(
+                    json!({
+                        "prepend_context": null,
+                        "recalled": [],
+                        "effective_mode": "keyword",
+                        "message": "No relevant memories, persona, or scenes found."
+                    }),
+                    config.byte_budget,
+                )),
                 Err(e) => Ok(error_content_mcp(McpError::internal_error(format!(
                     "Recall Error: {e}"
                 )))),
@@ -2121,6 +2143,17 @@ pub fn handle_tools_call(
                 }
             };
 
+            // VER-04: injection budget — the same `byte_budget` that caps
+            // every MCP response caps injected content (single source;
+            // fail-closed: over-budget injections are rejected, never
+            // silently truncated). Raise VANTADB_MCP_BYTE_BUDGET to allow more.
+            if content.len() > config.byte_budget {
+                return Err(McpError::validation(format!(
+                    "Content exceeds the injection budget of {} bytes (raise VANTADB_MCP_BYTE_BUDGET to allow more)",
+                    config.byte_budget
+                ))
+                .to_json());
+            }
             if content.len() > config.max_payload_length {
                 return Err(McpError::validation(format!(
                     "Content exceeds maximum length of {} bytes",
@@ -2140,11 +2173,23 @@ pub fn handle_tools_call(
                     affected_nodes,
                     message,
                     ..
-                }) => Ok(text_content(serialize_content(&json!({
-                    "affected_nodes": affected_nodes,
-                    "message": message,
-                    "status": "Context Anchored"
-                })))),
+                }) => {
+                    // VER-04: audited injection (metadata only — thread id +
+                    // byte count + budget; the content never lands here).
+                    crate::governance::audit_inject_context(
+                        config,
+                        thread_id,
+                        content.len(),
+                        config.byte_budget,
+                    );
+                    Ok(text_content_structured(&json!({
+                        "affected_nodes": affected_nodes,
+                        "message": message,
+                        "status": "Context Anchored",
+                        "byte_count": content.len(),
+                        "truncated": false
+                    })))
+                }
                 Ok(_) => Ok(error_content_mcp(McpError::internal_error(
                     "Unexpected read result for insert",
                 ))),
@@ -3397,6 +3442,33 @@ fn search_page_envelope(page: vantadb::sdk::MemorySearchPage, byte_budget: usize
         byte_budget,
         Some((page.abstained, reason.as_deref())),
     )
+}
+
+/// VER-04: close a recall envelope with the MCP-39 budget metadata
+/// (`byte_count` + `truncated`) so every injection surface reports the same
+/// shape as the search envelopes. Truncation pops trailing `recalled` items
+/// when the envelope exceeds the byte budget (honest size on the string
+/// block, per `budget_value`'s contract).
+///
+/// Review F2: the metadata is appended after measuring, so the measure
+/// reserves [`RECALL_ENVELOPE_META_BYTES`] of headroom — the delivered
+/// payload stays within `byte_budget` (the string block alone can still
+/// overshoot; that oversize stays honest and flagged via `truncated`).
+/// `byte_count` reports the delivered envelope size (≤ 4 bytes off: its own
+/// digits land after the measurement, within the reserve).
+fn recall_envelope(envelope: Value, byte_budget: usize) -> Value {
+    const RECALL_ENVELOPE_META_BYTES: usize = 64;
+    let measure_budget = byte_budget.saturating_sub(RECALL_ENVELOPE_META_BYTES);
+    let (mut budgeted, truncated, _measured) = budget_value(&envelope, measure_budget);
+    if let Some(obj) = budgeted.as_object_mut() {
+        obj.insert("truncated".to_string(), json!(truncated));
+        obj.insert("byte_count".to_string(), json!(0));
+    }
+    let final_size = serde_json::to_string(&budgeted).map_or(0, |s| s.len());
+    if let Some(obj) = budgeted.as_object_mut() {
+        obj.insert("byte_count".to_string(), json!(final_size));
+    }
+    text_content_structured(&budgeted)
 }
 
 /// MCP-24: shared parsing for `search_memory` / `search_with_method` /

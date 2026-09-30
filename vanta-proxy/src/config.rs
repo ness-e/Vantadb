@@ -86,21 +86,39 @@ impl ProxyConfig {
 /// section priority instead of growing the prompt unbounded.
 pub const DEFAULT_INJECTION_MAX_TOKENS: u64 = 2000;
 
+/// VER-04: injection-audit rotation defaults (mirror the core audit config).
+pub const DEFAULT_INJECTION_AUDIT_MAX_BYTES: u64 = 10 * 1024 * 1024;
+/// VER-04: max rotated injection-audit archives kept.
+pub const DEFAULT_INJECTION_AUDIT_MAX_FILES: u32 = 5;
+
 /// Memory-block injection budget (WIRE-01). Caps the `<vanta-memory>` system
 /// prompt block via the canonical `estimate_text_tokens` heuristic (~4
 /// chars/token — guardrail precision, not billing). `0` disables memory
 /// injection entirely (empty block → prompt untouched).
+///
+/// VER-04 adds the two governance knobs (both opt-in; defaults keep the wire
+/// byte-identical):
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct InjectionConfig {
     /// Max tokens for the assembled block (wrapper tags included).
     pub max_tokens: u64,
+    /// Injection ACL (VER-04): namespace prefixes the block may read from
+    /// (`persona/`, `scene/`, `l1/`, ...). Empty = allow-all (default);
+    /// namespaces not matched are skipped and recorded in the audit.
+    pub namespace_allow_prefixes: Vec<String>,
+    /// Injection audit (VER-04): JSONL path for `injection` events (which
+    /// memory fed which prompt, under which budget/ACL decision). Empty =
+    /// disabled. Append-only + rotated by the core `AuditLogger`.
+    pub audit_log_path: String,
 }
 
 impl Default for InjectionConfig {
     fn default() -> Self {
         Self {
             max_tokens: DEFAULT_INJECTION_MAX_TOKENS,
+            namespace_allow_prefixes: Vec::new(),
+            audit_log_path: String::new(),
         }
     }
 }
