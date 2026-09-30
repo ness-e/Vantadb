@@ -309,6 +309,9 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/dev/revie
 | `FIND-202` | Baja | `docs/user/COMPARISON.md:47-56` ("Removed") + `:74` ("FROZEN pre-SIMD … regen pending") stale tras la regen §2 de DEF-06. Origen: review DEF-06 | `docs/user/COMPARISON.md` | 🟢 | 🟢 Baja | ⬜ Pendiente |
 | `FIND-203` | Media | Tooling de benches: `benchmarks/update_markdown.py` (tabla ES + sin glosario + input mismatch) y `vantadb_local_bench.py` (dataset sin seed, reporte sin metadata fecha/commit/HW, fila BM25 degenerada). Origen: review DEF-06 | `benchmarks/` | 🟡 | 🟡 Media | ⬜ Pendiente |
 | `FIND-204` | Baja | Sweep de refs stale `heavy-certification-50` fuera de BENCHMARKS (`CONTRIBUTING.md:210`, `.config/nextest.toml:3`, …) — rename FIND-142 no propagado. Origen: review DEF-06 | `CONTRIBUTING.md`, `.config/nextest.toml` | 🟢 | 🟢 Baja | ⬜ Pendiente |
+| `FIND-205` | Media | Zep Cloud runner listo y verificado contra `zep-cloud==3.30.0` pero no ejecutado: requiere `ZEP_API_KEY` + créditos (full ≈790k créditos vs free tier). Origen: VER-09 | `evals/runners/adapters.py` | 🟡 | 🟡 Media | ⬜ Pendiente (owner) |
+| `FIND-206` | Baja | Letta: protocolo QA-level (LLM-in-the-loop) diferido — es un agent harness (MemFS/dreaming); el contrato put/search no mapea. Origen: VER-09 | `evals/runners/adapters.py` | 🟢 | 🟢 Baja | ⬜ Pendiente |
+| `FIND-207` | Media | mem0 native (extracción LLM, `gpt-4o-mini` pinneado) pendiente de keys/budget del owner; el adapter ya lo soporta (`--mem0-mode native`). Origen: VER-09 | `evals/runners/adapters.py` | 🟡 | 🟡 Media | ⬜ Pendiente (owner) |
 
 *Campaña FIND 2026-09-15/16: 31 filas completadas migradas a `docs/dev/avance/` (ver `meta.md`); FIND-76 SKIP → `historial/backlog-history.md`.*
 
