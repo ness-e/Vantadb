@@ -1242,10 +1242,68 @@ row above is the reference measurement.
 
 ---
 
+### Head-to-head — mem0 OSS (raw mode) vs vantadb (VER-09, 2026-09-30)
+
+> **Scope:** the same VER-08 harness (`evals/memory_harness.py`, **unmodified** — 0 forks),
+> same deterministic judge, same slice, same hardware. Runner layer + full protocol:
+> `evals/runners/` (adapters + driver + `README.md`). **mem0 runs in raw mode**
+> (`infer=False` — LLM extraction deliberately disabled; zero LLM calls, local ONNX
+> embeddings); it is NOT mem0's default product pipeline (native mode pending owner
+> keys/budget — declared, not measured).
+>
+> **Slice (declared):** first 10 questions of EACH of the 6 question types
+> (`--sample-stratified 10`) over the full split — the file is type-block ordered, so a
+> plain `--limit` slice would cover one type only (accidental cherry-picking). n=60
+> questions, no `_abs` cells. Dataset sha256 `d6f21ea9…`.
+>
+> **Reproduce (Regla 11):**
+> ```bash
+> python evals/runners/head_to_head.py --systems vantadb,mem0 \
+>     --data datasets/longmemeval/longmemeval_s_cleaned.json \
+>     --sample-stratified 10 --label h2h-strat10
+> ```
+
+| Metric | vantadb 0.7.0 (text-only) | mem0 2.2.1 (raw: semantic+BM25, local) | Winner |
+|---|---|---|---|
+| **recall_all@5** (headline) | 0.7167 (43/60) | **0.9333** (56/60) | mem0 |
+| recall_any@5 | 0.8833 (53/60) | **0.9833** (59/60) | mem0 |
+| by type — recall_all@5 | knowledge-update 0.7 · multi-session 0.2 · single-session-assistant 0.9 · single-session-preference 0.8 · single-session-user 1.0 · temporal-reasoning 0.7 | knowledge-update 1.0 · multi-session 0.8 · single-session-assistant 1.0 · single-session-preference 0.9 · single-session-user 1.0 · temporal-reasoning 0.9 | mem0 (all cells) |
+| Query latency p50 / p99 | **0.65 / 1.09 ms** | 550.0 / 663.7 ms | vantadb |
+| Ingest QPS (docs/s) | **243.9** (2,900 docs / 11.9 s) | 1.3 (2,900 docs / 2,226 s) | vantadb |
+| Write fidelity (exact-key) | 1.0000 | 1.0000 | tie |
+| Token-economy p50 (words) | 10,119 | 10,019 | ≈tie |
+| Isolation | 0 violations / 300 checks | 0 violations / 300 checks | tie |
+| ECE (B=10) | 0.1167 → 0.0002 (T\*=6.83) | N/A (retrieval scores, not calibrated probabilities) | — |
+
+**Reading honestly (wins and losses included):** on this declared slice, mem0's raw
+configuration — local embeddings (fastembed `bge-small-en-v1.5`, 384d) + BM25 hybrid —
+beats VantaDB's text-only path on evidence recall in **every** type cell, and the
+multi-session gap dominates the headline (0.2 vs 0.8 `recall_all@5`: multi-evidence
+questions need ALL evidence sessions inside the top-5, and lexical-only retrieval misses
+paraphrases). VantaDB wins the operational capabilities by orders of magnitude **on this
+same machine and slice**: ~0.65 ms vs ~550 ms per query (≈850×) and ~244 vs ~1.3 docs/s
+ingest (≈187×) — the mem0-raw configuration pays its local embedding at write and query
+time. Retrieved tokens are comparable.
+
+**Limits (do not over-read):** (1) mem0-raw ≠ mem0's default pipeline — extraction is
+disabled; native results will be published as their own row when commissioned; (2)
+**different retrieval stacks, declared not equalized**: VantaDB ran its text-only path
+(empty vector + `text_query`, per `vantadb-python/src/lib.rs:1146`) while mem0-raw embeds
+every session locally — this compares each system's declared configuration, not
+embeddings-vs-embeddings; (3) n=60 stratified slice, no `_abs` cells — not comparable with
+the §19 full-500 headline (different slice, same metric); (4) mem0-raw embeds long
+sessions through a 512-token model (internal truncation — declared); (5) query latency is
+single-threaded, local, machine-load sensitive; (6) Zep and Letta were **not run** on this
+slice — dispositions (no API key / architectural mismatch) live in `evals/runners/README.md`
+with FINDs for the owner. Reports: `evals/runners/report_h2h_h2h-strat10_{vantadb,mem0}.json`
+(gitignored — regenerate with the command above).
+
+---
+
 ## Planificado 2026-09-24 — sin números aún (Regla 11)
 
 > Estas mediciones están **programadas** (filas P52 del Backlog). Mientras no existan resultados, no citar como comparativa.
 
 - **Regeneración §2** (DEF-06): ✅ **ENTREGADO 2026-09-30** — tabla SDK regenerada (corrida local 10k×128d×1kq con entorno documentado en §2, Regla 11), banner FROZEN retirado y serie CI 2026-08-12 movida a "Retired series"; el README vuelve a citar §2 para latencias SDK.
 - **Harness propio de memoria** (VER-08): ✅ **ENTREGADO 2026-09-29** — LongMemEval-S (sub-muestra MIT commiteada) + corrida con bindings reales + write-quality, abstención, aislamiento per-user y token-economy + ECE/calibración → **§19**. Gate p99 en CI: forma informativo+issue vigente; enforcement = decisión owner Q5 (§11). Runners LoCoMo/BEAM: disposición documentada (no committeables/no viables por tamaño, `evals/data/README.md`); head-to-head = VER-09.
-- **Head-to-head** (VER-09, absorbe EXE-02): Mem0/Zep/Letta con el MISMO harness y protocolo publicado completo (modelo-juez, stack, reranking; pares accuracy+tokens). Contexto de por qué: auditoría independiente de LoCoMo (6.4% del answer-key erróneo; el juez acepta hasta 63% de respuestas incorrectas) y disputa pública de números entre vendors.
+- **Head-to-head** (VER-09, absorbe EXE-02): ✅ **ENTREGADO 2026-09-30 (alcance declarado)** — protocolo + runner layer publicados (`evals/runners/`) con la corrida mem0 OSS **raw mode** vs vantadb sobre slice estratificado (n=60, 10 por tipo; pares accuracy+tokens) en §19 (subsección Head-to-head); Zep/Letta con disposición documentada (sin key / contrato no mapea) + FINDs; mem0 native (extracción LLM) y el full-500 quedan como corridas del owner con keys/budget. Contexto: auditoría independiente de LoCoMo (6.4% del answer-key erróneo; el juez acepta hasta 63% de respuestas incorrectas) y disputa pública de números entre vendors — la respuesta es protocolo completo + win/loss con derrotas incluidas, no otro número de marketing.

@@ -14,7 +14,7 @@ This page answers "why not X?" (sqlite-vec, LanceDB, Qdrant, Chroma) with three 
 2. **Numbers about us** come exclusively from [`docs/user/operations/BENCHMARKS.md`](operations/BENCHMARKS.md), each with its bench script and exact reproduction command (Regla 11).
 3. **We publish no performance figures for competitors.** Where a vendor publishes their own benchmarks, we link them; you judge. We also link the neutral third-party [ann-benchmarks](https://ann-benchmarks.com/) results and provide the script to run the comparison yourself.
 
-> **Capa pendiente (2026-09-24):** esta página cubre vector DBs embebidos/servidores. Falta la capa **memory-as-a-service** (Mem0/Zep/Letta/LangMem/Cognee/MemOS/MIRIX/ReMe/OpenMemory/OpenMemory MCP) que es el wallet de memoria real — plan P54 (ICP-01..03) + VER-09 (head-to-head con protocolo propio, pares accuracy+tokens). No interpretar esta página como comparativa completa del nicho hasta entonces.
+> **Memory-as-a-service layer (updated 2026-09-30):** the head-to-head protocol and runner layer are now published (`evals/runners/`, [BENCHMARKS.md](operations/BENCHMARKS.md) §19 subsection "Head-to-head — mem0 OSS (raw mode) vs vantadb") with a first declared run — mem0 OSS raw mode (semantic+BM25, zero LLM calls) vs VantaDB text-only on a 60-question stratified slice — plus documented dispositions for Zep and Letta (skip reasons; no numbers invented). Native-pipeline runs (LLM extraction) remain pending keys/budget. Do not read this page as a complete comparison of the niche until those rows exist.
 
 ---
 
@@ -167,8 +167,9 @@ PR-blocking; the track one-pager — including what is **not** shipped yet
 
 Qualitative only, same rules as above: no competitor figures, no performance
 claims without a BENCHMARKS.md citation. The head-to-head with hosted memory
-services (Mem0/Zep/Letta/LangMem/…) remains the pending layer announced at the
-top of this page (P54 ICP-01..03 + VER-09).
+services is delivered as protocol + first declared run (VER-09, 2026-09-30):
+see BENCHMARKS.md §19 — Zep/Letta carry documented dispositions instead of
+numbers, and VantaDB **lost the recall cells** of that run (published as such).
 
 ---
 
