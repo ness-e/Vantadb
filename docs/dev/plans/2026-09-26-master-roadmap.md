@@ -8,7 +8,7 @@ description: "SDP: campaign-executor · progreso · writing-plans · planning-an
 
 > **Campaign ID:** ed20beae-edf6-42f5-b41f-e8519830d6cb
 > **Inicio:** 2026-09-26
-> **Estado:** ⏳ EN PROGRESO (41/50 — F0 ✅ · F1 ✅ · F2 ✅ · F3 ✅ 11/11 · **F4 ✅ 7/7**; siguiente: F5 — bloques primero) | **Gates F3/F4: ✅ local** (corte 0.8.0 preparado: guía + marcador R1 `b9296909` + R2; features verificables con tests + attestations; release real = lane owner post-push)
+> **Estado:** ⏳ EN PROGRESO (44/50 — F0 ✅ · F1 ✅ · F2 ✅ · F3 ✅ 11/11 · F4 ✅ 7/7 · **F5 4/6**; siguiente: F5.2 — ICP-03/ DEF-06) | **Gates F3/F4: ✅ local** (corte 0.8.0 preparado: guía + marcador R1 `b9296909` + R2; features verificables con tests + attestations; release real = lane owner post-push)
 > **Fuente:** `docs/dev/Backlog.md` (P52–P59 + FIND-*) + planes absorbidos (`2026-09-24-post-investigacion-integral.md` W2–W7, `2026-09-24-estabilizacion-pendiente.md`, `2026-09-24-harness-gaps.md`, `2026-09-24-sesion-continuidad.md`, `2026-09-20-estabilizacion-total.md`) + `docs/dev/strategy/` (13 docs) + Notion "VantaDB Docs" (~28 subpáginas) + investigación de riesgos 2026-09-26 (4 sub-agentes R1–R4, multi-fuente)
 > **Autonomous:** false — el owner gatea push/merge/release. **Push a `develop`: al completar el plan con todo validado/verificado** (decisión owner 2026-09-26, ver §Política de commits/push)
 > **Modo:** PLAN → ejecución con `/pipeline run docs/dev/plans/2026-09-26-master-roadmap.md`
@@ -1082,7 +1082,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** "9 adapters con disposición documentada por adapter: publicado en PyPI (GET `/pypi/<nombre>/json` = 200 con versión) o disposición explícita (Alpha/experimental + comando de instalación local vigente + razón) Y dry-run TestPyPI verde (workflow dispatch) o owner-decline documentado Y verificación post-publish: `pip install <paquete>` resuelve desde el índice Y limpieza post-release aplicada (READMEs sin 'Not on PyPI yet' donde corresponda; refs corregidas a `release-adapters.yml`) Y pin gate re-evaluado contra el core vigente (`integrations/test_pins.py` verde)"
 - **Task file:** `docs/dev/tasks/MKT-18f.md` (existe — refrescar checklist en DISCOVERY)
-- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Estado:** ⬜ PENDING (local ✅ `3815afa3`; publish = lane owner — checklist refrescado) · **Branch:** develop · **Commit:**
 - **Cynefin:** 🟦 obvio — procedimiento conocido (OIDC/pending publisher + checklist); el riesgo es operativo.
 - **Top 3 riesgos:** 1. publicación parcial del matrix (unos suben, otros no) · 2. OIDC/environment mal configurado → primer publish falla · 3. pin desactualizado (publicar adapters que no aceptan el core 0.7.0 actual).
 - **Pre-mortem:** F1: fallo parcial → `fail-fast: false` ya está (:66) + retry idempotente con `skip-existing: true` (:117/:161); F2: nombre PyPI ocupado entre 404 y publish → pending publisher ANTES del tag + re-verificar 404 el mismo día; F3: pin desactualizado → gate `integrations/test_pins.py` + decisión de bump registrada (si el pin queda, documentar que los adapters 0.5.x targetean `vantadb-py` 0.5-0.6).
@@ -1108,7 +1108,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** "one-pager del track (vertical 3: problema → valor → instalación → límites honestos) publicado Y demo CI MCP verde: sesión 1 guarda (auto-captura/put) → sesión 2 recupera por sinónimo no-verbatim (test/workflow que falla si el recall no llega) Y métrica North Star instrumentada y consultable (sesiones put+search en ventana 7d con comando documentado; search-side vía `WriteBack::track`) Y entrada del track en `COMPARISON.md` Y repo-map/watcher: consumido desde MGR-22 si está; si no, disposición explícita (FIND) sin bloquear demo/métrica"
 - **Task file:** `docs/dev/tasks/ICP-01.md` (a crear en DISCOVERY)
-- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Estado:** ✅ COMPLETED (2026-09-30 — commit `f80ddadc`; review ❌(C1/R1)→fixes→delta ✅)
 - **Cynefin:** 🟨 complicado — multi-superficie (MCP/hooks/viewer/CI/métrica) con dep de investigación cross-track.
 - **Top 3 riesgos:** 1. MGR-22 pendiente bloquea la pata repo-map · 2. métrica sin search-side → North Star no medible (solo PUT) · 3. demo que "recupera" con query verbatim → no prueba el valor (sinónimo es el punto).
 - **Pre-mortem:** F1: sin MGR-22 → demo con superficies actuales (code_*+wiki+scenes) + FIND repo-map (nunca fingir watcher); F2: instrumentación invasiva → reusar `WriteBack::track` fire-and-forget (precedente memory_tools.rs:108), sin tocar el wire; F3: flakiness del recall semántico → par sinónimo determinista (patrón EMB-15 en `vantadb-mcp/tests/test_query_embed.rs`) o modelo pinneado con fallback declarado.
@@ -1134,7 +1134,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** "one-pager del track (privacy/local-LLM: garantías exactas — qué se redacta, qué cubre el certificado, qué NO (unlearning) — con comandos) Y demo CI E2E verde que encadena: captura de PII sintética por el proxy → auditoría PII de store+índices+export = 0 en claro (script versionado, no test ad-hoc) → forget certificado (`delete --attest` + `certificate verify` exit 0) → audit de inyección consultable (`op:"injection"`) Y entrada en `COMPARISON.md` Y degradación sin key declarada (Disarmed) verificada en el demo o cubierta por test"
 - **Task file:** `docs/dev/tasks/ICP-02.md` (a crear en DISCOVERY)
-- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Estado:** ✅ COMPLETED (2026-09-30 — commit `48fb88d0`; review ❌(Critical)→fix byte-oriented→delta ✅)
 - **Cynefin:** 🟨 complicado — encadenar 3 garantías en un E2E verificable sin fabricar claims; el código ya existe, el riesgo es de medición/narrativa.
 - **Top 3 riesgos:** 1. auditoría PII que solo espeje los tests (no artefacto verificable de producto) · 2. demo frágil por config (defaults: `[redact] enabled=false`, envelope off) · 3. one-pager que sobre-prometa (certificado ≠ unlearning; envelope opcional).
 - **Pre-mortem:** F1: auditoría decorativa → script sobre el store real del demo (temp/in-memory) que falle si encuentra patrones en claro (set de `ver03_write_redact.rs:19-20`); F2: defaults off → demo fija config explícita (`[redact] enabled`, `[envelope]` con key de test 32B, `audit_log_path`) + assert de modo envelope; F3: overselling → tabla "cubierto / no cubierto" en el one-pager (patrón inventario-por-superficie del certificado VER-02).
@@ -1160,7 +1160,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** "one-pager del track (frameworks: LangGraph/CrewAI/DSPy/Haystack/LlamaIndex; aislamiento multi-usuario; migración desde Mem0/Zep/Letta) Y demo CI verde de 'dev→prod sin cambiar código' (LangGraph: mismo grafo, solo cambia el checkpointer a VantaDB; test/workflow que falla si el código de negocio difiere) Y instalación de adapters desde PyPI verde (`pip install vantadb-langchain` + smoke) o disposición documentada si MKT-18f queda Alpha Y entrada en `COMPARISON.md` Y métrica installs/semana documentada con método (PyPI stats) — baseline 0 hasta publicar"
 - **Task file:** `docs/dev/tasks/ICP-03.md` (a crear en DISCOVERY)
-- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Estado:** ⏳ EN PROGRESO · **Branch:** develop · **Commit:**
 - **Cynefin:** 🟨 complicado — dep de publicación externa + demo cross-framework + medición externa.
 - **Top 3 riesgos:** 1. MKT-18f sin publicar → "instalación verde" imposible · 2. demo dev→prod que en realidad cambia código/config (hueco del claim) · 3. métrica installs/semana sin fuente (PyPI stats externa).
 - **Pre-mortem:** F1: publish pendiente → contrato admite disposición Alpha + demo con instalación in-repo (como ya hace ci-examples :123); F2: claim dev→prod frágil → demo comparativa (mismo script, `InMemorySaver` vs `VantaDBCheckpointer`, diff = conexión) + assert en CI; F3: métrica inventada → documentar definición (pypistats/last-week) y reportar solo número real (Regla 11).
@@ -1186,7 +1186,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** "harness publicado con dataset commiteado y comandos de reproducción (Regla 11): canonical_p99 (ya) + LongMemEval-S con submuestra versionada (licencia MIT verificada) + LoCoMo smoke y BEAM-subset SOLO con licencia verificada o disposición documentada Y corrida con backend vantadb real (bindings release) reportando recall@k + p50/p99 + ingest QPS + write-quality + abstención (LongMemEval `_abs`, N-14) + token-economy + aislamiento per-user Y reporte en `BENCHMARKS.md` con juez/protocolo pineados y pares accuracy+tokens Y calibración MGR-12 §5 medida: ECE + temperature scaling (antes/después) sobre el ground truth del harness Y gate p99 en CI: política §11 decidida con owner (enforced con umbral, o informativo-que-abre-issue documentado — Q5)"
 - **Task file:** `docs/dev/tasks/VER-08.md` (a crear en DISCOVERY)
-- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Estado:** ✅ COMPLETED (2026-09-30 — commit `0405eeda`; review ❌(F1 métrica)→fix→delta ✅)
 - **Cynefin:** 🔴 complejo — datasets externos con licencias/pesos inciertos + juez/protocolo + calibración estadística + decisiones de CI.
 - **Top 3 riesgos:** 1. licencias (LoCoMo/BEAM sin verificar) → datos que no se pueden commitear y claims sin base · 2. juez no pineado → números no reproducibles (la disputa del sector) · 3. costo/tiempo de CI (3.03GB / BEAM 1M) → gate que nadie corre.
 - **Pre-mortem:** F1: licencia no verificada → commitear solo LongMemEval-S (MIT) + los otros como runner opcional con descarga + disposición (stop condition de MGR-19 :60); F2: juez GPT-4o caro/flaky → juez determinista (F1/exact-match) para el gate CI + juez LLM pineado solo para el reporte (owner Q1); F3: submuestra que infla → submuestra documentada + comandos públicos + pares accuracy+tokens (nunca solo accuracy).
@@ -1212,7 +1212,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** "claim corregido: README declara 'Fjall default; RocksDB opt-in por feature/env' consistente con `config.rs` (0 menciones de 'fallback' de storage) Y §2 regenerada: corrida `benchmarks/vantadb_local_bench.py` con bindings release + hardware documentado (Regla 11) → tabla reemplazada, banner FROZEN retirado, README puede volver a citar SDK-scope Y hardware normalizado: cada sección numérica declara su entorno y README cita solo lo citable Y 0 claims no reproducibles en README/BENCHMARKS (rg de números sin comando/fuente = 0; lo no medido queda como 'en progreso') Y `validate-docs-coverage` verde"
 - **Task file:** `docs/dev/tasks/DEF-06.md` (a crear en DISCOVERY)
-- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Estado:** ⏳ EN PROGRESO · **Branch:** develop · **Commit:**
 - **Cynefin:** 🟦 obvio→🟨 — edición de claims + una corrida; el riesgo es de honestidad/consistencia cross-doc.
 - **Top 3 riesgos:** 1. regen §2 sin contexto de hardware → claim nuevo igual de flojo · 2. tocar §2 sin retirar el banner (o viceversa) → doc contradictoria · 3. números viejos replicados en más sitios (README/COMPARISON/glosario) sin rastrillar todos.
 - **Pre-mortem:** F1: hardware no documentado → plantilla de entorno por corrida (patrón §12 :395-398); F2: doc dual → PR único que reemplaza tabla + banner + README + COMPARISON a la vez + `validate-docs-coverage`; F3: claims escondidos → rg de "ms|qps|faster|×" en README/docs-user con conteo antes/después (grep-evidence en el PR).
@@ -1337,6 +1337,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **plan-adjust [2026-09-29h]:** **F4.2 cerrada (40/50)** — VER-06 (`d2e74316` export MD v2 git-friendly), VER-03 (`95407c78` redacción+AEAD), VER-02 (`ccc51d09` borrado certificado). Reviews: adversarial + vanta-audit ×2 con fixes (H-1 verify claim-driven → schema+residues-aware; F-01 hex panic → seguro) + deltas ✅. FIND-193..195 (campaign planFile · rotación/recovery · PII adyacentes). Wave F4.3 lanzada: VER-04.
 - **plan-adjust [2026-09-29i]:** **F4 COMPLETA (41/50) — GATE F4 ✅ local.** VER-04 (`575ce8dd`): presupuesto enforced + ACLs boundary-aware + audit `outcome=denied` (incl. deny-all) + docs. Review vanta-audit: F1 (deny-all silenciado) → fix + 2 e2e; delta ✅. FIND-193..195 registrados. Siguiente: bloques F5 → wave F5.
 - **plan-adjust [2026-09-29j]:** **Bloques F5 completados al nivel F0/F1 (REGLA)** — Tasks 41-46, 23 campos c/u, Paso 0 verificado: MKT-18f (9 adapters existen `integrations/*`; **PyPI live 9/9 → 404**; pin `<0.7.0` stale; task file existe) · ICP-01 (hooks ✅; repo-map 0 hits → MGR-22 cross-track ⬜) · ICP-02 (VER-02/03/04 ✅ → "demostrar"; auditoría PII de producto = gap) · ICP-03 (VER-05 ✅) · VER-08 (canonical_p99 ✅ 4.9987ms + CI informativo; datasets no commiteados; ECE mandato MGR-12 §5) · DEF-06 (claim falso README:201 "RocksDB fallback"). Pendings: MGR-22, pin adapters, server.json 0.6.1.
+- **plan-adjust [2026-09-30a]:** **F5.1 cerrada (44/50)** — ICP-01 (`f80ddadc`; C1 gate + R1 paginación), ICP-02 (`48fb88d0`; Critical fail-open binario → scan byte-oriented), VER-08 (`0405eeda`; F1 recall_any vs recall_all → headline all 0.7617). MKT-18f local (`3815afa3`; publish owner). FIND-196..198. F5.2 lanzada: ICP-03 ‖ DEF-06.
 
 ## Recitation
 
@@ -1345,9 +1346,9 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
 Objetivo activo: F3 — Bitemporalidad/confianza/cuarentena + schema v2 (MGR/SCH)
 Estado: in-progress
-Última acción: bloques F5 completados (Tasks 41-46, 23 campos c/u); wave F5 lista
-Resultado: OK (F0 7/7 · F1 8/8 · F2 7/7 · F3 11/11 · F4 7/7)
-Próxima acción: /pipeline run → wave F5 (claim según deps del grafo)
+Última acción: F5.1 COMPLETA (44/50 — ICP-01/02 + VER-08; f80ddadc/0405eeda/48fb88d0); F5.2 lanzada (ICP-03 ‖ DEF-06)
+Resultado: OK (F0 7/7 · F1 8/8 · F2 7/7 · F3 11/11 · F4 7/7 · F5 4/6)
+Próxima acción: F5.2 (ICP-03 ‖ DEF-06) → F6 (anuncio) → cierre de campaña
 Contrato: —
 Próxima tarea si completa: HARD-01
 === END RECITATION ===
@@ -1827,4 +1828,59 @@ Resultado: OK
 Próxima acción: GATE F4 → bloques F5
 Contrato: presupuesto enforced + ACL boundary-aware + audit outcome=denied metadata-only (576/576 · 310/310 · 258/258)
 Próxima tarea si completa: F5
+=== END RECITATION ===
+
+=== RECITATION ICP-01 ===
+Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
+Objetivo activo: ICP-01 — Track AI-IDEs (MCP)
+Estado: completed
+Última acción: 6/6 ✅ + review ❌(C1/R1) → fixes (required-features; paginación) → delta ✅; commit f80ddadc
+Resultado: OK
+Próxima acción: F5.2
+Contrato: one-pager + demo CI PR-blocking + métrica North Star (proxy 321/321 · mcp 146/146)
+Próxima tarea si completa: ICP-03
+=== END RECITATION ===
+
+=== RECITATION ICP-02 ===
+Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
+Objetivo activo: ICP-02 — Track local-LLM/privacidad
+Estado: completed
+Última acción: 5/5 ✅ + review ❌(Critical fail-open binario) → fix byte-oriented → delta ✅; commit 48fb88d0
+Resultado: OK
+Próxima acción: F5.2
+Contrato: one-pager + demo E2E PASSED + audit PII binary-safe fail-closed
+Próxima tarea si completa: ICP-03
+=== END RECITATION ===
+
+=== RECITATION VER-08 ===
+Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
+Objetivo activo: VER-08 — Harness de evals (LongMemEval-S + ECE)
+Estado: completed
+Última acción: 8/8 ✅ + review vanta-audit ❌(F1 métrica) → both+headline all → delta ✅; commit 0405eeda
+Resultado: OK
+Próxima acción: F5.2 (DEF-06 consume §2)
+Contrato: recall_all@5 0.7617 headline + ECE 0.0787→0.0003 + subset MIT pineado
+Próxima tarea si completa: DEF-06
+=== END RECITATION ===
+
+=== RECITATION ICP-03 ===
+Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
+Objetivo activo: ICP-03 — wave F5.2
+Estado: in-progress
+Última acción: Claim (wave F5.2)
+Resultado: PENDING
+Próxima acción: DISCOVERY + implementación
+Contrato: ver bloque Task 44/46 del plan
+Próxima tarea si completa: ICP-03
+=== END RECITATION ===
+
+=== RECITATION DEF-06 ===
+Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
+Objetivo activo: DEF-06 — wave F5.2
+Estado: in-progress
+Última acción: Claim (wave F5.2)
+Resultado: PENDING
+Próxima acción: DISCOVERY + implementación
+Contrato: ver bloque Task 44/46 del plan
+Próxima tarea si completa: DEF-06
 === END RECITATION ===

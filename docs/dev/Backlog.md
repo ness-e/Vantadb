@@ -300,6 +300,9 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/dev/revie
 | `FIND-193` | Media | `campaign_get_next_task`/`campaign_verify_cmd` no desambiguan con `planFile` si hay 2+ planes activos ("Ambiguous active plan"; `campaign-server.mjs:581` no propaga `planFile` a `budgetStatus`). Workaround: `campaign_update_task_state` con `planFile`. Origen: waves F3.3a+/VER-03 | `campaign-server.mjs` (task-system) | 🟡 | 🟡 Media | ⬜ Pendiente |
 | `FIND-194` | Media | Rotación de la master key invalida envelopes existentes (re-encrypt lazy no implementado) + recovery de envelopes solo programática (sin CLI `envelope open`). Origen: review VER-03 (F-07) | `vanta-proxy/src/envelope.rs`, `src/crypto.rs` | 🟡 | 🟡 Media | ⬜ Pendiente |
 | `FIND-195` | Baja | Superficies PII-on-write adyacentes: `mem:create-skill` persiste el prompt sin redacción (`vanta-proxy/src/mem_command.rs:135-167`); keys AEAD sin zeroize on drop (pre-existente). Origen: review VER-03 (F-05/F-06) | `vanta-proxy/src/mem_command.rs`, `src/crypto.rs` | 🟢 | 🟢 Baja | ⬜ Pendiente |
+| `FIND-196` | Media | repo-map/watcher incremental no implementado (MGR-22 cross-track ⬜, sin research/spec); demo CI y métrica North Star de ICP-01 no lo requieren (stop condition aplicada). Path: MGR-22 (research+spec) → slice de implementación. Origen: review ICP-01 | `skills/vantadb-mcp/`, `vantadb-mcp/` | 🟡 | 🟡 Media | ⬜ Pendiente |
+| `FIND-197` | Baja | Runner LoCoMo no incluido: licencia CC BY-NC 4.0 (incompatible con repo de producto) → runner opt-in con fetch propio del usuario (documentado). Origen: review VER-08 | `evals/` | 🟢 | 🟢 Baja | ⬜ Pendiente |
+| `FIND-198` | Baja | Runner BEAM opcional (MIT verificado, descartado por tamaño 4.6 MB/conversación) → runner opt-in. Origen: review VER-08 | `evals/` | 🟢 | 🟢 Baja | ⬜ Pendiente |
 
 *Campaña FIND 2026-09-15/16: 31 filas completadas migradas a `docs/dev/avance/` (ver `meta.md`); FIND-76 SKIP → `historial/backlog-history.md`.*
 
