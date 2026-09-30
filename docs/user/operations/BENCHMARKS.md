@@ -84,7 +84,7 @@ maturin develop --manifest-path vantadb-python/Cargo.toml --release
 .venv/Scripts/python benchmarks/vantadb_local_bench.py --size 10000 --dim 128 --queries 1000 --output benchmarks/vanta_benchmark_report.json
 ```
 
-This script will export a detailed report with schema parity to [benchmarks/vanta_benchmark_report.json](file:///c:/Users/Eros/VantaDB%20Proyect/VantaDB/benchmarks/vanta_benchmark_report.json).
+This script will export a detailed report (gitignored, machine-local — regenerate with the command above) to `benchmarks/vanta_benchmark_report.json`.
 
 ---
 
@@ -355,7 +355,7 @@ Lectura: el `.node` nativo es ~3.3× más grande que el `.wasm` (4.5 MB vs 1.35 
 
 > **Guard:** `cargo bench -p vantadb --bench canonical_p99 --no-run` debe compilar sin error. Protege contra regresión de consumo (memoria ~1172 bytes/vec, p99 latency, heap) detectando cambios que rompen el bench canónico.
 
-**Baseline canónico (Regla 9):** `benches/canonical_p99.rs` — 100k vectors × 1536d, seed 42, insert + search p50/p95/p99. Ver §1 Stress Protocol para métricas certificadas.
+**Baseline canónico (Regla 9):** `benches/canonical_p99.rs` — 100k vectors × 1536d, seed 42, insert + search p50/p95/p99. Measured timed run 2026-09-25: **p50 2.2388 / p95 4.248 / p99 4.9987 ms** (MGR-19 §1; machine-readable baseline `benchmarks/criterion_baseline.json`). §1 Stress Protocol remains the separate certified series (different scope — do not mix).
 
 **Contrato consumo guard:**
 ```powershell
@@ -367,7 +367,8 @@ Select-String -Path "dev-tools/verify.ps1" -Pattern "consumo guard" | Measure-Ob
 
 **Política anti-regresión:**
 - Cada PR que toque `src/index/`, `benches/`, `Cargo.toml` debe ejecutar `cargo bench -p vantadb --bench canonical_p99 --no-run` en CI (compile-gate, no timed run en fast gate).
-- Regresión p99 >10% vs baseline (§1: p99 57 ms @10k) requiere ADR o revert (Regla 9 — medir antes/después).
+- Regresión p99 >10% vs baseline (`benchmarks/criterion_baseline.json` + canonical numbers above) requiere ADR o revert (Regla 9 — medir antes/después).
+- **Enforcement status (Q5, owner-open):** the `>10%` policy is EVALUATED in `bench-canonical-p99-informational.yml` but never blocks the PR; on regression the workflow opens a `benchmark, regression` issue (the contract's "informational-opens-issue" form). Promoting it to a blocking gate is owner decision Q5 — **do not change without OK**.
 - `dev-tools/verify.ps1` incluye `consumo guard` compile-check como step adicional (ponytail: solo `--no-run`, sin bench timed en gate rápido).
 
 <!-- consumo guard: anchor for GOV-B3 verification — do not remove -->
@@ -1015,7 +1016,8 @@ se reporta lo medido en esta maquina, no absolutos universales (pre-mortem Fallo
 > Emula el SHAPE de LongMemEval-S (sesiones largas, QA sobre hechos) y LoCoMo
 > (diálogo multi-turno con referencias) con sesiones sintéticas determinísticas —
 > SIN descargar sus datasets (licencia/peso; stop condition del plan).
-> Los números reales contra esos datasets quedan DEFER con loader versionado.
+> **Real-dataset harness (VER-08):** ver §19 — esta sección queda como el
+> harness sintético shape-only (gate de regresión del propio harness).
 >
 > **Reproduce (Regla 11):**
 > ```bash
@@ -1054,14 +1056,16 @@ se reporta lo medido en esta maquina, no absolutos universales (pre-mortem Fallo
 | Comando | `python evals/memory_bench.py --sessions 20 --turns 16 --queries 40 --top-k 5 --no-vantadb --output evals/memory_bench_report.json` |
 | Reporte JSON | `evals/memory_bench_report.json` (gitignored — regenerar con el comando) |
 
-### Pendiente (DEFER — stop condition MEM-70)
+### Entregado (VER-08, 2026-09-29 — detalle en §19)
 
-1. Loader versionado LongMemEval-S + LoCoMo (licencia/peso verificados) con
-   submuestra documentada.
-2. Corrida con backend `vantadb` real (bindings compilados) sobre esa
-   submuestra: recall@k + p50/p99 comparables con metodología explícita.
-3. Tabla lado a lado solo con números propios reproducibles (Regla 11 —
-   ningún claim vs SuperMemory/Hindsight hasta entonces).
+1. ✅ Loader versionado LongMemEval-S con sub-muestra commiteada (MIT,
+   revision pinneada + sha256) — `evals/data/`, `evals/memory_harness.py`.
+2. ✅ Corrida con backend `vantadb` real (bindings 0.7.0) sobre el split
+   completo (500 preguntas): **recall_all@5 0.7617** (headline, upstream-comparable)
+   + recall_any@5 0.9213 (hit-rate) + p50/p99 + write-quality + abstención +
+   token-economy + aislamiento per-user → §19.
+3. ⏳ Tabla lado a lado solo con números propios reproducibles — sigue prohibida
+   hasta VER-09 (Regla 11 — ningún claim vs SuperMemory/Hindsight hasta entonces).
 
 ---
 
@@ -1134,10 +1138,91 @@ configuración (ver doc curado § Lectura honesta).
 
 ---
 
+## 19. Memory Harness — LongMemEval-S (VER-08)
+
+> **Source of truth:** `evals/memory_harness.py` (run + metrics) + `evals/calibration.py`
+> (ECE + temperature scaling, MGR-12 §5.2) + `evals/data/` (committed sub-sample + provenance).
+> Dataset: `xiaowu0162/longmemeval-cleaned`, split `longmemeval_s_cleaned`, **MIT**,
+> revision `98d7416c…`, file sha256 `d6f21ea9…` (277,383,467 B). Judge: **deterministic**
+> (no LLM) — correctness is session-level evidence recall, reported in two forms:
+> **`recall_all@k`** = all `answer_session_ids` inside the top-k (the form LongMemEval's
+> own retrieval eval reports — used as the headline) and **`recall_any@k`** = at least
+> one evidence session in the top-k (hit-rate; secondary). Calibration pairs use the
+> `any` form (`correct`, question-level) — declared in the Calibration row.
+> The QA-level GPT-4o judge is deliberately NOT used here (owner Q1; manual report only).
+> Declared proxies (token-economy, abstention, write-quality definition) live in the
+> harness docstring and `evals/data/README.md`.
+
+**Reproduce (Regla 11):**
+```bash
+python evals/data/fetch_longmemeval_subset.py            # verifies the sha256 of the 277 MB source
+python evals/memory_harness.py --data datasets/longmemeval/longmemeval_s_cleaned.json --label s-full-500q
+python evals/memory_harness.py --label subset-5q         # committed 5-question sub-sample (offline smoke)
+```
+Reports: `evals/memory_harness_report*.json` (gitignored — regenerate with the commands).
+
+### Results — full split, run 2026-09-30 (n=500: 470 non-abstention + 30 abstention, top_k=5)
+
+> Re-run after review round 2 (F1): recall is reported in both session-level forms.
+> 300/470 non-abstention questions carry more than one evidence session.
+
+| Metric | Value | Notes |
+|---|---|---|
+| **recall_all@5** (evidence, session-level) — headline | **0.7617** | 358/470; ALL `answer_session_ids` in top-5; the form LongMemEval's retrieval eval reports |
+| recall_any@5 (hit-rate any-evidence) — secondary | **0.9213** | 433/470; ≥1 evidence session in top-5 |
+| recall_all@5 / recall_any@5 by type | multi-session 0.579 / 0.942 · temporal-reasoning 0.693 / 0.913 · single-session-preference 0.700 / 0.700 · knowledge-update 0.903 / 0.944 · single-session-user 0.922 / 0.922 · single-session-assistant 0.982 / 0.982 | n=30–127 per type |
+| Query latency | **p50 1.459 ms · p95 1.984 ms · p99 2.446 ms** | 500 queries, single-thread, in-memory backend; raw latencies in the JSON |
+| Ingest | **110.0 QPS** — 23,867 sessions in 216.9 s (p50 8.52 ms/doc) | per-question namespaces |
+| Write fidelity (write-quality) | **1.0000** | 23,867/23,867 exact-key `memory.get`, payload byte-identical |
+| Per-user isolation | **0 violations** / 2,500 hit checks | hits confined to the searched namespace + session set |
+| Token-economy (proxy: whitespace words) | **p50 10,483 / p99 13,856 retrieved tokens per query** (accuracy+tokens pairs in the JSON) | no tokenizer |
+| Abstention proxy (`_abs`, n=30) | 3/30 below τ=5.67 (value 0.10); false-alarm on answerable = 14/470 (2.98%) | retrieval-level proxy; QA-level abstention needs the LLM-judge report |
+| Calibration (ECE, B=10) | **0.0787 → 0.0003** after temperature scaling (T\*=5.63; NLL 1.088 → 0.276; n=2,350 pairs) | pairs = (record `confidence` = D_a=1.0, `correct` = recall_any-style question-level, declared); reviews the Q1 policy — runtime calibration is v1.0 |
+
+### Results — committed sub-sample (smoke / CI-style)
+
+| label | questions | recall_all@5 | recall_any@5 | write-quality | q p50/p99 (ms) | ingest QPS | ECE before → after |
+|---|---|---|---|---|---|---|---|
+| subset-5q | 5 (4 non-abs + 1 abs) | 1.0000 | 1.0000 | 1.0000 | 0.774 / 0.984 †† | 245.3 | 0.0000 → 0.0000 † |
+
+† degenerate: 20 pairs, all correct (4 questions × top-5) — the committed sub-sample
+is a reproducibility smoke, not a measurement sample.
+†† single smoke run (machine under load): latency here varies run to run; the full-split
+row above is the reference measurement.
+
+### Environment (Regla 11)
+
+| Campo | Valor |
+| :--- | :--- |
+| Fecha | 2026-09-30 (re-run post-review F1; first run 2026-09-29) |
+| OS | Windows 11 (10.0.26200) |
+| CPU | Intel 12th Gen (Family 6 Model 154, 12 logical) |
+| RAM | 31.78 GB |
+| Runtime | Python 3.14.7 · vantadb 0.7.0 (memory backend) |
+
+### Limits (do not over-read)
+
+- Numbers are **own-protocol and deterministic** (no LLM reader/judge): they measure
+  retrieval *evidence recall*, not QA accuracy — not comparable with vendor leaderboards
+  or with published LongMemEval QA numbers.
+- Use `recall_all@5` when comparing against LongMemEval's retrieval eval
+  (`recall_all@k`/`ndcg_any@k`). `recall_any@5` is a hit-rate and overstates retrieval
+  quality on the ~300/470 multi-evidence questions — never splice the two forms.
+- `single-session-preference` (n=30) and abstention (n=30) are small-n cells.
+- Token-economy is a word-count proxy; abstention is a score-threshold proxy
+  (τ = 5th percentile of evidence-hit scores).
+- `confidence` was uniformly `D_a=1.0` (bindings 0.7.0 do not expose declared confidence
+  on `put`); the ECE row reflects that declared policy under the numeric clamp — it is
+  not a runtime-calibrated probability.
+- canonical_p99 remains the Regla 9 baseline for hot-path changes (§11); this section is
+  the memory-quality harness, not a latency gate.
+
+---
+
 ## Planificado 2026-09-24 — sin números aún (Regla 11)
 
 > Estas mediciones están **programadas** (filas P52 del Backlog). Mientras no existan resultados, no citar como comparativa.
 
 - **Regeneración §2** (DEF-06): la tabla de SDK Python quedó congelada pre-SIMD (2026-08-12); se regenera con dataset + hardware documentados, y el README citará §1/§8 (Rust canonical) hasta entonces.
-- **Harness propio de memoria** (VER-08): canonical_p99 + LoCoMo + LongMemEval-S + BEAM-subset (dataset commiteado) + **write-quality, abstención, aislamiento per-user y token-economy** (los cuatro que ningún benchmark público mide) + gate p99 en CI.
+- **Harness propio de memoria** (VER-08): ✅ **ENTREGADO 2026-09-29** — LongMemEval-S (sub-muestra MIT commiteada) + corrida con bindings reales + write-quality, abstención, aislamiento per-user y token-economy + ECE/calibración → **§19**. Gate p99 en CI: forma informativo+issue vigente; enforcement = decisión owner Q5 (§11). Runners LoCoMo/BEAM: disposición documentada (no committeables/no viables por tamaño, `evals/data/README.md`); head-to-head = VER-09.
 - **Head-to-head** (VER-09, absorbe EXE-02): Mem0/Zep/Letta con el MISMO harness y protocolo publicado completo (modelo-juez, stack, reranking; pares accuracy+tokens). Contexto de por qué: auditoría independiente de LoCoMo (6.4% del answer-key erróneo; el juez acepta hasta 63% de respuestas incorrectas) y disputa pública de números entre vendors.
