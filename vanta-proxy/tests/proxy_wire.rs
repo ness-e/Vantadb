@@ -130,6 +130,7 @@ async fn setup(extra_upstream_routes: Router) -> TestEnv {
         guardrails: Default::default(),
         translate: Default::default(),
         injection: Default::default(),
+        envelope: Default::default(),
     };
     let state = server::AppState::from_engine(cfg, seeded_engine()).unwrap();
     let proxy_url = spawn(server::router(state)).await;
@@ -161,6 +162,7 @@ fn cfg_with(upstream: &str, timeout_secs: u64) -> ProxyConfig {
         guardrails: Default::default(),
         translate: Default::default(),
         injection: Default::default(),
+        envelope: Default::default(),
     }
 }
 

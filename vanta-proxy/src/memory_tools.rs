@@ -70,7 +70,8 @@ pub(crate) fn extract(message: &Accumulated) -> Vec<MemoryCall> {
 /// reported as soon as the job is queued — a slow write can never delay the
 /// wire. Search runs synchronously (the model needs its answer to continue).
 /// Neither path can fail the request: storage errors degrade into descriptive
-/// result text the model can react to.
+/// result text the model can react to. `guard` applies redaction-on-write +
+/// the per-namespace envelope (VER-03) — same L0 path as turn capture.
 pub(crate) fn execute(
     memory: &Embedded,
     writeback: &WriteBack,
@@ -79,6 +80,7 @@ pub(crate) fn execute(
     space_id: &str,
     model: &str,
     call: &MemoryCall,
+    guard: &capture::WriteGuard<'_>,
 ) -> String {
     match call.name.as_str() {
         TOOL_CAPTURE => {
@@ -99,6 +101,7 @@ pub(crate) fn execute(
                 space_id,
                 model,
                 text,
+                guard,
             );
             writeback.track(format!("tool:{session_key}:{}", call.id), job);
             "Memory captured.".to_string()
@@ -411,6 +414,11 @@ mod tests {
     fn capture_rejects_empty_text_without_touching_writeback() {
         let db = memory();
         let wb = WriteBack::new(None);
+        let (redactor, envelope) = guard_pair();
+        let guard = capture::WriteGuard {
+            redactor: &redactor,
+            envelope: &envelope,
+        };
         let result = execute(
             &db,
             &wb,
@@ -423,6 +431,7 @@ mod tests {
                 name: TOOL_CAPTURE.into(),
                 args: json!({"text": "   "}),
             },
+            &guard,
         );
         assert!(result.contains("rejected"));
         std::thread::sleep(std::time::Duration::from_millis(50));
@@ -433,6 +442,11 @@ mod tests {
     fn search_empty_db_reports_no_memories_and_unknown_tool_degrades() {
         let db = memory();
         let wb = WriteBack::new(None);
+        let (redactor, envelope) = guard_pair();
+        let guard = capture::WriteGuard {
+            redactor: &redactor,
+            envelope: &envelope,
+        };
         let result = execute(
             &db,
             &wb,
@@ -445,6 +459,7 @@ mod tests {
                 name: TOOL_SEARCH.into(),
                 args: json!({"query": "anything"}),
             },
+            &guard,
         );
         assert_eq!(result, NO_MEMORIES);
 
@@ -460,8 +475,20 @@ mod tests {
                 name: "vanta_memory_delete_everything".into(),
                 args: json!({}),
             },
+            &guard,
         );
         assert!(unknown.contains("Unknown memory tool"));
+    }
+
+    /// Default guard: redaction + envelope disabled (legacy behavior).
+    fn guard_pair() -> (crate::redact::Redactor, crate::envelope::Envelope) {
+        let redactor = crate::redact::Redactor::new(&crate::redact::RedactConfig::default())
+            .expect("redactor");
+        let envelope = crate::envelope::Envelope::with_master(
+            &crate::envelope::EnvelopeConfig::default(),
+            None,
+        );
+        (redactor, envelope)
     }
 
     fn memory() -> Embedded {

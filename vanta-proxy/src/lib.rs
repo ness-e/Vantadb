@@ -14,6 +14,7 @@ pub mod capture;
 pub mod config;
 pub mod context;
 pub mod cost;
+pub mod envelope;
 pub mod error;
 pub mod forward;
 pub mod guardrails;

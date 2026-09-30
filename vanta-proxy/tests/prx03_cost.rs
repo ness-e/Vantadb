@@ -75,6 +75,7 @@ fn state_with_cost(upstream: &str, cost: CostConfig) -> server::AppState {
         guardrails: Default::default(),
         translate: Default::default(),
         injection: Default::default(),
+        envelope: Default::default(),
     };
     server::AppState::from_engine(cfg, seeded_engine()).unwrap()
 }
@@ -233,6 +234,7 @@ async fn buffered_response_records_output_tokens_nonzero() {
         guardrails: Default::default(),
         translate: Default::default(),
         injection: Default::default(),
+        envelope: Default::default(),
     };
     let state = server::AppState::from_engine(cfg, seeded_engine()).unwrap();
     let proxy = spawn(server::router(state.clone())).await;

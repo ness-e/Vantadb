@@ -56,6 +56,9 @@ pub struct ProxyConfig {
     /// Memory-block injection budget (WIRE-01). Caps `<vanta-memory>` tokens;
     /// defaults keep existing behavior (seeds are tiny against the default).
     pub injection: InjectionConfig,
+    /// Per-namespace AEAD envelope for captured originals (VER-03). Disabled
+    /// by default: the redacted text is the only copy unless opted in.
+    pub envelope: crate::envelope::EnvelopeConfig,
 }
 
 impl ProxyConfig {
