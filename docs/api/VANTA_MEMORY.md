@@ -69,6 +69,74 @@ in-memory (validation only, nothing persisted) (`seed/mod.rs:76-89`,
 lets a host return the `run_id` immediately and dispatch the heavy body on a
 background thread (`ingest/worker.rs:35-83`, `ingest/callback.rs:173`).
 
+## Git-friendly Markdown export & rebuild (VER-06)
+
+`vanta-cli export --format md` projects the store (or one namespace) to one
+Markdown file per record under
+`<out>/<sanitized-namespace>/<sanitized-key>.md`, plus an `index.json`
+manifest. The projection is **git-friendly**: unchanged data exports
+byte-identically (no wall-clock timestamps; the manifest is sorted by file
+path), so `git diff` shows only real memory changes.
+
+**The store is the source of truth; Markdown is a projection.** The flow is
+edit → re-import → rebuild:
+
+```bash
+# 1. Export the projection (one file per record).
+vanta-cli --db ./memory export --format md --out ./memory-md
+
+# 2. Edit a file in your editor, then review the change like any diff.
+git -C ./memory-md diff
+
+# 3. Re-import the (possibly edited) directory — idempotent: records whose
+#    projection is unchanged are skipped.
+vanta-seed import-md ./memory-md --db ./memory
+
+# 4. Rebuild the derived indexes (HNSW / text / derived).
+vanta-cli --db ./memory rebuild-index
+
+# 5. Read/search the edited value back.
+vanta-cli --db ./memory get --namespace agent/team --key intro
+vanta-cli --db ./memory search --namespace agent/team "edited text"
+```
+
+The flow is additive only: it never deletes records or prunes stale `.md`
+files — deletes go through the store API, not by removing files from the
+export. Vectors do not travel in Markdown (`vector_dim` is informational):
+re-importing an edited record leaves its `vector`/`sparse_vector` empty for
+that record (pre-existing MEM-62 behavior).
+
+Frontmatter is **schema v2** and carries the full record semantics: identity
+(`namespace`, `key`, `version`, `node_id`), timestamps (`created_at_ms`,
+`updated_at_ms`, `expires_at_ms`), supersession (`superseded_by`,
+`superseded_at_ms`), validity window (`valid_at_ms`, `invalid_at_ms`),
+provenance and confidence (`confidence_class`, `confidence`,
+`last_validated_at_ms`, `derived_from`) and quarantine state
+(`quarantined_at_ms`, `quarantine_reason`, `quarantined_by`,
+`quarantine_review_due_ms`). The importer accepts `schema_version` 1 and 2:
+v1 files are normalized on import (`valid_at_ms = created_at_ms`,
+`confidence = 1.0`, class `Asserted`), so exports written before 0.8.0 keep
+working.
+
+Records with relations (`superseded_by`, `derived_from`) also get a trailing
+informational block of wikilinks:
+
+```markdown
+<!-- vanta:links -->
+
+## Related
+
+- [[agent/team/newer]]
+```
+
+The block is editor-friendly (Obsidian-style navigation) but **informational
+only**: the importer strips it before reading the payload, and reports targets
+with no destination record as `links_unresolved` in the import summary
+(`created=…, updated=…, unchanged=…, links_unresolved=…`; counts link
+occurrences, not distinct targets). It is never a
+source of joins — change relations through the store API, not in the
+projection.
+
 ## Exposure triggers (T1–T4)
 
 Core-only is the deliberate default (Gate P, D42/D43): exposure costs new Rust
