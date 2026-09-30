@@ -21,7 +21,7 @@ verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-hist
 
 | Phase | Items | Est. Effort | Priority |
 |-------|-------|-------------|----------|
-| **DELTA** 🚀 Próximo plan (post-campaña F0–F6, 2026-09-30) | **42** (DIST · MEMG · DUR · BENCH · DX · STRAT) | ~10–16 semanas | 🔴 P0–P3 | 📥 **Fuente del próximo plan → §DELTA (abajo)** |
+| **DELTA** 🚀 Próximo plan (post-campaña F0–F6, 2026-09-30) | **45** (DIST · MEMG · DUR · BENCH · DX · STRAT) | ~10–16 semanas | 🔴 P0–P3 | 📥 **Fuente del próximo plan → §DELTA (abajo)** |
 | **P0** 🚀 Release Blockers | 0 — ✅ 3/3 ejecutadas (plan 2026-08-09: RELEASE-01 semver-checks, RELEASE-02 publish 0.5.0 verificado live, RELEASE-03 artefactos) | — | ✅ Cerrada |
 | **P1** 🛡️ Security & Critical | 0 — ✅ 1/1 ejecutada (SEC-01 UAF `__array_interface__` fix) | — | ✅ Cerrada |
 | **P2** ⚡ Quick Wins Técnicos | 0 | — | ✅ Cerrado |
@@ -97,6 +97,7 @@ verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-hist
 > - banner RAM ✅ código actual correcto (`src/hardware/mod.rs:313`: `RAM {}GB`) · log default ✅ `info` (`src/console.rs:117`)
 >
 > **Estado del repo al 2026-09-30:** 139 commits locales en `develop` (sin push) · 0.8.0 preparada (guía + marcador breaking `b9296909` + R2) · FINDs 189–207 ya registrados arriba.
+> **Añadido 2026-09-30 (post-cierre):** MEMG-11..13 — gaps de adopción del motor core por `vanta-memory` (análisis vanta-memory↔core 2026-09-30).
 
 ### Índice
 
@@ -117,6 +118,9 @@ verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-hist
 | MEMG-08 | P1 | **MGR-25 — Formatos e ingestores** (spec Notion) | feat | 1-2sem | Notion MGR-25 |
 | MEMG-09 | P1 | **Track PI restante** (MGR-23/24: grafo decisión→código→test + taxonomía) | feat | 2-4sem | Notion track PI |
 | MEMG-10 | P1 | MGR-04 — Policy engine (trusted/tainted + RBAC) | feat | 2-3sem | Notion 6 áreas §Gobernanza |
+| MEMG-11 | P1 | Adopción del motor core en `vanta-memory` (recall híbrido + escritura batch) | feat | 1-2sem | análisis vanta-memory↔core 2026-09-30 |
+| MEMG-12 | P1 | Semántica v2 write-side en el pipeline (`confidence`/`valid_at`/TTL) | feat | 1-1.5sem | análisis vanta-memory↔core 2026-09-30 |
+| MEMG-13 | P2 | Superficies core restantes en memoria (IQL/versiones/snapshots/filtros) | feat | 3-5d | análisis vanta-memory↔core 2026-09-30 |
 | DUR-01 | P1 | Auditoría del fsync real | fix | 1-2d | research §1 |
 | DUR-02 | P1 | Auditoría cobertura AES (WAL/índices) | fix | 1-2d | Master #15 |
 | DUR-03 | P1 | H-023: re-put sobre expirado → colisión (bug engine) | fix | 1-2d | H-023 |
@@ -252,6 +256,20 @@ verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-hist
 - **Esfuerzo:** 2-3sem · **Dueño:** vanta-arch
 - **Referencias:** Notion "Gobernanza (área)" · MGR-04
 
+#### MEMG-11 — Adopción del motor core en `vanta-memory` (recall híbrido + escritura batch)
+- **Qué:** que la capa cognitiva consuma el motor que ya existe en vez de su versión liviana: (a) recall L1 sobre la búsqueda híbrida del core (BM25 + HNSW + RRF del planner) en lugar del dual-pool propio (`significant_terms` + cosine + `rrf_merge` local); (b) escrituras del pipeline vía `put_batch` (group-commit ≥5×) en vez de `put` 1×1; (c) `query_sparse` + filtros/cursors del core donde apliquen. Orden: medir (BENCH-02/VER-08) → migrar → A/B sin regresión p99.
+- **Por qué:** el motor híbrido es el diferenciador del core y la memoria lo reimplementó más débil (sin índice de texto, sin HNSW, scan por recall); batching y sparse ya están productizados (WIRE-06/WIRE-03) pero nadie los consume desde `vanta-memory`.
+- **Evidencia (2026-09-30):** `put_batch` = 0 hits y `text_index|bm25|tantivy` = 0 en `vanta-memory/src`; recall propio en `vanta-memory/src/core/record/l1_reader.rs:104-213`; core con search híbrido (`src/index/search/` + planner RRF) y batching (FIND-182).
+- **Esfuerzo:** 1-2sem · **Dueño:** vanta-worker (+ vanta-tuner para el A/B)
+- **Referencias:** análisis vanta-memory↔core 2026-09-30 · BENCH-02 · WIRE-03/06 · FIND-180/182 · `l1_reader.rs`
+
+#### MEMG-12 — Semántica v2 write-side: el pipeline puebla `confidence`/`valid_at`/TTL
+- **Qué:** que L0→L1→L2→L3 escriba los campos que el schema v2 ya soporta en vez de defaults: confianza inicial por registro en la extracción L1, ventana `valid_at_ms` al afirmar, TTL semántico donde corresponda (consume MGR-09) y transiciones de cuarentena desde dream/ingesta. Complementa MEMG-01/02 (detección y refuerzo); la escritura inicial no tiene fila propia.
+- **Por qué:** con defaults, confianza y bitemporalidad quedan inertes para la memoria (el research reportó "confidence=0 en vanta-memory"); el gate de cuarentena funciona en lectura (SCH-05) pero nadie marca dudoso al escribir.
+- **Evidencia (2026-09-30):** `valid_at`/`confidence`/`quarantine` solo aparecen en `seed/` (round-trip de formato, no escritura del pipeline); `ttl_ms: None` en `l0_recorder.rs:243`, `pipeline_worker.rs:775`, `dream/mod.rs:537`; residuales FIND-188 (ops de quarantine) y FIND-199 (Python sin `confidence` declarable).
+- **Esfuerzo:** 1-1.5sem · **Dueño:** vanta-worker (+ vanta-arch para la política)
+- **Referencias:** análisis vanta-memory↔core 2026-09-30 · SCH-02/04/05 · MEMG-01/02 · MGR-09 · FIND-188/199
+
 #### DUR-01 — Auditoría del fsync real
 - **Qué:** auditar y endurecer la barrera de durabilidad: dónde hace falta `fsync`/`sync_all` real (WAL, snapshots, GC) y medirlo.
 - **Evidencia:** `fsync` = 15 hits / `sync_all` = 7 en 93k LOC de `src/` (research §1 — puntuó 7.0 por esto).
@@ -373,6 +391,13 @@ verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-hist
 - **Evidencia:** reconciliación 2026-09-30 (research decía "fix en `vantadb-node/src/lib.rs:map_err`").
 - **Esfuerzo:** 1h · **Dueño:** vanta-worker
 - **Referencias:** research §1 (reconciliación)
+
+#### MEMG-13 — Superficies core restantes en memoria (IQL + versiones + snapshots + filtros)
+- **Qué:** evaluar y consumir en `vanta-memory` lo que el core ya expone: IQL para consultas de memoria, `versions`/`get_version` para diff de L1, snapshots para backup/restore de la DB de memoria y filtros/cursors del core en el recall (hoy `list` plano).
+- **Por qué:** cierra los últimos huecos de "reutilizar en vez de reimplementar" y habilita auditoría/diff/backup de memoria sin código nuevo del lado core.
+- **Evidencia (2026-09-30):** 0 hits de `query_iql|IQL`, `get_version|versions` y `snapshot` en `vanta-memory/src` (los hits de "snapshot" son progreso de ingest); `MemoryFilter`/cursors sin uso en recall; core ya expone las 4 superficies (SDK/HTTP/MCP).
+- **Esfuerzo:** 3-5d · **Dueño:** vanta-worker
+- **Referencias:** análisis vanta-memory↔core 2026-09-30 · STU-03 · FIND-156/158 · WIRE-03/08
 
 ### P3 — Estratégico
 
