@@ -8,7 +8,7 @@ description: "SDP: campaign-executor · progreso · writing-plans · planning-an
 
 > **Campaign ID:** ed20beae-edf6-42f5-b41f-e8519830d6cb
 > **Inicio:** 2026-09-26
-> **Estado:** ⏳ EN PROGRESO (40/50 — F0 ✅ · F1 ✅ · F2 ✅ · F3 ✅ 11/11 · **F4 6/7**; siguiente: F4.3 — VER-04) | **Gate F3: ✅ local** (corte 0.8.0 preparado: guía + marcador R1 `b9296909` + R2; release real = lane owner post-push)
+> **Estado:** ⏳ EN PROGRESO (41/50 — F0 ✅ · F1 ✅ · F2 ✅ · F3 ✅ 11/11 · **F4 ✅ 7/7**; siguiente: F5 — bloques primero) | **Gates F3/F4: ✅ local** (corte 0.8.0 preparado: guía + marcador R1 `b9296909` + R2; features verificables con tests + attestations; release real = lane owner post-push)
 > **Fuente:** `docs/dev/Backlog.md` (P52–P59 + FIND-*) + planes absorbidos (`2026-09-24-post-investigacion-integral.md` W2–W7, `2026-09-24-estabilizacion-pendiente.md`, `2026-09-24-harness-gaps.md`, `2026-09-24-sesion-continuidad.md`, `2026-09-20-estabilizacion-total.md`) + `docs/dev/strategy/` (13 docs) + Notion "VantaDB Docs" (~28 subpáginas) + investigación de riesgos 2026-09-26 (4 sub-agentes R1–R4, multi-fuente)
 > **Autonomous:** false — el owner gatea push/merge/release. **Push a `develop`: al completar el plan con todo validado/verificado** (decisión owner 2026-09-26, ver §Política de commits/push)
 > **Modo:** PLAN → ejecución con `/pipeline run docs/dev/plans/2026-09-26-master-roadmap.md`
@@ -1056,7 +1056,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** "presupuesto de inyección enforced y consistente por request (bloque `<vanta-memory>` ≤ budget; budget 0/bajo → inyección vacía o recortada verificada en test e2e del proxy; envelope MCP coherente con `byte_count`/`truncated`) Y ACLs por tool/namespace aplicadas a las superficies de inyección (precedente rbac.rs/middleware SRV-05; deny fuera de scope) Y audit log de inyección consultable: {sesión/prompt, memoria inyectada (ns/key), score, budget/truncado, decisión ACL} como eventos WORM-ready (preparado para el chain de VER-01, citado) Y doc (config + consulta del audit)"
 - **Task file:** `docs/dev/tasks/VER-04.md` (a crear en DISCOVERY)
-- **Estado:** ⏳ EN PROGRESO · **Branch:** develop · **Commit:**
+- **Estado:** ✅ COMPLETED (2026-09-29 — commit `575ce8dd`; review ❌(F1 deny-all)→fix→delta ✅)
 - **Cynefin:** 🟨 complicado — unificar budget/ACL/audit sobre 3 superficies de inyección (proxy, MCP, auto_recall) sin romper prompt-cache ni el contrato read-only.
 - **Top 3 riesgos:** 1. audit de inyección que registra PII (ironía del track privacidad) · 2. ACL que rompe la inyección legítima (deny por defecto mal calibrado) · 3. budget inconsistente entre superficies (proxy vs MCP).
 - **Pre-mortem:** F1: audit con contenido → registrar metadatos (ns/key/score/kinds) sin payload; nunca valores (precedente `RedactConfig` kinds sin valores, redact.rs:65); F2: ACL rompe flujos existentes → ACL opt-in con default actual (compatible) + tests de allow/deny; F3: budget divergente → única fuente `InjectionConfig`/`byte_budget` y test de consistencia por superficie.
@@ -1209,6 +1209,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **plan-adjust [2026-09-29f]:** **Bloques F4 completados al nivel F0/F1 (REGLA)** — Tasks 34-40 (VER-07/01/05/06/02/03/04), 23 campos c/u, Paso 0 verificado (codegraph/CBM): re-baselines clave — VER-07 stub en `dream/mod.rs:615-623` (doc :29-36 stale) · VER-01 frame `wal.rs:216-217` + `WalCommand` sin verify (extensión = bump WAL_FORMAT_VERSION) · VER-05 formato de intercambio YA existe (`MemoryExportLine` v2) · VER-02 `src/shred/` = JSON Shredding (certificado por superficie, sin overselling) · VER-03 redact solo egress + crypto global sin envelope per-namespace · VER-04 budget/RBAC/audit ya existen (slice = enforcement). Gate de fase F4 → wave lista.
 - **plan-adjust [2026-09-29g]:** **F4.1 cerrada (37/50)** — VER-07 (`412fbeaa` dreams promote real + dry_run; Gate H `d528e67`), VER-05 (`23c74a52` importadores + formato), VER-01 (`0cc14247` hash-chain + verify; docs lift `WAL_INTEGRITY.md`). Reviews: adversarial ×2 + vanta-audit (chain) + deltas ✅. FIND-189..192 (chain buffered · engine Cold cache · public-api harness · env hygiene). Wave F4.2 lanzada: VER-06/02/03.
 - **plan-adjust [2026-09-29h]:** **F4.2 cerrada (40/50)** — VER-06 (`d2e74316` export MD v2 git-friendly), VER-03 (`95407c78` redacción+AEAD), VER-02 (`ccc51d09` borrado certificado). Reviews: adversarial + vanta-audit ×2 con fixes (H-1 verify claim-driven → schema+residues-aware; F-01 hex panic → seguro) + deltas ✅. FIND-193..195 (campaign planFile · rotación/recovery · PII adyacentes). Wave F4.3 lanzada: VER-04.
+- **plan-adjust [2026-09-29i]:** **F4 COMPLETA (41/50) — GATE F4 ✅ local.** VER-04 (`575ce8dd`): presupuesto enforced + ACLs boundary-aware + audit `outcome=denied` (incl. deny-all) + docs. Review vanta-audit: F1 (deny-all silenciado) → fix + 2 e2e; delta ✅. FIND-193..195 registrados. Siguiente: bloques F5 → wave F5.
 
 ## Recitation
 
@@ -1217,9 +1218,9 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
 Objetivo activo: F3 — Bitemporalidad/confianza/cuarentena + schema v2 (MGR/SCH)
 Estado: in-progress
-Última acción: F4.2 COMPLETA (40/50 — VER-06/02/03; commits d2e74316/95407c78/ccc51d09); wave F4.3 lanzada (VER-04)
-Resultado: OK (F0 7/7 · F1 8/8 · F2 7/7 · F3 11/11 · F4 6/7)
-Próxima acción: VER-04 (governance de inyección) → gate F4 → F5
+Última acción: **F4 COMPLETA (41/50)** — VER-04 (`575ce8dd`); GATE F4 ✅ local; siguiente: bloques F5
+Resultado: OK (F0 7/7 · F1 8/8 · F2 7/7 · F3 11/11 · F4 7/7)
+Próxima acción: completar bloques F5 (REGLA) → wave F5 (MKT-18f/ICP-01..03/VER-08/DEF-06)
 Contrato: —
 Próxima tarea si completa: HARD-01
 === END RECITATION ===
@@ -1693,10 +1694,10 @@ Próxima tarea si completa: VER-04
 === RECITATION VER-04 ===
 Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
 Objetivo activo: VER-04 — Governance de inyección (presupuesto + ACLs + audit log)
-Estado: in-progress
-Última acción: Claim (wave F4.3)
-Resultado: PENDING
-Próxima acción: DISCOVERY + implementación (vanta-worker)
-Contrato: ver bloque Task 40 del plan
-Próxima tarea si completa: VER-04
+Estado: completed
+Última acción: 6/6 ✅ + review vanta-audit ❌(F1 deny-all silenciado) → fix + 2 e2e → delta ✅
+Resultado: OK
+Próxima acción: GATE F4 → bloques F5
+Contrato: presupuesto enforced + ACL boundary-aware + audit outcome=denied metadata-only (576/576 · 310/310 · 258/258)
+Próxima tarea si completa: F5
 === END RECITATION ===
