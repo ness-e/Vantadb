@@ -400,6 +400,35 @@ mod tests {
             "TTL entry should be cleaned up"
         );
     }
+
+    /// VER-02: GC drives `StorageEngine::delete`, so an expired node's
+    /// shredded metadata entry must be purged by the sweep too.
+    #[test]
+    fn test_sweep_purges_shredded_entry_for_expired_node() {
+        let (storage, _dir) = setup_storage();
+        let node = UnifiedNode::new(99);
+        storage.insert(&node).unwrap();
+        let mut fields = std::collections::BTreeMap::new();
+        fields.insert("stage".to_string(), crate::Value::Int(3));
+        crate::shred::ShreddedRowStore::put(99, &fields, &*storage.backend).unwrap();
+
+        let mut worker = GcWorker::new(&storage);
+        let past = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+            - 1;
+        worker.register_ttl(99, past);
+
+        let count = worker.sweep().unwrap();
+        assert_eq!(count, 1);
+        assert!(
+            crate::shred::ShreddedRowStore::get(99, &*storage.backend)
+                .unwrap()
+                .is_none(),
+            "VER-02: the GC sweep must purge the shredded entry"
+        );
+    }
 }
 
 /// WIRE-04: the background TTL sweeper (production driver of

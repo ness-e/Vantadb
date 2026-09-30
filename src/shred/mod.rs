@@ -44,10 +44,11 @@
 //! - **Filter path**: `bitset_from_filters` in `search/mod.rs` tries the
 //!   shredded store for single-field filter lookups before falling back to
 //!   the full record scan.
-//! - **Delete path**: Not yet wired — shredded entries survive node deletion
-//!   until garbage collection (Phase 2).
+//! - **Delete path** (VER-02, wired): `StorageEngine::delete` /
+//!   `delete_batch` purge the shredded row (best-effort single delete, batched
+//!   op for batches) and `purge_permanent` removes it in its backend batch.
 
-use crate::backend::{BackendPartition, StorageBackend};
+use crate::backend::{BackendPartition, BackendWriteOp, StorageBackend};
 use crate::query::RelOp;
 use crate::Value;
 use std::collections::{BTreeMap, HashMap};
@@ -152,6 +153,12 @@ pub fn matches_shredded(field: &ShreddedField, op: &RelOp, expected: &Value) -> 
 pub struct ShreddedRowStore;
 
 impl ShreddedRowStore {
+    /// Backend key under which a node's shredded fields are stored
+    /// (`BackendPartition::InternalMetadata`).
+    pub(crate) fn store_key(node_id: u128) -> Vec<u8> {
+        format!("shred::{}", node_id).into_bytes()
+    }
+
     /// Serialise metadata fields to binary and store them in the backend.
     ///
     /// Fields whose type maps to `Null` are silently skipped.
@@ -192,8 +199,11 @@ impl ShreddedRowStore {
         if buf.is_empty() {
             return Ok(());
         }
-        let store_key = format!("shred::{}", node_id).into_bytes();
-        backend.put(BackendPartition::InternalMetadata, &store_key, &buf)
+        backend.put(
+            BackendPartition::InternalMetadata,
+            &Self::store_key(node_id),
+            &buf,
+        )
     }
 
     /// Retrieve all shredded fields for the given node.
@@ -203,7 +213,7 @@ impl ShreddedRowStore {
         node_id: u128,
         backend: &dyn StorageBackend,
     ) -> crate::error::Result<Option<HashMap<String, ShreddedField>>> {
-        let store_key = format!("shred::{}", node_id).into_bytes();
+        let store_key = Self::store_key(node_id);
         let data = backend.get(BackendPartition::InternalMetadata, &store_key)?;
         let Some(data) = data else {
             return Ok(None);
@@ -280,10 +290,22 @@ impl ShreddedRowStore {
     /// Delete shredded fields for a node from the backend.
     ///
     /// Safe to call even when no shredded data exists for this node.
-    #[allow(dead_code)]
+    /// Wired into the delete path by VER-02 (`StorageEngine::delete`).
     pub(crate) fn delete(node_id: u128, backend: &dyn StorageBackend) -> crate::error::Result<()> {
-        let store_key = format!("shred::{}", node_id).into_bytes();
-        backend.delete(BackendPartition::InternalMetadata, &store_key)
+        backend.delete(
+            BackendPartition::InternalMetadata,
+            &Self::store_key(node_id),
+        )
+    }
+
+    /// Batch form of [`Self::delete`] (VER-02): the same backend delete as a
+    /// `BackendWriteOp` so `delete_batch`/`purge_permanent` can purge the
+    /// shredded row atomically inside their existing batch.
+    pub(crate) fn delete_op(node_id: u128) -> BackendWriteOp {
+        BackendWriteOp::Delete {
+            partition: BackendPartition::InternalMetadata,
+            key: Self::store_key(node_id),
+        }
     }
 }
 
@@ -361,6 +383,26 @@ mod tests {
 
         ShreddedRowStore::delete(7, &backend).unwrap();
         assert!(ShreddedRowStore::get(7, &backend).unwrap().is_none());
+    }
+
+    #[test]
+    fn test_shredded_delete_missing_entry_is_noop() {
+        let backend = test_backend();
+        // No shredded row seeded: delete must be a safe no-op.
+        ShreddedRowStore::delete(123, &backend).unwrap();
+    }
+
+    #[test]
+    fn test_shredded_delete_op_targets_internal_metadata() {
+        // VER-02: the batch form must address the same key/partition as
+        // `delete()` so `delete_batch`/`purge_permanent` purge the same row.
+        match ShreddedRowStore::delete_op(7) {
+            BackendWriteOp::Delete { partition, key } => {
+                assert_eq!(partition, BackendPartition::InternalMetadata);
+                assert_eq!(key, ShreddedRowStore::store_key(7));
+            }
+            _ => panic!("expected BackendWriteOp::Delete"),
+        }
     }
 
     // ── schema evolution (last-write-wins) ────────────────────

@@ -59,6 +59,8 @@ pub mod crypto;
 pub mod accumulator;
 pub mod agentic;
 pub mod api;
+/// Certified purge (VER-02): per-surface residue inventory + JSON certificate.
+pub mod attestation;
 /// Append-only JSONL audit log of business operations (opt-in).
 pub mod audit;
 pub(crate) mod backend;

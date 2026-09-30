@@ -234,6 +234,14 @@ pub enum Commands {
         /// Key of the record to delete
         #[arg(long)]
         key: String,
+        /// Emit a purge certificate (VER-02): per-surface residue inventory +
+        /// integrity hash + VER-01 WAL chain reference (JSON on stdout)
+        #[arg(long, default_value_t = false)]
+        attest: bool,
+        /// With --attest: write the certificate to this file (UTF-8, written
+        /// by the CLI itself — preferred over shell redirection on Windows)
+        #[arg(long, requires = "attest")]
+        out: Option<String>,
     },
 
     /// Delete all records in a namespace matching a JSON metadata filter
@@ -247,6 +255,10 @@ pub enum Commands {
         #[arg(long)]
         filter: String,
     },
+
+    /// Verification of purge certificates (VER-02)
+    #[command(subcommand)]
+    Certificate(CertificateCommand),
 
     /// Count records in a namespace, optionally filtered by metadata
     Count {
@@ -449,6 +461,19 @@ pub enum WalCommand {
         /// Preview only: report what would be kept/discarded without mutating.
         #[arg(long, default_value_t = false)]
         dry_run: bool,
+    },
+}
+
+/// Subcommands for purge certificates (VER-02)
+#[derive(Subcommand, Debug, Clone)]
+pub enum CertificateCommand {
+    /// Verify a stored purge certificate: integrity hash + live re-scan of
+    /// the re-checkable surfaces (store, shred, vector index, versions).
+    /// Exit code ≠0 when the certificate is invalid or residues reappeared.
+    Verify {
+        /// Path to the certificate JSON file (emitted by `delete --attest`)
+        #[arg(long)]
+        file: String,
     },
 }
 

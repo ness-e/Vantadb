@@ -6,7 +6,7 @@
 
 Every link below points to the raw Markdown source, not a rendered page. Read the
 page you need; do not read this file end to end. This index covers the
-434 documentation pages; it deliberately omits the 1016 task files,
+435 documentation pages; it deliberately omits the 1019 task files,
 which are work items rather than documentation. The full inventory of every file
 is in docs/index.md in the repository.
 
@@ -234,6 +234,7 @@ is in docs/index.md in the repository.
 ## API reference
 
 - [Bindings Namespace Map](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/BINDINGS_NAMESPACES.md): Rules for the migration window
+- [Certified delete - purge certificates (VER-02)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/CERTIFIED_DELETE.md): Per-surface purge certificate emitted by delete (CLI/MCP/Rust): residue inventory for store, JSON-shredded metadata, indexes and WAL tombstone; integrity hash, VER-01 chain reference and documented limits (logical vs physical purge, backups, exports)
 - [Compatibility Matrix & 1.0 Readiness](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/COMPATIBILITY.md): What each public API surface promises, how that promise is enforced
 - [Deprecations Registry](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/DEPRECATIONS.md): Concrete deprecations of the public API surfaces and their removal windows
 - [Embedded SDK Reference](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/EMBEDDED_SDK.md): Source: src/sdk/mod.rs, src/sdk/builder.rs, src/sdk/api/.rs, src/sdk/graph.rs, src/sdk/search/mod.rs
