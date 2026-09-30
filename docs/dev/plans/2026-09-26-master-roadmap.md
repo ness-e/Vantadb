@@ -8,7 +8,7 @@ description: "SDP: campaign-executor · progreso · writing-plans · planning-an
 
 > **Campaign ID:** ed20beae-edf6-42f5-b41f-e8519830d6cb
 > **Inicio:** 2026-09-26
-> **Estado:** ⏳ EN PROGRESO (37/50 — F0 ✅ · F1 ✅ · F2 ✅ · F3 ✅ 11/11 · **F4 3/7**; siguiente: F4.2 — VER-06/02/03) | **Gate F3: ✅ local** (corte 0.8.0 preparado: guía + marcador R1 `b9296909` + R2; release real = lane owner post-push)
+> **Estado:** ⏳ EN PROGRESO (40/50 — F0 ✅ · F1 ✅ · F2 ✅ · F3 ✅ 11/11 · **F4 6/7**; siguiente: F4.3 — VER-04) | **Gate F3: ✅ local** (corte 0.8.0 preparado: guía + marcador R1 `b9296909` + R2; release real = lane owner post-push)
 > **Fuente:** `docs/dev/Backlog.md` (P52–P59 + FIND-*) + planes absorbidos (`2026-09-24-post-investigacion-integral.md` W2–W7, `2026-09-24-estabilizacion-pendiente.md`, `2026-09-24-harness-gaps.md`, `2026-09-24-sesion-continuidad.md`, `2026-09-20-estabilizacion-total.md`) + `docs/dev/strategy/` (13 docs) + Notion "VantaDB Docs" (~28 subpáginas) + investigación de riesgos 2026-09-26 (4 sub-agentes R1–R4, multi-fuente)
 > **Autonomous:** false — el owner gatea push/merge/release. **Push a `develop`: al completar el plan con todo validado/verificado** (decisión owner 2026-09-26, ver §Política de commits/push)
 > **Modo:** PLAN → ejecución con `/pipeline run docs/dev/plans/2026-09-26-master-roadmap.md`
@@ -978,7 +978,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** "flujo E2E verde con test: `vanta-cli export --format md` → edición manual de un .md → `vanta-seed import-md` → `vanta-cli rebuild-index` → search/get devuelve el valor editado Y frontmatter MD extendido a v2 (valid_at/invalid_at/confidence/quarantine; `MD_EXPORT_SCHEMA_VERSION` 1→2 con import aceptando 1..=2, sin breaking) Y wikilinks a registros relacionados (superseded_by/derived_from → `[[ns/key]]`) Y doc del flujo git-friendly (editar, diff, PR, rebuild) publicada"
 - **Task file:** `docs/dev/tasks/VER-06.md` (a crear en DISCOVERY)
-- **Estado:** ⏳ EN PROGRESO · **Branch:** develop · **Commit:**
+- **Estado:** ✅ COMPLETED (2026-09-29 — commit `d2e74316`; review + batch + delta ✅)
 - **Cynefin:** 🟦 obvio→🟨 — extender formato existente + un test E2E orquestado; el riesgo está en la compat de import.
 - **Top 3 riesgos:** 1. bump de frontmatter que rompe imports v1 (consumidores existentes) · 2. wikilinks que el import no resuelve → datos huérfanos · 3. rebuild-index que no re-deriva del contenido editado (confusión de fuente de verdad).
 - **Pre-mortem:** F1: import de un solo lado → import acepta 1..=2 + test explícito de compat (patrón import v1/v2 `serialization/mod.rs:692-706`); F2: wikilink roto → wikilinks informativos (no fuente de joins; resolubles best-effort al import) + reporte de links sin destino; F3: expectativa "Markdown es fuente de verdad" → doc explícita: el store es la fuente; MD es proyección (editar → re-import → rebuild).
@@ -1004,7 +1004,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** "delete-path completo y verificable: `delete`/`delete_batch`/purga cablean el shred store (`ShreddedRowStore::delete`), remueven de índices derivados (HNSW/text/derived) y dejan rastro WAL verificable Y certificado de purga (JSON con timestamp, key/namespace, superficies barridas y evidencia) emitido por CLI y MCP, consultable y determinista Y test E2E: record borrado → 0 residuos en store/índices/shred + certificado válido (con firma/chain de VER-01 si está; si no, campo reservado) Y doc (alcance: purga lógica/física; NO unlearning paramétrico)"
 - **Task file:** `docs/dev/tasks/VER-02.md` (a crear en DISCOVERY)
-- **Estado:** ⏳ EN PROGRESO · **Branch:** develop · **Commit:**
+- **Estado:** ✅ COMPLETED (2026-09-29 — commit `ccc51d09`; review ❌(H-1)→fixes→delta ✅) · **Branch:** develop · **Commit:**
 - **Cynefin:** 🟨 complicado — wiring en 3 capas (shred/GC/WAL) + definición de "purga completa" verificable sin sobre-prometer (unlearning).
 - **Top 3 riesgos:** 1. purga parcial declarada como total (overselling) · 2. romper el delete-path existente (hot path con `insert_lock`) · 3. certificado no verificable (decorativo).
 - **Pre-mortem:** F1: superficies sin cubrir (p.ej. offload o snapshots) → inventario por superficie con estado explícito en el certificado (cubierto/no-cubierto) — nunca silencio; F2: regresión en delete-path → shred purge best-effort post-commit (misma clase de durabilidad que put :390), nunca bloquea el delete core; F3: certificado sin checks → E2E negativo: re-scan encuentra 0 residuos + manipular el certificado rompe la verificación.
@@ -1030,7 +1030,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** "redacción-on-write persistida: lo que se persiste en store/índices es la versión redactada (mismos kinds del `Redactor`; test: PII sintética capturada → scan de store+índices+export v2 = 0 en claro) Y el original solo sobrevive en un envelope AEAD por namespace (descifrable únicamente con su key; rotación de claves declarada y testeada) Y sin key la degradación es explícita (modo configurado + warning; nunca caída silenciosa a claro) Y doc (config, formato del envelope, rotación, degradación)"
 - **Task file:** `docs/dev/tasks/VER-03.md` (a crear en DISCOVERY)
-- **Estado:** ⏳ EN PROGRESO · **Branch:** develop · **Commit:**
+- **Estado:** ✅ COMPLETED (2026-09-29 — commit `95407c78`; review vanta-audit + batch + delta ✅)
 - **Cynefin:** 🟨 complicado — componer redacción+cifrado en el write path sin romper búsqueda (¿el índice ve lo redactado?) ni el contrato de capture.
 - **Top 3 riesgos:** 1. redacción que deforma contenido legítimo (falsos positivos) → dato útil perdido · 2. envelope que rompe roundtrip/export (o queda huérfano sin key) · 3. degradación silenciosa a texto claro.
 - **Pre-mortem:** F1: FP del redactor → default Mask FP-safe (:44) + kinds configurables + el original en envelope permite recuperación con key (nada se pierde); F2: envelope fuera del contrato de export → decidir y documentar (export v2 lleva la versión redactada; envelope excluido o incluido con flag) + test de roundtrip; F3: sin key → modo explícito (error tipado o "store sin cifrar declarado") + test del modo.
@@ -1056,7 +1056,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** "presupuesto de inyección enforced y consistente por request (bloque `<vanta-memory>` ≤ budget; budget 0/bajo → inyección vacía o recortada verificada en test e2e del proxy; envelope MCP coherente con `byte_count`/`truncated`) Y ACLs por tool/namespace aplicadas a las superficies de inyección (precedente rbac.rs/middleware SRV-05; deny fuera de scope) Y audit log de inyección consultable: {sesión/prompt, memoria inyectada (ns/key), score, budget/truncado, decisión ACL} como eventos WORM-ready (preparado para el chain de VER-01, citado) Y doc (config + consulta del audit)"
 - **Task file:** `docs/dev/tasks/VER-04.md` (a crear en DISCOVERY)
-- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Estado:** ⏳ EN PROGRESO · **Branch:** develop · **Commit:**
 - **Cynefin:** 🟨 complicado — unificar budget/ACL/audit sobre 3 superficies de inyección (proxy, MCP, auto_recall) sin romper prompt-cache ni el contrato read-only.
 - **Top 3 riesgos:** 1. audit de inyección que registra PII (ironía del track privacidad) · 2. ACL que rompe la inyección legítima (deny por defecto mal calibrado) · 3. budget inconsistente entre superficies (proxy vs MCP).
 - **Pre-mortem:** F1: audit con contenido → registrar metadatos (ns/key/score/kinds) sin payload; nunca valores (precedente `RedactConfig` kinds sin valores, redact.rs:65); F2: ACL rompe flujos existentes → ACL opt-in con default actual (compatible) + tests de allow/deny; F3: budget divergente → única fuente `InjectionConfig`/`byte_budget` y test de consistencia por superficie.
@@ -1208,6 +1208,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **plan-adjust [2026-09-29e]:** **F3 COMPLETA (34/50) — GATE F3 ✅ local.** SCH-08 (`b9296909`): guía Upgrading-to-0.8.0 + auditoría release-plz (R1: commit marcador `feat(schema)!` + footer BREAKING CHANGE — garantiza 0.8.0 + breaking notes; R2: `[changelog] header` — preserva frontmatter, aplicado) + release notes draft + handoff owner (7 pasos; PR #228 vigente NO mergear). Review ❌→fixes→delta ✅. Release real = lane owner (push bloqueado por política). Siguiente: bloques F4 → wave F4.
 - **plan-adjust [2026-09-29f]:** **Bloques F4 completados al nivel F0/F1 (REGLA)** — Tasks 34-40 (VER-07/01/05/06/02/03/04), 23 campos c/u, Paso 0 verificado (codegraph/CBM): re-baselines clave — VER-07 stub en `dream/mod.rs:615-623` (doc :29-36 stale) · VER-01 frame `wal.rs:216-217` + `WalCommand` sin verify (extensión = bump WAL_FORMAT_VERSION) · VER-05 formato de intercambio YA existe (`MemoryExportLine` v2) · VER-02 `src/shred/` = JSON Shredding (certificado por superficie, sin overselling) · VER-03 redact solo egress + crypto global sin envelope per-namespace · VER-04 budget/RBAC/audit ya existen (slice = enforcement). Gate de fase F4 → wave lista.
 - **plan-adjust [2026-09-29g]:** **F4.1 cerrada (37/50)** — VER-07 (`412fbeaa` dreams promote real + dry_run; Gate H `d528e67`), VER-05 (`23c74a52` importadores + formato), VER-01 (`0cc14247` hash-chain + verify; docs lift `WAL_INTEGRITY.md`). Reviews: adversarial ×2 + vanta-audit (chain) + deltas ✅. FIND-189..192 (chain buffered · engine Cold cache · public-api harness · env hygiene). Wave F4.2 lanzada: VER-06/02/03.
+- **plan-adjust [2026-09-29h]:** **F4.2 cerrada (40/50)** — VER-06 (`d2e74316` export MD v2 git-friendly), VER-03 (`95407c78` redacción+AEAD), VER-02 (`ccc51d09` borrado certificado). Reviews: adversarial + vanta-audit ×2 con fixes (H-1 verify claim-driven → schema+residues-aware; F-01 hex panic → seguro) + deltas ✅. FIND-193..195 (campaign planFile · rotación/recovery · PII adyacentes). Wave F4.3 lanzada: VER-04.
 
 ## Recitation
 
@@ -1216,9 +1217,9 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
 Objetivo activo: F3 — Bitemporalidad/confianza/cuarentena + schema v2 (MGR/SCH)
 Estado: in-progress
-Última acción: F4.1 COMPLETA (37/50 — VER-07/01/05; commits 412fbeaa/23c74a52/0cc14247); wave F4.2 lanzada
-Resultado: OK (F0 7/7 · F1 8/8 · F2 7/7 · F3 11/11 · F4 3/7)
-Próxima acción: F4.2 (VER-06 ‖ VER-02 ‖ VER-03) → VER-04 → gate F4
+Última acción: F4.2 COMPLETA (40/50 — VER-06/02/03; commits d2e74316/95407c78/ccc51d09); wave F4.3 lanzada (VER-04)
+Resultado: OK (F0 7/7 · F1 8/8 · F2 7/7 · F3 11/11 · F4 6/7)
+Próxima acción: VER-04 (governance de inyección) → gate F4 → F5
 Contrato: —
 Próxima tarea si completa: HARD-01
 === END RECITATION ===
@@ -1658,33 +1659,44 @@ Próxima tarea si completa: VER-06
 
 === RECITATION VER-06 ===
 Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
-Objetivo activo: VER-06 — wave F4.2
-Estado: in-progress
-Última acción: Claim (wave F4.2)
-Resultado: PENDING
-Próxima acción: DISCOVERY + implementación (vanta-worker)
-Contrato: ver bloque Task 37-39 del plan
-Próxima tarea si completa: VER-06
+Objetivo activo: VER-06 — Export file-native Markdown + rebuild_index
+Estado: completed
+Última acción: 7/7 ✅ + review APPROVE + batch (CRLF/docs) + delta ✅; commit pendiente inmediato
+Resultado: OK
+Próxima acción: Wave F4.3: VER-04
+Contrato: MD v2 git-friendly byte-estable + E2E real (vanta-memory 567/567)
+Próxima tarea si completa: VER-04
 === END RECITATION ===
 
 === RECITATION VER-02 ===
 Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
-Objetivo activo: VER-02 — wave F4.2
-Estado: in-progress
-Última acción: Claim (wave F4.2)
-Resultado: PENDING
-Próxima acción: DISCOVERY + implementación (vanta-worker)
-Contrato: ver bloque Task 37-39 del plan
-Próxima tarea si completa: VER-02
+Objetivo activo: VER-02 — Borrado certificado
+Estado: completed
+Última acción: 8/8 ✅ + review vanta-audit ❌(H-1) → fixes (schema+residues-aware) → delta ✅ (PoC bloqueado)
+Resultado: OK
+Próxima acción: Wave F4.3: VER-04
+Contrato: certificado por superficie verificable (certified_delete 9/9 · full 2542/2542)
+Próxima tarea si completa: VER-04
 === END RECITATION ===
 
 === RECITATION VER-03 ===
 Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
-Objetivo activo: VER-03 — wave F4.2
+Objetivo activo: VER-03 — Redacción-on-write + namespaces cifrados
+Estado: completed
+Última acción: 5/5 ✅ + review vanta-audit APPROVE + batch (F-01..F-04) + delta ✅
+Resultado: OK
+Próxima acción: Wave F4.3: VER-04
+Contrato: redacción persistida + AEAD envelope + degradación explícita (proxy 303/303 · crypto 22/22)
+Próxima tarea si completa: VER-04
+=== END RECITATION ===
+
+=== RECITATION VER-04 ===
+Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
+Objetivo activo: VER-04 — Governance de inyección (presupuesto + ACLs + audit log)
 Estado: in-progress
-Última acción: Claim (wave F4.2)
+Última acción: Claim (wave F4.3)
 Resultado: PENDING
 Próxima acción: DISCOVERY + implementación (vanta-worker)
-Contrato: ver bloque Task 37-39 del plan
-Próxima tarea si completa: VER-03
+Contrato: ver bloque Task 40 del plan
+Próxima tarea si completa: VER-04
 === END RECITATION ===
