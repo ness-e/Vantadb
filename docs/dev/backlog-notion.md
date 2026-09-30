@@ -17,9 +17,7 @@ kind: research
 
 ## Roadmap y Propuesta (sincronización con código)
 
-| ID | Página(s) | Alcance | Verificación | Estado |
-|----|-----------|---------|--------------|--------|
-| `N-17` | **Sync 2026-09-24 (10 páginas + higiene)** — aplicar los borradores de `docs/dev/strategy/NOTION-SYNC-2026-09-24.md`: Problema (evidencia autoenvenenamiento/ventana/benchmarks quemados), Propuesta (matriz 2026-09-24 + decisiones owner + Anexo C Memory Contracts), Roadmap (P52–P56 + gates), SDKs, Benchmarks (caveats + planificado), Seguridad, Observabilidad, Gobernanza, Casos de uso (3 tracks ICP), Definición oficial (tagline + North Star); consolidar `VantaDB Docs (1)` y archivar `VantaDB OLD` | Claims verificados contra código (Regla 11) + fecha + links cruzados al repo | ⬜ Pendiente (2026-09-24) |
+> Sin filas pendientes — `N-17` cerrada 2026-09-30 (sync ejecutado + verificado + Sync #2 validación externa; registro en `docs/dev/avance/activo/operaciones.md`).
 ## Research (brechas del análisis, sin tarea en ningún backlog)
 
 | ID | Tema | Alcance | Origen | Estado |
