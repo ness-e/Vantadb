@@ -254,7 +254,7 @@ verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-hist
 - **Referencias:** Notion MGR-25 · MGR-01/MGR-12 (deps)
 
 #### MEMG-09 — Track PI restante (MGR-23/24)
-- **Qué:** memoria de proyecto/ingeniería: (a) grafo decisión→código→test (commits/issues→soluciones de referencia); (b) taxonomía de lo memorable (mapa, convenciones, ADRs, historia, dependencias, deuda, patrones de fallo). MGR-22 (repo-map/indexación incremental) = FIND-196 ya registrado.
+- **Qué:** memoria de proyecto/ingeniería: (a) grafo decisión→código→test (commits/issues→soluciones de referencia); (b) taxonomía de lo memorable (mapa, convenciones, ADRs, historia, dependencias, deuda, patrones de fallo). MGR-22 (repo-map/indexación incremental) = FIND-196 ya registrado; (c) [validación externa 2026-09-30] incorporar detalles de industria vs PI-1/2/3: presupuestos de carga (límites tipo Claude Code ~25KB), ranking dependiente de tarea (Aider) y hooks de verificación (OpenHands).
 - **Por qué:** el repo como identidad persistente es el caso de uso natural del grafo+memoria; ventana Kuzu.
 - **Evidencia:** Notion track PI (hub + PI-1) · `code_*` tools existen (BFS profundidad-1) pero `code_files` NO soportado.
 - **Esfuerzo:** 2-4sem · **Dueño:** vanta-arch + vanta-worker
@@ -281,7 +281,7 @@ verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-hist
 - **Referencias:** análisis vanta-memory↔core 2026-09-30 · SCH-02/04/05 · MEMG-01/02 · MGR-09 · FIND-188/199
 
 #### MEMG-14 — Marco 2.0: núcleo + extensiones (taxonomía abierta)
-- **Qué:** reformular el marco 8/6/10/PI como "núcleo + extensiones" tras la validación externa: (a) áreas candidatas 7/8 — **portabilidad/interoperabilidad** y **compartir/colaboración multi-agente** — + meta-área **observabilidad/evaluación**; (b) ámbitos candidatos (privacidad/compliance+portabilidad, economía operacional, multimodalidad, multi-agente) y ampliaciones (#1 abstención/calibración, #9 test-time learning); (c) ejes ortogonales (sustrato/forma token-paramétrico-latente; sujeto single/multi-agente) + cadencia multiescala L0→L3; (d) corregir "taxonomía cerrada en seis" → núcleo+extensiones; (e) sync a Notion + respaldos al repo.
+- **Qué:** reformular el marco 8/6/10/PI como "núcleo + extensiones" tras la validación externa: (a) áreas candidatas 7/8 — **portabilidad/interoperabilidad** y **compartir/colaboración multi-agente** — + meta-área **observabilidad/evaluación**; (b) ámbitos candidatos (privacidad/compliance+portabilidad, economía operacional, multimodalidad, multi-agente) y ampliaciones (#1 abstención/calibración, #9 test-time learning); (c) ejes ortogonales (sustrato/forma token-paramétrico-latente; sujeto single/multi-agente) + cadencia multiescala L0→L3; (d) corregir "taxonomía cerrada en seis" → núcleo+extensiones + separar en la presentación funciones cognitivas (dims 1-4) de propiedades de ingeniería (dims 5-8, per surveys); (e) sync a Notion + respaldos al repo + registro de validaciones externas de apuestas propias (dream≈OpenAI dreaming/Letta sleep-time; bitemporal≈Zep; grafo decisión→código→test sin equivalente) + revisión periódica de re-validación (anual — los surveys 2024-26 mueven el mapa); (f) declarar confianza calibrada como extensión de la dim 6 y memoria paramétrica (Titans/Memory Layers) como fuera de alcance; (g) registrar la lista "no elevar" (idempotencia/effect semantics sin respaldo estable; economía = transversal de gobernanza, no área) + nota de validación externa débil del ámbito #4 (bitemporal).
 - **Por qué:** la validación externa 2026 muestra que la taxonomía no es cerrada (survey de seguridad arXiv 2604.16548 propone otro lifecycle de 6 fases incl. Share y Forget/Rollback; DAMA-DMBOK tiene Interoperabilidad como knowledge area); mantener el claim "cerrada" es riesgo de credibilidad (Regla 11).
 - **Evidencia (2026-09-30):** 4 research (≈100 fuentes, ~50 fetch-verificadas) · arXiv 2604.16548 · DAMA-DMBOK · W3C CG AI Agent Memory Interop · dims hub §Validación (candidatas descartadas).
 - **Esfuerzo:** 2-3d · **Dueño:** vanta-docs (+ vanta-research)
@@ -295,7 +295,7 @@ verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-hist
 - **Referencias:** análisis 2026-09-30 · VER-05/06 · FIND-200 · W3C/IETF
 
 #### MEMG-16 — Compartir/colaboración multi-agente (scopes + permisos + revocación)
-- **Qué:** memoria compartida con scopes (org/team/proyecto), permisos y revocación (sharing contracts: temporary/permanent/syndicate + revocation); compartida entre agentes (parent/subagente) y entre usuarios; consume MEMG-04/05 + EXE-07.
+- **Qué:** memoria compartida con scopes (org/team/proyecto), permisos y revocación (sharing contracts: temporary/permanent/syndicate + revocation); compartida entre agentes (parent/subagente) y entre usuarios; consume MEMG-04/05 + EXE-07; incluye documentar el modelo de datos compartidos y sus implicaciones de construcción (aislamiento, propagación/contagio, revocación, dev/build).
 - **Por qué:** "Share & Propagate" es fase propia del lifecycle académico 2026; Letta (shared blocks), Cognee (shared graphs) y CrewAI (scopes) ya lo ofrecen; MAST (NeurIPS 2025) documenta fallos de inter-agent misalignment; sin esto no hay caso "equipo".
 - **Evidencia (2026-09-30):** arXiv 2604.16548 (fase Share & Propagate + revocación) · `docs.letta.com` (shared blocks) · W3C sharing contracts · EXE-07 (P50) pendiente.
 - **Esfuerzo:** 1-2sem · **Dueño:** vanta-arch + vanta-worker
@@ -485,7 +485,7 @@ verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-hist
 - **Referencias:** análisis 2026-09-30 · ámbito 7 · W3C PROV
 
 #### MEMG-23 — Evaluación "mejora con experiencia" (STATE-Bench-style)
-- **Qué:** extender el harness VER-08 con una métrica de mejora con experiencia (¿el agente mejora al acumular memoria en tareas repetidas?) estilo STATE-Bench + MemoryAgentBench (test-time learning); declarar la economía (tokens/costo) como criterio de primera clase (ya en pares accuracy+tokens).
+- **Qué:** extender el harness VER-08 con una métrica de mejora con experiencia (¿el agente mejora al acumular memoria en tareas repetidas?) estilo STATE-Bench + MemoryAgentBench (test-time learning); declarar la economía (tokens/costo) como criterio de primera clase (ya en pares accuracy+tokens); incluir olvido selectivo (MemoryAgentBench) como métrica adicional (privacidad/Art.17).
 - **Por qué:** la métrica de la industria 2026 ya no es "¿recupera?" sino "¿el agente mejora?"; cierra el ángulo test-time learning que los ámbitos no listan.
 - **Evidencia (2026-09-30):** STATE-Bench (Microsoft, may-2026) · arXiv 2507.05257 (MemoryAgentBench) · VER-08 ✅ · eRAG (economía).
 - **Esfuerzo:** 2-3d · **Dueño:** vanta-tuner (+ vanta-research)
