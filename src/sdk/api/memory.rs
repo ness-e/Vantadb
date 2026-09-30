@@ -776,12 +776,18 @@ impl Embedded {
     /// ```
     #[tracing::instrument(skip(self), err)]
     pub fn delete(&self, namespace: &str, key: &str) -> Result<bool> {
+        Ok(self.delete_inner(namespace, key)?.is_some())
+    }
+
+    /// Shared delete logic (VER-02): performs the delete and returns the
+    /// removed record (`None` when the key did not exist).
+    fn delete_inner(&self, namespace: &str, key: &str) -> Result<Option<MemoryRecord>> {
         self.check_read_only()?;
         validate_namespace(namespace)?;
         validate_key(key)?;
 
         let Some(existing) = self.get(namespace, key)? else {
-            return Ok(false);
+            return Ok(None);
         };
 
         let node_id = memory_node_id(namespace, key);
@@ -800,7 +806,76 @@ impl Embedded {
             Some("memory delete".to_string()),
         ));
         res?;
-        Ok(true)
+        Ok(Some(existing))
+    }
+
+    /// Delete a record and emit a **purge certificate** (VER-02).
+    ///
+    /// The certificate inventories every purge surface (store, JSON-shredded
+    /// metadata, HNSW/vector store, derived/payload, text, sparse, version
+    /// history, WAL tombstone), records the exact evidence per surface, and
+    /// carries a deterministic `sha256` integrity hash plus a reference to the
+    /// VER-01 WAL hash-chain. Declared limits (physical media, backups,
+    /// archived WAL segments, exports, audit-log retention, parametric
+    /// unlearning) are always listed — the certificate never overstates the
+    /// purge.
+    ///
+    /// When the key does not exist, the certificate still reports the keyless
+    /// surfaces and marks record-dependent ones `not-assessed` (status
+    /// `not_found`) instead of claiming a clean purge.
+    ///
+    /// # Durability (cross-process verification)
+    ///
+    /// The certificate reflects the state of this live engine handle. A
+    /// verifier that opens the database **read-only** (e.g.
+    /// `vanta-cli certificate verify`) does not replay the WAL, so callers
+    /// that intend to verify the certificate after this process exits must
+    /// persist the purge first — call [`Embedded::flush`] or
+    /// [`Embedded::close`] after this method. The CLI delete path already
+    /// closes the database before returning.
+    #[tracing::instrument(skip(self), err)]
+    pub fn delete_certified(
+        &self,
+        namespace: &str,
+        key: &str,
+    ) -> Result<crate::attestation::PurgeCertificate> {
+        let deleted = self.delete_inner(namespace, key)?;
+        let engine = self.engine_handle()?;
+        let node_id = memory_node_id(namespace, key);
+        crate::attestation::build_certificate(
+            &engine,
+            deleted.as_ref(),
+            namespace,
+            key,
+            node_id,
+            "memory delete",
+        )
+    }
+
+    /// Verify a stored purge certificate (VER-02): schema + integrity hash,
+    /// then a re-scan of the surfaces that are re-checkable without the
+    /// deleted record.
+    ///
+    /// Fails when the certificate is structurally invalid (claimless/partial
+    /// surface inventory, unknown status, empty declared limits), when it was
+    /// edited/corrupted (hash mismatch), or when a surface it claimed clean
+    /// now holds entries / live residues remain while the certificate does not
+    /// attest a `not_found` report.
+    ///
+    /// Verification runs against the **live database handle**; a certificate
+    /// emitted by an unflushed process can yield a false negative until that
+    /// process flushes/closes (see [`Embedded::delete_certified`] §Durability).
+    /// The certificate is not bound to a database instance — verification
+    /// matches by namespace/key/node_id against whichever database is opened.
+    #[tracing::instrument(skip(self, certificate_json), err)]
+    pub fn verify_purge_certificate(
+        &self,
+        certificate_json: &str,
+    ) -> Result<crate::attestation::PurgeCertificateVerification> {
+        let certificate: crate::attestation::PurgeCertificate =
+            serde_json::from_str(certificate_json).map_err(Error::serialization)?;
+        let engine = self.engine_handle()?;
+        crate::attestation::verify_certificate(&engine, &certificate)
     }
 
     /// Insert or update a record with exact fields (used internally by import).

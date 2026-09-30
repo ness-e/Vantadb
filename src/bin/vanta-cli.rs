@@ -113,9 +113,34 @@ fn run() -> anyhow::Result<()> {
             )?
         }
 
-        Commands::Delete { namespace, key } => {
-            cli_handlers::cmd_delete(&args.db, &namespace, &key, args.verbose, args.json)?
+        Commands::Delete {
+            namespace,
+            key,
+            attest,
+            out,
+        } => {
+            if attest {
+                cli_handlers::cmd_delete_certified(
+                    &args.db,
+                    &namespace,
+                    &key,
+                    out.as_deref(),
+                    args.verbose,
+                    args.json,
+                )?
+            } else {
+                cli_handlers::cmd_delete(&args.db, &namespace, &key, args.verbose, args.json)?
+            }
         }
+
+        Commands::Certificate(cmd) => match cmd {
+            vantadb::cli::CertificateCommand::Verify { file } => {
+                let code = cli_handlers::cmd_certificate_verify(&args.db, &file, args.json)?;
+                if code != 0 {
+                    std::process::exit(code);
+                }
+            }
+        },
 
         Commands::DeleteByFilter { namespace, filter } => cli_handlers::cmd_delete_by_filter(
             &args.db,

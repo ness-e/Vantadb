@@ -453,6 +453,159 @@ pub fn cmd_delete(
     Ok(())
 }
 
+/// Delete a record and emit a purge certificate (VER-02).
+///
+/// The certificate inventories every purge surface (store, JSON-shredded
+/// metadata, vector index/store, derived/text/sparse indexes, version history,
+/// WAL tombstone) with per-surface evidence, an integrity hash and the VER-01
+/// chain reference. `--json` emits `{deleted, certificate}`; otherwise the
+/// human summary plus the pretty certificate JSON. With `out`, the raw pretty
+/// certificate is written to that file by the CLI itself (UTF-8; preferred
+/// over shell redirection on Windows, which can mangle non-ASCII).
+#[tracing::instrument]
+pub fn cmd_delete_certified(
+    db_path: &str,
+    namespace: &str,
+    key: &str,
+    out: Option<&str>,
+    verbose: bool,
+    json_output: bool,
+) -> Result<()> {
+    let path = std::path::Path::new(db_path);
+    if !path.exists() {
+        if json_output {
+            return print_json(&serde_json::json!({
+                "deleted": false,
+                "namespace": namespace,
+                "key": key,
+                "node_id": memory_node_id(namespace, key).to_string(),
+                "certificate": serde_json::Value::Null,
+            }));
+        }
+        print_warning(&format!(
+            "Database directory does not exist at '{}'. (empty)",
+            db_path
+        ));
+        return Ok(());
+    }
+
+    let spinner = create_spinner("Opening database...");
+    let db = open_embedded(db_path, false)?;
+    spinner.set_message("Deleting record + scanning purge surfaces...");
+
+    let certificate = db.delete_certified(namespace, key)?;
+    // Persist the purge (WAL + mmap / HNSW state) before returning: the
+    // certificate claims must survive a read-only reopen — `certificate
+    // verify` opens read-only and does not replay the WAL.
+    db.close()?;
+    spinner.finish_and_clear();
+
+    let deleted = certificate.status != "not_found";
+    let pretty =
+        serde_json::to_string_pretty(&certificate).map_err(crate::error::Error::serialization)?;
+
+    if let Some(out_path) = out {
+        std::fs::write(out_path, &pretty)?;
+        if json_output {
+            print_json(&serde_json::json!({
+                "deleted": deleted,
+                "namespace": namespace,
+                "key": key,
+                "node_id": &certificate.node_id,
+                "certificate_file": out_path,
+            }))?;
+        } else {
+            if deleted {
+                print_success(&format!("Record deleted: {}:{}", namespace, key));
+            } else {
+                print_warning(&format!("Record not found: {}:{}", namespace, key));
+            }
+            print_success(&format!("Certificate written to {out_path}"));
+        }
+        if verbose {
+            print_info(&format!("Certificate status: {}", certificate.status));
+        }
+        return Ok(());
+    }
+
+    if json_output {
+        print_json(&serde_json::json!({
+            "deleted": deleted,
+            "namespace": namespace,
+            "key": key,
+            "node_id": &certificate.node_id,
+            "certificate": &certificate,
+        }))?;
+        return Ok(());
+    }
+
+    if deleted {
+        print_success(&format!("Record deleted: {}:{}", namespace, key));
+    } else {
+        print_warning(&format!("Record not found: {}:{}", namespace, key));
+    }
+    if verbose {
+        print_info(&format!("Certificate status: {}", certificate.status));
+    }
+    println!("{pretty}");
+    Ok(())
+}
+
+/// Verify a stored purge certificate (VER-02) against the live database:
+/// integrity hash + re-scan of the re-checkable surfaces (store, shred,
+/// vector index, version history). Returns the CLI exit code
+/// (0 = valid; 1 = edited/corrupted certificate or residues reappeared).
+#[tracing::instrument]
+pub fn cmd_certificate_verify(db_path: &str, file: &str, json_output: bool) -> Result<i32> {
+    let content = std::fs::read_to_string(file)?;
+    // Accept both a raw certificate and the `delete --attest --json` envelope
+    // (`{"deleted":..,"certificate":{..}}`) so the CLI output round-trips.
+    let certificate_json = match serde_json::from_str::<serde_json::Value>(&content) {
+        Ok(value) => match value.get("certificate") {
+            Some(cert) if !cert.is_null() => cert.to_string(),
+            _ => content.clone(),
+        },
+        // Not valid JSON: hand it to the SDK parser so the error is typed.
+        Err(_) => content.clone(),
+    };
+    let db = open_embedded(db_path, true)?;
+    match db.verify_purge_certificate(&certificate_json) {
+        Ok(verification) => {
+            if json_output {
+                print_json(&serde_json::json!({
+                    "command": "certificate_verify",
+                    "ok": true,
+                    "db": db_path,
+                    "file": file,
+                    "verification": &verification,
+                }))?;
+            } else {
+                print_success(&format!(
+                    "Certificate valid — status '{}', integrity ok, residues now: {}, surfaces re-checked: {}",
+                    verification.status,
+                    verification.residues_now,
+                    verification.rechecked_surfaces.join(", ")
+                ));
+            }
+            Ok(0)
+        }
+        Err(e) => {
+            if json_output {
+                print_json(&serde_json::json!({
+                    "command": "certificate_verify",
+                    "ok": false,
+                    "db": db_path,
+                    "file": file,
+                    "error": e.to_string(),
+                }))?;
+            } else {
+                print_warning(&format!("Certificate INVALID: {e}"));
+            }
+            Ok(1)
+        }
+    }
+}
+
 /// Parse a JSON filter string (MongoDB-like) into a `MemoryFilter`.
 ///
 /// Accepts BOTH formats (AUD-048, unified semantics with the MCP channel):

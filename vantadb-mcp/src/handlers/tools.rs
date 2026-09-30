@@ -166,7 +166,7 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
         },
         {
             "name": "memory_delete",
-            "description": "Deletes a memory record by namespace and key.",
+            "description": "Deletes a memory record by namespace and key. With attest:true, also emits a VER-02 purge certificate (per-surface residue inventory, integrity hash, VER-01 WAL chain reference) under `certificate`.",
             "annotations": {
                 "title": "Memory Delete",
                 "readOnlyHint": false,
@@ -176,7 +176,8 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
             },
             "inputSchema": {
                 "type": "object", "properties": {
-                    "namespace": { "type": "string" }, "key": { "type": "string" }
+                    "namespace": { "type": "string" }, "key": { "type": "string" },
+                    "attest": { "type": "boolean", "description": "When true, include a VER-02 purge certificate for the deleted record." }
                 }, "required": ["namespace", "key"]
             }
         },
@@ -1557,12 +1558,28 @@ pub fn handle_tools_call(
                 .map_err(|e| e.to_json())?;
             validate_identifier(key, "key", config.max_key_length).map_err(|e| e.to_json())?;
 
+            let attest = args["attest"].as_bool().unwrap_or(false);
             let embedded = vantadb::Embedded::from_engine(storage.clone());
-            match embedded.delete(namespace, key) {
-                Ok(deleted) => Ok(text_content(serialize_content(
-                    &json!({"deleted": deleted}),
-                ))),
-                Err(e) => Ok(error_content_vanta(e)),
+            if attest {
+                // VER-02: certified delete — the response carries the purge
+                // certificate (per-surface inventory + integrity + chain ref).
+                match embedded.delete_certified(namespace, key) {
+                    Ok(certificate) => {
+                        let deleted = certificate.status != "not_found";
+                        Ok(text_content(serialize_content(&json!({
+                            "deleted": deleted,
+                            "certificate": &certificate,
+                        }))))
+                    }
+                    Err(e) => Ok(error_content_vanta(e)),
+                }
+            } else {
+                match embedded.delete(namespace, key) {
+                    Ok(deleted) => Ok(text_content(serialize_content(
+                        &json!({"deleted": deleted}),
+                    ))),
+                    Err(e) => Ok(error_content_vanta(e)),
+                }
             }
         }
 

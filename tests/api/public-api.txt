@@ -274,6 +274,137 @@ pub fn vantadb::api::scores::cosine_distance_to_similarity_clamped(f32) -> f32
 pub fn vantadb::api::scores::cosine_similarity_to_distance(f32) -> f32
 pub fn vantadb::api::scores::rrf_contribution(core::option::Option<usize>, core::option::Option<f32>) -> f32
 pub fn vantadb::api::scores::rrf_contribution_0based(usize, core::option::Option<f32>) -> f32
+pub mod vantadb::attestation
+pub struct vantadb::attestation::CertificateIntegrity
+pub vantadb::attestation::CertificateIntegrity::algorithm: alloc::string::String
+pub vantadb::attestation::CertificateIntegrity::sha256: alloc::string::String
+impl core::clone::Clone for vantadb::attestation::CertificateIntegrity
+pub fn vantadb::attestation::CertificateIntegrity::clone(&self) -> vantadb::attestation::CertificateIntegrity
+impl core::cmp::Eq for vantadb::attestation::CertificateIntegrity
+impl core::cmp::PartialEq for vantadb::attestation::CertificateIntegrity
+pub fn vantadb::attestation::CertificateIntegrity::eq(&self, &vantadb::attestation::CertificateIntegrity) -> bool
+impl core::fmt::Debug for vantadb::attestation::CertificateIntegrity
+pub fn vantadb::attestation::CertificateIntegrity::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vantadb::attestation::CertificateIntegrity
+impl serde_core::ser::Serialize for vantadb::attestation::CertificateIntegrity
+pub fn vantadb::attestation::CertificateIntegrity::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vantadb::attestation::CertificateIntegrity
+pub fn vantadb::attestation::CertificateIntegrity::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for vantadb::attestation::CertificateIntegrity
+impl core::marker::Send for vantadb::attestation::CertificateIntegrity
+impl core::marker::Sync for vantadb::attestation::CertificateIntegrity
+impl core::marker::Unpin for vantadb::attestation::CertificateIntegrity
+impl core::marker::UnsafeUnpin for vantadb::attestation::CertificateIntegrity
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::attestation::CertificateIntegrity
+impl core::panic::unwind_safe::UnwindSafe for vantadb::attestation::CertificateIntegrity
+pub struct vantadb::attestation::ChainEvidence
+pub vantadb::attestation::ChainEvidence::chained: bool
+pub vantadb::attestation::ChainEvidence::format_version: u32
+pub vantadb::attestation::ChainEvidence::scheme: alloc::string::String
+pub vantadb::attestation::ChainEvidence::status: alloc::string::String
+pub vantadb::attestation::ChainEvidence::verify_command: alloc::string::String
+impl core::clone::Clone for vantadb::attestation::ChainEvidence
+pub fn vantadb::attestation::ChainEvidence::clone(&self) -> vantadb::attestation::ChainEvidence
+impl core::cmp::Eq for vantadb::attestation::ChainEvidence
+impl core::cmp::PartialEq for vantadb::attestation::ChainEvidence
+pub fn vantadb::attestation::ChainEvidence::eq(&self, &vantadb::attestation::ChainEvidence) -> bool
+impl core::fmt::Debug for vantadb::attestation::ChainEvidence
+pub fn vantadb::attestation::ChainEvidence::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vantadb::attestation::ChainEvidence
+impl serde_core::ser::Serialize for vantadb::attestation::ChainEvidence
+pub fn vantadb::attestation::ChainEvidence::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vantadb::attestation::ChainEvidence
+pub fn vantadb::attestation::ChainEvidence::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for vantadb::attestation::ChainEvidence
+impl core::marker::Send for vantadb::attestation::ChainEvidence
+impl core::marker::Sync for vantadb::attestation::ChainEvidence
+impl core::marker::Unpin for vantadb::attestation::ChainEvidence
+impl core::marker::UnsafeUnpin for vantadb::attestation::ChainEvidence
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::attestation::ChainEvidence
+impl core::panic::unwind_safe::UnwindSafe for vantadb::attestation::ChainEvidence
+pub struct vantadb::attestation::PurgeCertificate
+pub vantadb::attestation::PurgeCertificate::chain: vantadb::attestation::ChainEvidence
+pub vantadb::attestation::PurgeCertificate::integrity: vantadb::attestation::CertificateIntegrity
+pub vantadb::attestation::PurgeCertificate::key: alloc::string::String
+pub vantadb::attestation::PurgeCertificate::namespace: alloc::string::String
+pub vantadb::attestation::PurgeCertificate::node_id: alloc::string::String
+pub vantadb::attestation::PurgeCertificate::out_of_scope: alloc::vec::Vec<alloc::string::String>
+pub vantadb::attestation::PurgeCertificate::reason: alloc::string::String
+pub vantadb::attestation::PurgeCertificate::schema_version: u32
+pub vantadb::attestation::PurgeCertificate::status: alloc::string::String
+pub vantadb::attestation::PurgeCertificate::surfaces: alloc::vec::Vec<vantadb::attestation::SurfaceReport>
+pub vantadb::attestation::PurgeCertificate::timestamp: alloc::string::String
+impl core::clone::Clone for vantadb::attestation::PurgeCertificate
+pub fn vantadb::attestation::PurgeCertificate::clone(&self) -> vantadb::attestation::PurgeCertificate
+impl core::cmp::Eq for vantadb::attestation::PurgeCertificate
+impl core::cmp::PartialEq for vantadb::attestation::PurgeCertificate
+pub fn vantadb::attestation::PurgeCertificate::eq(&self, &vantadb::attestation::PurgeCertificate) -> bool
+impl core::fmt::Debug for vantadb::attestation::PurgeCertificate
+pub fn vantadb::attestation::PurgeCertificate::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vantadb::attestation::PurgeCertificate
+impl serde_core::ser::Serialize for vantadb::attestation::PurgeCertificate
+pub fn vantadb::attestation::PurgeCertificate::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vantadb::attestation::PurgeCertificate
+pub fn vantadb::attestation::PurgeCertificate::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for vantadb::attestation::PurgeCertificate
+impl core::marker::Send for vantadb::attestation::PurgeCertificate
+impl core::marker::Sync for vantadb::attestation::PurgeCertificate
+impl core::marker::Unpin for vantadb::attestation::PurgeCertificate
+impl core::marker::UnsafeUnpin for vantadb::attestation::PurgeCertificate
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::attestation::PurgeCertificate
+impl core::panic::unwind_safe::UnwindSafe for vantadb::attestation::PurgeCertificate
+pub struct vantadb::attestation::PurgeCertificateVerification
+pub vantadb::attestation::PurgeCertificateVerification::integrity: alloc::string::String
+pub vantadb::attestation::PurgeCertificateVerification::key: alloc::string::String
+pub vantadb::attestation::PurgeCertificateVerification::namespace: alloc::string::String
+pub vantadb::attestation::PurgeCertificateVerification::rechecked_surfaces: alloc::vec::Vec<alloc::string::String>
+pub vantadb::attestation::PurgeCertificateVerification::residues_now: u64
+pub vantadb::attestation::PurgeCertificateVerification::schema_version: u32
+pub vantadb::attestation::PurgeCertificateVerification::status: alloc::string::String
+impl core::clone::Clone for vantadb::attestation::PurgeCertificateVerification
+pub fn vantadb::attestation::PurgeCertificateVerification::clone(&self) -> vantadb::attestation::PurgeCertificateVerification
+impl core::cmp::Eq for vantadb::attestation::PurgeCertificateVerification
+impl core::cmp::PartialEq for vantadb::attestation::PurgeCertificateVerification
+pub fn vantadb::attestation::PurgeCertificateVerification::eq(&self, &vantadb::attestation::PurgeCertificateVerification) -> bool
+impl core::fmt::Debug for vantadb::attestation::PurgeCertificateVerification
+pub fn vantadb::attestation::PurgeCertificateVerification::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vantadb::attestation::PurgeCertificateVerification
+impl serde_core::ser::Serialize for vantadb::attestation::PurgeCertificateVerification
+pub fn vantadb::attestation::PurgeCertificateVerification::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vantadb::attestation::PurgeCertificateVerification
+pub fn vantadb::attestation::PurgeCertificateVerification::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for vantadb::attestation::PurgeCertificateVerification
+impl core::marker::Send for vantadb::attestation::PurgeCertificateVerification
+impl core::marker::Sync for vantadb::attestation::PurgeCertificateVerification
+impl core::marker::Unpin for vantadb::attestation::PurgeCertificateVerification
+impl core::marker::UnsafeUnpin for vantadb::attestation::PurgeCertificateVerification
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::attestation::PurgeCertificateVerification
+impl core::panic::unwind_safe::UnwindSafe for vantadb::attestation::PurgeCertificateVerification
+pub struct vantadb::attestation::SurfaceReport
+pub vantadb::attestation::SurfaceReport::action: alloc::string::String
+pub vantadb::attestation::SurfaceReport::evidence: alloc::string::String
+pub vantadb::attestation::SurfaceReport::residues: u64
+pub vantadb::attestation::SurfaceReport::surface: alloc::string::String
+impl core::clone::Clone for vantadb::attestation::SurfaceReport
+pub fn vantadb::attestation::SurfaceReport::clone(&self) -> vantadb::attestation::SurfaceReport
+impl core::cmp::Eq for vantadb::attestation::SurfaceReport
+impl core::cmp::PartialEq for vantadb::attestation::SurfaceReport
+pub fn vantadb::attestation::SurfaceReport::eq(&self, &vantadb::attestation::SurfaceReport) -> bool
+impl core::fmt::Debug for vantadb::attestation::SurfaceReport
+pub fn vantadb::attestation::SurfaceReport::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vantadb::attestation::SurfaceReport
+impl serde_core::ser::Serialize for vantadb::attestation::SurfaceReport
+pub fn vantadb::attestation::SurfaceReport::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vantadb::attestation::SurfaceReport
+pub fn vantadb::attestation::SurfaceReport::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for vantadb::attestation::SurfaceReport
+impl core::marker::Send for vantadb::attestation::SurfaceReport
+impl core::marker::Sync for vantadb::attestation::SurfaceReport
+impl core::marker::Unpin for vantadb::attestation::SurfaceReport
+impl core::marker::UnsafeUnpin for vantadb::attestation::SurfaceReport
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::attestation::SurfaceReport
+impl core::panic::unwind_safe::UnwindSafe for vantadb::attestation::SurfaceReport
+pub const vantadb::attestation::PURGE_CERTIFICATE_SCHEMA_VERSION: u32
 pub mod vantadb::audit
 pub struct vantadb::audit::AuditEvent
 pub vantadb::audit::AuditEvent::key: alloc::string::String
@@ -352,20 +483,46 @@ impl core::panic::unwind_safe::RefUnwindSafe for vantadb::binary_header::Header
 impl core::panic::unwind_safe::UnwindSafe for vantadb::binary_header::Header
 pub type vantadb::binary_header::VantaHeader = vantadb::binary_header::Header
 pub mod vantadb::cli
+pub enum vantadb::cli::CertificateCommand
+pub vantadb::cli::CertificateCommand::Verify
+pub vantadb::cli::CertificateCommand::Verify::file: alloc::string::String
+impl clap_builder::derive::FromArgMatches for vantadb::cli::CertificateCommand
+pub fn vantadb::cli::CertificateCommand::from_arg_matches(&clap_builder::parser::matches::arg_matches::ArgMatches) -> core::result::Result<Self, clap_builder::Error>
+pub fn vantadb::cli::CertificateCommand::from_arg_matches_mut(&mut clap_builder::parser::matches::arg_matches::ArgMatches) -> core::result::Result<Self, clap_builder::Error>
+pub fn vantadb::cli::CertificateCommand::update_from_arg_matches(&mut self, &clap_builder::parser::matches::arg_matches::ArgMatches) -> core::result::Result<(), clap_builder::Error>
+pub fn vantadb::cli::CertificateCommand::update_from_arg_matches_mut<'b>(&mut self, &mut clap_builder::parser::matches::arg_matches::ArgMatches) -> core::result::Result<(), clap_builder::Error>
+impl clap_builder::derive::Subcommand for vantadb::cli::CertificateCommand
+pub fn vantadb::cli::CertificateCommand::augment_subcommands<'b>(clap_builder::builder::command::Command) -> clap_builder::builder::command::Command
+pub fn vantadb::cli::CertificateCommand::augment_subcommands_for_update<'b>(clap_builder::builder::command::Command) -> clap_builder::builder::command::Command
+pub fn vantadb::cli::CertificateCommand::has_subcommand(&str) -> bool
+impl core::clone::Clone for vantadb::cli::CertificateCommand
+pub fn vantadb::cli::CertificateCommand::clone(&self) -> vantadb::cli::CertificateCommand
+impl core::fmt::Debug for vantadb::cli::CertificateCommand
+pub fn vantadb::cli::CertificateCommand::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Freeze for vantadb::cli::CertificateCommand
+impl core::marker::Send for vantadb::cli::CertificateCommand
+impl core::marker::Sync for vantadb::cli::CertificateCommand
+impl core::marker::Unpin for vantadb::cli::CertificateCommand
+impl core::marker::UnsafeUnpin for vantadb::cli::CertificateCommand
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::cli::CertificateCommand
+impl core::panic::unwind_safe::UnwindSafe for vantadb::cli::CertificateCommand
 pub enum vantadb::cli::Commands
 pub vantadb::cli::Commands::AuditIndex
 pub vantadb::cli::Commands::AuditIndex::deep: bool
 pub vantadb::cli::Commands::AuditIndex::namespace: core::option::Option<alloc::string::String>
 pub vantadb::cli::Commands::Backup
 pub vantadb::cli::Commands::Backup::out: core::option::Option<alloc::string::String>
+pub vantadb::cli::Commands::Certificate(vantadb::cli::CertificateCommand)
 pub vantadb::cli::Commands::Completions
 pub vantadb::cli::Commands::Completions::shell: vantadb::cli::Shell
 pub vantadb::cli::Commands::Count
 pub vantadb::cli::Commands::Count::filter: core::option::Option<alloc::string::String>
 pub vantadb::cli::Commands::Count::namespace: alloc::string::String
 pub vantadb::cli::Commands::Delete
+pub vantadb::cli::Commands::Delete::attest: bool
 pub vantadb::cli::Commands::Delete::key: alloc::string::String
 pub vantadb::cli::Commands::Delete::namespace: alloc::string::String
+pub vantadb::cli::Commands::Delete::out: core::option::Option<alloc::string::String>
 pub vantadb::cli::Commands::DeleteByFilter
 pub vantadb::cli::Commands::DeleteByFilter::filter: alloc::string::String
 pub vantadb::cli::Commands::DeleteByFilter::namespace: alloc::string::String
@@ -735,9 +892,11 @@ impl core::panic::unwind_safe::UnwindSafe for vantadb::cli_handlers::RestoreOpti
 pub fn vantadb::cli_handlers::backup::cmd_backup(&str, core::option::Option<&str>, bool, bool) -> vantadb::error::Result<()>
 pub fn vantadb::cli_handlers::backup::cmd_restore(&str, &str, vantadb::cli_handlers::RestoreOptions, bool) -> vantadb::error::Result<()>
 pub mod vantadb::cli_handlers::crud
+pub fn vantadb::cli_handlers::crud::cmd_certificate_verify(&str, &str, bool) -> vantadb::error::Result<i32>
 pub fn vantadb::cli_handlers::crud::cmd_count(&str, &str, core::option::Option<&str>, bool, bool) -> vantadb::error::Result<()>
 pub fn vantadb::cli_handlers::crud::cmd_delete(&str, &str, &str, bool, bool) -> vantadb::error::Result<()>
 pub fn vantadb::cli_handlers::crud::cmd_delete_by_filter(&str, &str, &str, bool, bool) -> vantadb::error::Result<()>
+pub fn vantadb::cli_handlers::crud::cmd_delete_certified(&str, &str, &str, core::option::Option<&str>, bool, bool) -> vantadb::error::Result<()>
 pub fn vantadb::cli_handlers::crud::cmd_get(&str, &str, &str, bool, bool) -> vantadb::error::Result<()>
 pub fn vantadb::cli_handlers::crud::cmd_list(&str, &str, usize, bool, bool) -> vantadb::error::Result<()>
 pub fn vantadb::cli_handlers::crud::cmd_put(&str, &str, &str, &str, core::option::Option<&str>, core::option::Option<&str>, bool, bool) -> vantadb::error::Result<()>
@@ -1075,10 +1234,12 @@ pub fn vantadb::cli_handlers::build_request(u64, &str, serde_json::value::Value)
 pub fn vantadb::cli_handlers::classify_response(&str, u64) -> vantadb::cli_handlers::CallOutcome
 pub fn vantadb::cli_handlers::cmd_audit_index(&str, core::option::Option<&str>, bool, bool) -> vantadb::error::Result<()>
 pub fn vantadb::cli_handlers::cmd_backup(&str, core::option::Option<&str>, bool, bool) -> vantadb::error::Result<()>
+pub fn vantadb::cli_handlers::cmd_certificate_verify(&str, &str, bool) -> vantadb::error::Result<i32>
 pub fn vantadb::cli_handlers::cmd_completions(vantadb::cli::Shell)
 pub fn vantadb::cli_handlers::cmd_count(&str, &str, core::option::Option<&str>, bool, bool) -> vantadb::error::Result<()>
 pub fn vantadb::cli_handlers::cmd_delete(&str, &str, &str, bool, bool) -> vantadb::error::Result<()>
 pub fn vantadb::cli_handlers::cmd_delete_by_filter(&str, &str, &str, bool, bool) -> vantadb::error::Result<()>
+pub fn vantadb::cli_handlers::cmd_delete_certified(&str, &str, &str, core::option::Option<&str>, bool, bool) -> vantadb::error::Result<()>
 pub fn vantadb::cli_handlers::cmd_doctor(&str, vantadb::cli_handlers::DoctorOptions, bool) -> vantadb::error::Result<()>
 pub fn vantadb::cli_handlers::cmd_export(&str, core::option::Option<&str>, &str, bool) -> vantadb::error::Result<()>
 pub fn vantadb::cli_handlers::cmd_export_md(&str, core::option::Option<&str>, &str, bool) -> vantadb::error::Result<()>
@@ -5249,6 +5410,7 @@ impl vantadb::Embedded
 pub fn vantadb::Embedded::bulk_import_file(&self, &str) -> vantadb::error::Result<vantadb::BulkImportReport>
 pub fn vantadb::Embedded::bulk_import_stream<R: std::io::Read>(&self, &mut R) -> vantadb::error::Result<vantadb::BulkImportReport>
 pub fn vantadb::Embedded::delete(&self, &str, &str) -> vantadb::error::Result<bool>
+pub fn vantadb::Embedded::delete_certified(&self, &str, &str) -> vantadb::error::Result<vantadb::attestation::PurgeCertificate>
 pub fn vantadb::Embedded::get(&self, &str, &str) -> vantadb::error::Result<core::option::Option<vantadb::MemoryRecord>>
 pub fn vantadb::Embedded::get_version(&self, &str, &str, u64) -> vantadb::error::Result<core::option::Option<vantadb::MemoryRecord>>
 pub fn vantadb::Embedded::purge_expired(&self) -> vantadb::error::Result<u64>
@@ -5258,6 +5420,7 @@ pub fn vantadb::Embedded::quarantine_apply(&self, &str, &str, core::option::Opti
 pub fn vantadb::Embedded::quarantine_promote(&self, &str, &str) -> vantadb::error::Result<vantadb::MemoryRecord>
 pub fn vantadb::Embedded::quarantine_reject(&self, &str, &str) -> vantadb::error::Result<bool>
 pub fn vantadb::Embedded::supersede(&self, &str, &str, &str) -> vantadb::error::Result<()>
+pub fn vantadb::Embedded::verify_purge_certificate(&self, &str) -> vantadb::error::Result<vantadb::attestation::PurgeCertificateVerification>
 pub fn vantadb::Embedded::versions(&self, &str, &str) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemoryRecord>>
 impl vantadb::Embedded
 pub fn vantadb::Embedded::capabilities(&self) -> vantadb::Capabilities
@@ -8120,6 +8283,7 @@ impl vantadb::Embedded
 pub fn vantadb::Embedded::bulk_import_file(&self, &str) -> vantadb::error::Result<vantadb::BulkImportReport>
 pub fn vantadb::Embedded::bulk_import_stream<R: std::io::Read>(&self, &mut R) -> vantadb::error::Result<vantadb::BulkImportReport>
 pub fn vantadb::Embedded::delete(&self, &str, &str) -> vantadb::error::Result<bool>
+pub fn vantadb::Embedded::delete_certified(&self, &str, &str) -> vantadb::error::Result<vantadb::attestation::PurgeCertificate>
 pub fn vantadb::Embedded::get(&self, &str, &str) -> vantadb::error::Result<core::option::Option<vantadb::MemoryRecord>>
 pub fn vantadb::Embedded::get_version(&self, &str, &str, u64) -> vantadb::error::Result<core::option::Option<vantadb::MemoryRecord>>
 pub fn vantadb::Embedded::purge_expired(&self) -> vantadb::error::Result<u64>
@@ -8129,6 +8293,7 @@ pub fn vantadb::Embedded::quarantine_apply(&self, &str, &str, core::option::Opti
 pub fn vantadb::Embedded::quarantine_promote(&self, &str, &str) -> vantadb::error::Result<vantadb::MemoryRecord>
 pub fn vantadb::Embedded::quarantine_reject(&self, &str, &str) -> vantadb::error::Result<bool>
 pub fn vantadb::Embedded::supersede(&self, &str, &str, &str) -> vantadb::error::Result<()>
+pub fn vantadb::Embedded::verify_purge_certificate(&self, &str) -> vantadb::error::Result<vantadb::attestation::PurgeCertificateVerification>
 pub fn vantadb::Embedded::versions(&self, &str, &str) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemoryRecord>>
 impl vantadb::Embedded
 pub fn vantadb::Embedded::capabilities(&self) -> vantadb::Capabilities

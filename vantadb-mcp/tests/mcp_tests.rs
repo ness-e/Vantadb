@@ -634,6 +634,60 @@ fn test_mcp_tool_flow_crud() {
     assert_eq!(get_val_after["isError"], true);
 }
 
+/// VER-02: `memory_delete {attest:true}` returns the purge certificate
+/// (per-surface inventory + integrity hash + VER-01 chain reference).
+#[test]
+fn test_memory_delete_attest_emits_purge_certificate() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    let put = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "cert_ns",
+            "key": "cert_key",
+            "payload": "certified delete target",
+            "metadata": { "stage": 3 }
+        }
+    }));
+    let put_res = handle_tools_call(&put, &executor, &storage, &default_config());
+    assert!(put_res.is_ok(), "memory_put should succeed");
+    assert!(put_res.unwrap()["isError"].is_null());
+
+    let del = Some(json!({
+        "name": "memory_delete",
+        "arguments": { "namespace": "cert_ns", "key": "cert_key", "attest": true }
+    }));
+    let del_res =
+        handle_tools_call(&del, &executor, &storage, &default_config()).expect("tool call");
+    assert!(
+        del_res["isError"].is_null(),
+        "attested delete must not error: {del_res}"
+    );
+    let text = del_res["content"][0]["text"].as_str().unwrap();
+    let payload: Value = serde_json::from_str(text).expect("delete response is JSON");
+
+    assert_eq!(payload["deleted"], json!(true));
+    let cert = &payload["certificate"];
+    assert_eq!(cert["schema_version"], json!(1));
+    assert_eq!(cert["status"], json!("purged"));
+    assert_eq!(
+        cert["integrity"]["sha256"].as_str().unwrap().len(),
+        64,
+        "certificate must carry the hex SHA-256 integrity hash"
+    );
+    assert!(
+        cert["surfaces"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|surface| surface["residues"] == json!(0)),
+        "all surfaces must report 0 residues: {cert}"
+    );
+    assert_eq!(cert["chain"]["chained"], json!(true));
+    assert_eq!(cert["chain"]["format_version"], json!(3));
+}
+
 #[test]
 fn test_mcp_tool_query_iql() {
     let (_dir, storage) = setup_storage();

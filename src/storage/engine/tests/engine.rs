@@ -142,6 +142,79 @@ fn test_purge_permanent() {
     assert!(engine.get(200).unwrap().is_none());
 }
 
+// ─── VER-02: shredded-store purge on the delete path ──────────
+
+/// Seed one shredded metadata entry for `id` (JSON Shredding column store).
+fn seed_shredded_entry(engine: &StorageEngine, id: u128) {
+    let mut fields = std::collections::BTreeMap::new();
+    fields.insert(
+        "color".to_string(),
+        crate::Value::String("blue".to_string()),
+    );
+    crate::shred::ShreddedRowStore::put(id, &fields, &*engine.backend).expect("shred put");
+}
+
+fn shredded_entry_present(engine: &StorageEngine, id: u128) -> bool {
+    crate::shred::ShreddedRowStore::get(id, &*engine.backend)
+        .expect("shred get")
+        .is_some()
+}
+
+#[test]
+fn delete_purges_shredded_metadata_entry() {
+    let engine = in_memory_engine();
+    engine.insert(&sample_node(10)).expect("insert");
+    seed_shredded_entry(&engine, 10);
+    assert!(shredded_entry_present(&engine, 10), "precondition");
+
+    engine.delete(10, "test").expect("delete");
+
+    assert!(
+        !shredded_entry_present(&engine, 10),
+        "VER-02: delete must purge the shredded metadata entry"
+    );
+}
+
+#[test]
+fn delete_without_shredded_entry_stays_ok() {
+    let engine = in_memory_engine();
+    engine.insert(&sample_node(11)).expect("insert");
+    // No shredded entry seeded: the purge must be a safe no-op.
+    engine.delete(11, "test").expect("delete without shred");
+}
+
+#[test]
+fn delete_batch_purges_shredded_entries_only_for_deleted_ids() {
+    let engine = in_memory_engine();
+    for id in [1u128, 2, 3] {
+        engine.insert(&sample_node(id)).expect("insert");
+        seed_shredded_entry(&engine, id);
+    }
+
+    engine.delete_batch(&[1, 3]).expect("delete_batch");
+
+    assert!(!shredded_entry_present(&engine, 1), "1 was deleted");
+    assert!(
+        shredded_entry_present(&engine, 2),
+        "2 was NOT deleted — its shredded entry must survive"
+    );
+    assert!(!shredded_entry_present(&engine, 3), "3 was deleted");
+}
+
+#[test]
+fn purge_permanent_purges_shredded_entry() {
+    let engine = in_memory_engine();
+    engine.insert(&sample_node(42)).expect("insert");
+    seed_shredded_entry(&engine, 42);
+
+    engine.purge_permanent(42).expect("purge");
+
+    assert!(
+        !shredded_entry_present(&engine, 42),
+        "VER-02: purge_permanent must remove the shredded entry too"
+    );
+}
+
 // ─── Read-only guards ─────────────────────────────────────────
 
 #[test]
