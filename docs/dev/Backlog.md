@@ -14,13 +14,14 @@ verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-hist
 > **Completed tasks moved to:** `docs/dev/avance/` (dominio) + `docs/dev/avance/historial/backlog-history.md`
 > **Backlog de negocio:** [`docs/dev/Backlog-negocio.md`](Backlog-negocio.md) — filas que requieren abogado/pago/decisión humana/publicación (criterio Gate P, split RES-15-C 2026-09-03). Este archivo es solo técnico: lo ejecutable por agentes.
 > **Historial de syncs y migraciones:** `docs/dev/avance/historial/backlog-history.md` (último sweep mayor: 2026-08-26 — P37 DAUD-01..09 → historial vía DESKTOP-QW5; previo 2026-08-25 — limpieza P35/P38/P39 + auditoría docs/research)
-> **Total open items:** 122 abiertas de 154 filas (+38 filas P52–P56 post-investigación integral 2026-09-24; +5 filas auditoría externa verificada 2026-09-25: SCH-09, WIRE-11, HIG-01..03; +8 filas harness v3 2026-09-25: H3-01..08; −WIRE-09, HIG-01, WIRE-01, MGR-19, H3-01, API-01, WIRE-10 y WIRE-11 completadas 2026-09-25) (medido 2026-09-25; delta desde 2026-09-16: +26 FIND-63..88 ingeridos, −cerradas a `docs/dev/avance/` vía progreso) (previo 2026-09-16: 70 abiertas de 73 filas)
+> **Total open items:** ~116 abiertas (74 previas + **42 del DELTA 2026-09-30**) — campaña F0–F6 cerrada 49/50 (2026-09-30); FINDs 189–207 incluidos. Historial de syncs y migraciones: `docs/dev/avance/historial/backlog-history.md` (último sweep mayor: 2026-08-26 — P37 DAUD-01..09 → historial v
 ---
 
 ## Exec Summary
 
 | Phase | Items | Est. Effort | Priority |
 |-------|-------|-------------|----------|
+| **DELTA** 🚀 Próximo plan (post-campaña F0–F6, 2026-09-30) | **42** (DIST · MEMG · DUR · BENCH · DX · STRAT) | ~10–16 semanas | 🔴 P0–P3 | 📥 **Fuente del próximo plan → §DELTA (abajo)** |
 | **P0** 🚀 Release Blockers | 0 — ✅ 3/3 ejecutadas (plan 2026-08-09: RELEASE-01 semver-checks, RELEASE-02 publish 0.5.0 verificado live, RELEASE-03 artefactos) | — | ✅ Cerrada |
 | **P1** 🛡️ Security & Critical | 0 — ✅ 1/1 ejecutada (SEC-01 UAF `__array_interface__` fix) | — | ✅ Cerrada |
 | **P2** ⚡ Quick Wins Técnicos | 0 | — | ✅ Cerrado |
@@ -82,6 +83,335 @@ verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-hist
 > **DoR + DoD del proyecto (VantaDB-specific) viven en:** `.opencode/references/definition-of-done.md` — secciones "VantaDB — Definition of Ready" y "VantaDB — Project-specific DoD commands". Referencia única; no duplicar aquí.
 
 ---
+
+
+## 🚀 DELTA 2026-09-30 — Post-campaña F0–F6 (fuente del próximo plan)
+
+> **Origen:** cierre de la campaña `2026-09-26-master-roadmap` (49/50; F0–F6 completas; MKT-18f = lane owner) + reconciliación del análisis integral 2026-09-28 + Master Action List (38 ítems) + H-findings de prueba como usuario (29) + Notion (8 dimensiones · 6 áreas · 10 ámbitos · MGR-25 · track PI).
+>
+> **Reconciliación (verificado contra código y registries el 2026-09-30 — NO re-proponer lo resuelto):**
+> - bi-temporal ✅ SCH-02 (`valid_at`/`invalid_at` + `AS OF` en 8 superficies) · confianza por registro ✅ SCH-02/04 (`confidence_class`/`confidence` + `min_confidence`)
+> - fallback TS zero-norm ✅ WIRE-03 (`vantadb-ts/src/native.ts:355-359` — rechaza con ERR-028, ambos backends alineados)
+> - `vantadb-node` ✅ 0.7.0 (drift resuelto) · **PyPI `vantadb-py` 0.7.0 y npm `vantadb` 0.7.0 live** (curl 2026-09-30)
+> - doctor ✅ existe (`src/cli_handlers/diagnostics.rs:123` — dry-run + `--fix` aditivo) · simetría flat del grafo ✅ API-02 (`vantadb-python/src/lib.rs:465-471`: `insert_node`/`get_node`/`add_edge` flat)
+> - banner RAM ✅ código actual correcto (`src/hardware/mod.rs:313`: `RAM {}GB`) · log default ✅ `info` (`src/console.rs:117`)
+>
+> **Estado del repo al 2026-09-30:** 139 commits locales en `develop` (sin push) · 0.8.0 preparada (guía + marcador breaking `b9296909` + R2) · FINDs 189–207 ya registrados arriba.
+
+### Índice
+
+| ID | P | Título | Tipo | Esf. | Fuente |
+|---|---|---|---|---|---|
+| DIST-01 | P0 | Publicar `vanta-memory` (quitar `publish=false`) | feat | 2-4h | research §2.2 |
+| DIST-02 | P0 | Exponer capa cognitiva en Python (`recall`/`capture`/`dream`) | feat | 1-2d | research §2.2 |
+| DIST-03 | P0 | Exponer en TS/Node/WASM o declarar scope por binding | feat/docs | 2-3d | research §4 |
+| DIST-04 | P0 | `VANTA_MEMORY.md` ↔ realidad `publish=false` (alinear) | docs | 1h | research §6.3 |
+| PROC-01 | P0 | Push + release 0.8.0 + congelar roadmap | owner | 1d | Master #1/#5 |
+| MEMG-01 | P1 | Detección de contradicción en ingesta L1 | feat | 2-3d | research §7.1 · Notion 10 ámbitos §8 |
+| MEMG-02 | P1 | Outcome loop → refuerzo de confianza post-recall | feat | 2-3d | research §7 |
+| MEMG-03 | P1 | Grafo ↔ memoria (L1–L3 como nodos/aristas) | feat | 1-2sem | research §7 · Notion track PI |
+| MEMG-04 | P1 | Multi-tenant (enforcement + cuotas) | feat | 2-3sem | research §2.4 |
+| MEMG-05 | P1 | Multi-escritor (CRDT/vector-clock/LWW) | feat | 2-3sem | research §2.5 |
+| MEMG-06 | P1 | Spill a disco con recall | feat | 3-5d | research §7.5 |
+| MEMG-07 | P1 | Forgetting curves sobre L1 | feat | 2d | research §7.12 |
+| MEMG-08 | P1 | **MGR-25 — Formatos e ingestores** (spec Notion) | feat | 1-2sem | Notion MGR-25 |
+| MEMG-09 | P1 | **Track PI restante** (MGR-23/24: grafo decisión→código→test + taxonomía) | feat | 2-4sem | Notion track PI |
+| MEMG-10 | P1 | MGR-04 — Policy engine (trusted/tainted + RBAC) | feat | 2-3sem | Notion 6 áreas §Gobernanza |
+| DUR-01 | P1 | Auditoría del fsync real | fix | 1-2d | research §1 |
+| DUR-02 | P1 | Auditoría cobertura AES (WAL/índices) | fix | 1-2d | Master #15 |
+| DUR-03 | P1 | H-023: re-put sobre expirado → colisión (bug engine) | fix | 1-2d | H-023 |
+| BENCH-01 | P1 | Fix doble-conteo `competitive_bench` | fix | 2-3h | research §1 |
+| BENCH-02 | P1 | BEIR/MTEB recall@k vs pgvector/Chroma/sqlite-vec | nuevo | 3-5d | research §7 · Master #20 |
+| DIST-05 | P2 | Assets de release Windows (H-011) + verificación post-release | ci/release | 4h | H-011 (404 live) |
+| DIST-06 | P2 | Estrategia de los 11 crates `publish=false` | config | 1d | Master #17 |
+| DIST-07 | P2 | Bundle de backup a unidad externa | fix | 1h | Master #18 |
+| DIST-08 | P2 | Pins de versión en docs (post-0.7.0 live) | docs | 2h | H-002 |
+| DX-01 | P2 | H-009: TS WASM `get` en Node 26 (bloquea demo TS) | fix | 1-2d | H-009 |
+| DX-02 | P2 | H-027: extender doctor con preflight de entorno | feat | 2-3d | H-027 |
+| DX-03 | P2 | H-010: verificar logs de binarios publicados 0.7.0 | fix/docs | 2-4h | H-010 |
+| DX-04 | P2 | H-006: puente memoria↔grafo (simetría flat ✅ API-02) | feat/docs | 1d | H-006 |
+| DX-05 | P2 | H-007: `export_namespace` orden + 0-silencioso | fix/docs | 4h | H-007 |
+| DX-06 | P2 | H-026: semántica de `total_count` | fix/docs | 4h | H-026 |
+| DX-07 | P2 | H-028: `.vanta_profile` fuera del CWD | fix | 4h | H-028 |
+| DX-08 | P2 | Paquete docs operativas (H-004/H-012/H-020/H-024/H-013) | docs | 4h | H-findings |
+| DX-09 | P2 | H-003: matriz CI Python 3.14 (+ Node 26) | ci | 4h | H-003/H-009 |
+| DX-10 | P2 | H-015: verificación MCP con cliente real (humano) | verify | 5min | H-015 |
+| DX-11 | P2 | Verificar fix zero-norm en `vantadb-node` (gemelo TS) | verify | 1h | research §1 (reconciliación) |
+| STRAT-01 | P3 | Decisión: posicionamiento (memoria vs sucesor Kuzu) | owner | — | research addendum |
+| STRAT-02 | P3 | Decisión: monetización (soporte vs motor embebido) | owner | — | research addendum |
+| STRAT-03 | P3 | Entidad legal + indemnity | negocio | — | Master #31 |
+| STRAT-04 | P3 | WASM lock-free multi-thread (prep Kuzu) | feat | 2-4sem | research addendum |
+| STRAT-05 | P3 | Ruta object storage (S3/blob) | feat | 1-2sem | research §2.9 |
+| STRAT-06 | P3 | Research: licencias (Khoj/Jan/Reor/OpenWebUI/Letta) + ACV OSS DBs | research | 2d | research §"no verificado" |
+| STRAT-07 | P3 | Decisiones owner de campaña (Q5 p99 enforcement + calibración runtime) | owner | — | campaña F3–F5 |
+
+---
+
+### P0 — Bloqueantes de producto
+
+#### DIST-01 — Publicar `vanta-memory` (quitar `publish=false`)
+- **Qué:** el crate `vanta-memory` (28k LOC: L0→L1 dedup→L2 scenes→L3 persona + dream/consolidation — el diferenciador real) está marcado `publish = false` y no se publica en crates.io ni es consumible como librería. Publicarlo (con smoke del crate publicado).
+- **Por qué:** es el feature set que Mem0 cobra $249/mo (graph memory + Dream gated a Pro+) y el único path monetizable del tier embebido es ser el motor dentro del producto de otro. Invisible = no hay demanda posible (círculo cerrado).
+- **Evidencia (2026-09-30):** 11 crates con `publish = false` (`vanta-memory/Cargo.toml`, `vanta-proxy`, `vantadb-mcp`, `vantadb-python`, `vantadb-server`, `vantadb-node`, `vantadb-ffi-core`, fuzz, litellm, ollama, openai).
+- **Esfuerzo:** 2-4h · **Dueño:** vanta-lead
+- **Referencias:** research §2.2 · Master Action List #2 · `vanta-memory/Cargo.toml`
+
+#### DIST-02 — Exponer capa cognitiva en Python (`recall`/`capture`/`dream`)
+- **Qué:** el binding de Python no re-exporta `vanta-memory` (0 referencias): un usuario Python tiene una BD, no memoria. Exponer `memory_recall`, `memory_capture`, `dream` (o el scope mínimo viable) en `vantadb-py`.
+- **Por qué:** el consumidor externo nunca llega a la capa cognitiva (research §4). Sin esto, MEMG-01..09 son features para nadie.
+- **Evidencia (2026-09-30):** `rg vanta_memory|vanta-memory` en `vantadb-python/src/lib.rs`, `vantadb-wasm/src/lib.rs`, `vantadb-node/src/lib.rs`, `vantadb-ts/src/vantadb.ts` → 0 matches.
+- **Esfuerzo:** 1-2d · **Dueño:** vanta-worker
+- **Referencias:** research §2.2/§4 · Master #3
+
+#### DIST-03 — Exponer en TS/Node/WASM o declarar scope por binding
+- **Qué:** decidir y ejecutar: exponer la capa cognitiva en los otros bindings **o** publicar la tabla real de paridad por binding (qué tiene cada uno, sin prometer paridad total).
+- **Por qué:** "paridad de bindings" es argumento de venta y hoy no cubre la capa cognitiva; una tabla honesta cierra la inconsistencia en 1h si no se expone.
+- **Evidencia:** `docs/api/BINDINGS_NAMESPACES.md` (matriz de 11 superficies) · core Rust tiene el doble de operaciones que `MemoryClient` TS.
+- **Esfuerzo:** 2-3d · **Dueño:** vanta-worker/docs
+- **Referencias:** research §4.3 · Master #24
+
+#### DIST-04 — `VANTA_MEMORY.md` ↔ realidad (alinear)
+- **Qué:** `docs/api/VANTA_MEMORY.md` documenta como API estable una superficie que `publish=false` e inaccesible desde bindings. O se publica (DIST-01/02) o se corrige el doc.
+- **Evidencia:** doc existe con contrato estable; publish=false confirmado.
+- **Esfuerzo:** 1h · **Dueño:** vanta-docs
+- **Referencias:** research §6.3 · Master #4
+
+#### PROC-01 — Push + release 0.8.0 + congelar roadmap (owner)
+- **Qué:** push de los 139 commits locales (OK explícito del owner) → PR develop→main → Release PR de release-plz (verificar 0.8.0 + breaking notes; PR #228 vigente NO mergear) → merge → artefactos. Congelar el master-roadmap post-corte y dejar que el uso real escriba el backlog.
+- **Por qué:** el trabajo no existe para nadie hasta que sale; el proceso de certificación ya cumplió su función (49/50).
+- **Evidencia:** 139 commits (`git rev-list --count origin/develop..develop`); guía UPGRADE.md §0.8.0 + marcador R1 `b9296909` listos.
+- **Esfuerzo:** 1d (owner) · **Dueño:** owner
+- **Referencias:** Master #1/#5 · `docs/dev/workflows/RULES.md` §8
+
+### P1 — Alto (diferencian la propuesta de valor)
+
+#### MEMG-01 — Detección de contradicción en ingesta L1
+- **Qué:** al ingerir un hecho que contradice uno vigente ("me gusta X" + "ya no me gusta X"), detectarlo y marcarlo (supersede/flag), en vez de dejar que RRF ordene por relevancia.
+- **Por qué:** es el gap #1 de "store-and-retrieve" vs "memoria" (Notion 10 ámbitos §8 Consistencia y conflictos); la confianza ya existe (SCH-02), la detección no.
+- **Evidencia (2026-09-30):** `rg contradict` en `src/` ≈ 1 hit; `confidence` implementado pero sin consumidor de conflicto.
+- **Esfuerzo:** 2-3d · **Dueño:** vanta-worker (+ vanta-arch diseño)
+- **Referencias:** research §7.1 · Notion "Los 10 ámbitos afectados" §8 · MGR-12 §6.1
+
+#### MEMG-02 — Outcome loop → refuerzo de confianza post-recall
+- **Qué:** que el resultado de una recall (¿el agente resolvió con esta memoria? ¿la corrigió?) realimente la confianza del registro (`reinforce`).
+- **Por qué:** sin feedback, la confianza es estática y la meta-memoria (dimensión 8) no cierra; es la queja canónica contra Mem0/Letta.
+- **Evidencia:** `outcome` = 23 hits (existe en context-engine) pero `reinforce` = 0; `confidence` sin actualización post-uso.
+- **Esfuerzo:** 2-3d · **Dueño:** vanta-worker
+- **Referencias:** research §7 · Notion "8. Meta-Memoria"
+
+#### MEMG-03 — Grafo ↔ memoria (L1–L3 como nodos/aristas)
+- **Qué:** conectar la memoria con el grafo: L1–L3 como nodos/aristas reales, para responder "¿quién cambió la fuente de esta decisión y por qué?".
+- **Por qué:** hoy memoria y grafo viven separados (se busca, no se razona); es el sustrato de la memoria de proyecto/ingeniería.
+- **Evidencia:** `edge_index` (fan-in 340) + `graph.rs` BFS existen; memoria como registros/escenas, sin puente canónico (`metadata.node_id` es workaround de demo, H-006).
+- **Esfuerzo:** 1-2sem · **Dueño:** vanta-arch + vanta-worker
+- **Referencias:** research §7 · Notion track PI · H-006
+
+#### MEMG-04 — Multi-tenant (enforcement + cuotas)
+- **Qué:** aislamiento real por tenant: enforcement en storage/API, cuotas y boundary de billing.
+- **Por qué:** en cuanto haya 2 clientes/agentes es problema de datos cruzados; sin esto no hay enterprise.
+- **Evidencia:** `rg tenant` = 0-5 hits (comentarios); sin enforcement.
+- **Esfuerzo:** 2-3sem · **Dueño:** vanta-arch + vanta-worker
+- **Referencias:** research §2.4 · Master #28
+
+#### MEMG-05 — Multi-escritor (CRDT/vector-clock/LWW)
+- **Qué:** resolución de conflictos multi-escritor para sync multi-device (vector clock o LWW declarado).
+- **Por qué:** hoy "el que escribe gana" — escrituras paralelas pierden datos silenciosamente.
+- **Evidencia:** `CRDT`/`vector_clock`/`LWW` = 0 hits.
+- **Esfuerzo:** 2-3sem · **Dueño:** vanta-arch
+- **Referencias:** research §2.5 · Master #29
+
+#### MEMG-06 — Spill a disco con recall
+- **Qué:** presupuesto de contexto con spill a disco y recuperación (recall de lo spilled).
+- **Evidencia:** `spill` ≈ 1 hit; `offload/` (34k) comprime in-memory sin recall.
+- **Esfuerzo:** 3-5d · **Dueño:** vanta-worker
+- **Referencias:** research §7.5 · Master #11
+
+#### MEMG-07 — Forgetting curves sobre L1
+- **Qué:** curvas de olvido reales sobre L1 (el decay existe; el descarte no).
+- **Evidencia:** `forget` ≈ 1 hit; `decay` = 71 hits.
+- **Esfuerzo:** 2d · **Dueño:** vanta-engine
+- **Referencias:** research §7.12 · Master #12
+
+#### MEMG-08 — MGR-25 — Formatos e ingestores (spec Notion)
+- **Qué:** trait `Ingestor` (formato → chunks `MemoryInput` con `metadata.source` obligatoria): txt/json/csv → html → pdf → docx (orden por costo/beneficio). Respetar `SOURCE_CHAR_BUDGET` (28k) + chunking con overlap.
+- **Por qué:** el path wiki solo acepta `.md` y `put` recibe `payload: String` sin extractor — no se pueden ingerir documentos reales.
+- **Evidencia:** Notion "Formatos e ingestores (MGR-25)" (spec completa) · `src/wiki/sources.rs:82` (solo .md).
+- **Esfuerzo:** 1-2sem · **Dueño:** vanta-worker
+- **Referencias:** Notion MGR-25 · MGR-01/MGR-12 (deps)
+
+#### MEMG-09 — Track PI restante (MGR-23/24)
+- **Qué:** memoria de proyecto/ingeniería: (a) grafo decisión→código→test (commits/issues→soluciones de referencia); (b) taxonomía de lo memorable (mapa, convenciones, ADRs, historia, dependencias, deuda, patrones de fallo). MGR-22 (repo-map/indexación incremental) = FIND-196 ya registrado.
+- **Por qué:** el repo como identidad persistente es el caso de uso natural del grafo+memoria; ventana Kuzu.
+- **Evidencia:** Notion track PI (hub + PI-1) · `code_*` tools existen (BFS profundidad-1) pero `code_files` NO soportado.
+- **Esfuerzo:** 2-4sem · **Dueño:** vanta-arch + vanta-worker
+- **Referencias:** Notion "Memoria de Proyecto e Ingeniería (track PI)" · FIND-196
+
+#### MEMG-10 — MGR-04 — Policy engine (trusted/tainted + RBAC)
+- **Qué:** namespaces trusted/tainted con RBAC por acción (el motor de políticas completo; VER-04 entregó budget/ACL/audit como base).
+- **Evidencia:** Notion 6 áreas §Gobernanza · MGR-04 quedó fuera del plan F0–F6 (clase mínima vía SCH-05/VER-04).
+- **Esfuerzo:** 2-3sem · **Dueño:** vanta-arch
+- **Referencias:** Notion "Gobernanza (área)" · MGR-04
+
+#### DUR-01 — Auditoría del fsync real
+- **Qué:** auditar y endurecer la barrera de durabilidad: dónde hace falta `fsync`/`sync_all` real (WAL, snapshots, GC) y medirlo.
+- **Evidencia:** `fsync` = 15 hits / `sync_all` = 7 en 93k LOC de `src/` (research §1 — puntuó 7.0 por esto).
+- **Esfuerzo:** 1-2d · **Dueño:** vanta-worker (+ vanta-audit verificación)
+- **Referencias:** research §1 · Master #13
+
+#### DUR-02 — Auditoría cobertura AES (WAL/índices)
+- **Qué:** verificar que AES-256-GCM cubre WAL, text_index, HNSW y edge_index (no solo `put`); si no, el índice filtra plaintext.
+- **Evidencia:** `encryption` = 78 hits concentrados en `config.rs`.
+- **Esfuerzo:** 1-2d · **Dueño:** vanta-audit
+- **Referencias:** Master #15
+
+#### DUR-03 — H-023: re-put sobre expirado → colisión (bug engine)
+- **Qué:** `put` sobre una key expirada-sin-purgar muere con `Node ID collision` en vez de hacer upsert (o purge-on-write). Cadena de evidencia completa en H-023 (mismo id en 3 corridas, purge lo resuelve, DB fresca pasa).
+- **Evidencia:** `src/error.rs:207` (`#[error("Node ID collision: {0}")]`) · workaround en demo: `purge_expired()` antes del seed.
+- **Esfuerzo:** 1-2d · **Dueño:** vanta-engine
+- **Referencias:** H-023 · research §1
+
+#### BENCH-01 — Fix doble-conteo `competitive_bench`
+- **Qué:** el timer de Ingest cuenta un rebuild HNSW completo Y `rebuild_index()` lo repite — el benchmark mide mal lo que dice medir. Workaround documentado (`--batch-size 999`).
+- **Evidencia:** `benchmarks/competitive_bench.py:9-17` (docstring lo admite).
+- **Esfuerzo:** 2-3h · **Dueño:** vanta-tuner
+- **Referencias:** research §1 · Master #19
+
+#### BENCH-02 — BEIR/MTEB recall@k vs pgvector/Chroma/sqlite-vec
+- **Qué:** medir **calidad** de recall (no solo velocidad) contra los competidores del segmento: un número de recall@k verificado vale más que 50 tareas de roadmap.
+- **Evidencia:** 0 hits de BEIR/MTEB en repo y backlog; `competitive_bench.py` compara local-vs-local (LanceDB/Chroma) y solo velocidad.
+- **Esfuerzo:** 3-5d · **Dueño:** vanta-tuner (+ vanta-docs para publicación)
+- **Referencias:** research §7 "no verificado" · Master #20
+
+### P2 — Distribución + DX (H-findings de prueba real)
+
+#### DIST-05 — Assets de release Windows (H-011) + verificación post-release
+- **Qué:** publicar los assets de la release (el zip Windows de v0.7.0 da **404 live verificado**) y agregar al flujo post-release la verificación real de artefactos (pip/npm/crates/binarios) + smoke del quickstart en máquina limpia (el "funnel de 60 segundos").
+- **Evidencia (2026-09-30):** `curl` al asset → **404**; `install.ps1` apunta a v0.7.0.
+- **Esfuerzo:** 4h · **Dueño:** vanta-lead
+- **Referencias:** H-011 · Master #1 · research §3
+
+#### DIST-06 — Estrategia de los 11 crates `publish=false`
+- **Qué:** decidir y documentar: qué crates se publican, cuáles no, y cuál es el canal oficial (pip/npm) — PyPI/npm dependen de CI propio (punto único de fallo).
+- **Evidencia:** 11 crates `publish=false` (verificado 2026-09-30).
+- **Esfuerzo:** 1d · **Dueño:** vanta-lead
+- **Referencias:** Master #17
+
+#### DIST-07 — Bundle de backup a unidad externa
+- **Qué:** el script de git bundle (HARD-03) escribe en C: — backup en la misma unidad no es backup. Añadir destino externo.
+- **Evidencia:** pre-mortem de HARD-03 lo dice; `scripts/git-backup.ps1`.
+- **Esfuerzo:** 1h · **Dueño:** vanta-lead
+- **Referencias:** Master #18
+
+#### DIST-08 — Pins de versión en docs (post-0.7.0 live)
+- **Qué:** verificar/actualizar los pins de versión en QUICKSTART y docs de la demo (el test de usuario tenía `0.6.1`; hoy PyPI/npm están en 0.7.0).
+- **Evidencia:** `pip`/`npm` → 0.7.0 live (2026-09-30); H-002 residual.
+- **Esfuerzo:** 2h · **Dueño:** vanta-docs
+- **Referencias:** H-002
+
+#### DX-01 — H-009: TS WASM `get` en Node 26
+- **Qué:** `put` OK pero `get` revienta el WASM (`memory access out of bounds`) en Node v26 win32 — bloquea la demo TS. Verificar con Node 22 LTS (matriz) y/o arreglar el binding.
+- **Evidencia:** traceback completo en H-009 (`vantadb_wasm_bg.js:1551`); CI TS usa Node ≥22.
+- **Esfuerzo:** 1-2d · **Dueño:** vanta-worker
+- **Referencias:** H-009 · DX-09 (matriz CI)
+
+#### DX-02 — H-027: extender doctor con preflight de entorno
+- **Qué:** `doctor` existe (dry-run + fix aditivo de dirs); extenderlo a preflight real: disco libre, locks huérfanos (Fjall), `onnxruntime.dll`, codepage UTF-8, versiones Python/Node.
+- **Evidencia:** `src/cli_handlers/diagnostics.rs:123` (reparaciones actuales = crear dirs faltantes); H-027 lista los 5 fallos que costaron ciclos de debug.
+- **Esfuerzo:** 2-3d · **Dueño:** vanta-worker
+- **Referencias:** H-027 · H-020/H-025/H-014/H-017/H-005
+
+#### DX-03 — H-010: verificar logs de binarios publicados 0.7.0
+- **Qué:** el código actual default `info` (`src/console.rs:117`); verificar que los binarios publicados 0.7.0 ya no emiten las ~40 líneas DEBUG del 0.6.1; si aplica, flag `--quiet`.
+- **Evidencia:** H-010 (0.6.1) vs `console.rs:117` (actual).
+- **Esfuerzo:** 2-4h · **Dueño:** vanta-lead
+- **Referencias:** H-010
+
+#### DX-04 — H-006: puente memoria↔grafo (simetría flat ✅ API-02)
+- **Qué:** la asimetría flat (`insert_node`) fue **resuelta por API-02**; queda el puente canónico memoria (`ns+key`) ↔ nodo (id u128): documentar/implementar el mapeo (p.ej. campo reservado `node_id`).
+- **Evidencia:** `vantadb-python/src/lib.rs:465-471,626-655` (flat ✅); puente = workaround de demo (H-006).
+- **Esfuerzo:** 1d · **Dueño:** vanta-worker/docs
+- **Referencias:** H-006 · MEMG-03
+
+#### DX-05 — H-007: `export_namespace` orden + 0-silencioso
+- **Qué:** (a) orden de args inconsistente (`put(ns,key)` vs `export_namespace(path,ns)`) → recomendar keywords en docs o unificar; (b) export de namespace inexistente devuelve 0 records con éxito silencioso → warning.
+- **Evidencia:** `vantadb-python/src/lib.rs:1437` (firma `path, namespace`); H-007.
+- **Esfuerzo:** 4h · **Dueño:** vanta-worker/docs
+- **Referencias:** H-007
+
+#### DX-06 — H-026: semántica de `total_count`
+- **Qué:** `memory.list().total_count` devuelve el tamaño de página, no el total del namespace → arreglar o documentar (y exponer `count()` como total real).
+- **Evidencia:** H-026 (3 con limit=3; 6 con limit=100) · `vantadb-python/src/lib.rs:395`.
+- **Esfuerzo:** 4h · **Dueño:** vanta-worker
+- **Referencias:** H-026
+
+#### DX-07 — H-028: `.vanta_profile` fuera del CWD
+- **Qué:** el perfil de hardware se escribe en el CWD del usuario sin avisar → mover a `~/.vanta/` o documentar.
+- **Evidencia:** `src/hardware/mod.rs:96` (`PROFILE_PATH = ".vanta_profile"`).
+- **Esfuerzo:** 4h · **Dueño:** vanta-worker
+- **Referencias:** H-028
+
+#### DX-08 — Paquete docs operativas (H-004/H-012/H-020/H-024/H-013)
+- **Qué:** quickstart muestra `record.key/payload` (H-004); nota del rechazo `..` en CLI + paths absolutos (H-012); recuperación de lock huérfano con `/api/shutdown` (H-020); capacidad por DB (~256-320MB preasignados — no crear una DB por experimento) (H-024); banner RAM ✅ código OK (H-013, solo verificar).
+- **Evidencia:** H-findings respectivos; `README.md:129-131` (`print(record)` opaco).
+- **Esfuerzo:** 4h · **Dueño:** vanta-docs
+- **Referencias:** H-004/H-012/H-013/H-020/H-024
+
+#### DX-09 — H-003: matriz CI Python 3.14 (+ Node 26)
+- **Qué:** añadir Python 3.14 y Node 26 a la matriz (evidencia: 3.14.7 funcionó completo en el test; Node 26 rompe — causa raíz probable del H-009).
+- **Evidencia:** CI usa 3.11/3.12 (`rg python-version .github`); H-003/H-009.
+- **Esfuerzo:** 4h · **Dueño:** vanta-lead
+- **Referencias:** H-003 · H-009
+
+#### DX-10 — H-015: verificación MCP con cliente real (humano)
+- **Qué:** conectar un cliente MCP real (Claude/Cursor/OpenCode) a la DB demo — 5 minutos humanos que cierran el último eslabón del track AI-IDEs.
+- **Evidencia:** H-015 (verificado por pipe: 87 tools + roundtrip OK, sin cliente real).
+- **Esfuerzo:** 5min · **Dueño:** owner
+- **Referencias:** H-015
+
+#### DX-11 — Verificar fix zero-norm en `vantadb-node` (gemelo TS)
+- **Qué:** el TS quedó alineado (ERR-028, sin fallback); verificar que el binding node no conserva el patrón viejo (usa `serde_map_err` — check de zero-norm en search).
+- **Evidencia:** reconciliación 2026-09-30 (research decía "fix en `vantadb-node/src/lib.rs:map_err`").
+- **Esfuerzo:** 1h · **Dueño:** vanta-worker
+- **Referencias:** research §1 (reconciliación)
+
+### P3 — Estratégico
+
+| ID | Qué | Dueño |
+|---|---|---|
+| **STRAT-01** | **Posicionamiento:** (a) memoria agéntica local-first vs (b) sucesor de Kuzu (archivado oct-2025, Apple; ~12 meses de ventana). No se puede hacer ambos bien. | owner |
+| **STRAT-02** | **Monetización:** soporte/consulting (único viable como individuo) vs motor embebido de terceros (único que escala) vs hosted (infra, no producto). | owner |
+| **STRAT-03** | **Entidad legal + indemnity** (techo estructural del comprador enterprise). | negocio |
+| **STRAT-04** | **WASM lock-free multi-thread** — lo que falta para el claim Kuzu-successor. | vanta-arch |
+| **STRAT-05** | **Ruta object storage** (S3/blob: hoy 100% local). | vanta-arch |
+| **STRAT-06** | **Research:** licencias Khoj/Jan/Reor/OpenWebUI/Letta + ACV real de OSS DBs (los bands de revenue son modelado, no datos). | vanta-research |
+| **STRAT-07** | **Decisiones owner de campaña:** Q5 (enforcement p99) + calibración runtime de confianza (VER-08 entregó el harness; aplicarla es v1.0). | owner |
+
+### Migración H-findings → Backlog (estado 2026-09-30)
+
+| H | Estado verificado | Destino |
+|---|---|---|
+| H-001/H-005/H-008/H-014/H-016/H-017/H-018/H-019/H-021/H-022 | ✅ resueltos / falsas alarmas / entorno (no defectos) | — (no migran) |
+| H-002 | ✅ resuelto (0.7.0 live en PyPI/npm); residual = pins docs | DIST-08 |
+| H-003 | ⬜ vigente (evidencia p/ ampliar CI) | DX-09 |
+| H-004 | ⬜ vigente (docs quickstart) | DX-08 |
+| H-006 | 🟡 parcial (simetría ✅ API-02; puente pendiente) | DX-04 |
+| H-007 | ⬜ vigente | DX-05 |
+| H-009 | ⬜ vigente (bloqueante demo TS) | DX-01 |
+| H-010 | 🟡 parcial (código ✅ info; verificar binarios) | DX-03 |
+| H-011 | ⬜ vigente (**404 live verificado**) | DIST-05 |
+| H-012 | 🟡 vigente (documentar) | DX-08 |
+| H-013 | ✅ código correcto (`RAM {}GB`); solo verificar binario | DX-08 |
+| H-015 | ⬜ vigente (verificación humana) | DX-10 |
+| H-020 | 🟡 vigente (documentar recuperación) | DX-08 |
+| H-023 | ⬜ vigente (bug engine) | DUR-03 |
+| H-024 | ⬜ vigente (docs capacidad) | DX-08 |
+| H-025/H-029 | entorno/owner (no defectos de producto) | — |
+| H-026 | ⬜ vigente | DX-06 |
+| H-027 | 🟡 parcial (doctor existe; extender preflight) | DX-02 |
+| H-028 | ⬜ vigente | DX-07 |
+
+---
+
 
 ## Phase 5: 📖 Docs & Community
 
