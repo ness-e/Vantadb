@@ -127,4 +127,18 @@ tags: [vantadb, notion, sync, investigacion, post-investigacion]
 - **Creada:** `Definición oficial` → `3ebd0445-9756-81bb-a6f2-c3b67157b866` (bajo el hub).
 - **Higiene:** `[ARCHIVED 2026-09-30] VantaDB Docs (1) — ver hub` (`…2f80`) · `[ARCHIVED 2026-09-30] VantaDB OLD (Plantilla)` ×2 (`…44c3`, `…cc21`).
 - **Nota histórica:** `Seguridad de la memoria` conserva su informe verbatim 2026-09-08 (refs v0.5.0 históricas) + sección "Estado 2026-09-30" que marca el estado vigente (0.7.0 / 0.8.0-pending).
-- **Estado:** N-17 ejecutado; verificación independiente pendiente (reviewer).
+- **Estado:** N-17 ejecutado; verificación independiente ✅ (reviewer) + link fix (2026-09-30).
+
+## 14. Sync #2 EJECUTADO — 2026-09-30 (validación externa del marco, aprobación owner via question)
+
+- **Origen:** validación externa 2026-09-30 (4 research, ≈100 fuentes: surveys arXiv/TMLR/ACL/NeurIPS/ICLR; labs OpenAI/Anthropic/Google/Microsoft/Meta; productos Mem0/Letta/Zep/Cognee/Supermemory/MIRIX; estándares W3C/IETF/DAMA/ISO/OWASP; tooling de repo) + registro en Backlog DELTA (`MEMG-14..23`, commits `076d2bb1`/`fc3ec237`).
+- **6 páginas actualizadas** (append-only; 2 con calificación inline):
+  - `Las 6 áreas del ciclo de vida` (`3dbd0445-…3140`): nota "núcleo + extensiones" + inline del claim "seis áreas fundamentales".
+  - `Problema` (`3d4d0445-…e7b7`): nota de validación al final + misma calificación inline.
+  - `Las 8 dimensiones de la memoria` (`3dbd0445-…bc50`): superset del SOTA + multimodal candidata + ejes + confianza calibrada.
+  - `Propuesta` (`3d4d0445-…44c7c`): línea en §"Estado 2026-09-30" (marco núcleo+extensiones + validaciones dream/bitemporal/grafo).
+  - `Los 10 ámbitos afectados` (`3dbd0445-…d2f6`): +4 candidatos + ampliaciones #1/#9 + nota #4 (validación débil).
+  - `Memoria de Proyecto e Ingeniería (PI)` (`3dbd0445-…69ce`): industria (scopes, budgets, ranking por tarea, hooks, churn de formatos).
+- **Verificación post-sync:** 6/6 notas presentes (fetch live) + 2/2 calificaciones inline confirmadas; sin borrados.
+- **Pendiente (opcional):** nota equivalente en `Seguridad de la memoria` (firmas post-cuánticas/erasure — `MEMG-17`) — diferida al sync completo de `MEMG-14`.
+- **Estado:** Sync #2 ejecutado y verificado; el sync completo del "Marco 2.0" queda en `MEMG-14 (e)`.
