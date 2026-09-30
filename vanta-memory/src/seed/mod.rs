@@ -60,14 +60,18 @@ pub struct SeedCounts {
     pub updated: usize,
     /// Records skipped because their content hash matched.
     pub unchanged: usize,
+    /// Informational wikilinks (`[[ns/key]]`) without a destination record
+    /// (VER-06, MD import only; always 0 for JSON seed imports). Counts link
+    /// occurrences, not distinct targets.
+    pub links_unresolved: usize,
 }
 
 impl std::fmt::Display for SeedCounts {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "created={}, updated={}, unchanged={}",
-            self.created, self.updated, self.unchanged
+            "created={}, updated={}, unchanged={}, links_unresolved={}",
+            self.created, self.updated, self.unchanged, self.links_unresolved
         )
     }
 }
@@ -141,6 +145,17 @@ pub fn test_render_md(record: &vantadb::sdk::MemoryRecord) -> String {
         "superseded_at_ms": record.superseded_at_ms,
         "metadata": meta_obj,
         "vector_dim": record.vector.as_ref().map(|v| v.len()),
+        // v2 (VER-06) — mirrors `cli_handlers::export_md::Frontmatter`.
+        "valid_at_ms": record.valid_at_ms,
+        "invalid_at_ms": record.invalid_at_ms,
+        "confidence_class": record.confidence_class.as_wire_str(),
+        "confidence": record.confidence,
+        "last_validated_at_ms": record.last_validated_at_ms,
+        "derived_from": record.derived_from,
+        "quarantined_at_ms": record.quarantined_at_ms,
+        "quarantine_reason": record.quarantine_reason,
+        "quarantined_by": record.quarantined_by,
+        "quarantine_review_due_ms": record.quarantine_review_due_ms,
     });
     let mut out = String::new();
     out.push_str("---\n");
@@ -149,6 +164,28 @@ pub fn test_render_md(record: &vantadb::sdk::MemoryRecord) -> String {
     out.push_str(&record.payload);
     if !record.payload.ends_with('\n') {
         out.push('\n');
+    }
+    // Informational related block — mirrors `cli_handlers::export_md`.
+    let mut links: Vec<String> = Vec::new();
+    let mut push = |target: &str| {
+        let link = format!("[[{}/{}]]", record.namespace, target);
+        if !links.contains(&link) {
+            links.push(link);
+        }
+    };
+    if let Some(next) = record.superseded_by.as_deref() {
+        push(next);
+    }
+    for parent in &record.derived_from {
+        push(parent);
+    }
+    if !links.is_empty() {
+        out.push_str("\n<!-- vanta:links -->\n\n## Related\n\n");
+        for link in &links {
+            out.push_str("- ");
+            out.push_str(link);
+            out.push('\n');
+        }
     }
     out
 }

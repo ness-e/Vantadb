@@ -143,3 +143,96 @@ fn round_trip_put_export_import_get() {
     // Cleanup
     let _ = std::fs::remove_dir_all(&tmp);
 }
+
+#[test]
+fn round_trip_preserves_v2_semantics_and_strips_wikilink_block() {
+    use vantadb::sdk::ConfidenceClass;
+
+    let db = Embedded::open_with_config(Config {
+        backend_kind: BackendKind::InMemory,
+        read_only: false,
+        ..Config::default()
+    })
+    .expect("open in-memory db");
+
+    db.put(MemoryInput::new("agent/team", "parent", "parent body"))
+        .expect("put parent");
+    let mut child = MemoryInput::new("agent/team", "child", "child body");
+    child.confidence_class = Some(ConfidenceClass::Derived);
+    child.derived_from = Some(vec!["parent".into()]);
+    child.valid_at_ms = Some(1_234);
+    db.put(child).expect("put child");
+
+    // Render with the fixture renderer (same shape as the CLI handler).
+    let mut md_files: BTreeMap<String, String> = BTreeMap::new();
+    let page = db
+        .list(
+            "agent/team",
+            vantadb::sdk::MemoryListOptions {
+                limit: 100,
+                ..Default::default()
+            },
+        )
+        .expect("list");
+    for r in &page.records {
+        md_files.insert(
+            format!("agent/team/{}.md", r.key),
+            vanta_memory::seed::test_render_md(r),
+        );
+    }
+    assert!(
+        md_files["agent/team/child.md"].contains("- [[agent/team/parent]]"),
+        "derived parent renders as a wikilink"
+    );
+
+    let tmp = std::env::temp_dir().join(format!("vanta-md-v2-roundtrip-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&tmp);
+    std::fs::create_dir_all(&tmp).expect("mkdir tmp");
+    for (path, content) in &md_files {
+        let full = tmp.join(path);
+        if let Some(parent) = full.parent() {
+            std::fs::create_dir_all(parent).expect("mkdir parent");
+        }
+        std::fs::write(&full, content).expect("write md");
+    }
+
+    let db2 = Embedded::open_with_config(Config {
+        backend_kind: BackendKind::InMemory,
+        read_only: false,
+        ..Config::default()
+    })
+    .expect("open in-memory db #2");
+
+    let counts = vanta_memory::seed::import_md_dir(&db2, &tmp).expect("import");
+    assert_eq!(counts.created, 2);
+    assert_eq!(counts.links_unresolved, 0, "parent link resolves");
+
+    let got = db2
+        .get("agent/team", "child")
+        .expect("get child")
+        .expect("child exists");
+    assert_eq!(
+        got.payload, "child body",
+        "related block stripped from payload"
+    );
+    assert_eq!(got.confidence_class, ConfidenceClass::Derived);
+    assert_eq!(got.derived_from, vec!["parent".to_string()]);
+    assert_eq!(
+        got.valid_at_ms, 1_234,
+        "explicit validity start round-trips"
+    );
+    assert!(
+        got.confidence > 0.0 && got.confidence <= 1.0,
+        "computed derivation score round-trips"
+    );
+    assert_eq!(got.quarantined_at_ms, None);
+
+    // Idempotent re-import: projection-stable, nothing rewritten.
+    let again = vanta_memory::seed::import_md_dir(&db2, &tmp).expect("re-import");
+    assert_eq!(again.created, 0);
+    assert_eq!(again.updated, 0);
+    assert_eq!(again.unchanged, 2);
+
+    // Cleanup
+    let _ = std::fs::remove_dir_all(&tmp);
+}
