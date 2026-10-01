@@ -11,7 +11,7 @@ verified_by: Split ejecutado 2026-09-03 por RES-15-C desde docs/dev/Backlog.md (
 > **Propósito:** filas del backlog que **no** son ejecutables por agentes: requieren abogado, pago, identidad humana, decisión de negocio o publicación manual. Vivían mezcladas en `docs/dev/Backlog.md` y distorsionaban cualquier métrica de prioridad técnica.
 > **Criterio de separación (Gate P, RES-15-C 2026-09-03):** lo que requiere agente/código → técnico (`docs/dev/Backlog.md`); lo que requiere abogado/plata/decisión humana/publicación → aquí.
 > **Backlog técnico:** [`docs/dev/Backlog.md`](Backlog.md) — fuente del parser de `/pipeline plan`. Las filas de este archivo **no** entran al triage técnico a propósito (regla documentada en `docs/dev/avance/meta.md`).
-> **Total open items:** 20 activas (15 orig. 2026-09-03 + BIZ-04..08 del manual estratégico 2026-09-14; regla anti-drift GOV-C7) + 4 nuevas BIZ-10..13 (carriles de cobro, decisión owner 2026-09-24)
+> **Total open items:** 20 activas (15 orig. 2026-09-03 + BIZ-04..08 del manual estratégico 2026-09-14; regla anti-drift GOV-C7) + 4 nuevas BIZ-10..13 (carriles de cobro, decisión owner 2026-09-24) + **8 nuevas 2026-09-30:** 6 movidas de `Backlog.md` (STRAT-01/02/03/07 · DX-10 · FASE-A/R-05) + BIZ-14/15 (auditoría OLD)
 
 ## Criterio por fila borderline (decisiones del split)
 
@@ -90,3 +90,18 @@ verified_by: Split ejecutado 2026-09-03 por RES-15-C desde docs/dev/Backlog.md (
 | `BIZ-11` | **Verificar Merchant of Record con payouts PayPal para merchant VE** — pregunta directa a soporte: Lemon Squeezy (200+ países vía PayPal; bank payouts 79 países con VE no listado) + evaluar Polar/Creem como MoR; documentar fees reales y decisión GO/NO-GO con la cuenta PayPal existente. Refs: docs.lemonsqueezy.com/help/getting-started/supported-countries; validación §7.1. | 🟢 1-2d humano | 🔴 | 🆕 Pendiente (2026-09-24) |
 | `BIZ-12` | **Alta Payoneer + ruta Payoneer→Airtm→banco VE** — crear cuenta al volumen actual y verificar retiro de prueba a banco local (Banesco/Mercantil/Provincial/BOD/Bancaribe); documentar fees y tiempos. Refs: payoneer.com/es/resources/business/payoneer-y-airtm · airtm.com/es/blog/economy/payoneer-en-venezuela. | 🟢 2-3d humano | 🟠 | 🆕 Pendiente (2026-09-24; depende de crear la cuenta) |
 | `BIZ-13` | **Facturación manual: plantilla de invoice/recibo + registro de ventas (carriles sin MoR)** — para cobros cripto/Payoneer/PayPal directo: numeración, concepto, fecha, método, tasa; cuaderno de ventas para la meta USD 5.000 (manual estratégico). Cross-ref BIZ-04 (ToS/Privacy/Refund base). | 🟢 1d humano | 🟠 | 🆕 Pendiente (2026-09-24) |
+
+## STRAT + OWNER — movidas de `Backlog.md` (2026-09-30)
+
+> Movidas por criterio de separación (Gate P): decisiones de negocio/owner y puertas humanas que no entran al triage técnico (auditoría de backlogs 2026-09-30). Registro de la mudanza: `docs/dev/avance/activo/operaciones.md`.
+
+| ID | Descripción | Esfuerzo | Prio | Estado Real |
+|----|-------------|----------|------|-------------|
+| `STRAT-01` | **Decisión: posicionamiento** — (a) memoria agéntica local-first vs (b) sucesor de Kuzu (archivado oct-2025, Apple; ~12 meses de ventana). No se puede hacer ambos bien. | — | 🔴 | ⬜ Pendiente (owner) |
+| `STRAT-02` | **Decisión: monetización** — soporte/consulting (único viable como individuo) vs motor embebido de terceros (único que escala) vs hosted (infra, no producto). | — | 🔴 | ⬜ Pendiente (owner) |
+| `STRAT-03` | **Entidad legal + indemnity** (techo estructural del comprador enterprise). | — | 🟠 | ⬜ Pendiente (negocio) |
+| `STRAT-07` | **Decisiones owner de campaña** — Q5 (enforcement p99) + calibración runtime de confianza (VER-08 entregó el harness; aplicarla es v1.0). | — | 🟠 | ⬜ Pendiente (owner) |
+| `DX-10` | **H-015: verificación MCP con cliente real (humano)** — conectar un cliente MCP real (Claude/Cursor/OpenCode) a la DB demo; 5 minutos que cierran el último eslabón del track AI-IDEs (pipe verificado: 87 tools + roundtrip OK). | 🟢 5min | 🟠 | ⬜ Pendiente (humano) |
+| `FASE-A/R-05` | **Puertas owner: gate Fase A + R-05** (consolida `EXE-03` + `EST-12`) — correr el gate: 5 installs limpias documentadas + stranger-test 2-3 personas + 0 críticos → veredicto GO/NO-GO de anuncio. Spec: `docs/dev/FASE-A.md` (A.1-A.3). Merge #222/tag/publish ✅ 2026-09-25. | 🟡 1sem | 🔴 | ⬜ Pendiente (owner) |
+| `BIZ-14` | **Backup offsite (S3/red)** — exportar instantáneas `.vantadb` a almacenamiento de red (rescatado del Icebox OLD ROAD-02, 2026-09-30); gap DR real; trigger = arranque Pro/Cloud (junto a PRO-02/03). | 🟡 M | 🟠 | ⬜ Pendiente (trigger Pro) |
+| `BIZ-15` | **Página pública `/licensing`** (qué es gratis vs pago) — reduce fricción comercial pre-Desktop Pro; era P1 en la síntesis OLD y no existe. | 🟢 S | 🟠 | ⬜ Pendiente (website) |
