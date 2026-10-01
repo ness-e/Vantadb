@@ -56,6 +56,11 @@ Every row names the command that produces the verdict. A dimension with a number
 > is untouched**, and `dev-tools/floor-guard.ps1` stays green. The `Coverage (project)` row
 > above keeps its "must not fall" direction; the mechanical check moved from
 > `--fail-under-lines 60` to the budget table (CI check column unchanged).
+>
+> **Watcher (owner decision 2026-10-01):** violations surface mechanically via the nightly's
+> deduped auto-issue (`nightly.yml` job `notify-failure`, the only `issues: write` grant) so a
+> red run never becomes chronic silence; the Build Cop reviews the open nightly issues weekly
+> and converts any persistent violation into a dated FIND.
 
 ---
 
