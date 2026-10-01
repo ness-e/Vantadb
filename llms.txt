@@ -6,7 +6,7 @@
 
 Every link below points to the raw Markdown source, not a rendered page. Read the
 page you need; do not read this file end to end. This index covers the
-444 documentation pages; it deliberately omits the 1029 task files,
+445 documentation pages; it deliberately omits the 1029 task files,
 which are work items rather than documentation. The full inventory of every file
 is in docs/index.md in the repository.
 
@@ -342,6 +342,7 @@ is in docs/index.md in the repository.
 
 ## Reviews
 
+- [Análisis externo 2026-10-01 — catálogo 42 ítems (verificado) + decisiones owner](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/reviews/analisis-externo-2026-10-01.md): Registro versionado del análisis externo de 42 ítems y su meta-verificación: estado por ítem, correcciones aplicadas, filas creadas (DIST-15..18, WIRE-12..18, WSM-15, VER-10, SRV-10, FIND-221..223, MKT-22, PROV-13) y decisiones del owner.
 - [Archivo Histórico — No-Progreso](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/avance/historial/archivo-historico.md): Fuente: Backlog (Investigaciones de Seguridad) INV-001
 - [Archivo Histórico — No-Progreso](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/avance/historial/fuentes/ARCHIVO_HISTORICO.md): Fuente: Backlog (Investigaciones de Seguridad) INV-001
 - [Audit Quick — 2026-09-16 — post-cierre campaña FIND 31/31](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/reviews/audit-quick-20260916-061609.md): Profile: vantadb (unified-review --mode quick)

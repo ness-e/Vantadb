@@ -12,7 +12,7 @@ description: "Canonical index of the VantaDB documentation corpus."
      Grouped by kind, then by status, then by title.
      Source of truth: the frontmatter of the files listed below. -->
 
-1473 documents. This page is generated from frontmatter, so it cannot fall behind the tree. If a document is missing here, its `kind` or `description` is missing.
+1474 documents. This page is generated from frontmatter, so it cannot fall behind the tree. If a document is missing here, its `kind` or `description` is missing.
 
 ## Top level (3)
 
@@ -66,7 +66,7 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [WASM Persistence Documentation](./api/WASM_PERSISTENCE.md)                      | reference | How VantaDB persists data in the browser: what exists, what the verified                                                                                                                                                                                   |
 | [WASM Standalone Console (Vanta Studio — mode `wasm`)](./api/WASM_STANDALONE.md) | reference | The Vanta Studio console can run 100% in the browser with no server: the                                                                                                                                                                                   |
 
-## Internal / contributor (1315)
+## Internal / contributor (1316)
 
 ### Architecture decision records — 56
 
@@ -274,10 +274,11 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [WASM Crash and Durability Model](./dev/wasm/CRASH_MODEL.md)                                                                                                                           | research | Differential persistence changes when work happens, not the durability model. These gaps are tracked in WASMSTANDALONE.md (\"Known limits (verified)\")                                                                                          |
 | [{{title}}](./dev/_templates/review-note.md)                                                                                                                                           | research | Plan de acción que absorbió este reporte _(archived)_                                                                                                                                                                                            |
 
-### Reviews — 79
+### Reviews — 80
 
 | Document                                                                                                                                     | Kind   | Summary                                                                                                                                                                                                                                                    |
 | -------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Análisis externo 2026-10-01 — catálogo 42 ítems (verificado) + decisiones owner](./dev/reviews/analisis-externo-2026-10-01.md)              | review | Registro versionado del análisis externo de 42 ítems y su meta-verificación: estado por ítem, correcciones aplicadas, filas creadas (DIST-15..18, WIRE-12..18, WSM-15, VER-10, SRV-10, FIND-221..223, MKT-22, PROV-13) y decisiones del owner.             |
 | [Archivo Histórico — No-Progreso](./dev/avance/historial/archivo-historico.md)                                                               | review | Fuente: Backlog (Investigaciones de Seguridad) INV-001 _(archive)_                                                                                                                                                                                         |
 | [Archivo Histórico — No-Progreso](./dev/avance/historial/fuentes/ARCHIVO_HISTORICO.md)                                                       | review | Fuente: Backlog (Investigaciones de Seguridad) INV-001 _(archive)_                                                                                                                                                                                         |
 | [Audit Quick — 2026-09-16 — post-cierre campaña FIND 31/31](./dev/reviews/audit-quick-20260916-061609.md)                                    | review | Profile: vantadb (unified-review --mode quick)                                                                                                                                                                                                             |
