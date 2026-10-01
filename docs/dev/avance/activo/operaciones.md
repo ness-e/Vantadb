@@ -417,3 +417,9 @@ tags: [vantadb, avance, ops, api, docs, backup, enterprise]
 - **Objetivo:** unificar los 4 backlogs al esquema canónico de 10 columnas (`ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias`) + eliminar filas completadas + registrar los 15 candidatos de la auditoría PDFs OLD + actualizar los consumidores del formato en `.opencode/` (task-system, comandos, skills).
 - **Resultado:** ✅ esquema 10-col en `Backlog.md` / `Backlog-negocio.md` / `backlog-futuro.md` / `backlog-notion.md` (spec canónica: `.opencode/references/backlog-format.md`); filas completadas eliminadas (campaña F0–F6 + previas); secciones cerradas → notas de cierre; FIND-213..220 + BIZ-16/17 + FUT-24/25 registrados; nota de procedencia de los PDFs en `docs/dev/archive/PDFS-OLD-AUDITORIA-2026-09-30.md`; `.opencode/` actualizado (Gate H: cambios requeridos → aplicados).
 - **Commits:** (+ este) · `.opencode`: commit propio (repo separado).
+
+### Verificación de realidad del backlog (2026-10-01)
+- **Fecha:** 2026-10-01
+- **Objetivo:** validar cada ítem del backlog contra el código HEAD (7 sub-agentes en paralelo, read-only): campos, referencias file:line, vigencia del gap, estado.
+- **Resultado:** ✅ ~276 ítems verificados (DELTA 49 · FIND 62 · P24–P59 ~60 · negocio 34 · futuro 22 · notion 26). **8 filas cerradas** (stale/implementadas): `DX-11` · `FIND-138` · `FIND-170` · `FIND-171` · `UX-08` · `UX-11` · `SHOW-03` · `HIG-02`. **~40 correcciones aplicadas** (evidencia con números/líneas actualizadas, rutas `web/`→`ness-e/Vantadb-web`, residuales re-scopeados). Hallazgos para owner: `WIRE-09/10/11` sin fila de catálogo; `GOV-TK5` no matchea el parser del dedup.
+- **Commits:** (+ este)
