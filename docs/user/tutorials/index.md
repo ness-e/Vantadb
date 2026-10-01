@@ -18,6 +18,7 @@ Step-by-step guides for using VantaDB, ordered by increasing complexity.
 | 2 | [Local RAG Pipeline](02-local-rag-pipeline.md) | Chunking, embedding, ingestion, retrieval-augmented generation with Ollama |
 | 3 | [Hybrid Search](04-hybrid-search-basics.md) | Vector-only, BM25 (`text_query`), hybrid fusion, filters, tuning |
 | 4 | [Embedding Providers](05-embedding-integrations.md) | OpenAI, Ollama, LiteLLM, and deterministic fallbacks — the BYO-vector model |
+| 5 | [LM Studio + VantaDB](06-lm-studio.md) | OpenAI-compatible local server + persistent memory pattern (LM Studio / Ollama) |
 
 ### Migration track
 
