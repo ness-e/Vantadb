@@ -21,7 +21,7 @@ verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-hist
 
 | Phase | Items | Est. Effort | Priority |
 |-------|-------|-------------|----------|
-| **DELTA** 🚀 Próximo plan (post-campaña F0–F6, 2026-09-30) | **55** (DIST · MEMG · DUR · BENCH · DX · STRAT) | ~13–20 semanas | 🔴 P0–P3 | 📥 **Fuente del próximo plan → §DELTA (abajo)** |
+| **DELTA** 🚀 Próximo plan (post-campaña F0–F6, 2026-09-30) | **50** (DIST · MEMG · DUR · BENCH · DX · STRAT) | ~13–20 semanas | 🔴 P0–P3 | 📥 **Fuente del próximo plan → §DELTA (abajo)** |
 | **P0** 🚀 Release Blockers | 0 — ✅ 3/3 ejecutadas (plan 2026-08-09: RELEASE-01 semver-checks, RELEASE-02 publish 0.5.0 verificado live, RELEASE-03 artefactos) | — | ✅ Cerrada |
 | **P1** 🛡️ Security & Critical | 0 — ✅ 1/1 ejecutada (SEC-01 UAF `__array_interface__` fix) | — | ✅ Cerrada |
 | **P2** ⚡ Quick Wins Técnicos | 0 | — | ✅ Cerrado |
@@ -50,14 +50,14 @@ verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-hist
 | **P38** 🔬 Research huérfanas → tarea (auditoría docs/research, 2026-08-25) | 15 (RES-01..14 + DEC-01/02; cada fila validada contra código con evidencia. RES-09 → FUT-12/13/14 en P24, 2026-09-03; RES-15 completada 2026-09-03) | ~2-3 semanas (RES-01 es la más grande) | 🟡 Media (RES-01/RES-02 🔴 calidad/durabilidad) |
 | **P48** 🧪 Testing & Benchmarking Hardening (auditoría multi-agente 2026-08-30, plan `docs/dev/plans/archive/2026-08-30-testing-bench-harden.md`) | 0 (cerrada 2026-08-31: 22 ✅ + 1 🟡 INCOMPLETO `TBH-06`; resumen en sección "P48 — CIERRE") | ~2-3 semanas | 🔴 **Cerrada 2026-08-31** |
 | **P49** 🧠 Memory Governance Research Program (Propuesta Notion → implementación, 2026-09-14) | 24 (MGR-01..25 excepto MGR-19 ✅ 2026-09-25: análisis/investigación/planeación/validación, cero implementación; cada una cierra con research-doc + preguntas owner + plan de implementación; MGR-22..24 = track PI proyecto/ingeniería, MGR-25 = ingestores de formatos) | ~5-7 semanas | 🔴 Alta (puerta a v0.7/v1.0) |
-| **P50** 🎬 Cierre Propuesta (ejecución + docs pendientes, 2026-09-14) | 10 (EXE-01..10: demos CI, head-to-head memoria, gate Fase A, docs subpáginas, guía benchmarks, VISION.md, test cascada, Utopia-futuro, QoS Bandwidth rescatado de archive, re-verificación citas 403) | ~3-4 semanas | 🟠 Media-Alta |
+| **P50** 🎬 Cierre Propuesta (ejecución + docs pendientes, 2026-09-14) | 9 (EXE-01..10; EXE-03 → movida a `Backlog-negocio.md` 2026-09-30 — FASE-A/R-05: demos CI, head-to-head memoria, docs subpáginas, guía benchmarks, VISION.md, test cascada, Utopia-futuro, QoS Bandwidth rescatado de archive, re-verificación citas 403) | ~3-4 semanas | 🟠 Media-Alta |
 | **P51** 🔌 Estandarización 11 APIs — Ejecución (Phase 51, 2026-09-24) | 9 (API-01..09, waves W0–W8; breaking ilimitado pre-lanzamiento) | ~4-5 semanas | 🔴 Alta (precedencia de superficies) |
 | **P52** 🔐 Verificabilidad (post-investigación 2026-09-24) | 9 (VER-01..09: tamper-evident, borrado certificado, redacción persistida, governance de inyección, importadores de rivales, file-native, dreams dry-run, harness propio, head-to-head) | ~4-6 semanas | 🔴 Alta (categoría "memoria verificable y gobernable") |
 | **P53** 🧬 Esquema v0.7.0 — migración única (IMPL-MGR, consume P49) | 9 (SCH-01..09: bitemporalidad + confianza + cuarentena + edge bitemporal; decisión owner 2026-09-24; +SCH-09 2026-09-25) | ~4-5 semanas | 🔴 Alta (es el v0.7 real de datos; trigger: research-doc MGR-10/12/13 cerrado + P2-01) |
 | **P54** 🎯 Tracks ICP (decisión owner 2026-09-24) | 3 (ICP-01 AI-IDEs vía MCP · ICP-02 privacidad/local-LLM · ICP-03 frameworks) | ~4-6 semanas | 🔴 Alta (desbloquea BIZ-05/MGR-20/EXE-03) |
 | **P55** 🧭 Frontera de producto (research 2026-09-24) | 8 (DEF-01..08: definición única, frontera CI, naming freeze, north-star, claims reconciliados) | ~1-2 semanas | 🟠 Media-Alta (desbloquea narrativa y claims honestos) |
 | **P56** 🔌 Cableado post-investigación | 7 (WIRE-02..08: perfil MCP, query_sparse, TTL, entity linking, batching, refactors, range/cursor; +WIRE-11 2026-09-25) ~5-8 semanas | 🔴 Alta (hacer real lo prometido) |
-| **P57** 🧹 Estabilización residual (EST/C → catálogo, 2026-09-24) | 1 (EST-12 → solo FASE-A/R-05 owner; merge #222 + tag `v0.7.0` + publish ✅ 2026-09-25; EST-03/05/09/10 + C-07/08/10 ✅) | ~1-2 semanas | 🟠 Media (pre-requisito de anuncio) |
+| **P57** 🧹 Estabilización residual (EST/C → catálogo, 2026-09-24) | 0 — ✅ (EST-12 → movida a `Backlog-negocio.md` (FASE-A/R-05) 2026-09-30; merge #222 + tag `v0.7.0` + publish ✅ 2026-09-25; EST-03/05/09/10 + C-07/08/10 ✅) | ~1-2 semanas | 🟠 Media (pre-requisito de anuncio) |
 | **P58** 🧹 Higiene post-auditoría externa (2026-09-25) | 2 (HIG-02..03: ADR-0047 numeración+firma, dead code; HIG-01 ✅ 2026-09-25) | ~2-3 días | 🟡 Media (pre-anuncio) |
 
 > **Historial de items removidos/completados:** ver `docs/progreso/BACKLOG_HISTORY.md`.
@@ -98,6 +98,7 @@ verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-hist
 >
 > **Estado del repo al 2026-09-30:** 139 commits locales en `develop` (sin push) · 0.8.0 preparada (guía + marcador breaking `b9296909` + R2) · FINDs 189–207 ya registrados arriba.
 > **Añadido 2026-09-30 (post-cierre):** MEMG-11..13 — adopción del motor core por `vanta-memory` · MEMG-14..23 — validación externa del marco (≈100 fuentes) + huecos de taxonomía (portabilidad/sharing/rollback/multimodal/etc.).
+> **Movidas 2026-09-30 (criterio Gate P):** `DX-10` · `STRAT-01/02/03/07` → `Backlog-negocio.md` §STRAT/OWNER.
 
 ### Índice
 
@@ -149,15 +150,10 @@ verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-hist
 | DX-07 | P2 | H-028: `.vanta_profile` fuera del CWD | fix | 4h | H-028 |
 | DX-08 | P2 | Paquete docs operativas (H-004/H-012/H-020/H-024/H-013) | docs | 4h | H-findings |
 | DX-09 | P2 | H-003: matriz CI Python 3.14 (+ Node 26) | ci | 4h | H-003/H-009 |
-| DX-10 | P2 | H-015: verificación MCP con cliente real (humano) | verify | 5min | H-015 |
 | DX-11 | P2 | Verificar fix zero-norm en `vantadb-node` (gemelo TS) | verify | 1h | research §1 (reconciliación) |
-| STRAT-01 | P3 | Decisión: posicionamiento (memoria vs sucesor Kuzu) | owner | — | research addendum |
-| STRAT-02 | P3 | Decisión: monetización (soporte vs motor embebido) | owner | — | research addendum |
-| STRAT-03 | P3 | Entidad legal + indemnity | negocio | — | Master #31 |
 | STRAT-04 | P3 | WASM lock-free multi-thread (prep Kuzu) | feat | 2-4sem | research addendum |
 | STRAT-05 | P3 | Ruta object storage (S3/blob) | feat | 1-2sem | research §2.9 |
 | STRAT-06 | P3 | Research: licencias (Khoj/Jan/Reor/OpenWebUI/Letta) + ACV OSS DBs | research | 2d | research §"no verificado" |
-| STRAT-07 | P3 | Decisiones owner de campaña (Q5 p99 enforcement + calibración runtime) | owner | — | campaña F3–F5 |
 
 ---
 
@@ -418,12 +414,6 @@ verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-hist
 - **Esfuerzo:** 4h · **Dueño:** vanta-lead
 - **Referencias:** H-003 · H-009
 
-#### DX-10 — H-015: verificación MCP con cliente real (humano)
-- **Qué:** conectar un cliente MCP real (Claude/Cursor/OpenCode) a la DB demo — 5 minutos humanos que cierran el último eslabón del track AI-IDEs.
-- **Evidencia:** H-015 (verificado por pipe: 87 tools + roundtrip OK, sin cliente real).
-- **Esfuerzo:** 5min · **Dueño:** owner
-- **Referencias:** H-015
-
 #### DX-11 — Verificar fix zero-norm en `vantadb-node` (gemelo TS)
 - **Qué:** el TS quedó alineado (ERR-028, sin fallback); verificar que el binding node no conserva el patrón viejo (usa `serde_map_err` — check de zero-norm en search).
 - **Evidencia:** reconciliación 2026-09-30 (research decía "fix en `vantadb-node/src/lib.rs:map_err`").
@@ -469,13 +459,9 @@ verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-hist
 
 | ID | Qué | Dueño |
 |---|---|---|
-| **STRAT-01** | **Posicionamiento:** (a) memoria agéntica local-first vs (b) sucesor de Kuzu (archivado oct-2025, Apple; ~12 meses de ventana). No se puede hacer ambos bien. | owner |
-| **STRAT-02** | **Monetización:** soporte/consulting (único viable como individuo) vs motor embebido de terceros (único que escala) vs hosted (infra, no producto). | owner |
-| **STRAT-03** | **Entidad legal + indemnity** (techo estructural del comprador enterprise). | negocio |
 | **STRAT-04** | **WASM lock-free multi-thread** — lo que falta para el claim Kuzu-successor. | vanta-arch |
 | **STRAT-05** | **Ruta object storage** (S3/blob: hoy 100% local). | vanta-arch |
 | **STRAT-06** | **Research:** licencias Khoj/Jan/Reor/OpenWebUI/Letta + ACV real de OSS DBs (los bands de revenue son modelado, no datos). | vanta-research |
-| **STRAT-07** | **Decisiones owner de campaña:** Q5 (enforcement p99) + calibración runtime de confianza (VER-08 entregó el harness; aplicarla es v1.0). | owner |
 
 #### MEMG-22 — Procedencia multi-fuente por campo (`track_property_source`)
 - **Qué:** trazabilidad de fuente por campo/propiedad (p.ej. "email" de fuente A, "teléfono" de fuente B con linaje separado) sobre metadata v2; extiende MEMG-12 y el modelo W3C PROV.
@@ -1349,7 +1335,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/dev/revie
 |----|-------------|----------|----------|------|-------------|
 | `EXE-01` | **Demos ejecutables de los 3 casos (§5) en CI** — 🎯 OP: construir agente-personal, RAG-docs y grafos como ejemplos que corren en CI (put/search/TTL/graph reales). OS: reutilizar SDKs §2.3; criterios pass/fail. Tipo: implementación + test. Cobertura: Propuesta §5; D1/D3/D7. Refs Notion: SDKs, Propuesta. Dep: MGR-19 (números para asserts). DoD: 3 demos verdes en CI + docs linkeadas. | `vantadb-python/tests/`, `docs/user/tutorials/` | 🟡 1sem | 🟠 | 🆕 Pendiente (P50 2026-09-14) |
 | `EXE-02` | **Head-to-head vs sistemas de memoria (Mem0/Zep/Letta)** — 🎯 OP: evaluar VantaDB contra Mem0/Zep/Letta con LoCoMo/LongMemEval (no solo vector DBs). OS: harness común, métricas honestas win/lose. Tipo: validación. Cobertura: Propuesta §6; transversal. Refs: `benchmarks/competitive_bench`, docs Panorama. Dep: MGR-19. DoD: reporte en BENCHMARKS.md + Cierre MGR. | `benchmarks/`, `docs/user/operations/BENCHMARKS.md` | 🔴 1-2sem | 🟠 | 🆕 Pendiente (P50 2026-09-14) |
-| `EXE-03` | **Ejecutar el gate Fase A** — 🎯 OP: correr el gate (5 installs limpias documentadas, stranger-test 2-3 personas, 0 críticos). OS: registrar resultados; veredicto GO/NO-GO de anuncio. Tipo: ejecución + validación. Cobertura: Roadmap Fase A; transversal. Refs Notion: Roadmap. Dep: MGR-19, EXE-01. DoD: reporte de gate firmado. Spec operativo fusionado D1 (2026-09-14): `docs/dev/research/archive/Investigacion-plan.md` Fase A — A.1 stranger-test 2-3 personas con plantilla usuario-01, A.2 checklist Producto/Calidad/Docs/Comunidad/Comunicación (todo SÍ o no se anuncia), A.3 objetivo 5 personas con flujo real. | `docs/` (reporte) | 🟡 1sem | 🔴 | 🆕 Pendiente (P50 2026-09-14) |
 | `EXE-04` | **Rellenar subpáginas vacías de VantaDB Docs** — 🎯 OP: escribir Alcance, Límites, Usuario principal, Casos de uso, CDA, Core V1, Aceptación, Cuándo-no, Posicionamiento, Propuesta de Valor desde el material existente (sin inventar). OS: cada una con fuentes citadas. Tipo: docs. Cobertura: hub VantaDB Docs; transversal. Refs Notion: hub + Definición oficial + Propuesta. Dep: ninguna. DoD: 10 subpáginas con contenido + revisión. | `docs/` (espejo local si aplica) | 🟡 1sem | 🟢 | 🆕 Pendiente (P50 2026-09-14) |
 | `EXE-05` | **Completar la guía de Benchmarks (13 PENDIENTE)** — 🎯 OP: redactar las secciones marcadas PENDIENTE con contenido real (datasets, pasos, reporte). OS: alinear con MGR-19. Tipo: docs. Cobertura: Propuesta Anexo B; Observabilidad. Refs Notion: Benchmarks + Observabilidad. Dep: MGR-19. DoD: 0 marcadores PENDIENTE. | `docs/user/operations/` | 🟢 2-3d | 🟢 | 🆕 Pendiente (P50 2026-09-14) |
 | `EXE-06` | **VISION.md semilla (Síntesis del hub)** — 🎯 OP: condensar fundamentos en un párrafo fluido estilo café + visión. OS: validar contra Definición oficial. Tipo: docs. Cobertura: hub Síntesis; transversal. Refs Notion: hub VantaDB Docs. Dep: ninguna. DoD: `docs/dev/vision/VISION.md` expandido con el párrafo semilla (el archivo ya existe — NO crear `docs/VISION.md` nuevo; corrección 2026-09-14). | `docs/dev/vision/VISION.md` | 🟢 1d | 🟢 | 🆕 Pendiente (P50 2026-09-14) |
@@ -1456,7 +1441,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/dev/revie
 | ID | Descripción | Archivos | Esfuerzo | Prio | Estado Real |
 |----|-------------|----------|----------|------|-------------|
 | `EST-09` | **Post-merge PR #222: confirmar que no reaparece categoría stale CodeQL** — 🎯 OP: tras merge, verificar `analyses` (últimas 20) solo con categoría vigente + banner apagado. Refs: plan EST §EST-09. Dep: merge #222 (EST-12, owner). | GitHub CodeQL | 🟢 0.5d | 🟠 | ✅ Resuelto 2026-09-25 (post-merge #222: `codeql.yml`/`sec-codeql-30.yml` fuera de main; analyses nuevas solo `sec-codeql.yml:analyze`; top-20 se autolimpia con los próximos runs; banner: confirmación visual owner pendiente) |
-| `EST-12` | **Puertas owner pre-0.7.0** — 🎯 OP: FASE-A (`docs/dev/FASE-A.md`), merge PR #222 + tag `v0.7.0` + publish (crates/PyPI/npm) + `node-v*` si publica; R-05 opcional por sus manos. El agente solo prepara PR verde + checklist. Refs: plan EST §EST-12, `sesion-continuidad.md` §5. | — | 🟢 owner | 🔴 | ⏳ Parcial 2026-09-25 (merge #222 `58a41ad8` + tag `v0.7.0` + publish crates/npm/PyPI/wheels/SBOM ✅; pendiente owner: FASE-A + R-05 opcional) |
 | `C-08` | **CodeQL default setup post-release** — 🎯 OP: activar el setup correcto y confirmar check verde (el triage de alertas ya se hizo vía EST-06/07/08; verificar tras merge). Refs: plan total §C-08. | `.github/` | 🟢 1d | 🟡 | ✅ Resuelto 2026-09-25 (check `Analyze` provisto por `sec-codeql.yml` job `Analyze`; `default-setup` `not-configured` = correcto con advanced setup; 0 alertas abiertas) |
 
 ---
