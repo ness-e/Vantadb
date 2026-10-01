@@ -239,3 +239,24 @@ tags: [vantadb, archive, extraccion-historica, audit-reports]
 
 ## Referencias rotas corregibles (mejora opcional)
 - `docs/dev/Backlog.md` líneas ~300 y ~443 aún apuntan a `docs/audit-reports/competitive-features-consolidated-report.md` y `deep-analysis-{vector,graph,arch}.md` (archivos que ya no existen). Considerar apuntar a las secciones 2-4 de este archivo o eliminar la línea.
+
+---
+
+## 6. RESOLUCIÓN §4 — verificada 2026-09-30
+
+| Finding §4 | Estado 2026-09-30 | Evidencia |
+|---|---|---|
+| ROOT1-007 (release-binaries catch-22) | ✅ Resuelto | `release-binaries.yml` con job "Tests (cargo nextest)" + trigger `release: [published]`; 0.7.0 publicó Release con wheels; residual assets Windows → DIST-05 |
+| EXT-35/191 (insert_lock global) | ✅ Trackeado | FIND-182 leg (b) — variant engine-level para escritores concurrentes |
+| WF1-001 (RUSTSEC-2026-0176/0177) | ✅ Resuelto | removidos de `.cargo/audit.toml` (pyo3 0.29 fuera del rango vulnerable) |
+| WF1-016 (fuzz solo semanal) | ✅ Resuelto | `fuzz.yml` con trigger `pull_request` |
+| WF2-007 (release-binaries sin tests) | ✅ Resuelto | job de tests presente en el workflow |
+| WF2-010 (release-npm sin tests) | ✅ Resuelto | `npm test` en el workflow |
+| WF2-015 (SBOM solo Rust) | 🟡 Parcial | `release-sbom.yml`: Rust + Python ✅; **TS/npm faltante → FIND-212** |
+| WF2-020 (CodeQL solo rust) | ✅ Resuelto | `languages: rust, python, javascript-typescript` |
+| PLAN2-017 (macOS rocksdb SIGABRT) | 🟡 Verificar en CI | job `test-macos` con `brew install rocksdb` (hardening posterior) |
+| PLAN2-038/042 (needs/pins) | ✅ Resuelto | FIND-140/146 (HARD-02) |
+| EXT-133 (Authenticode) | ⬜ Bajo | sin cambio — deuda aceptada (enterprise Windows) |
+| EXT-27 (differential fuzzing) | ⬜ Bajo | sin cambio — deuda aceptada |
+
+**Cierre:** 8/12 resueltos · 1 parcial (→ FIND-212) · 1 a verificar en el próximo CI · 2 bajos aceptados. **Triage §4 cerrado (2026-09-30).**
