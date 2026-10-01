@@ -369,12 +369,17 @@ impl StorageEngine {
         Ok(())
     }
 
-    /// Cache the batch's Hot nodes; returns whether eviction is needed.
+    /// Cache the batch's Hot nodes and invalidate overwritten Cold entries;
+    /// returns whether eviction is needed.
     pub(crate) fn cache_batch_hot_nodes(&self, nodes: &[UnifiedNode]) -> bool {
         let mut guard = self.cache.volatile.write();
         for node in nodes {
             if node.tier == crate::node::NodeTier::Hot {
                 guard.insert(node.id, node.clone());
+            } else {
+                // FIND-190: same stale-entry invalidation as apply_insert —
+                // prefetch may have cached this Cold node's previous payload.
+                guard.remove(&node.id);
             }
         }
         let caps = crate::hardware::HardwareCapabilities::global();
@@ -701,6 +706,13 @@ impl StorageEngine {
                     tracing::warn!("eviction failed: {e}");
                 }
             }
+        } else {
+            // FIND-190: `prefetch_related` caches co-accessed nodes of ANY
+            // tier, so a Cold overwrite must invalidate the stale entry —
+            // otherwise get()/get_many() (SDK list) serve the pre-overwrite
+            // payload. Same invalidation the txn commit path performs before
+            // apply_insert_with_txn (txn.rs).
+            self.cache.volatile.write().remove(&node.id);
         }
 
         // PERF-30: auto-flush when total node count exceeds flush_threshold.
