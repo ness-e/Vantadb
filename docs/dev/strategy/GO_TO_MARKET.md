@@ -14,7 +14,7 @@ last_reviewed: "2026-08-02"
 > **Domain:** Marketing & Product
 > **Purpose:** Define distribution channels, strategic integrations, licensing model, and community building
 >
-> **Nota de vigencia 2026-09-14:** los IDs de ejecución viejos citados abajo (INT-01/02, MKT-05/13/17, REL-01/02, TSK-*, DEVOPS-*, SEC-13/14, DRV-*, VFY-*, COMP-*, WEB-02/03, TEST-11/12, DOC-20, BIZ-02/03) se completaron y archivaron en `docs/dev/avance/historial/backlog-history.md` — no buscarlos en `docs/dev/Backlog.md`. El trabajo pendiente vive en: adapters PyPI → MKT-18f · wheels ARM64/Homebrew → MKT-18h · gate Fase A + Show HN → EXE-03 · Reddit → MKT-04 (negocio) · posts 6-7 → BLOG-CTA · demos → EXE-01 · benchmarks externos → EXE-02.
+> **Nota de vigencia 2026-09-14:** los IDs de ejecución viejos citados abajo (INT-01/02, MKT-05/13/17, REL-01/02, TSK-*, DEVOPS-*, SEC-13/14, DRV-*, VFY-*, COMP-*, WEB-02/03, TEST-11/12, DOC-20, BIZ-02/03) se completaron y archivaron en `docs/dev/avance/historial/backlog-history.md` — no buscarlos en `docs/dev/Backlog.md`. El trabajo pendiente vive en: adapters PyPI → MKT-20 (ex MKT-18f) · wheels ARM64/Homebrew → MKT-18h · gate Fase A + Show HN → EXE-03 · Reddit → MKT-04 (negocio) · posts 6-7 → BLOG-CTA · demos → EXE-01 · benchmarks externos → EXE-02.
 >
 > **Nota 2026-09-24 (post-investigación integral):** (a) la comparativa de wallet real es contra **memoria-as-a-service** (Mem0/Zep/Letta), no solo vector DBs → capa pendiente en `docs/user/COMPARISON.md` (P54 ICP-01..03 + VER-09 head-to-head); (b) cobro fase 1 con el stack real del owner (PayPal + Binance operativos; Payoneer próxima) → `Backlog-negocio.md` BIZ-10..12, bloqueado por BIZ-04 (ToS); (c) táctica Show HN (día/hora, primer comentario técnico, rotación de respuestas) → `SHOW_HN_PREP.md` + validación externa §4; (d) el ICP ya no bloquea: 3 tracks aprobados (BIZ-08 resuelta → P54); (e) Sync de Notion: `docs/dev/strategy/NOTION-SYNC-2026-09-24.md` (N-17).
 
@@ -365,14 +365,14 @@ docs/
 **Deliverables by Vertical:**
 
 **Local LLM Stack:**
-- [ ] Docker Compose: Ollama + VantaDB + AnythingLLM *(parcial 2026-08-17: `docker-compose.yml` existe pero solo servicio VantaDB — falta el compose multi-servicio → MKT-18i)*
+- [ ] Docker Compose: Ollama + VantaDB + AnythingLLM *(parcial 2026-08-17: `docker-compose.yml` existe pero solo servicio VantaDB — falta el compose multi-servicio → MKT-21 (ex MKT-18i))*
 - [x] LanceDB → VantaDB migration guide *(✅ existe: `docs/user/tutorials/migration-from-lancedb.md` + `vantadb-python/vantadb_py/migrate/lancedb.py`)*
 - [ ] Blog: "Local agent memory with Ollama + VantaDB"
 
 **Agentic Frameworks:**
-- [ ] langchain-vantadb on PyPI *(código existe en `integrations/langchain/`, NO publicado → MKT-18f)*
-- [ ] llama-index-vector-stores-vantadb on PyPI *(código existe, NO publicado → MKT-18f)*
-- [ ] Mem0 integration (VantaDB as VectorStoreBackend) *(código existe en `integrations/mem0/`, NO publicado → MKT-18f)*
+- [ ] langchain-vantadb on PyPI *(código existe en `integrations/langchain/`, NO publicado → MKT-20 (ex MKT-18f))*
+- [ ] llama-index-vector-stores-vantadb on PyPI *(código existe, NO publicado → MKT-20 (ex MKT-18f))*
+- [ ] Mem0 integration (VantaDB as VectorStoreBackend) *(código existe en `integrations/mem0/`, NO publicado → MKT-20 (ex MKT-18f))*
 - [ ] Blog: "[GraphRAG](../../user/glosario/graphrag.md) with VantaDB — Reducing tokens 40-60%"
 
 **AI-IDE Tooling:**
@@ -393,8 +393,8 @@ docs/
 - 20+ contributors
 
 **Deliverables:**
-- [ ] CrewAI adapter (TSK-90) *(código existe en `integrations/crewai/`, NO publicado → MKT-18f)*
-- [ ] DSPy integration (TSK-91) *(código existe en `integrations/dspy/`, NO publicado → MKT-18f)*
+- [ ] CrewAI adapter (TSK-90) *(código existe en `integrations/crewai/`, NO publicado → MKT-20 (ex MKT-18f))*
+- [ ] DSPy integration (TSK-91) *(código existe en `integrations/dspy/`, NO publicado → MKT-20 (ex MKT-18f))*
 - [ ] ARM64 Linux wheels (TSK-101) *(binarios aarch64 sí, wheels NO → MKT-18h)*
 - [ ] Homebrew formula for macOS (TSK-100) *(formula existe con SHA placeholders → MKT-18h)*
 - [ ] Community showcase (user projects)

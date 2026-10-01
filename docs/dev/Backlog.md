@@ -29,7 +29,7 @@ verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-hist
 | **P3** 🧪 Test Coverage (core SDKs) | 0 — ✅ 4/4 ejecutadas (COV-001..004 completadas 2026-08-12) | — | ✅ Cerrada |
 | **P4** 🔧 Engineering Health | 0 — PERF-01..09 migradas a progreso 2026-08-12 | — | ✅ Cerrado |
 | **P5** 📖 Docs & Community | 1 (DISC-03 ICEBOX) — 2 filas community-ops en `docs/dev/Backlog-negocio.md` | ~1-2 semanas | 🟡 Media |
-| **P6** 🚀 Launch Campaign | 3 (MKT-18f, MKT-18i, MKT-19) — 5 filas humanas (legal/marketing/cloud) en `docs/dev/Backlog-negocio.md` | ~2-3 semanas | 🟡 Media |
+| **P6** 🚀 Launch Campaign | 3 (MKT-20 (ex MKT-18f), MKT-21 (ex MKT-18i), MKT-19) — 5 filas humanas (legal/marketing/cloud) en `docs/dev/Backlog-negocio.md` | ~2-3 semanas | 🟡 Media |
 | **P7** 🌐 WASM & Performance | 0 | — | ✅ Cerrado |
 | **P8** 🔮 Post-Launch & Enterprise | 0 — 1 fila enterprise movida a `docs/dev/Backlog-negocio.md` | ~3-5 semanas | 🔵 Futuro |
 | **P9** 📚 Old Docs Rescue (reference) | 1 (OLD-01) | — | 📖 Referencia |
@@ -106,7 +106,7 @@ verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-hist
 
 ## 🚀 DELTA 2026-09-30 — Post-campaña F0–F6 (fuente del próximo plan)
 
-> **Origen:** cierre de la campaña `2026-09-26-master-roadmap` (49/50; F0–F6 completas; MKT-18f = lane owner) + reconciliación del análisis integral 2026-09-28 + Master Action List (38 ítems) + H-findings de prueba como usuario (29) + Notion (8 dimensiones · 6 áreas · 10 ámbitos · MGR-25 · track PI).
+> **Origen:** cierre de la campaña `2026-09-26-master-roadmap` (49/50; F0–F6 completas; MKT-20 (ex MKT-18f) = lane owner) + reconciliación del análisis integral 2026-09-28 + Master Action List (38 ítems) + H-findings de prueba como usuario (29) + Notion (8 dimensiones · 6 áreas · 10 ámbitos · MGR-25 · track PI).
 >
 > **Reconciliación (verificado contra código y registries el 2026-09-30 — NO re-proponer lo resuelto):**
 > - bi-temporal ✅ SCH-02 (`valid_at`/`invalid_at` + `AS OF` en 8 superficies) · confianza por registro ✅ SCH-02/04 (`confidence_class`/`confidence` + `min_confidence`)
@@ -216,12 +216,12 @@ verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-hist
 
 ### 👤 Tareas Humanas (no-delegables a agentes)
 
-> Requieren identidad legal, pago, o acceso manual a dashboards externos. `owner: human`. No ingresan al flujo de agentes. (Sección creada 2026-08-05.) **Split RES-15-C 2026-09-03:** las filas puramente humanas (legal/trademark, publicación Reddit, cloud/pitch/case-study) viven ahora en [`docs/dev/Backlog-negocio.md`](Backlog-negocio.md); aquí quedan las que tienen lado código verificado (MKT-18f/i).
+> Requieren identidad legal, pago, o acceso manual a dashboards externos. `owner: human`. No ingresan al flujo de agentes. (Sección creada 2026-08-05.) **Split RES-15-C 2026-09-03:** las filas puramente humanas (legal/trademark, publicación Reddit, cloud/pitch/case-study) viven ahora en [`docs/dev/Backlog-negocio.md`](Backlog-negocio.md); aquí quedan las que tienen lado código verificado (MKT-20 (ex MKT-18f)/i).
 
 | ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias |
 |----|-----------|----------|---------------|----------|-----------|--------|-------------|------------|--------------|
-| `MKT-18f` | — | **Publicar 5 adapters en PyPI (re-escalado 2026-09-03)** | `.github/workflows/release-adapters.yml` | 🟢 1-2h humano | 🔴 Alta | 🆕 Pendiente (humano) | Lado código CERRADO: 5/5 `python -m build` + `twine check` exit 0, nombres verificados LIBRES (404 live ×5), pin `vantadb-py>=0.5.0,<0.6.0` válido, workflow presente+actionlint 0, READMEs honestos, borradores upstream en `docs/dev/plans/artifacts/mkt-18f-prs/`. Restante = ACCIÓN HUMANA: checklist 3 pasos (environment `pypi` → dry-run TestPyPI → tag `adapters-v0.5.0` + limpieza post-release). Desbloquea GTM checkboxes al publicar. | Origen: P6 · Dueño: owner (humano) | — |
-| `MKT-18i` | — | **AnythingLLM ↔ VantaDB (re-escalado 2026-09-03)** | upstream: `server/.env.example` | ⚪ upstream | 🟡 Baja | ⏸️ Bloqueada: feature-request upstream (humano) | Compose demo Ollama+VantaDB shipped (`abb6594c`, ver `docs/dev/avance/activo/operaciones.md`). AnythingLLM no soporta VantaDB como vector backend (evidencia: master de Mintplex-Labs/anything-llm — `VECTOR_DB` acepta lancedb/chroma/pgvector/qdrant/pinecone/astra/weaviate/milvus/zilliz/chromacloud). Requiere feature-request upstream, no glue local. | Origen: P6 · Dueño: owner | — |
+| `MKT-20` | — | **Publicar 5 adapters en PyPI (re-escalado 2026-09-03)** | `.github/workflows/release-adapters.yml` | 🟢 1-2h humano | 🔴 Alta | 🆕 Pendiente (humano) | Lado código CERRADO: 5/5 `python -m build` + `twine check` exit 0, nombres verificados LIBRES (404 live ×5), pin `vantadb-py>=0.5.0,<0.6.0` válido, workflow presente+actionlint 0, READMEs honestos, borradores upstream en `docs/dev/plans/artifacts/MKT-20 (ex MKT-18f)-prs/`. Restante = ACCIÓN HUMANA: checklist 3 pasos (environment `pypi` → dry-run TestPyPI → tag `adapters-v0.5.0` + limpieza post-release). Desbloquea GTM checkboxes al publicar. | Origen: P6 · Dueño: owner (humano) · renombrado de `MKT-18f` 2026-10-01 (compatibilidad con el buscador de tareas) | — |
+| `MKT-21` | — | **AnythingLLM ↔ VantaDB (re-escalado 2026-09-03)** | upstream: `server/.env.example` | ⚪ upstream | 🟡 Baja | ⏸️ Bloqueada: feature-request upstream (humano) | Compose demo Ollama+VantaDB shipped (`abb6594c`, ver `docs/dev/avance/activo/operaciones.md`). AnythingLLM no soporta VantaDB como vector backend (evidencia: master de Mintplex-Labs/anything-llm — `VECTOR_DB` acepta lancedb/chroma/pgvector/qdrant/pinecone/astra/weaviate/milvus/zilliz/chromacloud). Requiere feature-request upstream, no glue local. | Origen: P6 · Dueño: owner · renombrado de `MKT-18i` 2026-10-01 (compatibilidad con el buscador de tareas) | — |
 | `MKT-19` | — | **`awesome-vantadb` (lista curada)** | — | 🟢 1d | 🟡 Baja | 🆕 Pendiente (2026-09-30) | Canal de descubrimiento estándar OSS; 0 matches en repo/backlog (auditoría OLD). Contenido: SDKs, adapters, demos, benchmarks, comparativas. | Origen: auditoría OLD 2026-09-30 | — |
 
 ---
@@ -357,7 +357,7 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/dev/revie
 | `FIND-197` | 🟢 Baja | **Runner LoCoMo no incluido: licencia CC BY-NC 4.0 (incompatible con repo de producto)** | `evals/` | 🟢 | 🟢 Baja | 🆕 Pendiente | → runner opt-in con fetch propio del usuario (documentado). | Origen: review VER-08 | — |
 | `FIND-198` | 🟢 Baja | **Runner BEAM opcional (MIT verificado, descartado por tamaño 4.6 MB/conversación)** | `evals/` | 🟢 | 🟢 Baja | 🆕 Pendiente | → runner opt-in. | Origen: review VER-08 | — |
 | `FIND-199` | 🟢 Baja | **Python SDK sin `confidence` declarable** | `vantadb-python/` | 🟢 | 🟢 Baja | 🆕 Pendiente | (detectado en VER-08 §Findings): el binding no expone la confianza para escritura/declaración. | Origen: review VER-08 | — |
-| `FIND-200` | 🟡 Media | **Lane publish adapters: switch del demo/one-pager a `pip install vantadb-*` post-`adapters-v*` + pin refresh** | `integrations/*/pyproject.toml`, `examples/langgraph_dev_to_prod/` | 🟡 | 🟡 Media | 🆕 Pendiente | (`vantadb-py<0.7.0` excluye el core vigente; `langchain-core<1` vs langchain 1.x que exige `>=1.4.7`). Owner decide bump al publicar. | Origen: reviews ICP-03/MKT-18f | — |
+| `FIND-200` | 🟡 Media | **Lane publish adapters: switch del demo/one-pager a `pip install vantadb-*` post-`adapters-v*` + pin refresh** | `integrations/*/pyproject.toml`, `examples/langgraph_dev_to_prod/` | 🟡 | 🟡 Media | 🆕 Pendiente | (`vantadb-py<0.7.0` excluye el core vigente; `langchain-core<1` vs langchain 1.x que exige `>=1.4.7`). Owner decide bump al publicar. | Origen: reviews ICP-03/MKT-20 (ex MKT-18f) | — |
 | `FIND-201` | 🟢 Baja | **`integrations/README.md` §"shim temporal" stale (FIND-94 ya migrado en `880cd0f3`)** | `integrations/README.md` | 🟢 | 🟢 Baja | 🆕 Pendiente | — | Origen: review ICP-03 | — |
 | `FIND-202` | 🟢 Baja | **`docs/user/COMPARISON.md:47-56` ("Removed") + `:74` ("FROZEN pre-SIMD … regen pending") stale tras la regen §2 de DEF-06** | `docs/user/COMPARISON.md` | 🟢 | 🟢 Baja | 🆕 Pendiente | — | Origen: review DEF-06 | — |
 | `FIND-203` | 🟡 Media | **Tooling de benches incompleto (`update_markdown.py` + `vantadb_local_bench.py`)** | `benchmarks/` | 🟡 | 🟡 Media | 🆕 Pendiente | `benchmarks/update_markdown.py` (tabla ES + sin glosario + input mismatch) y `vantadb_local_bench.py` (dataset sin seed, reporte sin metadata fecha/commit/HW, fila BM25 degenerada). | Origen: review DEF-06 | — |
@@ -525,14 +525,14 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/dev/revie
 |----|-----------|----------|---------------|----------|-----------|--------|-------------|------------|--------------|
 | `GOV-05` | — | **Split Manual Estratégico según recomendación F2** | `docs/dev/strategy/` | 🟡 1d | 🟠 Media | 🆕 Pendiente | Negocio→`docs/business/` con banner snapshot; estado técnico fuera; archivar monolito. | Origen: campaña GOV · F2/D-decisión · renombrado de `GOV-TK5` 2026-10-01 (compatibilidad con el buscador de tareas) | — |
 
-> Ticketeados aparte con decisión previa: ACID 4a-4d (post-launch Fase A, D14) · release triage semver 0.6.0 (D5, diferido) · MKT-18h wheels ARM64 + MKT-18f adapters (confirmados live por GOV-A5). La fila de acción externa (DNS/invite) se movió a `docs/dev/Backlog-negocio.md` §GOV (RES-15-C).
+> Ticketeados aparte con decisión previa: ACID 4a-4d (post-launch Fase A, D14) · release triage semver 0.6.0 (D5, diferido) · MKT-18h wheels ARM64 + MKT-20 (ex MKT-18f) adapters (confirmados live por GOV-A5). La fila de acción externa (DNS/invite) se movió a `docs/dev/Backlog-negocio.md` §GOV (RES-15-C).
 
 ---
 
 ## P32 — Reviews de Módulos (campaña 14 reportes, 2026-08-23)
 
 > **Origen:** campaña de deep-review con 14 sub-agentes sobre los 12 módulos del repo + análisis transversal. Reportes completos en `docs/dev/reviews/modulos/*.md` (core.md, vantadb-mcp.md, vantadb-server.md, vantadb-python.md, vantadb-ts.md, vantadb-wasm.md, vantadb-node.md, vanta-memory.md, vanta-proxy.md, providers.md, integrations.md, benches.md, benchmarks.md, cross-modulos.md). Scores: memory 8.5 · core 8.3 · mcp 8.3 · proxy 8.0 · server 7.5 · ts/wasm/benches 7.0 · integrations/benchmarks/cross 6.5 · python 6.5 · providers 5.0 · node 4.5.
-> **Regla:** cada fila referencia su reporte fuente; los reportes llevan sección "Trazabilidad Backlog" con el MOD-ID por hallazgo. Duplicados ya trackeados NO recreados (CORE-01/02, REVIEW-06..20, MKT-18f, MCP-24/28/29, DESKTOP-28..39).
+> **Regla:** cada fila referencia su reporte fuente; los reportes llevan sección "Trazabilidad Backlog" con el MOD-ID por hallazgo. Duplicados ya trackeados NO recreados (CORE-01/02, REVIEW-06..20, MKT-20 (ex MKT-18f), MCP-24/28/29, DESKTOP-28..39).
 > Sin filas pendientes.
 
 ---
@@ -642,7 +642,7 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/dev/revie
 
 ## P44 — Research integrations 2026-08-25 (INV-integrations-01, docs/dev/reviews/research-integrations-20260825.md)
 
-> **Origen:** `/research integrations` → `docs/dev/reviews/research-integrations-20260825.md` (score 6.3/10, apéndice H-01..H-11). Decisiones HITL 2026-08-25: 9 quick wins APLICAR → plan `docs/dev/plans/2026-08-25-integrations-research-wins.md` (QW-1..9; absorbe MOD-46..50 huérfanas: 46→QW-1, 47→QW-2, 48→QW-3, 49→QW-4, 50→QW-5; H-01=QW-7 cubre MKT-18f ampliada a 9 paquetes) + 2 estrategias aprobadas acá. Ningún wontfix.
+> **Origen:** `/research integrations` → `docs/dev/reviews/research-integrations-20260825.md` (score 6.3/10, apéndice H-01..H-11). Decisiones HITL 2026-08-25: 9 quick wins APLICAR → plan `docs/dev/plans/2026-08-25-integrations-research-wins.md` (QW-1..9; absorbe MOD-46..50 huérfanas: 46→QW-1, 47→QW-2, 48→QW-3, 49→QW-4, 50→QW-5; H-01=QW-7 cubre MKT-20 (ex MKT-18f) ampliada a 9 paquetes) + 2 estrategias aprobadas acá. Ningún wontfix.
 > Sin filas pendientes (INTG-01/02 completadas planes 2026-09-10-code, d7281744/876df446).
 
 ## P46 - Research desktop 2026-08-25 (INV-desktop-prod, docs/dev/reviews/research-desktop-prod-20260825.md)

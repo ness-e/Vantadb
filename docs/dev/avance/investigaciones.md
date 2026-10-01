@@ -155,7 +155,7 @@ tags: [vantadb, avance, investigacion, research]
 ### INV-integrations-01 — Investigación profunda adapters de frameworks (2026-08-25)
 - **Origen:** `/research integrations` (registro fila 22)
 - **Informe:** `docs/dev/reviews/research-integrations-20260825.md` (score global 6.3/10; review previo módulos 6.5)
-- **Resultado:** 11 hallazgos (H-01..H-11) → decisiones HITL: 9 APLICAR → plan quick wins + 2 ESTRATEGIA Backlog P44 + 0 DESCARTAR. Hallazgo de proceso: MOD-46..50 huérfanas (removidas del Backlog sin completar ni archivar) — absorbidas por el plan. Convención ecosistema verificada: paquete PyPI separado por framework (dominante); MKT-18f ampliada 5→9 paquetes.
+- **Resultado:** 11 hallazgos (H-01..H-11) → decisiones HITL: 9 APLICAR → plan quick wins + 2 ESTRATEGIA Backlog P44 + 0 DESCARTAR. Hallazgo de proceso: MOD-46..50 huérfanas (removidas del Backlog sin completar ni archivar) — absorbidas por el plan. Convención ecosistema verificada: paquete PyPI separado por framework (dominante); MKT-20 (ex MKT-18f) ampliada 5→9 paquetes.
 - **Materialización:** plan `docs/dev/plans/2026-08-25-integrations-research-wins.md` (QW-1..9) + filas `INTG-01/02` en Backlog P44
 - **Ids:** `INV-integrations-01`, `INTG-01/02`, QW-1..9
 
