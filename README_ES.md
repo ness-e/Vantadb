@@ -31,7 +31,7 @@
   <a href="README.md">🇺🇸 English</a>
 </div>
 
-VantaDB es un motor de memoria embebido, local-first, diseñado para agentes de IA. Un núcleo con tres puertas de entrada — **IDEs de IA** (vía MCP), **stacks de LLM locales/privados** y **frameworks de agentes** — que entrega memoria de agente duradera y gobernada, con recuperación resistente a fallos vía WAL y búsqueda híbrida nativa (BM25 + HNSW + RRF) que impulsa flujos de trabajo RAG locales. Sin necesidad de servicios externos, contenedores o dependencias de red.
+VantaDB es un motor de memoria embebido, local-first, diseñado para agentes de IA. **Un producto, cuatro superficies** — el **motor** (almacenamiento con WAL, recuperación híbrida y el pipeline de memoria agéntica `vanta-memory` L0→L3: captura → dedup → escenas → persona + dream), la **puerta de agentes** (MCP para IDEs de IA), el **estudio** (visor de escritorio) y el **laboratorio** (experimentos acotados) — que entrega memoria de agente duradera y gobernada, con recuperación resistente a fallos vía WAL y búsqueda híbrida nativa (BM25 + HNSW + RRF) que impulsa flujos de trabajo RAG locales. Un instalador, una CLI; sin necesidad de servicios externos, contenedores o dependencias de red.
 
 ---
 
@@ -39,7 +39,7 @@ VantaDB es un motor de memoria embebido, local-first, diseñado para agentes de 
 
 | Necesidad | Empieza aquí |
 | :--- | :--- |
-| Comprender el límite del producto | [Límite del producto](#límite-del-producto) |
+| Comprender el límite del producto | [Límite del producto](#límite-del-producto--un-producto-cuatro-superficies) |
 | Probar el MVP en cinco minutos | [Quickstart de 5 minutos](docs/user/QUICKSTART.md) |
 | Instalar vía pip | [Instalación](#instalación) |
 | Usar la CLI embebida | [Referencia de CLI](#cli-embebida) |
@@ -219,23 +219,27 @@ No se requiere clúster, daemon ni servicio externo. VantaDB se ejecuta en-proce
 
 ---
 
-## Límite del producto
+## Límite del producto — un producto, cuatro superficies
 
-Debe entenderse VantaDB como: memoria durable, embedded-first, local-first, con recuperación basada en WAL, recuperación vectorial HNSW basada en coseno y un envoltorio opcional de servidor local.
+VantaDB es **un producto** que se instala una vez (un instalador → una CLI → un wizard) con **cuatro superficies**:
 
-> **MVP = memoria embebida + WAL + recuperación de vectores/BM25/híbrida + export/import + CLI/Python**
+| Superficie | Qué es | Estado hasta 1.0 |
+| :--- | :--- | :--- |
+| **Motor** (núcleo) | Memoria embebida: durabilidad con WAL, recuperación vectorial HNSW, BM25 + híbrida (RRF), namespaces, índices de metadatos, export/import — más el **motor de memoria agéntica `vanta-memory` (L0→L3)**: captura → dedup → escenas → persona + consolidación (dream). | **Activa** |
+| **Agente** (MCP) | `vantadb-mcp` — la puerta para IDEs de IA y agentes ([guía de configuración](docs/api/MCP.md)). Acá se mide la North Star: sesiones con recall exitoso. | **Activa** |
+| **Estudio** (escritorio) | App Tauri, **reducida a visor** (inspeccionar memoria y sesiones). El resto de su superficie queda congelado. | **Congelado** (visor) |
+| **Laboratorio** | Experimentos explícitamente acotados: `vanta-proxy` (gateway LLM — congelado, **sin publicar hasta 1.0.0**), consola web (repo aparte), providers LLM remotos, GraphRAG, extras de IQL. | **Congelado** |
 
-| Clasificación | Superficie |
-| :--- | :--- |
-| **Producción** | SDK/CLI embebido, CRUD/búsqueda de memoria, WAL/recuperación, namespaces, índices de metadatos, recuperación de vectores HNSW, BM25, Recuperación híbrida v1, filtrado de frases, rebuild/audit/repair, export/import JSONL |
-| **Envoltorio opcional** | Binario local `vantadb-server` alrededor del núcleo embebido |
-| **Nuevo** | Servidor MCP para agentes de IA ([guía de configuración](docs/api/MCP.md)) |
-| **Experimental / no es MVP** | IQL/LISP/DQL, integración con LLM/Ollama, semánticas de gobierno y mantenimiento, recorrido de grafos más allá de las aristas locales almacenadas |
-| **Diferido** | Plataforma en la nube/empresa, HA/replicación, clúster distribuido, serie SQL/OLTP/warehouse/time, ranking avanzado/snippets/tokenization, RBAC, multi-tenencia |
+> **MVP = memoria embebida + WAL + vectores/BM25/híbrida + export/import + CLI/Python** — más la capa agéntica (`vanta-memory` L0→L3) como motor diferenciador.
 
-*VantaDB es un motor de memoria embebido, no una base de datos universal multimodelo ni una plataforma en la nube.*
+**Fuera del producto hasta 1.0** (lista cerrada): plataforma en la nube/empresa, HA/replicación/clúster, SQL/OLTP/warehouse/series temporales, plugins/marketplace, multimodal, índices ANN alternativos (IVF/DiskANN/ScaNN), RBAC/multi-tenencia, features de gateway del proxy. Ver la [Lista de congelados](docs/user/operations/EXPERIMENTAL_FEATURES.md) para el alcance aprobado por el owner.
 
-Consulta [Funcionalidades experimentales y límites del producto](docs/user/operations/EXPERIMENTAL_FEATURES.md) para la clasificación operativa de todas las superficies del repositorio.
+*VantaDB es un motor de memoria para agentes — no una base de datos universal multimodelo ni una plataforma en la nube.*
+
+### Notas de plataforma
+
+- **Windows**: motor, CLI, embeddings locales, MCP y SDK de Python soportados. Los providers LLM remotos (OpenAI/Ollama/litellm) todavía no compilan en Windows — fix en curso.
+- **Linux / macOS / WSL**: soporte completo, incluidos providers remotos.
 
 ---
 
@@ -287,8 +291,7 @@ cargo install --git https://github.com/ness-e/Vantadb.git --bin vanta-cli
 > Fuente vigente: `README.md` § One-Line Installation y `docs/user/QUICKSTART.md` §0
 > (one-liner FIND-105 + verificación `.sha256` + wizard `--no-wizard`/`-NoWizard`
 > + `--dry-run`/`-DryRun`). Si este bloque difiere, manda la fuente.
-
-> [!NOTE]
+>
 > Los binarios precompilados de [GitHub Releases](https://github.com/ness-e/Vantadb/releases) (y los scripts de instalación de arriba) ya incluyen la feature del servidor HTTP. Si instalas desde fuente con `cargo install` y necesitas `vanta-cli server --http`, actívala explícitamente:
 >
 > ```bash

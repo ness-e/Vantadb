@@ -34,7 +34,7 @@
 
 
 
-VantaDB is a local-first, embedded memory engine for AI agents. One core with three entry points — **AI IDEs** (via MCP), **local/private LLM stacks**, and **agent frameworks** — delivering durable, governed agent memory with crash-safe recovery via WAL and native hybrid retrieval (BM25 + HNSW + RRF) that powers local RAG workflows. No external services, containers, or network dependencies.
+VantaDB is a local-first, embedded memory engine for AI agents. **One product, four surfaces** — the durable **engine** (WAL-backed storage, hybrid retrieval, and the agentic memory pipeline `vanta-memory` L0→L3: capture → dedup → scenes → persona + dream), the **agent door** (MCP for AI IDEs), the **studio** (desktop viewer) and the **lab** (bounded experiments) — delivering durable, governed agent memory with crash-safe recovery via WAL and native hybrid retrieval (BM25 + HNSW + RRF) that powers local RAG workflows. One installer, one CLI; no external services, containers, or network dependencies.
 
 ---
 
@@ -43,7 +43,7 @@ VantaDB is a local-first, embedded memory engine for AI agents. One core with th
 
 | Need | Start here |
 | :--- | :--- |
-| Understand the product boundary | [Product Boundary](#product-boundary) |
+| Understand the product boundary | [Product Boundary](#product-boundary--one-product-four-surfaces) |
 | Try the MVP in five minutes | [5-Minute Quickstart](docs/user/QUICKSTART.md) |
 | Install via pip | [Installation](#installation) |
 | Use the embedded CLI | [CLI Reference](#embedded-cli) |
@@ -220,23 +220,27 @@ No separate cluster, daemon, or external service is required. VantaDB runs in-pr
 
 ---
 
-## Product Boundary
+## Product Boundary — one product, four surfaces
 
-VantaDB should be understood as: embedded-first, local-first, durable memory with WAL-backed recovery, cosine-based HNSW vector retrieval, and an optional local server wrapper.
+VantaDB is **one product** you install once (one installer → one CLI → one wizard) with **four surfaces**:
 
-> **MVP = embedded memory + WAL + vector/BM25/hybrid + export/import + CLI/Python**
+| Surface | What it is | Status until 1.0 |
+| :--- | :--- | :--- |
+| **Engine** (core) | Embedded memory: WAL-backed durability, HNSW vector retrieval, BM25 + hybrid (RRF), namespaces, metadata indexes, export/import — plus the **agentic memory engine `vanta-memory` (L0→L3)**: capture → dedup → scenes → persona + dream consolidation. | **Active** |
+| **Agent** (MCP) | `vantadb-mcp` — the door for AI IDEs and agents ([setup guide](docs/api/MCP.md)). This is where the North Star is measured: sessions with successful recall. | **Active** |
+| **Studio** (desktop) | Tauri app, being **reduced to a viewer** (inspect memory and sessions). The rest of its surface is frozen. | **Frozen** (viewer) |
+| **Lab** | Explicitly bounded experiments: `vanta-proxy` (LLM gateway — frozen, **not published until 1.0.0**), web console (separate repo), remote LLM providers, GraphRAG exposure, IQL extras. | **Frozen** |
 
-| Classification | Surface |
-| :--- | :--- |
-| **Production-facing** | Embedded SDK/CLI, memory CRUD/search, WAL/recovery, namespaces, metadata indexes, HNSW vector retrieval, BM25, Hybrid Retrieval v1, phrase filtering, rebuild/audit/repair, JSONL export/import |
-| **Optional wrapper** | Local `vantadb-server` binary around the embedded core |
-| **New** | MCP server for AI agents ([setup guide](docs/api/MCP.md)) |
-| **Experimental / not MVP** | IQL/LISP/DQL, LLM/Ollama integration, governance and maintenance semantics, graph traversal beyond stored local edges |
-| **Deferred** | Cloud/enterprise platform, HA/replication, distributed clustering, SQL/OLTP/warehouse/time-series, advanced ranking/snippets/tokenization, RBAC, multi-tenancy |
+> **MVP = embedded memory + WAL + vector/BM25/hybrid + export/import + CLI/Python** — plus the agentic layer (`vanta-memory` L0→L3) as the differentiating engine.
 
-*VantaDB is an embedded memory engine, not a universal multimodel database or cloud platform.*
+**Not part of the product until 1.0** (closed list): cloud/enterprise platform, HA/replication/clustering, SQL/OLTP/warehouse/time-series, plugins/marketplace, multimodal, alternative ANN indexes (IVF/DiskANN/ScaNN), RBAC/multi-tenancy, proxy gateway features. See the [Freeze List](docs/user/operations/EXPERIMENTAL_FEATURES.md) for the owner-approved scope.
 
-See [Experimental Features and Product Boundary](docs/user/operations/EXPERIMENTAL_FEATURES.md) for the operational classification of all repository surfaces.
+*VantaDB is an embedded memory engine for agents — not a universal multimodel database or a cloud platform.*
+
+### Platform notes
+
+- **Windows**: engine, CLI, local embeddings, MCP and Python SDK are supported. Remote LLM providers (OpenAI/Ollama/litellm) do not build on Windows yet — fix in progress.
+- **Linux / macOS / WSL**: full support, including remote providers.
 
 ---
 
