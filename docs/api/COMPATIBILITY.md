@@ -53,32 +53,41 @@ deprecations are registered in [`DEPRECATIONS.md`](DEPRECATIONS.md).
 
 Accepted breaking changes merged to `develop` **after** the `v0.7.0` release
 cut (2026-09-25), to ship in the next MINOR (`0.8.0`, under 0.x rules). Detected
-by `cargo semver-checks check-release` (exit 100; 7 deny-level lint families).
-Six are on the **CLI surface (#9)** — `src/cli.rs` (clap structs) and
-`src/cli_handlers/` public signatures — **not** on the Rust SDK surface (#1).
-The seventh is a **feature-graph** change on the core crate (#1, Cargo
-features), not a Rust item signature:
+by `cargo semver-checks check-release` (exit 100; 9 deny-level lint families).
+Four are **CLI-only (#9)**: the three `Commands`-shape lints plus the
+`cli_handlers::cmd_*` arity wave. Three are **core-only (#1)**: the `FormatKind`
+discriminant shift, the `Embedded::import_*` arity, and the Cargo-feature
+decouple (`server` no longer enables `cli` — a feature-graph change, not a Rust
+item signature). The remaining two mix surfaces: `constructible_struct_adds_field`
+(CLI `Cli` + core wire structs/`Config`) and `enum_variant_added` (`Commands` +
+`FormatKind`):
 
 | lint (`cargo-semver-checks`) | What changed | Commit |
 |------------------------------|--------------|--------|
-| `constructible_struct_adds_field` | `Cli` gains a pub field (`src/cli.rs:38`) + `Config`: `insert_batch` (`config.rs:779`), `memory_default_ttl_ms` (`config.rs:793`), `ttl_sweep_interval_ms` (`config.rs:799`) | `f6c395ef` · WIRE-04/WIRE-06 |
+| `constructible_struct_adds_field` | `Cli.json` (`src/cli.rs:38`); `Config` +5 fields (`config.rs:783-821`): `insert_batch`, `memory_default_ttl_ms`, `ttl_sweep_interval_ms`, `quarantine_review_default_days`, `confidence_threshold`; v2 fields on the wire structs (`MemoryRecord` ×10, `MemoryInput` ×5, `MemoryExportLine` ×10, `MemorySearchRequest` ×8, `MemoryListOptions` ×4, `Query`/`SelectStatement` `as_of_ms`, `ImportReport`/`BulkImportReport` `quarantined`) | `f6c395ef` · WIRE-08 · SCH-02..07 |
+| `enum_no_repr_variant_discriminant_changed` | `FormatKind::Schema` discriminant `3 -> 4` (`src/migration.rs:30`) — `Records` inserted before it | SCH-02 (`7af34366`) |
 | `enum_struct_variant_changed_kind` | `Commands::Stats` changed variant kind (`src/cli.rs:192`) | `f6c395ef` |
-| `enum_struct_variant_field_added` | `query_flag` / `limit` added to `Search` / `SearchMulti` / `SearchAll` / `SimilarToKey` | `f6c395ef` |
+| `enum_struct_variant_field_added` | `query_flag` / `limit` added to `Search` / `SearchMulti` / `SearchAll` / `SimilarToKey`; `attest` / `out` added to `Delete` | `f6c395ef` · VER-02 (`ccc51d09`) |
 | `enum_struct_variant_field_missing` | `json` / `top_k` removed or renamed on several `Commands` variants | `f6c395ef` |
-| `enum_variant_added` | `Commands::McpCall` added (`src/cli.rs:363`) | `8e55e853` |
-| `function_parameter_count_changed` | ~25 `pub` `cli_handlers::cmd_*` gained one parameter (path/POSIX plumbing) | `f6c395ef` |
+| `enum_variant_added` | `Commands::McpCall` (`src/cli.rs:380`), `Commands::Verify` (`:201`) and `Commands::Certificate` (`:261`) added; `FormatKind::Records` (`src/migration.rs:28`) | `8e55e853` · SCH-02 · VER-01/02 |
 | `feature_no_longer_enables_feature` | **`feature server` no longer enables `cli`** (WIRE-07 feature decouple): the HTTP binary (`vantadb-server`/`vantadb-mcp`, now `default-features = false`) stops dragging `clap`/`clap_complete`/`indicatif`/`console`/`anyhow`. Downstreams that relied on the implication restore it with `features = ["server", "cli"]`; `vantadb-server` keeps its own opt-in `cli = ["vantadb/cli"]` | WIRE-07 |
+| `function_parameter_count_changed` | 26 `pub` `cli_handlers::cmd_*` gained one parameter (path/POSIX + global `--json` plumbing) | `f6c395ef` |
+| `method_parameter_count_changed` | `Embedded::import_records` / `import_file` gain `quarantine: bool` (`src/sdk/serialization/impl_export.rs`) | SCH-05 (`83d65518`) |
 
 - **Disposition:** accepted under the 0.x MINOR policy (introduced by `feat!:` /
   `fix:` commits on `develop`); **not** excluded and no lint levels weakened —
   the gate keeps its teeth. The consumer-facing write-up ships with `0.8.0` in
   [`UPGRADE.md`](../user/operations/UPGRADE.md).
-- **Reproduce:** `cargo semver-checks check-release` (rustdoc builds; measured
-  locally 2026-09-27: 149.7s warm, 391.1s after a cache rebuild — the first
-  cold bootstrap is slower). Raw evidence: 196 checks — 189 pass / 7 fail /
-  57 skip (WIRE-07 run, 2026-09-28; cold all-features build ≈64 min when the
-  shared `target/semver-checks` dir is locked by concurrent sessions — isolate
-  with `CARGO_TARGET_DIR`).
+- **Reproduce:** `cargo semver-checks check-release --baseline-rev v0.7.0`
+  (rustdoc builds; `cargo-semver-checks` 0.49.0). Raw evidence: 196 checks —
+  187 pass / 9 fail / 57 skip, exit 100 (measured 2026-10-01 at `ae97538e`;
+  cold `target/semver-checks` cache: 3303s total — 1897s current + 1379s
+  baseline rustdoc builds, `CARGO_BUILD_JOBS=2`; warm runs ≈150s, 2026-09-27).
+  The 9-family / 187-9-57 counts match the SCH-07 run of 2026-09-29; the two
+  families added over the WIRE-07 run (2026-09-28, 7 families) are the
+  `FormatKind` discriminant and the `Embedded::import_*` arity. Isolate with
+  `CARGO_TARGET_DIR` when concurrent sessions share the `target/semver-checks`
+  cache.
 
 ## 1.0 Readiness — exit criteria
 
