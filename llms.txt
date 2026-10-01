@@ -6,7 +6,7 @@
 
 Every link below points to the raw Markdown source, not a rendered page. Read the
 page you need; do not read this file end to end. This index covers the
-445 documentation pages; it deliberately omits the 1029 task files,
+446 documentation pages; it deliberately omits the 1029 task files,
 which are work items rather than documentation. The full inventory of every file
 is in docs/index.md in the repository.
 
@@ -223,7 +223,7 @@ is in docs/index.md in the repository.
 - [VantaDB Documentation](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/README.md): Welcome to the VantaDB documentation vault
 - [VantaDB Documentation](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/index.md): Canonical index of the VantaDB documentation corpus.
 - [VantaDB Tutorials](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/tutorials/index.md): Step-by-step guides for using VantaDB, ordered by increasing complexity
-- [Workflows — Inventory (28 active)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/workflow/README.md): Per-workflow detail pages live next to this index (ci-gate.md,
+- [Workflows — Inventory (37 active)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/workflow/README.md): Per-workflow detail pages live next to this index (ci-gate.md,
 - [Reviews archivados (2026-08-26)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/reviews/README.md): Estos 30 reportes son snapshots históricos de auditorías/reviews/investigaciones
 - [The mdBook layer (retired 2026-09-29)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/book/README.md): Why docs/user/book/ was deleted, what survives, and what to do if it comes back
 
@@ -305,6 +305,7 @@ is in docs/index.md in the repository.
 - [Heap-Usage Testing — `dhat` 0.3.3 Evaluation (2026-08-30)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/dhat-evaluation-2026-08-30.md): dhat 0.3.3 is NOT introduced into the VantaDB workspace. The workspace has no
 - [Herramientas desktop de administración de bases de datos](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/human-facing-db-ui/02-desktop-db-tools/RESEARCH.md): Tras analizar 15+ herramientas (DBAs relacionales, GUI NoSQL, navegadores de grafos, exploradores de almacenamiento y herramientas de memoria para IA), los patrones dominantes y transferibles son
 - [Ingeniería de Software End-to-End: Prácticas y Referencias](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/2026-08-10-agent-engineering/eng-01-software.md): El ciclo de vida completo de una feature, desde que se concibe hasta que se mantiene, tiene las siguientes fases
+- [Instalador interactivo y personalizado (RES-17)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/installer-personalizado/RESEARCH.md): Benchmark multi-fuente de instaladores interactivos (rustup, ollama, Docker, VS Code, uv, cargo-dist, Homebrew, conda, winget, Tauri/NSIS, Inno Setup, MSI, Python) y recomendación de arquitectura para el instalador v2 de VantaDB: selector de módulos, resolución de binarios/dependencias/config por plataforma, roadmap por fases y riesgos. Alimenta DX-12
 - [Licenciamiento OSS y Monetización Open-Core para VantaDB](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/validacion/03-licenciamiento-y-monetizacion-open-core.md): Fecha: 2026-08-25 · Autor: Agente C (research delegada) · Estado: investigación completa; requiere revisión legal profesional antes del anuncio público
 - [MGR-10 — Bitemporalidad (dim 5): valid-time vs transaction-time, tradeoffs y plan de migración (Cierre MGR)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/mgr-10-bitemporalidad.md): Los hits de \"point-in-time\" son MVCC/snapshot de storage (src/storage/engine/txn.rs:227, src/backends/rocksdbbackend.rs:350, src/metrics/core/mod.rs:622) y comentarios afines — semántica transaccional/de proceso, no ventanas de validez...
 - [MGR-12 — Confianza: jerarquía asserted/derived, scores por registro y derivación (Cierre MGR)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/mgr-12-confianza.md): Dos ejes ortogonales por registro — nunca confundirlos
