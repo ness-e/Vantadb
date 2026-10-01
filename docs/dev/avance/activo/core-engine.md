@@ -768,3 +768,9 @@ s_len‖ns‖key_len‖key‖ver BE) + hooks put/put_batch/delete/purge_expired 
 - **Objetivo:** Normalizar la superficie CLI: `--json` global completo (humano truncado solo TTY), flags simétricos `--in`/`--out`, `--limit` canónico, QUERY posicional, `count` sin DB exit≠0, `put` vía SDK, lecturas read-only (Regla 8).
 - **Resultado:** ✅ Contrato 5/5 — help 39 capturas · smoke 56/56 · cli_tests 88/88 · lib 2124/0 · fmt/clippy 0 · review P2-01 ronda 2 ✅ APPROVE. Lead verify: 88/88 (`-p vantadb`); el hang de `cargo test` sin `-p` era unificación de features con default-members → test gateado `#[cfg(not(feature = "server"))]` (suite unificada 87/87).
 - **Commit:** f6c395ef (local, sin push)
+
+### FIND-190: put-overwrite Cold invisible a get/list (cache volátil) (review P2-01 ✅)
+- **Fecha:** 2026-10-01
+- **Objetivo:** Invalidar la entry volátil en overwrite Cold (single + batch) — mismo patrón que txn/delete; elimina la necesidad del workaround VER-07.
+- **Resultado:** ✅ RED→GREEN 2/2 · storage::engine 390/390 · lib 2302/0 · check/clippy/fmt 0 · P2-01 APPROVE (O1→FIND-222, O2→FIND-223; integration targets → CI).
+- **Commit:** 06496a9a (local, sin push)
