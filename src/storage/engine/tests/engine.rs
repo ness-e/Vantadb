@@ -813,6 +813,100 @@ fn test_get_prefetch_does_not_recurse_forever() {
     );
 }
 
+// ─── FIND-190: Cold overwrite must invalidate the prefetched stale entry ───
+
+/// FIND-190: `prefetch_related` caches co-accessed nodes regardless of tier,
+/// but the non-txn write paths only refreshed the volatile cache for Hot
+/// nodes — a `put`-overwrite of a Cold node left the OLD payload cached and
+/// visible to `get()`/`get_many()` (the SDK `list` fetch path). Repro:
+/// prefetch B via get(A), overwrite B (Cold, the default tier), read B back.
+#[test]
+fn test_cold_overwrite_invalidates_prefetched_cache_entry() {
+    let engine = in_memory_engine();
+    // Cold tier (UnifiedNode::new default) on both nodes.
+    let a = sample_node(1);
+    let mut b = sample_node(2);
+    b.relational.insert(
+        "payload".to_string(),
+        crate::node::FieldValue::String("old".to_string()),
+    );
+    engine.insert(&a).expect("insert a");
+    engine.insert(&b).expect("insert b");
+
+    // Register co-access A↔B (min_accesses = 3), then get(A) → prefetch caches
+    // B's OLD payload in volatile (the FIND-190 precondition).
+    for _ in 0..3 {
+        engine.cache.warmer.record_co_access(&[1, 2]);
+    }
+    engine.get(1).expect("get a");
+    assert!(
+        engine.cache.volatile.read().contains_key(&2),
+        "precondition: B must be prefetched into volatile"
+    );
+
+    // Cold overwrite of B with the NEW payload.
+    let mut b_new = sample_node(2);
+    b_new.relational.insert(
+        "payload".to_string(),
+        crate::node::FieldValue::String("new".to_string()),
+    );
+    engine.insert(&b_new).expect("overwrite b");
+
+    // get() must not serve the stale cached payload.
+    let got = engine.get(2).expect("get b").expect("b exists");
+    assert_eq!(
+        got.relational.get("payload"),
+        Some(&crate::node::FieldValue::String("new".to_string())),
+        "get() must return the NEW payload after a Cold overwrite"
+    );
+    // get_many() is the SDK list() fetch path — same guarantee.
+    let got_many = engine.get_many(&[2]).expect("get_many b");
+    assert_eq!(
+        got_many[0].relational.get("payload"),
+        Some(&crate::node::FieldValue::String("new".to_string())),
+        "get_many() must return the NEW payload after a Cold overwrite"
+    );
+}
+
+/// FIND-190 (batch write path): `cache_batch_hot_nodes` had the same hole —
+/// a Cold `batch_insert`/`put_batch` overwrite must invalidate the stale
+/// prefetched entry too.
+#[test]
+fn test_cold_batch_overwrite_invalidates_prefetched_cache_entry() {
+    let engine = in_memory_engine();
+    let a = sample_node(1);
+    let mut b = sample_node(2);
+    b.relational.insert(
+        "payload".to_string(),
+        crate::node::FieldValue::String("old".to_string()),
+    );
+    engine.insert(&a).expect("insert a");
+    engine.insert(&b).expect("insert b");
+
+    for _ in 0..3 {
+        engine.cache.warmer.record_co_access(&[1, 2]);
+    }
+    engine.get(1).expect("get a");
+    assert!(
+        engine.cache.volatile.read().contains_key(&2),
+        "precondition: B must be prefetched into volatile"
+    );
+
+    let mut b_new = sample_node(2);
+    b_new.relational.insert(
+        "payload".to_string(),
+        crate::node::FieldValue::String("new".to_string()),
+    );
+    engine.batch_insert(&[b_new]).expect("batch overwrite b");
+
+    let got = engine.get(2).expect("get b").expect("b exists");
+    assert_eq!(
+        got.relational.get("payload"),
+        Some(&crate::node::FieldValue::String("new".to_string())),
+        "get() must return the NEW payload after a Cold batch overwrite"
+    );
+}
+
 // ─── D1a Slice 1 (RED): pure vector decoders extracted from `get` ───
 
 fn d1a_f32_le_bytes(values: &[f32]) -> Vec<u8> {
