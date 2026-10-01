@@ -294,9 +294,9 @@ mod tests {
         assert!(turns[0].payload.contains("sess-d19"));
     }
 
-    /// WIRE-01 (opción B) RED: el job L0 persiste el turno TAMBIÉN como
+    /// WIRE-01 (opción B): el job L0 persiste el turno TAMBIÉN como
     /// registro L1 `Episodic` en `l1/{session}` para que el search lo
-    /// recupere. Hoy FAIL: solo escribe `proxy-turns` → search da 0 hits.
+    /// recupere — este test verifica el dual-write (guard de regresión).
     #[tokio::test]
     async fn turn_job_dual_writes_l1_record_for_recall() {
         use vanta_memory::core::record::l1_reader::read_session_records;
