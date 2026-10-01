@@ -430,7 +430,7 @@ pub enum MigrateCommand {
     Run {
         /// Path to the database directory
         target: String,
-        /// Specific format to migrate (vfile, index, wal, schema, all)
+        /// Specific format to migrate (all, vfile, index, wal, records, schema)
         #[arg(long, default_value = "all")]
         format: String,
         /// Preview changes without modifying files
@@ -511,5 +511,31 @@ impl From<Shell> for clap_complete::Shell {
             Shell::Fish => clap_complete::Shell::Fish,
             Shell::PowerShell => clap_complete::Shell::PowerShell,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Regression: `migrate run --format` help must list every accepted format.
+    /// The canonical list is `FormatKind` (plus `all`), same as the runtime
+    /// error in `cli_handlers/migrate.rs` — `records` was missing (SCH-08 FIND).
+    #[test]
+    fn migrate_run_help_lists_every_format() {
+        let err = Cli::try_parse_from(["vanta-cli", "migrate", "run", "--help"])
+            .expect_err("--help must exit with a DisplayHelp error");
+        let help = err.to_string();
+        for format in crate::migration::FormatKind::all() {
+            assert!(
+                help.contains(format.name()),
+                "`migrate run --help` must list format `{}`:\n{help}",
+                format.name()
+            );
+        }
+        assert!(
+            help.contains("all"),
+            "`migrate run --help` must list `all`:\n{help}"
+        );
     }
 }
