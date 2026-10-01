@@ -2,7 +2,7 @@
 title: Upgrade Guide
 kind: runbook
 status: active
-description: "How to upgrade VantaDB between versions, what changes to expect, and how to"
+description: "How to upgrade VantaDB between versions, what changes to expect, and how to migrate safely"
 tags: [vantadb, upgrade, migration]
 ---
 
@@ -58,8 +58,10 @@ Each section lists what changed for consumers and any required migration steps.
   means "still valid". `valid_at_ms` defaults to `created_at_ms`.
 - **Point-in-time queries (`AS OF`).** IQL version 2 adds the opt-in
   `AS OF <unix-ms>` clause (valid time, not transaction time), and search/list
-  accept the equivalent `as_of_ms` and `valid_window` params. Without them,
-  queries behave exactly as in 0.7.x (opt-in; defaults unchanged). See
+  accept the equivalent `as_of_ms` and `valid_window` params. The existing
+  opt-in `exclude_superseded` flag now also drops records whose validity
+  window has ended (`invalid_at_ms <= now`). Defaults are unchanged — every
+  new filter is opt-in. See
   [`IQL.md` § Valid-Time Queries](../../api/IQL.md#valid-time-queries-as-of).
 - **Confidence per record.** `confidence_class` (`asserted` | `derived`),
   `confidence` (finite, in `[0,1]`), `last_validated_at_ms`, `derived_from`.
@@ -71,7 +73,9 @@ Each section lists what changed for consumers and any required migration steps.
   Quarantined records are excluded from search/list/retrieval by default;
   `include_quarantined` opts in, and `get` by key always returns them with the
   state visible (never a silent miss). Quarantine is sticky, never
-  auto-promotes, and its 30-day review deadline is a signal only.
+  auto-promotes, and its 30-day review deadline is a signal only. Migrated
+  records start unquarantined, so the default-exclusion has zero effect on
+  legacy data.
 - **Selective abstention (opt-in).** With `confidence_threshold` configured
   (env `VANTADB_CONFIDENCE_THRESHOLD`, default OFF), a search whose page ends
   empty returns an explicit `abstained: true` + `abstention_reason` signal
@@ -81,14 +85,15 @@ Each section lists what changed for consumers and any required migration steps.
   ([`BINDINGS_NAMESPACES.md`](../../api/BINDINGS_NAMESPACES.md)).
 
 **Breaking changes:** 0.8.0 is a MINOR pre-1.0 release, so it may carry
-breaking changes. The **authoritative** list is the `[0.8.0]` changelog entry (release-plz);
-[`COMPATIBILITY.md` § Pre-release deltas](../../api/COMPATIBILITY.md#pre-release-deltas-vs-published-070);
-the ones most likely to touch consumers:
+breaking changes. The **authoritative** list is the `[0.8.0]` changelog entry
+(release-plz), with the mechanically-detected API deltas in
+[`COMPATIBILITY.md` § Pre-release deltas](../../api/COMPATIBILITY.md#pre-release-deltas-vs-published-070).
+The changes most likely to touch consumers:
 
 | Area | Change | What to do |
 |------|--------|------------|
 | Storage (on-disk) | Schema v2: new record fields; JSONL export switches to v2 (`schema_version: 2`); the storage header bumps to `2` when you run the migration. A 0.8.0 binary reads a 0.7.x directory as-is (normalization on read); a 0.7.x binary refuses a migrated directory (`TooNew`). | Run the migration below, or keep reading the v1 directory with 0.8.0 without rewriting it. v1 exports stay importable (`schema_version` 1 or 2 accepted, `> 2` rejected). |
-| Rust SDK | `MemoryRecord` / `MemoryInput` / `MemoryListOptions` / `MemorySearchRequest` / `Query` gain public fields (struct literals must be updated). `Embedded::import_records` / `import_file` gain a `quarantine: bool` argument. `VantaHeader` is renamed to `Header` (deprecated alias kept). `QueryResult::Write.node_id` serializes `u128` as a decimal string. | Update literals/calls; rename or keep using the alias. See [`EMBEDDED_SDK.md`](../../api/EMBEDDED_SDK.md). |
+| Rust SDK | `MemoryRecord` / `MemoryInput` / `MemoryListOptions` / `MemorySearchRequest` / `Query` gain public fields (struct literals must be updated). `Embedded::import_records` / `import_file` gain a `quarantine: bool` argument. `VantaHeader` is renamed to `Header` (deprecated alias kept). `QueryResult::Write.node_id` serializes `u128` as a decimal string. | Update literals/calls (`quarantine: false` keeps the 0.7.x behavior); rename or keep using the alias. See [`EMBEDDED_SDK.md`](../../api/EMBEDDED_SDK.md). |
 | Cargo features | `feature = "server"` no longer enables `cli`. | If you relied on the implication, use `features = ["server", "cli"]`. |
 | CLI | `--json` is now a global flag; the query is a positional argument (alias `--query`); `--limit` is canonical (alias `--top-k`); `--in` / `--out` are symmetric; new `vanta-cli mcp-call`. | Re-check scripts against `vanta-cli --help`; the aliases keep most 0.7.x spellings working. |
 | IQL | `IQL_VERSION` 1 → 2 (adds `AS OF`; version-gated). | Feature-detect with `IQL_VERSION_MIN_AS_OF` / `iql_supports`; v1 statements keep parsing. |
@@ -102,8 +107,11 @@ the ones most likely to touch consumers:
    migration rewrites stored records and snapshots in place; the backup is your
    rollback.
 2. Upgrade the package: `pip install -U vantadb-py==0.8.0` /
-   `npm i vantadb@0.8.0` / `cargo update -p vantadb`.
-3. Inspect and migrate the directory with `vanta-cli` (stop writers first):
+   `npm i vantadb@0.8.0` / `cargo add vantadb@0.8.0` (`cargo update -p
+   vantadb` alone cannot cross the `0.x` minor boundary — the `Cargo.toml`
+   requirement must allow `0.8`).
+3. Inspect and migrate the directory with `vanta-cli` (stop writers first;
+   add `--force` to skip the confirmation prompt in scripted runs):
 
    ```bash
    vanta-cli migrate plan  ./vanta_data                        # what will change (v1 → v2 per format)
@@ -117,23 +125,32 @@ the ones most likely to touch consumers:
      same values, and an interrupted run leaves a readable database (header v1
      + partially backfilled data) that both 0.7.x and 0.8.0 open — re-run to
      finish.
-   - Order is always expand → backfill → header bump. The header bump marks the
-     migration complete, so run `--format all` (or `--format schema`) **after**
-     `records`, never before.
+   - What the backfill writes: `valid_at_ms := created_at_ms`;
+     `invalid_at_ms := superseded_at_ms` for superseded records (open window
+     otherwise); `confidence_class := asserted` / `confidence := 1.0`;
+     `last_validated_at_ms`, `derived_from`, and the quarantine fields stay
+     unset.
+   - Order is always expand → backfill → header bump, and the CLI enforces it:
+     `--format all` runs the backfill before the header bump, and a
+     `--format schema` run with the backfill still pending performs it first.
+     The header bump is the migration-complete marker.
    - New in 0.8.0: the `records` format. `--format` accepts `all`, `vfile`,
      `index`, `wal`, `records`, `schema`.
    - Optional determinism check: migrate two copies of the same 0.7.x
      directory and compare them byte for byte.
-4. Verify after migrating:
+4. Verify after migrating (`vanta-cli` resolves the directory from the global
+   `--db` flag — default `./db`, or `$VANTADB_STORAGE_PATH` — so pass
+   `--db ./vanta_data` as below):
 
    ```bash
-   vanta-cli audit-index --json    # → "passed": true
-   # read smoke test: list namespaces + one search, then roundtrip:
-   vanta-cli export --namespace <ns> --out export-v2.jsonl   # exports are v2
-   vanta-cli import --in export-v2.jsonl
+   vanta-cli audit-index --json --db ./vanta_data               # → "passed": true
+   vanta-cli namespace list --db ./vanta_data                   # read smoke test: namespaces
+   vanta-cli search --namespace <ns> "smoke" --db ./vanta_data  # read smoke test: one search
+   vanta-cli export --namespace <ns> --out export-v2.jsonl --db ./vanta_data  # exports are v2
+   vanta-cli import --in export-v2.jsonl --db ./vanta_data
    ```
 
-   v1 JSONL files remain importable (`vanta-cli import --in export-v1.jsonl`).
+   v1 JSONL files remain importable (`vanta-cli import --in export-v1.jsonl --db ./vanta_data`).
 5. Roll back if needed: restore the backup and reopen it with 0.7.x (or
    re-import the logical export). Once the header is v2 a 0.7.x binary refuses
    the migrated directory — always roll back from the backup.
