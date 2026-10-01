@@ -18,8 +18,8 @@ tags: [vantadb, references, numbers, metrics]
 | Número | Valor verificado | Comando de verificación | Verificado |
 |---|---|---|---|
 | Workflows (archivos `.yml`) | **37** | `(Get-ChildItem .github/workflows -Filter *.yml).Count` | 2026-10-01 |
-| ADRs (numerados) | **54** | `(Get-ChildItem docs/dev/architecture/adr -Filter 'ADR-*.md').Count` | 2026-10-01 |
-| Archivos totales en `adr/` | 56 (= 54 ADRs + `README.md` + `DECISIONS-NOT-TAKEN.md`) | `(Get-ChildItem docs/dev/architecture/adr -File).Count` | 2026-10-01 |
+| ADRs (numerados) | **55** | `(Get-ChildItem docs/dev/architecture/adr -Filter 'ADR-*.md').Count` | 2026-10-01 (incl. ADR-0054) |
+| Archivos totales en `adr/` | 57 (= 55 ADRs + `README.md` + `DECISIONS-NOT-TAKEN.md`) | `(Get-ChildItem docs/dev/architecture/adr -File).Count` | 2026-10-01 (incl. ADR-0054) |
 | Documentos `.md` totales | **1689** (1469 no-archivados) | `node scripts/docs/check-docs.mjs` (línea `documents:`) | 2026-10-01 |
 | Task files | **1027** | `(Get-ChildItem docs/dev/tasks -Recurse -Filter *.md).Count` | 2026-10-01 |
 | Paquetes npm publicados | **3** (`vantadb`, `vantadb-node`, `vantadb-wasm`) | nombres en `vantadb-ts/package.json`, `vantadb-node/package.json`, `vantadb-wasm/pkg/package.json` | 2026-10-01 |
