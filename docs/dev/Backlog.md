@@ -526,6 +526,7 @@ verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-hist
 |----|-------------|----------|------|-------------|
 | `MKT-18f` | **Publicar 5 adapters en PyPI (re-escalado 2026-09-03)** — lado código CERRADO: 5/5 `python -m build` + `twine check` exit 0, nombres verificados LIBRES (404 live ×5), `vantadb-py>=0.5.0,<0.6.0` pin válido (existe 0.5.0), workflow `release-adapters-62.yml` presente+actionlint 0 (creado por QW-7), READMEs honestos, borradores upstream en `docs/dev/plans/artifacts/mkt-18f-prs/`. Restante = ACCIÓN HUMANA: checklist 3 pasos en `.opencode/skills/campaign-executor/tasks/MKT-18f.md` (environment `pypi` → dry-run TestPyPI → tag `adapters-v0.5.0` + limpieza post-release). Desbloquea GTM checkboxes al publicar. | 🟢 1-2h humano | 🔴 | 🟠 Pendiente (humano) |
 | `MKT-18i` | **AnythingLLM ↔ VantaDB (re-escalado 2026-09-03)** — compose demo Ollama+VantaDB shipped (`abb6594c`, ver `docs/dev/avance/activo/operaciones.md`). Restante: AnythingLLM no soporta VantaDB como vector backend (evidencia: `server/.env.example` master de Mintplex-Labs/anything-llm — `VECTOR_DB` acepta lancedb/chroma/pgvector/qdrant/pinecone/astra/weaviate/milvus/zilliz/chromacloud). Requiere feature-request upstream (acción humana), no glue local. | ⚪ upstream | 🟡 | 🔴 BLOQUEADO |
+| `MKT-19` | **`awesome-vantadb` (lista curada)** — canal de descubrimiento estándar OSS; 0 matches en repo/backlog (auditoría OLD 2026-09-30). Contenido: SDKs, adapters, demos, benchmarks, comparativas. | 🟢 S | 🟡 | ⬆️ Nuevo (2026-09-30) |
 
 ---
 
@@ -623,7 +624,7 @@ verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-hist
 - **REV items:** `docs/dev/reviews/2026-07-13-full-review.md`
 - **DRV findings:** `docs/dev/plans/2026-07-15-cross-ref-docs-vs-code.md` + `docs/audit-reports/cross-ref-wave3-final-report.md`
 - **OLD items:** `docs/REPORTE_EVALUACION_COMPLETO.md` secciones 6 y 7 — ~280 archivos VANTADB DOC OLD analizados
-- **COMP items:** `docs/audit-reports/competitive-features-consolidated-report.md` + `docs/audit-reports/deep-analysis-{vector,graph,arch}.md` — 27 archivos, 172 features, top 30 priorizados
+- **COMP items:** `docs/dev/archive/EXTRACCION-DOC-OLD-2026-08-05.md` §2-3 (competidores graph/vector consolidados — los originales `competitive-features-consolidated-report.md`/`deep-analysis-*.md` fueron eliminados en la limpieza 2026-08-05; ref corregida 2026-09-30)
 
 ---
 
@@ -833,17 +834,17 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/dev/revie
 | ID | Descripción | Esfuerzo | Prio | Estado |
 |----|-------------|----------|------|--------|
 | `FUT-02` | **Embeddings Matryoshka** — truncamiento dinámico de dimensionalidad (1536→256) | 🔴 | 🗺️ | ❌ Sin implementar |
-| `FUT-03` | **Community detection Leiden/Louvain nativa** — `docs/dev/graphrag/README.md:302` sigue vigente | 🔴 | 🗺️ | ❌ Sin implementar |
+| `FUT-03` | **Community detection Leiden/Louvain nativa** — `docs/dev/graphrag/README.md:302` sigue vigente | 🔴 | 🗺️ | ⬆️ Promovido 2026-09-30 → P28 (activo; multi-nodo sigue futuro) |
 | `FUT-04` | **Índices aprendidos (RMI)** para metadatos escalares | 🔴 | 🗺️ | ❌ Sin implementar |
 | `FUT-05` | **Corrección de residuos QJL (Fase 3 TurboQuant/RaBitQ)** — `turbo_quant_*` es PolarQuant 4-bit puro | 🟠 | 🗺️ | ❌ Sin implementar |
 | `FUT-06` | **Aceleración LUT / Bit-Slicing** para distancias cuantizadas | 🟠 | 🗺️ | ❌ Sin implementar |
-| `FUT-07` | **Selector adaptativo de precisión por tier** — bloques existen (`VectorRepresentations` + tiers), falta selector automático; `consolidate_node_inner` no cambia representación | 🟠 | 🗺️ | 🟡 Redefinido (cableado) |
-| `FUT-08` | **Go SDK vía C-ABI + cbindgen + cgo** — no existe capa C-ABI pública (solo `sigbus_handler` en `vfile_mmap.rs:206`) | 🔴 | 🗺️ | ❌ Sin implementar |
-| `FUT-09` | **Curación AUDN en ingesta** — `DuplicatePreventionFilter` (Bloom) existe SIN callers en write path; bucle semántico AUDN ausente | 🟠 | 🗺️ | 🟡 Redefinido (cablear primitiva) |
-| `FUT-10` | **Fuerza de retención Ebbinghaus / repetición espaciada** — solo `BayesianDecay` de eviction | 🟠 | 🗺️ | ❌ Sin implementar |
-| `FUT-11` | **Export bidireccional a Markdown legible** — hoy JSONL machine-readable; bajo valor | 🟢 | 🗺️ | ❌ Sin implementar |
-| `FUT-12` | **WAL fsync-batching / flush asíncrono** — hoy `src/wal.rs`: Periodic con threshold default 1 = sync por escritura (`wal.rs:372`; default Periodic `config.rs:180`, plumbing `SyncMode` existe sin group-commit). NO es «async ingest» genérico: `src/ingestion.rs` ya da pipeline async de nodos. Ganancia esperada 10-100× en ingesta batch (§roadmap:184). Riesgo: durabilidad — requiere decisión explícita de política de sync (ventana de pérdida vs throughput) antes de implementar. Trackeado desde RES-09 (investigación 2026-08-09 §roadmap) | 🔴 | 🗺️ | ❌ Sin implementar |
-| `FUT-13` | **Query planner con optimizaciones reales** — hoy router + heurística: clasifica la query Hybrid/TextOnly/VectorOnly (`src/planner.rs`; §roadmap:186 «hoy router + heurística»). Gap: optimizaciones más allá de la clasificación por tipo (estimación/costo para elegir camino de índices). Requiere ADR + benchmark Regla 9 antes de tocar. Trackeado desde RES-09 (investigación 2026-08-09 §roadmap) | 🔴 | 🗺️ | ❌ Sin implementar |
+| `FUT-07` | **Selector adaptativo de precisión por tier** — bloques existen (`VectorRepresentations` + tiers), falta selector automático; `consolidate_node_inner` no cambia representación | 🟠 | 🗺️ | ⬆️ Promovido 2026-09-30 → P28 (activo) |
+| `FUT-08` | **Go SDK vía C-ABI + cbindgen + cgo** — no existe capa C-ABI pública (solo `sigbus_handler` en `vfile_mmap.rs:206`) | 🔴 | 🗺️ | ❌ Sin implementar · Decisión owner pendiente (2026-09-30) |
+| `FUT-09` | **Curación AUDN en ingesta** — `DuplicatePreventionFilter` (Bloom) existe SIN callers en write path; bucle semántico AUDN ausente | 🟠 | 🗺️ | 🟡 Loop ✅ VER-07; residual Bloom → P28 (2026-09-30) |
+| `FUT-10` | **Fuerza de retención Ebbinghaus / repetición espaciada** — solo `BayesianDecay` de eviction | 🟠 | 🗺️ | ❌ Sin implementar · Trackeado: MGR-11 + N-09 (2026-09-30) |
+| `FUT-11` | **Export bidireccional a Markdown legible** — hoy JSONL machine-readable; bajo valor | 🟢 | 🗺️ | ✅ Cubierto por VER-06 (2026-09-30) |
+| `FUT-12` | **WAL fsync-batching / flush asíncrono** — hoy `src/wal.rs`: Periodic con threshold default 1 = sync por escritura (`wal.rs:372`; default Periodic `config.rs:180`, plumbing `SyncMode` existe sin group-commit). NO es «async ingest» genérico: `src/ingestion.rs` ya da pipeline async de nodos. Ganancia esperada 10-100× en ingesta batch (§roadmap:184). Riesgo: durabilidad — requiere decisión explícita de política de sync (ventana de pérdida vs throughput) antes de implementar. Trackeado desde RES-09 (investigación 2026-08-09 §roadmap) | 🔴 | 🗺️ | ❌ Sin implementar · Re-verificado 2026-09-30: vigente (`wal.rs:478` default 1); WIRE-06 cubre batching de operaciones, no el default del WAL |
+| `FUT-13` | **Query planner con optimizaciones reales** — hoy router + heurística: clasifica la query Hybrid/TextOnly/VectorOnly (`src/planner.rs`; §roadmap:186 «hoy router + heurística»). Gap: optimizaciones más allá de la clasificación por tipo (estimación/costo para elegir camino de índices). Requiere ADR + benchmark Regla 9 antes de tocar. Trackeado desde RES-09 (investigación 2026-08-09 §roadmap) | 🔴 | 🗺️ | ❌ Sin implementar · 🟡 Parcial: WIRE-08 ✅ (RRF en CBO + rewriting + MMR); residual → MGR-16 (2026-09-30) |
 | `FUT-14` | **DiskANN con disk-I/O real** — nombre engañoso: `src/index/diskann.rs:7,13` explícito «purely in-memory, **not disk-backed**» (Vamana en RAM; inv. l.93). Gap: page layout SSD (beam/sector reads) para datasets > RAM; mientras tanto exponerlo por SDK como in-memory (inv. l.72: IVF/SCANN/DiskANN sin exposición SDK). Trackeado desde RES-09 (investigación 2026-08-09 §roadmap) | 🟠 | 🗺️ | ❌ Sin implementar |
 | `FUT-15` | **Utopia: ontología + multimodal + memoria ejecutable (registro futuro, 2026-09-14)** — 🎯 OP: registrar las 3 direcciones fuera de alcance v1.0 con scope y triggers de activación: (1) ontología (schema/entidades declarativas), trigger = MGR-05 + MGR-17 verdes; (2) multimodal (audio/imagen como payload con embeddings), trigger = MGR-25 completo + caso de uso; (3) memoria ejecutable (skills que corren código), trigger = MGR-07 + sandbox. OS: no-acción hoy, solo registro. Tipo: research-registro. Cobertura: Problema § direcciones futuras; Notion Propuesta §6 (nota Utopia). Dep: ninguna (se activa por triggers). DoD: registro con triggers + revisión anual. Decisión owner 2026-09-14: las 3 direcciones. | `docs/dev/research/` | 🔵 1d | 🔵 | 🆕 Pendiente (P24 2026-09-14, desde EXE-08) |
 
@@ -916,6 +917,13 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/dev/revie
 
 | ID | Descripción (→ Resultado) | Archivos | Esfuerzo | Prio | Estado |
 |----|-------------|----------|----------|------|--------|
+| `FUT-07` ⬆️ | **Selector adaptativo de precisión por tier (cableado)** — `VectorRepresentations` + tiers Hot/Cold + LSM existen; `consolidate_node_inner` no cambia representación e ingest fija SQ8. Promovido de `backlog-futuro.md` (2026-09-30). | `src/node/vector_data.rs`, `src/storage/engine/` | 🟡 2-3d | 🟠 | ⬆️ Nuevo (2026-09-30) |
+| `FUT-03` ⬆️ | **Community detection Leiden/Louvain nativa** — `docs/dev/graphrag/README.md:302` la reclama; dep MGR-17 (GraphRAG) + STU-01. Promovido de `backlog-futuro.md` (2026-09-30). | `src/graph.rs` (+ graphrag) | 🟡 3-5d | 🟠 | ⬆️ Nuevo (2026-09-30) |
+| `FIND-208` | **Cablear o eliminar `DuplicatePreventionFilter` (Bloom)** — 0 callers en write path; VER-07 cubrió el loop dream. Decidir: cablear o borrar (YAGNI). | `src/utils/duplicate_prevention.rs` | 🟢 1d | 🟡 | ⬆️ Nuevo (2026-09-30) |
+| `FIND-209` | **TUI Monitor sin datos reales** — `src/tui/monitor.rs:34` `refresh(_engine)` es placeholder ("hook into query tracing"); cablear o bajar el claim del spec CLI/TUI. | `src/tui/monitor.rs` | 🟢 1-2d | 🟡 | ⬆️ Nuevo (2026-09-30) |
+| `FIND-210` | **`OriginCollisionTracker` sin callers** — `compute_confidence_friction` sin uso fuera de tests; `docs/dev/graphrag/README.md:191` lo reclama → cablear en write path o corregir doc. | `src/entity/`, `docs/dev/graphrag/` | 🟢 S | 🟡 | ⬆️ Nuevo (2026-09-30) |
+| `FIND-211` | **Triage helpers cognitivos SDK viejos** (`ask/chat/query_ollama/knowledge/from_documents/from_url/split_text`) — 0 matches en `vantadb-python`; decidir wontfix documentado o re-exponer `knowledge_search`. | `vantadb-python/`, docs | 🟢 S | 🟡 | ⬆️ Nuevo (2026-09-30) |
+| `FIND-212` | **SBOM TS/npm faltante** — `release-sbom.yml` genera Rust + Python; falta npm/TS (residual WF2-015, cierre triage §4). | `.github/workflows/release-sbom.yml` | 🟢 2-4h | 🟡 | ⬆️ Nuevo (2026-09-30) |
 
 
 
@@ -1015,6 +1023,7 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/dev/revie
 
 | ID | Effort | Descripción | Archivos / Origen | Estado |
 |----|--------|-------------|-------------------|--------|
+| `RES-16` | 🟡 M | **HippoRAG-style personalization** — PageRank query-aware sobre GraphRAG para retrieval personalizado (diferenciador de recall; +20% en el análisis OLD). Hoy solo PageRank analítico y GraphRAG sin personalización (grep 0). Dep: MGR-17. | `src/graphrag/`, `src/graph.rs` | ⬆️ Nuevo (2026-09-30) |
 
 ### 🟢 Baja / proceso
 
