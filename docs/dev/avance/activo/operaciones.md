@@ -411,3 +411,9 @@ tags: [vantadb, avance, ops, api, docs, backup, enterprise]
 - **Promociones a Backlog:** FUT-03/FUT-07 -> P28; FUT-17..23 anadidos a backlog-futuro; FIND-208..212; MKT-19; RES-16.
 - **Rescates OLD:** DECISIONS-NOT-TAKEN (registro de descartes) + 7 archivos historicos (archive/) + tutorial 06 LM Studio + 5 tipos de contexto.
 - **Commits:** 3ff933a5, d7861c3a, 3b8d9727 (+ este).
+
+### Migración de formato de backlogs + auditoría PDFs OLD (2026-09-30)
+- **Fecha:** 2026-09-30
+- **Objetivo:** unificar los 4 backlogs al esquema canónico de 10 columnas (`ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias`) + eliminar filas completadas + registrar los 15 candidatos de la auditoría PDFs OLD + actualizar los consumidores del formato en `.opencode/` (task-system, comandos, skills).
+- **Resultado:** ✅ esquema 10-col en `Backlog.md` / `Backlog-negocio.md` / `backlog-futuro.md` / `backlog-notion.md` (spec canónica: `.opencode/references/backlog-format.md`); filas completadas eliminadas (campaña F0–F6 + previas); secciones cerradas → notas de cierre; FIND-213..220 + BIZ-16/17 + FUT-24/25 registrados; nota de procedencia de los PDFs en `docs/dev/archive/PDFS-OLD-AUDITORIA-2026-09-30.md`; `.opencode/` actualizado (Gate H: cambios requeridos → aplicados).
+- **Commits:** (+ este) · `.opencode`: commit propio (repo separado).

@@ -318,3 +318,9 @@ Re-escaladas en el propio Backlog (misma fecha): RES-09 (fila WAL a fsync-batchi
 ## SKIP campaña FIND 2026-09-15 (plan 2026-09-15-find-correcciones, Gate P owner)
 
 - **FIND-76** (gap `jwt_secret` + link `HTTP_API.md:600`) — ❌ SKIP verificado stale 2026-09-15: `validate-docs-coverage.ps1` EXIT 0 (0 gaps), `CONFIGURATION.md:45` documenta `jwt_secret`, link `HTTP_API.md:600` → `.opencode/references/research-modules.md` existe. Ambos sub-items resueltos; owner aprobó SKIP en Gate P. Fila removida sin completar.
+
+## Migración de formato de backlogs + limpieza (2026-09-30)
+
+- **Filas completadas eliminadas** de los 4 backlogs (campaña F0–F6 + previas) — registro de completado en `docs/dev/avance/` por dominio: FIND-96/97/99 · EMB-10..20 · FIND-123 · FIND-134..146 · FIND-154 · FIND-160..163 (tabla FIND); MGR-10/12/13/19 · EXE-01/02 · VER-01..09 · SCH-01..08 · ICP-01..03 · DEF-01..08 · WIRE-02..08 · EST-09 · C-08 · H3-01 · FUT-01/09/11 · BIZ-08.
+- **Secciones cerradas comprimidas a notas de cierre:** P14 · P17–P19 · P21–P22 · P26–P27 · P32 · P36–P37 · P39–P40/P44/P47 · Phase 48 + P48 CIERRE · P51/P52/P54/P55/P56/P57.
+- **Detalle de la migración:** `docs/dev/avance/activo/operaciones.md` §Migración de formato de backlogs + `.opencode/references/backlog-format.md`.
