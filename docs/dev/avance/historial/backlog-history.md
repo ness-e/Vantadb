@@ -328,3 +328,8 @@ Re-escaladas en el propio Backlog (misma fecha): RES-09 (fila WAL a fsync-batchi
 ## Verificación de realidad (2026-10-01)
 
 - **Filas cerradas** (verificadas completadas/implementadas): `DX-11` · `FIND-138` · `FIND-170` · `FIND-171` · `UX-08` · `UX-11` · `SHOW-03` · `HIG-02`. Detalle: `docs/dev/avance/activo/operaciones.md` §Verificación de realidad del backlog.
+
+## Cierres pre-release 0.8.0 (2026-10-01)
+
+- **FIND-176** (wizard `ORT_DYLIB_PATH` al directorio) - ✅ cerrado 2026-10-01: fix 4 sitios + test de regresión 8 PASS (commit `3ae64a7d`).
+- **FIND-190** (overwrite Cold invisible a get/list) - ✅ cerrado 2026-10-01: invalidación de cache en write path + tests RED→GREEN; review P2-01 APPROVE (commit `06496a9a`); derivadas: FIND-222 (race prefetch), FIND-223 (dream promote).

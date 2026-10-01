@@ -115,7 +115,7 @@ NO COMMITEAR (lo hace el lead)."
 
 ## Deuda técnica (Regla 6)
 
-**Saldo neto: sin deuda nueva** — se elimina el workaround VER-07 (delete+put) para updates.
+**Saldo neto: sin deuda nueva** — el workaround VER-07 (delete+put) **deja de ser necesario** para el caso cubierto (overwrite single/batch de Cold); su código en `dream promote` sigue vigente (correcto, solo cuesta un delete extra) — simplificación trackeada en FIND-223 (review P2-01, O2).
 `insert_to_cf` (ops.rs:205) queda fuera de scope (API low-level, sin callers de producción
 in-tree) — NOTICED BUT NOT TOUCHING (si aplica, FIND aparte).
 
@@ -133,6 +133,15 @@ in-tree) — NOTICED BUT NOT TOUCHING (si aplica, FIND aparte).
 | Integration (`--test basic_node --test mutations --test storage --test core_invariants`) | ⚠️ NO CORRIDOS — ver Bloqueos |
 
 Todos con `CARGO_BUILD_JOBS=2`.
+
+## Review (P2-01 — vanta-review, contexto fresco)
+
+**Veredicto: ✅ APPROVE** (`06496a9a`) — sin Critical ni Required. Re-verificó contrato (2/2) + módulo storage::engine (390/390) y auditó cobertura de todos los paths de overwrite (insert/batch/txn/delete/replay/consolidate), orden de locks (sin inversión), eviction y calidad de tests (tier Cold genuino; RED airtight por inspección).
+
+- 🟡 **O1** — Race residual de resurrección en `prefetch_related` (`get.rs:435-441`, pre-existente, multi-tier) → **FIND-222**.
+- 🟡 **O2** — Claim "se elimina el workaround" impreciso + comentario stale en `vanta-memory/src/core/dream/mod.rs:903-909` → claim reformulado + **FIND-223**.
+- 🟡 **O3** — Cierre documental (Review + Backlog + avance) ✅ este commit.
+- ⚪ **O4** — Integration targets pendientes por entorno (`vanta-cli.exe` lockeado por MCP PID 28976) → correr en CI / antes del gate de release 0.8.0.
 
 ## Bloqueos de entorno (no de código)
 

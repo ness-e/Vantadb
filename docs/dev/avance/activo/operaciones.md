@@ -423,3 +423,9 @@ tags: [vantadb, avance, ops, api, docs, backup, enterprise]
 - **Objetivo:** validar cada ítem del backlog contra el código HEAD (7 sub-agentes en paralelo, read-only): campos, referencias file:line, vigencia del gap, estado.
 - **Resultado:** ✅ ~276 ítems verificados (DELTA 49 · FIND 62 · P24–P59 ~60 · negocio 34 · futuro 22 · notion 26). **8 filas cerradas** (stale/implementadas): `DX-11` · `FIND-138` · `FIND-170` · `FIND-171` · `UX-08` · `UX-11` · `SHOW-03` · `HIG-02`. **~40 correcciones aplicadas** (evidencia con números/líneas actualizadas, rutas `web/`→`ness-e/Vantadb-web`, residuales re-scopeados). Hallazgos para owner (resueltos 2026-10-01): `WIRE-01/09` ✅ verificados (commits `679c75a9`/`6a0f6934`; registrados en avance — sin fila por diseño); `GOV-TK5` → renombrado `GOV-05`.
 - **Commits:** (+ este)
+
+### FIND-176: wizard ORT_DYLIB_PATH al archivo (4 sitios) + test de regresión
+- **Fecha:** 2026-10-01
+- **Objetivo:** El wizard dejaba `ORT_DYLIB_PATH` apuntando al DIRECTORIO del store (`ort` carga un archivo → embeddings en dummy). Fix en 4 sitios + normalización del path pre-seteado.
+- **Resultado:** ✅ RED→GREEN 4→8 PASS (script `dev-tools/scripts/test-find176-wizard-ort-dylib.ps1`) · LoadLibraryExW A/B (126 vs 0) · gates docs 0.
+- **Commit:** 3ae64a7d (local, sin push)
