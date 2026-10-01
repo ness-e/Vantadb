@@ -28,8 +28,8 @@ verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-hist
 | **P2** ⚡ Quick Wins Técnicos | 0 | — | ✅ Cerrado |
 | **P3** 🧪 Test Coverage (core SDKs) | 0 — ✅ 4/4 ejecutadas (COV-001..004 completadas 2026-08-12) | — | ✅ Cerrada |
 | **P4** 🔧 Engineering Health | 0 — PERF-01..09 migradas a progreso 2026-08-12 | — | ✅ Cerrado |
-| **P5** 📖 Docs & Community | 1 (ICEBOX) — 2 filas community-ops (UI manual Discord) movidas a `docs/dev/Backlog-negocio.md` | ~1-2 semanas | 🟡 Media |
-| **P6** 🚀 Launch Campaign | 3 (MKT-18f/g/h/i, BLOG-CTA) — 5 filas humanas (legal/marketing/cloud) movidas a `docs/dev/Backlog-negocio.md` | ~2-3 semanas | 🟡 Media |
+| **P5** 📖 Docs & Community | 1 (DISC-03 ICEBOX) — 2 filas community-ops en `docs/dev/Backlog-negocio.md` | ~1-2 semanas | 🟡 Media |
+| **P6** 🚀 Launch Campaign | 3 (MKT-18f, MKT-18i, MKT-19) — 5 filas humanas (legal/marketing/cloud) en `docs/dev/Backlog-negocio.md` | ~2-3 semanas | 🟡 Media |
 | **P7** 🌐 WASM & Performance | 0 | — | ✅ Cerrado |
 | **P8** 🔮 Post-Launch & Enterprise | 0 — 1 fila enterprise movida a `docs/dev/Backlog-negocio.md` | ~3-5 semanas | 🔵 Futuro |
 | **P9** 📚 Old Docs Rescue (reference) | 1 (OLD-01) | — | 📖 Referencia |
