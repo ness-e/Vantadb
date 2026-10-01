@@ -1,6 +1,8 @@
 # VantaDB TypeScript SDK
 
 > WASM-powered embedded vector & graph memory for JavaScript runtimes.
+>
+> **Status: active** (core-promise until 1.0 — published as `vantadb` on npm).
 
 ```ts
 import { Client } from "vantadb";

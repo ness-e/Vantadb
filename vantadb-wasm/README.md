@@ -1,5 +1,7 @@
 # vantadb-wasm — bundle strategy
 
+> **Status: active** (core-promise until 1.0 — one of the three active language connectors).
+>
 > **Why this file exists:** The WASM bundle is `~1.6 MB` raw (`1.58 MB` measured
 > from `pkg/vantadb_wasm_bg.wasm`, pkg built 2026-09-11 — see §1 for the
 > repro command and staleness note), which is **~28× the size of Orama**

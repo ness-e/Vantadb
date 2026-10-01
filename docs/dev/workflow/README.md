@@ -1,18 +1,19 @@
 ---
-title: Workflows — Inventory (28 active)
+title: Workflows — Inventory (37 active)
 kind: index
 status: active
 description: "Per-workflow detail pages live next to this index (ci-gate.md,"
 tags: [vantadb, ci, workflows, inventory]
 ---
 
-# Workflows — Inventory (28 active)
+# Workflows — Inventory (37 active)
 
+> **Count verified mechanically on 2026-10-01: 37 files** (`Get-ChildItem .github/workflows -Filter *.yml`).
+> The old "28" predates the recent waves (nightly/OCR/gates/demos) and is superseded; registry: `docs/dev/references/verified-numbers.md`.
 > Pre-rename snapshot (FIND-142 pending): filenames keep the numeric suffix
 > (`ci-rust.yml`, `release-wheels.yml`, …). After renames, this index
-> must be updated. Count was 28 in FIND-128; now 28 — `rustdoc-70.yml` was
-> merged into `ci-rustdoc.yml` (FIND-137, commit `4b0686b0`); +1 `nightly.yml`
-> (HARD-02, 2026-09-27).
+> must be updated. History: 28 in FIND-128; `rustdoc-70.yml` merged into
+> `ci-rustdoc.yml` (FIND-137, commit `4b0686b0`); +1 `nightly.yml` (HARD-02, 2026-09-27).
 
 Per-workflow detail pages live next to this index (`ci-gate.md`,
 `release-wheels.md`, …). This file is the 1-line map; see
