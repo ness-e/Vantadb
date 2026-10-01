@@ -334,3 +334,4 @@ Re-escaladas en el propio Backlog (misma fecha): RES-09 (fila WAL a fsync-batchi
 - **FIND-176** (wizard `ORT_DYLIB_PATH` al directorio) - ✅ cerrado 2026-10-01: fix 4 sitios + test de regresión 8 PASS (commit `3ae64a7d`).
 - **FIND-190** (overwrite Cold invisible a get/list) - ✅ cerrado 2026-10-01: invalidación de cache en write path + tests RED→GREEN; review P2-01 APPROVE (commit `06496a9a`); derivadas: FIND-222 (race prefetch), FIND-223 (dream promote).
 - **FIND-172** (MD028 preexistente en README_ES) - ✅ cerrado 2026-10-01: callouts `[!NOTE]` fusionados (fix aplicado durante el grupo A del README); markdownlint limpio.
+- **RES-17** (investigación: instalador interactivo personalizado; ex `INV-installer-01`) - ✅ entregada 2026-10-01: `docs/dev/research/installer-personalizado/RESEARCH.md` (31 URLs verificadas; roadmap F1-F4); alimenta DX-12.

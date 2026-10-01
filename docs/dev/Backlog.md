@@ -239,7 +239,6 @@ verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-hist
 
 | ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias |
 |---|---|---|---|---|---|---|---|---|---|
-| `RES-17` | 🟡 Media | **Investigación: instalador interactivo y personalizado (selector de módulos, ejecutables, dependencias, configuración)** | `scripts/`, `setup-embeddings.ps1`, `docs/dev/research/installer-personalizado/` | 🟡 2-4d | 🟡 Media | 🆕 Pendiente | Investigación profunda (web multi-fuente) sobre cómo construir una instalación interactiva y personalizada para cualquier usuario: selector de módulos (motor / MCP / server / proxy / visor desktop / embeddings / providers), descarga/generación de ejecutables + dependencias + configuración por plataforma; benchmark de prácticas (rustup, ollama, cargo-dist, winget/brew/scoop, Docker, VS Code…); recomendación + roadmap. Alimenta DX-12. | Origen: decisión owner 2026-10-01 (visión producto único) · Alimenta DX-12 · alias: INV-installer-01 | — |
 
 ---
 
