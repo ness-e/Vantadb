@@ -71,7 +71,7 @@ verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-hist
 | **P53** 🧬 Esquema v0.7.0 — migración única | 1 (SCH-09) — SCH-01..08 ✅ | ~2-3d | 🟠 Media |
 | **P54** 🎯 Tracks ICP | 0 — ✅ 3/3 ejecutadas (ICP-01..03) | — | ✅ Cerrada 2026-09-30 |
 | **P55** 🧭 Frontera de producto | 0 — ✅ 8/8 ejecutadas (DEF-01..08) | — | ✅ Cerrada 2026-09-30 |
-| **P56** 🔌 Cableado post-investigación | 0 — ✅ WIRE-02..08/10 ejecutadas | — | ✅ Cerrada 2026-09-30 |
+| **P56** 🔌 Cableado post-investigación | 0 — ✅ WIRE-01..10 ejecutadas (01 `679c75a9` · 09 `6a0f6934` — verificación de trazabilidad 2026-10-01) | — | ✅ Cerrada 2026-09-30 |
 | **P57** 🧹 Estabilización residual | 0 — ✅ (EST-09/C-08 resueltos 2026-09-25; EST-12 en negocio) | — | ✅ Cerrada |
 | **P58** 🧹 Higiene post-auditoría externa | 1 (HIG-03; HIG-02 cerrada 2026-09-29) | ~1-2 días | 🟡 Media (pre-anuncio) |
 | **P59** 🧰 Harness v3 — estandarización y gates | 7 (H3-02..08; H3-01 ✅ aplicado) | ~4-5 días | 🟠/🟡 |
@@ -831,7 +831,7 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/dev/revie
 ## Phase 56: 🔌 Cableado post-investigación (hacer real lo prometido)
 
 > Origen: filas M1–M14 del plan post-investigación (`docs/dev/plans/2026-09-24-post-investigacion-integral.md` §4) — cableados, paridad de superficies, seguridad P0 y refactors priorizados. Ejecutar post-Phase 51 (API-01..09) donde toque las mismas superficies. Re-verificar cada fila contra HEAD al ejecutar (los informes son de v0.6.1; parte puede estar resuelta — p.ej. capture L0 ya existe vía D47/MEM-50).
-> ✅ Cerrada 2026-09-30 — WIRE-02..08 ejecutadas (WIRE-10 ✅ F1a).
+> ✅ Cerrada 2026-09-30 — WIRE-01..10 ejecutadas (WIRE-01 `679c75a9` · WIRE-09 `6a0f6934` · WIRE-10 ✅ F1a; verificación de trazabilidad 2026-10-01).
 
 ---
 
