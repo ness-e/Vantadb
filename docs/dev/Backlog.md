@@ -94,7 +94,7 @@ verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-hist
 - **2026-09-24 — post-investigación integral:** auditoría de 2 informes + investigación web (17 sistemas de memoria, 10 BDs multi-modelo) + `product-definition-gap-2026-09-24.md` → P52 (VER), P53 (SCH), P54 (ICP), P55 (DEF), P56 (WIRE); negocio BIZ-10..13; Notion N-12..N-17. Plan: `docs/dev/plans/2026-09-24-post-investigacion-integral.md`. Decisiones owner: 3 tracks ICP · migración única MGR-10+12+13 · harness + head-to-head · cobro PayPal/Binance/Payoneer. Renumeración documentada (P51/P52 del análisis → P52/P54). Ampliación: P57 (EST/C).
 - **2026-09-25 — auditoría externa verificada:** verificación de los 3 informes externos contra HEAD (~20 claims con evidencia). Casi todo catalogado; 5 sin fila → SCH-09, WIRE-11, P58 (HIG-01/02/03). Descartados por resueltos (mojibake, mirrors, sandbox, gate-docs, bench script). `MEM-55` → resuelto por HARD-06 (task file a `complete/`).
 - **2026-09-25 — release 0.7.0:** merge #222 → publish completo (crates.io/npm/PyPI 0.7.0 + 4 wheels + SBOM) + fix mojibake CHANGELOG (PR #226) + EST-09/C-08 cerrados + FIND-154 (perf gate falso positivo por varianza de runner).
-- **2026-10-01 — análisis externo 42-ítems (verificado) + decisiones owner:** 12 filas nuevas — `DIST-15..18`, `WIRE-12/13`, `WSM-15`, `VER-10`, `SRV-10`, `FIND-221`, `MKT-22`, `PROV-13` (IDs verificados contra colisiones); reranker B7 cerrado (vive en `integrations/`).
+- **2026-10-01 — análisis externo 42-ítems (verificado) + decisiones owner:** 12 filas nuevas — `DIST-15..18`, `WIRE-12/13`, `WSM-15`, `VER-10`, `SRV-10`, `FIND-221`, `MKT-22`, `PROV-13` (IDs verificados contra colisiones); reranker B7 cerrado (vive en `integrations/`); +5 derivadas de ADR-0054 (`WIRE-14..18` — hogar del planificador L0→L3 = `vantadb-server`).
 
 ---
 
@@ -219,6 +219,18 @@ verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-hist
 | `FIND-221` | 🟠 Alta | **`put_batch`: contrato de atomicidad ambiguo (hoy "atómico por chunk")** | `src/sdk/api/memory.rs:468`, `docs/api/PYTHON_SDK.md` | 🟡 1-2d | 🟡 Media | 🆕 Pendiente | Un fallo en el chunk 2 deja el chunk 1 commiteado (`batch_size` default 1000). Decisión owner: fix todo-o-nada + contrato actual documentado ya en `PYTHON_SDK.md` §`put_batch()`. | Origen: análisis externo 2026-10-01 (F1) | — |
 | `MKT-22` | 🟡 Media | **Panel visible de la métrica principal (sesiones)** | `README.md` | 🟢 1d | 🟡 Media | 🆕 Pendiente | La métrica existe (SPEC) pero nadie la ve; publicar el número en un panel/reporte actualizado. | Origen: análisis externo 2026-10-01 (C5) | — |
 | `PROV-13` | 🟡 Media | **Providers OpenAI/Ollama/LiteLLM en Windows (compilar)** | `integrations/`, `.github/workflows/providers-ci.yml` | 🟡 2-4d | 🟡 Media | 🆕 Pendiente | Decisión owner 2026-10-01: arreglar (no declarar límite). Los 3 providers no compilan en Windows; requiere fix + CI Windows. | Origen: decisión owner 2026-10-01 (Q5/B3) | — |
+
+### Derivadas de ADR-0054 — hogar del planificador L0→L3
+
+> Decisión (2026-10-01): el hogar es **`vantadb-server`** ([ADR-0054](architecture/adr/ADR-0054-scheduler-host-vantadb-server.md)). Estas 5 filas agendan las tareas T1-T5 del ADR.
+
+| ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias |
+|---|---|---|---|---|---|---|---|---|---|
+| `WIRE-14` | 🟡 Media | **T1 — Seam de host aditivo en el arranque (inyección de `conversation_trigger` + servicio de fondo)** | `src/server/bootstrap.rs:332`, `src/server/state.rs:96,134` | 🟡 2-3d | 🟡 Media | 🆕 Pendiente | Trait + punto de wiring en bootstrap; arranque/parada graceful. Verificación: `cargo test -p vantadb --features server` + test de servicio fake spawneado/joineado. | Origen: ADR-0054 (T1) | — |
+| `WIRE-15` | 🟡 Media | **T2 — Servicio scheduler en `vanta-memory` (`run_pass` + loop con shutdown)** | `vanta-memory/src/services/`, `vanta-memory/src/utils/timer_scanner.rs` | 🟡 2-3d | 🟡 Media | 🆕 Pendiente | `run_pass` (timers + worker + reclaim) + loop helper con shutdown (espejo `MemoryTtlSweeper`), feature-gated; runner por pass (FIND-112), degrada P4. Verificación: `cargo test -p vanta-memory --features http-server`. | Origen: ADR-0054 (T2) | Dep: WIRE-14 |
+| `WIRE-16` | 🟡 Media | **T3 — Wiring del wrapper `vantadb-server` (queue + bridge + loop)** | `vantadb-server/` | 🟡 1-2d | 🟡 Media | 🆕 Pendiente | Dep `vanta-memory`; construcción queue + bridge + loop; env config (`VANTADB_SCHEDULER_*`, R-5); shutdown. Verificación: e2e `POST /conversation/add` → L0 → pass → `l1/<session>`; restart; disabled; sin runner. | Origen: ADR-0054 (T3) | Dep: WIRE-15 |
+| `WIRE-17` | 🟢 Baja | **T4 — Docs del scheduler (wired status + promoción del rol)** | `docs/api/VANTA_MEMORY.md`, `docs/user/operations/EXPERIMENTAL_FEATURES.md` | 🟢 4h | 🟢 Baja | 🆕 Pendiente | `VANTA_MEMORY.md` §Operational modules (wired status) + `EXPERIMENTAL_FEATURES.md` (promoción del rol + fila `vanta-memory`). Verificación: check-docs + check-links. | Origen: ADR-0054 (T4) | Dep: WIRE-16 |
+| `WIRE-18` | 🟡 Media | **T5 — Verificación adversarial del scheduler (crash mid-pass + restart)** | `tests/` (chaos) | 🟡 1-2d | 🟡 Media | 🆕 Pendiente | Crash mid-pass + restart (cola efímera) + review P2-01. Carril: vanta-chaos / vanta-review. | Origen: ADR-0054 (T5) | Dep: WIRE-15/16 |
 
 ---
 
