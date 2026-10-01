@@ -34,17 +34,17 @@ verified_by: Split ejecutado 2026-09-03 por RES-15-C desde docs/dev/Backlog.md (
 
 | ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias |
 |----|-----------|----------|---------------|----------|-----------|--------|-------------|------------|--------------|
-| `LEG-01` | — | **Registrar trademark "VantaDB" (USPTO + EUIPO)** | — | 🟠 semanas · $2-5K | 🔴 Alta | 🆕 Pendiente | Requiere abogado, pago (~$250-350/clase USPTO, ~€850 EUIPO), identidad legal. Estimación original "2-4h" irreal. Mover a `docs/dev/strategy/GO_TO_MARKET.md` cuando exista. | Origen: P6 · Dueño: owner | Dep: abogado + pago |
+| `LEG-01` | — | **Registrar trademark "VantaDB" (USPTO + EUIPO)** | — | 🟠 semanas · $2-5K | 🔴 Alta | 🆕 Pendiente | Requiere abogado, pago (~$250-350/clase USPTO, ~€850 EUIPO), identidad legal. Estimación original "2-4h" irreal. Registro pendiente en `docs/dev/strategy/GO_TO_MARKET.md` (ya existe, verificado 2026-10-01). | Origen: P6 · Dueño: owner | Dep: abogado + pago |
 | `MKT-04` | — | **Publicar 3 drafts de Reddit (r/rust, r/MachineLearning, r/LocalLLaMA)** | `docs/dev/strategy/REDDIT_POSTS.md` | 🟢 2-4h | 🟠 Media | 🆕 Pendiente | Drafts listos (status: ready-to-publish), NUNCA publicados — requieren identidad Reddit del owner. Claims corregidos 2026-09-02. | Origen: P6 · Dueño: owner (humano) | — |
-| `CLD-01` | — | **VantaDB Cloud beta on Fly.io** | `docs/dev/strategy/GO_TO_MARKET.md:420` | 🟠 1-2 sem | 🔵 Futuro | 🆕 Pendiente | Checkbox vacío; cero archivos de infra (verificado 2026-08-17: no existe nada). Requiere cuenta/pago Fly.io + decisión de producto. | Origen: P6 | Dep: decisión producto |
-| `CLD-02` | — | **Pitch deck + one-pager** | `docs/dev/strategy/GO_TO_MARKET.md:408` | 🟡 3-5d | 🔵 Futuro | 🆕 Pendiente | Checkbox vacío; cero archivos `*pitch*`/`*deck*`. | Origen: P6 | — |
-| `CLD-04` | — | **Case study #1 (enterprise pilot)** | `docs/dev/strategy/GO_TO_MARKET.md:409` | 🟠 1 sem | 🔵 Futuro | 🆕 Pendiente | Checkbox vacío; cero archivos. Depende de pilot real. | Origen: P6 | Dep: pilot real |
+| `CLD-01` | — | **VantaDB Cloud beta on Fly.io** | `docs/dev/strategy/GO_TO_MARKET.md:426` | 🟠 1-2 sem | 🔵 Futuro | 🆕 Pendiente | Checkbox vacío; cero archivos de infra (verificado 2026-10-01: 0 fly.toml/workflows). Requiere cuenta/pago Fly.io + decisión de producto. | Origen: P6 | Dep: decisión producto |
+| `CLD-02` | — | **Pitch deck + one-pager** | `docs/dev/strategy/GO_TO_MARKET.md:414` | 🟡 3-5d | 🔵 Futuro | 🆕 Pendiente | Checkbox vacío; cero archivos `*pitch*`/`*deck*` (verificado 2026-10-01). | Origen: P6 | — |
+| `CLD-04` | — | **Case study #1 (enterprise pilot)** | `docs/dev/strategy/GO_TO_MARKET.md:415` | 🟠 1 sem | 🔵 Futuro | 🆕 Pendiente | Checkbox vacío; cero archivos (verificado 2026-10-01). Depende de pilot real. | Origen: P6 | Dep: pilot real |
 
 ## P8 — Post-Launch & Enterprise
 
 | ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias |
 |----|-----------|----------|---------------|----------|-----------|--------|-------------|------------|--------------|
-| `BIZ-01b` | — | **Enterprise features: encryption + RBAC ya en crate principal; audit/replication/enterprise crate separado no existen** | — | 🟡 3-5d | 🟡 Baja | 🆕 Pendiente | — | Origen: P8 | — |
+| `BIZ-01b` | — | **Enterprise features: encryption + RBAC + audit ya en crate principal; replication/enterprise crate separado no existen** | — | 🟡 3-5d | 🟡 Baja | 🆕 Pendiente | Audit ya existe (`src/audit.rs`, JSONL opt-in, `src/lib.rs:65`); replication/enterprise crate ausentes (`Cargo.toml:768-781`). | Origen: P8 · verificación HEAD 2026-10-01 | — |
 
 ## P23 — VantaDB Pro (Open Core)
 
@@ -54,7 +54,7 @@ verified_by: Split ejecutado 2026-09-03 por RES-15-C desde docs/dev/Backlog.md (
 |----|-----------|----------|---------------|----------|-----------|--------|-------------|------------|--------------|
 | `PRO-01` | — | **Multi-tenancy / RBAC — aislamiento cifras org** | `vantadb-pro`: solo `lib.rs`+`license.rs` | 🔴 2-3 sem | 🔵 Futuro | 🔮 Futuro: arranque Pro | Feature Pro sugerida. | Origen: VANTADB-PRO-FEATURES.md § Backlog Pro | Dep: decisión Pro |
 | `PRO-02` | — | **Replicación multi-copy / Sync — DR** | `vantadb-pro`: ídem | 🔴 3-4 sem | 🔵 Futuro | 🔮 Futuro: arranque Pro | Feature Pro sugerida. | Origen: VANTADB-PRO-FEATURES.md | Dep: decisión Pro |
-| `PRO-03` | — | **WAL shipping + PITR (gates ya existen en core) — failover** | gate `wal-shipping` en core (`src/lib.rs:155-156`) | 🟠 2-3 sem | 🔵 Futuro | 🔮 Futuro: arranque Pro | Nota 2026-09-14: el gate `pitr` fue removido (FIND-26, ADR-0014 superseded) — al activar Pro, PITR se rediseña, no se reutiliza. | Origen: VANTADB-PRO-FEATURES.md · Ver: FIND-26, ADR-0014 | Dep: decisión Pro |
+| `PRO-03` | — | **WAL shipping + PITR (gates ya existen en core) — failover** | gate `wal-shipping` en core (`src/lib.rs:162-164`) | 🟠 2-3 sem | 🔵 Futuro | 🔮 Futuro: arranque Pro | Nota 2026-09-14: el gate `pitr` fue removido (FIND-26, ADR-0014 superseded) — al activar Pro, PITR se rediseña, no se reutiliza. | Origen: VANTADB-PRO-FEATURES.md · Ver: FIND-26, ADR-0014 | Dep: decisión Pro |
 | `PRO-04` | — | **TTL / retention policies — compliance** | `vantadb-pro`: ídem | 🟡 1-2 sem | 🔵 Futuro | 🔮 Futuro: arranque Pro | Feature Pro sugerida. | Origen: VANTADB-PRO-FEATURES.md | Dep: decisión Pro |
 | `PRO-05` | — | **Admin server + dashboard — UX enterprise** | `vantadb-pro`: ídem | 🟠 2-3 sem | 🔵 Futuro | 🔮 Futuro: arranque Pro | Feature Pro sugerida. | Origen: VANTADB-PRO-FEATURES.md | Dep: decisión Pro |
 | `PRO-06` | — | **Audit trail / compliance** | `vantadb-pro`: ídem | 🟡 1-2 sem | 🔵 Futuro | 🔮 Futuro: arranque Pro | Feature Pro sugerida. | Origen: VANTADB-PRO-FEATURES.md | Dep: decisión Pro |
@@ -63,7 +63,7 @@ verified_by: Split ejecutado 2026-09-03 por RES-15-C desde docs/dev/Backlog.md (
 
 | ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias |
 |----|-----------|----------|---------------|----------|-----------|--------|-------------|------------|--------------|
-| `BND-07` | 🟠 Alta | **Discord invite inválido + vantadb.dev sin DNS** (GOV-F1 🔴×2) | `README.md`, `CONTRIBUTING.md`, `SECURITY.md` | 🟡 1d | 🟠 Media | ⏸️ Bloqueada: externo owner | Crear invite nuevo de Discord y configurar DNS de vantadb.dev; luego actualizar README/CONTRIBUTING/SECURITY con los valores reales. | Origen: auditoría raíz pública GOV-F1 (commit dc3775ef) · Dueño: owner | — |
+| `BND-07` | 🟠 Alta | **`vantadb.dev` sin DNS** (GOV-F1; el invite de Discord resuelve hoy — re-verificar antes de tocar superficies) | `README.md`, `CONTRIBUTING.md`, `SECURITY.md` | 🟡 1d | 🟠 Media | ⏸️ Bloqueada: externo owner | Configurar DNS de vantadb.dev (fetch falla 2026-10-01); el invite `discord.gg/g8nqB3NtXt` resuelve ("VantaDB Community", fetch OK 2026-10-01) → mantener/verificar en README. | Origen: auditoría raíz pública GOV-F1 (commit dc3775ef) · Dueño: owner · verificación HEAD 2026-10-01 | — |
 
 ## BIZ — Facturación y negocio (manual estratégico, 2026-09-14)
 
@@ -98,7 +98,7 @@ verified_by: Split ejecutado 2026-09-03 por RES-15-C desde docs/dev/Backlog.md (
 | `STRAT-02` | — | **Decisión: monetización** | — | — | 🔴 Alta | 🆕 Pendiente (owner) | Soporte/consulting (único viable como individuo) vs motor embebido de terceros (único que escala) vs hosted (infra, no producto). | Origen: DELTA P3 · Dueño: owner | — |
 | `STRAT-03` | — | **Entidad legal + indemnity** | — | — | 🟠 Media | 🆕 Pendiente (negocio) | Techo estructural del comprador enterprise. | Origen: DELTA P3 | — |
 | `STRAT-07` | — | **Decisiones owner de campaña** | — | — | 🟠 Media | 🆕 Pendiente (owner) | Q5 (enforcement p99) + calibración runtime de confianza (VER-08 entregó el harness; aplicarla es v1.0). | Origen: DELTA P3 · Dueño: owner | — |
-| `DX-10` | — | **H-015: verificación MCP con cliente real (humano)** | — | 🟢 5min | 🟠 Media | 🆕 Pendiente (humano) | Conectar un cliente MCP real (Claude/Cursor/OpenCode) a la DB demo; 5 minutos que cierran el último eslabón del track AI-IDEs (pipe verificado: 87 tools + roundtrip OK). | Origen: H-findings 2026-09-30 · Dueño: owner | — |
+| `DX-10` | — | **H-015: verificación MCP con cliente real (humano)** | — | 🟢 5min | 🟠 Media | 🆕 Pendiente (humano) | Conectar un cliente MCP real (Claude/Cursor/OpenCode) a la DB demo; 5 minutos que cierran el último eslabón del track AI-IDEs (pipe verificado: 79 tools listadas — 85 definidas − 6 absorbidas WIRE-02, `docs/api/MCP.md:198`; roundtrip OK). | Origen: H-findings 2026-09-30 · Dueño: owner · verificación HEAD 2026-10-01 | — |
 | `FASE-A/R-05` | — | **Puertas owner: gate Fase A + R-05** (consolida `EXE-03` + `EST-12`) | `docs/dev/FASE-A.md` (A.1-A.3) | 🟡 1sem | 🔴 Alta | 🆕 Pendiente (owner) | Correr el gate: 5 installs limpias documentadas + stranger-test 2-3 personas + 0 críticos → veredicto GO/NO-GO de anuncio. Merge #222/tag/publish ✅ 2026-09-25. | Origen: DELTA · Ver: EXE-03, EST-12 (consolidadas) | — |
 | `BIZ-14` | — | **Backup offsite (S3/red)** | — | 🟡 2-3d | 🟠 Media | 🔮 Futuro: trigger Pro/Cloud | Exportar instantáneas `.vantadb` a almacenamiento de red (rescatado del Icebox OLD ROAD-02, 2026-09-30); gap DR real. | Origen: Icebox OLD ROAD-02 | Dep: PRO-02/03 |
 | `BIZ-15` | — | **Página pública `/licensing`** (qué es gratis vs pago) | — | 🟢 1d | 🟠 Media | 🆕 Pendiente (website) | Reduce fricción comercial pre-Desktop Pro; era P1 en la síntesis OLD y no existe. | Origen: síntesis OLD 2026-06 | — |
