@@ -51,6 +51,52 @@ Every surface spends one of two budgets. **core-promise** surfaces spend the bud
 
 **Promotion watchlist (next triggers).** `vanta-proxy` gateway features: only with session telemetry showing gateway use drives successful recalls · Vanta Studio: ICP-01/F5 evidence that a minimal viewer is required · WASM/TS/Node: JS-runtime North Star evidence or a new JS gate · `vantadb-server`: the WIRE-01 scheduler-host decision or ICP-02 network-deployment evidence. **Review cadence:** re-checked every release together with the frontier gate, and on every new-surface proposal (rule 1).
 
+## Freeze List until 1.0 (owner-approved, 2026-10-01)
+
+> Closed list (supersedes the watchlist above for the 1.0 horizon). Rule: **frozen = no new features** — only security fixes, release-blocking regressions, and maintenance. Surfaces stay part of the product ("Motor + plataforma completa"); what freezes are features. The whitelist is the only new-feature work allowed until 1.0.
+
+### Active surfaces (core-promise — unchanged)
+
+| Surface | Note |
+| --- | --- |
+| Core engine + Rust SDK + CLI | The recall path |
+| Python SDK | ICP-03 entry (PyPI) |
+| MCP server | ICP-01 entry; measures the North Star |
+| `vanta-memory` (L0→L3) | + scheduler (WIRE-14..18) = the only large new feature allowed |
+| Local embeddings (`embed-local`) | Zero-config promise |
+| Framework adapters & importers (`integrations/`) | ICP-03 gate |
+| Verification harness & benchmarks | Evidence layer |
+
+### Frozen / limited surfaces (labs)
+
+| Surface | State until 1.0 | Change (owner 2026-10-01) |
+| --- | --- | --- |
+| `vanta-proxy` (LLM gateway) | Frozen; **not published until 1.0.0** — development resumes at 1.0.0 | publish deferred (DIST-18 re-scoped) |
+| `vantadb-server` | Frozen except its scheduler-host role (ADR-0054) + embedder starter | + role |
+| Vanta Studio | Frozen; reduced to a minimal viewer | + viewer |
+| Web console | Frozen (separate repo, `ness-e/Vantadb-web`) | — |
+| WASM/TS/Node bindings | **Active** — parity maintained, cross-language guard (DIST-17) | unfrozen |
+| LLM providers (ollama/openai/litellm) | Maintenance active: Windows fix (PROV-13) + CI; no new features | + fix |
+
+### Allowed new features until 1.0 (closed whitelist)
+
+1. Scheduler L0→L3 (WIRE-14..18) — includes the embedder starter (B2 decision, 2026-10-01).
+2. IQL: `LIMIT`/`OFFSET` + aggregations (WIRE-12/13).
+3. `graphrag_search` exposed in bindings (DIST-15).
+4. Correctness fixes already tracked (FIND-221/222/223).
+5. Verifiability: write attestation (VER-10) + certificate verify over MCP (DIST-16).
+6. Cross-language parity test (DIST-17).
+
+### Explicitly frozen (Deferred table, unchanged)
+
+HA/replication/clustering · plugins/marketplace · full RBAC/multi-tenancy/quotas/enterprise audit · SQL/warehouse/time-series · multimodal (FUT-15) · IVF/DiskANN/ScaNN (FUT-24/FUT-14) · proxy gateway features (rate-limit, cache/translate, failover, cost, virtual keys).
+
+### 1.0 thresholds (owner-approved)
+
+**Technical gates (7):** SPEC success criteria green · p99 no regression · coverage ratchet (68.2% floor) · `cargo semver-checks` · `cargo deny` · chaos/fuzz green · v1→v2 migration proven in a real upgrade.
+
+**Usage thresholds:** ≥3 external active users (non-owner) OR ≥100 successful sessions/week for 4 consecutive weeks · zero open P0s · 1 real case study published (CLD-04).
+
 ## Production-Facing MVP
 
 The product boundary (v0.7.0) is an embedded local-first persistent memory engine:

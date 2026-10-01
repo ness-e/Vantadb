@@ -429,3 +429,15 @@ tags: [vantadb, avance, ops, api, docs, backup, enterprise]
 - **Objetivo:** El wizard dejaba `ORT_DYLIB_PATH` apuntando al DIRECTORIO del store (`ort` carga un archivo → embeddings en dummy). Fix en 4 sitios + normalización del path pre-seteado.
 - **Resultado:** ✅ RED→GREEN 4→8 PASS (script `dev-tools/scripts/test-find176-wizard-ort-dylib.ps1`) · LoadLibraryExW A/B (126 vs 0) · gates docs 0.
 - **Commit:** 3ae64a7d (local, sin push)
+
+### Lista de congelados hasta 1.0 — aprobada (owner 2026-10-01)
+- **Fecha:** 2026-10-01
+- **Objetivo:** cerrar el alcance hasta 1.0 con lista cerrada (no criterio): superficies activas vs congeladas, whitelist de features nuevas, umbrales técnicos y de uso.
+- **Resultado:** ✅ publicada en `docs/user/operations/EXPERIMENTAL_FEATURES.md` §Freeze List until 1.0 (34 componentes aprobados 1×1 por el owner; ajustes: proxy congelado sin publicar hasta 1.0.0 · server = host del scheduler + starter para embedders · Studio reducido a visor · 3 conectores activos).
+- **Commits:** (+ este)
+
+### Case studies no verificados — registro eliminado (C5, owner 2026-10-01)
+- **Fecha:** 2026-10-01
+- **Objetivo:** cerrar C5: destino final de los 2 case studies ficticios (documentos ya purgados en `00ee1ba2`; quedaba solo el README del archivo).
+- **Resultado:** ✅ decisión owner: eliminar también el registro (`docs/dev/archive/case-studies-unverified/`) + refs actualizadas. El caso real llegará vía CLD-04 (enterprise pilot).
+- **Commits:** (+ este)
