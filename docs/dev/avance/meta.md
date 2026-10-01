@@ -22,7 +22,7 @@ Los archivos de `docs/dev/avance/activo/` **se actualizan al cierre de cada camp
 - **Criterio (Gate P):** lo que requiere agente/código → técnico (queda); lo que requiere abogado/plata/decisión humana/publicación → negocio (se mueve). Casos borderline documentados en la tabla "Criterio por fila borderline" de `Backlog-negocio.md` (PRO = negocio con nota "vuelve al técnico cuando arranque Pro"; BLOG-CTA/MKT-18f/i = técnico con lado humano solo al publicar).
 - **Sync anti-drift (regla GOV-C7):** en cada movimiento, actualizar los contadores "Total open items" de AMBAS cabeceras verificándolos con `rg -c` (nunca a mano), y confirmar que ningún ID movido sigue resolviendo en el otro archivo (`rg -c "<ID>"` == 0 post-movimiento, pre-mortem doble-match).
 - **Impacto en `/pipeline plan`:** el parser lee **solo** `docs/dev/Backlog.md` — las filas de negocio NO entran al triage técnico a propósito (es el fix de la contaminación de métricas que originó la tarea). Revisar `Backlog-negocio.md` corresponde al humano/`/backlog`.
-- **No confundir con GOV-TK5:** GOV-TK5 es el split del **Manual Estratégico** (contenido negocio → `docs/business/` con banner snapshot), un split distinto de archivos; se enlaza, no se duplica (verificado 2026-09-03 — RES-15-C).
+- **No confundir con GOV-05 (ex GOV-TK5):** GOV-05 es el split del **Manual Estratégico** (contenido negocio → `docs/business/` con banner snapshot), un split distinto de archivos; se enlaza, no se duplica (verificado 2026-09-03 — RES-15-C; renombrado 2026-10-01 para compatibilidad con el buscador de tareas).
 
 ## Backlog housekeeping
 

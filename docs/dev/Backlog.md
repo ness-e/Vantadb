@@ -49,7 +49,7 @@ verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-hist
 | **P27** 🧠 Vanta Memory Engine (TDAM, F1–F7) | 0 — ejecutado por planes (archivados); sin filas activas | — | ✅ Ejecutado |
 | **P28** 🔧 Deuda técnica core — Wave 2 | 7 (FUT-03/07 promovidos + FIND-208..212) | ~1-2 semanas | 🟠 Media |
 | **GOV** 📋 Gobernanza Documental | 0 — ✅ campaña completada 2026-08-22 (29 ✅ · 1 ⬛ · 0 failed) | — | ✅ Cerrada |
-| **GOV-TK** 🎫 Tickets derivados GOV | 1 (GOV-TK5) | ~1-2d | 🟠 Media |
+| **GOV-TK** 🎫 Tickets derivados GOV | 1 (GOV-05, ex GOV-TK5) | ~1-2d | 🟠 Media |
 | **P32–P33** 🔬 Reviews de Módulos + DX SDKs | 0 — sin filas activas | — | ✅/migrado |
 | **P34** 🎨 Diseño/UX Vanta Studio | 5 (UX-06/09/10/12/15 — residuales re-scopeados; UX-08/11 cerradas 2026-10-01) | ~1 semana | 🟢 Media |
 | **P36** 🔧 Auditoría agentes | 0 — sin filas activas | — | ✅/migrado |
@@ -523,7 +523,7 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/dev/revie
 
 | ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias |
 |----|-----------|----------|---------------|----------|-----------|--------|-------------|------------|--------------|
-| `GOV-TK5` | — | **Split Manual Estratégico según recomendación F2** | `docs/dev/strategy/` | 🟡 1d | 🟠 Media | 🆕 Pendiente | Negocio→`docs/business/` con banner snapshot; estado técnico fuera; archivar monolito. | Origen: campaña GOV · F2/D-decisión | — |
+| `GOV-05` | — | **Split Manual Estratégico según recomendación F2** | `docs/dev/strategy/` | 🟡 1d | 🟠 Media | 🆕 Pendiente | Negocio→`docs/business/` con banner snapshot; estado técnico fuera; archivar monolito. | Origen: campaña GOV · F2/D-decisión · renombrado de `GOV-TK5` 2026-10-01 (compatibilidad con el buscador de tareas) | — |
 
 > Ticketeados aparte con decisión previa: ACID 4a-4d (post-launch Fase A, D14) · release triage semver 0.6.0 (D5, diferido) · MKT-18h wheels ARM64 + MKT-18f adapters (confirmados live por GOV-A5). La fila de acción externa (DNS/invite) se movió a `docs/dev/Backlog-negocio.md` §GOV (RES-15-C).
 
