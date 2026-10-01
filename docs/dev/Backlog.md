@@ -94,6 +94,7 @@ verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-hist
 - **2026-09-24 — post-investigación integral:** auditoría de 2 informes + investigación web (17 sistemas de memoria, 10 BDs multi-modelo) + `product-definition-gap-2026-09-24.md` → P52 (VER), P53 (SCH), P54 (ICP), P55 (DEF), P56 (WIRE); negocio BIZ-10..13; Notion N-12..N-17. Plan: `docs/dev/plans/2026-09-24-post-investigacion-integral.md`. Decisiones owner: 3 tracks ICP · migración única MGR-10+12+13 · harness + head-to-head · cobro PayPal/Binance/Payoneer. Renumeración documentada (P51/P52 del análisis → P52/P54). Ampliación: P57 (EST/C).
 - **2026-09-25 — auditoría externa verificada:** verificación de los 3 informes externos contra HEAD (~20 claims con evidencia). Casi todo catalogado; 5 sin fila → SCH-09, WIRE-11, P58 (HIG-01/02/03). Descartados por resueltos (mojibake, mirrors, sandbox, gate-docs, bench script). `MEM-55` → resuelto por HARD-06 (task file a `complete/`).
 - **2026-09-25 — release 0.7.0:** merge #222 → publish completo (crates.io/npm/PyPI 0.7.0 + 4 wheels + SBOM) + fix mojibake CHANGELOG (PR #226) + EST-09/C-08 cerrados + FIND-154 (perf gate falso positivo por varianza de runner).
+- **2026-10-01 — análisis externo 42-ítems (verificado) + decisiones owner:** 12 filas nuevas — `DIST-15..18`, `WIRE-12/13`, `WSM-15`, `VER-10`, `SRV-10`, `FIND-221`, `MKT-22`, `PROV-13` (IDs verificados contra colisiones); reranker B7 cerrado (vive en `integrations/`).
 
 ---
 
@@ -199,6 +200,27 @@ verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-hist
 
 ---
 
+
+## 📥 Alta 2026-10-01 — Análisis externo (42 ítems) + decisiones owner
+
+> Origen: análisis externo de 42 ítems (verificado contra HEAD el 2026-10-01) + decisiones del owner en sesión. IDs verificados repo-wide contra colisiones (DIST-09/10 y WSM-04 propuestos estaban tomados → se usaron los siguientes libres). Integración del doc completo al repo: pendiente (`docs/dev/reviews/`).
+
+| ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias |
+|---|---|---|---|---|---|---|---|---|---|
+| `DIST-15` | 🟠 Alta | **`graphrag_search` en bindings (Py/TS/Node/WASM)** | `docs/api/GRAPH_RAG.md:14-15`, `vantadb-python/`, `vantadb-node/`, `vantadb-ts/`, `vantadb-wasm/` | 🟢 1-2d | 🔴 Alta | 🆕 Pendiente | El feature estrella (GraphRAG) es inalcanzable desde los bindings (`GRAPH_RAG.md:14-15` lo declara). Costo bajo, impacto desproporcionado. | Origen: análisis externo 2026-10-01 (B1) | — |
+| `DIST-16` | 🟡 Media | **`verify` de certificados vía MCP** | `vantadb-mcp/`, `src/sdk/api/memory.rs:878`, `src/cli_handlers/crud.rs:559` | 🟢 1d | 🟡 Media | 🆕 Pendiente | SDK y CLI ya exponen verify; falta solo la superficie MCP. | Origen: análisis externo 2026-10-01 (E2) | — |
+| `DIST-17` | 🟡 Media | **Test de paridad cross-language (mismo escenario Py/Node/WASM → resultados idénticos)** | `vantadb-python/`, `vantadb-node/`, `vantadb-wasm/` | 🟡 2-3d | 🟡 Media | 🆕 Pendiente | Hoy hay pruebas sueltas por binding, no comparación entre lenguajes. Decisión owner 2026-10-01: los 3 conectores siguen activos. | Origen: análisis externo 2026-10-01 (C3/G2) | Dep: DIST-03 (alcance) |
+| `DIST-18` | 🟡 Media | **Publicar `vanta-proxy` en crates.io (quitar `publish=false`)** | `vanta-proxy/Cargo.toml` | 🟢 2-4h | 🟡 Media | 🆕 Pendiente | Decisión owner 2026-10-01: el proxy se publica. Requiere quitar `publish=false`, smoke del crate publicado y compromiso semver. | Origen: decisión owner 2026-10-01 (Q3) | — |
+| `WIRE-12` | 🟢 Baja | **IQL: `LIMIT`/`OFFSET`** | `src/parser/lexer.rs:50`, `docs/api/IQL.md` | 🟢 4h | 🟡 Media | 🆕 Pendiente | El token `LIMIT` ya está lexado sin regla; cierra fricción de UX (paginación). | Origen: análisis externo 2026-10-01 (B4) | — |
+| `WIRE-13` | 🟡 Media | **IQL: agregaciones (`COUNT`/`SUM`/`GROUP BY`)** | `src/parser/`, `docs/api/IQL.md` | 🟡 3-5d | 🟡 Media | 🆕 Pendiente | Habilita el caso ERP/facturas (agregar sin exportar). Parser + executor. | Origen: análisis externo 2026-10-01 (B3) | Dep: WIRE-12 (misma área) |
+| `WSM-15` | 🟠 Alta | **Lock OPFS multi-pestaña (pérdida de datos WASM)** | `vantadb-wasm/src/idb.rs:62` (+ ruta OPFS) | 🟡 1-2d | 🔴 Alta | 🆕 Pendiente | OPFS sin `navigator.locks` (IDB sí lo tiene, `idb.rs:62`); dos pestañas = corrupción silenciosa. Mismo patrón que el fix de IDB. | Origen: análisis externo 2026-10-01 (G3) | — |
+| `VER-10` | 🟡 Media | **Attestation de escritura (extender certificado de delete a writes)** | `src/attestation.rs:513` | 🟡 2-3d | 🟡 Media | 🆕 Pendiente | Hoy solo delete tiene attestation; extender a escrituras. Solapa con hash-chain (VER-01). | Origen: análisis externo 2026-10-01 (E1) | Dep: VER-01 (hash-chain) |
+| `SRV-10` | 🟡 Media | **Cifrado en reposo del server (HTTP)** | `docs/api/HTTP_API.md:701`, `vantadb-server/` | 🟡 3-5d | 🟡 Media | 🆕 Pendiente | `HTTP_API.md:701` lo declara ("SRV-10 is on the roadmap") pero no existía fila. El core ya tiene feature `encryption`; falta la capa server. | Origen: análisis externo 2026-10-01 (D1) | — |
+| `FIND-221` | 🟠 Alta | **`put_batch`: contrato de atomicidad ambiguo (hoy "atómico por chunk")** | `src/sdk/api/memory.rs:468`, `docs/api/PYTHON_SDK.md` | 🟡 1-2d | 🟡 Media | 🆕 Pendiente | Un fallo en el chunk 2 deja el chunk 1 commiteado (`batch_size` default 1000). Decisión owner: fix todo-o-nada + contrato actual documentado ya en `PYTHON_SDK.md` §`put_batch()`. | Origen: análisis externo 2026-10-01 (F1) | — |
+| `MKT-22` | 🟡 Media | **Panel visible de la métrica principal (sesiones)** | `README.md` | 🟢 1d | 🟡 Media | 🆕 Pendiente | La métrica existe (SPEC) pero nadie la ve; publicar el número en un panel/reporte actualizado. | Origen: análisis externo 2026-10-01 (C5) | — |
+| `PROV-13` | 🟡 Media | **Providers OpenAI/Ollama/LiteLLM en Windows (compilar)** | `integrations/`, `.github/workflows/providers-ci.yml` | 🟡 2-4d | 🟡 Media | 🆕 Pendiente | Decisión owner 2026-10-01: arreglar (no declarar límite). Los 3 providers no compilan en Windows; requiere fix + CI Windows. | Origen: decisión owner 2026-10-01 (Q5/B3) | — |
+
+---
 
 ## Phase 5: 📖 Docs & Community
 
