@@ -19,7 +19,7 @@ verified_by: Split ejecutado 2026-09-03 por RES-15-C desde docs/dev/Backlog.md (
 | Fila | Decisión | Por qué |
 |------|----------|---------|
 | `PRO-01..06` | Negocio | Implementables por agentes **cuando arranque Pro** — pero el trigger de inicio es decisión de negocio (repo privado, licensing, pricing). Si Pro arranca y una fila pasa a ejecución por agente, se devuelve a `docs/dev/Backlog.md` |
-| `MKT-18f` / `MKT-18i` | Técnico (NO movidas) | Lado código cerrado y verificado en `docs/dev/Backlog.md`; solo el último paso es humano, sigue siendo ticket de release del pipeline |
+| `MKT-20` / `MKT-21` (ex MKT-18f/i) | Técnico (NO movidas) | Lado código cerrado y verificado en `docs/dev/Backlog.md`; solo el último paso es humano, sigue siendo ticket de release del pipeline |
 | `BLOG-CTA` | Técnico (NO movida) | Fix CTA + metadata + redactar posts 6-7 = contenido markdown escribible por agente en `web/`; sólo publicar es humano, como en todo contenido |
 | `DISC-03` | Técnico (NO movida) | ICEBOX — no cuenta como activa |
 

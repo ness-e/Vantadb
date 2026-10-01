@@ -1,9 +1,9 @@
 ---
-title: MKT-18f — PyPI packaging for 5 adapters + release workflow
+title: MKT-20 (ex MKT-18f) — PyPI packaging for 5 adapters + release workflow
 kind: task
 ---
 
-# MKT-18f — PyPI packaging for 5 adapters + release workflow
+# MKT-20 (ex MKT-18f) — PyPI packaging for 5 adapters + release workflow
 
 - **Plan:** docs/dev/plans/2026-09-03-quality-gtm-wave.md (Task 8, Wave 2)
 - **Ruta:** vanta-worker | **Fecha:** 2026-09-03 | **Estado:** ✅ COMPLETED (con 2 desviaciones documentadas)
@@ -30,7 +30,7 @@ kind: task
 | C2 nombres 404 | `GET https://pypi.org/pypi/<n>/json` ×5 | ✅ 5/5 → 404 LIBRE |
 | C3 workflow | `actionlint .github/workflows/release-adapters-62.yml` | ✅ exit 0 — DESVIACIÓN: no se creó `release-adapters.yml` nuevo porque 62 ya cumple la cláusula (tag-gate + matriz ⊇ 5 + build); duplicar = doble ruta de publish PyPI |
 | C4 README honestos | sección "Install from PyPI (after first release)" ×5 | ✅ 5/5 |
-| C5 PRs upstream | artefactos locales | ✅ `docs/dev/plans/artifacts/mkt-18f-prs/*.md` ×5 |
+| C5 PRs upstream | artefactos locales | ✅ `docs/dev/plans/artifacts/MKT-20 (ex MKT-18f)-prs/*.md` ×5 |
 | C6 NO tocar | `release-wheels-60.yml`, `release-plz.toml`, `docker*`, Formula, `docs/dev/Backlog.md` (hasta cierre) | ✅ intactos |
 
 ## Desviaciones documentadas

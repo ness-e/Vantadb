@@ -59,7 +59,7 @@ Hueco exclusivo vs 17 sistemas de memoria: **memoria verificable y gobernable**.
 
 ## Tracks ICP (decisión owner 2026-09-24)
 
-Cada track con métrica propia: **AI-IDEs vía MCP** (sesiones con put+search en 7d) · **local-LLM/privacidad** (0 PII en store) · **frameworks** (installs/semana de adapters). El núcleo (motor de memoria embebido gobernado) es único; los tracks son puertas de entrada. Filas: **P54 ICP-01..03 — ✅ ejecutados**; one-pagers en `docs/user/{AI_IDES,PRIVACY,FRAMEWORKS}.md`; publicación PyPI adapters = lane owner (MKT-18f).
+Cada track con métrica propia: **AI-IDEs vía MCP** (sesiones con put+search en 7d) · **local-LLM/privacidad** (0 PII en store) · **frameworks** (installs/semana de adapters). El núcleo (motor de memoria embebido gobernado) es único; los tracks son puertas de entrada. Filas: **P54 ICP-01..03 — ✅ ejecutados**; one-pagers en `docs/user/{AI_IDES,PRIVACY,FRAMEWORKS}.md`; publicación PyPI adapters = lane owner (MKT-20 (ex MKT-18f)).
 
 ## Añadido 2026-09-30 — marco 2.0 + adopción core
 
