@@ -332,8 +332,6 @@ for r in results:
 - [How Hybrid Search Works](../../user/blog/how_hybrid_search_works.md) — BM25 + HNSW deep dive
 - [Python SDK Guide](../../api/PYTHON_SDK.md) — Complete SDK reference
 - [Model Context Protocol (MCP)](../../api/MCP.md) — AI agent integration
-- Agent Local Memory with Ollama — archivado (interno no verificado): docs/dev/archive/case-studies-unverified/
-- RAG on Edge Devices — archivado (interno no verificado): docs/dev/archive/case-studies-unverified/
 - [IQL Reference](../../api/IQL.md) — Graph-constrained query language
 - [Benchmarks & Performance](../../user/operations/BENCHMARKS.md) — Performance comparisons
 - [Configuration Schema](../../user/operations/CONFIGURATION.md) — Full config reference
