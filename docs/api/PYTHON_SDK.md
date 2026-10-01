@@ -215,6 +215,8 @@ accepts the same scalar values as `put()` (`str`, `int`, `float`, `bool`,
 follows the same shape as `put()`. For zero-copy ingestion of a 2D NumPy vector
 matrix use `put_batch_raw(vectors, keys, ...)` (PERF-15 buffer path).
 
+> **Atomicity (current contract):** `put_batch` is atomic **per chunk** — records are processed in chunks of `batch_size` (default 1000); if a middle chunk fails, earlier chunks are already committed. Not all-or-nothing (fix tracked: FIND-221).
+
 Returns a list of `Record` objects in input order.
 
 #### `search_multi()` (W1/API-02)
