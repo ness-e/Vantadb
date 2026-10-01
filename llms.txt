@@ -6,7 +6,7 @@
 
 Every link below points to the raw Markdown source, not a rendered page. Read the
 page you need; do not read this file end to end. This index covers the
-442 documentation pages; it deliberately omits the 1027 task files,
+444 documentation pages; it deliberately omits the 1029 task files,
 which are work items rather than documentation. The full inventory of every file
 is in docs/index.md in the repository.
 
@@ -70,6 +70,7 @@ is in docs/index.md in the repository.
 - [ADR-0050: Node.js/TS bindings nativos vía napi-rs (backend adicional a WASM)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/adr/ADR-0050-napi-rs-node-bindings.md): vantadb-ts expone el SDK vía WASM (vantadb-wasm, wasm-bindgen). WASM cubre el
 - [ADR-0051: WAL batch-append tradeoff (DRV-014 reverted)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/adr/ADR-0051-wal-batch-tradeoff.md): Accepted (2026-07-31)
 - [ADR-0052: WAL async roadmap — io_uring/aio + fsync group commit](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/adr/ADR-0052-wal-async-roadmap.md): The WAL is the durability backbone of VantaDB: every mutation is appended
+- [ADR-0054: Hogar del planificador de memoria L0→L3 (vantadb-server)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/adr/ADR-0054-scheduler-host-vantadb-server.md): El planificador L0→L3 (dedup → escenas → persona + dream) no corre solo: los servicios son pull-based y ningún proceso los dispara. Decisión: el hogar es el wrapper vantadb-server
 - [Decisiones No Tomadas — Registro de descartes](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/adr/DECISIONS-NOT-TAKEN.md): Registro consolidado de features/decisiones evaluadas y rechazadas o diferidas, con razón y fuente — evita re-litigar descartes sin evidencia nueva.
 - [Review Guide: ADR-0029 articulation + decisions D24-D37](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/adr/ADR-0053-adr-029-review-guide.md): Evidence notation: file:line verified against the working tree on 2026-08-22
 - [ADR-0014: PITR — experimental standalone API, engine integration deferred](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/adr/ADR-0014-pitr.md): The pitr feature is declared in Cargo.toml (pitr = []) and gates
@@ -332,6 +333,7 @@ is in docs/index.md in the repository.
 - [VantaDB — Playbook de Marketing, Branding y Go-To-Market (primeros 1.000 usuarios)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/validacion/04-marketing-branding-gtm-playbook.md): Fecha: 2026-08-25 · Autor: Agente D (research GTM) · Presupuesto: ~cero (founder-led)
 - [VantaDB — Síntesis Ejecutiva Final v2: Competencia, Monetización Sin Nube y Estrategia de Producto](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/validacion/00-SINTESIS-EJECUTIVA2.md): Fecha: 2026-08-25 · v2 — corrige y reemplaza a validacion/00-SINTESIS-EJECUTIVA.md
 - [VantaDB — Troubleshooting](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/references/troubleshooting.md): Comandos exactos
+- [VantaDB — Verified Numbers Registry](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/references/verified-numbers.md): Números canónicos del repo (para material público y docs) con el comando exacto que los verifica. Regla del owner 2026-10-01 — ningún número se publica sin estar acá o verificarse con su comando.
 - [VantaDB Master Index](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/master-index.md): Full listing in Operations Master Index
 - [Visualización de embeddings y espacios vectoriales](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/human-facing-db-ui/04-embedding-visualization/RESEARCH.md): Cómo las bases de datos vectoriales y las herramientas de ML hacen VISIBLE y EXPLORABLE un espacio de embeddings a humanos. Investigación de escritorio con URLs reales (2024-2026). Contexto objetivo: VantaDB (base de datos embebida de...
 - [Visualización de memoria de agentes de IA y knowledge graphs](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/human-facing-db-ui/03-ai-memory-graphs/RESEARCH.md): Cómo los sistemas de memoria para agentes de IA y los knowledge graphs hacen VISIBLE y ADMINISTRABLE su datos internos a humanos. Investigación de escritorio con URLs reales (2024-2026). Contexto objetivo: VantaDB (base de datos...
@@ -463,7 +465,7 @@ is in docs/index.md in the repository.
 - [SQLite to VantaDB Migration Guide](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/operations/SQLITE_MIGRATION_GUIDE.md): If you are using SQLite as the persistence layer for an AI agent, local RAG pipeline, or embedded application, you may find that the workload pattern — dense vector storage, semantic search, high-frequency writes — is a poor fit for a...
 - [Test Map — 2026-07-22](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/operations/TEST_MAP.md): Tests are organized in tests/ (core crate) by category
 - [Unsafe/Unwrap Inventory — 2026-07-21](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/operations/security/UNSAFE_INVENTORY.md): TODO: Los siguientes archivos contienen .unwrap() exclusivamente dentro de mod tests { } o #[cfg(test)]. No se listan individualmente
-- [Upgrade Guide](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/operations/UPGRADE.md): How to upgrade VantaDB between versions, what changes to expect, and how to
+- [Upgrade Guide](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/operations/UPGRADE.md): How to upgrade VantaDB between versions, what changes to expect, and how to migrate safely
 - [VantaDB - Agent Instructions](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/operations/AGENT_INSTRUCTIONS.md): Welcome to the VantaDB codebase
 - [VantaDB — HNSW & Lexical Engine Performance Benchmarks](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/operations/BENCHMARKS.md): This document compiles the certified performance metrics for VantaDB at the MVP version. It covers both the internal Rust engine tests (Stress Protocol) and telemetry from the Python SDK wrapper
 - [VantaDB — Performance Guide: Rust Core vs Python SDK](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/operations/PERFORMANCE_GUIDE.md): This document explains the performance characteristics of VantaDB's architecture layers, quantifies the gap between the Rust core and the Python SDK, and sets realistic expectations for production use
