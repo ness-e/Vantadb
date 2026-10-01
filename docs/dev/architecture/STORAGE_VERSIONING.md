@@ -279,7 +279,7 @@ vanta-cli migrate check  <target>
 
 | `run` flag | Purpose |
 |---|---|
-| `--format` | Specific format to migrate (vfile, index, wal, schema, all); default: all |
+| `--format` | Specific format to migrate (all, vfile, index, wal, records, schema); default: all |
 | `--dry-run` | Preview changes without writing |
 | `--force` | Skip confirmation prompts |
 
