@@ -213,3 +213,10 @@ tags: [vantadb, avance, investigacion, research]
 - **Resultado:** ✅ timed `canonical_p99` (search p50=2.2388ms/p95=4.248ms/p99=4.9987ms); triple divergencia documentada; §2 FROZEN pre-SIMD; protocolo + deferral dataset a VER-08; P2-01 approve; lead verify baseline transcripto
 - **Commit:** 033f0cb0
 - **Dominio:** investigaciones
+
+### RES-17: Instalador interactivo y personalizado (ex INV-installer-01)
+- **Fecha:** 2026-10-01
+- **Objetivo:** benchmark multi-fuente (rustup/ollama/Docker/VS Code/uv/cargo-dist/brew/winget…) + recomendación de arquitectura para la instalación interactiva (selector de módulos) — alimenta DX-12.
+- **Resultado:** ✅ `docs/dev/research/installer-personalizado/RESEARCH.md` (194 líneas; 31 URLs verificadas por fetch; recomendación: wizard nativo `vanta-cli setup` + `installer/modules.toml` + perfiles minimal/default/full/custom + sha256 obligatorio; roadmap F1-F4).
+- **Commit:** 974be898
+- **Dominio:** investigaciones
