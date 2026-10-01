@@ -405,3 +405,9 @@ tags: [vantadb, avance, ops, api, docs, backup, enterprise]
 - **Resultado:** ✅ 9 páginas actualizadas (append, sin borrados): Problema · Propuesta · Roadmap · SDKs · Benchmarks · Seguridad · Observabilidad · Gobernanza · Casos de uso + `Definición oficial` creada (`3ebd0445-9756-81bb-a6f2-c3b67157b866`) + higiene (3 duplicados archivados) + verificación reviewer + link fix. **Sync #2 (mismo día):** validación externa del marco — 6 páginas (áreas/Problema/dims/Propuesta/ámbitos/PI) con notas + 2 calificaciones inline, verificadas 6/6 + 2/2 (`NOTION-SYNC-2026-09-24.md` §14).
 - **Filas removidas de backlog-notion.md:** N-17.
 - **Commits:** `bc4958cd` (N-17) · `b9d1e459` (Sync #2).
+
+### Auditoria de backlogs + rescates OLD (2026-09-30)
+- **Movidas a Backlog-negocio:** STRAT-01/02/03/07, DX-10, FASE-A/R-05 (consolida EXE-03+EST-12) + BIZ-14/15.
+- **Promociones a Backlog:** FUT-03/FUT-07 -> P28; FUT-17..23 anadidos a backlog-futuro; FIND-208..212; MKT-19; RES-16.
+- **Rescates OLD:** DECISIONS-NOT-TAKEN (registro de descartes) + 7 archivos historicos (archive/) + tutorial 06 LM Studio + 5 tipos de contexto.
+- **Commits:** 3ff933a5, d7861c3a, 3b8d9727 (+ este).
