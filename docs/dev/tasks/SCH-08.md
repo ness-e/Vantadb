@@ -288,7 +288,7 @@ last-synced: 2026-09-29
 **Veredicto: ✅ APPROVE** (vanta-review, contexto fresco; artifact = `UPGRADE.md` §0.8.0 @ `4a1aa33d`).
 
 - Contrato ADR-0046 §observables: cobertura 1:1 verificada; secuencia de migración ejecutada end-to-end contra el CLI real (exit 0 en todos los pasos); tests `schema_v2_migration` 4/4 · `migration::` 25/25 · `cli_tests migrate` 9/9.
-- **H1 (antes del Release PR):** refresh de `COMPATIBILITY.md` §Pre-release deltas (dice "not on the Rust SDK surface" pero el SDK sí cambió) — en curso con vanta-docs (medición semver-checks + reconciliación de counts).
+- **H1 (antes del Release PR):** ✅ **CERRADO** — `COMPATIBILITY.md` reconciliada: 9 familias / 187-9-57 + split de superficies corregido (commit `060ff2e9`; medición cold 3303s, baseline v0.7.0).
 - cli.rs help `records`: ✅ cerrado (`85b96137`).
 - Nit → FIND-224: `CONFIGURATION.md:387` (`--target-version` no existe en el CLI).
 - En el Release PR: confirmar changelog con los `feat!` + smoke upgrade contra artefactos publicados.
