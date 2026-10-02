@@ -301,6 +301,10 @@ impl VantaDBOllama {
             limit,
             cursor,
             exclude_superseded: false,
+            as_of_ms: None,
+            valid_window: None,
+            include_quarantined: false,
+            min_confidence: None,
         };
 
         let engine = self.engine.clone();
