@@ -257,7 +257,7 @@ R8 (claims) ─── Fase 0 (WEB-02)
 
 | Orden | Item | Descripción | Esfuerzo | Dependencias |
 |-------|------|-------------|----------|-------------|
-| 48 | **COMP-030** | Survival Mode: backpressure + Docker OOM prevention. Integrar memory_governor con cgroups | 🟡 1-2 sem | — |
+| 48 | **COMP-030** | Survival Mode: backpressure + OOM prevention. Integrar memory_governor con cgroups | 🟡 1-2 sem | — |
 | 49 | ~~**COMP-019**~~ | ~~Binary protocol (rkyv/FlatBuffers): reemplazar JSON por binario zero-copy~~ — ❌ **WONTFIX** (ADR `ADR-0048-binary-protocol-wontfix.md`) | ~~🟡 1-2 sem~~ | — |
 | 50 | **COMP-013** | Segment optimizer: Vacuum/Merge/Index optimizadores background | 🟡 1-2 sem | 35 (tombstones) |
 | 51 | **COMP-026** | Multi-level LSM compaction: L0→L1→L2→L3, spread compaction cost | 🟡 1-2 sem | 50 |

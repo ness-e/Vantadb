@@ -69,6 +69,7 @@ pub fn trimmed_text_query(request: &MemorySearchRequest) -> Option<&str> {
 /// the merged result. Hits appearing in both lists receive contributions
 /// from both rankings. The returned list is sorted descending by score,
 /// with ties broken by `key` then `node_id` for determinism.
+#[cfg(debug_assertions)]
 pub fn fuse_rrf(
     lexical_hits: Vec<MemorySearchHit>,
     vector_hits: Vec<MemorySearchHit>,

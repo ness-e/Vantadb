@@ -53,7 +53,7 @@ $ExcludedPatterns = @(
   'tests?_(server|graph|vector|python)_db',
   'docs[\\/]operations[\\/]snapshots', 'docs[\\/]progreso',
   'apruba', 'release_test', 'validation_logs', 'job.*_logs',
-  '\.trash_docker', '\.trunk',
+  '\.trunk',
   'Cargo\.lock$',
   '\.wasm$', '\.png$', '\.jpg$', '\.jpeg$', '\.gif$', '\.svg$', '\.ico$',
   '\.profraw$', '\.gcda$', '\.gcno$', '\.d\.ts$',
@@ -69,12 +69,12 @@ $IncludedExtensions = @(
   '.rs', '.toml', '.py', '.sh', '.ps1', '.bat', '.cmd',
   '.ts', '.mjs', '.cjs',
   '.md', '.json', '.yml', '.yaml',
-  '.sql', '.dockerignore', '.gitignore', '.env',
+  '.sql', '.gitignore', '.env',
   '.vanta_profile'
 )
 
 $IncludedNames = @(
-  'dockerfile', 'makefile', 'license',
+  'makefile', 'license',
   'rust-toolchain.toml', '.rustfmt.toml', '.clippy.toml',
   'deny.toml'
 )

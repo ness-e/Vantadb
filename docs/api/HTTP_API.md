@@ -684,7 +684,7 @@ Once the binary is on your `PATH`, see [Starting the Server](#starting-the-serve
 | **Audit log + tracing IDs** | ✅ JSONL rotation + `x-request-id` / `traceparent` correlation (SRV-01, SRV-02) | ✅ Audit v1.17+, tracing v1.18+ ([source](https://qdrant.tech/documentation/security/#audit-logging)) | ✅ Authorization audit logging ([source](https://weaviate.io/developers/weaviate/configuration/authorization#role-based-access-control-rbac)) | ✅ External tools (Attu, Milvus Backup) | ❌ |
 | **Zero-downtime key rotation** | ✅ `VANTADB_ALT_API_KEY` (SRV-04, mirrors Qdrant v1.17 `alt_api_key`) | ✅ `alt_api_key` v1.17+ ([source](https://qdrant.tech/documentation/security/#rotate-an-admin-api-key)) | ⚠️ Manual process | ⚠️ Manual process | ❌ |
 | **TLS** | ✅ rustls, 1.2 + 1.3, optional cert reload | ✅ ([source](https://qdrant.tech/documentation/security/#tls)) | ✅ | ✅ | ✅ |
-| **Unprivileged Docker image** | ✅ `--target unprivileged`, multi-stage | ✅ `-unprivileged` tag ([source](https://qdrant.tech/documentation/security/#hardening)) | ❌ | ❌ | ❌ |
+| **Hardened, dependency-free runtime** | ✅ Rust stdlib only, no JVM/Go runtime | ❌ | ❌ | ❌ | ❌ |
 | **Runtime dependencies** | Minimal Rust stdlib + `tokio` / `axum`; no JVM/Go | C++ / Rust | Go | Go + C++ + etcd | Python + OpenSearch |
 
 **Where VantaDB is honestly behind** (no marketing spin):
@@ -769,7 +769,7 @@ Loopback binds without a key keep working as before (dev mode). Setting
 `VANTADB_API_KEY` makes any host acceptable; `--require-auth` additionally
 refuses to start without a key regardless of host.
 
-> **Hardening Guide**: For production deployment security (Docker, TLS, key rotation, RBAC, audit, monitoring), see [`docs/user/operations/hardening.md`](../user/operations/hardening.md).
+> **Hardening Guide**: For production deployment security (TLS, key rotation, RBAC, audit, monitoring), see [`docs/user/operations/hardening.md`](../user/operations/hardening.md).
 
 ## Route Summary
 
