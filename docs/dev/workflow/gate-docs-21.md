@@ -1,11 +1,9 @@
 ---
 title: "`gate-docs.yml` — GATE: Docs — Lint & Frontmatter"
-type: workflow
+kind: runbook
 status: active
+description: Quality gate para la documentación del proyecto. Verifica que los archivos Markdown en docs/ estén bien formateados y tengan frontmatter YAML válido con los campos requeridos
 tags: [vantadb, ci, gate-docs]
-last_reviewed: 2026-09-15
-aliases: []
-related: [".github/workflows/gate-docs.yml"]
 ---
 
 # `gate-docs.yml` — GATE: Docs — Lint & Frontmatter

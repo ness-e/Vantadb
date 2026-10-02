@@ -1,3 +1,9 @@
+---
+title: "COMP-008: Pluggable Index Engine (VecIndex trait)"
+kind: task
+description: "No existe un trait VecIndex que abstraiga operaciones de index. searchnearest() es un método de CPIndex que maneja 3 paths con if/else internos. vectormemorysearch() está acoplado a engine.hnsw. Nuevos index types (COMP-027: IVF..."
+---
+
 # COMP-008: Pluggable Index Engine (VecIndex trait)
 
 ## Metadata

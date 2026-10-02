@@ -46,11 +46,13 @@ fn record_metadata_drop(n: u64) {
 }
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
-use std::sync::{Arc, Condvar, Mutex, PoisonError};
+use std::sync::{Mutex, PoisonError};
 use vantadb::config::Config;
 use vantadb::graph::TraversalDirection;
 use vantadb::sdk::*;
 use vantadb::{BackendKind, Error, SparseVector, MAX_BATCH_SIZE, MAX_F32_VEC_LEN, MAX_K};
+// Durability gate + ERR-022 clamp policy: shared std-only leaf (WIRE-07).
+use vantadb_ffi_core::{OpGate, OpGuard};
 use wasm_bindgen::prelude::*;
 
 mod opfs;
@@ -157,6 +159,24 @@ struct SearchRequest {
     /// Hide superseded records from results.
     #[serde(default)]
     exclude_superseded: bool,
+    /// Opt-in confidence filter (SCH-04, ADR-046 §D2): keep only hits whose
+    /// record `confidence` is `>= min_confidence` (finite, in [0, 1] — core
+    /// validates). `null`/omitted = no filter (default).
+    #[serde(default)]
+    min_confidence: Option<f32>,
+    /// Valid-time point (SCH-07, ADR-046 §D3): keep only records whose
+    /// validity window contains this unix-ms instant. `null`/omitted = no
+    /// temporal filter (default unchanged).
+    #[serde(default)]
+    as_of_ms: Option<u64>,
+    /// Valid-time window overlap (SCH-07): half-open `[from_ms, to_ms)`;
+    /// `from_ms < to_ms` is validated at the core boundary.
+    #[serde(default)]
+    valid_window: Option<ValidWindow>,
+    /// Include quarantined records (SCH-07, ADR-046 §D5). Default `false`:
+    /// quarantined content is excluded from search/list/retrieval.
+    #[serde(default)]
+    include_quarantined: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     text_query: Option<String>,
     #[serde(default = "default_top_k")]
@@ -186,6 +206,18 @@ struct ListOptions {
     /// Hide superseded records from the listing (consistency with `search`).
     #[serde(default)]
     exclude_superseded: bool,
+    /// Valid-time point (SCH-07, ADR-046 §D3). `null`/omitted = no filter.
+    #[serde(default)]
+    as_of_ms: Option<u64>,
+    /// Valid-time window overlap (SCH-07): half-open `[from_ms, to_ms)`.
+    #[serde(default)]
+    valid_window: Option<ValidWindow>,
+    /// Include quarantined records (SCH-07, ADR-046 §D5). Default `false`.
+    #[serde(default)]
+    include_quarantined: bool,
+    /// Opt-in confidence filter (SCH-07, ADR-046 §D2).
+    #[serde(default)]
+    min_confidence: Option<f32>,
 }
 
 fn default_limit() -> usize {
@@ -427,85 +459,6 @@ impl PersistCache {
     }
 }
 
-/// Durability gate: rejects new operations once `close()` has begun and keeps
-/// `close()` waiting until every in-flight operation finishes. Mirrors
-/// `vantadb-node/src/lib.rs` and `vantadb-python/src/lib.rs` — closes the
-/// write-after-close race where an operation started before `close()` would
-/// still write to the engine after close returned.
-struct OpGate {
-    state: Arc<(Mutex<OpState>, Condvar)>,
-}
-
-struct OpState {
-    closing: bool,
-    count: usize,
-}
-
-impl OpGate {
-    fn new() -> Self {
-        Self {
-            state: Arc::new((
-                Mutex::new(OpState {
-                    closing: false,
-                    count: 0,
-                }),
-                Condvar::new(),
-            )),
-        }
-    }
-
-    /// Register a new in-flight operation. Returns `None` if `close()` has
-    /// started (new operations are rejected past the durability barrier).
-    fn try_enter(&self) -> Option<OpGuard> {
-        let (lock, _) = &*self.state;
-        let mut state = lock.lock().unwrap_or_else(PoisonError::into_inner);
-        if state.closing {
-            return None;
-        }
-        state.count += 1;
-        Some(OpGuard {
-            state: self.state.clone(),
-        })
-    }
-
-    /// Start closing and block until every in-flight operation drains.
-    ///
-    /// Sets `closing = true` (so new ops are rejected) then waits until
-    /// `count == 0`. Blocks the calling thread; acceptable: this is the
-    /// durability barrier and engine operations are bounded.
-    fn drain(&self) {
-        let (lock, cvar) = &*self.state;
-        let mut state = lock.lock().unwrap_or_else(PoisonError::into_inner);
-        state.closing = true;
-        // wasm32-unknown-unknown: std Condvar::wait panics (single-threaded
-        // no_threads shim) and could never make progress anyway — the only
-        // thread that could drain `count` is this one, so a blocking wait
-        // would deadlock the JS event loop. The barrier still rejects new
-        // ops (closing=true); in-flight async ops finish on the event loop.
-        #[cfg(not(target_arch = "wasm32"))]
-        while state.count > 0 {
-            state = cvar.wait(state).unwrap_or_else(PoisonError::into_inner);
-        }
-        #[cfg(target_arch = "wasm32")]
-        let _ = cvar;
-    }
-}
-
-/// RAII guard that decrements the in-flight count and wakes `close()` when
-/// dropped (at the end of the owning method, after the engine call completes).
-struct OpGuard {
-    state: Arc<(Mutex<OpState>, Condvar)>,
-}
-
-impl Drop for OpGuard {
-    fn drop(&mut self) {
-        let (lock, cvar) = &*self.state;
-        let mut state = lock.lock().unwrap_or_else(PoisonError::into_inner);
-        state.count -= 1;
-        cvar.notify_one();
-    }
-}
-
 /// Enter the gate for an engine operation, or fail with a descriptive error
 /// if the database is closing.
 fn enter(gate: &OpGate) -> Result<OpGuard, JsValue> {
@@ -698,7 +651,7 @@ impl Client {
                 .map_err(|e| JsValue::from(js_sys::Error::new(&e.to_string())))?;
             db.populate_cache_from_records(&records);
             if !records.is_empty() {
-                db.inner.import_records(records).map_err(to_js_err)?;
+                db.inner.import_records(records, false).map_err(to_js_err)?;
             }
         }
         // CORE-02: restore the graph store alongside the memory records.
@@ -764,6 +717,11 @@ impl Client {
                     limit: 10_000,
                     cursor,
                     exclude_superseded: false,
+                    // SCH-03 temporal params: not exposed here (SCH-07).
+                    as_of_ms: None,
+                    valid_window: None,
+                    include_quarantined: false,
+                    min_confidence: None,
                 };
                 let page = self.inner.list(ns, opts).map_err(to_js_err)?;
                 for record in page.records {
@@ -1061,7 +1019,9 @@ impl Client {
             .map_err(|e| JsValue::from(js_sys::Error::new(&e.to_string())))?;
         self.populate_cache_from_records(&records);
         if !records.is_empty() {
-            self.inner.import_records(records).map_err(to_js_err)?;
+            self.inner
+                .import_records(records, false)
+                .map_err(to_js_err)?;
         }
         // CORE-02: restore the graph store if a snapshot exists (older
         // snapshots without graph_state.json restore nothing here).
@@ -1092,7 +1052,9 @@ impl Client {
             .map_err(|e| JsValue::from(js_sys::Error::new(&e.to_string())))?;
         self.populate_cache_from_records(&records);
         if !records.is_empty() {
-            self.inner.import_records(records).map_err(to_js_err)?;
+            self.inner
+                .import_records(records, false)
+                .map_err(to_js_err)?;
         }
         // CORE-02: restore the graph store if a snapshot exists (older
         // snapshots without graph_state.json restore nothing here).
@@ -1147,6 +1109,7 @@ impl Client {
             vector: input.vector,
             sparse_vector: input.sparse_vector,
             ttl_ms: input.ttl_ms,
+            ..Default::default()
         };
         let record = self.inner.put(vanta_input).map_err(to_js_err)?;
         self.mark_dirty(&input.namespace, &input.key);
@@ -1188,6 +1151,7 @@ impl Client {
                 vector: i.vector,
                 sparse_vector: i.sparse_vector,
                 ttl_ms: i.ttl_ms,
+                ..Default::default()
             })
             .collect();
         let records = self.inner.put_batch(vanta_inputs).map_err(to_js_err)?;
@@ -1236,6 +1200,12 @@ impl Client {
             limit: opts.limit,
             cursor: opts.cursor,
             exclude_superseded: opts.exclude_superseded,
+            // SCH-07: temporal + quarantine + confidence params (ADR-046
+            // §D2/§D3/§D5) — same wire names as the SDK.
+            as_of_ms: opts.as_of_ms,
+            valid_window: opts.valid_window,
+            include_quarantined: opts.include_quarantined,
+            min_confidence: opts.min_confidence,
         };
         let page = self.inner.list(namespace, vanta_opts).map_err(to_js_err)?;
         let obj = js_sys::Object::new();
@@ -1305,7 +1275,17 @@ impl Client {
             distance_metric: distance,
             explain: req.explain,
             exclude_superseded: req.exclude_superseded,
+            // SCH-04: opt-in confidence filter (ADR-046 §D2).
+            min_confidence: req.min_confidence,
+            // SCH-07: temporal + quarantine query params (ADR-046 §D3/§D5).
+            as_of_ms: req.as_of_ms,
+            valid_window: req.valid_window,
+            include_quarantined: req.include_quarantined,
             search_profile: None,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
         };
         let hits = self.inner.search(vanta_req).map_err(to_js_err)?;
         let arr = js_sys::Array::new();
@@ -1370,7 +1350,17 @@ impl Client {
             distance_metric: distance,
             explain: true,
             exclude_superseded: req.exclude_superseded,
+            // SCH-04: opt-in confidence filter (ADR-046 §D2).
+            min_confidence: req.min_confidence,
+            // SCH-07: temporal + quarantine query params (ADR-046 §D3/§D5).
+            as_of_ms: req.as_of_ms,
+            valid_window: req.valid_window,
+            include_quarantined: req.include_quarantined,
             search_profile: None,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
         };
         let explanation = self
             .inner
@@ -1505,7 +1495,17 @@ impl Client {
             distance_metric: distance,
             explain: req.explain,
             exclude_superseded: req.exclude_superseded,
+            // SCH-04: opt-in confidence filter (ADR-046 §D2).
+            min_confidence: req.min_confidence,
+            // SCH-07: temporal + quarantine query params (ADR-046 §D3/§D5).
+            as_of_ms: req.as_of_ms,
+            valid_window: req.valid_window,
+            include_quarantined: req.include_quarantined,
             search_profile: None,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
         };
         let ns_refs: Vec<&str> = ns_vec.iter().map(String::as_str).collect();
         let hits = self
@@ -1537,7 +1537,10 @@ impl Client {
                 MAX_BATCH_SIZE
             ))));
         }
-        let report = self.inner.import_records(records).map_err(to_js_err)?;
+        let report = self
+            .inner
+            .import_records(records, false)
+            .map_err(to_js_err)?;
         self.mark_invalid();
         to_js(&report)
     }
@@ -1545,7 +1548,7 @@ impl Client {
     /// Import records from a JSON file at the given path.
     pub fn import_file(&self, path: &str) -> Result<JsValue, JsValue> {
         let _g = enter(&self.op_gate)?;
-        let report = self.inner.import_file(path).map_err(to_js_err)?;
+        let report = self.inner.import_file(path, false).map_err(to_js_err)?;
         self.mark_invalid();
         to_js(&report)
     }
@@ -2351,6 +2354,69 @@ fn memory_record_to_js(rec: MemoryRecord) -> JsValue {
         )
         .ok();
     }
+    // SCH-04 (ADR-046 §D2): confidence fields — class as the serde wire name
+    // ("Asserted"/"Derived"), score as f64, optional last-validated timestamp
+    // as a decimal string (policy string-u64, same as `expires_at_ms`), and
+    // the parent keys (`[]` for asserted).
+    js_sys::Reflect::set(
+        &obj,
+        &"confidence_class".into(),
+        &rec.confidence_class.as_wire_str().into(),
+    )
+    .ok();
+    js_sys::Reflect::set(&obj, &"confidence".into(), &(rec.confidence as f64).into()).ok();
+    if let Some(validated_at) = rec.last_validated_at_ms {
+        js_sys::Reflect::set(
+            &obj,
+            &"last_validated_at_ms".into(),
+            &validated_at.to_string().into(),
+        )
+        .ok();
+    }
+    let derived_from = js_sys::Array::new();
+    for parent in &rec.derived_from {
+        derived_from.push(&parent.as_str().into());
+    }
+    js_sys::Reflect::set(&obj, &"derived_from".into(), &derived_from).ok();
+    // SCH-07 (ADR-046 §D2/§D3/§D5): bitemporal + quarantine fields. u64s
+    // travel as decimal strings (policy string-u64, same as `expires_at_ms`);
+    // optional fields are omitted when `None` (same convention).
+    js_sys::Reflect::set(
+        &obj,
+        &"valid_at_ms".into(),
+        &rec.valid_at_ms.to_string().into(),
+    )
+    .ok();
+    if let Some(invalid_at) = rec.invalid_at_ms {
+        js_sys::Reflect::set(
+            &obj,
+            &"invalid_at_ms".into(),
+            &invalid_at.to_string().into(),
+        )
+        .ok();
+    }
+    if let Some(quarantined_at) = rec.quarantined_at_ms {
+        js_sys::Reflect::set(
+            &obj,
+            &"quarantined_at_ms".into(),
+            &quarantined_at.to_string().into(),
+        )
+        .ok();
+    }
+    if let Some(reason) = &rec.quarantine_reason {
+        js_sys::Reflect::set(&obj, &"quarantine_reason".into(), &reason.as_str().into()).ok();
+    }
+    if let Some(by) = &rec.quarantined_by {
+        js_sys::Reflect::set(&obj, &"quarantined_by".into(), &by.as_str().into()).ok();
+    }
+    if let Some(due) = rec.quarantine_review_due_ms {
+        js_sys::Reflect::set(
+            &obj,
+            &"quarantine_review_due_ms".into(),
+            &due.to_string().into(),
+        )
+        .ok();
+    }
     if let Ok(meta) = serde_wasm_bindgen::to_value(&rec.metadata) {
         js_sys::Reflect::set(&obj, &"metadata".into(), &meta).ok();
     } else {
@@ -2756,5 +2822,46 @@ mod tests {
             "expected 3 unique records, got {}",
             records.len()
         );
+    }
+}
+
+// ── API-01: u128 wire — `QueryResult::Write.node_id` (2^53 + 1) ─────────
+//
+// Contract: an INSERT with an id above 2^53 must come back as a decimal
+// string, never an f64-rounded number (silent precision loss). Runs under
+// `wasm-pack test --node`.
+#[cfg(all(test, target_arch = "wasm32"))]
+mod api01_wire_u128_tests {
+    use super::*;
+    use wasm_bindgen_test::wasm_bindgen_test;
+
+    #[wasm_bindgen_test]
+    fn query_write_node_id_above_2_53_is_decimal_string() {
+        let db = Client::new(None).expect("db");
+        let result = db
+            .query("INSERT NODE#9007199254740993 TYPE Person {}")
+            .expect("INSERT with u128 id");
+
+        let write = js_sys::Reflect::get(&result, &"Write".into()).expect("Write variant");
+        let node_id = js_sys::Reflect::get(&write, &"node_id".into()).expect("node_id field");
+        // Representation depends on the serializer at the boundary:
+        // — `u128_serde` (current source): decimal string
+        // — legacy default u128 serialization: bigint (still exact)
+        // An f64/number would be silent precision loss and must never appear.
+        if let Some(as_str) = node_id.as_string() {
+            assert_eq!(
+                as_str, "9007199254740993",
+                "f64 would round 9007199254740993 -> 9007199254740992"
+            );
+            assert_eq!(
+                as_str.parse::<u128>().expect("u128 parse"),
+                9007199254740993u128
+            );
+        } else if let Ok(as_bigint) = node_id.clone().dyn_into::<js_sys::BigInt>() {
+            let as_decimal = as_bigint.to_string(10).expect("bigint to decimal string");
+            assert_eq!(String::from(as_decimal), "9007199254740993");
+        } else {
+            panic!("node_id must be a decimal string or bigint, got {node_id:?}");
+        }
     }
 }

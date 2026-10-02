@@ -1,3 +1,9 @@
+---
+title: "DESKTOP-33: CONSOLIDAR — merge + delete reales (detectar→revisar→merge/delete sin salir de la lente)"
+kind: task
+description: "Callers: desktop/src/components/ConsolidateLens.tsx, desktop/src/components/consolidate-core.ts"
+---
+
 # DESKTOP-33: CONSOLIDAR — merge + delete reales (detectar→revisar→merge/delete sin salir de la lente)
 
 ## Metadata

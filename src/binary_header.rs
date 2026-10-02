@@ -17,7 +17,7 @@ use web_time::SystemTime;
 ///   - Schema version: 2 bytes (u16, little-endian)
 ///   - Timestamp: 8 bytes (u64, little-endian, creation epoch in ms)
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct VantaHeader {
+pub struct Header {
     /// Magic bytes (e.g. b"VWAL", b"VNDX", b"VFLE").
     pub magic: [u8; 4],
     /// Format version number.
@@ -28,7 +28,7 @@ pub struct VantaHeader {
     pub timestamp: u64,
 }
 
-impl VantaHeader {
+impl Header {
     /// Total byte size of the serialised header (16 bytes).
     pub const SIZE: usize = 16;
 
@@ -146,6 +146,10 @@ impl VantaHeader {
     }
 }
 
+/// Deprecated alias for [Header] (API-01 anti-stutter rename). Kept for one
+/// release cycle; new code should use [Header].
+#[deprecated(since = "0.8.0", note = "renamed to Header (anti-stutter); use Header")]
+pub type VantaHeader = Header;
 #[cfg(test)]
 #[allow(missing_docs)]
 mod tests {
@@ -153,10 +157,10 @@ mod tests {
 
     #[test]
     fn serialize_roundtrip() {
-        let h = VantaHeader::new(*b"VWAL", 2, 1);
+        let h = Header::new(*b"VWAL", 2, 1);
         let bytes = h.serialize();
         assert_eq!(bytes.len(), 16);
-        let deserialized = VantaHeader::deserialize(&bytes).unwrap();
+        let deserialized = Header::deserialize(&bytes).unwrap();
         assert_eq!(deserialized.magic, h.magic);
         assert_eq!(deserialized.format_version, h.format_version);
         assert_eq!(deserialized.schema_version, h.schema_version);
@@ -165,44 +169,44 @@ mod tests {
 
     #[test]
     fn deserialize_too_short() {
-        let result = VantaHeader::deserialize(&[0u8; 10]);
+        let result = Header::deserialize(&[0u8; 10]);
         assert!(result.is_err());
     }
 
     #[test]
     fn validate_accepts_matching() {
-        let h = VantaHeader::new(*b"VFLE", 1, 0);
+        let h = Header::new(*b"VFLE", 1, 0);
         assert!(h.validate(*b"VFLE", 1, "vfile").is_ok());
     }
 
     #[test]
     fn validate_rejects_mismatched_magic() {
-        let h = VantaHeader::new(*b"VFLE", 1, 0);
+        let h = Header::new(*b"VFLE", 1, 0);
         let err = h.validate(*b"VWAL", 1, "expected VWAL").unwrap_err();
         assert!(err.to_string().contains("expected VWAL"));
     }
 
     #[test]
     fn validate_rejects_mismatched_version() {
-        let h = VantaHeader::new(*b"VFLE", 1, 0);
+        let h = Header::new(*b"VFLE", 1, 0);
         let err = h.validate(*b"VFLE", 2, "version mismatch").unwrap_err();
         assert!(err.to_string().contains("version mismatch"));
     }
 
     #[test]
     fn header_size_constant() {
-        assert_eq!(VantaHeader::SIZE, 16);
+        assert_eq!(Header::SIZE, 16);
     }
 
     #[test]
     fn schema_version_is_preserved() {
-        let h = VantaHeader::new(*b"VNDX", 3, 42);
+        let h = Header::new(*b"VNDX", 3, 42);
         assert_eq!(h.schema_version, 42);
     }
 
     #[test]
     fn timestamp_is_recent() {
-        let h = VantaHeader::new(*b"VTST", 1, 0);
+        let h = Header::new(*b"VTST", 1, 0);
         let now = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .expect("system time is after unix epoch")
@@ -222,19 +226,19 @@ mod tests {
 
     #[test]
     fn validate_compat_accepts_exact() {
-        let h = VantaHeader::new(*b"VFLE", 2, 0);
+        let h = Header::new(*b"VFLE", 2, 0);
         assert!(h.validate_compat(*b"VFLE", 2, "").is_ok());
     }
 
     #[test]
     fn validate_compat_accepts_older() {
-        let h = VantaHeader::new(*b"VFLE", 1, 0);
+        let h = Header::new(*b"VFLE", 1, 0);
         assert!(h.validate_compat(*b"VFLE", 2, "vfile").is_ok());
     }
 
     #[test]
     fn validate_compat_rejects_newer() {
-        let h = VantaHeader::new(*b"VFLE", 3, 0);
+        let h = Header::new(*b"VFLE", 3, 0);
         let err = h.validate_compat(*b"VFLE", 2, "vfile").unwrap_err();
         assert!(
             err.to_string().contains("version 3"),
@@ -244,7 +248,7 @@ mod tests {
 
     #[test]
     fn validate_compat_rejects_wrong_magic() {
-        let h = VantaHeader::new(*b"VFLE", 1, 0);
+        let h = Header::new(*b"VFLE", 1, 0);
         let err = h.validate_compat(*b"VWAL", 1, "wal").unwrap_err();
         assert!(
             err.to_string().contains("magic"),
@@ -254,7 +258,7 @@ mod tests {
 
     #[test]
     fn validate_compat_accepts_same_version() {
-        let h = VantaHeader::new(*b"VNDX", 7, 0);
+        let h = Header::new(*b"VNDX", 7, 0);
         assert!(h.validate_compat(*b"VNDX", 7, "").is_ok());
     }
 }

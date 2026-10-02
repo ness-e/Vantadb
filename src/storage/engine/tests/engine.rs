@@ -142,6 +142,79 @@ fn test_purge_permanent() {
     assert!(engine.get(200).unwrap().is_none());
 }
 
+// ─── VER-02: shredded-store purge on the delete path ──────────
+
+/// Seed one shredded metadata entry for `id` (JSON Shredding column store).
+fn seed_shredded_entry(engine: &StorageEngine, id: u128) {
+    let mut fields = std::collections::BTreeMap::new();
+    fields.insert(
+        "color".to_string(),
+        crate::Value::String("blue".to_string()),
+    );
+    crate::shred::ShreddedRowStore::put(id, &fields, &*engine.backend).expect("shred put");
+}
+
+fn shredded_entry_present(engine: &StorageEngine, id: u128) -> bool {
+    crate::shred::ShreddedRowStore::get(id, &*engine.backend)
+        .expect("shred get")
+        .is_some()
+}
+
+#[test]
+fn delete_purges_shredded_metadata_entry() {
+    let engine = in_memory_engine();
+    engine.insert(&sample_node(10)).expect("insert");
+    seed_shredded_entry(&engine, 10);
+    assert!(shredded_entry_present(&engine, 10), "precondition");
+
+    engine.delete(10, "test").expect("delete");
+
+    assert!(
+        !shredded_entry_present(&engine, 10),
+        "VER-02: delete must purge the shredded metadata entry"
+    );
+}
+
+#[test]
+fn delete_without_shredded_entry_stays_ok() {
+    let engine = in_memory_engine();
+    engine.insert(&sample_node(11)).expect("insert");
+    // No shredded entry seeded: the purge must be a safe no-op.
+    engine.delete(11, "test").expect("delete without shred");
+}
+
+#[test]
+fn delete_batch_purges_shredded_entries_only_for_deleted_ids() {
+    let engine = in_memory_engine();
+    for id in [1u128, 2, 3] {
+        engine.insert(&sample_node(id)).expect("insert");
+        seed_shredded_entry(&engine, id);
+    }
+
+    engine.delete_batch(&[1, 3]).expect("delete_batch");
+
+    assert!(!shredded_entry_present(&engine, 1), "1 was deleted");
+    assert!(
+        shredded_entry_present(&engine, 2),
+        "2 was NOT deleted — its shredded entry must survive"
+    );
+    assert!(!shredded_entry_present(&engine, 3), "3 was deleted");
+}
+
+#[test]
+fn purge_permanent_purges_shredded_entry() {
+    let engine = in_memory_engine();
+    engine.insert(&sample_node(42)).expect("insert");
+    seed_shredded_entry(&engine, 42);
+
+    engine.purge_permanent(42).expect("purge");
+
+    assert!(
+        !shredded_entry_present(&engine, 42),
+        "VER-02: purge_permanent must remove the shredded entry too"
+    );
+}
+
 // ─── Read-only guards ─────────────────────────────────────────
 
 #[test]
@@ -541,6 +614,46 @@ fn test_scan_nodes_page_excludes_deleted() {
     assert_eq!(nodes[0].id, 2);
 }
 
+// ─── WIRE-09: snapshot name sandbox ───────────────────────────────
+// Prove-It (systematic-debugging): `create_snapshot` joined the raw `name`
+// under `<data_dir>/snapshots/` with no validation, while `snapshot_restore`
+// validates via `validate_snapshot_name`. `name = "../escape"` wrote outside
+// the snapshots dir. This test FAILS pre-fix (returns Ok + writes outside)
+// and PASSES post-fix (returns Err + nothing escapes).
+
+#[cfg(feature = "fjall")]
+#[test]
+fn snapshot_traversal_name_rejected() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().to_str().unwrap();
+    let engine = StorageEngine::open(path).expect("open disk engine");
+    for evil in ["../escape", "..", ".", "", "a/b", "a\\b"] {
+        let err = engine.create_snapshot(evil).unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("plain identifier"),
+            "WIRE-09: name {evil:?} must be rejected as non-identifier, got: {msg}"
+        );
+    }
+    // Nothing escaped: `<data>/escape` must not exist and a legit name
+    // still lands inside the snapshots dir.
+    assert!(
+        !dir.path().join("data").join("escape").exists(),
+        "WIRE-09: traversal snapshot escaped the sandbox"
+    );
+    let snap = engine.create_snapshot("snap-1").expect("legit name");
+    assert!(
+        snap.path
+            .starts_with(dir.path().join("data").join("snapshots")),
+        "legit snapshot must live under snapshots/, got: {}",
+        snap.path.display()
+    );
+    assert!(engine
+        .list_snapshots()
+        .expect("list")
+        .contains(&"snap-1".to_string()));
+}
+
 #[test]
 fn test_scan_nodes_page_with_zero_limit() {
     let engine = in_memory_engine();
@@ -697,6 +810,100 @@ fn test_get_prefetch_does_not_recurse_forever() {
     assert!(
         engine.cache.volatile.read().contains_key(&2),
         "co-accessed node 2 should be prefetched into the volatile cache"
+    );
+}
+
+// ─── FIND-190: Cold overwrite must invalidate the prefetched stale entry ───
+
+/// FIND-190: `prefetch_related` caches co-accessed nodes regardless of tier,
+/// but the non-txn write paths only refreshed the volatile cache for Hot
+/// nodes — a `put`-overwrite of a Cold node left the OLD payload cached and
+/// visible to `get()`/`get_many()` (the SDK `list` fetch path). Repro:
+/// prefetch B via get(A), overwrite B (Cold, the default tier), read B back.
+#[test]
+fn test_cold_overwrite_invalidates_prefetched_cache_entry() {
+    let engine = in_memory_engine();
+    // Cold tier (UnifiedNode::new default) on both nodes.
+    let a = sample_node(1);
+    let mut b = sample_node(2);
+    b.relational.insert(
+        "payload".to_string(),
+        crate::node::FieldValue::String("old".to_string()),
+    );
+    engine.insert(&a).expect("insert a");
+    engine.insert(&b).expect("insert b");
+
+    // Register co-access A↔B (min_accesses = 3), then get(A) → prefetch caches
+    // B's OLD payload in volatile (the FIND-190 precondition).
+    for _ in 0..3 {
+        engine.cache.warmer.record_co_access(&[1, 2]);
+    }
+    engine.get(1).expect("get a");
+    assert!(
+        engine.cache.volatile.read().contains_key(&2),
+        "precondition: B must be prefetched into volatile"
+    );
+
+    // Cold overwrite of B with the NEW payload.
+    let mut b_new = sample_node(2);
+    b_new.relational.insert(
+        "payload".to_string(),
+        crate::node::FieldValue::String("new".to_string()),
+    );
+    engine.insert(&b_new).expect("overwrite b");
+
+    // get() must not serve the stale cached payload.
+    let got = engine.get(2).expect("get b").expect("b exists");
+    assert_eq!(
+        got.relational.get("payload"),
+        Some(&crate::node::FieldValue::String("new".to_string())),
+        "get() must return the NEW payload after a Cold overwrite"
+    );
+    // get_many() is the SDK list() fetch path — same guarantee.
+    let got_many = engine.get_many(&[2]).expect("get_many b");
+    assert_eq!(
+        got_many[0].relational.get("payload"),
+        Some(&crate::node::FieldValue::String("new".to_string())),
+        "get_many() must return the NEW payload after a Cold overwrite"
+    );
+}
+
+/// FIND-190 (batch write path): `cache_batch_hot_nodes` had the same hole —
+/// a Cold `batch_insert`/`put_batch` overwrite must invalidate the stale
+/// prefetched entry too.
+#[test]
+fn test_cold_batch_overwrite_invalidates_prefetched_cache_entry() {
+    let engine = in_memory_engine();
+    let a = sample_node(1);
+    let mut b = sample_node(2);
+    b.relational.insert(
+        "payload".to_string(),
+        crate::node::FieldValue::String("old".to_string()),
+    );
+    engine.insert(&a).expect("insert a");
+    engine.insert(&b).expect("insert b");
+
+    for _ in 0..3 {
+        engine.cache.warmer.record_co_access(&[1, 2]);
+    }
+    engine.get(1).expect("get a");
+    assert!(
+        engine.cache.volatile.read().contains_key(&2),
+        "precondition: B must be prefetched into volatile"
+    );
+
+    let mut b_new = sample_node(2);
+    b_new.relational.insert(
+        "payload".to_string(),
+        crate::node::FieldValue::String("new".to_string()),
+    );
+    engine.batch_insert(&[b_new]).expect("batch overwrite b");
+
+    let got = engine.get(2).expect("get b").expect("b exists");
+    assert_eq!(
+        got.relational.get("payload"),
+        Some(&crate::node::FieldValue::String("new".to_string())),
+        "get() must return the NEW payload after a Cold batch overwrite"
     );
 }
 

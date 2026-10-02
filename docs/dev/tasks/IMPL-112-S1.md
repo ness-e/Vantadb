@@ -1,3 +1,9 @@
+---
+title: "IMPL-112-S1: runner local de ingesta (slice mecánico 1 de FIND-112)"
+kind: task
+description: "Objetivo: construir el R local para el startingest<R> genérico ya existente (vantadb-mcp/src/wiki.rs:399): IngestRunnerCfg (TOML mínima solo no-secrets + env con precedencia) + enum ConcreteRunner por delegación (reusar LlmRunner..."
+---
+
 # IMPL-112-S1: runner local de ingesta (slice mecánico 1 de FIND-112)
 
 ## Metadata

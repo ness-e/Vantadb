@@ -1,0 +1,255 @@
+# Nightly — heavy certification subset (HARD-02, owner decision (c) 2026-09-26).
+#
+# Why a separate file (decision + evidence: CI_POLICY.md §"Nightly Certification Subset"):
+# - heavy-certification.yml stays the WEEKLY full suite (stress_protocol ~2h,
+#   memory_brutality, mutation_test, other_heavy — deliberately heavy, weekly).
+# - This lane is the DAILY safety net on the failure-critical certification
+#   subset (crash recovery / durability / HNSW correctness / text-index
+#   recovery): a regression surfaces in <=24h instead of <=7d. It is also the
+#   designated reception point for slow gates (>5min) moved out of the fast
+#   gate (HARD-01 coordination, plan 2026-09-26 stop condition).
+# - Schedules deconflicted (FIND-141): bench nightly 02:00, full cert Sun 03:00,
+#   OCR 04:00 → this lane 05:00 UTC daily.
+# - Job commands are IDENTICAL to their heavy-certification.yml counterparts
+#   (copy, not re-derive). When a test-binary list changes, change both files
+#   together — same rule as .config/nextest.toml structural exclusions.
+# - Since owner decision (c) 2026-09-27, this lane also carries the coverage
+#   report + per-directory budget (job `coverage-budget`, script
+#   dev-tools/coverage-budget.ps1) that used to run in the local fast gate
+#   (verify.ps1) — restoring the local <5min target. CI canonical coverage gate
+#   (ADR-018, ci-rust.yml) is unchanged.
+# - Never publishes: the release dry-run job only verifies packaging and
+#   publishability (`cargo publish --dry-run` — "all checks without uploading";
+#   no upload, no registry token). release-plz remains the only publisher
+#   (release.yml) and semver_check stays in its lane.
+# - Failure notification: auto-issue (deduped) so a red run never becomes
+#   chronic silence (F2 pre-mortem of HARD-02). Minimal permission: the
+#   `issues: write` grant lives ONLY on the notify job (RULES.md §4).
+
+name: 'NIGHTLY: Heavy Certification Subset'
+
+on:
+  schedule:
+    - cron: '0 5 * * *'  # daily 05:00 UTC — deconflicted, see header
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  ci-gate:
+    uses: ./.github/workflows/ci-gate.yml
+    permissions:
+      checks: read
+    with:
+      event_name: ${{ github.event_name }}
+
+  failpoint-tests:
+    name: "Nightly: failpoint_injections"
+    needs: ci-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/rust-setup
+      - name: Run failpoint tests
+        env:
+          RUST_BACKTRACE: 1
+        run: >
+          cargo test --features failpoints
+          --test chaos_integrity
+          --test wal_resilience
+          --test crash_injection
+          --
+          --test-threads=1
+
+  storage-persistence:
+    name: "Nightly: storage_persistence"
+    needs: ci-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/rust-setup
+        with:
+          swap-mb: 4096
+          free-disk: true
+      - name: Run storage persistence & recovery tests
+        timeout-minutes: 75
+        run: >
+          cargo test --release --features cli
+          --test backend_tests
+          --test storage
+          --test durability_recovery
+          --test derived_index_recovery
+          --test index_reconstruction
+          --test fjall_cold_copy_restore
+          --test property_durability
+          --test file_locking_stress
+          --test schema_evolution
+          --test gc
+          --test mmap_index
+          --test mutations
+          --test antilocality_layout
+          --test tombstone_ann_vstore
+          --test multi_process_lock
+          --test operational_metrics
+          --test prefetch_benchmark
+          --
+          --test-threads=1
+
+  hnsw-validation:
+    name: "Nightly: hnsw_validation"
+    needs: ci-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/rust-setup
+        with:
+          swap-mb: 8192
+          free-disk: true
+      - name: Run HNSW validation
+        run: cargo test --release --test hnsw_validation -- --nocapture --test-threads=1
+
+  hnsw-recall:
+    name: "Nightly: hnsw_recall_certification"
+    needs: ci-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/rust-setup
+        with:
+          free-disk: true
+      - name: Run HNSW recall certification
+        timeout-minutes: 25
+        run: cargo test --release --test hnsw_recall_certification -- --nocapture --test-threads=1
+
+  text-index:
+    name: "Nightly: text_index_recovery"
+    needs: ci-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/rust-setup
+        with:
+          swap-mb: 4096
+      - name: Run text index recovery tests
+        timeout-minutes: 45
+        run: cargo test --release --test text_index_recovery -- --test-threads=1 --nocapture
+
+  coverage-budget:
+    name: "Nightly: coverage report + per-directory budget"
+    needs: ci-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/rust-setup
+        with:
+          components: llvm-tools-preview
+          install-nextest: true
+          install-llvm-cov: true
+          install-system-deps: true
+          swap-mb: 8192
+          free-disk: true
+      - name: Run coverage report + per-directory budget (HARD-02)
+        # JSON report + per-directory budget (ratchet baseline −1.0 pt); exit 1 ONLY on
+        # an explicit bucket violation. Baselines calibrated on Windows (2026-09-26);
+        # ubuntu delta expected <1pt (24 cfg lines) — recalibrate if the first run
+        # differs (CI_POLICY.md §Coverage). Same script as local on-demand
+        # (`verify.ps1 -IncludeCoverage`).
+        run: pwsh -NoProfile -File dev-tools/coverage-budget.ps1
+      - name: Upload coverage report JSON
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: coverage-report
+          path: target/coverage-report.json
+          if-no-files-found: warn
+
+  release-dry-run:
+    name: "Nightly: release dry-run (packaging only — never publishes)"
+    needs: ci-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/rust-setup
+      - name: cargo publish --dry-run (root crate, no upload)
+        # release-plz publishes `vantadb` to crates.io; this job catches
+        # packaging/publishability regressions (missing files, manifest errors,
+        # verify-build failures) daily without touching any registry.
+        # `cargo package` has no --dry-run flag — the canonical release dry run is
+        # `cargo publish --dry-run` ("perform all checks without uploading"; exit 0
+        # verified locally 2026-09-27). `vantadb-wasm` ships via npm
+        # (release-npm-61.yml) and is intentionally out of scope here.
+        run: cargo publish -p vantadb --dry-run
+
+  notify-failure:
+    name: "Notify failure (auto-issue)"
+    needs: [failpoint-tests, storage-persistence, hnsw-validation, hnsw-recall, text-index, coverage-budget, release-dry-run]
+    if: ${{ failure() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read   # listJobsForWorkflowRun (reporte de jobs fallidos)
+      issues: write
+    steps:
+      - uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        with:
+          script: |
+            const runUrl = `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const { data } = await github.rest.actions.listJobsForWorkflowRun({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: context.runId,
+              filter: 'latest',
+              per_page: 100,
+            });
+            const failed = data.jobs
+              .filter(j => j.conclusion === 'failure')
+              .map(j => `- ${j.name} ([log](${j.html_url}))`)
+              .join('\n');
+
+            const title = '[Nightly] Heavy certification subset failed';
+            const body = `## 🔴 Nightly heavy-certification subset failed\n\n` +
+              `**Commit:** \`${context.sha}\`\n` +
+              `**Run:** [${context.workflow}](${runUrl})\n\n` +
+              `### Failed jobs\n\n${failed || '- (see run log)'}\n`;
+
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100,
+            });
+            const existing = issues.find(i => i.title.startsWith(title));
+
+            if (existing) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                body: `**Re-checked on ${new Date().toISOString()}** — still failing.\n\n${body}`,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                labels: ['ci'],
+                body,
+              });
+            }

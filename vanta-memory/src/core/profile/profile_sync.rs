@@ -154,6 +154,7 @@ pub fn sync_persona_to_scope(
         vector: None,
         sparse_vector: None,
         ttl_ms: None,
+        ..Default::default()
     })?;
     Ok(PersonaSyncOutcome {
         updated: true,

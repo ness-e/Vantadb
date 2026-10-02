@@ -1,3 +1,9 @@
+---
+title: Task API-STD-17 — Docs / referencias / actualizaciones
+kind: task
+description: "Auditar deriva doc↔código + owners + updates. Contrato: coverage anotado + tabla deriva con dueño + checklist updates"
+---
+
 # Task API-STD-17 — Docs / referencias / actualizaciones
 
 > **Plan:** `docs/dev/plans/2026-09-24-api-estandarizacion.md`

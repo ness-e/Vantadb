@@ -1,3 +1,9 @@
+---
+title: "NUEVO-17: Segment LSM-style tiers (hot/warm/cold) con política de archive real"
+kind: task
+description: "La descripción del backlog dice \"Segment LSM-style — hot/warm/cold tiers. Fjall tiene LSM interno, tiers no\""
+---
+
 # NUEVO-17: Segment LSM-style tiers (hot/warm/cold) con política de archive real
 
 ## Metadata

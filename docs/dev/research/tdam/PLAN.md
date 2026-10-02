@@ -1,12 +1,11 @@
 ---
-title: "Plan de Investigación Profunda — TencentDB-Agent-Memory (TDAM)"
-type: research
+title: Plan de Investigación Profunda — TencentDB-Agent-Memory (TDAM)
+kind: research
 status: active
+description: "Una vez completados los 9, el lead lee TODOS los archivos, cruza hallazgos, resuelve contradicciones y produce la síntesis con el plan de acción concreto (qué crate, qué features core, qué MCP tools, orden de implementación)"
 tags: [vantadb, research, tdam, plan]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
+
 # Plan de Investigación Profunda — TencentDB-Agent-Memory (TDAM)
 
 > **Objetivo:** Extraer absolutamente todo del proyecto TDAM (lógica, algoritmos, procesos, flujos, funciones, funcionalidades, uso, diseño, arquitectura, UX/UI) con referencias y código, para decidir qué incluir en VantaDB y dónde.

@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Batch REVIEW/MOD/FIND (pipeline paralelo)"
+kind: plan
+status: archived
+description: "Campaign ID: 4b9e337a-2fd0-4625-9cba-e26ea37f780b"
+---
+
 # Plan de Ejecución: Batch REVIEW/MOD/FIND (pipeline paralelo)
 
 > **Campaign ID:** 4b9e337a-2fd0-4625-9cba-e26ea37f780b

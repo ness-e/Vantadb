@@ -1,10 +1,9 @@
 ---
 title: "FND-20: HNSW Trade-off (ef_search/M: recall vs latency) and why not IVF/FAISS"
-type: architecture
+kind: concept
 status: active
+description: "src/index/mod.rs:27-30) with M=32, Mmax0=64, efconstruction=100,"
 tags: [vantadb, architecture, hnsw, indexing, faiss, showhn]
-last_reviewed: 2026-08-16
-aliases: []
 ---
 
 # FND-20: HNSW Trade-off (ef_search/M: recall vs latency) and why not IVF/FAISS
@@ -65,7 +64,7 @@ for workloads where recall pressure varies.
 
 ### Documented drift (flagged, not papered over)
 
-- ADR 005 (`docs/dev/architecture/adr/005_hnsw_parameters.md:35`) records
+- ADR 0005 (`docs/dev/architecture/adr/ADR-0005-hnsw-parameters.md:35`) records
   `ef_construction = 200`.
 - `PERFORMANCE_TUNING.md:27` records `ef_construction = 400`.
 - **Code ships `ef_construction = 100`** (`src/index/graph.rs:260`).
@@ -250,7 +249,7 @@ Build-time reference (`M=32, ef=200`): ~2 s @ 10K, ~12 s @ 50K, ~64 s @ 100K
 - `src/index/ivf.rs:79-228` — IVF k-means build
 - `src/index/serialize/bytes.rs:36-37` — serialized config (portable)
 - `docs/user/operations/BENCHMARKS.md`, `docs/user/operations/PERFORMANCE_TUNING.md`, `docs/user/operations/PERFORMANCE_GUIDE.md`
-- `docs/dev/architecture/adr/005_hnsw_parameters.md` (drift flagged in §2)
+- `docs/dev/architecture/adr/ADR-0005-hnsw-parameters.md` (drift flagged in §2)
 - External: [HNSW vs FAISS comparison (Vectroid)](https://www.vectroid.com/resources/hnsw-vs-faiss-comprehensive-comparison),
   [How vector search works: IVF and HNSW (Medium)](https://medium.com/@arthurpro/how-vector-search-actually-works-ivf-and-hnsw-c96a0900f11d),
   [Faiss vs HNSWlib (Zilliz)](https://zilliz.com/blog/faiss-vs-hnswlib-choosing-the-right-tool-for-vector-search)

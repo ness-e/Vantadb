@@ -1,3 +1,9 @@
+---
+title: "FIND-111: S5 `skill_extract` solo-candidatos read-only (SHIP)"
+kind: task
+description: "Objetivo: cerrar S5 de FIND-107 — exponer la extracción de skills como tool"
+---
+
 # FIND-111: S5 `skill_extract` solo-candidatos read-only (SHIP)
 
 ## Metadata

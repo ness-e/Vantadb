@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Batch Desktop UX/DAUD + Core menor (2026-08-25)"
+kind: plan
+status: archived
+description: "Status: ⬆️ uphill = 1 (DAUD-02 decisión owner DEFER) · ⬇️ downhill = 8"
+---
+
 # Plan de Ejecución: Batch Desktop UX/DAUD + Core menor (2026-08-25)
 
 > **Campaign ID:** 6a6c322a-6a6a-4d17-9b34-3166181cbc4a
@@ -122,7 +129,7 @@ efactor(server)\ - nits server 4/4, tests 42/42, review APPROVE
 - **Gate Result:** ✅ DO
 - **Contrato:** auditoría de nombres documentada; convención decidida y documentada (ADR o nota); links/URLs actualizados donde no rompen
 - **Task file:** `skills/campaign-executor/tasks/FIND-17.md`
-- **Estado:** ✅ COMMITTED `docs` - ADR-030 brand naming, 0 renames
+- **Estado:** ✅ COMMITTED `docs` - ADR-0030 brand naming, 0 renames
 
   **Pre-mortem:**
   - Fallo 1: renombrar crate/npm rompe semver/usuarios — NO renombrar, solo documentar
@@ -212,10 +219,10 @@ Próxima tarea si completa: Siguiente del plan: FIND-17 / TIR-08 (Wave 0 restant
 Campaign ID: 6a6c322a-6a6a-4d17-9b34-3166181cbc4a
 Objetivo activo: FIND-17 — auditar consistencia de nombres en artefactos públicos y documentar convención única pre-launch (sin renames).
 Estado: completed
-Última acción: DISCOVERY (lectura directa de 11 artefactos, verificación live de 6 registries, 65+ citas del repo en docs) + ADR-030 (PROPOSED, tabla de auditoría + convención propuesta) + nota de convención en README/README_ES. Docs coverage 0 gaps.
+Última acción: DISCOVERY (lectura directa de 11 artefactos, verificación live de 6 registries, 65+ citas del repo en docs) + ADR-0030 (PROPOSED, tabla de auditoría + convención propuesta) + nota de convención en README/README_ES. Docs coverage 0 gaps.
 Resultado: OK
-Próxima acción: Lead: verifica mecánico, acepta ADR-030 (PROPOSED → ACCEPTED, Regla 5) y commitea `docs:` FIND-17. Owner resuelve: dominio canónico, PyPI ownership DevpNess→ness-e, publicar vantadb-node.
-Contrato: verificacion: scripts/validate-docs-coverage.ps1 ✅ 0 gaps; git diff = solo docs (README, README_ES, ADR-030, task file); cero renames. evidencia: (1) crates.io `vantadb` existe 0.5.0 — crates.io/api/v1/crates/vantadb, alta; (2) PyPI `vantadb-py` existe 0.5.0 owner DevpNess — pypi.org/pypi/vantadb-py/json, alta; (3) npm `vantadb` existe 0.5.0, `vantadb-node` 404 nunca publicado — registry.npmjs.org, alta; (4) GitHub `ness-e/Vantadb` live, About=vantadb.vercel.app — github.com/ness-e/Vantadb, alta; (5) `vantadb.dev` DNS muerto — GET Transport error, alta; (6) badges README no rotos (workflows existen en .github/workflows/) — Get-ChildItem, alta. artefactos: .opencode/skills/campaign-executor/tasks/FIND-17.md, docs/dev/architecture/adr/ADR-030-brand-identity-naming-convention.md, README.md, README_ES.md. invariantes: cero renames; docs en inglés; ADR PROPOSED (decisión owner, Regla 5). deuda: decisión owner — dominio canónico, PyPI ownership, publicar vantadb-node, refrescar metadata PyPI. queda_pendiente: lead verifica + acepta ADR + commitea (NO COMMIT del worker).
+Próxima acción: Lead: verifica mecánico, acepta ADR-0030 (PROPOSED → ACCEPTED, Regla 5) y commitea `docs:` FIND-17. Owner resuelve: dominio canónico, PyPI ownership DevpNess→ness-e, publicar vantadb-node.
+Contrato: verificacion: scripts/validate-docs-coverage.ps1 ✅ 0 gaps; git diff = solo docs (README, README_ES, ADR-0030, task file); cero renames. evidencia: (1) crates.io `vantadb` existe 0.5.0 — crates.io/api/v1/crates/vantadb, alta; (2) PyPI `vantadb-py` existe 0.5.0 owner DevpNess — pypi.org/pypi/vantadb-py/json, alta; (3) npm `vantadb` existe 0.5.0, `vantadb-node` 404 nunca publicado — registry.npmjs.org, alta; (4) GitHub `ness-e/Vantadb` live, About=vantadb.vercel.app — github.com/ness-e/Vantadb, alta; (5) `vantadb.dev` DNS muerto — GET Transport error, alta; (6) badges README no rotos (workflows existen en .github/workflows/) — Get-ChildItem, alta. artefactos: .opencode/skills/campaign-executor/tasks/FIND-17.md, docs/dev/architecture/adr/ADR-0030-brand-identity-naming-convention.md, README.md, README_ES.md. invariantes: cero renames; docs en inglés; ADR PROPOSED (decisión owner, Regla 5). deuda: decisión owner — dominio canónico, PyPI ownership, publicar vantadb-node, refrescar metadata PyPI. queda_pendiente: lead verifica + acepta ADR + commitea (NO COMMIT del worker).
 Próxima tarea si completa: FIND-11 (Task 8, mismo plan)
 === END RECITATION ===
 
@@ -248,7 +255,7 @@ Estado: completed
 Última acción: Steps 1-4 completos: DISCOVERY (estado real verificado) + desktop/README.md creado + 2 secciones en vantadb-ts/README.md (lazy-load wasm + npm naming) + validate-docs-coverage.ps1 0 gaps exit 0. Task file y plan file actualizados con recitation.
 Resultado: OK
 Próxima acción: Lead: verify mecánico y commit SOLO desktop/README.md + vantadb-ts/README.md + FIND-11.md
-Contrato: verificacion: pwsh scripts/validate-docs-coverage.ps1 ✅ 0 gaps exit 0; evidencia: desktop/README.md creado (Test-Path True, grep tauri dev/install/public installer, alta); nota lazy-load wasm en vantadb-ts/README.md:80-108 (~1.3MB, vite-plugin-wasm, SSR/hooks, alta); aclaracion vantadb vs vantadb-node en vantadb-ts/README.md:110-122 (vantadb publicado 0.5.0, vantadb-node 404 nunca publicado, ADR-030, alta); bundle wasm 1364555 bytes = 1.30MB (Get-ChildItem, alta); anchors existentes intactos (Domain Sub-clients:280, Runtimes:313, alta); artefactos: desktop/README.md, vantadb-ts/README.md, .opencode/skills/campaign-executor/tasks/FIND-11.md; invariantes: cero código tocado, docs EN, no duplicar docs/user/desktop/README.md (enlazado); deuda: ninguna; queda_pendiente: LEAD commitea por tarea (worker NO commitea); WIP guard bloqueó claim in-progress mientras TIR-08 corria — trabajo registrado en task file igual
+Contrato: verificacion: pwsh scripts/validate-docs-coverage.ps1 ✅ 0 gaps exit 0; evidencia: desktop/README.md creado (Test-Path True, grep tauri dev/install/public installer, alta); nota lazy-load wasm en vantadb-ts/README.md:80-108 (~1.3MB, vite-plugin-wasm, SSR/hooks, alta); aclaracion vantadb vs vantadb-node en vantadb-ts/README.md:110-122 (vantadb publicado 0.5.0, vantadb-node 404 nunca publicado, ADR-0030, alta); bundle wasm 1364555 bytes = 1.30MB (Get-ChildItem, alta); anchors existentes intactos (Domain Sub-clients:280, Runtimes:313, alta); artefactos: desktop/README.md, vantadb-ts/README.md, .opencode/skills/campaign-executor/tasks/FIND-11.md; invariantes: cero código tocado, docs EN, no duplicar docs/user/desktop/README.md (enlazado); deuda: ninguna; queda_pendiente: LEAD commitea por tarea (worker NO commitea); WIP guard bloqueó claim in-progress mientras TIR-08 corria — trabajo registrado en task file igual
 Próxima tarea si completa: DAUD-limpi / E2E+visual (Wave 2, mismo plan)
 === END RECITATION ===
 

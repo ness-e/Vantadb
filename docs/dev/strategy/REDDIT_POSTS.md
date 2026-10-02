@@ -1,9 +1,9 @@
 ---
 title: Reddit Launch Posts — VantaDB
-type: marketing
+kind: concept
 status: ready-to-publish
+description: "Title: VantaDB — Embedded hybrid (BM25 + HNSW) search engine in Rust"
 tags: [vantadb, launch, reddit, marketing]
-last_reviewed: 2026-09-02
 ---
 
 # Reddit Launch Posts
@@ -11,6 +11,8 @@ last_reviewed: 2026-09-02
 > **Task:** MKT-04 (`docs/dev/Backlog-negocio.md` §P6 — fila de negocio: publicación requiere identidad humana) — Reddit posts for r/rust, r/MachineLearning, r/LocalLLaMA
 > **Effort:** 🟢 2-4h
 > **Estado 2026-09-02 (MKT-04):** 3 drafts corregidos y validados con datos medibles (abajo), **NO publicados** — `status: ready-to-publish`. Publicación pendiente (owner humano tiene identidad Reddit). **✅ Claims corregidos:** "zero deps"/"pure Rust" → Fjall default es pure-Rust; feature `roaring` (default) trae `croaring-sys`/`cc` que compila C/C++; `rocksdb` backend opcional también es C++. "recall>0.998 SIFT1M" → verificado: Stress Protocol recall@10 **0.9560 @ 10K**, **0.9980 @ 10K (scaling)**, **1.0000 @ 50K**, **0.9980 @ 100K** (`docs/user/operations/BENCHMARKS.md` §1); SIFT1M 100K p99 **441.2 µs** balanced / **1.23 ms** high-recall (`docs/user/operations/BENCHMARKS.md` §5). "sub-ms core search" → verificado: core Rust p50 **1.2 ms @ 10K**, **6.1 ms @ 50K** (`docs/user/operations/BENCHMARKS.md` §1); Python SDK vector search p50 **62 ms @ 10K** (incluye PyO3/GIL). "100% GloVe-100-angular 1.18M" → **sin medición**; competitive bench midió subset 10K con recall@10 **24.5%** (`docs/user/operations/BENCHMARKS.md` §7) — claim eliminado.
+>
+> **Actualización 2026-09-30:** sigue **EN PAUSA** — no publicar hasta Fase A (`EXE-03`; ver `DISTRIBUTION.md` §4). Versión vigente **0.7.0** (0.8.0 preparada).
 
 ---
 

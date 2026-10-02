@@ -77,6 +77,9 @@ fn state_for(upstream_url: &str) -> vanta_proxy::server::AppState {
         cache: CacheConfig {
             enabled: true,
             max_entries: 128,
+            // API-05 X5: a positive TTL is required for the cache to be
+            // active (0 = no TTL configured → disabled).
+            ttl_secs: 3600,
             ..Default::default()
         },
         routing: Default::default(),
@@ -84,6 +87,8 @@ fn state_for(upstream_url: &str) -> vanta_proxy::server::AppState {
         context: Default::default(),
         guardrails: Default::default(),
         translate: Default::default(),
+        injection: Default::default(),
+        envelope: Default::default(),
     };
     vanta_proxy::server::AppState::from_engine(cfg, seeded_engine()).unwrap()
 }
@@ -109,6 +114,7 @@ fn seed_memory(db: &Embedded, session_key: &str) {
         vector: None,
         sparse_vector: None,
         ttl_ms: None,
+        ..Default::default()
     })
     .expect("seed persona");
     upsert_scene(db, session_key, "cache-runbook", "deploys", "how to deploy").expect("seed scene");
@@ -243,7 +249,8 @@ fn state_for_semantic(upstream_url: &str) -> vanta_proxy::server::AppState {
         cache: CacheConfig {
             enabled: true,
             max_entries: 128,
-            ttl_secs: 0,
+            // API-05 X5: positive TTL so the cache/semantic path is active.
+            ttl_secs: 3600,
             semantic_enabled: true,
             similarity_threshold: 0.9,
         },
@@ -252,6 +259,8 @@ fn state_for_semantic(upstream_url: &str) -> vanta_proxy::server::AppState {
         context: Default::default(),
         guardrails: Default::default(),
         translate: Default::default(),
+        injection: Default::default(),
+        envelope: Default::default(),
     };
     vanta_proxy::server::AppState::from_engine(cfg, seeded_engine()).unwrap()
 }
@@ -318,6 +327,8 @@ fn cache_key_stable_under_reinjection() {
     let mut cache = ExactCache::new(CacheConfig {
         enabled: true,
         max_entries: 8,
+        // API-05 X5: positive TTL so the store/hit path below is active.
+        ttl_secs: 3600,
         ..Default::default()
     });
     assert!(is_cacheable_request(&once));

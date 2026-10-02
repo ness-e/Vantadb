@@ -1,3 +1,9 @@
+---
+title: "AUDREP-12: Limitar tamaño de body en endpoint /api/v2/query"
+kind: task
+description: "cargo check -p vantadb --features server pasa; test nuevo bodylimitrejectsoversized pasa; cargo nextest run --profile audit -p vantadb pasa\""
+---
+
 # AUDREP-12: Limitar tamaño de body en endpoint /api/v2/query
 
 ## Metadata

@@ -230,12 +230,143 @@ mod tests {
             vector: None,
             sparse_vector: None,
             ttl_ms: Some(1),
+            ..Default::default()
         };
         let record = db.put(input).unwrap();
         std::thread::sleep(std::time::Duration::from_millis(20));
         let purged = db.purge_expired().unwrap();
         assert!(purged >= 1);
         assert!(db.get("ns", &record.key).unwrap().is_none());
+    }
+
+    // ── WIRE-04: namespace default TTL (Config::memory_default_ttl_ms) ──
+
+    /// Embedded over a temp dir with a namespace→default-TTL map; the caller
+    /// keeps the temp dir alive.
+    fn make_embedded_with_default_ttl(dir: &std::path::Path, defaults: &[(&str, u64)]) -> Embedded {
+        let config = Config {
+            storage_path: dir.to_string_lossy().into_owned(),
+            memory_default_ttl_ms: defaults
+                .iter()
+                .map(|(ns, ms)| (ns.to_string(), *ms))
+                .collect(),
+            ..Default::default()
+        };
+        Embedded::open_with_config(config).expect("open Embedded with defaults")
+    }
+
+    /// Wait (bounded) until `get` hides the record; fails the test if it never does.
+    fn expect_read_hidden(db: &Embedded, namespace: &str, key: &str) {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+        loop {
+            if db.get(namespace, key).unwrap().is_none() {
+                return;
+            }
+            assert!(
+                std::time::Instant::now() < deadline,
+                "record {namespace}/{key} must be read-hidden after its TTL lapses"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+    }
+
+    #[test]
+    fn default_ttl_applies_when_input_omits_ttl() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = make_embedded_with_default_ttl(dir.path(), &[("notes", 40)]);
+        let before = now_ms();
+
+        let record = db
+            .put(MemoryInput::new("notes", "k1", "remember me"))
+            .expect("put");
+
+        let expires = record.expires_at_ms.expect("default TTL must be applied");
+        assert!(
+            expires >= before + 40 && expires <= now_ms() + 40,
+            "expires_at_ms must be resolved from the namespace default"
+        );
+        expect_read_hidden(&db, "notes", "k1");
+        assert!(
+            db.purge_expired().unwrap() >= 1,
+            "defaulted TTL must flow through the purge path"
+        );
+    }
+
+    #[test]
+    fn default_ttl_ignores_namespaces_without_configuration() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = make_embedded_with_default_ttl(dir.path(), &[("notes", 40)]);
+
+        let record = db
+            .put(MemoryInput::new("other", "k1", "no ttl here"))
+            .expect("put");
+
+        assert!(
+            record.expires_at_ms.is_none(),
+            "namespaces without a configured default must never expire"
+        );
+    }
+
+    #[test]
+    fn explicit_ttl_overrides_namespace_default() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = make_embedded_with_default_ttl(dir.path(), &[("notes", 40)]);
+
+        let mut input = MemoryInput::new("notes", "k1", "explicit wins");
+        input.ttl_ms = Some(60_000);
+        let record = db.put(input).expect("put");
+
+        let expires = record.expires_at_ms.expect("explicit ttl present");
+        assert!(
+            expires > now_ms() + 30_000,
+            "explicit ttl_ms must override the namespace default, got {expires}"
+        );
+    }
+
+    #[test]
+    fn put_batch_applies_namespace_default_ttl() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = make_embedded_with_default_ttl(dir.path(), &[("notes", 60_000)]);
+
+        let records = db
+            .put_batch(vec![MemoryInput::new("notes", "b1", "batch default")])
+            .expect("put_batch");
+
+        assert!(
+            records[0].expires_at_ms.is_some(),
+            "put_batch must apply the namespace default too"
+        );
+    }
+
+    #[test]
+    fn default_ttl_is_not_backfilled_on_reopen() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().to_path_buf();
+
+        // Phase 1: no default configured — the record must stay non-expiring.
+        {
+            let db = Embedded::open(&path).expect("open without defaults");
+            let record = db
+                .put(MemoryInput::new("notes", "old", "pre-config"))
+                .expect("put");
+            assert!(record.expires_at_ms.is_none());
+        }
+
+        // Phase 2: reopen WITH a default — only new writes inherit it.
+        let db = make_embedded_with_default_ttl(&path, &[("notes", 60_000)]);
+        let old = db.get("notes", "old").expect("get").expect("still there");
+        assert!(
+            old.expires_at_ms.is_none(),
+            "existing records must never be backfilled with the new default"
+        );
+
+        let new = db
+            .put(MemoryInput::new("notes", "new", "post-config"))
+            .expect("put");
+        assert!(
+            new.expires_at_ms.is_some(),
+            "writes after the config change must inherit the default"
+        );
     }
 
     #[test]
@@ -397,6 +528,7 @@ mod tests {
                 vector: None,
                 sparse_vector: None,
                 ttl_ms: None,
+                ..Default::default()
             });
         }
         let page = db
@@ -413,6 +545,10 @@ mod tests {
                     limit: 100,
                     cursor: None,
                     exclude_superseded: false,
+                    as_of_ms: None,
+                    valid_window: None,
+                    include_quarantined: false,
+                    min_confidence: None,
                 },
             )
             .unwrap();
@@ -434,11 +570,59 @@ mod tests {
                     limit: 0,
                     cursor: None,
                     exclude_superseded: false,
+                    as_of_ms: None,
+                    valid_window: None,
+                    include_quarantined: false,
+                    min_confidence: None,
                 },
             )
             .unwrap();
         assert!(page.records.is_empty());
         assert!(page.next_cursor.is_none());
+    }
+
+    #[test]
+    fn test_list_min_confidence_filters_and_rejects_out_of_range() {
+        // SCH-07 (ADR-046 §D2): list carries the same opt-in confidence
+        // threshold as search (records: default 1.0 asserted + a declared 0.4).
+        let db = make_embedded_real();
+        db.put(MemoryInput::new("ns", "high", "trusted"))
+            .expect("put high");
+        db.put(MemoryInput {
+            confidence: Some(0.4),
+            ..MemoryInput::new("ns", "low", "shaky")
+        })
+        .expect("put low");
+
+        let page = db
+            .list(
+                "ns",
+                MemoryListOptions {
+                    min_confidence: Some(0.5),
+                    ..MemoryListOptions::default()
+                },
+            )
+            .expect("list with threshold");
+        let keys: Vec<&str> = page.records.iter().map(|r| r.key.as_str()).collect();
+        assert_eq!(keys, vec!["high"], "only hits >= threshold: {keys:?}");
+
+        // Boundary: out-of-range / non-finite thresholds are rejected, never
+        // clamped (same predicate as search's `validate_search_options`).
+        for bad in [1.5_f32, f32::NAN] {
+            let err = db
+                .list(
+                    "ns",
+                    MemoryListOptions {
+                        min_confidence: Some(bad),
+                        ..MemoryListOptions::default()
+                    },
+                )
+                .unwrap_err();
+            assert!(
+                matches!(err, Error::InvalidInput(ref msg) if msg.contains("min_confidence")),
+                "threshold {bad} must be rejected at the boundary, got {err:?}"
+            );
+        }
     }
 
     #[test]
@@ -456,6 +640,7 @@ mod tests {
             vector: None,
             sparse_vector: None,
             ttl_ms: None,
+            ..Default::default()
         })
         .unwrap();
         db.put(MemoryInput {
@@ -466,6 +651,7 @@ mod tests {
             vector: None,
             sparse_vector: None,
             ttl_ms: None,
+            ..Default::default()
         })
         .unwrap();
         let page = db
@@ -482,6 +668,10 @@ mod tests {
                     limit: 100,
                     cursor: None,
                     exclude_superseded: false,
+                    as_of_ms: None,
+                    valid_window: None,
+                    include_quarantined: false,
+                    min_confidence: None,
                 },
             )
             .unwrap();
@@ -582,6 +772,97 @@ mod tests {
         assert_eq!(r.total_records, 1);
         let got = db.get("ns", "k1").unwrap();
         assert!(got.is_some());
+    }
+
+    // ─── WIRE-09: export/import path sandbox (verify, no reimplement) ───
+    // `resolve_export_path` (fix fc069a06f) guards export_namespace,
+    // export_all e import_file; estos tests lo verifican E2E contra un
+    // Embedded real con `export_base_dir`, más el hueco `bulk_import_file`
+    // (Prove-It: pasaba el path de usuario directo a File::open, alcanzable
+    // desde HTTP import_v2 con format="bulk").
+
+    fn make_embedded_with_base(base: &std::path::Path) -> Embedded {
+        let config = Config {
+            storage_path: ":memory:".into(),
+            backend_kind: crate::BackendKind::InMemory,
+            export_base_dir: Some(base.to_path_buf()),
+            ..Default::default()
+        };
+        Embedded::open_with_config(config).expect("open Embedded with base")
+    }
+
+    fn write_bulk_file(path: &std::path::Path, inputs: &[MemoryInput]) {
+        let mut payload: Vec<u8> = Vec::new();
+        payload.extend_from_slice(b"VDBJSON\n");
+        payload.push(0x01);
+        payload.extend_from_slice(&(inputs.len() as u64).to_le_bytes());
+        payload.extend_from_slice(&serde_json::to_vec(inputs).unwrap());
+        std::fs::write(path, payload).unwrap();
+    }
+
+    #[test]
+    fn export_paths_outside_base_rejected() {
+        let dir = tempfile::tempdir().unwrap();
+        let base = dir.path().join("base");
+        std::fs::create_dir_all(&base).unwrap();
+        let db = make_embedded_with_base(&base);
+        // `..` traversal.
+        let err = db.export_all("../evil.jsonl").unwrap_err();
+        assert!(matches!(err, Error::Validation { .. }), "got: {err}");
+        // Absolute path outside the base.
+        let outside = dir.path().join("evil.jsonl");
+        let err = db.export_all(&outside).unwrap_err();
+        assert!(matches!(err, Error::Validation { .. }), "got: {err}");
+        assert!(!outside.exists(), "no file may be written outside the base");
+        // import_file: same sandbox.
+        let err = db.import_file(&outside, false).unwrap_err();
+        assert!(matches!(err, Error::Validation { .. }), "got: {err}");
+    }
+
+    #[test]
+    fn export_paths_inside_base_ok() {
+        let dir = tempfile::tempdir().unwrap();
+        let base = dir.path().join("base");
+        std::fs::create_dir_all(&base).unwrap();
+        let db = make_embedded_with_base(&base);
+        let rep = db
+            .export_all("out.jsonl")
+            .expect("relative export inside base");
+        assert!(base.join("out.jsonl").exists());
+        // Component-wise compare: canonicalize() adds the `\\?\` verbatim
+        // prefix on Windows, so plain string prefix-match would misfire.
+        let canonical_base = std::fs::canonicalize(&base).unwrap();
+        assert!(
+            std::path::Path::new(&rep.path).starts_with(&canonical_base),
+            "report path must stay under base, got: {}",
+            rep.path
+        );
+    }
+
+    #[test]
+    fn export_paths_bulk_import_outside_base_rejected() {
+        let dir = tempfile::tempdir().unwrap();
+        let base = dir.path().join("base");
+        std::fs::create_dir_all(&base).unwrap();
+        let outside = dir.path().join("evil.vdbdump");
+        write_bulk_file(&outside, &[MemoryInput::new("ns", "k1", "p1")]);
+        let db = make_embedded_with_base(&base);
+        let err = db.bulk_import_file(outside.to_str().unwrap()).unwrap_err();
+        assert!(
+            matches!(err, Error::Validation { .. }),
+            "WIRE-09: bulk import outside base must be rejected, got: {err}"
+        );
+        assert!(
+            db.get("ns", "k1").unwrap().is_none(),
+            "nothing may be imported from outside the base"
+        );
+        // Legit bulk file inside the base still imports.
+        let inside = base.join("good.vdbdump");
+        write_bulk_file(&inside, &[MemoryInput::new("ns", "k2", "p2")]);
+        let r = db
+            .bulk_import_file(inside.to_str().unwrap())
+            .expect("inside base");
+        assert_eq!(r.total_records, 1);
     }
 
     fn put_mem(db: &Embedded, ns: &str, key: &str, payload: &str) {
@@ -689,6 +970,10 @@ mod tests {
                     limit: 100,
                     cursor: None,
                     exclude_superseded: false,
+                    as_of_ms: None,
+                    valid_window: None,
+                    include_quarantined: false,
+                    min_confidence: None,
                 },
             )
             .unwrap();
@@ -704,6 +989,10 @@ mod tests {
                     limit: 100,
                     cursor: None,
                     exclude_superseded: true,
+                    as_of_ms: None,
+                    valid_window: None,
+                    include_quarantined: false,
+                    min_confidence: None,
                 },
             )
             .unwrap();
@@ -731,7 +1020,15 @@ mod tests {
                 distance_metric: DistanceMetric::Cosine,
                 explain: false,
                 exclude_superseded: false,
+                min_confidence: None,
+                as_of_ms: None,
+                valid_window: None,
+                include_quarantined: false,
                 search_profile: None,
+                range: None,
+                group_by: None,
+                mmr: None,
+                cursor: None,
             })
             .unwrap();
         assert_eq!(hits_keep.len(), 2);
@@ -747,9 +1044,553 @@ mod tests {
                 distance_metric: DistanceMetric::Cosine,
                 explain: false,
                 exclude_superseded: true,
+                min_confidence: None,
+                as_of_ms: None,
+                valid_window: None,
+                include_quarantined: false,
                 search_profile: None,
+                range: None,
+                group_by: None,
+                mmr: None,
+                cursor: None,
             })
             .unwrap();
         assert_eq!(hits_hide.len(), 1);
+    }
+
+    // ─── SCH-03: AS OF / valid-time filters on list ─────────────────
+
+    /// Force an exact validity window on an existing record (deterministic
+    /// fixture; no clock in the assertions).
+    fn set_list_window(db: &Embedded, ns: &str, key: &str, valid: u64, invalid: Option<u64>) {
+        let mut record = db.get(ns, key).unwrap().unwrap();
+        record.valid_at_ms = valid;
+        record.invalid_at_ms = invalid;
+        db.put_record_exact(record).unwrap();
+    }
+
+    fn list_keys(db: &Embedded, ns: &str, options: MemoryListOptions) -> Vec<String> {
+        let mut keys: Vec<String> = db
+            .list(ns, options)
+            .unwrap()
+            .records
+            .into_iter()
+            .map(|record| record.key)
+            .collect();
+        keys.sort();
+        keys
+    }
+
+    #[test]
+    fn test_list_as_of_and_valid_window_filters() {
+        let db = make_embedded_real();
+        put_mem(&db, "ns", "old", "p");
+        put_mem(&db, "ns", "new", "p");
+        set_list_window(&db, "ns", "old", 1000, Some(2000));
+        set_list_window(&db, "ns", "new", 2000, Some(3000));
+
+        assert_eq!(
+            list_keys(
+                &db,
+                "ns",
+                MemoryListOptions {
+                    as_of_ms: Some(1500),
+                    ..Default::default()
+                }
+            ),
+            vec!["old"]
+        );
+        assert_eq!(
+            list_keys(
+                &db,
+                "ns",
+                MemoryListOptions {
+                    as_of_ms: Some(2500),
+                    ..Default::default()
+                }
+            ),
+            vec!["new"]
+        );
+        assert!(list_keys(
+            &db,
+            "ns",
+            MemoryListOptions {
+                as_of_ms: Some(999),
+                ..Default::default()
+            }
+        )
+        .is_empty());
+
+        let window = |from: u64, to: u64| {
+            list_keys(
+                &db,
+                "ns",
+                MemoryListOptions {
+                    valid_window: Some(ValidWindow {
+                        from_ms: from,
+                        to_ms: to,
+                    }),
+                    ..Default::default()
+                },
+            )
+        };
+        assert!(window(0, 1000).is_empty(), "query ends at old.start");
+        assert_eq!(window(0, 1001), vec!["old"]);
+        assert_eq!(window(1500, 2500), vec!["new", "old"]);
+        assert_eq!(window(2000, 4000), vec!["new"]);
+
+        // Default (no temporal params) keeps every record.
+        assert_eq!(
+            list_keys(&db, "ns", MemoryListOptions::default()),
+            vec!["new", "old"]
+        );
+    }
+
+    #[test]
+    fn test_list_rejects_empty_valid_window() {
+        let db = make_embedded_real();
+        put_mem(&db, "ns", "k", "p");
+        let err = db
+            .list(
+                "ns",
+                MemoryListOptions {
+                    valid_window: Some(ValidWindow {
+                        from_ms: 5,
+                        to_ms: 5,
+                    }),
+                    ..Default::default()
+                },
+            )
+            .unwrap_err();
+        assert!(err.to_string().contains("valid_window"));
+    }
+
+    #[test]
+    fn test_list_exclude_superseded_also_drops_ended_validity_windows() {
+        let db = make_embedded_real();
+        put_mem(&db, "ns", "ended", "p");
+        put_mem(&db, "ns", "open", "p");
+        put_mem(&db, "ns", "future_end", "p");
+        set_list_window(&db, "ns", "ended", 1, Some(2)); // ended long ago
+        set_list_window(&db, "ns", "open", 1, None);
+        set_list_window(&db, "ns", "future_end", 1, Some(u64::MAX / 2));
+
+        assert_eq!(
+            list_keys(
+                &db,
+                "ns",
+                MemoryListOptions {
+                    exclude_superseded: true,
+                    ..Default::default()
+                }
+            ),
+            vec!["future_end", "open"],
+            "ended validity window is dropped, open/future ones stay"
+        );
+        assert_eq!(
+            list_keys(&db, "ns", MemoryListOptions::default()),
+            vec!["ended", "future_end", "open"],
+            "default keeps every record"
+        );
+    }
+
+    #[test]
+    fn test_list_cursor_walks_with_temporal_params_without_duplicates() {
+        let db = make_embedded_real();
+        for key in ["a", "b", "c"] {
+            put_mem(&db, "ns", key, "p");
+            set_list_window(&db, "ns", key, 1, None); // all valid at T=1000
+        }
+
+        let mut seen: Vec<String> = Vec::new();
+        let mut cursor: Option<usize> = None;
+        loop {
+            let page = db
+                .list(
+                    "ns",
+                    MemoryListOptions {
+                        limit: 1,
+                        cursor,
+                        as_of_ms: Some(1000),
+                        valid_window: Some(ValidWindow {
+                            from_ms: 0,
+                            to_ms: 2000,
+                        }),
+                        ..Default::default()
+                    },
+                )
+                .unwrap();
+            assert!(
+                page.records.iter().all(|record| record.is_valid_at(1000)),
+                "filters travel with every page"
+            );
+            seen.extend(page.records.into_iter().map(|record| record.key));
+            cursor = page.next_cursor;
+            if cursor.is_none() {
+                break;
+            }
+        }
+        seen.sort();
+        seen.dedup();
+        assert_eq!(seen, vec!["a", "b", "c"], "resume walks every match once");
+    }
+
+    // ─── ADR-046 §D4: confidence rules V1–V5 ───────────────────────
+
+    fn derived_input(ns: &str, key: &str, parents: &[&str]) -> MemoryInput {
+        MemoryInput {
+            confidence_class: Some(ConfidenceClass::Derived),
+            derived_from: Some(parents.iter().map(|p| p.to_string()).collect()),
+            ..MemoryInput::new(ns, key, "derived payload")
+        }
+    }
+
+    #[test]
+    fn v2_derived_score_is_min_parents_times_0_9() {
+        let db = make_embedded(false);
+        db.put(MemoryInput {
+            confidence: Some(0.8),
+            ..MemoryInput::new("ns", "p1", "parent one")
+        })
+        .expect("put parent 1");
+        db.put(MemoryInput {
+            confidence: Some(0.5),
+            ..MemoryInput::new("ns", "p2", "parent two")
+        })
+        .expect("put parent 2");
+
+        let derived = db
+            .put(derived_input("ns", "child", &["p1", "p2"]))
+            .expect("put derived");
+        assert_eq!(derived.confidence_class, ConfidenceClass::Derived);
+        assert_eq!(derived.confidence, 0.45, "0.5 * 0.9");
+        assert_eq!(derived.derived_from, vec!["p1", "p2"]);
+        // V2 monotonicity: derived ≤ min(parents).
+        assert!(derived.confidence <= 0.5);
+    }
+
+    #[test]
+    fn v2_derived_with_declared_confidence_is_rejected() {
+        let db = make_embedded(false);
+        db.put(MemoryInput::new("ns", "p", "parent"))
+            .expect("put parent");
+        let err = db
+            .put(MemoryInput {
+                confidence: Some(0.9),
+                ..derived_input("ns", "child", &["p"])
+            })
+            .unwrap_err();
+        match err {
+            Error::Validation { field, reason } => {
+                assert_eq!(field, "confidence");
+                assert!(reason.contains("derived score is computed from parents"));
+            }
+            other => panic!("expected Validation, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn v1_derived_requires_parents_and_asserted_forbids_them() {
+        let db = make_embedded(false);
+        let err = db
+            .put(MemoryInput {
+                confidence_class: Some(ConfidenceClass::Derived),
+                ..MemoryInput::new("ns", "orphan", "no parents")
+            })
+            .unwrap_err();
+        assert!(matches!(
+            err,
+            Error::Validation { ref field, .. } if field == "derived_from"
+        ));
+
+        let err = db
+            .put(MemoryInput {
+                derived_from: Some(vec!["p".into()]),
+                ..MemoryInput::new("ns", "k", "asserted with parents")
+            })
+            .unwrap_err();
+        assert!(matches!(
+            err,
+            Error::Validation { ref field, .. } if field == "derived_from"
+        ));
+
+        let err = db
+            .put(MemoryInput {
+                confidence_class: Some(ConfidenceClass::Derived),
+                derived_from: Some(vec!["missing".into()]),
+                ..MemoryInput::new("ns", "k2", "missing parent")
+            })
+            .unwrap_err();
+        assert!(matches!(
+            err,
+            Error::Validation { ref field, .. } if field == "derived_from"
+        ));
+    }
+
+    #[test]
+    fn v3_derivation_cycle_and_depth_are_rejected() {
+        let db = make_embedded(false);
+        // Self-reference is a cycle.
+        let err = db.put(derived_input("ns", "self", &["self"])).unwrap_err();
+        assert!(matches!(
+            err,
+            Error::Validation { ref reason, .. } if reason.contains("cycle")
+        ));
+
+        // A chain longer than MAX_DERIVATION_DEPTH is rejected.
+        let base = db
+            .put(MemoryInput::new("ns", "d0", "level 0"))
+            .expect("base");
+        assert_eq!(base.confidence, 1.0);
+        let mut previous = "d0".to_string();
+        for depth in 1..=MAX_DERIVATION_DEPTH {
+            let key = format!("d{depth}");
+            db.put(derived_input("ns", &key, &[previous.as_str()]))
+                .expect("chain within the cap");
+            previous = key;
+        }
+        let err = db
+            .put(derived_input("ns", "too_deep", &[previous.as_str()]))
+            .unwrap_err();
+        assert!(matches!(
+            err,
+            Error::Validation { ref reason, .. } if reason.contains("MAX_DERIVATION_DEPTH")
+        ));
+    }
+
+    #[test]
+    fn v4_derived_score_recomputable_deterministically() {
+        let db = make_embedded(false);
+        db.put(MemoryInput {
+            confidence: Some(0.8),
+            ..MemoryInput::new("ns", "p1", "p1")
+        })
+        .expect("p1");
+        db.put(MemoryInput {
+            confidence: Some(0.6),
+            ..MemoryInput::new("ns", "p2", "p2")
+        })
+        .expect("p2");
+
+        let first = db
+            .put(derived_input("ns", "c1", &["p1", "p2"]))
+            .expect("c1");
+        let second = db
+            .put(derived_input("ns", "c2", &["p2", "p1"]))
+            .expect("c2");
+        assert_eq!(
+            first.confidence, second.confidence,
+            "same parents ⇒ same score"
+        );
+        assert_eq!(first.confidence, 0.6 * DERIVATION_DISCOUNT);
+
+        // Recompute from the stored parents equals the persisted score.
+        let p1 = db.get("ns", "p1").unwrap().unwrap();
+        let p2 = db.get("ns", "p2").unwrap().unwrap();
+        let recomputed = (p1.confidence.min(p2.confidence) * DERIVATION_DISCOUNT).clamp(0.0, 1.0);
+        assert_eq!(recomputed, first.confidence);
+    }
+
+    #[test]
+    fn v5_reput_replaces_class_and_score_no_inheritance() {
+        let db = make_embedded(false);
+        let asserted = db
+            .put(MemoryInput {
+                confidence: Some(0.9),
+                ..MemoryInput::new("ns", "k", "v1 asserted")
+            })
+            .expect("asserted put");
+        assert_eq!(asserted.confidence_class, ConfidenceClass::Asserted);
+        assert_eq!(asserted.confidence, 0.9);
+
+        db.put(MemoryInput {
+            confidence: Some(0.7),
+            ..MemoryInput::new("ns", "parent", "parent")
+        })
+        .expect("parent");
+        let derived = db
+            .put(derived_input("ns", "k", &["parent"]))
+            .expect("re-put derived");
+        assert_eq!(derived.confidence_class, ConfidenceClass::Derived);
+        assert_eq!(
+            derived.confidence,
+            0.7 * DERIVATION_DISCOUNT,
+            "no inheritance"
+        );
+
+        let back = db
+            .put(MemoryInput::new("ns", "k", "v3 asserted"))
+            .expect("re-put asserted");
+        assert_eq!(back.confidence_class, ConfidenceClass::Asserted);
+        assert_eq!(back.confidence, 1.0, "asserted default returns to D_a");
+    }
+
+    #[test]
+    fn valid_at_defaults_to_created_at_and_explicit_zero_is_rejected() {
+        let db = make_embedded(false);
+        let record = db.put(MemoryInput::new("ns", "k", "payload")).expect("put");
+        assert_eq!(record.valid_at_ms, record.created_at_ms);
+        assert_eq!(record.invalid_at_ms, None);
+
+        let explicit = db
+            .put(MemoryInput {
+                valid_at_ms: Some(record.created_at_ms.saturating_sub(10)),
+                ..MemoryInput::new("ns", "k2", "backdated")
+            })
+            .expect("backdated put");
+        assert_eq!(explicit.valid_at_ms, record.created_at_ms - 10);
+
+        let err = db
+            .put(MemoryInput {
+                valid_at_ms: Some(0),
+                ..MemoryInput::new("ns", "k3", "epoch zero")
+            })
+            .unwrap_err();
+        assert!(matches!(
+            err,
+            Error::Validation { ref field, .. } if field == "valid_at_ms"
+        ));
+    }
+
+    #[test]
+    fn confidence_range_is_validated_at_the_boundary() {
+        let db = make_embedded(false);
+        for invalid in [f32::NAN, f32::INFINITY, -0.1, 1.1] {
+            let err = db
+                .put(MemoryInput {
+                    confidence: Some(invalid),
+                    ..MemoryInput::new("ns", format!("bad-{invalid}"), "p")
+                })
+                .unwrap_err();
+            assert!(matches!(
+                err,
+                Error::Validation { ref field, .. } if field == "confidence"
+            ));
+        }
+    }
+
+    #[test]
+    fn supersede_aligns_invalid_at_with_superseded_at() {
+        let db = make_embedded(false);
+        db.put(MemoryInput::new("ns", "old", "old"))
+            .expect("put old");
+        db.put(MemoryInput::new("ns", "new", "new"))
+            .expect("put new");
+        db.supersede("ns", "old", "new").expect("supersede");
+
+        let old = db.get("ns", "old").unwrap().unwrap();
+        assert_eq!(old.superseded_by.as_deref(), Some("new"));
+        assert_eq!(
+            old.invalid_at_ms, old.superseded_at_ms,
+            "ADR-046 §D3: aligned by supersede()"
+        );
+        assert!(old.valid_at_ms <= old.invalid_at_ms.unwrap());
+    }
+
+    #[test]
+    fn quarantine_state_survives_reput_and_roundtrips_through_node() {
+        let db = make_embedded(false);
+        // Seed a quarantined record through the v2 import path.
+        let record = db.put(MemoryInput::new("ns", "k", "v1")).expect("put");
+        let line = crate::sdk::serialization::export_line_from_record(record);
+        let mut json = serde_json::to_value(line).unwrap();
+        json["quarantined_at_ms"] = serde_json::json!(1234);
+        json["quarantine_reason"] = serde_json::json!("explicit_write");
+        let imported = crate::sdk::serialization::record_from_export_line(
+            serde_json::from_value(json).unwrap(),
+        )
+        .expect("line with quarantine");
+        let stored = db.put_record_exact(imported).expect("import exact");
+        assert_eq!(stored.quarantined_at_ms, Some(1234));
+
+        // I2 sticky: a re-put preserves the quarantine state.
+        let reput = db.put(MemoryInput::new("ns", "k", "v2")).expect("re-put");
+        assert_eq!(reput.quarantined_at_ms, Some(1234));
+        assert_eq!(reput.quarantine_reason.as_deref(), Some("explicit_write"));
+        assert_eq!(reput.version, stored.version + 1);
+    }
+
+    // ─── R2: put_record_exact boundary validation (raw import choke point) ───
+
+    #[test]
+    fn put_record_exact_rejects_invalid_confidence_and_window() {
+        let db = make_embedded(false);
+        let base = db.put(MemoryInput::new("ns", "k", "p")).expect("put");
+
+        let mut out_of_range = base.clone();
+        out_of_range.confidence = 1e9;
+        let err = db.put_record_exact(out_of_range).unwrap_err();
+        assert!(matches!(err, Error::Validation { ref field, .. } if field == "confidence"));
+
+        let mut derived_without_parents = base.clone();
+        derived_without_parents.confidence_class = ConfidenceClass::Derived;
+        derived_without_parents.derived_from = Vec::new();
+        let err = db.put_record_exact(derived_without_parents).unwrap_err();
+        assert!(matches!(err, Error::Validation { ref field, .. } if field == "derived_from"));
+
+        let mut inverted_window = base.clone();
+        inverted_window.valid_at_ms = 2000;
+        inverted_window.invalid_at_ms = Some(1000);
+        let err = db.put_record_exact(inverted_window).unwrap_err();
+        assert!(matches!(err, Error::Validation { ref field, .. } if field == "invalid_at_ms"));
+
+        // Valid record still imports (no regression).
+        let mut valid = base.clone();
+        valid.key = "valid".into();
+        valid.node_id = crate::sdk::serialization::memory_node_id("ns", "valid");
+        valid.confidence = 0.4;
+        assert!(db.put_record_exact(valid).is_ok());
+    }
+
+    #[test]
+    fn import_records_counts_invalid_raw_records_as_errors() {
+        // HTTP `import` records / WASM `import_records` go through
+        // `put_record_exact`: a hostile record must be rejected per-record
+        // (ImportReport.errors) and never persisted.
+        let db = make_embedded(false);
+        let base = db.put(MemoryInput::new("ns", "ok", "p")).expect("put");
+
+        let mut good = base.clone();
+        good.key = "good".into();
+        good.node_id = crate::sdk::serialization::memory_node_id("ns", "good");
+        let mut bad = base.clone();
+        bad.key = "bad".into();
+        bad.node_id = crate::sdk::serialization::memory_node_id("ns", "bad");
+        bad.confidence = 42.0; // out of [0,1]
+
+        let report = db.import_records(vec![good, bad], false).expect("import");
+        assert_eq!(report.inserted, 1);
+        assert_eq!(report.errors, 1);
+        assert!(db.get("ns", "good").expect("get").is_some());
+        assert!(
+            db.get("ns", "bad").expect("get").is_none(),
+            "invalid record must not be persisted"
+        );
+    }
+
+    // ─── O2: supersede guard for future-valid records ───
+
+    #[test]
+    fn supersede_rejects_record_valid_only_in_the_future() {
+        let db = make_embedded(false);
+        db.put(MemoryInput::new("ns", "new", "new"))
+            .expect("put new");
+        let future = now_ms().saturating_add(1_000_000);
+        db.put(MemoryInput {
+            valid_at_ms: Some(future),
+            ..MemoryInput::new("ns", "future", "future fact")
+        })
+        .expect("put future");
+
+        let err = db.supersede("ns", "future", "new").unwrap_err();
+        assert!(
+            matches!(err, Error::Validation { ref field, .. } if field == "valid_at_ms"),
+            "future-valid supersede must be rejected, got {err:?}"
+        );
+        // The record is untouched (not superseded, window intact).
+        let record = db.get("ns", "future").expect("get").expect("record");
+        assert!(record.superseded_by.is_none());
+        assert!(record.invalid_at_ms.is_none());
+        assert_eq!(record.valid_at_ms, future);
     }
 }

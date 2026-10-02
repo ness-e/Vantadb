@@ -1,3 +1,9 @@
+---
+title: "HIGH-006: detect_changes en plan.md Paso 0 — blast radius transitivo"
+kind: task
+description: Contrato del plan (HIGH-006)
+---
+
 # HIGH-006: detect_changes en plan.md Paso 0 — blast radius transitivo
 
 ## Metadata

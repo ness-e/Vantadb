@@ -1,10 +1,9 @@
 ---
 title: Frequently Asked Questions
-type: documentation
+kind: howto
 status: active
+description: "VantaDB is an embedded persistent memory engine for local-first AI applications. It combines vector similarity search (HNSW), full-text lexical search (BM25), hybrid search fusion, and structured metadata filtering in a single..."
 tags: [vantadb]
-last_reviewed: 2026-07-01
-aliases: []
 ---
 
 # Frequently Asked Questions
@@ -47,43 +46,54 @@ brew install vantadb
 ### How do I create a memory store?
 
 ```rust
-use vantadb::{VantaEmbedded, VantaConfig};
+use vantadb::{Config, Embedded};
 
-let config = VantaConfig {
+let config = Config {
     storage_path: "./vanta_data".into(),
     ..Default::default()
 };
-let db = VantaEmbedded::open_with_config(config)?;
+let db = Embedded::open_with_config(config)?;
 ```
 
 Or with defaults:
 ```rust
-let db = VantaEmbedded::open("./vanta_data")?;
+let db = Embedded::open("./vanta_data")?;
 ```
 
 ### How do I add vectors?
 
 ```rust
-use vantadb::{VantaMemoryInput, VantaValue};
+use vantadb::{MemoryInput, Value};
 
-let record = db.put(VantaMemoryInput {
+let record = db.put(MemoryInput {
     namespace: "chat".into(),
     key: "msg-1".into(),
     payload: "What is VantaDB?".into(),
-    metadata: vec![("source".into(), VantaValue::String("user".into()))]
+    metadata: vec![("source".into(), Value::String("user".into()))]
         .into_iter()
         .collect(),
     vector: Some(vec![0.1, 0.2, 0.3, /* ... 384 dims */]),
-    ttl_ms: None,
+    ..Default::default()
 })?;
 ```
+
+> **Type names (0.6.0):** the crate exports the un-prefixed names — `Embedded`,
+> `Config`, `MemoryInput`, `MemorySearchRequest`, `NodeInput`, `Fields`, `Value`,
+> `Error` (`src/lib.rs` re-exports). The old `VantaEmbedded` / `VantaConfig` /
+> `VantaMemoryInput` / `VantaMemorySearchRequest` / `VantaNodeInput` /
+> `VantaFields` / `VantaValue` / `VantaError` aliases were removed in 0.6.0
+> (AST-010) and no longer resolve.
+
+`MemoryInput` has further optional fields (`sparse_vector`, `valid_at_ms`,
+`confidence_class`, `confidence`, `derived_from`); the `..Default::default()`
+above keeps the example to the common case.
 
 ### How do I search?
 
 ```rust
-use vantadb::VantaMemorySearchRequest;
+use vantadb::MemorySearchRequest;
 
-let results = db.search(VantaMemorySearchRequest {
+let results = db.search(MemorySearchRequest {
     namespace: "chat".into(),
     query_vector: vec![0.1, 0.2, 0.3, /* ... */],
     text_query: None,
@@ -97,7 +107,7 @@ let results = db.search(VantaMemorySearchRequest {
 Set both `query_vector` and `text_query` in the search request. VantaDB automatically fuses BM25 lexical results with HNSW vector results using Reciprocal Rank Fusion (RRF):
 
 ```rust
-let results = db.search(VantaMemorySearchRequest {
+let results = db.search(MemorySearchRequest {
     namespace: "chat".into(),
     query_vector: vec![0.1, 0.2, 0.3, /* ... */],
     text_query: Some("What is VantaDB?".into()),
@@ -116,27 +126,35 @@ let results = db.search(VantaMemorySearchRequest {
 | RocksDB | `BackendKind::RocksDb` | RocksDB backend (feature-gated) |
 | InMemory | `BackendKind::InMemory` | Volatile in-memory store (no persistence) |
 
-Set via `VantaConfig::backend_kind` or the `VANTA_BACKEND` environment variable.
+Set via `Config::backend_kind` or the `VANTADB_BACKEND` environment variable.
 
 ### How do I change the storage backend?
 
-Set `backend_kind` in `VantaConfig` or use the `VANTA_BACKEND` environment variable:
+Set `backend_kind` in `Config` or use the `VANTADB_BACKEND` environment variable:
 
 ```rust
-use vantadb::{VantaConfig, BackendKind};
+use vantadb::{Config, BackendKind};
 
-let config = VantaConfig {
+let config = Config {
     storage_path: "./vanta_data".into(),
     backend_kind: BackendKind::RocksDb,
     ..Default::default()
 };
 ```
 
-Supported values: `fjall` (default LSM-based), `rocksdb` (feature-gated), `memory` (volatile).
+Supported values: `fjall` (default LSM-based), `rocksdb` (feature-gated),
+`in-memory` — also accepted as the legacy alias `memory` (volatile). An
+unrecognized value logs a warning and falls back to `fjall`.
 
 ### How do I configure memory limits?
 
-Set `memory_limit` in `VantaConfig` (in bytes). This provides a budget hint for the backend and mmap selection. Additionally, eviction weights (`eviction_weight_hits`, `eviction_weight_confidence`, `eviction_weight_importance`, `eviction_weight_recency`) control the eviction policy when memory pressure triggers.
+Set `memory_limit` in `Config` (in bytes), or set the `VANTADB_MEMORY_LIMIT`
+environment variable — `Config::default()` does parse it (plain bytes or a
+suffixed value like `2GB`; an invalid value is warned about and ignored). This
+provides a budget hint for the backend and mmap selection — it is **not** a hard
+RSS ceiling. An explicit constructor argument takes precedence over the env var.
+
+Additionally, eviction weights (`eviction_weight_hits`, `eviction_weight_confidence`, `eviction_weight_importance`, `eviction_weight_recency`) control the eviction policy when memory pressure triggers.
 
 ### How do I enable metrics?
 
@@ -162,12 +180,12 @@ Common causes:
 
 | Error | Meaning |
 |-------|---------|
-| `VantaError::NodeNotFound` | The requested node ID does not exist |
-| `VantaError::DimensionMismatch` | Vector dimensions do not match the index |
-| `VantaError::DatabaseBusy` | Another process holds the `.vanta.lock` file |
-| `VantaError::ResourceLimit` | Backpressure eviction threshold was exceeded |
-| `VantaError::WALVersionMismatch` | WAL file was written by an incompatible engine version |
-| `VantaError::Serialization` | Bincode/serde serialization failure (possible data corruption) |
+| `Error::NodeNotFound` | The requested node ID does not exist |
+| `Error::DimensionMismatch` | Vector dimensions do not match the index |
+| `Error::DatabaseBusy` | Another process holds the `.vanta.lock` file |
+| `Error::ResourceLimit` | Backpressure eviction threshold was exceeded |
+| `Error::WALVersionMismatch` | WAL file was written by an incompatible engine version |
+| `Error::Serialization` | Postcard/serde serialization failure (possible data corruption) |
 
 ### How do I recover from a corrupt WAL?
 
@@ -201,30 +219,31 @@ Open an issue at [github.com/ness-e/Vantadb/issues](https://github.com/ness-e/Va
 Yes. VantaDB supports a low-level node-graph model with directed edges and traversal:
 
 ```rust
-use vantadb::{VantaEmbedded, VantaNodeInput, VantaFields};
+use vantadb::graph::TraversalDirection;
+use vantadb::{Embedded, Fields, NodeInput};
 
-let db = VantaEmbedded::open("./vanta_data")?;
+let db = Embedded::open("./vanta_data")?;
 
-// Insert nodes
-db.insert_node(VantaNodeInput {
+// Insert nodes (NodeInput::new(id) pre-fills content/vector/fields)
+db.insert_node(NodeInput {
     id: 1,
     content: Some("Root concept".into()),
     vector: None,
-    fields: VantaFields::new(),
+    fields: Fields::new(),
 })?;
-db.insert_node(VantaNodeInput {
+db.insert_node(NodeInput {
     id: 2,
     content: Some("Related idea".into()),
     vector: None,
-    fields: VantaFields::new(),
+    fields: Fields::new(),
 })?;
 
-// Add directed edges
-db.add_edge(1, 2, "relates_to", Some(0.8))?;
+// Add directed edges (weight and created_at_ms are both optional)
+db.add_edge(1, 2, "relates_to", Some(0.8), None)?;
 
-// Traverse
-let bfs_order = db.graph_bfs(&[1], 3)?;
-let dfs_order = db.graph_dfs(&[1], 3)?;
+// Traverse (roots, max_depth, direction)
+let bfs_order = db.graph_bfs(&[1], 3, TraversalDirection::Forward)?;
+let dfs_order = db.graph_dfs(&[1], 3, TraversalDirection::Forward)?;
 ```
 
 Available in both Rust and Python SDKs.

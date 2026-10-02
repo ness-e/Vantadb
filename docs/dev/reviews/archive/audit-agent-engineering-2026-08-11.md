@@ -1,11 +1,8 @@
 ---
 title: "Validación de `docs/dev/research/2026-08-10-agent-engineering` — 2026-08-11"
-type: review
+kind: review
 status: archived
 tags: [vantadb, review]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Validación de `docs/dev/research/2026-08-10-agent-engineering` — 2026-08-11
@@ -45,7 +42,7 @@ related: []
 8. **Chaos del task-system (TSYS-06 impl.)** — solo diseño; runner DEFER.
 9. **LLM-as-judge (0.0-1.0)** — evals mecánicos, sin judge de fabricación (agent-03 #35).
 10. **Dead-letter queue** — tareas que agotan retries solo escalan a humano (agent-02 §8.2).
-11. **MTTD/MTTR operativos** — ADR-017 define SLIs sin ventana de medición real (eng-02 §4.4).
+11. **MTTD/MTTR operativos** — ADR-0017 define SLIs sin ventana de medición real (eng-02 §4.4).
 12. **Saturación <20% + Broadening/Narrowing + jitter** — criterios de investigación y retry sin implementar (agent-02 §7.2/§7.6/§8.1).
 
 ### Baja/cosmética

@@ -1,3 +1,9 @@
+---
+title: "TBH-02: Initialize `benchmarks/criterion_baseline.json`"
+kind: task
+description: "Decisión: Como target/criterion/ no existe localmente y correr cargo bench --workspace excede el budget (30+ min para 19 benches), generar entries placeholder honestos con el formato exacto que benchregression.py espera. El primer run..."
+---
+
 # TBH-02: Initialize `benchmarks/criterion_baseline.json`
 
 ## Metadata

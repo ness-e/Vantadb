@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Fast Gate Green (lint cascade + mcp tests)"
+kind: plan
+status: archived
+description: "Objetivo del plan: dejar just verify / pre-push / CI Fast Gate en verde absoluto. Dos fallas verificadas-vivas hoy rompen el gate tras el split REVIEW-10 y los commits recientes de MCP"
+---
+
 # Plan de Ejecución: Fast Gate Green (lint cascade + mcp tests)
 
 > **Inicio:** 2026-09-01
@@ -34,7 +41,7 @@
 
 ### 🔴 BLOQUEADO (persisten, sin cambio upstream)
 
-AUD-042 (tantivy ≥0.27.0 no publicada), CORE-02 (PITR — requiere ADR + decisión owner), FIND-33 (snapshot layout — requiere ADR vanta-arch), STABLE-01..09 (decisión owner ADR-031 + medición), MCP-34/34b (depende FIND-33), BND-08..10 (estrategia npm post-launch), SRV-06 (OIDC DISCOVERY vanta-arch), TS-10/11/WSM-06 (core expose wiki/skills).
+AUD-042 (tantivy ≥0.27.0 no publicada), CORE-02 (PITR — requiere ADR + decisión owner), FIND-33 (snapshot layout — requiere ADR vanta-arch), STABLE-01..09 (decisión owner ADR-0031 + medición), MCP-34/34b (depende FIND-33), BND-08..10 (estrategia npm post-launch), SRV-06 (OIDC DISCOVERY vanta-arch), TS-10/11/WSM-06 (core expose wiki/skills).
 
 ### 🟡 DEFER (sin cambio vs triage 2026-08-31)
 

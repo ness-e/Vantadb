@@ -3,23 +3,47 @@
 use std::time::Duration;
 use vantadb::storage::StorageEngine;
 
-/// Tool surface profile — controls which tools are exposed via `tools/list`.
+/// Tool surface profile — controls which tools are listed by `tools/list` and
+/// which names `tools/call` may dispatch (WIRE-02 enforces both symmetrically).
 ///
 /// Profiles are selected via the `VANTADB_MCP_PROFILE` environment variable:
-/// - `memory` (≤20 tools): Core memory CRUD + search + list only. For memory-only agents.
-/// - `dev` (≤35 tools): Memory + graph + collections + maintenance + introspection. Recommended for Cursor (cap ~40).
-/// - `full` (87 tools): All tools including code, wiki, skills, threads, scenes, dreams, context. Default for compat.
+/// - `agent` (37 tools, default): Memory CRUD + search + IQL + threads + scenes + context engine + wiki read.
+/// - `full` (79 listed tools): everything listed, including code intelligence, skills, wiki write, dreams. Opt-in for compat.
+/// - `dev` (~36 tools): Memory + graph + collections + maintenance + introspection. Recommended for Cursor (cap ~40).
+/// - `memory` (20 tools): Core memory CRUD + search + list only. For memory-only agents.
+///
+/// WIRE-02: absorbed dispatch-only names (the 2 API-04 aliases plus 6 `code_*`
+/// projections) remain callable when their canonical listed tool is allowed in
+/// the active profile — see `handlers::tools::absorbed_canonical`. They are
+/// never returned by `tools/list`: the listed surface is what costs clients
+/// tool-schema tokens per session (default `full` ≈ 23K tokens, report §3.6).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum McpProfile {
-    /// Full tool surface (87 tools) — all tools including code, wiki, skills, threads, scenes, dreams, context.
-    /// Default for backward compatibility.
+    /// Agent profile (37 tools) — memory + threads + scenes + context + wiki-read.
+    /// Default since WIRE-02 (previously `full`); opt back into the whole
+    /// surface with `VANTADB_MCP_PROFILE=full`.
     #[default]
+    Agent,
+    /// Full profile (79 listed tools) — all listed base + extended families.
+    /// The 6 absorbed `code_*` projections stay dispatch-only (WIRE-02).
     Full,
-    /// Developer profile (~35 tools) — memory, graph, collections, key maintenance, axioms.
+    /// Developer profile (~36 tools) — memory, graph, collections, key maintenance, axioms.
     /// Recommended for Cursor (cap ~40 tools).
     Dev,
-    /// Memory-only profile (~18 tools) — core memory CRUD + search + IQL + collections + capabilities.
+    /// Memory-only profile (~20 tools) — core memory CRUD + search + IQL + collections + capabilities.
     Memory,
+}
+
+impl McpProfile {
+    /// Stable profile name used in wire errors (`not in profile <name>`) and docs.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            McpProfile::Agent => "agent",
+            McpProfile::Full => "full",
+            McpProfile::Dev => "dev",
+            McpProfile::Memory => "memory",
+        }
+    }
 }
 
 impl std::str::FromStr for McpProfile {
@@ -27,11 +51,12 @@ impl std::str::FromStr for McpProfile {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
+            "agent" => Ok(McpProfile::Agent),
             "full" => Ok(McpProfile::Full),
             "dev" => Ok(McpProfile::Dev),
             "memory" => Ok(McpProfile::Memory),
             other => Err(format!(
-                "Invalid VANTADB_MCP_PROFILE: '{other}'. Valid values: full, dev, memory"
+                "Invalid VANTADB_MCP_PROFILE: '{other}'. Valid values: agent, full, dev, memory"
             )),
         }
     }
@@ -70,7 +95,7 @@ pub struct McpConfig {
     pub max_skill_resource_bytes: usize,
     /// Max total bytes for a skill — content plus all resource files (default: 50 MB).
     pub max_skill_total_bytes: usize,
-    /// Tool surface profile (default: Full). Set via VANTADB_MCP_PROFILE env var.
+    /// Tool surface profile (default: Agent, WIRE-02). Set via VANTADB_MCP_PROFILE env var.
     pub profile: McpProfile,
     /// Max tokens per embed_texts call (heuristic len/4, default 25k). Tunable to force truncation in tests.
     pub max_embed_tokens: usize,
@@ -87,6 +112,14 @@ pub struct McpConfig {
     /// server is asked to render responses larger than typical MCP clients
     /// can display.
     pub max_byte_budget: usize,
+    /// VER-04: injection ACL for the memory surfaces (`memory_recall`,
+    /// `context_assemble`) — namespace prefixes the recall may read from.
+    /// Empty = allow-all (default, current behavior). Set via
+    /// `VANTADB_MCP_INJECT_NAMESPACES` (comma-separated prefixes).
+    pub injection_namespaces: Vec<String>,
+    /// VER-04: injection-audit sink (append-only JSONL + rotation). `None`
+    /// (default) disables audit. Set via `VANTADB_MCP_AUDIT_LOG`.
+    pub audit: Option<std::sync::Arc<vantadb::audit::AuditLogger>>,
 }
 
 impl Default for McpConfig {
@@ -113,6 +146,8 @@ impl Default for McpConfig {
             byte_budget: 40 * 1024,
             min_byte_budget: 1024,
             max_byte_budget: 1024 * 1024,
+            injection_namespaces: Vec::new(),
+            audit: None,
         }
     }
 }
@@ -137,6 +172,26 @@ impl McpConfig {
                 config.byte_budget = parsed.clamp(config.min_byte_budget, config.max_byte_budget);
             }
         }
+        // VER-04: opt-in injection ACL (empty → allow-all).
+        if let Ok(raw) = std::env::var("VANTADB_MCP_INJECT_NAMESPACES") {
+            config.injection_namespaces = raw
+                .split(',')
+                .map(|p| p.trim().to_string())
+                .filter(|p| !p.is_empty())
+                .collect();
+        }
+        // VER-04: opt-in injection audit (failed open → warn + disabled).
+        if let Ok(path) = std::env::var("VANTADB_MCP_AUDIT_LOG") {
+            config.audit = crate::governance::open_audit(&path);
+        }
         config
+    }
+
+    /// VER-04: the injection ACL derived from `injection_namespaces`
+    /// (empty → allow-all).
+    pub fn injection_policy(&self) -> vanta_memory::core::hooks::InjectionPolicy {
+        vanta_memory::core::hooks::InjectionPolicy::from_prefixes(
+            self.injection_namespaces.iter().cloned(),
+        )
     }
 }

@@ -59,6 +59,8 @@ pub mod crypto;
 pub mod accumulator;
 pub mod agentic;
 pub mod api;
+/// Certified purge (VER-02): per-surface residue inventory + JSON certificate.
+pub mod attestation;
 /// Append-only JSONL audit log of business operations (opt-in).
 pub mod audit;
 pub(crate) mod backend;
@@ -81,10 +83,15 @@ pub mod config;
 /// Explicit connection pool for HTTP query execution (feature `server`).
 #[cfg(feature = "server")]
 pub mod connection_pool;
-#[cfg(feature = "cli")]
+/// Terminal output helpers (banner/status lines). Available under `cli` (the
+/// `vanta-cli` REPL) and `server` (HTTP bootstrap/telemetry status lines), so
+/// `server` no longer implies `cli` (WIRE-07 feature decouple).
+#[cfg(any(feature = "cli", feature = "server"))]
 pub mod console;
 pub(crate) mod cost_estimator;
 pub(crate) mod edge_index;
+/// Visible-fallback probe for local embeddings (DEF-08; DISTRIBUTION §7).
+pub mod embedding_health;
 pub mod engine;
 /// Scoped entity metadata store (teams, users, agents, tasks, assets).
 pub mod entity;
@@ -164,6 +171,8 @@ pub mod ingestion;
 pub mod transcript;
 
 // Re-exports for ergonomic API
+pub use binary_header::Header;
+#[allow(deprecated)]
 pub use binary_header::VantaHeader;
 pub use config::{Config, MAX_BATCH_SIZE, MAX_F32_VEC_LEN, MAX_K, MAX_VEC_DIM};
 pub use engine::{EngineStats, InMemoryEngine, SourceType};
@@ -175,14 +184,17 @@ pub use node::{
     DistanceMetric, Edge, FieldValue, NodeFlags, RelFields, SparseVector, UnifiedNode,
     VectorRepresentations,
 };
+pub use parser::IQL_VERSION;
 pub use sdk::{
-    connect, Bm25TermContribution, BulkImportReport, Capabilities, EdgeRecord, Embedded,
-    ExportReport, Fields, FilterOp, HybridFusionReport, ImportReport, IndexRebuildReport,
-    MemoryFilter, MemoryFilterItem, MemoryInput, MemoryListOptions, MemoryListPage, MemoryMetadata,
-    MemoryRecord, MemorySearchHit, MemorySearchRequest, NamespaceStats, NamespaceStatsMap,
-    NodeInput, NodeRecord, OperationalMetrics, QueryResult, RuntimeProfile, SearchExplanation,
-    SearchExplanationHit, SearchHit, StorageTier, TextIndexAuditReport, TextIndexRepairReport,
-    Value,
+    connect, default_confidence, AbstentionReason, Bm25TermContribution, BulkImportReport,
+    Capabilities, ConfidenceClass, EdgeRecord, Embedded, ExportReport, Fields, FilterOp,
+    GroupByConfig, HybridFusionReport, ImportReport, IndexRebuildReport, MemoryFilter,
+    MemoryFilterItem, MemoryInput, MemoryListOptions, MemoryListPage, MemoryMetadata, MemoryRecord,
+    MemorySearchHit, MemorySearchPage, MemorySearchRequest, MmrConfig, NamespaceStats,
+    NamespaceStatsMap, NodeInput, NodeRecord, OperationalMetrics, QueryResult, RangeFilter,
+    RuntimeProfile, SearchExplanation, SearchExplanationHit, SearchHit, StorageTier,
+    TextIndexAuditReport, TextIndexRepairReport, ValidWindow, Value, DERIVATION_DISCOUNT,
+    MAX_DERIVATION_DEPTH,
 };
 pub use sdk::{
     SkillCreateInput, SkillListOptions, SkillListPage, SkillPatchInput, SkillRecord,

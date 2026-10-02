@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: P2 calidad estructural + P3 seleccionado"
+kind: plan
+status: archived
+description: Ejecuta el paquete P2 completo + P3 ligeros. Cada tarea es independiente y vive en
+---
+
 # Plan de Ejecución: P2 calidad estructural + P3 seleccionado
 
 > **Inicio:** 2026-08-10

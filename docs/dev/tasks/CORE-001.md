@@ -1,3 +1,9 @@
+---
+title: "TASK CORE-001: Scope Enforcement en ACT State — campaign_validate_scope tool + state-tools"
+kind: task
+description: "Archivos clave: .opencode/task-system/config/state-tools.mjs, .opencode/task-system/mcp/campaign-server.mjs, .opencode/task-system/prompts/iter-loop-tools.md"
+---
+
 # TASK CORE-001: Scope Enforcement en ACT State — campaign_validate_scope tool + state-tools
 
 ## Metadata
@@ -253,7 +259,7 @@ No aplica — tipo `unknown` / infra feature-add (new MCP tool), no bug `fix:`. 
 ## Notas
 - Ponytail ladder: rung 1 ¿necesita existir nuevo storage blast radius? No — reuse markdown task file parsing vs nuevo JSON. Rung 2 reuse `parseTasks` existente vs reimplementar parser. Rung 3 match exact+prefix sin nueva dep minimatch. Techo: heuristic parsing puede fallar si task file usa formato tabla no estándar → upgrade path: structured `blastRadius: string[]` en `docs/dev/plans/*.budget.json` o frontmatter YAML (comentario `// ponytail: heuristic ...` en helper).
 - VFILE_VERSION no aplica (no toca vstore) — no confundir con CORE-01 persistence (distinto ID CORE-01 vs CORE-001).
-- CORE-001 vs CORE-01 naming: `CORE-001` (3 dígitos, master-pipeline-optimization) ≠ `CORE-01` (2 dígitos, backlog-v2 Binary persistence) — tarea infra task-system, no storage. Existe `tasks/CORE-01.md` (Binary persistence ADR-032) histórico, no colisiona con `CORE-001.md` solicitado.
+- CORE-001 vs CORE-01 naming: `CORE-001` (3 dígitos, master-pipeline-optimization) ≠ `CORE-01` (2 dígitos, backlog-v2 Binary persistence) — tarea infra task-system, no storage. Existe `tasks/CORE-01.md` (Binary persistence ADR-0032) histórico, no colisiona con `CORE-001.md` solicitado.
 - Budget: 3 steps × ~100 líneas (campaign-server tool 70L + helper 30L + state-tools 5L + iter-loop 5L + tests/docs 60L) dentro appetite 2d.
 - Estado plan file: master-pipeline 20/20 COMPLETED según retrospectiva 2026-08-28, pero reset a PENDING para re-ejecución trazable SARL (commit b72a0d24). CORE-001 re-ejecución valida idempotencia: tool ya existe → verify idempotente + task file nuevo + commit.
 - Gate D justificación plan: "Gap crítico de seguridad — agente puede editar fuera del blast radius declarado (Regla 0)" — por eso 🔴 CRÍTICO #1.

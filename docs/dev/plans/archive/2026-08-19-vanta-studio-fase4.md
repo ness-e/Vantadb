@@ -1,8 +1,15 @@
+---
+title: "Plan de Ejecución: Vanta Studio — Fase 4 (WASM/OPFS + cierre de deuda + diferenciadores)"
+kind: plan
+status: archived
+description: "Métrica verify retries/tarea: 16/18 tareas (89%) pasaron el verify del lead al primer intento real; 2/18 (11%) requirieron retry/repair (WASM-03 PASS falso por catch sin incremento de failures; FEAT-03b-impl cancelada a mitad →..."
+---
+
 # Plan de Ejecución: Vanta Studio — Fase 4 (WASM/OPFS + cierre de deuda + diferenciadores)
 
 > **Campaign ID:** e7b31c4a-8d2f-4a7e-9c1b-6f5a3e8d2c40
 > **Inicio:** 2026-08-19
-> **Estado:** ✅ FASE 4 COMPLETA — 18/18 tareas (W0 DOC-01..04, W1 REST-01..06, W2 WASM-01..04, W3 FEAT-01..03, W4 VER-01), campaña `e7b31c4a-8d2f-4a7e-9c1b-6f5a3e8d2c40` cerrada 2026-08-20. Commits: f7e39005, 0bf9609e, 9ec506d8, 7b3cfea2, b81a8bf9, 1b71d300, b9040126, 08109a55, 8ad119eb, 5b2d5ac0, d9a86906, 901a1c51, 380bb6eb, d429a69b, dcde9a25, cbdb6011, 98b048b2, f74d0f72, 28a1788d, 9637c30c, aeaa9dda + VER-01 (E2E ampliado + ADR-027 + cierre). ADR-027 en `docs/dev/architecture/adr/`. Registro en `docs/progreso/README.md`.
+> **Estado:** ✅ FASE 4 COMPLETA — 18/18 tareas (W0 DOC-01..04, W1 REST-01..06, W2 WASM-01..04, W3 FEAT-01..03, W4 VER-01), campaña `e7b31c4a-8d2f-4a7e-9c1b-6f5a3e8d2c40` cerrada 2026-08-20. Commits: f7e39005, 0bf9609e, 9ec506d8, 7b3cfea2, b81a8bf9, 1b71d300, b9040126, 08109a55, 8ad119eb, 5b2d5ac0, d9a86906, 901a1c51, 380bb6eb, d429a69b, dcde9a25, cbdb6011, 98b048b2, f74d0f72, 28a1788d, 9637c30c, aeaa9dda + VER-01 (E2E ampliado + ADR-0027 + cierre). ADR-0027 en `docs/dev/architecture/adr/`. Registro en `docs/progreso/README.md`.
 
 ## Retrospectiva (cierre 2026-08-20)
 
@@ -30,7 +37,7 @@ Métrica verify retries/tarea: **16/18 tareas (89%) pasaron el verify del lead a
 2. **Wave 1 — Cierre deuda REST (server Rust, `src/cli_server.rs` + bridge desktop):** rate limiter calibrado, `/api/v2/metrics` JSON, graph_v2 (DTO desktop), cursor real en server, `namespace_stats` en bridge, IQL vía ServerConnection. Cierra los 8 rechazos de `vanta-http-map` y los gaps VS-CORE-01/02.
 3. **Wave 2 — WASM/OPFS backbone (D10):** transporte WASM real (persistencia OPFS/IDB), consola 100% browser sin server, drag&drop `.vdbdump`/JSONL.
 4. **Wave 3 — Diferenciadores del research (los 3 "prometidos nunca tocados"):** slider de pesos híbridos, superficie Índices/salud, consolidación asistida.
-5. **Wave 4 — Verificación E2E + cierre:** E2E ampliado (dashboard server + consola WASM standalone) + ADR-027 (D13/D14/D15) + Backlog/CHANGELOG + archivo del plan.
+5. **Wave 4 — Verificación E2E + cierre:** E2E ampliado (dashboard server + consola WASM standalone) + ADR-0027 (D13/D14/D15) + Backlog/CHANGELOG + archivo del plan.
 
 ## Archivos protegidos (NO tocar por sub-agentes)
 
@@ -183,18 +190,18 @@ Métrica verify retries/tarea: **16/18 tareas (89%) pasaron el verify del lead a
 - **Gate Justificación:** auditoría research Alta #2 — nunca tocado (SYNTHESIS §4 OPERACIONES:155, 03 lección 5:252, 07 Fix 3:89); diferenciador de memoria: marcar registros duplicados/superados (misma entidad, versiones nuevas) con diff visible.
 - **Contrato:** definir con el usuario el alcance mínimo viable (D16): (a) UI-only: detectar candidatos por similitud (search kNN) + diff visible entre pares + sugerencia de "superado por" (metadata `superseded_by`); (b) core decay: si requiere decay automático → task core separada con contrato. Entregar al menos (a) en esta fase; (b) documentado como follow-up.
 - **Verificación:** node:test (lógica de detección/diff) verde; smoke: DB temp con duplicados → surface los marca con diff; build verde.
-- **Estado:** ✅ COMPLETO (D16 "todo" 2026-08-20 — (a) FEAT-03a commit `98b048b2`; (b) ADR-028 `f74d0f72` + core `28a1788d`; verify lead: 77/77 desktop tests, 1803 core, clippy/fmt verdes)
+- **Estado:** ✅ COMPLETO (D16 "todo" 2026-08-20 — (a) FEAT-03a commit `98b048b2`; (b) ADR-0028 `f74d0f72` + core `28a1788d`; verify lead: 77/77 desktop tests, 1803 core, clippy/fmt verdes)
 
 ---
 
 ## Wave 4 — Verificación E2E + cierre
 
-### Task 18: VER-01 — E2E ampliado + ADR-027 + cierre de fase
-- **Archivos clave:** `desktop/scripts/selfcheck-web-e2e.ts` (ampliar), `docs/dev/architecture/` (ADR-027), `docs/dev/Backlog.md` (estados F4), `docs/CHANGELOG.md`
+### Task 18: VER-01 — E2E ampliado + ADR-0027 + cierre de fase
+- **Archivos clave:** `desktop/scripts/selfcheck-web-e2e.ts` (ampliar), `docs/dev/architecture/` (ADR-0027), `docs/dev/Backlog.md` (estados F4), `docs/CHANGELOG.md`
 - **Gate Justificación:** cierre de fase — probar ambos modos: dashboard servido por server (F3 + deuda REST) y consola standalone WASM/OPFS (F4); documentar D13/D14/D15.
-- **Contrato:** E2E ampliado: (a) server: ráfaga sin 429 (REST-01), metrics JSON (REST-02), graph_v2 roundtrip (REST-03), paginación (REST-04), IQL completo (REST-06); (b) standalone: WASM build → navegar → CRUD persistente con reload (WASM-03); ADR-027 (D13/D14/D15 + deuda REST cerrada + WASM/OPFS); Backlog: P26 filas F4 actualizadas, tasks DOC-*/REST-*/WASM-*/FEAT-*/VER-* completadas; CHANGELOG entrada Unreleased; plan → archive/ con retrospectiva (métrica verify retries/tarea, baseline >90% primer intento).
+- **Contrato:** E2E ampliado: (a) server: ráfaga sin 429 (REST-01), metrics JSON (REST-02), graph_v2 roundtrip (REST-03), paginación (REST-04), IQL completo (REST-06); (b) standalone: WASM build → navegar → CRUD persistente con reload (WASM-03); ADR-0027 (D13/D14/D15 + deuda REST cerrada + WASM/OPFS); Backlog: P26 filas F4 actualizadas, tasks DOC-*/REST-*/WASM-*/FEAT-*/VER-* completadas; CHANGELOG entrada Unreleased; plan → archive/ con retrospectiva (métrica verify retries/tarea, baseline >90% primer intento).
 - **Verificación:** E2E server + standalone exit 0; docs presentes; `pwsh -File scripts/validate-docs-coverage.ps1` exit 0; `git log` coherente.
-- **Estado:** ✅ COMPLETO (VER-01, 2026-08-20) — E2E server ampliado (REST-01..04 + REST-06 + UI) **PASS**; E2E standalone WASM/OPFS (CRUD + reload persistente) **PASS**; ADR-027 en `docs/dev/architecture/adr/ADR-027-fase4-cierre-deuda-rest-wasm-opfs.md`; Backlog P26 → 🟢 Completada; CHANGELOG Unreleased con Features Fase 4; plan archivado con retrospectiva (verify retries: 89% primer intento — baseline >90% NO alcanzado, 2 incidentes de sub-agentes detectados por verify del lead).
+- **Estado:** ✅ COMPLETO (VER-01, 2026-08-20) — E2E server ampliado (REST-01..04 + REST-06 + UI) **PASS**; E2E standalone WASM/OPFS (CRUD + reload persistente) **PASS**; ADR-0027 en `docs/dev/architecture/adr/ADR-0027-fase4-cierre-deuda-rest-wasm-opfs.md`; Backlog P26 → 🟢 Completada; CHANGELOG Unreleased con Features Fase 4; plan archivado con retrospectiva (verify retries: 89% primer intento — baseline >90% NO alcanzado, 2 incidentes de sub-agentes detectados por verify del lead).
 
 ---
 
@@ -208,7 +215,7 @@ Métrica verify retries/tarea: **16/18 tareas (89%) pasaron el verify del lead a
 | Temporalidad del grafo (valid_at/invalid_at) | Fase 5+ | el core no modela tiempo; cambio de modelo de datos grande |
 | 3D toggle en ESPACIO | solo si el usuario pide | anti-patrón 6 del research ("3D por moda") |
 | SSE streaming en `/api/v2/query` | — | no requerido por la consola actual |
-| Decay automático (Mem0/memify) en core | ✅ implementado FEAT-03b (ADR-028) como supersession durable; recency-scoring descartado (ADR-028) | D16 "todo" 2026-08-20 |
+| Decay automático (Mem0/memify) en core | ✅ implementado FEAT-03b (ADR-0028) como supersession durable; recency-scoring descartado (ADR-0028) | D16 "todo" 2026-08-20 |
 | Matriz de duplicados por embedding (vs textual) | FEAT-03 iteración | MVP textual primero |
 
 ## Riesgos

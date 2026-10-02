@@ -1,3 +1,9 @@
+---
+title: "AUDIT-01 — Fix UAF PyO3 `__array_interface__` (🔴 release-blocker) — ✅ COMPLETED"
+kind: task
+description: "vantadb-python/src/vector.rs — getarrayinterface ahora devuelve data como PyBytes (copia little-endian f32 vía f32::tolebytes(), sin unsafe), en vez del puntero crudo. NumPy trata un objeto buffer en data como fuente de copia → el..."
+---
+
 # AUDIT-01 — Fix UAF PyO3 `__array_interface__` (🔴 release-blocker) — ✅ COMPLETED
 
 - **Commit:** `bff30d38`

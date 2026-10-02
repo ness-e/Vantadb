@@ -1,3 +1,9 @@
+---
+title: "GOV-A4: Harness snippets docs parity (validate_doc_snippets + tutorials QUICKSTART)"
+kind: task
+description: "python dev-tools/validatedocsnippets.py → Summary: N PASS, 0 FAIL, M SKIP y Select-String PASS.FAIL.SKIP ≥1; cargo check --workspace exit 0 (docs-only no build break); verificación mecánica campaignverifycmd con contrato plan GOV-A4"
+---
+
 # GOV-A4: Harness snippets docs parity (validate_doc_snippets + tutorials QUICKSTART)
 
 ## Metadata

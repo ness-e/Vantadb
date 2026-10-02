@@ -1,3 +1,9 @@
+---
+title: "Task MCP-25 — Bulk import: bulk_import_file/stream"
+kind: task
+description: "Fuente de verdad: docs/dev/Backlog.md → fase P25 - Exposición MCP/HTTP → fila MCP-25 (leer ANTES de ejecutar: problema, acciones numeradas, archivos exactos)"
+---
+
 # Task MCP-25 — Bulk import: bulk_import_file/stream
 
 **Fuente de verdad:** `docs/dev/Backlog.md` → fase **P25 - Exposición MCP/HTTP** → fila `MCP-25` (leer ANTES de ejecutar: problema, acciones numeradas, archivos exactos).

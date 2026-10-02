@@ -1,10 +1,11 @@
 ---
 title: Advanced Tokenizer
-type: architecture
+kind: concept
 status: active
+description: "The advanced tokenizer provides multilingual text processing with stemming, stopwords removal, and Unicode folding for improved text search quality across multiple languages. It is built on top of Tantivy. The feature is enabled by..."
 tags: [vantadb, architecture]
-last_reviewed: 2026-07-21
-aliases: []
+type: architecture
+last_reviewed: "2026-07-21"
 ---
 
 # Advanced Tokenizer
@@ -211,5 +212,5 @@ Potential future improvements:
 ## References
 
 - [Tantivy Documentation](https://docs.rs/tantivy/)
-- [[bm25|BM25 Algorithm]]
+- [BM25 Algorithm](../../user/glosario/bm25.md)
 - [Stemming Algorithms](https://en.wikipedia.org/wiki/Stemming)

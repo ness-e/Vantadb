@@ -1,3 +1,9 @@
+---
+title: "GOV-B3: Consumo guard anti-regresión (Wave2 batch2 — BENCHMARKS + cargo bench)"
+kind: task
+description: "Implementar guard anti-regresión de consumo (memoria, p99, heap) sobre el bench canónico canonicalp99 (100k×1536d, seed 42). Cualquier PR que rompa cargo bench --bench canonicalp99 --no-run o degrade p99 >10% debe fallar antes de merge..."
+---
+
 # GOV-B3: Consumo guard anti-regresión (Wave2 batch2 — BENCHMARKS + cargo bench)
 
 ## Metadata

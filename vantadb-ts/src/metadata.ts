@@ -1,8 +1,9 @@
 import { DbError, ERROR_CODES } from "./errors.js";
 
 import type {
-  FlatValue,
+  FilterInput,
   FilterItem,
+  FilterSpec,
   Metadata,
   MetadataInput,
   Value,
@@ -27,13 +28,21 @@ export function normalizeMetadata(
   return out;
 }
 
-/** Same normalization for AND-combined filter items. */
+/** A filter item after normalization: `value` is always the tagged `Value` wire form. */
+export interface NormalizedFilterItem {
+  field: string;
+  op: FilterItem["op"];
+  value: Value;
+}
+
+/** Same normalization for AND-combined filter items (returns wire-ready values). */
 export function normalizeFilterItems(
   items: FilterItem[],
-): FilterItem[] {
+): NormalizedFilterItem[] {
   return items.map((item) => ({
-    ...item,
-    value: normalizeValue(item.value) as FlatValue | Value,
+    field: item.field,
+    op: item.op,
+    value: normalizeValue(item.value),
   }));
 }
 
@@ -91,6 +100,14 @@ function assertTaggedValue(v: Record<string, unknown>): Value {
         );
       }
       return { Bool: payload };
+    case "DateTime":
+      if (typeof payload !== "string") {
+        throw new DbError(
+          ERROR_CODES.VALIDATION_ERROR,
+          "normalizeValue: { DateTime } payload must be an RFC 3339 string",
+        );
+      }
+      return { DateTime: payload };
     case "Null":
       if (payload !== null && payload !== undefined) {
         throw new DbError(
@@ -150,6 +167,17 @@ function assertTaggedValue(v: Record<string, unknown>): Value {
         );
       }
       return { ListBool: payload as boolean[] };
+    case "ListDateTime":
+      if (
+        !Array.isArray(payload) ||
+        !payload.every((e: unknown) => typeof e === "string")
+      ) {
+        throw new DbError(
+          ERROR_CODES.VALIDATION_ERROR,
+          "normalizeValue: { ListDateTime } payload must be an RFC 3339 string[]",
+        );
+      }
+      return { ListDateTime: payload as string[] };
     default:
       throw new DbError(
         ERROR_CODES.VALIDATION_ERROR,
@@ -160,6 +188,17 @@ function assertTaggedValue(v: Record<string, unknown>): Value {
 
 export function normalizeValue(v: unknown): Value {
   if (v === null) return { Null: null };
+  if (v instanceof Date) {
+    // py↔js parity: Python accepts `datetime` objects; JS accepts `Date`
+    // instances (wire form is the RFC 3339 tagged `DateTime`).
+    if (Number.isNaN(v.getTime())) {
+      throw new DbError(
+        ERROR_CODES.VALIDATION_ERROR,
+        "normalizeValue: Date must be a valid date",
+      );
+    }
+    return { DateTime: v.toISOString() };
+  }
   switch (typeof v) {
     case "string":
       return { String: v };
@@ -185,4 +224,73 @@ export function normalizeValue(v: unknown): Value {
       return assertTaggedValue(v as Record<string, unknown>);
     }
   }
+}
+
+/** Canonical `$op` → wire `FilterOp` map (same set as Python/MCP/CLI). */
+const FILTER_OPS: Record<string, FilterItem["op"]> = {
+  $eq: "Eq",
+  $neq: "Neq",
+  $gt: "Gt",
+  $gte: "Gte",
+  $lt: "Lt",
+  $lte: "Lte",
+};
+
+/**
+ * Normalize the canonical cross-SDK `$op` filter DSL (interchangeable with
+ * Python `py_dict_to_filter_ops`, MCP `parse_filter_ops` and the CLI) into the
+ * native `FilterItem[]` wire:
+ *
+ * - `{field: value}` → implicit `$eq`;
+ * - `{field: {$gte: v, $lt: v2}}` → one item per `$op` key (AND-combined).
+ *
+ * An unknown `$op` throws `VALIDATION_ERROR` (never ignored silently — same
+ * error contract as the other transports). Values go through
+ * {@link normalizeValue}; tagged values (`{String: "x"}`) are treated as
+ * equality values, not operator objects.
+ */
+export function normalizeFilterInput(input: FilterInput): NormalizedFilterItem[] {
+  if (input === null || typeof input !== "object" || Array.isArray(input)) {
+    throw new DbError(
+      ERROR_CODES.VALIDATION_ERROR,
+      "normalizeFilterInput: expected a filter object (field → value / {$op: value})",
+    );
+  }
+  const out: NormalizedFilterItem[] = [];
+  for (const [field, spec] of Object.entries(input)) {
+    if (
+      spec !== null &&
+      typeof spec === "object" &&
+      !Array.isArray(spec) &&
+      !(spec instanceof Date)
+    ) {
+      const obj = spec as Record<string, unknown>;
+      if (Object.keys(obj).some((k) => k.startsWith("$"))) {
+        for (const [opKey, val] of Object.entries(obj)) {
+          const op = FILTER_OPS[opKey];
+          if (op === undefined) {
+            throw new DbError(
+              ERROR_CODES.VALIDATION_ERROR,
+              `normalizeFilterInput: unknown filter operator '${opKey}' for field '${field}'. Supported: $eq, $neq, $gt, $gte, $lt, $lte`,
+            );
+          }
+          out.push({ field, op, value: normalizeValue(val) });
+        }
+        continue;
+      }
+    }
+    out.push({ field, op: "Eq", value: normalizeValue(spec) });
+  }
+  return out;
+}
+
+/**
+ * Accept either filter form at the public boundary: the native
+ * `FilterItem[]` wire or the canonical `$op` DSL. `undefined`/`null` (and an
+ * empty filter) yields `[]` — callers keep their existing empty-filter
+ * semantics (e.g. `count` counts all; `deleteByFilter` rejects in core).
+ */
+export function toFilterItems(spec: FilterSpec | undefined | null): NormalizedFilterItem[] {
+  if (spec === undefined || spec === null) return [];
+  return Array.isArray(spec) ? normalizeFilterItems(spec) : normalizeFilterInput(spec);
 }

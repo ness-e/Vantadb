@@ -1,11 +1,9 @@
 ---
-title: "Tareas migradas desde Backlog — tabla histórica"
-type: registro
+title: Tareas migradas desde Backlog — tabla histórica
+kind: review
 status: archived
+description: "These tasks reached 100% completion and were moved here from the active backlog"
 tags: [vantadb, avance, campana]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Tareas migradas desde Backlog — tabla histórica
@@ -58,7 +56,7 @@ These tasks reached 100% completion and were moved here from the active backlog.
 | `PERF-02` | Baseline riguroso post-publicación: `criterion` con perfiles fijos deterministas (warm-up 3s, measurement 5s, confidence 0.95, significance 0.05) + `critcmp` regression gate en workflow nightly (gated por `enable_critcmp`); dataset sintético determinístico persistido (`benches/data/synthetic_dataset.bin`, xorshift hash-verified). Sin cambios a benches principales. Commit `32462de6` | 🟡 | ✅ 2026-08-12 |
 | `AUD-035` | Megafiles core (patrón REVIEW-05): **split 1** `src/sdk/search/mod.rs` 2521L → 8 submódulos (`lexical.rs`, `vector.rs`, `sparse.rs`, `hybrid.rs`, `explain.rs`, `audit.rs`, `debug_ops.rs`, `multi.rs`) + `tests.rs` (53 tests), mod.rs orquestador 330L — commit `5d96b536`. **Split 2** `src/storage/engine/ops.rs` 2131L → orquestador 331L + `delete.rs/get.rs/insert.rs/txn.rs` (mod.rs cableado). **Split 3** `src/index/search.rs` 2054L → `search/mod.rs` 52L + `pool.rs/profile.rs/layer.rs/neighbors.rs/nearest.rs/alternate.rs` + `tests.rs` 1379L. Signaturas públicas intactas (MCP/Python/WASM), visibilidad `pub(crate)`/`pub(super)` mínima. Nextest 1886 passed. Commits `5d96b536` + `552f08a8` | 🟡 | ✅ 2026-08-16 |
 | `PERF-03` | Bench competitivo honesto de SDKs: harness `benchmarks/competitive_bench.py` extendido (Qdrant local + Milvus-lite, Chroma/Lance) mide en mismo HW; publica `docs/user/benchmarks/COMPETITIVE_SDK_BENCH.md` con números reales — hallazgo honesto: VantaDB Recall@10 59.2% vs Qdrant 100%/Chroma 97.6%/Milvus 100% (pierde en recall, gana en QPS). Commits `437a1125` + `9c1ec073` | 🟠 | ✅ 2026-08-12 |
-| `PERF-05` | WAL async roadmap (ADR `DRV-015-wal-async-roadmap.md` — distinto del task DRV-015 de refactor WalWriter): documenta io_uring/aio + fsync group commit como siguiente paso tras DRV-014 (batch-append 3-5×). Sin código WAL nuevo; sin cambios a `src/`. Commit `9eef37c5` | 🔴 | ✅ 2026-08-12 |
+| `PERF-05` | WAL async roadmap (ADR `ADR-0052-wal-async-roadmap.md` — distinto del task DRV-015 de refactor WalWriter): documenta io_uring/aio + fsync group commit como siguiente paso tras DRV-014 (batch-append 3-5×). Sin código WAL nuevo; sin cambios a `src/`. Commit `9eef37c5` | 🔴 | ✅ 2026-08-12 |
 | `PERF-08` | WASM serialización completa en hot path: `memory_record_to_js` emite `record.vector` como `Float32Array` zero-copy (js_sys) en vez de `serde_wasm_bindgen::to_value` por elemento; cierra P2-7. Persist-delta (H3-SER-001) diferido (requiere dirty-tracking en core, fuera de scope). Host compat: `vantadb-ts/src/types.ts` `vector?: Float32Array | number[]`. Commit `5105f22d` | 🟠 | ✅ 2026-08-12 |
 | `COV-001` | Python: smoke test async de `AsyncVantaDB` — 3 tests (`test_async_smoke_crud_flush_purge`, `test_async_smoke_query_graph`, `test_async_smoke_export`) ejercitan `flush`/`purge_expired`/`query`/`graph_*`/`put`/`delete`/`export_*` (las ~37 líneas faltantes); pytest 3 passed; API pública intacta | 🟢 | ✅ 2026-08-12 (97a17828) |
 | `COV-002` | TS: destrabar medición de coverage — `c8@^12` + `npm run coverage` envuelve `test-runner.mjs` y remapea V8 coverage a `src/*.ts` (vantadb.ts 86.56%, native.ts 53%, errors.ts 49.12%, guards.ts 47.95%); runner intacto 25 passed / 1 failed | 🟡 | ✅ 2026-08-12 (7419432c) |
@@ -66,7 +64,7 @@ These tasks reached 100% completion and were moved here from the active backlog.
 | `TSYS-02` | Handoff con invariantes — recitation exige invariantes + comandos de verificación + deuda (no solo lastAction/nextAction); task.md/pipeline-full.md (gap-01 §3.3-18) | 🟢 | ✅ 2026-08-11 (8f774c18) |
 | `TSYS-03` | ADR gate mecánico — job `adr-gate` en ci-rust-10.yml:120-181 que falle si se toca API pública sin ADR (gap-01 §3.3-20) | 🟡 | ✅ 2026-08-11 (d9f2a4cb) |
 | `TSYS-04` | Estimar con appetite (Shape Up) — "tiempo que VAMOS a invertir" como default en vez de effort vago; plan.md (gap-01 §3.3-21) | 🟢 | ✅ 2026-08-11 (8f774c18) |
-| `TSYS-05` | SLA del pipeline — SLI/SLO/error budget; ADR-017 (gap-01 §3.3-23) | 🟡 | ✅ 2026-08-11 |
+| `TSYS-05` | SLA del pipeline — SLI/SLO/error budget; ADR-0017 (gap-01 §3.3-23) | 🟡 | ✅ 2026-08-11 |
 | `TSYS-07` | Recitation duplicado (3 definiciones) — unificado a 1 fuente, estructura §12 en pipeline-full.md/task.md (gap-01 §3.5-2) | 🟢 | ✅ 2026-08-11 (8f774c18) |
 | `TSYS-08` | Triage "es ahora" (Shape Up) — triage DO/DEFER/SKIP/BLOQUEADO + pregunta "¿es el problema adecuado? ¿correcto el appetite? ¿es ahora?" + Cynefin en plan.md (gap-01 §3.5-8) | 🟢 | ✅ 2026-08-11 (8f774c18) |
 | `TSYS-09` | Tracing de decisiones — `decision_reason`/`pattern` en `campaign_emit_event` + evento `plan.adjust` (por qué se reabrió/cerró, qué patrón) (agent-03 §5.2/§9; FALLA #6) | 🟢 | ✅ 2026-08-11 |
@@ -77,7 +75,7 @@ These tasks reached 100% completion and were moved here from the active backlog.
 | `TSYS-15` | Memoria con esquema fijo y retrieval por tema — `- <fecha> \| <tema> \| <decisión\|lección> \| ref: <ruta:línea>`; read por tema vía `rg -n <tema>` (REPORTE-FINAL §3.4-2, FALLA #11) | 🟡 | ✅ 2026-08-11 |
 | `TSYS-16` | Definir "qué es feature shippable" (trunk-based) — umbral formalizado en definition-of-done.md: (a) tests, (b) docs API en mismo PR, (c) observabilidad, (d) rollback viable, (e) sin caballos sueltos (REPORTE-FINAL §3.4-11) | 🟢 | ✅ 2026-08-11 (138d8735) |
 | `COV-003` | Rust: tests del binario CLI — 7 tests nuevos en `tests/cli_tests.rs` (cmd_migrate/cmd_server + branches crud/data); `migrate.rs` 0%→51.17%, `server.rs` 0%→61.43%, `cli_handlers` ~0%→~76.5%; nextest 75 passed; clippy/fmt clean | 🟡 | ✅ 2026-08-12 (f9b93c75) |
-| `COV-004` | ADR: política del gate de coverage en CI — ADR-018 decide root crate `vantadb` ≥80% (baseline 81.40%) como gate; workspace aggregate 72.76% se mide solo para visibilidad; bindings: Python pytest ≥85%, TS vía `c8` (COV-002), `cli_tests` incluido en root (COV-003), server/mcp/wasm excluidos; supersede ADR-015 §Decision #1 | 📖 | ✅ 2026-08-12 (8c631693) |
+| `COV-004` | ADR: política del gate de coverage en CI — ADR-0018 decide root crate `vantadb` ≥80% (baseline 81.40%) como gate; workspace aggregate 72.76% se mide solo para visibilidad; bindings: Python pytest ≥85%, TS vía `c8` (COV-002), `cli_tests` incluido en root (COV-003), server/mcp/wasm excluidos; supersede ADR-0015 §Decision #1 | 📖 | ✅ 2026-08-12 (8c631693) |
 | `AUDREP-37` | WAL-PITR: fallback a mtime en `parse_segment_timestamp` → `Result<u64>`; nombre no parseable = `Err` (PITR falla loud en vez de reordenar silencioso); test; commit `ff82df8d` | 🟡 | ✅ 2026-08-07 |
 | `AUDREP-38` | Parser: condiciones relacionales solo strings → RHS tipado (`parse_literal_field_value`): número → `Float`, quoted → `String` (backward compat); `edad > 18` funciona, ordering numérico; 4 tests; commit `e7214c00` | 🟡 | ✅ 2026-08-07 |
 | `AUDREP-39` | Frontend-i18n: `lang="es"` hardcoded SSR → `lang={DEFAULT_LANG}` desde `dictionaries.ts`; quitado `suppressHydrationWarning` innecesario; commit `f49bbe10` | 🟡 | ✅ 2026-08-07 |

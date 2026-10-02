@@ -1,3 +1,9 @@
+---
+title: "SKL-03: Arreglar scripts y assets funcionales de `skills/vantadb-mcp/`"
+kind: task
+description: "Scripts y assets de skills/vantadb-mcp/ funcionales con el MCP server real: (1) test-mcp.py pasa contra vanta-cli server --mcp o vantadb-server --mcp (1 proceso, 4+ requests, exit 0); (2) rg \"querylisp|--path|vanta-server|VANTADBPATH\"..."
+---
+
 # SKL-03: Arreglar scripts y assets funcionales de `skills/vantadb-mcp/`
 
 ## Metadata

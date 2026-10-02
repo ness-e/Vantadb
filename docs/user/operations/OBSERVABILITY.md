@@ -1,11 +1,9 @@
 ---
-title: "Error Observability — VantaDB"
-type: operations
+title: Error Observability — VantaDB
+kind: runbook
 status: active
+description: "Every vantadb::Error (the Rust core error enum; surfaced to Python as an"
 tags: [vantadb, operations, observability, errors]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Error Observability — VantaDB
@@ -16,8 +14,9 @@ related: []
 
 ## 1. The error chain
 
-Every `VantaError` carries a full debugging chain. From the client surface
-outward, in stable order:
+Every `vantadb::Error` (the Rust core error enum; surfaced to Python as an
+`Error` subclass and to TS as a `DbError`) carries a full debugging chain. From
+the client surface outward, in stable order:
 
 | Layer | Surface | Contract |
 |-------|---------|----------|
@@ -53,7 +52,7 @@ RUST_LIB_BACKTRACE=1 # library-only override (wins over RUST_BACKTRACE)
 
 ## 3. Structured log levels (HTTP server)
 
-`src/server/errors.rs` logs every `VantaError` crossing the HTTP boundary
+`src/server/errors.rs` logs every `vantadb::Error` crossing the HTTP boundary
 with stable, bounded fields:
 
 ```
@@ -88,7 +87,7 @@ vantadb_errors_total{code="VANTADB_IO_ERROR"} 3
 ```
 
 `code` is the only label and takes one of the ten canonical `VANTADB_*` codes
-from `VantaError::code()` (enum-derived — cardinality ≤ 10, safe for scrape
+from `Error::code()` (enum-derived — cardinality ≤ 10, safe for scrape
 and alerting). Registration lives in `src/metrics/core/registry.rs`
 (`ERRORS_TOTAL`); the increment helper is `crate::metrics::record_vanta_error`.
 
@@ -133,7 +132,7 @@ panics — no new `catch_unwind` wrappers were needed.
 | **HTTP server** | query tasks run in `tokio::spawn`; panics are caught by tokio's task boundary (`JoinError`) and mapped to the sanitized `panic_error_response` | `src/server/handlers.rs:129,192,678` |
 | **CLI / server bins** | `anyhow::Result` main + `.context()` prints the full chain (context + sources) on stderr | `src/bin/vanta-cli.rs:26`, `vantadb-server/src/main.rs:31` |
 
-`VantaError` → binding conversions (`map_vanta_error`, `to_js_err`) route
+`vantadb::Error` → binding conversions (`map_vanta_error`, `to_js_err`) route
 *expected* failures as typed errors/exceptions; the rows above cover the
 *unexpected* (panic) path only.
 

@@ -1,3 +1,9 @@
+---
+title: "TASK-MEM-61: Dreaming consolidación idle (sleep-time tiering)"
+kind: task
+description: "runl1/runl2/runl3, lock/retry/dead-letter"
+---
+
 # TASK-MEM-61: Dreaming consolidación idle (sleep-time tiering)
 
 ## Metadata

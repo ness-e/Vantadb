@@ -1,3 +1,9 @@
+---
+title: "FIND-46: Doc drift semver-checks — Documentar cargo semver-checks en pre-release gate"
+kind: task
+description: "cargo semver-checks --help 2>&1 | Measure-Object | Select-Object Count >= 1 (cargo-semver-checks instalado)"
+---
+
 # FIND-46: Doc drift semver-checks — Documentar cargo semver-checks en pre-release gate
 
 ## Metadata

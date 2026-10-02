@@ -1,3 +1,8 @@
+---
+title: "REST-02 — `/api/v2/metrics` JSON (métricas del motor en shape JSON)"
+kind: task
+---
+
 # REST-02 — `/api/v2/metrics` JSON (métricas del motor en shape JSON)
 
 > **Plan:** `docs/dev/plans/2026-08-19-vanta-studio-fase4.md` — Wave 1

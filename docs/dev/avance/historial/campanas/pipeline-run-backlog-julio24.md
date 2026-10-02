@@ -1,11 +1,9 @@
 ---
-title: "Pipeline Run + auditoría Backlog (2026-07-24)"
-type: registro
+title: Pipeline Run + auditoría Backlog (2026-07-24)
+kind: review
 status: archived
+description: "Objetivo: Cerrar gap de cobertura en src/sdk/search/mod.rs (845L, 0 tests). Las 4 funciones core de búsqueda híbrida ahora tienen cobertura"
 tags: [vantadb, avance, campana]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Pipeline Run + auditoría Backlog (2026-07-24)

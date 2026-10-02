@@ -146,7 +146,7 @@ describe("Type guards edge cases", () => {
   });
 
   it("isSearchHit rejects missing record fields", () => {
-    expect(isSearchHit({ distance: 0.5 })).toBe(false);
+    expect(isSearchHit({ score: 0.5 })).toBe(false);
   });
 
   it("isNodeRecord rejects objects with wrong tier", () => {
@@ -257,7 +257,8 @@ describe("Client search edge cases", () => {
   it("search with Euclidean metric", () => {
     const hits = db.search({ namespace: "search_edge", query_vector: [1, 0, 0], distance_metric: "Euclidean", top_k: 5 });
     expect(hits.length).toBeGreaterThan(0);
-    expect(hits[0].distance).toBeGreaterThanOrEqual(0);
+    // Euclidean relevance is non-positive (`-distance²`; 0 = exact match).
+    expect(hits[0].score).toBeLessThanOrEqual(0);
   });
 
   it("search with top_k = 1 returns single result", () => {

@@ -1,11 +1,9 @@
 ---
-title: "GraphRAG API"
-type: api
+title: GraphRAG API
+kind: reference
 status: active
+description: GraphRAG runs through the embedded SDK handle (Embedded). The default
 tags: [vantadb, api, graphrag, retrieval]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # GraphRAG API
@@ -17,7 +15,7 @@ related: []
 > any binding yet — there is no `graphrag_search` method on the Python, WASM,
 > TypeScript, or Node bindings.
 >
-> **Naming (ADR-041 anti-stutter):** `Embedded` is canonical (legacy
+> **Naming (ADR-0047 anti-stutter):** `Embedded` is canonical (legacy
 > `VantaEmbedded` alias removed in 0.6.0, AST-010).
 
 ## Rust

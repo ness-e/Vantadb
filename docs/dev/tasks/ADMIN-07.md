@@ -1,3 +1,9 @@
+---
+title: "ADMIN-07: Data Explorer — panel de exploración de registros con paginación"
+kind: task
+description: "npm run build en desktop/ ✅; Data Explorer lista records de la conexión activa con paginación (limit creciente) y muestra score en modo search.\""
+---
+
 # ADMIN-07: Data Explorer — panel de exploración de registros con paginación
 
 ## Metadata

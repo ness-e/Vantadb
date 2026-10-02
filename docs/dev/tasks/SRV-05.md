@@ -1,3 +1,9 @@
+---
+title: "TASK-SRV-05: RBAC scoping por namespace"
+kind: task
+description: "Resultado esperado: Count >= 1"
+---
+
 # TASK-SRV-05: RBAC scoping por namespace
 
 ## Metadata

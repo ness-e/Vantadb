@@ -1,3 +1,9 @@
+---
+title: "RES-15 — Institucionalizar meta-001 C: split backlog negocio/técnico (RES-15-C)"
+kind: task
+description: "Leídos completos: docs/dev/Backlog.md (788L), docs/dev/avance/meta.md (199L), pipeline-full.md"
+---
+
 # RES-15 — Institucionalizar meta-001 C: split backlog negocio/técnico (RES-15-C)
 
 - **Plan:** `docs/dev/plans/2026-09-03-quality-gtm-wave.md` Task 11 · **Ruta:** vanta-lead (docs/process) · **Wave3/5** paralelo con RES-03

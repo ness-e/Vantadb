@@ -1,3 +1,9 @@
+---
+title: REVIEW-17 — unsafe wasm32 innecesarios
+kind: task
+description: "Diagnóstico: el gate real es FEATURE (memmap2), no arch. vantadb-wasm usa default-features = false, features = [\"wasm\"] (wasm = [] vacío) → memmap2 OFF → shim activo bajo wasm32. En el shim, MmapOptions::map/mapmut son SAFE (lectura a..."
+---
+
 # REVIEW-17 — unsafe wasm32 innecesarios
 
 - **Estado:** ⬜ PENDING → ✅ IN PROGRESS → ✅ COMPLETED

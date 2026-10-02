@@ -1,3 +1,10 @@
+---
+title: "RES-03 — Session Layer for VantaDB MCP: Go/No-Go Analysis (DEC-01)"
+kind: research
+status: archived
+description: "Cognee-inspired 4-phase session-layer roadmap — (1) session cache, (2) Claude Code"
+---
+
 # RES-03 — Session Layer for VantaDB MCP: Go/No-Go Analysis (DEC-01)
 
 > Date: 2026-08-25 · Source task: Backlog DEC-01 / plan 2026-08-25-batch-core-fixes-research.md Task 9

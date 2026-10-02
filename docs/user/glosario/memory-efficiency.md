@@ -1,10 +1,10 @@
 ---
-title: "Memory Efficiency"
-type: glossary-entry
+title: Memory Efficiency
+kind: glossary
 status: stable
-tags: [glosario, métricas, memoria, eficiencia, ram]
-last_reviewed: 2026-09-15
+description: "La eficiencia de memoria mide cuánta RAM consume el sistema por cada elemento indexado. En bases de datos vectoriales, se expresa típicamente como bytes por vector"
 aliases: [memory usage, RAM efficiency, footprint]
+tags: [glosario, metricas, memoria, eficiencia, ram]
 ---
 
 # Memory Efficiency
@@ -249,6 +249,6 @@ Total estimado: ~2.5 GB RAM
 ## Véase También
 
 - [mmap](mmap.md) - Memory-mapped I/O
-- [Benchmarks](Benchmarks.md) - Suite de medición
+- [Benchmarks](./benchmarks.md) - Suite de medición
 - [Latencia](latency.md) - Métrica complementaria
-- [Recall](Recall.md) - Métrica de calidad
+- [Recall](./recall.md) - Métrica de calidad

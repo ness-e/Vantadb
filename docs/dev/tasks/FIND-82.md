@@ -1,3 +1,9 @@
+---
+title: "FIND-82: assert de conteo en test-mcp.py (gate que no gatea)"
+kind: task
+description: "python skills/vantadb-mcp/scripts/test-mcp.py <binario-desde-fuente> → handshake 4/4 verde con asserts por perfil; el mismo script contra binario stale (56 tools) → exit 1 con mensaje de drift; git diff --check limpio; python -m..."
+---
+
 # FIND-82: assert de conteo en test-mcp.py (gate que no gatea)
 
 ## Metadata

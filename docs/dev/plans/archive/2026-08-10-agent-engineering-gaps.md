@@ -1,3 +1,10 @@
+---
+title: "Plan: 2026-08-10-agent-engineering-gaps.md"
+kind: plan
+status: archived
+description: "Activa: fix(harness): cerrar gaps accionables de la investigación agent-engineering"
+---
+
 # Plan: 2026-08-10-agent-engineering-gaps.md
 
 **Activa:** `fix(harness): cerrar gaps accionables de la investigación agent-engineering`

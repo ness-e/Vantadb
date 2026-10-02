@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Backlog Validation Actions — 2026-08-05"
+kind: plan
+status: archived
+description: "Campaign ID: 06826e46-9034-4f0c-bb4c-5e06742d9480"
+---
+
 # Plan de Ejecución: Backlog Validation Actions — 2026-08-05
 
 > **Campaign ID: 830fabd9-3647-40f7-a1f1-f74b6837892b
@@ -105,7 +112,7 @@
   3. Sincronizar `docs/user/operations/CONFIGURATION.md`.
 - **Contrato:** ADR publicado; test de compatibilidad (leer ambas vars, warning de deprecación) si se migra; TECH-01 (Task 17) resuelve el síntoma mientras tanto.
 - **Dependencias:** TECH-01 (Task 17) primero para el síntoma.
-- **Estado:** ✅ COMPLETED 2026-08-05 — ADR-012 publicado (VANTA_DB = flag CLI, VANTADB_STORAGE_PATH = env config; child setea ambos); CONFIGURATION.md nota añadida; AUD-010 absorbida.
+- **Estado:** ✅ COMPLETED 2026-08-05 — ADR-0012 publicado (VANTA_DB = flag CLI, VANTADB_STORAGE_PATH = env config; child setea ambos); CONFIGURATION.md nota añadida; AUD-010 absorbida.
 
 ### Task 9: MERGE-GH139-NUEVO01 — Fusionar GH-139 como slice de NUEVO-01
 - **Veredicto:** 🔁 GH-139 ⊂ NUEVO-01 — ambos crean GIF demo en README; NUEVO-01 es superset (hero readme-aura + gráfico benchmark + GIF).
@@ -234,7 +241,7 @@
 - **Estado:** ✅ COMPLETED
 
 ### Task 25: AUDIT-05 — Housekeeping 3 fixes (30min)
-- **Archivos clave:** `.gitignore` (falta `.playwright-cli/` — verificado), `docs/dev/architecture/adr/003_sync_async_decoupling.md` (nota SurrealDB sin last-updated), `.opencode/skills/campaign-executor/tasks/GH-123.md` (Estado PENDING stale vs commit d406feab)
+- **Archivos clave:** `.gitignore` (falta `.playwright-cli/` — verificado), `docs/dev/architecture/adr/ADR-0003-sync-async-decoupling.md` (nota SurrealDB sin last-updated), `.opencode/skills/campaign-executor/tasks/GH-123.md` (Estado PENDING stale vs commit d406feab)
 - **Acción:** añadir `.playwright-cli/` a gitignore; agregar sección Addendum o línea `last-updated` al ADR; actualizar Estado en GH-123.md.
 - **Contrato:** `git status` limpio de artefactos .playwright-cli; ADR con last-updated; task file en ✅/done.
 - **Estado:** ✅ COMPLETED

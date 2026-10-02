@@ -1,3 +1,9 @@
+---
+title: "MOD-10: MCP tools — versions/supersede/vacuum/remove_edge"
+kind: task
+description: "Implementación completa y verificada. Pendiente: commit del lead (worker NO commitea — regla del plan)"
+---
+
 # MOD-10: MCP tools — versions/supersede/vacuum/remove_edge
 
 ## Metadata

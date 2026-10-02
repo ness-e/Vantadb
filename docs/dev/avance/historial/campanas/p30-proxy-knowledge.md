@@ -1,11 +1,9 @@
 ---
-title: "Campaña P30 — Vanta Proxy + Knowledge (F6+F7)"
-type: registro
+title: Campaña P30 — Vanta Proxy + Knowledge (F6+F7)
+kind: review
 status: archived
+description: "Cierre del roadmap TDAM: F6 vanta-proxy (binario transparente 3 protocolos wire) + F7 knowledge (wiki state machine + ingest + 12 tools MCP query-only). Suites finales: vanta-proxy 52/52, vantadb-mcp 29/29, vanta-memory 453/453, core..."
 tags: [vantadb, avance, campana]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Campaña P30 — Vanta Proxy + Knowledge (F6+F7)

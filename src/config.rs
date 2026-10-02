@@ -11,6 +11,7 @@ use crate::backend::BackendKind;
 use crate::storage::engine::SegmentOptimizerConfig;
 #[cfg(feature = "advanced-tokenizer")]
 use crate::tokenizer::AdvancedTokenizerConfig;
+use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::env;
 use std::str::FromStr;
@@ -133,6 +134,67 @@ impl PrefetchMode {
             PrefetchMode::Disabled => false,
             PrefetchMode::Auto | PrefetchMode::Enabled => true,
         }
+    }
+}
+
+/// Opt-in group-commit batching for the async ingestion pipeline (WIRE-06).
+///
+/// When enabled, [`AsyncIngestionPipeline`](crate::ingestion::AsyncIngestionPipeline)
+/// workers accumulate up to `max_batch_records` tasks (waiting at most
+/// `max_wait_ms` for the batch to fill) and commit them with a single
+/// `batch_insert_with_opts` call: one `insert_lock` acquisition, one WAL
+/// `batch_append` per shard (≤1 fsync per shard), one HNSW bulk insert —
+/// instead of one of each per record.
+///
+/// Default (`enabled = false`) = current behavior, byte-identical.
+///
+/// Declared latency window (Hyrum surface): with `enabled = true` a task's
+/// acknowledgement is delayed by up to `max_wait_ms` plus the batch commit
+/// time. Durability is unchanged: the caller is only acked after the batch is
+/// written to the WAL under the configured [`SyncMode`] (durable = acked).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct InsertBatchConfig {
+    /// Master switch. `false` (default) = per-record path, unchanged.
+    pub enabled: bool,
+    /// Cycle closes when this many records are queued (bounded batch size).
+    pub max_batch_records: usize,
+    /// Cycle closes when this long elapses since the cycle opened (ms).
+    /// `0` = commit immediately after the first record (no gather window).
+    pub max_wait_ms: u64,
+    /// Channel capacity / backpressure bound for queued ingestion tasks.
+    pub max_queued_records: usize,
+}
+
+impl Default for InsertBatchConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            max_batch_records: 32,
+            max_wait_ms: 1,
+            max_queued_records: 1024,
+        }
+    }
+}
+
+impl InsertBatchConfig {
+    /// Boundary validation for env/builder input: zero `max_batch_records`
+    /// (a nonsensical bound that would silently degrade to 1-record batches)
+    /// and zero `max_queued_records` (a zero-capacity channel cannot be
+    /// constructed) both degrade to defaults. `max_wait_ms = 0` is valid
+    /// (commit immediately after the first record, no gather window).
+    pub fn sanitized(mut self) -> Self {
+        let defaults = Self::default();
+        if self.max_batch_records == 0 {
+            self.max_batch_records = defaults.max_batch_records;
+        }
+        if self.max_queued_records == 0 {
+            self.max_queued_records = defaults.max_queued_records;
+        }
+        // Defense in depth (review P2-01): an unbounded wait window would hold
+        // acks indefinitely and leak one blocking timer thread per recv; cap it.
+        self.max_wait_ms = self.max_wait_ms.min(60_000);
+        self.max_batch_records = self.max_batch_records.min(self.max_queued_records.max(1));
+        self
     }
 }
 
@@ -712,12 +774,51 @@ pub struct Config {
     /// Batch size for batch ingestion operations (default: 1000).
     /// Configured via `VANTADB_BATCH_SIZE`.
     pub batch_size: Option<usize>,
+    /// Opt-in group-commit batching for the async ingestion pipeline (WIRE-06).
+    ///
+    /// Configured via `VANTADB_INSERT_BATCH_ENABLED` (default `false`),
+    /// `VANTADB_INSERT_BATCH_MAX_RECORDS` (default 32),
+    /// `VANTADB_INSERT_BATCH_WAIT_MS` (default 1) and
+    /// `VANTADB_INSERT_BATCH_QUEUE` (default 1024). See [`InsertBatchConfig`].
+    pub insert_batch: InsertBatchConfig,
     /// Maximum number of historical versions retained per memory key (VS-CORE-07).
     ///
     /// Each `put` snapshots the new record under its version; when a key reaches
     /// this cap the oldest version is evicted (FIFO). `None` disables the cap
     /// (unbounded history per key). Default: `Some(32)`.
     pub version_history_limit: Option<usize>,
+    /// Default TTL (ms) applied by `put`/`put_batch` when a record's
+    /// `ttl_ms` is omitted (`None`), keyed by namespace (the "collection").
+    ///
+    /// Configured via `VANTADB_MEMORY_DEFAULT_TTL_MS` as comma-separated
+    /// `namespace:ms` pairs (e.g. `notes:86400000,chat:3600000`). Only new
+    /// writes inherit the default — existing records are never backfilled.
+    /// Malformed entries are warned and skipped.
+    pub memory_default_ttl_ms: BTreeMap<String, u64>,
+    /// Default quarantine review deadline in days, applied when a record enters
+    /// quarantine without an explicit deadline (ADR-046 §D5d, SCH-05). `0`
+    /// disables the automatic deadline. Never promotes by itself (I1).
+    /// Configured via `VANTADB_QUARANTINE_REVIEW_DEFAULT_DAYS` (default: 30).
+    pub quarantine_review_default_days: u32,
+    /// Selective-abstention threshold (ADR-046 §D2, SCH-05): when set (finite,
+    /// within `[0,1]`), search results below the threshold are dropped and an
+    /// empty result set carries an explicit `abstained` signal instead of
+    /// silently degrading. `None` (default) = OFF. Distinct from the
+    /// per-request `min_confidence` filter (which never emits the signal).
+    /// Configured via `VANTADB_CONFIDENCE_THRESHOLD`.
+    ///
+    /// SCH-07 (Task 32) propagation: the `abstained` signal travels on the SDK
+    /// wire (`MemorySearchPage`), the single-namespace HTTP `SearchPageV2` and
+    /// the MCP search envelope (`structuredContent`). The array-shaped binding
+    /// APIs (Py/TS/Node/WASM) have no page to carry it — declared in
+    /// `docs/api/BINDINGS_NAMESPACES.md`.
+    pub confidence_threshold: Option<f32>,
+    /// Interval in ms for the background TTL sweeper, which physically purges
+    /// expired memory records (nodes + derived/text indexes) on the server:
+    /// same purge as `DELETE /api/v2/maintenance/expired-records`, run
+    /// periodically. `0` disables the sweeper. Default: 60000 (1 minute).
+    /// Configured via `VANTADB_TTL_SWEEP_INTERVAL_MS`.
+    pub ttl_sweep_interval_ms: u64,
     /// Bulk import commit interval — number of records per batch commit (default: 10000).
     /// Configured via `VANTADB_BULK_COMMIT_INTERVAL`.
     pub bulk_commit_interval: Option<usize>,
@@ -1133,6 +1234,24 @@ impl Default for Config {
                 debug!(val = ?v, "VANTADB_BATCH_SIZE");
                 v
             },
+            insert_batch: {
+                let d = InsertBatchConfig::default();
+                let v = InsertBatchConfig {
+                    enabled: parse_env_or("VANTADB_INSERT_BATCH_ENABLED", d.enabled),
+                    max_batch_records: parse_env_or(
+                        "VANTADB_INSERT_BATCH_MAX_RECORDS",
+                        d.max_batch_records,
+                    ),
+                    max_wait_ms: parse_env_or("VANTADB_INSERT_BATCH_WAIT_MS", d.max_wait_ms),
+                    max_queued_records: parse_env_or(
+                        "VANTADB_INSERT_BATCH_QUEUE",
+                        d.max_queued_records,
+                    ),
+                }
+                .sanitized();
+                debug!(?v, "VANTADB_INSERT_BATCH_*");
+                v
+            },
             version_history_limit: {
                 // `VANTADB_VERSION_HISTORY_LIMIT=0` disables the cap entirely.
                 let v = parse_env_or::<u32>("VANTADB_VERSION_HISTORY_LIMIT", 32)
@@ -1140,6 +1259,59 @@ impl Default for Config {
                     .ok()
                     .filter(|&n: &usize| n > 0);
                 debug!(val = ?v, "VANTADB_VERSION_HISTORY_LIMIT");
+                v
+            },
+            memory_default_ttl_ms: {
+                // Comma-separated `namespace:ms` pairs; malformed entries are
+                // skipped with a warning (config is a trust boundary).
+                let raw = env::var("VANTADB_MEMORY_DEFAULT_TTL_MS").unwrap_or_default();
+                let mut map = BTreeMap::new();
+                for pair in raw.split(',').map(str::trim).filter(|s| !s.is_empty()) {
+                    match pair.split_once(':') {
+                        Some((ns, ms)) if !ns.trim().is_empty() => match ms.trim().parse::<u64>() {
+                            Ok(ttl) => {
+                                map.insert(ns.trim().to_string(), ttl);
+                            }
+                            Err(e) => warn!(
+                                "Invalid VANTADB_MEMORY_DEFAULT_TTL_MS entry {pair:?} ({e}) — skipping"
+                            ),
+                        },
+                        _ => warn!(
+                            "Invalid VANTADB_MEMORY_DEFAULT_TTL_MS entry {pair:?} — expected `namespace:ms`; skipping"
+                        ),
+                    }
+                }
+                debug!(count = map.len(), "VANTADB_MEMORY_DEFAULT_TTL_MS");
+                map
+            },
+            quarantine_review_default_days: {
+                let v = parse_env_or("VANTADB_QUARANTINE_REVIEW_DEFAULT_DAYS", 30u32);
+                debug!(val = v, "VANTADB_QUARANTINE_REVIEW_DEFAULT_DAYS");
+                v
+            },
+            confidence_threshold: {
+                let raw = env::var("VANTADB_CONFIDENCE_THRESHOLD").ok();
+                let v = raw.as_deref().and_then(|s| match s.trim().parse::<f32>() {
+                    Ok(t) if t.is_finite() && (0.0..=1.0).contains(&t) => Some(t),
+                    Ok(t) => {
+                        warn!(
+                            "Invalid VANTADB_CONFIDENCE_THRESHOLD={t} — expected a value in [0,1]; ignoring"
+                        );
+                        None
+                    }
+                    Err(e) => {
+                        warn!(
+                            "Invalid VANTADB_CONFIDENCE_THRESHOLD={s:?} ({e}) — ignoring"
+                        );
+                        None
+                    }
+                });
+                debug!(?v, "VANTADB_CONFIDENCE_THRESHOLD");
+                v
+            },
+            ttl_sweep_interval_ms: {
+                let v = parse_env_or("VANTADB_TTL_SWEEP_INTERVAL_MS", 60_000u64);
+                debug!(val = v, "VANTADB_TTL_SWEEP_INTERVAL_MS");
                 v
             },
             bulk_commit_interval: {
@@ -1420,6 +1592,14 @@ impl Config {
     /// Sets the batch size for batch ingestion operations.
     pub fn with_batch_size(mut self, size: usize) -> Self {
         self.batch_size = Some(size);
+        self
+    }
+
+    /// Sets opt-in group-commit batching for the async ingestion pipeline.
+    ///
+    /// Zero-valued bounds degrade to defaults (see [`InsertBatchConfig`]).
+    pub fn with_insert_batching(mut self, config: InsertBatchConfig) -> Self {
+        self.insert_batch = config.sanitized();
         self
     }
 
@@ -1820,6 +2000,8 @@ mod tests {
         assert_eq!(cfg.insert_lock_timeout_ms, 5000);
         assert_eq!(cfg.file_lock_timeout_ms, 1000);
         assert_eq!(cfg.flat_threshold, Some(10000));
+        assert_eq!(cfg.quarantine_review_default_days, 30, "D5d default");
+        assert_eq!(cfg.confidence_threshold, None, "abstention default OFF");
         assert_eq!(cfg.audit_log_path, None);
         assert_eq!(cfg.audit_max_bytes, 10 * 1024 * 1024);
         assert_eq!(cfg.audit_max_files, 5);
@@ -2078,6 +2260,49 @@ mod tests {
         assert_eq!(cfg_default.wal_buffer_size, cfg_from_env.wal_buffer_size);
         assert_eq!(cfg_default.flush_threshold, cfg_from_env.flush_threshold);
         assert_eq!(cfg_default.flat_threshold, cfg_from_env.flat_threshold);
+    }
+
+    // ── InsertBatchConfig (WIRE-06) ────────────────────────────
+
+    #[test]
+    fn test_insert_batch_default_is_disabled_and_bounded() {
+        let cfg = InsertBatchConfig::default();
+        assert!(!cfg.enabled, "batching must be opt-in");
+        assert_eq!(cfg.max_batch_records, 32);
+        assert_eq!(cfg.max_wait_ms, 1);
+        assert_eq!(cfg.max_queued_records, 1024);
+    }
+
+    #[test]
+    fn test_insert_batch_sanitized_restores_zero_bounds() {
+        let cfg = InsertBatchConfig {
+            enabled: true,
+            max_batch_records: 0,
+            max_wait_ms: 0,
+            max_queued_records: 0,
+        }
+        .sanitized();
+        assert_eq!(cfg.max_batch_records, 32, "zero batch size degrades");
+        assert_eq!(cfg.max_queued_records, 1024, "zero queue capacity degrades");
+        assert_eq!(cfg.max_wait_ms, 0, "zero wait is valid (no gather window)");
+        assert!(cfg.enabled, "sanitized must not flip the switch");
+    }
+
+    #[test]
+    fn test_with_insert_batching_roundtrip() {
+        let wanted = InsertBatchConfig {
+            enabled: true,
+            max_batch_records: 64,
+            max_wait_ms: 5,
+            max_queued_records: 256,
+        };
+        let cfg = Config::default().with_insert_batching(wanted);
+        assert_eq!(cfg.insert_batch, wanted);
+        assert_eq!(
+            Config::default().insert_batch,
+            InsertBatchConfig::default(),
+            "default config must not enable batching"
+        );
     }
 
     // ── Builder chaining ───────────────────────────────────────

@@ -171,6 +171,7 @@ pub fn write_scene_block(
         vector: None,
         sparse_vector: None,
         ttl_ms: None,
+        ..Default::default()
     })?;
     Ok(())
 }

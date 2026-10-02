@@ -1,10 +1,9 @@
 ---
-title: "Avance — Core Engine"
-type: domain-log
+title: Avance — Core Engine
+kind: review
 status: active
+description: "slen‖ns‖keylen‖key‖ver BE) + hooks put/putbatch/delete/purgeexpired + VantaConfig.versionhistorylimit (cap 32 FIFO aprobado, snapshot del record nuevo, import sin snapshots). API getversion/ ersions. Commits e0812a4/6997e59. Doble..."
 tags: [vantadb, avance, core, engine, storage, wal, hnsw, acid]
-last_reviewed: 2026-08-07
-aliases: []
 ---
 
 # Avance — Core Engine
@@ -153,7 +152,7 @@ aliases: []
 
 ### P2-7: Serialización zero-copy del sparse vector (formato persistido)
 - **Fecha:** 2026-08-12
-- **Resultado:** ✅ ADR-019: sparse se persiste como `FieldValue::ListFloat(Vec<f64>)` con pares intercalados `[dim, val]` (lossless u32→f64/f32→f64, orden determinista por BTreeMap) en vez de `FieldValue::String(serde_json)` bajo `SPARSE_VECTOR_EXT_KEY`. Write path `sparse_vector_to_field` sin serde_json (elimina ~1.49% del hot-path de búsqueda); read path dual: `ListFloat` decode directo + `String` legacy para compat backward; faltante → `None` (PERF-07); corrupto → warn + `None`. `VantaMemoryRecord.sparse_vector` público intacto. Sin migración one-shot (lazy en próximo put); shim legacy hasta gate de versionado de storage. 1885/1885 tests + clippy `-D warnings` + fmt --check ✅. Review P2-01 APPROVE. Commit `2f1a94e1`.
+- **Resultado:** ✅ ADR-0019: sparse se persiste como `FieldValue::ListFloat(Vec<f64>)` con pares intercalados `[dim, val]` (lossless u32→f64/f32→f64, orden determinista por BTreeMap) en vez de `FieldValue::String(serde_json)` bajo `SPARSE_VECTOR_EXT_KEY`. Write path `sparse_vector_to_field` sin serde_json (elimina ~1.49% del hot-path de búsqueda); read path dual: `ListFloat` decode directo + `String` legacy para compat backward; faltante → `None` (PERF-07); corrupto → warn + `None`. `VantaMemoryRecord.sparse_vector` público intacto. Sin migración one-shot (lazy en próximo put); shim legacy hasta gate de versionado de storage. 1885/1885 tests + clippy `-D warnings` + fmt --check ✅. Review P2-01 APPROVE. Commit `2f1a94e1`.
 
 ### REVIEW-05: Split god files serialize.rs + distance.rs + physical_plan.rs
 - **Fecha:** 2026-08-12
@@ -243,7 +242,7 @@ aliases: []
 | ERR-031 | `VecIndex::add` traga rechazos (solo warn) → trait retorna `Result<()>`, 5 impls propagan rechazos (non-full DiskAnn/Scann, read-only IVF, zero-norm CPIndex); fix `339107b0` + colateral clippy `918e57b1`; 3 tests rechazo `f585e423` | ✅ 2026-08-12 |
 | PERF-02 | Baseline riguroso criterion determinista + critcmp regression gate (nightly); dataset sintético persistido | ✅ 2026-08-12 |
 | PERF-03 | Bench competitivo honesto SDKs (Qdrant/Chroma/Lance/Milvus) en mismo HW; tabla en `docs/user/benchmarks/COMPETITIVE_SDK_BENCH.md` (VantaDB pierde recall, gana QPS) | ✅ 2026-08-12 |
-| PERF-05 | WAL async roadmap (ADR `DRV-015-wal-async-roadmap.md`): io_uring/aio + fsync group commit post-DRV-014 | ✅ 2026-08-12 |
+| PERF-05 | WAL async roadmap (ADR `ADR-0052-wal-async-roadmap.md`): io_uring/aio + fsync group commit post-DRV-014 | ✅ 2026-08-12 |
 | PERF-08 | WASM hot path: `Float32Array` zero-copy para vectores en `memory_record_to_js` (cierra P2-7) | ✅ 2026-08-12 |
 
 > Nota de **R6** (bitacora): algunos PERF de esta lista se evaluaron como premature en `VantaDB_ANALISIS_COMPLETO.md` Sección 3.1, pero quedaron implementados en las waves de julio. Ver `decisiones/wontfix.md`.
@@ -292,8 +291,8 @@ aliases: []
 ### REV-004: Fix de rlib de tantivy en vantadb-openai
 - **Fecha:** 2026-07-14
 - **Resultado:** ✅ `"rlib"` al `crate-type` de `vantadb-openai/Cargo.toml` (los binarios de test necesitan rlib para linkear).
-### ERR-032 (storage test), ERR-047 (search Cow), ERR-048 (search visited), ERR-008 (vfile copy_unsafe obsoleto), ERR-049 (ivf bench) — migrados 2026-08-12 (ver docs/progreso/README.md)
-### COV-003 (CLI subcommand tests migrate/server/crud, +7 tests, cli_handlers ~0%→~76.5%) — migrado 2026-08-12 (ver docs/progreso/README.md)
+- ERR-032 (storage test), ERR-047 (search Cow), ERR-048 (search visited), ERR-008 (vfile copy_unsafe obsoleto), ERR-049 (ivf bench) — migrados 2026-08-12 (ver docs/progreso/README.md)
+- COV-003 (CLI subcommand tests migrate/server/crud, +7 tests, cli_handlers ~0%→~76.5%) — migrado 2026-08-12 (ver docs/progreso/README.md)
 
 ### AUD-025: BM25 zero-alloc hot path (per-posting allocations) — migrado 2026-08-14 (ver docs/progreso/README.md)
 - **Resultado:** ✅ `src/text_index.rs:565` `posting_record_key` → `&str` zero-alloc (`strip_prefix` + `from_utf8`); `src/sdk/search/phrase.rs` matcher genericizado (`K: AsRef<str> + Ord`, helper `find_positions`); `src/sdk/search/mod.rs:383-448` hot path sin `token.clone()`/`String::from`/`format!` por posting, `doc_stats_cache` keyed por `u128 node_id` con guard de mismatch. `cargo check -p vantadb` ✅, clippy ✅, fmt ✅, 104 tests (13 phrase + 91 search) ✅. Commit `96b258ba`.
@@ -311,7 +310,7 @@ aliases: []
 - **Resultado:** ✅ fix deadlocks evicción multi-índice (lock no reentrante + write guard, `c104f1f2`) + regla en `.opencode/rules/concurrency-async.md` + audit P2-01 approve; follow-up lock order `93a1e311`. Follow-ups menores 2/3 delegados a core-engine.
 
 ### FND-08: Regla de backend validado contra patrón de acceso real + auditoría de compactación — migrado 2026-08-16 (ver docs/progreso/README.md)
-- **Resultado:** ✅ ADR-023 (backend compaction — diferir marginal, bench de lectura) + regla en `.opencode/rules/durability.md`. Commit `e5e76684`.
+- **Resultado:** ✅ ADR-0023 (backend compaction — diferir marginal, bench de lectura) + regla en `.opencode/rules/durability.md`. Commit `e5e76684`.
 
 ### VS-CORE-07: Retención de versiones históricas (D2 completo)
 - **Fecha:** 2026-08-18
@@ -395,19 +394,19 @@ s_len‖ns‖key_len‖key‖ver BE) + hooks put/put_batch/delete/purge_expired 
 ### FIND-44: ADRs iniciales — verificación idempotente (2026-08-28)
 - **Fecha:** 2026-08-28
 - **Objetivo:** Verificar que el proyecto tiene ADRs registrados (contrato: count >= 1 con headers Context/Decision/Consequences)
-- **Resultado:** ✅ 39 ADRs encontrados en `docs/dev/architecture/adr/` (001..013, ADR-0001, ADR-014..032, COMP-*, DRV-*). ADR-001 (`001_unified_config_readonly.md`) tiene Context/Decision/Consequences ✅. CodeGraph reporte Fase 12 ("Sin ADRs registrados") era stale — ADRs existen desde 2026-08-23.
+- **Resultado:** ✅ 39 ADRs encontrados en `docs/dev/architecture/adr/` (001..013, ADR-0001, ADR-0014..032, COMP-*, DRV-*). ADR-0001 (`ADR-0001-unified-config-readonly.md`) tiene Context/Decision/Consequences ✅. CodeGraph reporte Fase 12 ("Sin ADRs registrados") era stale — ADRs existen desde 2026-08-23.
 - **Commit:** `docs: FIND-44 — verify ADRs exist, contract satisfied` (pendiente)
 
 ### CORE-01: Persistencia on-disk de vectores Binary/Turbo/SQ8 en vstore (2026-08-29)
 - **Fecha:** 2026-08-29 (sincronización por vanta-worker; implementación commiteada 2026-08-28 por vanta-arch)
 - **Plan:** `docs/dev/plans/2026-08-29-full-backlog-parallel.md` Task W4-SOLO (CORE-01, SOLO, 🟡 1-2d, max 2d)
 - **Objetivo:** Cerrar el durability gap de `Binary`/`Turbo`/`SQ8` en `write_node_to_vstore` (que escribía `vector_len=0` y cero bytes de payload). Tras `flush + reopen` con HNSW rebuild, los vectores cuantizados se perdían.
-- **Resultado:** ✅ Implementación commiteada (d3e7f9cf + 854d9145). ADR-032 creado con tabla de 5 kinds (NONE/FULL/BINARY/TURBO/SQ8) + payload spec + reader dual legacy kind==0 + lazy migration; `NodeFlags::VECTOR_KIND_*` constants en bits 10-13 de `flags` (mask `0x3C00`, shift 10); `VFILE_VERSION` permanece en 2; tests pasan (`test_rebuild_binary_vector`, `test_persistence_binary_vector_roundtrip_vstore`); 93 tests binary|persistence|vstore|rebuild todos verdes.
-- **Archivos:** `src/storage/ops.rs` (write_node_to_vstore reescrito, dispatch 6 variantes, SQ8 scale tail 4B), `src/node/flags.rs` (VECTOR_KIND_* constants), `src/storage/archive.rs` (compact_layout + rebuild_hnsw_from_vstore despachan por kind), `src/storage/engine/get.rs` + `engine/txn.rs` (decode kind + rescue HNSW legacy), `src/index/search/layer.rs` (vstore branch despacha rabitq/turbo/sq8 similarity), `src/node/disk.rs` (doc `vector_len` reinterpret), `docs/dev/architecture/adr/ADR-032-binary-vector-persistence.md` (nuevo, status `accepted-pending-owner-review`).
-- **Contrato:** ADR-032 existe ✅ + `cargo nextest run -p vantadb --profile audit -E 'test(/binary|persistence|vstore|rebuild/)'` → 93/93 passed ✅ + `cargo fmt --check` 0 ✅ + `cargo clippy -p vantadb --all-targets -- -D warnings` 0 ✅ + `cargo test -p vantadb --lib storage::archive::tests::test_rebuild_binary_vector` 1/1 ok ✅ + `cargo test -p vantadb --lib --features fjall storage::engine::tests::init::test_persistence_binary_vector_roundtrip_vstore` 1/1 ok ✅.
-- **Gates:** P: no-disparado (spec-first ADR-032 antes de implementar) · D: no-disparado (no symbols públicos nuevos, blast radius 6 archivos core, sin API pública SDK nueva) · V: no-disparado (verify completo 1º intento) · C: no-disparado (lectura dual legacy mantiene compat, VFILE_VERSION sin bump).
+- **Resultado:** ✅ Implementación commiteada (d3e7f9cf + 854d9145). ADR-0032 creado con tabla de 5 kinds (NONE/FULL/BINARY/TURBO/SQ8) + payload spec + reader dual legacy kind==0 + lazy migration; `NodeFlags::VECTOR_KIND_*` constants en bits 10-13 de `flags` (mask `0x3C00`, shift 10); `VFILE_VERSION` permanece en 2; tests pasan (`test_rebuild_binary_vector`, `test_persistence_binary_vector_roundtrip_vstore`); 93 tests binary|persistence|vstore|rebuild todos verdes.
+- **Archivos:** `src/storage/ops.rs` (write_node_to_vstore reescrito, dispatch 6 variantes, SQ8 scale tail 4B), `src/node/flags.rs` (VECTOR_KIND_* constants), `src/storage/archive.rs` (compact_layout + rebuild_hnsw_from_vstore despachan por kind), `src/storage/engine/get.rs` + `engine/txn.rs` (decode kind + rescue HNSW legacy), `src/index/search/layer.rs` (vstore branch despacha rabitq/turbo/sq8 similarity), `src/node/disk.rs` (doc `vector_len` reinterpret), `docs/dev/architecture/adr/ADR-0032-binary-vector-persistence.md` (nuevo, status `accepted-pending-owner-review`).
+- **Contrato:** ADR-0032 existe ✅ + `cargo nextest run -p vantadb --profile audit -E 'test(/binary|persistence|vstore|rebuild/)'` → 93/93 passed ✅ + `cargo fmt --check` 0 ✅ + `cargo clippy -p vantadb --all-targets -- -D warnings` 0 ✅ + `cargo test -p vantadb --lib storage::archive::tests::test_rebuild_binary_vector` 1/1 ok ✅ + `cargo test -p vantadb --lib --features fjall storage::engine::tests::init::test_persistence_binary_vector_roundtrip_vstore` 1/1 ok ✅.
+- **Gates:** P: no-disparado (spec-first ADR-0032 antes de implementar) · D: no-disparado (no symbols públicos nuevos, blast radius 6 archivos core, sin API pública SDK nueva) · V: no-disparado (verify completo 1º intento) · C: no-disparado (lectura dual legacy mantiene compat, VFILE_VERSION sin bump).
 - **Skills:** campaign-executor, progreso, ponytail, documentation-and-adrs, source-driven-development, api-and-interface-design, database-design, spec-driven-development, incremental-implementation, test-driven-development.
-- **Notes:** Ponytail rung 1: ¿necesita existir nuevo campo header? No — reusar 4 bits libres en flags es 1 línea vs ampliar header 64→72. ADR-032 escrito por IA con status `accepted`; tras Regla 5 (AGENTS.md) el owner humano debe articular el trade-off (bits vs header-bump vs migración one-shot) — marcada como `accepted-pending-owner-review` con nota crítica. Plan file `2026-08-29-full-backlog-parallel.md` tenía el estado `⬜ PENDING` con contrato PowerShell obsoleto (`Binary.*vector_len|DiskNodeHeader.*format_flag`) que no matchea el código real (usa constantes `NodeFlags::VECTOR_KIND_*`); sincronizado a `✅ COMPLETED` con contrato real validado. Riesgo: legacy Binary `kind==0, len=0` permanece irrecuperable por rebuild hasta reescritura lazy; documentado en ADR-032 §5 y Risk Register.
+- **Notes:** Ponytail rung 1: ¿necesita existir nuevo campo header? No — reusar 4 bits libres en flags es 1 línea vs ampliar header 64→72. ADR-0032 escrito por IA con status `accepted`; tras Regla 5 (AGENTS.md) el owner humano debe articular el trade-off (bits vs header-bump vs migración one-shot) — marcada como `accepted-pending-owner-review` con nota crítica. Plan file `2026-08-29-full-backlog-parallel.md` tenía el estado `⬜ PENDING` con contrato PowerShell obsoleto (`Binary.*vector_len|DiskNodeHeader.*format_flag`) que no matchea el código real (usa constantes `NodeFlags::VECTOR_KIND_*`); sincronizado a `✅ COMPLETED` con contrato real validado. Riesgo: legacy Binary `kind==0, len=0` permanece irrecuperable por rebuild hasta reescritura lazy; documentado en ADR-0032 §5 y Risk Register.
 - **Stop conditions (no se aplicaron):** >2d → docs-only ADR + encoding fix mínimo + tests reopen roundtrip. No fue necesario.
 
 ### FIND-36: Cross-crate NativeConnection ↔ RocksDbBackend — frontera documentada, falso positivo Leiden (2026-08-27)
@@ -546,22 +545,22 @@ s_len‖ns‖key_len‖key‖ver BE) + hooks put/put_batch/delete/purge_expired 
 
 ### FIND-59 (core-arch): granularidad `insert_lock` — DISCOVERY con decisión (d), 0 código
 - **Fecha:** 2026-09-04 · **Ruta:** vanta-arch · **Objetivo:** análisis/DISCOVERY de la mitad insert_lock del techo de ingesta (§13: 111.5 ops/s, −43% con w=4): localizar locks globales, listar invariantes, evaluar (a) sharding por namespace/región, (b) RCU write-path, (c) batching bajo un lock, (d) no hacer nada — con riesgos R1/R2 + Regla 8 + durabilidad + WASM. Discovery: holders = insert/batch_insert/delete/delete_batch/flush/flush_pending_hnsw/refresh/consolidate/rebuild/compact/quantization (`mod.rs:318`, `acquire_insert_lock` L581-594 con degradación wasm); lectores (`get`/search) y recovery NUNCA lo toman (RCU `ArcSwap` + `DashMap`); invariantes = ERR-010 WAL-vs-index ordering, atomicidad topología HNSW (`CPIndex::add` multi-paso sobre `entry_point: AtomicU128` + aristas bidireccionales, `graph.rs:595-808`), drain atómico del batch, protocolo delete↔consolidate FND-02-M3, escritura `checkpoint_seq`; el core NO tiene `namespace` (vive en SDK/memory layer) → (a) exigiría clave id-hash sin boundary natural y mantiene serial la sección dominante (HNSW add + fsync al mismo disco); `commit_transaction` (`txn.rs:119-213`) corre WAL batch + apply SIN el lock — hueco ERR-010 colateral no verificado, plegado al spike. Matriz: (a)/(b) ~0 ganancia con riesgo alto/muy alto → rechazadas; (c) ya existe en engine (`batch_insert_with_opts` bajo UN guard) y su ganancia real es amortizar fsyncs = mitad FUT-12 (ensancha ventana de pérdida → requiere su decisión de durabilidad) → diferida; **decisión (d)** — el lock es load-bearing, ningún cambio de granularidad supera el gate >2× sin tocar política de durabilidad. Desglose fsync-vs-lock NO cuantificable sin medir (declarado) → spike follow-up FIND-61 (≤1d, bench/config, 0 prod: Always vs Never vs micro-batch N={8,16,32} + verificación ERR-010 de commit path; gate ≥2× + FUT-12 para abrir slice). Sin empate (no hay silencio: (c) es follow-up condicionado, no alternativa empatada).
-- **Resultado:** ✅ contrato — ADR `docs/dev/architecture/adr/ADR-037-insert-lock-granularity.md` (invariantes + matriz + recomendación (d) + contract assessment) + fila FIND-59 ELIMINADA de Backlog + fila FIND-61 creada + nota §13 + `cargo fmt` N/A (0 código) + markdownlint 0 en docs tocados + `git status` sin `src/`. NO toca stash@{0}; NO stagea completions/Cargo.lock/.opencode.
-- **Archivos:** docs/dev/architecture/adr/ADR-037-insert-lock-granularity.md (nuevo), docs/dev/Backlog.md (FIND-59 eliminada + FIND-61), docs/user/operations/BENCHMARKS.md (§13 nota), docs/dev/avance/activo/core-engine.md (esta entrada). Task file: `.opencode/skills/campaign-executor/tasks/FIND-59.md` (DISCOVERY, sin stagear).
+- **Resultado:** ✅ contrato — ADR `docs/dev/architecture/adr/ADR-0037-insert-lock-granularity.md` (invariantes + matriz + recomendación (d) + contract assessment) + fila FIND-59 ELIMINADA de Backlog + fila FIND-61 creada + nota §13 + `cargo fmt` N/A (0 código) + markdownlint 0 en docs tocados + `git status` sin `src/`. NO toca stash@{0}; NO stagea completions/Cargo.lock/.opencode.
+- **Archivos:** docs/dev/architecture/adr/ADR-0037-insert-lock-granularity.md (nuevo), docs/dev/Backlog.md (FIND-59 eliminada + FIND-61), docs/user/operations/BENCHMARKS.md (§13 nota), docs/dev/avance/activo/core-engine.md (esta entrada). Task file: `.opencode/skills/campaign-executor/tasks/FIND-59.md` (DISCOVERY, sin stagear).
 
 ### FIND-61 (tuner): spike medición insert_lock vs fsync — CERRAR con números, 0 código prod
-- **Fecha:** 2026-09-04 · **Ruta:** vanta-tuner · **Objetivo:** producir el desglose lock-vs-fsync por-op que FIND-59/ADR-037 declaró no-cuantificable sin medir: Always (revalidar §13) vs Never* (solo lock+HNSW) + prototype micro-batching bench-only N={8,16,32} (ops/s + p50-ack + ventana de pérdida) + verificación ERR-010 de `commit_transaction` (`txn.rs:119-213`). Gate: abrir slice SOLO si batch ≥2× Y FUT-12 decidió ventana de pérdida.
-- **Discovery:** harness `benches/ingestion_concurrent.rs` + §13 + ADR-037 leídos primero; hallazgo crítico pre-bench: `SyncMode::Never` NO tiene rama en `WalWriter::maybe_sync` (`src/wal.rs:376-389`, `rg Never src/` = definición+parsing, 0 branches) → con threshold None fsyncea igual que Periodic; el A/B solo aísla con `Never + flush_threshold=Some(1M)` bench-only (`Never*`, documentado en §13.1, no fix por contrato PROHIBIDO `src/`). `batch_insert_with_opts` bajo UN guard ERR-010 (`insert.rs:750`) vs `commit_transaction` SIN lock (solo `try_push` oportunista). Fjall per-op sin `backend.flush` → el A/B aísla WAL-fsync limpio.
-- **Medición** (`benches/ingestion_concurrent.rs` grupos bench-only `find61_sync`/`find61_batch`, BATCH=400 DIM=16 fjall tempdir Win11 i5-1235U rustc 1.95.0 perfil bench, criterion sample 10, ×2 corridas + mediana, HEAD `7a0811cb`): Always p1/w1 **96.5** (97/96) vs Never* p1/w1 **98.0** (103/93) → **`t_fsync ≈ 0.16 ms (~1.5% de ~10.3 ms/op)`** — fsync medible pero NO dominante (revisa el "fsync-dominado" acotado de ADR-037 con evidencia; decisión (d) intacta). Never* p1/w4 **61.5** (−37% vs Never* p1/w1): el convoy persiste SIN fsync → el término dominante es lock+HNSW. Batch (Periodic-1, `skip_wal=false`): N=8 **433 ops/s / 18.6 ms / 8 writes (3.9×)**, N=16 **713 / 22.2 ms / 16 (6.4×)**, N=32 **1016 / 31.6 ms / 32 (9.1×)** — amortiza lock-takes + batch_append + HNSW bulk a la vez.
+- **Fecha:** 2026-09-04 · **Ruta:** vanta-tuner · **Objetivo:** producir el desglose lock-vs-fsync por-op que FIND-59/ADR-0037 declaró no-cuantificable sin medir: Always (revalidar §13) vs Never* (solo lock+HNSW) + prototype micro-batching bench-only N={8,16,32} (ops/s + p50-ack + ventana de pérdida) + verificación ERR-010 de `commit_transaction` (`txn.rs:119-213`). Gate: abrir slice SOLO si batch ≥2× Y FUT-12 decidió ventana de pérdida.
+- **Discovery:** harness `benches/ingestion_concurrent.rs` + §13 + ADR-0037 leídos primero; hallazgo crítico pre-bench: `SyncMode::Never` NO tiene rama en `WalWriter::maybe_sync` (`src/wal.rs:376-389`, `rg Never src/` = definición+parsing, 0 branches) → con threshold None fsyncea igual que Periodic; el A/B solo aísla con `Never + flush_threshold=Some(1M)` bench-only (`Never*`, documentado en §13.1, no fix por contrato PROHIBIDO `src/`). `batch_insert_with_opts` bajo UN guard ERR-010 (`insert.rs:750`) vs `commit_transaction` SIN lock (solo `try_push` oportunista). Fjall per-op sin `backend.flush` → el A/B aísla WAL-fsync limpio.
+- **Medición** (`benches/ingestion_concurrent.rs` grupos bench-only `find61_sync`/`find61_batch`, BATCH=400 DIM=16 fjall tempdir Win11 i5-1235U rustc 1.95.0 perfil bench, criterion sample 10, ×2 corridas + mediana, HEAD `7a0811cb`): Always p1/w1 **96.5** (97/96) vs Never* p1/w1 **98.0** (103/93) → **`t_fsync ≈ 0.16 ms (~1.5% de ~10.3 ms/op)`** — fsync medible pero NO dominante (revisa el "fsync-dominado" acotado de ADR-0037 con evidencia; decisión (d) intacta). Never* p1/w4 **61.5** (−37% vs Never* p1/w1): el convoy persiste SIN fsync → el término dominante es lock+HNSW. Batch (Periodic-1, `skip_wal=false`): N=8 **433 ops/s / 18.6 ms / 8 writes (3.9×)**, N=16 **713 / 22.2 ms / 16 (6.4×)**, N=32 **1016 / 31.6 ms / 32 (9.1×)** — amortiza lock-takes + batch_append + HNSW bulk a la vez.
 - **ERR-010:** `commit_transaction` **VIOLA** (WAL durable contado por `flush()` antes de que su mutación HNSW drene → invisible record posible con `flush()` concurrente; escenario en §13.1); el prototype **RESPETA** (usa `batch_insert` con lock). Fix = `src/` prod con tradeoff → fuera del spike, colateral para el lead (candidato a FIND nueva, no creada por contrato).
 - **Resultado:** ✅ contrato — gate ① CUMPLE (hasta 9.1×) pero gate ② NO (FUT-12 P24 ❌ Sin implementar) → **decisión CERRAR con números, NO abrir slice**; bench queda como infra A/B para FUT-12. BENCHMARKS §13.1 (scorecard medido + Tablas 1-2 + desglose + gate explícito) + fila FIND-61 ELIMINADA del Backlog con motivo + `cargo test -p vantadb --bench ingestion_concurrent --features async-ingestion` 0 failed (harness compila y corre; test lib `ingestion` 1/1) + clippy/fmt bench-scope 0 (0 `src/`, N/A con rationale) + markdownlint 0 en docs. NO toca stash@{0}; NO stagea completions/Cargo.lock/.opencode.
 - **Archivos:** benches/ingestion_concurrent.rs (grupos bench-only + imports, ~150L añadidas), docs/user/operations/BENCHMARKS.md (§13.1 spike), docs/dev/Backlog.md (FIND-61 eliminada), docs/dev/avance/activo/core-engine.md (esta entrada). Task file: `.opencode/skills/campaign-executor/tasks/FIND-61.md`.
 
-### FIND-63 (worker): rama explicita SyncMode::Never - Resultado: match exhaustivo Always|Never|Periodic + test RED->GREEN; suite wal 63/63; fmt/clippy limpios. Commit a7285969 (2026-09-05).
+- FIND-63 (worker): rama explicita SyncMode::Never - Resultado: match exhaustivo Always|Never|Periodic + test RED->GREEN; suite wal 63/63; fmt/clippy limpios. Commit a7285969 (2026-09-05).
 
-### FIND-62 (worker): commit_transaction bajo insert_lock - Resultado: guard en [WAL batch -> apply -> drain -> Commit] + test commit_flush_interleaving verde; suite storage 380/380, lib 1985/1985; sin deadlock (pre-mortem: unico caller productivo sin guard). Commit 19a9651c (2026-09-05).
+- FIND-62 (worker): commit_transaction bajo insert_lock - Resultado: guard en [WAL batch -> apply -> drain -> Commit] + test commit_flush_interleaving verde; suite storage 380/380, lib 1985/1985; sin deadlock (pre-mortem: unico caller productivo sin guard). Commit 19a9651c (2026-09-05).
 
-### MCP-34b (worker): tool snapshot_restore verificado sin codigo - Resultado: stop-condition S1+S2-S4 ya en HEAD via 4d964ac3 (FIND-25: flush en create_snapshot) + 29d21cba (snapshot_restore + validate + failpoint + dispatch MCP con confirm:true); tests E2E verdes: snapshot_certification 21/21 + failpoint 1/1 + mcp_tests snapshot_restore/tools-list/create 3/3; fmt/clippy limpios. Sin commit nuevo (2026-09-06).
+- MCP-34b (worker): tool snapshot_restore verificado sin codigo - Resultado: stop-condition S1+S2-S4 ya en HEAD via 4d964ac3 (FIND-25: flush en create_snapshot) + 29d21cba (snapshot_restore + validate + failpoint + dispatch MCP con confirm:true); tests E2E verdes: snapshot_certification 21/21 + failpoint 1/1 + mcp_tests snapshot_restore/tools-list/create 3/3; fmt/clippy limpios. Sin commit nuevo (2026-09-06).
 
 ### FIND-60: rustdoc 47→0 warnings (plan 2026-09-07-backlog-triage Wave0)
 - **Fecha:** 2026-09-07
@@ -666,14 +665,14 @@ s_len‖ns‖key_len‖key‖ver BE) + hooks put/put_batch/delete/purge_expired 
 
 ### F3X: trait-split storage-index con hoja neutral (Fase 3 Wave 1)
 - **Fecha:** 2026-09-14
-- **Objetivo:** romper ciclo storage-index (8 aristas) con hoja src/index_port.rs + traits sellados + 6 firmas pub a traits (major ADR-042); review hallo H1 real (niveles HNSW) corregido con test RED-GREEN.
+- **Objetivo:** romper ciclo storage-index (8 aristas) con hoja src/index_port.rs + traits sellados + 6 firmas pub a traits (major ADR-0042); review hallo H1 real (niveles HNSW) corregido con test RED-GREEN.
 - **Resultado:** check/clippy/fmt + nextest 783/783 + semver rojo esperado.
 - **Commit:** 13f0f729 (diseno 0afa8181)
 ### F3C: S-split-config B+B con RbacCfg propio (Fase 3 Wave 2)
 - **Fecha:** 2026-09-14
 - **Objetivo:** 6 dominios + fachada plana (vistas From, 108 sitios intactos) + 7 vars a VANTADB_* breaking; Q1=B/Q2=FIND-89/Q3=A.
 - **Resultado:** check/clippy/fmt + config 57/57 + 0 legacy.
-- **Commit:** d75459fe (feat!:+BREAKING CHANGE; ADR-043 datos, firma humana pendiente)
+- **Commit:** d75459fe (feat!:+BREAKING CHANGE; ADR-0043 datos, firma humana pendiente)
 ### FIND-89: consolidar lecturas directas de env en `Config` (fuente única)
 - **Fecha:** 2026-09-14
 - **Objetivo:** migrar 7 ficheros con `env::var` real a vistas de dominio `Config` (F3C); espejos nuevos `VANTADB_OPENAI_API_KEY`/`VANTADB_OPENAI_MODEL`/`VANTADB_EMBEDDING_PROVIDER`/`VANTADB_BACKUP_DIR` (breaking C7 sin shims); excepciones `OTEL_*` + `ENV_REPORTED_VERSION` + test.
@@ -745,3 +744,33 @@ s_len‖ns‖key_len‖key‖ver BE) + hooks put/put_batch/delete/purge_expired 
 - **Objetivo:** mismo bug FIND-101 en REPL con engine read-only long-lived (no vale parse-then-open directo: lock exclusiva).
 - **Resultado:** diseno limite-documentado adaptativo (E1-E4 con evidencia: RO rechaza, handle RW imposible con RO vivo, RW-de-entrada regresa, swap = rediseno) + flush tras Write; tui::repl 5/5; P2-01 approve.
 - **Commit:** 83b176bc
+
+### API-03: W2 HTTP OpenAPI-first — REST + cursor único (review P2-01 ✅)
+- **Fecha:** 2026-09-25
+- **Objetivo:** HTTP alineado a OpenAPI-first: plurales sin verbos, `/api/v2` total, status=YAML (201 en creates), cursor opaco string + `has_more` + `limit` (0 `offset`), `RecordInput` opcional, 5 drifts YAML.
+- **Resultado:** ✅ Contrato 4/4 — parity 10/10 + script 37 paths OK · greps 0/0 · smoke curl 15/15 status=YAML · e2e 17/17 · clippy server ✅ · docs-coverage 0 gaps. 7 rutas migradas (`maintenance/purge`→`DELETE …/expired-records`, `conversation/add`→`/api/v2/conversations`, `skill/listing`→`GET /api/v2/skills`, `POST /threads/{id}`→`/threads/{id}/messages`, …). Review P2-01 ✅ APPROVE (2 rondas). Deuda declarada: `versions` sin paginar, cursor types en desktop, comentarios vanta-memory.
+- **Commit:** 94009297 (local, sin push)
+
+### API-05: W4 proxy — auth /snapshot + endpoints canónicos + config (review P2-01 ✅)
+- **Fecha:** 2026-09-26
+- **Objetivo:** Cerrar la exposición de `/snapshot` (sessions/cost sin auth) + endpoints canónicos + config (self-loop, ttl, rate).
+- **Resultado:** ✅ Contrato 4/4 — `/snapshot` sin key **401** · con key **200** · key inválida 401 (smoke live reproducido por el revisor con binario fresco; test e2e real `api05_snapshot_auth.rs`) · suite proxy **291/0** (18 binarios, ×3) · `rg spaceId server.rs` = 0 · 11 routes. **Sin bypass loopback** (decisión documentada: el contrato exige 401). FIND-155 (desktop sin key → 401 hasta migrar; mock e2e verde). Review P2-01 ❌ R1 (comentario stale) → fix → ✅.
+- **Commit:** f0c3f95f (local, sin push)
+
+### API-06: W5 IQL — versión + sintaxis + literales + AST (review P2-01 ✅)
+- **Fecha:** 2026-09-26
+- **Objetivo:** `IQL_VERSION` + 1 sintaxis documentada + case definido + fixes `==`/Int/string + AST JSON.
+- **Resultado:** ✅ Contrato 4/4 — `rg IQL_VERSION src/` 14 hits (mod.rs:17,20 · gate grammar.rs:120 · re-export lib.rs:180) · `--lib parser` 127/0 + `--test parser` 4/0 + parity 11/0 · repros RED→GREEN (`==`, `42→Int`, big-int, `from` minúscula, `'quote'`) · ejemplo YAML consumido. `FIND-156` (AST JSON en bindings) + `FIND-157` (coerción Int/Float pre-existente) registrados. Review P2-01 ronda 1 ❌ → R1/R2/R3 → ✅.
+- **Commit:** a6f6a70b (local, sin push)
+
+### API-07: W6 CLI — POSIX + `--json` global + flags simétricos (review P2-01 ✅)
+- **Fecha:** 2026-09-26
+- **Objetivo:** Normalizar la superficie CLI: `--json` global completo (humano truncado solo TTY), flags simétricos `--in`/`--out`, `--limit` canónico, QUERY posicional, `count` sin DB exit≠0, `put` vía SDK, lecturas read-only (Regla 8).
+- **Resultado:** ✅ Contrato 5/5 — help 39 capturas · smoke 56/56 · cli_tests 88/88 · lib 2124/0 · fmt/clippy 0 · review P2-01 ronda 2 ✅ APPROVE. Lead verify: 88/88 (`-p vantadb`); el hang de `cargo test` sin `-p` era unificación de features con default-members → test gateado `#[cfg(not(feature = "server"))]` (suite unificada 87/87).
+- **Commit:** f6c395ef (local, sin push)
+
+### FIND-190: put-overwrite Cold invisible a get/list (cache volátil) (review P2-01 ✅)
+- **Fecha:** 2026-10-01
+- **Objetivo:** Invalidar la entry volátil en overwrite Cold (single + batch) — mismo patrón que txn/delete; elimina la necesidad del workaround VER-07.
+- **Resultado:** ✅ RED→GREEN 2/2 · storage::engine 390/390 · lib 2302/0 · check/clippy/fmt 0 · P2-01 APPROVE (O1→FIND-222, O2→FIND-223; integration targets → CI).
+- **Commit:** 06496a9a (local, sin push)

@@ -1,3 +1,8 @@
+---
+title: "OLD-02: GraphRAG Pipeline Formal — seed → expand → retrieve → generate context"
+kind: task
+---
+
 # OLD-02: GraphRAG Pipeline Formal — seed → expand → retrieve → generate context
 
 ## Metadata

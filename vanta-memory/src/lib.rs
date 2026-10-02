@@ -17,9 +17,18 @@
 //! path degrades to an LLM-free equivalent (local compression, store-all,
 //! heuristic dedup) — it never blocks and never loses data.
 //!
+//! ## Stability
+//!
+//! **Core-only by decision** (Gate P, D42/D43): this crate is an internal
+//! workspace member (`publish = false`), consumed in-process by `vantadb-mcp`,
+//! `vanta-proxy` and the desktop shell — it is **not** re-exported by any
+//! binding (Python/TS/Node/WASM). The public Rust API documented in
+//! `docs/api/VANTA_MEMORY.md` is the stable surface; binding exposure requires
+//! new Rust bindings plus demonstrated demand (post-release).
+//!
 //! F4 task order: MEM-08a (this scaffold) → MEM-08b (contracts + trait) →
 //! MEM-09..21 (L0→L1→L2→L3, triggers, skill extract, recall, cursor, MCP
-//! scenes). See `docs/dev/plans/2026-08-18-vanta-memory.md`.
+//! scenes). See `docs/dev/plans/archive/2026-08-18-vanta-memory.md`.
 //!
 //! [`LlmRunner`]: core::abstractions::LlmRunner
 

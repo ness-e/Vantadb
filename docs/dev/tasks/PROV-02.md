@@ -1,3 +1,9 @@
+---
+title: "PROV-02: Actualizar tests ×3 a firma actual"
+kind: task
+description: "pytest de cada crate pasa localmente (build maturin manual necesario) — tests usan firma search(ns, emb, ...) sin createnamespace fixture\""
+---
+
 # PROV-02: Actualizar tests ×3 a firma actual
 
 ## Metadata

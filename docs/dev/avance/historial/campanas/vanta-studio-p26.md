@@ -1,11 +1,8 @@
 ---
-title: "Vanta Studio (P26) — consola desktop Fases 0-3"
-type: registro
+title: Vanta Studio (P26) — consola desktop Fases 0-3
+kind: review
 status: archived
 tags: [vantadb, avance, campana]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Vanta Studio (P26) — consola desktop Fases 0-3
@@ -279,5 +276,5 @@ related: []
 - **Fuente:** Plan `docs/dev/plans/2026-08-18-vanta-studio-fase3.md`
 - **Fecha:** 2026-08-19
 - **Objetivo:** `desktop/scripts/selfcheck-web-e2e.ts` (Playwright): server real + dist-web → HOME con datos, grid, edición, borrado con undo, search híbrida. ADR D11/D12 + Backlog.
-- **Resultado:** ✅ script E2E 11 checks exit 0 — commit `583dad9a` (incluye fix namespace default REST: `ListParams.namespace` default `"default"` — bug real cazado por el E2E: la consola web lista/busca sin namespace y REST 400eaba). devDep playwright@1.61.1. ADR-026 en `docs/dev/architecture/`. Lead arregló `tests/cli_tests.rs` (firma cmd_server 9 args — roto por WEB-03, no detectado por verify `--lib`).
+- **Resultado:** ✅ script E2E 11 checks exit 0 — commit `583dad9a` (incluye fix namespace default REST: `ListParams.namespace` default `"default"` — bug real cazado por el E2E: la consola web lista/busca sin namespace y REST 400eaba). devDep playwright@1.61.1. ADR-0026 en `docs/dev/architecture/`. Lead arregló `tests/cli_tests.rs` (firma cmd_server 9 args — roto por WEB-03, no detectado por verify `--lib`).
 - **Ids:** `WEB-06`

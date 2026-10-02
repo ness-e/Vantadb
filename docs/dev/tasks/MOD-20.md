@@ -1,3 +1,9 @@
+---
+title: "MOD-20: Excepciones Python tipadas (VantaError) + query_structured() estructurado"
+kind: task
+description: "Problema 1 — Excepciones genéricas: mapvantaerror (vantadb-python/src/convert.rs:716-741)"
+---
+
 # MOD-20: Excepciones Python tipadas (VantaError) + query_structured() estructurado
 
 ## Metadata

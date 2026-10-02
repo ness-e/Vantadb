@@ -40,3 +40,25 @@ release = false
 # intentionally NOT listed here: [[package]] overrides must reference root
 # workspace members, and release-plz never touches non-members anyway
 # (engine publishes via release.yml; desktop bundles via desktop.yml).
+
+# Changelog header — must stay byte-compatible with the docs frontmatter
+# (scripts/docs/check-docs.mjs gates on title+kind): release-plz rewrites
+# everything above `## [Unreleased]`, so the frontmatter must live here
+# (otherwise the next release strips it from docs/CHANGELOG.md).
+[changelog]
+header = """---
+title: Changelog
+kind: changelog
+description: All notable changes to this project will be documented in this file
+---
+
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+"""

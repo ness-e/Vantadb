@@ -47,6 +47,10 @@ fn search_keys(
         filters: Default::default(),
         text_query: text_query.map(|s| s.to_string()),
         top_k,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
         ..Default::default()
     })
     .expect("search")

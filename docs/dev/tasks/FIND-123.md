@@ -1,3 +1,9 @@
+---
+title: "FIND-123 — fuentes en `vs-table.tsx` (Regla 11)"
+kind: task
+description: "Cada celda comparativa de web/src/components/vanta/vs-table.tsx con fuente o calificada honestamente (Regla 11: claims numéricos DEBEN salir de docs/user/operations/BENCHMARKS.md; web AGENTS.md). vantadb:\"1.2ms\" OK (fuente..."
+---
+
 # FIND-123 — fuentes en `vs-table.tsx` (Regla 11)
 
 > Campaign: 0ad2d7e2-94e3-4313-8f5c-e8d57c08a6af · Plan: `docs/dev/plans/2026-09-19-ci-green.md` · Wave0 segunda en secuencia (FIND-124 ✅ antes) · Ruta: vanta-worker · Branch: develop · Appetite: max 1h · Esfuerzo: 🟢 · Prioridad: 🟢 Baja

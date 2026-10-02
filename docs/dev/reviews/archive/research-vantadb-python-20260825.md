@@ -1,11 +1,9 @@
 ---
 title: "INV-vantadb-python-01 — Investigación profunda: SDK PyO3 `vantadb-python`"
-type: review
+kind: review
 status: archived
+description: "Devs Python/AI y frameworks de agentes (LangChain/LangGraph, LlamaIndex,"
 tags: [vantadb, review]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # INV-vantadb-python-01 — Investigación profunda: SDK PyO3 `vantadb-python`

@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Batch Core Fixes + Research P38 (2026-08-25)"
+kind: plan
+status: archived
+description: "Status: ⬆️ uphill = 3 (RES-01/02/03 research requieren DISCOVERY) · ⬇️ downhill = 6"
+---
+
 # Plan de Ejecución: Batch Core Fixes + Research P38 (2026-08-25)
 
 > **Campaign ID:** aa2cde2b-e52f-4dae-910a-b274373a5bda
@@ -310,6 +317,6 @@ Estado: in-progress
 Última acción: DISCOVERY+research completos: leídos wal.rs/wal_sharded.rs/txn.rs/init.rs(replay MOD-02)/ADR DRV-014. Doc EN de 185 líneas persistido en docs/dev/research/res01-acid-wal-v2-prepare.md con estado actual file:line, diseño Prepare, recovery dos-pasadas, costos/riesgos, plan S1-S6, recomendación GO condicional. Task file creado. Verify mecánico: secciones + refs True/True.
 Resultado: PARTIAL
 Próxima acción: Lead: (1) rutear a docs/dev/Backlog.md fila FIND (truthful-error gap txn.rs:133-190) + fila ADR-humano Regla 5; (2) verificar doc y commitear docs/dev/research/res01-acid-wal-v2-prepare.md + tasks/RES-01.md
-Contrato: verificacion: pwsh check secciones+refs del doc = True/True/TASKFILE True (exit 0); evidencia: claim='commit point actual es durabilidad del batch Begin+ops+Commit' evidencia='txn.rs:146-160 + wal_sharded.rs:215-235' confianza=alta; claim='MOD-02 da crash-atomicidad via skip-mask de slots contiguos' evidencia='init.rs:505-551' confianza=alta; claim='gap truthful-error real: apply failure post-WAL-Commit resucita ops en restart' evidencia='txn.rs:133-190 buffer dropeado pre-apply + replay init.rs:559-599 re-aplica Commit durable' confianza=alta; claim='clon por shard-grouping es tradeoff intencional' evidencia='docs/dev/architecture/adr/DRV-014-wal-batch-tradeoff.md cae92db3' confianza=alta | artefactos: docs/dev/research/res01-acid-wal-v2-prepare.md, .opencode/skills/campaign-executor/tasks/RES-01.md | invariantes: cero cambios en src/ (read-only respetado); DRV-014 NO revertir (tradeoff vigente); doc técnico en inglés (Doc Language Split) | deuda: filas FIND+ADR pendientes de crear en docs/dev/Backlog.md (fuera de mi scope de escritura autorizado: solo doc+task file)
+Contrato: verificacion: pwsh check secciones+refs del doc = True/True/TASKFILE True (exit 0); evidencia: claim='commit point actual es durabilidad del batch Begin+ops+Commit' evidencia='txn.rs:146-160 + wal_sharded.rs:215-235' confianza=alta; claim='MOD-02 da crash-atomicidad via skip-mask de slots contiguos' evidencia='init.rs:505-551' confianza=alta; claim='gap truthful-error real: apply failure post-WAL-Commit resucita ops en restart' evidencia='txn.rs:133-190 buffer dropeado pre-apply + replay init.rs:559-599 re-aplica Commit durable' confianza=alta; claim='clon por shard-grouping es tradeoff intencional' evidencia='docs/dev/architecture/adr/ADR-0051-wal-batch-tradeoff.md cae92db3' confianza=alta | artefactos: docs/dev/research/res01-acid-wal-v2-prepare.md, .opencode/skills/campaign-executor/tasks/RES-01.md | invariantes: cero cambios en src/ (read-only respetado); DRV-014 NO revertir (tradeoff vigente); doc técnico en inglés (Doc Language Split) | deuda: filas FIND+ADR pendientes de crear en docs/dev/Backlog.md (fuera de mi scope de escritura autorizado: solo doc+task file)
 Próxima tarea si completa: RES-02
 === END RECITATION ===

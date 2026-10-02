@@ -1,11 +1,9 @@
 ---
 title: "Deep Module Review — `src/` (Core Engine VantaDB)"
-type: review
+kind: review
 status: archived
+description: "Fecha: 2026-08-22"
 tags: [vantadb, review]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Deep Module Review — `src/` (Core Engine VantaDB)
@@ -141,7 +139,7 @@ Sin embargo, la lectura adversarial (red-team) encontró hallazgos reales que lo
 
 ## Incompletudes (qué falta para estar "completo")
 
-1. **PITR no integrado:** `wal_archiver.rs` funcional y auto-testeado, pero desconectado de la rotación del StorageEngine y del recovery del SDK — explícitamente documentado en `Cargo.toml:123-127` y ADR-014. Falta el wiring.
+1. **PITR no integrado:** `wal_archiver.rs` funcional y auto-testeado, pero desconectado de la rotación del StorageEngine y del recovery del SDK — explícitamente documentado en `Cargo.toml:123-127` y ADR-0014. Falta el wiring.
 2. **Compaction automática:** `trigger_compaction` stub (M-1); hoy solo `vacuum()`/`fresh_hnsw()` manuales reducen fragmentación. No hay trigger basado en ratio de tombstones.
 3. **`delete_in_txn(reason)` ignorado:** el parámetro `reason` está reservado pero sin uso (`txn.rs:106` — "reserved for audit log"). El audit trail de deletes transaccionales prometido no existe.
 4. **Atomicidad transaccional cross-crash** (H-2): la maquinaria Begin/Commit existe pero la recuperación no la consume — el contrato MVCC queda a mitad.

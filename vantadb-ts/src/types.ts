@@ -1,26 +1,49 @@
+/**
+ * Wire DTOs for the VantaDB TypeScript SDK.
+ *
+ * Casing (Gate P, API-01 foundation): the public TS API is `camelCase`; the
+ * JSON payload shapes in this file are still `snake_case` (`created_at_ms`,
+ * `node_id`, `query_vector`, …) — one casing per payload, migrated in
+ * W1/API-02. Normative table: `docs/api/BINDINGS_NAMESPACES.md` § Casing
+ * Contract. `node_id` / graph ids travel as decimal strings (u128 > 2^53).
+ */
+
 export type Value =
   | { String: string }
   | { Int: number }
   | { Float: number }
   | { Bool: boolean }
+  | { DateTime: string }
   | { Null: null }
   | { ListString: string[] }
   | { ListInt: number[] }
   | { ListFloat: number[] }
-  | { ListBool: boolean[] };
+  | { ListBool: boolean[] }
+  | { ListDateTime: string[] };
 
 export type Metadata = Record<string, Value>;
 
 /** Plain JS value accepted as metadata/filter input (normalized internally to `Value`). */
 export type FlatValue = string | number | boolean | null;
 
+/** Caller-provided input value: plain JS value, a JS `Date` (normalized to the
+ * tagged `DateTime` wire form), or the tagged `Value` form itself. */
+export type UntrustedInput = FlatValue | Value | Date;
+
+/**
+ * Graph node id accepted by the public API: a safe-integer `number` or a
+ * `bigint` for ids above 2^53 (JS numbers lose integer precision there).
+ * The WASM wire always carries the id as a decimal string (`u128`).
+ */
+export type NodeId = number | bigint;
+
 /**
  * Metadata/filters as provided by callers: plain JS values (preferred,
- * e.g. `{ lang: "en" }`) or the tagged wire form (backward compat,
- * e.g. `{ lang: { String: "en" } }`). Records returned by the engine
- * always use the tagged `Metadata` form.
+ * e.g. `{ lang: "en" }`), `Date` instances (normalized to `DateTime`), or the
+ * tagged wire form (backward compat, e.g. `{ lang: { String: "en" } }`).
+ * Records returned by the engine always use the tagged `Metadata` form.
  */
-export type MetadataInput = Record<string, FlatValue | Value>;
+export type MetadataInput = Record<string, UntrustedInput>;
 
 export interface MemoryInput {
   namespace: string;
@@ -49,6 +72,32 @@ export interface MemoryRecord {
   // iterable; consumers must accept either form.
   vector?: Float32Array | number[];
   expires_at_ms?: string | number;
+  /** Provenance class (ADR-046): `"Asserted"` (direct writer claim) or
+   * `"Derived"` (computed by the engine from `derived_from` parents). */
+  confidence_class?: "Asserted" | "Derived";
+  /** Confidence range in [0, 1] — declared (asserted) or computed by the
+   * engine (derived, `min(parents) × 0.9`). A range, NOT a calibrated
+   * probability (see `docs/api/scores.md`). Default 1.0 for asserted. */
+  confidence?: number;
+  /** Last successful re-validation timestamp (ms); `null`/absent = never
+   * re-validated (failures never touch this field). */
+  last_validated_at_ms?: string | number | null;
+  /** Parent record keys for a `derived` record (empty for asserted). */
+  derived_from?: string[];
+  /** Start of the validity window (ADR-046 §D3, SCH-07). v1 records normalize
+   * to `created_at_ms`; native emits a number, WASM a decimal string. */
+  valid_at_ms?: string | number;
+  /** End of the validity window (exclusive); absent = open-ended. */
+  invalid_at_ms?: string | number | null;
+  /** Quarantine entry timestamp (SCH-07); absent = active (not quarantined). */
+  quarantined_at_ms?: string | number | null;
+  /** Stable quarantine reason code (`explicit_write`, `unreviewed_import`,
+   * `derived_promotion`, `policy_match`); the code set may grow. */
+  quarantine_reason?: string | null;
+  /** Principal that applied the quarantine (or `system:<op>`). */
+  quarantined_by?: string | null;
+  /** Review deadline (ms); absent = no default deadline configured. */
+  quarantine_review_due_ms?: string | number | null;
 }
 
 export interface ListOptions {
@@ -58,6 +107,24 @@ export interface ListOptions {
    * string-u64) while the native backend emits numbers; both accept either
    * form back (FIND-125 resync against `vantadb-wasm/src/lib.rs:200-229`). */
   cursor?: string | number;
+  /** Valid-time point (SCH-07, ADR-046 §D3): keep only records whose validity
+   * window contains this unix-ms instant. */
+  as_of_ms?: number | null;
+  /** Valid-time window overlap (SCH-07): half-open `[from_ms, to_ms)`;
+   * `from_ms < to_ms` is validated at the core boundary. */
+  valid_window?: ValidWindow | null;
+  /** Include quarantined records (SCH-07, ADR-046 §D5). Default false:
+   * quarantined content is excluded from search/list/retrieval. */
+  include_quarantined?: boolean;
+  /** Opt-in confidence filter (SCH-07, ADR-046 §D2): keep only records whose
+   * `confidence` is `>= min_confidence` (finite, in [0, 1]). */
+  min_confidence?: number | null;
+}
+
+/** Half-open valid-time window `[from_ms, to_ms)` (ADR-046 §D3). */
+export interface ValidWindow {
+  from_ms: number;
+  to_ms: number;
 }
 
 export interface MemoryListPage {
@@ -87,7 +154,8 @@ export interface DeleteInput {
 /** Input for `deleteByFilter`. */
 export interface DeleteByFilterInput {
   namespace: string;
-  filter: FilterItem[];
+  /** Native `FilterItem[]` wire form or the canonical `$op` DSL (`FilterSpec`). */
+  filter: FilterSpec;
 }
 
 /** Input for `list`: namespace plus the usual page options. */
@@ -98,7 +166,8 @@ export interface ListInput extends ListOptions {
 /** Input for `count`. */
 export interface CountInput {
   namespace: string;
-  filters?: FilterItem[];
+  /** Native `FilterItem[]` wire form or the canonical `$op` DSL (`FilterSpec`). */
+  filters?: FilterSpec;
 }
 
 /** Input for `supersede`. */
@@ -124,6 +193,11 @@ export interface SimilarToKeyInput {
 export interface SearchRequest {
   namespace: string;
   query_vector: number[];
+  /** Sparse query vector keyed by dimension id. Fused with any dense/text
+   * scores. Requires the native backend (`vantadb/native`); the WASM backend
+   * throws an explicit error (sparse is not wired there). An empty
+   * `query_vector` with `text_query` selects text-only (BM25) search. */
+  query_sparse?: Record<number, number> | null;
   filters?: MetadataInput;
   text_query?: string;
   top_k?: number;
@@ -132,6 +206,22 @@ export interface SearchRequest {
   /** When true, hide records marked as superseded (ADR-028). Default false:
    * superseded records remain searchable for backward compatibility. */
   exclude_superseded?: boolean;
+  /** Opt-in confidence filter (ADR-046 §D2/SCH-04): keep only hits whose
+   * record `confidence` is `>= min_confidence`. Must be a finite number in
+   * `[0, 1]`; `undefined`/`null` = no filter (default). Part of the cursor
+   * plan fingerprint — a cursor from a different threshold is rejected. */
+  min_confidence?: number | null;
+  /** Valid-time point (SCH-07, ADR-046 §D3): keep only records whose validity
+   * window contains this unix-ms instant (`valid_at_ms <= as_of_ms <
+   * invalid_at_ms`). Part of the cursor plan fingerprint. */
+  as_of_ms?: number | null;
+  /** Valid-time window overlap (SCH-07): half-open `[from_ms, to_ms)`;
+   * `from_ms < to_ms` is validated at the core boundary. Part of the cursor
+   * plan fingerprint. */
+  valid_window?: ValidWindow | null;
+  /** Include quarantined records (SCH-07, ADR-046 §D5). Default false:
+   * quarantined content is excluded from search/list/retrieval. */
+  include_quarantined?: boolean;
 }
 
 /** A list of namespaces to search in batch. Used by `searchMulti`. */
@@ -142,9 +232,13 @@ export interface BatchSearchRequest extends Omit<SearchRequest, "namespace"> {
 
 export interface SearchHit {
   record: MemoryRecord;
-  /** L2 distance (or cosine distance) between the query vector and this hit's record vector.
-   * Lower values indicate higher similarity. This is a distance, not a similarity score. */
-  distance: number;
+  /** Relevance score between the query and this hit's record — **higher is
+   * better** (`MemorySearchHit.score` in the Rust core, W1/API-02).
+   * Value depends on the input mix and `distance_metric`:
+   * cosine similarity ∈ [-1, 1], or `-distance²` for Euclidean. Raw ANN
+   * distances stay on `searchVector()` (`{node_id, distance}`, lower is
+   * better). */
+  score: number;
   explanation?: SearchExplanationHit;
 }
 
@@ -210,9 +304,27 @@ export type FilterOp = "Eq" | "Neq" | "Gt" | "Gte" | "Lt" | "Lte";
 export interface FilterItem {
   field: string;
   op: FilterOp;
-  /** Plain JS value (preferred) or tagged wire form (backward compat). */
-  value: FlatValue | Value;
+  /** Plain JS value, `Date`, or tagged wire form (backward compat). */
+  value: UntrustedInput;
 }
+
+/** Filter operators of the canonical cross-SDK `$op` DSL (Python/MCP/CLI parity). */
+export type FilterOperator = "$eq" | "$neq" | "$gt" | "$gte" | "$lt" | "$lte";
+
+/** One condition for {@link FilterInput}: an input value (implicit `$eq`) or an
+ * object of `$op` keys mapped to values (`{$gte: v, $lt: v2}` = range). */
+export type FilterCondition =
+  | UntrustedInput
+  | { [op in FilterOperator]?: UntrustedInput };
+
+/** Canonical cross-SDK filter DSL, interchangeable with Python/MCP/CLI:
+ * `{field: value}` = implicit `$eq`; `{field: {$gte: v}}` = advanced op(s).
+ * A flat object is AND-combined (the canonical `$and` form). */
+export type FilterInput = Record<string, FilterCondition>;
+
+/** Filter argument accepted by `count`/`deleteByFilter`/`exportNamespace`:
+ * the native `FilterItem[]` wire form or the canonical `$op` DSL. */
+export type FilterSpec = FilterItem[] | FilterInput;
 
 export interface ImportReport {
   inserted: number;

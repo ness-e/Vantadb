@@ -1,3 +1,9 @@
+---
+title: "FIND-110: S4 bandeja de aprobación — decisión lifecycle + re-DEFER fundado"
+kind: task
+description: "Objetivo: cerrar S4 de FIND-107 — o hay lifecycle defendible para la bandeja"
+---
+
 # FIND-110: S4 bandeja de aprobación — decisión lifecycle + re-DEFER fundado
 
 ## Metadata

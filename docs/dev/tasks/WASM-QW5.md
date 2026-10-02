@@ -1,3 +1,9 @@
+---
+title: "WASM-QW5: MessagePorts cerrados + retry sin matcheo de strings"
+kind: task
+description: "cada request cierra sus ports (port1.close()/port2.close()); retry usa código/tipo estructurado del error, no substring matching. Tests worker existentes siguen pasando.\""
+---
+
 # WASM-QW5: MessagePorts cerrados + retry sin matcheo de strings
 
 ## Metadata

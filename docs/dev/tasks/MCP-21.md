@@ -1,3 +1,9 @@
+---
+title: "Task MCP-21 — GDS vía MCP: graph_page_rank + graph_degree_centrality"
+kind: task
+description: "Fuente de verdad: docs/dev/Backlog.md → fase P25 - Exposición MCP/HTTP → fila MCP-21 (leer ANTES de ejecutar: problema, acciones numeradas, archivos exactos)"
+---
+
 # Task MCP-21 — GDS vía MCP: graph_page_rank + graph_degree_centrality
 
 **Fuente de verdad:** `docs/dev/Backlog.md` → fase **P25 - Exposición MCP/HTTP** → fila `MCP-21` (leer ANTES de ejecutar: problema, acciones numeradas, archivos exactos).

@@ -1,11 +1,9 @@
 ---
-title: "Workflows — Publish flow per registry"
-type: workflow-index
+title: Workflows — Publish flow per registry
+kind: runbook
 status: active
+description: "Publishing is tokenless (OIDC Trusted Publishing, no PATs). Post-FIND-140"
 tags: [vantadb, ci, workflows, publish, release]
-last_reviewed: 2026-09-22
-aliases: []
-related: ["docs/dev/workflow/README.md", "docs/dev/workflow/TRIGGERS.md", "docs/dev/workflow/RUNBOOK.md"]
 ---
 
 # Workflows — Publish flow per registry

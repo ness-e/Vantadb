@@ -1,16 +1,18 @@
 ---
 title: "Single-thread: 1 second"
-type: glossary-entry
+kind: glossary
 status: stable
-tags: [python, concurrencia, lock, threading]
-last_reviewed: 2026-09-15
-links: "[[README.md]]"
+description: "The GIL (Global Interpreter Lock) is a global mutex in the CPython interpreter that protects access to Python objects, ensuring that only one thread can execute Python bytecode at a time within a process"
 aliases: [Global Interpreter Lock, Python GIL]
-description: "Global mutex in the CPython interpreter that protects access to Python objects, ensuring that only one thread can execute Python bytecode at a time within a process"
+tags: [python, concurrencia, lock, threading]
+type: glossary-entry
+last_reviewed: "2026-09-15"
+links: "[[README.md]]"
 ---
-#GIL—Global Interpreter Lock
 
-##Definition
+# GIL—Global Interpreter Lock
+
+## Definition
 
 The **GIL** (Global Interpreter Lock) is a **global mutex** in the CPython interpreter that protects access to Python objects, ensuring that **only one thread can execute Python bytecode at a time** within a process.
 
@@ -298,9 +300,9 @@ def measure_concurrency():
 
 ## See Also
 
-- [[pyo3]] — Framework that manages the GIL
-- [[ffi]] — Border where the GIL is released
-- [[rwlock]] — Internal concurrency in Rust (without GIL)
+- [pyo3](./pyo3.md) — Framework that manages the GIL
+- [ffi](./ffi.md) — Border where the GIL is released
+- [rwlock](./rwlock.md) — Internal concurrency in Rust (without GIL)
 
 ---
 

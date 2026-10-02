@@ -1,3 +1,9 @@
+---
+title: "MOD-08+MOD-09: Loop stdio serial + shutdown descarta respuesta in-flight"
+kind: task
+description: "cargo nextest run -p vantadb-mcp pasa y la respuesta in-flight se escribe antes de salir (el loop despacha en background y drena las respuestas pendientes en shutdown)\""
+---
+
 # MOD-08+MOD-09: Loop stdio serial + shutdown descarta respuesta in-flight
 
 ## Metadata

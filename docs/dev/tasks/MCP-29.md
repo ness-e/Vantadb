@@ -1,3 +1,9 @@
+---
+title: Task MCP-29 — Namespaces de memoria como tablas IQL (camino 1 de MCP-27)
+kind: task
+description: "Fuente de verdad: docs/dev/Backlog.md → fase P25 → fila MCP-29 + nota de cierre de MCP-27"
+---
+
 # Task MCP-29 — Namespaces de memoria como tablas IQL (camino 1 de MCP-27)
 
 **Fuente de verdad:** `docs/dev/Backlog.md` → fase **P25** → fila `MCP-29` + nota de cierre de `MCP-27`.

@@ -1,3 +1,9 @@
+---
+title: NUEVO-01 — README hero + benchmark graphic + GIF placeholder
+kind: task
+description: "Status: ✅ COMPLETED"
+---
+
 # NUEVO-01 — README hero + benchmark graphic + GIF placeholder
 
 **Status:** ✅ COMPLETED

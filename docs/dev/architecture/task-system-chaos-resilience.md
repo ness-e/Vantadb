@@ -1,10 +1,9 @@
 ---
 title: Task-System Chaos and Resilience Suite
-type: architecture
+kind: concept
 status: active
+description: "vanta-chaos fuzzes the Rust source code (fuzz/ targets, chaosintegrity"
 tags: [vantadb, architecture]
-last_reviewed: 2026-09-23
-aliases: []
 ---
 
 # Task-System: Chaos & Resilience Suite (TSYS-06)
@@ -143,7 +142,7 @@ invariant it protects.
 | Aspect | Decision |
 |--------|----------|
 | **Who runs it** | `vanta-chaos` (leaf specialist, owns fuzz/stress/chaos scripts) — runs scenarios by injecting faults into a **throwaway copy** of the task-system state (a scratch `docs/dev/plans/` + `.opencode/task-system/enforcement/verify-log.jsonl` + `budget.json`), never the live repo |
-| **When** | Manual / on-demand (invoked via `/build prove` or a dedicated chaos command) and pre-release, **not** on every push |
+| **When** | Manual / on-demand (invoked via `/pipeline task` or a dedicated chaos command) and pre-release, **not** on every push |
 | **Sandbox** | `campaign_run_sandboxed` (already provided by the server) with `blockNetwork:true`; runner stages a minimal plan file + budget fixture, executes the scenario against the real server code in the sandbox workdir, asserts the expected behavior, tears down |
 | **How to inject** | Fault injection points: file mutation (truncate/replace/delete) on staged fixtures; process kill (SIGKILL / `Stop-Process` on the spawned server) at scripted points; concurrency via two parallel client invocations of the same tool |
 | **Assertions** | Per scenario, a pass/fail check against the "Expected behavior" column; a scenario that fails produces a report entry (which invariant broke) |

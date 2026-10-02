@@ -1,3 +1,9 @@
+---
+title: "Task BND-FIXES — 3 fixes técnicos de infraestructura (BND-06, BND-01, BND-02)"
+kind: task
+description: "Fuentes: docs/dev/Backlog.md líneas 761 (BND-01), 762 (BND-02), 781 (BND-06)"
+---
+
 # Task BND-FIXES — 3 fixes técnicos de infraestructura (BND-06, BND-01, BND-02)
 
 ## Estado: ⏳ IN PROGRESS

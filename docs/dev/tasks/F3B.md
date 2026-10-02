@@ -1,3 +1,9 @@
+---
+title: "F3B — job CI informativo `canonical_p99` (verificar toolchain primero)"
+kind: task
+description: Decisión humana Q5 (informativo primero) + deuda Fase 2 (bench-en-CI al mergear S3/S5). Sin número no hay optimización medible (Regla 9)
+---
+
 # F3B — job CI informativo `canonical_p99` (verificar toolchain primero)
 
 ## Metadata

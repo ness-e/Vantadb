@@ -1,11 +1,9 @@
 ---
 title: "Review profunda — `vantadb-node` (addon napi-rs nativo para Node)"
-type: review
+kind: review
 status: archived
+description: "Fecha: 2026-08-22 · Alcance: lectura completa de src/lib.rs (489 líneas), index.d.ts, index.js/index.cjs (glue napi generado), package.json, Cargo.toml, y tests/persistence.test.ts. Verificación cruzada contra la superficie del core y..."
 tags: [vantadb, review]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Review profunda — `vantadb-node` (addon napi-rs nativo para Node)

@@ -1,3 +1,10 @@
+---
+title: DESKTOP-01 — Tauri como plataforma desktop para VantaDB
+kind: research
+status: archived
+description: "vantadb es la crate core Rust de VantaDB, un motor vectorial y grafo con persistencia local (Fjall por defecto, RocksDB fallback) y WAL. La API de integración directa es VantaEmbedded::openwithconfig(VantaConfig)"
+---
+
 # DESKTOP-01 — Tauri como plataforma desktop para VantaDB
 
 - **Tipo:** Investigación / Arquitectura (sin código)

@@ -22,14 +22,17 @@ const MAX_TRANSFER_BYTES: usize = 10 * 1024 * 1024;
 // https://modelcontextprotocol.io/specification/2025-06-18/server/tools.
 // Defaults are pessimistic (readOnlyHint false, destructiveHint true,
 // idempotentHint false, openWorldHint true) — we set them explicitly.
-// Summary (87 tools total, 49 base + 38 extend):
-// - readOnlyHint true (50 tools): memory_get, memory_list, memory_list_namespaces, memory_versions, memory_recall, memory_search, search_semantic, search_memory, search_with_method, search_multi, get_node_neighbors, graph_page_rank, graph_degree_centrality, graph_traverse, graph_topological_sort, graph_is_dag, read_axioms, collection_stats, collection_list, audit_text_index, capabilities, generate_snippet, list_snapshots, export, embed_texts, code_search, code_explore, code_callers, code_callees, code_impact, code_node, code_status, code_files, wiki_search, wiki_read, wiki_list, wiki_graph, wiki_ingest_status, skill_list, skill_view, skill_extract, thread_get, thread_list, scene_read, scene_list, scene_query, context_assemble, dream_list, dream_load, dream_promote
-// - readOnlyHint false (37 tools): memory_put, memory_put_batch, memory_delete, memory_delete_by_filter, memory_supersede, query_iql, remove_edge, inject_context, write_axiom, delete_axiom, collection_delete, rehydrate, purge_expired, compact_wal, flush, compact_layout, vacuum, rebuild_index, repair_text_index, snapshot_create, snapshot_restore, import, bulk_import_file, bulk_import_stream, wiki_ingest, thread_create, thread_send, thread_delete, thread_purge_expired, skill_create, skill_update, skill_patch, skill_files_write, scene_write, scene_edit, dream_discard, dream_consolidate
-// - destructiveHint true (12 tools): memory_delete, memory_delete_by_filter, memory_supersede, remove_edge, delete_axiom, collection_delete, purge_expired, vacuum, snapshot_restore, thread_delete, thread_purge_expired, dream_discard
-// - destructiveHint false (75 tools): all others — additive or read-only
-// - idempotentHint true (66 tools): all readOnly true (50) plus safe-retry writes (memory_delete, memory_delete_by_filter, remove_edge, delete_axiom, collection_delete, purge_expired, compact_wal, flush, compact_layout, vacuum, rebuild_index, repair_text_index, thread_delete, thread_purge_expired, skill_create, dream_discard); idempotentHint false (21 tools): memory_put, memory_put_batch, memory_supersede, query_iql, inject_context, write_axiom, rehydrate, snapshot_create, snapshot_restore, import, bulk_import_file, bulk_import_stream, wiki_ingest, skill_update, skill_patch, skill_files_write, thread_create, thread_send, scene_write, scene_edit, dream_consolidate
+// Summary (85 tool definitions, 47 base + 38 extend; WIRE-02 lists 79 across
+// profiles and absorbs 6 `code_*` projections as dispatch-only, on top of the
+// 2 API-04 aliases `search_memory`/`collection_list` — all 8 absorbed names
+// stay dispatchable through their canonical listed tool):
+// - readOnlyHint true (47 tools): memory_get, memory_list, memory_list_namespaces, memory_versions, memory_recall, memory_search, search_semantic, search_with_method, search_multi, get_node_neighbors, graph_page_rank, graph_degree_centrality, graph_traverse, graph_topological_sort, graph_is_dag, read_axioms, collection_stats, audit_text_index, capabilities, generate_snippet, list_snapshots, export, embed_texts, code_search, code_explore, code_callers, code_callees, code_impact, code_node, code_status, code_files, wiki_search, wiki_read, wiki_list, wiki_graph, wiki_ingest_status, skill_list, skill_view, skill_extract, thread_get, thread_list, scene_read, scene_list, scene_query, context_assemble, dream_list, dream_load
+// - readOnlyHint false (38 tools): memory_put, memory_put_batch, memory_delete, memory_delete_by_filter, memory_supersede, query_iql, remove_edge, inject_context, write_axiom, delete_axiom, collection_delete, rehydrate, purge_expired, compact_wal, flush, compact_layout, vacuum, rebuild_index, repair_text_index, snapshot_create, snapshot_restore, import, bulk_import_file, bulk_import_stream, wiki_ingest, thread_create, thread_send, thread_delete, thread_purge_expired, skill_create, skill_update, skill_patch, skill_files_write, scene_write, scene_edit, dream_discard, dream_consolidate, dream_promote
+// - destructiveHint true (13 tools): memory_delete, memory_delete_by_filter, memory_supersede, remove_edge, delete_axiom, collection_delete, purge_expired, vacuum, snapshot_restore, thread_delete, thread_purge_expired, dream_discard, dream_promote
+// - destructiveHint false (72 tools): all others — additive or read-only
+// - idempotentHint true (64 tools): all readOnly true (47) plus safe-retry writes (memory_delete, memory_delete_by_filter, remove_edge, delete_axiom, collection_delete, purge_expired, compact_wal, flush, compact_layout, vacuum, rebuild_index, repair_text_index, thread_delete, thread_purge_expired, skill_create, dream_discard, dream_promote); idempotentHint false (21 tools): memory_put, memory_put_batch, memory_supersede, query_iql, inject_context, write_axiom, rehydrate, snapshot_create, snapshot_restore, import, bulk_import_file, bulk_import_stream, wiki_ingest, skill_update, skill_patch, skill_files_write, thread_create, thread_send, scene_write, scene_edit, dream_consolidate
 // - openWorldHint true (2 tools): wiki_ingest, bulk_import_file — host filesystem path
-// - openWorldHint false (85 tools): closed embedded DB
+// - openWorldHint false (83 tools): closed embedded DB
 // This comment intentionally contains readOnlyHint, destructiveHint, idempotentHint, openWorldHint literals for grep coverage verification (MCP-38 contract: ≥70 hits across src, 85 in base file).
 // Example annotation block per tool: {"title":"...","readOnlyHint":bool,"destructiveHint":bool,"idempotentHint":bool,"openWorldHint":bool}
 // Per-tool registry for extended surface (38 tools) — each line carries the 4 hints so `rg readOnlyHint handlers/tools.rs` reaches ≥70 even before counting the distributed files (total 115 hits across src is the true measure):
@@ -70,13 +73,13 @@ const MAX_TRANSFER_BYTES: usize = 10 * 1024 * 1024;
 // dream_load: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
 // dream_discard: readOnlyHint false, destructiveHint true, idempotentHint true, openWorldHint false
 // dream_consolidate: readOnlyHint false, destructiveHint false, idempotentHint false, openWorldHint false
-// dream_promote: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
+// dream_promote: readOnlyHint false, destructiveHint true, idempotentHint true, openWorldHint false
 
 // ── Tools handler ─────────────────────────────────────────────────────────
 
 /// Handle `tools/list`, returning all available MCP tool definitions filtered by profile.
 pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
-    let base_tools = json!([
+    let mut base_tools = json!([
         {
                 "name": "memory_put",
                 "description": "Inserts or updates a memory record in a namespace with payload, vector, optional sparse vector, optional metadata, and optional TTL. Records without 'vector' are auto-embedded via the active provider (EMB-14); without a provider they are stored vectorless with 'fallback:true' + 'warning' (never a hard error).",
@@ -96,7 +99,8 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
                     "vector": { "type": "array", "items": {"type": "number"}, "description": "Optional embedding vector" },
                     "sparse_vector": { "type": "object", "additionalProperties": {"type": "number"}, "description": "Optional sparse term-weight vector, e.g. {\"0\": 0.5, \"7\": 1.25} (dimension id -> weight)" },
                     "metadata": { "type": "object", "description": "Optional metadata key-value pairs" },
-                    "expires_at_ms": { "type": "number", "description": "Optional absolute Unix-ms timestamp after which the record expires (TTL)" }
+                    "expires_at_ms": { "type": "number", "description": "Optional absolute Unix-ms timestamp after which the record expires (TTL)" },
+                    "quarantine": { "type": "boolean", "description": "Mark the record as quarantined (untrusted content; excluded from default search/list/recall until explicitly promoted). Default false (SCH-05)." }
                 },
                 "required": ["namespace", "key", "payload"]
             },
@@ -129,9 +133,11 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
                                 "vector": { "type": "array", "items": {"type": "number"} },
                                 "sparse_vector": { "type": "object", "additionalProperties": {"type": "number"} },
                                 "metadata": { "type": "object" },
-                                "expires_at_ms": { "type": "number", "description": "Optional absolute Unix-ms TTL timestamp" }
+                                "expires_at_ms": { "type": "number", "description": "Optional absolute Unix-ms TTL timestamp" },
+                                "quarantine": { "type": "boolean", "description": "Mark this record as quarantined (SCH-05). Default false." }
                             },
-                            "required": ["namespace", "key", "payload"]
+                            "required": ["namespace", "key", "payload"],
+                            "additionalProperties": false
                         }
                     }
                 },
@@ -160,7 +166,7 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
         },
         {
             "name": "memory_delete",
-            "description": "Deletes a memory record by namespace and key.",
+            "description": "Deletes a memory record by namespace and key. With attest:true, also emits a VER-02 purge certificate (per-surface residue inventory, integrity hash, VER-01 WAL chain reference) under `certificate`.",
             "annotations": {
                 "title": "Memory Delete",
                 "readOnlyHint": false,
@@ -170,7 +176,8 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
             },
             "inputSchema": {
                 "type": "object", "properties": {
-                    "namespace": { "type": "string" }, "key": { "type": "string" }
+                    "namespace": { "type": "string" }, "key": { "type": "string" },
+                    "attest": { "type": "boolean", "description": "When true, include a VER-02 purge certificate for the deleted record." }
                 }, "required": ["namespace", "key"]
             }
         },
@@ -209,14 +216,18 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
                     "namespace": { "type": "string" },
                     "limit": { "type": "number", "description": "Max records, default 100" },
                     "cursor": { "type": "number", "description": "Optional pagination cursor" },
-                    "filters": { "type": "object", "description": "Optional metadata filters" }
+                    "filters": { "type": "object", "description": "Optional metadata filters" },
+                    "as_of_ms": { "type": "number", "description": "Valid-time point (ADR-046 §D3, SCH-03/SCH-07): keep only records whose validity window contains this unix-ms instant. Omit for no temporal filter (default)" },
+                    "valid_window": { "type": "object", "properties": { "from_ms": { "type": "number" }, "to_ms": { "type": "number" } }, "description": "Valid-time window overlap (SCH-03/SCH-07): half-open `[from_ms, to_ms)`; `from_ms < to_ms` validated at the core boundary. Omit for no filter" },
+                    "include_quarantined": { "type": "boolean", "description": "Include quarantined records (SCH-05/SCH-07). Default false: quarantined content is excluded by default" },
+                    "min_confidence": { "type": "number", "minimum": 0, "maximum": 1, "description": "Opt-in confidence filter (ADR-046 §D2, SCH-07): keep only records whose confidence is >= this value (finite, within [0, 1]); omit for no filter (default)" }
                 },
                 "required": ["namespace"]
             }
         },
         {
             "name": "memory_list_namespaces",
-            "description": "Lists all available namespaces in the database.",
+            "description": "Lists all available namespaces in the database (API-04 canonical name). The legacy `collection_list` alias stays dispatchable but is not listed; it returns rich collection metadata while this tool returns the bare namespace list.",
             "annotations": {
                 "title": "Memory List Namespaces",
                 "readOnlyHint": true,
@@ -307,7 +318,7 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
         },
         {
             "name": "memory_search",
-            "description": "MEM-59: semantic alias of search_memory with the canonical agent-friendly name (mem0/Letta parity). Same wire shape and same engine path as search_memory; both tools share the same dispatch so behavior cannot diverge.",
+            "description": "Hybrid memory search in a namespace (API-04 canonical name, mem0/Letta parity): text/vector/hybrid modes, filters, distance metric, RRF tuning, and explain output. SCH-07: accepts the temporal (`as_of_ms`/`valid_window`) and quarantine-view (`include_quarantined`) query params and reports the selective-abstention signal (`abstained`/`abstention_reason`) in structuredContent when the configured `confidence_threshold` filters every candidate. The legacy `search_memory` alias stays dispatchable but is not listed.",
             "annotations": {
                 "title": "Memory Search",
                 "readOnlyHint": true,
@@ -325,6 +336,10 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
                     "distance_metric": { "type": "string", "enum": ["cosine", "euclidean"] },
                     "explain": { "type": "boolean" },
                     "filters": { "type": "object" },
+                    "min_confidence": { "type": "number", "minimum": 0, "maximum": 1, "description": "Opt-in confidence filter (ADR-046 §D2, SCH-04): keep only hits whose record confidence is >= this value (finite, within [0, 1]); omit for no filter (default)" },
+                    "as_of_ms": { "type": "number", "description": "Valid-time point (ADR-046 §D3, SCH-03): keep only records whose validity window contains this unix-ms instant (`valid_at_ms <= as_of_ms < invalid_at_ms`). Omit for no temporal filter (default)" },
+                    "valid_window": { "type": "object", "properties": { "from_ms": { "type": "number" }, "to_ms": { "type": "number" } }, "description": "Valid-time window overlap (SCH-03): half-open `[from_ms, to_ms)`; `from_ms < to_ms` is validated at the core boundary. Omit for no filter" },
+                    "include_quarantined": { "type": "boolean", "description": "Include quarantined records (SCH-05, ADR-046 §D5). Default false: quarantined content is excluded from search/list/retrieval" },
                     "search_profile": { "type": "object", "properties": {
                         "mode": { "type": "string", "enum": ["keyword", "vector", "hybrid"] },
                         "rrf_k": { "type": "number", "description": "RRF k parameter (1..max_rrf_k, default core)" },
@@ -335,11 +350,13 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
             },
             "outputSchema": {
                 "type": "object",
-                "description": "Budgeted envelope {hits, byte_count, truncated} (text payload stays the raw hits array)",
+                "description": "Budgeted envelope {hits, byte_count, truncated, abstained, abstention_reason} (text payload stays the raw hits array). `abstained=true` + a stable reason code (`no_candidates_above_threshold` | `all_quarantined`) when the configured `confidence_threshold` emptied the page — never a silent empty page (ADR-046 §D2, SCH-07)",
                 "properties": {
                     "hits": { "type": "array" },
                     "byte_count": { "type": "number" },
-                    "truncated": { "type": "boolean" }
+                    "truncated": { "type": "boolean" },
+                    "abstained": { "type": "boolean" },
+                    "abstention_reason": { "type": ["string", "null"] }
                 }
             }
         },
@@ -370,46 +387,8 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
             }
         },
         {
-            "name": "search_memory",
-            "description": "Performs memory search in a given namespace supporting optional text queries, filters, distance metric, explain, and a search profile.",
-            "annotations": {
-                "title": "Search Memory",
-                "readOnlyHint": true,
-                "destructiveHint": false,
-                "idempotentHint": true,
-                "openWorldHint": false
-            },
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "namespace": { "type": "string" },
-                    "query_vector": { "type": "array", "items": {"type": "number"} },
-                    "text_query": { "type": "string" },
-                    "top_k": { "type": "number", "description": "Top K hits, default 10" },
-                    "distance_metric": { "type": "string", "enum": ["cosine", "euclidean"] },
-                    "explain": { "type": "boolean" },
-                    "filters": { "type": "object" },
-                    "search_profile": { "type": "object", "properties": {
-                        "mode": { "type": "string", "enum": ["keyword", "vector", "hybrid"] },
-                        "rrf_k": { "type": "number", "description": "RRF k parameter (1..max_rrf_k, default core)" },
-                        "candidate_k": { "type": "number", "description": "Per-channel candidate budget (1..max_candidate_k, default core)" }
-                    }, "description": "Optional search profile (MEM-01): mode forces the retrieval channel (keyword/vector/hybrid); rrf_k/candidate_k tune RRF. Wire format matches the native API and the IQL PROFILE clause." }
-                },
-                "required": ["namespace"]
-            },
-            "outputSchema": {
-                "type": "object",
-                "description": "Budgeted envelope {hits, byte_count, truncated} (text payload stays the raw hits array)",
-                "properties": {
-                    "hits": { "type": "array" },
-                    "byte_count": { "type": "number" },
-                    "truncated": { "type": "boolean" }
-                }
-            }
-        },
-        {
             "name": "search_with_method",
-            "description": "MCP-24: memory search with an explicit dense-index backend override. Same parameters as search_memory plus `method` (hnsw | ivf | flat | diskann | scann); omit `method` to keep automatic engine routing.",
+            "description": "MCP-24: memory search with an explicit dense-index backend override. Same parameters as search_memory plus `method` (hnsw | ivf | flat | diskann | scann); omit `method` to keep automatic engine routing. SCH-07: also reports the selective-abstention signal (`abstained`/`abstention_reason`) in structuredContent.",
             "annotations": {
                 "title": "Search With Method",
                 "readOnlyHint": true,
@@ -428,6 +407,10 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
                     "explain": { "type": "boolean" },
                     "filters": { "type": "object" },
                     "method": { "type": "string", "enum": ["hnsw", "ivf", "flat", "diskann", "scann"], "description": "Dense-index backend override (MCP-24); omit to keep automatic routing" },
+                    "min_confidence": { "type": "number", "minimum": 0, "maximum": 1, "description": "Opt-in confidence filter (ADR-046 §D2, SCH-04): keep only hits whose record confidence is >= this value (finite, within [0, 1]); omit for no filter (default)" },
+                    "as_of_ms": { "type": "number", "description": "Valid-time point (ADR-046 §D3, SCH-03): keep only records whose validity window contains this unix-ms instant (`valid_at_ms <= as_of_ms < invalid_at_ms`). Omit for no temporal filter (default)" },
+                    "valid_window": { "type": "object", "properties": { "from_ms": { "type": "number" }, "to_ms": { "type": "number" } }, "description": "Valid-time window overlap (SCH-03): half-open `[from_ms, to_ms)`; `from_ms < to_ms` is validated at the core boundary. Omit for no filter" },
+                    "include_quarantined": { "type": "boolean", "description": "Include quarantined records (SCH-05, ADR-046 §D5). Default false: quarantined content is excluded from search/list/retrieval" },
                     "search_profile": { "type": "object", "properties": {
                         "mode": { "type": "string", "enum": ["keyword", "vector", "hybrid"] },
                         "rrf_k": { "type": "number", "description": "RRF k parameter (1..max_rrf_k, default core)" },
@@ -438,17 +421,19 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
             },
             "outputSchema": {
                 "type": "object",
-                "description": "Budgeted envelope {hits, byte_count, truncated} (text payload stays the raw hits array)",
+                "description": "Budgeted envelope {hits, byte_count, truncated, abstained, abstention_reason} (text payload stays the raw hits array). `abstained=true` + a stable reason code when the configured `confidence_threshold` emptied the page (ADR-046 §D2, SCH-07)",
                 "properties": {
                     "hits": { "type": "array" },
                     "byte_count": { "type": "number" },
-                    "truncated": { "type": "boolean" }
+                    "truncated": { "type": "boolean" },
+                    "abstained": { "type": "boolean" },
+                    "abstention_reason": { "type": ["string", "null"] }
                 }
             }
         },
         {
             "name": "search_multi",
-            "description": "MCP-24: run one search request across multiple namespaces and merge the results (sorted by descending score, capped at `top_k` globally). `namespaces` is required; the other parameters match search_memory. Returns a flat hit array.",
+            "description": "MCP-24: run one search request across multiple namespaces and merge the results (sorted by descending score, capped at `top_k` globally). `namespaces` is required; the other parameters match search_memory (temporal/quarantine/confidence params included, SCH-07). Returns a flat hit array; the multi-namespace merge has no page-level abstention signal (N/A).",
             "annotations": {
                 "title": "Search Multi",
                 "readOnlyHint": true,
@@ -466,6 +451,10 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
                     "distance_metric": { "type": "string", "enum": ["cosine", "euclidean"] },
                     "explain": { "type": "boolean" },
                     "filters": { "type": "object" },
+                    "min_confidence": { "type": "number", "minimum": 0, "maximum": 1, "description": "Opt-in confidence filter (ADR-046 §D2, SCH-04): keep only hits whose record confidence is >= this value (finite, within [0, 1]); omit for no filter (default)" },
+                    "as_of_ms": { "type": "number", "description": "Valid-time point (ADR-046 §D3, SCH-03): keep only records whose validity window contains this unix-ms instant (`valid_at_ms <= as_of_ms < invalid_at_ms`). Omit for no temporal filter (default)" },
+                    "valid_window": { "type": "object", "properties": { "from_ms": { "type": "number" }, "to_ms": { "type": "number" } }, "description": "Valid-time window overlap (SCH-03): half-open `[from_ms, to_ms)`; `from_ms < to_ms` is validated at the core boundary. Omit for no filter" },
+                    "include_quarantined": { "type": "boolean", "description": "Include quarantined records (SCH-05, ADR-046 §D5). Default false: quarantined content is excluded from search/list/retrieval" },
                     "search_profile": { "type": "object", "properties": {
                         "mode": { "type": "string", "enum": ["keyword", "vector", "hybrid"] },
                         "rrf_k": { "type": "number", "description": "RRF k parameter (1..max_rrf_k, default core)" },
@@ -628,7 +617,7 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
             "inputSchema": {
                 "type": "object", "properties": {
                     "content": { "type": "string", "description": "Context content" },
-                    "thread_id": { "type": "number", "description": "Thread ID it belongs to" }
+                    "thread_id": { "type": "string", "description": "Thread ID it belongs to (u128 decimal string; legacy non-negative JSON integers are still accepted — use the string form above 2^53)" }
                 }, "required": ["content", "thread_id"]
             }
         },
@@ -698,18 +687,6 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
                 },
                 "required": ["namespace"]
             }
-        },
-        {
-            "name": "collection_list",
-            "description": "Lists all collections with metadata including record count, vector index status, and creation time.",
-            "annotations": {
-                "title": "Collection List",
-                "readOnlyHint": true,
-                "destructiveHint": false,
-                "idempotentHint": true,
-                "openWorldHint": false
-            },
-            "inputSchema": { "type": "object", "properties": {}, "required": [] }
         },
         {
             "name": "collection_delete",
@@ -853,7 +830,7 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
         },
         {
             "name": "capabilities",
-            "description": "MCP-26: introspects the engine's supported features. Returns {runtime_profile, persistence, vector_search, iql_queries, read_only} so the agent can discover what the connected database supports.",
+            "description": "MCP-26: introspects the engine's supported features. Returns {runtime_profile, persistence, vector_search, iql_queries, read_only, embedding} so the agent can discover what the connected database supports. `embedding` is the DEF-08 visible-fallback probe: {provider, fallback, reason, detail, model_dir, model_present, notice} — `fallback:true` means deterministic dummy embeddings are being served (ORT unusable or model missing) and `notice` carries the user-facing message plus the remedy.",
             "annotations": {
                 "title": "Capabilities",
                 "readOnlyHint": true,
@@ -1025,6 +1002,19 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
             }
         }
     ]);
+    // API-04 (Gate P): strict JSON Schemas on the canonical base surface —
+    // top-level `additionalProperties: false` so schema-validating clients
+    // reject unknown keys instead of letting handlers silently ignore them.
+    // Free-form dictionaries (`filters`, `metadata`, `sparse_vector`) stay
+    // open at their nested level; the 38 extended-family tools keep their
+    // current schemas (deferred — see docs/dev/tasks/API-04.md §Deuda).
+    if let Some(tools) = base_tools.as_array_mut() {
+        for tool in tools.iter_mut() {
+            if let Some(schema) = tool.get_mut("inputSchema").and_then(Value::as_object_mut) {
+                schema.insert("additionalProperties".to_string(), json!(false));
+            }
+        }
+    }
     // MEM-07: six review-agent skill tools over SkillStore. Definitions live
     // in crate::skills so this array stays readable; the wire shape is part
     // of the public MCP API.
@@ -1070,13 +1060,11 @@ fn profile_allowed_tools(profile: McpProfile) -> std::collections::HashSet<&'sta
         "memory_versions",
         "memory_supersede",
         "search_semantic",
-        "search_memory",
         "memory_search",
         "memory_recall",
         "search_with_method",
         "search_multi",
         "query_iql",
-        "collection_list",
         "collection_stats",
         "collection_delete",
         "capabilities",
@@ -1088,9 +1076,40 @@ fn profile_allowed_tools(profile: McpProfile) -> std::collections::HashSet<&'sta
     }
 
     match profile {
+        // WIRE-02: agent profile — memory + threads + scenes + context engine +
+        // wiki read (report §3.6 target ≈45; 20 + 6 + 5 + 1 + 5 = 37).
+        Agent => {
+            let agent_tools = [
+                // Threads — agentic conversation state.
+                "thread_create",
+                "thread_send",
+                "thread_get",
+                "thread_list",
+                "thread_delete",
+                "thread_purge_expired",
+                // Scenes — structured navigation.
+                "scene_read",
+                "scene_list",
+                "scene_query",
+                "scene_write",
+                "scene_edit",
+                // Context engine.
+                "context_assemble",
+                // Wiki read-only (wiki_ingest stays a write/openWorld tool).
+                "wiki_search",
+                "wiki_read",
+                "wiki_list",
+                "wiki_graph",
+                "wiki_ingest_status",
+            ];
+            for t in agent_tools {
+                set.insert(t);
+            }
+            set
+        }
         Memory => set,
         Dev => {
-            // Dev profile (≤35 tools): Memory + graph + collections + key maintenance + introspection
+            // Dev profile (≤36 tools): Memory + graph + collections + key maintenance + introspection
             // Trimmed to fit Cursor's ~40 tool cap. Excludes: bulk_import, audit/repair, rehydrate, inject_context, vacuum, rebuild_index, graph_page_rank, graph_degree_centrality, snapshot_restore
             let dev_tools = [
                 "get_node_neighbors",
@@ -1116,7 +1135,9 @@ fn profile_allowed_tools(profile: McpProfile) -> std::collections::HashSet<&'sta
             set
         }
         Full => {
-            // Full profile (87 tools): All tools including code, wiki, skills, threads, scenes, dreams, context
+            // Full profile (79 listed tools): all listed base + extended
+            // families. The 6 absorbed `code_*` projections stay dispatch-only
+            // (WIRE-02) — the listed code surface is `code_search` + `code_explore`.
             // Add all base tools (already in memory_tools) plus extended modules
             let dev_tools = [
                 "get_node_neighbors",
@@ -1152,17 +1173,13 @@ fn profile_allowed_tools(profile: McpProfile) -> std::collections::HashSet<&'sta
                 set.insert(t);
             }
 
-            // Extended module tools
-            let code_tools = [
-                "code_search",
-                "code_explore",
-                "code_callers",
-                "code_callees",
-                "code_impact",
-                "code_node",
-                "code_status",
-                "code_files",
-            ];
+            // Extended module tools. WIRE-02: only the two genuine codegraph
+            // primitives are listed — `code_callers`/`code_callees`/`code_impact`/
+            // `code_node` (projections of `code_explore`), `code_status` (same
+            // `operational_metrics()` snapshot as `capabilities`) and
+            // `code_files` (documented "not supported" stub) are absorbed
+            // dispatch-only — see `absorbed_canonical`.
+            let code_tools = ["code_search", "code_explore"];
             for t in code_tools {
                 set.insert(t);
             }
@@ -1236,6 +1253,44 @@ fn profile_allowed_tools(profile: McpProfile) -> std::collections::HashSet<&'sta
     }
 }
 
+/// WIRE-02: dispatch-only names absorbed by a listed canonical tool. They stay
+/// callable via `tools/call` when the canonical is listed in the active
+/// profile, but are never returned by `tools/list` (API-04 alias pattern
+/// extended to redundant projections — the listed surface is what costs
+/// clients tool-schema tokens per session).
+fn absorbed_canonical(name: &str) -> Option<&'static str> {
+    match name {
+        // API-04 legacy aliases (renamed canonical names).
+        "search_memory" => Some("memory_search"),
+        "collection_list" => Some("memory_list_namespaces"),
+        // WIRE-02 code_* projections of the codegraph primitives: `code_explore`
+        // returns the node plus the callers/callees split and covers the
+        // reachability projections; `code_status` is the same
+        // `operational_metrics()` snapshot as `capabilities`; `code_files` is a
+        // documented "not supported" stub (code.rs:19) whose closest listed
+        // substitute is `code_search`.
+        "code_callers" | "code_callees" | "code_impact" | "code_node" => Some("code_explore"),
+        "code_status" => Some("capabilities"),
+        "code_files" => Some("code_search"),
+        _ => None,
+    }
+}
+
+/// WIRE-02: `tools/call` gate — a listed tool passes; an absorbed name passes
+/// when its canonical tool is listed in the profile.
+fn profile_allows_call(profile: McpProfile, name: &str) -> bool {
+    let allowed = profile_allowed_tools(profile);
+    allowed.contains(name) || absorbed_canonical(name).is_some_and(|c| allowed.contains(c))
+}
+
+/// A name known to exist in the broadest surface (listed in `full` or absorbed
+/// dispatch-only). Unknown names keep the plain `Tool not found: {name}`
+/// fall-through; known-out-of-profile names get the `(not in profile ...)`
+/// suffix the docs promise.
+fn tool_is_known(name: &str) -> bool {
+    profile_allowed_tools(McpProfile::Full).contains(name) || absorbed_canonical(name).is_some()
+}
+
 /// Dispatch a `tools/call` request, validating inputs against config limits.
 pub fn handle_tools_call(
     params: &Option<Value>,
@@ -1250,6 +1305,19 @@ pub fn handle_tools_call(
         .as_str()
         .ok_or_else(|| McpError::invalid_params("Missing 'name' in tool call").to_json())?;
     let args = &p["arguments"];
+
+    // WIRE-02: enforce the active profile on dispatch, mirroring `tools/list`.
+    // Known tools outside the profile fail with the documented
+    // method-not-found message; absorbed dispatch-only names (API-04 aliases +
+    // the WIRE-02 code_* projections) resolve to their canonical tool and
+    // remain callable when the canonical is listed.
+    if tool_is_known(name) && !profile_allows_call(config.profile, name) {
+        return McpError::method_not_found(format!(
+            "Tool not found: {name} (not in profile {})",
+            config.profile.as_str()
+        ))
+        .into_err();
+    }
 
     match name {
         "memory_put" => {
@@ -1283,7 +1351,9 @@ pub fn handle_tools_call(
             if let Some(vector) = &vector {
                 if let Some(expected) = index_vector_dim(storage) {
                     if vector.len() != expected {
-                        return Ok(error_content(dim_mismatch_guidance(expected, vector.len())));
+                        return Ok(error_content_mcp(McpError::validation(
+                            dim_mismatch_guidance(expected, vector.len()),
+                        )));
                     }
                 }
             }
@@ -1298,7 +1368,9 @@ pub fn handle_tools_call(
             if let Some(vector) = &vector {
                 if let Some(expected) = index_vector_dim(storage) {
                     if vector.len() != expected {
-                        return Ok(error_content(dim_mismatch_guidance(expected, vector.len())));
+                        return Ok(error_content_mcp(McpError::validation(
+                            dim_mismatch_guidance(expected, vector.len()),
+                        )));
                     }
                 }
             }
@@ -1354,6 +1426,9 @@ pub fn handle_tools_call(
                 sparse_vector,
                 metadata,
                 ttl_ms,
+                // SCH-05 (MGR-13 §4.4): write-time quarantine flag (T1).
+                quarantine: parse_optional_bool(args, "quarantine", false)?,
+                ..Default::default()
             };
 
             let embedded = vantadb::Embedded::from_engine(storage.clone());
@@ -1408,9 +1483,8 @@ pub fn handle_tools_call(
                 for input in &inputs {
                     if let Some(vector) = &input.vector {
                         if vector.len() != expected {
-                            return Ok(error_content(dim_mismatch_guidance(
-                                expected,
-                                vector.len(),
+                            return Ok(error_content_mcp(McpError::validation(
+                                dim_mismatch_guidance(expected, vector.len()),
                             )));
                         }
                     }
@@ -1427,9 +1501,8 @@ pub fn handle_tools_call(
                     for &idx in &outcome.filled {
                         if let Some(vector) = inputs.get(idx).and_then(|i| i.vector.as_ref()) {
                             if vector.len() != expected {
-                                return Ok(error_content(dim_mismatch_guidance(
-                                    expected,
-                                    vector.len(),
+                                return Ok(error_content_mcp(McpError::validation(
+                                    dim_mismatch_guidance(expected, vector.len()),
                                 )));
                             }
                         }
@@ -1468,7 +1541,7 @@ pub fn handle_tools_call(
             let embedded = vantadb::Embedded::from_engine(storage.clone());
             match embedded.get(namespace, key) {
                 Ok(Some(record)) => Ok(text_content_structured(&record)),
-                Ok(None) => Ok(error_content("Record not found")),
+                Ok(None) => Ok(error_content_mcp(McpError::not_found("Record not found"))),
                 Err(e) => Ok(error_content_vanta(e)),
             }
         }
@@ -1485,12 +1558,28 @@ pub fn handle_tools_call(
                 .map_err(|e| e.to_json())?;
             validate_identifier(key, "key", config.max_key_length).map_err(|e| e.to_json())?;
 
+            let attest = args["attest"].as_bool().unwrap_or(false);
             let embedded = vantadb::Embedded::from_engine(storage.clone());
-            match embedded.delete(namespace, key) {
-                Ok(deleted) => Ok(text_content(serialize_content(
-                    &json!({"deleted": deleted}),
-                ))),
-                Err(e) => Ok(error_content_vanta(e)),
+            if attest {
+                // VER-02: certified delete — the response carries the purge
+                // certificate (per-surface inventory + integrity + chain ref).
+                match embedded.delete_certified(namespace, key) {
+                    Ok(certificate) => {
+                        let deleted = certificate.status != "not_found";
+                        Ok(text_content(serialize_content(&json!({
+                            "deleted": deleted,
+                            "certificate": &certificate,
+                        }))))
+                    }
+                    Err(e) => Ok(error_content_vanta(e)),
+                }
+            } else {
+                match embedded.delete(namespace, key) {
+                    Ok(deleted) => Ok(text_content(serialize_content(
+                        &json!({"deleted": deleted}),
+                    ))),
+                    Err(e) => Ok(error_content_vanta(e)),
+                }
             }
         }
 
@@ -1546,6 +1635,14 @@ pub fn handle_tools_call(
                 None
             };
 
+            // SCH-07 (ADR-046 §D2/§D3/§D5): same query params as the SDK list
+            // wire — valid-time point/window, quarantine view, confidence floor.
+            let as_of_ms = parse_optional_u64(args, "as_of_ms")?;
+            let valid_window = parse_valid_window(args, "valid_window")?;
+            let include_quarantined = parse_optional_bool(args, "include_quarantined", false)?;
+            let min_confidence = parse_optional_min_confidence(args)
+                .map_err(|msg| McpError::validation(msg).to_json())?;
+
             let options = vantadb::sdk::MemoryListOptions {
                 limit,
                 cursor,
@@ -1553,6 +1650,10 @@ pub fn handle_tools_call(
                 filters: vantadb::sdk::MemoryMetadata::new(),
                 filter_ops,
                 exclude_superseded: false,
+                as_of_ms,
+                valid_window,
+                include_quarantined,
+                min_confidence,
             };
 
             let embedded = vantadb::Embedded::from_engine(storage.clone());
@@ -1645,18 +1746,19 @@ pub fn handle_tools_call(
 
             let trimmed = query.trim();
             if trimmed.is_empty() {
-                return Ok(error_content("Query cannot be empty"));
+                return Err(McpError::validation("Query cannot be empty").to_json());
             }
 
             if query.contains('\0') {
-                return Ok(error_content("Query contains invalid null bytes"));
+                return Err(McpError::validation("Query contains invalid null bytes").to_json());
             }
 
             if query.len() > config.max_query_length {
-                return Ok(error_content(format!(
+                return Err(McpError::validation(format!(
                     "Query exceeds maximum length of {} bytes",
                     config.max_query_length
-                )));
+                ))
+                .to_json());
             }
 
             match executor.execute_hybrid(trimmed) {
@@ -1688,10 +1790,13 @@ pub fn handle_tools_call(
             }
         }
 
+        // API-04: legacy alias — NOT listed in `tools/list` (canonical name:
+        // `memory_search`). Kept so saved prompts/agents keep working; shares
+        // the exact dispatch so behavior cannot diverge. Documented in
+        // docs/api/MCP.md §Legacy aliases.
         "search_memory" => dispatch_search_memory(args, config, storage),
-        // MEM-59: agent-friendly alias of search_memory — same wire shape,
-        // same engine path. Delegates to the shared dispatch so the two
-        // tools cannot diverge.
+        // API-04: canonical agent-facing name of the hybrid memory search
+        // (mem0/Letta parity). Same dispatch as the legacy `search_memory`.
         "memory_search" => dispatch_search_memory(args, config, storage),
 
         // MEM-59: high-level recall — thin wrapper over vanta-memory's
@@ -1700,20 +1805,24 @@ pub fn handle_tools_call(
         // not require a session_key (clients do not own internal sessions).
         "memory_recall" => {
             use vanta_memory::core::hooks::{
-                perform_auto_recall, AutoRecallParams, RecallConfig, RecallMode, RecallScope,
+                perform_auto_recall_governed, AutoRecallParams, RecallConfig, RecallMode,
+                RecallScope,
             };
 
             let query = args["query"]
                 .as_str()
                 .ok_or_else(|| McpError::invalid_params("Missing 'query'").to_json())?;
             if query.trim().is_empty() {
-                return Ok(error_content("Recall rejected: 'query' must be non-empty"));
+                return Err(
+                    McpError::validation("Recall rejected: 'query' must be non-empty").to_json(),
+                );
             }
             if query.len() > config.max_payload_length {
-                return Ok(error_content(format!(
+                return Err(McpError::validation(format!(
                     "Recall rejected: 'query' exceeds maximum length of {} bytes",
                     config.max_payload_length
-                )));
+                ))
+                .to_json());
             }
 
             let scope = match args.get("scope").and_then(Value::as_str) {
@@ -1721,9 +1830,10 @@ pub fn handle_tools_call(
                 Some("session") => RecallScope::Session,
                 Some("team") => RecallScope::Team,
                 Some(other) => {
-                    return Ok(error_content(format!(
+                    return Err(McpError::validation(format!(
                         "Recall rejected: unknown scope '{other}' — supported: session, agent, team"
-                    )));
+                    ))
+                    .to_json());
                 }
             };
 
@@ -1732,13 +1842,17 @@ pub fn handle_tools_call(
             let raw_top_k = args["top_k"].as_u64().unwrap_or(5);
             let top_k = (raw_top_k as usize).min(config.max_top_k).max(1);
 
+            // VER-04: the recall runs under the injection ACL and its lines +
+            // envelope are capped by the same `byte_budget` as every response
+            // (char caps at the source; envelope truncation via budget_value).
+            let budget_chars = config.byte_budget;
             let config_recall = RecallConfig {
                 mode: RecallMode::Hybrid, // degrades to keyword without an embed hook (D38)
                 scope,
                 max_results: top_k,
                 min_overlap: 1,
-                max_chars_per_memory: None,
-                max_total_recall_chars: None,
+                max_chars_per_memory: Some(budget_chars),
+                max_total_recall_chars: Some(budget_chars),
             };
             let params = AutoRecallParams {
                 user_text: query,
@@ -1760,8 +1874,20 @@ pub fn handle_tools_call(
             if hook.is_none() {
                 warn!("memory_recall: embedding unavailable — keyword fallback");
             }
-            match perform_auto_recall(&embedded, params, hook.as_ref()) {
+            match perform_auto_recall_governed(
+                &embedded,
+                params,
+                hook.as_ref(),
+                &config.injection_policy(),
+            ) {
                 Ok(Some(result)) => {
+                    crate::governance::audit_recall(
+                        config,
+                        "memory_recall",
+                        "mcp",
+                        &result,
+                        budget_chars,
+                    );
                     let recalled: Vec<Value> = result
                         .recalled_memories
                         .into_iter()
@@ -1770,6 +1896,8 @@ pub fn handle_tools_call(
                                 "content": m.content,
                                 "score": m.score,
                                 "type": m.memory_type,
+                                "source_namespace": m.source_namespace,
+                                "source_key": m.source_key,
                             })
                         })
                         .collect();
@@ -1783,15 +1911,20 @@ pub fn handle_tools_call(
                         "recalled": recalled,
                         "effective_mode": mode_str,
                     });
-                    Ok(text_content_structured(&envelope))
+                    Ok(recall_envelope(envelope, config.byte_budget))
                 }
-                Ok(None) => Ok(text_content_structured(&json!({
-                    "prepend_context": null,
-                    "recalled": [],
-                    "effective_mode": "keyword",
-                    "message": "No relevant memories, persona, or scenes found."
-                }))),
-                Err(e) => Ok(error_content(format!("Recall Error: {e}"))),
+                Ok(None) => Ok(recall_envelope(
+                    json!({
+                        "prepend_context": null,
+                        "recalled": [],
+                        "effective_mode": "keyword",
+                        "message": "No relevant memories, persona, or scenes found."
+                    }),
+                    config.byte_budget,
+                )),
+                Err(e) => Ok(error_content_mcp(McpError::internal_error(format!(
+                    "Recall Error: {e}"
+                )))),
             }
         }
 
@@ -1806,13 +1939,15 @@ pub fn handle_tools_call(
             let method = parse_search_method(&args["method"])?;
 
             let request = match parse_search_request(namespace, args, config, storage)? {
-                ParsedSearchRequest::Ready(req) => req,
+                ParsedSearchRequest::Ready(req) => *req,
                 ParsedSearchRequest::Rejected(envelope) => return Ok(envelope),
             };
 
             let embedded = vantadb::Embedded::from_engine(storage.clone());
-            match embedded.search_with_method(request, method) {
-                Ok(hits) => Ok(text_content_hits_with_budget(&hits, config.byte_budget)),
+            match embedded.search_page_with_method(request, method) {
+                // SCH-07: page-shaped envelope carries the abstention signal
+                // (never drop it at the Vec edge).
+                Ok(page) => Ok(search_page_envelope(page, config.byte_budget)),
                 Err(e) => Ok(error_content_vanta(e)),
             }
         }
@@ -1839,7 +1974,7 @@ pub fn handle_tools_call(
             // The SDK's search_multi ignores request.namespace (it overwrites
             // it per-namespace), so a placeholder is fine here.
             let request = match parse_search_request("default", args, config, storage)? {
-                ParsedSearchRequest::Ready(req) => req,
+                ParsedSearchRequest::Ready(req) => *req,
                 ParsedSearchRequest::Rejected(envelope) => return Ok(envelope),
             };
 
@@ -1896,7 +2031,9 @@ pub fn handle_tools_call(
             // garbage distances (all ~0.0) with success.
             if let Some(expected) = index_vector_dim(storage) {
                 if vector.len() != expected {
-                    return Ok(error_content(dim_mismatch_guidance(expected, vector.len())));
+                    return Ok(error_content_mcp(McpError::validation(
+                        dim_mismatch_guidance(expected, vector.len()),
+                    )));
                 }
             }
 
@@ -1932,7 +2069,11 @@ pub fn handle_tools_call(
                     }));
                 }
             }
-            Ok(text_content_hits_with_budget(&results, config.byte_budget))
+            Ok(text_content_hits_with_budget(
+                &results,
+                config.byte_budget,
+                None,
+            ))
         }
 
         "get_node_neighbors" => {
@@ -1958,7 +2099,7 @@ pub fn handle_tools_call(
                         &json!({"node": node, "neighbors": neighbors}),
                     )))
                 }
-                Ok(None) => Ok(error_content("Node not found")),
+                Ok(None) => Ok(error_content_mcp(McpError::not_found("Node not found"))),
                 Err(e) => Ok(error_content_vanta(e)),
             }
         }
@@ -1967,27 +2108,58 @@ pub fn handle_tools_call(
             let content = args["content"]
                 .as_str()
                 .ok_or_else(|| McpError::invalid_params("Missing 'content'").to_json())?;
-            // AUD-050: a present-but-wrong-typed thread_id (e.g. string "200")
-            // used to surface as "Missing 'thread_id'" — misleading, since the
-            // field IS present. Distinguish absence from bad type explicitly.
+            // API-04: `thread_id` is a u128 decimal string (canonical wire form;
+            // thread ids are random u128 — src/agentic/thread.rs:139-140 — so a
+            // JSON number cannot represent them above 2^53).
+            // AUD-050: distinguish absence from a present-but-wrong-typed value.
+            // Present-but-invalid values are typed (VANTADB_VALIDATION_ERROR);
+            // legacy non-negative JSON integers keep working so saved prompts
+            // do not break (use the string form above 2^53 to stay exact).
             let thread_id = match args.get("thread_id") {
                 Some(Value::Null) | None => {
                     return Err(McpError::invalid_params("Missing 'thread_id'").to_json());
                 }
-                Some(v) => v.as_u64().ok_or_else(|| {
-                    McpError::invalid_params(format!(
-                        "'thread_id' must be a numeric id (integer), got {}",
-                        json_value_type_name(v)
+                Some(Value::String(s)) => s.parse::<u128>().map_err(|_| {
+                    McpError::validation(format!(
+                        "'thread_id' is not a valid u128 decimal string: {s}"
                     ))
                     .to_json()
                 })?,
+                Some(Value::Number(n)) => match n.as_u64() {
+                    Some(n) => u128::from(n),
+                    None => {
+                        return Err(McpError::validation(
+                            "'thread_id' must be a u128 decimal string, or a legacy non-negative JSON integer (u64; use the string form above 2^53)",
+                        )
+                        .to_json());
+                    }
+                },
+                Some(v) => {
+                    return Err(McpError::validation(format!(
+                        "'thread_id' must be a u128 decimal string, or a legacy non-negative JSON integer, got {}",
+                        json_value_type_name(v)
+                    ))
+                    .to_json());
+                }
             };
 
+            // VER-04: injection budget — the same `byte_budget` that caps
+            // every MCP response caps injected content (single source;
+            // fail-closed: over-budget injections are rejected, never
+            // silently truncated). Raise VANTADB_MCP_BYTE_BUDGET to allow more.
+            if content.len() > config.byte_budget {
+                return Err(McpError::validation(format!(
+                    "Content exceeds the injection budget of {} bytes (raise VANTADB_MCP_BYTE_BUDGET to allow more)",
+                    config.byte_budget
+                ))
+                .to_json());
+            }
             if content.len() > config.max_payload_length {
-                return Ok(error_content(format!(
+                return Err(McpError::validation(format!(
                     "Content exceeds maximum length of {} bytes",
                     config.max_payload_length
-                )));
+                ))
+                .to_json());
             }
 
             let escaped_content = escape_iql_string(content);
@@ -2001,17 +2173,33 @@ pub fn handle_tools_call(
                     affected_nodes,
                     message,
                     ..
-                }) => Ok(text_content(serialize_content(&json!({
-                    "affected_nodes": affected_nodes,
-                    "message": message,
-                    "status": "Context Anchored"
-                })))),
-                Ok(_) => Ok(error_content("Unexpected read result for insert")),
+                }) => {
+                    // VER-04: audited injection (metadata only — thread id +
+                    // byte count + budget; the content never lands here).
+                    crate::governance::audit_inject_context(
+                        config,
+                        thread_id,
+                        content.len(),
+                        config.byte_budget,
+                    );
+                    Ok(text_content_structured(&json!({
+                        "affected_nodes": affected_nodes,
+                        "message": message,
+                        "status": "Context Anchored",
+                        "byte_count": content.len(),
+                        "truncated": false
+                    })))
+                }
+                Ok(_) => Ok(error_content_mcp(McpError::internal_error(
+                    "Unexpected read result for insert",
+                ))),
                 Err(e) => Ok(error_content_vanta(e)),
             }
         }
 
-        "read_axioms" => Ok(text_content(serialize_content(&resolve_axioms(storage)))),
+        "read_axioms" => Ok(text_content(serialize_content(&resolve_axioms(
+            storage, false,
+        )))),
 
         // MCP-33: agent-managed axioms as records in the reserved `_axioms`
         // namespace. Iron Axioms (hardcoded, ids 1-4) are never written nor
@@ -2031,8 +2219,9 @@ pub fn handle_tools_call(
 
             let embedded = vantadb::Embedded::from_engine(storage.clone());
             // Auto-assign an id above the Iron Axioms (1-4) so agent axioms
-            // never collide with the built-in set.
-            let next_id = resolve_axioms(storage)
+            // never collide with the built-in set. Include quarantined axioms:
+            // they still occupy their id (served? no — but counted? yes).
+            let next_id = resolve_axioms(storage, true)
                 .as_array()
                 .map(|arr| {
                     arr.iter()
@@ -2102,7 +2291,11 @@ pub fn handle_tools_call(
                 created_at = created_at.min(record.created_at_ms);
             }) {
                 Ok(count) => count,
-                Err(e) => return Ok(error_content(format!("Collection stats error: {}", e))),
+                Err(e) => {
+                    return Ok(error_content_mcp(McpError::internal_error(format!(
+                        "Collection stats error: {e}"
+                    ))));
+                }
             };
             let created_at = if total_records == 0 { 0 } else { created_at };
 
@@ -2116,6 +2309,11 @@ pub fn handle_tools_call(
             Ok(text_content(serialize_content(&result)))
         }
 
+        // API-04: legacy alias — NOT listed in `tools/list` (canonical name:
+        // `memory_list_namespaces`). Kept dispatchable because it returns the
+        // richer collection metadata (record_count/has_vector_index/created_at)
+        // that the canonical bare list does not; documented as an unlisted
+        // redirect in docs/api/MCP.md §Legacy aliases.
         "collection_list" => {
             let embedded = vantadb::Embedded::from_engine(storage.clone());
 
@@ -2175,9 +2373,9 @@ pub fn handle_tools_call(
             })?;
 
             if confirm != "yes" {
-                return Ok(error_content(
+                return Ok(error_content_mcp(McpError::validation(
                     "Confirmation required: set 'confirm' to 'yes'",
-                ));
+                )));
             }
 
             validate_identifier(namespace, "namespace", config.max_namespace_length)
@@ -2199,7 +2397,9 @@ pub fn handle_tools_call(
                 if let Err(abort_err) = storage.abort_transaction(txn_id) {
                     warn!(error = %abort_err, "Failed to abort transaction after collection error");
                 }
-                return Ok(error_content(format!("Collection delete error: {}", e)));
+                return Ok(error_content_mcp(McpError::internal_error(format!(
+                    "Collection delete error: {e}"
+                ))));
             }
 
             let total = keys.len();
@@ -2218,12 +2418,12 @@ pub fn handle_tools_call(
                 if let Err(abort_err) = storage.abort_transaction(txn_id) {
                     warn!(error = %abort_err, "Failed to abort transaction after partial delete");
                 }
-                return Ok(error_content(format!(
+                return Ok(error_content_mcp(McpError::internal_error(format!(
                     "Partial delete: {}/{} removed, last error: {}",
                     total - failures,
                     total,
                     last_error
-                )));
+                ))));
             }
 
             storage.commit_transaction(txn_id).map_err(|e| {
@@ -2343,7 +2543,14 @@ pub fn handle_tools_call(
         "capabilities" => {
             let embedded = vantadb::Embedded::from_engine(storage.clone());
             let caps = embedded.capabilities();
-            Ok(text_content(serialize_content(&json!(&caps))))
+            // DEF-08 (visible fallback): the embedding probe rides on
+            // `capabilities` so an agent can see when local embeddings degraded
+            // to deterministic dummies — both triggers (ORT unusable / model
+            // missing). Same core probe the CLI `status` surface reports.
+            let mut out = json!(&caps);
+            out["embedding"] = serde_json::to_value(vantadb::embedding_health::embedding_health())
+                .unwrap_or(serde_json::Value::Null);
+            Ok(text_content(serialize_content(&out)))
         }
 
         "generate_snippet" => {
@@ -2388,7 +2595,7 @@ pub fn handle_tools_call(
             // a soft error it can self-correct (MEM-32), not a JSON-RPC
             // parse error.
             if let Err(e) = validate_path_segment(name, "name", config.max_key_length) {
-                return Ok(error_content(e.message));
+                return Ok(error_content_mcp(e));
             }
 
             let embedded = vantadb::Embedded::from_engine(storage.clone());
@@ -2418,17 +2625,17 @@ pub fn handle_tools_call(
             // a soft error it can self-correct (MEM-32), not a JSON-RPC
             // parse error.
             if let Err(e) = validate_path_segment(name, "name", config.max_key_length) {
-                return Ok(error_content(e.message));
+                return Ok(error_content_mcp(e));
             }
             if args["confirm"] != serde_json::Value::Bool(true) {
-                return Ok(error_content(
+                return Ok(error_content_mcp(McpError::validation(
                     "snapshot_restore is DESTRUCTIVE: it replaces the live database directory with the contents of the snapshot. Re-send the tool call with \"confirm\": true to proceed.",
-                ));
+                )));
             }
             let Some(root) = storage.data_dir.parent() else {
-                return Ok(error_content(
+                return Ok(error_content_mcp(McpError::internal_error(
                     "Snapshot Restore Error: in-memory databases have no filesystem to restore",
-                ));
+                )));
             };
             match vantadb::storage::StorageEngine::snapshot_restore(root, name) {
                 Ok(path) => Ok(text_content(serialize_content(&json!({
@@ -2439,7 +2646,7 @@ pub fn handle_tools_call(
                 Err(e) => {
                     let mut m = McpError::from(e);
                     m.message.push_str(" (if an engine holds this database open, close it first - the directory swap requires exclusive access)");
-                    Ok(error_content(m.to_json().to_string()))
+                    Ok(error_content_mcp(m))
                 }
             }
         }
@@ -2487,14 +2694,16 @@ pub fn handle_tools_call(
                     }
                 });
                 if let Err(e) = streamed {
-                    return Ok(error_content(format!("Export Error: {}", e)));
+                    return Ok(error_content_mcp(McpError::internal_error(format!(
+                        "Export Error: {e}"
+                    ))));
                 }
             }
             if overflow {
-                return Ok(error_content(format!(
+                return Ok(error_content_mcp(McpError::resource_limit(format!(
                     "Export exceeds maximum transfer size of {} bytes — export fewer namespaces or use the CLI/SDK file export",
                     MAX_TRANSFER_BYTES
-                )));
+                ))));
             }
             Ok(text_content(jsonl))
         }
@@ -2504,10 +2713,10 @@ pub fn handle_tools_call(
                 McpError::invalid_params("Missing 'content' (JSONL string)").to_json()
             })?;
             if content.len() > MAX_TRANSFER_BYTES {
-                return Ok(error_content(format!(
+                return Ok(error_content_mcp(McpError::resource_limit(format!(
                     "Import content exceeds maximum transfer size of {} bytes — split the payload or use import_file via the CLI/SDK",
                     MAX_TRANSFER_BYTES
-                )));
+                ))));
             }
 
             // Same per-line semantics as the core's import_file: empty lines
@@ -2532,7 +2741,7 @@ pub fn handle_tools_call(
             }
 
             let embedded = vantadb::Embedded::from_engine(storage.clone());
-            match embedded.import_records(records) {
+            match embedded.import_records(records, false) {
                 Ok(mut report) => {
                     report.skipped += skipped;
                     report.errors += malformed;
@@ -2561,7 +2770,7 @@ pub fn handle_tools_call(
                 Err(e) => {
                     let mut m = McpError::from(e);
                     m.message = format!("cannot import from '{path}': {}", m.message);
-                    Ok(error_content(m.to_json().to_string()))
+                    Ok(error_content_mcp(m))
                 }
             }
         }
@@ -2571,10 +2780,10 @@ pub fn handle_tools_call(
                 McpError::invalid_params("Missing 'content' (NDJSON or .vdbdump payload)").to_json()
             })?;
             if content.len() > MAX_TRANSFER_BYTES {
-                return Ok(error_content(format!(
+                return Ok(error_content_mcp(McpError::resource_limit(format!(
                     "Bulk import content exceeds maximum transfer size of {} bytes — use bulk_import_file with a host-side file instead",
                     MAX_TRANSFER_BYTES
-                )));
+                ))));
             }
 
             let bytes = content.as_bytes();
@@ -2592,17 +2801,21 @@ pub fn handle_tools_call(
                     match serde_json::from_str::<vantadb::sdk::MemoryInput>(line) {
                         Ok(input) => inputs.push(input),
                         Err(e) => {
-                            return Ok(error_content(format!(
+                            return Ok(error_content_mcp(McpError::validation(format!(
                                 "Bulk Import Error: malformed NDJSON at line {}: {}",
                                 lineno + 1,
                                 e
-                            )));
+                            ))));
                         }
                     }
                 }
                 let body = match serde_json::to_vec(&inputs) {
                     Ok(body) => body,
-                    Err(e) => return Ok(error_content(format!("Bulk Import Error: {}", e))),
+                    Err(e) => {
+                        return Ok(error_content_mcp(McpError::internal_error(format!(
+                            "Bulk Import Error: {e}"
+                        ))));
+                    }
                 };
                 let mut framed = Vec::with_capacity(17 + body.len());
                 framed.extend_from_slice(b"VDBJSON\n");
@@ -2804,9 +3017,9 @@ pub fn handle_tools_call(
             let filter = match args.get("filter") {
                 Some(Value::Null) | None => None,
                 Some(f) if !f.is_object() => {
-                    return Ok(error_content(
+                    return Ok(error_content_mcp(McpError::validation(
                         "'filter' must be an object {labels, time_range}",
-                    ));
+                    )));
                 }
                 Some(f) => {
                     let labels: Vec<u32> = f["labels"]
@@ -2825,9 +3038,9 @@ pub fn handle_tools_call(
                                     .to_json()
                             })?;
                             if pair.len() != 2 {
-                                return Ok(error_content(
+                                return Ok(error_content_mcp(McpError::validation(
                                     "'time_range' must have exactly two values [from_ms, to_ms]",
-                                ));
+                                )));
                             }
                             let from = pair[0].as_u64().ok_or_else(|| {
                                 McpError::invalid_params("'time_range[0]' must be ms").to_json()
@@ -2853,10 +3066,10 @@ pub fn handle_tools_call(
                     embedded.graph_dfs_filtered(&start, max_depth, direction, labels, *time_range)
                 }
                 (other, _) => {
-                    return Ok(error_content(format!(
+                    return Ok(error_content_mcp(McpError::validation(format!(
                         "Unknown mode '{}' — supported: bfs, dfs",
                         other
-                    )));
+                    ))));
                 }
             };
             match result {
@@ -3052,7 +3265,87 @@ fn parse_memory_input(obj: &Value, config: &McpConfig) -> Result<vantadb::sdk::M
         sparse_vector,
         metadata,
         ttl_ms,
+        // SCH-05 (MGR-13 §4.4): write-time quarantine flag (T1).
+        quarantine: parse_optional_bool(obj, "quarantine", false)?,
+        ..Default::default()
     })
+}
+
+/// Parse an optional boolean flag at the MCP trust boundary (AUD-050 pattern):
+/// absent/`null` ⇒ default; a present non-boolean value is rejected explicitly
+/// instead of being silently coerced.
+fn parse_optional_bool(obj: &Value, field: &str, default: bool) -> Result<bool, Value> {
+    match obj.get(field) {
+        None | Some(Value::Null) => Ok(default),
+        Some(Value::Bool(b)) => Ok(*b),
+        Some(v) => Err(McpError::invalid_params(format!(
+            "'{field}' must be a boolean, got {}",
+            json_value_type_name(v)
+        ))
+        .to_json()),
+    }
+}
+
+/// SCH-07: parse the optional `as_of_ms` valid-time point (ADR-046 §D3).
+/// Absent/null ⇒ `None`; a present non-integer (or negative/float) value is
+/// rejected with an actionable message instead of being coerced.
+fn parse_optional_u64(obj: &Value, field: &str) -> Result<Option<u64>, Value> {
+    match obj.get(field) {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::Number(n)) => n.as_u64().map(Some).ok_or_else(|| {
+            McpError::validation(format!(
+                "'{field}' must be a non-negative integer (unix milliseconds), got {n}"
+            ))
+            .to_json()
+        }),
+        Some(v) => Err(McpError::invalid_params(format!(
+            "'{field}' must be an integer (unix milliseconds), got {}",
+            json_value_type_name(v)
+        ))
+        .to_json()),
+    }
+}
+
+/// SCH-07: parse the optional `valid_window` object (`{from_ms, to_ms}`,
+/// ADR-046 §D3). Shape/type validation here; `from_ms < to_ms` is enforced by
+/// the core boundary (`SEARCH_OPTIONS_INVALID`) — never silently swapped.
+fn parse_valid_window(
+    obj: &Value,
+    field: &str,
+) -> Result<Option<vantadb::sdk::ValidWindow>, Value> {
+    match obj.get(field) {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::Object(map)) => {
+            let from_ms = map.get("from_ms").and_then(Value::as_u64).ok_or_else(|| {
+                McpError::validation(format!("'{field}.from_ms' must be a non-negative integer"))
+                    .to_json()
+            })?;
+            let to_ms = map.get("to_ms").and_then(Value::as_u64).ok_or_else(|| {
+                McpError::validation(format!("'{field}.to_ms' must be a non-negative integer"))
+                    .to_json()
+            })?;
+            Ok(Some(vantadb::sdk::ValidWindow { from_ms, to_ms }))
+        }
+        Some(v) => Err(McpError::invalid_params(format!(
+            "'{field}' must be an object {{from_ms, to_ms}}, got {}",
+            json_value_type_name(v)
+        ))
+        .to_json()),
+    }
+}
+
+/// SCH-07: parse the optional `min_confidence` number at the MCP trust
+/// boundary. Returns the raw message on type error so each caller keeps its
+/// own error channel (search: actionable rejected envelope; list: JSON-RPC
+/// invalid-params). Finiteness/range are validated at the core boundary.
+fn parse_optional_min_confidence(args: &Value) -> Result<Option<f32>, String> {
+    match args.get("min_confidence") {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::Number(n)) => Ok(Some(n.as_f64().unwrap_or(f64::NAN) as f32)),
+        Some(other) => Err(format!(
+            "min_confidence must be a number in [0, 1], got {other}"
+        )),
+    }
 }
 
 /// MCP-21/22: parse an array of node ids (decimal strings, or numbers for
@@ -3097,7 +3390,10 @@ fn parse_direction(val: &Value) -> Result<vantadb::graph::TraversalDirection, Va
 /// JSON-RPC error. Param-level errors (bad types, unknown enum values) still
 /// come back as `Err(Value)` (JSON-RPC invalid-params).
 enum ParsedSearchRequest {
-    Ready(vantadb::sdk::MemorySearchRequest),
+    // WIRE-08: `MemorySearchRequest` carries the optional range/group_by/mmr/
+    // cursor fields and grew past the lint threshold — box it (the enum is a
+    // transient parse result, not a hot-path structure).
+    Ready(Box<vantadb::sdk::MemorySearchRequest>),
     Rejected(Value),
 }
 
@@ -3116,15 +3412,63 @@ fn dispatch_search_memory(
         .map_err(|e| e.to_json())?;
 
     let request = match parse_search_request(namespace, args, config, storage)? {
-        ParsedSearchRequest::Ready(req) => req,
+        ParsedSearchRequest::Ready(req) => *req,
         ParsedSearchRequest::Rejected(envelope) => return Ok(envelope),
     };
 
     let embedded = vantadb::Embedded::from_engine(storage.clone());
-    match embedded.search(request) {
-        Ok(hits) => Ok(text_content_hits_with_budget(&hits, config.byte_budget)),
+    match embedded.search_page(request) {
+        // SCH-07: page-shaped envelope carries the abstention signal
+        // (ADR-046 §D2) — `abstained`/`abstention_reason` on structuredContent.
+        Ok(page) => Ok(search_page_envelope(page, config.byte_budget)),
         Err(e) => Ok(error_content_vanta(e)),
     }
+}
+
+/// SCH-07: emit a page-shaped MCP search envelope — budgeted hits plus the
+/// selective-abstention signal (ADR-046 §D2) as stable machine-readable
+/// fields on `structuredContent` (`abstained` + `abstention_reason`). Shared
+/// by `memory_search` and `search_with_method` so the two tools cannot drift.
+fn search_page_envelope(page: vantadb::sdk::MemorySearchPage, byte_budget: usize) -> Value {
+    // Stable snake_case wire code via serde (robust to new `#[non_exhaustive]`
+    // variants without matching exhaustively across the crate boundary).
+    let reason: Option<String> = page
+        .abstention_reason
+        .as_ref()
+        .and_then(|r| serde_json::to_value(r).ok())
+        .and_then(|v| v.as_str().map(str::to_string));
+    text_content_hits_with_budget(
+        &page.hits,
+        byte_budget,
+        Some((page.abstained, reason.as_deref())),
+    )
+}
+
+/// VER-04: close a recall envelope with the MCP-39 budget metadata
+/// (`byte_count` + `truncated`) so every injection surface reports the same
+/// shape as the search envelopes. Truncation pops trailing `recalled` items
+/// when the envelope exceeds the byte budget (honest size on the string
+/// block, per `budget_value`'s contract).
+///
+/// Review F2: the metadata is appended after measuring, so the measure
+/// reserves [`RECALL_ENVELOPE_META_BYTES`] of headroom — the delivered
+/// payload stays within `byte_budget` (the string block alone can still
+/// overshoot; that oversize stays honest and flagged via `truncated`).
+/// `byte_count` reports the delivered envelope size (≤ 4 bytes off: its own
+/// digits land after the measurement, within the reserve).
+fn recall_envelope(envelope: Value, byte_budget: usize) -> Value {
+    const RECALL_ENVELOPE_META_BYTES: usize = 64;
+    let measure_budget = byte_budget.saturating_sub(RECALL_ENVELOPE_META_BYTES);
+    let (mut budgeted, truncated, _measured) = budget_value(&envelope, measure_budget);
+    if let Some(obj) = budgeted.as_object_mut() {
+        obj.insert("truncated".to_string(), json!(truncated));
+        obj.insert("byte_count".to_string(), json!(0));
+    }
+    let final_size = serde_json::to_string(&budgeted).map_or(0, |s| s.len());
+    if let Some(obj) = budgeted.as_object_mut() {
+        obj.insert("byte_count".to_string(), json!(final_size));
+    }
+    text_content_structured(&budgeted)
 }
 
 /// MCP-24: shared parsing for `search_memory` / `search_with_method` /
@@ -3155,8 +3499,8 @@ fn parse_search_request(
     if !query_vector.is_empty() {
         if let Some(expected) = index_vector_dim(storage) {
             if query_vector.len() != expected {
-                return Ok(ParsedSearchRequest::Rejected(error_content(
-                    dim_mismatch_guidance(expected, query_vector.len()),
+                return Ok(ParsedSearchRequest::Rejected(error_content_mcp(
+                    McpError::validation(dim_mismatch_guidance(expected, query_vector.len())),
                 )));
             }
         }
@@ -3210,10 +3554,12 @@ fn parse_search_request(
         Some("cosine") => vantadb::DistanceMetric::Cosine,
         Some("euclidean") => vantadb::DistanceMetric::Euclidean,
         Some(other) => {
-            return Ok(ParsedSearchRequest::Rejected(error_content(format!(
-                "Unknown distance_metric '{}' — supported: cosine, euclidean",
-                other
-            ))));
+            return Ok(ParsedSearchRequest::Rejected(error_content_mcp(
+                McpError::validation(format!(
+                    "Unknown distance_metric '{}' — supported: cosine, euclidean",
+                    other
+                )),
+            )));
         }
         None => {
             warn!("distance_metric not specified in search request — defaulting to cosine");
@@ -3222,6 +3568,26 @@ fn parse_search_request(
     };
 
     let explain = args["explain"].as_bool().unwrap_or(false);
+
+    // SCH-04: opt-in confidence filter (ADR-046 §D2). Non-numbers are a
+    // param-level rejection (actionable, LLM can self-correct); finiteness and
+    // range are validated at the core boundary (`SEARCH_OPTIONS_INVALID`).
+    let min_confidence = match parse_optional_min_confidence(args) {
+        Ok(v) => v,
+        Err(msg) => {
+            return Ok(ParsedSearchRequest::Rejected(error_content_mcp(
+                McpError::validation(msg),
+            )))
+        }
+    };
+
+    // SCH-07: temporal + quarantine query params (ADR-046 §D3/§D5) — same
+    // wire names as the SDK (`as_of_ms`, `valid_window{from_ms,to_ms}`,
+    // `include_quarantined`). Shape/type validated here; semantic boundaries
+    // (`valid_window.from_ms < to_ms`, threshold range) at the core.
+    let as_of_ms = parse_optional_u64(args, "as_of_ms")?;
+    let valid_window = parse_valid_window(args, "valid_window")?;
+    let include_quarantined = parse_optional_bool(args, "include_quarantined", false)?;
 
     // AUD-048: unified filter semantics with the CLI channel. The search
     // request (`MemorySearchRequest`) is flat-only — it has no
@@ -3237,11 +3603,13 @@ fn parse_search_request(
             if item.op == vantadb::sdk::FilterOp::Eq {
                 flat.insert(item.field, item.value);
             } else {
-                return Ok(ParsedSearchRequest::Rejected(error_content(format!(
-                    "search filters support equality only (flat values or {{\"$eq\": value}}); \
-                     operator '{:?}' on field '{}' is available via memory_list filters",
-                    item.op, item.field
-                ))));
+                return Ok(ParsedSearchRequest::Rejected(error_content_mcp(
+                    McpError::validation(format!(
+                        "search filters support equality only (flat values or {{\"$eq\": value}}); \
+                         operator '{:?}' on field '{}' is available via memory_list filters",
+                        item.op, item.field
+                    )),
+                )));
             }
         }
         flat
@@ -3259,14 +3627,16 @@ fn parse_search_request(
             Some(validate_search_profile(obj, config).map_err(|e| e.to_json())?)
         }
         Some(_) => {
-            return Ok(ParsedSearchRequest::Rejected(error_content(
-                "search_profile must be an object {mode, rrf_k, candidate_k}".to_string(),
+            return Ok(ParsedSearchRequest::Rejected(error_content_mcp(
+                McpError::validation(
+                    "search_profile must be an object {mode, rrf_k, candidate_k}".to_string(),
+                ),
             )));
         }
         None => None,
     };
 
-    Ok(ParsedSearchRequest::Ready(
+    Ok(ParsedSearchRequest::Ready(Box::new(
         vantadb::sdk::MemorySearchRequest {
             namespace: namespace.to_string(),
             query_vector,
@@ -3277,9 +3647,19 @@ fn parse_search_request(
             distance_metric,
             explain,
             exclude_superseded: false,
+            // SCH-04: opt-in confidence filter (ADR-046 §D2).
+            min_confidence,
+            // SCH-07 (ADR-046 §D3/§D5): temporal + quarantine query params.
+            as_of_ms,
+            valid_window,
+            include_quarantined,
             search_profile,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
         },
-    ))
+    )))
 }
 
 /// MCP-24: parse the optional dense-index backend override for

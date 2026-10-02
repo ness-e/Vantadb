@@ -1,10 +1,8 @@
 ---
 title: "Avance — CI/CD & Release"
-type: domain-log
+kind: review
 status: active
 tags: [vantadb, avance, ci, cd, release, github-actions, docker]
-last_reviewed: 2026-08-07
-aliases: []
 ---
 
 # Avance — CI/CD & Release
@@ -64,7 +62,7 @@ aliases: []
 
 ### TSYS-01..16: Mejoras task-system (plan 2026-08-11-residuo-consolidado)
 - **Fecha:** 2026-08-11
-- **Resultado:** ✅ TSYS-01..05, 07..11, 13..16 implementados (14/16; TSYS-06 runner DEFER, TSYS-12 runtime opcional NO gate-CI). Commits: 8f774c18 (T12/T14/T15/T16), d9f2a4cb (T10/T11/T13), 138d8735 (TSYS-14/15/16), TSYS-09/ADR-017. Ver `docs/progreso/README.md` sección migradas.
+- **Resultado:** ✅ TSYS-01..05, 07..11, 13..16 implementados (14/16; TSYS-06 runner DEFER, TSYS-12 runtime opcional NO gate-CI). Commits: 8f774c18 (T12/T14/T15/T16), d9f2a4cb (T10/T11/T13), 138d8735 (TSYS-14/15/16), TSYS-09/ADR-0017. Ver `docs/progreso/README.md` sección migradas.
 
 ## Workflows existentes (inventario 2026-08-03)
 
@@ -114,8 +112,8 @@ aliases: []
 
 - `cargo check -p vantadb` ✅ en cada wave.
 - CI Fast Gate <5 min vs Heavy Certification hasta 2h (separados por diseño).
-### ERR-009 (job Miri en CI cubierto) — migrado 2026-08-12 (ver docs/progreso/README.md)
-### COV-004 (ADR-018 coverage gate = root crate vantadb ≥80%, supersede ADR-015) — migrado 2026-08-12 (ver docs/progreso/README.md)
+- ERR-009 (job Miri en CI cubierto) — migrado 2026-08-12 (ver docs/progreso/README.md)
+- COV-004 (ADR-0018 coverage gate = root crate vantadb ≥80%, supersede ADR-0015) — migrado 2026-08-12 (ver docs/progreso/README.md)
 
 ### CI-04: CodeQL multi-lenguaje (rust + python + javascript-typescript) — migrado 2026-08-12 (ver docs/progreso/README.md)
 - **Resultado:** ✅ `sec-codeql-30.yml` `languages: rust` → `rust, python, javascript-typescript`; timeout 30→45 min. Sin tocar queries (suite default del codeql-action). actionlint exit 0. Commits `202af1f6`, `6477aa87`.
@@ -141,7 +139,7 @@ aliases: []
 ### AUD-026: Dropped cli/arrow/tantivy from native DLL default features — migrado 2026-08-14 (ver docs/progreso/README.md)
 - **Resultado:** ✅ `vantadb-node/Cargo.toml:24` — `vantadb = { path = "..", default-features = false, features = ["fjall", "memmap2", "rayon"] }`; único cdylib que arrastraba cli/arrow/tantivy (6.7MiB debug). `cargo check --manifest-path vantadb-node/Cargo.toml` ✅ + `cargo tree -e features` limpio. Commit `404f1625`.
 
-### AUD-027: Least-privilege per-job permissions in release workflow — migrado 2026-08-14 (ver docs/progreso/README.md)
+- AUD-027: Least-privilege per-job permissions in release workflow — migrado 2026-08-14 (ver docs/progreso/README.md)
 
 ### AUD-047: binario release con feature `server` (2026-08-18)
 - **Resultado:** ✅ `release-binaries-63.yml`: `vanta-cli` se compila con `--features "server,$ALLOC_FEATURES"` (default queda lean; `cargo install` activa solo default → nunca entraba server). README/README_ES: release binario incluye HTTP; source installs `cargo install --git ... --bin vanta-cli --features server`. Verificado runtime: `vanta-cli server --http` + `/health` OK. Commit `4ac3b9fa`. (ver docs/progreso/README.md)
@@ -209,10 +207,10 @@ aliases: []
 - **Fecha:** 2026-08-27
 - **Plan:** `docs/dev/plans/2026-08-27-backlog-pipeline.md` Task 7 · P47 · `vanta-docs`
 - **Objetivo:** Sin ADR de criterios no hay definición de "100% estable" → promoción ad-hoc sin trace; `Cargo.toml:636` deja `server/mcp/wasm/memory/proxy` fuera del Fast Gate.
-- **Resultado:** ✅ `docs/dev/architecture/adr/ADR-031-default-members-promotion.md` (nuevo, 205L) `status: proposed`: Context (Cargo:636), §1 tabla 10 checks (check/fmt/clippy, nextest/vitest, deny, docs-coverage, workflow timeout/continue-on-error, cargo package, wasm-pack/wasm32, napi 7-target, verify <5min, ADR reversible) en 3 corridas limpias, §2 cost table per crate (vantadb ~22s / python 12s / vanta-memory 36s / vanta-proxy 32s / server 21s / mcp 6.7s / wasm 3.6s / ts ~26s / node 8s), §3 Reversibilidad 1 línea `git revert Cargo.toml:636`, §4 Question to Owner A (<5 hard) vs B (<5 soft → ~8min) pending `Owner:___ Date:___ Choice:[ ]A [ ]B` (bloquea STABLE-09). `docs/dev/operations/CI_POLICY.md` §Promotion to default-members añadida (4 hits ADR-031, 6 hits default-members, 10 checks). Verify: fmt ✅ + clippy ✅ + docs-coverage 0 gaps. Commit `fa5f04f0`.
+- **Resultado:** ✅ `docs/dev/architecture/adr/ADR-0031-default-members-promotion.md` (nuevo, 205L) `status: proposed`: Context (Cargo:636), §1 tabla 10 checks (check/fmt/clippy, nextest/vitest, deny, docs-coverage, workflow timeout/continue-on-error, cargo package, wasm-pack/wasm32, napi 7-target, verify <5min, ADR reversible) en 3 corridas limpias, §2 cost table per crate (vantadb ~22s / python 12s / vanta-memory 36s / vanta-proxy 32s / server 21s / mcp 6.7s / wasm 3.6s / ts ~26s / node 8s), §3 Reversibilidad 1 línea `git revert Cargo.toml:636`, §4 Question to Owner A (<5 hard) vs B (<5 soft → ~8min) pending `Owner:___ Date:___ Choice:[ ]A [ ]B` (bloquea STABLE-09). `docs/dev/operations/CI_POLICY.md` §Promotion to default-members añadida (4 hits ADR-0031, 6 hits default-members, 10 checks). Verify: fmt ✅ + clippy ✅ + docs-coverage 0 gaps. Commit `fa5f04f0`.
 - **Gates:** D: no-disparado (docs-only) · V: no-disparado · C: no-disparado
-- **Contrato:** `Test-Path ADR-031` True + `Select-String \| [0-9]` 10 rows + `Question to Owner` hit + `grep ADR-031 CI_POLICY` 4 hits + `grep default-members CI_POLICY` 6 hits + `cargo fmt --check` ✅ + `clippy` ✅ + `docs-coverage` 0 gaps
-- **Archivos:** `docs/dev/architecture/adr/ADR-031-default-members-promotion.md`, `docs/dev/operations/CI_POLICY.md`, `.opencode/skills/campaign-executor/tasks/STABLE-00.md`
+- **Contrato:** `Test-Path ADR-0031` True + `Select-String \| [0-9]` 10 rows + `Question to Owner` hit + `grep ADR-0031 CI_POLICY` 4 hits + `grep default-members CI_POLICY` 6 hits + `cargo fmt --check` ✅ + `clippy` ✅ + `docs-coverage` 0 gaps
+- **Archivos:** `docs/dev/architecture/adr/ADR-0031-default-members-promotion.md`, `docs/dev/operations/CI_POLICY.md`, `.opencode/skills/campaign-executor/tasks/STABLE-00.md`
 
 ---
 
@@ -289,9 +287,9 @@ aliases: []
 - **Commit:** `ci(wheels): aarch64 linux + SHA real formula (MKT-18h)` (2026-09-03; el cambio de workflow cabalgó `2ab706ec` por race de worktree compartido — ver nota en plan)
 - **Dominio:** ci-cd
 
-### STABLE-06 (worker): gate npm TS medido - Resultado: 278/278 vitest (no 264), ~16-21s wall; eslint 1 error fixeado; job tests+lint+pack en release-npm-61.yml. Commit 7ff70b01 (2026-09-05).
+- STABLE-06 (worker): gate npm TS medido - Resultado: 278/278 vitest (no 264), ~16-21s wall; eslint 1 error fixeado; job tests+lint+pack en release-npm-61.yml. Commit 7ff70b01 (2026-09-05).
 
-### BND-09 (worker): targets linux musl verificados sin codigo - Resultado: contrato ya cumplido en HEAD via ed75cb0b (napi.targets package.json:39,41 + matriz CI release-npm-node.yml:44-46,50-52); toolchain local sin docker/cross/musl documentado, sin codigo forzado. Gated por BND-08 (pipeline verificado e9843100). Sin commit nuevo (2026-09-06).
+- BND-09 (worker): targets linux musl verificados sin codigo - Resultado: contrato ya cumplido en HEAD via ed75cb0b (napi.targets package.json:39,41 + matriz CI release-npm-node.yml:44-46,50-52); toolchain local sin docker/cross/musl documentado, sin codigo forzado. Gated por BND-08 (pipeline verificado e9843100). Sin commit nuevo (2026-09-06).
 
 ### STABLE-07: validar matrix node 7 targets (plan 2026-09-07-followup Wave1)
 - **Fecha:** 2026-09-07
@@ -432,7 +430,7 @@ aliases: []
 
 ### FIND-128: fix ADR-Gate multiline + matriz triggers 28 workflows
 - **Fecha:** 2026-09-19
-- **Objetivo:** ADR Gate rojo (`Invalid format ADR-015` + `output` command) + duplicados push-vs-PR en PR #182.
+- **Objetivo:** ADR Gate rojo (`Invalid format ADR-0015` + `output` command) + duplicados push-vs-PR en PR #182.
 - **Resultado:** 1 línea (`paste -sd`) + comentario; matriz 28 triggers (duplicados = push[develop]+PR[main] mismo SHA); dedup como propuesta escrita; P2-01 approve.
 - **Commit:** 50c799d9 (rebase de ddd9d58c)
 
@@ -445,7 +443,7 @@ aliases: []
 ### FIND-133: triage semver ~20 breakings intencional-0.6.0
 - **Fecha:** 2026-09-19
 - **Objetivo:** Semver Checks rojo (develop vs crates.io 0.5.0) — HACERLO PASAR con triage, no con revert ciego.
-- **Resultado:** 21 cats/~100 ítems, 0 accidentales; ADR-044 sin-revert; verde real solo con bump 0.6.0 vía release-plz en main (rojo-en-develop bendecido por scope main-only); P2-01 approve.
+- **Resultado:** 21 cats/~100 ítems, 0 accidentales; ADR-0044 sin-revert; verde real solo con bump 0.6.0 vía release-plz en main (rojo-en-develop bendecido por scope main-only); P2-01 approve.
 - **Commit:** 30b6a1f2/ab3eb373 (rebase de 3c4f146c/6afbe06e)
 
 ### C-06 fast/heavy + otel quartet
@@ -477,3 +475,49 @@ aliases: []
 - **Objetivo:** Cerrar la higiene de ramas: borrar stale sin PR; dejar solo PRs vivos.
 - **Resultado:** ✅ Remoto: solo `develop`/`main` (8 ramas `release-plz` stale borradas tras capturar SHAs `ce164415…af105a7f`; 8/8 recuperables vía API); locales: 2 merged borradas (`ccc8ee4e`, `bd22f387`), 5 no-merged conservadas; ~35 refs dependabot stale limpiadas con `fetch --prune`; PR abierto único = #222 (intacto). Verify `campaign_verify_cmd` passed=true (`origin=['develop','main'] | open PRs=[222]`). Review P2-01 ✅ ronda 2 (ronda 1 cazó verify por cardinalidad → v2 con set de nombres).
 - **Commit:** ac46911d (+02e7d32a docs)
+
+### Release 0.7.0: merge #222 → publish completo (crates.io/npm/PyPI/wheels/SBOM)
+- **Fecha:** 2026-09-25
+- **Objetivo:** Cerrar la puerta de release (merge develop→main + tag + publish) tras GO owner.
+- **Resultado:** ✅ Merge #222 (`58a41ad8`; 11/11 checks requeridos verde; ASan/TSan = ruido informativo) → release-plz publicó por el bump previo en develop: crates.io `0.7.0` + tag `v0.7.0` + GitHub Release `vantadb-v0.7.0`. Cascada: los tags de release-plz usan `GITHUB_TOKEN` → no disparan workflows; se completó con `workflow_dispatch --ref v0.7.0` (wheels `publish-pypi` evalúa `github.ref` tag) + aprobación deployments `pypi`/`npm`: npm `vantadb`/`vantadb-wasm` 0.7.0, PyPI `vantadb-py` 0.7.0, 4 wheels adjuntos al Release, SBOM ok. Release PR #223 (CHANGELOG) mergeado con bypass admin (0 checks por diseño, igual que #221).
+- **Pendiente:** `vantadb-node` (nunca publicado; EST-11), binaries (nunca construidos; parity 0.6.1 = solo wheels), release PR #225 (v0.7.1 acumulando — no mergear sin decisión).
+- **Commit:** `58a41ad8` + `2d4d24bf` (main)
+
+### Fix mojibake CHANGELOG 0.7.0 (PR #226)
+- **Fecha:** 2026-09-25
+- **Objetivo:** Corregir `ΓåÆ`/`├│` en la entrada 0.7.0 de `docs/CHANGELOG.md` (UTF-8 leído como CP437/CP850).
+- **Causa raíz:** el subject del squash de #222 se pasó por consola PowerShell (CP850) → commit `58a41ad8` con mojibake → release-plz lo copió al changelog.
+- **Resultado:** ✅ PR #226 (worktree + bytes UTF-8 exactos) → `16d78dff`; verificado por API (0 marcadores) + scan repo-wide de secuencias CP437 = 0. Residual: mensaje del commit histórico `58a41ad8` (irreparable sin reescribir main). Prevención: `gh pr merge` sin `--subject` o `[Console]::OutputEncoding=UTF8` antes de capturar no-ASCII.
+- **Commit:** `16d78dff` (main)
+
+### EST-09: cierre stale configs CodeQL (post-merge #222)
+- **Fecha:** 2026-09-25
+- **Objetivo:** Confirmar que no reaparece la categoría stale tras el merge (contrato: últimas 20 analyses solo `sec-codeql.yml:analyze` + banner apagado).
+- **Resultado:** ✅ `codeql.yml`/`sec-codeql-30.yml` ya no existen en `main`; sin analyses nuevas con categoría stale post-merge (las 3 históricas quedan ≤2026-09-24 18:27 y se deslizan del top-20 con los próximos runs). **Banner apagado: confirmación visual del owner pendiente (1 clic en Security → Code scanning).**
+- **Commit:** (este commit)
+
+### C-08: CodeQL setup post-release
+- **Fecha:** 2026-09-25
+- **Objetivo:** Confirmar el setup correcto y check verde tras el release (el check apuntaba a `codeql.yml` inexistente) + triage de alertas.
+- **Resultado:** ✅ El check requerido `Analyze` lo provee `sec-codeql.yml` (job `Analyze`, línea 18) — verde en #222 (16m35s); `default-setup` = `not-configured` es el estado correcto (advanced setup activo; activarlo lo reemplazaría); 0 alertas abiertas. Contrato: check verde ✅.
+- **Commit:** (este commit)
+
+### FIND-154: perf-bench gate falso positivo por varianza de runner
+- **Fecha:** 2026-09-25
+- **Objetivo:** Explicar el rojo del gate de regresión en el push a main post-merge.
+- **Resultado:** 🔴 Falso positivo: mismos commits verdes en develop (`36094025761`, dispatch 04:20Z) → rojo en main (`36101773914`, push 06:11Z): `query_hybrid.p50` 5.76→12.01ms (+108.5%), `p95` +88.1%, `p99` +18.8%, `query_text.p99` 0.01→0.04ms (µs = ruido). Baseline `benchmarks/python_baseline.json` calibrado en una máquina concreta → varianza entre runners. No es check requerido (no bloquea merges). **Acción propuesta:** tolerancia por métrica / banda de varianza multi-runner / re-baseline; fila `FIND-154` en Backlog.
+- **Resolución (2026-09-27, HARD-06):** ✅ compare extraído a `benchmarks/compare_baseline.py` con bandas por familia — métricas estables bloquean >15%; familias ruidosas (`query_hybrid`, `query_text`) warn >15% y bloquean solo >300% (ceiling catastrófico, justificado en docstring); `--self-test` 2/2 (ruido +108.5% no bloquea; regresión +40% estable bloquea). `perf-bench.yml` invoca el script. FIND-153 sigue resuelto (baseline activo + run verde `36094025761`).
+- **Commit:** (este commit)
+
+### HIG-01: CHANGELOG dedup + release_always=false + release bodies reparados
+- **Fecha:** 2026-09-25
+- **Objetivo:** Cerrar la causa raíz de los GitHub Releases sin descripción (revisión solicitada por el owner).
+- **Causa raíz:** `docs/CHANGELOG.md` tenía 2 documentos concatenados (2× `# Changelog`, 2× `## [Unreleased]`, frontmatter huérfano) → release-plz loguea "multiple release notes for 'Unreleased'. The git release body will be empty." → bodies vacíos en v0.6.0/v0.6.1/v0.7.0 (len=0).
+- **Resultado:** ✅ PR #227 (main `6f2c1cfe`): dedup (1× H1 + 1× Unreleased + orden 0.7.0→0.4.0; 174,914 vs 175,339 bytes — 0 contenido perdido) + `release_always=false` (release solo al mergear el Release PR; elimina el race publish-antes-de-changelog). develop sincronizado (`54845169`). Bodies reparados: v0.7.0 (206 chars), v0.6.1 (33,808), v0.6.0 (119,109, truncado con link — límite GitHub 125k). #225 (release v0.7.1 docs-only) cerrado. **Pendiente de verificación:** el próximo Release PR no debe reintroducir el duplicado.
+- **Commit:** `6f2c1cfe` (main) + `54845169` (develop)
+
+### API-09: W8 cierre — VERSIONING 11 superficies + docs sync + gates (review P2-01 ✅ fresco)
+- **Fecha:** 2026-09-26
+- **Objetivo:** Cerrar la campaña "Estandarización 11 APIs": `docs/api/VERSIONING.md` con las 11 superficies (Gate P), sync de `docs/api/` (19 files), gates de cierre verdes.
+- **Resultado:** ✅ Contrato 6/6 — coverage 0 gaps · `verify.ps1` ALL 11 PASS (fix tooling: `llvm-cov nextest run`→`nextest`; coverage real 81.63% ≥60) · MCP re-smoke 11/11 · OCR 0 Critical/High · plan 18/18 + campaña 9/9 · review P2-01 fresco ✅ APPROVE (3 nits Low aplicados) · FIND-161/162 registradas.
+- **Commit:** 032cbd0f (local, sin push)

@@ -5,7 +5,7 @@
 > No debilitar para que un cambio pase — tightening es silencioso, loosening es ruidoso.
 > Ver: `.opencode/skills/constraint-driven-development/SKILL.md` y `.opencode/references/floor-guard.md`.
 
-Last reviewed: 2026-09-01 by @ness-e
+Last reviewed: 2026-09-27 by @ness-e
 Next review: 2026-12-01
 
 ---
@@ -44,6 +44,24 @@ Estos 5 checks **nunca** se violan, sin importar la configuracion:
 
 Every row names the command that produces the verdict. A dimension with a number and no command is an aspiration, not a constraint.
 
+> **Owner decisions (HARD-02, 2026-09-27) — coverage mechanism:**
+> (a) the local gate no longer blocks on a global line-coverage threshold; coverage is a
+> **report + per-directory budget** (ratchet: baseline − 1.0 pt; table + command in
+> `docs/dev/operations/CI_POLICY.md` §"Coverage — Report & Per-Directory Budget").
+> (c) the report+budget **runs in the nightly** (`nightly.yml` job `coverage-budget`,
+> `dev-tools/coverage-budget.ps1`), restoring the local fast gate to **209.5s warm < 5 min**
+> (measured; was 509.4s with coverage in-line); local on-demand via `verify.ps1 -IncludeCoverage`.
+> This is a **compensated relaxation**, not a weakening: drift is caught per directory
+> (a budget violation fails the nightly job), the CI canonical gate **ADR-0018 (root crate ≥80%)
+> is untouched**, and `dev-tools/floor-guard.ps1` stays green. The `Coverage (project)` row
+> above keeps its "must not fall" direction; the mechanical check moved from
+> `--fail-under-lines 60` to the budget table (CI check column unchanged).
+>
+> **Watcher (owner decision 2026-10-01):** violations surface mechanically via the nightly's
+> deduped auto-issue (`nightly.yml` job `notify-failure`, the only `issues: write` grant) so a
+> red run never becomes chronic silence; the Build Cop reviews the open nightly issues weekly
+> and converts any persistent violation into a dated FIND.
+
 ---
 
 ## Measured, not yet enforced
@@ -76,7 +94,7 @@ Every row names the command that produces the verdict. A dimension with a number
 
 Cuando no tienes un numero target, registra donde estas y no empeores:
 
-- Project coverage: 68.2% today -> must not fall below 68.2% (tolerance 0.5% for drift)
+- Project coverage: per-directory budget en nightly (`coverage-budget`; baseline 2026-09-26, must not fall >1.0 pt below per directory — tabla en `docs/dev/operations/CI_POLICY.md` §Coverage; local on-demand `-IncludeCoverage`; CI ADR-0018 root ≥80% unchanged)
 - Binary size: measure today, hold the line
 - p99: first bench is the ratchet baseline
 

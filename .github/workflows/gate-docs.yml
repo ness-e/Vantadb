@@ -3,10 +3,10 @@ name: 'GATE: Docs — Lint & Frontmatter'
 on:
   push:
     branches: [main, develop]
-    paths: ["docs/**", "src/server/router.rs", "src/server/routing.rs", "scripts/**"]
+    paths: ["docs/**", "src/server/router.rs", "src/server/routing.rs", "scripts/**", "Cargo.toml"]
   pull_request:
     branches: [main, develop]
-    paths: ["docs/**", "src/server/router.rs", "src/server/routing.rs", "scripts/**"]
+    paths: ["docs/**", "src/server/router.rs", "src/server/routing.rs", "scripts/**", "Cargo.toml"]
   workflow_dispatch:
 
 concurrency:
@@ -85,3 +85,14 @@ jobs:
           fi
           if [ "$FAIL" != "0" ]; then exit 1; fi
           echo "All tracked API doc headers match workspace version $VER."
+
+  check-frontier:
+    name: Check Product Frontier
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Validate product frontier (docs vs features/routes)
+        run: pwsh -NoProfile -File scripts/validate-frontier.ps1

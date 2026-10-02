@@ -1,3 +1,9 @@
+---
+title: MEM-46 — Embeddings para records L1 (fundación recall semántico)
+kind: task
+description: "Plan: docs/dev/plans/2026-08-22-vanta-final-cierre.md Task 4 · Ruta: vanta-worker"
+---
+
 # MEM-46 — Embeddings para records L1 (fundación recall semántico)
 
 Plan: `docs/dev/plans/2026-08-22-vanta-final-cierre.md` Task 4 · Ruta: vanta-worker

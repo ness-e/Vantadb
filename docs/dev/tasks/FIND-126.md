@@ -1,3 +1,9 @@
+---
+title: FIND-126 — limpieza docs (frontmatter + 70 lints)
+kind: task
+description: "Checks del PR en rojo por higiene docs: o se limpia o se acota el scope del workflow (decidir en DISCOVERY con conteo, no con opinión)"
+---
+
 # FIND-126 — limpieza docs (frontmatter + 70 lints)
 
 > **Plan:** `docs/dev/plans/2026-09-19-ci-green.md` Task 4 (Wave1) · **Campaign:** 0ad2d7e2-94e3-4313-8f5c-e8d57c08a6af

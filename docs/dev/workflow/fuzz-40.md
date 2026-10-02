@@ -1,11 +1,9 @@
 ---
 title: "`fuzz.yml` — FUZZ: LibFuzzer — Corpus + Regression"
-type: workflow
+kind: runbook
 status: active
+description: "Ejecuta fuzzing con cargo-fuzz/LibFuzzer sobre 4 objetivos del core de VantaDB para encontrar bugs de seguridad, crashes y comportamientos inesperados mediante entradas aleatorias"
 tags: [vantadb, ci, fuzz]
-last_reviewed: 2026-09-15
-aliases: []
-related: [".github/workflows/fuzz.yml"]
 ---
 
 # `fuzz.yml` — FUZZ: LibFuzzer — Corpus + Regression

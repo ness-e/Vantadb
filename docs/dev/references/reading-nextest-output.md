@@ -1,11 +1,9 @@
 ---
-title: "VantaDB — Cómo Leer Failures de Nextest"
-type: reference
+title: VantaDB — Cómo Leer Failures de Nextest
+kind: research
 status: active
+description: Interpretación
 tags: [vantadb, references, nextest, test-output]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # VantaDB — Cómo Leer Failures de Nextest

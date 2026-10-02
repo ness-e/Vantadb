@@ -14,6 +14,7 @@ use vantadb::sdk::{
     QueryResult, RuntimeProfile, SearchExplanation, SearchExplanationHit, StorageTier,
     TextIndexAuditReport, TextIndexRepairReport, Value,
 };
+use vantadb::SparseVector;
 
 use crate::vector::Vector;
 
@@ -747,6 +748,51 @@ pub(crate) fn py_dict_to_filter_ops(filters: Option<&Bound<'_, PyDict>>) -> PyRe
         }
     }
     Ok(ops)
+}
+
+/// Build a core `SparseVector` (dimension id → weight) from a Python dict.
+///
+/// Mirrors the `sparse_vector` / `query_sparse` shape already documented for
+/// WASM/TS (`Record<number, number>`): keys are `u32` dimension ids, values
+/// finite floats. `None` or an empty dict means "skip sparse search"
+/// (`Ok(None)`), matching how the core filters empty sparse vectors.
+pub(crate) fn py_dict_to_sparse_vector(
+    value: Option<&Bound<'_, PyDict>>,
+) -> PyResult<Option<SparseVector>> {
+    let Some(dict) = value else {
+        return Ok(None);
+    };
+    if dict.is_empty() {
+        return Ok(None);
+    }
+    let mut map = std::collections::BTreeMap::new();
+    for (key, weight) in dict.iter() {
+        let dim: u32 = key.extract().map_err(|_| {
+            PyValueError::new_err(format!(
+                "sparse_vector keys must be u32 dimension ids, got {key}"
+            ))
+        })?;
+        let weight: f64 = weight.extract().map_err(|_| {
+            PyValueError::new_err(format!(
+                "sparse_vector[{dim}] must be a float, got {weight}"
+            ))
+        })?;
+        if !weight.is_finite() {
+            return Err(PyValueError::new_err(format!(
+                "sparse_vector[{dim}] must be finite, got {weight}"
+            )));
+        }
+        // N1 (review WIRE-03): values like 1e39 are finite in f64 but overflow
+        // to `inf` when narrowed to f32 — reject instead of storing inf.
+        let weight32 = weight as f32;
+        if !weight32.is_finite() {
+            return Err(PyValueError::new_err(format!(
+                "sparse_vector[{dim}] is out of range for f32 (got {weight})"
+            )));
+        }
+        map.insert(dim, weight32);
+    }
+    Ok(Some(SparseVector(map)))
 }
 
 /// Map a `Error` to the typed Python exception hierarchy (MOD-20).

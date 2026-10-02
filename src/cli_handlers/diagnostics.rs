@@ -6,8 +6,9 @@ use web_time::{SystemTime, UNIX_EPOCH};
 
 use crate::cli_handlers::fmt::{header_style, info_style};
 use crate::cli_handlers::{
-    create_spinner, human_readable_size, memory_node_id, open_database, print_info, print_success,
-    print_warning, FIELD_EXPIRES_AT_MS, FIELD_NAMESPACE, FIELD_PAYLOAD,
+    create_spinner, field_value_to_json, human_readable_size, memory_node_id, open_database,
+    print_info, print_json, print_success, print_warning, stdout_is_term, truncate_for_term,
+    FIELD_EXPIRES_AT_MS, FIELD_NAMESPACE, FIELD_PAYLOAD,
 };
 use crate::error::{ChainedError, Error, Result};
 use crate::node::{FieldValue, NodeFlags, VectorRepresentations};
@@ -119,40 +120,60 @@ pub struct DoctorOptions {
 
 #[tracing::instrument]
 /// Run comprehensive health diagnostics on the database
-pub fn cmd_doctor(db_path: &str, opts: DoctorOptions) -> Result<()> {
+pub fn cmd_doctor(db_path: &str, opts: DoctorOptions, json_output: bool) -> Result<()> {
+    let mut fixes: Vec<String> = Vec::new();
     if !matches!(opts.fix, DoctorFix::Off) {
         let pending = pending_safe_repairs(db_path);
         if !matches!(opts.fix, DoctorFix::Apply) {
             // Dry-run by default: list, never mutate.
             if pending.is_empty() {
-                print_success("doctor --fix: nothing to fix");
+                if !json_output {
+                    print_success("doctor --fix: nothing to fix");
+                }
             } else {
                 for repair in &pending {
-                    print_warning(&format!("Would fix: {}", repair.description));
+                    fixes.push(format!("would fix: {}", repair.description));
+                    if !json_output {
+                        print_warning(&format!("Would fix: {}", repair.description));
+                    }
                 }
-                print_info("dry-run: re-run with `doctor --fix --force` to apply");
+                if !json_output {
+                    print_info("dry-run: re-run with `doctor --fix --force` to apply");
+                }
             }
         } else {
             // --force: apply additive-only repairs (create missing dirs).
             if pending.is_empty() {
-                print_success("doctor --fix: nothing to fix");
+                if !json_output {
+                    print_success("doctor --fix: nothing to fix");
+                }
             } else {
                 for repair in &pending {
                     std::fs::create_dir_all(&repair.path).map_err(Error::Io)?;
-                    print_success(&format!("Fixed: {}", repair.description));
+                    fixes.push(format!("fixed: {}", repair.description));
+                    if !json_output {
+                        print_success(&format!("Fixed: {}", repair.description));
+                    }
                 }
             }
             // A freshly created (empty) database has no schema/lock yet —
             // opening it read-only would fail with NotFound/Schema.
             // That is the expected empty state, not an error: exit 0.
             if !pending.is_empty() {
+                if json_output {
+                    return print_json(&serde_json::json!({
+                        "path": db_path,
+                        "fixes": fixes,
+                        "diagnostics": serde_json::Value::Null,
+                    }));
+                }
                 return Ok(());
             }
         }
         // ponytail: stale `.vanta.lock` / permissions / WAL / user data are
         // intentionally left alone — deleting them risks data loss. Report
         // only; manual review required (GOV-TK1 stop condition).
-        if opts.verbose.is_verbose() && pending.is_empty() {
+        if opts.verbose.is_verbose() && pending.is_empty() && !json_output {
             print_info(
                 "Left alone (manual review if unhealthy): .vanta.lock, WAL segments, user data",
             );
@@ -160,6 +181,13 @@ pub fn cmd_doctor(db_path: &str, opts: DoctorOptions) -> Result<()> {
     }
     let path = std::path::Path::new(db_path);
     if !path.exists() {
+        if json_output {
+            return print_json(&serde_json::json!({
+                "path": db_path,
+                "fixes": fixes,
+                "diagnostics": serde_json::Value::Null,
+            }));
+        }
         print_warning(&format!(
             "Database directory does not exist at '{}'. (empty)",
             db_path
@@ -176,6 +204,14 @@ pub fn cmd_doctor(db_path: &str, opts: DoctorOptions) -> Result<()> {
         Ok(engine) => engine,
         Err(e) if !matches!(opts.fix, DoctorFix::Off) && is_empty_database_state(&e) => {
             spinner.finish_and_clear();
+            if json_output {
+                return print_json(&serde_json::json!({
+                    "path": db_path,
+                    "fixes": fixes,
+                    "diagnostics": serde_json::Value::Null,
+                    "note": format!("database is empty/uninitialised ({e})"),
+                }));
+            }
             print_warning(&format!(
                 "Database is empty/uninitialised ({e}); nothing further to diagnose."
             ));
@@ -224,6 +260,25 @@ pub fn cmd_doctor(db_path: &str, opts: DoctorOptions) -> Result<()> {
     let stats = engine.stats();
 
     spinner.finish_and_clear();
+
+    if json_output {
+        return print_json(&serde_json::json!({
+            "path": db_path,
+            "fixes": fixes,
+            "diagnostics": {
+                "total_nodes": total_nodes,
+                "namespaces": namespaces,
+                "vectors": total_vectors,
+                "expired_records": total_expired,
+                "storage": {
+                    "node_count": stats.node_count,
+                    "logical_bytes": stats.logical_bytes,
+                    "cache_entries": stats.cache_entries,
+                    "physical_rss": stats.physical_rss,
+                },
+            },
+        }));
+    }
 
     let term = Term::stdout();
     let _ = term.write_line("");
@@ -291,9 +346,22 @@ pub fn cmd_doctor(db_path: &str, opts: DoctorOptions) -> Result<()> {
 
 #[tracing::instrument]
 /// Inspect a single record showing all fields, vectors, and metadata
-pub fn cmd_inspect(db_path: &str, namespace: &str, key: &str, verbose: bool) -> Result<()> {
+pub fn cmd_inspect(
+    db_path: &str,
+    namespace: &str,
+    key: &str,
+    verbose: bool,
+    json_output: bool,
+) -> Result<()> {
     let path = std::path::Path::new(db_path);
     if !path.exists() {
+        if json_output {
+            return print_json(&serde_json::json!({
+                "namespace": namespace,
+                "key": key,
+                "found": false,
+            }));
+        }
         print_warning(&format!(
             "Database directory does not exist at '{}'. (empty)",
             db_path
@@ -310,6 +378,30 @@ pub fn cmd_inspect(db_path: &str, namespace: &str, key: &str, verbose: bool) -> 
     match engine.get(node_id)? {
         Some(node) => {
             spinner.finish_and_clear();
+
+            // `--json` output is always complete (full field map + full vector).
+            if json_output {
+                let mut fields = serde_json::Map::new();
+                for (field_key, value) in node.relational.iter() {
+                    fields.insert(field_key.clone(), field_value_to_json(value));
+                }
+                let vector = match &node.vector {
+                    VectorRepresentations::Full(v) => Some(v.clone()),
+                    _ => None,
+                };
+                return print_json(&serde_json::json!({
+                    "namespace": namespace,
+                    "key": key,
+                    "node_id": node_id.to_string(),
+                    "found": true,
+                    "has_vector": node.flags.is_set(NodeFlags::HAS_VECTOR),
+                    "active": node.flags.is_set(NodeFlags::ACTIVE),
+                    "tier": format!("{:?}", node.tier),
+                    "hits": node.hits,
+                    "fields": fields,
+                    "vector": vector,
+                }));
+            }
 
             let term = Term::stdout();
             let _ = term.write_line("");
@@ -394,11 +486,7 @@ pub fn cmd_inspect(db_path: &str, namespace: &str, key: &str, verbose: bool) -> 
                             format!("{:?}", v)
                         };
                         let _ = term.write_line(&format!("║  Dimensions: {:<39} ║", dims));
-                        let truncated = if preview.len() > 38 {
-                            format!("{}...", &preview[..35])
-                        } else {
-                            preview
-                        };
+                        let truncated = truncate_for_term(&preview, 35, stdout_is_term());
                         let _ = term.write_line(&format!("║  Values:     {:<39} ║", truncated));
                     }
                     _ => {
@@ -431,6 +519,14 @@ pub fn cmd_inspect(db_path: &str, namespace: &str, key: &str, verbose: bool) -> 
         }
         None => {
             spinner.finish_and_clear();
+            if json_output {
+                return print_json(&serde_json::json!({
+                    "namespace": namespace,
+                    "key": key,
+                    "node_id": node_id.to_string(),
+                    "found": false,
+                }));
+            }
             print_warning(&format!(
                 "Record not found: {}:{} (node_id: {})",
                 namespace, key, node_id
@@ -498,6 +594,7 @@ pub fn cmd_stats(db_path: &str, json_output: bool, verbose: bool) -> Result<()> 
             "node_count": stats.node_count,
             "cache_entries": stats.cache_entries,
             "logical_bytes": stats.logical_bytes,
+            "physical_rss": stats.physical_rss,
             "namespaces": namespaces.iter().cloned().collect::<Vec<_>>(),
             "namespace_count": namespaces.len(),
             "total_records": nodes.len(),

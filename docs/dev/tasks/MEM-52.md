@@ -1,3 +1,9 @@
+---
+title: MEM-52 — Fachada productiva de ingest wiki (H3)
+kind: task
+description: "Plan: docs/dev/plans/2026-08-22-vanta-ultima-milla.md · Task 3 · Cynefin 🟦 obvio · 🟢×🟡"
+---
+
 # MEM-52 — Fachada productiva de ingest wiki (H3)
 
 Plan: docs/dev/plans/2026-08-22-vanta-ultima-milla.md · Task 3 · Cynefin 🟦 obvio · 🟢×🟡

@@ -1,3 +1,9 @@
+---
+title: "MEM-17: F4 Skill extract transcript + sink idempotente"
+kind: task
+description: "cargo check -p vanta-memory pasa; tests dedicados de skill extract (D19) pasan (cargo nextest run -p vanta-memory); cargo fmt --check pasa; cargo clippy -p vanta-memory --all-targets --no-deps -- -D warnings pasa.\""
+---
+
 # MEM-17: F4 Skill extract transcript + sink idempotente
 
 ## Metadata

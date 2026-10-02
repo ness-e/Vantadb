@@ -1,3 +1,10 @@
+---
+title: FND-03 — Feature set mínimo + wheels CI compile matrix verde
+kind: research
+status: archived
+description: "Fecha: 2026-08-16 · Wave: P20a · Prio: 🟡 · Tipo: verificación (estado OK, sin cambios)"
+---
+
 # FND-03 — Feature set mínimo + wheels CI compile matrix verde
 
 **Fecha:** 2026-08-16 · **Wave:** P20a · **Prio:** 🟡 · **Tipo:** verificación (estado OK, sin cambios)

@@ -1,3 +1,10 @@
+---
+title: "TDAM — 06: Metadata plane + ACL — Investigación profunda (REVISADO)"
+kind: research
+status: archived
+description: "Flujo de una request a /v3/meta/team/get: 1) L1 Bearer apiKey → verifyAuth + timingSafeEqual (gateway/server.ts:1116-1129); 2) gate /v3/meta/ (server.ts:877-886); 3) extractInstanceId(x-tdai-service-id) → store por instancia; 4) L3..."
+---
+
 # TDAM — 06: Metadata plane + ACL — Investigación profunda (REVISADO)
 
 > **Fecha:** 2026-08-18 · **Agente:** vanta-research · **Scope:** `MemoryCore/src/metadata/` (router v3-meta, services, permission-checker, acl, schemas), auth layers, deployMode quota

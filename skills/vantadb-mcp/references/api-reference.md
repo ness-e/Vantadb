@@ -2,17 +2,17 @@
 
 > Verified against the real SDK boundary: `src/sdk/types.rs`, `src/sdk/api.rs`, `src/sdk/builder.rs`, `src/index/graph.rs`, `src/error.rs`. Only symbols that exist in the code are documented here.
 
-## MCP Tools (86)
+## MCP Tools (85)
 
 > **This is the single source of truth for the VantaDB MCP contract.**
-> Verified against `vantadb-mcp/src/`: exactly **87 tools** = 49 core
-> (`handlers/tools.rs` `base_tools` — 49) + 6 `skill_*` (`skills.rs`) + 8 `code_*`
+> Verified against `vantadb-mcp/src/`: exactly **85 tools** = 47 core
+> (`handlers/tools.rs` `base_tools` — 47) + 7 `skill_*` (`skills.rs`) + 8 `code_*`
 > (`code.rs`) + 6 `wiki_*` (`wiki.rs`) + 1 `context_assemble`
 > (`context.rs`) + 5 `scene_*` (`scenes.rs`) + 6 `thread_*` (`threads.rs`) + 5 `dream_*` (`dreams.rs`). All eight sets are announced together
 > in `tools/list` via extend (`handlers/tools.rs`).
-> Last synced against code: 2026-09-17 — 87 tools = 49 core + 6 skill_* + 8 code_* + 6 wiki_* + 1 context_assemble + 5 scene_* + 6 thread_* + 5 dream_* (FIND-103 recount: +`scene_write`/`scene_edit` S1, +`dream_list`/`dream_load`/`dream_discard` S2, +`dream_consolidate`/`dream_promote` S3).
+> Last synced against code: 2026-09-25 — 85 tools = 47 core + 7 skill_* + 8 code_* + 6 wiki_* + 1 context_assemble + 5 scene_* + 6 thread_* + 5 dream_* (API-04: `search_memory`/`collection_list` canonicalized out of the listing — dispatch-only legacy aliases; `thread_id` is a u128 decimal string).
 
-### Core — Memory / Search / Collections / Graph / IQL / GDS / Recovery (49)
+### Core — Memory / Search / Collections / Graph / IQL / GDS / Recovery (47)
 
 | Tool | Purpose | Main params |
 |------|---------|-------------|
@@ -22,11 +22,11 @@
 | `memory_delete` | Delete a record | `namespace`, `key` |
 | `memory_delete_by_filter` (MCP-18) | Batch-delete all records matching metadata filters; ≥1 filter item required | `namespace`, `filters` (same shape as `memory_list`, req); returns `{deleted_count}` |
 | `memory_list` | List records with pagination + filters | `namespace`; `limit` (default 100), `cursor` (numeric offset), `filters` |
-| `memory_list_namespaces` | List all namespaces | none |
+| `memory_list_namespaces` | List all namespaces (API-04 canonical listing) | none |
 | `memory_versions` (MOD-10) | List every retained version of a record, ascending v1..vN (snapshots drop supersession fields) | `namespace`, `key`; returns array of memory records (empty `[]` when missing) |
 | `memory_supersede` (MOD-10) | Mark a record as superseded by another (durable soft-dead) | `namespace`, `old_key`, `new_key`; errors on missing key / same-key / already superseded; returns `{superseded: true}` |
 | `query_iql` | Execute an IQL statement (reads + node mutations; LISP NOT supported) | `query` |
-| `search_memory` | Hybrid vector + text search with filters/profile/explain | `namespace`; `query_vector`, `text_query`, `top_k` (10), `distance_metric` (cosine \| euclidean, per-request), `explain`, `filters`, `search_profile` `{mode, rrf_k, candidate_k}` |
+| `memory_search` | Hybrid vector + text search with filters/profile/explain (API-04 canonical name; legacy `search_memory` is a dispatch-only alias) | `namespace`; `query_vector`, `text_query`, `top_k` (10), `distance_metric` (cosine \| euclidean, per-request), `explain`, `filters`, `search_profile` `{mode, rrf_k, candidate_k}` |
 | `search_semantic` | Raw HNSW vector search | `vector`, `k` (required in schema, defaults 5 if omitted); returns real distances (`1 − cosine_similarity`) ascending |
 | `get_node_neighbors` | Inspect node's outgoing edges (alive targets only) | `node_id` (u128 decimal string) |
 | `graph_page_rank` (MCP-21) | PageRank over the subgraph reachable from the roots | `roots` (array of u128 decimal strings, req); `max_iterations` (100), `damping_factor` (0.85), `tolerance` (1e-6); returns `{scores: {"<id>": rank}}` |
@@ -35,10 +35,10 @@
 | `graph_topological_sort` (MCP-22) | Topological order of the subgraph; errors on cycles | `roots` (req); returns `{order: [...]}` |
 | `graph_is_dag` (MCP-22) | Whether the subgraph reachable from roots is acyclic | `roots` (req); returns `{is_dag: bool}` |
 | `remove_edge` (MOD-10) | Remove all edges between two nodes with the given label (both directions) | `source_id`, `target_id` (u128 decimal strings, req), `label` (req); returns `{removed: true}` |
-| `inject_context` | Inject context into a thread for consolidation | `content`, `thread_id` (number) |
+| `inject_context` | Inject context into a thread for consolidation | `content`, `thread_id` (u128 decimal string; legacy number ≤2^53 accepted) |
 | `read_axioms` | Read active Iron Axioms | none |
 | `collection_stats` | Stats for a namespace/collection | `namespace` |
-| `collection_list` | List collections with metadata | none |
+| `collection_list` (legacy alias, unlisted) | Dispatch-only redirect kept for rich collection metadata (record_count/has_vector_index/created_at); canonical listing is `memory_list_namespaces` | none |
 | `collection_delete` | Delete an entire namespace/collection | `namespace`, `confirm` (must be `"yes"`) |
 | `rehydrate` | Recover shadow-archived nodes of a summary node | `summary_id` (u128 string) |
 | `export` | Backup: export records as JSONL text (single namespace or all) | `namespace` (optional; omit = all); output capped 10 MB/call |
@@ -59,7 +59,7 @@
 
 Detailed behavior notes (response envelope, error channels, IQL syntax, edge cases F4–F11): see [`SKILL.md`](../SKILL.md).
 
-### Review-agent Skills (6 × `skill_*`)
+### Review-agent Skills (7 × `skill_*`)
 
 Versioned agent skills over the core `SkillStore` (MEM-07).
 **Precondition:** every call takes `owner_agent` as caller identity — skills owned by another agent respond exactly like missing ones (no existence leak). Writes require `expected_version` (optimistic lock).
@@ -72,6 +72,7 @@ Versioned agent skills over the core `SkillStore` (MEM-07).
 | `skill_update` | Replace head content, appending a version | `skill_id`, `owner_agent`, `expected_version`, `content`; `description` |
 | `skill_patch` | Substring replacement in skill content (TDAM-compatible) | `skill_id`, `owner_agent`, `expected_version`, `old_string`, `new_string`; `replace_all` (required when >1 occurrence) |
 | `skill_files_write` | Write a resource file into the skill manifest (5 MB/file, 50 MB/skill) | `skill_id`, `owner_agent`, `expected_version`, `path` (relative only), `content`; `encoding` (utf-8 \| base64), `mime_type`, `is_executable` |
+| `skill_extract` (FIND-111) | Review a transcript and return reusable-skill candidates WITHOUT writing (read-only; no LLM runner in MCP, so non-empty transcripts degrade to `{success:false, candidates:[], error}`) | `transcript` |
 
 ### Code Intelligence (8 × `code_*`)
 
@@ -135,8 +136,9 @@ overlap only (no embedding hook in MCP).
 
 Read wrappers plus a scoped delete over the vanta-memory dream store
 (`dream/<session>/<run_id>`) plus the LLM-free consolidation pass and the
-promote preview. The L1 store is never touched. Domain errors surface as
-error-content messages.
+promotion surface (dry-run plan by default; apply only with `dry_run:false`).
+Consolidation never touches L1; promotion is the module's only mutating entry
+point. Domain errors surface as error-content messages.
 
 | Tool | Purpose | Main params |
 |------|---------|-------------|
@@ -144,7 +146,7 @@ error-content messages.
 | `dream_load` | Load the full persisted dream run (consolidated view; originals never replaced) | `session_key`, `run_id` (req); missing → "not found" — read-only |
 | `dream_discard` | Discard one dream run after review; L1 untouched | `session_key`, `run_id` (req) — scoped destructive (dream namespace only) |
 | `dream_consolidate` | Run one LLM-free consolidation pass and persist the view | `session_key` (req); fails as error-content when not idle — write path |
-| `dream_promote` | PREVIEW ONLY: returns `{preview_count, mutated:false}` without mutating anything | `session_key`, `run_id` (req) — read-only |
+| `dream_promote` | Promote a run into `l1/<session>`: returns `{dry_run, mutated, counts{add,update,delete,noop}, ops[{action: ADD\|UPDATE\|DELETE\|NOOP, key, reason}]}`; applies only with `dry_run:false` (default true = preview). Idempotent; fail-closed quality gate on supersedes; DELETE scoped to the run's scanned inputs | `session_key`, `run_id` (req); `dry_run` (optional bool, default true) — destructive when applied |
 
 ## Python SDK
 
@@ -478,9 +480,10 @@ pub enum VantaError {
 #### DimensionMismatch over MCP
 
 `VantaError::DimensionMismatch` is **not** returned as a JSON-RPC error. The MCP
-tools `search_memory` (when `query_vector` is provided) and `search_semantic`
+tools `memory_search` (when `query_vector` is provided) and `search_semantic`
 validate the query vector dimension against the live HNSW index dimension and
-deliver the failure as an **isError content result**:
+deliver the failure as a **typed isError content result** (API-04: the text is a
+JSON envelope `{code, message, data{code, retriable}}`):
 
 ```json
 {
@@ -489,17 +492,17 @@ deliver the failure as an **isError content result**:
   "result": {
     "isError": true,
     "content": [
-      { "type": "text", "text": "Vector dimension mismatch: expected 4, got 3" }
+      { "type": "text", "text": "{\"code\":-32602,\"message\":\"Vector dimension mismatch: expected 4, got 3. Hint: ...\",\"data\":{\"code\":\"VANTADB_VALIDATION_ERROR\",\"retriable\":false}}" }
     ]
   }
 }
 ```
 
-The message format is `Vector dimension mismatch: expected {expected}, got {got}`.
-Clients that receive `isError: true` should surface `content[0].text` to the user;
-do not expect a JSON-RPC `error` object for this case. On an empty index (no
-vectors stored yet) the dimension check is skipped and the search returns an
-empty result set.
+The message inside the envelope starts with `Vector dimension mismatch: expected {expected}, got {got}`.
+Clients that receive `isError: true` should surface the envelope's `message` to the
+user and branch on `data.code`; do not expect a JSON-RPC `error` object for this
+case. On an empty index (no vectors stored yet) the dimension check is skipped
+and the search returns an empty result set.
 
 ## Performance Considerations
 

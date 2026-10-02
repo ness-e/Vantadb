@@ -1,3 +1,9 @@
+---
+title: RES-09 — Filas P24 del roadmap huérfano (docs)
+kind: task
+description: "Plan: docs/dev/plans/2026-09-03-quality-gtm-wave.md Task 9 · Ruta: vanta-docs · Tipo: docs"
+---
+
 # RES-09 — Filas P24 del roadmap huérfano (docs)
 
 **Plan:** `docs/dev/plans/2026-09-03-quality-gtm-wave.md` Task 9 · **Ruta:** vanta-docs · **Tipo:** docs

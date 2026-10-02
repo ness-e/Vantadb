@@ -1,9 +1,9 @@
 ---
-title: "VantaDB Discord Server — Documentation"
-type: discord
+title: VantaDB Discord Server — Documentation
+kind: index
 status: active
+description: "Server: VantaDB Community"
 tags: [vantadb, discord]
-last_reviewed: 2026-07-21
 ---
 
 # VantaDB Discord Server — Documentation

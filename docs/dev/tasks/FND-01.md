@@ -1,3 +1,9 @@
+---
+title: FND-01 — Regla de presupuesto de memoria (compute/storage separation) + benchmark OOM + back-pressure
+kind: task
+description: "Estado: ✅ COMPLETO (wave follow-ups: F1 wire RSS real 3f6b4c31; F2/F3 pendientes en reporte)"
+---
+
 # FND-01 — Regla de presupuesto de memoria (compute/storage separation) + benchmark OOM + back-pressure
 
 **Estado:** ✅ COMPLETO (wave follow-ups: F1 wire RSS real 3f6b4c31; F2/F3 pendientes en reporte)

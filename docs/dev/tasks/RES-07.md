@@ -1,3 +1,9 @@
+---
+title: RES-07 — Calibrar rss_threshold + bench full-scale 10k..100k (Wave3)
+kind: task
+description: "Disjoint garantizado: no tocar vanta-memory/ (MEM-14) — verificado git diff --name-only no lista vanta-memory. MAX 3 paralelo con MEM-14 + GOV-C7"
+---
+
 # RES-07 — Calibrar rss_threshold + bench full-scale 10k..100k (Wave3)
 
 ## Metadata

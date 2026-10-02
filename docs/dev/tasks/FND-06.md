@@ -1,3 +1,8 @@
+---
+title: "FND-06: Boundaries core↔bindings — lógica de negocio no filtrada a capas de interfaz"
+kind: task
+---
+
 # FND-06: Boundaries core↔bindings — lógica de negocio no filtrada a capas de interfaz
 
 ## Metadata

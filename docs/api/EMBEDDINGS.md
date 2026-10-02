@@ -1,10 +1,9 @@
 ---
 title: Embeddings — BYO-Vector + embed-local
-type: api
+kind: reference
 status: active
+description: VantaDB is BYO-vector by default (“does not embed text for you”) and offers an opt-in local embedding path via the embed-local Cargo feature. No breaking changes — EmbeddingProvider is additive
 tags: [vantadb, embeddings, api]
-last_reviewed: 2026-08-28
-aliases: []
 ---
 
 # Embeddings — BYO-Vector + `embed-local`

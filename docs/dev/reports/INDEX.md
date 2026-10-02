@@ -1,11 +1,9 @@
 ---
-title: "Report Registry — docs/dev/reports/INDEX.md"
-type: report
+title: Report Registry — docs/dev/reports/INDEX.md
+kind: index
 status: active
+description: Notas
 tags: [vantadb, reports, index, registry]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Report Registry — docs/dev/reports/INDEX.md

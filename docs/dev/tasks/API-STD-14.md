@@ -1,3 +1,9 @@
+---
+title: "Task API-STD-14 — Web-checklist: 4 bloques ítem-por-ítem"
+kind: task
+description: Convertir los 4 bloques del usuario en veredicto trazable por ítem (confirma/matiza/descarta/1-fuente)
+---
+
 # Task API-STD-14 — Web-checklist: 4 bloques ítem-por-ítem
 
 > **Plan:** `docs/dev/plans/2026-09-24-api-estandarizacion.md`

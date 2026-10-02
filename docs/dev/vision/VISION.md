@@ -1,11 +1,10 @@
 ---
-title: VantaDB Vision & Strategic Positioning
-type: vision
+title: "VantaDB Vision & Strategic Positioning"
+kind: concept
 status: stable
-tags: [vantadb, product, strategy, uvp, icp, competitive, positioning]
-last_reviewed: 2026-09-24
+description: "VantaDB is an embedded, local-first, transactional cognitive memory engine for AI agents. One core with three entry points — AI-IDEs via MCP, local-LLM/private deployments, and agent frameworks (see §Update 2026-09-24 — Tracks ICP) —..."
 aliases: [Vision, Positioning, UVP, ICP, Competitive Analysis]
-related: [GO_TO_MARKET.md, VANTADB-PRO-FEATURES.md]
+tags: [vantadb, product, strategy, uvp, icp, competitive, positioning]
 ---
 
 # VantaDB Vision & Strategic Positioning
@@ -17,7 +16,7 @@ related: [GO_TO_MARKET.md, VANTADB-PRO-FEATURES.md]
 
 ## Executive Summary
 
-**VantaDB** is an embedded, local-first, transactional cognitive memory engine for AI agents, RAG pipelines, and structured knowledge applications. It unifies documents, vectors, graph relationships, and metadata under a single transactional contract — in-process, zero-config, with no network dependencies.
+**VantaDB** is an embedded, local-first, transactional cognitive memory engine for AI agents. One core with three entry points — AI-IDEs via MCP, local-LLM/private deployments, and agent frameworks (see §Update 2026-09-24 — Tracks ICP) — unifying documents, vectors, graph relationships, and metadata under a single transactional contract: in-process, zero-config, with no network dependencies and hybrid retrieval that powers local RAG workflows.
 
 ### One-Line Positioning
 
@@ -88,26 +87,9 @@ context = db.search(
 response = llm.generate(prompt + "\n\nContext:\n" + format_results(context))
 ```
 
-### Secondary: Knowledge Platform Engineer
+### Secondary & Tertiary profiles — superseded (2026-09-24)
 
-**Profile:**
-- Builds knowledge management and internal RAG tooling
-- Needs hybrid search (semantic + keyword)
-- Requires compliance (HIPAA, GDPR, SOC2)
-
-**Pain Points:**
-- "Our semantic search misses exact keyword matches"
-- "Can't use Pinecone for medical data compliance"
-- "Need atomic document + embedding updates"
-
-### Tertiary: Local Tool Developer
-
-**Profile:**
-- Builds IDEs, editors, developer tooling
-- Wants to add semantic search to local code/docs
-- Values performance and zero-config
-
-**Use Case:** Cursor, Claude Code, Windsurf using VantaDB as project memory.
+> The historical Secondary (Knowledge Platform Engineer) and Tertiary (Local Tool Developer) profiles are superseded by the three ICP entry points declared below in §Update 2026-09-24. They are not separate product lines: the single core serves all three entry points (strategy source: [GO_TO_MARKET.md](../strategy/GO_TO_MARKET.md)).
 
 ### Update 2026-09-24 — Tracks ICP decididos (decisión owner)
 
@@ -190,7 +172,7 @@ La matriz de arriba cubre vector DBs. El **wallet de memoria real** compite cont
 
 - **"The SQLite for AI Agents"** — Embedded, local-first, zero-config persistent memory with hybrid search
 - **"Multi-model persistence engine"** — Documents + vectors + graphs + metadata in atomic transactions with rebuildable derived indexes
-- **"Infrastructure for RAG and GraphRAG"** — Native hybrid search (HNSW + BM25 + RRF), graph traversal for enriched context, prompt token reduction
+- **"Retrieval infrastructure for AI applications"** — Native hybrid search (HNSW + BM25 + RRF), graph traversal for enriched context, prompt token reduction
 
 ### What VantaDB IS NOT
 
@@ -262,11 +244,13 @@ La matriz de arriba cubre vector DBs. El **wallet de memoria real** compite cont
 | Production Deployments | 50+ | ~5 |
 | Revenue (Cloud Offering) | $100K ARR | $0 |
 
-### North Star (2026-09-24)
+### North Star (2026-09-24 · formalizada 2026-09-27 — DEF-05)
 
-**Agentes activos que recuperan una memoria con éxito en ventana de 7 días** (medible en el proxy/MCP: sesiones con put+search la misma semana).
+> **North Star: agentes activos que recuperan una memoria con éxito en ventana de 7 días** (proxy operacional: sesiones con put+search en la misma ventana de 7 días).
 
 Guardrails: 0 hallazgos high sin parche ≤7 días · 0 regresión p99 >15% (gate revivido) · 100% artefactos con versión sincronizada · 0 violaciones Regla 11 en material público.
+
+Medición, baseline 0 (2026-09-26) y estado de instrumentalización (PUT derivable hoy; SEARCH → FIND + DEFER parcial, sin instrumentar código): `SPEC.md` § North Star (producto). ICP-01 instrumenta la métrica en la demo CI.
 
 ---
 

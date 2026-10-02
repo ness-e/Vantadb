@@ -1,11 +1,9 @@
 ---
-title: "Release blockers y syncs (jul-agosto) + AUDIT-01/02"
-type: registro
+title: Release blockers y syncs (jul-agosto) + AUDIT-01/02
+kind: review
 status: archived
+description: "Fuente: Plan docs/dev/plans/2026-07-29-index-rebuild-execution.md — archivado en docs/dev/plans/archive/2026-07-29-index-rebuild-execution.md"
 tags: [vantadb, avance, campana]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Release blockers y syncs (jul-agosto) + AUDIT-01/02
@@ -69,9 +67,9 @@ related: []
 **Resueltas (commits en develop):**
 - **AUDIT-04:** crash benchmark `0xC0000409` atribuido a `cache_warmer.co_access` (OOM 270KB), NO UAF — fix `d2c7b0a5` acota access-time. *(plan Task 14 ✅)*
 - **DEBT-01:** gate `validate-docs-coverage.ps1` reparado (ruta `src/sdk/search/` corregida) + 13 gaps de API documentados — `1a0cb79a`.
-- **TECH-01:** MCP child respeta `--db` (setea `VANTADB_STORAGE_PATH`) — `9d085d00`; ver ADR-012. *(plan Task 17 ✅)*
+- **TECH-01:** MCP child respeta `--db` (setea `VANTADB_STORAGE_PATH`) — `9d085d00`; ver ADR-0012. *(plan Task 17 ✅)*
 - **TECH-02:** wrapper TS `reindexHnswFromText` usa export real del pkg (1-línea, sin rebuild) — `274edcf9`. *(plan Task 18 ✅)*
-- **TECH-04:** ADR-012 publicado (`012_env_var_naming.md`) — naming env vars unificado, AUD-010 absorbida. *(plan Task 10 ✅)*
+- **TECH-04:** ADR-0012 publicado (`ADR-0012-env-var-naming.md`) — naming env vars unificado, AUD-010 absorbida. *(plan Task 10 ✅)*
 - **TECH-05:** resource MCP `schema://` implementado (list + read) — `4dff484c`.
 
 **Ids:** `AUDIT-04`, `DEBT-01`, `TECH-01`, `TECH-02`, `TECH-04`, `TECH-05`

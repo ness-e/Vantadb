@@ -1,3 +1,9 @@
+---
+title: "COMP-024: ACORN-1 Algorithm (Second-Hop Filtered Search)"
+kind: task
+description: "Estado: ✅ COMPLETED — 2026-07-28"
+---
+
 # COMP-024: ACORN-1 Algorithm (Second-Hop Filtered Search)
 
 **Estado:** ✅ COMPLETED — 2026-07-28

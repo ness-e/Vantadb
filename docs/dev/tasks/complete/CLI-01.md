@@ -1,3 +1,9 @@
+---
+title: "CLI-01: CLI polish — handlers no conectados al binary"
+kind: task
+description: "cargo build -p vantadb --features cli && ./target/debug/vanta-cli --help muestra backup, restore, doctor, stats, inspect. Al menos 3 comandos funcionan end-to-end.\""
+---
+
 # CLI-01: CLI polish — handlers no conectados al binary
 
 ## Metadata

@@ -1,3 +1,9 @@
+---
+title: "FIND-73 — `key` en `.pyi` + `verify_pyi` con firmas (providers drift)"
+kind: task
+description: "HALLAZGOS extra del discovery (entran al slice 2, sin scope-creep — mismo archivo)"
+---
+
 # FIND-73 — `key` en `.pyi` + `verify_pyi` con firmas (providers drift)
 
 > **Plan:** `docs/dev/plans/2026-09-15-find-correcciones.md` (Task 11, Wave3) · **Appetite:** 4h · 🟢 · 🟡

@@ -1,3 +1,8 @@
+---
+title: "B2a — Triaje `unwrap/expect` en producción (base de B2)"
+kind: task
+---
+
 # B2a — Triaje `unwrap/expect` en producción (base de B2)
 
 ## 1. Descubrimiento (auto-detect tipo → codegraph blast radius → web si ambigüedad → baseline `/cleanCA <scope>`)

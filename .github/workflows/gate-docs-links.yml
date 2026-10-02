@@ -1,0 +1,146 @@
+name: 'GATE: Docs — Links, Schema, Indexes, Structure'
+
+# Adds mechanical checks to the existing gate-docs.yml surface. Each one
+# measures a number that was previously unmeasurable:
+#   2026-09-28 baseline: 1397 internal links of which 659 broken (47%),
+#   1481 orphans of 1717 files (86%), 1250 files with no frontmatter (73%),
+#   109 files whose structure was silently broken (empty sections, prose
+#   stranded above the file's H1).
+#
+# Rules obeyed (docs/dev/workflow/RULES.md): SHA pins (3), timeouts (2),
+# least-privilege permissions (4), CATEGORY on continue-on-error (6),
+# branches declared on pull_request (7), push+PR scoped by paths (1).
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'docs/**'
+      - 'scripts/docs/**'
+      - '.markdownlint-cli2.yaml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'docs/**'
+      - 'scripts/docs/**'
+      - '.markdownlint-cli2.yaml'
+  schedule:
+    # Weekly, so external link rot is reported without blocking a developer on a
+    # day when a third party happens to be down.
+    - cron: '23 7 * * 1'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  docs-links:
+    name: Internal links resolve
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - name: Check internal Markdown links and legacy wikilinks
+        run: node scripts/docs/check-links.mjs
+
+  docs-schema:
+    name: Frontmatter schema, kind agreement, orphans
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - name: Validate frontmatter against docs/_schema/frontmatter.schema.json
+        run: node scripts/docs/check-docs.mjs
+      - name: Reduction hints
+        if: failure()
+        run: node scripts/docs/check-docs.mjs --fix-hints
+
+  docs-index:
+    name: Generated indexes are current
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - name: docs/index.md, ADR index and llms.txt must match the frontmatter
+        run: node scripts/docs/gen-index.mjs --check
+
+  docs-structure:
+    name: No section has lost its body
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      # A 2026-09-29 regression in lib.mjs segment() reordered file content on
+      # write-back: code-free lines were buffered and flushed at the END of the
+      # file, which pushed each affected file's H1 hundreds of lines down and
+      # emptied the sections above it. Every read-only checker stayed green
+      # because proseOf() does not care about segment order -- only the writer
+      # reproduced it. 32 files were damaged before it was found.
+      #
+      # BUDGET counts DAMAGED FILES and is a ratchet, not a target: it must only
+      # go down. It has come down 109 -> 101 -> 96 -> 87 -> 40, and two of those
+      # steps were the gate's own bugs, not the docs getting better:
+      #   109 -> 101  66 files wrote their title as `#Fjall` with no space, so
+      #               GitHub rendered them as a paragraph and every
+      #               heading-anchored check blamed the surrounding content.
+      #               498 of 511 "stranded prose" findings were that one space.
+      #   96  -> 40   the blank-line test treated any `Key: value` as YAML, so
+      #               every ADR's `## Status` read as an empty section. 47 of
+      #               87 damaged files were sections that are perfectly full.
+      - name: Segmenter round-trip must be lossless
+        run: node scripts/docs/wikilinks-to-md.mjs --self-test
+      - name: Empty sections, stranded prose, malformed headings
+        # The budget is a flag, not an env var: check-structure.mjs reads
+        # --budget=. Wiring it as BUDGET: silently ran with a budget of 0, so
+        # the gate would have failed on a tree whose only damage predates it.
+        run: node scripts/docs/check-structure.mjs --budget=40
+      - name: Attribute any new defect to this change or to the last commit
+        if: failure()
+        run: node scripts/docs/attribute-structure.mjs
+
+  docs-lint-regression:
+    name: Markdownlint does not regress
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      # The 2026-09-28 wikilink migration introduced 7 errors in 2 files while
+      # fixing 47% of the links. A count is easier to hold than a rule set:
+      # markdownlint's own --fix is deliberately not used, because these files
+      # are hand-written prose. Fix the cause, then lower BASELINE.
+      - name: Lint
+        run: npx markdownlint-cli2 "docs/**/*.md" 2>&1 | tee /tmp/lint.txt || true
+      - name: Fail if the error count exceeds the recorded baseline
+        env:
+          BASELINE: '12'
+        run: |
+          N=$(grep -c 'error MD' /tmp/lint.txt || echo 0)
+          echo "markdownlint errors: $N (baseline $BASELINE)"
+          if [ "$N" -gt "$BASELINE" ]; then
+            echo "::error::markdownlint regressions: $N > baseline $BASELINE"
+            grep 'error MD' /tmp/lint.txt | head -20
+            exit 1
+          fi
+      - name: Weekly full-repo lint (informational, never blocks)
+        if: github.event_name == 'schedule'
+        run: npx markdownlint-cli2 "**/*.md" 2>&1 | tail -40
+        continue-on-error: true # CATEGORY: INFORMATIONAL - advisory sweep across the whole repo, not the docs gate

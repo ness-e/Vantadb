@@ -76,7 +76,8 @@ fn replay_is_fully_idempotent_no_duplicates() {
         vanta_memory::seed::SeedCounts {
             created: 0,
             updated: 0,
-            unchanged: 3
+            unchanged: 3,
+            links_unresolved: 0,
         },
         "replay must not duplicate or rewrite"
     );

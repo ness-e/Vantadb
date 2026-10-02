@@ -1,3 +1,9 @@
+---
+title: "WDA-03 — F3 Información: corregir claims falsos del sitio"
+kind: task
+description: "Plan: docs/dev/plans/2026-08-19-web-design-audit.md · Task 4 §6 · Estado inicial ⬜ PENDING"
+---
+
 # WDA-03 — F3 Información: corregir claims falsos del sitio
 
 **Plan:** docs/dev/plans/2026-08-19-web-design-audit.md · Task 4 §6 · Estado inicial ⬜ PENDING

@@ -1,17 +1,18 @@
 ---
-title: "vector-similarity"
-type: glossary-entry
+title: vector-similarity
+kind: glossary
 status: stable
-tags: [vectores, distancia, metricas, busqueda]
-last_reviewed: 2026-09-15
-links: "[[README.md]]"
+description: Vector Similarity refers to the mathematical metrics used to measure how similar two vectors are in a high-dimensional space. It is the basis of vector-search in hnsw
 aliases: [Vector Distance Metrics]
+tags: [vectores, distancia, metricas, busqueda]
+links: "[[README.md]]"
 ---
-#VectorSimilarity
 
-##Definition
+# VectorSimilarity
 
-**Vector Similarity** refers to the **mathematical metrics** used to measure how similar two vectors are in a high-dimensional space. It is the basis of vector-search in [[hnsw]].
+## Definition
+
+**Vector Similarity** refers to the **mathematical metrics** used to measure how similar two vectors are in a high-dimensional space. It is the basis of vector-search in [hnsw](./hnsw.md).
 
 ## Main Metrics
 
@@ -87,14 +88,14 @@ unsafe fn euclidean_distance_avx2(a: &[f32], b: &[f32]) -> f32 {
 | Métrica | Rango | Invariante a | Caso de Uso |
 |---------|-------|--------------|-------------|
 | **Coseno** | [-1, 1] | Magnitud | Texto, semántica |
-| **Euclidiana** | [[vectors|0, ∞) | Nada | Imágenes, geometría |
+| **Euclidiana** | [0, ∞) | Nada | Imágenes, geometría |
 | **Dot Product** | (-∞, ∞) | Nada | Vectores normalizados |
 
 ## See Also
 
-- [Vectors]] — What is compared
-- [[hnsw]] — Index using these metrics
-- [[bm25]] — Supplementary search (lexical)
+- [Vectors](./vectors.md) — What is compared
+- [hnsw](./hnsw.md) — Index using these metrics
+- [bm25](./bm25.md) — Supplementary search (lexical)
 
 ---
 

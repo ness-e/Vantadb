@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Residuo consolidado de auditorías (2026-08-11)"
+kind: plan
+status: archived
+description: Unifica todo el residuo accionable detectado por 13 sub-agentes de auditoría sobre los
+---
+
 # Plan de Ejecución: Residuo consolidado de auditorías (2026-08-11)
 
 > **Campaign ID:** 7f0c1ee9-6319-40b5-8a56-b080f2e0476a
@@ -29,7 +36,7 @@ Star, DORA, SLA, P3-2 ni TSYS-01/05/06. Priorizar Familia A.
 - **Archivos clave:** `.opencode/task-system/enforcement/verify-log.jsonl` (0 bytes), `docs/dev/plans/2026-08-10-docs-task-system-consolidation.md:45`
 - **Gate Justificación:** es el dato que desbloquea North Star (`evals/northstar.mjs`), DORA (`evals/dora.mjs`), SLA (TSYS-05), P3-2 y `docs/dev/reports/pipeline-evals.md` (todos "0 tasks" por log vacío).
 - **Gate Result:** ✅ DO
-- **Contrato: docs/dev/architecture/adr/ADR-015-coverage-policy.md existe con umbral real >=80% + exclusiones wasm/server/mcp + wrapper >=85%
+- **Contrato: docs/dev/architecture/adr/ADR-0015-coverage-policy.md existe con umbral real >=80% + exclusiones wasm/server/mcp + wrapper >=85%
 - **Estado:** ✅ COMPLETED (2026-08-11) — verify-log.jsonl poblado con 2+ entradas reales de verificación (cargo test -p vantadb, node JSONL check); northstar.md/pipeline-evals.md regenerados y ya no dicen "0 tasks". Commit `d22733ab`.
 - **Notas:** confirmado en 8 de 13 reportes como el único cuello de botella vivo de todo el harness (reporte REPORTE-FINAL L16: "la North Star se instrumentó pero no se mide").
 
@@ -111,7 +118,7 @@ Star, DORA, SLA, P3-2 ni TSYS-01/05/06. Priorizar Familia A.
 - **Gate Justificación:** política de coverage sin ADR y gate referenciado sin actualizar.
 - **Gate Result:** ✅ DO
 - **Contrato:** ADR creado en `docs/dev/architecture/adr/` definiendo umbrales (80% root, módulos calientes); ref correspondiente en el workflow apunta al ADR; CHANGELOG nota.
-- **Estado:** ✅ COMPLETED (ADR-015 creado)
+- **Estado:** ✅ COMPLETED (ADR-0015 creado)
 
 ### Task 11: AUD-020 — Tests de seguridad para HTTP server
 - **Esfuerzo:** 🟡 | **Prioridad:** 🔴 | **Ruta:** vanta-worker
@@ -140,7 +147,7 @@ requieren ejecución. Los 4 siguientes NO dependen de Familia A:
 | T19 | TSYS-06 | Chaos del propio server (FALTA #24) | 🟡 | Familia A |
 
 - **Estado (T12-T16):** ✅ COMPLETED (2026-08-11) — T12 handoff invariantes (pipeline-full.md/task.md/SKILL.md), T13 ADR gate mecánico (ci-rust-10.yml, job `adr-gate`), T14 Appetite Shape Up (plan.md), T15 recitation unificado §12 (pipeline-full.md/task.md), T16 triage "es ahora" (plan.md).
-- **Estado (T17-T19):** ✅ COMPLETED (2026-08-11) — T17 TSYS-01 implementado vía TSYS-09 (decision_reason/pattern + plan.adjust); T18 TSYS-05 SLA en ADR-017-pipeline-sla.md; T19 TSYS-06 diseño chaos en task-system-chaos-resilience.md. Commit `138d8735`.
+- **Estado (T17-T19):** ✅ COMPLETED (2026-08-11) — T17 TSYS-01 implementado vía TSYS-09 (decision_reason/pattern + plan.adjust); T18 TSYS-05 SLA en ADR-0017-pipeline-sla.md; T19 TSYS-06 diseño chaos en task-system-chaos-resilience.md. Commit `138d8735`.
 
 ---
 
@@ -255,7 +262,7 @@ como `TSYS-09..18` en `docs/dev/Backlog.md §P17` o nuevo §P18 antes de ejecuta
 Campaign ID: d6c3e3f3-97f0-4281-97c1-ca1eb4ef1609
 Objetivo activo: Residual hardening — COV-004 coverage policy ADR
 Estado: completed
-Última acción: Verificado: ADR-015 creado 2026-08-09, referenciado en ci-rust-10.yml (coverage job :283, enforce pct>=80.0 :312, step-name stale '>=70%' :297), wrapper medido 96%->97%
+Última acción: Verificado: ADR-0015 creado 2026-08-09, referenciado en ci-rust-10.yml (coverage job :283, enforce pct>=80.0 :312, step-name stale '>=70%' :297), wrapper medido 96%->97%
 Resultado: ✅
 Próxima acción: COV-002 (TS coverage) y AUD-020 (server HTTP tests)
 Contrato: cargo test -p vantadb --features cli --test cli_tests → 67/68 pass; 1 fallo = ERR-010 pre-existente confirmado en HEAD limpio

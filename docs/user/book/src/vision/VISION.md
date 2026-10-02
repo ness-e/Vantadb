@@ -1,1 +1,0 @@
-{{#include ../../../vision/VISION.md}}

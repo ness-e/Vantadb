@@ -1,3 +1,9 @@
+---
+title: "EST-03: ci-gate — medir `main` HEAD + política de conclusión tolerante"
+kind: task
+description: "Que el check reusable ci-gate / Main is green (invocado por fuzz.yml, heavy-bench-nightly.yml, heavy-certification.yml vía needs: ci-gate) evalúe el CI del HEAD de main y no derive en rojo eterno en cada PR"
+---
+
 # EST-03: ci-gate — medir `main` HEAD + política de conclusión tolerante
 
 ## Metadata

@@ -1,3 +1,9 @@
+---
+title: "FIND-94 — drift SDK 0.5.0 vs 9 adapters (`vanta.VantaDB` ausente)"
+kind: task
+description: "Objetivo: eliminar el drift entre el SDK Python 0.5.0 y los 9 adapters de integrations/: el módulo compilado ya NO expone VantaDB (solo Client/connect + sub-clientes memory/graph/system/wiki + Record/SearchHit), pero 11 call-sites..."
+---
+
 # FIND-94 — drift SDK 0.5.0 vs 9 adapters (`vanta.VantaDB` ausente)
 
 > Campaign: 6ab26f3f-cf16-4416-9255-c18cca0bcaf0 · Wave9 (plan-adjust 2026-09-16) · Appetite 🟡 Media · Branch develop
@@ -143,7 +149,7 @@
 
 ## 8. INVESTIGACIÓN PROBLEMA
 
-**Drift PROV:** SDK 0.5.0 removió/renombró `VantaDB` (clase) + `*_memory` (métodos) + `Vanta*` (tipos) sin migrar los 9 adapters, que quedaron pineados a la API pre-0.5.0. Causa raíz (systematic-debugging Fase 1): el rename nativo AST-010 + paridad TS `MemoryClient` (AST-012) + política ADR-041 anti-stutter se aplicaron al binding pero no a `integrations/`. El síntoma (`AttributeError: module 'vantadb_py' has no attribute 'VantaDB'`) es total: 12 hits × 9 adapters, verificado FIND-69 (dspy 5 failed + 3 errors; `hasattr is False`).
+**Drift PROV:** SDK 0.5.0 removió/renombró `VantaDB` (clase) + `*_memory` (métodos) + `Vanta*` (tipos) sin migrar los 9 adapters, que quedaron pineados a la API pre-0.5.0. Causa raíz (systematic-debugging Fase 1): el rename nativo AST-010 + paridad TS `MemoryClient` (AST-012) + política ADR-0047 anti-stutter se aplicaron al binding pero no a `integrations/`. El síntoma (`AttributeError: module 'vantadb_py' has no attribute 'VantaDB'`) es total: 12 hits × 9 adapters, verificado FIND-69 (dspy 5 failed + 3 errors; `hasattr is False`).
 
 **Tradeoff:**
 - **Migración (elegida):** superficie mínima (Propuesta §3), deuda cero, ~100 líneas mecánicas + 10 líneas especiales; riesgo = tocar 11 archivos (mitigado por slices por adapter + pytest por adapter + `git diff --check`). Revierte el drift en la dirección correcta (adapters → SDK vigente).

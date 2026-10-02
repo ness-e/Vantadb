@@ -1,11 +1,9 @@
 ---
-title: "Test Map — 2026-07-22"
-type: operations
+title: Test Map — 2026-07-22
+kind: runbook
 status: active
+description: Tests are organized in tests/ (core crate) by category
 tags: [vantadb, operations, test-map, testing]
-last_reviewed: 2026-09-15
-aliases: []
-related: [CI_POLICY.md]
 ---
 
 # Test Map — 2026-07-22
@@ -135,9 +133,9 @@ Tests are organized in `tests/` (core crate) by category:
 
 ---
 
-## Adapter Tier Classification (ADR-016)
+## Adapter Tier Classification (ADR-0016)
 
-See `docs/dev/architecture/adr/ADR-016-adapter-tiers.md` for full rationale.
+See `docs/dev/architecture/adr/ADR-0016-adapter-tiers.md` for full rationale.
 
 | Tier | Label | Adapters | Score range | CI gate |
 |---|---|---|---|---|

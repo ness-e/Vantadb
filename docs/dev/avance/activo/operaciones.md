@@ -1,10 +1,8 @@
 ---
 title: "Avance — Operaciones & API"
-type: domain-log
+kind: review
 status: active
 tags: [vantadb, avance, ops, api, docs, backup, enterprise]
-last_reviewed: 2026-08-29
-aliases: []
 ---
 
 # Avance — Operaciones & API
@@ -154,12 +152,12 @@ aliases: []
 
 ### GOV-TK9: Verificar URL `vantadb-examples` del checklist (Wave0 Task 3)
 - **Fecha:** 2026-09-03
-- **Objetivo:** el checklist piloto (doc de venta enterprise) tenía un paso clone a la org `vantadb` que no existe (FIND-17/ADR-030: owner real `ness-e/*`).
+- **Objetivo:** el checklist piloto (doc de venta enterprise) tenía un paso clone a la org `vantadb` que no existe (FIND-17/ADR-0030: owner real `ness-e/*`).
 - **Resultado:** ✅ ambas URLs verificadas live 404 (`github.com/vantadb/vantadb-examples` y `github.com/ness-e/vantadb-examples`); ningún repo existe en ninguna org → rama TODO-humano del contrato (no crear repos desde el agente). `docs/dev/operations/pilot-onboarding-checklist.md:51` ahora TODO explícito en inglés; `rg "vantadb/vantadb-examples" docs/user/operations/ docs/api/` = 0. Fila Backlog eliminada (con ella muere la cita a la ruta vieja `pilot-onboarding-checklist.md` — la canónica es `docs/user/operations/...`).
 - **Archivos tocados:** `docs/dev/operations/pilot-onboarding-checklist.md`, `docs/dev/Backlog.md` (fila removida), `docs/dev/plans/2026-09-03-quality-gtm-wave.md` (Task 3 → ✅)
 - **Deuda abierta:** crear el repo `vantadb-examples` (o apuntar a ejemplos reales) es acción humana externa.
 
-### MKT-18i: Compose demo multi-servicio VantaDB + Ollama (re-escalado: sin AnythingLLM)
+### MKT-21 (ex MKT-18i): Compose demo multi-servicio VantaDB + Ollama (re-escalado: sin AnythingLLM)
 - **Fecha:** 2026-09-03
 - **Objetivo:** demo copypaste local-first (r/LocalLLaMA): `docker compose up -d` orquesta VantaDB + Ollama + AnythingLLM.
 - **Resultado:** ✅ compose raíz con 2 servicios, tags explícitos: `ollama/ollama:0.33.2` (pin verificado vía Docker Hub API: digest de `latest` == `0.33.2`, multi-arch) + `build: .` con `image: vantadb/server:0.5.0` (== workspace/Dockerfile APP_VERSION). Cabecera: quickstart, RAM mínima ~4 GB, nota GPU CPU-default (docs.ollama.com/docker), volumen de modelos persistente. **Re-escalado por stop condition:** AnythingLLM NO soporta VantaDB como vector backend — evidencia: `server/.env.example` master (github.com/Mintplex-Labs/anything-llm): `VECTOR_DB` ∈ lancedb/chroma/chromacloud/pinecone/astra/pgvector/weaviate/qdrant/milvus/zilliz; sin glue inventado. Enlaces: `docs/user/operations/DEPLOYMENT_GUIDE.md` §3 + `docs/user/tutorials/02-local-rag-pipeline.md` (README no tiene bloque docker — verificado).
@@ -181,13 +179,13 @@ aliases: []
 - **Fecha:** 2026-09-03
 - **Objetivo:** eliminar el Dockerfile alternativo in-construible + dejar `hardening.md` §5 honesto (el doc lo presentaba como FUNCIONAL con `--target unprivileged` inalcanzable).
 - **Resultado:** ✅ opción (b) DEPRECATE (Ponytail: borra 112L sin perder capacidad). Triple-bug verificado: (1) `COPY vantadb/Cargo.toml` — no existe `vantadb/` (`Test-Path`=False, crate raíz en `.`); (2) `cargo build --package vantadb-server` produce `vantadb-server` pero el stage copiaba `target/release/vanta-cli` (bin del paquete raíz); el entrypoint `vanta-cli server --http…` existe (`src/cli.rs:314`) pero para el binario equivocado — el real solo entiende `--mcp/--help` + env; (3) stage `release-binary` descargaba `vantadb-server-<V>-<ARCH>-…tar.gz` cuando el release publica `vantadb-<target>.tar.gz` (404 garantizado; además el release ya publica la imagen docker como asset). Capacidades preservadas: build estándar → `Dockerfile` raíz (cache mounts, OCI labels, smoke en CI job `docker-image` que buildea la raíz — 0 workflows tocaban el archivo eliminado); unprivileged → flags runtime (read-only/cap-drop/no-new-privs + tmpfs, ya en compose y DEPLOYMENT_GUIDE §3); release-binary → asset imagen del release. Ningún workflow referenciaba el archivo (`rg` en `.github/` = 0 paths).
-- **Contrato verificado:** `Test-Path vantadb-server/Dockerfile`=False ✅; `rg "COPY vantadb/" vantadb-server/`=0 ✅; `rg -l "vantadb-server/Dockerfile"` ex-archives = solo Backlog (fila eliminada en este cierre) + esta deuda histórica SRV-07 (registro fechado, exenta) ✅; PyYAML `safe_load` OK ×2 con `build={context: .., dockerfile: Dockerfile}` ✅; `rg "release-binary|target:"` en composes=0 ✅; `rg "vantadb-server/Dockerfile|--target"` en hardening+GUIDE=0 ✅. Sin daemon docker en host → build/smoke diferidos al job `docker-image` de CI (precedente SRV-07/MKT-18i, NUNCA fakes). actionlint N/A (0 workflows), cargo fmt/clippy/nextest N/A (0 Rust).
+- **Contrato verificado:** `Test-Path vantadb-server/Dockerfile`=False ✅; `rg "COPY vantadb/" vantadb-server/`=0 ✅; `rg -l "vantadb-server/Dockerfile"` ex-archives = solo Backlog (fila eliminada en este cierre) + esta deuda histórica SRV-07 (registro fechado, exenta) ✅; PyYAML `safe_load` OK ×2 con `build={context: .., dockerfile: Dockerfile}` ✅; `rg "release-binary|target:"` en composes=0 ✅; `rg "vantadb-server/Dockerfile|--target"` en hardening+GUIDE=0 ✅. Sin daemon docker en host → build/smoke diferidos al job `docker-image` de CI (precedente SRV-07/MKT-21 (ex MKT-18i), NUNCA fakes). actionlint N/A (0 workflows), cargo fmt/clippy/nextest N/A (0 Rust).
 - **Archivos tocados:** `vantadb-server/Dockerfile` (baja trackeada ya registrada en `0a54a545`, 112 deletions; la copia del worktree — resurrección no-trackeada — eliminada en esta sesión vía `git rm`; estado final consistente worktree+index+HEAD), `vantadb-server/docker-compose.yml` (2 builds → raíz, hardening runtime intacto), `vantadb-server/docker-compose.prod.yml` (build → raíz, sin `target release-binary`/`args` muertos; env prod + resources intactos), `docs/user/operations/hardening.md` (§5 reescrito sobre imagen canónica + nota de deprecación; tabla comparativa corregida UID-mecanismo), `docs/user/operations/DEPLOYMENT_GUIDE.md` (1 línea: puntero vivo al archivo eliminado), `docs/dev/Backlog.md` (fila FIND-56 eliminada).
 - **Deuda abierta:** verificación end-to-end en CI al primer dispatch/tag (job `docker-image`: build raíz + smoke `--user 10001:10001` + export como asset).
 
 - **Origen:** Backlog FIND-56 (L219) + deuda SRV-07 (2) de esta misma página.
 
-### GOV-TK3 (docs): drift yaml-real x3 - Resultado: doc-fix x3 (codigo verificado correcto); parity 5/5, parser 117/117, docs-coverage 0 gaps. Commit b3be4176 (2026-09-05).
+- GOV-TK3 (docs): drift yaml-real x3 - Resultado: doc-fix x3 (codigo verificado correcto); parity 5/5, parser 117/117, docs-coverage 0 gaps. Commit b3be4176 (2026-09-05).
 
 ### PRX-04: cache-preserving injection (plan 2026-09-08-backlog Wave2)
 - **Fecha:** 2026-09-09
@@ -281,9 +279,9 @@ aliases: []
 
 ### SRV-06: JWT HS256 offline (plan 2026-09-10-code Wave2)
 - **Fecha:** 2026-09-10
-- **Objetivo:** DISCOVERY arch + MVP auth (OIDC discovery DEFER vía ADR-039).
+- **Objetivo:** DISCOVERY arch + MVP auth (OIDC discovery DEFER vía ADR-0039).
 - **Resultado:** ✅ server 58/58 + auth 3/3 + rotation/rbac 13/13 + server 42/42 + clippy/fmt 0; race git-add paralela revertida.
-- **Commit:** a0a3087f (+ADR-039)
+- **Commit:** a0a3087f (+ADR-0039)
 
 ### PRX-09-wiring: verificada ya-implementada (sin cambios)
 - **Fecha:** 2026-09-10
@@ -362,6 +360,7 @@ aliases: []
 - **Ejecutado:** EST-01 pin setup-python v7.0.0 + EST-02 ollama tests a Client/memory.* + EST-04 GOTOOLCHAIN go1.27.0 + lurkr skip sin .opencode + EST-03 ci-gate head-SHA (aprobado owner) + EST-06 dismiss #110 + EST-07 dismiss 82 test-log + EST-08 SARIF 404/time-box + EST-11 veredicto (release-npm-node.yml tags node-v*, OIDC).
 - **Resultado:** code-scanning 83 OPEN -> 0; commits bcd62115 + 5128c2bc + 9705b434.
 - **Pendiente:** EST-05 (verde en proximo run PR), EST-09 post-merge, EST-10 barrido, EST-12 puertas owner.
+- **Actualización 2026-09-25:** EST-05 ✅ + EST-09 ✅ + EST-10 ✅ + merge #222/tag `v0.7.0`/publish ✅ → pendiente solo EST-12 (FASE-A + R-05, owner). Detalle: `docs/dev/avance/activo/ci-cd.md`.
 - **Nota:** commit bcd62115 arrastro plan ajeno api-estandarizacion.md (paralelo, se deja intacto); su task API-STD-01.md queda untracked ajeno.
 
 ### EST-10: barrido API stale en superficies vivas (pre-0.5.0 → canónica)
@@ -379,5 +378,66 @@ aliases: []
 ### C-10: cierre README (paridad ES/EN + badges)
 - **Fecha:** 2026-09-25
 - **Objetivo:** Cierre total de paridad README tras C-02.
-- **Resultado:** ✅ 4 fixes en `README_ES.md` (colab `blob/main`→`blob/develop`; fila "Ejecutar ejemplos ejecutables"; nota ADR-041; **Trust block traducido** + nota "Fuente vigente" reubicada a §2 para paridad estructural con EN); verify v3 `campaign_verify_cmd` passed=true (0 missing links md+HTML, 0 badge drift shields.io, paridad ES/EN excl. switcher, colab positivo+negativo, Trust OK). Review P2-01 ✅ ronda 3 (ronda 1: badge-check muerto + Trust ausente; ronda 2: falso positivo del switcher → fix v3).
+- **Resultado:** ✅ 4 fixes en `README_ES.md` (colab `blob/main`→`blob/develop`; fila "Ejecutar ejemplos ejecutables"; nota ADR-0047; **Trust block traducido** + nota "Fuente vigente" reubicada a §2 para paridad estructural con EN); verify v3 `campaign_verify_cmd` passed=true (0 missing links md+HTML, 0 badge drift shields.io, paridad ES/EN excl. switcher, colab positivo+negativo, Trust OK). Review P2-01 ✅ ronda 3 (ronda 1: badge-check muerto + Trust ausente; ronda 2: falso positivo del switcher → fix v3).
 - **Commit:** ac46911d (+02e7d32a docs)
+
+### WIRE-01: Loop de memoria del proxy + cost real + presupuesto de inyección
+- **Fecha:** 2026-09-25
+- **Objetivo:** cerrar loop inerte (namespaces disjuntos) + output_tokens real + tope del bloque `<vanta-memory>`
+- **Resultado:** ✅ dual-write L1 + cost en path buffered + `InjectionConfig.max_tokens` (2000, 0=off); pivot A→B por evidencia (3 fallos PRX-09 por claves inestables); lead verify independiente; P2-01 vanta-review approve
+- **Commit:** 679c75a9
+
+### WIRE-10: Distribución P0 — install.sh macOS, Colab a Client, mcp-call + hooks sin pwsh
+- **Fecha:** 2026-09-25
+- **Objetivo:** promesa "1 comando" rota en macOS + puerta Colab rota + hooks mudos sin pwsh (C5/C9/C12)
+- **Resultado:** ✅ install.sh fallback `command -v sha256sum || shasum -a 256` + normalización formato asset (fail-closed); notebook a `from vantadb import Client` + `db.search`/`db.memory.*` ejecutado e2e; `vanta-cli mcp-call` one-shot (JSON-RPC stdio, exit 0/1/2, placeholders `{{}}` stdin) + templates hooks 1.1.0 (memory_recall verbatim, reminders estáticos); P2-01 changes-required→aplicado (truncate UTF-8, reap zombie)
+- **Commit:** 8e55e853
+
+### WIRE-11: `llm-driver` always-on en MCP/proxy
+- **Fecha:** 2026-09-25
+- **Objetivo:** provider ollama/openai decorativo en silencio → funciona o falla con mensaje claro
+- **Resultado:** ✅ 2 líneas Cargo (MCP + proxy) + test `llm_driver_fails_loud_on_unreachable_endpoint`; reqwest v0.12.28 única (dual TLS = patrón workspace); lead verify 1/1; P2-01 vanta-review approve
+- **Commit:** 84cb2d19
+
+### Notion N-17: sync páginas VantaDB Docs (2026-09-30)
+- **Fecha:** 2026-09-30
+- **Objetivo:** aplicar los borradores de `docs/dev/strategy/NOTION-SYNC-2026-09-24.md` (10 páginas + higiene) — aprobación owner via question.
+- **Resultado:** ✅ 9 páginas actualizadas (append, sin borrados): Problema · Propuesta · Roadmap · SDKs · Benchmarks · Seguridad · Observabilidad · Gobernanza · Casos de uso + `Definición oficial` creada (`3ebd0445-9756-81bb-a6f2-c3b67157b866`) + higiene (3 duplicados archivados) + verificación reviewer + link fix. **Sync #2 (mismo día):** validación externa del marco — 6 páginas (áreas/Problema/dims/Propuesta/ámbitos/PI) con notas + 2 calificaciones inline, verificadas 6/6 + 2/2 (`NOTION-SYNC-2026-09-24.md` §14).
+- **Filas removidas de backlog-notion.md:** N-17.
+- **Commits:** `bc4958cd` (N-17) · `b9d1e459` (Sync #2).
+
+### Auditoria de backlogs + rescates OLD (2026-09-30)
+- **Movidas a Backlog-negocio:** STRAT-01/02/03/07, DX-10, FASE-A/R-05 (consolida EXE-03+EST-12) + BIZ-14/15.
+- **Promociones a Backlog:** FUT-03/FUT-07 -> P28; FUT-17..23 anadidos a backlog-futuro; FIND-208..212; MKT-19; RES-16.
+- **Rescates OLD:** DECISIONS-NOT-TAKEN (registro de descartes) + 7 archivos historicos (archive/) + tutorial 06 LM Studio + 5 tipos de contexto.
+- **Commits:** 3ff933a5, d7861c3a, 3b8d9727 (+ este).
+
+### Migración de formato de backlogs + auditoría PDFs OLD (2026-09-30)
+- **Fecha:** 2026-09-30
+- **Objetivo:** unificar los 4 backlogs al esquema canónico de 10 columnas (`ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias`) + eliminar filas completadas + registrar los 15 candidatos de la auditoría PDFs OLD + actualizar los consumidores del formato en `.opencode/` (task-system, comandos, skills).
+- **Resultado:** ✅ esquema 10-col en `Backlog.md` / `Backlog-negocio.md` / `backlog-futuro.md` / `backlog-notion.md` (spec canónica: `.opencode/references/backlog-format.md`); filas completadas eliminadas (campaña F0–F6 + previas); secciones cerradas → notas de cierre; FIND-213..220 + BIZ-16/17 + FUT-24/25 registrados; nota de procedencia de los PDFs en `docs/dev/archive/PDFS-OLD-AUDITORIA-2026-09-30.md`; `.opencode/` actualizado (Gate H: cambios requeridos → aplicados).
+- **Commits:** (+ este) · `.opencode`: commit propio (repo separado).
+
+### Verificación de realidad del backlog (2026-10-01)
+- **Fecha:** 2026-10-01
+- **Objetivo:** validar cada ítem del backlog contra el código HEAD (7 sub-agentes en paralelo, read-only): campos, referencias file:line, vigencia del gap, estado.
+- **Resultado:** ✅ ~276 ítems verificados (DELTA 49 · FIND 62 · P24–P59 ~60 · negocio 34 · futuro 22 · notion 26). **8 filas cerradas** (stale/implementadas): `DX-11` · `FIND-138` · `FIND-170` · `FIND-171` · `UX-08` · `UX-11` · `SHOW-03` · `HIG-02`. **~40 correcciones aplicadas** (evidencia con números/líneas actualizadas, rutas `web/`→`ness-e/Vantadb-web`, residuales re-scopeados). Hallazgos para owner (resueltos 2026-10-01): `WIRE-01/09` ✅ verificados (commits `679c75a9`/`6a0f6934`; registrados en avance — sin fila por diseño); `GOV-TK5` → renombrado `GOV-05`.
+- **Commits:** (+ este)
+
+### FIND-176: wizard ORT_DYLIB_PATH al archivo (4 sitios) + test de regresión
+- **Fecha:** 2026-10-01
+- **Objetivo:** El wizard dejaba `ORT_DYLIB_PATH` apuntando al DIRECTORIO del store (`ort` carga un archivo → embeddings en dummy). Fix en 4 sitios + normalización del path pre-seteado.
+- **Resultado:** ✅ RED→GREEN 4→8 PASS (script `dev-tools/scripts/test-find176-wizard-ort-dylib.ps1`) · LoadLibraryExW A/B (126 vs 0) · gates docs 0.
+- **Commit:** 3ae64a7d (local, sin push)
+
+### Lista de congelados hasta 1.0 — aprobada (owner 2026-10-01)
+- **Fecha:** 2026-10-01
+- **Objetivo:** cerrar el alcance hasta 1.0 con lista cerrada (no criterio): superficies activas vs congeladas, whitelist de features nuevas, umbrales técnicos y de uso.
+- **Resultado:** ✅ publicada en `docs/user/operations/EXPERIMENTAL_FEATURES.md` §Freeze List until 1.0 (34 componentes aprobados 1×1 por el owner; ajustes: proxy congelado sin publicar hasta 1.0.0 · server = host del scheduler + starter para embedders · Studio reducido a visor · 3 conectores activos).
+- **Commits:** (+ este)
+
+### Case studies no verificados — registro eliminado (C5, owner 2026-10-01)
+- **Fecha:** 2026-10-01
+- **Objetivo:** cerrar C5: destino final de los 2 case studies ficticios (documentos ya purgados en `00ee1ba2`; quedaba solo el README del archivo).
+- **Resultado:** ✅ decisión owner: eliminar también el registro (`docs/dev/archive/case-studies-unverified/`) + refs actualizadas. El caso real llegará vía CLD-04 (enterprise pilot).
+- **Commits:** (+ este)

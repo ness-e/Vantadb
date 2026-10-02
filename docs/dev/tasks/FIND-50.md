@@ -1,3 +1,9 @@
+---
+title: FIND-50 — Split src/parser/mod.rs 1682L (grammar.rs + lexer.rs)
+kind: task
+description: "Veredicto: NO dispara. Blast radius = 3 archivos (executor.rs:8, server/handlers.rs:569, lib.rs:115 decl) + tests/logic/parser.rs vía glob vantadb::parser:: (preservado por re-exports). Sin símbolos públicos nuevos (move puro, pub use..."
+---
+
 # FIND-50 — Split src/parser/mod.rs 1682L (grammar.rs + lexer.rs)
 
 > **Plan:** docs/dev/plans/2026-09-08-backlog.md (Task 3, Wave0)

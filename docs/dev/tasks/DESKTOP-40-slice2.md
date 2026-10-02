@@ -1,3 +1,9 @@
+---
+title: DESKTOP-40-slice2 — i18n resto UI desktop (shell chrome)
+kind: task
+description: "TitleBar, SplashScreen, HelpPanel, NamespaceDialog, App fallback, dictionaries + i18n.test"
+---
+
 # DESKTOP-40-slice2 — i18n resto UI desktop (shell chrome)
 
 - **Plan:** `docs/dev/plans/2026-09-10-code.md` (Task 3) · **Campaign:** 2c3d4e5f-6a7b-8c9d-0e1f-2a3b4c5d6e01

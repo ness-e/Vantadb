@@ -31,6 +31,12 @@ pub struct Cli {
     #[arg(long, env = "VANTADB_MEMORY_LIMIT", global = true)]
     pub memory_limit: Option<String>,
 
+    /// Output complete, machine-readable JSON on stdout (never truncated).
+    /// Errors still go to stderr and exit codes are unchanged. Applies to
+    /// every subcommand that produces data output.
+    #[arg(long, global = true)]
+    pub json: bool,
+
     #[command(subcommand)]
     /// The subcommand to execute
     pub command: Commands,
@@ -86,9 +92,6 @@ pub enum Commands {
         /// Optional namespace to audit (audits all if not specified)
         #[arg(long)]
         namespace: Option<String>,
-        /// Output results as JSON
-        #[arg(long)]
-        json: bool,
         /// Perform deep structural validation
         #[arg(long)]
         deep: bool,
@@ -119,8 +122,8 @@ pub enum Commands {
 
     /// Import records from a JSON file
     Import {
-        /// Input file path
-        #[arg(long, name = "in")]
+        /// Input file path (`--in`; `--input` kept as a hidden alias)
+        #[arg(long = "in", alias = "input")]
         input: String,
     },
 
@@ -149,8 +152,8 @@ pub enum Commands {
 
     /// Restore the database from a previously created backup directory
     Restore {
-        /// Path to the backup directory
-        #[arg(long)]
+        /// Path to the backup directory (`--in`; `--input` kept as a hidden alias)
+        #[arg(long = "in", alias = "input")]
         input: String,
         /// Overwrite existing database directory if it exists
         #[arg(long)]
@@ -186,15 +189,16 @@ pub enum Commands {
     },
 
     /// Display detailed database statistics in human-readable or JSON format
-    Stats {
-        /// Output statistics as JSON
-        #[arg(long)]
-        json: bool,
-    },
+    Stats,
 
     /// Launch the interactive TUI (requires `tui` feature)
     #[cfg(feature = "tui")]
     Tui,
+
+    /// Verify the WAL hash-chain integrity (tamper-evident, VER-01): detects
+    /// altered or removed records with their exact position. Read-only and
+    /// offline — no engine open. Exit code ≠0 when integrity fails.
+    Verify,
 
     /// Generate shell completion scripts
     Completions {
@@ -208,18 +212,18 @@ pub enum Commands {
         /// Namespace to search within
         #[arg(long)]
         namespace: String,
-        /// Text query for semantic/hybrid search
-        #[arg(long)]
-        query: String,
+        /// Text query (positional operand; `--query` remains as a hidden alias)
+        #[arg(value_name = "QUERY", required_unless_present = "query_flag")]
+        query: Option<String>,
+        /// Hidden alias for the positional QUERY (kept for existing scripts)
+        #[arg(long = "query", hide = true, conflicts_with = "query")]
+        query_flag: Option<String>,
         /// Optional explicit vector query (comma-separated f32 values)
         #[arg(long)]
         query_vector: Option<String>,
         /// Maximum number of results
-        #[arg(long, default_value = "10")]
+        #[arg(long, default_value = "10", alias = "top-k")]
         limit: usize,
-        /// Output in JSON format
-        #[arg(long)]
-        json: bool,
     },
 
     /// Delete a record by namespace and key
@@ -230,6 +234,14 @@ pub enum Commands {
         /// Key of the record to delete
         #[arg(long)]
         key: String,
+        /// Emit a purge certificate (VER-02): per-surface residue inventory +
+        /// integrity hash + VER-01 WAL chain reference (JSON on stdout)
+        #[arg(long, default_value_t = false)]
+        attest: bool,
+        /// With --attest: write the certificate to this file (UTF-8, written
+        /// by the CLI itself — preferred over shell redirection on Windows)
+        #[arg(long, requires = "attest")]
+        out: Option<String>,
     },
 
     /// Delete all records in a namespace matching a JSON metadata filter
@@ -244,6 +256,10 @@ pub enum Commands {
         filter: String,
     },
 
+    /// Verification of purge certificates (VER-02)
+    #[command(subcommand)]
+    Certificate(CertificateCommand),
+
     /// Count records in a namespace, optionally filtered by metadata
     Count {
         /// Namespace to count records in
@@ -252,9 +268,6 @@ pub enum Commands {
         /// Optional JSON filter (same format as delete-by-filter)
         #[arg(long)]
         filter: Option<String>,
-        /// Output as raw number only
-        #[arg(long)]
-        json: bool,
     },
 
     /// Find records similar to a given key using vector similarity search
@@ -265,12 +278,9 @@ pub enum Commands {
         /// Key of the reference record
         #[arg(long)]
         key: String,
-        /// Number of similar records to return
-        #[arg(long, default_value = "10")]
-        top_k: usize,
-        /// Output in JSON format
-        #[arg(long)]
-        json: bool,
+        /// Number of similar records to return (`--top-k` kept as a hidden alias)
+        #[arg(long, default_value = "10", alias = "top-k")]
+        limit: usize,
     },
 
     /// Migrate a database to the latest storage schema version
@@ -294,34 +304,34 @@ pub enum Commands {
         /// Comma-separated list of namespaces to search (e.g. "ns1,ns2,ns3")
         #[arg(long)]
         namespaces: String,
-        /// Text query for hybrid/lexical search
-        #[arg(long)]
+        /// Text query (optional positional operand; `--query` remains as a hidden alias)
+        #[arg(value_name = "QUERY")]
         query: Option<String>,
+        /// Hidden alias for the positional QUERY (kept for existing scripts)
+        #[arg(long = "query", hide = true, conflicts_with = "query")]
+        query_flag: Option<String>,
         /// Optional explicit vector query (comma-separated f32 values)
         #[arg(long)]
         query_vector: Option<String>,
-        /// Maximum number of results across all namespaces
-        #[arg(long, default_value = "10")]
-        top_k: usize,
-        /// Output in JSON format
-        #[arg(long)]
-        json: bool,
+        /// Maximum number of results across all namespaces (`--top-k` hidden alias)
+        #[arg(long, default_value = "10", alias = "top-k")]
+        limit: usize,
     },
 
     /// Search across ALL known namespaces and merge results by score
     SearchAll {
-        /// Text query for hybrid/lexical search
-        #[arg(long)]
+        /// Text query (optional positional operand; `--query` remains as a hidden alias)
+        #[arg(value_name = "QUERY")]
         query: Option<String>,
+        /// Hidden alias for the positional QUERY (kept for existing scripts)
+        #[arg(long = "query", hide = true, conflicts_with = "query")]
+        query_flag: Option<String>,
         /// Optional explicit vector query (comma-separated f32 values)
         #[arg(long)]
         query_vector: Option<String>,
-        /// Maximum number of results across all namespaces
-        #[arg(long, default_value = "10")]
-        top_k: usize,
-        /// Output in JSON format
-        #[arg(long)]
-        json: bool,
+        /// Maximum number of results across all namespaces (`--top-k` hidden alias)
+        #[arg(long, default_value = "10", alias = "top-k")]
+        limit: usize,
     },
 
     /// Start the HTTP or MCP server wrapper
@@ -355,6 +365,32 @@ pub enum Commands {
         /// console). When unset, /dashboard responds 404 with a hint.
         #[arg(long, env = "VANTADB_DASHBOARD_DIR")]
         dashboard_dir: Option<String>,
+    },
+
+    /// Call one MCP tool through a one-shot stdio server (no pwsh needed).
+    ///
+    /// Spawns `vantadb-server --mcp` (same binary resolution as
+    /// `server --mcp`), sends `initialize` + `tools/call` as line-delimited
+    /// JSON-RPC, and prints the tool `result` verbatim to stdout.
+    /// Secrets are inherited from the session env, never CLI args.
+    /// Exit codes: 0 ok · 1 infra (spawn/io/timeout/protocol) ·
+    /// 2 tool-level error (MCP error or `isError` result) — exit 2 also
+    /// covers invalid client-side input (`--args`/placeholder/stdin errors),
+    /// which never reaches the tool.
+    McpCall {
+        /// Tool name, e.g. `memory_recall` or `thread_send`
+        #[arg(long)]
+        tool: String,
+        /// Tool arguments as a JSON object string, e.g. `'{"query":"x"}'`.
+        /// Hook templates may splice client event fields as
+        /// `{{dotted.path}}` (e.g. `'{"query":"{{prompt}}"}'`), resolved
+        /// against the hook-input JSON on stdin. Stdin is read only when
+        /// the template has placeholders.
+        #[arg(long, default_value = "{}")]
+        args: String,
+        /// Seconds to wait for the server response before failing
+        #[arg(long, default_value = "60")]
+        timeout_secs: u64,
     },
 }
 
@@ -394,7 +430,7 @@ pub enum MigrateCommand {
     Run {
         /// Path to the database directory
         target: String,
-        /// Specific format to migrate (vfile, index, wal, schema, all)
+        /// Specific format to migrate (all, vfile, index, wal, records, schema)
         #[arg(long, default_value = "all")]
         format: String,
         /// Preview changes without modifying files
@@ -425,6 +461,19 @@ pub enum WalCommand {
         /// Preview only: report what would be kept/discarded without mutating.
         #[arg(long, default_value_t = false)]
         dry_run: bool,
+    },
+}
+
+/// Subcommands for purge certificates (VER-02)
+#[derive(Subcommand, Debug, Clone)]
+pub enum CertificateCommand {
+    /// Verify a stored purge certificate: integrity hash + live re-scan of
+    /// the re-checkable surfaces (store, shred, vector index, versions).
+    /// Exit code ≠0 when the certificate is invalid or residues reappeared.
+    Verify {
+        /// Path to the certificate JSON file (emitted by `delete --attest`)
+        #[arg(long)]
+        file: String,
     },
 }
 
@@ -462,5 +511,31 @@ impl From<Shell> for clap_complete::Shell {
             Shell::Fish => clap_complete::Shell::Fish,
             Shell::PowerShell => clap_complete::Shell::PowerShell,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Regression: `migrate run --format` help must list every accepted format.
+    /// The canonical list is `FormatKind` (plus `all`), same as the runtime
+    /// error in `cli_handlers/migrate.rs` — `records` was missing (SCH-08 FIND).
+    #[test]
+    fn migrate_run_help_lists_every_format() {
+        let err = Cli::try_parse_from(["vanta-cli", "migrate", "run", "--help"])
+            .expect_err("--help must exit with a DisplayHelp error");
+        let help = err.to_string();
+        for format in crate::migration::FormatKind::all() {
+            assert!(
+                help.contains(format.name()),
+                "`migrate run --help` must list format `{}`:\n{help}",
+                format.name()
+            );
+        }
+        assert!(
+            help.contains("all"),
+            "`migrate run --help` must list `all`:\n{help}"
+        );
     }
 }

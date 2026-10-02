@@ -1,11 +1,9 @@
 ---
-title: "DEPS-01 — Crates duplicadas en el grafo de dependencias"
-type: review
+title: DEPS-01 — Crates duplicadas en el grafo de dependencias
+kind: review
 status: archived
+description: "De las 8 crates duplicadas señaladas en el audit original, el estado real hoy es"
 tags: [vantadb, review]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # DEPS-01 — Crates duplicadas en el grafo de dependencias

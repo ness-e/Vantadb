@@ -1,3 +1,9 @@
+---
+title: FIND-20 — Persistencia estado ventana desktop
+kind: task
+description: tauri-plugin-window-state = nueva dependencia (red + riesgo compat v2) por ~100 líneas que el core ya cubre
+---
+
 # FIND-20 — Persistencia estado ventana desktop
 
 > **Plan:** `docs/dev/plans/2026-09-10-fixes.md` (Task 3) · **Campaign:** 1b2c3d4e-5f6a-7b8c-9d0e-1f2a3b4c5d01

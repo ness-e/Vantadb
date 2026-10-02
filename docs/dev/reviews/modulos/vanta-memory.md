@@ -1,11 +1,9 @@
 ---
 title: "Deep Module Review — `vanta-memory`"
-type: review
+kind: review
 status: archived
+description: "Score: 8.5 / 10"
 tags: [vantadb, review]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Deep Module Review — `vanta-memory`

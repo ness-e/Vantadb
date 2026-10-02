@@ -1,3 +1,9 @@
+---
+title: Task WDA-00 — F0 Baseline medible (auditoría diseño web)
+kind: task
+description: "Estado: ✅ COMPLETED (2026-08-24, ejecutada inline por vanta-lead tras 3 sub-agentes SARL-fallidos)"
+---
+
 # Task WDA-00 — F0 Baseline medible (auditoría diseño web)
 
 **Estado:** ✅ COMPLETED (2026-08-24, ejecutada inline por vanta-lead tras 3 sub-agentes SARL-fallidos)

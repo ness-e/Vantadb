@@ -1,9 +1,10 @@
 ---
 title: "Root Cause Analysis: Inconsistencias del Backlog (META-001)"
-type: audit-report
+kind: research
 status: completed
+description: "Este reporte aborda el issue crítico META-001 (P0), diseñado para diagnosticar por qué el backlog de VantaDB sufría de desincronización crónica con la realidad del código fuente. A través del análisis del reporte de validación del 28 de..."
 tags: [vantadb, audit, backlog, rca, process]
-verified_by: "vanta-lead / antigravity"
+verified_by: vanta-lead / antigravity
 date: "2026-07-31"
 ---
 

@@ -1,3 +1,9 @@
+---
+title: "FIND-92 — gap gemelo de FIND-64: paths `ci-rustdoc.yml` no matchean `vanta-memory/`"
+kind: task
+description: "Réplica del fix FIND-64 (commit 9a419d65: +2 líneas en ci-rust-10.yml push+PR) sobre ci-rustdoc.yml: cambios solo-vanta-memory/ hoy no disparan el job rustdoc (cargo doc --no-deps --workspace --all-features + upload artifact)"
+---
+
 # FIND-92 — gap gemelo de FIND-64: paths `ci-rustdoc.yml` no matchean `vanta-memory/`
 
 > **Plan:** `docs/dev/plans/2026-09-15-find-correcciones.md` Wave9 (plan-adjust 2026-09-16) — disjunto de FIND-93 (`txn.rs`) y FIND-94 (`integrations/`+`vantadb-python/`)

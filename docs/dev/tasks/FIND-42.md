@@ -1,3 +1,9 @@
+---
+title: "FIND-42: Boundary src → skills (inversión de dependencia)"
+kind: task
+description: codegraph-20260827 Fase 1 reportó 173 (y codebase-memory-mcp 184) aristas
+---
+
 # FIND-42: Boundary src → skills (inversión de dependencia)
 
 ## Metadata
@@ -51,7 +57,7 @@ Además:
 - `codegraph_codegraph_explore` — blast radius graph-aware (codegraph)
 - `codebase-memory-mcp_query_graph` / `get_architecture` — architecture +
   boundary cross-check (índice `moderate`)
-- `Write` — ADR-034 + task file
+- `Write` — ADR-0034 + task file
 
 ## Root-cause
 
@@ -92,8 +98,8 @@ interno del core con su propio sub-módulo `SkillStore`.
 - **Acción 2:** `get_architecture aspects=['boundaries','dependencies']` — boundary `src skills 184` confirmado como **sub-módulo core** (`CONTAINS_FOLDER`), no dependencia externa
 - **Estado:** ✅ COMPLETED
 
-### Step 5: ADR-034 documenting como NO-inversión (resolución del falso positivo)
-- **Acción:** escribir `docs/dev/architecture/adr/ADR-034-no-src-to-agents-skills-boundary.md`
+### Step 5: ADR-0034 documenting como NO-inversión (resolución del falso positivo)
+- **Acción:** escribir `docs/dev/architecture/adr/ADR-0034-no-src-to-agents-skills-boundary.md`
 - **Status:** accepted-pending-owner-review (Regla 5 — IA redacta evidencia; owner humano articula trade-off)
 - **Estado:** ✅ COMPLETED
 
@@ -114,14 +120,14 @@ interno del core con su propio sub-módulo `SkillStore`.
 - **Inversión de dependencia**: NO EXISTE. El plan file (W25-3) y
   codegraph-20260827 Fase 1 midieron mal por **path-homonymy**.
 - El **contrato pasa con `Count == 0`** sin necesidad de fix mecánico.
-- El **ADR-034** documenta (a) por qué el codegraph reportó la métrica,
+- El **ADR-0034** documenta (a) por qué el codegraph reportó la métrica,
   (b) por qué NO indica inversión real, (c) la métrica correcta que
   distinguiría `src/skills` (sub-módulo interno) de `.agents/skills`
   (skills de agente) en futuros reportes.
 - **Deuda abierta** (dejar registrada): el codegraph necesita un
   pre-procesador de paths que distinga `src/...` de `.agents/...` y
   `.opencode/...` por prefijo de raíz, no por nombre de última
-  componente. ADR-034 lo deja documentado como mejora futura (P3).
+  componente. ADR-0034 lo deja documentado como mejora futura (P3).
 
 ## Context Save Point
 
@@ -136,10 +142,10 @@ interno del core con su propio sub-módulo `SkillStore`.
 - **Problemas conocidos:** ninguno en el scope de FIND-42. La métrica
   agregada `src skills 184` del codegraph se reporta en otros lugares
   (FIND-41 clusters, FIND-45) y podría generar nuevos falsos positivos
-  — owners deben leer ADR-034 antes de actuar sobre esas métricas.
+  — owners deben leer ADR-0034 antes de actuar sobre esas métricas.
 - **Próxima tarea:** W26-SOLO FIND-33 (snapshot filesystem backend KV)
   o, si FIND-41/FIND-45 dependen de esta aclaración, ejecutar esas
-  primero con ADR-034 como referencia.
+  primero con ADR-0034 como referencia.
 
 ## References
 
@@ -152,7 +158,7 @@ interno del core con su propio sub-módulo `SkillStore`.
 - `codebase-memory-mcp` arquitectura — boundary `src skills 184` en
   output de `get_architecture aspects=['boundaries']` (índice
   `moderate`, 47.7K nodos)
-- ADR-034 (a crear): "No existe boundary `src → .agents/skills` —
+- ADR-0034 (a crear): "No existe boundary `src → .agents/skills` —
   resolución de falso positivo codegraph por path-homonymy"
 - Skill `documentation-and-adrs` (Regla 5 — ADR como memoria de
   decisiones arquitectónicas)

@@ -1,3 +1,8 @@
+---
+title: "GOV-TK9: Verificar URL `vantadb-examples` del checklist"
+kind: task
+---
+
 # GOV-TK9: Verificar URL `vantadb-examples` del checklist
 
 ## Metadata

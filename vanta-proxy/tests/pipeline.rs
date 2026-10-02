@@ -76,6 +76,8 @@ fn state_for(upstream_url: &str) -> vanta_proxy::server::AppState {
         context: Default::default(),
         guardrails: Default::default(),
         translate: Default::default(),
+        injection: Default::default(),
+        envelope: Default::default(),
     };
     vanta_proxy::server::AppState::from_engine(cfg, seeded_engine()).unwrap()
 }
@@ -154,6 +156,7 @@ fn seed_memory(db: &Embedded, session_key: &str) {
         vector: None,
         sparse_vector: None,
         ttl_ms: None,
+        ..Default::default()
     })
     .expect("seed persona");
 

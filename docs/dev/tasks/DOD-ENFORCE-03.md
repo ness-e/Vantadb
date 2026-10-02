@@ -1,3 +1,9 @@
+---
+title: "DOD-ENFORCE-03: Unificar DoD + deprecar skills v1 + 3 checks SPEC en runtime"
+kind: task
+description: node --test .opencode/task-system/mcp/ 42/42 verde + rg de verificación por slice (detallado abajo) + DoD unificado contiene cada ítem RULES v1-v4 y progreso (verificado por lista)
+---
+
 # DOD-ENFORCE-03: Unificar DoD + deprecar skills v1 + 3 checks SPEC en runtime
 
 ## Metadata

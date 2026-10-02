@@ -1,3 +1,9 @@
+---
+title: Task MCP-18 — Tool memory_delete_by_filter
+kind: task
+description: "Fuente de verdad: docs/dev/Backlog.md → fase P25 - Exposición MCP/HTTP → fila MCP-18 (leer ANTES de ejecutar: problema, acciones numeradas, archivos exactos)"
+---
+
 # Task MCP-18 — Tool memory_delete_by_filter
 
 **Fuente de verdad:** `docs/dev/Backlog.md` → fase **P25 - Exposición MCP/HTTP** → fila `MCP-18` (leer ANTES de ejecutar: problema, acciones numeradas, archivos exactos).

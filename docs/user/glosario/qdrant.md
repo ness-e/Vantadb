@@ -1,12 +1,11 @@
 ---
-title: "Qdrant"
-type: glossary-entry
+title: Qdrant
+kind: glossary
 status: stable
-tags: [concept, vector-search, competitor, qdrant]
-last_reviewed: 2026-09-15
-links: "[[README.md]]"
+description: Rust vector search engine (client-server) used as competitive baseline in VantaDB benchmarks
 aliases: [Qdrant]
-description: "Vector search engine written in Rust with a client-server architecture; competitor reference — VantaDB differentiates as embedded, not server-based."
+tags: [concept, vector-search, competitor, qdrant]
+links: "[[README.md]]"
 ---
 
 # Qdrant

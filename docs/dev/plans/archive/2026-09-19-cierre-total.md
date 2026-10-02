@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Cierre total PR #182 — 2026-09-19"
+kind: plan
+status: archived
+description: "5 fails → 0 (o rojos declarados con dueño). Codex P1/P1/P2 fixeados. Sin duplicar trabajo: archivos disjuntos por wave"
+---
+
 # Plan de Ejecución: Cierre total PR #182 — 2026-09-19
 
 > **Campaign ID:** 8ae06b20-0178-41bc-8261-1634feb71271
@@ -15,7 +22,7 @@
 ## Tasks DO
 - [x] FIND-133 · Alta · semver hacerlo pasar (triage intencional 0.6.0 + ADR Regla 5) · Wave A · `src/cli.rs`, `src/query.rs`, `src/sdk/types/`, `src/metrics/core/snapshot.rs`, `src/storage/engine/mod.rs`, `src/node/`, `src/planner.rs`, `src/server/middleware.rs`, `src/agentic/thread.rs`, `src/wal_shipping.rs`, `src/graph.rs`, `.github/workflows/ci-rust-10.yml` (solo lectura scope) · Commit `fix: FIND-133 — ...`
 - [x] CODEX · Alta/Media · P1 recall-L1 (`vantadb-mcp/src/handlers/tools.rs:1723-1731`) + P1 compose-auth (`vantadb-server/docker-compose.yml:18-24`) + P2 L0-mismo-ms (`vanta-memory/src/services/conversation_hook.rs:64-68`) · Wave A · Commit `fix: CODEX-130/131/132 — ...`
-- [x] FIND-128 · Media · fix script ADR-Gate (`Invalid format ADR-015` + `output` command) + matriz triggers push-vs-PR (duplicados) + propuesta dedup mínima · Wave A · `.github/workflows/` solo · Commit `ci: FIND-128 — ...`
+- [x] FIND-128 · Media · fix script ADR-Gate (`Invalid format ADR-0015` + `output` command) + matriz triggers push-vs-PR (duplicados) + propuesta dedup mínima · Wave A · `.github/workflows/` solo · Commit `ci: FIND-128 — ...`
 - [x] FIND-129+WIN+CIERRE · Media · Wave B (no lanzar hasta A verde) · merges `#180` primero + `audit.rs:134` flaky + P2-01 EXE-03-prep + progreso + archive
 
 ## Gates
@@ -33,7 +40,7 @@
 === RECITATION ===
 Objetivo activo: PLAN cierre-total-182 — CERRADO
 Estado: completed
-Última acción: Wave A (133 triage+ADR-044 · CODEX 3 slices · 128 ADR-fix+matriz) + Wave B (129 4 merges+9 rebases · WIN-flaky fix · P2-01 approve) + progreso (Backlog −6, avance 4 dominios)
+Última acción: Wave A (133 triage+ADR-0044 · CODEX 3 slices · 128 ADR-fix+matriz) + Wave B (129 4 merges+9 rebases · WIN-flaky fix · P2-01 approve) + progreso (Backlog −6, avance 4 dominios)
 Resultado: ✅
 Próxima acción: archive + nota meta.md (este script no; orquestador con git)
 Contrato: 6/6 con commit + verify lead + P2-01 Wave A approve; semver rojo-diseño aceptado hasta 0.6.0; CodeQL/Vercel rojos declarados con dueño

@@ -18,8 +18,17 @@ use vanta_memory::ingest::IngestConfig;
 use vantadb::storage::StorageEngine;
 use vantadb::wiki::WikiStore;
 use vantadb_mcp::{
-    handle_tools_call, handle_tools_list, ingest_status, start_ingest, McpConfig, NoLlm,
+    handle_tools_call, handle_tools_list, ingest_status, start_ingest, McpConfig, McpProfile, NoLlm,
 };
+
+/// WIRE-02: these tests exercise the extended surface; pin `full` explicitly
+/// (the production default is now `agent`).
+fn full_config() -> McpConfig {
+    McpConfig {
+        profile: McpProfile::Full,
+        ..Default::default()
+    }
+}
 
 const NS: &str = "default";
 const SLUG: &str = "facade-wiki";
@@ -72,7 +81,7 @@ fn poll_until<T>(mut f: impl FnMut() -> Option<T>) -> T {
 
 #[test]
 fn tools_list_registers_ingest_tools() {
-    let list = handle_tools_list(&McpConfig::default()).expect("tools/list");
+    let list = handle_tools_list(&full_config()).expect("tools/list");
     let names: Vec<&str> = list["tools"]
         .as_array()
         .expect("tools array")
@@ -122,7 +131,7 @@ fn d19_async_ingest_run_id_then_ready_then_pages_readable() {
 
     // 3. Estado consultable por run_id (MEM-31) hasta ready.
     let executor = vantadb::executor::Executor::new(&storage);
-    let cfg = McpConfig::default();
+    let cfg = full_config();
     let call_tool = |name: &str, args: Value| {
         handle_tools_call(
             &Some(json!({ "name": name, "arguments": args })),

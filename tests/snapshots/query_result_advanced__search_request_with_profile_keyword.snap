@@ -14,6 +14,10 @@ MemorySearchRequest {
     distance_metric: Cosine,
     explain: true,
     exclude_superseded: true,
+    min_confidence: None,
+    as_of_ms: None,
+    valid_window: None,
+    include_quarantined: false,
     search_profile: Some(
         SearchProfileConfig {
             mode: Keyword,
@@ -21,4 +25,8 @@ MemorySearchRequest {
             candidate_k: None,
         },
     ),
+    range: None,
+    group_by: None,
+    mmr: None,
+    cursor: None,
 }

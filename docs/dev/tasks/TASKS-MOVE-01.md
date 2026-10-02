@@ -1,3 +1,9 @@
+---
+title: "TASKS-MOVE-01: Mover tasks fuera del submodule a docs/dev/tasks/ (D1)"
+kind: task
+description: Mover tasks fuera del submodule privado configOpencode a docs/dev/tasks/ en repo
+---
+
 # TASKS-MOVE-01: Mover tasks fuera del submodule a docs/dev/tasks/ (D1)
 
 ## Metadata

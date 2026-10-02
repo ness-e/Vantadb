@@ -1,3 +1,9 @@
+---
+title: FIND-75 — WASM README + zero-copy input + d.ts
+kind: task
+description: "Medición completa pkg actual (2026-09-15, PowerShell .NET GzipStream)"
+---
+
 # FIND-75 — WASM README + zero-copy input + d.ts
 
 > **Plan:** `docs/dev/plans/2026-09-15-find-correcciones.md` (Task 20, Wave6)

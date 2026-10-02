@@ -1,3 +1,8 @@
+---
+title: D5a — Endurecer validación en frontera TS
+kind: task
+---
+
 # D5a — Endurecer validación en frontera TS
 
 ## 1. Descubrimiento (auto-detect tipo → codegraph blast radius → web si ambigüedad → baseline `/cleanCA <scope>`)

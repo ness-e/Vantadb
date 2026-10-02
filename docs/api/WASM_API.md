@@ -1,15 +1,15 @@
 ---
 title: WASM API Reference
-type: api
+kind: reference
 status: active
-tags: [vantadb, wasm, browser, api]
-last_reviewed: 2026-08-30
+description: "This page is the canonical entry point for VantaDB's WebAssembly surface — the"
 aliases: [WASM_API]
+tags: [vantadb, wasm, browser, api]
 ---
 
 # WASM API Reference
 
-> **Naming (ADR-041 anti-stutter):** canonical names are `Client`
+> **Naming (ADR-0047 anti-stutter):** canonical names are `Client`
 > (legacy `VantaDB` alias removed in 0.6.0, AST-010), `Config` (legacy
 > `VantaConfig` removed), `SearchHit` / `MemorySearchHit` (legacy
 > `VantaSearchHit` / `VantaMemorySearchHit` removed).
@@ -54,7 +54,7 @@ before writing code that compares or sorts hits.**
 | Rust core (`vantadb`) | `SearchHit` (raw ANN) | `distance` | lower is better | `[0.0, +∞)` |
 | WASM binding (`vantadb-wasm`) | `SearchHit` (from `search` / `similar_to_key`) | `score` | higher is better | Mirrors `VantaMemorySearchHit` |
 | WASM binding (`vantadb-wasm`) | `search_vector()` return | **`distance`** *(WSM-10)* | lower is better | Was mislabeled `score` before WSM-10 — fixed 2026-08-30 |
-| TypeScript wrapper (`vantadb-ts`) | `SearchHit` | `distance` | **lower is better** *(inverted from WASM)* | CODE-091: pinned in CI; consumers must invert comparison when porting |
+| TypeScript wrapper (`vantadb-ts`) | `SearchHit` | `score` | higher is better | **W1/API-02**: the pre-W1 `distance` rename (CODE-091) was removed — TS now matches every other transport |
 | TypeScript wrapper (`vantadb-ts`) | `searchVector()` return | `distance` | lower is better | Mirrors WASM `search_vector()` |
 | Node binding (`vantadb-node`) | `MemorySearchHit` | `score` | higher is better | Same convention as Rust core |
 | Python binding (`vantadb-python`) | `hit.score` | higher is better | Same convention as Rust core |
@@ -69,10 +69,28 @@ before writing code that compares or sorts hits.**
   neighbor geometry — for example, thresholding by a distance cutoff, or
   computing your own similarity transform downstream.
 
+## v2 records and query params (SCH-07, ADR-0046)
+
+The WASM binding carries the v2 memory wire natively:
+
+- **`MemoryRecord`** (get/put/list/search): `valid_at_ms`, `invalid_at_ms`,
+  `confidence_class`, `confidence`, `last_validated_at_ms`, `derived_from`,
+  `quarantined_at_ms`, `quarantine_reason`, `quarantined_by`,
+  `quarantine_review_due_ms`. Optionals are omitted when absent; u64
+  timestamps travel as decimal strings (policy string-u64).
+- **`SearchRequestInput` / `ListOptionsInput`**: `as_of_ms`, `valid_window`
+  (`{from_ms, to_ms}` half-open), `include_quarantined`, `min_confidence` —
+  same wire names as the SDK (semantics in
+  [`EMBEDDED_SDK.md`](EMBEDDED_SDK.md) → v2 search options).
+- The selective-abstention signal (`abstained`, `abstention_reason`) is
+  page-shaped; the WASM `search()` returns an array and does not carry it —
+  declared parity note in
+  [`BINDINGS_NAMESPACES.md`](BINDINGS_NAMESPACES.md#v2-wire-parity-sch-07).
+
 ### Cross-binding pointer
 
 The full rationale and the pinned-CI tests live in
-[`TS_SDK.md` → "Distance vs Score (CODE-091)"](TS_SDK.md#distance-vs-score-code-091).
+[`TS_SDK.md` → "Score, not distance (W1/API-02)"](TS_SDK.md#score-not-distance-w1api-02-supersedes-code-091).
 The Node-side rationale is documented inline in
 [`vantadb-node/src/lib.rs` `search()` docstring](../../vantadb-node/src/lib.rs).
 The cross-binding parity note for the bindings namespace map is in

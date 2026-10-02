@@ -1,3 +1,9 @@
+---
+title: "RES-11: Job CI `cargo doc --no-deps --workspace` + artifact"
+kind: task
+description: Mínimo. Un archivo nuevo en .github/workflows/. Zero blast radius sobre código existente
+---
+
 # RES-11: Job CI `cargo doc --no-deps --workspace` + artifact
 
 ## Metadata

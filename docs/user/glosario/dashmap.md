@@ -1,14 +1,15 @@
 ---
-title: "dashmap"
-type: glossary-entry
+title: dashmap
+kind: glossary
 status: stable
+description: DashMap is a concurrent and sharded HashMap implementation for Rust that allows parallel access without the need for a global lock
 tags: [vantadb, glosario, concurrencia]
-last_reviewed: 2026-09-15
 links: "[[README.md]]"
 ---
-#DashMap
 
-##Definition
+# DashMap
+
+## Definition
 
 **DashMap** is a concurrent and sharded HashMap implementation for Rust that allows parallel access without the need for a global lock.
 
@@ -143,9 +144,9 @@ map.entry("key")
 
 ## See Also
 
-- [[rwlock]] — Alternative with global lock
-- [[hnsw]] — Index used by DashMap
-- [[file-locking]] — Lock at the process level
+- [rwlock](./rwlock.md) — Alternative with global lock
+- [hnsw](./hnsw.md) — Index used by DashMap
+- [file-locking](./file-locking.md) — Lock at the process level
 
 ---
 

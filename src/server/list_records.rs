@@ -14,9 +14,10 @@ use crate::sdk::{Embedded, MemoryFilter, MemoryListOptions, MemoryListPage, Memo
 ///
 /// Mirrors [`crate::server::handlers::ListParams`] with the wire parsing
 /// already done: `namespace` is `None` = fan-out over all namespaces (stable
-/// name order), `Some(ns)` = single namespace. `limit` arrives already
-/// clamped via `clamp_limit` in the handler (D5c) — the use case never
-/// re-clamps so the wire stays identical.
+/// name order), `Some(ns)` = single namespace. The handler passes
+/// `limit + 1` (one probe record) so the response can report an exact
+/// `has_more` and trims back to `limit`; the use case never re-clamps/corrects
+/// the caller-provided window.
 #[derive(Debug, Clone)]
 pub struct ListRecordsCommand {
     /// `None` = all namespaces; `Some(ns)` = single namespace.
@@ -168,6 +169,7 @@ mod tests {
             expires_at_ms: None,
             superseded_by: None,
             superseded_at_ms: None,
+            ..Default::default()
         }
     }
 

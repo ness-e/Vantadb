@@ -1,3 +1,9 @@
+---
+title: "TASK CORE-003: Question Gates Enforcement Automático (CRÍTICO #3)"
+kind: task
+description: "Archivos clave: .opencode/task-system/prompts/pipeline-run.md, .opencode/task-system/prompts/subagent-recovery.md, .opencode/task-system/prompts/question-gates.md"
+---
+
 # TASK CORE-003: Question Gates Enforcement Automático (CRÍTICO #3)
 
 ## Metadata

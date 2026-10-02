@@ -14,7 +14,16 @@ use std::sync::Arc;
 use tempfile::tempdir;
 use vantadb::executor::Executor;
 use vantadb::storage::StorageEngine;
-use vantadb_mcp::{handle_tools_call, handle_tools_list, McpConfig};
+use vantadb_mcp::{handle_tools_call, handle_tools_list, McpConfig, McpProfile};
+
+/// WIRE-02: these tests exercise the extended surface; pin `full` explicitly
+/// (the production default is now `agent`).
+fn full_config() -> McpConfig {
+    McpConfig {
+        profile: McpProfile::Full,
+        ..Default::default()
+    }
+}
 
 fn setup_storage() -> (tempfile::TempDir, Arc<StorageEngine>) {
     let dir = tempdir().expect("tempdir");
@@ -29,7 +38,7 @@ fn call(name: &str, args: Value, storage: &Arc<StorageEngine>) -> Result<Value, 
         &Some(json!({ "name": name, "arguments": args })),
         &executor,
         storage,
-        &McpConfig::default(),
+        &full_config(),
     )
 }
 
@@ -50,6 +59,12 @@ fn result_json(res: Result<Value, Value>) -> Value {
 
 /// Seed one L1 record for `session` (no dream run yet).
 fn seed_l1(storage: &Arc<StorageEngine>, session: &str) {
+    seed_l1_with_metadata(storage, session, json!(null));
+}
+
+/// Seed one L1 record carrying `metadata` (e.g. a relative date so a
+/// consolidation pass produces a `normalize` UPDATE in the promotion plan).
+fn seed_l1_with_metadata(storage: &Arc<StorageEngine>, session: &str, metadata: Value) {
     use vanta_memory::core::abstractions::{MemoryRecord, MemoryType};
 
     let db = vantadb::Embedded::from_engine(storage.clone());
@@ -60,7 +75,7 @@ fn seed_l1(storage: &Arc<StorageEngine>, session: &str) {
         priority: 80,
         scene_name: "ui".into(),
         source_message_ids: vec![],
-        metadata: json!(null),
+        metadata,
         timestamps: vec![],
         created_at: "2026-08-20T10:00:00.000Z".into(),
         updated_at: "2026-08-20T10:00:00.000Z".into(),
@@ -84,6 +99,7 @@ fn seed_l1(storage: &Arc<StorageEngine>, session: &str) {
         vector: None,
         sparse_vector: None,
         ttl_ms: None,
+        ..Default::default()
     })
     .expect("put l1");
 }
@@ -93,11 +109,23 @@ fn seed_l1(storage: &Arc<StorageEngine>, session: &str) {
 fn seed_dream_run(storage: &Arc<StorageEngine>, session: &str, salt: &str) -> String {
     let db = vantadb::Embedded::from_engine(storage.clone());
     seed_l1(storage, session);
+    consolidate(&db, session, salt)
+}
 
+/// Seed one L1 record carrying a relative date (`activity_start_time`), then
+/// consolidate — the run view normalizes it, so promotion shows an UPDATE.
+fn seed_dated_dream_run(storage: &Arc<StorageEngine>, session: &str, salt: &str) -> String {
+    let db = vantadb::Embedded::from_engine(storage.clone());
+    seed_l1_with_metadata(storage, session, json!({ "activity_start_time": "ayer" }));
+    consolidate(&db, session, salt)
+}
+
+/// Run one consolidation pass over `session` and return the run id.
+fn consolidate(db: &vantadb::Embedded, session: &str, salt: &str) -> String {
     let now_ms = 1_700_000_000_000u64;
     let config = vanta_memory::core::dream::DreamConfig::default().with_run_id_salt(salt);
     let run = vanta_memory::core::dream::consolidate_session(
-        &db,
+        db,
         session,
         now_ms,
         now_ms - 3_600_000, // 1h idle (>= 10min default)
@@ -119,7 +147,7 @@ fn l1_count(storage: &Arc<StorageEngine>, session: &str) -> usize {
 #[test]
 fn tools_list_registers_dream_tools_with_valid_schemas() {
     let (_dir, _storage) = setup_storage();
-    let res = handle_tools_list(&McpConfig::default()).expect("tools/list");
+    let res = handle_tools_list(&full_config()).expect("tools/list");
     let tools = res["tools"].as_array().expect("tools array");
     for name in ["dream_list", "dream_load", "dream_discard"] {
         let tool = tools
@@ -207,7 +235,7 @@ fn dream_list_load_discard_roundtrip_keeps_l1_intact() {
 #[test]
 fn tools_list_registers_dream_consolidate_promote_with_valid_schemas() {
     let (_dir, _storage) = setup_storage();
-    let res = handle_tools_list(&McpConfig::default()).expect("tools/list");
+    let res = handle_tools_list(&full_config()).expect("tools/list");
     let tools = res["tools"].as_array().expect("tools array");
     for name in ["dream_consolidate", "dream_promote"] {
         let tool = tools
@@ -231,6 +259,13 @@ fn tools_list_registers_dream_consolidate_promote_with_valid_schemas() {
             .iter()
             .find(|t| t["name"] == json!("dream_promote"))
             .expect("dream_promote")["annotations"]["readOnlyHint"],
+        false
+    );
+    assert_eq!(
+        tools
+            .iter()
+            .find(|t| t["name"] == json!("dream_promote"))
+            .expect("dream_promote")["annotations"]["destructiveHint"],
         true
     );
     assert_eq!(
@@ -239,6 +274,28 @@ fn tools_list_registers_dream_consolidate_promote_with_valid_schemas() {
             .find(|t| t["name"] == json!("dream_consolidate"))
             .expect("dream_consolidate")["annotations"]["readOnlyHint"],
         false
+    );
+}
+
+#[test]
+fn dream_promote_schema_exposes_dry_run_as_optional_boolean() {
+    let (_dir, _storage) = setup_storage();
+    let res = handle_tools_list(&full_config()).expect("tools/list");
+    let tools = res["tools"].as_array().expect("tools array");
+    let promote = tools
+        .iter()
+        .find(|t| t["name"] == json!("dream_promote"))
+        .expect("dream_promote");
+    assert_eq!(
+        promote["inputSchema"]["properties"]["dry_run"]["type"],
+        "boolean"
+    );
+    let required = promote["inputSchema"]["required"]
+        .as_array()
+        .expect("required");
+    assert!(
+        !required.iter().any(|r| r == "dry_run"),
+        "dry_run is optional (safe default true): {required:?}"
     );
 }
 
@@ -296,27 +353,93 @@ fn dream_consolidate_not_idle_is_error_content_not_protocol_error() {
 }
 
 #[test]
-fn dream_promote_returns_preview_count_without_mutating_l1() {
+fn dream_promote_defaults_to_dry_run_and_reports_diff_without_mutating_l1() {
     let (_dir, storage) = setup_storage();
-    let run_id = seed_dream_run(&storage, "dream-agent-4", "test-promote");
-    assert_eq!(l1_count(&storage, "dream-agent-4"), 1);
+    let run_id = seed_dated_dream_run(&storage, "dream-agent-5", "test-promote-dry");
 
-    let preview = result_json(call(
+    // No `dry_run` argument → safe default: plan only.
+    let plan = result_json(call(
         "dream_promote",
-        json!({"session_key": "dream-agent-4", "run_id": run_id}),
+        json!({"session_key": "dream-agent-5", "run_id": run_id}),
         &storage,
     ));
-    assert_eq!(preview["mutated"], false);
-    assert!(preview["preview_count"].is_number());
+    assert_eq!(plan["dry_run"], true);
+    assert_eq!(plan["mutated"], false);
+    let ops = plan["ops"].as_array().expect("ops array");
+    assert_eq!(ops.len(), 1);
+    assert_eq!(ops[0]["action"], "UPDATE");
+    assert_eq!(ops[0]["reason"], "normalize");
+    assert_eq!(ops[0]["key"], "m1");
+    assert_eq!(ops[0]["namespace"], "l1/dream-agent-5");
+    assert_eq!(plan["counts"]["update"], 1);
+    assert_eq!(plan["counts"]["delete"], 0);
 
-    // Preview mutates nothing: run still listed, L1 identical.
+    // Nothing mutated: run still listed, L1 still has the raw relative date.
     let listed = result_json(call(
         "dream_list",
-        json!({"session_key": "dream-agent-4"}),
+        json!({"session_key": "dream-agent-5"}),
         &storage,
     ));
     assert_eq!(listed["runs"].as_array().expect("runs").len(), 1);
-    assert_eq!(l1_count(&storage, "dream-agent-4"), 1);
+    let db = vantadb::Embedded::from_engine(storage.clone());
+    let records =
+        vanta_memory::core::record::read_session_records(&db, "dream-agent-5").expect("read l1");
+    assert_eq!(
+        records[0]
+            .metadata
+            .as_object()
+            .unwrap()
+            .get("activity_start_time")
+            .unwrap()
+            .as_str()
+            .unwrap(),
+        "ayer",
+        "dry-run must not touch l1"
+    );
+}
+
+#[test]
+fn dream_promote_apply_mutates_l1_and_reapply_is_all_noop() {
+    let (_dir, storage) = setup_storage();
+    let run_id = seed_dated_dream_run(&storage, "dream-agent-6", "test-promote-apply");
+    let db = vantadb::Embedded::from_engine(storage.clone());
+
+    let applied = result_json(call(
+        "dream_promote",
+        json!({"session_key": "dream-agent-6", "run_id": run_id, "dry_run": false}),
+        &storage,
+    ));
+    assert_eq!(applied["dry_run"], false);
+    assert_eq!(applied["mutated"], true);
+    assert_eq!(applied["counts"]["update"], 1);
+
+    let records =
+        vanta_memory::core::record::read_session_records(&db, "dream-agent-6").expect("read l1");
+    assert_ne!(
+        records[0]
+            .metadata
+            .as_object()
+            .unwrap()
+            .get("activity_start_time")
+            .unwrap()
+            .as_str()
+            .unwrap(),
+        "ayer",
+        "apply must write the normalized date into l1"
+    );
+
+    // Idempotent: second apply writes nothing and reports all-NOOP.
+    let reapplied = result_json(call(
+        "dream_promote",
+        json!({"session_key": "dream-agent-6", "run_id": run_id, "dry_run": false}),
+        &storage,
+    ));
+    assert_eq!(reapplied["mutated"], false);
+    let ops = reapplied["ops"].as_array().expect("ops");
+    assert!(
+        ops.iter().all(|o| o["action"] == "NOOP"),
+        "re-apply must be all NOOP: {ops:?}"
+    );
 }
 
 #[test]

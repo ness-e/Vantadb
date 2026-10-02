@@ -1,10 +1,11 @@
 ---
-title: "Consolidación de Items Pendientes — Diagnóstico (Bitácora)"
-type: historial
+title: Consolidación de Items Pendientes — Diagnóstico (Bitácora)
+kind: review
 status: archive
-date: 2026-07-13
-source: "docs/progreso/bitacora.md (líneas 70-666)"
+description: "Todos los items extraídos de docs/dev/research/ (9 archivos) y docs/dev/reviews/ (12 archivos) que implican modificar el proyecto, verificados contra código real. Organizados por dominio. Cada item incluye: qué es, por qué importa, qué..."
 tags: [vantadb, historial, diagnostico, backlog, core-engine, web, bindings, ci-cd, docs, testing, research]
+date: "2026-07-13"
+source: docs/progreso/bitacora.md (líneas 70-666)
 ---
 
 > Catálogo original de items pendientes generado en la Consolidación de Items Pendientes (bitácora, 13-jul-2026).

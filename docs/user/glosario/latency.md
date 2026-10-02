@@ -1,10 +1,10 @@
 ---
-title: "Latencia"
-type: glossary-entry
+title: Latencia
+kind: glossary
 status: stable
-tags: [glosario, métricas, latencia, performance, percentiles]
-last_reviewed: 2026-09-15
+description: "La latencia es el tiempo que transcurre entre el inicio de una operación y su completitud. En bases de datos, se mide típicamente en milisegundos (ms) o microsegundos (µs)"
 aliases: [latency, response time, p50, p95, p99]
+tags: [glosario, metricas, latencia, performance, percentiles]
 ---
 
 # Latencia
@@ -85,7 +85,7 @@ Total: ~180 ms
 
 ### Optimización de Latencia
 
-#### 1. Liberación del [GIL](GIL.md)
+#### 1. Liberación del [GIL](./gil.md)
 
 ```rust
 // Sin liberación de GIL (bloquea Python)
@@ -206,7 +206,7 @@ $$\text{Throughput} = \frac{1}{\text{Latencia promedio}}$$
 
 ## Véase También
 
-- [Recall](Recall.md) - Métrica complementaria
-- [Benchmarks](Benchmarks.md) - Suite de medición
+- [Recall](./recall.md) - Métrica complementaria
+- [Benchmarks](./benchmarks.md) - Suite de medición
 - [Memory Efficiency](memory-efficiency.md) - Uso de recursos
 - [busqueda-vectorial](vector-search.md) - Contexto de uso

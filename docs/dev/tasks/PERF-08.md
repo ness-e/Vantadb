@@ -1,3 +1,9 @@
+---
+title: "PERF-08: WASM — Evitar serializar todos los records en búsquedas"
+kind: task
+description: "cargo check -p vantadb-wasm ✅, cargo build --target wasm32-unknown-unknown -p vantadb-wasm ✅, cargo clippy -p vantadb-wasm --all-targets -- -D warnings ✅, cargo fmt --check ✅; y memoryrecordtojs emite record.vector como Float32Array..."
+---
+
 # PERF-08: WASM — Evitar serializar todos los records en búsquedas
 
 ## Metadata

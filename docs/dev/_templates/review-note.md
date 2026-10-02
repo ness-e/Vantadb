@@ -1,11 +1,9 @@
 ---
 title: "{{title}}"
-type: review
+kind: research
 status: archived
+description: Plan de acción que absorbió este reporte
 tags: [vantadb, review]
-last_reviewed: {{date}}
-aliases: []
-related: []
 ---
 
 # {{title}}

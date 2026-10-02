@@ -1,3 +1,8 @@
+---
+title: FND-17 — API reference automatizada (docs-as-code)
+kind: task
+---
+
 # FND-17 — API reference automatizada (docs-as-code)
 
 - **Plan:** `docs/dev/plans/2026-08-16-wave-r2-r7-fnd.md` (Task 6, Wave 2)

@@ -23,6 +23,12 @@
  *
  * Source of truth: `vantadb-wasm/src/lib.rs`. When the Rust signatures
  * change, update this file in the same PR.
+ *
+ * Casing (Gate P, API-01 foundation): public methods are `camelCase` in the
+ * TS wrapper; this WASM declaration mirrors the binding 1:1, so keys stay
+ * `snake_case` until the payload migrates in W1/API-02. Normative table:
+ * `docs/api/BINDINGS_NAMESPACES.md` § Casing Contract. `node_id` / graph ids
+ * are decimal strings (u128 > 2^53).
  */
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -151,6 +157,33 @@ export interface MemoryRecord {
     vector?: Float32Array;
     /** Optional TTL expiry as a decimal string (only present if set). */
     expires_at_ms?: string;
+    /** Provenance class (ADR-046): "Asserted" (direct writer claim) or
+     * "Derived" (computed by the engine from `derived_from` parents). */
+    confidence_class: "Asserted" | "Derived";
+    /** Confidence range in [0, 1] — declared/computed, NOT a calibrated
+     * probability (see `docs/api/scores.md`). Default 1.0 for asserted. */
+    confidence: number;
+    /** Last successful re-validation timestamp as a decimal string
+     * (policy string-u64); absent = never re-validated. */
+    last_validated_at_ms?: string;
+    /** Parent record keys for a derived record (empty for asserted). */
+    derived_from: string[];
+    /** Start of the validity window (ADR-046 §D3, SCH-07) as a decimal
+     * string (policy string-u64); v1 records normalize to `created_at_ms`. */
+    valid_at_ms: string;
+    /** End of the validity window (exclusive) as a decimal string; absent =
+     * open-ended. */
+    invalid_at_ms?: string;
+    /** Quarantine entry timestamp as a decimal string (SCH-07); absent =
+     * active (not quarantined). */
+    quarantined_at_ms?: string;
+    /** Stable quarantine reason code (`explicit_write`, `unreviewed_import`,
+     * `derived_promotion`, `policy_match`); the code set may grow. */
+    quarantine_reason?: string;
+    /** Principal that applied the quarantine (or `system:<op>`). */
+    quarantined_by?: string;
+    /** Review deadline as a decimal string; absent = no default deadline. */
+    quarantine_review_due_ms?: string;
     /** Arbitrary metadata key-value pairs. Values are JSON-shaped. */
     metadata: Record<string, MetadataValue>;
 }
@@ -205,6 +238,18 @@ export interface ListOptionsInput {
     limit?: number;
     /** Opaque cursor from a previous page's `next_cursor`; omit for first page. */
     cursor?: string | number | null;
+    /** Valid-time point (SCH-07, ADR-046 §D3): keep only records whose
+     * validity window contains this unix-ms instant. `null`/omitted = no
+     * filter (default). */
+    as_of_ms?: number | bigint | null;
+    /** Valid-time window overlap (SCH-07): `{from_ms, to_ms}` half-open
+     * `[from, to)`; `from_ms < to_ms` is validated at the core boundary. */
+    valid_window?: { from_ms: number | bigint; to_ms: number | bigint } | null;
+    /** Include quarantined records (SCH-07, ADR-046 §D5). Default false. */
+    include_quarantined?: boolean;
+    /** Opt-in confidence filter (SCH-07, ADR-046 §D2): keep only records whose
+     * `confidence` is `>= min_confidence` (finite, in [0, 1]). */
+    min_confidence?: number | null;
 }
 
 /** Page returned by `list`. */
@@ -223,6 +268,20 @@ export interface SearchRequestInput {
     filters?: Record<string, MetadataValue>;
     /** Hide records already superseded by another record. */
     exclude_superseded?: boolean;
+    /** Opt-in confidence filter (SCH-04): keep only hits whose record
+     * `confidence` is `>= min_confidence` (finite, in [0, 1]). `null`/omitted =
+     * no filter (default). */
+    min_confidence?: number | null;
+    /** Valid-time point (SCH-07, ADR-046 §D3): keep only records whose
+     * validity window contains this unix-ms instant. `null`/omitted = no
+     * temporal filter (default). */
+    as_of_ms?: number | bigint | null;
+    /** Valid-time window overlap (SCH-07): `{from_ms, to_ms}` half-open
+     * `[from, to)`; `from_ms < to_ms` is validated at the core boundary. */
+    valid_window?: { from_ms: number | bigint; to_ms: number | bigint } | null;
+    /** Include quarantined records (SCH-07, ADR-046 §D5). Default false:
+     * quarantined content is excluded from search/list/retrieval. */
+    include_quarantined?: boolean;
     /** Optional text query for BM25 hybrid search. */
     text_query?: string;
     /** Top-K results to return (default: 10, hard cap: 1000). */

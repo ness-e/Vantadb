@@ -1,12 +1,11 @@
 ---
-title: "Herramientas desktop de administración de bases de datos"
-type: research
+title: Herramientas desktop de administración de bases de datos
+kind: research
 status: stable
+description: "Tras analizar 15+ herramientas (DBAs relacionales, GUI NoSQL, navegadores de grafos, exploradores de almacenamiento y herramientas de memoria para IA), los patrones dominantes y transferibles son"
 tags: [vantadb, research, desktop, db-tools]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
+
 # Herramientas desktop de administración de bases de datos
 
 > Investigación de patrones de UI en herramientas desktop/self-hosted de administración de bases de datos (2024–2026), orientada al diseño del módulo desktop de VantaDB (Tauri v2 + React + Vite).

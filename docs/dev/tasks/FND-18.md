@@ -1,3 +1,9 @@
+---
+title: "FND-18: Time-to-first-query <5 min en SDKs Python/TS (Fase 0 pre-launch)"
+kind: task
+description: "git diff sobre los 3-4 archivos docs; quickstart de ambos SDKs ejecutado localmente con métrica time-to-first-query <5 min registrada (python: install 5.52s + query 0.67s; ts: install 1.32s + query 0.30s); ningún archivo de código tocado\""
+---
+
 # FND-18: Time-to-first-query <5 min en SDKs Python/TS (Fase 0 pre-launch)
 
 ## Metadata

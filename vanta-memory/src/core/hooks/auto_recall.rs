@@ -25,15 +25,17 @@ use thiserror::Error;
 use vantadb::sdk::Embedded;
 
 use crate::core::abstractions::MemoryRecord;
-use crate::core::persona::persona_generator::{get_persona, PersonaError};
-use crate::core::profile::profile_sync::{read_scoped_persona, ProfileIsolation};
+use crate::core::persona::persona_generator::{get_persona, persona_namespace, PersonaError};
+use crate::core::profile::profile_sync::{
+    build_profile_isolation_scope, profile_namespace, read_scoped_persona, ProfileIsolation,
+};
 use crate::core::record::l1_reader::{
     cosine_similarity, l1_namespace, overlap_score, read_namespace_records, read_session_records,
     rrf_merge, significant_terms, MIN_COSINE_SIMILARITY,
 };
 use crate::core::record::l1_writer::EmbedFn;
 use crate::core::record::L1Error;
-use crate::core::scene::scene_index::{list_scenes, SceneError};
+use crate::core::scene::scene_index::{list_scenes, scene_namespace, SceneError};
 use crate::core::scene::scene_navigation::{generate_scene_navigation, strip_scene_navigation};
 
 /// A single recalled L1 memory with its keyword-overlap score.
@@ -44,6 +46,111 @@ pub struct RecalledMemory {
     /// Serialized [`MemoryType`] tag (`persona`, `episodic`, ...).
     #[serde(rename = "type")]
     pub memory_type: String,
+    /// VER-04: source namespace the memory was read from (`l1/<session>`),
+    /// for the surface injection audit. Empty on legacy payloads.
+    #[serde(default)]
+    pub source_namespace: String,
+    /// VER-04: source record key inside [`Self::source_namespace`], for the
+    /// surface injection audit. Empty on legacy payloads.
+    #[serde(default)]
+    pub source_key: String,
+}
+
+/// VER-04: governance summary of one recall pass — the namespaces that
+/// actually fed the injection and the ones skipped by the ACL policy.
+/// Denials are never silent: surfaces record them in the injection audit.
+///
+/// Both lists are bounded to [`Self::MAX_ENTRIES`]; when more namespaces were
+/// involved the last slot degrades to [`Self::OVERFLOW_MARKER`] (the audit
+/// stays bounded without pretending the list is complete).
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct RecallGovernance {
+    /// Namespaces that contributed content (dedup; bounded).
+    pub sources: Vec<String>,
+    /// Namespaces skipped by the injection ACL (dedup; bounded).
+    pub denied: Vec<String>,
+}
+
+impl RecallGovernance {
+    /// Max entries kept per list (keeps audit events bounded).
+    pub const MAX_ENTRIES: usize = 16;
+    /// Marker replacing the last slot when more entries existed (bounded,
+    /// never silent).
+    pub const OVERFLOW_MARKER: &'static str = "…overflow";
+
+    fn note(list: &mut Vec<String>, namespace: &str) {
+        if list.iter().any(|ns| ns == namespace) {
+            return;
+        }
+        if list.len() < Self::MAX_ENTRIES {
+            list.push(namespace.to_string());
+        } else if list.last().map(String::as_str) != Some(Self::OVERFLOW_MARKER) {
+            // Saturated: keep the bound and mark the overflow (review F3).
+            if let Some(last) = list.last_mut() {
+                *last = Self::OVERFLOW_MARKER.to_string();
+            }
+        }
+    }
+
+    /// Record a namespace that contributed content to this injection.
+    pub fn source(&mut self, namespace: &str) {
+        Self::note(&mut self.sources, namespace);
+    }
+
+    /// Record a namespace denied by the ACL (skipped, never injected).
+    pub fn deny(&mut self, namespace: &str) {
+        Self::note(&mut self.denied, namespace);
+    }
+}
+
+/// VER-04: opt-in injection ACL — an allowlist of namespace prefixes for the
+/// surfaces that feed memory into model context (proxy `<vanta-memory>`
+/// block, MCP recall/context tools, `mem: search`). An empty list allows
+/// everything (today's behavior); anything not matched by a prefix is denied
+/// (`deny fuera de scope`).
+///
+/// Prefix semantics are boundary-aware: `l1/sess-1` allows `l1/sess-1` and
+/// `l1/sess-1/...` but never `l1/sess-12`; a trailing `/` is tolerated.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct InjectionPolicy {
+    allow_prefixes: Vec<String>,
+}
+
+impl InjectionPolicy {
+    /// Allow every namespace (default; keeps existing behavior).
+    pub fn allow_all() -> Self {
+        Self::default()
+    }
+
+    /// Build from an operator-provided prefix list (blank/`/`-only entries
+    /// are ignored; trailing `/` is stripped).
+    pub fn from_prefixes(prefixes: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        let allow_prefixes = prefixes
+            .into_iter()
+            .map(|p| p.into())
+            .map(|p| p.trim().trim_end_matches('/').to_string())
+            .filter(|p| !p.is_empty())
+            .collect();
+        Self { allow_prefixes }
+    }
+
+    /// True when no restriction is configured (allow-all).
+    pub fn is_empty(&self) -> bool {
+        self.allow_prefixes.is_empty()
+    }
+
+    /// Whether `namespace` is inside the allowed scope.
+    pub fn allows(&self, namespace: &str) -> bool {
+        if self.allow_prefixes.is_empty() {
+            return true;
+        }
+        self.allow_prefixes.iter().any(|prefix| {
+            namespace == prefix
+                || namespace
+                    .strip_prefix(prefix)
+                    .is_some_and(|rest| rest.starts_with('/'))
+        })
+    }
 }
 
 /// Result of an auto-recall pass. `Ok(None)` from [`perform_auto_recall`]
@@ -61,6 +168,9 @@ pub struct RecallResult {
     pub persona: Option<String>,
     /// Effective mode used (after degradation).
     pub effective_mode: RecallMode,
+    /// VER-04: ACL/budget governance summary of this pass (sources fed,
+    /// namespaces denied). Always populated; empty when nothing was read.
+    pub governance: RecallGovernance,
 }
 
 /// Recall search mode. Names match TDAM `cfg.recall.strategy`.
@@ -195,13 +305,29 @@ searches, the information is not in memory — answer with what you have.\n\
 /// Empty `user_text` skips the memory search but still injects persona and
 /// scene navigation (TDAM parity). When neither memories nor persona nor
 /// scenes yield content, returns `Ok(None)` — never an empty block.
+///
+/// Allow-all convenience wrapper over [`perform_auto_recall_governed`]
+/// (existing callers keep their signature and behavior untouched).
 pub fn perform_auto_recall(
     db: &Embedded,
     params: AutoRecallParams<'_>,
     embed: Option<&EmbedFn>,
 ) -> Result<Option<RecallResult>, RecallError> {
+    perform_auto_recall_governed(db, params, embed, &InjectionPolicy::allow_all())
+}
+
+/// VER-04: auto-recall with an explicit injection ACL. Sources whose
+/// namespace is outside `policy` are skipped (never injected) and reported in
+/// [`RecallResult::governance`] — denials are never silent.
+pub fn perform_auto_recall_governed(
+    db: &Embedded,
+    params: AutoRecallParams<'_>,
+    embed: Option<&EmbedFn>,
+    policy: &InjectionPolicy,
+) -> Result<Option<RecallResult>, RecallError> {
     let config = params.config;
     let isolation = params.isolation.unwrap_or_default();
+    let mut governance = RecallGovernance::default();
 
     // ── L1 search (skipped on empty user text) ──
     let mut recalled = Vec::new();
@@ -209,13 +335,24 @@ pub fn perform_auto_recall(
     if !params.user_text.trim().is_empty() {
         // Own-session records are always visible (legacy records carry no
         // agent/team metadata and must not vanish when the scope widens).
-        let mut records = read_session_records(db, params.session_key)?;
+        let mut records = Vec::new();
+        let current_ns = l1_namespace(params.session_key);
+        if policy.allows(&current_ns) {
+            records = read_session_records(db, params.session_key)?;
+            if !records.is_empty() {
+                governance.source(&current_ns);
+            }
+        } else {
+            governance.deny(&current_ns);
+        }
         if config.scope != RecallScope::Session {
             records.extend(read_scoped_records(
                 db,
                 config.scope,
                 &isolation,
                 params.session_key,
+                policy,
+                &mut governance,
             )?);
         }
         let (hits, used_semantic) = search_records(&records, params.user_text, &config, embed);
@@ -224,25 +361,64 @@ pub fn perform_auto_recall(
     }
 
     // ── L3 persona (scoped by team+agent via profile_sync) ──
-    let scoped = read_scoped_persona(db, &isolation)?;
+    let scoped_ns = profile_namespace(&build_profile_isolation_scope(&isolation));
+    let scoped = if policy.allows(&scoped_ns) {
+        read_scoped_persona(db, &isolation)?
+    } else {
+        governance.deny(&scoped_ns);
+        None
+    };
+    let session_persona_ns = persona_namespace(params.session_key);
     let persona_body = match scoped {
         Some(content) => {
             let body = strip_scene_navigation(&content).trim().to_string();
-            (!body.is_empty()).then_some(body)
+            let body = (!body.is_empty()).then_some(body);
+            if body.is_some() {
+                governance.source(&scoped_ns);
+            }
+            body
         }
         // Fallback: session-level persona written directly by MEM-15 without a
-        // scope sync yet.
-        None => get_persona(db, params.session_key)?
-            .map(|p| strip_scene_navigation(&p.content).trim().to_string())
-            .filter(|b| !b.is_empty()),
+        // scope sync yet (ACL-checked like any other source).
+        None => {
+            if policy.allows(&session_persona_ns) {
+                let body = get_persona(db, params.session_key)?
+                    .map(|p| strip_scene_navigation(&p.content).trim().to_string())
+                    .filter(|b| !b.is_empty());
+                if body.is_some() {
+                    governance.source(&session_persona_ns);
+                }
+                body
+            } else {
+                governance.deny(&session_persona_ns);
+                None
+            }
+        }
     };
 
     // ── L2 scene navigation ──
-    let entries = list_scenes(db, params.session_key)?;
+    let scene_ns = scene_namespace(params.session_key);
+    let entries = if policy.allows(&scene_ns) {
+        let entries = list_scenes(db, params.session_key)?;
+        if !entries.is_empty() {
+            governance.source(&scene_ns);
+        }
+        entries
+    } else {
+        governance.deny(&scene_ns);
+        Vec::new()
+    };
     let navigation = (!entries.is_empty()).then(|| generate_scene_navigation(&entries));
 
     if recalled.is_empty() && persona_body.is_none() && navigation.is_none() {
-        return Ok(None);
+        // Review F1: a deny-all pass still returns `Some` — the ACL denials
+        // are the payload the surfaces audit. The context fields stay `None`
+        // (wire-identical: callers replace `None` with their "no memories"
+        // text / null envelope). `Ok(None)` remains reserved for a pass with
+        // nothing to inject AND nothing denied (default allow-all path).
+        if governance.denied.is_empty() {
+            return Ok(None);
+        }
     }
 
     // Dynamic part → prepend (user prompt); stable parts → append (system).
@@ -275,6 +451,7 @@ pub fn perform_auto_recall(
         recalled_memories: recalled.into_iter().map(|m| m.memory).collect(),
         persona: persona_body,
         effective_mode: config.mode.effective(semantic_ran),
+        governance,
     }))
 }
 
@@ -282,6 +459,8 @@ pub fn perform_auto_recall(
 /// `l1/*` namespace except the current session's, filtered by the record's
 /// own `agent_id` / `team_id`. Records without the matching metadata are
 /// invisible cross-session — they stay session-only (legacy fallback).
+/// Namespaces outside the injection `policy` are skipped and reported in
+/// `governance` (VER-04 ACL enforcement, never silent).
 ///
 /// # ponytail: full scan of all `l1/*` namespaces per recall
 /// O(#sessions + #records) via `list_namespaces`; fine at hundreds of
@@ -291,6 +470,8 @@ fn read_scoped_records(
     scope: RecallScope,
     isolation: &ProfileIsolation,
     current_session: &str,
+    policy: &InjectionPolicy,
+    governance: &mut RecallGovernance,
 ) -> Result<Vec<MemoryRecord>, RecallError> {
     let current_ns = l1_namespace(current_session);
     let mut out = Vec::new();
@@ -298,6 +479,11 @@ fn read_scoped_records(
         if !ns.starts_with("l1/") || ns == current_ns {
             continue;
         }
+        if !policy.allows(&ns) {
+            governance.deny(&ns);
+            continue;
+        }
+        let mut contributed = false;
         for record in read_namespace_records(db, &ns)? {
             let visible = match scope {
                 RecallScope::Session => true,
@@ -308,7 +494,11 @@ fn read_scoped_records(
             };
             if visible {
                 out.push(record);
+                contributed = true;
             }
+        }
+        if contributed {
+            governance.source(&ns);
         }
     }
     Ok(out)
@@ -427,6 +617,9 @@ fn search_records(
                         .find(|(_, r)| r.id == record.id)
                         .map_or(0, |(score, _)| *score),
                     memory_type,
+                    // VER-04: source identity for the surface injection audit.
+                    source_namespace: l1_namespace(&record.session_key),
+                    source_key: record.id.clone(),
                 },
             }
         })
@@ -578,6 +771,54 @@ mod tests {
         // With an embedding hook the declared modes actually run (MEM-47).
         assert_eq!(RecallMode::Embedding.effective(true), RecallMode::Embedding);
         assert_eq!(RecallMode::Hybrid.effective(true), RecallMode::Hybrid);
+    }
+
+    #[test]
+    fn injection_policy_empty_allows_everything() {
+        let policy = InjectionPolicy::allow_all();
+        assert!(policy.is_empty());
+        assert!(policy.allows("l1/anything"));
+        assert!(policy.allows("persona/x"));
+        assert!(policy.allows(""));
+    }
+
+    #[test]
+    fn injection_policy_prefix_boundaries_are_exact() {
+        let policy = InjectionPolicy::from_prefixes(["l1/sess-1", "persona/", " scene/s1 "]);
+        assert!(policy.allows("l1/sess-1"));
+        assert!(policy.allows("l1/sess-1/sub"));
+        assert!(
+            !policy.allows("l1/sess-12"),
+            "prefix must respect the / boundary"
+        );
+        assert!(policy.allows("persona/anything"), "trailing / is tolerated");
+        assert!(policy.allows("scene/s1"), "surrounding blanks are trimmed");
+        assert!(!policy.allows("scene/s10"));
+        assert!(!policy.allows("l1/sess-2"));
+    }
+
+    #[test]
+    fn injection_policy_ignores_blank_entries() {
+        let policy = InjectionPolicy::from_prefixes(["", "  ", "/"]);
+        assert!(policy.is_empty(), "blank prefixes must not restrict");
+        assert!(policy.allows("l1/x"));
+    }
+
+    #[test]
+    fn recall_governance_bounds_lists_and_marks_overflow() {
+        let mut governance = RecallGovernance::default();
+        for i in 0..(RecallGovernance::MAX_ENTRIES + 5) {
+            governance.deny(&format!("l1/s{i}"));
+        }
+        assert_eq!(governance.denied.len(), RecallGovernance::MAX_ENTRIES);
+        assert_eq!(
+            governance.denied.last().map(String::as_str),
+            Some(RecallGovernance::OVERFLOW_MARKER),
+            "saturation must be visible, not silent"
+        );
+        // Duplicates neither grow the list nor disturb the marker.
+        governance.deny("l1/s0");
+        assert_eq!(governance.denied.len(), RecallGovernance::MAX_ENTRIES);
     }
 
     #[test]

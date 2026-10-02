@@ -1,10 +1,8 @@
 ---
-title: "Decisiones — WONTFIX"
-type: decisions
+title: Decisiones — WONTFIX
+kind: review
 status: active
 tags: [vantadb, avance, wontfix, decisiones, yagni]
-last_reviewed: 2026-08-07
-aliases: []
 ---
 
 # Decisiones — WONTFIX
@@ -17,7 +15,7 @@ aliases: []
 - **Decisión:** WONTFIX. gRPC contradice el posicionamiento **embedded-first** de VantaDB.
 - rkyv (serialización binaria zero-copy) ya cubre la serialización interna en storage/WAL — el 80% del valor técnico.
 - Sin demanda de usuario ni dependencias → YAGNI.
-- Micro-ADR: `docs/dev/architecture/adr/COMP-019-binary-protocol-wontfix.md`
+- Micro-ADR: `docs/dev/architecture/adr/ADR-0048-binary-protocol-wontfix.md`
 - **Criterio de re-apertura:** caso de uso de servidor remoto con transferencia masiva de vectores, o issue de usuario.
 
 ### DEVOPS-15: Optimizar default features Cargo.toml — WONTFIX ✅
@@ -83,15 +81,15 @@ aliases: []
 | Security: NON-CRITICAL advisories | 7 categorías explícitas (# CATEGORY:) alineadas con CI_POLICY y Regla 2 — no requieren gates duros. |
 | CSP 'unsafe-eval' prod | Removido en frontend; WONTFIX en Rust server (JSON API puro). |
 | DEVOPS-10 code signing | SHA256 + .zip; Azure Trusted Signing cuando release público lo requiera. |
-| Fjall default vs RocksDB opt-in | ADR-020 (consolidación retroactiva, FND-21): Fjall backend por defecto, RocksDB feature opt-in; evidencia `Cargo.toml:97`, `config.rs:582-598`, `init.rs:269-289`. |
-| Zero-copy Arrow en bindings | ADR-021 (nuevo, FND-21): buffers Arrow sin copia como dirección; bindings Python/Node aún sin Arrow. **FND-04 diferido 2026-08-16** con señal de reapertura (`docs/dev/research/FND-04-arrow-zero-copy.md`). |
-| WAL async/batch | ADR-022 (consolidación, FND-21): batch-append por shard + roadmap async; relaciona DRV-014/DRV-015. |
-| Backend compaction tuning | ADR-023 (FND-08, 2026-08-16): compactación fjall/rocksdb diferida como marginal tras bench de lectura; regla en `.opencode/rules/durability.md`. |
+| Fjall default vs RocksDB opt-in | ADR-0020 (consolidación retroactiva, FND-21): Fjall backend por defecto, RocksDB feature opt-in; evidencia `Cargo.toml:97`, `config.rs:582-598`, `init.rs:269-289`. |
+| Zero-copy Arrow en bindings | ADR-0021 (nuevo, FND-21): buffers Arrow sin copia como dirección; bindings Python/Node aún sin Arrow. **FND-04 diferido 2026-08-16** con señal de reapertura (`docs/dev/research/FND-04-arrow-zero-copy.md`). |
+| WAL async/batch | ADR-0022 (consolidación, FND-21): batch-append por shard + roadmap async; relaciona DRV-014/DRV-015. |
+| Backend compaction tuning | ADR-0023 (FND-08, 2026-08-16): compactación fjall/rocksdb diferida como marginal tras bench de lectura; regla en `.opencode/rules/durability.md`. |
 | Integraciones-frameworks como paquete instalable desde `vantadb-python` | INV-vantadb-python-01 H-08 (2026-08-25): DESCARTADO — cubierto por la investigación del módulo `integrations` (registro fila 22); los ejemplos viven en `examples/python/*`. No duplicar alcance entre módulos. Ref: docs/dev/reviews/research-vantadb-python-20260825.md |
-| Grafos default-on vs opt-in | ADR-024 (FND-23, 2026-08-16): **default-on hasta señal de telemetría** (`vanta_graph_ops_total`); no decidir por intuición; complementa FND-03. |
+| Grafos default-on vs opt-in | ADR-0024 (FND-23, 2026-08-16): **default-on hasta señal de telemetría** (`vanta_graph_ops_total`); no decidir por intuición; complementa FND-03. |
 
 ### FND-23: Decidir grafos default-on vs opt-in con telemetría real — migrado 2026-08-16 (ver docs/progreso/README.md)
-- **Resultado:** ✅ ADR-024: motor de grafos **default-on hasta señal de telemetría** (métrica `vanta_graph_ops_total`) — no decidir por intuición; complementa FND-03. Commit `bde23fd3`.
+- **Resultado:** ✅ ADR-0024: motor de grafos **default-on hasta señal de telemetría** (métrica `vanta_graph_ops_total`) — no decidir por intuición; complementa FND-03. Commit `bde23fd3`.
 - **Ids:** `FND-23`
 | gRPC endpoint secundario en vantadb-server | INV-vantadb-server-01 H-12 (2026-08-25): DESCARTADO — YAGNI local-first: REST `/api/v2` + MCP cubren los casos; costo 🔴 sin demanda medida. Reabrir solo con señal real de usuarios pidiendo gRPC. Ref: docs/dev/reviews/research-vantadb-server-20260825.md |
 | Streaming/SSE para export/traversals grandes | INV-vantadb-server-01 H-13 (2026-08-25): DESCARTADO — nota informativa del review previo (`docs/dev/reviews/modulos/vantadb-server.md` §4); export JSONL single-body basta para datasets locales. Reabrir si export multi-GB se vuelve caso real. |

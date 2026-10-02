@@ -7,6 +7,7 @@
 
 use bytes::Bytes;
 use serde_json::{json, Value};
+use vanta_memory::core::hooks::InjectionPolicy;
 use vantadb::sdk::Embedded;
 
 use crate::error::ProxyError;
@@ -84,61 +85,213 @@ fn tool_name_of(protocol: Protocol, tool: &Value) -> Option<&str> {
     }
 }
 
+/// VER-04: one memory source that fed the `<vanta-memory>` block (audit).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct InjectedSource {
+    /// Source namespace (`persona/<session>`, `scene/<session>`).
+    pub namespace: String,
+    /// Source record key inside the namespace (or a stable marker).
+    pub key: String,
+    /// Section kind: `persona` | `scene` | `scene_index`.
+    pub kind: &'static str,
+}
+
+/// VER-04: governed result of [`build_memory_block`] — the block itself plus
+/// the metadata the injection audit needs (sources, ACL denials, budget,
+/// truncation). `block` is byte-identical to the pre-governance output.
+#[derive(Debug, Clone, Default)]
+pub struct InjectionBlock {
+    /// The assembled `<vanta-memory>` block (`""` when nothing to inject).
+    pub block: String,
+    /// Sources that contributed a section (priority order; dropped sections
+    /// are excluded — only what actually got injected is audited).
+    pub sources: Vec<InjectedSource>,
+    /// Namespaces skipped by the injection ACL (never silent).
+    pub denied: Vec<String>,
+    /// Configured token budget for the block.
+    pub budget_tokens: u64,
+    /// Tokens actually used by `block` (canonical estimator).
+    pub used_tokens: u64,
+    /// True when at least one section was dropped or hard-truncated.
+    pub truncated: bool,
+}
+
+impl InjectionBlock {
+    /// An empty block: nothing to inject (disabled budget / no memory).
+    fn empty(budget_tokens: u64) -> Self {
+        Self {
+            budget_tokens,
+            ..Self::default()
+        }
+    }
+}
+
 /// Compose the `<vanta-memory>` block from the session's persona and scenes
-/// (via vanta-memory lib re-exports). Best-effort: storage errors yield an
-/// empty block — injection must never fail the request. Empty when there is
-/// nothing to inject.
-pub fn build_memory_block(db: &Embedded, session_key: &str) -> String {
-    use vanta_memory::core::persona::persona_generator::get_persona;
-    use vanta_memory::core::scene::scene_index::{current_scene, list_scenes};
+/// (via vanta-memory lib re-exports) — persona and scenes only.
+/// (WIRE-01 opción B: captured turns live in `l1/{session}` for the search
+/// path instead of this block, keeping the system prompt stable across
+/// turns for prompt-cache and exact-cache behavior.)
+///
+/// `max_tokens` caps the assembled block (wrapper tags included) using the
+/// canonical [`crate::cost::estimate_text_tokens`] heuristic. Sections enter
+/// in priority order — persona, current scene, scene index — and the first
+/// section that would overflow is dropped with everything below it; when
+/// even the top section alone overflows it is char-truncated to fit (hard
+/// cap wins over completeness). `0` disables injection entirely.
+/// Best-effort: storage errors yield an empty block — injection must never
+/// fail the request. Empty when there is nothing to inject.
+///
+/// VER-04: `policy` enforces the opt-in injection ACL per source namespace
+/// (`deny fuera de scope`); denied namespaces are skipped and reported in
+/// [`InjectionBlock::denied`]. The return value carries the audit metadata.
+///
+/// Note (WIRE-01 opción B): captured turns are deliberately NOT part of
+/// this block — they live in `l1/{session}` for the search path, so the
+/// system prompt stays stable across turns (PRX-04 prompt-cache prefix +
+/// PRX-09 exact cache keep working).
+pub fn build_memory_block(
+    db: &Embedded,
+    session_key: &str,
+    max_tokens: u64,
+    policy: &InjectionPolicy,
+) -> InjectionBlock {
+    use vanta_memory::core::persona::persona_generator::{
+        get_persona, persona_namespace, PERSONA_KEY,
+    };
+    use vanta_memory::core::scene::scene_index::{current_scene, list_scenes, scene_namespace};
 
-    let mut any = false;
-    let mut out = String::from("<vanta-memory>\n");
+    if max_tokens == 0 {
+        return InjectionBlock::empty(0);
+    }
 
-    match get_persona(db, session_key) {
-        Ok(Some(record)) => {
-            let body = record.content.trim();
-            if !body.is_empty() {
-                out.push_str("<user-persona>\n");
-                out.push_str(body);
-                out.push_str("\n</user-persona>\n");
-                any = true;
+    // Sections in priority order (highest value first — dropped last).
+    let mut sections: Vec<String> = Vec::new();
+    let mut sources: Vec<InjectedSource> = Vec::new();
+    let mut denied: Vec<String> = Vec::new();
+
+    let persona_ns = persona_namespace(session_key);
+    if policy.allows(&persona_ns) {
+        match get_persona(db, session_key) {
+            Ok(Some(record)) => {
+                let body = record.content.trim();
+                if !body.is_empty() {
+                    sections.push(format!("<user-persona>\n{body}\n</user-persona>\n"));
+                    sources.push(InjectedSource {
+                        namespace: persona_ns,
+                        key: PERSONA_KEY.to_string(),
+                        kind: "persona",
+                    });
+                }
             }
+            Ok(None) => {}
+            Err(e) => tracing::debug!(error = %e, "persona read failed; skipping injection"),
         }
-        Ok(None) => {}
-        Err(e) => tracing::debug!(error = %e, "persona read failed; skipping injection"),
+    } else {
+        denied.push(persona_ns);
     }
 
-    match current_scene(db, session_key) {
-        Ok(Some(scene)) => {
-            out.push_str("<current-scene>\n");
-            out.push_str(scene.scene_name.trim());
-            out.push_str(": ");
-            out.push_str(scene.content.trim());
-            out.push_str("\n</current-scene>\n");
-            any = true;
-        }
-        Ok(None) => {}
-        Err(e) => tracing::debug!(error = %e, "current scene read failed; skipping"),
-    }
-
-    match list_scenes(db, session_key) {
-        Ok(entries) if !entries.is_empty() => {
-            out.push_str("<scene-index>\n");
-            for entry in entries {
-                out.push_str(&format!("- {} (heat {})\n", entry.filename, entry.heat));
+    let scene_ns = scene_namespace(session_key);
+    if policy.allows(&scene_ns) {
+        match current_scene(db, session_key) {
+            Ok(Some(scene)) => {
+                sections.push(format!(
+                    "<current-scene>\n{}: {}\n</current-scene>\n",
+                    scene.scene_name.trim(),
+                    scene.content.trim()
+                ));
+                sources.push(InjectedSource {
+                    namespace: scene_ns.clone(),
+                    key: scene.scene_name.trim().to_string(),
+                    kind: "scene",
+                });
             }
-            out.push_str("</scene-index>\n");
-            any = true;
+            Ok(None) => {}
+            Err(e) => tracing::debug!(error = %e, "current scene read failed; skipping"),
         }
-        _ => {}
+
+        match list_scenes(db, session_key) {
+            Ok(entries) if !entries.is_empty() => {
+                let mut index = String::from("<scene-index>\n");
+                for entry in entries {
+                    index.push_str(&format!("- {} (heat {})\n", entry.filename, entry.heat));
+                }
+                index.push_str("</scene-index>\n");
+                sections.push(index);
+                sources.push(InjectedSource {
+                    namespace: scene_ns,
+                    key: "index".to_string(),
+                    kind: "scene_index",
+                });
+            }
+            _ => {}
+        }
+    } else {
+        denied.push(scene_ns);
     }
 
-    if !any {
-        return String::new();
+    let total_sections = sections.len();
+    let (block, included_sections, hard_truncated) = fit_sections(sections, max_tokens);
+    let used_tokens = crate::cost::estimate_text_tokens(block.len());
+    // Sources are parallel to sections: only what actually entered the block.
+    let included = included_sections.min(sources.len());
+    sources.truncate(included);
+    InjectionBlock {
+        block,
+        sources,
+        denied,
+        budget_tokens: max_tokens,
+        used_tokens,
+        truncated: hard_truncated || included < total_sections,
     }
-    out.push_str("</vanta-memory>");
-    out
+}
+
+/// Greedy section fit: include sections while the running estimate
+/// (wrapper included) stays within `max_tokens`; the first overflow drops
+/// that section and everything below it. When nothing fits, char-truncate
+/// the top-priority section to the remaining room (hard cap wins).
+///
+/// Returns `(block, included_sections, hard_truncated)` — the counts let the
+/// caller report exactly what was injected (audit) and whether the budget
+/// dropped anything (`truncated`).
+fn fit_sections(sections: Vec<String>, max_tokens: u64) -> (String, usize, bool) {
+    use crate::cost::estimate_text_tokens;
+
+    const OPEN: &str = "<vanta-memory>\n";
+    const CLOSE: &str = "</vanta-memory>";
+    let mut used = estimate_text_tokens(OPEN.len() + CLOSE.len());
+    let mut included: Vec<&str> = Vec::new();
+    let mut dropped = false;
+    for section in &sections {
+        let cost = estimate_text_tokens(section.len());
+        if used + cost > max_tokens {
+            dropped = true;
+            break;
+        }
+        used += cost;
+        included.push(section);
+    }
+    if included.is_empty() {
+        // Hard cap wins: truncate the top section to the remaining room
+        // (char-boundary safe; the `…[truncated]` marker tells the model).
+        let Some(top) = sections.first() else {
+            return (String::new(), 0, false);
+        };
+        const MARKER: &str = "\n…[truncated]";
+        let room_chars = max_tokens.saturating_sub(used) as usize * 4;
+        let keep = room_chars.saturating_sub(MARKER.len());
+        let head: String = top.chars().take(keep).collect();
+        if head.trim().is_empty() {
+            return (String::new(), 0, true);
+        }
+        return (format!("{OPEN}{head}{MARKER}{CLOSE}"), 1, true);
+    }
+    let included_len = included.len();
+    let mut out = String::from(OPEN);
+    for section in included {
+        out.push_str(section);
+    }
+    out.push_str(CLOSE);
+    (out, included_len, dropped)
 }
 
 /// Prepend `block` to a string field, returning true only on change.
@@ -527,5 +680,107 @@ mod tests {
             None => {}
             Some(second) => assert_eq!(out, second, "stable prefix byte-a-byte"),
         }
+    }
+
+    /// WIRE-01 Step 3: presupuesto de inyección — el bloque respeta
+    /// `max_tokens` (estimador canónico `estimate_text_tokens`), con
+    /// prioridad persona > escena > índice (el índice cae primero).
+    #[test]
+    fn injection_budget_respected_with_persona_priority() {
+        use vantadb::sdk::{MemoryInput, MemoryMetadata};
+
+        fn memory() -> Embedded {
+            let config = vantadb::config::Config {
+                backend_kind: vantadb::storage::BackendKind::InMemory,
+                ..Default::default()
+            };
+            vantadb::storage::StorageEngine::open_with_config(":memory:", Some(config))
+                .map(|engine| Embedded::from_engine(engine.into()))
+                .expect("in-memory engine")
+        }
+
+        let db = memory();
+        // Persona corta (~31 chars de contenido).
+        db.put(MemoryInput {
+            namespace: vanta_memory::core::persona::persona_generator::persona_namespace("sess-b"),
+            key: vanta_memory::core::persona::persona_generator::PERSONA_KEY.into(),
+            payload: serde_json::json!({
+                "content": "PERSONA-MARKER concise answers.",
+                "mode": "first",
+                "generated_at_ms": 0,
+                "generated_at": "2026-01-01T00:00:00+00:00",
+            })
+            .to_string(),
+            metadata: MemoryMetadata::new(),
+            vector: None,
+            sparse_vector: None,
+            ttl_ms: None,
+            ..Default::default()
+        })
+        .expect("seed persona");
+        // Una escena: alimenta `<current-scene>` + `<scene-index>`.
+        vanta_memory::core::scene::scene_index::upsert_scene(
+            &db,
+            "sess-b",
+            "INDEX-MARKER-runbook",
+            "deploys",
+            "how to deploy the service",
+        )
+        .expect("seed scene");
+
+        // Presupuesto amplio: todo entra (persona + escena + índice).
+        let allow_all = InjectionPolicy::allow_all();
+        let roomy = build_memory_block(&db, "sess-b", 10_000, &allow_all);
+        assert!(
+            roomy.block.contains("PERSONA-MARKER"),
+            "roomy keeps persona"
+        );
+        assert!(roomy.block.contains("INDEX-MARKER"), "roomy keeps scenes");
+        assert!(!roomy.truncated, "nothing dropped under a roomy budget");
+        assert_eq!(roomy.sources.len(), 3, "persona + scene + index audited");
+        assert!(roomy.sources.iter().any(|s| s.kind == "persona"
+            && s.namespace == "persona/sess-b"
+            && s.key == "persona.md"));
+        assert!(roomy.used_tokens <= 10_000);
+        assert!(roomy.denied.is_empty());
+
+        // Presupuesto ajustado (~40 tokens): la persona entra, el resto cae.
+        let tight = build_memory_block(&db, "sess-b", 40, &allow_all);
+        assert!(!tight.block.is_empty(), "persona alone must still inject");
+        assert!(
+            crate::cost::estimate_text_tokens(tight.block.len()) <= 40,
+            "block over budget: {}",
+            tight.block.len()
+        );
+        assert!(
+            tight.block.contains("PERSONA-MARKER"),
+            "persona wins the budget"
+        );
+        assert!(
+            !tight.block.contains("INDEX-MARKER"),
+            "scene sections drop before persona: {}",
+            tight.block
+        );
+        assert!(tight.truncated, "dropped sections must be flagged");
+        assert_eq!(
+            tight.sources.len(),
+            1,
+            "only the injected section is audited"
+        );
+        assert_eq!(tight.sources[0].kind, "persona");
+
+        // Presupuesto cero: memoria apagada (vacío → sin inyección).
+        let off = build_memory_block(&db, "sess-b", 0, &allow_all);
+        assert!(off.block.is_empty());
+        assert!(off.sources.is_empty());
+
+        // VER-04 ACL: persona/scene fuera de scope → nada se inyecta y las
+        // denegaciones quedan reportadas (nunca en silencio).
+        let deny_all = InjectionPolicy::from_prefixes(["other/"]);
+        let denied = build_memory_block(&db, "sess-b", 10_000, &deny_all);
+        assert!(denied.block.is_empty(), "denied sources must not inject");
+        assert!(denied.denied.iter().any(|ns| ns == "persona/sess-b"));
+        assert!(denied.denied.iter().any(|ns| ns == "scene/sess-b"));
+        assert!(denied.sources.is_empty());
     }
 }

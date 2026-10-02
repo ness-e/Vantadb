@@ -24,7 +24,7 @@ function Test-InDoc {
           $DocText -match "``$Name\b" -or                        # `Name(
           $DocText -match "$Name\(" -or                          # Name(
           $DocText -match "(?m)^#{2,4}\s+$Name\b" -or            # ## Name
-          $DocText -match "VantaError::$Name\b" -or               # VantaError::Name
+          $DocText -match "Error::$Name\b" -or                    # Error::Name
           $DocText -match "``$Name\b" -or                        # `name (lowercase match)
           $DocText -match "\b$Name\b")                            # bare word boundary
 }
@@ -99,13 +99,13 @@ Check-Methods -Label "src/config.rs" -Methods $configFields -DocRelPath "docs\us
 #  3. Error variants
 # ═══════════════════════════════════════
 $errorText = Get-Content "$root\src\error.rs" -Raw
-$errorEnumBody = $errorText -split '(?<=pub enum VantaError \{)' | Select-Object -Skip 1 -First 1
+$errorEnumBody = $errorText -split '(?<=pub enum Error \{)' | Select-Object -Skip 1 -First 1
 $allErrors = if ($errorEnumBody) {
   [regex]::Matches($errorEnumBody, '^\s{4}(\w+)', 'Multiline') |
     ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique
 } else { @() }
 
-Check-Methods -Label "src/error.rs (VantaError)" -Methods $allErrors -DocRelPath "docs\api\EMBEDDED_SDK.md" -DocLabel "EMBEDDED_SDK.md" -Exclude @('fn','pub','use')
+Check-Methods -Label "src/error.rs (Error)" -Methods $allErrors -DocRelPath "docs\api\EMBEDDED_SDK.md" -DocLabel "EMBEDDED_SDK.md" -Exclude @('fn','pub','use')
 
 # ═══════════════════════════════════════
 #  4. CLI commands

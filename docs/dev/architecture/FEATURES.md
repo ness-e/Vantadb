@@ -1,10 +1,9 @@
 ---
 title: Cargo Feature Registry — per-feature status
-type: architecture
+kind: concept
 status: active
+description: "Inventario honesto de las features declaradas en Cargo.toml [features]"
 tags: [vantadb, architecture, features, cargo]
-last_reviewed: 2026-08-09
-aliases: []
 ---
 
 # Cargo Feature Registry
@@ -23,7 +22,7 @@ Inventario honesto de las features declaradas en `Cargo.toml` `[features]`
 | ✅ `default` | En la feature set por defecto; compilada en todo build |
 | ✅ `ci` | Ejercida en runs de test de CI (no necesariamente default) |
 | 🟡 `opt-in` | Código real detrás del flag; no default, no en features de test de CI (solo compila vía `clippy --all-features`) |
-| ⚠️ `experimental` | Código real pero fuera de la superficie de producto estable (ver ADR-014 / `docs/dev/operations/CI_POLICY.md`) |
+| ⚠️ `experimental` | Código real pero fuera de la superficie de producto estable (ver ADR-0014 / `docs/dev/operations/CI_POLICY.md`) |
 | 💀 `no-op` | Sin gates de código; marcador vacío |
 
 ## Feature table
@@ -45,8 +44,8 @@ Inventario honesto de las features declaradas en `Cargo.toml` `[features]`
 | `rocksdb` | 🟡 opt-in | Backend de storage RocksDB (opcional; no es miembro de default) | `src/backends/…` (16 gates). No está en features de test de CI (solo `clippy --all-features`); macOS instala `rocksdb` para smoke `cargo check` sin features extras |
 | `remote-inference` | 🟡 opt-in | `llm` + llamadas a proveedores externos desde el executor (vía `reqwest`) | `src/lib.rs:98`, `src/executor.rs` (13 gates), `src/physical_plan.rs`; no en features de test de CI |
 | `failpoints` | 🟡 opt-in | API de failpoints de chaos + `testing`; test `chaos_integrity` (`required-features = ["failpoints"]`) | `src/lib.rs:177-194`, `src/edge_index.rs`, `src/index/serialize.rs` (20 gates). ⚠️ `chaos_integrity` **no corre** en CI: audit features no incluyen `failpoints` |
-| `encryption` | 🟡 opt-in | Cifrado en reposo AES-256-GCM de archivos de storage | `src/lib.rs:53` (`crypto`), 9 gates. Candidata Pro (ADR-013) |
-| `server` | 🟡 opt-in | Server HTTP embebido: `circuit_breaker`, `cli_server`, `connection_pool` (requiere `cli`) | `src/lib.rs:66,72,78` (6 gates). No en features de test de CI; `vantadb-server` la activa (`vantadb-server/Cargo.toml:10`). Promovida de experimental a estable 2026-08-25: base del deploy Docker + REST `/api/v2/*` (ADR-026) |
+| `encryption` | 🟡 opt-in | Cifrado en reposo AES-256-GCM de archivos de storage | `src/lib.rs:53` (`crypto`), 9 gates. Candidata Pro (ADR-0013) |
+| `server` | 🟡 opt-in | Server HTTP embebido: `circuit_breaker`, `cli_server`, `connection_pool` (requiere `cli`) | `src/lib.rs:66,72,78` (6 gates). No en features de test de CI; `vantadb-server` la activa (`vantadb-server/Cargo.toml:10`). Promovida de experimental a estable 2026-08-25: base del deploy Docker + REST `/api/v2/*` (ADR-0026) |
 | `tui` | 🟡 opt-in | TUI interactiva del CLI (`ratatui`+`crossterm`) | `src/lib.rs:129`, `src/tui.rs`, `src/bin/vanta-cli.rs` (3 gates) |
 | `prometheus` | 🟡 opt-in | Métricas Prometheus (endpoints + counters de governor/cache warmer) | 62 gates — la superficie opt-in más grande (`src/cache_warmer.rs`, `src/memory_governor.rs`); Candidata Pro |
 | `python_sdk` | 🟡 opt-in | `python` — bindings directos `pyo3` desde el crate core | `src/lib.rs:112` (2 gates). Nota: `vantadb-python` no la activa (usa `default-features=false, features=["fjall","memmap2","rayon"]`) |
@@ -55,8 +54,8 @@ Inventario honesto de las features declaradas en `Cargo.toml` `[features]`
 | `async-ingestion` | 🟡 opt-in | `ingestion` — pipeline async de inserción a worker pool | `src/lib.rs:146`, `src/ingestion.rs` (1 gate en lib) |
 | `async-io` | 🟡 opt-in | `transcript` — I/O async de transcriptos | `src/lib.rs:149`, `src/transcript.rs` (9 gates) |
 | `hot-reload` | 🟡 opt-in | Watcher de recarga de config (JSON/TTL) vía `notify` | `src/config.rs` (7 gates) |
-| `wal-shipping` | 🟡 opt-in | Envío async de WAL a réplica remota (`reqwest`) | `src/lib.rs:138` (`wal_shipping`). Feature real, documentada en ADR-014 como separada de PITR; Candidata Pro |
-| `pitr` | 💀 removed | ~~`wal_archiver` — archivado WAL + point-in-time recovery~~ | **Removido 2026-08-25 (FIND-26):** dead code sin wiring desde el engine (RES-02); el código vive en git history. Ver ADR-014 (superseded) y backlog CORE-02 si se reviviera PITR |
+| `wal-shipping` | 🟡 opt-in | Envío async de WAL a réplica remota (`reqwest`) | `src/lib.rs:138` (`wal_shipping`). Feature real, documentada en ADR-0014 como separada de PITR; Candidata Pro |
+| `pitr` | 💀 removed | ~~`wal_archiver` — archivado WAL + point-in-time recovery~~ | **Removido 2026-08-25 (FIND-26):** dead code sin wiring desde el engine (RES-02); el código vive en git history. Ver ADR-0014 (superseded) y backlog CORE-02 si se reviviera PITR |
 | `bayesian_decay` | 🟡 opt-in | Variantes de eviction con decay Bayesian Beta-Binomial | `src/eviction.rs` (17 gates) |
 | `wasm` | 💀 no-op | Sin `#[cfg]` en código del crate core | 0 matches en `src/`/`tests/`; únicamente referenciada por la dependencia de `vantadb-wasm/Cargo.toml:21` (`default-features = false, features = ["wasm"]`). **Candidate for removal** (la dependencia funciona sin ella) — extracción trivial, fuera de alcance de este task |
 
@@ -82,7 +81,7 @@ El resto (16) solo se comprueban vía `clippy --all-features` / `experimental-ch
 
 ## Cross-References
 
-- `docs/dev/architecture/adr/ADR-014-pitr.md` — decisión `pitr` (experimental standalone API, integración diferida)
+- `docs/dev/architecture/adr/ADR-0014-pitr.md` — decisión `pitr` (experimental standalone API, integración diferida)
 - `docs/user/operations/EXPERIMENTAL_FEATURES.md` — boundary de producto v0.1.x (vista por superficie, no por feature Cargo)
 - `docs/dev/operations/CI_POLICY.md` — política de crates experimentales (server/mcp/wasm fuera de default-members)
 - `docs/dev/strategy/VANTADB-PRO-FEATURES.md` — mapa de candidatas Pro (`pitr`, `wal-shipping`, `encryption`, `server`, `tls`, `prometheus`, …)

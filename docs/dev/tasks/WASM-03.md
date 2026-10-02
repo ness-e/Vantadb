@@ -1,3 +1,9 @@
+---
+title: "WASM-03: Consola standalone 100% browser (modo sin server)"
+kind: task
+description: El E2E original del worker nunca pasó de verdad — el script tenía 2 bugs que hacían
+---
+
 # WASM-03: Consola standalone 100% browser (modo sin server)
 
 ## Metadata

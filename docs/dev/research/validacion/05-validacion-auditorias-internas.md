@@ -1,12 +1,11 @@
 ---
 title: "05 — Validación Adversarial de Auditorías y Análisis Internos"
-type: research
+kind: research
 status: active
+description: "Fecha de validación: 2026-08-25"
 tags: [vantadb, research, validacion, auditorias]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
+
 # 05 — Validación Adversarial de Auditorías y Análisis Internos
 
 **Fecha de validación:** 2026-08-25

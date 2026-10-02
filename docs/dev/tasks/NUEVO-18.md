@@ -1,3 +1,9 @@
+---
+title: "NUEVO-18: Sparse vectors nativos — hybrid search real (sparse + dense)"
+kind: task
+description: "Comportamiento específico verificable: un vector sparse {3: 1.0, 7: 0.5} insertado es recuperado como top-1 por una query del mismo sparse, y ambos caminos (dense-only, sparse+dense) conviven"
+---
+
 # NUEVO-18: Sparse vectors nativos — hybrid search real (sparse + dense)
 
 ## Metadata

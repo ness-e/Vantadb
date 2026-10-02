@@ -1,11 +1,10 @@
 ---
-title: "DORA Flow Metrics Report"
-type: report
+title: DORA Flow Metrics Report
+kind: report
 status: active
-tags: [vantadb, reports, dora, flow-metrics]
-last_reviewed: 2026-09-15
+description: "Δt promedio (solo fallos reales, exit ≠ -1): 0.6h sobre 21 pares (17 espurios excluidos del promedio)"
 aliases: [DORA]
-related: []
+tags: [vantadb, reports, dora, flow-metrics]
 ---
 
 # DORA Flow Metrics Report

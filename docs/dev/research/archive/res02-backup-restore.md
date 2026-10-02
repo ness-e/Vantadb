@@ -1,3 +1,10 @@
+---
+title: RES-02 — Physical Backup/Restore Gap Analysis
+kind: research
+status: archived
+description: "Date: 2026-08-25 · Agent: ox-alpha (research, read-only) · Status: research complete, implementation pending routing"
+---
+
 # RES-02 — Physical Backup/Restore Gap Analysis
 
 Date: 2026-08-25 · Agent: ox-alpha (research, read-only) · Status: research complete, implementation pending routing

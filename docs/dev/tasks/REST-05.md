@@ -1,3 +1,8 @@
+---
+title: "REST-05 — `namespace_stats` en bridge desktop (gap VS-CORE-02)"
+kind: task
+---
+
 # REST-05 — `namespace_stats` en bridge desktop (gap VS-CORE-02)
 
 ## Metadata

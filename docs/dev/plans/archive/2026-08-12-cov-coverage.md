@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: COV Test Coverage (2026-08-12)"
+kind: plan
+status: archived
+description: Cada tarea verifica con su propio comando (pytest / vitest+c8 / cargo nextest / ADR grep). Sin romper APIs existentes ni cambiar lógica de producto
+---
+
 # Plan de Ejecución: COV Test Coverage (2026-08-12)
 
 > **Inicio:** 2026-08-12
@@ -47,7 +54,7 @@ Cada tarea verifica con su propio comando (pytest / vitest+c8 / cargo nextest / 
 - **Gate Result:** ✅ DO
 - **Contrato:** ADR que decide root-crate vs --workspace para el gate de CI, con la migración de medición de bindings a runners nativos si aplica. DOC-ONLY: NO modificar `ci-rust-10.yml` más allá de documentar; la implementación del gate queda fuera de scope.
 - **Task file:** `.opencode/skills/campaign-executor/tasks/COV-004.md` (a crear en DISCOVERY)
-- **Estado:** ✅ COMPLETED (ADR-018 creada, DOC-ONLY)
+- **Estado:** ✅ COMPLETED (ADR-0018 creada, DOC-ONLY)
 
 ## Dependencias
 - Ninguna entre las 4 (independientes: Python / TS / Rust CLI / ADR).
@@ -71,6 +78,6 @@ Próxima tarea si completa:
 
 - **Start:** delegación por waves (3 concurrentes + 1 ADR) con sub-agentes vanta-worker/vanta-arch; contratos acotados por ponytail.
 - **Stop:** no perseguir 100% de coverage (COV-003 ~76.5% de handlers alcanza el salto de gate; COV-002 usa c8 fallback en vez de parchear vitest).
-- **Continue:** medir coverage de bindings con sus runners nativos (ADR-018 lo fija como política).
+- **Continue:** medir coverage de bindings con sus runners nativos (ADR-0018 lo fija como política).
 - **Acción medida:** 4 tareas cerradas en 2 waves, 0 regresiones, 0 falsos positivos (baseline RULES: >90% primer intento). Verificación mecánica por sub-agente + pre-commit hook verde en COV-003 (fmt+clippy).
 - **Nota:** COV-004 es DOC-ONLY; la implementación del gate (scopar `-p vantadb` en `ci-rust-10.yml`) queda como tarea de CI aparte.

@@ -1,3 +1,9 @@
+---
+title: "WASM-QW4: CRC inválido → error explícito"
+kind: task
+description: "readfile con footer CRC corrupto devuelve error 'storage corrupted' (no datos crudos que explotan en serdejson). Opt-out legacy flagueado si hace falta.\""
+---
+
 # WASM-QW4: CRC inválido → error explícito
 
 ## Metadata

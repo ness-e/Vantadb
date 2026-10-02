@@ -1,3 +1,9 @@
+---
+title: "TSYS-06-F1: Implementar 3 behavior changes del task-system + extraer parsers.mjs"
+kind: task
+description: Implementar los 3 behavior changes del diseño §6 (precondiciones para el runner) + extraer parsers a módulo compartido
+---
+
 # TSYS-06-F1: Implementar 3 behavior changes del task-system + extraer parsers.mjs
 
 ## Metadata

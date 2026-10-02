@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Fix audit bugs + inconsistencias + limitaciones (post-auditoría 0.5.0)"
+kind: plan
+status: archived
+description: "Todas las reproducciones fueron verificadas en vivo contra vanta-cli 0.5.0, MCP JSON-RPC (15 tools), vantadb@0.5.0 npm y vantadbpy 0.5.0 editable. La DB C:/Users/Eros/.vantadb quedó limpia de datos de prueba; los harness viven en..."
+---
+
 # Plan de Ejecución: Fix audit bugs + inconsistencias + limitaciones (post-auditoría 0.5.0)
 
 > **Campaign ID: 2f82117c-6286-4de4-a79c-ddaf8b5c573a

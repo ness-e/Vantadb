@@ -1,3 +1,9 @@
+---
+title: "FIND-139 — Endurecer `ci-gate.yml` + `gate-docs-21.yml`"
+kind: task
+description: "N/A — no es feature-add: cero pub fn/structs/endpoints/tools/componentes nuevos; solo severidad de un case bash + 1 trigger + 2 comentarios. Sin decisiones abiertas"
+---
+
 # FIND-139 — Endurecer `ci-gate.yml` + `gate-docs-21.yml`
 
 > **Plan:** `docs/dev/plans/2026-09-21-workflows-repair.md` (Wave 1, paralelo disjunto con FIND-137/138)

@@ -106,27 +106,39 @@ try {
     }
 } catch {}
 
-# 4. Secrets in source (gitleaks if available, else regex)
+# 4. Secrets in source — diff-scoped (gitleaks over the working-tree diff, else regex)
 Write-Host "[4/5] Checking for secrets..." -ForegroundColor Yellow
 $secretFound = $false
+$useRegexFallback = $true
 if (Get-Command gitleaks -ErrorAction SilentlyContinue) {
     try {
-        $leaks = gitleaks detect --redact --no-banner --source . --config-path=dev-tools/gitleaks.toml 2>&1 | Out-String
-        if ($LASTEXITCODE -ne 0 -and $leaks -match "leak|secret|found") {
-            $findings += "SECRETS_DETECTED: gitleaks found leaks (redacted)"
+        # HARD-02 fix (2026-09-27): the previous call was broken twice — (a) it passed
+        # --config-path (renamed to --config in gitleaks >=8.19) pointing at a
+        # dev-tools/gitleaks.toml that does not exist, and (b) the "unknown flag" error
+        # text matched "leak" in the usage output, producing a false SECRETS_DETECTED.
+        # This check is diff-scoped by design (header + regex fallback below): scan the
+        # working-tree diff via --pipe instead of the full commit history.
+        $diffText = git diff $BaseBranch 2>$null | Out-String
+        if (-not $diffText) { $diffText = git diff HEAD~1 2>$null | Out-String }
+        $leaks = $diffText | gitleaks detect --redact --no-banner --pipe 2>&1 | Out-String
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "  PASS: gitleaks clean (diff)" -ForegroundColor Green
+            $useRegexFallback = $false
+        } elseif ($LASTEXITCODE -eq 1) {
+            $findings += "SECRETS_DETECTED: gitleaks found leaks in diff (redacted)"
             $findings += "  $leaks"
             $secretFound = $true
             $exitCode = 2
-            Write-Host "  FAIL: gitleaks detected leaks" -ForegroundColor Red
+            $useRegexFallback = $false
+            Write-Host "  FAIL: gitleaks detected leaks (diff)" -ForegroundColor Red
         } else {
-            Write-Host "  PASS: gitleaks clean" -ForegroundColor Green
+            Write-Host "  WARN: gitleaks exited $LASTEXITCODE (not a leak verdict) - falling back to regex" -ForegroundColor Yellow
         }
     } catch {
         Write-Host "  SKIP: gitleaks error, falling back to regex" -ForegroundColor Gray
-        $secretFound = $false
     }
 }
-if (-not $secretFound -and -not (Get-Command gitleaks -ErrorAction SilentlyContinue)) {
+if ($useRegexFallback) {
     # Fallback regex for common secrets (only in diff, not full scan)
     $secretPatterns = @(
         '(?i)(api[_-]?key|apikey)\s*[:=]\s*[''"][^''"]{16,}[''"]',

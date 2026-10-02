@@ -1,3 +1,9 @@
+---
+title: "OLD-16: WAL Rotation at 256MB"
+kind: task
+description: "cargo nextest run --profile audit -p vantadb pasa (tests WAL existentes + 3 nuevos), cargo clippy -p vantadb -- -D warnings pasa\""
+---
+
 # OLD-16: WAL Rotation at 256MB
 
 ## Metadata

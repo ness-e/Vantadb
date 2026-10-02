@@ -1,8 +1,10 @@
 ---
 title: "Investigación Multi-Agente — VantaDB (equipo técnico, 2026-08-09)"
-type: investigation-report
-date: 2026-08-09
+kind: research
+status: archived
+description: "Investigación coordinada de 6 sub-agentes sobre el repositorio completo de VantaDB, seguida de verificación externa contra los registros públicos"
 tags: [vantadb, investigation, multi-agent, release-readiness]
+date: "2026-08-09"
 ---
 
 # Investigación Multi-Agente — VantaDB (2026-08-09)

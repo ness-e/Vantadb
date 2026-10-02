@@ -1,3 +1,9 @@
+---
+title: FIND-106 — ganchos de memoria por cliente
+kind: task
+description: "Objetivo: plantillas de ganchos de memoria por cliente (OpenCode + Claude + Cursor + Codex, Q3 del plan)"
+---
+
 # FIND-106 — ganchos de memoria por cliente
 
 > **Plan:** `docs/dev/plans/2026-09-17-mvp-memoria-agentes.md` (Wave2, con FIND-104 ✅ `a1bea54b` en paralelo)

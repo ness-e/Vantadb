@@ -54,3 +54,7 @@ pub use crate::server::state::{
 #[cfg(test)]
 #[path = "cli_server_auth_tests.rs"]
 mod auth_tests;
+
+#[cfg(test)]
+#[path = "ttl_tests.rs"]
+mod ttl_tests;

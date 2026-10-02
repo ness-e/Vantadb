@@ -1,3 +1,9 @@
+---
+title: "FIND-70: bench en nightly con feature o skip documentado"
+kind: task
+description: "nightly corre el bench con --features async-ingestion (o skip documentado en yml + BENCHMARKS coherente) + actionlint OK + Cargo.toml sin cambios (solo lectura)\""
+---
+
 # FIND-70: bench en nightly con feature o skip documentado
 
 ## Metadata

@@ -1,10 +1,9 @@
 ---
 title: VantaDB Deployment Guide
-type: operations
+kind: runbook
 status: active
+description: "VantaDB runs as a single binary with zero external runtime dependencies (no JVM, no Python, no system database). This makes it straightforward to deploy in production, embedded or as a standalone HTTP/MCP server"
 tags: [vantadb, operations, deployment]
-last_reviewed: 2026-07-10
-aliases: []
 ---
 
 # VantaDB Deployment Guide
@@ -528,10 +527,10 @@ See [BACKUP_POLICY.md](BACKUP_POLICY.md) for the full backup operational policy.
 vanta-cli backup --out /backups/vantadb-$(date +%F)
 
 # Restore (target DB dir must be empty; add --force to overwrite)
-vanta-cli restore --input /backups/vantadb-2026-07-10 --db /var/lib/vantadb/data
+vanta-cli restore --in /backups/vantadb-2026-07-10 --db /var/lib/vantadb/data
 
 # Restore with index rebuild
-vanta-cli restore --input /backups/vantadb-2026-07-10 --rebuild --force --db /var/lib/vantadb/data
+vanta-cli restore --in /backups/vantadb-2026-07-10 --rebuild --force --db /var/lib/vantadb/data
 ```
 
 ---

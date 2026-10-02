@@ -1,3 +1,9 @@
+---
+title: "PRX-03: Cost tracking + virtual keys"
+kind: task
+description: cargo test -p vanta-proxy 0 failed + test contabilidad por key/sesión/modelo ✅ + budget enforcement 429 ✅ + cargo clippy -p vanta-proxy --all-targets --all-features -- -D warnings 0 + cargo fmt --check limpio en archivos propios
+---
+
 # PRX-03: Cost tracking + virtual keys
 
 ## Metadata

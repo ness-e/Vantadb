@@ -1,18 +1,18 @@
 ---
-title: "Heuristic Search"
-type: glossary-entry
+title: Heuristic Search
+kind: glossary
 status: stable
-tags: [glosario, hnsw, busqueda, heuristica, algoritmo]
-last_reviewed: 2026-09-15
+description: "El heuristic search (búsqueda heurística) en el contexto de VantaDB refiere al algoritmo de selección de vecinos definido en el paper de hnsw (Algorithm 4, Malkov & Yashunin 2018). Su propósito es maximizar la diversidad espacial de las..."
 aliases: [heuristic search, select_neighbors_heuristic, heuristic, búsqueda-heurística]
-description: "Algoritmo de selección de vecinos en HNSW que maximiza diversidad espacial (Algorithm 4, Malkov & Yashunin 2018)"
+tags: [glosario, hnsw, busqueda, heuristica, algoritmo]
 ---
+
 
 # Heuristic Search
 
 ## Definición
 
-El **heuristic search** (búsqueda heurística) en el contexto de VantaDB refiere al algoritmo de selección de vecinos definido en el paper de **[[hnsw]]** (Algorithm 4, Malkov & Yashunin 2018). Su propósito es maximizar la diversidad espacial de las conexiones en el grafo, evitando que todos los vecinos de un nodo estén en la misma región del espacio vectorial.
+El **heuristic search** (búsqueda heurística) en el contexto de VantaDB refiere al algoritmo de selección de vecinos definido en el paper de **[hnsw](./hnsw.md)** (Algorithm 4, Malkov & Yashunin 2018). Su propósito es maximizar la diversidad espacial de las conexiones en el grafo, evitando que todos los vecinos de un nodo estén en la misma región del espacio vectorial.
 
 ## Algoritmo
 
@@ -92,7 +92,7 @@ Sin la heurística de diversidad, el grafo HNSW tendería a conectar cada nodo c
 
 ## Véase También
 
-- [[hnsw]] — Algoritmo que utiliza esta heurística
-- [[vector-search]] — Búsqueda por similitud vectorial
-- [[ann]] — Approximate Nearest Neighbor
+- [hnsw](./hnsw.md) — Algoritmo que utiliza esta heurística
+- [vector-search](./vector-search.md) — Búsqueda por similitud vectorial
+- [ann](./ann.md) — Approximate Nearest Neighbor
 - [[../architecture/hnsw_index|HNSW Index Architecture]]

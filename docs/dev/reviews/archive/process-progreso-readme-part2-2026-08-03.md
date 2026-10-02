@@ -1,11 +1,9 @@
 ---
 title: "Auditoría de Documentación — `docs/progreso/README.md` (líneas 1101–2200)"
-type: review
+kind: review
 status: archived
+description: "Nota: Las entradas de investigación (INV-007…016) y SKIPs están marcadas ✅ dentro de \"Tareas Completadas\", inflando el conteo de completadas reales del proyecto"
 tags: [vantadb, review]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Auditoría de Documentación — `docs/progreso/README.md` (líneas 1101–2200)

@@ -205,6 +205,37 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "llm-driver")]
+    fn llm_driver_fails_loud_on_unreachable_endpoint() {
+        // WIRE-11 (always-on): con `llm-driver` un endpoint inalcanzable debe
+        // fallar con mensaje claro (Transport/Timeout) — nunca Ok silencioso
+        // ni NotConfigured tragado por la degradación P4.
+        // ponytail: 127.0.0.1:9 es discard (refused inmediato, sin timing).
+        let runner = StandaloneLlmRunner::new(LlmConfig {
+            base_url: "http://127.0.0.1:9".into(),
+            api_key: "unused".into(),
+            model: "qwen2.5".into(),
+            max_tokens: None,
+            timeout: None,
+        });
+        let mut params = LlmRunParams::new("hello", "wire-11-honest-failure");
+        params.timeout = Some(Duration::from_secs(5));
+        let err = runner
+            .run(&params)
+            .expect_err("closed port must fail loudly");
+        // Contrato WIRE-11: falla ruidosa, nunca no-op silencioso. Se excluye
+        // NotConfigured (el síntoma original) y se exige mensaje no vacío;
+        // Transport/Timeout son los casos directos, Http/Other vía proxy
+        // también valen si traen mensaje (fallan alto igual).
+        assert!(
+            !matches!(err, LlmError::NotConfigured),
+            "never silent NotConfigured: {err:?}"
+        );
+        assert!(!err.to_string().is_empty(), "clear message required");
+    }
+
+    #[test]
+    #[cfg(not(feature = "llm-driver"))]
     fn llm_free_mode_reports_not_configured() {
         // Default features (no `llm-driver`): the runner must degrade.
         let runner = StandaloneLlmRunner::new(LlmConfig {

@@ -1,3 +1,9 @@
+---
+title: "MEM-07: F3 MCP tools skill_* — 6 tools del review agent sobre SkillStore"
+kind: task
+description: Callers (aguas arriba — dependen de esto)
+---
+
 # MEM-07: F3 MCP tools skill_* — 6 tools del review agent sobre SkillStore
 
 ## Metadata

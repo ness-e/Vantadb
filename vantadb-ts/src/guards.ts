@@ -32,15 +32,16 @@ export function isMemoryRecord(r: unknown): r is MemoryRecord {
 }
 
 /**
- * Type guard for `SearchHit` (a `MemoryRecord` plus a numeric `distance`).
+ * Type guard for `SearchHit` (a `MemoryRecord` plus a numeric relevance
+ * `score`).
  *
  * @param h - Unknown value (typically a raw search hit).
- * @returns True when `h.record` is a `MemoryRecord` and `h.distance` is a number.
+ * @returns True when `h.record` is a `MemoryRecord` and `h.score` is a number.
  */
 export function isSearchHit(h: unknown): h is SearchHit {
   if (h === null || typeof h !== "object") return false;
   const obj = h as Record<string, unknown>;
-  return isMemoryRecord(obj.record) && typeof obj.distance === "number";
+  return isMemoryRecord(obj.record) && typeof obj.score === "number";
 }
 
 /**
@@ -71,11 +72,13 @@ const VALID_VALUE_TYPES = [
   "Int",
   "Float",
   "Bool",
+  "DateTime",
   "Null",
   "ListString",
   "ListInt",
   "ListFloat",
   "ListBool",
+  "ListDateTime",
 ] as const;
 
 /**
@@ -214,14 +217,29 @@ export function buildSearchRequestBase(
       "buildSearchRequestBase: namespace must be a non-empty string",
     );
   }
-  if (
-    !Array.isArray(request.query_vector) ||
-    request.query_vector.length === 0
-  ) {
+  if (!Array.isArray(request.query_vector)) {
     throw new DbError(
       ERROR_CODES.VALIDATION_ERROR,
-      "buildSearchRequestBase: query_vector must be a non-empty array",
+      "buildSearchRequestBase: query_vector must be an array",
     );
+  }
+  if (request.query_vector.length === 0) {
+    // WIRE-03: text-only (`text_query`) and sparse-only (`query_sparse`)
+    // searches legitimately run without a dense vector. An empty vector
+    // alone is a caller error — reject it here with a distinct message
+    // instead of accepting "[]" without distinguishing the intent.
+    const hasText =
+      typeof request.text_query === "string" && request.text_query.trim().length > 0;
+    const hasSparse =
+      request.query_sparse !== undefined &&
+      request.query_sparse !== null &&
+      Object.keys(request.query_sparse).length > 0;
+    if (!hasText && !hasSparse) {
+      throw new DbError(
+        ERROR_CODES.VALIDATION_ERROR,
+        "buildSearchRequestBase: query_vector must be a non-empty array unless text_query or query_sparse is provided",
+      );
+    }
   }
   for (let i = 0; i < request.query_vector.length; i++) {
     const n: unknown = request.query_vector[i];

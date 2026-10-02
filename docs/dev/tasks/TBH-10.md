@@ -1,3 +1,9 @@
+---
+title: "TBH-10: Convert `bench_concurrent.rs` to `criterion_main!`"
+kind: task
+description: "benches/benchconcurrent.rs actualmente usa fn main() custom con Instant::now()"
+---
+
 # TBH-10: Convert `bench_concurrent.rs` to `criterion_main!`
 
 ## Metadata

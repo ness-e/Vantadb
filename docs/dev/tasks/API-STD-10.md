@@ -1,3 +1,9 @@
+---
+title: Task API-STD-10 — INDIVIDUAL (9/11) CLI
+kind: task
+description: "Ficha individual CLI: funcionamiento + uso + código + veredicto"
+---
+
 # Task API-STD-10 — INDIVIDUAL (9/11) CLI
 
 > **Plan:** `docs/dev/plans/2026-09-24-api-estandarizacion.md`

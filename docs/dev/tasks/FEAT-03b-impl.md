@@ -1,4 +1,9 @@
-# FEAT-03b-impl — Core decay: implementación (supersession durable, ADR-028)
+---
+title: "FEAT-03b-impl — Core decay: implementación (supersession durable, ADR-0028)"
+kind: task
+---
+
+# FEAT-03b-impl — Core decay: implementación (supersession durable, ADR-0028)
 
 > Plan: `docs/dev/plans/2026-08-19-vanta-studio-fase4.md` (Task 17, alcance D16 "b") · Estado: ✅ COMPLETO (commit `28a1788d`; verify del lead 2026-08-20)
 
@@ -9,14 +14,14 @@
 - `cargo clippy --workspace --all-targets --all-features -- -D warnings` — EXIT=0
 - `cargo fmt --all -- --check` — EXIT=0
 - pytest: tests nuevos 2/2 aislados (supersede_smoke + missing/same-key errors); suite completa 23 fallos = TODOS "Memory pressure" (OOM conocido de esta máquina, no defectos)
-- Commit: `feat: FEAT-03b — core decay como supersession durable (ADR-028)` — 35 archivos, 653 insertions
+- Commit: `feat: FEAT-03b — core decay como supersession durable (ADR-0028)` — 35 archivos, 653 insertions
 
 ## Contexto (verify del lead, 2026-08-20)
-- ADR-028 (accepted): supersession durable first-class, NO scoring/deleción automática. TTL duro ya existe; falta el marcador `superseded_by`/`superseded_at_ms` + `supersede()` + `exclude_superseded` en search/list.
+- ADR-0028 (accepted): supersession durable first-class, NO scoring/deleción automática. TTL duro ya existe; falta el marcador `superseded_by`/`superseded_at_ms` + `supersede()` + `exclude_superseded` en search/list.
 - FEAT-03a (UI) commiteada — la lente CONSOLIDAR ya escribe `metadata.superseded_by` (vía put genérico); esta tarea core añade el campo first-class + filtro de lectura.
 - UI de consolidación no depende de esto para su MVP, pero el campo core la hace filtrable/consistente entre clientes.
 
-## Contrato (del plan + ADR-028 + contrato FEAT-03b — leer TODOS antes de tocar código)
+## Contrato (del plan + ADR-0028 + contrato FEAT-03b — leer TODOS antes de tocar código)
 1. **Campos core:** `superseded_by: Option<String>` + `superseded_at_ms: Option<u64>` en `VantaMemoryRecord`; `exclude_superseded: bool` en `VantaMemorySearchRequest` y `VantaMemoryListOptions` — aditivos `#[serde(default)]`, campos `FIELD_SUPERSEDED_BY`/`FIELD_SUPERSEDED_AT_MS` (`__vanta_` pattern), verificar `validate_metadata` rechaza `__vanta_` (si no, extender).
 2. **API:** `supersede(namespace, old_key, new_key)` en `VantaEmbedded` — valida existencia de ambos, idempotencia (old ya superseded → error), reusa put/upsert (WAL + derived indexes consistentes), `ponytail:` comentario de ventana no-atómica (2 appends WAL, ACID Phase 0).
 3. **Filtro lectura:** `exclude_superseded` en search (materialización de hits) y list — drop si `superseded_by.is_some()`, en ensamblaje final (sin cambio de índice).

@@ -74,6 +74,10 @@ fn bench_memory_retrieval_modes(c: &mut Criterion) {
                     filters: keep_filter(),
                     text_query: Some("alpha retrieval".to_string()),
                     top_k: 10,
+                    range: None,
+                    group_by: None,
+                    mmr: None,
+                    cursor: None,
                     ..Default::default()
                 })
                 .expect("text search");
@@ -91,6 +95,10 @@ fn bench_memory_retrieval_modes(c: &mut Criterion) {
                     filters: keep_filter(),
                     text_query: None,
                     top_k: 10,
+                    range: None,
+                    group_by: None,
+                    mmr: None,
+                    cursor: None,
                     ..Default::default()
                 })
                 .expect("vector search");
@@ -108,6 +116,10 @@ fn bench_memory_retrieval_modes(c: &mut Criterion) {
                     filters: keep_filter(),
                     text_query: Some("alpha retrieval".to_string()),
                     top_k: 10,
+                    range: None,
+                    group_by: None,
+                    mmr: None,
+                    cursor: None,
                     ..Default::default()
                 })
                 .expect("hybrid search");

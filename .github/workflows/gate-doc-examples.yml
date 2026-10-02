@@ -1,0 +1,102 @@
+name: 'GATE: Docs — Code examples are real API'
+
+# Documentation drift is invisible to a link checker. A link to
+# docs/api/PYTHON_SDK.md resolves perfectly while the page documents a method
+# that was never implemented, and an AI agent reading that page (llms.txt points
+# straight at it) writes code that raises AttributeError on first run.
+#
+# This gate makes the code examples in docs/ executable claims: every ```python
+# block that is self-contained has each attribute and method it touches resolved
+# against the REAL installed `vantadb` package, offline, with no snippet ever
+# executed. A method that does not exist is a hard failure.
+#
+# Rules obeyed (docs/dev/workflow/RULES.md): SHA pins (3), timeouts (2),
+# least-privilege permissions (4), no untagged continue-on-error (6), branches
+# declared on pull_request (7), push+PR scoped by paths (1). Nothing publishes,
+# so rule 5 does not apply.
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'docs/**'
+      - 'scripts/docs/**'
+      - 'vantadb-python/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/gate-doc-examples.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'docs/**'
+      - 'scripts/docs/**'
+      - 'vantadb-python/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/gate-doc-examples.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  doc-examples:
+    name: Python examples match the real SDK
+    runs-on: ubuntu-latest
+    # Calibrated from ci-examples.yml, which builds the same wheel: a cold debug
+    # build of vantadb-python plus its core dependency dominates. 30 min is that
+    # job's measured wall time; rule 2 wants measured + margin, not optimism.
+    timeout-minutes: 30
+    env:
+      CARGO_TERM_COLOR: always
+      CARGO_INCREMENTAL: 0
+      PYTHONUTF8: 1
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+
+      # Same wheel, same toolchain, same approach as ci-examples.yml. Inventing a
+      # second way to get the package into Python is how the two lanes drift.
+      - uses: ./.github/actions/rust-setup
+        with:
+          install-system-deps: true
+          swap-mb: 4096
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Build vantadb_py wheel (maturin)
+        uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1.51.0
+        with:
+          command: build
+          args: --release --out dist --manifest-path ./vantadb-python/Cargo.toml
+
+      - name: Install the wheel
+        # bash on all runners: the wheel pick uses $(...) substitution, which the
+        # default shell cannot parse. Same pattern as ci-examples.yml.
+        shell: bash
+        run: |
+          wheel="$(ls -t ./dist/vantadb_py-*.whl | head -n 1)"
+          python -m pip install --upgrade pip
+          python -m pip install "$wheel"
+          python -c "import vantadb; print('vantadb', vantadb.__version__)"
+
+      # The gate's own logic, proven on synthetic snippets: a real method must
+      # pass, an invented method must fail, a fragment must classify as a
+      # fragment. No test framework, 17 assertions, exits non-zero on any failure.
+      # It runs AFTER the wheel is installed so the two API assertions execute
+      # for real instead of printing SKIP.
+      - name: Self-test the gate logic
+        run: node scripts/docs/check-doc-examples.mjs --self-test
+
+      - name: Every attribute a runnable example touches exists
+        run: node scripts/docs/check-doc-examples.mjs

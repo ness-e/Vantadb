@@ -1,3 +1,9 @@
+---
+title: "FIND-17: Identidad de marca inconsistente — auditoría de nombres + convención única pre-launch"
+kind: task
+description: "evidencia: https://crates.io/api/v1/crates/vantadb (fetch 2026-08-25)"
+---
+
 # FIND-17: Identidad de marca inconsistente — auditoría de nombres + convención única pre-launch
 
 ## Metadata
@@ -8,7 +14,7 @@
 - **Tipo:** docs/auditoría de marca (vanta-docs) — NO código de negocio
 - **Creado:** 2026-08-25
 - **last-synced:** 2026-08-25
-- **Estado:** ✅ COMPLETED (auditoría + ADR-030 + nota README; commit del lead)
+- **Estado:** ✅ COMPLETED (auditoría + ADR-0030 + nota README; commit del lead)
 - **Incógnitas (uphill):** 0
 - **Pendientes (downhill):** 3 (auditoría → ADR → nota README)
 
@@ -24,8 +30,8 @@
 
 - **Archivos leídos (completos):** `Cargo.toml` (661L), `vantadb-python/pyproject.toml` (53L), `vantadb-ts/package.json` (66L), `vantadb-node/package.json` (43L), `README.md` (441L), `vantadb-wasm/Cargo.toml` (1-40), `vantadb-server/Cargo.toml` (1-30), `vantadb-mcp/Cargo.toml` (25L), `vanta-memory/Cargo.toml` (1-30), `vanta-proxy/Cargo.toml` (1-30), `SECURITY.md` (grep), `SUPPORT.md` (grep), `README_ES.md` (grep), `vantadb-ts/README.md` (1-40), `.github/workflows/*` (glob — todos los archivos de badges existen), `docs/dev/_templates/adr.md`.
 - **Archivos referenciados hacia dentro:** `ness-e/Vantadb` citado en 65+ lugares en `docs/` (Backlog, blog, QUICKSTART, FAQ, master-index, operations, strategy, glosario, reviews, historial). `vantadb.dev` en Cargo.toml (homepage), vantadb-ts/package.json (homepage), vantadb-wasm/Cargo.toml (homepage), SUPPORT.md (email enterprise@vantadb.dev).
-- **Archivos que referencian a los editados:** `docs/dev/architecture/adr/` (índice de ADRs) + README (enlace a la nota de convención). ADR-030 es nuevo (número 030 libre).
-- **Veredicto impacto:** **bajo** — solo se CREA `docs/dev/architecture/adr/ADR-030-brand-identity-naming-convention.md` y se EDITA `README.md`/`README_ES.md` (nota corta). No se toca metadata de packaging ni código. STOP CONDITION respetada: cero renames.
+- **Archivos que referencian a los editados:** `docs/dev/architecture/adr/` (índice de ADRs) + README (enlace a la nota de convención). ADR-0030 es nuevo (número 030 libre).
+- **Veredicto impacto:** **bajo** — solo se CREA `docs/dev/architecture/adr/ADR-0030-brand-identity-naming-convention.md` y se EDITA `README.md`/`README_ES.md` (nota corta). No se toca metadata de packaging ni código. STOP CONDITION respetada: cero renames.
 
 ## Contrato
 1. Auditoría de nombres documentada (tabla artefacto → nombre actual → nombre decidido).
@@ -36,17 +42,17 @@
 ## Invariantes de dominio (handoff — MUST)
 
 - **Invariantes a preservar:** (1) nombres de crates/packages/imports intactos (renames = breaking semver, STOP CONDITION); (2) repositorio canónico `ness-e/Vantadb` intacto (AUD-29 ya unificó; GitHub es case-insensitive en routing pero la URL canónica publicada usa `Vantadb`); (3) homepage `vantadb.dev` NO se cambia hasta decisión del owner (dominio comprado, DNS pendiente); (4) docs técnicos en inglés (español solo planning); (5) ADR escrito por IA = evidencia + propuesta, NO decisión final (Regla 5 forcing function).
-- **Comandos de verificación:** `scripts/validate-docs-coverage.ps1` (docs coverage) · grep `vantadb.dev` (solo en metadata de packaging + email — documentado, no editado) · lectura de ADR-030 (contenido).
-- **Deuda pendiente:** decisión del owner sobre (a) convención ADR-030 (PROPOSED → ACCEPTED); (b) dominio canónico `vantadb.dev` vs `vantadb.vercel.app`; (c) rename futuro opcional de repo a `VantaDB` (case) si se quiere consistencia visual exacta (GitHub redirects, cero riesgo); (d) PyPI owner `DevpNess` vs `ness-e`; (e) `vantadb-node` nunca publicado en npm.
+- **Comandos de verificación:** `scripts/validate-docs-coverage.ps1` (docs coverage) · grep `vantadb.dev` (solo en metadata de packaging + email — documentado, no editado) · lectura de ADR-0030 (contenido).
+- **Deuda pendiente:** decisión del owner sobre (a) convención ADR-0030 (PROPOSED → ACCEPTED); (b) dominio canónico `vantadb.dev` vs `vantadb.vercel.app`; (c) rename futuro opcional de repo a `VantaDB` (case) si se quiere consistencia visual exacta (GitHub redirects, cero riesgo); (d) PyPI owner `DevpNess` vs `ness-e`; (e) `vantadb-node` nunca publicado en npm.
 
 ## Recitation (canónico — estructura única)
 
 - `activeGoal`: FIND-17 — auditar consistencia de nombres en artefactos públicos y documentar convención única pre-launch (sin renames).
 - `lastAction`: DISCOVERY completo — lectura directa de todos los artefactos (CodeGraph sync deshabilitado), verificación live de 6 registries (crates.io/PyPI/npm×2/GitHub/dominio), mapeo de 65+ citas del repo en docs; task file creado con Regla 0 mapeada.
 - `result`: `OK`
-- `nextAction`: lead verifica + acepta ADR-030 (PROPOSED → ACCEPTED) + commitea (NO COMMIT del worker).
+- `nextAction`: lead verifica + acepta ADR-0030 (PROPOSED → ACCEPTED) + commitea (NO COMMIT del worker).
 - `contract`:
-  - `verificacion`: `scripts/validate-docs-coverage.ps1` ✅ · ADR-030 presente con tabla de auditoría ✅ · nota README presente ✅ · cero renames (git diff solo docs) ✅
+  - `verificacion`: `scripts/validate-docs-coverage.ps1` ✅ · ADR-0030 presente con tabla de auditoría ✅ · nota README presente ✅ · cero renames (git diff solo docs) ✅
   - `evidencia`:
     - claim: crates.io `vantadb` existe (0.5.0, homepage vantadb.dev, repo ness-e/Vantadb)
       evidencia: https://crates.io/api/v1/crates/vantadb (fetch 2026-08-25)
@@ -66,7 +72,7 @@
     - claim: README badges NO están rotos — workflows `ci-rust-10.yml`, `gate-docs-21.yml`, `sec-codeql-30.yml`, `heavy-certification-50.yml` existen en `.github/workflows/`
       evidencia: `Get-ChildItem .github/workflows` (2026-08-25)
       confianza: alta
-  - `artefactos`: `.opencode/skills/campaign-executor/tasks/FIND-17.md`, `docs/dev/architecture/adr/ADR-030-brand-identity-naming-convention.md`, `README.md`, `README_ES.md`
+  - `artefactos`: `.opencode/skills/campaign-executor/tasks/FIND-17.md`, `docs/dev/architecture/adr/ADR-0030-brand-identity-naming-convention.md`, `README.md`, `README_ES.md`
   - `invariantes`: cero renames; docs en inglés; ADR PROPOSED (owner decide)
   - `deuda`: decisión owner (convención + dominio + PyPI owner + vantadb-node publish)
   - `queda_pendiente`: lead verifica + acepta ADR + commitea; owner resuelve dominio canónico y PyPI ownership
@@ -116,15 +122,15 @@
 - **Verify:** evidencia con fetch a registries (2026-08-25) ✅
 - **Estado:** ✅ COMPLETED
 
-### Step 2: ADR-030 — convención de identidad de marca
-- **Archivos:** `docs/dev/architecture/adr/ADR-030-brand-identity-naming-convention.md` (nuevo)
+### Step 2: ADR-0030 — convención de identidad de marca
+- **Archivos:** `docs/dev/architecture/adr/ADR-0030-brand-identity-naming-convention.md` (nuevo)
 - **Acción:** ADR con Context (evidencia/tabla de auditoría), Decisión (convención propuesta: "el producto es VantaDB; el crate Rust es `vantadb`; el paquete PyPI es `vantadb-py` (módulo `vantadb_py`, import `vantadb`); los paquetes npm son `vantadb` (TS, WASM) y `vantadb-node` (nativo); el repo GitHub es `ness-e/Vantadb`"), Consecuencias + decisiones pendientes del owner. Status: PROPOSED (Regla 5 — la IA aporta evidencia, el owner articula/confirma la decisión).
 - **Verify:** lectura de contenido + número 030 libre ✅
 - **Estado:** ✅ COMPLETED
 
 ### Step 3: Nota de convención en README (+ README_ES)
 - **Archivos:** `README.md`, `README_ES.md`
-- **Acción:** extender la nota existente de `vantadb-py`/import con referencia compacta a la convención completa (enlaza a ADR-030). Sin renames, sin cambios de código.
+- **Acción:** extender la nota existente de `vantadb-py`/import con referencia compacta a la convención completa (enlaza a ADR-0030). Sin renames, sin cambios de código.
 - **Verify:** grep de la nota en ambos README ✅
 - **Estado:** ✅ COMPLETED
 

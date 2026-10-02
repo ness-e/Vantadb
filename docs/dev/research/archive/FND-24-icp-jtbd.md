@@ -1,3 +1,10 @@
+---
+title: FND-24 — ICP + JTBD con evidencia de usuarios reales
+kind: research
+status: archived
+description: La pregunta de FND-24 es doble
+---
+
 # FND-24 — ICP + JTBD con evidencia de usuarios reales
 
 > **Tarea:** FND-24 (Backlog.md:518, P20d, prio 🟢)

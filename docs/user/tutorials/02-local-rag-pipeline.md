@@ -1,9 +1,9 @@
 ---
-title: "Local RAG Pipeline with VantaDB + Ollama"
+title: Local RAG Pipeline with VantaDB + Ollama
+kind: tutorial
 status: active
+description: Retrieval-Augmented Generation (RAG) lets you ask natural language questions over your own documents — without sending data to a third-party API. This tutorial builds a fully local RAG pipeline using
 tags: [vantadb, tutorial, guide, rag, ollama]
-last_reviewed: 2026-08-02
-aliases: []
 ---
 
 # Local RAG Pipeline with VantaDB + Ollama
@@ -115,16 +115,21 @@ def ingest_pdf(filepath: str):
 ingest_pdf("manual.pdf")
 ```
 
-> **Batch loading:** for thousands of chunks, use `put_batch()` with `keys=`, `vectors=`, `payloads=`, `metadatas=`, and `namespace=` — it is up to ~5x faster than sequential `put()` calls (Rayon parallelism):
+> **Batch loading:** for thousands of chunks, use `put_batch()` with a list of
+> record dicts — it is up to ~5x faster than sequential `put()` calls (Rayon
+> parallelism):
 >
 > ```python
-> db.put_batch(
->     keys=[f"{stem}-{i}" for i in range(len(chunks))],
->     vectors=[embed(c) for c in chunks],
->     payloads=chunks,
->     metadatas=[{"source": name, "chunk_index": i, "total_chunks": len(chunks)} for i in range(len(chunks))],
->     namespace="documents",
-> )
+> db.put_batch([
+>     {
+>         "namespace": "documents",
+>         "key": f"{stem}-{i}",
+>         "payload": chunks[i],
+>         "vector": embed(chunks[i]),
+>         "metadata": {"source": name, "chunk_index": i, "total_chunks": len(chunks)},
+>     }
+>     for i in range(len(chunks))
+> ])
 > ```
 
 ## 3. Query the knowledge base

@@ -1,3 +1,9 @@
+---
+title: "AUDREP-08: WalArchiver::archive_segment — colisión de timestamps + rename no atómico"
+kind: task
+description: cargo check -p vantadb pasa; cargo clippy -p vantadb -- -D warnings pasa; archivesegment genera nombres únicos en <1ms (test de colisión); no hay removefile + rename no atómico para el destino; parsesegmenttimestamp sigue parseando los...
+---
+
 # AUDREP-08: WalArchiver::archive_segment — colisión de timestamps + rename no atómico
 
 ## Metadata

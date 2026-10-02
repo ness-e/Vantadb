@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Python Subclients Paridad TS (cierre excepción `_memory`)"
+kind: plan
+status: archived
+description: "Status: ⬆️ uphill = 0 · ⬇️ downhill = 1"
+---
+
 # Plan de Ejecución: Python Subclients Paridad TS (cierre excepción `_memory`)
 
 > **Campaign ID:** af650ef2-83ac-46e5-9842-33a7da271b36

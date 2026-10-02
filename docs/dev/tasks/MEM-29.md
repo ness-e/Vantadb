@@ -1,3 +1,9 @@
+---
+title: Task MEM-29 — Fuentes locales del wiki + chunker 12k/400
+kind: task
+description: "Plan: docs/dev/plans/2026-08-21-vanta-proxy-knowledge.md · Task ID: 3 · Wave 0"
+---
+
 # Task MEM-29 — Fuentes locales del wiki + chunker 12k/400
 
 **Plan:** docs/dev/plans/2026-08-21-vanta-proxy-knowledge.md · **Task ID:** 3 · **Wave 0**

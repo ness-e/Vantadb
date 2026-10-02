@@ -1,3 +1,9 @@
+---
+title: "TIR-07: Chaos runner del task-system (TSYS-06 runtime)"
+kind: task
+description: "docs/Investigaciones/TIR-07-chaos-runner.md existe con: (1) análisis del diseño existente (task-system-chaos-resilience.md, T19) y qué cubriría un runner (fuzzing de campaign-server.mjs / máquina de estados / SARL); (2) comparación..."
+---
+
 # TIR-07: Chaos runner del task-system (TSYS-06 runtime)
 
 ## Metadata

@@ -1,3 +1,9 @@
+---
+title: "FIND-137 — Unificar rustdocs caníbales (`ci-rustdoc.yml` vs `rustdoc-70.yml`) en uno solo"
+kind: task
+description: "1 solo workflow rustdoc (ci-rustdoc.yml survivor), 0 referencias rotas (grep), actionlint exit 0, survivor con lo mejor de ambos\""
+---
+
 # FIND-137 — Unificar rustdocs caníbales (`ci-rustdoc.yml` vs `rustdoc-70.yml`) en uno solo
 
 > **Plan:** `docs/dev/plans/2026-09-21-workflows-repair.md` Wave 1 (paralelo ×3 disjunto: 137/138/139; este task solo toca sus 3 archivos).

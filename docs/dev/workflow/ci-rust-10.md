@@ -1,11 +1,9 @@
 ---
 title: "`ci-rust.yml` — CI: Rust — Build & Lint + Tests"
-type: workflow
+kind: runbook
 status: active
+description: "Pipeline completo de integración continua para el núcleo Rust del proyecto. Ejecuta formateo, linting, pruebas unitarias/de integración en 3 SO, cobertura de código, auditoría de seguridad, detección de UB con Miri, análisis con..."
 tags: [vantadb, ci, ci-rust]
-last_reviewed: 2026-09-15
-aliases: []
-related: [".github/workflows/ci-rust.yml"]
 ---
 
 # `ci-rust.yml` — CI: Rust — Build & Lint + Tests

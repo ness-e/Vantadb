@@ -1,11 +1,9 @@
 ---
-title: "Legacy Docs — Investigación (Extracción 2026-07-16)"
-type: plan
+title: Legacy Docs — Investigación (Extracción 2026-07-16)
+kind: research
 status: archived
+description: La doc viva (docs/user/web/standards/product-positioning.md) solo compara 3 competidores. Esta tabla es la matriz completa; los deep-dives originales fueron eliminados y esta es la única fuente restante
 tags: [vantadb, archive, legacy-docs, investigacion]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Legacy Docs — Investigación (Extracción 2026-07-16)

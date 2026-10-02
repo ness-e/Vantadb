@@ -1,3 +1,9 @@
+---
+title: "AUD-E2E: test de flujo completo L0→L1→L2→L3→recall"
+kind: task
+description: "cargo nextest run -p vanta-memory (361 previos + 3 nuevos) pasa; cargo fmt --check pasa; cargo clippy -p vanta-memory --all-targets --no-deps -- -D warnings pasa.\""
+---
+
 # AUD-E2E: test de flujo completo L0→L1→L2→L3→recall
 
 ## Metadata

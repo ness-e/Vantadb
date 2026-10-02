@@ -1,11 +1,9 @@
 ---
 title: "`perf-bench.yml` — PERF: Benchmarks — Python Integration"
-type: workflow
+kind: runbook
 status: active
+description: "Ejecuta benchmarks de rendimiento desde Python usando la rueda nativa de VantaDB (vantadb-py). Construye el wheel Python, lo instala y corre benchmarks de ingestión y búsqueda con parámetros configurables"
 tags: [vantadb, ci, perf-bench]
-last_reviewed: 2026-09-15
-aliases: []
-related: [".github/workflows/perf-bench.yml"]
 ---
 
 # `perf-bench.yml` — PERF: Benchmarks — Python Integration

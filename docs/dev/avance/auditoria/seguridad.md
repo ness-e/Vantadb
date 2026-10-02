@@ -1,10 +1,8 @@
 ---
-title: "Auditoría — Seguridad"
-type: audit-log
+title: Auditoría — Seguridad
+kind: review
 status: active
 tags: [vantadb, avance, security, audit, fuzz, miri, ffi]
-last_reviewed: 2026-08-07
-aliases: []
 ---
 
 # Auditoría — Seguridad
@@ -60,7 +58,7 @@ aliases: []
 - AUD-24: coordenadas × 3 SI (loop unroll). ✅
 - AUD-25: dead cli flags → cleanup.
 
-### AUD-010? nota — `docs/historial/autopsias-2026-06-19.md`
+- AUD-010? nota — `docs/historial/autopsias-2026-06-19.md`
 
 ### AUD-020: Tests HTTP auth/RBAC/rate-limit — ✅ 2026-08-11
 - `cargo test -p vantadb-server --test server` → 19/19; root cause: helpers mandaban `{"query":"test"}`/`SELECT 1` (IQL inválido → 400 correcto post-ERR-027); fix: `SELECT * FROM Node`. RBAC vía `token_role_map` ya conectado. Backlog row removido; registrado en progreso.
@@ -185,3 +183,9 @@ aliases: []
 - **Objetivo:** checks SAST versionados en L7 (unwrap/unsafe/expect) + MCP semgrep, warn-first
 - **Resultado:** ✅ gate exit 0 + negativa 3+2 (falla->fix->pasa) + dictamen con output real (1515 warnings semgrep + 14 ast-grep; residual -> FIND-152)
 - **Commit:** 53186ca5 (host) + 36f6e1b (configOpencode)
+### WIRE-09: Seguridad P0 — sandbox paths + refuse-to-start proxy
+- **Fecha:** 2026-09-25
+- **Objetivo:** cerrar escritura/lectura arbitraria vía HTTP + startup keyless en 0.0.0.0
+- **Resultado:** ✅ RED→GREEN por slice (snapshot-name traversal+DoS, bulk_import 4ª ruta, refuse-to-start paridad FIND-07); verify lead 4/4+6/6; P2-01 vanta-audit approve con re-ejecución propia
+- **Commit:** 6a0f6934
+- **Observación:** `mirror_data_dir` dest-dentro-de-src inalcanzable vía API (validate_snapshot_name); `:`/espacios en nombres sin PoC → no findings

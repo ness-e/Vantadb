@@ -1,3 +1,9 @@
+---
+title: ERR-PY-01 - Unificar providers a jerarquía MOD-20 + code/retriable + to_dict
+kind: task
+description: "Eliminar el HIGH drift: providers/sharedpy.rs::errtopy era bucket-4"
+---
+
 # ERR-PY-01 - Unificar providers a jerarquía MOD-20 + code/retriable + to_dict
 
 > **Status:** ✅ COMPLETED (2026-09-02, vanta-worker — primer intento murió por infra antes de empezar; ejecutado fresco)

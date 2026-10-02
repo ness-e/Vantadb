@@ -1,11 +1,12 @@
 ---
-title: "Auditoría de Gobernanza Documental — VantaDB"
-type: audit
+title: Auditoría de Gobernanza Documental — VantaDB
+kind: review
 status: final
+description: "Estado general: la capa doc↔código está excepcionalmente sana — de 16 claims de implementación verificados contra código real, 14 fueron ✅ confirmados con evidencia exacta (archivo:línea), 2 ⚠️ parciales y 0 ❌ falsos. Cada tarea..."
 mode: fresh (sin delta vs last-audit-state.json)
 scope: docs/ completo + archivos raíz docs/ + verificación exhaustiva contra código
-date: 2026-08-21
-method: 2 sub-agentes en paralelo (integridad de referencias + verificación de claims contra código) + análisis estructural del lead
+date: "2026-08-21"
+method: "2 sub-agentes en paralelo (integridad de referencias + verificación de claims contra código) + análisis estructural del lead"
 ---
 
 # Auditoría de Gobernanza Documental — VantaDB (2026-08-21)
@@ -26,7 +27,7 @@ El problema está en la capa de **gobernanza documental**: los índices maestros
 
 1. 🔴 **Filtro nextest inefectivo en CI** — `.config/nextest.toml:27` filtra por `not binary(python_sdk_boundary)` pero ese binario no existe (el real es `tests/api/python.rs`) → el test NO queda excluido del perfil default como se pretende. Único hallazgo con impacto de CI real. (TEST_MAP.md:86 + nextest.toml:27)
 2. 🔴 **Backlog fuera de sincronía con las campañas activas** — MEM-43 tiene commit `a0bcb112` (feat merged) y estado ✅ COMPLETED en el plan `2026-08-22-vanta-final-cierre.md`, pero figura ❌ Pendiente en Backlog.md:703; P29/P30/P31 no existen como secciones del Backlog pese a que este se declara fuente única de verdad.
-3. 🔴 **CHANGELOG [Unreleased] con ~650 líneas acumuladas** desde 0.5.0 (2026-07-31): Vanta Studio completo, REST `/api/v2/*` (~29 paths), crate `vanta-memory`, supersession API pública nueva (ADR-028) — sin corte de release ni evaluación semver. Riesgo directo sobre Regla 7 (release-plz).
+3. 🔴 **CHANGELOG [Unreleased] con ~650 líneas acumuladas** desde 0.5.0 (2026-07-31): Vanta Studio completo, REST `/api/v2/*` (~29 paths), crate `vanta-memory`, supersession API pública nueva (ADR-0028) — sin corte de release ni evaluación semver. Riesgo directo sobre Regla 7 (release-plz).
 4. 🟠 **master-index.md congelado en 2026-07-21**: 2 enlaces rotos, no indexa ~15 carpetas existentes ni 3 docs nuevos de `docs/api/`.
 5. 🟠 **Contador de tareas contradictorio**: header del Backlog y ROADMAP declaran "~24 items abiertos"; conteo real de filas ❌ en Backlog.md = **45**.
 
@@ -97,7 +98,7 @@ Sub-agente de verificación independiente; veredicto con evidencia archivo:líne
 | 7 | RELEASE-01 gate semver-checks | ✅ (matiz de ubicación) | Está en `ci-rust-10.yml:88-118`, no en `release.yml` como dice la fila |
 | 8 | Versión 0.5.0 publicada | ✅ | `Cargo.toml:645-646` — sigue en 0.5.0 |
 | 9 | **P26 Studio Fases 0-4 completadas** | ⚠️ **Parcial** | Componentes y deps ✅ (`WorkspaceShell.tsx`, `Mark.tsx`, cmdk, react-querybuilder…), pero **zustand NO está en `desktop/package.json`** — `desktop/src/store/undo.ts:3` admite "zustand lo instala VS-09 en paralelo" y nunca se instaló. La fila VS-08 declara dep zustand: sobrepasa la realidad |
-| 10 | ADR-028 supersession (core+Python) | ✅ | `types.rs:206,209,231`; `supersede()` en `api.rs:840-873`; filtro search `search/mod.rs:70-93`; Python `__init__.py:186-187`; ADR existe |
+| 10 | ADR-0028 supersession (core+Python) | ✅ | `types.rs:206,209,231`; `supersede()` en `api.rs:840-873`; filtro search `search/mod.rs:70-93`; Python `__init__.py:186-187`; ADR existe |
 | 11 | REST `/api/v2/*` ~27 endpoints + dashboard | ✅ | `cli_server.rs:215-260`: **29 paths**; dashboard `nest_service("/dashboard")` :1703-1706 |
 | 12 | P27 vanta-memory existe; MEM-36 pendiente | ✅ coherente | Crate sustancial (~100 archivos); `client.memory.*` ausente en TS/Python = correctamente marcada pendiente |
 | 13 | CORE-01 pendiente (Binary/Turbo no persiste vector) | ✅ bien marcado como pendiente | `ops.rs:62-66`: solo `Full` persiste; comentario en `get.rs:186` |
@@ -156,7 +157,7 @@ Sub-agente de verificación independiente; veredicto con evidencia archivo:líne
 - **Fechas/estados contradictorios:**
   - Plan `2026-08-22-vanta-final-cierre.md` creado el 21/08 cita "auditoría final post-P30 … 2026-08-22" (fecha futura respecto de su creación; naming adelantado un día).
   - Backlog.md:703-705 dice "Detectado … 2026-08-21 (post-P30)" pero esas filas ya estaban parcialmente ejecutadas el mismo día (commit a0bcb112) — ventana de stale de <24 h, aceptable pero confirma que el Backlog ya no es el registro en tiempo real, lo es el plan file.
-  - `ADR-026-vanta-studio-fase3-rest-dashboard.md` vive en `docs/dev/architecture/` raíz mientras todos los demás ADRs viven en `docs/dev/architecture/adr/` — DESKTOP-27 lo cita como si estuviera en adr/.
+  - `ADR-0026-vanta-studio-fase3-rest-dashboard.md` vive en `docs/dev/architecture/` raíz mientras todos los demás ADRs viven en `docs/dev/architecture/adr/` — DESKTOP-27 lo cita como si estuviera en adr/.
   - TEST_MAP.md:86 + `.config/nextest.toml:27`: filtro `binary(python_sdk_boundary)` no matchea nada → exclusión de test inoperante en perfil default (impacto CI).
 
 ---
@@ -173,7 +174,7 @@ Tareas que deberían existir en el Backlog según el estado real y no existen:
 | 🟠 Alta | **IDX-01: Regenerar master-index.md** — quitar 2 enlaces rotos (audit-reports:184, PROMPT-MAESTRO-FREEZE:192), indexar las 15 carpetas faltantes y los 3 docs nuevos de api/; corregir frase blog (:161) | Puerta de entrada a toda la doc |
 | 🟠 Alta | **IDX-02: Purgar referencias muertas del Backlog** — 10 refs a `docs/audit-reports/*`, `REPORTE_EVALUACION_COMPLETO.md` ×2, 2 reviews inexistentes (líneas 213, 230, 341, 427-431) | Rompen la trazabilidad que el propio Backlog promete |
 | 🟡 Media | **GOV-01: Decisión de taxonomía** — regla escrita avance↔progreso e Investigaciones↔research en docs/README.md; split del monolito progreso/README.md (372 KB) | Costo de mantenimiento creciente |
-| 🟡 Media | **GOV-02: Mover `ADR-026-*` a `adr/`** y actualizar DESKTOP-27 | Convención rota de ADRs |
+| 🟡 Media | **GOV-02: Mover `ADR-0026-*` a `adr/`** y actualizar DESKTOP-27 | Convención rota de ADRs |
 | 🟢 Baja | **GOV-03:** gitignore `docs/user/book/book/` + `rmdir TDAM-VANTADB` + decidir destino de `.obsidian/` | Higiene de repo |
 | 🟢 Baja | **GOV-04:** corregir fila VS-08 (zustand) y RELEASE-01 (ubicación del gate) | Precisión del registro |
 
@@ -188,7 +189,7 @@ Tareas que deberían existir en el Backlog según el estado real y no existen:
 
 **Alto (próximas 2 semanas):**
 4. IDX-01 regenerar master-index + IDX-02 purga de refs muertas (2-3 h, delegable a vanta-docs).
-5. GOV-02 ADR-026 a adr/.
+5. GOV-02 ADR-0026 a adr/.
 
 **Medio (próximo mes):**
 6. GOV-01 decisión de taxonomía documentada + split de progreso/README.md.
@@ -223,7 +224,7 @@ La segunda pasada **confirma el patrón** del Volumen I (doc↔código sano, gob
 2. 🔴 **`case_studies/`: clientes ficticios presentados como deployments reales** ("EdgeSense" RPi5, "CodexAgent" M2 Max con tablas comparativas y benchmarks sin fuente ni disclaimer). Riesgo reputacional directo para Show HN; contradice el propio estándar "honest results" de PERF-03.
 3. 🔴 **`PYTHON_RELEASE_POLICY.md` niega la publicación a PyPI que ya ocurrió** (0.5.0 live 2026-08-01) — política de release operando sobre una premisa falsa.
 4. 🟠 **El mirror `avance/` nació roto**: su contrato (`meta.md`) promete cobertura viva por dominio, pero faltan dominios enteros creados después (vanta-proxy, vanta-memory/TDAM, context engine) y quedó congelado el 20/08. `bitacora.md` muerta desde el 27/07 (narrativa) / 11/08 (git).
-5. 🟠 **4 valores de coverage contradictorios conviviendo**: gate ≥59% (TEST_MAP/CI_POLICY) vs ≥80% ADR-015/018 vs "80.55% CII Silver" (progreso README:32) vs 81.40% root — sin fuente canónica única.
+5. 🟠 **4 valores de coverage contradictorios conviviendo**: gate ≥59% (TEST_MAP/CI_POLICY) vs ≥80% ADR-0015/018 vs "80.55% CII Silver" (progreso README:32) vs 81.40% root — sin fuente canónica única.
 6. 🟠 **Tutoriales rotos para usuarios reales**: `graph_bfs("doc1","doc3")` con firma incorrecta en los 2 tutoriales de migración (TypeError garantizado); `ef_search` como parámetro inexistente en glosario/hnsw.md.
 
 ### Salud documental revisada: **6.5 / 10**
@@ -265,9 +266,9 @@ Otros hallazgos api/:
 
 ## V2.4 — architecture/ + ADRs (51 docs): mayormente sanos
 
-- Los 34 ADRs: implementaciones afirmadas verificadas contra código (supersede(), batch_append, CRC32C, HnswConfig, features Cargo.toml) — coherentes. Drift cosmético de números de línea en ADR-024/025.
-- **ADR-008 (WASM storage)**: la queja de WASM_STORAGE_REVIEW.md quedó resuelta en código (opfs.rs, idb.rs, worker.rs) — el review es histórico válido.
-- Problemas estructurales: `ADR-026-vanta-studio-fase3-rest-dashboard.md` fuera de `adr/`; colisión de numeración "001" (001_unified_config vs ADR-0001); colisión "019" entre series; ARCHITECTURE.md cita `src/node.rs` ×4 cuando el módulo es ahora `src/node/unified.rs`.
+- Los 34 ADRs: implementaciones afirmadas verificadas contra código (supersede(), batch_append, CRC32C, HnswConfig, features Cargo.toml) — coherentes. Drift cosmético de números de línea en ADR-0024/025.
+- **ADR-0008 (WASM storage)**: la queja de WASM_STORAGE_REVIEW.md quedó resuelta en código (opfs.rs, idb.rs, worker.rs) — el review es histórico válido.
+- Problemas estructurales: `ADR-0026-vanta-studio-fase3-rest-dashboard.md` fuera de `adr/`; colisión de numeración "001" (001_unified_config vs ADR-0001); colisión "019" entre series; ARCHITECTURE.md cita `src/node.rs` ×4 cuando el módulo es ahora `src/node/unified.rs`.
 - wiki-links rotos en case_studies hacia ADRs con filenames inexistentes.
 
 ## V2.5 — reviews/ + reports/: 0 huérfanos duros
@@ -361,7 +362,7 @@ Sobre **793 commits desde 01/08**:
 2. Corregir snippets rotos de tutoriales + ef_search + FAQ fsync + URL GitHub (1 h).
 3. Regenerar openapi.yaml + HTTP_API.md desde cli_server.rs (medio día, delegable a vanta-docs).
 
-**Alto:** catch-up del mirror avance/ (dominios vanta-memory + vanta-proxy + P31); unificar cifra de coverage a valor canónico único (ADR-018); ticketear TIR-02a/04b/08c; reescribir PYTHON_RELEASE_POLICY.md.
+**Alto:** catch-up del mirror avance/ (dominios vanta-memory + vanta-proxy + P31); unificar cifra de coverage a valor canónico único (ADR-0018); ticketear TIR-02a/04b/08c; reescribir PYTHON_RELEASE_POLICY.md.
 
 **Medio:** unificar MCP.md↔skills/references en una sola fuente con cross-ref; regenerar reports/ (northstar/pipeline-evals) resolviendo su contradicción; notas de cierre en investigaciones obsoletas; limpiar artefactos (_run_stdout, __pycache__, TDAM-VANTADB, DESIGN_RULES.md, book/book).
 
@@ -414,7 +415,7 @@ Dos ítems pendientes de §V2 fueron resueltos contra el código:
 
 ## D7. Coverage canónico
 
-**Decisión: MEDIR Y FIJAR.** Ejecutar `cargo llvm-cov` una vez para obtener la cifra real, y fijarla como valor único canónico en ADR-018 + TEST_MAP.md + CI_POLICY.md + progreso/README.md, eliminando los otros tres valores (59%/80%/80.55%/81.40%).
+**Decisión: MEDIR Y FIJAR.** Ejecutar `cargo llvm-cov` una vez para obtener la cifra real, y fijarla como valor único canónico en ADR-0018 + TEST_MAP.md + CI_POLICY.md + progreso/README.md, eliminando los otros tres valores (59%/80%/80.55%/81.40%).
 
 ## D8. Fuente de verdad MCP (re-preguntada tras verificación de código)
 

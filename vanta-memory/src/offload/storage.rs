@@ -53,6 +53,7 @@ impl OffloadStorage {
             vector: None,
             sparse_vector: None,
             ttl_ms: None,
+            ..Default::default()
         })?;
         Ok(true)
     }
@@ -159,6 +160,7 @@ mod tests {
             vector: None,
             sparse_vector: None,
             ttl_ms: None,
+            ..Default::default()
         })
         .expect("seed");
         let storage = OffloadStorage::new(db);

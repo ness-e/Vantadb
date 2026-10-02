@@ -1,29 +1,29 @@
 {
   "$schema": "https://cursor.com/docs/agent/hooks/schema.json",
-  "_template": "FIND-106 template_version 1.0.0, docs_verified 2026-09-17 (https://cursor.com/docs/agent/hooks). Copy to <project>/.cursor/hooks.json (runs from project root). Launcher: pwsh -NoProfile -File <REPO>/vanta-mcp-local.ps1 -DbPath <DB_PATH>. Secrets: session env only.",
+  "_template": "FIND-106 template_version 1.1.0, docs_verified 2026-09-17 (https://cursor.com/docs/agent/hooks). WIRE-10: one-shot via `vanta-cli mcp-call` (no pwsh). Copy to <project>/.cursor/hooks.json (runs from project root). DB: replace <DB_PATH>; vanta-cli must be on PATH. Secrets: session env only. Hook input arrives on stdin as JSON; {{prompt}} splices the verbatim prompt text (mcp-call resolves it, jq not needed).",
   "version": 1,
   "hooks": {
     "sessionStart": [
       {
-        "command": "pwsh -NoProfile -File <REPO>/vanta-mcp-local.ps1 -DbPath <DB_PATH>",
+        "command": "vanta-cli mcp-call --db <DB_PATH> --tool memory_recall --args '{\"query\":\"session start context\",\"scope\":\"agent\",\"top_k\":5}'",
         "timeout": 15
       }
     ],
     "beforeSubmitPrompt": [
       {
-        "command": "pwsh -NoProfile -File <REPO>/vanta-mcp-local.ps1 -DbPath <DB_PATH>",
+        "command": "vanta-cli mcp-call --db <DB_PATH> --tool memory_recall --args '{\"query\":\"{{prompt}}\",\"scope\":\"agent\",\"top_k\":5}'",
         "timeout": 15
       }
     ],
     "preCompact": [
       {
-        "command": "pwsh -NoProfile -File <REPO>/vanta-mcp-local.ps1 -DbPath <DB_PATH>",
+        "command": "echo VantaDB save-state: persist open turns via thread_send and/or scene_write before compaction.",
         "timeout": 15
       }
     ],
     "stop": [
       {
-        "command": "pwsh -NoProfile -File <REPO>/vanta-mcp-local.ps1 -DbPath <DB_PATH>",
+        "command": "echo VantaDB auto-capture: persist this turn via thread_send role+content; proxy-turns curated via inbox, never auto-promote.",
         "timeout": 15,
         "loop_limit": 5
       }
@@ -35,5 +35,5 @@
     "preCompact": "save-state via thread_send and/or scene_write",
     "stop": "auto-capture via thread_send role+content; proxy-turns via inbox, never auto-promote"
   },
-  "_scripts": "No wrapper scripts needed: every hook invokes the pwsh launcher directly (same pattern as claude/codex templates). The launcher starts the MCP server on stdio; the agent issues memory_recall/thread_send. Exit 0 = use JSON output; other non-zero = fail-open (Cursor default)."
+  "_scripts": "No wrapper scripts needed: recall hooks invoke `vanta-cli mcp-call` one-shot (same binary the installer puts in ~/.vanta/bin); save-state hooks print a static reminder the agent acts on. Exit 0 = use output; mcp-call exit 2 = tool error (fail-loud, never silent); other non-zero = fail-open (Cursor default)."
 }

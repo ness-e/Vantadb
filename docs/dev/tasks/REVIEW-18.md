@@ -1,3 +1,9 @@
+---
+title: "REVIEW-18: Warning Next.js package-lock stray fuera del repo (turbopack root)"
+kind: task
+description: "npm run build en web/ SIN el warning turbopack/package-lock (tail limpio como evidencia) + exit 0\""
+---
+
 # REVIEW-18: Warning Next.js package-lock stray fuera del repo (turbopack root)
 
 ## Metadata

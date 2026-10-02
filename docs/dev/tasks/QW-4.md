@@ -1,3 +1,9 @@
+---
+title: "TASK QW-4: dedup gemelos ollama/openai — módulo compartido _shared para Document/add_texts/delete/async"
+kind: task
+description: "N/A — refactor dedup con contrato mecánico (Wave 2 QW-4). No agrega símbolos públicos nuevos beyond módulo interno vantadbshared (interno, vendored via force-include, no PyPI separado); solo extrae lógica duplicada y deja thin subclasses"
+---
+
 # TASK QW-4: dedup gemelos ollama/openai — módulo compartido _shared para Document/add_texts/delete/async
 
 ## Metadata

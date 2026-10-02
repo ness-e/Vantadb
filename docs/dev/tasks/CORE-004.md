@@ -1,3 +1,9 @@
+---
+title: "CORE-004: Task File Template Completo - 20 secciones obligatorias"
+kind: task
+description: "campaignverifycmd mecánico: el template debe tener ≥20 secciones ## (grep -c \"^## \" task-definition.md) — verificado: 20. Sin re-edición"
+---
+
 # CORE-004: Task File Template Completo - 20 secciones obligatorias
 
 ## Metadata

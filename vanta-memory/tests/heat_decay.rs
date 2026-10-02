@@ -73,6 +73,7 @@ fn heat_bump_then_decay_persists_and_reaches_prune_threshold() {
         vector: None,
         sparse_vector: None,
         ttl_ms: None,
+        ..Default::default()
     })
     .expect("initial put");
 
@@ -94,6 +95,7 @@ fn heat_bump_then_decay_persists_and_reaches_prune_threshold() {
             vector: None,
             sparse_vector: None,
             ttl_ms: None,
+            ..Default::default()
         })
         .expect("re-put");
     }

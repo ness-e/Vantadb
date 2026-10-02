@@ -1,3 +1,8 @@
+---
+title: "Task: MCP-32 — Threads CRUD vía MCP"
+kind: task
+---
+
 # Task: MCP-32 — Threads CRUD vía MCP
 
 - **Plan:** docs/dev/plans/2026-08-23-backlog-triage.md (NO editar)

@@ -1,3 +1,9 @@
+---
+title: FIND-151 — Eval de agentes (Giskard) + Lurkr obligatorio en CI host
+kind: task
+description: Eval 10/10 en main + Lurkr exit 0 en .opencode/ + CI verde 2 semanas
+---
+
 # FIND-151 — Eval de agentes (Giskard) + Lurkr obligatorio en CI host
 
 > **Plan:** `docs/dev/plans/2026-09-24-harness-gaps.md` §FIND-151 · **Wave:** 0 (paralelo FIND-148/150, archivos disjuntos)

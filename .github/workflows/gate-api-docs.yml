@@ -1,0 +1,129 @@
+name: 'GATE: API — surface vs documentation'
+
+# Fails a PR that changes the PUBLIC API SURFACE without changing any doc.
+# The pattern is DuckDB's `NeedsDocumentation.yml`; the rule is one line: an API
+# change with a zero-line doc diff is drift.
+#
+# Verified drift this exists to catch (2026-09-29):
+#   - `llms.txt` publishes `db.search_memory()`, a method that does not exist.
+#   - `docs/api/PYTHON_SDK.md` documents a `VantaError` exception; the real one
+#     is `Error`. Its Quick Start also calls `.get()` on something that returns
+#     a list.
+# Every other gate in scripts/docs/ checks that documents are WELL FORMED. None
+# check that they are TRUE.
+#
+# Rules obeyed (docs/dev/workflow/RULES.md): SHA pins (3), timeouts (2),
+# least-privilege permissions (4), CATEGORY on continue-on-error (6),
+# branches declared on pull_request (7), push+PR scoped by paths (1).
+# Rule 5: no `tags:` here, so this can never reach a publish path.
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'src/**'
+      - 'vantadb-python/vantadb_py/**'
+      - 'vantadb-python/vantadb/**'
+      - 'vantadb-ts/src/**'
+      - 'docs/**'
+      - 'scripts/docs/**'
+      - 'llms.txt'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'src/**'
+      - 'vantadb-python/vantadb_py/**'
+      - 'vantadb-python/vantadb/**'
+      - 'vantadb-ts/src/**'
+      - 'docs/**'
+      - 'scripts/docs/**'
+      - 'llms.txt'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  api-docs:
+    name: Public API surface moves only with documentation
+    runs-on: ubuntu-latest
+    # Measured: 6s on a 2-ref diff of the full three-language surface. The
+    # margin is for a cold runner and a cold git object cache.
+    timeout-minutes: 5
+    steps:
+      # `fetch-depth: 0` is load-bearing, not a habit. The gate diffs two refs,
+      # and `actions/checkout` defaults to a depth-1 clone of a synthetic merge
+      # ref whose parents are not present — `git diff base..head` would fail and
+      # the script would report DEGRADED. A full history is the only way to make
+      # the base ref reliable without a second fetch step. Cost on this repo is
+      # a few seconds; the alternative is a gate that cannot resolve its own base.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+
+      # Pick the base ref BEFORE the gate, and print what was chosen. On a PR
+      # `github.event.pull_request.base.sha` is a commit that EXISTS in the
+      # fetch-depth-0 clone, so no ref lookup can fail. On push/dispatch there is
+      # no base and BASE is empty on purpose: there is nothing to diff against,
+      # so the job reports it and does not pretend to have gated.
+      - name: Resolve base ref
+        id: base
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          if [ "$EVENT_NAME" = "pull_request" ] && [ -n "$PR_BASE_SHA" ]; then
+            if git cat-file -e "$PR_BASE_SHA^{commit}" 2>/dev/null; then
+              echo "sha=$PR_BASE_SHA" >> "$GITHUB_OUTPUT"
+              echo "resolved: PR base sha $PR_BASE_SHA"
+            else
+              # Loud, not silent. A missing base is a checkout problem, and
+              # swallowing it would leave the job green having gated nothing.
+              echo "::warning::base sha $PR_BASE_SHA is absent from the checkout; falling back to the base branch ref"
+              echo "sha=origin/$PR_BASE_REF" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "sha=" >> "$GITHUB_OUTPUT"
+            echo "no base ref (event=$EVENT_NAME) — this run reports the surface, it does not gate"
+          fi
+
+      - name: Self-test
+        run: node scripts/docs/check-api-docs.mjs --self-test
+
+      - name: Report the surface
+        run: node scripts/docs/check-api-docs.mjs --api-surface
+
+      # Exit 3 (DEGRADED) is a FAILURE here, deliberately. A gate that cannot
+      # resolve its base has proven nothing, and a green check mark for "I did
+      # not look" is the exact failure mode RULES.md rule 6 exists to prevent.
+      - name: Gate — surface change requires a doc change
+        id: gate
+        env:
+          BASE: ${{ steps.base.outputs.sha }}
+        run: |
+          if [ -z "$BASE" ]; then
+            echo "::notice::no base ref on this event — gate not applicable"
+            exit 0
+          fi
+          set +e
+          node scripts/docs/check-api-docs.mjs --changed "$BASE..HEAD"
+          CODE=$?
+          set -e
+          if [ "$CODE" = "3" ]; then
+            echo "::error::gate could not be evaluated (DEGRADED) — this is not a pass"
+            exit 1
+          fi
+          exit "$CODE"
+
+      - name: Machine-readable report on failure
+        if: failure() && steps.base.outputs.sha != ''
+        run: node scripts/docs/check-api-docs.mjs --changed "${{ steps.base.outputs.sha }}..HEAD" --json
+        continue-on-error: true # CATEGORY: INFORMATIONAL - extra detail for a red build; the gate step already failed

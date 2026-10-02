@@ -1,3 +1,9 @@
+---
+title: MOD-01 — WAL escrito ANTES de validar → insert/update rechazado resucita datos tras restart
+kind: task
+description: "En InMemoryEngine (src/engine.rs), los mutadores escriben al WAL antes de validar"
+---
+
 # MOD-01 — WAL escrito ANTES de validar → insert/update rechazado resucita datos tras restart
 
 > **Estado:** ✅ COMPLETED · **Appetite:** max 1d · **Esfuerzo:** 🟡 · **Prioridad:** 🔴

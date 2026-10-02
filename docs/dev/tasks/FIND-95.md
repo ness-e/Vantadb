@@ -1,3 +1,9 @@
+---
+title: "FIND-95 — gemelo-del-gemelo FIND-92: paths `rustdoc-70.yml` ciegos a `vanta-memory/`"
+kind: task
+description: "Réplica del fix FIND-92 (commit e395b563: +2 líneas en ci-rustdoc.yml push+PR) sobre rustdoc-70.yml: cambios solo-vanta-memory/ hoy no disparan el job rustdoc (cargo doc --no-deps --workspace --all-features --document-private-items en..."
+---
+
 # FIND-95 — gemelo-del-gemelo FIND-92: paths `rustdoc-70.yml` ciegos a `vanta-memory/`
 
 > **Plan:** `docs/dev/plans/2026-09-15-find-correcciones.md` Wave9-ext (orquestador 2026-09-16) — disjunto de FIND-92 (`ci-rustdoc.yml` ✅ e395b563), FIND-93 (`txn.rs` ✅ 0cd54e47), FIND-94 (`integrations/`+`vantadb-python/` ✅ 880cd0f3). Última task antes del cierre de campaña.

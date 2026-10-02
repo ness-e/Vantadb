@@ -1,0 +1,70 @@
+name: 'Demo: WAL integrity verify (tamper-evident)'
+
+# EXE-01 (F6): the WAL hash-chain demo runs on every relevant PR. A clean
+# chained WAL verifies green (exit 0); two tamper classes — a record removed
+# (chain link broken) and a decodable record rewrite with its CRC32C
+# recomputed (CRC alone cannot see it) — must make `vanta-cli verify` exit
+# ≠0. The certified-delete roundtrip (`put` → `delete --attest` →
+# `certificate verify`, exit 0) then proves the certificate surface the
+# chain feeds (VER-02). A regression turns this red; a no-op verify could
+# never satisfy the negative controls.
+#
+# Deterministic and offline by design: fixtures are local files (seed + byte
+# surgery in a `#[ignore]` test), no network, no tokens. Ubuntu only: the
+# demo exercises the CLI/chain, not platform-specific behavior.
+#
+# No `continue-on-error` anywhere: a broken demo blocks the PR.
+
+on:
+  push:
+    branches: [ "main", "develop" ]
+    paths:
+      - 'src/wal.rs'
+      - 'src/wal_sharded.rs'
+      - 'src/cli.rs'
+      - 'src/cli_handlers/**'
+      - 'tests/wal_chain_verify.rs'
+      - 'scripts/demo-verify-e2e.ps1'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/wal-verify-demo.yml'
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - 'src/wal.rs'
+      - 'src/wal_sharded.rs'
+      - 'src/cli.rs'
+      - 'src/cli_handlers/**'
+      - 'tests/wal_chain_verify.rs'
+      - 'scripts/demo-verify-e2e.ps1'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/wal-verify-demo.yml'
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+concurrency:
+  group: wal-verify-demo-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  wal-verify:
+    name: "WAL tamper detection + certified delete"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/rust-setup
+        with:
+          install-system-deps: true
+          install-nextest: true
+
+      - name: Run WAL verify demo
+        run: pwsh -NoProfile -File scripts/demo-verify-e2e.ps1

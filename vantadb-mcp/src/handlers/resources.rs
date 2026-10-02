@@ -107,6 +107,11 @@ pub fn handle_resources_read(
             filters: vantadb::sdk::MemoryMetadata::new(),
             filter_ops: None,
             exclude_superseded: false,
+            // SCH-03 temporal params: not exposed here (SCH-07).
+            as_of_ms: None,
+            valid_window: None,
+            include_quarantined: false,
+            min_confidence: None,
         };
         match embedded.list(namespace, options) {
             Ok(page) => {

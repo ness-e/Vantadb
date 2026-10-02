@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vantadb.dev/schema/frontmatter.schema.json",
+  "title": "VantaDB document frontmatter",
+  "description": "Canonical frontmatter for every .md file under docs/. Enforced by scripts/docs/check-docs.mjs. The first three keys are the only ones GitHub renders as a table above the body, so everything else is optional by design. See docs/dev/workflow/gate-docs.md rule 10.",
+  "type": "object",
+  "required": ["title", "kind"],
+  "additionalProperties": false,
+  "properties": {
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120,
+      "description": "Human title. Must match the H1 when one is present, or the H1 must be removed."
+    },
+    "kind": {
+      "type": "string",
+      "description": "Document kind. Drives folder placement, index grouping and lifecycle. Derived from the path by scripts/docs/lib.mjs deriveKind(); never chosen independently.",
+      "enum": [
+        "index",
+        "concept",
+        "tutorial",
+        "howto",
+        "runbook",
+        "reference",
+        "glossary",
+        "adr",
+        "plan",
+        "task",
+        "research",
+        "review",
+        "report",
+        "changelog"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "description": "Lifecycle state. For kind:adr the MADR vocabulary applies (proposed/accepted/rejected/superseded/deprecated) so existing ADRs are not rewritten. For every other kind use draft/active/stable/deprecated/archived. 'archived' requires the file to live under a directory containing 'archive'.",
+      "enum": [
+        "draft",
+        "active",
+        "stable",
+        "proposed",
+        "accepted",
+        "rejected",
+        "deprecated",
+        "archived",
+        "superseded"
+      ]
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 400,
+      "description": "One line, no trailing period. This is the text that appears in every generated index and in llms.txt. If absent, the file is omitted from generated indexes. 400 rather than 120 because several task files derive a description from a command line; 400 because a task whose description is a real sentence with measured percentages will otherwise have to be truncated mid-clause, and a gate that fires on that teaches you to write worse descriptions. The ceiling is still bounded: llms.txt is 120 KB across 503 entries, and 400 characters cannot make an index row unreadable on its own."
+    },
+    "aliases": {
+      "type": "array",
+      "description": "Obsidian search aliases. Always a list, even with one element, so the type is stable vault-wide.",
+      "items": { "type": "string" }
+    },
+    "tags": {
+      "type": "array",
+      "description": "Lowercase, hyphen-separated, from docs/_schema/tags.txt. Free-text tags are the main cause of metadata that 'looks wrong' in Obsidian.",
+      "items": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" }
+    },
+    "supersedes": {
+      "type": "string",
+      "description": "Path of the document this one replaces, repo-relative. Only meaningful for kind: adr."
+    },
+    "superseded_by": {
+      "type": "string",
+      "description": "Path of the document that replaced this one, repo-relative. Only meaningful for kind: adr."
+    }
+  },
+  "$comment": "Legacy keys retired in the 2026-09-28 documentation migration: type (replaced by kind, it was never a taxonomy), last_reviewed (a self-reported date is not a measurement; freshness is derived from git), related (a hand-maintained backlink list, now produced by scripts/docs/gen-index.mjs), links (frontmatter wikilinks; markdown links must be used in prose). check-docs.mjs --legacy reports these so the corpus can be drained before additionalProperties:false is enforced."
+}

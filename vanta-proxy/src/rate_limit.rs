@@ -1,6 +1,6 @@
 //! In-process rate limiter (D24: no Redis, D35: default 60 req/min).
 //!
-//! Sliding window of 60s keyed by `spaceId×model` (TDAM parity:
+//! Sliding window of 60s keyed by `space_id×model` (TDAM parity:
 //! redis-store.ts:324-326 bucket dimension). Thread-safe via a single Mutex
 //! over the window map; fail-open when the mechanism is degraded (TDAM
 //! guard.ts:40-51): degraded → allow + warn log, never block the wire.

@@ -1,3 +1,9 @@
+---
+title: "MCP-04: S4 — Sin validación de dimensionalidad en `search_semantic`"
+kind: task
+description: "python C:\Users\Eros\AppData\Local\Temp\opencode\test-busqueda.py T19: query 3-dim contra índice 4-dim → error DimensionMismatch con expected=4, got=3 (isError content), no distancias 0.0; cargo check -p vantadb-mcp ✅\""
+---
+
 # MCP-04: S4 — Sin validación de dimensionalidad en `search_semantic`
 
 ## Metadata

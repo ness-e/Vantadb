@@ -1,3 +1,9 @@
+---
+title: FIND-41 — ADR clusters Leiden fragmentados (cohesion 0.59-0.71)
+kind: task
+description: None — task docs-only. 0 archivos de código fuente modificados
+---
+
 # FIND-41 — ADR clusters Leiden fragmentados (cohesion 0.59-0.71)
 
 ## Metadata
@@ -25,10 +31,10 @@ AND ADR de clusters documentada (status accepted-pending-owner-review per Regla 
 
 ### Step 2: Decisión arquitectural
 - **Consolidar 6 clusters?** NO (riesgo regresión alto, cohesión 0.52-0.71 refleja diversidad legítima)
-- **Documentar fronteras?** SÍ (ADR-035 con análisis cluster por cluster)
+- **Documentar fronteras?** SÍ (ADR-0035 con análisis cluster por cluster)
 - **Refactor futuro?** DEFER (Q4 si apetito)
 
-### Step 3: ADR-035
+### Step 3: ADR-0035
 - Análisis cluster por cluster
 - Decisión docs-only (no consolidar)
 - Alternativas consideradas (consolidar vs documentar vs refactor futuro)
@@ -36,7 +42,7 @@ AND ADR de clusters documentada (status accepted-pending-owner-review per Regla 
 - Riesgos documentados (Leiden IDs cambian entre regeneraciones)
 
 ## Verificación
-- ADR-035 con 4 secciones requeridas (Context, Decision, Consequences, Alternatives)
+- ADR-0035 con 4 secciones requeridas (Context, Decision, Consequences, Alternatives)
 - status accepted-pending-owner-review per Regla 5
 - Plan file W25-2 marcado ✅ COMPLETED
 - Backlog.md fila FIND-41 eliminada

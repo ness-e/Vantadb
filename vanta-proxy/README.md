@@ -1,5 +1,7 @@
 # vanta-proxy
 
+> **Status: frozen** — not published until 1.0.0 (repository Freeze List). Development resumes after 1.0.0.
+
 LLM wire proxy with memory writeback: forwards `/v1/...` traffic to an
 upstream LLM and records selected exchanges into VantaDB.
 

@@ -1,3 +1,9 @@
+---
+title: "DESKTOP-37: Lente MEMORIA (UI) — escenas/persona/skills/log con heat/diff/timeline"
+kind: task
+description: "Callers: desktop/src/components/memory/ (nuevos), desktop/src/components/layout/WorkspaceShell.tsx (sidebar + lente), desktop/src/vanta.ts"
+---
+
 # DESKTOP-37: Lente MEMORIA (UI) — escenas/persona/skills/log con heat/diff/timeline
 
 ## Metadata

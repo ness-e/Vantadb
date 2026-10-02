@@ -1,3 +1,9 @@
+---
+title: "MEM-26: vanta-proxy ciclo auth→session→injection"
+kind: task
+description: "Callers: main.rs → AppState::new (firma estable). Callees nuevos: vantadb::entity::EntityStore (entitylist/entityget), vantadb::storage::StorageEngine::openwithconfig, vantamemory::core::{persona,scene}. Implicaciones: los 7 tests wire..."
+---
+
 # MEM-26: vanta-proxy ciclo auth→session→injection
 
 ## Metadata

@@ -1,3 +1,9 @@
+---
+title: "TASK PROV-03: Regenerar los 3 .pyi desde firmas reales (namespace, get/list/delete/list_namespaces..."
+kind: task
+description: "N/A — bug-fix con contrato mecánico (ver prompts/spec-template.md — feature-add/lógica nueva requiere Spec tabla; este es fix mecánico de drift stubs). Contrato mecánico suficiente: firmas .pyi == pymethods (7 métodos)"
+---
+
 # TASK PROV-03: Regenerar los 3 .pyi desde firmas reales (namespace, get/list/delete/list_namespaces, model/base_url/timeout)
 
 ## Metadata

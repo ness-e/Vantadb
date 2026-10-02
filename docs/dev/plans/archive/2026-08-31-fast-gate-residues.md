@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Fast-Gate Residues + Snapshot Completion"
+kind: plan
+status: archived
+description: Triage global de docs/dev/Backlog.md (110 items activos revisados)
+---
+
 # Plan de Ejecución: Fast-Gate Residues + Snapshot Completion
 
 > **Inicio:** 2026-08-31

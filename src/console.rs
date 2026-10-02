@@ -13,7 +13,12 @@
 //! ```
 
 use console::style;
+// Progress-bar helpers are CLI-only (`create_progress_bar`/`create_spinner`);
+// the `server` feature also compiles this module (bootstrap/telemetry status
+// lines) but must not drag `indicatif` into the HTTP binary (WIRE-07).
+#[cfg(feature = "cli")]
 use indicatif::{ProgressBar, ProgressStyle};
+#[cfg(feature = "cli")]
 use std::time::Duration;
 
 // ─── Banner ────────────────────────────────────────────────────────────────
@@ -102,6 +107,9 @@ pub fn print_banner() {
 /// | Full | Yes | Yes | Yes | Yes | Default fmt, full metadata |
 ///
 /// Respects the `RUST_LOG` env var (defaults to `info`).
+///
+/// Logs are always written to **stderr** so stdout stays clean for data
+/// output (`--json`) and machine protocols.
 pub fn init_logging(format: crate::config::LogFormat) {
     use tracing_subscriber::fmt;
     use tracing_subscriber::EnvFilter;
@@ -112,6 +120,7 @@ pub fn init_logging(format: crate::config::LogFormat) {
         crate::config::LogFormat::Json => {
             fmt::Subscriber::builder()
                 .with_env_filter(filter)
+                .with_writer(std::io::stderr)
                 .with_target(true)
                 .with_thread_ids(true)
                 .with_file(true)
@@ -123,6 +132,7 @@ pub fn init_logging(format: crate::config::LogFormat) {
         crate::config::LogFormat::Full => {
             fmt::Subscriber::builder()
                 .with_env_filter(filter)
+                .with_writer(std::io::stderr)
                 .with_target(true)
                 .with_thread_ids(true)
                 .with_file(true)
@@ -133,6 +143,7 @@ pub fn init_logging(format: crate::config::LogFormat) {
         crate::config::LogFormat::Compact => {
             fmt::Subscriber::builder()
                 .with_env_filter(filter)
+                .with_writer(std::io::stderr)
                 .with_target(false)
                 .with_thread_ids(false)
                 .with_file(false)
@@ -282,6 +293,7 @@ pub fn print_ready(addr: &str) {
 // ─── Progress Bars ──────────────────────────────────────────────────────────
 
 /// Create a styled progress bar for long operations (insert batch, indexing, etc.)
+#[cfg(feature = "cli")]
 pub fn create_progress_bar(total: u64, message: &str) -> ProgressBar {
     let pb = ProgressBar::new(total);
     pb.set_style(
@@ -298,6 +310,7 @@ pub fn create_progress_bar(total: u64, message: &str) -> ProgressBar {
 }
 
 /// Create a simple spinner for indeterminate operations
+#[cfg(feature = "cli")]
 pub fn create_spinner(message: &str) -> ProgressBar {
     let pb = ProgressBar::new_spinner();
     pb.set_style(

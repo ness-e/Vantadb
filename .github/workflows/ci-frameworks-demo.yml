@@ -1,0 +1,109 @@
+name: 'CI: Frameworks demo — LangGraph dev→prod (same code, VantaDB checkpointer)'
+
+# ICP-03 (track frameworks, F5): the acceptance demo runs on every relevant PR.
+# Five fresh processes prove the "same code works in dev and prod" claim:
+# the same graph runs with InMemorySaver (dev) and VantaDBCheckpointer (prod);
+# dev loses state with the process, prod resumes it, threads stay isolated,
+# and every run asserts it executed the same business code (fingerprint) with
+# no backend/mode reference in the business section. A regression in VantaDB
+# checkpoint persistence turns this red; a keyword-only pass cannot satisfy it
+# (the assertions compare earlier-process state).
+#
+# Deterministic and offline by design: the graph node is plain Python — no LLM,
+# no tokens, no model files, no network beyond pip. Ubuntu only: the demo
+# exercises the checkpointing pipeline, not platform-specific behavior.
+#
+# Install notes (Alpha disposition, MKT-18f — the stop condition of the plan):
+# `vantadb-langchain` is NOT on PyPI yet (verified 404, 2026-09-30); the first
+# `adapters-v*` tag publishes it. Today the demo installs the in-repo adapter
+# with --no-deps: its declared pins (vantadb-py>=0.5.0,<0.7.0; langchain-core
+# >=0.3,<1) predate the current core/framework majors — resolving them would
+# replace the wheel built here and conflict with LangGraph 1.x. The pin
+# refresh ships with the first adapters release (shared finding, Task 41).
+# When the adapters are on PyPI, switch to `pip install vantadb-langchain`.
+#
+# No `continue-on-error` anywhere: a broken demo blocks the PR.
+
+on:
+  push:
+    branches: [ "main", "develop" ]
+    paths:
+      - 'examples/langgraph_dev_to_prod/**'
+      - 'integrations/langchain/**'
+      - 'integrations/test_pins.py'
+      - 'vantadb-python/**'
+      - 'src/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/ci-frameworks-demo.yml'
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - 'examples/langgraph_dev_to_prod/**'
+      - 'integrations/langchain/**'
+      - 'integrations/test_pins.py'
+      - 'vantadb-python/**'
+      - 'src/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/ci-frameworks-demo.yml'
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+  # Keep stdout encoding stable on any runner (demo prints ASCII; belt).
+  PYTHONUTF8: 1
+
+concurrency:
+  group: ci-frameworks-demo-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  dev-to-prod:
+    name: "Same graph: dev InMemorySaver -> prod VantaDB checkpointer"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/rust-setup
+        with:
+          install-system-deps: true
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Build vantadb_py wheel (maturin)
+        uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1.51.0
+        with:
+          command: build
+          args: --release --out dist --manifest-path ./vantadb-python/Cargo.toml
+
+      - name: Install wheel + LangGraph + in-repo adapter
+        # bash on all OSes: the wheel pick uses $(...) command substitution,
+        # which PowerShell (windows-latest default) cannot parse. ubuntu-only
+        # job today, same recipe as ci-examples.yml.
+        shell: bash
+        run: |
+          wheel="$(ls -t ./dist/vantadb_py-*.whl | head -n 1)"
+          python -m pip install --upgrade pip
+          python -m pip install "$wheel"
+          # LangGraph runtime + test runner. Brings its current dependency set
+          # (langchain-core>=1.4.7, langgraph-checkpoint 4.x).
+          python -m pip install "langgraph>=1,<2" pytest
+          # --no-deps explained in the header: pins refresh ships with the first
+          # adapters release; today the adapter runs against the wheel above.
+          python -m pip install --no-deps ./integrations/langchain
+
+      - name: "Demo: same graph code, dev (InMemorySaver) vs prod (VantaDB)"
+        run: python examples/langgraph_dev_to_prod/demo.py
+
+      - name: "Adapters: pin gate (FIND-84)"
+        run: python -m pytest integrations/test_pins.py -q

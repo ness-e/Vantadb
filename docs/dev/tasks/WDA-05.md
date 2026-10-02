@@ -1,3 +1,9 @@
+---
+title: Task WDA-05 — F5 Performance
+kind: task
+description: "Estado: ✅ COMPLETED (2026-08-24, ejecutada inline por vanta-lead tras 3 sub-agentes sin progreso)"
+---
+
 # Task WDA-05 — F5 Performance
 
 **Estado:** ✅ COMPLETED (2026-08-24, ejecutada inline por vanta-lead tras 3 sub-agentes sin progreso)

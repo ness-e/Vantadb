@@ -1,3 +1,9 @@
+---
+title: "Task MCP-16 — Tools mantenimiento TTL/WAL: purge_expired + compact_wal"
+kind: task
+description: "Fuente de verdad: docs/dev/Backlog.md → fase P25 - Exposición MCP/HTTP → fila MCP-16 (leer ANTES de ejecutar: problema, acciones numeradas, archivos exactos)"
+---
+
 # Task MCP-16 — Tools mantenimiento TTL/WAL: purge_expired + compact_wal
 
 **Fuente de verdad:** `docs/dev/Backlog.md` → fase **P25 - Exposición MCP/HTTP** → fila `MCP-16` (leer ANTES de ejecutar: problema, acciones numeradas, archivos exactos).

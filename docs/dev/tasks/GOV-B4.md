@@ -1,3 +1,9 @@
+---
+title: GOV-B4 — Regeneración openapi.yaml + gate paridad (Wave2 SHIP)
+kind: task
+description: "Estado: ✅ COMPLETED"
+---
+
 # GOV-B4 — Regeneración openapi.yaml + gate paridad (Wave2 SHIP)
 
 **Estado:** ✅ COMPLETED

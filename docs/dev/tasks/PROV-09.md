@@ -1,3 +1,9 @@
+---
+title: "PROV-09: pytest.importorskip + test embed() mockeado + job CI"
+kind: task
+description: "Workflow CI incluye step pytest providers (pytest.importorskip + test embed() mockeado + job CI que corra tests)\""
+---
+
 # PROV-09: pytest.importorskip + test embed() mockeado + job CI
 
 ## Metadata

@@ -13,6 +13,10 @@ impl Embedded {
     /// Namespaces that produce no results or fail validation are silently
     /// skipped.  An empty `namespaces` slice returns an empty `Vec`.
     ///
+    /// WIRE-08 pagination is **not available** here: the per-namespace search
+    /// runs through [`search`](Self::search), which drops the cursor. Use
+    /// [`search_page`](Self::search_page) on a single namespace to paginate.
+    ///
     /// # Errors
     /// Returns the first fatal engine error encountered (e.g. storage I/O
     /// failure).  Invalid namespace strings are silently skipped rather than
