@@ -6,9 +6,13 @@
 //! or changed items) fails this test until the author acknowledges it by
 //! updating the snapshot and getting the update reviewed.
 //!
+//! The test is `#[ignore]`d: it needs a nightly toolchain plus a full rustdoc
+//! JSON build, so only the dedicated `public-api-snapshot` CI job runs it
+//! (`--run-ignored ignored-only`); general suites and sanitizers skip it.
+//!
 //! Update the snapshot:
-//!   pwsh:  $env:VANTADB_PUBLIC_API_UPDATE="1"; cargo nextest run -p vantadb --test public_api
-//!   bash:  VANTADB_PUBLIC_API_UPDATE=1 cargo nextest run -p vantadb --test public_api
+//!   pwsh:  $env:VANTADB_PUBLIC_API_UPDATE="1"; cargo nextest run -p vantadb --test public_api --run-ignored ignored-only
+//!   bash:  VANTADB_PUBLIC_API_UPDATE=1 cargo nextest run -p vantadb --test public_api --run-ignored ignored-only
 //!
 //! Generation parameters (must stay in sync with the snapshot header):
 //! - toolchain: `nightly` (rustdoc JSON is nightly-only)
@@ -111,6 +115,7 @@ fn first_diff(expected: &str, actual: &str) -> String {
 }
 
 #[test]
+#[ignore = "requires nightly rustdoc JSON; runs in the public-api-snapshot CI job (--run-ignored ignored-only)"]
 fn public_api_snapshot_matches_committed_file() {
     let current =
         normalize(&generate_public_api().expect("could not generate the current public API"));
