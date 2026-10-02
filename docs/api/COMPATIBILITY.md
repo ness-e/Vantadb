@@ -18,7 +18,7 @@ deprecations are registered in [`DEPRECATIONS.md`](DEPRECATIONS.md).
 | Rail | Command | Scope | Placement |
 |------|---------|-------|-----------|
 | Rust API lint | `cargo semver-checks check-release` | `vantadb` — the only crates.io-published crate. `vantadb-wasm` is npm-distributed and has no crates.io baseline, so it is skipped by the tool | [`.github/workflows/ci-rust.yml`](../../.github/workflows/ci-rust.yml) job `semver-checks` (main pushes + PRs targeting main) + release-plz [`semver_check = true`](../../release-plz.toml) |
-| Rust API snapshot | `cargo test -p vantadb --test public_api` | `vantadb` public API, default features, simplified (blanket impls omitted) | CI job `public-api-snapshot`; golden file [`tests/api/public-api.txt`](../../tests/api/public-api.txt), regenerated only via `VANTADB_PUBLIC_API_UPDATE=1` |
+| Rust API snapshot | `cargo nextest run -p vantadb --test public_api --run-ignored ignored-only` | `vantadb` public API, default features, simplified (blanket impls omitted) | CI job `public-api-snapshot`; golden file [`tests/api/public-api.txt`](../../tests/api/public-api.txt), regenerated only via `VANTADB_PUBLIC_API_UPDATE=1` |
 | Tool presence check | `cargo semver-checks --version` | The semver job fails if the tool is missing (no silent skip) | Same job, step before the lint |
 | Docs coverage | `pwsh scripts/validate-docs-coverage.ps1` | SDK methods, config fields, error variants, CLI commands, Python methods, MCP tools | Fast CI + local pre-commit |
 | HTTP ↔ OpenAPI parity | `cargo test --test openapi_yaml_parity` | HTTP API surface (#6) | `cargo nextest` (ci-rust) |
@@ -94,7 +94,7 @@ item signature). The remaining two mix surfaces: `constructible_struct_adds_fiel
 `1.0.0` is declared only when **all** of the following are verifiable:
 
 - [ ] `cargo semver-checks check-release` exits `0` at the `1.0.0` release commit (the 0.9→1.0 bump licenses the major in one step).
-- [ ] `cargo test -p vantadb --test public_api` is green with `tests/api/public-api.txt` updated deliberately for 1.0 (the pre-release deltas section above is empty).
+- [ ] `cargo nextest run -p vantadb --test public_api --run-ignored ignored-only` is green with `tests/api/public-api.txt` updated deliberately for 1.0 (the pre-release deltas section above is empty).
 - [ ] [`DEPRECATIONS.md`](DEPRECATIONS.md) holds no active entry younger than one MINOR (each is removed or past its ≥1-MINOR window).
 - [ ] Every surface in the matrix above has ≥1 mechanical enforcement — zero `review-only` cells in the last column.
 - [ ] Version coherence: `[workspace.package] version` == published artifacts (crates.io / PyPI / npm) == `docs/api/openapi.yaml` header (rule R-2).
