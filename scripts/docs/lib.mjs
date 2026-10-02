@@ -8,6 +8,7 @@
 // "kind decides the path" enforceable instead of aspirational.
 
 import { readdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { join, dirname, relative, sep, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -22,6 +23,20 @@ const ARCHIVE_RE = /(^|\/)(archive|target)(\/|$)/;
 // ------------------------------------------------------------------- walking
 
 /** @returns {string[]} repo-relative POSIX paths of every .md under docs/ */
+/** Repo-relative paths of git-ignored files under docs/ (empty when git is unavailable). */
+function ignoredDocs() {
+  try {
+    const raw = execFileSync(
+      'git',
+      ['ls-files', '--others', '--ignored', '--exclude-standard', '-z', '--', 'docs'],
+      { cwd: ROOT, encoding: 'utf8' },
+    );
+    return new Set(raw.split('\0').filter(Boolean));
+  } catch {
+    return new Set();
+  }
+}
+
 export function listDocs({ includeArchive = true } = {}) {
   const out = [];
   (function walk(dir) {
@@ -35,7 +50,12 @@ export function listDocs({ includeArchive = true } = {}) {
       }
     }
   })(DOCS);
-  return out.sort();
+  // CI parity: git-ignored files exist locally but never in the repo, so indexing
+  // them makes the generated indexes drift from CI (which regenerates from a clean
+  // checkout) — e.g. `docs/user/discord/todo.md` (.gitignore `todo.md`). Untracked
+  // but NOT ignored files stay: a new doc must enter the index before it is committed.
+  const ignored = ignoredDocs();
+  return out.filter((p) => !ignored.has(p)).sort();
 }
 
 export const toPosix = (p) => p.split(sep).join('/');

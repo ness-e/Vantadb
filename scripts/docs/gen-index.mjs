@@ -361,6 +361,20 @@ if (JSON_OUT) {
   if (stale.length) {
     console.log(`\nstale / would change (${stale.length}):`);
     for (const s of stale) console.log(`  ${s}`);
+    // Mini-diff for the first stale file (debug cross-platform drift, 2026-10-02).
+    const first = stale[0];
+    const cur = readDoc(first);
+    const want = outputs.get(first);
+    const cl = cur.split('\n'), wl = want.split('\n');
+    let shown = 0;
+    for (let i = 0; i < Math.max(cl.length, wl.length) && shown < 8; i++) {
+      if (cl[i] !== wl[i]) {
+        console.log(`  [${first}] line ${i + 1}:`);
+        console.log(`    committed: ${JSON.stringify((cl[i] ?? '').slice(0, 120))}`);
+        console.log(`    expected:  ${JSON.stringify((wl[i] ?? '').slice(0, 120))}`);
+        shown++;
+      }
+    }
   }
   if (CHECK && (written.length || stale.length)) {
     console.log('\nCHECK FAILED: generated indexes are out of date.');

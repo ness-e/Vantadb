@@ -6,7 +6,7 @@
 
 Every link below points to the raw Markdown source, not a rendered page. Read the
 page you need; do not read this file end to end. This index covers the
-446 documentation pages; it deliberately omits the 1029 task files,
+445 documentation pages; it deliberately omits the 1029 task files,
 which are work items rather than documentation. The full inventory of every file
 is in docs/index.md in the repository.
 
@@ -191,7 +191,6 @@ is in docs/index.md in the repository.
 - [How Hybrid Search Actually Works](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/blog/how_hybrid_search_works.md): By the VantaDB Team
 - [Introducing VantaDB](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/blog/introducing_vantadb.md): By the VantaDB Team
 - [Local Agent Memory with Ollama + VantaDB](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/blog/ollama_vantadb_local_memory.md): By the VantaDB Team
-- [Pending Tasks — VantaDB Discord](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/discord/todo.md): URL: https://dash.carl.gg/
 - [Privacy & local LLMs — what VantaDB guarantees (and what it doesn't)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/PRIVACY.md): The exact privacy guarantees of the local-first stack — redaction-on-write, encrypted originals, certified delete, injection governance — with commands and a covered / not covered table
 - [SQLite for AI Agents: The Missing Memory Layer](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/blog/sqlite_for_ai_agents.md): By the VantaDB Team
 - [Server Configuration](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/discord/server-config.md): All categories grant ViewChannel + SendMessages to @everyone. Single-channel bilingual model — English and Spanish coexist in the same channels, language roles are cosmetic/identity only. Only STAFF category is restricted to Admin role
