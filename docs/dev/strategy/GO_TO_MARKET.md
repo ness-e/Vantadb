@@ -157,7 +157,7 @@ Based on "Context Engineering" analysis (term coined by Shopify CEO Tobi Lutke, 
 | **Typical Stack** | Ollama (inference) + AnythingLLM (frontend) + vector database (memory) |
 | **Current Pain** | AnythingLLM defaults to LanceDB. LanceDB lacks [bm25](../../user/glosario/bm25.md) and graphs. No native hybrid search. |
 | **VantaDB Value Prop** | Drop-in LanceDB replacement with hybrid search ([hnsw](../../user/glosario/hnsw.md) + [bm25](../../user/glosario/bm25.md) + RRF) — no architecture changes |
-| **Immediate Action** | Docker Compose: Ollama + VantaDB + AnythingLLM. LanceDB → VantaDB migration guide. |
+| **Immediate Action** | LanceDB → VantaDB migration guide (stack local, sin containers). |
 | **Priority** | 🟠 HIGH |
 
 **Research Finding:** AnythingLLM uses LanceDB for vector ingestion with minimal VRAM overhead. LanceDB has no [BM25](../../user/glosario/bm25.md) or graph. VantaDB provides a drop-in replacement with superior capabilities.
@@ -365,7 +365,7 @@ docs/
 **Deliverables by Vertical:**
 
 **Local LLM Stack:**
-- [ ] Docker Compose: Ollama + VantaDB + AnythingLLM *(parcial 2026-08-17: `docker-compose.yml` existe pero solo servicio VantaDB — falta el compose multi-servicio → MKT-21 (ex MKT-18i))*
+- [ ] Local LLM stack (Ollama + VantaDB + AnythingLLM) *(docker retirado 2026-10-02; MKT-21 sigue: stack local sin compose)*
 - [x] LanceDB → VantaDB migration guide *(✅ existe: `docs/user/tutorials/migration-from-lancedb.md` + `vantadb-python/vantadb_py/migrate/lancedb.py`)*
 - [ ] Blog: "Local agent memory with Ollama + VantaDB"
 

@@ -29,7 +29,7 @@ ollama pull llama3.2:3b
 ollama pull nomic-embed-text
 ```
 
-Local installs first (below). The historical Docker path (`docker compose up`, archivado en `docs/dev/archive/docker/` junto al `Dockerfile`) está descartado por ahora: no hay imágenes publicadas y el tutorial mantiene solo la vía local verificada.
+Local installs first (below). The historical Docker path was retired (2026-10-02, docker eliminado del repo) and no images are published; this tutorial keeps only the verified local route.
 
 ## 1. Connect VantaDB and set up embeddings
 
