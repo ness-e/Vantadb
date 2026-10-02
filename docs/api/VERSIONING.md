@@ -78,7 +78,7 @@ The contracts above are checked mechanically, not by convention:
   API against the latest crates.io release (CI job `semver-checks` + release-plz
   `semver_check`). Accepted pre-release deltas are tracked in
   [`COMPATIBILITY.md`](COMPATIBILITY.md).
-- `cargo test -p vantadb --test public_api` — golden snapshot of the simplified
+- `cargo nextest run -p vantadb --test public_api --run-ignored ignored-only` — golden snapshot of the simplified
   public API ([`tests/api/public-api.txt`](../../tests/api/public-api.txt)); any
   surface change must update the snapshot deliberately.
 - Per-surface enforcement matrix + 1.0 exit criteria:
