@@ -12,7 +12,7 @@ description: "Canonical index of the VantaDB documentation corpus."
      Grouped by kind, then by status, then by title.
      Source of truth: the frontmatter of the files listed below. -->
 
-1475 documents. This page is generated from frontmatter, so it cannot fall behind the tree. If a document is missing here, its `kind` or `description` is missing.
+1474 documents. This page is generated from frontmatter, so it cannot fall behind the tree. If a document is missing here, its `kind` or `description` is missing.
 
 ## Top level (3)
 
@@ -1435,7 +1435,7 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [WSM-10 — Semántica score/distance consistente (3 transports)](./dev/tasks/WSM-10.md)                                                                | task | Investigación research-vantadb-wasm-20260825 (H-15) y research-vantadb-ts-20260825 (H-03)                                                                                                                                                                                                                  |
 | [WSM-13: Estrategia de bundle documentada](./dev/tasks/WSM-13.md)                                                                                    | task | Files to read                                                                                                                                                                                                                                                                                              |
 
-## End-user documentation (130)
+## End-user documentation (129)
 
 ### Glossary — 62
 
@@ -1504,7 +1504,7 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [vector-similarity](./user/glosario/vector-similarity.md)                            | glossary | Vector Similarity refers to the mathematical metrics used to measure how similar two vectors are in a high-dimensional space. It is the basis of vector-search in hnsw                                                                                       |
 | [wal](./user/glosario/wal.md)                                                        | glossary | VantaDB uses a sharded WAL (ShardedWal) that distributes records in round-robin fashion across N shard files to reduce contention and improve write throughput                                                                                               |
 
-### Guides — 22
+### Guides — 21
 
 | Document                                                                                                                        | Kind  | Summary                                                                                                                                                                                                                                     |
 | ------------------------------------------------------------------------------------------------------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -1516,7 +1516,6 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [How Hybrid Search Actually Works](./user/blog/how_hybrid_search_works.md)                                                      | howto | By the VantaDB Team                                                                                                                                                                                                                         |
 | [Introducing VantaDB](./user/blog/introducing_vantadb.md)                                                                       | howto | By the VantaDB Team                                                                                                                                                                                                                         |
 | [Local Agent Memory with Ollama + VantaDB](./user/blog/ollama_vantadb_local_memory.md)                                          | howto | By the VantaDB Team                                                                                                                                                                                                                         |
-| [Pending Tasks — VantaDB Discord](./user/discord/todo.md)                                                                       | howto | URL: https://dash.carl.gg/                                                                                                                                                                                                                  |
 | [Privacy & local LLMs — what VantaDB guarantees (and what it doesn't)](./user/PRIVACY.md)                                       | howto | The exact privacy guarantees of the local-first stack — redaction-on-write, encrypted originals, certified delete, injection governance — with commands and a covered / not covered table                                                   |
 | [SQLite for AI Agents: The Missing Memory Layer](./user/blog/sqlite_for_ai_agents.md)                                           | howto | By the VantaDB Team                                                                                                                                                                                                                         |
 | [Server Configuration](./user/discord/server-config.md)                                                                         | howto | All categories grant ViewChannel + SendMessages to @everyone. Single-channel bilingual model — English and Spanish coexist in the same channels, language roles are cosmetic/identity only. Only STAFF category is restricted to Admin role |
