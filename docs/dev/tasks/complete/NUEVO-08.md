@@ -1,3 +1,9 @@
+---
+title: "NUEVO-08: Learning path estructurado en tutorials/ (5-7 ejemplos)"
+kind: task
+description: "RIESGO: medio — docs, pero el contenido debe reflejar API real (no inventada)"
+---
+
 # NUEVO-08: Learning path estructurado en tutorials/ (5-7 ejemplos)
 
 ## Metadata

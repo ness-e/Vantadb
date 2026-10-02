@@ -1,3 +1,9 @@
+---
+title: FIND-84 — pins + fixtures + dist/PyPI integrations (9 adapters)
+kind: task
+description: "upper-bounds en 7/9 adapters + fixtures sin subdir inexistente/disco + decisión dist/ documentada + PyPI/Alpha documentada + pytest verde (mocks).\""
+---
+
 # FIND-84 — pins + fixtures + dist/PyPI integrations (9 adapters)
 
 ## Metadata

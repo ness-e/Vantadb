@@ -1,3 +1,9 @@
+---
+title: "GOV-A5: Registros live crates.io/npm/PyPI (verify-log + docs/reports + dora)"
+kind: task
+description: "Select-String -Path \"docs/dev/reports/\" -Pattern \"registros live\" | Measure-Object Count >=1 AND cargo check -p vantadb exit 0 (workspace check sin warnings)"
+---
+
 # GOV-A5: Registros live crates.io/npm/PyPI (verify-log + docs/reports + dora)
 
 ## Metadata

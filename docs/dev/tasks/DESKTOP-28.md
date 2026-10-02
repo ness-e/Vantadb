@@ -1,3 +1,9 @@
+---
+title: "DESKTOP-28: Unificar paneles legacy al design system Studio + limpieza"
+kind: task
+description: "Callers: desktop/src/components/.tsx, desktop/src/App.css, desktop/src/index.css"
+---
+
 # DESKTOP-28: Unificar paneles legacy al design system Studio + limpieza
 
 ## Metadata

@@ -1,17 +1,17 @@
 ---
-title: "SDK Python"
-type: glossary-entry
+title: SDK Python
+kind: glossary
 status: stable
-tags: [glosario, sdk, python, pyo3, ffi]
-last_reviewed: 2026-09-15
+description: "El SDK Python de VantaDB es una interfaz de programación que permite a desarrolladores Python interactuar con el motor de base de datos embebido escrito en Rust, mediante bindings nativos generados con PyO3"
 aliases: [Python SDK, SDK Python, vantadb-py]
+tags: [glosario, sdk, python, pyo3, ffi]
 ---
 
 # SDK Python
 
 ## Definición
 
-El **SDK Python** de VantaDB es una interfaz de programación que permite a desarrolladores Python interactuar con el motor de base de datos embebido escrito en Rust, mediante bindings nativos generados con [PyO3](PyO3.md).
+El **SDK Python** de VantaDB es una interfaz de programación que permite a desarrolladores Python interactuar con el motor de base de datos embebido escrito en Rust, mediante bindings nativos generados con [PyO3](./pyo3.md).
 
 ## Arquitectura
 
@@ -28,7 +28,7 @@ El **SDK Python** de VantaDB es una interfaz de programación que permite a desa
 │  ┌─────────────────────────────────────────────────────┐   │
 │  │  #[pyclass] VantaDB                                 │   │
 │  │  #[pymethods] put, get, search, delete              │   │
-│  │  py.allow_threads() para liberar [GIL](GIL.md)            │   │
+│  │  py.allow_threads() para liberar [GIL](./gil.md)            │   │
 │  └─────────────────────────────────────────────────────┘   │
 ├─────────────────────────────────────────────────────────────┤
 │                    Rust Core (vantadb-core)                  │
@@ -144,7 +144,7 @@ hits = db.search(
     namespace: str,
     query_vector: list[float],         # Vector de consulta
     filters: dict = None,              # Filtros de metadata
-    text_query: str = None,            # Query léxica ([BM25](BM25.md))
+    text_query: str = None,            # Query léxica ([BM25](./bm25.md))
     top_k: int = 10,
     distance_metric: str = "cosine",   # "cosine" o "euclidean"
     explain: bool = False              # Incluir explicación de scoring
@@ -169,7 +169,7 @@ for hit in results:
 results = db.search(
     namespace="knowledge_base",
     query_vector=embed("persistencia WAL"),
-    text_query="persistencia WAL",     # BM25 + HNSW + [RRF](RRF.md)
+    text_query="persistencia WAL",     # BM25 + HNSW + [RRF](./rrf.md)
     top_k=10
 )
 ```
@@ -266,7 +266,7 @@ db.flush() -> None
 db.close() -> None
 ```
 
-## Liberación del [GIL](GIL.md)
+## Liberación del [GIL](./gil.md)
 
 VantaDB libera el Global Interpreter Lock durante operaciones pesadas para permitir concurrencia real:
 
@@ -385,7 +385,7 @@ db.close()
 
 ## Véase También
 
-- [PyO3](PyO3.md) - Framework de bindings Rust-Python
-- [GIL](GIL.md) - Global Interpreter Lock
-- [FFI](FFI.md) - Foreign Function Interface
+- [PyO3](./pyo3.md) - Framework de bindings Rust-Python
+- [GIL](./gil.md) - Global Interpreter Lock
+- [FFI](./ffi.md) - Foreign Function Interface
 - [SDK](python-sdk.md) - Concepto general

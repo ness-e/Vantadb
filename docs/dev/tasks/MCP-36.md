@@ -1,3 +1,9 @@
+---
+title: "MCP-36 — Protocolo moderno: negociación protocolVersion 2025-06-18 + structured output"
+kind: task
+description: "Evidencia adicional: cargo test -p vantadb-mcp --test mcptests incluye eco negociación; grep -n structuredContent vantadb-mcp/src/validation.rs → hit"
+---
+
 # MCP-36 — Protocolo moderno: negociación protocolVersion 2025-06-18 + structured output
 
 ## Metadata

@@ -1,4 +1,19 @@
-# FND-05 — SDK idiomático (no wrapper 1:1 de Rust)
+---
+title: "FND-05 — SDK idiomático (no wrapper 1:1 de Rust)"
+kind: research
+status: archived
+description: Ambos SDK ya NO son un reflejo crudo del core Rust — hay trabajo idiomático real hecho
+---
+
+# FND-05 - SDK idiomático (no wrapper 1:1 de Rust)
+
+> ⚠️ **STALE.** Las 3 menciones a `VantaError` de este archivo son una
+> observación de la investigación, no la API real. La clase de error de
+> TypeScript es **`DbError`** (`vantadb-ts/src/errors.ts`); su `name`
+> serializado sigue siendo la cadena `"VantaError"`, y la clase de error de
+> Python es **`vantadb.Error`** + 10 subclases. Ver
+> `docs/api/ERROR_HANDLING.md` §5. Se conserva el texto original por ser un
+> registro archivado.
 
 > **Fecha:** 2026-08-16 · **Plan:** 2026-08-16-wave-p20-tsys.md · **Prio:** 🟡
 > **Tipo:** análisis + prototipo (NO rewrite) · **Ámbito:** `vantadb-python/`, `vantadb-ts/`

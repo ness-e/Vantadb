@@ -1,3 +1,9 @@
+---
+title: "DESKTOP-29: Coordinar polling de métricas — 1 hook useMetricsPoll compartido"
+kind: task
+description: "Callers: MetricsGrid (4s), KpiCards (5s), IndicesLens (4s), ExportPanel (oneshot)"
+---
+
 # DESKTOP-29: Coordinar polling de métricas — 1 hook useMetricsPoll compartido
 
 ## Metadata

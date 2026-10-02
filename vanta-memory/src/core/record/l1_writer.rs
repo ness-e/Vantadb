@@ -309,12 +309,20 @@ fn load_targets(
     Ok(targets)
 }
 
-fn put_record(
+/// Persist one record under `ns` (key = sanitized record id). The caller
+/// passes the record with `vector: None` and the node vector separately —
+/// vectors live on the node, not inside the payload. Shared with the dream
+/// promotion path (`core::dream`), which writes consolidated records verbatim.
+pub(crate) fn put_record(
     db: &Embedded,
     ns: &str,
     record: &MemoryRecord,
     vector: Option<Vec<f32>>,
 ) -> Result<(), L1Error> {
+    debug_assert!(
+        record.vector.is_none(),
+        "put_record expects the vector stripped from the record; pass it via the vector arg"
+    );
     let mut metadata = MemoryMetadata::new();
     metadata.insert(
         "type".into(),
@@ -329,6 +337,7 @@ fn put_record(
         vector,
         sparse_vector: None,
         ttl_ms: None,
+        ..Default::default()
     })?;
     Ok(())
 }

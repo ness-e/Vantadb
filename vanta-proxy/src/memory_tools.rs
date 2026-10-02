@@ -6,16 +6,27 @@
 //! search runs synchronous recall over the embedded store. A standard-shaped
 //! tool result is then synthesized so the upstream can continue the turn.
 
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
+
 use serde_json::{json, Value};
-use vantadb::sdk::Embedded;
+use vantadb::sdk::{Embedded, MemoryInput};
 
 use crate::capture;
 use crate::inject::Protocol;
 use crate::sse_intercept::{Accumulated, ToolCallAcc};
-use crate::writeback::WriteBack;
+use crate::writeback::{L0Job, WriteBack};
 
 pub(crate) const TOOL_CAPTURE: &str = "vanta_memory_capture";
 pub(crate) const TOOL_SEARCH: &str = "vanta_memory_search";
+
+/// Namespace holding North Star metric events (ICP-01, closing the DEF-05
+/// FIND): one metadata-only record per executed search.
+pub(crate) const EVENTS_NAMESPACE: &str = "proxy-memory-events";
+
+/// Monotonic disambiguator so two events in the same millisecond keep both
+/// records (`key = {now_ms}-{seq}`; upsert semantics would drop one otherwise).
+static EVENT_SEQ: AtomicU64 = AtomicU64::new(0);
 
 const MEMORY_TOOLS: [&str; 2] = [TOOL_CAPTURE, TOOL_SEARCH];
 
@@ -70,7 +81,8 @@ pub(crate) fn extract(message: &Accumulated) -> Vec<MemoryCall> {
 /// reported as soon as the job is queued — a slow write can never delay the
 /// wire. Search runs synchronously (the model needs its answer to continue).
 /// Neither path can fail the request: storage errors degrade into descriptive
-/// result text the model can react to.
+/// result text the model can react to. `guard` applies redaction-on-write +
+/// the per-namespace envelope (VER-03) — same L0 path as turn capture.
 pub(crate) fn execute(
     memory: &Embedded,
     writeback: &WriteBack,
@@ -79,6 +91,9 @@ pub(crate) fn execute(
     space_id: &str,
     model: &str,
     call: &MemoryCall,
+    guard: &capture::WriteGuard<'_>,
+    governance: &crate::governance::Governance,
+    recall_budget_chars: u64,
 ) -> String {
     match call.name.as_str() {
         TOOL_CAPTURE => {
@@ -99,19 +114,43 @@ pub(crate) fn execute(
                 space_id,
                 model,
                 text,
+                guard,
             );
             writeback.track(format!("tool:{session_key}:{}", call.id), job);
             "Memory captured.".to_string()
         }
-        TOOL_SEARCH => search(memory, session_key, call),
+        TOOL_SEARCH => search(
+            memory,
+            writeback,
+            session_key,
+            call,
+            governance,
+            recall_budget_chars,
+        ),
         other => format!("Unknown memory tool `{other}`."),
     }
 }
 
 /// Synchronous recall (D46): run one auto-recall pass scoped to the session
 /// and format the hits as the standard `<relevant-memories>` block.
-fn search(memory: &Embedded, session_key: &str, call: &MemoryCall) -> String {
-    use vanta_memory::core::hooks::{perform_auto_recall, AutoRecallParams, RecallConfig};
+///
+/// VER-04: the pass runs under the injection ACL (`governance.policy()`) and
+/// is audited per hit (source ns/key + score). `recall_budget_chars` caps the
+/// recalled lines (0 = unbounded; derived from the `<vanta-memory>` token
+/// budget when injection is enabled).
+///
+/// ICP-01 (closes the DEF-05 FIND): every executed search also queues a
+/// metadata-only North Star event (`{session, kind:"search", hits}`) through
+/// [`WriteBack::track`] — fire-and-forget, the wire never waits on it.
+fn search(
+    memory: &Embedded,
+    writeback: &WriteBack,
+    session_key: &str,
+    call: &MemoryCall,
+    governance: &crate::governance::Governance,
+    recall_budget_chars: u64,
+) -> String {
+    use vanta_memory::core::hooks::{perform_auto_recall_governed, AutoRecallParams, RecallConfig};
 
     let query = call
         .args
@@ -122,19 +161,75 @@ fn search(memory: &Embedded, session_key: &str, call: &MemoryCall) -> String {
     if query.trim().is_empty() {
         return "Search rejected: no `query` provided.".to_string();
     }
+    let budget = (recall_budget_chars > 0).then_some(recall_budget_chars as usize);
     let params = AutoRecallParams {
         user_text: query,
         session_key,
         isolation: None,
-        config: RecallConfig::default(),
+        config: RecallConfig {
+            max_chars_per_memory: budget,
+            max_total_recall_chars: budget,
+            ..RecallConfig::default()
+        },
     };
-    match perform_auto_recall(memory, params, None) {
-        Ok(Some(result)) => result
-            .prepend_context
-            .unwrap_or_else(|| NO_MEMORIES.to_string()),
+    let outcome = perform_auto_recall_governed(memory, params, None, governance.policy());
+    // North Star metric (search side): count only executed passes — the event
+    // carries the session + hit count, never the query or recalled content.
+    if let Ok(found) = &outcome {
+        let hits = found.as_ref().map_or(0, |r| r.recalled_memories.len());
+        writeback.track(
+            format!("search:{session_key}"),
+            search_event_job(memory.clone(), session_key, hits),
+        );
+    }
+    match outcome {
+        Ok(Some(result)) => {
+            governance.audit_recall("mem:search", session_key, &result, recall_budget_chars);
+            result
+                .prepend_context
+                .unwrap_or_else(|| NO_MEMORIES.to_string())
+        }
         Ok(None) => NO_MEMORIES.to_string(),
         Err(e) => format!("Memory search failed: {e}"),
     }
+}
+
+/// ICP-01: retryable L0 job persisting one search event — the search-side
+/// input of the North Star metric (`docs/api/PROXY.md` §North Star). Metadata
+/// only: session, kind and hit count; the query text and the recalled content
+/// are never persisted here. Key `{ms}-{seq}` mirrors the turn-capture shape
+/// (`capture.rs`) so the metric query can filter by timestamp client-side.
+fn search_event_job(memory: Embedded, session_key: &str, hits: usize) -> L0Job {
+    let now_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64;
+    let key = format!("{now_ms}-{}", EVENT_SEQ.fetch_add(1, Ordering::Relaxed));
+    let payload = json!({
+        "session": session_key,
+        "kind": "search",
+        "hits": hits,
+    })
+    .to_string();
+    Arc::new(move || {
+        let memory = memory.clone();
+        let key = key.clone();
+        let payload = payload.clone();
+        Box::pin(async move {
+            // ponytail: sync storage op inside async — same ceiling as
+            // capture.rs (proxy scale tolerates it; move to spawn_blocking if
+            // events ever show in latency profiles).
+            memory
+                .put(MemoryInput {
+                    namespace: EVENTS_NAMESPACE.into(),
+                    key,
+                    payload,
+                    ..Default::default()
+                })
+                .map(|_| ())
+                .map_err(|e| e.to_string())
+        })
+    })
 }
 
 const NO_MEMORIES: &str = "No relevant memories found.";
@@ -411,6 +506,11 @@ mod tests {
     fn capture_rejects_empty_text_without_touching_writeback() {
         let db = memory();
         let wb = WriteBack::new(None);
+        let (redactor, envelope) = guard_pair();
+        let guard = capture::WriteGuard {
+            redactor: &redactor,
+            envelope: &envelope,
+        };
         let result = execute(
             &db,
             &wb,
@@ -423,16 +523,24 @@ mod tests {
                 name: TOOL_CAPTURE.into(),
                 args: json!({"text": "   "}),
             },
+            &guard,
+            &governance(),
+            0,
         );
         assert!(result.contains("rejected"));
         std::thread::sleep(std::time::Duration::from_millis(50));
         assert!(crate::capture::list_turns(&db).is_empty());
     }
 
-    #[test]
-    fn search_empty_db_reports_no_memories_and_unknown_tool_degrades() {
+    #[tokio::test] // ICP-01: search encola el evento North Star (spawn tokio).
+    async fn search_empty_db_reports_no_memories_and_unknown_tool_degrades() {
         let db = memory();
         let wb = WriteBack::new(None);
+        let (redactor, envelope) = guard_pair();
+        let guard = capture::WriteGuard {
+            redactor: &redactor,
+            envelope: &envelope,
+        };
         let result = execute(
             &db,
             &wb,
@@ -445,8 +553,18 @@ mod tests {
                 name: TOOL_SEARCH.into(),
                 args: json!({"query": "anything"}),
             },
+            &guard,
+            &governance(),
+            0,
         );
         assert_eq!(result, NO_MEMORIES);
+
+        // Search ejecutado sin hits → evento con `hits: 0` (métrica honesta).
+        let events = wait_for_events(&db, 1).await;
+        let payload: Value = serde_json::from_str(&events[0].payload).expect("payload json");
+        assert_eq!(payload["session"], "sess");
+        assert_eq!(payload["kind"], "search");
+        assert_eq!(payload["hits"], 0);
 
         let unknown = execute(
             &db,
@@ -460,8 +578,111 @@ mod tests {
                 name: "vanta_memory_delete_everything".into(),
                 args: json!({}),
             },
+            &guard,
+            &governance(),
+            0,
         );
         assert!(unknown.contains("Unknown memory tool"));
+    }
+
+    /// ICP-01 (cierra el FIND de DEF-05): un search ejecutado persiste su
+    /// evento North Star (`proxy-memory-events`, metadata-only) vía WriteBack
+    /// fire-and-forget — sin tocar el wire.
+    #[tokio::test]
+    async fn search_tracks_metric_event_with_hits() {
+        let db = memory();
+        let wb = WriteBack::new(None);
+        let (redactor, envelope) = guard_pair();
+        let guard = capture::WriteGuard {
+            redactor: &redactor,
+            envelope: &envelope,
+        };
+        // Sesión 1: turno L1 (mismo path que la captura L0 / tool capture).
+        (capture::turn_job(
+            db.clone(),
+            "sess-metric",
+            "openai",
+            "space",
+            "m",
+            "xylophone-quasar-7429 prefers concise answers",
+            &guard,
+        ))()
+        .await
+        .expect("seed L1 turn");
+        // Sesión 2: search con hit léxico.
+        let result = execute(
+            &db,
+            &wb,
+            "sess-metric",
+            "openai",
+            "space",
+            "m",
+            &MemoryCall {
+                id: "s".into(),
+                name: TOOL_SEARCH.into(),
+                args: json!({"query": "xylophone concise"}),
+            },
+            &guard,
+            &governance(),
+            0,
+        );
+        assert!(
+            result.contains("xylophone-quasar-7429"),
+            "el search debe recuperar el turno de la sesión: {result}"
+        );
+        let events = wait_for_events(&db, 1).await;
+        assert!(
+            events[0].key.contains('-'),
+            "key {{ms}}-{{seq}}: {}",
+            events[0].key
+        );
+        let payload: Value = serde_json::from_str(&events[0].payload).expect("payload json");
+        assert_eq!(payload["session"], "sess-metric");
+        assert_eq!(payload["kind"], "search");
+        assert!(
+            payload["hits"].as_u64().unwrap_or(0) >= 1,
+            "hits debe ser ≥1: {payload}"
+        );
+    }
+
+    /// Poll (nunca sleep fijo): el evento se persiste async vía WriteBack.
+    async fn wait_for_events(db: &Embedded, n: usize) -> Vec<vantadb::sdk::MemoryRecord> {
+        for _ in 0..100 {
+            let events = search_events(db);
+            if events.len() >= n {
+                return events;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+        }
+        search_events(db)
+    }
+
+    fn search_events(db: &Embedded) -> Vec<vantadb::sdk::MemoryRecord> {
+        db.list(
+            EVENTS_NAMESPACE,
+            vantadb::sdk::MemoryListOptions {
+                limit: 50,
+                ..Default::default()
+            },
+        )
+        .map(|page| page.records)
+        .unwrap_or_default()
+    }
+
+    /// VER-04: allow-all ACL, audit disabled (legacy behavior).
+    fn governance() -> crate::governance::Governance {
+        crate::governance::Governance::from_config(&[], "")
+    }
+
+    /// Default guard: redaction + envelope disabled (legacy behavior).
+    fn guard_pair() -> (crate::redact::Redactor, crate::envelope::Envelope) {
+        let redactor = crate::redact::Redactor::new(&crate::redact::RedactConfig::default())
+            .expect("redactor");
+        let envelope = crate::envelope::Envelope::with_master(
+            &crate::envelope::EnvelopeConfig::default(),
+            None,
+        );
+        (redactor, envelope)
     }
 
     fn memory() -> Embedded {

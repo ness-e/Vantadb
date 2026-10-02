@@ -1,9 +1,101 @@
 //! Vector-related SDK types: search requests, hits, and search results.
 
-use super::super::types::{u128_serde, MemoryMetadata, MemoryRecord, SearchExplanationHit};
+use super::super::types::{
+    u128_serde, MemoryMetadata, MemoryRecord, SearchExplanationHit, ValidWindow,
+};
 use crate::node::{DistanceMetric, SparseVector};
 use crate::search_profile::SearchProfileConfig;
 use serde::{Deserialize, Serialize};
+
+/// Score-range filter applied after ranking (WIRE-08).
+///
+/// Invariants (validated at the request boundary):
+/// - bounds are finite when present, and `min_score <= max_score`;
+/// - bounds are **inclusive** and expressed in **score space** (higher score =
+///   more relevant, matching [`MemorySearchHit::score`]).
+///
+/// Ecosystem mapping: Milvus `radius`/`range_filter` are distance-space and
+/// flip sign per metric (COSINE/IP: `radius < distance <= range_filter`;
+/// L2: `range_filter <= distance < radius`); Qdrant uses `score_threshold`
+/// (minimum score, score-space). This struct is the score-space equivalent
+/// with both bounds inclusive.
+#[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
+pub struct RangeFilter {
+    /// Lower bound (inclusive). `None` = unbounded below.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub min_score: Option<f32>,
+    /// Upper bound (inclusive). `None` = unbounded above.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_score: Option<f32>,
+}
+
+/// Group-by selection over ranked hits (WIRE-08).
+///
+/// Semantics: iterate the ranked result list in order and keep a hit while its
+/// group (the canonical value of `field` in the record metadata) has fewer than
+/// `group_size` hits already selected; stop once `top_k` hits were selected.
+/// Records missing `field` form their own group. `top_k` caps **total hits**
+/// (unlike Milvus/Qdrant, where `limit` caps the number of groups — see
+/// `docs/api/SEARCH_PARITY.md`).
+///
+/// Invariants (validated at the request boundary): `field` non-empty,
+/// `group_size >= 1`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct GroupByConfig {
+    /// Metadata field whose values define the groups.
+    pub field: String,
+    /// Maximum hits returned per group value. Defaults to 1 (Milvus default).
+    #[serde(default = "default_group_size")]
+    pub group_size: usize,
+}
+
+fn default_group_size() -> usize {
+    1
+}
+
+impl Default for GroupByConfig {
+    fn default() -> Self {
+        Self {
+            field: String::new(),
+            group_size: default_group_size(),
+        }
+    }
+}
+
+/// Maximal Marginal Relevance reranking config (WIRE-08).
+///
+/// `mmr(d) = lambda * relevance(d) - (1 - lambda) * max_{s in S} cosine(d, s)`
+/// where relevance is min-max normalized within the candidate window (so
+/// `lambda` is meaningful across fusion routes whose raw scores live on
+/// different scales) and `S` is the already-selected set.
+///
+/// Invariants (validated at the request boundary): `lambda` in `[0, 1]`,
+/// `fetch_k >= 1` when present.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct MmrConfig {
+    /// Relevance/diversity trade-off in `[0, 1]`. `1.0` = pure relevance
+    /// (identity ordering), `0.0` = pure diversity. Defaults to `0.5`.
+    #[serde(default = "default_mmr_lambda")]
+    pub lambda: f32,
+    /// Candidate window considered for reranking. `None` = `top_k * 5`
+    /// (the "fetch_k 5-10x" guidance from the backlog), clamped to
+    /// `[top_k, MAX_MMR_CANDIDATES]`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fetch_k: Option<usize>,
+}
+
+fn default_mmr_lambda() -> f32 {
+    0.5
+}
+
+impl Default for MmrConfig {
+    fn default() -> Self {
+        Self {
+            lambda: default_mmr_lambda(),
+            fetch_k: None,
+        }
+    }
+}
 
 /// Stable vector search request for persistent memory records.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -27,14 +119,62 @@ pub struct MemorySearchRequest {
     pub distance_metric: DistanceMetric,
     /// When true, each result will carry a `SearchExplanation`.
     pub explain: bool,
-    /// When true, records marked as superseded (ADR-028) are dropped from the
-    /// results. Defaults to false: superseded records remain searchable.
+    /// When true, records that are no longer current are dropped: superseded
+    /// records (ADR-028) **and** records whose validity window ended at
+    /// or before now (`invalid_at_ms <= now`, ADR-046 §D3-6, SCH-03). Defaults
+    /// to false: superseded/ended records remain searchable.
     #[serde(default)]
     pub exclude_superseded: bool,
+    /// Opt-in confidence filter (ADR-046 §D2, SCH-04): when set, only records
+    /// whose stored `confidence` is `>= min_confidence` are returned. Must be
+    /// finite and within `[0, 1]` (boundary-validated). `None` = no filter
+    /// (default unchanged). Filters at final assembly (no index change,
+    /// ranking untouched) and is part of the cursor fingerprint.
+    #[serde(default)]
+    pub min_confidence: Option<f32>,
+    /// Valid-time point (ADR-046 §D3, SCH-03): when set, only records whose
+    /// validity window contains `as_of_ms` are returned
+    /// (`valid_at_ms <= as_of_ms < invalid_at_ms`; `None` window end = open).
+    /// `None` = no temporal filter (default unchanged). Filters at final
+    /// assembly (no index change) and is part of the cursor fingerprint.
+    #[serde(default)]
+    pub as_of_ms: Option<u64>,
+    /// Valid-time window overlap filter (ADR-046 §D3, SCH-03): only records
+    /// valid at some instant inside `[from_ms, to_ms)`. Boundary-validated
+    /// (`from_ms < to_ms`). `None` = no filter (default unchanged). Hashed in
+    /// the cursor fingerprint.
+    #[serde(default)]
+    pub valid_window: Option<ValidWindow>,
+    /// SCH-05 (ADR-046 §D5): when `false` (default) quarantined records are
+    /// excluded from the ranked assembly — quarantined content never reaches
+    /// default retrieval. `true` opts in to inspect the quarantine queue.
+    /// Hashed in the cursor fingerprint (a cursor from another quarantine
+    /// view is rejected).
+    #[serde(default)]
+    pub include_quarantined: bool,
     /// Optional search profile (mode, RRF k, candidate budget) for this request.
     /// `None` uses the core defaults (MEM-01).
     #[serde(default)]
     pub search_profile: Option<SearchProfileConfig>,
+    /// Optional score-range filter applied after ranking (WIRE-08).
+    #[serde(default)]
+    pub range: Option<RangeFilter>,
+    /// Optional group-by selection applied after ranking (WIRE-08).
+    #[serde(default)]
+    pub group_by: Option<GroupByConfig>,
+    /// Optional MMR diversity reranking (WIRE-08). Mutually exclusive with
+    /// `cursor` (rejected at the boundary: MMR is set-dependent).
+    #[serde(default)]
+    pub mmr: Option<MmrConfig>,
+    /// Opaque continuation token from a previous [`MemorySearchPage`] result
+    /// (WIRE-08). Valid only for a request with the same plan fingerprint
+    /// (namespace, query, filters, metric, profile, range, temporal params,
+    /// confidence threshold) and the same
+    /// process — never persist or parse it. Resume is best-effort, not a
+    /// snapshot: see [`Embedded::search_page`](crate::sdk::Embedded::search_page)
+    /// for the exact guarantee. Mutually exclusive with `mmr`/`group_by`.
+    #[serde(default)]
+    pub cursor: Option<String>,
 }
 
 impl Default for MemorySearchRequest {
@@ -49,9 +189,57 @@ impl Default for MemorySearchRequest {
             distance_metric: DistanceMetric::Cosine,
             explain: false,
             exclude_superseded: false,
+            min_confidence: None,
+            as_of_ms: None,
+            valid_window: None,
+            include_quarantined: false,
             search_profile: None,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
         }
     }
+}
+
+/// One page of search results with an optional continuation cursor (WIRE-08).
+///
+/// Page contract (same convention as `MemoryListPage`): `next_cursor` is
+/// `Some` only when the page is full (`hits.len() == top_k`); a page with fewer
+/// hits is the last page. `next_cursor` is always `None` when `mmr` or
+/// `group_by` is set (pagination is unsupported for those selectors).
+///
+/// Selective abstention (SCH-05, ADR-046 §D2): when a confidence threshold is
+/// configured and no candidates survive it, `abstained` is `true` and
+/// `abstention_reason` carries the stable code — the response is never a
+/// silent empty page. Default (no threshold) leaves both at their defaults.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct MemorySearchPage {
+    /// Ranked hits for this page.
+    pub hits: Vec<MemorySearchHit>,
+    /// Cursor for the next page, or `None` if this was the last page.
+    pub next_cursor: Option<String>,
+    /// Explicit abstention signal (mirrors ADR-046 §D2): `true` when the
+    /// configured confidence threshold filtered every candidate.
+    #[serde(default)]
+    pub abstained: bool,
+    /// Stable abstention reason code; `None` unless `abstained`.
+    #[serde(default)]
+    pub abstention_reason: Option<AbstentionReason>,
+}
+
+/// Stable abstention reason codes (ADR-046 §D2, MGR-13 §5.3):
+/// `no_candidates_above_threshold` (the configured threshold filtered every
+/// candidate) or `all_quarantined` (every candidate was quarantined and the
+/// default-exclude gate removed them). `#[non_exhaustive]` — may grow.
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AbstentionReason {
+    /// No candidate reached the configured confidence threshold.
+    NoCandidatesAboveThreshold,
+    /// Every candidate was quarantined (excluded by default).
+    AllQuarantined,
 }
 
 /// Stable vector search hit for external SDKs.
@@ -108,7 +296,15 @@ mod tests {
             explain: true,
             query_sparse: None,
             exclude_superseded: false,
+            min_confidence: None,
+            as_of_ms: None,
+            valid_window: None,
+            include_quarantined: false,
             search_profile: None,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
         };
         assert_eq!(req.namespace, "test");
         assert_eq!(req.query_vector.len(), 3);
@@ -129,11 +325,131 @@ mod tests {
             explain: false,
             query_sparse: None,
             exclude_superseded: false,
+            min_confidence: None,
+            as_of_ms: None,
+            valid_window: None,
+            include_quarantined: false,
             search_profile: None,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
         };
         let json = serde_json::to_string(&req).unwrap();
         let deserialized: MemorySearchRequest = serde_json::from_str(&json).unwrap();
         assert_eq!(deserialized, req);
+    }
+
+    // --- WIRE-08: range / group_by / mmr / cursor ---
+
+    #[test]
+    fn test_range_filter_defaults_and_roundtrip() {
+        let req = MemorySearchRequest::default();
+        assert_eq!(req.range, None);
+        assert_eq!(req.group_by, None);
+        assert_eq!(req.mmr, None);
+        assert_eq!(req.cursor, None);
+
+        let req = MemorySearchRequest {
+            range: Some(RangeFilter {
+                min_score: Some(0.25),
+                max_score: Some(0.75),
+            }),
+            group_by: Some(GroupByConfig {
+                field: "doc_id".into(),
+                group_size: 3,
+            }),
+            mmr: Some(MmrConfig {
+                lambda: 0.7,
+                fetch_k: Some(64),
+            }),
+            cursor: Some("opaque-token".into()),
+            ..Default::default()
+        };
+        let json = serde_json::to_string(&req).unwrap();
+        let back: MemorySearchRequest = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, req);
+    }
+
+    #[test]
+    fn test_range_filter_omits_none_bounds() {
+        let range = RangeFilter {
+            min_score: Some(0.5),
+            max_score: None,
+        };
+        let json = serde_json::to_string(&range).unwrap();
+        assert!(json.contains("min_score"));
+        assert!(!json.contains("max_score"), "None bound must be omitted");
+    }
+
+    #[test]
+    fn test_group_by_defaults_to_one_per_group() {
+        let cfg = GroupByConfig::default();
+        assert_eq!(cfg.group_size, 1);
+        // JSON without group_size defaults to 1.
+        let back: GroupByConfig = serde_json::from_str(r#"{"field":"doc"}"#).unwrap();
+        assert_eq!(back.group_size, 1);
+        assert_eq!(back.field, "doc");
+    }
+
+    #[test]
+    fn test_mmr_defaults() {
+        let cfg = MmrConfig::default();
+        assert_eq!(cfg.lambda, 0.5);
+        assert_eq!(cfg.fetch_k, None);
+        let back: MmrConfig = serde_json::from_str("{}").unwrap();
+        assert_eq!(back.lambda, 0.5);
+    }
+
+    #[test]
+    fn test_search_page_roundtrip() {
+        let page = MemorySearchPage {
+            hits: Vec::new(),
+            next_cursor: Some("token".into()),
+            abstained: false,
+            abstention_reason: None,
+        };
+        let json = serde_json::to_string(&page).unwrap();
+        let back: MemorySearchPage = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, page);
+
+        // SCH-05: the abstention signal roundtrips with its stable code.
+        let abstained = MemorySearchPage {
+            hits: Vec::new(),
+            next_cursor: None,
+            abstained: true,
+            abstention_reason: Some(AbstentionReason::AllQuarantined),
+        };
+        let json = serde_json::to_string(&abstained).unwrap();
+        assert!(json.contains("\"all_quarantined\""), "code is snake_case");
+        let back: MemorySearchPage = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, abstained);
+
+        // Legacy page JSON (pre-SCH-05) deserializes with defaults off.
+        let legacy = r#"{"hits":[],"next_cursor":null}"#;
+        let back: MemorySearchPage = serde_json::from_str(legacy).unwrap();
+        assert!(!back.abstained);
+        assert_eq!(back.abstention_reason, None);
+    }
+
+    #[test]
+    fn test_search_request_without_new_fields_deserializes() {
+        // Backward compat: JSON produced before WIRE-08 has none of the new
+        // fields — it must keep deserializing to `None` defaults.
+        let legacy = r#"{
+            "namespace": "ns",
+            "query_vector": [0.1],
+            "filters": {},
+            "text_query": null,
+            "top_k": 3,
+            "distance_metric": "Cosine",
+            "explain": false
+        }"#;
+        let req: MemorySearchRequest = serde_json::from_str(legacy).unwrap();
+        assert_eq!(req.range, None);
+        assert_eq!(req.group_by, None);
+        assert_eq!(req.mmr, None);
+        assert_eq!(req.cursor, None);
     }
 
     #[test]
@@ -164,6 +480,7 @@ mod tests {
                 expires_at_ms: None,
                 superseded_by: None,
                 superseded_at_ms: None,
+                ..Default::default()
             },
             score: 0.95,
             explanation: None,
@@ -236,6 +553,10 @@ mod tests {
                 rrf_k: Some(75),
                 candidate_k: Some(96),
             }),
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
             ..Default::default()
         };
         let json = serde_json::to_string(&req).unwrap();
@@ -249,6 +570,37 @@ mod tests {
         let json = r#"{"namespace":"ns","query_vector":[],"query_sparse":null,"filters":{},"text_query":null,"top_k":10,"distance_metric":"Cosine","explain":false,"exclude_superseded":false}"#;
         let req: MemorySearchRequest = serde_json::from_str(json).unwrap();
         assert_eq!(req.search_profile, None);
+    }
+
+    // --- SCH-03: valid-time params (AS OF / window) ---
+
+    #[test]
+    fn test_search_request_temporal_fields_default_none_and_roundtrip() {
+        let req = MemorySearchRequest::default();
+        assert_eq!(req.as_of_ms, None);
+        assert_eq!(req.valid_window, None);
+
+        let req = MemorySearchRequest {
+            as_of_ms: Some(1_700_000_000_000),
+            valid_window: Some(ValidWindow {
+                from_ms: 1_600_000_000_000,
+                to_ms: 1_700_000_000_000,
+            }),
+            ..Default::default()
+        };
+        let json = serde_json::to_string(&req).unwrap();
+        let back: MemorySearchRequest = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, req);
+    }
+
+    #[test]
+    fn test_search_request_legacy_json_without_temporal_fields_is_none() {
+        // A pre-SCH-03 payload (no temporal fields) deserializes to `None`.
+        let legacy = r#"{"namespace":"ns","query_vector":[],"query_sparse":null,"filters":{},"text_query":null,"top_k":10,"distance_metric":"Cosine","explain":false,"exclude_superseded":true}"#;
+        let req: MemorySearchRequest = serde_json::from_str(legacy).unwrap();
+        assert_eq!(req.as_of_ms, None);
+        assert_eq!(req.valid_window, None);
+        assert!(req.exclude_superseded);
     }
 
     // ── TS-03: Score/distance semantics pinning ─────────────────────────────
@@ -284,6 +636,7 @@ mod tests {
             expires_at_ms: None,
             superseded_by: None,
             superseded_at_ms: None,
+            ..Default::default()
         }
     }
 

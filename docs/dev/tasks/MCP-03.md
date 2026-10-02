@@ -1,3 +1,9 @@
+---
+title: "MCP-03: S3 — `search_semantic.distance` = similaridad coseno mal etiquetada"
+kind: task
+description: "python C:\Users\Eros\AppData\Local\Temp\opencode\test-busqueda.py T17 (idéntico → 0.0 si es distancia, o campo renombrado a similarity con 1.0) y T18 (orden ascendente por distancia) pasan; decisión semver documentada (¿feat!?..."
+---
+
 # MCP-03: S3 — `search_semantic.distance` = similaridad coseno mal etiquetada
 
 ## Metadata

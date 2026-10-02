@@ -1,3 +1,9 @@
+---
+title: "EMB-06 — SQL vector auto-embed (fix punto 3, physical_plan)"
+kind: task
+description: "src/physicalplan.rs:224 PhysicalVectorSearch::open y :739 PhysicalVectorRefine::open añadir #[cfg(feature=\"embed-local\")] branch con LocalOnnxProvider::embed(&queryvectext) además del existente remote-inference. Ahora VECTORSEARCH('hola..."
+---
+
 # EMB-06 — SQL vector auto-embed (fix punto 3, physical_plan)
 
 ## Metadata

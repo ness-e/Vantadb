@@ -1,3 +1,9 @@
+---
+title: STABLE-04 — Validar vantadb-mcp (gates 1-6 + test-mcp.py)
+kind: task
+description: "Hallazgo gate 2 (nextest): .config/nextest.toml default-filter excluye package(vantadb-mcp) and binary(mcptests) → cargo nextest run -p vantadb-mcp --profile audit corre solo los otros 10 binaries. mcptests corre explícito vía cargo..."
+---
+
 # STABLE-04 — Validar vantadb-mcp (gates 1-6 + test-mcp.py)
 
 ## Metadata
@@ -46,7 +52,7 @@
 |---|---|---|---|
 | Tipo de tarea | Validate-only (sin nueva API) | Feature-add con spec formal | No se añaden `pub fn`/tool/endpoint — solo verificación + fix metadata si gate 6 lo exige. Gate D no dispara (blast radius: 0 archivos editados salvo Cargo.toml metadata; hot path no tocado). |
 | Gate 2 nextest | audit-profile (10 binaries) + run explícito mcp_tests + `cargo test` full si nextest filtra | Solo audit-profile | nextest.toml excluye mcp_tests del default-filter → audit solo no cubre el contrato "72 mcp_tests". Precedente STABLE-03 (42 vs 5) idéntico. |
-| Gate 6 cargo package | `cargo package -p vantadb-mcp --list --allow-dirty` (metadata check per ADR-031) | `cargo publish --dry-run` / full package | `publish=false` → publish falla esperado; full package falla por dep publish=false no en crates.io (precedente STABLE-03). `--list` ejerce el path de validación metadata. `cargo package` no acepta `--dry-run`. |
+| Gate 6 cargo package | `cargo package -p vantadb-mcp --list --allow-dirty` (metadata check per ADR-0031) | `cargo publish --dry-run` / full package | `publish=false` → publish falla esperado; full package falla por dep publish=false no en crates.io (precedente STABLE-03). `--list` ejerce el path de validación metadata. `cargo package` no acepta `--dry-run`. |
 | test-mcp.py | 4/4 como pass (no 37) | Inflar a 37 | Disco manda: script tiene 4 checks. Se reporta 4/4 + nota stale. Requiere binario (`vanta-cli`/`vantadb-server` en target/debug o PATH). |
 | OpGate | No verificar (no existe en crate) | Añadir OpGate | Fuera de blast radius y de scope; el claim es erróneo, se documenta, no se "arregla" código por un claim stale. |
 

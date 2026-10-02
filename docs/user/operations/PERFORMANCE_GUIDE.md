@@ -1,10 +1,10 @@
 ---
-title: VantaDB — Performance Guide: Rust Core vs Python SDK
-type: operations
+title: "VantaDB — Performance Guide: Rust Core vs Python SDK"
+kind: runbook
 status: active
-tags: [vantadb, operations, performance, latency, pyo3]
-last_reviewed: 2026-07-05
+description: "This document explains the performance characteristics of VantaDB's architecture layers, quantifies the gap between the Rust core and the Python SDK, and sets realistic expectations for production use"
 aliases: [performance-guide, rust-vs-python]
+tags: [vantadb, operations, performance, latency, pyo3]
 ---
 
 # VantaDB — Performance Guide: Rust Core vs Python SDK

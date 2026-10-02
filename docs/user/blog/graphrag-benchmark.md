@@ -1,9 +1,10 @@
 ---
-title: "GraphRAG Benchmark Methodology (MKT-16)"
-date: 2026-08-05
-type: blog-post
-tags: [vantadb, benchmark, graphrag, mkt]
+title: GraphRAG Benchmark Methodology (MKT-16)
+kind: howto
 status: run-pending-query-phase
+description: Validar las métricas publicadas en docs/user/glosario/graphrag.md
+tags: [vantadb, benchmark, graphrag, mkt]
+date: "2026-08-05"
 links: "[Glosario GraphRAG](../glosario/graphrag.md)"
 ---
 

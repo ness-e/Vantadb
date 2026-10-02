@@ -47,6 +47,10 @@ fn derived_indexes_isolate_namespaces_and_filters() {
                 limit: 10,
                 cursor: None,
                 exclude_superseded: false,
+                as_of_ms: None,
+                valid_window: None,
+                include_quarantined: false,
+                min_confidence: None,
             },
         )
         .expect("filtered list");
@@ -80,6 +84,10 @@ fn upsert_and_delete_keep_payload_indexes_current() {
                 limit: 10,
                 cursor: None,
                 exclude_superseded: false,
+                as_of_ms: None,
+                valid_window: None,
+                include_quarantined: false,
+                min_confidence: None,
             },
         )
         .expect("old filter");
@@ -97,6 +105,10 @@ fn upsert_and_delete_keep_payload_indexes_current() {
                 limit: 10,
                 cursor: None,
                 exclude_superseded: false,
+                as_of_ms: None,
+                valid_window: None,
+                include_quarantined: false,
+                min_confidence: None,
             },
         )
         .expect("new filter");

@@ -1,3 +1,9 @@
+---
+title: "DESKTOP-31: Pantalla SETTINGS — perfiles conexión, auth Bearer, defaults búsqueda, idioma"
+kind: task
+description: "Callers: desktop/src/pages/Settings.tsx (nuevo), desktop/src/components/layout/WorkspaceShell.tsx (topbar), desktop/src/vanta.ts"
+---
+
 # DESKTOP-31: Pantalla SETTINGS — perfiles conexión, auth Bearer, defaults búsqueda, idioma
 
 ## Metadata

@@ -1,10 +1,10 @@
 ---
-title: "Fuentes Vivas — Catálogo de Carpetas Externas"
-type: index
+title: Fuentes Vivas — Catálogo de Carpetas Externas
+kind: review
 status: active
-tags: [vantadb, avance, index, live-sources, plans, audit-reports, reviews]
-last_reviewed: 2026-08-07
+description: "Propietario del pipeline: campaign-server.mjs (MCP), prompts pipeline-full.md/plan.md. Los plan files son el estado de ejecución vivo del sistema de tareas; pipeline-run.md busca el más reciente por defecto. NO mover"
 aliases: [docs/dev/avance/fuentes-vivas]
+tags: [vantadb, avance, index, live-sources, plans, audit-reports, reviews]
 ---
 
 # Fuentes Vivas — Carpetas Externas Referenciadas

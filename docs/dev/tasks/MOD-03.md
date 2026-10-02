@@ -1,3 +1,9 @@
+---
+title: "MOD-03 — `trigger_compaction()` es stub que solo loguea"
+kind: task
+description: "Sin método público que solo loguee: o delega a la operación real (compact/vacuum)"
+---
+
 # MOD-03 — `trigger_compaction()` es stub que solo loguea
 
 > Plan: docs/dev/plans/2026-08-23-backlog-triage.md · Task 14 · 🟡 · max 1h

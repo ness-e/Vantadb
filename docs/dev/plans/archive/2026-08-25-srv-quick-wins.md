@@ -1,3 +1,9 @@
+---
+title: "Plan: SRV Quick Wins — INV-vantadb-server-01 (2026-08-25)"
+kind: plan
+status: archived
+---
+
 # Plan: SRV Quick Wins — INV-vantadb-server-01 (2026-08-25)
 
 > Origen: `/research vantadb-server` Fase D — quick wins aprobados por el owner.

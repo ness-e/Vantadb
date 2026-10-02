@@ -1,3 +1,9 @@
+---
+title: SDKB-02 — Sub-clientes TypeScript
+kind: task
+description: Archivos leídos completos
+---
+
 # SDKB-02 — Sub-clientes TypeScript
 
 ## Estado

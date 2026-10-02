@@ -1,3 +1,9 @@
+---
+title: "FIND-04 — Cross-SDK `search()` parity (Python ↔ TypeScript)"
+kind: task
+description: Documentar la paridad cross-SDK de search() entre el Python SDK (vantadb-python/)
+---
+
 # FIND-04 — Cross-SDK `search()` parity (Python ↔ TypeScript)
 
 > **Plan:** `docs/dev/plans/2026-08-24-batch-review-mod-find.md`

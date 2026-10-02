@@ -1,10 +1,10 @@
 ---
-title: "Recall"
-type: glossary-entry
+title: Recall
+kind: glossary
 status: stable
-tags: [glosario, métricas, recall, evaluación, ann]
-last_reviewed: 2026-09-15
-aliases: [recall@K, recall rate, true positive rate]
+description: El recall (también llamado sensibilidad o tasa de verdaderos positivos) es una métrica que mide la proporción de resultados relevantes que fueron recuperados exitosamente por el sistema
+aliases: ["recall@K", recall rate, true positive rate]
+tags: [glosario, metricas, recall, evaluacion, ann]
 ---
 
 # Recall
@@ -88,7 +88,7 @@ fn test_hnsw_recall_sift1m() {
 
 ## Factores que Afectan el Recall
 
-### Parámetros [HNSW](HNSW.md)
+### Parámetros [HNSW](./hnsw.md)
 
 | Parámetro | Efecto en Recall | Trade-off |
 |-----------|------------------|-----------|
@@ -146,6 +146,6 @@ Recall
 ## Véase También
 
 - [busqueda-vectorial](vector-search.md) - Contexto de uso
-- [HNSW](HNSW.md) - Algoritmo que optimiza recall
+- [HNSW](./hnsw.md) - Algoritmo que optimiza recall
 - [Latencia](latency.md) - Métrica complementaria
-- [ANN](ANN.md) - Approximate Nearest Neighbor
+- [ANN](./ann.md) - Approximate Nearest Neighbor

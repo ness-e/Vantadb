@@ -1,3 +1,9 @@
+---
+title: "DEVEX-DEMO: Demo app (Rust + Python)"
+kind: task
+description: "Demo app funcional: un script demo.py o examples/demo/main.rs que inserta documentos, hace búsqueda híbrida, y demuestra persistencia. README explica cómo correrlo.\""
+---
+
 # DEVEX-DEMO: Demo app (Rust + Python)
 
 ## Metadata

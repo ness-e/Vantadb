@@ -1,3 +1,9 @@
+---
+title: "FIND-93 — `dead_code` `cloned_sole_buffer` en `src/storage/engine/txn.rs:158`"
+kind: task
+description: "Objetivo: eliminar el error deadcode (clonedsolebuffer never used,"
+---
+
 # FIND-93 — `dead_code` `cloned_sole_buffer` en `src/storage/engine/txn.rs:158`
 
 > Campaign: 6ab26f3f-cf16-4416-9255-c18cca0bcaf0 · Wave9 (plan-adjust 2026-09-16) · Appetite 2h (🟢)

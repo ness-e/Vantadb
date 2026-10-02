@@ -1,3 +1,8 @@
+---
+title: TASK GOV-C3 — Verify Daily Backup Verification (§3.1 + verify.ps1 daily guard)
+kind: task
+---
+
 # TASK GOV-C3 — Verify Daily Backup Verification (§3.1 + verify.ps1 daily guard)
 
 ## Metadata

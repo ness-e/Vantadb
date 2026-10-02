@@ -1,10 +1,9 @@
 ---
 title: PQ Feasibility - Product Quantization
-type: architecture
+kind: concept
 status: active
+description: "src/vector/quantization.rs exposes stateless packed quantizers (no codebooks,"
 tags: [vantadb, architecture]
-last_reviewed: 2026-09-23
-aliases: []
 ---
 
 # PQ Feasibility — Product Quantization for > RAM Datasets

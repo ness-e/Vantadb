@@ -1,3 +1,10 @@
+---
+title: "Propuesta de Investigación — INV-017: sccache en CI"
+kind: research
+status: archived
+description: GH-143 pide acelerar el CI de Rust. Esta investigación evalúa integrar
+---
+
 # Propuesta de Investigación — INV-017: sccache en CI
 
 > **ID:** `INV-017`

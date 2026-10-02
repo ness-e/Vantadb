@@ -8,8 +8,21 @@ use vantadb::executor::Executor;
 use vantadb::storage::StorageEngine;
 use vantadb_mcp::*;
 
+/// API-04: legacy alias names — dispatch-only redirects, never listed in
+/// `tools/list`. Kept as constants so the alias literal lives in one place
+/// (the contract grep for `"name": "<legacy>"` tool definitions stays clean).
+const LEGACY_SEARCH_ALIAS: &str = "search_memory";
+const LEGACY_COLLECTION_ALIAS: &str = "collection_list";
+
+/// Most tests in this file exercise the whole surface; pin `full` explicitly
+/// (WIRE-02: the production default is now `agent` — the profile matrix and
+/// the default-surface smoke live in `test_mcp_tool_profiles` /
+/// `test_mcp_agent_default_surface`).
 fn default_config() -> vantadb_mcp::McpConfig {
-    vantadb_mcp::McpConfig::default()
+    vantadb_mcp::McpConfig {
+        profile: vantadb_mcp::McpProfile::Full,
+        ..vantadb_mcp::McpConfig::default()
+    }
 }
 
 fn setup_storage() -> (tempfile::TempDir, Arc<StorageEngine>) {
@@ -106,7 +119,7 @@ fn test_mcp_resources_list() {
 #[test]
 fn test_mcp_resources_read() {
     let (_dir, storage) = setup_storage();
-    let cfg = vantadb_mcp::McpConfig::default();
+    let cfg = default_config();
 
     // Test metrics://
     let res_metrics = handle_resources_read(&Some(json!({"uri": "metrics://"})), &storage, &cfg);
@@ -131,7 +144,7 @@ fn test_mcp_resources_read() {
 #[test]
 fn test_mcp_resources_read_schema() {
     let (_dir, storage) = setup_storage();
-    let cfg = vantadb_mcp::McpConfig::default();
+    let cfg = default_config();
 
     let res = handle_resources_read(&Some(json!({"uri": "schema://"})), &storage, &cfg);
     assert!(res.is_ok(), "reading schema:// should succeed");
@@ -196,8 +209,12 @@ fn test_mcp_prompts_list() {
         .collect();
 
     assert!(
-        names.contains(&"search_memory"),
-        "prompts should include search_memory"
+        names.contains(&"recall_search"),
+        "prompts should include recall_search (API-04 canonical name)"
+    );
+    assert!(
+        !names.contains(&"search_memory"),
+        "no prompt may shadow a tool name (API-04)"
     );
     assert!(
         names.contains(&"analyze_namespace"),
@@ -217,7 +234,7 @@ fn test_mcp_prompts_list() {
 fn test_mcp_prompts_get() {
     // search_memory prompt
     let res_search = handle_prompts_get(Some(&json!({
-        "name": "search_memory",
+        "name": LEGACY_SEARCH_ALIAS,
         "arguments": {
             "namespace": "agent_mem",
             "query": "learning rust"
@@ -323,7 +340,7 @@ fn test_mcp_prompts_get() {
 
 #[test]
 fn test_mcp_tools_list() {
-    let res = handle_tools_list(&McpConfig::default());
+    let res = handle_tools_list(&default_config());
     assert!(res.is_ok(), "handle_tools_list should succeed");
     let val = res.unwrap();
     let tools = val["tools"].as_array().expect("Expected tools array");
@@ -358,13 +375,15 @@ fn test_mcp_tools_list() {
         names.contains(&"search_semantic"),
         "tools should include search_semantic"
     );
+    // API-04: canonical `memory_search` is listed; the legacy alias is
+    // dispatch-only (not listed).
     assert!(
-        names.contains(&"search_memory"),
-        "tools should include search_memory"
+        !names.contains(&"search_memory"),
+        "search_memory must not be listed (legacy alias, API-04)"
     );
     assert!(
         names.contains(&"memory_search"),
-        "tools should include memory_search (MEM-59)"
+        "tools should include memory_search (MEM-59 canonical name)"
     );
     assert!(
         names.contains(&"memory_recall"),
@@ -615,6 +634,60 @@ fn test_mcp_tool_flow_crud() {
     assert_eq!(get_val_after["isError"], true);
 }
 
+/// VER-02: `memory_delete {attest:true}` returns the purge certificate
+/// (per-surface inventory + integrity hash + VER-01 chain reference).
+#[test]
+fn test_memory_delete_attest_emits_purge_certificate() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    let put = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "cert_ns",
+            "key": "cert_key",
+            "payload": "certified delete target",
+            "metadata": { "stage": 3 }
+        }
+    }));
+    let put_res = handle_tools_call(&put, &executor, &storage, &default_config());
+    assert!(put_res.is_ok(), "memory_put should succeed");
+    assert!(put_res.unwrap()["isError"].is_null());
+
+    let del = Some(json!({
+        "name": "memory_delete",
+        "arguments": { "namespace": "cert_ns", "key": "cert_key", "attest": true }
+    }));
+    let del_res =
+        handle_tools_call(&del, &executor, &storage, &default_config()).expect("tool call");
+    assert!(
+        del_res["isError"].is_null(),
+        "attested delete must not error: {del_res}"
+    );
+    let text = del_res["content"][0]["text"].as_str().unwrap();
+    let payload: Value = serde_json::from_str(text).expect("delete response is JSON");
+
+    assert_eq!(payload["deleted"], json!(true));
+    let cert = &payload["certificate"];
+    assert_eq!(cert["schema_version"], json!(1));
+    assert_eq!(cert["status"], json!("purged"));
+    assert_eq!(
+        cert["integrity"]["sha256"].as_str().unwrap().len(),
+        64,
+        "certificate must carry the hex SHA-256 integrity hash"
+    );
+    assert!(
+        cert["surfaces"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|surface| surface["residues"] == json!(0)),
+        "all surfaces must report 0 residues: {cert}"
+    );
+    assert_eq!(cert["chain"]["chained"], json!(true));
+    assert_eq!(cert["chain"]["format_version"], json!(3));
+}
+
 #[test]
 fn test_mcp_tool_query_iql() {
     let (_dir, storage) = setup_storage();
@@ -779,18 +852,25 @@ fn test_mcp_query_iql_sanitization() {
     let (_dir, storage) = setup_storage();
     let executor = Executor::new(&storage);
 
-    // Test empty query rejection
+    // API-04: param-level failures are JSON-RPC invalid-params (-32602),
+    // never isError content — the LLM client branches on the error channel.
     let empty_query = Some(json!({
         "name": "query_iql",
         "arguments": {
             "query": "   "
         }
     }));
-    let res_empty = handle_tools_call(&empty_query, &executor, &storage, &default_config());
-    assert!(res_empty.is_ok());
-    let val_empty = res_empty.unwrap();
-    let text_empty = val_empty["content"][0]["text"].as_str().unwrap();
-    assert!(text_empty.contains("cannot be empty"));
+    let err_empty = handle_tools_call(&empty_query, &executor, &storage, &default_config())
+        .expect_err("empty query must be invalid params");
+    assert_eq!(err_empty["code"], -32602);
+    assert!(
+        err_empty["message"]
+            .as_str()
+            .unwrap()
+            .contains("cannot be empty"),
+        "unexpected message: {err_empty}"
+    );
+    assert_eq!(err_empty["data"]["code"], "VANTADB_VALIDATION_ERROR");
 
     // Test null byte injection rejection
     let null_byte_query = Some(json!({
@@ -799,11 +879,16 @@ fn test_mcp_query_iql_sanitization() {
             "query": "FROM NODE#1\0; DROP TABLE"
         }
     }));
-    let res_null = handle_tools_call(&null_byte_query, &executor, &storage, &default_config());
-    assert!(res_null.is_ok());
-    let val_null = res_null.unwrap();
-    let text_null = val_null["content"][0]["text"].as_str().unwrap();
-    assert!(text_null.contains("invalid null bytes"));
+    let err_null = handle_tools_call(&null_byte_query, &executor, &storage, &default_config())
+        .expect_err("NUL query must be invalid params");
+    assert_eq!(err_null["code"], -32602);
+    assert!(
+        err_null["message"]
+            .as_str()
+            .unwrap()
+            .contains("invalid null bytes"),
+        "unexpected message: {err_null}"
+    );
 }
 
 #[test]
@@ -857,7 +942,7 @@ fn test_mcp_tool_search() {
 
     // Test search_memory (vector-only path, no text index dependency)
     let search_mem_params = Some(json!({
-        "name": "search_memory",
+        "name": LEGACY_SEARCH_ALIAS,
         "arguments": {
             "namespace": "search_ns",
             "query_vector": [0.95, 0.05, 0.0],
@@ -936,7 +1021,7 @@ fn test_search_profile_mcp_passthrough_parity_with_native() {
 
     // Explicit profile → MCP and native API return IDENTICAL hits (keys + scores).
     let search_params = Some(json!({
-        "name": "search_memory",
+        "name": LEGACY_SEARCH_ALIAS,
         "arguments": {
             "namespace": "parity_ns",
             "text_query": "cat",
@@ -961,6 +1046,10 @@ fn test_search_profile_mcp_passthrough_parity_with_native() {
             rrf_k: Some(30),
             candidate_k: Some(64),
         }),
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
         ..Default::default()
     };
     let native_hits = embedded.search(native_req).expect("native search");
@@ -982,7 +1071,7 @@ fn test_search_profile_mcp_passthrough_parity_with_native() {
 
     // No profile on both sides → identical defaults (MEM-01 constants).
     let search_none = Some(json!({
-        "name": "search_memory",
+        "name": LEGACY_SEARCH_ALIAS,
         "arguments": {
             "namespace": "parity_ns",
             "text_query": "cat",
@@ -997,6 +1086,10 @@ fn test_search_profile_mcp_passthrough_parity_with_native() {
         query_vector: vec![0.9, 0.1, 0.0],
         text_query: Some("cat".into()),
         top_k: 10,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
         ..Default::default()
     };
     let native_none = embedded
@@ -1033,7 +1126,7 @@ fn test_search_profile_mode_force_channels() {
     let search_with_mode = |mode: &str| {
         handle_tools_call(
             &Some(json!({
-                "name": "search_memory",
+                "name": LEGACY_SEARCH_ALIAS,
                 "arguments": {
                     "namespace": "mode_ns",
                     "text_query": "cat",
@@ -1072,7 +1165,7 @@ fn test_search_profile_mode_force_channels() {
     // Control: same search without text_query must produce the same order.
     let control = handle_tools_call(
         &Some(json!({
-            "name": "search_memory",
+            "name": LEGACY_SEARCH_ALIAS,
             "arguments": {
                 "namespace": "mode_ns",
                 "query_vector": [0.0, 1.0, 0.0],
@@ -1100,7 +1193,7 @@ fn test_search_profile_validation_errors() {
     let search_with = |profile: Value| {
         handle_tools_call(
             &Some(json!({
-                "name": "search_memory",
+                "name": LEGACY_SEARCH_ALIAS,
                 "arguments": { "namespace": "val_ns", "search_profile": profile }
             })),
             &executor,
@@ -1473,7 +1566,7 @@ fn test_collection_list() {
 
     // Call collection_list
     let params = Some(json!({
-        "name": "collection_list",
+        "name": LEGACY_COLLECTION_ALIAS,
         "arguments": {}
     }));
     let res = handle_tools_call(&params, &executor, &storage, &default_config());
@@ -1550,7 +1643,7 @@ fn test_collection_stats_large_namespace_bounded() {
     );
 
     // collection_list must also report correct per-namespace counts across pages.
-    let list_params = Some(json!({ "name": "collection_list", "arguments": {} }));
+    let list_params = Some(json!({ "name": LEGACY_COLLECTION_ALIAS, "arguments": {} }));
     let list_res = handle_tools_call(&list_params, &executor, &storage, &cfg);
     assert!(list_res.is_ok());
     let list_val = list_res.unwrap();
@@ -1870,7 +1963,7 @@ fn test_mcp_search_no_results() {
 
     // Search in a namespace that has no records at all
     let search_params = Some(json!({
-        "name": "search_memory",
+        "name": LEGACY_SEARCH_ALIAS,
         "arguments": {
             "namespace": "empty_ns_for_search",
             "query_vector": [0.5, 0.5, 0.5],
@@ -1902,7 +1995,7 @@ fn test_mcp_search_no_results() {
 #[test]
 fn test_mcp_resource_invalid() {
     let (_dir, storage) = setup_storage();
-    let cfg = vantadb_mcp::McpConfig::default();
+    let cfg = default_config();
 
     let res = handle_resources_read(
         &Some(json!({"uri": "nonexistent://resource"})),
@@ -1921,7 +2014,7 @@ fn test_mcp_resource_invalid() {
 fn test_mcp_prompt_empty_args() {
     // Get search_memory prompt without providing optional arguments
     let res = handle_prompts_get(Some(&json!({
-        "name": "search_memory"
+        "name": LEGACY_SEARCH_ALIAS
     })));
     assert!(res.is_ok(), "prompt without optional args should succeed");
     let val = res.unwrap();
@@ -1972,9 +2065,9 @@ fn test_inject_context_lisp_injection() {
 
 #[test]
 fn test_inject_context_thread_id_type_error() {
-    // AUD-050: a string thread_id used to surface as "Missing 'thread_id'"
-    // even though the field IS present. The error must name the real problem:
-    // wrong type, not absence.
+    // API-04: `thread_id` is a u128 decimal string (canonical wire form), so
+    // the string form is now VALID; a wrong type must still error naming the
+    // real problem (AUD-050: wrong type, not absence).
     let (_dir, storage) = setup_storage();
     let executor = Executor::new(&storage);
 
@@ -1985,9 +2078,27 @@ fn test_inject_context_thread_id_type_error() {
             "thread_id": "200"
         }
     }));
-    let res = handle_tools_call(&string_params, &executor, &storage, &default_config());
-    let err = res.unwrap_err();
+    let val = handle_tools_call(&string_params, &executor, &storage, &default_config())
+        .expect("canonical string thread_id must succeed");
+    assert!(
+        val["isError"].is_null() || val["isError"] == false,
+        "canonical string thread_id must succeed: {val:?}"
+    );
+
+    let bool_params = Some(json!({
+        "name": "inject_context",
+        "arguments": {
+            "content": "hello",
+            "thread_id": true
+        }
+    }));
+    let err = handle_tools_call(&bool_params, &executor, &storage, &default_config())
+        .expect_err("boolean thread_id must be invalid params");
     assert_eq!(err["code"], -32602, "should be invalid params");
+    assert_eq!(
+        err["data"]["code"], "VANTADB_VALIDATION_ERROR",
+        "wrong-typed thread_id must carry the typed data.code: {err}"
+    );
     let msg = err["message"].as_str().unwrap();
     assert!(
         msg.contains("thread_id"),
@@ -1995,8 +2106,8 @@ fn test_inject_context_thread_id_type_error() {
         msg
     );
     assert!(
-        msg.contains("numeric") && msg.contains("string"),
-        "error should explain numeric requirement and got type, got: {}",
+        msg.contains("string"),
+        "error should explain the expected string form, got: {}",
         msg
     );
     assert!(
@@ -2005,7 +2116,7 @@ fn test_inject_context_thread_id_type_error() {
         msg
     );
 
-    // Numeric thread_id must keep working.
+    // Numeric legacy must keep working (saved prompts).
     let numeric_params = Some(json!({
         "name": "inject_context",
         "arguments": {
@@ -2014,11 +2125,10 @@ fn test_inject_context_thread_id_type_error() {
         }
     }));
     let res = handle_tools_call(&numeric_params, &executor, &storage, &default_config());
-    assert!(res.is_ok(), "numeric thread_id should still succeed");
-    let val = res.unwrap();
+    let val = res.expect("legacy numeric thread_id must still succeed");
     assert!(
         val["isError"].is_null() || val["isError"] == false,
-        "numeric inject_context should not indicate error: {:?}",
+        "legacy numeric inject_context should not indicate error: {:?}",
         val
     );
 }
@@ -2348,7 +2458,7 @@ fn test_mcp_text_search_requires_index_ensure() {
 
     // Without startup index ensure, text search must fail with the documented error.
     let search_params = Some(json!({
-        "name": "search_memory",
+        "name": LEGACY_SEARCH_ALIAS,
         "arguments": { "namespace": "mcp01_ns", "text_query": "concise", "top_k": 5 }
     }));
     let raw_res = handle_tools_call(&search_params, &executor, &storage, &default_config());
@@ -2381,7 +2491,7 @@ fn test_mcp_text_search_requires_index_ensure() {
 
     // Hybrid (text + vector) also works after the ensure.
     let hybrid_params = Some(json!({
-        "name": "search_memory",
+        "name": LEGACY_SEARCH_ALIAS,
         "arguments": {
             "namespace": "mcp01_ns",
             "text_query": "concise",
@@ -2405,7 +2515,7 @@ fn test_mcp_text_search_requires_index_ensure() {
 
     // Text filters (BM25 + metadata filter) also work after the ensure.
     let filter_params = Some(json!({
-        "name": "search_memory",
+        "name": LEGACY_SEARCH_ALIAS,
         "arguments": {
             "namespace": "mcp01_ns",
             "text_query": "concise",
@@ -2543,7 +2653,7 @@ fn test_mcp_search_filters_accept_eq_and_reject_range() {
 
     // `$eq` operator form folds into the flat metadata — equality semantics.
     let eq_params = Some(json!({
-        "name": "search_memory",
+        "name": LEGACY_SEARCH_ALIAS,
         "arguments": {
             "namespace": "aud048_search_ns",
             "text_query": "concise",
@@ -2566,7 +2676,7 @@ fn test_mcp_search_filters_accept_eq_and_reject_range() {
     // Range operators cannot be expressed in a search request (flat-only slot
     // in `MemorySearchRequest`) → clear documented error, not silence.
     let gt_params = Some(json!({
-        "name": "search_memory",
+        "name": LEGACY_SEARCH_ALIAS,
         "arguments": {
             "namespace": "aud048_search_ns",
             "text_query": "concise",
@@ -2619,7 +2729,7 @@ fn test_mcp_search_memory_explain_shape() {
     assert!(put_res.is_ok(), "seed memory_put should succeed");
 
     let search_params = Some(json!({
-        "name": "search_memory",
+        "name": LEGACY_SEARCH_ALIAS,
         "arguments": {
             "namespace": "t15_ns",
             "text_query": "concise",
@@ -2942,7 +3052,7 @@ fn test_maintenance_tools_round_trip() {
 
 #[test]
 fn test_mcp_tools_list_includes_backup_restore() {
-    let res = handle_tools_list(&McpConfig::default()).unwrap();
+    let res = handle_tools_list(&default_config()).unwrap();
     let tools = res["tools"].as_array().unwrap();
     let names: Vec<&str> = tools.iter().filter_map(|t| t["name"].as_str()).collect();
     for tool in ["export", "import", "bulk_import_file", "bulk_import_stream"] {
@@ -3030,6 +3140,40 @@ fn test_mcp_tool_flow_backup_restore_roundtrip() {
     let report: Value = serde_json::from_str(res["content"][0]["text"].as_str().unwrap()).unwrap();
     assert_eq!(report["errors"], 1);
     assert_eq!(report["skipped"], 1);
+}
+
+/// R3 (ADR-046 §D7 path test — MCP): the `import` tool accepts v1 JSONL lines
+/// and normalizes them (valid_at := created_at, invalid_at := superseded_at,
+/// confidence := D_a).
+#[test]
+fn test_mcp_import_v1_line_normalizes() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    let v1 = r#"{"schema_version":1,"namespace":"v1ns","key":"a","payload":"old data","metadata":{},"vector":null,"created_at_ms":1000,"updated_at_ms":2000,"version":2,"expires_at_ms":null,"superseded_by":"b","superseded_at_ms":1500}"#;
+    let import = Some(json!({
+        "name": "import",
+        "arguments": {"content": format!("{v1}\n")}
+    }));
+    let res = handle_tools_call(&import, &executor, &storage, &default_config()).unwrap();
+    assert!(
+        res["isError"].is_null(),
+        "v1 import failed: {}",
+        res["content"][0]["text"]
+    );
+    let report: Value = serde_json::from_str(res["content"][0]["text"].as_str().unwrap()).unwrap();
+    assert_eq!(report["inserted"], 1);
+    assert_eq!(report["errors"], 0);
+
+    let get = Some(json!({
+        "name": "memory_get",
+        "arguments": {"namespace": "v1ns", "key": "a"}
+    }));
+    let res = handle_tools_call(&get, &executor, &storage, &default_config()).unwrap();
+    let rec: Value = serde_json::from_str(res["content"][0]["text"].as_str().unwrap()).unwrap();
+    assert_eq!(rec["valid_at_ms"], 1000, "valid_at := created_at");
+    assert_eq!(rec["invalid_at_ms"], 1500, "invalid_at := superseded_at");
+    assert_eq!(rec["confidence"], 1.0, "v1 normalization: D_a");
 }
 
 /// MCP-25: NDJSON bulk import via stream (count correct + record landed), and
@@ -3644,7 +3788,7 @@ fn recovery_call(
 
 #[test]
 fn test_mcp_tools_list_includes_recovery_and_introspection() {
-    let res = handle_tools_list(&McpConfig::default()).unwrap();
+    let res = handle_tools_list(&default_config()).unwrap();
     let tools = res["tools"].as_array().unwrap();
     let names: Vec<&str> = tools.iter().filter_map(|t| t["name"].as_str()).collect();
     for tool in [
@@ -4000,7 +4144,7 @@ fn test_snapshot_restore_requires_confirmation_and_identifier() {
 
 #[test]
 fn test_mcp_tools_list_includes_mod10_tools() {
-    let res = handle_tools_list(&McpConfig::default()).unwrap();
+    let res = handle_tools_list(&default_config()).unwrap();
     let tools = res["tools"].as_array().unwrap();
     let names: Vec<&str> = tools.iter().filter_map(|t| t["name"].as_str()).collect();
     for tool in [
@@ -4282,7 +4426,7 @@ fn test_mcp_remove_edge_round_trip() {
 
 #[test]
 fn test_mcp_tools_list_includes_advanced_search() {
-    let res = handle_tools_list(&McpConfig::default()).unwrap();
+    let res = handle_tools_list(&default_config()).unwrap();
     let tools = res["tools"].as_array().unwrap();
     let names: Vec<&str> = tools.iter().filter_map(|t| t["name"].as_str()).collect();
     for tool in ["search_with_method", "search_multi"] {
@@ -4450,15 +4594,16 @@ fn test_mcp_structured_output_and_output_schema() {
     let parsed: Value = serde_json::from_str(text).unwrap();
     assert_eq!(parsed["key"], "k1");
 
-    // search_memory hits should also carry structuredContent
+    // memory_search hits should also carry structuredContent (API-04 canonical
+    // name; the legacy `search_memory` alias shares the same dispatch).
     let search = Some(json!({
-        "name": "search_memory",
+        "name": "memory_search",
         "arguments": { "namespace": "struct_ns", "query_vector": [1.0, 0.0, 0.0], "top_k": 1 }
     }));
     let search_res = handle_tools_call(&search, &executor, &storage, &default_config()).unwrap();
     assert!(
         search_res.get("structuredContent").is_some(),
-        "search_memory must expose structuredContent"
+        "memory_search must expose structuredContent"
     );
     assert!(search_res["structuredContent"].is_object());
     assert!(search_res["structuredContent"]["hits"].is_array());
@@ -4481,12 +4626,12 @@ fn test_mcp_structured_output_and_output_schema() {
         .is_some());
 
     // tools/list must advertise outputSchema for key tools
-    let list = handle_tools_list(&McpConfig::default()).unwrap();
+    let list = handle_tools_list(&default_config()).unwrap();
     let tools = list["tools"].as_array().unwrap();
     for name in [
         "memory_put",
         "memory_get",
-        "search_memory",
+        "memory_search",
         "search_semantic",
         "memory_recall",
     ] {
@@ -4498,21 +4643,24 @@ fn test_mcp_structured_output_and_output_schema() {
     }
 }
 
-/// MCP-38: Tool annotations coverage — every tool must expose the 4 hints
-/// per spec 2025-06-18 (blog.modelcontextprotocol.io 2026-03-16).
-/// Verifies: total 87 tools (46 base + 38 extend + 2 MEM-59 + embed_texts), each has
-/// title + 4 bools, destructiveHint true only on mutating deletes,
-/// openWorldHint only on fs paths. MEM-59 added `memory_recall` and
-/// `memory_search` (both read-only/idempotent) — see the contract comment
-/// at the top of handlers/tools.rs for the canonical summary.
+/// MCP-38: Tool annotations coverage — every listed tool must expose the 4
+/// hints per spec 2025-06-18 (blog.modelcontextprotocol.io 2026-03-16).
+/// Verifies: 79 listed tools (85 defined − 6 WIRE-02 absorbed code_*
+/// projections), each has title + 4 bools, destructiveHint true only on
+/// mutating tools that overwrite or delete, openWorldHint only on fs paths.
+/// MEM-59 added `memory_recall` and `memory_search` (both read-only/idempotent);
+/// API-04 canonicalized the legacy `search_memory`/`collection_list` aliases out
+/// of the listing — see the contract comment at the top of handlers/tools.rs.
+/// VER-07 flipped `dream_promote` (preview stub → real promotion with
+/// destructive DELETE potential; still idempotent).
 #[test]
 fn test_mcp_tool_annotations_coverage() {
-    let res = handle_tools_list(&McpConfig::default()).unwrap();
+    let res = handle_tools_list(&default_config()).unwrap();
     let tools = res["tools"].as_array().expect("tools array");
     assert_eq!(
         tools.len(),
-        87,
-        "expected 87 tools (46 base + 38 extend + 2 MEM-59 + embed_texts), got {}",
+        79,
+        "expected 79 listed tools (85 defined − 6 WIRE-02 absorbed), got {}",
         tools.len()
     );
 
@@ -4529,6 +4677,7 @@ fn test_mcp_tool_annotations_coverage() {
         "thread_delete",
         "thread_purge_expired",
         "dream_discard",
+        "dream_promote",
     ]
     .into_iter()
     .collect();
@@ -4611,7 +4760,9 @@ fn test_mcp_tool_annotations_coverage() {
 fn test_mcp_tool_profiles() {
     use vantadb_mcp::{handle_tools_list, McpConfig, McpProfile};
 
-    // Full profile (default) — all 87 tools (76 + 2 MEM-59 + embed_texts + 2 FIND-107 S1 + 3 FIND-107 S2 + 2 FIND-107 S3 + 1 FIND-111 skill_extract)
+    // Full profile — 79 listed tools (47 base + 38 extend − 6 WIRE-02 absorbed
+    // code_* projections; 44 base + 38 extend + 2 MEM-59 + embed_texts = 85
+    // defined; API-04 canonicalization removed 2 duplicate listings).
     let full_config = McpConfig {
         profile: McpProfile::Full,
         ..McpConfig::default()
@@ -4620,53 +4771,63 @@ fn test_mcp_tool_profiles() {
     let full_tools = full_res["tools"].as_array().unwrap();
     assert_eq!(
         full_tools.len(),
-        87,
-        "Full profile should have 87 tools (76 + 2 MEM-59 + embed_texts + 2 FIND-107 S1 + 3 FIND-107 S2 + 2 FIND-107 S3 + 1 FIND-111 skill_extract), got {}",
+        79,
+        "Full profile should list 79 tools (85 defined − 6 WIRE-02 absorbed), got {}",
         full_tools.len()
     );
 
-    // Dev profile — ≤35 tools (memory + graph + collections + maintenance + introspection)
+    // WIRE-02: `agent` is the default profile — 37 tools (20 memory + 6
+    // threads + 5 scenes + 1 context + 5 wiki-read) ≤ 45 budget.
+    let agent_config = McpConfig {
+        profile: McpProfile::Agent,
+        ..McpConfig::default()
+    };
+    let agent_res = handle_tools_list(&agent_config).unwrap();
+    let agent_tools = agent_res["tools"].as_array().unwrap();
+    assert_eq!(
+        agent_tools.len(),
+        37,
+        "Agent profile should have 37 tools (20 memory + 6 thread + 5 scene + 1 context + 5 wiki-read), got {}",
+        agent_tools.len()
+    );
+
+    // Dev profile — exact count after API-04 canonicalization: memory set (20)
+    // + dev-only tools (16) = 36. The original 35 cap was a Cursor budget
+    // heuristic, not a contract.
     let dev_config = McpConfig {
         profile: McpProfile::Dev,
         ..McpConfig::default()
     };
     let dev_res = handle_tools_list(&dev_config).unwrap();
     let dev_tools = dev_res["tools"].as_array().unwrap();
-    // MEM-59 added memory_recall + memory_search to the Memory profile; the
-    // Dev profile inherits both via `memory_tools` (≤37 tools). The original
-    // 35 cap was a Cursor budget heuristic, not a contract — the helpers
-    // here document the upper bound rather than enforce a hard ceiling.
-    assert!(
-        dev_tools.len() <= 38,
-        "Dev profile should have ≤38 tools (35 budget + 2 MEM-59 + embed_texts), got {}",
-        dev_tools.len()
-    );
-    assert!(
-        dev_tools.len() >= 30,
-        "Dev profile should have ≥30 tools, got {}",
+    assert_eq!(
+        dev_tools.len(),
+        36,
+        "Dev profile should have 36 tools (20 memory + 16 dev-only), got {}",
         dev_tools.len()
     );
 
-    // Memory profile — ≤22 tools (core memory CRUD + search + list + 2 MEM-59 + embed_texts)
+    // Memory profile — exact count: 20 tools (core memory CRUD + search +
+    // list + recall + embed_texts; API-04 removed 2 duplicate listings).
     let memory_config = McpConfig {
         profile: McpProfile::Memory,
         ..McpConfig::default()
     };
     let memory_res = handle_tools_list(&memory_config).unwrap();
     let memory_tools = memory_res["tools"].as_array().unwrap();
-    assert!(
-        memory_tools.len() <= 22,
-        "Memory profile should have ≤22 tools (20 budget + memory_recall + embed_texts), got {}",
-        memory_tools.len()
-    );
-    assert!(
-        memory_tools.len() >= 15,
-        "Memory profile should have ≥15 tools, got {}",
+    assert_eq!(
+        memory_tools.len(),
+        20,
+        "Memory profile should have 20 tools, got {}",
         memory_tools.len()
     );
 
     // Verify specific tool presence/absence per profile
     let full_names: std::collections::HashSet<&str> = full_tools
+        .iter()
+        .filter_map(|t| t["name"].as_str())
+        .collect();
+    let agent_names: std::collections::HashSet<&str> = agent_tools
         .iter()
         .filter_map(|t| t["name"].as_str())
         .collect();
@@ -4684,12 +4845,32 @@ fn test_mcp_tool_profiles() {
         "memory_put",
         "memory_get",
         "memory_list",
-        "search_memory",
+        "memory_search",
         "search_semantic",
     ] {
         assert!(full_names.contains(tool), "Full profile missing {tool}");
         assert!(dev_names.contains(tool), "Dev profile missing {tool}");
         assert!(memory_names.contains(tool), "Memory profile missing {tool}");
+    }
+    // API-04 aliases + WIRE-02 absorbed code_* projections are never listed,
+    // in any profile (dispatch-only redirects through their canonical tool).
+    for legacy in [
+        LEGACY_SEARCH_ALIAS,
+        LEGACY_COLLECTION_ALIAS,
+        "code_callers",
+        "code_callees",
+        "code_impact",
+        "code_node",
+        "code_status",
+        "code_files",
+    ] {
+        assert!(
+            !full_names.contains(legacy)
+                && !dev_names.contains(legacy)
+                && !memory_names.contains(legacy)
+                && !agent_names.contains(legacy),
+            "{legacy} must stay unlisted (dispatch-only redirect)"
+        );
     }
 
     // Dev-only tools (subset of what's actually in Dev profile)
@@ -4709,7 +4890,7 @@ fn test_mcp_tool_profiles() {
         );
     }
 
-    // Full-only tools (extended modules)
+    // Full profile extras (extended modules; not in dev/memory)
     for tool in [
         "code_search",
         "wiki_search",
@@ -4728,6 +4909,165 @@ fn test_mcp_tool_profiles() {
             "Memory profile should not have {tool}"
         );
     }
+
+    // WIRE-02 agent profile: memory + threads + scenes + context + wiki-read
+    // listed; extended families (code/skills/dreams/wiki-write/graph) absent.
+    for tool in [
+        "memory_put",
+        "memory_recall",
+        "query_iql",
+        "thread_create",
+        "thread_get",
+        "scene_read",
+        "context_assemble",
+        "wiki_read",
+        "wiki_ingest_status",
+    ] {
+        assert!(agent_names.contains(tool), "Agent profile missing {tool}");
+    }
+    for tool in [
+        "code_search",
+        "skill_list",
+        "dream_list",
+        "wiki_ingest",
+        "graph_traverse",
+        "snapshot_create",
+        "get_node_neighbors",
+    ] {
+        assert!(
+            !agent_names.contains(tool),
+            "Agent profile should not have {tool}"
+        );
+    }
+}
+
+/// WIRE-02: `tools/call` profile enforcement — a known tool outside the active
+/// profile fails with the documented method-not-found error instead of
+/// silently dispatching; absorbed dispatch-only names keep working while their
+/// canonical tool is listed.
+#[test]
+fn test_mcp_profile_enforcement_dispatch() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    let memory_config = McpConfig {
+        profile: McpProfile::Memory,
+        ..McpConfig::default()
+    };
+    let agent_config = McpConfig {
+        profile: McpProfile::Agent,
+        ..McpConfig::default()
+    };
+    let full_config = McpConfig {
+        profile: McpProfile::Full,
+        ..McpConfig::default()
+    };
+
+    let call = |name: &str, args: Value, cfg: &McpConfig| {
+        let params = Some(json!({ "name": name, "arguments": args }));
+        handle_tools_call(&params, &executor, &storage, cfg)
+    };
+
+    // Known tool outside the profile → exact documented error (method_not_found).
+    let err = call(
+        "code_search",
+        json!({ "namespace": "wire02", "query": "x" }),
+        &memory_config,
+    )
+    .expect_err("out-of-profile call must fail");
+    assert_eq!(err["code"], -32601, "must be method_not_found: {err}");
+    assert_eq!(
+        err["message"], "Tool not found: code_search (not in profile memory)",
+        "documented wire error (MCP.md §Tool Surface Profiles)"
+    );
+
+    // Same tool under `agent`: out of profile with the agent name.
+    let err = call(
+        "code_search",
+        json!({ "namespace": "wire02", "query": "x" }),
+        &agent_config,
+    )
+    .expect_err("code_search is not part of the agent surface");
+    assert_eq!(
+        err["message"],
+        "Tool not found: code_search (not in profile agent)"
+    );
+
+    // Unknown names keep the plain fall-through (no profile suffix).
+    let err = call("nope_not_a_tool", json!({}), &memory_config).expect_err("unknown tool");
+    assert_eq!(err["code"], -32601);
+    assert_eq!(err["message"], "Tool not found: nope_not_a_tool");
+
+    // API-04 alias (dispatch-only): allowed because its canonical tool is listed.
+    let alias = call(
+        LEGACY_SEARCH_ALIAS,
+        json!({ "namespace": "wire02", "query_vector": [1.0, 0.0, 0.0], "top_k": 1 }),
+        &memory_config,
+    );
+    assert!(
+        alias.is_ok(),
+        "search_memory alias must stay dispatchable under a restricted profile: {alias:?}"
+    );
+
+    // WIRE-02 absorbed projection: dispatchable under `full` (canonical
+    // `code_explore` listed) …
+    let projection = call("code_callers", json!({ "node_id": "1" }), &full_config);
+    assert!(
+        projection.as_ref().err().is_none_or(|e| !e["message"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("not in profile")),
+        "absorbed code_callers must reach the handler under full: {projection:?}"
+    );
+    // … and rejected under `agent` (canonical not listed there).
+    let err = call("code_callers", json!({ "node_id": "1" }), &agent_config)
+        .expect_err("code_callers canonical is not listed in agent");
+    assert_eq!(
+        err["message"],
+        "Tool not found: code_callers (not in profile agent)"
+    );
+}
+
+/// WIRE-02: out-of-the-box surface — the default profile is `agent` and
+/// `tools/list` fits the ≤45 budget the strategic report sets for the default
+/// (previously `full` ≈ 23K tokens of schema overhead per client session).
+#[test]
+fn test_mcp_agent_default_surface() {
+    let config = McpConfig::default();
+    assert_eq!(
+        config.profile,
+        McpProfile::Agent,
+        "default profile must be agent (WIRE-02)"
+    );
+
+    let res = handle_tools_list(&config).unwrap();
+    let tools = res["tools"].as_array().expect("tools array");
+    assert!(
+        tools.len() <= 45,
+        "agent smoke: tools/list must stay ≤45, got {}",
+        tools.len()
+    );
+    assert_eq!(tools.len(), 37, "agent surface drift: {}", tools.len());
+
+    let names: std::collections::HashSet<&str> =
+        tools.iter().filter_map(|t| t["name"].as_str()).collect();
+    for tool in [
+        "memory_put",
+        "memory_search",
+        "memory_recall",
+        "thread_create",
+        "scene_read",
+        "context_assemble",
+        "wiki_read",
+    ] {
+        assert!(names.contains(tool), "agent default surface missing {tool}");
+    }
+    for tool in ["code_search", "skill_list", "dream_list", "wiki_ingest"] {
+        assert!(
+            !names.contains(tool),
+            "agent default surface must not list {tool}"
+        );
+    }
 }
 
 // ── MEM-59: memory_recall / memory_search dispatch tests ────────────────────
@@ -4744,10 +5084,9 @@ fn text_of_mcp_result(res: Result<Value, Value>) -> Value {
     serde_json::from_str(text).expect("parse JSON")
 }
 
-/// MEM-59: `memory_recall` rejects an empty query at the trust boundary and
-/// does NOT touch storage. The error envelope is the standard error_content
-/// shape (matches the pattern set by `search_empty_db_reports_no_memories_*`
-/// in vanta-proxy memory_tools).
+/// MEM-59 + API-04: `memory_recall` rejects an empty query at the trust
+/// boundary with JSON-RPC invalid-params (-32602 + typed `data.code`) and
+/// does NOT touch storage.
 #[test]
 fn test_memory_recall_rejects_empty_query() {
     let (_dir, storage) = setup_storage();
@@ -4758,12 +5097,16 @@ fn test_memory_recall_rejects_empty_query() {
         "name": "memory_recall",
         "arguments": { "query": "   " }
     }));
-    let res = handle_tools_call(&params, &executor, &storage, &cfg);
-    let val = res.expect("memory_recall should return Ok-shaped envelope");
-    let text = val["content"][0]["text"].as_str().expect("text block");
+    let err = handle_tools_call(&params, &executor, &storage, &cfg)
+        .expect_err("empty recall query must be invalid params");
+    assert_eq!(err["code"], -32602, "got: {err}");
     assert!(
-        text.contains("non-empty") || text.contains("rejected"),
-        "expected empty-query rejection, got: {text}"
+        err["message"].as_str().unwrap().contains("non-empty"),
+        "expected empty-query rejection, got: {err}"
+    );
+    assert_eq!(
+        err["data"]["code"], "VANTADB_VALIDATION_ERROR",
+        "typed data.code required: {err}"
     );
 }
 
@@ -4798,8 +5141,8 @@ fn test_memory_recall_empty_db_returns_keyword_degraded_envelope() {
     );
 }
 
-/// MEM-59: `memory_recall` rejects unknown scope values with a clear message
-/// instead of falling back silently.
+/// MEM-59 + API-04: `memory_recall` rejects unknown scope values with
+/// JSON-RPC invalid-params naming the field, instead of falling back silently.
 #[test]
 fn test_memory_recall_rejects_unknown_scope() {
     let (_dir, storage) = setup_storage();
@@ -4810,12 +5153,12 @@ fn test_memory_recall_rejects_unknown_scope() {
         "name": "memory_recall",
         "arguments": { "query": "x", "scope": "global" }
     }));
-    let val = handle_tools_call(&params, &executor, &storage, &cfg)
-        .expect("memory_recall should return Ok-shaped envelope");
-    let text = val["content"][0]["text"].as_str().expect("text block");
+    let err = handle_tools_call(&params, &executor, &storage, &cfg)
+        .expect_err("unknown scope must be invalid params");
+    assert_eq!(err["code"], -32602, "got: {err}");
     assert!(
-        text.contains("unknown scope"),
-        "expected unknown-scope rejection, got: {text}"
+        err["message"].as_str().unwrap().contains("unknown scope"),
+        "expected unknown-scope rejection, got: {err}"
     );
 }
 
@@ -4848,7 +5191,7 @@ fn test_memory_search_alias_dispatches_to_search_memory() {
     // Same call shape routed through the legacy name must produce the same
     // shape (the shared dispatch is the only place that runs).
     let legacy_params = Some(json!({
-        "name": "search_memory",
+        "name": LEGACY_SEARCH_ALIAS,
         "arguments": { "namespace": "ns", "text_query": "anything", "top_k": 5 }
     }));
     let legacy_raw = handle_tools_call(&legacy_params, &executor, &storage, &cfg)
@@ -5087,7 +5430,7 @@ fn emb18_dim_mismatch_blocks_with_regen_guidance() {
 
     // 4. search_memory with 2d query_vector → blocked with guidance.
     let bad_mem = Some(json!({
-        "name": "search_memory",
+        "name": LEGACY_SEARCH_ALIAS,
         "arguments": {"namespace": "emb18_ns", "query_vector": [0.5, 0.5]}
     }));
     let mem_res = handle_tools_call(&bad_mem, &executor, &storage, &cfg).unwrap();
@@ -5116,5 +5459,849 @@ fn emb18_empty_base_defines_dim_no_gate() {
     assert!(
         res["isError"].is_null(),
         "first vector put on empty base must succeed (no gate): {res:?}"
+    );
+}
+
+// ── API-04: nombres canónicos + schemas estrictos + errores tipados (Gate P) ─
+//
+// Contrato: `docs/dev/tasks/API-04.md` §Contrato. Los aliases legacy
+// (`search_memory`, `collection_list`, prompt `search_memory`) quedan
+// despachables pero NO listados (redirección documentada, API-STD-08).
+
+/// API-04 + WIRE-02: `tools/list` exposes exactly one name per tool — the
+/// canonical `memory_search` / `memory_list_namespaces` — with zero duplicate
+/// names and zero listings of the legacy aliases or the absorbed projections.
+/// Total: 79 listed (85 defined − 6 `code_*` absorbed, WIRE-02; prior API-04:
+/// 49 base − 2 canonicalized + 38 extended = 85).
+#[test]
+fn test_api04_tools_list_canonical_names_no_duplicates() {
+    let res = handle_tools_list(&default_config()).unwrap();
+    let tools = res["tools"].as_array().expect("tools array");
+    let names: Vec<&str> = tools.iter().map(|t| t["name"].as_str().unwrap()).collect();
+
+    // 1 nombre canónico por tool: sin duplicados.
+    let mut sorted = names.clone();
+    sorted.sort_unstable();
+    let mut deduped = sorted.clone();
+    deduped.dedup();
+    assert_eq!(
+        sorted, deduped,
+        "tools/list must not contain duplicate names"
+    );
+
+    // Canónicos listados.
+    assert!(
+        names.contains(&"memory_search"),
+        "canonical search tool must be listed"
+    );
+    assert!(
+        names.contains(&"memory_list_namespaces"),
+        "canonical namespace listing must be listed"
+    );
+    // Legacy aliases NO listados (dispatch-only redirects).
+    assert!(
+        !names.contains(&"search_memory"),
+        "legacy alias search_memory must not be listed (dispatch-only)"
+    );
+    assert!(
+        !names.contains(&"collection_list"),
+        "legacy alias collection_list must not be listed (dispatch-only)"
+    );
+    assert_eq!(
+        names.len(),
+        79,
+        "expected 79 listed tools after WIRE-02 absorption, got {}",
+        names.len()
+    );
+}
+
+/// API-04: base tool schemas are strict — top-level `additionalProperties:
+/// false` so unknown keys are rejected by schema-validating clients instead of
+/// silently ignored by the handler. Free-form dictionaries (`metadata`,
+/// `sparse_vector`, `filters`) stay open.
+#[test]
+fn test_api04_base_tool_schemas_strict() {
+    let res = handle_tools_list(&default_config()).unwrap();
+    let tools = res["tools"].as_array().unwrap();
+    let strict: std::collections::HashSet<&str> = [
+        "memory_put",
+        "memory_put_batch",
+        "memory_get",
+        "memory_delete",
+        "memory_delete_by_filter",
+        "memory_list",
+        "memory_list_namespaces",
+        "memory_versions",
+        "memory_supersede",
+        "query_iql",
+        "memory_recall",
+        "memory_search",
+        "search_semantic",
+        "search_with_method",
+        "search_multi",
+        "get_node_neighbors",
+        "graph_page_rank",
+        "graph_degree_centrality",
+        "graph_traverse",
+        "graph_topological_sort",
+        "graph_is_dag",
+        "remove_edge",
+        "inject_context",
+        "read_axioms",
+        "write_axiom",
+        "delete_axiom",
+        "collection_stats",
+        "collection_delete",
+        "capabilities",
+        "generate_snippet",
+        "list_snapshots",
+        "rehydrate",
+        "purge_expired",
+        "compact_wal",
+        "flush",
+        "compact_layout",
+        "vacuum",
+        "rebuild_index",
+        "audit_text_index",
+        "repair_text_index",
+        "snapshot_create",
+        "snapshot_restore",
+        "export",
+        "import",
+        "bulk_import_file",
+        "bulk_import_stream",
+        "embed_texts",
+    ]
+    .into_iter()
+    .collect();
+
+    for tool in tools {
+        let name = tool["name"].as_str().unwrap();
+        let schema = &tool["inputSchema"];
+        assert!(schema.is_object(), "{name} must carry an inputSchema");
+        if strict.contains(name) {
+            assert_eq!(
+                schema["additionalProperties"],
+                json!(false),
+                "{name} schema must be strict (additionalProperties:false)"
+            );
+        }
+    }
+
+    // Nested free-form dictionaries stay open (they are maps, not fixed shapes).
+    let put = tools
+        .iter()
+        .find(|t| t["name"] == "memory_put")
+        .expect("memory_put listed");
+    let props = &put["inputSchema"]["properties"];
+    for open in ["metadata", "sparse_vector"] {
+        assert_ne!(
+            props[open]["additionalProperties"],
+            json!(false),
+            "{open} is a free-form dictionary and must stay open"
+        );
+    }
+    // memory_put_batch input items are closed too (literal schema).
+    let batch = tools
+        .iter()
+        .find(|t| t["name"] == "memory_put_batch")
+        .expect("memory_put_batch listed");
+    assert_eq!(
+        batch["inputSchema"]["properties"]["inputs"]["items"]["additionalProperties"],
+        json!(false),
+        "memory_put_batch items must be strict"
+    );
+}
+
+/// API-04: `thread_id` is a u128 decimal string in the schema — the canonical
+/// wire form for every u128 (thread ids are random u128, `src/agentic/thread.rs:139-140`).
+#[test]
+fn test_api04_thread_id_schema_is_string() {
+    let res = handle_tools_list(&default_config()).unwrap();
+    let tools = res["tools"].as_array().unwrap();
+
+    let inject = tools
+        .iter()
+        .find(|t| t["name"] == "inject_context")
+        .expect("inject_context listed");
+    assert_eq!(
+        inject["inputSchema"]["properties"]["thread_id"]["type"], "string",
+        "inject_context.thread_id must be a u128 decimal string"
+    );
+    assert!(
+        inject["inputSchema"]["required"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|v| v == "thread_id"),
+        "thread_id stays required"
+    );
+
+    // Thread CRUD tools already use the u128-string contract; guard it.
+    for tool in tools
+        .iter()
+        .filter(|t| t["name"].as_str().unwrap().starts_with("thread_"))
+    {
+        if let Some(tid) = tool["inputSchema"]["properties"].get("thread_id") {
+            assert_eq!(
+                tid["type"], "string",
+                "{} thread_id must be string",
+                tool["name"]
+            );
+        }
+    }
+}
+
+/// API-04: the handler accepts the canonical string form and the legacy
+/// numeric form (documented compat); any other type or an unparseable string
+/// is JSON-RPC invalid-params naming the field.
+#[test]
+fn test_api04_inject_context_thread_id_string_and_legacy_number() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    let cfg = default_config();
+
+    // Canonical: u128 decimal string.
+    let canonical = Some(json!({
+        "name": "inject_context",
+        "arguments": { "content": "hi", "thread_id": "200" }
+    }));
+    let res = handle_tools_call(&canonical, &executor, &storage, &cfg).unwrap();
+    assert!(
+        res["isError"].is_null() || res["isError"] == false,
+        "canonical string thread_id must work: {res:?}"
+    );
+
+    // Legacy: number ≤ 2^53 keeps working (saved prompts).
+    let legacy = Some(json!({
+        "name": "inject_context",
+        "arguments": { "content": "hi", "thread_id": 200 }
+    }));
+    let res = handle_tools_call(&legacy, &executor, &storage, &cfg).unwrap();
+    assert!(
+        res["isError"].is_null() || res["isError"] == false,
+        "legacy numeric thread_id must keep working: {res:?}"
+    );
+
+    // Wrong type → invalid_params naming the field (never "Missing").
+    let wrong = Some(json!({
+        "name": "inject_context",
+        "arguments": { "content": "hi", "thread_id": true }
+    }));
+    let err = handle_tools_call(&wrong, &executor, &storage, &cfg).unwrap_err();
+    assert_eq!(
+        err["code"], -32602,
+        "wrong-typed thread_id must be invalid params"
+    );
+    assert_eq!(
+        err["data"]["code"], "VANTADB_VALIDATION_ERROR",
+        "present-but-invalid thread_id must carry the typed data.code: {err}"
+    );
+    let msg = err["message"].as_str().unwrap();
+    assert!(
+        msg.contains("thread_id"),
+        "error must name the field: {msg}"
+    );
+    assert!(!msg.contains("Missing"), "must not claim absence: {msg}");
+
+    // Unparseable string → invalid_params.
+    let bad = Some(json!({
+        "name": "inject_context",
+        "arguments": { "content": "hi", "thread_id": "not-a-u128" }
+    }));
+    let err = handle_tools_call(&bad, &executor, &storage, &cfg).unwrap_err();
+    assert_eq!(
+        err["code"], -32602,
+        "unparseable thread_id must be invalid params"
+    );
+    assert_eq!(
+        err["data"]["code"], "VANTADB_VALIDATION_ERROR",
+        "unparseable thread_id must carry the typed data.code: {err}"
+    );
+}
+
+/// API-04: param-level failures on `query_iql` are JSON-RPC invalid-params
+/// (-32602 with the typed `data.code`), not isError strings.
+#[test]
+fn test_api04_query_iql_param_errors_are_invalid_params() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    let cfg = default_config();
+
+    for (query, needle) in [("   ", "empty"), ("FROM NODE#1\0x", "null")] {
+        let params = Some(json!({
+            "name": "query_iql",
+            "arguments": { "query": query }
+        }));
+        let err = handle_tools_call(&params, &executor, &storage, &cfg)
+            .expect_err("param-level query_iql errors must be JSON-RPC errors");
+        assert_eq!(err["code"], -32602, "must be invalid params, got: {err}");
+        assert!(
+            err["message"].as_str().unwrap().contains(needle),
+            "error must explain the problem ({needle}): {err}"
+        );
+        assert_eq!(
+            err["data"]["code"], "VANTADB_VALIDATION_ERROR",
+            "typed data.code required: {err}"
+        );
+    }
+
+    // Oversize → invalid_params too (config-capped).
+    let small = vantadb_mcp::McpConfig {
+        max_query_length: 8,
+        ..default_config()
+    };
+    let long = Some(json!({
+        "name": "query_iql",
+        "arguments": { "query": "SELECT * FROM long_table" }
+    }));
+    let err = handle_tools_call(&long, &executor, &storage, &small).unwrap_err();
+    assert_eq!(
+        err["code"], -32602,
+        "oversize query must be invalid params: {err}"
+    );
+}
+
+/// API-04: param-level failures on `memory_recall` are JSON-RPC
+/// invalid-params; the recall workflow itself (empty DB) keeps its successful
+/// keyword-degraded envelope (regression guard: this change must not break
+/// the D38 degradation path).
+#[test]
+fn test_api04_memory_recall_param_errors_are_invalid_params() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    let cfg = default_config();
+
+    let empty = Some(json!({
+        "name": "memory_recall",
+        "arguments": { "query": "   " }
+    }));
+    let err = handle_tools_call(&empty, &executor, &storage, &cfg).unwrap_err();
+    assert_eq!(
+        err["code"], -32602,
+        "empty recall query must be invalid params: {err}"
+    );
+    assert_eq!(err["data"]["code"], "VANTADB_VALIDATION_ERROR", "{err}");
+
+    let scope = Some(json!({
+        "name": "memory_recall",
+        "arguments": { "query": "x", "scope": "global" }
+    }));
+    let err = handle_tools_call(&scope, &executor, &storage, &cfg).unwrap_err();
+    assert_eq!(
+        err["code"], -32602,
+        "unknown recall scope must be invalid params: {err}"
+    );
+    assert!(
+        err["message"].as_str().unwrap().contains("scope"),
+        "error must name the field: {err}"
+    );
+}
+
+/// API-04: domain rejections on the canonical surface are TYPED envelopes —
+/// `content[0].text` parses as JSON carrying `data.code` (and `retriable`),
+/// never a free-form string. Covers NOT_FOUND, VALIDATION and RESOURCE_LIMIT.
+#[test]
+fn test_api04_domain_errors_are_typed_envelopes() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    let cfg = default_config();
+
+    let typed = |res: Result<Value, Value>| -> Value {
+        let val = res.expect("domain rejection must be an Ok(isError) envelope");
+        assert_eq!(val["isError"], json!(true), "isError must be true: {val}");
+        let text = val["content"][0]["text"].as_str().expect("text block");
+        serde_json::from_str(text).expect("typed error text must be a JSON envelope")
+    };
+
+    // memory_get on a missing key → VANTADB_NOT_FOUND.
+    let get = Some(json!({
+        "name": "memory_get",
+        "arguments": { "namespace": "nope", "key": "k" }
+    }));
+    let err = typed(handle_tools_call(&get, &executor, &storage, &cfg));
+    assert_eq!(err["data"]["code"], "VANTADB_NOT_FOUND", "got: {err}");
+    assert_eq!(err["data"]["retriable"], json!(false), "got: {err}");
+
+    // snapshot_restore without confirm → VALIDATION (no disk touch).
+    let restore = Some(json!({
+        "name": "snapshot_restore",
+        "arguments": { "name": "snap-x" }
+    }));
+    let err = typed(handle_tools_call(&restore, &executor, &storage, &cfg));
+    assert_eq!(
+        err["data"]["code"], "VANTADB_VALIDATION_ERROR",
+        "got: {err}"
+    );
+
+    // import over the 10 MB transfer cap → RESOURCE_LIMIT.
+    let big = "x".repeat(10 * 1024 * 1024 + 1);
+    let imp = Some(json!({
+        "name": "import",
+        "arguments": { "content": big }
+    }));
+    let err = typed(handle_tools_call(&imp, &executor, &storage, &cfg));
+    assert_eq!(err["data"]["code"], "VANTADB_RESOURCE_LIMIT", "got: {err}");
+    assert_eq!(err["data"]["retriable"], json!(true), "got: {err}");
+}
+
+/// API-04: prompts are a separate registry — no prompt may shadow a tool
+/// name. The canonical prompt is `recall_search`; the legacy `search_memory`
+/// prompt name keeps resolving (documented redirect).
+#[test]
+fn test_api04_prompts_are_separated_from_tools() {
+    let prompts = handle_prompts_list().unwrap();
+    let prompt_names: Vec<&str> = prompts["prompts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|p| p["name"].as_str().unwrap())
+        .collect();
+    let tools = handle_tools_list(&default_config()).unwrap();
+    let tool_names: Vec<&str> = tools["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|t| t["name"].as_str().unwrap())
+        .collect();
+
+    assert!(
+        prompt_names.contains(&"recall_search"),
+        "canonical prompt recall_search must be listed"
+    );
+    assert!(
+        !prompt_names.contains(&"search_memory"),
+        "no prompt may shadow a tool name"
+    );
+    for p in &prompt_names {
+        assert!(
+            !tool_names.contains(p),
+            "prompt '{p}' collides with a tool name"
+        );
+    }
+
+    // Legacy prompt name still resolves (redirect); canonical works too.
+    let legacy = handle_prompts_get(Some(&json!({
+        "name": LEGACY_SEARCH_ALIAS,
+        "arguments": { "namespace": "n", "query": "q" }
+    })));
+    assert!(
+        legacy.is_ok(),
+        "legacy prompt name must keep resolving: {legacy:?}"
+    );
+    let canonical = handle_prompts_get(Some(&json!({
+        "name": "recall_search",
+        "arguments": { "namespace": "n", "query": "q" }
+    })));
+    assert!(canonical.is_ok(), "canonical prompt must resolve");
+    let msg = canonical.unwrap()["messages"][0]["content"]["text"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    assert!(
+        msg.contains("memory_search"),
+        "prompt text must point at the canonical tool name: {msg}"
+    );
+}
+
+// ── SCH-04: confidence fields on the MCP wire (serde propagation) ──────────
+
+/// `memory_get` returns the full `MemoryRecord` JSON — the v2 confidence
+/// fields (ADR-046 §D2) must be visible with their D_a defaults.
+#[test]
+fn test_mcp_memory_get_exposes_confidence_fields() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    let cfg = default_config();
+
+    let put = Some(json!({"name": "memory_put", "arguments": {
+        "namespace": "sch04_ns", "key": "k1", "payload": "confidence probe"
+    }}));
+    let _ = handle_tools_call(&put, &executor, &storage, &cfg).expect("memory_put");
+
+    let get = Some(json!({"name": "memory_get", "arguments": {
+        "namespace": "sch04_ns", "key": "k1"
+    }}));
+    let got = text_of_mcp_result(handle_tools_call(&get, &executor, &storage, &cfg));
+
+    assert_eq!(got["confidence_class"], json!("Asserted"), "{got}");
+    assert_eq!(got["confidence"], json!(1.0), "{got}");
+    assert!(got["last_validated_at_ms"].is_null(), "{got}");
+    assert_eq!(got["derived_from"], json!([]), "{got}");
+}
+
+/// `memory_search` hits carry the record confidence fields (the hit envelope
+/// serializes `MemorySearchHit` by serde — same propagation as HTTP).
+#[test]
+fn test_mcp_search_hit_exposes_confidence_fields() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    let cfg = default_config();
+
+    let put = Some(json!({"name": "memory_put", "arguments": {
+        "namespace": "sch04_ns", "key": "k1", "payload": "confidence probe",
+        "vector": [1.0, 0.0]
+    }}));
+    let _ = handle_tools_call(&put, &executor, &storage, &cfg).expect("memory_put");
+
+    let search = Some(json!({"name": "memory_search", "arguments": {
+        "namespace": "sch04_ns", "query_vector": [1.0, 0.0], "top_k": 1
+    }}));
+    // `content[0].text` is the raw hits array (MCP-39 kept that shape for
+    // back-compat); the envelope lives under `structuredContent`.
+    let hits = text_of_mcp_result(handle_tools_call(&search, &executor, &storage, &cfg));
+    let record = &hits[0]["record"];
+
+    assert_eq!(record["confidence_class"], json!("Asserted"), "{hits}");
+    assert_eq!(record["confidence"], json!(1.0), "{hits}");
+    assert!(record["last_validated_at_ms"].is_null(), "{hits}");
+    assert_eq!(record["derived_from"], json!([]), "{hits}");
+}
+
+/// `memory_search` accepts the opt-in `min_confidence` filter and rejects
+/// out-of-range / non-numeric values with an actionable error (SCH-04).
+#[test]
+fn test_mcp_search_min_confidence_validated() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    let cfg = default_config();
+
+    let put = Some(json!({"name": "memory_put", "arguments": {
+        "namespace": "sch04_ns", "key": "k1", "payload": "confidence probe",
+        "vector": [1.0, 0.0]
+    }}));
+    let _ = handle_tools_call(&put, &executor, &storage, &cfg).expect("memory_put");
+
+    // Valid threshold: asserted D_a = 1.0 passes.
+    let ok = Some(json!({"name": "memory_search", "arguments": {
+        "namespace": "sch04_ns", "query_vector": [1.0, 0.0], "top_k": 1,
+        "min_confidence": 0.95
+    }}));
+    let hits = text_of_mcp_result(handle_tools_call(&ok, &executor, &storage, &cfg));
+    assert_eq!(hits.as_array().map(Vec::len), Some(1), "{hits}");
+
+    // Out of range: core boundary rejects with the stable marker.
+    let bad = Some(json!({"name": "memory_search", "arguments": {
+        "namespace": "sch04_ns", "query_vector": [1.0, 0.0], "top_k": 1,
+        "min_confidence": 1.5
+    }}));
+    let out = handle_tools_call(&bad, &executor, &storage, &cfg).expect("tool call");
+    assert!(
+        !out["isError"].is_null(),
+        "out-of-range threshold must be an error: {out}"
+    );
+    let text = out["content"][0]["text"].as_str().unwrap_or_default();
+    assert!(text.contains("min_confidence"), "actionable error: {text}");
+
+    // Wrong type: param-level rejection.
+    let wrong = Some(json!({"name": "memory_search", "arguments": {
+        "namespace": "sch04_ns", "query_vector": [1.0, 0.0],
+        "min_confidence": "high"
+    }}));
+    let out = handle_tools_call(&wrong, &executor, &storage, &cfg).expect("tool call");
+    let text = out["content"][0]["text"].as_str().unwrap_or_default();
+    assert!(
+        text.contains("min_confidence must be a number"),
+        "clear type error: {text}"
+    );
+}
+
+// ── SCH-05: quarantine containment through MCP tool surfaces ──────────────
+
+#[test]
+fn test_mcp_memory_put_quarantine_flag_isolates_record() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    let cfg = default_config();
+
+    // Active record + quarantined record (T1 flag via MCP memory_put).
+    let active = Some(json!({"name": "memory_put", "arguments": {
+        "namespace": "sch05_ns", "key": "safe", "payload": "shared marker content"
+    }}));
+    let out = handle_tools_call(&active, &executor, &storage, &cfg).expect("put active");
+    assert!(out["isError"].is_null(), "active put must succeed");
+
+    let suspect = Some(json!({"name": "memory_put", "arguments": {
+        "namespace": "sch05_ns", "key": "suspect", "payload": "shared marker suspect",
+        "quarantine": true
+    }}));
+    let out = handle_tools_call(&suspect, &executor, &storage, &cfg).expect("put quarantined");
+    assert!(out["isError"].is_null(), "quarantined put must succeed");
+    let text = out["content"][0]["text"].as_str().unwrap_or_default();
+    assert!(
+        text.contains("explicit_write"),
+        "state visible in response: {text}"
+    );
+
+    // memory_list (default view) must exclude the quarantined record.
+    let list = Some(json!({"name": "memory_list", "arguments": {"namespace": "sch05_ns"}}));
+    let out = handle_tools_call(&list, &executor, &storage, &cfg).expect("list");
+    let text = out["content"][0]["text"].as_str().unwrap_or_default();
+    assert!(text.contains("safe"), "active record listed: {text}");
+    assert!(
+        !text.contains("suspect"),
+        "quarantined record hidden: {text}"
+    );
+
+    // A present non-boolean flag is rejected, never silently coerced.
+    let wrong = Some(json!({"name": "memory_put", "arguments": {
+        "namespace": "sch05_ns", "key": "bad", "payload": "x", "quarantine": "yes"
+    }}));
+    assert!(
+        handle_tools_call(&wrong, &executor, &storage, &cfg).is_err(),
+        "non-boolean quarantine must be a param error"
+    );
+}
+
+// ── SCH-05 review F2: quarantined axioms are hidden from `read_axioms`
+//    but still reserve their id for `write_axiom`'s next-id allocation. ────
+
+#[test]
+fn test_mcp_quarantined_axiom_hidden_but_counts_for_next_id() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    let cfg = default_config();
+
+    let write_axiom = |name: &str| {
+        handle_tools_call(
+            &Some(
+                json!({"name": "write_axiom", "arguments": {"name": name, "description": "rule"}}),
+            ),
+            &executor,
+            &storage,
+            &cfg,
+        )
+        .expect("write_axiom tool call")
+    };
+
+    // First agent axiom gets id 5 (above the Iron Axioms 1-4).
+    let first = write_axiom("A");
+    let text = first["content"][0]["text"].as_str().unwrap_or_default();
+    assert!(text.contains("\"id\":5"), "first agent axiom id: {text}");
+
+    // Quarantine it at storage level (the MCP apply surface lands with SCH-07).
+    let db = vantadb::Embedded::from_engine(storage.clone());
+    db.quarantine_apply("_axioms", "A", None)
+        .expect("quarantine axiom");
+
+    // `read_axioms` serves only active axioms.
+    let read = handle_tools_call(
+        &Some(json!({"name": "read_axioms", "arguments": {}})),
+        &executor,
+        &storage,
+        &cfg,
+    )
+    .expect("read_axioms tool call");
+    let text = read["content"][0]["text"].as_str().unwrap_or_default();
+    assert!(
+        !text.contains("\"name\":\"A\""),
+        "quarantined axiom must not be served: {text}"
+    );
+    assert!(
+        text.contains("Topological Axiom"),
+        "Iron axioms must still be served: {text}"
+    );
+
+    // Next-id allocation MUST count the quarantined axiom (no id reuse).
+    let second = write_axiom("B");
+    let text = second["content"][0]["text"].as_str().unwrap_or_default();
+    assert!(
+        text.contains("\"id\":6"),
+        "quarantined axiom must reserve its id: {text}"
+    );
+}
+
+// ── SCH-07: temporal/quarantine params + selective-abstention signal ─────
+
+/// SCH-07: `memory_search`/`memory_list` accept the temporal
+/// (`as_of_ms`/`valid_window`) and quarantine-view (`include_quarantined`)
+/// params with the same wire names as the SDK; bad types/shapes are rejected
+/// at the MCP trust boundary instead of being coerced.
+#[test]
+fn test_mcp_search_and_list_temporal_quarantine_args() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    let cfg = default_config();
+    let embedded = vantadb::Embedded::from_engine(storage.clone());
+    // MOD-12: mirror production startup — text/BM25 indexes must be current
+    // before lexical searches on a freshly opened engine.
+    embedded.ensure_indexes_current().expect("ensure indexes");
+
+    let put = |key: &str, valid_at: u64, quarantine: bool| {
+        let mut input = vantadb::MemoryInput::new("sch07_ns", key, "alpha temporal");
+        input.valid_at_ms = Some(valid_at);
+        input.quarantine = quarantine;
+        embedded.put(input).expect("put");
+    };
+    put("early", 1000, false);
+    put("late", 5000, false);
+    put("hidden", 1000, true);
+
+    let call = |args: Value| Some(json!({"name": "memory_search", "arguments": args}));
+
+    // as_of_ms = 1000: only the record valid at T; quarantined excluded (default).
+    let out = handle_tools_call(
+        &call(
+            json!({"namespace": "sch07_ns", "text_query": "alpha", "top_k": 10, "as_of_ms": 1000}),
+        ),
+        &executor,
+        &storage,
+        &cfg,
+    )
+    .expect("search as_of");
+    let text = out["content"][0]["text"].as_str().unwrap_or_default();
+    assert!(text.contains("early"), "valid-at-T record visible: {text}");
+    assert!(
+        !text.contains("late"),
+        "record valid only later hidden: {text}"
+    );
+    assert!(
+        !text.contains("hidden"),
+        "quarantined record excluded by default: {text}"
+    );
+
+    // Opt-in quarantine view at the same instant.
+    let out = handle_tools_call(
+        &call(
+            json!({"namespace": "sch07_ns", "text_query": "alpha", "top_k": 10,
+                     "as_of_ms": 1000, "include_quarantined": true}),
+        ),
+        &executor,
+        &storage,
+        &cfg,
+    )
+    .expect("search as_of + quarantined");
+    let text = out["content"][0]["text"].as_str().unwrap_or_default();
+    assert!(text.contains("early") && text.contains("hidden"), "{text}");
+
+    // valid_window overlap [1000, 3000).
+    let out = handle_tools_call(
+        &call(
+            json!({"namespace": "sch07_ns", "text_query": "alpha", "top_k": 10,
+                     "valid_window": {"from_ms": 1000, "to_ms": 3000}}),
+        ),
+        &executor,
+        &storage,
+        &cfg,
+    )
+    .expect("search window");
+    let text = out["content"][0]["text"].as_str().unwrap_or_default();
+    assert!(text.contains("early") && !text.contains("late"), "{text}");
+
+    // Inverted window: core boundary rejects (never silently swapped).
+    let out = handle_tools_call(
+        &call(json!({"namespace": "sch07_ns", "text_query": "alpha",
+                     "valid_window": {"from_ms": 3000, "to_ms": 1000}})),
+        &executor,
+        &storage,
+        &cfg,
+    )
+    .expect("tool call");
+    assert!(
+        !out["isError"].is_null(),
+        "inverted window must be an error: {out}"
+    );
+
+    // Bad types are param errors (actionable, never coerced).
+    for bad in [
+        json!({"namespace": "sch07_ns", "as_of_ms": "soon"}),
+        json!({"namespace": "sch07_ns", "valid_window": {"from_ms": -1, "to_ms": 5}}),
+        json!({"namespace": "sch07_ns", "include_quarantined": "yes"}),
+    ] {
+        assert!(
+            handle_tools_call(&call(bad.clone()), &executor, &storage, &cfg).is_err(),
+            "expected param error for {bad}"
+        );
+    }
+
+    // memory_list: quarantine view opt-in + temporal point.
+    let list = Some(json!({"name": "memory_list", "arguments": {
+        "namespace": "sch07_ns", "include_quarantined": true
+    }}));
+    let out = handle_tools_call(&list, &executor, &storage, &cfg).expect("list");
+    let text = out["content"][0]["text"].as_str().unwrap_or_default();
+    assert!(
+        text.contains("hidden"),
+        "quarantined shown on opt-in: {text}"
+    );
+
+    let list_at = Some(json!({"name": "memory_list", "arguments": {
+        "namespace": "sch07_ns", "as_of_ms": 1000
+    }}));
+    let out = handle_tools_call(&list_at, &executor, &storage, &cfg).expect("list as_of");
+    let text = out["content"][0]["text"].as_str().unwrap_or_default();
+    assert!(text.contains("early") && !text.contains("late"), "{text}");
+
+    // min_confidence on list (ADR-046 §D2, SCH-07): low-confidence record filtered.
+    let mut low = vantadb::MemoryInput::new("sch07_ns", "low", "alpha temporal");
+    low.confidence = Some(0.3);
+    embedded.put(low).expect("put low");
+    let list_floor = Some(json!({"name": "memory_list", "arguments": {
+        "namespace": "sch07_ns", "include_quarantined": true, "min_confidence": 0.9
+    }}));
+    let out = handle_tools_call(&list_floor, &executor, &storage, &cfg).expect("list floor");
+    let text = out["content"][0]["text"].as_str().unwrap_or_default();
+    assert!(
+        !text.contains("low"),
+        "threshold filters 0.3 record: {text}"
+    );
+    let bad = Some(json!({"name": "memory_list", "arguments": {
+        "namespace": "sch07_ns", "min_confidence": "high"
+    }}));
+    assert!(
+        handle_tools_call(&bad, &executor, &storage, &cfg).is_err(),
+        "non-numeric min_confidence must be a param error"
+    );
+}
+
+/// SCH-07: with `confidence_threshold` configured, an emptied `memory_search`
+/// page carries the explicit abstention signal (`abstained` + stable reason)
+/// in `structuredContent` — never a silent empty page. `search_with_method`
+/// shares the same envelope.
+#[test]
+fn test_mcp_search_abstention_signal_in_structured_content() {
+    let storage = Arc::new(
+        StorageEngine::open_with_config(
+            ":memory:",
+            Some(vantadb::config::Config {
+                backend_kind: vantadb::storage::BackendKind::InMemory,
+                confidence_threshold: Some(0.9),
+                ..vantadb::config::Config::default()
+            }),
+        )
+        .expect("open with threshold"),
+    );
+    let executor = Executor::new(&storage);
+    let cfg = default_config();
+    let embedded = vantadb::Embedded::from_engine(storage.clone());
+    embedded.ensure_indexes_current().expect("ensure indexes");
+    let mut input = vantadb::MemoryInput::new("sch07_abs", "shaky", "below bar");
+    input.confidence = Some(0.2);
+    embedded.put(input).expect("put");
+
+    let call = Some(json!({"name": "memory_search", "arguments": {
+        "namespace": "sch07_abs", "text_query": "below", "top_k": 5
+    }}));
+    let out = handle_tools_call(&call, &executor, &storage, &cfg).expect("search");
+    assert!(out["isError"].is_null(), "{out}");
+    let structured = &out["structuredContent"];
+    assert_eq!(structured["abstained"], true, "explicit signal: {out}");
+    assert_eq!(
+        structured["abstention_reason"], "no_candidates_above_threshold",
+        "{out}"
+    );
+    // Text payload stays the raw (empty) hits array (MCP-39 back-compat).
+    assert_eq!(out["content"][0]["text"], "[]", "{out}");
+
+    // search_with_method shares the same page-shaped envelope.
+    let call = Some(json!({"name": "search_with_method", "arguments": {
+        "namespace": "sch07_abs", "text_query": "below", "top_k": 5, "method": "flat"
+    }}));
+    let out = handle_tools_call(&call, &executor, &storage, &cfg).expect("search method");
+    assert!(out["isError"].is_null(), "{out}");
+    assert_eq!(out["structuredContent"]["abstained"], true, "{out}");
+    assert_eq!(
+        out["structuredContent"]["abstention_reason"], "no_candidates_above_threshold",
+        "{out}"
     );
 }

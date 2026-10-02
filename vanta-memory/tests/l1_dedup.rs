@@ -390,6 +390,7 @@ fn put_records(db: &Embedded, session: &str, records: &[MemoryRecord]) {
             vector: None,
             sparse_vector: None,
             ttl_ms: None,
+            ..Default::default()
         })
         .expect("put");
     }

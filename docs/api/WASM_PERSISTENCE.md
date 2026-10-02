@@ -1,10 +1,10 @@
 ---
 title: WASM Persistence Documentation
-type: api
+kind: reference
 status: active
-tags: [vantadb, wasm, browser, persistence]
-last_reviewed: 2026-08-19
+description: "How VantaDB persists data in the browser: what exists, what the verified"
 aliases: [WASM_PERSISTENCE]
+tags: [vantadb, wasm, browser, persistence]
 ---
 
 # WASM Persistence Documentation

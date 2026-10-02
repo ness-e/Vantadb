@@ -1,10 +1,12 @@
 ---
-title: "VantaDB — De Código a Empresa"
-subtitle: "Manual Estratégico Unificado"
-author: "Eros · Founder de VantaDB"
+title: VantaDB — De Código a Empresa
+kind: concept
+description: Cómo transformar VantaDB en un negocio rentable
+subtitle: Manual Estratégico Unificado
+author: Eros · Founder de VantaDB
 date: "31 de julio de 2026"
 version: "Unificado v1.0 (Gemini + GPT + Sonnet + GLM) + validación externa 2026-09-14 (ver docs/dev/research/manual-estrategico-validacion-2026-09-14.md: fe de erratas, números corregidos, plan D vencido)"
-context: "Solo-founder · Venezuela · Sin presupuesto"
+context: Solo-founder · Venezuela · Sin presupuesto
 horizon: "4 meses (Sep 2026 → Ene 2027)"
 meta: "Meta: USD 5.000 en ganancias antes del 01/01/2027"
 ---
@@ -569,7 +571,7 @@ SUPUESTOS DEL PLAN
 ### Mes 1 — Septiembre 2026: Setup + Lanzamiento
 
 
-### Semana 1 (1-7 sept): Setup legal + banca + pricing
+#### Semana 1 (1-7 sept): Setup legal + banca + pricing
 
 Objetivo: confirmar vía de cobro y entidad. Sin esto, todo lo demás es teoría.
 - L1: Contactar Firstbase, doola, especialista VE→Singapur. Confirmar por escrito si aceptan VE y qué banco ofrecen. Decidir entre Delaware+Mercury (si KYC aprueba) vs. Singapur+EMI vs. co-founder externo.
@@ -579,7 +581,7 @@ Objetivo: confirmar vía de cobro y entidad. Sin esto, todo lo demás es teoría
 - C4: Esta misma semana, 30 min de búsqueda marcario. Resultado: verde o rojo.
 Métricas: (a) 1 plataforma de cobro confirmada y operativa; (b) pricing documentado; (c) búsqueda marcario completada. Compromiso comercial: $0 (setup).
 
-### Semana 2 (8-14 sept): One-pager + ICP + design partner outreach
+#### Semana 2 (8-14 sept): One-pager + ICP + design partner outreach
 
 Objetivo: tener mensaje claro y empezar outreach para conseguir 5 design partners.
 - C8: Escribir propuesta de valor no-técnica en 1 frase + 3 bullets de beneficio. Iterar 5 versiones.
@@ -590,7 +592,7 @@ Objetivo: tener mensaje claro y empezar outreach para conseguir 5 design partner
 - M5: Landing page minimal (Carrd o Vercel): propuesta de valor, CTA 'Join beta', captura email. NO esperes a tener web perfecta.
 Métricas: (a) 1 one-pager final; (b) 50 prospectos listados; (c) 25 outreach enviados; (d) 3-4 conversaciones activas; (e) landing live. Compromiso comercial: $0.
 
-### Semana 3 (15-21 sept): Calls con design partners + ToS/Privacy
+#### Semana 3 (15-21 sept): Calls con design partners + ToS/Privacy
 
 Objetivo: cerrar 3-5 design partners en beta. Mientras tanto, trámites legales mínimos.
 - C11: Hacer calls de 30 min con 5-8 interesados de la semana 2. Cerrar 3-5 design partners con compromiso de integrar VantaDB en proyecto real.
@@ -601,7 +603,7 @@ Objetivo: cerrar 3-5 design partners en beta. Mientras tanto, trámites legales 
 - P7: Política de soporte: canales (GitHub Issues + Discord), tiempo de respuesta objetivo (<48h Community, <24h Pro/Business). Publicar en /support.
 Métricas: (a) 3-5 design partners firmados; (b) ToS + Privacy + Política soporte publicados; (c) telemetría opt-in documentada. Compromiso comercial: $0 (design partners gratis).
 
-### Semana 4 (22-28 sept): Show HN + distribución secundaria
+#### Semana 4 (22-28 sept): Show HN + distribución secundaria
 
 Objetivo: lanzar en HN + Reddit + Discord con 3-5 design partners ya activos como prueba de tracción.
 - C13: Ejecutar plan de lanzamiento de 7 días (tabla en C13). Show HN jueves 9am PT, cross-posts viernes, Dev.to sábado, newsletter pitches domingo.
@@ -614,7 +616,7 @@ Métricas: (a) Show HN top 10 en Show page, 30+ points; (b) 100+ GitHub stars nu
 ### Mes 2 — Octubre 2026: Iteración + Primeros Pagadores Pro
 
 
-### Semana 5 (29 sept - 5 oct): Post-lanzamiento iteración
+#### Semana 5 (29 sept - 5 oct): Post-lanzamiento iteración
 
 Objetivo: procesar feedback del Show HN, fix bugs críticos, follow-up con 10+ prospectos interesados.
 - Cerrar issues críticos reportados en Show HN (<72h). Documentar fixes en changelog.
@@ -623,7 +625,7 @@ Objetivo: procesar feedback del Show HN, fix bugs críticos, follow-up con 10+ p
 - Configurar tracking MRR/ARR: spreadsheet simple (cliente, tier, monto, fecha inicio, churn risk).
 Métricas: (a) todos los issues críticos cerrados; (b) 10 calls con prospectos; (c) FAQ actualizado; (d) MRR tracking operacional. Compromiso comercial: $0 aún.
 
-### Semana 6 (6-12 oct): Conversión design partners → primer pago Pro
+#### Semana 6 (6-12 oct): Conversión design partners → primer pago Pro
 
 Objetivo: cerrar primeros 2-3 clientes Pro ($49/mo cada uno). Convertir design partners que ya ven valor.
 - Para cada design partner: call de 30 min 'how is it going?'. Si valor positivo, pedir testimonio y upgrade a Pro pagador.
@@ -632,7 +634,7 @@ Objetivo: cerrar primeros 2-3 clientes Pro ($49/mo cada uno). Convertir design p
 - Si ningún design partner convierte a pago, pregunta directa: '¿qué falta para que pagues $49/mo por esto?'. Iterar respuesta.
 Métricas: (a) 2-3 clientes Pro pagadores; (b) 1-2 testimonios escritos; (c) página de pricing live. Compromiso comercial: $98-147 MRR nuevo. Acumulado: $98-147.
 
-### Semana 7 (13-19 oct): Escalar outreach + primer cliente Business
+#### Semana 7 (13-19 oct): Escalar outreach + primer cliente Business
 
 Objetivo: cerrar primer cliente Business ($199/mo) y sumar 1-2 Pro más.
 - Lista de 30 prospectos Business: equipos 5-30 devs con agentes en producción. Buscar en LinkedIn, Y Combinator company directory, Wellfound (AngelList).
@@ -641,7 +643,7 @@ Objetivo: cerrar primer cliente Business ($199/mo) y sumar 1-2 Pro más.
 - Cerrar 1 Business + 1-2 Pro adicionales.
 Métricas: (a) 1 cliente Business; (b) 1-2 Pro adicionales. Compromiso comercial: $199 + $49-98 nuevo. Acumulado MRR: ~$346-444.
 
-### Semana 8 (20-26 oct): Content sprint + SEO foundation
+#### Semana 8 (20-26 oct): Content sprint + SEO foundation
 
 Objetivo: capitalizar tracción del Show HN con contenido técnico que genere tráfico orgánico sostenido.
 - Publicar 2 blog posts técnicos: (a) 'How we implemented HNSW + BM25 + RRF in pure Rust'; (b) 'VantaDB vs ChromaDB vs LanceDB: an honest benchmark' (usando tu COMPETITIVE_ANALYSIS.md).
@@ -653,7 +655,7 @@ Métricas: (a) 2 blog posts publicados; (b) 200+ views combinadas; (c) newslette
 ### Mes 3 — Noviembre 2026: Cierre Enterprise + Escalar
 
 
-### Semana 9 (27 oct - 2 nov): Primer deal Enterprise pipeline
+#### Semana 9 (27 oct - 2 nov): Primer deal Enterprise pipeline
 
 Objetivo: identificar 3-5 prospects Enterprise ($2.500+ annual) y empezar conversaciones serias.
 - Lista de 20 prospects Enterprise: equipos 30+ devs con agentes LLM mission-critical. Buscar en Y Combinator W22-W24 batches, bien-funded AI startups.
@@ -662,7 +664,7 @@ Objetivo: identificar 3-5 prospects Enterprise ($2.500+ annual) y empezar conver
 - Cerrar 1-2 Pro + 1 Business adicional del pipeline de octubre.
 Métricas: (a) 3-5 conversaciones Enterprise activas; (b) 1 pilot on-prem arrancado; (c) 1-2 Pro + 1 Business cerrados. Acumulado MRR: ~$692-890.
 
-### Semana 10 (3-9 nov): Pilot Enterprise + iteración on-prem license
+#### Semana 10 (3-9 nov): Pilot Enterprise + iteración on-prem license
 
 Objetivo: ejecutar pilot Enterprise y preparar cierre.
 - Onboarding del pilot Enterprise: call de setup, configuración on-prem, soporte dedicado las primeras 2 semanas.
@@ -671,7 +673,7 @@ Objetivo: ejecutar pilot Enterprise y preparar cierre.
 - Newsletter noviembre: caso de uso del pilot Enterprise (anonimizado).
 Métricas: (a) pilot Enterprise corriendo en producción del cliente; (b) feedback estructurado documentado; (c) 1-2 Pro nuevos. Acumulado MRR: ~$790-988.
 
-### Semana 11 (10-16 nov): Cierre primer deal Enterprise
+#### Semana 11 (10-16 nov): Cierre primer deal Enterprise
 
 Objetivo: convertir pilot Enterprise en deal pagador. Primer deal de $1.500-2.500.
 - Call de cierre con Enterprise pilot: presentar ROI hasta ahora, propuesta de contrato annual $2.500 con SLA 99.5%.
@@ -680,7 +682,7 @@ Objetivo: convertir pilot Enterprise en deal pagador. Primer deal de $1.500-2.50
 - Cerrar 1-2 Pro + 1 Business adicionales.
 Métricas: (a) 1 deal Enterprise cerrado ($1.500-2.500); (b) 1-2 Pro + 1 Business. Ingreso nuevo: ~$1.800-2.800. Acumulado total: ~$2.700-3.500.
 
-### Semana 12 (17-23 nov): Black Friday + upsells
+#### Semana 12 (17-23 nov): Black Friday + upsells
 
 Objetivo: capitalizar Black Friday (24 nov) con descuento para capturar indecisos.
 - Campaña Black Friday: 20% off primer año para Pro y Business. Email a toda la waitlist + lista de prospectos.
@@ -692,7 +694,7 @@ Métricas: (a) 3-5 Pro + 1 Business nuevos; (b) 1-2 upsells. Ingreso nuevo: ~$25
 ### Mes 4 — Diciembre 2026: Cierre de Año + Meta USD 5.000
 
 
-### Semana 13 (24-30 nov): Post-Black Friday follow-up
+#### Semana 13 (24-30 nov): Post-Black Friday follow-up
 
 Objetivo: cerrar los prospects que no convirtieron en Black Friday pero están en alza.
 - Follow-up individual con 10+ prospects que abrieron emails de Black Friday pero no compraron.
@@ -700,7 +702,7 @@ Objetivo: cerrar los prospects que no convirtieron en Black Friday pero están e
 - Newsletter diciembre: balance del trimestre, planes Q1 2027.
 Métricas: 1-2 Pro + 1 Business. Ingreso nuevo: ~$250-450. Acumulado total: ~$3.200-4.450.
 
-### Semana 14 (1-7 dic): Segundo deal Enterprise pipeline
+#### Semana 14 (1-7 dic): Segundo deal Enterprise pipeline
 
 Objetivo: avanzar el segundo deal Enterprise para cerrar antes del 31 dic.
 - Outreach a 10 nuevos prospects Enterprise.
@@ -708,7 +710,7 @@ Objetivo: avanzar el segundo deal Enterprise para cerrar antes del 31 dic.
 - Cerrar 1-2 Pro del flujo orgánico.
 Métricas: (a) 1 pilot Enterprise nuevo o 1 propuesta formal enviada; (b) 1-2 Pro. Ingreso nuevo: ~$50-150. Acumulado total: ~$3.250-4.600.
 
-### Semana 15 (8-14 dic): Cierre segundo Enterprise + Cyber Week
+#### Semana 15 (8-14 dic): Cierre segundo Enterprise + Cyber Week
 
 Objetivo: cerrar segundo deal Enterprise + ultimos upsells del año.
 - Si pilot Enterprise 2 avanza bien: cerrar deal $2.500-3.000 annual.
@@ -717,7 +719,7 @@ Objetivo: cerrar segundo deal Enterprise + ultimos upsells del año.
 - Cerrar 1-2 Pro + 1 Business del flujo.
 Métricas: (a) 1 Enterprise $2.500+ cerrado; (b) 1-2 Pro + 1 Business. Ingreso nuevo: ~$2.700-3.000. Acumulado total: ~$5.950-7.600 (META SUPERADA).
 
-### Semana 16 (15-21 dic): Consolidación + cobros
+#### Semana 16 (15-21 dic): Consolidación + cobros
 
 Objetivo: asegurar cobros de deals cerrados, manejar renuevos de design partners.
 - Enviar invoices pendientes. Verificar receipt en Wise Business / Polar.sh / Payoneer.
@@ -726,7 +728,7 @@ Objetivo: asegurar cobros de deals cerrados, manejar renuevos de design partners
 - Newsletter anual: balance 2026, planes 2027.
 Métricas: (a) 100% de invoices pagadas; (b) 3-5 design partners convertidos. Acumulado total: ~$6.000-7.800.
 
-### Semana 17 (22-31 dic): Cierre de año + plan 2027
+#### Semana 17 (22-31 dic): Cierre de año + plan 2027
 
 Objetivo: cerrar pendientes, hacer balance, planear Q1 2027.
 - Cobros finales: perseguir 1-2 invoices pendientes.

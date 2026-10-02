@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Correcciones FIND 2026-09-15 — 27 DO + 1 SKIP (rehace 2026-09-10)"
+kind: plan
+status: archived
+description: "Status: ⬆️ uphill = 4 (FIND-88 forma del SSE drain · FIND-90 serialización schema:// · FIND-83 alcance real de la contradicción MCP-27/29 · FIND-80 mecanismo de upload de crashes) · ⬇️ downhill = 27 tasks con contrato definido (steps..."
+---
+
 # Plan de Ejecución: Correcciones FIND 2026-09-15 — 27 DO + 1 SKIP (rehace 2026-09-10)
 
 > **Campaign ID:** 6ab26f3f-cf16-4416-9255-c18cca0bcaf0
@@ -381,7 +388,7 @@ Triage + Paso 0 + `question` → owner aprobó "SKIP verificado (Recomendado)" p
 **Task 26: FIND-86 — wiring MEM-69 + tool 77 + números MEM-70**
 - Appetite 2d · 🟡 · 🟡 · `vanta-memory/src/services/pipeline_worker.rs`, `core/record/l1_batch.rs`, `core/scene/auto_consolidate.rs`
 - Verificación real: dream "not wired yet", batch "pipeline_worker untouched", `scene_consolidate` como follow-up en código; MEM-70 sin rastro.
-- Gate Justificación: memoria diferida diseñada (ADR-040) sin cablear; números sin medir.
+- Gate Justificación: memoria diferida diseñada (ADR-0040) sin cablear; números sin medir.
 - Contrato: MEM-69 wiring + tool 77 diseñada o implementada + MEM-70 números o DEFER-ratificado + suite 336 verde + clippy 0.
 - Pre-mortem: scope triple → orden wiring→tool→números; 1 sub-item trancado NO bloquea el resto (shippear resto).
 - Stop: sub-item trancado → ship resto + DEFER-ratificado del resto.

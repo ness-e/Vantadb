@@ -1,10 +1,9 @@
 ---
 title: Public Issue Drafts
-type: operations
+kind: runbook
 status: active
+description: These are draft public issues for post-v0.1.1 external validation. They are
 tags: [vantadb, operations]
-last_reviewed: 2026-07-01
-aliases: []
 ---
 
 # Public Issue Drafts

@@ -1,3 +1,9 @@
+---
+title: "MOD-06: Nits agrupados WAL (flush thread-per-shard, clones batch_append, lookup loop, cardinality dup..."
+kind: task
+description: "cargo nextest run -p vantadb -E 'test(wal)|test(txn)' pasa + cargo check -p vantadb + fmt + clippy de archivos tocados; sin cambio de comportamiento público; suite durabilityrecovery verde.\""
+---
+
 # MOD-06: Nits agrupados WAL (flush thread-per-shard, clones batch_append, lookup loop, cardinality dup, write_shard_meta, PITR)
 
 ## Metadata

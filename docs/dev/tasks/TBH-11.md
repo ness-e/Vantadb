@@ -1,3 +1,9 @@
+---
+title: "TBH-11: Extend `heavy-bench-nightly-51.yml` from 5 → 8 benches"
+kind: task
+description: El workflow heavy-bench-nightly-51.yml corre nightly (cron 0 3 ) con 5 benches
+---
+
 # TBH-11: Extend `heavy-bench-nightly-51.yml` from 5 → 8 benches
 
 ## Metadata

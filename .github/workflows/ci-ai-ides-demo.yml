@@ -1,0 +1,80 @@
+name: 'CI: AI-IDE memory demo (MCP) — cross-session recall'
+
+# ICP-01 (track AI-IDEs, F5): the acceptance demo runs on every relevant PR —
+# session 1 stores a note (auto-embed on put), session 2 recalls it with a
+# synonym query that shares ZERO literal tokens with the stored text. A
+# regression in the embed-on-put / embed-on-query pipeline (EMB-14/15) turns
+# this red; a keyword-only pass can never satisfy it (the pair has no shared
+# tokens — asserted by the test itself).
+#
+# Deterministic and offline by design: the embedding provider is an in-process
+# fake Ollama (`POST /api/embed`) declared as a test double — no tokens, no
+# model files, no network beyond loopback. Ubuntu only: the demo exercises the
+# MCP pipeline, not platform-specific behavior.
+#
+# Paths cover the demo's dependency surface (O1/O2, review ICP-01): the MCP
+# crate, recall (vanta-memory), the provider/core it runs on (src/**) and the
+# metric event shape (vanta-proxy/**). The Cargo.toml gate keeps the binary
+# skipped — not failed — on lanes without `remote-inference`.
+#
+# No `continue-on-error` anywhere: a broken demo blocks the PR.
+
+on:
+  push:
+    branches: [ "main", "develop" ]
+    paths:
+      - 'vantadb-mcp/**'
+      - 'vanta-memory/**'
+      - 'vanta-proxy/**'
+      - 'src/**'
+      - 'scripts/north_star_metric.py'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/ci-ai-ides-demo.yml'
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - 'vantadb-mcp/**'
+      - 'vanta-memory/**'
+      - 'vanta-proxy/**'
+      - 'src/**'
+      - 'scripts/north_star_metric.py'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/ci-ai-ides-demo.yml'
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+concurrency:
+  group: ci-ai-ides-demo-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  cross-session-demo:
+    name: "Session 1 put -> session 2 synonym recall"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/rust-setup
+        with:
+          install-system-deps: true
+          install-nextest: true
+
+      # `remote-inference` compiles the env-selected provider path the demo
+      # drives (OllamaProvider -> fake `/api/embed`). Without it the test fails
+      # gated via required-features; this workflow runs it WITH the feature (PR-blocking).
+      - name: "Demo: cross-session synonym recall (MCP)"
+        run: cargo nextest run -p vantadb-mcp --features remote-inference --test demo_ai_ides --build-jobs 2
+
+      # North Star metric (ICP-01): windowing logic of the query script —
+      # offline, no store needed.
+      - name: "Metric: north_star_metric.py self-test"
+        run: python3 scripts/north_star_metric.py --self-test

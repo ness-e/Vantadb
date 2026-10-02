@@ -1,9 +1,9 @@
 ---
 title: Pilot Onboarding Checklist
-type: operations
+kind: runbook
 status: active
+description: "Record the participant's environment for support context"
 tags: [vantadb, operations, pilot, onboarding, checklist]
-last_reviewed: 2026-07-26
 ---
 
 # VantaDB Pilot — Onboarding Checklist

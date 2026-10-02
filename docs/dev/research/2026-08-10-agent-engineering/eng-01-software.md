@@ -1,12 +1,11 @@
 ---
 title: "Ingeniería de Software End-to-End: Prácticas y Referencias"
-type: research
+kind: research
 status: stable
+description: "El ciclo de vida completo de una feature, desde que se concibe hasta que se mantiene, tiene las siguientes fases"
 tags: [vantadb, research, ingenieria-software]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
+
 # Ingeniería de Software End-to-End: Prácticas y Referencias
 
 > Investigación sobre ingeniería de software: del requisito al mantenimiento. Basado en fuentes primarias y blogs de ingeniería de referencia (Google, Netflix, Uber, Shopify, Stripe), literatura canónica (Clean Code, Refactoring, Fowler, Kent Beck, 12-Factor, DORA, SRE) y mejores prácticas de la industria de 2025-2026.

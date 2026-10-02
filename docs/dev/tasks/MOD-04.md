@@ -1,3 +1,9 @@
+---
+title: MOD-04 — purge_expired O(N) full-scan → índice TTL selectivo
+kind: task
+description: "purgeexpired() hace engine.scannodes() (O(N)): lee metadata + clona el f32 vector de"
+---
+
 # MOD-04 — purge_expired O(N) full-scan → índice TTL selectivo
 
 > **Plan:** 2026-08-25-batch-core-server-mcp.md · **Estado:** ✅ COMPLETO · **Cynefin:** 🟨 complicado

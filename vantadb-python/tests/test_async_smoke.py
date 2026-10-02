@@ -75,8 +75,8 @@ def test_async_smoke_query_graph():
                 assert isinstance(result, str) and "7" in result, \
                     f"query result should mention node 7, got {result!r}"
 
-                await db.insert(1, "A", [])
-                await db.insert(2, "B", [])
+                await db.insert_node(1, "A", [])
+                await db.insert_node(2, "B", [])
                 await db.add_edge(1, 2, "next", weight=0.5)
 
                 bfs = await db.graph_bfs([1])
@@ -96,8 +96,8 @@ def test_async_smoke_query_graph():
                 cent = await db.graph_degree_centrality([1, 2])
                 assert 1 in cent and 2 in cent, f"expected centrality for 1,2, got {cent}"
 
-                await db.delete(1, "smoke cleanup")
-                assert await db.get(1) is None, "node 1 should be None after delete"
+                await db.delete_node(1, "smoke cleanup")
+                assert await db.get_node(1) is None, "node 1 should be None after delete"
 
         asyncio.run(run())
     finally:

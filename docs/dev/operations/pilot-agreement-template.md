@@ -1,9 +1,9 @@
 ---
 title: Pilot Program — Agreement Template
-type: operations
+kind: runbook
 status: active
+description: "During the program term, VantaDB will"
 tags: [vantadb, operations, pilot, legal, template]
-last_reviewed: 2026-07-26
 ---
 
 # VantaDB Pilot Program Agreement

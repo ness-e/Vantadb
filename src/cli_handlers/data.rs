@@ -9,14 +9,19 @@ use std::time::Duration;
 
 use crate::cli_handlers::fmt::{error_style, header_style, success_style};
 use crate::cli_handlers::{
-    create_spinner, open_database, open_embedded, print_error, print_info, print_success,
-    print_warning,
+    create_spinner, field_value_to_json, open_database, open_embedded, print_error, print_info,
+    print_json, print_success, print_warning, stdout_is_term, truncate_for_term,
 };
 use crate::error::{ChainedError, Result};
 
 #[tracing::instrument]
 /// Export records to a JSON file, optionally filtered by namespace
-pub fn cmd_export(db_path: &str, namespace: Option<&str>, output_path: &str) -> Result<()> {
+pub fn cmd_export(
+    db_path: &str,
+    namespace: Option<&str>,
+    output_path: &str,
+    json_output: bool,
+) -> Result<()> {
     use std::io::Write;
 
     let spinner = create_spinner("Opening database...");
@@ -52,12 +57,23 @@ pub fn cmd_export(db_path: &str, namespace: Option<&str>, output_path: &str) -> 
                     limit: 1,
                     cursor: None,
                     exclude_superseded: false,
+                    as_of_ms: None,
+                    valid_window: None,
+                    include_quarantined: true,
+                    min_confidence: None,
                 },
             )
             .map(|p| !p.records.is_empty())
             .unwrap_or(false)
     });
     if !any_data {
+        if json_output {
+            return print_json(&serde_json::json!({
+                "exported": 0,
+                "out": output_path,
+                "format": "jsonl",
+            }));
+        }
         print_warning("No records to export");
         return Ok(());
     }
@@ -82,6 +98,10 @@ pub fn cmd_export(db_path: &str, namespace: Option<&str>, output_path: &str) -> 
                 limit: BATCH_SIZE,
                 cursor,
                 exclude_superseded: false,
+                as_of_ms: None,
+                valid_window: None,
+                include_quarantined: true,
+                min_confidence: None,
             };
             let page = embedded.list(ns, opts)?;
             if page.records.is_empty() {
@@ -105,6 +125,14 @@ pub fn cmd_export(db_path: &str, namespace: Option<&str>, output_path: &str) -> 
 
     writer.flush()?;
     bar.finish_and_clear();
+
+    if json_output {
+        return print_json(&serde_json::json!({
+            "exported": total,
+            "out": output_path,
+            "format": "jsonl",
+        }));
+    }
 
     let _ = term.write_line("");
     let _ = term.write_line(&format!(
@@ -131,8 +159,39 @@ pub fn cmd_export(db_path: &str, namespace: Option<&str>, output_path: &str) -> 
 
 #[tracing::instrument]
 /// Import records from a JSON file into the database
-pub fn cmd_import(db_path: &str, input_path: &str, _verbose: bool) -> Result<()> {
+pub fn cmd_import(
+    db_path: &str,
+    input_path: &str,
+    _verbose: bool,
+    json_output: bool,
+) -> Result<()> {
     let term = Term::stdout();
+
+    if !std::path::Path::new(input_path).exists() {
+        print_error(&format!("Input file not found: {}", input_path));
+        return Err(crate::error::Error::Cli(ChainedError::msg(format!(
+            "Input file not found: {}",
+            input_path
+        ))));
+    }
+
+    let spinner = create_spinner("Opening database...");
+    let embedded = open_embedded(db_path, false)?;
+    spinner.finish_and_clear();
+
+    let report = embedded.import_file(input_path, false)?;
+    embedded.flush()?;
+
+    if json_output {
+        return print_json(&serde_json::json!({
+            "inserted": report.inserted,
+            "updated": report.updated,
+            "errors": report.errors,
+            "duration_ms": report.duration_ms,
+            "in": input_path,
+        }));
+    }
+
     let _ = term.write_line("");
     let _ = term.write_line(&format!(
         "{}",
@@ -147,24 +206,7 @@ pub fn cmd_import(db_path: &str, input_path: &str, _verbose: bool) -> Result<()>
         header_style().apply_to("╚═══════════════════════════════════════════════════════════╝")
     ));
     let _ = term.write_line("");
-
-    if !std::path::Path::new(input_path).exists() {
-        print_error(&format!("Input file not found: {}", input_path));
-        return Err(crate::error::Error::Cli(ChainedError::msg(format!(
-            "Input file not found: {}",
-            input_path
-        ))));
-    }
-
-    let spinner = create_spinner("Opening database...");
-    let embedded = open_embedded(db_path, false)?;
-    spinner.finish_and_clear();
     print_success("Database opened");
-
-    let report = embedded.import_file(input_path)?;
-    embedded.flush()?;
-
-    let _ = term.write_line("");
     let _ = term.write_line(&format!(
         "{}",
         header_style().apply_to("╭─────────────────────────────────────────╮")
@@ -204,7 +246,13 @@ pub fn cmd_import(db_path: &str, input_path: &str, _verbose: bool) -> Result<()>
 
 #[tracing::instrument]
 /// Execute a structured hybrid query against the database
-pub fn cmd_query(db_path: &str, query: &str, limit: usize, verbose: bool) -> Result<()> {
+pub fn cmd_query(
+    db_path: &str,
+    query: &str,
+    limit: usize,
+    verbose: bool,
+    json_output: bool,
+) -> Result<()> {
     use web_time::Instant;
 
     let spinner = create_spinner("Opening database...");
@@ -236,11 +284,37 @@ pub fn cmd_query(db_path: &str, query: &str, limit: usize, verbose: bool) -> Res
     spinner.finish_and_clear();
 
     let term = Term::stdout();
-    let _ = term.write_line("");
+    let is_term = stdout_is_term();
+    if !json_output {
+        let _ = term.write_line("");
+    }
 
     match result {
         crate::executor::ExecutionResult::Read(nodes) => {
             let display_nodes: Vec<_> = nodes.into_iter().take(limit).collect();
+
+            // `--json` output is always complete (all fields, no previews).
+            if json_output {
+                let records: Vec<serde_json::Value> = display_nodes
+                    .iter()
+                    .map(|node| {
+                        let mut fields = serde_json::Map::new();
+                        for (k, v) in node.relational.iter() {
+                            fields.insert(k.clone(), field_value_to_json(v));
+                        }
+                        serde_json::json!({
+                            "id": node.id.to_string(),
+                            "fields": fields,
+                        })
+                    })
+                    .collect();
+                return print_json(&serde_json::json!({
+                    "mode": "read",
+                    "count": display_nodes.len(),
+                    "duration_ms": duration.as_millis() as u64,
+                    "records": records,
+                }));
+            }
 
             if display_nodes.is_empty() {
                 print_warning("Query returned no results");
@@ -280,11 +354,7 @@ pub fn cmd_query(db_path: &str, query: &str, limit: usize, verbose: bool) -> Res
                     .collect::<Vec<_>>()
                     .join(", ");
 
-                let preview = if fields_preview.len() > 46 {
-                    format!("{}...", &fields_preview[..43])
-                } else {
-                    fields_preview
-                };
+                let preview = truncate_for_term(&fields_preview, 43, is_term);
 
                 let _ = term.write_line(&format!("│ {:<8} │ {:<46} │", node.id, preview));
             }
@@ -304,12 +374,26 @@ pub fn cmd_query(db_path: &str, query: &str, limit: usize, verbose: bool) -> Res
             message,
             node_id,
         } => {
+            if json_output {
+                return print_json(&serde_json::json!({
+                    "mode": "write",
+                    "message": message,
+                    "affected_nodes": affected_nodes,
+                    "node_id": node_id.map(|id| id.to_string()),
+                }));
+            }
             print_success(&format!("{} ({} nodes affected)", message, affected_nodes));
             if let Some(id) = node_id {
                 print_info(&format!("Node ID: {}", id));
             }
         }
         crate::executor::ExecutionResult::StaleContext(node_id) => {
+            if json_output {
+                return print_json(&serde_json::json!({
+                    "mode": "stale_context",
+                    "node_id": node_id.to_string(),
+                }));
+            }
             print_warning(&format!("Stale context for node {}", node_id));
         }
     }

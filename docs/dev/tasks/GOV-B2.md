@@ -1,3 +1,9 @@
+---
+title: "GOV-B2: Runbook DR sin comandos fantasma (DISASTER_RECOVERY_RUNBOOK.md)"
+kind: task
+description: "Select-String -Path \"docs/user/operations/DISASTERRECOVERYRUNBOOK.md\" -Pattern \"restore --dry-run|doctor --fix\" | Measure-Object Count ==0"
+---
+
 # GOV-B2: Runbook DR sin comandos fantasma (DISASTER_RECOVERY_RUNBOOK.md)
 
 ## Metadata

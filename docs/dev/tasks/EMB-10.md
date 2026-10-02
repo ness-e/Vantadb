@@ -1,3 +1,9 @@
+---
+title: EMB-10 — build con embed-local (+remote-inference) + runtime-switchable + cat test
+kind: task
+description: "Objetivo: producir un binario vanta-cli con el motor ONNX adentro (embed-local + remote-inference) y probar que el switch de proveedor es solo-config (sin recompilar)"
+---
+
 # EMB-10 — build con embed-local (+remote-inference) + runtime-switchable + cat test
 
 > **Plan:** `docs/dev/plans/2026-09-16-embeddings-auto.md` (Wave0, Gate raíz)

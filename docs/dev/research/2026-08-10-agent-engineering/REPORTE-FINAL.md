@@ -1,12 +1,11 @@
 ---
 title: "REPORTE FINAL — Cómo debe trabajar un agente/sub-agente y un ingeniero, y qué le falta al sistema de tareas de VantaDB"
-type: research
+kind: research
 status: stable
+description: "Este reporte integra, sin omitir hallazgos, las tres ramas: (1) qué debe hacer correctamente un agente/sub-agente para ejecutar tareas, proyectos, planes e investigaciones; (2) qué debe hacer correctamente un ingeniero de..."
 tags: [vantadb, research, sintesis, agentes-ia]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
+
 # REPORTE FINAL — Cómo debe trabajar un agente/sub-agente y un ingeniero, y qué le falta al sistema de tareas de VantaDB
 
 - **Fecha:** 2026-08-10

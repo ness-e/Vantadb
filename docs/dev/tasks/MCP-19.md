@@ -1,3 +1,9 @@
+---
+title: Task MCP-19 — Tool memory_put_batch (ingestión masiva)
+kind: task
+description: "Fuente de verdad: docs/dev/Backlog.md → fase P25 - Exposición MCP/HTTP → fila MCP-19 (leer ANTES de ejecutar: problema, acciones numeradas, archivos exactos)"
+---
+
 # Task MCP-19 — Tool memory_put_batch (ingestión masiva)
 
 **Fuente de verdad:** `docs/dev/Backlog.md` → fase **P25 - Exposición MCP/HTTP** → fila `MCP-19` (leer ANTES de ejecutar: problema, acciones numeradas, archivos exactos).

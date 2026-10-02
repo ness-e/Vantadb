@@ -1,3 +1,9 @@
+---
+title: FIND-49 — Split src/sdk/types.rs 1699L por dominio
+kind: task
+description: tipos SDK monolíticos 63035 bytes mezclados record/search/graph; split sin cambio API pública
+---
+
 # FIND-49 — Split src/sdk/types.rs 1699L por dominio
 
 > **Plan:** docs/dev/plans/2026-09-08-backlog.md (Task 2, Wave0)

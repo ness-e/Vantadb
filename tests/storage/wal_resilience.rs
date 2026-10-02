@@ -17,6 +17,17 @@ use vantadb::config::Config;
 use vantadb::node::UnifiedNode;
 use vantadb::storage::{BackendKind, StorageEngine};
 
+/// VER-01: bytes appended to every frame by the WAL hash-chain (format ≥ 3):
+/// `prev_hash` (32B) + `record_hash` (32B). Pre-chain formats have none.
+fn wal_chain_extra(bytes: &[u8]) -> usize {
+    let version = u16::from_le_bytes(bytes[4..6].try_into().unwrap());
+    if version >= 3 {
+        64
+    } else {
+        0
+    }
+}
+
 #[test]
 fn test_wal_durability_and_checkpoint_coherence() {
     TerminalReporter::suite_banner("WAL PHYSICAL DURABILITY & COHERENCE CERTIFICATION", 1);
@@ -114,10 +125,12 @@ fn test_wal_middle_corruption_auto_healing() {
         }
 
         // Localizar dinámicamente la región de payload del nodo 202
-        // header(20) + rec1(4+len1+4) + 4 = start of node202 length prefix
+        // header(20) + rec1(4+len1+4+chain) + 4 = start of node202 length prefix
+        // (VER-01: format ≥ 3 frames append prev_hash + record_hash = 64 bytes.)
         let hdr = 20usize;
+        let chain_extra = wal_chain_extra(&file_content);
         let len1 = u32::from_le_bytes(file_content[hdr..hdr + 4].try_into().unwrap()) as usize;
-        let rec1_end = hdr + 4 + len1 + 4;
+        let rec1_end = hdr + 4 + len1 + 4 + chain_extra;
         let len2 =
             u32::from_le_bytes(file_content[rec1_end..rec1_end + 4].try_into().unwrap()) as usize;
         let node202_payload_start = rec1_end + 4;
@@ -127,7 +140,7 @@ fn test_wal_middle_corruption_auto_healing() {
         let start_pos = node202_payload_start + len2 / 2;
         eprintln!(
             "WAL layout: header=20, node201={}+{} bytes, node202 starts at {}, payload at {}-{}, corrupting {} bytes at offset {}",
-            4 + len1 + 4,
+            4 + len1 + 4 + chain_extra,
             4 + len2 + 4,
             rec1_end,
             node202_payload_start,
@@ -352,11 +365,13 @@ fn test_sharded_wal_truncated_shard_recovery_fails_closed() {
     }
     assert!(content.len() > 20, "shard1 should contain records");
     // Walk records past the 20-byte header to find the end of the LAST record.
+    // VER-01: format ≥ 3 frames append prev_hash + record_hash (64 bytes).
+    let chain_extra = wal_chain_extra(&content);
     let mut offset = 20usize;
     let mut last_rec_start = 20usize;
     while offset + 8 <= content.len() {
         let len = u32::from_le_bytes(content[offset..offset + 4].try_into().unwrap()) as usize;
-        let rec_end = offset + 4 + len + 4;
+        let rec_end = offset + 4 + len + 4 + chain_extra;
         if rec_end > content.len() {
             break;
         }

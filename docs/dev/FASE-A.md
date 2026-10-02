@@ -1,10 +1,9 @@
 ---
 title: Gate Fase A — kit del tester (stranger-test + checklist todo-SÍ)
-type: operations
+kind: research
 status: active
+description: "Copiar este bloque por persona (fuente: Investigacion-plan.md:20-24, ampliada)"
 tags: [vantadb, fase-a, gate, early-access, stranger-test]
-last_reviewed: 2026-09-19
-aliases: []
 ---
 
 # Gate Fase A — kit del tester

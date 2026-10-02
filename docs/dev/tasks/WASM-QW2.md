@@ -1,3 +1,9 @@
+---
+title: "WASM-QW2: next_cursor u64→string — evitar pérdida precisión JS (>2^53)"
+kind: task
+description: "cursor viaja como string decimal (política string-u64 del proyecto); roundtrip >2^53 testeado\""
+---
+
 # WASM-QW2: next_cursor u64→string — evitar pérdida precisión JS (>2^53)
 
 ## Metadata

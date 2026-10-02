@@ -1,11 +1,9 @@
 ---
 title: "`heavy-certification.yml` — HEAVY: Certification — All Tests"
-type: workflow
+kind: runbook
 status: active
+description: "Suite completa de certificación que ejecuta todos los tests pesados de VantaDB en modo release. Prueba estrés del protocolo, validación HNSW, recuperación de índices, persistencia de storage, concurrencia, memoria, failpoints, y tests..."
 tags: [vantadb, ci, heavy-certification]
-last_reviewed: 2026-09-15
-aliases: []
-related: [".github/workflows/heavy-certification.yml"]
 ---
 
 # `heavy-certification.yml` — HEAVY: Certification — All Tests

@@ -8,6 +8,30 @@ pub mod lexer;
 pub use grammar::*;
 pub use lexer::*;
 
+/// Current IQL language version implemented by this parser.
+///
+/// Bump when the grammar or literal semantics change in a way consumers must
+/// detect (new clause, changed literal semantics, removed syntax). Version-gated
+/// clauses document their minimum version — e.g. `PROFILE` (MEM-01) is accepted
+/// from [`IQL_VERSION_MIN_PROFILE`] onwards and `AS OF` (SCH-03) from
+/// [`IQL_VERSION_MIN_AS_OF`].
+pub const IQL_VERSION: u32 = 2;
+
+/// Minimum IQL version that accepts the optional `PROFILE` clause (MEM-01).
+pub const IQL_VERSION_MIN_PROFILE: u32 = 1;
+
+/// Minimum IQL version that accepts the optional `AS OF <unix-ms>` valid-time
+/// clause (SCH-03, ADR-046 §D3).
+pub const IQL_VERSION_MIN_AS_OF: u32 = 2;
+
+/// True when syntax whose minimum version is `min_version` is accepted by this
+/// parser (i.e. `min_version <= `[`IQL_VERSION`]). Consumers use it to
+/// feature-detect: a clause is guaranteed to parse when
+/// `iql_supports(<clause minimum>)` is true at the reported [`IQL_VERSION`].
+pub const fn iql_supports(min_version: u32) -> bool {
+    IQL_VERSION >= min_version
+}
+
 #[cfg(test)]
 #[allow(unused_imports, dead_code)]
 mod tests {
@@ -169,7 +193,7 @@ mod tests {
 
     #[test]
     fn test_parse_rel_op_unknown() {
-        // "==" matches "=" then returns Eq (nom alt tries in order, first match wins)
+        // "==" is a valid Eq spelling (longest match, both chars consumed)
         assert_eq!(parse_rel_op("==").unwrap().1, RelOp::Eq);
         assert!(parse_rel_op("~").is_err());
         assert!(parse_rel_op("").is_err());
@@ -179,6 +203,13 @@ mod tests {
     fn test_parse_rel_op_neq_precedence() {
         // "!=" should match fully, not just "!"
         assert_eq!(parse_rel_op("!= ").unwrap().1, RelOp::Neq);
+    }
+
+    #[test]
+    fn test_parse_rel_op_double_eq_consumes_both_chars() {
+        // RED (API-06): with `=` first in the alt list, "==" matches a single
+        // `=` and leaves the second one unconsumed (dangling operator).
+        assert_eq!(parse_rel_op("==").unwrap(), ("", RelOp::Eq));
     }
 
     // ─── Literal field values ───────────────────────────────────
@@ -213,27 +244,31 @@ mod tests {
 
     #[test]
     fn test_parse_literal_field_value_int() {
-        // All numeric literals parse as Float (double alt takes precedence over parse_i64)
+        // API-06: unquoted integer literals parse as Int (exact across i64),
+        // not Float — `Int` is the first-class integer type (FieldValue::Int,
+        // SDK Value::Int).
         assert_eq!(
             parse_literal_field_value("42").unwrap().1,
-            FieldValue::Float(42.0)
+            FieldValue::Int(42)
         );
         assert_eq!(
             parse_literal_field_value("-7").unwrap().1,
-            FieldValue::Float(-7.0)
+            FieldValue::Int(-7)
         );
     }
 
     #[test]
     #[allow(clippy::approx_constant)] // 3.14 is intentional here, not an approximation
     fn test_parse_literal_field_value_float() {
-        // double now comes BEFORE parse_i64 in alt(), so "3.14" → Float(3.14)
+        // Float literals (decimal point or exponent) parse via double.
         let val = parse_literal_field_value("3.14").unwrap().1;
         assert_eq!(val, FieldValue::Float(3.14));
 
-        // Integer literals still parse via double → Float (e.g. 42 → Float(42.0))
+        // A bare integer is Int; the float tail is what routes to double.
         let val2 = parse_literal_field_value("42").unwrap().1;
-        assert_eq!(val2, FieldValue::Float(42.0));
+        assert_eq!(val2, FieldValue::Int(42));
+        let val3 = parse_literal_field_value("1e3").unwrap().1;
+        assert_eq!(val3, FieldValue::Float(1000.0));
 
         // Verify the double parser works directly
         let (remaining, f) = double::<&str, nom::error::Error<&str>>("1.5").unwrap();
@@ -244,6 +279,21 @@ mod tests {
     #[test]
     fn test_parse_literal_field_value_empty() {
         assert!(parse_literal_field_value("").is_err());
+    }
+
+    #[test]
+    fn test_parse_literal_int_above_2_53_is_exact() {
+        // RED (API-06): integers beyond the f64 exact range must not lose
+        // precision — 2^53 + 1 needs the i64 path.
+        let (_, v) = parse_literal_field_value("9007199254740993").unwrap();
+        assert_eq!(v, FieldValue::Int(9_007_199_254_740_993));
+    }
+
+    #[test]
+    fn test_parse_literal_int_out_of_i64_falls_back_to_float() {
+        // Documented fallback: an integer literal beyond i64 parses as Float.
+        let (_, v) = parse_literal_field_value("9223372036854775808").unwrap(); // i64::MAX + 1
+        assert!(matches!(v, FieldValue::Float(_)), "got {v:?}");
     }
 
     #[test]
@@ -285,21 +335,21 @@ mod tests {
 
     #[test]
     fn test_parse_condition_relational_numeric() {
-        // Bare number RHS parses as a typed numeric value (Float, matching the
-        // storage convention), so `edad > 18` compares numerically not
-        // lexicographically ("18" > "9" order).
+        // Bare number RHS parses as a typed numeric value (Int for integers),
+        // so `edad > 18` compares numerically not lexicographically
+        // ("18" > "9" order).
         let (_, cond) = parse_condition(r#"edad > 18"#).unwrap();
         assert_eq!(
             cond,
-            Condition::Relational("edad".to_string(), RelOp::Gt, FieldValue::Float(18.0))
+            Condition::Relational("edad".to_string(), RelOp::Gt, FieldValue::Int(18))
         );
-        // Numeric ordering: 18 < 20, so a Float RHS of 18 compares correctly
-        // against a stored Float(20). Type is Float, not Int, matching INSERT.
+        // Numeric ordering: 18 < 20, so an Int RHS of 18 compares correctly
+        // against a stored Int(20). Type is Int, matching INSERT.
         let (_, cond2) = parse_condition(r#"edad < 20"#).unwrap();
         match cond2 {
             Condition::Relational(_, op, v) => {
                 assert_eq!(op, RelOp::Lt);
-                assert_eq!(v, FieldValue::Float(20.0));
+                assert_eq!(v, FieldValue::Int(20));
             }
             _ => panic!("expected Relational"),
         }
@@ -351,6 +401,30 @@ mod tests {
         assert_eq!(
             cond2,
             Condition::Relational("campo".to_string(), RelOp::Eq, FieldValue::Null)
+        );
+    }
+
+    #[test]
+    fn test_parse_condition_double_eq_is_eq() {
+        // RED (API-06): `==` is accepted as an Eq spelling (longest match).
+        let (rest, cond) = parse_condition(r#"edad == 18"#).unwrap();
+        assert_eq!(rest, "");
+        assert_eq!(
+            cond,
+            Condition::Relational("edad".to_string(), RelOp::Eq, FieldValue::Int(18))
+        );
+    }
+
+    #[test]
+    fn test_parse_query_double_eq_full_statement() {
+        // RED (API-06): a statement using `==` must parse fully, not silently
+        // leave the WHERE clause unconsumed.
+        let (rest, q) = parse_query(r#"FROM Person p WHERE edad == 28 FETCH name"#).unwrap();
+        assert_eq!(rest, "");
+        let conds = q.where_clause.expect("WHERE parsed");
+        assert_eq!(
+            conds[0],
+            Condition::Relational("edad".to_string(), RelOp::Eq, FieldValue::Int(28))
         );
     }
 
@@ -462,10 +536,10 @@ mod tests {
 
     #[test]
     fn test_parse_field_assign_int() {
-        // All numeric literals parse as Float (double alt takes precedence)
+        // Integer literal → Int (API-06; was Float before).
         let (_, (k, v)) = parse_field_assign("edad: 28").unwrap();
         assert_eq!(k, "edad");
-        assert_eq!(v, FieldValue::Float(28.0));
+        assert_eq!(v, FieldValue::Int(28));
     }
 
     #[test]
@@ -753,8 +827,8 @@ mod tests {
                     ins.fields.get("nombre").unwrap(),
                     &FieldValue::String("Eros".to_string())
                 );
-                // All numeric literals parse as Float (double alt takes precedence)
-                assert_eq!(ins.fields.get("edad").unwrap(), &FieldValue::Float(28.0));
+                // Integer literal → Int (API-06)
+                assert_eq!(ins.fields.get("edad").unwrap(), &FieldValue::Int(28));
                 assert!(ins.vector.is_none());
             }
             _ => panic!("expected Insert"),
@@ -1000,6 +1074,30 @@ mod tests {
         assert!(parse_statement("   ").is_err());
     }
 
+    #[test]
+    fn test_lowercase_keywords_are_rejected() {
+        // API-06 decided behavior: keywords are case-sensitive UPPERCASE
+        // (also pinned in tests/api/openapi_yaml_parity.rs). Lowercase
+        // spellings are a documented parse error, not accepted aliases.
+        for q in [
+            "from Person",
+            r#"insert NODE#1 TYPE Node { a: "b" }"#,
+            "match Person",
+            "select * from Person",
+        ] {
+            assert!(parse_statement(q).is_err(), "must fail: {q}");
+        }
+    }
+
+    #[test]
+    fn test_single_quoted_strings_are_rejected() {
+        // API-06 decided behavior: only double quotes delimit strings
+        // (docs/api/IQL.md §String literals); single quotes are a parse error.
+        assert!(parse_literal_field_value("'hello'").is_err());
+        assert!(parse_condition("name = 'Alice'").is_err());
+        assert!(parse_statement(r#"INSERT NODE#1 TYPE N { a: 'b' }"#).is_err());
+    }
+
     // ─── Edge cases ─────────────────────────────────────────────
 
     #[test]
@@ -1052,7 +1150,7 @@ mod tests {
     #[test]
     #[allow(clippy::approx_constant)] // 3.14 is intentional here, not an approximation
     fn test_parse_field_assign_float() {
-        // double now comes before parse_i64: "3.14" → Float(3.14)
+        // Float literals parse via double: "3.14" → Float(3.14)
         let (_, (k, v)) = parse_field_assign("price: 3.14").unwrap();
         assert_eq!(k, "price");
         assert_eq!(v, FieldValue::Float(3.14));
@@ -1115,6 +1213,24 @@ mod tests {
             }
             _ => panic!("expected Select"),
         }
+    }
+
+    #[test]
+    fn test_parse_select_default_alias_is_target() {
+        // API-06: default alias is identical across the read forms
+        // (FROM / MATCH / SELECT) — documented in docs/api/IQL.md.
+        let (_, stmt) = parse_statement("SELECT * FROM Person").unwrap();
+        match stmt {
+            Statement::Select(sel) => match &sel.from {
+                crate::query::FromClause::Single { alias, .. } => {
+                    assert_eq!(alias, "target");
+                }
+                _ => panic!("expected Single from clause"),
+            },
+            _ => panic!("expected Select"),
+        }
+        let (_, q) = parse_query("FROM Person").unwrap();
+        assert_eq!(q.target_alias, "target");
     }
 
     #[test]
@@ -1284,5 +1400,144 @@ mod tests {
         sorted.sort();
         sorted.dedup();
         assert_eq!(out, sorted);
+    }
+
+    // ─── IQL version + AST JSON (API-06) ─────────────────────────
+
+    #[test]
+    fn test_iql_version_defined_and_gated() {
+        // A concrete version is defined and exposed (crate root re-export
+        // in src/lib.rs).
+        assert_eq!(IQL_VERSION, 2);
+        // The gate is the single source of truth for versioned syntax.
+        assert!(iql_supports(IQL_VERSION_MIN_PROFILE));
+        assert!(iql_supports(IQL_VERSION_MIN_AS_OF));
+        assert!(
+            !iql_supports(IQL_VERSION + 1),
+            "syntax from a future version must not be silently enabled"
+        );
+        // The gated clauses parse at the current version (MEM-01, SCH-03).
+        let (_, q) = parse_query("FROM Node PROFILE vector").unwrap();
+        let profile = q.search_profile.expect("PROFILE parsed at IQL_VERSION");
+        assert_eq!(profile.mode, SearchProfileMode::Vector);
+        let (_, q) = parse_query("FROM Node AS OF 42").unwrap();
+        assert_eq!(q.as_of_ms, Some(42), "AS OF parsed at IQL_VERSION");
+    }
+
+    // ─── AS OF / valid-time clause (SCH-03) ──────────────────────
+
+    #[test]
+    fn test_parse_query_as_of_clause_after_table() {
+        let (_, q) = parse_query("FROM Person AS OF 1700000000000").unwrap();
+        assert_eq!(q.as_of_ms, Some(1_700_000_000_000));
+    }
+
+    #[test]
+    fn test_parse_query_as_of_clause_before_where() {
+        let (_, q) = parse_query(r#"FROM Person p AS OF 42 WHERE edad > 18"#).unwrap();
+        assert_eq!(q.as_of_ms, Some(42));
+        assert_eq!(q.where_clause.as_ref().map(|c| c.len()), Some(1));
+    }
+
+    #[test]
+    fn test_parse_query_as_of_clause_after_where() {
+        let (_, q) = parse_query(r#"FROM Person WHERE edad > 18 AS OF 42"#).unwrap();
+        assert_eq!(q.as_of_ms, Some(42));
+        assert_eq!(q.where_clause.as_ref().map(|c| c.len()), Some(1));
+    }
+
+    #[test]
+    fn test_parse_query_without_as_of_is_none() {
+        let (_, q) = parse_query("FROM Person").unwrap();
+        assert_eq!(q.as_of_ms, None);
+    }
+
+    #[test]
+    fn test_parse_query_as_of_requires_numeric_timestamp() {
+        // A malformed clause must fail the parse — never silently drop the
+        // time filter and run an unfiltered query.
+        assert!(parse_query("FROM Person AS OF abc").is_err());
+        assert!(parse_query("FROM Person AS OF").is_err());
+        assert!(parse_query("FROM Person AS OF 12.5").is_err());
+    }
+
+    #[test]
+    fn test_parse_query_as_of_is_not_swallowed_by_traversal_alias() {
+        let (_, q) = parse_query(r#"FROM Usuario SIGUE 1..2 "amigo" AS OF 7"#).unwrap();
+        assert_eq!(q.as_of_ms, Some(7));
+        assert_eq!(q.traversal.unwrap().alias, None);
+    }
+
+    #[test]
+    fn test_parse_select_as_of_clause() {
+        let (_, stmt) = parse_statement("SELECT * FROM ProbeNs AS OF 123").unwrap();
+        match stmt {
+            Statement::Select(sel) => assert_eq!(sel.as_of_ms, Some(123)),
+            other => panic!("expected Select, got {other:?}"),
+        }
+        let (_, stmt) = parse_statement("SELECT name FROM ns p WHERE x = 1 AS OF 9").unwrap();
+        match stmt {
+            Statement::Select(sel) => assert_eq!(sel.as_of_ms, Some(9)),
+            other => panic!("expected Select, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_parse_select_without_as_of_is_none() {
+        let (_, stmt) = parse_statement("SELECT * FROM ProbeNs").unwrap();
+        match stmt {
+            Statement::Select(sel) => assert_eq!(sel.as_of_ms, None),
+            other => panic!("expected Select, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_subquery_with_as_of_is_a_parse_error() {
+        // Sub-plans carry no valid-time filter — AS OF inside a subquery must
+        // fail fast instead of being silently dropped.
+        let res = parse_statement(r#"SELECT * FROM ns WHERE x > (SELECT * FROM other AS OF 5)"#);
+        assert!(res.is_err(), "AS OF inside a subquery must not parse");
+    }
+
+    #[test]
+    fn test_duplicate_as_of_is_a_parse_error() {
+        // Two `AS OF` clauses would silently keep the first and drop the
+        // second (SCH-03 review Optional-2) — reject at parse time instead.
+        assert!(parse_query("FROM Person AS OF 1 AS OF 2").is_err());
+        assert!(parse_query(r#"FROM Person AS OF 1 WHERE edad > 18 AS OF 3"#).is_err());
+        assert!(parse_statement("SELECT * FROM ProbeNs AS OF 1 AS OF 2").is_err());
+        assert!(
+            parse_statement(r#"SELECT * FROM ns WHERE x > (SELECT * FROM other AS OF 1 AS OF 2)"#)
+                .is_err(),
+            "duplicate AS OF inside a subquery must not parse either"
+        );
+        // Control: a single clause in either canonical position still parses.
+        assert_eq!(
+            parse_query("FROM Person AS OF 1").unwrap().1.as_of_ms,
+            Some(1)
+        );
+        assert_eq!(
+            parse_query(r#"FROM Person WHERE edad > 18 AS OF 3"#)
+                .unwrap()
+                .1
+                .as_of_ms,
+            Some(3)
+        );
+    }
+
+    #[test]
+    fn test_ast_json_projection_shape() {
+        // API-06: parsed statements serialize with serde's default
+        // representation (externally tagged enums, snake_case fields) — the
+        // canonical AST JSON shape documented in docs/api/IQL.md.
+        let (_, stmt) = parse_statement(r#"FROM Person p WHERE edad == 28 FETCH name"#).unwrap();
+        let v = serde_json::to_value(&stmt).expect("statement must serialize to JSON");
+        assert_eq!(v["Query"]["from_entity"], "Person");
+        assert_eq!(v["Query"]["target_alias"], "p");
+        assert_eq!(v["Query"]["where_clause"][0]["Relational"][0], "edad");
+        assert_eq!(v["Query"]["where_clause"][0]["Relational"][1], "Eq");
+        assert_eq!(v["Query"]["where_clause"][0]["Relational"][2]["Int"], 28);
+        assert_eq!(v["Query"]["fetch"][0], "name");
+        assert_eq!(v["Query"]["search_profile"], serde_json::Value::Null);
     }
 }

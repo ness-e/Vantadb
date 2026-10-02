@@ -1,3 +1,9 @@
+---
+title: Task API-STD-16 — Re-validación fallo-por-fallo + clases nuevas
+kind: task
+description: Tabla ~40 fallos → veredicto (✅ persiste tal cual / ✅ ya-no-existe / FIND-) + búsqueda clases nuevas
+---
+
 # Task API-STD-16 — Re-validación fallo-por-fallo + clases nuevas
 
 > **Plan:** `docs/dev/plans/2026-09-24-api-estandarizacion.md`

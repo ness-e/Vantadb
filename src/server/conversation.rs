@@ -1,4 +1,4 @@
-//! `POST /conversation/add` application use case (B1 — cleanCA A2 🔴).
+//! `POST /api/v2/conversations` application use case (B1 — cleanCA A2 🔴).
 //!
 //! `conversation_add` in [`crate::server::handlers`] used to orchestrate
 //! `create_thread` + `send_message` + audit + the MEM-55 memory-pipeline

@@ -1,3 +1,9 @@
+---
+title: "FIND-64 — `'vanta-memory/**'` en paths CI (`ci-rust-10.yml` push+PR)"
+kind: task
+description: "El task file describía scope 2026-09-07 (fix integrations/llamaindex putbatch legacy, 3/3 steps DONE, 23 passed,"
+---
+
 # FIND-64 — `'vanta-memory/**'` en paths CI (`ci-rust-10.yml` push+PR)
 
 > **Plan:** `docs/dev/plans/2026-09-15-find-correcciones.md` (Task 3, Wave0 — disjunto de FIND-90/91: workflow vs Rust)

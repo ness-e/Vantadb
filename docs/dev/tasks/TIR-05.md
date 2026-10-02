@@ -1,3 +1,9 @@
+---
+title: "TIR-05: LLM-as-judge (0.0-1.0)"
+kind: task
+description: "docs/Investigaciones/TIR-05-llm-as-judge.md existe con: (1) inventario de qué salidas del task-system no tienen ground-truth determinista; (2) análisis de aplicabilidad LLM-as-judge vs costo por llamada vs alternativas (heurísticas..."
+---
+
 # TIR-05: LLM-as-judge (0.0-1.0)
 
 ## Metadata

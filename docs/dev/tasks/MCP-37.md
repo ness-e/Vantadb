@@ -1,3 +1,9 @@
+---
+title: Task MCP-37 — Perfiles de tool surface (cap Cursor 40 tools)
+kind: task
+description: 🟨 Complicado — requiere diseñar taxonomía de perfiles
+---
+
 # Task MCP-37 — Perfiles de tool surface (cap Cursor 40 tools)
 
 ## Metadata

@@ -5,47 +5,68 @@ use web_time::Instant;
 
 use crate::cli_handlers::fmt::{header_style, success_style};
 use crate::cli_handlers::{
-    create_spinner, open_embedded, print_error, print_success, print_warning,
+    create_spinner, open_embedded, print_error, print_json, print_success, print_warning,
 };
 use crate::error::{ChainedError, Result};
 
 #[tracing::instrument]
 /// Rebuild all database indexes (HNSW, text, derived)
-pub fn cmd_rebuild_index(db_path: &str, _verbose: bool) -> Result<()> {
+pub fn cmd_rebuild_index(db_path: &str, _verbose: bool, json_output: bool) -> Result<()> {
     let term = Term::stdout();
-    let _ = term.write_line("");
-    let _ = term.write_line(&format!(
-        "{}",
-        header_style().apply_to("╔═══════════════════════════════════════════════════════════╗")
-    ));
-    let _ = term.write_line(&format!(
-        "{}",
-        header_style().apply_to("║           VantaDB Index Rebuild                           ║")
-    ));
-    let _ = term.write_line(&format!(
-        "{}",
-        header_style().apply_to("╚═══════════════════════════════════════════════════════════╝")
-    ));
-    let _ = term.write_line("");
+    if !json_output {
+        let _ = term.write_line("");
+        let _ = term.write_line(&format!(
+            "{}",
+            header_style()
+                .apply_to("╔═══════════════════════════════════════════════════════════╗")
+        ));
+        let _ = term.write_line(&format!(
+            "{}",
+            header_style()
+                .apply_to("║           VantaDB Index Rebuild                           ║")
+        ));
+        let _ = term.write_line(&format!(
+            "{}",
+            header_style()
+                .apply_to("╚═══════════════════════════════════════════════════════════╝")
+        ));
+        let _ = term.write_line("");
+    }
 
     let spinner = create_spinner("Opening database...");
     let start = Instant::now();
 
     let db = open_embedded(db_path, false)?;
     spinner.finish_and_clear();
-    print_success("Database opened");
+    if !json_output {
+        print_success("Database opened");
+    }
 
     let rebuild_spinner = create_spinner("Rebuilding all indexes...");
     let report = db.rebuild_index()?;
     rebuild_spinner.finish_and_clear();
 
-    if report.success {
-        print_success("All indexes rebuilt successfully");
-    } else {
-        print_error("Index rebuild failed");
+    if !json_output {
+        if report.success {
+            print_success("All indexes rebuilt successfully");
+        } else {
+            print_error("Index rebuild failed");
+        }
     }
 
     let total_duration = start.elapsed();
+
+    if json_output {
+        return print_json(&serde_json::json!({
+            "success": report.success,
+            "scanned_nodes": report.scanned_nodes,
+            "indexed_vectors": report.indexed_vectors,
+            "skipped_tombstones": report.skipped_tombstones,
+            "duration_ms": report.duration_ms,
+            "derived_rebuild_ms": report.derived_rebuild_ms,
+            "total_ms": total_duration.as_millis() as u64,
+        }));
+    }
 
     let _ = term.write_line("");
     let _ = term.write_line(&format!(
@@ -223,7 +244,7 @@ pub fn cmd_audit_index(
 
 #[tracing::instrument]
 /// Repair the text index if inconsistencies are detected
-pub fn cmd_repair_text_index(db_path: &str) -> Result<()> {
+pub fn cmd_repair_text_index(db_path: &str, json_output: bool) -> Result<()> {
     let spinner = create_spinner("Opening database...");
 
     let db = open_embedded(db_path, false)?;
@@ -231,6 +252,18 @@ pub fn cmd_repair_text_index(db_path: &str) -> Result<()> {
 
     let report = db.repair_text_index()?;
     spinner.finish_and_clear();
+
+    if json_output {
+        return print_json(&serde_json::json!({
+            "success": report.success,
+            "record_count": report.record_count,
+            "posting_entries": report.posting_entries,
+            "doc_stats_entries": report.doc_stats_entries,
+            "term_stats_entries": report.term_stats_entries,
+            "namespace_stats_entries": report.namespace_stats_entries,
+            "duration_ms": report.duration_ms,
+        }));
+    }
 
     if report.success {
         println!(

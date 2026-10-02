@@ -1,15 +1,16 @@
 ---
-title: "Benchmarks"
-type: glossary-entry
+title: Benchmarks
+kind: glossary
 status: stable
-tags: [performance, testing, metricas]
-last_reviewed: 2026-09-15
-links: "[[README.md]]"
+description: "Benchmarks are standardized performance tests that measure quantitative metrics (latency, throughput, recall) under controlled conditions, allowing objective comparisons and detection of regressions"
 aliases: [Performance Testing, Benchmarking]
+tags: [performance, testing, metricas]
+links: "[[README.md]]"
 ---
+
 # Benchmarks
 
-##Definition
+## Definition
 
 **Benchmarks** are **standardized performance tests** that measure quantitative metrics (latency, throughput, recall) under controlled conditions, allowing objective comparisons and detection of regressions.
 
@@ -112,9 +113,9 @@ jobs:
 
 ## See Also
 
-- [[hnsw]] — Main benchmarked component
-- [[ci-cd]] — Benchmarks integrated into CI
-- [[chaos-testing]] — Supplementary robustness testing
+- [hnsw](./hnsw.md) — Main benchmarked component
+- [ci-cd](./ci-cd.md) — Benchmarks integrated into CI
+- [chaos-testing](./chaos-testing.md) — Supplementary robustness testing
 
 ---
 

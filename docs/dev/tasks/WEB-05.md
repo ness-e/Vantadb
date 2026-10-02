@@ -1,3 +1,9 @@
+---
+title: "WEB-05 — Re-medir Lighthouse `/` y ruta interna post-WDA-05; actualizar registro perf"
+kind: task
+description: "Workaround EPERM: contra producción https://vantadb.vercel.app o máquina sin contenedor; si persiste, documentar entorno + error + workaround probado"
+---
+
 # WEB-05 — Re-medir Lighthouse `/` y ruta interna post-WDA-05; actualizar registro perf
 
 ## Metadata

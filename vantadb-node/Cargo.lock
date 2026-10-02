@@ -1317,6 +1317,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "vantadb-ffi-core"
+version = "0.7.0"
+
+[[package]]
 name = "vantadb-node"
 version = "0.5.0"
 dependencies = [
@@ -1326,6 +1330,7 @@ dependencies = [
  "serde_json",
  "tokio",
  "vantadb",
+ "vantadb-ffi-core",
 ]
 
 [[package]]

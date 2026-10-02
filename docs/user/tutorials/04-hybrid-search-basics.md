@@ -1,9 +1,9 @@
 ---
-title: "Hybrid Search with VantaDB"
+title: Hybrid Search with VantaDB
+kind: tutorial
 status: active
+description: "Vector search finds meaning; keyword search finds exact terms. Most real queries need both. VantaDB fuses HNSW vector search with BM25 lexical search in a single call, so you get semantic recall and precise term matching without running..."
 tags: [vantadb, tutorial, guide, search, hybrid, bm25]
-last_reviewed: 2026-08-02
-aliases: []
 ---
 
 # Hybrid Search with VantaDB

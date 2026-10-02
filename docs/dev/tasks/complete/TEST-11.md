@@ -1,3 +1,9 @@
+---
+title: "TEST-11: Frontend cross-browser WASM testing"
+kind: task
+description: "Frontend tests: 6 Vitest + 3 Playwright e2e. Existen specs. Falta cross-browser WASM testing"
+---
+
 # TEST-11: Frontend cross-browser WASM testing
 
 ## Metadata

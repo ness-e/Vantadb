@@ -1,3 +1,9 @@
+---
+title: "MOD-13: server sin TimeoutLayer - agregar timeout de request"
+kind: task
+description: "cargo check -p vantadb --features server pasa; test del timeout (request lento → 408, request rápido → 200, constantes sane) verde; cargo fmt --check y cargo clippy -p vantadb --all-targets --features server -- -D warnings pasan (solo..."
+---
+
 # MOD-13: server sin TimeoutLayer - agregar timeout de request
 
 ## Metadata

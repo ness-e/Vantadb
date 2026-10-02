@@ -1,12 +1,14 @@
 ---
-title: "put_batch"
-type: glossary-entry
+title: put_batch
+kind: glossary
 status: stable
-tags: [glosario, api, escritura, batch, rendimiento]
-last_reviewed: 2026-09-15
+description: putbatch es un método de la API de VantaDB que inserta o actualiza múltiples registros de memoria persistentes en una sola operación. Utiliza paralelismo vía Rayon para procesar los registros concurrentemente
 aliases: [put_batch, batch-insert, batch-write, insercion-por-lote]
-description: "Inserción o actualización masiva de registros en paralelo, hasta 5x más rápida que inserciones individuales"
+tags: [glosario, api, escritura, batch, rendimiento]
+type: glossary-entry
+last_reviewed: "2026-09-15"
 ---
+
 
 # put_batch
 
@@ -67,6 +69,6 @@ Todas las validaciones individuales se aplican a cada entrada del lote:
 
 ## Véase También
 
-- [[similar_to_key]] — Búsqueda por clave existente
-- [[../api/PYTHON_SDK.md|Python SDK Reference]]
-- [[../api/EMBEDDED_SDK.md|Embedded SDK Reference]]
+- [similar_to_key](./similar_to_key.md) — Búsqueda por clave existente
+- [Python SDK Reference](../../api/PYTHON_SDK.md)
+- [Embedded SDK Reference](../../api/EMBEDDED_SDK.md)

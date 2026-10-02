@@ -1,3 +1,10 @@
+---
+title: "Plan — Embeddings Local-First + Carpeta `embeddings/` + Fix Puntos 1,3,4"
+kind: plan
+status: archived
+description: "Esfuerzo total: ~6-8 días (Fase1 4-6d, Fase2 2-3d, Fase3 1d, Fase4 4h). Sin breaking changes"
+---
+
 # Plan — Embeddings Local-First + Carpeta `embeddings/` + Fix Puntos 1,3,4
 
 ```

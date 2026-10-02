@@ -129,6 +129,8 @@ async fn setup(extra_upstream_routes: Router) -> TestEnv {
         context: Default::default(),
         guardrails: Default::default(),
         translate: Default::default(),
+        injection: Default::default(),
+        envelope: Default::default(),
     };
     let state = server::AppState::from_engine(cfg, seeded_engine()).unwrap();
     let proxy_url = spawn(server::router(state)).await;
@@ -159,6 +161,8 @@ fn cfg_with(upstream: &str, timeout_secs: u64) -> ProxyConfig {
         context: Default::default(),
         guardrails: Default::default(),
         translate: Default::default(),
+        injection: Default::default(),
+        envelope: Default::default(),
     }
 }
 
@@ -431,7 +435,7 @@ async fn rate_limit_blocks_excess_with_429_and_retry_after_headers() {
             "first two requests within the window pass"
         );
     }
-    // Concurrent burst from N clients against the same spaceId×model bucket.
+    // Concurrent burst from N clients against the same space_id×model bucket.
     let mut handles = Vec::new();
     for _ in 0..6 {
         let url = proxy_url.clone();
@@ -477,7 +481,7 @@ async fn rate_limit_blocks_excess_with_429_and_retry_after_headers() {
     assert_eq!(
         resp.status(),
         200,
-        "separate spaceId×model buckets are independent"
+        "separate space_id×model buckets are independent"
     );
 }
 

@@ -1,23 +1,26 @@
 ---
-title: "ANN (Approximate Nearest Neighbor)"
-type: glossary-entry
+title: ANN (Approximate Nearest Neighbor)
+kind: glossary
 status: stable
+description: "ANN (Approximate Nearest Neighbor Search) is a family of algorithms that find vectors similar to a query without examining all the vectors in the dataset, sacrificing accuracy for speed"
 tags: [vantadb, glosario, indexes, vector]
-last_reviewed: 2026-09-15
+type: glossary-entry
+last_reviewed: "2026-09-15"
 links: "[[README.md]]"
 ---
+
 # ANN (Approximate Nearest Neighbor)
 
-##Definition
+## Definition
 
 **ANN** (Approximate Nearest Neighbor Search) is a family of algorithms that find vectors similar to a query without examining all the vectors in the dataset, sacrificing accuracy for speed.
 
 ## Accuracy vs Speed
 
-| Método | Complejidad | Recall | Velocidad |
+| M├⌐todo | Complejidad | Recall | Velocidad |
 |--------|-------------|--------|-----------|
-| **Exact (KNN)** | O(N·d) | 100% | Lento |
-| **ANN (HNSW)** | O(log N·d) | ~95-99% | Rápido |
+| **Exact (KNN)** | O(N┬╖d) | 100% | Lento |
+| **ANN (HNSW)** | O(log N┬╖d) | ~95-99% | R├ípido |
 
 ## Main ANN Algorithms
 
@@ -26,8 +29,8 @@ links: "[[README.md]]"
 **Used by:** VantaDB, Qdrant, Milvus, Weaviate
 
 ```
-Capa 2:    [A] ──────── [D]
-Capa 1:    [A] ── [B] ── [D]
+Capa 2:    [A] ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ [D]
+Capa 1:    [A] ΓöÇΓöÇ [B] ΓöÇΓöÇ [D]
 Capa 0:    [A]-[B]-[C]-[D]-[E]-[F]
 ```
 
@@ -43,9 +46,9 @@ Capa 0:    [A]-[B]-[C]-[D]-[E]-[F]
 ```
 Centroids: [C1, C2, C3, ..., Ck]
 Inverted lists:
-  C1 → [v1, v5, v12, ...]
-  C2 → [v2, v7, v8, ...]
-  C3 → [v3, v4, v9, ...]
+  C1 ΓåÆ [v1, v5, v12, ...]
+  C2 ΓåÆ [v2, v7, v8, ...]
+  C3 ΓåÆ [v3, v4, v9, ...]
 ```
 
 **Advantages:**
@@ -59,8 +62,8 @@ Inverted lists:
 ```
 Hash functions: h1, h2, ..., hk
 Buckets:
-  h1(v) = 5 → [v1, v3, v7]
-  h2(v) = 2 → [v2, v5, v8]
+  h1(v) = 5 ΓåÆ [v1, v3, v7]
+  h2(v) = 2 ΓåÆ [v2, v5, v8]
 ```
 
 ## Evaluation Metrics
@@ -71,11 +74,11 @@ $$
 \text{Recall@K} = \frac{|\text{Retrieved} \cap \text{Relevant}|}{|\text{Relevant}|}
 $$
 
-**VantaDB Target:** ≥0.95 for K=10
+**VantaDB Target:** ΓëÑ0.95 for K=10
 
 ### Latency
 
-| Percentil | Descripción |
+| Percentil | Descripci├│n |
 |-----------|-------------|
 | **p50** | Latencia mediana |
 | **p95** | 95% de queries bajo este valor |
@@ -91,11 +94,11 @@ $$
 
 ### HNSW Parameters
 
-| Parámetro | Default | Efecto |
+| Par├ímetro | Default | Efecto |
 |-----------|---------|--------|
 | `M` | 16 | Conexiones por nodo |
-| `ef_construction` | 200 | Calidad de construcción |
-| `ef` | 100 | Calidad de búsqueda |
+| `ef_construction` | 200 | Calidad de construcci├│n |
+| `ef` | 100 | Calidad de b├║squeda |
 
 ### Recall vs Latency Trade-off
 
@@ -105,14 +108,14 @@ import vantadb
 # HNSW params (M, ef_construction, ef) live in the Rust engine config,
 # not the constructor. ef is auto-tuned at runtime.
 db = vantadb.Client("./data")
-# Alta calidad (más lento) — Recall: 0.998, Latencia: 15ms
-# Balanced — Recall: 0.956, Latency: 6ms
-# High speed (less accurate) — Recall: 0.890, Latency: 3ms
+# Alta calidad (m├ís lento) ΓÇö Recall: 0.998, Latencia: 15ms
+# Balanced ΓÇö Recall: 0.956, Latency: 6ms
+# High speed (less accurate) ΓÇö Recall: 0.890, Latency: 3ms
 ```
 
 ## VantaDB Benchmarks (SIFT1M)
 
-| Configuración | Recall@10 | p50 Latency | QPS |
+| Configuraci├│n | Recall@10 | p50 Latency | QPS |
 |---------------|-----------|-------------|-----|
 | ef=50 | 0.912 | 4.2ms | 238 |
 | ef=100 | 0.956 | 6.1ms | 164 |
@@ -121,9 +124,9 @@ db = vantadb.Client("./data")
 
 ## See Also
 
-- [[hnsw]] — Algoritmo ANN específico de VantaDB
-- [[vector-similarity]] — Métricas de distancia
-- [[benchmarks]] — Evaluación de performance
+- [hnsw](./hnsw.md) ΓÇö Algoritmo ANN espec├¡fico de VantaDB
+- [vector-similarity](./vector-similarity.md) ΓÇö M├⌐tricas de distancia
+- [benchmarks](./benchmarks.md) ΓÇö Evaluaci├│n de performance
 
 ---
 

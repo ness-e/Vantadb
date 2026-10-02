@@ -1,3 +1,8 @@
+---
+title: "Task: DESKTOP-03 — Integrar crate `vantadb` + managed state + healthcheck (Wave 1)"
+kind: task
+---
+
 # Task: DESKTOP-03 — Integrar crate `vantadb` + managed state + healthcheck (Wave 1)
 
 - **Effort:** 🟢 | **Priority:** 🔴

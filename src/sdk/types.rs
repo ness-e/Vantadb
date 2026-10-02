@@ -10,9 +10,10 @@ mod search;
 
 pub use graph::{EdgeRecord, NodeInput, NodeRecord, QueryResult};
 pub use record::{
-    ExportReport, FilterOp, ImportReport, MemoryExportLine, MemoryFilter, MemoryFilterItem,
-    MemoryInput, MemoryListOptions, MemoryListPage, MemoryRecord, NamespaceStats,
-    NamespaceStatsMap, DEFAULT_EXPIRING_SOON_WINDOW_MS,
+    default_confidence, ConfidenceClass, ExportReport, FilterOp, ImportReport, MemoryExportLine,
+    MemoryFilter, MemoryFilterItem, MemoryInput, MemoryListOptions, MemoryListPage, MemoryRecord,
+    NamespaceStats, NamespaceStatsMap, ValidWindow, DEFAULT_EXPIRING_SOON_WINDOW_MS,
+    DERIVATION_DISCOUNT, MAX_DERIVATION_DEPTH,
 };
 #[cfg(debug_assertions)]
 pub use search::MemorySearchDebugReport;
@@ -20,9 +21,11 @@ pub use search::MemorySearchDebugReport;
 // `doc(hidden)` diagnostic that never crossed the `sdk` boundary; the def-site
 // alias in `search.rs` covers the migration path. Zero users post-rename.
 pub use search::{
-    Bm25TermContribution, HybridFusionReport, IndexRebuildReport, MemorySearchHit,
-    MemorySearchRequest, SearchExplanation, SearchExplanationHit, SearchHit, SearchProfileConfig,
-    SearchProfileMode, TextIndexAuditReport, TextIndexRepairReport,
+    AbstentionReason, Bm25TermContribution, EntityBoost, EntityBoostProvenance, EntityBoostReport,
+    EntityBoostedSearch, GroupByConfig, HybridFusionReport, IndexRebuildReport, MemorySearchHit,
+    MemorySearchPage, MemorySearchRequest, MmrConfig, RangeFilter, SearchExplanation,
+    SearchExplanationHit, SearchHit, SearchProfileConfig, SearchProfileMode, TextIndexAuditReport,
+    TextIndexRepairReport,
 };
 pub(crate) use search::{
     DerivedIndexRebuildReport, DerivedIndexState, ExpectedTextIndexEntries, SparseIndexCounts,
@@ -43,15 +46,36 @@ pub(crate) mod u128_serde {
     where
         D: Deserializer<'de>,
     {
+        deserialize_opt(deserializer)?
+            .ok_or_else(|| serde::de::Error::custom("expected u128, found null"))
+    }
+
+    /// `Option<u128>` variant (API-01): `Some` → decimal string, `None` → null.
+    pub fn serialize_opt<S>(val: &Option<u128>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match val {
+            Some(v) => serializer.serialize_some(&v.to_string()),
+            None => serializer.serialize_none(),
+        }
+    }
+
+    /// Accepts decimal strings (preferred) and legacy `u64` numbers.
+    pub fn deserialize_opt<'de, D>(deserializer: D) -> Result<Option<u128>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
         #[derive(Deserialize)]
         #[serde(untagged)]
         enum U128 {
             Str(String),
             Num(u64),
         }
-        match U128::deserialize(deserializer)? {
-            U128::Str(s) => s.parse().map_err(serde::de::Error::custom),
-            U128::Num(n) => Ok(n as u128),
+        match Option::<U128>::deserialize(deserializer)? {
+            Some(U128::Str(s)) => s.parse().map(Some).map_err(serde::de::Error::custom),
+            Some(U128::Num(n)) => Ok(Some(n as u128)),
+            None => Ok(None),
         }
     }
 }

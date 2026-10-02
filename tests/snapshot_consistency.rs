@@ -26,6 +26,7 @@ fn put_record(db: &Embedded, ns: &str, key: &str, payload: &str, vec: Vec<f32>) 
         sparse_vector: None,
         metadata: BTreeMap::new(),
         ttl_ms: None,
+        ..Default::default()
     })
     .expect("put");
 }

@@ -1,16 +1,18 @@
 ---
-title: "busqueda-vectorial"
-type: glossary-entry
+title: busqueda-vectorial
+kind: glossary
 status: stable
-tags: [indice, ann, busqueda-vector, hnsw]
-last_reviewed: 2026-09-15
-links: "[[README.md]]"
+description: "HNSW is an indexing algorithm for approximate nearest neighbor search (ANN) that constructs a multi-layer graph of vectors, allowing searches in logarithmic time ($O(\log N)$) with high recall (>0.95)"
 aliases: [Hierarchical Navigable Small World, HNSW Index]
-description: "Indexing algorithm for approximate nearest neighbor search (ANN) that constructs a multi-layer graph of vectors, allowing searches in logarithmic time"
+tags: [indice, ann, busqueda-vector, hnsw]
+type: glossary-entry
+last_reviewed: "2026-09-15"
+links: "[[README.md]]"
 ---
-#HNSW—Hierarchical Navigable Small World
 
-##Definition
+# HNSW—Hierarchical Navigable Small World
+
+## Definition
 
 **HNSW** is an indexing algorithm for **approximate nearest neighbor search (ANN)** that constructs a multi-layer graph of vectors, allowing searches in **logarithmic** time ($O(\log N)$) with high recall (>0.95).
 
@@ -124,7 +126,7 @@ results = db.search(
 
 ### Index Persistence
 
-VantaDB persists the HNSW index using **[[mmap]]**:
+VantaDB persists the HNSW index using **[mmap](./mmap.md)**:
 
 ```
 Disco: vector_store.vanta
@@ -230,7 +232,7 @@ Reduce `f32` (4 bytes) → `u8` (1 byte):
 
 If `rebuild_index()` is run concurrently with lookups, readers may see an inconsistent index.
 
-**Mitigation:** [[rwlock]] global or double buffer strategy.
+**Mitigation:** [rwlock](./rwlock.md) global or double buffer strategy.
 
 ### AUD-04: Validación de SIMD
 
@@ -242,11 +244,11 @@ The scalar fallback and the SIMD route coexist without numerical equivalence tes
 
 ## See Also
 
-- [[vectors]] — What HNSW indexes
-- [[vector-similarity]] — Distance metrics
-- [[mmap]] — Index persistence
-- [[bm25]] — Supplementary index (lexicon)
-- [[rrf]] — HNSW + BM25 merger
+- [vectors](./vectors.md) — What HNSW indexes
+- [vector-similarity](./vector-similarity.md) — Distance metrics
+- [mmap](./mmap.md) — Index persistence
+- [bm25](./bm25.md) — Supplementary index (lexicon)
+- [rrf](./rrf.md) — HNSW + BM25 merger
 
 ### Related Implementation Documentation
 - [[../architecture/hnsw_index|HNSW Index Architecture]]

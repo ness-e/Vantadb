@@ -1,10 +1,9 @@
 ---
 title: Persistent Text Index Design
-type: architecture
+kind: concept
 status: active
+description: "Date: 2026-05-04"
 tags: [vantadb, architecture]
-last_reviewed: 2026-07-21
-aliases: []
 ---
 
 # Persistent Text Index Design

@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Task System Hardening II — paralelismo real + spec-first"
+kind: plan
+status: archived
+description: "Decisiones Gate P (2026-08-23): versionar memoria · eliminar statewright · manual→índice · alcance TODO"
+---
+
 # Plan de Ejecución: Task System Hardening II — paralelismo real + spec-first
 
 > **Campaign ID:** a5fe091a-e95c-4362-bc17-d36f72aeecf8

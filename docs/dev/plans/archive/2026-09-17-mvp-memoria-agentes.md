@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: MVP memoria automática en agentes de código — 2026-09-17"
+kind: plan
+status: archived
+description: "Status: ⬆️ uphill = 4 (atrapabilidad pánico ORT · alcance exacto exposición · APIs hooks por cliente · casos borde traductor) · ⬇️ downhill = 8 tasks con contrato definido (steps atómicos en task files bajo demanda)"
+---
+
 # Plan de Ejecución: MVP memoria automática en agentes de código — 2026-09-17
 
 > **Campaign ID:** b2ece025-e9d3-4f8b-835d-1d0143a86b66

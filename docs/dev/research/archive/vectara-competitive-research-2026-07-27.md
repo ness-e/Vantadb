@@ -1,3 +1,10 @@
+---
+title: Vectara Competitive Research — 2026-07-27
+kind: research
+status: archived
+description: "Task: NUEVO-21 — Vectara competitive research"
+---
+
 # Vectara Competitive Research — 2026-07-27
 
 **Task:** NUEVO-21 — Vectara competitive research

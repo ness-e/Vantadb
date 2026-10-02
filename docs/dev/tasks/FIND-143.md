@@ -1,3 +1,9 @@
+---
+title: "FIND-143: docs/dev/workflow/ — inventario, triggers, publish, runbook, FAQ"
+kind: task
+description: "Crear docs/dev/workflow/README.md (inventario 27 + nota 28→27), TRIGGERS.md (matriz push/PR/schedule/dispatch/tags), PUBLISH.md (flujo por registro + namespaces tags), RUNBOOK.md (re-run, approve environments, [no-adr]), FAQ.md..."
+---
+
 # FIND-143: docs/dev/workflow/ — inventario, triggers, publish, runbook, FAQ
 
 ## Metadata

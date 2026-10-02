@@ -1,9 +1,8 @@
 ---
 title: VantaDB Documentation
-type: docs-index
+kind: index
 status: active
-last_reviewed: 2026-09-02
-language: en
+description: Welcome to the VantaDB documentation vault
 aliases: [Documentation Home, Docs Root, Vault Root]
 tags: [vantadb, documentation, index]
 ---

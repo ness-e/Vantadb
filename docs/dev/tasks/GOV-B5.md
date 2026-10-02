@@ -1,3 +1,9 @@
+---
+title: "Task: GOV-B5 — HTTP_API.md completo"
+kind: task
+description: "Plan: docs/dev/plans/2026-08-22-doc-governance-plan.md (Task 13)"
+---
+
 # Task: GOV-B5 — HTTP_API.md completo
 
 **Plan:** docs/dev/plans/2026-08-22-doc-governance-plan.md (Task 13)

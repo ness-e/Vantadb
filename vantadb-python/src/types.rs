@@ -1,5 +1,11 @@
 //! Python-accessible #[pyclass] types for the VantaDB Python SDK.
 //! Avoids per-result PyDict allocations in hot paths.
+//!
+//! Casing (Gate P, API-01 foundation): Python-native attributes stay
+//! `snake_case` (`rec.node_id`) — the native interior never renames for wire
+//! polish. JSON payloads emitted elsewhere follow
+//! `docs/api/BINDINGS_NAMESPACES.md` § Casing Contract and migrate in
+//! W1/API-02. PyO3 class names stay `PascalCase` (`Record`, `SearchHit`).
 
 use pyo3::buffer::ReadOnlyCell;
 use pyo3::exceptions::{PyRuntimeError, PyStopIteration};
@@ -129,6 +135,70 @@ impl VantaPyMemoryRecord {
         self.inner.superseded_at_ms
     }
 
+    /// Provenance class (ADR-046): `"Asserted"` (direct writer claim) or
+    /// `"Derived"` (computed by the engine from `derived_from` parents).
+    #[getter]
+    fn confidence_class(&self) -> &'static str {
+        self.inner.confidence_class.as_wire_str()
+    }
+
+    /// Declared/computed confidence range in `[0, 1]` (not a calibrated
+    /// probability — see `docs/api/scores.md`; default `1.0` for asserted).
+    #[getter]
+    fn confidence(&self) -> f32 {
+        self.inner.confidence
+    }
+
+    /// Last successful re-validation timestamp (ms); `None` = never validated.
+    #[getter]
+    fn last_validated_at_ms(&self) -> Option<u64> {
+        self.inner.last_validated_at_ms
+    }
+
+    /// Parent record keys for a `derived` record (empty for `asserted`).
+    #[getter]
+    fn derived_from(&self) -> Vec<String> {
+        self.inner.derived_from.clone()
+    }
+
+    /// Start of the validity window (ADR-046 §D3, SCH-02); v1 records
+    /// normalize to `created_at_ms`.
+    #[getter]
+    fn valid_at_ms(&self) -> u64 {
+        self.inner.valid_at_ms
+    }
+
+    /// End of the validity window (exclusive); `None` = open-ended.
+    #[getter]
+    fn invalid_at_ms(&self) -> Option<u64> {
+        self.inner.invalid_at_ms
+    }
+
+    /// Quarantine entry timestamp (SCH-05); `None` = active.
+    #[getter]
+    fn quarantined_at_ms(&self) -> Option<u64> {
+        self.inner.quarantined_at_ms
+    }
+
+    /// Stable quarantine reason code (`explicit_write`, `unreviewed_import`,
+    /// `derived_promotion`, `policy_match`); the code set may grow.
+    #[getter]
+    fn quarantine_reason(&self) -> Option<String> {
+        self.inner.quarantine_reason.clone()
+    }
+
+    /// Principal that applied the quarantine (or `system:<op>`).
+    #[getter]
+    fn quarantined_by(&self) -> Option<String> {
+        self.inner.quarantined_by.clone()
+    }
+
+    /// Review deadline (ms); `None` = no default deadline configured.
+    #[getter]
+    fn quarantine_review_due_ms(&self) -> Option<u64> {
+        self.inner.quarantine_review_due_ms
+    }
+
     fn __getitem__<'py>(&self, py: Python<'py>, key: &str) -> PyResult<Bound<'py, PyAny>> {
         use pyo3::conversion::IntoPyObject;
         Ok(match key {
@@ -147,6 +217,19 @@ impl VantaPyMemoryRecord {
             "expires_at_ms" => self.expires_at_ms().into_pyobject(py)?.into_any(),
             "superseded_by" => self.superseded_by().into_pyobject(py)?.into_any(),
             "superseded_at_ms" => self.superseded_at_ms().into_pyobject(py)?.into_any(),
+            "confidence_class" => self.confidence_class().into_pyobject(py)?.into_any(),
+            "confidence" => self.confidence().into_pyobject(py)?.into_any(),
+            "last_validated_at_ms" => self.last_validated_at_ms().into_pyobject(py)?.into_any(),
+            "derived_from" => self.derived_from().into_pyobject(py)?.into_any(),
+            "valid_at_ms" => self.valid_at_ms().into_pyobject(py)?.into_any(),
+            "invalid_at_ms" => self.invalid_at_ms().into_pyobject(py)?.into_any(),
+            "quarantined_at_ms" => self.quarantined_at_ms().into_pyobject(py)?.into_any(),
+            "quarantine_reason" => self.quarantine_reason().into_pyobject(py)?.into_any(),
+            "quarantined_by" => self.quarantined_by().into_pyobject(py)?.into_any(),
+            "quarantine_review_due_ms" => self
+                .quarantine_review_due_ms()
+                .into_pyobject(py)?
+                .into_any(),
             _ => {
                 return Err(pyo3::exceptions::PyKeyError::new_err(format!(
                     "Record has no field '{key}'"
@@ -368,6 +451,68 @@ impl VantaPySearchHit {
     #[getter]
     fn superseded_at_ms(&self) -> Option<u64> {
         self.inner.superseded_at_ms
+    }
+
+    /// Provenance class (ADR-046): `"Asserted"` (direct writer claim) or
+    /// `"Derived"` (computed by the engine from `derived_from` parents).
+    #[getter]
+    fn confidence_class(&self) -> &'static str {
+        self.inner.confidence_class.as_wire_str()
+    }
+
+    /// Declared/computed confidence range in `[0, 1]` (not a calibrated
+    /// probability — see `docs/api/scores.md`; default `1.0` for asserted).
+    #[getter]
+    fn confidence(&self) -> f32 {
+        self.inner.confidence
+    }
+
+    /// Last successful re-validation timestamp (ms); `None` = never validated.
+    #[getter]
+    fn last_validated_at_ms(&self) -> Option<u64> {
+        self.inner.last_validated_at_ms
+    }
+
+    /// Parent record keys for a `derived` record (empty for `asserted`).
+    #[getter]
+    fn derived_from(&self) -> Vec<String> {
+        self.inner.derived_from.clone()
+    }
+
+    /// Start of the validity window (ADR-046 §D3, SCH-02).
+    #[getter]
+    fn valid_at_ms(&self) -> u64 {
+        self.inner.valid_at_ms
+    }
+
+    /// End of the validity window (exclusive); `None` = open-ended.
+    #[getter]
+    fn invalid_at_ms(&self) -> Option<u64> {
+        self.inner.invalid_at_ms
+    }
+
+    /// Quarantine entry timestamp (SCH-05); `None` = active.
+    #[getter]
+    fn quarantined_at_ms(&self) -> Option<u64> {
+        self.inner.quarantined_at_ms
+    }
+
+    /// Stable quarantine reason code; the code set may grow.
+    #[getter]
+    fn quarantine_reason(&self) -> Option<String> {
+        self.inner.quarantine_reason.clone()
+    }
+
+    /// Principal that applied the quarantine (or `system:<op>`).
+    #[getter]
+    fn quarantined_by(&self) -> Option<String> {
+        self.inner.quarantined_by.clone()
+    }
+
+    /// Review deadline (ms); `None` = no default deadline configured.
+    #[getter]
+    fn quarantine_review_due_ms(&self) -> Option<u64> {
+        self.inner.quarantine_review_due_ms
     }
 
     fn __repr__(&self) -> String {

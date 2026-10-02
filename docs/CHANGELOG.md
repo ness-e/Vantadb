@@ -1,3 +1,9 @@
+---
+title: Changelog
+kind: changelog
+description: All notable changes to this project will be documented in this file
+---
+
 # Changelog
 
 All notable changes to this project will be documented in this file.
@@ -93,7 +99,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### ✨ Features
 
-- **Fase 4 Vanta Studio (2026-08-20, 18/18):** consola standalone 100% browser (WASM/OPFS con persistencia y reload), import drag&drop `.vdbdump`/JSONL/CSV, slider de pesos híbridos BM25/vector (RRF weighted client-side), superficie Índices/salud real, consolidación asistida con diff visible, y supersession durable en core (ADR-028): `VantaMemoryRecord.superseded_by`/`superseded_at_ms`, `supersede()`, filtro `exclude_superseded` en search/list (core + Python sync/async + export/import JSONL).
+- **Fase 4 Vanta Studio (2026-08-20, 18/18):** consola standalone 100% browser (WASM/OPFS con persistencia y reload), import drag&drop `.vdbdump`/JSONL/CSV, slider de pesos híbridos BM25/vector (RRF weighted client-side), superficie Índices/salud real, consolidación asistida con diff visible, y supersession durable en core (ADR-0028): `VantaMemoryRecord.superseded_by`/`superseded_at_ms`, `supersede()`, filtro `exclude_superseded` en search/list (core + Python sync/async + export/import JSONL).
 
 ### Documentation
 
@@ -458,7 +464,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Backlog-EDIT:** Docs(Backlog-EDIT): corregir 12 premisas stale en Backlog.md
 
-- **backlog-validation:** Docs(backlog-validation): Fase 1 — cierres y consolidaciones (NUEVO-22, TSK-103, MKT-17, GH-144, LEG-01, COM-04, ADR-012)
+- **backlog-validation:** Docs(backlog-validation): Fase 1 — cierres y consolidaciones (NUEVO-22, TSK-103, MKT-17, GH-144, LEG-01, COM-04, ADR-0012)
 
 - **backlog-validation:** Docs(backlog-validation): F2 wave0 — AUDIT-01, AUD-001, TECH-01, TECH-02
 
@@ -558,7 +564,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🚀 Features
 
-- Feat: Vanta Studio Fase 3 — transporte pluggable (Tauri/HTTP) + REST completo del SDK (`/api/v2/*`, ~27 endpoints: health, records CRUD/batch/versions/delete_by_filter, list con cursor, search, autocomplete, query, audit, export/import, graph, maintenance, threads, snapshots) + dashboard web embebido `/dashboard` servido por `vanta-cli server --dashboard-dir <dir>` (WEB-00..06, ADR-026)
+- Feat: Vanta Studio Fase 3 — transporte pluggable (Tauri/HTTP) + REST completo del SDK (`/api/v2/*`, ~27 endpoints: health, records CRUD/batch/versions/delete_by_filter, list con cursor, search, autocomplete, query, audit, export/import, graph, maintenance, threads, snapshots) + dashboard web embebido `/dashboard` servido por `vanta-cli server --dashboard-dir <dir>` (WEB-00..06, ADR-0026)
 
 - Feat: add Chroma/LanceDB migration scripts + fix tutorials API (NUEVO-07)
 
@@ -771,9 +777,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - FIND-86 — wiring dream TaskKind + batch opt-in + tests
 - feat!(config): complete FIND-89 env consolidation — breaking legacy VANTA_* vars
 - [**breaking**] split Config por dominios + fachada plana + env VANTADB_* (F3C, B+B)
-- [**breaking**] trait-split storage-index con hoja neutral + 6 firmas a traits (F3X, ADR-042)
+- [**breaking**] trait-split storage-index con hoja neutral + 6 firmas a traits (F3X, ADR-0042)
 - registro OperatorRegistry + operador ejemplo Dedup sin tocar planner/executor (C2S6)
-- [**breaking**] renames enum Error sin stutter (D4b, ADR-041)
+- [**breaking**] renames enum Error sin stutter (D4b, ADR-0041)
 - [**breaking**] AST-004 TS/WASM anti-stutter renames + deprecated aliases
 - AST-003 PyO3 clean aliases en sub-clientes + wrapper (Client/Record/Hit/get/list/delete/search_vector/nodos)
 - PRX-11-slice3 wiring opt-in translate (hook 5d + map-back)
@@ -792,7 +798,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - DESKTOP-45 — specs E2E graph/space lenses (2/2 verde) + DEFER H-15 bench
 - PROV-11 — embed_batch chunked aditivo x3 providers + tests batch/async
 - PRX-06 — task-aware routing por tier + responses en tool-loop
-- SRV-06 — JWT HS256 offline (MVP) + ADR-039 (OIDC DEFER)
+- SRV-06 — JWT HS256 offline (MVP) + ADR-0039 (OIDC DEFER)
 - DESKTOP-42 bundles macOS/Linux + CI matrix (targets x6, jobs macos/linux, NSIS local OK)
 - PRX-03 — cost tracking + virtual keys con budget enforcement 429
 - MEM-70 harness sintetico LongMemEval-S/LoCoMo + BENCHMARKS.md §17
@@ -939,7 +945,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - *(server)* MEM-55 conversation/add dispara extracción L1 vía ConversationTrigger + HttpCaptureBridge (H6, P4 fallback)
 - *(vanta-proxy)* MEM-57 parser claude-code (classify main/fork/sidequery + extract user text sin system-reminders)
 - *(mcp)* MCP-20+26 recovery tools + capabilities/snippet/snapshots introspection
-- *(vanta-memory)* BND-03 tiktoken-rs 0.12 feature-gate precise-tokens (golden tests cl100k, D21 enmienda ADR-029)
+- *(vanta-memory)* BND-03 tiktoken-rs 0.12 feature-gate precise-tokens (golden tests cl100k, D21 enmienda ADR-0029)
 - *(mcp)* MCP-21+22 graph GDS (pagerank/centrality) + traversal tools
 - *(server)* MEM-54 skills CRUD HTTP con optimistic lock + owner 404 anti-enumeración (H5)
 - *(mcp)* MCP-18+19 memory_delete_by_filter + memory_put_batch tools
@@ -998,8 +1004,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - *(metrics)* snapshot por capa L1/L2/L3/recall/offload + audit memory (MEM-34)
 - *(mcp)* search_profile passthrough en tool de búsqueda (MEM-02)
 - *(planner)* SearchProfileConfig per request + cláusula IQL PROFILE (MEM-01)
-- VER-01 — E2E ampliado (REST-02/03/06) + ADR-027 + cierre Fase 4 (18/18)
-- FEAT-03b — core decay como supersession durable (ADR-028)
+- VER-01 — E2E ampliado (REST-02/03/06) + ADR-0027 + cierre Fase 4 (18/18)
+- FEAT-03b — core decay como supersession durable (ADR-0028)
 - FEAT-03a — consolidación asistida UI (candidatos kNN + diff + superseded_by)
 - FEAT-02 — superficie Índices/salud real (reemplaza placeholder VS-03)
 - FEAT-01 — slider de pesos híbridos BM25/vector en RETRIEVAL
@@ -1052,10 +1058,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - AUD-048 unify filter semantics between CLI and MCP
 - *(cli)* AUD-051 add --metadata flag, block `__vanta_*` filters, doc filter scope
 - *(python)* AUD-049 add vantadb shim module re-exporting vantadb_py
-- *(FND-23-F1)* instrumenta vanta_graph_ops_total (traverse, edge queries, add/remove_edge) - deuda ADR-024 saldada
+- *(FND-23-F1)* instrumenta vanta_graph_ops_total (traverse, edge queries, add/remove_edge) - deuda ADR-0024 saldada
 - *(FND-01)* regla memory-budget + bench OOM confirma RSS sin limite (guard subestima 6.5x)
 - *(FND-07)* /metrics con feed real de latencia de queries (prometheus, R-3)
-- *(task-system)* TSYS-01/05/06/14/15/16 — SLA ADR-017, chaos resilience, memoria esquema, feature shippable, checklist anti-tóxico
+- *(task-system)* TSYS-01/05/06/14/15/16 — SLA ADR-0017, chaos resilience, memoria esquema, feature shippable, checklist anti-tóxico
 - *(task-system)* TSYS-09/10/11/12/13 — tracing de decisiones, HITL, límites de tools, waves paralelas, validación de citas
 - *(task-system)* TSYS-02/03/04/07/08 — handoff invariantes, ADR gate, Shape Up appetite, recitation unificado, triage es-ahora
 - *(harness)* P3 restante + fallas §3.6 — SARL trace, telemetría skill/tool, Regla 0 auditable, docs gate, reconciliación de memorias
@@ -1118,7 +1124,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - WIN-FLAKY-AUDIT — fixture unica por llamada (seq+thread) en audit tests
-- FIND-133 — triage semver 21 cats/100 items intencional-0.6.0 + ADR-044 (cero reverts)
+- FIND-133 — triage semver 21 cats/100 items intencional-0.6.0 + ADR-0044 (cero reverts)
 - CODEX-130/131/132 — recall-L1 visible, compose loopback+auth, L0 mismo-ms sin perdida
 - P2-01 follow-ups ci-green (footnote ES/EN, cast-count 12+1, lru motivo)
 - FIND-125 — resync tipos vantadb-ts contra core/wasm (tsc 0, 16 errores)
@@ -1299,7 +1305,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - *(ERR-010)* snapshot se abre como DB reabrible (layout data/ simetrico)
 - *(ERR-010)* scan_nodes_page no excluye el nodo id 0 (cursor vacio)
 - *(ERR-026)* delegate list/null metadata filters to core instead of rejecting
-- *(ci)* COV-004 — ref ADR-015 en job coverage + step renombrado >=80%
+- *(ci)* COV-004 — ref ADR-0015 en job coverage + step renombrado >=80%
 - repair maintenance deadlock, zero-norm search, putBatch versioning
 - *(wal)* persist round-robin position across opens (ERR-050)
 - *(AUD-021)* rate limiter fails closed instead of serving unthrottled
@@ -1513,7 +1519,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - *(telemetry, maintenance, crypto, metadata)* centralize env reads in Config
 - *(vector, prefetch)* migrate VANTA_LOCAL_MODEL and VANTA_PREFETCH to Config
 - *(config, llm)* add LlmCfg fields for openai_api_key, openai_model, embedding_provider; migrate providers to Config
-- firma ADR-043 (excepcion Regla 5, orden owner) + nota en meta
+- firma ADR-0043 (excepcion Regla 5, orden owner) + nota en meta
 - cierre campana cleanCA Fase 3 (4/4) + avance + archivar plan
 - diseno S-split-config B+B + ADR-datos (F3C-diseno)
 - job informativo canonical_p99 con toolchain-check (F3B)
@@ -1608,7 +1614,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - PRX-05 registra avance en dominio vanta-proxy
 - TS-12 marca experimental vantadb-node + checklist publish humano
 - *(campaign)* cierra plan 2026-09-08-backlog 9/10 + carryover STABLE-09 subset (Owner A)
-- STABLE-09 promocion bloqueada — ADR-031 proposed + Heavy heredado, rollback redactado
+- STABLE-09 promocion bloqueada — ADR-0031 proposed + Heavy heredado, rollback redactado
 - BLOG-CTA avance web-frontend (plan 2026-09-08)
 - STABLE-06 re-validar gate npm 280/280 (plan 2026-09-08)
 - PRX-08 cierre RESUME — contrato clippy/test/fmt verde tras MEM-66
@@ -1660,7 +1666,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - *(cli)* regenerate completions for restore --dry-run flag
 - *(backlog)* FIND-62/63 del spike FIND-61 (ERR-010 txn + Never muerto)
 - *(spike)* desglose insert_lock vs fsync + decisión batch (FIND-61)
-- FIND-59 insert_lock decision (d) + ADR-037 + FIND-61 spike
+- FIND-59 insert_lock decision (d) + ADR-0037 + FIND-61 spike
 - *(backlog)* mark FIND-53 resolved (embed_texts documented)
 - *(mcp)* document embed_texts tool (close FIND-53, unblock docs-coverage gate)
 - *(web)* visual evidence WEB-09 after state
@@ -1753,7 +1759,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - *(plan)* alta prioridad paralelo GOV(30)+P27(38)+P38(17)+MCP-35 — 86 tareas en 29 sub-waves MAX_CONCURRENT=3
 - *(backlog)* normalize BND-08/09/12 split rows + drop orphan BND-10/11 fragments + fix MD028 blockquotes
 - *(server)* split cli_server god-file (4919L) by concern under src/server
-- add MCP-35 HTTP fallback discovery design (ADR-036 + spec)
+- add MCP-35 HTTP fallback discovery design (ADR-0036 + spec)
 - *(mkt-04)* fix unverified claims in Reddit launch posts, mark ready-to-publish
 - *(ci)* formaliza 3 exclusiones fast gate (FIND-22)
 - *(plans)* archiva 3 planes completados (fast-gate-green, backlog-triage, master-pipeline)
@@ -1825,7 +1831,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - SRV-08 — Hardening guide + competitive positioning
 - FIND-43 — Aplanar builder CacheWarmer (no recursivo)
 - FIND-38 — Consolidar helpers serialization cycle
-- CORE-01 — sincronización cierre W4-SOLO + nota ADR-032 owner
+- CORE-01 — sincronización cierre W4-SOLO + nota ADR-0032 owner
 - SRV-03 — Corregir links distribución (GitHub Release, no crates.io)
 - WSM-08 — Corregir docs TS contradictorias (WASM persistence)
 - FIND-46 — Documentar cargo semver-checks en pre-release gate
@@ -1858,7 +1864,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - archive research-web-quickwins plan (7/7 QW completed, WEB-09 gate visual pending)
 - STABLE-01 validate vanta-memory gates 1-6 (fix Cargo.toml path dep version for cargo package)
 - archive 2026-08-27 backlog-pipeline 7/7 — bindings + ci-cd avance + Backlog 109→102 + retrospective
-- STABLE-00 ADR-031 default-members promotion DoD + CI_POLICY gate
+- STABLE-00 ADR-0031 default-members promotion DoD + CI_POLICY gate
 - *(avance)* FIND-39 record in core-engine + remove from Backlog
 - *(task)* MCP-38 mark COMPLETED + verify evidencia
 - *(avance)* FIND-37 completed — update Backlog, core-engine, history, lessons, task file
@@ -1896,7 +1902,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - *(node)* metadata npm engines/os/cpu + README (node research H-02/H-03)
 - investigacion INV-* completa (9 modulos, sintesis global INV-DECIDE, planes quick-wins)
 - *(backlog)* P42 backup-restore-chain completado (3/3) - plan archivado + retrospectiva
-- *(storage)* FIND-26 remove dead PITR code (wal_archiver.rs, feature pitr) - ADR-014 superseded
+- *(storage)* FIND-26 remove dead PITR code (wal_archiver.rs, feature pitr) - ADR-0014 superseded
 - *(backlog)* new plan batch-backup-restore-chain (FIND-25 -> MCP-34b -> FIND-26)
 - *(workflows)* trigger /oc en comentarios para OpenCode
 - *(mcp-research)* informe INV vantadb-mcp + cierre bookkeeping asociado
@@ -1922,7 +1928,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - FIND-11 desktop README + lazy-load wasm note + npm naming clarification
 - *(agents)* skills count 163 -> 162 (a11y-shared es carpeta de recursos, no skill)
 - remove dead ui prototype and stale benchmark results
-- FIND-17 brand identity naming convention (ADR-030) + README note
+- FIND-17 brand identity naming convention (ADR-0030) + README note
 - *(server)* MOD-15 nits - drop middleware.rs re-export, empty sysinfo feature, main.rs comment, ServerState helper
 - *(commands)* consolidate task/audit/finding flows — one canonical path per intent
 - *(task-system)* podar memoria obsoleta + archivado de budgets de planes
@@ -2035,11 +2041,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - *(plan)* P33 Última Milla — 10 tareas (H1-H6 críticos+medios, O2 interceptor agéntico D46-D48, tiktoken, Langfuse, claude-code)
 - *(gov)* bitacora entrada agosto + regla GOV-D3 (amendment — bloque faltaba por ancla incorrecta)
 - *(gov)* bitacora revivida — regla de uso + draft entrada 2026-08-22 para articulacion del autor (GOV-D3)
-- *(gov)* ADR-026 reubicado en adr/ junto a sus pares (GOV-D5)
+- *(gov)* ADR-0026 reubicado en adr/ junto a sus pares (GOV-D5)
 - *(gov)* mirror avance catch-up — dominios vanta-memory/vanta-proxy/context-engine nuevos + contrato meta.md (GOV-D1); CRASH_MODEL sync PERF-08 (GOV-D6)
 - *(reviews)* auditoría final de integración del producto — H1-H9 + re-evaluación descartes → Backlog MEM-50..58/BND-05
 - *(gov)* GOV-B1 residuales — refs case_studies archivado en README/master-index/graphrag/skill vantadb + stubs book
-- *(adr)* ADR-029 ACEPTADO — articulación humana Regla 5 completa (D21-D37) + enmienda D21 tiktoken feature-gate
+- *(adr)* ADR-0029 ACEPTADO — articulación humana Regla 5 completa (D21-D37) + enmienda D21 tiktoken feature-gate
 - *(gov)* checkpoint wave C completa 7/7 — 20/30 tareas GOV cerradas
 - *(gov)* Backlog sync P29/P30/P31 + nota refs archivadas + contador real ~45 + regla; ROADMAP banner alineado; ops master-index +7 (GOV-C2/C3/C7/C5)
 - *(ops)* CONFIGURATION sync sweep 44 env vars (+5), rate_limit_rpm 600, flush_threshold None (GOV-C6)
@@ -2052,7 +2058,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - *(ops)* DR runbook sin comandos fantasma — restore --dry-run/doctor --fix eliminados, verificacion diaria validada end-to-end (GOV-B2)
 - [**breaking**] retire unverified case studies to internal archive (GOV-B1, D6) — fictitious clients EdgeSense/CodexAgent presented as real deployments
 - *(gov)* cifra canonica de tests 2034 passed (nextest default, 2026-08-22) en TEST_MAP (GOV-A2)
-- *(gov)* cifra coverage canonica ADR-018 (root >=80%, baseline 81.40%) en TEST_MAP/CI_POLICY/progreso — re-medicion pendiente llvm-cov ICE (GOV-A1 stop condition)
+- *(gov)* cifra coverage canonica ADR-0018 (root >=80%, baseline 81.40%) en TEST_MAP/CI_POLICY/progreso — re-medicion pendiente llvm-cov ICE (GOV-A1 stop condition)
 - *(docs)* harness validate_doc_snippets.py — 21 PASS/31 FAIL/6 SKIP inicial, detecta graph_bfs roto x2 (GOV-A4)
 - *(backlog)* limpiar filas stale MEM-36/43/44/45 (pagadas en P31/P32)
 - *(progreso)* cierre campaña P32 Bindings SDK 4/4 — MEM-36 pagada, archivo de plan
@@ -2063,11 +2069,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - *(api)* SDKB-01 mapa canon namespace↔método por SDK (43 wasm/38 TS/45 python, diferencias documentadas)
 - *(progreso)* cierre campaña P31 Cierre Final 8/8 — port TDAM al 100%, archivo de plan
 - *(plan)* P31 Task 7 ✅ (marcado manual — MCP lo escribió en plan equivocado) + reubicar plan stray a archive
-- *(adr)* MEM-49 guía socrática revisión ADR-029 + D21-D37 (prep articulación humana, Regla 5)
+- *(adr)* MEM-49 guía socrática revisión ADR-0029 + D21-D37 (prep articulación humana, Regla 5)
 - *(plan)* restaurar contrato Task 1 (corrupción server MCP)
 - *(vantadb-mcp)* MEM-44 e2e ingest→wiki_* roundtrip cross-crate (dev-dep vanta-memory, sin ciclo)
 - *(plan)* P31 cierre final — 8 tareas (wiring, roundtrip, auto-sync, embeddings semánticos, scoring real, ADR humano, meta-plan bindings)
-- *(api)* VANTA_MEMORY.md canónico (cierra cita colgante ADR-029) + hallazgos auditoría final MEM-43..45
+- *(api)* VANTA_MEMORY.md canónico (cierra cita colgante ADR-0029) + hallazgos auditoría final MEM-43..45
 - *(progreso)* cierre campaña P30 Proxy+Knowledge 9/9 — roadmap TDAM F1-F7 completo, archivo de plan
 - lockfile tras MEM-26
 - *(plan)* restaurar contrato Task 2 (corrupción server MCP)
@@ -2075,7 +2081,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - *(plan)* P30 decisiones D31-D37 cerradas por el usuario (TOML, canal interno+polling, mem-command TDAM, auth obligatoria, 60 req/min, paths locales, riesgos aceptados) — uphill 0
 - *(plan)* P30 Vanta Proxy + Knowledge (F6+F7) — 9 tareas DO, decisiones D24-D30 cerradas upfront
 - *(progreso)* cierre campaña P29 Context Engine 9/9 — migración a progreso, archivo de plan
-- *(vanta-memory)* MEM-38 ADR-029 borrador + superficies F5 en EMBEDDED_SDK (gate cierre F5)
+- *(vanta-memory)* MEM-38 ADR-0029 borrador + superficies F5 en EMBEDDED_SDK (gate cierre F5)
 - *(plan)* P29 Vanta Context Engine (F5) — 9 tareas DO, triage con Paso 0 + pre-mortem + risk register
 - *(tasks)* MEM-02.md retroactivo + decisiones auditoría MEM-39..42 en backlog
 - *(vanta-memory)* e2e flow L0→L1→L2→L3→recall + huecos triage P27 al backlog (MEM-39..42)
@@ -2108,9 +2114,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - *(plan)* P27 D13-D17 + hallazgos blast radius (IQL profile, SearchProfileConfig, audit server, MEM-34 a F1)
 - *(skills-manifest)* add Accessibility/Inclusive Design section (63 skills), mark remotion-best-practices canonical
 - *(backlog)* archive DESKTOP-12..22 as obsolete by P26 direction, re-scope 23/26/27, prioritize 24/25
-- plan Fase 4 — DEFER table: decay ya implementado como supersession durable (ADR-028)
+- plan Fase 4 — DEFER table: decay ya implementado como supersession durable (ADR-0028)
 - plan Fase 4 — W3 (FEAT-01..03) completa, 16/18; task FEAT-03b-impl verify real del lead
-- FEAT-03b — ADR-028 (accepted) + contrato core decay supersession
+- FEAT-03b — ADR-0028 (accepted) + contrato core decay supersession
 - plan Fase 4 — W2 (WASM-01..04) completa, 12/18
 - WASM-04 task file — verify real del lead (53/53 tests, E2E PASS, commit 380bb6eb)
 - cargo fmt en desktop connections (colateral WASM-01)
@@ -2121,7 +2127,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - reconciliar P26 Vanta Studio (DOC-01) — Fases 0-3 completadas, commits reales, Fase 4 en ejecución
 - plan Fase 4 Vanta Studio — cierre deuda REST + WASM/OPFS + diferenciadores (18 tareas)
 - cerrar gaps de cobertura (get_version/versions, dashboard_dir, version_history_limit) + fix crash MCP en validate-docs-coverage
-- cierre Fase 3 Vanta Studio — REST completo + dashboard embebido (WEB-00..06, ADR-026)
+- cierre Fase 3 Vanta Studio — REST completo + dashboard embebido (WEB-00..06, ADR-0026)
 - regenerar completions + Cargo.lock para flag --dashboard-dir (WEB-03)
 - *(desktop)* WEB-00 transporte pluggable vanta.ts (TauriBackend/HttpBackend stub)
 - plan Fase 3 (7 tareas web/embebido) + archivar plan Fase 2 (deletion tras mover a archive)
@@ -2162,7 +2168,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - skill sync — MCP-05..14 content + backlog P22 findings (MCP-15, T15)
 - MCP-05..14 skill vantadb-mcp sync — IQL syntax, envelope, behavior notes, dead refs, contradictions
 - *(followups)* wave 15/15 completa - archiva plan + sync metadata stale (FND-01/11/12/14/16)
-- *(FND-04-F1)* ADR-025 zero-copy Arrow diferido con señal de reapertura medible (cierra pendiente ADR-021)
+- *(FND-04-F1)* ADR-0025 zero-copy Arrow diferido con señal de reapertura medible (cierra pendiente ADR-0021)
 - *(P2R-01)* gates P2-01 retroactivos TSYS-06/FND-07 + veredictos post-fixes wave (10/11 approve, 1 changes-required FND-13-F1)
 - *(FND-13-F2)* Regla 11 en BENCHMARKS/PERFORMANCE_TUNING - provenance commands + marcar claims sin fuente
 - sync vantadb skills with real API and MCP contract (SKL wave)
@@ -2171,11 +2177,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - *(progreso)* migra 25 tareas wave p20-tsys (R1-10, TSYS-06, FND-01..24) a progreso + plan archivado
 - *(FND-16-followup)* gate wasm/TS por PR con paths filter + fix path CONTRIBUTING + dictamen P2-01 en FND-02
 - *(FND-24)* ICP + JTBD con evidencia honesta (0 usuarios reales - hipotesis + plan validacion)
-- *(FND-23)* ADR-024 motor de grafos default-on hasta telemetria (senal vanta_graph_ops_total)
+- *(FND-23)* ADR-0024 motor de grafos default-on hasta telemetria (senal vanta_graph_ops_total)
 - *(FND-03)* feature set minimo compila + wheels empaquetan set minimo (estado OK)
 - *(FND-22)* CONTRIBUTING con commit convention, PR flow, gates y triage
 - *(P20a)* FND-06 - regla R-8 core-bindings + TODO(core) + drift ERR-028 documentado
-- *(P20a)* FND-08 - ADR-023 backend compaction (diferir fjall/rocksdb marginal) + regla durability
+- *(P20a)* FND-08 - ADR-0023 backend compaction (diferir fjall/rocksdb marginal) + regla durability
 - *(FND-16)* analisis multi-target CI - plan job wasm/TS por PR con paths filter
 - *(P20b)* FND-13 - Regla 11 benchmarks honestos + claims README alineados
 - *(FND-04)* zero-copy Arrow bindings - diferir con ADR + senal de reapertura
@@ -2241,7 +2247,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - *(pinning)* CI-07 — pin actions SHA (release workflows) + fix ref muerta release-plz
 - *(pinning)* CI-07 — pin actions SHA (heavy certification + perf workflows)
 - *(pinning)* CI-07 — pin actions SHA (core fast-gate workflows)
-- P2-7 — persistir sparse vector como ListFloat pairs (ADR-019)
+- P2-7 — persistir sparse vector como ListFloat pairs (ADR-0019)
 - *(task)* CI-05 — task file sync estado final (completed + review verdict)
 - *(plans)* CI-05 completado — sync plan (Task 4 benchmark baseline)
 - *(bench)* CI-05 — baseline fijo y umbral de regresión en perf-bench
@@ -2269,7 +2275,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - *(wasm)* differential persist cache for save/save_idb (delta writes, skip unchanged)
 - *(progreso)* migrate COV-001..004 to progreso, remove from backlog, archive plan
 - add CLI subcommand integration tests (migrate/server/crud)
-- ADR-018 coverage gate target = root crate (supersede ADR-015)
+- ADR-0018 coverage gate target = root crate (supersede ADR-0015)
 - add c8 coverage script for vantadb-ts src/
 - add Python AsyncVantaDB async smoke tests (flush/purge/query/graph/export)
 - *(progreso)* PERF-03 Milvus medido — cerrar nota pendiente
@@ -2342,7 +2348,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - *(plan)* consolidación de carpetas docs + task-system (16 tasks)
 - *(reports)* regenerar northstar + pipeline-evals (evals P1-06/EVAL-01)
 - CI-01 pre-commit hooks config (rustfmt, ruff, prettier scoped)
-- *(adr)* COV-004 ADR-015 coverage policy decision + CI_POLICY sync
+- *(adr)* COV-004 ADR-0015 coverage policy decision + CI_POLICY sync
 - *(ts)* COV-002 fix vitest wasm external + v8 coverage config
 - *(python)* COV-001 bulk import async wrappers (.vdbdump bytes + file)
 - *(harness)* fix stale skill counts + document Windows glob workaround
@@ -2501,7 +2507,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - *(backlog-validation)* F2 wave1 — AUD-004, AUD-011
 - *(AUD-004)* renombrar tool MCP query_lisp a query_iql
 - *(backlog-validation)* F2 wave0 — AUDIT-01, AUD-001, TECH-01, TECH-02
-- *(backlog-validation)* Fase 1 — cierres y consolidaciones (NUEVO-22, TSK-103, MKT-17, GH-144, LEG-01, COM-04, ADR-012)
+- *(backlog-validation)* Fase 1 — cierres y consolidaciones (NUEVO-22, TSK-103, MKT-17, GH-144, LEG-01, COM-04, ADR-0012)
 - *(Backlog-EDIT)* corregir 12 premisas stale en Backlog.md
 - remove obsolete launch-web campaign task views
 - add TECH-01..08 tasks from DESKTOP-01b findings

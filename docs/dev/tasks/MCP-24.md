@@ -1,3 +1,9 @@
+---
+title: "MCP-24: search_with_method + search_multi/all como tools MCP"
+kind: task
+description: "cargo test -p vantadb-mcp --test mcptests pasa; tools searchwithmethod y searchmulti round-trip (aparecen en tools/list, ejecutan búsqueda y devuelven hits, errores claros); docs skill ×2 hash SAME.\""
+---
+
 # MCP-24: search_with_method + search_multi/all como tools MCP
 
 ## Metadata

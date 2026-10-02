@@ -1,7 +1,9 @@
 ---
-title: "Archivo Histórico — No-Progreso"
+title: Archivo Histórico — No-Progreso
+kind: review
 status: archive
-date: 2026-08-03
+description: "Fuente: Backlog (Investigaciones de Seguridad) INV-001"
+date: "2026-08-03"
 ---
 
 > Contenido movido desde `docs/progreso/README.md` (líneas 1-1100) el 2026-08-03. Entradas que no son progreso de tarea implementada: autopsias, investigaciones, no-ops, decisiones WONTFIX y meta/proceso. Copia íntegra — sin edición.
@@ -385,7 +387,7 @@ date: 2026-08-03
 - **Decisión:** WONTFIX. gRPC contradice el posicionamiento embedded-first de VantaDB.
 - rkyv (serialización binaria zero-copy) ya cubre la serialización interna en storage/WAL — el 80% del valor técnico de la tarea.
 - Sin demanda de usuario ni dependencias de otras tareas en el backlog → YAGNI.
-- Micro-ADR: `docs/dev/architecture/adr/COMP-019-binary-protocol-wontfix.md`
+- Micro-ADR: `docs/dev/architecture/adr/ADR-0048-binary-protocol-wontfix.md`
 - Backlog: `COMP-019` tachado como WONTFIX (línea 279).
 - ROADMAP: 3 referencias a COMP-019 actualizadas (Sem 13-14, FASE 4, resumen).
 

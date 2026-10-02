@@ -1,11 +1,9 @@
 ---
 title: "Review de Módulo — `vantadb-server/`"
-type: review
+kind: review
 status: archived
+description: "vantadb-server es un crate binario thin, no un servidor propio: src/server.rs (4 líneas) y src/middleware.rs (1 línea) son re-exports puros de vantadb::cliserver. Todo el server HTTP real (router, auth, rate-limit, handlers, TLS..."
 tags: [vantadb, review]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Review de Módulo — `vantadb-server/`
@@ -39,7 +37,7 @@ Verificación hecha leyendo ambos lados (estructura completa de cli_server.rs v�
 | Router + handlers | `src/cli_server.rs:207-326` (`app_with_cors`), handlers desde linea ~776 | **Canonico en el core** |
 | Auth middleware | `src/cli_server.rs:605-773` | Canonico en el core |
 | Arranque/shutdown/TLS | `src/cli_server.rs:1749-1981` (`run`, `serve_http_or_tls`) | Canonico en el core |
-| Dashboard embebido | `src/cli_server.rs:1702-1747` (`mount_dashboard`) | Confirma ADR-026/027: dashboard vive en el core, no aqui |
+| Dashboard embebido | `src/cli_server.rs:1702-1747` (`mount_dashboard`) | Confirma ADR-0026/027: dashboard vive en el core, no aqui |
 
 **Dictamen de canonicalidad:** NO hay duplicación. La división real de responsabilidades:
 
@@ -80,7 +78,7 @@ Orden de capas sano: métricas y circuit breaker ven todo; auth solo protege rut
 
 ---
 
-## 4. Endpoints vs los ~27 de /api/v2 (ADR-026/027)
+## 4. Endpoints vs los ~27 de /api/v2 (ADR-0026/027)
 
 Conteo en `app_with_cors` (cli_server.rs:232-286):
 - Publicas: `/health`

@@ -1,11 +1,9 @@
 ---
-title: "AUDITORÍA COMPLETA — VantaDB"
-type: review
+title: AUDITORÍA COMPLETA — VantaDB
+kind: review
 status: archived
+description: "VantaDB es una base de datos vectorial embebida con indexación HNSW, WAL, almacenamiento memory-mapped, un lenguaje de consulta propio (IQL), y sub-proyectos complementarios (web Next.js, SDK TypeScript, SDK Python, servidor MCP..."
 tags: [vantadb, review]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # AUDITORÍA COMPLETA — VantaDB

@@ -1,10 +1,9 @@
 ---
 title: Repo Alignment Checklist
-type: operations
+kind: runbook
 status: active
+description: "This checklist defines the immediate repository cut after the initial technical release. Its goal is no longer \"push distribution,\" but to align narrative, telemetry, and surface area with the actual state of the core"
 tags: [vantadb, operations, checklist]
-last_reviewed: 2026-07-01
-aliases: []
 ---
 
 # Repo Alignment Checklist

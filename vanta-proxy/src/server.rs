@@ -20,6 +20,7 @@ use crate::capture;
 use crate::config::{ProxyConfig, UpstreamConfig};
 use crate::context::{self, ContextOptimizer};
 use crate::cost::{self, BudgetDecision, CostTracker, VirtualKey};
+use crate::envelope::Envelope;
 use crate::forward::Forwarder;
 use crate::guardrails::GuardrailDecision;
 use crate::handlers;
@@ -67,9 +68,16 @@ pub struct AppState {
     /// Egress PII/secret redaction (PRX-07). Disabled by default; compiled
     /// once at startup so per-request work is only the scan.
     pub redactor: Arc<Redactor>,
+    /// Per-namespace AEAD envelope for captured originals (VER-03). Built once
+    /// at startup; `Disarmed` (explicit degradation + startup warning) when
+    /// `[envelope] enabled` but the key is missing/invalid.
+    pub envelope: Arc<Envelope>,
     /// Context optimization in transit (PRX-13). Disabled by default;
     /// stateless over config, built once at startup.
     pub optimizer: Arc<ContextOptimizer>,
+    /// VER-04: injection governance — namespace ACL + audit sink for the
+    /// memory surfaces (both opt-in; defaults are allow-all / no audit).
+    pub governance: Arc<crate::governance::Governance>,
 }
 
 /// PRX-01: true when an Anthropic request is a standalone CC sidequery
@@ -93,6 +101,8 @@ impl AppState {
     ///
     /// # Errors
     /// - [`crate::error::ProxyError::Config`] if the HTTP client cannot be built.
+    /// - [`crate::error::ProxyError::Config`] on WIRE-09 refuse-to-start
+    ///   (non-loopback bind, zero provisioned user keys).
     /// - [`crate::error::ProxyError::Storage`] if the local database cannot open.
     pub fn new(config: ProxyConfig) -> Result<Self, crate::error::ProxyError> {
         let db = AuthDb::open(&config.auth.db_path)?;
@@ -103,10 +113,19 @@ impl AppState {
     ///
     /// # Errors
     /// Returns [`crate::error::ProxyError::Config`] if the HTTP client cannot be built.
+    /// Returns [`crate::error::ProxyError::Config`] when the WIRE-09
+    /// refuse-to-start gate trips (non-loopback bind, zero provisioned keys).
     pub fn from_engine(
         config: ProxyConfig,
         engine: Arc<StorageEngine>,
     ) -> Result<Self, crate::error::ProxyError> {
+        // WIRE-09 (FIND-07 parity): refuse to bind a non-loopback host when
+        // no user keys exist. Post-API-05 every route (incl. GET /snapshot)
+        // requires a valid key; loopback binds without keys are the local-dev
+        // exception. Runs before every other check: a security refusal outranks
+        // wiring diagnostics. `new` delegates here, so `main` is covered too.
+        let provisioned = AuthDb::new(engine.clone()).provisioned_user_count()?;
+        config.validate_startup(provisioned)?;
         // PRX-08 S2: fail fast on self-forwarding loops (default upstream
         // 127.0.0.1:8096 == default listen port) instead of recursing to timeout.
         if config.upstream.points_at_self(config.server.port) {
@@ -145,8 +164,25 @@ impl AppState {
         // PRX-07: compile custom patterns once — invalid patterns fail
         // closed here (proxy refuses to start) instead of per-request.
         let redactor = Redactor::new(&config.redact)?;
+        // VER-03: per-namespace envelope build is infallible — a missing or
+        // unusable key degrades EXPLICITLY to redacted-only (warn, never a
+        // silent fallback to clear originals).
+        let envelope = Envelope::from_config(&config.envelope);
+        if let Some(reason) = envelope.disarm_reason() {
+            tracing::warn!(
+                reason,
+                "[envelope] enabled without a usable VANTADB_ENCRYPTION_KEY — \
+                 captured originals will NOT be persisted (redacted-only)"
+            );
+        }
         // PRX-13: stateless over config — infallible build.
         let optimizer = ContextOptimizer::new(&config.context);
+        // VER-04: injection governance (ACL + audit). Both opt-in: empty
+        // prefixes = allow-all, empty audit path = disabled.
+        let governance = crate::governance::Governance::from_config(
+            &config.injection.namespace_allow_prefixes,
+            &config.injection.audit_log_path,
+        );
         Ok(Self {
             limiter: RateLimiter::new(config.server.rate_limit_per_minute).into(),
             upstream_health: UpstreamHealth::new().into(),
@@ -155,7 +191,9 @@ impl AppState {
             cache: Arc::new(std::sync::Mutex::new(cache)),
             cost: cost.into(),
             redactor: redactor.into(),
+            envelope: Arc::new(envelope),
             optimizer: optimizer.into(),
+            governance: Arc::new(governance),
             config: Arc::new(config),
             forwarder: Arc::new(forwarder),
             auth: AuthDb::new(engine.clone()).into(),
@@ -247,8 +285,9 @@ impl AppState {
         }
         // PRX-03: request-side cost accounting. Best-effort and fail-open:
         // an unresolvable identity simply records nothing — the wire
-        // already ran. Output side stays 0 until a buffered body exists
-        // (`record_response_usage`, wired by a future SSE drain).
+        // already ran. Output side lands via `record_response_usage` on the
+        // buffered path (`maybe_store` below); streaming/SSE passthrough
+        // never buffers and stays input-only.
         let mut virtual_key = String::new();
         let mut session = String::new();
         let mut input_tokens = 0u64;
@@ -352,7 +391,7 @@ impl AppState {
             }
         }
 
-        // 2) D24/D35: sliding-window limit keyed by spaceId×model.
+        // 2) D24/D35: sliding-window limit keyed by space_id×model.
         match self.limiter.check(space_id, model) {
             RateDecision::Allowed { .. } => {}
             limited @ RateDecision::Limited { .. } => {
@@ -399,9 +438,19 @@ impl AppState {
         self.sessions.ensure(&key);
 
         // 5) D29: system-prompt injection + L0/L1 tools. Non-JSON bodies
-        // pass through untouched.
-        let memory_block = inject::build_memory_block(&self.memory, &key);
-        let body = match inject::inject_into(&body, protocol, &memory_block) {
+        // pass through untouched. WIRE-01: the block is capped by the
+        // configured token budget (persona/scenes only — turns live in
+        // l1/{session} for the search path, keeping this prefix stable).
+        // VER-04: the ACL policy gates every source namespace and the block
+        // metadata (sources/denials/budget) feeds the injection audit.
+        let memory_block = inject::build_memory_block(
+            &self.memory,
+            &key,
+            self.config.injection.max_tokens,
+            self.governance.policy(),
+        );
+        self.governance.audit_block(&key, &memory_block);
+        let body = match inject::inject_into(&body, protocol, &memory_block.block) {
             Ok(Some(modified)) => Bytes::from(modified),
             Ok(None) => body,
             Err(e) => return e.into_response(),
@@ -473,9 +522,25 @@ impl AppState {
 
         // 5c) Store small JSON 2xx for the next identical request.
         // SSE/chunked/unknown-length responses bypass — never buffered.
+        // WIRE-01: the same buffered site observes response usage for cost
+        // (identity resolved like the optimizer gate above — authenticated
+        // requests only; empty key skips the recording inside).
         if cacheable {
+            let user_key = self
+                .auth
+                .authenticate(headers)
+                .map(|id| id.user_id)
+                .unwrap_or_default();
             return self
-                .maybe_store(eff_protocol, &eff_wire_path, body, response)
+                .maybe_store(
+                    eff_protocol,
+                    &eff_wire_path,
+                    body,
+                    response,
+                    &key,
+                    model,
+                    &user_key,
+                )
                 .await;
         }
         response
@@ -508,12 +573,23 @@ impl AppState {
     /// Buffer a small JSON 2xx and store it; anything else flows through
     /// untouched. The body is only consumed after the cacheability gate
     /// passed (known content-length within budget).
+    ///
+    /// WIRE-01: the buffered bytes are also the productive cost-observation
+    /// point — when `cost.enabled` and the caller resolved a virtual key,
+    /// upstream `usage` lands in the ledger via
+    /// [`crate::cost::CostTracker::record_response_usage`] (output side stops
+    /// being 0 on this path; streaming passthrough never buffers and stays
+    /// input-only). Never fails the request: an empty key simply skips the
+    /// recording.
     async fn maybe_store(
         &self,
         protocol: Protocol,
         path: &str,
         request: Bytes,
         response: Response<Body>,
+        session: &str,
+        model: &str,
+        virtual_key: &str,
     ) -> Response<Body> {
         let (parts, body) = response.into_parts();
         let status = parts.status.as_u16();
@@ -533,6 +609,12 @@ impl AppState {
         let limit = usize::try_from(cache::MAX_CACHEABLE_BODY_BYTES + 1).unwrap_or(usize::MAX);
         match axum::body::to_bytes(body, limit).await {
             Ok(bytes) => {
+                // WIRE-01: response-side cost on the buffered body (fail-open:
+                // no `usage` → 0.0 added; empty key → skipped entirely).
+                if self.config.cost.enabled && !virtual_key.is_empty() {
+                    self.cost
+                        .record_response_usage(virtual_key, session, model, &bytes);
+                }
                 let entry = CachedEntry {
                     status,
                     content_type,
@@ -576,6 +658,10 @@ impl AppState {
             space_id,
             model,
             &text,
+            &capture::WriteGuard {
+                redactor: &self.redactor,
+                envelope: &self.envelope,
+            },
         );
         self.writeback.track(format!("turn:{session}"), job);
     }
@@ -723,6 +809,12 @@ impl AppState {
                         space_id,
                         model,
                         call,
+                        &capture::WriteGuard {
+                            redactor: &self.redactor,
+                            envelope: &self.envelope,
+                        },
+                        &self.governance,
+                        self.config.injection.max_tokens.saturating_mul(4),
                     );
                     (call.id.clone(), text)
                 })
@@ -742,22 +834,26 @@ pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/health", get(health))
         .route("/snapshot", get(snapshot))
-        .route("/session/advance", post(session_advance))
+        .route("/sessions/advance", post(session_advance))
         .route(
-            "/{agent}/{spaceId}/v1/chat/completions",
+            "/{agent}/{space_id}/v1/chat/completions",
             post(handlers::openai::chat_completions),
         )
         .route(
-            "/{agent}/{spaceId}/v1/messages",
+            "/{agent}/{space_id}/v1/messages",
             post(handlers::anthropic::messages),
         )
         .route("/v1/responses", post(handlers::responses::responses))
+        .route(
+            "/{agent}/{space_id}/v1/responses",
+            post(handlers::responses::responses_prefixed),
+        )
         // PRX-05: model discovery (Claude Code picker) + token counting.
-        // Both the plain and `{agent}/{spaceId}`-prefixed shapes (parity
+        // Both the plain and `{agent}/{space_id}`-prefixed shapes (parity
         // with responses vs chat/completions).
         .route("/v1/models", get(handlers::auxiliary::models))
         .route(
-            "/{agent}/{spaceId}/v1/models",
+            "/{agent}/{space_id}/v1/models",
             get(handlers::auxiliary::models),
         )
         .route(
@@ -765,7 +861,7 @@ pub fn router(state: AppState) -> Router {
             post(handlers::auxiliary::count_tokens),
         )
         .route(
-            "/{agent}/{spaceId}/v1/messages/count_tokens",
+            "/{agent}/{space_id}/v1/messages/count_tokens",
             post(handlers::auxiliary::count_tokens),
         )
         .with_state(state)
@@ -775,7 +871,7 @@ async fn health() -> Json<serde_json::Value> {
     Json(serde_json::json!({ "status": "ok" }))
 }
 
-/// `POST /session/advance` (PRX-01): explicit session trigger alongside the
+/// `POST /sessions/advance` (PRX-01): explicit session trigger alongside the
 /// `x-vanta-session` header. Body: `{ "target": "team"|"agent"|"task",
 /// "entity_id": "<id>" }`. Requires auth (401); missing key / bad target →
 /// 400; unknown entity or illegal transition → [`crate::error::ProxyError`]
@@ -813,18 +909,29 @@ async fn session_advance(
 /// Live operational snapshot (DESKTOP-38): recent TurnReports, active
 /// sessions, pending write-back queue and rate-limit telemetry. Read-only
 /// over state that already exists — nothing here fabricates data.
+///
+/// API-05: requires auth (D34) like every other route — sessions, cost and
+/// write-back state are never exposed to unauthenticated callers (no
+/// `x-vanta-user-key` → 401, no loopback bypass).
 async fn snapshot(
     axum::extract::State(state): axum::extract::State<AppState>,
-) -> Json<serde_json::Value> {
+    headers: HeaderMap,
+) -> Result<Json<serde_json::Value>, crate::error::ProxyError> {
+    state.auth.authenticate(&headers)?;
     let sessions = state.sessions.snapshot();
     let pending_labels = state.writeback.pending_labels();
-    Json(serde_json::json!({
+    Ok(Json(serde_json::json!({
         "turns": state.reporter.recent_reports(),
         "sessions": sessions,
         "sessions_active": sessions.len(),
         "writeback": {
             "pending_labels": pending_labels,
             "pending_count": state.writeback.pending_count(),
+        },
+        "envelope": {
+            "configured": state.config.envelope.enabled,
+            "mode": state.envelope.mode().as_str(),
+            "key_version": state.envelope.key_version(),
         },
         "rate_limit": {
             "limit_per_minute": state.limiter.limit(),
@@ -836,7 +943,7 @@ async fn snapshot(
             "default_budget_usd": state.config.cost.default_budget_usd,
             "enforce": state.config.cost.enforce,
         },
-    }))
+    })))
 }
 
 /// Stable protocol label for per-turn reports.
@@ -1138,5 +1245,87 @@ mod tests {
             .await
             .expect("read");
         assert_eq!(bytes.as_ref(), b"not json{{{");
+    }
+
+    // ─── WIRE-09: refuse-to-start wiring (FIND-07 parity) ───────
+    // Prove-It: `AppState::from_engine` is the startup gate (`new`
+    // delegates; `main` calls `new`). Non-loopback bind + empty auth store
+    // must refuse; a provisioned user key (or loopback) must start.
+    // Pre-fix these FAIL (`from_engine` returns Ok — the proxy starts
+    // keyless on 0.0.0.0). In-memory engines: no fjall needed in this
+    // build (vanta-proxy pins vantadb with default-features = false).
+
+    fn memory_engine() -> Arc<StorageEngine> {
+        let config = vantadb::config::Config {
+            backend_kind: vantadb::storage::BackendKind::InMemory,
+            read_only: false,
+            ..vantadb::config::Config::default()
+        };
+        Arc::new(
+            StorageEngine::open_with_config(":memory:", Some(config)).expect("in-memory engine"),
+        )
+    }
+
+    fn seed_user_key(engine: &StorageEngine) {
+        use std::collections::HashMap;
+        use vantadb::entity::{EntityStore, EntityWrite};
+        use vantadb::node::FieldValue;
+        let mut fields: HashMap<String, FieldValue> = HashMap::new();
+        fields.insert(
+            "user_key".into(),
+            FieldValue::String("sk-provisioned".to_string()),
+        );
+        EntityStore::new(engine)
+            .set(EntityWrite {
+                namespace: "default",
+                collection: "user",
+                id: "usr-1",
+                fields,
+            })
+            .expect("seed user");
+    }
+
+    fn startup_config(host: &str) -> ProxyConfig {
+        ProxyConfig {
+            server: crate::config::ServerConfig {
+                host: host.into(),
+                port: 18096,
+                ..crate::config::ServerConfig::default()
+            },
+            // Non-self upstream so the PRX-08 self-loop guard stays quiet.
+            upstream: UpstreamConfig {
+                url: "https://api.anthropic.com".into(),
+                ..UpstreamConfig::default()
+            },
+            ..ProxyConfig::default()
+        }
+    }
+
+    #[test]
+    fn refuse_startup_non_loopback_without_keys() {
+        let engine = memory_engine();
+        // `AppState` is not `Debug`, so no `unwrap_err` — match instead.
+        let err = match AppState::from_engine(startup_config("0.0.0.0"), engine) {
+            Ok(_) => panic!("WIRE-09: keyless 0.0.0.0 startup must refuse"),
+            Err(e) => e,
+        };
+        let msg = err.to_string();
+        assert!(
+            msg.contains("refusing to start"),
+            "WIRE-09: keyless 0.0.0.0 startup must refuse, got: {msg}"
+        );
+    }
+
+    #[test]
+    fn refuse_startup_loopback_without_keys_ok() {
+        let engine = memory_engine();
+        assert!(AppState::from_engine(startup_config("127.0.0.1"), engine).is_ok());
+    }
+
+    #[test]
+    fn refuse_startup_non_loopback_with_key_ok() {
+        let engine = memory_engine();
+        seed_user_key(&engine);
+        assert!(AppState::from_engine(startup_config("0.0.0.0"), engine).is_ok());
     }
 }

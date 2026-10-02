@@ -1,3 +1,9 @@
+---
+title: FIND-148 — Frontmatter v2 + descriptions trigger (11 agents)
+kind: task
+description: "Steps 1-3 ✅ (piloto + gate verde). Próximo: Step 4 (masificar). Deuda explícita: reinicio interactivo de OpenCode + sesión de prueba \"revisa este plan con vanta-review\" no ejecutable por subagente → pendiente usuario"
+---
+
 # FIND-148 — Frontmatter v2 + descriptions trigger (11 agents)
 
 > **Plan:** `docs/dev/plans/2026-09-24-harness-gaps.md` §FIND-148 · **Wave:** 0 (paralelo FIND-150/151, sin solapamiento) · **Repo:** `configOpencode` (`.opencode/`, `git -C .opencode`)

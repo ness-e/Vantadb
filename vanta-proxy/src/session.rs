@@ -61,7 +61,7 @@ impl Stage {
         self != Stage::Task
     }
 
-    /// Stable wire label (`/snapshot`, `/session/advance`).
+    /// Stable wire label (`/snapshot`, `/sessions/advance`).
     pub(crate) fn label(self) -> &'static str {
         match self {
             Stage::Team => "team",
@@ -94,7 +94,7 @@ pub struct SessionStore {
     sessions: Mutex<HashMap<String, Entry>>,
 }
 
-/// Parse a `POST /session/advance` body target (PRX-01). Case-insensitive,
+/// Parse a `POST /sessions/advance` body target (PRX-01). Case-insensitive,
 /// surrounding whitespace ignored; anything else is `None` (→ 400).
 pub fn parse_stage(target: &str) -> Option<Stage> {
     match target.trim().to_ascii_lowercase().as_str() {
@@ -281,7 +281,7 @@ mod tests {
 
     #[test]
     fn parse_stage_accepts_team_agent_task() {
-        // PRX-01: `POST /session/advance` body target values.
+        // PRX-01: `POST /sessions/advance` body target values.
         assert_eq!(parse_stage("team"), Some(Stage::Team));
         assert_eq!(parse_stage("agent"), Some(Stage::Agent));
         assert_eq!(parse_stage("task"), Some(Stage::Task));

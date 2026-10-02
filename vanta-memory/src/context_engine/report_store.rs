@@ -99,6 +99,7 @@ pub fn record_compaction_report(
         vector: None,
         sparse_vector: None,
         ttl_ms: None,
+        ..Default::default()
     })
     .map(|_| ())
     .map_err(|e| e.to_string())

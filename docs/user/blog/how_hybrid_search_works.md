@@ -1,15 +1,16 @@
 ---
-title: "How Hybrid Search Actually Works"
-version: 0.5.0
+title: How Hybrid Search Actually Works
+kind: howto
+description: By the VantaDB Team
+tags: [hybrid-search, bm25, hnsw, rrf, architecture, vector-search]
+version: "0.5.0"
 slug: how-hybrid-search-works
-date: 2026-04-24
-author: "VantaDB Team"
-tags: ["hybrid-search", "bm25", "hnsw", "rrf", "architecture", "vector-search"]
-description: "A deep dive into VantaDB's hybrid search architecture combining BM25 lexical search, HNSW vector search, and Reciprocal Rank Fusion — all inside a zero-dependency embedded engine."
+date: "2026-04-24"
+author: VantaDB Team
 tag: Engineering
 readTime: "9 min"
-canonical: https://vantadb.vercel.app/blog/how-hybrid-search-works
-draft: true
+canonical: "https://vantadb.vercel.app/blog/how-hybrid-search-works"
+draft: "true"
 ---
 
 # How Hybrid Search Actually Works
@@ -33,7 +34,7 @@ BM25 (Best Matching 25) is a sparse retrieval model based on term statistics. It
 
 $$\text{Score}(D, Q) = \sum_{i=1}^{n} \text{IDF}(q_i) \cdot \frac{f(q_i, D) \cdot (k_1 + 1)}{f(q_i, D) + k_1 \cdot \left(1 - b + b \cdot \frac{|D|}{\text{avgdl}}\right)}$$
 
-* **Strengths:** High precision for exact words, product codes, telephone numbers, code symbols (`VantaHeader`), and negative keyword filtering.
+* **Strengths:** High precision for exact words, product codes, telephone numbers, code symbols (`Header`), and negative keyword filtering.
 * **Weaknesses:** Cannot handle synonyms (e.g., matching "compute" to "processor") or conceptual similarity.
 
 ### Semantic Search (HNSW)

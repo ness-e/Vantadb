@@ -1,3 +1,9 @@
+---
+title: "PROV-05 — Extract shared helpers across providers (openai, litellm, ollama)"
+kind: task
+description: "Eliminar causa raíz de drift entre providers/openai, providers/litellm, providers/ollama. Cada crate duplica ~370 líneas de python.rs con helpers recordtopydict, errtopy, extracción de metadata, y el flow store(). Esto causó PROV-01..."
+---
+
 # PROV-05 — Extract shared helpers across providers (openai, litellm, ollama)
 
 > **Status:** ⬜ PENDING

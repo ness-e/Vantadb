@@ -1,3 +1,8 @@
+---
+title: "FIND-102 — `tests/sdk_serialization.rs` compila (39 errores `QueryResult` pre-existentes)"
+kind: task
+---
+
 # FIND-102 — `tests/sdk_serialization.rs` compila (39 errores `QueryResult` pre-existentes)
 
 - **Objetivo:** test roto pre-existente ensucia `cargo check --tests`. Evidencia EMB-10 `docs/dev/tasks/EMB-10.md:174`: "`tests/sdk_serialization.rs` no compila (39 errores, `QueryResult` no declarado) — pre-existente, ajeno a este task". Fix probablemente mecánico (imports/tipos).

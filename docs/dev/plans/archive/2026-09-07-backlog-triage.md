@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Backlog Triage 2026-09-07 (bindings + docs + benches + a11y)"
+kind: plan
+status: archived
+description: "Status: ⬆️ uphill = 2 (FIND-60 alcance exacto 49 warnings; UX-A11Y scope 3 superficies) · ⬇️ downhill = 8 (contratos mecánicos definidos)"
+---
+
 # Plan de Ejecución: Backlog Triage 2026-09-07 (bindings + docs + benches + a11y)
 
 > **Campaign ID:** 3d601136-c620-4ec8-947b-f1fbe050471d

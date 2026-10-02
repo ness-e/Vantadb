@@ -1,3 +1,9 @@
+---
+title: "MKT-05: Completar el 5º blog post pre-launch (benchmarks)"
+kind: task
+description: "glob docs/user/blog/.md → 5 archivos; BLOGSERIESPLAN.md actualizado con el 5º post\""
+---
+
 # MKT-05: Completar el 5º blog post pre-launch (benchmarks)
 
 ## Metadata

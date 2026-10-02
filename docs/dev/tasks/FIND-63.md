@@ -1,3 +1,9 @@
+---
+title: FIND-63 — remanente vitest localStorage desktop (suite verde por archivo)
+kind: task
+description: "El task file describía SyncMode::Never en src/wal.rs (3 steps DONE 2026-09-04, commit a7285969). Ese scope está CERRADO y verificado. El plan 2026-09-15 re-scopeó FIND-63 a remanente vitest localStorage desktop. NO se continúan los..."
+---
+
 # FIND-63 — remanente vitest localStorage desktop (suite verde por archivo)
 
 > Plan: `docs/dev/plans/2026-09-15-find-correcciones.md` Task 4, Wave1 · Ruta: vanta-worker · Branch: develop · Appetite 4h

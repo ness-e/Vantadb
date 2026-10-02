@@ -1,3 +1,9 @@
+---
+title: "POLICY-ALIGN-02: Alineación políticas pipeline (D2+D5+D3+D4+D12)"
+kind: task
+description: "rg muestra 0 contradicciones: (a) AGENTS.md sin \"único esquema es FIND-\" (multi-prefijo oficial), (b) pipeline.md FAILMODE default parallel alineado a pipeline-run.md:23, (c) iter-loop-tools.md sin \"máx 5 iteraciones\" (pointer..."
+---
+
 # POLICY-ALIGN-02: Alineación políticas pipeline (D2+D5+D3+D4+D12)
 
 ## Metadata

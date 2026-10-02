@@ -97,6 +97,10 @@ fn empty_namespace_search_returns_error() {
     let request = MemorySearchRequest {
         namespace: String::new(),
         query_vector: vec![1.0, 0.0, 0.0],
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
         ..Default::default()
     };
     let err = db.search(request).expect_err("empty namespace must fail");
@@ -223,6 +227,10 @@ fn zero_dim_vector_search_empty() {
         namespace: "test".to_string(),
         query_vector: vec![1.0],
         top_k: 10,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
         ..Default::default()
     };
     let results = db.search(request).expect("search with zero-dim vector");
@@ -329,6 +337,10 @@ fn concurrent_rapid_searches_no_crash() {
                     namespace: "search-test".to_string(),
                     query_vector: vec![1.0, 0.0, 0.0],
                     top_k: 5,
+                    range: None,
+                    group_by: None,
+                    mmr: None,
+                    cursor: None,
                     ..Default::default()
                 };
                 db.search(request).ok();
@@ -357,6 +369,10 @@ fn search_top_k_zero_returns_empty() {
         namespace: "test".to_string(),
         query_vector: vec![1.0, 0.0, 0.0],
         top_k: 0,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
         ..Default::default()
     };
     let results = db.search(request).expect("top_k=0 search must not error");
@@ -376,6 +392,10 @@ fn search_empty_query_vector_returns_no_vector_hits() {
         namespace: "test".to_string(),
         query_vector: vec![],
         top_k: 10,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
         ..Default::default()
     };
     let results = db

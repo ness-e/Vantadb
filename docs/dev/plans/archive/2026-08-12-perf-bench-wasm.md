@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: PERF Benchmark y WASM (2026-08-12)"
+kind: plan
+status: archived
+description: cargo nextest run --profile audit --workspace --build-jobs 2 pasa + contrato individual de cada tarea
+---
+
 # Plan de Ejecución: PERF Benchmark y WASM (2026-08-12)
 
 > **Inicio:** 2026-08-12
@@ -41,7 +48,7 @@
 - **Gate Result:** ✅ DO
 - **Contrato:** ADR escrito y registrado documentando roadmap async; no código de WAL nuevo.
 - **Task file:** `.opencode/skills/campaign-executor/tasks/PERF-05.md` (✅ creado)
-- **ADR:** `docs/dev/architecture/adr/DRV-015-wal-async-roadmap.md` (✅ escrito, referencia DRV-014, 0 cambios en src/)
+- **ADR:** `docs/dev/architecture/adr/ADR-0052-wal-async-roadmap.md` (✅ escrito, referencia DRV-014, 0 cambios en src/)
 - **Estado:** ✅ COMPLETED
 
 ### Task 4: PERF-08 — WASM serialización completa
@@ -67,4 +74,4 @@
 - **Continue:** el contrato global era `cargo nextest --profile audit`; en la práctica cada tarea verificó con su propio comando (bench/clippy/wasm-build/ADR grep) — suficiente y más rápido.
 - **Acción medida:** completado 4/4 en primer intento (tasa 100%, 0 falsos positivos, 0 regresión) — baseline North Star de RULES.md cumplido.
 - **Deuda documentada:** PERF-08 persist-delta (H3-SER-001) diferido — requiere dirty-tracking en core Rust (fuera de scope). PERF-03 Milvus-frugal pendiente de `pip install milvus-lite`.
-- **Colisión de naming:** ADR `DRV-015-wal-async-roadmap.md` comparte número con task previo DRV-015 (refactor WalWriter) ya en progreso; desambiguar por nombre de archivo.
+- **Colisión de naming:** ADR `ADR-0052-wal-async-roadmap.md` comparte número con task previo DRV-015 (refactor WalWriter) ya en progreso; desambiguar por nombre de archivo.

@@ -1,16 +1,27 @@
 //! Snapshot command handlers — create and list filesystem snapshots.
 
-use crate::cli_handlers::{create_spinner, open_embedded, print_info, print_success};
+use crate::cli_handlers::{create_spinner, open_embedded, print_info, print_json, print_success};
 use crate::error::Result;
 
 #[tracing::instrument]
 /// Create an instant filesystem snapshot
-pub fn cmd_snapshot_create(db_path: &str, name: &str, verbose: bool) -> Result<()> {
+pub fn cmd_snapshot_create(
+    db_path: &str,
+    name: &str,
+    verbose: bool,
+    json_output: bool,
+) -> Result<()> {
     let spinner = create_spinner("Creating snapshot...");
     let db = open_embedded(db_path, false)?;
     db.flush()?;
     let snap = db.create_snapshot(name)?;
     spinner.finish_and_clear();
+    if json_output {
+        return print_json(&serde_json::json!({
+            "snapshot": name,
+            "path": snap.path.display().to_string(),
+        }));
+    }
     print_success(&format!(
         "Snapshot '{}' created at: {}",
         name,
@@ -24,9 +35,17 @@ pub fn cmd_snapshot_create(db_path: &str, name: &str, verbose: bool) -> Result<(
 
 #[tracing::instrument]
 /// List all existing snapshots
-pub fn cmd_snapshot_list(db_path: &str) -> Result<()> {
+pub fn cmd_snapshot_list(db_path: &str, json_output: bool) -> Result<()> {
     let db = open_embedded(db_path, true)?;
     let snapshots = db.list_snapshots()?;
+    if json_output {
+        return print_json(&serde_json::Value::Array(
+            snapshots
+                .iter()
+                .map(|name| serde_json::Value::String(name.clone()))
+                .collect(),
+        ));
+    }
     if snapshots.is_empty() {
         print_info("No snapshots found.");
     } else {

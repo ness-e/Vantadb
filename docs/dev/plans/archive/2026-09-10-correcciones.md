@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Correcciones 2026-09-10 — 8 High + 18 Medium"
+kind: plan
+status: archived
+description: "Status: ⬆️ uphill = 1 (FIND-88 alcance output-side) · ⬇️ downhill = 25"
+---
+
 # Plan de Ejecución: Correcciones 2026-09-10 — 8 High + 18 Medium
 
 > **Campaign ID:** 3d4e5f6a-7b8c-9d0e-1f2a-3b4c5d6e7f01

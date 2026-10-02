@@ -1,10 +1,10 @@
 ---
-title: "Avance — Índice Maestro"
-type: index
+title: Avance — Índice Maestro
+kind: index
 status: active
-tags: [vantadb, avance, index, progreso]
-last_reviewed: 2026-08-07
+description: "Estas 4 carpetas no se mueven físicamente: son escritas por pipelines activos (task system MCP, audit-all.ps1, unified-review) que las buscan por ruta fija. Se integran por catálogo — ver fuentes-vivas.md (índice + estado de cada..."
 aliases: [docs/dev/avance]
+tags: [vantadb, avance, index, progreso]
 ---
 
 # Avance — Índice Maestro

@@ -114,9 +114,21 @@ if ! curl -L -f --ssl-reqd -o "$TMPDIR/$TARBALL" "$DOWNLOAD_URL"; then
   exit 1
 fi
 
-# Verify checksum
-if EXPECTED_HASH=$(curl -sLf --ssl-reqd "$CHECKSUM_URL" 2>/dev/null); then
-  COMPUTED_HASH=$(sha256sum "$TMPDIR/$TARBALL" | cut -d' ' -f1)
+# Verify checksum (portable: macOS ships `shasum`, not GNU `sha256sum`;
+# fail-closed when neither exists — never skip verification silently).
+if EXPECTED_RAW=$(curl -sLf --ssl-reqd "$CHECKSUM_URL" 2>/dev/null); then
+  # Release .sha256 assets use `sha256sum` output format ("<hash>  <file>");
+  # compare hashes only (strip filename + stray CR).
+  EXPECTED_HASH=$(printf '%s' "$EXPECTED_RAW" | cut -d' ' -f1 | tr -d '\r')
+  if command -v sha256sum >/dev/null 2>&1; then
+    COMPUTED_HASH=$(sha256sum "$TMPDIR/$TARBALL" | cut -d' ' -f1)
+  elif command -v shasum >/dev/null 2>&1; then
+    COMPUTED_HASH=$(shasum -a 256 "$TMPDIR/$TARBALL" | cut -d' ' -f1)
+  else
+    echo "❌ Neither sha256sum nor shasum found — cannot verify checksum (fail-closed)"
+    rm -rf "$TMPDIR"
+    exit 1
+  fi
   if [ "$EXPECTED_HASH" != "$COMPUTED_HASH" ]; then
     echo "❌ Checksum mismatch!"
     rm -rf "$TMPDIR"

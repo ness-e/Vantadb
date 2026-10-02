@@ -1,10 +1,10 @@
 ---
 title: "Devlog: {{date}}"
-type: devlog
+kind: research
 status: active
+description: "Describe any architectural designs, bugs found, or technical insights"
 tags: [vantadb, devlog]
-created: {{date}}
-last_reviewed: {{date}}
+created: "{{date}}"
 ---
 
 # Devlog: {{date}}

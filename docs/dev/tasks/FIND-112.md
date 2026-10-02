@@ -1,3 +1,9 @@
+---
+title: "FIND-112: spec + diseño del runner real de ingesta (SIN código)"
+kind: task
+description: "Objetivo: escribir la spec + diseño del runner real de ingesta wiki, SIN"
+---
+
 # FIND-112: spec + diseño del runner real de ingesta (SIN código)
 
 ## Metadata

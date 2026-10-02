@@ -1,3 +1,8 @@
+---
+title: FIND-79 — endurecer + completar tests TS portabilidad (export/import/reindex + importRecords estricto)
+kind: task
+---
+
 # FIND-79 — endurecer + completar tests TS portabilidad (export/import/reindex + importRecords estricto)
 
 > **Plan:** `docs/dev/plans/2026-09-15-find-correcciones.md` (Task 7, Wave2 — disjunto de FIND-78/FIND-70: `vantadb-ts/src/` vs README/workflow)

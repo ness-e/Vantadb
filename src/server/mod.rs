@@ -24,6 +24,7 @@ pub mod handlers;
 pub mod jwt;
 pub mod list_records;
 pub mod middleware;
+pub mod pagination;
 pub mod router;
 pub mod routing;
 pub mod state;

@@ -1,3 +1,9 @@
+---
+title: "TBH-04 — Add `develop` to 6 workflows + `release.yml` (D6 Dependabot alignment)"
+kind: task
+description: "Plan: docs/dev/plans/2026-08-30-testing-bench-harden.md"
+---
+
 # TBH-04 — Add `develop` to 6 workflows + `release.yml` (D6 Dependabot alignment)
 
 **Plan:** `docs/dev/plans/2026-08-30-testing-bench-harden.md`

@@ -1,9 +1,9 @@
 ---
-title: "Migrating from ChromaDB to VantaDB"
+title: Migrating from ChromaDB to VantaDB
+kind: tutorial
 status: active
+description: "If you're using ChromaDB today, switching to VantaDB unlocks graph edges, MCP protocol support, WASM browser runtime, and hybrid search — while keeping your existing vector workflow. This tutorial shows the exact API mappings and..."
 tags: [vantadb, tutorial, guide, migration, chromadb]
-last_reviewed: 2026-08-02
-aliases: []
 ---
 
 # Migrating from ChromaDB to VantaDB

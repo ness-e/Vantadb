@@ -1,3 +1,9 @@
+---
+title: "FIND-113: S6b programador — dueño del backend + diseño o re-DEFER fundado"
+kind: task
+description: "Objetivo: cerrar S6b de FIND-107 — o hay dueño del backend defendible en el"
+---
+
 # FIND-113: S6b programador — dueño del backend + diseño o re-DEFER fundado
 
 ## Metadata

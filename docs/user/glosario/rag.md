@@ -1,16 +1,16 @@
 ---
-title: "RAG — Retrieval-Augmented Generation"
-type: glossary-entry
+title: RAG — Retrieval-Augmented Generation
+kind: glossary
 status: stable
-tags: [concept, producto, rag, ia, retrieval]
-last_reviewed: 2026-09-15
-links: "[[README.md]]"
+description: "RAG ​​(Retrieval-Augmented Generation) is an architectural pattern that combines an information retrieval system (retrieval) with a generative language model (LLM) to produce responses informed by domain-specific data, reducing..."
 aliases: [Retrieval-Augmented Generation]
-description: "Patrón arquitectónico que combina un sistema de recuperación de información con un modelo de lenguaje generativo (LLM) para producir respuestas fundamentadas en datos específicos del dominio"
+tags: [concept, producto, rag, ia, retrieval]
+links: "[[README.md]]"
 ---
+
 # RAG — Retrieval-Augmented Generation
 
-##Definition
+## Definition
 
 **RAG** ​​(Retrieval-Augmented Generation) is an architectural pattern that combines an **information retrieval system** (retrieval) with a **generative language model** (LLM) to produce responses informed by domain-specific data, reducing hallucinations and improving factual accuracy.
 
@@ -41,14 +41,14 @@ description: "Patrón arquitectónico que combina un sistema de recuperación de
 2. **Retrieval (Online):** Given a query, the most relevant chunks are searched using vector similarity, lexical-search or both.
 3. **Generation (Online):** The recovered context is injected into the LLM prompt along with the original question.
 
-##Why it Matters in VantaDB
+## Why it Matters in VantaDB
 
 VantaDB is designed as **the persistence and retrieval layer for RAG pipelines**:
 
 - **Persistent memory** for agents that need to remember context between sessions
-- **hybrid-search** ([[hnsw]] + [[bm25]] + [[rrf]]) to retrieve both semantics and exact keywords
-- **[[graph]] of knowledge** for multi-hop traversal (GraphRAG), reducing tokens in the prompt between 40-60%
-- **[[transactional]]**: ensures that documents, embeddings and relationships are updated atomically
+- **hybrid-search** ([hnsw](./hnsw.md) + [bm25](./bm25.md) + [rrf](./rrf.md)) to retrieve both semantics and exact keywords
+- **[graph](./graph.md) of knowledge** for multi-hop traversal (GraphRAG), reducing tokens in the prompt between 40-60%
+- **[transactional](./transactional.md)**: ensures that documents, embeddings and relationships are updated atomically
 
 ## Problems that RAG Solves
 
@@ -65,9 +65,9 @@ VantaDB is designed as **the persistence and retrieval layer for RAG pipelines**
 - Vector search → Top-K → Inject at prompt
 - **Limitation:** Does not capture relationships between concepts
 
-###Advanced RAG
+### Advanced RAG
 - Query rewriting + reranking + hybrid search
-- **VantaDB implements:** [[rrf]] for ranking fusion
+- **VantaDB implements:** [rrf](./rrf.md) for ranking fusion
 
 ### GraphRAG
 - Build a knowledge graph from documents
@@ -95,12 +95,12 @@ VantaDB is designed as **the persistence and retrieval layer for RAG pipelines**
 
 ## See Also
 
-- [[vectors]] — Representations that feed the retrieval
-- [[hnsw]] — Vector index for ANN search
-- [[bm25]] — Lexical index for keyword search
-- [[rrf]] — Hybrid Ranking Merger
-- [[graph]] — For GraphRAG
-- [[transactional]] — Document-embedding consistency guarantee
+- [vectors](./vectors.md) — Representations that feed the retrieval
+- [hnsw](./hnsw.md) — Vector index for ANN search
+- [bm25](./bm25.md) — Lexical index for keyword search
+- [rrf](./rrf.md) — Hybrid Ranking Merger
+- [graph](./graph.md) — For GraphRAG
+- [transactional](./transactional.md) — Document-embedding consistency guarantee
 
 ---
 

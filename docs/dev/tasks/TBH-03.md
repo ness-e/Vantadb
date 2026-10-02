@@ -1,3 +1,9 @@
+---
+title: "TBH-03 — Remove `if: schedule` from `ci-gate.yml` (universal gate per D3)"
+kind: task
+description: "Plan: docs/dev/plans/2026-08-30-testing-bench-harden.md"
+---
+
 # TBH-03 — Remove `if: schedule` from `ci-gate.yml` (universal gate per D3)
 
 **Plan:** `docs/dev/plans/2026-08-30-testing-bench-harden.md`

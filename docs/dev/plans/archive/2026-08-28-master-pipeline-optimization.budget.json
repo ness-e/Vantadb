@@ -1,0 +1,29 @@
+{
+  "tasks": {
+    "5": {
+      "taskId": "5",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1787940669429,
+      "lastActivity": 1787940669429,
+      "traceId": "bf083c08-2aca-4147-bc6c-f0e02a31a54c"
+    },
+    "7": {
+      "taskId": "7",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1787941587603,
+      "lastActivity": 1787941587603
+    },
+    "9": {
+      "taskId": "9",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1787942419165,
+      "lastActivity": 1787942425290
+    }
+  }
+}

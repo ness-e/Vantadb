@@ -1,3 +1,9 @@
+---
+title: "MEM-35: F3 Core Data plane de referencia en server — REST /conversation/add + /skill/listing"
+kind: task
+description: Callers (aguas arriba — depende de lo que cambio)
+---
+
 # MEM-35: F3 Core Data plane de referencia en server — REST /conversation/add + /skill/listing
 
 ## Metadata

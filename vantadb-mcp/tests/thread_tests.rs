@@ -12,7 +12,16 @@ use std::sync::Arc;
 use tempfile::tempdir;
 use vantadb::executor::Executor;
 use vantadb::storage::StorageEngine;
-use vantadb_mcp::{handle_tools_call, handle_tools_list, McpConfig};
+use vantadb_mcp::{handle_tools_call, handle_tools_list, McpConfig, McpProfile};
+
+/// WIRE-02: these tests exercise the extended surface; pin `full` explicitly
+/// (the production default is now `agent`).
+fn full_config() -> McpConfig {
+    McpConfig {
+        profile: McpProfile::Full,
+        ..Default::default()
+    }
+}
 
 fn setup_storage() -> (tempfile::TempDir, Arc<StorageEngine>) {
     let dir = tempdir().unwrap();
@@ -27,7 +36,7 @@ fn call(name: &str, args: Value, storage: &Arc<StorageEngine>) -> Result<Value, 
         &Some(json!({ "name": name, "arguments": args })),
         &executor,
         storage,
-        &McpConfig::default(),
+        &full_config(),
     )
 }
 
@@ -57,7 +66,7 @@ fn seed_thread(storage: &Arc<StorageEngine>, title: &str) -> String {
 
 #[test]
 fn tools_list_includes_six_thread_tools() {
-    let list = handle_tools_list(&McpConfig::default()).expect("tools/list");
+    let list = handle_tools_list(&full_config()).expect("tools/list");
     let names: Vec<&str> = list["tools"]
         .as_array()
         .expect("tools array")

@@ -1,3 +1,9 @@
+---
+title: "OLD-20: Contextual Priming (cache warming predictivo)"
+kind: task
+description: "La implementación está ~90% completa. CacheWarmer ya existe y está conectado"
+---
+
 # OLD-20: Contextual Priming (cache warming predictivo)
 
 ## Metadata

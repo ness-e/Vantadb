@@ -2,7 +2,9 @@
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 //! MEM-61 — Dreaming consolidation idle (integration test).
 //!
-//! Verifies the contract from `docs/dev/plans/2026-08-29-full-backlog-parallel.md`:
+//! Verifies the contract from `docs/dev/plans/2026-08-29-full-backlog-parallel.md`
+//! plus the VER-07 promotion contract (`docs/dev/plans/2026-09-26-master-roadmap.md`
+//! Task 34):
 //!   - `cargo test -p vanta-memory --test dreaming 2>&1 | Select-String
 //!     "ok|PASS" | Measure-Object | Select-Object Count` >= 1
 //!
@@ -13,6 +15,11 @@
 //!   3. Contradiction provenance is emitted via MEM-60 without mutating
 //!      the original L1 records.
 //!   4. Relative dates are normalized to absolute ISO-8601.
+//!
+//! AND the VER-07 additions: `plan_promotion` (dry-run) is deterministic and
+//! never mutates L1; `promote_dream_run` applies the plan to `l1/<session>`,
+//! is idempotent (re-promote → all NOOP), scopes DELETEs to the run's scanned
+//! inputs and enforces a fail-closed quality gate on supersedes.
 
 use serde_json::json;
 use vantadb::config::Config;
@@ -22,7 +29,8 @@ use vantadb::storage::BackendKind;
 use vanta_memory::core::abstractions::{MemoryRecord, MemoryType};
 use vanta_memory::core::dream::{
     consolidate_session, discard_dream_run, list_dream_runs, load_dream_run, merge_duplicates,
-    normalize_relative_dates, promote_dream_run, resolve_contradictions, DreamConfig,
+    normalize_relative_dates, plan_promotion, promote_dream_run, resolve_contradictions,
+    write_dream_run, ConsolidationError, DreamConfig, DreamRun, PromotionAction, PromotionReason,
 };
 
 fn open_db() -> Embedded {
@@ -44,6 +52,7 @@ fn put_record(db: &Embedded, session_id: &str, r: &MemoryRecord) {
         vector: None,
         sparse_vector: None,
         ttl_ms: None,
+        ..Default::default()
     })
     .expect("put l1");
 }
@@ -201,6 +210,20 @@ fn dream_resolves_contradiction_without_touching_original_l1() {
         loser_after.superseded_by.is_none(),
         "l1 loser MUST stay live until promotion (MEM-65)"
     );
+
+    // The dream-side copy carries the supersede mark — `promote_dream_run`
+    // applies it verbatim (run.json is the target state; applying the mark at
+    // consolidate time is what makes re-promote a full NOOP).
+    let loser_copy = run
+        .consolidated
+        .iter()
+        .find(|r| r.id == "m_old")
+        .expect("loser copy in consolidated");
+    assert_eq!(
+        loser_copy.superseded_by.as_deref(),
+        Some("m_new"),
+        "dream copy must be stamped with the supersede pointer"
+    );
 }
 
 /// 5) Relative-date normalization produces an absolute ISO-8601 in the
@@ -266,37 +289,367 @@ fn dream_normalizes_relative_dates_into_dream_namespace() {
     assert_ne!(absolute, "ayer", "normalized away from the raw phrase");
 }
 
-/// 6) Discard removes the dream run; promote returns the count without
-///    mutating l1.
+/// 6) dry-run: per-record diff, deterministic, L1 byte-identical. Real
+///    promote applies the plan and is idempotent (re-promote → all NOOP).
 #[test]
-fn dream_discard_removes_run_and_promote_returns_count_without_l1_mutation() {
+fn dream_dry_run_is_deterministic_and_promote_applies_idempotently() {
+    let db = open_db();
+    let session_id = "sess-promote";
+    let now_ms = 1_700_000_000_000;
+    let last_active_ms = now_ms - 60 * 60 * 1000;
+
+    let winner = fixture("m_new", "ui", "user prefers dark mode", 90);
+    let mut loser = fixture("m_old", "ui", "user prefers dark mode", 50);
+    loser.created_at = "2026-08-20T09:00:00.000Z".into();
+    loser.updated_at = "2026-08-20T09:00:00.000Z".into();
+    let mut dated = fixture("m_date", "audio", "wake-up signal", 80);
+    dated.metadata = json!({ "activity_start_time": "ayer" });
+    put_record(&db, session_id, &winner);
+    put_record(&db, session_id, &loser);
+    put_record(&db, session_id, &dated);
+    let before = read_l1(&db, session_id);
+
+    let config = DreamConfig::default().with_run_id_salt("test-promote");
+    let run = consolidate_session(&db, session_id, now_ms, last_active_ms, &config).unwrap();
+
+    // Dry-run: two runs produce the identical plan; L1 stays byte-identical.
+    let plan_a = plan_promotion(&db, session_id, &run.run_id).unwrap();
+    let plan_b = plan_promotion(&db, session_id, &run.run_id).unwrap();
+    assert_eq!(plan_a, plan_b, "double dry-run → identical plan");
+
+    let op = |key: &str| {
+        plan_a
+            .ops
+            .iter()
+            .find(|o| o.key == key)
+            .unwrap_or_else(|| panic!("no op for {key}: {:?}", plan_a.ops))
+    };
+    assert_eq!(op("m_new").action, PromotionAction::Noop);
+    assert_eq!(op("m_new").reason, PromotionReason::Unchanged);
+    assert_eq!(
+        (op("m_old").action, op("m_old").reason),
+        (PromotionAction::Update, PromotionReason::Supersede)
+    );
+    assert_eq!(
+        (op("m_date").action, op("m_date").reason),
+        (PromotionAction::Update, PromotionReason::Normalize)
+    );
+    assert_eq!(plan_a.ops[0].namespace, format!("l1/{session_id}"));
+    assert_eq!(
+        before,
+        read_l1(&db, session_id),
+        "dry-run must not mutate l1"
+    );
+    assert_eq!(
+        run.consolidated
+            .iter()
+            .find(|r| r.id == "m_old")
+            .unwrap()
+            .superseded_by
+            .as_deref(),
+        Some("m_new"),
+        "dry-run planning relies on the stamped dream copy"
+    );
+
+    // Apply: same plan, real mutation.
+    let applied = promote_dream_run(&db, session_id, &run.run_id).unwrap();
+    assert_eq!(applied.ops, plan_a.ops, "apply must apply the dry-run plan");
+    let counts = applied.counts();
+    assert_eq!((counts.add, counts.update), (0, 2));
+    assert_eq!((counts.delete, counts.noop), (0, 1));
+
+    let after = read_l1(&db, session_id);
+    assert_eq!(
+        after
+            .iter()
+            .find(|r| r.id == "m_old")
+            .unwrap()
+            .superseded_by
+            .as_deref(),
+        Some("m_new"),
+        "supersede must be applied to l1"
+    );
+    assert_ne!(
+        after
+            .iter()
+            .find(|r| r.id == "m_date")
+            .unwrap()
+            .metadata
+            .as_object()
+            .unwrap()
+            .get("activity_start_time")
+            .unwrap()
+            .as_str()
+            .unwrap(),
+        "ayer",
+        "normalized date must be applied to l1"
+    );
+
+    // Idempotent: re-promote → every op NOOP and zero writes.
+    let before_second = read_l1(&db, session_id);
+    let second = promote_dream_run(&db, session_id, &run.run_id).unwrap();
+    assert!(
+        second.ops.iter().all(|o| o.action == PromotionAction::Noop),
+        "re-promote must be all-NOOP, got: {:?}",
+        second.ops
+    );
+    assert_eq!(
+        read_l1(&db, session_id),
+        before_second,
+        "re-promote must not write to l1"
+    );
+}
+
+/// 6b) DELETE is scoped to the run's scanned inputs (`input_ids`): a record the
+///     run scanned but the consolidated view dropped is deleted (reason Dedup);
+///     a record added to L1 after the run is never part of the plan.
+#[test]
+fn dream_promote_delete_is_scoped_to_scanned_inputs() {
+    let db = open_db();
+    let session_id = "sess-delete-scope";
+    let now_ms = 1_700_000_000_000;
+    let last_active_ms = now_ms - 60 * 60 * 1000;
+
+    let a = fixture("a", "ui", "keep me", 80);
+    let b = fixture("b", "ui", "merged away", 80);
+    put_record(&db, session_id, &a);
+    put_record(&db, session_id, &b);
+
+    let config = DreamConfig::default().with_run_id_salt("test-delete");
+    let run = consolidate_session(&db, session_id, now_ms, last_active_ms, &config).unwrap();
+    assert!(run.input_ids.contains(&"a".to_string()) && run.input_ids.contains(&"b".to_string()));
+
+    // Simulate an LLM runner that merged "b" into "a" (dropped from the view).
+    let mut trimmed = run.clone();
+    trimmed.consolidated.retain(|r| r.id != "b");
+    write_dream_run(&db, &trimmed).unwrap();
+
+    // A record added AFTER the run must survive the promotion untouched.
+    let c = fixture("c", "ui", "added after the run", 80);
+    put_record(&db, session_id, &c);
+
+    let plan = plan_promotion(&db, session_id, &trimmed.run_id).unwrap();
+    assert!(
+        plan.ops.iter().any(|o| o.key == "b"
+            && o.action == PromotionAction::Delete
+            && o.reason == PromotionReason::Dedup),
+        "scanned+merged record must be a DELETE(dedup): {:?}",
+        plan.ops
+    );
+    assert!(
+        !plan.ops.iter().any(|o| o.key == "c"),
+        "post-run additions must not appear in the plan"
+    );
+
+    let applied = promote_dream_run(&db, session_id, &trimmed.run_id).unwrap();
+    assert_eq!(applied.counts().delete, 1);
+    let after = read_l1(&db, session_id);
+    assert!(!after.iter().any(|r| r.id == "b"), "merged record deleted");
+    assert!(after.iter().any(|r| r.id == "a"), "keeper survives");
+    assert!(
+        after.iter().any(|r| r.id == "c"),
+        "post-run addition survives"
+    );
+}
+
+/// 6c) Legacy runs persisted before `input_ids` existed (run.json JSON without
+///     the field → `#[serde(default)]` = empty) never delete anything —
+///     conservative upgrade path.
+#[test]
+fn dream_promote_legacy_run_without_input_ids_never_deletes() {
+    let db = open_db();
+    let session_id = "sess-legacy";
+    let now_ms = 1_700_000_000_000;
+    let last_active_ms = now_ms - 60 * 60 * 1000;
+
+    put_record(&db, session_id, &fixture("a", "ui", "keep me", 80));
+    put_record(
+        &db,
+        session_id,
+        &fixture("b", "ui", "legacy drop candidate", 80),
+    );
+
+    let config = DreamConfig::default().with_run_id_salt("test-legacy");
+    let run = consolidate_session(&db, session_id, now_ms, last_active_ms, &config).unwrap();
+
+    // Simulate a pre-VER-07 run.json: serialize the run, DELETE the
+    // `input_ids` key entirely, drop "b" from the view, persist the raw JSON.
+    let mut legacy_json = serde_json::to_value(&run).unwrap();
+    legacy_json
+        .as_object_mut()
+        .unwrap()
+        .remove("input_ids")
+        .expect("input_ids present in the serialized run");
+    legacy_json["consolidated"]
+        .as_array_mut()
+        .unwrap()
+        .retain(|r| r["id"] != "b");
+    let ns = format!("dream/{session_id}/{}", run.run_id);
+    db.put(MemoryInput {
+        namespace: ns,
+        key: "run.json".into(),
+        payload: serde_json::to_string(&legacy_json).unwrap(),
+        metadata: MemoryMetadata::new(),
+        vector: None,
+        sparse_vector: None,
+        ttl_ms: None,
+        ..Default::default()
+    })
+    .expect("write legacy run.json");
+
+    // Deserialization must default the missing field, never fail.
+    let loaded = load_dream_run(&db, session_id, &run.run_id)
+        .unwrap()
+        .unwrap();
+    assert!(
+        loaded.input_ids.is_empty(),
+        "missing field must deserialize as empty (serde default)"
+    );
+
+    let plan = plan_promotion(&db, session_id, &run.run_id).unwrap();
+    assert!(
+        !plan.ops.iter().any(|o| o.action == PromotionAction::Delete),
+        "no input_ids → no DELETE: {:?}",
+        plan.ops
+    );
+    promote_dream_run(&db, session_id, &run.run_id).unwrap();
+    assert!(
+        read_l1(&db, session_id).iter().any(|r| r.id == "b"),
+        "unscanned legacy record must survive"
+    );
+}
+
+/// 6d) Quality gate (fail-closed): a plan whose supersede target would not
+///     exist after apply is rejected — by dry-run AND apply alike, with zero
+///     mutation; duplicate keys in the view are rejected too.
+#[test]
+fn dream_promote_quality_gate_blocks_dangling_supersede_and_duplicate_keys() {
+    let db = open_db();
+    let session_id = "sess-gate";
+    let now_ms = 1_700_000_000_000;
+    let last_active_ms = now_ms - 60 * 60 * 1000;
+
+    put_record(&db, session_id, &fixture("m_new", "ui", "winner", 90));
+    let mut loser = fixture("m_old", "ui", "winner", 50);
+    loser.created_at = "2026-08-20T09:00:00.000Z".into();
+    put_record(&db, session_id, &loser);
+
+    let config = DreamConfig::default().with_run_id_salt("test-gate");
+    let run = consolidate_session(&db, session_id, now_ms, last_active_ms, &config).unwrap();
+
+    // Dangling supersede: drop the winner from the view while the loser still
+    // points at it — applying would delete the winner and leave a dead pointer.
+    let mut dangling = run.clone();
+    dangling.consolidated.retain(|r| r.id != "m_new");
+    write_dream_run(&db, &dangling).unwrap();
+    let before = read_l1(&db, session_id);
+    assert!(matches!(
+        plan_promotion(&db, session_id, &dangling.run_id).unwrap_err(),
+        ConsolidationError::QualityGate(_)
+    ));
+    assert!(matches!(
+        promote_dream_run(&db, session_id, &dangling.run_id).unwrap_err(),
+        ConsolidationError::QualityGate(_)
+    ));
+    assert_eq!(before, read_l1(&db, session_id), "gate must not mutate l1");
+
+    // Duplicate keys in the consolidated view are rejected (fail-closed).
+    let mut dup = run.clone();
+    let first = dup.consolidated[0].clone();
+    dup.consolidated.push(first);
+    write_dream_run(&db, &dup).unwrap();
+    assert!(matches!(
+        plan_promotion(&db, session_id, &dup.run_id).unwrap_err(),
+        ConsolidationError::QualityGate(_)
+    ));
+}
+
+/// 6e) Discard removes the dream run from `dream_list`; L1 is untouched.
+#[test]
+fn dream_discard_removes_run_without_touching_l1() {
     let db = open_db();
     let session_id = "sess-discard";
     let now_ms = 1_700_000_000_000;
     let last_active_ms = now_ms - 60 * 60 * 1000;
 
-    let a = fixture("m1", "ui", "x", 80);
-    let b = fixture("m2", "ui", "x", 80);
-    put_record(&db, session_id, &a);
-    put_record(&db, session_id, &b);
+    put_record(&db, session_id, &fixture("m1", "ui", "x", 80));
+    put_record(&db, session_id, &fixture("m2", "ui", "x", 80));
     let before = read_l1(&db, session_id);
 
     let config = DreamConfig::default().with_run_id_salt("test-discard");
     let run = consolidate_session(&db, session_id, now_ms, last_active_ms, &config).unwrap();
+    assert_eq!(list_dream_runs(&db, session_id).unwrap().len(), 1);
 
-    // promote returns the count of consolidated records (2 here).
-    let promote_count = promote_dream_run(&db, session_id, &run.run_id).unwrap();
-    assert_eq!(promote_count, 2);
-    let after_promote = read_l1(&db, session_id);
-    assert_eq!(
-        before, after_promote,
-        "promote MUST NOT mutate l1 (pre-mortem)"
-    );
-
-    // discard removes the run from list_dream_runs.
     discard_dream_run(&db, session_id, &run.run_id).unwrap();
-    let listed = list_dream_runs(&db, session_id).unwrap();
-    assert!(listed.is_empty(), "discard removed the run");
+    assert!(list_dream_runs(&db, session_id).unwrap().is_empty());
+    assert_eq!(
+        before,
+        read_l1(&db, session_id),
+        "discard must not touch l1"
+    );
+}
+
+/// 6f) UPDATE must not drop an existing L1 vector: when the dream-side copy
+///     has `vector: None` (e.g. the node gained one after the run), the apply
+///     falls back to the current node's vector instead of rewriting without it.
+#[test]
+fn dream_promote_update_falls_back_to_current_l1_vector() {
+    let db = open_db();
+    let session_id = "sess-vector";
+    let now_ms = 1_700_000_000_000;
+
+    // L1 record carrying a vector; payload as scanned (no normalized metadata).
+    let record = fixture("m1", "ui", "vectorized memory", 80);
+    db.put(MemoryInput {
+        namespace: format!("l1/{session_id}"),
+        key: "m1".into(),
+        payload: serde_json::to_string(&record).unwrap(),
+        metadata: MemoryMetadata::new(),
+        vector: Some(vec![0.1, 0.2, 0.3]),
+        sparse_vector: None,
+        ttl_ms: None,
+        ..Default::default()
+    })
+    .expect("put l1 with vector");
+
+    // Hand-built run whose consolidated copy differs (metadata) and carries no
+    // vector — promotion must update the payload but keep the node vector.
+    let mut consolidated = record.clone();
+    consolidated.metadata = json!({ "activity_start_time": "2023-11-14T22:13:20.000Z" });
+    let run = DreamRun {
+        run_id: "vector-run".into(),
+        session_id: session_id.into(),
+        started_at_ms: now_ms,
+        ended_at_ms: now_ms,
+        inputs_scanned: 1,
+        input_ids: vec!["m1".into()],
+        merged_ids: vec![],
+        contradicted_ids: vec![],
+        normalized_count: 1,
+        runner_label: "none".into(),
+        consolidated: vec![consolidated],
+    };
+    write_dream_run(&db, &run).unwrap();
+
+    let applied = promote_dream_run(&db, session_id, &run.run_id).unwrap();
+    let counts = applied.counts();
+    assert_eq!((counts.update, counts.noop), (1, 0));
+
+    let after = read_l1(&db, session_id);
+    let rec = after.iter().find(|r| r.id == "m1").expect("m1 survives");
+    assert_eq!(
+        rec.vector,
+        Some(vec![0.1, 0.2, 0.3]),
+        "UPDATE must preserve the node vector when the dream copy has none"
+    );
+    assert!(
+        rec.metadata
+            .as_object()
+            .unwrap()
+            .get("activity_start_time")
+            .is_some(),
+        "the payload diff must still be applied"
+    );
 }
 
 /// 7) merge_duplicates + resolve_contradictions pure-function sanity checks.

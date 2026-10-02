@@ -1,3 +1,9 @@
+---
+title: "REVIEW-15: Cast `from_raw_parts` a f32 sin assert de alineación en `vector_data.rs:167`"
+kind: task
+description: "código usa alignto::<f32>() (sin fromrawparts en asf32slice) + test roundtrip MmapFull verde + cargo nextest -p vantadb módulos node/storage verde\""
+---
+
 # REVIEW-15: Cast `from_raw_parts` a f32 sin assert de alineación en `vector_data.rs:167`
 
 ## Metadata

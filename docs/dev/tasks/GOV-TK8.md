@@ -1,3 +1,8 @@
+---
+title: GOV-TK8 — Benchmarks docs + evidencia
+kind: task
+---
+
 # GOV-TK8 — Benchmarks docs + evidencia
 
 > **Plan:** `docs/dev/plans/2026-09-10-code.md` Task 15 · **Rama:** `develop` · **Owner:** E1 (vanta-docs)

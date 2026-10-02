@@ -1,3 +1,9 @@
+---
+title: "DESKTOP-32: CRUD de namespaces — crear/renombrar/borrar con confirmación + undo"
+kind: task
+description: "Callers: desktop/src/components/layout/WorkspaceShell.tsx (sidebar), desktop/src/vanta.ts"
+---
+
 # DESKTOP-32: CRUD de namespaces — crear/renombrar/borrar con confirmación + undo
 
 ## Metadata

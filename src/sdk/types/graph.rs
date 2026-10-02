@@ -20,7 +20,17 @@ pub enum QueryResult {
         affected_nodes: usize,
         /// Human-readable result message.
         message: String,
-        /// Node id returned by the write, if applicable.
+        /// Node id returned by the write, if applicable. Serialized as a
+        /// decimal string (API-01, `u128_serde`) so ids > 2^53 survive JSON.
+        ///
+        /// `default` keeps reads of payloads without the field working
+        /// (`deserialize_with` bypasses serde_derive's missing-field path;
+        /// API-01 R1 review fix).
+        #[serde(
+            default,
+            serialize_with = "u128_serde::serialize_opt",
+            deserialize_with = "u128_serde::deserialize_opt"
+        )]
         node_id: Option<u128>,
     },
     /// Query detected stale context for the given node.

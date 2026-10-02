@@ -8,7 +8,7 @@ use web_time::{SystemTime, UNIX_EPOCH};
 use crate::cli_handlers::diagnostics::Verbosity;
 use crate::cli_handlers::{
     create_spinner, dir_size, human_readable_size, open_database, open_embedded, print_info,
-    print_success, print_warning,
+    print_json, print_success, print_warning,
 };
 use crate::error::{ChainedError, Result};
 
@@ -128,9 +128,20 @@ fn copy_dir(src: &Path, dst: &Path, skip: Option<&Path>) -> std::io::Result<()> 
 
 #[tracing::instrument]
 /// Create a filesystem-level backup of the database directory
-pub fn cmd_backup(db_path: &str, out: Option<&str>, verbose: bool) -> Result<()> {
+pub fn cmd_backup(
+    db_path: &str,
+    out: Option<&str>,
+    verbose: bool,
+    json_output: bool,
+) -> Result<()> {
     let src = std::path::Path::new(db_path);
     if !src.exists() {
+        if json_output {
+            return print_json(&serde_json::json!({
+                "source": db_path,
+                "backup_dir": serde_json::Value::Null,
+            }));
+        }
         print_warning(&format!(
             "Database directory does not exist at '{}'",
             db_path
@@ -204,6 +215,15 @@ pub fn cmd_backup(db_path: &str, out: Option<&str>, verbose: bool) -> Result<()>
     }
     spinner.finish_and_clear();
 
+    if json_output {
+        return print_json(&serde_json::json!({
+            "source": db_path,
+            "backup_dir": backup_dir.display().to_string(),
+            "files": manifest.files.len(),
+            "vantadb_version": manifest.vantadb_version,
+        }));
+    }
+
     let _ = Term::stdout().write_line("");
     print_success(&format!("Backup created at: {}", backup_dir.display()));
 
@@ -265,7 +285,12 @@ pub struct RestoreOptions {
 /// `MANIFEST.json` parses when present), reports total size, lists the files
 /// that would be restored, and reports target conflicts — without touching
 /// the target (no `create_dir_all`, no `remove_dir_all`, no copy, no open).
-fn cmd_restore_dry_run(db_path: &str, input: &str, opts: RestoreOptions) -> Result<()> {
+fn cmd_restore_dry_run(
+    db_path: &str,
+    input: &str,
+    opts: RestoreOptions,
+    json_output: bool,
+) -> Result<()> {
     let src = std::path::Path::new(input);
     if !src.is_dir() {
         return Err(crate::error::Error::restore_error(format!(
@@ -286,6 +311,7 @@ fn cmd_restore_dry_run(db_path: &str, input: &str, opts: RestoreOptions) -> Resu
     // Format check: MANIFEST.json must parse when present (light variant of
     // the runbook §3 check). Absence is a warning (legacy backup), not an error.
     let manifest_path = src.join("MANIFEST.json");
+    let mut manifest_json = serde_json::Value::Null;
     if manifest_path.exists() {
         let raw = std::fs::read_to_string(&manifest_path).map_err(|e| {
             crate::error::Error::restore_error(format!("Failed to read backup MANIFEST.json: {e}"))
@@ -297,16 +323,37 @@ fn cmd_restore_dry_run(db_path: &str, input: &str, opts: RestoreOptions) -> Resu
             BackupType::Base => "base",
             BackupType::Incremental => "incremental",
         };
-        print_info(&format!(
-            "Backup MANIFEST: type={kind} version={} files={}",
-            manifest.vantadb_version,
-            manifest.files.len()
-        ));
-    } else {
+        manifest_json = serde_json::json!({
+            "type": kind,
+            "version": manifest.vantadb_version,
+            "files": manifest.files.len(),
+        });
+        if !json_output {
+            print_info(&format!(
+                "Backup MANIFEST: type={kind} version={} files={}",
+                manifest.vantadb_version,
+                manifest.files.len()
+            ));
+        }
+    } else if !json_output {
         print_warning("No MANIFEST.json found (legacy backup?) — proceeding with file listing");
     }
 
     let dst = std::path::Path::new(db_path);
+
+    if json_output {
+        return print_json(&serde_json::json!({
+            "mode": "dry_run",
+            "backup_dir": input,
+            "target": db_path,
+            "files": files.len(),
+            "total_bytes": total,
+            "would_overwrite": dst.exists(),
+            "rebuild": matches!(opts.rebuild, IndexRebuild::Yes),
+            "manifest": manifest_json,
+        }));
+    }
+
     if dst.exists() {
         if matches!(opts.overwrite, OverwritePolicy::Overwrite) {
             print_warning(&format!(
@@ -350,7 +397,12 @@ fn cmd_restore_dry_run(db_path: &str, input: &str, opts: RestoreOptions) -> Resu
 
 #[tracing::instrument]
 /// Restore the database from a previously created backup directory
-pub fn cmd_restore(db_path: &str, input: &str, opts: RestoreOptions) -> Result<()> {
+pub fn cmd_restore(
+    db_path: &str,
+    input: &str,
+    opts: RestoreOptions,
+    json_output: bool,
+) -> Result<()> {
     let src = std::path::Path::new(input);
     if !src.exists() {
         return Err(crate::error::Error::restore_error(format!(
@@ -360,7 +412,7 @@ pub fn cmd_restore(db_path: &str, input: &str, opts: RestoreOptions) -> Result<(
     }
 
     if matches!(opts.mode, RestoreMode::DryRun) {
-        return cmd_restore_dry_run(db_path, input, opts);
+        return cmd_restore_dry_run(db_path, input, opts, json_output);
     }
 
     let dst = std::path::Path::new(db_path);
@@ -400,6 +452,19 @@ pub fn cmd_restore(db_path: &str, input: &str, opts: RestoreOptions) -> Result<(
     }
 
     spinner.finish_and_clear();
+
+    if json_output {
+        return print_json(&serde_json::json!({
+            "mode": "applied",
+            "target": db_path,
+            "restored_from": src
+                .canonicalize()
+                .unwrap_or_else(|_| src.to_path_buf())
+                .display()
+                .to_string(),
+            "rebuild": matches!(opts.rebuild, IndexRebuild::Yes),
+        }));
+    }
 
     print_success(&format!(
         "Database restored from: {}",

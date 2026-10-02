@@ -1,12 +1,10 @@
 ---
-title: "Validación externa del Manual Estratégico Unificado (2026-09-14)"
-type: research
+title: Validación externa del Manual Estratégico Unificado (2026-09-14)
+kind: research
 status: active
 tags: [vantadb, research, validacion, estrategia]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
+
 # Validación externa del Manual Estratégico Unificado (2026-09-14)
 
 > Origen: `docs/dev/strategy/VantaDB_Manual_Estrategico_Unificado.md` (v1.0, 31-jul-2026, fusión Gemini+GPT+Sonnet+GLM).

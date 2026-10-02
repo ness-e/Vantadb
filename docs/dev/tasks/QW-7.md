@@ -1,3 +1,9 @@
+---
+title: "QW-7: publicar 9 paquetes en PyPI"
+kind: task
+description: "pypi.org/pypi/vantadb-<fw>/json responde 200 para los 9 (langchain, llamaindex, dspy, haystack, crewai, letta, mem0, ollama, openai) — build sdist/wheel + twine\""
+---
+
 # QW-7: publicar 9 paquetes en PyPI
 
 ## Metadata

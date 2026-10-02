@@ -1,3 +1,9 @@
+---
+title: "SKL-02: Corregir y modernizar `skills/vantadb-mcp/` — SKILL.md + references"
+kind: task
+description: "skills/vantadb-mcp/SKILL.md + references/.md sin tools ni commands falsos: (1) rg \"querylisp|vanta-server|--path\" skills/vantadb-mcp/ → 0 matches (excepto notas históricas explícitas); (2) los 14 tools reales documentados (incluye..."
+---
+
 # SKL-02: Corregir y modernizar `skills/vantadb-mcp/` — SKILL.md + references
 
 ## Metadata

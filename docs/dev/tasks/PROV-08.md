@@ -1,3 +1,9 @@
+---
+title: "TASK PROV-08: READMEs ×3 completos — tabla 7 métodos, quickstart, requisito pip"
+kind: task
+description: "README menciona todos los métodos y el requisito pip del SDK proveedor (tabla 7 métodos, quickstart, pip install openai/ollama/litellm)\""
+---
+
 # TASK PROV-08: READMEs ×3 completos — tabla 7 métodos, quickstart, requisito pip
 
 ## Metadata

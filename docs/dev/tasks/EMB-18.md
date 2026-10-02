@@ -1,3 +1,9 @@
+---
+title: "EMB-18 — regla una-dim-por-base (Q4: bloquear+guiar)"
+kind: task
+description: "Objetivo: cuando la base contiene vectores de dim distinta a la del vector entrante (modelo activo cambiado), bloquear con error claro + comando exacto de regeneración. Nunca auto-reindex silencioso (Q4 owner)"
+---
+
 # EMB-18 — regla una-dim-por-base (Q4: bloquear+guiar)
 
 > **Plan:** `docs/dev/plans/2026-09-16-embeddings-auto.md` (Wave2, Q4 owner)

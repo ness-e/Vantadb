@@ -156,6 +156,7 @@ pub fn execute(memory: &Embedded, session_key: &str, cmd: &MemCommand) -> String
                 vector: None,
                 sparse_vector: None,
                 ttl_ms: None,
+                ..Default::default()
             };
             match memory.put(input) {
                 Ok(record) => format!(
@@ -328,14 +329,40 @@ mod tests {
     async fn sync_reports_real_turn_count_for_session() {
         // PRX-01: `mem:sync` runs the real pipeline (stored turns), not a stub.
         let memory = test_memory();
+        let redactor = crate::redact::Redactor::new(&crate::redact::RedactConfig::default())
+            .expect("redactor");
+        let envelope = crate::envelope::Envelope::with_master(
+            &crate::envelope::EnvelopeConfig::default(),
+            None,
+        );
+        let guard = crate::capture::WriteGuard {
+            redactor: &redactor,
+            envelope: &envelope,
+        };
         for text in ["first turn", "second turn"] {
-            crate::capture::turn_job(memory.clone(), "sess-sync", "anthropic", "sp", "m", text)()
-                .await
-                .expect("seed turn");
-        }
-        crate::capture::turn_job(memory.clone(), "other", "anthropic", "sp", "m", "elsewhere")()
+            crate::capture::turn_job(
+                memory.clone(),
+                "sess-sync",
+                "anthropic",
+                "sp",
+                "m",
+                text,
+                &guard,
+            )()
             .await
             .expect("seed turn");
+        }
+        crate::capture::turn_job(
+            memory.clone(),
+            "other",
+            "anthropic",
+            "sp",
+            "m",
+            "elsewhere",
+            &guard,
+        )()
+        .await
+        .expect("seed turn");
 
         let sync = MemCommand {
             command: "sync".into(),

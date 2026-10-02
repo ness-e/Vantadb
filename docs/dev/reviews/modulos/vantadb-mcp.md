@@ -1,11 +1,9 @@
 ---
 title: "Review de Módulo — `vantadb-mcp/`"
-type: review
+kind: review
 status: archived
+description: "Fecha: 2026-08-22 · Revisor: segunda opinión, contexto fresco (no participó en P22/P25) · Alcance: revisión profunda del servidor MCP stdio JSON-RPC 2.0"
 tags: [vantadb, review]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Review de Módulo — `vantadb-mcp/`

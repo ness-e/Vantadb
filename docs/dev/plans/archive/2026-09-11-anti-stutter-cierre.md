@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Anti-Stutter Cierre Directo (sin usuarios, sin aliases)"
+kind: plan
+status: archived
+description: "Status: ⬆️ uphill = 0 · ⬇️ downhill = 4 tasks"
+---
+
 # Plan de Ejecución: Anti-Stutter Cierre Directo (sin usuarios, sin aliases)
 
 > **Campaign ID:** 11eb06a6-bcc5-4894-ad55-697637426a63
@@ -201,7 +208,7 @@ Estado: completed
 Última acción: S6: review doubt-driven con 2 fixes (VantaHeader + allow memory_record_from_node), clippy -D warnings verde, commit 1a566ef3 hook verde sin push, task+plan actualizados, 2 lessons
 Resultado: OK
 Próxima acción: Orquestador: skill progreso + AST-011 verify final + cierre
-Contrato: verificacion: scoped 0/0/0/0/0 + literal 129=100% excluidas + cargo check --all-targets + tsc + vitest 280/280 + pytest 135 + nextest-mem 10/10 + fmt + clippy -D warnings + hook pre-commit verde | evidencia: commit 1a566ef3 (45 files, +446/-612, sin push) | artefactos: docs/dev/tasks/AST-010.md, commit 1a566ef3 | invariantes: VantaHeader/VANTADB_*/name-wire/prosa/historia-tasks-plans-changelog/Node-struct/NativeVantaDB/docstring-legacy intactos | deuda: FIND-AST010-01/02 + ADR-041 firma + FIND-AST010-03 search_vector gap (pre-existente) | queda_pendiente: orquestador: skill progreso + AST-011 (deny/semver/nextest/tsc/pytest/coverage finales)
+Contrato: verificacion: scoped 0/0/0/0/0 + literal 129=100% excluidas + cargo check --all-targets + tsc + vitest 280/280 + pytest 135 + nextest-mem 10/10 + fmt + clippy -D warnings + hook pre-commit verde | evidencia: commit 1a566ef3 (45 files, +446/-612, sin push) | artefactos: docs/dev/tasks/AST-010.md, commit 1a566ef3 | invariantes: VantaHeader/VANTADB_*/name-wire/prosa/historia-tasks-plans-changelog/Node-struct/NativeVantaDB/docstring-legacy intactos | deuda: FIND-AST010-01/02 + ADR-0047 firma + FIND-AST010-03 search_vector gap (pre-existente) | queda_pendiente: orquestador: skill progreso + AST-011 (deny/semver/nextest/tsc/pytest/coverage finales)
 Próxima tarea si completa: AST-011
 === END RECITATION ===
 
@@ -223,7 +230,7 @@ Estado: completed
 Última acción: S0-S6 6/6: gates mecanicos + retrospectiva + archivado .md+budget + avance 4 registros + review approve + 2 commits sin push
 Resultado: OK
 Próxima acción: ninguno (ultima del plan; lead: push + release-plz flow)
-Contrato: verificacion: S0 scoped 0/0/0/0/0 (literal 129=100% excluidas) + deny ok + fmt exit 0 + check 4.34s + nextest 3142 passed/1 skipped 246s + tsc exit 0 + pytest smoke 75 passed + coverage solo gap FIND-AST010-03 + avance-coverage 100% (1038/1038) | evidencia: Temp/opencode/ast011-nextest.log; commits 135afafb+ef8c0dc8 sin push | artefactos: docs/dev/tasks/AST-011.md, docs/dev/plans/archive/2026-09-11-anti-stutter-cierre.md+budget | invariantes: exclusiones intactas; sin push/publish/tags/CHANGELOG | deuda: FIND-01/02/03 + ADR-041 firma (heredadas, con owner) | queda_pendiente: nada (campana 4/4 cerrada; push a cargo del lead)
+Contrato: verificacion: S0 scoped 0/0/0/0/0 (literal 129=100% excluidas) + deny ok + fmt exit 0 + check 4.34s + nextest 3142 passed/1 skipped 246s + tsc exit 0 + pytest smoke 75 passed + coverage solo gap FIND-AST010-03 + avance-coverage 100% (1038/1038) | evidencia: Temp/opencode/ast011-nextest.log; commits 135afafb+ef8c0dc8 sin push | artefactos: docs/dev/tasks/AST-011.md, docs/dev/plans/archive/2026-09-11-anti-stutter-cierre.md+budget | invariantes: exclusiones intactas; sin push/publish/tags/CHANGELOG | deuda: FIND-01/02/03 + ADR-0047 firma (heredadas, con owner) | queda_pendiente: nada (campana 4/4 cerrada; push a cargo del lead)
 Próxima tarea si completa: ninguno
 === END RECITATION ===
 

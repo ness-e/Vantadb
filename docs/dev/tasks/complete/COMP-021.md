@@ -1,3 +1,9 @@
+---
+title: "COMP-021: Temporal edges (timestamp-aware relationships)"
+kind: task
+description: "cargo nextest run --profile audit -p vantadb --build-jobs 2 pasa, incluyendo: (1) test de backward-compat que deserializa un UnifiedNode serializado con Edge sin createdatms → createdatms == 0; (2) test de traversal temporal: edges con..."
+---
+
 # COMP-021: Temporal edges (timestamp-aware relationships)
 
 ## Metadata

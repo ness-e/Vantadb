@@ -44,8 +44,18 @@ impl StorageEngine {
                 sharded.append(&crate::wal::WalRecord::Delete { id })?;
             }
             self.apply_delete_inner(id, LockPolicy::AssumeHeld)?;
-            self.backend
-                .delete(BackendPartition::Default, &id.to_le_bytes())
+            let res = self
+                .backend
+                .delete(BackendPartition::Default, &id.to_le_bytes());
+            if res.is_ok() {
+                // VER-02: purge the JSON-shredded metadata row (Phase-2 gap
+                // documented in `shred/mod.rs`). Best-effort, same durability
+                // class as the insert-side `ShreddedRowStore::put` (SDK,
+                // post-commit): the WAL tombstone is the commit point, so a
+                // shred purge failure must never fail the delete.
+                let _ = crate::shred::ShreddedRowStore::delete(id, &*self.backend);
+            }
+            res
         }
     }
 
@@ -248,13 +258,16 @@ impl StorageEngine {
 
         // Phase 4: backend batch delete
         {
-            let mut kv_ops: Vec<BackendWriteOp> = Vec::with_capacity(ids.len());
+            let mut kv_ops: Vec<BackendWriteOp> = Vec::with_capacity(ids.len() * 2);
             for &id in ids {
                 let key = id.to_le_bytes();
                 kv_ops.push(BackendWriteOp::Delete {
                     partition: BackendPartition::Default,
                     key: key.to_vec(),
                 });
+                // VER-02: purge the JSON-shredded metadata row in the same
+                // atomic batch (missing keys are a no-op delete).
+                kv_ops.push(crate::shred::ShreddedRowStore::delete_op(id));
             }
             self.backend.write_batch(kv_ops)?;
         }
@@ -287,6 +300,9 @@ impl StorageEngine {
                 partition: BackendPartition::Tombstones,
                 key: key.to_vec(),
             },
+            // VER-02: the JSON-shredded metadata row lives in InternalMetadata
+            // — "all traces" includes it.
+            crate::shred::ShreddedRowStore::delete_op(id),
         ])
     }
 

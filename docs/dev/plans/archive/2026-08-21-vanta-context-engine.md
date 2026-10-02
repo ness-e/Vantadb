@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Vanta Context Engine (F5) — offload + compresión + MMD"
+kind: plan
+status: archived
+description: "Objetivo: la killer feature de contexto (research 05): assemble(msgs, ratio) → {messages, report} con compresión local LLM-free mild/aggressive/emergency, MMD Mermaid como memoria de tarea persistente, recall cross-sesión híbrido..."
+---
+
 # Plan de Ejecución: Vanta Context Engine (F5) — offload + compresión + MMD
 
 > **Campaign ID:** e03c2c9f-4076-4cda-a1a8-44828dc8bf30
@@ -279,9 +286,9 @@ Status: ⬆️ uphill = 2 (formato MMD D23; performance de list_namespaces con m
 Campaign ID: (pendiente MCP)
 Objetivo activo: MEM-38 — Docs + ADR gate de cierre F5 (Task 9)
 Estado: pending ⏳
-Última acción: Discovery completo: fuentes leídas, task file creado, impacto mapeado. Inicio redacción ADR-029 + docs/api.
+Última acción: Discovery completo: fuentes leídas, task file creado, impacto mapeado. Inicio redacción ADR-0029 + docs/api.
 Resultado: PARTIAL
-Próxima acción: Escribir ADR-029, docs/api/VANTA_MEMORY.md, sección scene en EMBEDDED_SDK.md, verify
+Próxima acción: Escribir ADR-0029, docs/api/VANTA_MEMORY.md, sección scene en EMBEDDED_SDK.md, verify
 Contrato: por tarea — cargo check/nextest/fmt/clippy -p vanta-memory exit 0 + tests D19
 Próxima tarea si completa: 
 === END RECITATION ===

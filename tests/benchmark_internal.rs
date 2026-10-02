@@ -90,6 +90,10 @@ fn test_benchmark_internal_10k() {
                 filters: Default::default(),
                 text_query: Some(text_q),
                 top_k: 10,
+                range: None,
+                group_by: None,
+                mmr: None,
+                cursor: None,
                 ..Default::default()
             })
             .expect("search");
@@ -113,6 +117,10 @@ fn test_benchmark_internal_10k() {
                 filters: Default::default(),
                 text_query: None,
                 top_k: 10,
+                range: None,
+                group_by: None,
+                mmr: None,
+                cursor: None,
                 ..Default::default()
             })
             .expect("search");
@@ -136,6 +144,10 @@ fn test_benchmark_internal_10k() {
                 filters: Default::default(),
                 text_query: Some(text_q),
                 top_k: 10,
+                range: None,
+                group_by: None,
+                mmr: None,
+                cursor: None,
                 ..Default::default()
             })
             .expect("search");

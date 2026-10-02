@@ -1,3 +1,9 @@
+---
+title: FIND-115 — sync one-liner viejo (README_ES + docs-view) con FIND-105
+kind: task
+description: "Objetivo: sincronizar las superficies con instrucciones de instalación viejas con el one-liner vigente FIND-105 (1349e63c), o referenciar la fuente única"
+---
+
 # FIND-115 — sync one-liner viejo (README_ES + docs-view) con FIND-105
 
 > **Plan:** `docs/dev/plans/2026-09-17-seguimiento-mvp.md` (Wave2, última del plan)

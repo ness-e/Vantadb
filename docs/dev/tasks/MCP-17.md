@@ -1,3 +1,9 @@
+---
+title: "Task MCP-17 — Backup/restore vía MCP: export + import JSONL"
+kind: task
+description: "Fuente de verdad: docs/dev/Backlog.md → fase P25 - Exposición MCP/HTTP → fila MCP-17 (leer ANTES de ejecutar: problema, acciones numeradas, archivos exactos)"
+---
+
 # Task MCP-17 — Backup/restore vía MCP: export + import JSONL
 
 **Fuente de verdad:** `docs/dev/Backlog.md` → fase **P25 - Exposición MCP/HTTP** → fila `MCP-17` (leer ANTES de ejecutar: problema, acciones numeradas, archivos exactos).

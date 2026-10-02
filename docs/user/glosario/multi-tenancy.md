@@ -1,9 +1,9 @@
 ---
-title: "Multi-tenancy"
-type: glossary-entry
+title: Multi-tenancy
+kind: glossary
 status: stable
+description: "Multi-tenancy es una arquitectura donde una sola instancia de software sirve a múltiples clientes (tenants), manteniendo aislamiento de datos y configuración entre ellos"
 tags: [vantadb, glosario, enterprise, arquitectura]
-last_reviewed: 2026-09-15
 links: "[Glosario](./README.md)"
 ---
 
@@ -83,7 +83,10 @@ impl VantaEmbedded {
     pub fn put(&self, tenant: &TenantConfig, node: UnifiedNode) -> Result<()> {
         // Verificar quota
         if tenant.quota.exceeded() {
-            return Err(VantaError::QuotaExceeded);
+            return Err(Error::ResourceLimit(format!(
+                "tenant {} exceeded its quota",
+                tenant.namespace,
+            )));
         }
         
         // Forzar namespace del tenant
@@ -113,8 +116,8 @@ impl VantaEmbedded {
 
 ## Véase También
 
-- [RBAC](RBAC.md) — Control de acceso por roles
-- [Backpressure](Backpressure.md) — Control de recursos
+- [RBAC](./rbac.md) — Control de acceso por roles
+- [Backpressure](./backpressure.md) — Control de recursos
 - [File Locking](file-locking.md) — Aislamiento a nivel archivo
 
 ---

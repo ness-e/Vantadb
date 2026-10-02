@@ -1,3 +1,9 @@
+---
+title: "TASK BND-10: Paridad API node vs python/MCP (13 endpoints)"
+kind: task
+description: Callers (qué consume vantadb-node)
+---
+
 # TASK BND-10: Paridad API node vs python/MCP (13 endpoints)
 
 ## Metadata

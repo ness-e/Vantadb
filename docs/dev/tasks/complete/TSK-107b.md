@@ -1,3 +1,8 @@
+---
+title: "TSK-107b: Audit logging enterprise (JSONL, timestamp + op)"
+kind: task
+---
+
 # TSK-107b: Audit logging enterprise (JSONL, timestamp + op)
 
 ## Metadata

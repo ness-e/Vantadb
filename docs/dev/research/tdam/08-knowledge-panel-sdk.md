@@ -1,12 +1,11 @@
 ---
 title: "TDAM — 08: MemoryKnowledge + MemoryPanel + SDK — Investigación profunda (REVISADO)"
-type: research
+kind: research
 status: active
+description: MemoryKnowledge (KS) es un servicio Hono que expone conocimiento wiki + code-graph a agentes LLM vía API HTTP y MCP stdio. MemoryPanel (Panel) es un control-stateless en /api/v1 que gestiona asignación/visibilidad y hace de receptor de...
 tags: [vantadb, research, tdam, sdk]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
+
 # TDAM — 08: MemoryKnowledge + MemoryPanel + SDK — Investigación profunda (REVISADO)
 
 > **Fecha:** 2026-08-18 · **Fuente:** clone `tdam` @ `97f9465` (rama `feat/server_team`) · **Verificación:** 100% contra código real (glob/grep/Read)

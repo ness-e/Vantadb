@@ -5,10 +5,16 @@
 
 use crate::node::FieldValue;
 use crate::search_profile::SearchProfileConfig;
+use serde::Serialize;
 use std::collections::BTreeMap;
 
 /// Top-level statement type after parsing.
-#[derive(Debug, Clone, PartialEq)]
+///
+/// Serializes to JSON with serde's default representation (externally tagged
+/// enums, snake_case fields) — the canonical AST JSON projection for
+/// consumers, matching the SDK [`QueryResult`](crate::sdk::QueryResult)
+/// convention.
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub enum Statement {
     /// A query statement (FROM/MATCH syntax).
     Query(Query),
@@ -27,7 +33,7 @@ pub enum Statement {
 }
 
 /// Insert statement: creates a new node.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct InsertStatement {
     /// Node ID (0 = auto-assign).
     pub node_id: u128,
@@ -40,7 +46,7 @@ pub struct InsertStatement {
 }
 
 /// Update statement: modifies an existing node.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct UpdateStatement {
     /// Node ID to update.
     pub node_id: u128,
@@ -51,14 +57,14 @@ pub struct UpdateStatement {
 }
 
 /// Delete statement: removes a node.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct DeleteStatement {
     /// Node ID to delete.
     pub node_id: u128,
 }
 
 /// Relate statement: creates a directed edge between two nodes.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct RelateStatement {
     /// Source node ID.
     pub source_id: u128,
@@ -71,7 +77,7 @@ pub struct RelateStatement {
 }
 
 /// Insert message statement: creates a conversational message node.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct InsertMessageStatement {
     /// Message role (system, user, assistant).
     pub msg_role: String,
@@ -82,7 +88,7 @@ pub struct InsertMessageStatement {
 }
 
 /// A parsed query with optional traversal, filters, ranking, and projection.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Query {
     /// Entity type to search from.
     pub from_entity: String,
@@ -103,10 +109,16 @@ pub struct Query {
     /// Optional search profile (mode, RRF k, candidate budget) — cláusula IQL
     /// PROFILE (MEM-01).
     pub search_profile: Option<SearchProfileConfig>,
+    /// Optional `AS OF <unix-ms>` valid-time point (SCH-03, ADR-046 §D3):
+    /// results are narrowed to nodes whose validity window contains the
+    /// timestamp (`__vanta_valid_at_ms <= T < __vanta_invalid_at_ms`). `None`
+    /// = no filter (default unchanged). Version-gated: accepted from
+    /// [`IQL_VERSION_MIN_AS_OF`](crate::parser::IQL_VERSION_MIN_AS_OF).
+    pub as_of_ms: Option<u64>,
 }
 
 /// Graph traversal specification.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Traversal {
     /// Minimum traversal depth.
     pub min_depth: u32,
@@ -121,7 +133,7 @@ pub struct Traversal {
 }
 
 /// A query condition (relational or vector similarity).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub enum Condition {
     /// Relational field comparison.
     Relational(String, RelOp, FieldValue),
@@ -134,7 +146,7 @@ pub enum Condition {
 }
 
 /// Relational comparison operator.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub enum RelOp {
     /// Equals.
     Eq,
@@ -151,7 +163,7 @@ pub enum RelOp {
 }
 
 /// Ranking specification for query results.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct RankBy {
     /// Field to sort by.
     pub field: String,
@@ -160,7 +172,7 @@ pub struct RankBy {
 }
 
 /// A JOIN clause within a SELECT statement.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct JoinClause {
     /// Right-side entity type.
     pub entity: String,
@@ -173,7 +185,7 @@ pub struct JoinClause {
 }
 
 /// A scalar subquery condition in WHERE (e.g. `WHERE value > (SELECT AVG(...) FROM ...)`).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct SubqueryCondition {
     /// Left-side field (alias-qualified).
     pub field: String,
@@ -184,7 +196,7 @@ pub struct SubqueryCondition {
 }
 
 /// A SELECT-style query with optional JOINs and subqueries.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct SelectStatement {
     /// Projected fields (SELECT clause).
     pub projections: Vec<String>,
@@ -196,10 +208,14 @@ pub struct SelectStatement {
     pub subquery_conditions: Vec<SubqueryCondition>,
     /// Query temperature.
     pub temperature: Option<f32>,
+    /// Optional `AS OF <unix-ms>` valid-time point (SCH-03, ADR-046 §D3).
+    /// Only accepted on the top-level SELECT — subqueries with `AS OF` fail
+    /// to parse (silent no-op prevention). `None` = no filter.
+    pub as_of_ms: Option<u64>,
 }
 
 /// The FROM clause of a SELECT — either a single entity or a JOIN of two sub-clauses.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub enum FromClause {
     /// Scan a single entity type with an alias.
     Single {
@@ -613,6 +629,7 @@ mod tests {
             temperature: None,
             owner_role: None,
             search_profile: None,
+            as_of_ms: None,
         };
         assert_eq!(q.from_entity, "Node");
         assert!(q.traversal.is_none());
@@ -637,6 +654,7 @@ mod tests {
             temperature: None,
             owner_role: None,
             search_profile: None,
+            as_of_ms: None,
         };
         assert_eq!(q.traversal.as_ref().unwrap().min_depth, 1);
         assert_eq!(q.traversal.as_ref().unwrap().max_depth, 3);
@@ -657,6 +675,7 @@ mod tests {
             temperature: None,
             owner_role: None,
             search_profile: None,
+            as_of_ms: None,
         };
         let plan = q.into_logical_plan();
         assert_eq!(plan.operators.len(), 1);
@@ -686,6 +705,7 @@ mod tests {
             temperature: None,
             owner_role: None,
             search_profile: None,
+            as_of_ms: None,
         };
         let plan = q.into_logical_plan();
         assert_eq!(plan.operators.len(), 2);
@@ -710,6 +730,7 @@ mod tests {
             temperature: None,
             owner_role: None,
             search_profile: None,
+            as_of_ms: None,
         };
         let plan = q.into_logical_plan();
         let ops: Vec<&str> = plan

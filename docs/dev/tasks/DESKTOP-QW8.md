@@ -1,3 +1,9 @@
+---
+title: "TASK DESKTOP-QW8: Sincronizar versión desktop con release-plz (H-11)"
+kind: task
+description: "Sincronizar versión desktop con release-plz (o excluirla documentadamente): package.json:4 + tauri.conf.json:4 vs tags workspace; decisión documentada + workflow o exclude; cd desktop && npm run build verde"
+---
+
 # TASK DESKTOP-QW8: Sincronizar versión desktop con release-plz (H-11)
 
 ## Metadata

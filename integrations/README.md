@@ -2,7 +2,7 @@
 
 Python adapters standalone. Cada uno vive en su carpeta con `pyproject.toml`,
 tests propios y README. Ninguno se publica por separado a mano: el release
-es el workflow `release-adapters-62.yml` (tag manual `adapters-v*`).
+es el workflow `release-adapters.yml` (tag manual `adapters-v*`).
 
 ## Estado PyPI: Alpha, no publicados
 
@@ -19,7 +19,7 @@ pip install .`
 
 Toda dependencia de framework declara upper-bound next-major. Gate:
 `python -m pytest integrations/test_pins.py` (10 tests parametrizados ×9
-adapters; `vantadb-py>=0.5.0,<0.6.0` exenta por traer techo propio).
+adapters; `vantadb-py>=0.5.0,<0.7.0` exenta por traer techo propio).
 
 | Adapter | Paquete | Framework pin |
 |---------|---------|---------------|

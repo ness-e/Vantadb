@@ -15,11 +15,33 @@ use crate::node::UnifiedNode;
 ///     - v2 binary reads v1 WAL fine (no `Prepare` present in old records, range-based compat).
 ///     - v1 binary reading v2 WAL: unknown postcard tag fails deserialization; scan-forward
 ///       skips affected records. Downgrade still requires dump/restore (same hint as today).
-pub const WAL_FORMAT_VERSION: u16 = 2;
+/// v3: adds the tamper-evident hash-chain (VER-01). Every record frame carries
+///     `prev_hash ‖ record_hash` (32B each, SHA-256), where
+///     `record_hash = SHA-256(prev_hash ‖ len_le ‖ payload ‖ crc_le)` and the first
+///     record of a segment chains from [`CHAIN_GENESIS`].
+///     - v3 readers read v1/v2 files with their legacy framing (range-based compat).
+///     - v1/v2 readers reject v3 files as "newer format"; downgrade requires
+///       dump/restore (unchanged hint). Existing v1/v2 files keep legacy framing
+///       until rotation/compaction creates a fresh (v3) segment — no in-place rewrite.
+pub const WAL_FORMAT_VERSION: u16 = 3;
+
+/// Format version that introduced the chained frame layout. Files with
+/// `format_version >= WAL_CHAIN_VERSION` carry `prev_hash ‖ record_hash` on
+/// every frame; older files use the legacy `[len][payload][crc]` layout.
+pub(crate) const WAL_CHAIN_VERSION: u16 = 3;
+
+/// Length of one SHA-256 chain digest (`prev_hash` / `record_hash`).
+pub(crate) const CHAIN_HASH_SIZE: usize = 32;
+
+/// Extra bytes appended to every chained frame: `prev_hash ‖ record_hash`.
+pub(crate) const CHAIN_FRAME_EXTRA: usize = 2 * CHAIN_HASH_SIZE;
+
+/// Genesis link: the first record of a segment chains from this all-zero digest.
+pub(crate) const CHAIN_GENESIS: [u8; CHAIN_HASH_SIZE] = [0u8; CHAIN_HASH_SIZE];
 
 /// Tracks the postcard wire format version used for WAL record serialization.
 /// Increment this when upgrading postcard to a potentially incompatible version.
-/// Stored in VantaHeader.schema_version for forward-compatibility detection.
+/// Stored in Header.schema_version for forward-compatibility detection.
 pub const WAL_POSTCARD_VERSION: u16 = 1;
 
 const KIB: usize = 1024;
@@ -38,6 +60,46 @@ pub fn compute_crc32c(data: &[u8]) -> u32 {
         return 0x0000_0000;
     }
     crc32c::crc32c(data)
+}
+
+// ─── Hash-chain primitives (VER-01) ────────────────────────
+
+/// True when `format_version` uses the chained frame layout.
+#[inline]
+pub(crate) fn is_chained(format_version: u16) -> bool {
+    format_version >= WAL_CHAIN_VERSION
+}
+
+/// Per-record framing overhead for a given format version (0 pre-chain,
+/// [`CHAIN_FRAME_EXTRA`] chained).
+#[inline]
+pub(crate) fn frame_extra_for(format_version: u16) -> usize {
+    if is_chained(format_version) {
+        CHAIN_FRAME_EXTRA
+    } else {
+        0
+    }
+}
+
+/// `record_hash = SHA-256(prev_hash ‖ len_le ‖ payload ‖ crc_le)`.
+///
+/// The hash commits to the previous link (removing, inserting or reordering a
+/// frame breaks the successor's `prev_hash`) and to the full frame bytes
+/// (altering the payload or recomputing its CRC breaks the `record_hash`).
+/// Incremental: only the new frame is hashed — no full-file re-hash.
+pub(crate) fn chain_hash(
+    prev: &[u8; CHAIN_HASH_SIZE],
+    len_le: &[u8; 4],
+    payload: &[u8],
+    crc_le: &[u8; 4],
+) -> [u8; CHAIN_HASH_SIZE] {
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    hasher.update(prev);
+    hasher.update(len_le);
+    hasher.update(payload);
+    hasher.update(crc_le);
+    hasher.finalize().into()
 }
 
 // ─── WAL Record ────────────────────────────────────────────
@@ -94,8 +156,8 @@ pub enum WalRecord {
 /// WAL file header with magic bytes, version, schema version, and CRC integrity.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WalHeader {
-    /// 16-byte VantaHeader (magic = `b"VWAL"`, version = 1, schema = 0, timestamp).
-    pub base: crate::binary_header::VantaHeader,
+    /// 16-byte Header (magic = `b"VWAL"`, version = 1, schema = 0, timestamp).
+    pub base: crate::binary_header::Header,
     /// 4-byte CRC32C of the base header bytes.
     pub crc: u32,
 }
@@ -108,7 +170,7 @@ impl WalHeader {
     /// `format_version`: WAL format version (currently 1).
     /// Stores `WAL_POSTCARD_VERSION` in `schema_version` for forward-compatibility detection.
     pub fn new(format_version: u32) -> Self {
-        let base = crate::binary_header::VantaHeader::new(
+        let base = crate::binary_header::Header::new(
             *b"VWAL",
             format_version as u16,
             WAL_POSTCARD_VERSION,
@@ -152,7 +214,7 @@ impl WalHeader {
             )));
         }
 
-        let base = crate::binary_header::VantaHeader::deserialize(&bytes[0..16])?;
+        let base = crate::binary_header::Header::deserialize(&bytes[0..16])?;
 
         // Range-based compatibility check: accepts any format_version ≤ WAL_FORMAT_VERSION
         // with matching magic. Future-format files (version > current) are rejected;
@@ -230,6 +292,12 @@ pub struct WalWriter {
     flush_threshold: Option<usize>,
     /// Maximum segment size in bytes before auto-rotation (default: 256MB).
     max_segment_size: u64,
+    /// On-disk format version of the opened file — selects the frame layout
+    /// (`WAL_CHAIN_VERSION`+ = chained, older = legacy).
+    format_version: u16,
+    /// Running chain head: the `record_hash` of the last appended record, or
+    /// [`CHAIN_GENESIS`] when the file has no records yet (VER-01).
+    chain_head: [u8; CHAIN_HASH_SIZE],
 }
 
 impl WalWriter {
@@ -257,19 +325,26 @@ impl WalWriter {
             .open(&path)?;
 
         let file_len = file.metadata()?.len();
-        let (bytes_written, record_count) = if file_len == 0 {
+        let (bytes_written, record_count, format_version, chain_head) = if file_len == 0 {
             let header = WalHeader::new(WAL_FORMAT_VERSION as u32);
             file.write_all(&header.serialize())?;
             file.flush()?;
-            (WalHeader::SIZE as u64, 0u64)
+            (
+                WalHeader::SIZE as u64,
+                0u64,
+                WAL_FORMAT_VERSION,
+                CHAIN_GENESIS,
+            )
         } else {
             // Read the existing header
             let mut header_bytes = [0u8; WalHeader::SIZE];
             file.seek(SeekFrom::Start(0))?;
             file.read_exact(&mut header_bytes)?;
-            let _header = WalHeader::deserialize(&header_bytes)?;
+            let header = WalHeader::deserialize(&header_bytes)?;
+            let version = header.base.format_version;
 
-            let (valid_end, count) = recover_valid_records(&path, file_len)?;
+            let (valid_end, count) =
+                recover_valid_records(&path, file_len, frame_extra_for(version))?;
 
             if file_len > valid_end {
                 warn!(
@@ -284,8 +359,17 @@ impl WalWriter {
                 file.set_len(valid_end)?;
             }
 
+            // Recover the chain head so appends continue the chain across
+            // reopens (VER-01). `record_hash` is the trailing 32 bytes of the
+            // last valid chained frame; a header-only file starts at genesis.
+            let mut chain_head = CHAIN_GENESIS;
+            if is_chained(version) && count > 0 {
+                file.seek(SeekFrom::Start(valid_end - CHAIN_HASH_SIZE as u64))?;
+                file.read_exact(&mut chain_head)?;
+            }
+
             file.seek(SeekFrom::Start(valid_end))?;
-            (valid_end, count as u64)
+            (valid_end, count as u64, version, chain_head)
         };
 
         let buffer_size = buffer_size.clamp(KIB, 32 * 1024 * KIB);
@@ -299,6 +383,8 @@ impl WalWriter {
             records_since_sync: 0,
             flush_threshold,
             max_segment_size: 256 * 1024 * 1024,
+            format_version,
+            chain_head,
         })
     }
 
@@ -318,8 +404,18 @@ impl WalWriter {
         self.writer.write_all(&len.to_le_bytes())?;
         self.writer.write_all(&payload)?;
         self.writer.write_all(&crc.to_le_bytes())?;
+        if is_chained(self.format_version) {
+            // VER-01: prev_hash ‖ record_hash — the running chain head is the
+            // previous record's `record_hash` (genesis for the first record).
+            let prev = self.chain_head;
+            let record_hash = chain_hash(&prev, &len.to_le_bytes(), &payload, &crc.to_le_bytes());
+            self.writer.write_all(&prev)?;
+            self.writer.write_all(&record_hash)?;
+            self.chain_head = record_hash;
+        }
 
-        self.bytes_written += 4 + payload.len() as u64 + 4;
+        self.bytes_written +=
+            4 + payload.len() as u64 + 4 + frame_extra_for(self.format_version) as u64;
         self.record_count += 1;
         self.records_since_sync += 1;
 
@@ -357,6 +453,15 @@ impl WalWriter {
             buf.extend_from_slice(&len.to_le_bytes());
             buf.extend_from_slice(&payload);
             buf.extend_from_slice(&crc.to_le_bytes());
+            if is_chained(self.format_version) {
+                // VER-01: same chain rule as `append` (byte-identical framing).
+                let prev = self.chain_head;
+                let record_hash =
+                    chain_hash(&prev, &len.to_le_bytes(), &payload, &crc.to_le_bytes());
+                buf.extend_from_slice(&prev);
+                buf.extend_from_slice(&record_hash);
+                self.chain_head = record_hash;
+            }
         }
 
         self.writer.write_all(&buf)?;
@@ -492,6 +597,9 @@ impl WalWriter {
         self.bytes_written = WalHeader::SIZE as u64;
         self.record_count = 0;
         self.records_since_sync = 0;
+        // Fresh segment → fresh chain (VER-01): v3 framing from genesis.
+        self.format_version = WAL_FORMAT_VERSION;
+        self.chain_head = CHAIN_GENESIS;
 
         Ok(true)
     }
@@ -501,8 +609,12 @@ impl WalWriter {
 
 /// Check whether a valid WAL record exists at `pos` in the given reader.
 /// Validates bounds, CRC32C, and postcard deserialization. Returns `false` on any I/O error.
-fn check_record_at<R: Read + Seek>(reader: &mut R, pos: u64, file_len: u64) -> bool {
-    if pos + 8 > file_len {
+///
+/// `extra` is the per-frame chain overhead for the file's format version
+/// ([`frame_extra_for`]) — chain bytes are not validated here (recovery keeps
+/// its CRC+deser semantics; `verify_wal_file` is the chain authority).
+fn check_record_at<R: Read + Seek>(reader: &mut R, pos: u64, file_len: u64, extra: usize) -> bool {
+    if pos + 8 + extra as u64 > file_len {
         return false;
     }
     if reader.seek(SeekFrom::Start(pos)).is_err() {
@@ -513,7 +625,7 @@ fn check_record_at<R: Read + Seek>(reader: &mut R, pos: u64, file_len: u64) -> b
         return false;
     }
     let len = u32::from_le_bytes(len_buf) as u64;
-    if len == 0 || len > 10_000_000 || pos + 4 + len + 4 > file_len {
+    if len == 0 || len > 10_000_000 || pos + 4 + len + 4 + extra as u64 > file_len {
         return false;
     }
     let mut record_bytes = vec![0u8; len as usize + 4];
@@ -535,10 +647,11 @@ fn scan_forward_valid<R: Read + Seek>(
     reader: &mut R,
     file_len: u64,
     start_pos: u64,
+    extra: usize,
 ) -> Option<u64> {
     let mut scan_pos = start_pos + 1;
-    while scan_pos + 8 <= file_len {
-        if check_record_at(reader, scan_pos, file_len) {
+    while scan_pos + 8 + extra as u64 <= file_len {
+        if check_record_at(reader, scan_pos, file_len, extra) {
             return Some(scan_pos);
         }
         scan_pos += 1;
@@ -552,8 +665,9 @@ fn try_scan_forward<R: Read + Seek>(
     reader: &mut R,
     file_len: u64,
     current_pos: u64,
+    extra: usize,
 ) -> Option<u64> {
-    let found = scan_forward_valid(reader, file_len, current_pos)?;
+    let found = scan_forward_valid(reader, file_len, current_pos, extra)?;
     warn!(
         corrupt_bytes_skipped = found - current_pos,
         recovered_offset = found,
@@ -564,7 +678,9 @@ fn try_scan_forward<R: Read + Seek>(
 
 /// Scan an existing WAL file to find the end of valid records and count them.
 /// Handles mid-file corruption via Scan-Forward recovery. Returns `(valid_bytes_end, record_count)`.
-fn recover_valid_records(path: &Path, file_len: u64) -> Result<(u64, usize)> {
+///
+/// `extra` is the per-frame chain overhead for the file's format version.
+fn recover_valid_records(path: &Path, file_len: u64, extra: usize) -> Result<(u64, usize)> {
     let mut file_handle = File::open(path)?;
     let mut valid_bytes_limit = WalHeader::SIZE as u64;
     let mut record_count = 0usize;
@@ -583,11 +699,11 @@ fn recover_valid_records(path: &Path, file_len: u64) -> Result<(u64, usize)> {
         }
         let len = u32::from_le_bytes(len_buf) as u64;
 
-        let is_valid = check_record_at(&mut file_handle, current_offset, file_len);
+        let is_valid = check_record_at(&mut file_handle, current_offset, file_len, extra);
 
         if is_valid {
             record_count += 1;
-            current_offset += 4 + len + 4;
+            current_offset += 4 + len + 4 + extra as u64;
             valid_bytes_limit = current_offset;
         } else {
             warn!(
@@ -596,7 +712,8 @@ fn recover_valid_records(path: &Path, file_len: u64) -> Result<(u64, usize)> {
                 "Corrupt record detected in WAL. Entering Scan-Forward mode to locate next valid transaction..."
             );
 
-            if let Some(found) = try_scan_forward(&mut file_handle, file_len, current_offset) {
+            if let Some(found) = try_scan_forward(&mut file_handle, file_len, current_offset, extra)
+            {
                 current_offset = found;
             } else {
                 break;
@@ -652,12 +769,243 @@ fn quarantine_backup_path(path: &Path) -> PathBuf {
     plain
 }
 
+// ─── WAL Chain Verification (VER-01) ───────────────────────
+//
+// Read-only, offline, strict walk (NO scan-forward healing — healing is a
+// recovery behavior, not a verification one). Distinguishes chain evidence of
+// manipulation (`Tampered`) from frame damage (`Corrupt`) and from a crash
+// tail (`IncompleteTail`), and reports legacy (pre-chain) files explicitly.
+
+/// Outcome of verifying one WAL file's integrity.
+#[cfg(any(feature = "cli", test))]
+#[derive(Debug, Clone)]
+pub(crate) enum WalVerifyStatus {
+    /// Every frame's CRC, chain link and record hash validated.
+    Verified,
+    /// Pre-chain format (v1/v2): CRC walk only — no chain to verify.
+    Legacy,
+    /// Chain evidence of manipulation (record altered/removed/inserted/reordered).
+    Tampered {
+        /// Byte offset of the first offending frame.
+        offset: u64,
+        /// 1-based index of the offending record.
+        record: u64,
+        /// Human-readable cause.
+        reason: String,
+    },
+    /// Frame-level damage (CRC/deserialization/framing) — not a chain claim;
+    /// may be bit-rot or a crash, not necessarily manipulation.
+    Corrupt {
+        /// Byte offset of the first offending frame.
+        offset: u64,
+        /// 1-based index of the offending record.
+        record: u64,
+        /// Human-readable cause.
+        reason: String,
+    },
+    /// Trailing bytes form an incomplete frame (e.g. crash mid-append).
+    /// Not treated as tamper: quarantine/recovery owns this case.
+    IncompleteTail {
+        /// Byte offset where the incomplete frame starts.
+        offset: u64,
+    },
+}
+
+#[cfg(any(feature = "cli", test))]
+impl WalVerifyStatus {
+    /// True when the file is not evidence of integrity failure (verified,
+    /// legacy or crash-tail).
+    pub(crate) fn is_ok(&self) -> bool {
+        matches!(
+            self,
+            Self::Verified | Self::Legacy | Self::IncompleteTail { .. }
+        )
+    }
+
+    /// Stable machine-readable label.
+    pub(crate) fn as_str(&self) -> &'static str {
+        match self {
+            Self::Verified => "verified",
+            Self::Legacy => "legacy",
+            Self::Tampered { .. } => "tampered",
+            Self::Corrupt { .. } => "corrupt",
+            Self::IncompleteTail { .. } => "incomplete_tail",
+        }
+    }
+}
+
+/// Per-file WAL verification report.
+#[cfg(any(feature = "cli", test))]
+#[derive(Debug, Clone)]
+pub(crate) struct WalVerifyReport {
+    /// Path of the verified file.
+    pub path: PathBuf,
+    /// On-disk format version from the header (0 when the header is invalid).
+    pub format_version: u16,
+    /// Number of records that validated completely.
+    pub records: u64,
+    /// Verification outcome.
+    pub status: WalVerifyStatus,
+}
+
+/// Verify a WAL file's integrity offline (read-only, no engine, no mutation).
+///
+/// For chained files (v3+) this validates the full hash-chain: each frame's
+/// `record_hash = SHA-256(prev_hash ‖ len ‖ payload ‖ crc)` and its link to the
+/// previous `record_hash`. Removing/inserting/reordering a frame breaks the
+/// successor's link; altering a frame (even with a recomputed CRC) breaks its
+/// own hash. Legacy files (v1/v2) get a CRC walk reported as [`WalVerifyStatus::Legacy`]
+/// — their missing chain is never called manipulation.
+///
+/// Documented limits: a clean-boundary suffix truncation, a fully consistent
+/// whole-file rewrite, and whole-segment deletion are indistinguishable without
+/// an external anchor (signature/manifest) — a v1.0 follow-up.
+#[cfg(any(feature = "cli", test))]
+pub(crate) fn verify_wal_file(path: &Path) -> Result<WalVerifyReport> {
+    let mut file = File::open(path)?;
+    let file_len = file.metadata()?.len();
+
+    let report = |format_version: u16, records: u64, status: WalVerifyStatus| WalVerifyReport {
+        path: path.to_path_buf(),
+        format_version,
+        records,
+        status,
+    };
+
+    if file_len < WalHeader::SIZE as u64 {
+        return Ok(report(
+            0,
+            0,
+            WalVerifyStatus::Corrupt {
+                offset: 0,
+                record: 0,
+                reason: "file too small for a WAL header".to_string(),
+            },
+        ));
+    }
+
+    let mut header_bytes = [0u8; WalHeader::SIZE];
+    file.read_exact(&mut header_bytes)?;
+    let header = match WalHeader::deserialize(&header_bytes) {
+        Ok(h) => h,
+        Err(e) => {
+            return Ok(report(
+                0,
+                0,
+                WalVerifyStatus::Corrupt {
+                    offset: 0,
+                    record: 0,
+                    reason: format!("invalid header: {e}"),
+                },
+            ));
+        }
+    };
+    let version = header.base.format_version;
+    let chained = is_chained(version);
+    let extra = frame_extra_for(version);
+
+    let mut prev = CHAIN_GENESIS;
+    let mut record: u64 = 0;
+    let mut offset: u64 = WalHeader::SIZE as u64;
+
+    let status = loop {
+        if offset == file_len {
+            break if chained {
+                WalVerifyStatus::Verified
+            } else {
+                WalVerifyStatus::Legacy
+            };
+        }
+        // Smallest possible frame is [len][crc] + chain tail.
+        if file_len - offset < 8 + extra as u64 {
+            break WalVerifyStatus::IncompleteTail { offset };
+        }
+
+        let mut len_buf = [0u8; 4];
+        if file.read_exact(&mut len_buf).is_err() {
+            break WalVerifyStatus::IncompleteTail { offset };
+        }
+        let len = u32::from_le_bytes(len_buf) as u64;
+        if len == 0 || len > 10_000_000 {
+            break WalVerifyStatus::Corrupt {
+                offset,
+                record: record + 1,
+                reason: format!("invalid record length prefix: {len}"),
+            };
+        }
+        let frame_len = 4 + len + 4 + extra as u64;
+        if offset + frame_len > file_len {
+            break WalVerifyStatus::IncompleteTail { offset };
+        }
+
+        let mut payload = vec![0u8; len as usize];
+        let mut crc_buf = [0u8; 4];
+        if file.read_exact(&mut payload).is_err() || file.read_exact(&mut crc_buf).is_err() {
+            break WalVerifyStatus::IncompleteTail { offset };
+        }
+        let stored_crc = u32::from_le_bytes(crc_buf);
+        let computed_crc = crc32c(&payload);
+        if stored_crc != computed_crc {
+            break WalVerifyStatus::Corrupt {
+                offset,
+                record: record + 1,
+                reason: format!(
+                    "CRC32C mismatch (stored={stored_crc:#x}, computed={computed_crc:#x})"
+                ),
+            };
+        }
+        if postcard::from_bytes::<WalRecord>(&payload).is_err() {
+            break WalVerifyStatus::Corrupt {
+                offset,
+                record: record + 1,
+                reason: "payload does not deserialize as a WAL record".to_string(),
+            };
+        }
+
+        if chained {
+            let mut chain_buf = [0u8; CHAIN_FRAME_EXTRA];
+            if file.read_exact(&mut chain_buf).is_err() {
+                break WalVerifyStatus::IncompleteTail { offset };
+            }
+            let mut stored_prev = [0u8; CHAIN_HASH_SIZE];
+            stored_prev.copy_from_slice(&chain_buf[..CHAIN_HASH_SIZE]);
+            let mut stored_hash = [0u8; CHAIN_HASH_SIZE];
+            stored_hash.copy_from_slice(&chain_buf[CHAIN_HASH_SIZE..]);
+
+            if stored_prev != prev {
+                break WalVerifyStatus::Tampered {
+                    offset,
+                    record: record + 1,
+                    reason: "chain link broken (record removed, inserted or reordered)".to_string(),
+                };
+            }
+            let computed = chain_hash(&prev, &len_buf, &payload, &crc_buf);
+            if stored_hash != computed {
+                break WalVerifyStatus::Tampered {
+                    offset,
+                    record: record + 1,
+                    reason: "record content altered (frame hash mismatch)".to_string(),
+                };
+            }
+            prev = stored_hash;
+        }
+
+        record += 1;
+        offset += frame_len;
+    };
+
+    Ok(report(version, record, status))
+}
+
 // ─── WAL Reader ────────────────────────────────────────────
 
 /// Sequential WAL reader for crash recovery.
 pub struct WalReader {
     reader: BufReader<File>,
     records_read: u64,
+    /// Per-frame chain overhead for this file's format version
+    /// ([`frame_extra_for`]): 0 for legacy v1/v2, 64 for chained v3+.
+    frame_extra: usize,
 }
 
 impl WalReader {
@@ -675,11 +1023,12 @@ impl WalReader {
         // Read and validate the header
         let mut header_bytes = [0u8; WalHeader::SIZE];
         file.read_exact(&mut header_bytes)?;
-        let _header = WalHeader::deserialize(&header_bytes)?;
+        let header = WalHeader::deserialize(&header_bytes)?;
 
         Ok(Self {
             reader: BufReader::with_capacity(64 * KIB, file),
             records_read: 0,
+            frame_extra: frame_extra_for(header.base.format_version),
         })
     }
 
@@ -705,7 +1054,10 @@ impl WalReader {
 
             let mut is_valid = false;
             let mut payload = Vec::new();
-            if len > 0 && len <= 10_000_000 && current_pos + 4 + len + 4 <= file_len {
+            if len > 0
+                && len <= 10_000_000
+                && current_pos + 4 + len + 4 + self.frame_extra as u64 <= file_len
+            {
                 payload = vec![0u8; len as usize];
                 if self.reader.read_exact(&mut payload).is_ok() {
                     let mut crc_buf = [0u8; 4];
@@ -717,7 +1069,16 @@ impl WalReader {
                         let is_deser_ok = deserialize_res.is_ok();
 
                         if is_crc_valid && is_deser_ok {
-                            is_valid = true;
+                            // Consume the chained frame tail (prev_hash ‖
+                            // record_hash). The chain itself is validated by
+                            // `verify_wal_file`, never here: replay keeps its
+                            // CRC + deser fail-soft semantics (VER-01 design).
+                            if self.frame_extra > 0 {
+                                let mut chain_buf = [0u8; CHAIN_FRAME_EXTRA];
+                                is_valid = self.reader.read_exact(&mut chain_buf).is_ok();
+                            } else {
+                                is_valid = true;
+                            }
                         } else {
                             let prefix_len = std::cmp::min(16, payload.len());
                             tracing::warn!(
@@ -755,7 +1116,9 @@ impl WalReader {
                     "WalReader detected corrupt record. Scanning forward to recover next valid transaction..."
                 );
 
-                if let Some(found) = try_scan_forward(&mut self.reader, file_len, current_pos) {
+                if let Some(found) =
+                    try_scan_forward(&mut self.reader, file_len, current_pos, self.frame_extra)
+                {
                     self.reader.seek(SeekFrom::Start(found))?;
                 } else {
                     return Ok(None);
@@ -1319,7 +1682,9 @@ mod tests {
         }
 
         // 2. Inject 16 bytes of garbage mid-tail, then a valid 3rd record
-        //    after the garbage using raw framing (len+payload+crc).
+        //    after the garbage using raw framing (len+payload+crc+chain). The
+        //    64-byte chain tail (prev_hash ‖ record_hash) is irrelevant here —
+        //    scan-forward validates CRC + deser only, chain is `verify`'s job.
         let third = WalRecord::Insert(UnifiedNode::new(30));
         let payload = postcard::to_allocvec(&third).unwrap();
         let crc = crate::wal::compute_crc32c(&payload);
@@ -1331,6 +1696,8 @@ mod tests {
                 .unwrap();
             file.write_all(&payload).unwrap();
             file.write_all(&crc.to_le_bytes()).unwrap();
+            // VER-01: v3 frames carry prev_hash ‖ record_hash (64 bytes).
+            file.write_all(&[0u8; CHAIN_FRAME_EXTRA]).unwrap();
             file.sync_data().unwrap();
         }
 
@@ -1429,6 +1796,273 @@ mod tests {
                 .windows(b"second-corrupt-tail".len())
                 .any(|w| w == b"second-corrupt-tail"),
             "second backup should contain second tail"
+        );
+    }
+
+    // ─── VER-01: hash-chain framing + verification ─────────────────
+
+    /// (start, end) of every chained frame in a v3 WAL byte image.
+    fn chained_frame_bounds(bytes: &[u8]) -> Vec<(usize, usize)> {
+        let mut frames = Vec::new();
+        let mut off = WalHeader::SIZE;
+        while off + 8 + CHAIN_FRAME_EXTRA <= bytes.len() {
+            let len = u32::from_le_bytes(bytes[off..off + 4].try_into().unwrap()) as usize;
+            let end = off + 4 + len + 4 + CHAIN_FRAME_EXTRA;
+            if end > bytes.len() {
+                break;
+            }
+            frames.push((off, end));
+            off = end;
+        }
+        frames
+    }
+
+    /// Write `count` records into `path` (opening — or reopening — the WAL).
+    fn write_chain_wal(path: &Path, count: u128) {
+        let mut w = WalWriter::open(path, crate::config::SyncMode::Periodic).unwrap();
+        for i in 1..=count {
+            w.append(&WalRecord::Insert(UnifiedNode::new(i))).unwrap();
+        }
+        w.sync().unwrap();
+    }
+
+    #[test]
+    fn wal_chain_verify_clean_wal_is_verified() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("clean.wal");
+        write_chain_wal(&path, 3);
+
+        let report = verify_wal_file(&path).unwrap();
+        assert!(
+            matches!(report.status, WalVerifyStatus::Verified),
+            "clean chain must verify: {:?}",
+            report.status
+        );
+        assert_eq!(report.records, 3);
+        assert_eq!(report.format_version, WAL_FORMAT_VERSION);
+    }
+
+    #[test]
+    fn wal_chain_verify_detects_altered_record_with_valid_crc() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("altered.wal");
+        // Record 2 carries a string field so its payload can be altered in a
+        // way that stays postcard-decodable (content tamper, not garbage).
+        {
+            let mut w = WalWriter::open(&path, crate::config::SyncMode::Periodic).unwrap();
+            w.append(&WalRecord::Insert(UnifiedNode::new(1))).unwrap();
+            let mut node = UnifiedNode::new(2);
+            node.set_field("k", crate::node::FieldValue::String("AAAA".to_string()));
+            w.append(&WalRecord::Insert(node)).unwrap();
+            w.append(&WalRecord::Insert(UnifiedNode::new(3))).unwrap();
+            w.sync().unwrap();
+        }
+
+        let mut bytes = std::fs::read(&path).unwrap();
+        let frames = chained_frame_bounds(&bytes);
+        assert_eq!(frames.len(), 3);
+        let (start, _) = frames[1];
+        let len = u32::from_le_bytes(bytes[start..start + 4].try_into().unwrap()) as usize;
+        let payload_start = start + 4;
+        // Flip 'AAAA' → 'BAAA' inside record 2's payload: same length, valid
+        // UTF-8/postcard, so the frame stays fully decodable...
+        let marker = bytes[payload_start..payload_start + len]
+            .windows(4)
+            .position(|w| w == b"AAAA")
+            .expect("string field must be present in record 2 payload");
+        bytes[payload_start + marker] = b'B';
+        // ...and recompute its CRC32C so the frame is internally consistent.
+        let crc = compute_crc32c(&bytes[payload_start..payload_start + len]);
+        let crc_start = payload_start + len;
+        bytes[crc_start..crc_start + 4].copy_from_slice(&crc.to_le_bytes());
+        std::fs::write(&path, &bytes).unwrap();
+
+        // The CRC-recomputed, decodable content tamper is invisible to the
+        // replay reader (CRC + deser both pass — it replays tampered data)...
+        let mut r = WalReader::open(&path).unwrap();
+        let mut count = 0;
+        while r.next_record().unwrap().is_some() {
+            count += 1;
+        }
+        assert_eq!(
+            count, 3,
+            "CRC-recomputed content tamper still replays — CRC alone cannot catch it"
+        );
+
+        // ...but the chain catches it at the exact frame.
+        let report = verify_wal_file(&path).unwrap();
+        match &report.status {
+            WalVerifyStatus::Tampered {
+                offset,
+                record,
+                reason,
+            } => {
+                assert_eq!(
+                    *offset, frames[1].0 as u64,
+                    "tamper must be reported at record 2's offset"
+                );
+                assert_eq!(*record, 2);
+                assert!(reason.contains("altered"), "reason: {reason}");
+            }
+            other => panic!("expected Tampered, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn wal_chain_verify_detects_removed_record() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("removed.wal");
+        write_chain_wal(&path, 4);
+
+        let bytes = std::fs::read(&path).unwrap();
+        let frames = chained_frame_bounds(&bytes);
+        assert_eq!(frames.len(), 4);
+        // Extirpate record 2: record 3's prev_hash now points at a record that
+        // is no longer on disk.
+        let mut tampered = Vec::with_capacity(bytes.len());
+        tampered.extend_from_slice(&bytes[..frames[1].0]);
+        tampered.extend_from_slice(&bytes[frames[2].0..]);
+        std::fs::write(&path, &tampered).unwrap();
+
+        let report = verify_wal_file(&path).unwrap();
+        match &report.status {
+            WalVerifyStatus::Tampered {
+                offset,
+                record,
+                reason,
+            } => {
+                assert_eq!(*offset, frames[1].0 as u64);
+                assert_eq!(*record, 2);
+                assert!(reason.contains("link broken"), "reason: {reason}");
+            }
+            other => panic!("expected Tampered, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn wal_chain_continues_across_reopen() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("reopen.wal");
+        write_chain_wal(&path, 2);
+        // Reopen: the writer must resume the chain from the stored record_hash.
+        write_chain_wal(&path, 2);
+
+        let report = verify_wal_file(&path).unwrap();
+        assert!(
+            matches!(report.status, WalVerifyStatus::Verified),
+            "chain must continue across reopens: {:?}",
+            report.status
+        );
+        assert_eq!(report.records, 4);
+    }
+
+    #[test]
+    fn wal_chain_verify_reports_legacy_for_v2_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("legacy_v2.wal");
+        let mut bytes = WalHeader::new(2).serialize().to_vec();
+        for i in 1..=2u128 {
+            let payload = postcard::to_allocvec(&WalRecord::Insert(UnifiedNode::new(i))).unwrap();
+            bytes.extend_from_slice(&(payload.len() as u32).to_le_bytes());
+            bytes.extend_from_slice(&payload);
+            bytes.extend_from_slice(&compute_crc32c(&payload).to_le_bytes());
+        }
+        std::fs::write(&path, &bytes).unwrap();
+
+        // Compat (C4): the v3 reader still replays the legacy file.
+        let mut r = WalReader::open(&path).unwrap();
+        let mut count = 0;
+        while r.next_record().unwrap().is_some() {
+            count += 1;
+        }
+        assert_eq!(count, 2, "v3 reader must read pre-chain (v2) files");
+
+        let report = verify_wal_file(&path).unwrap();
+        assert!(
+            matches!(report.status, WalVerifyStatus::Legacy),
+            "pre-chain file reports as legacy, never as tampered: {:?}",
+            report.status
+        );
+        assert_eq!(report.records, 2);
+    }
+
+    #[test]
+    fn wal_writer_keeps_legacy_framing_on_v2_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("legacy_append.wal");
+        // Seed a v2 file with one legacy record.
+        let mut bytes = WalHeader::new(2).serialize().to_vec();
+        let payload = postcard::to_allocvec(&WalRecord::Insert(UnifiedNode::new(1))).unwrap();
+        bytes.extend_from_slice(&(payload.len() as u32).to_le_bytes());
+        bytes.extend_from_slice(&payload);
+        bytes.extend_from_slice(&compute_crc32c(&payload).to_le_bytes());
+        std::fs::write(&path, &bytes).unwrap();
+
+        // Appending to an existing legacy file keeps its (legacy) framing —
+        // migration happens via rotation/compaction, never in place.
+        {
+            let mut w = WalWriter::open(&path, crate::config::SyncMode::Periodic).unwrap();
+            w.append(&WalRecord::Insert(UnifiedNode::new(2))).unwrap();
+            w.sync().unwrap();
+        }
+        let bytes = std::fs::read(&path).unwrap();
+        assert_eq!(
+            u16::from_le_bytes([bytes[4], bytes[5]]),
+            2,
+            "existing file keeps its format version (no in-place upgrade)"
+        );
+        let mut r = WalReader::open(&path).unwrap();
+        let mut count = 0;
+        while r.next_record().unwrap().is_some() {
+            count += 1;
+        }
+        assert_eq!(count, 2, "legacy framing append must replay");
+    }
+
+    #[test]
+    fn wal_chain_verify_reports_incomplete_tail_not_tamper() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("torn.wal");
+        write_chain_wal(&path, 2);
+        {
+            let mut f = OpenOptions::new().append(true).open(&path).unwrap();
+            f.write_all(&[0xAB; 5]).unwrap();
+            f.sync_data().unwrap();
+        }
+
+        let report = verify_wal_file(&path).unwrap();
+        assert!(
+            matches!(report.status, WalVerifyStatus::IncompleteTail { .. }),
+            "a torn crash tail is not tamper: {:?}",
+            report.status
+        );
+        assert!(report.status.is_ok());
+    }
+
+    #[test]
+    fn wal_chain_verify_boundary_truncation_is_documented_limit() {
+        // Truncating at a clean record boundary deletes records without any
+        // in-file trace — undetectable without an external anchor (documented
+        // limit of the chain; signature/attestation is a v1.0 follow-up). This
+        // test pins that semantics on purpose so nobody mistakes it for a gap.
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("truncated.wal");
+        write_chain_wal(&path, 3);
+        let bytes = std::fs::read(&path).unwrap();
+        let frames = chained_frame_bounds(&bytes);
+
+        OpenOptions::new()
+            .write(true)
+            .open(&path)
+            .unwrap()
+            .set_len(frames[1].1 as u64)
+            .unwrap();
+
+        let report = verify_wal_file(&path).unwrap();
+        assert!(matches!(report.status, WalVerifyStatus::Verified));
+        assert_eq!(
+            report.records, 2,
+            "clean-boundary tail truncation is undetectable (documented limit)"
         );
     }
 }

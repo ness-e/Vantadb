@@ -1,3 +1,9 @@
+---
+title: "Task FIND-117 — TUI REPL abre mutantes (mismo bug FIND-101, fix distinto)"
+kind: task
+description: "Objetivo: el TUI REPL (src/tui/repl.rs:99-100) ejecuta IQL vía self.engine long-lived"
+---
+
 # Task FIND-117 — TUI REPL abre mutantes (mismo bug FIND-101, fix distinto)
 
 > **Plan:** `docs/dev/plans/2026-09-18-cierre-mvp.md` (Task 8, Wave2 segunda en secuencia)

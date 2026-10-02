@@ -1,3 +1,9 @@
+---
+title: MKT-16 — Save Point (2026-08-05)
+kind: task
+description: "Task: MKT-16 — convertir claim \"40-60% Token Reduction\" de GraphRAG en número de run reproducible, o dejarlo explícito como pendiente"
+---
+
 # MKT-16 — Save Point (2026-08-05)
 
 **Task:** MKT-16 — convertir claim "40-60% Token Reduction" de GraphRAG en número de run reproducible, o dejarlo explícito como pendiente.

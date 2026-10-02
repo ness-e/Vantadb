@@ -1,3 +1,9 @@
+---
+title: SDKB-01 — Mapa namespace ↔ método + diseño de sub-clientes
+kind: task
+description: Tablas por SDK (método→dominio exactamente uno) + diseño sub-clientes v1
+---
+
 # SDKB-01 — Mapa namespace ↔ método + diseño de sub-clientes
 
 > Plan: `docs/dev/plans/2026-08-22-vantadb-bindings-sdk.md` (Task 1)

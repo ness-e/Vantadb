@@ -1,3 +1,9 @@
+---
+title: "FIND-109 — `vanta-cli wal salvage` + error tipado en MCP"
+kind: task
+description: "Objetivo activo: FIND-109 — wal salvage + MCP error tipado"
+---
+
 # FIND-109 — `vanta-cli wal salvage` + error tipado en MCP
 
 ## Metadata
@@ -69,7 +75,7 @@
 - **NextTask tras cierre:** FIND-110 (la ejecuta el orquestador, no yo).
 
 ## 4. REFERENCIAS (lectura completa antes de codificar — Paso 0c)
-- **Rules:** `.opencode/rules/durability.md` (scope wal/storage, ADR-023 backend, INV-012 anti-localidad) + `.opencode/rules/core-engine.md` (R-1 feature-gating, R-2 no exportar sin callers, R-3 `?` sin unwrap, R-4 `// SAFETY:`, R-5 `VANTADB_*`) — ambas leídas completas.
+- **Rules:** `.opencode/rules/durability.md` (scope wal/storage, ADR-0023 backend, INV-012 anti-localidad) + `.opencode/rules/core-engine.md` (R-1 feature-gating, R-2 no exportar sin callers, R-3 `?` sin unwrap, R-4 `// SAFETY:`, R-5 `VANTADB_*`) — ambas leídas completas.
 - **Refs:** `definition-of-done.md` (standing checklist + DoD VantaDB + capa determinista + ratchet v1 + progreso A-G), `clean-code-clean-architecture.md` Ap. V (mapa capas: Entidades `src/node/` / Casos uso `src/engine.rs,sdk/` / Adaptadores `src/storage/,server/` / Drivers `vantadb-python/,vantadb-server/` Humble Objects; severidades 🔴/🟡/🟢; stuttering), `dev-tools.md` + `test-suite.md` (vía `cargo nextest -j 2`, `verify.ps1`), `skills-engineering.md` (SDP).
 - **Commands:** `pipeline.md`, `audit.md`. **SPEC.md raíz** como contexto.
 - **Tabla Spec (una fila por símbolo público nuevo):** ver § Spec abajo (`WalCommand::Salvage`, `cmd_wal_salvage`, decisión error MCP tipado).

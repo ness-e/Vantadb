@@ -1,3 +1,8 @@
+---
+title: D5b — distance_metric/method desconocidos → ValueError en vantadb-python
+kind: task
+---
+
 # D5b — distance_metric/method desconocidos → ValueError en vantadb-python
 
 ## 1. Descubrimiento (auto-detect tipo → codegraph blast radius → web si ambigüedad → baseline `/cleanCA <scope>`)

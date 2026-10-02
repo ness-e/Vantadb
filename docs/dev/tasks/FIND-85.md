@@ -1,3 +1,9 @@
+---
+title: "FIND-85 — matriz wheels + firma `put_batch_raw`"
+kind: task
+description: Matriz 3.12/3.14 añadidas en release-wheels-60.yml (o classifiers recortados en pyproject)
+---
+
 # FIND-85 — matriz wheels + firma `put_batch_raw`
 
 > Plan: `docs/dev/plans/2026-09-15-find-correcciones.md` (Task 23, Wave7) · Appetite 1d · 🟡 · Ruta vanta-lead (CI) + worker

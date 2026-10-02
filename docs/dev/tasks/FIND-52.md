@@ -1,3 +1,9 @@
+---
+title: "FIND-52: Regresión runtime wasm32 (panics std::time/thread::sleep) + deuda ICE release + pkg stale"
+kind: task
+description: "vitest 278/278 (o documentado residual con evidencia backtrace) AND rg confirmatorio rg -n \"std::time::(Instant|SystemTime)::now|std::thread::sleep\" src/storage src/index src/lsm.rs src/ingestion.rs 0 hits (o solo cfg(test)/cfg-not-wasm..."
+---
+
 # FIND-52: Regresión runtime wasm32 (panics std::time/thread::sleep) + deuda ICE release + pkg stale
 
 ## Metadata

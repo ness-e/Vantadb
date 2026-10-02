@@ -1,3 +1,9 @@
+---
+title: "DESKTOP-36: Bridge Tauri vanta-memory — exponer scene/persona/skill/genlog read-only"
+kind: task
+description: "Callers: desktop/src/components/memory/ (nuevos), desktop/src/vanta.ts"
+---
+
 # DESKTOP-36: Bridge Tauri vanta-memory — exponer scene/persona/skill/genlog read-only
 
 ## Metadata

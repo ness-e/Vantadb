@@ -1,10 +1,9 @@
 ---
-title: "Embedding Integrations — BYO-Vector + embed-local"
-type: tutorial
+title: Embedding Integrations — BYO-Vector + embed-local
+kind: tutorial
 status: active
+description: "VantaDB does not embed text for you by default. This is intentional (BYO-vector): you control the embedding model, dimension, and lifecycle. Bring your own vector=[...] on put() and queryvector on search()"
 tags: [vantadb, tutorial, embeddings, embed-local, byo-vector]
-last_reviewed: 2026-08-28
-aliases: []
 ---
 
 # Embedding Integrations — BYO-Vector + `embed-local`

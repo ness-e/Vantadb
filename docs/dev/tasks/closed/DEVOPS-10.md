@@ -1,3 +1,9 @@
+---
+title: DEVOPS-10 — Agregar Windows code signing al release pipeline
+kind: task
+description: CI/CD / DevOps → vanta-lead (yo mismo)
+---
+
 # DEVOPS-10 — Agregar Windows code signing al release pipeline
 
 ## Tipo

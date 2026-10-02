@@ -1,12 +1,11 @@
 ---
 title: "Benchmark Framework Evaluation — `divan` vs `criterion` (2026-08-30)"
-type: research
+kind: research
 status: active
+description: divan 0.1.21 is NOT introduced into the VantaDB workspace. criterion 0.8 already covers
 tags: [vantadb, research, benchmarks, criterion]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
+
 # Benchmark Framework Evaluation — `divan` vs `criterion` (2026-08-30)
 
 > **Document type:** Research note / mini-ADR (not a full ADR — no formal template needed because

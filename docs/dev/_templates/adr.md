@@ -1,10 +1,10 @@
 ---
 title: "ADR-XXX: {{title}}"
-type: adr
+kind: research
 status: proposed
+description: "Explain the context, background, and the problem we are trying to solve"
 tags: [vantadb, architecture, adr]
-created: {{date}}
-last_reviewed: {{date}}
+created: "{{date}}"
 ---
 
 # ADR-XXX: {{title}}

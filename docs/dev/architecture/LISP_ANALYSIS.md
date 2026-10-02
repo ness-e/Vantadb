@@ -1,11 +1,13 @@
 ---
-title: "LISP Experimental Analysis — Features to Recover"
-type: architecture
+title: LISP Experimental Analysis — Features to Recover
+kind: concept
 status: draft
-tags: [vantadb, architecture, query-language, lisp, experimental]
-links: "[[EXPERIMENTAL_GOVERNANCE_DESIGN]], [[Backlog]]"
-last_reviewed: 2026-07-21
+description: The experimental LISP DSL had fundamental architectural problems
 aliases: [lisp-analysis]
+tags: [vantadb, architecture, query-language, lisp, experimental]
+type: architecture
+links: "[[EXPERIMENTAL_GOVERNANCE_DESIGN]], [Backlog](../Backlog.md)"
+last_reviewed: "2026-07-21"
 ---
 
 # LISP Experimental Analysis
@@ -121,6 +123,6 @@ Implementing recursive LISP in the Rust engine was the wrong architecture. Push 
 
 ## See Also
 
-- [[EXPERIMENTAL_GOVERNANCE_DESIGN]] — Governance was the companion system to LISP
-- [[Backlog]] — GOV-01 governance redesign, Phase 5 IQL enhancements
-- [[docs/dev/strategy/ROADMAP.md]] — Query Language decision deferred to Phase 5
+- [EXPERIMENTAL_GOVERNANCE_DESIGN](./EXPERIMENTAL_GOVERNANCE_DESIGN.md) — Governance was the companion system to LISP
+- [Backlog](../Backlog.md) — GOV-01 governance redesign, Phase 5 IQL enhancements
+- [ROADMAP.md](../strategy/ROADMAP.md) — Query Language decision deferred to Phase 5

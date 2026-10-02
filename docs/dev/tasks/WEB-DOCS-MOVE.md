@@ -1,3 +1,9 @@
+---
+title: WEB-DOCS-MOVE — Mover docs históricas web a Vantadb-web + reescribir refs vivas
+kind: task
+description: "definition-of-done.md, SPEC.md (contexto), gate-docs.yml, check-avance-coverage.ps1,"
+---
+
 # WEB-DOCS-MOVE — Mover docs históricas web a Vantadb-web + reescribir refs vivas
 
 > **Plan:** `docs/dev/plans/2026-09-20-estabilizacion-total.md` Fase 2 (decisión owner 2026-09-22)

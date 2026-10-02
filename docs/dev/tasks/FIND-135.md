@@ -1,3 +1,9 @@
+---
+title: "FIND-135 — `timeout-minutes` a todos los jobs sin límite"
+kind: task
+description: ".github/workflows/ci-gate.yml (58L), .github/workflows/ocr-delegate.yml (71L),"
+---
+
 # FIND-135 — `timeout-minutes` a todos los jobs sin límite
 
 > **Plan:** `docs/dev/plans/2026-09-21-workflows-repair.md` (Wave 0, paralelo disjunto con FIND-134/136)

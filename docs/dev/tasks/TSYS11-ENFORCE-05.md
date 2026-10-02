@@ -1,3 +1,9 @@
+---
+title: "TSYS11-ENFORCE-05 — Alinear 9 permission: blocks a tabla canónica AGENTS.md"
+kind: task
+description: "# TSYS11: en la misma línea (dominio/read-only/research) porque el schema"
+---
+
 # TSYS11-ENFORCE-05 — Alinear 9 permission: blocks a tabla canónica AGENTS.md
 
 > Campaign: TSYS-11 (policy objetivo: ningún sub-agente escala a tools del lead)

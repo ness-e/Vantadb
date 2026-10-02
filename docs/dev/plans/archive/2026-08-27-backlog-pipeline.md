@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Backlog Pipeline — Quick Wins críticos (2026-08-27)"
+kind: plan
+status: archived
+description: "Status: ⬆️ uphill = 2 · ⬇️ downhill = 18 steps (resuelto) — WSM-01 decisión throw vs fallback y STABLE-00 umbral <5 vs Heavy resueltos vía ADR"
+---
+
 # Plan de Ejecución: Backlog Pipeline — Quick Wins críticos (2026-08-27)
 
 > **Inicio:** 2026-08-27
@@ -96,11 +103,11 @@ Status: ⬆️ uphill = 2 · ⬇️ downhill = 18 steps (resuelto) — WSM-01 de
 - **Archivos clave:** `Cargo.toml:636` · `docs/dev/operations/CI_POLICY.md` · `docs/dev/architecture/adr/` · `dev-tools/verify.ps1`
 - **Verificación real:** ✅ CÓDIGO-REAL — `default-members = [".","vantadb-python"]` deja server/mcp/wasm fuera, P47 sin ADR
 - **Gate Result:** ✅ DO
-- **Contrato:** `Test-Path ADR-031` True + `Select-String \| [0-9]` 10 rows + `Question to Owner` hit + `grep ADR-031 CI_POLICY` 4 hits + `fmt`/`clippy`/`docs` 0 gaps
+- **Contrato:** `Test-Path ADR-0031` True + `Select-String \| [0-9]` 10 rows + `Question to Owner` hit + `grep ADR-0031 CI_POLICY` 4 hits + `fmt`/`clippy`/`docs` 0 gaps
 - **Task file:** `.opencode/skills/campaign-executor/tasks/STABLE-00.md`
 - **Estado:** ✅ COMPLETED
-- **Commit:** `fa5f04f0` `docs: STABLE-00 ADR-031 default-members promotion DoD`
-- **Verification:** `ADR-031` 205L ✅ · `CI_POLICY` 4 hits ADR-031 + 6 hits default-members ✅ · `fmt` ✅ · `clippy` ✅ · `docs` 0 gaps ✅
+- **Commit:** `fa5f04f0` `docs: STABLE-00 ADR-0031 default-members promotion DoD`
+- **Verification:** `ADR-0031` 205L ✅ · `CI_POLICY` 4 hits ADR-0031 + 6 hits default-members ✅ · `fmt` ✅ · `clippy` ✅ · `docs` 0 gaps ✅
 - **Cynefin:** ⬆️ uphill 1 (umbral <5 vs Heavy) — registrado pending en ADR §4 `Owner:___ Choice:[ ]A [ ]B`
 
 ---

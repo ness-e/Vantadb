@@ -1,3 +1,9 @@
+---
+title: "SKL-01: Corregir y modernizar `skills/vantadb/SKILL.md`"
+kind: task
+description: "skills/vantadb/SKILL.md sin claims falsos ni paths muertos: (1) versiones 0.5.0 / Rust 1.94.1 / Python ≥3.11; (2) rg \"0.1.4|1.70|3\.8\+|docs/BENCHMARKS|docs/adr|packages/langchain|langchainrag\" skills/vantadb/SKILL.md → 0 matches; (3..."
+---
+
 # SKL-01: Corregir y modernizar `skills/vantadb/SKILL.md`
 
 ## Metadata

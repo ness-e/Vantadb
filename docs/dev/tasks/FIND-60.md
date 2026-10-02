@@ -1,3 +1,8 @@
+---
+title: FIND-60 — 49 warnings rustdoc a cero
+kind: task
+---
+
 # FIND-60 — 49 warnings rustdoc a cero
 
 - **Estado:** ⏳ IN PROGRESS

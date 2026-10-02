@@ -1,3 +1,9 @@
+---
+title: "DESKTOP-25: CI GitHub Actions (desktop) — Build Windows, test, artefacto instalador"
+kind: task
+description: "Callers: .github/workflows/desktop.yml (nuevo)"
+---
+
 # DESKTOP-25: CI GitHub Actions (desktop) — Build Windows, test, artefacto instalador
 
 ## Metadata

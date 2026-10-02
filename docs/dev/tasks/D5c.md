@@ -1,3 +1,8 @@
+---
+title: D5c — Clampar limit/top_k a MAX_K en handlers HTTP
+kind: task
+---
+
 # D5c — Clampar limit/top_k a MAX_K en handlers HTTP
 
 ## 1. Descubrimiento (auto-detect tipo → codegraph blast radius → web si ambigüedad → baseline `/cleanCA <scope>`)

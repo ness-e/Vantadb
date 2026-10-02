@@ -1,3 +1,9 @@
+---
+title: "MCP-30 — Scenes API vía MCP: `scene_read`/`scene_list`/`scene_query`"
+kind: task
+description: "Estado: ✅ COMPLETED · Wave: 3 (MCP, serial) · Appetite: max 4h · Esfuerzo: 🟢"
+---
+
 # MCP-30 — Scenes API vía MCP: `scene_read`/`scene_list`/`scene_query`
 
 **Estado:** ✅ COMPLETED · **Wave:** 3 (MCP, serial) · **Appetite:** max 4h · **Esfuerzo:** 🟢

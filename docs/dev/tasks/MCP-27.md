@@ -1,3 +1,9 @@
+---
+title: "Task MCP-27 — BUG integración: query_iql devuelve 0 filas sobre datos de memory_put"
+kind: task
+description: "Fuente de verdad: docs/dev/Backlog.md → fase P25 - Exposición MCP/HTTP → fila MCP-27 (leer ANTES de ejecutar: problema, acciones numeradas, archivos exactos)"
+---
+
 # Task MCP-27 — BUG integración: query_iql devuelve 0 filas sobre datos de memory_put
 
 **Fuente de verdad:** `docs/dev/Backlog.md` → fase **P25 - Exposición MCP/HTTP** → fila `MCP-27` (leer ANTES de ejecutar: problema, acciones numeradas, archivos exactos).

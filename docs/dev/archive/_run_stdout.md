@@ -1,11 +1,9 @@
 ---
-title: "Run Stdout Log"
-type: plan
+title: Run Stdout Log
+kind: research
 status: archived
+description: "[2026-08-12T16:45:55Z WARN lance::dataset::write::insert] No existing dataset at C:\Users\Eros\VantaDB Proyect\VantaDB\benchmarks\competitivedata\lancedb\vectors.lance, it will be created"
 tags: [vantadb, archive, run-stdout, bench-log]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 [2026-08-12T16:45:55Z WARN  lance::dataset::write::insert] No existing dataset at C:\Users\Eros\VantaDB Proyect\VantaDB\benchmarks\competitive_data\lance_db\vectors.lance, it will be created

@@ -1,3 +1,8 @@
+---
+title: "FIND-145 — Verificar CodeQL verde post-#202 en `main`"
+kind: task
+---
+
 # FIND-145 — Verificar CodeQL verde post-#202 en `main`
 
 - **Plan:** `docs/dev/plans/2026-09-21-workflows-repair.md` (Wave 4)

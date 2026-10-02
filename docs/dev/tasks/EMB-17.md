@@ -1,3 +1,9 @@
+---
+title: "EMB-17 — parámetro `model` honrado (switch por nombre, Q2)"
+kind: task
+description: "Objetivo: embedtexts con model: \"<id del manifest>\" usa ESE modelo (switch por nombre, Q2 owner). Hoy el parámetro es público pero ignorado en silencio (model en tools.rs:3295, ecoreo sin selección en :2661-2666 verificado 2026-09-16..."
+---
+
 # EMB-17 — parámetro `model` honrado (switch por nombre, Q2)
 
 > **Plan:** `docs/dev/plans/2026-09-16-embeddings-auto.md` (Wave4, tras EMB-15 ✅ `9f4fd725`; paralela EMB-15 ya cerró, secuencial interno si colisionan)

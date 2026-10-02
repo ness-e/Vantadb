@@ -1,5 +1,13 @@
+---
+title: "🏛️ VantaDB — Arquitectura, Modelo de Datos, Competencia y Oportunidades de Producto"
+kind: concept
+description: "Intentaste entregarme tu investigación de Notion (VantaDB-Docs-Unificado.md, el ZIP de export y los 5 análisis .md) 5 veces. Verifiqué con monitoreo en vivo, búsqueda en todo el filesystem y diagnóstico de los montajes FUSE/ossfs del..."
+---
+
 # 🏛️ VantaDB — Arquitectura, Modelo de Datos, Competencia y Oportunidades de Producto
 
+> **[Verificación externa 2026-09-25 — banner añadido 2026-09-30]:** informe externo verificado contra HEAD (~20 claims con evidencia file:line); casi todo catalogado (P49–P57, API-05, WIRE-09/10, DEF-06, FIND-98); hallazgos vivos → `SCH-09`, `WIRE-11`, `P58`. **No re-proponer** — ver `docs/dev/Backlog.md` §"Nuevo 2026-09-25".
+>
 > **Complemento de:** `VantaDB-Informe-Analisis-Completo.md` (análisis módulo a módulo de las 2 sesiones previas — 12 hallazgos críticos verificados, veredicto global 7.3/10, preparación de lanzamiento 4/10)
 > **Método de esta fase:** 6 agentes de análisis en paralelo — arquitectura/patrones (4-h), modelo de datos (4-i), investigación web de 17 sistemas de memoria para agentes (4-j), investigación web de 10 BDs multi-modelo (4-k) — más verificación cruzada contra el worklog consolidado (Tasks 1, 2-a..2-e, 4-a..4-g).
 > **Base:** repo clonado `develop` en `/home/z/vantadb` (~214,646 LOC Rust + 32,530 TS + 18,273 Python + 237K LOC docs), v0.6.1.
@@ -66,7 +74,7 @@ Intentaste entregarme tu investigación de Notion (`VantaDB-Docs-Unificado.md`, 
 **Veredicto del grafo:** acíclico, sin inversión (todo apunta DOWN al core). Cuatro grietas:
 1. **proxy y MCP saltan la fachada `sdk`** — importan `StorageEngine`/`Executor`/`EntityStore` directos (`vanta-proxy/src/server.rs:15`, `auth.rs:12-14`; `vantadb-mcp/src/server.rs:20-21`). Dos crates de producto acoplados a internals del engine: cualquier cambio de `StorageEngine` rompe ambos.
 2. **Feature-coupling**: `server = ["cli", ...]` arrastra clap/indicatif/anyhow al binario HTTP (`Cargo.toml:179-187`); el proxy compila el core SIN fjall (`default-features=false`) → un build aislado `-p vanta-proxy` produce un backend InMemory silencioso.
-3. `default-members` excluye proxy/wasm (ADR-031) → CI desatendido por diseño.
+3. `default-members` excluye proxy/wasm (ADR-0031) → CI desatendido por diseño.
 4. `vantadb-node` fuera del workspace (razón válida MSVC) pero congela su versión en 0.5.0 y bloquea compartir código FFI.
 
 ### 2.2 Estilo arquitectónico: hexagonal pragmático con constitución escrita
@@ -124,7 +132,7 @@ El pegamento que falta (todos verificados con grep de callers):
 ### 2.5 Concurrencia y async
 
 - **Dominio 100% sync** (parking_lot, cero tokio en el core); tokio confinado a server/proxy/MCP; GIL/bloqueo manejado en la frontera (52 `py.detach`, `spawn_blocking`+OpGate en node). Composición correcta.
-- **Techo de escritura concentrado y documentado**: `insert_lock` global FairMutex (`insert.rs:208,588`) + `supersede_lock` global SDK (`builder.rs:25`). ADR-037 existe pero no aplicado. (Es la causa de los 74 rec/s vs 1,016 prototipados con batching — 9.1×.)
+- **Techo de escritura concentrado y documentado**: `insert_lock` global FairMutex (`insert.rs:208,588`) + `supersede_lock` global SDK (`builder.rs:25`). ADR-0037 existe pero no aplicado. (Es la causa de los 74 rec/s vs 1,016 prototipados con batching — 9.1×.)
 - OpGate: mismo concepto (Mutex+Condvar, drain-on-close) adaptado a 3 runtimes — ya divergen en el caso wasm32 no-threads.
 
 ### 2.6 Arquitectura de errores, versionado y DTOs
@@ -196,7 +204,7 @@ El pegamento que falta (todos verificados con grep de callers):
 
 ### 3.4 Semántica temporal
 
-**No bi-temporal** — un solo reloj (ingesta). TTL real end-to-end (lazy en lectura + `purge_expired`); `version_history` por put; supersession durable con `exclude_superseded`; vanta-memory añade trail de merges + **heat** (bump en lectura, decae por pase) + `mark_contradiction` — **pero sin job productivo que decaiga/pode**, y dream-promote es stub. ADR-028 rechazó explícitamente el decaimiento automático en core.
+**No bi-temporal** — un solo reloj (ingesta). TTL real end-to-end (lazy en lectura + `purge_expired`); `version_history` por put; supersession durable con `exclude_superseded`; vanta-memory añade trail de merges + **heat** (bump en lectura, decae por pase) + `mark_contradiction` — **pero sin job productivo que decaiga/pode**, y dream-promote es stub. ADR-0028 rechazó explícitamente el decaimiento automático en core.
 
 ### 3.5 Veredicto del modelo de datos
 

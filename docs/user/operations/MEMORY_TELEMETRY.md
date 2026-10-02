@@ -1,10 +1,10 @@
 ---
-title: "Memory Telemetry — Schema and Validation"
-type: operations
+title: Memory Telemetry — Schema and Validation
+kind: runbook
 status: active
-tags: [vantadb, operations, telemetry, memory]
-last_reviewed: 2026-07-30
+description: This document defines the VantaDB memory observability contract. It inventories
 aliases: [memory_telemetry]
+tags: [vantadb, operations, telemetry, memory]
 ---
 
 # Memory Telemetry — Schema and Validation

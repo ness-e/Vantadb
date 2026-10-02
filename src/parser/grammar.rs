@@ -16,9 +16,10 @@ use nom::{
 };
 
 use super::lexer::{
-    ident, non_keyword_ident, parse_literal_field_value, parse_number, parse_u128_id,
+    ident, non_keyword_ident, parse_literal_field_value, parse_number, parse_u128_id, parse_u64_id,
     parse_vector_lit, string_literal, ws, RESERVED_KEYWORDS,
 };
+use super::{iql_supports, IQL_VERSION_MIN_AS_OF, IQL_VERSION_MIN_PROFILE};
 use crate::node::FieldValue;
 use crate::query::*;
 use crate::search_profile::{SearchProfileConfig, SearchProfileMode};
@@ -30,7 +31,9 @@ pub(crate) fn parse_traversal(i: &str) -> IResult<&str, Traversal> {
     let (i, max_depth) = ws(parse_number)(i)?;
     let (i, edge_label) = ws(string_literal)(i)?;
     let (i, target_type) = opt(tuple((ws(tag("TYPE")), ws(ident))))(i)?;
-    let (i, alias) = opt(tuple((ws(tag("AS")), ws(ident))))(i)?;
+    // `AS <alias>` uses the non-keyword ident so a following `AS OF <ts>`
+    // clause is never swallowed as an alias (SCH-03).
+    let (i, alias) = opt(tuple((ws(tag("AS")), ws(non_keyword_ident))))(i)?;
 
     Ok((
         i,
@@ -45,13 +48,16 @@ pub(crate) fn parse_traversal(i: &str) -> IResult<&str, Traversal> {
 }
 
 pub(crate) fn parse_rel_op(i: &str) -> IResult<&str, RelOp> {
+    // Longest match first: `==` must be tried before `=` (otherwise the second
+    // `=` is left dangling and the whole condition fails to parse).
     alt((
-        map(tag("="), |_| RelOp::Eq),
+        map(tag("=="), |_| RelOp::Eq),
         map(tag("!="), |_| RelOp::Neq),
         map(tag(">="), |_| RelOp::Gte),
-        map(tag(">"), |_| RelOp::Gt),
         map(tag("<="), |_| RelOp::Lte),
+        map(tag(">"), |_| RelOp::Gt),
         map(tag("<"), |_| RelOp::Lt),
+        map(tag("="), |_| RelOp::Eq),
     ))(i)
 }
 
@@ -77,14 +83,56 @@ pub(crate) fn parse_condition(i: &str) -> IResult<&str, Condition> {
         ),
         // Relational Query: p.pais = "VZLA", or numeric p.edad > 18, or
         // p.activo = true / p.campo = null. Reuse parse_literal_field_value so the
-        // RHS is typed: bare numbers parse as Float (matching the storage
-        // convention, so the evaluator's Float/Float branch gives numeric
-        // ordering), while quoted strings stay String for backward compatibility.
+        // RHS is typed: bare integers parse as Int (i64, exact) and decimals as
+        // Float, so the evaluator's same-variant branches give numeric ordering;
+        // quoted strings stay String for backward compatibility.
         map(
             tuple((ws(ident), ws(parse_rel_op), ws(parse_literal_field_value))),
             |(field, op, val)| Condition::Relational(field, op, val),
         ),
     ))(i)
+}
+
+/// Parse the optional `AS OF <unix-ms>` valid-time clause (SCH-03,
+/// ADR-046 §D3), version-gated by [`IQL_VERSION_MIN_AS_OF`].
+///
+/// Strictness: when the keyword pair is consumed the timestamp is required —
+/// a malformed clause is a parse error, never a silent filter drop. Accepted
+/// in two canonical positions (right after the table spec and after the last
+/// optional clause) so both `FROM x AS OF t WHERE ...` and
+/// `FROM x WHERE ... AS OF t` work.
+fn parse_as_of_clause(i: &str) -> IResult<&str, Option<u64>> {
+    if !iql_supports(IQL_VERSION_MIN_AS_OF) {
+        return Ok((i, None));
+    }
+    let (i, keyword) = opt(tuple((ws(tag("AS")), ws(tag("OF")))))(i)?;
+    if keyword.is_none() {
+        return Ok((i, None));
+    }
+    let (i, ts) = ws(parse_u64_id)(i)?;
+    Ok((i, Some(ts)))
+}
+
+/// Merge the two `AS OF` parse positions (early — right after the table spec —
+/// and late — after the last optional clause) into the final clause value,
+/// rejecting a **duplicated** clause: keeping the first and silently dropping
+/// the second would misreport the query's time scope (SCH-03 review
+/// Optional-2). The failure input points at the duplicate clause so the
+/// reported line/col is where the user must look; `Executor::execute_hybrid`
+/// maps this `Failure(Verify)` at an `AS OF` position to a stable message
+/// (`iql_parse_error_message`).
+fn merge_as_of_clauses(
+    early: Option<u64>,
+    late: Option<u64>,
+    late_input: &str,
+) -> Result<Option<u64>, nom::Err<nom::error::Error<&str>>> {
+    if early.is_some() && late.is_some() {
+        return Err(nom::Err::Failure(nom::error::Error::new(
+            late_input,
+            nom::error::ErrorKind::Verify,
+        )));
+    }
+    Ok(early.or(late))
 }
 
 /// Parse a `FROM`/`MATCH` query statement.
@@ -96,6 +144,8 @@ pub fn parse_query(i: &str) -> IResult<&str, Query> {
 
     let (i, target_alias) = opt(ws(non_keyword_ident))(i)?;
     let target_alias = target_alias.unwrap_or_else(|| "target".to_string());
+
+    let (i, as_of_early) = parse_as_of_clause(i)?;
 
     let (i, where_clause) = opt(tuple((
         ws(tag("WHERE")),
@@ -113,12 +163,20 @@ pub fn parse_query(i: &str) -> IResult<&str, Query> {
 
     let (i, owner_role) = opt(tuple((ws(tag("ROLE")), ws(string_literal))))(i)?;
 
-    let (i, search_profile) = opt(tuple((
-        ws(tag("PROFILE")),
-        ws(parse_profile_mode),
-        opt(tuple((ws(tag("rrf_k")), ws(parse_number)))),
-        opt(tuple((ws(tag("candidate_k")), ws(parse_number)))),
-    )))(i)?;
+    let (i, search_profile) = if iql_supports(IQL_VERSION_MIN_PROFILE) {
+        opt(tuple((
+            ws(tag("PROFILE")),
+            ws(parse_profile_mode),
+            opt(tuple((ws(tag("rrf_k")), ws(parse_number)))),
+            opt(tuple((ws(tag("candidate_k")), ws(parse_number)))),
+        )))(i)?
+    } else {
+        (i, None)
+    };
+
+    let as_of_late_start = i;
+    let (i, as_of_late) = parse_as_of_clause(i)?;
+    let as_of_ms = merge_as_of_clauses(as_of_early, as_of_late, as_of_late_start)?;
 
     Ok((
         i,
@@ -139,6 +197,7 @@ pub fn parse_query(i: &str) -> IResult<&str, Query> {
                 rrf_k: rrf.map(|(_, n)| n as usize),
                 candidate_k: cand.map(|(_, n)| n as usize),
             }),
+            as_of_ms,
         },
     ))
 }
@@ -314,6 +373,14 @@ pub(crate) fn parse_subquery_condition_inner(i: &str) -> IResult<&str, SubqueryC
     let (i, op) = ws(parse_rel_op)(i)?;
     let (i, _) = ws(tag("("))(i)?;
     let (i, subquery) = parse_select(i)?;
+    // `AS OF` inside a subquery would be silently dropped (sub-plans carry no
+    // valid-time filter) — fail fast instead (SCH-03).
+    if subquery.as_of_ms.is_some() {
+        return Err(nom::Err::Failure(nom::error::Error::new(
+            i,
+            nom::error::ErrorKind::Verify,
+        )));
+    }
     let (i, _) = ws(tag(")"))(i)?;
     Ok((
         i,
@@ -328,9 +395,14 @@ pub(crate) fn parse_subquery_condition_inner(i: &str) -> IResult<&str, SubqueryC
 /// Parse a single WHERE item — either a regular condition or a subquery condition.
 pub(crate) fn parse_where_item(i: &str) -> IResult<&str, WhereItem> {
     // Peek ahead: if after field + op we see '(', it's a subquery.
-    // We try subquery first; if it fails, fall back to regular condition.
-    if let Ok((rest, subq)) = parse_subquery_condition_inner(i) {
-        return Ok((rest, WhereItem::Subquery(subq)));
+    // We try subquery first; if it fails with a recoverable error, fall back to
+    // a regular condition. A `Failure` (e.g. `AS OF` inside the subquery,
+    // SCH-03) propagates so the malformed query never silently drops its
+    // WHERE clause.
+    match parse_subquery_condition_inner(i) {
+        Ok((rest, subq)) => return Ok((rest, WhereItem::Subquery(subq))),
+        Err(err @ nom::Err::Failure(_)) => return Err(err),
+        Err(_) => {}
     }
     let (rest, cond) = parse_condition(i)?;
     Ok((rest, WhereItem::Condition(cond)))
@@ -360,10 +432,14 @@ pub fn parse_select(i: &str) -> IResult<&str, SelectStatement> {
     let (i, _) = ws(tag("FROM"))(i)?;
     let (i, from_entity) = ws(ident)(i)?;
     let (i, from_alias) = opt(ws(non_keyword_ident))(i)?;
-    let from_alias = from_alias.unwrap_or_else(|| from_entity.clone());
+    // Default alias matches `parse_query` (and its docs): "target".
+    let from_alias = from_alias.unwrap_or_else(|| "target".to_string());
 
     // Parse zero or more JOIN clauses
     let (i, join_clauses) = many0(parse_join_clause)(i)?;
+
+    // `AS OF` right after the table spec (`SELECT * FROM ns AS OF t WHERE ...`).
+    let (i, as_of_early) = parse_as_of_clause(i)?;
 
     // Build FromClause tree from JOINs
     let from = if join_clauses.is_empty() {
@@ -398,6 +474,10 @@ pub fn parse_select(i: &str) -> IResult<&str, SelectStatement> {
 
     let (i, temperature) = opt(tuple((ws(tag("WITH")), ws(tag("TEMPERATURE")), ws(float))))(i)?;
 
+    let as_of_late_start = i;
+    let (i, as_of_late) = parse_as_of_clause(i)?;
+    let as_of_ms = merge_as_of_clauses(as_of_early, as_of_late, as_of_late_start)?;
+
     // Split where_items into regular conditions and subquery conditions
     let (where_conds, subq_conds) = match where_items {
         Some((_, items)) => {
@@ -422,6 +502,7 @@ pub fn parse_select(i: &str) -> IResult<&str, SelectStatement> {
             where_clause: where_conds,
             subquery_conditions: subq_conds,
             temperature: temperature.map(|(_, _, t)| t),
+            as_of_ms,
         },
     ))
 }
@@ -445,7 +526,7 @@ pub fn parse_statement(i: &str) -> IResult<&str, Statement> {
 
 /// Multi-token keywords the grammar parses as a single clause. Offered as one
 /// completion on top of [`RESERVED_KEYWORDS`].
-pub(crate) const EXTRA_AUTOCOMPLETE_KEYWORDS: &[&str] = &["RANK BY", "WITH TEMPERATURE"];
+pub(crate) const EXTRA_AUTOCOMPLETE_KEYWORDS: &[&str] = &["RANK BY", "WITH TEMPERATURE", "AS OF"];
 
 pub(crate) fn is_keyword_token(token: &str) -> bool {
     RESERVED_KEYWORDS

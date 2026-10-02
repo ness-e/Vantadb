@@ -1,15 +1,16 @@
 ---
-title: "VantaDB as Persistent Memory for Claude Code (MCP)"
-version: 0.5.0
+title: VantaDB as Persistent Memory for Claude Code (MCP)
+kind: howto
+description: By the VantaDB Team
+tags: [mcp, claude-code, ai-agents, memory, tutorial, ide]
+version: "0.5.0"
 slug: claude-code-mcp-memory
-date: 2026-06-26
-author: "VantaDB Team"
-tags: ["mcp", "claude-code", "ai-agents", "memory", "tutorial", "ide"]
-description: "Wire VantaDB into Claude Code over MCP stdio so your coding agent remembers project decisions, past fixes, and architecture context across sessions."
+date: "2026-06-26"
+author: VantaDB Team
 tag: Tutorial
 readTime: "7 min"
-canonical: https://vantadb.vercel.app/blog/claude-code-mcp-memory
-draft: true
+canonical: "https://vantadb.vercel.app/blog/claude-code-mcp-memory"
+draft: "true"
 ---
 
 # VantaDB as Persistent Memory for Claude Code (MCP)

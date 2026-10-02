@@ -1,3 +1,9 @@
+---
+title: REVIEW-14 — Panics frágiles ante store corrupto (version_history) + unwraps frágiles (explain.rs)
+kind: task
+description: "(fn versionkeyroundtrips). Grep workspace len()\s-\s8|frombebytes en src/ = 1 match (ese)"
+---
+
 # REVIEW-14 — Panics frágiles ante store corrupto (version_history) + unwraps frágiles (explain.rs)
 
 > **Estado:** ✅ COMPLETED · **Appetite:** max 1h · 🟢 · Prioridad 🟢

@@ -1,3 +1,9 @@
+---
+title: PRX-08 — Higiene y ceilings documentados
+kind: task
+description: "Blast radius 6 archivos en 1 crate; refactor higiene sin símbolos públicos nuevos (solo pub(crate) + 1 pub fn puro de validación, sin cambio de wire). Contrato mecánico del plan. → Gate D no disparado, sin question"
+---
+
 # PRX-08 — Higiene y ceilings documentados
 
 - **Plan:** `docs/dev/plans/2026-09-08-backlog.md` (Task 8, Wave1)

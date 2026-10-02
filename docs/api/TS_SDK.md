@@ -1,18 +1,16 @@
 ---
 title: TypeScript SDK Documentation
-type: api
+kind: reference
 status: active
+description: "Create a new in-memory instance. Accepts an optional Config object. To use persistent storage, call connect() or open() instead"
 tags: [vantadb, api]
-last_reviewed: 2026-09-15
-aliases: []
-related: [PYTHON_SDK.md, NODE_SDK.md, BINDINGS_NAMESPACES.md]
 ---
 
 # TypeScript SDK Documentation
 
 > **Stability:** the documented TypeScript SDK API is covered by the [Versioning & Stability Policy](VERSIONING.md).
 >
-> **Naming (ADR-041 anti-stutter):** canonical names are `Client`, `Config`,
+> **Naming (ADR-0047 anti-stutter):** canonical names are `Client`, `Config`,
 > `DbError`, `SearchHit`, `Value`, `Metadata`, `FilterOp`. Legacy `VantaDB`,
 > `VantaConfig`, `VantaError`, `VantaValue`, … aliases were removed in 0.6.0
 > (AST-010). `VANTADB_*` error codes (wire) are intentionally unchanged.
@@ -38,7 +36,7 @@ db.put({
   namespace: "agent/main",
   key: "memory-1",
   payload: "The user prefers dark mode in all applications.",
-  metadata: { theme: { type: "String", value: "dark" } },
+  metadata: { theme: { String: "dark" } },
   vector: [0.1, 0.2, 0.3],
 });
 
@@ -130,7 +128,7 @@ db.put({
   namespace: "notes",
   key: "note-1",
   payload: "IndexedDB persists VantaDB state in the browser.",
-  metadata: { source: { type: "String", value: "docs" } },
+  metadata: { source: { String: "docs" } },
   vector: [0.1, 0.2, 0.3],
 });
 
@@ -138,7 +136,7 @@ db.put({
   namespace: "notes",
   key: "note-2",
   payload: "Use save_idb() to write in-memory state to IndexedDB.",
-  metadata: { source: { type: "String", value: "docs" } },
+  metadata: { source: { String: "docs" } },
   vector: [0.4, 0.5, 0.6],
 });
 
@@ -215,6 +213,7 @@ put(input: {
   payload: string;
   metadata?: Record<string, Value>;
   vector?: number[];
+  sparse_vector?: Record<number, number>;  // sparse term weights by dimension id
   ttl_ms?: number;
 }): MemoryRecord
 ```
@@ -230,6 +229,7 @@ putBatch(inputs: Array<{
   payload: string;
   metadata?: Record<string, Value>;
   vector?: number[];
+  sparse_vector?: Record<number, number>;  // sparse term weights by dimension id
   ttl_ms?: number;
 }>): MemoryRecord[]
 ```
@@ -281,6 +281,24 @@ listNamespaces(): string[]
 
 List all namespaces in the database.
 
+### Filters (`count` / `deleteByFilter` / `exportNamespace`)
+
+These methods accept two interchangeable filter forms:
+
+- the native `{field, op, value}` items
+  (`op: "Eq" | "Neq" | "Gt" | "Gte" | "Lt" | "Lte"`);
+- the canonical `$op` DSL shared with Python/MCP/CLI:
+  `{field: value}` = implicit `$eq`, `{field: {"$gte": v, "$lt": v2}}` = range.
+  A flat object is AND-combined; unknown `$op` keys throw
+  `VANTADB_VALIDATION_ERROR` (never ignored).
+
+Values accept plain JS values, tagged `Value`s (`{ String: "dark" }`), and `Date`
+instances (wire form `DateTime`, RFC 3339).
+
+```ts
+db.count({ namespace: "docs", filters: { when: { $gte: new Date("2026-06-01"), $lt: new Date("2026-12-01") } } });
+```
+
 ### Search
 
 #### `search()`
@@ -295,23 +313,53 @@ Hybrid search combining vector similarity and BM25 text search with RRF fusion.
 interface SearchRequest {
   namespace: string;
   query_vector: number[];
+  query_sparse?: Record<number, number>;  // sparse query weights by dimension id (native backend)
   filters?: Record<string, Value>;
   text_query?: string;          // BM25 lexical search term
   top_k?: number;               // default: 10
   distance_metric?: "Cosine" | "Euclidean";  // default: "Cosine"
   explain?: boolean;            // include score breakdown
+  exclude_superseded?: boolean; // hide superseded + ended-window records (ADR-028/§D3-6)
+  min_confidence?: number;      // opt-in confidence floor [0, 1] (ADR-046 §D2)
+  as_of_ms?: number;            // valid-time point (ADR-046 §D3, SCH-07)
+  valid_window?: ValidWindow;   // {from_ms, to_ms} half-open overlap (SCH-07)
+  include_quarantined?: boolean;// quarantine view, default false (ADR-046 §D5)
 }
+
+interface ValidWindow { from_ms: number; to_ms: number }
 ```
 
-**Distance vs Score (CODE-091):** The `distance` field in `SearchHit` is a **L2 or cosine distance**, not a similarity score. Lower values indicate higher similarity. This differs from the Rust and Python SDKs which expose a `score` field where higher is better.
+**v2 params (SCH-07, ADR-0046):** `as_of_ms` / `valid_window` filter on the
+valid-time axis (start inclusive, end exclusive); `include_quarantined` opts
+into the quarantine view (default excludes quarantined records);
+`min_confidence` is a confidence floor in `[0, 1]` rejected (never clamped)
+when out of range. The same fields exist on `ListOptions` for `list()`, plus
+`min_confidence`. `MemoryRecord` exposes the v2 fields (`valid_at_ms`,
+`invalid_at_ms`, `confidence_class`, `confidence`, `last_validated_at_ms`,
+`derived_from`, `quarantined_at_ms`, `quarantine_reason`, `quarantined_by`,
+`quarantine_review_due_ms`); the wire stays additive — old payloads without
+them remain valid. The selective-abstention signal is page-shaped and lives on
+the HTTP/MCP envelopes only (see [`BINDINGS_NAMESPACES.md`](BINDINGS_NAMESPACES.md)).
+
+**Text-only and sparse (WIRE-03):** an empty `query_vector` with `text_query`
+selects text-only (BM25) search. `query_sparse` is fused with the dense/text
+scores and requires the native backend (`vantadb/native`) — the WASM backend
+throws instead of dropping the field silently.
+
+**Score, not distance (W1/API-02, supersedes CODE-091):** the `score` field in
+`SearchHit` is a **relevance score — higher is better** — matching the Rust
+core, WASM, Node, Python and HTTP transports. The TS wrapper previously
+exposed the same number under the name `distance` with inverted semantics;
+that rename was removed in W1 so every transport reads the field the same way.
 
 **Cross-binding map:** see [`WASM_API.md` → "Score vs distance semantics (WSM-10)"](WASM_API.md#score-vs-distance-semantics-wsm-10) for the full per-transport field map (Rust core / WASM binding / TS wrapper / Node / Python / HTTP). That section is the single source of truth for "which field carries which convention across which transport"; this subsection is the TS-side rationale only.
 
-**Cross-SDK convention (TS-03):** the asymmetry between the TS SDK and the other bindings is intentional and pinned in CI. Each transport exposes a different field so consumers should pick the row that matches their SDK:
+**Cross-SDK convention (W1 parity):** every transport exposes the same field
+names — `score` for memory/hybrid relevance and `distance` for raw ANN:
 
 | SDK binding | Field on hit | Convention | Range |
 |-------------|--------------|------------|-------|
-| `vantadb-ts` (this SDK) | `SearchHit.distance` | **lower is more similar** (raw L2 / cosine distance) | `[0.0, +∞)` for cosine; `[0.0, +∞)` for Euclidean |
+| `vantadb-ts` (this SDK) | `SearchHit.score` | **higher is more relevant** | cosine `[-1.0, 1.0]`; Euclidean `(-∞, 0.0]`; BM25/RRF `≥ 0` |
 | `vantadb` (Rust core) | `MemorySearchHit.score` | higher is better (cosine `1.0 - distance`; Euclidean `-distance²` then sqrt) | `[-1.0, 1.0]` cosine; `(-∞, 0.0]` Euclidean |
 | `vantadb-python` | `hit.score` | higher is better | `[-1.0, 1.0]` cosine |
 | `vantadb-node` | `{node_id, score}` | higher is better | `[-1.0, 1.0]` cosine |
@@ -319,7 +367,9 @@ interface SearchRequest {
 
 The score semantics are pinned by `src/sdk/serialization/vector_types.rs::tests` (TS-03 integration block: `score_roundtrips_through_serde_json`, `cosine_score_range_matches_documented_contract`, `euclidean_score_supports_negative_values`, `cosine_sim_f32_zero_norm_returns_finite_zero`, `euclidean_squared_distance_never_negative_under_fp_rounding`). A future change to the core formula will fail CI before reaching `develop`.
 
-When porting TS code to another SDK, invert the comparison: `hits.sort((a, b) => a.distance - b.distance)` becomes `hits.sort((a, b) => b.score - a.score)`.
+When porting TS code from pre-W1 revisions, drop the inversion:
+`hits.sort((a, b) => a.distance - b.distance)` becomes
+`hits.sort((a, b) => b.score - a.score)`.
 
 #### `searchVector()`
 
@@ -359,7 +409,7 @@ Insert a graph node with optional content, vector, and metadata fields.
 #### `getNode()`
 
 ```ts
-getNode(id: number): NodeRecord | null
+getNode(id: NodeId): NodeRecord | null
 ```
 
 Retrieve a node by numeric ID. Returns `null` if not found or tombstoned.
@@ -367,7 +417,7 @@ Retrieve a node by numeric ID. Returns `null` if not found or tombstoned.
 #### `deleteNode()`
 
 ```ts
-deleteNode(id: number, reason?: string): void
+deleteNode(id: NodeId, reason?: string): void
 ```
 
 Delete a node with an auditable reason. The node is tombstoned, not immediately removed from storage.
@@ -375,15 +425,21 @@ Delete a node with an auditable reason. The node is tombstoned, not immediately 
 #### `addEdge()`
 
 ```ts
-addEdge(source: number, target: number, label?: string, weight?: number): void
+addEdge(source: NodeId, target: NodeId, label?: string, weight?: number): void
 ```
 
 Add a directed edge from source to target with an optional label and weight.
 
+> **`NodeId` (W1/API-02):** `number | bigint` — safe-integer `number` or a
+> `bigint` for ids above 2^53. Traversals (`graphBfs`, `graphDfs`,
+> `graphTopologicalSort`, `graphIsDag`, `graphFilteredTraversal`,
+> `graphDegree`) accept `NodeId[]` and reject unsafe numbers with a
+> `DbError("INVALID_ARGUMENT")`.
+
 #### `graphBfs()`
 
 ```ts
-graphBfs(roots: number[], maxDepth?: number): bigint[]
+graphBfs(roots: NodeId[], maxDepth?: number): bigint[]
 ```
 
 Breadth-first traversal from one or more root nodes. Returns visited node IDs
@@ -393,7 +449,7 @@ IDs, which exceed `Number.MAX_SAFE_INTEGER`).
 #### `graphDfs()`
 
 ```ts
-graphDfs(roots: number[], maxDepth?: number): bigint[]
+graphDfs(roots: NodeId[], maxDepth?: number): bigint[]
 ```
 
 Depth-first traversal from one or more root nodes. Returns `bigint[]` of node IDs
@@ -402,7 +458,7 @@ in DFS order.
 #### `graphTopologicalSort()`
 
 ```ts
-graphTopologicalSort(roots: number[]): bigint[]
+graphTopologicalSort(roots: NodeId[]): bigint[]
 ```
 
 Topological sort of the subgraph reachable from the given roots. Returns
@@ -411,7 +467,7 @@ Topological sort of the subgraph reachable from the given roots. Returns
 #### `graphIsDag()`
 
 ```ts
-graphIsDag(roots: number[]): boolean
+graphIsDag(roots: NodeId[]): boolean
 ```
 
 Check whether the subgraph reachable from the given roots is a Directed Acyclic Graph.
@@ -465,16 +521,37 @@ Execute an IQL query string against the graph. Returns `QueryResult` which can b
 
 ```ts
 type Value =
-  | { type: "String"; value: string }
-  | { type: "Int"; value: number }
-  | { type: "Float"; value: number }
-  | { type: "Bool"; value: boolean }
-  | { type: "Null" }
-  | { type: "ListString"; value: string[] }
-  | { type: "ListInt"; value: number[] }
-  | { type: "ListFloat"; value: number[] }
-  | { type: "ListBool"; value: boolean[] };
+  | { String: string }
+  | { Int: number }
+  | { Float: number }
+  | { Bool: boolean }
+  | { DateTime: string }
+  | { Null: null }
+  | { ListString: string[] }
+  | { ListInt: number[] }
+  | { ListFloat: number[] }
+  | { ListBool: boolean[] }
+  | { ListDateTime: string[] };
 ```
+
+`Value` is an **externally-tagged** union: the variant name is the sole key and
+the value sits directly under it (`{ String: "dark" }`), not a
+`{ type, value }` pair. The variant names match the Rust `Value` enum in
+`src/sdk/types.rs` and are what crosses the WASM/native boundary.
+
+**Input accepts three shapes** (`MetadataInput` = `Record<string, UntrustedInput>`),
+normalized to the tagged form on the way in:
+
+| You may pass | Normalized to |
+| :--- | :--- |
+| Plain JS value — `{ lang: "en" }`, `{ n: 3 }`, `{ ok: true }`, `{ x: null }` | `String` / `Int` · `Float` / `Bool` / `Null` (number → `Float` unless integral) |
+| JS `Date` | `DateTime` (RFC 3339 string) |
+| Already-tagged `Value` — `{ lang: { String: "en" } }` | passed through unchanged |
+
+So `{ theme: "dark" }` and `{ theme: { String: "dark" } }` are equivalent inputs;
+**records returned by the engine always use the tagged form**. `normalizeValue()`
+(`vantadb-ts/src/metadata.ts`) rejects a mismatched payload (e.g. `{ ListInt: [1.5] }`)
+with a `DbError` rather than coercing it.
 
 ### `MemoryRecord`
 
@@ -500,7 +577,7 @@ Numeric timestamp fields are serialized as strings to preserve u64 precision ove
 ```ts
 interface SearchHit {
   record: MemoryRecord;
-  distance: number;       // L2/cosine distance — lower is more similar
+  score: number;          // relevance — higher is better (W1/API-02)
   explanation?: SearchExplanationHit;
 }
 ```

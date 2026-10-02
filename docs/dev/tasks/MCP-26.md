@@ -1,3 +1,9 @@
+---
+title: "Task MCP-26 — Menores: capabilities + generate_snippet + list_snapshots"
+kind: task
+description: "Fuente de verdad: docs/dev/Backlog.md → fase P25 - Exposición MCP/HTTP → fila MCP-26 (leer ANTES de ejecutar: problema, acciones numeradas, archivos exactos)"
+---
+
 # Task MCP-26 — Menores: capabilities + generate_snippet + list_snapshots
 
 **Fuente de verdad:** `docs/dev/Backlog.md` → fase **P25 - Exposición MCP/HTTP** → fila `MCP-26` (leer ANTES de ejecutar: problema, acciones numeradas, archivos exactos).

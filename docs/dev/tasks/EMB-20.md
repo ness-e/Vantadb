@@ -1,3 +1,9 @@
+---
+title: EMB-20 — docs (README + MCP + SKILL) — última (Wave5)
+kind: task
+description: "Objetivo: documentar SOLO lo verde en EMB-19 para que el próximo agente use bien los límites (FIND-67/68/83 doc-driven). Última tarea de la campaña; describe lo verificado en EMB-19 (commit a5d549af: rebuild final, cat 0.9158 vs..."
+---
+
 # EMB-20 — docs (README + MCP + SKILL) — última (Wave5)
 
 > **Plan:** `docs/dev/plans/2026-09-16-embeddings-auto.md` (Wave5, última; finaliza tras verify EMB-19 — ya verde `a5d549af`)

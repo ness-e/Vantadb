@@ -103,6 +103,10 @@ fn concurrent_multi_namespace_stress() {
                     namespace: ns.clone(),
                     query_vector: vec![1.0, ns.len() as f32, 0.5],
                     top_k: 10,
+                    range: None,
+                    group_by: None,
+                    mmr: None,
+                    cursor: None,
                     ..Default::default()
                 };
                 let hits = db.search(request).expect("concurrent search must not fail");

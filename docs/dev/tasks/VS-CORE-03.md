@@ -1,3 +1,9 @@
+---
+title: "VS-CORE-03 — Exponer `explain` en el bridge desktop"
+kind: task
+description: "Exponer explain en el bridge desktop (re-scopeado: consumir, no crear). El core YA produce"
+---
+
 # VS-CORE-03 — Exponer `explain` en el bridge desktop
 
 > **Plan:** `docs/dev/plans/2026-08-18-vanta-studio-fase1.md` Task 1 · **Wave 0** (gaps bridge/core)

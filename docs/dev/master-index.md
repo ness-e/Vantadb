@@ -1,11 +1,9 @@
 ---
 title: VantaDB Master Index
-type: master-index
+kind: research
 status: active
+description: Full listing in Operations Master Index
 tags: [vantadb, documentation, index, master-index]
-last_reviewed: 2026-09-15
-aliases: []
-related: [Backlog.md, backlog-futuro.md, Backlog-negocio.md, CHANGELOG.md, QUICKSTART.md, avance/README.md]
 ---
 
 # VantaDB Master Index
@@ -58,7 +56,7 @@ related: [Backlog.md, backlog-futuro.md, Backlog-negocio.md, CHANGELOG.md, QUICK
 | [EXPERIMENTAL_GOVERNANCE_DESIGN.md](architecture/EXPERIMENTAL_GOVERNANCE_DESIGN.md) | Experimental governance design |
 | [LISP_ANALYSIS.md](architecture/LISP_ANALYSIS.md) | LISP query language analysis |
 | [WASM_STORAGE_REVIEW.md](architecture/WASM_STORAGE_REVIEW.md) | WASM storage backends review and audit |
-| [COMP-026: LSM Compaction](architecture/adr/COMP-026-lsm-compaction-design.md) | Multi-level LSM compaction design (proposed ADR) |
+| [COMP-026: LSM Compaction](architecture/adr/ADR-0049-lsm-compaction-design.md) | Multi-level LSM compaction design (proposed ADR) |
 
 ---
 
@@ -92,16 +90,16 @@ related: [Backlog.md, backlog-futuro.md, Backlog-negocio.md, CHANGELOG.md, QUICK
 
 | Document | Description |
 |----------|-------------|
-| [ADR-001: Configuración Unificada](architecture/adr/001_unified_config_readonly.md) | Unified config + read-only barrier architecture |
-| [ADR-002: WAL CRC32C + Auto-Healing](architecture/adr/002_wal_crc32c_autohealing.md) | WAL physical resilience, CRC32C validation, self-healing |
-| [ADR-003: Sync/Async Decoupling](architecture/adr/003_sync_async_decoupling.md) | Concurrent execution isolation architecture |
-| [ADR-004: Storage Backend](architecture/adr/004_storage_backend.md) | Storage backend abstraction |
-| [ADR-005: HNSW Parameters](architecture/adr/005_hnsw_parameters.md) | HNSW parameter configuration |
-| [ADR-006: RRF Constant](architecture/adr/006_rrf_constant.md) | Reciprocal Rank Fusion constant decision |
-| [ADR-007: PyO3 Binding Architecture](architecture/adr/007_pyo3_binding_architecture.md) | Python binding architecture |
-| [ADR-008: WASM Support Strategy](architecture/adr/008_wasm_support_strategy.md) | WASM build and support strategy |
-| [ADR-009: Community Governance Model](architecture/adr/009_community_governance_model.md) | Community governance model |
-| [ADR-0001: Adoptamos ADRs](architecture/adr/ADR-0001-ADOPTAMOS-ADRS.md) | Decision to adopt ADR process |
+| [ADR-0001: Configuración Unificada](architecture/adr/ADR-0001-unified-config-readonly.md) | Unified config + read-only barrier architecture |
+| [ADR-0002: WAL CRC32C + Auto-Healing](architecture/adr/ADR-0002-wal-crc32c-autohealing.md) | WAL physical resilience, CRC32C validation, self-healing |
+| [ADR-0003: Sync/Async Decoupling](architecture/adr/ADR-0003-sync-async-decoupling.md) | Concurrent execution isolation architecture |
+| [ADR-0004: Storage Backend](architecture/adr/ADR-0004-storage-backend.md) | Storage backend abstraction |
+| [ADR-0005: HNSW Parameters](architecture/adr/ADR-0005-hnsw-parameters.md) | HNSW parameter configuration |
+| [ADR-0006: RRF Constant](architecture/adr/ADR-0006-rrf-constant.md) | Reciprocal Rank Fusion constant decision |
+| [ADR-0007: PyO3 Binding Architecture](architecture/adr/ADR-0007-pyo3-binding-architecture.md) | Python binding architecture |
+| [ADR-0008: WASM Support Strategy](architecture/adr/ADR-0008-wasm-support-strategy.md) | WASM build and support strategy |
+| [ADR-0009: Community Governance Model](architecture/adr/ADR-0009-community-governance-model.md) | Community governance model |
+| [ADR-0001: Adoptamos ADRs](architecture/adr/ADR-0000-adoptamos-adrs.md) | Decision to adopt ADR process |
 
 ---
 

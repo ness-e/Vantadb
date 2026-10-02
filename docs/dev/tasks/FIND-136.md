@@ -1,3 +1,9 @@
+---
+title: FIND-136 — Cobertura + caché en 4 workflows
+kind: task
+description: "Archivos leídos completos (4, solo .github/workflows/)"
+---
+
 # FIND-136 — Cobertura + caché en 4 workflows
 
 > **Plan:** `docs/dev/plans/2026-09-21-workflows-repair.md` (Wave 0, paralelo ×3, archivos disjuntos)

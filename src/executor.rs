@@ -81,6 +81,23 @@ fn iql_error_position(input: &str, err: &nom::Err<nom::error::Error<&str>>) -> (
     (line.max(1), col.max(1))
 }
 
+/// Human-readable message for an IQL parse failure.
+///
+/// The grammar reports a duplicated `AS OF` clause (SCH-03 review Optional-2)
+/// as `Failure(Verify)` whose input slice starts at the second `AS OF`; that
+/// is the only failure emitted at an `AS OF` position. This maps it to a
+/// stable message and leaves every other failure with nom's default rendering.
+fn iql_parse_error_message(err: &nom::Err<nom::error::Error<&str>>) -> String {
+    if let nom::Err::Failure(inner) = err {
+        if inner.code == nom::error::ErrorKind::Verify
+            && inner.input.trim_start().starts_with("AS OF")
+        {
+            return "AS OF specified more than once".to_string();
+        }
+    }
+    err.to_string()
+}
+
 /// Query executor that evaluates logical plans against the storage engine.
 pub struct Executor<'a> {
     /// Reference to the storage engine.
@@ -164,7 +181,7 @@ impl<'a> Executor<'a> {
                 Err(e) => {
                     let (line, col) = iql_error_position(trimmed, &e);
                     Err(Error::IqlParse {
-                        msg: e.to_string(),
+                        msg: iql_parse_error_message(&e),
                         line,
                         col,
                     })
@@ -198,20 +215,26 @@ impl<'a> Executor<'a> {
         Ok(())
     }
 
-    /// SELECT path: logical plan → Volcano execution → read results.
+    /// SELECT path: logical plan → Volcano execution → valid-time filter.
     fn execute_select(&self, select: SelectStatement) -> Result<ExecutionResult> {
+        let as_of_ms = select.as_of_ms;
         let plan = select.into_logical_plan();
         let nodes = self.execute_plan(plan)?;
-        Ok(ExecutionResult::Read(nodes))
+        Ok(ExecutionResult::Read(Self::filter_valid_at(
+            nodes, as_of_ms,
+        )))
     }
 
-    /// QUERY path: logical plan → execution → archaeological interception filter.
+    /// QUERY path: logical plan → execution → archaeological interception
+    /// filter + valid-time filter (`AS OF`, SCH-03).
     fn execute_query(&self, query: Query) -> Result<ExecutionResult> {
+        let as_of_ms = query.as_of_ms;
         let plan = query.into_logical_plan();
         let nodes = self.execute_plan(plan)?;
-        Ok(ExecutionResult::Read(
-            Self::filter_low_confidence_summaries(nodes),
-        ))
+        let nodes = Self::filter_low_confidence_summaries(nodes);
+        Ok(ExecutionResult::Read(Self::filter_valid_at(
+            nodes, as_of_ms,
+        )))
     }
 
     /// Phase 30: Archaeological Interception (non-blocking).
@@ -239,6 +262,41 @@ impl<'a> Executor<'a> {
             }
         }
         filtered_nodes
+    }
+
+    /// Valid-time filter for IQL `AS OF T` (SCH-03, ADR-046 §D3).
+    ///
+    /// Memory nodes carry `__vanta_valid_at_ms` (v2; always written) with a v1
+    /// fallback to `__vanta_created_at_ms` (ADR-046 §D7 normalization; `0` is
+    /// the v1 "unset" sentinel). Nodes without any validity metadata (plain
+    /// graph nodes) are not time-scoped and always pass — `AS OF` only narrows
+    /// records that declare a validity window. `None` = no filter (default).
+    fn filter_valid_at(nodes: Vec<UnifiedNode>, as_of_ms: Option<u64>) -> Vec<UnifiedNode> {
+        let Some(t_ms) = as_of_ms else {
+            return nodes;
+        };
+        nodes
+            .into_iter()
+            .filter(|node| Self::node_is_valid_at(node, t_ms))
+            .collect()
+    }
+
+    /// ADR-046 §D3 predicate for a raw node: `valid_at <= t < invalid_at`.
+    fn node_is_valid_at(node: &UnifiedNode, t_ms: u64) -> bool {
+        fn u64_field(node: &UnifiedNode, field: &str) -> Option<u64> {
+            match node.relational.get(field) {
+                Some(crate::node::FieldValue::Int(value)) if *value >= 0 => Some(*value as u64),
+                _ => None,
+            }
+        }
+        let valid_at = u64_field(node, crate::sdk::serialization::FIELD_VALID_AT_MS)
+            .filter(|value| *value > 0)
+            .or_else(|| u64_field(node, crate::sdk::serialization::FIELD_CREATED_AT_MS));
+        let Some(valid_at) = valid_at else {
+            return true;
+        };
+        let invalid_at = u64_field(node, crate::sdk::serialization::FIELD_INVALID_AT_MS);
+        valid_at <= t_ms && invalid_at.is_none_or(|invalid| invalid > t_ms)
     }
 
     /// INSERT path: builds a Hot node from fields + vector/embed logic, then stores it.
@@ -648,6 +706,127 @@ mod tests {
         let ex = Executor::new(&storage);
         let err = ex.execute_hybrid("NOT_VALID_IQL").unwrap_err();
         assert!(matches!(err, Error::IqlParse { .. }));
+    }
+
+    // ── execute_hybrid: AS OF / valid-time (SCH-03) ──
+
+    /// Node shaped like a time-scoped record: `type` + optional validity
+    /// window fields (the exact reserved names the record write path uses).
+    fn insert_validity_node(
+        storage: &StorageEngine,
+        id: u128,
+        node_type: &str,
+        valid_at_ms: Option<u64>,
+        invalid_at_ms: Option<u64>,
+    ) {
+        let mut node = UnifiedNode::new(id);
+        node.set_field("type", FieldValue::String(node_type.to_string()));
+        if let Some(valid) = valid_at_ms {
+            node.set_field(
+                crate::sdk::serialization::FIELD_VALID_AT_MS,
+                FieldValue::Int(valid as i64),
+            );
+        }
+        if let Some(invalid) = invalid_at_ms {
+            node.set_field(
+                crate::sdk::serialization::FIELD_INVALID_AT_MS,
+                FieldValue::Int(invalid as i64),
+            );
+        }
+        storage.insert(&node).expect("insert validity node");
+    }
+
+    fn read_ids(ex: &Executor<'_>, query: &str) -> Vec<u128> {
+        match ex.execute_hybrid(query).expect("execute") {
+            ExecutionResult::Read(nodes) => {
+                let mut ids: Vec<u128> = nodes.iter().map(|n| n.id).collect();
+                ids.sort_unstable();
+                ids
+            }
+            other => panic!("expected Read, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn as_of_filters_nodes_by_valid_window_with_known_t() {
+        let (storage, _dir) = setup_storage();
+        insert_validity_node(&storage, 1, "Doc", Some(1000), Some(2000)); // [1000, 2000)
+        insert_validity_node(&storage, 2, "Doc", Some(3000), None); // [3000, ∞)
+        let ex = Executor::new(&storage);
+
+        // Default (no AS OF) returns everything — zero breaking change.
+        assert_eq!(read_ids(&ex, "FROM Doc"), vec![1, 2]);
+        // Closed-open window: T < start excluded, T == start included,
+        // T == end excluded, open end included.
+        assert_eq!(read_ids(&ex, "FROM Doc AS OF 999"), Vec::<u128>::new());
+        assert_eq!(read_ids(&ex, "FROM Doc AS OF 1000"), vec![1]);
+        assert_eq!(read_ids(&ex, "FROM Doc AS OF 1999"), vec![1]);
+        assert_eq!(read_ids(&ex, "FROM Doc AS OF 2000"), Vec::<u128>::new());
+        assert_eq!(read_ids(&ex, "FROM Doc AS OF 3000"), vec![2]);
+        assert_eq!(read_ids(&ex, "FROM Doc AS OF 999999"), vec![2]);
+    }
+
+    #[test]
+    fn as_of_after_where_also_applies_and_includes_unscoped_nodes() {
+        let (storage, _dir) = setup_storage();
+        insert_validity_node(&storage, 1, "Doc", Some(1000), Some(2000));
+        // Plain graph node: no validity metadata → not time-scoped, always passes.
+        let mut plain = UnifiedNode::new(9);
+        plain.set_field("type", FieldValue::String("Doc".to_string()));
+        storage.insert(&plain).expect("insert plain node");
+        let ex = Executor::new(&storage);
+
+        assert_eq!(read_ids(&ex, "FROM Doc AS OF 1500"), vec![1, 9]);
+        assert_eq!(read_ids(&ex, "FROM Doc AS OF 2500"), vec![9]);
+        // Late position (after WHERE) parses too.
+        assert_eq!(
+            read_ids(&ex, r#"FROM Doc WHERE type = "Doc" AS OF 1500"#),
+            vec![1, 9]
+        );
+    }
+
+    #[test]
+    fn select_as_of_filters_namespace_scan_records() {
+        let (storage, _dir) = setup_storage();
+        // v1 memory-shaped node: no `__vanta_valid_at_ms`, created_at fallback.
+        let mut v1 = UnifiedNode::new(7);
+        v1.set_field(
+            crate::sdk::serialization::FIELD_NAMESPACE,
+            FieldValue::String("Ns".to_string()),
+        );
+        v1.set_field(
+            crate::sdk::serialization::FIELD_CREATED_AT_MS,
+            FieldValue::Int(500),
+        );
+        storage.insert(&v1).expect("insert v1 node");
+        insert_validity_node(&storage, 8, "Other", Some(100), Some(200));
+        let ex = Executor::new(&storage);
+
+        // v1 normalization: valid := created_at (ADR §D7) — AS OF 499 excludes,
+        // AS OF 500 includes (inclusive start).
+        assert_eq!(
+            read_ids(&ex, "SELECT * FROM Ns AS OF 499"),
+            Vec::<u128>::new()
+        );
+        assert_eq!(read_ids(&ex, "SELECT * FROM Ns AS OF 500"), vec![7]);
+        assert_eq!(read_ids(&ex, "SELECT * FROM Ns"), vec![7]);
+    }
+
+    /// SCH-03 review Optional-2: a duplicated `AS OF` is rejected at parse
+    /// time with a stable message and a position pointing at the duplicate.
+    #[test]
+    fn test_duplicate_as_of_reports_clear_message() {
+        let (storage, _dir) = setup_storage();
+        let ex = Executor::new(&storage);
+        let err = ex.execute_hybrid("FROM Doc AS OF 1 AS OF 2").unwrap_err();
+        match err {
+            Error::IqlParse { msg, line, col } => {
+                assert_eq!(msg, "AS OF specified more than once");
+                assert_eq!(line, 1);
+                assert_eq!(col, 17, "position must point at the duplicate clause");
+            }
+            other => panic!("expected IqlParse, got {other:?}"),
+        }
     }
 
     // ── execute_statement: Insert ──
@@ -1096,6 +1275,7 @@ mod tests {
             where_clause: None,
             subquery_conditions: vec![],
             temperature: None,
+            as_of_ms: None,
         });
         let result = ex.execute_statement(select).unwrap();
         match result {
@@ -1129,6 +1309,7 @@ mod tests {
             temperature: None,
             owner_role: None,
             search_profile: None,
+            as_of_ms: None,
         });
         let result = ex.execute_statement(query).unwrap();
         match result {

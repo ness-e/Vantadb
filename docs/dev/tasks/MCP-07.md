@@ -1,3 +1,9 @@
+---
+title: "MCP-07: D3 — `search_semantic` distances son similaridad invertida (doc)"
+kind: task
+description: "skills/vantadb-mcp/SKILL.md documenta el significado exacto del campo devuelto por searchsemantic (distancia real o similaridad, con rango) alineado con el fix MCP-03; copia sync a .opencode/skills/ con hash SAME\""
+---
+
 # MCP-07: D3 — `search_semantic` distances son similaridad invertida (doc)
 
 ## Metadata

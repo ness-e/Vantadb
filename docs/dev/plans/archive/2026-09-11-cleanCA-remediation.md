@@ -1,3 +1,10 @@
+---
+title: "Plan: Remediación cleanCA — 2 bloqueantes + 20 deuda priorizada"
+kind: plan
+status: archived
+description: "Relaciones/dependencias entre tareas: D4a antes que D1a/D1c (renames tocan firmas que los splits mueven); B2-triaje antes que B2-fix; D5c (clamp) independiente y primera (riesgo DoS); D4b última (breaking, requiere release major + ADR +..."
+---
+
 # Plan: Remediación cleanCA — 2 bloqueantes + 20 deuda priorizada
 
 > **Fecha:** 2026-09-11 · **Origen:** auditoría `/cleanCA` (sin parámetro) + evaluación vs `.opencode/references/clean-code-clean-architecture.md`

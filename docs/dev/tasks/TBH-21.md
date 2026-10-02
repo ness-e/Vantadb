@@ -1,3 +1,9 @@
+---
+title: "TASK-TBH-21: Document CoverageThreshold=60 review cadence in CI_POLICY.md"
+kind: task
+description: Mínimo. Cambios son
+---
+
 # TASK-TBH-21: Document CoverageThreshold=60 review cadence in CI_POLICY.md
 
 ## Metadata
@@ -23,7 +29,7 @@
 
 ### Referencias hacia afuera (inbound — quién lee estos archivos)
 - `dev-tools/verify.ps1` → ejecutada por hooks `pre-push` (`.githooks/pre-push` per AGENTS.md Regla 1) y por el step `coverage` del Fast Gate en `ci-rust-10.yml`.
-- `docs/dev/operations/CI_POLICY.md` → referenciado desde `.opencode/AGENTS.md` (CI Architecture section), desde `dev-tools/verify.ps1:48`, desde CI workflows, desde docs/dev/architecture/adr/ADR-015-coverage-policy.md (P2-06 source).
+- `docs/dev/operations/CI_POLICY.md` → referenciado desde `.opencode/AGENTS.md` (CI Architecture section), desde `dev-tools/verify.ps1:48`, desde CI workflows, desde docs/dev/architecture/adr/ADR-0015-coverage-policy.md (P2-06 source).
 
 ### Veredicto de impacto
 **Mínimo.** Cambios son:

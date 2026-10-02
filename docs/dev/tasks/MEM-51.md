@@ -1,3 +1,9 @@
+---
+title: MEM-51 — H2/O2 Interceptor de stream con loop agéntico de memory-tools
+kind: task
+description: Archivos leídos completos
+---
+
 # MEM-51 — H2/O2 Interceptor de stream con loop agéntico de memory-tools
 
 ## Plan

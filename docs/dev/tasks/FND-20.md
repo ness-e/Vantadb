@@ -1,3 +1,9 @@
+---
+title: "FND-20 — Documentar trade-off HNSW (ef_search/M: recall vs latencia) + argumento vs IVF/FAISS"
+kind: task
+description: Nota técnica defensible para Show HN en docs/dev/architecture/FND-20-hnsw-tradeoff.md (inglés) explicando
+---
+
 # FND-20 — Documentar trade-off HNSW (ef_search/M: recall vs latencia) + argumento vs IVF/FAISS
 
 - **Plan:** docs/dev/plans/2026-08-16-wave-r2-r7-fnd.md (Task 9, Wave 2)
@@ -20,12 +26,12 @@ recall vs latencia, memoria, y por qué HNSW y no IVF/FAISS/exacta para local-fi
 - `src/index/ivf.rs` (k-means build: 79-228)
 - `src/index/auto_tune.rs` (auto-tuner: 11-53)
 - `docs/user/operations/BENCHMARKS.md`, `docs/user/operations/PERFORMANCE_TUNING.md`, `docs/user/operations/PERFORMANCE_GUIDE.md`
-- `docs/dev/architecture/adr/005_hnsw_parameters.md` (drift detectado: dice ef_construction=200, código dice 100)
+- `docs/dev/architecture/adr/ADR-0005-hnsw-parameters.md` (drift detectado: dice ef_construction=200, código dice 100)
 
 ## Impacto mapeado (Regla 0)
 
 - Archivo nuevo en `docs/dev/architecture/` — no rompe referencias.
-- DRIFT documentado: ADR 005 (ef_construction=200) y PERFORMANCE_TUNING.md (ef_construction=400)
+- DRIFT documentado: ADR 0005 (ef_construction=200) y PERFORMANCE_TUNING.md (ef_construction=400)
   no coinciden con el código (100). La nota cita el CÓDIGO como fuente de verdad y lo señala.
 - Verificado: nota existe, en inglés, con citas archivo:línea y sección "Why not FAISS/IVF".
 

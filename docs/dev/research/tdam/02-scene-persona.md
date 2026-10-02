@@ -1,12 +1,11 @@
 ---
 title: "TDAM — 02: Scene extraction + Persona — Investigación profunda"
-type: research
+kind: research
 status: active
+description: "TDAM implementa L2 (escenas) y L3 (persona) como agentes LLM con herramientas de archivo, no como algoritmos deterministas. El SceneExtractor le da al LLM acceso sandboxed a sceneblocks/ (read/write/edit) para consolidar memorias L1 en..."
 tags: [vantadb, research, tdam, scene-persona]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
+
 # TDAM — 02: Scene extraction + Persona — Investigación profunda
 
 > Fecha: 2026-08-18 · Agente: vanta-research · Scope: core/scene, core/persona, core/profile

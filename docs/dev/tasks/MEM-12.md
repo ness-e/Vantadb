@@ -1,3 +1,9 @@
+---
+title: "MEM-12: F4 Contrato META + nodo escena (ancla L2)"
+kind: task
+description: "cargo check -p vanta-memory pasa, cargo check -p vantadb pasa (core intacto), cargo nextest run -p vanta-memory pasa (incluye tests dedicados de META/escena D19), cargo fmt --check pasa, cargo clippy -p vanta-memory --all-targets..."
+---
+
 # MEM-12: F4 Contrato META + nodo escena (ancla L2)
 
 ## Metadata

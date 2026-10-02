@@ -1,7 +1,14 @@
+---
+title: "Plan de Ejecución: FIND-89 — consolidar lecturas directas de env en `Config` (2026-09-14)"
+kind: plan
+status: archived
+description: VANTADB pero los lectores directos siguen usando VANTA legacy. El próximo rename
+---
+
 # Plan de Ejecución: FIND-89 — consolidar lecturas directas de env en `Config` (2026-09-14)
 
 > **Fuente:** fila FIND-89 en `docs/dev/Backlog.md` (registrada por F3C Q2=B) + datos de
-> ADR-043 (lista de 12 ficheros, a corregir abajo) + reconocimiento en código 2026-09-14
+> ADR-0043 (lista de 12 ficheros, a corregir abajo) + reconocimiento en código 2026-09-14
 > (ver §Reconocimiento) + guía §1 KISS&DRY (una sola representación) y CCP.
 > **Alcance:** UNA sola fuente de verdad para la configuración: todo `env::var` de
 > negocio se lee vía `Config` (ya partida por dominios en F3C). Sin reorganización
@@ -29,10 +36,10 @@
    (una sola fuente, C7 completado de verdad). → DO, no DEFER.
 3. Sin dependencias bloqueantes (F3C mergeada: `Config` por dominios + fachada existen).
 
-## Reconocimiento en código (2026-09-14, corrige la lista de ADR-043)
+## Reconocimiento en código (2026-09-14, corrige la lista de ADR-0043)
 
 Solo **7 ficheros** usan `env::var` real fuera de `src/config.rs` (los otros 5 de la lista
-ADR-043 — `cli.rs`, `cli_handlers/server.rs`, `server/bootstrap.rs`, `error.rs`,
+ADR-0043 — `cli.rs`, `cli_handlers/server.rs`, `server/bootstrap.rs`, `error.rs`,
 `server/errors.rs` — solo mencionan `VANTA_DB`/`VANTA_BACKEND` en textos de ayuda o
 comentarios, más `env!("CARGO_PKG_VERSION")` en tiempo de compilación, que está bien).
 
@@ -51,7 +58,7 @@ comentarios, más `env!("CARGO_PKG_VERSION")` en tiempo de compilación, que est
 
 **Task 1: FIND-89 — una sola fuente de env vía `Config`**
 - Appetite 1d · 🟡 · 🟠 · Archivos clave: los 7 de la tabla + `src/config.rs` (dominios F3C) + `docs/user/operations/CONFIGURATION.md` + `docs/dev/Backlog.md` (cerrar la fila al terminar)
-- Gate Justificación: DRY + CCP (misma razón de cambio junta); C7 incompleto sin esto; lista verificada hoy con `rg` (no la heredada de ADR-043).
+- Gate Justificación: DRY + CCP (misma razón de cambio junta); C7 incompleto sin esto; lista verificada hoy con `rg` (no la heredada de ADR-0043).
 - Contrato: `rg "env::var" src/ --glob '!src/config.rs'` solo devuelve la excepción `OTEL_*` documentada + `rg "VANTA_[A-Z_]+" src/` solo devuelve `env!`/históricos congelados documentados + `cargo check --tests --all-targets` + `clippy -D warnings` + `fmt` + suites de los módulos tocados (llm/crypto/telemetry/prefetch) verdes.
 - Task file `docs/dev/tasks/FIND-89.md` · ✅ COMPLETED (2026-09-14, review vanta-audit ✅ approve) · Ruta vanta-worker.
 - Slices (vertical por fichero, compilable siempre): S1 `llm.rs` (el grande: campos + espejos `VANTADB_OPENAI_*`/`VANTADB_EMBEDDING_PROVIDER`/`VANTADB_LOCAL_MODEL` con breaking documentado) → S2 `vector.rs` + `prefetch.rs` (reusan campos de S1) → S3 `telemetry.rs` (`OTEL_*` exceptuados por escrito) + `maintenance.rs` + `crypto.rs` + `metadata.rs` → S4 textos ayuda/comentarios + CONFIGURATION.md + changelog (breaking de los espejos nuevos) + cerrar fila FIND-89 + cierre.
@@ -85,6 +92,6 @@ Wave 0: FIND-89 (una sola task; slices S1→S2→S3→S4 secuenciales por compil
 
 - **Contrato:** verde — `rg env::var`→solo excepciones (test/ENV_REPORTED_VERSION/OTEL_*); `rg VANTA_`→solo comentarios config.rs; `check -p vantadb --tests` ✅; `clippy --lib -D warnings` ✅; `fmt` ✅; nextest 118/118 ✅. Fallos `--all-targets` pre-existentes F3X fuera de scope (confirmado por revisor).
 - **Commits:** `1ca57649` (S1) + `3a0e42d7` (S2) + `4cdc1970` (S3) + `c4ddb217` (S4 feat!:) + `410b9b57` (fix clippy).
-- **Retrospectiva Start/Stop/Continue:** Start: reconocimiento con `rg` antes de heredar listas (ADR-043 decía 12, reales 7). Stop: `Default` impls delegando a shims deprecated (rompe `-D warnings`). Continue: slices compilables + tabla var→campo + review con corridas propias.
+- **Retrospectiva Start/Stop/Continue:** Start: reconocimiento con `rg` antes de heredar listas (ADR-0043 decía 12, reales 7). Stop: `Default` impls delegando a shims deprecated (rompe `-D warnings`). Continue: slices compilables + tabla var→campo + review con corridas propias.
 - **`skill progreso`:** fila FIND-89 removida del Backlog (auditoría paralela misma fecha, nota en `backlog-history.md`); entrada en `docs/dev/avance/activo/core-engine.md`; nota de archivo en `docs/dev/avance/meta.md`.
 - **Tras el cierre, C7 queda completado de verdad (0 legacy funcional).** Plan archivado en `docs/dev/plans/archive/`.

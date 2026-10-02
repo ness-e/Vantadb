@@ -1,3 +1,9 @@
+# HARD-02 (decisión owner (c) 2026-09-27): el reporte+budget de coverage YA NO corre en
+# el fast gate local por defecto — vive en el nightly (nightly.yml job `coverage-budget`,
+# script dev-tools/coverage-budget.ps1). On-demand local: `pwsh dev-tools/verify.ps1 -IncludeCoverage`.
+# CI canónico ADR-018 (root crate ≥80%, ci-rust.yml) intacto.
+param([switch]$IncludeCoverage)
+
 $ErrorActionPreference = "Stop"
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $ProjectRoot
@@ -45,8 +51,10 @@ $env:RUST_MIN_STACK = "33554432"
 # Features del core gate: definición canónica compartida (dev-tools/gate-common.ps1)
 . (Join-Path $PSScriptRoot "gate-common.ps1")
 $feats = Get-CoreFeatures
-# P2-06: prudent initial llvm-cov line-coverage floor. Raise after first runs (see CI_POLICY.md).
-$CoverageThreshold = 60
+# Exclusiones RESOURCE-GUARD del fast gate (3 tests con inputs hostiles; trazabilidad
+# Regla 2 / CI_POLICY §"Fast Gate Test Exclusions" — FIND-22). Definición canónica en
+# gate-common.ps1 — compartida con coverage-budget.ps1 (nightly) para que no deriven.
+$fastGateFilter = Get-FastGateFilter
 $pass = 0; $fail = 0
 
 function run($name, [string[]]$cmd) {
@@ -63,25 +71,19 @@ try {
     run "audit" ("cargo", "audit")   # ignores managed in .cargo/audit.toml
     run "deny" ("cargo", "deny", "check")
     if (Get-Command "cargo-nextest" -ErrorAction SilentlyContinue) {
-        # Exclusiones del fast gate (trazabilidad Regla 2 / CI_POLICY §"Fast Gate Test Exclusions"):
-        #   - deserialize_absurd_node_count      → CATEGORY: RESOURCE-GUARD (input de
-        #     tamaño absurdo diseñado para OOM el runner; no es flaky, es bomba de memoria)
-        #   - test_search_with_bizarre_text_query / test_malformed_payload_extremely_large
-        #     → CATEGORY: RESOURCE-GUARD (inputs malformados gigantes; cubiertos por
-        #     fuzzing dedicado, no por el fast gate)
-        # Formalizadas en CI_POLICY.md (FIND-22, 2026-09-02).
-        run "nextest" (("cargo", "nextest", "run", "--profile", "audit", "-p", "vantadb") + $feats + @("--build-jobs", "1", "-E", "not test(/deserialize_absurd_node_count/) and not test(/test_search_with_bizarre_text_query/) and not test(/test_malformed_payload_extremely_large/)"))
+        # exclusiones RESOURCE-GUARD: ver $fastGateFilter arriba + CI_POLICY §"Fast Gate Test Exclusions"
+        run "nextest" (("cargo", "nextest", "run", "--profile", "audit", "-p", "vantadb") + $feats + @("--build-jobs", "1", "-E", $fastGateFilter))
     } else {
         run "test" (("cargo", "test", "-p", "vantadb") + $feats + @("-j", "1", "--", "--skip", "benchmark", "--skip", "competitive", "--skip", "recall", "--skip", "sift", "--skip", "chaos", "--skip", "hnsw_hard_validation", "--skip", "stress_protocol", "--skip", "vector_scale", "--skip", "certification", "--skip", "security_audit", "--skip", "deserialize_absurd_node_count", "--skip", "test_search_with_bizarre_text_query", "--skip", "test_malformed_payload_extremely_large"))
     }
-    if (Get-Command "cargo-llvm-cov" -ErrorAction SilentlyContinue) {
-        if (Get-Command "cargo-nextest" -ErrorAction SilentlyContinue) {
-            run "coverage" (("cargo", "llvm-cov", "nextest", "run", "--profile", "audit", "-p", "vantadb", "--fail-under-lines", "$CoverageThreshold") + $feats + @("--build-jobs", "1", "-E", "not test(/deserialize_absurd_node_count/) and not test(/test_search_with_bizarre_text_query/) and not test(/test_malformed_payload_extremely_large/)"))
-        } else {
-            run "coverage" (("cargo", "llvm-cov", "-p", "vantadb", "--fail-under-lines", "$CoverageThreshold") + $feats + @("-j", "1", "--", "--skip", "benchmark", "--skip", "competitive", "--skip", "recall", "--skip", "sift", "--skip", "chaos", "--skip", "hnsw_hard_validation", "--skip", "stress_protocol", "--skip", "vector_scale", "--skip", "certification", "--skip", "security_audit", "--skip", "deserialize_absurd_node_count", "--skip", "test_search_with_bizarre_text_query", "--skip", "test_malformed_payload_extremely_large"))
-        }
+    if ($IncludeCoverage) {
+        # On-demand: mismo script que corre el nightly (reporte JSON + presupuesto por directorio).
+        run "coverage-budget" ("pwsh", "-NoProfile", "$PSScriptRoot\coverage-budget.ps1")
     } else {
-        Write-Host "  llvm-cov not installed - skipping coverage gate" -ForegroundColor DarkYellow
+        # HARD-02 (decisión owner (c) 2026-09-27): coverage vive en el nightly (nightly.yml job
+        # `coverage-budget`); el fast gate local no lo corre por defecto (restaura el budget <5min).
+        # On-demand: -IncludeCoverage. CI canónico ADR-018 intacto (ci-rust.yml).
+        Write-Host "  coverage report+budget moved to nightly - run with -IncludeCoverage" -ForegroundColor DarkYellow
     }
     if (Test-Path "$ProjectRoot\scripts\validate-docs-coverage.ps1") {
         run "docs-coverage" ("pwsh", "-NoProfile", "$ProjectRoot\scripts\validate-docs-coverage.ps1")

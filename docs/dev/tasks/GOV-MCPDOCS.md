@@ -1,3 +1,9 @@
+---
+title: GOV-MCPDOCS — Sync docs/api/MCP.md with the 36 MCP tools (gate fix)
+kind: task
+description: "Type: docs · Domain: vanta-docs · Date: 2026-08-22"
+---
+
 # GOV-MCPDOCS — Sync docs/api/MCP.md with the 36 MCP tools (gate fix)
 
 **Type:** docs · **Domain:** vanta-docs · **Date:** 2026-08-22

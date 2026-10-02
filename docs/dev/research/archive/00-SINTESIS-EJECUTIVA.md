@@ -1,3 +1,10 @@
+---
+title: "VantaDB — Síntesis Ejecutiva Final: Competencia, Monetización y Estrategia de Producto"
+kind: research
+status: archived
+description: "Fecha: 2026-08-25 · Método: 7 investigaciones paralelas por sub-agentes (4 web research verificadas contra páginas oficiales extraídas en vivo, 2 auditorías locales del repo/código, 1 validación adversarial claim-a-claim contra el..."
+---
+
 # VantaDB — Síntesis Ejecutiva Final: Competencia, Monetización y Estrategia de Producto
 
 **Fecha:** 2026-08-25 · **Método:** 7 investigaciones paralelas por sub-agentes (4 web research verificadas contra páginas oficiales extraídas en vivo, 2 auditorías locales del repo/código, 1 validación adversarial claim-a-claim contra el código real e historia git) · **Fuente de cada sección:** ver índice al final.

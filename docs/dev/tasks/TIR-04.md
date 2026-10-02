@@ -1,3 +1,9 @@
+---
+title: "TIR-04: Dead-letter queue"
+kind: task
+description: "docs/Investigaciones/TIR-04-dead-letter-queue.md existe con: (1) análisis de qué preserva hoy la escalera ESCALATE (estado/traceId de tarea fallida) y qué perdería sin DLQ; (2) comparación contenedor-de-tareas-fallidas-citado-desde-plan..."
+---
+
 # TIR-04: Dead-letter queue
 
 ## Metadata

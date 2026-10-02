@@ -1,3 +1,9 @@
+---
+title: "FIND-56: `vantadb-server/Dockerfile` roto — DEPRECAR a favor del Dockerfile raíz (Gate D N/A, decisión en DISCOVERY)"
+kind: task
+description: "rg \"COPY vantadb/\" vantadb-server/Dockerfile → archivo inexistente (eliminado) Y rg -l \"vantadb-server/Dockerfile\" --glob '!docs/dev/plans/archive/' --glob '!docs/dev/reviews/archive/' = solo hits históricos exentos (SRV-07.md..."
+---
+
 # FIND-56: `vantadb-server/Dockerfile` roto — DEPRECAR a favor del Dockerfile raíz (Gate D N/A, decisión en DISCOVERY)
 
 ## Metadata

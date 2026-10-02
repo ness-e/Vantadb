@@ -1,3 +1,9 @@
+---
+title: "Task REVIEW-07: Fix .config/nextest.toml profile audit (parse failure bloquea toda invocación)"
+kind: task
+description: "Task ID: REVIEW-07"
+---
+
 # Task REVIEW-07: Fix .config/nextest.toml profile audit (parse failure bloquea toda invocación)
 
 **Task ID:** REVIEW-07
@@ -7,7 +13,7 @@
 
 ---
 
-## Estado: ✅ COMPLETED (idempotente — el fix ya está en disco)
+- Estado: ✅ COMPLETED (idempotente — el fix ya está en disco)
 
 ---
 

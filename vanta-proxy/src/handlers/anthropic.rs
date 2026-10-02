@@ -7,7 +7,7 @@ use axum::response::Response;
 use crate::inject::Protocol;
 use crate::server::AppState;
 
-/// POST `/{agent}/{spaceId}/v1/messages` — auth→session→inject→forward.
+/// POST `/{agent}/{space_id}/v1/messages` — auth→session→inject→forward.
 pub async fn messages(
     State(state): State<AppState>,
     Path((agent, space_id)): Path<(String, String)>,

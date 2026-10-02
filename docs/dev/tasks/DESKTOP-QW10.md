@@ -1,3 +1,9 @@
+---
+title: "TASK DESKTOP-QW10: E2E desktop (H-07) — specs multi-perfil conexión + proxy dashboard (mock upstream); graph/space..."
+kind: task
+description: E2E desktop specs multi-perfil conexión + proxy dashboard (mock upstream); graph/space quedan smoke visual manual documentado; npx playwright test verde
+---
+
 # TASK DESKTOP-QW10: E2E desktop (H-07) — specs multi-perfil conexión + proxy dashboard (mock upstream); graph/space smoke manual
 
 ## Metadata

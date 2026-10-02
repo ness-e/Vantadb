@@ -1,3 +1,9 @@
+---
+title: GOV-C2 — master-index taxonomía (docs/dev/master-index.md)
+kind: task
+description: "BUILD (docs taxonomía) — taxonomía de documentación, no código Rust"
+---
+
 # GOV-C2 — master-index taxonomía (docs/dev/master-index.md)
 
 ## Metadata

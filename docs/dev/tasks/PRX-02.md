@@ -1,3 +1,9 @@
+---
+title: PRX-02 — Fallback multi-upstream + retries
+kind: task
+description: "Archivos leídos completos: vanta-proxy/src/config.rs (235L), vanta-proxy/src/forward.rs (154L), vanta-proxy/src/error.rs (46L), vanta-proxy/src/lib.rs, vanta-proxy/Cargo.toml, server.rs:340-459 (forwardraw + tool-loop..."
+---
+
 # PRX-02 — Fallback multi-upstream + retries
 
 > **Plan:** docs/dev/plans/2026-09-10-code.md (Task 1) · **Campaign:** 2c3d4e5f-6a7b-8c9d-0e1f-2a3b4c5d6e01

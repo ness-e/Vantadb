@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Publicación MVP (PyPI + parity + showcase + gate Fase A) — 2026-09-19"
+kind: plan
+status: archived
+description: "Status: ⬆️ uphill = 1 (estrategia PyPI del owner) · ⬇️ downhill = 6 tasks con contrato definido"
+---
+
 # Plan de Ejecución: Publicación MVP (PyPI + parity + showcase + gate Fase A) — 2026-09-19
 
 > **Campaign ID:** 2c1b931f-977c-4500-8eb3-62de7c934bd7

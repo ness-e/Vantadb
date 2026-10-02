@@ -1,3 +1,9 @@
+---
+title: "FIND-43: Aplanar builder CacheWarmer (no recursivo)"
+kind: task
+description: Contrato mecánico
+---
+
 # FIND-43: Aplanar builder CacheWarmer (no recursivo)
 
 ## Metadata

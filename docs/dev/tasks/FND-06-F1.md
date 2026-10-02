@@ -1,3 +1,9 @@
+---
+title: "FND-06-F1: Zero-norm fallback silencioso en TS (ERR-028) — propagar error del core"
+kind: task
+description: "vantadb-ts/src/vantadb.ts:333-353 hace fallback silencioso a Euclidean cuando detecta zero-norm en búsqueda cosine — enmascara el comportamiento del core. El core YA rechaza zero-norm cosine (src/index/search/tests.rs:281-328 —..."
+---
+
 # FND-06-F1: Zero-norm fallback silencioso en TS (ERR-028) — propagar error del core
 
 ## Metadata

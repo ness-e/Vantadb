@@ -1,10 +1,9 @@
 ---
-title: "Avance — Investigaciones (INV)"
-type: catalog
+title: Avance — Investigaciones (INV)
+kind: review
 status: active
+description: "COMP-001/002/003/004/005/007/011/015/020/030 catalogados en historial/backlog-history.md → P10. Incluyen SQ8/PQ, HNSW persist, in-filter, bitset, params, inline u128, CRUD tombstones, hybrid pipeline, RRF fusion, survival mode"
 tags: [vantadb, avance, investigacion, research]
-last_reviewed: 2026-08-07
-aliases: []
 ---
 
 # Avance — Investigaciones (INV)
@@ -156,7 +155,7 @@ aliases: []
 ### INV-integrations-01 — Investigación profunda adapters de frameworks (2026-08-25)
 - **Origen:** `/research integrations` (registro fila 22)
 - **Informe:** `docs/dev/reviews/research-integrations-20260825.md` (score global 6.3/10; review previo módulos 6.5)
-- **Resultado:** 11 hallazgos (H-01..H-11) → decisiones HITL: 9 APLICAR → plan quick wins + 2 ESTRATEGIA Backlog P44 + 0 DESCARTAR. Hallazgo de proceso: MOD-46..50 huérfanas (removidas del Backlog sin completar ni archivar) — absorbidas por el plan. Convención ecosistema verificada: paquete PyPI separado por framework (dominante); MKT-18f ampliada 5→9 paquetes.
+- **Resultado:** 11 hallazgos (H-01..H-11) → decisiones HITL: 9 APLICAR → plan quick wins + 2 ESTRATEGIA Backlog P44 + 0 DESCARTAR. Hallazgo de proceso: MOD-46..50 huérfanas (removidas del Backlog sin completar ni archivar) — absorbidas por el plan. Convención ecosistema verificada: paquete PyPI separado por framework (dominante); MKT-20 (ex MKT-18f) ampliada 5→9 paquetes.
 - **Materialización:** plan `docs/dev/plans/2026-08-25-integrations-research-wins.md` (QW-1..9) + filas `INTG-01/02` en Backlog P44
 - **Ids:** `INV-integrations-01`, `INTG-01/02`, QW-1..9
 
@@ -206,4 +205,18 @@ aliases: []
 - **Objetivo:** evidencia git-log-por-seccion (14 commits intra-seccion) + constraints hot-reload/102 sitios/42 env + digest figment/config-rs + ADR-datos; decision humana B+B (split anidado + VANTADB_* mismo cambio; S-split-config futuro).
 - **Resultado:** research cero codigo.
 - **Commit:** 1ca58fa8
+- **Dominio:** investigaciones
+
+### MGR-19: Benchmarks propios y externos (Track G, Cierre MGR)
+- **Fecha:** 2026-09-25
+- **Objetivo:** baseline canónico + reconciliar README↔§2 + definir suites LoCoMo/LongMemEval-S/BEAM-subset
+- **Resultado:** ✅ timed `canonical_p99` (search p50=2.2388ms/p95=4.248ms/p99=4.9987ms); triple divergencia documentada; §2 FROZEN pre-SIMD; protocolo + deferral dataset a VER-08; P2-01 approve; lead verify baseline transcripto
+- **Commit:** 033f0cb0
+- **Dominio:** investigaciones
+
+### RES-17: Instalador interactivo y personalizado (ex INV-installer-01)
+- **Fecha:** 2026-10-01
+- **Objetivo:** benchmark multi-fuente (rustup/ollama/Docker/VS Code/uv/cargo-dist/brew/winget…) + recomendación de arquitectura para la instalación interactiva (selector de módulos) — alimenta DX-12.
+- **Resultado:** ✅ `docs/dev/research/installer-personalizado/RESEARCH.md` (194 líneas; 31 URLs verificadas por fetch; recomendación: wizard nativo `vanta-cli setup` + `installer/modules.toml` + perfiles minimal/default/full/custom + sha256 obligatorio; roadmap F1-F4).
+- **Commit:** 974be898
 - **Dominio:** investigaciones

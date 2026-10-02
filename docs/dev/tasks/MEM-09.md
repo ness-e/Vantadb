@@ -1,3 +1,9 @@
+---
+title: "MEM-09: F4 L0 capture idempotente"
+kind: task
+description: "cargo check -p vanta-memory pasa, cargo nextest run -p vanta-memory pasa (incluye tests dedicados de L0), cargo fmt --check pasa, cargo clippy -p vanta-memory --all-targets --no-deps -- -D warnings pasa, y el comportamiento específico..."
+---
+
 # MEM-09: F4 L0 capture idempotente
 
 ## Metadata

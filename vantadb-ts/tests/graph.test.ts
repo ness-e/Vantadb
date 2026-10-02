@@ -94,4 +94,25 @@ describe("TS-01: GraphBfsResult shape real (wire = bigint[] of u128 node IDs)", 
     expect(Array.isArray(result)).toBe(true);
     expect(result.length).toBe(0);
   });
+
+  it("W1: traversals reject unsafe number roots (bigint required above 2^53)", () => {
+    const unsafe = Number.MAX_SAFE_INTEGER + 1; // rounds — not a safe integer
+    expect(() => db.graphBfs([unsafe], 5)).toThrow(/safe integer/);
+  });
+
+  it("W1: traversals accept bigint roots above 2^53 without precision loss", () => {
+    const big = 9007199254740993n; // 2^53 + 1
+    db.insertNode(big, "big-root");
+    try {
+      const result = db.graphBfs([big], 5);
+      expect(result).toContain(big);
+      expect(db.getNode(big)?.id).toBe("9007199254740993");
+      const dag = db.graphIsDag([big]);
+      expect(typeof dag).toBe("boolean");
+      const degrees = db.graphDegree([big]);
+      expect(degrees.some((d) => d.id === "9007199254740993")).toBe(true);
+    } finally {
+      db.deleteNode(big);
+    }
+  });
 });

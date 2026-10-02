@@ -1,11 +1,10 @@
 ---
-title: "VantaDB IVF Benchmark — REVISAR-01"
-type: benchmark
+title: VantaDB IVF Benchmark — REVISAR-01
+kind: report
 status: active
-tags: [vantadb, benchmarks, ivf, recall-bench]
-last_reviewed: 2026-09-15
+description: "Cierra el ciclo ERR-038/039/040/041 con un bench dedicado: construcción IVF, búsqueda,"
 aliases: [IVF]
-related: []
+tags: [vantadb, benchmarks, ivf, recall-bench]
 ---
 
 # VantaDB IVF Benchmark — REVISAR-01

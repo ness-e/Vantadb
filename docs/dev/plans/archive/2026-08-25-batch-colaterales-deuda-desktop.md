@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Batch Colaterales + Deuda + Desktop (2026-08-25)"
+kind: plan
+status: archived
+description: "Status: ⬆️ uphill = 1 (MEM-51 requiere decisión de diseño) · ⬇️ downhill = 13"
+---
+
 # Plan de Ejecución: Batch Colaterales + Deuda + Desktop (2026-08-25)
 
 > **Campaign ID:** a226e72e-eb3d-4b5b-b43e-64bc698064a5

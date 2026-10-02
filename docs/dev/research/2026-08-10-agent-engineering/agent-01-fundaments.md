@@ -1,12 +1,11 @@
 ---
-title: "AGENT-01 — Fundamentos y Mejores Prácticas de Agentes Efectivos"
-type: research
+title: AGENT-01 — Fundamentos y Mejores Prácticas de Agentes Efectivos
+kind: research
 status: stable
+description: "Fuente: #1 (Anthropic Building Effective Agents)"
 tags: [vantadb, research, agentes-ia, fundamentos]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
+
 # AGENT-01 — Fundamentos y Mejores Prácticas de Agentes Efectivos
 
 > **Rama de investigación**: Fundamentos y mejores prácticas de agentes efectivos (patrones probados de diseño de agentes)

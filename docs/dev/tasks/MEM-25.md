@@ -1,3 +1,9 @@
+---
+title: "MEM-25: vanta-proxy crate + 3 protocolos wire verbatim"
+kind: task
+description: "Callers: ninguno (crate binario nuevo). Callees: reqwest→upstream. Implicaciones: workspace members crece en 1; CI fast gate no lo compila (fuera default-members)"
+---
+
 # MEM-25: vanta-proxy crate + 3 protocolos wire verbatim
 
 ## Metadata

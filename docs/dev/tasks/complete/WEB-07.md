@@ -1,3 +1,9 @@
+---
+title: "WEB-07: Sandbox iframe para el playground (new Function self-XSS) o decisión documentada"
+kind: task
+description: "Callers | Callees | Implicaciones"
+---
+
 # WEB-07: Sandbox iframe para el playground (new Function self-XSS) o decisión documentada
 
 ## Metadata

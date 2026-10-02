@@ -1,3 +1,9 @@
+---
+title: "DESKTOP-39: Ingest con embedding desde texto — verificar src/llm.rs y decidir"
+kind: task
+description: Evidencia del código
+---
+
 # DESKTOP-39: Ingest con embedding desde texto — verificar src/llm.rs y decidir
 
 ## Metadata

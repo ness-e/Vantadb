@@ -1,11 +1,9 @@
 ---
 title: "`ci-gate.yml` — CI Gate"
-type: workflow
+kind: runbook
 status: active
+description: "Workflow reutilizable que actúa como compuerta de calidad para workflows pesados o programados. Antes de gastar horas de cómputo (benchmarks, certificación, fuzzing), consulta el estado de los check-runs del CI en el commit objetivo de..."
 tags: [vantadb, ci, ci-gate]
-last_reviewed: 2026-09-15
-aliases: []
-related: [".github/workflows/ci-gate.yml"]
 ---
 
 # `ci-gate.yml` — CI Gate

@@ -1,11 +1,9 @@
 ---
-title: "Reviews archivados (2026-08-26)"
-type: review
+title: Reviews archivados (2026-08-26)
+kind: index
 status: archived
+description: Estos 30 reportes son snapshots históricos de auditorías/reviews/investigaciones
 tags: [vantadb, review]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Reviews archivados (2026-08-26)

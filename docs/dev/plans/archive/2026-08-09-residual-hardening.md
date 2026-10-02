@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Residual Hardening — PERF/ERR/COV/AUD/CI"
+kind: plan
+status: archived
+description: "Excluidos deliberadamente (DEFER): DESKTOP-13..19/21..27 (campaña futura 4-6 sem), REVIEW-04/05 (refactor 1-2 sem), PERF-02/03/08 (infra bench/plataforma WASM), PERF-05 (roadmap async WAL), BIZ-01b/OLD-01 (post-launch/roadmap..."
+---
+
 # Plan de Ejecución: Residual Hardening — PERF/ERR/COV/AUD/CI
 
 > **Campaign ID: 8443b6f0-d66e-43fd-a603-90ebee2630ad
@@ -226,7 +233,7 @@
 - **Gate Result:** ✅ DO
 - **Contrato:** ADR creado + ref actualizada en CI job
 - **Task file:** `skills/campaign-executor/tasks/COV-004.md`
-- **Estado:** ✅ COMPLETED (2026-08-11) — ADR-015-coverage-policy.md creado (commits `2c9ddbc5`, `a9b9c652`), ref en CI_POLICY.md:191 y en el job coverage de ci-rust-10.yml (`>=80%, ADR-015`).
+- **Estado:** ✅ COMPLETED (2026-08-11) — ADR-0015-coverage-policy.md creado (commits `2c9ddbc5`, `a9b9c652`), ref en CI_POLICY.md:191 y en el job coverage de ci-rust-10.yml (`>=80%, ADR-0015`).
   **Notas:** regex `^ADR-\d{3}` en `docs/dev/architecture/adr/`.
 
 ### Task 20: CI-01 — .pre-commit-config.yaml
@@ -308,7 +315,7 @@
 
 ## Checkpoints
 
-> **Estado (2026-08-11):** Checkpoints 3 y 4 ejecutados — COV-002 (c9188639), COV-003 (c773ee9c/be3a785c), COV-004 (ADR-015 + ref CI), AUD-020 (90f85d9f) completados y marcados.
+> **Estado (2026-08-11):** Checkpoints 3 y 4 ejecutados — COV-002 (c9188639), COV-003 (c773ee9c/be3a785c), COV-004 (ADR-0015 + ref CI), AUD-020 (90f85d9f) completados y marcados.
 
 ### Checkpoint 1: Después de Tasks 1-9 (hot paths Rust)
 - [ ] `cargo nextest run --profile audit --workspace --build-jobs 2` pasa — re-verificar: 13 tests fallan 2026-08-11 (ERR-010 reabierto, insert_lock flush timeout)
@@ -322,7 +329,7 @@
 - [x] Python wrapper coverage ≥85% (`target/audit-venv`) — COV-001: 97% en `__init__.py` ✅
 - [x] TS coverage medible (c8 o vitest) — Task 17 COV-002 ✅ (v8 68.77% stmts / 74.57% branch, commit c9188639)
 - [x] CLI tests incrementan root coverage — Task 18 COV-003 ✅ (67/68 CLI tests; 1 fallo = ERR-010; commits c773ee9c/be3a785c)
-- [x] ADR COV-004 mergeado — Task 19 COV-004 ✅ (ADR-015 + ref CI_POLICY:191 + job coverage ci-rust-10.yml)
+- [x] ADR COV-004 mergeado — Task 19 COV-004 ✅ (ADR-0015 + ref CI_POLICY:191 + job coverage ci-rust-10.yml)
 
 ### Checkpoint 4: Después de Tasks 20-26 (release/CI/audit)
 - [x] `cargo deny check` pasa — Tasks 21/25 COMPLETED

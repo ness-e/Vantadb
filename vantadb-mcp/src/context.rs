@@ -15,14 +15,14 @@
 use crate::config::McpConfig;
 use crate::error::McpError;
 use crate::validation::{
-    error_content, serialize_content, text_content, validate_identifier, validate_payload,
+    error_content, text_content_structured, validate_identifier, validate_payload,
 };
 use serde_json::{json, Value};
 use std::sync::Arc;
 use vanta_memory::context_engine::{
     assemble_with_recall, AssembleConfig, ChatMessage, ChatRole, TokenEstimator,
 };
-use vanta_memory::core::hooks::{perform_auto_recall, AutoRecallParams, RecallConfig};
+use vanta_memory::core::hooks::{perform_auto_recall_governed, AutoRecallParams, RecallConfig};
 use vantadb::storage::StorageEngine;
 
 /// Tool definitions for `tools/list` (MEM-33 pattern).
@@ -94,17 +94,34 @@ fn context_assemble(
     // still injects persona/navigation — documented hook behavior. No
     // embedding hook here: search degrades to keyword (crate contract D38).
     // An unknown/empty session yields Ok(None) — never an error.
-    let (prepend, append) = match perform_auto_recall(
+    // VER-04: the pass runs under the injection ACL + the shared byte budget
+    // and is audited per memory (source ns/key + score; metadata only).
+    let budget_chars = config.byte_budget;
+    let (prepend, append) = match perform_auto_recall_governed(
         &db,
         AutoRecallParams {
             user_text: query,
             session_key,
             isolation: None,
-            config: RecallConfig::default(),
+            config: RecallConfig {
+                max_chars_per_memory: Some(budget_chars),
+                max_total_recall_chars: Some(budget_chars),
+                ..RecallConfig::default()
+            },
         },
         None,
+        &config.injection_policy(),
     ) {
-        Ok(Some(r)) => (r.prepend_context, r.append_system_context),
+        Ok(Some(r)) => {
+            crate::governance::audit_recall(
+                config,
+                "context_assemble",
+                session_key,
+                &r,
+                budget_chars,
+            );
+            (r.prepend_context, r.append_system_context)
+        }
         Ok(None) => (None, None),
         Err(e) => return Ok(error_content(format!("recall failed: {e}"))),
     };
@@ -123,7 +140,21 @@ fn context_assemble(
         None,
         None,
     ) {
-        Ok(ctx) => Ok(text_content(serialize_content(&ctx))),
+        Ok(ctx) => {
+            // VER-04: envelope coherence — `byte_count`/`truncated` ride as
+            // additive siblings of the `IntegratedContext` wire object
+            // (consumers ignore unknown fields; the context itself is
+            // untouched). `truncated` = history was compacted/dropped to fit
+            // the shared token budget.
+            let byte_count = serde_json::to_string(&ctx.messages).map_or(0, |s| s.len());
+            let truncated = ctx.report.msgs_conserved < ctx.report.msgs_before;
+            let mut envelope = serde_json::to_value(&ctx).unwrap_or_else(|_| json!({}));
+            if let Some(obj) = envelope.as_object_mut() {
+                obj.insert("byte_count".to_string(), json!(byte_count));
+                obj.insert("truncated".to_string(), json!(truncated));
+            }
+            Ok(text_content_structured(&envelope))
+        }
         Err(e) => Ok(error_content(format!("context assemble failed: {e}"))),
     }
 }

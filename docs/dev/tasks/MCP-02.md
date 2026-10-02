@@ -1,3 +1,9 @@
+---
+title: "MCP-02: S2 — `distance_metric=euclidean` sin efecto observable en search"
+kind: task
+description: "python C:\Users\Eros\AppData\Local\Temp\opencode\test-busqueda.py T14 verifica que distancemetric:\"euclidean\" produce scores DISTINTOS a cosine en el mismo índice; cargo check -p vantadb-mcp ✅\""
+---
+
 # MCP-02: S2 — `distance_metric=euclidean` sin efecto observable en search
 
 ## Metadata

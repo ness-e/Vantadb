@@ -227,6 +227,10 @@ fn security_audit_input_validation() {
             namespace: "ns".to_string(),
             query_vector: mismatched,
             top_k: 10,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
             ..Default::default()
         };
         let result = db.search(req);

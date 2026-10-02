@@ -1,3 +1,9 @@
+---
+title: "FIND-90: Fallout F3X — `vantadb-mcp` handlers sobre `dyn IndexPort` (E0609)"
+kind: task
+description: "Saldo neto de deuda por PR: Sin deuda — el fix elimina deuda (código roto por F3X)"
+---
+
 # FIND-90: Fallout F3X — `vantadb-mcp` handlers sobre `dyn IndexPort` (E0609)
 
 ## Metadata

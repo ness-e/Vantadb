@@ -1,3 +1,9 @@
+---
+title: "VS-CORE-02: Contadores por namespace + stats TTL en el core SDK"
+kind: task
+description: "cargo nextest run --profile audit --workspace --build-jobs 2 pasa Y el método namespacestats(&self, expiringsoonwindowms: Option<u64>) -> Result<VantaNamespaceStatsMap> devuelve {namespace: {count, expiringsoon, expired}} con conteos..."
+---
+
 # VS-CORE-02: Contadores por namespace + stats TTL en el core SDK
 
 ## Metadata

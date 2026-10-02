@@ -46,6 +46,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             vector: Some(vec![0.1, 0.2, 0.3, 0.4]),
             sparse_vector: None,
             ttl_ms: None,
+            ..Default::default()
         })?;
     }
 
@@ -57,6 +58,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         query_vector: vec![0.1, 0.2, 0.3, 0.4],
         text_query: Some("vector search ranking".into()),
         top_k: 5,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
         ..Default::default()
     })?;
 
@@ -74,6 +79,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         query_vector: vec![],
         text_query: Some("full-text ranking".into()),
         top_k: 5,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
         ..Default::default()
     })?;
 

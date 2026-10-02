@@ -1,11 +1,9 @@
 ---
 title: "`heavy-bench-nightly.yml` — HEAVY: Benchmarks — Nightly Regression"
-type: workflow
+kind: runbook
 status: active
+description: "Suite nocturna de benchmarks de rendimiento. Ejecuta 5 benchmarks de rendimiento (HNSW, hybrid queries, stress, concurrent, high density), compara los resultados contra el baseline (commit anterior) y reporta regresiones automáticamente..."
 tags: [vantadb, ci, heavy-bench-nightly]
-last_reviewed: 2026-09-15
-aliases: []
-related: [".github/workflows/heavy-bench-nightly.yml"]
 ---
 
 # `heavy-bench-nightly.yml` — HEAVY: Benchmarks — Nightly Regression

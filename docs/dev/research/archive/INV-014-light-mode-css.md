@@ -1,3 +1,10 @@
+---
+title: "INV-014: Light Mode (CSS muerto) — Auditoría"
+kind: research
+status: archived
+description: "La premisa del backlog estaba invertida: NO existe CSS light muerto — el sitio es LIGHT-ONLY por diseño"
+---
+
 # INV-014: Light Mode (CSS muerto) — Auditoría
 
 > **Estado:** ✅ COMPLETADA 2026-08-03 · **Fuente:** docs/dev/Backlog.md INV-014 · **Tipo:** Web Frontend (CSS/theme) — auditoría + propuesta, sin implementación

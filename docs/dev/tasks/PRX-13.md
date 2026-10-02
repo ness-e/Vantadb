@@ -1,3 +1,8 @@
+---
+title: PRX-13 — Optimización contexto en tránsito
+kind: task
+---
+
 # PRX-13 — Optimización contexto en tránsito
 
 - **Estado:** ✅ COMPLETE (2026-09-10: context.rs + wiring + prx13 14/14, suite 0 failed, clippy/fmt 0)

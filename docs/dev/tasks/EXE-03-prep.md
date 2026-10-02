@@ -1,3 +1,9 @@
+---
+title: "EXE-03-prep: kit gate Fase A listo (la ejecución con humanos es owner-side)"
+kind: task
+description: "Kit completo en docs/FASE-A.md: checklist Fase A imprimible (producto/calidad/docs/comunidad/comunicación, todo-SÍ) + plantilla usuario-01 por persona + README auditado honesto (veredicto + evidencia) + instrucciones testers; pwsh..."
+---
+
 # EXE-03-prep: kit gate Fase A listo (la ejecución con humanos es owner-side)
 
 ## Metadata

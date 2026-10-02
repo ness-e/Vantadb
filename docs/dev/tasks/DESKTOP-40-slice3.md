@@ -1,3 +1,9 @@
+---
+title: DESKTOP-40-slice3 — i18n lentes/paneles desktop
+kind: task
+description: "Patrón slices 1-2 (trusted, b64cbb30/bbdeae17): tt(lang, key, fallback-ES) + tp(lang, key, fallback, params) con catálogo simétrico ES/EN (Record<keyof typeof es, string>). Sin símbolos públicos nuevos salvo claves de catálogo"
+---
+
 # DESKTOP-40-slice3 — i18n lentes/paneles desktop
 
 - **Plan:** `docs/dev/plans/2026-09-10-code.md` (Task 3 DEFER) · **Backlog:** `docs/dev/Backlog.md` fila `DESKTOP-40-slice3`

@@ -1,3 +1,9 @@
+---
+title: "TSYS-06: Chaos/resilience del task-system — decisión runner vs tests puntuales"
+kind: task
+description: "docs/Investigaciones/TSYS-06-chaos-runner.md existe con veredicto explícito (implementar/WONTFIT/deferir + fecha) y evidencia citada (archivo:línea de state-tools.mjs / chaos-resilience.md).\" Verificación mecánica: Test-Path..."
+---
+
 # TSYS-06: Chaos/resilience del task-system — decisión runner vs tests puntuales
 
 ## Metadata

@@ -1,3 +1,9 @@
+---
+title: "DESKTOP-02: Scaffold Tauri v2 + propio workspace"
+kind: task
+description: "Test-Path desktop/ → True; cargo check en desktop/src-tauri → exit 0; cargo check -p vantadb (raíz) → exit 0 sin cambios; npm run build en desktop → exit 0.\""
+---
+
 # DESKTOP-02: Scaffold Tauri v2 + propio workspace
 
 ## Metadata

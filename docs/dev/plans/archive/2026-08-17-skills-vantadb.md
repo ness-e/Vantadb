@@ -1,3 +1,10 @@
+---
+title: "SKL Wave — Dejar perfectas las skills de VantaDB (`skills/`)"
+kind: plan
+status: archived
+description: Las 2 skills del directorio skills/ están desactualizadas y parcialmente rotas
+---
+
 # SKL Wave — Dejar perfectas las skills de VantaDB (`skills/`)
 
 > **Estado:** planned · **Campaign ID:** skl-2026-08-17

@@ -1,10 +1,9 @@
 ---
 title: Beta Pilot Program and Onboarding Guide
-type: operations
+kind: runbook
 status: active
+description: "This document defines the VantaDB Formal Pilot Program — the profile, commitments, timeline, and success criteria for early adopters, plus the technical onboarding guide and feedback loop"
 tags: [vantadb, operations, pilot, early-adopters, program]
-last_reviewed: 2026-07-26
-aliases: []
 ---
 
 # Beta Pilot Program and Onboarding Guide

@@ -1,11 +1,12 @@
 ---
 title: "06 — Inventario de docs/ internos y estado real del producto"
-type: research
+kind: research
 status: complete
-date: 2026-08-25
-author: "Agente F — analista producto/documentación"
+description: "Fecha: 2026-08-25 · Fuente: lectura directa de docs/ + contraste con código (src/sdk/api.rs, src/graphrag/pipeline.rs, vantadb-python/src/lib.rs, desktop/src/transport.ts)"
+date: "2026-08-25"
+author: Agente F — analista producto/documentación
 method: "Glob completo docs/**/*.md + lectura de 16 docs clave + verificación ligera contra código (codegraph)"
-scope_read_only: true
+scope_read_only: "true"
 ---
 
 # Inventario de docs/ internos y evaluación del estado real del producto
@@ -61,7 +62,7 @@ docs/
 
 1. **master-index.md** — Índice global con regla de mantenimiento estricta ("todo doc nuevo se indexa en el mismo PR"). Navegación completa por 20 secciones + lista de exclusiones deliberadas. Fue encontrado congelado en julio por la auditoría 21-08; hoy muestra `last_reviewed: 2026-08-22` (GOV lo revivió parcialmente).
 2. **Backlog.md** — Fuente única de tareas: **118 items abiertas** (reconteo GOV-C7 25-08). Fases P0–P4, P7, P11–P15 cerradas (release 0.5.0, security UAF, coverage, WASM, desktop 17/17, Vanta Studio 4 fases ✅). Lo abierto es principalmente *features futuras*: P27 TDAM/Vanta Memory Engine (38), GOV gobernanza docs (30), P25 exposición MCP/HTTP (11), P38 research huérfanas (17), P6 launch campaign (11). **No está "atrasado" — está cargado de roadmap adelante.**
-3. **CHANGELOG.md** — v0.5.0 publicada ~31-07; `[Unreleased]` acumula ~700 líneas: Vanta Studio completo, REST `/api/v2/*` (~29 paths), crate `vanta-memory`, supersession pública (ADR-028), fixes de seguridad. **Sin corte de release en ~3.5 semanas → los paquetes públicos no reflejan el producto actual.**
+3. **CHANGELOG.md** — v0.5.0 publicada ~31-07; `[Unreleased]` acumula ~700 líneas: Vanta Studio completo, REST `/api/v2/*` (~29 paths), crate `vanta-memory`, supersession pública (ADR-0028), fixes de seguridad. **Sin corte de release en ~3.5 semanas → los paquetes públicos no reflejan el producto actual.**
 4. **COMPARISON.md** — Comparativa con reglas anti-fumo: features de competidores solo si verificables en sus repos, números propios solo de BENCHMARKS.md con comando de reproducción, cero cifras ajenas. Publica límites propios concretos (top_k ≤1000, ingesta HNSW single-threaded, cosine mejor métrica, ~6.5 GB RAM estimados por 1M×1536d). Madurez de honestidad sobresaliente.
 5. **QUICKSTART.md** — Onboarding real y funcional: pip wheel → primera query híbrida con vectores toy offline; Ollama/OpenAI opcionales; TS vía npm/WASM; CLI export/audit. Mide TTFTQ propio: **~6 s Python, ~2 s TS**. Declara explícitamente el boundary del MVP (no cubre IQL, MCP, graph, cloud). Calidad alta.
 6. **FAQ.md** — Respuestas correctas y honestas ("production-ready? → 0.5.0 bajo desarrollo activo"); Homebrew comentado porque no existe. Stale menor: usa `import vantadb_py` mientras QUICKSTART canonicaliza `import vantadb`.
@@ -72,7 +73,7 @@ docs/
 11. **strategy/VANTADB-PRO-FEATURES.md** — Open Core: gates existentes en el core (encryption, wal-shipping, prometheus, server, tls; pitr **removida** por dead code) catalogados como "candidatos Pro conceptuales". Repo privado `vantadb-pro` existe pero solo contiene licenciamiento; 6 features Pro (RBAC, multi-tenancy, replicación…) **sin código** (P23).
 12. **avance/README.md** — Índice del árbol de progreso por dominio, migrado desde progreso/ (225 filas limpiadas). Convención ✅/⚠️/❌ verificada contra código. Las carpetas vivas (plans/, reviews/, research/) quedan fuera físicamente porque pipelines escriben ahí; se catalogan en `fuentes-vivas.md`.
 13. **reports/northstar.md** — Telemetría del *sistema de tareas* (no del producto): 37 tareas completadas, 100% primer intento, 1 falso positivo, 0 regresiones. Indica disciplina de ejecución alta.
-14. **TEST_MAP.md** — Mapa contribuidor "si cambias X corre Y": gates CI serios (clippy -D warnings, coverage ≥80% root ADR-018, Miri, ASan/TSan, cargo-deny, fuzz nightly). Data de 2026-07-22; la auditoría 21-08 encontró un filtro nextest inefectivo asociado (hallazgo 🔴 #1).
+14. **TEST_MAP.md** — Mapa contribuidor "si cambias X corre Y": gates CI serios (clippy -D warnings, coverage ≥80% root ADR-0018, Miri, ASan/TSan, cargo-deny, fuzz nightly). Data de 2026-07-22; la auditoría 21-08 encontró un filtro nextest inefectivo asociado (hallazgo 🔴 #1).
 15. **reviews/auditoria-documentacion-2026-08-21.md** — Auditoría integral de 490 md: **doc↔código 9/10** (14/16 claims verificados con archivo:línea y commit hash; 0 falsos), **gobernanza 4–5/10** (índices congelados, Backlog contradictorio, CHANGELOG sin cortar, doble taxonomía). Salud global 6.5/10. Varias de sus quejas ya muestran corrección posterior (reconteo Backlog 25-08, master-index 22-08) → campaña GOV funcionando.
 16. **README.md (docs)** — Landing del vault; envejeció mal: todavía apunta a `progreso/bitacora.md` (migrado a avance/) y omite carpetas nuevas.
 

@@ -1,3 +1,9 @@
+---
+title: "GOV-T01: TIR-02a — métrica DORA recovery time en evals/dora.mjs"
+kind: task
+description: "Guard 2026-09-02 (Wave0 re-verificación): node evals/dora.mjs exit 0 AND Select-String -Path \"docs/dev/reports/dora.md\" -Pattern \"Recovery Time\" | Measure-Object Count >=1"
+---
+
 # GOV-T01: TIR-02a — métrica DORA recovery time en evals/dora.mjs
 
 ## Metadata

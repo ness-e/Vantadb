@@ -1,3 +1,9 @@
+---
+title: "ADMIN-05: KPIs derivados — tarjetas KPI con sparklines CSS"
+kind: task
+description: "npm run build en desktop/ ✅; panel de KPIs con tarjetas y sparkline.\""
+---
+
 # ADMIN-05: KPIs derivados — tarjetas KPI con sparklines CSS
 
 ## Metadata

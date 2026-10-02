@@ -1,10 +1,9 @@
 ---
 title: Search Quality v2 Scoping
-type: architecture
+kind: concept
 status: active
+description: "Define the public API surface for snippet generation + highlighting in v0.6,"
 tags: [vantadb, architecture]
-last_reviewed: 2026-09-23
-aliases: []
 ---
 
 # Search Quality v2 — Scoping (INV-025)

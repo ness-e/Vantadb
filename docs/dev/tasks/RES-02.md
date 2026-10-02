@@ -1,3 +1,9 @@
+---
+title: RES-02 — Durabilidad Physical restore S1 quiesce+flush (Wave1 P38)
+kind: task
+description: "Select-String -Path \"src/storage/engine/mod.rs\" -Pattern \"flush\(\)|mirrordatadir\" >=1 AND Select-String -Path \"src/wal.rs\" -Pattern \"WalRecord::Prepare\" >=1 AND cargo test -p vantadb --test walrollback -- --nocapture 5/5 ok AND cargo..."
+---
+
 # RES-02 — Durabilidad Physical restore S1 quiesce+flush (Wave1 P38)
 
 ## Metadata

@@ -1,13 +1,15 @@
 ---
-title: "Vectores"
-type: glossary-entry
+title: Vectores
+kind: glossary
 status: stable
-tags: [concept, ml, embeddings, vectores, alta-dimensionalidad]
-last_reviewed: 2026-09-15
-links: "[[README.md]]"
+description: "In the context of databases and ML, a vector is an array of floating point numbers (typically f32) that represents an object (text, image, audio) in a high-dimensional space. Vectors capture semantic similarity: similar objects have..."
 aliases: [Vectors, Embeddings, High Dimensional Vectors]
-description: "Array of floating point numbers representing an object (text, image, audio) in a high-dimensional space, capturing semantic similarity"
+tags: [concept, ml, embeddings, vectores, alta-dimensionalidad]
+type: glossary-entry
+last_reviewed: "2026-09-15"
+links: "[[README.md]]"
 ---
+
 # Vectores
 
 ## Definition
@@ -82,7 +84,7 @@ $$
 \mathbf{a} \cdot \mathbf{b} = \sum _{i=1}^{d} a_i \cdot b_i
 $$
 
-##Why it Matters in VantaDB
+## Why it Matters in VantaDB
 
 VantaDB is a **vector database** as well as a documentary:
 
@@ -134,7 +136,7 @@ Retornar top-K
 
 ### Solution: Approximate Search (ANN)
 
-Algorithms like [[hnsw]] find similar vectors **without comparing them all**:
+Algorithms like [hnsw](./hnsw.md) find similar vectors **without comparing them all**:
 
 | Dataset | Brute Force | HNSW | Speedup |
 |---------|-------------|------|---------|
@@ -198,11 +200,11 @@ RAM: Solo las páginas accedidas
 
 ## See Also
 
-- [[hnsw]] — Índice ANN para busqueda-vectorial eficiente
-- [[vector-similarity]] — Métricas de distancia
-- [[mmap]] — Para datasets que exceden RAM
-- [[bm25]] — busqueda-lexica complementaria
-- [[rrf]] — Fusión de busqueda-vectorial + léxica
+- [hnsw](./hnsw.md) — Índice ANN para busqueda-vectorial eficiente
+- [vector-similarity](./vector-similarity.md) — Métricas de distancia
+- [mmap](./mmap.md) — Para datasets que exceden RAM
+- [bm25](./bm25.md) — busqueda-lexica complementaria
+- [rrf](./rrf.md) — Fusión de busqueda-vectorial + léxica
 
 ---
 

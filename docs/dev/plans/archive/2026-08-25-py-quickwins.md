@@ -1,3 +1,10 @@
+---
+title: "Plan: Quick wins Python SDK (INV-vantadb-python-01)"
+kind: plan
+status: archived
+description: "Fuera de alcance de este plan: H-04 y H-06 (→ Backlog PY-01/PY-02),"
+---
+
 # Plan: Quick wins Python SDK (INV-vantadb-python-01)
 
 > Origen: `/research vantadb-python` 2026-08-25 → informe

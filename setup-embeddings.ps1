@@ -180,15 +180,16 @@ function Install-OrtStore($FromDll, $AllowDownload) {
 }
 
 function Ensure-OrtNative($AutoDownload) {
-  # Garantiza nativo >=1.27 y deja ORT_DYLIB_PATH en sesion. Orden: store
-  # persistente -> ORT_DYLIB_PATH ya seteado -> cache Temp EMB-10 (copia,
-  # offline-friendly) -> System32 (casi siempre 1.17.1, se rechaza) -> GitHub.
+  # Garantiza nativo >=1.27 y deja ORT_DYLIB_PATH en sesion apuntando al ARCHIVO
+  # .dll (nunca al directorio del store: `ort` carga un archivo — FIND-176).
+  # Orden: store persistente -> ORT_DYLIB_PATH ya seteado -> cache Temp EMB-10
+  # (copia, offline-friendly) -> System32 (casi siempre 1.17.1, se rechaza) -> GitHub.
   $need = [version]'1.27'
   $store = Get-OrtStore
   $dll = Join-Path $store 'onnxruntime.dll'
   if ((Get-DllVersion $dll) -ge $need) {
     Write-Host "[setup] ORT nativo $((Get-DllVersion $dll)) en store persistente."
-    $env:ORT_DYLIB_PATH = $store
+    $env:ORT_DYLIB_PATH = $dll
     return
   }
   if ($env:ORT_DYLIB_PATH) {
@@ -196,6 +197,7 @@ function Ensure-OrtNative($AutoDownload) {
     if (Test-Path $cur -PathType Leaf) { $cur = Split-Path $cur }
     $found = Find-DllUnder $cur
     if ($found -and ((Get-DllVersion $found) -ge $need)) {
+      $env:ORT_DYLIB_PATH = $found  # normaliza a archivo (FIND-176: `ort` carga un archivo, no un directorio)
       Write-Host "[setup] ORT nativo $((Get-DllVersion $found)) via ORT_DYLIB_PATH existente."
       return
     }
@@ -204,7 +206,7 @@ function Ensure-OrtNative($AutoDownload) {
   if ($cache -and ((Get-DllVersion $cache) -ge $need)) {
     Write-Host '[setup] ORT en cache Temp (efimero) -> copiando a store persistente...'
     $dll = Install-OrtStore $cache $false
-    $env:ORT_DYLIB_PATH = $store
+    $env:ORT_DYLIB_PATH = $dll
     Write-Host "[setup] ORT nativo $((Get-DllVersion $dll)) instalado en $store."
     return
   }
@@ -218,7 +220,7 @@ function Ensure-OrtNative($AutoDownload) {
     if (-not $ok) { throw 'ORT >=1.27 requerido y no confirmado (sin cambios).' }
   }
   $dll = Install-OrtStore $null $true
-  $env:ORT_DYLIB_PATH = $store
+  $env:ORT_DYLIB_PATH = $dll
   Write-Host "[setup] ORT nativo $((Get-DllVersion $dll)) instalado en $store."
   Write-Host '[setup] ORT_DYLIB_PATH seteado en SESION (no persistente: re-ejecuta este script o exportalo vos).'
 }
@@ -489,6 +491,26 @@ function Invoke-LiveTest($Db) {
   if ("$got" -notmatch [regex]::Escape($payload)) { throw 'prueba viva: get no devuelve el payload.' }
   & $cli --db $Db search --namespace $ns --query 'live test' --limit 3 | Out-Null
   if ($LASTEXITCODE -ne 0) { throw 'prueba viva: search fallo.' }
+
+  # DEF-08: aviso visible si el provider cae a embeddings dummy (fallback: true).
+  # Cubre AMBOS triggers (ORT no usable / modelo ausente) sin duplicar el
+  # mensaje: lo emite el probe compartido del core, leido via `status --json`.
+  $status = (& $cli --db $Db status --json) -join "`n"
+  if ($LASTEXITCODE -eq 0 -and $status) {
+    try {
+      $emb = ($status | ConvertFrom-Json).embedding
+      if ($emb -and $emb.fallback -eq $true) {
+        Write-Host "[setup] AVISO: $($emb.notice)"
+      } elseif ($emb -and $emb.fallback -eq $false) {
+        Write-Host '[setup] embeddings locales sin fallback (modelo + ORT OK).'
+      }
+    } catch {
+      Write-Host "[setup] AVISO: no pude leer el estado de embeddings: $($_.Exception.Message)"
+    }
+  } else {
+    Write-Host "[setup] AVISO: no pude leer estado de embeddings (status exit=$LASTEXITCODE)."
+  }
+
   Write-Host '[setup] PRUEBA VIVA verde: put->get->search OK.'
 }
 if (-not $SkipLiveTest) { Invoke-LiveTest $DbPath }

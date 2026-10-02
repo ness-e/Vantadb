@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Gobernanza Documental — corrección integral post-auditoría"
+kind: plan
+status: archived
+description: "Status: ⬆️ uphill = 4 incógnitas abiertas · ⬇️ downhill = 96 steps pendientes"
+---
+
 # Plan de Ejecución: Gobernanza Documental — corrección integral post-auditoría
 
 > **Campaign ID: 25511c4f-042b-4e94-baf1-a91eee779a68
@@ -101,13 +108,13 @@ Status: ⬆️ uphill = 4 incógnitas abiertas · ⬇️ downhill = 96 steps pen
 #### Task 4: GOV-A1 — Coverage canónico: medir y fijar
 - **Appetite:** max 2h (incluye build)
 - **Esfuerzo:** 🟡 | **Prioridad:** 🟠
-- **Archivos clave:** `docs/dev/architecture/adr/ADR-018*`, `docs/TEST_MAP.md`, `docs/dev/operations/CI_POLICY.md`, `docs/dev/avance/COBERTURA.md`, comando `cargo llvm-cov --workspace --summary-only`
-- **Verificación real:** ✅ AUDITORÍA — 4 valores contradictorios coexistiendo: ≥59% (TEST_MAP:91, CI_POLICY), ≥80% (ADR-015/018), 80.55% CII Silver (progreso README:32), 81.40% root (coverage review 08-09).
+- **Archivos clave:** `docs/dev/architecture/adr/ADR-0018*`, `docs/TEST_MAP.md`, `docs/dev/operations/CI_POLICY.md`, `docs/dev/avance/COBERTURA.md`, comando `cargo llvm-cov --workspace --summary-only`
+- **Verificación real:** ✅ AUDITORÍA — 4 valores contradictorios coexistiendo: ≥59% (TEST_MAP:91, CI_POLICY), ≥80% (ADR-0015/018), 80.55% CII Silver (progreso README:32), 81.40% root (coverage review 08-09).
 - **Gate Justificación:** D7 decidió "medir y fijar"; sin cifra única, todo claim de coverage queda inválido (Regla 11 aplicada a docs internas).
 - **Gate Result:** ✅ DO
 - **Contrato:** llvm-cov corre exit 0; tras la tarea, exactamente UNA cifra aparece en los 4 documentos (grep cruzado sin contradicciones) con fecha y entorno.
 - **Pre-mortem:** (1) build coverage falla por RAM/LLD SIGBUS histórico → usar flags documentados en TEST_MAP (runner 8GB); (2) cifra real <59% gate actual → NO cambiar el gate en esta tarea, registrar hallazgo y ticket aparte.
-- **Stop conditions:** 2 intentos fallidos de llvm-cov → registrar imposibilidad, adoptar valor ADR-018 provisional marcado "por re-medir".
+- **Stop conditions:** 2 intentos fallidos de llvm-cov → registrar imposibilidad, adoptar valor ADR-0018 provisional marcado "por re-medir".
 - **Risk Register:**
   | Prob×Impacto | Riesgo | Respuesta | Trigger/Due |
   |---|---|---|---|
@@ -472,15 +479,15 @@ Status: ⬆️ uphill = 4 incógnitas abiertas · ⬇️ downhill = 96 steps pen
 - **Estado:** ⬜ PENDING
 - **Task file:** bajo demanda
 
-#### Task 26: GOV-D5 — ADR-026 a adr/
+#### Task 26: GOV-D5 — ADR-0026 a adr/
 - **Appetite:** max 30min
 - **Esfuerzo:** 🟢 | **Prioridad:** 🟡
-- **Archivos clave:** `docs/dev/architecture/ADR-026-vanta-studio-fase3-rest-dashboard.md` → `docs/dev/architecture/adr/`; citas en Backlog DESKTOP-27 e informe auditoría
+- **Archivos clave:** `docs/dev/architecture/ADR-0026-vanta-studio-fase3-rest-dashboard.md` → `docs/dev/architecture/adr/`; citas en Backlog DESKTOP-27 e informe auditoría
 - **Verificación real:** ✅ AUDITORÍA — único ADR fuera de adr/ (los demás 34 viven en adr/)
 - **Gate Justificación:** convención de ubicación rota; fix trivial con git mv + grep de citas
 - **Gate Result:** ✅ DO
 - **Contrato:** archivo vive en adr/ junto a sus pares; método AUD-007 = 0 citas con path viejo
-- **Pre-mortem:** (1) wikilinks Obsidian al path viejo → sweep específico [[ADR-026]]
+- **Pre-mortem:** (1) wikilinks Obsidian al path viejo → sweep específico [[ADR-0026]]
 - **Stop conditions:** —
 - **Risk Register:** 🟢×🟢 —
 - **Cynefin:** 🟦 obvio
@@ -596,7 +603,7 @@ Próxima tarea si completa: 3
 | GOV-T01 | ✅ | commit 1c7660dc — node evals/dora.mjs exit 0, Recovery Time con 12.56h/28.59h/16.8s (dora.md:304-310) |
 | GOV-T02 | ✅ | commit 1c7660dc — RULES.md Apéndice B + subagent-recovery ESCALATE cita tasks/closed (2 archivos) |
 | GOV-T03 | ✅ | commit 1c7660dc — research-agent.md criterios saturación<20%/broadening/WONTFIT-jitter TIR-08 |
-| GOV-A1 | ⬛ CANCELADO por stop condition | 2× llvm-cov ICE rustc 0xc0000409 Windows (intentos: default, -j 2 mal aplicado corregido a flag llvm-cov, interrumpido) → fallback pre-autorizado aplicado: cifra canónica ADR-018 (root ≥80%, baseline 81.40%) fijada en TEST_MAP+CI_POLICY+progreso con marca "re-medición pendiente". Commit  6d8c619. Ticket: llvm-cov ICE local. |
+| GOV-A1 | ⬛ CANCELADO por stop condition | 2× llvm-cov ICE rustc 0xc0000409 Windows (intentos: default, -j 2 mal aplicado corregido a flag llvm-cov, interrumpido) → fallback pre-autorizado aplicado: cifra canónica ADR-0018 (root ≥80%, baseline 81.40%) fijada en TEST_MAP+CI_POLICY+progreso con marca "re-medición pendiente". Commit 6d8c619. Ticket: llvm-cov ICE local. |
 | GOV-A2 | ✅ | commit 4fc8be24 — cifra canónica 2034/2034/1 skip (nextest default, 122s, Windows 2026-08-22) en TEST_MAP:92 |
 | GOV-A3 | ✅ | probes validados end-to-end en sandbox temp (put→backup manifest 36 files→restore --force→doctor exit 0→get recupera); procedimiento diario listo para GOV-B2; sin cambios de archivo |
 | GOV-A4 | ✅ | commit d147df5d — validate_doc_snippets.py: 21 PASS/31 FAIL/6 SKIP determinístico ×2; detecta graph_bfs ×2 + hallazgos extra (add_edge string IDs, IndentationError 05:133, input() interactivo 01:169) → insumo GOV-B3 ampliado |
@@ -613,7 +620,7 @@ plan-adjust [2026-08-22]: GOV-A1 gate DO→⬛ CANCELADO (stop condition appetit
 | GOV-B3 | ✅ | 79ae8556 — harness 31 FAIL→0 FAIL (34 PASS/24 SKIP justificados); hallazgos extra: put_batch str-only, \ no soportado py-sdk, incidente 68GB temp resuelto |
 | GOV-B4 | ✅ | 465673af — openapi 35 paths/40 ops paridad exacta + scripts/check_openapi_parity.mjs (test negativo OK) + gate en gate-docs-21.yml |
 | GOV-B5 | ✅ | (commit arriba) — 35/35 endpoints, 13+ curl reales, regla yaml-spec/md-guía; tickets drift: IQL grammar yaml, GraphTraversalBody roots/max_depth, search requiere rebuild-index previo |
-| GOV-B6 | ✅ |  8e272d8 — 33 tools documentadas (hash-SAME ×3 pares), test-mcp.py 4/4, MCP.md stub 12 líneas; caveat: binario publicado v0.5.0 expone solo 15 core — los 18 llegan con próximo release |
+| GOV-B6 | ✅ | 8e272d8 — 33 tools documentadas (hash-SAME ×3 pares), test-mcp.py 4/4, MCP.md stub 12 líneas; caveat: binario publicado v0.5.0 expone solo 15 core — los 18 llegan con próximo release |
 
 Tickets derivados Wave B: drift yaml↔real (B5) · harness temp-leak (B3) · put_batch str-only doc-code gap · URL vantadb-examples · binario release pendiente tools nuevos.
 
@@ -626,7 +633,7 @@ Tickets derivados Wave B: drift yaml↔real (B5) · harness temp-leak (B3) · pu
 | GOV-C3 | ✅ | 89b0b484 — nota GOV-C3 en Referencias Cruzadas: 0 links md rotos (las 15 refs eran backticks históricos); reportes disueltos documentados |
 | GOV-C4 | ✅ | 1655fede — master-index regenerado: 136 links verificados, 0 rotos, todas las carpetas indexadas o excluidas con motivo |
 | GOV-C5 | ✅ | 89b0b484 — operations/master-index +7 archivos + regla same-PR |
-| GOV-C6 | ✅ |  7c330c9 — sweep 44 env vars (+5 añadidas), rate_limit_rpm 600, flush_threshold None, spot-check 14 defaults |
+| GOV-C6 | ✅ | 7c330c9 — sweep 44 env vars (+5 añadidas), rate_limit_rpm 600, flush_threshold None, spot-check 14 defaults |
 | GOV-C7 | ✅ | 89b0b484 — contador ~45 activas + regla sync en Backlog header; ROADMAP banner alineado |
 
 plan-adjust [2026-08-22]: GOV-C2 parcialmente pre-ejecutado por sesión SDKB (48016b89 limpió MEM-36/43/44/45 como pagadas) — se registró P29/P30/P31 compacto en vez de duplicar.
@@ -642,7 +649,7 @@ plan-adjust [2026-08-22]: GOV-C2 parcialmente pre-ejecutado por sesión SDKB (48
 | GOV-D2 | ✅ | split por campaña: 37 archivos en campanas/, README índice ≤50KB, dedup evento ×3, cobertura 103.98% (0 líneas perdidas), 2 links entrantes corregidos |
 | GOV-D3 | ✅ | 25f6d5a2+5b18fba9 — bitácora revivida: regla de uso + draft agosto para articulación del autor |
 | GOV-D4 | ✅ | d83a4bdb — 49 ítems git mv a research/, sweep citas en 64 archivos, convención documentada, INV-019→INV-026 |
-| GOV-D5 | ✅ | ADR-026 en adr/; única cita de path viejo = informe auditoría (histórica) |
+| GOV-D5 | ✅ | ADR-0026 en adr/; única cita de path viejo = informe auditoría (histórica) |
 | GOV-D6 | ✅ | CRASH_MODEL.md modelo diferencial con file:línea; grep "ALL records"=0 |
 
 ### Wave E cierre

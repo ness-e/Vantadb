@@ -1,15 +1,18 @@
 ---
-title: "CI/CD — Continuous Integration / Continuous Deployment"
-type: glossary-entry
+title: CI/CD ΓÇö Continuous Integration / Continuous Deployment
+kind: glossary
 status: stable
-tags: [devops, automation, ci, cd]
-last_reviewed: 2026-09-15
-links: "[[README.md]]"
+description: "CI/CD is the practice of automating the integration, testing and deployment of code, allowing frequent and reliable releases through pipelines that validate each change before reaching production"
 aliases: [Continuous Integration, Continuous Deployment]
+tags: [devops, automation, ci, cd]
+type: glossary-entry
+last_reviewed: "2026-09-15"
+links: "[[README.md]]"
 ---
-# CI/CD — Continuous Integration / Continuous Deployment
 
-##Definition
+# CI/CD ΓÇö Continuous Integration / Continuous Deployment
+
+## Definition
 
 **CI/CD** is the practice of **automating the integration, testing and deployment** of code, allowing frequent and reliable releases through pipelines that validate each change before reaching production.
 
@@ -50,14 +53,14 @@ jobs:
 
 ### Main Pipelines
 
-| Workflow | Trigger | Propósito |
+| Workflow | Trigger | Prop├│sito |
 |----------|---------|-----------|
 | **ci-rust-10.yml** | push/PR | Tests, lint, format |
 | **release-wheels-60.yml** | tag `v*` | Build + publish wheels |
 | **release.yml** | tag `v*` | Build binarios multi-platform |
 | **heavy-certification-50.yml** | weekly | Stress tests, chaos testing |
 
-##Publishing to PyPI
+## Publishing to PyPI
 
 ```yaml
 # OIDC trusted publishing (sin API tokens)
@@ -69,7 +72,7 @@ jobs:
 
 ## CI/CD metrics
 
-| Métrica | Objetivo | Actual |
+| M├⌐trica | Objetivo | Actual |
 |---------|----------|--------|
 | **Build time** | <15 min | ~12.5 min |
 | **Test coverage** | >80% | ~75% |
@@ -78,9 +81,9 @@ jobs:
 
 ## See Also
 
-- [[benchmarks]] — Integrated in CI
-- [[chaos-testing]] — Robustness tests
-- [[failpoints]] — Fault injection
+- [benchmarks](./benchmarks.md) ΓÇö Integrated in CI
+- [chaos-testing](./chaos-testing.md) ΓÇö Robustness tests
+- [failpoints](./failpoints.md) ΓÇö Fault injection
 
 ---
 

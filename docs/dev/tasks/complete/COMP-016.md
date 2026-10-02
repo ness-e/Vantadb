@@ -1,3 +1,9 @@
+---
+title: "COMP-016: Supernode Mitigation (Indexed Relationships)"
+kind: task
+description: "Estado: ✅ COMPLETED — 2026-07-28"
+---
+
 # COMP-016: Supernode Mitigation (Indexed Relationships)
 
 **Estado:** ✅ COMPLETED — 2026-07-28

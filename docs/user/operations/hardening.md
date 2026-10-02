@@ -1,11 +1,9 @@
 ---
-title: "VantaDB Server — Security Hardening Guide"
-type: operations
+title: VantaDB Server — Security Hardening Guide
+kind: runbook
 status: active
+description: "VantaDB is a local-first embedded database: by default it runs as a library inside your process with no network exposure. The optional HTTP server (vanta-cli server) adds a network API for multi-client access, MCP integration, and the..."
 tags: [vantadb, operations, hardening, security]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # VantaDB Server — Security Hardening Guide

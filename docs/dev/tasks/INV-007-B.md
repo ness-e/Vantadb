@@ -1,3 +1,9 @@
+---
+title: Task INV-007-B — JSON contrato + competitive-table.tsx (absorbe MKT-17)
+kind: task
+description: "fecha/hardware/versiones/dataset/metodología + 3 filas de resultados (VantaDB, LanceDB, ChromaDB)"
+---
+
 # Task INV-007-B — JSON contrato + competitive-table.tsx (absorbe MKT-17)
 
 - **Plan:** `docs/dev/plans/2026-08-05-backlog-validation-actions.md` → Task 47

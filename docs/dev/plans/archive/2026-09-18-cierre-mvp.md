@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Cierre MVP memoria-agentes (deuda viva + IMPL-112) — 2026-09-18"
+kind: plan
+status: archived
+description: "Status: ⬆️ uphill = 2 (diseños lifecycle S4/S6b como specs · TUI lock-semantics) · ⬇️ downhill = 9 tasks con contrato definido"
+---
+
 # Plan de Ejecución: Cierre MVP memoria-agentes (deuda viva + IMPL-112) — 2026-09-18
 
 > **Campaign ID:** c578fd8c-1bee-45a8-b036-2f7b00262828

@@ -1,9 +1,9 @@
 ---
-title: "MCP (Model Context Protocol)"
-type: glossary-entry
+title: MCP (Model Context Protocol)
+kind: glossary
 status: stable
+description: MCP (Model Context Protocol) es un protocolo estándar abierto que permite a modelos de lenguaje (LLMs) y agentes de IA interactuar con herramientas y fuentes de datos externas de manera estructurada y segura
 tags: [vantadb, glosario, protocolo, ia, agentes]
-last_reviewed: 2026-09-15
 links: "[Glosario](./README.md)"
 ---
 
@@ -75,7 +75,7 @@ Funciones que el LLM puede invocar:
 {
   "tools": [
     {
-      "name": "search_memory",
+      "name": "memory_search",
       "description": "Search for relevant memories",
       "inputSchema": {
         "type": "object",
@@ -154,7 +154,7 @@ Plantillas reutilizables:
 2. MCP Server → AI Assistant: capabilities
 3. AI Assistant → MCP Server: tools/list
 4. MCP Server → AI Assistant: available tools
-5. AI Assistant → MCP Server: tools/call (search_memory)
+5. AI Assistant → MCP Server: tools/call (memory_search)
 6. MCP Server → VantaDB: search()
 7. VantaDB → MCP Server: results
 8. MCP Server → AI Assistant: formatted results
@@ -176,7 +176,7 @@ pub struct McpServer {
 ```rust
 fn validate_tool_call(tool: &str, params: &Value) -> Result<()> {
     match tool {
-        "search_memory" => validate_search_params(params),
+        "memory_search" => validate_search_params(params),
         "store_memory" => {
             if read_only {
                 return Err(McpError::ReadOnly);
@@ -201,7 +201,7 @@ El IDE usa VantaDB como memoria persistente del proyecto:
 
 ```
 Usuario: "¿Cómo funciona la autenticación en este proyecto?"
-LLM → MCP: search_memory("autenticación", top_k=5)
+LLM → MCP: memory_search("autenticación", top_k=5)
 MCP → VantaDB: hybrid_search(...)
 VantaDB → MCP: [relevant docs]
 LLM: "La autenticación usa JWT con..."
@@ -211,19 +211,19 @@ LLM: "La autenticación usa JWT con..."
 
 ```
 Usuario: "Resume las reuniones de esta semana"
-LLM → MCP: search_memory("reuniones semana", filter={date: "this_week"})
+LLM → MCP: memory_search("reuniones semana", filter={date: "this_week"})
 MCP → VantaDB: filtered_search(...)
 LLM: "Esta semana se discutieron 3 temas principales..."
 ```
 
 ## Véase También
 
-- [RAG](RAG.md) — Caso de uso principal
+- [RAG](./rag.md) — Caso de uso principal
 - [GraphRAG](graphrag.md) — Búsqueda con contexto relacional
 - [Agentes de IA](ai-agents.md) — Consumidores del protocolo
 
 ### Documentación de Implementación Relacionada
-- [[../api/MCP|MCP API Integration]]
+- [MCP](./mcp.md)
 
 ---
 

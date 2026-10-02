@@ -1,3 +1,9 @@
+---
+title: FIND-77 — conteo 76→79 en comentarios MCP (post-FIND-90)
+kind: task
+description: "Comentario tools.rs:1090 dice \"Full profile (76 tools)\"; GOV-B6 registró 79 (49+30)"
+---
+
 # FIND-77 — conteo 76→79 en comentarios MCP (post-FIND-90)
 
 > Campaign: 6ab26f3f-cf16-4416-9255-c18cca0bcaf0 · Wave4 · Appetite 1h · 🟢 · 🟢

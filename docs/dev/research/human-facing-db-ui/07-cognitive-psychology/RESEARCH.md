@@ -1,12 +1,11 @@
 ---
-title: "Psicología cognitiva aplicada a la representación de VantaDB"
-type: research
+title: Psicología cognitiva aplicada a la representación de VantaDB
+kind: research
 status: stable
+description: "Evaluación del concepto 06-synthesis/SYNTHESIS.md contra cómo funciona el cerebro humano,"
 tags: [vantadb, research, psicologia-cognitiva, ux]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
+
 # Psicología cognitiva aplicada a la representación de VantaDB
 
 Evaluación del concepto `06-synthesis/SYNTHESIS.md` contra cómo funciona el cerebro humano,

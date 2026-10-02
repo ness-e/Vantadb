@@ -1,3 +1,9 @@
+---
+title: MOD-24 — Nits TS agrupados (dedup + guard + JSDoc)
+kind: task
+description: "Blast radius = 3 archivos src + 1 test, sin hot path, sin cambio wire, sin símbolos públicos nuevos (mapRecord/buildSearchRequestBase internos a guards.ts, no re-exportados en el índice), contrato mecánico. → Sin question, ejecución directa"
+---
+
 # MOD-24 — Nits TS agrupados (dedup + guard + JSDoc)
 
 - **Estado:** ✅ COMPLETO (verify full verde, sin commit — vanta-lead commitea)

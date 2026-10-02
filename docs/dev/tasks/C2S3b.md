@@ -1,3 +1,9 @@
+---
+title: "C2S3b: extraer `CacheLayer` de `StorageEngine` (slice 2 de S3)"
+kind: task
+description: "CacheLayer extraído con tests propios + StorageEngine delega + suites storage verdes + acyclic sin ciclos nuevos + M1 post-números (24→~19 campos, D debe bajar) + bench en CI al mergear"
+---
+
 # C2S3b: extraer `CacheLayer` de `StorageEngine` (slice 2 de S3)
 
 ## Metadata

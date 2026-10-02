@@ -1,3 +1,9 @@
+---
+title: "MEM-33 - MCP tools wiki_* query-only (4 tools) — ✅ COMPLETED"
+kind: task
+description: "Plan: docs/dev/plans/2026-08-21-vanta-proxy-knowledge.md Task 7 · Ruta: vanta-worker"
+---
+
 # MEM-33 - MCP tools wiki_* query-only (4 tools) — ✅ COMPLETED
 
 Plan: `docs/dev/plans/2026-08-21-vanta-proxy-knowledge.md` Task 7 · Ruta: vanta-worker

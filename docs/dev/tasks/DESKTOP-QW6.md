@@ -1,3 +1,9 @@
+---
+title: "TASK DESKTOP-QW6: CSP mínima en tauri.conf.json (H-01)"
+kind: task
+description: "CSP mínima en tauri.conf.json (default-src 'self' + connect-src localhost/remoto según transporte). Fuente: https://v2.tauri.app/security/csp/ — validar app tras cambio (E2E flujo-critico debe pasar). npm run build + npm test verde..."
+---
+
 # TASK DESKTOP-QW6: CSP mínima en tauri.conf.json (H-01)
 
 ## Metadata

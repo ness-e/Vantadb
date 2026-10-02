@@ -1,15 +1,14 @@
 //! CRUD command handlers — put, get, list, delete.
 
 use console::Term;
-use web_time::{SystemTime, UNIX_EPOCH};
 
 use crate::cli_handlers::{
-    create_spinner, memory_node_id, open_database, open_embedded, print_error, print_info,
-    print_success, print_warning, FIELD_CREATED_AT_MS, FIELD_KEY, FIELD_NAMESPACE, FIELD_PAYLOAD,
-    FIELD_UPDATED_AT_MS, FIELD_VERSION,
+    create_spinner, field_value_to_json, memory_node_id, open_database, open_embedded, print_error,
+    print_info, print_json, print_success, print_warning, stdout_is_term, truncate_for_term,
+    FIELD_CREATED_AT_MS, FIELD_KEY, FIELD_NAMESPACE, FIELD_PAYLOAD, FIELD_VERSION,
 };
 use crate::error::{ChainedError, Result};
-use crate::node::{FieldValue, NodeFlags, VectorRepresentations};
+use crate::node::{FieldValue, VectorRepresentations};
 
 #[tracing::instrument]
 /// Store a key-value record with optional vector embedding and metadata
@@ -21,10 +20,16 @@ pub fn cmd_put(
     vector: Option<&str>,
     metadata: Option<&str>,
     verbose: bool,
+    json_output: bool,
 ) -> Result<()> {
     let spinner = create_spinner("Opening database...");
 
-    let engine = open_database(db_path, false)?;
+    // API-07: writes go through the SDK (`Embedded::put`) instead of building
+    // a `UnifiedNode` and calling `engine.insert` directly. The SDK keeps the
+    // derived/text/sparse indexes current at write time (and validates
+    // namespace/key/metadata), which is what lets the read path open
+    // read-only (shared lock, no `ensure_indexes_current` reconciliation).
+    let db = open_embedded(db_path, false)?;
     spinner.set_message("Preparing record...");
 
     // Parse optional vector
@@ -48,47 +53,11 @@ pub fn cmd_put(
         None
     };
 
-    spinner.set_message("Inserting record...");
-
-    // Build the node with memory record fields
-    let node_id = memory_node_id(namespace, key);
-    let mut node = crate::node::UnifiedNode::new(node_id);
-
-    node.relational.insert(
-        FIELD_NAMESPACE.to_string(),
-        FieldValue::String(namespace.to_string()),
-    );
-    node.relational
-        .insert(FIELD_KEY.to_string(), FieldValue::String(key.to_string()));
-    node.relational.insert(
-        FIELD_PAYLOAD.to_string(),
-        FieldValue::String(payload.to_string()),
-    );
-
-    let now_ms = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis() as u64;
-
-    node.relational.insert(
-        FIELD_CREATED_AT_MS.to_string(),
-        FieldValue::Int(now_ms as i64),
-    );
-    node.relational.insert(
-        FIELD_UPDATED_AT_MS.to_string(),
-        FieldValue::Int(now_ms as i64),
-    );
-    node.relational
-        .insert(FIELD_VERSION.to_string(), FieldValue::Int(1));
-
-    if let Some(vec) = vector_data {
-        node.vector = VectorRepresentations::Full(vec);
-        node.flags.set(NodeFlags::HAS_VECTOR);
-    }
-
-    // Optional metadata: JSON object -> user fields. Keys under the internal
-    // `__vanta_` prefix are rejected (same rule as the SDK `validate_metadata`),
-    // so the CLI cannot collide with internal fields or fake system timestamps.
+    // Optional metadata: JSON object -> user fields. The SDK's
+    // `validate_metadata` rejects keys under the internal `__vanta_` prefix
+    // (and NUL bytes), so the CLI cannot collide with internal fields or fake
+    // system timestamps.
+    let mut metadata_map = crate::sdk::MemoryMetadata::new();
     if let Some(meta_str) = metadata {
         let parsed: serde_json::Value = serde_json::from_str(meta_str).map_err(|e| {
             spinner.finish_and_clear();
@@ -105,57 +74,87 @@ pub fn cmd_put(
             ))
         })?;
         for (field, value) in obj {
-            if field.starts_with("__vanta_") {
-                spinner.finish_and_clear();
-                print_error(&format!(
-                    "Metadata key '{field}' is reserved for VantaDB internals"
-                ));
-                return Err(crate::error::Error::Validation {
-                    field: "metadata".into(),
-                    reason: format!("metadata key '{field}' is reserved for VantaDB internals"),
-                });
-            }
             let vanta_value = json_to_vanta_value(value).map_err(|e| {
                 spinner.finish_and_clear();
                 print_error(&format!("Invalid metadata value for '{field}': {e}"));
                 e
             })?;
-            node.relational
-                .insert(field.clone(), crate::node::FieldValue::from(vanta_value));
+            metadata_map.insert(field.clone(), vanta_value);
         }
     }
 
-    node.flags.set(NodeFlags::ACTIVE);
-
-    engine.insert(&node)?;
-    engine.flush()?;
-
+    spinner.set_message("Inserting record...");
+    let record = db.put(crate::sdk::MemoryInput {
+        namespace: namespace.to_string(),
+        key: key.to_string(),
+        payload: payload.to_string(),
+        metadata: metadata_map,
+        vector: vector_data,
+        sparse_vector: None,
+        ttl_ms: None,
+        ..Default::default()
+    })?;
+    // ERR-050b: the write is WAL-buffered until flushed; a later read-only
+    // open does not replay the WAL, so flush before returning.
+    db.flush()?;
     spinner.finish_and_clear();
 
-    if verbose {
-        print_info(&format!("Node ID: {}", node_id));
+    if verbose && !json_output {
+        print_info(&format!("Node ID: {}", record.node_id));
         if let Some(v) = vector {
             print_info(&format!("Vector dimensions: {}", v.split(',').count()));
         }
     }
 
-    print_success(&format!(
-        "Record stored: {}:{} ({} bytes)",
-        namespace,
-        key,
-        payload.len()
-    ));
+    if json_output {
+        print_json(&serde_json::json!({
+            "status": "stored",
+            "namespace": record.namespace,
+            "key": record.key,
+            "node_id": record.node_id.to_string(),
+            "version": record.version,
+            "payload_bytes": record.payload.len(),
+            "has_vector": record.vector.is_some(),
+        }))?;
+    } else {
+        print_success(&format!(
+            "Record stored: {}:{} ({} bytes)",
+            namespace,
+            key,
+            payload.len()
+        ));
+    }
 
     Ok(())
 }
 
+/// True when the error means the database directory exists but was never
+/// initialised (no `.vanta.lock` / no schema yet). Read-only opens cannot
+/// create those files, so read commands treat this like "empty".
+pub(crate) fn is_uninitialized_db(e: &crate::error::Error) -> bool {
+    matches!(
+        e,
+        crate::error::Error::NotFound { kind, .. }
+            if kind == "database_path" || kind == "lock_file"
+    )
+}
+
 #[tracing::instrument]
 /// Retrieve and display a record by namespace and key
-pub fn cmd_get(db_path: &str, namespace: &str, key: &str, verbose: bool) -> Result<()> {
+pub fn cmd_get(
+    db_path: &str,
+    namespace: &str,
+    key: &str,
+    verbose: bool,
+    json_output: bool,
+) -> Result<()> {
     use crate::cli_handlers::fmt::{header_style, info_style};
 
     let path = std::path::Path::new(db_path);
     if !path.exists() {
+        if json_output {
+            return print_json(&serde_json::Value::Null);
+        }
         print_warning(&format!(
             "Database directory does not exist at '{}'. (empty)",
             db_path
@@ -172,6 +171,26 @@ pub fn cmd_get(db_path: &str, namespace: &str, key: &str, verbose: bool) -> Resu
     match engine.get(node_id)? {
         Some(node) => {
             spinner.finish_and_clear();
+
+            if json_output {
+                let mut fields = serde_json::Map::new();
+                for (field_key, value) in node.relational.iter() {
+                    fields.insert(field_key.clone(), field_value_to_json(value));
+                }
+                let vector_dimensions = match &node.vector {
+                    VectorRepresentations::Full(v) => Some(v.len()),
+                    _ => None,
+                };
+                print_json(&serde_json::json!({
+                    "namespace": namespace,
+                    "key": key,
+                    "node_id": node_id.to_string(),
+                    "payload": node.relational.get(FIELD_PAYLOAD).and_then(FieldValue::as_str),
+                    "vector_dimensions": vector_dimensions,
+                    "fields": fields,
+                }))?;
+                return Ok(());
+            }
 
             let term = Term::stdout();
             let _ = term.write_line("");
@@ -252,11 +271,20 @@ pub fn cmd_get(db_path: &str, namespace: &str, key: &str, verbose: bool) -> Resu
 
 #[tracing::instrument]
 /// List records in a namespace with an optional limit
-pub fn cmd_list(db_path: &str, namespace: &str, limit: usize, verbose: bool) -> Result<()> {
+pub fn cmd_list(
+    db_path: &str,
+    namespace: &str,
+    limit: usize,
+    verbose: bool,
+    json_output: bool,
+) -> Result<()> {
     use crate::cli_handlers::fmt::header_style;
 
     let path = std::path::Path::new(db_path);
     if !path.exists() {
+        if json_output {
+            return print_json(&serde_json::Value::Array(Vec::new()));
+        }
         print_warning(&format!(
             "Database directory does not exist at '{}'. (empty)",
             db_path
@@ -284,6 +312,26 @@ pub fn cmd_list(db_path: &str, namespace: &str, limit: usize, verbose: bool) -> 
         .collect();
 
     spinner.finish_and_clear();
+
+    // `--json` output is always complete (full payload, no previews).
+    if json_output {
+        let records: Vec<serde_json::Value> = filtered
+            .iter()
+            .map(|node| {
+                let mut fields = serde_json::Map::new();
+                for (field_key, value) in node.relational.iter() {
+                    fields.insert(field_key.clone(), field_value_to_json(value));
+                }
+                serde_json::json!({
+                    "key": node.relational.get(FIELD_KEY).and_then(FieldValue::as_str),
+                    "payload": node.relational.get(FIELD_PAYLOAD).and_then(FieldValue::as_str),
+                    "node_id": node.id.to_string(),
+                    "fields": fields,
+                })
+            })
+            .collect();
+        return print_json(&serde_json::Value::Array(records));
+    }
 
     if filtered.is_empty() {
         print_warning(&format!("No records found in namespace '{}'", namespace));
@@ -332,11 +380,7 @@ pub fn cmd_list(db_path: &str, namespace: &str, limit: usize, verbose: bool) -> 
             })
             .unwrap_or_else(|| "".to_string());
 
-        let preview = if payload.len() > 38 {
-            format!("{}...", &payload[..35])
-        } else {
-            payload
-        };
+        let preview = truncate_for_term(&payload, 35, stdout_is_term());
 
         let _ = term.write_line(&format!("│ {:<18} │ {:<38} │", key, preview));
     }
@@ -355,9 +399,23 @@ pub fn cmd_list(db_path: &str, namespace: &str, limit: usize, verbose: bool) -> 
 
 #[tracing::instrument]
 /// Delete a record by namespace and key
-pub fn cmd_delete(db_path: &str, namespace: &str, key: &str, verbose: bool) -> Result<()> {
+pub fn cmd_delete(
+    db_path: &str,
+    namespace: &str,
+    key: &str,
+    verbose: bool,
+    json_output: bool,
+) -> Result<()> {
     let path = std::path::Path::new(db_path);
     if !path.exists() {
+        if json_output {
+            return print_json(&serde_json::json!({
+                "deleted": false,
+                "namespace": namespace,
+                "key": key,
+                "node_id": memory_node_id(namespace, key).to_string(),
+            }));
+        }
         print_warning(&format!(
             "Database directory does not exist at '{}'. (empty)",
             db_path
@@ -372,6 +430,16 @@ pub fn cmd_delete(db_path: &str, namespace: &str, key: &str, verbose: bool) -> R
     let deleted = db.delete(namespace, key)?;
     spinner.finish_and_clear();
 
+    if json_output {
+        print_json(&serde_json::json!({
+            "deleted": deleted,
+            "namespace": namespace,
+            "key": key,
+            "node_id": memory_node_id(namespace, key).to_string(),
+        }))?;
+        return Ok(());
+    }
+
     if deleted {
         print_success(&format!("Record deleted: {}:{}", namespace, key));
         if verbose {
@@ -383,6 +451,159 @@ pub fn cmd_delete(db_path: &str, namespace: &str, key: &str, verbose: bool) -> R
     }
 
     Ok(())
+}
+
+/// Delete a record and emit a purge certificate (VER-02).
+///
+/// The certificate inventories every purge surface (store, JSON-shredded
+/// metadata, vector index/store, derived/text/sparse indexes, version history,
+/// WAL tombstone) with per-surface evidence, an integrity hash and the VER-01
+/// chain reference. `--json` emits `{deleted, certificate}`; otherwise the
+/// human summary plus the pretty certificate JSON. With `out`, the raw pretty
+/// certificate is written to that file by the CLI itself (UTF-8; preferred
+/// over shell redirection on Windows, which can mangle non-ASCII).
+#[tracing::instrument]
+pub fn cmd_delete_certified(
+    db_path: &str,
+    namespace: &str,
+    key: &str,
+    out: Option<&str>,
+    verbose: bool,
+    json_output: bool,
+) -> Result<()> {
+    let path = std::path::Path::new(db_path);
+    if !path.exists() {
+        if json_output {
+            return print_json(&serde_json::json!({
+                "deleted": false,
+                "namespace": namespace,
+                "key": key,
+                "node_id": memory_node_id(namespace, key).to_string(),
+                "certificate": serde_json::Value::Null,
+            }));
+        }
+        print_warning(&format!(
+            "Database directory does not exist at '{}'. (empty)",
+            db_path
+        ));
+        return Ok(());
+    }
+
+    let spinner = create_spinner("Opening database...");
+    let db = open_embedded(db_path, false)?;
+    spinner.set_message("Deleting record + scanning purge surfaces...");
+
+    let certificate = db.delete_certified(namespace, key)?;
+    // Persist the purge (WAL + mmap / HNSW state) before returning: the
+    // certificate claims must survive a read-only reopen — `certificate
+    // verify` opens read-only and does not replay the WAL.
+    db.close()?;
+    spinner.finish_and_clear();
+
+    let deleted = certificate.status != "not_found";
+    let pretty =
+        serde_json::to_string_pretty(&certificate).map_err(crate::error::Error::serialization)?;
+
+    if let Some(out_path) = out {
+        std::fs::write(out_path, &pretty)?;
+        if json_output {
+            print_json(&serde_json::json!({
+                "deleted": deleted,
+                "namespace": namespace,
+                "key": key,
+                "node_id": &certificate.node_id,
+                "certificate_file": out_path,
+            }))?;
+        } else {
+            if deleted {
+                print_success(&format!("Record deleted: {}:{}", namespace, key));
+            } else {
+                print_warning(&format!("Record not found: {}:{}", namespace, key));
+            }
+            print_success(&format!("Certificate written to {out_path}"));
+        }
+        if verbose {
+            print_info(&format!("Certificate status: {}", certificate.status));
+        }
+        return Ok(());
+    }
+
+    if json_output {
+        print_json(&serde_json::json!({
+            "deleted": deleted,
+            "namespace": namespace,
+            "key": key,
+            "node_id": &certificate.node_id,
+            "certificate": &certificate,
+        }))?;
+        return Ok(());
+    }
+
+    if deleted {
+        print_success(&format!("Record deleted: {}:{}", namespace, key));
+    } else {
+        print_warning(&format!("Record not found: {}:{}", namespace, key));
+    }
+    if verbose {
+        print_info(&format!("Certificate status: {}", certificate.status));
+    }
+    println!("{pretty}");
+    Ok(())
+}
+
+/// Verify a stored purge certificate (VER-02) against the live database:
+/// integrity hash + re-scan of the re-checkable surfaces (store, shred,
+/// vector index, version history). Returns the CLI exit code
+/// (0 = valid; 1 = edited/corrupted certificate or residues reappeared).
+#[tracing::instrument]
+pub fn cmd_certificate_verify(db_path: &str, file: &str, json_output: bool) -> Result<i32> {
+    let content = std::fs::read_to_string(file)?;
+    // Accept both a raw certificate and the `delete --attest --json` envelope
+    // (`{"deleted":..,"certificate":{..}}`) so the CLI output round-trips.
+    let certificate_json = match serde_json::from_str::<serde_json::Value>(&content) {
+        Ok(value) => match value.get("certificate") {
+            Some(cert) if !cert.is_null() => cert.to_string(),
+            _ => content.clone(),
+        },
+        // Not valid JSON: hand it to the SDK parser so the error is typed.
+        Err(_) => content.clone(),
+    };
+    let db = open_embedded(db_path, true)?;
+    match db.verify_purge_certificate(&certificate_json) {
+        Ok(verification) => {
+            if json_output {
+                print_json(&serde_json::json!({
+                    "command": "certificate_verify",
+                    "ok": true,
+                    "db": db_path,
+                    "file": file,
+                    "verification": &verification,
+                }))?;
+            } else {
+                print_success(&format!(
+                    "Certificate valid — status '{}', integrity ok, residues now: {}, surfaces re-checked: {}",
+                    verification.status,
+                    verification.residues_now,
+                    verification.rechecked_surfaces.join(", ")
+                ));
+            }
+            Ok(0)
+        }
+        Err(e) => {
+            if json_output {
+                print_json(&serde_json::json!({
+                    "command": "certificate_verify",
+                    "ok": false,
+                    "db": db_path,
+                    "file": file,
+                    "error": e.to_string(),
+                }))?;
+            } else {
+                print_warning(&format!("Certificate INVALID: {e}"));
+            }
+            Ok(1)
+        }
+    }
 }
 
 /// Parse a JSON filter string (MongoDB-like) into a `MemoryFilter`.
@@ -459,7 +680,7 @@ fn json_to_vanta_value(v: &serde_json::Value) -> crate::error::Result<crate::sdk
         }
         serde_json::Value::Bool(b) => Ok(Value::Bool(*b)),
         other => Err(crate::error::Error::InvalidInput(format!(
-            "Unsupported filter value type: {other}. Use string, number, or bool."
+            "Unsupported JSON value type: {other}. Use string, number, or bool."
         ))),
     }
 }
@@ -471,9 +692,17 @@ pub fn cmd_delete_by_filter(
     namespace: &str,
     filter_str: &str,
     verbose: bool,
+    json_output: bool,
 ) -> Result<()> {
     let path = std::path::Path::new(db_path);
     if !path.exists() {
+        if json_output {
+            return print_json(&serde_json::json!({
+                "deleted": 0,
+                "namespace": namespace,
+                "filter": filter_str,
+            }));
+        }
         print_warning(&format!(
             "Database directory does not exist at '{}'. (empty)",
             db_path
@@ -492,6 +721,15 @@ pub fn cmd_delete_by_filter(
 
     let deleted = db.delete_by_filter(namespace, filter)?;
     spinner.finish_and_clear();
+
+    if json_output {
+        print_json(&serde_json::json!({
+            "deleted": deleted,
+            "namespace": namespace,
+            "filter": filter_str,
+        }))?;
+        return Ok(());
+    }
 
     print_success(&format!(
         "Deleted {} record{} from namespace '{}'",
@@ -519,15 +757,16 @@ pub fn cmd_count(
 ) -> Result<()> {
     let path = std::path::Path::new(db_path);
     if !path.exists() {
-        if json_output {
-            println!("0");
-            return Ok(());
-        }
-        print_warning(&format!(
-            "Database directory does not exist at '{}'. (empty)",
+        // API-07: a missing database is an error for `count` — exit≠0 so
+        // scripts can tell "no database" apart from a real count of 0.
+        print_error(&format!(
+            "Database directory does not exist at '{}'",
             db_path
         ));
-        return Ok(());
+        return Err(crate::error::Error::Cli(ChainedError::msg(format!(
+            "Database directory does not exist at '{}'",
+            db_path
+        ))));
     }
 
     let filter = if let Some(fs) = filter_str {
@@ -540,16 +779,30 @@ pub fn cmd_count(
     };
 
     let spinner = create_spinner("Opening database...");
-    // AUD-044: read-write open so index reconciliation runs on open — count
-    // with a filter can hit text/derived indexes on fresh DBs (see cmd_search).
-    let db = open_embedded(db_path, false)?;
+    // API-07: count is a read → read-only open (shared lock, no index
+    // reconciliation). Writes keep the derived/text/sparse indexes current via
+    // the SDK (see cmd_put), so no read-write open is needed here. A database
+    // written by an older CLI needs one `rebuild-index` after upgrading
+    // (documented in docs/user/operations/CONFIGURATION.md).
+    let db = match open_embedded(db_path, true) {
+        Ok(db) => db,
+        Err(e) => {
+            spinner.finish_and_clear();
+            print_error(&format!("Cannot open database at '{}': {e}", db_path));
+            return Err(e);
+        }
+    };
     spinner.set_message("Counting records...");
 
     let count = db.count(namespace, filter)?;
     spinner.finish_and_clear();
 
     if json_output {
-        println!("{count}");
+        print_json(&serde_json::json!({
+            "namespace": namespace,
+            "count": count,
+            "filter": filter_str,
+        }))?;
         return Ok(());
     }
 

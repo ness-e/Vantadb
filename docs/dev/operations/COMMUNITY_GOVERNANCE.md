@@ -1,15 +1,16 @@
 ---
 title: "VantaDB Community Governance & SLA Policy"
-type: operations
+kind: runbook
 status: active
+description: "This document establishes the official governance rules, contribution workflows, and maintainer SLA commitments for VantaDB as an Open-Core system (Apache-2.0). Our goal is to ensure a transparent, active, and welcoming community for..."
 tags: [vantadb, operations]
-last_reviewed: 2026-07-01
-aliases: []
+type: operations
+last_reviewed: "2026-07-01"
 ---
 
 # VantaDB Community Governance & SLA Policy
 
-> **Canonical governance document.** Historical context and decision rationale in [[../architecture/adr/009_community_governance_model.md|ADR 009]]. Technical governance design (conflict resolution, admission control) in [[../architecture/EXPERIMENTAL_GOVERNANCE_DESIGN.md]].
+> **Canonical governance document.** Historical context and decision rationale in [[../architecture/adr/ADR-0009-community-governance-model.md|ADR 0009]]. Technical governance design (conflict resolution, admission control) in [EXPERIMENTAL_GOVERNANCE_DESIGN.md](../architecture/EXPERIMENTAL_GOVERNANCE_DESIGN.md).
 
 This document establishes the official governance rules, contribution workflows, and maintainer SLA commitments for **VantaDB** as an Open-Core system (Apache-2.0). Our goal is to ensure a transparent, active, and welcoming community for external developers and systems engineers.
 

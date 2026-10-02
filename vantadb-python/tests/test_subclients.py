@@ -97,7 +97,7 @@ def test_memory_generate_snippet_identity(db):
 
 
 def test_memory_pure_ann_search_identity(db):
-    db.insert(1, "node one", [1.0, 0.0])
+    db.insert_node(1, "node one", [1.0, 0.0])
     res_flat = db.search_vector([1.0, 0.0], top_k=3)
     res_sub = db.memory.search_vector([1.0, 0.0], top_k=3)
     assert res_sub == res_flat
@@ -140,17 +140,17 @@ def test_memory_similar_to_key_identity(db):
 
 
 def test_graph_node_crud_identity(db):
-    db.graph.insert(10, "content-10", [0.5, 0.5], {"kind": "note"})
-    node_flat = db.get(10)
-    node_sub = db.graph.get(10)
+    db.graph.insert_node(10, "content-10", [0.5, 0.5], {"kind": "note"})
+    node_flat = db.get_node(10)
+    node_sub = db.graph.get_node(10)
     assert node_sub["fields"]["kind"] == node_flat["fields"]["kind"] == "note"
-    db.graph.delete(10, "test cleanup")
-    assert db.get(10) is None
+    db.graph.delete_node(10, "test cleanup")
+    assert db.get_node(10) is None
 
 
 def test_graph_edges_and_traversals_identity(db):
     for nid in range(1, 4):
-        db.graph.insert(nid, f"n{nid}", [])
+        db.graph.insert_node(nid, f"n{nid}", [])
     db.graph.add_edge(1, 2, "next")
     db.add_edge(2, 3, "next")
     assert db.graph.graph_bfs([1]) == db.graph_bfs([1]) == [1, 2, 3]
@@ -161,7 +161,7 @@ def test_graph_edges_and_traversals_identity(db):
 def test_graph_bfs_filtered_identity(db):
     """Paridad con node/ts: graph_bfs_filtered con filtro de labels/time_range."""
     for nid in range(1, 5):
-        db.graph.insert(nid, f"n{nid}", [])
+        db.graph.insert_node(nid, f"n{nid}", [])
     # Edge 1->2 with label 10, 2->3 with label 20, 3->4 with label 10
     db.graph.add_edge(1, 2, "a", created_at_ms=1000)
     db.graph.add_edge(2, 3, "b", created_at_ms=2000)
@@ -210,7 +210,7 @@ def test_graph_bfs_filtered_identity(db):
 
 def test_graph_metrics_python_only_identity(db):
     for nid in range(1, 4):
-        db.insert(nid, f"n{nid}", [])
+        db.insert_node(nid, f"n{nid}", [])
     db.add_edge(1, 2, "e")
     pr_flat = db.graph_page_rank([1, 2, 3])
     pr_sub = db.graph.graph_page_rank([1, 2, 3])

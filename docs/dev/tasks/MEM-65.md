@@ -1,3 +1,9 @@
+---
+title: "MEM-65: Telemetría por capa + pLimit real"
+kind: task
+description: "Verificación mecánica: cargo check -p vanta-memory --all-targets ✅ + cargo test -p vanta-memory --profile audit -j 2 ✅ + comandos del contrato (PowerShell) ✅"
+---
+
 # MEM-65: Telemetría por capa + pLimit real
 
 ## Metadata

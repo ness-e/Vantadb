@@ -1,4 +1,29 @@
+---
+title: DESKTOP-01b — Investigación de las 6 integraciones + Arquitectura Multi-Connection
+kind: research
+status: archived
+description: "FROM ... WHERE ... FETCH ... RANK BY, vector/hybrid (~ + min score), INSERT NODE#id TYPE ..., UPDATE, DELETE NODE#id, RELATE NODE#a --\"label\"--> NODE#b y INSERT MESSAGE ... TO THREAD#id"
+---
+
 # DESKTOP-01b — Investigación de las 6 integraciones + Arquitectura Multi-Connection
+
+> ⚠️ **STALE — el tipo `VantaError` de este documento nunca existió.**
+> Las 27 menciones a `VantaError` son la propuesta original del
+> 2026-08-04 (un enum de app de escritorio en `src-tauri/src/error.rs`), no una
+> descripción de la API que existe hoy. Se conservan sin reescribir porque este
+> archivo es el registro de aquella investigación.
+>
+> **La API real** (documentada en `docs/api/ERROR_HANDLING.md`):
+>
+> | Lenguaje | Tipo real |
+> |---|---|
+> | Rust | `vantadb::Error` — enum `#[non_exhaustive]`, 32 variantes (`src/error.rs`) |
+> | Python | `vantadb.Error` (extiende `RuntimeError`) + 10 subclases: `NotFoundError`, `ValidationError`, `CorruptError`, `StorageError`, `ConflictError`, `UnsupportedError`, `ResourceLimitError`, `BusyError`, `NoVectorError`, `TimeoutError` |
+> | TypeScript | `DbError` (`vantadb-ts/src/errors.ts`) — su `name` serializado **sí** es `"VantaError"` |
+>
+> En particular, las variantes aquí proposals como `Lock` y
+> `BackpressureActive` no existen: el lock de un path es
+> `Error::DatabaseBusy` y el back-pressure es `Error::ResourceLimit`.
 
 - **Tipo:** Investigación / Arquitectura (sin código)
 - **Fecha:** 2026-08-04
@@ -160,7 +185,7 @@ Handlers: `handle_tools_call` (`lib.rs:967-1482`). Límites: namespace ≤256B, 
 - Estado compartido: cada proceso embebido es dueño del lock file (`src/storage/engine/init.rs:40`).
 
 ### 3.8 Docs
-`docs/api/MCP.md` (canónica, versiones impl 0.1.5 / protocolo 2024-11-05), `docs/user/book/src/api/MCP.md`, `docs/dev/operations/CI_POLICY.md:65` (experimental), `docs/user/operations/DEPLOYMENT_GUIDE.md`, ADR `003_sync_async_decoupling.md`. Tests: `vantadb-mcp/tests/mcp_tests.rs` (1021 líneas), `vantadb-server/tests/mcp_integration.rs`.
+`docs/api/MCP.md` (canónica, versiones impl 0.1.5 / protocolo 2024-11-05), `docs/user/book/src/api/MCP.md`, `docs/dev/operations/CI_POLICY.md:65` (experimental), `docs/user/operations/DEPLOYMENT_GUIDE.md`, ADR `ADR-0003-sync-async-decoupling.md`. Tests: `vantadb-mcp/tests/mcp_tests.rs` (1021 líneas), `vantadb-server/tests/mcp_integration.rs`.
 
 **Staleness:** doc menciona tool `query` pero el código expone `query_lisp`; resource `schema://` no existe; `serverInfo.name = "vantadb"` (`src/metadata.rs:19`).
 
@@ -186,7 +211,7 @@ Handlers: `handle_tools_call` (`lib.rs:967-1482`). Límites: namespace ≤256B, 
 - Nota: `reindexHnswFromText` lanza `WASM_ERROR` (no disponible en build WASM actual, `vantadb.ts:542-548`).
 
 ### 4.3 Relación entre ambos
-Isomórficos en el subconjunto cubierto; **dos backends separados** del mismo SDK Rust, no uno sobre el otro. ADR: `docs/dev/architecture/adr/COMP-029-napi-rs-node-bindings.md` ("backend ADICIONAL — no reemplazo"). Ambos envuelven `VantaEmbedded::open_with_config` (`src/sdk/builder.rs:91`).
+Isomórficos en el subconjunto cubierto; **dos backends separados** del mismo SDK Rust, no uno sobre el otro. ADR: `docs/dev/architecture/adr/ADR-0050-napi-rs-node-bindings.md` ("backend ADICIONAL — no reemplazo"). Ambos envuelven `VantaEmbedded::open_with_config` (`src/sdk/builder.rs:91`).
 
 ### 4.4 ¿DB embebida?
 **Sí, ambos.** node: el addon `.node` se carga en el proceso Node (FFI), `VantaEmbedded` vive en el mismo proceso. ts (WASM): corre en el mismo runtime JS. Matar el proceso mata la instancia (datos persisten por fjall en disco).
@@ -560,7 +585,7 @@ Crates MCP client en Rust para Tauri (2026):
 | docs/api/HTTP_API.md:124-125 | Claim "Full MCP + HTTP" — **no implementado** (ver §6) |
 | docs/dev/operations/CI_POLICY.md:65 | vantadb-mcp = Experimental |
 | docs/user/operations/DEPLOYMENT_GUIDE.md:14,56 | Un solo binario, modos embedded/HTTP/MCP |
-| docs/dev/architecture/adr/003_sync_async_decoupling.md:31,48 | MCP sobre tokio, pool bloqueante |
+| docs/dev/architecture/adr/ADR-0003-sync-async-decoupling.md:31,48 | MCP sobre tokio, pool bloqueante |
 | docs/dev/research/INV-003-tokio-blocking-audit.md:37 | Patrón semaphore+spawn_blocking+timeout |
 | docs/backlog-guide.md:68-75 + docs/dev/Backlog.md | MCP-02..05 (estabilizar a GA, tools collection, test suite) |
 | Tests: vantadb-mcp/tests/mcp_tests.rs (suite completa, 1021 líneas), vantadb-server/tests/mcp_integration.rs | Certificación del protocolo |
@@ -648,7 +673,7 @@ WASM = in-memory por defecto; OPFS/IDB solo en browser (vantadb-wasm/src/lib.rs:
 
 Isomórficos en el subconjunto cubierto; no es que vantadb-ts use vantadb-node como backend por defecto. Son dos backends separados del mismo SDK Rust:
 - vantadb-node = backend adicional nativo a WASM, API isomórfica con vantadb-ts/src/vantadb.ts — vantadb-node/src/lib.rs:1-6.
-- ADR: "backend ADICIONAL — no reemplazo" — docs/dev/architecture/adr/COMP-029-napi-rs-node-bindings.md:8-10.
+- ADR: "backend ADICIONAL — no reemplazo" — docs/dev/architecture/adr/ADR-0050-napi-rs-node-bindings.md:8-10.
 - Ambos envuelven `VantaEmbedded::open_with_config` (src/sdk/builder.rs:91) con la misma semántica de records/search, cambiando solo el transporte (serde_json vía FFI vs wasm-bindgen).
 
 **4. ¿DB embebida en el proceso?**
@@ -685,7 +710,7 @@ Isomórficos en el subconjunto cubierto; no es que vantadb-ts use vantadb-node c
 
 **7. Docs existentes**
 
-- docs/dev/architecture/adr/COMP-029-napi-rs-node-bindings.md — ADR de los bindings nativos (decisión, consecuencias, verificación 3/3 tests).
+- docs/dev/architecture/adr/ADR-0050-napi-rs-node-bindings.md — ADR de los bindings nativos (decisión, consecuencias, verificación 3/3 tests).
 - docs/dev/research/DESKTOP-01-tauri-plataforma-desktop.md — investigación Tauri (recomienda Opción A).
 - docs/dev/Backlog.md — entradas COMP-029 (l.281) y DESKTOP-01 (l.166).
 - docs/progreso/README.md:309-319 — bitácora 2026-08-02 de COMP-029.
@@ -1193,5 +1218,5 @@ Regla de oro: 1 tarea = 1 concepto; ninguna mezcla dos integraciones. Las fases 
 - `docs/dev/research/DESKTOP-01-tauri-plataforma-desktop.md` — investigación Tauri base (recomienda vía nativa)
 - `docs/dev/Backlog.md` Phase 12 — tareas DESKTOP-02..27
 - `docs/api/HTTP_API.md`, `docs/api/MCP.md`, `docs/api/IQL.md`, `docs/api/EMBEDDED_SDK.md`, `docs/api/PYTHON_SDK.md`, `docs/api/TS_SDK.md`, `docs/api/openapi.yaml`
-- `docs/dev/architecture/adr/COMP-029-napi-rs-node-bindings.md`, `docs/dev/architecture/adr/003_sync_async_decoupling.md`
+- `docs/dev/architecture/adr/ADR-0050-napi-rs-node-bindings.md`, `docs/dev/architecture/adr/ADR-0003-sync-async-decoupling.md`
 - `vantadb-server/src/main.rs`, `src/cli_server.rs`, `src/config.rs`, `vantadb-mcp/src/lib.rs`, `vantadb-node/src/lib.rs`, `vantadb-python/src/lib.rs`, `vantadb-wasm/src/lib.rs`

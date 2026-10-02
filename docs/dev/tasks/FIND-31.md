@@ -1,3 +1,9 @@
+---
+title: "FIND-31 — purge_expired tras reopen falla \\\\\\\\\"text index df would go negative\\\\\\\\\""
+kind: task
+description: "aplica con checkedstatsvalue (api.rs:1041-1098) → ValidationError \"text index {label} would go negative\""
+---
+
 # FIND-31 — purge_expired tras reopen falla "text index df would go negative"
 
 - **Plan:** `docs/dev/plans/2026-08-25-batch-colaterales-deuda-desktop.md`

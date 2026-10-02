@@ -1,3 +1,9 @@
+---
+title: "ADMIN-09: Snapshot export + persistencia"
+kind: task
+description: "npm run build en desktop/ pasa; commit solo de desktop/src/; persistence en localStorage; carga al montar si el poll live aún no respondió.\""
+---
+
 # ADMIN-09: Snapshot export + persistencia
 
 ## Metadata

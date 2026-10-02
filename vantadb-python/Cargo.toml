@@ -22,6 +22,8 @@ lru = "0.18"
 
 # In-process reference to the core engine (zero network overhead)
 vantadb = { path = "../", default-features = false, features = ["fjall", "memmap2", "rayon"] }
+# WIRE-07: durability gate (OpGate) + ERR-022 clamp policy — std-only leaf.
+vantadb-ffi-core = { path = "../vantadb-ffi-core" }
 
 [lints]
 workspace = true

@@ -1,16 +1,18 @@
 ---
-title: "Instalación"
-type: glossary-entry
+title: Instalación
+kind: glossary
 status: stable
-tags: [concept, ux, developer-experience, zero-config]
-last_reviewed: 2026-09-15
-links: "[[README.md]]"
+description: "Zero-Config is a design principle where software works correctly immediately after installation, without requiring configuration files, environment variables, external services, or manual setup steps"
 aliases: [Zero Configuration, No Configuration, Zero Config]
-description: "Design principle where the software works correctly immediately after installation, without requiring configuration files or manual setup steps"
+tags: [concept, ux, developer-experience, zero-config]
+type: glossary-entry
+last_reviewed: "2026-09-15"
+links: "[[README.md]]"
 ---
-#Zero-Config
 
-##Definition
+# Zero-Config
+
+## Definition
 
 **Zero-Config** is a design principle where software works correctly **immediately after installation**, without requiring configuration files, environment variables, external services, or manual setup steps.
 
@@ -24,7 +26,7 @@ description: "Design principle where the software works correctly immediately af
 | **Sin dependencias externas** | No necesita Redis, PostgreSQL, ni servicios adicionales |
 | **Funciona out-of-the-box** | `pip install` → `import` → funciona |
 
-##Why it Matters in VantaDB
+## Why it Matters in VantaDB
 
 VantaDB competes against alternatives that require complex infrastructure:
 
@@ -62,11 +64,11 @@ results = db.search("default", [0.1, 0.2, 0.3], top_k=10)
 
 | Aspecto | Decisión Zero-Config |
 |---------|---------------------|
-| **Backend** | [[fjall]] por defecto (no requiere instalación de C++) |
-| **Índice vectorial** | [[hnsw]] con parámetros auto-tuneados según dataset size |
+| **Backend** | [fjall](./fjall.md) por defecto (no requiere instalación de C++) |
+| **Índice vectorial** | [hnsw](./hnsw.md) con parámetros auto-tuneados según dataset size |
 | **Tokenizador** | BM25 con defaults razonables (lowercase, sin stopwords) |
 | **Persistencia** | Directorio local, sin configuración de conexión |
-| **Concurrencia** | [[file-locking]] automático al abrir |
+| **Concurrencia** | [file-locking](./file-locking.md) automático al abrir |
 | **Memoria** | Detección automática de RAM disponible |
 
 ## Example: Complete Zero-Config Experience
@@ -127,7 +129,7 @@ db = vantadb.Client(
 )
 ```
 
-##Zero-Config vs "Easy-Config"
+## Zero-Config vs "Easy-Config"
 
 | Enfoque | Ejemplo | Problema |
 |---------|---------|----------|
@@ -137,9 +139,9 @@ db = vantadb.Client(
 
 ## See Also
 
-- [[embedded]] — Habilita zero-config al no requerir servidor
-- [[local-first]] — Filosofía compatible con zero-config
-- [[fjall]] — Backend que no requiere instalación de dependencias C++
+- [embedded](./embedded.md) — Habilita zero-config al no requerir servidor
+- [local-first](./local-first.md) — Filosofía compatible con zero-config
+- [fjall](./fjall.md) — Backend que no requiere instalación de dependencias C++
 
 ---
 

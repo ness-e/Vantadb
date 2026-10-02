@@ -1,3 +1,9 @@
+---
+title: MCP-34b — snapshot_restore core + SDK + MCP tool
+kind: task
+description: "Estado: ⏳ IN PROGRESS"
+---
+
 # MCP-34b — snapshot_restore core + SDK + MCP tool
 
 **Estado:** ⏳ IN PROGRESS

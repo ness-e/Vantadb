@@ -1,3 +1,9 @@
+---
+title: "Task MCP-22 — Traversal de grafos: bfs/dfs/filtered/topo/is_dag/accumulators"
+kind: task
+description: "Fuente de verdad: docs/dev/Backlog.md → fase P25 - Exposición MCP/HTTP → fila MCP-22 (leer ANTES de ejecutar: problema, acciones numeradas, archivos exactos)"
+---
+
 # Task MCP-22 — Traversal de grafos: bfs/dfs/filtered/topo/is_dag/accumulators
 
 **Fuente de verdad:** `docs/dev/Backlog.md` → fase **P25 - Exposición MCP/HTTP** → fila `MCP-22` (leer ANTES de ejecutar: problema, acciones numeradas, archivos exactos).

@@ -1,3 +1,10 @@
+---
+title: "INV-016: Motion-Duration Tokens — Auditoría"
+kind: research
+status: archived
+description: "NO existe un sistema de tokens de duración/easing. globals.css @theme inline{} solo define colores + fuentes; no hay --duration- ni --ease-. El easing cubic-bezier(0.2,0.8,0.2,1) está hardcodeado en ~15 lugares — 4 componentes..."
+---
+
 # INV-016: Motion-Duration Tokens — Auditoría
 
 > **Estado:** ✅ COMPLETADA 2026-08-03 · **Fuente:** docs/dev/Backlog.md INV-016 · **Tipo:** Web Frontend (tokens de animación) — auditoría + propuesta, sin implementación

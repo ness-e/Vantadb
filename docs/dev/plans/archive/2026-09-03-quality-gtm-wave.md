@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Quality & GTM Wave — Post-Auditoría Backlog"
+kind: plan
+status: archived
+description: "Gate P respondido por el usuario (question 2026-09-03): set DO 12 confirmado; purgas FIND-22/PY-02/FIND-51 confirmadas; GTM dentro del plan (Show HN sept)"
+---
+
 # Plan de Ejecución: Quality & GTM Wave — Post-Auditoría Backlog
 
 > **Inicio:** 2026-09-03
@@ -16,7 +23,7 @@
 | ✅ DO | 12 | 9.5% | las de abajo, verificadas hoy contra código |
 | 🟡 DEFER | 98 | 77.8% | P5/6/8 restantes, P23/24 (Pro/I+D), P26-28 (MEM-6x/7x, MCP-41, PY), P32-34 (UX-*, MOD-*), P38 resto (RES-02 restaurada caos, RES-04/05/06/10-15), P39 PRX-01..13, P41-47, DISC/MKT-04 humano |
 | ❌ SKIP | 3 | 2.4% | PURGADAS con evidencia (FIND-22 `3b1b820b` fila stale; PY-02 BENCHMARKS §2 ya satisface contrato; FIND-51 premature — umbral propio >2500L no alcanzado a 1469L). Registradas en `backlog-history.md` |
-| 🔴 BLOQUEADO | 13 | 10.3% | AUD-042 (tantivy ≥0.27 no publicada), CORE-02 (PITR requiere ADR owner), STABLE-04..09 (ADR-031+medición owner), MCP-34b (depende snapshot/FIND-33), BND-08 + TS-12 + PERF-BENCH-01 (estrategia npm napi post-launch — decisión owner), SRV-06 (OIDC DISCOVERY vanta-arch), GOV-TK2 (es decisión `/ship`, no tarea) |
+| 🔴 BLOQUEADO | 13 | 10.3% | AUD-042 (tantivy ≥0.27 no publicada), CORE-02 (PITR requiere ADR owner), STABLE-04..09 (ADR-0031+medición owner), MCP-34b (depende snapshot/FIND-33), BND-08 + TS-12 + PERF-BENCH-01 (estrategia npm napi post-launch — decisión owner), SRV-06 (OIDC DISCOVERY vanta-arch), GOV-TK2 (es decisión `/ship`, no tarea) |
 | **Total** | **126** | 100% | |
 
 **Gate P respondido por el usuario (question 2026-09-03):** set DO 12 confirmado; purgas FIND-22/PY-02/FIND-51 confirmadas; GTM dentro del plan (Show HN sept).
@@ -79,7 +86,7 @@ Justificación de órdenes compartidos: BENCHMARKS.md (RES-07 → … → RES-03
 
 - **Appetite:** max 1h | **Esfuerzo:** 🟢 15m | **Prioridad:** 🟢 Baja
 - **Archivos clave (TODOS):** `docs/dev/operations/pilot-onboarding-checklist.md:51` (`git clone https://github.com/vantadb/vantadb-examples`), `docs/README*`/otros puntos que referencien el repo
-- **Verificación real:** ✅ 2026-09-03 — el checklist apunta a `github.com/vantadb/...`; según FIND-17/ADR-030 el owner real es `ness-e/*`; organización `vantadb` inexistente → URL muerta para el piloto
+- **Verificación real:** ✅ 2026-09-03 — el checklist apunta a `github.com/vantadb/...`; según FIND-17/ADR-0030 el owner real es `ness-e/*`; organización `vantadb` inexistente → URL muerta para el piloto
 - **Gate Justificación:** el checklist es documento de venta (pilot enterprise) con un paso que da error
 - **Contrato:** webfetch del actual → si 404: `rg -n "vantadb/vantadb-examples" docs/` == 0 tras fijar (a `ness-e/vantadb-examples` si existe, o marcar `[TODO humano: crear repo]`); si 200: fila se cierra con evidencia
 - **Pre-mortem:** 1 `ness-e/vantadb-examples` tampoco existe → dejar TODO explícito y crear fila nueva para el repo (no crear repo desde agentes)

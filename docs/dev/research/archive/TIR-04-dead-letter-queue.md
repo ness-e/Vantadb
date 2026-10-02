@@ -1,3 +1,10 @@
+---
+title: "TIR-04 — Decisión: ¿dead-letter queue para tareas fallidas?"
+kind: research
+status: archived
+description: Lo que NO se pierde hoy — el estado de una tarea fallida ya es durable en 4 lugares
+---
+
 # TIR-04 — Decisión: ¿dead-letter queue para tareas fallidas?
 
 > Investigación/decisión. Origen: `docs/dev/Backlog.md` P18 (línea 450), re-verificado 2026-08-12.

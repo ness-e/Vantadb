@@ -1,3 +1,9 @@
+---
+title: "DESKTOP-40 — i18n real ES/EN (slice 1: infra + Settings)"
+kind: task
+description: "N/A — fix sobre código existente (criterio planes 2026-09-07/08/09: DO set 100% fixes, sin SPEC.md)"
+---
+
 # DESKTOP-40 — i18n real ES/EN (slice 1: infra + Settings)
 
 > **Plan:** docs/dev/plans/2026-09-10-fixes.md (Task 5, Wave2)

@@ -1,11 +1,9 @@
 ---
-title: "Campaña P27 — Vanta Memory Engine (F1-F4)"
-type: registro
+title: Campaña P27 — Vanta Memory Engine (F1-F4)
+kind: review
 status: archived
+description: "Cierre de campaña: MEM-01..21 (+08a/08b, 34, 35) completadas entre 2026-08-18 y 2026-08-20. Crate nuevo vanta-memory/ (LLM-driven, publish=false) + integración core/server/MCP. Suite final: 361/361 tests (cargo nextest run -p..."
 tags: [vantadb, avance, campana]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Campaña P27 — Vanta Memory Engine (F1-F4)

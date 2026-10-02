@@ -1,10 +1,11 @@
 ---
 title: "Operations & Configuration Manual"
-type: operations
+kind: runbook
 status: active
+description: This document tracks the current runtime knobs for the embedded core and the optional local server wrapper
 tags: [vantadb, operations]
-last_reviewed: 2026-09-02
-aliases: []
+type: operations
+last_reviewed: "2026-09-02"
 ---
 
 # Operations & Configuration Manual
@@ -23,7 +24,7 @@ All configuration fields available in `VantaConfig` (Rust) and via environment v
 | `memory_limit` | `Option<u64>` | `None` | `VANTADB_MEMORY_LIMIT` | Memory budget hint for backend and mmap selection (string with optional KB/MB/GB suffix, e.g. `500MB`) |
 | `read_only` | `bool` | `false` | — | Opens engine in read-only mode |
 | `force_mmap` | `bool` | `false` | — | Force memory-mapped I/O for vector store |
-| `mmap_hnsw` | `bool` | `true` | — | Enable memory-mapped [[hnsw\|HNSW]] index |
+| `mmap_hnsw` | `bool` | `true` | — | Enable memory-mapped [hnsw](../glosario/hnsw.md) index |
 | `prefetch_mode` | `PrefetchMode` | `Disabled` | `VANTADB_PREFETCH`, `VANTADB_DISABLE_PREFETCH` | MMap prefetch strategy (Auto/Enabled/Disabled; default OFF, PERF-04) |
 | `rss_threshold` | `f64` | `0.80` | — | RSS pressure threshold for backpressure eviction (0.0-1.0) |
 | `eviction_weight_hits` | `f64` | `1.0` | — | Weight for access frequency in eviction score |
@@ -31,18 +32,18 @@ All configuration fields available in `VantaConfig` (Rust) and via environment v
 | `eviction_weight_importance` | `f64` | `3.0` | — | Weight for importance score in eviction |
 | `eviction_weight_recency` | `f64` | `1.0` | — | Weight for recency in eviction |
 | `eviction_ratio` | `f64` | `0.20` | — | Fraction of hot nodes to evict when memory pressure triggers |
-| `backend_kind` | `BackendKind` | `Fjall` | `VANTADB_BACKEND` | KV backend: `[[fjall]]`, `[[rocksdb]]`, `memory` |
+| `backend_kind` | `BackendKind` | `Fjall` | `VANTADB_BACKEND` | KV backend: `[fjall](../glosario/fjall.md)`, `[rocksdb](../glosario/rocksdb.md)`, `memory` |
 | `max_blocking_threads` | `usize` | `16` | `VANTADB_MAX_BLOCKING_THREADS` | Max threads for blocking thread pool |
 | `max_connections` | `usize` | `max_blocking_threads * 2` | `VANTADB_MAX_CONNECTIONS` | Max concurrent HTTP query pool permits |
 | `pool_acquire_timeout_ms` | `u64` | `5000` | `VANTADB_POOL_ACQUIRE_TIMEOUT_MS` | Timeout acquiring a pool permit before the query fails fast with 503 |
 | `circuit_breaker_failure_threshold` | `u32` | `5` | `VANTADB_CIRCUIT_BREAKER_FAILURE_THRESHOLD` | Consecutive 5xx failures before the circuit breaker opens |
 | `circuit_breaker_open_timeout_secs` | `u64` | `30` | `VANTADB_CIRCUIT_BREAKER_OPEN_TIMEOUT_SECS` | Seconds the breaker stays open before probing half-open |
-| `sync_mode` | `SyncMode` | `Periodic` | — | [[wal\|WAL]] sync: `Always`, `Periodic`, `Never` |
-| `insert_lock_timeout_ms` | `u64` | `5000` | `VANTADB_INSERT_LOCK_TIMEOUT_MS` | [[hnsw\|HNSW]] insert lock timeout in ms |
+| `sync_mode` | `SyncMode` | `Periodic` | — | [wal](../glosario/wal.md) sync: `Always`, `Periodic`, `Never` |
+| `insert_lock_timeout_ms` | `u64` | `5000` | `VANTADB_INSERT_LOCK_TIMEOUT_MS` | [hnsw](../glosario/hnsw.md) insert lock timeout in ms |
 | `file_lock_timeout_ms` | `u64` | `1000` | `VANTADB_FILE_LOCK_TIMEOUT_MS` | .vanta.lock file lock timeout in ms |
 | `api_key` | `Option<String>` | `None` | `VANTADB_API_KEY` | Bearer token for HTTP auth |
 | `alt_api_key` | `Option<String>` | `None` | `VANTADB_ALT_API_KEY` | Alternative bearer token for zero-downtime API key rotation. When set, both `api_key` and `alt_api_key` are accepted. Deploy new key as `alt_api_key`, switch clients, then promote to `api_key` (SRV-04, Qdrant v1.17 pattern). |
-| `jwt_secret` | `Option<String>` | `None` | `VANTADB_JWT_SECRET` | HS256 secret for JWT Bearer auth (SRV-06, ADR-039). When set, the server additionally accepts `Authorization: Bearer <jwt>` with present `sub` and non-expired `exp` (offline verification). If `None`, only `api_key`/`alt_api_key` are accepted. |
+| `jwt_secret` | `Option<String>` | `None` | `VANTADB_JWT_SECRET` | HS256 secret for JWT Bearer auth (SRV-06, ADR-0039). When set, the server additionally accepts `Authorization: Bearer <jwt>` with present `sub` and non-expired `exp` (offline verification). If `None`, only `api_key`/`alt_api_key` are accepted. |
 | `rate_limit_rpm` | `u32` | `600` | `VANTADB_RATE_LIMIT_RPM` | Rate limit in requests per minute (`0` = disabled) |
 | `trusted_proxies` | `Vec<IpAddr>` | `[]` | `VANTADB_TRUSTED_PROXIES` | Comma-separated reverse-proxy IPs whose `X-Forwarded-For` header is honored for client-IP resolution (rate limiter / logs). Empty = header ignored; direct socket addr is authoritative (clients cannot spoof their IP). |
 | `allowed_origins` | `Vec<String>` | `[]` | `VANTADB_ALLOWED_ORIGINS` | Comma-separated origins allowed to make cross-origin (CORS) requests to the HTTP server (e.g. `https://app.example.com,https://admin.example.com`). Empty (default) = CORS middleware omitted; the server sends no `Access-Control-Allow-Origin` header and browsers block cross-origin web calls. Repeatable via `Config::with_allowed_origins`. |
@@ -57,13 +58,18 @@ All configuration fields available in `VantaConfig` (Rust) and via environment v
 | `openai_api_key` | `Option<String>` | `None` | `VANTADB_OPENAI_API_KEY` | OpenAI API key for remote embeddings (optional; missing key defers error to embed call, B2b) |
 | `openai_model` | `String` | `text-embedding-3-small` | `VANTADB_OPENAI_MODEL` | OpenAI embedding model name |
 | `embedding_provider` | `String` | `ollama` | `VANTADB_EMBEDDING_PROVIDER` | Embedding provider selector: `ollama`, `openai`, `local` (ONNX) |
-| `wal_shards` | `usize` | `4` | `VANTADB_WAL_SHARDS` | Number of round-robin [[wal\|WAL]] shard files for write parallelism |
+| `wal_shards` | `usize` | `4` | `VANTADB_WAL_SHARDS` | Number of round-robin [wal](../glosario/wal.md) shard files for write parallelism |
 | `wal_buffer_size` | `Option<usize>` | `65536` (64KB) | `VANTADB_WAL_BUFFER_SIZE` | Per-shard WAL buffer in bytes (`None` = OS default) |
 | `flush_threshold` | `Option<usize>` | `None` (disabled) | `VANTADB_FLUSH_THRESHOLD` | Auto-flush after N nodes inserted (`None` = disabled) |
 | `advanced_tokenizer_config` | `Option<...>` | `None` | — | Advanced tokenizer config (feature-gated) |
 | `batch_size` | `Option<usize>` | `None` (1000) | `VANTADB_BATCH_SIZE` | Max nodes per batch ingestion operation |
 | `version_history_limit` | `Option<usize>` | `Some(32)` | `VANTADB_VERSION_HISTORY_LIMIT` | Max historical versions retained per memory key (VS-CORE-07). Each `put` snapshots the new record; FIFO evicts the oldest beyond the cap. `0` or `None` disables the cap (unbounded history per key). See `docs/api/EMBEDDED_SDK.md` → Version History. |
 | `bulk_commit_interval` | `Option<usize>` | `None` (10000) | `VANTADB_BULK_COMMIT_INTERVAL` | Number of records per batch commit during bulk import |
+| `insert_batch` | `InsertBatchConfig` | `{enabled: false, max_batch_records: 32, max_wait_ms: 1, max_queued_records: 1024}` | `VANTADB_INSERT_BATCH_ENABLED`, `VANTADB_INSERT_BATCH_MAX_RECORDS`, `VANTADB_INSERT_BATCH_WAIT_MS`, `VANTADB_INSERT_BATCH_QUEUE` | **Opt-in group-commit batching (WIRE-06)** for the async ingestion pipeline (`AsyncIngestionPipeline`, feature `async-ingestion`). When `enabled`, workers accumulate up to `max_batch_records` tasks (waiting at most `max_wait_ms` for the batch to fill) and commit them with a single `batch_insert_with_opts` call: one `insert_lock` acquisition, one WAL `batch_append` per shard (≤1 fsync per shard per cycle), one HNSW bulk insert — instead of one of each per record. Durability is unchanged: a task is acked only after the batch is committed to the WAL under `sync_mode` (durable = acked); the declared cost is latency, up to `max_wait_ms` + batch commit time. Default `enabled: false` keeps the per-record path byte-identical. `max_wait_ms` is capped at 60 s and `max_batch_records` at `max_queued_records` (`sanitized()`). Batch-mode errors are flattened to a generic error (the original variant — e.g. `Validation` for read-only engines — is not preserved in ON mode). Note: `VANTADB_INSERT_BATCH_QUEUE` sizes the channel even when `enabled=false`. Measured: see `BENCHMARKS.md` §13 (WIRE-06 A/B). |
+| `memory_default_ttl_ms` | `BTreeMap<String, u64>` | `{}` | `VANTADB_MEMORY_DEFAULT_TTL_MS` | Default TTL (ms) applied by `put`/`put_batch` when a record omits `ttl_ms`, keyed by namespace (collection), e.g. `notes:86400000,chat:3600000`. Only new writes inherit it — existing records are never backfilled; explicit `ttl_ms` wins. See `docs/api/HTTP_API.md` → Namespace default TTL. |
+| `quarantine_review_default_days` | `u32` | `30` | `VANTADB_QUARANTINE_REVIEW_DEFAULT_DAYS` | Default review deadline (days) applied when a record enters quarantine without an explicit deadline (ADR-0046 §D5d, SCH-05). `0` disables the automatic deadline. The deadline is a **signal only** — it never promotes a quarantined record (sticky invariant I1). |
+| `confidence_threshold` | `Option<f32>` | `None` (OFF) | `VANTADB_CONFIDENCE_THRESHOLD` | Selective-abstention threshold (ADR-0046 §D2, SCH-05/SCH-07): when set (finite, in `[0, 1]`), search hits below it are dropped and an emptied page carries an explicit `abstained` + `abstention_reason` signal instead of silently degrading (single-namespace HTTP `SearchPageV2` and the MCP search envelope — see `docs/api/MCP.md`; array-shaped binding APIs have no page). Distinct from the per-request `min_confidence` filter, which never emits the signal. |
+| `ttl_sweep_interval_ms` | `u64` | `60000` | `VANTADB_TTL_SWEEP_INTERVAL_MS` | Interval (ms) of the server's background TTL sweeper, which physically purges expired records (nodes + derived/text indexes) — the same purge as `DELETE /api/v2/maintenance/expired-records`. `0` disables it; read-only engines skip it. |
 | `encryption_key` | `Option<String>` | `None` | `VANTADB_ENCRYPTION_KEY` | AES-256-GCM key (hex 32-byte) for at-rest encryption (feature-gated: `encryption`) |
 | `flat_threshold` | `Option<usize>` | `10000` | `VANTADB_FLAT_THRESHOLD` | Brute-force flat scan threshold; ≤ this many nodes skips HNSW |
 | `hot_reload_config` | `Arc<RwLock<HotReloadConfig>>` | `HotReloadConfig::default()` | — | Hot-reloadable config snapshot (feature-gated: `hot-reload`, not in `default` features). See [Hot-Reload JSON](#hot-reload-json) |
@@ -123,7 +129,7 @@ Each line is one JSON object:
 ```
 
 - `timestamp`: ISO 8601 UTC (RFC 3339, second precision).
-- `op`: `put`, `put_batch`, `delete`, `delete_by_filter`, `export_namespace`, `export_all`, `import_file`.
+- `op`: `put`, `put_batch`, `delete`, `delete_by_filter`, `export_namespace`, `export_all`, `import_file`, `injection` (VER-04 memory-injection governance — emitted by the proxy and the MCP server into their own audit paths; see [PROXY.md § Injection governance](../../api/PROXY.md#injection-governance-ver-04) and [MCP.md § Injection governance](../../api/MCP.md#injection-governance-ver-04)).
 - `outcome`: `ok` or `err`. Failures still record the attempt; error details go to the `reason` field where available.
 - `reason`: optional contextual detail (e.g. `memory delete` on delete, deleted count on `delete_by_filter`).
 - Read-only operations (`search`, `get`, `list`) are **not** audited.
@@ -136,9 +142,9 @@ Each line is one JSON object:
 | Enum | Variants | Description |
 |------|----------|-------------|
 | `LogFormat` | `Compact`, `Json`, `Full` | Log output format |
-| `SyncMode` | `Always` (fsync every write), `Periodic` (fsync every 5s), `Never` | [[wal\|WAL]] durability sync mode |
+| `SyncMode` | `Always` (fsync every write), `Periodic` (fsync every 5s), `Never` | [wal](../glosario/wal.md) durability sync mode |
 | `PrefetchMode` | `Disabled` (default), `Enabled`, `Auto` (behaves like Enabled) | MMap prefetch strategy; default OFF (PERF-04) |
-| `BackendKind` | `[[fjall\|Fjall]]` (default), `[[rocksdb\|RocksDb]]`, `InMemory` | KV storage backend |
+| `BackendKind` | `[fjall](../glosario/fjall.md)` (default), `[rocksdb](../glosario/rocksdb.md)`, `InMemory` | KV storage backend |
 
 ### Builder API
 
@@ -319,20 +325,20 @@ db = vantadb.Client(
     backend=None,     # "rocksdb", "memory", or None (fjall)
 )
 ```
-*Note: Available backends include [[rocksdb]] and [[fjall]] (default).*
+*Note: Available backends include [rocksdb](../glosario/rocksdb.md) and [fjall](../glosario/fjall.md) (default).*
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `db_path` | `str` | required | Filesystem path (maps to `storage_path`) |
 | `read_only` | `bool` | `False` | Opens the engine in read-only mode |
 | `memory_limit_bytes` | `int \| None` | `None` | Memory budget hint (maps to `memory_limit`) |
-| `backend` | `str \| None` | `None` | Backend selection: `"[[rocksdb]]"`, `"memory"`, or `None` ([[fjall]]) |
+| `backend` | `str \| None` | `None` | Backend selection: `"[rocksdb](../glosario/rocksdb.md)"`, `"memory"`, or `None` ([fjall](../glosario/fjall.md)) |
 
 ## 3. Embedded Runtime Notes
 
-- [[fjall|Fjall]] is the default storage backend.
-- [[rocksdb|RocksDB]] remains an explicit fallback path in the core.
-- Vector search is cosine-based [[hnsw|HNSW]].
+- [Fjall](../glosario/fjall.md) is the default storage backend.
+- [RocksDB](../glosario/rocksdb.md) remains an explicit fallback path in the core.
+- Vector search is cosine-based [HNSW](../glosario/hnsw.md).
 - Memory records use `namespace + key` identity with scalar metadata and optional vectors.
 - Derived namespace/payload indexes are persisted and rebuilt from canonical records.
 
@@ -349,7 +355,7 @@ The CLI uses the embedded core directly and does not require the optional HTTP s
 | `--json` | — | `false` | Output in JSON format |
 | `--quiet` | — | `false` | Suppress non-essential output |
 
-> **Note (ADR-012, 2026-08-05; updated FIND-89 2026-09-14):** `VANTADB_STORAGE_PATH` is the unified config env for both CLI flag `--db` and `VantaConfig::from_env()`. Precedence: CLI flag `--db` > `VANTADB_STORAGE_PATH` env > defaults. The `vantadb-server` child sets `VANTADB_STORAGE_PATH` from `--db` so the MCP/config path resolves correctly (fix TECH-01). Legacy `VANTA_DB` is deprecated. See `docs/dev/architecture/adr/012_env_var_naming.md`.
+> **Note (ADR-0012, 2026-08-05; updated FIND-89 2026-09-14):** `VANTADB_STORAGE_PATH` is the unified config env for both CLI flag `--db` and `VantaConfig::from_env()`. Precedence: CLI flag `--db` > `VANTADB_STORAGE_PATH` env > defaults. The `vantadb-server` child sets `VANTADB_STORAGE_PATH` from `--db` so the MCP/config path resolves correctly (fix TECH-01). Legacy `VANTA_DB` is deprecated. See `docs/dev/architecture/adr/ADR-0012-env-var-naming.md`.
 
 ### Commands
 
@@ -357,14 +363,14 @@ The CLI uses the embedded core directly and does not require the optional HTTP s
 |---------|-------------|
 | `put --namespace <ns> --key <k> --payload <text> [--vector <v>] [--metadata <json>]` | Save a key-value pair to persistent memory |
 | `get --namespace <ns> --key <k>` | Retrieve a value from persistent memory |
-| `delete --namespace <ns> --key <k>` | Delete a record by namespace and key |
+| `delete --namespace <ns> --key <k> [--attest [--out <file>]]` | Delete a record by namespace and key; `--attest` also emits a VER-02 purge certificate (per-surface residue inventory, integrity hash, WAL chain reference); `--out` writes the certificate file from the CLI itself (preferred over shell redirection on Windows). See [Certified delete](./../../api/CERTIFIED_DELETE.md) |
 | `delete-by-filter --namespace <ns> --filter <json>` | Delete records matching metadata filters |
 | `count [--namespace <ns>] [--filter <json>]` | Count records, optionally filtered |
 | `list --namespace <ns> [--limit <N>]` | List keys and values in a namespace |
-| `search --namespace <ns> --query <q> [--query-vector <v>] [--limit <N>] [--json]` | Search records semantically across a namespace |
-| `search-multi --namespaces <ns1,ns2> --query <q> [--query-vector <v>] [--top-k <N>] [--json]` | Search across multiple namespaces and merge results by score |
-| `search-all --query <q> [--query-vector <v>] [--top-k <N>] [--json]` | Search across ALL known namespaces and merge results by score |
-| `similar-to-key --namespace <ns> --key <k> [--top-k <N>] [--json]` | Find records similar to a given key using vector similarity search |
+| `search --namespace <ns> <query> [--query-vector <v>] [--limit <N>]` | Search records semantically across a namespace (`--query` alias) |
+| `search-multi --namespaces <ns1,ns2> [<query>] [--query-vector <v>] [--limit <N>]` | Search across multiple namespaces and merge results by score |
+| `search-all [<query>] [--query-vector <v>] [--limit <N>]` | Search across ALL known namespaces and merge results by score |
+| `similar-to-key --namespace <ns> --key <k> [--limit <N>]` | Find records similar to a given key using vector similarity search (`--top-k` alias) |
 | `query <iql_string> [--limit <N>]` | Execute a structured IQL/hybrid query |
 | `status` | Display database health diagnostics and system status |
 | `stats [--json]` | Database statistics (formatted or JSON) |
@@ -376,21 +382,24 @@ The CLI uses the embedded core directly and does not require the optional HTTP s
 
 > **Filter scope:** `--filter` on `list`/`delete-by-filter`/`count` matches **user metadata only**. Internal VantaDB fields (reserved prefix `__vanta_*`, e.g. `__vanta_payload`, `__vanta_vector`) are not user metadata — they are stripped from the returned `metadata` map and cannot be used as filter keys. A filter referencing a `__vanta_*` key returns no matches (they are filtered out as internal fields).
 | `backup --out <path>` | Full backup with WAL flush, file copy, CRC32 manifest |
-| `restore --input <path> [--force] [--rebuild]` | Restore from backup into the `--db` directory, optional rebuild |
+| `restore --in <path> [--force] [--rebuild]` | Restore from backup into the `--db` directory, optional rebuild (`--input` alias) |
 | `check [--namespace <ns>]` | Validate database structural integrity |
 | `migrate [--target-version <v>]` | Migrate storage format between versions |
 | `plan` | Preview migration steps without executing |
 | `run` | Execute a pre-planned migration |
 | `export [--namespace <ns>] --out <path>` | Export records to a JSONL file |
-| `import --input <path>` | Import records from a JSONL file |
+| `import --in <path>` | Import records from a JSONL file (`--input` alias) |
 | `namespace list` | List all namespaces |
-| `namespace info --namespace <ns>` | Show record count and details for a namespace |
+| `namespace info <ns>` | Show record count and details for a namespace |
 | `snapshot create --name <name>` | Create an instant filesystem snapshot by hard-linking all data files (copy on Windows) |
 | `snapshot list` | List all existing snapshots |
 | `wal compact` | Compact the WAL: flush all data, archive the current WAL file, and start a fresh one |
 | `wal vacuum` | Remove tombstoned nodes from HNSW and reclaim space |
 | `wal salvage [--dry-run]` | Salvage a truncated sharded WAL (explicit opt-in): replay the coherent prefix and report explicit discards (tails quarantined to `<shard>.salvage[.N]`); `--dry-run` previews without mutating |
+| `verify [--json]` | Verify the WAL hash-chain integrity (tamper-evident, VER-01): detects altered or removed records with their exact position; read-only (no engine open); exit code ≠0 when integrity fails |
+| `certificate verify --file <path>` | Verify a stored purge certificate (VER-02): integrity hash + live re-scan of the re-checkable surfaces; exit code non-zero when the certificate is edited, corrupted, or residues reappeared. See [Certified delete](../../api/CERTIFIED_DELETE.md) |
 | `server [--http] [--mcp] [--port <N>] [--host <host>] [--dashboard-dir <dir>]` | Start the HTTP or MCP server wrapper; `--dashboard-dir` (env `VANTADB_DASHBOARD_DIR`) serves the Vanta Studio static console at `/dashboard` (WEB-03) |
+| `mcp-call --tool <name> [--args <json>] [--timeout-secs <N>]` | Call one MCP tool through a one-shot stdio server (no pwsh): prints the tool `result` verbatim; exit 0 ok, 1 infra, 2 tool error; `--args` supports `{{dotted.path}}` placeholders resolved against hook-input JSON on stdin |
 | `repl` | Interactive rustyline REPL with tab autocomplete |
 | `tui` | Live dashboard refreshing every 2s |
 | `completions --shell <bash|zsh|fish|powershell>` | Generate shell completion scripts |
@@ -402,8 +411,9 @@ vanta-cli put --db ./vanta_data --namespace agent/main --key memory-1 --payload 
 vanta-cli put --db ./vanta_data --namespace agent/main --key memory-2 --payload "hello" --metadata '{"type":"note","priority":1}'
 vanta-cli get --db ./vanta_data --namespace agent/main --key memory-1
 vanta-cli list --db ./vanta_data --namespace agent/main
-vanta-cli search --db ./vanta_data --namespace agent/main --query "hello world" --query-vector "0.1,0.2,0.3" --limit 10
-vanta-cli similar-to-key --db ./vanta_data --namespace agent/main --key memory-1 --top-k 5
+vanta-cli search --db ./vanta_data --namespace agent/main "hello world" --query-vector "0.1,0.2,0.3" --limit 10
+vanta-cli search --db ./vanta_data --namespace agent/main "hello world" --json
+vanta-cli similar-to-key --db ./vanta_data --namespace agent/main --key memory-1 --limit 5
 vanta-cli count --db ./vanta_data --namespace agent/main
 vanta-cli status --db ./vanta_data
 vanta-cli stats --db ./vanta_data --json
@@ -412,13 +422,33 @@ vanta-cli audit-index --db ./vanta_data --deep
 vanta-cli rebuild-index --db ./vanta_data
 vanta-cli backup --db ./vanta_data --out ./vanta_data.bak
 vanta-cli export --db ./vanta_data --namespace agent/main --out ./agent-main.jsonl
-vanta-cli import --db ./vanta_data --input ./agent-main.jsonl
+vanta-cli import --db ./vanta_data --in ./agent-main.jsonl
 vanta-cli namespace list --db ./vanta_data
-vanta-cli namespace info --db ./vanta_data --namespace agent/main
+vanta-cli namespace info --db ./vanta_data agent/main
 vanta-cli server --http --port 8080 --db ./vanta_data
 vanta-cli tui --db ./vanta_data  # requires `--features tui` build; not in default binaries
 vanta-cli completions --shell powershell
 ```
+
+> **Machine-readable output (`--json`):** every command accepts a global
+> `--json` flag that prints one complete JSON document on stdout (never
+> truncated). Human output keeps previews only on a TTY, so piped output is
+> complete as well. `search`/`search-multi`/`search-all` take the text query as
+> a positional operand (`search --namespace ns "query"`); `--query` remains
+> accepted as a hidden alias. `--limit` is the canonical result-count flag
+> (`--top-k` remains as a hidden alias). `import`/`restore` read their input
+> from `--in` (`--input` remains as a hidden alias); `export`/`backup` write to
+> `--out`. Scripts should prefer `--json` over parsing human output.
+>
+> **Upgrade note (breaking CLI deltas):**
+> - `count --json` now prints `{"namespace": …, "count": …, "filter": …}` instead
+>   of a bare number, and `count` on a missing database exits non-zero (was 0).
+> - `migrate run --json` requires `--force` (JSON mode never prompts).
+> - **Index rebuild:** `put` maintains the derived/text indexes at write time
+>   and read commands (`search`, `count`, …) now open the database read-only
+>   (shared lock). A database whose last write was made by an older CLI build
+>   may need one `vanta-cli rebuild-index --db <path>` after upgrading so
+>   read-only queries observe every record.
 
 ## 5. Operational Metrics
 

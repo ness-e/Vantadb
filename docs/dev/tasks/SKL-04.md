@@ -1,3 +1,9 @@
+---
+title: "SKL-04: Gate P2-01 — revisión read-only de SKL-01/02/03"
+kind: task
+description: "Veredicto emitido por agente distinto (vanta-review) en este task file: APPROVE o CHANGES-REQUIRED con evidencia (check que falla + archivo:línea). Verificación mecánica: ejecutar los checks de contrato de SKL-01/02/03 contra el estado..."
+---
+
 # SKL-04: Gate P2-01 — revisión read-only de SKL-01/02/03
 
 ## Metadata

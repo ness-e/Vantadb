@@ -1,3 +1,9 @@
+---
+title: Task API-STD-12 — INDIVIDUAL (11/11) vanta-memory
+kind: task
+description: "Ficha individual vanta-memory: funcionamiento + uso + código + veredicto"
+---
+
 # Task API-STD-12 — INDIVIDUAL (11/11) vanta-memory
 
 > **Plan:** `docs/dev/plans/2026-09-24-api-estandarizacion.md`

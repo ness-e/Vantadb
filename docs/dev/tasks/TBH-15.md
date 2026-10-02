@@ -1,3 +1,9 @@
+---
+title: "TBH-15 — Consolidar `scripts/audit-tokens.{sh,ps1}`"
+kind: task
+description: "Estado: ✅ Completed"
+---
+
 # TBH-15 — Consolidar `scripts/audit-tokens.{sh,ps1}`
 
 **Estado:** ✅ Completed

@@ -1,3 +1,9 @@
+---
+title: "WIN-FLAKY-AUDIT — Test flaky solo-Windows `filters_by_namespace_op_and_outcome`"
+kind: task
+description: "SDP: campaign-executor, frontend-ui-engineering, source-driven-development, incremental-implementation, test-driven-development, context-engineering, doubt-driven-development, api-and-interface-design | keywords: flaky, windows, test..."
+---
+
 # WIN-FLAKY-AUDIT — Test flaky solo-Windows `filters_by_namespace_op_and_outcome`
 
 > **Plan:** `docs/dev/plans/2026-09-19-cierre-total.md` (Wave B) · **Tipo:** bug-fix (desktop) · **Estado:** IN PROGRESS

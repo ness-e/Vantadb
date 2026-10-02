@@ -1,11 +1,9 @@
 ---
-title: "P33 — Última Milla (integración producto end-to-end)"
-type: registro
+title: P33 — Última Milla (integración producto end-to-end)
+kind: review
 status: archived
+description: "El producto funciona end-to-end en los 3 escenarios: desktop embebido, coding agent → proxy con loop agéntico de memory-tools, y server API con skills/wiki. Suites finales: vanta-proxy 89/89, desktop 88/88, vanta-memory 472/472..."
 tags: [vantadb, avance, campana]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # P33 — Última Milla (integración producto end-to-end)

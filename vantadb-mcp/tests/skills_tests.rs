@@ -17,6 +17,15 @@ use vantadb::skills::SkillStore;
 use vantadb::storage::StorageEngine;
 use vantadb_mcp::*;
 
+/// WIRE-02: these tests exercise the extended surface; pin `full` explicitly
+/// (the production default is now `agent`).
+fn full_config() -> McpConfig {
+    McpConfig {
+        profile: McpProfile::Full,
+        ..Default::default()
+    }
+}
+
 fn setup_storage() -> (tempfile::TempDir, Arc<StorageEngine>) {
     let dir = tempdir().unwrap();
     let db_path = dir.path().to_str().unwrap();
@@ -86,7 +95,7 @@ fn create_skill(
 
 #[test]
 fn test_tools_list_includes_skill_tools() {
-    let res = handle_tools_list(&McpConfig::default()).expect("tools/list should succeed");
+    let res = handle_tools_list(&full_config()).expect("tools/list should succeed");
     let tools = res["tools"].as_array().expect("tools array");
     let names: Vec<&str> = tools.iter().map(|t| t["name"].as_str().unwrap()).collect();
     for expected in [
@@ -123,7 +132,7 @@ fn test_tools_list_includes_skill_tools() {
 #[test]
 fn test_skill_create_view_roundtrip() {
     let (_dir, storage) = setup_storage();
-    let cfg = McpConfig::default();
+    let cfg = full_config();
 
     let skill_id = create_skill(
         &storage,
@@ -160,7 +169,7 @@ fn test_skill_create_view_roundtrip() {
 #[test]
 fn test_skill_list_scoped_by_owner() {
     let (_dir, storage) = setup_storage();
-    let cfg = McpConfig::default();
+    let cfg = full_config();
 
     create_skill(&storage, &cfg, "agent-alpha", "a-skill", "alpha content");
     create_skill(&storage, &cfg, "agent-beta", "b-skill", "beta content");
@@ -202,7 +211,7 @@ fn test_skill_list_scoped_by_owner() {
 #[test]
 fn test_skill_update_optimistic_lock_and_idempotent() {
     let (_dir, storage) = setup_storage();
-    let cfg = McpConfig::default();
+    let cfg = full_config();
 
     let skill_id = create_skill(&storage, &cfg, "agent-alpha", "editable", "# v1");
 
@@ -265,7 +274,7 @@ fn test_skill_update_optimistic_lock_and_idempotent() {
 #[test]
 fn test_skill_create_idempotent_on_same_content() {
     let (_dir, storage) = setup_storage();
-    let cfg = McpConfig::default();
+    let cfg = full_config();
 
     let first = tool_text(tool_call(
         "skill_create",
@@ -316,7 +325,7 @@ fn test_skill_create_idempotent_on_same_content() {
 #[test]
 fn test_skill_patch_substring_semantics() {
     let (_dir, storage) = setup_storage();
-    let cfg = McpConfig::default();
+    let cfg = full_config();
 
     let skill_id = create_skill(&storage, &cfg, "agent-alpha", "patchme", "aaa bbb aaa");
 
@@ -427,7 +436,7 @@ fn test_skill_patch_substring_semantics() {
 #[test]
 fn test_skill_files_write_manifest() {
     let (_dir, storage) = setup_storage();
-    let cfg = McpConfig::default();
+    let cfg = full_config();
 
     let skill_id = create_skill(&storage, &cfg, "agent-alpha", "file-skill", "# main");
 
@@ -497,12 +506,13 @@ fn test_skill_files_write_limits_and_path_validation() {
     let (_dir, storage) = setup_storage();
     // Small knobs exercise the same enforcement paths as the 5MB/50MB defaults.
     let cfg = McpConfig {
+        profile: McpProfile::Full,
         max_skill_resource_bytes: 60,
         max_skill_total_bytes: 100,
         ..Default::default()
     };
-    assert_eq!(McpConfig::default().max_skill_resource_bytes, 5_000_000);
-    assert_eq!(McpConfig::default().max_skill_total_bytes, 50_000_000);
+    assert_eq!(full_config().max_skill_resource_bytes, 5_000_000);
+    assert_eq!(full_config().max_skill_total_bytes, 50_000_000);
 
     let skill_id = create_skill(&storage, &cfg, "agent-alpha", "limited", &"a".repeat(80));
 
@@ -609,7 +619,7 @@ fn test_skill_files_write_limits_and_path_validation() {
 #[test]
 fn test_skill_owner_check_hides_existence() {
     let (_dir, storage) = setup_storage();
-    let cfg = McpConfig::default();
+    let cfg = full_config();
 
     let skill_id = create_skill(&storage, &cfg, "agent-alpha", "private", "# secret");
 
@@ -660,7 +670,7 @@ fn test_skill_owner_check_hides_existence() {
 #[test]
 fn test_skill_mcp_parity_with_native_skillstore() {
     let (_dir, storage) = setup_storage();
-    let cfg = McpConfig::default();
+    let cfg = full_config();
 
     // Create via MCP…
     let skill_id = create_skill(&storage, &cfg, "agent-alpha", "parity", "# mcp v1");
@@ -731,7 +741,7 @@ fn test_skill_mcp_parity_with_native_skillstore() {
 
 #[test]
 fn test_tools_list_includes_skill_extract_read_only() {
-    let res = handle_tools_list(&McpConfig::default()).expect("tools/list should succeed");
+    let res = handle_tools_list(&full_config()).expect("tools/list should succeed");
     let tools = res["tools"].as_array().expect("tools array");
     let def = tools
         .iter()
@@ -757,7 +767,7 @@ fn test_tools_list_includes_skill_extract_read_only() {
 #[test]
 fn test_skill_extract_degrades_without_runner() {
     let (_dir, storage) = setup_storage();
-    let cfg = McpConfig::default();
+    let cfg = full_config();
     let body = tool_text(tool_call(
         "skill_extract",
         json!({ "messages": [{ "role": "user", "content": "deploys keep failing" }] }),
@@ -781,7 +791,7 @@ fn test_skill_extract_degrades_without_runner() {
 #[test]
 fn test_skill_extract_empty_messages_succeed_trivially() {
     let (_dir, storage) = setup_storage();
-    let cfg = McpConfig::default();
+    let cfg = full_config();
     let body = tool_text(tool_call(
         "skill_extract",
         json!({ "messages": [] }),
@@ -795,7 +805,7 @@ fn test_skill_extract_empty_messages_succeed_trivially() {
 #[test]
 fn test_skill_extract_rejects_missing_messages() {
     let (_dir, storage) = setup_storage();
-    let cfg = McpConfig::default();
+    let cfg = full_config();
     let err = tool_error(tool_call("skill_extract", json!({}), &storage, &cfg));
     assert!(
         err.contains("messages"),

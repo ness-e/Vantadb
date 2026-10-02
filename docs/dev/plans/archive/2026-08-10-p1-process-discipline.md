@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: P1 disciplina de proceso — pre-mortem, riesgos, retrospectiva, guardrails, gates"
+kind: plan
+status: archived
+description: Ejecuta el paquete P1 (disciplina de proceso) de la investigación agent-engineering
+---
+
 # Plan de Ejecución: P1 disciplina de proceso — pre-mortem, riesgos, retrospectiva, guardrails, gates
 
 > **Inicio:** 2026-08-10

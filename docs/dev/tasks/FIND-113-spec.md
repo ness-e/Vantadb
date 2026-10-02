@@ -1,3 +1,9 @@
+---
+title: "FIND-113-spec: S6b programador — dueño del backend + superficie mínima (spec-first, cero código)"
+kind: task
+description: "Objetivo: producir el diseño del dueño del scheduler S6b que faltaba en FIND-113, para volver el re-DEFER un slice mecánico futuro. Spec-first, cero código"
+---
+
 # FIND-113-spec: S6b programador — dueño del backend + superficie mínima (spec-first, cero código)
 
 ## Metadata

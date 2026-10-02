@@ -7,11 +7,24 @@ description = "Autocontained Model Context Protocol (MCP) interface for VantaDB"
 publish = false
 
 [dependencies]
-vantadb = { path = "../", features = ["cli", "server"] }
+# WIRE-07 feature decouple: same non-`cli` default set as `vantadb-server`
+# (both are dependents of the HTTP binary; keeping either on `default` would
+# re-enable `cli` through feature unification).
+vantadb = { path = "../", default-features = false, features = [
+    "advanced-tokenizer",
+    "arrow",
+    "fjall",
+    "fs2",
+    "memmap2",
+    "rayon",
+    "roaring",
+    "server",
+    "sysinfo",
+] }
 # MEM-52: fachada productiva de ingest wiki — el tool wiki_ingest dispara el
 # worker de vanta-memory en un hilo de fondo (era dev-dep desde MEM-44;
 # dirección ciclo-free verificada vía cargo tree).
-vanta-memory = { path = "../vanta-memory" }
+vanta-memory = { path = "../vanta-memory", features = ["llm-driver"] }
 tokio = { version = "1", features = ["sync", "rt", "macros", "rt-multi-thread", "signal", "time", "io-util", "io-std", "net", "fs"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -26,6 +39,15 @@ remote-inference = ["vantadb/remote-inference"]
 
 [dev-dependencies]
 tempfile = "3"
+
+# ICP-01: the AI-IDE demo drives the env-selected embedding provider path
+# (`remote-inference`) through a fake Ollama; without the feature it cannot
+# pass by design (no embed-on-put), so the binary is skipped — not failed —
+# on lanes that don't enable it. The dedicated PR-blocking lane
+# (`.github/workflows/ci-ai-ides-demo.yml`) enables it and asserts 1/1.
+[[test]]
+name = "demo_ai_ides"
+required-features = ["remote-inference"]
 
 [lints]
 workspace = true

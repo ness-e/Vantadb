@@ -1,3 +1,9 @@
+---
+title: "FND-14: Ritual de inicio — validación de feature stack"
+kind: task
+description: "grep .opencode/AGENTS.md contiene 'cargo check --no-default-features --features fjall' DENTRO de la sección 'Ritual de Inicio de Sesión'\""
+---
+
 # FND-14: Ritual de inicio — validación de feature stack
 
 ## Metadata

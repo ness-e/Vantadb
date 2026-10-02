@@ -1,11 +1,9 @@
 ---
-title: "VantaDB — Bug Workflow"
-type: reference
+title: VantaDB — Bug Workflow
+kind: research
 status: active
+description: "Disparador: el bug rompe el build (cargo check/clippy/nextest falla en masa),"
 tags: [vantadb, references, bug-workflow, debugging]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # VantaDB — Bug Workflow

@@ -1,3 +1,9 @@
+---
+title: TBH-08 — benches/wal_throughput.rs
+kind: task
+description: "Mínimo, blast radius = 0 archivos aguas abajo. Cambios son"
+---
+
 # TBH-08 — benches/wal_throughput.rs
 
 ## Metadata

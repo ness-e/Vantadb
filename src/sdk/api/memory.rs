@@ -11,25 +11,140 @@
 
 use super::super::builder::Embedded;
 use super::super::serialization::{
-    memory_node_id, memory_record_to_node_owned, now_ms, record_from_node, validate_key,
-    validate_metadata, validate_namespace, DERIVED_INDEX_SCHEMA_VERSION, FIELD_CREATED_AT_MS,
-    FIELD_EXPIRES_AT_MS, FIELD_KEY, FIELD_NAMESPACE, FIELD_PAYLOAD, FIELD_UPDATED_AT_MS,
-    FIELD_VERSION,
+    memory_node_id, memory_record_to_node_owned, now_ms, record_from_node,
+    validate_confidence_fields, validate_key, validate_metadata, validate_namespace,
+    DERIVED_INDEX_SCHEMA_VERSION, FIELD_CONFIDENCE_CLASS, FIELD_CREATED_AT_MS, FIELD_EXPIRES_AT_MS,
+    FIELD_KEY, FIELD_NAMESPACE, FIELD_PAYLOAD, FIELD_QUARANTINED_AT_MS, FIELD_QUARANTINED_BY,
+    FIELD_QUARANTINE_REASON, FIELD_QUARANTINE_REVIEW_DUE_MS, FIELD_UPDATED_AT_MS,
+    FIELD_VALID_AT_MS, FIELD_VERSION,
 };
 use super::super::types::*;
 use crate::backend::{BackendKind, BackendPartition, BackendWriteOp};
 use crate::error::{Error, Result};
 use crate::node::{FieldValue, UnifiedNode, VectorRepresentations};
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use web_time::Instant;
 
 /// Report returned by bulk import operations.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BulkImportReport {
+    /// Total number of records in the stream body.
     pub total_records: usize,
+    /// Number of commit batches flushed to the engine.
     pub batches_committed: usize,
+    /// Number of records that entered quarantine via the write-time flag
+    /// (T1, ADR-046 §D5; additive field, SCH-05 review F3).
+    #[serde(default)]
+    pub quarantined: u64,
+    /// Duration of the import in milliseconds.
     pub duration_ms: u64,
+}
+
+/// Quarantine state carried across re-writes of an existing key (I2 sticky,
+/// ADR-046 §D5): a `put` never clears a quarantine.
+#[derive(Clone, Default)]
+struct QuarantineState {
+    at_ms: Option<u64>,
+    reason: Option<String>,
+    by: Option<String>,
+    review_due_ms: Option<u64>,
+}
+
+impl QuarantineState {
+    fn from_record(record: &MemoryRecord) -> Self {
+        Self {
+            at_ms: record.quarantined_at_ms,
+            reason: record.quarantine_reason.clone(),
+            by: record.quarantined_by.clone(),
+            review_due_ms: record.quarantine_review_due_ms,
+        }
+    }
+}
+
+/// Validate a quarantine reason code (ADR-046 §D2): non-empty lowercase
+/// snake_case. The stable set is `explicit_write` | `unreviewed_import` |
+/// `derived_promotion` | `policy_match` (reserved); the format check stays
+/// open so future codes don't require a schema change.
+fn validate_quarantine_reason(reason: &str) -> Result<()> {
+    let valid = !reason.is_empty()
+        && reason.len() <= 64
+        && reason
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_');
+    if !valid {
+        return Err(Error::Validation {
+            field: "quarantine_reason".into(),
+            reason: "must be a non-empty lowercase snake_case code".into(),
+        });
+    }
+    Ok(())
+}
+
+impl Embedded {
+    /// Review deadline for a record entering quarantine (ADR-046 §D5d):
+    /// `now + quarantine_review_default_days` (config); `None` when the
+    /// configured default is `0` (deadline disabled). Read-only signal —
+    /// never triggers promotion by itself (I1).
+    fn quarantine_review_due_ms(&self, now: u64) -> Option<u64> {
+        let days = self.config.quarantine_review_default_days;
+        (days > 0).then(|| now.saturating_add(u64::from(days) * 24 * 60 * 60 * 1000))
+    }
+
+    /// Materialize the quarantine entry (T1/T1c/T1d): sets the four state
+    /// fields from `reason` + `by` (stable `system:<op>` actor) and stamps the
+    /// review deadline. Sticky semantics live in the callers — call this only
+    /// when the record is not already quarantined (I2).
+    pub(crate) fn enter_quarantine(
+        &self,
+        record: &mut MemoryRecord,
+        reason: &str,
+        by: &str,
+        now: u64,
+    ) {
+        record.quarantined_at_ms = Some(now);
+        record.quarantine_reason = Some(reason.to_string());
+        record.quarantined_by = Some(by.to_string());
+        record.quarantine_review_due_ms = self.quarantine_review_due_ms(now);
+    }
+
+    /// F4 (SCH-05 review): metadata-only read of an existing record's
+    /// quarantine state for the raw bulk path, which replaces the node
+    /// wholesale and must not clear an existing quarantine (sticky, I2).
+    /// `Ok(None)` = node absent or not quarantined.
+    fn existing_quarantine_fields(
+        engine: &crate::storage::StorageEngine,
+        node_id: u128,
+    ) -> Result<Option<(i64, Option<String>, Option<String>, Option<i64>)>> {
+        let Some(bytes) =
+            engine.get_from_partition(BackendPartition::Default, &node_id.to_le_bytes())?
+        else {
+            return Ok(None);
+        };
+        let Ok(metadata) = crate::storage::ops::deserialize_node_payload::<
+            crate::storage::ops::NodeMetadata,
+        >(&bytes, "node metadata") else {
+            return Ok(None);
+        };
+        let fields = &metadata.relational;
+        let at = match fields.get(FIELD_QUARANTINED_AT_MS) {
+            Some(FieldValue::Int(at)) if *at > 0 => *at,
+            _ => return Ok(None),
+        };
+        let reason = match fields.get(FIELD_QUARANTINE_REASON) {
+            Some(FieldValue::String(s)) => Some(s.clone()),
+            _ => None,
+        };
+        let by = match fields.get(FIELD_QUARANTINED_BY) {
+            Some(FieldValue::String(s)) => Some(s.clone()),
+            _ => None,
+        };
+        let due = match fields.get(FIELD_QUARANTINE_REVIEW_DUE_MS) {
+            Some(FieldValue::Int(due)) if *due > 0 => Some(*due),
+            _ => None,
+        };
+        Ok(Some((at, reason, by, due)))
+    }
 }
 
 impl Embedded {
@@ -49,6 +164,139 @@ impl Embedded {
             });
         }
         Ok(())
+    }
+
+    /// Resolve the effective TTL (ms) for a write: an explicit `ttl_ms` wins;
+    /// otherwise the namespace ("collection") default from
+    /// [`Config::memory_default_ttl_ms`](crate::config::Config) applies, if any.
+    ///
+    /// Only new writes consult this — existing records are never backfilled
+    /// when the default is configured (or changed) later.
+    fn effective_ttl_ms(&self, namespace: &str, ttl_ms: Option<u64>) -> Option<u64> {
+        ttl_ms.or_else(|| self.config.memory_default_ttl_ms.get(namespace).copied())
+    }
+
+    /// Validate + materialize the confidence fields of a write (ADR-046 §D4):
+    /// - range: finite `[0,1]`;
+    /// - V1: `derived` requires non-empty parents; `asserted` forbids them;
+    /// - D4b: `derived` + declared score ⇒ rejection;
+    /// - V3: bounded derivation depth / acyclicity;
+    /// - score: `clamp(min(parents) × DERIVATION_DISCOUNT, 0, 1)`.
+    fn materialize_confidence(
+        &self,
+        input: &MemoryInput,
+    ) -> Result<(ConfidenceClass, f32, Vec<String>)> {
+        if let Some(value) = input.confidence {
+            if !value.is_finite() || !(0.0..=1.0).contains(&value) {
+                return Err(Error::Validation {
+                    field: "confidence".into(),
+                    reason: "confidence must be a finite number in [0,1]".into(),
+                });
+            }
+        }
+        let class = input.confidence_class.unwrap_or_default();
+        let parents = input.derived_from.clone().unwrap_or_default();
+
+        match class {
+            ConfidenceClass::Asserted => {
+                if !parents.is_empty() {
+                    return Err(Error::Validation {
+                        field: "derived_from".into(),
+                        reason: "asserted records cannot declare derived_from parents".into(),
+                    });
+                }
+                Ok((
+                    class,
+                    input.confidence.unwrap_or_else(default_confidence),
+                    Vec::new(),
+                ))
+            }
+            ConfidenceClass::Derived => {
+                if parents.is_empty() {
+                    return Err(Error::Validation {
+                        field: "derived_from".into(),
+                        reason: "derived records require a non-empty derived_from parent list (V1)"
+                            .into(),
+                    });
+                }
+                if input.confidence.is_some() {
+                    return Err(Error::Validation {
+                        field: "confidence".into(),
+                        reason: "derived score is computed from parents; declared scores are not allowed on derived records".into(),
+                    });
+                }
+                self.validate_derivation_chain(&input.namespace, &input.key, &parents)?;
+
+                let mut min_parent = f32::INFINITY;
+                for parent_key in &parents {
+                    let parent = self.get(&input.namespace, parent_key)?.ok_or_else(|| {
+                        Error::Validation {
+                            field: "derived_from".into(),
+                            reason: format!(
+                                "parent '{parent_key}' not found in namespace '{}'",
+                                input.namespace
+                            ),
+                        }
+                    })?;
+                    min_parent = min_parent.min(parent.confidence);
+                }
+                let score = (min_parent * DERIVATION_DISCOUNT).clamp(0.0, 1.0);
+                Ok((class, score, parents))
+            }
+        }
+    }
+
+    /// V3 (ADR-046 §D4): reject derivation cycles (including self-reference)
+    /// and chains deeper than [`MAX_DERIVATION_DEPTH`]. Walks existing
+    /// ancestors only — direct parent existence is enforced by the caller.
+    fn validate_derivation_chain(
+        &self,
+        namespace: &str,
+        key: &str,
+        parents: &[String],
+    ) -> Result<()> {
+        let mut visited: HashSet<String> = HashSet::new();
+        let mut frontier: Vec<(String, usize)> =
+            parents.iter().map(|p| (p.clone(), 1usize)).collect();
+        while let Some((parent_key, depth)) = frontier.pop() {
+            if parent_key == key {
+                return Err(Error::Validation {
+                    field: "derived_from".into(),
+                    reason: format!("derivation cycle detected: '{key}' is its own ancestor"),
+                });
+            }
+            if depth > MAX_DERIVATION_DEPTH {
+                return Err(Error::Validation {
+                    field: "derived_from".into(),
+                    reason: format!(
+                        "derivation chain exceeds MAX_DERIVATION_DEPTH ({MAX_DERIVATION_DEPTH})"
+                    ),
+                });
+            }
+            if !visited.insert(parent_key.clone()) {
+                continue;
+            }
+            if let Some(parent) = self.get(namespace, &parent_key)? {
+                for grandparent in parent.derived_from {
+                    frontier.push((grandparent, depth + 1));
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// `valid_at_ms` materialization (ADR-046 §D8): an absent value defaults to
+    /// `created_at_ms`; `Some(0)` is rejected because `0` is the v1 "unset"
+    /// sentinel — an explicit epoch-0 validity is not representable.
+    fn materialize_valid_at(&self, input: Option<u64>, created_at_ms: u64) -> Result<u64> {
+        match input {
+            None => Ok(created_at_ms),
+            Some(0) => Err(Error::Validation {
+                field: "valid_at_ms".into(),
+                reason: "must be greater than 0; omit the field to default to created_at_ms".into(),
+            }),
+            Some(value) => Ok(value),
+        }
     }
 
     /// Shared logic for inserting/updating a single memory record.
@@ -85,7 +333,26 @@ impl Embedded {
             .as_ref()
             .map(|r| r.version.saturating_add(1))
             .unwrap_or(1);
-        let expires_at_ms = input.ttl_ms.map(|ttl| timestamp.saturating_add(ttl));
+        let expires_at_ms = self
+            .effective_ttl_ms(&input.namespace, input.ttl_ms)
+            .map(|ttl| timestamp.saturating_add(ttl));
+
+        let (confidence_class, confidence, derived_from) = self.materialize_confidence(&input)?;
+        let valid_at_ms = self.materialize_valid_at(input.valid_at_ms, created_at_ms)?;
+        let mut quarantine = existing
+            .as_ref()
+            .map(QuarantineState::from_record)
+            .unwrap_or_default();
+        // T1 (ADR-046 §D5, MGR-13 §3.2): an explicit `quarantine: true` write
+        // enters the quarantine state; sticky — an existing quarantine always
+        // wins (I2), only T2/T4 exit.
+        let quarantine_entered = quarantine.at_ms.is_none() && input.quarantine;
+        if quarantine_entered {
+            quarantine.at_ms = Some(timestamp);
+            quarantine.reason = Some("explicit_write".into());
+            quarantine.by = Some("system:put".into());
+            quarantine.review_due_ms = self.quarantine_review_due_ms(timestamp);
+        }
 
         let record = MemoryRecord {
             namespace: input.namespace,
@@ -101,6 +368,16 @@ impl Embedded {
             expires_at_ms,
             superseded_by: None,
             superseded_at_ms: None,
+            valid_at_ms,
+            invalid_at_ms: None,
+            confidence_class,
+            confidence,
+            last_validated_at_ms: None,
+            derived_from,
+            quarantined_at_ms: quarantine.at_ms,
+            quarantine_reason: quarantine.reason,
+            quarantined_by: quarantine.by,
+            quarantine_review_due_ms: quarantine.review_due_ms,
         };
         let (node, record) = memory_record_to_node_owned(record);
 
@@ -126,6 +403,16 @@ impl Embedded {
         );
 
         self.replace_derived_indexes(&engine, existing.as_ref(), Some(&record))?;
+
+        if quarantine_entered {
+            self.audit(crate::audit::AuditEvent::new(
+                "quarantine_enter",
+                &record.namespace,
+                &record.key,
+                "ok",
+                Some("explicit_write".to_string()),
+            ));
+        }
 
         Ok(record)
     }
@@ -207,48 +494,68 @@ impl Embedded {
         let batch_size = self.config.batch_size.unwrap_or(1000);
         let mut all_results: Vec<MemoryRecord> = Vec::with_capacity(inputs.len());
         let mut rebuild_needed = false;
-        // Track versions for keys seen earlier in this batch (in-batch dedup,
-        // mirrors put_one's UPSERT semantics). Persisted before the chunk loop
-        // so duplicate keys split across chunks still bump correctly.
-        let mut seen_versions: HashMap<u128, u64> = HashMap::with_capacity(inputs.len());
+        // Track versions + quarantine state for keys seen earlier in this
+        // batch (in-batch dedup, mirrors put_one's UPSERT semantics). Persisted
+        // before the chunk loop so duplicate keys split across chunks still
+        // bump correctly.
+        let mut seen: HashMap<u128, (u64, QuarantineState)> = HashMap::with_capacity(inputs.len());
 
         for chunk in inputs.chunks(batch_size) {
             let timestamp = now_ms();
             let mut nodes: Vec<UnifiedNode> = Vec::with_capacity(chunk.len());
             let mut records: Vec<MemoryRecord> = Vec::with_capacity(chunk.len());
+            // SCH-05 review F3: T1 entries of this chunk, audited post-commit.
+            let mut entered_quarantine: Vec<(String, String)> = Vec::new();
 
             for input in chunk {
                 let node_id = memory_node_id(&input.namespace, &input.key);
                 // Existing record: in-batch duplicate wins (already bumped), else
                 // consult the engine like put_one (pre-existing records from
                 // earlier batches should also increment, not reset to 1).
-                let existing = if let Some(v) = seen_versions.get(&node_id) {
-                    Some((*v, timestamp))
-                } else {
-                    match engine.get(node_id)? {
-                        Some(node) => match record_from_node(&node) {
-                            Some(record)
-                                if record.namespace == input.namespace
-                                    && record.key == input.key =>
-                            {
-                                Some((record.version, record.created_at_ms))
-                            }
-                            _ => {
-                                return Err(Error::NodeIdCollision(memory_node_id(
-                                    &input.namespace,
-                                    &input.key,
-                                )));
-                            }
-                        },
-                        None => None,
-                    }
-                };
-                let (prev_version, prev_created_at_ms) = existing
-                    .map(|(v, c)| (Some(v), Some(c)))
-                    .unwrap_or((None, None));
+                let (prev_version, prev_created_at_ms, mut quarantine) =
+                    if let Some((v, q)) = seen.get(&node_id) {
+                        (Some(*v), Some(timestamp), q.clone())
+                    } else {
+                        match engine.get(node_id)? {
+                            Some(node) => match record_from_node(&node) {
+                                Some(record)
+                                    if record.namespace == input.namespace
+                                        && record.key == input.key =>
+                                {
+                                    (
+                                        Some(record.version),
+                                        Some(record.created_at_ms),
+                                        QuarantineState::from_record(&record),
+                                    )
+                                }
+                                _ => {
+                                    return Err(Error::NodeIdCollision(memory_node_id(
+                                        &input.namespace,
+                                        &input.key,
+                                    )));
+                                }
+                            },
+                            None => (None, None, QuarantineState::default()),
+                        }
+                    };
                 let created_at_ms = prev_created_at_ms.unwrap_or(timestamp);
                 let version = prev_version.map(|v| v.saturating_add(1)).unwrap_or(1);
-                seen_versions.insert(node_id, version);
+
+                // T1 (ADR-046 §D5): same write-time flag semantics as put_one
+                // (sticky wins; entry only when not already quarantined).
+                let quarantine_entered = quarantine.at_ms.is_none() && input.quarantine;
+                if quarantine_entered {
+                    quarantine.at_ms = Some(timestamp);
+                    quarantine.reason = Some("explicit_write".into());
+                    quarantine.by = Some("system:put_batch".into());
+                    quarantine.review_due_ms = self.quarantine_review_due_ms(timestamp);
+                    entered_quarantine.push((input.namespace.clone(), input.key.clone()));
+                }
+
+                let (confidence_class, confidence, derived_from) =
+                    self.materialize_confidence(input)?;
+                let valid_at_ms = self.materialize_valid_at(input.valid_at_ms, created_at_ms)?;
+                seen.insert(node_id, (version, quarantine.clone()));
 
                 let record = MemoryRecord {
                     namespace: input.namespace.clone(),
@@ -261,9 +568,21 @@ impl Embedded {
                     node_id,
                     vector: input.vector.clone().filter(|v| Self::usable_vector(v)),
                     sparse_vector: input.sparse_vector.clone(),
-                    expires_at_ms: input.ttl_ms.map(|ttl| timestamp.saturating_add(ttl)),
+                    expires_at_ms: self
+                        .effective_ttl_ms(&input.namespace, input.ttl_ms)
+                        .map(|ttl| timestamp.saturating_add(ttl)),
                     superseded_by: None,
                     superseded_at_ms: None,
+                    valid_at_ms,
+                    invalid_at_ms: None,
+                    confidence_class,
+                    confidence,
+                    last_validated_at_ms: None,
+                    derived_from,
+                    quarantined_at_ms: quarantine.at_ms,
+                    quarantine_reason: quarantine.reason,
+                    quarantined_by: quarantine.by,
+                    quarantine_review_due_ms: quarantine.review_due_ms,
                 };
                 let (node, record) = memory_record_to_node_owned(record);
                 nodes.push(node);
@@ -291,6 +610,18 @@ impl Embedded {
             let chunk_needs_rebuild = opts.needs_rebuild(chunk.len());
             engine.batch_insert_with_opts(&nodes, opts)?;
             rebuild_needed = rebuild_needed || chunk_needs_rebuild;
+
+            // SCH-05 review F3: audit each T1 entry post-commit (mirrors
+            // put_one; the write-time quarantine flag is a domain event).
+            for (ns, key) in &entered_quarantine {
+                self.audit(crate::audit::AuditEvent::new(
+                    "quarantine_enter",
+                    ns,
+                    key,
+                    "ok",
+                    Some("explicit_write".to_string()),
+                ));
+            }
 
             // ── Post-processing (same as put_one but without derived indexes for batch) ──
             for record in &records {
@@ -445,12 +776,18 @@ impl Embedded {
     /// ```
     #[tracing::instrument(skip(self), err)]
     pub fn delete(&self, namespace: &str, key: &str) -> Result<bool> {
+        Ok(self.delete_inner(namespace, key)?.is_some())
+    }
+
+    /// Shared delete logic (VER-02): performs the delete and returns the
+    /// removed record (`None` when the key did not exist).
+    fn delete_inner(&self, namespace: &str, key: &str) -> Result<Option<MemoryRecord>> {
         self.check_read_only()?;
         validate_namespace(namespace)?;
         validate_key(key)?;
 
         let Some(existing) = self.get(namespace, key)? else {
-            return Ok(false);
+            return Ok(None);
         };
 
         let node_id = memory_node_id(namespace, key);
@@ -469,15 +806,107 @@ impl Embedded {
             Some("memory delete".to_string()),
         ));
         res?;
-        Ok(true)
+        Ok(Some(existing))
+    }
+
+    /// Delete a record and emit a **purge certificate** (VER-02).
+    ///
+    /// The certificate inventories every purge surface (store, JSON-shredded
+    /// metadata, HNSW/vector store, derived/payload, text, sparse, version
+    /// history, WAL tombstone), records the exact evidence per surface, and
+    /// carries a deterministic `sha256` integrity hash plus a reference to the
+    /// VER-01 WAL hash-chain. Declared limits (physical media, backups,
+    /// archived WAL segments, exports, audit-log retention, parametric
+    /// unlearning) are always listed — the certificate never overstates the
+    /// purge.
+    ///
+    /// When the key does not exist, the certificate still reports the keyless
+    /// surfaces and marks record-dependent ones `not-assessed` (status
+    /// `not_found`) instead of claiming a clean purge.
+    ///
+    /// # Durability (cross-process verification)
+    ///
+    /// The certificate reflects the state of this live engine handle. A
+    /// verifier that opens the database **read-only** (e.g.
+    /// `vanta-cli certificate verify`) does not replay the WAL, so callers
+    /// that intend to verify the certificate after this process exits must
+    /// persist the purge first — call [`Embedded::flush`] or
+    /// [`Embedded::close`] after this method. The CLI delete path already
+    /// closes the database before returning.
+    #[tracing::instrument(skip(self), err)]
+    pub fn delete_certified(
+        &self,
+        namespace: &str,
+        key: &str,
+    ) -> Result<crate::attestation::PurgeCertificate> {
+        let deleted = self.delete_inner(namespace, key)?;
+        let engine = self.engine_handle()?;
+        let node_id = memory_node_id(namespace, key);
+        crate::attestation::build_certificate(
+            &engine,
+            deleted.as_ref(),
+            namespace,
+            key,
+            node_id,
+            "memory delete",
+        )
+    }
+
+    /// Verify a stored purge certificate (VER-02): schema + integrity hash,
+    /// then a re-scan of the surfaces that are re-checkable without the
+    /// deleted record.
+    ///
+    /// Fails when the certificate is structurally invalid (claimless/partial
+    /// surface inventory, unknown status, empty declared limits), when it was
+    /// edited/corrupted (hash mismatch), or when a surface it claimed clean
+    /// now holds entries / live residues remain while the certificate does not
+    /// attest a `not_found` report.
+    ///
+    /// Verification runs against the **live database handle**; a certificate
+    /// emitted by an unflushed process can yield a false negative until that
+    /// process flushes/closes (see [`Embedded::delete_certified`] §Durability).
+    /// The certificate is not bound to a database instance — verification
+    /// matches by namespace/key/node_id against whichever database is opened.
+    #[tracing::instrument(skip(self, certificate_json), err)]
+    pub fn verify_purge_certificate(
+        &self,
+        certificate_json: &str,
+    ) -> Result<crate::attestation::PurgeCertificateVerification> {
+        let certificate: crate::attestation::PurgeCertificate =
+            serde_json::from_str(certificate_json).map_err(Error::serialization)?;
+        let engine = self.engine_handle()?;
+        crate::attestation::verify_certificate(&engine, &certificate)
     }
 
     /// Insert or update a record with exact fields (used internally by import).
-    pub(crate) fn put_record_exact(&self, record: MemoryRecord) -> Result<MemoryRecord> {
+    ///
+    /// Raw transport choke point (SDK Rust / HTTP `import` records / WASM
+    /// `import_records`): re-validates the confidence boundary + validity
+    /// window even though the JSONL path (`record_from_export_line`) already
+    /// validated them — a hostile `records` payload must not persist
+    /// out-of-range scores, inconsistent classes or inverted windows
+    /// (ADR-046 §D4/§D7).
+    pub(crate) fn put_record_exact(&self, mut record: MemoryRecord) -> Result<MemoryRecord> {
         self.check_read_only()?;
         validate_namespace(&record.namespace)?;
         validate_key(&record.key)?;
         validate_metadata(&record.metadata)?;
+        validate_confidence_fields(
+            record.confidence_class,
+            &record.derived_from,
+            record.confidence,
+        )?;
+        if let Some(invalid_at) = record.invalid_at_ms {
+            if record.valid_at_ms > invalid_at {
+                return Err(Error::Validation {
+                    field: "invalid_at_ms".into(),
+                    reason: format!(
+                        "valid_at_ms ({}) must be <= invalid_at_ms ({invalid_at})",
+                        record.valid_at_ms
+                    ),
+                });
+            }
+        }
 
         let expected_node_id = memory_node_id(&record.namespace, &record.key);
         if record.node_id != expected_node_id {
@@ -501,6 +930,21 @@ impl Embedded {
             },
             None => None,
         };
+
+        // F4 (SCH-05 review): sticky on the raw transport — an incoming record
+        // that carries no quarantine state must not clear an existing one
+        // (closes the I2 bypass via the agent-facing `import` tool). Only the
+        // explicit T2/T4 ops leave quarantine.
+        if record.quarantined_at_ms.is_none() {
+            if let Some(prev) = previous.as_ref() {
+                if prev.quarantined_at_ms.is_some() {
+                    record.quarantined_at_ms = prev.quarantined_at_ms;
+                    record.quarantine_reason = prev.quarantine_reason.clone();
+                    record.quarantined_by = prev.quarantined_by.clone();
+                    record.quarantine_review_due_ms = prev.quarantine_review_due_ms;
+                }
+            }
+        }
 
         let (node, record) = memory_record_to_node_owned(record);
         engine.insert(&node)?;
@@ -558,8 +1002,25 @@ impl Embedded {
 
         let now = now_ms();
         let mut record = old;
+        // O2 (ADR-046 §D3-2/§D3-3): `invalid_at = now` would invert the window
+        // (`valid_at > invalid_at`) for a record whose validity starts in the
+        // future. Guard instead of writing an inconsistent state; superseding
+        // a not-yet-valid record is rejected explicitly (no silent clamp, no
+        // D3-3 divergence).
+        if record.valid_at_ms > now {
+            return Err(Error::Validation {
+                field: "valid_at_ms".into(),
+                reason: format!(
+                    "cannot supersede a record whose validity starts in the future (valid_at_ms {} > now {now})",
+                    record.valid_at_ms
+                ),
+            });
+        }
         record.superseded_by = Some(new_key.to_string());
         record.superseded_at_ms = Some(now);
+        // ADR-046 §D3-3: 0.8.0 keeps the validity window aligned with the
+        // supersession event (divergence only via a retroactive setter, v1.0).
+        record.invalid_at_ms = Some(now);
         record.updated_at_ms = now;
         record.version = record.version.saturating_add(1);
 
@@ -580,6 +1041,135 @@ impl Embedded {
             self.config.version_history_limit,
         );
         Ok(())
+    }
+
+    /// T1d (ADR-046 §D5, MGR-13 §3.2): quarantine an existing record post-hoc
+    /// (`quarantine_apply`).
+    ///
+    /// Sets the four quarantine state fields with the caller's `reason` code
+    /// (default `explicit_write`), the `system:quarantine_apply` applier and
+    /// the review deadline (config, §D5d). Idempotent: a record already
+    /// quarantined is returned as-is (sticky, I2). The state change does not
+    /// bump `version` (state ≠ content; no history snapshot — the audit event
+    /// is the evidence) and is audited as `quarantine_enter`.
+    #[tracing::instrument(skip(self), err)]
+    pub fn quarantine_apply(
+        &self,
+        namespace: &str,
+        key: &str,
+        reason: Option<&str>,
+    ) -> Result<MemoryRecord> {
+        self.check_read_only()?;
+        let reason = reason.unwrap_or("explicit_write");
+        validate_quarantine_reason(reason)?;
+        // REVIEW-13 pattern: serialize the read-modify-write below (same
+        // rationale as `supersede` — the engine's insert_lock only serializes
+        // the individual insert, not the SDK-level get + mutate).
+        let _guard = self.supersede_lock.lock();
+
+        let Some(mut record) = self.get(namespace, key)? else {
+            return Err(Error::NotFound {
+                kind: "memory record".into(),
+                id: format!("{namespace}/{key}"),
+            });
+        };
+        if record.quarantined_at_ms.is_some() {
+            return Ok(record); // sticky: already quarantined (I2)
+        }
+        let now = now_ms();
+        self.enter_quarantine(&mut record, reason, "system:quarantine_apply", now);
+        record.updated_at_ms = now;
+
+        let engine = self.engine_handle()?;
+        let (node, record) = memory_record_to_node_owned(record);
+        engine.insert(&node)?;
+        self.audit(crate::audit::AuditEvent::new(
+            "quarantine_enter",
+            namespace,
+            key,
+            "ok",
+            Some(reason.to_string()),
+        ));
+        Ok(record)
+    }
+
+    /// T2 (ADR-046 §D5, MGR-13 §3.2): promote a quarantined record back to
+    /// active (`quarantine_promote`).
+    ///
+    /// Explicit, audited act — the only exits are T2 and T4 (I1: nothing
+    /// promotes by clock/TTL). Clears the four quarantine fields and bumps
+    /// `updated_at_ms`; `version` does **not** change and no version-history
+    /// snapshot is written (state ≠ content; the audit event is the evidence).
+    /// Errors when the record is missing or not quarantined.
+    #[tracing::instrument(skip(self), err)]
+    pub fn quarantine_promote(&self, namespace: &str, key: &str) -> Result<MemoryRecord> {
+        self.check_read_only()?;
+        let _guard = self.supersede_lock.lock();
+
+        let Some(mut record) = self.get(namespace, key)? else {
+            return Err(Error::NotFound {
+                kind: "memory record".into(),
+                id: format!("{namespace}/{key}"),
+            });
+        };
+        if record.quarantined_at_ms.is_none() {
+            return Err(Error::InvalidInput(format!(
+                "record '{key}' is not quarantined (nothing to promote)"
+            )));
+        }
+        let now = now_ms();
+        record.quarantined_at_ms = None;
+        record.quarantine_reason = None;
+        record.quarantined_by = None;
+        record.quarantine_review_due_ms = None;
+        record.updated_at_ms = now;
+
+        let engine = self.engine_handle()?;
+        let (node, record) = memory_record_to_node_owned(record);
+        engine.insert(&node)?;
+        self.audit(crate::audit::AuditEvent::new(
+            "quarantine_promote",
+            namespace,
+            key,
+            "ok",
+            None,
+        ));
+        Ok(record)
+    }
+
+    /// T4 (ADR-046 §D5, MGR-13 §3.2): reject (delete) a quarantined record
+    /// (`quarantine_reject`; destructive — the call itself is the confirmation).
+    ///
+    /// Errors when the record is missing or not quarantined. The underlying
+    /// delete and the rejection are both audited (`delete` +
+    /// `quarantine_reject`).
+    #[tracing::instrument(skip(self), err)]
+    pub fn quarantine_reject(&self, namespace: &str, key: &str) -> Result<bool> {
+        self.check_read_only()?;
+        // F6 (SCH-05 review): serialize get→check→delete against concurrent
+        // promote/apply (same REVIEW-13 rationale as `supersede`: the engine's
+        // insert_lock only serializes individual writes, not this check-then-act).
+        let _guard = self.supersede_lock.lock();
+        let Some(record) = self.get(namespace, key)? else {
+            return Err(Error::NotFound {
+                kind: "memory record".into(),
+                id: format!("{namespace}/{key}"),
+            });
+        };
+        if record.quarantined_at_ms.is_none() {
+            return Err(Error::InvalidInput(format!(
+                "record '{key}' is not quarantined (nothing to reject)"
+            )));
+        }
+        let deleted = self.delete(namespace, key)?;
+        self.audit(crate::audit::AuditEvent::new(
+            "quarantine_reject",
+            namespace,
+            key,
+            if deleted { "ok" } else { "err" },
+            None,
+        ));
+        Ok(deleted)
     }
 
     /// Scan all memory records and physically delete those whose expiry deadline has passed.
@@ -665,6 +1255,7 @@ impl Embedded {
                     expires_at_ms: Some(expires),
                     superseded_by: None,
                     superseded_at_ms: None,
+                    ..Default::default()
                 });
             }
         }
@@ -921,6 +1512,7 @@ impl Embedded {
         let engine = self.engine_handle()?;
         let commit_interval = self.config.bulk_commit_interval.unwrap_or(10_000);
         let mut batches = 0usize;
+        let mut quarantined = 0u64;
         let imported_at_ms = now_ms();
 
         for chunk in records.chunks(commit_interval) {
@@ -937,6 +1529,86 @@ impl Embedded {
                 node.set_field(FIELD_CREATED_AT_MS, FieldValue::Int(imported_at_ms as i64));
                 node.set_field(FIELD_UPDATED_AT_MS, FieldValue::Int(imported_at_ms as i64));
                 node.set_field(FIELD_VERSION, FieldValue::Int(1));
+
+                // v2 projection (ADR-046 §D2/§D6): the raw bulk path bypasses
+                // the validated put path, so declared `derived` records (which
+                // need parent lookups + score derivation) are rejected
+                // explicitly instead of being silently downgraded.
+                if input.confidence_class == Some(ConfidenceClass::Derived)
+                    || input
+                        .derived_from
+                        .as_ref()
+                        .is_some_and(|parents| !parents.is_empty())
+                {
+                    return Err(Error::Validation {
+                        field: "confidence_class".into(),
+                        reason: "derived records are not supported by bulk import; use put_batch"
+                            .into(),
+                    });
+                }
+                if let Some(value) = input.confidence {
+                    if !value.is_finite() || !(0.0..=1.0).contains(&value) {
+                        return Err(Error::Validation {
+                            field: "confidence".into(),
+                            reason: "confidence must be a finite number in [0,1]".into(),
+                        });
+                    }
+                }
+                // Boundary alignment with the validated put path (N2): `Some(0)`
+                // is rejected there (`valid_at_ms` must be > 0; omit for
+                // default); the raw bulk path must not silently reinterpret it.
+                if input.valid_at_ms == Some(0) {
+                    return Err(Error::Validation {
+                        field: "valid_at_ms".into(),
+                        reason: "must be greater than 0; omit the field to default to the import timestamp"
+                            .into(),
+                    });
+                }
+                let valid_at_ms = input.valid_at_ms.unwrap_or(imported_at_ms);
+                node.set_field(FIELD_VALID_AT_MS, FieldValue::Int(valid_at_ms as i64));
+                node.set_field(
+                    FIELD_CONFIDENCE_CLASS,
+                    FieldValue::String(ConfidenceClass::Asserted.as_wire_str().to_string()),
+                );
+                node.confidence_score = input.confidence.unwrap_or_else(default_confidence);
+                // T1/F4 (ADR-046 §D5, SCH-05 review): the raw bulk path honors
+                // the write-time flag AND preserves an existing quarantine when
+                // the incoming record carries none (sticky, I2 — only T2/T4
+                // leave quarantine). The metadata-only point read per unflagged
+                // record is the price of closing the bypass;
+                // ponytail: batch the existence checks if bulk-heavy workloads
+                // ever show this read in a profile.
+                if input.quarantine {
+                    node.set_field(
+                        FIELD_QUARANTINED_AT_MS,
+                        FieldValue::Int(imported_at_ms as i64),
+                    );
+                    node.set_field(
+                        FIELD_QUARANTINE_REASON,
+                        FieldValue::String("explicit_write".to_string()),
+                    );
+                    node.set_field(
+                        FIELD_QUARANTINED_BY,
+                        FieldValue::String("system:bulk_import".to_string()),
+                    );
+                    if let Some(due) = self.quarantine_review_due_ms(imported_at_ms) {
+                        node.set_field(FIELD_QUARANTINE_REVIEW_DUE_MS, FieldValue::Int(due as i64));
+                    }
+                    quarantined += 1;
+                } else if let Some((at, reason, by, due)) =
+                    Self::existing_quarantine_fields(&engine, node_id)?
+                {
+                    node.set_field(FIELD_QUARANTINED_AT_MS, FieldValue::Int(at));
+                    if let Some(reason) = reason {
+                        node.set_field(FIELD_QUARANTINE_REASON, FieldValue::String(reason));
+                    }
+                    if let Some(by) = by {
+                        node.set_field(FIELD_QUARANTINED_BY, FieldValue::String(by));
+                    }
+                    if let Some(due) = due {
+                        node.set_field(FIELD_QUARANTINE_REVIEW_DUE_MS, FieldValue::Int(due));
+                    }
+                }
                 if let Some(ref v) = input.vector {
                     node.vector = VectorRepresentations::Full(v.clone());
                     node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
@@ -962,16 +1634,30 @@ impl Embedded {
         }
 
         let duration_ms = start.elapsed().as_millis() as u64;
+        // SCH-05 review F3: import ops are audited (the bulk path was silent).
+        self.audit(crate::audit::AuditEvent::new(
+            "bulk_import",
+            "N/A",
+            "N/A",
+            "ok",
+            (quarantined > 0).then(|| format!("{quarantined} quarantined")),
+        ));
         Ok(BulkImportReport {
             total_records: total,
             batches_committed: batches,
+            quarantined,
             duration_ms,
         })
     }
 
     /// Convenience: bulk-import from a binary file in bulk format.
+    ///
+    /// The path goes through the same export-base sandbox as the other
+    /// file import/export ops (WIRE-09) — the HTTP server passes a
+    /// user-supplied path here (`import_v2` with `format: "bulk"`).
     pub fn bulk_import_file(&self, path: &str) -> Result<BulkImportReport> {
-        let mut file = std::fs::File::open(path)?;
+        let resolved = self.resolve_export_path(std::path::Path::new(path))?;
+        let mut file = std::fs::File::open(&resolved)?;
         self.bulk_import_stream(&mut file)
     }
 }

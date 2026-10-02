@@ -44,7 +44,7 @@ def run_bench(db_path="./benchmarks/batch_bench_db", num_vectors=5000, dim=128, 
     print(f"Generating and inserting {num_vectors} vectors...")
     for i in range(num_vectors):
         vec = generate_unit_vector(dim)
-        db.insert(i + 1, f"Node {i}", vec)
+        db.insert_node(i + 1, f"Node {i}", vec)
     db.flush()
 
     print("Generating query batch...")

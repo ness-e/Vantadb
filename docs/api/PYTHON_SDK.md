@@ -1,10 +1,11 @@
 ---
 title: Python SDK Documentation
-type: api
+kind: reference
 status: active
+description: "Note: For more details on search execution, see Hybrid Search"
 tags: [vantadb, api]
-last_reviewed: 2026-09-15
-aliases: []
+type: api
+last_reviewed: "2026-09-15"
 related: [TS_SDK.md, NODE_SDK.md, EMBEDDED_SDK.md, BINDINGS_NAMESPACES.md]
 ---
 
@@ -12,7 +13,7 @@ related: [TS_SDK.md, NODE_SDK.md, EMBEDDED_SDK.md, BINDINGS_NAMESPACES.md]
 
 > **Stability:** the documented Python SDK API is covered by the [Versioning & Stability Policy](VERSIONING.md).
 >
-> **Naming (ADR-041 anti-stutter):** canonical names are `Client`, `Record`,
+> **Naming (ADR-0047 anti-stutter):** canonical names are `Client`, `Record`,
 > `SearchHit` (`Hit` alias), `ListResult`, `Vector`, `SearchRequest`.
 > Legacy `VantaDB`, `VantaMemoryRecord`, `VantaSearchHit`, `VantaListResult`,
 > `VantaVector`, `VantaError` aliases were removed in 0.6.0 (AST-010).
@@ -46,16 +47,17 @@ db.put(
 )
 
 # Hybrid search (memory API)
-results = db.search(
+# `search()` returns a plain Python list of `SearchHit` objects.
+hits = db.search(
     namespace="agent/main",
     text_query="What display mode does the user prefer?",
     query_vector=[0.1] * 384,
 )
-print(results)
+print(hits)
 
 # Generate a snippet highlighting the match
-if results and results.get("records"):
-    payload = results["records"][0]["record"]["payload"]
+if hits:
+    payload = hits[0].payload
     snippet = db.generate_snippet(
         payload=payload,
         text_query="display mode",
@@ -63,7 +65,7 @@ if results and results.get("records"):
     )
     print(f"Snippet: {snippet}")
 ```
-*Note: For more details on search execution, see [[hybrid-search|Hybrid Search]].*
+*Note: For more details on search execution, see [Hybrid Search](../user/glosario/hybrid-search.md).*
 
 ## Import name
 
@@ -76,7 +78,7 @@ import vantadb
 `import vantadb_py` still works (it points at the same compiled module) but
 emits a `DeprecationWarning`. The legacy name will be removed in the next minor
 release (0.6.0). The distribution on PyPI is `vantadb-py`; the importable
-module is `vantadb`. See [ADR-030](../dev/architecture/adr/ADR-030-brand-identity-naming-convention.md)
+module is `vantadb`. See [ADR-0030](../dev/architecture/adr/ADR-0030-brand-identity-naming-convention.md)
 for the full brand-identity decision.
 
 ## Domain Sub-clients
@@ -91,21 +93,23 @@ signatures and results.
 > **Canonical paths (AST-012, no aliases):** `db.memory.get(...)`,
 > `db.memory.list(...)`, `db.memory.delete(...)`, `db.memory.search(...)`.
 > The flat `memory.get` / `memory.list` / `memory.delete` methods were
-> removed; flat `get` / `delete` stay node-level (`id: u128`). Canonical
-> method→domain map: [BINDINGS_NAMESPACES.md](BINDINGS_NAMESPACES.md).
+> removed; node-level ops are `insert_node` / `get_node` / `delete_node`
+> (W1/API-02 — the bare `insert`/`get`/`delete` flat methods were removed).
+> Canonical method→domain map: [BINDINGS_NAMESPACES.md](BINDINGS_NAMESPACES.md).
 
 ```python
 # memory — namespace+key records, search, supersede, TTL
 record = db.memory.put(namespace="ns", key="k", payload="...", vector=[0.1] * 384)
 record = db.memory.get(namespace="ns", key="k")
 hits = db.memory.search(namespace="ns", query_vector=[0.1] * 384)
+hits = db.memory.search_multi(namespaces=["ns", "kb"], query_vector=[0.1] * 384)
 db.memory.supersede(namespace="ns", old_key="draft-v1", new_key="draft-v2")
 
 # graph — node/edge CRUD + traversals
-# NOTE: insert/get/delete are NODE-level ops here (id: u128), unlike the
-# memory-record semantics those names carry in the TS/WASM bindings.
-db.graph.insert(id=42, content="...", vector=[0.1] * 384)
-node = db.graph.get(id=42)
+# NOTE (W1/API-02): node ops are insert_node/get_node/delete_node — the same
+# canonical names as WASM/TS/Node (memory records are db.memory.*).
+db.graph.insert_node(id=42, content="...", vector=[0.1] * 384)
+node = db.graph.get_node(id=42)
 reachable = db.graph.graph_bfs(roots=[42], max_depth=3)
 ranks = db.graph.graph_page_rank(roots=[42])
 
@@ -121,7 +125,7 @@ db.system.flush()
 Notes:
 
 - Each attribute returns a lightweight delegate that holds a reference to the parent `Client`; calls are forwarded with identical signatures and results.
-- The full member lists per sub-client are fixed by [`BINDINGS_NAMESPACES.md`](BINDINGS_NAMESPACES.md) (Python section): memory 15 · graph 10 · system 17 · wiki 1.
+- The full member lists per sub-client are fixed by [`BINDINGS_NAMESPACES.md`](BINDINGS_NAMESPACES.md) (Python section). Counts by sub-client: memory 19 (16 forwards + 3 real) · graph 11 · system 18 · wiki 1; the flat `Client` surface totals 46 methods (16 memory + 11 graph + 18 system + 1 wiki).
 - `AsyncClient` exposes `db.memory` (`get`/`list`/`delete`); all other
   async methods stay flat.
 
@@ -174,48 +178,76 @@ db.put(
     metadata: Optional[dict] = None,
     vector: Optional[VectorInput] = None,
     ttl_ms: Optional[int] = None,
+    sparse_vector: Optional[dict] = None,
 ) -> Record
 ```
 Insert or update a memory record. The `metadata` is a dict of scalar fields.
+`sparse_vector` is an optional `{dimension_id: weight}` dict (u32 dimension ids,
+finite floats) that participates in sparse search alongside the dense vector —
+the same shape WASM/TS `put()` accept. Keys must be Python `int`s (`{7: 1.5}`);
+numeric-string keys (`{"7": 1.5}`) are rejected, unlike the JS bindings where
+object keys are always strings.
 #### `put_batch()`
 
 ```python
 db.put_batch(
-    keys: List[str],
-    vectors: List[VectorInput],
-    payloads: Optional[List[str]] = None,
-    metadatas: Optional[List[Optional[dict]]] = None,
-    namespace: Optional[str] = None,
-    namespaces: Optional[List[str]] = None,
-    ttls: Optional[List[Optional[int]]] = None,
+    records: List[dict],
 ) -> List[Record]
 ```
-Insert or update multiple records in parallel. Each entry of `metadatas`
+
+Insert or update multiple records from an **array of objects** (W1/API-02 —
+the same shape as WASM `put_batch`, TS `putBatch` and Node `putBatch`). Each
+dict mirrors the `put()` keyword arguments; `key` is required and
+`namespace` defaults to `"default"`:
+
+```python
+db.put_batch([
+    {"namespace": "agent/default", "key": "k1", "payload": "payload1",
+     "vector": [0.1] * 384, "metadata": {"f": "v"}, "ttl_ms": None},
+    {"namespace": "agent/default", "key": "k2", "payload": "payload2",
+     "vector": [0.2] * 384},
+])
+```
+
+Per-record `namespace` routes each record independently (ERR-030). Metadata
 accepts the same scalar values as `put()` (`str`, `int`, `float`, `bool`,
-`datetime`, homogeneous lists).
+`datetime`, homogeneous lists); `sparse_vector` (optional `{dim: weight}` dict)
+follows the same shape as `put()`. For zero-copy ingestion of a 2D NumPy vector
+matrix use `put_batch_raw(vectors, keys, ...)` (PERF-15 buffer path).
 
-**Keyword API** (preferred):
+> **Atomicity (current contract):** `put_batch` is atomic **per chunk** — records are processed in chunks of `batch_size` (default 1000); if a middle chunk fails, earlier chunks are already committed. Not all-or-nothing (fix tracked: FIND-221).
+
+Returns a list of `Record` objects in input order.
+
+#### `search_multi()` (W1/API-02)
+
 ```python
-db.put_batch(
-    keys=["k1", "k2"],
-    vectors=[[0.1]*384, [0.2]*384],
-    payloads=["payload1", "payload2"],
-    metadatas=[{"f": "v"}, None],
-    namespace="agent/default",
-    ttls=[None, 1000],
-)
+db.search_multi(
+    namespaces: List[str],
+    query_vector: VectorInput,
+    filters: Optional[dict] = None,
+    text_query: Optional[str] = None,
+    top_k: int = 10,
+    distance_metric: Optional[str] = None,
+    explain: bool = False,
+    exclude_superseded: bool = False,
+    query_sparse: Optional[dict] = None,
+    min_confidence: Optional[float] = None,
+    as_of_ms: Optional[int] = None,
+    valid_window: Optional[dict] = None,
+    include_quarantined: bool = False,
+) -> List[SearchHit]
 ```
 
-To route records of one batch into different namespaces, pass the parallel per-record column `namespaces` (length must equal `keys`); it overrides `namespace` for each record:
-```python
-db.put_batch(
-    keys=["k1", "k2"],
-    vectors=[[0.1]*384, [0.2]*384],
-    namespaces=["ns1", "ns2"],
-)
-```
+Hybrid search across several namespaces in one call: each namespace is
+searched independently and results are merged by descending `score`, capped
+at `top_k` globally. `namespaces` must be non-empty. Also available as
+`db.memory.search_multi(...)`. `query_sparse` accepts the same
+`{dimension_id: weight}` dict as `memory.search()`.
 
-Returns a list of `Record` objects, up to ~5x faster than sequential `put()` for large batches.
+```python
+hits = db.search_multi(["docs", "kb"], [0.1] * 384, top_k=5)
+```
 
 #### `memory.get()`
 ```python
@@ -240,9 +272,14 @@ db.memory.list(
     filters: Optional[dict] = None,
     limit: int = 100,
     cursor: Optional[int] = None,
+    exclude_superseded: bool = False,
+    as_of_ms: Optional[int] = None,
+    valid_window: Optional[dict] = None,
+    include_quarantined: bool = False,
+    min_confidence: Optional[float] = None,
 ) -> ListResult
 ```
-Returns a `ListResult` object with `.records`, `.total_count`, and `.next_cursor`. Supports `__getitem__` for dict-style access (`result["records"]`, `result["next_cursor"]`) and `__iter__` for record iteration.
+Returns a `ListResult` object with `.records`, `.total_count`, and `.next_cursor`. Supports `__getitem__` for dict-style access (`result["records"]`, `result["next_cursor"]`) and `__iter__` for record iteration. The SCH-07 v2 params (`as_of_ms`, `valid_window` `{"from_ms", "to_ms"}`, `include_quarantined`, `min_confidence`) mirror the SDK wire names (ADR-0046 §D2/§D3/§D5).
 
 ```python
 page = db.memory.list("ns", limit=10)
@@ -266,13 +303,34 @@ db.memory.search(
     method: Optional[str] = None,
     explain: bool = False,
     exclude_superseded: bool = False,
+    query_sparse: Optional[dict] = None,
+    min_confidence: Optional[float] = None,
+    as_of_ms: Optional[int] = None,
+    valid_window: Optional[dict] = None,
+    include_quarantined: bool = False,
 ) -> List[SearchHit]
 ```
 Search namespace-scoped persistent memory records by vector + filters + text_query.
 
+`query_sparse` is an optional `{dimension_id: weight}` dict fused with the
+dense/text scores (sparse search). An empty `query_vector` with `text_query`
+selects **text-only** (BM25) search; with `query_sparse` it runs sparse-only.
+
+```python
+hits = db.search("ns", [], text_query="quick brown fox")          # text-only
+hits = db.search("ns", [0.1] * 384, query_sparse={7: 1.5, 42: 0.75})
+```
+
 The `method` parameter accepts `"ivf"`, `"scann"`, `"flat"`, or `"hnsw"` to explicitly override the dense-vector index backend. `None` (default) keeps automatic engine routing.
 
-The `exclude_superseded` parameter (default `False`) controls whether superseded records are filtered from results (ADR-028).
+The `exclude_superseded` parameter (default `False`) controls whether superseded records are filtered from results (ADR-0028); it also drops records whose validity window already ended (`invalid_at_ms <= now`, ADR-0046 §D3-6). The SCH-07 v2 params: `min_confidence` (opt-in floor in `[0, 1]`; out-of-range is rejected, never clamped), `as_of_ms` (valid-time point), `valid_window` (`{"from_ms", "to_ms"}` half-open overlap), `include_quarantined` (default `False`; quarantined records are excluded from search/list/retrieval, while `get` always returns them with visible state).
+
+`Record` and `SearchHit` expose the v2 fields as typed getters (same wire names):
+`valid_at_ms`, `invalid_at_ms`, `confidence_class`, `confidence`,
+`last_validated_at_ms`, `derived_from`, `quarantined_at_ms`,
+`quarantine_reason`, `quarantined_by`, `quarantine_review_due_ms`. `Record`
+also mirrors them in `__getitem__`. Semantics and calibration limits:
+[`scores.md`](scores.md).
 #### `search_vector()`
 ```python
 db.search_vector(
@@ -293,7 +351,7 @@ db.explain_memory_search(
     text_query: Optional[str] = None,
     top_k: int = 10,
     distance_metric: Optional[str] = None,
-    method: Optional[str] = None,
+    query_sparse: Optional[dict] = None,
 ) -> dict
 ```
 Returns a detailed breakdown of how a memory search arrives at its results.
@@ -366,9 +424,9 @@ Raises `RuntimeError` if the source `key` does not exist or has no vector.
 
 ### Node / Graph API (Low-Level)
 
-#### `insert()`
+#### `insert_node()` (W1/API-02)
 ```python
-db.insert(
+db.insert_node(
     id: int,
     content: str,
     vector: VectorInput,
@@ -378,7 +436,7 @@ db.insert(
 Insert a graph node with text content and an optional embedding vector. `fields` can contain additional metadata key-value pairs (supports `str`, `int`, `float`, `bool`, `datetime`, and homogeneous lists). GIL-released — allows Python threads to run during the insert.
 
 ```python
-db.insert(
+db.insert_node(
     id=42,
     content="VantaDB is a vector-graph database.",
     vector=[0.1] * 384,
@@ -386,23 +444,23 @@ db.insert(
 )
 ```
 
-#### `get()`
+#### `get_node()` (W1/API-02)
 ```python
-db.get(
+db.get_node(
     id: int,
 ) -> Optional[dict]
 ```
 Retrieve a graph node by its numeric ID. Returns a dict with `id`, `vector`, `vector_dims`, `fields`, `edges`, `confidence_score`, `importance`, `hits`, `tier`, and `is_alive`, or `None` if not found. GIL-released.
 
 ```python
-node = db.get(id=42)
+node = db.get_node(id=42)
 if node:
     print(node["fields"], node["vector_dims"])
 ```
 
-#### `delete()`
+#### `delete_node()` (W1/API-02)
 ```python
-db.delete(
+db.delete_node(
     id: int,
     reason: str = "manual deletion",
 ) -> None
@@ -410,7 +468,7 @@ db.delete(
 Delete a graph node by ID with an auditable reason (recorded as a tombstone). GIL-released.
 
 ```python
-db.delete(id=42, reason="stale training data cleaned up")
+db.delete_node(id=42, reason="stale training data cleaned up")
 ```
 
 #### `supersede()`
@@ -421,7 +479,7 @@ db.supersede(
     new_key: str,
 ) -> None
 ```
-Mark an existing memory record as superseded by another existing record (ADR-028). The old record keeps its data but gains `superseded_by`/`superseded_at_ms` and can be hidden from search/list with `exclude_superseded=True`. Raises `RuntimeError` if either key is missing, if `old_key == new_key`, or if the old record is already superseded. GIL-released.
+Mark an existing memory record as superseded by another existing record (ADR-0028). The old record keeps its data but gains `superseded_by`/`superseded_at_ms` and can be hidden from search/list with `exclude_superseded=True`. Raises `RuntimeError` if either key is missing, if `old_key == new_key`, or if the old record is already superseded. GIL-released.
 
 ```python
 db.supersede(namespace="agents/summary", old_key="draft-v1", new_key="draft-v2")
@@ -439,9 +497,14 @@ db.search(
     method: Optional[str] = None,
     explain: bool = False,
     exclude_superseded: bool = False,
+    query_sparse: Optional[dict] = None,
+    min_confidence: Optional[float] = None,
+    as_of_ms: Optional[int] = None,
+    valid_window: Optional[dict] = None,
+    include_quarantined: bool = False,
 ) -> List[SearchHit]
 ```
-Flat alias of `db.memory.search()` — hybrid memory search over a namespace (vector + BM25 fused via RRF). AST-008: ex-`search_memory`; pure ANN over graph nodes is `search_vector()`.
+Flat alias of `db.memory.search()` — hybrid memory search over a namespace (vector + BM25 fused via RRF). AST-008: ex-`search_memory`; pure ANN over graph nodes is `search_vector()`. Same SCH-07 v2 params as `memory.search()` (see above).
 
 ```python
 hits = db.search("ns", query_vector=[0.1] * 384, top_k=5)
@@ -1065,7 +1128,7 @@ async with AsyncClient("./my_brain") as db:
 # db.close() awaited automatically
 ```
 
-All Client methods are available on `AsyncClient` with `async/await`, including `put()`, `put_batch()`, `insert()`, `memory.get()`, `memory.list()`, `memory.delete()`, `query()`, `flush()`, `compact_wal()`, `purge_expired()`, `rebuild_index()`, `export_namespace()`, `export_all()`, `import_file()`, `audit_text_index()`, `repair_text_index()`, `operational_metrics()`, `capabilities()`, `hardware_profile()`, `get()`, `delete()`, `search()`, `search_batch()`, `add_edge()`, `graph_bfs()`, `graph_dfs()`, `graph_topological_sort()`, `graph_is_dag()`, `compact_layout()`, `list_namespaces()`, `generate_snippet()`, `explain_memory_search()`, `count()`, `delete_by_filter()`, and `similar_to_key()`.
+All Client methods are available on `AsyncClient` with `async/await`, including `put()`, `put_batch()`, `insert_node()`, `memory.get()`, `memory.list()`, `memory.delete()`, `query()`, `flush()`, `compact_wal()`, `purge_expired()`, `rebuild_index()`, `export_namespace()`, `export_all()`, `import_file()`, `audit_text_index()`, `repair_text_index()`, `operational_metrics()`, `capabilities()`, `hardware_profile()`, `get_node()`, `delete_node()`, `search()`, `search_multi()`, `search_batch()`, `add_edge()`, `graph_bfs()`, `graph_dfs()`, `graph_topological_sort()`, `graph_is_dag()`, `compact_layout()`, `list_namespaces()`, `generate_snippet()`, `explain_memory_search()`, `count()`, `delete_by_filter()`, and `similar_to_key()`.
 
 ## ID limits
 
@@ -1091,13 +1154,18 @@ all use 128-bit unsigned integers.
 
 ## Error Handling
 
-Every VantaDB error raised by this binding is an instance of `VantaError`,
+Every VantaDB error raised by this binding is an instance of `Error`,
 which inherits from `RuntimeError`. This keeps existing `except RuntimeError` /
 `except Exception` callers working while letting you catch the specific family:
 
 ```python
+except Error:
+    ...
+```
+
+```python
 from vantadb import (
-    VantaError,
+    Error,
     NotFoundError,
     ValidationError,
     CorruptError,
@@ -1121,26 +1189,26 @@ except NotFoundError as exc:
 ### Hierarchy
 
 ```
-VantaError (base, inherits RuntimeError)
-├── NotFoundError          # VantaError::NodeNotFound, VantaError::NotFound
-├── ValidationError        # VantaError::DimensionMismatch, DuplicateNode, Validation, InvalidInput, IqlParse, NoVectorForKey, UnsupportedOperation, CycleDetected, NodeIdCollision
-├── CorruptError           # VantaError::IncompatibleFormat, WALVersionMismatch, Serialization, Schema, Restore, Backup
-├── StorageError           # VantaError::Io, Wal, Backend, Cli, Search, Runtime
-├── ConflictError          # VantaError::ExecutionConflict
-├── UnsupportedError       # VantaError::UnsupportedOperation (typed alias)
-├── ResourceLimitError     # VantaError::ResourceLimit
-├── BusyError              # VantaError::DatabaseBusy, VantaError::NotInitialized
-├── NoVectorError          # VantaError::NoVectorForKey
-└── TimeoutError           # VantaError::Timeout
+Error (base, inherits RuntimeError)
+├── NotFoundError          # Error::NodeNotFound, Error::NotFound
+├── ValidationError        # Error::DimensionMismatch, DuplicateNode, Validation, InvalidInput, IqlParse, NoVectorForKey, UnsupportedOperation, CycleDetected, NodeIdCollision
+├── CorruptError           # Error::IncompatibleFormat, WALVersionMismatch, Serialization, Schema, Restore, Backup
+├── StorageError           # Error::Io, Wal, Backend, Cli, Search, Runtime
+├── ConflictError          # Error::ExecutionConflict
+├── UnsupportedError       # Error::UnsupportedOperation (typed alias)
+├── ResourceLimitError     # Error::ResourceLimit
+├── BusyError              # Error::DatabaseBusy, Error::NotInitialized
+├── NoVectorError          # Error::NoVectorForKey
+└── TimeoutError           # Error::Timeout
 ```
 
 Catch the base class to handle any VantaDB error uniformly:
-`except VantaError:`.
+`except Error:`.
 
 ### Canonical codes (10)
 
 Every error raised through the typed hierarchy carries a `.code` attribute -
-the exact `VANTADB_*` wire value produced by Rust `VantaError::code()`
+the exact `VANTADB_*` wire value produced by Rust `Error::code()`
 (ERR-PY-01; identical strings as on the TS/MCP wire). **Branch on `.code` for
 cross-binding logic; the variant class is for human-readable dispatch only.**
 
@@ -1150,11 +1218,11 @@ cross-binding logic; the variant class is for human-readable dispatch only.**
 | `VANTADB_VALIDATION_ERROR` | `ValidationError`, `ConflictError`, `UnsupportedError`, `NoVectorError` |
 | `VANTADB_INVALID_ARGUMENT` | `ValidationError` (runtime IQL path) |
 | `VANTADB_CORRUPT` | `CorruptError` |
-| `VANTADB_IO_ERROR` | `StorageError`, `VantaError` base (`Cli`/`Search`/`Runtime`) |
+| `VANTADB_IO_ERROR` | `StorageError`, `Error` base (`Cli`/`Search`/`Runtime`) |
 | `VANTADB_RESOURCE_LIMIT` | `ResourceLimitError` |
 | `VANTADB_BUSY` | `BusyError` |
 | `VANTADB_TIMEOUT` | `TimeoutError` |
-| `VANTADB_WASM_ERROR` | `VantaError` base (WASM `Generic` fallback) |
+| `VANTADB_WASM_ERROR` | `Error` base (WASM `Generic` fallback) |
 | `VANTADB_CLOSED` | (handle lifecycle, not raised via `code()`) |
 
 > **Implemented (ERR-CORE-01 + ERR-PY-01):** `.code` carries the prefixed
@@ -1180,13 +1248,13 @@ Example — retry policy with `.retriable`:
 
 ```python
 import time
-from vantadb import VantaError, BusyError
+from vantadb import Error, BusyError
 
 def put_with_retry(db, **kwargs):
     for attempt in range(5):
         try:
             return db.put(**kwargs)
-        except VantaError as exc:
+        except Error as exc:
             if exc.retriable and attempt < 4:
                 time.sleep(0.1 * (2 ** attempt))
                 continue
@@ -1198,15 +1266,15 @@ def put_with_retry(db, **kwargs):
 The Python exception classes are built with PyO3 `create_exception!`, which
 cannot carry methods - so the spec's `exc.to_dict()` is exposed as a
 module-level helper instead (ERR-PY-01 decision). It returns the same plain
-dict shape as the TypeScript `VantaError.toJSON()` so logs and traces line up
+dict shape as the TypeScript `DbError.toJSON()` so logs and traces line up
 across Rust/Python/TS/MCP:
 
 ```python
 import vantadb
 
 try:
-    db.get(...)
-except vantadb.VantaError as exc:
+    db.get_node(...)
+except vantadb.Error as exc:
     log.error("vanta_error", extra=vantadb.error_to_dict(exc))
     # {
     #   "name": "NotFoundError",
@@ -1227,17 +1295,17 @@ type objects from `vantadb_py`'s - catch them per module.
 
 The binding previously mapped core errors to standard-library exceptions
 (`KeyError`, `ValueError`, `FileNotFoundError`, …). These now raise the typed
-`VantaError` subclasses above. The one behavior change to be aware of:
+`Error` subclasses above. The one behavior change to be aware of:
 
 | Before | After |
 |--------|-------|
 | missing key/node → `KeyError` | `NotFoundError` |
 | validation / duplicate / dimension → `ValueError` | `ValidationError` |
 | file not found / permission / OSError | `StorageError` |
-| other engine errors → `RuntimeError` | `VantaError` (still a `RuntimeError`) |
+| other engine errors → `RuntimeError` | `Error` (still a `RuntimeError`) |
 
 `except RuntimeError` and `except Exception` remain fully compatible because
-`VantaError` is a `RuntimeError`.
+`Error` is a `RuntimeError`.
 
 ## Roadmap (not yet available)
 

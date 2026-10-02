@@ -1,3 +1,9 @@
+---
+title: "SHOW-05 (resto) — decisión `vantadb-ts/examples` + referencia en README/QUICKSTART"
+kind: task
+description: "Objetivo: cerrar el resto pendiente de SHOW-05: decidir mover-vs-referenciar"
+---
+
 # SHOW-05 (resto) — decisión `vantadb-ts/examples` + referencia en README/QUICKSTART
 
 > **Plan:** `docs/dev/plans/2026-09-18-cierre-mvp.md` (Task 9, Wave2 última — ÚLTIMA del plan)

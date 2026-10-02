@@ -4,9 +4,9 @@
 //! Vanta proxy library: transparent forwarding of LLM wire protocols.
 //!
 //! Protocols supported (verbatim forward, no business logic — see MEM-26):
-//! - OpenAI Chat Completions: `/{agent}/{spaceId}/v1/chat/completions`
-//! - Anthropic Messages:      `/{agent}/{spaceId}/v1/messages`
-//! - Generic Responses subset: `/v1/responses` (no Codex/WorkBuddy adapters)
+//! - OpenAI Chat Completions: `/{agent}/{space_id}/v1/chat/completions`
+//! - Anthropic Messages:      `/{agent}/{space_id}/v1/messages`
+//! - Generic Responses subset: `/v1/responses` (plain + `/{agent}/{space_id}` prefixed)
 
 pub mod auth;
 pub mod cache;
@@ -14,8 +14,10 @@ pub mod capture;
 pub mod config;
 pub mod context;
 pub mod cost;
+pub mod envelope;
 pub mod error;
 pub mod forward;
+pub mod governance;
 pub mod guardrails;
 pub mod handlers;
 pub mod inject;

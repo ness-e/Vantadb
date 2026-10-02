@@ -1,11 +1,9 @@
 ---
 title: "Review de módulo: `benchmarks/`"
-type: review
+kind: review
 status: archived
+description: "Net posible: −128 MB repo, ~−3 líneas"
 tags: [vantadb, review]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Review de módulo: `benchmarks/`

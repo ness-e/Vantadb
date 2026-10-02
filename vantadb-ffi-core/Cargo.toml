@@ -1,0 +1,15 @@
+[package]
+name = "vantadb-ffi-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Neutral std-only leaf shared by VantaDB's node/python/wasm FFI transports (durability gate + ERR-022 clamp policy)."
+license = "Apache-2.0"
+publish = false
+
+# Zero dependencies by design (leaf crate): every dependency added here lands
+# in ALL three bindings AND the wasm32 build. See src/lib.rs docs.
+[dependencies]
+
+[lints]
+workspace = true

@@ -1,15 +1,16 @@
 ---
 title: "VantaDB vs LanceDB vs ChromaDB: Real Numbers from an Embedded Engine"
-version: 0.5.0
+kind: howto
+description: By the VantaDB Team
+tags: [benchmarks, vector-database, lancedb, chromadb, performance, recall, embedded-database]
+version: "0.5.0"
 slug: benchmarks-vs-lancedb-chroma
-date: 2026-06-06
-author: "VantaDB Team"
-tags: ["benchmarks", "vector-database", "lancedb", "chromadb", "performance", "recall", "embedded-database"]
-description: "A reproducible head-to-head benchmark of VantaDB against LanceDB and ChromaDB on glove-100-angular — query QPS, latency, recall@10, and RSS — with full methodology transparency."
+date: "2026-06-06"
+author: VantaDB Team
 tag: Engineering
 readTime: "8 min"
-canonical: https://vantadb.dev/blog/benchmarks-vs-lancedb-chroma
-draft: true
+canonical: "https://vantadb.dev/blog/benchmarks-vs-lancedb-chroma"
+draft: "true"
 ---
 
 # VantaDB vs LanceDB vs ChromaDB: Real Numbers from an Embedded Engine

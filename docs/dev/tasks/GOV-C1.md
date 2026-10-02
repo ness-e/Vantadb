@@ -1,3 +1,9 @@
+---
+title: "GOV-C1: Filtro nextest inefectivo + TEST_MAP binarios"
+kind: task
+description: "cargo nextest list --profile default 2>&1 | Select-String \"python|hnswrecall\" | Measure-Object Count >=1 (post-fix: filtro efectivo, verifica lista) AND cargo check -p vantadb exit 0 — ponytail minimal (BND-06 scope-safe preservado)"
+---
+
 # GOV-C1: Filtro nextest inefectivo + TEST_MAP binarios
 
 ## Metadata

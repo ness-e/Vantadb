@@ -1,3 +1,8 @@
+---
+title: MEM-70 — Benchmarks LongMemEval-S + LoCoMo
+kind: task
+---
+
 # MEM-70 — Benchmarks LongMemEval-S + LoCoMo
 
 - **Estado:** ✅ COMPLETED · **Ruta:** vanta-worker · **Wave:** Wave1 (disjunto con PRX-03, DESKTOP-42)

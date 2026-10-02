@@ -1,0 +1,32 @@
+[
+  {
+    "id": "0a1b2c3d-4e5f-4a6b-8c7d-000000000001",
+    "memory": "Alice prefers morning meetings and async written updates.",
+    "hash": "9f2c4b7ad1e0cafe",
+    "metadata": { "type": "preference", "source": "chat" },
+    "categories": ["preferences"],
+    "user_id": "alice",
+    "created_at": "2025-11-03T09:12:00+00:00",
+    "updated_at": "2025-11-03T09:12:00+00:00"
+  },
+  {
+    "id": "0a1b2c3d-4e5f-4a6b-8c7d-000000000002",
+    "memory": "Alice is a staff engineer at Acme Corp, working on the billing pipeline.",
+    "hash": "c0ffee1234567890",
+    "metadata": { "type": "professional" },
+    "categories": ["professional", "work"],
+    "user_id": "alice",
+    "agent_id": "assistant",
+    "created_at": "2025-11-03T09:15:30+00:00",
+    "updated_at": "2025-12-01T10:00:00+00:00"
+  },
+  {
+    "id": "0a1b2c3d-4e5f-4a6b-8c7d-000000000003",
+    "memory": "Alice dislikes phone calls before 10am.",
+    "metadata": {},
+    "user_id": "alice",
+    "created_at": "2026-01-15",
+    "updated_at": "2026-01-15",
+    "score": 0.87
+  }
+]

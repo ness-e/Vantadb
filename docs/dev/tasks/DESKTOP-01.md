@@ -1,3 +1,9 @@
+---
+title: "DESKTOP-01: Investigar Tauri como plataforma desktop para VantaDB"
+kind: task
+description: "Origen (backlog): investigación previa en docsbackup2026-06-30/Investigaciones/VantaDBInvestigacionContextoGTM.md (líneas 966-976). La ruta docsbackup2026-06-30/ NO existe en el repo actual — el contexto GTM original se perdió en la..."
+---
+
 # DESKTOP-01: Investigar Tauri como plataforma desktop para VantaDB
 
 ## Metadata

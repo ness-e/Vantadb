@@ -1,16 +1,18 @@
 ---
-title: "Embedded (Embedded Database)"
-type: glossary-entry
+title: Embedded (Embedded Database)
+kind: glossary
 status: stable
-tags: [concept, architecture, embedded, database]
-last_reviewed: 2026-09-15
-links: "[[README.md]]"
+description: "An embedded database is a data management system that operates in-process within the same application that consumes it, without requiring a separate server, network daemon, or independent process. The database is compiled as a library..."
 aliases: [Embedded Database, Embedded Database, In-Process]
-description: "Data management system that operates in-process within the same application that consumes it, without requiring a separate server, network daemon or independent process"
+tags: [concept, architecture, embedded, database]
+type: glossary-entry
+last_reviewed: "2026-09-15"
+links: "[[README.md]]"
 ---
+
 # Embedded (Embedded Database)
 
-##Definition
+## Definition
 
 An embedded database is a data management system that operates **in-process** within the same application that consumes it, without requiring a separate server, network daemon, or independent process. The database is compiled as a library that links directly to the application binary.
 
@@ -34,7 +36,7 @@ An embedded database is a data management system that operates **in-process** wi
 | **DuckDB** | C++ | OLAP embebido |
 | **VantaDB** | Rust | Memoria persistente para agentes de IA |
 
-##Why it Matters in VantaDB
+## Why it Matters in VantaDB
 
 VantaDB is defined as **"The SQLite for AI Agents"** because it adopts the embedded philosophy:
 
@@ -90,10 +92,10 @@ VantaDB maintains an **optional server wrapper** (`vantadb-server` with Axum), b
 
 ## See Also
 
-- [[local-first]] — Complementary Philosophy
-- [[zero-config]] — Natural consequence of embedded design
-- [[fjall]] — 100% Rust embedded backend
-- [[transactional]] — ACID in-process guarantees
+- [local-first](./local-first.md) — Complementary Philosophy
+- [zero-config](./zero-config.md) — Natural consequence of embedded design
+- [fjall](./fjall.md) — 100% Rust embedded backend
+- [transactional](./transactional.md) — ACID in-process guarantees
 
 ---
 

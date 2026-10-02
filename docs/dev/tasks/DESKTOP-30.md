@@ -1,3 +1,9 @@
+---
+title: "DESKTOP-30: Estado de usuario durable — favoritos, historial, undo, papelera"
+kind: task
+description: "Los Steps originales (config.rs + comandos Tauri getuserstate/setuserstate) quedan OBSOLETOS: DESKTOP-23 decidió localStorage inyectable como mecanismo único de persistencia (el WebView de Tauri ya lo persiste entre sesiones..."
+---
+
 # DESKTOP-30: Estado de usuario durable — favoritos, historial, undo, papelera
 
 ## Metadata

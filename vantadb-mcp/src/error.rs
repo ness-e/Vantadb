@@ -53,6 +53,31 @@ impl McpError {
         Self::plain(-32601, msg.into())
     }
 
+    /// Create a not-found error (-32004) carrying the canonical
+    /// `VANTADB_NOT_FOUND` code in `data` (API-04 typed errors). Same envelope
+    /// `From<Error>` produces for `NotFound`/`NodeNotFound`, for rejections
+    /// that are not domain `Error`s (e.g. a missing record in a tool lookup).
+    pub fn not_found(msg: impl Into<String>) -> Self {
+        let mut e = Self::plain(-32004, msg.into());
+        e.data = json!({
+            "code": "VANTADB_NOT_FOUND",
+            "retriable": false,
+        });
+        e
+    }
+
+    /// Create a resource-limit error (-32007) carrying the canonical
+    /// `VANTADB_RESOURCE_LIMIT` code in `data` (API-04 typed errors). Matches
+    /// the core's `is_retriable()` classification for `ResourceLimit` (true).
+    pub fn resource_limit(msg: impl Into<String>) -> Self {
+        let mut e = Self::plain(-32007, msg.into());
+        e.data = json!({
+            "code": "VANTADB_RESOURCE_LIMIT",
+            "retriable": true,
+        });
+        e
+    }
+
     /// Create an internal-error (-32603) with the given message.
     pub fn internal_error(msg: impl Into<String>) -> Self {
         Self::plain(-32603, msg.into())

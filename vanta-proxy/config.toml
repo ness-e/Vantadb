@@ -4,11 +4,13 @@
 [server]
 host = "0.0.0.0"
 port = 8096
-# Rate-limit placeholder (enforced in MEM-27): requests per minute per spaceId×model.
+# Requests per minute per space_id×model (single enforcement point: the
+# proxy's in-process sliding-window limiter).
 rate_limit_per_minute = 60
 
 [upstream]
 # Base URL of the LLM upstream; wire paths (/v1/...) are appended as received.
+# Required — there is no default: empty refuses to start (no self-loop).
 url = "https://api.anthropic.com"
 # If non-empty, overrides the Authorization header sent upstream.
 api_key = ""

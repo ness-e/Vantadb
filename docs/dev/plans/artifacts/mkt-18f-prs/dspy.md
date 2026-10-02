@@ -1,3 +1,9 @@
+---
+title: Upstream PR draft — DSPy
+kind: plan
+description: "Prereq (bloquea merge upstream): publicar vantadb-dspy en PyPI (tag adapters-v0.5.0)"
+---
+
 # Upstream PR draft — DSPy
 
 **Prereq (bloquea merge upstream):** publicar `vantadb-dspy` en PyPI (tag `adapters-v0.5.0`).

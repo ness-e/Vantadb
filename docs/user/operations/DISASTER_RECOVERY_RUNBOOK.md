@@ -1,10 +1,9 @@
 ---
 title: VantaDB Disaster Recovery Runbook
-type: operations
+kind: runbook
 status: active
+description: This runbook covers incident response and recovery procedures for VantaDB production deployments. It assumes a single-node embedded deployment (the primary deployment model). Multi-node replication is not yet supported
 tags: [vantadb, operations, dr]
-last_reviewed: 2026-08-22
-aliases: []
 ---
 
 # VantaDB Disaster Recovery Runbook
@@ -62,7 +61,7 @@ journalctl -u vantadb-server --since "1 hour ago" --no-pager
 
 3. **Restore from latest backup** (the target directory must be empty or use `--force` to overwrite):
    ```bash
-   vanta-cli restore --input /backups/vantadb-latest --rebuild --force --db /var/lib/vantadb/data
+   vanta-cli restore --in /backups/vantadb-latest --rebuild --force --db /var/lib/vantadb/data
    ```
 
 4. **Verify restored data:**
@@ -246,7 +245,7 @@ vanta-cli backup --out /backups/vantadb-$(date +%F) 2>&1
 cat /backups/vantadb-latest/MANIFEST.json | python3 -m json.tool
 ```
 
-> **Note:** `vanta-cli restore --input <backup> --db <target> --dry-run`
+> **Note:** `vanta-cli restore --in <backup> --db <target> --dry-run`
 > validates a backup without touching the target (exit 0): checks the backup
 > exists, is a directory, is non-empty, and that `MANIFEST.json` parses when
 > present; reports total size, lists the files that would be restored, and
@@ -301,7 +300,7 @@ cat /backups/vantadb-latest/MANIFEST.json | python3 -m json.tool
 
 2. **Restore to a temporary directory** (never the live data dir):
    ```bash
-   vanta-cli restore --input /tmp/verify-backup --force --db /tmp/verify-restore
+   vanta-cli restore --in /tmp/verify-backup --force --db /tmp/verify-restore
    ```
 
 3. **Run health diagnostics on the restored copy** (must exit 0):
@@ -329,7 +328,7 @@ If any file entry is missing or its `crc32c` field is absent, treat the backup a
 > **Native backup verification (`restore --dry-run`): AVAILABLE.**
 > Quick pre-check without touching the target:
 > ```bash
-> vanta-cli restore --input /backups/latest --db /tmp/verify-restore --dry-run
+> vanta-cli restore --in /backups/latest --db /tmp/verify-restore --dry-run
 > ```
 > (lists files + size + conflicts, exit 0, target untouched).
 > Until per-file CRC verification lands, the full restore procedure above is
@@ -433,7 +432,7 @@ curl -f http://localhost:8080/health && vanta-cli doctor -d /data
 vanta-cli backup --out /backups/vantadb-$(date +%F)
 
 # Restore latest (to an empty target dir; add --force to overwrite)
-vanta-cli restore --input /backups/vantadb-latest --rebuild --force --db /var/lib/vantadb/data
+vanta-cli restore --in /backups/vantadb-latest --rebuild --force --db /var/lib/vantadb/data
 
 # Verify a backup (full procedure in §3 Daily Backup Verification)
 cat /backups/latest/MANIFEST.json | python3 -m json.tool
@@ -477,7 +476,7 @@ if [ -z "$LATEST" ]; then
 fi
 
 log "Restoring from $LATEST..."
-vanta-cli restore --input "$LATEST" --rebuild --force --db "$DATA_DIR"
+vanta-cli restore --in "$LATEST" --rebuild --force --db "$DATA_DIR"
 
 log "Verifying..."
 vanta-cli doctor -d "$DATA_DIR"

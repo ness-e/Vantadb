@@ -1,12 +1,11 @@
 ---
-title: "CRDT"
-type: glossary-entry
+title: CRDT
+kind: glossary
 status: stable
-tags: [concept, distributed, convergence, crdt]
-last_reviewed: 2026-09-15
-links: "[[README.md]]"
+description: Data types whose concurrent updates merge deterministically toward the same state
 aliases: [CRDT, Conflict-free Replicated Data Types]
-description: "Conflict-free Replicated Data Types: data structures that converge without coordination; relevant only for future multi-node VantaDB."
+tags: [concept, distributed, convergence, crdt]
+links: "[[README.md]]"
 ---
 
 # CRDT

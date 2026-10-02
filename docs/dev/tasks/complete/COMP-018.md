@@ -1,3 +1,9 @@
+---
+title: "COMP-018: Double-linked Relationship Chains ✅ COMPLETED"
+kind: task
+description: "Prioridad: 🟡 Media-Alta | Esfuerzo: ~1-2 sem | Fuente: docs/dev/Backlog.md Phase 10"
+---
+
 # COMP-018: Double-linked Relationship Chains ✅ COMPLETED
 
 **Prioridad:** 🟡 Media-Alta | **Esfuerzo:** ~1-2 sem | **Fuente:** `docs/dev/Backlog.md` Phase 10

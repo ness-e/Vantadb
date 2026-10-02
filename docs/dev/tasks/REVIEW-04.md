@@ -1,3 +1,9 @@
+---
+title: "REVIEW-04: Refactor 3 god modules — node.rs, config.rs, vfile.rs"
+kind: task
+description: "cargo check -p vantadb pasa, cargo nextest run --profile audit -p vantadb --build-jobs 2 pasa, src/lib.rs re-exports idénticos (grep de pub use node:: anterior/posterior), cargo clippy -p vantadb --all-targets --all-features -- -D..."
+---
+
 # REVIEW-04: Refactor 3 god modules — node.rs, config.rs, vfile.rs
 
 ## Metadata

@@ -1,3 +1,9 @@
+---
+title: "MEM-16: F4 Orquestación timers+locks (estado local, reloj fake)"
+kind: task
+description: "cargo check -p vanta-memory pasa; tests dedicados de pipeline manager (D19) pasan (cargo nextest run -p vanta-memory); cargo fmt --check pasa; cargo clippy -p vanta-memory --all-targets --no-deps -- -D warnings pasa.\""
+---
+
 # MEM-16: F4 Orquestación timers+locks (estado local, reloj fake)
 
 ## Metadata

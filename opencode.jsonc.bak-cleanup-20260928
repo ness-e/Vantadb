@@ -1,0 +1,131 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "deepseek-v4-flash-free",
+  "small_model": "deepseek-v4-flash-free",
+  "plugins": [],
+  // Owner policy 2026-09-25: push y PRs requieren aprobacion explicita (V2 nativo, effect=ask).
+  "permissions": [
+    { "action": "shell", "resource": "git push *", "effect": "ask" },
+    { "action": "shell", "resource": "git -C * push *", "effect": "ask" },
+    { "action": "shell", "resource": "gh pr create *", "effect": "ask" },
+    { "action": "shell", "resource": "gh pr merge *", "effect": "ask" }
+  ],
+  "experimental": {
+    "disable_paste_summary": true,
+    "subagent_depth": 2
+  },
+  "mcp": {
+    "servers": {
+    "codegraph": {
+      "type": "local",
+      "command": [
+        "codegraph",
+        "serve",
+        "--mcp"
+      ],
+      "disabled": false,
+      "codemode": false,
+      "description": "CodeGraph: codegraph_codegraph_explore (blast radius + call paths + source). codemode:false = tool nativa (descubrimiento directo por agentes; owner 2026-09-27)."
+    },
+      "codebase-memory-mcp": {
+        "type": "local",
+        "command": [
+          "C:\\Users\\Eros\\AppData\\Local\\Programs\\codebase-memory-mcp\\codebase-memory-mcp.exe"
+        ],
+        "disabled": false,
+        "codemode": false,
+        "description": "Codebase knowledge graph (tree-sitter, 158 langs, semantic + BM25 search, Cypher, architecture, change impact, dead-code, ADR). Complementa a CodeGraph. codemode:false = tools nativas (search_graph/trace_path/get_code_snippet/...; owner 2026-09-27). Skill: codebase-memory. Absolute path used because OpenCode's process PATH doesn't include the user PATH entry the installer added."
+      },
+    "discord": {
+      "type": "local",
+      "command": [
+        "pwsh",
+        "-NoProfile",
+        "-Command",
+        "$t = (Get-Content '.env.tokens' | Where-Object {$_ -match '^DISCORD_BOT_TOKEN=\"(.+)\"$'} | ForEach-Object {$Matches[1]}); $env:DISCORD_TOKEN = $t; bunx @rayenking/discord-mcp"
+      ],
+      "disabled": false
+    },
+    "metasearchmcp": {
+      "command": [
+        "metasearchmcp-mcp"
+      ],
+      "disabled": false,
+      "type": "local",
+      "description": "Búsqueda multi-provider: web, GitHub, académico, código. DuckDuckGo gratis sin key."
+    },
+    "argus": {
+      "command": [
+        "argus",
+        "mcp",
+        "serve"
+      ],
+      "disabled": false,
+      "type": "local",
+      "description": "14 providers, extracci�n 12-step, dead URL recovery, RRF fusion."
+    },
+    "agent-search": {
+      "command": [
+        "npx",
+        "-y",
+        "agent-search-mcp"
+      ],
+      "disabled": false,
+      "type": "local",
+      "description": "Capa keyless permanente: busqueda multi-engine gratis sin API keys (respaldo de metasearchmcp/argus)."
+    },
+    "campaign": {
+      "command": [
+        "bun",
+        ".opencode/task-system/mcp/campaign-server.mjs"
+      ],
+      "disabled": false,
+      "type": "local",
+      "description": "Plan de campaña: get_next_task, update_task_state, verify_cmd."
+    },
+    "vantadb": {
+      "command": [
+        "pwsh",
+        "-NoProfile",
+        "-File",
+        "C:/Users/Eros/VantaDB Proyect/VantaDB/vanta-mcp-local.ps1",
+        "-DbPath",
+        "C:/Users/Eros/.vantadb"
+      ],
+      "disabled": false,
+      "type": "local",
+      "description": "VantaDB MCP vía launcher (EMB-12: VANTADB_EMBEDDING_PROVIDER=local + VANTADB_LOCAL_MODEL + ORT autodetect; binario repo target/debug preferido sobre global stale FIND-98). Memoria persistente + vector retrieval (85 tools perfil full; API-04: nombres canónicos memory_search/memory_list_namespaces)."
+    },
+    "lottiefiles-creator": {
+      "command": [
+        "bunx",
+        "@lottiefiles/creator-mcp@latest"
+      ],
+      "disabled": true,
+      "type": "local",
+      "description": "LottieFiles Creator MCP — crear y editar animaciones Lottie via IA."
+    },
+    "playwright": {
+      "command": [
+        "npx",
+        "@playwright/mcp@latest",
+        "--viewport-size",
+        "1440x900"
+      ],
+      "disabled": false,
+      "type": "local",
+      "timeout": 120000,
+      "description": "Playwright MCP — automatización de browser via accessibility tree (browser_navigate/snapshot/click/type/evaluate). Para testing web/, E2E desktop/ y visual review."
+    },
+    "semgrep": {
+      "type": "local",
+      "command": [
+        "C:\\Users\\Eros\\AppData\\Roaming\\Python\\Python314\\Scripts\\semgrep.exe",
+        "mcp"
+      ],
+      "disabled": true,
+      "description": "Semgrep MCP — SAST directo para vanta-audit (L7, FIND-149). Deshabilitado por default; activar por perfil. Reglas versionadas: .opencode/configs/semgrep-vanta.yml."
+    }
+    }
+  }
+}

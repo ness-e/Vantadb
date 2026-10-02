@@ -1,3 +1,9 @@
+---
+title: "HIGH-009: Session Cleanup al Cerrar Campaña — pipeline-run.md paso 8 delete"
+kind: task
+description: Contrato del plan (HIGH-009)
+---
+
 # HIGH-009: Session Cleanup al Cerrar Campaña — pipeline-run.md paso 8 delete
 
 ## Metadata

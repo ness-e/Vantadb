@@ -1,3 +1,9 @@
+---
+title: "Plan: vantadb-node hardening + distribución"
+kind: plan
+status: archived
+---
+
 # Plan: vantadb-node hardening + distribución
 
 > **Origen:** `/research vantadb-node` → `docs/dev/reviews/research-vantadb-node-20260825.md`

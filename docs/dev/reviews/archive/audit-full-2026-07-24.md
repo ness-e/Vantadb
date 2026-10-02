@@ -1,11 +1,9 @@
 ---
 title: "Audit Report: full — 2026-07-24"
-type: review
+kind: review
 status: archived
+description: "Veredicto: ❌ FAIL — certify gate bloqueó en L3 (prettier)"
 tags: [vantadb, review]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Audit Report: full — 2026-07-24

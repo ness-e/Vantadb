@@ -1,3 +1,9 @@
+---
+title: FIND-69 — dspy sin framework (fallback object explota)
+kind: task
+description: "campaigndiscoverskillsv2 archivosClave=\"integrations/dspy/vantadbdspy/vectorstore.py:19-24,62, integrations/dspy/tests/\" phase=\"BUILD\" contractKeywords=[\"python-fallback\",\"dspy-adapter\",\"pytest-matrix\",\"optional-dependency\"] →"
+---
+
 # FIND-69 — dspy sin framework (fallback object explota)
 
 > Campaign: `6ab26f3f-cf16-4416-9255-c18cca0bcaf0` · Plan: `docs/dev/plans/2026-09-15-find-correcciones.md`

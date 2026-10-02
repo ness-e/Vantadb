@@ -96,12 +96,42 @@ Convenciones del repo (Rust: `?`+`Result`, sin `unwrap` en prod, clippy `-D warn
 - **Ask-first `~/.cargo/bin` → APROBADO** para FIND-98 (reinstall parity 79→87) vía Gate P 2026-09-18; si el lock persiste → STOP sin forzar.
 - **`vantadb-ts/examples/`:** referenciar desde README/QUICKSTART salvo motivo escrito para mover (decide SHOW-05-resto).
 
-## Success Criteria
+## Success Criteria (campaña MVP)
 
 1. Usuario nuevo: 1 comando → `embed_texts` real (`fallback:false`) + recuerdo guardado y recuperado por sinónimo en su agente (<30 min, sin compilar ni clonar).
 2. "Qué hice ayer a las 2pm en el módulo X" → respuesta con cita del registro (test temporal verde).
 3. `cargo audit`/`deny`/clippy/fmt verdes; coverage docs 0 gaps; OCR sin Critical/High.
 4. 0 regresiones: suites `mcp_tests`/`memory` verdes; binario instalado == fuente.
+
+## North Star (producto) — formalizada 2026-09-27 (DEF-05)
+
+> **North Star: agentes activos que recuperan una memoria con éxito en ventana de 7 días** (proxy operacional: sesiones con put+search en la misma ventana de 7 días).
+
+Los criterios de §Success Criteria son de **campaña (MVP)** — siguen vigentes para el MVP (ver Frontera de la Adenda). Este es el criterio de **producto**: mide que el núcleo (memoria embebida gobernada — jerarquía de DEF-01) se *usa* de punta a punta, i.e. un agente que almacena y recupera en la misma semana.
+
+**Baseline (al 2026-09-26):** 0 sesiones — sin despliegue del proxy con el loop de memoria en uso externo. El contador arranca con el primer deployment instrumentado; ICP-01 lo consume en la demo CI.
+
+### Medición contra el proxy actual (verificada 2026-09-27)
+
+**PUT — derivable hoy.** Todo turno proxied exitoso con sesión se auto-captura y persiste en el store del proxy (`[auth] db_path`, default `vantadb_data`):
+
+- `server.rs:256-258` (captura en éxito, fire-and-forget) → `server.rs:606-629` (`capture_turn`) → `capture.rs:53-139`.
+- Namespace `proxy-turns` (`capture.rs:20`), key `{ms}-{seq}` (`capture.rs:65`), payload JSON `{session, protocol, space, model, text}` (`capture.rs:66-73`); además registro L1 en `l1/{session}` con `created_at` (`capture.rs:80-102`).
+
+Consulta: `memory_list` (`vantadb-mcp`, read-only — `handlers/tools.rs:200-218`) o `list` del SDK contra el store del proxy; los keys `{ms}-{seq}` llevan el timestamp → filtrar client-side `ms ≥ now − 7d` (los filters son metadata-only — patrón página+filtra en `recall-policy.md:38,52`) y contar `payload.session` distintos.
+
+**SEARCH — instrumentado (ICP-01, 2026-09-29).** Cada search ejecutado persiste un evento **metadata-only** (`{session, kind:"search", hits}`; key `{ms}-{seq}`) en el namespace `proxy-memory-events` vía `WriteBack::track` fire-and-forget (`vanta-proxy/src/memory_tools.rs`) — el wire nunca espera el write. Con eso la North Star queda derivable como sesiones presentes en `proxy-turns` ∩ eventos `search` con `hits ≥ 1` en la misma ventana de 7 días.
+
+**FIND (implementado en ICP-01, 2026-09-29):** la instrumentación mínima del search quedó implementada exactamente como fue diseñada — persistir un evento por search ejecutado reutilizando `WriteBack::track` en `memory_tools::search` (namespace `proxy-memory-events`, key `{ms}-{seq}`, payload `{session, kind:"search", hits}`; sin tocar el wire y sin persistir query ni contenido). Consulta: `python scripts/north_star_metric.py --db <proxy-db>` (comando, contrato del evento y queries MCP equivalentes en `docs/api/PROXY.md` §North Star; self-test offline con `--self-test`). Nota de distribución: el script usa `vanta-cli mcp-call`, que viaja en el tren 0.8.0 (hoy en `develop`; v0.7.0 es anterior).
+
+### Guardrails (no decorativos — fuente y medición por ítem)
+
+| Guardrail | Fuente | Medición |
+|---|---|---|
+| 0 hallazgos high sin parche ≤ 7 días | owner 2026-09-24 (`VISION.md` §North Star) | Revisión semanal: filas abiertas high/crítica en `docs/dev/Backlog.md` + reportes de `docs/dev/reviews/` — ninguna con antigüedad > 7 días |
+| 0 regresión p99 > 15% | gate revivido HARD-06/FIND-154 (2026-09-27) | `python benchmarks/compare_baseline.py` (bloqueo >15% en familias estables; bandas por familia) · Rust: `cargo bench -p vantadb --bench canonical_p99` vs `docs/user/operations/BENCHMARKS.md` §8 |
+| 100% artefactos con versión sincronizada | rails HARD-01 (`docs/api/COMPATIBILITY.md`, `docs/api/VERSIONING.md`) + release-plz | Post-release: versión publicada (crates.io `vantadb` · npm `vantadb`/`vantadb-wasm` · PyPI `vantadb-py` · GitHub Release) == head de `docs/CHANGELOG.md` |
+| 0 violaciones Regla 11 en material público | `AGENTS.md` Regla 11 | Review pre-publicación: todo claim de performance cita bench reproducible + comando (`BENCHMARKS.md`) |
 
 ## Adenda 2026-09-24 — Decisiones post-investigación integral
 
@@ -114,8 +144,9 @@ Convenciones del repo (Rust: `?`+`Result`, sin `unwrap` en prod, clippy `-D warn
 | 3 | **Harness completo + head-to-head**: LoCoMo/LongMemEval-S/BEAM-subset + write-quality/abstención/tokens/p99-CI | Filas VER-08/VER-09 (absorbe EXE-02) |
 | 4 | **North Star**: agentes activos que recuperan una memoria con éxito en ventana de 7 días (medible en proxy/MCP) | DEF-05 |
 | 5 | **Naming freeze** 0.7.0→1.0 (9 artefactos; ADR) | DEF-04 |
+| 6 | **Jerarquía de producto (DEF-01)**: 1 núcleo (memoria embebida gobernada, "SQLite para agentes") + 3 puertas ICP; RAG = capacidad del núcleo, nunca target (opción c, owner 2026-09-27) | Alinea SPEC/README/VISION en una sola jerarquía |
 
-**Frontera:** este SPEC gobierna el MVP de memoria automática; la frontera de superficies (core-promise vs labs) vive en `EXPERIMENTAL_FEATURES.md` regenerado (DEF-02/03) y la jerarquía de producto en `VISION.md` (DEF-01). Los success criteria de campaña de abajo siguen vigentes para el MVP; los de **producto** son la North Star de DEF-05.
+**Frontera:** este SPEC gobierna el MVP de memoria automática; la frontera de superficies (core-promise vs labs) vive en `EXPERIMENTAL_FEATURES.md` §Scope Budget (DEF-02/03/07): clasificación por superficie + regla de inversión — admisión labs por defecto, promoción solo con evidencia North Star, congelamiento de labs — y la jerarquía de producto en `VISION.md` — **un núcleo (motor de memoria embebido gobernado) + tres puertas de entrada** (ICP-01 AI-IDEs vía MCP · ICP-02 local-LLM/privacidad · ICP-03 frameworks), decidida por el owner 2026-09-27 (DEF-01; RAG = capacidad del núcleo, no target). Los success criteria de campaña de abajo siguen vigentes para el MVP; los de **producto** son la North Star de DEF-05.
 
 ## Open Questions
 

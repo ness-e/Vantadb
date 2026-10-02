@@ -91,6 +91,7 @@ fn test_join_two_entities_returns_combined_results() {
         where_clause: None,
         subquery_conditions: vec![],
         temperature: None,
+        as_of_ms: None,
     });
 
     let result = ex.execute_statement(stmt).unwrap();
@@ -159,6 +160,7 @@ fn test_join_with_where_filter() {
         )]),
         subquery_conditions: vec![],
         temperature: None,
+        as_of_ms: None,
     });
 
     let result = ex.execute_statement(stmt).unwrap();
@@ -201,6 +203,7 @@ fn test_join_no_matches() {
         where_clause: None,
         subquery_conditions: vec![],
         temperature: None,
+        as_of_ms: None,
     });
 
     let result = ex.execute_statement(stmt).unwrap();
@@ -239,6 +242,7 @@ fn test_subquery_where_scalar() {
         )]),
         subquery_conditions: vec![],
         temperature: None,
+        as_of_ms: None,
     };
 
     // Outer query: SELECT * FROM Product WHERE price >= (SELECT price FROM ...)
@@ -256,6 +260,7 @@ fn test_subquery_where_scalar() {
             subquery: Box::new(subq),
         }],
         temperature: None,
+        as_of_ms: None,
     });
 
     let result = ex.execute_statement(stmt).unwrap();
@@ -309,6 +314,7 @@ fn test_subquery_where_with_exact_match() {
         )]),
         subquery_conditions: vec![],
         temperature: None,
+        as_of_ms: None,
     };
 
     // Outer: SELECT * FROM Product WHERE price = (SELECT ...)
@@ -325,6 +331,7 @@ fn test_subquery_where_with_exact_match() {
             subquery: Box::new(subq),
         }],
         temperature: None,
+        as_of_ms: None,
     });
 
     let result = ex.execute_statement(stmt).unwrap();
@@ -499,6 +506,7 @@ fn test_join_self_join() {
         where_clause: None,
         subquery_conditions: vec![],
         temperature: None,
+        as_of_ms: None,
     });
 
     let result = ex.execute_statement(stmt).unwrap();
@@ -536,6 +544,7 @@ fn test_join_empty_tables() {
         where_clause: None,
         subquery_conditions: vec![],
         temperature: None,
+        as_of_ms: None,
     });
 
     let result = ex.execute_statement(stmt).unwrap();
@@ -564,6 +573,7 @@ fn test_select_basic_no_join() {
         where_clause: None,
         subquery_conditions: vec![],
         temperature: None,
+        as_of_ms: None,
     });
 
     let result = ex.execute_statement(stmt).unwrap();

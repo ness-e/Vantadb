@@ -54,6 +54,10 @@ fn recovery_rebuild_export_import_survive_restart_and_index_loss() {
             filters: Default::default(),
             text_query: None,
             top_k: 1,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
             ..Default::default()
         })
         .expect("search");
@@ -65,7 +69,9 @@ fn recovery_rebuild_export_import_survive_restart_and_index_loss() {
 
     let imported_dir = tempdir().expect("imported tempdir");
     let imported = Embedded::open(imported_dir.path()).expect("open imported");
-    let import = imported.import_file(&export_path).expect("import file");
+    let import = imported
+        .import_file(&export_path, false)
+        .expect("import file");
     assert_eq!(import.inserted, 1);
     assert_eq!(import.errors, 0);
     assert_eq!(
@@ -116,6 +122,10 @@ fn memory_volume_kpi_10k_records_namespaces_filters_export_import_rebuild() {
                 limit: 50,
                 cursor: None,
                 exclude_superseded: false,
+                as_of_ms: None,
+                valid_window: None,
+                include_quarantined: false,
+                min_confidence: None,
             },
         )
         .expect("filtered list");
@@ -135,7 +145,9 @@ fn memory_volume_kpi_10k_records_namespaces_filters_export_import_rebuild() {
 
     let target_dir = tempdir().expect("target tempdir");
     let target = Embedded::open(target_dir.path()).expect("open target");
-    let import = target.import_file(&export_path).expect("import volume");
+    let import = target
+        .import_file(&export_path, false)
+        .expect("import volume");
     assert_eq!(import.inserted, 10_000);
     assert_eq!(import.errors, 0);
 

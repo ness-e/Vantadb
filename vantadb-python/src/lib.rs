@@ -10,13 +10,16 @@ use pyo3::exceptions::{PyRuntimeError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyAnyMethods, PyDict, PyDictMethods, PyModuleMethods, PyTuple};
 use std::collections::HashMap;
-use std::sync::{Arc, Condvar, Mutex, PoisonError};
 use vantadb::config::Config;
 use vantadb::index::IndexType;
 use vantadb::metadata;
-use vantadb::sdk::{Embedded, MemoryInput, MemoryListOptions, MemorySearchRequest, NodeInput};
+use vantadb::sdk::{
+    Embedded, MemoryInput, MemoryListOptions, MemorySearchRequest, NodeInput, ValidWindow,
+};
 // FFI guards: single source of truth from core (WSM-09).
 use vantadb::{DistanceMetric, MAX_K};
+// Durability gate + ERR-022 clamp policy: shared std-only leaf (WIRE-07).
+use vantadb_ffi_core::{OpGate, OpGuard};
 
 mod convert;
 use convert::parse_direction;
@@ -31,8 +34,8 @@ use crate::convert::{
     bulk_import_report_to_pydict, capabilities_to_pydict, check_lens, export_report_to_pydict,
     extract_vector, format_query_result, import_report_to_pydict, map_vanta_error, node_to_pydict,
     operational_metrics_to_pydict, py_any_to_value, py_dict_to_filter_ops, py_dict_to_metadata,
-    query_result_to_pydict, rebuild_report_to_pydict, runtime_profile_label,
-    search_explanation_to_pydict, text_index_audit_report_to_pydict,
+    py_dict_to_sparse_vector, query_result_to_pydict, rebuild_report_to_pydict,
+    runtime_profile_label, search_explanation_to_pydict, text_index_audit_report_to_pydict,
     text_index_repair_report_to_pydict, BusyError, ConflictError, CorruptError, Error,
     NoVectorError, NotFoundError, ResourceLimitError, StorageError, TimeoutError, UnsupportedError,
     ValidationError,
@@ -40,12 +43,14 @@ use crate::convert::{
 
 /// Clamp `top_k`/`k` to [`MAX_K`], warning when the caller requested more than
 /// the cap so silent truncation is observable (ERR-022). `MAX_K` is unified in
-/// core (`vantadb::config::MAX_K`) — see WSM-09.
+/// core (`vantadb::config::MAX_K`) — see WSM-09; the compare→cap policy lives
+/// in `vantadb-ffi-core` (shared with node/wasm).
 fn clamp_top_k(requested: usize) -> usize {
-    if requested > MAX_K {
+    let (effective, was_clamped) = vantadb_ffi_core::clamp_top_k(requested, MAX_K);
+    if was_clamped {
         tracing::warn!("top_k={requested} exceeds MAX_K={MAX_K}; clamping to {MAX_K} (ERR-022)");
     }
-    requested.min(MAX_K)
+    effective
 }
 
 #[pyclass]
@@ -86,83 +91,6 @@ fn clamp_top_k(requested: usize) -> usize {
 pub struct Client {
     engine: Embedded,
     op_gate: OpGate,
-}
-
-/// Durability gate: rejects new operations once `close()` has begun and keeps
-/// `close()` waiting until every in-flight operation finishes. Mirrors
-/// `vantadb-node/src/lib.rs` — closes the write-after-close race where a
-/// thread whose engine call had not yet run (or is running GIL-released via
-/// `py.detach`) would write after `close()` returned.
-#[derive(Clone)]
-struct OpGate {
-    state: Arc<(Mutex<OpState>, Condvar)>,
-}
-
-struct OpState {
-    closing: bool,
-    count: usize,
-}
-
-impl OpGate {
-    fn new() -> Self {
-        Self {
-            state: Arc::new((
-                Mutex::new(OpState {
-                    closing: false,
-                    count: 0,
-                }),
-                Condvar::new(),
-            )),
-        }
-    }
-
-    /// Register a new in-flight operation. Returns `None` if `close()` has
-    /// started (new operations are rejected past the durability barrier).
-    fn try_enter(&self) -> Option<OpGuard> {
-        let (lock, _) = &*self.state;
-        let mut state = lock.lock().unwrap_or_else(PoisonError::into_inner);
-        if state.closing {
-            return None;
-        }
-        state.count += 1;
-        Some(OpGuard {
-            state: self.state.clone(),
-        })
-    }
-
-    /// Start closing and block until every in-flight operation drains.
-    ///
-    /// Sets `closing = true` (so new ops are rejected) then waits until
-    /// `count == 0`. Blocks the calling thread; acceptable: this is the
-    /// durability barrier and engine operations are bounded.
-    ///
-    /// MOD-17: MUST be called with the GIL released whenever Python threads
-    /// may hold an `OpGuard`: an op returning from its own `py.detach` needs
-    /// to re-acquire the GIL before it can drop its guard, so waiting here
-    /// with the GIL held deadlocks the interpreter. See `Client::close`.
-    fn drain(&self) {
-        let (lock, cvar) = &*self.state;
-        let mut state = lock.lock().unwrap_or_else(PoisonError::into_inner);
-        state.closing = true;
-        while state.count > 0 {
-            state = cvar.wait(state).unwrap_or_else(PoisonError::into_inner);
-        }
-    }
-}
-
-/// RAII guard that decrements the in-flight count and wakes `close()` when
-/// dropped (at the end of the owning method, after the engine call completes).
-struct OpGuard {
-    state: Arc<(Mutex<OpState>, Condvar)>,
-}
-
-impl Drop for OpGuard {
-    fn drop(&mut self) {
-        let (lock, cvar) = &*self.state;
-        let mut state = lock.lock().unwrap_or_else(PoisonError::into_inner);
-        state.count -= 1;
-        cvar.notify_one();
-    }
 }
 
 /// Enter the gate for an engine operation, or fail with a descriptive error
@@ -251,9 +179,11 @@ struct MemoryClient {
 
 /// Grouped graph operations (``db.graph.*``): node/edge CRUD and traversals.
 ///
-/// Naming note: ``insert``/``get``/``delete`` are NODE-level ops (``id: u128``)
-/// in Python — unlike the memory-record semantics those names carry in the
-/// TS/WASM bindings (see BINDINGS_NAMESPACES.md naming hazard).
+/// Node CRUD uses the canonical cross-binding names ``insert_node``/
+/// ``get_node``/``delete_node`` (``id: u128``) — bare ``insert``/``get``/
+/// ``delete`` are gone from the client surface (W1/API-02). Memory records
+/// live at ``db.memory.get``/``db.memory.delete`` (namespace+key); see
+/// ``docs/api/BINDINGS_NAMESPACES.md`` § naming hazard.
 #[pyclass]
 struct GraphClient {
     /// Parent database handle every call is forwarded to.
@@ -361,6 +291,7 @@ forward_to_db!(MemoryClient {
     count,
     similar_to_key,
     search,
+    search_multi,
     search_vector,
     search_batch,
     search_batch_requests,
@@ -477,7 +408,7 @@ forward_to_db!(MemoryClient {
     ///     >>> page[0].key
     ///     'task-1'
     ///     ```
-    #[pyo3(signature = (namespace, filters=None, limit=100, cursor=None, exclude_superseded=false))]
+    #[pyo3(signature = (namespace, filters=None, limit=100, cursor=None, exclude_superseded=false, as_of_ms=None, valid_window=None, include_quarantined=false, min_confidence=None))]
     fn list(
         &self,
         py: Python,
@@ -486,12 +417,17 @@ forward_to_db!(MemoryClient {
         limit: usize,
         cursor: Option<usize>,
         exclude_superseded: bool,
+        as_of_ms: Option<u64>,
+        valid_window: Option<&Bound<'_, PyDict>>,
+        include_quarantined: bool,
+        min_confidence: Option<f32>,
     ) -> PyResult<VantaPyListResult> {
         let db = self.db.bind(py);
         let client = db.borrow();
         let _g = enter(&client.op_gate)?;
         let namespace = namespace.to_string();
         let filters_meta = py_dict_to_metadata(filters)?;
+        let valid_window = py_valid_window(valid_window)?;
         let engine = client.engine.clone();
         let page = py.detach(move || {
             engine
@@ -504,6 +440,12 @@ forward_to_db!(MemoryClient {
                         limit,
                         cursor,
                         exclude_superseded,
+                        // SCH-07: temporal + quarantine + confidence params
+                        // (ADR-046 §D2/§D3/§D5) — same wire names as the SDK.
+                        as_of_ms,
+                        valid_window,
+                        include_quarantined,
+                        min_confidence,
                     },
                 )
                 .map_err(map_vanta_error)
@@ -520,9 +462,12 @@ forward_to_db!(MemoryClient {
 });
 
 forward_to_db!(GraphClient {
-    insert,
-    get,
-    delete,
+    // W1/API-02: canonical node-level names (WASM `insert_node`/`get_node`/
+    // `delete_node`, TS `insertNode`/`getNode`/`deleteNode`). The former bare
+    // `insert`/`get`/`delete` flat methods were removed (breaking rename).
+    insert_node,
+    get_node,
+    delete_node,
     add_edge,
     graph_bfs,
     graph_bfs_filtered,
@@ -531,13 +476,6 @@ forward_to_db!(GraphClient {
     graph_is_dag,
     graph_page_rank,
     graph_degree_centrality
-    // AST-003 node parity aliases (WASM insert_node/get_node/delete_node,
-    // TS insertNode/getNode/deleteNode). Bare insert/get/delete stay
-    // canonical until the cleanup major.
-    ;
-    insert_node => insert,
-    get_node => get,
-    delete_node => delete,
 });
 
 forward_to_db!(SystemClient {
@@ -564,6 +502,72 @@ forward_to_db!(SystemClient {
 forward_to_db!(WikiClient {
     recover_archived_nodes
 });
+
+/// Parse one Python record object (dict) into a [`MemoryInput`].
+///
+/// W1/API-02 — the ``put_batch`` array-of-objects shape. Keys mirror the
+/// ``put()`` keyword arguments:
+///
+/// - ``key`` (required, non-empty string)
+/// - ``namespace`` (optional, defaults to ``"default"``)
+/// - ``payload`` (optional, defaults to ``""``)
+/// - ``metadata`` (optional dict; same scalar coercion as ``put()``)
+/// - ``vector`` (optional list of floats or NumPy array)
+/// - ``ttl_ms`` (optional int)
+/// - ``sparse_vector`` (optional dict of ``u32`` dim → weight)
+fn record_to_memory_input(py: Python<'_>, record: &Bound<'_, PyAny>) -> PyResult<MemoryInput> {
+    let dict = record.cast::<PyDict>().map_err(|_| {
+        PyTypeError::new_err(
+            "put_batch: each record must be a dict, e.g. \
+             {\"namespace\": \"ns\", \"key\": \"k\", \"payload\": \"p\"}",
+        )
+    })?;
+
+    let key: String = dict
+        .get_item("key")?
+        .ok_or_else(|| PyValueError::new_err("put_batch: record is missing required key 'key'"))?
+        .extract()?;
+
+    let namespace: String = match dict.get_item("namespace")? {
+        Some(v) if !v.is_none() => v.extract()?,
+        _ => "default".to_string(),
+    };
+    let payload: String = match dict.get_item("payload")? {
+        Some(v) if !v.is_none() => v.extract()?,
+        _ => String::new(),
+    };
+
+    let mut input = MemoryInput::new(namespace, key, payload);
+
+    if let Some(meta) = dict.get_item("metadata")? {
+        if !meta.is_none() {
+            let meta = meta
+                .cast::<PyDict>()
+                .map_err(|_| PyTypeError::new_err("put_batch: record 'metadata' must be a dict"))?;
+            input.metadata = py_dict_to_metadata(Some(meta))?;
+        }
+    }
+    if let Some(vec) = dict.get_item("vector")? {
+        if !vec.is_none() {
+            input.vector = Some(extract_vector(&vec, py)?);
+        }
+    }
+    if let Some(ttl) = dict.get_item("ttl_ms")? {
+        if !ttl.is_none() {
+            input.ttl_ms = Some(ttl.extract::<u64>()?);
+        }
+    }
+    if let Some(sparse) = dict.get_item("sparse_vector")? {
+        if !sparse.is_none() {
+            let sparse = sparse.cast::<PyDict>().map_err(|_| {
+                PyTypeError::new_err("put_batch: record 'sparse_vector' must be a dict")
+            })?;
+            input.sparse_vector = py_dict_to_sparse_vector(Some(sparse))?;
+        }
+    }
+
+    Ok(input)
+}
 
 #[pymethods]
 impl Client {
@@ -619,6 +623,8 @@ impl Client {
 
     /// Insert a node with content and an optional embedding vector.
     ///
+    /// Canonical name (W1/API-02): ``insert_node`` — same across WASM/TS/Node.
+    ///
     /// GIL Policy: RELEASED — allows Python threads to run during node insert.
     ///
     /// Args:
@@ -641,12 +647,12 @@ impl Client {
     ///     ```python
     ///     >>> from vantadb_py import Client
     ///     >>> db = Client(":memory:", backend="memory")
-    ///     >>> db.insert(1, "first node", [0.1, 0.2, 0.3], {"kind": "note"})
-    ///     >>> db.get(1)["fields"]["kind"]
+    ///     >>> db.insert_node(1, "first node", [0.1, 0.2, 0.3], {"kind": "note"})
+    ///     >>> db.get_node(1)["fields"]["kind"]
     ///     'note'
     ///     ```
     #[pyo3(signature = (id, content, vector, fields=None))]
-    fn insert(
+    fn insert_node(
         &self,
         py: Python,
         id: u128,
@@ -674,122 +680,41 @@ impl Client {
         Ok(())
     }
 
-    /// Insert or update multiple namespace-scoped records in parallel (batched).
+    /// Insert or update multiple namespace-scoped records from a list of dicts.
     ///
-    /// **Keyword-only API** — typed per-column arrays:
+    /// Canonical shape (W1/API-02): an **array of objects**, mirroring the WASM
+    /// `put_batch` / TS `putBatch` / Node `putBatch` wire shape. Each dict
+    /// mirrors the ``put()`` keyword arguments:
+    ///
     /// ```
-    /// db.put_batch(keys=["k1", "k2"], vectors=[[0.1]*384, [0.2]*384],
-    ///              payloads=["p1", "p2"], metadatas=[{"f": "v"}, None],
-    ///              namespace="ns", ttls=[None, 1000])
-    /// ```
-    /// A batch is single-namespace by default: every record goes to
-    /// ``namespace`` (or ``"default"`` when omitted). To route records of one
-    /// batch into different namespaces, pass the parallel per-record column
-    /// ``namespaces`` (length must equal ``keys``); it overrides
-    /// ``namespace`` for each record:
-    /// ```
-    /// db.put_batch(keys=["k1", "k2"], vectors=[[0.1]*384, [0.2]*384],
-    ///              namespaces=["ns1", "ns2"])
+    /// db.put_batch([
+    ///     {"namespace": "ns", "key": "k1", "payload": "p1",
+    ///      "metadata": {"f": "v"}, "vector": [0.1]*384, "ttl_ms": None},
+    ///     {"namespace": "ns", "key": "k2", "payload": "p2"},
+    /// ])
     /// ```
     ///
-    /// Returns a list of ``MemoryRecord`` objects, up to ~5x faster
-    /// than sequential ``put()`` for large batches.
+    /// ``key`` is required; ``namespace`` defaults to ``"default"``,
+    /// ``payload`` to ``""``, and ``metadata``/``vector``/``ttl_ms`` are
+    /// optional (same scalar coercion as ``put()`` via ``py_dict_to_metadata``).
+    /// Records of one batch may route into different namespaces by setting
+    /// each dict's ``namespace`` (ERR-030 routing, per record).
     ///
-    /// ``metadatas`` accepts the same scalar values as ``put()`` (str, int,
-    /// float, bool, datetime, list, or None) via ``py_dict_to_metadata``
-    /// (GOV-TK7) — e.g. ``metadatas=[{"chunk_index": 3}, None]``.
-    #[pyo3(signature = (keys, vectors, payloads=None, metadatas=None, namespace=None, namespaces=None, ttls=None))]
+    /// For zero-copy ingestion of a 2D NumPy vector matrix, use
+    /// ``put_batch_raw`` (PERF-15 buffer path, unchanged).
+    ///
+    /// Returns a list of ``MemoryRecord`` objects in input order.
+    #[pyo3(signature = (records))]
     fn put_batch(
         &self,
         py: Python,
-        keys: Vec<String>,
-        vectors: Vec<Vec<f32>>,
-        payloads: Option<Vec<String>>,
-        metadatas: Option<Vec<Option<Py<PyAny>>>>,
-        namespace: Option<String>,
-        namespaces: Option<Vec<String>>,
-        ttls: Option<Vec<Option<u64>>>,
+        records: Vec<Bound<'_, PyAny>>,
     ) -> PyResult<Vec<VantaPyMemoryRecord>> {
         let _g = enter(&self.op_gate)?;
 
-        let n = keys.len();
-        if vectors.len() != n {
-            return Err(PyValueError::new_err(format!(
-                "keys.len() ({}) must equal vectors.len() ({})",
-                n,
-                vectors.len()
-            )));
-        }
-        if let Some(ref p) = payloads {
-            if p.len() != n {
-                return Err(PyValueError::new_err(format!(
-                    "payloads.len() ({}) must equal keys.len() ({})",
-                    p.len(),
-                    n
-                )));
-            }
-        }
-        if let Some(ref m) = metadatas {
-            if m.len() != n {
-                return Err(PyValueError::new_err(format!(
-                    "metadatas.len() ({}) must equal keys.len() ({})",
-                    m.len(),
-                    n
-                )));
-            }
-        }
-        if let Some(ref t) = ttls {
-            if t.len() != n {
-                return Err(PyValueError::new_err(format!(
-                    "ttls.len() ({}) must equal keys.len() ({})",
-                    t.len(),
-                    n
-                )));
-            }
-        }
-        if let Some(ref nss) = namespaces {
-            if nss.len() != n {
-                return Err(PyValueError::new_err(format!(
-                    "namespaces.len() ({}) must equal keys.len() ({})",
-                    nss.len(),
-                    n
-                )));
-            }
-        }
-
-        let ns = namespace.unwrap_or_else(|| "default".to_string());
-        let mut inputs = Vec::with_capacity(n);
-        for i in 0..n {
-            let payload = match &payloads {
-                Some(p) => p[i].clone(),
-                None => String::new(),
-            };
-            // ERR-030: per-record namespace routing. A batch is single-namespace
-            // by default (`namespace`, falling back to "default"), but each
-            // record's intended namespace is honored when the parallel
-            // per-record `namespaces` column is supplied.
-            let ns_i = match &namespaces {
-                Some(nss) => nss[i].clone(),
-                None => ns.clone(),
-            };
-            let mut input = MemoryInput::new(ns_i, keys[i].clone(), payload);
-
-            if let Some(all_meta) = &metadatas {
-                if let Some(meta_obj) = &all_meta[i] {
-                    // GOV-TK7: same scalar coercion as put()/put_batch_raw —
-                    // str, int, float, bool, datetime, list, None via
-                    // py_dict_to_metadata (was: solo-str HashMap).
-                    let dict: &Bound<'_, PyDict> = meta_obj.bind(py).cast::<PyDict>()?;
-                    input.metadata = py_dict_to_metadata(Some(dict))?;
-                }
-            }
-
-            if let Some(ttl_list) = &ttls {
-                input.ttl_ms = ttl_list[i];
-            }
-
-            input.vector = Some(vectors[i].clone());
-            inputs.push(input);
+        let mut inputs = Vec::with_capacity(records.len());
+        for record in records {
+            inputs.push(record_to_memory_input(py, &record)?);
         }
 
         let engine = self.engine.clone();
@@ -986,6 +911,9 @@ impl Client {
     ///     vector: Optional embedding vector (list of floats or NumPy array).
     ///     ttl_ms: Optional time-to-live in milliseconds; the record expires
     ///         after this duration.
+    ///     sparse_vector: Optional dict of sparse term weights keyed by ``u32``
+    ///         dimension id (``{7: 1.5, 42: 0.75}``); participates in sparse-dot
+    ///         search alongside the dense vector. Empty/None skips sparse.
     ///
     /// Returns:
     ///     MemoryRecord: The stored record, exposing ``namespace``, ``key``,
@@ -1014,7 +942,7 @@ impl Client {
 
     // PyO3 keyword argument binding requires matching function parameters in Rust.
     #[allow(clippy::too_many_arguments)]
-    #[pyo3(signature = (namespace, key, payload, metadata=None, vector=None, ttl_ms=None))]
+    #[pyo3(signature = (namespace, key, payload, metadata=None, vector=None, ttl_ms=None, sparse_vector=None))]
     fn put(
         &self,
         py: Python,
@@ -1024,6 +952,7 @@ impl Client {
         metadata: Option<&Bound<'_, PyDict>>,
         vector: Option<&Bound<'_, PyAny>>,
         ttl_ms: Option<u64>,
+        sparse_vector: Option<&Bound<'_, PyDict>>,
     ) -> PyResult<VantaPyMemoryRecord> {
         let _g = enter(&self.op_gate)?;
         let mut input = MemoryInput::new(namespace, key, payload);
@@ -1036,6 +965,7 @@ impl Client {
             }
             None => None,
         };
+        input.sparse_vector = py_dict_to_sparse_vector(sparse_vector)?;
 
         let engine = self.engine.clone();
         // PERF-24: GIL RELEASED — pure Rust storage write + index update
@@ -1211,6 +1141,10 @@ impl Client {
     ///         ``"euclidean"``. Unknown values fall back to cosine with a warning.
     ///     explain: If True, include search explanation data on each hit
     ///         (default False).
+    ///     query_sparse: Optional dict of sparse query weights keyed by ``u32``
+    ///         dimension id (``{7: 1.5}``); fused with dense/text scores.
+    ///         Pass an empty ``query_vector`` with ``text_query`` for
+    ///         text-only (BM25) search.
     ///
     /// Returns:
     ///     list[SearchHit]: Search hits ordered by relevance, each exposing
@@ -1238,7 +1172,7 @@ impl Client {
     ///     True
     ///     ```
     // PyO3 keyword argument binding requires matching function parameters in Rust.
-    #[pyo3(signature = (namespace, query_vector, filters=None, text_query=None, top_k=10, distance_metric=None, method=None, explain=false, exclude_superseded=false))]
+    #[pyo3(signature = (namespace, query_vector, filters=None, text_query=None, top_k=10, distance_metric=None, method=None, explain=false, exclude_superseded=false, query_sparse=None, min_confidence=None, as_of_ms=None, valid_window=None, include_quarantined=false))]
     #[allow(clippy::too_many_arguments)]
     fn search(
         &self,
@@ -1252,6 +1186,11 @@ impl Client {
         method: Option<&str>,
         explain: bool,
         exclude_superseded: bool,
+        query_sparse: Option<&Bound<'_, PyDict>>,
+        min_confidence: Option<f32>,
+        as_of_ms: Option<u64>,
+        valid_window: Option<&Bound<'_, PyDict>>,
+        include_quarantined: bool,
     ) -> PyResult<Vec<VantaPySearchHit>> {
         let _g = enter(&self.op_gate)?;
         let metric = parse_distance_metric(distance_metric)?;
@@ -1260,14 +1199,26 @@ impl Client {
         let request = MemorySearchRequest {
             namespace: namespace.to_string(),
             query_vector: extract_vector(query_vector, py)?,
-            query_sparse: None,
+            query_sparse: py_dict_to_sparse_vector(query_sparse)?,
             filters: py_dict_to_metadata(filters)?,
             text_query,
             top_k: clamp_top_k(top_k),
             distance_metric: metric,
             explain,
             exclude_superseded,
+            // SCH-04: opt-in confidence filter (ADR-046 §D2). Range/finiteness
+            // validated at the core boundary (`SEARCH_OPTIONS_INVALID`).
+            min_confidence,
+            // SCH-07: temporal + quarantine query params (ADR-046 §D3/§D5) —
+            // same wire names as the SDK JSON shape.
+            as_of_ms,
+            valid_window: py_valid_window(valid_window)?,
+            include_quarantined,
             search_profile: None,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
         };
 
         let engine = self.engine.clone();
@@ -1279,6 +1230,113 @@ impl Client {
         })?;
 
         // Pure Rust struct wrapping — no Python objects created
+        hits.into_iter()
+            .map(|hit| {
+                Ok(VantaPySearchHit {
+                    inner: hit.record,
+                    score: hit.score,
+                })
+            })
+            .collect()
+    }
+
+    /// Hybrid memory search across multiple namespaces in a single call.
+    ///
+    /// Canonical W1/API-02 method (parity with WASM/TS `search_multi` and Node
+    /// `searchMulti`). Results from each namespace are searched independently,
+    /// merged by descending ``score`` and capped at ``top_k`` globally.
+    ///
+    /// GIL Policy: RELEASED — pure Rust distance computation + HNSW traversal.
+    ///
+    /// Args:
+    ///     namespaces: Namespaces to search independently (must be non-empty).
+    ///     query_vector: Query embedding vector.
+    ///     filters: Optional dict of metadata field values to filter on.
+    ///     text_query: Optional text query for hybrid search.
+    ///     top_k: Maximum number of merged hits (default 10).
+    ///     distance_metric: Optional ``"Cosine"`` | ``"Euclidean"``.
+    ///     explain: Include per-hit explanation metadata.
+    ///     exclude_superseded: Hide records marked as superseded (ADR-028).
+    ///     query_sparse: Optional dict of sparse query weights (``u32`` dim →
+    ///         weight); empty ``query_vector`` + ``text_query`` = text-only.
+    ///
+    /// Returns:
+    ///     list[SearchHit]: Hits ordered by descending relevance score.
+    ///
+    /// Raises:
+    ///     ValueError: If ``namespaces`` is empty, a namespace is invalid, or
+    ///         the request fails engine validation.
+    ///     RuntimeError: For any other engine-level failure.
+    ///
+    /// Example:
+    ///     ```python
+    ///     >>> from vantadb_py import Client
+    ///     >>> db = Client(":memory:", backend="memory")
+    ///     >>> db.put("docs", "a", "alpha", vector=[1.0, 0.0, 0.0])
+    ///     >>> db.put("kb", "b", "beta", vector=[1.0, 0.0, 0.0])
+    ///     >>> hits = db.search_multi(["docs", "kb"], [1.0, 0.0, 0.0], top_k=5)
+    ///     >>> len(hits) >= 1
+    ///     True
+    ///     ```
+    #[pyo3(signature = (namespaces, query_vector, filters=None, text_query=None, top_k=10, distance_metric=None, explain=false, exclude_superseded=false, query_sparse=None, min_confidence=None, as_of_ms=None, valid_window=None, include_quarantined=false))]
+    #[allow(clippy::too_many_arguments)]
+    fn search_multi(
+        &self,
+        py: Python,
+        namespaces: Vec<String>,
+        query_vector: &Bound<'_, PyAny>,
+        filters: Option<&Bound<'_, PyDict>>,
+        text_query: Option<String>,
+        top_k: usize,
+        distance_metric: Option<&str>,
+        explain: bool,
+        exclude_superseded: bool,
+        query_sparse: Option<&Bound<'_, PyDict>>,
+        min_confidence: Option<f32>,
+        as_of_ms: Option<u64>,
+        valid_window: Option<&Bound<'_, PyDict>>,
+        include_quarantined: bool,
+    ) -> PyResult<Vec<VantaPySearchHit>> {
+        let _g = enter(&self.op_gate)?;
+        if namespaces.is_empty() {
+            return Err(PyValueError::new_err(
+                "search_multi: namespaces must be a non-empty list",
+            ));
+        }
+        let metric = parse_distance_metric(distance_metric)?;
+
+        let request = MemorySearchRequest {
+            // Routed via `namespaces`; the core validates each entry.
+            namespace: String::new(),
+            query_vector: extract_vector(query_vector, py)?,
+            query_sparse: py_dict_to_sparse_vector(query_sparse)?,
+            filters: py_dict_to_metadata(filters)?,
+            text_query,
+            top_k: clamp_top_k(top_k),
+            distance_metric: metric,
+            explain,
+            exclude_superseded,
+            // SCH-04: opt-in confidence filter (ADR-046 §D2).
+            min_confidence,
+            // SCH-07: temporal + quarantine query params (same wire names).
+            as_of_ms,
+            valid_window: py_valid_window(valid_window)?,
+            include_quarantined,
+            search_profile: None,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
+        };
+
+        let engine = self.engine.clone();
+        let hits = py.detach(move || {
+            let ns_refs: Vec<&str> = namespaces.iter().map(String::as_str).collect();
+            engine
+                .search_multi(&ns_refs, request)
+                .map_err(map_vanta_error)
+        })?;
+
         hits.into_iter()
             .map(|hit| {
                 Ok(VantaPySearchHit {
@@ -1464,7 +1522,8 @@ impl Client {
         let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         let path = path.to_string();
-        let report = py.detach(move || engine.import_file(&path).map_err(map_vanta_error))?;
+        let report =
+            py.detach(move || engine.import_file(&path, false).map_err(map_vanta_error))?;
         import_report_to_pydict(py, &report)
     }
 
@@ -1559,8 +1618,11 @@ impl Client {
 
     /// Retrieve a node by ID. Returns a dict or None.
     ///
+    /// Canonical name (W1/API-02): ``get_node`` — memory records are
+    /// ``db.memory.get`` (namespace+key).
+    ///
     /// GIL Policy: RELEASED — allows Python threads to run during database retrieval.
-    fn get(&self, py: Python, id: u128) -> PyResult<Option<Py<PyAny>>> {
+    fn get_node(&self, py: Python, id: u128) -> PyResult<Option<Py<PyAny>>> {
         let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         let node = py.detach(move || engine.get_node(id).map_err(map_vanta_error))?;
@@ -1572,9 +1634,12 @@ impl Client {
 
     /// Delete a node by ID with an auditable reason (tombstone).
     ///
+    /// Canonical name (W1/API-02): ``delete_node`` — memory records are
+    /// ``db.memory.delete`` (namespace+key).
+    ///
     /// GIL Policy: RELEASED — allows Python threads to run during node deletion.
     #[pyo3(signature = (id, reason="manual deletion"))]
-    fn delete(&self, py: Python, id: u128, reason: &str) -> PyResult<()> {
+    fn delete_node(&self, py: Python, id: u128, reason: &str) -> PyResult<()> {
         let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         let reason_str = reason.to_string();
@@ -2163,7 +2228,7 @@ impl Client {
     /// breakdown of the search route, fusion, and per-hit explanation.
     // PyO3 keyword argument binding requires matching function parameters in Rust.
     #[allow(clippy::too_many_arguments)]
-    #[pyo3(signature = (namespace, query_vector, filters=None, text_query=None, top_k=10, distance_metric=None))]
+    #[pyo3(signature = (namespace, query_vector, filters=None, text_query=None, top_k=10, distance_metric=None, query_sparse=None))]
     fn explain_memory_search(
         &self,
         py: Python,
@@ -2173,20 +2238,31 @@ impl Client {
         text_query: Option<String>,
         top_k: usize,
         distance_metric: Option<&str>,
+        query_sparse: Option<&Bound<'_, PyDict>>,
     ) -> PyResult<Py<PyAny>> {
         let metric = parse_distance_metric(distance_metric)?;
 
         let request = MemorySearchRequest {
             namespace: namespace.to_string(),
             query_vector: extract_vector(query_vector, py)?,
-            query_sparse: None,
+            query_sparse: py_dict_to_sparse_vector(query_sparse)?,
             filters: py_dict_to_metadata(filters)?,
             text_query,
             top_k: clamp_top_k(top_k),
             distance_metric: metric,
             explain: true,
             exclude_superseded: false,
+            // SCH-03 temporal params + SCH-04 filter: not exposed on the
+            // explain path (parity with `exclude_superseded`) — placeholders.
+            min_confidence: None,
+            as_of_ms: None,
+            valid_window: None,
+            include_quarantined: false,
             search_profile: None,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
         };
 
         let _g = enter(&self.op_gate)?;
@@ -2295,6 +2371,18 @@ impl Client {
             None => Default::default(),
         };
 
+        let query_sparse = match Self::request_field(obj, "query_sparse")? {
+            Some(v) => {
+                let dict = v.cast::<PyDict>().map_err(|_| {
+                    PyTypeError::new_err(
+                        "search request 'query_sparse' must be a dict of dimension→weight",
+                    )
+                })?;
+                py_dict_to_sparse_vector(Some(dict))?
+            }
+            None => None,
+        };
+
         let text_query: Option<String> = match Self::request_field(obj, "text_query")? {
             Some(v) => Some(v.extract()?),
             None => None,
@@ -2328,14 +2416,24 @@ impl Client {
             MemorySearchRequest {
                 namespace,
                 query_vector,
-                query_sparse: None,
+                query_sparse,
                 filters,
                 text_query,
                 top_k,
                 distance_metric,
                 explain,
                 exclude_superseded: false,
+                // SCH-03 temporal params + SCH-04 filter: batch request objects
+                // do not carry them yet (parity with `exclude_superseded`).
+                min_confidence: None,
+                as_of_ms: None,
+                valid_window: None,
+                include_quarantined: false,
                 search_profile: None,
+                range: None,
+                group_by: None,
+                mmr: None,
+                cursor: None,
             },
             method,
         ))
@@ -2358,6 +2456,27 @@ fn parse_search_method(value: Option<&str>) -> PyResult<Option<IndexType>> {
             "Unknown search method \"{other}\" — known values: ivf, scann, hnsw, flat"
         ))),
     }
+}
+
+/// SCH-07: parse the Python `valid_window` dict (`{"from_ms": int, "to_ms": int}`)
+/// into the core [`ValidWindow`] — same wire names as the SDK/JSON shape
+/// (ADR-046 §D3). Shape/type errors raise `ValueError`; the semantic boundary
+/// (`from_ms < to_ms`) is validated by the core boundary.
+fn py_valid_window(value: Option<&Bound<'_, PyDict>>) -> PyResult<Option<ValidWindow>> {
+    let Some(dict) = value else { return Ok(None) };
+    let from_ms = dict
+        .get_item("from_ms")?
+        .ok_or_else(|| PyValueError::new_err("valid_window requires 'from_ms'"))?
+        .extract::<u64>()
+        .map_err(|_| {
+            PyValueError::new_err("valid_window.from_ms must be a non-negative integer")
+        })?;
+    let to_ms = dict
+        .get_item("to_ms")?
+        .ok_or_else(|| PyValueError::new_err("valid_window requires 'to_ms'"))?
+        .extract::<u64>()
+        .map_err(|_| PyValueError::new_err("valid_window.to_ms must be a non-negative integer"))?;
+    Ok(Some(ValidWindow { from_ms, to_ms }))
 }
 
 /// Connect to a VantaDB database.

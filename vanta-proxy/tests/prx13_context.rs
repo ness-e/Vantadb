@@ -268,6 +268,8 @@ fn state_with_context(upstream: &str, context: ContextConfig) -> server::AppStat
         context,
         guardrails: Default::default(),
         translate: Default::default(),
+        injection: Default::default(),
+        envelope: Default::default(),
     };
     server::AppState::from_engine(cfg, seeded_engine()).unwrap()
 }

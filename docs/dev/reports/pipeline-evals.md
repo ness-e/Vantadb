@@ -1,11 +1,8 @@
 ---
-title: "Pipeline Evaluation Report"
-type: report
+title: Pipeline Evaluation Report
+kind: report
 status: active
 tags: [vantadb, reports, pipeline-evals, evaluation]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Pipeline Evaluation Report

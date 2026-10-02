@@ -1,3 +1,9 @@
+---
+title: "FND-22: Guía de contribución + triage de issues (P20d, prio 🟡)"
+kind: task
+description: "CONTRIBUTING.md existe en raíz con: setup, conventional commits, flujo release (release-plz, no tocar versiones), gates (just verify); guía de triage con clasificación + derivación por dominio.\""
+---
+
 # FND-22: Guía de contribución + triage de issues (P20d, prio 🟡)
 
 ## Metadata

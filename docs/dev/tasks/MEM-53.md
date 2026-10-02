@@ -1,3 +1,9 @@
+---
+title: "MEM-53: Desktop IPC commands para pipeline vanta-memory (H4)"
+kind: task
+description: Archivos leídos completos
+---
+
 # MEM-53: Desktop IPC commands para pipeline vanta-memory (H4)
 
 ## Metadata

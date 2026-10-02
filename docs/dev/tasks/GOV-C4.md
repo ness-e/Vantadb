@@ -1,6 +1,11 @@
+---
+title: Task GOV-C4 — Regeneración master-index taxonomía (operations/master-index)
+kind: task
+---
+
 # Task GOV-C4 — Regeneración master-index taxonomía (operations/master-index)
 
-## Estado: ✅ COMPLETED
+- Estado: ✅ COMPLETED
 
 ## Steps
 - ✅ S1: Inventario docs/dev/master-index.md (217L, last_reviewed 2026-09-02, AUD-007 0 rotas) + docs/user/operations/master-index.md (57L, last_reviewed 2026-08-29 gap)

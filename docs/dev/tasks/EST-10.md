@@ -1,3 +1,9 @@
+---
+title: "EST-10: Barrido API stale fuera de CI (~35 archivos → ~55 reales)"
+kind: task
+description: "Migrar las referencias a la API Python pre-0.5.0 en superficies vivas (docs de usuario, READMEs, benches no-CI, scripts, skills, docs de estrategia) a la API canónica actual"
+---
+
 # EST-10: Barrido API stale fuera de CI (~35 archivos → ~55 reales)
 
 ## Metadata

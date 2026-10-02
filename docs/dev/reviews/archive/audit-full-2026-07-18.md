@@ -1,11 +1,9 @@
 ---
 title: "Audit Report: full"
-type: review
+kind: review
 status: archived
+description: "Date: 2026-07-18T17:19:45-04:00"
 tags: [vantadb, review]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Audit Report: full

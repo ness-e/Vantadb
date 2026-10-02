@@ -1,15 +1,18 @@
 ---
-title: "Failpoints"
-type: glossary-entry
+title: Failpoints
+kind: glossary
 status: stable
-tags: [testing, fault-injection, debugging]
-last_reviewed: 2026-09-15
-links: "[[README.md]]"
+description: "Failpoints are error injection points inserted in the code that allow specific failures (I/O errors, timeouts, corruption) to be simulated in a controlled way during testing, validating error handling without the need for real failures"
 aliases: [Failpoint Injection, Error Injection]
+tags: [testing, fault-injection, debugging]
+type: glossary-entry
+last_reviewed: "2026-09-15"
+links: "[[README.md]]"
 ---
+
 # Failpoints
 
-##Definition
+## Definition
 
 **Failpoints** are **error injection points** inserted in the code that allow specific failures (I/O errors, timeouts, corruption) to be simulated in a controlled way during testing, validating error handling without the need for real failures.
 
@@ -44,7 +47,7 @@ fn test_disk_error_handling() {
     // Activar failpoint
     fail::cfg("disk_write_error", "return").unwrap();
     
-    // Ejecutar código que usa failpoint
+    // Ejecutar c├│digo que usa failpoint
     let result = db.put("key", &vec![1.0; 128], "test");
     
     // Verificar manejo de error
@@ -58,7 +61,7 @@ fn test_disk_error_handling() {
 
 ## Types of Failpoints
 
-| Tipo | Descripción | Ejemplo |
+| Tipo | Descripci├│n | Ejemplo |
 |------|-------------|---------|
 | **return** | Retornar error inmediatamente | `fail_point!("name", \|_\| Err(...))` |
 | **delay** | Introducir latencia | `fail_point!("name", \|_\| sleep(Duration::from_secs(5)))` |
@@ -109,28 +112,28 @@ fn test_wal_fsync_failure() {
 
 ## Advantages of Failpoints
 
-| Ventaja | Descripción |
+| Ventaja | Descripci├│n |
 |---------|-------------|
 | **Determinismo** | Fallos reproducibles en tests |
 | **Cobertura** | Validar paths de error raros |
-| **Seguridad** | Sin riesgo de daño real |
-| **Velocidad** | Más rápido que chaos testing real |
+| **Seguridad** | Sin riesgo de da├▒o real |
+| **Velocidad** | M├ís r├ípido que chaos testing real |
 
 ## Comparison: Failpoints vs Chaos Testing
 
-| Dimensión | Failpoints | Chaos Testing |
+| Dimensi├│n | Failpoints | Chaos Testing |
 |-----------|-----------|---------------|
-| **Granularidad** | Línea de código | Sistema completo |
+| **Granularidad** | L├¡nea de c├│digo | Sistema completo |
 | **Determinismo** | 100% | Variable |
-| **Setup** | Bajo (código) | Alto (infraestructura) |
+| **Setup** | Bajo (c├│digo) | Alto (infraestructura) |
 | **Realismo** | Simulado | Real |
 | **Caso de uso** | Unit tests | Integration tests |
 
 ## See Also
 
-- [[chaos-testing]] — System-level fault testing
-- [[wal]] — Primary failpoint user
-- [[ci-cd]] — Failpoints in automated tests
+- [chaos-testing](./chaos-testing.md) ΓÇö System-level fault testing
+- [wal](./wal.md) ΓÇö Primary failpoint user
+- [ci-cd](./ci-cd.md) ΓÇö Failpoints in automated tests
 
 ---
 

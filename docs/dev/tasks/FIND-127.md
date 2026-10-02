@@ -1,3 +1,9 @@
+---
+title: FIND-127 — triage infra CI + Dependabot
+kind: task
+description: "Objetivo: triage infra CI + Dependabot del PR #182 para que el PR pueda ponerse verde"
+---
+
 # FIND-127 — triage infra CI + Dependabot
 
 > **Plan:** `docs/dev/plans/2026-09-19-ci-green.md` · **Wave2 última** · **Ruta:** vanta-lead
@@ -165,9 +171,7 @@ rustc/docker/codeql/vercel/triage) devolvió base+lifecycle (sin keyword-mapped)
 
 Comandos owner (orden): `gh pr review 180 --approve && gh pr merge 180 --squash`
 (está BLOCKED: requiere review + CI); luego familia rutina (patch/minor, EXCLUIR #174 toml
-0.9→1.1 y #175 rocksdb 0.24→0.25 — nativos/majors fuera de este triage): #183 rust-patch,
-#162/#163/#164 actions+tools, #165/#168 codeql, #166/#167/#169/#170/#171 web minors,
-#173 smallvec, #176 tower-http, #177 tokenizers, #178 mach2, #179 rcgen.
+0.9→1.1 y #175 rocksdb 0.24→0.25 — nativos/majors fuera de este triage): #183 rust-patch, # 162/#163/#164 actions+tools, #165/#168 codeql, #166/#167/#169/#170/#171 web minors, # 173 smallvec, #176 tower-http, #177 tokenizers, #178 mach2, #179 rcgen.
 
 ### ACEPTAR-RIESGO (motivo escrito por CVE; review al renovar la herramienta madre)
 

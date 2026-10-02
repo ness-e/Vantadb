@@ -8,8 +8,8 @@ Insert(
         node_id: 101,
         node_type: "Usuario",
         fields: {
-            "edad": Float(
-                28.0,
+            "edad": Int(
+                28,
             ),
             "nombre": String(
                 "Eros",

@@ -1,11 +1,10 @@
 ---
 title: "WASM Standalone Console (Vanta Studio — mode `wasm`)"
-type: api
+kind: reference
 status: active
-tags: [vantadb, api, wasm, standalone-console]
-last_reviewed: 2026-09-15
+description: "The Vanta Studio console can run 100% in the browser with no server: the"
 aliases: [WASM]
-related: []
+tags: [vantadb, api, wasm, standalone-console]
 ---
 
 # WASM Standalone Console (Vanta Studio — mode `wasm`)

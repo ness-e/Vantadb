@@ -1,4 +1,16 @@
+---
+title: "FND-02: Regla de coordinación multi-índice + auditoría de deadlocks y contención"
+kind: research
+status: archived
+description: "Estado: ✅ Resuelto (fixes aplicados + tests + regla normativa)"
+---
+
 # FND-02: Regla de coordinación multi-índice + auditoría de deadlocks y contención
+
+> ⚠️ **STALE.** La mención a `VantaError::Timeout` es una observación de la
+> investigación. La variante real es `vantadb::Error::Timeout { operation,
+> duration_ms }` (`src/error.rs`) → `TimeoutError` en Python. Ver
+> `docs/api/ERROR_HANDLING.md` §5.
 
 **Estado:** ✅ Resuelto (fixes aplicados + tests + regla normativa)
 **Fecha:** 2026-08-16

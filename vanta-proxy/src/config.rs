@@ -53,6 +53,12 @@ pub struct ProxyConfig {
     /// Anthropic↔OpenAI translation (PRX-11 slice 3). Disabled by default
     /// so the wire stays byte-identical unless explicitly opted in.
     pub translate: crate::translate::TranslateConfig,
+    /// Memory-block injection budget (WIRE-01). Caps `<vanta-memory>` tokens;
+    /// defaults keep existing behavior (seeds are tiny against the default).
+    pub injection: InjectionConfig,
+    /// Per-namespace AEAD envelope for captured originals (VER-03). Disabled
+    /// by default: the redacted text is the only copy unless opted in.
+    pub envelope: crate::envelope::EnvelopeConfig,
 }
 
 impl ProxyConfig {
@@ -71,6 +77,48 @@ impl ProxyConfig {
             vec![self.upstream.clone()]
         } else {
             self.upstreams.clone()
+        }
+    }
+}
+
+/// Default `<vanta-memory>` budget in tokens (WIRE-01): persona + scene +
+/// a few recent turns fit comfortably; runaway histories get truncated by
+/// section priority instead of growing the prompt unbounded.
+pub const DEFAULT_INJECTION_MAX_TOKENS: u64 = 2000;
+
+/// VER-04: injection-audit rotation defaults (mirror the core audit config).
+pub const DEFAULT_INJECTION_AUDIT_MAX_BYTES: u64 = 10 * 1024 * 1024;
+/// VER-04: max rotated injection-audit archives kept.
+pub const DEFAULT_INJECTION_AUDIT_MAX_FILES: u32 = 5;
+
+/// Memory-block injection budget (WIRE-01). Caps the `<vanta-memory>` system
+/// prompt block via the canonical `estimate_text_tokens` heuristic (~4
+/// chars/token — guardrail precision, not billing). `0` disables memory
+/// injection entirely (empty block → prompt untouched).
+///
+/// VER-04 adds the two governance knobs (both opt-in; defaults keep the wire
+/// byte-identical):
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
+pub struct InjectionConfig {
+    /// Max tokens for the assembled block (wrapper tags included).
+    pub max_tokens: u64,
+    /// Injection ACL (VER-04): namespace prefixes the block may read from
+    /// (`persona/`, `scene/`, `l1/`, ...). Empty = allow-all (default);
+    /// namespaces not matched are skipped and recorded in the audit.
+    pub namespace_allow_prefixes: Vec<String>,
+    /// Injection audit (VER-04): JSONL path for `injection` events (which
+    /// memory fed which prompt, under which budget/ACL decision). Empty =
+    /// disabled. Append-only + rotated by the core `AuditLogger`.
+    pub audit_log_path: String,
+}
+
+impl Default for InjectionConfig {
+    fn default() -> Self {
+        Self {
+            max_tokens: DEFAULT_INJECTION_MAX_TOKENS,
+            namespace_allow_prefixes: Vec::new(),
+            audit_log_path: String::new(),
         }
     }
 }
@@ -113,7 +161,10 @@ pub struct CacheConfig {
     /// Max entries held (oldest-first eviction past the cap; lookups refresh
     /// recency, so hot entries survive).
     pub max_entries: usize,
-    /// Per-entry TTL in seconds (slice 2). 0 = entries never expire.
+    /// Per-entry TTL in seconds (slice 2). Caching is active only when
+    /// `enabled` AND `ttl_secs > 0`; 0 (default) means no TTL configured →
+    /// cache disabled (API-05 X5 — the old "0 = never expires" convention
+    /// was inverted).
     pub ttl_secs: u64,
     /// Similarity hits on near-duplicate prompts (slice 2). Off by default.
     pub semantic_enabled: bool,
@@ -189,7 +240,9 @@ impl Default for CostConfig {
 pub struct ServerConfig {
     pub host: String,
     pub port: u16,
-    /// Rate-limits placeholder (implemented in MEM-27); parsed but unused here.
+    /// Rate-limits per minute per `space_id`×model. Enforced in ONE place:
+    /// the in-process sliding window in `server.rs` (`process_inner` step 2);
+    /// `/snapshot` only reports its telemetry.
     pub rate_limit_per_minute: u32,
 }
 
@@ -201,6 +254,63 @@ impl Default for ServerConfig {
             rate_limit_per_minute: 60,
         }
     }
+}
+
+impl ProxyConfig {
+    /// Refuse-to-start gate (WIRE-09, FIND-07 parity with the main server's
+    /// `validate_auth_config`; API-05: auth now covers every route).
+    ///
+    /// 1. Every resolved upstream needs an explicit URL — the legacy code
+    ///    default self-forwarded into this proxy (X4), so an empty URL
+    ///    refuses with an actionable message instead of a silent loop.
+    /// 2. Trust boundary: binding a non-loopback host with zero provisioned
+    ///    user keys is refused — since API-05 `/snapshot` (like every route)
+    ///    requires a valid `x-vanta-user-key`, a keyless non-loopback bind
+    ///    could not serve anyone. Loopback binds remain the documented
+    ///    local-dev exception. Deliberately no `--allow-insecure` override:
+    ///    both remedies already exist, so no new config surface is needed.
+    ///
+    /// `pub(crate)` — startup wiring only, not public API (zero new symbols).
+    pub(crate) fn validate_startup(&self, provisioned_user_keys: usize) -> Result<(), ProxyError> {
+        if self
+            .upstreams_resolved()
+            .iter()
+            .any(|upstream| upstream.url.trim().is_empty())
+        {
+            return Err(ProxyError::Config(
+                "upstream.url is empty — set [upstream].url in config.toml \
+                 (e.g. https://api.anthropic.com); no default is applied because \
+                 the legacy default self-forwarded into this proxy"
+                    .to_string(),
+            ));
+        }
+        if provisioned_user_keys == 0 && !is_loopback_host(&self.server.host) {
+            return Err(ProxyError::Config(format!(
+                "refusing to start: non-loopback bind '{}' with no provisioned user keys — \
+                 every route (including GET /snapshot) requires a valid user key, so this \
+                 proxy could not serve anyone. Fix either way: (1) provision at least one \
+                 `user` entity with a `user_key` in the auth store at '{}', or (2) bind a \
+                 loopback host (127.0.0.1/localhost/::1)",
+                self.server.host, self.auth.db_path
+            )));
+        }
+        Ok(())
+    }
+}
+
+/// Whether `host` binds only the loopback interface (`127.0.0.0/8`,
+/// `::1`, or the literal name `localhost`). Unresolvable hostnames are
+/// treated as non-loopback (fail closed). Copy of the FIND-07 helper in
+/// `vantadb::server::bootstrap` (kept local: no shared util crate exists;
+/// see WIRE-07 `ffi-core` plans).
+fn is_loopback_host(host: &str) -> bool {
+    let h = host.trim();
+    let h = h.strip_prefix('[').unwrap_or(h);
+    let h = h.strip_suffix(']').unwrap_or(h);
+    h.eq_ignore_ascii_case("localhost")
+        || h.parse::<std::net::IpAddr>()
+            .map(|ip| ip.is_loopback())
+            .unwrap_or(false)
 }
 
 /// Local auth/session store settings (D25: RBAC local entity_*, no remote gateway).
@@ -269,7 +379,10 @@ fn split_host_port(url: &str) -> Option<(String, u16)> {
 impl Default for UpstreamConfig {
     fn default() -> Self {
         Self {
-            url: "http://127.0.0.1:8096".to_string(),
+            // API-05 (X4): empty by default — `validate_startup` refuses to
+            // start without an explicit URL. The old default
+            // (`http://127.0.0.1:8096`) self-forwarded into this proxy.
+            url: String::new(),
             api_key: String::new(),
             forward_timeout_secs: DEFAULT_FORWARD_TIMEOUT_SECS,
             models: Vec::new(),
@@ -282,9 +395,21 @@ mod tests {
     use super::*;
 
     #[test]
-    fn default_upstream_points_at_default_port() {
-        // PRX-08 S2 RED: the shipped default IS a self-loop.
+    fn default_upstream_is_empty_not_a_self_loop() {
+        // API-05 (X4): the old default self-forwarded into this proxy; the
+        // new default forces an explicit URL (`validate_startup` refuses
+        // empty), so the shipped default can never loop.
         let cfg = UpstreamConfig::default();
+        assert!(cfg.url.is_empty(), "default upstream URL must be empty");
+        assert!(!cfg.points_at_self(DEFAULT_PORT));
+    }
+
+    #[test]
+    fn explicit_self_loop_url_is_still_detected() {
+        let cfg = UpstreamConfig {
+            url: "http://127.0.0.1:8096".to_string(),
+            ..UpstreamConfig::default()
+        };
         assert!(cfg.points_at_self(DEFAULT_PORT));
         assert!(cfg.points_at_self(8096));
     }
@@ -395,5 +520,80 @@ mod tests {
         let list = cfg.upstreams_resolved();
         assert_eq!(list.len(), 2);
         assert_eq!(list[1].api_key, "b");
+    }
+
+    // ─── WIRE-09: refuse-to-start (FIND-07 parity) ──────────────
+    // RED: `validate_startup` does not exist yet — these fail to compile
+    // pre-fix; post-fix they pin the gate. Contract: non-loopback bind
+    // without provisioned user keys refuses; loopback or ≥1 key starts.
+
+    fn proxy_cfg_with_host(host: &str) -> ProxyConfig {
+        ProxyConfig {
+            server: ServerConfig {
+                host: host.into(),
+                ..ServerConfig::default()
+            },
+            // API-05: explicit upstream so the empty-URL refusal stays quiet.
+            upstream: UpstreamConfig {
+                url: "https://api.example.com".to_string(),
+                ..UpstreamConfig::default()
+            },
+            ..ProxyConfig::default()
+        }
+    }
+
+    #[test]
+    fn refuse_start_empty_upstream_url() {
+        // API-05 (X4): no default upstream — empty URL refuses with an
+        // actionable message instead of a silent self-loop.
+        let mut cfg = proxy_cfg_with_host("127.0.0.1");
+        cfg.upstream.url = String::new();
+        let err = cfg.validate_startup(0).unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("upstream.url is empty"),
+            "message must name the missing upstream, got: {msg}"
+        );
+    }
+
+    #[test]
+    fn refuse_start_empty_upstream_in_failover_list() {
+        // The failover list is checked too (it replaces `upstream` when set).
+        let mut cfg = proxy_cfg_with_host("127.0.0.1");
+        cfg.upstreams = vec![UpstreamConfig {
+            url: "  ".to_string(),
+            ..UpstreamConfig::default()
+        }];
+        assert!(cfg.validate_startup(0).is_err());
+    }
+
+    #[test]
+    fn refuse_start_non_loopback_without_keys() {
+        for host in ["0.0.0.0", "192.168.1.10", "example.com", "::"] {
+            let cfg = proxy_cfg_with_host(host);
+            let err = cfg.validate_startup(0).unwrap_err();
+            let msg = err.to_string();
+            assert!(
+                msg.contains("refusing to start") && msg.contains("user_key"),
+                "host {host}: message must name the refusal + remedy, got: {msg}"
+            );
+        }
+    }
+
+    #[test]
+    fn refuse_start_loopback_without_keys_ok() {
+        for host in ["127.0.0.1", "localhost", "::1", "[::1]"] {
+            let cfg = proxy_cfg_with_host(host);
+            assert!(
+                cfg.validate_startup(0).is_ok(),
+                "loopback host {host} must start without keys"
+            );
+        }
+    }
+
+    #[test]
+    fn refuse_start_non_loopback_with_keys_ok() {
+        let cfg = proxy_cfg_with_host("0.0.0.0");
+        assert!(cfg.validate_startup(1).is_ok());
     }
 }

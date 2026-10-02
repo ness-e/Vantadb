@@ -1,3 +1,9 @@
+---
+title: STABLE-06 — gate npm TS como Fast Gate
+kind: task
+description: "npm ci && npm run build && npx vitest run verde + npx eslint . 0 + npm pack incluye engines + tiempo medido en CI limpio (<5 min o justificado como Heavy con evidencia)"
+---
+
 # STABLE-06 — gate npm TS como Fast Gate
 
 ## Metadata

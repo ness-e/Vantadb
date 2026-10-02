@@ -1,11 +1,9 @@
 ---
 title: "`release-adapters.yml` — RELEASE: Adapters — PyPI Publish"
-type: workflow
+kind: runbook
 status: active
+description: "Publica en PyPI los adapters de integración de VantaDB con frameworks de IA (LangChain, LlamaIndex, Mem0, CrewAI, DSPy, Haystack, Letta, OpenAI, Ollama). Corre sus tests y luego pública los wheels"
 tags: [vantadb, ci, release-adapters]
-last_reviewed: 2026-09-15
-aliases: []
-related: [".github/workflows/release-adapters.yml"]
 ---
 
 # `release-adapters.yml` — RELEASE: Adapters — PyPI Publish

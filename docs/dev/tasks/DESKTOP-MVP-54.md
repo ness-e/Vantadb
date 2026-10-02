@@ -1,3 +1,9 @@
+---
+title: "DESKTOP-MVP-54 — Save Point (Task 54, Fase 8, ÚLTIMA del plan)"
+kind: task
+description: cargo check src-tauri pasa. Workspace raíz cargo check --workspace pasa SIN cambios (src-tauri no es member)
+---
+
 # DESKTOP-MVP-54 — Save Point (Task 54, Fase 8, ÚLTIMA del plan)
 
 - **Plan:** `docs/dev/plans/2026-08-05-backlog-validation-actions.md` → Task 54 (DESKTOP-02..26, MVP recortado)

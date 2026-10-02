@@ -70,6 +70,10 @@ fn search_keys_with_filters(
         filters: filters.unwrap_or_default(),
         text_query: text_query.map(str::to_string),
         top_k,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
         ..Default::default()
     })
     .expect("search cert corpus")

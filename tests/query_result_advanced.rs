@@ -30,6 +30,14 @@ fn search_request_with_profile_hybrid_snapshot() {
             rrf_k: Some(60),
             candidate_k: Some(100),
         }),
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
+        as_of_ms: None,
+        valid_window: None,
+        include_quarantined: false,
+        min_confidence: None,
     };
     assert_debug_snapshot!("search_request_with_profile_hybrid", req);
 }
@@ -51,6 +59,14 @@ fn search_request_with_profile_keyword_snapshot() {
             rrf_k: None,
             candidate_k: None,
         }),
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
+        as_of_ms: None,
+        valid_window: None,
+        include_quarantined: false,
+        min_confidence: None,
     };
     assert_debug_snapshot!("search_request_with_profile_keyword", req);
 }
@@ -72,6 +88,14 @@ fn search_request_with_profile_vector_snapshot() {
             rrf_k: None,
             candidate_k: Some(200),
         }),
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
+        as_of_ms: None,
+        valid_window: None,
+        include_quarantined: false,
+        min_confidence: None,
     };
     assert_debug_snapshot!("search_request_with_profile_vector", req);
 }
@@ -92,6 +116,14 @@ fn search_request_exclude_superseded_snapshot() {
         explain: false,
         exclude_superseded: true,
         search_profile: None,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
+        as_of_ms: None,
+        valid_window: None,
+        include_quarantined: false,
+        min_confidence: None,
     };
     assert_debug_snapshot!("search_request_exclude_superseded", req);
 }
@@ -114,6 +146,14 @@ fn search_request_sparse_vector_snapshot() {
         explain: false,
         exclude_superseded: false,
         search_profile: None,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
+        as_of_ms: None,
+        valid_window: None,
+        include_quarantined: false,
+        min_confidence: None,
     };
     assert_debug_snapshot!("search_request_sparse_vector", req);
 }
@@ -143,6 +183,14 @@ fn search_request_full_complex_snapshot() {
             rrf_k: Some(100),
             candidate_k: Some(500),
         }),
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
+        as_of_ms: None,
+        valid_window: None,
+        include_quarantined: false,
+        min_confidence: None,
     };
     assert_debug_snapshot!("search_request_full_complex", req);
 }
@@ -169,6 +217,7 @@ fn search_hit_with_explanation_snapshot() {
             expires_at_ms: None,
             superseded_by: None,
             superseded_at_ms: None,
+            ..Default::default()
         },
         score: 0.987,
         explanation: Some(SearchExplanationHit {
@@ -217,6 +266,7 @@ fn search_hit_superseded_chain_snapshot() {
             expires_at_ms: None,
             superseded_by: Some("1004".into()),
             superseded_at_ms: Some(1_700_000_030_000),
+            ..Default::default()
         },
         score: 0.85,
         explanation: None,
@@ -242,6 +292,7 @@ fn list_page_multi_page_snapshot() {
                 expires_at_ms: None,
                 superseded_by: None,
                 superseded_at_ms: None,
+                ..Default::default()
             })
             .collect(),
         next_cursor: Some(50),
@@ -266,6 +317,7 @@ fn list_page_last_page_snapshot() {
             expires_at_ms: None,
             superseded_by: None,
             superseded_at_ms: None,
+            ..Default::default()
         }],
         next_cursor: None,
     };

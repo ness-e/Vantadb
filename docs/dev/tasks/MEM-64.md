@@ -1,3 +1,9 @@
+---
+title: "TASK-MEM-64: Skills versionadas + CompactionReport persistido"
+kind: task
+description: Verify mecánico complementario (todos verdes)
+---
+
 # TASK-MEM-64: Skills versionadas + CompactionReport persistido
 
 ## Metadata

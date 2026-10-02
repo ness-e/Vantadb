@@ -1,3 +1,9 @@
+---
+title: "FND-23: Decidir grafos default-on vs opt-in con telemetría real (ADR)"
+kind: task
+description: "ADR numerado tras 023 (ADR-0024-.md) existe en docs/dev/architecture/adr/ con: decisión explícita, métrica de telemetría nombrada (existente o pendiente de instrumentar), umbral + acción + señal de reapertura. Verify: grep de la métrica..."
+---
+
 # FND-23: Decidir grafos default-on vs opt-in con telemetría real (ADR)
 
 ## Metadata
@@ -25,8 +31,8 @@
 
 - **Archivos leídos (completos):**
   - `docs/dev/_templates/adr.md` (plantilla ADR)
-  - `docs/dev/architecture/adr/ADR-023-backend-compaction.md` (modelo de ADR con señal de reapertura)
-  - `docs/dev/architecture/adr/ADR-020-storage-backend-default.md` (modelo de ADR con evidencia file:line)
+  - `docs/dev/architecture/adr/ADR-0023-backend-compaction.md` (modelo de ADR con señal de reapertura)
+  - `docs/dev/architecture/adr/ADR-0020-storage-backend-default.md` (modelo de ADR con evidencia file:line)
   - `src/metrics/core/registry.rs` (1168 líneas — inventario completo de métricas)
   - `src/metrics/core/mod.rs` (snapshot + `export_metrics_text`)
   - `src/metrics/mod.rs`, `src/metrics/native.rs`
@@ -34,13 +40,13 @@
   - `src/cli_server.rs` (ruta `/metrics` línea 147)
   - `docs/dev/plans/2026-08-16-wave-p20-tsys.md`, `docs/dev/Backlog.md:500-518`
   - `.opencode/task-system/prompts/pipeline-full.md`, `prompts/task.md`
-- **Archivos referenciados hacia dentro:** ADR-024 cita `src/metrics/core/registry.rs` y `src/cli_server.rs` por file:line (solo referencia, no import).
+- **Archivos referenciados hacia dentro:** ADR-0024 cita `src/metrics/core/registry.rs` y `src/cli_server.rs` por file:line (solo referencia, no import).
 - **Archivos que referencian a los editados (entrantes):** `docs/dev/Backlog.md:517` (FND-23), `docs/dev/plans/2026-08-16-wave-p20-tsys.md:67` — NO se editan (archivos protegidos).
-- **Veredicto impacto:** bajo — se CREAN dos archivos nuevos (task file + ADR-024); ningún archivo existente se modifica. Nada se rompe.
+- **Veredicto impacto:** bajo — se CREAN dos archivos nuevos (task file + ADR-0024); ningún archivo existente se modifica. Nada se rompe.
 
 ## Contrato
 
-"ADR numerado tras 023 (`ADR-024-*.md`) existe en `docs/dev/architecture/adr/` con: decisión explícita, métrica de telemetría nombrada (existente **o** pendiente de instrumentar), umbral + acción + señal de reapertura. Verify: grep de la métrica citada en `src/metrics/` confirma existencia o la anota como pendiente."
+"ADR numerado tras 023 (`ADR-0024-*.md`) existe en `docs/dev/architecture/adr/` con: decisión explícita, métrica de telemetría nombrada (existente **o** pendiente de instrumentar), umbral + acción + señal de reapertura. Verify: grep de la métrica citada en `src/metrics/` confirma existencia o la anota como pendiente."
 
 ## Invariantes de dominio (handoff — MUST)
 
@@ -63,7 +69,7 @@ contract:
       evidencia: "src/cli_server.rs:147, src/metrics/core/mod.rs:573"
       confianza: alta
   artefactos:
-    - docs/dev/architecture/adr/ADR-024-graph-engine-default-telemetry.md
+    - docs/dev/architecture/adr/ADR-0024-graph-engine-default-telemetry.md
     - .opencode/skills/campaign-executor/tasks/FND-23.md
   invariantes: "ninguna (docs-only, no toca código ni archivos protegidos)"
   deuda: "instrumentar vanta_graph_ops_total en /metrics (vanta-tuner, post-launch)"
@@ -77,7 +83,7 @@ contract:
 
 | Nivel | Gate |
 |-------|------|
-| **Task** | Contrato del task file ✅ (ADR-024 con decisión + métrica + umbral + señal) + grep de métricas |
+| **Task** | Contrato del task file ✅ (ADR-0024 con decisión + métrica + umbral + señal) + grep de métricas |
 | **Commit** | Commit lo hace el lead (regla sub-agentes) — conventional commit `docs:` |
 | **Release** | No aplica (docs-only, sin release) |
 
@@ -103,7 +109,7 @@ contract:
 
 ### Step 1: Inventario de telemetría y ADRs
 - **Archivos:** `src/metrics/core/registry.rs`, `src/metrics/core/mod.rs`, `src/cli_server.rs`, `docs/dev/architecture/adr/`
-- **Acción:** leer métricas existentes, endpoint /metrics, ADRs previos (formato, numeración, señal de reapertura en ADR-023).
+- **Acción:** leer métricas existentes, endpoint /metrics, ADRs previos (formato, numeración, señal de reapertura en ADR-0023).
 - **Verify:** grep `GRAPH|EDGE|TRAVERSAL` en `src/metrics/` → 0 matches (confirma gap)
 - **Estado:** ✅
 
@@ -119,15 +125,15 @@ contract:
 - **Verify:** existe el archivo
 - **Estado:** ✅
 
-### Step 4: Escribir ADR-024
-- **Archivos:** `docs/dev/architecture/adr/ADR-024-graph-engine-default-telemetry.md` (NUEVO)
+### Step 4: Escribir ADR-0024
+- **Archivos:** `docs/dev/architecture/adr/ADR-0024-graph-engine-default-telemetry.md` (NUEVO)
 - **Acción:** escribir ADR con plantilla `docs/dev/_templates/adr.md`: decisión explícita (default-on hasta evidencia), métrica pendiente `vanta_graph_ops_total` + proxies existentes, umbral + acción, señal de reapertura, estado de instrumentación honesto.
-- **Verify:** numeración tras ADR-023 (ADR-024); grep de métricas citadas
+- **Verify:** numeración tras ADR-0023 (ADR-0024); grep de métricas citadas
 - **Estado:** ✅
 
 ### Step 5: Verificación del contrato
 - **Archivos:** —
-- **Acción:** grep de la métrica citada en `src/metrics/`; validar ADR-024 existe con los 4 elementos del contrato.
+- **Acción:** grep de la métrica citada en `src/metrics/`; validar ADR-0024 existe con los 4 elementos del contrato.
 - **Verify:** `grep -rn "vanta_graph_ops_total\|vanta_http_requests_total\|vanta_planner_vector_only_queries_total" src/metrics/`
 - **Estado:** ✅
 

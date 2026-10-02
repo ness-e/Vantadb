@@ -78,6 +78,34 @@ foreach ($c in @("opencode", "claude", "cursor", "codex")) {
   Req "v/$c-pinned" (Has $ver $c) "missing version row for $c"
 }
 
+# ---- (d) WIRE-10: one-shot without pwsh ----
+# Recall hooks must invoke `vanta-cli mcp-call` (never the pwsh launcher);
+# per-message hooks splice the verbatim prompt as {{prompt}}; save-state
+# hooks print a static reminder (no fake tool calls).
+function Cmds($o) {
+  $cmds = @()
+  if ($null -ne $o.hooks) {
+    foreach ($ev in $o.hooks.PSObject.Properties) {
+      foreach ($h in $ev.Value) {
+        if ($null -ne $h.command) { $cmds += $h.command }
+        if ($null -ne $h.hooks) { foreach ($s in $h.hooks) { if ($null -ne $s.command) { $cmds += $s.command } } }
+      }
+    }
+  }
+  return $cmds
+}
+foreach ($pair in @(@("claude", $cl), @("cursor", $cu), @("codex", $cx))) {
+  $name, $obj = $pair
+  $cmds = Cmds $obj
+  Req "d/$name-has-mcp-call" (($cmds | Where-Object { Has $_ "mcp-call" }).Count -ge 2) "recall hooks must use vanta-cli mcp-call"
+  Req "d/$name-no-pwsh" (($cmds | Where-Object { Has $_ "pwsh" }).Count -eq 0) "hook commands must not invoke pwsh"
+  Req "d/$name-recall-tool" (($cmds | Where-Object { Has $_ "memory_recall" }).Count -ge 2) "recall hooks must call memory_recall"
+  Req "d/$name-verbatim" (($cmds | Where-Object { Has $_ "{{prompt}}" }).Count -ge 1) "per-message hook must splice {{prompt}} verbatim"
+}
+Req "d/opencode-mcp-call" (Has $oc "mcp-call") "plugin must use vanta-cli mcp-call"
+Req "d/opencode-no-pwsh" (-not (Has $oc "pwsh")) "plugin must not invoke pwsh"
+Req "d/opencode-parses-result" ((Has $oc "structuredContent") -and (Has $oc "prepend_context")) "plugin must parse MCP result into prepend_context"
+
 Write-Host "----"
 Write-Host "PASS=$pass FAIL=$fail"
 if ($fail -gt 0) { exit 1 }

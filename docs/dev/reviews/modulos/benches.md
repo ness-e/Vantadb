@@ -1,11 +1,9 @@
 ---
 title: "Review de módulo: `benches/`"
-type: review
+kind: review
 status: archived
+description: "No hay manipulación activa — la cultura post-MKT-18g se nota (comentarios de honestidad en ivfbench, sparsehotpath, highdensity). Hallazgos de integridad"
 tags: [vantadb, review]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Review de módulo: `benches/`

@@ -1,10 +1,10 @@
 import { Client as WasmClient } from "vantadb-wasm";
 
-import type { SearchRequestInput } from "vantadb-wasm";
+import type { ListOptionsInput, MemoryRecordInput, SearchRequestInput } from "vantadb-wasm";
 
 import { DbError, ERROR_CODES, wrapWasmError } from "./errors.js";
 import { _mapRecord, buildSearchRequestBase } from "./guards.js";
-import { normalizeFilterItems, normalizeMetadata, normalizeValue } from "./metadata.js";
+import { normalizeMetadata, normalizeValue, toFilterItems } from "./metadata.js";
 
 import type {
   BatchSearchRequest,
@@ -14,7 +14,7 @@ import type {
   DeleteByFilterInput,
   DeleteInput,
   ExportReport,
-  FilterItem,
+  FilterSpec,
   FlatValue,
   GetInput,
   GraphBfsResult,
@@ -28,6 +28,7 @@ import type {
   MemoryInput,
   MemoryListPage,
   MemoryRecord,
+  NodeId,
   NodeRecord,
   OperationalMetrics,
   QueryResult,
@@ -71,40 +72,40 @@ export interface MemoryClient {
 
 export interface GraphClient {
   insertNode(
-    id: number | bigint,
+    id: NodeId,
     content?: string,
     vector?: number[],
     fields?: Record<string, FlatValue | Value>,
   ): void;
-  getNode(id: number | bigint): NodeRecord | null;
-  deleteNode(id: number | bigint, reason?: string): void;
+  getNode(id: NodeId): NodeRecord | null;
+  deleteNode(id: NodeId, reason?: string): void;
   addEdge(
-    source: number | bigint,
-    target: number | bigint,
+    source: NodeId,
+    target: NodeId,
     label?: string,
     weight?: number,
     createdAtMs?: number,
   ): void;
-  removeEdge(source: number | bigint, target: number | bigint, label?: string): void;
+  removeEdge(source: NodeId, target: NodeId, label?: string): void;
   bfs(
-    roots: number[],
+    roots: NodeId[],
     maxDepth?: number,
     direction?: "Forward" | "Reverse" | "Both",
   ): GraphBfsResult;
   dfs(
-    roots: number[],
+    roots: NodeId[],
     maxDepth?: number,
     direction?: "Forward" | "Reverse" | "Both",
   ): GraphDfsResult;
-  topologicalSort(roots: number[]): GraphTopologicalSortResult;
-  isDag(roots: number[]): boolean;
+  topologicalSort(roots: NodeId[]): GraphTopologicalSortResult;
+  isDag(roots: NodeId[]): boolean;
   filteredTraversal(
-    roots: number[],
+    roots: NodeId[],
     maxDepth?: number,
     direction?: "Forward" | "Reverse" | "Both",
     filter?: GraphTraversalFilter | null,
   ): GraphBfsResult;
-  degree(roots: number[]): GraphDegreeEntry[];
+  degree(roots: NodeId[]): GraphDegreeEntry[];
 }
 
 /** Empty in TS v1: wiki features are core-only per D43 (no WASM binding yet). */
@@ -128,7 +129,7 @@ export interface SystemClient {
   exportNamespace(
     path: string,
     namespace: string,
-    filter?: FilterItem[],
+    filter?: FilterSpec,
   ): ExportReport;
   importRecords(records: MemoryInput[]): ImportReport;
   importFile(path: string): ImportReport;
@@ -238,6 +239,23 @@ export class Client {
     }
   }
 
+  /**
+   * Normalize traversal roots to the decimal-string wire form. Numbers must
+   * be safe integers — JavaScript numbers lose precision above 2^53, so large
+   * ids must be passed as `bigint` (W1/API-02).
+   */
+  private _rootsToWire(roots: NodeId[]): string[] {
+    return roots.map((id) => {
+      if (typeof id === "number" && !Number.isSafeInteger(id)) {
+        throw new DbError(
+          "INVALID_ARGUMENT",
+          `traversal root id ${id} is not a safe integer — JavaScript numbers lose precision above 2^53. Use bigint for large IDs.`,
+        );
+      }
+      return String(id);
+    });
+  }
+
   // ---------------------------------------------------------------------------
   // Sub-clients (SDKB-02) — domain-grouped views over the flat methods.
   //
@@ -276,37 +294,37 @@ export class Client {
   get graph(): Readonly<GraphClient> {
     return (this._graph ??= Object.freeze({
       insertNode: (
-        id: number | bigint,
+        id: NodeId,
         content?: string,
         vector?: number[],
         fields?: Record<string, Value>,
       ) => this.insertNode(id, content, vector, fields),
-      getNode: (id: number | bigint) => this.getNode(id),
-      deleteNode: (id: number | bigint, reason?: string) =>
+      getNode: (id: NodeId) => this.getNode(id),
+      deleteNode: (id: NodeId, reason?: string) =>
         this.deleteNode(id, reason),
       addEdge: (
-        source: number | bigint,
-        target: number | bigint,
+        source: NodeId,
+        target: NodeId,
         label?: string,
         weight?: number,
         createdAtMs?: number,
       ) => this.addEdge(source, target, label, weight, createdAtMs),
-      removeEdge: (source: number | bigint, target: number | bigint, label?: string) =>
+      removeEdge: (source: NodeId, target: NodeId, label?: string) =>
         this.removeEdge(source, target, label),
-      bfs: (roots: number[], maxDepth?: number, direction?: "Forward" | "Reverse" | "Both") =>
+      bfs: (roots: NodeId[], maxDepth?: number, direction?: "Forward" | "Reverse" | "Both") =>
         this.graphBfs(roots, maxDepth, direction),
-      dfs: (roots: number[], maxDepth?: number, direction?: "Forward" | "Reverse" | "Both") =>
+      dfs: (roots: NodeId[], maxDepth?: number, direction?: "Forward" | "Reverse" | "Both") =>
         this.graphDfs(roots, maxDepth, direction),
-      topologicalSort: (roots: number[]) =>
+      topologicalSort: (roots: NodeId[]) =>
         this.graphTopologicalSort(roots),
-      isDag: (roots: number[]) => this.graphIsDag(roots),
+      isDag: (roots: NodeId[]) => this.graphIsDag(roots),
       filteredTraversal: (
-        roots: number[],
+        roots: NodeId[],
         maxDepth?: number,
         direction?: "Forward" | "Reverse" | "Both",
         filter?: GraphTraversalFilter | null,
       ) => this.graphFilteredTraversal(roots, maxDepth, direction, filter),
-      degree: (roots: number[]) => this.graphDegree(roots),
+      degree: (roots: NodeId[]) => this.graphDegree(roots),
     }));
   }
   private _graph?: Readonly<GraphClient>;
@@ -339,7 +357,7 @@ export class Client {
       auditTextIndexDeep: (namespace?: string) =>
         this.auditTextIndexDeep(namespace),
       exportAll: (path: string) => this.exportAll(path),
-      exportNamespace: (path: string, namespace: string, filter?: FilterItem[]) =>
+      exportNamespace: (path: string, namespace: string, filter?: FilterSpec) =>
         this.exportNamespace(path, namespace, filter),
       importRecords: (records: MemoryInput[]) => this.importRecords(records),
       importFile: (path: string) => this.importFile(path),
@@ -429,7 +447,10 @@ export class Client {
       if (input.metadata !== undefined) {
         wire.metadata = normalizeMetadata(input.metadata);
       }
-      return _mapRecord(this.inner.put(wire));
+      // R1: `metadata` is normalized here (`Date` → tagged `DateTime`), so the
+      // runtime value always matches the wire shape; the input type is wider
+      // than the wasm `.d.ts` (FIND-125 pattern). Erased cast: zero runtime change.
+      return _mapRecord(this.inner.put(wire as unknown as MemoryRecordInput));
     });
   }
 
@@ -458,7 +479,11 @@ export class Client {
         }
         return wire;
       });
-      const records = this.inner.put_batch(normalized) as unknown[];
+      // R1: metadata is normalized in-place above; wider input type vs the
+      // hand-written wasm d.ts (FIND-125 pattern). Erased cast: zero runtime change.
+      const records = this.inner.put_batch(
+        normalized as unknown as MemoryRecordInput[],
+      ) as unknown[];
       for (let i = 0; i < records.length; i++) {
         records[i] = _mapRecord(records[i]);
       }
@@ -547,7 +572,7 @@ export class Client {
         // breaks the WASM deserializer (not the same as an absent field).
         wire.filters = normalizeMetadata(options.filters);
       }
-      const raw = this.inner.list(namespace, wire);
+      const raw = this.inner.list(namespace, wire as unknown as ListOptionsInput);
       const items: unknown[] = raw.records ?? [];
       for (let i = 0; i < items.length; i++) {
         items[i] = _mapRecord(items[i]);
@@ -570,11 +595,33 @@ export class Client {
     // (`SearchRequest` in `vantadb-wasm/src/lib.rs:152-168` — tagged
     // filters, `text_query: null` = None); the hand-written `.d.ts` input
     // type is narrower/drifted. Erased cast: zero runtime change.
+    // WIRE-03: sparse search is NOT wired in the WASM binding — passing it
+    // through would be silently dropped by serde (no error, wrong results).
+    // Fail loudly instead; `vantadb/native` supports `query_sparse`. An empty
+    // `{}` is "skip" (same invariant as `hasSparse` in `buildSearchRequestBase`).
+    const hasSparse =
+      request.query_sparse !== undefined &&
+      request.query_sparse !== null &&
+      Object.keys(request.query_sparse).length > 0;
+    if (hasSparse) {
+      throw new DbError(
+        ERROR_CODES.VALIDATION_ERROR,
+        "search: query_sparse is not supported by the WASM backend; use the native backend ('vantadb/native') for sparse queries",
+      );
+    }
     return {
       ...buildSearchRequestBase(request, explain),
       filters: normalizeMetadata(request.filters) ?? {},
       text_query: request.text_query ?? null,
       exclude_superseded: request.exclude_superseded ?? false,
+      // SCH-04: opt-in confidence filter (ADR-046 §D2) — the WASM `SearchRequest`
+      // struct carries it natively (no serde drop).
+      min_confidence: request.min_confidence ?? null,
+      // SCH-07: temporal + quarantine-view params (ADR-046 §D3/§D5) — carried
+      // natively by the WASM `SearchRequest` struct.
+      as_of_ms: request.as_of_ms ?? null,
+      valid_window: request.valid_window ?? null,
+      include_quarantined: request.include_quarantined ?? false,
     } as unknown as SearchRequestInput;
   }
 
@@ -582,8 +629,8 @@ export class Client {
    * Search for memory records by vector similarity, with optional text + hybrid search.
    *
    * @param request - The search request parameters.
-   * @returns Array of search hits ordered by relevance (closest first).
-   *   Each hit maps the engine wire `score` field onto `SearchHit.distance`.
+   * @returns Array of search hits ordered by relevance (highest score first).
+   *   Each hit carries the engine relevance `score` (higher is better, W1/API-02).
    * @throws {DbError} If the instance is closed or the search fails.
    *
    * @example
@@ -594,7 +641,7 @@ export class Client {
    *   top_k: 5,
    * });
    * for (const hit of hits) {
-   *   console.log(hit.record.payload, hit.distance);
+   *   console.log(hit.record.payload, hit.score);
    * }
    * ```
    */
@@ -606,7 +653,7 @@ export class Client {
         const h = hit as Record<string, unknown>;
         return {
           record: _mapRecord(h.record),
-          distance: h.score as number,
+          score: h.score as number,
           explanation: (h.explanation ?? undefined) as SearchHit["explanation"],
         };
       });
@@ -620,7 +667,7 @@ export class Client {
    *
    * @param request - Search parameters with `namespaces` instead of `namespace`.
    * @returns Array of search hits ordered by relevance (highest score first).
-   *   Each hit maps the engine wire `score` field onto `SearchHit.distance`.
+   *   Each hit carries the engine relevance `score` (higher is better, W1/API-02).
    * @throws {DbError} If the instance is closed or any namespace fails.
    *
    * @example
@@ -660,7 +707,7 @@ export class Client {
         const h = hit as Record<string, unknown>;
         return {
           record: _mapRecord(h.record),
-          distance: h.score as number,
+          score: h.score as number,
           explanation: (h.explanation ?? undefined) as SearchHit["explanation"],
         };
       });
@@ -674,7 +721,9 @@ export class Client {
    *
    * WASM wire method: `count()` (TS-04 parity with Python / core SDK).
    *
-   * @param input - `{namespace}` plus optional `filters` (`{field, op, value}` items).
+   * @param input - `{namespace}` plus optional `filters`: the native
+   *   `{field, op, value}` items or the canonical `$op` DSL
+   *   (`{field: {"$gte": v}}`, interchangeable with Python/MCP/CLI).
    * @returns Number of matching records (bigint).
    * @throws {DbError} If the instance is closed.
    *
@@ -689,10 +738,7 @@ export class Client {
   count(input: CountInput): bigint {
     this._assertOpen();
     return this._wasm("count", () =>
-      this.inner.count(
-        input.namespace,
-        normalizeFilterItems(input.filters ?? []),
-      ),
+      this.inner.count(input.namespace, toFilterItems(input.filters)),
     );
   }
 
@@ -722,7 +768,7 @@ export class Client {
    *
    * @param input - `{namespace, key}` of the source record plus `topK`.
    * @returns Array of search hits ordered by descending similarity.
-   *   Each hit maps the engine wire `score` field onto `SearchHit.distance`.
+   *   Each hit carries the engine relevance `score` (higher is better, W1/API-02).
    * @throws {DbError} If the source `key` does not exist or has no vector.
    *
    * @example
@@ -739,7 +785,7 @@ export class Client {
         const h = hit as Record<string, unknown>;
         return {
           record: _mapRecord(h.record),
-          distance: h.score as number,
+          score: h.score as number,
           explanation: (h.explanation ?? undefined) as SearchHit["explanation"],
         };
       });
@@ -807,7 +853,9 @@ export class Client {
    *
    * @param path - Output file path.
    * @param namespace - Namespace to export.
-   * @param filter - Optional AND-combined metadata filter; omitting it exports the full namespace.
+   * @param filter - Optional AND-combined metadata filter: the native
+   *   `{field, op, value}` items or the canonical `$op` DSL. Omitting it
+   *   exports the full namespace.
    * @returns Export report with counts and timing.
    * @throws {DbError} If the instance is closed or the export fails.
    *
@@ -822,19 +870,20 @@ export class Client {
   exportNamespace(
     path: string,
     namespace: string,
-    filter?: FilterItem[],
+    filter?: FilterSpec,
   ): ExportReport {
     this._assertOpen();
-    return this._wasm(
-      "exportNamespace",
-      () =>
-        // FIND-125: runtime is the core `ExportReport`
-        // (`src/sdk/types/record.rs:179-188`); the wasm `.d.ts` shape is
-        // drifted. Erased cast: zero runtime change.
-        (filter && filter.length > 0
-          ? this.inner.export_namespace_filtered(path, namespace, normalizeFilterItems(filter))
-          : this.inner.export_namespace(path, namespace)) as unknown as ExportReport,
-    );
+    return this._wasm("exportNamespace", () => {
+      // WIRE-03: accept the canonical `$op` DSL at the boundary too; an
+      // empty/absent filter exports the full namespace (unchanged semantics).
+      const items = toFilterItems(filter);
+      // FIND-125: runtime is the core `ExportReport`
+      // (`src/sdk/types/record.rs:179-188`); the wasm `.d.ts` shape is
+      // drifted. Erased cast: zero runtime change.
+      return (items.length > 0
+        ? this.inner.export_namespace_filtered(path, namespace, items)
+        : this.inner.export_namespace(path, namespace)) as unknown as ExportReport;
+    });
   }
 
   /**
@@ -853,7 +902,7 @@ export class Client {
   deleteByFilter(input: DeleteByFilterInput): bigint {
     this._assertOpen();
     return this._wasm("deleteByFilter", () =>
-      this.inner.delete_by_filter(input.namespace, normalizeFilterItems(input.filter)),
+      this.inner.delete_by_filter(input.namespace, toFilterItems(input.filter)),
     );
   }
 
@@ -911,7 +960,8 @@ export class Client {
           if (r.metadata !== undefined) {
             wire.metadata = normalizeMetadata(r.metadata);
           }
-          this.inner.put(wire);
+          // R1: see put() — normalized metadata vs the wider input type.
+          this.inner.put(wire as unknown as MemoryRecordInput);
           if (existed) {
             updated += 1;
           } else {
@@ -1133,7 +1183,7 @@ export class Client {
    * ```
    */
   insertNode(
-    id: number | bigint,
+    id: NodeId,
     content?: string,
     vector?: number[],
     fields: Record<string, FlatValue | Value> = {},
@@ -1174,7 +1224,7 @@ export class Client {
    * if (node) console.log(node.edges.length, "edges");
    * ```
    */
-  getNode(id: number | bigint): NodeRecord | null {
+  getNode(id: NodeId): NodeRecord | null {
     this._assertOpen();
     if (typeof id === "number" && !Number.isSafeInteger(id)) {
       throw new DbError(
@@ -1215,7 +1265,7 @@ export class Client {
    * db.deleteNode(1, "no longer needed");
    * ```
    */
-  deleteNode(id: number | bigint, reason: string = "deleted"): void {
+  deleteNode(id: NodeId, reason: string = "deleted"): void {
     this._assertOpen();
     if (typeof id === "number" && !Number.isSafeInteger(id)) {
       throw new DbError(
@@ -1244,8 +1294,8 @@ export class Client {
    * ```
    */
   addEdge(
-    source: number | bigint,
-    target: number | bigint,
+    source: NodeId,
+    target: NodeId,
     label: string = "",
     weight?: number,
     createdAtMs?: number,
@@ -1291,7 +1341,7 @@ export class Client {
    * db.removeEdge(1, 2, "knows");
    * ```
    */
-  removeEdge(source: number | bigint, target: number | bigint, label: string = ""): void {
+  removeEdge(source: NodeId, target: NodeId, label: string = ""): void {
     this._assertOpen();
     if (typeof source === "number" && !Number.isSafeInteger(source)) {
       throw new DbError(
@@ -1325,13 +1375,13 @@ export class Client {
    * ```
    */
   graphBfs(
-    roots: number[],
+    roots: NodeId[],
     maxDepth: number = 10,
     direction: "Forward" | "Reverse" | "Both" = "Forward",
   ): GraphBfsResult {
     this._assertOpen();
     return this._wasm("graphBfs", () =>
-      this.inner.graph_bfs(roots.map(String), maxDepth, direction) as unknown as GraphBfsResult,
+      this.inner.graph_bfs(this._rootsToWire(roots), maxDepth, direction) as unknown as GraphBfsResult,
     );
   }
 
@@ -1349,13 +1399,13 @@ export class Client {
    * ```
    */
   graphDfs(
-    roots: number[],
+    roots: NodeId[],
     maxDepth: number = 10,
     direction: "Forward" | "Reverse" | "Both" = "Forward",
   ): GraphDfsResult {
     this._assertOpen();
     return this._wasm("graphDfs", () =>
-      this.inner.graph_dfs(roots.map(String), maxDepth, direction) as unknown as GraphDfsResult,
+      this.inner.graph_dfs(this._rootsToWire(roots), maxDepth, direction) as unknown as GraphDfsResult,
     );
   }
 
@@ -1372,10 +1422,10 @@ export class Client {
    * if (result.has_cycle) console.warn("Graph has a cycle!");
    * ```
    */
-  graphTopologicalSort(roots: number[]): GraphTopologicalSortResult {
+  graphTopologicalSort(roots: NodeId[]): GraphTopologicalSortResult {
     this._assertOpen();
     return this._wasm("graphTopologicalSort", () =>
-      this.inner.graph_topological_sort(roots.map(String)) as unknown as GraphTopologicalSortResult,
+      this.inner.graph_topological_sort(this._rootsToWire(roots)) as unknown as GraphTopologicalSortResult,
     );
   }
 
@@ -1391,10 +1441,10 @@ export class Client {
    * const isDag = db.graphIsDag([1]);
    * ```
    */
-  graphIsDag(roots: number[]): boolean {
+  graphIsDag(roots: NodeId[]): boolean {
     this._assertOpen();
     return this._wasm("graphIsDag", () =>
-      this.inner.graph_is_dag(roots.map(String)),
+      this.inner.graph_is_dag(this._rootsToWire(roots)),
     );
   }
 
@@ -1415,7 +1465,7 @@ export class Client {
    * ```
    */
   graphFilteredTraversal(
-    roots: number[],
+    roots: NodeId[],
     maxDepth: number = 10,
     direction: "Forward" | "Reverse" | "Both" = "Forward",
     filter?: GraphTraversalFilter | null,
@@ -1426,7 +1476,7 @@ export class Client {
       // (`to_js`, proven by `tests/graph.test.ts` TS-01); the wasm `.d.ts`
       // `string[]` is drifted. Erased casts: zero runtime change.
       this.inner.graph_filtered_traversal(
-        roots.map(String),
+        this._rootsToWire(roots),
         maxDepth,
         direction,
         // Public input allows `time_range: null`; the wasm binding models
@@ -1451,10 +1501,10 @@ export class Client {
    * const degrees = db.graphDegree([1]);
    * ```
    */
-  graphDegree(roots: number[]): GraphDegreeEntry[] {
+  graphDegree(roots: NodeId[]): GraphDegreeEntry[] {
     this._assertOpen();
     return this._wasm("graphDegree", () =>
-      this.inner.graph_degree(roots.map(String)) as GraphDegreeEntry[],
+      this.inner.graph_degree(this._rootsToWire(roots)) as GraphDegreeEntry[],
     );
   }
 

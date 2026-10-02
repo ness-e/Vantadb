@@ -1,11 +1,9 @@
 ---
 title: "Features core julio — NUEVO/COMP/REC (LSM, napi, aristas temporales, recuperación)"
-type: registro
+kind: review
 status: archived
+description: "Fuente: Backlog (Phase 8 — Post-Launch) NUEVO-17"
 tags: [vantadb, avance, campana]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Features core julio — NUEVO/COMP/REC (LSM, napi, aristas temporales, recuperación)
@@ -35,7 +33,7 @@ related: []
 - Persistencia real (fjall/WAL/fsync) en Node.js — WASM no puede. Browser se queda con WASM (`vantadb-wasm` intocado).
 - Wrapper TS `vantadb-ts/src/native.ts` + dep `vantadb-node` en `vantadb-ts/package.json`.
 - Verify: `cd vantadb-node && npm test` → vitest **3/3** (put/get, persistencia cross-reconnect, search ordenado).
-- ADR: `docs/dev/architecture/adr/COMP-029-napi-rs-node-bindings.md`.
+- ADR: `docs/dev/architecture/adr/ADR-0050-napi-rs-node-bindings.md`.
 
 ### 2026-08-02 — COMP-021: Aristas temporales (relaciones con timestamp) ✅
 

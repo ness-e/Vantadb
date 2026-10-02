@@ -1,11 +1,9 @@
 ---
-title: "VantaDB Project Evaluation"
-type: review
+title: VantaDB Project Evaluation
+kind: review
 status: archived
+description: "Date: 2026-07-21"
 tags: [vantadb, review]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # VantaDB Project Evaluation

@@ -1,3 +1,9 @@
+---
+title: MEM-48 — Compresión consume scores L1 reales
+kind: task
+description: "Plan: docs/dev/plans/2026-08-22-vanta-final-cierre.md · Task 6 · Estado inicial ⬜ PENDING"
+---
+
 # MEM-48 — Compresión consume scores L1 reales
 
 **Plan:** `docs/dev/plans/2026-08-22-vanta-final-cierre.md` · Task 6 · Estado inicial ⬜ PENDING

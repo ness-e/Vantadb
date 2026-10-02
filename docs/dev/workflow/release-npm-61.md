@@ -1,11 +1,9 @@
 ---
 title: "`release-npm-61.yml` — RELEASE: NPM — Publish"
-type: workflow
+kind: runbook
 status: active
+description: Publica los paquetes WASM y TypeScript de VantaDB en npm
 tags: [vantadb, ci, release-npm]
-last_reviewed: 2026-09-15
-aliases: []
-related: [".github/workflows/release-npm-61.yml"]
 ---
 
 # `release-npm-61.yml` — RELEASE: NPM — Publish

@@ -1,3 +1,9 @@
+---
+title: FIND-74 — requirements + enlaces + decisión TS
+kind: task
+description: "Objetivo: Fijar ejemplo instalable roto por deriva de versión + enlazar ejemplos desde puertas de entrada + cerrar decisión TS sin mover archivos"
+---
+
 # FIND-74 — requirements + enlaces + decisión TS
 
 > Campaign: `6ab26f3f-cf16-4416-9255-c18cca0bcaf0` · Plan: `docs/dev/plans/2026-09-15-find-correcciones.md` (Task 25, Wave8)
@@ -41,7 +47,7 @@
 
 **Relacionados (callers/callees vía lectura directa + rg):**
 - Callers de `examples/README.md`: `examples/demo/README.md:33,44` (rutas demo propias), plan file `:370,:424` (cita FIND-74), `docs/user/QUICKSTART.md:5` (link inverso ya existe desde examples → QUICKSTART, falta QUICKSTART → examples)
-- Callers de QUICKSTART: `README.md:60` (`[5-Minute Quickstart](docs/user/QUICKSTART.md)`), `examples/README.md:5` (`[QUICKSTART](../../user/QUICKSTART.md)`), `SUPPORT.md:11`, plan FIND-67/FIND-74
+- Callers de QUICKSTART: `README.md:60` (`[5-Minute Quickstart](../../user/QUICKSTART.md)`), `examples/README.md:5` (`[QUICKSTART](../../user/QUICKSTART.md)`), `SUPPORT.md:11`, plan FIND-67/FIND-74
 - Callees: `vantadb-ts/examples/` (3 `.mjs` + 3 subdirs: `langchain/`, `llamaindex/`, `vercel-ai/`) — destino TS referenciado, no tocado
 - `Get-ChildItem -Recurse -Filter *.md | Select-String "QUICKSTART"` → callers conocidos (README, README_ES, SUPPORT, AGENTS, skills) — ningún import de código depende del .md; cambio texto no rompe build
 - `Get-ChildItem -Recurse -Filter *.md | Select-String "examples/demo"` → solo `examples/demo/README.md:33,44` + plans + tasks legacy — sin links frágiles que romper
@@ -129,7 +135,7 @@ Tipo auto-detectado: `docs` (`campaign_detect_task_type` → skills `[writing-gu
 
 ## 8. INVESTIGACIÓN PROBLEMA: ejemplo instalable + TS sin hogar
 
-- **Deriva `>=0.4` vs SDK 0.5.0:** `requirements.txt:1` permite instalar `vantadb-py 0.4.x` (floor 0.4, sin upper bound) mientras `examples/demo/README.md` documenta `>=0.5.0` y el SDK publica `0.5.0` (pyproject + workspace + tag). Instalación con floor viejo = APIs `search` vs `search_memory` (FIND-67 halló rename flat `*_memory` removidos) y `Client` vs `VantaDB` (ADR-041 anti-stutter, README raíz `:84-87`) pueden fallar según versión instalada. Fix: floor `>=0.5.0` (1 línea, sin pins lock — pins lock son para FIND-72/84, no aquí).
+- **Deriva `>=0.4` vs SDK 0.5.0:** `requirements.txt:1` permite instalar `vantadb-py 0.4.x` (floor 0.4, sin upper bound) mientras `examples/demo/README.md` documenta `>=0.5.0` y el SDK publica `0.5.0` (pyproject + workspace + tag). Instalación con floor viejo = APIs `search` vs `search_memory` (FIND-67 halló rename flat `*_memory` removidos) y `Client` vs `VantaDB` (ADR-0047 anti-stutter, README raíz `:84-87`) pueden fallar según versión instalada. Fix: floor `>=0.5.0` (1 línea, sin pins lock — pins lock son para FIND-72/84, no aquí).
 - **TS sin hogar (0 `.ts` confirmado):** `examples/` no contiene TypeScript por diseño (conteo 0 verificado); los ejemplos TS viven en `vantadb-ts/examples/` (3 `.mjs` + adapters). Tradeoff mover-vs-referenciar:
   - Mover (`examples/ts/` o copiar `.mjs`): Pros = un solo árbol; Contras = rompe links (`examples/README.md:4,34-40`, `vantadb-ts` package paths, CI `ci-examples-12.yml`, `TS_SDK.md`), duplica fuente de verdad, diverge en 1 mes → RECHAZADO (pre-mortem plan).
   - Referenciar (actual + ratificado): Pros = 0 links rotos, 1 fuente de verdad (`vantadb-ts/`), `examples/README.md` ya lo hace (`:4` + tabla `:34-40`); Contras = dos árboles que descubrir (mitigado con las 2 líneas de enlace QUICKSTART↔examples↔README) → ELEGIDO. Salida válida per plan.
