@@ -168,6 +168,9 @@ tags: [vantadb, avance, ops, api, docs, backup, enterprise]
 
 
 ### SRV-07: Dockerfile unprivileged + wiring release (quality-gtm wave1)
+
+> **Retirado 2026-10-02:** Docker eliminado del repo por decisión del owner — job `docker-image` borrado de `release-binaries.yml`, Dockerfiles/compose `git rm`, docs de deploy sin sección Docker (ver FIND-229).
+
 - **Fecha:** 2026-09-03
 - **Objetivo:** imagen reproducible y ejecutable sin root con uid arbitrario (patrón qdrant) + wiring honesto al pipeline RELEASE; sin decisión de registry (es de marca).
 - **Resultado:** ✅ Builder del `Dockerfile` raíz reescrito: la capa "skeleton sources" era irrecuperable (cargo valida los 73 `[[test]]` + `[[bin]]` explícitos del root `Cargo.toml` al cargar el manifiesto; y el `COPY --from=builder /build/target/...` apuntaba a un cache-mount que nunca se commitea en la imagen → el build jamás pudo pasar). Ahora: `COPY . .` + cache mounts de BuildKit (registry+target) con `cp` del binario a path commiteado. Runtime: `chmod 777 /var/lib/vantadb` (data dir) → `docker run --user <uid>:<gid>` arbitrario funciona sin rebuild; `ARG VANTA_RUNAS_UID=1001` para override en build; `USER vantadb` no-root preservado. `.dockerignore`: `tests/` y `benches/` dejan de excluirse (requisito de validación de manifiesto); `data/` agregado (guard de contexto). Wiring: job `docker-image` (build-no-push) en `release-binaries-63.yml` — build + smoke unprivileged (`--user 10001:10001`: write-test en data dir + `vantadb-server --help` vía entrypoint real) + export `docker save` como asset del release. Docs: §"Run unprivileged (arbitrary UID)" en `DEPLOYMENT_GUIDE.md` §3; sección "Docker Image Publishing (SRV-07)" en `CI_POLICY.md` (por qué NO push: ghcr vs Docker Hub = decisión de marca + credenciales inexistentes).

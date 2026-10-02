@@ -62,8 +62,8 @@
     },
     {
       "merge_system_rule": true,
-      "path": "{.github/**,Dockerfile,release-plz.toml,cliff.toml,integrations/**,docs/api/**}",
-      "rule": "VantaDB release/CI rules (source of truth: .opencode/rules/release-ci.md; this is a review checklist, the file is normative).\n- Production binaries with custom allocator per platform (mimalloc Windows, jemalloc linux/macOS; NEVER jemalloc on Windows).\n- sccache only via .github/actions/rust-setup (no per-workflow steps, no cargo install nextest in jobs).\n- Dockerfile RUST_VERSION >= workspace rust-version with COPYs pointing at existing dirs; docs/packaging versions = [workspace.package] version.\n- No new continue-on-error without a # CATEGORY: tag (EXPERIMENTAL/BEST-EFFORT/NON-CRITICAL/INFORMATIONAL) + flaky issue (AGENTS.md Regla 2)."
+      "path": "{.github/**,release-plz.toml,cliff.toml,integrations/**,docs/api/**}",
+      "rule": "VantaDB release/CI rules (source of truth: .opencode/rules/release-ci.md; this is a review checklist, the file is normative).\n- Production binaries with custom allocator per platform (mimalloc Windows, jemalloc linux/macOS; NEVER jemalloc on Windows).\n- sccache only via .github/actions/rust-setup (no per-workflow steps, no cargo install nextest in jobs).\n- docs/packaging versions = [workspace.package] version.\n- No new continue-on-error without a # CATEGORY: tag (EXPERIMENTAL/BEST-EFFORT/NON-CRITICAL/INFORMATIONAL) + flaky issue (AGENTS.md Regla 2)."
     }
   ]
 }

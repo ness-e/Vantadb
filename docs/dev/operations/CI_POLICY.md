@@ -547,21 +547,7 @@ datasets. You can also trigger it manually from the GitHub Actions UI:
 3. Click **Run workflow**.
 4. You can optionally check the boxes to include `SIFT-1M validation` or `Competitive benchmarks`.
 
-## Docker Image Publishing (SRV-07)
+## Docker Image Publishing — retired (2026-10-02)
 
-The release pipeline **builds** the Docker image but deliberately **does not push** it to any
-registry:
+Docker support was removed repo-wide by owner decision: the `docker-image` job was deleted from `release-binaries.yml`, the Dockerfiles/compose files were removed, and deployment docs no longer cover containers.
 
-- The `docker-image` job in `.github/workflows/release-binaries.yml` runs `docker build`
-  against the root `Dockerfile` on every release / tag / manual dispatch, then executes two
-  unprivileged smoke checks under an arbitrary uid (`--user 10001:10001`): data-dir
-  write-through and `vantadb-server --help` via the default entrypoint.
-- The image is exported with `docker save` and attached to the GitHub Release as a
-  `vantadb-server-<tag>-linux-amd64-image.tar.gz` asset (+ sha256), so self-hosted users can
-  `docker load` it without a registry dependency.
-- **Why no push:** the registry choice (ghcr.io vs Docker Hub vs both) fixes the canonical
-  `docker run <image>` string used in marketing/docs and needs credentials that are not
-  provisioned. It is a brand decision, not a CI default. When one is decided, add a
-  login/push step to this same job — the build and smoke halves already exist.
-- Machines without a Docker daemon cannot verify the image locally; this CI job is the
-  verification gate (build failure turns the release lane red — no silent breakage).

@@ -228,17 +228,4 @@ updates:
       - "dependencies"
       - "ci"
 
-  - package-ecosystem: "docker"
-    directory: "/"
-    target-branch: "develop"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-      timezone: "America/Argentina/Buenos_Aires"
-    commit-message:
-      prefix: "chore"
-      include: "scope"
-    labels:
-      - "dependencies"
-      - "docker"
+# (docker ecosystem entry removed 2026-10-02 — docker support eliminated repo-wide)
