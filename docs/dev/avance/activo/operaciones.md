@@ -185,7 +185,7 @@ tags: [vantadb, avance, ops, api, docs, backup, enterprise]
 
 - **Origen:** Backlog FIND-56 (L219) + deuda SRV-07 (2) de esta misma página.
 
-### GOV-TK3 (docs): drift yaml-real x3 - Resultado: doc-fix x3 (codigo verificado correcto); parity 5/5, parser 117/117, docs-coverage 0 gaps. Commit b3be4176 (2026-09-05).
+- GOV-TK3 (docs): drift yaml-real x3 - Resultado: doc-fix x3 (codigo verificado correcto); parity 5/5, parser 117/117, docs-coverage 0 gaps. Commit b3be4176 (2026-09-05).
 
 ### PRX-04: cache-preserving injection (plan 2026-09-08-backlog Wave2)
 - **Fecha:** 2026-09-09

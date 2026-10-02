@@ -69,5 +69,5 @@ description: Archivos leídos completos
 - No tocar wal/vector/storage (Arch/Engine).
 - H5: NO intentar abort de spawn_blocking (invasivo, riesgo regresión) — solo documentar.
 
-## Context Save Point
+- Context Save Point
 <!-- rellenar al devolver INCOMPLETO -->

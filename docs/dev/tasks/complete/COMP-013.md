@@ -61,11 +61,11 @@ pub struct SegmentOptimizerConfig {
 - `merge_segments(&self) -> Result<MergeReport>` — si hay fragmentación, llama compact_layout_bfs()
 - `run_pipeline(&self, mode: PipelineMode) -> Result<PipelineReport>` — orquesta Vacuum→Merge→Index
 
-### 3. `src/config.rs` — añadir `SegmentOptimizerConfig` a `VantaConfig`
+- 3. `src/config.rs` — añadir `SegmentOptimizerConfig` a `VantaConfig`
 
-### 4. `src/sdk/api.rs` — exponer `vacuum()`, mejorar `compact()` para usar pipeline
+- 4. `src/sdk/api.rs` — exponer `vacuum()`, mejorar `compact()` para usar pipeline
 
-### 5. Tests en `src/storage/engine/tests/maintenance.rs`
+- 5. Tests en `src/storage/engine/tests/maintenance.rs`
 
 ## NO hacer
 - ❌ NO LSM multi-tier (COMP-026)

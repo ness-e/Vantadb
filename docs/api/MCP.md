@@ -2,7 +2,7 @@
 title: VantaDB Model Context Protocol (MCP) Server
 kind: reference
 status: active
-description: "Current MCP implementation version: 0.7.0"
+description: "MCP server reference — tools, profiles, and the current implementation version (tracked below)"
 tags: [vantadb, api]
 ---
 

@@ -7,7 +7,7 @@ description: "Intentaste entregarme tu investigación de Notion (VantaDB-Docs-Un
 # 🏛️ VantaDB — Arquitectura, Modelo de Datos, Competencia y Oportunidades de Producto
 
 > **[Verificación externa 2026-09-25 — banner añadido 2026-09-30]:** informe externo verificado contra HEAD (~20 claims con evidencia file:line); casi todo catalogado (P49–P57, API-05, WIRE-09/10, DEF-06, FIND-98); hallazgos vivos → `SCH-09`, `WIRE-11`, `P58`. **No re-proponer** — ver `docs/dev/Backlog.md` §"Nuevo 2026-09-25".
-
+>
 > **Complemento de:** `VantaDB-Informe-Analisis-Completo.md` (análisis módulo a módulo de las 2 sesiones previas — 12 hallazgos críticos verificados, veredicto global 7.3/10, preparación de lanzamiento 4/10)
 > **Método de esta fase:** 6 agentes de análisis en paralelo — arquitectura/patrones (4-h), modelo de datos (4-i), investigación web de 17 sistemas de memoria para agentes (4-j), investigación web de 10 BDs multi-modelo (4-k) — más verificación cruzada contra el worklog consolidado (Tasks 1, 2-a..2-e, 4-a..4-g).
 > **Base:** repo clonado `develop` en `/home/z/vantadb` (~214,646 LOC Rust + 32,530 TS + 18,273 Python + 237K LOC docs), v0.6.1.

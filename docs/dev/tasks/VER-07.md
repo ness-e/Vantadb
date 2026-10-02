@@ -4,12 +4,6 @@ kind: task
 description: "dryrun:true (CLI/MCP) devuelve diff por registro {action: ADD|UPDATE|DELETE|NOOP, key, razón (merge|dedup|supersede|normalize)} con L1 byte-identical (test) Y promotedreamrun real aplica el plan a l1/<session> (ADD/UPDATE/DELETE/NOOP..."
 ---
 
----
-title: "VER-07: Dreams — dry-run + diff report + `promote_dream_run` real"
-kind: task
-description: "dry-run con diff por registro (ADD/UPDATE/DELETE/NOOP + razón) y L1 byte-identical; promote real a l1/<session> idempotente con puerta de calidad; MCP dream_promote readOnlyHint false + docs al día."
----
-
 # VER-07: Dreams — dry-run + diff report + `promote_dream_run` real
 
 ## Metadata

@@ -13,7 +13,7 @@ description: "Task ID: REVIEW-07"
 
 ---
 
-## Estado: ✅ COMPLETED (idempotente — el fix ya está en disco)
+- Estado: ✅ COMPLETED (idempotente — el fix ya está en disco)
 
 ---
 

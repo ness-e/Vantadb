@@ -1533,19 +1533,19 @@ Resultado: OK
 Próxima acción: Ninguno — tarea cerrada; LEAD: commit local del cierre (docs/dev/tasks/WIRE-10.md + plan §Task 8 + Backlog FIND-169) sin push
 Contrato: verificacion: verify.ps1 ALL 10 PASS (CARGO_TARGET_DIR=target/session-api01; lock binario target/debug por 8 sesiones MCP live) + install harness pass=8/8 + notebook NOTEBOOK OK executed=8 + hooks PASS=65 FAIL=0 + nextest 11/11 + validate-docs-coverage exit 0; P2-01 fresco APPROVE
 evidencia:
-  - claim: install.sh macOS portable (sha256sum→shasum fallback) + fail-closed verificado con mocks (GNU/macOS/ninguna/mismatch)
+- claim: install.sh macOS portable (sha256sum→shasum fallback) + fail-closed verificado con mocks (GNU/macOS/ninguna/mismatch)
     evidencia: target/session-api01/wire10/step1-verify.ps1 → pass=8 fail=0 (re-ejecutado por reviewer)
     confianza: alta
-  - claim: notebook Colab migrado a Client/search y ejecuta e2e (8 celdas)
+- claim: notebook Colab migrado a Client/search y ejecuta e2e (8 celdas)
     evidencia: pwsh target/session-api01/wire10/run-nb.ps1 → NOTEBOOK OK executed=8 skipped=1
     confianza: alta
-  - claim: hooks inyectan contexto real sin pwsh (templates + plugin opencode) y tests 65/65
+- claim: hooks inyectan contexto real sin pwsh (templates + plugin opencode) y tests 65/65
     evidencia: skills/vantadb-mcp/assets/hooks/tests/test-hooks.ps1 → PASS=65 FAIL=0; smoke live mcp-call memory_recall/memory_put OK sin huérfanos; ps1 intacto
     confianza: alta
-  - claim: mcp-call one-shot implementado con tests y fixes del review previo (floor_char_boundary, reaps, exit-2)
+- claim: mcp-call one-shot implementado con tests y fixes del review previo (floor_char_boundary, reaps, exit-2)
     evidencia: cargo nextest run -p vantadb --lib cli_handlers::mcp_call --target-dir target/session-api01 → 11 tests run: 11 passed
     confianza: alta
-  - claim: P2-01 fresco (HARD-07) — revisión independiente del changeset (steps 5/5 ✅ desde 2026-09-25; plan decía stale)
+- claim: P2-01 fresco (HARD-07) — revisión independiente del changeset (steps 5/5 ✅ desde 2026-09-25; plan decía stale)
     evidencia: vanta-review sesión ses_f1c06efc4ffeLk9FF3gTqyO9Hw → APPROVE; Medium no bloqueante → FIND-169
     confianza: alta
 artefactos: scripts/install.sh, examples/colab/vantadb_quickstart.ipynb, src/cli_handlers/mcp_call.rs, src/cli.rs, src/bin/vanta-cli.rs, skills/vantadb-mcp/assets/hooks/**, docs/dev/tasks/WIRE-10.md, docs/dev/plans/2026-09-26-master-roadmap.md (§Task 8), docs/dev/Backlog.md (FIND-169), target/session-api01/wire10/** (harnesses)

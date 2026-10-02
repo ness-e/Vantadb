@@ -58,7 +58,7 @@ tags: [vantadb, avance, security, audit, fuzz, miri, ffi]
 - AUD-24: coordenadas × 3 SI (loop unroll). ✅
 - AUD-25: dead cli flags → cleanup.
 
-### AUD-010? nota — `docs/historial/autopsias-2026-06-19.md`
+- AUD-010? nota — `docs/historial/autopsias-2026-06-19.md`
 
 ### AUD-020: Tests HTTP auth/RBAC/rate-limit — ✅ 2026-08-11
 - `cargo test -p vantadb-server --test server` → 19/19; root cause: helpers mandaban `{"query":"test"}`/`SELECT 1` (IQL inválido → 400 correcto post-ERR-027); fix: `SELECT * FROM Node`. RBAC vía `token_role_map` ya conectado. Backlog row removido; registrado en progreso.

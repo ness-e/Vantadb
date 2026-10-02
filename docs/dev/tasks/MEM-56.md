@@ -6,7 +6,7 @@ description: "tests D19 con collector mockeado: turno → spans emitidos; disabl
 
 # Task 10 — MEM-56: Hook Langfuse/OTLP sobre ReportHook
 
-## Estado: ✅ COMPLETED
+- Estado: ✅ COMPLETED
 
 ## Contrato (del plan P33)
 "tests D19 con collector mockeado: turno → spans emitidos; disabled default; fallo de red nunca bloquea proxy (P4)"

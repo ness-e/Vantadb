@@ -76,14 +76,14 @@ Sin deuda nueva — saldo ≤0 (se cierran drift spec↔impl y gaps de selecció
 - [x] PERFORMANCE — no aplica: índice precomputado; scoring O(candidatas×keywords).
 
 ## Steps (todos ✅)
-### Step 1: Auditoría SDP v2 vs spec — ✅ DONE (7 gaps documentados)
-### Step 2: Módulo `sdp-v3.mjs` (B1/B2/B3/L1/R1/S1/S2) — ✅ DONE (selftest)
-### Step 3: Migración `campaign-server.mjs` (−285/+9) — ✅ DONE (node --check + smoke)
-### Step 4: Índice (`build-skills-index.mjs`) — ✅ DONE (195 skills / 279 ratings)
-### Step 5: Selftest + smoke E2E — ✅ DONE (15/15 + OK v2+v1)
-### Step 6: Spec + prompts (R3/S2) — ✅ DONE
-### Step 7: Gate H (3 rondas) — ✅ APPROVE (H-01..H-06 + R-01/R-02)
-### Step 8: Commits `.opencode` — ✅ DONE (`903a029` + `e97c093`)
+- Step 1: Auditoría SDP v2 vs spec — ✅ DONE (7 gaps documentados)
+- Step 2: Módulo `sdp-v3.mjs` (B1/B2/B3/L1/R1/S1/S2) — ✅ DONE (selftest)
+- Step 3: Migración `campaign-server.mjs` (−285/+9) — ✅ DONE (node --check + smoke)
+- Step 4: Índice (`build-skills-index.mjs`) — ✅ DONE (195 skills / 279 ratings)
+- Step 5: Selftest + smoke E2E — ✅ DONE (15/15 + OK v2+v1)
+- Step 6: Spec + prompts (R3/S2) — ✅ DONE
+- Step 7: Gate H (3 rondas) — ✅ APPROVE (H-01..H-06 + R-01/R-02)
+- Step 8: Commits `.opencode` — ✅ DONE (`903a029` + `e97c093`)
 
 ## Dependencias
 - Pre-run de F0 — sin dependencias (habilita skills v3 para los sub-agentes del run).

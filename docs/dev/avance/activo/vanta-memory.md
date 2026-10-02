@@ -75,7 +75,7 @@ tags: [vantadb, avance, vanta-memory, tdam, memory, persona, recall]
 - **Resultado:** ✅ Doc `auto_recall.rs` (módulo + `RecallMode::Embedding/Hybrid`) describe auto-on MEM-63; `L1DedupConfig::default()` wirea `local_embedding_hook()` con `embed-local`, `None` sin feature; tests `default_wires_local_provider_when_feature_on` + `default_stays_keyword_only_without_feature` verdes; suite 328 lib + 1 doc-test; fmt/clippy limpios. Código ya en HEAD vía `6058cc84` (trazabilidad documentada en task file).
 - **Commit:** `docs(memory): auto_recall doc + auto-on embeddings (MEM-63)` (registro plan+task+backlog+avance; fuente ya en HEAD).
 
-### MEM-63 (docs): doc stale auto_recall + auto-on - Resultado: verificado ya-en-HEAD via 6058cc84 (sin diff); suite 328/328. Sin commit nuevo (2026-09-05).
+- MEM-63 (docs): doc stale auto_recall + auto-on - Resultado: verificado ya-en-HEAD via 6058cc84 (sin diff); suite 328/328. Sin commit nuevo (2026-09-05).
 
 ### MEM-66: claimStaleTasks multi-worker (plan 2026-09-08-backlog Wave1)
 - **Fecha:** 2026-09-09

@@ -114,11 +114,11 @@ nextTask: REVIEW-10 (cli_server.rs split) — paralelo en W24, no encadenado
 
 ## Steps
 
-### Step 1: Crear `src/sdk/api/memory.rs` con impl block memory ✅
-### Step 2: Crear `src/sdk/api/graph.rs` con impl block graph ✅
-### Step 3: Crear `src/sdk/api/admin.rs` con impl block admin ✅
-### Step 4: Crear `src/sdk/api/search.rs` y `src/sdk/api/namespaces.rs` ✅
-### Step 5: api.rs → barrel + verify mecánico + commit ✅
+- Step 1: Crear `src/sdk/api/memory.rs` con impl block memory ✅
+- Step 2: Crear `src/sdk/api/graph.rs` con impl block graph ✅
+- Step 3: Crear `src/sdk/api/admin.rs` con impl block admin ✅
+- Step 4: Crear `src/sdk/api/search.rs` y `src/sdk/api/namespaces.rs` ✅
+- Step 5: api.rs → barrel + verify mecánico + commit ✅
 
 ## Pre-mortem verification
 

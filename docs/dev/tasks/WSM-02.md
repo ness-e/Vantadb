@@ -6,7 +6,7 @@ description: Archivos leídos completos
 
 # Task WSM-02 — Manejo cuotas storage browser (QuotaExceededError)
 
-## Estado: ✅ COMPLETED
+- Estado: ✅ COMPLETED
 
 ## Archivos clave
 - `vantadb-wasm/src/opfs.rs`

@@ -8,7 +8,7 @@ description: "Archivos leídos completos: layout.tsx, site-navbar.tsx, back-to-t
 
 > Plan: `docs/dev/plans/2026-08-19-web-design-audit.md` Task 5 §6. Tracking manual (MCP corrupto — no usar campaign_update_task_state).
 
-## Estado: ✅ COMPLETED (2026-08-24)
+- Estado: ✅ COMPLETED (2026-08-24)
 
 ## Impacto mapeado (Regla 0)
 
