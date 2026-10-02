@@ -182,8 +182,8 @@ declarados por corrida; (7) ninguna cifra se toma de leaderboards de terceros.
 
 ## Steps
 
-### Step 1: DISCOVERY (contrato + entorno + APIs + licencias + SDP) — ✅
-### Step 2: Task file (este archivo) — ✅
+- Step 1: DISCOVERY (contrato + entorno + APIs + licencias + SDP) — ✅
+- Step 2: Task file (este archivo) — ✅
 ### Step 3: Runner layer `evals/runners/` (adapters + driver + self-test offline) — ✅
 - **Archivos:** `evals/runners/adapters.py` · `evals/runners/head_to_head.py` · `evals/runners/README.md`
 - **Verify:** `python evals/runners/head_to_head.py --self-test` → `OK (10 checks)` ✅ (fakes estrictos: firmas keyword-only + asserts de kwargs desconocidos, chunking lossless, skips, E2E con `run_harness`)

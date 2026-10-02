@@ -30,11 +30,11 @@ description: "README ≤50KB = índice + resumen vivo; cada campaña ≥1 archiv
 "README ≤50KB = índice + resumen vivo; cada campaña ≥1 archivo en campanas/; dedup del evento triplicado; 0 links rotos hacia progreso/ desde otros docs; suma bytes ≥97% original menos dedup; spot-checks ×5 OK; markdownlint 0 issues."
 
 ## Steps
-### Step 1: DISCOVERY + Regla 0 ⬜→✅
-### Step 2: Split mecánico por rangos verificados → campanas/*.md ⬜
-### Step 3: Dedup residuo-consolidado ⬜
-### Step 4: README índice ≤50KB ⬜
-### Step 5: Verify (bytes/spot-checks/links/markdownlint) ⬜
+- Step 1: DISCOVERY + Regla 0 ⬜→✅
+- Step 2: Split mecánico por rangos verificados → campanas/*.md ⬜
+- Step 3: Dedup residuo-consolidado ⬜
+- Step 4: README índice ≤50KB ⬜
+- Step 5: Verify (bytes/spot-checks/links/markdownlint) ⬜
 
 ## Context Save Point
 - Decisión de corte: campañas recientes limpias (P32/P31/P30/P29/P27/P20-TSYS/P26-VS/SKL/GOV); legacy agrupado temático-contiguo (~28 archivos); MEM-21→p27, MEM-41/MEM-39→p29 (estaban mal ubicados bajo Vanta Studio).

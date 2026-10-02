@@ -111,7 +111,7 @@ NO COMMITEAR (lo hace el lead)."
 - **Edit 2:** `cache_batch_hot_nodes` — rama `else` (Cold): `guard.remove(&node.id)`
 - **GREEN:** `cargo nextest run --profile audit -p vantadb --lib -E 'test(prefetched_cache_entry)'` → **2 passed, 0 failed**
 
-### Step 3: VERIFY — suite + gates — ✅ (ver tabla abajo)
+- Step 3: VERIFY — suite + gates — ✅ (ver tabla abajo)
 
 ## Deuda técnica (Regla 6)
 

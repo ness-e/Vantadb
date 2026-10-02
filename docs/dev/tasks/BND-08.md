@@ -129,7 +129,7 @@ no ejecutable local sin riesgo (dispatch publicaría real si dry_run=false) → 
 local + CI real corre en push-a-main (trigger existente). Cross-model skipped: contexto no-interactivo
 (pipeline run) — sin CLI externo sin autorización.
 
-### Steps reconcile (todos ✅ 2026-09-09)
+- Steps reconcile (todos ✅ 2026-09-09)
 ### Step R1 — workflow + matrix + artifacts + prepublish (lectura)
 - **Verify:** yaml parse OK (7 targets: msvc/gnu/musl×2/gnu-aarch64/musl-aarch64/darwin×2) +
   jobs build (upload `*.node` + `vantadb-node-js`) / test / publish (verify-count≥5, pack,

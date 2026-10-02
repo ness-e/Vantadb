@@ -34,9 +34,9 @@ NODE_SDK como fuente). Doc-only, 0 archivos de código tocados.
 
 ## Steps
 
-### Step 1: Completar matriz + runtimes + BigInt + benchmark (recuperado de WIP) ✅
-### Step 2: validate-docs-coverage + Regla 11 grep ✅
-### Step 3: Commit selectivo (lead) ✅
+- Step 1: Completar matriz + runtimes + BigInt + benchmark (recuperado de WIP) ✅
+- Step 2: validate-docs-coverage + Regla 11 grep ✅
+- Step 3: Commit selectivo (lead) ✅
 
 ## Notas
 

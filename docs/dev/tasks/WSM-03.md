@@ -5,7 +5,7 @@ kind: task
 
 # WSM-03 — Auto-save en visibilitychange/pagehide
 
-## Estado: ✅ COMPLETED
+- Estado: ✅ COMPLETED
 
 ## Contrato
 - `Select-String -Path "vantadb-wasm/src/lib.rs" -Pattern "visibilitychange|auto_save" | Measure-Object | Select-Object Count` >=1 — **VERIFIED: 20 matches**

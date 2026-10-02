@@ -210,7 +210,7 @@ tags: [vantadb, avance, desktop, tauri, rust, frontend]
 - `docs/progreso/campanas/admin-desktop.md` (split GOV-D2) / snapshot-2026-08-07.
 - `docs/dev/research/DESKTOP-01-tauri-plataforma-desktop.md`.
 
-### ERR-015 (shutdown gracioso) — migrado 2026-08-12 (ver docs/progreso/README.md)
+- ERR-015 (shutdown gracioso) — migrado 2026-08-12 (ver docs/progreso/README.md)
 
 ### DESKTOP-23: Persistencia de preferencias UI (tema/layout/filtros)
 - **Fecha:** 2026-08-24

@@ -40,6 +40,7 @@ Every surface spends one of two budgets. **core-promise** surfaces spend the bud
 | Web console | **labs** | Freeze — separate site ([`ness-e/Vantadb-web`](https://github.com/ness-e/Vantadb-web)); no surface in this tree | Experimental section below; DEF-02 "Category: labs" |
 | WASM/TS/Node bindings (`vantadb-wasm`, `vantadb-ts`, `vantadb-node`) | **labs** | Freeze — published artifacts stay; no new feature budget. Promotion requires North Star evidence from JS runtimes or an ICP gate pulling them | research §3 (overrun); ICP-03 is Python/PyPI only (`VISION.md`); `vantadb-wasm` outside `default-members` (Cargo.toml, ADR-0031) |
 | LLM providers (`remote-inference`: Ollama/OpenAI/litellm) | **labs** | Freeze — external optional integration, alternative to `embed-local` | Experimental section below ("not core dependency") |
+| `vantadb-ffi-core` (FFI support leaf) | **core-promise** | Accelerate — dependency-only leaf (OpGate + ERR-022 clamp policy) shared by node/python/wasm transports; not a standalone surface | `vantadb-ffi-core/` (WIRE-07) |
 
 ### Inversion rule (admission → promotion → freeze)
 

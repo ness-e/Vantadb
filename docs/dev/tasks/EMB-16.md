@@ -140,8 +140,8 @@ Model card oficial e5 (ver §8) — única fuente externa, verificada con HTTP 2
 ### Gate 0 hits (2026-09-16)
 - `rg -n --fixed-strings "query:" src/llm.rs` → sin matches; `rg -n --fixed-strings "passage:" src/llm.rs` → sin matches. (El grep amplio `query:` del repo solo matchea campos `query: String` en cli/parser/etc., ajenos.)
 
-### RED (2026-09-16 — verificado en reusado: 9 tests e16_* escritos contra símbolos inexistentes)
-### GREEN (2026-09-16 — `cargo test -p vantadb --features embed-local,remote-inference --lib llm -j 2` con `ORT_DYLIB_PATH=%LOCALAPPDATA%\VantaDB\onnxruntime\onnxruntime.dll` → 13 passed, 0 failed, 2.59s; existentes 4+1 intactos)
+- RED (2026-09-16 — verificado en reusado: 9 tests e16_* escritos contra símbolos inexistentes)
+- GREEN (2026-09-16 — `cargo test -p vantadb --features embed-local,remote-inference --lib llm -j 2` con `ORT_DYLIB_PATH=%LOCALAPPDATA%\VantaDB\onnxruntime\onnxruntime.dll` → 13 passed, 0 failed, 2.59s; existentes 4+1 intactos)
 ### Margen medido (2026-09-16 — probe temporal `tests/e16_prefix_margin.rs` con ORT 1.30 + `multilingual-e5-small` real, luego BORRADO; Regla 11: comando + entorno citados, reproducibles)
 
 | Régimen | cos(Q,P) | cos(Q,I) | margen |
