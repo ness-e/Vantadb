@@ -117,7 +117,8 @@ const KIND_LABELS = {
 
 /** Sort: status, then title. Archived always last. */
 const rank = (s) => (s === 'archived' || s === 'superseded' ? 2 : s === 'draft' ? 1 : 0);
-const cmp = (a, b) => rank(a.status) - rank(b.status) || a.title.localeCompare(b.title);
+const cmpStr = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+const cmp = (a, b) => rank(a.status) - rank(b.status) || cmpStr(a.title, b.title);
 
 const table = (rows) => {
   if (!rows.length) return '_None yet._';
@@ -187,7 +188,7 @@ const outputs = new Map(); // rel -> content
 
 // 2. ADR index
 {
-  const adrs = records.filter((r) => r.kind === 'adr').sort((a, b) => a.rel.localeCompare(b.rel));
+  const adrs = records.filter((r) => r.kind === 'adr').sort((a, b) => cmpStr(a.rel, b.rel));
   if (adrs.length) {
     const dir = adrs[0].rel.slice(0, adrs[0].rel.lastIndexOf('/'));
     const target = `${dir}/README.md`;
