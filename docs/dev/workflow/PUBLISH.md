@@ -22,6 +22,9 @@ merge develop -> main
     -> GitHub Release  -> binaries-63 (binaries + docker image assets)
 ```
 
+## develop→main: merge commit, no squash (2026-10-02)
+
+Los PRs `develop → main` se mergean con **merge commit** (`gh pr merge --merge`), no `--squash`: release-plz lee los commits convencionales del historial para generar el changelog, y con squash solo ve el commit resumen (changelog "### Other" — pasó en 0.7.0 y 0.8.0). Con merge commit el changelog sale rico automáticamente (validado en 0.6.x). Los Release PR de release-plz siguen squash (1 commit).
 ## crates.io — `release.yml`
 
 - Trigger: `push: branches: [main]` only.
