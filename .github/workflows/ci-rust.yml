@@ -159,7 +159,7 @@ jobs:
           swap-mb: 4096
 
       - name: Public API snapshot matches committed golden file
-        run: cargo nextest run -p vantadb --test public_api
+        run: cargo nextest run -p vantadb --test public_api --run-ignored ignored-only
 
   adr-gate:
     # REGLA-5: public API changes require an ADR. Without this job the rule
