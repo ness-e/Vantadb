@@ -19,7 +19,7 @@ merge develop -> main
     -> tag v*.*.*      -> wheels-60 (PyPI) + npm-61 (npm wasm+TS) + sbom-64 (SBOM)
     -> tag node-v*.*.* -> npm-node (npm Node binding)
     -> tag adapters-v* -> adapters-62 (PyPI adapters)
-    -> GitHub Release  -> binaries-63 (binaries + docker image assets)
+    -> GitHub Release  -> binaries-63 (binaries)
 ```
 
 ## crates.io — `release.yml`
@@ -63,11 +63,12 @@ merge develop -> main
 ## Binaries — `release-binaries.yml`
 
 - Trigger: `release: types: [published]` + manual dispatch only (FIND-140:
-  the old `push.tags: [v*]` built 5 targets + docker just to discard).
+  the old `push.tags: [v*]` built 5 targets just to discard).
 - Builds `vanta-cli` + `vantadb-server` for 5 targets with the custom
   allocator (Windows mimalloc, Linux/macOS jemalloc), uploads
-  `tar.gz`/`zip` + sha256 to the GitHub Release, plus a build-no-push
-  docker image smoke test.
+  `tar.gz`/`zip` + sha256 to the GitHub Release.
+- Backfill manual: `workflow_dispatch` con input `release_tag` (ej. `v0.8.0`);
+  sin input = solo build sin upload.
 
 ## SBOM — `release-sbom.yml`
 
@@ -83,7 +84,7 @@ merge develop -> main
 | `node-v*.*.*` | npm-node | npm (Node binding) |
 | `adapters-v*.*.*` | adapters-62 | PyPI (9 adapters) |
 | `v*` (broad) | sbom-64 | Artifacts only (no registry) |
-| GitHub Release | binaries-63 | Release assets (binaries, docker tarball) |
+| GitHub Release | binaries-63 | Release assets (binaries) |
 
 ## Cascadas automaticas — `RELEASE_PLZ_TOKEN` (PAT)
 

@@ -68,7 +68,7 @@ tags: [vantadb, avance, wontfix, decisiones, yagni]
 - NIGHTLY benchmarks, self-hosted runners, matrix OS completo, coverage window auto, benchmark CI failure auto-window — catalogados P10 sin adoptar.
 
 ### Docker multi-arch
-- Docker build multi-arch diferido (single-arch suficiente para release actual).
+- ~~Docker build multi-arch diferido~~ → **superseded 2026-10-02: docker eliminado del repo** (job `docker-image` borrado; Dockerfiles/compose `git rm`).
 
 ## Decisiones técnicas registradas
 

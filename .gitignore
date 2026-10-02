@@ -141,7 +141,6 @@ vanta.db*
 # Local development environments, tests, and temporary logs
 apruba/
 release_test/
-.trash_docker/
 validation_logs/
 job*_logs/
 *logs/

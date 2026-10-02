@@ -25,7 +25,7 @@ tags: [vantadb, avance, index, progreso]
 | Bloques CORE ENGINE / storage / WAL / HNSW / ACID / IQL | `activo/core-engine.md` |
 | Bindings Python / WASM / TS / MCP / adapters | `activo/bindings.md` |
 | Frontend Web / SEO / UX / docs de la web | `activo/web-frontend.md` |
-| CI/CD, GitHub Actions, release, docker, wheels | `activo/ci-cd.md` |
+| CI/CD, GitHub Actions, release, wheels | `activo/ci-cd.md` |
 | Ops: backup, restore, docs API, ejemplo, enterprise | `activo/operaciones.md` |
 | Seguridad (SEC / NVs / fuzz / Miri / FFI) | `auditoria/seguridad.md` |
 | Dependencias (cargo-deny, dependabot, advisories) | `auditoria/dependencias.md` |

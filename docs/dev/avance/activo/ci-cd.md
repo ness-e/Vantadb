@@ -2,12 +2,12 @@
 title: "Avance — CI/CD & Release"
 kind: review
 status: active
-tags: [vantadb, avance, ci, cd, release, github-actions, docker]
+tags: [vantadb, avance, ci, cd, release, github-actions]
 ---
 
 # Avance — CI/CD & Release
 
-> Registro consolidado del trabajo completado sobre el pipeline: GitHub Actions, quality gates, releases, docker, wheels, changelog. IDs originales conservados.
+> Registro consolidado del trabajo completado sobre el pipeline: GitHub Actions, quality gates, releases, wheels, changelog. IDs originales conservados.
 
 ## Campañas de ingeniería de salud (P1–P8)
 
@@ -87,13 +87,9 @@ tags: [vantadb, avance, ci, cd, release, github-actions, docker]
 | CODE-058 | Ignored advisories sin rationale |
 | CODE-066 | workflow name fallback |
 
-## Docker & packaging
+## Docker & packaging — retired (2026-10-02)
 
-### WEB-02 (Docker)
-- **Resultado:** ✅ Dockerfile multi-stage para la webapp (build→nginx) publicado en ghcr.
-
-### Docker build CI (P10 competitive)
-- **Estado:** Pendiente según P10 catalog (ver decision/wontfix: docker multi-arch diferido).
+Docker eliminado del repo por decisión del owner: job `docker-image` borrado de `release-binaries.yml`, Dockerfiles/compose `git rm`, docs purgadas. Historial: WEB-02 (Dockerfile webapp → ghcr) + Docker build CI multi-arch (wontfix).
 
 ## Changelog & release discipline
 

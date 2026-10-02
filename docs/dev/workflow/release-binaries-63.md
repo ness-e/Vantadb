@@ -12,6 +12,8 @@ tags: [vantadb, ci, release-binaries]
 
 Construye los binarios compilados de VantaDB (vanta-cli, vantadb-server, vantadb-mcp) para 5 targets/platforms diferentes y los sube como assets al GitHub Release.
 
+**Backfill manual:** `workflow_dispatch` acepta `release_tag` (ej. `v0.8.0`): construye desde el ref del dispatch y sube los assets a ese release; vacio = solo build.
+
 ## ¿Cómo lo hace?
 
 Un job `build` con matrix de 5 targets:
