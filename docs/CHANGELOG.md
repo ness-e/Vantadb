@@ -16,6 +16,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.8.0](https://github.com/ness-e/Vantadb/compare/v0.7.0...v0.8.0) - 2026-10-02
 
+### Added
+
+- **Schema v2 — bitemporal records**: valid-time window (`valid_at_ms` / `invalid_at_ms`) separate from transaction time; half-open `[valid_at_ms, invalid_at_ms)`, open end = still valid (SCH-02).
+- **Point-in-time queries**: IQL v2 `AS OF <unix-ms>` + `as_of_ms` / `valid_window` in search/list (SCH-03).
+- **Per-record confidence**: `confidence_class` (`asserted` | `derived`), `confidence`, `last_validated_at_ms`, `derived_from`; `min_confidence` filter (SCH-04).
+- **Quarantine**: excluded by default, `include_quarantined` opt-in; sticky, never auto-promotes; review deadline is a signal only (SCH-05).
+- **Selective abstention** (opt-in): explicit `abstained: true` + reason instead of a silently empty page (SCH-05).
+- **v2 fields & params across all surfaces**: Python, TypeScript, Node, WASM, HTTP, MCP, IQL, CLI (SCH-07).
+- **WAL hash-chain tamper-evidence** + `vanta-cli verify` (VER-01).
+- **Certified delete**: shred → GC → WAL purge + per-surface attestation (VER-02).
+- **Importers**: Mem0 / Zep / Letta → `MemoryExportLine` v2 + guides (VER-05).
+- **Markdown file-native export v2** + rebuild-index (VER-06).
+- **Dreams**: real `promote_dream_run` + dry-run + diff report (VER-07).
+- **Evals**: LongMemEval-S + ECE harness; head-to-head vs Mem0 / Zep / Letta (VER-08/09).
+- **New CLI commands**: `verify`, `certificate`, `mcp-call` (API-07).
+- **TTL**: collection default + background sweeper (WIRE-04).
+- **Search & retrieval**: `range` / `group_by` + cursor + MMR + RRF-CBO (WIRE-08); sparse/text-only + advanced filters in bindings (WIRE-03); deterministic entity linking + RRF entity boost (WIRE-05).
+
+### Changed
+
+- **API standardization (P51)**: OpenAPI-first HTTP — plurals, single cursor, `status=YAML` (API-03); canonical MCP names + strict schemas + typed errors (API-04); IQL v2 (API-06); **CLI POSIX + global `--json` + symmetric flags** (API-07; `json` / `top_k` renamed).
+- **`Embedded::import_records` / `import_file`** gain `quarantine: bool`.
+- **Feature graph**: `server` no longer enables `cli` (WIRE-07 decouple).
+- **Proxy**: auth on `/snapshot` + canonical endpoints (API-05); memory-loop fix + real cost + injection budget (WIRE-01); persisted write-redaction + AEAD-encrypted namespaces (VER-03); injection budget + ACLs + audit (VER-04).
+
+### Fixed
+
+- **FIND-190** — volatile cache invalidation on Cold overwrite (put invisible to get/list).
+- **FIND-176** — wizard points `ORT_DYLIB_PATH` at the file (onnxruntime.dll).
+- **FIND-184** — llm-driver compile-time gate under workspace feature unification.
+- **WIRE-09/10/11** — sandbox paths for snapshots/export/import; P0 distribution (install.sh macOS, Colab, `mcp-call` without pwsh); llm-driver always-on in MCP/proxy (loud failure, never silent no-op).
+- **Docs & CI gates** — generated-index locale-independent sort; markdownlint/structure cleanups; docs-example gate memory leak (320 MB/run).
+
+### Breaking changes (accepted under the 0.x MINOR policy)
+
+Nine lint families vs published `0.7.0`, inventoried with commits in [COMPATIBILITY.md](./api/COMPATIBILITY.md) — migration guide: [UPGRADE.md § 0.8.0](./user/operations/UPGRADE.md#upgrading-to-080-from-07x).
 ### Other
 
 - [**breaking**] develop -> main (0.8.0 — schema v2 + estandarizacion API + fixes pre-release) ([#233](https://github.com/ness-e/Vantadb/pull/233))
