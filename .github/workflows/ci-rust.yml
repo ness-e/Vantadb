@@ -483,6 +483,39 @@ jobs:
           cargo check --manifest-path providers/ollama/Cargo.toml
           cargo check --manifest-path providers/litellm/Cargo.toml
 
+  release-combo:
+    # FIND-231: no job compiled the release profile of the published binaries
+    # under `-D warnings` (tests run in debug; desktop.yml builds the same
+    # combo but without RUSTFLAGS), so the combo that broke the first
+    # release-binaries run (0.8.0, FIND-229: unused imports + dead code under
+    # -D warnings with debug_assertions off) only surfaced at release time and
+    # burned the cycle. This gate checks the exact release combo — keep in
+    # sync with release-binaries.yml:109-122: `server` + allocator for
+    # vanta-cli, allocator for vantadb-server.
+    # RED-proven against the fix reverted — docs/dev/tasks/FIND-231.md.
+    # RUSTFLAGS mirrors the release lane: actions-rust-lang/setup-rust-toolchain
+    # (release-binaries) defaults to `-D warnings`; dtolnay/rust-toolchain (used
+    # by ./rust-setup) does not — hence the explicit env.
+    name: Release Combo (server + allocator, -D warnings)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [fmt, clippy]
+    env:
+      RUSTFLAGS: "-D warnings"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/rust-setup
+        with:
+          install-system-deps: true
+          swap-mb: 4096
+
+      - name: Check release combo — vanta-cli (server + jemalloc)
+        run: cargo check --release --features "server,jemalloc" --package vantadb --bin vanta-cli
+
+      - name: Check release combo — vantadb-server (jemalloc)
+        run: cargo check --release --features "jemalloc" --package vantadb-server
+
   audit:
     name: Security Audit
     runs-on: ubuntu-latest
