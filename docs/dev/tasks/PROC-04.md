@@ -15,10 +15,10 @@ description: "Migrar FIND-184/FIND-229 del Backlog al avance canónico + registr
 - **Tipo:** Docs (skill `progreso` Trigger 1 — registro/migración)
 - **Turns estimados:** 5-10
 - **Creado:** 2026-10-03T02:25Z | **last-synced:** 2026-10-03T02:33Z
-- **Estado:** ⏳ IN PROGRESS — ejecución ✅ completa + contrato verde + commit local; review P2-01 delegado al orquestador (subagente leaf)
+- **Estado:** ✅ COMPLETED (review P2-01 APPROVE — reviewer_context `ses_f005fe146ffe0AdUi42bcoo4w7`)
 - **Campaign ID:** post-release-0.8.0-20261002
 - **Incógnitas (uphill):** 0 abiertas
-- **Pendientes (downhill):** 4 steps
+- **Pendientes (downhill):** 0 — review P2-01 registrado; cierre mecánico ejecutado por el orquestador
 
 ## Blast Radius
 
@@ -122,12 +122,12 @@ Sin deuda — no introduce código.
 
 ## Review (GATE — agente distinto, P2-01)
 
-> **Subagente leaf** — no puede spawnear `vanta-review`. Evidencia completa abajo para que el ORQUESTADOR ejecute el review fresco.
+> **Review ejecutado por el orquestador (P2-01 aprobado).** Dictamen del reviewer fresco abajo; evidencia completa en el RESULTADO del reviewer.
 
-- **Revisor:** ⏳ PENDIENTE — `vanta-review` (contexto fresco) vía orquestador
-- **Enfoque a revisar:** (a) ¿la eliminación de filas + reescritura del cross-ref de FIND-231 es la interpretación correcta del contrato rg=0? (b) ¿la absorción de §Docker & packaging en FIND-229 pierde información? (c) ¿las entradas de avance citan commits/evidencia reales?
-- **Cómo se probó (re-ejecutable):** ver §Evidencia de verificación.
-- **Veredicto:** ⏳ pendiente
+- **Revisor:** ✅ `vanta-review` (contexto fresco — `ses_f005fe146ffe0AdUi42bcoo4w7`; ejecutor: `ses_f00702d5affekVK3Og3nXBc1Ur`)
+- **Enfoque revisado:** (a) eliminación de filas + reescritura del cross-ref de FIND-231 — correcto (no perdió significado); (b) absorción de §Docker en FIND-229 — cero pérdida, cero duplicación, sin anchors rotos; (c) hashes citados en avance — los 16 verificados (`git cat-file -t`).
+- **Cómo se probó (re-ejecutable):** ver §Evidencia de verificación (contratos re-corridos por el reviewer con los mismos outputs).
+- **Veredicto:** ✅ **APPROVE** (2026-10-03) — contrato 3/3 re-ejecutado; gates docs verdes; staging selectivo verificado bit a bit. Concerns no bloqueantes: (i) `docs/index.md` fila "Avance — CI/CD & Release" como resumen `—` (recuperable con `description:` en frontmatter de ci-cd.md); (ii) nit "ver FIND-229" sin archivo destino en `operaciones.md:172`; (iii) nota de proceso: `vanta-memory.md` no figura en la tabla de dominios del skill `progreso`.
 
 ### Evidencia de verificación (para el reviewer)
 
