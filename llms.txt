@@ -6,7 +6,7 @@
 
 Every link below points to the raw Markdown source, not a rendered page. Read the
 page you need; do not read this file end to end. This index covers the
-446 documentation pages; it deliberately omits the 1029 task files,
+446 documentation pages; it deliberately omits the 1034 task files,
 which are work items rather than documentation. The full inventory of every file
 is in docs/index.md in the repository.
 
@@ -350,7 +350,7 @@ is in docs/index.md in the repository.
 - [Auditoría — Dependencias](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/avance/auditoria/dependencias.md)
 - [Auditoría — Seguridad](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/avance/auditoria/seguridad.md)
 - [Avance — Bindings (SDK, Adapters, MCP)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/avance/activo/bindings.md): fuente (#[napi(tsreturntype = \"Promise<bigint>\")], patrón existente ×12) +
-- [Avance — CI/CD & Release](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/avance/activo/ci-cd.md): Docker eliminado del repo por decisión del owner: job docker-image borrado de release-binaries.yml, Dockerfiles/compose git rm, docs purgada
+- [Avance — CI/CD & Release](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/avance/activo/ci-cd.md)
 - [Avance — Context Engine](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/avance/activo/context-engine.md)
 - [Avance — Core Engine](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/avance/activo/core-engine.md): slen‖ns‖keylen‖key‖ver BE) + hooks put/putbatch/delete/purgeexpired + VantaConfig.versionhistorylimit (cap 32 FIFO aprobado, snapshot del record nuevo, import sin snapshots). API getversion/ ersions. Commits e0812a4/6997e59. Doble...
 - [Avance — Desktop (Tauri)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/avance/activo/desktop.md): Verificación: Select-String DAUD docs/dev/Backlog.md 0 filas | \DAUD- (solo header P37 0 Cerrada + historial), pwsh scripts/check-avance-coverage.ps1 1038+9/1038+9 (o 1038/1038 sin DAUD en fuentes) 0 gaps, pwsh...
