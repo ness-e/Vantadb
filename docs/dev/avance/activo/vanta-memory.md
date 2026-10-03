@@ -124,3 +124,9 @@ tags: [vantadb, avance, vanta-memory, tdam, memory, persona, recall]
 - **Objetivo:** key `t{ts}_0` + `timestamp_ms <= cursor` = 1 mensaje perdido en silencio (Codex P2).
 - **Resultado:** key `t{ts}_{idx}_{fnv}` + tie-break probe; test determinista + concurrente verdes (expuso overwrite entre hilos, fixed sin locks); P2-01 approve.
 - **Commit:** e0e74673 (rebase de 5b871993)
+
+### FIND-184: const-assert `llm-driver` roto bajo unificación `--workspace` (E0080)
+- **Fecha:** 2026-10-02
+- **Objetivo:** `vanta-memory/tests/smoke.rs:14-16` (const-assert de opt-in de `llm-driver`) rompía el build bajo unificación `--workspace` (E0080) cuando la feature la habilitan otros miembros (`vantadb-mcp:27`, `vanta-proxy:30`); el gate canónico lo enmascaraba (`verify.ps1` corre `-p vantadb`). Repro: `cargo test -p vanta-memory --features llm-driver --test smoke --no-run` → exit 101.
+- **Resultado:** ✅ cfg-gate del const-assert (solo compila con la feature off); verificado con `cargo check -p vanta-memory --tests` y `--features llm-driver` ✓; desbloquea Tests×3/Coverage/ASan/TSan en CI.
+- **Commit:** `d4d7961a`

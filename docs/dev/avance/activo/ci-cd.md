@@ -87,10 +87,6 @@ tags: [vantadb, avance, ci, cd, release, github-actions]
 | CODE-058 | Ignored advisories sin rationale |
 | CODE-066 | workflow name fallback |
 
-## Docker & packaging — retired (2026-10-02)
-
-Docker eliminado del repo por decisión del owner: job `docker-image` borrado de `release-binaries.yml`, Dockerfiles/compose `git rm`, docs purgadas. Historial: WEB-02 (Dockerfile webapp → ghcr) + Docker build CI multi-arch (wontfix).
-
 ## Changelog & release discipline
 
 - `release-plz` con Conventional Commits: `feat:`→minor, `fix:`→patch, `docs:/test:/perf:/refactor:`→patch, `feat!:`/`BREAKING CHANGE:`→major, `ci:/chore:`→no release.
@@ -517,3 +513,31 @@ Docker eliminado del repo por decisión del owner: job `docker-image` borrado de
 - **Objetivo:** Cerrar la campaña "Estandarización 11 APIs": `docs/api/VERSIONING.md` con las 11 superficies (Gate P), sync de `docs/api/` (19 files), gates de cierre verdes.
 - **Resultado:** ✅ Contrato 6/6 — coverage 0 gaps · `verify.ps1` ALL 11 PASS (fix tooling: `llvm-cov nextest run`→`nextest`; coverage real 81.63% ≥60) · MCP re-smoke 11/11 · OCR 0 Critical/High · plan 18/18 + campaña 9/9 · review P2-01 fresco ✅ APPROVE (3 nits Low aplicados) · FIND-161/162 registradas.
 - **Commit:** 032cbd0f (local, sin push)
+
+---
+
+## Release 0.8.0 — cierre post-release (2026-10-02)
+
+### Release 0.8.0: merge #233 → publish completo + política de merge commit
+- **Fecha:** 2026-10-02
+- **Objetivo:** Publicar 0.8.0 (schema v2 + estandarización API + fixes pre-release) con changelog curado y docs de API sincronizadas.
+- **Resultado:** ✅ Merge develop→main #233 (`72353e7f`) + Release PR `cca43b9e` → **publicado y verificado: crates.io · PyPI · npm wasm+TS · binarios 5/5 · SBOM**. Docs API sincronizadas a 0.8.0 (`2f8528f1`, `f54e0b8c`) + CHANGELOG enriquecido curado de los 184 commits del ciclo (`ef30ab1f`, owner-approved) + snapshot public-api refrescado (`eb1d09b2`). Decisión owner: merges develop→main con merge commit (no squash) para changelog rico (`d5339480`).
+- **Commit:** `72353e7f` (main) + `cca43b9e` (main)
+
+### FIND-229: `release-binaries` falló en su PRIMERA ejecución (0.8.0) — combo release + Docker retirado + backfill
+- **Fecha:** 2026-10-02
+- **Objetivo:** Desbloquear el primer run de `release-binaries`: `-D warnings` (default de setup-rust-toolchain) + features `server,jemalloc` SIN `cli` moría por imports sin cfg-gate en `debug_ops.rs` + `fuse_rrf` dead-code (CI no cubre el combo); y `docker build .` sin Dockerfile en la raíz.
+- **Resultado:** ✅ cfg-gate (`9004c43f`) + **Docker eliminado repo-wide por decisión del owner** (`fc50adb2`: job `docker-image` borrado, Dockerfiles/compose `git rm`, docs purgadas) + input `release_tag` para backfills + merge topológico a main (`c2afb9dd`) + dispatch backfill v0.8.0 → **binarios 5/5**. Historial Docker: WEB-02 (Dockerfile webapp → ghcr) + Docker build CI multi-arch (wontfix). Derivadas: FIND-230 (gate npm version) + FIND-231 (job CI del combo release).
+- **Commit:** `9004c43f` + `fc50adb2` (+ `c2afb9dd` merge)
+
+### npm TS backfill: `vantadb-ts` 0.7.0 → 0.8.0 + publish-ts no-skip
+- **Fecha:** 2026-10-02
+- **Objetivo:** El tren npm 0.8.0 saltó el publish de `vantadb-ts` en silencio (`package.json` quedó 0.7.0 y el check "already published" salió success sin publicar); el backfill `package=ts` destapó que `publish-ts` también se saltaba cuando `publish-wasm` se saltaba.
+- **Resultado:** ✅ bump `package.json`/lock a 0.8.0 (`e62e0f62`) + republicación manual (dispatch `package=ts`) + fix del workflow `needs + always` (`70dd6eb3`: solo bloquea si wasm falla) + limpieza del escape literal (`723bc291`). Gate mecánico anti-repetición: FIND-230 en Backlog (Task 3 del plan post-release).
+- **Commit:** `e62e0f62` + `70dd6eb3` + `723bc291`
+
+### rustls ARM64: reqwest → rustls en `vanta-memory` + root (drop native-tls/openssl)
+- **Fecha:** 2026-10-02
+- **Objetivo:** El build release `aarch64-unknown-linux-gnu` moría cross-compilando `openssl-sys` (native-tls vía reqwest default; sin sysroot cross) → asset ARM64 bloqueado del backfill de binarios.
+- **Resultado:** ✅ migración a `rustls-tls` en `vanta-memory` + root (alineado con mcp/server/proxy): openssl fuera de todo árbol Linux (-86 líneas de lock) + `deny.toml` allow `CDLA-Permissive-2.0` (`webpki-roots`) y drop del ignore stale RUSTSEC-2024-0429 (`cf86e49b`, `cargo deny check` OK). Parte del backfill de binarios v0.8.0 (FIND-229).
+- **Commit:** `01d86ab4` + `cf86e49b`
