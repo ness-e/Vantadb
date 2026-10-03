@@ -137,3 +137,5 @@ Simulación mecánica sobre los 565 reports (patrón `race:` matchea CUALQUIER f
 - `gh` CLI 2.91 (logs de runs), `actionlint` 1.7.12, `node scripts/docs/*.mjs` (docs), OCR delegation (`dev-tools/ocr-review.ps1`), PowerShell (clasificador de logs en `%TEMP%\opencode\find227\`).
 
 **Skills cargadas (SDP):** `campaign-executor` + `progreso` (base, auto), `ci-cd-and-automation` (pinned CI), `git-workflow-and-versioning` (pinned CI), `doubt-driven-development` (base type), `incremental-implementation` + `test-driven-development` + `context-engineering` (lifecycle BUILD), `documentation-skill` (obligatoria por editar `.md` bajo `docs/`), `coordinated-web-search` (router de investigación web — usado para validar TSan suppressions y la causa raíz contra docs oficiales).
+
+- **Post-push (2026-10-03, run `37102066714`):** ✅ status quo confirmado — el job TSan sigue rojo por las mismas races de std/libtest/fjall documentadas (la decisión no cambia; comment-only sin efecto de comportamiento).

@@ -202,3 +202,5 @@ description: "Job release-combo en ci-rust.yml: compila en perfil release el com
 - **Regla 6:** sin deuda nueva; el job paga deuda de proceso (previene el ciclo quemado de FIND-229).
 - **Residual F2 (review ronda 1):** el verde local de los comandos usó `custom-allocator` (Windows); el comando CI exacto (`jemalloc`) queda probado solo en el tramo 2 (CI post-push). La clase es de perfil, no de allocator: el run original (jemalloc + release + `-D warnings`) produjo exactamente los mismos 6 diagnósticos, y la repro local los reproduce con el mismo mecanismo.
 - **Medición build local:** `cargo build --release` del primer binario completó en 503.7s (exit 0) antes de detener la medición; el build del server quedó sin medir (no aporta: el primer binario ya excede el presupuesto). Dato CI equivalente: job `463s` sin sccache (run `37082059543`).
+
+- **Post-push (2026-10-03, run `37102066714`):** ✅ **Release Combo (server + allocator, -D warnings) = SUCCESS** en CI — tramo 2 cerrado; el residual F2 (comando jemalloc exacto probado solo en CI) quedó resuelto: pasa en el runner.

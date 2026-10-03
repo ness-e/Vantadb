@@ -151,3 +151,5 @@ SUMMARY: AddressSanitizer: 1879861353 byte(s) leaked in 1372 allocation(s).
 - **PERFORMANCE:** no aplica a hot paths de producción; efecto medido: −1.74 GB de heap retenido en el proceso de tests (mejora, no regresión).
 - **FIND-213 (NL_POOL):** candidato a verificar en el primer reporte simbolizado; si aparece, se registra/tria ahí.
 - **Contexto percibido vs real:** el plan decía "~28 × 64 MB exactos = vfiles LSM no liberados al salir los tests" — confirmado con precisión: son vfiles **in-memory** (no la ruta LSM persistente `lsm.rs:156`, que es mmap) de engines **filtrados por tests** (no un drop faltante del engine).
+
+- **Post-push (2026-10-03, run `37102066714`):** ✅ símbolos activos ("Using symbolizer: /usr/bin/llvm-symbolizer") + ✅ **SIN leak summary** (de 1.74 GB → ninguno detectado; el fix eliminó el leak completo, no solo el dominante). El job sigue rojo SOLO por el panic pre-existente de `sift1m_competitive_benchmark` (guard release-only corriendo en debug; idéntico en el run pre-fix `111086294644`) → registrado como **FIND-236**. Contrato (1)(2)(3) cumplido.

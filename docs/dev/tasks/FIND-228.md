@@ -181,3 +181,5 @@ gh run list --branch develop --limit 100 --json workflowName,event --jq '[.[] | 
 **Tool quirk (2026-10-03):** `campaign_validate_scope` no expande brace-globs (`{a,b}.yml`) del blast radius declarado → reportó OUT_OF_SCOPE para los 15 workflows (check advisory, no bloqueante); los paths exactos (docs) pasaron validación. Registrado como lección en memoria.
 
 **Backlog:** la fila `FIND-228` (Backlog.md:421) queda para el pase de progreso del orquestador — convención vigente (FIND-225/FIND-230 completados siguen en Backlog hasta el pase del campaign).
+
+- **Post-push (2026-10-03, push `6fe2482e`):** ✅ contrato verificado **EN VIVO** — el push a develop disparó **solo** `PERF: Benchmarks — Python Integration` (run `37102010279`); ninguno de los 15 workflows arreglados. Filas del Backlog migradas en el cierre de campaña (7 FIND → avance).
