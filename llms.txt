@@ -6,7 +6,7 @@
 
 Every link below points to the raw Markdown source, not a rendered page. Read the
 page you need; do not read this file end to end. This index covers the
-446 documentation pages; it deliberately omits the 1039 task files,
+447 documentation pages; it deliberately omits the 1039 task files,
 which are work items rather than documentation. The full inventory of every file
 is in docs/index.md in the repository.
 
@@ -15,6 +15,7 @@ is in docs/index.md in the repository.
 - [VantaDB Documentation](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/README.md): Welcome to the VantaDB documentation vault
 - [API reference](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/index.md): Section index.
 - [VantaDB Documentation](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/index.md): Canonical index of the VantaDB documentation corpus.
+- [reports](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/reports/index.md): Section index.
 - [End-user documentation](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/index.md): Section index.
 
 ## Architecture decision records
@@ -223,6 +224,7 @@ is in docs/index.md in the repository.
 - [VantaDB Documentation](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/index.md): Canonical index of the VantaDB documentation corpus.
 - [VantaDB Tutorials](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/tutorials/index.md): Step-by-step guides for using VantaDB, ordered by increasing complexity
 - [Workflows — Inventory (37 active)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/workflow/README.md): Per-workflow detail pages live next to this index (ci-gate.md,
+- [reports](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/reports/index.md): Section index.
 - [Reviews archivados (2026-08-26)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/reviews/README.md): Estos 30 reportes son snapshots históricos de auditorías/reviews/investigaciones
 - [The mdBook layer (retired 2026-09-29)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/book/README.md): Why docs/user/book/ was deleted, what survives, and what to do if it comes back
 
@@ -231,7 +233,6 @@ is in docs/index.md in the repository.
 - [BND-08 — Checklist de publicación `vantadb-node` (para el humano)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/plans/artifacts/bnd-08-publish-checklist.md): Nota local vs CI: el tarball local incluye UN solo .node (win32-x64-msvc, el build de
 - [Plan de Consolidación Documental — enlaces, metadata, índices y skill](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/plans/2026-09-28-docs-consolidation.md): documentation-skill → campaign-executor → progreso → writing-plans → systematic-debugging → writing-guidelines
 - [Plan de Ejecución: Master Roadmap VantaDB — de 0.7.x a 1.0 (fuente única)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/plans/2026-09-26-master-roadmap.md): SDP: campaign-executor · progreso · writing-plans · planning-and-task-breakdown · api-and-interface-design · spec-driven-development · documentation-and-adrs · writing-guidelines
-- [Plan de Ejecución: Post-release 0.8.0 — Estabilización de infraestructura](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/plans/2026-10-02-post-release-0.8.0.md): SDP v3 (taskType CI/CD-DevOps): campaign-executor · progreso · ci-cd-and-automation · git-workflow-and-versioning · performance-optimization · doubt-driven-development · planning-and-task-breakdown · documentation-and-adrs · security-and-hardening · shipping-and-launch
 - [Upstream PR draft — CrewAI](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/plans/artifacts/mkt-18f-prs/crewai.md): Prereq (bloquea merge upstream): publicar vantadb-crewai en PyPI (tag adapters-v0.5.0)
 - [Upstream PR draft — DSPy](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/plans/artifacts/mkt-18f-prs/dspy.md): Prereq (bloquea merge upstream): publicar vantadb-dspy en PyPI (tag adapters-v0.5.0)
 - [Upstream PR draft — LangChain](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/plans/artifacts/mkt-18f-prs/langchain.md): Prereq (bloquea merge upstream): publicar vantadb-langchain en PyPI (tag adapters-v0.5.0). Upstream no linkea paquetes 404
@@ -270,6 +271,7 @@ is in docs/index.md in the repository.
 - [Benchmark Optimization — VantaDB 2026](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/benchmarks/docs/BENCHMARK_OPTIMIZATION_2026.md): Conclusión: CPU con AVX2 + FMA, sin AVX-512. El runtime dispatch en distance.rs usará kernels f32x8 (AVX2) para todas las operaciones
 - [DORA Flow Metrics Report](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/reports/dora.md): Δt promedio (solo fallos reales, exit ≠ -1): 0.6h sobre 21 pares (17 espurios excluidos del promedio)
 - [Pipeline Evaluation Report](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/reports/pipeline-evals.md)
+- [Pipeline Evaluation Report](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/reports/pipeline-evals.md): Métricas del pipeline vs North Star (RULES.md) — verify calls, primer intento, regresiones — generado por evals/eval-metrics.mjs
 - [VantaDB Competitive Analysis](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/benchmarks/COMPETITIVE_ANALYSIS.md): De 184 QPS → 3,157 QPS (GloVe baseline pre-regresión). Empate técnico con ChromaDB (~2,905 vs ~2,981 QPS GloVe)
 - [VantaDB Competitive SDK Benchmark — Honest Results (PERF-03)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/benchmarks/COMPETITIVE_SDK_BENCH.md): python benchmarks/competitivebench.py --engines milvus --dataset synthetic --size 2000 --queries 50 --json-output docs/user/benchmarks/competitivesdkbenchmilvus.json --output benchmarks/n.md --yes
 - [VantaDB IVF Benchmark — REVISAR-01](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/benchmarks/ivf_bench.md): Cierra el ciclo ERR-038/039/040/041 con un bench dedicado: construcción IVF, búsqueda,
