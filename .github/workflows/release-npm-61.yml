@@ -192,7 +192,7 @@ jobs:
     needs: [publish-wasm]
     # GATE: corre aunque publish-wasm se haya SALTADO (dispatch package=ts);
     # solo se bloquea si wasm FALLO (el tarball TS declara wasm@^X como dep,
-    # as\u00ed que el orden wasm->ts se mantiene). Bug del backfill 0.8.0: con
+    # así que el orden wasm->ts se mantiene). Bug del backfill 0.8.0: con
     # package=ts el run terminaba success sin publicar nada (ts=skipped).
     if: >
       always() &&
