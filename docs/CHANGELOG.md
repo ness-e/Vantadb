@@ -14,6 +14,334 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 
+## [0.9.0](https://github.com/ness-e/Vantadb/compare/v0.8.0...v0.9.0) - 2026-10-03
+
+### Added
+
+- *(demos)* EXE-01 — demos CI verify + governance (3 casos memory/verify/governance) (F6)
+- *(evals)* VER-09 — head-to-head Mem0/Zep/Letta con protocolo publicado (F6)
+- *(icp03)* track frameworks — one-pager + demo dev->prod + handoff publish (F5)
+- *(icp02)* track privacidad — one-pager + demo E2E + auditoria PII binary-safe (F5)
+- *(evals)* VER-08 — harness de evals (LongMemEval-S + ECE) + subset MIT (F5)
+- *(icp01)* track AI-IDEs (MCP) — one-pager + demo CI + metrica North Star (F5)
+- *(governance)* VER-04 — presupuesto + ACLs + audit de inyeccion (F4)
+- *(core)* VER-02 — borrado certificado (shred->GC->WAL purga + attestation por superficie) (F4)
+- *(proxy)* VER-03 — redaccion-on-write persistida + namespaces cifrados AEAD (F4)
+- *(export)* VER-06 — Markdown file-native v2 + rebuild-index (git-friendly) (F4)
+- *(wal)* VER-01 — hash-chain tamper-evident + vanta-cli verify (F4)
+- *(importers)* VER-05 — Mem0/Zep/Letta -> MemoryExportLine v2 + guias (F4)
+- *(dreams)* VER-07 — promote_dream_run real + dry-run + diff report (F4)
+- *(schema)* [**breaking**] 0.8.0 — schema v2 (bitemporal + confidence + quarantine) + migration guide (SCH-08)
+- *(api)* SCH-07 — superficies v2 (8 surfaces) + docs/api mismo-PR (F3)
+- *(sdk)* SCH-05 — cuarentena operativa + abstención + trust-aware retrieval
+- *(search)* wave F3.3a — SCH-03 AS OF/valid_at + SCH-04 confidence consumible
+- *(schema)* v2 — bitemporal + confidence + quarantined + backfill (SCH-02)
+- *(search)* range/group_by + cursor + MMR + RRF-CBO (WIRE-08)
+- *(entity)* deterministic linking + RRF entity boost (WIRE-05)
+- *(bindings)* query_sparse + text-only + advanced filters (WIRE-03)
+- *(mcp)* profile enforcement + agent default + surface fusion (WIRE-02)
+- *(ttl)* collection default + background sweeper (WIRE-04)
+- *(harness)* HARD-07 — review gate mecanizado reviewer_context != author_context (Gate H + P2-01 OK)
+- *(ops)* HARD-05 — entorno local: regla -p + required-features + troubleshooting (Gate H + P2-01 OK)
+- *(ci)* HARD-02 — tuning de gates: coverage al nightly + review risk-tiered + fast gate 209.5s (P2-01 OK)
+- *(ops)* HARD-03 — continuidad local: git bundle verificado + politica push/trains (RULES 8) (P2-01 OK)
+- *(release)* HARD-01 — rails de breaking: snapshot public-api + gate en PR + DEPRECATIONS/COMPATIBILITY (P2-01 OK)
+- feat!(api): API-07 — CLI: POSIX + --json global + flags simetricos
+- feat!(api): API-06 — IQL version + sintaxis + literales + AST
+- feat!(api): API-05 — proxy: auth en /snapshot + endpoints canonicos + config
+- feat!(api): API-04 — MCP canonicos + schemas estrictos + errores tipados
+- feat!(api): API-03 — HTTP OpenAPI-first (plurales, cursor unico, status=YAML)
+- feat!(api): API-02 — W1 bindings (score/getNode/put_batch array/search_multi/u128)
+- feat!(sdk): renombrar VantaHeader -> Header + alias deprecated (API-01 Step 5)
+- feat!(sdk): u128_serde en QueryResult::Write.node_id (API-01)
+- FIND-149 harness L7 con semgrep MCP + reglas versionadas y dictamen con output real
+- FIND-151 agent-eval 10 casos dorados + Lurkr CI informativo con baseline
+- [**breaking**] TS API a objetos (get/delete/list/count/supersede/searchMulti/searchVector/similarToKey)
+
+### Fixed
+
+- *(ci)* allow CDLA-Permissive-2.0 (webpki-roots) + drop stale RUSTSEC-2024-0429 ignore
+- *(deps)* reqwest to rustls in vanta-memory + root (drop native-tls/openssl)
+- *(search)* gate debug-only helpers behind cfg(debug_assertions)
+- *(docs)* exclude git-ignored files from the index walk (CI drift)
+- *(providers)* add v2 memory filter fields to search/list options (E0063)
+- *(vanta-memory)* gate llm-driver compile-time assertion to default builds (FIND-184)
+- *(docs)* gen-index con sort locale-independiente (cmpStr) — elimina drift Windows/CI en indices generados
+- *(docs)* gates de CI — NULs, VER-07 frontmatter dup, MCP.md version, frontier ffi-core, markdownlint 0, stubs->bullets (structure 15/40), indices regenerados
+- *(cli)* migrate run --format lista los 6 formatos reales (records) + test de regresion
+- FIND-190 — invalidar cache volatil en overwrite Cold (put invisible a get/list) + tests RED->GREEN
+- FIND-176 wizard apunta ORT_DYLIB_PATH al archivo (onnxruntime.dll) + test de regresion
+- *(docs)* la deteccion de cercas estaba rota en tres sitios, y en uno afectaba a todo
+- *(ci,docs)* perf-bench con un booleano real, README de desktop al día
+- *(docs)* 66 ficheros escribian su titulo como #Fjall, sin espacio
+- *(gates)* dos gates que mentian sobre por que fallaban
+- *(docs-examples)* el gate fugaba 320 MB por ejecucion
+- *(cli,mcp)* visible fallback notice for dummy embeddings (DEF-08 follow-up) [no-adr]
+- *(mcp)* exponer codegraph + codebase-memory-mcp como tools nativas (codemode:false)
+- *(ci)* HARD-06 — deuda quick wins: FIND-162/160/154/161 + MEM-55 (P2-01 adversarial OK)
+- *(harness)* pre-run — plan Fase/Estado escribible + checkpoint + hooks [Gate H OK]
+- WIRE-11 llm-driver always-on en MCP/proxy (falla ruidosa, nunca no-op silencioso)
+- WIRE-10 — distribución P0 (install.sh macOS, Colab a Client, mcp-call + hooks sin pwsh)
+- *(sdk)* API-01 review R1/R2 — serde(default) en Write.node_id + evidencia de tests
+- WIRE-01 loop de memoria del proxy + cost real + presupuesto de inyección
+- WIRE-09 sandbox paths snapshots/export/import + refuse-to-start proxy
+- *(C-07/C-10)* curacion ramas stale + paridad README ES/EN (Trust block, colab, examples, ADR-041)
+- *(FIND-153)* cierre — fila a avance + verificacion gate real (16 metricas)
+- *(FIND-153)* activar baseline de perf-bench (median 3 runs, run 36093538630) + metadata perf-bench.yml
+- EST-03 ci-gate mide main HEAD + skipped/neutral pass + missing tolerado (WARN)
+- EST-03 ci-gate usa head SHA en PRs + lurkr skip sin checkout .opencode
+- lurkr skip sin .opencode en checkout (repo separado) + FASE1 EST-01/02/04
+- FASE1 plan EST-01/02/04 (lurkr pin v7, ollama tests a Client, GOTOOLCHAIN go1.27.0)
+- CI PR222 (bench local a Client/search + headers api 0.7.0)
+- vanta-proxy --help/--version + README minimo (friccion R-05/#8)
+- parentesis extra en brazo recall de tools.rs + fmt
+- bump tracing-opentelemetry a 0.34 (par de otel 0.33, E0277/E0599 en telemetry con feature server)
+- outputSchema type object en 4 search tools + structuredContent envelope (compat opencode v2)
+- aislar CARGO_TARGET_DIR en build manylinux (reuso cross-glibc de build-scripts)
+- smoke-pack usa Client.create (VantaDB eliminado en 0.6.0 AST-010; TS-07 fallaba)
+
+### Other
+
+- *(deps)* bump undici from 8.10.0 to 8.11.2 in /desktop ([#232](https://github.com/ness-e/Vantadb/pull/232))
+- *(backlog)* add FIND-230 (npm version sync) + close FIND-229 with backfill evidence
+- *(release)* sync vantadb-ts package version to 0.8.0
+- Merge remote-tracking branch 'origin/main' into develop
+- *(gen)* regen indexes after docker purge
+- *(release)* eliminate docker support repo-wide + add release_tag backfill (FIND-229)
+- *(backlog)* add FIND-229 (release-binaries first-run failure on 0.8.0)
+- *(backlog)* add FIND-226/227/228 (ASan leaks, TSan std race, RULE 1 trigger drift)
+- *(backlog)* close FIND-178, note FIND-191 (public-api routed to dedicated job)
+- *(api)* update public-api snapshot command (test is now #[ignore]d)
+- run the public-api snapshot test only in its dedicated job
+- *(backlog)* close FIND-184 (fixed in d4d7961a) + add FIND-225 (CodeQL triage)
+- *(api)* refresh public API snapshot for 0.8.0
+- retirar 9 fragmentos stale que el merge trajo de main (planes ya archivados en develop + stubs del book consolidado)
+- sync origin/main -> develop (topologia pre-0.8.0 — develop ya contiene los 3 fixes de main en forma mas nueva; reorganizacion de docs preservada)
+- *(sch-08)* H1 cerrado en la nota del review (COMPATIBILITY reconciliada)
+- *(compatibility)* reconciliar counts semver-checks (187/9/57, 9 familias) + split de superficies (cierra H1 del P2-01)
+- *(cierre)* RES-17 entregada — investigacion del instalador (research + registros)
+- *(research)* RES-17 — instalador interactivo personalizado (benchmark + recomendacion + roadmap por fases)
+- *(backlog)* RES-17 (ex INV-installer-01) — ID visible al parser de tareas
+- *(backlog)* INV-installer-01 + FIND-224 + cierre FIND-172 + review P2-01 del corte en SCH-08
+- *(readme)* grupo A — cuatro superficies + vanta-memory L0->L3 + notas de plataforma + estados por paquete + workflows 37 (cierra FIND-172)
+- *(reviews)* integrar analisis externo 42-items (verificado) + decisiones owner
+- *(cli)* alinear --format en STORAGE_VERSIONING + alta DX-13 (completions drift)
+- *(graphrag)* quitar refs al registro de case studies eliminado (cierre C5)
+- *(dev-tools)* script target-cleanup — reporte + limpieza + deteccion de huerfanos (FIND-192)
+- *(backlog)* DIST-18 congelado sin publicar hasta 1.0.0 + DX-12 selector de modulos + FIND-192
+- *(scope)* lista de congelados hasta 1.0 aprobada (owner) + registros de decisiones
+- *(cierre)* FIND-176/190 cerrados (avance + history + review P2-01) + FIND-222/223
+- *(index)* regenerar indices (FIND-176/190, ADR-0054, verified-numbers)
+- *(backlog)* WIRE-14..18 — tareas derivadas de ADR-0054 (planificador L0->L3)
+- *(upgrade)* corte 0.8.0 — cobertura 1:1 vs ADR-0046 + 8 correcciones de ejecutabilidad
+- *(adr)* ADR-0054 hogar del planificador L0->L3 = vantadb-server (delegacion owner) + registro numeros
+- *(proxy)* comentario del test dual-write alineado al codigo (drift post-WIRE-01)
+- *(references)* registro de numeros verificados con comandos (owner 2026-10-01)
+- *(constraints)* watcher del nightly — auto-issue existente + revision semanal del Build Cop con FIND
+- *(api)* contrato de atomicidad por chunk en put_batch (FIND-221)
+- *(backlog)* alta 2026-10-01 — 12 filas (analisis externo 42-items + decisiones owner)
+- *(backlog)* renombrar MKT-18f->MKT-20 y MKT-18i->MKT-21 (visibilidad del buscador de tareas)
+- *(backlog)* FIND-122 sin glifo en columna Estado (referencia a EXE-02 va en texto)
+- *(backlog)* trazabilidad WIRE-01/09 cerrada (verificadas ejecutadas: 679c75a9 / 6a0f6934)
+- *(backlog)* renombrar GOV-TK5 -> GOV-05 (compatibilidad buscador) + eliminar Backlog.budget.json residual
+- *(backlog)* verificacion de realidad completa + formato P0-P3 a tablas + correcciones
+- *(backlog)* alinear filas P5/P6 del exec summary tras la migracion
+- *(backlog)* migrar los 4 backlogs al esquema canonico de 10 columnas + limpieza
+- gen-index (adr/README, user/index) + registro de auditoria de backlogs 2026-09-30 en avance
+- *(archive)* rescates OLD 2026-09-30 — descartes ADR + 7 archivos historicos + tutorial LM Studio + 5 contextos [B1,C1-C4,C7]
+- *(backlog)* promociones FUT-03/07 + FIND-208..212 + saneamiento + cierre triage §4 [A7-A11,B2-B3,D3-D4]
+- *(backlog)* mueve 6 filas owner/negocio a Backlog-negocio (STRAT-01/02/03/07, DX-10, FASE-A/R-05) + BIZ-14/15 [A1-A6]
+- *(notion)* backlog N-18..N-32 — auditoria VantaDB Docs 2026-09-30 (contenido stale + hub v2 + artefactos + config + workbook owner)
+- *(notion)* cierra N-17 — sync ejecutado + verificado (+ Sync #2); fila removida + registro en avance
+- *(strategy)* refresh post-campana — ROADMAP-v0.7 re-baseline (corte 0.8.0) + versiones 0.7.0 + banners + gen-index
+- *(strategy)* Notion sync #2 — validacion externa 2026-09-30 (6 paginas) + verificacion N-17
+- *(backlog)* MEMG-09/14/16/23 — cierre de micro-gaps de captura (validación externa 2026-09-30)
+- *(backlog)* DELTA — MEMG-14..23 (marco 2.0 + portabilidad/sharing/rollback/verificabilidad/multimodal — validación externa 2026-09-30)
+- *(backlog)* DELTA — MEMG-11..13 (adopción del motor core por vanta-memory, análisis 2026-09-30)
+- *(backlog)* DELTA 2026-09-30 — 42 items post-campana (DIST/MEMG/DUR/BENCH/DX/STRAT) + H-findings migrados + exec summary
+- *(backlog)* FIND-205..207 — runners Zep/Letta/mem0-native (lane owner)
+- *(F6)* cierre — plan sync (VER-09/EXE-01/N-17) + campana 49/50
+- *(notion)* N-17 sync EJECUTADO — 9 paginas + Definicion oficial creada + 3 archivadas (2026-09-30)
+- *(notion)* NOTION-SYNC re-baseline 2026-09-30 — mapeo verificado + estado post-campana
+- *(plan)* F6 blocks completados al nivel F0/F1 (Tasks 47-49) + hashes ICP-03/DEF-06
+- *(F5.2)* cierre — plan sync (ICP-03/DEF-06) + FIND-199..204
+- *(claims)* DEF-06 — README<->BENCHMARKS reconciliados (claims) (F5)
+- *(F5.1)* cierre — plan sync (ICP-01/02, VER-08) + FIND-196..198 + MKT-18f local
+- *(MKT-18f)* re-baseline + checklist owner refrescado (9 adapters, PyPI 404 live, stale refs)
+- *(plan)* F5 blocks completados al nivel F0/F1 (Tasks 41-46) + re-baselines
+- *(F4)* cierre — plan sync (VER-04) + GATE F4 (7/7 verificables con tests+attestations)
+- *(fix)* VER-06 frontmatter (check-docs) + indices regenerados (gen-index --write)
+- *(F4.2)* cierre — plan sync (VER-02/03/06) + FIND-193..195
+- *(F4.1)* cierre — plan sync (VER-01/05/07) + FIND-189..192
+- *(adr,schema)* corrige el tipo de error y el workflow que los ADRs citan
+- revisa las 96 secciones vacías — y el gate tenía 47 falsos positivos
+- *(adr)* resuelve la ambigüedad de ADR-041, y unifica la prosa a 4 dígitos
+- borra SUMMARY.md, y devuelve 6 bloques a su sección
+- *(plan)* F4 blocks completados al nivel F0/F1 (Tasks 34-40) + re-baselines
+- *(config)* CONSTRAINTS alude a ADR-0018, opencode.jsonc sin los MCP retirados
+- *(F3.6)* cierre — verdict SCH-08 + plan sync + GATE F3 (corte 0.8.0 listo local)
+- *(SCH-07)* verdict del revisor en Review (ses_f128e58a)
+- *(F3.5)* cierre — verdict SCH-07 en Review + plan sync + FIND-187/188
+- *(F3.4)* cierre — plan sync (SCH-06) + FIND-186 + notas
+- *(chaos)* SCH-06 — migracion determinista + time-travel + roundtrip + chaos (F3)
+- *(backlog)* FIND-186 — WAL shard-group crash requiere salvage (H1 de SCH-06)
+- *(index)* regenera indices generados (gen-index --write) — gate docs-index verde
+- *(F3.3b)* cierre — plan sync (SCH-05) + notas (docs session commiteada)
+- consolida 1653 ficheros — interoperabilidad, metadatos y contenido real
+- *(docs)* borra 5 ficheros que afirmaban cosas falsas o no servian
+- *(docs)* retira la capa mdBook (docs/user/book/src, 75 ficheros)
+- *(docs)* cuatro gates que miden lo que antes era inmedible
+- *(docs)* toolchain de 16 scripts, cero dependencias, offline
+- *(F3.3a)* cierre wave — plan sync (SCH-03/04) + FIND get_next_task ambiguo
+- *(F3.2)* cierre wave — plan sync (SCH-01/02) + checkpoint listo para /pipeline run
+- *(adr)* ADR-046 — sincroniza status tras firma (limpia residuos proposed/pendiente)
+- *(adr)* ADR-046 schema v2 aceptado — firma owner (SCH-01)
+- *(F3)* owner ratifico los 16 defaults de diseno (question) + plan-adjust + recitation
+- *(F3.1)* cierre wave — plan sync (MGR-10/12/13) + verdict MGR-12
+- *(research)* MGR-12 confianza — research-doc + modelo asserted/derived (F3)
+- *(research)* MGR-13 cuarentena — research-doc + threat model write-time (F3)
+- *(research)* MGR-10 bitemporalidad — research-doc + Cierre MGR (F3)
+- *(plan)* F3 blocks completados al nivel F0/F1 (Tasks 23-33) + re-baselines (0.8.0)
+- *(F2c)* cierre F2 COMPLETA — plan sync (WIRE-08) + FIND-183/184/185
+- *(F2b)* cierre wave — plan sync (WIRE-05/06/07) + R-1 public_api verde
+- *(storage)* opt-in group-commit batching (WIRE-06)
+- *(boundaries)* close trait-split cycle + semver triage (WIRE-07 F/6)
+- *(core)* decouple server feature from cli + console re-gate (WIRE-07 E/6) [no-adr]
+- *(wasm)* consume vantadb-ffi-core (WIRE-07 D/6)
+- *(python)* consume vantadb-ffi-core (WIRE-07 C/6)
+- *(node)* consume vantadb-ffi-core (WIRE-07 B/6)
+- *(ffi)* add vantadb-ffi-core leaf crate (OpGate+clamps) (WIRE-07 A/6)
+- *(F2a)* cierre parcial — plan sync (WIRE-02/03/04) + FIND-180/181
+- *(backlog)* FIND-179 — modelo corrupto no detectable por el probe (techo documentado)
+- *(backlog)* FIND-177/178 — colaterales WIRE-04 (target bins con MCP vivas · public_api en fast gate)
+- *(backlog)* FIND-176 — wizard ORT_DYLIB_PATH dir vs file (dummy en MCP, fix 1 linea)
+- *(plan)* plan-adjust F1-complete + F2-blocks (REGLA L422) + recitation sync
+- *(plan)* F2 blocks completados al nivel F0/F1 (Tasks 16-22) + Paso 0 verificado
+- *(backlog)* FIND-175 — telemetria local install-loop (spec DEF-08 + O2/O3 a pinchar)
+- *(F1c)* cierre wave — plan sync (DEF-07/08) + FIND-175
+- install SLO + telemetry/fallback specs (DEF-08)
+- scope budget core-promise vs labs (DEF-07)
+- *(F1b)* cierre wave — plan sync (DEF-03/04/05) + FIND-169..174
+- *(product)* DEF-05 — North Star + guardrails en SPEC/VISION (review fresco OK)
+- *(adr)* ADR-045 naming freeze aceptado — firma owner Gate P + ref VERSIONING (DEF-04)
+- *(tasks)* DEF-03 cierre formal — re-review P2-01 fresco OK
+- add frontier validation gate (DEF-03)
+- *(ops)* DEF-02 — EXPERIMENTAL_FEATURES regenerado a 0.7.0 + categorias labs (P2-01 OK)
+- *(product)* DEF-01 — jerarquia unica 1 nucleo + 3 puertas (RAG=capacidad) en README/ES/VISION/SPEC (P2-01 OK)
+- *(tasks)* WIRE-10 cierre formal — review P2-01 OK + reconciliacion (FIND-169)
+- *(F0)* cierres de backlog (FIND-134..168 + MEM-55) + plan 7/7
+- *(api)* HARD-04 — vanta-memory: Facade (candidate) + triggers T1-T4 (P2-01 OK)
+- *(tasks)* SDP v3 pre-run pass — 14 lineas SDP actualizadas (pins+aliases) + plan nota
+- *(plan)* HARD-08 SDP v3 registrado (pre-run completado) — plan 1/50
+- *(plans)* absorber planes activos -> archive/ (fuente única master)
+- *(plan)* master roadmap unificado + task files HARD-*/DEF-* (fuente única)
+- *(api)* cierre campaña 11 APIs 9/9 — avance/ci-cd + meta + roadmap + planes archivados
+- *(api)* API-09 — cierre campaña: VERSIONING 11 superficies + docs sync + gates
+- *(api)* cierre API-07/08 — plan 8/9 + avance + backlog
+- *(api)* API-08 — vanta-memory: API Rust estable core-only (docs + rustdoc)
+- *(API-01..06)* bookkeeping — task files a COMPLETED + FIND-158/159 + FIND-79 DEFER
+- *(API-04/05/06)* cierre — reviews P2-01 + plan/avance/backlog
+- *(WIRE-11)* cierre progreso — fila a avance, P2-01 approve + lead verify
+- *(API-02/03)* cierre — plan/avance/backlog (reviews P2-01 aprobados)
+- *(WIRE-10)* cierre progreso — contadores P56/total reconciliados
+- WIRE-10 — progreso (fila a avance/operaciones, commit 8e55e853)
+- *(API-01)* cierre — review P2-01 aprobado + waiver ADR-041 + plan/avance/backlog
+- *(harness)* gate V2 push/PR (ask) + P59 harness v3 + roadmap actualizado (owner 2026-09-25)
+- *(architecture)* /build prove -> /pipeline task (limpieza post-eliminacion)
+- *(contributing)* politica git agentes (push explicito, PRs solo develop) + amendment RULES.md triggers
+- *(MGR-19)* cierre progreso — fila a avance, baseline timed + P2-01 approve
+- MGR-19 baseline canonico canonical_p99 + reconciliacion README-§2 + suites externas
+- *(WIRE-01)* cierre progreso — fila a avance, P2-01 approve + lead verify
+- *(release)* sync RELEASE_PLZ_TOKEN + runbook (paridad con main)
+- *(avance)* HIG-01 completada (dedup CHANGELOG + release_always=false + bodies reparados)
+- *(release)* sync HIG-01 dedup + release_always=false (paridad con main)
+- *(backlog)* HIG-01 consecuencia verificada (release bodies vacios, evidencia release-plz)
+- *(WIRE-09)* cierre progreso — fila a avance, review P2-01 approve
+- *(api)* API-01 steps 3-8 (FilterOp docs + error envelope + casing + wire tests)
+- *(api)* plan API-01 en progreso (steps 1-2)
+- *(api)* task file API-01 (W0 fundacion) + progreso steps 1-2
+- *(avance)* cierre release 0.7.0 (publish + mojibake #226) + EST-09/C-08 + FIND-154
+- *(C-07/C-10)* cierre progreso — filas a avance, plan total actualizado, review P2-01 approve
+- *(C-10)* verify v3 (switcher excluido, colab positivo) + dictamen ronda 2 + script versionado
+- *(harness)* subagent_depth a experimental (V2 nativo) + auditoria migracion OpenCode V2 (v2.0.16)
+- *(meta)* pipeline compliance — gate de proceso + pre-spawn checklist + review P2-01 (harness hardening)
+- *(EST-05)* verificacion benchmark verde + review P2-01 (3 rondas) + FIND-153 gate inerte
+- *(scripts)* eliminar linters de diseno migrados a Vantadb-web
+- *(web)* mover docs del frontend a ness-e/Vantadb-web
+- *(web)* eliminar restos de la extraccion web (config + CI)
+- *(EST-10)* cierre progreso — fila a avance + plan/handoff/task sincronizados
+- *(EST-10)* barrido API stale en superficies vivas (Client/search/memory.*/AsyncClient + imports canonicos)
+- *(EST-03)* cierre progreso — fila a avance + plan/handoff sincronizados
+- *(plan)* aviso de formato no-pipeline + ruta de ejecucion por wave
+- *(backlog)* P52-P57 + VER/ICP/DEF/WIRE + BIZ-10..13 + N-12..N-17 (post-investigacion integral)
+- mover informes de analisis integral a docs/dev/strategy (referencias actualizadas)
+- *(API)* plan de ejecucion W0-W8 con 9 tareas API-01..09
+- *(backlog)* Phase 51 filas API-01..09 estandarizacion 11 APIs
+- *(API-STD)* plan investigacion 18/18 DONE + checkpoint pipeline
+- *(API-STD-18)* waves W0-W8 con comandos rollback y MCP local
+- *(API-STD-17)* docs y updates con duenos + OIDC verificado
+- *(API-STD-16)* re-validacion 40 fallos + 2 FIND-NEW
+- *(API-STD-15)* sintesis normativa 18 ejes + Gate P 4/4
+- *(API-STD-14)* web-checklist 31 items con 9 fuentes oficiales
+- *(API-STD-13)* arquitectura conjunta + orquestador e IPC verificados
+- *(API-STD-12)* ficha vanta-memory + P4 por diseno
+- *(API-STD-11)* ficha proxy + /snapshot sin auth
+- *(API-STD-10)* ficha CLI + flags y --json parcial
+- *(API-STD-09)* ficha IQL + 7 statements y sin version
+- *(API-STD-08)* ficha MCP + alias doble y AUD-050
+- *(API-STD-07)* ficha HTTP+OpenAPI + gemelos v2 y drifts YAML
+- *(API-STD-06)* ficha WASM + frontera to_js_err sana
+- *(API-STD-05)* ficha Node NAPI + node_id string como modelo
+- *(API-STD-04)* ficha TS SDK + score/distance e importRecords
+- *(API-STD-03)* ficha Python SDK + 7 fallos (1 matizado)
+- *(API-STD-02)* ficha Rust core SDK + 5 fallos confirmados
+- *(API-STD-01)* inventario 11 superficies + mapa conjunto vs individual
+- handoff continuidad sesion 2026-09-24 (hecho/pendiente/verificacion)
+- avance RUN estabilizacion FASE1+2
+- pipeline harness-gaps 4/4 cierre (Backlog rows a avance + retrospectiva)
+- FIND-149 progreso (fila a avance/auditoria + FIND-152 residual)
+- plan estabilizacion pendiente pre-0.7.0 (EST-01..12)
+- FIND-150 cierre task file (Steps 1-6 completados + nota barrido b3251a0d)
+- cierres Notion N-01/02/04/05/06 (filas removidas + avance)
+- handoff gaps harness FIND-148..151 + plan 2026-09-24-harness-gaps
+- conteo skills 196/197 dirs + shim ponytail (verificado en disco 2026-09-24)
+- bump coordinado a 0.7.0 (workspace + node; ts ya en 0.7.0, python/wasm/mcp/server heredan)
+- node build regen (index.d.ts, lock) + Backlog recount 79 + ROADMAP-v0.7 + troubleshooting stub
+- avance cierres arco docs (bindings, ci-cd, meta)
+- scripts cobertura post-C-02 (paths user-dev, mirror skills)
+- #11 operations profundo (CLI flags reales, release files, UPGRADE 0.6.1)
+- archivar set Docker en docs/dev/archive/docker/ + refs
+- #15 strategy versiones 0.6.1 + fix ruta progreso
+- #14 archivar 4 reviews puntuales + refs
+- #13 troubleshooting a user, refs ajustados
+- purga archive (ficticios sin verificar + protos API muerta) + master-index examples
+- architecture frontmatter + ADR-001-008 naming + ARCHITECTURE v0.6.1
+- user-sweep (versiones 0.6.1, API Python real, seccion upgrade 0.6.1, nota docker)
+- user-sweep versiones 0.6.1 + nota docker hardening (R-05 follow)
+- D2 rutas user-dev en tasks/avance (66 archivos)
+- des-submodular .opencode (repo propio configOpencode + .gitignore)
+- C-02 atypicos (root files a user/dev, dupes fuera, links root-aware)
+- plan C-02 alcance total
+- C-02 oleada 2 (resto de dirs a user/dev + file-level ops/desktop + links)
+- C-02 links fuera de docs/ (workflows, configs, READMEs, scripts)
+- plan C-02 cerrado
+- C-02 reorganizar docs en user/ + dev/ (git mv + rewrite links, api/ y CHANGELOG intactos)
+- R-05 test usuario real 0.6.1 (hallazgos: README-TS VantaDB inexistente, versiones stale)
+- C-06 sacar heavy-bench de PRs + revert badge Rust a MSRV 1.94.1 real
+- plan C-10 con verificacion 2026-09-23
+- C-10 badges/links (colab a develop, Rust badge a stable verificable)
+- completar actualizacion de planes (ediciones C-0x + PRT-Cx)
+- actualizar planes (C-01/C-03/C-05 hechos, C-04 superseded, PRT-C3/C5 obsoletos) + archivar 4 planes 100%
+- bump otel trio a 0.33 (api+sdk+otlp atomicos, E0277 en builds parciales)
+- eliminar web/ del repo (contenido migrado a ness-e/Vantadb-web)
+- plugin ponytail via auto-discovery (.opencode/plugins, sin entrada de archivo)
+- registrar plugin ponytail v2 (port API opencode v2)
+- sync API doc versions a 0.6.1 + fix MD049 en CHANGELOG
+- migrar opencode.jsonc a formato v2 (mcp.servers + disabled)
+- R-03 TestPyPI 0.6.1 + fix manylinux documentado
+- Merge main into develop (sync post-0.6.1)
+- R-03 cerrado (PyPI 0.6.1 publicado, 3 registros en 0.6.1)
+
 ## [0.8.0](https://github.com/ness-e/Vantadb/compare/v0.7.0...v0.8.0) - 2026-10-02
 
 ### Added
