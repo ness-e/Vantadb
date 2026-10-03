@@ -88,7 +88,7 @@ jobs:
       id: bench-compare
       # Tolerance bands live in benchmarks/compare_baseline.py (FIND-154,
       # recalibrated FIND-232): stable metrics warn > 25% and block > 200%
-      # (measured cross-job spread reaches 2.4x on identical code);
+      # (measured cross-job spread up to 2.4x; 2.1x on a same-SHA pair);
       # quarantined families (query_hybrid, query_text) warn > 15% and block
       # only past the 300% ceiling AND a 0.5 ms absolute increase; insert.p99
       # gates on a 100 ms absolute level. A profile mismatch (total_records)

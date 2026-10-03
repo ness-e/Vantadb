@@ -22,11 +22,13 @@ Why the stable band moved from 15% to 200% — same method, same profile
 
 - 2026-09-25 pair (runs 36093538630 vs 36094025761, 8 min apart):
   insert.p99 −28.4%, query_hybrid.p50 −22.8%, throughput +9.4%.
-- 2026-10-03 pair (runs 37088714140 vs 37089421873, ~20 min apart):
-  ingestion 64.6 s vs 37.8 s (throughput 154.8 vs 264.2 rec/s),
-  query_vector.p50 2.69 vs 1.29 ms, p95 3.68 vs 1.53 ms, hybrid.p50
-  6.85 vs 3.16 ms. Every metric swung 1.7x–2.4x; insert.p99 swung 16.8x
-  (85.3 vs 5.07 ms — fsync jitter on a slow runner).
+- 2026-10-03 same-SHA pair (runs 37089421873 vs 37089581213, both bf1e7476,
+  same profile, ~20 min apart): ingestion 37.8 s vs 47.8 s (throughput
+  264.2 vs 209.3 rec/s), query_vector.p50 1.29 vs 2.46 ms, p95 1.53 vs
+  3.16 ms, hybrid.p50 3.16 vs 6.37 ms — key metrics swing 1.3x–2.1x.
+  Including a slow-runner job (run 37088714140) the range reaches 2.4x on
+  query_vector.p95 (1.53 → 3.68 ms) and insert.p99 5.07 → 85.3 ms (16.8x,
+  fsync jitter).
 
 A 15% band sits far below that noise floor, so single-run-vs-baseline
 comparisons at 15% were structurally flaky. The 13 red runs of
@@ -113,10 +115,16 @@ def compare_report(median: dict, baseline: dict) -> tuple[list[str], list[str]]:
 
     # FIND-232: runs and baseline must share the same size profile. Anything
     # else is apples-to-oranges (p99 granularity, hybrid leg) and used to
-    # block silently on artifacts of the mismatch.
+    # block silently on artifacts of the mismatch. Fail-closed: a baseline
+    # without total_records cannot prove the profile matches.
     stored_records = stored.get("insert", {}).get("total_records")
     current_records = median.get("insert", {}).get("total_records")
-    if stored_records and current_records != stored_records:
+    if not stored_records:
+        blocking.append(
+            "baseline is missing insert.total_records — cannot verify the bench profile; "
+            "re-baseline with the current workflow (FIND-232)"
+        )
+    elif current_records != stored_records:
         blocking.append(
             f"profile mismatch: insert.total_records {current_records} vs baseline "
             f"{stored_records} — bench runs must use the baseline profile (see perf-bench.yml; FIND-232)"
@@ -223,6 +231,17 @@ def _self_test() -> int:
     blocking8, _ = compare_report(report(insert_p99=150.0), baseline)
     case8_ok = len(blocking8) == 1
 
+    # Case 9 — a baseline without total_records MUST block (fail-closed, FIND-232).
+    legacy_baseline = {
+        "benchmarks": {
+            "insert": {"total_duration_ms": 48682.0},
+            "query_hybrid": {"p50_ms": 5.76},
+            "query_text": {"p99_ms": 0.0057},
+        }
+    }
+    blocking9, _ = compare_report(report(), legacy_baseline)
+    case9_ok = len(blocking9) == 1 and "missing insert.total_records" in blocking9[0]
+
     cases = [
         ("noise same profile (hybrid +108.5%, text +19%)",
          case1_ok, f"blocking={len(blocking1)}, warnings={len(warnings1)}"),
@@ -240,12 +259,14 @@ def _self_test() -> int:
          case7_ok, f"blocking={len(blocking7)}, warnings={len(warnings7)}"),
         ("insert.p99 collapse past 100 ms absolute level",
          case8_ok, f"blocking={len(blocking8)}"),
+        ("baseline without total_records (fail-closed)",
+         case9_ok, f"blocking={len(blocking9)}"),
     ]
     for name, ok, detail in cases:
         print(f"[self-test] {name}: {'PASS' if ok else 'FAIL'} — {detail}")
     passed = sum(1 for _, ok, _ in cases if ok)
-    print(f"[self-test] {passed}/8 cases as expected")
-    return 0 if passed == 8 else 1
+    print(f"[self-test] {passed}/9 cases as expected")
+    return 0 if passed == 9 else 1
 
 
 def main(argv: list[str] | None = None) -> int:
