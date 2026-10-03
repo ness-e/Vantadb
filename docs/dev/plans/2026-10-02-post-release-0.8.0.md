@@ -186,7 +186,7 @@ Wave 2 (después de Wave 1 — archivos compartidos):
 - **Uphill/Downhill:** ⬇️ (3 steps)
 - **DoD:** task = contrato (verde + reproduce el rojo) · commit = `ci:` · release = n/a
 - **Validación Appetite:** 1d ≥ 3-4h ✓
-- **Estado:** ⬜ PENDING
+- **Estado:** ⏳ EN PROGRESO
 - **Task file:** `docs/dev/tasks/FIND-231.md`
 
 ### Task 7: FIND-232 — Diagnóstico del perf-bench crónico (6/6 rojos desde 2026-09-25)
@@ -277,7 +277,7 @@ Wave 2 (después de Wave 1 — archivos compartidos):
 - **Uphill/Downhill:** ⬇️ (3 steps)
 - **DoD:** task = contrato/decsión · commit = `ci:` (suppression) · release = n/a
 - **Validación Appetite:** 1d ≥ 3-4h ✓
-- **Estado:** ⏳ EN PROGRESO
+- **Estado:** ✅ COMPLETED
 - **Task file:** `docs/dev/tasks/FIND-227.md`
 
 ## DEFER
@@ -407,5 +407,16 @@ Estado: completed
 Resultado: OK
 Próxima acción: Owner (post-push): `gh run list --branch develop --event push --limit 50` → solo 'PERF: Benchmarks — Python Integration'. Luego FIND-231 (post FIND-226; FIND-227 en vuelo)
 Contrato: verificacion: rg -n 'branches:.*develop' .github/workflows -g '*.yml' → 6 líneas bajo pull_request + perf-bench.yml:5 (excepción) ✅; actionlint exit 0 ✅; check-links/check-docs/gen-index --check exit 0 ✅
+Próxima tarea si completa: FIND-231
+=== END RECITATION ===
+
+=== RECITATION FIND-227 ===
+Campaign ID: post-release-0.8.0-20261002
+Objetivo activo: FIND-227 — TSan: supresión targeted o decisión documentada
+Estado: completed
+Última acción: Discovery + análisis completo de 565/583 reports (2 runs): 4 clases de FP (std-sin-instrumentar, fences, test-runner, teardown de deps); convergencia de supresión demostrada no-convergente (targeted 17/565; convergente = sobre-supresión) → decisión status quo (best-effort). Comentario in-place comment-only en job sanitizer-tsan; task file con evidencia; OCR 0 findings; review P2-01 ronda 1 changes-required → fixes → ronda 2 approve; commit LOCAL a63c9d00 (2 paths, sin push).
+Resultado: OK
+Próxima acción: Orquestador: bookkeeping (plan/recitation). Opcional post-push: próximo run ci-rust (PR a main o `gh workflow run ci-rust.yml`) → `gh run view --job <tsan-job> --log | Select-String 'reported .* warnings'` → mismo comportamiento (status quo confirmado). Follow-up opcional: agendar evaluación de `-Zbuild-std` para el job TSan (decisión de costo del owner).
+Contrato: verificacion: `actionlint .github/workflows/ci-rust.yml` exit 0 ✅; `node scripts/docs/check-links.mjs` exit 0 ✅; `node scripts/docs/check-docs.mjs` exit 0 ✅; rama (b) del contrato cumplida: decisión status quo registrada en FIND-227 con evidencia dura (565/583 reports, targeted 17/565 no converge, convergente sobre-supone) — confirmada por review fresco. | evidencia: - claim: 565/583 warnings, 100% en `-p vantadb --lib`, exit 66 | evidencia: jobs 111110955601 (run 37090029650) y 111086294694 (run 37082038794), logs completos descargados y clasificados | confianza: alta - claim: supresión targeted std/libtest suprime exactamente 17/565 → job sigue rojo | evidencia: simulación mecánica sobre los 565 reports (convergence.ps1; %TEMP%\opencode\find227), re-derivada independientemente por el revisor | confianza: alta - claim: convergencia exigiría blanket free(247)/__tsan_memcpy(255)/rayon(274)/fjall(284)/flume(152) = sobre-supresión (oculta races de storage/runtime) | evidencia: conteos por patrón sobre frames de race + LLVM ThreadSanitizer docs §Suppressions (race: matchea cualquier frame) | confianza: alta - claim: causa raíz = std sin instrumentar (sin -Zbuild-std) + TSan no soporta fences | evidencia: Rust Unstable Book §ThreadSanitizer; rust-lang/rust#39608 y #65097; rayon-rs/rayon#812 y #1211 | confianza: alta - claim: 0 reports con dos frames `#0 vantadb::` (no hay par no sincronizado de producto) | evidencia: falsación adversarial del revisor sobre el log crudo (0 casos; los 3 límites son buffer interno de rayon) | confianza: alta | artefactos: commit a63c9d00; docs/dev/tasks/FIND-227.md; .github/workflows/ci-rust.yml (comentario L693-706); %TEMP%\opencode\find227\{tsan-latest.log, tsan-2nd.log, report-families.csv, report-R*.txt, convergence.ps1, ocr-review.json} | invariantes: no push; no tocar sanitizer-asan ni otros jobs/workflows; no tsan.supp (decisión explícita); opencode.jsonc fuera del commit; plan file sin ediciones manuales | deuda: clase 2 de FPs (fences: rayon/fjall/flume) persistiría aun con -Zbuild-std; fix propio (-Zbuild-std, +tiempo CI) queda como evaluación futura del owner; verificación post-push del status quo es opcional (comment-only) | queda_pendiente: Orquestador: bookkeeping plan/recitation + verificación post-push opcional; ruteo del follow-up '-Zbuild-std' si se quiere agendar
 Próxima tarea si completa: FIND-231
 === END RECITATION ===
