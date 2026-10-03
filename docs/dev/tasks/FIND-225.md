@@ -15,7 +15,7 @@ description: "Dismiss justificado de 48 alertas code-scanning (6 critical salt f
 - **Turns estimados:** 15-30
 - **Creado:** 2026-10-02T22:30
 - **last-synced:** 2026-10-02T23:10
-- **Estado:** ⏳ IN PROGRESS (contrato ✅; 1 step pendiente: review P2-01 por agente distinto)
+- **Estado:** ✅ COMPLETED (review P2-01 APPROVE — reviewer_context `ses_f0077097affeld9ywnDHp0aSOr`)
 - **Incógnitas (uphill):** 0 abiertas
 - **Pendientes (downhill):** 1 step (review P2-01; commit local ya hecho: `c8c3e0fe`)
 
@@ -175,14 +175,14 @@ Fuente oficial: https://docs.github.com/en/rest/code-scanning/code-scanning?apiV
 - **Archivos:** `docs/dev/tasks/FIND-225.md`
 - **Acción:** el sub-agente es leaf (sin tool `task`) → NO puede spawnear `vanta-review`. Evidencia completa dejada en §Review para que el orquestador corra el review. **Commit local hecho:** `c8c3e0fe docs(tasks): FIND-225 - triage de las 48 alertas CodeQL (48 dismissals justificados, contrato open=0)` (solo el task file; sin push).
 - **Verify:** veredicto registrado en §Review por reviewer distinto (`reviewer_context ≠ author_context`) → luego `campaign_update_task_state(completed)`.
-- **Estado:** ⬜ PENDING (bloqueado por estructura: leaf sin `task` tool)
+- **Estado:** ✅ DONE (review APPROVE registrado en §Review — reviewer_context `ses_f0077097affeld9ywnDHp0aSOr`)
 
 ## Dependencias
 - Ninguna (Wave 0). Dependientes: FIND-226 (nextTask).
 
 ## Review (GATE — agente distinto, P2-01)
 
-> **Estado: PENDING — el orquestador debe correr `vanta-review`/`vanta-audit` (este sub-agente es leaf: no tiene tool `task`).** Evidencia completa abajo.
+> **Estado: ✅ APPROVE (P2-01, 2026-10-03) — reviewer fresco `vanta-review` (`reviewer_context` `ses_f0077097affeld9ywnDHp0aSOr` ≠ autor `ses_f008ab62dffeenZGImv7g0jqWm`). Evidencia re-ejecutada: contrato `open=0`; spot-check 9 alertas (4 grupos) `dismissed` con reason+comment; inventario 142–189 sin gaps; 40× `used in tests` + 8× `false positive`; 0/48 en `src/`. Observaciones: nit self-referencial del commit (se resuelve con esta edición); dismissals históricos de sept en `src/` revisados como diligencia (candidato FIND futuro: #137 `won't fix` PBKDF2 legacy); con umbral >30 usar `per_page=100`. Evidencia completa en el RESULTADO del reviewer (sesión citada).**
 
 - **Revisor requerido:** `vanta-review` o `vanta-audit` (agente distinto al implementador; `reviewer_context ≠ author_context`).
 - **Tier (HARD-02):** **Fast** — diff = `docs/dev/tasks/FIND-225.md` (task file), 0 paths adversariales (`docs/api/**`, `src/**`, etc. no tocados). Gate = verify fast mecánico + veredicto registrado (spot-check), sin adversarial completo.
@@ -207,7 +207,7 @@ Fuente oficial: https://docs.github.com/en/rest/code-scanning/code-scanning?apiV
   - [x] No degradar chequeos en paths de seguridad — 48/48 revisadas, ninguna dismisseada a ciegas.
   - [x] Presupuesto acotado — ~30 tool calls, dentro de límites.
   - [x] Cobertura SDP — skills cargadas cubren el dominio (security-and-hardening + source-driven-development + systematic-debugging).
-- **Veredicto:** ⬜ PENDING (orquestador: correr reviewer distinto y registrar approve/changes-required; luego `campaign_update_task_state(completed)` con payload `review`)
+- **Veredicto:** ✅ **APPROVE** — registrado 2026-10-03; cierre mecánico `campaign_update_task_state(completed)` ejecutado por el orquestador con payload review fresh (`ses_f0077097affeld9ywnDHp0aSOr`). Observaciones del reviewer: (1) nit del commit self-referencial (resuelto al commitear esta edición); (2) dismissals históricos en `src/` (21–24 sept) revisados como diligencia — candidato FIND futuro (#137 `won't fix` PBKDF2 legacy); (3) para contratos con umbral >30 usar `per_page=100`.
 
 ## Notas
 - Plan pre-mortem #2 respetado: se revisaron las 48 líneas antes de dismissear. Ninguna resultó alerta "real de producción" → 0 fixes de código necesarios, 0 filas FIND nuevas.

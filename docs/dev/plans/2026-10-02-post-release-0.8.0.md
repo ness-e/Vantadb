@@ -6,7 +6,7 @@ description: "SDP v3 (taskType CI/CD-DevOps): campaign-executor · progreso · c
 
 # Plan de Ejecución: Post-release 0.8.0 — Estabilización de infraestructura
 
-> **Campaign ID:** _(se asigna al iniciar con `/pipeline run`)_
+> **Campaign ID:** post-release-0.8.0-20261002
 > **Inicio:** 2026-10-02
 > **Estado:** ⏳ EN PROGRESO
 > **Fuente:** `docs/dev/Backlog.md` (FIND-225..232 + PROC-02..04) + PRs abiertos (#237/#232/#231/#230/#224) + cierre del release 0.8.0
@@ -67,7 +67,7 @@ Wave 2 (después de Wave 1 — archivos compartidos):
 - **Uphill/Downhill:** ⬇️ downhill (0 incógnitas — 5 merges + verificación)
 - **DoD:** task = PRs merged + alerts ≤1 verificados por comando · commit = n/a (merges remotos) · release = n/a
 - **Validación Appetite vs Effort:** 1d ≥ 1h ✓
-- **Estado:** ⬜ PENDING
+- **Estado:** ⏳ EN PROGRESO
 - **Task file:** `docs/dev/tasks/PROC-02.md`
 
 ### Task 2: PROC-03 — Descartar las 3 alertas de secret scanning (falsos positivos de test)
@@ -88,7 +88,7 @@ Wave 2 (después de Wave 1 — archivos compartidos):
 - **Uphill/Downhill:** ⬇️ (2 steps)
 - **DoD:** task = 0 open verificadas por comando · commit = n/a · release = n/a
 - **Validación Appetite:** 1h ≥ 15min ✓
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Task file:** `docs/dev/tasks/PROC-03.md`
 
 ### Task 3: FIND-230 — Gate mecánico de versiones npm (anti skip-silencioso del tren)
@@ -137,7 +137,7 @@ Wave 2 (después de Wave 1 — archivos compartidos):
 - **Uphill/Downhill:** ⬇️ (2 steps)
 - **DoD:** task = contrato verde · commit = conventional · release = n/a
 - **Validación Appetite:** 1h ≥ 30min ✓
-- **Estado:** ⬜ PENDING
+- **Estado:** ⏳ EN PROGRESO
 - **Task file:** `docs/dev/tasks/PROC-04.md`
 
 ### Task 5: FIND-228 — Dedupe de triggers CI (drop `develop` de `push.branches` en 15 workflows)
@@ -207,7 +207,7 @@ Wave 2 (después de Wave 1 — archivos compartidos):
 - **Uphill/Downhill:** ⬆️ 1 incógnita (causa raíz) → se resuelve en el step 1 (reproducción + diff de baseline) → luego ⬇️
 - **DoD:** task = contrato (run verde o decisión documentada) · commit = según fix · release = n/a
 - **Validación Appetite:** 1d ≥ 4-6h ✓
-- **Estado:** ⬜ PENDING
+- **Estado:** ⏳ EN PROGRESO
 - **Task file:** `docs/dev/tasks/FIND-232.md`
 
 ### Task 8: FIND-225 — Triage de las 48 alertas CodeQL (6 critical + 42 high)
@@ -235,7 +235,7 @@ Wave 2 (después de Wave 1 — archivos compartidos):
 - **Uphill/Downhill:** ⬇️ (3 steps: agrupar → revisar 6 grupos → resolver)
 - **DoD:** task = 0 abiertas · commit = n/a (API) o fixes puntuales · release = n/a
 - **Validación Appetite:** 3d ≥ 1-2d ✓
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Task file:** `docs/dev/tasks/FIND-225.md`
 
 ### Task 9: FIND-226 — ASan: símbolos + triage de los leaks (1.81 GB)
@@ -300,3 +300,46 @@ Wave 2 (después de Wave 1 — archivos compartidos):
 - plan-adjust 2026-10-02: plan creado post-release 0.8.0. Fuente = backlog (FIND-225..232) + PRs abiertos + hallazgos de la verificación del release. ⬆️ uphill inicial = 2 (perf-bench causa raíz; alcance ASan). ⬇️ downhill = 33 steps.
 - Los planes referenciados por task files se crean bajo demanda en `docs/dev/tasks/<ID>.md` (Fase de Discovery del pipeline).
 - OCR gate: toda tarea ✅ DO cierra con OCR delegation review (pipeline-full.md §Cierre paso 5).
+
+=== RECITATION PROC-03 ===
+Campaign ID: post-release-0.8.0-20261002
+Objetivo activo: PROC-03 — Descartar las 3 alertas de secret scanning (falsos positivos de test)
+Estado: completed
+Última acción: 3 alertas resueltas used_in_tests + contrato verificado (open=0) + review fresco APPROVE
+Resultado: COMPLETED
+Próxima acción: FIND-232 — claim + spawn vanta-tuner (perf-bench crónico)
+Contrato: open=0 verificado por comando; review P2-01 approve
+Próxima tarea si completa: FIND-232
+=== END RECITATION ===
+
+=== RECITATION FIND-225 ===
+Campaign ID: post-release-0.8.0-20261002
+Objetivo activo: FIND-225 — Triage de las 48 alertas CodeQL (6 critical + 42 high)
+Estado: completed
+Última acción: 48 dismissals (40 used_in_tests + 8 false_positive) + contrato open=0 + review fresco APPROVE
+Resultado: COMPLETED
+Próxima acción: Continuar run: PROC-04 (docs) en vuelo; W1 = FIND-230/FIND-226/FIND-227
+Contrato: code-scanning alerts open=0 verificado por comando; review P2-01 approve (fresh)
+Próxima tarea si completa: PROC-04
+=== END RECITATION ===
+
+=== RECITATION FIND-232 ===
+Campaign ID: post-release-0.8.0-20261002
+Objetivo activo: FIND-232 — Diagnostico del perf-bench cronico (13 rojos consecutivos desde 2026-09-25)
+Estado: in-progress
+Última acción: Discovery cerrado con evidencia dura: causa raiz = mismatch estructural push 1000/100 vs baseline 10000/1000 (mismo commit 114f55f0: push 36094025517 rojo vs dispatch 36094025761 verde; BENCHMARKS.md/README documentan 10000/1000; p99 con n=100 = maximo muestral a escala us) + insert.p99 tail. Descarte de regresion de motor. Fix en edicion. Dispatch diagnostico 37088714140 corriendo.
+Resultado: PARTIAL
+Próxima acción: Editar .github/workflows/perf-bench.yml (perfil alineado), benchmarks/compare_baseline.py (guarda de perfil + piso absoluto + self-test 5 casos), benchmarks/README.md (ref stale); verify local self-test; commit LOCAL.
+Contrato: verificacion: python benchmarks/compare_baseline.py --self-test (pendiente post-edit); gh run list --workflow=perf-bench.yml (contrato final post-push)
+evidencia:
+- claim: Baseline es 10000/1000 y push corria 1000/100 | evidencia: benchmarks/python_baseline.json (total_records 10000) + logs push 'Dataset Size : 1000 vectors / Queries : 100' vs dispatch '10000/1000' (runs 37082038748 / 36094025761) | confianza: alta
+- claim: Mismo commit 114f55f0 push rojo (+92.5% hybrid) vs dispatch verde; delta por perfil, no motor | evidencia: run 36094025517 (failure) vs run 36094025761 (success) + artifacts benchmark_results.json | confianza: alta
+- claim: p99 con n=100 es el maximo de la muestra | evidencia: benchmarks/vantadb_local_bench.py:43-45 (int(n*0.99) con n=100 -> 99) | confianza: alta
+- claim: 13/13 runs rojos tienen query_text.p99 como bloqueante | evidencia: gh run view <13 runs> --log-failed (tabla en docs/dev/tasks/FIND-232.md) | confianza: alta
+- claim: Varianza mismo codigo/perfil +-25% en colas | evidencia: artifacts 36093538630 vs 36094025761 (insert.p99 -28.4%, hybrid.p50 -22.8%) | confianza: alta
+artefactos: docs/dev/tasks/FIND-232.md; C:\Users\Eros\AppData\Local\Temp\opencode\find232\{metrics.txt, artifacts}
+invariantes: No tocar opencode.jsonc (WIP ajeno); commit LOCAL sin push; no re-baseline preventivo sin documento de delta; no cambios de motor en esta task
+deuda: FIND-232-R1 diferido: banda por familia tail (p95/p99) solo con >=2 falsos positivos post-fix y datos alineados
+queda_pendiente: Orquestador: push develop -> verificar run verde (contrato a) o re-baseline documentado (contrato b)
+Próxima tarea si completa: FIND-225
+=== END RECITATION ===
