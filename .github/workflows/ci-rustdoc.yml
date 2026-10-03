@@ -15,14 +15,14 @@ name: 'CI: Rust API Reference (cargo doc artifact)'
 #
 # FIND-137 (2026-09-22): unificado con `rustdoc-70.yml` (eliminado vía `git rm`:
 # mismo `cargo doc`, mismo concurrency group `rustdoc-${{ github.ref }}` que se
-# canibalizaban). El survivor conserva: toolchain stable + push [main,develop]
+# canibalizaban). El survivor conserva: toolchain stable + push [main] (FIND-228: dedupe)
 # de este archivo; PR [main,develop], `--document-private-items`, artifact
 # tar.gz 30d, env determinista y summary de `rustdoc-70.yml`. Decisión por
 # evidencia en `docs/dev/tasks/FIND-137.md` §8.
 
 on:
   push:
-    branches: ["main", "develop"]
+    branches: ["main"]
     paths:
       - 'src/**'
       - 'tests/**'

@@ -18,7 +18,7 @@ name: 'Demo: injection governance (budget, ACL, audit)'
 
 on:
   push:
-    branches: [ "main", "develop" ]
+    branches: [ "main" ]
     paths:
       - 'vanta-proxy/**'
       - 'vanta-memory/**'

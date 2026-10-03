@@ -21,7 +21,7 @@ name: 'CI: AI-IDE memory demo (MCP) — cross-session recall'
 
 on:
   push:
-    branches: [ "main", "develop" ]
+    branches: [ "main" ]
     paths:
       - 'vantadb-mcp/**'
       - 'vanta-memory/**'

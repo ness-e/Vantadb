@@ -11,7 +11,7 @@ name: 'Demo: privacy chain (ICP-02)'
 
 on:
   push:
-    branches: [ "main", "develop" ]
+    branches: [ "main" ]
     paths:
       - 'vanta-proxy/**'
       - 'src/attestation.rs'
