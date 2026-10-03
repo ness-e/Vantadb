@@ -226,7 +226,7 @@ mod tests {
         insert_node(&storage, 1, vec![(2, 1.0)]);
         insert_node(&storage, 2, vec![]);
 
-        let gds = GraphDataScience::new(Box::leak(Box::new(storage)));
+        let gds = GraphDataScience::new(&storage);
         let ranks = gds.page_rank(&[0], 100, 0.85, 1e-6).unwrap();
 
         // Sum should be ≈ 1.0
@@ -260,7 +260,7 @@ mod tests {
         insert_node(&storage, 2, vec![(3, 1.0)]);
         insert_node(&storage, 3, vec![]);
 
-        let gds = GraphDataScience::new(Box::leak(Box::new(storage)));
+        let gds = GraphDataScience::new(&storage);
         let ranks = gds.page_rank(&[0], 100, 0.85, 1e-6).unwrap();
 
         let sum: f64 = ranks.values().sum();
@@ -286,7 +286,7 @@ mod tests {
             insert_node(&storage, i, edges);
         }
 
-        let gds = GraphDataScience::new(Box::leak(Box::new(storage)));
+        let gds = GraphDataScience::new(&storage);
 
         // High tolerance should converge quickly
         let ranks_loose = gds.page_rank(&[0], 100, 0.85, 1e-2).unwrap();
@@ -315,7 +315,7 @@ mod tests {
         insert_node(&storage, 2, vec![(3, 1.0)]);
         insert_node(&storage, 3, vec![]);
 
-        let gds = GraphDataScience::new(Box::leak(Box::new(storage)));
+        let gds = GraphDataScience::new(&storage);
         let ranks = gds.page_rank(&[0, 2], 100, 0.85, 1e-6).unwrap();
 
         let sum: f64 = ranks.values().sum();
@@ -351,7 +351,7 @@ mod tests {
         insert_node(&storage, 1, vec![(2, 1.0)]);
         insert_node(&storage, 2, vec![]);
 
-        let gds = GraphDataScience::new(Box::leak(Box::new(storage)));
+        let gds = GraphDataScience::new(&storage);
         let degrees = gds.degree_centrality(&[0]).unwrap();
 
         assert_eq!(degrees.len(), 3);
@@ -372,7 +372,7 @@ mod tests {
         insert_node(&storage, 2, vec![(3, 1.0)]);
         insert_node(&storage, 3, vec![]);
 
-        let gds = GraphDataScience::new(Box::leak(Box::new(storage)));
+        let gds = GraphDataScience::new(&storage);
         let degrees = gds.degree_centrality(&[0, 2]).unwrap();
 
         assert_eq!(degrees.len(), 4);
@@ -391,7 +391,7 @@ mod tests {
         insert_node(&storage, 2, vec![(3, 1.0)]);
         insert_node(&storage, 3, vec![]);
 
-        let gds = GraphDataScience::new(Box::leak(Box::new(storage)));
+        let gds = GraphDataScience::new(&storage);
         let degrees = gds.degree_centrality(&[0]).unwrap();
 
         assert_eq!(degrees.len(), 4);

@@ -613,7 +613,7 @@ mod tests {
     #[test]
     fn test_bfs_chain_traversal() {
         let (storage, _dir) = setup_storage();
-        let traverser = GraphTraverser::new(Box::leak(Box::new(storage)));
+        let traverser = GraphTraverser::new(&storage);
         build_chain(traverser.storage, 5);
         let result = traverser
             .bfs_traverse(&[0], 10, TraversalDirection::Forward)
@@ -624,7 +624,7 @@ mod tests {
     #[test]
     fn test_bfs_depth_limit() {
         let (storage, _dir) = setup_storage();
-        let traverser = GraphTraverser::new(Box::leak(Box::new(storage)));
+        let traverser = GraphTraverser::new(&storage);
         build_chain(traverser.storage, 10);
         let result = traverser
             .bfs_traverse(&[0], 2, TraversalDirection::Forward)
@@ -636,7 +636,7 @@ mod tests {
     #[test]
     fn test_bfs_disconnected_roots() {
         let (storage, _dir) = setup_storage();
-        let traverser = GraphTraverser::new(Box::leak(Box::new(storage)));
+        let traverser = GraphTraverser::new(&storage);
         insert_node(traverser.storage, 0, vec![(1, 1.0)]);
         insert_node(traverser.storage, 1, vec![(2, 1.0)]);
         insert_node(traverser.storage, 2, vec![]);
@@ -657,7 +657,7 @@ mod tests {
     #[test]
     fn test_dfs_chain_traversal() {
         let (storage, _dir) = setup_storage();
-        let traverser = GraphTraverser::new(Box::leak(Box::new(storage)));
+        let traverser = GraphTraverser::new(&storage);
         build_chain(traverser.storage, 5);
         let result = traverser
             .dfs_traverse(&[0], 10, TraversalDirection::Forward)
@@ -668,7 +668,7 @@ mod tests {
     #[test]
     fn test_dfs_depth_limit() {
         let (storage, _dir) = setup_storage();
-        let traverser = GraphTraverser::new(Box::leak(Box::new(storage)));
+        let traverser = GraphTraverser::new(&storage);
         build_chain(traverser.storage, 10);
         let result = traverser
             .dfs_traverse(&[0], 2, TraversalDirection::Forward)
@@ -679,7 +679,7 @@ mod tests {
     #[test]
     fn test_bfs_empty_roots() {
         let (storage, _dir) = setup_storage();
-        let traverser = GraphTraverser::new(Box::leak(Box::new(storage)));
+        let traverser = GraphTraverser::new(&storage);
         let result = traverser
             .bfs_traverse(&[], 10, TraversalDirection::Forward)
             .unwrap();
@@ -689,7 +689,7 @@ mod tests {
     #[test]
     fn test_dfs_empty_roots() {
         let (storage, _dir) = setup_storage();
-        let traverser = GraphTraverser::new(Box::leak(Box::new(storage)));
+        let traverser = GraphTraverser::new(&storage);
         let result = traverser
             .dfs_traverse(&[], 10, TraversalDirection::Forward)
             .unwrap();
@@ -699,7 +699,7 @@ mod tests {
     #[test]
     fn test_bfs_diamond_graph() {
         let (storage, _dir) = setup_storage();
-        let traverser = GraphTraverser::new(Box::leak(Box::new(storage)));
+        let traverser = GraphTraverser::new(&storage);
         insert_node(traverser.storage, 0, vec![(1, 1.0), (2, 1.0)]);
         insert_node(traverser.storage, 1, vec![(3, 1.0)]);
         insert_node(traverser.storage, 2, vec![(3, 1.0)]);
@@ -716,7 +716,7 @@ mod tests {
     #[test]
     fn test_dfs_diamond_graph() {
         let (storage, _dir) = setup_storage();
-        let traverser = GraphTraverser::new(Box::leak(Box::new(storage)));
+        let traverser = GraphTraverser::new(&storage);
         insert_node(traverser.storage, 0, vec![(1, 1.0), (2, 1.0)]);
         insert_node(traverser.storage, 1, vec![(3, 1.0)]);
         insert_node(traverser.storage, 2, vec![(3, 1.0)]);
@@ -733,7 +733,7 @@ mod tests {
     #[test]
     fn test_topological_sort_chain() {
         let (storage, _dir) = setup_storage();
-        let traverser = GraphTraverser::new(Box::leak(Box::new(storage)));
+        let traverser = GraphTraverser::new(&storage);
         build_chain(traverser.storage, 5);
         let result = traverser.topological_sort(&[0]).unwrap();
         assert_eq!(result, vec![0, 1, 2, 3, 4]);
@@ -742,7 +742,7 @@ mod tests {
     #[test]
     fn test_topological_sort_diamond() {
         let (storage, _dir) = setup_storage();
-        let traverser = GraphTraverser::new(Box::leak(Box::new(storage)));
+        let traverser = GraphTraverser::new(&storage);
         insert_node(traverser.storage, 0, vec![(1, 1.0), (2, 1.0)]);
         insert_node(traverser.storage, 1, vec![(3, 1.0)]);
         insert_node(traverser.storage, 2, vec![(3, 1.0)]);
@@ -757,7 +757,7 @@ mod tests {
     #[test]
     fn test_topological_sort_cycle_detection() {
         let (storage, _dir) = setup_storage();
-        let traverser = GraphTraverser::new(Box::leak(Box::new(storage)));
+        let traverser = GraphTraverser::new(&storage);
         insert_node(traverser.storage, 0, vec![(1, 1.0)]);
         insert_node(traverser.storage, 1, vec![(2, 1.0)]);
         insert_node(traverser.storage, 2, vec![(0, 1.0)]);
@@ -770,7 +770,7 @@ mod tests {
     #[test]
     fn test_is_dag_true() {
         let (storage, _dir) = setup_storage();
-        let traverser = GraphTraverser::new(Box::leak(Box::new(storage)));
+        let traverser = GraphTraverser::new(&storage);
         build_chain(traverser.storage, 3);
         assert!(traverser.is_dag(&[0]).unwrap());
     }
@@ -778,7 +778,7 @@ mod tests {
     #[test]
     fn test_is_dag_false() {
         let (storage, _dir) = setup_storage();
-        let traverser = GraphTraverser::new(Box::leak(Box::new(storage)));
+        let traverser = GraphTraverser::new(&storage);
         insert_node(traverser.storage, 0, vec![(1, 1.0)]);
         insert_node(traverser.storage, 1, vec![(0, 1.0)]);
         assert!(!traverser.is_dag(&[0]).unwrap());
@@ -787,7 +787,7 @@ mod tests {
     #[test]
     fn test_bfs_nonexistent_node() {
         let (storage, _dir) = setup_storage();
-        let traverser = GraphTraverser::new(Box::leak(Box::new(storage)));
+        let traverser = GraphTraverser::new(&storage);
         let result = traverser
             .bfs_traverse(&[999], 10, TraversalDirection::Forward)
             .unwrap();
@@ -797,7 +797,7 @@ mod tests {
     #[test]
     fn test_bfs_self_loop() {
         let (storage, _dir) = setup_storage();
-        let traverser = GraphTraverser::new(Box::leak(Box::new(storage)));
+        let traverser = GraphTraverser::new(&storage);
         insert_node(traverser.storage, 0, vec![(0, 1.0)]);
         let result = traverser
             .bfs_traverse(&[0], 10, TraversalDirection::Forward)
@@ -808,7 +808,7 @@ mod tests {
     #[test]
     fn test_bfs_filtered_basic() {
         let (storage, _dir) = setup_storage();
-        let traverser = GraphTraverser::new(Box::leak(Box::new(storage)));
+        let traverser = GraphTraverser::new(&storage);
         // 0 → 1 (label=1), 0 → 2 (label=2)
         insert_node_with_labeled_edges(traverser.storage, 0, vec![(1, 1, 1.0), (2, 2, 1.0)]);
         insert_node_with_labeled_edges(traverser.storage, 1, vec![]);
@@ -826,7 +826,7 @@ mod tests {
     #[test]
     fn test_bfs_filtered_no_match() {
         let (storage, _dir) = setup_storage();
-        let traverser = GraphTraverser::new(Box::leak(Box::new(storage)));
+        let traverser = GraphTraverser::new(&storage);
         insert_node_with_labeled_edges(traverser.storage, 0, vec![(1, 42, 1.0)]);
         insert_node_with_labeled_edges(traverser.storage, 1, vec![]);
 
@@ -844,7 +844,7 @@ mod tests {
     #[test]
     fn test_bfs_filtered_empty_labels() {
         let (storage, _dir) = setup_storage();
-        let traverser = GraphTraverser::new(Box::leak(Box::new(storage)));
+        let traverser = GraphTraverser::new(&storage);
         insert_node_with_labeled_edges(traverser.storage, 0, vec![(1, 1, 1.0), (2, 2, 1.0)]);
         insert_node_with_labeled_edges(traverser.storage, 1, vec![]);
         insert_node_with_labeled_edges(traverser.storage, 2, vec![]);
@@ -861,7 +861,7 @@ mod tests {
     #[test]
     fn test_dfs_filtered_basic() {
         let (storage, _dir) = setup_storage();
-        let traverser = GraphTraverser::new(Box::leak(Box::new(storage)));
+        let traverser = GraphTraverser::new(&storage);
         // 0 → 1 (label=1), 0 → 2 (label=2), 1 → 3 (label=1)
         insert_node_with_labeled_edges(traverser.storage, 0, vec![(1, 1, 1.0), (2, 2, 1.0)]);
         insert_node_with_labeled_edges(traverser.storage, 1, vec![(3, 1, 1.0)]);
@@ -900,7 +900,7 @@ mod tests {
             },
         ];
         storage.insert(&node0).unwrap();
-        let traverser = GraphTraverser::new(Box::leak(Box::new(storage)));
+        let traverser = GraphTraverser::new(&storage);
         insert_node(traverser.storage, 1, vec![]);
         insert_node(traverser.storage, 2, vec![]);
 

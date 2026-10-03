@@ -647,7 +647,26 @@ jobs:
       - name: Install system deps
         run: |
           sudo apt-get update
-          sudo apt-get install -y libclang-dev clang librocksdb-dev
+          sudo apt-get install -y libclang-dev clang librocksdb-dev llvm
+
+      # FIND-226: without llvm-symbolizer the ASan/LSan leak report printed raw
+      # addresses only (BuildId + offsets) — no triage possible. apt `llvm`
+      # provides /usr/bin/llvm-symbolizer (Ubuntu noble filelist); the env var
+      # is the documented override (clang.llvm.org/docs/AddressSanitizer.html
+      # §"Symbolizing the Reports"). Fail loud if absent: a symbolized report
+      # is the entire point of this job (job is best-effort by design).
+      - name: Resolve llvm-symbolizer (ASan/LSan)
+        run: |
+          SYMBOLIZER="$(command -v llvm-symbolizer || true)"
+          if [ -z "$SYMBOLIZER" ]; then
+            SYMBOLIZER="$(find /usr/lib/llvm-* -name llvm-symbolizer -type f 2>/dev/null | sort -V | tail -1)"
+          fi
+          if [ -z "$SYMBOLIZER" ]; then
+            echo "::error::llvm-symbolizer not found after installing llvm"
+            exit 1
+          fi
+          echo "ASAN_SYMBOLIZER_PATH=$SYMBOLIZER" >> "$GITHUB_ENV"
+          echo "Using symbolizer: $SYMBOLIZER"
 
       # CATEGORY: BEST-EFFORT — job-level continue-on-error covers this
       - name: Test with AddressSanitizer
