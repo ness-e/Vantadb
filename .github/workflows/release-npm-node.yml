@@ -196,7 +196,7 @@ jobs:
           VERSION=$(node -p "require('./package.json').version")
           if npm view "vantadb-node@${VERSION}" version >/dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
-            echo "Version ${VERSION} already published — skipping"
+            echo "::warning::vantadb-node@${VERSION} already published — skipping publish. On a release tag this means the version was not bumped for the release — gate: scripts/docs/check-npm-versions.mjs, runbook: docs/dev/workflow/PUBLISH.md"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
             echo "Version ${VERSION} not published — will publish"
