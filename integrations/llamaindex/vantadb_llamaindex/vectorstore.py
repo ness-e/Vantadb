@@ -137,13 +137,16 @@ class VantaDBVectorStore(BasePydanticVectorStore):
             ids.append(node_id)
 
         if keys:
-            self._client.put_batch(
-                keys=keys,
-                vectors=vectors,
-                payloads=payloads,
-                metadatas=metadatas,
-                namespace=self._namespace,
-            )
+            self._client.put_batch([
+                {
+                    "namespace": self._namespace,
+                    "key": keys[i],
+                    "payload": payloads[i],
+                    "vector": vectors[i],
+                    "metadata": metadatas[i],
+                }
+                for i in range(len(keys))
+            ])
         return ids
 
     def delete(self, ref_doc_id: str, **delete_kwargs: Any) -> None:

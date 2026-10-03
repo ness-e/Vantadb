@@ -1,3 +1,8 @@
+---
+title: PRX-07 — PII/secret redaction en egress
+kind: task
+---
+
 # PRX-07 — PII/secret redaction en egress
 
 - **Estado:** ✅ COMPLETE (2026-09-10: redact.rs + wiring + prx07 12/12, suite 0 failed, clippy 0, fmt OK)

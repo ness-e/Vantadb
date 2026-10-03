@@ -1,11 +1,9 @@
 ---
-title: "Workflows — Durable rules"
-type: workflow-index
+title: Workflows — Durable rules
+kind: runbook
 status: active
+description: "One verifiable rule per high-severity audit finding. Each rule states Must / Must not / Why, a good/bad example, and a mechanical check. If the check fails, the PR fails"
 tags: [vantadb, ci, workflows, rules, policy]
-last_reviewed: 2026-09-22
-aliases: []
-related: ["docs/dev/workflow/README.md", "docs/dev/workflow/TRIGGERS.md", "docs/dev/workflow/PUBLISH.md", "docs/dev/workflow/RUNBOOK.md", "docs/dev/workflow/FAQ.md"]
 ---
 
 # Workflows — Durable rules
@@ -13,7 +11,7 @@ related: ["docs/dev/workflow/README.md", "docs/dev/workflow/TRIGGERS.md", "docs/
 > **Scope:** `.github/workflows/` (27 files, names as on disk 2026-09-22) + `docs/dev/workflow/*` + `docs/dev/operations/CI_POLICY.md`
 > **No tocar aquí:** engine code, bindings, release versioning (see release-ci rules); procedure lives in `RUNBOOK.md`, trigger matrix in `TRIGGERS.md`, publish chain in `PUBLISH.md`
 > **Status:** 🟢 Vigente
-> **Fuentes:** FIND-134/135/136/139/140/141/146 + renames FIND-142 (commit `97a3a03c`); matrix `TRIGGERS.md` (2026-09-22)
+> **Fuentes:** FIND-134/135/136/139/140/141/146 + renames FIND-142 (commit `97a3a03c`); matrix `TRIGGERS.md` (2026-09-22); rule 8: HARD-03 (owner decision 2026-09-26 — push deferred to plan close, bundles as loss mitigation); rule 9: HARD-07 (review gate mechanized — `reviewer_context ≠ author_context`, 2026-09-27)
 
 One verifiable rule per high-severity audit finding. Each rule states **Must / Must not / Why**, a good/bad example, and a mechanical check. If the check fails, the PR fails.
 
@@ -48,6 +46,8 @@ on:
 ```
 
 - **Verify:** open a PR `develop → main`, push once → exactly 1 run per workflow when paths match (`gh run list --commit <sha>`).
+
+> **Amendment 2026-09-25 (C-04/FIND-140):** los workflows actuales **mantienen `develop`** en `push`/`pull_request` (todo el CI corre sobre develop; la deduplicación push+PR se resolvió por `paths` + `concurrency`). Esta regla queda como **objetivo** a completar al cerrar FIND-134/139 — no como estado actual. Verificar antes de "corregir" un workflow que hoy lista `develop`.
 
 ### 2 — Timeouts: every job has `timeout-minutes`
 
@@ -169,6 +169,44 @@ on:
 ```
 
 - **Verify:** `TRIGGERS.md` matrix `pull_request` column matches each file's `on:` block; intentionally unscoped rows carry a note (informational / path-scoped).
+
+### 8 — Local continuity: verified `git bundle` backups; releases ride fixed trains
+
+- **Must:** keep an off-repo, verified backup current while work accumulates as local-only commits (push happens only on explicit owner instruction — `.opencode/AGENTS.md` Regla 7 §Política de git): run `pwsh scripts/git-backup.ps1` (default `$HOME\VantaDB-Backups`; `-Dest` for an external or synced private folder, `-Keep` for retention, default 7). The script is fail-closed — it only reports success after `git bundle verify` exits 0, and never overwrites an existing bundle.
+- **Must:** treat releases as pre-committed trains, not ad-hoc bumps: **0.8.0 after F3** (schema cut, via release-plz after SCH-08) and **1.0** only when the HARD-01 exit criteria are met (`docs/api/COMPATIBILITY.md`, `docs/api/VERSIONING.md`). Version, tag and changelog stay 100% release-plz-owned.
+- **Must not:** keep the only backup on the repo's own volume (single point of failure — the script warns), commit bundles to the repo, or restate the push/commit policy in this rule or `CONTRIBUTING.md` — the normative text lives in `.opencode/AGENTS.md` Regla 7; both cross-reference it.
+- **Por qué:** with push deferred to the end of the plan, the working tree runs days ahead of any remote (31 local commits measured 2026-09-27) — R2 (GitLab 2017): backups that fail silently destroy weeks of work. A bundle is self-contained, offline-verifiable and restorable (`git clone <bundle>`); trains keep 0.8.0/1.0 from drifting into ad-hoc releases.
+
+```powershell
+# BAD: live copy of .git, same disk, never verified, no restore path
+Copy-Item -Recurse . ..\VantaDB-copy
+
+# GOOD: timestamped bundle, fail-closed verify, off-volume destination
+pwsh scripts/git-backup.ps1 -Dest D:\VantaDB-Backups   # exit 0 only after `git bundle verify` exit 0
+git clone D:\VantaDB-Backups\vantadb-20260927-0033.bundle C:\tmp\restore-test   # restorable
+```
+
+- **Verify:** `pwsh scripts/git-backup.ps1 -Dest <off-repo-folder>` exits 0 and `git bundle verify <bundle>` exits 0; `Select-String -Path docs/dev/workflow/RULES.md -Pattern 'git-backup.ps1'` finds rule 8; train milestones match `docs/dev/plans/2026-09-26-master-roadmap.md` §Gates por fase.
+
+### 9 — Review gate: ACCEPT requires `reviewer_context ≠ author_context` (mechanized)
+
+- **Must:** close a task (`campaign_update_task_state(completed)`) with a valid `review` payload in the recitation (HARD-07): `mode:'fresh'` with `reviewer_context ≠ author_context` (reviewer distinct from the implementer, P2-01) and `verdict:'approve'`; or `mode:'degraded'` **only** with an owner `waiver: {owner, ref}` — the waiver is registered in the trace (`review.waiver`) and `.opencode/task-system/memory/decisions.md`, never a silent bypass.
+- **Must not:** let a degraded review without waiver reach ACCEPT (the write is blocked: `updated:false` + `reviewBlocked:true` with an actionable message), or pass `reviewer_context` equal to `author_context` (degradation in disguise).
+- **Por qué:** API-09 incident — a degraded round (same context) was accepted while fresh subagent capacity existed and had to be fixed by hand; without mechanical enforcement the gate degrades silently (self-preference bias, arXiv 2404.13076). Source of truth: `validateReviewAccept` (`.opencode/task-system/config/state-tools.mjs`).
+
+```jsonc
+// BAD (degraded, no waiver — blocked by validateReviewAccept)
+review: { mode: "degraded", verdict: "approve" }
+
+// GOOD (fresh — reviewer in a distinct context)
+review: { mode: "fresh", reviewer: "vanta-review", reviewer_context: "ses_abc", author_context: "ses_xyz", verdict: "approve" }
+
+// GOOD (degraded — owner waiver registered)
+review: { mode: "degraded", verdict: "approve", waiver: { owner: "Eros", ref: "2026-09-27 owner decision" } }
+```
+
+- **Verify:** `node --test .opencode/task-system/mcp/review-gate.test.mjs` → 5/5 (T1–T4 canónicos + T5 regresión del guard); waiver visible in `traces/<campaignId>.jsonl` (`review.waiver`) + `.opencode/task-system/memory/decisions.md`.
+- **Rollout:** el enforcement vive en `campaign-server.mjs`; the running MCP process keeps the previous code — the gate activates on process restart.
 
 ## See also
 

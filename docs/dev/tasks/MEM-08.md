@@ -1,3 +1,8 @@
+---
+title: "MEM-08: F4 Fundación crate vanta-memory (scaffold) — Wave3"
+kind: task
+---
+
 # MEM-08: F4 Fundación crate vanta-memory (scaffold) — Wave3
 
 ## Metadata

@@ -1,3 +1,8 @@
+---
+title: D4a — Renames stuttering internos
+kind: task
+---
+
 # D4a — Renames stuttering internos
 
 ## 1. Descubrimiento (auto-detect tipo → codegraph blast radius → web si ambigüedad → baseline `/cleanCA <scope>`)

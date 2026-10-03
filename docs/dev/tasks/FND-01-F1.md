@@ -1,3 +1,9 @@
+---
+title: "FND-01-F1: Wire RSS real en check_memory_pressure (cierra riesgo OOM)"
+kind: task
+description: "El guard checkmemorypressure (src/storage/engine/stats.rs:98) compara contra physicalrss (solo mmap, 54 MiB) o estimación lógica — nunca el RSS real del proceso (354 MiB a 20k nodos). Wire el RSS real (getnativememory() vía..."
+---
+
 # FND-01-F1: Wire RSS real en check_memory_pressure (cierra riesgo OOM)
 
 ## Metadata

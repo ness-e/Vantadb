@@ -1,3 +1,9 @@
+---
+title: "FIND-65 — `checked_sub` en test TTL (`vanta-proxy/src/cache.rs`)"
+kind: task
+description: "campaigndiscoverskillsv2 archivosClave=\"vanta-proxy/src/cache.rs\" phase=\"BUILD\" contractKeywords=[\"TTL\",\"Instant\",\"checkedsub\",\"cache\"] →"
+---
+
 # FIND-65 — `checked_sub` en test TTL (`vanta-proxy/src/cache.rs`)
 
 > Campaign: `6ab26f3f-cf16-4416-9255-c18cca0bcaf0` · Plan: `docs/dev/plans/2026-09-15-find-correcciones.md`

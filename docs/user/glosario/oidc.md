@@ -1,9 +1,9 @@
 ---
-title: "OIDC (OpenID Connect)"
-type: glossary-entry
+title: OIDC (OpenID Connect)
+kind: glossary
 status: stable
+description: OIDC (OpenID Connect) es un protocolo de autenticación basado en OAuth 2.0 que permite a aplicaciones verificar la identidad de usuarios y obtener información de perfil de manera segura
 tags: [vantadb, glosario, seguridad, ci-cd]
-last_reviewed: 2026-09-15
 links: "[Glosario](./README.md)"
 ---
 
@@ -75,8 +75,8 @@ gh attestation verify \
 ## Véase También
 
 - [CI/CD](ci-cd.md) — Pipeline de publicación
-- [Sigstore](Sigstore.md) — Firma de artefactos
-- [SLSA](SLSA.md) — Framework de seguridad
+- [Sigstore](./sigstore.md) — Firma de artefactos
+- [SLSA](./slsa.md) — Framework de seguridad
 
 ---
 

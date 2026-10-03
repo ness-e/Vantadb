@@ -1,3 +1,9 @@
+---
+title: FIND-21 — Menú contextual + atajos globales desktop
+kind: task
+description: en package.json. Agregar dep nativa = riesgo red/offline + colisión con SO (pre-mortem F1)
+---
+
 # FIND-21 — Menú contextual + atajos globales desktop
 
 - **Estado:** ✅ COMPLETED

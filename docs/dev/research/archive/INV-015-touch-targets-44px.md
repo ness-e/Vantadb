@@ -1,3 +1,10 @@
+---
+title: "INV-015: Touch Targets < 44px — Auditoría"
+kind: research
+status: archived
+description: "~23 componentes interactivos no cumplen 44×44px (WCAG 2.5.8 Target Size Minimum: 24×24 mínimo obligatorio, 44×44 recomendado). Todos pasan el mínimo de 24px salvo 2 icon buttons de 14px (clear-search) que están < 24px → fallo severo"
+---
+
 # INV-015: Touch Targets < 44px — Auditoría
 
 > **Estado:** ✅ COMPLETADA 2026-08-03 · **Fuente:** docs/dev/Backlog.md INV-015 · **Tipo:** Web Frontend (accesibilidad) — auditoría + propuesta, sin implementación

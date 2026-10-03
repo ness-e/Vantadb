@@ -1603,3 +1603,138 @@ async fn test_save_clears_dirty_flag() {
     }
     db.delete_idb().await.unwrap();
 }
+
+// ── SCH-04: confidence fields on the WASM wire ────────────────────────
+
+/// SCH-04 (ADR-046 §D2): records returned by get/put/list/search carry the
+/// confidence fields; a search hit carries the record's values.
+#[wasm_bindgen_test]
+fn test_confidence_fields_exposed_on_records() {
+    let db = create_db();
+    db.put(make_put("sch04", "k1", "confidence probe")).unwrap();
+
+    let got = db.get("sch04", "k1").unwrap();
+    assert!(!got.is_null());
+    let class = js_sys::Reflect::get(&got, &"confidence_class".into()).unwrap();
+    assert_eq!(class.as_string().as_deref(), Some("Asserted"));
+    let confidence = js_sys::Reflect::get(&got, &"confidence".into()).unwrap();
+    assert_eq!(confidence.as_f64(), Some(1.0));
+    let last_validated = js_sys::Reflect::get(&got, &"last_validated_at_ms".into()).unwrap();
+    assert!(
+        last_validated.is_undefined(),
+        "never validated → field absent"
+    );
+    let derived_from = js_sys::Reflect::get(&got, &"derived_from".into()).unwrap();
+    assert_eq!(js_sys::Array::from(&derived_from).length(), 0);
+
+    // Search hits nest the record — same fields.
+    db.put(make_put_with_vector(
+        "sch04",
+        "k2",
+        "vectorized",
+        vec![1.0, 0.0],
+    ))
+    .unwrap();
+    let request = json_to_js(&serde_json::json!({
+        "namespace": "sch04",
+        "query_vector": [1.0, 0.0],
+        "top_k": 1
+    }));
+    let hits = db.search(request).unwrap();
+    let first = js_sys::Array::from(&hits).get(0);
+    let record = js_sys::Reflect::get(&first, &"record".into()).unwrap();
+    let class = js_sys::Reflect::get(&record, &"confidence_class".into()).unwrap();
+    assert_eq!(class.as_string().as_deref(), Some("Asserted"));
+}
+
+// ── SCH-07: bitemporal/quarantine fields + temporal params on the wire ──
+
+/// SCH-07 (ADR-046 §D3/§D5): records carry the bitemporal + quarantine fields
+/// (u64s as decimal strings, optionals omitted) and the temporal /
+/// quarantine-view params cross `search`/`list` with the SDK wire names.
+#[wasm_bindgen_test]
+fn test_v2_fields_and_temporal_params_on_the_wire() {
+    let db = create_db();
+    db.put(make_put("sch07", "k1", "temporal probe")).unwrap();
+
+    // Record fields: v1 normalization `valid_at := created_at`; open window
+    // and active quarantine state omit their optional fields.
+    let got = db.get("sch07", "k1").unwrap();
+    let valid_at = js_sys::Reflect::get(&got, &"valid_at_ms".into()).unwrap();
+    let created = js_sys::Reflect::get(&got, &"created_at_ms".into()).unwrap();
+    assert_eq!(
+        valid_at.as_string(),
+        created.as_string(),
+        "v1 normalization: valid_at := created_at (policy string-u64)"
+    );
+    assert!(
+        js_sys::Reflect::get(&got, &"invalid_at_ms".into())
+            .unwrap()
+            .is_undefined(),
+        "open-ended window omits invalid_at_ms"
+    );
+    assert!(
+        js_sys::Reflect::get(&got, &"quarantined_at_ms".into())
+            .unwrap()
+            .is_undefined(),
+        "active record has no quarantine state"
+    );
+
+    // Temporal params cross `search` (as_of 0 → no hit; far future → hit).
+    let request = json_to_js(&serde_json::json!({
+        "namespace": "sch07",
+        "query_vector": [],
+        "text_query": "temporal",
+        "top_k": 5,
+        "as_of_ms": 0
+    }));
+    let hits = db.search(request).unwrap();
+    assert_eq!(
+        js_sys::Array::from(&hits).length(),
+        0,
+        "as_of before creation"
+    );
+
+    let request = json_to_js(&serde_json::json!({
+        "namespace": "sch07",
+        "query_vector": [],
+        "text_query": "temporal",
+        "top_k": 5,
+        "as_of_ms": 9_000_000_000_000_u64
+    }));
+    let hits = db.search(request).unwrap();
+    assert_eq!(
+        js_sys::Array::from(&hits).length(),
+        1,
+        "as_of after creation"
+    );
+
+    // `list` accepts the temporal/quarantine/confidence params.
+    let opts = json_to_js(&serde_json::json!({
+        "include_quarantined": true,
+        "min_confidence": 0.5,
+        "valid_window": {"from_ms": 0, "to_ms": 9_000_000_000_000_u64}
+    }));
+    let page = db.list("sch07", opts).unwrap();
+    let records = js_sys::Reflect::get(&page, &"records".into()).unwrap();
+    assert_eq!(js_sys::Array::from(&records).length(), 1);
+
+    // Discrimination guard: `as_of_ms: 0` must drop the record — a dropped
+    // param would still return 1 and the length-1 assertion above would pass.
+    let opts_zero = json_to_js(&serde_json::json!({
+        "as_of_ms": 0
+    }));
+    let page = db.list("sch07", opts_zero).unwrap();
+    let records = js_sys::Reflect::get(&page, &"records".into()).unwrap();
+    assert_eq!(
+        js_sys::Array::from(&records).length(),
+        0,
+        "as_of before creation drops the record"
+    );
+
+    // Inverted window → core boundary error (never silently swapped).
+    let bad = json_to_js(&serde_json::json!({
+        "valid_window": {"from_ms": 10, "to_ms": 1}
+    }));
+    assert!(db.list("sch07", bad).is_err(), "inverted window rejected");
+}

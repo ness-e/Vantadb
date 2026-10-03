@@ -134,6 +134,24 @@ const KDF_FRAME_MIN: usize = 1 + KDF_SALT_LEN + 12 + 16;
 /// PBKDF2-framed payload.
 const MAX_FRAME_LEN: usize = 512 * 1024 * 1024;
 
+/// HKDF salt for namespace envelope key derivation (VER-03).
+///
+/// Domain-separates derived namespace keys from the at-rest storage key usage
+/// (same primitive, different purpose).
+const NS_ENVELOPE_SALT: &[u8] = b"vanta-namespace-envelope-v1";
+/// HKDF info marker prefixed to the namespace in the derivation.
+const NS_ENVELOPE_INFO: &[u8] = b"ns";
+
+/// 32-byte OKM marker for [`Cipher::derive_namespace`]
+/// (`ring::hkdf::KeyType`; ring does not implement it for `usize`).
+struct Aes256KeyType;
+
+impl ring::hkdf::KeyType for Aes256KeyType {
+    fn len(&self) -> usize {
+        32
+    }
+}
+
 /// AES-256-GCM cipher wrapping [`Aes256Gcm`] with a 12-byte nonce.
 ///
 /// Each encryption generates a fresh random nonce from the OS CSPRNG
@@ -180,6 +198,38 @@ impl Cipher {
             .encryption_key
             .ok_or(CryptoError::KeyNotSet)?;
         let key = decode_hex(&encoded)?;
+        Ok(Self::new(&key))
+    }
+
+    /// Derive a per-namespace cipher from this master cipher (VER-03).
+    ///
+    /// `key(namespace, version) = HKDF-SHA256(IKM = master, salt =
+    /// `[`NS_ENVELOPE_SALT`]`, info = "ns" ‖ namespace ‖ [version])`.
+    /// Namespace and version participate in the key: a blob re-labelled with
+    /// another namespace or version does not authenticate.
+    ///
+    /// # Errors
+    ///
+    /// [`CryptoError::InvalidKey`] when this master is not a raw 32-byte key
+    /// (a passphrase has no stable raw key to derive from). Callers must
+    /// degrade explicitly — never silently.
+    pub fn derive_namespace(&self, namespace: &str, version: u8) -> Result<Self, CryptoError> {
+        let master = self.raw_key.ok_or_else(|| {
+            CryptoError::InvalidKey(
+                "namespace key derivation requires a raw 32-byte key \
+                 (passphrase keys are not supported)"
+                    .into(),
+            )
+        })?;
+        let salt = ring::hkdf::Salt::new(ring::hkdf::HKDF_SHA256, NS_ENVELOPE_SALT);
+        let prk = salt.extract(&master);
+        let info: [&[u8]; 3] = [NS_ENVELOPE_INFO, namespace.as_bytes(), &[version]];
+        let okm = prk
+            .expand(&info, Aes256KeyType)
+            .map_err(|_| CryptoError::InvalidKey("HKDF expand failed".into()))?;
+        let mut key = [0u8; 32];
+        okm.fill(&mut key)
+            .map_err(|_| CryptoError::InvalidKey("HKDF fill failed".into()))?;
         Ok(Self::new(&key))
     }
 
@@ -419,23 +469,32 @@ impl<S: Read + Write> Read for EncryptionStream<S> {
 /// Decode a hex string into bytes.
 ///
 /// Accepts an optional `0x` prefix. Returns an error on invalid hex characters
-/// or odd length.
+/// or odd length. Operates on BYTES (`chunks_exact(2)`) — a multibyte UTF-8
+/// key at an even offset degrades to `InvalidKey`, never a char-boundary
+/// panic at startup (F-01 hardening; env-fed input).
 fn decode_hex(s: &str) -> Result<Vec<u8>, CryptoError> {
     let s = s.trim();
     let s = s
         .strip_prefix("0x")
         .or_else(|| s.strip_prefix("0X"))
         .unwrap_or(s);
-    if s.len() % 2 != 0 {
+    let bytes = s.as_bytes();
+    if bytes.len() % 2 != 0 {
         return Err(CryptoError::InvalidKey(
             "hex string must have an even number of characters".into(),
         ));
     }
-    (0..s.len())
-        .step_by(2)
-        .map(|i| {
-            u8::from_str_radix(&s[i..i + 2], 16)
-                .map_err(|e| CryptoError::InvalidKey(format!("invalid hex at position {i}: {e}")))
+    bytes
+        .chunks_exact(2)
+        .enumerate()
+        .map(|(i, pair)| {
+            let offset = i * 2;
+            let chunk = std::str::from_utf8(pair).map_err(|_| {
+                CryptoError::InvalidKey(format!("invalid hex at position {offset}"))
+            })?;
+            u8::from_str_radix(chunk, 16).map_err(|e| {
+                CryptoError::InvalidKey(format!("invalid hex at position {offset}: {e}"))
+            })
         })
         .collect()
 }
@@ -664,5 +723,61 @@ mod tests {
         std::env::remove_var("VANTADB_ENCRYPTION_KEY");
         let result = Cipher::from_env();
         assert!(matches!(result, Err(CryptoError::KeyNotSet)));
+    }
+
+    #[test]
+    fn test_derive_namespace_binds_namespace_and_version() {
+        let master = Cipher::new(&[0x11u8; 32]);
+        let a1 = master.derive_namespace("ns-a", 1).unwrap();
+        let b1 = master.derive_namespace("ns-b", 1).unwrap();
+        let a2 = master.derive_namespace("ns-a", 2).unwrap();
+        let encrypted = a1.encrypt(b"secret");
+        assert_eq!(a1.decrypt(&encrypted).unwrap(), b"secret");
+        assert!(
+            b1.decrypt(&encrypted).is_err(),
+            "namespace participates in the key"
+        );
+        assert!(
+            a2.decrypt(&encrypted).is_err(),
+            "version participates in the key"
+        );
+    }
+
+    #[test]
+    fn test_derive_namespace_is_deterministic() {
+        let master = Cipher::new(&[0x22u8; 32]);
+        let first = master.derive_namespace("ns", 7).unwrap();
+        let second = master.derive_namespace("ns", 7).unwrap();
+        let encrypted = first.encrypt(b"x");
+        assert_eq!(second.decrypt(&encrypted).unwrap(), b"x");
+    }
+
+    #[test]
+    fn test_derive_namespace_rejects_passphrase_master() {
+        let master = Cipher::new(b"short passphrase");
+        let result = master.derive_namespace("ns", 1);
+        assert!(matches!(result, Err(CryptoError::InvalidKey(_))));
+    }
+
+    #[test]
+    fn test_decode_hex_multibyte_degrades_instead_of_panicking() {
+        // F-01: a multibyte char at an even byte offset must be an error,
+        // not a char-boundary panic (env-fed key path).
+        let result = decode_hex("aa€x");
+        assert!(matches!(result, Err(CryptoError::InvalidKey(_))));
+    }
+
+    #[test]
+    fn test_encrypt_uses_fresh_nonce_per_message() {
+        let cipher = Cipher::new(&[0x33u8; 32]);
+        let first = cipher.encrypt(b"same plaintext");
+        let second = cipher.encrypt(b"same plaintext");
+        assert_ne!(
+            &first[..12],
+            &second[..12],
+            "fresh random nonce per message (12-byte prefix)"
+        );
+        assert_eq!(cipher.decrypt(&first).unwrap(), b"same plaintext");
+        assert_eq!(cipher.decrypt(&second).unwrap(), b"same plaintext");
     }
 }

@@ -1,3 +1,9 @@
+---
+title: "Task API-STD-18 — Implementación: waves, comandos, MCP local, release"
+kind: task
+description: "Cada commit: feat!: + task ID (breaking). Deuda Regla 6: pagar P2-5 en W1, P2-8 en W0. Benchmarks Regla 9 donde aplique (canonicalp99, entorno+fecha)"
+---
+
 # Task API-STD-18 — Implementación: waves, comandos, MCP local, release
 
 > **Plan:** `docs/dev/plans/2026-09-24-api-estandarizacion.md`

@@ -1,3 +1,9 @@
+---
+title: "FND-05-F1: Corregir 4 drifts de stub Python + limpiar maturin features redundante"
+kind: task
+description: Corregir los 4 drifts de stub de vantadb-python que rompen type-checking del usuario
+---
+
 # FND-05-F1: Corregir 4 drifts de stub Python + limpiar maturin features redundante
 
 ## Metadata

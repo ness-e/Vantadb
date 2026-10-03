@@ -1,11 +1,9 @@
 ---
-title: "Auditoría Integral 2026-06-19 + correcciones documentales"
-type: registro
+title: Auditoría Integral 2026-06-19 + correcciones documentales
+kind: review
 status: archived
+description: Auditoría automatizada de 44 hallazgos ejecutada y resuelta en su totalidad el mismo día. Cada hallazgo fue delegado a un agente especializado para su diagnóstico y corrección
 tags: [vantadb, avance, campana]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Auditoría Integral 2026-06-19 + correcciones documentales

@@ -1,3 +1,9 @@
+---
+title: "MEM-ROTATE-04: Rotación memoria + TTL sesiones (D9+D10)"
+kind: task
+description: "(a) script o regla documentada de rotación auto 50KB/200 líneas para lessons/decisions con archive fechado (verificado por ls archive + doc), (b) ses.json >30 días borrados o movidos, quedan ≤50 recientes + goals/.md intactos, ses.json..."
+---
+
 # MEM-ROTATE-04: Rotación memoria + TTL sesiones (D9+D10)
 
 ## Metadata

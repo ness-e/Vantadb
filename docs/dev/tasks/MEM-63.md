@@ -1,3 +1,8 @@
+---
+title: "MEM-63: Quick-win docs+embeddings — auto-recall doc fixed + embeddings auto-on"
+kind: task
+---
+
 # MEM-63: Quick-win docs+embeddings — auto-recall doc fixed + embeddings auto-on
 
 ## Metadata

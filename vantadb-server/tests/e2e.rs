@@ -342,7 +342,7 @@ async fn test_e2e_conversation_add_creates_thread() {
 
     // No thread_id -> server creates the thread and appends the first message
     let resp = client
-        .post(format!("{}/conversation/add", base))
+        .post(format!("{}/api/v2/conversations", base))
         .json(&serde_json::json!({
             "title": "e2e-convo",
             "role": "user",
@@ -379,7 +379,7 @@ async fn test_e2e_conversation_add_appends_to_existing_thread() {
 
     // First message creates the thread
     let resp = client
-        .post(format!("{}/conversation/add", base))
+        .post(format!("{}/api/v2/conversations", base))
         .json(&serde_json::json!({
             "role": "user",
             "content": "first",
@@ -395,7 +395,7 @@ async fn test_e2e_conversation_add_appends_to_existing_thread() {
 
     // Second message appends to the same thread
     let resp = client
-        .post(format!("{}/conversation/add", base))
+        .post(format!("{}/api/v2/conversations", base))
         .json(&serde_json::json!({
             "thread_id": thread_id,
             "role": "assistant",
@@ -424,7 +424,7 @@ async fn test_e2e_conversation_add_invalid_thread_id() {
     let client = reqwest::Client::new();
 
     let resp = client
-        .post(format!("{}/conversation/add", base))
+        .post(format!("{}/api/v2/conversations", base))
         .json(&serde_json::json!({
             "thread_id": "not-a-u128",
             "role": "user",
@@ -445,7 +445,7 @@ async fn test_e2e_conversation_add_requires_auth() {
 
     // Without a token -> 401
     let resp = client
-        .post(format!("{}/conversation/add", base))
+        .post(format!("{}/api/v2/conversations", base))
         .json(&serde_json::json!({ "role": "user", "content": "x" }))
         .send()
         .await
@@ -454,7 +454,7 @@ async fn test_e2e_conversation_add_requires_auth() {
 
     // With a valid token -> 201
     let resp = client
-        .post(format!("{}/conversation/add", base))
+        .post(format!("{}/api/v2/conversations", base))
         .header("Authorization", "Bearer e2e-secret")
         .json(&serde_json::json!({ "role": "user", "content": "x" }))
         .send()
@@ -472,7 +472,7 @@ async fn test_e2e_skill_listing_empty_and_filtered() {
 
     // Empty listing first
     let resp = client
-        .get(format!("{}/skill/listing", base))
+        .get(format!("{}/api/v2/skills", base))
         .send()
         .await
         .unwrap();
@@ -506,7 +506,7 @@ async fn test_e2e_skill_listing_empty_and_filtered() {
 
     // Unfiltered listing returns both heads
     let resp = client
-        .get(format!("{}/skill/listing", base))
+        .get(format!("{}/api/v2/skills", base))
         .send()
         .await
         .unwrap();
@@ -524,7 +524,7 @@ async fn test_e2e_skill_listing_empty_and_filtered() {
 
     // owner_agent filter
     let resp = client
-        .get(format!("{}/skill/listing?owner_agent=agent-a", base))
+        .get(format!("{}/api/v2/skills?owner_agent=agent-a", base))
         .send()
         .await
         .unwrap();
@@ -535,7 +535,7 @@ async fn test_e2e_skill_listing_empty_and_filtered() {
 
     // name_prefix filter
     let resp = client
-        .get(format!("{}/skill/listing?name_prefix=cod", base))
+        .get(format!("{}/api/v2/skills?name_prefix=cod", base))
         .send()
         .await
         .unwrap();
@@ -571,6 +571,10 @@ async fn test_e2e_text_search_fresh_db() {
     // 2. Lexical search via /api/v2/search (no rebuild) must return hits
     let search = vantadb::sdk::MemorySearchRequest {
         text_query: Some("quantum flux".into()),
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
         ..Default::default()
     };
     let resp = client
@@ -588,4 +592,541 @@ async fn test_e2e_text_search_fresh_db() {
         !hits.is_empty(),
         "text search must hit on fresh DB without manual rebuild: {body}"
     );
+}
+
+/// REST-06 (API-03): listing paginates with a single opaque cursor scheme —
+/// `limit` in, `next_cursor` (string|null) + `has_more` out, no positional
+/// params. The list cursor is a decimal string clients must treat as opaque.
+#[tokio::test]
+async fn test_e2e_list_cursor_pagination_roundtrip() {
+    let (_dir, state) = build_e2e_context(None, 10);
+    let (base, _handle) = spawn_server(state, 0).await;
+    let client = reqwest::Client::new();
+
+    for key in ["c-1", "c-2", "c-3"] {
+        let input = vantadb::sdk::MemoryInput::new("paged", key, format!("payload {key}"));
+        let resp = client
+            .post(format!("{}/api/v2/records", base))
+            .json(&input)
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), 201);
+    }
+
+    // Page 1: limit=2 over 3 records → full page + opaque string cursor.
+    let resp = client
+        .get(format!("{}/api/v2/list?namespace=paged&limit=2", base))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let page1: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(page1["records"].as_array().unwrap().len(), 2);
+    assert_eq!(page1["has_more"], true);
+    let cursor = page1["next_cursor"]
+        .as_str()
+        .expect("next_cursor must be an opaque string")
+        .to_string();
+
+    // Page 2 via the cursor: last record, terminal page.
+    let resp = client
+        .get(format!(
+            "{}/api/v2/list?namespace=paged&limit=2&cursor={cursor}",
+            base
+        ))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let page2: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(page2["records"].as_array().unwrap().len(), 1);
+    assert_eq!(page2["has_more"], false);
+    assert!(page2["next_cursor"].is_null());
+
+    // An invalid cursor is a 400 — never a silent first page.
+    let resp = client
+        .get(format!(
+            "{}/api/v2/list?namespace=paged&cursor=not-a-token",
+            base
+        ))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 400);
+}
+
+/// REST-06 (API-03): threads list returns a page object (`threads` +
+/// `next_cursor` + `has_more`) instead of a bare array, cursor-paginated.
+#[tokio::test]
+async fn test_e2e_threads_list_cursor_page() {
+    let (_dir, state) = build_e2e_context(None, 10);
+    let (base, _handle) = spawn_server(state, 0).await;
+    let client = reqwest::Client::new();
+
+    for title in ["t-1", "t-2"] {
+        let resp = client
+            .post(format!("{}/api/v2/threads", base))
+            .json(&serde_json::json!({ "title": title }))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), 201);
+    }
+
+    let resp = client
+        .get(format!("{}/api/v2/threads?limit=1", base))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let page: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(page["threads"].as_array().unwrap().len(), 1);
+    assert_eq!(page["has_more"], true);
+    let cursor = page["next_cursor"].as_str().expect("string cursor");
+    let resp = client
+        .get(format!("{}/api/v2/threads?limit=1&cursor={cursor}", base))
+        .send()
+        .await
+        .unwrap();
+    let page2: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(page2["threads"].as_array().unwrap().len(), 1);
+    assert_eq!(page2["has_more"], false);
+    assert!(page2["next_cursor"].is_null());
+}
+
+/// API-03 breaking migration: the skill listing lives on the skills
+/// collection and reports the page envelope.
+#[tokio::test]
+async fn test_e2e_skills_listing_page_envelope() {
+    let (_dir, state) = build_e2e_context(None, 10);
+    let (base, _handle) = spawn_server(state.clone(), 0).await;
+    let client = reqwest::Client::new();
+
+    let store = vantadb::skills::SkillStore::new(&state.storage);
+    store
+        .create(vantadb::sdk::SkillCreateInput {
+            name: "greeting".into(),
+            description: "how to greet".into(),
+            content: "# greeting".into(),
+            owner_agent: "agent-a".into(),
+            metadata: Default::default(),
+            ttl_secs: None,
+        })
+        .unwrap();
+
+    let resp = client
+        .get(format!("{}/api/v2/skills?limit=50", base))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let page: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(page["items"].as_array().unwrap().len(), 1);
+    assert_eq!(page["total"], 1);
+    assert_eq!(page["has_more"], false);
+    assert!(page["next_cursor"].is_null());
+}
+
+/// API-03 breaking migration: thread messages are a sub-resource, the
+/// conversation turn endpoint is versioned, and the old routes are gone.
+#[tokio::test]
+async fn test_e2e_migrated_routes_break_the_old_ones() {
+    let (_dir, state) = build_e2e_context(None, 10);
+    let (base, _handle) = spawn_server(state, 0).await;
+    let client = reqwest::Client::new();
+
+    // Create a thread, then post a message to the sub-resource.
+    let resp = client
+        .post(format!("{}/api/v2/threads", base))
+        .json(&serde_json::json!({ "title": "migrations" }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 201);
+    let thread_id = resp.json::<serde_json::Value>().await.unwrap()["thread_id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+
+    let resp = client
+        .post(format!("{}/api/v2/threads/{}/messages", base, thread_id))
+        .json(&serde_json::json!({ "role": "user", "content": "hi" }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+
+    // Versioned conversation turn ingestion (migrated from /conversation/add).
+    let resp = client
+        .post(format!("{}/api/v2/conversations", base))
+        .json(&serde_json::json!({ "role": "user", "content": "turn" }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 201);
+
+    // Maintenance purge is a DELETE on a plural sub-resource.
+    let resp = client
+        .delete(format!("{}/api/v2/maintenance/expired-records", base))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let body: serde_json::Value = resp.json().await.unwrap();
+    assert!(body["purged"].is_number());
+
+    // The legacy routes no longer exist.
+    let resp = client
+        .post(format!("{}/conversation/add", base))
+        .json(&serde_json::json!({ "role": "user", "content": "x" }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 404);
+    let resp = client
+        .get(format!("{}/skill/listing", base))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 404);
+    let resp = client
+        .post(format!("{}/api/v2/maintenance/purge", base))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 404);
+}
+
+/// P2-01 F-A regression: `limit=0` must not yield a page that claims
+/// `has_more` with a cursor equal to the request — a page that says there is
+/// more must make progress (otherwise a client loops forever).
+#[tokio::test]
+async fn test_e2e_search_zero_limit_cursor_progresses() {
+    let (_dir, state) = build_e2e_context(None, 10);
+    let (base, _handle) = spawn_server(state, 0).await;
+    let client = reqwest::Client::new();
+
+    for key in ["z-1", "z-2"] {
+        let input = vantadb::sdk::MemoryInput::new("zero", key, "zero limit payload");
+        let resp = client
+            .post(format!("{}/api/v2/records", base))
+            .json(&input)
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), 201);
+    }
+
+    let request = |cursor: Option<String>| {
+        let mut body = serde_json::json!({
+            "namespace": "zero",
+            "query_vector": [],
+            "filters": {},
+            "text_query": "zero limit",
+            "top_k": 10,
+            "distance_metric": "Cosine",
+            "explain": false,
+            "limit": 0
+        });
+        if let Some(cursor) = cursor {
+            body["cursor"] = serde_json::Value::String(cursor);
+        }
+        body
+    };
+
+    let page1: serde_json::Value = client
+        .post(format!("{}/api/v2/search", base))
+        .json(&request(None))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(
+        page1["records"].as_array().unwrap().len(),
+        1,
+        "limit=0 clamps to a 1-record page (never an empty sticky page)"
+    );
+    assert_eq!(
+        page1["has_more"],
+        serde_json::json!(true),
+        "two matching records with a 1-record page must report has_more"
+    );
+    let cursor = page1["next_cursor"]
+        .as_str()
+        .expect("string cursor")
+        .to_string();
+    let page2: serde_json::Value = client
+        .post(format!("{}/api/v2/search", base))
+        .json(&request(Some(cursor.clone())))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_ne!(
+        page2["next_cursor"].as_str(),
+        Some(cursor.as_str()),
+        "a page claiming has_more must advance the cursor"
+    );
+}
+
+/// R3 (ADR-046 §D7 path test — HTTP): `POST /api/v2/import` with a JSONL path
+/// accepts v1 lines and normalizes them (valid_at := created_at,
+/// invalid_at := superseded_at, confidence := D_a).
+#[tokio::test]
+async fn test_e2e_import_v1_jsonl_path_normalizes() {
+    let (_dir, state) = build_e2e_context(None, 10);
+    let (base, _handle) = spawn_server(state, 0).await;
+    let client = reqwest::Client::new();
+
+    // Host-side v1 fixture (temp path: the export sandbox rejects `..`).
+    let fixture_dir = tempfile::tempdir().unwrap();
+    let fixture = fixture_dir.path().join("export-v1.jsonl");
+    std::fs::write(
+        &fixture,
+        concat!(
+            r#"{"schema_version":1,"namespace":"v1ns","key":"a","payload":"old data","metadata":{},"vector":null,"created_at_ms":1000,"updated_at_ms":2000,"version":2,"expires_at_ms":null,"superseded_by":"b","superseded_at_ms":1500}"#,
+            "\n"
+        ),
+    )
+    .unwrap();
+
+    let resp = client
+        .post(format!("{}/api/v2/import", base))
+        .json(&serde_json::json!({"path": fixture.to_str().unwrap()}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let report: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(report["inserted"], 1);
+    assert_eq!(report["errors"], 0);
+
+    let resp = client
+        .get(format!("{}/api/v2/records/v1ns/a", base))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let rec: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(rec["valid_at_ms"], 1000, "valid_at := created_at");
+    assert_eq!(rec["invalid_at_ms"], 1500, "invalid_at := superseded_at");
+    assert_eq!(rec["confidence"], 1.0, "v1 normalization: D_a");
+}
+
+/// SCH-04: `/api/v2/search` propagates the record confidence fields on every
+/// hit (serde — same `MemorySearchHit` JSON as the SDK) and honors the opt-in
+/// `min_confidence` filter: a `derived` child (score = min(parents) × 0.9 =
+/// 0.9) falls below a 0.95 threshold while the asserted parent stays.
+#[tokio::test]
+async fn test_e2e_search_confidence_fields_and_min_confidence_filter() {
+    let (_dir, state) = build_e2e_context(None, 10);
+    let (base, _handle) = spawn_server(state, 0).await;
+    let client = reqwest::Client::new();
+
+    // Asserted parent (D_a = 1.0).
+    let resp = client
+        .post(format!("{}/api/v2/records", base))
+        .json(&serde_json::json!({
+            "namespace": "sch04", "key": "parent-1",
+            "payload": "parent fact", "metadata": {}, "vector": [1.0, 0.0]
+        }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 201);
+
+    // Derived child: the engine computes the score from the declared parents.
+    let resp = client
+        .post(format!("{}/api/v2/records", base))
+        .json(&serde_json::json!({
+            "namespace": "sch04", "key": "child-1",
+            "payload": "derived summary", "metadata": {}, "vector": [1.0, 0.0],
+            "confidence_class": "Derived", "derived_from": ["parent-1"]
+        }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 201, "derived put must be accepted");
+
+    // No filter: both hits, confidence fields visible on each record.
+    let resp = client
+        .post(format!("{}/api/v2/search", base))
+        .json(&serde_json::json!({
+            "namespace": "sch04", "query_vector": [1.0, 0.0], "top_k": 5,
+            "filters": {}, "distance_metric": "Cosine", "explain": false
+        }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let body: serde_json::Value = resp.json().await.unwrap();
+    let records = body["records"].as_array().expect("records array");
+    assert_eq!(records.len(), 2, "{body}");
+
+    let parent_hit = records
+        .iter()
+        .find(|h| h["record"]["key"] == "parent-1")
+        .expect("parent hit");
+    assert_eq!(parent_hit["record"]["confidence_class"], "Asserted");
+    assert_eq!(parent_hit["record"]["confidence"], 1.0);
+    assert!(parent_hit["record"]["last_validated_at_ms"].is_null());
+    assert_eq!(parent_hit["record"]["derived_from"], serde_json::json!([]));
+
+    let child_hit = records
+        .iter()
+        .find(|h| h["record"]["key"] == "child-1")
+        .expect("child hit");
+    assert_eq!(child_hit["record"]["confidence_class"], "Derived");
+    // f32 shortest-repr on the HTTP serializer ("0.9") vs the widened f32
+    // value: compare with tolerance, not bit equality.
+    let child_confidence = child_hit["record"]["confidence"]
+        .as_f64()
+        .expect("confidence number");
+    assert!(
+        (child_confidence - 0.9).abs() < 1e-6,
+        "derived score = min(parents) × 0.9, got {child_confidence}"
+    );
+    assert_eq!(
+        child_hit["record"]["derived_from"],
+        serde_json::json!(["parent-1"])
+    );
+
+    // Opt-in threshold 0.95 excludes the derived child (0.9), keeps the parent.
+    let resp = client
+        .post(format!("{}/api/v2/search", base))
+        .json(&serde_json::json!({
+            "namespace": "sch04", "query_vector": [1.0, 0.0], "top_k": 5,
+            "filters": {}, "distance_metric": "Cosine", "explain": false,
+            "min_confidence": 0.95
+        }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let body: serde_json::Value = resp.json().await.unwrap();
+    let records = body["records"].as_array().expect("records array");
+    assert_eq!(
+        records.len(),
+        1,
+        "filter must drop the derived child: {body}"
+    );
+    assert_eq!(records[0]["record"]["key"], "parent-1");
+    assert_eq!(records[0]["record"]["confidence"], 1.0, "{body}");
+}
+
+/// SCH-07: `/api/v2/search` carries the selective-abstention signal
+/// (ADR-046 §D2) on the page-shaped single-namespace path: with
+/// `confidence_threshold` configured and every candidate below it, the
+/// response is an explicit `abstained: true` + reason code — never a silent
+/// empty page. The all-namespaces fan-out has no page object in the SDK, so
+/// the signal is declared N/A (`false`/`null`). Also pins the v2
+/// bitemporal/quarantine fields on the HTTP record wire.
+#[tokio::test]
+async fn test_e2e_search_abstention_signal_and_v2_fields() {
+    // `build_server_state` opens with the default config (threshold OFF), so
+    // build the state literally with the core threshold set.
+    let dir = tempfile::tempdir().unwrap();
+    let storage_path = dir.path().join("db");
+    let storage = Arc::new(
+        StorageEngine::open_with_config(
+            storage_path.to_str().unwrap(),
+            Some(vantadb::config::Config {
+                confidence_threshold: Some(0.9),
+                ..Default::default()
+            }),
+        )
+        .unwrap(),
+    );
+    let db = vantadb::Embedded::from_engine(storage.clone());
+    db.ensure_indexes_current().expect("ensure indexes");
+    let state = Arc::new(ServerState {
+        storage,
+        db,
+        circuit_breaker: Arc::new(CircuitBreaker::new(5, Duration::from_secs(30))),
+        pool: Arc::new(ConnectionPool::new(10, Duration::from_millis(5000))),
+        api_key: None,
+        alt_api_key: None,
+        jwt_secret: None,
+        rbac_config: Default::default(),
+        trusted_proxies: vec![],
+        conversation_trigger: None,
+    });
+    let (base, _handle) = spawn_server(state, 0).await;
+    let client = reqwest::Client::new();
+
+    // One asserted record declared at 0.2 — below the 0.9 threshold.
+    let resp = client
+        .post(format!("{}/api/v2/records", base))
+        .json(&serde_json::json!({
+            "namespace": "sch07", "key": "shaky",
+            "payload": "below threshold", "metadata": {}, "vector": [1.0, 0.0],
+            "confidence": 0.2
+        }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 201);
+
+    // Single-namespace search: page-shaped → explicit abstention signal.
+    let resp = client
+        .post(format!("{}/api/v2/search", base))
+        .json(&serde_json::json!({
+            "namespace": "sch07", "query_vector": [1.0, 0.0], "top_k": 5,
+            "filters": {}, "distance_metric": "Cosine", "explain": false
+        }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let body: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(
+        body["records"].as_array().map(Vec::len),
+        Some(0),
+        "threshold filters every candidate: {body}"
+    );
+    assert_eq!(body["abstained"], true, "explicit signal: {body}");
+    assert_eq!(
+        body["abstention_reason"], "no_candidates_above_threshold",
+        "{body}"
+    );
+
+    // All-namespaces fan-out: signal declared N/A (no page object in the SDK).
+    let resp = client
+        .post(format!("{}/api/v2/search", base))
+        .json(&serde_json::json!({
+            "namespace": "", "query_vector": [1.0, 0.0], "top_k": 5,
+            "filters": {}, "distance_metric": "Cosine", "explain": false
+        }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let body: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(
+        body["abstained"], false,
+        "multi-namespace path is N/A: {body}"
+    );
+    assert!(body["abstention_reason"].is_null(), "{body}");
+
+    // v2 bitemporal/quarantine fields travel on the record wire (SCH-07).
+    let resp = client
+        .post(format!("{}/api/v2/records", base))
+        .json(&serde_json::json!({
+            "namespace": "sch07", "key": "v2", "payload": "fields",
+            "metadata": {}, "vector": [1.0, 0.0],
+            "valid_at_ms": 1000, "quarantine": true
+        }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 201);
+    let rec: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(rec["valid_at_ms"], 1000, "{rec}");
+    assert_eq!(rec["quarantine_reason"], "explicit_write", "{rec}");
+    assert!(rec["quarantined_at_ms"].is_number(), "{rec}");
 }

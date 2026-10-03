@@ -1,3 +1,8 @@
+---
+title: "TASK-ERR-DOCS-01: Docs ERROR_HANDLING.md + observabilidad (is_retriable, recovery_hint, code table)"
+kind: task
+---
+
 # TASK-ERR-DOCS-01: Docs ERROR_HANDLING.md + observabilidad (is_retriable, recovery_hint, code table)
 
 ## Metadata

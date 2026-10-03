@@ -1,3 +1,9 @@
+---
+title: "INV-016-B: Motion tokens (duration/ease) reemplazan cubic-bezier hardcodeado"
+kind: task
+description: "Nota 15/15: el patrón grep del contrato (sin espacios) cubría solo los 3 componentes; los 12 CSS usaban formato con espacios cubic-bezier(0.2, 0.8, 0.2, 1). Todos reemplazados"
+---
+
 # INV-016-B: Motion tokens (duration/ease) reemplazan cubic-bezier hardcodeado
 
 ## Metadata

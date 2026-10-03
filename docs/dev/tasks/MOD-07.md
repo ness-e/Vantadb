@@ -1,3 +1,9 @@
+---
+title: "MOD-07 — Notifications JSON-RPC sin `id` rechazadas como -32700 espurio"
+kind: task
+description: Notifications JSON-RPC (requests SIN campo id) son rechazadas como error -32700
+---
+
 # MOD-07 — Notifications JSON-RPC sin `id` rechazadas como -32700 espurio
 
 > **Estado:** ✅ COMPLETED · **Appetite:** max 2h · **Esfuerzo:** 🟢 · **Prioridad:** 🔴

@@ -1,3 +1,10 @@
+---
+title: "INV-013: JSON-LD Structured Data — Auditoría"
+kind: research
+status: archived
+description: "Hallazgo: JSON-LD AUSENTE en el sitio web. No existe ningún <script type=\"application/ld+json\"> ni campo jsonLd. Consecuencia: sin rich snippets / rich results en Google"
+---
+
 # INV-013: JSON-LD Structured Data — Auditoría
 
 > **Estado:** ✅ COMPLETADA 2026-08-03 · **Fuente:** docs/dev/Backlog.md INV-013 · **Tipo:** Web Frontend (SEO) — auditoría + propuesta, sin implementación

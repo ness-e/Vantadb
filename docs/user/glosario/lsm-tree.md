@@ -1,16 +1,16 @@
 ---
-title: "LSM-Tree—Log-Structured Merge-Tree"
-type: glossary-entry
+title: LSM-Tree—Log-Structured Merge-Tree
+kind: glossary
 status: stable
-tags: [storage, lsm, estructura-datos, write-optimized]
-last_reviewed: 2026-09-15
-links: "[[README.md]]"
+description: "A LSM-Tree (Log-Structured Merge-Tree) is a data structure optimized for sequential writes, which maintains data in memory (MemTable) and periodically dumps it to disk in immutable files (SSTables), with background compaction to..."
 aliases: [Log-Structured Merge-Tree, LSM Tree]
-description: "Sequential write-optimized data structure that maintains data in memory (MemTable) and periodically dumps it to disk in immutable files (SSTables)"
+tags: [storage, lsm, estructura-datos, write-optimized]
+links: "[[README.md]]"
 ---
+
 # LSM-Tree—Log-Structured Merge-Tree
 
-##Definition
+## Definition
 
 A **LSM-Tree** (Log-Structured Merge-Tree) is a data structure optimized for **sequential writes**, which maintains data in memory (MemTable) and periodically dumps it to disk in immutable files (SSTables), with background compaction to maintain read performance.
 
@@ -63,15 +63,15 @@ A **LSM-Tree** (Log-Structured Merge-Tree) is a data structure optimized for **s
 ## Usage in VantaDB
 
 VantaDB uses LSM-trees via:
-- **[[fjall]]** — Backend default (100% Rust)
-- **[[rocksdb]]** — Alternative backend (C++)
+- **[fjall](./fjall.md)** — Backend default (100% Rust)
+- **[rocksdb](./rocksdb.md)** — Alternative backend (C++)
 
 ## See Also
 
-- [[fjall]] — LSM-tree implementation in Rust
-- [[rocksdb]] — LSM-tree implementation in C++
-- [[wal]] — Durability for writes
-- [[mvcc]] — Concurrency in LSM-trees
+- [fjall](./fjall.md) — LSM-tree implementation in Rust
+- [rocksdb](./rocksdb.md) — LSM-tree implementation in C++
+- [wal](./wal.md) — Durability for writes
+- [mvcc](./mvcc.md) — Concurrency in LSM-trees
 
 ---
 

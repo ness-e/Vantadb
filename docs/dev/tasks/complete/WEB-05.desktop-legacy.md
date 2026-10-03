@@ -1,3 +1,9 @@
+---
+title: "WEB-05 — Build web de la consola (Vite base `/dashboard/`, sin Tauri)"
+kind: task
+description: Archivos leídos completos
+---
+
 # WEB-05 — Build web de la consola (Vite base `/dashboard/`, sin Tauri)
 
 > **Plan:** `docs/dev/plans/2026-08-18-vanta-studio-fase3.md` · **Wave 2** · **Estado:** ✅ COMPLETO

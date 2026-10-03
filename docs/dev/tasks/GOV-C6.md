@@ -1,3 +1,9 @@
+---
+title: "GOV-C6: Sweep bidireccional env vars — CONFIGURATION.md"
+kind: task
+description: "ratelimitrpm=600 en doc; sweep bidireccional completo; spot-check ≥10 defaults; markdownlint exit 0\""
+---
+
 # GOV-C6: Sweep bidireccional env vars — CONFIGURATION.md
 
 ## Metadata

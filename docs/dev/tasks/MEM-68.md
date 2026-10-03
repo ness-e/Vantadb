@@ -1,3 +1,9 @@
+---
+title: MEM-68 — Gate opcional de aprobación de capturas
+kind: task
+description: cargo test -p vanta-memory 0 failed + test cola pendiente→approve/reject ✅ + cargo clippy -p vanta-memory -- -D warnings 0
+---
+
 # MEM-68 — Gate opcional de aprobación de capturas
 
 > **Plan:** `docs/dev/plans/2026-09-09-backlog.md` (Task 3, Wave0)

@@ -1,10 +1,10 @@
 ---
-title: "busqueda-vectorial"
-type: glossary-entry
+title: busqueda-vectorial
+kind: glossary
 status: stable
-tags: [glosario, búsqueda, vectorial, ann, hnsw]
-last_reviewed: 2026-09-15
+description: La busqueda-vectorial (o búsqueda por similitud semántica) es una técnica de recuperación de información que encuentra vectores en un espacio de alta dimensionalidad que son más similares a un vector de consulta según una métrica de...
 aliases: [vector search, ANN search, approximate nearest neighbor]
+tags: [glosario, busqueda, vectorial, ann, hnsw]
 ---
 
 # busqueda-vectorial
@@ -23,21 +23,21 @@ La **busqueda-vectorial** (o búsqueda por similitud semántica) es una técnica
 | **Euclidiana (L2)** | $\sqrt{\sum(A_i - B_i)^2}$ | Vectores no normalizados |
 | **Dot Product** | $A \cdot B$ | Vectores unitarios |
 
-### Approximate Nearest Neighbor ([ANN](ANN.md))
+### Approximate Nearest Neighbor ([ANN](./ann.md))
 
 La búsqueda exacta K-NN tiene complejidad $O(n \cdot d)$, lo cual es prohibitivo para datasets grandes. Los algoritmos ANN sacrifican precisión por velocidad:
 
 | Algoritmo | Complejidad | Recall Típico | Uso |
 |-----------|-------------|---------------|-----|
 | **Brute Force** | $O(n \cdot d)$ | 100% | Baseline |
-| **[HNSW](HNSW.md)** | $O(\log n \cdot d)$ | 95-99% | VantaDB default |
+| **[HNSW](./hnsw.md)** | $O(\log n \cdot d)$ | 95-99% | VantaDB default |
 | **IVF-PQ** | $O(k \cdot d)$ | 90-95% | LanceDB |
 
 ## En VantaDB
 
 ### Implementación HNSW
 
-VantaDB utiliza **Hierarchical Navigable Small World** ([HNSW](HNSW.md)) como índice vectorial principal:
+VantaDB utiliza **Hierarchical Navigable Small World** ([HNSW](./hnsw.md)) como índice vectorial principal:
 
 ```rust
 // src/index.rs - CPIndex (HNSW)
@@ -127,8 +127,8 @@ $$\text{Recall@K} = \frac{|\text{resultados} \cap \text{ground\_truth}|}{K}$$
 
 ## Véase También
 
-- [HNSW](HNSW.md) - Algoritmo de índice vectorial
-- [ANN](ANN.md) - Approximate Nearest Neighbor
+- [HNSW](./hnsw.md) - Algoritmo de índice vectorial
+- [ANN](./ann.md) - Approximate Nearest Neighbor
 - [Vector Similarity](vector-similarity.md) - Métricas de similitud
 - [Vectores](vectors.md) - Representaciones vectoriales
 - [busqueda-hibrida](hybrid-search.md) - Combinación con busqueda-lexica

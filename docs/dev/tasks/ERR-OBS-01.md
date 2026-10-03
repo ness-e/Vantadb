@@ -1,3 +1,9 @@
+---
+title: "TASK-ID: ERR-OBS-01 - Captura y observabilidad: Backtrace + tracing estructurado + docs"
+kind: task
+description: "NO tocados (ajenos a esta tarea / otros agentes en paralelo): desktop/, web/, vantadb-mcp/, src/server/bootstrap.rs (fuera de mi lista de archivos; panic hook de subscriber queda como candidate si se quiere ERROR-level en panics de..."
+---
+
 # TASK-ID: ERR-OBS-01 - Captura y observabilidad: Backtrace + tracing estructurado + docs
 
 ## Metadata

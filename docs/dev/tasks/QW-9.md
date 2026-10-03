@@ -1,3 +1,9 @@
+---
+title: "QW-9: matriz CI de compatibilidad"
+kind: task
+description: workflow (scheduled/manual para no cargar Fast Gate) que instala cada framework en su versión actual + pin mínimo declarado y corre la suite del adapter contra ambos. Falla visible si un release del framework rompe el adapter. Pins...
+---
+
 # QW-9: matriz CI de compatibilidad
 
 ## Metadata

@@ -1,3 +1,9 @@
+---
+title: Task PERF-BENCH-01 — A/B vantadb-node nativo vs vantadb-ts WASM
+kind: task
+description: Nueva § BENCHMARKS (docs/user/operations/BENCHMARKS.md) con tabla insert/search p50/p99 + tamaño
+---
+
 # Task PERF-BENCH-01 — A/B vantadb-node nativo vs vantadb-ts WASM
 
 > **Plan:** `docs/dev/plans/2026-09-07-followup-bench-a11y.md` (Task 2, Wave0)

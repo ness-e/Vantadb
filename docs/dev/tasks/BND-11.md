@@ -1,3 +1,9 @@
+---
+title: "TASK BND-11: Tipado fuerte index.d.ts (eliminar any)"
+kind: task
+description: Callers → Callees → Implicaciones
+---
+
 # TASK BND-11: Tipado fuerte index.d.ts (eliminar any)
 
 ## Metadata

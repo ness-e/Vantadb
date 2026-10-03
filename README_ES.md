@@ -31,7 +31,7 @@
   <a href="README.md">🇺🇸 English</a>
 </div>
 
-VantaDB es un motor de base de datos embebido, local-first, diseñado para agentes de IA, pipelines locales de RAG y aplicaciones edge. Proporciona almacenamiento persistente, recuperación resistente a fallos vía WAL y búsqueda híbrida nativa (BM25 + HNSW) sin necesidad de servicios externos, contenedores o dependencias de red.
+VantaDB es un motor de memoria embebido, local-first, diseñado para agentes de IA. **Un producto, cuatro superficies** — el **motor** (almacenamiento con WAL, recuperación híbrida y el pipeline de memoria agéntica `vanta-memory` L0→L3: captura → dedup → escenas → persona + dream), la **puerta de agentes** (MCP para IDEs de IA), el **estudio** (visor de escritorio) y el **laboratorio** (experimentos acotados) — que entrega memoria de agente duradera y gobernada, con recuperación resistente a fallos vía WAL y búsqueda híbrida nativa (BM25 + HNSW + RRF) que impulsa flujos de trabajo RAG locales. Un instalador, una CLI; sin necesidad de servicios externos, contenedores o dependencias de red.
 
 ---
 
@@ -39,7 +39,7 @@ VantaDB es un motor de base de datos embebido, local-first, diseñado para agent
 
 | Necesidad | Empieza aquí |
 | :--- | :--- |
-| Comprender el límite del producto | [Límite del producto](#límite-del-producto) |
+| Comprender el límite del producto | [Límite del producto](#límite-del-producto--un-producto-cuatro-superficies) |
 | Probar el MVP en cinco minutos | [Quickstart de 5 minutos](docs/user/QUICKSTART.md) |
 | Instalar vía pip | [Instalación](#instalación) |
 | Usar la CLI embebida | [Referencia de CLI](#cli-embebida) |
@@ -67,7 +67,7 @@ pip install vantadb-py
 > `import vantadb` (igual que el crate de Rust y el paquete de npm). `import vantadb_py`
 > sigue disponible sin cambios.
 >
-> **Nombres (ADR-041 anti-stutter):** los nombres canónicos son `Client` (el alias legacy
+> **Nombres (ADR-0047 anti-stutter):** los nombres canónicos son `Client` (el alias legacy
 > `VantaDB` fue removido en 0.6.0, AST-010), `Record`, `SearchHit`, `Config`. Los métodos de memoria
 > viven en el sub-cliente `db.memory` (`memory.get` / `memory.list` / `memory.delete`);
 > la búsqueda híbrida es `db.search(...)` (AST-008/AST-012: `search_memory`/`get_memory` planos removidos),
@@ -76,7 +76,7 @@ pip install vantadb-py
 > **Convención de nombres:** el producto es **VantaDB**; el crate de Rust es `vantadb`,
 > el paquete de PyPI es `vantadb-py`, los paquetes de npm son `vantadb` (TypeScript/WASM)
 > y `vantadb-node` (nativo), y el repositorio de GitHub es `ness-e/Vantadb`.
-> Ver [ADR-030](docs/dev/architecture/adr/ADR-030-brand-identity-naming-convention.md)
+> Ver [ADR-0030](docs/dev/architecture/adr/ADR-0030-brand-identity-naming-convention.md)
 > para la auditoría completa y la justificación.
 
 Para desarrollo desde el código fuente:
@@ -197,7 +197,7 @@ python examples/python/dspy_retriever.py
 
 | Motor | Mecanismo | Detalles |
 | :--- | :--- | :--- |
-| **Núcleo persistente** | `StorageBackend` + VantaFile + WAL | Fjall (por defecto) o fallback a RocksDB. Recuperación automática de fallos mediante Write-Ahead Log con checksums CRC32C. |
+| **Núcleo persistente** | `StorageBackend` + VantaFile + WAL | Fjall (por defecto); RocksDB opt-in (feature Cargo `rocksdb` + `VANTADB_BACKEND=rocksdb`), in-memory vía `VANTADB_BACKEND=memory`. Recuperación automática de fallos mediante Write-Ahead Log con checksums CRC32C. |
 | **Búsqueda híbrida** | BM25 + HNSW vía RRF | Fusiona la puntuación léxica y la similitud de vectores usando Reciprocal Rank Fusion. Se enruta automáticamente por el planificador de consultas. |
 | **Recuperación vectorial** | HNSW nativo | Similitud del coseno con `M`, `ef_construction` y `ef_search` configurables. Validado en datasets sintéticos de 10 K–100 K. |
 | **API de memoria** | Registros `namespace + key` | `put/get/delete/list/search` almacenan payloads UTF-8, metadatos escalares, vectores opcionales, marcas de tiempo, versiones e IDs de nodo deterministas. |
@@ -219,23 +219,27 @@ No se requiere clúster, daemon ni servicio externo. VantaDB se ejecuta en-proce
 
 ---
 
-## Límite del producto
+## Límite del producto — un producto, cuatro superficies
 
-Debe entenderse VantaDB como: memoria durable, embedded-first, local-first, con recuperación basada en WAL, recuperación vectorial HNSW basada en coseno y un envoltorio opcional de servidor local.
+VantaDB es **un producto** que se instala una vez (un instalador → una CLI → un wizard) con **cuatro superficies**:
 
-> **MVP = memoria embebida + WAL + recuperación de vectores/BM25/híbrida + export/import + CLI/Python**
+| Superficie | Qué es | Estado hasta 1.0 |
+| :--- | :--- | :--- |
+| **Motor** (núcleo) | Memoria embebida: durabilidad con WAL, recuperación vectorial HNSW, BM25 + híbrida (RRF), namespaces, índices de metadatos, export/import — más el **motor de memoria agéntica `vanta-memory` (L0→L3)**: captura → dedup → escenas → persona + consolidación (dream). | **Activa** |
+| **Agente** (MCP) | `vantadb-mcp` — la puerta para IDEs de IA y agentes ([guía de configuración](docs/api/MCP.md)). Acá se mide la North Star: sesiones con recall exitoso. | **Activa** |
+| **Estudio** (escritorio) | App Tauri, **reducida a visor** (inspeccionar memoria y sesiones). El resto de su superficie queda congelado. | **Congelado** (visor) |
+| **Laboratorio** | Experimentos explícitamente acotados: `vanta-proxy` (gateway LLM — congelado, **sin publicar hasta 1.0.0**), consola web (repo aparte), providers LLM remotos, GraphRAG, extras de IQL. | **Congelado** |
 
-| Clasificación | Superficie |
-| :--- | :--- |
-| **Producción** | SDK/CLI embebido, CRUD/búsqueda de memoria, WAL/recuperación, namespaces, índices de metadatos, recuperación de vectores HNSW, BM25, Recuperación híbrida v1, filtrado de frases, rebuild/audit/repair, export/import JSONL |
-| **Envoltorio opcional** | Binario local `vantadb-server` alrededor del núcleo embebido |
-| **Nuevo** | Servidor MCP para agentes de IA ([guía de configuración](docs/api/MCP.md)) |
-| **Experimental / no es MVP** | IQL/LISP/DQL, integración con LLM/Ollama, semánticas de gobierno y mantenimiento, recorrido de grafos más allá de las aristas locales almacenadas |
-| **Diferido** | Plataforma en la nube/empresa, HA/replicación, clúster distribuido, serie SQL/OLTP/warehouse/time, ranking avanzado/snippets/tokenization, RBAC, multi-tenencia |
+> **MVP = memoria embebida + WAL + vectores/BM25/híbrida + export/import + CLI/Python** — más la capa agéntica (`vanta-memory` L0→L3) como motor diferenciador.
 
-*VantaDB es un motor de memoria embebido, no una base de datos universal multimodelo ni una plataforma en la nube.*
+**Fuera del producto hasta 1.0** (lista cerrada): plataforma en la nube/empresa, HA/replicación/clúster, SQL/OLTP/warehouse/series temporales, plugins/marketplace, multimodal, índices ANN alternativos (IVF/DiskANN/ScaNN), RBAC/multi-tenencia, features de gateway del proxy. Ver la [Lista de congelados](docs/user/operations/EXPERIMENTAL_FEATURES.md) para el alcance aprobado por el owner.
 
-Consulta [Funcionalidades experimentales y límites del producto](docs/user/operations/EXPERIMENTAL_FEATURES.md) para la clasificación operativa de todas las superficies del repositorio.
+*VantaDB es un motor de memoria para agentes — no una base de datos universal multimodelo ni una plataforma en la nube.*
+
+### Notas de plataforma
+
+- **Windows**: motor, CLI, embeddings locales, MCP y SDK de Python soportados. Los providers LLM remotos (OpenAI/Ollama/litellm) todavía no compilan en Windows — fix en curso.
+- **Linux / macOS / WSL**: soporte completo, incluidos providers remotos.
 
 ---
 
@@ -287,8 +291,7 @@ cargo install --git https://github.com/ness-e/Vantadb.git --bin vanta-cli
 > Fuente vigente: `README.md` § One-Line Installation y `docs/user/QUICKSTART.md` §0
 > (one-liner FIND-105 + verificación `.sha256` + wizard `--no-wizard`/`-NoWizard`
 > + `--dry-run`/`-DryRun`). Si este bloque difiere, manda la fuente.
-
-> [!NOTE]
+>
 > Los binarios precompilados de [GitHub Releases](https://github.com/ness-e/Vantadb/releases) (y los scripts de instalación de arriba) ya incluyen la feature del servidor HTTP. Si instalas desde fuente con `cargo install` y necesitas `vanta-cli server --http`, actívala explícitamente:
 >
 > ```bash
@@ -345,19 +348,19 @@ export VANTADB_HOST=0.0.0.0
 
 ## Benchmarks y línea base de rendimiento
 
-VantaDB incluye una suite formal de benchmarks nativos de Python (**BENCH-01**) para capturar la tasa de ingesta y los perfiles de latencia de consultas bajo cargas de trabajo realistas de un solo hilo.
+VantaDB incluye una suite formal de benchmarks nativos de Python (**BENCH-01**) para capturar la tasa de ingesta y los perfiles de latencia de consultas bajo cargas sintéticas de un solo hilo.
 
 ### Línea base de rendimiento en proceso (10K vectores, 128d, Coseno)
 
-Las líneas base medidas del SDK de un solo hilo (incluido el límite PyO3/GIL) están publicadas en [docs/user/operations/BENCHMARKS.md](docs/user/operations/BENCHMARKS.md): latencias de operación del SDK (`put`, BM25, HNSW, híbrido) y los resultados certificados del stress protocol Rust (10K–100K, recall, memoria, escalado). Los números dependen del hardware y del build — regenera localmente con la suite inferior para reproducirlos en tu máquina.
+Las líneas base medidas se publican en [docs/user/operations/BENCHMARKS.md](docs/user/operations/BENCHMARKS.md): los resultados certificados del stress protocol Rust (10K–100K, recall, memoria, escalado — §1) y la tabla de operaciones del SDK de Python (`put`, rebuild, HNSW, híbrido — §2, corrida local única 2026-09-30 con entorno documentado). Los números dependen del hardware y del build — regenera localmente con la suite inferior para reproducirlos en tu máquina.
 
-| Métrica | Línea base local más reciente (`vanta_benchmark_report.json`, 10K×128d, regenerar localmente) |
+| Métrica | Línea base canónica (BENCHMARKS.md §1 — núcleo Rust 10K×128d, sin PyO3/GIL) |
 | :--- | :--- |
-| **Ingesta** (Insert + WAL + Flush) | 74,0 registros/seg (p50 13,2 ms) |
-| **Búsqueda (HNSW vectorial)** | p50 2,0 ms (~500 consultas/seg) |
-| **Búsqueda (fusión híbrida)** | p50 3,1 ms (~320 consultas/seg) |
+| **Búsqueda (HNSW vectorial)** | p50 1,2 ms |
+| **Escalado** (10K → 50K) | 4,88x sub-lineal (p50 6,1 ms @50K) |
+| **Recall@10** | 0,9560 @10K (Bloque 1) / 0,9980 @100K (escalado) |
 
-*Fuente: [`benchmarks/vanta_benchmark_report.json`](benchmarks/vanta_benchmark_report.json) — regenerable con `python benchmarks/vantadb_local_bench.py --size 10000 --dim 128 --queries 1000` (gitignored; no es un artefacto commiteado).* La latencia de búsqueda de texto BM25 se excluye arriba porque el artefacto local reporta un outlier degenerado (p50 0,0035 ms para una consulta de texto de documento único); ver la tabla completa de la serie CI en [BENCHMARKS.md §2](docs/user/operations/BENCHMARKS.md).
+*Fuente: [BENCHMARKS.md §1](docs/user/operations/BENCHMARKS.md) — Stress Protocol en hardware CI con AVX2 (Regla 11: bench + entorno versionados en el repo).* Las latencias de alcance SDK (`put` p50 13,5 ms · HNSW p50 2,4 ms · híbrido RRF p50 5,6 ms — PyO3/GIL, un solo hilo) están publicadas en [§2](docs/user/operations/BENCHMARKS.md), regenerada 2026-09-30 con su entorno documentado; nunca comparar ni restar entre los alcances §1/§2. Regenera localmente con `python benchmarks/vantadb_local_bench.py --size 10000 --dim 128 --queries 1000` (la salida `benchmarks/vanta_benchmark_report.json` es gitignored — local a la máquina; los números publicados viven en §2 con su entorno). La latencia léxica BM25 no se reclama aquí: en este corpus sintético las consultas de la suite no matchean registros (ver la nota de §2).
 
 ### Benchmarks competitivos SIFT-1M (escala 100K) — Fase 2
 
@@ -398,7 +401,7 @@ maturin develop --release --manifest-path vantadb-python/Cargo.toml
 python benchmarks/vantadb_local_bench.py --size 10000 --dim 128 --queries 1000
 ```
 
-Los resultados se imprimen directamente en la consola y se escriben en `vanta_benchmark_report.json` para el seguimiento del CI.
+Los resultados se imprimen en la consola y se escriben en `vanta_benchmark_report.json` (gitignored, local a la máquina — el registro publicado vive en [BENCHMARKS.md §2](docs/user/operations/BENCHMARKS.md)).
 
 ---
 

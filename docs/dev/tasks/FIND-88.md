@@ -1,3 +1,9 @@
+---
+title: "FIND-88 — cablear `record_response_usage` al SSE drain (o DEFER-ratificado)"
+kind: task
+description: "process() (server.rs:248-267) contabiliza DESPUÉS de construir la respuesta, con acceso solo al request body (buffered) — el response Body es un stream ya devuelto al cliente (replay/fromstream), no un cuerpo. recordresponseusage existe..."
+---
+
 # FIND-88 — cablear `record_response_usage` al SSE drain (o DEFER-ratificado)
 
 > **Plan:** `docs/dev/plans/2026-09-15-find-correcciones.md` (Task 6, Wave1 — disjunto de FIND-63/65: `server.rs`/`cost.rs` vs desktop/`cache.rs` test)

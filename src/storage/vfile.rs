@@ -12,7 +12,7 @@
 //! re-exported here so `crate::storage::vfile::*` paths keep resolving
 //! (REVIEW-04 split).
 
-use crate::binary_header::VantaHeader;
+use crate::binary_header::Header;
 #[cfg(feature = "encryption")]
 use crate::crypto::{Cipher, EncryptionStream};
 use crate::error::{Error, Result};
@@ -160,7 +160,7 @@ impl File {
         // INVARIANT (B2b, cat. (b)): see above — intentional, documented, OOM-only.
         let mut data = AlignedBytes::zeroed(size as usize)
             .expect("in-memory vstore allocation failed at construction (OOM)");
-        let header = VantaHeader::new(*b"VFLE", VFILE_VERSION, 0);
+        let header = Header::new(*b"VFLE", VFILE_VERSION, 0);
         data.as_mut_slice()[0..16].copy_from_slice(&header.serialize());
         data.as_mut_slice()[16..24].copy_from_slice(&STORAGE_ALIGNMENT.to_le_bytes());
         Self {
@@ -212,7 +212,7 @@ impl File {
             FileMap::ReadWrite(map_readwrite(&file).map_err(Error::Io)?)
         };
         if !read_only && current_size >= min_header_size && &mmap.as_slice()[0..4] != b"VFLE" {
-            let header = VantaHeader::new(*b"VFLE", VFILE_VERSION, 0);
+            let header = Header::new(*b"VFLE", VFILE_VERSION, 0);
             mmap.as_mut_slice()?[0..16].copy_from_slice(&header.serialize());
             mmap.as_mut_slice()?[16..24].copy_from_slice(&STORAGE_ALIGNMENT.to_le_bytes());
             // Zero-fill the remainder of the header block (bytes 24..64) to
@@ -220,7 +220,7 @@ impl File {
             mmap.as_mut_slice()?[24..STORAGE_ALIGNMENT as usize].fill(0);
             mmap.flush()?;
         }
-        let header = VantaHeader::deserialize(&mmap.as_slice()[0..16])?;
+        let header = Header::deserialize(&mmap.as_slice()[0..16])?;
         header.validate_compat(*b"VFLE", VFILE_VERSION, "File")?;
         let cursor = u64::from_le_bytes(
             mmap.as_slice()[16..24]
@@ -516,7 +516,7 @@ pub unsafe fn release_mmap_vector(mmap_ptr: *const u8, offset: usize, len: usize
 #[allow(missing_docs)]
 mod tests {
     use super::*;
-    use crate::binary_header::VantaHeader;
+    use crate::binary_header::Header;
     use crate::node::DiskNodeHeader;
     use crate::storage::engine::STORAGE_ALIGNMENT;
 
@@ -531,7 +531,7 @@ mod tests {
         assert!(!vf.read_only);
         assert!(vf.path.as_os_str().is_empty());
         // Header should be valid
-        let header = VantaHeader::deserialize(&vf.mmap_bytes()[0..16]).unwrap();
+        let header = Header::deserialize(&vf.mmap_bytes()[0..16]).unwrap();
         assert_eq!(header.magic, *b"VFLE");
         // create_in_memory writes current VFILE_VERSION
         assert_eq!(header.format_version, VFILE_VERSION);

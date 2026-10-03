@@ -1,3 +1,9 @@
+---
+title: "MEM-34: F1 Core Telemetría por capa (L1/L2/L3/recall/offload + persona) + audit memory"
+kind: task
+description: Callers (del código que voy a tocar)
+---
+
 # MEM-34: F1 Core Telemetría por capa (L1/L2/L3/recall/offload + persona) + audit memory
 
 ## Metadata

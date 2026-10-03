@@ -1,11 +1,8 @@
 ---
-title: "Planes archivados — retrospectivas"
-type: registro
+title: Planes archivados — retrospectivas
+kind: review
 status: archived
 tags: [vantadb, avance, campana]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Planes archivados — retrospectivas

@@ -1,11 +1,11 @@
 ---
 title: "Avance — Bindings (SDK, Adapters, MCP)"
-type: domain-log
+kind: review
 status: active
+description: "fuente (#[napi(tsreturntype = \"Promise<bigint>\")], patrón existente ×12) +"
 tags: [vantadb, avance, bindings, python, wasm, typescript, mcp, adapters]
-last_reviewed: 2026-08-07
-aliases: []
 ---
+
 
 # Avance — Bindings (SDK, Adapters, MCP)
 
@@ -35,7 +35,7 @@ aliases: []
 
 ### PY-03: DeprecationWarning en `import vantadb_py` (alias deprecado, canónico = `vantadb`)
 - **Fecha:** 2026-08-29
-- **Resultado:** ✅ Cierre idempotente. Código en disco desde `4ffb833b`+`9a5e5305`: `vantadb-py/__init__.py:15-21` emite `DeprecationWarning(stacklevel=2)` al importar el alias legacy; `vantadb/__init__.py:13-16` suprime el warning internamente con `warnings.catch_warnings()` para que `import vantadb` sea silencioso. Contrato verificado: `python -W error::DeprecationWarning -c "import vantadb_py" 2>&1 | grep -c DeprecationWarning` = 1 ✅; `import vantadb` = sin warnings ✅. Plan: remover `vantadb_py` en 0.6.0 (1 minor de aviso). Mejora docs esta iteración: sección "Import name" en `docs/api/PYTHON_SDK.md:56-68` enlaza ADR-030 y explica la convención distro `vantadb-py` ↔ módulo `vantadb_py` ↔ import `vantadb`. 89 refs adicionales a `vantadb_py` en docs markdown (glosario/integraciones/planes-archivados) NO migradas — fuera de scope (deuda DEFER: MKT-18 docs sync).
+- **Resultado:** ✅ Cierre idempotente. Código en disco desde `4ffb833b`+`9a5e5305`: `vantadb-py/__init__.py:15-21` emite `DeprecationWarning(stacklevel=2)` al importar el alias legacy; `vantadb/__init__.py:13-16` suprime el warning internamente con `warnings.catch_warnings()` para que `import vantadb` sea silencioso. Contrato verificado: `python -W error::DeprecationWarning -c "import vantadb_py" 2>&1 | grep -c DeprecationWarning` = 1 ✅; `import vantadb` = sin warnings ✅. Plan: remover `vantadb_py` en 0.6.0 (1 minor de aviso). Mejora docs esta iteración: sección "Import name" en `docs/api/PYTHON_SDK.md:56-68` enlaza ADR-0030 y explica la convención distro `vantadb-py` ↔ módulo `vantadb_py` ↔ import `vantadb`. 89 refs adicionales a `vantadb_py` en docs markdown (glosario/integraciones/planes-archivados) NO migradas — fuera de scope (deuda DEFER: MKT-18 docs sync).
 
 
 ### PERF-31: NumPy output batch
@@ -68,7 +68,7 @@ aliases: []
 
 ### COMP-029: Bindings Node.js/TS mediante napi-rs (backend adicional)
 - **Fecha:** 2026-08-02
-- **Resultado:** ✅ Crate standalone **`vantadb-node/`** (NO workspace member): `lib = "vantadb_native"` (cdylib), `napi 3` + `napi-derive` sobre `vantadb` (features `fjall, memmap2, rayon`). Aislamiento standalone evita crash del linker MSVC con cdylib en workspace. API isomórfica con wrapper WASM: `connect`, `flush`, `close`, `put`, `put_batch`, `get`, `delete`, `list`, `list_namespaces`, `search`, `capabilities` (patrón `engine.clone()` + `spawn_blocking`). Persistencia real (fjall/WAL/fsync) en Node.js — WASM no puede. Wrapper TS `vantadb-ts/src/native.ts` + dep `vantadb-node`. `npm test` vitest 3/3 (put/get, persistencia cross-reconnect, search ordenado). ADR `docs/dev/architecture/adr/COMP-029-napi-rs-node-bindings.md`.
+- **Resultado:** ✅ Crate standalone **`vantadb-node/`** (NO workspace member): `lib = "vantadb_native"` (cdylib), `napi 3` + `napi-derive` sobre `vantadb` (features `fjall, memmap2, rayon`). Aislamiento standalone evita crash del linker MSVC con cdylib en workspace. API isomórfica con wrapper WASM: `connect`, `flush`, `close`, `put`, `put_batch`, `get`, `delete`, `list`, `list_namespaces`, `search`, `capabilities` (patrón `engine.clone()` + `spawn_blocking`). Persistencia real (fjall/WAL/fsync) en Node.js — WASM no puede. Wrapper TS `vantadb-ts/src/native.ts` + dep `vantadb-node`. `npm test` vitest 3/3 (put/get, persistencia cross-reconnect, search ordenado). ADR `docs/dev/architecture/adr/ADR-0050-napi-rs-node-bindings.md`.
 
 ### BND-11: Tipado fuerte index.d.ts (eliminar any)
 - **Fecha:** 2026-08-28
@@ -242,11 +242,11 @@ aliases: []
 - **Estado:** Ver fuente README §bindings.
 
 > **Cruce:** cada binding público debe mantener el contrato definido en `docs/api/`; los cambios de firma se auditan en `auditoria/seguridad.md` FFI y en `docs/dev/avance/operaciones.md` (API contract sync).
-### ERR-026 (MCP parse_metadata), ERR-033 (MCP list limit=0) — migrados 2026-08-12 (ver docs/progreso/README.md)
-### COV-001 (Python AsyncVantaDB async smoke, 3 tests) + COV-002 (vantadb-ts coverage vía c8) — migrados 2026-08-12 (ver docs/progreso/README.md)
+- ERR-026 (MCP parse_metadata), ERR-033 (MCP list limit=0) — migrados 2026-08-12 (ver docs/progreso/README.md)
+- COV-001 (Python AsyncVantaDB async smoke, 3 tests) + COV-002 (vantadb-ts coverage vía c8) — migrados 2026-08-12 (ver docs/progreso/README.md)
 
 ### FND-04: Zero-copy Arrow en bindings — DIFERIDO — migrado 2026-08-16 (ver docs/progreso/README.md)
-- **Resultado:** ✅ DIFERIDO con ADR-021 + señal de reapertura explícita en `docs/dev/research/FND-04-arrow-zero-copy.md` (umbrales documentados). Commit `95a67fd3`.
+- **Resultado:** ✅ DIFERIDO con ADR-0021 + señal de reapertura explícita en `docs/dev/research/FND-04-arrow-zero-copy.md` (umbrales documentados). Commit `95a67fd3`.
 
 ### FND-05: SDK idiomático (no wrapper 1:1 de Rust) — migrado 2026-08-16 (ver docs/progreso/README.md)
 - **Resultado:** ✅ análisis en `docs/dev/research/FND-05-sdk-idiomatico.md` (gaps PY-*/TS-*) + prototipos `with VantaDB(path) as db` (Python) y `await using db` (TS, ejemplos en `docs/user/examples/`). Sin rewrite; async nativo NO (cubre FND-04). Commit `14183fc4`.
@@ -546,17 +546,17 @@ aliases: []
 - **Objetivo:** README declara estado experimental y por qué.
 - **Resultado:** ✅ `integrations/letta/README.md:34-40`: sección "Status: experimental" explica que Letta tiene memoria propia y no hay contrato público de vector-store.
 
-### QW-7: Publicar 9 paquetes en PyPI — H-01 (=MKT-18f)
+### QW-7: Publicar 9 paquetes en PyPI — H-01 (=MKT-20 (ex MKT-18f))
 - **Fecha:** 2026-08-26
 - **Plan:** `docs/dev/plans/2026-08-25-integrations-research-wins.md` (Wave 3)
 - **Objetivo:** 9 paquetes en PyPI (langchain, llamaindex, dspy, haystack, crewai, letta, mem0, ollama, openai) v0.5.0.
 - **Resultado:** ✅ Workflow `release-adapters-62.yml` listo; todos los `pyproject.toml` en v0.5.0; build sdist/wheel + twine (Python puro). Publicación manual o via CI al tag `adapters-v*`.
 
-### MKT-18f: Gate de packaging PyPI 5/5 + docs honestas + PRs upstream (Wave quality-gtm)
+### MKT-20 (ex MKT-18f): Gate de packaging PyPI 5/5 + docs honestas + PRs upstream (Wave quality-gtm)
 - **Fecha:** 2026-09-03
 - **Plan:** `docs/dev/plans/2026-09-03-quality-gtm-wave.md` (Task 8)
 - **Objetivo:** verificar publishabilidad real de langchain/llamaindex/mem0/crewai/dspy antes del paso humano de publicación.
-- **Resultado:** ✅ 5/5 `python -m build` (wheel+sdist) exit 0 + `python -m twine check` PASSED 10/10; nombres PyPI verificados LIBRES live (404 ×5: `vantadb-langchain`, `vantadb-llamaindex`, `vantadb-mem0`, `vantadb-crewai`, `vantadb-dspy`; nota: el package real es `vantadb-llamaindex`, no `vantadb-llama-index`); dep `vantadb-py>=0.5.0,<0.6.0` válida (existe 0.5.0). Workflow NO duplicado: `release-adapters-62.yml` (QW-7) cubre cláusula, actionlint exit 0. 5 READMEs con sección honesta "Install from PyPI (after first release)" (antes anunciaban `pip install` con 404 vigente — Regla 11). Borradores upstream en `docs/dev/plans/artifacts/mkt-18f-prs/` ×5. Pre-mortem #2 (extras): NO aplicado — langchain/llamaindex/mem0 importan framework top-level, extras rompería install base; convención repo/ecosistema = base dep (evidencia en task file). Publicación real = acción humana, checklist 3 pasos en `tasks/MKT-18f.md`. Backlog re-escalado a 🟠 humano.
+- **Resultado:** ✅ 5/5 `python -m build` (wheel+sdist) exit 0 + `python -m twine check` PASSED 10/10; nombres PyPI verificados LIBRES live (404 ×5: `vantadb-langchain`, `vantadb-llamaindex`, `vantadb-mem0`, `vantadb-crewai`, `vantadb-dspy`; nota: el package real es `vantadb-llamaindex`, no `vantadb-llama-index`); dep `vantadb-py>=0.5.0,<0.6.0` válida (existe 0.5.0). Workflow NO duplicado: `release-adapters-62.yml` (QW-7) cubre cláusula, actionlint exit 0. 5 READMEs con sección honesta "Install from PyPI (after first release)" (antes anunciaban `pip install` con 404 vigente — Regla 11). Borradores upstream en `docs/dev/plans/artifacts/MKT-20 (ex MKT-18f)-prs/` ×5. Pre-mortem #2 (extras): NO aplicado — langchain/llamaindex/mem0 importan framework top-level, extras rompería install base; convención repo/ecosistema = base dep (evidencia en task file). Publicación real = acción humana, checklist 3 pasos en `tasks/MKT-20.md`. Backlog re-escalado a 🟠 humano.
 
 ### QW-8: Posicionamiento en READMEs — H-11
 - **Fecha:** 2026-08-26
@@ -634,7 +634,7 @@ aliases: []
 - **Fecha:** 2026-08-30
 - **Plan:** `docs/dev/plans/2026-08-29-full-backlog-parallel.md` (Wave 16-3)
 - **Objetivo:** Aplicar contrato canonico en los puntos donde divergian post-PROV-05 (openai::list() firma, ollama::list() docstring, test_litellm.py legacy `"payload"` pin).
-- **Decisiones arquitectónicas (ADR-033 redactado, owner_articulates=pending per Regla 5):**
+- **Decisiones arquitectónicas (ADR-0033 redactado, owner_articulates=pending per Regla 5):**
   1. **Record key = `"text"`** (canónico desde PROV-05; revertir sería breaking para 3 crates)
   2. **`list(limit, cursor): usize, Option<usize>`** (rechazado `i32`/`i64` — sin beneficio >2B por namespace; **fail loud** sobre hidden coercion)
   3. **`list()` return = `Py<PyAny>`** (rechazado `Py<PyDict>` — 2/3 providers ya)
@@ -654,9 +654,9 @@ aliases: []
   - `cargo test --features python × 3`: 1 passed cada uno (PROV-07 sanity test) ✅
 - **Resultado:** ✅ Aplicación mecánica sin uphill restante (contrato ya fijado por PROV-05).
 - **Regla 6 (deuda):** saldo neto **neutral**. Quita: 2 cast `as i32`/`as usize` (deuda) + 2 hidden coercions `.max(1)`/`.max(0)` (deuda) + 1 docstring inexacto + 3 asserts legacy pinned. Agrega: 0 deuda nueva.
-- **ADR:** `docs/dev/architecture/adr/ADR-033-providers-canonical-contract.md` (status `accepted-pending-owner-review` per Regla 5 — owner debe articular trade-off central `usize` vs `i32` vs `i64`).
+- **ADR:** `docs/dev/architecture/adr/ADR-0033-providers-canonical-contract.md` (status `accepted-pending-owner-review` per Regla 5 — owner debe articular trade-off central `usize` vs `i32` vs `i64`).
 - **Breaking changes:** ya documentado en PROV-05 commit `294486e3` (litellm users consumían `result["payload"]` → ahora `result["text"]`). PROV-04 es coherente, sin nuevos breaking adicionales.
-- **Decisión de no-commit:** vanta-worker stageó 5 archivos (3 fixes código + ADR-033 NEW + task file sync). vanta-lead integra el PR con conventional commit `feat: PROV-04 — Canonical contract providers (text/next_cursor/limit usize)`.
+- **Decisión de no-commit:** vanta-worker stageó 5 archivos (3 fixes código + ADR-0033 NEW + task file sync). vanta-lead integra el PR con conventional commit `feat: PROV-04 — Canonical contract providers (text/next_cursor/limit usize)`.
 
 ### Test status
 - **Compile:** openai/litellm/ollama → `cargo check` OK
@@ -785,9 +785,9 @@ aliases: []
 - **Commit:** `fix(wasm): gate wasm32 crudo verde tras 175790a9 parcial (FIND-58)`
 - **Dominio:** bindings
 
-### GOV-TK7 (worker): put_batch metadata coercion ampliada - Resultado: direccion B (coercion via py_dict_to_metadata, paridad put/raw); tutorial + PYTHON_SDK alineados; pytest 75/75 + stubs 16/16. Commit 00157add (2026-09-05).
+- GOV-TK7 (worker): put_batch metadata coercion ampliada - Resultado: direccion B (coercion via py_dict_to_metadata, paridad put/raw); tutorial + PYTHON_SDK alineados; pytest 75/75 + stubs 16/16. Commit 00157add (2026-09-05).
 
-### STABLE-04 (worker): validar vantadb-mcp gates 1-6 + test-mcp.py - Resultado: DISCOVERY heredado con 5 claims re-escalados (91 attrs/82 fns en mcp_tests no 72; test-mcp.py 4 checks no 37; protocolo latest 2025-06-18 + 2024-11-05 backward-compat; OpGate no existe en el crate; skill 79 tools vigente). Gates: fmt/check/clippy -D warnings/deny exit 0/docs-coverage 0 gaps (MCP 49)/package --list exit 0 publish=false intacto; nextest ci-windows 86/86 + mcp_tests 91/91 0 ignored via cargo test (precedente heavy-cert). Hallazgos: (1) OOM os-error-1455 a parallelism pleno con cascada E0463 falsa -> retry -j 2/ci-windows verde; (2) test-mcp.py 4/4 funcional pero exit 1 por teardown: stderr PIPE sin drenar bloquea shutdown (repro: DEVNULL 0.0s vs PIPE >25s) -> fix harness thread-drain, re-run 4/4 exit 0. Commit d0bb4e91 (solo script). Fecha: 2026-09-05. Dominio: bindings"; echo OK
+- STABLE-04 (worker): validar vantadb-mcp gates 1-6 + test-mcp.py - Resultado: DISCOVERY heredado con 5 claims re-escalados (91 attrs/82 fns en mcp_tests no 72; test-mcp.py 4 checks no 37; protocolo latest 2025-06-18 + 2024-11-05 backward-compat; OpGate no existe en el crate; skill 79 tools vigente). Gates: fmt/check/clippy -D warnings/deny exit 0/docs-coverage 0 gaps (MCP 49)/package --list exit 0 publish=false intacto; nextest ci-windows 86/86 + mcp_tests 91/91 0 ignored via cargo test (precedente heavy-cert). Hallazgos: (1) OOM os-error-1455 a parallelism pleno con cascada E0463 falsa -> retry -j 2/ci-windows verde; (2) test-mcp.py 4/4 funcional pero exit 1 por teardown: stderr PIPE sin drenar bloquea shutdown (repro: DEVNULL 0.0s vs PIPE >25s) -> fix harness thread-drain, re-run 4/4 exit 0. Commit d0bb4e91 (solo script). Fecha: 2026-09-05. Dominio: bindings"; echo OK
 
 ### FIND-64: llamaindex put_batch legacy → kwargs (plan 2026-09-07-backlog-triage Wave0)
 - **Fecha:** 2026-09-07
@@ -1129,3 +1129,27 @@ aliases: []
 - **Objetivo:** instalar desde registros en limpio + QUICKSTART.
 - **Resultado:** ✅ pip 0.6.1 (vector/text/hybrid OK) + npm 0.6.1 (Client put/search/get OK) + CLI↔Python interop + audit passed; README-TS y QUICKSTART actualizados.
 - **Commit:** 2b8d3fda
+
+### API-01: W0 fundación tipos+error+casing+u128 (review P2-01 ✅)
+- **Fecha:** 2026-09-25
+- **Objetivo:** Fundación W0 de la estandarización 11 APIs: wire u128 string decimal, error envelope, casing contract, anti-stutter `VantaHeader`.
+- **Resultado:** ✅ Contrato 4/4 — `cargo test --test sdk_serialization` **18/18** · wire u128 >2^53 en 4 bindings (Py 2/2 · TS 1/1 · Node 28/28 · WASM 30/30) · `rg 'Generic\('` doc-diseño · `verify_changed` 4/4. Cambios: helpers `u128_serde` Option-aware + `Write.node_id` string decimal (`feat!`) + `#[serde(default)]` read-compat (review R1 — bug real RED→GREEN); docs por variante `FilterOp`; error envelope `code+message+context` + `Generic` by-design; casing contract en `BINDINGS_NAMESPACES.md`; rename `VantaHeader`→`Header` + alias deprecated (decisión owner B; ADR-0047 waiver → HIG-02); P2-8 pagada (`9dcbff5a`). Review P2-01: ronda 1 ❌ (3 required) → fixes → ronda 2 ✅ APPROVE.
+- **Commit:** f86584f6 + 04bfad3d + 23ef7f63 (+ fix R1/R2 + docs cierre — local, sin push)
+
+### API-02: W1 bindings — score/getNode/put_batch array/search_multi/u128 (review P2-01 ✅)
+- **Fecha:** 2026-09-25
+- **Objetivo:** W1: `score` higher-is-better (no `distance: h.score`), `getNode/deleteNode` node-level, `put_batch([{…}])` array-objetos en Py (+P2-5), `search_multi` en Py, u128 wire consistente en 4 bindings.
+- **Resultado:** ✅ Contrato 4/4 — `python_sdk_boundary` 1/1 · `tsc --noEmit` + vitest TS 314/314 · matriz 4 bindings (`BINDINGS_NAMESPACES` §W1) · `rg "distance: h.score"` = 0 (14 matches solo docs históricos). Extra: pytest 149/0 · Node 36/36 · docs-coverage 0 gaps · FIND-79 → DEFER (stop condition, documentado). Review P2-01 ✅ APPROVE (2 rondas). Consumidor columnar real migrado (llamaindex).
+- **Commit:** caf063ff (local, sin push)
+
+### API-04: W3 MCP — canónicos + schemas estrictos + errores tipados (review P2-01 ✅)
+- **Fecha:** 2026-09-26
+- **Objetivo:** W3 MCP: 1 nombre canónico por tool (sin alias doble), JSON Schema estricto (`additionalProperties:false` top-level en 47 base tools), `invalid_params` temprano + errores tipados, `thread_id` string, separación prompts/resources/tools.
+- **Resultado:** ✅ Contrato 4/4 — smoke live MCP **11/11** (binarios frescos en session dir) · tools/list **85 sin duplicados** (87→85) · `rg '"name": "search_memory"|"name": "collection_list"'` = 0 · `thread_id` string en schema. Suite `-p vantadb-mcp` 20/20 binaries (mcp_tests 101/101) · fmt/clippy 0 · coverage 0 gaps. Review P2-01 ✅ (ronda 1 🔴 F1-F5 → fixes → ronda 2). **Pendiente owner:** refresh local MCP (rebuild `target/debug` + restart OpenCode + re-listar 85 tools). FIND candidatos: Schemars codegen, strictness tools extendidas, envelopes internal_error.
+- **Commit:** bbcd9360 (local, sin push)
+
+### API-08: W7 vanta-memory — API Rust estable core-only (NO exponer; review P2-01 ✅)
+- **Fecha:** 2026-09-26
+- **Objetivo:** Estabilizar la API Rust de `vanta-memory` (Gate P core-only): degradación por diseño verificada, deudas D37/D21/MEM-16 con DEFER fundado, 0 símbolos nuevos en bindings.
+- **Resultado:** ✅ Contrato 4/4 — 28 targets 0 failed · degradación `llm_free_mode_reports_not_configured` 1/1 · `rg vanta[_-]memory` en bindings = 0 · `docs/api/VANTA_MEMORY.md` (+107/−20) + rustdoc `## Stability` · review P2-01 ronda 2 ✅ APPROVE · FIND-160 registrada.
+- **Commit:** ade86a1c (local, sin push)

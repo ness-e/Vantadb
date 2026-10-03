@@ -1,3 +1,9 @@
+---
+title: WSM-10 — Semántica score/distance consistente (3 transports)
+kind: task
+description: Investigación research-vantadb-wasm-20260825 (H-15) y research-vantadb-ts-20260825 (H-03)
+---
+
 # WSM-10 — Semántica score/distance consistente (3 transports)
 
 ## Metadata

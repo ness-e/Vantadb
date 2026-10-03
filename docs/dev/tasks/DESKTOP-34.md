@@ -1,3 +1,9 @@
+---
+title: "DESKTOP-34: Polish UX global — CommandPalette 9 superficies, hints F1/F2, unificar ES/EN"
+kind: task
+description: "Callers: desktop/src/components/palette/CommandPalette.tsx, desktop/src/components/layout/WorkspaceShell.tsx, componentes varios"
+---
+
 # DESKTOP-34: Polish UX global — CommandPalette 9 superficies, hints F1/F2, unificar ES/EN
 
 ## Metadata

@@ -1,3 +1,9 @@
+---
+title: "FND-11: No mergear código IA sin poder explicarlo — Regla 10 (AI Guardian)"
+kind: task
+description: "grep .opencode/AGENTS.md contiene 'Regla 10' con la regla AI Guardian (incapacidad de explicar línea por línea = señal de qué estudiar; 'el desarrollo dicta el syllabus') Y una referencia a esa regla en el workflow de PR / sección..."
+---
+
 # FND-11: No mergear código IA sin poder explicarlo — Regla 10 (AI Guardian)
 
 ## Metadata

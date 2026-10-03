@@ -1,15 +1,12 @@
 ---
-title: "Plan de Acción Research — Validación de 53 investigaciones (2026-08-26)"
-type: plan
+title: Plan de Acción Research — Validación de 53 investigaciones (2026-08-26)
+kind: research
 status: active
-date: 2026-08-26
-scope: Consolidación de docs/dev/research/*.md (53 archivos) — pendientes VIGENTES + cerrados verificados + referencias únicas
+description: Estos archivos son extracciones/analysis que NO debe perderse aunque estén históricos
+date: "2026-08-26"
+scope: "Consolidación de docs/dev/research/*.md (53 archivos) — pendientes VIGENTES + cerrados verificados + referencias únicas"
 method: lectura completa (52 directos + 2 gigantes vía sub-agentes) + verificación mecánica contra código/backlog/workflows/registries hoy
-convencion_carpeta: >
-  Esta carpeta es el hogar único de investigación (GOV-D4). Campañas estructuradas =
-  subcarpeta con PLAN.md + NN-*.md + SYNTHESIS.md. Investigaciones puntuales = archivo
-  single-file aquí. Historial archivado en docs/dev/research/archive/.
-related: [manual-estrategico-validacion-2026-09-14.md]
+convencion_carpeta: ">"
 ---
 
 # Plan de Acción — Research Unificado

@@ -1,3 +1,10 @@
+---
+title: TIR-07 · Chaos runner del task-system — ¿runner de fuzzing o tests puntuales?
+kind: research
+status: archived
+description: "El diseño T19 (docs/dev/architecture/task-system-chaos-resilience.md, 2026-08-11) declara en §6 tres behavior changes \"no implementados\" como pre-condición de la suite. Verificación del código actual (2026-08-17) — los tres YA están..."
+---
+
 # TIR-07 · Chaos runner del task-system — ¿runner de fuzzing o tests puntuales?
 
 > **Fecha:** 2026-08-17 · **Tipo:** Investigación/Decisión (read-only)

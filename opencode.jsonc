@@ -3,6 +3,13 @@
   "model": "deepseek-v4-flash-free",
   "small_model": "deepseek-v4-flash-free",
   "plugins": [],
+  // Owner policy 2026-09-25: push y PRs requieren aprobacion explicita (V2 nativo, effect=ask).
+  "permissions": [
+    { "action": "shell", "resource": "git push *", "effect": "ask" },
+    { "action": "shell", "resource": "git -C * push *", "effect": "ask" },
+    { "action": "shell", "resource": "gh pr create *", "effect": "ask" },
+    { "action": "shell", "resource": "gh pr merge *", "effect": "ask" }
+  ],
   "experimental": {
     "disable_paste_summary": true,
     "subagent_depth": 2
@@ -16,7 +23,9 @@
         "serve",
         "--mcp"
       ],
-      "disabled": false
+      "disabled": false,
+      "codemode": false,
+      "description": "CodeGraph: codegraph_codegraph_explore (blast radius + call paths + source). codemode:false = tool nativa (descubrimiento directo por agentes; owner 2026-09-27)."
     },
       "codebase-memory-mcp": {
         "type": "local",
@@ -24,7 +33,8 @@
           "C:\\Users\\Eros\\AppData\\Local\\Programs\\codebase-memory-mcp\\codebase-memory-mcp.exe"
         ],
         "disabled": false,
-        "description": "Codebase knowledge graph (tree-sitter, 158 langs, semantic + BM25 search, Cypher, architecture, change impact, dead-code, ADR). Complementa a CodeGraph. Skill: codebase-memory. Absolute path used because OpenCode's process PATH doesn't include the user PATH entry the installer added."
+        "codemode": false,
+        "description": "Codebase knowledge graph (tree-sitter, 158 langs, semantic + BM25 search, Cypher, architecture, change impact, dead-code, ADR). Complementa a CodeGraph. codemode:false = tools nativas (search_graph/trace_path/get_code_snippet/...; owner 2026-09-27). Skill: codebase-memory. Absolute path used because OpenCode's process PATH doesn't include the user PATH entry the installer added."
       },
     "discord": {
       "type": "local",
@@ -35,34 +45,6 @@
         "$t = (Get-Content '.env.tokens' | Where-Object {$_ -match '^DISCORD_BOT_TOKEN=\"(.+)\"$'} | ForEach-Object {$Matches[1]}); $env:DISCORD_TOKEN = $t; bunx @rayenking/discord-mcp"
       ],
       "disabled": false
-    },
-    "metasearchmcp": {
-      "command": [
-        "metasearchmcp-mcp"
-      ],
-      "disabled": false,
-      "type": "local",
-      "description": "Búsqueda multi-provider: web, GitHub, académico, código. DuckDuckGo gratis sin key."
-    },
-    "argus": {
-      "command": [
-        "argus",
-        "mcp",
-        "serve"
-      ],
-      "disabled": false,
-      "type": "local",
-      "description": "14 providers, extracci�n 12-step, dead URL recovery, RRF fusion."
-    },
-    "agent-search": {
-      "command": [
-        "npx",
-        "-y",
-        "agent-search-mcp"
-      ],
-      "disabled": false,
-      "type": "local",
-      "description": "Capa keyless permanente: busqueda multi-engine gratis sin API keys (respaldo de metasearchmcp/argus)."
     },
     "campaign": {
       "command": [
@@ -84,7 +66,7 @@
       ],
       "disabled": false,
       "type": "local",
-      "description": "VantaDB MCP vía launcher (EMB-12: VANTADB_EMBEDDING_PROVIDER=local + VANTADB_LOCAL_MODEL + ORT autodetect; binario repo target/debug preferido sobre global stale FIND-98). Memoria persistente + vector retrieval (87 tools perfil full)."
+      "description": "VantaDB MCP vía launcher (EMB-12: VANTADB_EMBEDDING_PROVIDER=local + VANTADB_LOCAL_MODEL + ORT autodetect; binario repo target/debug preferido sobre global stale FIND-98). Memoria persistente + vector retrieval (85 tools perfil full; API-04: nombres canónicos memory_search/memory_list_namespaces)."
     },
     "lottiefiles-creator": {
       "command": [

@@ -18,28 +18,31 @@
 use napi::Error;
 use napi_derive::napi;
 use serde_json::{json, Map, Value};
-use std::sync::{Arc, Condvar, Mutex, PoisonError};
-
 use vantadb::config::Config;
 use vantadb::graph::TraversalDirection;
 use vantadb::index::IndexType;
 use vantadb::node::DistanceMetric;
 use vantadb::sdk::{
-    Embedded, MemoryFilterItem, MemoryInput, MemoryListOptions,
-    MemoryMetadata, MemorySearchRequest, NodeInput, SearchExplanation,
+    Embedded, MemoryFilterItem, MemoryInput, MemoryListOptions, MemoryMetadata,
+    MemorySearchRequest, NodeInput, SearchExplanation, ValidWindow,
 };
 // FFI guards: single source of truth from core (WSM-09).
-use vantadb::{MAX_K, MAX_VEC_DIM};
+use vantadb::{SparseVector, MAX_K, MAX_VEC_DIM};
+// Durability gate + ERR-022 clamp policy: shared std-only leaf (WIRE-07).
+use vantadb_ffi_core::{OpGate, OpGuard};
 
 /// Clamp `top_k`/`k` to [`MAX_K`], warning when the caller requested more than
-/// the cap. Mirrors `vantadb-python::clamp_top_k` (ERR-022).
+/// the cap so silent truncation stays observable (ERR-022). The compare→cap
+/// policy lives in `vantadb-ffi-core` (shared with python/wasm); only the
+/// warning channel (`eprintln!`, node prefix) stays here.
 fn clamp_top_k(requested: usize) -> usize {
-    if requested > MAX_K {
+    let (effective, was_clamped) = vantadb_ffi_core::clamp_top_k(requested, MAX_K);
+    if was_clamped {
         eprintln!(
             "vantadb-node: top_k={requested} exceeds MAX_K={MAX_K}; clamping to {MAX_K} (ERR-022)"
         );
     }
-    requested.min(MAX_K)
+    effective
 }
 
 /// Native VantaDB handle exposed to Node.js. Thin wrapper over the SDK's
@@ -654,79 +657,6 @@ fn serde_map_err(e: serde_json::Error) -> napi::Error {
     Error::from_reason(format!("serialization error: {e}"))
 }
 
-/// Durability gate: rejects new operations once `close()` has begun and keeps
-/// `close()` waiting until every in-flight operation finishes. Closes the
-/// race where an async op whose `spawn_blocking` had not yet run would write
-/// after `close()` returned — silently lost on process exit.
-struct OpGate {
-    state: Arc<(Mutex<OpState>, Condvar)>,
-}
-
-struct OpState {
-    closing: bool,
-    count: usize,
-}
-
-impl OpGate {
-    fn new() -> Self {
-        Self {
-            state: Arc::new((
-                Mutex::new(OpState {
-                    closing: false,
-                    count: 0,
-                }),
-                Condvar::new(),
-            )),
-        }
-    }
-
-    /// Register a new in-flight operation. Returns `None` if `close()` has
-    /// started (new operations are rejected past the durability barrier).
-    fn try_enter(&self) -> Option<OpGuard> {
-        let (lock, _) = &*self.state;
-        let mut state = lock.lock().unwrap_or_else(PoisonError::into_inner);
-        if state.closing {
-            return None;
-        }
-        state.count += 1;
-        Some(OpGuard {
-            state: self.state.clone(),
-        })
-    }
-
-    /// Start closing and block until every in-flight operation drains.
-    ///
-    /// Sets `closing = true` (so new ops are rejected) then waits until
-    /// `count == 0`. Blocks the calling thread; the `MutexGuard` is dropped on
-    /// return so it never crosses an `.await` (a raw `MutexGuard` is not
-    /// `Send`, and this future must be `Send` to run on the napi Tokio
-    /// runtime). Acceptable to be blocking: this is the durability barrier.
-    fn drain(&self) {
-        let (lock, cvar) = &*self.state;
-        let mut state = lock.lock().unwrap_or_else(PoisonError::into_inner);
-        state.closing = true;
-        while state.count > 0 {
-            state = cvar.wait(state).unwrap_or_else(PoisonError::into_inner);
-        }
-        // `state` (the MutexGuard) is dropped here, before any await.
-    }
-}
-
-/// RAII guard that decrements the in-flight count and wakes `close()` when
-/// dropped (at the end of the owning async method, after the op completes).
-struct OpGuard {
-    state: Arc<(Mutex<OpState>, Condvar)>,
-}
-
-impl Drop for OpGuard {
-    fn drop(&mut self) {
-        let (lock, cvar) = &*self.state;
-        let mut state = lock.lock().unwrap_or_else(PoisonError::into_inner);
-        state.count -= 1;
-        cvar.notify_one();
-    }
-}
-
 /// Enter the gate for an engine operation, or fail with a descriptive error
 /// if the database is closing.
 fn enter(gate: &OpGate) -> napi::Result<OpGuard> {
@@ -787,14 +717,56 @@ fn parse_memory_input(value: &Value) -> napi::Result<MemoryInput> {
         metadata: get_metadata(obj, "metadata")?,
         vector: get_opt_f32_vec(obj, "vector")?,
         ttl_ms: get_opt_u64(obj, "ttl_ms")?,
-        sparse_vector: None,
+        sparse_vector: parse_sparse_vector(obj, "sparse_vector")?,
+        // SCH-02 v2 fields (confidence/temporal/quarantine) are not exposed on
+        // the Node put door yet (SCH-07): defaults (asserted / D_a / None).
+        ..Default::default()
     })
+}
+
+/// Parse an optional sparse vector from a JS object (`{dim: weight}`).
+///
+/// JS object keys are always strings, so numeric-string keys are coerced to
+/// `u32` dimension ids — same wire shape as the WASM adapter for
+/// `sparse_vector`. `null` / absent / `{}` means "skip sparse" (`None`).
+fn parse_sparse_vector(obj: &Map<String, Value>, key: &str) -> napi::Result<Option<SparseVector>> {
+    match obj.get(key) {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::Object(map)) => {
+            let mut out = std::collections::BTreeMap::new();
+            for (k, v) in map {
+                let dim: u32 = k.parse().map_err(|_| {
+                    Error::from_reason(format!("`{key}` key '{k}' is not a u32 dimension id"))
+                })?;
+                let weight = v.as_f64().filter(|f| f.is_finite()).ok_or_else(|| {
+                    Error::from_reason(format!("`{key}[{dim}]` must be a finite number"))
+                })?;
+                // N1 (review WIRE-03): f64 values like 1e39 overflow to `inf`
+                // when narrowed to f32 — reject instead of storing inf.
+                let weight32 = weight as f32;
+                if !weight32.is_finite() {
+                    return Err(Error::from_reason(format!(
+                        "`{key}[{dim}]` is out of range for f32 (got {weight})"
+                    )));
+                }
+                out.insert(dim, weight32);
+            }
+            Ok((!out.is_empty()).then_some(SparseVector(out)))
+        }
+        Some(_) => Err(Error::from_reason(format!(
+            "`{key}` must be an object of dimension→weight (e.g. {{ \"7\": 1.5 }})"
+        ))),
+    }
 }
 
 fn parse_list_options(value: Option<&Value>) -> napi::Result<MemoryListOptions> {
     let mut filters = MemoryMetadata::new();
     let mut limit = 100usize;
     let mut cursor = None;
+    let mut as_of_ms = None;
+    let mut valid_window = None;
+    let mut include_quarantined = false;
+    let mut min_confidence = None;
     if let Some(opts) = value {
         let obj = opts
             .as_object()
@@ -816,6 +788,12 @@ fn parse_list_options(value: Option<&Value>) -> napi::Result<MemoryListOptions> 
                     as usize,
             );
         }
+        // SCH-07: temporal + quarantine-view + confidence params (ADR-046
+        // §D2/§D3/§D5) — same wire names as the SDK.
+        as_of_ms = get_opt_u64(obj, "as_of_ms")?;
+        valid_window = get_opt_valid_window(obj, "valid_window")?;
+        include_quarantined = get_opt_bool(obj, "include_quarantined")?;
+        min_confidence = opt_min_confidence(obj, "min_confidence")?;
     }
     Ok(MemoryListOptions {
         #[allow(deprecated)]
@@ -824,6 +802,10 @@ fn parse_list_options(value: Option<&Value>) -> napi::Result<MemoryListOptions> 
         limit,
         cursor,
         exclude_superseded: false,
+        as_of_ms,
+        valid_window,
+        include_quarantined,
+        min_confidence,
     })
 }
 
@@ -835,7 +817,7 @@ fn parse_search_request(value: &Value) -> napi::Result<MemorySearchRequest> {
     Ok(MemorySearchRequest {
         namespace: get_str(obj, "namespace")?,
         query_vector,
-        query_sparse: None,
+        query_sparse: parse_sparse_vector(obj, "query_sparse")?,
         filters: get_metadata(obj, "filters")?,
         text_query: get_opt_str(obj, "text_query")?,
         top_k: clamp_top_k(obj.get("top_k").and_then(Value::as_u64).unwrap_or(10) as usize),
@@ -847,7 +829,18 @@ fn parse_search_request(value: &Value) -> napi::Result<MemorySearchRequest> {
         },
         explain: obj.get("explain").and_then(Value::as_bool).unwrap_or(false),
         exclude_superseded: false,
+        // SCH-04: opt-in confidence filter (ADR-046 §D2) — finiteness/range
+        // validated at the core boundary (`min_confidence` in the error).
+        min_confidence: opt_min_confidence(obj, "min_confidence")?,
+        // SCH-07: temporal + quarantine-view params (ADR-046 §D3/§D5).
+        as_of_ms: get_opt_u64(obj, "as_of_ms")?,
+        valid_window: get_opt_valid_window(obj, "valid_window")?,
+        include_quarantined: get_opt_bool(obj, "include_quarantined")?,
         search_profile: None,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
     })
 }
 
@@ -890,6 +883,49 @@ fn get_opt_u64(obj: &Map<String, Value>, key: &str) -> napi::Result<Option<u64>>
             }
         }
         Some(_) => Err(Error::from_reason(format!("`{key}` must be a number"))),
+    }
+}
+
+/// SCH-07: parse the optional `valid_window` object (`{from_ms, to_ms}`,
+/// ADR-046 §D3). Shape/type validated here; `from_ms < to_ms` is enforced by
+/// the core boundary (`SEARCH_OPTIONS_INVALID`) — never silently swapped.
+fn get_opt_valid_window(obj: &Map<String, Value>, key: &str) -> napi::Result<Option<ValidWindow>> {
+    match obj.get(key) {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::Object(map)) => {
+            let from_ms = get_opt_u64(map, "from_ms")?.ok_or_else(|| {
+                Error::from_reason(format!("`{key}.from_ms` must be a non-negative integer"))
+            })?;
+            let to_ms = get_opt_u64(map, "to_ms")?.ok_or_else(|| {
+                Error::from_reason(format!("`{key}.to_ms` must be a non-negative integer"))
+            })?;
+            Ok(Some(ValidWindow { from_ms, to_ms }))
+        }
+        Some(_) => Err(Error::from_reason(format!(
+            "`{key}` must be an object {{from_ms, to_ms}}"
+        ))),
+    }
+}
+
+/// SCH-07: optional boolean flag (absent/`null` ⇒ `false`; a present
+/// non-boolean is rejected instead of being coerced).
+fn get_opt_bool(obj: &Map<String, Value>, key: &str) -> napi::Result<bool> {
+    match obj.get(key) {
+        None | Some(Value::Null) => Ok(false),
+        Some(Value::Bool(b)) => Ok(*b),
+        Some(_) => Err(Error::from_reason(format!("`{key}` must be a boolean"))),
+    }
+}
+
+/// SCH-04/SCH-07: optional `min_confidence` number; finiteness/range are
+/// validated at the core boundary (never clamped here).
+fn opt_min_confidence(obj: &Map<String, Value>, key: &str) -> napi::Result<Option<f32>> {
+    match obj.get(key) {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::Number(n)) => Ok(Some(n.as_f64().unwrap_or(f64::NAN) as f32)),
+        Some(_) => Err(Error::from_reason(format!(
+            "`{key}` must be a number in [0, 1]"
+        ))),
     }
 }
 
@@ -1188,6 +1224,65 @@ mod tests {
             "expected empty-filter guard, got: {}",
             err.reason
         );
+    }
+
+    /// WIRE-03: JS object keys are strings; numeric-string keys must coerce to
+    /// u32 dims, and bad keys/weights must fail with a descriptive error.
+    #[test]
+    fn parse_sparse_vector_coerces_string_keys_and_validates() {
+        let raw = json!({ "query_sparse": { "7": 1.5, "42": 0.75 } });
+        let out = parse_sparse_vector(raw.as_object().unwrap(), "query_sparse")
+            .expect("sparse parses")
+            .expect("non-empty sparse is Some");
+        assert_eq!(out.0.get(&7), Some(&1.5_f32));
+        assert_eq!(out.0.get(&42), Some(&0.75_f32));
+
+        let bad_key = json!({ "query_sparse": { "x": 1.0 } });
+        let err = parse_sparse_vector(bad_key.as_object().unwrap(), "query_sparse").unwrap_err();
+        assert!(err.reason.contains("u32"), "got: {}", err.reason);
+
+        let bad_weight = json!({ "query_sparse": { "1": "heavy" } });
+        assert!(parse_sparse_vector(bad_weight.as_object().unwrap(), "query_sparse").is_err());
+
+        // N1 (review WIRE-03): 1e39 is finite in f64 but overflows f32 → reject.
+        let overflow = json!({ "query_sparse": { "1": 1e39 } });
+        let err = parse_sparse_vector(overflow.as_object().unwrap(), "query_sparse").unwrap_err();
+        assert!(err.reason.contains("f32"), "got: {}", err.reason);
+
+        let empty = json!({ "query_sparse": {} });
+        assert!(
+            parse_sparse_vector(empty.as_object().unwrap(), "query_sparse")
+                .expect("empty parses")
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn parse_search_request_reads_query_sparse_with_empty_vector() {
+        let raw = json!({
+            "namespace": "ns",
+            "query_vector": [],
+            "text_query": "hello",
+            "query_sparse": { "3": 2.0 },
+        });
+        let req = parse_search_request(&raw).expect("request parses");
+        assert!(
+            req.query_vector.is_empty(),
+            "text-only keeps the empty vector"
+        );
+        assert_eq!(req.query_sparse.unwrap().0.get(&3), Some(&2.0_f32));
+    }
+
+    #[test]
+    fn parse_memory_input_reads_sparse_vector() {
+        let raw = json!({
+            "namespace": "ns",
+            "key": "k",
+            "payload": "p",
+            "sparse_vector": { "9": 0.5 },
+        });
+        let input = parse_memory_input(&raw).expect("record parses");
+        assert_eq!(input.sparse_vector.unwrap().0.get(&9), Some(&0.5_f32));
     }
 
     #[test]

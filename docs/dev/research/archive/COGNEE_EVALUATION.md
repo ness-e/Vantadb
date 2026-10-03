@@ -1,3 +1,10 @@
+---
+title: Cognee Evaluation for VantaDB
+kind: research
+status: archived
+description: Cognee is an open-source AI memory platform (27.5k stars) that gives AI agents persistent
+---
+
 # Cognee Evaluation for VantaDB
 
 > **Status:** Complete analysis  

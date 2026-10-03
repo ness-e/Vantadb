@@ -1,3 +1,9 @@
+---
+title: "MCP-31 — Context engine vía MCP: tool `context_assemble`"
+kind: task
+description: "Estado: ✅ COMPLETED · Wave: 3 (MCP, serial) · Appetite: max 1d · Esfuerzo: 🟠"
+---
+
 # MCP-31 — Context engine vía MCP: tool `context_assemble`
 
 **Estado:** ✅ COMPLETED · **Wave:** 3 (MCP, serial) · **Appetite:** max 1d · **Esfuerzo:** 🟠

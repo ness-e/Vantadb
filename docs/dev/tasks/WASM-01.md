@@ -1,3 +1,8 @@
+---
+title: "WASM-01: Persistencia browser real OPFS/IndexedDB probada"
+kind: task
+---
+
 # WASM-01: Persistencia browser real OPFS/IndexedDB probada
 
 ## Metadata

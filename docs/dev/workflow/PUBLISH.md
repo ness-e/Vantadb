@@ -1,11 +1,9 @@
 ---
-title: "Workflows — Publish flow per registry"
-type: workflow-index
+title: Workflows — Publish flow per registry
+kind: runbook
 status: active
+description: "Publishing is tokenless (OIDC Trusted Publishing, no PATs). Post-FIND-140"
 tags: [vantadb, ci, workflows, publish, release]
-last_reviewed: 2026-09-22
-aliases: []
-related: ["docs/dev/workflow/README.md", "docs/dev/workflow/TRIGGERS.md", "docs/dev/workflow/RUNBOOK.md"]
 ---
 
 # Workflows — Publish flow per registry
@@ -21,9 +19,12 @@ merge develop -> main
     -> tag v*.*.*      -> wheels-60 (PyPI) + npm-61 (npm wasm+TS) + sbom-64 (SBOM)
     -> tag node-v*.*.* -> npm-node (npm Node binding)
     -> tag adapters-v* -> adapters-62 (PyPI adapters)
-    -> GitHub Release  -> binaries-63 (binaries + docker image assets)
+    -> GitHub Release  -> binaries-63 (binaries)
 ```
 
+## develop→main: merge commit, no squash (2026-10-02)
+
+Los PRs `develop → main` se mergean con **merge commit** (`gh pr merge --merge`), no `--squash`: release-plz lee los commits convencionales del historial para generar el changelog, y con squash solo ve el commit resumen (changelog "### Other" — pasó en 0.7.0 y 0.8.0). Con merge commit el changelog sale rico automáticamente (validado en 0.6.x). Los Release PR de release-plz siguen squash (1 commit).
 ## crates.io — `release.yml`
 
 - Trigger: `push: branches: [main]` only.
@@ -65,11 +66,12 @@ merge develop -> main
 ## Binaries — `release-binaries.yml`
 
 - Trigger: `release: types: [published]` + manual dispatch only (FIND-140:
-  the old `push.tags: [v*]` built 5 targets + docker just to discard).
+  the old `push.tags: [v*]` built 5 targets just to discard).
 - Builds `vanta-cli` + `vantadb-server` for 5 targets with the custom
   allocator (Windows mimalloc, Linux/macOS jemalloc), uploads
-  `tar.gz`/`zip` + sha256 to the GitHub Release, plus a build-no-push
-  docker image smoke test.
+  `tar.gz`/`zip` + sha256 to the GitHub Release.
+- Backfill manual: `workflow_dispatch` con input `release_tag` (ej. `v0.8.0`);
+  sin input = solo build sin upload.
 
 ## SBOM — `release-sbom.yml`
 
@@ -85,7 +87,7 @@ merge develop -> main
 | `node-v*.*.*` | npm-node | npm (Node binding) |
 | `adapters-v*.*.*` | adapters-62 | PyPI (9 adapters) |
 | `v*` (broad) | sbom-64 | Artifacts only (no registry) |
-| GitHub Release | binaries-63 | Release assets (binaries, docker tarball) |
+| GitHub Release | binaries-63 | Release assets (binaries) |
 
 ## Cascadas automaticas — `RELEASE_PLZ_TOKEN` (PAT)
 

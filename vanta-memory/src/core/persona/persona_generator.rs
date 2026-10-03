@@ -387,6 +387,7 @@ fn write_persona(
         vector: None,
         sparse_vector: None,
         ttl_ms: None,
+        ..Default::default()
     })?;
     Ok(())
 }

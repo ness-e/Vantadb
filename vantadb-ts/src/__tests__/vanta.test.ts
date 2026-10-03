@@ -98,14 +98,14 @@ describe("Type guards: isSearchHit", () => {
         version: "1",
         node_id: "1",
       },
-      distance: 0.42,
+      score: 0.42,
     };
     expect(isSearchHit(hit)).toBe(true);
   });
 
   it("rejects null", () => expect(isSearchHit(null)).toBe(false));
 
-  it("rejects missing distance", () => {
+  it("rejects missing score", () => {
     const h = { record: { namespace: "ns", key: "k", payload: "p" } };
     expect(isSearchHit(h)).toBe(false);
   });
@@ -529,11 +529,14 @@ describe("Client search", () => {
 
   afterAll(() => { db.close(); });
 
-  it("search returns hits ordered by distance", () => {
+  it("search exposes SearchHit.score (higher is better), not distance", () => {
     const hits = db.search({ namespace: "search_db", query_vector: [1, 0, 0, 0], top_k: 3 });
     expect(hits.length).toBeGreaterThan(0);
+    // W1 (API-02): the hybrid/memory wire field is a relevance SCORE.
+    expect(hits[0].score).toBeGreaterThan(0.99); // exact match => cosine 1.0
+    expect(hits[0]).not.toHaveProperty("distance");
     for (let i = 1; i < hits.length; i++) {
-      expect(hits[i - 1].distance).toBeGreaterThanOrEqual(hits[i].distance);
+      expect(hits[i - 1].score).toBeGreaterThanOrEqual(hits[i].score);
     }
   });
 

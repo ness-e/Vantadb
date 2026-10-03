@@ -1,3 +1,9 @@
+---
+title: "TBH-17 — Evaluar `loom` para nuevas primitivas de concurrencia (DOC-ONLY)"
+kind: task
+description: NO agregar loom al workspace. Justificación
+---
+
 # TBH-17 — Evaluar `loom` para nuevas primitivas de concurrencia (DOC-ONLY)
 
 ## Estado

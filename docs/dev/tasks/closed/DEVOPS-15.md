@@ -1,3 +1,9 @@
+---
+title: DEVOPS-15 — Optimizar default features de Cargo.toml
+kind: task
+description: CI/CD / DevOps → vanta-lead (yo mismo)
+---
+
 # DEVOPS-15 — Optimizar default features de Cargo.toml
 
 ## Tipo

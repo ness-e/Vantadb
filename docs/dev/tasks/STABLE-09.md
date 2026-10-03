@@ -1,3 +1,9 @@
+---
+title: STABLE-09 — Promoción atómica + rollback plan
+kind: task
+description: "Desbloqueo vs §Spec previa: ADR-0031 status: accepted (Owner eligió A 2026-09-09"
+---
+
 # STABLE-09 — Promoción atómica + rollback plan
 
 ## Metadata
@@ -18,7 +24,7 @@
   - `Cargo.toml:710-713` (`default-members = [".", "vantadb-python"]`; nota: plan decía `:636` — línea stale, real 710-713; `members` 7 crates ya) — NO EDITADO (bloqueado)
   - `docs/dev/operations/CI_POLICY.md` (446L — §Promotion 149-240 con medición STABLE-08: `just verify` cold 495.5s/8.26m Heavy, warm 249s/4.15m; `verify_changed` cold 115s Fast; veredicto Heavy + Owner A/B bloqueado) — NO EDITADO (medición ya registrada)
   - `dev-tools/verify.ps1` (102L — `fmt → check -p vantadb → clippy -p vantadb → audit → deny → nextest -p vantadb -E RESOURCE-GUARD ×3 → coverage → docs-coverage → cli-probes → consumo guard → backup runbook`; `-p vantadb` = independiente de `default-members`) — SOLO LECTURA
-  - `docs/dev/architecture/adr/ADR-031-default-members-promotion.md` (`status: proposed`, `owner: TBD`; §4 Question to Owner A `<5 hard` vs B `<8 soft`; "STABLE-09 must not merge" hasta respuesta) — SOLO LECTURA
+  - `docs/dev/architecture/adr/ADR-0031-default-members-promotion.md` (`status: proposed`, `owner: TBD`; §4 Question to Owner A `<5 hard` vs B `<8 soft`; "STABLE-09 must not merge" hasta respuesta) — SOLO LECTURA
   - `docs/dev/tasks/STABLE-00..08.md` (estados: 00 ✅, 01 ✅, 02 ✅, 03 ✅, 04 ✅-inner/⏳-header, 05 ✅, 06 ✅ re-validado hoy ceb81d90 280/280, 07 steps 5/5 PASS pero header ⏳ IN PROGRESS sin sync, 08 ✅ 3 corridas 0 flaky + Heavy verdict) — SOLO LECTURA
   - `docs/dev/plans/2026-09-08-backlog.md` (Task 6 ⬜ PENDING; untracked + mezcla recitations ajenas — NO TOCADO, precedente FIND-48/BLOG-CTA; sync lo hace el orquestador)
 - **Referencias hacia dentro:** `cargo check` sin args usa `default-members`; `ci-rust-10.yml:test` usa `default-members` (nextest sin `--workspace`); `just verify`/`clippy --workspace` NO dependen de `default-members`; `verify.ps1` (`-p vantadb`) independiente.
@@ -28,23 +34,23 @@
 ## Spec (decisiones — Gate spec-first N/A justificado)
 | Decisión | Elección | Evidencia |
 |----------|----------|-----------|
-| ¿Promocionar hoy? | NO — documentar BLOQUEADO | ADR-031 `status: proposed` + `owner: TBD` + "STABLE-09 must not merge"; STABLE-08 verdict Heavy cold>5 (495.5s) con Owner A/B pendiente |
+| ¿Promocionar hoy? | NO — documentar BLOQUEADO | ADR-0031 `status: proposed` + `owner: TBD` + "STABLE-09 must not merge"; STABLE-08 verdict Heavy cold>5 (495.5s) con Owner A/B pendiente |
 | ¿Editar `Cargo.toml`? | NO (ni en rama) | Stop condition plan: "gates previos rojos → BLOQUEADO (no forzar)"; forzar = big-bang sin Owner GO (Red Flag shipping-and-launch) |
 | ¿Editar `CI_POLICY.md`? | NO — medición ya registrada | §STABLE-08 measurement 2026-08-27 completa (tabla por job + entorno + Heavy verdict); duplicar = churn |
 | ¿3-corridas de hoy? | NO corridas nuevas (evidencia heredada suficiente para BLOQUEO) | STABLE-08: 3 corridas 0 flaky (verify_changed 115s/8s/8s + just verify 495s/249s); STABLE-06 re-validado hoy 280/280 (ceb81d90); re-medir cold >600s clippy quemaría ~30min sin cambiar veredicto (Heavy ya probado) — ponytail: no re-medir lo ya medido |
-| ¿`question` al Owner? | Deferido al orquestador/humano (no en runner) | ADR-031 §4 ya formula A vs B; este task file es la evidencia para que el Owner responda; `question` tool sin respuesta en runner = STOP per Gate V |
+| ¿`question` al Owner? | Deferido al orquestador/humano (no en runner) | ADR-0031 §4 ya formula A vs B; este task file es la evidencia para que el Owner responda; `question` tool sin respuesta en runner = STOP per Gate V |
 | Rollback plan | Template §2b listo abajo (1-línea) para el futuro PR | Contrato exige "rollback 1-línea en descripción" — se deja redactado, no ejecutado |
 
 ## Ejecución subset 2026-09-09 (plan 2026-09-09 Task 1, Owner A)
 
-Desbloqueo vs §Spec previa: ADR-031 `status: accepted` (Owner eligió A 2026-09-09;
-`docs/dev/architecture/adr/ADR-031-default-members-promotion.md:4,139-143`) → modo
+Desbloqueo vs §Spec previa: ADR-0031 `status: accepted` (Owner eligió A 2026-09-09;
+`docs/dev/architecture/adr/ADR-0031-default-members-promotion.md:4,139-143`) → modo
 subset: solo crates que mantienen Fast Gate <5min.
 
 Subset (decisión + evidencia por exclusión):
 - IN: `vanta-memory` (STABLE-01 ✅ gates 1-6), `vantadb-server` (STABLE-03 ✅),
   `vantadb-mcp` (STABLE-04 gates 1-6 + `test-mcp.py` 4/4 per commit 682e094b).
-- OUT: `vanta-proxy` (STABLE-02 ✅ gates pero Heavy wall time documentado + ADR-031
+- OUT: `vanta-proxy` (STABLE-02 ✅ gates pero Heavy wall time documentado + ADR-0031
   §2 "heaviest compile, candidate Heavy") → queda experimental con justificación
   Heavy. `vantadb-wasm` (STABLE-05 ✅ pero toolchain extra wasm32/wasm-pack, Tier 3
   BEST-EFFORT) → queda experimental.
@@ -93,7 +99,7 @@ Edición (2 archivos, reversible 1 línea):
 ### Rollback Steps
 1. `git revert <commit-promocion> && git push` (1 línea `Cargo.toml:710-713` vuelve a `[".", "vantadb-python"]`) — <1 min + re-run `cargo check` warm.
 2. Verificar rollback: `cargo fmt --check` + `cargo check -p vantadb` + `dev-tools/verify_changed.ps1` (<2min cold) + CI Fast Gate verde.
-3. Comunicar: notificar canal release + anotar en ADR-031 §4 respuesta Owner.
+3. Comunicar: notificar canal release + anotar en ADR-0031 §4 respuesta Owner.
 ### Consideraciones de Datos
 - Sin migración de datos (cambio build-graph only); `Cargo.lock` delta 0 (ya members); `publish = false` intacto → `cargo publish` no afectado.
 ### Tiempo estimado
@@ -102,7 +108,7 @@ Edición (2 archivos, reversible 1 línea):
 ## Steps
 | # | Step | Contrato verify | Estado |
 |---|------|-----------------|--------|
-| 1 | DISCOVERY: Regla 0 + SDP + estados STABLE-00..08 + ADR-031 + Cargo.toml real + WIP ajeno | Task file creado con Impacto + Spec + Contrato evaluado | ✅ PASS |
+| 1 | DISCOVERY: Regla 0 + SDP + estados STABLE-00..08 + ADR-0031 + Cargo.toml real + WIP ajeno | Task file creado con Impacto + Spec + Contrato evaluado | ✅ PASS |
 | 2 | Cierre BLOQUEADO (2026-09-08): verify ligero + commit SOLO task file + recitation INCOMPLETO | `cargo fmt --check` exit 0 + commit `46153ee1` (1 file) | ✅ PASS (superado: Owner A 2026-09-09) |
 | 3 | DISCOVERY delta (2026-09-09): ADR accepted + subset IN/OUT + campaign_update_task_state in-progress | §Ejecución subset redactada | ✅ PASS |
 | 4 | MEDICIÓN subset: check cold + nextest warm ×2 + package --list ×3 | 132s / 296s-2831-0fail / 0-0-0 | ✅ PASS |
@@ -117,8 +123,8 @@ específica CI — scoring por keywords `docs`; se cargan las 4 de dominio del p
 vanta-lead en su lugar): `ci-cd-and-automation` (Fast<5 vs Heavy, quality gates),
 `git-workflow-and-versioning` (commit atómico, no tocar WIP ajeno),
 `shipping-and-launch` (pre-launch + rollback 1-línea + thresholds),
-`documentation-and-adrs` (ADR-031 accepted, CI_POLICY source of truth).
-`campaign_discover_skills_v2` BUILD → base + lifecycle (8, filtradas por ponytail a 4 cargadas): `ci-cd-and-automation` (gates Fast<5 vs Heavy, circuit breaker), `git-workflow-and-versioning` (commit atómico 1-file, no tocar WIP ajeno), `shipping-and-launch` (pre-launch checklist + rollback 1-línea + thresholds), `documentation-and-adrs` (ADR-031 proposed, CI_POLICY source of truth). Omitidas con justificación: `incremental-implementation`/`test-driven-development` (sin código nuevo), `frontend-ui-engineering`/`api-and-interface-design`/`context-engineering`/`source-driven-development`/`doubt-driven-development` (scoring genérico tipo `docs`, sin UI/API/decisión framework adversaria real).
+`documentation-and-adrs` (ADR-0031 accepted, CI_POLICY source of truth).
+`campaign_discover_skills_v2` BUILD → base + lifecycle (8, filtradas por ponytail a 4 cargadas): `ci-cd-and-automation` (gates Fast<5 vs Heavy, circuit breaker), `git-workflow-and-versioning` (commit atómico 1-file, no tocar WIP ajeno), `shipping-and-launch` (pre-launch checklist + rollback 1-línea + thresholds), `documentation-and-adrs` (ADR-0031 proposed, CI_POLICY source of truth). Omitidas con justificación: `incremental-implementation`/`test-driven-development` (sin código nuevo), `frontend-ui-engineering`/`api-and-interface-design`/`context-engineering`/`source-driven-development`/`doubt-driven-development` (scoring genérico tipo `docs`, sin UI/API/decisión framework adversaria real).
 
 ## Notas
 - `Cargo.toml:636` del plan = stale; real `710-713` (verificado por Read). Anotado para que el orquestador corrija la referencia sin re-derivar.
@@ -138,4 +144,4 @@ vanta-lead en su lugar): `ci-cd-and-automation` (Fast<5 vs Heavy, quality gates)
 - pre-commit hook → "No staged Rust files; actionlint ok; All checks passed" ✅
 - commit `46153ee1` (1 file, 79 insertions, solo `docs/dev/tasks/STABLE-09.md`) ✅
 - `Cargo.toml` sin diff, `CI_POLICY.md` sin diff (scope discipline) ✅
-- ADR-031 `status: proposed` + `owner: TBD` + "STABLE-09 must not merge" (evidencia de BLOQUEO, no fallo) ✅
+- ADR-0031 `status: proposed` + `owner: TBD` + "STABLE-09 must not merge" (evidencia de BLOQUEO, no fallo) ✅

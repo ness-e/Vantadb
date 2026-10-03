@@ -1,3 +1,9 @@
+---
+title: "TASK QW-3: llamaindex attrs privados + import — PrivateAttr + get_type_hints()"
+kind: task
+description: N/A — bug-fix con contrato mecánico (Wave 1 QW-3). No agrega símbolos públicos nuevos; solo corrige declaración de attrs privados y resolución de imports
+---
+
 # TASK QW-3: llamaindex attrs privados + import — PrivateAttr + get_type_hints()
 
 ## Metadata

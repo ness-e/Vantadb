@@ -1,3 +1,10 @@
+---
+title: "FND-13 — Benchmarks honestos: inventario de claims de performance"
+kind: research
+status: archived
+description: "Fecha: 2026-08-16"
+---
+
 # FND-13 — Benchmarks honestos: inventario de claims de performance
 
 **Fecha:** 2026-08-16

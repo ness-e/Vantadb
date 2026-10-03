@@ -1,3 +1,8 @@
+---
+title: STABLE-07 — Validar vantadb-node matrix 7 targets
+kind: task
+---
+
 # STABLE-07 — Validar vantadb-node matrix 7 targets
 
 > **Plan:** `docs/dev/plans/2026-09-07-followup-bench-a11y.md` (Task 4, Wave1)
@@ -23,7 +28,7 @@
 
 > Blast radius = 3 archivos declarados + tests vecinos (solo lectura prevista); sin hot path (`vector/`, `engine.rs` no tocados); sin símbolos públicos nuevos; contrato mecánico y verificable. **Gate D NO disparado** (sin question tool en runner; registrado aquí por question-gates.md §Registro obligatorio).
 
-## Gate P (ya confirmado a nivel plan 2026-09-07 vía question → "Aprobar plan")
+- Gate P (ya confirmado a nivel plan 2026-09-07 vía question → "Aprobar plan")
 
 ## Impacto mapeado (Regla 0)
 

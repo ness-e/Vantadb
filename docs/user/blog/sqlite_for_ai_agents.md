@@ -1,15 +1,16 @@
 ---
 title: "SQLite for AI Agents: The Missing Memory Layer"
-version: 0.5.0
+kind: howto
+description: By the VantaDB Team
+tags: [sqlite, ai-agents, lsm-tree, benchmarks, architecture, embedded-database]
+version: "0.5.0"
 slug: sqlite-for-ai-agents
-date: 2026-05-15
-author: "VantaDB Team"
-tags: ["sqlite", "ai-agents", "lsm-tree", "benchmarks", "architecture", "embedded-database"]
-description: "Why VantaDB chose LSM-trees over B-trees, memory-mapped HNSW with BFS compaction, and PyO3 batch parallelism for AI agent memory — with benchmark data."
+date: "2026-05-15"
+author: VantaDB Team
 tag: Architecture
 readTime: "7 min"
-canonical: https://vantadb.vercel.app/blog/sqlite-for-ai-agents
-draft: true
+canonical: "https://vantadb.vercel.app/blog/sqlite-for-ai-agents"
+draft: "true"
 ---
 
 # SQLite for AI Agents: The Missing Memory Layer

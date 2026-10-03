@@ -1,3 +1,9 @@
+---
+title: "DESKTOP-04 - Contrato multi-connection: trait VantaConnection + DTOs serde + VantaError unificado"
+kind: task
+description: La app desktop (desktop/) es un workspace propio que no depende del core vantadb
+---
+
 # DESKTOP-04 - Contrato multi-connection: trait VantaConnection + DTOs serde + VantaError unificado
 
 - **Estado:** ✅ COMPLETED (2026-08-06)

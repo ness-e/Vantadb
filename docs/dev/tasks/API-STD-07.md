@@ -1,3 +1,9 @@
+---
+title: Task API-STD-07 — INDIVIDUAL (6/11) HTTP server + OpenAPI
+kind: task
+description: "Ficha individual red: funcionamiento + uso + código + veredicto"
+---
+
 # Task API-STD-07 — INDIVIDUAL (6/11) HTTP server + OpenAPI
 
 > **Plan:** `docs/dev/plans/2026-09-24-api-estandarizacion.md`

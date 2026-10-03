@@ -1,3 +1,9 @@
+---
+title: "MCP-33: write_axiom/delete_axiom — axiomas gestionables por el agente"
+kind: task
+description: "Investigación: NO existe API de escritura de axiomas en core"
+---
+
 # MCP-33: write_axiom/delete_axiom — axiomas gestionables por el agente
 
 ## Metadata

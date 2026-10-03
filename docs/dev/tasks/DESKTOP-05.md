@@ -1,3 +1,9 @@
+---
+title: "DESKTOP-05 - Adapter `NativeConnection` sobre el core `VantaEmbedded` con lock de path"
+kind: task
+description: "El workspace desktop (desktop/src-tauri, workspace propio aislado del ws raíz) define el"
+---
+
 # DESKTOP-05 - Adapter `NativeConnection` sobre el core `VantaEmbedded` con lock de path
 
 - **Estado:** ✅ COMPLETED (2026-08-06)

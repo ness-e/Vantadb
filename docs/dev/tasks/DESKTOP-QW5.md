@@ -1,3 +1,9 @@
+---
+title: "TASK DESKTOP-QW5: Limpiar filas DAUD-01..09 stale del Backlog (H-13)"
+kind: task
+description: "Filas DAUD-01..09 stale limpiadas del Backlog (commits ya aplicados 3c53d8b2,480935a7,b865c625; DAUD-02 resuelta por QW4 ad0f34b1; DAUD-08 stash recuperada por b865c625). Backlog sin DAUD stale; scripts/check-avance-coverage.ps1 y..."
+---
+
 # TASK DESKTOP-QW5: Limpiar filas DAUD-01..09 stale del Backlog (H-13)
 
 ## Metadata

@@ -1,3 +1,9 @@
+---
+title: "TBH-14 — Fix `cliff.toml` `conventional_commits = true` (1-line change)"
+kind: task
+description: "VantaDB usa git-cliff (config: cliff.toml) para generar docs/CHANGELOG.md desde"
+---
+
 # TBH-14 — Fix `cliff.toml` `conventional_commits = true` (1-line change)
 
 > Plan: `docs/dev/plans/2026-08-30-testing-bench-harden.md` — TASK-14 (Phase 2 — MED, Prioridad MEDIA per audit 2026-08-30)

@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Batch Core/Server/MCP/Python/TS correctness (2026-08-25)"
+kind: plan
+status: archived
+description: "Status: ⬆️ uphill = 0 resueltos (MCP-33/34 investigados en DISCOVERY: MCP-33 wrappers ✅, MCP-34 DEFER por snapshotrestore core-nuevo) · ⬇️ downhill = 14"
+---
+
 # Plan de Ejecución: Batch Core/Server/MCP/Python/TS correctness (2026-08-25)
 
 > **Campaign ID:** 145a38aa-b5aa-4ac5-8c81-8a0c14ae4995

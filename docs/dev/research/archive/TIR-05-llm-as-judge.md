@@ -1,3 +1,10 @@
+---
+title: "TIR-05: LLM-as-judge (0.0–1.0) para salidas sintéticas del task-system"
+kind: research
+status: archived
+description: "Conclusión del inventario: el hueco real es uno solo — validación de contenido de los bloques RESULTADO/recitation (fabricación de claims y honestidad del status). Categorizaciones y verifies ya son deterministas"
+---
+
 # TIR-05: LLM-as-judge (0.0–1.0) para salidas sintéticas del task-system
 
 > **Fuente:** `docs/dev/Backlog.md` P18 · **Tipo:** Investigación/Decisión · **Fecha:** 2026-08-17

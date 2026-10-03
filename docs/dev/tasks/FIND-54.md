@@ -1,3 +1,8 @@
+---
+title: "FIND-54: Fix flake cors_layer_none_when_empty — origins CORS vacíos"
+kind: task
+---
+
 # FIND-54: Fix flake cors_layer_none_when_empty — origins CORS vacíos
 
 ## Metadata

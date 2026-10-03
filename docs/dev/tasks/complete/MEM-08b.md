@@ -1,3 +1,9 @@
+---
+title: "MEM-08b: F4 Contratos L1 + trait LLMRunner host-neutral"
+kind: task
+description: "cargo check -p vanta-memory pasa; tests dedicados de tipos/trait (D19)\""
+---
+
 # MEM-08b: F4 Contratos L1 + trait LLMRunner host-neutral
 
 ## Metadata

@@ -1,0 +1,1 @@
+FROM Person p AS OF 42 WHERE edad > 18

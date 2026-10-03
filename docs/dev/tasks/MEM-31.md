@@ -1,3 +1,9 @@
+---
+title: "Task: MEM-31 — Progreso de ingest: canal interno + polling con run_id"
+kind: task
+description: "Plan: docs/dev/plans/2026-08-21-vanta-proxy-knowledge.md · Task 8 · Ruta: vanta-worker"
+---
+
 # Task: MEM-31 — Progreso de ingest: canal interno + polling con run_id
 
 **Plan:** docs/dev/plans/2026-08-21-vanta-proxy-knowledge.md · **Task 8** · **Ruta:** vanta-worker

@@ -1,3 +1,9 @@
+---
+title: WDA-07 — F7 Diseño comercial
+kind: task
+description: "Plan: docs/dev/plans/2026-08-19-web-design-audit.md Task 8 · Ruta: vanta-worker"
+---
+
 # WDA-07 — F7 Diseño comercial
 
 **Plan:** `docs/dev/plans/2026-08-19-web-design-audit.md` Task 8 · **Ruta:** vanta-worker

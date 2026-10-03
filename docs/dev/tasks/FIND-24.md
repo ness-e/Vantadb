@@ -1,3 +1,9 @@
+---
+title: "FIND-24: list con ventana grande lento + fan-out 408"
+kind: task
+description: "→ Resolución: evitamos la semver con un cambio INTERNO. list() ya recibe cursor: usize en VantaMemoryListOptions; el fix es cortar el prefix-scan después del cursor en vez de cargar todos los IDs y luego slicear. El cursor..."
+---
+
 # FIND-24: list con ventana grande lento + fan-out 408
 
 ## Metadata

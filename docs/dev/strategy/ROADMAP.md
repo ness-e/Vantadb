@@ -1,14 +1,13 @@
 ---
-title: "VantaDB — Roadmap de Ejecución"
-type: strategy
+title: VantaDB — Roadmap de Ejecución
+kind: concept
 status: active
-tags: [vantadb, roadmap, execution, timeline, priorities]
-version: 2.0
-created: 2026-07-16
-supersedes: 2026-07-01
-last_reviewed: 2026-09-15
+description: Estos riesgos no tienen item dedicado en el backlog o están subestimados. Son condiciones necesarias para cualquier release
 aliases: [Roadmap, Milestones, Engineering Plan, Timeline, Plan de Acción]
-related: [GO_TO_MARKET.md, SHOW_HN_PREP.md, VANTADB-PRO-FEATURES.md]
+tags: [vantadb, roadmap, execution, timeline, priorities]
+supersedes: "2026-07-01"
+version: "2.0"
+created: "2026-07-16"
 ---
 
 # VantaDB — Roadmap de Ejecución
@@ -17,6 +16,7 @@ related: [GO_TO_MARKET.md, SHOW_HN_PREP.md, VANTADB-PRO-FEATURES.md]
 > **Backlog de negocio:** [`docs/dev/Backlog-negocio.md`](../Backlog-negocio.md) — filas humano-dependientes (legal/ventas/publicación) separadas del técnico el 2026-09-03 (RES-15-C); los conteos viven solo en las cabeceras de cada backlog (regla GOV-C7, no duplicar aquí)
 > **Última revisión del proyecto:** 2026-07-16 (537 commits desde el roadmap anterior)
 > **⚠️ REVISIÓN 2026-08-17 (verificación multi-agente):** Este roadmap es **histórico** — las fases Sem 1-16 ya se ejecutaron (versión real **0.5.0** publicada 2026-08-01, no 0.2.0; ver `docs/dev/Backlog.md` P0). Los riesgos R2/R5/R8 están **resueltos**; R4 (MSVC linker) y R6/R7 (SQ8, HNSW rebuild) **siguen vigentes** (ver tabla de riesgos). El estado actual de ejecución vive en `docs/dev/Backlog.md` + `docs/dev/avance/README.md`; este documento se conserva como registro del plan original y de decisiones arquitectónicas (§6).
+> **2026-09-30:** el plan vigente es `docs/dev/plans/2026-09-26-master-roadmap.md` (campaña F0–F6, 49/50) + `docs/dev/Backlog.md` §DELTA (55 ítems — fuente del próximo plan).
 > **Estas fuentes fueron analizadas para este roadmap:**
 > - Auditorías: 10 reports en `docs/audit-reports/`
 > - Deep analysis: Vector DB (372L), Graph DB (392L), Arquitectura (306L)
@@ -257,8 +257,8 @@ R8 (claims) ─── Fase 0 (WEB-02)
 
 | Orden | Item | Descripción | Esfuerzo | Dependencias |
 |-------|------|-------------|----------|-------------|
-| 48 | **COMP-030** | Survival Mode: backpressure + Docker OOM prevention. Integrar memory_governor con cgroups | 🟡 1-2 sem | — |
-| 49 | ~~**COMP-019**~~ | ~~Binary protocol (rkyv/FlatBuffers): reemplazar JSON por binario zero-copy~~ — ❌ **WONTFIX** (ADR `COMP-019-binary-protocol-wontfix.md`) | ~~🟡 1-2 sem~~ | — |
+| 48 | **COMP-030** | Survival Mode: backpressure + OOM prevention. Integrar memory_governor con cgroups | 🟡 1-2 sem | — |
+| 49 | ~~**COMP-019**~~ | ~~Binary protocol (rkyv/FlatBuffers): reemplazar JSON por binario zero-copy~~ — ❌ **WONTFIX** (ADR `ADR-0048-binary-protocol-wontfix.md`) | ~~🟡 1-2 sem~~ | — |
 | 50 | **COMP-013** | Segment optimizer: Vacuum/Merge/Index optimizadores background | 🟡 1-2 sem | 35 (tombstones) |
 | 51 | **COMP-026** | Multi-level LSM compaction: L0→L1→L2→L3, spread compaction cost | 🟡 1-2 sem | 50 |
 

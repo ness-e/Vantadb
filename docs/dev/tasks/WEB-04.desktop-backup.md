@@ -1,3 +1,9 @@
+---
+title: "TASK WEB-04: HttpBackend real (fetch REST) + factory por entorno + vanta-http-map.ts"
+kind: task
+description: "Callers: transport singleton (transport.ts:40, fijado en load-time por getTransport()) · todas las wrappers de desktop/src/vanta.ts (~26 command wrappers, ~28 exports) · componentes que consumen las wrappers (33 imports de ../vanta..."
+---
+
 # TASK WEB-04: HttpBackend real (fetch REST) + factory por entorno + vanta-http-map.ts
 
 ## Metadata

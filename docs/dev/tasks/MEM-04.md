@@ -1,3 +1,9 @@
+---
+title: "MEM-04: Permission-checker allow-only (F2, eslabón permission de la cadena D7)"
+kind: task
+description: "cargo check -p vantadb pasa y cargo nextest run -p vantadb -- entity pasa (tests dedicados del checker, D19)"
+---
+
 # MEM-04: Permission-checker allow-only (F2, eslabón permission de la cadena D7)
 
 ## Metadata

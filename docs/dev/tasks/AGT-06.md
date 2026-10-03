@@ -1,3 +1,9 @@
+---
+title: "AGT-06: Script anti-drift de referencias (check-agents-refs.ps1)"
+kind: task
+description: "Script existe, valida refs, enganchado a verifychanged.ps1\" — verify"
+---
+
 # AGT-06: Script anti-drift de referencias (check-agents-refs.ps1)
 
 ## Metadata

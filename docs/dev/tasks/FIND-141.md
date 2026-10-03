@@ -1,3 +1,9 @@
+---
+title: "FIND-141: Desolapar schedules pesados + guard auto-push + retention corpus fuzz"
+kind: task
+description: "0 solapes heavy-cert vs heavy-bench (crons distintos verificados por grep); actionlint 3 files exit 0; git diff --check limpio; auto-push con [skip ci] sin loop; fuzz con retention-days explícito en ambos uploads\""
+---
+
 # FIND-141: Desolapar schedules pesados + guard auto-push + retention corpus fuzz
 
 ## Metadata

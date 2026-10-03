@@ -1,3 +1,9 @@
+---
+title: "TIR-03: Mitigación/contención primero en incidentes — investigación/decisión"
+kind: task
+description: "Existe un documento de decisión (docs/Investigaciones/2026-08-10-agent-engineering/TIR-03-decision.md) con: (1) análisis de las fuentes (eng-02 §4.2/§10, bug-workflow.md, RULES.md §10b), (2) veredicto EXPLÍCITO implementar / WONTFIX /..."
+---
+
 # TIR-03: Mitigación/contención primero en incidentes — investigación/decisión
 
 ## Metadata

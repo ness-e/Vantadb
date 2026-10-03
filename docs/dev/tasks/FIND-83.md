@@ -1,3 +1,9 @@
+---
+title: "FIND-83: Unificar skills (copias + MCP-27/29 + api-ref)"
+kind: task
+description: "Get-FileHash 10/11 pares SAME (excepción test-mcp.py owned by FIND-82) + git diff --check limpio + pwsh scripts/validate-docs-coverage.ps1 exit 0 (nueva sección 7 verde) + SKILLS-MANIFEST.md con conteo 196 y nota mirror\""
+---
+
 # FIND-83: Unificar skills (copias + MCP-27/29 + api-ref)
 
 ## Metadata

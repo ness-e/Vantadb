@@ -1,9 +1,11 @@
 ---
-title: "GraphRAG"
-type: glossary-entry
+title: GraphRAG
+kind: glossary
 status: implemented
+description: GraphRAG (Graph-based Retrieval-Augmented Generation) es una técnica avanzada de recuperación de información que combina RAG tradicional con traversal de Grafo de conocimiento para proporcionar contexto enriquecido y estructuralmente...
 tags: [vantadb, glosario, rag, grafo, ia]
-last_reviewed: 2026-09-15
+type: glossary-entry
+last_reviewed: "2026-09-15"
 links: "[Glosario](./README.md)"
 ---
 
@@ -11,13 +13,13 @@ links: "[Glosario](./README.md)"
 
 ## Definición
 
-**GraphRAG** (Graph-based Retrieval-Augmented Generation) es una técnica avanzada de recuperación de información que combina [RAG](RAG.md) tradicional con traversal de [Grafo](graph.md) de conocimiento para proporcionar contexto enriquecido y estructuralmente conectado a modelos de lenguaje.
+**GraphRAG** (Graph-based Retrieval-Augmented Generation) es una técnica avanzada de recuperación de información que combina [RAG](./rag.md) tradicional con traversal de [Grafo](graph.md) de conocimiento para proporcionar contexto enriquecido y estructuralmente conectado a modelos de lenguaje.
 
 ## Cómo Funciona
 
 A diferencia del RAG tradicional que recupera fragmentos de texto aislados basándose únicamente en similitud semántica, GraphRAG:
 
-1. **Identifica nodos semilla** relevantes mediante busqueda-vectorial ([HNSW](HNSW.md))
+1. **Identifica nodos semilla** relevantes mediante busqueda-vectorial ([HNSW](./hnsw.md))
 2. **Expande el contexto** recorriendo aristas del grafo (1-3 hops)
 3. **Recupera subgrafos** completos con relaciones explícitas
 4. **Formatea el contexto** preservando la estructura relacional
@@ -127,13 +129,13 @@ db.add_edge(1, 2, "llama_a")  # enlaza function_auth con function_validate
 
 ## Véase También
 
-- [RAG](RAG.md) — Retrieval-Augmented Generation tradicional
+- [RAG](./rag.md) — Retrieval-Augmented Generation tradicional
 - [Grafo](graph.md) — Estructura de datos subyacente
-- [HNSW](HNSW.md) — busqueda-vectorial para nodos semilla
-- [RRF](RRF.md) — Fusión de resultados híbridos
+- [HNSW](./hnsw.md) — busqueda-vectorial para nodos semilla
+- [RRF](./rrf.md) — Fusión de resultados híbridos
 
 ### Documentación de Implementación Relacionada
-- [[../api/GRAPH_RAG|GraphRAG API]]
+- [GraphRAG API](../../api/GRAPH_RAG.md)
 
 ---
 

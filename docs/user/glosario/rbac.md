@@ -1,9 +1,9 @@
 ---
-title: "RBAC (Role-Based Access Control)"
-type: glossary-entry
+title: RBAC (Role-Based Access Control)
+kind: glossary
 status: stable
+description: "RBAC (Control de Acceso Basado en Roles) es un modelo de seguridad donde los permisos se asignan a roles, y los usuarios heredan permisos al ser asignados a roles"
 tags: [vantadb, glosario, enterprise, seguridad]
-last_reviewed: 2026-09-15
 links: "[Glosario](./README.md)"
 ---
 
@@ -84,12 +84,18 @@ impl StorageEngine {
     pub fn put(&self, ctx: &AuthContext, node: UnifiedNode) -> Result<()> {
         // Verificar permiso
         if !ctx.has_permission(Permission::DocumentWrite) {
-            return Err(VantaError::PermissionDenied);
+            return Err(Error::Validation {
+                field: "permission".into(),
+                reason: format!("user {} lacks DocumentWrite", ctx.user_id),
+            });
         }
         
         // Verificar namespace
         if ctx.namespace != node.namespace {
-            return Err(VantaError::NamespaceMismatch);
+            return Err(Error::Validation {
+                field: "namespace".into(),
+                reason: format!("caller namespace {} != node namespace", ctx.namespace),
+            });
         }
         
         // Proceder
@@ -125,7 +131,7 @@ pub struct AuditEntry {
 
 ## Véase También
 
-- [Multi-tenancy](Multi-tenancy.md) — Aislamiento de datos por tenant
+- [Multi-tenancy](./multi-tenancy.md) — Aislamiento de datos por tenant
 - [File Locking](file-locking.md) — Seguridad a nivel de archivo
 
 ---

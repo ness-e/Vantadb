@@ -1,3 +1,10 @@
+---
+title: "Investigación — FND-17: API reference automatizada (docs-as-code)"
+kind: research
+status: archived
+description: "P20c: investigar si rustdoc/pydoc/typedoc se generan en CI y se versionan junto al"
+---
+
 # Investigación — FND-17: API reference automatizada (docs-as-code)
 
 > **ID:** `FND-17`

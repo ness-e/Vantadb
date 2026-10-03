@@ -1,3 +1,9 @@
+---
+title: Task API-STD-03 — INDIVIDUAL (2/11) Python SDK
+kind: task
+description: "Ficha individual Python: funcionamiento + uso + código + veredicto por fallo"
+---
+
 # Task API-STD-03 — INDIVIDUAL (2/11) Python SDK
 
 > **Plan:** `docs/dev/plans/2026-09-24-api-estandarizacion.md`

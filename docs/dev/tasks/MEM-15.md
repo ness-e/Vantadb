@@ -1,3 +1,9 @@
+---
+title: "MEM-15: F4 Persona first/incremental + triggers + scene navigation"
+kind: task
+description: "cargo check -p vanta-memory pasa, cargo nextest run -p vanta-memory pasa (incluye tests dedicados de persona D19), cargo fmt --check pasa, cargo clippy -p vanta-memory --all-targets --no-deps -- -D warnings pasa, y el comportamiento..."
+---
+
 # MEM-15: F4 Persona first/incremental + triggers + scene navigation
 
 ## Metadata

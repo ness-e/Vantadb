@@ -1,3 +1,9 @@
+---
+title: "TASK-ID: ERR-CORE-01 — VantaError::code() 10 códigos canónicos + tipa catch-alls overflow"
+kind: task
+description: "campaigndiscoverskills(phase=BUILD, keywords=[VantaError, code, thiserror, ResourceLimit]) → base (campaign-executor, progreso, ponytail, writing-plans) + lifecycle BUILD (incremental-implementation, test-driven-development..."
+---
+
 # TASK-ID: ERR-CORE-01 — VantaError::code() 10 códigos canónicos + tipa catch-alls overflow
 
 ## Metadata

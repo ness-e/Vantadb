@@ -15,6 +15,7 @@ mod config;
 mod context;
 mod dreams;
 mod error;
+mod governance;
 mod handlers;
 mod metrics;
 mod protocol;

@@ -28,8 +28,15 @@ temporal fallback = last 30 days + explicit warning. Full rules: `TOKEN-BUDGET.m
 - **Codex:** copy `codex/hooks.json` → `<repo>/.codex/hooks.json` (or `~/.codex/hooks.json`);
   review/trust via `/hooks`. Docs: `https://developers.openai.com/codex/hooks`.
 
-Launcher (all script hooks): `pwsh -NoProfile -File <REPO>/vanta-mcp-local.ps1 -DbPath <DB_PATH>`
-(see `../install/` from FIND-104; secrets only via session env, never in files).
+Launcher (recall hooks): `vanta-cli mcp-call --db <DB_PATH> --tool memory_recall --args '{...}'`
+(one-shot, no pwsh — WIRE-10; the binary the installer puts in `~/.vanta/bin`.
+Per-message hooks splice the verbatim prompt as `{{prompt}}`, resolved
+against the client's hook-input JSON on stdin by mcp-call itself — no `jq`
+needed. `{{prompt}}` matches the documented Claude `UserPromptSubmit.prompt`
+field; codex/cursor templates assume the same field name — a mismatch fails
+loud (exit 2 naming the missing field), never silent. Save-state hooks print
+a static reminder the agent acts on.
+Secrets only via session env, never in files or args).
 
 ## Versioning (APIs change — pre-mortem #1)
 

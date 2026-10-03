@@ -10,8 +10,8 @@ pub fn handle_prompts_list() -> Result<Value, Value> {
     Ok(json!({
         "prompts": [
             {
-                "name": "search_memory",
-                "description": "Recall-first memory search: memory_recall, then hybrid search_memory with deterministic temporal ranges",
+                "name": "recall_search",
+                "description": "Recall-first memory search: memory_recall, then hybrid memory_search with deterministic temporal ranges",
                 "arguments": [
                     { "name": "namespace", "description": "Target namespace for search", "required": true },
                     { "name": "query", "description": "Search query (text or vector)", "required": true },
@@ -56,14 +56,17 @@ pub fn handle_prompts_get(params: Option<&Value>) -> Result<Value, Value> {
     let args = p.get("arguments");
 
     match name {
-        "search_memory" => {
+        // API-04: canonical prompt name is `recall_search`; the legacy
+        // `search_memory` name is an unlisted redirect kept for saved prompts
+        // (prompts are a separate registry — no prompt shadows a tool name).
+        "recall_search" | "search_memory" => {
             let namespace = args
                 .and_then(|a| a["namespace"].as_str())
                 .unwrap_or("default");
             let query = args.and_then(|a| a["query"].as_str()).unwrap_or("");
             Ok(json!({
-                "description": "Recall-first memory search: memory_recall, then hybrid search_memory with deterministic temporal ranges",
-                "messages": [{"role": "user", "content": {"type": "text", "text": format!("Recall-first search in VantaDB namespace '{}' for: '{}'. Step 1: call `memory_recall` with this query (scope agent, top_k 5). Step 2: if the question carries a temporal expression (e.g. 'yesterday at 2pm'), translate it to a DETERMINISTIC [from_ms, to_ms] range — never guess; an unresolvable expression falls back to the last 30 days and you must say so. Step 3: run `search_memory` (hybrid vector + text) and, for time-bounded questions, page `memory_list` keeping only records whose created_at_ms falls inside the range (`search_memory` filters are equality-only). Only inject recalled hits into context when recalled is non-empty; when nothing is recalled, say so instead of filling the gap.", namespace, query)}}]
+                "description": "Recall-first memory search: memory_recall, then hybrid memory_search with deterministic temporal ranges",
+                "messages": [{"role": "user", "content": {"type": "text", "text": format!("Recall-first search in VantaDB namespace '{}' for: '{}'. Step 1: call `memory_recall` with this query (scope agent, top_k 5). Step 2: if the question carries a temporal expression (e.g. 'yesterday at 2pm'), translate it to a DETERMINISTIC [from_ms, to_ms] range — never guess; an unresolvable expression falls back to the last 30 days and you must say so. Step 3: run `memory_search` (hybrid vector + text) and, for time-bounded questions, page `memory_list` keeping only records whose created_at_ms falls inside the range (`memory_search` filters are equality-only). Only inject recalled hits into context when recalled is non-empty; when nothing is recalled, say so instead of filling the gap.", namespace, query)}}]
             }))
         }
         "analyze_namespace" => {

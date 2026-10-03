@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: VantaDB Bindings SDK — sub-clientes por dominio"
+kind: plan
+status: archived
+description: "Objetivo: exponer sub-clientes por dominio (db.memory., db.graph., db.conversation., db.wiki.) en vantadb-ts y vantadb-python, manteniendo 100% backward-compat con la API plana"
+---
+
 # Plan de Ejecución: VantaDB Bindings SDK — sub-clientes por dominio
 
 > **Inicio:** 2026-08-22

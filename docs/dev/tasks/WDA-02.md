@@ -1,3 +1,9 @@
+---
+title: Task WDA-02 — F2 Estructura
+kind: task
+description: "Plan: docs/dev/plans/2026-08-19-web-design-audit.md §6 Task 3 · Ruta: vanta-worker · Estado: ⏳ IN PROGRESS"
+---
+
 # Task WDA-02 — F2 Estructura
 
 **Plan:** docs/dev/plans/2026-08-19-web-design-audit.md §6 Task 3 · **Ruta:** vanta-worker · **Estado:** ⏳ IN PROGRESS
@@ -42,7 +48,7 @@ not-found.tsx migración + sitemap +7 rutas + dominio real en URLs base + extrae
 - [x] `rg "const tt = \(key: string" web/src -g "*.tsx"` = **0 hits**; lógica única en `lib/i18n-utils.ts`; 36 archivos usan `const { t, tt } = useLanguage()`
 - [x] `npm run build` exit 0 (Next 16.3.0 Turbopack, TypeScript OK, 36 rutas)
 
-## Estado final: ✅ COMPLETADO (sin commit — instrucción explícita)
+- Estado final: ✅ COMPLETADO (sin commit — instrucción explícita)
 
 ## Context Save Point
 - S1-S4 completos y verificados con build doble (post-S4 y post-reparación contacto).

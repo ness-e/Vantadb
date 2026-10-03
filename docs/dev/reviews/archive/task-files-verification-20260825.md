@@ -1,11 +1,9 @@
 ---
 title: "Task Files Audit — 30 más recientes en `campaign-executor/tasks/`"
-type: review
+kind: review
 status: archived
+description: "Fecha: 2026-08-25 · Método: lectura completa de los 30 task files + verificación de cada claim contra el código real (git log, grep, inspección de archivos). No se confió en lo declarado por los task files"
 tags: [vantadb, review]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Task Files Audit — 30 más recientes en `campaign-executor/tasks/`

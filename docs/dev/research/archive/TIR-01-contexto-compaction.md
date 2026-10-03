@@ -1,3 +1,10 @@
+---
+title: "TIR-01 — Compaction de contexto runtime: ¿resumen incremental por fase?"
+kind: research
+status: archived
+description: "Hallazgo clave: el harness actual NO tiene compaction runtime automático. Es reset + reconstrucción desde archivos (Rule 5: disposable agents; Rule 11: sesión cerrada por tarea; Rule 18: \"el recitation block ES nuestro mecanismo de..."
+---
+
 # TIR-01 — Compaction de contexto runtime: ¿resumen incremental por fase?
 
 > **Tipo:** Investigación/Decisión (read-only) · **Fecha:** 2026-08-17

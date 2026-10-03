@@ -1,9 +1,9 @@
 ---
-title: "Building AI Agent Memory with VantaDB"
+title: Building AI Agent Memory with VantaDB
+kind: tutorial
 status: active
+description: "VantaDB gives AI agents persistent memory — the ability to store, recall, and search across past conversations, decisions, and context. Unlike stateless LLM calls, an agent backed by VantaDB remembers what happened last session..."
 tags: [vantadb, tutorial, guide, ai-agents, memory]
-last_reviewed: 2026-08-02
-aliases: []
 ---
 
 # Building AI Agent Memory with VantaDB

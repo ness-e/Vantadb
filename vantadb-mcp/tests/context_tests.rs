@@ -13,7 +13,16 @@ use tempfile::tempdir;
 use vantadb::executor::Executor;
 use vantadb::sdk::MemoryInput;
 use vantadb::storage::StorageEngine;
-use vantadb_mcp::{handle_tools_call, handle_tools_list, McpConfig};
+use vantadb_mcp::{handle_tools_call, handle_tools_list, McpConfig, McpProfile};
+
+/// WIRE-02: these tests exercise the extended surface; pin `full` explicitly
+/// (the production default is now `agent`).
+fn full_config() -> McpConfig {
+    McpConfig {
+        profile: McpProfile::Full,
+        ..Default::default()
+    }
+}
 
 fn setup_storage() -> (tempfile::TempDir, Arc<StorageEngine>) {
     let dir = tempdir().unwrap();
@@ -28,7 +37,7 @@ fn call(name: &str, args: Value, storage: &Arc<StorageEngine>) -> Result<Value, 
         &Some(json!({ "name": name, "arguments": args })),
         &executor,
         storage,
-        &McpConfig::default(),
+        &full_config(),
     )
 }
 
@@ -100,6 +109,7 @@ fn seed_l1(storage: &Arc<StorageEngine>, session: &str, id: &str, content: &str)
         sparse_vector: None,
         metadata: vantadb::sdk::MemoryMetadata::new(),
         ttl_ms: None,
+        ..Default::default()
     })
     .expect("seed l1 record");
 }
@@ -125,7 +135,7 @@ fn estimated_tokens(ctx: &Value) -> u64 {
 
 #[test]
 fn test_tools_list_registers_context_assemble() {
-    let res = handle_tools_list(&McpConfig::default());
+    let res = handle_tools_list(&full_config());
     let tools = res.expect("tools/list")["tools"]
         .as_array()
         .expect("tools array")

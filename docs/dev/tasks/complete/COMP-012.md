@@ -1,3 +1,9 @@
+---
+title: "COMP-012: RoaringBitmaps for Metadata Indexing"
+kind: task
+description: "ID: COMP-012"
+---
+
 # COMP-012: RoaringBitmaps for Metadata Indexing
 
 **ID:** COMP-012

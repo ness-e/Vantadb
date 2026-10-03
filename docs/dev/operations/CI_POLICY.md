@@ -1,10 +1,9 @@
 ---
 title: "VantaDB CI & Certification Policy"
-type: operations
+kind: runbook
 status: active
+description: To maintain a rapid development iteration cycle and guarantee mathematical precision in our HNSW
 tags: [vantadb, operations]
-last_reviewed: 2026-09-02
-aliases: []
 ---
 
 # VantaDB CI & Certification Policy
@@ -14,7 +13,7 @@ engine, VantaDB enforces a split Continuous Integration architecture.
 
 ## CI Workflow Inventory
 
-VantaDB has **27 active workflow files** in `.github/workflows/` (verificado 2026-09-22; 28 in FIND-128 minus one rustdoc workflow merged into `ci-rustdoc.yml` in FIND-137, renames in FIND-142). Each workflow is documented below. See `docs/dev/workflow/README.md` (inventory) and `docs/dev/workflow/TRIGGERS.md` (trigger matrix — source of truth is each file's `on:` block).
+VantaDB has **28 active workflow files** in `.github/workflows/` (verificado 2026-09-27; 28 in FIND-128 minus one rustdoc workflow merged into `ci-rustdoc.yml` in FIND-137, renames in FIND-142, +1 `nightly.yml` HARD-02). Each workflow is documented below. See `docs/dev/workflow/README.md` (inventory) and `docs/dev/workflow/TRIGGERS.md` (trigger matrix — source of truth is each file's `on:` block).
 
 ### Local Verification Scripts — Rutas Canónicas
 
@@ -24,7 +23,7 @@ Their canonical paths are:
 | Script | Assertion scope |
 |--------|-----------------|
 | `dev-tools/verify_changed.ps1` | Quick verify (~30s): fmt → check → clippy on `vantadb` core. Runs the docs-coverage gate only when `git diff --name-only HEAD` touches `src/`, bindings (`vantadb-python`, `vantadb-ts`, `vantadb-wasm`) or `docs/api/`; otherwise silently skips. |
-| `dev-tools/verify.ps1` | Full pre-flight (~2–5 min): fmt → check → clippy → audit → deny → tests → coverage. Runs the docs-coverage gate whenever the script exists. |
+| `dev-tools/verify.ps1` | Full pre-flight (measured: **209.5s warm** — 10 steps, coverage moved to the nightly; see §"Fast Gate wall-time measurement"): fmt → check → clippy → audit → deny → tests → docs-coverage → cli-probes → consumo guard → daily backup check. Coverage report+budget on-demand with `-IncludeCoverage` (nightly owns the default enforcement). Runs the docs-coverage gate whenever the script exists. |
 | `scripts/validate-docs-coverage.ps1` | Docs coverage gate (Regla 3, mecánica): valida símbolos públicos SDK/config/error/CLI/Python/MCP contra `docs/api/*`. `-ReportOnly` imprime gaps sin fallar; sin el flag, los métodos sin documentar devuelven exit 1 y fallan el script host. |
 
 `scripts/validate-docs-coverage.ps1` is the **single shared docs gate**, referenced from both
@@ -55,7 +54,7 @@ governance semantics are excluded from the default fast lane.
 | `test-macos` | Tests (macOS) — nextest audit profile |
 | `msrv` | MSRV Check (1.94.1) |
 | `minimal-versions` | Minimal Versions Check (`-Zminimal-versions`, nightly, continue-on-error) |
-| `coverage` | Code Coverage (`cargo-llvm-cov`, gate root crate ≥80% por ADR-018) |
+| `coverage` | Code Coverage (`cargo-llvm-cov`, gate root crate ≥80% por ADR-0018) |
 | `audit` | Security Audit (`cargo audit`) |
 | `deny` | License & Policy (`cargo deny check`) |
 | `semver-checks` | Public API Semver (RELEASE-01) — `cargo semver-checks -p vantadb` vs última publicada en crates.io. Ver `ci-cd-guide.md` § "Semver-checks gate (public API)" |
@@ -115,6 +114,30 @@ clauses (BND-06 scope-safe form). That list implements the two-tier split docume
    re-enabling a runner-risk-category test in the fast gate requires evidence that the input size was
    reduced below runner-risk thresholds (e.g. bounded allocations in the test itself).
 
+#### Fast Gate wall-time measurement (HARD-02, 2026-09-27)
+
+`pwsh dev-tools/verify.ps1` (local pre-push gate) measured on a Windows MSVC box
+(32GB / 12 cores, `CARGO_TARGET_DIR=target/session-api01`) with parallel sessions
+running on the host (load 67–100%):
+
+| Run | Gate state | Wall time | Verdict |
+|-----|------------|-----------|---------|
+| #1 | 11 steps (coverage in-line), semi-cold (Cargo.toml touched by parallel work → rebuilds) | 1397s (23.3m) | not representative (rebuild + load) |
+| #2 | 11 steps (coverage in-line), warm (steady state) | 509.4s (8.5m) | > 300s target → FIND-163 |
+| #3 | **10 steps (coverage moved to nightly — owner decision (c))**, warm | **209.5s (3.5m)** | **✅ < 5 min target met** |
+
+Command: stopwatch around `pwsh dev-tools/verify.ps1` (equivalent to
+`Measure-Command`); logs: `target/session-api01/hard02-verify.log`,
+`hard02-verify-warm.log`, `hard02-verify-r3.log`.
+
+**Resolution (owner decision (c), 2026-09-27):** the coverage report+budget was the
+dominant marginal cost of the local lane (the suite ran twice: plain `nextest` +
+instrumented `coverage` re-run). It now lives in `nightly.yml` job
+`coverage-budget` (`dev-tools/coverage-budget.ps1`); the local gate keeps
+`-IncludeCoverage` for on-demand use. Measured result: **509.4s → 209.5s warm**
+(<5 min target met; ADR-0031 §9 / STABLE-00 honored). FIND-163 is resolved by this
+change; residual note: run #3 was taken under the same host load as #2.
+
 ### Experimental Crate Circuit Breaker
 
 The workspace includes several **experimental crates** that are not part of the core MVP:
@@ -143,15 +166,15 @@ The workspace includes several **experimental crates** that are not part of the 
 **To promote an experimental crate to stable**, remove it from the exclusion list in
 `ci-rust.yml` and re-add it to `default-members` in `Cargo.toml`. The full
 promotion DoD (10 checks, per-crate cost table, wall-time budget and
-reversibility) is defined in **[ADR-031: Promotion to default-members](../../dev/architecture/adr/ADR-031-default-members-promotion.md)** — no crate may be promoted without passing ADR-031 in 3 consecutive clean runs; see ADR-031 §Question to Owner for the Fast Gate `<5 min` vs Heavy threshold gate (STABLE-00).
+reversibility) is defined in **[ADR-0031: Promotion to default-members](../../dev/architecture/adr/ADR-0031-default-members-promotion.md)** — no crate may be promoted without passing ADR-0031 in 3 consecutive clean runs; see ADR-0031 §Question to Owner for the Fast Gate `<5 min` vs Heavy threshold gate (STABLE-00).
 
-#### Promotion to `default-members` — ADR-031 DoD (STABLE-00, P47)
+#### Promotion to `default-members` — ADR-0031 DoD (STABLE-00, P47)
 
 `default-members` today is `[ ".", "vantadb-python" ]` (`Cargo.toml:636`). Candidates
 `vanta-memory`, `vanta-proxy`, `vantadb-server`, `vantadb-mcp`, `vantadb-wasm`
 (Rust) and `vantadb-ts`/`vantadb-node` (npm, equivalent gate) must each pass
 the **10-check DoD** before promotion; the checks and their exact commands are
-the single source of truth in ADR-031 (gates 1-10: `cargo check`+`fmt`+`clippy -D warnings`,
+the single source of truth in ADR-0031 (gates 1-10: `cargo check`+`fmt`+`clippy -D warnings`,
 `cargo nextest --profile audit`, `cargo deny check`, `validate-docs-coverage`,
 workflow `paths:` + no `continue-on-error` + `timeout-minutes <5 min` measured,
 `cargo package --dry-run`, `wasm-pack`/`wasm32` for `wasm`, `napi` 7-target matrix +
@@ -159,7 +182,7 @@ workflow `paths:` + no `continue-on-error` + `timeout-minutes <5 min` measured,
 ADR with cost + rollback). **Rollback is 1 line:** `git revert` of `Cargo.toml:636`
 (the `publish = false` crates never affect `cargo publish`).
 
-Until ADR-031 is `accepted` (Owner answers STABLE-00 question A vs B on `<5 min`
+Until ADR-0031 is `accepted` (Owner answers STABLE-00 question A vs B on `<5 min`
 vs Heavy), promotion is **blocked** — STABLE-01..08 may validate per-crate gates
 but STABLE-09 must not merge. Gate #9 is measured on branch `test/default-all`
 with expanded `default-members` (`verify.ps1` / `just verify` cold cache).
@@ -173,7 +196,7 @@ with an empty `[workspace]` decoupling. Re-evaluate after desktop ships.
 
 #### STABLE-09 promotion 2026-09-09 — subset keeping Fast Gate <5min (Owner A)
 
-ADR-031 `accepted` (Owner chose A 2026-09-09: `<5 min` hard). Full-7 expansion
+ADR-0031 `accepted` (Owner chose A 2026-09-09: `<5 min` hard). Full-7 expansion
 measured Heavy (STABLE-08: `just verify` cold 8.26m), so only the subset that
 keeps `<5 min` is promoted; the rest stays experimental with Heavy justification:
 
@@ -188,7 +211,7 @@ default-members = [
 ```
 
 Excluded (stay in `experimental-check`, non-default): `vanta-proxy` — heaviest
-Rust compile, Heavy wall time documented STABLE-02 + ADR-031 §2 cost table;
+Rust compile, Heavy wall time documented STABLE-02 + ADR-0031 §2 cost table;
 `vantadb-wasm` — `wasm32`/`wasm-pack`/`binaryen` toolchain extra, Tier 3
 (`wasm-test` BEST-EFFORT `continue-on-error`). `ts`/`node` never enter
 `default-members` (npm packages; equivalent gate `release-npm-61.yml`).
@@ -223,7 +246,7 @@ default-members = [
 
 `members` unchanged (7 Rust crates already in `[workspace].members`; `Cargo.lock` delta 0). Simulation measured **locally** on Windows (no `ubuntu-latest` runner yet); wall times are `Measure-Command` per job with `cargo clean`/`npm ci` cold cache where noted. 3 cold runs: `cargo clean` + `just verify` / `verify_changed.ps1` — 0 failed, no flaky (`nextest --profile audit --workspace --build-jobs 2` + `cargo test -p vantadb-server/vanta-memory` already validated STABLE-01/03: 473/473, 42/42).
 
-**Environment (measurement host):** `cargo 1.95.0`, `rustc 1.95.0`, `just 1.55.1`, `pwsh 7.6.5`, `node v24.16.0`, `npm 11.6.0`, `MSVC 14 (BuildTools 2022) + LLVM 19 (LIBCLANG_PATH=C:\Program Files\LLVM\bin)`, `Windows 11 (win32)`, `RAM 31.77 GB (34120724480) / 12 cores → Jobs=4 (gate-common.ps1 Get-AdaptiveJobs)`, `RUST_MIN_STACK 33554432 (verify.ps1) / 16777216 (verify_changed.ps1)`, `rust-toolchain.toml 1.94.1`, `sccache off (cold = cargo clean deletes target/)`. CI `ubuntu-latest` wall times will differ (~1.5-2× faster on Linux sccache warm, slower on cold due to no MSVC overhead) — numbers below are order-of-magnitude baseline for ADR-031 §2 cost table.
+**Environment (measurement host):** `cargo 1.95.0`, `rustc 1.95.0`, `just 1.55.1`, `pwsh 7.6.5`, `node v24.16.0`, `npm 11.6.0`, `MSVC 14 (BuildTools 2022) + LLVM 19 (LIBCLANG_PATH=C:\Program Files\LLVM\bin)`, `Windows 11 (win32)`, `RAM 31.77 GB (34120724480) / 12 cores → Jobs=4 (gate-common.ps1 Get-AdaptiveJobs)`, `RUST_MIN_STACK 33554432 (verify.ps1) / 16777216 (verify_changed.ps1)`, `rust-toolchain.toml 1.94.1`, `sccache off (cold = cargo clean deletes target/)`. CI `ubuntu-latest` wall times will differ (~1.5-2× faster on Linux sccache warm, slower on cold due to no MSVC overhead) — numbers below are order-of-magnitude baseline for ADR-0031 §2 cost table.
 
 **`just verify` (Justfile `verify: fmt clippy test deny` — uses `--workspace` directly, so `default-members` expansion does NOT change its `--workspace` check; measured with expanded `Cargo.toml` to confirm Heavy is clippy/nextest compile, not default-members filtering):**
 
@@ -234,7 +257,7 @@ default-members = [
 | `test` | `cargo nextest run --profile audit --workspace --build-jobs 2` | 234.92s (3.91m) | not re-measured cold separately (warm already 3.91m; cold + clippy compile share target, estimated 400-500s). Full `just verify` cold first run measured 495.5s (8.26m) total (fmt+clippy+test+deny) — see below. | 30m (test Linux) | Cold >5 min |
 | `deny` | `cargo deny check` | 1.75s | 1.75s | 5m | Fast |
 | `audit` | `cargo audit` (not in `just verify`, but in `verify.ps1`) | 4.91s | 4.91s | 5m | Fast |
-| **Total `just verify`** | `fmt + clippy + test + deny` (sequential local) | **~249s (4.15m) incremental warm** (fmt 2.5 + clippy 10.7 + test 234.9 + deny 1.75) — after initial cold build; **first run after clean 495.5s (8.26m)** `Measure-Command { just verify }` (`C:\Users\Eros\AppData\Local\Temp\just-verify-warm.log`) | **Cold >5 min (8.26m first run, clippy cold >10m)** | Fast Gate <5 min invariant (ADR-031 §9, `docs/dev/operations/CI_POLICY.md` §1) | **Heavy** (cold fails <5) |
+| **Total `just verify`** | `fmt + clippy + test + deny` (sequential local) | **~249s (4.15m) incremental warm** (fmt 2.5 + clippy 10.7 + test 234.9 + deny 1.75) — after initial cold build; **first run after clean 495.5s (8.26m)** `Measure-Command { just verify }` (`C:\Users\Eros\AppData\Local\Temp\just-verify-warm.log`) | **Cold >5 min (8.26m first run, clippy cold >10m)** | Fast Gate <5 min invariant (ADR-0031 §9, `docs/dev/operations/CI_POLICY.md` §1) | **Heavy** (cold fails <5) |
 
 **`dev-tools/verify_changed.ps1` (quick gate, `fmt → check -p vantadb → clippy -p vantadb`, `-j 2`, `Get-CoreFeatures cli,fjall,memmap2,fs2,roaring`):**
 
@@ -268,7 +291,7 @@ default-members = [
 
 **3 corridas `cargo clean` + `npm ci` sin flaky (STABLE-01/03 gates 1-6 already 0 failed):** Runs 1-3 above (verify_changed cold/warm/warm + just verify warm 2.5s/10.7s/234.9s + web 103s) all 0 failed, 0 flaky (nextest 473/473 vanta-memory, 42/42 server, deny ok, fmt ok, clippy -D warnings 0). Heavy gate is **not** flaky — deterministic cold compile time, not test instability.
 
-**Verdict gate 9 (ADR-031 §9):** `just verify` / `cargo clippy --workspace --all-targets --all-features` + `nextest --workspace` **exceeds `<5 min` on cold cache** (495.5s first run, clippy cold >600s timeout) on Windows 32GB/12c host without sccache. Warm incremental (<5: 249s 4.15m) passes, but **cold fails** — per ADR-031 §Question to Owner, this requires **Heavy label with justification** (or scoped promotion). Measurement on `ubuntu-latest` with sccache warm will be faster but cold without sccache will still be >5 (7 Rust crates + `all-features` + tantivy WASM). Until Owner answers STABLE-00 question **A (<5 hard — do not promote slow crate)** vs **B (<5 soft — re-label Fast Gate to ~8 min)**, promotion in STABLE-09 stays **blocked**; this crate set must stay `CATEGORY: EXPERIMENTAL` / `experimental-check` non-blocking. If Owner chooses A, promote only subset that keeps `<5` cold (e.g., `[ ".", "vantadb-python", "vantadb-server", "vantadb-mcp"]` without `vanta-memory`/`vanta-proxy`/`vantadb-wasm`) and re-measure; if B, update `CI_POLICY.md` Fast Gate invariant to `~8 min`, bump `ci-rust.yml:clippy`/`test` `timeout-minutes` and `dev-tools/verify.ps1` comments.
+**Verdict gate 9 (ADR-0031 §9):** `just verify` / `cargo clippy --workspace --all-targets --all-features` + `nextest --workspace` **exceeds `<5 min` on cold cache** (495.5s first run, clippy cold >600s timeout) on Windows 32GB/12c host without sccache. Warm incremental (<5: 249s 4.15m) passes, but **cold fails** — per ADR-0031 §Question to Owner, this requires **Heavy label with justification** (or scoped promotion). Measurement on `ubuntu-latest` with sccache warm will be faster but cold without sccache will still be >5 (7 Rust crates + `all-features` + tantivy WASM). Until Owner answers STABLE-00 question **A (<5 hard — do not promote slow crate)** vs **B (<5 soft — re-label Fast Gate to ~8 min)**, promotion in STABLE-09 stays **blocked**; this crate set must stay `CATEGORY: EXPERIMENTAL` / `experimental-check` non-blocking. If Owner chooses A, promote only subset that keeps `<5` cold (e.g., `[ ".", "vantadb-python", "vantadb-server", "vantadb-mcp"]` without `vanta-memory`/`vanta-proxy`/`vantadb-wasm`) and re-measure; if B, update `CI_POLICY.md` Fast Gate invariant to `~8 min`, bump `ci-rust.yml:clippy`/`test` `timeout-minutes` and `dev-tools/verify.ps1` comments.
 
 *STABLE-08 measurement recorded 2026-08-27, branch `test/default-all` (local simulation, not pushed). `Cargo.toml` revert before STABLE-09; `Cargo.lock` delta 0 (already members).*
 
@@ -310,77 +333,141 @@ runners and requires significant system resources (AVX2 plus heavy swap). It run
 scheduled/manual job with a 150 minute step timeout so it can complete without blocking the other
 certification checks. Running this on every PR would paralyze development velocity.
 
-### Coverage Gate — Minimum Mechanized Coverage (P2-06)
+### 2b. Nightly Certification Subset (`nightly.yml`, HARD-02)
 
-**Tier:** Heavy Certification (not the Fast Gate). A PR can reduce coverage in a hot module without
-any gate failing; this gate closes that gap by enforcing a minimum line-coverage threshold
-mechanically. **Task P2-06** from `docs/dev/plans/archive/2026-08-10-p2-p3-structural-quality.md (archivado)`. The
-threshold starts conservative and ratchets upward.
+Added 2026-09-27 (HARD-02, owner decision 2026-09-26 (c)). The heavy
+certification suite above remains the **weekly full** lane; `nightly.yml` runs
+a **daily subset** of the deterministic core certification jobs so a regression
+in crash recovery / durability / HNSW correctness / text-index recovery
+surfaces in ≤24h instead of ≤7d:
 
-**Command:**
+| Job (nightly.yml) | Mirrors heavy-certification.yml | Timeout |
+|---|---|---|
+| `failpoint-tests` | same job (`chaos_integrity`, `wal_resilience`, `crash_injection`) | 30m |
+| `storage-persistence` | same job (16 binaries, `--release --features cli`) | 90m |
+| `hnsw-validation` | same job | 120m |
+| `hnsw-recall` | same job (`hnsw_recall_certification`) | 40m |
+| `text-index` | same job (`text_index_recovery`) | 60m |
+| `coverage-budget` | NEW (owner decision (c) 2026-09-27) — `dev-tools/coverage-budget.ps1`: coverage report + per-directory budget (see §Coverage) | 60m |
+| `release-dry-run` | NEW — `cargo publish -p vantadb --dry-run` (packaging + verify, **never uploads** — release-plz remains the only publisher) | 45m |
+
+- **Why a separate file, not a daily `heavy-certification.yml`** (decision
+  evidence): the full suite contains jobs that are deliberately weekly —
+  `stress-protocol` (~2h), `memory-concurrency`, `mutation-test` (non-gating by
+  design) — and running them daily multiplies flake exposure without adding
+  per-day signal. The nightly subset covers the failure-critical lanes; the
+  full suite stays weekly (see §"Running Heavy Certification Manually").
+- **Reception point for slow gates:** gates measured >5min in the fast gate are
+  moved here (HARD-01 stop condition; e.g. future `cargo semver-checks` /
+  public-api snapshot steps land as jobs in `nightly.yml`).
+- **Coverage (owner decision (c) 2026-09-27):** the per-directory coverage budget
+  runs here (job `coverage-budget`); the local gate keeps it on-demand only
+  (`verify.ps1 -IncludeCoverage`) — see §"Coverage — Report & Per-Directory Budget".
+- **Schedule:** daily 05:00 UTC — deconflicted (FIND-141): bench nightly 02:00,
+  full cert Sun 03:00, OCR nightly 04:00.
+- **Notification:** on failure, `notify-failure` opens (or comments on) the
+  auto-issue `[Nightly] Heavy certification subset failed` listing the failed
+  jobs; `issues: write` is granted **only** on that job (RULES.md §4). Badge:
+  README (`nightly.yml` workflow badge).
+- **Command coupling:** the job commands are copies of their
+  `heavy-certification.yml` counterparts — a test-binary list change edits both
+  files together (same coupling rule as `.config/nextest.toml` structural
+  exclusions).
+
+### Coverage — Report & Per-Directory Budget (nightly) + CI canonical gate (HARD-02)
+
+**Decisions (owner):** 2026-09-26 (a) — the local gate no longer blocks on a global
+line-coverage threshold; coverage becomes a **report + per-directory budget** (ratchet).
+2026-09-27 (c) — the report+budget **moves out of the local fast gate** into the
+nightly lane (`nightly.yml` job `coverage-budget`, script
+`dev-tools/coverage-budget.ps1`), restoring the local fast-gate `<5 min` target
+(see §"Fast Gate wall-time measurement"). The CI canonical gate
+(**ADR-0018: root crate ≥80%**, `ci-rust.yml` coverage job) is **unchanged** by both
+decisions. Rationale (R1): a single global threshold is a lossy gate — a
+per-directory ratchet keeps the signal localized and loud, and the coverage re-run
+was the dominant cost of the local lane.
+
+**Where it runs:**
+
+| Lane | Command | Semantics |
+|------|---------|-----------|
+| Nightly (enforcement) | `pwsh dev-tools/coverage-budget.ps1` — `nightly.yml` job `coverage-budget` (ubuntu-latest, timeout 60m) | JSON report + budget; exit 1 only on explicit bucket violation; JSON uploaded as `coverage-report` artifact |
+| Local on-demand | `pwsh dev-tools/coverage-budget.ps1` (or `pwsh dev-tools/verify.ps1 -IncludeCoverage`) | same script, same budgets |
+| CI canonical (unchanged) | `ci-rust.yml` coverage job | root crate ≥80% (ADR-0018) |
+
+**Command (exact — regenerates the report artifact):**
 
 ```bash
-cargo llvm-cov --fail-under-lines <UMBRAL>
+cargo llvm-cov nextest --profile audit -p vantadb \
+  --no-default-features --features cli,fjall,memmap2,fs2,roaring \
+  --build-jobs 1 \
+  -E "not test(/deserialize_absurd_node_count/) and not test(/test_search_with_bizarre_text_query/) and not test(/test_malformed_payload_extremely_large/)" \
+  --json --output-path <target-dir>/coverage-report.json
 ```
 
-(The CI variant runs under nextest: `cargo llvm-cov nextest run --profile audit --workspace
---fail-under-lines <UMBRAL>`.) `--fail-under-lines` exits with status 1 when total **line**
-coverage falls below the threshold — that is the fail-under behavior of this gate.
+Without re-running tests, the JSON can be re-generated from collected profdata with
+`cargo llvm-cov report --json --output-path <target-dir>/coverage-report.json`.
+`dev-tools/coverage-budget.ps1` runs the full command, aggregates `data[0].files` by
+directory (`src/<dir>`; `src/<file>.rs` → `src (root files)`) and compares each bucket
+against the budget table. **Fail rule:** a budgeted directory below its budget fails
+the script (explicit ratchet violation); non-budgeted directories are report-only.
 
-**Scope:** Applies to the hot modules `src/vector/` and `src/engine/`. The threshold is evaluated
-on the whole workspace report (the hot modules dominate it); to enforce a strict per-module floor,
-narrow the report with `--ignore-filename-regex` to those paths.
+**Per-directory budget** (baseline measured 2026-09-26, Windows MSVC box, full pass
+2263/2263 with the command above; re-checked 2026-09-27 via `cargo llvm-cov report
+--json` aggregation — stable; budget = baseline rounded − 1.0 pt; the mechanical copy
+lives in `dev-tools/coverage-budget.ps1` `$CoverageBudget` and mirrors this table —
+update both together. Platform note: the nightly runs on ubuntu-latest while the
+baseline is Windows; expected delta <1pt (only 24 `cfg(windows/unix)` lines across
+`src/`) — if the first ubuntu run legitimately differs, recalibrate the baseline from
+the uploaded `coverage-report` artifact and record it here):
 
-**Initial threshold (PRUDENT):** 60% line coverage. No coverage artifacts exist in the repo as of
-2026-08-10, so this number is **to be set from the first llvm-cov run** — the first Heavy
-Certification pass must record the real current level and adjust the threshold to match it (never
-set it below the current level).
+| Directory | Baseline (lines) | Budget | Command |
+|-----------|------------------|--------|---------|
+| `src (root files)` | 91.0% | 90.0% | command above (via `coverage-budget.ps1`) |
+| `src/vector` | 95.7% | 94.7% | idem |
+| `src/index` | 87.4% | 86.4% | idem |
+| `src/storage` | 89.0% | 88.0% | idem |
+| `src/sdk` | 90.1% | 89.1% | idem |
+| `src/parser` | 97.2% | 96.2% | idem |
 
-**Escalation policy:** the threshold ratchets upward over time (e.g. +5 points per quarter or per
-release), converging with the Fast Gate coverage job (gate canónico ADR-018: root crate ≥80%). The threshold is never
-lowered without a documented justification and review.
+**History / supersession:** this replaces the P2-06 local wiring
+(`--fail-under-lines 60` blocking in `verify.ps1`, removed 2026-09-27 by HARD-02),
+re-anchors the TBH-21 review cadence (previously tied to the `60` literal), and
+supersedes HARD-02's interim placement of the report+budget in `verify.ps1`
+(owner decision (c) moved it to the nightly the same day). P2-06's original intent
+(mechanical coverage enforcement) survives as the per-directory budget + the
+untouched ADR-0018 CI gate.
 
-**Merge / union:** multiple coverage runs under different feature/test conditions are merged with
-`--no-report` runs followed by `cargo llvm-cov report`; `--failure-mode any|all` controls whether
-merge failures fail the gate.
-
-**Test exclusion:** cargo-llvm-cov excludes `tests/` directories and `*_tests.rs` files from the
-report by default, so test code itself is not counted toward the threshold.
-
-**Local verify wiring:** `dev-tools/verify.ps1` runs this gate (with the same `--fail-under-lines`
-threshold) only when `cargo-llvm-cov` is installed; otherwise it prints a warning and continues, so
-the default local `just verify` flow is never blocked by a missing tool.
-
-#### Coverage Threshold Review Cadence (TBH-21)
-
-The `CoverageThreshold=60` floor lives in `dev-tools/verify.ps1:49` as a literal. Without an
-explicit review cadence, the number can drift silently over time. This section anchors the policy
-so future audits can detect drift.
+**Review cadence (TBH-21, re-anchored):**
 
 | Field | Value |
 |-------|-------|
-| **Coverage threshold** | `60%` (line-coverage floor, P2-06 initial value) |
+| **Budgets** | per-directory table above (baseline − 1.0 pt) |
 | **Review cadence** | **Quarterly** (every 90 days) |
-| **Last reviewed** | 2026-08-30 (TBH-21 — multi-agent audit 2026-08-30) |
-| **Next review due** | 2026-11-28 (or earlier if a coverage regression is observed) |
+| **Last reviewed** | 2026-09-27 (HARD-02 — owner decisions (a)+(c)) |
+| **Next review due** | 2026-12-26 (or earlier if a budget violation is observed) |
 | **Owner** | `vanta-lead` (release/CI orchestrator) |
-| **Source of truth** | This section of `docs/dev/operations/CI_POLICY.md` |
+| **Source of truth** | This section + `dev-tools/coverage-budget.ps1` (`$CoverageBudget`) |
 
-**What "review" means:** at each quarterly checkpoint, run the coverage gate against the current
-`main`/`develop` tip and compare the measured line-coverage against the `60%` floor. If measured
-coverage has climbed materially (e.g. ≥+5 points) the floor should ratchet upward per the
-"escalation policy" above. If the floor needs to be lowered (regression), it requires a documented
-justification (ADR or PR description) and the same owner sign-off as the original threshold.
+**What "review" means:** at each checkpoint, regenerate the report with the command
+above (or download the nightly `coverage-report` artifact) and compare each budgeted
+directory against its baseline. If a bucket climbed materially (e.g. ≥+5 pt), ratchet
+baseline/budget upward in both places. Lowering a budget requires a documented
+justification and the same owner sign-off as the original decision. If
+`cargo-llvm-cov` is missing, the script prints a warning and exits 0 (missing tool
+never blocks `just verify`).
 
-**What does NOT change here:** `dev-tools/verify.ps1:49` continues to hold the literal `60`. This
-section is the single source of truth for the review schedule; the script comment at line 48
-already points back to `CI_POLICY.md`.
+**Test exclusion:** cargo-llvm-cov excludes `tests/` directories and `*_tests.rs`
+files from the report by default; bench files outside `src/` are excluded from
+budgets by the `src/*` bucket filter. The `-E` filter is the same RESOURCE-GUARD
+exclusion set documented in §"Fast Gate Test Exclusions" (single source:
+`dev-tools/gate-common.ps1` `Get-FastGateFilter`).
 
 **Policy decision (COV-004, 2026-08-09):** the strategic coverage policy — root crate vs workspace
 aggregate vs per-runner binding measurement — is decided in
-[ADR-015](../../dev/architecture/adr/ADR-015-coverage-policy.md) (accepted, owner TBD). In force:
+[ADR-0015](../../dev/architecture/adr/ADR-0015-coverage-policy.md) (accepted, owner TBD). In force:
 
-- Gate canónico (ADR-018, supersede ADR-015 §D1): root crate antadb ≥ 80% line (baseline
+- Gate canónico (ADR-0018, supersede ADR-0015 §D1): root crate antadb ≥ 80% line (baseline
   81.40%). Workspace aggregate (root + antadb-python, 72.76% medida) se reporta solo para
   visibilidad. Nunca bajar el umbral de 80% para acomodar un baseline.
   to accommodate a baseline.
@@ -460,21 +547,7 @@ datasets. You can also trigger it manually from the GitHub Actions UI:
 3. Click **Run workflow**.
 4. You can optionally check the boxes to include `SIFT-1M validation` or `Competitive benchmarks`.
 
-## Docker Image Publishing (SRV-07)
+## Docker Image Publishing — retired (2026-10-02)
 
-The release pipeline **builds** the Docker image but deliberately **does not push** it to any
-registry:
+Docker support was removed repo-wide by owner decision: the `docker-image` job was deleted from `release-binaries.yml`, the Dockerfiles/compose files were removed, and deployment docs no longer cover containers.
 
-- The `docker-image` job in `.github/workflows/release-binaries.yml` runs `docker build`
-  against the root `Dockerfile` on every release / tag / manual dispatch, then executes two
-  unprivileged smoke checks under an arbitrary uid (`--user 10001:10001`): data-dir
-  write-through and `vantadb-server --help` via the default entrypoint.
-- The image is exported with `docker save` and attached to the GitHub Release as a
-  `vantadb-server-<tag>-linux-amd64-image.tar.gz` asset (+ sha256), so self-hosted users can
-  `docker load` it without a registry dependency.
-- **Why no push:** the registry choice (ghcr.io vs Docker Hub vs both) fixes the canonical
-  `docker run <image>` string used in marketing/docs and needs credentials that are not
-  provisioned. It is a brand decision, not a CI default. When one is decided, add a
-  login/push step to this same job — the build and smoke halves already exist.
-- Machines without a Docker daemon cannot verify the image locally; this CI job is the
-  verification gate (build failure turns the release lane red — no silent breakage).

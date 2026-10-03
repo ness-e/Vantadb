@@ -1,3 +1,9 @@
+---
+title: "DESKTOP-23: Persistencia de preferencias UI (tema/layout/filtros) en app_config_dir con save atómico"
+kind: task
+description: "desktop/src/store/persisted-stores.test.ts (patrón de tests DESKTOP-26),"
+---
+
 # DESKTOP-23: Persistencia de preferencias UI (tema/layout/filtros) en app_config_dir con save atómico
 
 ## Metadata

@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: CleanCA Fase 2 — puntos no aplicados de la guía (2026-09-13)"
+kind: plan
+status: archived
+description: "Status: ⬆️ uphill = 2 (Config monolítico intencional?, ciclo sdk↔parser alcance exacto) · ⬇️ downhill = 16"
+---
+
 # Plan de Ejecución: CleanCA Fase 2 — puntos no aplicados de la guía (2026-09-13)
 
 > **Fuente:** `.opencode/references/clean-code-clean-architecture.md` (guía) + 5 digests

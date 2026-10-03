@@ -1,10 +1,10 @@
 ---
-title: "Avance — Desktop (Tauri)"
-type: domain-log
+title: Avance — Desktop (Tauri)
+kind: review
 status: active
-tags: [vantadb, avance, desktop, tauri, rust, frontend]
-last_reviewed: 2026-08-27
+description: "Verificación: Select-String DAUD docs/dev/Backlog.md 0 filas | \DAUD- (solo header P37 0 Cerrada + historial), pwsh scripts/check-avance-coverage.ps1 1038+9/1038+9 (o 1038/1038 sin DAUD en fuentes) 0 gaps, pwsh..."
 aliases: [DESKTOP]
+tags: [vantadb, avance, desktop, tauri, rust, frontend]
 ---
 
 # Avance — Desktop (Tauri)
@@ -161,7 +161,7 @@ aliases: [DESKTOP]
 
 ### WEB-00: Abstraer `vanta.ts` de Tauri invoke (transporte pluggable)
 - **Fecha:** 2026-08-19
-- **Resultado:** ✅ `desktop/src/transport.ts` (interface `VantaTransport` + `TauriBackend` + `HttpBackend` stub + factory) + `desktop/src/vanta.ts` refactor mecánico 1:1 (55 exports intactos). Commit `0cccd326`. ADR-026 (D11/D12).
+- **Resultado:** ✅ `desktop/src/transport.ts` (interface `VantaTransport` + `TauriBackend` + `HttpBackend` stub + factory) + `desktop/src/vanta.ts` refactor mecánico 1:1 (55 exports intactos). Commit `0cccd326`. ADR-0026 (D11/D12).
 
 ### WEB-01: REST: superficie de la consola (CRUD + search + list + IQL + health/metrics/audit)
 - **Fecha:** 2026-08-19
@@ -185,7 +185,7 @@ aliases: [DESKTOP]
 
 ### WEB-06: E2E Playwright contra server real + docs/ADR
 - **Fecha:** 2026-08-19
-- **Resultado:** ✅ `desktop/scripts/selfcheck-web-e2e.ts` (11 checks exit 0) + fix namespace default REST (bug cazado por E2E: `ListParams.namespace` default `"default"`). Commit `583dad9a`. ADR-026 en `docs/dev/architecture/`.
+- **Resultado:** ✅ `desktop/scripts/selfcheck-web-e2e.ts` (11 checks exit 0) + fix namespace default REST (bug cazado por E2E: `ListParams.namespace` default `"default"`). Commit `583dad9a`. ADR-0026 en `docs/dev/architecture/`.
 
 ### MEM-53: Desktop IPC commands para pipeline vanta-memory (H4)
 - **Fuente:** Plan P33 Ultima Milla (Task 8) / auditoría integración final
@@ -210,7 +210,7 @@ aliases: [DESKTOP]
 - `docs/progreso/campanas/admin-desktop.md` (split GOV-D2) / snapshot-2026-08-07.
 - `docs/dev/research/DESKTOP-01-tauri-plataforma-desktop.md`.
 
-### ERR-015 (shutdown gracioso) — migrado 2026-08-12 (ver docs/progreso/README.md)
+- ERR-015 (shutdown gracioso) — migrado 2026-08-12 (ver docs/progreso/README.md)
 
 ### DESKTOP-23: Persistencia de preferencias UI (tema/layout/filtros)
 - **Fecha:** 2026-08-24
@@ -234,7 +234,7 @@ aliases: [DESKTOP]
 
 ### DESKTOP-27: Docs + ADR Vanta Studio
 - **Fecha:** 2026-08-24
-- **Resultado:** ? `docs/user/desktop/README.md` (instalaci�n, tabla 3 transportes, comandos IPC, troubleshooting) + `ARCHITECTURE.md` (ConnectionManager registry+active_id, trait VantaConnection, NativeConnection spawn_blocking+path lock, ServerClient Bearer, WASM como backend frontend-only OPFSIDB - no WasmConnection Rust, shutdown_all orden, ConnectionSelector eliminado ADMIN-03) + `GUIDE.md` ES por modo. ADR-026/027/028 referenciados sin duplicar. Review vanta-arch fresh-context: APPROVE (7/7 claims con evidencia file:line).
+- **Resultado:** ? `docs/user/desktop/README.md` (instalaci�n, tabla 3 transportes, comandos IPC, troubleshooting) + `ARCHITECTURE.md` (ConnectionManager registry+active_id, trait VantaConnection, NativeConnection spawn_blocking+path lock, ServerClient Bearer, WASM como backend frontend-only OPFSIDB - no WasmConnection Rust, shutdown_all orden, ConnectionSelector eliminado ADMIN-03) + `GUIDE.md` ES por modo. ADR-0026/027/028 referenciados sin duplicar. Review vanta-arch fresh-context: APPROVE (7/7 claims con evidencia file:line).
 - **Ids:** `DESKTOP-27`
 
 ### DESKTOP-28: Unificar paneles legacy al design system Studio

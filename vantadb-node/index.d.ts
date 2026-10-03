@@ -15,6 +15,12 @@
 // Parameter overrides live on each `#[napi(ts_arg_type=…)]` in src/lib.rs per the
 // official mechanism: https://napi.rs/docs/concepts/types-overwrite
 // Runtime parsing/validation happens in Rust regardless of these types.
+//
+// Casing (Gate P, API-01 foundation): public methods are camelCase (`putBatch`);
+// payload keys stay snake_case until the wire payload migrates in W1/API-02 —
+// one casing per payload. Normative table:
+// `docs/api/BINDINGS_NAMESPACES.md` § Casing Contract. `node_id`/`id` and
+// graph ids travel as decimal strings (u128 > Number.MAX_SAFE_INTEGER).
 
 /** Tagged JSON representation of a graph/metadata field value (serde externally-tagged enum). */
 export type VantaValue =
@@ -47,6 +53,9 @@ export interface MemoryInput {
   payload: string
   metadata?: VantaMetadata
   vector?: number[]
+  /** Sparse term-weight vector keyed by dimension id. Empty/undefined skips
+   * sparse indexing. */
+  sparse_vector?: Record<string, number> | null
   /** TTL in milliseconds relative to now. Must be a non-negative integer. */
   ttl_ms?: number
 }
@@ -68,6 +77,30 @@ export interface MemoryRecord {
   expires_at_ms: number | null
   superseded_by?: string | null
   superseded_at_ms?: number | null
+  /** Provenance class (ADR-046): `"Asserted"` (direct writer claim) or
+   * `"Derived"` (computed by the engine from `derived_from` parents). */
+  confidence_class: 'Asserted' | 'Derived'
+  /** Confidence range in [0, 1] — a declared/computed range, NOT a calibrated
+   * probability (see `docs/api/scores.md`). Default 1.0 for asserted. */
+  confidence: number
+  /** Last successful re-validation timestamp (ms); `null` = never validated. */
+  last_validated_at_ms: number | null
+  /** Parent record keys for a `derived` record (empty for asserted). */
+  derived_from: string[]
+  /** Start of the validity window (ADR-046 §D3, SCH-07); v1 records normalize
+   * to `created_at_ms`. */
+  valid_at_ms: number
+  /** End of the validity window (exclusive); `null` = open-ended. */
+  invalid_at_ms?: number | null
+  /** Quarantine entry timestamp (SCH-07); `null` = active (not quarantined). */
+  quarantined_at_ms?: number | null
+  /** Stable quarantine reason code (`explicit_write`, `unreviewed_import`,
+   * `derived_promotion`, `policy_match`); the code set may grow. */
+  quarantine_reason?: string | null
+  /** Principal that applied the quarantine (or `system:<op>`). */
+  quarantined_by?: string | null
+  /** Review deadline (ms); `null` = no default deadline configured. */
+  quarantine_review_due_ms?: number | null
 }
 
 /** Options for `list()`. */
@@ -75,6 +108,24 @@ export interface MemoryListOptions {
   filters?: VantaMetadata
   limit?: number
   cursor?: number
+  /** Valid-time point (SCH-07, ADR-046 §D3): keep only records whose validity
+   * window contains this unix-ms instant. Omit/null = no temporal filter. */
+  as_of_ms?: number | null
+  /** Valid-time window overlap (SCH-07): half-open `[from_ms, to_ms)`;
+   * `from_ms < to_ms` is validated at the core boundary. */
+  valid_window?: ValidWindow | null
+  /** Include quarantined records (SCH-07, ADR-046 §D5). Default false:
+   * quarantined content is excluded from search/list/retrieval. */
+  include_quarantined?: boolean
+  /** Opt-in confidence filter (SCH-07, ADR-046 §D2): keep only records whose
+   * `confidence` is `>= min_confidence` (finite, in [0, 1]). */
+  min_confidence?: number | null
+}
+
+/** Half-open valid-time window `[from_ms, to_ms)` (ADR-046 §D3). */
+export interface ValidWindow {
+  from_ms: number
+  to_ms: number
 }
 
 /** Result of `list()`. */
@@ -87,10 +138,26 @@ export interface MemoryListResult {
 export interface SearchRequest {
   namespace: string
   query_vector: number[]
+  /** Sparse query vector keyed by dimension id; fused with dense/text scores.
+   * Pass an empty `query_vector` with `text_query` for text-only (BM25). */
+  query_sparse?: Record<string, number> | null
   filters?: VantaMetadata
   text_query?: string
   top_k?: number
   distance_metric?: 'Cosine' | 'Euclidean'
+  /** Opt-in confidence filter (SCH-04, ADR-046): keep only hits whose record
+   * `confidence` is `>= min_confidence` (finite, in [0, 1]). Omit/null = no
+   * filter (default). */
+  min_confidence?: number | null
+  /** Valid-time point (SCH-07, ADR-046 §D3): keep only records whose validity
+   * window contains this unix-ms instant. Omit/null = no temporal filter. */
+  as_of_ms?: number | null
+  /** Valid-time window overlap (SCH-07): half-open `[from_ms, to_ms)`;
+   * `from_ms < to_ms` is validated at the core boundary. */
+  valid_window?: ValidWindow | null
+  /** Include quarantined records (SCH-07, ADR-046 §D5). Default false:
+   * quarantined content is excluded from search/list/retrieval. */
+  include_quarantined?: boolean
   explain?: boolean
 }
 

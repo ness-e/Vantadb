@@ -1,3 +1,9 @@
+---
+title: "Task: MEM-27 — vanta-proxy rate-limit + write-back + mem-command + reporting (P30 / Task 9)"
+kind: task
+description: ✅ COMPLETED — todos los steps verificados; suite vanta-proxy 52/52 (26 previos + 26 nuevos)
+---
+
 # Task: MEM-27 — vanta-proxy rate-limit + write-back + mem-command + reporting (P30 / Task 9)
 
 ## Estado

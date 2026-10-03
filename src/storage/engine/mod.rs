@@ -591,6 +591,18 @@ impl StorageEngine {
         })
     }
 
+    /// Whether a transaction is currently active on this engine.
+    ///
+    /// WIRE-06: the group-commit ingestion path must fall back to the
+    /// per-record `insert()` inside a transaction — `insert()` buffers writes
+    /// into the transaction write set (ERR-013) while `batch_insert_with_opts`
+    /// applies directly, which would break transaction isolation.
+    #[cfg(feature = "async-ingestion")]
+    #[inline]
+    pub(crate) fn has_active_transaction(&self) -> bool {
+        self.txn.has_active()
+    }
+
     /// Create an instant filesystem snapshot of the live data directory.
     ///
     /// # Consistency (FIND-25)
@@ -633,6 +645,9 @@ impl StorageEngine {
     /// via `Embedded::open`.
     #[cfg(unix)]
     pub fn create_snapshot(&self, name: &str) -> crate::error::Result<FsSnapshot> {
+        // WIRE-09: the name becomes a path segment under `snapshots/` —
+        // validate BEFORE any filesystem touch (paridad `snapshot_restore`).
+        Self::validate_snapshot_name(name)?;
         // Read-only engines have nothing in flight to quiesce, and flush()
         // would fail its ensure_writable() guard.
         if !self.read_only {
@@ -680,6 +695,8 @@ impl StorageEngine {
     /// via `Embedded::open`.
     #[cfg(any(windows, target_arch = "wasm32"))]
     pub fn create_snapshot(&self, name: &str) -> crate::error::Result<FsSnapshot> {
+        // WIRE-09: same sandbox as the Unix variant (paridad `snapshot_restore`).
+        Self::validate_snapshot_name(name)?;
         if !self.read_only {
             self.flush()?;
         }

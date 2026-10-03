@@ -1,3 +1,9 @@
+---
+title: "INV-015-B: Touch targets < 44px — fix P0"
+kind: task
+description: Documentados para futura tarea; NO corregidos (inventario no disponible + riesgo layout en modales)
+---
+
 # INV-015-B: Touch targets < 44px — fix P0
 
 ## Metadata

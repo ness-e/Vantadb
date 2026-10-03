@@ -1,11 +1,9 @@
 ---
 title: "`sec-codeql.yml` — SEC: CodeQL — Analysis"
-type: workflow
+kind: runbook
 status: active
+description: Ejecuta el análisis estático de seguridad CodeQL de GitHub sobre el código Rust del proyecto para detectar vulnerabilidades
 tags: [vantadb, ci, sec-codeql]
-last_reviewed: 2026-09-15
-aliases: []
-related: [".github/workflows/sec-codeql.yml"]
 ---
 
 # `sec-codeql.yml` — SEC: CodeQL — Analysis

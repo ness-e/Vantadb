@@ -1,7 +1,9 @@
 ---
 title: "RES-01 - ACID Phase 4a: WAL v2 with WalRecord::Prepare"
-date: 2026-08-25
-status: DRAFT - research output, pending human ADR (Regla 5)
+kind: research
+status: "DRAFT - research output, pending human ADR (Regla 5)"
+description: "Should VantaDB move from the current single-phase commit point ([Begin + ops + Commit]"
+date: "2026-08-25"
 task: RES-01 / docs/dev/plans/2026-08-25-batch-core-fixes-research.md
 ---
 
@@ -47,10 +49,10 @@ base) and what does it cost (extra fsync per commit, recovery complexity, format
   durable; `Abort` closes its own extent; a trailing open batch at EOF is discarded
   fail-safe. Lesson ref: `.opencode/task-system/memory/lessons.md:150`.
 - **Prior decisions** — ADR DRV-014
-  (`docs/dev/architecture/adr/DRV-014-wal-batch-tradeoff.md`): the clone of records for
+  (`docs/dev/architecture/adr/ADR-0051-wal-batch-tradeoff.md`): the clone of records for
   shard-grouped `batch_append` was deliberately re-introduced in `cae92db3` for a
   measured 3-5x WAL write speedup; do not "fix" it back. Related roadmap:
-  `docs/dev/architecture/adr/DRV-015-wal-async-roadmap.md` (async/group-commit direction).
+  `docs/dev/architecture/adr/ADR-0052-wal-async-roadmap.md` (async/group-commit direction).
 
 ## 3. Known gap that motivates Prepare: errors are not truthful
 

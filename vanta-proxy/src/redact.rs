@@ -9,6 +9,12 @@
 //! `size_limit`/`dfa_size_limit`, and bodies over `max_scan_bytes` fail open
 //! (transparent proxy invariant). Findings never carry matched values —
 //! only [`RedactKind`] labels — so logs and 422 responses can't echo secrets.
+//!
+//! Two entry points over the SAME detectors: [`Redactor::scan`] is the wire
+//! path (non-UTF-8 fails open — documented proxy invariant) and
+//! [`Redactor::scan_bytes`] scans raw bytes binary-safe, used by the PII
+//! audit (`vanta-pii-audit`) so non-UTF-8 store files are covered instead of
+//! silently skipped.
 
 use serde::Deserialize;
 
@@ -115,11 +121,25 @@ pub enum ApplyOutcome {
     Block(Vec<String>),
 }
 
+/// Outcome of on-write redaction (VER-03): what gets persisted and what is
+/// recorded for traceability.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WriteRedaction {
+    /// Text to persist — masked when findings exist (Block/Mask modes).
+    pub text: String,
+    /// Deduped kind labels of the findings (never values).
+    pub kinds: Vec<String>,
+    /// `true` when `text` differs from the input (mask actually applied).
+    pub masked: bool,
+}
+
 /// Compiled redactor: build once from [`RedactConfig`], reuse per request.
 pub struct Redactor {
     enabled: bool,
     mode: RedactMode,
     customs: Vec<regex::Regex>,
+    /// Same patterns compiled for the byte-oriented scan ([`Self::scan_bytes`]).
+    customs_bytes: Vec<regex::bytes::Regex>,
     max_scan_bytes: usize,
 }
 
@@ -131,24 +151,33 @@ impl Redactor {
     /// (fail-closed: the proxy refuses to start with a bad pattern).
     pub fn new(cfg: &RedactConfig) -> Result<Self, ProxyError> {
         let mut customs = Vec::with_capacity(cfg.patterns.len());
+        let mut customs_bytes = Vec::with_capacity(cfg.patterns.len());
         for p in &cfg.patterns {
             let re = regex::RegexBuilder::new(p)
                 .size_limit(1 << 20)
                 .dfa_size_limit(1 << 20)
                 .build()
                 .map_err(|e| ProxyError::Config(format!("invalid redact pattern: {e}")))?;
+            let re_bytes = regex::bytes::RegexBuilder::new(p)
+                .size_limit(1 << 20)
+                .dfa_size_limit(1 << 20)
+                .build()
+                .map_err(|e| ProxyError::Config(format!("invalid redact pattern: {e}")))?;
             customs.push(re);
+            customs_bytes.push(re_bytes);
         }
         Ok(Self {
             enabled: cfg.enabled,
             mode: cfg.mode,
             customs,
+            customs_bytes,
             max_scan_bytes: cfg.max_scan_bytes,
         })
     }
 
     /// Scan `body`, returning findings sorted by offset. Empty when disabled,
-    /// non-UTF-8, or over the scan cap (fail-open paths).
+    /// non-UTF-8, or over the scan cap (fail-open paths — documented wire
+    /// invariant). For a binary-safe scan use [`Self::scan_bytes`].
     #[must_use]
     pub fn scan(&self, body: &[u8]) -> Vec<Finding> {
         if !self.enabled || body.len() > self.max_scan_bytes {
@@ -158,12 +187,38 @@ impl Redactor {
             return Vec::new();
         };
         let mut out = Vec::new();
-        scan_aws_keys(text, &mut out);
-        scan_aws_secrets(text, &mut out);
-        scan_tokens(text, &mut out);
-        scan_emails(text, &mut out);
+        scan_builtins_bytes(text.as_bytes(), &mut out);
         for re in &self.customs {
             for m in re.find_iter(text) {
+                out.push(Finding {
+                    kind: RedactKind::Custom,
+                    start: m.start(),
+                    end: m.end(),
+                });
+            }
+        }
+        out.sort_by_key(|f| (f.start, f.end));
+        out
+    }
+
+    /// Byte-oriented scan: the SAME built-in detectors plus the same operator
+    /// `patterns` (compiled as `regex::bytes`), applied to raw bytes —
+    /// non-UTF-8 content IS scanned instead of skipped.
+    ///
+    /// Used by the PII audit (`vanta-pii-audit`, ICP-02) so binary store
+    /// files (journals, column data, WAL) are covered instead of failing
+    /// open. Over the scan cap this still fails open; callers that must not
+    /// fail open (the audit) enforce their own cap and treat unscanned input
+    /// as not-clean.
+    #[must_use]
+    pub fn scan_bytes(&self, body: &[u8]) -> Vec<Finding> {
+        if !self.enabled || body.len() > self.max_scan_bytes {
+            return Vec::new();
+        }
+        let mut out = Vec::new();
+        scan_builtins_bytes(body, &mut out);
+        for re in &self.customs_bytes {
+            for m in re.find_iter(body) {
                 out.push(Finding {
                     kind: RedactKind::Custom,
                     start: m.start(),
@@ -194,6 +249,67 @@ impl Redactor {
                 ApplyOutcome::Pass(body.to_vec())
             }
             RedactMode::Mask => ApplyOutcome::Pass(mask_body(body, &findings)),
+        }
+    }
+
+    /// `true` when redaction is enabled (gates on-write provenance fields).
+    #[must_use]
+    pub fn enabled(&self) -> bool {
+        self.enabled
+    }
+
+    /// On-write application (VER-03): redact a to-be-persisted turn.
+    ///
+    /// Reuses the egress detectors and stays consistent with egress modes:
+    /// `Block` and `Mask` mask findings (a completed turn is never dropped or
+    /// blocked — which is why `Block` masks here instead of rejecting), and
+    /// `Log` observes only, the same invariant as the wire. Disabled or no
+    /// findings → the text passes through unchanged.
+    #[must_use]
+    pub fn for_write(&self, text: &str) -> WriteRedaction {
+        // F-03: fail-open over the scan cap is explicit on the write path —
+        // oversized turns persist unscanned (and therefore unsealed).
+        if self.enabled && text.len() > self.max_scan_bytes {
+            tracing::warn!(
+                bytes = text.len(),
+                cap = self.max_scan_bytes,
+                "on-write redaction skipped: turn exceeds scan cap \
+                 (persisted unscanned, no envelope)"
+            );
+            return WriteRedaction {
+                text: text.to_string(),
+                kinds: Vec::new(),
+                masked: false,
+            };
+        }
+        let findings = self.scan(text.as_bytes());
+        if findings.is_empty() {
+            return WriteRedaction {
+                text: text.to_string(),
+                kinds: Vec::new(),
+                masked: false,
+            };
+        }
+        let kinds = dedup_kinds(&findings);
+        match self.mode {
+            RedactMode::Block | RedactMode::Mask => {
+                // Masked output is valid UTF-8 by construction (matches are
+                // char-boundary slices; placeholders are ASCII). The fallback
+                // is lossy (F-02): it must NEVER re-emit the clear original
+                // alongside `masked: true`.
+                let masked =
+                    String::from_utf8_lossy(&mask_body(text.as_bytes(), &findings)).into_owned();
+                WriteRedaction {
+                    text: masked,
+                    kinds,
+                    masked: true,
+                }
+            }
+            RedactMode::Log => WriteRedaction {
+                text: text.to_string(),
+                kinds,
+                masked: false,
+            },
         }
     }
 }
@@ -232,9 +348,18 @@ fn is_aws_key_char(b: u8) -> bool {
     b.is_ascii_uppercase() || b.is_ascii_digit()
 }
 
+/// All built-in detectors over raw bytes (binary-safe: every one is an
+/// ASCII-shape linear scan). Shared by [`Redactor::scan`] and
+/// [`Redactor::scan_bytes`] so the two paths cannot drift apart.
+fn scan_builtins_bytes(bytes: &[u8], out: &mut Vec<Finding>) {
+    scan_aws_keys(bytes, out);
+    scan_aws_secrets(bytes, out);
+    scan_tokens(bytes, out);
+    scan_emails(bytes, out);
+}
+
 /// `AKIA` + 16 uppercase/digits (AWS access key ID shape).
-fn scan_aws_keys(text: &str, out: &mut Vec<Finding>) {
-    let bytes = text.as_bytes();
+fn scan_aws_keys(bytes: &[u8], out: &mut Vec<Finding>) {
     let mut i = 0;
     while i + 20 <= bytes.len() {
         if &bytes[i..i + 4] == b"AKIA" && bytes[i + 4..i + 20].iter().all(|&b| is_aws_key_char(b)) {
@@ -256,8 +381,7 @@ fn is_secret_char(b: u8) -> bool {
 
 /// 40-char secret-ish run shortly after an `aws_secret` marker
 /// (case-insensitive).
-fn scan_aws_secrets(text: &str, out: &mut Vec<Finding>) {
-    let bytes = text.as_bytes();
+fn scan_aws_secrets(bytes: &[u8], out: &mut Vec<Finding>) {
     let needle = b"aws_secret";
     let mut i = 0;
     while i + needle.len() <= bytes.len() {
@@ -299,8 +423,7 @@ fn is_token_char(b: u8) -> bool {
 }
 
 /// Known token prefixes + a run of token chars (suffix ≥ 10).
-fn scan_tokens(text: &str, out: &mut Vec<Finding>) {
-    let bytes = text.as_bytes();
+fn scan_tokens(bytes: &[u8], out: &mut Vec<Finding>) {
     for prefix in TOKEN_PREFIXES {
         let p = prefix.as_bytes();
         let mut i = 0;
@@ -337,8 +460,7 @@ fn is_domain_char(b: u8) -> bool {
 
 /// `local@domain.tld` heuristic: non-empty local part, domain with a dot
 /// and a ≥2-letter TLD.
-fn scan_emails(text: &str, out: &mut Vec<Finding>) {
-    let bytes = text.as_bytes();
+fn scan_emails(bytes: &[u8], out: &mut Vec<Finding>) {
     let mut i = 0;
     while i < bytes.len() {
         if bytes[i] == b'@' {
@@ -351,13 +473,10 @@ fn scan_emails(text: &str, out: &mut Vec<Finding>) {
                 end += 1;
             }
             if start < i && end > i + 1 {
-                let domain = &text[i + 1..end];
-                if let Some(dot) = domain.rfind('.') {
+                let domain = &bytes[i + 1..end];
+                if let Some(dot) = domain.iter().rposition(|&b| b == b'.') {
                     let tld = &domain[dot + 1..];
-                    if !tld.is_empty()
-                        && tld.len() >= 2
-                        && tld.bytes().all(|b| b.is_ascii_alphabetic())
-                    {
+                    if tld.len() >= 2 && tld.iter().all(|b| b.is_ascii_alphabetic()) {
                         out.push(Finding {
                             kind: RedactKind::Email,
                             start,
@@ -407,6 +526,51 @@ mod tests {
         assert!(matches!(r.apply(&raw), ApplyOutcome::Pass(_)));
     }
 
+    /// ICP-02 review (Critical): the byte-oriented scan must see leaks inside
+    /// non-UTF-8 content — while the wire `scan` keeps its documented
+    /// fail-open for non-UTF-8 (transparent-proxy invariant, unchanged).
+    #[test]
+    fn scan_bytes_detects_leaks_inside_non_utf8_binary() {
+        let r = Redactor::new(&enabled_mask()).expect("builds");
+        let mut body = Vec::new();
+        body.extend_from_slice(
+            b"\x00\xff\xfe leaked jane.doe@example.com and AKIAIOSFODNN7EXAMPLE ",
+        );
+        body.extend_from_slice(&[0x80, 0x81, 0xfe]);
+        let findings = r.scan_bytes(&body);
+        let kinds: Vec<&str> = findings.iter().map(|f| f.kind.as_str()).collect();
+        assert!(kinds.contains(&"email"), "kinds: {kinds:?}");
+        assert!(kinds.contains(&"aws_key"), "kinds: {kinds:?}");
+        assert!(
+            r.scan(&body).is_empty(),
+            "the wire scanner stays fail-open for non-UTF-8"
+        );
+    }
+
+    #[test]
+    fn scan_bytes_matches_scan_on_valid_utf8() {
+        let r = Redactor::new(&enabled_mask()).expect("builds");
+        let body = b"contact jane.doe@example.com deploy AKIAIOSFODNN7EXAMPLE token sk-demo0123456789abcdef se\xc3\xb1or";
+        assert_eq!(r.scan(body), r.scan_bytes(body));
+    }
+
+    #[test]
+    fn scan_bytes_applies_custom_patterns_to_binary() {
+        let r = Redactor::new(&RedactConfig {
+            enabled: true,
+            patterns: vec![r"SECRET-\d{4}".into()],
+            ..RedactConfig::default()
+        })
+        .expect("builds");
+        let mut body = b"\xffSECRET-1234\xfe".to_vec();
+        body.push(0x80);
+        let findings = r.scan_bytes(&body);
+        assert!(
+            findings.iter().any(|f| f.kind == RedactKind::Custom),
+            "custom byte pattern missed: {findings:?}"
+        );
+    }
+
     #[test]
     fn overlapping_matches_resolve_to_earliest() {
         let body = b"AKIAIOSFODNN7EXAMPLE";
@@ -423,5 +587,86 @@ mod tests {
             },
         ];
         assert_eq!(mask_body(body, &findings), b"[REDACTED_AWS_KEY]");
+    }
+
+    // ── VER-03: on-write application ─────────────────────────────────────────
+
+    #[test]
+    fn for_write_masks_in_block_and_mask_modes() {
+        for mode in [RedactMode::Block, RedactMode::Mask] {
+            let r = Redactor::new(&RedactConfig {
+                enabled: true,
+                mode,
+                ..RedactConfig::default()
+            })
+            .expect("builds");
+            let out = r.for_write("deploy AKIAIOSFODNN7EXAMPLE now");
+            assert!(
+                out.masked,
+                "{mode:?} must mask on write (never drop a turn)"
+            );
+            assert!(out.text.contains("[REDACTED_AWS_KEY]"));
+            assert!(!out.text.contains("AKIAIOSFODNN7EXAMPLE"));
+            assert_eq!(out.kinds, vec!["aws_key"]);
+        }
+    }
+
+    #[test]
+    fn for_write_log_mode_observes_without_mutating() {
+        let r = Redactor::new(&RedactConfig {
+            enabled: true,
+            mode: RedactMode::Log,
+            ..RedactConfig::default()
+        })
+        .expect("builds");
+        let out = r.for_write("deploy AKIAIOSFODNN7EXAMPLE now");
+        assert!(
+            !out.masked,
+            "log observes, never mutates the persisted text"
+        );
+        assert_eq!(out.text, "deploy AKIAIOSFODNN7EXAMPLE now");
+        assert_eq!(out.kinds, vec!["aws_key"], "kinds stay traceable");
+    }
+
+    #[test]
+    fn for_write_disabled_is_identity() {
+        let r = Redactor::new(&RedactConfig::default()).expect("builds");
+        assert!(!r.enabled());
+        let out = r.for_write("deploy AKIAIOSFODNN7EXAMPLE now");
+        assert!(!out.masked);
+        assert!(out.kinds.is_empty());
+        assert_eq!(out.text, "deploy AKIAIOSFODNN7EXAMPLE now");
+    }
+
+    #[test]
+    fn for_write_masks_multibyte_text_without_losing_non_pii() {
+        let r = Redactor::new(&enabled_mask()).expect("builds");
+        let out = r.for_write("contacto jane.doe@example.com señor 日本語 ok");
+        assert!(out.masked);
+        assert!(out.text.contains("[REDACTED_EMAIL]"));
+        assert!(!out.text.contains("jane.doe@example.com"));
+        assert!(
+            out.text.contains("señor 日本語"),
+            "non-PII multibyte text must survive masking: {}",
+            out.text
+        );
+    }
+
+    #[test]
+    fn for_write_oversize_fails_open_unmasked() {
+        // F-03: over the scan cap the write path persists unscanned — declared
+        // fail-open, never a partial mask.
+        let cfg = RedactConfig {
+            enabled: true,
+            mode: RedactMode::Mask,
+            max_scan_bytes: 16,
+            ..RedactConfig::default()
+        };
+        let r = Redactor::new(&cfg).expect("builds");
+        let text = format!("AKIAIOSFODNN7EXAMPLE {}", "x".repeat(32));
+        let out = r.for_write(&text);
+        assert!(!out.masked, "oversize fails open");
+        assert!(out.kinds.is_empty());
+        assert_eq!(out.text, text, "persisted unscanned (declared cap)");
     }
 }

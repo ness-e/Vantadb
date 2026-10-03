@@ -1,3 +1,9 @@
+---
+title: "VULN-B1-B2 — postcss + vitest bumps en `vantadb-ts` (cierra #26/#40/#41)"
+kind: task
+description: "Cerrar gaps #26 (postcss) y #40/#41 (vitest/@vitest/mocker) en vantadb-ts con bumps mínimos"
+---
+
 # VULN-B1-B2 — postcss + vitest bumps en `vantadb-ts` (cierra #26/#40/#41)
 
 > Plan: `docs/dev/plans/2026-09-22-vulnerabilities.md` (Wave B) · Rama: `fix/vuln-ts-060` desde `develop`

@@ -1,3 +1,9 @@
+---
+title: DESKTOP-09 - ServerConnection sobre cliente IQL + test server real
+kind: task
+description: Adaptador ServerConnection que implementa la trait VantaConnection del
+---
+
 # DESKTOP-09 - ServerConnection sobre cliente IQL + test server real
 
 - **Estado:** ✅ COMPLETED (2026-08-07)

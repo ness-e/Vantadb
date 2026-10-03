@@ -1,11 +1,9 @@
 ---
 title: "`ci-web.yml` — CI: Web — Build & Lint (Next.js)"
-type: workflow
+kind: runbook
 status: active
+description: Pipeline de integración continua para el frontend web (Next.js 16 + React 19 + shadcn/ui + Tailwind v4) del sitio de VantaDB
 tags: [vantadb, ci, ci-web]
-last_reviewed: 2026-09-15
-aliases: []
-related: [".github/workflows/ci-web.yml"]
 ---
 
 # `ci-web.yml` — CI: Web — Build & Lint (Next.js)

@@ -1,10 +1,10 @@
 ---
-title: "Persistencia"
-type: glossary-entry
+title: Persistencia
+kind: glossary
 status: stable
-tags: [glosario, persistencia, storage, durabilidad]
-last_reviewed: 2026-09-15
+description: "La persistencia es la capacidad de un sistema de almacenamiento de datos para mantener la información de forma duradera más allá del ciclo de vida del proceso que la creó. En bases de datos, esto implica garantizar que los datos..."
 aliases: [persistence, storage, almacenamiento]
+tags: [glosario, persistencia, storage, durabilidad]
 ---
 
 # Persistencia
@@ -17,7 +17,7 @@ La **persistencia** es la capacidad de un sistema de almacenamiento de datos par
 
 VantaDB implementa persistencia mediante múltiples capas:
 
-### 1. Write-Ahead Log ([WAL](WAL.md))
+### 1. Write-Ahead Log ([WAL](./wal.md))
 
 Registro secuencial de todas las mutaciones, distribuido en **N shards round-robin** para reducir contención.
 
@@ -32,8 +32,8 @@ pub struct ShardedWal {
 pub fn append(&self, record: &WalRecord) -> Result<()> {
     let idx = self.counter.fetch_add(1, Ordering::Relaxed) as usize % self.num_shards;
     let mut shard = self.shards[idx].lock();
-    let payload = bincode::serialize(record)?;
-    let crc = crc32c(&payload);  // Checksum [CRC32C](CRC32C.md)
+    let payload = postcard::to_extend(record, Vec::new())?;
+    let crc = crc32c(&payload);  // Checksum [CRC32C](./crc32c.md)
     shard.writer.write_all(&payload)?;
     shard.writer.write_all(&crc.to_le_bytes())?;
     if shard.sync_mode == SyncMode::Always {
@@ -49,8 +49,8 @@ Motor de almacenamiento key-value que mantiene el estado canónico:
 
 | Backend | Características | Uso |
 |---------|-----------------|-----|
-| **[Fjall](Fjall.md)** | 100% Rust, LSM-tree, transacciones | Default |
-| **[RocksDB](RocksDB.md)** | C++, battle-tested, column families | Fallback/benchmarking |
+| **[Fjall](./fjall.md)** | 100% Rust, LSM-tree, transacciones | Default |
+| **[RocksDB](./rocksdb.md)** | C++, battle-tested, column families | Fallback/benchmarking |
 
 ### 3. Memory-Mapped Files ([mmap](mmap.md))
 
@@ -84,14 +84,14 @@ En recovery, los registros de todos los shards se leen, se ordenan por `global_s
 | Modo | Descripción | Performance | Durabilidad |
 |------|-------------|-------------|-------------|
 | `SyncMode::Always` | fsync en cada write | Baja | Máxima |
-| `SyncMode::Periodic` | fsync cada N segundos | Media | Alta |
+| `SyncMode::Periodic` | sync cada `flush_threshold` registros; threshold default = 1 → equivale a sync por write | Media | Alta |
 | `SyncMode::Never` | Sin fsync explícito | Alta | Mínima |
 
 ## Véase También
 
-- [WAL](WAL.md) - Write-Ahead Log
-- [Fjall](Fjall.md) - Backend de almacenamiento
-- [RocksDB](RocksDB.md) - Backend alternativo
+- [WAL](./wal.md) - Write-Ahead Log
+- [Fjall](./fjall.md) - Backend de almacenamiento
+- [RocksDB](./rocksdb.md) - Backend alternativo
 - [fsync](fsync.md) - Sincronización a disco
-- [CRC32C](CRC32C.md) - Checksum de integridad
+- [CRC32C](./crc32c.md) - Checksum de integridad
 - [mmap](mmap.md) - Memory-mapped I/O

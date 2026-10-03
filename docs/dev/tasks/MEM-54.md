@@ -1,3 +1,9 @@
+---
+title: MEM-54 — Skills CRUD en server HTTP (H5)
+kind: task
+description: Archivos leídos completos (secciones relevantes)
+---
+
 # MEM-54 — Skills CRUD en server HTTP (H5)
 
 ## Meta

@@ -1,9 +1,9 @@
 ---
-title: "Zero-Copy"
-type: glossary-entry
+title: Zero-Copy
+kind: glossary
 status: stable
+description: "Zero-Copy es una técnica de optimización que evita copiar datos entre buffers de memoria, accediendo directamente a la fuente de datos original"
 tags: [vantadb, glosario, performance, memoria]
-last_reviewed: 2026-09-15
 links: "[Glosario](./README.md)"
 ---
 
@@ -151,8 +151,8 @@ fn get_vector<'a>(&'a self, offset: usize) -> &'a [f32] {
 ## Véase También
 
 - [mmap](mmap.md) — Memory-mapped I/O
-- [SIMD](SIMD.md) — Aceleración de operaciones sobre datos zero-copy
-- [HNSW](HNSW.md) — Índice que usa zero-copy para vectores
+- [SIMD](./simd.md) — Aceleración de operaciones sobre datos zero-copy
+- [HNSW](./hnsw.md) — Índice que usa zero-copy para vectores
 
 ---
 

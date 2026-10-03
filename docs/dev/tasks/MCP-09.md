@@ -1,3 +1,9 @@
+---
+title: "MCP-09: D5 — Schema real vs doc: `search_semantic.k` required"
+kind: task
+description: "inputSchema de searchsemantic y la skill coinciden: o k es opcional en el schema (fix server) o la skill dice 'k requerido en schema, opcional en runtime (default 5)' (fix doc); copia sync a .opencode/skills/ con hash SAME si se tocó la..."
+---
+
 # MCP-09: D5 — Schema real vs doc: `search_semantic.k` required
 
 ## Metadata

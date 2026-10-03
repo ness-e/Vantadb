@@ -1,3 +1,9 @@
+---
+title: "FIND-149: Harness L7 — Semgrep OSS + MCP + ast-grep como checks versionados"
+kind: task
+description: "semgrep --config .opencode/configs/semgrep-vanta.yml --error exit 0 en main + 1 regla que falle a propósito en rama test y pase tras fix + dictamen que cita output de semgrep real\""
+---
+
 # FIND-149: Harness L7 — Semgrep OSS + MCP + ast-grep como checks versionados
 
 ## Metadata

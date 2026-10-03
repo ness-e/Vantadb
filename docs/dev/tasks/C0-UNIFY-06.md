@@ -1,3 +1,9 @@
+---
+title: "C0-UNIFY-06: Unificar C0 en forma v2 absorbente (C0-unified.mjs + .md)"
+kind: task
+description: existe pareja nueva .opencode/task-system/C0-unified.mjs + C0-unified.md v2 absorbente con todo (allowed/denied + transiciones/guardas + instrucciones por tipo + BUDGETLIMITS + DoD + Gates D/V/C); state-tools.mjs y workflows/.json...
+---
+
 # C0-UNIFY-06: Unificar C0 en forma v2 absorbente (C0-unified.mjs + .md)
 
 ## Metadata

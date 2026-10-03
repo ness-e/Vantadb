@@ -1,3 +1,9 @@
+---
+title: "DESKTOP-27: Docs + ADR Vanta Studio — README desktop + ARCHITECTURE.md modelo real (transporte pluggable)"
+kind: task
+description: "Callers: docs/user/desktop/ (nuevo), docs/dev/architecture/adr/"
+---
+
 # DESKTOP-27: Docs + ADR Vanta Studio — README desktop + ARCHITECTURE.md modelo real (transporte pluggable)
 
 ## Metadata
@@ -8,7 +14,7 @@
 
 ## Blast Radius
 Callers: docs/user/desktop/ (nuevo), docs/dev/architecture/adr/
-Callees: ADR-026, ADR-027, ADR-028 (ya existen)
+Callees: ADR-0026, ADR-0027, ADR-0028 (ya existen)
 Implicaciones: Documentación completa del modelo Studio para usuarios y desarrolladores
 
 ## Spec
@@ -28,7 +34,7 @@ N/A — documentación con contrato mecánico
 
 ### Step 2: Crear ARCHITECTURE.md del modelo real ✅
 - **Archivos:** `docs/dev/desktop/ARCHITECTURE.md` (nuevo)
-- **Acción:** Documentar arquitectura: `ConnectionManager` (registry + active_id), transportes (NativeConnection, ServerConnection, WasmConnection), `ConnectionSelector` eliminado (ADMIN-03), path lock via NativeConnection, shutdown_all lifecycle. Referenciar ADR-026/027/028 — NO duplicar
+- **Acción:** Documentar arquitectura: `ConnectionManager` (registry + active_id), transportes (NativeConnection, ServerConnection, WasmConnection), `ConnectionSelector` eliminado (ADMIN-03), path lock via NativeConnection, shutdown_all lifecycle. Referenciar ADR-0026/027/028 — NO duplicar
 - **Verify:** Archivo existe y es consistente con código
 
 ### Step 3: Guía de usuario por modo de transporte ✅
@@ -43,7 +49,7 @@ N/A — documentación con contrato mecánico
 - **Verify:** ADR del modelo Studio revisado por vanta-arch
 
 ## Dependencias
-- ADR-026/027/028 ya existen (verificados en backlog)
+- ADR-0026/027/028 ya existen (verificados en backlog)
 
 ## Notas
 - DoD: ADR del modelo Studio revisado por vanta-arch; guía cubre nativo + server + wasm

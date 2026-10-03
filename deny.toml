@@ -20,13 +20,10 @@ ignore = [
     # Tracked: drop when jsonwebtoken offers HS-only features or rsa gets constant-time impl.
     "RUSTSEC-2023-0071",
 
-    # RUSTSEC-2024-0429 (glib <0.20.0, VariantStrIter unsoundness):
-    # mirror of .cargo/audit.toml triage (VULN-C1, owner accept-risk 2026-09-22).
-    # Transitive via Tauri2 (desktop lock only); no own-code use; bump blocked by Tauri2.
-    # Owner: vanta-lead
-    # Expiry: 2027-03-22
-    # Tracked: https://github.com/gtk-rs/gtk-rs-core/pull/1343
-    "RUSTSEC-2024-0429",
+    # RUSTSEC-2024-0429 (glib, Tauri2 desktop lock only): ignore REMOVED here
+    # 2026-10-02 — the root graph cannot reach glib, so cargo-deny reported
+    # advisory-not-detected (stale ignore). Triage stays in .cargo/audit.toml
+    # + VULN-C1 (owner accept-risk 2026-09-22, expiry 2027-03-22).
 
 # RUSTSEC-2024-0436 (paste unmaintained): removed — advisory-not-detected,
     # tikv-jemalloc-ctl no longer pulls paste. Re-add only if it reappears.
@@ -38,9 +35,12 @@ ignore = [
 ]
 
 [licenses]
+# CDLA-Permissive-2.0: webpki-roots (Mozilla CA root data) — permissive data
+# license, no copyleft. Entró al grafo del root con la migración de reqwest a
+# rustls (cross ARM64, FIND-229); mcp/server/proxy ya la traían por sus chains.
 allow = ["MIT", "Apache-2.0", "Apache-2.0 WITH LLVM-exception", "BSD-2-Clause",
          "BSD-3-Clause", "ISC", "Zlib", "Unicode-3.0", "CC0-1.0",
-         "BSL-1.0", "0BSD"]
+         "BSL-1.0", "0BSD", "CDLA-Permissive-2.0"]
 confidence-threshold = 0.8
 
 [bans]

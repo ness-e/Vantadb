@@ -46,6 +46,7 @@ fn test_memory_input_serialize_roundtrip() {
         vector: Some(vec![0.1, 0.2, 0.3]),
         sparse_vector: None,
         ttl_ms: Some(60000),
+        ..Default::default()
     };
     let json = serde_json::to_string(&input).unwrap();
     let back: MemoryInput = serde_json::from_str(&json).unwrap();
@@ -75,6 +76,7 @@ fn test_memory_record_serialize() {
         expires_at_ms: None,
         superseded_by: None,
         superseded_at_ms: None,
+        ..Default::default()
     };
     let json = serde_json::to_string(&record).unwrap();
     let back: MemoryRecord = serde_json::from_str(&json).unwrap();
@@ -96,7 +98,15 @@ fn test_search_request_serialize() {
         explain: true,
         query_sparse: None,
         exclude_superseded: false,
+        min_confidence: None,
+        as_of_ms: None,
+        valid_window: None,
+        include_quarantined: false,
         search_profile: None,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
     };
     let json = serde_json::to_string(&req).unwrap();
     let back: MemorySearchRequest = serde_json::from_str(&json).unwrap();
@@ -121,6 +131,7 @@ fn test_search_hit_serialize() {
         expires_at_ms: None,
         superseded_by: None,
         superseded_at_ms: None,
+        ..Default::default()
     };
     let hit = MemorySearchHit {
         record: record.clone(),
@@ -143,6 +154,46 @@ fn test_list_page_serialize() {
     let back: MemoryListPage = serde_json::from_str(&json).unwrap();
     assert!(back.records.is_empty());
     assert!(back.next_cursor.is_none());
+}
+
+#[test]
+fn test_search_page_serialize_with_abstention_signal() {
+    // SCH-07 (ADR-046 §D2): the page wire carries the selective-abstention
+    // signal with stable snake_case codes — the same shape every page-shaped
+    // transport (HTTP `SearchPageV2`, MCP structuredContent) mirrors.
+    let page = MemorySearchPage {
+        hits: vec![],
+        next_cursor: None,
+        abstained: true,
+        abstention_reason: Some(AbstentionReason::NoCandidatesAboveThreshold),
+    };
+    let json = serde_json::to_value(&page).unwrap();
+    assert_eq!(json["abstained"], serde_json::json!(true));
+    assert_eq!(
+        json["abstention_reason"],
+        serde_json::json!("no_candidates_above_threshold")
+    );
+    let back: MemorySearchPage = serde_json::from_value(json).unwrap();
+    assert!(back.abstained);
+    assert_eq!(
+        back.abstention_reason,
+        Some(AbstentionReason::NoCandidatesAboveThreshold)
+    );
+
+    // Default (no threshold / no quarantine drain): both fields at defaults,
+    // and a v1-style payload without them still deserializes (serde default).
+    let page = MemorySearchPage {
+        hits: vec![],
+        next_cursor: None,
+        abstained: false,
+        abstention_reason: None,
+    };
+    let json = serde_json::to_value(&page).unwrap();
+    assert_eq!(json["abstention_reason"], serde_json::Value::Null);
+    let legacy: MemorySearchPage =
+        serde_json::from_value(serde_json::json!({"hits": [], "next_cursor": null})).unwrap();
+    assert!(!legacy.abstained);
+    assert_eq!(legacy.abstention_reason, None);
 }
 
 #[test]
@@ -203,6 +254,30 @@ fn test_query_result_serialize() {
 }
 
 #[test]
+fn test_query_result_write_missing_node_id_defaults_none() {
+    // API-01 R1 (review P2-01): producers that predate the `u128_serde`
+    // change (or omit `node_id`) must still deserialize. `deserialize_with`
+    // bypasses serde_derive's `missing_field` default path, so the field
+    // needs an explicit `#[serde(default)]` — without it this payload fails
+    // with "missing field `node_id`".
+    let json = r#"{"Write":{"affected_nodes":1,"message":"old"}}"#;
+    let parsed: QueryResult =
+        serde_json::from_str(json).expect("missing node_id must default to None");
+    match parsed {
+        QueryResult::Write {
+            affected_nodes,
+            message,
+            node_id,
+        } => {
+            assert_eq!(affected_nodes, 1);
+            assert_eq!(message, "old");
+            assert_eq!(node_id, None);
+        }
+        other => panic!("expected Write variant, got {other:?}"),
+    }
+}
+
+#[test]
 fn test_capabilities_serialize() {
     let caps = Capabilities {
         runtime_profile: RuntimeProfile::LowResource,
@@ -238,6 +313,7 @@ fn test_import_report_serialize() {
         updated: 2,
         skipped: 0,
         errors: 0,
+        quarantined: 3,
         duration_ms: 30,
     };
     let json = serde_json::to_string(&report).unwrap();
@@ -368,4 +444,115 @@ fn test_search_explanation_serialize() {
     let json = serde_json::to_string(&explanation).unwrap();
     let back: SearchExplanation = serde_json::from_str(&json).unwrap();
     assert_eq!(back.route, "hybrid");
+}
+
+#[test]
+fn test_query_result_write_node_id_u128_wire_string() {
+    // Wire contract (API-01): u128 ids travel as decimal strings so ids > 2^53
+    // survive JSON — consistent with MemoryRecord/StaleContext (`u128_serde`).
+    let big: u128 = (1u128 << 63) + 7;
+    let write = QueryResult::Write {
+        affected_nodes: 1,
+        message: "created".into(),
+        node_id: Some(big),
+    };
+    let json = serde_json::to_string(&write).unwrap();
+    assert!(
+        json.contains("\"node_id\":\""),
+        "node_id must serialize as a decimal string, got: {json}"
+    );
+    assert!(
+        json.contains(&big.to_string()),
+        "decimal string must carry the full u128 value: {json}"
+    );
+    let back: QueryResult = serde_json::from_str(&json).unwrap();
+    match back {
+        QueryResult::Write { node_id, .. } => assert_eq!(node_id, Some(big)),
+        other => panic!("expected Write, got {other:?}"),
+    }
+
+    // `None` stays null and roundtrips.
+    let none = QueryResult::Write {
+        affected_nodes: 0,
+        message: "noop".into(),
+        node_id: None,
+    };
+    let json_none = serde_json::to_string(&none).unwrap();
+    let back_none: QueryResult = serde_json::from_str(&json_none).unwrap();
+    match back_none {
+        QueryResult::Write { node_id, .. } => assert_eq!(node_id, None),
+        other => panic!("expected Write, got {other:?}"),
+    }
+
+    // Legacy numeric payloads (<= u64) still deserialize (backward-compatible read).
+    let legacy = r#"{"Write":{"affected_nodes":1,"message":"old","node_id":42}}"#;
+    let back_legacy: QueryResult = serde_json::from_str(legacy).unwrap();
+    match back_legacy {
+        QueryResult::Write { node_id, .. } => assert_eq!(node_id, Some(42)),
+        other => panic!("expected Write, got {other:?}"),
+    }
+}
+
+// ── SCH-04: confidence fields on the serde wire (HTTP/MCP propagate the
+// record/hit JSON by serde; these tests pin the D2 contract) ────────────────
+
+#[test]
+fn memory_record_confidence_fields_serialize_with_declared_values() {
+    let record = MemoryRecord {
+        confidence_class: ConfidenceClass::Derived,
+        confidence: 0.45,
+        last_validated_at_ms: Some(1_700_000_000_000),
+        derived_from: vec!["parent-1".into(), "parent-2".into()],
+        ..Default::default()
+    };
+
+    let json = serde_json::to_value(&record).unwrap();
+    assert_eq!(json["confidence_class"], serde_json::json!("Derived"));
+    // serde_json widens f32 → f64 on the wire (JSON has no f32): compare
+    // against the exact widened value, not the decimal literal.
+    assert_eq!(json["confidence"].as_f64(), Some(f64::from(0.45f32)));
+    assert_eq!(
+        json["last_validated_at_ms"],
+        serde_json::json!(1_700_000_000_000u64)
+    );
+    assert_eq!(
+        json["derived_from"],
+        serde_json::json!(["parent-1", "parent-2"])
+    );
+
+    let back: MemoryRecord = serde_json::from_value(json).unwrap();
+    assert_eq!(back.confidence_class, ConfidenceClass::Derived);
+    assert_eq!(back.confidence, 0.45);
+    assert_eq!(back.last_validated_at_ms, Some(1_700_000_000_000));
+    assert_eq!(
+        back.derived_from,
+        vec!["parent-1".to_string(), "parent-2".into()]
+    );
+}
+
+#[test]
+fn memory_record_v1_json_without_confidence_defaults_to_d_a() {
+    // v1 payload (pre-0.8.0) has none of the confidence fields: serde defaults
+    // must normalize it to the ratified D_a semantics (asserted, 1.0, never
+    // validated, no parents).
+    let json = serde_json::json!({
+        "namespace": "ns",
+        "key": "k",
+        "payload": "p",
+        "metadata": {},
+        "created_at_ms": 1,
+        "updated_at_ms": 2,
+        "version": 1,
+        "node_id": 7,
+        "vector": null,
+        "expires_at_ms": null,
+        "superseded_by": null,
+        "superseded_at_ms": null,
+    });
+
+    let record: MemoryRecord = serde_json::from_value(json).unwrap();
+    assert_eq!(record.confidence_class, ConfidenceClass::Asserted);
+    assert_eq!(record.confidence, 1.0);
+    assert_eq!(record.last_validated_at_ms, None);
+    assert!(record.derived_from.is_empty());
 }

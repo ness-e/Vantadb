@@ -1,3 +1,9 @@
+---
+title: "REVIEW-06: OOM rustc en cargo test --workspace — fix [profile.test]"
+kind: task
+description: "cargo nextest run -p vantadb --profile audit compila sin OOM y cargo check --workspace compila sin OOM (perfiles de compilación acotados: [profile.test] debug=1/opt-level=0 + build.jobs = 2)\""
+---
+
 # REVIEW-06: OOM rustc en cargo test --workspace — fix [profile.test]
 
 ## Metadata

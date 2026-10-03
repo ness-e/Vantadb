@@ -1,3 +1,9 @@
+---
+title: "OLD-12: Pilot Program Formal (Early Adopters)"
+kind: task
+description: "Fuente: Backlog Phase 9 (Old Docs Rescue)"
+---
+
 # OLD-12: Pilot Program Formal (Early Adopters)
 
 **Fuente:** Backlog Phase 9 (Old Docs Rescue)  

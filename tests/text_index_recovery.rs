@@ -52,6 +52,10 @@ fn search_keys(
         filters,
         text_query: Some(text_query.to_string()),
         top_k,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
         ..Default::default()
     })
     .expect("text search")
@@ -483,7 +487,9 @@ fn text_index_export_import_round_trip_rebuildable() {
         .expect("export namespace");
 
     let target = Embedded::open(target_dir.path()).expect("open target");
-    let imported = target.import_file(&export_path).expect("import file");
+    let imported = target
+        .import_file(&export_path, false)
+        .expect("import file");
     assert_eq!(imported.inserted, 1);
     assert_eq!(imported.errors, 0);
 
@@ -543,6 +549,10 @@ fn text_query_bm25_uses_tf_df_and_document_length() {
             filters: Default::default(),
             text_query: Some("alpha".to_string()),
             top_k: 2,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
             ..Default::default()
         })
         .expect("tf search");
@@ -587,6 +597,10 @@ fn text_query_bm25_uses_tf_df_and_document_length() {
             filters: Default::default(),
             text_query: Some("anchor".to_string()),
             top_k: 2,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
             ..Default::default()
         })
         .expect("length search");
@@ -638,6 +652,10 @@ fn text_query_is_namespace_scoped_filtered_and_deterministic() {
         filters: Default::default(),
         text_query: Some("tie".to_string()),
         top_k: 2,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
         ..Default::default()
     })
     .expect("metrics search");
@@ -663,6 +681,10 @@ fn hybrid_text_vector_uses_rrf_and_read_only_does_not_repair() {
                 filters: Default::default(),
                 text_query: Some("alpha".to_string()),
                 top_k: 10,
+                range: None,
+                group_by: None,
+                mmr: None,
+                cursor: None,
                 ..Default::default()
             })
             .expect("hybrid search");
@@ -679,6 +701,10 @@ fn hybrid_text_vector_uses_rrf_and_read_only_does_not_repair() {
                 filters: Default::default(),
                 text_query: Some("alpha".to_string()),
                 top_k: 10,
+                range: None,
+                group_by: None,
+                mmr: None,
+                cursor: None,
                 ..Default::default()
             })
             .expect("debug hybrid plan");
@@ -717,6 +743,10 @@ fn hybrid_text_vector_uses_rrf_and_read_only_does_not_repair() {
         filters: Default::default(),
         text_query: Some("alpha".to_string()),
         top_k: 10,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
         ..Default::default()
     });
     assert!(text.is_err());
@@ -726,6 +756,10 @@ fn hybrid_text_vector_uses_rrf_and_read_only_does_not_repair() {
         filters: Default::default(),
         text_query: Some("alpha".to_string()),
         top_k: 10,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
         ..Default::default()
     });
     assert!(hybrid.is_err());
@@ -739,6 +773,10 @@ fn hybrid_text_vector_uses_rrf_and_read_only_does_not_repair() {
             filters: Default::default(),
             text_query: Some("alpha".to_string()),
             top_k: 10,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
             ..Default::default()
         })
         .expect("hybrid after repair");
@@ -772,6 +810,10 @@ fn hybrid_respects_metadata_filters_and_reopen_import_export() {
             filters: filters.clone(),
             text_query: Some("alpha".to_string()),
             top_k: 10,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
             ..Default::default()
         })
         .expect("filtered hybrid");
@@ -787,6 +829,10 @@ fn hybrid_respects_metadata_filters_and_reopen_import_export() {
             filters: missing_filter,
             text_query: Some("alpha".to_string()),
             top_k: 10,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
             ..Default::default()
         })
         .expect("empty filtered hybrid");
@@ -798,7 +844,7 @@ fn hybrid_respects_metadata_filters_and_reopen_import_export() {
     source.close().expect("close source");
 
     let target = Embedded::open(target_dir.path()).expect("open target");
-    target.import_file(&export_path).expect("import");
+    target.import_file(&export_path, false).expect("import");
     target.flush().expect("flush target");
     target.close().expect("close target");
 
@@ -810,6 +856,10 @@ fn hybrid_respects_metadata_filters_and_reopen_import_export() {
             filters,
             text_query: Some("alpha".to_string()),
             top_k: 10,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
             ..Default::default()
         })
         .expect("hybrid after import reopen");
@@ -836,6 +886,10 @@ fn hybrid_ordering_is_deterministic_on_ties() {
             filters: Default::default(),
             text_query: Some("tie".to_string()),
             top_k: 10,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
             ..Default::default()
         })
         .expect("hybrid tie search");
@@ -856,6 +910,10 @@ fn debug_search_explain_reports_snippet_bm25_and_rrf_ranks() {
             filters: Default::default(),
             text_query: Some("\"alpha fused\"".to_string()),
             top_k: 10,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
             ..Default::default()
         })
         .expect("explain hybrid");
@@ -892,6 +950,10 @@ fn debug_memory_search_plan_reports_all_routes() {
             filters: Default::default(),
             text_query: Some("alpha".to_string()),
             top_k: 2,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
             ..Default::default()
         })
         .expect("debug text plan");
@@ -907,6 +969,10 @@ fn debug_memory_search_plan_reports_all_routes() {
             filters: Default::default(),
             text_query: None,
             top_k: 2,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
             ..Default::default()
         })
         .expect("debug vector plan");
@@ -922,6 +988,10 @@ fn debug_memory_search_plan_reports_all_routes() {
             filters: Default::default(),
             text_query: Some("alpha".to_string()),
             top_k: 0,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
             ..Default::default()
         })
         .expect("debug empty plan");

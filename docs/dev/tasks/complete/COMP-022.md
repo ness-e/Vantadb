@@ -1,3 +1,9 @@
+---
+title: "COMP-022: Graph Data Science library (PageRank, centrality)"
+kind: task
+description: "Estado: ✅ COMPLETED"
+---
+
 # COMP-022: Graph Data Science library (PageRank, centrality)
 
 **Estado:** ✅ COMPLETED

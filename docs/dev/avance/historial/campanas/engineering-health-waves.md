@@ -1,11 +1,9 @@
 ---
 title: "Engineering Health Waves — bloqueantes F0, VFY, COMP, IVF"
-type: registro
+kind: review
 status: archived
+description: "Objetivo: Cerrar los 6 items de Fase 0 que bloqueaban el release público. 3 implementadas, 1 diferida (nice-to-have pre-1.0), 2 ya completadas previamente"
 tags: [vantadb, avance, campana]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Engineering Health Waves — bloqueantes F0, VFY, COMP, IVF

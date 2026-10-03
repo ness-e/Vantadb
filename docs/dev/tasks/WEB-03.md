@@ -1,3 +1,9 @@
+---
+title: "WEB-03 — Servir estáticos `/dashboard` + SPA fallback + flag CLI"
+kind: task
+description: Archivos leídos completos
+---
+
 # WEB-03 — Servir estáticos `/dashboard` + SPA fallback + flag CLI
 
 > Plan: `docs/dev/plans/2026-08-18-vanta-studio-fase3.md` · Wave 1 · Estado: ✅ COMPLETO (commits 62d63377/0da6d33c - fase 3)

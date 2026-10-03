@@ -1,3 +1,9 @@
+---
+title: FIND-146 — Pins SHA supply-chain + guard doble-run opencode
+kind: task
+description: "Eliminar tags móviles en 4 workflows (supply-chain) + guard doble-run en opencode.yml. Cambios mínimos, sin cambiar semántica del bot"
+---
+
 # FIND-146 — Pins SHA supply-chain + guard doble-run opencode
 
 > **Plan:** docs/dev/plans/2026-09-21-workflows-repair.md (Wave 2) · **Estado:** ⏳ IN PROGRESS

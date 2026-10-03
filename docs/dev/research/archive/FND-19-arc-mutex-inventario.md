@@ -1,3 +1,10 @@
+---
+title: "FND-19 — Inventario `Arc<Mutex<>>` en el core (Fase 0 pre-launch)"
+kind: research
+status: archived
+description: "Totales contrato: NECESARIA = 1 · SOSPECHOSA = 1 · ANIDADA (red flag) = 0"
+---
+
 # FND-19 — Inventario `Arc<Mutex<>>` en el core (Fase 0 pre-launch)
 
 > **Tipo:** Auditoría (NO fixes) · **Prioridad:** 🔴 · **Esfuerzo:** 🟢

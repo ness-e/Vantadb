@@ -1,11 +1,8 @@
 ---
 title: "VantaDB Pro — Delivery & Distribution"
-type: strategy
+kind: concept
 status: active
 tags: [vantadb, strategy, pro-delivery, distribution]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # VantaDB Pro — Delivery & Distribution

@@ -1,3 +1,9 @@
+---
+title: "DEVOPS-HOMEBREW: Homebrew formula"
+kind: task
+description: "brew audit --new-formula Formula/vantadb.rb pasa sin errores críticos. La formula referencia URLs de GitHub Releases y SHA256 checksums.\""
+---
+
 # DEVOPS-HOMEBREW: Homebrew formula
 
 ## Metadata

@@ -797,6 +797,10 @@ MemorySearchRequest {
     distance_metric: Euclidean,
     explain: true,
     exclude_superseded: true,
+    min_confidence: None,
+    as_of_ms: None,
+    valid_window: None,
+    include_quarantined: false,
     search_profile: Some(
         SearchProfileConfig {
             mode: Hybrid,
@@ -808,4 +812,8 @@ MemorySearchRequest {
             ),
         },
     ),
+    range: None,
+    group_by: None,
+    mmr: None,
+    cursor: None,
 }

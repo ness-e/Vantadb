@@ -1,12 +1,11 @@
 ---
-title: "WASM"
-type: glossary-entry
+title: WASM
+kind: glossary
 status: stable
-tags: [concept, runtime, browser, edge, wasm]
-last_reviewed: 2026-09-15
-links: "[[README.md]]"
+description: Portable binary format executing at near-native speed in browsers and edge runtimes
 aliases: [WASM, WebAssembly]
-description: "Binary instruction format for stack-based VMs; VantaDB compiles to it for browser and edge runtimes."
+tags: [concept, runtime, browser, edge, wasm]
+links: "[[README.md]]"
 ---
 
 # WASM

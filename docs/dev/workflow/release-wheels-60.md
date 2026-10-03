@@ -1,11 +1,9 @@
 ---
 title: "`release-wheels.yml` — RELEASE: Wheels — Build & Publish"
-type: workflow
+kind: runbook
 status: active
+description: "Construye, prueba y publica los wheels Python (vantadb-py) para Linux, macOS y Windows. Incluye smoke tests de importación y funcionales, y verificación de build provenance"
 tags: [vantadb, ci, release-wheels]
-last_reviewed: 2026-09-15
-aliases: []
-related: [".github/workflows/release-wheels.yml"]
 ---
 
 # `release-wheels.yml` — RELEASE: Wheels — Build & Publish

@@ -1,3 +1,8 @@
+---
+title: "MCP-12: F4/F5/F7/F8/F9/F10/F11 — Comportamientos de borde no documentados"
+kind: task
+---
+
 # MCP-12: F4/F5/F7/F8/F9/F10/F11 — Comportamientos de borde no documentados
 
 ## Metadata

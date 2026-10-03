@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Cleanup Gates + Higiene 2026-09-07"
+kind: plan
+status: archived
+description: "Status: ⬆️ uphill = 1 (GOV-TK2 alcance real del gap) · ⬇️ downhill = 3"
+---
+
 # Plan de Ejecución: Cleanup Gates + Higiene 2026-09-07
 
 > **Campaign ID:** dc17423f-72c8-45d4-827e-167e46273d7c

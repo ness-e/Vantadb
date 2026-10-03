@@ -1,3 +1,9 @@
+---
+title: "PROV-10: store() con custom key/upsert determinista"
+kind: task
+description: "Los 3 providers (openai, ollama, litellm) generan keys de store() con nanosegundo ({prefix}{ts})"
+---
+
 # PROV-10: store() con custom key/upsert determinista
 
 ## Metadata

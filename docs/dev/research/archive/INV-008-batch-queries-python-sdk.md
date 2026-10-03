@@ -1,3 +1,10 @@
+---
+title: INV-008 — Batch Queries Python SDK (diseño)
+kind: research
+status: archived
+description: searchbatch vector-only YA EXISTE y funciona end-to-end
+---
+
 # INV-008 — Batch Queries Python SDK (diseño)
 
 - **Estado:** DISEÑO — parcialmente implementado (ver Gate 2026-08-03)

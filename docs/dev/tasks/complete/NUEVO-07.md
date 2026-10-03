@@ -1,3 +1,9 @@
+---
+title: "NUEVO-07: Migration tools — Chroma→Vanta, LanceDB→Vanta"
+kind: task
+description: "RIESGO: bajo. Archivos Python nuevos + edición de 2 tutoriales. Sin cambios en src/, bindings ni CI"
+---
+
 # NUEVO-07: Migration tools — Chroma→Vanta, LanceDB→Vanta
 
 ## Metadata

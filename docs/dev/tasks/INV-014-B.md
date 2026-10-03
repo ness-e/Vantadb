@@ -1,3 +1,9 @@
+---
+title: INV-014-B — Limpiar plomería dark inerte (next-themes)
+kind: task
+description: "Estado: ✅ COMPLETED"
+---
+
 # INV-014-B — Limpiar plomería dark inerte (next-themes)
 
 **Estado:** ✅ COMPLETED

@@ -1,3 +1,9 @@
+---
+title: "MCP-35: Fallback HTTP automático N instancias MCP sobre misma BD"
+kind: task
+description: "Plan (canónico): Select-String -Path \"src/cliserver.rs\" -Pattern \"vanta\.server\.json|Database busy|proxy.mcp\" | Measure-Object Count >=2 AND cargo test -p vantadb-mcp -- mcp --nocapture 2>&1 | Select-String \"ok\" | Measure-Object Count >=1"
+---
+
 # MCP-35: Fallback HTTP automático N instancias MCP sobre misma BD
 
 ## Metadata

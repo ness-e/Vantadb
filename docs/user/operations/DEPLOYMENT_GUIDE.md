@@ -1,10 +1,9 @@
 ---
 title: VantaDB Deployment Guide
-type: operations
+kind: runbook
 status: active
+description: "VantaDB runs as a single binary with zero external runtime dependencies (no JVM, no Python, no system database). This makes it straightforward to deploy in production, embedded or as a standalone HTTP/MCP server"
 tags: [vantadb, operations, deployment]
-last_reviewed: 2026-07-10
-aliases: []
 ---
 
 # VantaDB Deployment Guide
@@ -13,10 +12,9 @@ aliases: []
 
 VantaDB runs as a single binary with zero external runtime dependencies (no JVM, no Python, no system database). This makes it straightforward to deploy in production, embedded or as a standalone HTTP/MCP server.
 
-This guide covers three deployment models:
+This guide covers two deployment models:
 
 - **systemd** — Linux production service (recommended for most on-prem)
-- **Docker** — Containerized deployment (portable, CI-friendly)
 - **Kubernetes** — Orchestrated deployment (scalable, cloud-native)
 
 ---
@@ -140,102 +138,7 @@ ExecStart=/usr/local/bin/vanta-cli server --http --port 8081 -d /var/lib/vantadb
 
 ---
 
-## 3. Docker
-
-### Dockerfile
-
-```dockerfile
-FROM alpine:3.21 AS build
-RUN apk add --no-cache curl
-ARG VANTADB_VERSION=0.6.9
-RUN curl -L "https://github.com/ness-e/Vantadb/releases/download/v${VANTADB_VERSION}/vantadb-linux-x86_64.tar.gz" \
-  | tar xz -C /usr/local/bin/
-
-FROM alpine:3.21
-RUN apk add --no-cache ca-certificates tzdata
-RUN addgroup -S vantadb && adduser -S vantadb -G vantadb
-COPY --from=build /usr/local/bin/vanta-cli /usr/local/bin/
-USER vantadb
-EXPOSE 8080
-VOLUME ["/data"]
-ENTRYPOINT ["vanta-cli"]
-CMD ["server", "--http", "--port", "8080", "-d", "/data"]
-```
-
-### Docker Compose
-
-```yaml
-# docker-compose.yml
-services:
-  vantadb:
-    build: .
-    ports:
-      - "8080:8080"
-    volumes:
-      - vantadb-data:/data
-    environment:
-      - VANTADB_RATE_LIMIT_RPM=1000
-      - VANTADB_LOG_FORMAT=json
-      - VANTADB_BACKEND=fjall
-      - RUST_LOG=info
-      - VANTADB_API_KEY=${VANTADB_API_KEY}
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "vanta-cli", "status"]
-      interval: 15s
-      timeout: 5s
-      retries: 3
-
-volumes:
-  vantadb-data:
-```
-
-For a full local-first demo stack (VantaDB + Ollama, CPU-only, no API keys), use the multi-service [`docker-compose.yml`](../../../docker-compose.yml) at the repo root — quickstart and RAM/GPU notes are in its header.
-
-### Quick Start
-
-```bash
-# Build and run
-docker compose up -d
-
-# Verify
-curl http://localhost:8080/health
-
-# With API key
-curl -H "Authorization: Bearer $(cat .apikey)" http://localhost:8080/health
-```
-
-### Run unprivileged (arbitrary UID)
-
-The root `Dockerfile` image runs as non-root by default (`vantadb`, uid 1001; override at
-build time with `--build-arg VANTA_RUNAS_UID=<uid>`). Any uid can be used at runtime without
-rebuilding — the data dir `/var/lib/vantadb` is mode 0777 (qdrant pattern), so named volumes
-inherit world-writable perms and arbitrary `--user` values work out of the box:
-
-```bash
-# Sanity check as an arbitrary uid (what CI runs on every release):
-docker run --rm --user 10001:10001 --entrypoint /bin/sh vantadb-server:latest \
-  -c 'touch /var/lib/vantadb/.write-test'
-docker run --rm --user 10001:10001 vantadb-server:latest --help
-
-# Named volume (perms inherited from the image):
-docker run -d --user 10001:10001 -v vantadb-data:/var/lib/vantadb \
-  -e VANTADB_HOST=0.0.0.0 -e VANTADB_STORAGE_PATH=/var/lib/vantadb \
-  -p 8080:8080 vantadb-server:latest
-
-# Host bind-mount: the host dir must be writable by the running uid:
-mkdir -p ./data && chmod 777 ./data
-docker run -d --user 10001:10001 -v "$PWD/data:/var/lib/vantadb" \
-  -e VANTADB_HOST=0.0.0.0 -e VANTADB_STORAGE_PATH=/var/lib/vantadb \
-  -p 8080:8080 vantadb-server:latest
-```
-
-Further hardening (read-only rootfs, `--cap-drop=ALL`) at runtime:
-see `hardening.md` §5. Registry publishing policy: `CI_POLICY.md` §Docker image publishing.
-
----
-
-## 4. Kubernetes
+## 3. Kubernetes
 
 ### Namespace
 
@@ -430,7 +333,7 @@ kubectl -n vantadb logs -l app=vantadb -f
 
 ---
 
-## 5. Configuration Reference
+## 4. Configuration Reference
 
 All configuration is via environment variables. See [CONFIGURATION.md](CONFIGURATION.md) for the full reference.
 
@@ -462,7 +365,7 @@ export RUST_LOG=info
 
 ---
 
-## 6. Security
+## 5. Security
 
 ### Authentication
 
@@ -519,7 +422,7 @@ export VANTADB_TLS_KEY=/etc/vantadb/key.pem
 
 ---
 
-## 7. Backup & Restore
+## 6. Backup & Restore
 
 See [BACKUP_POLICY.md](BACKUP_POLICY.md) for the full backup operational policy.
 
@@ -528,15 +431,15 @@ See [BACKUP_POLICY.md](BACKUP_POLICY.md) for the full backup operational policy.
 vanta-cli backup --out /backups/vantadb-$(date +%F)
 
 # Restore (target DB dir must be empty; add --force to overwrite)
-vanta-cli restore --input /backups/vantadb-2026-07-10 --db /var/lib/vantadb/data
+vanta-cli restore --in /backups/vantadb-2026-07-10 --db /var/lib/vantadb/data
 
 # Restore with index rebuild
-vanta-cli restore --input /backups/vantadb-2026-07-10 --rebuild --force --db /var/lib/vantadb/data
+vanta-cli restore --in /backups/vantadb-2026-07-10 --rebuild --force --db /var/lib/vantadb/data
 ```
 
 ---
 
-## 8. Monitoring
+## 7. Monitoring
 
 ### Health Check
 
@@ -575,7 +478,7 @@ export OTEL_SERVICE_NAME=vantadb-production
 
 ---
 
-## 9. Performance Tuning
+## 8. Performance Tuning
 
 ### OS Tuning
 
@@ -604,7 +507,7 @@ Limit VantaDB memory via systemd `MemoryMax=` or container resource limits (`--m
 
 ---
 
-## 10. Troubleshooting
+## 9. Troubleshooting
 
 | Problem | Likely Cause | Solution |
 |---------|-------------|----------|

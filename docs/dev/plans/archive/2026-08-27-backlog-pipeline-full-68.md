@@ -1,3 +1,10 @@
+---
+title: "Plan: 2026-08-27 Backlog Pipeline"
+kind: plan
+status: archived
+description: O para ejecutar la primera tarea
+---
+
 # Plan: 2026-08-27 Backlog Pipeline
 
 > Fuente: `docs/dev/Backlog.md` (triage 2026-08-27)

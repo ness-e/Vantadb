@@ -1,3 +1,9 @@
+---
+title: "TASK ERR-TS-01: Unificar TS/WASM codes VANTADB_* + wrapNativeError + guards VantaError"
+kind: task
+description: Verificados en fuente
+---
+
 # TASK ERR-TS-01: Unificar TS/WASM codes VANTADB_* + wrapNativeError + guards VantaError
 
 ## Metadata

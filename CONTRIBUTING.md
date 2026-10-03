@@ -105,6 +105,17 @@ The repo uses **`main` as the release branch, `develop` as the working branch**:
 | `main` | Releases only | Never commit directly — only PRs from `develop` |
 | `develop` | Daily work | Every change starts here |
 
+> **Agent-assisted flows (owner decision 2026-09-25):** agents never `git push`
+> without an explicit owner instruction; commits are made **locally at the end
+> of each task/block**. PRs to `main` come **only from `develop`** (no
+> `hotfix/*` branches from `main` — prohibited) and require the owner's OK
+> before creation. See `.opencode/AGENTS.md` Regla 7 §Política de git.
+
+> **Continuity between pushes:** while commits stay local (push deferred to
+> plan close / owner instruction), run `pwsh scripts/git-backup.ps1` to keep a
+> verified off-repo bundle (fail-closed `git bundle verify`; restore with
+> `git clone <bundle>`). Rule: [`RULES.md` §8](docs/dev/workflow/RULES.md).
+
 ```
 change code on develop → commit → push → PR to main → merge to main
                                                           ↓

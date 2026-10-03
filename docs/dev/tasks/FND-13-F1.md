@@ -1,3 +1,9 @@
+---
+title: "FND-13-F1 (BENCH01): Claims fantasma de performance en web/src/"
+kind: task
+description: "Encontrar y neutralizar los claims de performance fantasma (~5,400 vec/s y similares) que siguen vivos en web/src/ (frontend Next.js). Aplicar Regla 11: sin benchmark reproducible citado → quitar el número o el adjetivo de performance..."
+---
+
 # FND-13-F1 (BENCH01): Claims fantasma de performance en web/src/
 
 ## Metadata

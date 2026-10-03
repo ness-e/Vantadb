@@ -1,3 +1,9 @@
+---
+title: "GOV-A1: Medición openapi parity docs/api/openapi.yaml vs src/server/routing.rs"
+kind: task
+description: "node scripts/checkopenapiparity.mjs → Parity OK (0 extra, 0 missing, 0 methodDiff) AND cargo check --workspace exit 0"
+---
+
 # GOV-A1: Medición openapi parity docs/api/openapi.yaml vs src/server/routing.rs
 
 ## Metadata

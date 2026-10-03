@@ -1,3 +1,9 @@
+---
+title: Task DEBT-01 — Reparar gate docs-coverage + 13 gaps reales
+kind: task
+description: "Plan: docs/dev/plans/2026-08-05-backlog-validation-actions.md → Task 19 (Fase 3, Engineering Health)"
+---
+
 # Task DEBT-01 — Reparar gate docs-coverage + 13 gaps reales
 
 **Plan:** `docs/dev/plans/2026-08-05-backlog-validation-actions.md` → Task 19 (Fase 3, Engineering Health)

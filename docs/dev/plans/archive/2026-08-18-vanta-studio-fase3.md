@@ -1,3 +1,9 @@
+---
+title: "Plan de Ejecución: Vanta Studio — Fase 3 (web/embebido)"
+kind: plan
+status: archived
+---
+
 # Plan de Ejecución: Vanta Studio — Fase 3 (web/embebido)
 
 > **Campaign ID:** 9d4f2b8e-7c1a-4e6f-9d3b-5a8c2f7e1d60
@@ -126,5 +132,5 @@
 
 ## RECITATION (progreso — patrón lead)
 
-- **Estado:** ✅ FASE 3 COMPLETA — 7/7 tareas (WEB-00..06), campaña `9d4f2b8e-7c1a-4e6f-9d3b-5a8c2f7e1d60` cerrada 2026-08-19. ADR-026 en `docs/dev/architecture/`. Registro en `docs/progreso/README.md` (WEB-00..06) + mirror `docs/dev/avance/activo/desktop.md`. Backlog P25/P26 actualizados.
+- **Estado:** ✅ FASE 3 COMPLETA — 7/7 tareas (WEB-00..06), campaña `9d4f2b8e-7c1a-4e6f-9d3b-5a8c2f7e1d60` cerrada 2026-08-19. ADR-0026 en `docs/dev/architecture/`. Registro en `docs/progreso/README.md` (WEB-00..06) + mirror `docs/dev/avance/activo/desktop.md`. Backlog P25/P26 actualizados.
 - **Próximo (fuera de scope):** Fase 4 — WASM/OPFS (D10); auth fuerte 3 capas (MEM-05); rate limiter default a evaluar para ráfagas UI; endpoints `/api/v2/metrics` JSON + graph DTO desktop para cerrar los 8 rechazos de vanta-http-map.

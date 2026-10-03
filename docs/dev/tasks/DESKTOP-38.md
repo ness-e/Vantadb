@@ -1,3 +1,9 @@
+---
+title: "DESKTOP-38: Dashboard PROXY — visualizar TurnReports, sesiones, cola write-back, rate-limit"
+kind: task
+description: "Callers: desktop/src/components/proxy/ (nuevos), desktop/src/components/layout/WorkspaceShell.tsx"
+---
+
 # DESKTOP-38: Dashboard PROXY — visualizar TurnReports, sesiones, cola write-back, rate-limit
 
 ## Metadata

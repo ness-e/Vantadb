@@ -41,6 +41,10 @@ fn main() -> Result<(), Box<dyn Error>> {
                 namespace: "concurrent".into(),
                 query_vector: vec![0.1, 0.2, 0.3],
                 top_k: 5,
+                range: None,
+                group_by: None,
+                mmr: None,
+                cursor: None,
                 ..Default::default()
             }) {
                 Ok(results) => println!("Searcher: got {} results", results.len()),

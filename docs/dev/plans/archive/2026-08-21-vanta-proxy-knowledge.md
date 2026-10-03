@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Vanta Proxy + Knowledge (F6+F7) — proxy transparente + wiki/code-graph"
+kind: plan
+status: archived
+description: "Objetivo: cerrar el roadmap TDAM — F6 vanta-proxy (binario opcional Rust: proxy transparente de 3 protocolos wire con ciclo inject→forward→write-back) y F7 knowledge (wiki store state machine + ingest concurrente + callback S2S + 12..."
+---
+
 # Plan de Ejecución: Vanta Proxy + Knowledge (F6+F7) — proxy transparente + wiki/code-graph
 
 > **Inicio:** 2026-08-21

@@ -1,12 +1,11 @@
 ---
 title: "TDAM — 01: Core pipeline L0→L3 — Investigación profunda"
-type: research
+kind: research
 status: active
+description: "TDAM implementa memoria persistente para agentes en 4 capas LLM-driven: L0 (raw conversation, JSONL diario), L1 (memorias estructuradas vía extracción LLM + dedup), L2 (scene blocks Markdown narrativos), L3 (persona/doctrina). El motor..."
 tags: [vantadb, research, tdam, core-pipeline]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
+
 # TDAM — 01: Core pipeline L0→L3 — Investigación profunda
 
 > Fecha: 2026-08-18 · Agente: vanta-research · Fuente: `TencentCloud/TencentDB-Agent-Memory@97f9465` (branch `feat/server_team`, v2.0.0-beta.1, repo PÚBLICO)

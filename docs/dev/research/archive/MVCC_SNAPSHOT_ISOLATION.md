@@ -1,3 +1,10 @@
+---
+title: MVCC Snapshot Isolation Design
+kind: research
+status: archived
+description: "ACID Phase 3 builds on Phase 1 (WAL records: Begin/Commit/Abort) and Phase 2"
+---
+
 # MVCC Snapshot Isolation Design
 
 ## Context

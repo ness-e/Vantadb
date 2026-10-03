@@ -1,3 +1,9 @@
+---
+title: FIND-66 — Formula sync (ARM64 + head + mcp)
+kind: task
+description: "Evidencia tarball (fuente tercera): release-binaries-63.yml:124 → tar czf vantadb-${{ matrix.target }}.tar.gz -C release vanta-cli vantadb-server (exactamente 2, sin mcp)"
+---
+
 # FIND-66 — Formula sync (ARM64 + head + mcp)
 
 > **Plan:** `docs/dev/plans/2026-09-15-find-correcciones.md` (Task 19, Wave6)

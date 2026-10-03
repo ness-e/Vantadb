@@ -1,3 +1,9 @@
+---
+title: "MEM-28 — Wiki store + state machine pending→ready (core, LLM-free)"
+kind: task
+description: "Plan: docs/dev/plans/2026-08-21-vanta-proxy-knowledge.md · Task 2 · Ruta: vanta-worker"
+---
+
 # MEM-28 — Wiki store + state machine pending→ready (core, LLM-free)
 
 **Plan:** `docs/dev/plans/2026-08-21-vanta-proxy-knowledge.md` · **Task 2** · **Ruta:** vanta-worker

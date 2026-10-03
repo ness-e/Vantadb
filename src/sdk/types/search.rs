@@ -7,7 +7,13 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
 pub use super::super::serialization::vector_types::{
-    MemorySearchHit, MemorySearchRequest, SearchHit,
+    AbstentionReason, GroupByConfig, MemorySearchHit, MemorySearchPage, MemorySearchRequest,
+    MmrConfig, RangeFilter, SearchHit,
+};
+// WIRE-05: opt-in deterministic entity-cluster boost (fusion-level types,
+// re-exported so the public path is `crate::sdk::types::*`).
+pub use super::super::search::fusion::{
+    EntityBoost, EntityBoostProvenance, EntityBoostReport, EntityBoostedSearch,
 };
 /// Stable report returned by manual ANN rebuild through the SDK boundary.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

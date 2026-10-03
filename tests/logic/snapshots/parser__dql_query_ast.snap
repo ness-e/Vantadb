@@ -1,6 +1,5 @@
 ---
 source: tests/logic/parser.rs
-assertion_line: 116
 expression: parsed
 ---
 Query {
@@ -48,4 +47,5 @@ Query {
     ),
     owner_role: None,
     search_profile: None,
+    as_of_ms: None,
 }

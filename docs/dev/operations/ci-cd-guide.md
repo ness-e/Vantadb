@@ -1,11 +1,10 @@
 ---
-title: "VantaDB CI/CD Guide"
-type: operations
+title: VantaDB CI/CD Guide
+kind: runbook
 status: active
-tags: [vantadb, operations, ci-cd, github-actions]
-last_reviewed: 2026-09-15
+description: "VantaDB uses GitHub Actions for continuous integration and delivery. The CI/CD pipeline is organized into 15 workflows, each with a clear category and purpose"
 aliases: [CI-CD]
-related: []
+tags: [vantadb, operations, ci-cd, github-actions]
 ---
 
 # VantaDB CI/CD Guide

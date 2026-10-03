@@ -1,3 +1,9 @@
+---
+title: GOV-D1 — avance/activo catch-up + dominios faltantes
+kind: task
+description: "Estado: ✅ COMPLETO (2026-08-22) · Plan: docs/dev/plans/2026-08-22-doc-governance-plan.md (Task 22)"
+---
+
 # GOV-D1 — avance/activo catch-up + dominios faltantes
 
 **Estado:** ✅ COMPLETO (2026-08-22) · **Plan:** `docs/dev/plans/2026-08-22-doc-governance-plan.md` (Task 22)

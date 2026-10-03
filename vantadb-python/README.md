@@ -1,5 +1,7 @@
 # 🐍 VantaDB Python SDK
 
+> **Status: active** (core-promise surface until 1.0 — the Python SDK is the ICP-03 entry).
+
 Official Python bindings for **VantaDB**, an embedded, native-Rust database engine designed for **persistent memory, hybrid retrieval and graph queries** in local-first AI applications.
 
 ## Why VantaDB instead of a plain vector store?

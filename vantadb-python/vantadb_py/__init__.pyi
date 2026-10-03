@@ -83,6 +83,7 @@ class SearchRequest:
     distance_metric: str | None
     method: str | None
     explain: bool
+    query_sparse: dict | None
 
     def __init__(
         self,
@@ -94,6 +95,7 @@ class SearchRequest:
         distance_metric: str | None = None,
         method: str | None = None,
         explain: bool = False,
+        query_sparse: dict | None = None,
     ) -> None: ...
 
     def asdict(self) -> dict:
@@ -114,6 +116,10 @@ class AsyncMemoryClient:
         limit: int = 100,
         cursor: int | None = None,
         exclude_superseded: bool = False,
+        as_of_ms: int | None = None,
+        valid_window: dict | None = None,
+        include_quarantined: bool = False,
+        min_confidence: float | None = None,
     ) -> ListResult: ...
     async def delete(self, namespace: str, key: str) -> bool: ...
     def __repr__(self) -> str: ...
@@ -142,6 +148,28 @@ class AsyncClient:
         method: str | None = None,
         explain: bool = False,
         exclude_superseded: bool = False,
+        query_sparse: dict | None = None,
+        min_confidence: float | None = None,
+        as_of_ms: int | None = None,
+        valid_window: dict | None = None,
+        include_quarantined: bool = False,
+    ) -> list[SearchHit]: ...
+    async def search_multi(
+        self,
+        namespaces: list[str],
+        query_vector: list[float],
+        *,
+        filters: dict | None = None,
+        text_query: str | None = None,
+        top_k: int = 10,
+        distance_metric: str | None = None,
+        explain: bool = False,
+        exclude_superseded: bool = False,
+        query_sparse: dict | None = None,
+        min_confidence: float | None = None,
+        as_of_ms: int | None = None,
+        valid_window: dict | None = None,
+        include_quarantined: bool = False,
     ) -> list[SearchHit]: ...
     @property
     def memory(self) -> AsyncMemoryClient: ...
@@ -158,6 +186,7 @@ class AsyncClient:
         metadata: dict | None = None,
         vector: list[float] | None = None,
         ttl_ms: int | None = None,
+        sparse_vector: dict | None = None,
     ) -> Record: ...
     async def delete_by_filter(self, namespace: str, filters: dict) -> int: ...
     async def count(self, namespace: str, filters: dict | None = None) -> int: ...
@@ -169,23 +198,10 @@ class AsyncClient:
     async def purge_expired(self) -> int: ...
     async def flush(self) -> None: ...
     async def close(self) -> None: ...
-    async def insert(
-        self, id: int, content: str, vector: Any, fields: dict | None = None
-    ) -> None: ...
     async def insert_node(
         self, id: int, content: str, vector: Any, fields: dict | None = None
     ) -> None: ...
-    async def put_batch(
-        self,
-        *,
-        keys: list[str],
-        vectors: Any,
-        payloads: list[str] | None = None,
-        metadatas: list[dict | None] | None = None,
-        namespace: str | None = None,
-        namespaces: list[str] | None = None,
-        ttls: list[int | None] | None = None,
-    ) -> list[Record]: ...
+    async def put_batch(self, records: list[dict]) -> list[Record]: ...
     async def put_batch_raw(
         self,
         vectors: Any,
@@ -210,9 +226,6 @@ class AsyncClient:
     ) -> dict: ...
     async def repair_text_index(self) -> dict: ...
     async def operational_metrics(self) -> dict: ...
-    async def get(self, id: int) -> dict | None: ...
-    async def delete(self, id: int, reason: str = "manual deletion") -> None: ...
-    # AST-003 node parity aliases (mirror of __init__.py).
     async def get_node(self, id: int) -> dict | None: ...
     async def delete_node(self, id: int, reason: str = "manual deletion") -> None: ...
     async def search_vector(self, vector: Any, top_k: int = 10) -> list[tuple[int, float]]: ...
@@ -269,5 +282,6 @@ class AsyncClient:
         text_query: str | None = None,
         top_k: int = 10,
         distance_metric: str | None = None,
+        query_sparse: dict | None = None,
     ) -> dict: ...
     def __repr__(self) -> str: ...

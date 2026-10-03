@@ -1,12 +1,13 @@
 ---
 title: Glosario VantaDB
-type: glossary
+kind: index
 status: stable
-tags: [vantadb, glossary, reference, concepts, technical]
-last_reviewed: 2026-09-15
-links: "master-index.md"
-description: "Complete index of technical concepts: WAL, HNSW, BM25, FFI, mmap, GIL, RRF, Fjall, RocksDB and more"
+description: New to VantaDB? Start with
 aliases: [Glossary, Concepts, Technical Reference, Dictionary]
+tags: [vantadb, glossary, reference, concepts, technical]
+type: glossary
+last_reviewed: "2026-09-15"
+links: master-index.md
 ---
 
 # Glossary of Technical Concepts — VantaDB
@@ -19,13 +20,13 @@ aliases: [Glossary, Concepts, Technical Reference, Dictionary]
 
 | Concept | Short Description | Relevance in VantaDB |
 |---------|-------------------|----------------------|
-| [[embedded]] | Database operating in-process within the application | Core product identity |
-| [[local-first]] | Design philosophy prioritizing local operations over network | Fundamental architectural principle |
-| [[transactional]] | ACID guarantee over data mutations | Core durability contract |
-| [[zero-config]] | Usage experience without manual setup or config | Competitive advantage over alternatives |
-| [[rag]] | Retrieval-Augmented Generation | Primary use case |
-| [[vectors]] | High-dimensional numerical representations | Central data type |
-| [[graph]] | Node-edge structure with properties | Complementary data model |
+| [embedded](./embedded.md) | Database operating in-process within the application | Core product identity |
+| [local-first](./local-first.md) | Design philosophy prioritizing local operations over network | Fundamental architectural principle |
+| [transactional](./transactional.md) | ACID guarantee over data mutations | Core durability contract |
+| [zero-config](./zero-config.md) | Usage experience without manual setup or config | Competitive advantage over alternatives |
+| [rag](./rag.md) | Retrieval-Augmented Generation | Primary use case |
+| [vectors](./vectors.md) | High-dimensional numerical representations | Central data type |
+| [graph](./graph.md) | Node-edge structure with properties | Complementary data model |
 
 ---
 
@@ -33,18 +34,18 @@ aliases: [Glossary, Concepts, Technical Reference, Dictionary]
 
 | Concept | Short Description | Relevance in VantaDB |
 |---------|-------------------|----------------------|
-| [[persistence]] | Ability to retain data beyond process lifecycle | General durability concept |
-| [[wal]] | Write-Ahead Log — mutation journaling | Durability guarantee prior to ACK |
-| [[fjall]] | 100% Rust LSM-tree engine | Default canonical backend |
-| [[rocksdb]] | LSM-tree engine by Meta (C++) | Alternative backend / benchmarking |
-| [[mmap]] | Memory-Mapped I/O | Zero-copy vector reading |
-| [[fsync]] | Physical disk synchronization | Real persistence guarantee |
-| [[crc32c]] | Hardware-accelerated checksum | WAL record integrity |
-| [[lsm-tree]] | Log-Structured Merge-Tree | Underlying storage engine pattern |
-| [[mvcc]] | Multi-Version Concurrency Control | Transactional isolation |
-| [[crdt]] | Conflict-free Replicated Data Types | Distributed convergence for multi-node scaling |
-| [[bincode]] | Compact binary serialization format | WAL and index state persistence |
-| [[serde]] | Rust serialization/deserialization framework | JSON for HTTP API, bincode for disk storage |
+| [persistence](./persistence.md) | Ability to retain data beyond process lifecycle | General durability concept |
+| [wal](./wal.md) | Write-Ahead Log — mutation journaling | Durability guarantee prior to ACK |
+| [fjall](./fjall.md) | 100% Rust LSM-tree engine | Default canonical backend |
+| [rocksdb](./rocksdb.md) | LSM-tree engine by Meta (C++) | Alternative backend / benchmarking |
+| [mmap](./mmap.md) | Memory-Mapped I/O | Zero-copy vector reading |
+| [fsync](./fsync.md) | Physical disk synchronization | Real persistence guarantee |
+| [crc32c](./crc32c.md) | Hardware-accelerated checksum | WAL record integrity |
+| [lsm-tree](./lsm-tree.md) | Log-Structured Merge-Tree | Underlying storage engine pattern |
+| [mvcc](./mvcc.md) | Multi-Version Concurrency Control | Transactional isolation |
+| [crdt](./crdt.md) | Conflict-free Replicated Data Types | Distributed convergence for multi-node scaling |
+| [bincode](./bincode.md) | Legacy binary format, no longer a dependency | Superseded by postcard for WAL and index state |
+| [serde](./serde.md) | Rust serialization/deserialization framework | JSON for HTTP API, postcard for disk storage |
 
 ---
 
@@ -52,15 +53,15 @@ aliases: [Glossary, Concepts, Technical Reference, Dictionary]
 
 | Concept | Short Description | Relevance in VantaDB |
 |---------|-------------------|----------------------|
-| [[vector-search]] | Semantic similarity search using vectors | Primary retrieval method |
-| [[lexical-search]] | Exact keyword matching search | Complement to vector-search |
-| [[hybrid-search]] | Unified vector + lexical retrieval | Key differentiator |
-| [[hnsw]] | Hierarchical Navigable Small World | Main vector index for ANN |
-| [[bm25]] | Best Matching 25 — lexical scoring | Full-text index |
-| [[rrf]] | Reciprocal Rank Fusion | Fusion of hybrid rankings |
-| [[vector-similarity]] | Distance metrics between vectors (cosine, L2, dot) | Distance computation |
-| [[ann]] | Approximate Nearest Neighbor | Algorithm class for vector search |
-| [[payload-indexes]] | Metadata-field filtering | High-performance query filtering |
+| [vector-search](./vector-search.md) | Semantic similarity search using vectors | Primary retrieval method |
+| [lexical-search](./lexical-search.md) | Exact keyword matching search | Complement to vector-search |
+| [hybrid-search](./hybrid-search.md) | Unified vector + lexical retrieval | Key differentiator |
+| [hnsw](./hnsw.md) | Hierarchical Navigable Small World | Main vector index for ANN |
+| [bm25](./bm25.md) | Best Matching 25 — lexical scoring | Full-text index |
+| [rrf](./rrf.md) | Reciprocal Rank Fusion | Fusion of hybrid rankings |
+| [vector-similarity](./vector-similarity.md) | Distance metrics between vectors (cosine, L2, dot) | Distance computation |
+| [ann](./ann.md) | Approximate Nearest Neighbor | Algorithm class for vector search |
+| [payload-indexes](./payload-indexes.md) | Metadata-field filtering | High-performance query filtering |
 
 ---
 
@@ -68,12 +69,12 @@ aliases: [Glossary, Concepts, Technical Reference, Dictionary]
 
 | Concept | Short Description | Relevance in VantaDB |
 |---------|-------------------|----------------------|
-| [[python-sdk]] | Python bindings generated via PyO3 | Primary end-user interface |
-| [[gil]] | Global Interpreter Lock (Python) | CPU bottleneck bypassed by PyO3 |
-| [[ffi]] | Foreign Function Interface | Python-Rust boundary |
-| [[pyo3]] | Rust/Python binding framework | SDK foundation |
-| [[file-locking]] | Process-level advisory file locks | Multi-process corruption prevention |
-| [[rwlock]] | Read-write lock pattern | Core engine concurrency |
+| [python-sdk](./python-sdk.md) | Python bindings generated via PyO3 | Primary end-user interface |
+| [gil](./gil.md) | Global Interpreter Lock (Python) | CPU bottleneck bypassed by PyO3 |
+| [ffi](./ffi.md) | Foreign Function Interface | Python-Rust boundary |
+| [pyo3](./pyo3.md) | Rust/Python binding framework | SDK foundation |
+| [file-locking](./file-locking.md) | Process-level advisory file locks | Multi-process corruption prevention |
+| [rwlock](./rwlock.md) | Read-write lock pattern | Core engine concurrency |
 
 ---
 
@@ -81,14 +82,14 @@ aliases: [Glossary, Concepts, Technical Reference, Dictionary]
 
 | Concept | Short Description | Relevance in VantaDB |
 |---------|-------------------|----------------------|
-| [[ci-cd]] | Continuous Integration / Deployment | Release automation |
-| [[benchmarks]] | Standardized performance testing | Validating performance claims |
-| [[chaos-testing]] | Controlled failure injection | WAL durability validation |
-| [[failpoints]] | Error injection points | Recovery path testing |
-| [[oidc]] | OpenID Connect | Secure publishing to PyPI |
-| [[sigstore]] | Artifact signing | Verifiable build provenance |
-| [[slsa]] | Supply-chain Levels for Software Artifacts | Build security framework |
-| [[opentelemetry]] | OpenTelemetry tracing and metrics | System observability |
+| [ci-cd](./ci-cd.md) | Continuous Integration / Deployment | Release automation |
+| [benchmarks](./benchmarks.md) | Standardized performance testing | Validating performance claims |
+| [chaos-testing](./chaos-testing.md) | Controlled failure injection | WAL durability validation |
+| [failpoints](./failpoints.md) | Error injection points | Recovery path testing |
+| [oidc](./oidc.md) | OpenID Connect | Secure publishing to PyPI |
+| [sigstore](./sigstore.md) | Artifact signing | Verifiable build provenance |
+| [slsa](./slsa.md) | Supply-chain Levels for Software Artifacts | Build security framework |
+| [opentelemetry](./opentelemetry.md) | OpenTelemetry tracing and metrics | System observability |
 
 ---
 
@@ -96,11 +97,11 @@ aliases: [Glossary, Concepts, Technical Reference, Dictionary]
 
 | Concept | Short Description | Relevance in VantaDB |
 |---------|-------------------|----------------------|
-| [[rag]] | Retrieval-Augmented Generation | Primary use case |
-| [[graphrag]] | RAG with graph traversal | Reducing context tokens by 40-60% |
-| [[ai-agents]] | Autonomous agent systems with memory | Core target user profile |
-| [[mcp]] | Model Context Protocol | Integration with IDEs and agents |
-| [[wasm]] | Binary instruction format for stack-based VM | Browser and edge runtime via Rust compilation target |
+| [rag](./rag.md) | Retrieval-Augmented Generation | Primary use case |
+| [graphrag](./graphrag.md) | RAG with graph traversal | Reducing context tokens by 40-60% |
+| [ai-agents](./ai-agents.md) | Autonomous agent systems with memory | Core target user profile |
+| [mcp](./mcp.md) | Model Context Protocol | Integration with IDEs and agents |
+| [wasm](./wasm.md) | Binary instruction format for stack-based VM | Browser and edge runtime via Rust compilation target |
 
 ---
 
@@ -108,13 +109,13 @@ aliases: [Glossary, Concepts, Technical Reference, Dictionary]
 
 | Concept | Short Description | Relevance in VantaDB |
 |---------|-------------------|----------------------|
-| [[recall]] | Quality metric: % of true neighbors retrieved | HNSW index validation |
-| [[latency]] | Response time (p50, p95, p99) | Performance metric |
-| [[memory-efficiency]] | RAM footprint per indexed vector | Resource optimization |
-| [[simd]] | Single Instruction, Multiple Data | Distance computation acceleration |
-| [[zero-copy]] | Avoid memory duplication | High-throughput reading |
-| [[dashmap]] | Concurrent sharded hash map | Low-contention concurrency |
-| [[backpressure]] | Flow control under high load | Out-of-memory (OOM) prevention |
+| [recall](./recall.md) | Quality metric: % of true neighbors retrieved | HNSW index validation |
+| [latency](./latency.md) | Response time (p50, p95, p99) | Performance metric |
+| [memory-efficiency](./memory-efficiency.md) | RAM footprint per indexed vector | Resource optimization |
+| [simd](./simd.md) | Single Instruction, Multiple Data | Distance computation acceleration |
+| [zero-copy](./zero-copy.md) | Avoid memory duplication | High-throughput reading |
+| [dashmap](./dashmap.md) | Concurrent sharded hash map | Low-contention concurrency |
+| [backpressure](./backpressure.md) | Flow control under high load | Out-of-memory (OOM) prevention |
 
 ---
 
@@ -122,8 +123,8 @@ aliases: [Glossary, Concepts, Technical Reference, Dictionary]
 
 | Concept | Short Description | Relevance in VantaDB |
 |---------|-------------------|----------------------|
-| [[rbac]] | Role-Based Access Control | Granular security |
-| [[multi-tenancy]] | Tenant isolation | VantaDB Cloud architecture |
+| [rbac](./rbac.md) | Role-Based Access Control | Granular security |
+| [multi-tenancy](./multi-tenancy.md) | Tenant isolation | VantaDB Cloud architecture |
 
 ---
 
@@ -133,8 +134,8 @@ aliases: [Glossary, Concepts, Technical Reference, Dictionary]
 
 | Concept | Short Description | Relevance in VantaDB |
 |---------|-------------------|----------------------|
-| [[qdrant]] | Rust vector search engine, client-server architecture | Competitor — VantaDB differentiates on embedded/local-first |
-| [[lancedb]] | Open-source embedded vector database on Lance columnar format | Competitor — VantaDB differentiates on hybrid search + schema-less |
+| [qdrant](./qdrant.md) | Rust vector search engine, client-server architecture | Competitor — VantaDB differentiates on embedded/local-first |
+| [lancedb](./lancedb.md) | Open-source embedded vector database on Lance columnar format | Competitor — VantaDB differentiates on hybrid search + schema-less |
 
 ---
 
@@ -143,25 +144,25 @@ aliases: [Glossary, Concepts, Technical Reference, Dictionary]
 ### By Category
 
 **New to VantaDB?** Start with:
-1. [[embedded]] → Understand the product identity
-2. [[local-first]] → Grasp the core philosophy
-3. [[rag]] → Learn the primary use case
-4. [[persistence]] → Understand durability guarantees
-5. [[vector-search]] → Explore similarity search
-6. [[hybrid-search]] → Read about the hybrid search differentiator
+1. [embedded](./embedded.md) → Understand the product identity
+2. [local-first](./local-first.md) → Grasp the core philosophy
+3. [rag](./rag.md) → Learn the primary use case
+4. [persistence](./persistence.md) → Understand durability guarantees
+5. [vector-search](./vector-search.md) → Explore similarity search
+6. [hybrid-search](./hybrid-search.md) → Read about the hybrid search differentiator
 
 **Technical Profile?** Deep dive into:
-- [[fjall]] vs [[rocksdb]] → Storage backend selection
-- [[gil]] + [[ffi]] + [[pyo3]] + [[python-sdk]] → Python-Rust concurrency
-- [[mmap]] + [[fsync]] → Persistence and performance
-- [[mvcc]] + [[lsm-tree]] → Storage internals
-- [[recall]] + [[latency]] + [[memory-efficiency]] → Performance metrics
+- [fjall](./fjall.md) vs [rocksdb](./rocksdb.md) → Storage backend selection
+- [gil](./gil.md) + [ffi](./ffi.md) + [pyo3](./pyo3.md) + [python-sdk](./python-sdk.md) → Python-Rust concurrency
+- [mmap](./mmap.md) + [fsync](./fsync.md) → Persistence and performance
+- [mvcc](./mvcc.md) + [lsm-tree](./lsm-tree.md) → Storage internals
+- [recall](./recall.md) + [latency](./latency.md) + [memory-efficiency](./memory-efficiency.md) → Performance metrics
 
 **Product Profile?** Focus on:
-- [[zero-config]] → Core user benefit
-- [[transactional]] → Reliability contract
-- [[vectors]] + [[graph]] → Multimodal data model
-- [[hybrid-search]] + [[rrf]] → Search quality
+- [zero-config](./zero-config.md) → Core user benefit
+- [transactional](./transactional.md) → Reliability contract
+- [vectors](./vectors.md) + [graph](./graph.md) → Multimodal data model
+- [hybrid-search](./hybrid-search.md) + [rrf](./rrf.md) → Search quality
 
 ---
 
@@ -169,41 +170,41 @@ aliases: [Glossary, Concepts, Technical Reference, Dictionary]
 
 ```mermaid
 graph TD
-    E[[embedded]] --> LF[[local-first]]
-    LF --> ZC[[zero-config]]
-    E --> T[[transactional]]
-    T --> WAL[[wal]]
-    WAL --> CRC[[crc32c]]
-    WAL --> FS[[fsync]]
-    WAL --> FJ[[fjall]]
-    FJ --> LSM[[lsm-tree]]
-    LSM --> MVCC[[mvcc]]
+    E[embedded](./embedded.md) --> LF[local-first](./local-first.md)
+    LF --> ZC[zero-config](./zero-config.md)
+    E --> T[transactional](./transactional.md)
+    T --> WAL[wal](./wal.md)
+    WAL --> CRC[crc32c](./crc32c.md)
+    WAL --> FS[fsync](./fsync.md)
+    WAL --> FJ[fjall](./fjall.md)
+    FJ --> LSM[lsm-tree](./lsm-tree.md)
+    LSM --> MVCC[mvcc](./mvcc.md)
     
-    P[[persistence]] --> WAL
+    P[persistence](./persistence.md) --> WAL
     P --> FJ
     P --> FS
     
-    RAG[[rag]] --> V[[vectors]]
-    RAG --> G[[graph]]
+    RAG[rag](./rag.md) --> V[vectors](./vectors.md)
+    RAG --> G[graph](./graph.md)
     
-    BV[[vector-search]] --> HNSW[[hnsw]]
-    BL[[lexical-search]] --> BM25[[bm25]]
-    BH[[hybrid-search]] --> BV
+    BV[vector-search](./vector-search.md) --> HNSW[hnsw](./hnsw.md)
+    BL[lexical-search](./lexical-search.md) --> BM25[bm25](./bm25.md)
+    BH[hybrid-search](./hybrid-search.md) --> BV
     BH --> BL
-    BV --> RRF[[rrf]]
+    BV --> RRF[rrf](./rrf.md)
     BL --> RRF
     
-    SDK[[python-sdk]] --> PyO3[[pyo3]]
-    PyO3 --> GIL[[gil]]
-    PyO3 --> FFI[[ffi]]
+    SDK[python-sdk](./python-sdk.md) --> PyO3[pyo3](./pyo3.md)
+    PyO3 --> GIL[gil](./gil.md)
+    PyO3 --> FFI[ffi](./ffi.md)
     
-    mmap[[mmap]] --> HNSW
-    FileLocking[[file-locking]] --> T
-    RwLock[[rwlock]] --> T
+    mmap[mmap](./mmap.md) --> HNSW
+    FileLocking[file-locking](./file-locking.md) --> T
+    RwLock[rwlock](./rwlock.md) --> T
     
-    R[[recall]] --> BV
-    L[[latency]] --> BV
-    ME[[memory-efficiency]] --> HNSW
+    R[recall](./recall.md) --> BV
+    L[latency](./latency.md) --> BV
+    ME[memory-efficiency](./memory-efficiency.md) --> HNSW
     
     style E fill:#f9f,stroke:#333,stroke-width:3px
     style RAG fill:#bbf,stroke:#333,stroke-width:3px

@@ -18,7 +18,7 @@ tracing = "0.1"
 chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
 # Only pulled in with `llm-driver` (standalone OpenAI-compatible runner).
 # Matches the workspace pattern (src/llm.rs: reqwest blocking + json).
-reqwest = { version = "0.12", features = ["json", "blocking"], optional = true }
+reqwest = { version = "0.12", default-features = false, features = ["json", "blocking", "rustls-tls"], optional = true }
 # Only pulled in with `precise-tokens` (D21 amendment, ADR-029): exact cl100k
 # BPE token counting instead of the chars/3 heuristic. Pinned minor to guard
 # against tokenizer drift vs OpenAI's API (Risk Register).

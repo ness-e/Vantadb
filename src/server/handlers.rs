@@ -9,8 +9,8 @@ use crate::connection_pool::PoolError;
 use crate::error::Result;
 use crate::metrics;
 use crate::sdk::{
-    Embedded, MemoryFilter, MemoryInput, MemoryListOptions, MemoryListPage, MemoryRecord,
-    MemorySearchHit, MemorySearchRequest, NamespaceStatsMap, OperationalMetrics,
+    Embedded, MemoryFilter, MemoryInput, MemoryListOptions, MemoryRecord, MemorySearchHit,
+    MemorySearchRequest, NamespaceStatsMap, OperationalMetrics,
 };
 use crate::server::conversation::{
     ServerConversationPorts, StartConversationCommand, StartConversationUseCase,
@@ -20,7 +20,9 @@ use crate::server::errors::{
     thread_not_found_response,
 };
 use crate::server::list_records::{ListRecordsCommand, ListRecordsUseCase, ServerListPorts};
+use crate::server::pagination::{decode_cursor, encode_cursor, list_skills_page, page_meta};
 use crate::server::state::{NodeDTO, QueryRequest, QueryResponse, RequestId, ServerState};
+use crate::AbstentionReason;
 use crate::Error;
 use axum::{
     extract::{Path as AxumPath, Query, State},
@@ -372,6 +374,15 @@ fn clamp_limit(requested: usize) -> usize {
     requested.min(MAX_K)
 }
 
+/// Cursor inválido (no es un token de `next_cursor`) → 400 uniforme.
+fn bad_cursor_response(message: &str) -> Response {
+    (
+        StatusCode::BAD_REQUEST,
+        Json(serde_json::json!({ "success": false, "error": message })),
+    )
+        .into_response()
+}
+
 /// Query params for `GET /api/v2/list`.
 #[derive(Deserialize, Debug)]
 pub struct ListParams {
@@ -379,7 +390,8 @@ pub struct ListParams {
     // que el bridge nativo). Un campo String requerido 400ea en axum antes del handler.
     namespace: Option<String>,
     limit: Option<usize>,
-    cursor: Option<usize>,
+    /// Opaque cursor from a previous page's `next_cursor`.
+    cursor: Option<String>,
     /// JSON array of `MemoryFilterItem`.
     filter_ops: Option<String>,
 }
@@ -414,23 +426,38 @@ pub async fn records_list(
             }
         },
     };
-    let limit = clamp_limit(params.limit.unwrap_or(100));
-    let cursor = params.cursor;
+    let limit = clamp_limit(params.limit.unwrap_or(100)).max(1);
+    let cursor = match params.cursor.as_deref() {
+        Some(raw) => match decode_cursor(raw) {
+            Ok(position) => Some(position),
+            Err(e) => return bad_cursor_response(&e),
+        },
+        None => None,
+    };
     // Humble object (D1c): wire parsing stays here; fan-out + merge +
     // pagination lives in `ListRecordsUseCase` (patrón B1).
     // FIND-24: cross-namespace pagination walks namespaces in stable name
-    // order; `next_cursor` is the cumulative offset within the merged window
+    // order; `next_cursor` is the cumulative position within the merged window
     // and remains backward-compatible with single-namespace clients.
-    /// Fan-out response: same shape as `MemoryListPage` plus an
+    /// Fan-out response: same shape as the single-namespace page plus an
     /// additive signal listing namespaces whose listing is still paginating
     /// (they may hold more records than this response contains).
     #[derive(Serialize)]
     struct AllNamespacesListPage {
         records: Vec<MemoryRecord>,
-        next_cursor: Option<usize>,
+        next_cursor: Option<String>,
+        has_more: bool,
         /// Namespaces still paginating during the fan-out (their
         /// per-ns `MemoryListPage.next_cursor` was `Some`).
         truncated_namespaces: Vec<String>,
+    }
+
+    /// Single-namespace page: cursor + `has_more` (REST-06).
+    #[derive(Serialize)]
+    struct ListPageV2 {
+        records: Vec<MemoryRecord>,
+        next_cursor: Option<String>,
+        has_more: bool,
     }
 
     let namespace = params
@@ -438,10 +465,13 @@ pub async fn records_list(
         .clone()
         .map(|n| n.trim().to_string())
         .filter(|n| !n.is_empty());
+    let base = cursor.unwrap_or(0);
     let cmd = ListRecordsCommand {
         namespace,
         filter_ops,
-        limit,
+        // One extra record tells us whether a next page exists (exact
+        // `has_more`); the response trims back to `limit` below.
+        limit: limit.saturating_add(1),
         cursor,
     };
     match run_db_op(&state, move |db| {
@@ -449,18 +479,22 @@ pub async fn records_list(
     })
     .await
     {
-        Ok(out) => {
+        Ok(mut out) => {
+            let (has_more, next_cursor) = page_meta(out.records.len(), limit, base);
+            out.records.truncate(limit);
             if all_namespaces {
                 Json(AllNamespacesListPage {
                     records: out.records,
-                    next_cursor: out.next_cursor,
+                    next_cursor,
+                    has_more,
                     truncated_namespaces: out.truncated_namespaces,
                 })
                 .into_response()
             } else {
-                Json(MemoryListPage {
+                Json(ListPageV2 {
                     records: out.records,
-                    next_cursor: out.next_cursor,
+                    next_cursor,
+                    has_more,
                 })
                 .into_response()
             }
@@ -470,27 +504,40 @@ pub async fn records_list(
 }
 
 /// JSON body for `POST /api/v2/search`: the SDK search request plus optional
-/// offset pagination (REST-04). `cursor`/`limit` are server-only — the core
-/// `search()` is a top_k window without its own cursor, so the wire pages by
-/// offset over the same score-ranked result set.
+/// cursor pagination (REST-06). `cursor`/`limit` are server-only — the core
+/// `search()` is a top_k window without its own cursor, so the wire paginates
+/// by an opaque position over the same score-ranked result set.
 #[derive(Debug, Deserialize)]
 pub struct SearchPageRequest {
     #[serde(flatten)]
     request: MemorySearchRequest,
-    /// Zero-based offset into the ranked result set.
+    /// Opaque cursor from a previous page's `next_cursor`.
     #[serde(default)]
-    cursor: Option<usize>,
+    cursor: Option<String>,
     /// Page size; defaults to `top_k`.
     #[serde(default)]
     limit: Option<usize>,
 }
 
-/// Page-shaped search response mirroring `MemoryListPage` so the web
-/// console paginates search the same way it paginates list (REST-04).
+/// Page-shaped search response so the web console paginates search the same
+/// way it paginates list (REST-04/REST-06).
+///
+/// SCH-07: single-namespace searches are page-shaped (`Embedded::search_page`)
+/// and carry the selective-abstention signal (ADR-046 §D2): `abstained=true`
+/// plus the stable `abstention_reason` code when the configured
+/// `confidence_threshold` filtered every candidate (`no_candidates_above_threshold`)
+/// or the default quarantine gate removed them all (`all_quarantined`).
+/// All-namespaces searches merge per-namespace rankings (`search_all`) and have
+/// no page object in the SDK, so the signal is N/A there (always `false`/`null`).
 #[derive(Serialize)]
 struct SearchPageV2 {
     records: Vec<MemorySearchHit>,
-    next_cursor: Option<usize>,
+    next_cursor: Option<String>,
+    has_more: bool,
+    /// Explicit abstention signal; `false` unless a threshold is configured.
+    abstained: bool,
+    /// Stable reason code, `null` unless `abstained`.
+    abstention_reason: Option<AbstentionReason>,
 }
 
 #[tracing::instrument(skip(state))]
@@ -503,30 +550,47 @@ pub async fn records_search(
     // global ignoraba silenciosamente todo lo ingerido en otros namespaces.
     let mut request = page_request.request;
     let all_namespaces = request.namespace.trim().is_empty();
-    // Paginación offset (REST-04): el core `search()` es una ventana top_k sin
-    // cursor propio, así que el server traduce cursor/limit → top_k+1 (un extra
-    // para saber si hay más página) y recorta. Los resultados se ordenan por
-    // score, así que offset sobre el mismo ranking es estable entre páginas.
-    let page_size = clamp_limit(page_request.limit.unwrap_or(request.top_k.max(1)));
-    let cursor = page_request.cursor.unwrap_or(0);
-    request.top_k = clamp_limit(cursor.saturating_add(page_size).saturating_add(1));
-    match run_db_op(&state, move |db| {
+    // Paginación por cursor (REST-06): el core `search()` es una ventana top_k
+    // sin cursor propio, así que el server traduce la posición opaca del cursor
+    // → top_k (posición + página + 1) y recorta. Los resultados se ordenan por
+    // score, así que la posición sobre el mismo ranking es estable entre páginas.
+    let page_size = clamp_limit(page_request.limit.unwrap_or(request.top_k.max(1))).max(1);
+    let position = match page_request.cursor.as_deref() {
+        Some(raw) => match decode_cursor(raw) {
+            Ok(position) => position,
+            Err(e) => return bad_cursor_response(&e),
+        },
+        None => 0,
+    };
+    request.top_k = clamp_limit(position.saturating_add(page_size).saturating_add(1));
+    let paged = run_db_op(&state, move |db| {
         if all_namespaces {
-            db.search_all(request)
+            // Multi-namespace merges (`search_all`) have no page object in the
+            // SDK: the abstention signal is declared N/A on this path
+            // (documented in `docs/api/openapi.yaml` / `HTTP_API.md`).
+            let hits = db.search_all(request)?;
+            Ok((hits, false, None))
         } else {
-            db.search(request)
+            // Page-shaped path: carries the selective-abstention signal
+            // (ADR-046 §D2, SCH-07) instead of dropping it at the array edge.
+            let page = db.search_page(request)?;
+            Ok((page.hits, page.abstained, page.abstention_reason))
         }
     })
-    .await
-    {
-        Ok(hits) => {
-            let start = cursor.min(hits.len());
+    .await;
+    match paged {
+        Ok((hits, abstained, abstention_reason)) => {
+            let start = position.min(hits.len());
             let end = (start + page_size).min(hits.len());
             let records = hits[start..end].to_vec();
-            let next_cursor = (end < hits.len()).then_some(end);
+            let has_more = end < hits.len();
+            let next_cursor = has_more.then(|| encode_cursor(end));
             Json(SearchPageV2 {
                 records,
                 next_cursor,
+                has_more,
+                abstained,
+                abstention_reason,
             })
             .into_response()
         }
@@ -553,7 +617,8 @@ pub struct AuditParams {
     op: Option<String>,
     outcome: Option<String>,
     limit: Option<usize>,
-    cursor: Option<usize>,
+    /// Opaque cursor from a previous page's `next_cursor`.
+    cursor: Option<String>,
 }
 
 /// Default page size when the caller omits `limit` (mirrors the desktop).
@@ -563,7 +628,8 @@ const AUDIT_DEFAULT_LIMIT: usize = 100;
 #[derive(Serialize)]
 struct AuditPageV2 {
     events: Vec<AuditEvent>,
-    next_cursor: Option<usize>,
+    next_cursor: Option<String>,
+    has_more: bool,
 }
 
 /// Resolve the audit log path from the embedded config.
@@ -577,18 +643,18 @@ fn audit_log_path(state: &ServerState) -> Option<std::path::PathBuf> {
 
 /// Read the audit JSONL at `path`, apply filters, and paginate newest-first.
 ///
-/// `cursor` is a zero-based offset into the *filtered* newest-first list;
+/// `position` is where the page starts inside the *filtered* newest-first list;
 /// `next_cursor` is `Some(end)` when older events remain, `None` otherwise.
 ///
-/// ponytail: whole-file read (fine for console-sized audit logs); a byte-offset
-/// tail read is the upgrade if the log grows large.
+/// ponytail: whole-file read (fine for console-sized audit logs); a tail read
+/// from a byte position is the upgrade if the log grows large.
 fn read_audit_page(
     path: &std::path::Path,
     namespace: Option<&str>,
     op: Option<&str>,
     outcome: Option<&str>,
     limit: usize,
-    cursor: Option<usize>,
+    position: Option<usize>,
 ) -> std::io::Result<AuditPageV2> {
     let content = std::fs::read_to_string(path)?;
     let mut matched: Vec<AuditEvent> = content
@@ -599,13 +665,15 @@ fn read_audit_page(
         .filter(|e| outcome.is_none_or(|o| e.outcome == o))
         .collect();
     matched.reverse();
-    let start = cursor.unwrap_or(0).min(matched.len());
+    let start = position.unwrap_or(0).min(matched.len());
     let end = (start + limit).min(matched.len());
     let events = matched[start..end].to_vec();
-    let next_cursor = (end < matched.len()).then_some(end);
+    let has_more = end < matched.len();
+    let next_cursor = has_more.then(|| encode_cursor(end));
     Ok(AuditPageV2 {
         events,
         next_cursor,
+        has_more,
     })
 }
 
@@ -627,8 +695,14 @@ pub async fn audit_events(
     let namespace = params.namespace;
     let op = params.op;
     let outcome = params.outcome;
-    let limit = params.limit.unwrap_or(AUDIT_DEFAULT_LIMIT);
-    let cursor = params.cursor;
+    let limit = clamp_limit(params.limit.unwrap_or(AUDIT_DEFAULT_LIMIT)).max(1);
+    let position = match params.cursor.as_deref() {
+        Some(raw) => match decode_cursor(raw) {
+            Ok(position) => Some(position),
+            Err(e) => return bad_cursor_response(&e),
+        },
+        None => None,
+    };
 
     let join = tokio::task::spawn_blocking(move || {
         read_audit_page(
@@ -637,7 +711,7 @@ pub async fn audit_events(
             op.as_deref(),
             outcome.as_deref(),
             limit,
-            cursor,
+            position,
         )
     })
     .await;
@@ -725,12 +799,13 @@ pub async fn import_v2(
     // BulkImportReport); normalize to a JSON value to keep one response path.
     match run_db_op(&state, move |db| -> Result<serde_json::Value> {
         let value = if let Some(records) = records {
-            serde_json::to_value(db.import_records(records)?).map_err(Error::serialization)?
+            serde_json::to_value(db.import_records(records, false)?)
+                .map_err(Error::serialization)?
         } else if let Some(path) = path {
             if format.as_deref() == Some("bulk") {
                 serde_json::to_value(db.bulk_import_file(&path)?).map_err(Error::serialization)?
             } else {
-                serde_json::to_value(db.import_file(&path)?).map_err(Error::serialization)?
+                serde_json::to_value(db.import_file(&path, false)?).map_err(Error::serialization)?
             }
         } else {
             return Err(Error::InvalidInput(
@@ -1132,13 +1207,20 @@ pub struct ThreadsListParams {
     /// Maximum number of threads to return.
     #[serde(default = "default_threads_limit")]
     limit: usize,
-    /// Offset into the thread list.
-    #[serde(default)]
-    offset: usize,
+    /// Opaque cursor from a previous page's `next_cursor`.
+    cursor: Option<String>,
 }
 
 fn default_threads_limit() -> usize {
     100
+}
+
+/// Page-shaped thread listing (REST-06): cursor + `has_more`.
+#[derive(Serialize)]
+struct ThreadsPageV2 {
+    threads: Vec<ThreadDTO>,
+    next_cursor: Option<String>,
+    has_more: bool,
 }
 
 /// Body for `POST /api/v2/threads`.
@@ -1190,12 +1272,30 @@ pub async fn threads_list(
     State(state): State<Arc<ServerState>>,
     Query(params): Query<ThreadsListParams>,
 ) -> Response {
-    let limit = params.limit;
-    let offset = params.offset;
-    match run_db_op(&state, move |db| db.list_threads(limit, offset)).await {
-        Ok(threads) => {
+    let limit = clamp_limit(params.limit).max(1);
+    let skip = match params.cursor.as_deref() {
+        Some(raw) => match decode_cursor(raw) {
+            Ok(position) => position,
+            Err(e) => return bad_cursor_response(&e),
+        },
+        None => 0,
+    };
+    // Fetch one extra thread to learn whether a next page exists, then trim.
+    match run_db_op(&state, move |db| {
+        db.list_threads(limit.saturating_add(1), skip)
+    })
+    .await
+    {
+        Ok(mut threads) => {
+            let (has_more, next_cursor) = page_meta(threads.len(), limit, skip);
+            threads.truncate(limit);
             let dtos: Vec<ThreadDTO> = threads.into_iter().map(ThreadDTO::from).collect();
-            Json(dtos).into_response()
+            Json(ThreadsPageV2 {
+                threads: dtos,
+                next_cursor,
+                has_more,
+            })
+            .into_response()
         }
         Err(resp) => resp,
     }
@@ -1259,7 +1359,7 @@ pub async fn threads_delete(
     }
 }
 
-/// Body for `POST /conversation/add` (F3 data plane): record one message in a
+/// Body for `POST /api/v2/conversations` (F3 data plane): record one message in a
 /// conversation. When `thread_id` is absent, a new thread is created first —
 /// the agent does not need to pre-create a thread to accumulate context.
 #[derive(Deserialize, Debug)]
@@ -1327,7 +1427,7 @@ pub async fn conversation_add(
     }
 }
 
-/// Query params for `GET /skill/listing` (F3 data plane): head rows of the
+/// Query params for `GET /api/v2/skills` (F3 data plane): head rows of the
 /// skill store with optional filters — enough for prompt-injection use cases.
 #[derive(Deserialize, Debug)]
 pub struct SkillListingParams {
@@ -1337,8 +1437,8 @@ pub struct SkillListingParams {
     name_prefix: Option<String>,
     /// Maximum number of items to return (default 50, capped at 200).
     limit: Option<usize>,
-    /// Number of items to skip.
-    offset: Option<usize>,
+    /// Opaque cursor from a previous page's `next_cursor`.
+    cursor: Option<String>,
 }
 
 /// Lean wire view of a skill head row — skill metadata without the content
@@ -1357,21 +1457,28 @@ pub async fn skill_listing(
     State(state): State<Arc<ServerState>>,
     Query(params): Query<SkillListingParams>,
 ) -> Response {
-    let limit = params.limit.unwrap_or(50).min(200);
-    let offset = params.offset.unwrap_or(0);
+    let owner_agent = params.owner_agent;
+    let name_prefix = params.name_prefix;
+    let limit = params.limit.unwrap_or(50).clamp(1, 200);
+    let skip = match params.cursor.as_deref() {
+        Some(raw) => match decode_cursor(raw) {
+            Ok(position) => position,
+            Err(e) => return bad_cursor_response(&e),
+        },
+        None => 0,
+    };
     match run_db_op(&state, move |db| {
         let engine = db.engine_handle()?;
         let store = crate::skills::SkillStore::new(&engine);
-        store.list(crate::sdk::SkillListOptions {
-            owner_agent: params.owner_agent,
-            name_prefix: params.name_prefix,
-            limit,
-            offset,
-        })
+        list_skills_page(&store, owner_agent, name_prefix, limit, skip)
     })
     .await
     {
         Ok(page) => {
+            let returned = page.items.len();
+            let total = page.total;
+            let has_more = skip.saturating_add(returned) < total;
+            let next_cursor = has_more.then(|| encode_cursor(skip.saturating_add(returned)));
             let items: Vec<SkillListingItem> = page
                 .items
                 .into_iter()
@@ -1383,7 +1490,13 @@ pub async fn skill_listing(
                     description: r.description,
                 })
                 .collect();
-            Json(serde_json::json!({ "items": items, "total": page.total })).into_response()
+            Json(serde_json::json!({
+                "items": items,
+                "total": total,
+                "next_cursor": next_cursor,
+                "has_more": has_more,
+            }))
+            .into_response()
         }
         Err(resp) => resp,
     }

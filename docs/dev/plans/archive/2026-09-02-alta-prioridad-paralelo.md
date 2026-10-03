@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Alta Prioridad Paralelo — GOV 30 + P27 38 + P38 17 + MCP-35"
+kind: plan
+status: archived
+description: "Triage gate (prompts/plan.md): cada una de las 86 pasó 3 preguntas Shape Up — ¿problema correcto? ¿appetite suficiente? ¿es AHORA? — y verificación real contra código (commit hash / grep 2026-08-28..09-01). Ninguna requiere re-triage a..."
+---
+
 # Plan de Ejecución: Alta Prioridad Paralelo — GOV 30 + P27 38 + P38 17 + MCP-35
 
 > **Campaign ID:** 20260902-alta-prioridad-paralelo
@@ -49,7 +56,7 @@ Wave0 independiente (MAX 3):
 
 GOV Wave A/B: miden y corrigen bloqueantes Show HN — dependen de D1-D14 ya resueltas (D3 Show HN Sept, D6 case_studies eliminar, D8 skill fuente única), pueden ir paralelo Wave0+1
   GOV-A1..A5 (medición) ─→ GOV-B1..B6 (Show HN) ─→ GOV-C1..C7 (maestros) ─→ GOV-D1..D6 + E1 + F1..F2 (estructura + 2ª ola auditoría)
-  Nota: campaña GOV 2026-08-22 ya completó 29/30 (GOV-A1 cancelado por ICE llvm-cov → fallback ADR-018 81.40%); este plan re-verifica como guard anti-regresión — no re-escribe 30 tasks desde 0, valida paridad/openapi/snippets
+  Nota: campaña GOV 2026-08-22 ya completó 29/30 (GOV-A1 cancelado por ICE llvm-cov → fallback ADR-0018 81.40%); este plan re-verifica como guard anti-regresión — no re-escribe 30 tasks desde 0, valida paridad/openapi/snippets
 
 P38: RES-01 (ACL-01 Prepare) es prerequisite durabilidad → Wave0 SOLO; RES-02 (chaos/wal quiesce+flush, S1 fix create_snapshot) precede RES-03..05 (phrase/semántica/calibrar threshold)
   RES-01 ─→ RES-02 ─→ RES-03/04/05 parallel ─→ RES-06..15 + DEC-02 parallel 3, DEC-01 ya resuelta como defer-as-scoped (no código, solo ADR docs-only)
@@ -190,7 +197,7 @@ Próxima acción: GOV-A3 Wave1 paralelo (no bloquear A4/A5, MAX 3, disjoint)
 Contrato: `Select-String -Path "docs/TEST_MAP.md" -Pattern "2034.*2026-08" | Measure-Object Count` >=1 ✅ (Count=1) + `Select-String -Path "docs/TEST_MAP.md" -Pattern "coverage"` >=1 ✅ + `cargo nextest list --profile default -p vantadb` 2074 ✅ + `scripts/validate-docs-coverage.ps1 -ReportOnly` 6/6 ✅ + `Test-Path .codegraph/codegraph.db` ✅ + `Cargo.toml` 0.5.0 ✅
 Invariantes: No tocar RES-02..05 (P38 durabilidad aislada) ni GOV-A3 (paralelo disjoint) — respetado, 0 archivos en común
 Comandos de verificación: `Select-String -Path "docs/TEST_MAP.md" -Pattern "2034.*2026-08"` (Count 1) + `pwsh scripts/validate-docs-coverage.ps1 -ReportOnly` (6/6) + `cargo nextest list --profile default -p vantadb` (2074) + `Test-Path .codegraph/codegraph.db`
-Deuda: ninguna — cifras 2034/1492/1902/2568+ reconciliadas en TEST_MAP.md:92, coverage ADR-018 81.40% intacto, dora.md sin drift
+Deuda: ninguna — cifras 2034/1492/1902/2568+ reconciliadas en TEST_MAP.md:92, coverage ADR-0018 81.40% intacto, dora.md sin drift
 Próxima tarea si completa: GOV-A3 — Probes CLI reales doctor/backup/restore
 last-synced: 2026-09-02T21:00
 === END RECITATION ===
@@ -1149,11 +1156,11 @@ last-synced: 2026-09-02T23:59
 - **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
-#### GOV-D5 — ADR-026 a adr/
-- **Descripción:** git mv ADR-026-vanta-studio-fase3-rest-dashboard.md → docs/dev/architecture/adr/ + grep citas
-- **Archivos clave:** `docs/dev/architecture/ADR-026*` → `docs/dev/architecture/adr/`
+#### GOV-D5 — ADR-0026 a adr/
+- **Descripción:** git mv ADR-0026-vanta-studio-fase3-rest-dashboard.md → docs/dev/architecture/adr/ + grep citas
+- **Archivos clave:** `docs/dev/architecture/ADR-0026*` → `docs/dev/architecture/adr/`
 - **Gate Justificación:** único ADR fuera de adr/; 30min
-- **Contrato:** `Test-Path docs/dev/architecture/adr/ADR-026*` == true AND `Select-String -Path "docs/dev/Backlog.md" -Pattern "ADR-026.*architecture/ADR-026" | Measure-Object Count` ==0
+- **Contrato:** `Test-Path docs/dev/architecture/adr/ADR-0026*` == true AND `Select-String -Path "docs/dev/Backlog.md" -Pattern "ADR-0026.*architecture/ADR-0026" | Measure-Object Count` ==0
 - **Task file:** `.opencode/skills/campaign-executor/tasks/GOV-D5.md`
 - **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
@@ -1319,7 +1326,7 @@ last-synced: 2026-09-02T23:59
 - `wasm-pack build --target bundler -p vantadb-wasm` — ✅ wasm32-unknown-unknown
 - `python dev-tools/validate_doc_snippets.py` — ✅ 34 PASS/24 SKIP/0 FAIL sobre docs corregidos
 - `node scripts/check_openapi_parity.mjs` — ✅ 35 paths / 40 ops exact parity
-- `cargo llvm-cov --workspace --summary-only` — ✅ re-medir para GOV-A1 (fallback ADR-018 81.40% si ICE)
+- `cargo llvm-cov --workspace --summary-only` — ✅ re-medir para GOV-A1 (fallback ADR-0018 81.40% si ICE)
 - Dependabot alerts — 0 critical/high (allowlist tantivy RUSTSEC-2026-0253 documentada, lru 0.18 espera 0.27 publish)
 
 ---

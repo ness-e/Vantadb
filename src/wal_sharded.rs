@@ -120,10 +120,14 @@ fn write_shard_meta(base_path: &Path, count: usize) -> Result<()> {
 }
 
 // ─── Salvage (FIND-109, opt-in; ERR-011 guard untouched) ────────────
+// CLI-only surface (`vanta-cli wal salvage` is the sole consumer): gated so a
+// `server`-only build (cli off) does not carry dead code (WIRE-07 feature
+// decouple). `test` keeps the salvage unit tests below compiling.
 // ponytail: shard naming duplicates `new_with_buffer`; extract helper if a
 // 4th naming site emerges (init.rs has its own closure — left alone).
 
 /// Shard file path for index `idx` (same layout as `new_with_buffer`).
+#[cfg(any(feature = "cli", test))]
 pub(crate) fn salvage_shard_path(base_path: &Path, idx: usize, num_shards: usize) -> PathBuf {
     if num_shards <= 1 {
         return base_path.to_path_buf();
@@ -140,6 +144,7 @@ pub(crate) fn salvage_shard_path(base_path: &Path, idx: usize, num_shards: usize
 /// Largest valid prefix `p <= counts` with `verify_shard_counts(p) == None`.
 /// Scans `max` downwards; first valid wins (maximal sum). Single-shard
 /// returns counts as-is (exempt like the guard).
+#[cfg(any(feature = "cli", test))]
 pub(crate) fn coherent_prefix_for(counts: &[u64]) -> Vec<u64> {
     if counts.len() <= 1 {
         return counts.to_vec();
@@ -160,6 +165,7 @@ pub(crate) fn coherent_prefix_for(counts: &[u64]) -> Vec<u64> {
 }
 
 /// Read-only per-shard durable counts via `WalReader` (never truncates).
+#[cfg(any(feature = "cli", test))]
 pub(crate) fn salvage_shard_counts(base_path: &Path, num_shards: usize) -> Result<Vec<u64>> {
     let mut counts = vec![0u64; num_shards];
     for (i, c) in counts.iter_mut().enumerate() {
@@ -177,6 +183,7 @@ pub(crate) fn salvage_shard_counts(base_path: &Path, num_shards: usize) -> Resul
 }
 
 /// Globals present for `counts` (`global = s + N*p`), sorted.
+#[cfg(any(feature = "cli", test))]
 fn present_globals(counts: &[u64]) -> Vec<u64> {
     let n = counts.len() as u64;
     let mut g = Vec::new();
@@ -191,6 +198,7 @@ fn present_globals(counts: &[u64]) -> Vec<u64> {
 
 /// Read-only salvage preview: coherent prefix + explicit discards.
 /// Never mutates; `Ok` even when incoherent (that is the point).
+#[cfg(any(feature = "cli", test))]
 #[derive(Debug, Clone)]
 pub(crate) struct SalvagePreview {
     /// Durable per-shard counts as read.
@@ -207,6 +215,7 @@ pub(crate) struct SalvagePreview {
     pub discarded_global_seqs: Vec<u64>,
 }
 
+#[cfg(any(feature = "cli", test))]
 pub(crate) fn salvage_preview(base_path: &Path, num_shards: usize) -> Result<SalvagePreview> {
     let counts = salvage_shard_counts(base_path, num_shards)?;
     let prefix = coherent_prefix_for(&counts);
@@ -232,6 +241,7 @@ pub(crate) fn salvage_preview(base_path: &Path, num_shards: usize) -> Result<Sal
 /// Walks with `WalReader` (same scan-forward as counting) so the offset
 /// aligns with `salvage_shard_counts` even with mid-file corrupt gaps —
 /// raw framing walks desync there and over-truncate (FIND-109 smoke).
+#[cfg(any(feature = "cli", test))]
 fn prefix_byte_end(shard_path: &Path, keep: u64) -> Result<u64> {
     let mut r = WalReader::open(shard_path)?;
     for _ in 0..keep {
@@ -245,6 +255,7 @@ fn prefix_byte_end(shard_path: &Path, keep: u64) -> Result<u64> {
 /// Quarantine `[valid_end, len)` to `<path>.salvage[.N]`, then truncate.
 /// Callers only invoke this when truncating (`valid_end < len`); the assert
 /// documents that contract (P2-01 follow-up — today unreachable otherwise).
+#[cfg(any(feature = "cli", test))]
 fn quarantine_and_truncate(shard_path: &Path, valid_end: u64) -> Result<PathBuf> {
     use std::io::{Read, Seek, SeekFrom};
     let len = std::fs::metadata(shard_path)?.len();
@@ -275,6 +286,7 @@ fn quarantine_and_truncate(shard_path: &Path, valid_end: u64) -> Result<PathBuf>
 
 /// Mutating salvage: truncate shards to the coherent prefix (quarantined).
 /// Returns the post-salvage preview (coherent) plus pre counts in `SalvageDone`.
+#[cfg(any(feature = "cli", test))]
 #[derive(Debug, Clone)]
 pub(crate) struct SalvageDone {
     /// Counts before truncation.
@@ -287,6 +299,7 @@ pub(crate) struct SalvageDone {
     pub after: SalvagePreview,
 }
 
+#[cfg(any(feature = "cli", test))]
 pub(crate) fn salvage(base_path: &Path, num_shards: usize) -> Result<SalvageDone> {
     let before = salvage_shard_counts(base_path, num_shards)?;
     let prefix = coherent_prefix_for(&before);
@@ -309,6 +322,39 @@ pub(crate) fn salvage(base_path: &Path, num_shards: usize) -> Result<SalvageDone
         backups,
         after,
     })
+}
+
+/// Verify every on-disk shard of a (potentially sharded) WAL (VER-01).
+///
+/// Returns one report per existing shard file plus the round-robin coherence
+/// verdict (`verify_shard_counts` — reused, not duplicated). `num_shards` must
+/// come from `detect_shard_count`/`read_shard_meta` (same resolution as
+/// recovery and salvage). Read-only: never truncates, quarantines or mutates.
+#[cfg(any(feature = "cli", test))]
+pub(crate) fn verify_shards(
+    base_path: &Path,
+    num_shards: usize,
+) -> Result<(Vec<crate::wal::WalVerifyReport>, Option<String>)> {
+    let mut reports = Vec::new();
+    let mut counts = vec![0u64; num_shards];
+    for (i, count) in counts.iter_mut().enumerate() {
+        let p = salvage_shard_path(base_path, i, num_shards);
+        if !p.exists() {
+            continue;
+        }
+        let report = crate::wal::verify_wal_file(&p)?;
+        *count = report.records;
+        reports.push(report);
+    }
+    // A whole-record tail deletion inside one shard does not break that
+    // shard's chain (documented limit); the round-robin layout guard still
+    // surfaces it for multi-shard WALs.
+    let incoherence = if num_shards > 1 {
+        verify_shard_counts(&counts)
+    } else {
+        None
+    };
+    Ok((reports, incoherence))
 }
 
 impl ShardedWal {
@@ -556,6 +602,17 @@ mod tests {
             let _ = std::fs::remove_file(&shard_path);
         }
         let _ = std::fs::remove_file(shard_meta_path(base));
+    }
+
+    /// VER-01: extra frame bytes (`prev_hash` ‖ `record_hash`) for the
+    /// on-disk format version of a WAL byte image.
+    fn chain_extra(bytes: &[u8]) -> usize {
+        let version = u16::from_le_bytes(bytes[4..6].try_into().unwrap());
+        if version >= 3 {
+            64
+        } else {
+            0
+        }
     }
 
     // ─── Construction ───────────────────────────────────────────
@@ -1075,11 +1132,12 @@ mod tests {
         // (Truncating shard 1 would give [2,1], still coherent.)
         let shard0 = salvage_shard_path(&path, 0, 2);
         let bytes = std::fs::read(&shard0).unwrap();
+        let extra = chain_extra(&bytes);
         let mut off = 20usize;
         let mut last = 20usize;
         while off + 8 <= bytes.len() {
             let len = u32::from_le_bytes(bytes[off..off + 4].try_into().unwrap()) as usize;
-            let end = off + 4 + len + 4;
+            let end = off + 4 + len + 4 + extra;
             if end > bytes.len() {
                 break;
             }
@@ -1115,11 +1173,12 @@ mod tests {
         }
         let shard0 = salvage_shard_path(&path, 0, 2);
         let bytes = std::fs::read(&shard0).unwrap();
+        let extra = chain_extra(&bytes);
         let mut off = 20usize;
         let mut last = 20usize;
         while off + 8 <= bytes.len() {
             let len = u32::from_le_bytes(bytes[off..off + 4].try_into().unwrap()) as usize;
-            let end = off + 4 + len + 4;
+            let end = off + 4 + len + 4 + extra;
             if end > bytes.len() {
                 break;
             }

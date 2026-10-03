@@ -1,3 +1,9 @@
+---
+title: FIND-140 — Publishing hardening en 5 workflows
+kind: task
+description: Archivos leídos completos (5 + 1 referencia)
+---
+
 # FIND-140 — Publishing hardening en 5 workflows
 
 > **Plan:** `docs/dev/plans/2026-09-21-workflows-repair.md` (Wave 2, 1 task, steps atómicos por archivo, NADA sin re-run)

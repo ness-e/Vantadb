@@ -22,7 +22,15 @@ fn search_request_basic_snapshot() {
         distance_metric: DistanceMetric::Cosine,
         explain: false,
         exclude_superseded: false,
+        as_of_ms: None,
+        valid_window: None,
+        include_quarantined: false,
+        min_confidence: None,
         search_profile: None,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
     };
     assert_debug_snapshot!("search_request_basic", req);
 }
@@ -39,7 +47,15 @@ fn search_request_vector_only_snapshot() {
         distance_metric: DistanceMetric::Euclidean,
         explain: false,
         exclude_superseded: false,
+        as_of_ms: None,
+        valid_window: None,
+        include_quarantined: false,
+        min_confidence: None,
         search_profile: None,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
     };
     assert_debug_snapshot!("search_request_vector_only", req);
 }
@@ -59,7 +75,15 @@ fn search_request_text_only_snapshot() {
         distance_metric: DistanceMetric::Cosine,
         explain: true,
         exclude_superseded: false,
+        as_of_ms: None,
+        valid_window: None,
+        include_quarantined: false,
+        min_confidence: None,
         search_profile: None,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
     };
     assert_debug_snapshot!("search_request_text_only", req);
 }
@@ -81,6 +105,7 @@ fn search_hit_basic_snapshot() {
             expires_at_ms: None,
             superseded_by: None,
             superseded_at_ms: None,
+            ..Default::default()
         },
         score: 0.95,
         explanation: None,
@@ -124,6 +149,7 @@ fn list_page_with_records_snapshot() {
                 expires_at_ms: None,
                 superseded_by: None,
                 superseded_at_ms: None,
+                ..Default::default()
             },
             MemoryRecord {
                 namespace: "ns1".into(),
@@ -139,6 +165,7 @@ fn list_page_with_records_snapshot() {
                 expires_at_ms: None,
                 superseded_by: None,
                 superseded_at_ms: None,
+                ..Default::default()
             },
         ],
         next_cursor: Some(2),

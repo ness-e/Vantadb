@@ -1,9 +1,9 @@
 ---
-title: "Sigstore"
-type: glossary-entry
+title: Sigstore
+kind: glossary
 status: stable
+description: "Sigstore es un proyecto de seguridad de cadena de suministro de software que proporciona firma, verificación y transparencia de artefactos sin necesidad de gestionar claves criptográficas"
 tags: [vantadb, glosario, seguridad, ci-cd]
-last_reviewed: 2026-09-15
 links: "[Glosario](./README.md)"
 ---
 
@@ -75,8 +75,8 @@ gh attestation verify <artifact> --owner ness-e
 
 ## Véase También
 
-- [OIDC](OIDC.md) — Autenticación para firma
-- [SLSA](SLSA.md) — Framework que Sigstore habilita
+- [OIDC](./oidc.md) — Autenticación para firma
+- [SLSA](./slsa.md) — Framework que Sigstore habilita
 - [CI/CD](ci-cd.md) — Pipeline de firma
 
 ---

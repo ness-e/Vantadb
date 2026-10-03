@@ -7,7 +7,23 @@ publish = false
 description = "Optional local server wrapper and MCP interface for VantaDB"
 
 [dependencies]
-vantadb = { path = "..", features = ["cli", "server"] }
+# WIRE-07 feature decouple: the HTTP binary must not drag `cli`
+# (clap/clap_complete/indicatif/console/anyhow for the REPL — strategy §grafo,
+# VantaDB-Analisis-Arquitectura:68). `default-features = false` + this explicit
+# list = the previous default set MINUS `cli` (behavior otherwise identical).
+# Keep in sync with `[features] default` in the root Cargo.toml; opt back into
+# the CLI with `--features cli` (forwards `vantadb/cli`).
+vantadb = { path = "..", default-features = false, features = [
+    "advanced-tokenizer",
+    "arrow",
+    "fjall",
+    "fs2",
+    "memmap2",
+    "rayon",
+    "roaring",
+    "server",
+    "sysinfo",
+] }
 vantadb-mcp = { path = "../vantadb-mcp" }
 # ERR-CORE-02: bin-only human error chain (.context() en main).
 anyhow = "1"

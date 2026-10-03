@@ -1,11 +1,8 @@
 ---
 title: "FASE 1-3 — Fundación, Integración y Pre-Lanzamiento"
-type: registro
+kind: review
 status: archived
 tags: [vantadb, avance, campana]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # FASE 1-3 — Fundación, Integración y Pre-Lanzamiento

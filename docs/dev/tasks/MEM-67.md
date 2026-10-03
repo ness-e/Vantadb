@@ -1,3 +1,9 @@
+---
+title: "TASK-MEM-67: TokenEstimator auto-detección tiktoken"
+kind: task
+description: "Select-String -Path \"vanta-memory/src/contextengine/tokenestimator.rs\" -Pattern \"tiktoken|cfg.precise\" | Measure-Object | Select-Object Count >= 1"
+---
+
 # TASK-MEM-67: TokenEstimator auto-detección tiktoken
 
 ## Metadata

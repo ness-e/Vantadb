@@ -1,3 +1,9 @@
+---
+title: "FIND-87: `./native` en exports + nota wiki (TS packaging)"
+kind: task
+description: ./native en vantadb-ts/package.json exports (o decisión documentada de no exponer) + nota wiki/sección native explícita en docs/api/TSSDK.md + npm run build + npx vitest run verdes en vantadb-ts + npm pack --dry-run con el export sin...
+---
+
 # FIND-87: `./native` en exports + nota wiki (TS packaging)
 
 ## Metadata

@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: P3 restante + fallas operativas §3.6"
+kind: plan
+status: archived
+description: "Todos los contratos verificados por command (2026-08-10). Commits: 0e298f3d, e44b26a5, 44154c0f,"
+---
+
 # Plan de Ejecución: P3 restante + fallas operativas §3.6
 
 > **Inicio:** 2026-08-10

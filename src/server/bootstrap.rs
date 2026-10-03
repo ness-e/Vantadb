@@ -347,6 +347,27 @@ pub async fn run(config: Config) -> Result<()> {
         }
     }
 
+    // WIRE-04: background TTL sweeper — keeps the TTL promise without manual
+    // `purge_expired` calls (physically purges expired records + indexes).
+    // Disabled on read-only engines (purge is a write) and when the configured
+    // interval is 0. Held for the server's lifetime; stopped after the run
+    // loop returns so no sweep races the shutdown flush.
+    let ttl_sweeper = if !config.read_only && config.ttl_sweep_interval_ms > 0 {
+        crate::console::ok(
+            "TTL sweeper",
+            Some(&format!(
+                "purging expired records every {}ms",
+                config.ttl_sweep_interval_ms
+            )),
+        );
+        Some(crate::gc::spawn_memory_ttl_sweeper(
+            state.db.clone(),
+            Duration::from_millis(config.ttl_sweep_interval_ms),
+        ))
+    } else {
+        None
+    };
+
     let rpm = config.rate_limit_rpm;
     let router = app_with_cors(state, rpm, &config.allowed_origins);
     let router = mount_dashboard(router, config.dashboard_dir.as_deref());
@@ -354,6 +375,10 @@ pub async fn run(config: Config) -> Result<()> {
 
     if !serve_http_or_tls(router, addr, &config, storage.clone()).await {
         return Err(Error::Cli(ChainedError::msg("Server exited with errors")));
+    }
+
+    if let Some(sweeper) = ttl_sweeper {
+        sweeper.shutdown().await;
     }
 
     Ok(())

@@ -241,6 +241,7 @@ impl L0Recorder {
                 vector: None,
                 sparse_vector: None,
                 ttl_ms: None,
+                ..Default::default()
             })?;
 
             new_cursor = new_cursor.max(msg.timestamp_ms);
@@ -353,6 +354,7 @@ impl L0Recorder {
             vector: None,
             sparse_vector: None,
             ttl_ms: None,
+            ..Default::default()
         })?;
         Ok(())
     }

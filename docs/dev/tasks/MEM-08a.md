@@ -1,3 +1,9 @@
+---
+title: "MEM-08a: F4 Fundación crate vanta-memory"
+kind: task
+description: "cargo check -p vanta-memory pasa; crate es workspace member\""
+---
+
 # MEM-08a: F4 Fundación crate vanta-memory
 
 ## Metadata

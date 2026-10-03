@@ -1,3 +1,9 @@
+---
+title: "FIND-114: Migrar `examples/python/agent_memory.py` de import legacy `vantadb_py.VantaDB` a `Client`"
+kind: task
+description: "examples/python/agentmemory.py importa Client (cero VantaDB/searchmemory), comportamiento idéntico, y smoke python examples/python/agentmemory.py exit 0 (o pytest verde si aplica)\""
+---
+
 # FIND-114: Migrar `examples/python/agent_memory.py` de import legacy `vantadb_py.VantaDB` a `Client`
 
 ## Metadata

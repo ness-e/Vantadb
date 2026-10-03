@@ -29,6 +29,10 @@ fn audit_log_records_operations_with_timestamp_op_and_reason() {
         namespace: "docs".into(),
         text_query: Some("hello".into()),
         top_k: 5,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
         ..Default::default()
     })
     .unwrap();

@@ -1,3 +1,9 @@
+---
+title: EMB-19 — verificación punta a punta + reinstalación coordinada (Wave5 cierre)
+kind: task
+description: "Objetivo: verificación punta a punta con el binario final + reinstalación coordinada del binario global + matriz de proveedores condicional (local real; ollama/openai solo si hay servidor/key, si no documentado-no-ejecutado). Cierra la..."
+---
+
 # EMB-19 — verificación punta a punta + reinstalación coordinada (Wave5 cierre)
 
 > **Plan:** `docs/dev/plans/2026-09-16-embeddings-auto.md` (Wave5, cierra campaña; alimenta a EMB-20)

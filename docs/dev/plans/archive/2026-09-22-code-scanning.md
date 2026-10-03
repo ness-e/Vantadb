@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Triage de 30 alertas Code Scanning — 2026-09-22"
+kind: plan
+status: archived
+description: "1 ERROR + 29 WARNINGS. Veredicto del auditor: 1 dismiss inmediato (FP del único ERROR),"
+---
+
 # Plan de Ejecución: Triage de 30 alertas Code Scanning — 2026-09-22
 
 > **Campaign ID:** (asigna `campaign_get_next_task` al arrancar)

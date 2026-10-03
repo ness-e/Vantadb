@@ -1,11 +1,9 @@
 ---
 title: "INV-SYNTHESIS — Síntesis global del programa de investigación INV-* (2026-08-25)"
-type: review
+kind: review
 status: archived
+description: "Posición competitiva resumida: capacidad técnica ≥7.0 en 5 de 9 superficies (server único con rate-limit fail-closed nativo; python SDK maduro; wasm único browser engine con persistencia real + híbrido + grafo). Los dos scores bajos..."
 tags: [vantadb, review]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # INV-SYNTHESIS — Síntesis global del programa de investigación INV-* (2026-08-25)

@@ -235,7 +235,15 @@ pub(super) fn build_search_request(
         explain: false,
         query_sparse: None,
         exclude_superseded: false,
+        min_confidence: None,
+        as_of_ms: None,
+        valid_window: None,
+        include_quarantined: false,
         search_profile: None,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
     }
 }
 

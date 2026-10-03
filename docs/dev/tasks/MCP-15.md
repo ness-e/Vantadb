@@ -1,3 +1,8 @@
+---
+title: "MCP-15: S5 — Stack overflow del child vantadb-server durante search_semantic/search_memory"
+kind: task
+---
+
 # MCP-15: S5 — Stack overflow del child vantadb-server durante search_semantic/search_memory
 
 ## Metadata

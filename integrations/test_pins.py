@@ -2,7 +2,7 @@
 
 Lee los 9 `integrations/*/pyproject.toml` y exige que cada dependencia de
 framework (toda dep que no sea `vantadb-py`) declare un techo `<X`
-(PEP 440). `vantadb-py>=0.5.0,<0.6.0` ya trae techo y queda exenta.
+(PEP 440). `vantadb-py>=0.5.0,<0.7.0` ya trae techo y queda exenta.
 Corre offline: solo parsea TOML, sin resolver ni descargar nada.
 """
 from __future__ import annotations

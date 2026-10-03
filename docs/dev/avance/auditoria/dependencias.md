@@ -1,10 +1,8 @@
 ---
-title: "Auditoría — Dependencias"
-type: audit-log
+title: Auditoría — Dependencias
+kind: review
 status: active
 tags: [vantadb, avance, dependencies, deny, dependabot, advisories, cargo]
-last_reviewed: 2026-08-07
-aliases: []
 ---
 
 # Auditoría — Dependencias
@@ -48,9 +46,9 @@ aliases: []
 - `.github/dependabot.yml` — config en repo.
 - `.github/workflows/ci-security-weekly.yml` — cron advisory check.
 - Releases: `cargo semver-checks` gate (v1-lead).
-### ERR-006 (deny.toml RUSTSEC-2024-0436 limpio) — migrado 2026-08-12 (ver docs/progreso/README.md)
+- ERR-006 (deny.toml RUSTSEC-2024-0436 limpio) — migrado 2026-08-12 (ver docs/progreso/README.md)
 
-### ERR-007 (multiple-versions ban-skip documentado) - migrado 2026-08-12 (ver docs/progreso/README.md)
+- ERR-007 (multiple-versions ban-skip documentado) - migrado 2026-08-12 (ver docs/progreso/README.md)
 
 ### AST-007 (deny triage 2026-09-11)
 - RUSTSEC-2023-0071 (rsa 0.9.10/Marvin via jsonwebtoken 11.0.0): triaged con evidencia HS256-only (src/server/jwt.rs:9,64-67; sin from_rsa_* en src/); ignore con owner vanta-lead + expiry 2027-01-01. Sin patch disponible segun advisory.

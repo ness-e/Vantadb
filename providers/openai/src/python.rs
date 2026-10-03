@@ -305,6 +305,10 @@ impl VantaDBOpenAI {
                         limit,
                         cursor,
                         exclude_superseded: false,
+                        as_of_ms: None,
+                        valid_window: None,
+                        include_quarantined: false,
+                        min_confidence: None,
                     },
                 )
                 .map_err(common::err_to_py)

@@ -1,3 +1,9 @@
+---
+title: MEM-24 — MMD persistente (Task 6 P29)
+kind: task
+description: MMD (current-task memory) persistente sobre el store VantaDB + inyección en el
+---
+
 # MEM-24 — MMD persistente (Task 6 P29)
 
 ## Objetivo

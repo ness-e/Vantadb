@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Full Backlog Parallel 2026-08-29 — Cierre completo + Waves paralelas"
+kind: plan
+status: archived
+description: "Status: ⬆️ uphill = 9 · ⬇️ downhill = 58 (ver § uphill/downhill)"
+---
+
 # Plan de Ejecución: Full Backlog Parallel 2026-08-29 — Cierre completo + Waves paralelas
 
 > **Campaign ID:** full-20260829-parallel
@@ -283,7 +290,7 @@ STABLE-01..07 (validación crates) ─┬─→ STABLE-08 (gate ampliado, SOLO 1
 - **Gate Result:** ✅ DO — **SOLO**
 - **Contrato original (obsoleto — NO matchea código real):** `Select-String -Path "src/storage/ops.rs" -Pattern "Binary.*vector_len|DiskNodeHeader.*format" | Measure-Object Count` >=1 AND nuevo test `cargo test -p vantadb --test binary_persist_reopen`
 - **Contrato real (validado por vanta-worker, 2026-08-29):**
-  - `Test-Path docs/dev/architecture/adr/ADR-032-binary-vector-persistence.md` == True ✅
+  - `Test-Path docs/dev/architecture/adr/ADR-0032-binary-vector-persistence.md` == True ✅
   - `Select-String -Path "src/storage/ops.rs" -Pattern "VECTOR_KIND_BINARY|VECTOR_KIND_FULL|VECTOR_KIND_TURBO|VECTOR_KIND_SQ8"` → 5+ matches ✅ (constantes kind presentes)
   - `cargo test -p vantadb --lib storage::archive::tests::test_rebuild_binary_vector` → 1/1 ok ✅
   - `cargo test -p vantadb --lib --features fjall storage::engine::tests::init::test_persistence_binary_vector_roundtrip_vstore` → 1/1 ok ✅
@@ -292,13 +299,13 @@ STABLE-01..07 (validación crates) ─┬─→ STABLE-08 (gate ampliado, SOLO 1
   - `cargo clippy -p vantadb --all-targets -- -D warnings` → 0 warnings ✅
 - **Task file:** `.opencode/skills/campaign-executor/tasks/CORE-01.md`
 - **Estado:** ✅ COMPLETED (2026-08-29 — sincronización por vanta-worker, código commiteado 2026-08-28 por vanta-arch vía commits d3e7f9cf + 854d9145)
-- **Pre-mortem (no ocurrió):** flag de formato en DiskNodeHeader requiere versionado → ADR-032 eligió bits 10-13 de flags (sin bump VFILE_VERSION) + reader dual legacy kind==0; migración lazy documentada
+- **Pre-mortem (no ocurrió):** flag de formato en DiskNodeHeader requiere versionado → ADR-0032 eligió bits 10-13 de flags (sin bump VFILE_VERSION) + reader dual legacy kind==0; migración lazy documentada
 - **Cynefin:** 🟨 Complicado → Resuelto (ADR + reader dual + lazy migration)
 - **Uphill/Downhill:** ⬆️ 1 (formato) · ⬇️ 2
 - **Notas vanta-worker 2026-08-29:**
   - El contrato PowerShell del plan (`Binary.*vector_len|DiskNodeHeader.*format_flag`) **no matchea** el código implementado — usa constantes `NodeFlags::VECTOR_KIND_*`, no las strings literales. Esta regex obsoleta quedó del diseño original; el código real pasó con la regex corregida (`VECTOR_KIND_*`).
   - El integration test `tests/binary_persist_reopen.rs` referenciado en el contrato no existe. Los tests reales están como unit tests: `src/storage/archive.rs::test_rebuild_binary_vector` y `src/storage/engine/tests/init.rs::test_persistence_binary_vector_roundtrip_vstore`. Ambos pasan.
-  - ADR-032 tiene `status: accepted` pero fue escrito por la IA sin articulación explícita del owner humano. Se agregó nota crítica en metadata apuntando al recordatorio Regla 5 (el autor humano es quien debe articular el trade-off).
+  - ADR-0032 tiene `status: accepted` pero fue escrito por la IA sin articulación explícita del owner humano. Se agregó nota crítica en metadata apuntando al recordatorio Regla 5 (el autor humano es quien debe articular el trade-off).
   - **No se hizo commit nuevo** — el código ya está commiteado. vanta-worker stageó solo los archivos de sincronización (plan file + nota ADR + registro avance) para que vanta-lead los integre en su próximo PR.
 
 ### Task W5-1: FIND-38 — Ciclo Serialization (5 nodos)
@@ -871,7 +878,7 @@ STABLE-01..07 (validación crates) ─┬─→ STABLE-08 (gate ampliado, SOLO 1
   1. `providers/openai/src/python.rs` — `list()` firma unificada (`usize`/`Option<usize>` + `Py<PyAny>`)
   2. `providers/ollama/src/python.rs` — docstring `"cursor string"` → `"cursor"` (era inexacto)
   3. `providers/litellm/tests/test_litellm.py` — 3 refs `"payload"` → `"text"` (legacy pin → canónico)
-  4. `docs/dev/architecture/adr/ADR-033-providers-canonical-contract.md` — **NEW** (Regla 5 owner_articulates=pending)
+  4. `docs/dev/architecture/adr/ADR-0033-providers-canonical-contract.md` — **NEW** (Regla 5 owner_articulates=pending)
   5. `.opencode/skills/campaign-executor/tasks/PROV-04.md` — sync a ✅ COMPLETED
 - **Verificación mecánica (re-ejecutada 2026-08-30):**
   - `shared_py.rs` emite `"text"` (Count=2) ✅ + `node_id` (Count=3) ✅
@@ -1265,7 +1272,7 @@ STABLE-01..07 (validación crates) ─┬─→ STABLE-08 (gate ampliado, SOLO 1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/FIND-42.md`
 - **Estado:** ✅ COMPLETED (2026-08-30)
 - **Cynefin:** 🟨 Complicado
-- **Resultado (2026-08-30):** Falso positivo resuelto. `Count=0` (contrato pasa textualmente) + grep `\agents/skills|\opencode/skills` → 0 hits + codegraph + Cypher CBM → 0 aristas `src → .agents/skills`. La métrica agregada `src skills 184` del codegraph venía de **path-homonymy** (`src/skills/` módulo core vs `.agents/skills/` skills del agente, colapsados por última componente). ADR-034 escrito: `docs/dev/architecture/adr/ADR-034-no-src-to-agents-skills-boundary.md`. Deuda P3 registrada: codegraph necesita path-prefix-disambiguation. FIND-45 marcado como DEFER — este ADR confirma el duplicado y permite SKIP/CLOSE definitivo (ver nota en §DEFER).
+- **Resultado (2026-08-30):** Falso positivo resuelto. `Count=0` (contrato pasa textualmente) + grep `\agents/skills|\opencode/skills` → 0 hits + codegraph + Cypher CBM → 0 aristas `src → .agents/skills`. La métrica agregada `src skills 184` del codegraph venía de **path-homonymy** (`src/skills/` módulo core vs `.agents/skills/` skills del agente, colapsados por última componente). ADR-0034 escrito: `docs/dev/architecture/adr/ADR-0034-no-src-to-agents-skills-boundary.md`. Deuda P3 registrada: codegraph necesita path-prefix-disambiguation. FIND-45 marcado como DEFER — este ADR confirma el duplicado y permite SKIP/CLOSE definitivo (ver nota en §DEFER).
 
 ### Task W26-SOLO: FIND-33 — Snapshot filesystem no captura backend KV (GRANDE, SOLO)
 
@@ -1330,7 +1337,7 @@ STABLE-01..07 (validación crates) ─┬─→ STABLE-08 (gate ampliado, SOLO 1
 | GOV-TK1 | CLI backup verification | 🟢 | Runbook DR depende conceptualmente — no P0 | Q4 |
 | GOV-TK5/7/8/9 | Coverage, Manual split, put_batch, benchmarks, repo URL | 🟢/🟡 | GOV-TK4 llvm-cov flaky, GOV-TK5 split docs grande, resto low | Q4 |
 | MOD-05 | InMemoryEngine deprecate | 🟢 | Elimina 850 líneas pero riesgo regresión — no P0 | Tras STABLE |
-| FIND-45 | src→skills violation | 🟡 | Duplicate de FIND-42 — ADR-034 (2026-08-30) confirma: falso positivo por path-homonymy, NO inversión real. SKIP/CLOSE definitivo. | — |
+| FIND-45 | src→skills violation | 🟡 | Duplicate de FIND-42 — ADR-0034 (2026-08-30) confirma: falso positivo por path-homonymy, NO inversión real. SKIP/CLOSE definitivo. | — |
 | WSM-14 | Plan adopción npm | 🟡 | Estrategia H-21 aprobada — marketing, no P0 core | Tras WSM-04..13 |
 | MEM-66/68/69/70 | claimStaleTasks, gate aprobación, batch extraction, benchmarks | 🟡 | MEM-66 multi-worker, MEM-68 opcional, MEM-69 costo, MEM-70 harness LongMemEval | Tras MEM-60/61 |
 | STABLE-04..07 | Validación mcp/wasm/ts/node | 🟡 | Gates 1-6 — DEFER hasta que STABLE-01..03 verdes + STABLE-08 medido | Tras W0-W3 |
@@ -1352,7 +1359,7 @@ STABLE-01..07 (validación crates) ─┬─→ STABLE-08 (gate ampliado, SOLO 1
 | AUD-044 | Shim MmapMut write-back | ✅ SKIP — src/storage/vfile_mmap.rs:130-141 ya tiene write-back (2026-08-25) |
 | AUD-047 | Duplicación layer.rs ~50 líneas | ✅ SKIP — metric_score closure -35 líneas (2026-08-25) |
 | FIND-23 | vanta-http-map namespace "" | ✅ SKIP — DEFAULT_NS en http-map + test (2026-08-25) |
-| FIND-26 | PITR wal_archiver.rs | ✅ SKIP (remove, 2026-08-25): wal_archiver.rs eliminado, ADR-014 superseded |
+| FIND-26 | PITR wal_archiver.rs | ✅ SKIP (remove, 2026-08-25): wal_archiver.rs eliminado, ADR-0014 superseded |
 | CORE-01 (wal_archiver) | PITR wiring | Mismo que FIND-26 — código en git history |
 | AUD-043 | Clippy ns | ✅ COMPLETED 2026-08-29 — move |_ns: String| (W0-1) |
 | REVIEW-07 | nextest profile audit | ✅ COMPLETED 2026-08-29 — profile audit verificado |

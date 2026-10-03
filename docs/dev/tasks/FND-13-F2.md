@@ -1,3 +1,9 @@
+---
+title: "FND-13-F2: BENCHMARKS.md inconsistencias + PERFORMANCE_TUNING sin fuente (Regla 11)"
+kind: task
+description: Aplicar la Regla 11 (claims con benchmark reproducible) a la documentación pendiente
+---
+
 # FND-13-F2: BENCHMARKS.md inconsistencias + PERFORMANCE_TUNING sin fuente (Regla 11)
 
 ## Metadata

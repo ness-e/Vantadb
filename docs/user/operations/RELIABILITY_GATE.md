@@ -1,10 +1,11 @@
 ---
-title: VantaDB Reliability Gate & Certification Policy
-type: operations
+title: "VantaDB Reliability Gate & Certification Policy"
+kind: runbook
 status: active
+description: "This document consolidates the operational certification policy, acceptance thresholds (gating), and practical procedures for validating VantaDB's resilience under memory stress, catastrophic fault injection, and data corruption"
 tags: [vantadb, operations, reliability]
-last_reviewed: 2026-07-01
-aliases: []
+type: operations
+last_reviewed: "2026-07-01"
 ---
 
 # VantaDB Reliability Gate & Certification Policy
@@ -89,7 +90,7 @@ if __name__ == "__main__":
 ### 1.4 Acceptance Thresholds (Gating)
 
 1. **RSS Drift < 10%** measured between memory stabilization at minute 5 (after warm-up) and the end at minute 30.
-2. **Fragmentation Coherence**: Logical [[hnsw|HNSW]] memory (`hnsw_logical_bytes`) and mapped physical resident memory (`mmap_resident_bytes`) must reflect RAM stability, without exponential growth or divergent global process RSS.
+2. **Fragmentation Coherence**: Logical [HNSW](../glosario/hnsw.md) memory (`hnsw_logical_bytes`) and mapped physical resident memory (`mmap_resident_bytes`) must reflect RAM stability, without exponential growth or divergent global process RSS.
 
 ---
 

@@ -1,10 +1,9 @@
 ---
 title: VantaDB HTTP API
-type: api
+kind: reference
 status: active
+description: "Default: http://127.0.0.1:8080"
 tags: [vantadb, api]
-last_reviewed: 2026-09-01
-aliases: []
 ---
 
 # VantaDB HTTP API
@@ -49,6 +48,9 @@ Without an API key (dev mode), requests pass through unauthenticated.
   `agent%2Fmain`.
 - **Rate limiting:** configurable via `rate_limit_rpm` (default 600 req/min). Exceeding it
   returns HTTP 429 with a `Retry-After` header.
+- **Pagination:** list-style endpoints accept `limit` plus an opaque `cursor` (the
+  `next_cursor` of the previous page — pass it back verbatim, never parse it) and return
+  `{ …, next_cursor, has_more }`. An invalid cursor returns 400.
 - **CORS:** off by default; enable via `VANTADB_ALLOWED_ORIGINS`.
 
 ## Quickstart (verified transcript)
@@ -72,17 +74,17 @@ curl http://127.0.0.1:18099/api/v2/records/agent%2Fmain/note-1
 
 # List records in a namespace
 curl "http://127.0.0.1:18099/api/v2/list?namespace=agent/main"
-# → {"records":[...],"next_cursor":null}
+# → {"records":[...],"next_cursor":null,"has_more":false}
 
 # Hybrid search (text/BM25) — `ensure_indexes_current()` runs once at server
 # startup only. Records written afterwards via the record API still need one
-# `POST /api/v2/maintenance/rebuild-index` before `text_query` works on a
+# `POST /api/v2/maintenance/index-rebuilds` before `text_query` works on a
 # fresh DB (else `text_index not found: bm25`); single memory PUTs are indexed
 # incrementally. Verified live-fire (campaign task GOV-B5).
 curl -X POST http://127.0.0.1:18099/api/v2/search \
   -H "Content-Type: application/json" \
   -d '{"namespace":"agent/main","query_vector":[],"filters":{},"text_query":"vector-native","top_k":10,"distance_metric":"Cosine","explain":false}'
-# → {"records":[{"record":{...},"score":0.57536423,"explanation":null}],"next_cursor":null}
+# → {"records":[{"record":{...},"score":0.57536423,"explanation":null}],"next_cursor":null,"has_more":false}
 
 # IQL query (keywords are UPPERCASE)
 curl -X POST http://127.0.0.1:18099/api/v2/query \
@@ -149,8 +151,9 @@ query/import counters) plus per-namespace collection counts.
 
 ### `GET /api/v2/audit`
 
-Query the audit event log written when auditing is enabled. Query parameter: `limit`.
-Returns an array of audit event objects; HTTP 409 if the audit log is not configured.
+Query the audit event log written when auditing is enabled. Query parameters: `namespace`,
+`op`, `outcome`, `limit` and the opaque `cursor`. Returns a newest-first page
+(`{events, next_cursor, has_more}`); HTTP 404 if the audit log is not configured.
 
 Audit events carry an optional `request_id` field: when the caller sends
 `x-request-id`, `x-tracing-id` or `traceparent` (first match wins, truncated to
@@ -221,7 +224,8 @@ Parse failures return `{"success": false, "data": "Execution Error: IQL parse er
 
 Create or overwrite a record (upsert by namespace+key). Body mirrors the SDK
 `VantaMemoryInput`: `namespace`, `key`, `payload`, `metadata`, `vector` (nullable),
-`sparse_vector` (nullable term-weight map), `ttl_ms` (nullable; null = never expires).
+`sparse_vector` (nullable term-weight map), `ttl_ms` (nullable; null/omitted inherits the
+namespace default TTL if configured, otherwise the record never expires).
 
 ```json
 {
@@ -254,6 +258,26 @@ Response is the stored record wire shape:
 }
 ```
 
+### Namespace default TTL
+
+A namespace ("collection") can declare a default TTL for its records via
+`VANTADB_MEMORY_DEFAULT_TTL_MS` — comma-separated `namespace:ms` pairs, e.g.
+`VANTADB_MEMORY_DEFAULT_TTL_MS="notes:86400000,chat:3600000"`.
+
+- Applied to record writes (`put`/`put_batch`) that omit `ttl_ms` (or send `null`); an explicit `ttl_ms`
+  always wins. Bulk import restores records as-given (no namespace default applied).
+- Only new writes inherit the default — existing records are never backfilled
+  when the default is configured (or changed) later.
+- Namespaces without a configured default keep the never-expires semantics.
+
+```bash
+# New writes to "notes" expire 24h after they are stored.
+curl -X POST http://127.0.0.1:8080/api/v2/records \
+  -H 'content-type: application/json' \
+  -d '{"namespace":"notes","key":"n1","payload":"remember this for a day"}'
+# → "expires_at_ms": <now + 86400000>
+```
+
 ### `DELETE /api/v2/records?namespace=<ns>&filter=<json>`
 
 Delete all records in a namespace whose metadata matches the JSON-encoded filter passed
@@ -284,18 +308,21 @@ Soft-delete (tombstone) a record.
 
 A subsequent GET returns `record not found`.
 
-### `GET /api/v2/records/{ns}/{key}/versions?limit=<n>`
+### `GET /api/v2/records/{ns}/{key}/versions?version=<n>`
 
-Version history of a record. Returns an array of version entries.
+Version history of a record. Returns an array of version entries; with `version`
+returns only that revision.
 
 ### `GET /api/v2/list?namespace=<ns>&limit=100&cursor=<cursor>&filter_ops=<json>`
 
-Paginated listing of records in a namespace.
+Cursor-paginated listing of records in a namespace. `cursor` is the opaque
+`next_cursor` from the previous page; `has_more` mirrors `next_cursor != null`.
 
 ```json
 {
   "records": [ { "...record wire shape..." : "" } ],
-  "next_cursor": null
+  "next_cursor": null,
+  "has_more": false
 }
 ```
 
@@ -307,6 +334,7 @@ response carries one additional additive field:
 {
   "records": [ ... ],
   "next_cursor": null,
+  "has_more": false,
   "truncated_namespaces": ["big-ns"]
 }
 ```
@@ -332,13 +360,20 @@ are mutually exclusive.
 ### `POST /api/v2/search`
 
 Vector / sparse / BM25 hybrid similarity search over a namespace. Wire format mirrors the
-SDK's `VantaMemorySearchRequest` plus offset pagination (`cursor` = zero-based offset,
-`limit` = page size, defaults to `top_k`). An empty `query_vector` skips dense search;
-`text_query` drives BM25 lexical scoring. `distance_metric` is one of `Cosine`,
-`Euclidean`, `Dot`; `explain: true` adds a `VantaSearchExplanation` per result.
+SDK's `VantaMemorySearchRequest` plus cursor pagination: `limit` = page size (defaults to
+`top_k`) and `cursor` = the opaque `next_cursor` from the previous page. An empty
+`query_vector` skips dense search; `text_query` drives BM25 lexical scoring.
+`distance_metric` is one of `Cosine`, `Euclidean`, `SparseDot`; `explain: true` adds a
+`VantaSearchExplanation` per result.
+
+SCH-07 query params (ADR-0046, all optional): `min_confidence` (`[0, 1]`; rejects
+out-of-range at the boundary), `as_of_ms` (valid-time point), `valid_window`
+(`{from_ms, to_ms}` half-open overlap), `include_quarantined` (default `false`:
+quarantined records are excluded). An empty `namespace` searches **all**
+namespaces (merged by score).
 
 > Text search works on fresh databases out of the box: the server ensures index state
-> at startup (MOD-12). `POST /api/v2/maintenance/rebuild-index` remains available for
+> at startup (MOD-12). `POST /api/v2/maintenance/index-rebuilds` remains available for
 > explicit rebuilds of existing data.
 
 **Request:**
@@ -361,14 +396,27 @@ SDK's `VantaMemorySearchRequest` plus offset pagination (`cursor` = zero-based o
 {
   "records": [
     {
-      "record": { "...record wire shape..." : "" },
+      "record": { "...record wire shape (incl. v2 bitemporal/confidence/quarantine fields)..." : "" },
       "score": 0.57536423,
       "explanation": null
     }
   ],
-  "next_cursor": null
+  "next_cursor": null,
+  "has_more": false,
+  "abstained": false,
+  "abstention_reason": null
 }
 ```
+
+`abstained`/`abstention_reason` are the selective-abstention signal (ADR-0046 §D2):
+when the server runs with `VANTADB_CONFIDENCE_THRESHOLD` set and every candidate
+falls below it, `abstained` is `true` and `abstention_reason` reports the stable
+code (`no_candidates_above_threshold` | `all_quarantined`) — never a silent empty
+page. The signal is produced on the single-namespace path; the all-namespaces
+fan-out merges per-namespace rankings without a page object, so it reports
+`false`/`null` (N/A). With the threshold unset (default) the response behaves
+exactly as before: `abstained` travels as `false` and `abstention_reason` as
+`null`, the two additive fields being the only difference.
 
 ### `GET /api/v2/autocomplete?prefix=<prefix>`
 
@@ -422,25 +470,33 @@ Centrality/PageRank return a score object keyed by node id.
 
 ## Maintenance
 
-### `POST /api/v2/maintenance/purge`
+### `DELETE /api/v2/maintenance/expired-records`
 
-Removes all expired (TTL elapsed) records.
+Removes all expired (TTL elapsed) records. Physically deletes the node plus its
+derived/scalar/text index entries — not just hiding it from reads.
 
 ```json
 { "purged": 0 }
 ```
 
-### `POST /api/v2/maintenance/compact`
+Expiry is enforced twice: lazily on reads (an expired record is hidden from `GET`,
+`search` and `list` immediately) and physically by this purge. The server runs the
+same purge automatically in the background (`VANTADB_TTL_SWEEP_INTERVAL_MS`, default
+`60000`, `0` disables; skipped on read-only engines); this endpoint stays available
+for on-demand cleanup and tests.
+
+### `POST /api/v2/maintenance/compactions`
 
 Compacts underlying storage layers. Returns a result acknowledgement object.
 
-### `POST /api/v2/maintenance/flush`
+### `POST /api/v2/maintenance/flushes`
 
 Forces pending WAL/memory writes down to durable storage. Returns a result object.
 
-### `POST /api/v2/maintenance/rebuild-index`
+### `POST /api/v2/maintenance/index-rebuilds`
 
-Rebuilds secondary indexes (text/HNSW) for the database.
+Rebuilds secondary indexes (text/HNSW) for the database. Long-running: served under the
+extended request timeout.
 
 ```json
 {
@@ -477,26 +533,30 @@ Creates a named snapshot of the current database state.
 
 Conversation threads store role-tagged messages as auto-embedded nodes.
 
-### `GET /api/v2/threads?limit=<n>`
+### `GET /api/v2/threads?limit=<n>&cursor=<cursor>`
 
-Lists threads.
+Lists threads as a cursor page (`cursor` is the opaque `next_cursor`).
 
 ```json
-[
-  {
-    "thread_id": "310279622029206533993990662647183162021",
-    "title": "demo thread",
-    "messages": [],
-    "created_at": 1787432771,
-    "updated_at": 1787432771,
-    "metadata": {}
-  }
-]
+{
+  "threads": [
+    {
+      "thread_id": "310279622029206533993990662647183162021",
+      "title": "demo thread",
+      "messages": [],
+      "created_at": 1787432771,
+      "updated_at": 1787432771,
+      "metadata": {}
+    }
+  ],
+  "next_cursor": null,
+  "has_more": false
+}
 ```
 
 ### `POST /api/v2/threads`
 
-Creates a thread. Body: `{ "title": "<human-readable title>" }`.
+Creates a thread (HTTP 201). Body: `{ "title": "<human-readable title>" }`.
 
 ```json
 { "thread_id": "310279622029206533993990662647183162021" }
@@ -524,7 +584,7 @@ Fetches a thread with its messages.
 }
 ```
 
-### `POST /api/v2/threads/{id}`
+### `POST /api/v2/threads/{id}/messages`
 
 Appends a role-tagged message (auto-embedded). Body requires `role` and `content`.
 
@@ -544,21 +604,24 @@ Web console entry point and static asset fallback for Vanta Studio. Requires sta
 server with `--dashboard-dir <dir>`; otherwise `/dashboard` responds 404 with a hint.
 
 > Promoted from experimental to stable 2026-08-25: covered by e2e tests and served as the
-> Vanta Studio admin surface (ADR-026/ADR-027).
+> Vanta Studio admin surface (ADR-0026/ADR-0027).
 
 ## Experimental endpoints
 
 > ⚠️ **Experimental** - these routes are marked `x-experimental: true` in
 > `openapi.yaml`. They are unstable and may change without notice.
 
-### `POST /conversation/add`
+### `POST /api/v2/conversations`
 
-Legacy conversational ingestion endpoint: auto-selects or creates a thread and appends a
-turn. Body includes optional `thread_id` (omitted creates/reuses the default thread).
+Conversational ingestion (MEM-55 data plane): auto-selects or creates a thread and
+appends a turn (HTTP 201). Body requires `role` and `content`; optional `thread_id`
+(omitted creates/reuses the default thread), `title` and `ttl_secs`.
 
-### `GET /skill/listing?limit=<n>`
+### `GET /api/v2/skills?limit=<n>&cursor=<cursor>`
 
-Lists skill-like records (capped at 200 items, default limit 50).
+Lists skill head rows (lean view — no content body; capped at 200 items, default limit
+50), filtered by `owner_agent` and/or `name_prefix`. Cursor-paginated page:
+`{items, total, next_cursor, has_more}`.
 
 ### `POST /api/v2/skills`
 
@@ -621,7 +684,7 @@ Once the binary is on your `PATH`, see [Starting the Server](#starting-the-serve
 | **Audit log + tracing IDs** | ✅ JSONL rotation + `x-request-id` / `traceparent` correlation (SRV-01, SRV-02) | ✅ Audit v1.17+, tracing v1.18+ ([source](https://qdrant.tech/documentation/security/#audit-logging)) | ✅ Authorization audit logging ([source](https://weaviate.io/developers/weaviate/configuration/authorization#role-based-access-control-rbac)) | ✅ External tools (Attu, Milvus Backup) | ❌ |
 | **Zero-downtime key rotation** | ✅ `VANTADB_ALT_API_KEY` (SRV-04, mirrors Qdrant v1.17 `alt_api_key`) | ✅ `alt_api_key` v1.17+ ([source](https://qdrant.tech/documentation/security/#rotate-an-admin-api-key)) | ⚠️ Manual process | ⚠️ Manual process | ❌ |
 | **TLS** | ✅ rustls, 1.2 + 1.3, optional cert reload | ✅ ([source](https://qdrant.tech/documentation/security/#tls)) | ✅ | ✅ | ✅ |
-| **Unprivileged Docker image** | ✅ `--target unprivileged`, multi-stage | ✅ `-unprivileged` tag ([source](https://qdrant.tech/documentation/security/#hardening)) | ❌ | ❌ | ❌ |
+| **Hardened, dependency-free runtime** | ✅ Rust stdlib only, no JVM/Go runtime | ❌ | ❌ | ❌ | ❌ |
 | **Runtime dependencies** | Minimal Rust stdlib + `tokio` / `axum`; no JVM/Go | C++ / Rust | Go | Go + C++ + etcd | Python + OpenSearch |
 
 **Where VantaDB is honestly behind** (no marketing spin):
@@ -631,7 +694,7 @@ Once the binary is on your `PATH`, see [Starting the Server](#starting-the-serve
   `docs/dev/research/2026-08-25-vantadb-server/` for the distributed-mode
   roadmap and explicit non-goals.
 - **No OIDC / SSO yet.** SRV-06 MVP ships offline HS256 JWT Bearer
-  (`VANTADB_JWT_SECRET`, ADR-039); OIDC discovery stays delegated. Until
+  (`VANTADB_JWT_SECRET`, ADR-0039); OIDC discovery stays delegated. Until
   OIDC lands, API keys, JWT, and bearer tokens are the auth surface.
 - **No mTLS for inter-node.** SRV-09 is on the roadmap. Today the HTTP
   server is single-node, so the gap is not user-visible.
@@ -706,7 +769,7 @@ Loopback binds without a key keep working as before (dev mode). Setting
 `VANTADB_API_KEY` makes any host acceptable; `--require-auth` additionally
 refuses to start without a key regardless of host.
 
-> **Hardening Guide**: For production deployment security (Docker, TLS, key rotation, RBAC, audit, monitoring), see [`docs/user/operations/hardening.md`](../user/operations/hardening.md).
+> **Hardening Guide**: For production deployment security (TLS, key rotation, RBAC, audit, monitoring), see [`docs/user/operations/hardening.md`](../user/operations/hardening.md).
 
 ## Route Summary
 
@@ -737,30 +800,42 @@ refuses to start without a key regardless of host.
 | `POST` | `/api/v2/graph/v2/bfs` | Bearer (if configured) | Graph | BFS (v2 engine) |
 | `POST` | `/api/v2/graph/v2/dfs` | Bearer (if configured) | Graph | DFS (v2 engine) |
 | `POST` | `/api/v2/graph/v2/degree` | Bearer (if configured) | Graph | Degree (v2 engine) |
-| `POST` | `/api/v2/maintenance/purge` | Bearer (if configured) | Maintenance | Purge expired records |
-| `POST` | `/api/v2/maintenance/compact` | Bearer (if configured) | Maintenance | Compact storage |
-| `POST` | `/api/v2/maintenance/flush` | Bearer (if configured) | Maintenance | Flush pending writes |
-| `POST` | `/api/v2/maintenance/rebuild-index` | Bearer (if configured) | Maintenance | Rebuild indexes |
+| `DELETE` | `/api/v2/maintenance/expired-records` | Bearer (if configured) | Maintenance | Delete expired records (was `/maintenance/purge`) |
+| `POST` | `/api/v2/maintenance/compactions` | Bearer (if configured) | Maintenance | Compact storage |
+| `POST` | `/api/v2/maintenance/flushes` | Bearer (if configured) | Maintenance | Flush pending writes |
+| `POST` | `/api/v2/maintenance/index-rebuilds` | Bearer (if configured) | Maintenance | Rebuild indexes |
 | `GET` | `/api/v2/snapshots` | Bearer (if configured) | Maintenance | List snapshots |
-| `POST` | `/api/v2/snapshots/{name}` | Bearer (if configured) | Maintenance | Create snapshot |
-| `GET` | `/api/v2/threads` | Bearer (if configured) | Threads | List threads |
-| `POST` | `/api/v2/threads` | Bearer (if configured) | Threads | Create thread |
+| `POST` | `/api/v2/snapshots/{name}` | Bearer (if configured) | Maintenance | Create snapshot (201) |
+| `GET` | `/api/v2/threads` | Bearer (if configured) | Threads | List threads (cursor page) |
+| `POST` | `/api/v2/threads` | Bearer (if configured) | Threads | Create thread (201) |
 | `GET` | `/api/v2/threads/{id}` | Bearer (if configured) | Threads | Get thread |
-| `POST` | `/api/v2/threads/{id}` | Bearer (if configured) | Threads | Send message to thread |
+| `POST` | `/api/v2/threads/{id}/messages` | Bearer (if configured) | Threads | Send message to thread |
 | `DELETE` | `/api/v2/threads/{id}` | Bearer (if configured) | Threads | Delete thread |
+| `GET` | `/api/v2/skills` ⚠️ experimental | Bearer (if configured) | Skills | List skill heads (cursor page) |
 | `POST` | `/api/v2/skills` | Bearer (if configured) | Skills | Create skill (idempotent by content hash) |
 | `PUT` | `/api/v2/skills/{skill_id}` | Bearer (if configured) | Skills | Update skill (optimistic lock) |
 | `PATCH` | `/api/v2/skills/{skill_id}` | Bearer (if configured) | Skills | Patch skill fields |
 | `DELETE` | `/api/v2/skills/{skill_id}` | Bearer (if configured) | Skills | Delete skill and all versions |
 | `GET` | `/dashboard` | Bearer (if configured) | Stable | Web console entry point |
 | `GET` | `/dashboard/{path}` | Bearer (if configured) | Stable | Web console static assets |
-| `POST` | `/conversation/add` ⚠️ experimental | Bearer (if configured) | Experimental | Legacy conversation turn ingestion |
-| `GET` | `/skill/listing` ⚠️ experimental | Bearer (if configured) | Experimental | Skill-like record listing |
+| `POST` | `/api/v2/conversations` ⚠️ experimental | Bearer (if configured) | Experimental | Conversation turn ingestion |
 
 ## Error responses
 
-All error bodies share the shape `{ "success": false, "error": "<message>",
-"hint"?: "<guidance>" }`:
+All error bodies share the base shape `{ "success": false, "error": "<message>" }`:
+
+- Engine/handler errors add the stable machine-readable `code` (`VANTADB_*` — see
+  [`ERROR_HANDLING.md`](ERROR_HANDLING.md)); match on `code`, never on the message text.
+- The query/IQL path carries the message under `data` instead of `error`.
+- Auth failures (`401`) add a `hint` with remediation guidance.
+
+> **RFC 9457 (Problem Details) — adopted 2026-09-27 by owner decision (FIND-161),
+> not yet implemented.** The agreed direction is to migrate this error surface to
+> RFC 9457 `application/problem+json` (`type` / `title` / `status` / `detail` /
+> `instance`), keeping the canonical `code` as an extension member so cross-binding
+> consumers still branch on the same stable identifier. Implementation is tracked
+> as `FIND-165` in `docs/dev/Backlog.md`. **Until it lands, the envelope above is
+> the wire contract** — keep matching on `code`, never on message text.
 
 | Status | Meaning |
 |--------|---------|
@@ -768,7 +843,7 @@ All error bodies share the shape `{ "success": false, "error": "<message>",
 | `401` | Missing or invalid Bearer token |
 | `403` | Authenticated but insufficient RBAC permissions |
 | `404` | Referenced resource (node, record, namespace, thread) not found |
-| `409` | Operation not available (e.g. audit log not configured) |
+| `409` | Conflict (e.g. stale `expected_version` on a skill update) |
 | `429` | Rate limit exceeded (`Retry-After` header included) |
 | `500` | Internal server error |
 

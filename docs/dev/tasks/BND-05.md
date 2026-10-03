@@ -1,3 +1,9 @@
+---
+title: "BND-05: vantadb-node superficie mínima — graph/explain para paridad con wasm/ts"
+kind: task
+description: "graph/explain expuestos en vantadb-node (o equivalente); build/test node pasa\" → verificación mecánica"
+---
+
 # BND-05: vantadb-node superficie mínima — graph/explain para paridad con wasm/ts
 
 ## Metadata
@@ -25,7 +31,7 @@
 
 - **Archivos leídos (completos):** `vantadb-node/src/lib.rs` (489L), `vantadb-node/Cargo.toml`, `vantadb-node/package.json`, `vantadb-node/tests/persistence.test.ts`, `vantadb-node/index.d.ts`, `src/sdk/graph.rs` (234L), `src/sdk/gds.rs`, `src/sdk/search/explain.rs`, `src/sdk/serialization/graph_types.rs` (298L), `src/sdk/types.rs` (§ VantaValue/VantaSearchExplanation), `src/sdk/api.rs` (§ insert_node/get_node/delete_node/add_edge/remove_edge), `.opencode/rules/js-ecosystem.md`, `vantadb-wasm/src/lib.rs` (§ graph_* + explain_memory_search + parse_node_id), `vantadb-ts/src/vantadb.ts` + `types.ts` (§ GraphClient)
 - **Archivos referenciados hacia dentro (imports/includes/dependencias):** `vantadb` (path `..`, features fjall/memmap2/rayon), `napi`, `napi-derive`, `serde_json`, `tokio`
-- **Archivos que referencian a los editados (referencias entrantes):** `vantadb-ts/src/native.ts` (usa `vantadb-node`), `desktop/` (integración native), `docs/dev/architecture/adr/COMP-029-napi-rs-node-bindings.md` (describe superficie actual), `docs/dev/avance/activo/bindings.md`
+- **Archivos que referencian a los editados (referencias entrantes):** `vantadb-ts/src/native.ts` (usa `vantadb-node`), `desktop/` (integración native), `docs/dev/architecture/adr/ADR-0050-napi-rs-node-bindings.md` (describe superficie actual), `docs/dev/avance/activo/bindings.md`
 - **Veredicto impacto:** **bajo** — cambios 100% aditivos en `vantadb-node/src/lib.rs` + artefactos regenerados (index.cjs/js/d.ts). No se rompe ningún método existente; no se toca core (`src/`), no se toca wasm/ts. El wrapper `vantadb-ts/src/native.ts` sigue sin graph (deuda documentada).
 
 ## Contrato

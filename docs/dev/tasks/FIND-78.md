@@ -1,3 +1,9 @@
+---
+title: "FIND-78 — link roto + nota engines Node (`vantadb-node/README.md`)"
+kind: task
+description: "campaigndiscoverskillsv2 archivosClave=\"vantadb-node/README.md\" phase=\"BUILD\" contractKeywords=[\"docs\",\"readme\",\"links\",\"node\"] →"
+---
+
 # FIND-78 — link roto + nota engines Node (`vantadb-node/README.md`)
 
 > Campaign: `6ab26f3f-cf16-4416-9255-c18cca0bcaf0` · Plan: `docs/dev/plans/2026-09-15-find-correcciones.md`

@@ -1,3 +1,9 @@
+---
+title: "TASK-WEB-09: Densidad efectos home — refinamiento sutil+A11y (15 efectos KEEP atenuados, no a 0)"
+kind: task
+description: "Archivos clave: web/src/components/vanta/trust-bar.tsx, web/src/components/vanta/hero.tsx, web/src/components/vanta/mark/mark-classic.tsx, web/src/components/vanta/mark/use-mark-interaction.ts, web/src/app/globals.css"
+---
+
 # TASK-WEB-09: Densidad efectos home — refinamiento sutil+A11y (15 efectos KEEP atenuados, no a 0)
 
 ## Metadata

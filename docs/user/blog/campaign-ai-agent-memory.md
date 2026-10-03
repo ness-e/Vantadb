@@ -1,10 +1,10 @@
 ---
-title: "AI Agent Memory Campaign — Measurable Deliverables"
-type: strategy
+title: AI Agent Memory Campaign — Measurable Deliverables
+kind: howto
 status: active
-tags: [vantadb, marketing, campaign, ai-agents, memory, agent-memory]
-last_reviewed: 2026-08-05
+description: "Prior validation (docs/audit-reports/backlog-validation-2026-07-28.md:118) marked MKT-10 ❌ (\"sin materiales de campaña\"). On review 2026-08-05, the campaign's landing and demo surfaces already exist in the product/web; 1 real gap..."
 aliases: [MKT-10, campaign-ai-agent-memory, AI Agent Memory]
+tags: [vantadb, marketing, campaign, ai-agents, memory, agent-memory]
 ---
 
 # AI Agent Memory Campaign

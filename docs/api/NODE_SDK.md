@@ -1,10 +1,9 @@
 ---
 title: Node.js Native SDK Documentation
-type: api
+kind: reference
 status: active
+description: "vantadb-node is the native Node.js binding for VantaDB, built with"
 tags: [vantadb, api, node]
-last_reviewed: 2026-09-07
-aliases: []
 ---
 
 # Node.js Native SDK Documentation
@@ -176,7 +175,7 @@ Full typed surface: `index.d.ts` (auto-generated at build time by napi-rs — se
 | `graphDegree(roots)` | Degree centrality entries `{ id, in_degree, out_degree }` |
 | `versions(ns, key)` | Every retained version of a record, ascending (v1..vN) |
 | `getVersion(ns, key, version)` | One historical version, or `null` |
-| `supersede(ns, oldKey, newKey)` | Mark `oldKey` superseded by `newKey` (ADR-028) |
+| `supersede(ns, oldKey, newKey)` | Mark `oldKey` superseded by `newKey` (ADR-0028) |
 | `vacuum()` | Purge HNSW tombstones → `VacuumReport` |
 | `rebuildIndex()` | Rebuild vector/derived/text/scalar indexes → `RebuildReport` |
 | `compactLayout()` | Compact vector store file → estimated bytes reclaimed (`bigint`) |
@@ -226,6 +225,13 @@ await db.close();
 > **Note:** `metadata` uses the tagged `VantaValue` form, e.g.
 > `{ tag: { String: "keep" } }`, `{ count: { Int: 3 } }`. `node_id` is a
 > decimal **string** — u128 ids exceed `Number.MAX_SAFE_INTEGER`.
+>
+> **Sparse vectors (WIRE-03):** `put()` accepts `sparse_vector` and `search()`
+> accepts `query_sparse`, both as `{ "<dimension-id>": weight }` maps (finite
+> floats; keys arrive as strings because JS object keys always are — Python
+> requires `int` keys instead). Sparse scores are fused with dense/text scores.
+> An empty `query_vector` combined with `text_query` selects **text-only**
+> (BM25) search; with `query_sparse` it runs sparse-only.
 
 ### Search
 
@@ -233,21 +239,36 @@ await db.close();
 const hits = await db.search({
   namespace: "docs",
   query_vector: [0.9, 0.1],
+  query_sparse: { "7": 1.5 },    // optional: sparse term weights (WIRE-03)
   text_query: "rust programming", // optional: enables hybrid RRF fusion
   top_k: 10,
   distance_metric: "Cosine",     // or "Euclidean"
   filters: { lang: { String: "en" } },
+  min_confidence: 0.5,           // opt-in confidence floor [0, 1] (SCH-04)
+  as_of_ms: 1788134400000,       // valid-time point (ADR-046 §D3, SCH-07)
+  valid_window: { from_ms: 0, to_ms: 1788134400000 }, // half-open overlap
+  include_quarantined: false,    // quarantine view, default false (ADR-046 §D5)
 });
+// text-only: db.search({ namespace: "docs", query_vector: [], text_query: "rust" })
 // hit: { record: MemoryRecord, score: number, explanation?: SearchExplanationHit }
 ```
+
+`list(namespace, options)` accepts the same v2 params plus `min_confidence`
+(`MemoryListOptions`: `as_of_ms`, `valid_window`, `include_quarantined`,
+`min_confidence`). Records returned by `get`/`list`/`search` carry the v2
+fields (`valid_at_ms`, `invalid_at_ms`, `confidence_class`, `confidence`,
+`last_validated_at_ms`, `derived_from`, `quarantined_at_ms`,
+`quarantine_reason`, `quarantined_by`, `quarantine_review_due_ms`); u64
+timestamps travel as numbers (the id fields stay decimal strings). Inverted
+`valid_window` (`from_ms >= to_ms`) is rejected by the core boundary.
 
 **Score is relevance, not a distance (WSM-10):** the `score` field is
 **higher-is-better** — it is a relevance score (BM25 for text, cosine
 similarity ∈ [-1.0, 1.0] for vectors, RRF-fused for hybrid). It is **not**
-a raw L2 / cosine distance. This matches the Rust core and the Python SDK.
-**It is intentionally different from the TypeScript wrapper `vantadb-ts`**
-(which renames the field to `distance` and inverts the semantics —
-"lower is more similar", CODE-091).
+a raw L2 / cosine distance. This matches the Rust core, Python, WASM and
+(since W1/API-02) the TypeScript wrapper `vantadb-ts` — every transport now
+reads `score` the same way. Raw ANN distances stay on `searchVector()` /
+`search_vector()` (`distance`, lower-is-better).
 
 The full per-transport field map (Rust core / WASM binding / TS wrapper /
 Node / Python / HTTP API) lives in

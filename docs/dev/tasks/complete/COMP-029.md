@@ -1,3 +1,9 @@
+---
+title: "COMP-029: Node.js/TS bindings nativos vía napi-rs (backend adicional a WASM)"
+kind: task
+description: "cd vantadb-node && npm run build (o napi build) produce vantadb.<platform>.node y index.js/index.d.ts generados. Un test vitest en vantadb-ts/tests/ (o vantadb-node/tests/) ejecuta: (1) connect a una DB temporal con persistencia real..."
+---
+
 # COMP-029: Node.js/TS bindings nativos vía napi-rs (backend adicional a WASM)
 
 ## Metadata

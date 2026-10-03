@@ -1,3 +1,8 @@
+---
+title: "TASK-ID: ERR-CORE-02 — Clippy unwrap_used/expect_used deny en prod + anyhow bins"
+kind: task
+---
+
 # TASK-ID: ERR-CORE-02 — Clippy unwrap_used/expect_used deny en prod + anyhow bins
 
 ## Metadata

@@ -1,3 +1,10 @@
+---
+title: "Plan de Ejecución: Reorganización avance-canónico + unificación reviews"
+kind: plan
+status: archived
+description: "Decisiones Gate P: migración física completa progreso→avance · eliminar vantadb-full-review · podar trigger words del design-orchestrator"
+---
+
 # Plan de Ejecución: Reorganización avance-canónico + unificación reviews
 
 > **Campaign ID:** 3959867d-76dd-4116-9e11-6dc782bd45e1

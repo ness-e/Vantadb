@@ -1,11 +1,9 @@
 ---
 title: "Command & Flow System Audit — consolidación de comandos, planes y auditorías"
-type: review
+kind: review
 status: archived
+description: "Fecha: 2026-08-25T14:22:32-04:00"
 tags: [vantadb, review]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Command & Flow System Audit — consolidación de comandos, planes y auditorías

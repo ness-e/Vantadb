@@ -1,3 +1,9 @@
+---
+title: "TASK DESKTOP-QW9: Baseline medido de recursos del app (H-15 — BENCHMARKS §Desktop)"
+kind: task
+description: "Baseline medido de recursos del app (startup time, RAM idle) registrado en docs/user/operations/BENCHMARKS.md §Desktop (Regla 11: reemplaza estimación DESKTOP-01). Medir startup time y RAM idle del app desktop (via npm run build timing..."
+---
+
 # TASK DESKTOP-QW9: Baseline medido de recursos del app (H-15 — BENCHMARKS §Desktop)
 
 ## Metadata

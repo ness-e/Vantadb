@@ -134,6 +134,7 @@ fn put_l1(db: &Embedded, rec: &MemoryRecord, vector: Option<Vec<f32>>) {
         vector,
         sparse_vector: None,
         ttl_ms: None,
+        ..Default::default()
     })
     .expect("put l1 record");
 }

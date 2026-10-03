@@ -1,3 +1,9 @@
+---
+title: "COMP-026: Multi-level LSM Compaction (L0→L1→L2→L3)"
+kind: task
+description: "Estado: ✅ COMPLETED — 2026-07-28"
+---
+
 # COMP-026: Multi-level LSM Compaction (L0→L1→L2→L3)
 
 **Estado:** ✅ COMPLETED — 2026-07-28
@@ -20,7 +26,7 @@ Extender el sistema de almacenamiento de VantaDB para soportar **múltiples nive
 
 ## Diseño arquitectónico — ✅ COMPLETADO (2026-07-28)
 
-ADR en `docs/adr/COMP-026-lsm-compaction-design.md` (545 líneas). Ver sección "Decisiones clave" abajo.
+ADR en `docs/adr/ADR-0049-lsm-compaction-design.md` (545 líneas). Ver sección "Decisiones clave" abajo.
 
 ## Decisiones clave (del ADR)
 

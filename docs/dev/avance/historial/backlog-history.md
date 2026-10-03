@@ -1,10 +1,9 @@
 ---
 title: "Backlog History — Items Removed & Migrated"
-type: tracking
+kind: review
 status: active
+description: "71+ items removidos: ~25 originales + 6 P0 stale + 9 P1 resueltos + 24 P2 stale + 7 P3 stale + 10 P4 completados + 7 P9 completados + 11 P10 completados + 1 P7 completado + 24 crates de integración nunca implementados"
 tags: [vantadb, backlog, history]
-last_reviewed: 2026-08-07
-aliases: []
 ---
 
 # Backlog History — Items Removed & Migrated
@@ -35,7 +34,7 @@ Todos los items P1 originales resueltos/deferidos en campañas anteriores.
 
 `DRV-014` ✅, `DRV-028` ✅, `DRV-041` ✅, `VFY-006` ✅, `VFY-007` ✅, `REV-012` ✅, `DRV-136` ✅ + 24 stale items de la auditoría original.
 
-> ⚠️ **Nota DRV-014:** el fix fue revertido por `cae92db3` — ver `docs/dev/architecture/adr/DRV-014-wal-batch-tradeoff.md`. Tradeoff de performance posterior, no deuda pendiente.
+> ⚠️ **Nota DRV-014:** el fix fue revertido por `cae92db3` — ver `docs/dev/architecture/adr/ADR-0051-wal-batch-tradeoff.md`. Tradeoff de performance posterior, no deuda pendiente.
 
 ### P3 — Test Coverage (14 removidos)
 
@@ -159,7 +158,7 @@ Re-scopeadas (siguen en catálogo, alcance ajustado al modelo Studio):
 
 - **DESKTOP-23** → persistencia de preferencias UI (tema/layout/lentes/filtros), no "vías guardadas".
 - **DESKTOP-26** → tests frontend del Studio (vitest, hoy no configurado); Rust ya tiene tests.
-- **DESKTOP-27** → docs + ADR del modelo real (transporte pluggable; ADR-026/027/028 ya existen), no multi-connection 6 vías.
+- **DESKTOP-27** → docs + ADR del modelo real (transporte pluggable; ADR-0026/027/028 ya existen), no multi-connection 6 vías.
 
 Priorizadas:
 
@@ -309,7 +308,7 @@ Re-escaladas en el propio Backlog (misma fecha): RES-09 (fila WAL a fsync-batchi
 - **AUD-042** (tantivy/lru allowlist) - ✅ RESUELTO: allowlist RUSTSEC-2026-0253 removida 2026-09-11 (AST-007, `deny.toml`), `lru = "0.18"` directo en `Cargo.toml`. El bloqueo upstream desapareció por el camino del bypass, no del bump.
 - **REVIEW-10** (god-file `cli_server.rs`) - ✅ RESUELTO: el archivo mide 721 bytes; el server vive en `src/server/` (bootstrap, router, handlers, middleware, jwt, telemetry...). El split ya ocurrió.
 - **TBH-01** (verify_datasets + gate) - ✅ completado 2026-08-31 (commit `0e67f354`).
-- **FIND-26** (wal_archiver/PITR remove) - ✅ resuelta 2026-08-25 (remove + ADR-014 superseded).
+- **FIND-26** (wal_archiver/PITR remove) - ✅ resuelta 2026-08-25 (remove + ADR-0014 superseded).
 - **ISSUE-TS-001** (TS SDK `unreachable!`) - ✅ resuelto-stale 2026-09-10 (0 matches + vitest 280/280, cero código).
 
 - **FIND-89** (consolidar `env::var` en `Config`) - ✅ completado 2026-09-14 por sesión paralela (commits `1ca57649`/`3a0e42d7`/`4cdc1970`/`c4ddb217`, BREAKING: vars `VANTA_*` → `VANTADB_*`; excepciones: test `llm.rs`, `ENV_REPORTED_VERSION`, `OTEL_*`). Fila removida del catálogo en auditoría backlog misma fecha.
@@ -319,3 +318,20 @@ Re-escaladas en el propio Backlog (misma fecha): RES-09 (fila WAL a fsync-batchi
 ## SKIP campaña FIND 2026-09-15 (plan 2026-09-15-find-correcciones, Gate P owner)
 
 - **FIND-76** (gap `jwt_secret` + link `HTTP_API.md:600`) — ❌ SKIP verificado stale 2026-09-15: `validate-docs-coverage.ps1` EXIT 0 (0 gaps), `CONFIGURATION.md:45` documenta `jwt_secret`, link `HTTP_API.md:600` → `.opencode/references/research-modules.md` existe. Ambos sub-items resueltos; owner aprobó SKIP en Gate P. Fila removida sin completar.
+
+## Migración de formato de backlogs + limpieza (2026-09-30)
+
+- **Filas completadas eliminadas** de los 4 backlogs (campaña F0–F6 + previas) — registro de completado en `docs/dev/avance/` por dominio: FIND-96/97/99 · EMB-10..20 · FIND-123 · FIND-134..146 · FIND-154 · FIND-160..163 (tabla FIND); MGR-10/12/13/19 · EXE-01/02 · VER-01..09 · SCH-01..08 · ICP-01..03 · DEF-01..08 · WIRE-01..10 · EST-09 · C-08 · H3-01 · FUT-01/09/11 · BIZ-08.
+- **Secciones cerradas comprimidas a notas de cierre:** P14 · P17–P19 · P21–P22 · P26–P27 · P32 · P36–P37 · P39–P40/P44/P47 · Phase 48 + P48 CIERRE · P51/P52/P54/P55/P56/P57.
+- **Detalle de la migración:** `docs/dev/avance/activo/operaciones.md` §Migración de formato de backlogs + `.opencode/references/backlog-format.md`.
+
+## Verificación de realidad (2026-10-01)
+
+- **Filas cerradas** (verificadas completadas/implementadas): `DX-11` · `FIND-138` · `FIND-170` · `FIND-171` · `UX-08` · `UX-11` · `SHOW-03` · `HIG-02`. Detalle: `docs/dev/avance/activo/operaciones.md` §Verificación de realidad del backlog.
+
+## Cierres pre-release 0.8.0 (2026-10-01)
+
+- **FIND-176** (wizard `ORT_DYLIB_PATH` al directorio) - ✅ cerrado 2026-10-01: fix 4 sitios + test de regresión 8 PASS (commit `3ae64a7d`).
+- **FIND-190** (overwrite Cold invisible a get/list) - ✅ cerrado 2026-10-01: invalidación de cache en write path + tests RED→GREEN; review P2-01 APPROVE (commit `06496a9a`); derivadas: FIND-222 (race prefetch), FIND-223 (dream promote).
+- **FIND-172** (MD028 preexistente en README_ES) - ✅ cerrado 2026-10-01: callouts `[!NOTE]` fusionados (fix aplicado durante el grupo A del README); markdownlint limpio.
+- **RES-17** (investigación: instalador interactivo personalizado; ex `INV-installer-01`) - ✅ entregada 2026-10-01: `docs/dev/research/installer-personalizado/RESEARCH.md` (31 URLs verificadas; roadmap F1-F4); alimenta DX-12.

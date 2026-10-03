@@ -62,7 +62,7 @@ describe("db.memory delegates to flat memory methods", () => {
     expect(db.memory.get({ namespace: "nope", key: "nope" })).toBeNull();
   });
 
-  it("memory.search returns hits ordered by distance (hybrid request)", () => {
+  it("memory.search returns hits ordered by score (hybrid request)", () => {
     db.memory.put({ namespace: "sc_search", key: "a", payload: "apple", vector: [1, 0, 0, 0] });
     db.memory.put({ namespace: "sc_search", key: "b", payload: "banana", vector: [0, 1, 0, 0] });
     const hits = db.memory.search({
@@ -72,7 +72,7 @@ describe("db.memory delegates to flat memory methods", () => {
     });
     expect(hits.length).toBeGreaterThan(0);
     for (let i = 1; i < hits.length; i++) {
-      expect(hits[i - 1].distance).toBeGreaterThanOrEqual(hits[i].distance);
+      expect(hits[i - 1].score).toBeGreaterThanOrEqual(hits[i].score);
     }
     // Same result as the flat method on the same data.
     const flatHits = db.search({ namespace: "sc_search", query_vector: [1, 0, 0, 0], top_k: 2 });

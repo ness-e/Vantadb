@@ -1,3 +1,9 @@
+---
+title: Upstream PR draft — CrewAI
+kind: plan
+description: "Prereq (bloquea merge upstream): publicar vantadb-crewai en PyPI (tag adapters-v0.5.0)"
+---
+
 # Upstream PR draft — CrewAI
 
 **Prereq (bloquea merge upstream):** publicar `vantadb-crewai` en PyPI (tag `adapters-v0.5.0`).

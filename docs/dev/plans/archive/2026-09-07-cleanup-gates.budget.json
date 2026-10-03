@@ -1,0 +1,22 @@
+{
+  "tasks": {
+    "1": {
+      "taskId": "1",
+      "toolCalls": 3,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1788850974047,
+      "lastActivity": 1788854078188,
+      "traceId": "3fa7a28c-2cab-45c0-a5fc-d2fe74ad0512"
+    },
+    "GOV-TK2": {
+      "taskId": "GOV-TK2",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1788851034653,
+      "lastActivity": 1788851034653,
+      "traceId": "d7830f7a-e158-48d0-8454-e03fe5549e12"
+    }
+  }
+}

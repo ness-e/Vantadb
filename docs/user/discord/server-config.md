@@ -1,9 +1,9 @@
 ---
-title: "Server Configuration"
-type: discord
+title: Server Configuration
+kind: howto
 status: active
+description: "All categories grant ViewChannel + SendMessages to @everyone. Single-channel bilingual model — English and Spanish coexist in the same channels, language roles are cosmetic/identity only. Only STAFF category is restricted to Admin role"
 tags: [vantadb, discord]
-last_reviewed: 2026-07-21
 ---
 
 # Server Configuration
@@ -94,8 +94,6 @@ All categories grant ViewChannel + SendMessages to @everyone. **Single-channel b
 |---|---|---|
 | VantaDB (custom) | Server management via API | Active |
 | Carl-bot | Reaction roles, autorole, moderation | Installed — needs dashboard config |
-
-## Integrations
 
 ## Integrations
 

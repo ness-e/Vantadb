@@ -1,3 +1,9 @@
+---
+title: RES-01 — DURABILIDAD 🔴 WAL v2 Prepare + snapshot quiesce + recursive wal/ (prerequisite S1)
+kind: task
+description: "Disjoint Wave0 (MAX 3): RES-01 toca src/wal.rs + src/storage/engine/ + src/storage/vfile — disjoint 100% con MCP-35 (vantadb-mcp/src/server.rs, .vanta.server.json) y GOV-T01..T03 (evals/dora.mjs, .opencode/task-system/). Parallel..."
+---
+
 # RES-01 — DURABILIDAD 🔴 WAL v2 Prepare + snapshot quiesce + recursive wal/ (prerequisite S1)
 
 ## Metadata

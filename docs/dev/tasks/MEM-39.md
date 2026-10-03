@@ -1,3 +1,9 @@
+---
+title: MEM-39 — Seed/import CLI (skills/persona iniciales)
+kind: task
+description: "Plan: docs/dev/plans/2026-08-21-vanta-context-engine.md Task 4 · Ruta: vanta-worker"
+---
+
 # MEM-39 — Seed/import CLI (skills/persona iniciales)
 
 Plan: `docs/dev/plans/2026-08-21-vanta-context-engine.md` Task 4 · Ruta: vanta-worker

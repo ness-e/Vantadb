@@ -1,3 +1,9 @@
+---
+title: "MOD-17 — Deadlock potencial `OpGate::drain()` espera condvar sosteniendo GIL en `close()`"
+kind: task
+description: "close() concurrente no puede colgar el intérprete: el wait del condvar del"
+---
+
 # MOD-17 — Deadlock potencial `OpGate::drain()` espera condvar sosteniendo GIL en `close()`
 
 ## Objetivo

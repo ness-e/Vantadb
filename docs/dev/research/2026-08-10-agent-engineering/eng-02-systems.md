@@ -1,12 +1,11 @@
 ---
 title: "ENG-02 · Ingeniería de sistemas, resolución de problemas complejos y debugging sistemático"
-type: research
+kind: research
 status: stable
+description: "El pensamiento sistémico trata el sistema como un todo interconectado, no como partes aisladas. Fuente: Meadows / Thinking in Systems (PDF de referencia pública)"
 tags: [vantadb, research, ingenieria-sistemas, debugging]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
+
 # ENG-02 · Ingeniería de sistemas, resolución de problemas complejos y debugging sistemático
 
 - **Fecha:** 2026-08-10

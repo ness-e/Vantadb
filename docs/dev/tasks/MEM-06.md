@@ -1,3 +1,9 @@
+---
+title: "MEM-06: F3 Esquema skills multi-versión en core"
+kind: task
+description: Callers (aguas arriba — dependen de esto)
+---
+
 # MEM-06: F3 Esquema skills multi-versión en core
 
 ## Metadata

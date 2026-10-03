@@ -1,9 +1,9 @@
 ---
-title: "Payload Indexes"
-type: glossary-entry
+title: Payload Indexes
+kind: glossary
 status: stable
-tags: [vantadb, glosario, índices, filtros]
-last_reviewed: 2026-09-15
+description: Los payload indexes son índices derivados sobre los campos de metadata de un
+tags: [vantadb, glosario, indices, filtros]
 links: "[Glosario](./README.md)"
 ---
 
@@ -11,220 +11,135 @@ links: "[Glosario](./README.md)"
 
 ## Definición
 
-**Payload Indexes** son índices secundarios sobre campos de metadata que permiten filtrado eficiente durante búsquedas vectoriales, evitando el escaneo completo del dataset.
+Los **payload indexes** son índices *derivados* sobre los campos de metadata de un
+memory record. No son un feature configurable: VantaDB los mantiene
+automáticamente para **cada** campo de metadata que se escribe, y los usa para
+resolver filtros de igualdad (`$eq`) y para localizar los registros de un
+namespace por prefijo.
 
-## Propósito
+Están separados de los payloads canónicos en el storage: son
+`BackendPartition::PayloadIndex` (`src/backend.rs:46`), una partición propia del
+KV store que se reconstruye desde los registros canónicos
+(`rebuild_derived_indexes`, `src/sdk/serialization/impl_rebuild.rs`).
 
-Sin payload indexes:
+## Cómo funcionan
+
+Una clave de payload index es un prefijo composed de tres partes más el key del
+registro (`payload_index_prefix` / `payload_index_key`,
+`src/sdk/serialization/mod.rs:240-258`):
+
 ```
-busqueda-vectorial → Top 1000 candidatos → Filtrar por metadata → Top 10 resultados
-(99% de trabajo desperdiciado)
+<namespace>\0<field>\0<valor codificado>\0<record key>
 ```
 
-Con payload indexes:
-```
-Filtro por metadata → Top 100 candidatos → busqueda-vectorial → Top 10 resultados
-(90% de reducción en trabajo)
-```
-
-## Tipos de Índices Soportados
-
-### 1. Keyword Index
-
-Para campos string con valores discretos:
+Ejemplo verificado por test (`src/sdk/serialization/mod.rs:1057`):
 
 ```rust
 // Metadata: {"department": "engineering", "level": "senior"}
-// Índice: department → [doc1, doc5, doc12, ...]
-
-pub struct KeywordIndex {
-    postings: HashMap<String, HashSet<u64>>,  // value → doc_ids
-}
+// Índice:   "ns\0color\0s:red\0" + record_key
+let prefix = payload_index_prefix("ns", "color", &Value::String("red".into()))?;
+assert_eq!(prefix, b"ns\0color\0s:red\0");
 ```
 
-### 2. Integer Index
+Como el prefijo es ordenado por bytes, un filtro de igualdad se resuelve con un
+**prefix scan** (`scan_partition_prefix_iter`) en lugar de un escaneo completo:
 
-Para campos numéricos con rangos:
-
-```rust
-// Metadata: {"year": 2024, "priority": 3}
-// Índice: BTreeMap<i64, HashSet<u64>>
-
-pub struct IntegerIndex {
-    tree: BTreeMap<i64, HashSet<u64>>,  // value → doc_ids
-}
+```
+Sin payload index:   Top 1000 candidatos → filtrar → Top 10
+Con payload index:   prefijo → conjunto de candidatos → Top 10
 ```
 
-### 3. Float Index
+## Índices derivados que existen
 
-Para campos de punto flotante:
+El conjunto real de índices derivados es **otro** — no hay un índice por tipo de
+dato (`KeywordIndex`, `IntegerIndex`, `FloatIndex`, `BooleanIndex` no existen en
+el código):
 
-```rust
-pub struct FloatIndex {
-    tree: BTreeMap<OrderedFloat<f64>, HashSet<u64>>,
-}
-```
+| Índice | Partición | Qué indexa | Notas |
+|--------|-----------|------------|-------|
+| **Namespace** | `NamespaceIndex` | `namespace\0` → node ids | Prefix scan para `list()` y export |
+| **Payload (metadata)** | `PayloadIndex` | `ns\0field\0value\0key` | Un solo tipo de índice, agnóstico al tipo del valor |
+| **Text / BM25** | `TextIndex` | Términos → postings con posiciones y TF | Auditable: `audit_text_index()` / `repair_text_index()` |
+| **Sparse** | `SparseIndex` | `ns\0dim\0key` → posting `(node_id, weight)` | Búsqueda sparse por dimensión; scoring = dot product crudo |
+| **Vector (HNSW/IVF/SCANN/Flat)** | — | embeddings | Índice de dossier, no prefijo |
 
-### 4. Boolean Index
+Los valores de payload se **flattenan** antes de indexarse: un `ListInt([1,2,3])`
+produce tres entradas `Int(1)`, `Int(2)`, `Int(3)` vía
+`Value::to_index_values()` (`src/sdk/types.rs:133`). Por eso un prefix scan sobre
+una lista completa no es posible — solo sobre valores escalares individuales.
 
-Para campos booleanos:
+## Operadores de filtro
 
-```rust
-pub struct BooleanIndex {
-    true_docs: HashSet<u64>,
-    false_docs: HashSet<u64>,
-}
-```
+El enum `FilterOp` (`src/sdk/types/record.rs:27`) define **seis** operadores:
+
+| Operador | Significado |
+|----------|-------------|
+| `Eq` | `==` |
+| `Neq` | `!=` |
+| `Gt` | `>` |
+| `Gte` | `>=` |
+| `Lt` | `<` |
+| `Lte` | `<=` |
+
+No existe `$in`. Los operadores de rango (`Gt`/`Gte`/`Lt`/`Lte`) requieren
+valores ordenables del mismo *variant* que el campo: las comparaciones
+cross-variant caen al orden de declaración del enum
+(`String < Int < Float < Bool < DateTime < … < Null`), así que un filtro
+`$gte` sobre un campo string contra un valor int no significa lo que parece.
 
 ## Configuración
 
-### Python
+No hay configuración de payload indexes — no existen `PayloadIndexConfig` ni
+`PayloadIndexType`. Se configuran los **filtros** en la query:
 
 ```python
 import vantadb
 
-# Payload index configuration lives in the Rust engine config, not the constructor
 db = vantadb.Client("./data")
+
+# Igualdad
+results = db.search("ns", query_vector=query_vector,
+                    filters={"department": "engineering"})
+
+# Rango
+results = db.search("ns", query_vector=query_vector,
+                    filters={"year": {"$gte": 2020, "$lte": 2024}})
+
+# Combinación (AND implícito)
+results = db.search("ns", query_vector=query_vector,
+                    filters={"department": "engineering", "year": {"$gte": 2023}})
 ```
-
-### Rust
-
-```rust
-let config = Config {
-    payload_indexes: vec![
-        PayloadIndexConfig {
-            field: "department".into(),
-            index_type: PayloadIndexType::Keyword,
-        },
-        PayloadIndexConfig {
-            field: "year".into(),
-            index_type: PayloadIndexType::Integer,
-        },
-    ],
-    ..Default::default()
-};
-```
-
-## Operadores de Filtro
-
-### Igualdad
-
-```python
-results = db.search(
-    vector=query_vector,
-    filter={"department": "engineering"}
-)
-```
-
-### Rango
-
-```python
-results = db.search(
-    vector=query_vector,
-    filter={"year": {"$gte": 2020, "$lte": 2024}}
-)
-```
-
-### IN
-
-```python
-results = db.search(
-    vector=query_vector,
-    filter={"department": {"$in": ["engineering", "product"]}}
-)
-```
-
-### Combinación (AND)
-
-```python
-results = db.search(
-    vector=query_vector,
-    filter={
-        "department": "engineering",
-        "year": {"$gte": 2023},
-        "published": True
-    }
-)
-```
-
-## Selectividad y Optimización
-
-### Estimación de Selectividad
-
-```rust
-fn estimate_selectivity(filter: &Filter) -> f64 {
-    match filter {
-        Filter::Eq(field, value) => {
-            let index = payload_indexes.get(field);
-            let matching = index.count(value);
-            matching as f64 / total_docs as f64
-        }
-        Filter::Range(field, range) => {
-            let index = payload_indexes.get(field);
-            let matching = index.count_range(range);
-            matching as f64 / total_docs as f64
-        }
-    }
-}
-```
-
-### Estrategia de Ejecución
-
-| Selectividad | Estrategia |
-|--------------|------------|
-| <10% | Pre-filter: filtrar antes de busqueda-vectorial |
-| 10-50% | Post-filter: buscar y filtrar resultados |
-| >50% | Full scan: busqueda-vectorial sin filtro |
 
 ## Mantenimiento
 
-### Actualización Automática
-
-```rust
-fn put(&self, node: UnifiedNode) -> Result<()> {
-    // 1. Insertar en storage
-    self.storage.put(&node)?;
-    
-    // 2. Actualizar índices payload
-    for (field, value) in &node.metadata {
-        if let Some(index) = self.payload_indexes.get(field) {
-            index.add(value, node.id)?;
-        }
-    }
-    
-    // 3. Actualizar índices vectoriales
-    self.hnsw.add(node.id, &node.vector)?;
-    
-    Ok(())
-}
-```
-
-### Rebuild
+Los payload indexes se actualizan en el camino de escritura
+(`replace_derived_indexes`, `src/sdk/serialization/impl_index.rs:154`), que
+borra las entradas del registro anterior y escribe las nuevas. El rebuild desde
+almacenamiento canónico se dispara cuando el estado derivado guardado no cuadra
+(`ensure_derived_indexes_current_with`, mismo archivo):
 
 ```python
-# Reconstruir todos los índices payload
-db.rebuild_payload_indexes()
-
-# Reconstruir índice específico
-db.rebuild_payload_index("department")
+# Reconstruye índices ANN, derivados y de texto desde el storage canónico
+db.rebuild_index()
 ```
+
+No existen `rebuild_payload_indexes()` ni `rebuild_payload_index("field")`.
 
 ## Métricas
 
-| Métrica | Descripción |
-|---------|-------------|
-| **Index Size** | Bytes en disco por índice |
-| **Lookup Time** | Latencia de consulta al índice |
-| **Selectivity** | % de documentos que matchean |
-| **Build Time** | Tiempo de construcción |
+| Métrica | Dónde |
+|---------|-------|
+| Entradas de índice de payload | `operational_metrics()["derived_prefix_scans"]` cuenta los prefix scans |
+| Bytes / conteos por índice | `operational_metrics()["text_postings_written"]`, `derived_prefix_scans` |
+| Consistencia del índice de texto | `audit_text_index()` / `repair_text_index()` |
 
 ## Véase También
 
-- [HNSW](HNSW.md) — Índice vectorial complementario
-- [BM25](BM25.md) — Índice léxico
-- [RRF](RRF.md) — Fusión de resultados filtrados
+- [HNSW](./hnsw.md) — Índice vectorial complementario
+- [BM25](./bm25.md) — Índice léxico
+- [RRF](./rrf.md) — Fusión de resultados filtrados
+- [serialization](./serialization.md) — Formato de claves derivadas
 
 ---
 
-*Payload indexes permiten filtrado eficiente sin sacrificar performance de busqueda-vectorial.*
-
+*Payload indexes permiten filtrado por igualdad sin escanear el namespace completo.*

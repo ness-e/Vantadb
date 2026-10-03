@@ -1,10 +1,9 @@
 ---
 title: Security Guide
-type: operations
+kind: runbook
 status: active
+description: VantaDB validates all user-supplied file paths against directory traversal attacks using preventpathtraversal() in src/storage/ops.rs
 tags: [security, operations]
-last_reviewed: 2026-08-29
-aliases: []
 ---
 
 # Security Guide
@@ -18,7 +17,7 @@ pub(crate) fn prevent_path_traversal(path: &str) -> Result<()> {
     let p = std::path::Path::new(path);
     for component in p.components() {
         if component == Component::ParentDir {
-            return Err(VantaError::Validation { ... });
+            return Err(Error::Validation { .. });
         }
     }
     Ok(())
@@ -28,7 +27,8 @@ pub(crate) fn prevent_path_traversal(path: &str) -> Result<()> {
 **How it works:**
 - Iterates over every path component using `std::path::Component`
 - Rejects any component equal to `Component::ParentDir` (`..`)
-- Returns a `VantaError::Validation` with the offending path
+- Returns an `Error::Validation { field: "path", reason }` with the offending
+  path (`VANTADB_VALIDATION_ERROR`; a `ValidationError` in the Python binding)
 
 **Paths validated:**
 - Export/import file paths (`export_namespace`, `export_all`, `import_file`)

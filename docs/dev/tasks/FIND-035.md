@@ -1,3 +1,9 @@
+---
+title: "TASK FIND-035: Fix lint cascade clippy (routing.rs unused imports + config.rs assertions_on_constants)"
+kind: task
+description: "cargo clippy -p vantadb --all-targets --all-features -- -D warnings exit 0 AND cargo check -p vantadb exit 0 (stretch: cargo clippy --workspace --all-targets --all-features -- -D warnings exit 0 cuando FIND-036 también verde)"
+---
+
 # TASK FIND-035: Fix lint cascade clippy (routing.rs unused imports + config.rs assertions_on_constants)
 
 ## Metadata

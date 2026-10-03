@@ -1,10 +1,11 @@
 ---
 title: "Investigación profunda: vantadb-mcp vs usuarios objetivo y estado del arte MCP"
-type: review
+kind: review
 status: active
-date: 2026-08-25
-scope: vantadb-mcp (excluye core `src/` salvo contratos VantaEmbedded)
-mode: read-only (hallazgos → Backlog, sin fixes)
+description: "SKILLSCARGADAS: coordinated-web-search (v2 router en cascada), source-driven-development"
+date: "2026-08-25"
+scope: "vantadb-mcp (excluye core `src/` salvo contratos VantaEmbedded)"
+mode: "read-only (hallazgos → Backlog, sin fixes)"
 ---
 
 # MCP Deep Research — `vantadb-mcp` vs competencia y usuarios reales

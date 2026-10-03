@@ -1,3 +1,8 @@
+---
+title: "MCP-11: F2/F3/F6 — Envelope MCP + wire-format + canales de error"
+kind: task
+---
+
 # MCP-11: F2/F3/F6 — Envelope MCP + wire-format + canales de error
 
 ## Metadata

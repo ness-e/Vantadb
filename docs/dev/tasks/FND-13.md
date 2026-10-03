@@ -1,3 +1,9 @@
+---
+title: "FND-13 — Benchmarks honestos (P20b, prio 🟡)"
+kind: task
+description: "Backlog: docs/dev/Backlog.md:501"
+---
+
 # FND-13 — Benchmarks honestos (P20b, prio 🟡)
 
 **Backlog:** docs/dev/Backlog.md:501
@@ -11,8 +17,6 @@
 - Inventario completo en `docs/Investigaciones/FND-13-benchmarks-honestos.md`: 14 claims en README/bindings/BENCHMARKS/PERFORMANCE_TUNING clasificados citado/medible/sin-fuente + hallazgo BENCH01 frontend (claims fantasma ~5,400 vec/s retirados del README en PERF-01 pero vivos en web/) + inconsistencia BENCHMARKS §2 vs JSON.
 - Fixes aplicados: tabla baseline README alineada a fuente citada (74.0 rec/s, p50 13.2/2.0/3.1 ms; antes 61.5/16.0/3.3/12.1), 2 links rotos a BENCHMARK_OPTIMIZATION_2026.md corregidos (README + README_ES), nota de outlier BM25 corregida (0.0035 ms).
 - Deuda anotada (no tocada): BENCH01 frontend, comandos faltantes en BENCHMARKS §4/§6/§7, PERFORMANCE_TUNING T2-T12 sin fuente.
-
-## Steps
 
 ## Objetivo
 

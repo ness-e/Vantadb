@@ -1,3 +1,9 @@
+---
+title: "PRX-11 — Traducción Anthropic↔OpenAI fiel (slice 1: messages→OpenAI + responses + SSE mínimo)"
+kind: task
+description: /v1/messages↔OpenAI + SSE streaming + tooluse/result incremental + thinking blocks + sanitización + maxtokens guard + beta headers + fixtures PRX-12 ✅ + clippy 0
+---
+
 # PRX-11 — Traducción Anthropic↔OpenAI fiel (slice 1: messages→OpenAI + responses + SSE mínimo)
 
 > Plan: `docs/dev/plans/2026-09-10-code.md` Task 19 · Wave6 SOLO (sin paralelo same-crate) · Ruta: vanta-worker

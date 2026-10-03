@@ -1,10 +1,10 @@
 ---
-title: "Avance — Índice Maestro"
-type: index
+title: Avance — Índice Maestro
+kind: index
 status: active
-tags: [vantadb, avance, index, progreso]
-last_reviewed: 2026-08-07
+description: "Estas 4 carpetas no se mueven físicamente: son escritas por pipelines activos (task system MCP, audit-all.ps1, unified-review) que las buscan por ruta fija. Se integran por catálogo — ver fuentes-vivas.md (índice + estado de cada..."
 aliases: [docs/dev/avance]
+tags: [vantadb, avance, index, progreso]
 ---
 
 # Avance — Índice Maestro
@@ -25,7 +25,7 @@ aliases: [docs/dev/avance]
 | Bloques CORE ENGINE / storage / WAL / HNSW / ACID / IQL | `activo/core-engine.md` |
 | Bindings Python / WASM / TS / MCP / adapters | `activo/bindings.md` |
 | Frontend Web / SEO / UX / docs de la web | `activo/web-frontend.md` |
-| CI/CD, GitHub Actions, release, docker, wheels | `activo/ci-cd.md` |
+| CI/CD, GitHub Actions, release, wheels | `activo/ci-cd.md` |
 | Ops: backup, restore, docs API, ejemplo, enterprise | `activo/operaciones.md` |
 | Seguridad (SEC / NVs / fuzz / Miri / FFI) | `auditoria/seguridad.md` |
 | Dependencias (cargo-deny, dependabot, advisories) | `auditoria/dependencias.md` |

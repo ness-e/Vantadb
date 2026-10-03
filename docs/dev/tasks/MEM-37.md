@@ -1,3 +1,9 @@
+---
+title: MEM-37 — Integración offload↔recall (budget + cursor compartidos)
+kind: task
+description: "Plan: docs/dev/plans/2026-08-21-vanta-context-engine.md Task 7 · Estado: ✅ COMPLETED"
+---
+
 # MEM-37 — Integración offload↔recall (budget + cursor compartidos)
 
 Plan: `docs/dev/plans/2026-08-21-vanta-context-engine.md` Task 7 · Estado: ✅ COMPLETED

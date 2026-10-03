@@ -23,7 +23,16 @@ use vanta_memory::ingest::runner_config::{
 use vanta_memory::ingest::{worker, IngestConfig};
 use vantadb::storage::StorageEngine;
 use vantadb::wiki::WikiStore;
-use vantadb_mcp::{handle_tools_list, ingest_status, start_ingest, McpConfig};
+use vantadb_mcp::{handle_tools_list, ingest_status, start_ingest, McpConfig, McpProfile};
+
+/// WIRE-02: these tests exercise the extended surface; pin `full` explicitly
+/// (the production default is now `agent`).
+fn full_config() -> McpConfig {
+    McpConfig {
+        profile: McpProfile::Full,
+        ..Default::default()
+    }
+}
 
 const NS: &str = "default";
 const SLUG: &str = "s1-wiki";
@@ -210,7 +219,7 @@ fn ingest_local_canned_runner_writes_pages() {
 fn ingest_tool_input_schema_unchanged() {
     // S6 fijado en test: la config es server-side (operador), nunca per-call
     // del LLM (Hyrum: cada campo del schema es contrato para siempre).
-    let list = handle_tools_list(&McpConfig::default()).expect("tools/list");
+    let list = handle_tools_list(&full_config()).expect("tools/list");
     let tool = list["tools"]
         .as_array()
         .expect("tools array")

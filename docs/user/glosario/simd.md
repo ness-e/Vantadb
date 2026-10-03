@@ -1,9 +1,9 @@
 ---
 title: "SIMD (Single Instruction, Multiple Data)"
-type: glossary-entry
+kind: glossary
 status: stable
-tags: [vantadb, glosario, performance, hardware, optimización]
-last_reviewed: 2026-09-15
+description: "SIMD es una clase de instrucciones de CPU que permiten procesar múltiples datos con una sola instrucción, paralelizando operaciones vectoriales a nivel de hardware"
+tags: [vantadb, glosario, performance, hardware, optimizacion]
 links: "[Glosario](./README.md)"
 ---
 
@@ -114,9 +114,9 @@ let mmap = MmapOptions::new()
 
 ## Véase También
 
-- [HNSW](HNSW.md) — Índice vectorial que usa SIMD para distancias
+- [HNSW](./hnsw.md) — Índice vectorial que usa SIMD para distancias
 - [Vector Similarity](vector-similarity.md) — Métricas aceleradas por SIMD
-- [Benchmarks](Benchmarks.md) — Métricas de performance con SIMD
+- [Benchmarks](./benchmarks.md) — Métricas de performance con SIMD
 
 ---
 

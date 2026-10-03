@@ -1,3 +1,9 @@
+---
+title: "GOV-B1: case_studies ficticios → archive interno (Show HN bloqueante)"
+kind: task
+description: "Test-Path docs/dev/archive/case-studies-unverified/ragedgedevice.md == true AND Select-String -Path \"docs/dev/archive/case-studies-unverified/README.md\" -Pattern \"no-público|ilustrativos\" | Measure-Object Count >=1"
+---
+
 # GOV-B1: case_studies ficticios → archive interno (Show HN bloqueante)
 
 ## Metadata

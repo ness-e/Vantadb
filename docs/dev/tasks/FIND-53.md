@@ -1,3 +1,9 @@
+---
+title: "TASK-ID: FIND-53 - vantadb_errors_total por code — registry in-tree"
+kind: task
+description: "Registry in-tree soporta labels — verificado en DISCOVERY: IntCounterVec ya en uso"
+---
+
 # TASK-ID: FIND-53 - vantadb_errors_total por code — registry in-tree
 
 ## Metadata

@@ -1,3 +1,9 @@
+---
+title: "ADMIN-04: Dashboard grid (metro-style) con poll 3-5s"
+kind: task
+description: "npm run build en desktop/ ✅; grid de tiles 2-4 columnas con métricas vivas (valor + delta + trend) y poll 3-5s.\""
+---
+
 # ADMIN-04: Dashboard grid (metro-style) con poll 3-5s
 
 ## Metadata

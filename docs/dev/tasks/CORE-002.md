@@ -1,3 +1,9 @@
+---
+title: "TASK CORE-002: campaign_validate_output (LLM05) Enforzado en ACT State"
+kind: task
+description: "Archivos clave: .opencode/task-system/config/state-tools.mjs, .opencode/task-system/mcp/campaign-server.mjs, .opencode/task-system/prompts/iter-loop-tools.md"
+---
+
 # TASK CORE-002: campaign_validate_output (LLM05) Enforzado en ACT State
 
 ## Metadata

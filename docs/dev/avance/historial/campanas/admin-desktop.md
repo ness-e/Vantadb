@@ -1,11 +1,8 @@
 ---
-title: "Desktop + Admin Console — DESKTOP/ADMIN"
-type: registro
+title: Desktop + Admin Console — DESKTOP/ADMIN
+kind: review
 status: archived
 tags: [vantadb, avance, campana]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Desktop + Admin Console — DESKTOP/ADMIN

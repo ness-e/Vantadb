@@ -1,11 +1,9 @@
 ---
-title: "Guía de usuario — Modos de conexión de VantaDB Desktop"
-type: reference
+title: Guía de usuario — Modos de conexión de VantaDB Desktop
+kind: howto
 status: active
+description: VantaDB Desktop (Vanta Studio) se conecta al motor de tres maneras. Elegí el
 tags: [vantadb, desktop, user-guide, connections]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # Guía de usuario — Modos de conexión de VantaDB Desktop
@@ -59,7 +57,7 @@ dispositivos; el motor vive en un servidor que administrás vos.
 
 **Buenas prácticas:**
 - Sin auth configurada en el server, los endpoints de loopback funcionan sin
-  token (decisión local-first, ADR-026). Nunca expongas el server fuera de
+  token (decisión local-first, ADR-0026). Nunca expongas el server fuera de
   localhost sin activar auth.
 - Si una operación devuelve `401 Unauthorized`, revisá las credenciales Bearer.
 - Si devuelve timeout, verificá que el server esté vivo y alcanzable.

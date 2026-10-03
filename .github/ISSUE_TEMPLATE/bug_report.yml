@@ -46,7 +46,6 @@ body:
         - Windows
         - macOS
         - Linux
-        - Docker
     validations:
       required: true
 

@@ -1,3 +1,10 @@
+---
+title: "TIR-06: Post-release / monitoring en el loop"
+kind: research
+status: archived
+description: "Gap declarado (REPORTE-FINAL §3.3-27): \"Post-release / monitoring en el loop de tarea. El pipeline termina en CLOSE/commit sin verificación post-merge.\""
+---
+
 # TIR-06: Post-release / monitoring en el loop
 
 - **Fuente:** Backlog P18 — `docs/dev/Backlog.md` línea 452

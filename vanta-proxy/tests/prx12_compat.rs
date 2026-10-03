@@ -109,6 +109,8 @@ async fn setup() -> (String, Captured) {
         context: Default::default(),
         guardrails: Default::default(),
         translate: Default::default(),
+        injection: Default::default(),
+        envelope: Default::default(),
     };
     let state = server::AppState::from_engine(cfg, seeded_engine()).unwrap();
     (spawn(server::router(state)).await, captured)

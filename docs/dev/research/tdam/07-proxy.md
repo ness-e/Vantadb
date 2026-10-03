@@ -1,12 +1,11 @@
 ---
 title: "TDAM — 07: MemoryProxy — Investigación profunda (REVISADO)"
-type: research
+kind: research
 status: active
+description: "MemoryProxy es un proxy LLM de transporte transparente: no cambia protocolo y reenvía OpenAI /v1/chat/completions y Anthropic /v1/messages tal cual, haciendo trabajo extra a la entrada/salida (README.md:5). Se ejecuta con Node v22..."
 tags: [vantadb, research, tdam, memory-proxy]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
+
 # TDAM — 07: MemoryProxy — Investigación profunda (REVISADO)
 
 > **Fecha:** 2026-08-18 · **Agente:** vanta-research · **Scope:** `MemoryProxy/**` — proxy LLM transparente en TypeScript (~160 archivos, `MemoryProxy/src/`)

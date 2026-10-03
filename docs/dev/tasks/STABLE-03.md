@@ -1,3 +1,9 @@
+---
+title: STABLE-03 — Validar vantadb-server (gates 1-6 + 42 tests)
+kind: task
+description: User-specified gates 1-6 + contract verified under PowerShell 7 + cargo 1.95 + Windows
+---
+
 # STABLE-03 — Validar vantadb-server (gates 1-6 + 42 tests)
 
 ## Metadata
@@ -19,7 +25,7 @@ User-specified gates 1-6 + contract verified under PowerShell 7 + cargo 1.95 + W
 | 3 | `cargo clippy -p vantadb-server --all-targets --features server -- -D warnings` | ❌ literal command fails: `vantadb-server` does NOT have feature `server`. Substituted `--all-features` | 2m14s warm, EXIT 0, 0 warnings |
 | 4 | `cargo nextest run -p vantadb-server --all-targets` | ✅ EXIT 0, **5 tests run, 5 passed, 0 failed, 0 skipped** (nextest default-filter excludes 4 heavy test binaries: benchmarks/e2e/mcp_integration/server per `.config/nextest.toml`) | 6m14s compile + 0.9s tests |
 | 5 | `cargo deny check` | ✅ EXIT 0 | `advisories ok, bans ok, licenses ok, sources ok` + warnings: chacha20 yanked (allowlist), 5 duplicate crates (allocator-api2/core-foundation/getrandom/r-efi/rand_core/thiserror-impl) — all warnings, none errors |
-| 6 | `cargo package -p vantadb-server --dry-run` | ❌ literal command fails: `cargo package` does NOT accept `--dry-run`. Substituted `cargo package -p vantadb-server --list --allow-dirty` (metadata check, per ADR-031) | EXIT 0, **16 files listed**, `Packaging vantadb-server v0.5.0`, no `dependency does not specify version` error |
+| 6 | `cargo package -p vantadb-server --dry-run` | ❌ literal command fails: `cargo package` does NOT accept `--dry-run`. Substituted `cargo package -p vantadb-server --list --allow-dirty` (metadata check, per ADR-0031) | EXIT 0, **16 files listed**, `Packaging vantadb-server v0.5.0`, no `dependency does not specify version` error |
 | Contract | `cargo test -p vantadb-server --all-targets 2>&1 \| Select-String "42 passed\|passed" \| Measure-Object \| Select-Object Count` | ✅ = 1 (≥1, passes) | Sum: 0 (lib) + 3 (main) + 5 (cli_args) + 2 (benchmarks) + 12 (e2e) + 1 (mcp_integration) + 19 (server) = **42 passed, 0 failed** across 7 binaries |
 
 **Pre-mortem checks:**
@@ -31,9 +37,9 @@ User-specified gates 1-6 + contract verified under PowerShell 7 + cargo 1.95 + W
 - `vantadb-server/Cargo.toml` already has `version="0.5.0"` on `vantadb` (line 10) + `vantadb-mcp` (line 11) — metadata fix from 2026-08-27 still in place
 - `publish = false` intact
 - `cargo package -p vantadb-server --list` shows 16 files: Cargo.toml, Cargo.toml.orig, Cargo.lock, .cargo_vcs_info.json, Dockerfile, docker-compose.yml, docker-compose.prod.yml, src/{lib,main,server}.rs, tests/{benchmarks,cli_args,e2e,helpers/mod,mcp_integration,server}.rs — complete package metadata
-- Full `cargo package -p vantadb-server --allow-dirty` fails with `no matching package named vantadb-mcp found` (expected — `vantadb-mcp` is `publish=false`, ADR-031 explicitly notes "publish=false ok, solo metadata check"). Gate 6's `--list` variant exercises the metadata validation path which is what ADR-031 requires.
+- Full `cargo package -p vantadb-server --allow-dirty` fails with `no matching package named vantadb-mcp found` (expected — `vantadb-mcp` is `publish=false`, ADR-0031 explicitly notes "publish=false ok, solo metadata check"). Gate 6's `--list` variant exercises the metadata validation path which is what ADR-0031 requires.
 
-**Gate 6 full `cargo package` failure (publish=false dep expected):** per ADR-031, the full package isn't required — metadata validation via `--list` is. Confirmed `--list` passes. No edit needed.
+**Gate 6 full `cargo package` failure (publish=false dep expected):** per ADR-0031, the full package isn't required — metadata validation via `--list` is. Confirmed `--list` passes. No edit needed.
 
 ## Steps — re-validation 2026-08-30
 
@@ -48,7 +54,7 @@ User-specified gates 1-6 + contract verified under PowerShell 7 + cargo 1.95 + W
 - **Acción:** Per AGENTS.md § Regla 7, vanta-worker does NOT commit. Task file updated with re-validation evidence. Commit `chore: STABLE-03` from 2026-08-27 is the canonical commit for this work; no new code edits to commit. Working tree has many files modified outside STABLE-03's blast radius (Cargo.lock, completions, plan files, embeddings, vanta-proxy/Cargo.toml, lessons.md) — these belong to other concurrent tasks and must NOT be staged here.
 - **Verify:** `git status --short` confirms `vantadb-server/Cargo.toml` is NOT modified (metadata fix from 2026-08-27 already committed in `chore: STABLE-03`); `git log --oneline -3` shows the prior run's commit; `git status` shows 13+ files modified outside STABLE-03's blast radius — leave for their respective tasks.
 - **Estado:** ✅ COMPLETED (2026-08-30 — task file updated, no commit required, handoff ready for vanta-lead)
-- **Fuente:** Backlog STABLE-03 — vantadb-server ya pulido SRV-01/02/06, 42 tests, nunca validado contra 10 gates ADR-031
+- **Fuente:** Backlog STABLE-03 — vantadb-server ya pulido SRV-01/02/06, 42 tests, nunca validado contra 10 gates ADR-0031
 - **Esfuerzo:** 🟡 1d | **Prioridad:** 🔴 Alta | **Ruta:** `vanta-worker`
 - **Tipo:** validate / promotion-gate — verification-only, no new pub API
 - **Appetite:** max 1d
@@ -58,7 +64,7 @@ User-specified gates 1-6 + contract verified under PowerShell 7 + cargo 1.95 + W
 
 | Dirección | Módulos |
 |-----------|---------|
-| Callers | `Cargo.toml` workspace `[workspace].members` lista `vantadb-server`; `docs/dev/operations/CI_POLICY.md` experimental-check; `docs/dev/architecture/adr/ADR-031` coste per crate (~21s check/~25s clippy/~15-25s nextest) |
+| Callers | `Cargo.toml` workspace `[workspace].members` lista `vantadb-server`; `docs/dev/operations/CI_POLICY.md` experimental-check; `docs/dev/architecture/adr/ADR-0031` coste per crate (~21s check/~25s clippy/~15-25s nextest) |
 | Callees | `vantadb-server/src/*` 3 files (lib.rs 7L, server.rs 4L re-export, main.rs ~180L) + `src/cli_server.rs` (5327L) + `src/audit.rs` (~200L) + `vantadb-mcp` path dep |
 | Implicaciones | Solo validación + fix metadata `Cargo.toml` si gate 6 falla (reversible 1 línea). No toca `src/wal.rs`, `src/vector/`, `src/storage/` (propiedad Arch/Engine). Si fix necesario, solo `vantadb-server/Cargo.toml` metadata. No publica crate (`publish=false` intacto). |
 
@@ -77,7 +83,7 @@ User-specified gates 1-6 + contract verified under PowerShell 7 + cargo 1.95 + W
   - `.config/nextest.toml` — default-filter excluye `package(vantadb-server) and binary(benchmarks/e2e/mcp_integration/server)` → `cargo nextest --profile audit -p vantadb-server` solo 5 tests (cli_args+main), `cargo test` 42
   - `deny.toml` — licenses MIT/Apache-2.0 only, advisories ignore RUSTSEC-2023-0089 + RUSTSEC-2026-0253
   - `scripts/validate-docs-coverage.ps1` (197 líneas) — 6 checks SDK/config/error/CLI/python/MCP, 0 gaps global (vantadb-server es re-export de cli_server, no check específico)
-  - `docs/dev/architecture/adr/ADR-031-default-members-promotion.md` (205 líneas + cost table) — 10 checks DoD, vantadb-server coste ~21s check/~25s clippy/~15-25s tests, gate 6 `cargo package -p <crate> --dry-run`
+  - `docs/dev/architecture/adr/ADR-0031-default-members-promotion.md` (205 líneas + cost table) — 10 checks DoD, vantadb-server coste ~21s check/~25s clippy/~15-25s tests, gate 6 `cargo package -p <crate> --dry-run`
   - `docs/dev/plans/2026-08-27-backlog-v2.md` Task 6 contrato 6 gates + Risk Register + Pre-mortem
 - **Referencias hacia dentro (qué importa este archivo):**
   - `vantadb-server/Cargo.toml` → `vantadb` (path, features cli+server), `vantadb-mcp` (path), `tokio`, `tracing` runtime deps; dev-deps `axum`, `tower`, `serde`, etc solo tests
@@ -96,9 +102,9 @@ User-specified gates 1-6 + contract verified under PowerShell 7 + cargo 1.95 + W
 | Decisión | Elección | Alternativa descartada | Justificación (evidencia) |
 |----------|----------|------------------------|---------------------------|
 | Tipo de tarea | Validate-only (no nueva API) | Feature-add con spec formal | No se añaden `pub fn`/tool/endpoint — solo verificación + fix metadata `Cargo.toml` si gate falla. Gate D no dispara (blast radius 3 archivos lib+server+main + 2 core files, hot path no tocado). question-gates.md § Spec válido no aplica — N/A justificado con evidencia. |
-| Gate 2 clippy --all-features | `cargo clippy -p vantadb-server --all-targets --all-features -- -D warnings` | `cargo clippy -p vantadb-server` sin --all-features | Risk Register: server feature `prometheus` no en default → clippy necesita --all-features para cubrir. ADR-031 gate 1 exige `--all-features`. |
+| Gate 2 clippy --all-features | `cargo clippy -p vantadb-server --all-targets --all-features -- -D warnings` | `cargo clippy -p vantadb-server` sin --all-features | Risk Register: server feature `prometheus` no en default → clippy necesita --all-features para cubrir. ADR-0031 gate 1 exige `--all-features`. |
 | Gate 3 nextest 42 vs 5 | `cargo test -p vantadb-server` 42/42 + `cargo nextest run -p vantadb-server --profile audit -j 2` 5/5 filtered (0 failed) | Solo nextest audit 5 | `.config/nextest.toml` default-filter excluye 37 heavy tests (benchmarks/e2e/mcp_integration/server) → nextest audit solo 5. Contrato dice 42/42 → se verifica con `cargo test` 42 + nextest audit 5 ambos 0 failed. Si nextest audit se pide 42, usar `cargo nextest run -p vantadb-server -j 2` sin profile o `cargo test` para contar 42. Ponytail: no cambiar nextest.toml. |
-| Gate 6 `cargo package` — dry-run vs publish | `cargo package -p vantadb-server` (y `--no-verify --allow-dirty` variant) como criterio; `cargo publish --dry-run` no aplica por `publish=false` | `cargo publish --dry-run` | `vantadb-server` es `publish=false` → `cargo publish --dry-run` error `cannot be published`. ADR-031 gate 6 define `cargo package --dry-run` pero cargo moderno no tiene `--dry-run` para `package` — se verifica con `cargo package -p vantadb-server` (exit 0 = pass). |
+| Gate 6 `cargo package` — dry-run vs publish | `cargo package -p vantadb-server` (y `--no-verify --allow-dirty` variant) como criterio; `cargo publish --dry-run` no aplica por `publish=false` | `cargo publish --dry-run` | `vantadb-server` es `publish=false` → `cargo publish --dry-run` error `cannot be published`. ADR-0031 gate 6 define `cargo package --dry-run` pero cargo moderno no tiene `--dry-run` para `package` — se verifica con `cargo package -p vantadb-server` (exit 0 = pass). |
 | Fix gate 6: añadir `version` a path dep | `version="0.5.0"` en 2 deps `vantadb` + `vantadb-mcp` | `version.workspace=true` | STABLE-01 evidenció `version.workspace=true` falla `invalid type: map` en deps inline. `version="0.5.0"` es única forma válida. `cargo package` exige `version` string para path deps aunque `publish=false`. Hardcode coherente con `workspace.package.version=0.5.0`. |
 | Docs coverage gate 5 | `scripts/validate-docs-coverage.ps1 -ReportOnly` 0 gaps global | Añadir check específico vantadb-server | Script no cubre `vantadb-server` API específica (es re-export de cli_server). 0 gaps global = pass. No crear check especulativo. |
 | Nextest -j flag | `-j 2` (contrato exige -j 2) | Default -j (nCPU) | Risk Register: Windows page file 1455 → -j 2 mitiga OOM. |
@@ -156,7 +162,7 @@ Gate 9/10 (Fast Gate wall time, ADR reversible) → defer a STABLE-08/09, no par
 
 ### Step 2: Gates 4-6 — deny + docs-coverage + cargo package (fix metadata + verify full + commit)
 - **Archivos:** `vantadb-server/Cargo.toml` (editado: añadido `version="0.5.0"` a 2 deps path vantadb + vantadb-mcp), `scripts/validate-docs-coverage.ps1` (lectura), `deny.toml` (lectura)
-- **Acción:** Ejecutar `cargo deny check` (gate 4), `pwsh scripts/validate-docs-coverage.ps1 -ReportOnly` (gate 5), `cargo package -p vantadb-server` (gate 6). Gate 6 PRE-fail por `dependency vantadb does not specify a version` → fix ponytail mínimo aplicado: `version="0.5.0"` en 2 deps path. Re-validado: `cargo package -p vantadb-server --list --allow-dirty` → `16 files listed` EXIT 0 ✅ (full `cargo package --no-verify --allow-dirty` falla con `no matching package named vantadb-mcp` — esperado publish=false dep no en crates.io, gate ADR-031 nota "publish=false ok, solo metadata check" → `--list` es el check metadata; `version.workspace=true` descartado por invalid type map). Luego verify full mecánico: `cargo fmt --check` EXIT 0 ✅, re-run gates 1-3 post-fix ✅, `cargo deny` 0 ✅, `validate-docs-coverage` 0 gaps ✅. Commit `chore: STABLE-03 validate vantadb-server gates 1-6` (metadata fix, publish=false intacto), actualizar plan file a ✅ COMPLETED, task file a ✅ COMPLETED, `skill progreso`.
+- **Acción:** Ejecutar `cargo deny check` (gate 4), `pwsh scripts/validate-docs-coverage.ps1 -ReportOnly` (gate 5), `cargo package -p vantadb-server` (gate 6). Gate 6 PRE-fail por `dependency vantadb does not specify a version` → fix ponytail mínimo aplicado: `version="0.5.0"` en 2 deps path. Re-validado: `cargo package -p vantadb-server --list --allow-dirty` → `16 files listed` EXIT 0 ✅ (full `cargo package --no-verify --allow-dirty` falla con `no matching package named vantadb-mcp` — esperado publish=false dep no en crates.io, gate ADR-0031 nota "publish=false ok, solo metadata check" → `--list` es el check metadata; `version.workspace=true` descartado por invalid type map). Luego verify full mecánico: `cargo fmt --check` EXIT 0 ✅, re-run gates 1-3 post-fix ✅, `cargo deny` 0 ✅, `validate-docs-coverage` 0 gaps ✅. Commit `chore: STABLE-03 validate vantadb-server gates 1-6` (metadata fix, publish=false intacto), actualizar plan file a ✅ COMPLETED, task file a ✅ COMPLETED, `skill progreso`.
 - **Verify:** `cargo deny check` 0 ✅ + `validate-docs-coverage` 0 gaps ✅ + `cargo package -p vantadb-server --list --allow-dirty` EXIT 0 ✅ (full package sin --list falla por publish=false unpublished dep — esperado, no gate fail) + `cargo fmt --check` 0 ✅ + `git log --oneline -1` contiene STABLE-03 + `git status --short` clean para archivos tocados + plan file Task 6 Estado ✅ COMPLETED
 - **Estado:** ✅ COMPLETED (2026-08-27 — gates 4-6 ✅ + fix 2 líneas + verify full ✅)
 
@@ -181,6 +187,6 @@ Gate 9/10 (Fast Gate wall time, ADR reversible) → defer a STABLE-08/09, no par
 - Gate 3 `cargo nextest run -p vantadb-server --profile audit -j 2` → 5 passed 0 failed (37 heavy excluded via .config/nextest.toml); `cargo test -p vantadb-server` → 42 passed 0 failed (39.31s benchmarks + 5.75s server + 3.63s e2e + 1.32s mcp + 0.85s cli_args + 3 main) ✅
 - Gate 4 `cargo deny check` → advisories ok bans ok licenses ok sources ok EXIT 0 ✅ (warn yanked chacha20 solo, allowlist)
 - Gate 5 `pwsh scripts/validate-docs-coverage.ps1 -ReportOnly` → 0 gaps 7/7 checks (SDK 64, config 54, error 33, CLI 40, python 47, MCP 46) ✅
-- Gate 6 `cargo package -p vantadb-server --list --allow-dirty` → `16 files listed` EXIT 0 ✅ (PRE-fail sin version: `dependency vantadb does not specify a version` PKGEXIT 101; `cargo package --no-verify --allow-dirty` → `no matching package named vantadb-mcp found` — esperado publish=false dep no en crates.io, ADR-031 "publish=false is allowed - gate checks metadata, not publishability" → --list es metadata check; `cargo publish --dry-run` → `publish must be true` esperado con publish=false)
+- Gate 6 `cargo package -p vantadb-server --list --allow-dirty` → `16 files listed` EXIT 0 ✅ (PRE-fail sin version: `dependency vantadb does not specify a version` PKGEXIT 101; `cargo package --no-verify --allow-dirty` → `no matching package named vantadb-mcp found` — esperado publish=false dep no en crates.io, ADR-0031 "publish=false is allowed - gate checks metadata, not publishability" → --list es metadata check; `cargo publish --dry-run` → `publish must be true` esperado con publish=false)
 - Verify full: `cargo fmt --check` EXIT 0 ✅ + re-run gates 1-5 post-fix ✅ + `cargo package --list` ✅
 - `cargo check -p vantadb-server --all-targets` + `cargo clippy` + `cargo test` 42/42 + `cargo deny` + `validate-docs-coverage` + `cargo package --list` = 6/6 ✅

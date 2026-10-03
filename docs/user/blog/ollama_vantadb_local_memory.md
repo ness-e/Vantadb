@@ -1,15 +1,16 @@
 ---
-title: "Local Agent Memory with Ollama + VantaDB"
-version: 0.5.0
+title: Local Agent Memory with Ollama + VantaDB
+kind: howto
+description: By the VantaDB Team
+tags: [ollama, local-llm, ai-agents, memory, tutorial, docker]
+version: "0.5.0"
 slug: ollama-vantadb-local-memory
-date: 2026-06-19
-author: "VantaDB Team"
-tags: ["ollama", "local-llm", "ai-agents", "memory", "tutorial", "docker"]
-description: "Give local agents running on Ollama a memory that survives restarts: embeddings from nomic-embed-text, recall from VantaDB hybrid search, zero cloud dependencies."
+date: "2026-06-19"
+author: VantaDB Team
 tag: Tutorial
 readTime: "8 min"
-canonical: https://vantadb.vercel.app/blog/ollama-vantadb-local-memory
-draft: true
+canonical: "https://vantadb.vercel.app/blog/ollama-vantadb-local-memory"
+draft: "true"
 ---
 
 # Local Agent Memory with Ollama + VantaDB

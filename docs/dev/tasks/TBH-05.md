@@ -1,3 +1,9 @@
+---
+title: "TBH-05: Untrack benchmark artifacts (data_comp_bench, data_bench_db)"
+kind: task
+description: el directorio entero ahora queda cubierto por la línea 36
+---
+
 # TBH-05: Untrack benchmark artifacts (data_comp_bench, data_bench_db)
 
 ## Metadata

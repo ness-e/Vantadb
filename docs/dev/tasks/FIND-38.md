@@ -1,3 +1,9 @@
+---
+title: "TASK-FIND-38: Ciclo Serialization (5 nodos) — consolidar helpers duplicados"
+kind: task
+description: "El \"ciclo 5 nodos\" Leiden detectado"
+---
+
 # TASK-FIND-38: Ciclo Serialization (5 nodos) — consolidar helpers duplicados
 
 ## Metadata

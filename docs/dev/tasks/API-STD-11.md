@@ -1,3 +1,9 @@
+---
+title: Task API-STD-11 — INDIVIDUAL (10/11) vanta-proxy
+kind: task
+description: "Ficha individual proxy: funcionamiento + uso + código + veredicto"
+---
+
 # Task API-STD-11 — INDIVIDUAL (10/11) vanta-proxy
 
 > **Plan:** `docs/dev/plans/2026-09-24-api-estandarizacion.md`

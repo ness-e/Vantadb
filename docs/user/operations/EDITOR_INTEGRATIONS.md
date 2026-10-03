@@ -1,10 +1,9 @@
 ---
 title: VantaDB Editor Integrations
-type: operations
+kind: runbook
 status: active
+description: This guide explains how to integrate VantaDB with popular code editors and AI-assisted development environments using the Model Context Protocol (MCP)
 tags: [vantadb, operations]
-last_reviewed: 2026-07-01
-aliases: []
 ---
 
 # VantaDB Editor Integrations
@@ -107,6 +106,41 @@ OpenCode supports MCP through its AI assistant features.
   }
 }
 ```
+
+### Claude Code
+
+Claude Code (Anthropic's AI coding agent) supports MCP servers at project or user scope.
+
+#### Configuration
+
+Project-level `.mcp.json`, or register the server one-shot from the CLI:
+
+```bash
+claude mcp add vantadb -- vanta-cli server --mcp --db C:/Users/<you>/.vantadb
+```
+
+```json
+{
+  "mcpServers": {
+    "vantadb": {
+      "command": "vanta-cli",
+      "args": ["server", "--mcp", "--db", "C:/Users/<you>/.vantadb"]
+    }
+  }
+}
+```
+
+> Use an **absolute path** for `--db`: MCP clients spawn the server without a
+> shell, so `~` arrives verbatim and the open fails ([docs/api/MCP.md](../../api/MCP.md)).
+
+#### Automatic recall hooks
+
+Claude Code hook templates (session-start recall, per-prompt recall,
+pre-compact save-state, auto-capture on stop) live in
+[`skills/vantadb-mcp/assets/hooks/claude/settings.example.json`](../../../skills/vantadb-mcp/assets/hooks/claude/settings.example.json);
+merge them into `.claude/settings.json` (project) or `~/.claude/settings.json`
+(user) — details in the hooks [README](../../../skills/vantadb-mcp/assets/hooks/README.md).
+The launcher is `vanta-cli mcp-call` (0.8.0 train — v0.7.0 predates it).
 
 ### OpenClaw
 
@@ -236,11 +270,11 @@ When VantaDB is connected via MCP, the following tools are available to AI assis
 - `memory_get` - Retrieves a memory record by namespace and key
 - `memory_delete` - Deletes a memory record by namespace and key
 - `memory_list` - Lists memory records with optional pagination and metadata filters
-- `memory_list_namespaces` - Lists all available namespaces
+- `memory_list_namespaces` - Lists all available namespaces (canonical; legacy `collection_list` is unlisted)
 
 ### Search Operations
 
-- `search_memory` - Hybrid vector + text search with optional filters, distance metric, and explain
+- `memory_search` - Hybrid vector + text search with optional filters, distance metric, and explain (canonical; legacy `search_memory` is unlisted)
 - `search_semantic` - Raw semantic vector search directly in the HNSW index
 
 ### Graph Operations
@@ -253,7 +287,7 @@ When VantaDB is connected via MCP, the following tools are available to AI assis
 ### Collection Operations
 
 - `collection_stats` - Returns statistics for a namespace: record count, byte size, vector index info, creation time
-- `collection_list` - Lists all collections with metadata including record count, vector index status, and creation time
+- `collection_list` - Legacy alias (unlisted): lists collections with metadata including record count, vector index status, and creation time; use `memory_list_namespaces` for the canonical listing
 - `collection_delete` - Deletes an entire namespace/collection and all its records (requires `confirm: "yes"`)
 
 ### Resources

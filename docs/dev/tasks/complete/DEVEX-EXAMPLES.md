@@ -1,3 +1,9 @@
+---
+title: "DEVEX-EXAMPLES: Rust examples en examples/rust/"
+kind: task
+description: "cargo build --example basic compila. cargo build --example hybrid compila. Al menos 3 examples funcionales.\""
+---
+
 # DEVEX-EXAMPLES: Rust examples en examples/rust/
 
 ## Metadata

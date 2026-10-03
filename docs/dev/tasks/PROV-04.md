@@ -1,3 +1,9 @@
+---
+title: PROV-04 — Canonical contract for provider output surface
+kind: task
+description: Decidir y aplicar el contrato canónico de salida de los providers Python
+---
+
 # PROV-04 — Canonical contract for provider output surface
 
 > **Status:** ✅ COMPLETED
@@ -261,7 +267,7 @@ mecánica (3 cambios de baja complejidad). Sin uphill restante.
 - [x] `cargo clippy --all-targets -- -D warnings × 3` ✅
 - [x] `cargo test --features python × 3` ✅ (incluye PROV-07 sanity test)
 - [x] Contrato extendido verificado (shared_py.rs emite `"text"` + `node_id`, 3/3 importan `common::record_to_pydict`)
-- [x] ADR `docs/dev/architecture/adr/ADR-033-providers-canonical-contract.md` redactado (Regla 5 — owner_articulates pending)
+- [x] ADR `docs/dev/architecture/adr/ADR-0033-providers-canonical-contract.md` redactado (Regla 5 — owner_articulates pending)
 - [x] Working tree staged, **NO commit** (vanta-worker) — staged para vanta-lead
 - [x] Plan file + Backlog actualizados con cierre
 - [x] Task file sincronizado a ✅ COMPLETED
@@ -277,9 +283,9 @@ mecánica (3 cambios de baja complejidad). Sin uphill restante.
   - `cargo fmt --check × 3`: 0 diffs ✅
   - `cargo clippy --all-targets --features python -- -D warnings × 3`: 0 warnings ✅
   - `cargo test --features python × 3`: 1 passed cada uno (PROV-07 sanity test) ✅
-- ADR-033 redactado siguiendo plantilla ADR-032 (status `accepted-pending-owner-review` per Regla 5).
+- ADR-0033 redactado siguiendo plantilla ADR-0032 (status `accepted-pending-owner-review` per Regla 5).
 - Saldo Regla 6 neutro: 4 drift fixes, 0 deuda nueva.
-- BREAKING CHANGE documentado en ADR-033 §Migration Note; ya materializado en commit 294486e3 (PROV-05).
+- BREAKING CHANGE documentado en ADR-0033 §Migration Note; ya materializado en commit 294486e3 (PROV-05).
 - vanta-worker stageó 5 archivos (4 cambios + ADR nuevo); **vanta-lead integra commit** (regla de rol).
 
 ## Notas

@@ -1,3 +1,9 @@
+---
+title: MOD-02 — Transacciones no crash-atómicas (H-2)
+kind: task
+description: Archivos leídos completos
+---
+
 # MOD-02 — Transacciones no crash-atómicas (H-2)
 
 ## Impacto mapeado (Regla 0)

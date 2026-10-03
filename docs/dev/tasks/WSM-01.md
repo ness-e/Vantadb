@@ -1,3 +1,9 @@
+---
+title: "WSM-01: Eliminar fallback silencioso OPFS→in-memory (OpfsStorage::open .ok())"
+kind: task
+description: "rg -n \"\.ok\(\)\" vantadb-wasm/src/lib.rs filtrado a OpfsStorage::open → 0 hits after fix + wasm-pack build --target bundler exit 0 + test simula fallo getDirectory y verifica connectpersistent retorna error o cae a IDB con warning y..."
+---
+
 # WSM-01: Eliminar fallback silencioso OPFS→in-memory (OpfsStorage::open .ok())
 
 ## Metadata

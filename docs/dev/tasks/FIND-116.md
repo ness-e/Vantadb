@@ -1,3 +1,9 @@
+---
+title: "FIND-116: Migrar otros ejemplos con API legacy a `Client` (cierre de FIND-114)"
+kind: task
+description: "Cada ejemplo usa Client/search (grep cero-legacy), smoke PYTHONUTF8=1 python <ejemplo> exit 0 por ejemplo, README sin searchmemory; langchain/colab se dejan con motivo escrito\""
+---
+
 # FIND-116: Migrar otros ejemplos con API legacy a `Client` (cierre de FIND-114)
 
 ## Metadata

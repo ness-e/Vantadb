@@ -80,6 +80,7 @@ fn write_persona(db: &Embedded, body: &str) {
         vector: None,
         sparse_vector: None,
         ttl_ms: None,
+        ..Default::default()
     })
     .expect("put persona");
 }
@@ -95,6 +96,7 @@ fn put_l1(db: &Embedded, record: &MemoryRecord) {
         vector: None,
         sparse_vector: None,
         ttl_ms: None,
+        ..Default::default()
     })
     .expect("put l1 record");
 }
@@ -570,6 +572,7 @@ fn search_multi_merges_hits_across_namespaces() {
             vector: None,
             sparse_vector: None,
             ttl_ms: None,
+            ..Default::default()
         })
         .expect("put l1 payload");
     }
@@ -580,6 +583,10 @@ fn search_multi_merges_hits_across_namespaces() {
             MemorySearchRequest {
                 text_query: Some("dark".into()),
                 top_k: 10,
+                range: None,
+                group_by: None,
+                mmr: None,
+                cursor: None,
                 ..MemorySearchRequest::default()
             },
         )
@@ -661,4 +668,59 @@ fn mcp_synthetic_session_sees_pipeline_l1_under_default_agent_scope() {
 
     let prepend = out.prepend_context.expect("prepend");
     assert!(prepend.contains("dark mode"), "got: {prepend}");
+}
+
+// ── SCH-05: quarantine containment gate (ADR-046 §D5, MGR-13 §5.2) ────────
+
+#[test]
+fn quarantined_l1_records_are_never_recalled() {
+    let db = db();
+    put_l1(&db, &record("m1", "user prefers dark mode"));
+
+    // Same query overlap as m1, quarantined at write time (SCH-05 T1).
+    let suspect = record("m2", "user prefers dark mode with leaked-secret");
+    {
+        use vantadb::sdk::{MemoryInput, MemoryMetadata};
+        db.put(MemoryInput {
+            namespace: l1_namespace(&suspect.session_key),
+            key: suspect.id.clone(),
+            payload: serde_json::to_string(&suspect).unwrap(),
+            metadata: MemoryMetadata::new(),
+            vector: None,
+            sparse_vector: None,
+            ttl_ms: None,
+            quarantine: true,
+            ..Default::default()
+        })
+        .expect("put quarantined l1 record");
+    }
+
+    let out = perform_auto_recall(
+        &db,
+        AutoRecallParams {
+            user_text: "what does the user prefer about dark mode?",
+            session_key: "sess-1",
+            isolation: Some(ProfileIsolation::default()),
+            config: RecallConfig::default(),
+        },
+        None,
+    )
+    .expect("recall")
+    .expect("the active record must still be recalled");
+
+    let injected = out.prepend_context.as_deref().unwrap_or_default();
+    assert!(
+        injected.contains("dark mode"),
+        "active record must be recalled: {injected}"
+    );
+    assert!(
+        !injected.contains("leaked-secret"),
+        "quarantined record must never reach the prompt: {injected}"
+    );
+    assert!(
+        out.recalled_memories
+            .iter()
+            .all(|m| !m.content.contains("leaked-secret")),
+        "quarantined record must not appear in recalled_memories"
+    );
 }

@@ -1,12 +1,11 @@
 ---
-title: "Serde"
-type: glossary-entry
+title: Serde
+kind: glossary
 status: stable
-tags: [concept, serialization, rust, serde]
-last_reviewed: 2026-09-15
-links: "[[README.md]]"
+description: De-facto Rust framework deriving Serialize/Deserialize for structured data
 aliases: [Serde]
-description: "Rust serialization/deserialization framework; JSON for the HTTP API, bincode for disk storage."
+tags: [concept, serialization, rust, serde]
+links: "[[README.md]]"
 ---
 
 # Serde
@@ -17,4 +16,4 @@ De-facto Rust framework deriving `Serialize`/`Deserialize` for structured data.
 
 ## VantaDB context
 
-Serialization pair `[[serde]]` + `[[bincode]]`: JSON at API boundaries, binary on disk (see `[[serialization]]`).
+Serialization pair `[[serde]]` + `[[postcard]]`: JSON at API boundaries, binary on disk (see `[[serialization]]`).

@@ -1,11 +1,9 @@
 ---
 title: "CODE fixes — seguridad, fleet fix 78 errores, MKT, batches CI"
-type: registro
+kind: review
 status: archived
+description: "Commits: a7d12e9 4863b4c 15a2ea8 40237bd 756710a d25f91e a55e74c c32c87f df1479a a94c261"
 tags: [vantadb, avance, campana]
-last_reviewed: 2026-09-15
-aliases: []
-related: []
 ---
 
 # CODE fixes — seguridad, fleet fix 78 errores, MKT, batches CI

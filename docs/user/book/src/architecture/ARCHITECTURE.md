@@ -1,1 +1,0 @@
-{{#include ../../../architecture/ARCHITECTURE.md}}

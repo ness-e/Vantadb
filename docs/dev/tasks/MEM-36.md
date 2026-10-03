@@ -1,3 +1,9 @@
+---
+title: "MEM-36 (META-TAREA): Crear el plan de campaña Bindings SDK — sub-clientes por dominio"
+kind: task
+description: "A partir de esta spec, producir el plan ejecutable de la campaña que exponga sub-clientes por dominio en los SDKs TS y Python, manteniendo 100% backward-compat"
+---
+
 # MEM-36 (META-TAREA): Crear el plan de campaña Bindings SDK — sub-clientes por dominio
 
 ## Metadata

@@ -1,3 +1,9 @@
+---
+title: "CORE-005: SDP Unificado — campaign_discover_skills MCP Tool"
+kind: task
+description: "Contrato del plan: Nuevo tool campaigndiscoverskills(keywords, phase) devuelve { skills, justificaciones, lifecyclephase }; campaignloadskills actualizado para usarlo; todos prompts invocan MCP. Verificación mecánica"
+---
+
 # CORE-005: SDP Unificado — campaign_discover_skills MCP Tool
 
 ## Metadata

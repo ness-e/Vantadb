@@ -1,3 +1,9 @@
+---
+title: "OLD-09: Olvido Bayesiano (Bayesian Hit Decay)"
+kind: task
+description: "Fuente: Backlog Phase 9 (Old Docs Rescue)"
+---
+
 # OLD-09: Olvido Bayesiano (Bayesian Hit Decay)
 
 **Fuente:** Backlog Phase 9 (Old Docs Rescue)  
