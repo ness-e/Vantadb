@@ -17,7 +17,7 @@ description: "Dismiss justificado de 48 alertas code-scanning (6 critical salt f
 - **last-synced:** 2026-10-02T23:10
 - **Estado:** ⏳ IN PROGRESS (contrato ✅; 1 step pendiente: review P2-01 por agente distinto)
 - **Incógnitas (uphill):** 0 abiertas
-- **Pendientes (downhill):** 1 step (review P2-01 + commit)
+- **Pendientes (downhill):** 1 step (review P2-01; commit local ya hecho: `c8c3e0fe`)
 
 ## Blast Radius
 
@@ -173,7 +173,7 @@ Fuente oficial: https://docs.github.com/en/rest/code-scanning/code-scanning?apiV
 
 ### Step 6: Review P2-01 (agente distinto) + commit local
 - **Archivos:** `docs/dev/tasks/FIND-225.md`
-- **Acción:** el sub-agente es leaf (sin tool `task`) → NO puede spawnear `vanta-review`. Evidencia completa dejada en §Review para que el orquestador corra el review. Commit local del task file (`docs(tasks): FIND-225 …`), sin push.
+- **Acción:** el sub-agente es leaf (sin tool `task`) → NO puede spawnear `vanta-review`. Evidencia completa dejada en §Review para que el orquestador corra el review. **Commit local hecho:** `c8c3e0fe docs(tasks): FIND-225 - triage de las 48 alertas CodeQL (48 dismissals justificados, contrato open=0)` (solo el task file; sin push).
 - **Verify:** veredicto registrado en §Review por reviewer distinto (`reviewer_context ≠ author_context`) → luego `campaign_update_task_state(completed)`.
 - **Estado:** ⬜ PENDING (bloqueado por estructura: leaf sin `task` tool)
 
