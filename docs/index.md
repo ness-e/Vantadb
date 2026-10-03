@@ -12,7 +12,7 @@ description: "Canonical index of the VantaDB documentation corpus."
      Grouped by kind, then by status, then by title.
      Source of truth: the frontmatter of the files listed below. -->
 
-1485 documents. This page is generated from frontmatter, so it cannot fall behind the tree. If a document is missing here, its `kind` or `description` is missing.
+1486 documents. This page is generated from frontmatter, so it cannot fall behind the tree. If a document is missing here, its `kind` or `description` is missing.
 
 ## Top level (3)
 
@@ -66,7 +66,7 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [WASM Standalone Console (Vanta Studio — mode `wasm`)](./api/WASM_STANDALONE.md) | reference | The Vanta Studio console can run 100% in the browser with no server: the                                                                                                                                                                                   |
 | [vanta-proxy Reference (Endpoints, Opt-in Features, Config)](./api/PROXY.md)     | reference | vanta-proxy is a transparent LLM wire proxy: by default it forwards bytes                                                                                                                                                                                  |
 
-## Internal / contributor (1328)
+## Internal / contributor (1327)
 
 ### Architecture decision records — 56
 
@@ -186,19 +186,18 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [Workflows — Inventory (37 active)](./dev/workflow/README.md)                               | index | Per-workflow detail pages live next to this index (ci-gate.md,                                                                                                                                                                           |
 | [Reviews archivados (2026-08-26)](./dev/reviews/README.md)                                  | index | Estos 30 reportes son snapshots históricos de auditorías/reviews/investigaciones _(archived)_                                                                                                                                            |
 
-### Plans — 9
+### Plans — 8
 
-| Document                                                                                                                  | Kind | Summary                                                                                                                                                                                                                                                                       |
-| ------------------------------------------------------------------------------------------------------------------------- | ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [BND-08 — Checklist de publicación `vantadb-node` (para el humano)](./dev/plans/artifacts/bnd-08-publish-checklist.md)    | plan | Nota local vs CI: el tarball local incluye UN solo .node (win32-x64-msvc, el build de                                                                                                                                                                                         |
-| [Plan de Consolidación Documental — enlaces, metadata, índices y skill](./dev/plans/2026-09-28-docs-consolidation.md)     | plan | documentation-skill → campaign-executor → progreso → writing-plans → systematic-debugging → writing-guidelines                                                                                                                                                                |
-| [Plan de Ejecución: Master Roadmap VantaDB — de 0.7.x a 1.0 (fuente única)](./dev/plans/2026-09-26-master-roadmap.md)     | plan | SDP: campaign-executor · progreso · writing-plans · planning-and-task-breakdown · api-and-interface-design · spec-driven-development · documentation-and-adrs · writing-guidelines                                                                                            |
-| [Plan de Ejecución: Post-release 0.8.0 — Estabilización de infraestructura](./dev/plans/2026-10-02-post-release-0.8.0.md) | plan | SDP v3 (taskType CI/CD-DevOps): campaign-executor · progreso · ci-cd-and-automation · git-workflow-and-versioning · performance-optimization · doubt-driven-development · planning-and-task-breakdown · documentation-and-adrs · security-and-hardening · shipping-and-launch |
-| [Upstream PR draft — CrewAI](./dev/plans/artifacts/mkt-18f-prs/crewai.md)                                                 | plan | Prereq (bloquea merge upstream): publicar vantadb-crewai en PyPI (tag adapters-v0.5.0)                                                                                                                                                                                        |
-| [Upstream PR draft — DSPy](./dev/plans/artifacts/mkt-18f-prs/dspy.md)                                                     | plan | Prereq (bloquea merge upstream): publicar vantadb-dspy en PyPI (tag adapters-v0.5.0)                                                                                                                                                                                          |
-| [Upstream PR draft — LangChain](./dev/plans/artifacts/mkt-18f-prs/langchain.md)                                           | plan | Prereq (bloquea merge upstream): publicar vantadb-langchain en PyPI (tag adapters-v0.5.0). Upstream no linkea paquetes 404                                                                                                                                                    |
-| [Upstream PR draft — LlamaIndex](./dev/plans/artifacts/mkt-18f-prs/llamaindex.md)                                         | plan | Prereq (bloquea merge upstream): publicar vantadb-llamaindex en PyPI (tag adapters-v0.5.0)                                                                                                                                                                                    |
-| [Upstream PR draft — Mem0](./dev/plans/artifacts/mkt-18f-prs/mem0.md)                                                     | plan | Prereq (bloquea merge upstream): publicar vantadb-mem0 en PyPI (tag adapters-v0.5.0)                                                                                                                                                                                          |
+| Document                                                                                                               | Kind | Summary                                                                                                                                                                            |
+| ---------------------------------------------------------------------------------------------------------------------- | ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [BND-08 — Checklist de publicación `vantadb-node` (para el humano)](./dev/plans/artifacts/bnd-08-publish-checklist.md) | plan | Nota local vs CI: el tarball local incluye UN solo .node (win32-x64-msvc, el build de                                                                                              |
+| [Plan de Consolidación Documental — enlaces, metadata, índices y skill](./dev/plans/2026-09-28-docs-consolidation.md)  | plan | documentation-skill → campaign-executor → progreso → writing-plans → systematic-debugging → writing-guidelines                                                                     |
+| [Plan de Ejecución: Master Roadmap VantaDB — de 0.7.x a 1.0 (fuente única)](./dev/plans/2026-09-26-master-roadmap.md)  | plan | SDP: campaign-executor · progreso · writing-plans · planning-and-task-breakdown · api-and-interface-design · spec-driven-development · documentation-and-adrs · writing-guidelines |
+| [Upstream PR draft — CrewAI](./dev/plans/artifacts/mkt-18f-prs/crewai.md)                                              | plan | Prereq (bloquea merge upstream): publicar vantadb-crewai en PyPI (tag adapters-v0.5.0)                                                                                             |
+| [Upstream PR draft — DSPy](./dev/plans/artifacts/mkt-18f-prs/dspy.md)                                                  | plan | Prereq (bloquea merge upstream): publicar vantadb-dspy en PyPI (tag adapters-v0.5.0)                                                                                               |
+| [Upstream PR draft — LangChain](./dev/plans/artifacts/mkt-18f-prs/langchain.md)                                        | plan | Prereq (bloquea merge upstream): publicar vantadb-langchain en PyPI (tag adapters-v0.5.0). Upstream no linkea paquetes 404                                                         |
+| [Upstream PR draft — LlamaIndex](./dev/plans/artifacts/mkt-18f-prs/llamaindex.md)                                      | plan | Prereq (bloquea merge upstream): publicar vantadb-llamaindex en PyPI (tag adapters-v0.5.0)                                                                                         |
+| [Upstream PR draft — Mem0](./dev/plans/artifacts/mkt-18f-prs/mem0.md)                                                  | plan | Prereq (bloquea merge upstream): publicar vantadb-mem0 en PyPI (tag adapters-v0.5.0)                                                                                               |
 
 ### Reports — 2
 
@@ -1445,6 +1444,20 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [WSM-09: Unificar límites FFI en core (MAX_VEC_DIM, MAX_F32)](./dev/tasks/WSM-09.md)                                                                 | task | Hoy existen 4 constantes duplicadas/límites divergentes en las fronteras FFI                                                                                                                                                                                                                               |
 | [WSM-10 — Semántica score/distance consistente (3 transports)](./dev/tasks/WSM-10.md)                                                                | task | Investigación research-vantadb-wasm-20260825 (H-15) y research-vantadb-ts-20260825 (H-03)                                                                                                                                                                                                                  |
 | [WSM-13: Estrategia de bundle documentada](./dev/tasks/WSM-13.md)                                                                                    | task | Files to read                                                                                                                                                                                                                                                                                              |
+
+## reports (2)
+
+### Index — 1
+
+| Document                      | Kind  | Summary        |
+| ----------------------------- | ----- | -------------- |
+| [reports](./reports/index.md) | index | Section index. |
+
+### Reports — 1
+
+| Document                                                  | Kind   | Summary                                                                                                                          |
+| --------------------------------------------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| [Pipeline Evaluation Report](./reports/pipeline-evals.md) | report | Métricas del pipeline vs North Star (RULES.md) — verify calls, primer intento, regresiones — generado por evals/eval-metrics.mjs |
 
 ## End-user documentation (129)
 
