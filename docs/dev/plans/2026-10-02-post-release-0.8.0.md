@@ -116,7 +116,7 @@ Wave 2 (después de Wave 1 — archivos compartidos):
 - **Uphill/Downhill:** ⬇️ (4 steps definidos)
 - **DoD:** task = contrato pasa + job en CI · commit = conventional + verify · release = PUBLISH.md actualizado (mismo PR)
 - **Validación Appetite:** 1d ≥ 4-6h ✓
-- **Estado:** ⏳ EN PROGRESO
+- **Estado:** ✅ COMPLETED
 - **Task file:** `docs/dev/tasks/FIND-230.md`
 
 ### Task 4: PROC-04 — Pase de progreso post-release (cierres + registro 0.8.0)
@@ -165,7 +165,7 @@ Wave 2 (después de Wave 1 — archivos compartidos):
 - **Uphill/Downhill:** ⬇️ (4 steps: inventario✅ → edición → TRIGGERS.md → validación)
 - **DoD:** task = contrato + push de prueba · commit = `ci:` conventional · release = TRIGGERS.md/RULES coherentes
 - **Validación Appetite:** 1d ≥ 3-5h ✓
-- **Estado:** ⬜ PENDING
+- **Estado:** ⏳ EN PROGRESO
 - **Task file:** `docs/dev/tasks/FIND-228.md`
 
 ### Task 6: FIND-231 — Cubrir el combo release (`server`+allocator, `-D warnings`) en CI
@@ -375,4 +375,26 @@ Resultado: COMPLETED
 Próxima acción: W1: FIND-230 (npm version gate) + FIND-226 (ASan símbolos)
 Contrato: deps open=0 · alerts=1 triado · develop verde salvo PERF crónico (FIND-232 en cierre)
 Próxima tarea si completa: FIND-230
+=== END RECITATION ===
+
+=== RECITATION FIND-226 ===
+Campaign ID: post-release-0.8.0-20261002
+Objetivo activo: FIND-226 — ASan: símbolos + triage de los leaks (1.81 GB)
+Estado: in-progress
+Última acción: DISCOVERY completo: evidencia de 2 runs (10-03: 1745658558 B/1358 allocs, 28 Direct + 26×64MiB; 09-25: 1879861353 B/1372 allocs) + mapping a código (create_in_memory 64MiB en init.rs:40, 28 Box::leak en tests graph/gds, constructores ya toman &'a) + task file creado con clasificación y decisión; SDP cargado
+Resultado: PARTIAL
+Próxima acción: Steps 3-6: editar ci-rust.yml (llvm + ASAN_SYMBOLIZER_PATH), graph.rs/gds.rs (28 Box::leak → &storage), .lsan_suppressions nota; verify + commit local
+Contrato: verificacion: pendiente (actionlint + fmt + clippy + nextest filtrado); evidencia: no aplica aun
+Próxima tarea si completa: FIND-227
+=== END RECITATION ===
+
+=== RECITATION FIND-230 ===
+Campaign ID: post-release-0.8.0-20261002
+Objetivo activo: FIND-230 — Gate mecánico de versiones npm (anti skip-silencioso del tren)
+Estado: completed
+Última acción: script check-npm-versions.mjs (self-test 10/10) + job CI en gate-docs.yml + ::warning:: en skips + PUBLISH.md (orden del bump) + gate-docs-21.md; contrato FAIL/PASS verificado; review P2-01 APPROVE (ronda 2)
+Resultado: COMPLETED
+Próxima acción: W2: FIND-228 en ejecución; FIND-227/231 tras FIND-226 (ci-rust.yml); verificación CI del job en el próximo push
+Contrato: check local FAIL(0.7.0)/PASS(0.8.0) verificado + job CI cableado al mismo script (corre en el próximo push)
+Próxima tarea si completa: FIND-228
 === END RECITATION ===
