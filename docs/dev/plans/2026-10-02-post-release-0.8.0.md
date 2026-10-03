@@ -314,23 +314,13 @@ Próxima tarea si completa: FIND-232
 
 === RECITATION FIND-232 ===
 Campaign ID: post-release-0.8.0-20261002
-Objetivo activo: FIND-232 — Diagnostico del perf-bench cronico (13 rojos desde 2026-09-25)
+Objetivo activo: FIND-232 — Diagnóstico del perf-bench crónico (causa raíz: mismatch de perfil + varianza cross-VM)
 Estado: in-progress
-Última acción: Diagnostico cerrado: causa raiz = mismatch estructural 1000/100 vs 10000/1000 + varianza cross-VM 1.7-2.4x medida (16.8x insert.p99) + p99=max-of-100 a escala us. Fix commiteado 04b3eaa0: perfil alineado, guarda de perfil, bandas calibradas (stable 200%/25%, us floor 0.5ms, insert.p99 absoluto 100ms), fix del upload boolean-vs-string, re-baseline (run 37089581213) con delta documentado. self-test 8/8; sims 3/3; OCR 0 findings; FIND-233 en Backlog.
-Resultado: PARTIAL
-Próxima acción: Orquestador: review P2-01 (evidencia en docs/dev/tasks/FIND-232.md §Review) + push develop + verificar gh run list --workflow=perf-bench.yml --limit 1 = success (Step 7).
-Contrato: verificacion: python benchmarks/compare_baseline.py --self-test -> 8/8 PASS (campaign_verify_cmd aprobado, exit 0); actionlint .github/workflows/perf-bench.yml exit 0; check-links/check-docs exit 0; sims: VM-lento exit 0 (solo warnings), VM-rapido exit 0 limpio, regresion 3x exit 1, fixture 1000/100 exit 1 'profile mismatch'
-evidencia:
-- claim: causa raiz primaria = mismatch estructural push 1000/100 vs baseline 10000/1000 | evidencia: python_baseline.json total_records=10000 + logs dataset sizes (37082038748/36094025761) + par mismo-commit 36094025517 rojo vs 36094025761 verde | confianza: alta
-- claim: varianza cross-VM 1.7-2.4x (insert.p99 16.8x) sobre codigo identico | evidencia: pares 37088714140 vs 37089421873 (ingest 64.6s vs 37.8s; vector.p50 2.69 vs 1.29ms) + artifacts benchmark_results.json | confianza: alta
-- claim: 13/13 runs rojos con query_text.p99 como bloqueante | evidencia: gh run view --log-failed (tabla en task file) | confianza: alta
-- claim: upload del baseline-candidate skipeaba siempre (boolean-vs-string) | evidencia: step skipped en 37089581213 y 36093538630 | confianza: alta
-- claim: contrato (b) cumplido | evidencia: runs 37089421873 (success) y 37089581213 (update_baseline success, baseline nuevo commiteado 04b3eaa0) | confianza: alta
-artefactos: docs/dev/tasks/FIND-232.md; benchmarks/python_baseline.json (nuevo); commit 04b3eaa0; C:\Users\Eros\AppData\Local\Temp\opencode\find232\ (metricas/artifacts/sims)
-invariantes: no se toco opencode.jsonc (WIP ajeno); commit LOCAL sin push; no cambios de motor; FIND-233 registrada en Backlog; el gate detecta colapsos (stable >=3x, us >=4x+0.5ms, insert.p99 >=100ms) — limite documentado del instrumento
-deuda: atribucion fina del +10-19% vector/hybrid post-0.8.0 + A/B same-job -> FIND-233 (docs/dev/Backlog.md)
-queda_pendiente: orquestador: (1) review P2-01 Tier Fast con la evidencia del task file §Review; (2) push develop; (3) gh run list --workflow=perf-bench.yml --limit 1 = success (Step 7). Plan file tiene la recitation FIND-232 sin stagear (bookkeeping del orquestador).
-Próxima tarea si completa: FIND-225
+Última acción: Review P2-01 ronda 1: changes-required (SPEC.md stale) → fix aplicado (0173b339: SPEC bandas nuevas, guarda fail-closed, self-test 9/9) → re-review ronda 2: APPROVE. Cierre final condicionado a push + run verde (owner).
+Resultado: PARTIAL (post-push pendiente)
+Próxima acción: Owner: push develop (ahead 9 / behind 4) → gh run list --workflow=perf-bench.yml --limit 1 = success → cerrar FIND-232 (COMPLETED)
+Contrato: evidencia sustituta completa (replays con artifacts reales + self-test 9/9 + sims); verificación literal post-push pendiente: run verde tras push
+Próxima tarea si completa: FIND-226
 === END RECITATION ===
 
 === RECITATION FIND-225 ===
