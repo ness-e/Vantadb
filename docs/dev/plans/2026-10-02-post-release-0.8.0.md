@@ -165,7 +165,7 @@ Wave 2 (después de Wave 1 — archivos compartidos):
 - **Uphill/Downhill:** ⬇️ (4 steps: inventario✅ → edición → TRIGGERS.md → validación)
 - **DoD:** task = contrato + push de prueba · commit = `ci:` conventional · release = TRIGGERS.md/RULES coherentes
 - **Validación Appetite:** 1d ≥ 3-5h ✓
-- **Estado:** ⏳ EN PROGRESO
+- **Estado:** ✅ COMPLETED
 - **Task file:** `docs/dev/tasks/FIND-228.md`
 
 ### Task 6: FIND-231 — Cubrir el combo release (`server`+allocator, `-D warnings`) en CI
@@ -402,10 +402,10 @@ Próxima tarea si completa: FIND-228
 === RECITATION FIND-228 ===
 Campaign ID: post-release-0.8.0-20261002
 Objetivo activo: FIND-228 — Dedupe de triggers CI (drop develop de push.branches en 15 workflows)
-Estado: in-progress
-Última acción: DISCOVERY completo: 15 workflows leídos uno a uno (clasificación push/PR), semántica de triggers validada contra docs oficiales GitHub, task file creado con Regla 0 + SDP v3 cargado
-Resultado: PARTIAL
-Próxima acción: Step 2: editar los 15 workflows (drop develop de push.branches) → rg filtrado + actionlint
-Contrato: verificacion: rg -n 'branches:.*develop' .github/workflows -g '*.yml' (solo PR + perf-bench excepción) + actionlint exit 0 — pendiente post-edit
+Estado: completed
+Última acción: 15 workflows editados (1 línea c/u: push.branches → [main]), TRIGGERS.md reescrito (6 filas + 9 nuevas + fila muerta ci-web fuera), RULES §1 amendment + FAQ sincronizados, task file + índices regenerados, actionlint 0 + gates docs 0, review P2-01 APPROVE, commit local 0e5c9e9d (21 archivos)
+Resultado: OK
+Próxima acción: Owner (post-push): `gh run list --branch develop --event push --limit 50` → solo 'PERF: Benchmarks — Python Integration'. Luego FIND-231 (post FIND-226; FIND-227 en vuelo)
+Contrato: verificacion: rg -n 'branches:.*develop' .github/workflows -g '*.yml' → 6 líneas bajo pull_request + perf-bench.yml:5 (excepción) ✅; actionlint exit 0 ✅; check-links/check-docs/gen-index --check exit 0 ✅
 Próxima tarea si completa: FIND-231
 === END RECITATION ===
