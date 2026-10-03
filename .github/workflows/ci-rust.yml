@@ -690,6 +690,20 @@ jobs:
     # CATEGORY: BEST-EFFORT — nightly TSan is unstable.
     # Failures are reviewed manually. Does not gate releases.
     continue-on-error: true
+    # FIND-227 (2026-10-03): chronic red is documented noise, not a VantaDB
+    # race. Evidence (runs 37090029650/565 reports, 37082038794/583): all
+    # from the `-p vantadb --lib` binary; families = std/libtest (mpmc
+    # Channel, test::run_test, compiler_copy/move), rayon StackJob/Sleep
+    # (fence sync), fjall/flume/crossbeam teardown, allocator ops
+    # (free/__tsan_memcpy). Root-cause class: std not instrumented (no
+    # `-Zbuild-std`) + TSan cannot see fences — rust-lang/rust#39608/#65097,
+    # rayon-rs/rayon#812/#1211; Rust Unstable Book §ThreadSanitizer.
+    # No tsan.supp on purpose (`race:` matches any frame — LLVM docs
+    # §Suppressions): targeted std/libtest suppressions remove only
+    # 17/565 reports (job stays red); converging would need blanket
+    # free/memcpy + fjall/flume/rayon suppressions (over-suppression).
+    # Decision: status quo (best-effort) — full analysis in
+    # docs/dev/tasks/FIND-227.md.
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
