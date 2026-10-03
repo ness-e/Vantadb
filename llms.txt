@@ -6,7 +6,7 @@
 
 Every link below points to the raw Markdown source, not a rendered page. Read the
 page you need; do not read this file end to end. This index covers the
-445 documentation pages; it deliberately omits the 1029 task files,
+446 documentation pages; it deliberately omits the 1029 task files,
 which are work items rather than documentation. The full inventory of every file
 is in docs/index.md in the repository.
 
@@ -231,6 +231,7 @@ is in docs/index.md in the repository.
 - [BND-08 — Checklist de publicación `vantadb-node` (para el humano)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/plans/artifacts/bnd-08-publish-checklist.md): Nota local vs CI: el tarball local incluye UN solo .node (win32-x64-msvc, el build de
 - [Plan de Consolidación Documental — enlaces, metadata, índices y skill](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/plans/2026-09-28-docs-consolidation.md): documentation-skill → campaign-executor → progreso → writing-plans → systematic-debugging → writing-guidelines
 - [Plan de Ejecución: Master Roadmap VantaDB — de 0.7.x a 1.0 (fuente única)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/plans/2026-09-26-master-roadmap.md): SDP: campaign-executor · progreso · writing-plans · planning-and-task-breakdown · api-and-interface-design · spec-driven-development · documentation-and-adrs · writing-guidelines
+- [Plan de Ejecución: Post-release 0.8.0 — Estabilización de infraestructura](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/plans/2026-10-02-post-release-0.8.0.md): SDP v3 (taskType CI/CD-DevOps): campaign-executor · progreso · ci-cd-and-automation · git-workflow-and-versioning · performance-optimization · doubt-driven-development · planning-and-task-breakdown · documentation-and-adrs · security-and-hardening · shipping-and-launch
 - [Upstream PR draft — CrewAI](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/plans/artifacts/mkt-18f-prs/crewai.md): Prereq (bloquea merge upstream): publicar vantadb-crewai en PyPI (tag adapters-v0.5.0)
 - [Upstream PR draft — DSPy](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/plans/artifacts/mkt-18f-prs/dspy.md): Prereq (bloquea merge upstream): publicar vantadb-dspy en PyPI (tag adapters-v0.5.0)
 - [Upstream PR draft — LangChain](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/plans/artifacts/mkt-18f-prs/langchain.md): Prereq (bloquea merge upstream): publicar vantadb-langchain en PyPI (tag adapters-v0.5.0). Upstream no linkea paquetes 404
