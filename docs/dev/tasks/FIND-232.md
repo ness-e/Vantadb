@@ -14,7 +14,7 @@ description: "Causa raíz: perfil push 1000/100 vs baseline 10000/1000 (apples-t
 - **Prioridad:** 🟠
 - **Tipo:** CI/CD + diagnóstico de performance (blast radius CI-only — sin cambios de motor)
 - **Creado:** 2026-10-03T02:25Z | **last-synced:** 2026-10-03T03:50Z
-- **Estado:** ⏳ IN PROGRESS — work **completo y commiteado**; pendiente el veredicto P2-01 (orquestador, §Review) + push + verificación del run (Step 7). **No se marca COMPLETED sin veredicto de review registrado.**
+- **Estado:** ⏳ IN PROGRESS — review P2-01 ronda 1 = `changes-required` **atendido** (fix aplicado en este commit); pendiente post-push (owner): verificación del run (Step 7) + veredicto final. **No se marca COMPLETED sin veredicto final de review registrado.**
 - **Campaign ID:** post-release-0.8.0-20261002
 
 ## Blast Radius
@@ -111,7 +111,7 @@ Sub-runs del baseline gen 36093538630 (2026-09-25): ingest 50.1s/48.0s/48.7s (19
 
 **Reproducibilidad: 37089421873** (2026-10-03T02:19Z, commit bf1e7476, mismo dispatch, 20 min después) — **VERDE**: "No blocking regression detected across 16 metrics (0 warnings)". Sub-runs: ingest 41.8/37.8/37.0 s (239→270 rec/s), vector p50 1.26–1.33 ms, hybrid p50 3.13–3.35 ms — ~40% **más rápido** que el baseline 2026-09-25 en todas las métricas.
 
-**Conclusión del par #1 vs #2 (código idéntico, 20 min aparte):** la varianza cross-VM en `ubuntu-latest` alcanza **1.7x–2.4x en todas las métricas** y **16.8x en `insert.p99`** (85.3 vs 5.07 ms) — el gate a 15% era estructuralmente flaky aun con perfil alineado. Rango completo (5 jobs): ingest 37.0–76.2 s; vector p50 1.26–3.48 ms; hybrid p50 3.13–7.86 ms.
+**Conclusión de varianza cross-VM (par same-SHA #2/#3 + job lento #1, 20 min aparte):** en el par limpio (37089421873 vs 37089581213, ambos bf1e7476, mismo perfil) las métricas clave oscilan 1.3x–2.1x; incluyendo el job lento (37088714140, distinto Cargo.lock por #224) el rango llega a 2.4x y `insert.p99` a **16.8x** (85.3 vs 5.07/8.52 ms) — el gate a 15% era estructuralmente flaky aun con perfil alineado. Rango completo (5 jobs): ingest 37.0–76.2 s; vector p50 1.26–3.48 ms; hybrid p50 3.13–7.86 ms.
 
 **Re-baseline: 37089581213** (2026-10-03T02:22Z, `update_baseline=true`, commit bf1e7476) — corrió el camino update ("Baseline updated…") ✓; su mediana (artifact `vanta-benchmark-results`) es el nuevo `python_baseline.json`. Números (VM "normal", ≈ baseline 2026-09-25): ingest 47.78 s (209.3 rec/s), vector p50 2.46/p95 3.16/p99 3.39 ms, hybrid p50 6.37/p95 7.38/p99 11.82 ms, text p99 6.46 µs.
 **Bug encontrado y arreglado (mismo commit):** el step `Upload Baseline Candidate` skipeaba SIEMPRE (`if: inputs.update_baseline == 'true'` = boolean-vs-string → false) — también en la generación original 36093538630. Fix: step output `baseline_updated` del step de compare + `if: steps.bench-compare.outputs.baseline_updated == 'true'`.
@@ -135,8 +135,8 @@ Sub-runs del baseline gen 36093538630 (2026-09-25): ingest 50.1s/48.0s/48.7s (19
 
 - [x] **Step 1 — Evidencia dura de runs:** `gh run list/view --log-failed` sobre 13 runs rojos + verdes; tabla por run con bloqueantes exactos; sizes reales de push (1000/100) vs dispatch (10000/1000); par mismo-commit 36094025517 vs 36094025761. ✅
 - [x] **Step 2 — Pares de varianza controlados:** artifacts 2026-09-25 (gen/verify) + pares 2026-10-03 (#1/#2/#3): spread cross-VM 1.7–2.4x; insert.p99 16.8x. ✅
-- [x] **Step 3 — Fix:** workflow (perfil 10000/1000 + upload del baseline-candidate por step output + comentarios), `compare_baseline.py` (guarda de perfil + bandas calibradas + `insert.p99` absoluto + self-test ×8), README (ref stale), `python_baseline.json` (re-baseline). ✅
-- [x] **Step 4 — Verify local:** `--self-test` 8/8; `py_compile`; `actionlint` exit 0; sims: VM-lento vs baseline nuevo → exit 0 con warnings; VM-rápido → exit 0 limpio; regresión 3x → exit 1; fixture 1000/100 → "profile mismatch". ✅
+- [x] **Step 3 — Fix:** workflow (perfil 10000/1000 + upload del baseline-candidate por step output + comentarios), `compare_baseline.py` (guarda de perfil fail-closed + bandas calibradas + `insert.p99` absoluto + self-test ×9), README (ref stale), `python_baseline.json` (re-baseline), SPEC.md §Guardrails al día. ✅
+- [x] **Step 4 — Verify local:** `--self-test` 9/9; `py_compile`; `actionlint` exit 0; sims: VM-lento vs baseline nuevo → exit 0 con warnings; VM-rápido → exit 0 limpio; regresión 3x → exit 1; fixture 1000/100 → "profile mismatch"; baseline sin `total_records` → fail-closed. ✅
 - [x] **Step 5 — Dispatch diagnóstico + re-baseline:** 37088714140 (rojo, VM lenta), 37089421873 (verde), 37089581213 (update_baseline → baseline nuevo). Delta documentado. ✅
 - [x] **Step 6 — Commit local** (fix + baseline nuevo + task file + Backlog FIND-233) — este commit. ✅
 - [ ] **Step 7 — Cierre (orquestador):** push develop → verificar `gh run list --workflow=perf-bench.yml --limit 1` = `success` (contrato a; con perfil alineado + baseline nuevo el push queda verde). ⬜ PENDING orquestador.
@@ -157,19 +157,19 @@ Sub-runs del baseline gen 36093538630 (2026-09-25): ingest 50.1s/48.0s/48.7s (19
 
 ## Review (P2-01)
 
-- **Estado:** ⬜ PENDIENTE — evidencia completa para el reviewer (el worker no puede spawnear sub-agente; delega el gate al orquestador).
-- **Paths del diff:** `.github/workflows/perf-bench.yml`, `benchmarks/compare_baseline.py`, `benchmarks/python_baseline.json`, `benchmarks/README.md`, `docs/dev/tasks/FIND-232.md`, `docs/dev/Backlog.md` → **Tier Fast** (CI/docs/datos; sin paths adversariales).
+- **Ronda 1 (2026-10-03):** veredicto **`changes-required`** — fix técnico verificado correcto; 1 requerido (SPEC.md:132 stale) + 3 opcionales. **Fix aplicado** (commit local de esta ronda): `SPEC.md` §Guardrails actualizado a las bandas nuevas + "señal fina (<2–3x) vive en canonical_p99 / FIND-233"; docstring con el par **same-SHA** (37089421873 vs 37089581213, ambos bf1e7476); guarda de perfil **fail-closed** si el baseline pierde `total_records` (+ self-test 9/9); DoD alineado a "evidencia sustituta". ⬜ **Pendiente post-push (owner):** verificación literal del run + veredicto final.
+- **Paths del diff (ambas rondas):** `.github/workflows/perf-bench.yml`, `benchmarks/compare_baseline.py`, `benchmarks/python_baseline.json`, `benchmarks/README.md`, `docs/dev/tasks/FIND-232.md`, `docs/dev/Backlog.md`, `SPEC.md` → **Tier Fast** (CI/docs/datos; sin paths adversariales).
 - **Gate requerido:** `dev-tools/verify.ps1` ALL PASS + veredicto en este §Review.
 - **Checklist para el reviewer:**
-  1. `python benchmarks/compare_baseline.py --self-test` → 8/8 PASS.
-  2. `git show HEAD --stat` → solo los 6 archivos de arriba (+ plan file sin stagear).
+  1. `python benchmarks/compare_baseline.py --self-test` → 9/9 PASS.
+  2. `git show HEAD --stat` → solo los archivos de arriba (+ plan file sin stagear).
   3. Contrato post-push: `gh run list --workflow=perf-bench.yml --limit 1` = success.
-  4. Sanity adversarial: run 1000/100 vs baseline 10000/1000 → FALLA con "profile mismatch"; run con `insert.p99` 85 ms → warning solamente; regresión 3x → exit 1.
-- **OCR delegation (advisory):** preview 3 reviewables + Rule Groups CI/Python aplicados; 0 Critical/High (detalle en §Diagnóstico → OCR review).
+  4. Sanity adversarial: run 1000/100 vs baseline 10000/1000 → FALLA con "profile mismatch"; baseline sin `total_records` → FALLA (fail-closed); run con `insert.p99` 85 ms → warning solamente; regresión 3x → exit 1.
+- **OCR delegation (advisory):** preview + Rule Groups CI/Python aplicados; 0 Critical/High (detalle en §Diagnóstico → OCR review).
 
 ## DoD (3 niveles)
 
-- **task:** **contrato (b) cumplido** — banda revisada (calibrada a la varianza cross-VM medida) + decisión registrada (§Decisión) + runs verdes (37089421873 compare success; 37089581213 update_baseline success) + baseline nuevo commiteado. La verificación literal post-push (`gh run list --workflow=perf-bench.yml --limit 1` = success) queda al orquestador (Step 7; el worker tiene prohibido push).
+- **task:** **contrato (b) cumplido en evidencia sustituta** (replays con artifacts reales de los runs + sims locales): banda revisada + decisión registrada (§Decisión) + runs verdes (37089421873 compare success; 37089581213 update_baseline success) + baseline nuevo commiteado. La verificación literal post-push (`gh run list --workflow=perf-bench.yml --limit 1` = success) queda al owner (Step 7; el worker tiene prohibido push).
 - **commit:** `fix(ci): FIND-232 — ...` conventional + verify local (commit LOCAL; sin push).
 - **release:** n/a (CI-only).
 
