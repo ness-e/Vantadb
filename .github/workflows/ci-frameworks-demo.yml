@@ -26,7 +26,7 @@ name: 'CI: Frameworks demo — LangGraph dev→prod (same code, VantaDB checkpoi
 
 on:
   push:
-    branches: [ "main", "develop" ]
+    branches: [ "main" ]
     paths:
       - 'examples/langgraph_dev_to_prod/**'
       - 'integrations/langchain/**'

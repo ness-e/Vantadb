@@ -13,7 +13,7 @@ name: 'GATE: Docs — Links, Schema, Indexes, Structure'
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
     paths:
       - 'docs/**'
       - 'scripts/docs/**'

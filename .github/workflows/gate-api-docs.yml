@@ -19,7 +19,7 @@ name: 'GATE: API — surface vs documentation'
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
     paths:
       - 'src/**'
       - 'vantadb-python/vantadb_py/**'

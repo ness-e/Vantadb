@@ -17,7 +17,7 @@ name: 'GATE: Docs — Code examples are real API'
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
     paths:
       - 'docs/**'
       - 'scripts/docs/**'

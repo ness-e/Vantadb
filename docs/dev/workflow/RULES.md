@@ -11,7 +11,7 @@ tags: [vantadb, ci, workflows, rules, policy]
 > **Scope:** `.github/workflows/` (27 files, names as on disk 2026-09-22) + `docs/dev/workflow/*` + `docs/dev/operations/CI_POLICY.md`
 > **No tocar aquí:** engine code, bindings, release versioning (see release-ci rules); procedure lives in `RUNBOOK.md`, trigger matrix in `TRIGGERS.md`, publish chain in `PUBLISH.md`
 > **Status:** 🟢 Vigente
-> **Fuentes:** FIND-134/135/136/139/140/141/146 + renames FIND-142 (commit `97a3a03c`); matrix `TRIGGERS.md` (2026-09-22); rule 8: HARD-03 (owner decision 2026-09-26 — push deferred to plan close, bundles as loss mitigation); rule 9: HARD-07 (review gate mechanized — `reviewer_context ≠ author_context`, 2026-09-27)
+> **Fuentes:** FIND-134/135/136/139/140/141/146 + renames FIND-142 (commit `97a3a03c`); matrix `TRIGGERS.md` (2026-10-02, post FIND-228); rule 1 completion: FIND-228 (2026-10-02); rule 8: HARD-03 (owner decision 2026-09-26 — push deferred to plan close, bundles as loss mitigation); rule 9: HARD-07 (review gate mechanized — `reviewer_context ≠ author_context`, 2026-09-27)
 
 One verifiable rule per high-severity audit finding. Each rule states **Must / Must not / Why**, a good/bad example, and a mechanical check. If the check fails, the PR fails.
 
@@ -47,7 +47,7 @@ on:
 
 - **Verify:** open a PR `develop → main`, push once → exactly 1 run per workflow when paths match (`gh run list --commit <sha>`).
 
-> **Amendment 2026-09-25 (C-04/FIND-140):** los workflows actuales **mantienen `develop`** en `push`/`pull_request` (todo el CI corre sobre develop; la deduplicación push+PR se resolvió por `paths` + `concurrency`). Esta regla queda como **objetivo** a completar al cerrar FIND-134/139 — no como estado actual. Verificar antes de "corregir" un workflow que hoy lista `develop`.
+> **Amendment 2026-10-02 (FIND-228):** objetivo completado. Los 15 workflows CI/demo/gate ya no listan `develop` bajo `push.branches` (push = `[main]`); la validación pre-merge de `develop` vive en `pull_request`, conservada donde la validación dual es intencional (`ci-rustdoc`, `gate-docs`, `gate-docs-links`, `gate-docs-secrets`, `gate-api-docs`, `gate-doc-examples`). Excepción documentada: `perf-bench.yml` mantiene `push: [main, develop]` (dependencia de la verificación post-push de FIND-232 — decisión aparte). Historia: amendment 2026-09-25 (C-04/FIND-140) declaró la regla como objetivo; FIND-134 resolvió `ci-rust.yml`; FIND-228 cerró el resto (15 archivos, 2026-10-02).
 
 ### 2 — Timeouts: every job has `timeout-minutes`
 

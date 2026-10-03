@@ -20,7 +20,7 @@ name: Desktop CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
     paths:
       - 'desktop/**'
       - 'src/**'
