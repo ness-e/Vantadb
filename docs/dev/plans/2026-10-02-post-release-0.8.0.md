@@ -67,7 +67,7 @@ Wave 2 (después de Wave 1 — archivos compartidos):
 - **Uphill/Downhill:** ⬇️ downhill (0 incógnitas — 5 merges + verificación)
 - **DoD:** task = PRs merged + alerts ≤1 verificados por comando · commit = n/a (merges remotos) · release = n/a
 - **Validación Appetite vs Effort:** 1d ≥ 1h ✓
-- **Estado:** ⏳ EN PROGRESO
+- **Estado:** ✅ COMPLETED
 - **Task file:** `docs/dev/tasks/PROC-02.md`
 
 ### Task 2: PROC-03 — Descartar las 3 alertas de secret scanning (falsos positivos de test)
@@ -116,7 +116,7 @@ Wave 2 (después de Wave 1 — archivos compartidos):
 - **Uphill/Downhill:** ⬇️ (4 steps definidos)
 - **DoD:** task = contrato pasa + job en CI · commit = conventional + verify · release = PUBLISH.md actualizado (mismo PR)
 - **Validación Appetite:** 1d ≥ 4-6h ✓
-- **Estado:** ⬜ PENDING
+- **Estado:** ⏳ EN PROGRESO
 - **Task file:** `docs/dev/tasks/FIND-230.md`
 
 ### Task 4: PROC-04 — Pase de progreso post-release (cierres + registro 0.8.0)
@@ -312,6 +312,27 @@ Contrato: open=0 verificado por comando; review P2-01 approve
 Próxima tarea si completa: FIND-232
 === END RECITATION ===
 
+=== RECITATION FIND-232 ===
+Campaign ID: post-release-0.8.0-20261002
+Objetivo activo: FIND-232 — Diagnostico del perf-bench cronico (13 rojos desde 2026-09-25)
+Estado: in-progress
+Última acción: Diagnostico cerrado: causa raiz = mismatch estructural 1000/100 vs 10000/1000 + varianza cross-VM 1.7-2.4x medida (16.8x insert.p99) + p99=max-of-100 a escala us. Fix commiteado 04b3eaa0: perfil alineado, guarda de perfil, bandas calibradas (stable 200%/25%, us floor 0.5ms, insert.p99 absoluto 100ms), fix del upload boolean-vs-string, re-baseline (run 37089581213) con delta documentado. self-test 8/8; sims 3/3; OCR 0 findings; FIND-233 en Backlog.
+Resultado: PARTIAL
+Próxima acción: Orquestador: review P2-01 (evidencia en docs/dev/tasks/FIND-232.md §Review) + push develop + verificar gh run list --workflow=perf-bench.yml --limit 1 = success (Step 7).
+Contrato: verificacion: python benchmarks/compare_baseline.py --self-test -> 8/8 PASS (campaign_verify_cmd aprobado, exit 0); actionlint .github/workflows/perf-bench.yml exit 0; check-links/check-docs exit 0; sims: VM-lento exit 0 (solo warnings), VM-rapido exit 0 limpio, regresion 3x exit 1, fixture 1000/100 exit 1 'profile mismatch'
+evidencia:
+- claim: causa raiz primaria = mismatch estructural push 1000/100 vs baseline 10000/1000 | evidencia: python_baseline.json total_records=10000 + logs dataset sizes (37082038748/36094025761) + par mismo-commit 36094025517 rojo vs 36094025761 verde | confianza: alta
+- claim: varianza cross-VM 1.7-2.4x (insert.p99 16.8x) sobre codigo identico | evidencia: pares 37088714140 vs 37089421873 (ingest 64.6s vs 37.8s; vector.p50 2.69 vs 1.29ms) + artifacts benchmark_results.json | confianza: alta
+- claim: 13/13 runs rojos con query_text.p99 como bloqueante | evidencia: gh run view --log-failed (tabla en task file) | confianza: alta
+- claim: upload del baseline-candidate skipeaba siempre (boolean-vs-string) | evidencia: step skipped en 37089581213 y 36093538630 | confianza: alta
+- claim: contrato (b) cumplido | evidencia: runs 37089421873 (success) y 37089581213 (update_baseline success, baseline nuevo commiteado 04b3eaa0) | confianza: alta
+artefactos: docs/dev/tasks/FIND-232.md; benchmarks/python_baseline.json (nuevo); commit 04b3eaa0; C:\Users\Eros\AppData\Local\Temp\opencode\find232\ (metricas/artifacts/sims)
+invariantes: no se toco opencode.jsonc (WIP ajeno); commit LOCAL sin push; no cambios de motor; FIND-233 registrada en Backlog; el gate detecta colapsos (stable >=3x, us >=4x+0.5ms, insert.p99 >=100ms) — limite documentado del instrumento
+deuda: atribucion fina del +10-19% vector/hybrid post-0.8.0 + A/B same-job -> FIND-233 (docs/dev/Backlog.md)
+queda_pendiente: orquestador: (1) review P2-01 Tier Fast con la evidencia del task file §Review; (2) push develop; (3) gh run list --workflow=perf-bench.yml --limit 1 = success (Step 7). Plan file tiene la recitation FIND-232 sin stagear (bookkeeping del orquestador).
+Próxima tarea si completa: FIND-225
+=== END RECITATION ===
+
 === RECITATION FIND-225 ===
 Campaign ID: post-release-0.8.0-20261002
 Objetivo activo: FIND-225 — Triage de las 48 alertas CodeQL (6 critical + 42 high)
@@ -342,4 +363,36 @@ invariantes: No tocar opencode.jsonc (WIP ajeno); commit LOCAL sin push; no re-b
 deuda: FIND-232-R1 diferido: banda por familia tail (p95/p99) solo con >=2 falsos positivos post-fix y datos alineados
 queda_pendiente: Orquestador: push develop -> verificar run verde (contrato a) o re-baseline documentado (contrato b)
 Próxima tarea si completa: FIND-225
+=== END RECITATION ===
+
+=== RECITATION PROC-04 ===
+Campaign ID: post-release-0.8.0-20261002
+Objetivo activo: PROC-04 — Pase de progreso post-release (cierres + registro 0.8.0)
+Estado: in-progress
+Última acción: Ejecución completa + commit local 748356d3: filas FIND-184/FIND-229 eliminadas del Backlog (no tachadas) + cross-ref de FIND-231 despersonalizado (rg=0) + alta FIND-234 (check-avance-coverage.ps1 roto, hallazgo colateral) + 5 entradas de avance (release 0.8.0: publish/FIND-229/npm TS backfill/rustls ARM64; FIND-184 en vanta-memory) + §Docker & packaging absorbido en FIND-229 + índices regenerados (docs/index.md, llms.txt). Contrato 3/3 verde. Review P2-01 delegado al orquestador (subagente leaf).
+Resultado: OK
+Próxima acción: Orquestador: vanta-review fresco contra §Review de docs/dev/tasks/PROC-04.md → accept (campaign_update_task_state completed con payload review).
+Contrato: verificacion: rg "FIND-184|FIND-229" docs/dev/Backlog.md = 0 (exit 1, sin salida) ✅ · pwsh scripts/validate-docs-coverage.ps1 exit 0 (0 gaps, 8/8 secciones) ✅ · entradas avance ci-cd.md L521/527/533/539 + vanta-memory.md L128 ✅ · gen-index --write/--check exit 0 ✅ · check-links/check-docs exit 0 ✅
+evidencia:
+- claim: Contrato 1 rg=0 post-commit | evidencia: rg exit 1 sin salida sobre working tree en 748356d3 | confianza: alta
+- claim: Contrato 3 exit 0 | evidencia: salida 'Validación de cobertura completada — 0 gaps' | confianza: alta
+- claim: release 0.8.0 registrado con commits reales | evidencia: git show -s verificado de 72353e7f/cca43b9e/9004c43f/fc50adb2/e62e0f62/70dd6eb3/01d86ab4/cf86e49b/d4d7961a → ci-cd.md L521-539 + vanta-memory.md L128 | confianza: alta
+- claim: commit solo cambios PROC-04 (no arrastra FIND-233 de FIND-232) | evidencia: blob staged 7ecf85b0 vía update-index --cacheinfo; git show --stat 748356d3 = 6 archivos | confianza: alta
+- claim: índices en sync tras alta de PROC-04 | evidencia: gen-index.mjs --check exit 0 post-write | confianza: alta
+artefactos: docs/dev/tasks/PROC-04.md; docs/dev/Backlog.md; docs/dev/avance/activo/ci-cd.md; docs/dev/avance/activo/vanta-memory.md; docs/index.md; llms.txt
+invariantes: no tocar opencode.jsonc / plan file / pipeline-state.json / archivos FIND-232; commit LOCAL sin push; filas migradas se eliminan (no se tachan)
+deuda: ninguna
+queda_pendiente: review P2-01 fresco + accept (orquestador); el working tree de Backlog.md conserva la fila FIND-233 (FIND-232) sin stagear
+Próxima tarea si completa: FIND-230
+=== END RECITATION ===
+
+=== RECITATION PROC-02 ===
+Campaign ID: post-release-0.8.0-20261002
+Objetivo activo: PROC-02 — Mergear los 5 PRs de Dependabot abiertos
+Estado: completed
+Última acción: 5/5 PRs mergeados (4 develop + #232→main por su base; 11 alerts undici cerradas); contrato verde: deps open=0, alerts=1 (brace-expansion, fix local 0ddddcb1 = first_patched, pendiente push); review fresco APPROVE
+Resultado: COMPLETED
+Próxima acción: W1: FIND-230 (npm version gate) + FIND-226 (ASan símbolos)
+Contrato: deps open=0 · alerts=1 triado · develop verde salvo PERF crónico (FIND-232 en cierre)
+Próxima tarea si completa: FIND-230
 === END RECITATION ===

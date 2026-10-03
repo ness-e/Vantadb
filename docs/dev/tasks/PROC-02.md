@@ -13,8 +13,8 @@ description: "Deps PRs #237/#232/#231/#230/#224 (squash + bypass admin configura
 - **Esfuerzo:** 🟢 1h (+CI por PR) | **Appetite:** 1d
 - **Prioridad:** 🟠
 - **Tipo:** release-CI (merges remotos)
-- **Creado:** 2026-10-03T01:50Z | **last-synced:** 2026-10-03T02:42Z
-- **Estado:** ⏳ IN PROGRESS
+- **Creado:** 2026-10-03T01:50Z | **last-synced:** 2026-10-03T05:05Z
+- **Estado:** ✅ COMPLETED (review P2-01 APPROVE — reviewer_context `ses_f00787790ffefRbT05V1V91AeL`)
 - **Campaign ID:** post-release-0.8.0-20261002
 
 ## Hallazgos de reconocimiento (2026-10-03)
@@ -62,9 +62,9 @@ description: "Deps PRs #237/#232/#231/#230/#224 (squash + bypass admin configura
 
 | Campo | Valor |
 |-------|-------|
-| Reviewer | (pendiente — vanta-review al cierre) |
-| reviewer_context | (pendiente) |
-| Verdict | (pendiente) |
+| Reviewer | vanta-review (sesión fresca) |
+| reviewer_context | `ses_f00787790ffefRbT05V1V91AeL` |
+| Verdict | ✅ **APPROVE** — contrato re-ejecutado (deps=0; alerts=1 triado, fix local `0ddddcb1` = first_patched exacto; 5/5 MERGED con bases verificadas). develop verde salvo PERF crónico; main post-#232 sin no-verdes (11 alerts undici `fixed` a las 02:03Z). Concerns owner (no bloquean): ruleset `develop` efectivamente admin-only (fix de config recomendado: triggers o lista required); en merges a `main` esperar los required checks antes de forzar. |
 
 ## DoD (3 niveles)
 
