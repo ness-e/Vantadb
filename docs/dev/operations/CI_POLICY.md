@@ -63,6 +63,7 @@ governance semantics are excluded from the default fast lane.
 | `experimental-check` | Experimental Crates Check (continue-on-error, non-blocking) |
 | `sanitizer-asan` | AddressSanitizer (nightly, continue-on-error) |
 | `sanitizer-tsan` | ThreadSanitizer (nightly, continue-on-error) |
+| `release-combo` | Release Combo Check — `cargo check --release` of `vanta-cli` (`server,jemalloc`) + `vantadb-server` (`jemalloc`) with `RUSTFLAGS=-D warnings`; the exact combo of `release-binaries.yml` (FIND-231) |
 
 > **Note (ERR-OBS-01):** the `test` job exercises error-observability behavior
 > in `error::tests` (backtrace capture is env-gated via `RUST_BACKTRACE`/
