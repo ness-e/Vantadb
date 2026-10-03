@@ -15,7 +15,7 @@ description: "Gate local+CI que falla cuando vantadb-ts/package.json difiere de 
 - **Tipo:** CI/CD-DevOps (workflow + script Node + runbook; blast radius CI-only)
 - **Turns estimados:** 15-30
 - **Creado:** 2026-10-03T02:50Z | **last-synced:** 2026-10-03T04:25Z
-- **Estado:** ⏳ IN PROGRESS — trabajo **completo, verificado y commiteado** (commit local, sin push); review P2-01 fresco **APPROVE** (sesión `ses_f0049cdbcffeVEwXAY6FxgJDP5`). Pendiente: bookkeeping del orquestador (recitation/plan + push).
+- **Estado:** ✅ COMPLETED (review P2-01 APPROVE — reviewer_context `ses_f0049cdbcffeVEwXAY6FxgJDP5`; contrato re-verificado por el orquestador: check exit 0 + self-test 10/10; verificación CI del job en el próximo push)
 - **Incógnitas (uphill):** 0 — diseño decidido (plan + evidencia de runs/PR); sin decisiones abiertas
 - **Pendientes (downhill):** 0 steps — cierre local completo
 - **Campaign ID:** post-release-0.8.0-20261002
