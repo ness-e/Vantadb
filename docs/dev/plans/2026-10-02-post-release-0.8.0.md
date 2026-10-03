@@ -137,7 +137,7 @@ Wave 2 (después de Wave 1 — archivos compartidos):
 - **Uphill/Downhill:** ⬇️ (2 steps)
 - **DoD:** task = contrato verde · commit = conventional · release = n/a
 - **Validación Appetite:** 1h ≥ 30min ✓
-- **Estado:** ⏳ EN PROGRESO
+- **Estado:** ✅ COMPLETED
 - **Task file:** `docs/dev/tasks/PROC-04.md`
 
 ### Task 5: FIND-228 — Dedupe de triggers CI (drop `develop` de `push.branches` en 15 workflows)
@@ -256,7 +256,7 @@ Wave 2 (después de Wave 1 — archivos compartidos):
 - **Uphill/Downhill:** ⬆️ 1 incógnita (alcance real de los leaks) → se resuelve con símbolos
 - **DoD:** task = contrato · commit = cambio de job y/o fix · release = n/a (best-effort)
 - **Validación Appetite:** 3d ≥ 1-2d ✓
-- **Estado:** ⬜ PENDING
+- **Estado:** ⏳ EN PROGRESO
 - **Task file:** `docs/dev/tasks/FIND-226.md`
 
 ### Task 10: FIND-227 — TSan: supresión targeted o decisión documentada
@@ -368,22 +368,12 @@ Próxima tarea si completa: FIND-225
 === RECITATION PROC-04 ===
 Campaign ID: post-release-0.8.0-20261002
 Objetivo activo: PROC-04 — Pase de progreso post-release (cierres + registro 0.8.0)
-Estado: in-progress
-Última acción: Ejecución completa + commit local 748356d3: filas FIND-184/FIND-229 eliminadas del Backlog (no tachadas) + cross-ref de FIND-231 despersonalizado (rg=0) + alta FIND-234 (check-avance-coverage.ps1 roto, hallazgo colateral) + 5 entradas de avance (release 0.8.0: publish/FIND-229/npm TS backfill/rustls ARM64; FIND-184 en vanta-memory) + §Docker & packaging absorbido en FIND-229 + índices regenerados (docs/index.md, llms.txt). Contrato 3/3 verde. Review P2-01 delegado al orquestador (subagente leaf).
-Resultado: OK
-Próxima acción: Orquestador: vanta-review fresco contra §Review de docs/dev/tasks/PROC-04.md → accept (campaign_update_task_state completed con payload review).
-Contrato: verificacion: rg "FIND-184|FIND-229" docs/dev/Backlog.md = 0 (exit 1, sin salida) ✅ · pwsh scripts/validate-docs-coverage.ps1 exit 0 (0 gaps, 8/8 secciones) ✅ · entradas avance ci-cd.md L521/527/533/539 + vanta-memory.md L128 ✅ · gen-index --write/--check exit 0 ✅ · check-links/check-docs exit 0 ✅
-evidencia:
-- claim: Contrato 1 rg=0 post-commit | evidencia: rg exit 1 sin salida sobre working tree en 748356d3 | confianza: alta
-- claim: Contrato 3 exit 0 | evidencia: salida 'Validación de cobertura completada — 0 gaps' | confianza: alta
-- claim: release 0.8.0 registrado con commits reales | evidencia: git show -s verificado de 72353e7f/cca43b9e/9004c43f/fc50adb2/e62e0f62/70dd6eb3/01d86ab4/cf86e49b/d4d7961a → ci-cd.md L521-539 + vanta-memory.md L128 | confianza: alta
-- claim: commit solo cambios PROC-04 (no arrastra FIND-233 de FIND-232) | evidencia: blob staged 7ecf85b0 vía update-index --cacheinfo; git show --stat 748356d3 = 6 archivos | confianza: alta
-- claim: índices en sync tras alta de PROC-04 | evidencia: gen-index.mjs --check exit 0 post-write | confianza: alta
-artefactos: docs/dev/tasks/PROC-04.md; docs/dev/Backlog.md; docs/dev/avance/activo/ci-cd.md; docs/dev/avance/activo/vanta-memory.md; docs/index.md; llms.txt
-invariantes: no tocar opencode.jsonc / plan file / pipeline-state.json / archivos FIND-232; commit LOCAL sin push; filas migradas se eliminan (no se tachan)
-deuda: ninguna
-queda_pendiente: review P2-01 fresco + accept (orquestador); el working tree de Backlog.md conserva la fila FIND-233 (FIND-232) sin stagear
-Próxima tarea si completa: FIND-230
+Estado: completed
+Última acción: FIND-184/FIND-229 migradas al avance + registro 0.8.0 (4 entradas ci-cd + 1 vanta-memory); contrato 3/3; FIND-234 alta (check-avance-coverage.ps1 roto); review fresco APPROVE
+Resultado: COMPLETED
+Próxima acción: W1: FIND-226 (ASan símbolos) — spawn vanta-lead
+Contrato: rg=0 en Backlog + avance con entradas 0.8.0 + validate-docs-coverage exit 0 + review P2-01 approve
+Próxima tarea si completa: FIND-226
 === END RECITATION ===
 
 === RECITATION PROC-02 ===
