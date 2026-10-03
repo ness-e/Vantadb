@@ -256,7 +256,7 @@ Wave 2 (después de Wave 1 — archivos compartidos):
 - **Uphill/Downhill:** ⬆️ 1 incógnita (alcance real de los leaks) → se resuelve con símbolos
 - **DoD:** task = contrato · commit = cambio de job y/o fix · release = n/a (best-effort)
 - **Validación Appetite:** 3d ≥ 1-2d ✓
-- **Estado:** ⏳ EN PROGRESO
+- **Estado:** ✅ COMPLETED
 - **Task file:** `docs/dev/tasks/FIND-226.md`
 
 ### Task 10: FIND-227 — TSan: supresión targeted o decisión documentada
@@ -277,7 +277,7 @@ Wave 2 (después de Wave 1 — archivos compartidos):
 - **Uphill/Downhill:** ⬇️ (3 steps)
 - **DoD:** task = contrato/decsión · commit = `ci:` (suppression) · release = n/a
 - **Validación Appetite:** 1d ≥ 3-4h ✓
-- **Estado:** ⬜ PENDING
+- **Estado:** ⏳ EN PROGRESO
 - **Task file:** `docs/dev/tasks/FIND-227.md`
 
 ## DEFER
@@ -380,11 +380,11 @@ Próxima tarea si completa: FIND-230
 === RECITATION FIND-226 ===
 Campaign ID: post-release-0.8.0-20261002
 Objetivo activo: FIND-226 — ASan: símbolos + triage de los leaks (1.81 GB)
-Estado: in-progress
-Última acción: DISCOVERY completo: evidencia de 2 runs (10-03: 1745658558 B/1358 allocs, 28 Direct + 26×64MiB; 09-25: 1879861353 B/1372 allocs) + mapping a código (create_in_memory 64MiB en init.rs:40, 28 Box::leak en tests graph/gds, constructores ya toman &'a) + task file creado con clasificación y decisión; SDP cargado
-Resultado: PARTIAL
-Próxima acción: Steps 3-6: editar ci-rust.yml (llvm + ASAN_SYMBOLIZER_PATH), graph.rs/gds.rs (28 Box::leak → &storage), .lsan_suppressions nota; verify + commit local
-Contrato: verificacion: pendiente (actionlint + fmt + clippy + nextest filtrado); evidencia: no aplica aun
+Estado: completed
+Última acción: Steps 3-6 cerrados: job sanitizer-asan con llvm+ASAN_SYMBOLIZER_PATH (fail-loud); 28 Box::leak(Box::new(storage)) → &storage en tests graph/gds (fix de la clase dominante, 1.74 GB/99.95%); nota de decisión en .lsan_suppressions; verifies: actionlint 0, fmt 0, clippy --all-targets 0 (222s), nextest filtrado 55/55, docs checks 0; OCR grupos 1-3 sin Critical/High; review P2-01 fresco APPROVE; commit LOCAL 7ea9ab3e (5 paths, sin push)
+Resultado: OK
+Próxima acción: Orquestador/owner: (1) push develop; (2) post-push: gh run list --workflow=ci-rust.yml --limit 1 + gh run view --job <asan-job> --log | rg 'Using symbolizer|SUMMARY: AddressSanitizer' → esperado símbolos + bytes << 1.8 GB (comandos exactos en docs/dev/tasks/FIND-226.md §Step 7); (3) bookkeeping plan/recitation/progreso (worker no pushea)
+Contrato: verificacion: actionlint .github/workflows/ci-rust.yml exit 0; cargo fmt --check exit 0; cargo clippy -p vantadb --all-targets -- -D warnings exit 0 (222s); cargo nextest run --profile audit -p vantadb -E 'test(/graph::tests/) | test(/gds::tests/)' 55/55 passed; node scripts/docs/check-links.mjs + check-docs.mjs exit 0 | evidencia: - claim: 99.95% de los bytes (1,744,830,464/1,745,658,558) = 26-28×64 MiB indirectos + 28 Direct 2728 B = engines in-memory filtrados por Box::leak en tests graph(21)/gds(7) | evidencia: jobs 111086294644 (10-03) y 107968833319 (09-25) parseados + src/storage/engine/init.rs:40 + src/storage/vfile.rs:152-162 + src/graph.rs:58 + src/gds.rs:24 | confianza: alta - claim: sin símbolos en el reporte actual y supresiones LSan no matchean sin símbolos | evidencia: log job 111086294644 (solo direcciones+BuildId; 0 menciones symbolizer) + clang.llvm.org/docs/AddressSanitizer §Symbolizing + LeakSanitizer §Suppressions | confianza: alta - claim: llvm-symbolizer vía apt llvm + ASAN_SYMBOLIZER_PATH | evidencia: packages.ubuntu.com/noble/amd64/llvm/filelist (/usr/bin/llvm-symbolizer) + clang docs; rustup llvm-tools NO lo trae (manifest local 1.94.1) | confianza: alta - claim: fix compila y tests pasan | evidencia: clippy --all-targets exit 0 + nextest 55/55 + review fresco vanta-review APPROVE | confianza: alta | artefactos: commit 7ea9ab3e; docs/dev/tasks/FIND-226.md; .lsan_suppressions; C:\Users\Eros\AppData\Local\Temp\opencode\find226\{asan-job-main-37082038794.log, leak_clusters.txt, nextest-targeted.log, ocr-review.json} | invariantes: NO tocar opencode.jsonc (WIP ajeno), docs/dev/plans/* + docs/pipeline-state.json (orquestador), benchmarks/* + perf-bench.yml (FIND-232), job sanitizer-tsan (FIND-227, va después); commit LOCAL sin push; ASan no corre en Windows — simbolización real solo post-push | deuda: residual ~751 KB en 999 bloques indirectos (cuelgan de las mismas raíces; a confirmar con el primer reporte simbolizado); varianza 26/28×64 MiB entre runs (causa no determinada, irrelevante al fix) | queda_pendiente: push + verificación post-push (comandos exactos en §Step 7 del task file) + bookkeeping del orquestador
 Próxima tarea si completa: FIND-227
 === END RECITATION ===
 
@@ -397,4 +397,15 @@ Resultado: COMPLETED
 Próxima acción: W2: FIND-228 en ejecución; FIND-227/231 tras FIND-226 (ci-rust.yml); verificación CI del job en el próximo push
 Contrato: check local FAIL(0.7.0)/PASS(0.8.0) verificado + job CI cableado al mismo script (corre en el próximo push)
 Próxima tarea si completa: FIND-228
+=== END RECITATION ===
+
+=== RECITATION FIND-228 ===
+Campaign ID: post-release-0.8.0-20261002
+Objetivo activo: FIND-228 — Dedupe de triggers CI (drop develop de push.branches en 15 workflows)
+Estado: in-progress
+Última acción: DISCOVERY completo: 15 workflows leídos uno a uno (clasificación push/PR), semántica de triggers validada contra docs oficiales GitHub, task file creado con Regla 0 + SDP v3 cargado
+Resultado: PARTIAL
+Próxima acción: Step 2: editar los 15 workflows (drop develop de push.branches) → rg filtrado + actionlint
+Contrato: verificacion: rg -n 'branches:.*develop' .github/workflows -g '*.yml' (solo PR + perf-bench excepción) + actionlint exit 0 — pendiente post-edit
+Próxima tarea si completa: FIND-231
 === END RECITATION ===
