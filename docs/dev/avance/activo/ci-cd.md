@@ -541,3 +541,27 @@ tags: [vantadb, avance, ci, cd, release, github-actions]
 - **Objetivo:** El build release `aarch64-unknown-linux-gnu` moría cross-compilando `openssl-sys` (native-tls vía reqwest default; sin sysroot cross) → asset ARM64 bloqueado del backfill de binarios.
 - **Resultado:** ✅ migración a `rustls-tls` en `vanta-memory` + root (alineado con mcp/server/proxy): openssl fuera de todo árbol Linux (-86 líneas de lock) + `deny.toml` allow `CDLA-Permissive-2.0` (`webpki-roots`) y drop del ignore stale RUSTSEC-2024-0429 (`cf86e49b`, `cargo deny check` OK). Parte del backfill de binarios v0.8.0 (FIND-229).
 - **Commit:** `01d86ab4` + `cf86e49b`
+
+### FIND-228: Dedupe de triggers CI — drop `develop` de `push.branches` (15 workflows)
+- **Fecha:** 2026-10-03
+- **Objetivo:** RULE 1 (RULES.md §1): los 15 workflows listaban `develop` en `push.branches` → duplicado push+PR por el mismo SHA en ventanas de release (~80 checks vs ~45 esperados).
+- **Resultado:** ✅ `develop` removido de `push.branches` en 15 workflows (queda `[main]`; `pull_request` intacto) + TRIGGERS.md/RULES.md/FAQ.md actualizados + actionlint 0 + review P2-01 approve. Contrato verificado EN VIVO: el push de cierre disparó SOLO `PERF` (run 37102010279).
+- **Commit:** `0e5c9e9d`
+
+### FIND-230: Gate mecánico de versiones npm (anti skip-silencioso)
+- **Fecha:** 2026-10-03
+- **Objetivo:** `vantadb-ts` quedó 0.7.0 vs workspace 0.8.0 → el publish npm saltó silencioso en el release 0.8.0 (run 37045932895).
+- **Resultado:** ✅ `scripts/docs/check-npm-versions.mjs` (self-test 10/10, fail-closed) + job `check-npm-versions` en gate-docs.yml + `::warning::` visible en los skips de release-npm-61/node + PUBLISH.md (orden del bump). Contrato FAIL/PASS verificado (0.7.0→exit 1 / 0.8.0→exit 0). Review P2-01 approve.
+- **Commit:** `838ec8b6`
+
+### FIND-231: Job `release-combo` — combo de release cubierto en CI
+- **Fecha:** 2026-10-03
+- **Objetivo:** El combo `server`+allocator con `-D warnings` (que rompió el primer run de release-binaries 0.8.0) no lo compilaba ningún job (los tests van en debug).
+- **Resultado:** ✅ Job `release-combo` en ci-rust.yml (réplica de release-binaries.yml:109-122; `check --release` + `RUSTFLAGS=-D warnings`; 24-25s warm) + repro del rojo documentada (6 errores idénticos al run 37045939672 con el fix revertido). Review P2-01 approve (ronda 2).
+- **Commit:** `4e1bb03a`
+
+### FIND-232: perf-bench — perfil alineado + bandas cross-VM + re-baseline
+- **Fecha:** 2026-10-03
+- **Objetivo:** perf-bench rojo crónico (13 runs desde 2026-09-25): causa raíz doble — push corría perfil 1000/100 vs baseline 10000/1000 (p99 = máximo muestral) + varianza cross-VM medida 1.7-2.4x.
+- **Resultado:** ✅ Perfil único 10000/1000 + guarda de mismatch fail-closed + bandas recalibradas (stable 25/200; noisy 300%+0.5ms; `insert.p99` ≥100ms absoluto) + re-baseline documentado + self-test 9/9. Post-push: run **37102010279 = success** ("No blocking regression detected across 16 metrics"). Derivada: FIND-233 (instrumento cross-VM).
+- **Commit:** `04b3eaa0` + `0173b339`

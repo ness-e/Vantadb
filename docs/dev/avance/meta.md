@@ -370,3 +370,7 @@ Plan `docs/dev/plans/archive/2026-09-10-fixes.md` (+budget) archivado: 6/6 ✅ e
 - **Regla de profundización:** los bloques F2–F6 del master se COMPLETAN al nivel F0/F1 (Paso 0 + pre-mortem + register + Cynefin + DoD) al iniciar cada fase, antes de ejecutar — gate de fase explícito en el plan.
 - **Decisiones owner 2026-09-26 (question):** HARD-01..07 atómicas · profundidad F0-F1 completa (F2-F6 por regla) · task files HARD-*/F0-F1 creados (14) · absorción + archivo · push a `develop` al completar el plan validado (sin checkpoint) · gates (a) coverage→reporte + (b) review risk-tiered + (c) nightly aplicados.
 - **Mitigación:** backups `git bundle` (HARD-03) contra pérdida de commits locales.
+
+### Plan post-release 0.8.0 archivado — 10/10 completadas (2026-10-03)
+- **Acción:** archivado `docs/dev/plans/archive/2026-10-02-post-release-0.8.0.md` (+ budget). 10/10 completadas · 0 fallidas · retrospectiva Start/Stop/Continue + acción medible en el plan archivado.
+- **Registro:** 7 filas `FIND-225..232` migradas del Backlog a `avance/activo/ci-cd.md` (FIND-228/230/231/232) + `avance/auditoria/seguridad.md` (FIND-225/226/227). Verificación post-push en vivo: perf-bench `37102010279` success + contrato dedupe FIND-228 confirmado.

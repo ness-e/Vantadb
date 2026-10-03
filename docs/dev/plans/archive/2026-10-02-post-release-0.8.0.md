@@ -207,7 +207,7 @@ Wave 2 (después de Wave 1 — archivos compartidos):
 - **Uphill/Downhill:** ⬆️ 1 incógnita (causa raíz) → se resuelve en el step 1 (reproducción + diff de baseline) → luego ⬇️
 - **DoD:** task = contrato (run verde o decisión documentada) · commit = según fix · release = n/a
 - **Validación Appetite:** 1d ≥ 4-6h ✓
-- **Estado:** ⏳ EN PROGRESO
+- **Estado:** ✅ COMPLETED
 - **Task file:** `docs/dev/tasks/FIND-232.md`
 
 ### Task 8: FIND-225 — Triage de las 48 alertas CodeQL (6 critical + 42 high)
@@ -301,6 +301,15 @@ Wave 2 (después de Wave 1 — archivos compartidos):
 - Los planes referenciados por task files se crean bajo demanda en `docs/dev/tasks/<ID>.md` (Fase de Discovery del pipeline).
 - OCR gate: toda tarea ✅ DO cierra con OCR delegation review (pipeline-full.md §Cierre paso 5).
 
+## Retrospectiva de cierre (2026-10-03)
+
+**Resultado:** 10/10 completadas · 0 fallidas · 3 waves (W0: 5 → W1: 3 → W2: 2) · 9 ejecuciones + 9 reviews P2-01 frescos · verificación post-push en vivo (perf-bench `37102010279` success; contrato dedupe confirmado con el push).
+
+- **Start (seguir):** review P2-01 fresco por tarea — la mayoría devolvió `changes-required` en ronda 1 con hallazgos REALES (SPEC stale, claims imprecisos, sobre-supresión de TSan, cobertura parcial); verificación mecánica del orquestador antes de cada cierre (contratos re-ejecutados); SARL para rescates (2 resumes efectivos, 0 trabajo perdido).
+- **Stop (dejar):** asumir bases/estados de PRs externos sin verificar (`#232`→main: el plan decía "todos contra develop" y era falso); ejecutar comandos largos con output filtrado sin aviso de visibilidad para el owner.
+- **Continue (continuar):** task files durables con Context Save Point + recitations; claims atómicos (MAX_WIP=3); memoria de lecciones al momento (6 entradas); push con gate local completo (10/10 checks) + reconciliación dry-run antes.
+- **Acción medible:** **100% de merges de PRs externos con `baseRefName` verificado ANTES del merge** (baseline de esta campaña: 4/5 — un caso asumido). Métrica: PRs mergeados con base verificada / total; target 100% en la próxima campaña.
+
 === RECITATION PROC-03 ===
 Campaign ID: post-release-0.8.0-20261002
 Objetivo activo: PROC-03 — Descartar las 3 alertas de secret scanning (falsos positivos de test)
@@ -314,13 +323,13 @@ Próxima tarea si completa: FIND-232
 
 === RECITATION FIND-232 ===
 Campaign ID: post-release-0.8.0-20261002
-Objetivo activo: FIND-232 — Diagnóstico del perf-bench crónico (causa raíz: mismatch de perfil + varianza cross-VM)
-Estado: in-progress
-Última acción: Review P2-01 ronda 1: changes-required (SPEC.md stale) → fix aplicado (0173b339: SPEC bandas nuevas, guarda fail-closed, self-test 9/9) → re-review ronda 2: APPROVE. Cierre final condicionado a push + run verde (owner).
-Resultado: PARTIAL (post-push pendiente)
-Próxima acción: Owner: push develop (ahead 9 / behind 4) → gh run list --workflow=perf-bench.yml --limit 1 = success → cerrar FIND-232 (COMPLETED)
-Contrato: evidencia sustituta completa (replays con artifacts reales + self-test 9/9 + sims); verificación literal post-push pendiente: run verde tras push
-Próxima tarea si completa: FIND-226
+Objetivo activo: FIND-232 — Diagnóstico del perf-bench crónico (mismatch de perfil + varianza cross-VM)
+Estado: completed
+Última acción: Post-push: run 37102010279 (push @6fe2482e) = SUCCESS — 'No blocking regression detected across 16 metrics (1 warning: insert.p99 42.5ms, banda warn; umbral block 100ms no alcanzado)'. Contrato (a) satisfecho.
+Resultado: COMPLETED
+Próxima acción: Cierre de campaña: skill progreso (migración masiva) + eval-metrics + retrospectiva + session cleanup
+Contrato: run verde post-push verificado (37102010279); bandas nuevas + guarda fail-closed + re-baseline activos en CI
+Próxima tarea si completa: —
 === END RECITATION ===
 
 === RECITATION FIND-225 ===

@@ -14,7 +14,7 @@ description: "Causa raíz: perfil push 1000/100 vs baseline 10000/1000 (apples-t
 - **Prioridad:** 🟠
 - **Tipo:** CI/CD + diagnóstico de performance (blast radius CI-only — sin cambios de motor)
 - **Creado:** 2026-10-03T02:25Z | **last-synced:** 2026-10-03T03:50Z
-- **Estado:** ⏳ IN PROGRESS — review P2-01 **ronda 2 = ✅ `approve`** (fix de la ronda 1 verificado 1:1); pendiente post-push (owner): run verde (Step 7) → COMPLETED. **No se marca COMPLETED sin run verde post-push.**
+- **Estado:** ✅ COMPLETED (review P2-01 ronda 2 APPROVE + run verde post-push `37102010279` @6fe2482e)
 - **Campaign ID:** post-release-0.8.0-20261002
 
 ## Blast Radius
@@ -159,6 +159,7 @@ Sub-runs del baseline gen 36093538630 (2026-09-25): ingest 50.1s/48.0s/48.7s (19
 
 - **Ronda 1 (2026-10-03):** veredicto **`changes-required`** — fix técnico verificado correcto; 1 requerido (SPEC.md:132 stale) + 3 opcionales. **Fix aplicado** (commit local de esta ronda): `SPEC.md` §Guardrails actualizado a las bandas nuevas + "señal fina (<2–3x) vive en canonical_p99 / FIND-233"; docstring con el par **same-SHA** (37089421873 vs 37089581213, ambos bf1e7476); guarda de perfil **fail-closed** si el baseline pierde `total_records` (+ self-test 9/9); DoD alineado a "evidencia sustituta". ⬜ **Pendiente post-push (owner):** verificación literal del run + veredicto final.
 - **Ronda 2 (2026-10-03):** veredicto **✅ `approve`** — fix verificado mecánicamente (SPEC.md 1:1 con el código, sin residuos ">15%"; `--self-test` 9/9; guarda fail-closed correcta en casos borde; DoD/docstring alineados; `actionlint`/`py_compile` exit 0). Nit no bloqueante del reviewer: docstring/task file dicen "~20 min apart" — las timestamps reales del par same-SHA son ~2.5 min (solapados); corregir a "~2.5 min apart (solapados)" cuando se toque el archivo. **Cierre final: condicionado al run verde post-push (owner).**
+- **Post-push (2026-10-03):** run **37102010279** (push @`6fe2482e`) = **✅ success** — "No blocking regression detected across 16 metrics (1 warning: `insert.p99_ms` 42.52 vs 8.52 = +399%, banda warn; umbral de bloqueo 100 ms no alcanzado)". Contrato (a) satisfecho → COMPLETED.
 - **Paths del diff (ambas rondas):** `.github/workflows/perf-bench.yml`, `benchmarks/compare_baseline.py`, `benchmarks/python_baseline.json`, `benchmarks/README.md`, `docs/dev/tasks/FIND-232.md`, `docs/dev/Backlog.md`, `SPEC.md` → **Tier Fast** (CI/docs/datos; sin paths adversariales).
 - **Gate requerido:** `dev-tools/verify.ps1` ALL PASS + veredicto en este §Review.
 - **Checklist para el reviewer:**
