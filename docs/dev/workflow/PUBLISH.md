@@ -55,6 +55,24 @@ Los PRs `develop → main` se mergean con **merge commit** (`gh pr merge --merge
 - PRs touching `vantadb-node/**` run CI only.
 - Own namespace so core `v*` releases never publish the Node package by accident.
 
+## Orden del bump npm (FIND-230) — gate `check-npm-versions`
+
+`vantadb-ts/package.json` debe estar **en la misma versión que `[workspace.package]`** para que el tag publique el tren completo. Si queda atrás, `release-npm-61.yml` pregunta por la versión vieja, npm responde "ya publicada" y el publish **se saltea en un run verde** — pasó en 0.8.0: TS quedó en 0.7.0, el tag `v0.8.0` publicó wasm y para `vantadb` solo imprimió `Version 0.7.0 already published — skipping` (run `37045932895`, conclusión success); el backfill fue manual (`e62e0f62` + dispatch).
+
+Regla mecánica: el gate **`Check npm package versions`** (`gate-docs.yml`, script `scripts/docs/check-npm-versions.mjs` — mismo script local y CI) falla si `vantadb-ts/package.json` ≠ versión del workspace. Flujo correcto:
+
+1. `release-plz` abre el Release PR (bumpea `Cargo.toml` → X.Y.Z).
+2. **Antes de mergearlo**, agregar el bump npm a la **misma rama** del Release PR: `vantadb-ts/package.json` → X.Y.Z (y `vantadb-node/package.json` desde el primer release del train node).
+3. El gate queda verde en ese PR → merge → tag `vX.Y.Z` → `release-npm-61.yml` publica `vantadb@X.Y.Z` (sin skip).
+
+Cuidado con release-plz: `release-plz-pr` corre en **cada push a `main`** y no preserva commits humanos — si vuelve a correr mientras el bump está en su rama, cierra ese PR y abre uno nuevo **sin el bump**. Por eso: mergear el Release PR sin demora, verificar en el diff que el bump sigue presente justo antes de mergear, y si el PR fue cerrado/reabierto, **re-aplicar el bump** y esperar el gate verde. El fallo nunca es mudo: el gate se pone rojo y el publish emite `::warning::`.
+
+No bumpear npm en `develop` antes del Release PR: `npm ≠ workspace` y el gate lo marca igual — las dos versiones viajan juntas.
+
+Excepción `vantadb-node`: **nunca publicado** en npm (registry 404, 2026-10-03). Su versión puede quedarse en `0.7.0` (versión "never-published" documentada en el script); a partir de su primer release debe igualar la versión del workspace (y la entrada `TARGETS` del script — `scripts/docs/check-npm-versions.mjs` — pasa manualmente a `policy: 'workspace'`). `vantadb-wasm` no necesita gate: su manifest npm lo genera wasm-pack desde el crate, que hereda `version.workspace = true`.
+
+El skip "already published" de `release-npm-61.yml` y `release-npm-node.yml` ahora emite `::warning::` visible en el run — ya no es un skip mudo.
+
 ## Adapters — `release-adapters.yml`
 
 - Tags `adapters-v*.*.*` publish 9 adapters

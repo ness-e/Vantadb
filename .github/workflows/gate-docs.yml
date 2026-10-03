@@ -3,10 +3,10 @@ name: 'GATE: Docs — Lint & Frontmatter'
 on:
   push:
     branches: [main, develop]
-    paths: ["docs/**", "src/server/router.rs", "src/server/routing.rs", "scripts/**", "Cargo.toml"]
+    paths: ["docs/**", "src/server/router.rs", "src/server/routing.rs", "scripts/**", "Cargo.toml", "vantadb-ts/package.json", "vantadb-node/package.json"]
   pull_request:
     branches: [main, develop]
-    paths: ["docs/**", "src/server/router.rs", "src/server/routing.rs", "scripts/**", "Cargo.toml"]
+    paths: ["docs/**", "src/server/router.rs", "src/server/routing.rs", "scripts/**", "Cargo.toml", "vantadb-ts/package.json", "vantadb-node/package.json"]
   workflow_dispatch:
 
 concurrency:
@@ -85,6 +85,28 @@ jobs:
           fi
           if [ "$FAIL" != "0" ]; then exit 1; fi
           echo "All tracked API doc headers match workspace version $VER."
+
+  # FIND-230: the sibling of `check-api-version` for npm packaging. A stale
+  # `vantadb-ts/package.json` made the 0.8.0 tag ask npm for an already
+  # published version, so release-npm-61 skipped the publish in a green run
+  # (run 37045932895). Pure string comparison, no network, no build.
+  check-npm-versions:
+    name: Check npm package versions match workspace
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - name: Self-test
+        run: node scripts/docs/check-npm-versions.mjs --self-test
+      - name: Gate — npm versions match the workspace version
+        run: node scripts/docs/check-npm-versions.mjs
+      - name: Machine-readable report on failure
+        if: failure()
+        run: node scripts/docs/check-npm-versions.mjs --json
+        continue-on-error: true # CATEGORY: INFORMATIONAL - extra detail for a red build; the gate step already failed
 
   check-frontier:
     name: Check Product Frontier
