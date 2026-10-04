@@ -571,3 +571,9 @@ tags: [vantadb, avance, ci, cd, release, github-actions]
 - **Objetivo:** El script de cobertura (referenciado por la skill progreso como check de cierre) apuntaba a `docs/avance` desde la ruptura 2026-09-23 (`b764d703`) → "0/237 (0.0%)" falso + errores de ruta.
 - **Resultado:** ✅ Fix de 1 línea (L10 → `docs/dev/avance`): `1034/1034 (100.0%)` real, sin errores de ruta, exit 0. Review P2-01 APPROVE (before reproducido desde el blob HEAD~1; conteo independiente 237+907−1034=110 ✓).
 - **Commit:** `35cbd2e1`
+
+### BENCH-01: competitive_bench — región medida del Ingest aislada + fin del doble rebuild
+- **Fecha:** 2026-10-04
+- **Objetivo:** El timer de Ingest del harness competitivo envolvía setup (client init ~317 ms + prep de payloads) y el modo single-call duplicaba el rebuild HNSW (hidden rebuild dentro de Ingest + `rebuild_index()` en Index) → el número medido no era el que decía medir.
+- **Resultado:** ✅ Región medida = `put_batch_raw` calls + `flush` (init/prep fuera) + `effective_chunk_size()` clampa todo chunk a <1000 por construcción (sin doble build posible; `--batch-size 0` legacy clampeado a 999) + `--self-test` 9/9 (fixture de regiones con stub engine: init excluido, calls <1000, exactamente 1 rebuild; RED→GREEN capturado) + docstring/README/BENCHMARKS §18/COMPETITIVE_SDK_BENCH/ANALYSIS actualizados con nota de comparabilidad (números publicados no regenerados). Review P2-01 delegado al orquestador (worker leaf) con evidencia mecánica completa.
+- **Commit:** `860340b9` (+ `8cc49824` bookkeeping)
