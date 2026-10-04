@@ -1,13 +1,13 @@
 {
   "plan": "docs/dev/plans/2026-10-04-master-plan-0.9.0.md",
-  "total": 71,
-  "totalCompleted": 7,
+  "total": 72,
+  "totalCompleted": 13,
   "totalFailed": 0,
   "consecutiveFails": 0,
   "failMode": "parallel",
   "mode": "run",
   "maxConcurrent": 3,
-  "inProgress": ["DX-01", "WSM-15", "DUR-03"],
-  "postPushBatch": ["FIND-236 (ASan sin panic del guard)", "FIND-233 (>=2 runs verdes + calibracion same-SHA)", "DX-01 (job Node 26 en CI)", "WSM-15 (si CI aplica)"],
-  "lastSync": "2026-10-04T07:55:00Z"
+  "inProgress": ["DIST-01"],
+  "postPushBatch": ["FIND-236 (ASan sin panic del guard)", "FIND-233 (>=2 runs verdes + calibracion same-SHA)", "DX-01 (job Node 26 en CI)", "WSM-15 (si CI aplica)", "BENCH-01 (FIND-253 antes de proxima corrida publicada)"],
+  "lastSync": "2026-10-04T08:45:00Z"
 }
