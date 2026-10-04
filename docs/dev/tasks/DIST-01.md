@@ -12,8 +12,8 @@ description: "Desbloquear la publicación de vanta-memory: dry-run verde + smoke
 - **Fuente:** DELTA 2026-09-30 (P0) — "vanta-memory es el único path monetizable del tier embebido; invisible = no existe"
 - **Esfuerzo:** 🟢 2-4h | **Appetite:** max 1d | **Prioridad:** 🔴
 - **Tipo:** Release/Packaging (config + docs; sin lógica de negocio)
-- **Creado:** 2026-10-04T10:20Z | **last-synced:** 2026-10-04T11:10Z
-- **Estado:** ⏳ IN PROGRESS (steps 1-5 ✅; review P2-01 + commits pendientes)
+- **Creado:** 2026-10-04T10:20Z | **last-synced:** 2026-10-04T11:45Z
+- **Estado:** ✅ COMPLETED (review P2-01 APPROVE — `ses_ef98ca842ffeCbJz121tXkJWQZ`; commit impl `53996863` + cierre docs)
 - **Campaign ID:** master-plan-0.9.0-20261004
 - **Incógnitas (uphill):** 0 abiertas (dry-run autoritativo ✅ verde)
 - **Pendientes (downhill):** 1 step (cierre: review + commits)
@@ -60,7 +60,7 @@ description: "Desbloquear la publicación de vanta-memory: dry-run verde + smoke
 
 - **Invariantes a preservar:** (1) consumidores in-process (`vantadb-mcp`, `vanta-proxy`, `desktop`) siguen compilando sin tocar sus manifests; (2) sin publish real, sin `--token`, sin tags; (3) el próximo Release PR (#238) NO debe intentar publicar `vanta-memory` (hold vigente); (4) `Cargo.lock` sin cambios; (5) WIP ajeno intacto (`opencode.jsonc`, plan file, `src/sdk/**`, `tests/edge_cases.rs`, `benchmarks/`).
 - **Comandos de verificación:** `cargo publish --dry-run -p vanta-memory --allow-dirty` (exit 0) · `cargo check` en proyecto tmp (exit 0) · `python -c "import tomllib; tomllib.load(open('release-plz.toml','rb'))"` (exit 0).
-- **Deuda pendiente:** README del crate ausente (lo cubre DIST-04); verificar en el Release PR #238 que el bump de `vantadb` actualice el requirement `version = "0.8.0"` del dep (si release-plz no lo hiciera, el PR no compila y se corrige ahí).
+- **Deuda pendiente:** README del crate ausente (lo cubre DIST-04); `FIND-254` (tests empaquetados no compilan desde el `.crate` — no bloquea publish/docs.rs/consumidores). Version-sync del requirement: **resuelto/verificado** por el reviewer (release-plz reescribe el requirement en lockstep pese a `release = false`; repro en clone 2026-10-04).
 
 ## Deuda técnica (Regla 6)
 
@@ -144,8 +144,8 @@ Sin deuda. Cambio de metadata/manifiesto, sin código nuevo. Nota: el requiremen
 ### Step 6 — Cierre: gates docs + OCR + review P2-01 + commits
 - **Archivos:** `docs/dev/tasks/DIST-01.md` (+ los anteriores)
 - **Acción:** gates docs (check-links/check-docs/gen-index); OCR delegation; review por agente distinto; commit local `chore(release):`; commit `docs(tasks):` con RESULTADO
-- **Verify:** gates exit 0; OCR sin Critical/High; review APPROVE registrado; `git log` con commits locales (sin push)
-- **Estado:** ⬜ PENDING
+- **Verify:** ✅ gates docs exit 0 (check-links/check-docs/gen-index; coverage 0 gaps); OCR delegation sin Critical/High (0 hallazgos en los 3 archivos propios); review P2-01 APPROVE; commit local `53996863` + cierre docs (sin push)
+- **Estado:** ✅
 
 ## Dependencias
 
@@ -155,15 +155,32 @@ Sin deuda. Cambio de metadata/manifiesto, sin código nuevo. Nota: el requiremen
 
 ## Review (GATE — agente distinto, P2-01)
 
-> Pendiente (Step 6). Tier risk-based: paths tocados (`vanta-memory/Cargo.toml`, `release-plz.toml`, `vanta-memory/src/lib.rs` doc-comment, `docs/dev/tasks/DIST-01.md`) NO matchean globs adversariales → tier **fast**; se eleva a review fresco `vanta-review` (decisión de release, valor > mínimo).
+> Tier risk-based: paths tocados (`vanta-memory/Cargo.toml`, `release-plz.toml`, `vanta-memory/src/lib.rs` doc-comment, `docs/dev/tasks/DIST-01.md`) NO matchean globs adversariales → tier **fast**; se elevó a review fresco `vanta-review` (decisión de release).
 
-- **Revisor:** ⬜ pendiente
-- **Enfoque:** ⬜
-- **Veredicto:** ⬜
+- **Revisor:** `vanta-review` (contexto fresco — subagent `ses_ef98ca842ffeCbJz121tXkJWQZ`; sin participación en la implementación de DIST-01)
+- **Enfoque:** ¿es correcto el hold `release=false` vs alternativas (`publish=true` / `publish=false` a nivel release-plz / mantener manifest `publish=false`)? ¿El dry-run prueba lo que dice (aislamiento vs path local)? ¿Riesgos de #238 (version-sync, tags fantasma, publish accidental)?
+- **Cómo se probó:** re-ejecutó mecánicamente `cargo publish --dry-run` (exit 0, mismo output), `cargo run` del smoke (exit 0), inspeccionó el `Cargo.lock` del paquete (`source = registry` + checksum `3eeef49…` → compiló contra crates.io, no contra el path local), `cargo metadata`/`fmt`/`tomllib`, crates.io API (vanta-memory 404), `git branch -r --contains` (no pusheado), y un repro de `release-plz update` en **clone** que demostró que el requirement `vantadb = "0.8.0"` se reescribe en lockstep con el bump del workspace **pese a `release = false`** (riesgo version-sync resuelto a favor del approach).
+- **Checklist anti-hábitos tóxicos:** ✅ sin salidas inventadas (todo re-derivado por el reviewer); ✅ sin done-sin-verificar; ✅ sin fallos ignorados; ✅ alcance respetado (working tree no modificado por el reviewer).
+- **Veredicto:** ✅ **APPROVE** — 0 Critical/High/Medium; 1 Low derivado → `FIND-254` (tests empaquetados no compilan desde el `.crate`; no bloquea publish/docs.rs/consumidores).
 
 ## Notas
 
 - **Decisión release-plz (hold):** el plan permite "entra en el próximo release **o** excluido explícitamente". Se eligió **hold** porque la ruta "entra" está mecánicamente rota HOY: el publish automático vía OIDC falla para un crate inexistente (prereq de crates.io) y rompería el job de release. El hold preserva el comportamiento actual (verificado en historial) y el unblock queda como checklist explícito del owner en ventana #238.
 - **Unblock checklist (owner):** (1) primera publicación con API token temporal (`cargo publish -p vanta-memory` en árbol limpio o workflow one-off); (2) crates.io → crate → Settings → Trusted Publishing (repo `ness-e/Vantadb`, workflow `release.yml`); (3) borrar la entrada `[[package]] vanta-memory` de `release-plz.toml` → release-plz gestiona el crate (primer Release PR = release inicial; `max_analyze_commits` default 1000).
 - **Sin README:** el crate no tiene README hoy; se difiere a DIST-04 (superficie documental del crate). Anotado como deuda.
+- **Version-sync (resuelto):** el review P2-01 verificó en clone que `release-plz update` actualiza el requirement `vantadb` de `vanta-memory/Cargo.toml` en lockstep con el bump del workspace **pese a `release = false`** — el riesgo condicional original no se materializa.
 - **Push:** diferido al final del plan (instrucción owner 2026-10-04) — commits locales.
+
+## RESULTADO §7
+
+```
+RESULTADO: ✅ COMPLETO
+STEPS_OK: 6/6
+PROXIMO_STEP: ninguno
+COMMIT_HASH: 53996863 (impl) + cierre docs (este commit)
+ARCHIVOS: vanta-memory/Cargo.toml · release-plz.toml · vanta-memory/src/lib.rs · docs/dev/tasks/DIST-01.md · docs/dev/Backlog.md (FIND-254)
+VERIFY_CONTRATO: pasa
+BLOQUEO: ninguno
+GATES_EVALUADOS: P:no D:no V:no C:no | sin disparos: config-only, contrato claro, sin reintentos, FIND-254 registrado (no bloqueante)
+SKILLS_CARGADAS: ci-cd-and-automation · git-workflow-and-versioning · shipping-and-launch · coordinated-web-search · documentation-skill · doubt-driven-development (base auto: campaign-executor, progreso)
+```
