@@ -16,10 +16,10 @@ description: "SDP v3 (taskType mixto): campaign-executor · progreso · planning
 
 | Resultado | Count |
 |-----------|-------|
-| ✅ DO | 70 |
+| ✅ DO | 71 |
 | 🟡 DEFER | 3 |
 | ❌ SKIP | 1 |
-| 🔴 BLOQUEADO | 2 |
+| 🔴 BLOQUEADO | 1 |
 
 Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; approach de locks WSM-15; alcance de exposición DIST-02/03; hallazgos de las auditorías DUR-01/02) · ⬇️ downhill = ~250 steps pendientes (F0: 21 tareas full-detail · F1-F5: listas compactas que se profundizan al nivel F0 al iniciar cada fase — regla del master-roadmap 2026-09-26).
 
@@ -1062,6 +1062,38 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **Skills sugeridas:** security-and-hardening · source-driven-development · rust-write-tests · campaign-executor
 - **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/SRV-10.md`
 
+## F6 — Cierre: publicación de adapters en PyPI (owner-assisted)
+
+> **Gate de fase:** al final del plan (tras F0-F5). El **publish es lane del owner** (environment `pypi` + tag); el agente prepara, verifica (dry-run) y deja el checklist ejecutable. **Push: solo al final** (instrucción owner 2026-10-04) — el tag/publish de este cierre ES parte del push autorizado del final.
+
+### Task 71: MKT-20 — Publicar los 9 adapters en PyPI (owner-assisted)
+
+- **Appetite:** max 1d
+- **Esfuerzo:** 🟡 1-2h (owner) + preparación del agente
+- **Prioridad:** 🟠
+- **Archivos clave:** `integrations/{langchain,llamaindex,mem0,crewai,dspy,haystack,letta,openai,ollama}/pyproject.toml`, `.github/workflows/release-adapters.yml`, `docs/dev/tasks/MKT-20.md` (existe — refrescar checklist en DISCOVERY)
+- **Verificación real:** ✅ CÓDIGO-REAL — re-baseline 2026-09-29: los 9 nombres en PyPI = **404 (libres)**; builds 10/10 PASS (wheel+sdist, twine PASSED); workflow listo (matriz 9, OIDC, `fail-fast:false`, `skip-existing`, tag `adapters-v*`); `vantadb-py` live en PyPI. Todo lo ejecutable en código ya se hizo (local ✅ `3815afa3`).
+- **Gate Justificación:** pata de distribución del track frameworks (ICP-03) — "el trabajo no existe para nadie hasta que sale"; los adapters son el canal de entrada de los usuarios de frameworks.
+- **Gate Result:** ✅ DO
+- **Contrato:** los 9 adapters publicados en PyPI (`GET /pypi/<nombre>/json` = 200 con versión) **o** dry-run TestPyPI verde (5+ dists) + checklist final ejecutado por el owner (environment `pypi` + tag `adapters-v0.5.0`); post-publish: quitar los avisos "Not yet published" de los READMEs (commit de limpieza).
+- **Pre-mortem:** (1) environment `pypi` no creado → paso 1 del checklist (owner); (2) tag mal formado → usar el namespace propio `adapters-v*` (no dispara wheels/npm del core); (3) drift de deps de frameworks entre build y publish → re-verificar con el dry-run antes del tag.
+- **Stop conditions:** publish bloqueado por OIDC/credenciales → checklist al owner y cerrar la preparación con nota.
+- **Risk Register:**
+
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟢 | Env/OIDC mal configurado | Dry-run TestPyPI primero | antes del tag |
+  | 🟢×🟡 | READMEs con aviso stale post-publish | Commit de limpieza post-publish | post-publish |
+
+- **Cynefin:** 🟦 obvio
+- **Top 3 riesgos:** (1) OIDC/env; (2) tag; (3) limpieza READMEs.
+- **Uphill/Downhill:** ⬇️ (3 steps: dry-run → tag/publish owner → limpieza)
+- **DoD:** task = contrato (9 publicados o dry-run + checklist) · commit = `docs:` (limpieza) · release = `adapters-v0.5.0`.
+- **Validación Appetite vs Effort:** 1d ≥ 2h ✓
+- **Skills sugeridas:** ci-cd-and-automation · shipping-and-launch · git-workflow-and-versioning
+- **Estado:** ⬜ PENDING
+- **Task file:** `docs/dev/tasks/MKT-20.md`
+
 ## DEFER
 
 | ID | Por qué DEFER |
@@ -1081,25 +1113,38 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 | ID | Bloqueante |
 |----|-----------|
 | **#238** (`chore(vantadb): release v0.9.0`) | **Decisión del owner** (cuándo el próximo release) + curación del changelog (duplicación por el squash de 0.8.0). Desbloquea el **Checkpoint F0**. |
-| **MKT-20** (adapters PyPI) | **Acción del owner** (publish lane): environment `pypi` + tag `adapters-v*.*.*`; todo lo demás ya está listo (workflow, builds 10/10, nombres libres). |
+
+> **Nota:** MKT-20 (adapters PyPI) ya NO está bloqueado — se movió al cierre del plan como **F6 / Task 71** (owner-assisted), con checklist ejecutable.
 
 ## Notas
 
-- **Fuente y contexto:** creado 2026-10-04 a partir de: DELTA 2026-09-30 (fuente designada del próximo plan), Alta 2026-10-01, hallazgos FIND-233..239 (run post-release 0.8.0 + validación externa v0.8.0), y el cierre del plan `2026-09-28-docs-consolidation.md` (F1/F2 absorbidas como Tasks 20/21).
-- **Profundización por fase:** F0 full-detail (21) · F1 medium (15) · F2-F5 compactas (34) — al iniciar cada fase se expanden al nivel F0 **antes** de ejecutar (regla del master-roadmap 2026-09-26, gate de fase explícito).
-- **Dependencias internas:** Task 17 (DIST-04) → depende de 14/15/16 (DIST-01/02/03) · Task 47 (WIRE-16) → depende de 45/46 (WIRE-14/15) · Task 58 (MEMG-16) → consume 56/57 (MEMG-04/05) · Task 21 (DOCS-F2) → independiente · Checkpoint F0 → depende de #238.
+- **Fuente y contexto:** creado 2026-10-04 a partir de: DELTA 2026-09-30 (fuente designada del próximo plan), Alta 2026-10-01, hallazgos FIND-233..239 (run post-release 0.8.0 + validación externa v0.8.0), y el cierre del plan `2026-09-28-docs-consolidation.md` (F1/F2 absorbidas como Tasks 20/21). F6 (adapters) agregado por instrucción owner 2026-10-04.
+- **Push:** ⛔ **solo al FINAL del plan** (instrucción owner 2026-10-04): todos los commits de la campaña se acumulan **locales**; el push —y el tag `adapters-v*` de F6— se ejecutan una sola vez al cierre autorizado.
+- **Profundización por fase:** F0 full-detail (21) · F1 medium (15) · F2-F5 compactas (34) · F6 owner-assisted (1) — al iniciar cada fase se expanden al nivel F0 **antes** de ejecutar (regla del master-roadmap 2026-09-26, gate de fase explícito).
+- **Dependencias internas:** Task 17 (DIST-04) → depende de 14/15/16 (DIST-01/02/03) · Task 47 (WIRE-16) → depende de 45/46 (WIRE-14/15) · Task 58 (MEMG-16) → consume 56/57 (MEMG-04/05) · Task 21 (DOCS-F2) → independiente · Checkpoint F0 → depende de #238 · Task 71 (F6) → al final del plan.
 - **OCR gate:** toda tarea ✅ DO cierra con OCR delegation review (pipeline-full.md §Cierre paso 5); veredicto registrado en el task file.
 - **plan-adjust:** registrar acá cualquier cambio de gate/re-estimación con el template de `plan.md` §"Evento plan adjust".
 - **SDP:** `campaign_discover_skills_v2` phase=PLAN (2026-10-04) → ver §SDP. Cada sub-agente corre su propio SDP en BUILD (≤10 skills) + los MCPs (codegraph, codebase-memory-mcp, campaign).
-- **Estado inicial:** 70 tareas ⬜ PENDING · 0 completed · 0 failed.
+- **Estado inicial:** 71 tareas ⬜ PENDING · 0 completed · 0 failed.
 
 === RECITATION ===
-Campaign ID: (pendiente de asignar)
-Objetivo activo: Plan Maestro creado — Release 0.9.0 + Memoria 1.0
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: Plan Maestro — Release 0.9.0 + Memoria 1.0
 Estado: in-progress
-Última acción: Plan file creado 2026-10-04 (F0 21 full-detail + F1 15 medium + F2-F5 34 compactas; DEFER 3 / SKIP 1 / BLOQUEADO 2)
+Última acción: Run iniciado 2026-10-04: wave 0 en vuelo (FIND-237/238/239); F6 (adapters owner-assisted, Task 71) agregado al cierre; push diferido al final (instrucción owner)
 Resultado: OK
-Próxima acción: `/pipeline run -PlanFile docs/dev/plans/2026-10-04-master-plan-0.9.0.md`
-Contrato: gates docs verdes + parseTasks 70 tareas
+Próxima acción: procesar wave 0 → wave 1 (FIND-233/234/235/236)
+Contrato: gates docs verdes + parseTasks 71 tareas
 Próxima tarea si completa: F0 completa → Checkpoint release 0.9.0
+=== END RECITATION ===
+
+=== RECITATION FIND-237 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: CLI migrate: aceptar el global --db como fallback del target posicional (FIND-237, F0 Task 1)
+Estado: in-progress
+Última acción: DISCOVERY completo: task file creado (blast radius + Regla 0 + repro/hipótesis + steps). SDP BUILD cargado (6 skills).
+Resultado: PARTIAL
+Próxima acción: Step 1 RED: tests unit (parse fallback/precedencia/help) en src/cli.rs + tests binario en tests/cli_tests.rs; luego nextest enfocado para evidencia RED.
+Contrato: verificacion: pendiente — cargo nextest run --profile audit -p vantadb --lib migrate + --test cli_tests migrate_check (aún no corrido); evidencia: task file docs/dev/tasks/FIND-237.md; invariantes: positional sigue ganando y handlers conservan firma &str; deuda: ninguna; queda_pendiente: ninguno
+Próxima tarea si completa: FIND-238
 === END RECITATION ===
