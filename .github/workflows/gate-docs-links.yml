@@ -133,7 +133,7 @@ jobs:
       # carried is fixed in gen-index.mjs -- so every controlled file must stay
       # at 0. The master plan is EXCLUDED from the count: it is orchestrator-
       # owned and carries machine-appended recitation blocks whose MD007s are
-      # tracked as `FIND-264` (Backlog, 2026-10-04) — retirar esta exclusión cuando el master plan se archive and fixed at the source, not here. A count is easier
+      # tracked as `FIND-264` (Backlog, 2026-10-04) and fixed at the source, not here — remove this exclusion once the master plan is archived. A count is easier
       # to hold than a rule set; markdownlint's own --fix is deliberately not
       # used, because these files are hand-written prose.
       - name: Lint
