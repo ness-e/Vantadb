@@ -15,7 +15,7 @@ description: "Actualizar el runbook del workflow principal: 21 jobs y cobertura 
 - **Tipo:** Docs (runbook CI) — blast radius: 1 doc + task file + 2 artefactos generados (`docs/index.md`, `llms.txt`)
 - **Turns estimados:** 5-10
 - **Creado:** 2026-10-04T02:52 | **last-synced:** 2026-10-04T03:05
-- **Estado:** ✅ COMPLETED (commit local; ACCEPT del orquestador pendiente — review P2-01)
+- **Estado:** ✅ COMPLETED (review P2-01 APPROVE — `ses_efa47c985ffesX4BSm1AYtK6V3`)
 - **Campaign ID:** master-plan-0.9.0-20261004
 - **Incógnitas (uphill):** 0 — conteos derivados mecánicamente del YAML (§Evidencia)
 - **Pendientes (downhill):** 0 (Steps 1-3 ✅)
@@ -153,6 +153,8 @@ N/A — tarea 100% docs sin decisiones técnicas abiertas (el conteo se deriva m
 ## Review (GATE — agente distinto, P2-01)
 
 > Soy leaf (sin tool `task`): evidencia preparada para el orquestador; veredicto pendiente.
+
+- **Reviewer:** ✅ `vanta-review` (contexto fresco — `ses_efa47c985ffesX4BSm1AYtK6V3`) — **APPROVE** (2026-10-04): contrato verificado con doble método (21 jobs derivados del YAML por 2 vías; timeouts/paths/scopes/needs 1:1); gates `check-links`/`check-docs`/`gen-index --check` re-ejecutados exit 0. Derivadas: doc-drift por FIND-236 (fix aplicado: skip del ASan documentado) + fila de índice de FIND-233 (se resuelve al commitear FIND-233). Nits: enumeración de best-effort sin `minimal-versions`; paráfrasis de wasm-test. Cierre mecánico ejecutado por el orquestador con payload review fresh.
 
 - **Paths del diff:** `docs/dev/workflow/ci-rust-10.md`, `docs/dev/tasks/FIND-235.md`, `docs/index.md`, `llms.txt` → **Tier Fast** (docs; ningún glob adversarial).
 - **Evidence pack:**

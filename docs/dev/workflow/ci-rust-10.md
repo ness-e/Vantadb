@@ -39,7 +39,7 @@ Pipeline completo de integración continua para el núcleo Rust del proyecto. Ej
 | `machete` | `cargo machete` 0.9.2 (pinneado) — dependencias sin usar | ubuntu | 10m |
 | `miri` | `cargo miri test` — UB con Stacked Borrows (gate); variante Tree Borrows best-effort | ubuntu | 60m |
 | `deny` | `cargo deny check` (licencias, advisories, bans) | ubuntu | 5m |
-| `sanitizer-asan` | `cargo +nightly test` con `-Zsanitizer=address` (continue-on-error; salta `test_benchmark_internal_10k`) | ubuntu | 45m |
+| `sanitizer-asan` | `cargo +nightly test` con `-Zsanitizer=address` (continue-on-error; salta `test_benchmark_internal_10k` y `sift1m_competitive_benchmark` — guard release-only, FIND-236) | ubuntu | 45m |
 | `sanitizer-tsan` | `cargo +nightly test` con `-Zsanitizer=thread` (continue-on-error; salta tests release-only/incompatibles) | ubuntu | 30m |
 
 ## ¿Qué tests usa?
