@@ -190,7 +190,8 @@ description: "Mapa artefacto→cifrado con evidencia de código + probe tmpdir: 
 - **Archivos:** `docs/dev/tasks/DUR-02.md`
 - **Acción:** review adversarial por agente distinto (tier **Adversarial**: `src/storage/**` matchea HARD-02 → fork a `vanta-review`); registrar veredicto en §Review; commit **LOCAL** `fix(security): DUR-02 — ...` solo con archivos propios (nunca push).
 - **Verify:** `git show --stat HEAD` limitado a archivos propios; veredicto en §Review
-- **Estado:** ⬜ PENDING
+- **Evidencia:** ✅ Commit local `16afd036` (7 archivos propios; WIP ajeno no stageado); veredicto P2-01 ✅ APPROVE registrado en §Review.
+- **Estado:** ✅ COMPLETED
 
 ## Dependencias
 
@@ -220,5 +221,13 @@ description: "Mapa artefacto→cifrado con evidencia de código + probe tmpdir: 
 ## RESULTADO §7 (contrato de retorno — pipeline-full)
 
 ```
-RESULTADO: ⬜ (se completa al cierre)
+RESULTADO: ✅ COMPLETO
+STEPS_OK: 6/6 total steps
+PROXIMO_STEP: ninguno
+COMMIT_HASH: 16afd036
+ARCHIVOS: src/storage/vfile.rs, docs/user/operations/CONFIGURATION.md, docs/dev/architecture/FEATURES.md, docs/dev/Backlog.md, docs/dev/tasks/DUR-02.md, docs/index.md, llms.txt
+VERIFY_CONTRATO: pasa
+BLOQUEO: ninguno
+GATES_EVALUADOS: P:no D:no V:no C:disparado | P:sin símbolos públicos nuevos · D:sin ambigüedad · V:sin fallos · C:hallazgo AES→FIND-249
+SKILLS_CARGADAS: security-and-hardening, test-driven-development, source-driven-development, deprecation-and-migration, documentation-skill, coordinated-web-search (base auto: campaign-executor, progreso, ponytail)
 ```
