@@ -162,7 +162,7 @@ description: "Warning accionable al activar la feature `encryption` + `VANTADB_E
 RESULTADO: ✅ COMPLETO
 STEPS_OK: 4/4 total steps
 PROXIMO_STEP: ninguno
-COMMIT_HASH: pendiente (commit fix(security) local; se registra en el commit de cierre docs(avance))
+COMMIT_HASH: b02b1609 (fix local, sin push)
 ARCHIVOS: src/storage/engine/init.rs, src/storage/engine/tests/init.rs, src/config.rs, src/lib.rs, docs/user/operations/CONFIGURATION.md, docs/dev/architecture/FEATURES.md, docs/dev/Backlog.md, docs/dev/tasks/ENC-01.md, docs/index.md, llms.txt
 VERIFY_CONTRATO: pasa
 BLOQUEO: ninguno
