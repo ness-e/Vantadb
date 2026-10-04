@@ -23,6 +23,15 @@ pub struct Embedded {
     /// ponytail: global supersede lock — rare admin op; per-namespace striping
     /// if contention ever matters.
     pub(crate) supersede_lock: Arc<Mutex<()>>,
+    /// Serializes purge operations against the write path (DUR-03): purge
+    /// paths (`purge_expired` sweeper, purge-on-write) take the **write**
+    /// guard; a put that resolves a *live* record takes the **read** guard
+    /// across insert + index replacement so the generation it is replacing
+    /// cannot be purged underneath it (a second stats decrement would drive
+    /// the text df negative). Shared across clones via `Arc`; only held on
+    /// the purge path and on upserts of existing records — fresh inserts do
+    /// not need it.
+    pub(crate) purge_lock: Arc<RwLock<()>>,
 }
 
 impl std::fmt::Debug for Embedded {
@@ -46,6 +55,7 @@ impl Embedded {
             audit: init_audit(&config),
             config,
             supersede_lock: Arc::new(Mutex::new(())),
+            purge_lock: Arc::new(RwLock::new(())),
         }
     }
 
@@ -109,6 +119,7 @@ impl Embedded {
             audit: init_audit(&final_config),
             config: final_config,
             supersede_lock: Arc::new(Mutex::new(())),
+            purge_lock: Arc::new(RwLock::new(())),
         };
         if !embedded.config.read_only {
             embedded.ensure_indexes_current()?;
@@ -146,6 +157,7 @@ impl Embedded {
             audit: init_audit(&config),
             config,
             supersede_lock: Arc::new(Mutex::new(())),
+            purge_lock: Arc::new(RwLock::new(())),
         }
     }
 

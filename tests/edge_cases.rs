@@ -467,6 +467,165 @@ fn delete_expired_ttl_record() {
     assert!(!deleted, "TTL-expired record should return false on delete");
 }
 
+// ── 14b. Re-put after expired TTL (DUR-03 / H-023) ─────────
+
+/// H-023 / DUR-03: a write over a key whose record expired but was not yet
+/// physically purged must behave like a write to a non-existent key
+/// (purge-on-write + fresh insert) instead of dying with `NodeIdCollision`.
+#[test]
+fn put_after_ttl_expiry_succeeds_as_fresh_insert() {
+    let dir = tempdir().expect("tempdir");
+    let db = Embedded::open(dir.path()).expect("open");
+
+    // v1 (no TTL) then v2 (1ms TTL): two version snapshots exist before expiry.
+    db.put(MemoryInput::new("test", "revive", "payload v1"))
+        .expect("put v1");
+    let mut v2 = MemoryInput::new("test", "revive", "payload v2");
+    v2.ttl_ms = Some(1);
+    let second = db.put(v2).expect("put v2");
+    assert_eq!(second.version, 2);
+
+    // TTL lapses: logically absent (lazy TTL) but still physically present.
+    thread::sleep(std::time::Duration::from_millis(5));
+    assert!(
+        db.get("test", "revive").expect("get expired").is_none(),
+        "expired record must be hidden before the re-put"
+    );
+
+    // Re-put must not collide: purge-on-write + fresh record (v1).
+    let revived = db
+        .put(MemoryInput::new("test", "revive", "new payload"))
+        .expect("put after expiry must succeed (H-023)");
+    assert_eq!(revived.payload, "new payload");
+    assert_eq!(
+        revived.version, 1,
+        "an expired record is logically gone; the re-put is a fresh insert"
+    );
+
+    let fetched = db
+        .get("test", "revive")
+        .expect("get revived")
+        .expect("revived record must be readable");
+    assert_eq!(fetched.payload, "new payload");
+    assert_eq!(fetched.version, 1);
+
+    // The expired generation's snapshots must be purged with it: only the
+    // fresh v1 remains (no stale v2 from the expired generation).
+    let versions = db.versions("test", "revive").expect("versions");
+    assert_eq!(
+        versions.len(),
+        1,
+        "only the fresh v1 must remain in version history, got {versions:?}"
+    );
+    assert_eq!(versions[0].payload, "new payload");
+    assert_eq!(versions[0].version, 1);
+}
+
+/// Same H-023 hole through the batch write path.
+#[test]
+fn put_batch_after_ttl_expiry_succeeds() {
+    let dir = tempdir().expect("tempdir");
+    let db = Embedded::open(dir.path()).expect("open");
+
+    let mut expired = MemoryInput::new("test", "batch-revive", "old");
+    expired.ttl_ms = Some(1);
+    db.put(expired).expect("seed put");
+    thread::sleep(std::time::Duration::from_millis(5));
+    assert!(db.get("test", "batch-revive").expect("get").is_none());
+
+    let records = db
+        .put_batch(vec![MemoryInput::new("test", "batch-revive", "new")])
+        .expect("put_batch after expiry must succeed (H-023)");
+    assert_eq!(records[0].payload, "new");
+    assert_eq!(records[0].version, 1);
+    assert_eq!(
+        db.get("test", "batch-revive")
+            .expect("get")
+            .expect("present")
+            .payload,
+        "new"
+    );
+}
+
+// ── 14c. Re-put vs TTL sweeper race (DUR-03) ───────────────
+
+/// DUR-03 pre-mortem #2: a re-put racing the TTL sweeper (`purge_expired`)
+/// must never error, panic, or corrupt. The writer starts at 0/1/2 ms after
+/// the seed, so it sometimes resolves the record while still live and
+/// sometimes after expiry — both the guarded-upsert and the purge-on-write
+/// paths race the sweeper. The write always ends with the fresh record
+/// present: the generation guard keeps the sweeper from deleting it or from
+/// double-decrementing the generation's stats.
+#[test]
+fn put_after_expiry_racing_ttl_sweeper_stays_consistent() {
+    let dir = tempdir().expect("tempdir");
+    let db = Arc::new(Embedded::open(dir.path()).expect("open"));
+
+    for round in 0..24u64 {
+        let key = format!("race-{round}");
+        let mut seed = MemoryInput::new("test", &key, "old");
+        seed.ttl_ms = Some(1);
+        db.put(seed).expect("seed put");
+        thread::sleep(std::time::Duration::from_millis(round % 3));
+
+        let writer_db = Arc::clone(&db);
+        let sweeper_db = Arc::clone(&db);
+        let writer_key = key.clone();
+        let writer = thread::spawn(move || {
+            writer_db
+                .put(MemoryInput::new("test", &writer_key, "new"))
+                .map(|_| ())
+        });
+        let sweeper = thread::spawn(move || sweeper_db.purge_expired());
+
+        let write_res = writer.join().expect("writer thread must not panic");
+        let sweep_res = sweeper.join().expect("sweeper thread must not panic");
+        assert!(
+            write_res.is_ok(),
+            "re-put must succeed under the sweeper race: {write_res:?}"
+        );
+        assert!(sweep_res.is_ok(), "sweeper must not fail: {sweep_res:?}");
+        assert_eq!(
+            db.get("test", &key)
+                .expect("get")
+                .expect("record must be present after the race")
+                .payload,
+            "new"
+        );
+    }
+}
+
+// ── 14d. Foreign node at the deterministic id (DUR-03) ─────
+
+/// A node that is not a memory record of this `(namespace, key)` must still
+/// be reported as a collision — purge-on-write only claims expired records
+/// of the same key.
+#[test]
+fn put_rejects_foreign_node_at_deterministic_id() {
+    use vantadb::cli_handlers::db::memory_node_id;
+    use vantadb::storage::StorageEngine;
+    use vantadb::UnifiedNode;
+
+    let dir = tempdir().expect("tempdir");
+    let engine = Arc::new(
+        StorageEngine::open_with_config(&dir.path().to_string_lossy(), None).expect("open engine"),
+    );
+    let db = Embedded::from_engine(engine.clone());
+
+    let id = memory_node_id("test", "collide");
+    engine
+        .insert(&UnifiedNode::new(id))
+        .expect("insert foreign node");
+
+    let err = db
+        .put(MemoryInput::new("test", "collide", "payload"))
+        .expect_err("foreign node must collide");
+    assert!(
+        matches!(err, vantadb::error::Error::NodeIdCollision(collided) if collided == id),
+        "expected NodeIdCollision({id}), got {err:?}"
+    );
+}
+
 // ── 15. Same key in multiple namespaces ─────────────────
 
 #[test]
