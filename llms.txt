@@ -6,7 +6,7 @@
 
 Every link below points to the raw Markdown source, not a rendered page. Read the
 page you need; do not read this file end to end. This index covers the
-448 documentation pages; it deliberately omits the 1042 task files,
+448 documentation pages; it deliberately omits the 1045 task files,
 which are work items rather than documentation. The full inventory of every file
 is in docs/index.md in the repository.
 
@@ -472,7 +472,7 @@ is in docs/index.md in the repository.
 - [Workflows — Trigger matrix](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/workflow/TRIGGERS.md): Source of truth is each file's on: block (read 2026-10-02, post FIND-228)
 - [`chaos.yml` — Chaos: Failpoint Injection & Resilience Tests](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/workflow/chaos-45.md): Ejecuta los tests de caos de VantaDB con inyección de failpoints para verificar resiliencia ante fallos inyectados (errores de I/O, panics en puntos críticos, cortes) durante operaciones normales
 - [`ci-gate.yml` — CI Gate](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/workflow/ci-gate.md): Workflow reutilizable que actúa como compuerta de calidad para workflows pesados o programados. Antes de gastar horas de cómputo (benchmarks, certificación, fuzzing), consulta el estado de los check-runs del CI en el commit objetivo de...
-- [`ci-rust.yml` — CI: Rust — Build & Lint + Tests](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/workflow/ci-rust-10.md): Pipeline completo de integración continua para el núcleo Rust del proyecto. Ejecuta formateo, linting, pruebas unitarias/de integración en 3 SO, cobertura de código, auditoría de seguridad, detección de UB con Miri, análisis con...
+- [`ci-rust.yml` — CI: Rust — Build & Lint + Tests](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/workflow/ci-rust-10.md): Pipeline de CI del núcleo Rust: 21 jobs — fmt, clippy, tests en 3 SO, cobertura ≥80%, gates de API pública (semver/snapshot/ADR), seguridad (audit/OSV/deny), Miri, sanitizers y combo release
 - [`ci-web.yml` — CI: Web — Build & Lint (Next.js)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/workflow/ci-web-11.md): Pipeline de integración continua para el frontend web (Next.js 16 + React 19 + shadcn/ui + Tailwind v4) del sitio de VantaDB
 - [`fuzz.yml` — FUZZ: LibFuzzer — Corpus + Regression](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/workflow/fuzz-40.md): Ejecuta fuzzing con cargo-fuzz/LibFuzzer sobre 4 objetivos del core de VantaDB para encontrar bugs de seguridad, crashes y comportamientos inesperados mediante entradas aleatorias
 - [`gate-api-docs.yml` — GATE: API — surface vs documentation](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/workflow/gate-api-docs.md): Una regla, y es la regla completa: si la superficie pública de la API cambia y
