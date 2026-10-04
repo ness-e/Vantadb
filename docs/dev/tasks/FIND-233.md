@@ -14,7 +14,7 @@ description: "Decisión implementada: A/B same-job opt-in (workflow_dispatch ab_
 - **Prioridad:** 🟠
 - **Tipo:** CI/CD + instrumentación de performance (blast radius CI/dev-tools — sin cambios de motor)
 - **Creado:** 2026-10-04T07:00Z | **last-synced:** 2026-10-04T07:15Z
-- **Estado:** ⏳ IN PROGRESS (tramo local ✅ — pendiente: review P2-01 + ACCEPT + verificación post-push; orquestador)
+- **Estado:** ✅ COMPLETED (review P2-01 APPROVE — `ses_efa39dc4effe04AQcaz1Svo939`; Step 7 post-push **diferido registrado** al batch de verificación final)
 - **Incógnitas (uphill):** 0 — resueltas en Discovery (opción elegida con costo medido; ver §Decisión)
 - **Pendientes (downhill):** 1 (Step 7 post-push diferido; Steps 1-6 ✅)
 - **Campaign ID:** master-plan-0.9.0-20261004
@@ -211,7 +211,7 @@ Las bandas actuales (stable warn>25%/block>200%; µs 300%+0.5ms; insert.p99 100m
 ## Review (GATE — agente distinto, P2-01)
 
 - **Tier:** **Fast** (paths: `.github/**`, `benchmarks/**`, `docs/**`, `SPEC.md` — sin paths adversariales).
-- **Revisor:** ⏳ pendiente — delegado al orquestador (`vanta-review`; este worker es leaf y no puede forkear sub-agentes). Evidencia mecánica completa abajo para el spot-check.
+- **Revisor:** ✅ `vanta-review` (contexto fresco — `ses_efa39dc4effe04AQcaz1Svo939`) — **APPROVE (tramo local)** 2026-10-04: contrato verificado con re-ejecución (self-test 15/15, fixtures 5/5, actionlint 0, gates 0/0/0; semántica `inputs` en push validada contra docs oficiales GHA); Optionals no bloqueantes registrados (order-bias intra-par → la calibración same-SHA mide el residuo; interacción coarse/A-B → follow-up documentado). Evidencia mecánica completa abajo para el spot-check.
 - **Enfoque:** ¿el approach A/B same-job opt-in es correcto? ¿alternativas (calibración/bloques) evaluadas con evidencia? ¿el push path queda realmente intacto?
 - **Evidencia de verificación (real, no auto-reporte):**
   1. `python benchmarks/compare_baseline.py --self-test` → **15/15** (9 originales FIND-154/232 intactos + 6 A/B nuevos); registrado vía `campaign_verify_cmd`.
@@ -222,7 +222,7 @@ Las bandas actuales (stable warn>25%/block>200%; µs 300%+0.5ms; insert.p99 100m
   6. markdownlint: 0 issues nuevos (MD028 `benchmarks/README.md:39` preexistente — verificado contra `HEAD:benchmarks/README.md`).
 - **OCR delegation (advisory, sin API key):** `pwsh dev-tools/ocr-review.ps1 -Format json` → preview: 2 reviewables propios; `ocr delegate rule` → Rule Group 1 (CI/VantaDB) aplicado a `perf-bench.yml` y Rule Group 2 (Python) a `compare_baseline.py`: **0 Critical / 0 High**. Verificado: actions pinneadas por SHA ✓, `permissions: contents: read` ✓, timeout 30 ✓, sin `continue-on-error` nuevo ✓, sin secrets/injection en `run:` (`ab_ref` solo en `if:`/`with:`) ✓, sin dead-code/mutable-defaults/edge-case gaps en el diff Python (guarda de conteo, `va > 0`, fail-closed de perfil, median sobre lista no vacía) ✓.
 - **Checklist anti-hábitos tóxicos:** sin comandos inventados (todo output transcripto de corridas reales); sin done sin verificar (contrato local con evidencia; post-push explícitamente diferido); fallo parcial reportado (spawn transitorio del 1.er `verify_cmd`, reintentado y documentado).
-- **Veredicto:** ⏳ pendiente (orquestador) — evidencia preparada para spot-check Fast. Cierre final también condicionado a la verificación post-push (Step 7).
+- **Veredicto:** ✅ **APPROVE (tramo local)** — registrado 2026-10-04 por el orquestador; Step 7 (≥2 runs verdes + calibración same-SHA) **DIFERIDO REGISTRADO** al batch de verificación post-push del cierre. Cierre final también condicionado a la verificación post-push (Step 7).
 
 ## Notas
 
