@@ -1,0 +1,41 @@
+name: 'RELEASE: Verify — Artifacts live check'
+
+# Post-release verification (DIST-05): a release is complete only when every
+# artifact is live. Weekly it checks `releases/latest`; dispatch checks any tag
+# (the checkout stays on the dispatched ref, so dispatch from `main`).
+# Remediation: docs/dev/workflow/PUBLISH.md, Post-release verification.
+on:
+  schedule:
+    - cron: '0 8 * * 1' # Mon 08:00 UTC — no overlap with other scheduled slots (TRIGGERS.md)
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to verify (e.g. v0.9.0). Empty = latest release.'
+        required: false
+        type: string
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify release artifacts
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Verify release (assets + registries + smoke)
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }} # avoids anonymous API rate limits
+          TARGET_TAG: ${{ inputs.tag }} # passed via env (never interpolated into the script)
+        run: |
+          $scriptArgs = @("-Smoke")
+          if ($env:TARGET_TAG) { $scriptArgs += @("-Tag", $env:TARGET_TAG) }
+          ./scripts/verify-release.ps1 @scriptArgs

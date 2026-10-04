@@ -22,6 +22,10 @@ merge develop -> main
     -> GitHub Release  -> binaries-63 (binaries)
 ```
 
+A release is **not complete when published** — it is complete when the
+[post-release verification](#post-release-verification-release-completion-gate)
+below is green (assets + registries + smoke).
+
 ## develop→main: merge commit, no squash (2026-10-02)
 
 Los PRs `develop → main` se mergean con **merge commit** (`gh pr merge --merge`), no `--squash`: release-plz lee los commits convencionales del historial para generar el changelog, y con squash solo ve el commit resumen (changelog "### Other" — pasó en 0.7.0 y 0.8.0). Con merge commit el changelog sale rico automáticamente (validado en 0.6.x). Los Release PR de release-plz siguen squash (1 commit).
@@ -90,6 +94,9 @@ El skip "already published" de `release-npm-61.yml` y `release-npm-node.yml` aho
   `tar.gz`/`zip` + sha256 to the GitHub Release.
 - Backfill manual: `workflow_dispatch` con input `release_tag` (ej. `v0.8.0`);
   sin input = solo build sin upload.
+- v0.8.0+ ships binaries; releases ≤ v0.7.0 predate the `RELEASE_PLZ_TOKEN`
+  cascade fix and have **no** binary assets (known gap — see Post-release
+  verification below).
 
 ## SBOM — `release-sbom.yml`
 
@@ -127,3 +134,59 @@ gh workflow run release-npm-61.yml --ref vX.Y.Z -f package=both
 gh workflow run release-sbom.yml --ref vX.Y.Z
 # environments pypi/npm: aprobar los pending deployments (owner)
 ```
+
+## Post-release verification (release completion gate)
+
+A release is **not complete when published** — it is complete when verified.
+Owner: the release driver (`vanta-lead` / owner). Do not announce the release
+(or close its checkpoint) until both steps below are green.
+
+### 1. Mechanical check — artifacts live
+
+```powershell
+pwsh scripts/verify-release.ps1 -Tag vX.Y.Z -Smoke
+```
+
+Checks, for the tag: the 10 binary assets (5 targets × archive + `.sha256`) and
+the 4 wheels on the GitHub Release; `vantadb` on crates.io; `vantadb-py` on
+PyPI; `vantadb` + `vantadb-wasm` on npm; and (`-Smoke`) downloads the current
+platform's archive, verifies its sha256 and runs `vanta-cli --version`.
+
+Remote alternative (same script on a GitHub runner; also runs weekly against
+`releases/latest`):
+
+```powershell
+gh workflow run release-verify.yml -f tag=vX.Y.Z
+```
+
+Exit 0 = ALL GREEN. If a check fails, remediate and re-run: binaries → backfill
+(`gh workflow run release-binaries.yml -f release_tag=vX.Y.Z`, dispatched from a
+ref whose version matches the tag); wheels/npm → re-run their workflow
+([RUNBOOK.md](./RUNBOOK.md)).
+
+### 2. Clean-machine smoke (manual, ~5 minutes)
+
+Run the three install paths on a machine (or user profile) with no prior
+VantaDB state:
+
+- **Windows installer** — fresh PowerShell:
+
+  ```powershell
+  irm https://raw.githubusercontent.com/ness-e/Vantadb/main/scripts/install.ps1 | iex
+  vanta-cli --version   # expect the released version
+  ```
+
+  To pin a release: download the script, then
+  `pwsh install.ps1 -Version vX.Y.Z` (`-InstallDir` overrides the default
+  `$HOME\.vanta\bin`).
+- **Python** — clean venv: `pip install vantadb-py==X.Y.Z` + the quickstart
+  snippet ([QUICKSTART.md §5](../../user/QUICKSTART.md)).
+- **npm** — temp dir: `npm install vantadb@X.Y.Z` + a `put`/`get` smoke.
+
+### Known gaps (verified 2026-10-04)
+
+| Gap | Status |
+|-----|--------|
+| Releases ≤ v0.7.0 have **no binary assets** | Historical: the `release:published` cascade was suppressed before `RELEASE_PLZ_TOKEN` (2026-10-02) and `release-binaries` only became operational at v0.8.0 (FIND-229 backfill). `releases/latest` (v0.8.0+) is unaffected. No backfill planned: old refs cannot produce honest binaries with the current workflow. |
+| `vanta-memory` not on crates.io | On hold in `release-plz.toml` (DIST-01) — excluded from the check. |
+| `vantadb-node` not on npm | Never published (404 documented) — excluded from the check. |
