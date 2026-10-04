@@ -774,3 +774,9 @@ s_len‖ns‖key_len‖key‖ver BE) + hooks put/put_batch/delete/purge_expired 
 - **Objetivo:** Invalidar la entry volátil en overwrite Cold (single + batch) — mismo patrón que txn/delete; elimina la necesidad del workaround VER-07.
 - **Resultado:** ✅ RED→GREEN 2/2 · storage::engine 390/390 · lib 2302/0 · check/clippy/fmt 0 · P2-01 APPROVE (O1→FIND-222, O2→FIND-223; integration targets → CI).
 - **Commit:** 06496a9a (local, sin push)
+
+### FIND-237: CLI `migrate` — el global `--db` como fallback del `target` posicional (review P2-01 ✅)
+- **Fecha:** 2026-10-04
+- **Objetivo:** `migrate check/plan/run --db <db>` fallaba con "required arguments were not provided: <TARGET>" (target posicional obligatorio; única convención distinta al resto del CLI, que usa solo el global `--db`). Fix: `target: Option<String>` + resolución en el dispatch (positional > global) + ejemplos en `--help` (after_help).
+- **Resultado:** ✅ Contrato 4/4 — binario real `FALLBACK_EXIT=0` + `POSITIONAL_EXIT=0` (precedencia discriminada con `--db` a path inexistente) · nextest lib migrate 11/11 · cli::tests 5/5 · E2E binario 3/3 · cli_tests 94/94 · fmt/clippy exit 0 · campaign_verify_cmd passed · OCR sin Critical/High · P2-01 ronda 1 ❌ (solo registro: comando sin `--ignore-default-filter`) → ronda 2 ✅ APPROVE. Nota: `cli_tests` está excluido por `default-filter` de nextest → requiere `--ignore-default-filter` para correrlo. Doc impact: `CONFIGURATION.md:387` §migrate sigue stale (FIND-224 pre-existente; sin nuevo drift por este fix).
+- **Commit:** ba9f38c4 (local, sin push)
