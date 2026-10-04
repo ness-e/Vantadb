@@ -274,7 +274,7 @@ so the bare `get`/`delete` collision is gone.
 
 **Not exposed in TS (wasm-only or Python-only), deferred per D43/D42:** `graph_page_rank`/`graph_degree_centrality` (Python-only), `bulk_import`/`bulk_import_bytes` (wasm/Python-only), `hardware_profile` (Python-only), `recover_archived_nodes` (Python-only). Do NOT add wrappers in SDKB-02 — v1 is grouping only.
 
-## Python (`vantadb-python/src/lib.rs`) — 46 pyclass methods (+ module-level `connect()`)
+## Python (`vantadb-python/src/lib.rs`) — 48 pyclass methods (+ module-level `connect()`)
 
 | Method | Domain | Exposed today | Notes |
 |---|---|---|---|
@@ -306,6 +306,8 @@ so the bare `get`/`delete` collision is gone.
 | `supersede` | memory | ✅ | **Python-only** |
 | `generate_snippet` | memory | ✅ | |
 | `purge_expired` | memory | ✅ | TTL |
+| `memory_capture` | memory | ✅ | cognitive layer — L0 capture (DIST-02; sync + async) |
+| `memory_recall` | memory | ✅ | cognitive layer — recall with scope (DIST-02; sync + async) |
 | `list_namespaces` | memory | ✅ | |
 | `capabilities` | system | ✅ | |
 | `hardware_profile` | system | ✅ | Python-only |
@@ -326,7 +328,7 @@ so the bare `get`/`delete` collision is gone.
 | `recover_archived_nodes` | wiki | ✅ | summary-node shadow archive recovery |
 | `close` | system | ✅ | lifecycle |
 
-**Totals:** memory 16 · graph 11 · wiki 1 · system 18 = 46 pyclass methods ✔ (+ module-level `connect()` → system, 47 total surface)
+**Totals:** memory 18 · graph 11 · wiki 1 · system 18 = 48 pyclass methods ✔ (+ module-level `connect()` → system, 49 total surface)
 
 > **AST-012 (anti-stutter, TS `MemoryClient` parity):** flat `get_memory` /
 > `list_memory` / `delete_memory` were REMOVED (direct rename, no aliases).
@@ -359,9 +361,9 @@ Exposing any of these requires new Rust bindings (out of scope per D42). Tracked
 
 ## Cognitive layer (`vanta-memory`) scope per binding (DIST-03, 2026-10-04)
 
-> **Status:** normative as of DIST-03 (master plan 0.9.0). The cognitive layer
+> **Status:** normative as of DIST-03 (master plan 0.9.0); reconciled by DIST-04 (2026-10-04). The cognitive layer
 > (`vanta-memory`) is **declared core-only for TS/Node/WASM**; a **minimal
-> Python surface** is declared for the 0.9.0 train (DIST-02). This is the
+> Python surface** **landed** for the 0.9.0 train (DIST-02, 2026-10-04). This is the
 > explicit multi-binding promise — per binding, what exists and what does not.
 
 **Decision (DIST-03): declare scope, do not expose.** The alternative — a
@@ -403,27 +405,27 @@ it is a port, not a thin wrapper.
 
 | Cognitive surface (`vanta-memory`) | WASM | TS (`vantadb`) | Node (`vantadb-node`) | Python (`vantadb-python`) |
 |---|---|---|---|---|
-| L0 capture (`AutoCaptureHook::capture`) | — | — | — | ⏳ minimal (`memory_capture`, DIST-02) |
-| Recall (`perform_auto_recall`) | — | — | — | ⏳ minimal (`memory_recall`, DIST-02) |
+| L0 capture (`AutoCaptureHook::capture`) | — | — | — | ✅ minimal (`memory_capture`, DIST-02) |
+| Recall (`perform_auto_recall`) | — | — | — | ✅ minimal (`memory_recall`, DIST-02) |
 | Seed import (`seed::*`, fs-bound) | — | — | — | — |
 | Wiki ingest (`ingest::worker`) | — | — | — | — |
 | Dream / consolidation (`core::dream`) | — | — | — | — |
 | Context engine (`context_engine::*`) | — | — | — | — |
 | Skill extraction (`core::skill`) | — | — | — | — |
 
-Legend: `—` = not exposed (declared out of scope); `⏳ minimal` = recall +
-capture only, declared for the 0.9.0 train (DIST-02 — not documented as
-shipped until it lands; api-contract R-1). TS (`vantadb` npm) wraps the WASM
+Legend: `—` = not exposed (declared out of scope); `✅ minimal` = recall +
+capture only, **landed** for the 0.9.0 train (DIST-02, 2026-10-04 — smoke e2e
+con wheel local; api-contract R-1 resolved). TS (`vantadb` npm) wraps the WASM
 build (D42 — zero WASM changes), so a TS exposure is blocked by the same WASM
 constraints; the native path (`NativeVantaDB` → `vantadb-node`) is unpublished
 and has no cognitive surface. Node (napi-rs) is the only runtime without the
 WASM blockers; it stays core-only under the same Gate P decision — candidate
 scope for the trigger-fired design task.
 
-**Status note:** the Python minimal surface (DIST-02) is in flight in the same
-train; this matrix and `VANTA_MEMORY.md` are reconciled to the landed surface
-by DIST-04 (hard dependency). The Python section counts below (46 pyclass
-methods) are likewise reconciled by DIST-04 once DIST-02 lands.
+**Status note (reconciled by DIST-04, 2026-10-04):** the Python minimal surface
+(DIST-02) has **landed**; this matrix and `VANTA_MEMORY.md` reflect the landed
+surface. The Python section counts above include `memory_capture`/`memory_recall`
+(46 → 48 pyclass methods).
 
 **Mechanical invariant (TS/Node/WASM declared core-only):**
 

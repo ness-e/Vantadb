@@ -20,7 +20,7 @@ el runner falla o no está configurado.
 
 ## Scope & stability (Gate P — 2026-09-24)
 
-- **Core-only by decision** (`API-STD-15`, Gate P): `vanta-memory` is an internal workspace
+- **Core-only by decision (TS/Node/WASM)** (`API-STD-15`, Gate P): `vanta-memory` is an internal workspace
   member consumed in-process by `vantadb-mcp`, `vanta-proxy` and `desktop/src-tauri`.
   Exposing it requires new Rust bindings plus demonstrated demand (post-release, D42/D43).
 - **Binding scope (DIST-03, 2026-10-04):** **TS/Node/WASM: not exposed** — declared core-only,
@@ -32,7 +32,7 @@ el runner falla o no está configurado.
 - **Crate distribution (DIST-01, 2026-10-04):** `vanta-memory` is **publishable**
   (`publish = false` removed; `cargo publish --dry-run` verde + smoke externo) with an
   explicit **hold** in `release-plz.toml` until the owner bootstraps crates.io Trusted
-  Publishing (the first publish requires an API token — checklist in the release-plz config).
+  Publishing (the first publish requires an API token — bootstrap checklist in the `release-plz.toml` hold entry; rationale in `docs/dev/tasks/DIST-01.md` §Decisión).
 - **Stable Rust API:** the public surface documented here is the stable contract for in-repo
   consumers. Binding re-export: **none for TS/Node/WASM** — `0` symbols by design (checked
   with `rg "vanta[_-]memory" vantadb-ts vantadb-node vantadb-wasm` → 0 matches).
