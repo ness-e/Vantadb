@@ -118,7 +118,9 @@ jobs:
   # tipo cdylib — warning de cargo, no error. Job separado del artefacto para que
   # un fallo nombre el doctest roto, no el build de docs (mismo criterio que
   # ci-examples.yml). `-D warnings` convierte cada warning de rustdoc en error:
-  # un ejemplo que no compila no llega a un humano.
+  # un ejemplo que no compila no llega a un humano. Primer run real en
+  # ubuntu-latest (medición local en Windows): un fallo platform-specific
+  # es finding real, no ruido.
   doctests:
     name: Doc-tests (RUSTDOCFLAGS=-D warnings)
     runs-on: ubuntu-latest
