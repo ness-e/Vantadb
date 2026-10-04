@@ -91,15 +91,15 @@ Sin deuda. Docs-only, cero código nuevo; los gaps encontrados nacen como `FIND-
 
 ### Evidencia empírica — viabilidad wasm de `vanta-memory` (2026-10-04, HEAD `b416617f`)
 
-1. **Compile baseline:** `cargo check -p vanta-memory --target wasm32-unknown-unknown --no-default-features` → **exit 1** — `getrandom 0.3.4/0.4.3`: `compile_error!("The \"wasm_js\" backend requires the wasm_js feature")`. El crate no compila para wasm32 como está.
+1. **Compile baseline:** `cargo check -p vanta-memory --target wasm32-unknown-unknown --no-default-features` → **exit 101** — `getrandom 0.3.4/0.4.3`: `compile_error!("The \"wasm_js\" backend requires the wasm_js feature")`. El crate no compila para wasm32 como está.
 2. **Compile con unificación forzada:** `cargo check -p vanta-memory --target wasm32-unknown-unknown --features "vantadb/wasm"` → **Finished (9.03s)**. El gap de compilación es cerrable con una feature `wasm` propia (mapea `vantadb/wasm`) — es un port, no un wrapper.
-3. **`llm-driver` en wasm:** `--features "vantadb/wasm,llm-driver"` → **exit 1** — `error[E0433]: cannot find `blocking` in `reqwest`` en `vanta-memory/src/adapters/standalone/llm_runner.rs:127` (el módulo está gateado `#[cfg(not(target_arch = "wasm32"))]` en reqwest 0.12.28). El runner LLM real no compila en wasm.
-4. **`embeddings` en wasm:** `--features "vantadb/wasm,embeddings"` → **exit 1** — `error[E0432]: unresolved import `reqwest::blocking`` en el **core** (`src/llm.rs:22`, feature `remote-inference` también blocking → gateado out). Sin embeddings → recall keyword-only por construcción.
+3. **`llm-driver` en wasm:** `--features "vantadb/wasm,llm-driver"` → **exit 101** — `error[E0433]: cannot find `blocking` in `reqwest`` en `vanta-memory/src/adapters/standalone/llm_runner.rs:127` (el módulo está gateado `#[cfg(not(target_arch = "wasm32"))]` en reqwest 0.12.28). El runner LLM real no compila en wasm.
+4. **`embeddings` en wasm:** `--features "vantadb/wasm,embeddings"` → **exit 101** — `error[E0432]: unresolved import `reqwest::blocking`` en el **core** (`src/llm.rs:22`, feature `remote-inference` también blocking → gateado out). Sin embeddings → recall keyword-only por construcción.
 5. **Runtime panics (time):** `rg "SystemTime" vanta-memory/src` → 4 sitios de producción: `utils/managed_timer.rs:26` (SystemClock), `core/conversation/l0_recorder.rs:402` (**path de capture**), `offload/reclaimer.rs:63`, `core/record/lifecycle.rs:125`. En wasm32-unknown-unknown `SystemTime::now()` **paniquea** (fuente oficial) → capture/L0 no corre sin port a `web-time` (el core ya lo hizo: `web_time` en `src/gc.rs`, `src/audit.rs`, etc.).
 6. **fs:** `rg "std::fs|std::path" vanta-memory/src` → `seed/mod.rs:80-81` (`import_seed_file`), `seed/md_import.rs:22-23`, `ingest/worker.rs:11`, `ingest/runner_config.rs:14,227`, `ingest/auto_sync.rs:24` (tests) + `bin/vanta-seed.rs`. En wasm32-unknown-unknown `std::fs` **siempre retorna errores** (fuente oficial); precedente interno: export/import fs del binding wasm declarados "Not supported on the WASM runtime" (FIND-79, `vantadb-ts/README.md:294-299`).
 7. **Scope real hoy:** `rg "vanta[_-]memory" vantadb-ts vantadb-wasm vantadb-node` → **0 matches** (exit 1). La declaración core-only coincide con la realidad.
 8. **Persistencia wasm:** IDB/OPFS save/load explícito (`connect_persistent`/`connect_idb`; js-ecosystem.md R-1); sin WAL/fsync. La capa cognitiva heredaría ese modelo (degradación semántica a declarar, no blocker duro).
-9. **Tamaño:** `vanta-memory` ≈28k LOC; el artefacto wasm está gestionado por tamaño (`opt-level = "s"`, `wasm-opt -Oz`, ~670 KB gzip publicado — `vantadb-ts/README.md:160`).
+9. **Tamaño:** `vanta-memory` ≈28k LOC (cifra del plan Task 14; medido 2026-10-04: ~22k src / ~30k con tests); el artefacto wasm está gestionado por tamaño (`opt-level = "s"`, `wasm-opt -Oz`, ~670 KB gzip publicado — `vantadb-ts/README.md:160`).
 
 ### Fuentes oficiales (block 9 — validadas 2026-10-04)
 
@@ -136,7 +136,7 @@ Sin deuda. Docs-only, cero código nuevo; los gaps encontrados nacen como `FIND-
 ### Step 1 — DISCOVERY: viabilidad wasm + scope real + auditoría capabilities — ✅
 - **Archivos:** (lectura) `vanta-memory/{Cargo.toml,src}`, `vantadb-wasm/{Cargo.toml,src/lib.rs}`, `vantadb-ts/{README.md,src}`, `vantadb-node/src/lib.rs`, `vantadb-python/src/{lib.rs,convert.rs}`, `src/sdk/types.rs`, `docs/api/*`, rules js-ecosystem/api-contract
 - **Acción:** compile checks wasm (4 combinaciones), rg de fs/time/scope, auditoría capabilities 4 bindings, validación web de restricciones (3 fuentes)
-- **Verify:** exit 1 / Finished / exit 1 / exit 1 (compile); `rg` 0 matches; citas verificadas con webfetch
+- **Verify:** exit 101 / Finished / exit 101 / exit 101 (compile); `rg` 0 matches; citas verificadas con webfetch
 - **Estado:** ✅
 
 ### Step 2 — Declaración en `docs/api/BINDINGS_NAMESPACES.md` — ✅
@@ -190,9 +190,9 @@ Sin deuda. Docs-only, cero código nuevo; los gaps encontrados nacen como `FIND-
 ## Notas
 
 - **Decisión (b) — por qué no (a):** wasm no es *imposible* (compila con unificación de features), pero es **un port** (feature `wasm` + web-time + fs gating + wrappers + runner async + size budget) **más** el re-run de Gate P exigido por D42/D43 — fuera del appetite de 3d y con una promesa de producto distinta (LLM-free/keyword-only). El plan sanciona explícitamente (b) vía stop condition. La exposición mínima real de esta train es la de Python (DIST-02).
-- **Gate `validate-docs-coverage` (2026-10-04):** exit 1 con 2 gaps (`memory_capture`, `memory_recall`) — **WIP ajeno**: DIST-02 está en vuelo en el mismo worktree (`vantadb-python/src/lib.rs` + `Cargo.toml` modificados) y su contrato item 4 documenta los métodos en `PYTHON_SDK.md`. Mis archivos no agregan APIs. Re-verificar al cerrar; si DIST-02 no aterrizó, lo cierra su cierre/DIST-04.
+- **Gate `validate-docs-coverage` (2026-10-04):** corrida inicial exit 1 con 2 gaps (`memory_capture`, `memory_recall`) — **WIP ajeno**: DIST-02 estaba en vuelo en el mismo worktree. **Re-verificado post-aterrizaje de DIST-02 (`2a3bccbc`, 07:21): exit 0, 0 gaps** (revisión P2-01, 2026-10-04).
 - **Handoff DIST-02 → DIST-03/DIST-04:** DIST-02 declara que el conteo "46 pyclass methods" de `BINDINGS_NAMESPACES.md` quedará stale (46→48) cuando aterrice; NO se actualiza acá (superficie no aterrizada — api-contract R-1) — lo reconcilia DIST-04 (anotado en la status note de la matriz).
 - **WIP ajeno excluido de commits:** `Cargo.lock`, `vantadb-python/**`, `docs/dev/plans/2026-10-04-master-plan-0.9.0.md`, `opencode.jsonc` (no se agregan con `git add`).
 - **Lo que NO se tocó (scope discipline):** `vantadb-python/**` (DIST-02 en vuelo), `vanta-memory/Cargo.toml` (DIST-01 cerrada), `opencode.jsonc`, plan file, `docs/pipeline-state.json`.
-- `NOTICED BUT NOT TOUCHING:` `vantadb-ts/src/vantadb.ts:443-446` tiene un cast "FIND-125" por `runtime_profile` omitido en el `.d.ts` hand-written del wasm — relacionado con la paridad capabilities; no se toca (fuera de scope; ya trackeado por FIND-125). Cláusula `publish = false` de `VANTA_MEMORY.md`: stale tras DIST-01 — la reconcilia DIST-04 (contrato propio; DIST-01 la difirió "por diseño").
+- `NOTICED BUT NOT TOUCHING:` `vantadb-ts/src/vantadb.ts:443-446` tiene un cast "FIND-125" por `runtime_profile` omitido en el `.d.ts` hand-written del wasm — relacionado con la paridad capabilities; no se toca (fuera de scope; ya trackeado por FIND-125). Cláusula `(publish = false)` de `VANTA_MEMORY.md`: parenthetical stale removida en `9b3baa89` (la reconciliación completa del status de publicación — facade "candidate, not published", versioning, README — la cierra DIST-04).
 - **DoD Release n/a justificado:** docs-only sin cambio user-visible de runtime; el changelog de la feature Python lo llevará DIST-02; DIST-04 cierra la superficie documental del crate.
