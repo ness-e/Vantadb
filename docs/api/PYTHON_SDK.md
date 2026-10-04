@@ -467,14 +467,25 @@ guide to **append** to the system prompt (`append_system_context`) — or
 `recalled_memories` carries the structured hits
 (`content` / `score` / `type` / `source_namespace` / `source_key`).
 
+> **Recall pool:** `memory_recall` reads the **derived** layers (L1 memories,
+> L2 scenes, L3 persona) — never the raw L0 turns. LLM-free capture stores L0
+> only, so a recall right after `memory_capture` returns `None` until memories
+> are derived by the pipeline (LLM runner / `dream`, not exposed in Python
+> yet) or written to `l1/<session>` directly. L1 payloads the reader cannot
+> parse are skipped silently; valid `type` values are `persona`, `episodic`,
+> `instruction`, `work_fact`, `work_task`, `work_method`, `work_artifact`
+> (see [`VANTA_MEMORY.md`](VANTA_MEMORY.md) for the crate's namespace/wire
+> contracts).
+
 ```python
-# Capture the turn…
+# Capture the turn into L0 (LLM-free): stored, never lost.
 db.memory_capture("sess-1", [
     {"role": "user", "content": "I prefer dark mode", "timestamp_ms": 1000},
     {"role": "assistant", "content": "Noted!", "timestamp_ms": 1001},
 ])
 
-# …then recall it on the next prompt.
+# Recall reads the derived layers — e.g. an L1 memory in `l1/<session>`
+# (written by the memory pipeline when a runner derives it, or by the host).
 result = db.memory_recall("What display mode do I prefer?", "sess-1")
 if result is not None:
     user_prompt = (result["prepend_context"] or "") + user_prompt
