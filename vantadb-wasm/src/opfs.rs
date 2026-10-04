@@ -256,12 +256,89 @@ fn crc32(data: &[u8]) -> u32 {
     !crc
 }
 
+// ── WSM-15: cross-context write locking (Web Locks API) ────────────────
+
+/// Web Locks bridge for cross-context OPFS write exclusion (WSM-15).
+///
+/// Mirrors the IndexedDB bridge lock (`idb.rs`, `runWriteTx`) but scoped
+/// per file: concurrent tabs/workers writing the SAME file serialize, while
+/// writes to different files do not contend.
+///
+/// `vantaOpfsAcquireLock(name)` resolves with a `release` function once the
+/// lock is granted — the lock stays held until `release()` is called (the
+/// callback returns a promise settled by the caller; MDN "Advanced use").
+/// Resolves with `null` when the Web Locks API is unavailable: the Rust
+/// caller degrades fail-loud instead of writing without exclusion.
+#[wasm_bindgen(inline_js = r#"
+export function vantaOpfsAcquireLock(name) {
+    if (typeof navigator === "undefined" || !navigator.locks ||
+        typeof navigator.locks.request !== "function") {
+        return Promise.resolve(null);
+    }
+    let release;
+    const held = new Promise((resolve) => { release = resolve; });
+    return new Promise((resolve, reject) => {
+        try {
+            navigator.locks.request(name, () => {
+                resolve(release);
+                return held;
+            }).catch(reject);
+        } catch (err) {
+            reject(err);
+        }
+    });
+}
+"#)]
+extern "C" {
+    /// Acquire the Web Lock `name`; resolves to a release function, or `null`
+    /// when the Web Locks API is unavailable.
+    fn vantaOpfsAcquireLock(name: &str) -> Promise;
+}
+
+/// RAII guard that releases the Web Lock when dropped (error paths included).
+///
+/// Dropping the captured JS function does NOT call it — `Drop` must invoke
+/// `release` explicitly, or the lock stays held until the context unloads.
+struct WebLockGuard(Option<js_sys::Function>);
+
+impl Drop for WebLockGuard {
+    fn drop(&mut self) {
+        if let Some(release) = self.0.take() {
+            let _ = release.call0(&JsValue::undefined());
+        }
+    }
+}
+
+/// Acquire the cross-context Web Lock `name` (WSM-15).
+///
+/// Returns `Ok(Some(release))` once granted; `Ok(None)` when the Web Locks
+/// API is unavailable in this environment.
+async fn acquire_web_lock(name: &str) -> Result<Option<js_sys::Function>, JsValue> {
+    let promise = vantaOpfsAcquireLock(name);
+    let granted = wasm_bindgen_futures::JsFuture::from(promise).await?;
+    if granted.is_null() || granted.is_undefined() {
+        return Ok(None);
+    }
+    granted
+        .dyn_into::<js_sys::Function>()
+        .map(Some)
+        .map_err(|_| JsValue::from_str("expected release function from vantaOpfsAcquireLock"))
+}
+
 /// OPFS-based persistent storage for VantaDB in browser environments.
 ///
 /// Provides a simple KV-store interface over files in a dedicated OPFS directory.
 /// Each file is a key; file contents are the values.
+///
+/// Mutating operations (`write_file`, `append_file`, `delete_file`) serialize
+/// across tabs and workers through a per-file Web Lock (WSM-15). Reads are
+/// lock-free: `write_file` publishes atomically (temp file + rename), so a
+/// concurrent reader always observes a complete old or new file.
 pub struct OpfsStorage {
     dir_handle: JsValue,
+    /// Storage directory name — part of the per-file lock name so instances
+    /// of different directories do not contend (WSM-15).
+    name: String,
 }
 
 impl OpfsStorage {
@@ -277,18 +354,64 @@ impl OpfsStorage {
         args.push(&name.into());
         args.push(&opts);
         let dir_handle = js_call(&root, "getDirectoryHandle", &args).await?;
-        Ok(Self { dir_handle })
+        Ok(Self {
+            dir_handle,
+            name: name.to_string(),
+        })
+    }
+
+    /// Per-file cross-context lock name (WSM-15).
+    ///
+    /// Origin-scoped rendezvous: every VantaDB instance (tab or worker)
+    /// writing the same directory + path must use this exact format so their
+    /// writes serialize through the Web Locks API.
+    fn write_lock_name(&self, path: &str) -> String {
+        format!("vantadb-opfs-write:{}:{}", self.name, path)
+    }
+
+    /// Run `op` while holding the per-file cross-context write lock (WSM-15).
+    ///
+    /// Degrades **fail-loud** when the Web Locks API is unavailable: without
+    /// it concurrent tabs/workers cannot be excluded, and interleaved OPFS
+    /// writes lose data (shared temp file + append read-modify-write). Reads
+    /// do not use this helper — `write_file` publishes atomically.
+    async fn with_write_lock<T>(
+        &self,
+        path: &str,
+        op: impl std::future::Future<Output = Result<T, JsValue>>,
+    ) -> Result<T, JsValue> {
+        let guard = match acquire_web_lock(&self.write_lock_name(path)).await? {
+            Some(release) => WebLockGuard(Some(release)),
+            None => {
+                return Err(JsValue::from_str(&format!(
+                    "Web Locks API unavailable — refusing OPFS write to '{path}' because \
+                     cross-tab exclusion cannot be guaranteed (multi-tab corruption risk). \
+                     Use Client.connect_idb for IndexedDB persistence, or a browser with \
+                     Web Locks support (Chrome 69+, Firefox 96+, Safari 15.4+)."
+                )));
+            }
+        };
+        let result = op.await;
+        drop(guard);
+        result
     }
 
     /// Write data to a file at the given path in OPFS.
     ///
-    /// Uses an atomic write strategy: writes to a temp file first, then
-    /// renames to the final path. Appends a CRC-32 footer to detect
-    /// corruption on read.
+    /// Serializes with other writers of the same file via the per-file Web
+    /// Lock (WSM-15); fails loud when Web Locks is unavailable. Uses an
+    /// atomic write strategy: writes to a temp file first, then renames to
+    /// the final path. Appends a CRC-32 footer to detect corruption on read.
     ///
     /// Performs a quota check before writing; returns a `QuotaExceededError`
     /// with actionable details if the write would likely exceed the storage quota.
     pub async fn write_file(&self, path: &str, data: &[u8]) -> Result<(), JsValue> {
+        self.with_write_lock(path, self.write_file_unlocked(path, data))
+            .await
+    }
+
+    /// `write_file` body — runs while the caller holds the per-file write lock.
+    async fn write_file_unlocked(&self, path: &str, data: &[u8]) -> Result<(), JsValue> {
         // Pre-flight quota check (best-effort, non-blocking if estimate unavailable).
         let _ = self.check_quota_before_write(data.len() as u64).await;
 
@@ -365,7 +488,15 @@ impl OpfsStorage {
     }
 
     /// Delete a file at the given path from OPFS.
+    ///
+    /// Serializes with other writers of the same file via the per-file Web
+    /// Lock (WSM-15); fails loud when Web Locks is unavailable.
     pub async fn delete_file(&self, path: &str) -> Result<(), JsValue> {
+        self.with_write_lock(path, self.delete_file_unlocked(path))
+            .await
+    }
+
+    async fn delete_file_unlocked(&self, path: &str) -> Result<(), JsValue> {
         let remove = get_fn(&self.dir_handle, "removeEntry")?;
         let result = remove.call1(&self.dir_handle, &path.into());
         if let Err(e) = result {
@@ -384,12 +515,23 @@ impl OpfsStorage {
     /// by [`OpfsStorage::write_file`] so the result stays readable through
     /// `read_file`. Creates the file if it doesn't exist.
     ///
-    /// Performs a quota check before appending; returns a `QuotaExceededError`
-    /// with actionable details if the append would likely exceed the storage quota.
+    /// Serializes with other writers of the same file via the per-file Web
+    /// Lock (WSM-15), so the read-modify-write below is not interleaved by
+    /// other tabs/workers. Performs a quota check before appending; returns
+    /// a `QuotaExceededError` with actionable details if the append would
+    /// likely exceed the storage quota.
     ///
     /// ponytail: full rewrite per append (O(file) copy, atomic rename kept) —
     /// switch to a streaming WAL layout if append throughput ever matters.
     pub async fn append_file(&self, path: &str, data: &[u8]) -> Result<(), JsValue> {
+        self.with_write_lock(path, self.append_file_unlocked(path, data))
+            .await
+    }
+
+    /// `append_file` body — runs while the caller holds the per-file write
+    /// lock. Calls `write_file_unlocked` directly: re-acquiring the same
+    /// lock from this context would deadlock.
+    async fn append_file_unlocked(&self, path: &str, data: &[u8]) -> Result<(), JsValue> {
         // Pre-flight quota check (best-effort).
         let _ = self.check_quota_before_write(data.len() as u64).await;
 
@@ -397,7 +539,7 @@ impl OpfsStorage {
         buf.extend_from_slice(data);
 
         // Catch QuotaExceededError from the write and enrich with quota info.
-        match self.write_file(path, &buf).await {
+        match self.write_file_unlocked(path, &buf).await {
             Ok(()) => Ok(()),
             Err(e) if is_quota_exceeded_error(&e) => {
                 let quota_info = self.estimate_quota().await.ok();

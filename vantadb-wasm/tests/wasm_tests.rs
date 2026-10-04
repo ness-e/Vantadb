@@ -327,6 +327,245 @@ async fn test_opfs_append_concatenates_raw() {
     storage.delete_file("append_raw.bin").await.unwrap();
 }
 
+// ── WSM-15: multi-context write locking (Web Locks API) ─────────────
+//
+// OpfsStorage mutations must serialize across tabs/workers through a
+// per-file `navigator.locks` lock (`vantadb-opfs-write:<dir>:<path>`), and
+// must fail loud when the Web Locks API is unavailable instead of risking
+// silent multi-tab corruption.
+
+fn js_get_fn(obj: &JsValue, method: &str) -> Result<js_sys::Function, JsValue> {
+    js_sys::Reflect::get(obj, &method.into())?.dyn_into::<js_sys::Function>()
+}
+
+/// Add (`shadow = true`) or remove an own `navigator.locks` property that
+/// shadows the real `LockManager` with `undefined` (simulates browsers
+/// without the Web Locks API, e.g. Safari 15.2/15.3).
+fn set_navigator_locks_shadow(shadow: bool) {
+    let nav = js_sys::Reflect::get(&js_sys::global(), &"navigator".into()).unwrap();
+    let script = if shadow {
+        "Object.defineProperty(nav, 'locks', { value: undefined, configurable: true });"
+    } else {
+        "delete nav.locks;"
+    };
+    js_sys::Function::new_with_args("nav", script)
+        .call1(&JsValue::undefined(), &nav)
+        .unwrap();
+}
+
+/// A promise that rejects after `ms` (bounds worker lock acquisition).
+fn lock_holder_timeout(ms: f64) -> js_sys::Promise {
+    js_sys::Promise::new(
+        &mut |_resolve: js_sys::Function, reject: js_sys::Function| {
+            let global = js_sys::global();
+            if let Ok(set_timeout) = js_sys::Reflect::get(&global, &"setTimeout".into()) {
+                let cb = js_sys::Function::new_with_args(
+                    "reject",
+                    "reject(new Error('worker lock holder timed out'))",
+                );
+                let args = js_sys::Array::new();
+                args.push(&cb);
+                args.push(&JsValue::from_f64(ms));
+                args.push(&reject);
+                js_sys::Reflect::apply(&js_sys::Function::from(set_timeout), &global, &args).ok();
+            }
+        },
+    )
+}
+
+/// Spawn a dedicated Worker (blob URL) that acquires the Web Lock `name`,
+/// posts `granted` once the lock is held, and releases it after `hold_ms`.
+/// Resolves with the worker handle once the lock is granted; call
+/// `terminate` on the handle to clean up. Rejects after 2s without a grant.
+async fn worker_holds_lock(name: &str, hold_ms: f64) -> Result<JsValue, JsValue> {
+    let global = js_sys::global();
+    let script = format!(
+        r#"self.onmessage = function (e) {{
+    const name = e.data.name;
+    const holdMs = e.data.holdMs;
+    navigator.locks.request(name, () => new Promise((release) => {{
+        self.postMessage({{ type: "granted" }});
+        setTimeout(release, holdMs);
+    }})).catch((err) => self.postMessage({{ type: "error", message: String(err) }}));
+}};"#
+    );
+
+    // Blob([script], { type: "application/javascript" }) → URL → new Worker
+    let parts = js_sys::Array::new();
+    parts.push(&JsValue::from_str(&script));
+    let opts = js_sys::Object::new();
+    js_sys::Reflect::set(&opts, &"type".into(), &"application/javascript".into())?;
+    let blob = js_sys::Reflect::construct(
+        &js_get_fn(&global, "Blob")?,
+        &js_sys::Array::of2(&parts, &opts),
+    )?;
+    let url_obj = js_sys::Reflect::get(&global, &"URL".into())?;
+    let blob_url = js_get_fn(&url_obj, "createObjectURL")?.call1(&url_obj, &blob)?;
+    let worker = js_sys::Reflect::construct(
+        &js_get_fn(&global, "Worker")?,
+        &js_sys::Array::of1(&blob_url),
+    )?;
+
+    // Resolve once the worker reports the lock is granted.
+    let granted = js_sys::Promise::new(&mut {
+        let worker = worker.clone();
+        move |resolve: js_sys::Function, reject: js_sys::Function| {
+            js_sys::Reflect::set(&worker, &"_resolve".into(), &resolve).ok();
+            js_sys::Reflect::set(&worker, &"_reject".into(), &reject).ok();
+            let onmessage = js_sys::Function::new_with_args(
+                "e",
+                r#"const w = this;
+w.onmessage = null;
+if (e.data && e.data.type === "granted") { w._resolve(null); }
+else { w._reject(new Error("worker lock error: " + (e.data && e.data.message))); }"#,
+            );
+            js_sys::Reflect::set(&worker, &"onmessage".into(), &onmessage).ok();
+        }
+    });
+    let raced = js_sys::Promise::race(&js_sys::Array::of2(&granted, &lock_holder_timeout(2000.0)));
+
+    // Ask the worker to acquire + hold the lock.
+    let msg = js_sys::Object::new();
+    js_sys::Reflect::set(&msg, &"name".into(), &name.into())?;
+    js_sys::Reflect::set(&msg, &"holdMs".into(), &hold_ms.into())?;
+    js_get_fn(&worker, "postMessage")?.call1(&worker, &msg)?;
+
+    if let Err(e) = wasm_bindgen_futures::JsFuture::from(raced).await {
+        // Terminate the worker so a failed grant cannot leak it (or a held
+        // lock) into the rest of the suite.
+        if let Ok(terminate) = js_get_fn(&worker, "terminate") {
+            let _ = terminate.call0(&worker);
+        }
+        return Err(e);
+    }
+    Ok(worker)
+}
+
+/// A `write_file` must wait for the per-file lock held by ANOTHER context
+/// (dedicated worker, same origin) — the multi-tab corruption fix (WSM-15).
+#[wasm_bindgen_test]
+async fn test_opfs_write_waits_for_worker_lock() {
+    let dir = "vantadb_test_wsm15_lock";
+    let storage = match try_opfs(dir).await {
+        Some(s) => s,
+        None => return,
+    };
+    let path = "locked.bin";
+    let lock_name = format!("vantadb-opfs-write:{dir}:{path}");
+    const HOLD_MS: f64 = 300.0;
+
+    let worker = worker_holds_lock(&lock_name, HOLD_MS)
+        .await
+        .expect("failed to spawn lock-holding worker");
+
+    let start = js_sys::Date::now();
+    let result = storage.write_file(path, b"locked write").await;
+    let elapsed = js_sys::Date::now() - start;
+
+    // Cleanup before asserting so a failure cannot leak the worker/lock.
+    if let Ok(terminate) = js_get_fn(&worker, "terminate") {
+        let _ = terminate.call0(&worker);
+    }
+
+    result.expect("write_file failed");
+    assert!(
+        elapsed >= HOLD_MS - 50.0,
+        "write_file must wait for a lock held by another context \
+         (elapsed {elapsed:.0}ms, expected >= {HOLD_MS:.0}ms)"
+    );
+
+    let data = storage
+        .read_file(path)
+        .await
+        .unwrap()
+        .expect("file should exist after write");
+    assert_eq!(data, b"locked write");
+    storage.delete_file(path).await.ok();
+}
+
+/// Two concurrent appends (two storage handles = two logical contexts) to
+/// the same file must preserve BOTH chunks. Without a per-file lock both
+/// read the same base and the second write clobbers the first (lost update).
+#[wasm_bindgen_test]
+async fn test_opfs_concurrent_appends_preserve_all_data() {
+    let dir = "vantadb_test_wsm15_concurrent";
+    let s1 = match try_opfs(dir).await {
+        Some(s) => s,
+        None => return,
+    };
+    let s2 = match try_opfs(dir).await {
+        Some(s) => s,
+        None => return,
+    };
+    let path = "concurrent.bin";
+    s1.delete_file(path).await.ok();
+
+    let p1 = wasm_bindgen_futures::future_to_promise(async move {
+        s1.append_file(path, b"AAAA")
+            .await
+            .map(|_| JsValue::UNDEFINED)
+    });
+    let p2 = wasm_bindgen_futures::future_to_promise(async move {
+        s2.append_file(path, b"BBBB")
+            .await
+            .map(|_| JsValue::UNDEFINED)
+    });
+    let all = js_sys::Promise::all(&js_sys::Array::of2(&p1, &p2));
+    wasm_bindgen_futures::JsFuture::from(all)
+        .await
+        .expect("concurrent appends failed");
+
+    let verify = match try_opfs(dir).await {
+        Some(s) => s,
+        None => return,
+    };
+    let data = verify
+        .read_file(path)
+        .await
+        .unwrap()
+        .expect("file should exist after concurrent appends");
+    let text = String::from_utf8_lossy(&data);
+    assert!(
+        text == "AAAABBBB" || text == "BBBBAAAA",
+        "lost update: both appends must survive serialized (got {text:?})"
+    );
+    verify.delete_file(path).await.ok();
+}
+
+/// Mutations must fail loud when the Web Locks API is unavailable: without
+/// it there is no cross-context exclusion, so writing anyway risks silent
+/// multi-tab corruption (the bug WSM-15 exists to remove).
+#[wasm_bindgen_test]
+async fn test_opfs_write_fails_loud_without_web_locks() {
+    let dir = "vantadb_test_wsm15_nolocks";
+    let storage = match try_opfs(dir).await {
+        Some(s) => s,
+        None => return,
+    };
+
+    set_navigator_locks_shadow(true);
+    let result = storage.write_file("no_locks.bin", b"data").await;
+    // Restore before asserting so a failure cannot poison other tests.
+    set_navigator_locks_shadow(false);
+
+    let err = result.expect_err("write_file must fail loud when Web Locks is unavailable");
+    // Fail-loud errors are plain JS strings (same convention as the OPFS
+    // corruption errors in opfs.rs) — read them directly, fall back to
+    // `Error.message` for object-shaped errors.
+    let message = match err.as_string() {
+        Some(s) => s,
+        None => js_sys::Error::from(err)
+            .message()
+            .as_string()
+            .unwrap_or_default(),
+    };
+    assert!(
+        message.contains("Web Locks"),
+        "expected an actionable Web Locks error, got: {message}"
+    );
+    storage.delete_file("no_locks.bin").await.ok();
+}
+
 // ── In-Memory Storage Tests ──────────────────────────────────────────
 
 #[wasm_bindgen_test]
