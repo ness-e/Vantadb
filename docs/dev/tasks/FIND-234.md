@@ -1,7 +1,7 @@
 ---
 title: "TASK FIND-234: check-avance-coverage.ps1 apunta a docs/avance (inexistente) — reporte 0/237 engañoso"
 kind: task
-description: "Fix de path stale tras la migración 2026-08-23 — el script ahora lee docs/dev/avance (reporte real 1034/1034)"
+description: "Fix de path stale (ruptura real 2026-09-23, b764d703) — el script ahora lee docs/dev/avance (reporte real 1034/1034)"
 ---
 
 # TASK FIND-234: check-avance-coverage.ps1 apunta a docs/avance (inexistente)
@@ -12,8 +12,8 @@ description: "Fix de path stale tras la migración 2026-08-23 — el script ahor
 - **Fuente:** `docs/dev/Backlog.md` (FIND-234; origen PROC-04)
 - **Esfuerzo:** 🟢 1h | **Appetite:** max 1h | **Prioridad:** 🟢
 - **Tipo:** tooling/task-system (script PowerShell)
-- **Creado:** 2026-10-04T06:40Z | **last-synced:** 2026-10-04T06:45Z
-- **Estado:** ⏳ IN PROGRESS (review P2-01 pendiente)
+- **Creado:** 2026-10-04T06:40Z | **last-synced:** 2026-10-04T07:00Z
+- **Estado:** ✅ COMPLETED (review P2-01 APPROVE — `ses_efa538f07ffe7SP6Rfi9oy5FNu`)
 - **Campaign ID:** master-plan-0.9.0-20261004
 
 ## Blast Radius
@@ -30,6 +30,7 @@ description: "Fix de path stale tras la migración 2026-08-23 — el script ahor
 - **Referencias entrantes:** skill `progreso` (check de cierre); ningún workflow lo invoca.
 - **Veredicto impacto:** NULO fuera del script — única línea stale (L10); L15-17 ya usaban `docs/dev/avance`.
 - **Verificado:** `docs/dev/avance/historial/campanas` EXISTE (el guard adicional no es necesario); `docs/avance` NO existe (path roto confirmado).
+- **Corrección de narrativa (review):** la ruptura real es **2026-09-23** (`b764d703` movió `docs/avance → docs/dev/avance`; `3d143cd9`/`fffbf5a6` corrigieron `$srcDir`/`$live` pero omitieron L10). Ventana rota: 09-23 → 10-04.
 
 ## Contrato
 
@@ -38,10 +39,10 @@ description: "Fix de path stale tras la migración 2026-08-23 — el script ahor
 
 ## Steps
 
-- [x] **Step 1 — Repro "antes":** `FINAL: 0/237 (0.0%)` con el path stale `docs/avance` — ✅ (exit 0, reporte engañoso)
+- [x] **Step 1 — Repro "antes":** `FINAL: 0/237 (0.0%)` con el path stale `docs/avance` — ✅ (exit 0, reporte engañoso; reproducido por el reviewer desde el blob `HEAD~1`)
 - [x] **Step 2 — Fix:** L10 `"docs/avance"` → `"docs/dev/avance"` — ✅ (1 línea; el resto del script ya era correcto)
 - [x] **Step 3 — Verify "después":** `FINAL: 1034/1034 IDs cubiertos en dominio (100.0%)`, sin errores, exit 0 — ✅
-- [ ] **Step 4 — Review P2-01 (vanta-review fresco)** — ⏳ en curso
+- [x] **Step 4 — Review P2-01 (vanta-review fresco):** ✅ APPROVE
 
 ## Evidencia before/after
 
@@ -51,19 +52,21 @@ description: "Fix de path stale tras la migración 2026-08-23 — el script ahor
 | Errores de ruta | sí (`docs/avance` inexistente) | ninguno |
 | Exit code | 0 | 0 |
 
+**Plausibilidad validada por el reviewer:** conteo independiente `srcDir=237 · campanas=907 · union=1034 · overlap=110` (237+907−1034=110 ✓); matcher estricto también da 1034/1034; sin side-effects (solo lectura).
+
 ## Review (P2-01)
 
 | Campo | Valor |
 |-------|-------|
-| Reviewer | (pendiente — vanta-review fresco) |
-| reviewer_context | (pendiente) |
-| Verdict | (pendiente) |
+| Reviewer | vanta-review (contexto fresco) |
+| reviewer_context | `ses_efa538f07ffe7SP6Rfi9oy5FNu` |
+| Verdict | ✅ **APPROVE** — diff = solo L10; after re-ejecutado (hash worktree == blob `6a92bb4d`); before reproducido desde `HEAD~1`; adversarial sin side-effects ni rutas stale restantes |
 
 ## DoD (3 niveles)
 
 - **task:** contrato ✅ (before/after documentados)
-- **commit:** `fix(scripts):` + verify · release: n/a
+- **commit:** `35cbd2e1` — `fix(scripts):` + verify · release: n/a
 
 ## Deuda técnica (Regla 6)
 
-Ninguna introducida. Nota: el salto 237→1034 IDs confirma que el árbol canónico (`docs/dev/avance`) es la fuente real de cobertura.
+Ninguna introducida. Notas del reviewer (opcionales, fuera de scope): (1) comentarios L3/L13 aún dicen `docs/avance` (solo texto — próximo touch); (2) hardening futuro si algún día se vuelve gate: `exit 1` cuando `idProcessed < idAll` (hoy advisory por diseño).
