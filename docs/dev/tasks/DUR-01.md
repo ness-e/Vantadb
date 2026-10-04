@@ -181,7 +181,7 @@ Inventario mecánico (HEAD 2026-10-04): `fsync` = 15 líneas · `sync_all` = 7 �
   2. **Gap nuevo G12:** los archives de `try_auto_rotate` (`vanta.wal.<ts>`) nunca se replayean localmente (`init.rs:437-480` lee solo shards actuales) + contabilidad de checkpoint post-rotación inconsistente. **Registrado como FIND-G12** (§Gaps). El reviewer confirmó G2/G3 precisos y G4-G11 justificados.
 - **Spot-checks del reviewer (a favor):** G2 exacto (checkpoint SyncAll `maintenance.rs:81-90`; sin fsync `index/serialize/file.rs:25-28`; rename sin dir-fsync `port_impl.rs:167`; rebuild solo-si-vacío `init.rs:387-403`; skip replay `init.rs:442-478`); G3 exacto; caveat de memmap2 correcto (no overclaim).
 - **Nota de cobertura:** los 91 tests WAL corren en Windows, donde `sync_parent_dir` es no-op → la rama POSIX del fix no queda ejercitada localmente (sí en CI Linux).
-- **Veredicto ronda 2:** ⏳ re-review lanzada sobre el delta (fs.rs + G12) — ver §Context Save Point.
+- **Veredicto ronda 2:** ✅ **APPROVE** (`ses_ef9d6ecf3ffeBqeYnA8uyZQLWD`, contexto fresco) — dir-fsync verificado en ambos sitios de creación + fix fs.rs (parent vacío → `.`); mapa spot-checkeado (~20 citas correctas ±10); G1-G12 sin misclasificaciones; gates en worktree limpio: fmt 0 · clippy 0 · nextest wal 91/91 + snapshot 46/46; man7 fsync(2) verificado verbatim; canonical_p99: justificación estructural aceptada por el orquestador (fix fuera del path medido).
 - **Evidencia para el ACCEPT del orquestador:** diff (`git diff src/wal.rs src/utils/fs.rs` = 2 sitios + helper robusto) · gates fmt/clippy/nextest(91+46)/docs/OCR · verdict ronda 1 incorporado con ambos ítems resueltos (1 código + 1 FIND).
 
 ## RESULTADO
@@ -197,10 +197,12 @@ Inventario mecánico (HEAD 2026-10-04): `fsync` = 15 líneas · `sync_all` = 7 �
   - *"archives de auto-rotate nunca se replayean"* (FIND-G12, hallazgo del review) → `wal.rs:584-592` + `init.rs:437-480` (solo shards actuales). Confianza: alta (código) / media-alta (sin repro de crash).
 - **Regla 9 (bench):** compile gate ✅ (`cargo bench --no-run`). **Timed run no completado por presupuesto**: criterion estimó 8477.7 s (~2h21m) solo para el grupo insert (10 iteraciones × ~848 s) en esta máquina (i5-1235U) → se terminó el proceso. Justificación estructural: `canonical_p99` es **pure in-memory CPIndex** (`benches/canonical_p99.rs:11` — sin storage I/O); el fix (dir-fsync en creación de archivo) **no toca su path**, por lo que una comparación timed no puede atribuirse al cambio. Baseline registrado BENCHMARKS.md §381 (p50 2.2388 / p95 4.248 / p99 4.9987 ms) intacto. Log parcial: `target/dur01-canonical-p99.log`. Re-medición en máquina de CI si el orquestador la quiere (deuda).
 - **Invariantes:** no cambia firmas públicas ni formato on-disk; WAL sigue sincronizando por `SyncMode`; checkpoint/ERR-010 intactos; sin migración.
-- **Deuda:** (1) verdict P2-01 ronda 2 (re-review del delta) → ACCEPT del orquestador; (2) números `canonical_p99` pendientes de anexar; (3) FIND-G2/G3/G12 → filas Backlog (derivación del orquestador).
+- **Deuda:** (1) ✅ verdict ronda 2 APPROVE registrado (2026-10-04); (2) números `canonical_p99` pendientes de anexar; (3) FIND-G2/G3/G12 → filas Backlog (derivación del orquestador).
+
+**Cierre del orquestador (2026-10-04):** ✅ verdict ronda 2 APPROVE registrado · ✅ justificación estructural de `canonical_p99` **aceptada** (fix fuera del path medido; bench in-memory CPIndex — sin timed run, decisión del orquestador) · ✅ FIND-246/247/248 registrados (`bac31a3e`) · nota: citas `wal.rs` del mapa con offset pre-fix (correctas ±10 líneas per reviewer; re-anclaje opcional).
 
 ## Context Save Point
 
 - **Hecho:** mapa + clasificación (task file) · fix G1 (wal.rs) + helper robusto (fs.rs) · gates fmt/clippy/nextest(91+46)/docs/OCR · review ronda 1 `changes-required` incorporado (2/2 ítems) · Backlog row removida · avance entry (commit B) · commits locales A/B.
-- **Pendiente:** ACCEPT P2-01 del orquestador (verdict ronda 2 en background); anexar canonical_p99; registrar FIND-G2/G3/G12 en Backlog (derivación).
+- **Pendiente:** ninguno — cerrado 2026-10-04 por el orquestador (verdict ronda 2 APPROVE; canonical_p99 aceptado estructuralmente; FIND-246..248 registrados en `bac31a3e`).
 - **Próximo:** DUR-02 (auditoría AES) — F0, sin dependencia de DUR-01.
