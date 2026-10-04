@@ -12,7 +12,7 @@ description: "Canonical index of the VantaDB documentation corpus."
      Grouped by kind, then by status, then by title.
      Source of truth: the frontmatter of the files listed below. -->
 
-1509 documents. This page is generated from frontmatter, so it cannot fall behind the tree. If a document is missing here, its `kind` or `description` is missing.
+1510 documents. This page is generated from frontmatter, so it cannot fall behind the tree. If a document is missing here, its `kind` or `description` is missing.
 
 ## Top level (3)
 
@@ -66,7 +66,7 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [WASM Standalone Console (Vanta Studio — mode `wasm`)](./api/WASM_STANDALONE.md) | reference | The Vanta Studio console can run 100% in the browser with no server: the                                                                                                                                                                                   |
 | [vanta-proxy Reference (Endpoints, Opt-in Features, Config)](./api/PROXY.md)     | reference | vanta-proxy is a transparent LLM wire proxy: by default it forwards bytes                                                                                                                                                                                  |
 
-## Internal / contributor (1349)
+## Internal / contributor (1350)
 
 ### Architecture decision records — 56
 
@@ -402,7 +402,7 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [`sec-codeql.yml` — SEC: CodeQL — Analysis](./dev/workflow/sec-codeql-30.md)                                   | runbook | Ejecuta el análisis estático de seguridad CodeQL de GitHub sobre el código Rust del proyecto para detectar vulnerabilidades                                                                                                                     |
 | [Fuzzing Guide for VantaDB](./dev/operations/FUZZING.md)                                                       | runbook | VantaDB uses a dual fuzzing approach to maximize coverage and compatibility _(archived)_                                                                                                                                                        |
 
-### Task files — 1060
+### Task files — 1061
 
 | Document                                                                                                                                             | Kind | Summary                                                                                                                                                                                                                                                                                                                     |
 | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -1194,6 +1194,7 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [TASK DUR-01: Auditoría del fsync real (WAL, snapshots, GC)](./dev/tasks/DUR-01.md)                                                                  | task | Mapa path→fsync real de WAL/rotación/snapshots/GC con gaps clasificados (fix/FIND/OK) y 1 gap resuelto con evidencia (dir-fsync al crear WAL, POSIX)                                                                                                                                                                        |
 | [TASK DUR-02: Auditoría cobertura AES (encryption) — WAL / text_index / HNSW / edge_index / snapshots](./dev/tasks/DUR-02.md)                        | task | Mapa artefacto→cifrado con evidencia de código + probe tmpdir: ningún artefacto on-disk aplica AES-256-GCM (feature sin cablear); fix pequeño aplicado (encryption_stream ignoraba self.cipher) + FIND-249                                                                                                                  |
 | [TASK DUR-03: H-023 — put sobre key expirada-sin-purgar (Node ID collision)](./dev/tasks/DUR-03.md)                                                  | task | Fix: put/put_batch/put_record_exact sobre una key expirada-sin-purgar purga la entrada física (purge-on-write) y escribe fresco — fin del NodeIdCollision; regresión expirado→put→ok + race con sweeper cubiertos                                                                                                           |
+| [TASK ENC-01: Cifrado honesto: aviso al activar + docs (FIND-249 parte 1)](./dev/tasks/ENC-01.md)                                                    | task | Warning accionable al activar la feature `encryption` + `VANTADB_ENCRYPTION_KEY` (0/6 artefactos on-disk cifrados, DUR-02) + docs sin ambigüedad + test que fija el aviso. Cableado completo: FIND-249                                                                                                                      |
 | [TASK ERR-TS-01: Unificar TS/WASM codes VANTADB_* + wrapNativeError + guards VantaError](./dev/tasks/ERR-TS-01.md)                                   | task | Verificados en fuente                                                                                                                                                                                                                                                                                                       |
 | [TASK FIND-035: Fix lint cascade clippy (routing.rs unused imports + config.rs assertions_on_constants)](./dev/tasks/FIND-035.md)                    | task | cargo clippy -p vantadb --all-targets --all-features -- -D warnings exit 0 AND cargo check -p vantadb exit 0 (stretch: cargo clippy --workspace --all-targets --all-features -- -D warnings exit 0 cuando FIND-036 también verde)                                                                                           |
 | [TASK FIND-225: Triage de las 48 alertas CodeQL (6 critical + 42 high)](./dev/tasks/FIND-225.md)                                                     | task | Dismiss justificado de 48 alertas code-scanning (6 critical salt fixtures + 34 cleartext-logging en tests + 8 docs tooling) - contrato: open=0                                                                                                                                                                              |

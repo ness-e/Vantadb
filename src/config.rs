@@ -855,9 +855,11 @@ pub struct Config {
     pub rbac_config: RbacConfig,
     /// Optional AES-256-GCM encryption key (hex-encoded 32-byte value).
     ///
-    /// When set, storage files are transparently encrypted at rest using this
-    /// key. Requires the `encryption` feature. Configured via
-    /// `VANTADB_ENCRYPTION_KEY` environment variable.
+    /// Requires the `encryption` feature. Configured via
+    /// `VANTADB_ENCRYPTION_KEY`. **Not yet applied to any storage write
+    /// path:** WAL, HNSW, VantaFile, backend KV, text index and snapshots
+    /// remain plaintext (FIND-249); the engine warns at open when the feature
+    /// and key are both active.
     pub encryption_key: Option<String>,
     /// Number of WAL shards for reduced mutex contention (default: 4).
     /// Each shard has its own append lock; workloads hash node IDs across shards.
@@ -1657,7 +1659,9 @@ impl Config {
     /// Sets the encryption key for at-rest AES-256-GCM encryption.
     ///
     /// The key should be a hex-encoded 32-byte (64 hex char) value.
-    /// Requires the `encryption` feature to have any effect.
+    /// Requires the `encryption` feature. Note: the feature ships AES-256-GCM
+    /// primitives but no storage write path is wired yet — data at rest stays
+    /// plaintext (FIND-249) and the engine warns at open.
     pub fn with_encryption(mut self, key: String) -> Self {
         self.encryption_key = Some(key);
         self
