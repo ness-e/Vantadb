@@ -13,7 +13,7 @@ description: "Decisión implementada: A/B same-job opt-in (workflow_dispatch ab_
 - **Esfuerzo:** 🟡 4-6h | **Appetite:** 1d
 - **Prioridad:** 🟠
 - **Tipo:** CI/CD + instrumentación de performance (blast radius CI/dev-tools — sin cambios de motor)
-- **Creado:** 2026-10-04T07:00Z | **last-synced:** 2026-10-04T07:00Z
+- **Creado:** 2026-10-04T07:00Z | **last-synced:** 2026-10-04T07:15Z
 - **Estado:** ⏳ IN PROGRESS (tramo local ✅ — pendiente: review P2-01 + ACCEPT + verificación post-push; orquestador)
 - **Incógnitas (uphill):** 0 — resueltas en Discovery (opción elegida con costo medido; ver §Decisión)
 - **Pendientes (downhill):** 1 (Step 7 post-push diferido; Steps 1-6 ✅)
@@ -232,3 +232,17 @@ Las bandas actuales (stable warn>25%/block>200%; µs 300%+0.5ms; insert.p99 100m
 - Si el review detecta que el A/B no puede calibrarse en el tramo local (no hay CI disponible), se documenta como deuda con trigger post-push (no bloquea el commit local).
 - **Artefactos de evidencia (no versionados):** `$TEMP\opencode\find233\ab_fixture_check.py` (5/5), `$TEMP\opencode\find233\ocr_spec.json` + `ocr_rules.txt` (spec OCR), salidas de `gh run view --json jobs/--log` transcriptas en §Diagnóstico.
 - **Nota de concurrencia:** durante la ejecución otros workers commitearon FIND-234/235/236/237/238/239 en el mismo árbol (el índice quedó stale por `FIND-236.md` — regenerado en este commit). `docs/dev/plans/2026-10-04-master-plan-0.9.0.md` y `opencode.jsonc` quedan sin stage (ajenos).
+
+## RESULTADO §7 (contrato de retorno — pipeline-full)
+
+```
+RESULTADO: ✅ COMPLETO
+STEPS_OK: 6/7 (Step 7 = verificación post-push, diferida por instrucción del owner)
+PROXIMO_STEP: Step 7 — post-push (orquestador/owner): (a) `gh run list --workflow=perf-bench.yml --limit 3 --json databaseId,conclusion,headSha` → ≥2 `success` consecutivos; (b) primer dispatch A/B de calibración `gh workflow run perf-bench.yml --ref develop -f ab_ref=$(git rev-parse HEAD)` + `gh run watch <id> --exit-status`; (c) ajustar bandas A/B con el noise floor medido. + review P2-01/ACCEPT (vanta-review).
+COMMIT_HASH: 11ab6c3c
+ARCHIVOS: benchmarks/compare_baseline.py · .github/workflows/perf-bench.yml · docs/user/operations/BENCHMARKS.md · benchmarks/README.md · docs/dev/workflow/perf-bench-40.md · SPEC.md · docs/index.md · llms.txt · docs/dev/tasks/FIND-233.md
+VERIFY_CONTRATO: pasa (tramo local: decisión implementada + self-test 15/15 + fixtures 5/5 + actionlint 0 + docs gates 0 + verify_changed ALL PASS; tramo post-push diferido con comandos documentados)
+BLOQUEO: ninguno (push diferido al final del plan por instrucción del owner — NO se pusheó)
+GATES_EVALUADOS: P:no D:no V:no C:no | contrato del plan explícito; sin ambigüedad residual; verify sin fallas; sin colaterales fuera de scope
+SKILLS_CARGADAS: ci-cd-and-automation · performance-optimization · git-workflow-and-versioning (pinned SDP v3) · doubt-driven-development · documentation-skill · test-driven-development · incremental-implementation (+ campaign-executor/progreso base)
+```
