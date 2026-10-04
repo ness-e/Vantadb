@@ -14,10 +14,10 @@ description: "Fix: put/put_batch/put_record_exact sobre una key expirada-sin-pur
 - **Prioridad:** 🟠
 - **Tipo:** Rust core (write path de `src/sdk/api/memory.rs` + lógica de expiración/purge)
 - **Turns estimados:** 15-25
-- **Creado:** 2026-10-04T07:36Z | **last-synced:** 2026-10-04T10:20Z
-- **Estado:** ⏳ IN PROGRESS
+- **Creado:** 2026-10-04T07:36Z | **last-synced:** 2026-10-04T10:35Z
+- **Estado:** ✅ COMPLETED
 - **Incógnitas (uphill):** 0 — resueltas en Discovery (causa raíz localizada por código + semántica decidida con evidencia; ver §Decisión y §Fase 1)
-- **Pendientes (downhill):** 1 step (Steps 1-4 ✅; Step 5: re-review ronda 2 + commit)
+- **Pendientes (downhill):** 0 (Steps 1-5 ✅)
 - **Campaign ID:** master-plan-0.9.0-20261004
 
 ## Blast Radius
@@ -176,7 +176,8 @@ description: "Fix: put/put_batch/put_record_exact sobre una key expirada-sin-pur
 - **Archivos:** `docs/dev/tasks/DUR-03.md`
 - **Acción:** review adversarial por agente distinto (tier **Adversarial**: `src/sdk/**` — fork a `vanta-review`); registrar veredicto en §Review; commit **LOCAL** `fix(engine): DUR-03 — ...` solo con archivos propios (nunca push).
 - **Verify:** `git show --stat HEAD` limitado a archivos propios; veredicto en §Review
-- **Estado:** ⬜ PENDING
+- **Evidencia:** ✅ Review adversarial `vanta-review` en contexto fresco (`ses_efa031798ffesZHUdsGIpjy4k1`): ronda 1 changes-required (1 High, 2 Medium, 6 Low) → corregidos/documentados/filed; ronda 2 **approve**. Commit local `4cc1402d` (5 archivos: memory.rs, builder.rs, edge_cases.rs, DUR-03.md, Backlog.md), pre-commit hook verde (fmt/clippy/actionlint). Sin push (instrucción del owner).
+- **Estado:** ✅ COMPLETED
 
 ## Dependencias
 
@@ -216,5 +217,13 @@ description: "Fix: put/put_batch/put_record_exact sobre una key expirada-sin-pur
 ## RESULTADO §7 (contrato de retorno — pipeline-full)
 
 ```
-RESULTADO: ⬜ (se completa al cierre)
+RESULTADO: ✅ COMPLETO
+STEPS_OK: 5/5
+PROXIMO_STEP: ninguno (nextTask del plan: DUR-01 — ya en curso por otro worker)
+COMMIT_HASH: 4cc1402d
+ARCHIVOS: src/sdk/api/memory.rs · src/sdk/builder.rs · tests/edge_cases.rs · docs/dev/tasks/DUR-03.md · docs/dev/Backlog.md
+VERIFY_CONTRATO: pasa (expirado→put→ok + variante put_batch + race vs sweeper + foreign-node; suite -p vantadb 2549/2549 en shared y rerun aislado target/dur03; fmt/clippy 0)
+BLOQUEO: ninguno (push diferido al final del plan por instrucción del owner — NO se pusheó)
+GATES_EVALUADOS: P:no D:no V:no C:no | contrato del plan explícito; semántica delegada resuelta por evidencia (sin símbolos públicos nuevos); verify sin fallas; hallazgos fuera de scope → FIND-244/245/250/251/252
+SKILLS_CARGADAS: systematic-debugging · rust-write-tests · test-driven-development · incremental-implementation · context-engineering · source-driven-development · doubt-driven-development · deprecation-and-migration · documentation-skill (+ campaign-executor/progreso/ponytail base auto)
 ```
