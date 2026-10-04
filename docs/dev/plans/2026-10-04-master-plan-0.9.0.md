@@ -16,10 +16,10 @@ description: "SDP v3 (taskType mixto): campaign-executor · progreso · planning
 
 | Resultado | Count |
 |-----------|-------|
-| ✅ DO | 71 |
+| ✅ DO | 72 |
 | 🟡 DEFER | 3 |
 | ❌ SKIP | 1 |
-| 🔴 BLOQUEADO | 1 |
+| 🔴 BLOQUEADO | 0 |
 
 Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; approach de locks WSM-15; alcance de exposición DIST-02/03; hallazgos de las auditorías DUR-01/02) · ⬇️ downhill = ~250 steps pendientes (F0: 21 tareas full-detail · F1-F5: listas compactas que se profundizan al nivel F0 al iniciar cada fase — regla del master-roadmap 2026-09-26).
 
@@ -66,7 +66,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato + tests · commit = `fix(cli):` + verify · release = entrada de changelog.
 - **Validación Appetite vs Effort:** 1d ≥ 2h ✓
 - **Skills sugeridas:** campaign-executor · source-driven-development · test-driven-development · git-workflow-and-versioning
-- **Estado:** ⏳ EN PROGRESO
+- **Estado:** ✅ COMPLETED
 - **Task file:** `docs/dev/tasks/FIND-237.md`
 
 ### Task 2: FIND-238 — WASM/npm: silenciar logs DEBUG de `Client.create()` (`tracing-wasm` default-on sin filtro)
@@ -94,7 +94,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato + smoke · commit = `fix(wasm):` · release = changelog.
 - **Validación Appetite vs Effort:** 1d ≥ 3h ✓
 - **Skills sugeridas:** campaign-executor · source-driven-development · ci-cd-and-automation · documentation-skill
-- **Estado:** ⏳ EN PROGRESO
+- **Estado:** ✅ COMPLETED
 - **Task file:** `docs/dev/tasks/FIND-238.md`
 
 ### Task 3: FIND-239 — Docs DX: encoding Windows + puente de formatos de import + ejemplo `get_node` + caveats WASM
@@ -122,7 +122,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato + gates · commit = `docs:` · release = n/a.
 - **Validación Appetite vs Effort:** 1d ≥ 4h ✓
 - **Skills sugeridas:** documentation-skill · writing-guidelines · documentation-and-adrs · campaign-executor
-- **Estado:** ⏳ EN PROGRESO
+- **Estado:** ✅ COMPLETED
 - **Task file:** `docs/dev/tasks/FIND-239.md`
 
 ### Task 4: FIND-233 — perf-bench: instrumento cross-VM (A/B same-job o calibración)
@@ -150,7 +150,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato + runs verdes · commit = `perf(ci):` · release = n/a.
 - **Validación Appetite vs Effort:** 1d ≥ 6h ✓
 - **Skills sugeridas:** performance-optimization · ci-cd-and-automation · doubt-driven-development · campaign-executor
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Task file:** `docs/dev/tasks/FIND-233.md`
 
 ### Task 5: FIND-234 — `check-avance-coverage.ps1` apunta a `docs/avance` inexistente
@@ -172,7 +172,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato · commit = `fix(scripts):` · release = n/a.
 - **Validación Appetite vs Effort:** 1h ≥ 1h ✓
 - **Skills sugeridas:** campaign-executor · progreso
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Task file:** `docs/dev/tasks/FIND-234.md`
 
 ### Task 6: FIND-235 — `docs/dev/workflow/ci-rust-10.md` stale (13 jobs vs 20; coverage 59% vs ~80%)
@@ -194,7 +194,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato · commit = `docs(ci):` · release = n/a.
 - **Validación Appetite vs Effort:** 1h ≥ 30min ✓
 - **Skills sugeridas:** documentation-skill · ci-cd-and-automation
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Task file:** `docs/dev/tasks/FIND-235.md`
 
 ### Task 7: FIND-236 — Job ASan: excluir `sift1m_competitive_benchmark` (guard release-only en debug)
@@ -216,7 +216,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato + actionlint · commit = `ci:` · release = n/a.
 - **Validación Appetite vs Effort:** 1h ≥ 1h ✓
 - **Skills sugeridas:** ci-cd-and-automation · campaign-executor
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Task file:** `docs/dev/tasks/FIND-236.md`
 
 ### Task 8: DX-01 — TS WASM: `get` revienta en Node 26 (bloquea la demo TS)
@@ -244,7 +244,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato · commit = `fix(wasm):` · release = entrada de changelog (bugfix público).
 - **Validación Appetite vs Effort:** 3d ≥ 2d ✓
 - **Skills sugeridas:** systematic-debugging · source-driven-development · rust-write-tests · ci-cd-and-automation · campaign-executor
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Task file:** `docs/dev/tasks/DX-01.md`
 
 ### Task 9: WSM-15 — OPFS multi-pestaña: lock (hoy = corrupción silenciosa)
@@ -272,7 +272,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato · commit = `fix(wasm):` · release = changelog.
 - **Validación Appetite vs Effort:** 3d ≥ 2d ✓
 - **Skills sugeridas:** systematic-debugging · source-driven-development · rust-write-tests · campaign-executor
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Task file:** `docs/dev/tasks/WSM-15.md`
 
 ### Task 10: DUR-03 — H-023: `put` sobre key expirada-sin-purgar muere con "Node ID collision"
@@ -300,7 +300,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato + test · commit = `fix(engine):` · release = changelog (bugfix público).
 - **Validación Appetite vs Effort:** 2d ≥ 2d ✓
 - **Skills sugeridas:** systematic-debugging · rust-write-tests · source-driven-development · doubt-driven-development · campaign-executor
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Task file:** `docs/dev/tasks/DUR-03.md`
 
 ### Task 11: DUR-01 — Auditoría del fsync real (WAL, snapshots, GC)
@@ -328,7 +328,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato · commit = `docs:`/`fix:` según hallazgo · release = n/a.
 - **Validación Appetite vs Effort:** 2d ≥ 2d ✓
 - **Skills sugeridas:** systematic-debugging · performance-optimization · source-driven-development · campaign-executor
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Task file:** `docs/dev/tasks/DUR-01.md`
 
 ### Task 12: DUR-02 — Auditoría cobertura AES (`encryption`): WAL / text_index / HNSW / edge_index
@@ -356,7 +356,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato · commit = `docs:`/`fix:` · release = n/a.
 - **Validación Appetite vs Effort:** 2d ≥ 2d ✓
 - **Skills sugeridas:** security-and-hardening · systematic-debugging · source-driven-development · campaign-executor
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Task file:** `docs/dev/tasks/DUR-02.md`
 
 ### Task 13: BENCH-01 — `competitive_bench`: fix del doble-conteo (mide mal lo que dice medir)
@@ -378,7 +378,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato · commit = `fix(bench):` · release = n/a.
 - **Validación Appetite vs Effort:** 1d ≥ 3h ✓
 - **Skills sugeridas:** performance-optimization · systematic-debugging · campaign-executor
-- **Estado:** ⬜ PENDING
+- **Estado:** ⏳ EN PROGRESO
 - **Task file:** `docs/dev/tasks/BENCH-01.md`
 
 ### Task 14: DIST-01 — Publicar `vanta-memory` (quitar `publish = false`)
@@ -406,7 +406,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato · commit = `feat(release):` · release = publicado en 0.9.0.
 - **Validación Appetite vs Effort:** 1d ≥ 4h ✓
 - **Skills sugeridas:** ci-cd-and-automation · shipping-and-launch · git-workflow-and-versioning · source-driven-development · campaign-executor
-- **Estado:** ⬜ PENDING
+- **Estado:** ⏳ EN PROGRESO
 - **Task file:** `docs/dev/tasks/DIST-01.md`
 
 ### Task 15: DIST-02 — Exponer la capa cognitiva en Python (`memory_recall`/`memory_capture`)
@@ -594,11 +594,40 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **Estado:** ⬜ PENDING
 - **Task file:** `docs/dev/tasks/DOCS-F2.md`
 
+### Task 72: ENC-01 — Cifrado honesto: aviso al activar + docs (FIND-249 parte 1)
+
+- **Appetite:** max 1d
+- **Esfuerzo:** 🟢 2-4h
+- **Prioridad:** 🟠
+- **Archivos clave:** `src/config.rs` (feature `encryption`), `src/crypto.rs` / punto de activación, `docs/user/operations/CONFIGURATION.md`, `docs/dev/architecture/FEATURES.md`
+- **Verificación real:** ✅ CÓDIGO-REAL — DUR-02 (2026-10-04): **0/6 artefactos cifrados** con la feature activa (WAL/HNSW/VantaFile/backend-KV/text_index/snapshots en plaintext); primitivas AES-256-GCM funcionan pero ningún write path las usa (`with_cipher` 0 callers). Decisión owner 2026-10-04: **avisar ahora, cablear luego**.
+- **Gate Justificación:** la opción `encryption` promete una protección que no cumple (falsa sensación de seguridad); ~1d para ser honestos ahora; el cableado completo (FIND-249, 3-5d) queda diferido por decisión del owner.
+- **Gate Result:** ✅ DO
+- **Contrato:** al activar `encryption` (feature + `VANTADB_ENCRYPTION_KEY`), el sistema emite un **warning explícito y accionable** de que el cifrado aún no protege artefactos on-disk + `CONFIGURATION.md` y `FEATURES.md` lo dicen sin ambigüedad (referencia a FIND-249) + test que fija el aviso.
+- **Pre-mortem:** (1) romper builds con la feature on → gate scoped + `--features encryption` en verify; (2) warning ruidoso en tests → emitir una vez / gating por entorno; (3) wording ambiguo → texto explícito "NOT encrypted at rest".
+- **Stop conditions:** si el aviso requiere cambiar semántica pública → Gate D (question al owner) antes de codear.
+- **Risk Register:**
+
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟢 | Aviso no visible donde importa | Emitir en el punto de activación + doc | DISCOVERY |
+  | 🟢×🟡 | Wording que sugiera protección parcial | Texto explícito "not encrypted at rest" | review |
+
+- **Cynefin:** 🟦 obvio
+- **Top 3 riesgos:** (1) visibilidad del aviso; (2) wording; (3) scope creep al cableado (eso es FIND-249).
+- **Uphill/Downhill:** ⬇️ (2 steps: aviso + docs/test)
+- **DoD:** task = contrato (aviso + docs + test) · commit = `fix(security):`/`docs:` · release = changelog (nota de transparencia).
+- **Validación Appetite vs Effort:** 1d ≥ 4h ✓
+- **Skills sugeridas:** security-and-hardening · documentation-skill · rust-write-tests
+- **Estado:** ⬜ PENDING
+- **Task file:** `docs/dev/tasks/ENC-01.md` (crear en DISCOVERY)
+- **Origen:** decisión owner 2026-10-04 (question) + FIND-249 (DUR-02). El cableado completo queda en FIND-249 (Backlog, diferido).
+
 ### Checkpoint F0 → Release 0.9.0
 
-- [ ] 21/21 tasks F0 ✅ (verify mecánico + review P2-01 por tarea)
+- [ ] 22/22 tasks F0 (21 + ENC-01 addendum) ✅ (verify mecánico + review P2-01 por tarea)
 - [ ] `just verify` + `/audit certify` verdes en develop
-- [ ] **Release 0.9.0**: decisión #238 (plan-adjust del hold) + curación del changelog + Release PR mergeado por el owner + verificación post-release (Task 18) — semver esperado: **minor** (features DIST-01/02/03 + fixes)
+- [ ] **Release 0.9.0**: **diferido por decisión owner (2026-10-04, post-fases)** — changelog 0.8.0 limpiado ✅ + Release PR cuando se retome + verificación post-release (Task 18) — semver esperado: **minor** (features DIST-01/02/03 + fixes)
 - [ ] Registro: filas del Backlog migradas a avance (skill progreso)
 
 ## F1 — Distribución (post-0.9.0)
@@ -1112,7 +1141,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 
 | ID | Bloqueante |
 |----|-----------|
-| **#238** (`chore(vantadb): release v0.9.0`) | **Decisión del owner** (cuándo el próximo release) + curación del changelog (duplicación por el squash de 0.8.0). Desbloquea el **Checkpoint F0**. |
+| ~~**#238**~~ ✅ | **Resuelto 2026-10-04 (decisión owner):** release **diferido** (post-fases) + changelog 0.8.0 limpiado. **Checkpoint F0 destrabado**. |
 
 > **Nota:** MKT-20 (adapters PyPI) ya NO está bloqueado — se movió al cierre del plan como **F6 / Task 71** (owner-assisted), con checklist ejecutable.
 
@@ -1120,12 +1149,12 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 
 - **Fuente y contexto:** creado 2026-10-04 a partir de: DELTA 2026-09-30 (fuente designada del próximo plan), Alta 2026-10-01, hallazgos FIND-233..239 (run post-release 0.8.0 + validación externa v0.8.0), y el cierre del plan `2026-09-28-docs-consolidation.md` (F1/F2 absorbidas como Tasks 20/21). F6 (adapters) agregado por instrucción owner 2026-10-04.
 - **Push:** ⛔ **solo al FINAL del plan** (instrucción owner 2026-10-04): todos los commits de la campaña se acumulan **locales**; el push —y el tag `adapters-v*` de F6— se ejecutan una sola vez al cierre autorizado.
-- **Profundización por fase:** F0 full-detail (21) · F1 medium (15) · F2-F5 compactas (34) · F6 owner-assisted (1) — al iniciar cada fase se expanden al nivel F0 **antes** de ejecutar (regla del master-roadmap 2026-09-26, gate de fase explícito).
+- **Profundización por fase:** F0 full-detail (21+ENC-01) · F1 medium (15) · F2-F5 compactas (34) · F6 owner-assisted (1) — al iniciar cada fase se expanden al nivel F0 **antes** de ejecutar (regla del master-roadmap 2026-09-26, gate de fase explícito).
 - **Dependencias internas:** Task 17 (DIST-04) → depende de 14/15/16 (DIST-01/02/03) · Task 47 (WIRE-16) → depende de 45/46 (WIRE-14/15) · Task 58 (MEMG-16) → consume 56/57 (MEMG-04/05) · Task 21 (DOCS-F2) → independiente · Checkpoint F0 → depende de #238 · Task 71 (F6) → al final del plan.
 - **OCR gate:** toda tarea ✅ DO cierra con OCR delegation review (pipeline-full.md §Cierre paso 5); veredicto registrado en el task file.
 - **plan-adjust:** registrar acá cualquier cambio de gate/re-estimación con el template de `plan.md` §"Evento plan adjust".
 - **SDP:** `campaign_discover_skills_v2` phase=PLAN (2026-10-04) → ver §SDP. Cada sub-agente corre su propio SDP en BUILD (≤10 skills) + los MCPs (codegraph, codebase-memory-mcp, campaign).
-- **Estado inicial:** 71 tareas ⬜ PENDING · 0 completed · 0 failed.
+- **Estado inicial:** 72 tareas ⬜ PENDING (71 + ENC-01 addendum owner 2026-10-04) · 0 completed · 0 failed.
 
 === RECITATION ===
 Campaign ID: master-plan-0.9.0-20261004
@@ -1141,10 +1170,163 @@ Próxima tarea si completa: F0 completa → Checkpoint release 0.9.0
 === RECITATION FIND-237 ===
 Campaign ID: master-plan-0.9.0-20261004
 Objetivo activo: CLI migrate: aceptar el global --db como fallback del target posicional (FIND-237, F0 Task 1)
-Estado: in-progress
-Última acción: DISCOVERY completo: task file creado (blast radius + Regla 0 + repro/hipótesis + steps). SDP BUILD cargado (6 skills).
-Resultado: PARTIAL
-Próxima acción: Step 1 RED: tests unit (parse fallback/precedencia/help) en src/cli.rs + tests binario en tests/cli_tests.rs; luego nextest enfocado para evidencia RED.
-Contrato: verificacion: pendiente — cargo nextest run --profile audit -p vantadb --lib migrate + --test cli_tests migrate_check (aún no corrido); evidencia: task file docs/dev/tasks/FIND-237.md; invariantes: positional sigue ganando y handlers conservan firma &str; deuda: ninguna; queda_pendiente: ninguno
+Estado: completed
+Última acción: Steps 1-4 ✅: RED (compile-fail + repro EXIT=2) → GREEN (target Option<String> + fallback en dispatch + after_help) → VERIFY (lib migrate 11/11 · cli::tests 5/5 · E2E 3/3 · cli_tests 94/94 · fmt/clippy exit 0 · campaign_verify_cmd passed) → OCR sin Critical/High → review P2-01 ronda 2 APPROVE → commit local ba9f38c4.
+Resultado: OK
+Próxima acción: ninguno — tarea cerrada. Siguiente del plan F0: FIND-238 (WASM logs DEBUG).
+Contrato: verificacion: `cargo nextest run --profile audit -p vantadb --lib migrate` → 11/11 ✅ · `cargo nextest run --profile audit -p vantadb --test cli_tests --ignore-default-filter migrate_check` → 3/3 ✅ (local con --target-dir target/find237 por lock del exe; en CI corre tal cual). evidencia: claim: `migrate check --db X` exit 0 (fallback) → binario directo FALLBACK_EXIT=0 + E2E con binario real. claim: positional gana → POSITIONAL_EXIT=0 + E2E discriminante (--db a path inexistente). claim: help con ejemplo → `migrate --help` muestra 'vanta-cli migrate check --db ./my-db # global --db fallback'. claim: tests verdes → 11/11 + 5/5 + 3/3 + 94/94. artefactos: docs/dev/tasks/FIND-237.md, target/find237-ocr.json. invariantes: positional-first preservado (scripts existentes); handlers cmd_migrate* conservan firma &str; sin cambios de persistencia/formatos. deuda: ninguna. queda_pendiente: ninguno.
 Próxima tarea si completa: FIND-238
+=== END RECITATION ===
+
+=== RECITATION FIND-239 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: FIND-239 — Docs DX post-validación v0.8.0 (encoding + formatos + get_node + caveats)
+Estado: completed
+Última acción: 4 gaps (a-d) cerrados en 3 archivos + FIND-240 derivado (hint magic); review fresco APPROVE con evidencia re-ejecutada (puente vs core/spec, shape vs test real, caveats vs portability tests)
+Resultado: COMPLETED
+Próxima acción: FIND-234 (claim) / procesar FIND-237 (commit ba9f38c4 ya en HEAD)
+Contrato: check-links exit 0 + check-docs exit 0; (a-d) verificados 1:1 contra código por el reviewer
+Próxima tarea si completa: FIND-234
+=== END RECITATION ===
+
+=== RECITATION FIND-238 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: FIND-238 — WASM/npm: silenciar logs DEBUG de Client.create() (tracing-wasm default-on sin filtro)
+Estado: completed
+Última acción: Steps 1-4 ✅: RED smoke (1f/1p con 40+ líneas DEBUG) → fix init() a WARN + gate globalThis.VANTADB_LOG + feature explícita → GREEN 2/2; verify: npm test 334/334, tsc/eslint 0, check wasm32 + --no-default-features ✅, wasm-pack build --release ✅, docs-coverage 0 gaps, fmt crate 0; OCR 0 findings; review vanta-review ✅ approve (Low solo proceso); commits locales 805a7668 (fix) + 7e093a2c (docs cierre).
+Resultado: OK
+Próxima acción: ninguno — tarea cerrada. nextTask: FIND-239.
+Contrato: verificacion: `cd vantadb-ts && npx vitest run src/__tests__/find238.test.ts` ✅ 2/2 (vía campaign_verify_cmd) · `cd vantadb-ts && npm test` ✅ 334/334 · `cargo check -p vantadb-wasm --target wasm32-unknown-unknown` ✅ · `cargo fmt -p vantadb-wasm --check` ✅ · `wasm-pack build --release` ✅ (3m26s) · `scripts/validate-docs-coverage.ps1` ✅ 0 gaps · pre-commit hook (fmt+clippy+actionlint) ✅
+evidencia:
+  - claim: Client.create() no emite DEBUG por defecto (nivel WARN)
+    evidencia: test find238.test.ts (a) + RED pre-fix con 40+ líneas `DEBUG src\config.rs:*` capturadas
+    confianza: alta
+  - claim: gate globalThis.VANTADB_LOG re-activa los DEBUG y cae a WARN con valores inválidos
+    evidencia: test (b) + probes del reviewer (123/bogus → WARN, sin crash)
+    confianza: alta
+  - claim: API del crate es set_as_global_default_with_config + WASMLayerConfigBuilder::set_max_level (no `_with_level`)
+    evidencia: tracing-wasm-0.2.1/src/lib.rs:265-268,416 (fuente local del crate) + docs.rs
+    confianza: alta
+artefactos: docs/dev/tasks/FIND-238.md · vantadb-ts/src/__tests__/find238.test.ts · vantadb-wasm/{Cargo.toml,src/lib.rs,README.md} · Cargo.lock
+invariantes: superficie pública del binding intacta (sin cambio funcional); --no-default-features compila; VANTADB_OPENAI_API_KEY nunca logueada por valor; gate leído una vez (one-shot).
+deuda: ninguna.
+queda_pendiente: (a) limpieza de la fila FIND-238 en docs/dev/Backlog.md (progreso); (b) hallazgo colateral pre-existente: clippy wasm32 `src/index/serialize/file.rs:146` drop_non_drop (core, no gateado) — decisión del orquestador; (c) vantadb-ts/README.md quedó en commit ajeno 2ef38561 (barrido FIND-239) — sin acción.
+Próxima tarea si completa: FIND-239
+=== END RECITATION ===
+
+=== RECITATION FIND-233 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: FIND-233 — perf-bench: A/B same-job opt-in (ab_ref) para señal fina cross-VM
+Estado: completed
+Última acción: Implementación verificada (pares alternados + mediana de ratios; self-test 15/15; push intacto verificado vs docs GHA); review fresco APPROVE (tramo local); Step 7 (≥2 runs verdes + calibración same-SHA) DIFERIDO REGISTRADO al batch post-push
+Resultado: COMPLETED
+Próxima acción: DUR-03 (claim) — DX-01 y WSM-15 en vuelo
+Contrato: tramo local completo (decisión implementada + self-test + actionlint + docs gates 0); tramo post-push diferido al cierre (comandos en task file)
+Próxima tarea si completa: DUR-03
+=== END RECITATION ===
+
+=== RECITATION FIND-235 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: FIND-235 — ci-rust-10.md al día (21 jobs, coverage >=80%)
+Estado: completed
+Última acción: Contrato verificado con doble método (21 jobs, timeouts/paths/scopes 1:1) + gates re-ejecutados 0; review fresco APPROVE; derivadas: doc-drift por FIND-236 (fix en curso) + fila index de FIND-233 (se resuelve al commitear FIND-233)
+Resultado: COMPLETED
+Próxima acción: WSM-15 (claim) — FIND-233 y DX-01 en vuelo
+Contrato: conteo 21 re-derivable + check-links/check-docs/gen-index exit 0
+Próxima tarea si completa: WSM-15
+=== END RECITATION ===
+
+=== RECITATION FIND-234 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: FIND-234 — check-avance-coverage.ps1 lee docs/dev/avance
+Estado: completed
+Última acción: Fix de 1 línea (L10) verificado: 0/237 (0.0%) → 1034/1034 (100.0%); review fresco APPROVE con repro del antes desde HEAD~1
+Resultado: COMPLETED
+Próxima acción: FIND-236 (claim) / procesar FIND-233 y FIND-235 en vuelo
+Contrato: script corre sin errores + reporte real 1034/1034 + exit 0
+Próxima tarea si completa: FIND-236
+=== END RECITATION ===
+
+=== RECITATION FIND-236 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: FIND-236 — Job ASan excluye sift1m_competitive_benchmark (guard release-only)
+Estado: completed
+Última acción: Fix verificado (diff exacto + actionlint 0 + sintaxis --skip probada); review fresco APPROVE; Step 5 (run post-push) DIFERIDO REGISTRADO al batch de verificacion final
+Resultado: COMPLETED
+Próxima acción: DX-01 + WSM-15 (claim) — pendientes FIND-235 review y FIND-233 en vuelo
+Contrato: skip explícito en el job + actionlint 0; verificación del run post-push diferida al cierre (registrada)
+Próxima tarea si completa: DX-01
+=== END RECITATION ===
+
+=== RECITATION WSM-15 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: WSM-15 — OPFS multi-pestaña: lock per-archivo vía Web Locks API + fail-loud sin locks; repro multi-contexto browser sin corrupción; sin regresión single-tab
+Estado: completed
+Última acción: COMPLETADO. Fix: OpfsStorage::{write_file,append_file,delete_file} bajo lock per-archivo 'vantadb-opfs-write:<dir>:<path>' (inline_js hold-promise espejo idb.rs + WebLockGuard RAII) con fail-loud si Web Locks no está; 3 tests browser multi-contexto (página+worker real) RED→GREEN; suite 72/72 y 77/77 --features opfs; READMEs + FIND-242 + índice regenerado; review P2-01 vanta-review APPROVE (verificación independiente en worktree aislado); commits LOCALES 265abe6a (fix, hook verde) + 92055d2a (RESULTADO con hash).
+Resultado: OK
+Próxima acción: Orquestador: skill progreso (Backlog.md:218 fila WSM-15 + avance de dominio) — no ejecutado desde este leaf por convención de campaña; push diferido (owner). Próxima tarea del plan: DUR-03 (ya en vuelo por otro worker).
+Contrato: verificacion: cd vantadb-wasm && wasm-pack test --chrome --headless → 72/72 (default) + 77/77 (--features opfs) ✅; RED pre-fix 69/3 con causas correctas ✅; re-ejecutado independientemente por vanta-review en worktree aislado ✅; verify_changed ALL 4 PASS ✅; check-docs/check-links/gen-index/markdownlint ✅; hook pre-commit del commit 265abe6a: fmt+clippy+actionlint ok ✅
+evidencia:
+- claim: RED 69/3 (write no espera 13ms<300ms; NoModificationAllowedError al mover el temp compartido; no fail-loud con locks shadowed) y GREEN 72/72 + 77/77 | evidencia: $env:TEMP/wsm15-{baseline,red,green2,green-opfs}.log + logs independientes del reviewer (%TEMP%\wsm15-review-*) | confianza: alta
+- claim: review P2-01 APPROVE con verificación independiente (reruns propios + RED reproducido en worktree aislado; 0 Critical/Required) | evidencia: sesión ses_efa1f8a53ffeShYDTcWV7CEETT + docs/dev/tasks/WSM-15.md §Review | confianza: alta
+- claim: commit local 265abe6a (8 archivos, hook verde) + 92055d2a (RESULTADO con hash); push NO ejecutado | evidencia: git log --oneline -2 | confianza: alta
+- claim: Web Locks disponible en Window y Workers; hold-promise semántica MDN | evidencia: https://developer.mozilla.org/en-US/docs/Web/API/Web_Locks_API + /LockManager/request (webfetch 2026-10-04) | confianza: alta
+artefactos: docs/dev/tasks/WSM-15.md; commit 265abe6a (vantadb-wasm/src/opfs.rs, tests/wasm_tests.rs, README.md, demo/README.md, docs/dev/Backlog.md, docs/index.md, llms.txt); commit 92055d2a
+invariantes: formato on-disk (CRC+temp+rename) intacto; sin API pública nueva; reads lock-free; sin deadlock (no se anidan locks; *_unlocked internos); fail-loud sin Web Locks; WIP ajeno intacto (DX-01/DUR-03/opencode.jsonc/plan file sin tocar)
+deuda: FIND-242 (delete_file sin await de removeEntry, pre-existente, con repro determinista pendiente)
+queda_pendiente: skill progreso por orquestador (eliminar fila Backlog.md:218 WSM-15 + registro en avance/ — no ejecutado desde este leaf por convención de campaña multi-worker); push diferido al final del plan (instrucción owner)
+Próxima tarea si completa: DUR-03
+=== END RECITATION ===
+
+=== RECITATION DUR-03 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: DUR-03 — H-023: put sobre key expirada-sin-purgar (NodeIdCollision) → purge-on-write
+Estado: completed
+Última acción: 5/5 steps: RED→GREEN (4 tests: expirado→put, put_batch, race vs sweeper stress 20/20, foreign-node) + generation guard RwLock + txn guard; suite -p vantadb 2549/2549 (shared) y rerun aislado; fmt/clippy/docs gates 0; OCR 0 Critical/High; review adversarial vanta-review r1 changes-required→corregido, r2 APPROVE; 3 commits locales (4cc1402d fix, 9f12f536 docs/tasks, 4476e536 docs/avance + fila Backlog removida); avance core-engine + FIND-244/245/250/251/252
+Resultado: OK
+Próxima acción: ninguno — DUR-03 cerrada; nextTask del plan: DUR-01 (ya en curso por otro worker)
+Contrato: verificacion: cargo nextest run --profile audit -p vantadb ✅ 2549/2549 (shared) + rerun aislado CARGO_TARGET_DIR=target/dur03 ✅; focused 4/4 ✅; stress race 20/20 ✅; edge_cases 28 run/27 passed (único fallo FIND-244 pre-existente verificado en HEAD) ✅; fmt/clippy ✅; docs gates ✅. evidencia: claim 'put sobre expirada hace purge-on-write → Ok v1 fresco' — evidencia: tests put_after_ttl_expiry_succeeds_as_fresh_insert + put_batch_after_ttl_expiry_succeeds (RED NodeIdCollision transcripto pre-fix), confianza: alta; claim 'race vs sweeper sin errores' — evidencia: put_after_expiry_racing_ttl_sweeper_stays_consistent stress 20/20, confianza: alta; claim 'review adversarial aprobado' — evidencia: vanta-review ses_efa031798ffesZHUdsGIpjy4k1 r2 approve, confianza: alta. artefactos: docs/dev/tasks/DUR-03.md, tests/edge_cases.rs, src/sdk/api/memory.rs, src/sdk/builder.rs. invariantes: get/delete/list de expirados sin cambio (lazy TTL); upsert de keys vivas sin cambio; NodeIdCollision sigue para colisiones reales; put_record_exact pub(crate) sin test directo. deuda: FIND-245 (TOCTOU residual sin generation guard en batch/delete/multi-handle), FIND-250 (TTL vs cuarentena — decisión owner), FIND-251 (purge_expired sin sparse), FIND-252 (writer-vs-writer same-key), FIND-244 (test pre-existente rojo). queda_pendiente: push diferido al final del plan (instrucción owner); ACCEPT del orquestador.
+Próxima tarea si completa: DUR-01
+=== END RECITATION ===
+
+=== RECITATION DX-01 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: DX-01 — TS WASM `get` revienta en Node 26 (H-009): repro determinista + fix del trap + job CI Node 26
+Estado: completed
+Última acción: CIERRE COMPLETO. Fix toWireString en el wrapper TS + test dx01 (RED→GREEN) + job tests-node26 (Node 22+26, publish-wasm gateado por ambos) + troubleshooting doc + FIND-243 + fix del extractor TS del gate api-docs (prerequisito). Verify: 338/338 en Node 26.8.1 y 22.23.3; tsc/eslint/actionlint 0; OCR 0 findings; review P2-01 APPROVE. Commits locales bd641387/c5004b0b/c742143b/fd9f1b51. Progreso: fila Backlog removida + registro en docs/dev/avance/activo/bindings.md.
+Resultado: OK
+Próxima acción: Ninguno — tarea cerrada. Push diferido al cierre del plan (owner); los jobs CI Node 26 correrán post-push.
+Contrato: verificacion: cd vantadb-ts && npm test (Node 26.8.1) 338/338 · Node 22.23.3 338/338 · npx tsc --noEmit 0 · npm run lint 0 · actionlint release-npm-61.yml 0 · repro H-009 post-fix: get({key:5}) coerce -> payload, get({key:{}}) -> DbError VANTADB_INVALID_ARGUMENT (sin trap) · gate api-docs --changed HEAD^..HEAD OK · docs gates 0
+evidencia:
+  - claim: repro determinista H-009 (get con arg no-string → RuntimeError memory access out of bounds @ passStringToWasm0:1551) | evidencia: stack raw + repro en Node 22.23.3/26.0.0/26.8.1/26.10.0 con vantadb@0.8.0 publicado | confianza: alta
+  - claim: fix verificado RED→GREEN | evidencia: dx01.test.ts 4/4 fallos pre-fix (trap exacto) → 4/4 pass post-fix; suite 338/338 en 2 versiones | confianza: alta
+  - claim: CI cubre Node 22+26 (job agregado) | evidencia: job tests-node26 espejo del gate + publish-wasm needs [tests, tests-node26] + actionlint 0 | confianza: alta
+  - claim: review por agente distinto | evidencia: vanta-review APPROVE — re-ejecutó suite, repro independiente del glue crudo, diff normalizado de jobs | confianza: alta
+artefactos: docs/dev/tasks/DX-01.md · vantadb-ts/src/__tests__/dx01.test.ts · commits locales bd641387 (fix) + c5004b0b (gate fix) + c742143b (avance) + fd9f1b51 (RESULTADO)
+invariantes: get/delete/list con strings intactos; sin cambio de wire format ni firmas; put/search (serde) sin cambios; job Node 22 sin cambios
+deuda: ninguna (FIND-243 = residual trazado: superficie vantadb-wasm directa sigue expuesta a la misma clase)
+queda_pendiente: push DIFERIDO por instrucción del owner (job tests-node26 correrá en el PR); orquestador: actualizar plan Task 8 → COMPLETED + checkpoint de wave
+Próxima tarea si completa: DUR-02 (siguiente ⬜ PENDING del plan; DUR-03/DUR-01 en vuelo con otros workers)
+=== END RECITATION ===
+
+=== RECITATION DUR-01 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: DUR-01 — Auditoría fsync real (WAL/snapshots/GC) + dir-fsync G1
+Estado: completed
+Última acción: Ronda 2 APPROVE (fresh): dir-fsync verificado en ambos sitios de creación + fix fs.rs; mapa G1-G12 spot-check ~20 citas; gates 91/91 wal + 46/46 snapshot en worktree limpio; FIND-246..248 registrados (bac31a3e); justificación estructural de canonical_p99 ACEPTADA por el orquestador
+Resultado: COMPLETED
+Próxima acción: BENCH-01 (claim) — DUR-03 y DUR-02 en vuelo
+Contrato: mapa path→fsync completo + G1 resuelto con evidencia + suite verde; canonical_p99 aceptado estructuralmente (fix fuera del path medido, bench in-memory)
+Próxima tarea si completa: BENCH-01
+=== END RECITATION ===
+
+=== RECITATION DUR-02 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: DUR-02 — Auditoría cobertura AES (encryption): WAL / text_index / HNSW / edge_index / snapshots
+Estado: completed
+Última acción: Cerrada: mapa artefacto→cifrado 0/6 con evidencia por artefacto + probe tmpdir (canary plaintext en vanta.shard0.wal y 0.jnl) + fix encryption_stream (RED→GREEN, nextest 42/42) + docs corregidos (CONFIGURATION/FEATURES) + FIND-249 en Backlog + gates docs 0 + OCR sin Critical/High + review P2-01 vanta-review APPROVE. Commits locales 16afd036 (fix) + 65008548 (avance/cierre).
+Resultado: OK
+Próxima acción: ninguno — DUR-02 cerrada. Orquestador: migrar la fila DUR-02 del Backlog a avance (skill progreso) al cierre de fase; decidir FIND-249 (wiring AES vs primitivas-only).
+Contrato: verificacion: cargo nextest run --profile audit -p vantadb --features encryption -E 'test(/vfile/) + test(/encryption/)' ✅ 42/42 · cargo fmt -p vantadb --check ✅ · cargo clippy -p vantadb --features encryption --all-targets -- -D warnings ✅ · check-links/check-docs/gen-index --check/validate-docs-coverage ✅ | evidencia: claim '0 callers' → grep workspace completo (alta) | claim 'plaintext on-disk' → probe nextest canary en data/vanta.shard0.wal + 0.jnl (alta) | claim 'fix correcto' → RED panic pre-fix + GREEN (alta) | claim 'review aprobado' → vanta-review APPROVE con re-ejecución propia (alta) | artefactos: docs/dev/tasks/DUR-02.md · docs/dev/avance/auditoria/seguridad.md · FIND-249 en docs/dev/Backlog.md | invariantes: src/wal.rs y src/sdk/api/memory.rs NO tocados (WIP DUR-01/03); crypto.rs/envelope.rs intactos; sin cambios de formato on-disk; feature encryption sigue opt-in y compilable | deuda: FIND-249 (cablear cifrado o declarar primitivas-only — decisión owner/arch); H5 opcional (probe transcript-only, reproducibilidad futura) | queda_pendiente: migrar fila DUR-02 del Backlog a avance (skill progreso) al cierre de fase; decisión de diseño FIND-249
+Próxima tarea si completa: BENCH-01
 === END RECITATION ===
