@@ -329,6 +329,13 @@ impl WalWriter {
             let header = WalHeader::new(WAL_FORMAT_VERSION as u32);
             file.write_all(&header.serialize())?;
             file.flush()?;
+            // POSIX: fsync on the file does NOT make its directory entry durable
+            // ("Calling fsync() does not necessarily ensure that the entry in the
+            // directory containing the file has also reached disk" — man fsync(2)).
+            // Without this, a freshly created WAL whose appends were already
+            // sync_data'd can vanish on power loss, losing acknowledged writes.
+            // Same pattern as rotate() below and archive.rs (AUDREP-35).
+            crate::utils::fs::sync_parent_dir(&path)?;
             (
                 WalHeader::SIZE as u64,
                 0u64,
@@ -590,6 +597,9 @@ impl WalWriter {
 
         let header = WalHeader::new(WAL_FORMAT_VERSION as u32);
         file.write_all(&header.serialize())?;
+        // Fresh segment at the original path is a new directory entry — make it
+        // durable before any of its appends are (see open_with_buffer).
+        crate::utils::fs::sync_parent_dir(&old_path)?;
 
         // Reset writer and counters with the same buffer capacity
         let capacity = self.writer.capacity();
