@@ -444,3 +444,9 @@ tags: [vantadb, avance, ops, api, docs, backup, enterprise]
 - **Objetivo:** cerrar C5: destino final de los 2 case studies ficticios (documentos ya purgados en `00ee1ba2`; quedaba solo el README del archivo).
 - **Resultado:** ✅ decisión owner: eliminar también el registro (`docs/dev/archive/case-studies-unverified/`) + refs actualizadas. El caso real llegará vía CLD-04 (enterprise pilot).
 - **Commits:** (+ este)
+
+### DX-12: Instalador/wizard como selector de módulos (enable/disable por componente)
+- **Fecha:** 2026-10-04
+- **Objetivo:** UX de entrada del producto: selección por componente (7 módulos con estado installable/frozen) + ambos caminos (interactivo/no-interactive) + idempotencia.
+- **Resultado:** ✅ Wizard (`setup-embeddings.ps1`) con tabla de módulos + `-Modules <csv>`/`none`; gating real por módulo (MCP, TOML proxy, modelo/ORT, providers); frozen no finge soporte; disable = no re-escribir, nunca borrar. `install.ps1`/`install.sh` con pass-through + fix de honestidad (exit code del wizard ya no se enmascara como "✅"). Smoke completo: ambos caminos, `-Modules mcp,server`/`none`/desconocidos, idempotencia (hash-estable), dry-runs PS7+PS5.1+sh. Review P2-01: ronda 1 changes-required (High: coerción `[string]$Modules` en sesión) → fix → APPROVE.
+- **Commit:** 9e211d10 (local, sin push)
