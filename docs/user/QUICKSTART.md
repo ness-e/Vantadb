@@ -207,6 +207,18 @@ db.flush()
 db.close()
 ```
 
+> **Windows encoding note:** PowerShell's default code page cannot represent
+> UTF-8 — output with accents, arrows, or CJK raises `UnicodeEncodeError` or
+> prints as mojibake. Before running any Python example, switch the session to
+> UTF-8:
+>
+> ```powershell
+> chcp 65001                        # console output → UTF-8
+> $env:PYTHONIOENCODING = "utf-8"   # Python stdout/stderr → UTF-8
+> ```
+>
+> For a single run you can also use `python -X utf8 quickstart_memory.py`.
+
 Run it:
 
 ```bash

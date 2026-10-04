@@ -132,6 +132,21 @@ and serve the output files yourself.
   it is loaded lazily via dynamic `import()` and gives real filesystem
   persistence (fjall/WAL) that the WASM build cannot.
 
+### Console logging
+
+The WASM engine installs a `console.log`-based tracing subscriber at level
+**`WARN`** — `DEBUG` traces (e.g. the core's env-var config dump) are not
+printed by default. To opt into more detail, set the global **before the
+first client is created**:
+
+```js
+globalThis.VANTADB_LOG = "debug"; // "trace" | "debug" | "info" | "warn" | "error"
+const db = Client.create();
+```
+
+The value is read once per process (the subscriber is global); an absent or
+invalid value falls back to `WARN`.
+
 ### Bundle size vs JavaScript-only competitors
 
 Measured 2026-08-30. Reproducible: see
@@ -262,24 +277,26 @@ the same dimensionality. Full walkthrough:
 
 ### Maintenance
 
-| Method | Description |
-|--------|-------------|
-| `.flush()` | Flush WAL to storage |
-| `.compactWal()` | Compact WAL |
-| `.purgeExpired()` | Remove TTL-expired records |
-| `.rebuildIndex()` | Rebuild ANN index |
-| `.compactLayout()` | Compact storage layout |
-| `.operationalMetrics()` | Get runtime metrics |
-| `.capabilities()` | Get build capabilities |
+| Method | Description | WASM caveat |
+|--------|-------------|-------------|
+| `.flush()` | Flush WAL to storage | Engine buffers only — **not a durability guarantee**; browser persistence is via OPFS/IDB ([WASM bundle & lazy loading](#wasm-bundle--lazy-loading)), real WAL/fsync on the [native backend](#vantadb-vs-vantadb-node-npm) |
+| `.compactWal()` | Compact WAL | WASM: engine-internal WAL — same durability caveat as `.flush()` |
+| `.purgeExpired()` | Remove TTL-expired records | — |
+| `.rebuildIndex()` | Rebuild ANN index | — |
+| `.compactLayout()` | Compact storage layout | — |
+| `.operationalMetrics()` | Get runtime metrics | — |
+| `.capabilities()` | Get build capabilities | — |
 
 ### Export / Import
 
-| Method | Description |
-|--------|-------------|
-| `.exportNamespace(path, namespace)` | Export a namespace to JSONL |
-| `.exportAll(path)` | Export all namespaces to JSONL |
-| `.importRecords(records)` | Import records from an array |
-| `.importFile(path)` | Import records from a JSONL file |
+| Method | Description | WASM caveat |
+|--------|-------------|-------------|
+| `.exportNamespace(path, namespace)` | Export a namespace to JSONL | **Not supported on the WASM runtime** — throws `IO error: operation not supported on this platform` (no `std::fs`) |
+| `.exportAll(path)` | Export all namespaces to JSONL | **Not supported on the WASM runtime** — same platform IO error |
+| `.importRecords(records)` | Import records from an array | — (no filesystem involved) |
+| `.importFile(path)` | Import records from a JSONL file | **Not supported on the WASM runtime** — same platform IO error; use `.importRecords()` for array input |
+
+> FS-backed export/import needs a filesystem-backed runtime, which the WASM build cannot reach (tracked as FIND-79; a native/WASI wiring is deferred). For file JSONL round-trips today use `vanta-cli export` / `vanta-cli import` or the Python SDK ([PYTHON_SDK.md](../docs/api/PYTHON_SDK.md)); `.importRecords()` covers in-memory import. Backend split: [vantadb vs vantadb-node](#vantadb-vs-vantadb-node-npm).
 
 ### Text Index
 
