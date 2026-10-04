@@ -378,7 +378,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato · commit = `fix(bench):` · release = n/a.
 - **Validación Appetite vs Effort:** 1d ≥ 3h ✓
 - **Skills sugeridas:** performance-optimization · systematic-debugging · campaign-executor
-- **Estado:** ⏳ EN PROGRESO
+- **Estado:** ✅ COMPLETED
 - **Task file:** `docs/dev/tasks/BENCH-01.md`
 
 ### Task 14: DIST-01 — Publicar `vanta-memory` (quitar `publish = false`)
@@ -406,7 +406,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato · commit = `feat(release):` · release = publicado en 0.9.0.
 - **Validación Appetite vs Effort:** 1d ≥ 4h ✓
 - **Skills sugeridas:** ci-cd-and-automation · shipping-and-launch · git-workflow-and-versioning · source-driven-development · campaign-executor
-- **Estado:** ⏳ EN PROGRESO
+- **Estado:** ✅ COMPLETED
 - **Task file:** `docs/dev/tasks/DIST-01.md`
 
 ### Task 15: DIST-02 — Exponer la capa cognitiva en Python (`memory_recall`/`memory_capture`)
@@ -434,7 +434,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato + smoke · commit = `feat(python):` · release = changelog (feature → minor).
 - **Validación Appetite vs Effort:** 3d ≥ 2d ✓
 - **Skills sugeridas:** api-and-interface-design · source-driven-development · rust-write-tests · documentation-skill · campaign-executor
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Task file:** `docs/dev/tasks/DIST-02.md`
 
 ### Task 16: DIST-03 — TS/Node/WASM: exponer la capa cognitiva **o** declarar scope por binding
@@ -462,7 +462,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato · commit = `feat(ts):`/`docs:` · release = changelog.
 - **Validación Appetite vs Effort:** 3d ≥ 3d ✓
 - **Skills sugeridas:** api-and-interface-design · source-driven-development · documentation-skill · campaign-executor
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Task file:** `docs/dev/tasks/DIST-03.md`
 
 ### Task 17: DIST-04 — `VANTA_MEMORY.md` ↔ realidad (cierre post DIST-01/02/03)
@@ -485,7 +485,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **Validación Appetite vs Effort:** 1h ≥ 1h ✓
 - **Skills sugeridas:** documentation-skill · writing-guidelines
 - **Dependencias:** DIST-01, DIST-02, DIST-03 (BLOQUEANTES)
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Task file:** `docs/dev/tasks/DIST-04.md`
 
 ### Task 18: DIST-05 — Assets del release + verificación post-release real (fix del 404)
@@ -513,7 +513,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato + verificación en 0.9.0 · commit = `ci:`/`docs:` · release = parte del release.
 - **Validación Appetite vs Effort:** 1d ≥ 4h ✓
 - **Skills sugeridas:** ci-cd-and-automation · shipping-and-launch · documentation-skill · campaign-executor
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Task file:** `docs/dev/tasks/DIST-05.md`
 
 ### Task 19: DIST-06 — Estrategia de los 11 crates `publish = false`
@@ -535,7 +535,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato · commit = `docs:`/`chore:` · release = n/a.
 - **Validación Appetite vs Effort:** 1d ≥ 1d ✓
 - **Skills sugeridas:** ci-cd-and-automation · shipping-and-launch · documentation-and-adrs
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Task file:** `docs/dev/tasks/DIST-06.md`
 
 ### Task 20: DOCS-F1 — Cerrar docs-consolidation F1 (triage + mojibake + markdownlint)
@@ -563,7 +563,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato + gates · commit = `docs:` · release = n/a.
 - **Validación Appetite vs Effort:** 1d ≥ 4h ✓
 - **Skills sugeridas:** documentation-skill · writing-guidelines · git-workflow-and-versioning · campaign-executor
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Task file:** `docs/dev/tasks/DOCS-F1.md`
 
 ### Task 21: DOCS-F2 — Cerrar docs-consolidation F2 (ejemplos ejecutables + 2 gates)
@@ -591,7 +591,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato + CI verde · commit = `ci:`/`docs:` · release = n/a.
 - **Validación Appetite vs Effort:** 2d ≥ 8h ✓
 - **Skills sugeridas:** ci-cd-and-automation · documentation-skill · security-and-hardening · test-driven-development · campaign-executor
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Task file:** `docs/dev/tasks/DOCS-F2.md`
 
 ### Task 72: ENC-01 — Cifrado honesto: aviso al activar + docs (FIND-249 parte 1)
@@ -619,7 +619,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato (aviso + docs + test) · commit = `fix(security):`/`docs:` · release = changelog (nota de transparencia).
 - **Validación Appetite vs Effort:** 1d ≥ 4h ✓
 - **Skills sugeridas:** security-and-hardening · documentation-skill · rust-write-tests
-- **Estado:** ⬜ PENDING
+- **Estado:** ⏳ EN PROGRESO
 - **Task file:** `docs/dev/tasks/ENC-01.md` (crear en DISCOVERY)
 - **Origen:** decisión owner 2026-10-04 (question) + FIND-249 (DUR-02). El cableado completo queda en FIND-249 (Backlog, diferido).
 
@@ -641,7 +641,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **Verificación real:** ✅ — visión owner (2026-10-01): "un solo instalador que pregunte qué habilitar (motor / MCP / server / proxy / visor desktop / embeddings / providers)".
 - **Contrato:** `install.ps1` ofrece selección por componente y la aplica de forma idempotente; smoke en máquina limpia (patrón DESKTOP-41); sin romper el flujo actual (no-interactive sigue funcionando).
 - **Skills sugeridas:** ci-cd-and-automation · shipping-and-launch · campaign-executor
-- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/DX-12.md`
+- **Estado:** ⏳ EN PROGRESO · **Task file:** `docs/dev/tasks/DX-12.md`
 
 ### Task 23: DIST-15 — `graphrag_search` en bindings (Py/TS/Node/WASM)
 
@@ -650,7 +650,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **Verificación real:** ✅ — "El feature estrella (GraphRAG) es inalcanzable desde los bindings (`GRAPH_RAG.md:14-15` lo declara). Costo bajo, impacto desproporcionado".
 - **Contrato:** `graphrag_search` (o nombre canónico API-04) invocable desde al menos Py + TS con smoke verde; paridad de resultados con el core; docs actualizadas (quitar el "inalcanzable").
 - **Skills sugeridas:** api-and-interface-design · source-driven-development · documentation-skill · campaign-executor
-- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/DIST-15.md`
+- **Estado:** ⏳ EN PROGRESO · **Task file:** `docs/dev/tasks/DIST-15.md`
 
 ### Task 24: DIST-16 — `verify` de certificados vía MCP
 
@@ -1329,4 +1329,113 @@ Resultado: OK
 Próxima acción: ninguno — DUR-02 cerrada. Orquestador: migrar la fila DUR-02 del Backlog a avance (skill progreso) al cierre de fase; decidir FIND-249 (wiring AES vs primitivas-only).
 Contrato: verificacion: cargo nextest run --profile audit -p vantadb --features encryption -E 'test(/vfile/) + test(/encryption/)' ✅ 42/42 · cargo fmt -p vantadb --check ✅ · cargo clippy -p vantadb --features encryption --all-targets -- -D warnings ✅ · check-links/check-docs/gen-index --check/validate-docs-coverage ✅ | evidencia: claim '0 callers' → grep workspace completo (alta) | claim 'plaintext on-disk' → probe nextest canary en data/vanta.shard0.wal + 0.jnl (alta) | claim 'fix correcto' → RED panic pre-fix + GREEN (alta) | claim 'review aprobado' → vanta-review APPROVE con re-ejecución propia (alta) | artefactos: docs/dev/tasks/DUR-02.md · docs/dev/avance/auditoria/seguridad.md · FIND-249 en docs/dev/Backlog.md | invariantes: src/wal.rs y src/sdk/api/memory.rs NO tocados (WIP DUR-01/03); crypto.rs/envelope.rs intactos; sin cambios de formato on-disk; feature encryption sigue opt-in y compilable | deuda: FIND-249 (cablear cifrado o declarar primitivas-only — decisión owner/arch); H5 opcional (probe transcript-only, reproducibilidad futura) | queda_pendiente: migrar fila DUR-02 del Backlog a avance (skill progreso) al cierre de fase; decisión de diseño FIND-249
 Próxima tarea si completa: BENCH-01
+=== END RECITATION ===
+
+=== RECITATION BENCH-01 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: BENCH-01 — Fix doble-conteo competitive_bench (timer + clamp)
+Estado: completed
+Última acción: Timer aislado (init/prep fuera: ~318ms/run) + clamp <1000 por construcción + self-test 9/9; review fresco APPROVE (RED→GREEN reproducido externo, trazado sin caminos ≥1000, rebuilds=1 no circular); FIND-253 ruteada (d497bdb6)
+Resultado: COMPLETED
+Próxima acción: DIST-02 (claim al cerrar DIST-01 — mismo árbol de archivos) — DIST-01 cerrando
+Contrato: región medida aislada + clamp efectivo + self-test + docs sin sobre-claim
+Próxima tarea si completa: DIST-02
+=== END RECITATION ===
+
+=== RECITATION DIST-01 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: DIST-01 — Publicar vanta-memory (quitar publish=false): dry-run verde + smoke externo + decisión release-plz registrada
+Estado: completed
+Última acción: Steps 1-6 ✅: baseline (exit 101 por publish=false) → Cargo.toml publicable (metadata crates.io + version=0.8.0 en el dep path) → dry-run exit 0 (Packaged 139 files, 1.2MiB; build aislado compiló vantadb 0.8.0 de crates.io) → hold release-plz (release=false + checklist de unblock owner) → doc-sync lib.rs → smoke externo tmp (cargo run exit 0) → gates docs + OCR 0 hallazgos + review P2-01 vanta-review APPROVE → commits locales 53996863 (impl) + 0508fc2f (FIND-254) + 180bfb94 (cierre)
+Resultado: OK
+Próxima acción: ninguno — tarea cerrada. Próxima del plan F0: DIST-02 (exponer la capa cognitiva en Python).
+Contrato: verificacion: `cargo publish --dry-run -p vanta-memory --allow-dirty` ✅ exit 0 (Packaged 139 files, 1.2MiB / 328.7KiB compressed; 'aborting upload due to dry run') [campaign_verify_cmd] · smoke externo `cargo run` en %TEMP%\dist01-smoke ✅ exit 0 ('dist01-smoke OK: vanta-memory loaded as external dep (recall max_results=5)') · `python tomllib` release-plz.toml ✅ · gates docs (check-links/check-docs/gen-index/coverage) ✅ 0 gaps · review P2-01 APPROVE. evidencia: claim: dry-run compila aislado contra crates.io (no path local) → Cargo.lock del paquete con source=registry + checksum 3eeef49, re-verificado por el reviewer | confianza: alta. claim: hold release=false correcto vs alternativas → docs release-plz + prereq trusted publishing (crates.io) + repro `release-plz update` en clone: requirement sincronizado en lockstep pese a release=false | confianza: alta. claim: sin publish real ni push → crates.io API vanta-memory 404; `git branch -r --contains` vacío; dry-run aborta upload | confianza: alta. artefactos: vanta-memory/Cargo.toml · release-plz.toml · vanta-memory/src/lib.rs · docs/dev/tasks/DIST-01.md · docs/dev/Backlog.md (FIND-254) · commits 53996863/0508fc2f/180bfb94. invariantes: consumidores in-process (vantadb-mcp, vanta-proxy, desktop) intactos; Cargo.lock sin cambios; hold vigente para #238; WIP ajeno intacto (opencode.jsonc/plan file/benchmarks/src-sdk). deuda: FIND-254 (tests empaquetados no compilan desde el .crate — Low, no bloquea publish/docs.rs/consumidores); README del crate → DIST-04. queda_pendiente: (a) skill progreso por orquestador (fila Backlog DIST-01:130 → avance; ya hay checkpoint del orquestador); (b) unblock checklist owner en ventana #238 (bootstrap con token → Trusted Publishing → borrar hold release-plz); (c) push diferido al final del plan (instrucción owner).
+Próxima tarea si completa: DIST-02
+=== END RECITATION ===
+
+=== RECITATION DIST-03 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: DIST-03 — TS/Node/WASM: declarar scope de la capa cognitiva por binding (decisión (b) implementada y verificable)
+Estado: completed
+Última acción: Steps 1-5 ✅: DISCOVERY (4 compile checks wasm + 3 fuentes oficiales + auditoría capabilities 4 bindings) → decisión (b) → declaración en BINDINGS_NAMESPACES.md §Cognitive layer scope (matriz 7×4 + paridad capabilities() + invariante rg) + sync VANTA_MEMORY.md → FIND-255/256 → gates docs verdes (check-links/check-docs/gen-index/coverage 0 gaps/markdownlint) + OCR (markdown N/A) + review P2-01 vanta-review (ronda 1 changes-required R-1 → corregido 03d2a511 → APPROVE ronda 2) → 5 commits locales
+Resultado: OK
+Próxima acción: ninguno — tarea cerrada. Próxima del plan F0: DIST-04 (depende de 14/15/16; reconciliar VANTA_MEMORY.md + conteos post DIST-01/02/03).
+Contrato: verificacion: gates docs ✅ `node scripts/docs/check-links.mjs` exit 0 · `check-docs.mjs` gating all clear · `gen-index.mjs --check` exit 0 · `pwsh scripts/validate-docs-coverage.ps1` exit 0 (0 gaps) · markdownlint 3 archivos 0 issues · invariante `rg "vanta[_-]memory" vantadb-ts vantadb-node vantadb-wasm` → 0 matches. evidencia: claim: decisión (b) justificada (port wasm, no wrapper) | evidencia: 4 compile checks (exit 101 baseline getrandom / Finished con vantadb/wasm / exit 101 llm-driver E0433 / exit 101 embeddings E0432) + web-time/rustc/reqwest docs — todo re-ejecutado por vanta-review | confianza: alta. claim: declaración + matriz + rationale publicadas | evidencia: commit 9b3baa89 (BINDINGS_NAMESPACES.md §Cognitive layer scope + VANTA_MEMORY.md) | confianza: alta. claim: FIND-255 (port wasm, 6 gaps) + FIND-256 (drift capabilities Python) registrados | evidencia: commit 38c728fd, Backlog:429-430 | confianza: alta. claim: review P2-01 APPROVE final | evidencia: ses_ef95dc5faffe989c4NEyl7oabI (ronda 2, re-ejecutó checks y confirmó R-1) | confianza: alta. claim: sin push | evidencia: commits locales 9b3baa89/38c728fd/173103cb/03d2a511/e10710f5, ahead en origin/develop | confianza: alta. artefactos: docs/api/BINDINGS_NAMESPACES.md · docs/api/VANTA_MEMORY.md · docs/dev/tasks/DIST-03.md · docs/dev/Backlog.md (FIND-255/256) · docs/index.md · llms.txt. invariantes: TS/Node/WASM siguen 0 símbolos vanta-memory (invariante mecánico documentado y verificado); vantadb-python intacto por DIST-03; sección D43 intacta (extendida, no reemplazada); sin push. deuda: FIND-255 (port wasm, 🟠 3-5d) + FIND-256 (drift capabilities Python, 🟢 2-3h); conteo 46→48 de BINDINGS_NAMESPACES.md + reconciliación final de VANTA_MEMORY.md (facade/versioning/README) → DIST-04. queda_pendiente: (a) skill progreso/avance por orquestador (convención del campaign, igual que DIST-01); (b) DIST-04 al cerrar 14/15/16; (c) push diferido al final del plan (instrucción owner).
+Próxima tarea si completa: DIST-04
+=== END RECITATION ===
+
+=== RECITATION DIST-02 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: DIST-02 — exponer la capa cognitiva en Python (memory_capture/memory_recall), scope mínimo con smoke de wheel local
+Estado: completed
+Última acción: Steps 1-4 ✅: DISCOVERY (task file) → dep vanta-memory + 2 métodos Rust (py.detach + OpGate + error mapping) → RED→GREEN (10 AttributeError → 11/11; suite 173 passed) + stubs/wrapper async/docs + smoke e2e con wheel local en venv limpio → gates (fmt/clippy/api-docs por rango/coverage/avance) + OCR 0 findings + review P2-01 (ronda 1 changes-required R1 → fix docs+test ee731884 → APPROVE) → commits 2a3bccbc + ee731884 + 2e181480 (local, sin push) + avance + fila Backlog removida
+Resultado: OK
+Próxima acción: ninguno — DIST-02 cerrada. Próxima desbloqueada: DIST-04 (deps 01/02/03 ✅).
+Contrato: verificacion: `target/dist02-venv/Scripts/python -m pytest vantadb-python/tests/ -q` ✅ 173 passed/4 skipped/4 deselected (re-ejecutada por reviewer) · `pytest tests/test_memory_layer.py -q` ✅ 11/11 · smoke `python target/tmp/dist02-smoke.py` ✅ exit 0 (wheel 0.8.0 desde site-packages del venv; capture→reopen persistente→recall hit→None) · `node scripts/docs/check-api-docs.mjs --changed HEAD~1..HEAD` ✅ (+12 superficie Python, docs+llms movidos) · `cargo check/clippy -p vantadb_py` ✅ · `cargo fmt --all --check` ✅ · docs gates ✅ (check-links/check-docs/gen-index/validate-docs-coverage 0 gaps/check-avance-coverage 1034/1034) · test_stub_drift 7/7. evidencia: claim: métodos end-to-end → RED 10 fallos AttributeError pre-build + GREEN 11/11 post-build + smoke con import path site-packages (verificado por reviewer con sonda) | confianza: alta. claim: dep sin red/LLM → `cargo tree -p vantadb_py -i reqwest` exit 101 (ausente) + vanta-memory solo default (reviewer) | confianza: alta. claim: docs honestos → R1 reproducido por reviewer (capture alone → None) + fix + test negativo que lo pinea | confianza: alta. claim: review APPROVE → ses_ef9569455ffeOawsQHJX4n3kV9 ronda 2 con re-ejecución propia | confianza: alta. artefactos: vantadb-python/{Cargo.toml,src/lib.rs,tests/test_memory_layer.py,vantadb_py/*.pyi,vantadb_py/__init__.py} · docs/api/PYTHON_SDK.md · docs/dev/tasks/DIST-02.md · docs/dev/Backlog.md (FIND-257/258/259) · docs/dev/avance/activo/bindings.md · commits 2a3bccbc/ee731884/2e181480. invariantes: lógica en vanta-memory (binding glue R-8); GIL liberado (py.detach) + OpGate; None = nada que inyectar; degradación keyword reportada; aditivo (0 métodos existentes modificados); vantadb-ts/wasm/vanta-memory/Cargo.toml/release-plz.toml/BINDINGS_NAMESPACES.md intactos; WIP ajeno (plan file/opencode.jsonc) intacto. deuda: dream = follow-up declarado (contrato); FIND-258 (chain-walk de errores anidados); FIND-259 (L1 type inválido invisible + enum en VANTA_MEMORY); FIND-257 (gate api-docs vs WORKTREE CRLF); BINDINGS_NAMESPACES 46→48 (handoff DIST-03/04); Low/Nit declarados (max_results<0 OverflowError, id='' ValidationError, async kw-only). queda_pendiente: (a) push diferido al final del plan (instrucción owner) — 3 commits locales; (b) DIST-04 usa este estado (superficie Python publicada); (c) FIND-258/259 al drain de P2 cuando se priorice.
+Próxima tarea si completa: DIST-04
+=== END RECITATION ===
+
+=== RECITATION DIST-05 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: DIST-05 — Assets del release + verificación post-release real (fix del 404): flujo de verificación ejecutable + install.ps1 parametrizado/verificado contra assets reales
+Estado: completed
+Última acción: Steps 1-6 ✅: verify-release.ps1 (14 assets + 4 registries + smoke sha256/--version; GH_TOKEN scope api.github.com; no ejecuta con mismatch) + release-verify.yml (schedule Mon 08:00 + dispatch) + PUBLISH.md gate de cierre + install.ps1 (-Version/-InstallDir, fail-loud sin v0.4.0, compat PS5.1 ternary+BOM, layout flat/nested) + inventarios 37→38 + OCR (inyección del workflow corregida via env) + review P2-01 APPROVE (Medium+NIT aplicados) + commit local 2390344c. Hallazgo clave: el zip real es FLAT y install.ps1 buscaba release\ → instalador roto end-to-end contra el asset real.
+Resultado: OK
+Próxima acción: ninguno — DIST-05 cerrada. Próxima desbloqueada: DIST-06 (F0). Verificación en 0.9.0 = diferida (checkpoint F0→0.9.0; release diferido por owner).
+Contrato: verificacion: `pwsh scripts/verify-release.ps1 -Tag v0.8.0 -Smoke` ✅ exit 0 (14/14 assets + 4/4 registries + sha256 + vanta-cli 0.8.0) · `-Tag v0.7.0` ✅ exit 1 (solo 10 binarios — detecta el 404) · `install.ps1 -DryRun` ✅ 5.1 y 7 · installs reales aislados (5.1 y 7, doble corrida = backup) ✅ vanta-cli 0.8.0 · `actionlint release-verify.yml` ✅ 0 · `check-links`/`check-docs` ✅ 0 · workflows count = 38. evidencia: claim: zip v0.8.0 flat → `tar -tf` del asset real (vanta-cli.exe raíz) | confianza: alta. claim: install.ps1 roto contra asset real (buscaba release\) → repro + fix + install real aislado ✅ | confianza: alta. claim: PS5.1 no parseaba (ternary + sin BOM) → repro powershell -File antes/después | confianza: alta. claim: v0.7.0 sin binarios por cascade pre-PAT (no decisión) → release-binaries.yml@v0.7.0 sin input release_tag + gh secret list (PAT 2026-10-02) + runs | confianza: alta. claim: review APPROVE → ses_ef929e5fbffeOOnNT06tUugRjw con re-ejecución propia de los 6 comandos | confianza: alta. artefactos: scripts/verify-release.ps1 · scripts/install.ps1 · .github/workflows/release-verify.yml · docs/dev/workflow/{PUBLISH,README,TRIGGERS}.md · docs/dev/references/verified-numbers.md · docs/dev/tasks/DIST-05.md · commit 2390344c. invariantes: sin push; release-plz/versiones/changelog intactos; release-binaries.yml sin cambios; WIP ajeno intacto (plan file/opencode.jsonc); installer sin dependencias nuevas. deuda: verificación en 0.9.0 diferida (release diferido por owner); backfill v0.7.0 documentado como procedimiento opcional (no ejecutado — remoto); OPTIONALs del reviewer (fail-closed si falta .sha256; regex tags pre-release) → candidatos a FIND del orquestador. queda_pendiente: (a) orquestador: sincronizar plan file (Task 18) + fila Backlog DIST-05 + evaluar FIND de los 2 OPTIONALs; (b) verificación 0.9.0 al retomarse el release (checklist PUBLISH.md §Post-release verification); (c) push diferido al cierre del plan (1 commit local 2390344c).
+Próxima tarea si completa: DIST-06
+=== END RECITATION ===
+
+=== RECITATION DIST-04 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: DIST-04 — VANTA_MEMORY.md ↔ realidad (cierre post DIST-01/02/03)
+Estado: completed
+Última acción: Reconciliación completa (VANTA_MEMORY.md + BINDINGS_NAMESPACES.md matriz ✅ counts 46→48 + README del crate); ronda 1 changes-required (R-1/R-2) → aplicados c46b2cdd → ronda 2 APPROVE; FIND-260 derivado (query_structured ausente)
+Resultado: COMPLETED
+Próxima acción: DIST-06 (claim) — DIST-05 en vuelo
+Contrato: doc ↔ realidad + gates 0/0/0; R-1/R-2 cerrados con evidencia
+Próxima tarea si completa: DIST-06
+=== END RECITATION ===
+
+=== RECITATION DIST-06 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: DIST-06 — Estrategia de los 11 crates publish = false: decisión por crate en PUBLISH.md §crates + invariante release-plz verificable
+Estado: completed
+Última acción: Steps 2-4: sección §crates insertada (64 líneas netas, 0 deleciones) + F1/F3 del review aplicados; verify mecánico CMD(a)=10 filas / CMD(b)=3 overrides; gates docs verdes (pre-WIP ajeno DOCS-F1); OCR 0 reviewable; review P2-01 APPROVE (ronda 1 changes-required menor F1 → fix → delta approve); commit local 56b0bc0a (4 paths, sin push)
+Resultado: OK
+Próxima acción: ninguno — DIST-06 cerrada. Próxima desbloqueada: DOCS-F1 (plan Task 20)
+Contrato: verificacion: CMD(a) `rg '^\s*publish = false'` = 10 crates ✅ · CMD(b) `rg '^\[\[package\]\]|^name = |^\s*(release|publish) = '` = vantadb/vantadb-wasm/vanta-memory ✅ (ambos vía campaign_verify_cmd passed:true) · gates docs check-links/check-docs/gen-index exit 0 al momento del review ✅. evidencia: claim=decisión por crate documentada (11/11) evidencia=docs/dev/workflow/PUBLISH.md §crates (L117-177) confianza=alta · claim=consistencia release-plz evidencia=release-plz.toml (solo lectura) + comandos re-ejecutados confianza=alta · claim=Freeze List proxy no-publica-hasta-1.0.0 evidencia=docs/user/operations/EXPERIMENTAL_FEATURES.md §Freeze List confianza=alta · claim=providers no PyPI evidencia=pypi.org 404×3 (live 2026-10-04) confianza=alta. artefactos: docs/dev/workflow/PUBLISH.md, docs/dev/tasks/DIST-06.md, docs/index.md, llms.txt. invariantes: release-plz.toml/versiones/CHANGELOG intactos; WIP ajeno intacto (opencode.jsonc, plan, DOCS-F1 en vuelo); canales reales no cambian. deuda: ninguna (F4 boundary del invariante anotado para próximo review de la política). queda_pendiente: pase de progreso/avance + sincronización del plan = orquestador (precedente DIST-05); push diferido al final del plan (owner).
+Próxima tarea si completa: DOCS-F1
+=== END RECITATION ===
+
+=== RECITATION 20 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: DOCS-F1 — Cerrar docs-consolidation F1 (triage de links + mojibake + markdownlint)
+Estado: completed
+Última acción: RONDA 2 completa: verdict adversarial fresco (vanta-review) = changes-required -> fixes C-1 (links CI-only: HTTP_API + discord), R-1 (rrf.md completo: 49 runs CP437->0), R-2/O-1 (FIND-264/265 registrados; 263 tomado por DOCS-F2), R-3 (triage reconciliado 55 local/60 canonico), O-2 ('15 de 46' + metodo), O-4 (nota commit). Checkout limpio (git archive HEAD): check-links 0 + gen-index 0. Commits locales a5909e38 (ronda 2) + 5404ebb3 (avance). DOCS-F2 commiteo en paralelo (100e3fef/83ceea01) — staging respetado.
+Resultado: OK
+Próxima acción: Re-review adversarial del delta (vanta-review) — luego DOCS-F2 ya cerrada; siguiente del plan: lo que defina el orquestador
+Contrato: verificacion: checkout limpio (git archive HEAD 83ceea01): check-links 0 broken/20 wikilinks exit 0 | gen-index --check 0. Local: check-links 0 | check-docs 0 | gen-index 0 | markdownlint 0 en superficie controlada (N CI = 0) | actionlint 0
+evidencia:
+  - claim: C-1 resuelto — 0 links dependientes de archivos gitignored (HTTP_API .opencode -> code span; discord todo.md -> de-link); checkout limpio da 0 (pre-ronda2: 2) | evidencia: git archive HEAD + node scripts/docs/check-links.mjs | confianza: alta
+  - claim: R-1 resuelto — rrf.md restaurado completo: 49 runs CP437 -> 0; H1 '# RRF—Reciprocal Rank Fusion'; L231 `[BM25](./bm25.md)` (code-span, no clicable); cross-check contra revision limpia 58a41ad8 | evidencia: rg CP437 = 0; git show 58a41ad8:... | confianza: alta
+  - claim: R-2/O-1 resueltos — FIND-264 (recitations MD007 + nota de retiro) y FIND-265 (barrido CP437 restante) registrados en Backlog; 263 ya tomado por DOCS-F2 en vuelo (reasignado) | evidencia: docs/dev/Backlog.md filas 264/265 | confianza: alta
+  - claim: R-3 resuelto — triage reconciliado contra snapshot canonico (checkout limpio 3bdc3fd5): local 55 (20/11/24) vs canonico 60 (22/11/27); delta +5 CI-only via .venv/.opencode/todo.md | evidencia: docs/dev/tasks/DOCS-F1.md tabla + N6 | confianza: alta
+  - claim: O-2/O-4 resueltos — '21 de 44' -> '15 de 46 fully-in-code' con metodo documentado (N6 + comentario del script); nota de tamano de commit en DoD (generados no cuentan) | evidencia: scripts/docs/check-links.mjs + DOCS-F1.md | confianza: alta
+artefactos: docs/dev/tasks/DOCS-F1.md; docs/api/HTTP_API.md; docs/user/discord/README.md; docs/user/glosario/rrf.md; docs/dev/Backlog.md; scripts/docs/check-links.mjs; commits a5909e38 (ronda 2) + 5404ebb3 (avance ronda 2)
+invariantes: tasks/plans no se mueven; property links de Obsidian intacta; indices generados no se editan a mano; links solo con destino unico verificado; master plan/opencode.jsonc intactos; no se toco el staging de DOCS-F2
+deuda: FIND-264 (master plan MD007 + retiro de exclusion al archivar); FIND-265 (barrido CP437: ann 28, compaction 29, failpoints 13, ci-cd 7, Informe 1, generados 2+2); wikilinks frozen (20) en budget
+queda_pendiente: re-review adversarial del delta ronda 2 (vanta-review ses_ef8f093d1ffeuZhUBhU4WR3rW9); nota de retiro en el workflow (orquestador); push diferido al cierre del plan (owner)
+Próxima tarea si completa: DOCS-F2 (cerrada por su sub-agente)
+=== END RECITATION ===
+
+=== RECITATION 21 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: Cerrar docs-consolidation F2: ejemplos de docs ejecutables en CI (Rust doctests -D warnings + Python pydoclint) + verificar gates T14/T15 + marcar F2 ✅ (TS derivado a FIND-263)
+Estado: completed
+Última acción: CIERRE COMPLETO: doctests Rust (job doctests, medido EXIT 0) + pydoclint (4→0) cableados a CI; T14/T15 verificados (ya existían desde 71139665; self-tests 17/17 y 29/29); TS→FIND-263; F2 ✅ en el plan (T13/T14/T15 COMPLETED); verify.ps1 ALL 10 PASS; OCR 0 Critical/High. Commits locales 100e3fef (tarea) + 83ceea01 (avance).
+Resultado: OK
+Próxima acción: ninguno — DOCS-F2 cerrada. Próxima desbloqueada: ENC-01 (Task 72)
+Contrato: verificacion: `dev-tools/verify.ps1` ALL 10 PASS ✅ · `RUSTDOCFLAGS="-D warnings" cargo test --doc --workspace` EXIT 0 ✅ (13+1i vantadb, 1 vanta-memory, 1 mcp) · `pydoclint --style=numpy` exit 0 ✅ · actionlint 0 ✅ · check-links/check-docs/gen-index verdes ✅ · self-tests gates 17/17 + 29/29 ✅. evidencia: claim=T14/T15 YA existían (commit 71139665, 2026-09-29) y se verificaron sin reimplementar, evidencia=.github/workflows/gate-api-docs.yml + gate-docs-secrets.yml + self-tests, confianza=alta · claim=doctests workspace verdes con -D warnings, evidencia=log local EXIT 0 (medido Windows; primer run ubuntu en CI), confianza=alta · claim=pydoclint 4 violaciones→0, evidencia='No violations' EXIT 0, confianza=alta · claim=TS docs sin infra CI (typedoc 0.28.20: 0 errores/39 warnings; sin job TS en PRs), evidencia=FIND-263 + workflows, confianza=alta. artefactos: docs/dev/tasks/DOCS-F2.md · .github/workflows/ci-rustdoc.yml · .github/workflows/gate-doc-examples.yml · vantadb-python/vantadb_py/__init__.py · docs/dev/plans/2026-09-28-docs-consolidation.md · docs/dev/Backlog.md (FIND-263) · docs/dev/avance/activo/ci-cd.md. invariantes: master plan/opencode.jsonc/pipeline-state/PUBLISH/release-plz/gate-docs-links intactos; gates T14/T15 solo verificados (no modificados); RULES.md obedecidas (SHA pins, timeouts, permissions, sin continue-on-error nuevo); push diferido (owner). deuda: TS docs → FIND-263 (burn-down: typedoc config+devDep+job; drenar 39 warnings; harness de bloques TS). queda_pendiente: review P2-01 formal vanta-review (fresh) — degradado escalado al orquestador; primer run de los jobs nuevos en CI ubuntu (si un doctest falla por plataforma, es finding real a arreglar); push diferido al cierre del plan (owner).
+Próxima tarea si completa: ENC-01
 === END RECITATION ===
