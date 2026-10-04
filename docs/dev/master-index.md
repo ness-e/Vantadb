@@ -8,6 +8,11 @@ tags: [vantadb, documentation, index, master-index]
 
 # VantaDB Master Index
 
+> **Deprecated (2026-10-04):** this hand-maintained index is superseded by
+> [`docs/index.md`](../index.md), which is generated from the frontmatter and
+> cannot fall behind the tree. New documents no longer need a row here; the
+> maintenance rule below is retired.
+>
 > Global index of all documentation, architecture decisions, API references, and operational guides.
 > **Maintenance rule:** every new doc or first-level folder under `docs/` MUST be indexed here **in the same PR** that adds it. Deliberate exclusions are listed at the bottom of this file.
 
@@ -224,7 +229,6 @@ Structured reports produced by pipelines and evals live in `docs/dev/reports/`.
 |----------|-------------|
 | [INDEX.md](reports/INDEX.md) | Index of all pipeline reports |
 | [dora.md](reports/dora.md) | DORA metrics report |
-| [northstar.md](reports/northstar.md) | Northstar tracking report |
 | [pipeline-evals.md](reports/pipeline-evals.md) | Pipeline evaluation report |
 
 ---

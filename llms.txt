@@ -6,7 +6,7 @@
 
 Every link below points to the raw Markdown source, not a rendered page. Read the
 page you need; do not read this file end to end. This index covers the
-448 documentation pages; it deliberately omits the 1058 task files,
+449 documentation pages; it deliberately omits the 1059 task files,
 which are work items rather than documentation. The full inventory of every file
 is in docs/index.md in the repository.
 
@@ -144,6 +144,7 @@ is in docs/index.md in the repository.
 - [OpenTelemetry](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/glosario/opentelemetry.md): Vendor-neutral APIs/SDKs for traces, metrics and logs
 - [Payload Indexes](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/glosario/payload-indexes.md): Los payload indexes son índices derivados sobre los campos de metadata de un
 - [Persistencia](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/glosario/persistence.md): La persistencia es la capacidad de un sistema de almacenamiento de datos para mantener la información de forma duradera más allá del ciclo de vida del proceso que la creó. En bases de datos, esto implica garantizar que los datos...
+- [Postcard](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/glosario/postcard.md): Compact serde-based binary format used by VantaDB for WAL records, index metadata and SDK structures.
 - [PyO3](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/glosario/pyo3.md): PyO3 es un framework de Rust para crear extensiones de Python y bindings bidireccionales entre Rust y Python. Permite exponer código Rust como módulos Python nativos, manteniendo seguridad de tipos y gestión de memoria automática
 - [Python](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/glosario/ffi.md): FFI (Foreign Function Interface) is a mechanism that allows code written in one programming language to call functions written in another language. In the context of VantaDB, FFI refers to the boundary between Rust (core engine) and...
 - [Qdrant](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/glosario/qdrant.md): Rust vector search engine (client-server) used as competitive baseline in VantaDB benchmarks

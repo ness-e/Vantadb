@@ -126,7 +126,7 @@ When one of these fires, file a new TBH-XX task referencing this document and re
 **No action.** Do not add `loom` or `shuttle` to `Cargo.toml`.
 
 This decision follows the D5 principle (justificar antes de añadir) and the
-[`ponytail`](../../.opencode/skills/ponytail/SKILL.md) reflex: the smallest change that works is
+`ponytail` reflex: the smallest change that works is
 no change.
 
 ## 7. References
