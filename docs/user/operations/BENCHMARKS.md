@@ -1103,7 +1103,7 @@ se reporta lo medido en esta maquina, no absolutos universales (pre-mortem Fallo
 > >
 > > **Reproduce (Regla 11):**
 > > ```powershell
-> > python benchmarks/competitive_bench.py --dataset synthetic --size 2000 --queries 50 --engines vanta,lance,chroma,qdrant --batch-size 999
+> > python benchmarks/competitive_bench.py --dataset synthetic --size 2000 --queries 50 --engines vanta,lance,chroma,qdrant
 > > # fila Milvus (harness adaptado a IndexParams, ver caveats):
 > > pip install "pymilvus==2.5.18" "milvus-lite==3.2.0"
 > > python benchmarks/competitive_bench.py --engines milvus --dataset synthetic --size 2000 --queries 50 --json-output docs/user/benchmarks/competitive_sdk_bench_milvus.json --output benchmarks/_n.md --yes
@@ -1122,8 +1122,18 @@ se reporta lo medido en esta maquina, no absolutos universales (pre-mortem Fallo
 | Milvus (lite) | 4,644.8 | 617.1 | 206.8 | 4.718 | 6.654 | 63.60% | 302.4 |
 
 Metodología: 3 iteraciones por motor, mediana (D4); warmup 10 queries (D3);
-ground truth brute-force numpy; `--batch-size 999` (evita doble rebuild).
-`N/A (Inc)` = índice incremental sin fase de build medible.
+ground truth brute-force numpy; chunks < 1000 forzados por el harness (sin
+rebuild oculto dentro del timer Ingest — BENCH-01). `N/A (Inc)` = índice
+incremental sin fase de build medible.
+
+> [!NOTE]
+> **Comparabilidad (BENCH-01, 2026-10-04):** este run se midió con el harness
+> anterior al fix, cuyo timer Ingest incluía la construcción del cliente
+> (~317 ms medidos en la máquina del fix) y la preparación de payloads; desde
+> BENCH-01 la región mide solo los calls de inserción + `flush`. El run no se
+> regenera (fuera de alcance); el delta de región medido es ≈ +8–11% de Ingest
+> QPS en esta configuración. Ver `benchmarks/competitive_bench.py` (header) y
+> `docs/dev/tasks/BENCH-01.md`.
 
 ### Entorno (Regla 11)
 

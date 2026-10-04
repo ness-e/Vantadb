@@ -33,6 +33,11 @@ server) on the same process/CPU/RAM, so the comparison is direct.
 python benchmarks/competitive_bench.py --dataset glove-100-angular --size 10000 --queries 100
 ```
 
+The Ingest column measures only the `put_batch_raw` calls + `flush` (client init
+and payload preparation are excluded), and `--batch-size` is clamped below the
+engine's 1000-node incremental threshold — no hidden HNSW rebuild can run inside
+the Ingest timer (BENCH-01; see the script header for the full methodology).
+
 > [!NOTE]
 > Dataset downloads are slow. The default dataset for quick local runs is
 > synthetic; pass `--dataset` to opt into real ann-benchmarks data.
