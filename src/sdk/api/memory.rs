@@ -11,12 +11,12 @@
 
 use super::super::builder::Embedded;
 use super::super::serialization::{
-    memory_node_id, memory_record_to_node_owned, now_ms, record_from_node,
-    validate_confidence_fields, validate_key, validate_metadata, validate_namespace,
-    DERIVED_INDEX_SCHEMA_VERSION, FIELD_CONFIDENCE_CLASS, FIELD_CREATED_AT_MS, FIELD_EXPIRES_AT_MS,
-    FIELD_KEY, FIELD_NAMESPACE, FIELD_PAYLOAD, FIELD_QUARANTINED_AT_MS, FIELD_QUARANTINED_BY,
-    FIELD_QUARANTINE_REASON, FIELD_QUARANTINE_REVIEW_DUE_MS, FIELD_UPDATED_AT_MS,
-    FIELD_VALID_AT_MS, FIELD_VERSION,
+    memory_node_id, memory_record_from_node_include_expired, memory_record_to_node_owned, now_ms,
+    record_from_node, validate_confidence_fields, validate_key, validate_metadata,
+    validate_namespace, DERIVED_INDEX_SCHEMA_VERSION, FIELD_CONFIDENCE_CLASS, FIELD_CREATED_AT_MS,
+    FIELD_EXPIRES_AT_MS, FIELD_KEY, FIELD_NAMESPACE, FIELD_PAYLOAD, FIELD_QUARANTINED_AT_MS,
+    FIELD_QUARANTINED_BY, FIELD_QUARANTINE_REASON, FIELD_QUARANTINE_REVIEW_DUE_MS,
+    FIELD_UPDATED_AT_MS, FIELD_VALID_AT_MS, FIELD_VERSION,
 };
 use super::super::types::*;
 use crate::backend::{BackendKind, BackendPartition, BackendWriteOp};
@@ -299,6 +299,141 @@ impl Embedded {
         }
     }
 
+    /// Resolve the existing record for a write to `(namespace, key)`.
+    ///
+    /// A physically present node whose record is hidden by lazy TTL eviction
+    /// (`record_from_node` → `None`) is **purged on write** (DUR-03 / H-023):
+    /// the expired record is logically absent — `get` hides it, `delete`
+    /// reports nothing, `list`/search exclude it — so a write must not
+    /// collide with it. Purging first gives the same observable outcome as
+    /// the documented `purge_expired()`-then-`put` workaround: fresh version 1
+    /// and `created_at_ms` reset (the single-record purge is a superset of the
+    /// sweeper's cleanup — it also removes sparse index entries, which
+    /// `purge_expired` does not).
+    ///
+    /// Returns the existing live record (if any) **plus the read guard that
+    /// stabilizes its generation**: the caller must hold it across the
+    /// subsequent insert + index replacement, so a concurrent purge cannot
+    /// remove the generation's stats in between (a second decrement would
+    /// drive the text df negative). The guard is `None` for a fresh insert —
+    /// there is no generation to protect.
+    ///
+    /// [`Error::NodeIdCollision`] is returned when the deterministic id is
+    /// occupied by a different key or a non-memory node; inside an active
+    /// transaction the expired case keeps that same error (see
+    /// `purge_expired_record`).
+    fn resolve_existing_for_write(
+        &self,
+        engine: &crate::storage::StorageEngine,
+        namespace: &str,
+        key: &str,
+    ) -> Result<(
+        Option<MemoryRecord>,
+        Option<parking_lot::RwLockReadGuard<'_, ()>>,
+    )> {
+        let node_id = memory_node_id(namespace, key);
+        loop {
+            let Some(node) = engine.get(node_id)? else {
+                return Ok((None, None));
+            };
+            match record_from_node(&node) {
+                Some(record) if record.namespace == namespace && record.key == key => {
+                    // Live record: take the read guard and re-verify under it
+                    // (a purge may have won the race since the peek).
+                    let guard = self.purge_lock.read();
+                    let Some(node) = engine.get(node_id)? else {
+                        drop(guard);
+                        continue;
+                    };
+                    match record_from_node(&node) {
+                        Some(record) if record.namespace == namespace && record.key == key => {
+                            return Ok((Some(record), Some(guard)));
+                        }
+                        Some(_) => return Err(Error::NodeIdCollision(node_id)),
+                        None => {
+                            // Expired between the peek and the guard: retry as
+                            // the purge-on-write case.
+                            drop(guard);
+                            if self
+                                .purge_expired_record(engine, namespace, key, node_id)?
+                                .is_none()
+                            {
+                                return Ok((None, None));
+                            }
+                            continue;
+                        }
+                    }
+                }
+                Some(_) => return Err(Error::NodeIdCollision(node_id)),
+                None => match memory_record_from_node_include_expired(&node) {
+                    Some(expired) if expired.namespace == namespace && expired.key == key => {
+                        if self
+                            .purge_expired_record(engine, namespace, key, node_id)?
+                            .is_none()
+                        {
+                            return Ok((None, None));
+                        }
+                        continue;
+                    }
+                    _ => return Err(Error::NodeIdCollision(node_id)),
+                },
+            }
+        }
+    }
+
+    /// Physically remove one expired record and its derived entries, under the
+    /// `purge_lock` **write** guard. Uses the same primitives as `delete_inner`
+    /// — node delete (KV + HNSW + shred), derived/text/sparse index
+    /// replacement to `None`, version-history purge — plus a re-check: if a
+    /// concurrent purge already removed the node, or a concurrent write
+    /// refreshed it, the cleanup must not run again (a second stats decrement
+    /// would drive the text df negative).
+    ///
+    /// Returns `Ok(Some(record))` when the node was refreshed into a live
+    /// record of this key (the caller should upsert over it), `Ok(None)` when
+    /// the expired record was purged or the node vanished, and
+    /// [`Error::NodeIdCollision`] when the id now holds a foreign node.
+    ///
+    /// Inside an active transaction `engine.delete` only buffers the node
+    /// delete while the index cleanup would apply immediately — an abort
+    /// would leave the node present with its stats already gone — so this
+    /// refuses to purge and the caller keeps the pre-DUR-03 collision error.
+    fn purge_expired_record(
+        &self,
+        engine: &crate::storage::StorageEngine,
+        namespace: &str,
+        key: &str,
+        node_id: u128,
+    ) -> Result<Option<MemoryRecord>> {
+        let _guard = self.purge_lock.write();
+        if engine.txn.has_active() {
+            return Err(Error::NodeIdCollision(node_id));
+        }
+        let Some(node) = engine.get(node_id)? else {
+            return Ok(None);
+        };
+        match record_from_node(&node) {
+            Some(record) if record.namespace == namespace && record.key == key => {
+                return Ok(Some(record));
+            }
+            Some(_) => return Err(Error::NodeIdCollision(node_id)),
+            None => {}
+        }
+        let Some(current) = memory_record_from_node_include_expired(&node) else {
+            // Present but not a parseable memory record of this key: a foreign
+            // node — never silently overwrite it.
+            return Err(Error::NodeIdCollision(node_id));
+        };
+        if current.namespace != namespace || current.key != key {
+            return Err(Error::NodeIdCollision(node_id));
+        }
+        engine.delete(node_id, "ttl_rewrite")?;
+        self.replace_derived_indexes(engine, Some(&current), None)?;
+        // Best-effort class, same as `delete_inner` (VS-CORE-07).
+        let _ = super::super::version_history::purge_key(engine, &current.namespace, &current.key);
+        Ok(None)
+    }
+
     /// Shared logic for inserting/updating a single memory record.
     /// Used by both `put()` and `put_batch()`.
     fn put_one(&self, input: MemoryInput) -> Result<MemoryRecord> {
@@ -309,20 +444,10 @@ impl Embedded {
 
         let engine = self.engine_handle()?;
         let node_id = memory_node_id(&input.namespace, &input.key);
-        let existing = match engine.get(node_id)? {
-            Some(node) => match record_from_node(&node) {
-                Some(record) if record.namespace == input.namespace && record.key == input.key => {
-                    Some(record)
-                }
-                _ => {
-                    return Err(Error::NodeIdCollision(memory_node_id(
-                        &input.namespace,
-                        &input.key,
-                    )));
-                }
-            },
-            None => None,
-        };
+        // The guard stabilizes a live generation across insert + index
+        // replacement (DUR-03 race hardening); `None` for fresh inserts.
+        let (existing, _generation_guard) =
+            self.resolve_existing_for_write(&engine, &input.namespace, &input.key)?;
 
         let timestamp = now_ms();
         let created_at_ms = existing
@@ -512,32 +637,23 @@ impl Embedded {
                 // Existing record: in-batch duplicate wins (already bumped), else
                 // consult the engine like put_one (pre-existing records from
                 // earlier batches should also increment, not reset to 1).
-                let (prev_version, prev_created_at_ms, mut quarantine) =
-                    if let Some((v, q)) = seen.get(&node_id) {
-                        (Some(*v), Some(timestamp), q.clone())
-                    } else {
-                        match engine.get(node_id)? {
-                            Some(node) => match record_from_node(&node) {
-                                Some(record)
-                                    if record.namespace == input.namespace
-                                        && record.key == input.key =>
-                                {
-                                    (
-                                        Some(record.version),
-                                        Some(record.created_at_ms),
-                                        QuarantineState::from_record(&record),
-                                    )
-                                }
-                                _ => {
-                                    return Err(Error::NodeIdCollision(memory_node_id(
-                                        &input.namespace,
-                                        &input.key,
-                                    )));
-                                }
-                            },
-                            None => (None, None, QuarantineState::default()),
-                        }
-                    };
+                let (prev_version, prev_created_at_ms, mut quarantine) = if let Some((v, q)) =
+                    seen.get(&node_id)
+                {
+                    (Some(*v), Some(timestamp), q.clone())
+                } else {
+                    // NOTE: the guard is intentionally dropped at the end of
+                    // this match — the batch path finishes with full index
+                    // rebuilds, so it does not need the generation pinned.
+                    match self.resolve_existing_for_write(&engine, &input.namespace, &input.key)? {
+                        (Some(record), _guard) => (
+                            Some(record.version),
+                            Some(record.created_at_ms),
+                            QuarantineState::from_record(&record),
+                        ),
+                        (None, _guard) => (None, None, QuarantineState::default()),
+                    }
+                };
                 let created_at_ms = prev_created_at_ms.unwrap_or(timestamp);
                 let version = prev_version.map(|v| v.saturating_add(1)).unwrap_or(1);
 
@@ -917,19 +1033,9 @@ impl Embedded {
         }
 
         let engine = self.engine_handle()?;
-        let previous = match engine.get(record.node_id)? {
-            Some(node) => match record_from_node(&node) {
-                Some(previous)
-                    if previous.namespace == record.namespace && previous.key == record.key =>
-                {
-                    Some(previous)
-                }
-                _ => {
-                    return Err(Error::NodeIdCollision(record.node_id));
-                }
-            },
-            None => None,
-        };
+        // See `put_one`: hold the generation guard across insert + replace.
+        let (previous, _generation_guard) =
+            self.resolve_existing_for_write(&engine, &record.namespace, &record.key)?;
 
         // F4 (SCH-05 review): sticky on the raw transport — an incoming record
         // that carries no quarantine state must not clear an existing one
@@ -1177,6 +1283,17 @@ impl Embedded {
     pub fn purge_expired(&self) -> Result<u64> {
         self.check_read_only()?;
         let engine = self.engine_handle()?;
+        // DUR-03: serialize against the purge-on-write path and against
+        // upserts that hold the read guard (a second stats decrement for the
+        // same generation would drive the text df negative).
+        let _guard = self.purge_lock.write();
+        // DUR-03 review (round 2): inside an active transaction `engine.delete`
+        // only buffers the node delete while the index cleanup would apply
+        // immediately — an abort would leave the node present with its stats
+        // already gone. Skip the sweep; the next one (post-txn) purges.
+        if engine.txn.has_active() {
+            return Ok(0);
+        }
         let now = now_ms();
         let mut to_delete: Vec<MemoryRecord> = Vec::new();
 
