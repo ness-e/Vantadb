@@ -702,6 +702,11 @@ jobs:
           echo "Using symbolizer: $SYMBOLIZER"
 
       # CATEGORY: BEST-EFFORT — job-level continue-on-error covers this
+      # FIND-236 (2026-10-04): `sift1m_competitive_benchmark` is skipped below —
+      # it carries a release-only guard that panics in debug by design
+      # (tests/certification/competitive_bench.rs:64), keeping this job red with
+      # pre-existing noise (runs 37102066714 / 111086294644). With leaks at zero
+      # (FIND-226), red should mean "real leak", not the guard.
       - name: Test with AddressSanitizer
         run: |
           cargo +nightly test \
@@ -710,7 +715,8 @@ jobs:
             --features "cli,arrow,tls,opentelemetry" \
             --config 'target.x86_64-unknown-linux-gnu.rustflags = ["-Zsanitizer=address", "-Cunsafe-allow-abi-mismatch=sanitizer"]' \
             -- \
-            --skip test_benchmark_internal_10k
+            --skip test_benchmark_internal_10k \
+            --skip sift1m_competitive_benchmark
         env:
           ASAN_OPTIONS: "detect_stack_use_after_return=1:detect_leaks=1:halt_on_error=0"
           LSAN_OPTIONS: "suppressions=.lsan_suppressions"
