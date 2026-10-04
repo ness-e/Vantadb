@@ -21,13 +21,16 @@ el runner falla o no está configurado.
 ## Scope & stability (Gate P — 2026-09-24)
 
 - **Core-only by decision** (`API-STD-15`, Gate P): `vanta-memory` is an internal workspace
-  member (`publish = false`) consumed in-process by `vantadb-mcp`, `vanta-proxy` and
-  `desktop/src-tauri`. It is **not exposed by any binding** (Python/TS/Node/WASM) and is not
-  part of the published versioning contract; exposing it requires new Rust bindings plus
-  demonstrated demand (post-release, D42/D43).
+  member consumed in-process by `vantadb-mcp`, `vanta-proxy` and `desktop/src-tauri`.
+  Exposing it requires new Rust bindings plus demonstrated demand (post-release, D42/D43).
+- **Binding scope (DIST-03, 2026-10-04):** **TS/Node/WASM: not exposed** — declared core-only,
+  with the WASM viability evidence in
+  [`BINDINGS_NAMESPACES.md` §Cognitive layer scope](./BINDINGS_NAMESPACES.md#cognitive-layer-vanta-memory-scope-per-binding-dist-03-2026-10-04);
+  a **minimal Python surface** (`memory_recall`/`memory_capture`) is declared for the 0.9.0
+  train (DIST-02). This page and that matrix are reconciled to the landed surface by DIST-04.
 - **Stable Rust API:** the public surface documented here is the stable contract for in-repo
-  consumers. Binding re-export: none — `0` symbols by design (checked with
-  `rg "vanta[_-]memory" vantadb-python vantadb-ts vantadb-node vantadb-wasm` → 0 matches).
+  consumers. Binding re-export: **none for TS/Node/WASM** — `0` symbols by design (checked
+  with `rg "vanta[_-]memory" vantadb-ts vantadb-node vantadb-wasm` → 0 matches).
 
 ## Facade — capture / recall / seed / ingest (candidate, not published)
 
@@ -155,8 +158,13 @@ constraints, and a re-run of the Gate P HITL decision (post-release, D42/D43).
 Rules:
 
 - One trigger fires → open the exposure design task (post-release only, D42/D43).
-- Zero triggers fired → this page stays the manual reference; binding symbols
-  stay at 0 (`rg vanta[_-]memory vantadb-python vantadb-ts vantadb-node vantadb-wasm`).
+- Zero triggers fired → this page stays the manual reference; **TS/Node/WASM
+  binding symbols stay at 0** (`rg vanta[_-]memory vantadb-ts vantadb-node vantadb-wasm`).
+  The Python minimal surface declared for the 0.9.0 train (DIST-02) is scoped in
+  [`BINDINGS_NAMESPACES.md` §Cognitive layer scope](./BINDINGS_NAMESPACES.md#cognitive-layer-vanta-memory-scope-per-binding-dist-03-2026-10-04).
+- **DIST-03 (2026-10-04):** TS/WASM exposure was evaluated (compile checks +
+  official docs); outcome: per-binding scope declared (TS/Node/WASM core-only)
+  and the WASM port gap list captured as `FIND-255`.
 - Triggers are reviewed at release-train time, not continuously.
 
 ## Feature flags

@@ -20,7 +20,7 @@ tags: [vantadb, api, bindings, namespaces]
 |---|---|
 | `memory` | Records in a namespace: put/get/list/search/supersede/TTL purge, text snippets over payloads |
 | `graph` | Node/edge CRUD and traversals (BFS, DFS, topological sort, DAG check, PageRank, degree) |
-| `conversation` | Reserved — L0–L3 context-engine pipeline lives in crate `vanta-memory`, **not exposed via bindings today** (D43) |
+| `conversation` | Reserved — L0–L3 context-engine pipeline lives in crate `vanta-memory`, **not exposed via TS/Node/WASM; minimal Python surface in the 0.9.0 train** (D43; per-binding scope declared in §Cognitive layer scope, DIST-03) |
 | `skills` | Reserved — no binding surface exists today (D43) |
 | `wiki` | Summary/archive lifecycle over nodes (recover archived nodes). Full wiki features are core-only (D43) |
 | `system` | Catch-all: constructors/lifecycle, capabilities/hardware profile, metrics, IQL query engine, index maintenance, compaction, import/export |
@@ -344,6 +344,10 @@ so the bare `get`/`delete` collision is gone.
 
 ## Core-Only Capabilities (D43 — deferred, NOT part of this campaign)
 
+> **Update (DIST-03, 2026-10-04):** the cognitive-layer subset has a declared
+> per-binding scope — see §Cognitive layer (`vanta-memory`) scope per binding
+> below. The remaining core-only items stay as-is.
+
 | Capability | Lives in | Would land under |
 |---|---|---|
 | Memory pipeline L0–L3 (persona, compression, recall assembly) | crate `vanta-memory` | `conversation` |
@@ -352,6 +356,94 @@ so the bare `get`/`delete` collision is gone.
 | Skill stores | future | `skills` |
 
 Exposing any of these requires new Rust bindings (out of scope per D42). Tracked as post-campaign work.
+
+## Cognitive layer (`vanta-memory`) scope per binding (DIST-03, 2026-10-04)
+
+> **Status:** normative as of DIST-03 (master plan 0.9.0). The cognitive layer
+> (`vanta-memory`) is **declared core-only for TS/Node/WASM**; a **minimal
+> Python surface** is declared for the 0.9.0 train (DIST-02). This is the
+> explicit multi-binding promise — per binding, what exists and what does not.
+
+**Decision (DIST-03): declare scope, do not expose.** The alternative — a
+minimal TS/WASM exposure — was evaluated first and rejected on verified
+evidence, not preference:
+
+1. **WASM runtime blockers.** `vanta-memory` production paths call
+   `std::time::SystemTime::now()` (capture/L0 at
+   `core/conversation/l0_recorder.rs:402`, the injectable-clock default at
+   `utils/managed_timer.rs:26`, offload GC and record lifecycle). On
+   `wasm32-unknown-unknown` `SystemTime::now()` **panics** — the core solved
+   this with `web-time`; the memory crate needs the same port. Seed/import and
+   ingest-config paths use `std::fs`, which **always returns errors** on this
+   target.
+2. **Compile requires a port.** `cargo check -p vanta-memory --target
+   wasm32-unknown-unknown` fails today (`getrandom` `wasm_js` feature); it
+   only compiles when `vantadb/wasm` feature unification is forced — the
+   crate needs its own `wasm` feature before any binding can depend on it.
+3. **LLM and embeddings cannot compile on wasm.** `llm-driver` fails with
+   `E0433: cannot find 'blocking' in 'reqwest'`
+   (`adapters/standalone/llm_runner.rs:127`); `embeddings` fails with
+   `E0432: unresolved import 'reqwest::blocking'` in the core (`src/llm.rs:22`)
+   — reqwest's `blocking` module is `cfg(not(target_arch = "wasm32"))`. The
+   wasm surface would be LLM-free and keyword-only: a materially different
+   product promise.
+4. **Bundle size.** `vanta-memory` is ~28k LOC; the wasm artifact is
+   size-managed (`opt-level = "s"`, `wasm-opt -Oz`, ~670 KB gzip published).
+   Pulling the memory crate into the npm artifact is a product decision, not
+   a wrapper.
+5. **Policy.** Gate P (`API-STD-15`, D42/D43) and
+   [VANTA_MEMORY.md §Exposure triggers](./VANTA_MEMORY.md) require a fired
+   trigger plus a re-run of the Gate P decision before any exposure; zero
+   triggers have fired.
+
+The WASM port is tracked as `FIND-255` (Backlog) with the verified gap list —
+it is a port, not a thin wrapper.
+
+### Scope matrix (per binding)
+
+| Cognitive surface (`vanta-memory`) | WASM | TS (`vantadb`) | Node (`vantadb-node`) | Python (`vantadb-python`) |
+|---|---|---|---|---|
+| L0 capture (`AutoCaptureHook::capture`) | — | — | — | ⏳ minimal (`memory_capture`, DIST-02) |
+| Recall (`perform_auto_recall`) | — | — | — | ⏳ minimal (`memory_recall`, DIST-02) |
+| Seed import (`seed::*`, fs-bound) | — | — | — | — |
+| Wiki ingest (`ingest::worker`) | — | — | — | — |
+| Dream / consolidation (`core::dream`) | — | — | — | — |
+| Context engine (`context_engine::*`) | — | — | — | — |
+| Skill extraction (`core::skill`) | — | — | — | — |
+
+Legend: `—` = not exposed (declared out of scope); `⏳ minimal` = recall +
+capture only, declared for the 0.9.0 train (DIST-02 — not documented as
+shipped until it lands; api-contract R-1). TS (`vantadb` npm) wraps the WASM
+build (D42 — zero WASM changes), so a TS exposure is blocked by the same WASM
+constraints; the native path (`NativeVantaDB` → `vantadb-node`) is unpublished
+and has no cognitive surface. Node (napi-rs) is the only runtime without the
+WASM blockers; it stays core-only under the same Gate P decision — candidate
+scope for the trigger-fired design task.
+
+**Status note:** the Python minimal surface (DIST-02) is in flight in the same
+train; this matrix and `VANTA_MEMORY.md` are reconciled to the landed surface
+by DIST-04 (hard dependency). The Python section counts below (46 pyclass
+methods) are likewise reconciled by DIST-04 once DIST-02 lands.
+
+**Mechanical invariant (TS/Node/WASM declared core-only):**
+
+```bash
+rg "vanta[_-]memory" vantadb-ts vantadb-node vantadb-wasm   # → 0 matches
+```
+
+### Runtime `capabilities()` parity
+
+> `capabilities()` is the engine-level runtime struct (profile, persistence,
+> vector-search/IQL availability, read-only); the cognitive layer is **not**
+> part of it by design. Cross-binding consistency is tracked here.
+
+| Field (canonical: core serde shape) | WASM | TS | Node | Python |
+|---|---|---|---|---|
+| `runtime_profile` | ✅ | ✅ | ✅ | ⚠️ key `profile` + UPPER labels — `FIND-256` |
+| `persistence` | ✅ | ✅ | ✅ | ✅ |
+| `vector_search` | ✅ | ✅ | ✅ | ✅ |
+| `iql_queries` | ✅ | ✅ | ✅ | ✅ |
+| `read_only` | ✅ | ✅ | ✅ | ✅ |
 
 ## Sub-Client Design v1
 
