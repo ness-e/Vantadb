@@ -6,19 +6,23 @@ Supports glove-100-angular, sift-128-euclidean, and synthetic datasets.
 
 === Measurement-methodology notes (read before comparing numbers) ===
 
-1. HIDDEN REBUILD — VantaDB's Ingest timer double-counts index building.
-   `db.put_batch_raw` is called once with ALL vectors (default `--size 10000`).
-   With InsertMode::Auto, the engine skips incremental HNSW insertion when the
-   batch is >= 1000 nodes (src/storage/engine/ops.rs:957-964) and performs ONE
-   full HNSW rebuild at the end of the batch — INSIDE the Ingest timer. The
-   explicit `db.rebuild_index()` in the Index timer then rebuilds AGAIN.
-   Net: 2 full index builds per run; the Ingest/Index deltas measure the same
-   build regression twice.
-   To isolate the hidden rebuild: run with `--batch-size 999`. Chunking the
-   Python-side insert to < 1000 nodes per `put_batch_raw` call forces
-   InsertMode::Incremental (no rebuild inside Ingest). The delta
-   `--batch-size 0` (single call) minus `--batch-size 999` IS the hidden
-   rebuild cost.
+1. INGEST TIMER = PUT CALLS + FLUSH ONLY (setup is not measured).
+   The measured region contains exactly the `put_batch_raw` calls and
+   `db.flush()`; client construction and Python-side payload preparation run
+   BEFORE the timer starts. Every insert chunk is kept below the engine's
+   incremental threshold (1000 nodes — InsertMode::Auto,
+   src/storage/engine/ops.rs:50-59): a chunk >= 1000 nodes makes the SDK
+   rebuild the vector index INSIDE `put_batch_raw`
+   (src/sdk/api/memory.rs:721-723, 766-768), which the explicit
+   `db.rebuild_index()` in the Index timer would then repeat — the same index
+   built twice per run. `--batch-size` is clamped to 999 for this reason
+   (0/negative = default 999): the harness cannot double-build by construction.
+   Known, non-duplicated cost inside the ingest region: the SDK rebuilds
+   derived/text/sparse indexes on EVERY `put_batch_raw` call
+   (src/sdk/api/memory.rs:776-778), so the chunked path pays n/999 of those
+   rebuilds — the real cost of this API path, not a double count.
+   Historical: runs before 2026-10-04 used `--batch-size 0` (single call, the
+   double build above) and are NOT directly comparable — see git history.
 
 2. PRE-REGRESSION BASELINE IS NOT DIRECTLY COMPARABLE.
    The 3,157 QPS / 2,196 ms baseline (git diff 1235830e on this file:
@@ -239,6 +243,26 @@ def compute_ground_truth(train_vectors, test_vectors, metric, top_k=100):
 
 
 # 4. Engine Benchmark Functions
+
+# Engine InsertMode::Auto threshold (src/storage/engine/ops.rs:50-59): a batch
+# with >= this many nodes makes the SDK rebuild the vector index inside
+# put_batch_raw (src/sdk/api/memory.rs:721-723, 766-768) — which the explicit
+# rebuild_index() would then repeat (double build).
+INCREMENTAL_THRESHOLD = 1000
+
+
+def effective_chunk_size(batch_size):
+    """Chunk size for put_batch_raw, always below INCREMENTAL_THRESHOLD.
+
+    A chunk >= 1000 nodes triggers a full HNSW rebuild INSIDE put_batch_raw
+    (InsertMode::Auto), which db.rebuild_index() would then build again
+    (double build — see header comment, item 1). 0/negative = default.
+    """
+    if not batch_size or batch_size <= 0:
+        return INCREMENTAL_THRESHOLD - 1
+    return min(batch_size, INCREMENTAL_THRESHOLD - 1)
+
+
 def bench_vantadb(db_path, train_vectors, test_vectors, ground_truth, metric, top_k, batch_size=0):
     print("\nBenchmarking VantaDB...")
     if os.path.exists(db_path):
@@ -246,8 +270,9 @@ def bench_vantadb(db_path, train_vectors, test_vectors, ground_truth, metric, to
 
     rss_start = get_current_rss()
     
-    # 1. Ingestion
-    start_time = time.perf_counter()
+    # 0. Setup — NOT measured: opening the store and building the Python-side
+    #    payloads is harness bookkeeping, not engine ingest work. The Ingest
+    #    timer below isolates the put_batch_raw calls + flush (header item 1).
     db = vantadb.Client(db_path)
     
     # VantaDB configuration check: map metric
@@ -255,8 +280,6 @@ def bench_vantadb(db_path, train_vectors, test_vectors, ground_truth, metric, to
     # or rely on standard config.
     namespace = "bench"
     # PERF: batch insert via put_batch_raw with zero-copy numpy array (~50-300x vs per-vector put())
-    # batch_size > 0 chunks the insert so each put_batch_raw call is < 1000 nodes, forcing
-    # InsertMode::Incremental (no hidden HNSW rebuild inside this timer — see header comment).
     n = len(train_vectors)
     keys = [f"doc-{i}" for i in range(n)]
     payloads = [f"Payload metadata entry for vector number {i}" for i in range(n)]
@@ -271,24 +294,26 @@ def bench_vantadb(db_path, train_vectors, test_vectors, ground_truth, metric, to
             namespaces=[namespace] * len(keys_chunk),
         )
 
-    if batch_size and batch_size > 0:
-        for i in range(0, n, batch_size):
-            end = min(i + batch_size, n)
-            _put(
-                train_vectors[i:end],
-                keys[i:end],
-                payloads[i:end],
-                metadatas[i:end],
-            )
-    else:
-        # Default (--batch-size 0): single call, full array — the engine performs ONE full
-        # HNSW rebuild at the end of the batch, INSIDE this timer (see header comment).
-        _put(train_vectors, keys, payloads, metadatas)
+    # 1. Ingestion — measured region: the chunked put_batch_raw calls + flush only.
+    #    effective_chunk_size() keeps every call < 1000 nodes, so no hidden HNSW
+    #    rebuild can run inside this timer (header item 1).
+    chunk = effective_chunk_size(batch_size)
+    start_time = time.perf_counter()
+    for i in range(0, n, chunk):
+        end = min(i + chunk, n)
+        _put(
+            train_vectors[i:end],
+            keys[i:end],
+            payloads[i:end],
+            metadatas[i:end],
+        )
     db.flush()
     ingest_time = time.perf_counter() - start_time
     rss_after_ingest = get_current_rss()
 
-    # 2. Index Rebuild
+    # 2. Index Rebuild — exactly ONE full vector-index build: the chunked inserts
+    #    above update the index incrementally; this is the canonical build the
+    #    Index column reports.
     start_index = time.perf_counter()
     db.rebuild_index()
     index_time = time.perf_counter() - start_index
@@ -847,11 +872,7 @@ def write_json_report(json_path, args, results, n_dim, metric, hardware, version
             "vectors": args.size,
             "queries": args.queries,
             "top_k": args.top_k,
-            "ingest_mode": (
-                f"chunked (--batch-size {args.batch_size})"
-                if args.batch_size and args.batch_size > 0
-                else "single put_batch_raw (--batch-size 0, doble rebuild — no comparable)"
-            ),
+            "ingest_mode": f"chunked (--batch-size {effective_chunk_size(args.batch_size)})",
         },
         "methodology": {
             "iterations_per_engine": 3,
@@ -880,6 +901,83 @@ def write_json_report(json_path, args, results, n_dim, metric, hardware, version
     print(f"\nWrote versioned JSON contract: {json_path}")
 
 
+# 5.6 Offline self-test (measurement regions — BENCH-01)
+def run_self_test():
+    """Prove the measurement regions offline, with a stub engine.
+
+    (a) `effective_chunk_size` never reaches the engine's incremental threshold;
+    (b) the Ingest timer excludes client init (stub init sleeps, inserts do not);
+    (c) `rebuild_index()` runs exactly once per benchmark run.
+    """
+    total = 0
+    failures = []
+
+    def check(name, ok, detail=""):
+        nonlocal total
+        total += 1
+        print(f"  [{'PASS' if ok else 'FAIL'}] {name}" + (f" -- {detail}" if detail else ""))
+        if not ok:
+            failures.append(name)
+
+    # (a) Chunk planning never reaches the incremental threshold.
+    check("chunk(0) = 999 (default)", effective_chunk_size(0) == 999)
+    check("chunk(-5) = 999 (default)", effective_chunk_size(-5) == 999)
+    check("chunk(500) = 500", effective_chunk_size(500) == 500)
+    check("chunk(999) = 999", effective_chunk_size(999) == 999)
+    check("chunk(1000) = 999 (clamped)", effective_chunk_size(1000) == 999)
+    check("chunk(10000) = 999 (clamped)", effective_chunk_size(10000) == 999)
+
+    # (b) Region fixture: stub client with a slow init and fast inserts.
+    init_sleep, put_sleep = 0.30, 0.002
+    n = 2000
+    calls = {"puts": [], "rebuilds": 0}
+
+    class _StubClient:
+        def __init__(self, path):
+            time.sleep(init_sleep)
+
+        def put_batch_raw(self, vectors=None, keys=None, payloads=None, metadatas=None, namespaces=None):
+            calls["puts"].append(len(keys))
+            time.sleep(put_sleep)
+            return []
+
+        def flush(self):
+            pass
+
+        def rebuild_index(self):
+            calls["rebuilds"] += 1
+
+        def search(self, **kwargs):
+            return []
+
+        def close(self):
+            pass
+
+    real_client = vantadb.Client
+    db_dir = os.path.join(tempfile.mkdtemp(prefix="vanta_bench_selftest_"), "db")
+    try:
+        vantadb.Client = _StubClient
+        rng = np.random.default_rng(42)
+        vectors = rng.uniform(-1.0, 1.0, (n, 8)).astype(np.float32)
+        queries = vectors[:3].copy()
+        ground_truth = np.zeros((3, 10), dtype=np.int32)
+        res = bench_vantadb(db_dir, vectors, queries, ground_truth, "euclidean", 10, batch_size=0)
+    finally:
+        vantadb.Client = real_client
+        shutil.rmtree(os.path.dirname(db_dir), ignore_errors=True)
+
+    check("no put_batch_raw call >= 1000 nodes", all(c < 1000 for c in calls["puts"]),
+          f"calls={calls['puts']}")
+    check("exactly one rebuild_index() per run", calls["rebuilds"] == 1,
+          f"rebuilds={calls['rebuilds']}")
+    floor = n / (init_sleep / 2.0)  # 0.15 s budget: ~2x below init, ~25x above pure put
+    check("Ingest timer excludes client init", res["ingest_throughput"] > floor,
+          f"throughput={res['ingest_throughput']:.0f} rec/s, floor={floor:.0f} rec/s")
+
+    print(f"\nSelf-test: {total - len(failures)}/{total} PASS")
+    return 0 if not failures else 1
+
+
 # 6. Main Execution Loop
 def main():
     parser = argparse.ArgumentParser(description="VantaDB Competitive Benchmark Suite")
@@ -888,22 +986,29 @@ def main():
     parser.add_argument("--queries", type=int, default=100, help="Number of query vectors")
     parser.add_argument("--top-k", type=int, default=10, help="Top K neighbors to retrieve")
     parser.add_argument("--batch-size", type=int, default=999,
-                        help="VantaDB ingest chunk size. 999 (default) = chunked incremental insert "
-                             "(no hidden HNSW rebuild inside the Ingest timer — rebuild measured "
-                             "only in Index timer). 0 = single put_batch_raw call (legacy; hidden "
-                             "rebuild runs inside Ingest AND Index timers = double rebuild). "
-                             "See header comment.")
+                        help="VantaDB ingest chunk size, clamped to 999: chunks >= 1000 nodes "
+                             "make the SDK rebuild the vector index inside put_batch_raw "
+                             "(InsertMode::Auto) and rebuild_index() would repeat it (double "
+                             "build). 0/negative = default (999). See header comment.")
     parser.add_argument("--dataset-dir", type=str, default="./datasets", help="Path to HDF5 dataset folder")
     parser.add_argument("--db-dir", type=str, default="./benchmarks/competitive_data", help="Temporal folder for databases")
     parser.add_argument("--output", type=str, default="docs/BENCHMARKS.md", help="Path to docs/BENCHMARKS.md to append results")
     parser.add_argument("--json-output", type=str, default="web/src/lib/data/competitive-benchmark.json",
                         help="Path to write the versioned JSON contract (INV-007-B). The web imports this file directly.")
     parser.add_argument("--yes", action="store_true", help="Skip health check prompt")
+    parser.add_argument("--self-test", action="store_true",
+                        help="Run the offline measurement-region self-test (stub engine, no data) and exit.")
     parser.add_argument("--engines", type=str, default="vanta,lance,chroma,qdrant",
                         help="Comma-separated engines to benchmark on the SAME HW, no docker. "
                              "Available: vanta,lance,chroma,qdrant,milvus. Missing clients are skipped "
                              "and reported as 'not measured' in the honest table (PERF-03).")
     args = parser.parse_args()
+
+    if args.self_test:
+        print("=" * 60)
+        print("  competitive_bench self-test (measurement regions)      ")
+        print("=" * 60)
+        sys.exit(run_self_test())
 
     print("=" * 60)
     print("        VantaDB Competitive Benchmark Suite (T3.2)       ")
@@ -1024,13 +1129,9 @@ def main():
     print("=" * 60)
     print(table_md)
     print("=" * 60)
-    if args.batch_size and args.batch_size > 0:
-        print(f"Ingest mode: chunked (--batch-size {args.batch_size}) — no hidden rebuild inside VantaDB Ingest timer.")
-    else:
-        print("Ingest mode: single put_batch_raw call (--batch-size 0) — VantaDB's full HNSW rebuild")
-        print("  runs INSIDE the Ingest timer AND again in Index timer (double rebuild).")
-        print("  Use default (--batch-size 999) for isolated measurements.")
-    print("\nNote: pre-Jul-31-2026 numbers used --batch-size 0 (double rebuild) and are NOT directly")
+    print(f"Ingest mode: chunked (--batch-size {effective_chunk_size(args.batch_size)}) — every put_batch_raw call is < 1000 nodes,")
+    print("  so no hidden HNSW rebuild runs inside the Ingest timer; Index measures exactly one rebuild.")
+    print("\nNote: runs before 2026-10-04 that used --batch-size 0 (double rebuild) are NOT directly")
     print("  comparable. See header comment for full methodology changelog.")
 
     # Write report back to docs/BENCHMARKS.md if specified

@@ -23,7 +23,7 @@ tags: [vantadb, benchmarks, competitive-analysis, comparison]
 
 ### Metodología
 
-- **Script:** `benchmarks/competitive_bench.py --batch-size 999` (evita doble rebuild)
+- **Script:** `benchmarks/competitive_bench.py` (chunks < 1000 forzados por el harness; desde BENCH-01 el flag `--batch-size 999` ya no es necesario)
 - **Iteraciones:** 3 por motor, se reporta mediana (D4)
 - **Warmup:** 10 queries previas no medidas (D3)
 - **Ground truth:** Brute-force numpy JIT (D2)

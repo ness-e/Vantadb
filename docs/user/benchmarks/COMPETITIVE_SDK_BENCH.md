@@ -21,7 +21,7 @@ tags: [vantadb, benchmarks, sdk-bench, comparison]
 
 ## Metodología
 - Comando: `python benchmarks/competitive_bench.py --dataset synthetic --size 2000 --queries 50 --engines vanta,lance,chroma,qdrant`
-- `--batch-size 999` para VantaDB (evita doble rebuild documentado en el header del harness).
+- Chunks < 1000 forzados por el harness para VantaDB (sin rebuild oculto ni doble build en el timer Ingest; BENCH-01: el timer mide solo inserción + flush).
 - 3 iteraciones por motor; se reporta **mediana** (D4). Warmup 10 queries (D3). Ground truth = brute-force numpy (D2). Métrica euclidean, top-k 10.
 - P50/P99 en ms por query; QPS = queries / tiempo total; Recall@10 vs ground truth exacto.
 
