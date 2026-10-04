@@ -2,14 +2,14 @@
 title: Workflows — Trigger matrix
 kind: runbook
 status: active
-description: "Source of truth is each file's on: block (read 2026-10-02, post FIND-228)"
+description: "Source of truth is each file's on: block (read 2026-10-04, post FIND-228 + DIST-05)"
 tags: [vantadb, ci, workflows, triggers]
 ---
 
 # Workflows — Trigger matrix
 
-Source of truth is each file's `on:` block (read 2026-10-02, post
-FIND-228). Reuses and updates the FIND-128 matrix
+Source of truth is each file's `on:` block (read 2026-10-04, post
+FIND-228 + DIST-05). Reuses and updates the FIND-128 matrix
 (`docs/dev/tasks/FIND-128.md` §Notas), which counted 28 pre-FIND-137.
 
 Post-FIND-228 rule (RULES.md §1): no CI/demo/gate workflow lists `develop`
@@ -74,6 +74,7 @@ Legend: Y = yes, — = no. `paths` means a path filter applies (see file).
 | `release-adapters.yml` | `adapters-v*.*.*` | — | Y | — |
 | `release-binaries.yml` | — | — | Y | `release` published |
 | `release-sbom.yml` | `v*` | — | Y | — |
+| `release-verify.yml` | — | — | Y | schedule Mon 08:00 |
 
 ## Notes
 
@@ -98,4 +99,4 @@ Legend: Y = yes, — = no. `paths` means a path filter applies (see file).
 - `lurkr-informational.yml` is not yet in the matrix (out of FIND-228 scope).
 - Schedule slots (FIND-141 + HARD-02): bench daily 02:00, cert Sun 03:00,
   ocr-nightly daily 04:00, nightly subset daily 05:00, fuzz Mon 06:00,
-  docs-links weekly Mon 07:23 — no overlaps.
+  docs-links weekly Mon 07:23, release-verify weekly Mon 08:00 — no overlaps.
