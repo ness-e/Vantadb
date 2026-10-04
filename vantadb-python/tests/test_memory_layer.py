@@ -159,6 +159,20 @@ def test_memory_capture_then_recall_roundtrip(db):
     assert result["recalled_memories"][0]["content"] == "launch code is orion"
 
 
+def test_memory_capture_alone_does_not_create_recallable_memories(db):
+    """L0 capture is LLM-free; recall reads L1/L2/L3 — capture alone → None.
+
+    Pins the docs contract (PYTHON_SDK §Cognitive Layer): the pipeline derives
+    L1 from L0 only when a runner is attached, so recall right after capture
+    has nothing to inject until memories are derived or seeded.
+    """
+    db.memory_capture(
+        "sess-1",
+        [{"role": "user", "content": "remember nothing yet", "timestamp_ms": 9000}],
+    )
+    assert db.memory_recall("remember nothing", "sess-1") is None
+
+
 # ── async surface (AsyncClient wrapper) ──────────────────────────────────────
 
 
