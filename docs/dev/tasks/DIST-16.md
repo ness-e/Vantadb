@@ -14,7 +14,7 @@ description: "Tool MCP `memory_verify_certificate`: verifica certificados de pur
 - **Prioridad:** 🟡
 - **Tipo:** MCP server (feature-add — superficie pública nueva)
 - **Turns estimados:** 5-10
-- **Creado:** 2026-10-04T21:45Z | **last-synced:** 2026-10-04T23:55Z
+- **Creado:** 2026-10-04T21:45Z | **last-synced:** 2026-10-05T00:20Z
 - **Estado:** ⏳ IN PROGRESS
 - **Incógnitas (uphill):** 0 — scope/name/input/perfiles/output confirmados por Gate D (question 2026-10-04); SDK y CLI ya exponen el verify (código-real)
 - **Pendientes (downhill):** 4 steps (RED → GREEN+counts → docs → cierre)
@@ -163,7 +163,7 @@ description: "Tool MCP `memory_verify_certificate`: verifica certificados de pur
 RESULTADO: ✅ COMPLETO
 STEPS_OK: 4/4 total steps
 PROXIMO_STEP: ninguno
-COMMIT_HASH: <pendiente — commit `feat(mcp): DIST-16` (hash en la recitation; se actualiza en el commit de cierre docs(task))>
+COMMIT_HASH: 7f30e4cd (feat(mcp): DIST-16, local — sin push; cierre docs(task) lo referencia)
 ARCHIVOS: vantadb-mcp/src/handlers/tools.rs, vantadb-mcp/src/config.rs, vantadb-mcp/tests/mcp_tests.rs, docs/api/MCP.md, docs/user/AI_IDES.md, docs/user/operations/EXPERIMENTAL_FEATURES.md, docs/dev/Backlog-negocio.md, docs/dev/tasks/DIST-16.md
 VERIFY_CONTRATO: pasa
 BLOQUEO: ninguno
