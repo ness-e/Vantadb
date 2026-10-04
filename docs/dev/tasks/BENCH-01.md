@@ -135,7 +135,7 @@ No es feature-add: no agrega símbolos públicos, endpoints, bindings ni capabil
 ## Review (GATE — agente distinto, P2-01)
 
 - **Tier:** **Fast** (paths: `benchmarks/**`, `docs/**` — sin paths adversariales; regla mecánica de `pipeline-full.md` §Cierre).
-- **Revisor:** ⬜ **delegado al orquestador** — este worker es leaf (sin fork a `vanta-review`); evidencia mecánica completa registrada acá para spot-check Fast + ACCEPT con reviewer fresco (precedente FIND-233). No se usa `mode:degraded` sin waiver (prohibido el bypass silencioso).
+- **Revisor:** ✅ `vanta-review` (contexto fresco — `ses_ef9876a58ffeI1MCNxwT28HJk2`) — **APPROVE** (2026-10-04) — este worker es leaf (sin fork a `vanta-review`); evidencia mecánica completa registrada acá para spot-check Fast + ACCEPT con reviewer fresco (precedente FIND-233). No se usa `mode:degraded` sin waiver (prohibido el bypass silencioso).
 - **Enfoque:** ¿la región medida quedó correctamente aislada? ¿el clamp hace imposible el doble build por construcción? ¿el self-test prueba el harness real (no una reimplementación)? ¿los docs no sobre-claimen?
 - **Evidencia de verificación (real, no auto-reporte):**
   1. `.venv/Scripts/python.exe benchmarks/competitive_bench.py --self-test` → **9/9 PASS** (`campaign_verify_cmd`, exit 0) — incluye `calls=[999, 999, 2]` y `rebuilds=1`.
@@ -147,7 +147,7 @@ No es feature-add: no agrega símbolos públicos, endpoints, bindings ni capabil
   7. markdownlint-cli2 sobre los 5 archivos tocados: **0 issues nuevos** (MD028 `benchmarks/README.md:44` preexistente — verificado contra `HEAD:benchmarks/README.md:39`).
   8. `nextest`: **n/a** — el diff no toca Rust (Python+docs); el fast gate Rust del árbol pasó vía verify_changed.
 - **OCR delegation (advisory, exit 0):** preview → mi reviewable propio es `benchmarks/competitive_bench.py` (Rule Group 1 — Python). Reglas aplicadas manualmente: sin dead code (helper/flags usados), sin mutable-defaults (`batch_size=0` int; stubs con `None`), edge cases de `effective_chunk_size` cubiertos (0/negativo/≥1000), `finally` restaura el stub y limpia tmpdir, sin bare-except nuevo, sin patrones de seguridad (eval/subprocess/pickle: ausentes) → **0 Critical / 0 High**. Los demás reviewables del preview (release-plz.toml, vanta-memory/*) son WIP de DIST-01 — fuera de mi scope, no se tocan.
-- **Veredicto:** ⬜ **ACCEPT delegado** (evidencia lista para spot-check Fast del orquestador; sin blockers mecánicos).
+- **Veredicto:** ✅ **APPROVE** (2026-10-04) — contrato verificado con re-ejecución (self-test 9/9 · RED→GREEN externo reproducido · trazado del clamp sin caminos ≥1000 · rebuilds=1 no circular); Optionals: umbral duplicado del engine (drift) + priorizar FIND-253 antes de la próxima corrida publicada; cierre mecánico por el orquestador. **ACCEPT delegado** (evidencia lista para spot-check Fast del orquestador; sin blockers mecánicos).
 
 ## Notas
 
