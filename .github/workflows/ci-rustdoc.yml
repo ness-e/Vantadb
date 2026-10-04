@@ -108,3 +108,39 @@ jobs:
           echo "- Ref: ${{ github.ref }}" >> $GITHUB_STEP_SUMMARY
           echo "- Artifact: api-reference-rust.tar.gz (30-day retention)" >> $GITHUB_STEP_SUMMARY
           echo "- Command: cargo doc --no-deps --workspace --all-features --document-private-items" >> $GITHUB_STEP_SUMMARY
+
+  # DOCS-F2 (2026-10-04): los ejemplos de la documentación nunca se ejecutaban
+  # en CI. `cargo doc` construye el artefacto y valida links, pero los doctests
+  # (bloques ``` de los docstrings) sólo corren con `cargo test --doc`. Medido
+  # 2026-10-04 (Windows, warm): `RUSTDOCFLAGS="-D warnings" cargo test --doc
+  # --workspace` → EXIT 0 (13 + 1 ignored en vantadb, 1 en vanta-memory, 1 en
+  # vantadb-mcp; compile 2m47s + 16.8s de tests). `vantadb_py` queda fuera por
+  # tipo cdylib — warning de cargo, no error. Job separado del artefacto para que
+  # un fallo nombre el doctest roto, no el build de docs (mismo criterio que
+  # ci-examples.yml). `-D warnings` convierte cada warning de rustdoc en error:
+  # un ejemplo que no compila no llega a un humano.
+  doctests:
+    name: Doc-tests (RUSTDOCFLAGS=-D warnings)
+    runs-on: ubuntu-latest
+    # 30 = mismo margen que el job rustdoc hermano (build del workspace en
+    # perfil test + 20s de tests; medido warm: 2m47s + 16.8s; cold = margen 3×).
+    timeout-minutes: 30
+    env:
+      CARGO_TERM_COLOR: always
+      CARGO_INCREMENTAL: 0
+      RUSTDOCFLAGS: "-D warnings"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Mismo composite que el job rustdoc: toolchain stable + sccache + cache.
+      - uses: ./.github/actions/rust-setup
+        with:
+          toolchain: stable
+          components: ''
+          install-nextest: false
+          install-llvm-cov: false
+          install-system-deps: true
+          swap-mb: 0
+
+      - name: Doc-tests must compile and pass with warnings denied
+        run: cargo test --doc --workspace

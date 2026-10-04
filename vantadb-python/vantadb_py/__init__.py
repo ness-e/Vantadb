@@ -88,7 +88,7 @@ def error_to_dict(exc: BaseException) -> dict:
 
     Parameters
     ----------
-    exc:
+    exc : BaseException
         Any exception (VantaDB or otherwise) to serialize.
 
     Returns
@@ -157,7 +157,7 @@ class SearchRequest:
     explain: bool = False
     query_sparse: dict | None = None
 
-    def asdict(self):
+    def asdict(self) -> dict:
         """Return this request as a plain dict (for non-dataclass callers).
 
         Returns

@@ -8,7 +8,7 @@ description: documentation-skill → campaign-executor → progreso → writing-
 
 > **Campaign ID:** _(asignar al iniciar con `/pipeline plan`)_
 > **Inicio:** 2026-09-28
-> **Estado:** 🟡 F0-F1 COMPLETADAS · F2-F5 pendientes
+> **Estado:** 🟡 F0-F2 COMPLETADAS · F3-F5 pendientes
 > **Fuente:** `docs/dev/research/docs-strategy/01-ecosystem-2026.md` (investigación de 5 líneas paralelas, 2026-09-28) + medición directa del repo
 > **Autonomous:** false — el owner gatea push. La política de git vive en `.opencode/AGENTS.md` Regla 7; no se reescribe aquí.
 > **Restricción dura del owner:** `docs/dev/tasks/` y `docs/dev/plans/` **no se mueven**. Cambiar su ubicación rompe el sistema de tareas. Este plan trabaja dentro de ellos, nunca sobre ellos.
@@ -361,18 +361,21 @@ emergencia. Al arreglar, bajar `BASELINE` a 5.
 
 ---
 
-## F2 — Ejecutar los ejemplos de la documentación · ⏳ PENDIENTE
+## F2 — Ejecutar los ejemplos de la documentación · ✅ COMPLETADA
 
 **Gate de salida:** un bloque de código incorrecto en `docs/` hace fallar el build.
 
+**Resultado (2026-10-04, DOCS-F2):** los gates T14/T15 ya existían desde 2026-09-29 (commit `71139665`, "cuatro gates") — este cierre los **verifica** (self-tests 17/17 y 29/29; 0 fugas) y cablea el hueco real de T13: doctests Rust (`RUSTDOCFLAGS="-D warnings" cargo test --doc --workspace`, medido EXIT 0) en `ci-rustdoc.yml` y pydoclint (4 violaciones drenadas a 0) en `gate-doc-examples.yml`. TS derivado a **FIND-263** con burn-down medido (typedoc: 0 errores/39 warnings; sin infraestructura CI de TS). Los bloques Python de `docs/` ya se verificaban desde 2026-09-29 (`check-doc-examples.mjs` contra el paquete real).
+
 ### Task 13 — F2-T1: hacer ejecutables los ejemplos de `docs/`
 
-**Appetite:** max 4h · **Esfuerzo:** ⬜ · **Prioridad:** P0
+**Appetite:** max 4h · **Esfuerzo:** ✅ cerrado 2026-10-04 (DOCS-F2) · **Prioridad:** P0
 **Archivos clave:** `docs/api/EMBEDDED_SDK.md`, `docs/api/PYTHON_SDK.md`, `docs/user/QUICKSTART.md`, `ci-examples.yml`
 **Verificación real:** un ejemplo con API inventada falla el CI
 **Gate Justificación:** `ci-examples.yml` ejecuta `examples/`, no los bloques dentro de `docs/`. Hoy **ningún** ejemplo de la documentación se ha ejecutado jamás.
 **Gate Result:** ✅ DO
-**Estado:** PENDING
+**Resultado (2026-10-04):** Python (bloques de `docs/`) cubierto desde 2026-09-29 por `check-doc-examples.mjs` (resuelve cada bloque runnable contra el paquete real; budget 1 entrada); Rust — doctests de fuente cableados a CI (`RUSTDOCFLAGS="-D warnings" cargo test --doc --workspace`, medido EXIT 0) + crate-check de bloques de `docs/` (ceiling: método-a-método requiere índice compilado, documentado en `gate-doc-examples.md`); TS → **FIND-263** con burn-down medido.
+**Estado:** COMPLETED
 
 Es el hueco de mayor impacto que queda. La literatura de gobernanza documental con IA es
 consistente en un punto: [arXiv 2609.04218](https://arxiv.org/abs/2609.04218) reporta que
@@ -394,12 +397,13 @@ PR si `git status` queda sucio.
 
 ### Task 14 — F2-T2: gate de cambio de API ⇒ cambio de docs
 
-**Appetite:** max 2h · **Esfuerzo:** ⬜ · **Prioridad:** P1
+**Appetite:** max 2h · **Esfuerzo:** ✅ verificado 2026-10-04 (DOCS-F2) · **Prioridad:** P1
 **Archivos clave:** `.github/workflows/gate-docs-links.yml`
 **Verificación real:** un PR que cambia `fn pub` sin tocar `docs/` falla
 **Gate Justificación:** es el único gate de documentación que escala a 1 humano + N agentes, porque es un chequeo de diff, no un juicio humano.
 **Gate Result:** ✅ DO
-**Estado:** PENDING
+**Resultado (2026-10-04):** gate existente desde 2026-09-29 (`gate-api-docs.yml` + `check-api-docs.mjs`, patrón DuckDB `NeedsDocumentation.yml`); verificado: self-test 17/17; diff-based acotado a la superficie pública (`src/**`, `vantadb-python/**`, `vantadb-ts/**`); DEGRADED (no se pudo resolver el base) = fail deliberado.
+**Estado:** COMPLETED
 
 Es exactamente el patrón de **DuckDB** (`NeedsDocumentation.yml`). Se puede implementar como:
 si cambian ítems públicos de `src/**` y ningún fichero bajo `docs/**` cambió en el mismo
@@ -407,12 +411,13 @@ commit → fallar.
 
 ### Task 15 — F2-T3: gate anti-fuga en `docs/`
 
-**Appetite:** max 2h · **Esfuerzo:** ⬜ · **Prioridad:** P1
+**Appetite:** max 2h · **Esfuerzo:** ✅ verificado 2026-10-04 (DOCS-F2) · **Prioridad:** P1
 **Archivos clave:** `.github/workflows/gate-docs-links.yml`, `.gitleaks.toml` o `trufflehog`
 **Verificación real:** un hostname interno o un patrón de credencial en `docs/` falla
 **Gate Justificación:** con 1721 ficheros, la mitad internos, es el gate que más probablemente no existe hoy.
 **Gate Result:** ✅ DO
-**Estado:** PENDING
+**Resultado (2026-10-04):** gate existente desde 2026-09-29 (`gate-docs-secrets.yml` + `check-secrets.mjs`); verificado: self-test 29/29; 0 fugas en el corpus actual; scanner offline propio (no gitleaks/trufflehog — decisión de implementación documentada en `docs/dev/workflow/gate-docs-secrets.md`); el push protection de GitHub es configuración del repo, no versionable.
+**Estado:** COMPLETED
 
 Los dos mayores incidentes doc-adjentes de la historia fueron documentación interna y
 credenciales en el mismo VCS:
