@@ -1153,3 +1153,9 @@ tags: [vantadb, avance, bindings, python, wasm, typescript, mcp, adapters]
 - **Objetivo:** Estabilizar la API Rust de `vanta-memory` (Gate P core-only): degradación por diseño verificada, deudas D37/D21/MEM-16 con DEFER fundado, 0 símbolos nuevos en bindings.
 - **Resultado:** ✅ Contrato 4/4 — 28 targets 0 failed · degradación `llm_free_mode_reports_not_configured` 1/1 · `rg vanta[_-]memory` en bindings = 0 · `docs/api/VANTA_MEMORY.md` (+107/−20) + rustdoc `## Stability` · review P2-01 ronda 2 ✅ APPROVE · FIND-160 registrada.
 - **Commit:** ade86a1c (local, sin push)
+
+### FIND-238: WASM/npm — silenciar logs DEBUG de `Client.create()` (tracing-wasm default-on sin filtro)
+- **Fecha:** 2026-10-04
+- **Objetivo:** El binding WASM emitía ~40 líneas `DEBUG` (`src/config.rs`) al console en cada `Client.create()` (subscriber `tracing-wasm` con `max_level=TRACE` default). Fix: nivel `WARN` por defecto + gate `globalThis.VANTADB_LOG` (análogo portable de `RUST_LOG`), documentado en READMEs wasm/TS.
+- **Resultado:** ✅ Contrato: smoke `vantadb-ts` 2/2 (sin DEBUG por defecto; con `VANTADB_LOG="debug"` sí) — RED pre-fix 1f/1p con las líneas reales · `npm test` 334/334 · tsc/eslint 0 · `wasm-pack build --release` ✅ · `cargo check wasm32` + `--no-default-features` ✅ · docs-coverage 0 gaps · OCR 0 findings · review P2-01 ✅ APPROVE (vanta-review, solo Low). API validada contra fuente `tracing-wasm 0.2.1` (`set_as_global_default_with_config` + `set_max_level`; no existe `_with_level`).
+- **Commit:** 805a7668 + 7e093a2c (local, sin push)
