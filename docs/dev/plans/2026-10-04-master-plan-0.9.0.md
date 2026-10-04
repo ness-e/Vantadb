@@ -619,7 +619,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato (aviso + docs + test) · commit = `fix(security):`/`docs:` · release = changelog (nota de transparencia).
 - **Validación Appetite vs Effort:** 1d ≥ 4h ✓
 - **Skills sugeridas:** security-and-hardening · documentation-skill · rust-write-tests
-- **Estado:** ⏳ EN PROGRESO
+- **Estado:** ✅ COMPLETED
 - **Task file:** `docs/dev/tasks/ENC-01.md` (crear en DISCOVERY)
 - **Origen:** decisión owner 2026-10-04 (question) + FIND-249 (DUR-02). El cableado completo queda en FIND-249 (Backlog, diferido).
 
@@ -636,136 +636,422 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 
 ### Task 22: DX-12 — Instalador/wizard como selector de módulos (enable/disable por componente)
 
-- **Appetite:** max 2d · **Esfuerzo:** 🟡 1-2d · **Prioridad:** 🟠
-- **Archivos clave:** `scripts/install.ps1`, wizard parcial (proxy on/off + bloques MCP por cliente), `setup-embeddings.ps1`
-- **Verificación real:** ✅ — visión owner (2026-10-01): "un solo instalador que pregunte qué habilitar (motor / MCP / server / proxy / visor desktop / embeddings / providers)".
-- **Contrato:** `install.ps1` ofrece selección por componente y la aplica de forma idempotente; smoke en máquina limpia (patrón DESKTOP-41); sin romper el flujo actual (no-interactive sigue funcionando).
-- **Skills sugeridas:** ci-cd-and-automation · shipping-and-launch · campaign-executor
+- **Appetite:** max 2d
+- **Esfuerzo:** 🟡 1-2d
+- **Prioridad:** 🟠
+- **Archivos clave:** `scripts/install.ps1` (163 líneas; flags `-NoWizard`/`-DryRun`/`-WizardNonInteractive`/`-Version`/`-InstallDir`; chain al wizard al final, FIND-105), `scripts/install.sh` (patrón espejo Linux/macOS), `setup-embeddings.ps1` (517 líneas — wizard parcial: proxy on/off L438-467 + bloques MCP por cliente L299-312: opencode/claude/cursor), `src/cli.rs:338-400` (`server --http|--mcp` + `mcp-call` = binario unificado)
+- **Verificación real:** ✅ CÓDIGO-REAL — el instalador hoy instala SOLO `vanta-cli.exe` + encadena el wizard de embeddings (proxy on/off + bloques MCP opencode/claude/cursor); **no existe selección por componente** (motor/MCP/server/proxy/desktop/embeddings/providers). Backlog DX-12: "Hoy: instalador único + vanta-cli unificado (server+MCP en un binario) + wizard parcial (proxy on/off, bloques MCP por cliente)". Visión owner (2026-10-01): "un solo instalador que pregunte qué habilitar".
+- **Gate Justificación:** UX de entrada del producto único (decisión owner 2026-10-01); el esqueleto ya existe (flags + wizard encadenado) → delta acotado de selección + idempotencia; sin esto cada módulo se habilita a mano.
+- **Gate Result:** ✅ DO
+- **Contrato:** `install.ps1`/`install.sh` ofrecen selección por componente (motor / MCP / server / proxy / visor desktop / embeddings / providers) y la aplican de forma idempotente; `-NoWizard`/`-WizardNonInteractive` siguen funcionando (no-interactive = defaults actuales); smoke en máquina limpia (patrón DESKTOP-41); `-DryRun` refleja las decisiones nuevas; estado por módulo declarado (installable / frozen — desktop es viewer frozen, README:231).
+- **Pre-mortem:** (1) matriz componentes×plataforma crece sin control → lista fija de 7 módulos del owner, cada uno con su "hoy = X"; (2) romper el flujo no-interactive/CI → test de ambos caminos (interactivo simulado + `-NonInteractive`); (3) prometer módulos no instalables (desktop frozen) → declarar estado por módulo, no fingir soporte.
+- **Stop conditions:** 2d sin contrato verde → entregar selector mínimo (motor+MCP+embeddings) + FIND del resto.
+- **Risk Register:**
+
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟡 | Regresión del flujo actual | Test de ambos caminos (interactivo/no-interactive) | VERIFY |
+  | 🟡×🟢 | Módulo anunciado sin soporte real | Estado por módulo (installable/frozen) | diseño |
+  | 🟢×🟡 | Idempotencia rota al re-correr | Doble corrida = mismo estado (patrón .bak de install.ps1) | VERIFY |
+
+- **Cynefin:** 🟨 complicado
+- **Top 3 riesgos:** (1) regresión no-interactive; (2) módulos sobre-prometidos; (3) idempotencia.
+- **Uphill/Downhill:** ⬇️ (3 steps: selector → aplicación idempotente → smoke)
+- **DoD:** task = contrato + smoke limpio · commit = `feat(installer):` · release = changelog (DX).
+- **Validación Appetite vs Effort:** 2d ≥ 2d ✓
+- **Skills sugeridas:** ci-cd-and-automation · shipping-and-launch · source-driven-development · campaign-executor
 - **Estado:** ⏳ EN PROGRESO · **Task file:** `docs/dev/tasks/DX-12.md`
 
 ### Task 23: DIST-15 — `graphrag_search` en bindings (Py/TS/Node/WASM)
 
-- **Appetite:** max 2d · **Esfuerzo:** 🟢 1-2d · **Prioridad:** 🟠
-- **Archivos clave:** `vantadb-python/src`, `vantadb-ts/src`, `vantadb-node/src`, `vantadb-wasm/src`, `docs/api/GRAPH_RAG.md`
-- **Verificación real:** ✅ — "El feature estrella (GraphRAG) es inalcanzable desde los bindings (`GRAPH_RAG.md:14-15` lo declara). Costo bajo, impacto desproporcionado".
-- **Contrato:** `graphrag_search` (o nombre canónico API-04) invocable desde al menos Py + TS con smoke verde; paridad de resultados con el core; docs actualizadas (quitar el "inalcanzable").
-- **Skills sugeridas:** api-and-interface-design · source-driven-development · documentation-skill · campaign-executor
+- **Appetite:** max 2d
+- **Esfuerzo:** 🟢 1-2d
+- **Prioridad:** 🟠
+- **Archivos clave:** `src/sdk/builder.rs:168-177` (`Embedded::graphrag_search` — core, existe), `src/graphrag/{seed,expand,retrieve,context,pipeline}.rs`, `vantadb-python/src/lib.rs`, `vantadb-ts/src/{vantadb.ts,native.ts}`, `vantadb-node/src/lib.rs`, `vantadb-wasm/src/lib.rs`, `docs/api/GRAPH_RAG.md`
+- **Verificación real:** ✅ CÓDIGO-REAL — `graphrag_search` existe en el core (`src/sdk/builder.rs:168`: `Embedded::graphrag_search(namespace, query: Option<&str>, query_vector: Option<&[f32]>) -> GraphRagResult`); `rg graphrag` en los 4 `src/` de bindings = **0 hits**; `GRAPH_RAG.md:13-15` lo declara: "Binding availability: Rust only... is **not** exposed by any binding yet — there is no `graphrag_search` method on the Python, WASM, TypeScript, or Node bindings". Backlog: "El feature estrella (GraphRAG) es inalcanzable desde los bindings (`GRAPH_RAG.md:14-15` lo declara). Costo bajo, impacto desproporcionado".
+- **Gate Justificación:** el feature diferenciador (grafo + pipeline seed→expand→retrieve→context) es inalcanzable desde la superficie que consumen los usuarios; la implementación core ya existe → el delta es glue de bindings + docs, con impacto desproporcionado.
+- **Gate Result:** ✅ DO
+- **Contrato:** `graphrag_search` (nombre canónico a fijar en DISCOVERY según convención BINDINGS_NAMESPACES/API-04) invocable desde al menos Py + TS con smoke verde; paridad de resultados con el core (mismo input + mismo DB → mismo `context_text`/nodos); `GRAPH_RAG.md` actualizado (quitar el "inalcanzable"); stubs/docs de los bindings tocados sincronizados (`check-api-docs`).
+- **Pre-mortem:** (1) shape de `GraphRagResult` complejo para el wire → serialización canónica a dict/JSON + test que la pina; (2) un target no puede con las deps del pipeline (wasm) → compile check por target ANTES de prometer; scope mínimo Py+TS + FIND del resto; (3) drift de docs → `check-api-docs` por rango en el cierre.
+- **Stop conditions:** un target no compila con las deps del pipeline → scope (Py+TS) + FIND por target, sin forzar.
+- **Risk Register:**
+
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟡 | Shape de resultado inestable entre bindings | Serialización canónica + test de paridad | diseño |
+  | 🟢×🟡 | Deps del pipeline no disponibles en wasm | Compile check por target antes de codear | DISCOVERY |
+  | 🟢×🟢 | Docs drift post-binding | `check-api-docs` por rango | cierre |
+
+- **Cynefin:** 🟨 complicado
+- **Top 3 riesgos:** (1) shape wire; (2) viabilidad por target; (3) docs.
+- **Uphill/Downhill:** ⬇️ (3 steps: core→binding Py→binding TS+docs)
+- **DoD:** task = contrato + smoke · commit = `feat(bindings):` · release = changelog (feature → minor).
+- **Validación Appetite vs Effort:** 2d ≥ 2d ✓
+- **Skills sugeridas:** api-and-interface-design · source-driven-development · rust-write-tests · documentation-skill · campaign-executor
 - **Estado:** ⏳ EN PROGRESO · **Task file:** `docs/dev/tasks/DIST-15.md`
 
 ### Task 24: DIST-16 — `verify` de certificados vía MCP
 
-- **Appetite:** max 1d · **Esfuerzo:** 🟢 1d · **Prioridad:** 🟡
-- **Archivos clave:** `vantadb-mcp/src/` (tools), referencia SDK/CLI que ya lo exponen
-- **Verificación real:** ✅ — "SDK y CLI ya exponen verify; falta solo la superficie MCP".
-- **Contrato:** tool MCP `verify` disponible y con smoke verde (certificado válido/inválido); paridad con CLI (`vanta-cli verify`); docs MCP.md actualizadas.
-- **Skills sugeridas:** api-and-interface-design · source-driven-development · documentation-skill
+- **Appetite:** max 1d
+- **Esfuerzo:** 🟢 1d
+- **Prioridad:** 🟡
+- **Archivos clave:** `vantadb-mcp/src/handlers/tools.rs` (`handle_tools_list:81`, `handle_tools_call:1295`; `memory_delete` con `attest:true` ya emite certificado VER-02 en :1549-1571), `src/sdk/api/memory.rs:987-994` (`Embedded::verify_purge_certificate`), `src/attestation.rs`, `src/cli.rs:474-485` (`certificate verify --file`) + `:196-201` (`verify` WAL), `docs/api/MCP.md`
+- **Verificación real:** ✅ CÓDIGO-REAL — SDK (`verify_purge_certificate`, memory.rs:987) y CLI (`vanta-cli certificate verify`, cli.rs:474-485; `vanta-cli verify` WAL, :196-201) ya exponen verify; el MCP tiene 79 tools listadas (MCP.md:198) y **ninguna es verify** (rg = 0 en handlers); MCP.md:604-607 declara el hash-chain "cited not duplicated" — el gap es exactamente la superficie MCP.
+- **Gate Justificación:** el MCP ya emite certificados (`memory_delete attest:true`) pero no puede verificarlos → el loop de evidencia queda abierto justo en la puerta de agentes (North Star); wrapper de una función existente.
+- **Gate Result:** ✅ DO
+- **Contrato:** tool MCP de verify disponible y con smoke verde (certificado válido/inválido → resultado tipado, no string), paridad con CLI (mismo veredicto para el mismo certificado); `MCP.md` actualizado + `validate-docs-coverage.ps1` exit 0; conteo de tools re-baselineado; DISCOVERY fija el nombre canónico (`verify` vs `certificate_verify`) y si cubre también el WAL-chain o solo certificados (VER-02).
+- **Pre-mortem:** (1) ambigüedad de scope (¿certificado VER-02 o WAL verify VER-01?) → decidir en DISCOVERY con el contrato del plan (certificados) y FIND si el WAL queda fuera; (2) verificación contra engine vivo — el certificado no se ata a una DB (memory.rs:984) → documentar el caveat; (3) doc-coverage gate falla por tabla desincronizada → actualizar MCP.md en el mismo commit.
+- **Stop conditions:** >1d → dejar el wrapper mínimo + FIND de la parte WAL.
+- **Risk Register:**
+
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟢 | Scope ambiguo (VER-01 vs VER-02) | Fijarlo en DISCOVERY; contrato del plan = certificados | DISCOVERY |
+  | 🟢×🟡 | Doc-coverage gate rojo | MCP.md + validate-docs-coverage en el mismo commit | cierre |
+
+- **Cynefin:** 🟦 obvio
+- **Top 3 riesgos:** (1) scope; (2) caveat engine-vivo; (3) gate docs.
+- **Uphill/Downhill:** ⬇️ (2 steps: tool + docs/smoke)
+- **DoD:** task = contrato + smoke · commit = `feat(mcp):` · release = changelog.
+- **Validación Appetite vs Effort:** 1d ≥ 1d ✓
+- **Skills sugeridas:** api-and-interface-design · source-driven-development · documentation-skill · campaign-executor
 - **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/DIST-16.md`
 
 ### Task 25: DIST-17 — Test de paridad cross-language (Py/Node/WASM)
 
-- **Appetite:** max 3d · **Esfuerzo:** 🟡 2-3d · **Prioridad:** 🟠
-- **Archivos clave:** tests de los 3 bindings + CI (job nuevo), `docs/api/BINDINGS_NAMESPACES.md`
-- **Verificación real:** ✅ — "Hoy hay pruebas sueltas por binding, no comparación entre lenguajes. Decisión owner 2026-10-01: los 3 conectores siguen activos".
-- **Contrato:** un escenario canónico (put/search/grafo/IQL) corre en Py/Node/WASM y produce **resultados idénticos** (hash/diff) en CI; job dedicado verde; divergencias encontradas → FINDs.
+- **Appetite:** max 3d
+- **Esfuerzo:** 🟡 2-3d
+- **Prioridad:** 🟠
+- **Archivos clave:** tests de los 3 bindings (`vantadb-python/tests/` — 19 archivos, `vantadb-ts/src/__tests__/` — 17, `vantadb-node/tests/` — 5, `vantadb-wasm/tests/wasm_tests.rs`), CI (job nuevo; patrón de jobs TS en `.github/workflows/release-npm-61.yml` y node en `release-npm-node.yml`), `docs/api/BINDINGS_NAMESPACES.md` (§W1 parity matrix :78 · §v2 wire parity :103)
+- **Verificación real:** ✅ CÓDIGO-REAL — existen pruebas sueltas por binding y espejos manuales del "bindings-parity contract" (precedente WIRE-03: `vantadb-ts/src/__tests__/wire03.test.ts` + `vantadb-node/tests/wire03.test.ts` + tests datetime de Python), pero **no hay runner cross-language que compare resultados** (rg `conformance|cross-language` = 0 en CI; `BINDINGS_NAMESPACES.md` tiene la matriz doc, no ejecución). Decisión owner 2026-10-01: los 3 conectores siguen activos.
+- **Gate Justificación:** con 3 conectores activos, la paridad es una promesa de producto que hoy solo se sostiene por espejos manuales; un comparador mecánico (mismo escenario → mismo hash) la convierte en verificable y atrapa drift entre bindings.
+- **Gate Result:** ✅ DO
+- **Contrato:** un escenario canónico (put/search/grafo/IQL) corre en Py/Node/WASM y produce **resultados idénticos** (hash/diff canónico) en CI; job dedicado verde; divergencias encontradas → FINDs (no fixes silenciosos); sin cambios de código de producción salvo fixes que un FIND justifique.
+- **Pre-mortem:** (1) WASM no puede correr el mismo escenario (sin fs/IQL completo) → fijar el subconjunto común en DISCOVERY y declarar exclusiones por binding; (2) comparación frágil (orden de campos/float) → normalización canónica + tolerancia float documentada; (3) job lento (3 toolchains) → un job agregado con cache, no matriz completa.
+- **Stop conditions:** 3d sin job verde → entregar el comparador Py↔Node + FIND del tercer binding.
+- **Risk Register:**
+
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟡 | Escenario no corre igual en WASM | Subconjunto común fijado en DISCOVERY | diseño |
+  | 🟡×🟢 | Comparación frágil (float/orden) | Normalización + tolerancia documentada | VERIFY |
+  | 🟢×🟢 | Costo CI del job | Un job agregado con cache | diseño |
+
+- **Cynefin:** 🟨 complicado
+- **Top 3 riesgos:** (1) viabilidad WASM; (2) fragilidad de la comparación; (3) costo CI.
+- **Uphill/Downhill:** ⬆️ 1 incógnita (¿corre el escenario completo en WASM?) → step 1 (DISCOVERY) → luego ⬇️
+- **DoD:** task = contrato + job verde · commit = `test(bindings):`/`ci:` · release = n/a.
+- **Validación Appetite vs Effort:** 3d ≥ 3d ✓
 - **Skills sugeridas:** test-driven-development · ci-cd-and-automation · source-driven-development · campaign-executor
 - **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/DIST-17.md`
 
 ### Task 26: WSM-14 — Plan de adopción npm (README + demo Transformers.js + keywords honestas)
 
-- **Appetite:** max 3d · **Esfuerzo:** 🟡 2-3d · **Prioridad:** 🟠
-- **Archivos clave:** `vantadb-wasm/README.md`, `vantadb-ts/README.md`, demo enlazada
-- **Verificación real:** ✅ — estrategia H-21 aprobada: posicionamiento "browser AI agent memory", demo Transformers.js, comparativa honesta vs Orama (5.44M desc/mes vs 187).
-- **Contrato:** README npm con posicionamiento + demo funcional enlazada + keywords/comparativa honesta; **sin claims de performance sin benchmark** (Regla 11); smoke del paquete.
+- **Appetite:** max 3d
+- **Esfuerzo:** 🟡 2-3d
+- **Prioridad:** 🟠
+- **Archivos clave:** `vantadb-wasm/README.md` (321 líneas, tracked — brief "bundle strategy" con comparativa de tamaño vs Orama y referencia al demo en :310), `vantadb-wasm/demo/` (demo Transformers.js + OPFS **ya existe**: `demo/README.md` "Browser AI Agent Demo", `app.js`, `index.html`), `vantadb-ts/README.md` (README del paquete `vantadb`), `vantadb-wasm/pkg/README.md` (generado + gitignored — mecanismo del README publicado [a verificar en DISCOVERY])
+- **Verificación real:** ✅ CÓDIGO-REAL — el demo Transformers.js ya existe y está enlazado desde el README del crate (`vantadb-wasm/README.md:310` → `vantadb-wasm/demo/`); la comparativa honesta de tamaño vs Orama (28x, 5.44M desc/mes vs 187) ya está en el bundle-strategy README; lo que falta es el **posicionamiento npm** ("browser AI agent memory"), keywords y el enlace al demo en la superficie publicada (`vantadb-ts/README.md` no menciona demo/transformers). Estrategia H-21 aprobada.
+- **Gate Justificación:** el paquete npm es la superficie de descubrimiento del binding WASM (adopción 12 dl/semana); el demo y la comparativa existen pero la superficie publicada no los capitaliza — delta de README/keywords, no de código.
+- **Gate Result:** ✅ DO
+- **Contrato:** README npm con posicionamiento "browser AI agent memory" + demo Transformers.js enlazada + keywords/comparativa honesta (incluye el gap de bundle size, sin ocultarlo); **sin claims de performance sin benchmark** (Regla 11); smoke del paquete (npm pack / carga en Node+script) verde; `check-links`/`check-docs` exit 0.
+- **Pre-mortem:** (1) el README publicado se arma desde un artefacto generado (`pkg/` gitignored) → localizar el mecanismo de publish en DISCOVERY antes de editar; (2) claims de adopción stale (5.44M/187 cambian) → fecha + fuente en cada número o quitarlo; (3) duplicar el bundle-strategy brief en dos READMEs → enlazar, no copiar.
+- **Stop conditions:** el mecanismo de README publicado no es editable desde el repo → FIND + aplicar al tracked más cercano.
+- **Risk Register:**
+
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟢 | README publicado ≠ README tracked | Localizar mecanismo de publish en DISCOVERY | DISCOVERY |
+  | 🟢×🟡 | Números de adopción stale | Fecha + fuente por número (Regla 11) | review |
+  | 🟢×🟢 | Duplicación de brief | Enlace, no copia | cierre |
+
+- **Cynefin:** 🟦 obvio
+- **Top 3 riesgos:** (1) artefacto publicado; (2) claims stale; (3) duplicación.
+- **Uphill/Downhill:** ⬇️ (2 steps: README/keywords → smoke)
+- **DoD:** task = contrato + smoke · commit = `docs(npm):` · release = n/a (parte del próximo publish).
+- **Validación Appetite vs Effort:** 3d ≥ 3d ✓
 - **Skills sugeridas:** documentation-skill · writing-guidelines · ai-seo · campaign-executor
 - **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/WSM-14.md`
 
 ### Task 27: TS-10 — Plan de distribución/adopción WASM (playground + docs-site + comparativa)
 
-- **Appetite:** max 1sem · **Esfuerzo:** 🔴 1-2sem · **Prioridad:** 🟠
-- **Archivos clave:** coordinar con `ness-e/Vantadb-web` (repo separado desde 2026-09-22)
-- **Verificación real:** ✅ — adopción 12 dl/semana vs 35K-465K competidores (H-06); matriz del informe §3; requiere DISCOVERY.
-- **Contrato:** plan de adopción ejecutado en el repo web (playground interactivo + docs-site + comparativa honesta) O decisión documentada de secuencia con el owner; medible (métrica de descargas/visitas declarada).
+- **Appetite:** max 1sem
+- **Esfuerzo:** 🔴 1-2sem
+- **Prioridad:** 🟠
+- **Archivos clave:** repo externo `ness-e/Vantadb-web` (checkout local en `..\web`, remote `github.com/ness-e/Vantadb-web.git`): `src/app/playground/page.tsx`, `src/components/vanta/code-playground.tsx`, `src/app/docs/`, `src/app/benchmarks/`; informe §3 `docs/dev/reviews/archive/research-vantadb-wasm-20260825.md`; coordinación owner (repo separado desde 2026-09-22)
+- **Verificación real:** ✅ CÓDIGO-REAL — el repo web existe y ya tiene playground interactivo (`/playground` → `CodePlayground` con iframe WASM real, WEB-07), docs (`/docs`) y benchmarks; la adopción del binding es 12 dl/semana vs 35K-465K competidores (H-06/Backlog TS-10, informe §3); el plan de adopción (secuencia + métrica) no está escrito. Requiere DISCOVERY.
+- **Gate Justificación:** la brecha de adopción es la más grande del binding WASM; el contenido ya existe en el web — falta secuencia, comparativa honesta y métrica declarada; es pata de distribución, no feature.
+- **Gate Result:** ✅ DO
+- **Contrato:** plan de adopción ejecutado en el repo web (playground + docs-site + comparativa honesta) **o** decisión documentada de secuencia con el owner; métrica de éxito declarada (descargas/visitas con baseline); sin claims sin evidencia (Regla 11); el trabajo que toque el repo web se coordina con su propio flujo (no se edita a ciegas).
+- **Pre-mortem:** (1) repo externo sin acceso/owner → DISCOVERY primero: decidir alcance ejecutable desde este lado (docs/plan) vs cambios en el web; (2) scope de 1-2sem sin corte → entregar plan + primer slice (p.ej. comparativa) y FIND del resto; (3) métrica no medible → declarar la fuente (npm stats / analytics) antes de prometerla.
+- **Stop conditions:** >1sem sin ejecución posible en el web → cerrar como plan documentado + decisión de secuencia del owner.
+- **Risk Register:**
+
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟡 | Dependencia del repo/owner externo | DISCOVERY + decisión de secuencia documentada | DISCOVERY |
+  | 🟡×🟢 | Scope sin corte en 1-2sem | Plan + primer slice + FIND | diseño |
+  | 🟢×🟡 | Métrica no medible | Fuente declarada antes de prometer | cierre |
+
+- **Cynefin:** 🟨 complicado
+- **Top 3 riesgos:** (1) dependencia externa; (2) scope; (3) métrica.
+- **Uphill/Downhill:** ⬆️ 1 incógnita (alcance ejecutable desde este lado) → DISCOVERY → luego ⬇️
+- **DoD:** task = contrato (plan ejecutado o decisión documentada + métrica) · commit = `docs:` · release = n/a.
+- **Validación Appetite vs Effort:** 1sem < 2sem ⚠️ → el contrato admite plan + decisión de secuencia (no ejecución completa)
 - **Skills sugeridas:** ai-seo · documentation-skill · campaign-executor · vanta-design-orchestrator (si hay UI)
+- **Dependencias:** repo `ness-e/Vantadb-web` + OK del owner para cambios allí.
 - **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/TS-10.md`
 
 ### Task 28: TS-11 — Roadmap paridad sub-clientes (wiki/conversation/skills vía WASM)
 
-- **Appetite:** max 1sem · **Esfuerzo:** 🔴 1-2sem · **Prioridad:** 🟡
-- **Archivos clave:** `vantadb-ts/src` (`db.wiki` hoy `{}` documentado — H-12), core cuando lo permita
-- **Verificación real:** ✅ — "Planificar exposición vía WASM de wiki/conversation/skills cuando core lo permita".
-- **Contrato:** roadmap documentado (qué sub-cliente, dependencia, orden) + al menos el primer slice ejecutado o decisión de defer por dependencia con fecha de revisión.
+- **Appetite:** max 1sem
+- **Esfuerzo:** 🔴 1-2sem
+- **Prioridad:** 🟡
+- **Archivos clave:** `vantadb-ts/src/vantadb.ts` (getters actuales: `memory` :306, `graph` :330, `wiki` :373-376 — `Object.freeze({})` documentado, `system` :379), `vantadb-wasm/src/lib.rs` (superficie real expuesta), `docs/api/BINDINGS_NAMESPACES.md` §"Core-Only Capabilities (D43)" :347 + §Sub-Client Design :450, core cuando lo permita
+- **Verificación real:** ✅ CÓDIGO-REAL — `db.wiki` es un placeholder vacío documentado ("Empty in TS v1: wiki features are core-only per D43", `vantadb.ts:111-112,369-376`); no existen getters de conversation/skills/thread en TS (rg = 0); `BINDINGS_NAMESPACES.md:347` lista las capacidades core-only diferidas. Backlog: "Planificar exposición vía WASM de wiki/conversation/skills cuando core lo permita".
+- **Gate Justificación:** la paridad de sub-clientes es una expectativa de la promesa multi-binding; sin roadmap explícito, cada usuario descubre el gap por su cuenta (peor que un defer declarado).
+- **Gate Result:** ✅ DO
+- **Contrato:** roadmap documentado (qué sub-cliente, dependencia exacta del core/wasm, orden, criterio de promoción) + **al menos el primer slice ejecutado** (si una dependencia lo permite) **o** decisión de defer por dependencia con fecha de revisión; `BINDINGS_NAMESPACES.md` consistente con el roadmap; sin breaking changes.
+- **Pre-mortem:** (1) dependencia del core no resuelta (wiki/conversation/skills son Rust-only hoy) → el roadmap declara la dependencia con evidencia y fecha de revisión, no promete fechas; (2) slice elegido sin valor → priorizar el sub-cliente con más demanda (wiki por su getter visible); (3) tocar TS sin tocar WASM (el getter delega) → el slice incluye la superficie wasm real o queda documentado por qué no.
+- **Stop conditions:** todas las dependencias bloqueadas → cerrar como roadmap + defer fechado (contrato cumplido).
+- **Risk Register:**
+
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟡 | Dependencia core no resuelta | Roadmap con evidencia + fecha de revisión | DISCOVERY |
+  | 🟢×🟡 | Slice sin valor | Priorizar por demanda (wiki visible hoy) | diseño |
+  | 🟢×🟢 | Inconsistencia doc↔código | `check-docs` + matriz | cierre |
+
+- **Cynefin:** 🟨 complicado
+- **Top 3 riesgos:** (1) dependencia core; (2) valor del slice; (3) consistencia.
+- **Uphill/Downhill:** ⬆️ 1 incógnita (qué dependencia se puede mover) → DISCOVERY → luego ⬇️
+- **DoD:** task = contrato (roadmap + slice o defer fechado) · commit = `docs:`/`feat(ts):` · release = n/a o changelog.
+- **Validación Appetite vs Effort:** 1sem < 2sem ⚠️ → el contrato admite roadmap + defer (no ejecución completa)
 - **Skills sugeridas:** api-and-interface-design · documentation-and-adrs · campaign-executor
 - **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/TS-11.md`
 
 ### Task 29: TS-13 — Posicionamiento vs Orama ("Why VantaDB" en web)
 
-- **Appetite:** max 1d · **Esfuerzo:** 🟢 1d · **Prioridad:** 🟡
-- **Archivos clave:** repo `ness-e/Vantadb-web` (coordinación), matriz de diferenciadores
-- **Verificación real:** ✅ — H-13: sección honesta con matriz (durable WAL browser, híbrido RRF nativo, grafo+IQL, errores tipados) vs FTS-first de Orama.
-- **Contrato:** sección publicada en el repo web con matriz verificada contra código; sin claims sin evidencia (Regla 11).
+- **Appetite:** max 1d
+- **Esfuerzo:** 🟢 1d
+- **Prioridad:** 🟡
+- **Archivos clave:** repo `ness-e/Vantadb-web`: `src/app/why-vantadb/page.tsx` (existe), `src/components/vanta/vanta-data.ts:791-812` (`WHY_VANTADB.comparison` — matriz actual vs pinecone/weaviate/chroma), coordinación con el repo web
+- **Verificación real:** ✅ CÓDIGO-REAL — la página "Why VantaDB" y una matriz de comparación **ya existen** (`vanta-data.ts:791-812`: latency/hops/deployment/recovery/hybrid/egress/cost vs pinecone/weaviate/chroma); **Orama no aparece en ningún lugar del web** (rg = 0) — la comparativa del bundle-strategy (`vantadb-wasm/README.md`, tamaño 28x + features) no está traducida a la web. H-13.
+- **Gate Justificación:** Orama es el competidor directo del nicho browser (5.44M desc/mes); la matriz honesta existe y solo falta la columna Orama verificada contra código — costo de 1d, impacto directo en posicionamiento.
+- **Gate Result:** ✅ DO
+- **Contrato:** sección "Why VantaDB" del repo web con matriz verificada contra código (durable WAL browser, híbrido RRF nativo, grafo+IQL, errores tipados vs FTS-first de Orama); **sin claims sin evidencia** (Regla 11 — cada celda con fuente o marcada "not verified"); publicada (o decisión de secuencia con owner si el repo no es editable).
+- **Pre-mortem:** (1) claims sobre Orama sin verificar (versión/features cambian) → verificar contra docs oficiales de Orama y fechar; (2) duplicar la matriz de la web (pinecone/weaviate/chroma) en vez de extenderla → extender `WHY_VANTADB.comparison`; (3) el repo web no es editable desde aquí → el contrato admite entrega como contenido listo + coordinación.
+- **Stop conditions:** repo no editable → entregar la matriz + texto final como artefacto y registrar la publicación pendiente.
+- **Risk Register:**
+
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟢 | Claims Orama sin verificar | Verificación contra docs oficiales + fecha | DISCOVERY |
+  | 🟢×🟡 | Matriz duplicada | Extender `WHY_VANTADB.comparison` | diseño |
+  | 🟢×🟢 | Publicación bloqueada por repo | Artefacto + registro | cierre |
+
+- **Cynefin:** 🟦 obvio
+- **Top 3 riesgos:** (1) claims; (2) duplicación; (3) publicación.
+- **Uphill/Downhill:** ⬇️ (2 steps: matriz verificada → publicación)
+- **DoD:** task = contrato · commit = `docs:` (o artefacto) · release = n/a.
+- **Validación Appetite vs Effort:** 1d ≥ 1d ✓
 - **Skills sugeridas:** documentation-skill · writing-guidelines · ai-seo
 - **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/TS-13.md`
 
 ### Task 30: PROV-12 — Publicar wheels PyPI de providers (estrategia H-04)
 
-- **Appetite:** max 1sem · **Esfuerzo:** 🟡 1sem · **Prioridad:** 🟠
-- **Archivos clave:** `providers/{openai,ollama,litellm}/pyproject.toml`, maturin, CI release multiplataforma (macos/windows/linux x86_64+aarch64), secrets/OIDC PyPI
-- **Verificación real:** ✅ — estrategia H-04 aprobada: "Desbloquea el diferenciador real (storage embebido local acoplado al embed)".
-- **Contrato:** wheels publicados (o dry-run TestPyPI verde + checklist owner) para los providers; CI multiplataforma; smoke de instalación en máquina limpia.
+- **Appetite:** max 1sem
+- **Esfuerzo:** 🟡 1sem
+- **Prioridad:** 🟠
+- **Archivos clave:** `providers/{openai,ollama,litellm}/` (hoy: Cargo.toml con `publish=false`, `src/{lib,python}.rs`, `tests/test_*.py`, `.pyi`, README — **sin pyproject.toml**, `git ls-files` lo confirma), patrón: `.github/workflows/release-wheels.yml` (matriz ubuntu/macos/windows + aarch64 manylinux_2_28, maturin-action, input TestPyPI, OIDC PyPI), `.github/workflows/providers-ci.yml` (92 líneas, ubuntu-only), `docs/dev/operations/CI_POLICY.md:151-153`
+- **Verificación real:** ✅ CÓDIGO-REAL — los 3 providers no tienen camino de distribución: sin `pyproject.toml`/maturin, sin wheels, PyPI 404 (H-04: "Sin camino de distribución... Decidir: publicar a PyPI vs declarar experimental-interno" — estrategia H-04 **aprobada: publicar**); deps PROV-01/02/04 ✅ (compile fix, tests a firma actual, contrato canónico ADR-0033); providers NO son workspace members (CI_POLICY).
+- **Gate Justificación:** desbloquea el diferenciador real (storage embebido local acoplado al embed) en la superficie pip; el patrón de release ya existe en el repo (release-wheels.yml) → delta de pyproject + matriz + publish.
+- **Gate Result:** ✅ DO
+- **Contrato:** wheels publicados **o** dry-run TestPyPI verde (5+ dists) + checklist owner para el publish real; CI multiplataforma (macos/windows/linux x86_64 + aarch64) verde; smoke de instalación en máquina/venv limpio (pip install → import → embed mock); CI_POLICY actualizado; sin cambios de contrato de los providers (PROV-04 cerrado).
+- **Pre-mortem:** (1) publish bloqueado por secrets/OIDC → dry-run TestPyPI + checklist owner (patrón MKT-20/Task 71); (2) wheels que compilan en CI pero no instalan limpio → smoke en venv limpio por plataforma; (3) drift de contrato entre build y publish → re-verificar con el dry-run antes del tag.
+- **Stop conditions:** publish bloqueado por credenciales → dry-run verde + checklist owner + cierre con nota.
+- **Risk Register:**
+
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟢 | OIDC/secrets no listos | Dry-run TestPyPI primero | antes del tag |
+  | 🟢×🟡 | Wheel no instala limpio | Smoke en venv limpio por plataforma | VERIFY |
+  | 🟢×🟢 | Drift build↔publish | Dry-run re-verificado antes del tag | release |
+
+- **Cynefin:** 🟨 complicado
+- **Top 3 riesgos:** (1) credenciales; (2) smoke de instalación; (3) drift.
+- **Uphill/Downhill:** ⬇️ (3 steps: pyproject+matriz → dry-run → publish/checklist)
+- **DoD:** task = contrato (publicados o dry-run + checklist) · commit = `ci(providers):` · release = wheels en PyPI.
+- **Validación Appetite vs Effort:** 1sem ≥ 1sem ✓
 - **Skills sugeridas:** ci-cd-and-automation · shipping-and-launch · campaign-executor
 - **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/PROV-12.md`
 
 ### Task 31: PROV-13 — Providers OpenAI/Ollama/LiteLLM en Windows (compilar)
 
-- **Appetite:** max 4d · **Esfuerzo:** 🟡 2-4d · **Prioridad:** 🟠
-- **Archivos clave:** `providers/{openai,ollama,litellm}/` + CI Windows
-- **Verificación real:** ✅ — decisión owner 2026-10-01: **arreglar** (no declarar límite); los 3 providers no compilan en Windows.
-- **Contrato:** los 3 providers compilan y sus tests pasan en Windows + job CI Windows verde; sin regresión en Linux/macOS.
+- **Appetite:** max 4d
+- **Esfuerzo:** 🟡 2-4d
+- **Prioridad:** 🟠
+- **Archivos clave:** `providers/{openai,ollama,litellm}/` (no workspace members — se chequean vía `--manifest-path`), `.github/workflows/providers-ci.yml` (hoy `runs-on: ubuntu-latest` únicamente — sin job Windows), `providers/shared_py.rs` (helpers compartidos PROV-05)
+- **Verificación real:** ✅ CÓDIGO-REAL — decisión owner 2026-10-01 (Q5/B3): **arreglar, no declarar límite**; Backlog PROV-13: "Los 3 providers no compilan en Windows; requiere fix + CI Windows"; el CI actual (providers-ci.yml, 92 líneas) corre solo en ubuntu → el gap de Windows no está cubierto ni detectado. Error exacto de compilación [a verificar en DISCOVERY: reproducir `cargo check --manifest-path providers/openai/Cargo.toml` en Windows].
+- **Gate Justificación:** Windows es la plataforma del owner/ICP local-LLM; un provider que no compila allí rompe el camino pip del diferenciador; la decisión ya está tomada (fix) y el CI Windows es la garantía de no-regresión.
+- **Gate Result:** ✅ DO
+- **Contrato:** los 3 providers compilan (`cargo check`/`clippy -D warnings` vía manifest-path) y sus tests pasan en Windows; job CI Windows verde (matriz provider); sin regresión en Linux/macOS (providers-ci.yml actual sigue verde); si el fix toca `shared_py.rs`, los 3 providers verificados.
+- **Pre-mortem:** (1) el error es de una dep transitiva (pyo3/openssl/etc.) → aislar por provider antes de tocar; si es upstream: pin/workaround documentado; (2) fix en `shared_py.rs` rompe otro provider → matriz completa en el job; (3) CI Windows lento/caro → job con cache y timeout acotado (patrón providers-ci actual).
+- **Stop conditions:** 4d sin compilación Windows → registrar el bloqueante exacto (dep + error) + FIND/issue upstream y cerrar con matriz actualizada.
+- **Risk Register:**
+
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟡 | Dep transitiva no compila en MSVC | Aislar por provider; pin/workaround documentado | DISCOVERY |
+  | 🟡×🟢 | Fix compartido rompe otro provider | Matriz completa en el job Windows | VERIFY |
+  | 🟢×🟢 | Costo del job Windows | Cache + timeout acotado | diseño |
+
+- **Cynefin:** 🟨 complicado
+- **Top 3 riesgos:** (1) dep transitiva; (2) regresión cruzada; (3) costo CI.
+- **Uphill/Downhill:** ⬆️ 1 incógnita (causa raíz del no-compile) → repro en step 1 → luego ⬇️
+- **DoD:** task = contrato + job Windows verde · commit = `fix(providers):`/`ci:` · release = changelog (si aplica).
+- **Validación Appetite vs Effort:** 4d ≥ 4d ✓
 - **Skills sugeridas:** systematic-debugging · ci-cd-and-automation · rust-write-tests · campaign-executor
 - **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/PROV-13.md`
 
 ### Task 32: DESKTOP-41 — Smoke-test instalador en VM Windows limpia
 
-- **Appetite:** max 2d · **Esfuerzo:** 🟡 1d · **Prioridad:** 🟡
-- **Archivos clave:** instalador NSIS+MSI (Step 3 DESKTOP-24), sidecar server, deep link `vanta://`, WebView2 bootstrapper
-- **Verificación real:** ✅ — Step 3 pendiente: instalar NSIS+MSI, verificar arranque, sidecar, deep link, bootstrapper.
-- **Contrato:** instalador smoke-testeado en VM limpia: arranque + sidecar + deep link + WebView2; checklist con evidencia (capturas/logs).
+- **Appetite:** max 2d
+- **Esfuerzo:** 🟡 1d
+- **Prioridad:** 🟡
+- **Archivos clave:** instaladores NSIS+MSI (`desktop/src-tauri/target/release/bundle/*` — **no presentes localmente**, build primero; Step 3 de DESKTOP-24), `desktop/src-tauri/tauri.conf.json` (bundle targets nsis/msi/dmg/app/appimage/deb; `webviewInstallMode: embedBootstrapper`; `resources: binaries/vanta-cli* + binaries/vantadb-server*`), sidecar `desktop/src-tauri/binaries/{vanta-cli.exe,vantadb-server.exe}`, deep link `vanta://` (plugin deep-link), VM Windows limpia
+- **Verificación real:** ✅ CÓDIGO-REAL — `desktop/README.md:124-129`: "No public installer yet. Bundling targets (NSIS/MSI) are configured and `npm run tauri build` produces local installers" → el bundle hay que generarlo; sidecar y deep-link están configurados (`tauri.conf.json`: resources + `plugins.deep-link.schemes: ["vanta"]`; `Cargo.toml`: tauri-plugin-deep-link 2.4.9 + single-instance 2.4.3). Backlog DESKTOP-41: "Step 3 DESKTOP-24 pendiente: instalar NSIS+MSI, verificar arranque, sidecar server, deep link `vanta://`, WebView2 bootstrapper".
+- **Gate Justificación:** es el primer smoke end-to-end del instalador real en el entorno del usuario (VM limpia); los componentes están configurados pero nunca verificados como artefacto instalado — evidencia de distribución o deuda explícita.
+- **Gate Result:** ✅ DO
+- **Contrato:** instalador smoke-testeado en VM limpia: arranque + sidecar server + deep link `vanta://` + WebView2 (bootstrapper embed) verificados; checklist con evidencia (capturas/logs por paso); hallazgos → FINDs (no fixes apurados fuera de scope); tanto NSIS como MSI probados (o el que falle → FIND con repro).
+- **Pre-mortem:** (1) no hay bundle local → primer step es `npm run tauri build` (medir costo/tiempo); (2) VM limpia no disponible → registrar como blocker de entorno y entregar checklist + evidencia parcial; (3) deep link requiere registro del esquema en el instalador → verificar post-install (no en dev).
+- **Stop conditions:** sin VM limpia disponible → entregar checklist ejecutable + FIND del smoke pendiente (no simular evidencia).
+- **Risk Register:**
+
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟡 | Bundle no generado / build costoso | Build primero; medir y documentar | DISCOVERY |
+  | 🟡×🟢 | VM limpia no disponible | Checklist + FIND, sin evidencia simulada | diseño |
+  | 🟢×🟡 | Deep link no registra post-install | Verificación específica post-install | VERIFY |
+
+- **Cynefin:** 🟨 complicado
+- **Top 3 riesgos:** (1) build/entorno; (2) VM; (3) deep link.
+- **Uphill/Downhill:** ⬇️ (3 steps: build → instalar en VM → checklist)
+- **DoD:** task = contrato (checklist con evidencia) · commit = `docs(desktop):`/`ci:` · release = n/a.
+- **Validación Appetite vs Effort:** 2d ≥ 1d ✓
 - **Skills sugeridas:** ci-cd-and-automation · systematic-debugging · campaign-executor
 - **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/DESKTOP-41.md`
 
 ### Task 33: DESKTOP-43 — Auto-update vía `tauri-plugin-updater`
 
-- **Appetite:** max 2d · **Esfuerzo:** 🟡 1-2d · **Prioridad:** 🟡
-- **Archivos clave:** `desktop/src-tauri` (updater), infra de releases desktop
-- **Verificación real:** ✅ — "Desbloquear tras decisión de distribución pública" (decisión pendiente del owner).
-- **Contrato:** updater configurado y probado (update simulado end-to-end) O decisión de defer registrada con trigger.
+- **Appetite:** max 2d
+- **Esfuerzo:** 🟡 1-2d
+- **Prioridad:** 🟡
+- **Archivos clave:** `desktop/src-tauri/Cargo.toml` (hoy solo `tauri-plugin-deep-link` + `single-instance` — **sin `tauri-plugin-updater`**), `desktop/src-tauri/tauri.conf.json` (sin `plugins.updater`), `desktop/src-tauri/capabilities/default.json` (sin permisos updater), infra de releases desktop, `docs/dev/research/installer-personalizado/RESEARCH.md` (§F3: "updater Tauri firmado"; :45: "Firma de updater obligatoria")
+- **Verificación real:** ✅ CÓDIGO-REAL — no existe el plugin updater ni su config (rg `tauri-plugin-updater` en `desktop/src-tauri` = 0 fuera de docs); Backlog DESKTOP-43: "⏸️ Bloqueada: firma (wontfix DEVOPS-10) + endpoint de manifests | Desbloquear tras decisión de distribución pública. Dep: decisión distribución"; research: el updater exige firma (JSON estático o server) — sin decisión de distribución pública no hay canal que actualizar.
+- **Gate Justificación:** el auto-update es requisito de un instalador público (el smoke DESKTOP-41 no lo cubre); con la decisión de distribución aún abierta, el valor de la tarea es dejar el camino listo o el defer justificado con trigger — no construir a ciegas.
+- **Gate Result:** ✅ DO
+- **Contrato:** updater configurado y probado (update simulado end-to-end: manifest JSON + firma + app que detecta/aplica) **o** decisión de defer registrada con trigger explícito (decisión de distribución pública) + checklist de habilitación; sin tocar el pipeline de releases si se defiere.
+- **Pre-mortem:** (1) firma obligatoria (claves + CI secrets) no disponible → sin firma el updater no funciona: decidir con el owner antes de codear (Gate D si hace falta); (2) endpoint de manifests sin hosting → evaluar JSON estático en GitHub Releases (patrón research) vs server; (3) habilitar updater cambia el modelo de confianza del desktop → documentar (ADR corto o sección en ARCHITECTURE.md).
+- **Stop conditions:** decisión de distribución no tomada → defer registrado con trigger + checklist (contrato cumplido).
+- **Risk Register:**
+
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟡 | Firma/claves no disponibles | Decidir con owner; Gate D si bloquea | DISCOVERY |
+  | 🟢×🟡 | Endpoint de manifests sin definir | JSON estático en Releases (research) | diseño |
+  | 🟢×🟢 | Cambio de modelo de confianza | Documentar en ARCHITECTURE/ADR | cierre |
+
+- **Cynefin:** 🟨 complicado
+- **Top 3 riesgos:** (1) firma; (2) endpoint; (3) confianza.
+- **Uphill/Downhill:** ⬆️ 1 incógnita (¿decisión de distribución tomada?) → step 1 → luego ⬇️ o defer
+- **DoD:** task = contrato (updater probado o defer con trigger) · commit = `feat(desktop):`/`docs:` · release = n/a.
+- **Validación Appetite vs Effort:** 2d ≥ 2d ✓
 - **Skills sugeridas:** source-driven-development · ci-cd-and-automation · campaign-executor
 - **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/DESKTOP-43.md`
 
 ### Task 34: DESKTOP-44 — Validación manual Proxy Dashboard con upstream LLM vivo
 
-- **Appetite:** max 1d · **Esfuerzo:** 🟢 2-4h · **Prioridad:** 🟡
-- **Archivos clave:** `desktop/` (dashboard), `vanta-proxy`, deuda DESKTOP-38 (TurnReports/sesiones/write-back/rate-limit)
-- **Verificación real:** ✅ — "sesión guiada owner+agente, no tarea autónoma" (deuda DESKTOP-38).
-- **Contrato:** sesión owner+agente ejecutada con upstream LLM vivo; TurnReports/sesiones/write-back/rate-limit verificados end-to-end; hallazgos → FINDs.
+- **Appetite:** max 1d
+- **Esfuerzo:** 🟢 2-4h
+- **Prioridad:** 🟡
+- **Archivos clave:** `desktop/src/components/proxy/ProxyDashboard.tsx` (paneles TurnReports/sesiones/write-back/rate-limit; polling 5s; consume `GET /snapshot`), `vanta-proxy` (`capture.rs`, `writeback.rs`, `config.rs` rate_limit_per_minute=60), deuda DESKTOP-38, `FIND-155` (dashboard sin `x-vanta-user-key` → 401 desde API-05)
+- **Verificación real:** ✅ CÓDIGO-REAL — el dashboard existe y consume el snapshot REST del proxy (polling 5s, LS_KEY `vanta.proxy.url`); el proxy expone los 4 paneles (TurnReport en report.rs/langfuse.rs, writeback en writeback.rs, sesiones team→agent→task, rate-limit en config.rs); **FIND-155 abierto**: sin `x-vanta-user-key` el snapshot da 401 (API-05) → la validación E2E está bloqueada por ese fix. Backlog: "sesión guiada owner+agente, no tarea autónoma" (Dueño: owner).
+- **Gate Justificación:** cierra la deuda DESKTOP-38 con evidencia real (upstream LLM vivo) en vez de mocks; es la única validación end-to-end del loop proxy→dashboard y del write-back — humano-en-el-loop por diseño.
+- **Gate Result:** ✅ DO
+- **Contrato:** sesión owner+agente ejecutada con upstream LLM vivo; TurnReports/sesiones/write-back/rate-limit verificados end-to-end (FIND-155 resuelto en la misma sesión o registrado como bloqueante con evidencia); hallazgos → FINDs; el resultado queda registrado en el task file con la evidencia de la sesión (no simulado).
+- **Pre-mortem:** (1) FIND-155 (401) impide el snapshot → incluir el fix de auth (input/storage de key + header) como sub-step de la sesión; (2) sin upstream LLM configurado → la sesión lo requiere; si no hay key/disponibilidad, entregar checklist + FIND; (3) sesión no reproducible por el agente solo → es owner-assisted: preparar el guion de verificación (qué mirar en cada panel) para que la sesión sea corta y productiva.
+- **Stop conditions:** sin upstream vivo → checklist + FIND del bloqueante; no forzar mocks como evidencia.
+- **Risk Register:**
+
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟡 | FIND-155 (401) bloquea el snapshot | Fix de auth como sub-step de la sesión | DISCOVERY |
+  | 🟢×🟡 | Upstream LLM no disponible | Checklist + FIND, sin mocks | sesión |
+  | 🟢×🟢 | Sesión sin guion = tiempo perdido | Guion de verificación por panel | diseño |
+
+- **Cynefin:** 🟦 obvio (validación guiada)
+- **Top 3 riesgos:** (1) auth 401; (2) upstream; (3) guion.
+- **Uphill/Downhill:** ⬇️ (2 steps: fix auth → sesión E2E)
+- **DoD:** task = contrato (sesión + evidencia o checklist+FIND) · commit = `fix(desktop):`/`docs:` · release = n/a.
+- **Validación Appetite vs Effort:** 1d ≥ 4h ✓
 - **Skills sugeridas:** source-driven-development · systematic-debugging
+- **Dependencias:** owner presente (sesión guiada) + upstream LLM vivo; FIND-155 como prerequisito.
 - **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/DESKTOP-44.md`
 
 ### Task 35: SHOW-02 — Recetas clicables del playground (5-6)
 
-- **Appetite:** max 3d · **Esfuerzo:** 🟡 2-3d · **Prioridad:** 🟠
-- **Archivos clave:** `CodePlayground` + iframe WASM existente; coordinar con `ness-e/Vantadb-web`
-- **Verificación real:** ✅ — "Reutilizando `CodePlayground` + iframe WASM existente" (verificación HEAD 2026-10-01).
-- **Contrato:** 5-6 recetas clicables (RAG, híbrido, grafo, TTL, batch, persistencia) funcionando en el playground con WASM real; sin código muerto.
+- **Appetite:** max 3d
+- **Esfuerzo:** 🟡 2-3d
+- **Prioridad:** 🟠
+- **Archivos clave:** repo `ness-e/Vantadb-web`: `src/components/vanta/code-playground.tsx` (471 líneas; array `EXAMPLES` :46-163; dropdown `loadExample` :258), `src/app/playground/page.tsx`, sandbox `public/playground-executor.html` (iframe WASM real, WEB-07), `playground-executor.tsx`
+- **Verificación real:** ✅ CÓDIGO-REAL — el playground ya tiene EXACTAMENTE las 6 recetas del contrato en `EXAMPLES` (:48 RAG Mini · :65 Hybrid Search · :84 Graph BFS · :106 TTL Expiry · :123 Batch Insert · :146 Persistence) con dropdown para cargarlas y ejecución en iframe WASM real. **Posible ya-resuelto** → DISCOVERY debe verificar ejecución E2E de las 6 contra el WASM actual y re-scopear: cerrar como ya-resuelto o quedarse con el delta real (p.ej. deep-links por receta, contador de uso).
+- **Gate Justificación:** el contrato original (5-6 recetas clicables reutilizando CodePlayground) parece ya implementado en el web; verificarlo evita trabajo duplicado — y si algo no ejecuta, ahí está el delta real.
+- **Gate Result:** ✅ DO
+- **Contrato:** las 5-6 recetas (RAG, híbrido, grafo, TTL, batch, persistencia) funcionan en el playground con WASM real (verificación de ejecución, no solo existencia de código); sin código muerto; **o** cierre como ya-resuelto con evidencia de la verificación E2E + delta documentado si emerge.
+- **Pre-mortem:** (1) las recetas existen pero alguna no ejecuta contra el WASM actual (API drift) → verificar las 6 una por una y arreglar solo lo roto; (2) repo externo (`ness-e/Vantadb-web`) → coordinar como en TS-10/13; (3) "sin código muerto" puede tentar un refactor amplio → scope = recetas, no el playground.
+- **Stop conditions:** recetas ejecutando → cerrar ya-resuelto con evidencia; si 2-3d de fixes no alcanzan → FIND del resto.
+- **Risk Register:**
+
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟢 | Receta rota por API drift | Verificación E2E de las 6, fix puntual | DISCOVERY |
+  | 🟢×🟡 | Scope creep al playground | Scope = recetas | diseño |
+  | 🟢×🟢 | Coordinación repo externo | Mismo flujo que TS-10/13 | cierre |
+
+- **Cynefin:** 🟦 obvio (verificación) / 🟨 si hay fixes
+- **Top 3 riesgos:** (1) API drift; (2) scope; (3) coordinación.
+- **Uphill/Downhill:** ⬇️ (2 steps: verificar las 6 → cerrar o fix puntual)
+- **DoD:** task = contrato (verificado o delta cerrado) · commit = `docs:`/`fix(web):` · release = n/a.
+- **Validación Appetite vs Effort:** 3d ≥ 2-3d ✓
 - **Skills sugeridas:** frontend-ui-engineering · source-driven-development · campaign-executor
 - **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/SHOW-02.md`
 
 ### Task 36: WEB-09 + MKT-22 — Densidad visual del home + panel de la métrica principal
 
-- **Appetite:** max 2d · **Esfuerzo:** 🟡 1-2d · **Prioridad:** 🟡
-- **Archivos clave:** home web (repo `ness-e/Vantadb-web`), métrica SPEC de sesiones
-- **Verificación real:** ✅ — WEB-09: 73 usos de efectos (trust-bar ×11, hero 5 capas) — criterio visual del owner; MKT-22: "la métrica existe (SPEC) pero nadie la ve".
-- **Contrato:** (WEB-09) decisión visual del owner aplicada o diferida con criterio escrito; (MKT-22) número de sesiones visible en panel/reporte actualizado.
+- **Appetite:** max 2d
+- **Esfuerzo:** 🟡 1-2d
+- **Prioridad:** 🟡
+- **Archivos clave:** (WEB-09) repo `ness-e/Vantadb-web`: `src/app/page.tsx` (wrapper → `home-view.tsx`), `src/components/vanta/trust-bar.tsx`, `visual-audit/` (baselines); (MKT-22) `scripts/north_star_metric.py` (existe; sessions put+search 7-day window; `--json`), `docs/api/PROXY.md:219-245` §North Star metric (ICP-01), `README.md:230` (North Star medido en MCP), panel/reporte a definir
+- **Verificación real:** ✅ CÓDIGO-REAL — (MKT-22) la métrica EXISTE y es medible: `scripts/north_star_metric.py` la computa desde el proxy store vía `vanta-cli mcp-call` (self-test incluido) y PROXY.md documenta las dos mitades (proxy-turns + proxy-memory-events); nadie publica el número. (WEB-09) el home actual es modular (`home-view.tsx`, TrustBar ×3 en HEAD — el conteo "73 usos, trust-bar ×11, hero 5 capas" es del review INV-web-01 H-07 y **no se reproduce en el HEAD actual** [a verificar en DISCOVERY: recontar efectos decorativos]); requiere criterio visual del owner (puede quedar diferida).
+- **Gate Justificación:** (MKT-22) publicar el North Star convierte la métrica interna en evidencia externa — barato y de alto valor de credibilidad; (WEB-09) es una decisión de diseño fino que solo el owner puede cerrar — el contrato admite "decisión aplicada o diferida con criterio escrito".
+- **Gate Result:** ✅ DO
+- **Contrato:** (WEB-09) decisión visual del owner aplicada (densidad reducida) o diferida con criterio escrito y fecha; (MKT-22) número de sesiones visible en un panel/reporte actualizado (README o reporte generado por el script), con comando reproducible documentado; sin claims sin evidencia (Regla 11).
+- **Pre-mortem:** (1) el conteo WEB-09 del review está stale (repo evolucionó) → recontar en DISCOVERY antes de proponer cambios; (2) MKT-22: el número depende de datos reales del proxy (¿hay store con sesiones?) → publicar metodología + placeholder honesto si no hay datos, nunca un número inventado; (3) dos tareas en un bloque → si divergen, separar task file `MKT-22.md` (ya previsto).
+- **Stop conditions:** WEB-09 sin criterio del owner → diferir con nota; MKT-22 sin datos reales → publicar metodología + comando, marcar el número como pendiente de primera corrida.
+- **Risk Register:**
+
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟢 | Conteo WEB-09 stale | Recontar en DISCOVERY antes de actuar | DISCOVERY |
+  | 🟡×🟡 | Número sin datos reales | Metodología + comando; nunca inventar | diseño |
+  | 🟢×🟢 | Dos tareas divergen | Separar `MKT-22.md` si hace falta | diseño |
+
+- **Cynefin:** 🟦 obvio (MKT-22) · 🟨 complicado (WEB-09, criterio visual)
+- **Top 3 riesgos:** (1) conteo stale; (2) datos reales; (3) split de tareas.
+- **Uphill/Downhill:** ⬇️ (2-3 steps: recontar/decidir → publicar número)
+- **DoD:** task = contrato (decisión + número visible) · commit = `docs:` · release = n/a.
+- **Validación Appetite vs Effort:** 2d ≥ 2d ✓
 - **Skills sugeridas:** vanta-design-orchestrator · frontend-ui-engineering · documentation-skill
 - **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/WEB-09.md` (+ `MKT-22.md` si se separa)
 
@@ -1438,4 +1724,15 @@ Resultado: OK
 Próxima acción: ninguno — DOCS-F2 cerrada. Próxima desbloqueada: ENC-01 (Task 72)
 Contrato: verificacion: `dev-tools/verify.ps1` ALL 10 PASS ✅ · `RUSTDOCFLAGS="-D warnings" cargo test --doc --workspace` EXIT 0 ✅ (13+1i vantadb, 1 vanta-memory, 1 mcp) · `pydoclint --style=numpy` exit 0 ✅ · actionlint 0 ✅ · check-links/check-docs/gen-index verdes ✅ · self-tests gates 17/17 + 29/29 ✅. evidencia: claim=T14/T15 YA existían (commit 71139665, 2026-09-29) y se verificaron sin reimplementar, evidencia=.github/workflows/gate-api-docs.yml + gate-docs-secrets.yml + self-tests, confianza=alta · claim=doctests workspace verdes con -D warnings, evidencia=log local EXIT 0 (medido Windows; primer run ubuntu en CI), confianza=alta · claim=pydoclint 4 violaciones→0, evidencia='No violations' EXIT 0, confianza=alta · claim=TS docs sin infra CI (typedoc 0.28.20: 0 errores/39 warnings; sin job TS en PRs), evidencia=FIND-263 + workflows, confianza=alta. artefactos: docs/dev/tasks/DOCS-F2.md · .github/workflows/ci-rustdoc.yml · .github/workflows/gate-doc-examples.yml · vantadb-python/vantadb_py/__init__.py · docs/dev/plans/2026-09-28-docs-consolidation.md · docs/dev/Backlog.md (FIND-263) · docs/dev/avance/activo/ci-cd.md. invariantes: master plan/opencode.jsonc/pipeline-state/PUBLISH/release-plz/gate-docs-links intactos; gates T14/T15 solo verificados (no modificados); RULES.md obedecidas (SHA pins, timeouts, permissions, sin continue-on-error nuevo); push diferido (owner). deuda: TS docs → FIND-263 (burn-down: typedoc config+devDep+job; drenar 39 warnings; harness de bloques TS). queda_pendiente: review P2-01 formal vanta-review (fresh) — degradado escalado al orquestador; primer run de los jobs nuevos en CI ubuntu (si un doctest falla por plataforma, es finding real a arreglar); push diferido al cierre del plan (owner).
 Próxima tarea si completa: ENC-01
+=== END RECITATION ===
+
+=== RECITATION 72 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: ENC-01 — Cifrado honesto: aviso accionable al activar `encryption` (feature+key) + docs sin ambigüedad + test que lo fija (FIND-249 parte 1)
+Estado: completed
+Última acción: Cierre completo: warning emitido en StorageEngine::open_with_config (gating por entorno, excluye InMemory) + rustdoc/docs honestos (CONFIGURATION.md :73/§7, FEATURES.md:47, config.rs, lib.rs) + 3 tests feature-gated hermeticos (4 escenarios de env). Commits locales b02b1609 (fix) + 4b029c7d (docs(avance)). Registrado en docs/dev/avance/auditoria/seguridad.md.
+Resultado: OK
+Próxima acción: ninguno — última tarea F0 (22/22). Checkpoint F0 → F1: just verify + /audit certify en develop (lo maneja el orquestador).
+Contrato: verificacion: `cargo nextest run --profile audit -p vantadb --features encryption -E "test(/encryption_notice/)"` → 3/3 en 4 escenarios de entorno (limpio / VANTADB_ENCRYPTION_KEY / VANTADB_BACKEND=memory / ambas) ✅ · suites completas `-p vantadb`: 2575/2575 (con feature, 251.9s) + 2549/2549 (sin, 241.7s) ✅ · `cargo fmt --check` 0 · `cargo clippy -p vantadb --features encryption --all-targets -- -D warnings` 0 · gates docs (check-links/check-docs/gen-index --check/validate-docs-coverage) 0 · check-avance-coverage 1034/1034 ✅. Nota: campaign_verify_cmd devolvió exitCode -1 sin output para `cargo fmt`/`cargo nextest` (spawn del wrapper; no falla de código) — verificado por shell directo. · evidencia: [claim: 0/6 artefactos on-disk cifrados con feature activa → evidencia: docs/dev/tasks/DUR-02.md §Mapa, confianza alta] [claim: warning presente y accionable al activar (NOT yet wired/PLAINTEXT/FIND-249) → evidencia: src/storage/engine/init.rs:617-638 + test positivo, confianza alta] [claim: docs sin ambigüedad → evidencia: docs/user/operations/CONFIGURATION.md:73,495 + docs/dev/architecture/FEATURES.md:47, confianza alta] [claim: review adversarial APPROVE → evidencia: ses_ef8aac205ffek6RD7sIQZnc1mA (R1 changes-required hermeticidad → fix → R2 approve), confianza alta] · artefactos: src/storage/engine/init.rs, src/storage/engine/tests/init.rs, src/config.rs, src/lib.rs, docs/user/operations/CONFIGURATION.md, docs/dev/architecture/FEATURES.md, docs/dev/Backlog.md (nota FIND-249), docs/dev/tasks/ENC-01.md, docs/dev/avance/auditoria/seguridad.md, docs/index.md, llms.txt · invariantes: sin símbolos públicos nuevos; open sigue exitoso (solo log); sin feature = byte-idéntico; crypto.rs/vfile.rs/wal.rs intactos; cableado del cifrado NO incluido (FIND-249) · deuda: FIND-249 (wiring 3-5d, diferido por owner; nota 'key sin feature compilada no avisa' registrada en la fila). Nit §7 de docs incorporado post-R2 (texto recomendado por reviewer). · queda_pendiente: checkpoint F0 (just verify + /audit certify) y actualización del plan file por el orquestador (prohibido para esta tarea).
+Próxima tarea si completa: checkpoint F0 → F1
 === END RECITATION ===
