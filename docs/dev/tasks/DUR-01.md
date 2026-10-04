@@ -188,7 +188,7 @@ Inventario mecánico (HEAD 2026-10-04): `fsync` = 15 líneas · `sync_all` = 7 �
 
 - **Estado:** ✅ **COMPLETO (contrato)** — mapa path→fsync completo (WAL/snapshots/GC, evidencia file:línea) + gaps clasificados G1-G12 + **G1 resuelto con evidencia** (fix + gates verdes + review ronda 1 incorporada); G2/G3/G12 derivados a FIND; G4-G11 OK-justificados.
 - **Steps:** 5/5 (4 = bench en curso, ver deuda).
-- **Commits (locales, sin push):** A = `fix(durability): DUR-01 …` (src/wal.rs + src/utils/fs.rs + task file + Backlog row) · B = `docs(avance): …` (registro + hash).
+- **Commits (locales, sin push):** A = `d4cff504` — `fix(durability): DUR-01 — dir-fsync al crear WAL + auditoría fsync (WAL/snapshots/GC)` (src/wal.rs + src/utils/fs.rs + task file + Backlog row) · B = `docs(avance): DUR-01 registrado` (este commit, avance + hash).
 - **Evidencia por claim:**
   - *"El WAL ahora es durable en su creación"* → `src/wal.rs:332-338,600-602` + helper robusto `src/utils/fs.rs:19-36` + man7 fsync(2) (dir-entry) + patrón AUDREP-35. Confianza: alta.
   - *"La suite no regresa"* → nextest `wal` 91/91 + `snapshot` 46/46 + fmt/clippy 0. Confianza: alta.
