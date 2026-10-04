@@ -29,7 +29,8 @@ El doc refleja el estado post DIST-01/02/03 (superficies publicadas/declaradas, 
 - [x] **Step 1 — §Scope & stability:** binding scope → Python **landed**; bullet nuevo de distribución (crate publishable + hold release-plz)
 - [x] **Step 2 — §Facade:** "candidate, not published" → contrato in-repo estable + superficie Python landed (seed/ingest no re-exportados)
 - [x] **Step 3 — §Exposure triggers:** "declared" → "**landed**" (Python 0.9.0 train)
-- [x] **Step 4 — Gates:** `check-docs` exit 0 · `check-links` exit 0
+- [x] **Step 4 — Gates:** `check-docs` exit 0 · `check-links` exit 0 · `gen-index --check` exit 0
+- [x] **Step 6 — Ronda 1 P2-01:** R-1 reconciliación de `BINDINGS_NAMESPACES.md` (status + matriz ✅ + counts 46→48) · R-2 `vanta-memory/README.md` creado (stub con links)
 - [ ] **Step 5 — Review P2-01 (vanta-review fresco)** — ⏳ en curso
 
 ## Evidencia
