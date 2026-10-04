@@ -6,7 +6,7 @@ description: "SDP v3 (taskType mixto): campaign-executor · progreso · planning
 
 # Plan Maestro: Release 0.9.0 + Memoria 1.0
 
-> **Campaign ID:** _(se asigna al iniciar con `/pipeline run`)_
+> **Campaign ID:** master-plan-0.9.0-20261004
 > **Inicio:** 2026-10-04
 > **Estado:** ⏳ EN PROGRESO
 > **Fuente:** `docs/dev/Backlog.md` (DELTA 2026-09-30 + Alta 2026-10-01 + hallazgos FIND-233..239) + cierre de `docs/dev/plans/2026-09-28-docs-consolidation.md` (F1/F2) + validación externa v0.8.0 (2026-10-03)
@@ -66,7 +66,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato + tests · commit = `fix(cli):` + verify · release = entrada de changelog.
 - **Validación Appetite vs Effort:** 1d ≥ 2h ✓
 - **Skills sugeridas:** campaign-executor · source-driven-development · test-driven-development · git-workflow-and-versioning
-- **Estado:** ⬜ PENDING
+- **Estado:** ⏳ EN PROGRESO
 - **Task file:** `docs/dev/tasks/FIND-237.md`
 
 ### Task 2: FIND-238 — WASM/npm: silenciar logs DEBUG de `Client.create()` (`tracing-wasm` default-on sin filtro)
@@ -94,7 +94,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato + smoke · commit = `fix(wasm):` · release = changelog.
 - **Validación Appetite vs Effort:** 1d ≥ 3h ✓
 - **Skills sugeridas:** campaign-executor · source-driven-development · ci-cd-and-automation · documentation-skill
-- **Estado:** ⬜ PENDING
+- **Estado:** ⏳ EN PROGRESO
 - **Task file:** `docs/dev/tasks/FIND-238.md`
 
 ### Task 3: FIND-239 — Docs DX: encoding Windows + puente de formatos de import + ejemplo `get_node` + caveats WASM
@@ -122,7 +122,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato + gates · commit = `docs:` · release = n/a.
 - **Validación Appetite vs Effort:** 1d ≥ 4h ✓
 - **Skills sugeridas:** documentation-skill · writing-guidelines · documentation-and-adrs · campaign-executor
-- **Estado:** ⬜ PENDING
+- **Estado:** ⏳ EN PROGRESO
 - **Task file:** `docs/dev/tasks/FIND-239.md`
 
 ### Task 4: FIND-233 — perf-bench: instrumento cross-VM (A/B same-job o calibración)

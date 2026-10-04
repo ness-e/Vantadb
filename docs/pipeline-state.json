@@ -1,13 +1,12 @@
 {
-  "plan": "docs/dev/plans/archive/2026-10-02-post-release-0.8.0.md",
-  "total": 10,
-  "totalCompleted": 10,
+  "plan": "docs/dev/plans/2026-10-04-master-plan-0.9.0.md",
+  "total": 70,
+  "totalCompleted": 0,
   "totalFailed": 0,
   "consecutiveFails": 0,
   "failMode": "parallel",
   "mode": "run",
   "maxConcurrent": 3,
-  "inProgress": null,
-  "status": "completed",
-  "lastSync": "2026-10-03T06:05:00Z"
+  "inProgress": ["FIND-237", "FIND-238", "FIND-239"],
+  "lastSync": "2026-10-04T06:05:00Z"
 }
