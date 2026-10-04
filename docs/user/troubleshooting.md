@@ -142,6 +142,18 @@ rustup show
 
 ---
 
+## TypeScript SDK (WASM)
+
+### `RuntimeError: memory access out of bounds` en `vantadb_wasm_bg.js:1551` (Node 22 y 26)
+
+**Síntoma:** `db.get({ namespace, key })` —o `delete`/`list`/`count`— lanza `get: memory access out of bounds` con stack en `passStringToWasm0 (vantadb_wasm_bg.js:1551)`. Puede convivir con un `put` exitoso (H-009: la demo TS del paquete npm se bloqueaba así).
+
+**Causa raíz:** el argumento `key`/`namespace` no era un `string` (p. ej. `key: 1`). El glue de wasm-bindgen (`passStringToWasm0`) no valida tipos: con un no-string llama a `__wbindgen_realloc` con un puntero inválido y el runtime trapea. NO es específico de Node 26 — ocurre igual en Node 22 (verificado en 22.23.3 / 26.0.0 / 26.8.1 / 26.10.0).
+
+**Solución:** actualizar `vantadb` a una versión con el fix DX-01: la SDK normaliza `string | number | bigint` → string (números deben ser enteros seguros; usar `bigint` > 2^53) y lanza `VantaError` con código `VANTADB_INVALID_ARGUMENT` para el resto — sin trap. Workaround en versiones anteriores: pasar siempre strings (`key: String(id)`).
+
+---
+
 ## Web (Vite + React)
 
 ### `npm install` falla en `web/`
