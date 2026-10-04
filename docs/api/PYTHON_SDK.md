@@ -450,11 +450,12 @@ db.get_node(
     id: int,
 ) -> Optional[dict]
 ```
-Retrieve a graph node by its numeric ID. Returns a dict with `id`, `vector`, `vector_dims`, `fields`, `edges`, `confidence_score`, `importance`, `hits`, `tier`, and `is_alive`, or `None` if not found. GIL-released.
+Retrieve a graph node by its numeric ID. Returns a dict with `id`, `vector`, `vector_dims`, `fields`, `edges`, `confidence_score`, `importance`, `hits`, `tier`, and `is_alive`, or `None` if not found. The `content` passed to `insert_node()` is stored as `fields["content"]` (extra `fields={...}` keys sit alongside it). GIL-released.
 
 ```python
 node = db.get_node(id=42)
 if node:
+    print(node["fields"]["content"])  # "VantaDB is a vector-graph database."
     print(node["fields"], node["vector_dims"])
 ```
 
@@ -721,13 +722,15 @@ db.bulk_import(
 ```
 Bulk-import records from a binary `.vdbdump` file. Returns a dict with `total_records`, `batches_committed`, `duration_ms`. GIL-released.
 
+> **Format bridge:** `.vdbdump` is the **binary** bulk format (magic `VDBJSON\n`), not the JSONL written by [`export_namespace()`](#export_namespace) / [`export_all()`](#export_all). To re-import a JSONL export, use [`import_file()`](#import_file). Layout spec: [EMBEDDED_SDK.md § Bulk Import](./EMBEDDED_SDK.md#bulk-import).
+
 #### `bulk_import_bytes()`
 ```python
 db.bulk_import_bytes(
     data: bytes,
 ) -> Dict[str, Any]
 ```
-Bulk-import records from binary bytes (`.vdbdump` format). Returns a dict with `total_records`, `batches_committed`, `duration_ms`. GIL-released.
+Bulk-import records from binary bytes (`.vdbdump` format). Returns a dict with `total_records`, `batches_committed`, `duration_ms`. GIL-released. Same binary format as [`bulk_import()`](#bulk_import) (magic `VDBJSON\n`) — for JSONL exports use [`import_file()`](#import_file).
 
 #### `recover_archived_nodes()`
 ```python
@@ -825,7 +828,7 @@ print(f"Active namespaces: {namespaces}")
 ```python
 db.export_namespace(path: str, namespace: str) -> dict
 ```
-Export a single namespace as a JSONL file. Returns a report dict with `records_exported`, `path`, and `duration_ms`. GIL-released.
+Export a single namespace as a JSONL file. Returns a report dict with `records_exported`, `path`, and `duration_ms`. GIL-released. The output is JSONL; import it back with [`import_file()`](#import_file) — not the binary [`bulk_import()`](#bulk_import) family.
 
 ```python
 report = db.export_namespace("/tmp/export.jsonl", "agent/main")
@@ -836,7 +839,7 @@ print(f"Exported {report['records_exported']} records")
 ```python
 db.export_all(path: str) -> dict
 ```
-Export all namespaces as a single JSONL file. Returns a report dict with `records_exported`, `namespaces`, and `duration_ms`. GIL-released.
+Export all namespaces as a single JSONL file. Returns a report dict with `records_exported`, `namespaces`, and `duration_ms`. GIL-released. The output is JSONL; import it back with [`import_file()`](#import_file).
 
 ```python
 report = db.export_all("/tmp/full_backup.jsonl")
@@ -847,7 +850,7 @@ print(f"All-namespace export: {report}")
 ```python
 db.import_file(path: str) -> dict
 ```
-Import records from a VantaDB memory JSONL export file. Returns a report dict with `inserted`, `updated`, `skipped`, `errors`, and `duration_ms`. GIL-released.
+Import records from a VantaDB memory JSONL export file. Returns a report dict with `inserted`, `updated`, `skipped`, `errors`, and `duration_ms`. GIL-released. This is the inverse of the JSONL exports above; for the binary `.vdbdump` format use [`bulk_import()`](#bulk_import) / [`bulk_import_bytes()`](#bulk_import_bytes).
 
 ```python
 report = db.import_file("/tmp/export.jsonl")
