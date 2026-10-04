@@ -130,3 +130,9 @@ tags: [vantadb, avance, vanta-memory, tdam, memory, persona, recall]
 - **Objetivo:** `vanta-memory/tests/smoke.rs:14-16` (const-assert de opt-in de `llm-driver`) rompía el build bajo unificación `--workspace` (E0080) cuando la feature la habilitan otros miembros (`vantadb-mcp:27`, `vanta-proxy:30`); el gate canónico lo enmascaraba (`verify.ps1` corre `-p vantadb`). Repro: `cargo test -p vanta-memory --features llm-driver --test smoke --no-run` → exit 101.
 - **Resultado:** ✅ cfg-gate del const-assert (solo compila con la feature off); verificado con `cargo check -p vanta-memory --tests` y `--features llm-driver` ✓; desbloquea Tests×3/Coverage/ASan/TSan en CI.
 - **Commit:** `d4d7961a`
+
+### DIST-01: `vanta-memory` publicable — dry-run verde + smoke externo + hold release-plz
+- **Fecha:** 2026-10-04
+- **Objetivo:** desbloquear la publicación del crate diferenciador (`publish = false` → metadata crates.io) + decisión de coordinación con el release.
+- **Resultado:** ✅ Dry-run `cargo publish --dry-run -p vanta-memory` exit 0 (139 files; el build aislado compiló `vantadb 0.8.0` desde crates.io); smoke externo (`cargo run` en proyecto tmp fuera del workspace) OK; **hold explícito en `release-plz.toml`** (`[[package]] vanta-memory release = false` + checklist de unblock): Trusted Publishing exige que el crate exista → la primera publicación requiere bootstrap manual con token (acción owner en la ventana #238). Review P2-01 APPROVE (repro de `release-plz update` resolvió el riesgo de version-sync). Derivada: FIND-254 (tests empaquetados no compilan desde el `.crate` — no bloquea).
+- **Commit:** 53996863 + 0508fc2f + 180bfb94 (local, sin push)
