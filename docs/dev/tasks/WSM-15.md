@@ -151,7 +151,7 @@ Verificación exacta:
 - **Archivos:** task file + commit
 - **Acción:** suite browser completa; `cargo check`/`clippy` wasm32 (default + `--features opfs`); `dev-tools/verify_changed.ps1`; OCR delegation; fork `vanta-review`; commit `fix(wasm): WSM-15 — ...` (LOCAL, sin push)
 - **Verify:** todos los gates verdes + veredicto review registrado
-- **Estado:** ✅ COMPLETED — verify_changed ALL 4 PASS; docs gates verdes (check-docs/check-links/gen-index/markdownlint); OCR delegation sin Critical/High; review P2-01 ✅ approve; commit local `fix(wasm):` pendiente de hash
+- **Estado:** ✅ COMPLETED — verify_changed ALL 4 PASS; docs gates verdes (check-docs/check-links/gen-index/markdownlint); OCR delegation sin Critical/High; review P2-01 ✅ approve; commit local `265abe6a` (hook fmt+clippy+actionlint verde; 8 archivos).
 
 ## Dependencias
 - F0 — sin dependencias. `nextTask: DUR-03` (plan). Coordinación: NO tocar path `get`/memoria de `lib.rs` (DX-01) ni `benchmarks/**` (FIND-233) ni `opencode.jsonc`/plan file (WIP ajeno).
@@ -181,7 +181,7 @@ Verificación exacta:
 RESULTADO: ✅ COMPLETO
 STEPS_OK: 4/4
 PROXIMO_STEP: ninguno (nextTask del plan: DUR-03)
-COMMIT_HASH: <se completa post-commit>
+COMMIT_HASH: 265abe6a — fix(wasm): WSM-15 - OPFS lock per-archivo via Web Locks API + fail-loud sin locks (multi-tab sin corrupcion)
 ARCHIVOS: vantadb-wasm/src/opfs.rs · vantadb-wasm/tests/wasm_tests.rs · vantadb-wasm/README.md · vantadb-wasm/demo/README.md · docs/dev/tasks/WSM-15.md · docs/dev/Backlog.md · docs/index.md · llms.txt
 VERIFY_CONTRATO: pasa — `cd vantadb-wasm && wasm-pack test --chrome --headless` → 72/72 (default) y 77/77 (`--features opfs`); RED pre-fix 69/3 con causas correctas; re-ejecutado independientemente por vanta-review
 BLOQUEO: ninguno
