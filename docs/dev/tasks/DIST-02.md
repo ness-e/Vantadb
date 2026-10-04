@@ -13,10 +13,10 @@ description: "Binding Python de la capa cognitiva (vanta-memory): memory_capture
 - **Esfuerzo:** 🟡 1-2d | **Appetite:** max 3d | **Prioridad:** 🔴
 - **Tipo:** Feature-add / bindings (PyO3 glue sobre `vanta-memory`)
 - **Creado:** 2026-10-04 | **last-synced:** 2026-10-04
-- **Estado:** ⏳ EN PROGRESO (creado en DISCOVERY)
+- **Estado:** ✅ COMPLETED (review P2-01 APPROVE — `ses_ef9569455ffeOawsQHJX4n3kV9`; commits `2a3bccbc` + `ee731884` + cierre)
 - **Campaign ID:** master-plan-0.9.0-20261004
 - **Incógnitas (uphill):** 0 abiertas — API de `vanta-memory` verificada en código (`perform_auto_recall`, `AutoCaptureHook::capture`); superficie sync/async decidida en Spec
-- **Pendientes (downhill):** 4 steps (Rust → tests/stubs/docs → smoke wheel → cierre)
+- **Pendientes (downhill):** 0 steps (4/4 ✅)
 
 ## Blast Radius
 
@@ -104,8 +104,8 @@ description: "Binding Python de la capa cognitiva (vanta-memory): memory_capture
 | Eje | Contador |
 |-----|----------|
 | Incógnitas abiertas (uphill) | 0 — API y superficies decididas en Spec |
-| Pendientes de ejecución (downhill) | 4 steps (Rust → tests/stubs/docs → smoke → cierre) |
-| % completado | 25% (Step 1 ✅) |
+| Pendientes de ejecución (downhill) | 0 steps (4/4 ✅) |
+| % completado | 100% |
 
 ## Fases explícitas — SECURITY | PERFORMANCE (P2-07)
 
@@ -120,23 +120,23 @@ description: "Binding Python de la capa cognitiva (vanta-memory): memory_capture
 - **Verify:** ✅ `rg "vanta[_-]memory" vantadb-python` → 0 matches · `hasattr(Client,'memory_recall')` → False · `codegraph_explore` de ambos lados · `check_index_coverage` sin gaps registrados · baseline api-docs diagnosticado (CRLF)
 - **Estado:** ✅
 
-### Step 2 — Rust: dep `vanta-memory` + `memory_capture`/`memory_recall` + error mapping
+### Step 2 — Rust: dep `vanta-memory` + `memory_capture`/`memory_recall` + error mapping — ✅
 - **Archivos:** `vantadb-python/Cargo.toml`, `vantadb-python/src/lib.rs`
-- **Acción:** dep path (default features); helpers `parse_raw_messages`/`parse_recall_scope`/`map_l0_error`/`map_recall_error` + conversores a dict; 2 métodos en `impl Client` con `py.detach` + `enter(&op_gate)`
-- **Verify:** `cargo check -p vantadb_py` ✅ · `cargo fmt -p vantadb_py --check` ✅ · `cargo clippy -p vantadb_py --all-targets -- -D warnings` ✅
-- **Estado:** ⬜
+- **Acción:** dep path (default features); helpers `parse_raw_message`/`parse_recall_scope`/`map_l0_error`/`map_recall_error` + conversores a dict; 2 métodos en `impl Client` con `py.detach` + `enter(&op_gate)`
+- **Verify:** ✅ `cargo check -p vantadb_py` exit 0 · `cargo fmt -p vantadb_py --check` exit 0 · `cargo clippy -p vantadb_py --all-targets -- -D warnings` exit 0 · `cargo tree -p vantadb_py -i reqwest` → 101 (sin red en el grafo; reviewer)
+- **Estado:** ✅
 
-### Step 3 — Tests (RED→GREEN) + stubs + wrapper async + docs + smoke wheel
+### Step 3 — Tests (RED→GREEN) + stubs + wrapper async + docs + smoke wheel — ✅
 - **Archivos:** `vantadb-python/tests/test_memory_layer.py` (nuevo), `vantadb-python/vantadb_py/vantadb_py.pyi`, `vantadb-python/vantadb_py/__init__.py`, `vantadb-python/vantadb_py/__init__.pyi`, `docs/api/PYTHON_SDK.md`, `llms.txt` (regen)
 - **Acción:** test RED contra el módulo stale (AttributeError) → build wheel (`maturin build` + venv `target/dist02-venv`) → GREEN; smoke e2e (capture→L0 visible; L1 sembrado→recall hit; None sin contenido); stubs con paridad exacta; docs
-- **Verify:** `target/dist02-venv/Scripts/python -m pytest vantadb-python/tests/ -q` ✅ · smoke ✅ · `test_stub_drift` ✅
-- **Estado:** ⬜
+- **Verify:** ✅ RED 10 fallos (`AttributeError: 'Client' object has no attribute 'memory_capture'`) → GREEN 11/11 · suite completa **173 passed, 4 skipped, 4 deselected** (re-ejecutada por el reviewer) · smoke OK (`vantadb 0.8.0` desde site-packages del venv; capture→reopen→recall→None) · `test_stub_drift` 7/7 · `check-api-docs --changed HEAD~1..HEAD` exit 0
+- **Estado:** ✅
 
-### Step 4 — Cierre: gates docs + OCR + review P2-01 + commit local
-- **Archivos:** `docs/dev/tasks/DIST-02.md` (+ los anteriores), `docs/dev/Backlog.md` (FIND CRLF)
-- **Acción:** gates docs (check-links/check-docs/gen-index --check/api-docs por rango git); OCR delegation; review por agente distinto; commit local `feat(python):`
-- **Verify:** gates ✅ · OCR sin Critical/High · review APPROVE · commit local (sin push)
-- **Estado:** ⬜
+### Step 4 — Cierre: gates docs + OCR + review P2-01 + commit local — ✅
+- **Archivos:** `docs/dev/tasks/DIST-02.md` (+ los anteriores), `docs/dev/Backlog.md` (FIND-257/258/259), `docs/dev/avance/activo/bindings.md`
+- **Acción:** gates docs (check-links/check-docs/gen-index --check/api-docs por rango git); OCR delegation; review por agente distinto; commits locales; registro en avance + fila Backlog removida
+- **Verify:** ✅ gates docs exit 0 (check-links within budget · check-docs GATING all clear · gen-index --check 0 · `validate-docs-coverage` 0 gaps · `check-avance-coverage` OK) · OCR 0 Critical/High/Medium (5 archivos, rule groups) · review P2-01: ronda 1 changes-required (R1) → fix `ee731884` → **APPROVE** · commits `2a3bccbc` + `ee731884` + cierre (local, sin push)
+- **Estado:** ✅
 
 ## Dependencias
 
@@ -148,19 +148,30 @@ description: "Binding Python de la capa cognitiva (vanta-memory): memory_capture
 
 > Tier risk-based: paths del diff — `vantadb-python/src/lib.rs` (binding PyO3, no listado en globs adversariales del plan) + `docs/api/PYTHON_SDK.md` (**matchea `docs/api/**` → adversarial**). Diff mixto = adversarial → `vanta-review` (contexto fresco).
 
-- **Revisor:** ⬜ pendiente (Step 4)
-- **Enfoque:** ⬜
-- **Veredicto:** ⬜
+- **Revisor:** `vanta-review` (contexto fresco — subagent `ses_ef9569455ffeOawsQHJX4n3kV9`; sin participación en la implementación)
+- **Enfoque:** contrato 1-4 re-ejecutado (pytest 10→11, suite 172→173, smoke wheel local, `check-api-docs` por rango git, `test_stub_drift` 7/7, fmt/clippy) + sondas adversariales propias: import desde site-packages (no in-tree stale), `None` vs bloque vacío (`max_results=0`), wire L1 (`type:"fact"` → invisible), límites (`max_results=-1` → OverflowError; `id=""` → ValidationError), cross-session isolation, `cargo tree` sin reqwest.
+- **Veredicto:** ✅ **APPROVE** (ronda 1: **changes-required** con 1 Required — R1: el ejemplo de docs prometía un loop capture→recall inexistente; ronda 2 tras `ee731884`: APPROVE). R1 resuelto (nota "Recall pool" + ejemplo honesto + test `test_memory_capture_alone_does_not_create_recallable_memories`); M1/M2 → FIND-258/259; L1/N1/N2/N3 Low/Nit declarados no bloqueantes (L3 = este cierre).
 
 ## Notas
 
 - **Scope mínimo:** recall + capture (sync + async wrapper). `dream`, budgets de recall, `isolation` team/agent custom y paridad `db.memory.capture/recall` quedan como follow-ups declarados.
-- **FIND entorno (CRLF):** `check-api-docs --changed A..WORKTREE` da falsos positivos en Windows cuando el worktree tiene CRLF en archivos `src/*.rs` (57 archivos hoy; git normaliza, el parser no). Registrado como fila FIND en Backlog al cierre (routing `prompts/findings.md`). No se renormaliza el árbol (fuera de scope).
-- **BINDINGS_NAMESPACES.md stale:** el conteo "46 pyclass methods" pasa a 48; la matriz `conversation` ("not exposed") queda desactualizada para Python. Handoff a DIST-03/DIST-04 (archivo en vuelo — no se toca).
-- **Push:** diferido al final del plan (instrucción owner) — commit local.
+- **FIND entorno (CRLF) → FIND-257:** `check-api-docs --changed A..WORKTREE` da falsos positivos en Windows cuando el worktree tiene CRLF en archivos `src/*.rs` (57 archivos hoy; git normaliza, el parser no). No se renormaliza el árbol (fuera de scope). Verificación local del gate: rango de refs git (`HEAD~1..HEAD`).
+- **Hallazgos del review → FIND-258** (código `VANTADB_*` perdido en wrappers anidados de `RecallError`) y **FIND-259** (L1 `type` inválido invisible + enum sin enumerar en VANTA_MEMORY; DIST-02 agregó la advertencia parcial en §Cognitive Layer).
+- **R1 (Required) resuelto:** el ejemplo original de §Cognitive Layer prometía capture→recall directo; recall lee L1/L2/L3 y la captura LLM-free solo escribe L0 → ejemplo reescrito + nota "Recall pool" + test que pinea el `None` (`ee731884`).
+- **BINDINGS_NAMESPACES.md stale:** el conteo "46 pyclass methods" pasa a 48; la matriz `conversation` ("not exposed") queda desactualizada para Python. Handoff a DIST-03/DIST-04 (archivo en vuelo — no se tocó).
+- **`last_reviewed` (N3):** no se actualiza — `documentation-skill` §0 lo declara clave retirada (fecha auto-reportada; freshness = `git log`). Se deja como está.
+- **Push:** diferido al final del plan (instrucción owner) — commits locales.
 
 ## RESULTADO §7
 
 ```
-(se completa en el cierre)
+RESULTADO: ✅ COMPLETO
+STEPS_OK: 4/4
+PROXIMO_STEP: ninguno
+COMMIT_HASH: 2a3bccbc (impl) + ee731884 (fix R1 + FINDs) + cierre docs (este commit)
+ARCHIVOS: vantadb-python/Cargo.toml · vantadb-python/src/lib.rs · vantadb-python/tests/test_memory_layer.py · vantadb-python/vantadb_py/{__init__.py,__init__.pyi,vantadb_py.pyi} · docs/api/PYTHON_SDK.md · docs/api/index.md · docs/index.md · llms.txt · Cargo.lock · docs/dev/tasks/DIST-02.md · docs/dev/Backlog.md (FIND-257/258/259; fila DIST-02 removida) · docs/dev/avance/activo/bindings.md
+VERIFY_CONTRATO: pasa
+BLOQUEO: ninguno
+GATES_EVALUADOS: P:no D:disparado V:no C:no | D: símbolos públicos nuevos pre-especificados por el contrato del plan (Task 15) + GO del orquestador; micro-decisiones documentadas en §Spec. P: sin cambios de plan/arquitectura. V: sin retries agotados (review ronda 1 → fix dirigido). C: hallazgos Low/Nit declarados (L1/L2/N1/N2/N3) sin fila por valor marginal; Medium/Required ruteados (FIND-258/259) o resueltos (R1).
+SKILLS_CARGADAS: security-and-hardening · documentation-and-adrs · api-and-interface-design · source-driven-development · incremental-implementation · test-driven-development · documentation-skill · rust-write-tests · progreso (Trigger 1) (base auto: campaign-executor)
 ```
