@@ -177,6 +177,16 @@ class AsyncClient:
     async def search_vector(
         self, vector: Any, top_k: int = 10
     ) -> list[tuple[int, float]]: ...
+    # Cognitive layer (DIST-02): vanta-memory L0 capture + recall.
+    async def memory_capture(self, session_id: str, messages: list[dict]) -> dict: ...
+    async def memory_recall(
+        self,
+        user_text: str,
+        session_key: str,
+        *,
+        scope: str | None = None,
+        max_results: int | None = None,
+    ) -> dict | None: ...
     async def put(
         self,
         namespace: str,

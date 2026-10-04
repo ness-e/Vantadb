@@ -6824,6 +6824,7 @@ dependencies = [
  "pyo3",
  "rayon",
  "tracing",
+ "vanta-memory",
  "vantadb",
  "vantadb-ffi-core",
 ]
