@@ -135,6 +135,39 @@ export interface SystemClient {
   importFile(path: string): ImportReport;
 }
 
+/**
+ * Normalize a value bound for a wasm `&str` parameter (DX-01 / H-009).
+ *
+ * The wasm-bindgen glue marshals `&str` args through `passStringToWasm0`,
+ * which does not validate types: a non-string makes it call
+ * `__wbindgen_realloc` with an invalid pointer and the instance traps with
+ * `RuntimeError: memory access out of bounds` (H-009; reproduced on Node 22
+ * and 26 with the published `vantadb@0.8.0`). Normalize at this boundary:
+ *
+ *  - `string` → unchanged;
+ *  - `number` (safe integer only) / `bigint` → decimal string, same
+ *    convention as `_rootsToWire` / `insertNode(String(id))`;
+ *  - anything else → `DbError` with `VANTADB_INVALID_ARGUMENT`.
+ */
+function toWireString(value: unknown, field: string): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "number") {
+    if (!Number.isSafeInteger(value)) {
+      throw new DbError(
+        ERROR_CODES.INVALID_ARGUMENT,
+        `${field} ${value} is not a safe integer — JavaScript numbers lose precision above 2^53. Use bigint for large values.`,
+      );
+    }
+    return String(value);
+  }
+  if (typeof value === "bigint") return String(value);
+  const got = value === null ? "null" : Array.isArray(value) ? "array" : typeof value;
+  throw new DbError(
+    ERROR_CODES.INVALID_ARGUMENT,
+    `${field} must be a string (got ${got})`,
+  );
+}
+
 export class Client {
   private inner: WasmClient;
   private _closed: boolean = false;
@@ -169,8 +202,11 @@ export class Client {
    */
   static connect(path?: string): Client {
     try {
-      const inner = path && path !== ":memory:"
-        ? WasmClient.open(path)
+      // Preserve the pre-DX-01 falsy semantics (`connect(null)`/`connect("")`/
+      // `connect(0)` → in-memory); only truthy values hit the string guard.
+      const target = path ? toWireString(path, "connect: path") : undefined;
+      const inner = target && target !== ":memory:"
+        ? WasmClient.open(target)
         : new WasmClient(null);
       return new Client(inner);
     } catch (e) {
@@ -226,7 +262,7 @@ export class Client {
    */
   static open(path: string): Client {
     try {
-      const inner = WasmClient.open(path);
+      const inner = WasmClient.open(toWireString(path, "open: path"));
       return new Client(inner);
     } catch (e) {
       throw wrapWasmError(e, "open");
@@ -507,7 +543,10 @@ export class Client {
   get(input: GetInput): MemoryRecord | null {
     this._assertOpen();
     return this._wasm("get", () => {
-      const raw = this.inner.get(input.namespace, input.key);
+      const raw = this.inner.get(
+        toWireString(input.namespace, "get: namespace"),
+        toWireString(input.key, "get: key"),
+      );
       return raw != null ? _mapRecord(raw) : null;
     });
   }
@@ -526,7 +565,12 @@ export class Client {
    */
   delete(input: DeleteInput): boolean {
     this._assertOpen();
-    return this._wasm("delete", () => this.inner.delete(input.namespace, input.key));
+    return this._wasm("delete", () =>
+      this.inner.delete(
+        toWireString(input.namespace, "delete: namespace"),
+        toWireString(input.key, "delete: key"),
+      ),
+    );
   }
 
   /**
@@ -572,7 +616,10 @@ export class Client {
         // breaks the WASM deserializer (not the same as an absent field).
         wire.filters = normalizeMetadata(options.filters);
       }
-      const raw = this.inner.list(namespace, wire as unknown as ListOptionsInput);
+      const raw = this.inner.list(
+        toWireString(namespace, "list: namespace"),
+        wire as unknown as ListOptionsInput,
+      );
       const items: unknown[] = raw.records ?? [];
       for (let i = 0; i < items.length; i++) {
         items[i] = _mapRecord(items[i]);
@@ -738,7 +785,10 @@ export class Client {
   count(input: CountInput): bigint {
     this._assertOpen();
     return this._wasm("count", () =>
-      this.inner.count(input.namespace, toFilterItems(input.filters)),
+      this.inner.count(
+        toWireString(input.namespace, "count: namespace"),
+        toFilterItems(input.filters),
+      ),
     );
   }
 
@@ -759,7 +809,13 @@ export class Client {
    */
   supersede(input: SupersedeInput): void {
     this._assertOpen();
-    this._wasm("supersede", () => this.inner.supersede(input.namespace, input.oldKey, input.newKey));
+    this._wasm("supersede", () =>
+      this.inner.supersede(
+        toWireString(input.namespace, "supersede: namespace"),
+        toWireString(input.oldKey, "supersede: oldKey"),
+        toWireString(input.newKey, "supersede: newKey"),
+      ),
+    );
   }
 
   /**
@@ -780,7 +836,11 @@ export class Client {
     this._assertOpen();
     return this._wasm("similarToKey", () => {
       const { namespace, key, topK = 10 } = input;
-      const raw = this.inner.similar_to_key(namespace, key, topK) as unknown[];
+      const raw = this.inner.similar_to_key(
+        toWireString(namespace, "similarToKey: namespace"),
+        toWireString(key, "similarToKey: key"),
+        topK,
+      ) as unknown[];
       return raw.map((hit: unknown) => {
         const h = hit as Record<string, unknown>;
         return {
@@ -880,9 +940,11 @@ export class Client {
       // FIND-125: runtime is the core `ExportReport`
       // (`src/sdk/types/record.rs:179-188`); the wasm `.d.ts` shape is
       // drifted. Erased cast: zero runtime change.
+      const wirePath = toWireString(path, "exportNamespace: path");
+      const wireNamespace = toWireString(namespace, "exportNamespace: namespace");
       return (items.length > 0
-        ? this.inner.export_namespace_filtered(path, namespace, items)
-        : this.inner.export_namespace(path, namespace)) as unknown as ExportReport;
+        ? this.inner.export_namespace_filtered(wirePath, wireNamespace, items)
+        : this.inner.export_namespace(wirePath, wireNamespace)) as unknown as ExportReport;
     });
   }
 
@@ -902,7 +964,10 @@ export class Client {
   deleteByFilter(input: DeleteByFilterInput): bigint {
     this._assertOpen();
     return this._wasm("deleteByFilter", () =>
-      this.inner.delete_by_filter(input.namespace, toFilterItems(input.filter)),
+      this.inner.delete_by_filter(
+        toWireString(input.namespace, "deleteByFilter: namespace"),
+        toFilterItems(input.filter),
+      ),
     );
   }
 
@@ -920,7 +985,7 @@ export class Client {
    */
   exportAll(path: string): ExportReport {
     this._assertOpen();
-    return this._wasm("exportAll", () => this.inner.export_all(path) as unknown as ExportReport);
+    return this._wasm("exportAll", () => this.inner.export_all(toWireString(path, "exportAll: path")) as unknown as ExportReport);
   }
 
   /**
@@ -955,7 +1020,11 @@ export class Client {
       let errors = 0;
       for (const r of records) {
         try {
-          const existed = this.inner.get(r.namespace, r.key) != null;
+          const existed =
+            this.inner.get(
+              toWireString(r.namespace, "importRecords: namespace"),
+              toWireString(r.key, "importRecords: key"),
+            ) != null;
           const wire = { ...r } as MemoryInput;
           if (r.metadata !== undefined) {
             wire.metadata = normalizeMetadata(r.metadata);
@@ -989,7 +1058,7 @@ export class Client {
    */
   importFile(path: string): ImportReport {
     this._assertOpen();
-    return this._wasm("importFile", () => this.inner.import_file(path) as unknown as ImportReport);
+    return this._wasm("importFile", () => this.inner.import_file(toWireString(path, "importFile: path")) as unknown as ImportReport);
   }
 
   /**
@@ -1027,7 +1096,12 @@ export class Client {
    */
   reindexHnswFromText(namespace: string, pageSize: number = 1000): unknown {
     this._assertOpen();
-    return this._wasm("reindexHnswFromText", () => this.inner.reindex_hnsw_from_text(namespace, pageSize));
+    return this._wasm("reindexHnswFromText", () =>
+      this.inner.reindex_hnsw_from_text(
+        toWireString(namespace, "reindexHnswFromText: namespace"),
+        pageSize,
+      ),
+    );
   }
 
   /**
@@ -1055,7 +1129,11 @@ export class Client {
    */
   auditTextIndex(namespace?: string): unknown {
     this._assertOpen();
-    return this._wasm("auditTextIndex", () => this.inner.audit_text_index(namespace ?? null));
+    return this._wasm("auditTextIndex", () =>
+      this.inner.audit_text_index(
+        namespace == null ? null : toWireString(namespace, "auditTextIndex: namespace"),
+      ),
+    );
   }
 
   /**
@@ -1067,7 +1145,11 @@ export class Client {
    */
   auditTextIndexDeep(namespace?: string): unknown {
     this._assertOpen();
-    return this._wasm("auditTextIndexDeep", () => this.inner.audit_text_index_deep(namespace ?? null));
+    return this._wasm("auditTextIndexDeep", () =>
+      this.inner.audit_text_index_deep(
+        namespace == null ? null : toWireString(namespace, "auditTextIndexDeep: namespace"),
+      ),
+    );
   }
 
   /**
@@ -1162,7 +1244,7 @@ export class Client {
     // FIND-125: runtime is the core `QueryResult` enum, externally tagged
     // (`src/sdk/types/graph.rs:14-32`); the wasm `.d.ts` `IqlResult {kind…}`
     // shape is drifted. Erased cast: zero runtime change.
-    return this._wasm("query", () => this.inner.query(query) as unknown as QueryResult);
+    return this._wasm("query", () => this.inner.query(toWireString(query, "query: iql")) as unknown as QueryResult);
   }
 
   /**
@@ -1201,7 +1283,7 @@ export class Client {
     this._wasm("insertNode", () =>
       this.inner.insert_node(
         String(id),
-        content ?? null,
+        content == null ? null : toWireString(content, "insertNode: content"),
         vector ? new Float32Array(vector) : null,
         normalizedFields,
       ),
@@ -1273,7 +1355,7 @@ export class Client {
         `deleteNode: id ${id} is not a safe integer — JavaScript numbers lose precision above 2^53. Use bigint for large IDs.`,
       );
     }
-    this._wasm("deleteNode", () => this.inner.delete_node(String(id), reason));
+    this._wasm("deleteNode", () => this.inner.delete_node(String(id), toWireString(reason, "deleteNode: reason")));
   }
 
   /**
@@ -1317,7 +1399,7 @@ export class Client {
       this.inner.add_edge(
         String(source),
         String(target),
-        label,
+        toWireString(label, "addEdge: label"),
         weight ?? null,
         createdAtMs != null ? BigInt(createdAtMs) : null,
       ),
@@ -1356,7 +1438,7 @@ export class Client {
       );
     }
     this._wasm("removeEdge", () =>
-      this.inner.remove_edge(String(source), String(target), label),
+      this.inner.remove_edge(String(source), String(target), toWireString(label, "removeEdge: label")),
     );
   }
 
@@ -1381,7 +1463,11 @@ export class Client {
   ): GraphBfsResult {
     this._assertOpen();
     return this._wasm("graphBfs", () =>
-      this.inner.graph_bfs(this._rootsToWire(roots), maxDepth, direction) as unknown as GraphBfsResult,
+      this.inner.graph_bfs(
+        this._rootsToWire(roots),
+        maxDepth,
+        toWireString(direction, "graphBfs: direction") as typeof direction,
+      ) as unknown as GraphBfsResult,
     );
   }
 
@@ -1405,7 +1491,11 @@ export class Client {
   ): GraphDfsResult {
     this._assertOpen();
     return this._wasm("graphDfs", () =>
-      this.inner.graph_dfs(this._rootsToWire(roots), maxDepth, direction) as unknown as GraphDfsResult,
+      this.inner.graph_dfs(
+        this._rootsToWire(roots),
+        maxDepth,
+        toWireString(direction, "graphDfs: direction") as typeof direction,
+      ) as unknown as GraphDfsResult,
     );
   }
 
@@ -1478,7 +1568,7 @@ export class Client {
       this.inner.graph_filtered_traversal(
         this._rootsToWire(roots),
         maxDepth,
-        direction,
+        toWireString(direction, "graphFilteredTraversal: direction") as typeof direction,
         // Public input allows `time_range: null`; the wasm binding models
         // absence as `undefined`. Normalize at the boundary.
         filter === null || filter === undefined
@@ -1533,7 +1623,11 @@ export class Client {
   ): string | undefined {
     this._assertOpen();
     return this._wasm("generateSnippet", () =>
-      this.inner.generate_snippet(payload, query, withHighlighting) ?? undefined,
+      this.inner.generate_snippet(
+        toWireString(payload, "generateSnippet: payload"),
+        toWireString(query, "generateSnippet: query"),
+        withHighlighting,
+      ) ?? undefined,
     );
   }
 }
