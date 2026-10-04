@@ -156,11 +156,11 @@ description: "Cuatro gaps de docs medidos en el flujo usuario-real (validación 
 
 > Leaf (`vanta-docs`, sin capacidad de spawn): la evidencia completa queda abajo para que el **orquestador** corra `vanta-review` (tier **adversarial** — el diff toca `docs/api/**`). Sin veredicto registrado la tarea NO se marca COMPLETED (HARD-07).
 
-- **Revisor:** ⬜ pendiente — orquestador (`vanta-review`)
+- **Revisor:** ✅ `vanta-review` (contexto fresco — `ses_efa6219c5ffeTrtelpCTnxHW4P`; ejecutor: `ses_efa7e47ceffe0WCB50iXV6N613`) — **APPROVE** (2026-10-04): (a-d) verificados 1:1 contra código (puente vs core/spec, shape vs `test_sdk.py:83`, caveats vs `portability.test.ts`), gates re-corridos exit 0; hallazgos solo Optional (hunk barrido por FIND-238 — resuelto de facto en `805a7668`; segundo link `#export--import` sugerido; nits).
 - **Enfoque:** (1) ¿los 4 puntos a-d cierran el gap medido sin scope creep a código? (2) ¿los caveats TS son fieles al runtime real (no recomiendan métodos inexistentes)? (3) ¿el puente de formatos no induce a error (JSONL vs binario)?
 - **Cómo se probó:** gates mecánicos `check-links`/`check-docs` (exit 0) + evidencia de código citada por claim en Investigation Notes (rutas:línea verificables) + OCR delegation como input.
 - **Checklist anti-hábitos tóxicos:** sin salidas inventadas (todo comando ejecutado y registrado); sin "done" sin gates; sin scope creep (magic hint separado a FIND-240); sin huérfanos (cada step conectado al contrato).
-- **Veredicto:** ⬜ pendiente del orquestador
+- **Veredicto:** ✅ **APPROVE** (2026-10-04, `ses_efa6219c5ffeTrtelpCTnxHW4P`) — contrato (a-d) verificado con re-ejecución; gates `check-links`/`check-docs`/`gen-index --check`/`check-doc-examples` exit 0; cierre mecánico `campaign_update_task_state(completed)` ejecutado por el orquestador con payload review fresh.
 
 ## Notas
 
