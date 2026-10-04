@@ -705,7 +705,7 @@ jobs:
       # FIND-236 (2026-10-04): `sift1m_competitive_benchmark` is skipped below —
       # it carries a release-only guard that panics in debug by design
       # (tests/certification/competitive_bench.rs:64), keeping this job red with
-      # pre-existing noise (runs 37102066714 / 111086294644). With leaks at zero
+      # pre-existing noise (run 37102066714 / job 111086294644). With leaks at zero
       # (FIND-226), red should mean "real leak", not the guard.
       - name: Test with AddressSanitizer
         run: |
