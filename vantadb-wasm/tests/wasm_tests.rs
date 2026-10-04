@@ -379,16 +379,14 @@ fn lock_holder_timeout(ms: f64) -> js_sys::Promise {
 /// `terminate` on the handle to clean up. Rejects after 2s without a grant.
 async fn worker_holds_lock(name: &str, hold_ms: f64) -> Result<JsValue, JsValue> {
     let global = js_sys::global();
-    let script = format!(
-        r#"self.onmessage = function (e) {{
+    let script = r#"self.onmessage = function (e) {
     const name = e.data.name;
     const holdMs = e.data.holdMs;
-    navigator.locks.request(name, () => new Promise((release) => {{
-        self.postMessage({{ type: "granted" }});
+    navigator.locks.request(name, () => new Promise((release) => {
+        self.postMessage({ type: "granted" });
         setTimeout(release, holdMs);
-    }})).catch((err) => self.postMessage({{ type: "error", message: String(err) }}));
-}};"#
-    );
+    })).catch((err) => self.postMessage({ type: "error", message: String(err) }));
+};"#.to_string();
 
     // Blob([script], { type: "application/javascript" }) → URL → new Worker
     let parts = js_sys::Array::new();
