@@ -31,4 +31,4 @@ This document covers the complete configuration of the VantaDB Community Discord
 
 1. [Server Configuration](./server-config.md) — Full channel/category/role/permission layout
 2. [Bilingual Strategy](./bilingual-strategy.md) — English/Spanish language architecture (single-channel)
-3. [Pending Tasks](./todo.md) — What needs manual setup
+3. Pending Tasks (local `todo.md`, not versioned) — What needs manual setup

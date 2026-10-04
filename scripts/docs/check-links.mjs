@@ -186,7 +186,9 @@ for (const rel of mdFiles) {
   // code span or a fenced block is documentation OF a link, not a clickable
   // link -- GitHub does not render it as one. Counting it made every document
   // that shows link syntax a permanent false positive (same class the wikilink
-  // scan below already excludes). Measured 2026-10-04: 21 of 44 entries.
+  // scan below already excludes). Measured on the clean pre-fix snapshot
+  // (3bdc3fd5): 15 of 46 broken entries sat fully inside code (14-18 depending
+  // on the segment-boundary convention; method in docs/dev/tasks/DOCS-F1.md).
   for (const m of prose.matchAll(MD_LINK)) {
     const raw = m[1];
     if (/^(https?:|mailto:|tel:|data:|obsidian:|#|\/\/)/i.test(raw)) {

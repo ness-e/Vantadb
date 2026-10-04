@@ -6,7 +6,7 @@
 
 Every link below points to the raw Markdown source, not a rendered page. Read the
 page you need; do not read this file end to end. This index covers the
-449 documentation pages; it deliberately omits the 1059 task files,
+449 documentation pages; it deliberately omits the 1060 task files,
 which are work items rather than documentation. The full inventory of every file
 is in docs/index.md in the repository.
 

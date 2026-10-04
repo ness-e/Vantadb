@@ -659,10 +659,10 @@ so installation always goes through one of the following paths:
 
 > **Why no `cargo install vantadb-server`?** The server crate ships with
 > `publish = false`; it is only ever built as part of the GitHub Release
-> pipeline or from a local `cargo` checkout. See the [research modules
-> registry](../../../.opencode/references/research-modules.md)
-> (`vantadb-server`, last updated 2026-08-25) for the canonical distribution
-> note.
+> pipeline or from a local `cargo` checkout. See the research modules registry
+> (`.opencode/references/research-modules.md`, local-only tooling;
+> `vantadb-server` entry, last updated 2026-08-25) for the canonical
+> distribution note.
 
 Once the binary is on your `PATH`, see [Starting the Server](#starting-the-server) below.
 
