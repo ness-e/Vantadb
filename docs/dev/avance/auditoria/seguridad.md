@@ -207,3 +207,9 @@ tags: [vantadb, avance, security, audit, fuzz, miri, ffi]
 - **Objetivo:** Job TSan crónico-rojo; la premisa del plan ("race 100% mpmc/libtest") resultó parcial al analizar los logs crudos.
 - **Resultado:** ✅ Análisis de 565 reports: mpmc/libtest/compiler_* = solo 17/565; el resto allocator-op/rayon/fjall (una supresión convergente exigiría blanket `free`/`__tsan_memcpy` = sobre-supresión que ocultaría races reales). Decisión documentada in-place (comment-only) + causa raíz contra fuentes oficiales: std sin instrumentar + fences no soportados por TSan (rust-lang/rust#39608/#65097). Follow-up: evaluar `-Zbuild-std` (costo owner). Review P2-01 approve (ronda 2).
 - **Commit:** `a63c9d00`
+
+### DUR-02: Auditoría cobertura AES (`encryption`) — WAL / text_index / HNSW / edge_index / snapshots
+- **Fecha:** 2026-10-04
+- **Objetivo:** mapa artefacto→cifrado con evidencia de código o test con tmpdir + gaps clasificados (fix/FIND/wontfix); si hay gap accionable pequeño: fix + test.
+- **Resultado:** ✅ Contrato completo — mapa **0/6 artefactos cifrados** (evidencia file:línea por artefacto + probe tmpdir: canary plaintext en `vanta.shard0.wal` y `0.jnl` con feature `encryption` + key válida) · fix pequeño aplicado: `File::encryption_stream` usa el cipher adjunto (`with_cipher`) — RED→GREEN, nextest scoped 42/42 · gap grande → **FIND-249** (wiring vs primitivas-only; decisión de diseño) · `edge_index` OK-justificado (derivado sin artefacto) · docs corregidos (CONFIGURATION.md, FEATURES.md; HTTP_API.md ya era honesto) · gates: fmt/clippy(feature)/nextest 42/42/check-links/check-docs/gen-index/validate-docs-coverage 0 · OCR sin Critical/High · review P2-01 vanta-review ✅ APPROVE (H1-H4 incorporados).
+- **Commit:** `16afd036` (local, sin push)
