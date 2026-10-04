@@ -202,6 +202,20 @@ const db = new Client();
 The value is read once per process (the tracing subscriber is global and can
 only be installed once); an absent or invalid value falls back to `WARN`.
 
+### Multi-tab safety (OPFS)
+
+OPFS writes (`save()`, `append_file`, `delete_file`) acquire a per-file
+[Web Lock](https://developer.mozilla.org/en-US/docs/Web/API/Web_Locks_API)
+(`vantadb-opfs-write:<directory>:<path>`): multiple tabs or workers on the same
+origin serialize writes to the same file — no interleaved writes, no lost
+appends, no clobbered temp file. (Whole-file `save()` remains last-writer-wins
+across tabs, now without corruption.) Writes to different files do not contend,
+and reads are lock-free (writes publish atomically via temp file + rename).
+
+When the Web Locks API is unavailable (Safari 15.2–15.3), OPFS **writes fail
+with a descriptive error** rather than risk multi-tab corruption — reads keep
+working. On those browsers use `connect_idb` (IndexedDB) if you need writes.
+
 ---
 
 ## 4. Honest comparison vs JavaScript-only search engines
