@@ -240,7 +240,7 @@ Fixture: FAIL (RED expected pre-fix) -- 3 failure(s)   (exit 1)
 RESULTADO: ✅ COMPLETO
 STEPS_OK: 7/7 (Steps 0–6)
 PROXIMO_STEP: ninguno local — ACCEPT/Review P2-01 (orquestador, reviewer fresco) + plan Task 13 ✅ + push diferido al final del plan (instrucción owner)
-COMMIT_HASH: <pendiente — se actualiza en el commit de bookkeeping de este archivo>
+COMMIT_HASH: 860340b9 (fix) + commit de bookkeeping de este archivo (RESULTADO §7)
 ARCHIVOS: benchmarks/competitive_bench.py · benchmarks/README.md · docs/user/operations/BENCHMARKS.md · docs/user/benchmarks/COMPETITIVE_SDK_BENCH.md · docs/user/benchmarks/COMPETITIVE_ANALYSIS.md · docs/dev/tasks/BENCH-01.md · docs/index.md · llms.txt (generados)
 VERIFY_CONTRATO: pasa (self-test 9/9 + fixture RED→GREEN + corridas reales + docs gates 0 + verify_changed ALL 4 PASS + OCR 0 Critical/High)
 BLOQUEO: ninguno (push NO ejecutado — diferido por instrucción del owner; ACCEPT delegado al orquestador)
