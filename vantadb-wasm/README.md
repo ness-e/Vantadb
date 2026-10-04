@@ -184,6 +184,24 @@ wasm-pack build --release --target bundler --features opfs
 wasm-pack build --release --target bundler --no-default-features
 ```
 
+### Console logging
+
+The default build installs a `console.log`-based tracing subscriber
+(feature `tracing-wasm`) at level **`WARN`**: the core emits a `DEBUG` trace
+for every env-var read while building its config, which would otherwise flood
+the console on every `Client.create()`.
+
+To opt into more detail, set the global **before the first client is
+created** (the WASM analog of the core's `RUST_LOG`, see `src/console.rs`):
+
+```js
+globalThis.VANTADB_LOG = "debug"; // "trace" | "debug" | "info" | "warn" | "error"
+const db = new Client();
+```
+
+The value is read once per process (the tracing subscriber is global and can
+only be installed once); an absent or invalid value falls back to `WARN`.
+
 ---
 
 ## 4. Honest comparison vs JavaScript-only search engines

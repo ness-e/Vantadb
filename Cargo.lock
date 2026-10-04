@@ -6805,6 +6805,7 @@ dependencies = [
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
+ "tracing",
  "tracing-wasm",
  "twox-hash",
  "vantadb",

@@ -1932,11 +1932,33 @@ impl Client {
 
 static TRACING_INIT: AtomicBool = AtomicBool::new(false);
 
+/// Console log level for the WASM tracing subscriber (FIND-238).
+///
+/// The core emits a `debug!` line for every env-var read during config
+/// construction (`src/config.rs`), which flooded the console on
+/// `Client.create()` while the subscriber ran with its builder default
+/// (`TRACE`). Default is now `WARN`; set
+/// `globalThis.VANTADB_LOG = "trace" | "debug" | "info" | "warn" | "error"`
+/// **before the first client is created** to change it — the WASM analog of
+/// the core's `RUST_LOG` gate (`src/console.rs`).
+#[cfg(feature = "tracing-wasm")]
+fn console_log_level() -> tracing::Level {
+    js_sys::Reflect::get(&js_sys::global(), &"VANTADB_LOG".into())
+        .ok()
+        .and_then(|v| v.as_string())
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(tracing::Level::WARN)
+}
+
 fn init() {
     if !TRACING_INIT.swap(true, Ordering::Relaxed) {
         console_error_panic_hook::set_once();
         #[cfg(feature = "tracing-wasm")]
-        tracing_wasm::set_as_global_default();
+        tracing_wasm::set_as_global_default_with_config(
+            tracing_wasm::WASMLayerConfigBuilder::new()
+                .set_max_level(console_log_level())
+                .build(),
+        );
     }
 }
 
