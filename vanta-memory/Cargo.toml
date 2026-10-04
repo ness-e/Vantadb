@@ -4,10 +4,21 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 description = "VantaDB Memory Engine: four-layer (L0-L3) LLM-driven memory pipeline (port of TDAM, host-neutral)"
-publish = false
+license = "Apache-2.0"
+repository = "https://github.com/ness-e/Vantadb"
+homepage = "https://vantadb.dev"
+documentation = "https://docs.rs/vanta-memory"
+keywords = ["memory", "llm", "agents", "embedded", "database"]
+categories = ["database-implementations"]
+# DIST-01 (2026-10-04): publicable (antes `publish = false`). El primer release es
+# owner-coordinado — crates.io Trusted Publishing exige que el crate exista (la
+# primera publicación requiere API token). release-plz queda en hold
+# (`release = false` en release-plz.toml) hasta el bootstrap. Ver docs/dev/tasks/DIST-01.md.
 
 [dependencies]
-vantadb = { path = "../", default-features = false }
+# `version` requerido para publicar: crates.io no admite deps path-only (Cargo
+# book, "Local paths in published crates").
+vantadb = { path = "../", version = "0.8.0", default-features = false }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1.0"
 thiserror = "2"
