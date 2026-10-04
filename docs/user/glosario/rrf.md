@@ -68,7 +68,7 @@ Donde:
 |--------|---------------|--------------|
 | **BM25** | $[0, \infty)$ | No acotado, depende del corpus |
 | **Coseno** | $[-1, 1]$ | Normalizado |
-| **Euclidiana** | $[[bm25|0, \infty)$ | No acotado |
+| **Euclidiana** | $[0, \infty)$ | No acotado |
 
 **Intento ingenuo:** Promediar scores ΓåÆ **Sesgo hacia el m├⌐todo con scores m├ís altos**
 

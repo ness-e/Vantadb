@@ -251,7 +251,7 @@ The scalar fallback and the SIMD route coexist without numerical equivalence tes
 - [rrf](./rrf.md) — HNSW + BM25 merger
 
 ### Related Implementation Documentation
-- [[../architecture/hnsw_index|HNSW Index Architecture]]
+- [HNSW trade-offs and parameters (FND-20)](../../dev/architecture/FND-20-hnsw-tradeoff.md)
 
 ---
 

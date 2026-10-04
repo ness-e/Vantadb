@@ -85,4 +85,4 @@ Local models solved half the privacy and cost problem. Local memory solves the o
 pip install vantadb-py
 ```
 
-Star the [VantaDB repository](https://github.com/ness-e/Vantadb) and join the Discord to share your agent setup. To give the same persistent memory to your IDE agent instead, read [VantaDB as Persistent Memory for Claude Code (MCP)](/blog/claude-code-mcp-memory).
+Star the [VantaDB repository](https://github.com/ness-e/Vantadb) and join the Discord to share your agent setup. To give the same persistent memory to your IDE agent instead, read [VantaDB as Persistent Memory for Claude Code (MCP)](./claude_code_mcp_memory.md).

@@ -8,7 +8,7 @@ description: documentation-skill → campaign-executor → progreso → writing-
 
 > **Campaign ID:** _(asignar al iniciar con `/pipeline plan`)_
 > **Inicio:** 2026-09-28
-> **Estado:** 🟡 F0 COMPLETADA · F1-F4 pendientes
+> **Estado:** 🟡 F0-F1 COMPLETADAS · F2-F5 pendientes
 > **Fuente:** `docs/dev/research/docs-strategy/01-ecosystem-2026.md` (investigación de 5 líneas paralelas, 2026-09-28) + medición directa del repo
 > **Autonomous:** false — el owner gatea push. La política de git vive en `.opencode/AGENTS.md` Regla 7; no se reescribe aquí.
 > **Restricción dura del owner:** `docs/dev/tasks/` y `docs/dev/plans/` **no se mueven**. Cambiar su ubicación rompe el sistema de tareas. Este plan trabaja dentro de ellos, nunca sobre ellos.
@@ -257,20 +257,22 @@ la tabla de generado-vs-manual, la Definition of Done con comandos, y 10 anti-pa
 
 ---
 
-## F1 — Cerrar los enlaces que importan · ⏳ PENDIENTE
+## F1 — Cerrar los enlaces que importan · ✅ COMPLETADA
 
 **Gate de salida:** 0 enlaces rotos en la superficie pública; el resto clasificado y excluido.
+
+**Resultado (2026-10-04, DOCS-F1):** 0 enlaces rotos fuera de frozen (de 44 md); triage P0-P4 de las 55 entradas en `docs/dev/tasks/DOCS-F1.md`; P3/P4 excluidos del gate con motivo en `gate-docs-links.yml`; mojibake en prosa de `avance/` → 0; markdownlint 12→0 en la superficie controlada (master plan excluido del conteo: recitations del orquestador, FIND).
 
 246 enlaces siguen rotos. **No todos importan igual**, y tratarlos todos por igual es el
 error más caro disponible: la mayoría son mojibake en ficheros históricos.
 
 ### Task 8 — F1-T1: triage por prioridad
 
-**Appetite:** max 1h · **Esfuerzo:** ⬜ · **Prioridad:** P0
+**Appetite:** max 1h · **Esfuerzo:** ✅ 2 h · **Prioridad:** P0
 **Archivos clave:** salida de `check-links.mjs --json`
-**Verificación real:** cada enlace roto asignado a un nivel
+**Verificación real:** 55 entradas clasificadas P0-P4 (P0=0 degenerado por índice generado; P1=16, P2=12 arreglados; P3=27 excluidos del gate); `check-links` → 0 rotos no-frozen
 **Gate Result:** ✅ DO
-**Estado:** PENDING
+**Estado:** COMPLETED
 
 | Nivel | Definición | Acción | Presupuesto |
 |---|---|---|---|
@@ -286,11 +288,11 @@ un issue de seguimiento), con el motivo escrito en el propio workflow.
 
 ### Task 9 — F1-T2: el mojibake `[[bench]]` / `[[test]]` / `[[package]]`
 
-**Appetite:** max 1h · **Esfuerzo:** ⬜ · **Prioridad:** P2
+**Appetite:** max 1h · **Esfuerzo:** ✅ 30 min · **Prioridad:** P2
 **Archivos clave:** `docs/dev/avance/historial/**`, `docs/dev/avance/activo/**`
-**Verificación real:** 0 ocurrencias del patrón fuera de `tasks/`
+**Verificación real:** 0 ocurrencias del patrón en prosa fuera de `tasks/` (2 restauradas a code span; `git log -S` sin variante anterior); las ~14 en code span son TOML legítimo, intactas
 **Gate Result:** ✅ DO
-**Estado:** PENDING
+**Estado:** COMPLETED
 
 **No son enlaces rotos: son corrupción de codificación.** De las 40 ocurrencias que quedan
 en prosa, ~30 son de este tipo: `[[bench]]` ×14, `[[test]]` ×5, `[[package]]` ×3, `[[bin]]`.
@@ -341,11 +343,11 @@ corregido para futuras ejecuciones; este script drena lo ya escrito.
 
 ### Task 12 — F1-T5: los 7 errores de markdownlint introducidos
 
-**Appetite:** max 2h · **Esfuerzo:** ⬜ · **Prioridad:** P2
+**Appetite:** max 2h · **Esfuerzo:** ✅ 1 h · **Prioridad:** P2
 **Archivos clave:** `docs/user/operations/BENCHMARKS.md` (5 errores: MD005 ×3, MD007 ×2), `docs/user/operations/CONFIGURATION.md` (2 errores: MD027 ×2)
-**Verificación real:** `npx markdownlint-cli2` baja de 12 a 5 (= baseline de HEAD)
+**Verificación real:** `npx markdownlint-cli2` 12→0 en la superficie controlada (no 5: los 7 de BENCHMARKS/CONFIGURATION ya estaban drenados; el master plan — recitations machine-appended del orquestador — queda excluido del conteo, FIND); MD052 del índice generado corregido en `gen-index.mjs`; BASELINE 0 scoped con CI verde
 **Gate Result:** ✅ DO
-**Estado:** PENDING
+**Estado:** COMPLETED
 
 **Causa raíz:** al convertir enlaces dentro de celdas de tabla, las etiquetas con caracteres
 que cambian la interpretación de la fila (`(` `)` dentro de un enlace anidado en negrita)
@@ -540,12 +542,12 @@ files.
 **Gate de salida:** los 4 jobs verdes, `check-links` y `check-docs` en `all clear`, y la
 skill se carga sin intervención manual.
 
-- [x] `node scripts/docs/check-links.mjs` → exit 0 (109 rotos dentro de presupuesto, F1-T1)
+- [x] `node scripts/docs/check-links.mjs` → exit 0 (0 rotos fuera de frozen; F1-T1 ✅)
 - [x] `node scripts/docs/check-docs.mjs` → `all clear`
 - [x] `node scripts/docs/gen-index.mjs --check` → exit 0
-- [x] `npx markdownlint-cli2` → 12 = baseline
+- [x] `npx markdownlint-cli2` → 0 en superficie controlada = baseline (12→0 en F1; master plan excluido)
 - [x] `skill documentation-skill` carga y su Definition of Done pasa en un documento nuevo
-- [ ] `docs/dev/master-index.md` lleva un banner que apunta a `docs/index.md` como canónico (F1)
+- [x] `docs/dev/master-index.md` lleva un banner que apunta a `docs/index.md` como canónico (hecho en F1, 2026-10-04)
 
 ## Invariantes del plan
 

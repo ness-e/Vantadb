@@ -256,7 +256,7 @@ Medición, baseline 0 (2026-09-26) y estado de instrumentalización (PUT derivab
 
 ## See Also
 
-- [Master Index](../../master-index.md) — Parent document
+- [Master Index](../master-index.md) — Parent document
 - [ARCHITECTURE.md](../architecture/ARCHITECTURE.md) — How the vision is implemented
 - [GO_TO_MARKET.md](../strategy/GO_TO_MARKET.md) — How it's commercialized
 - [ROADMAP.md](../strategy/ROADMAP.md) — When capabilities ship
