@@ -114,6 +114,70 @@ El skip "already published" de `release-npm-61.yml` y `release-npm-node.yml` aho
 | `v*` (broad) | sbom-64 | Artifacts only (no registry) |
 | GitHub Release | binaries-63 | Release assets (binaries) |
 
+## Crates — publish decision per crate (DIST-06)
+
+> **Policy (reviewed 2026-10-04, DIST-06).** One place to answer "what ships
+> where" per crate — this removes the ambiguity behind FIND-230 (a publish
+> silently skipped in a green run). A crate reaches crates.io only if its
+> manifest is publishable **and** release-plz manages it; crates that ship
+> through another registry (PyPI, npm) or inside a binary keep
+> `publish = false` as the cargo-level enforcement.
+>
+> **Review triggers:** v1.0.0 (Freeze List lift) · first `vantadb-node` npm
+> publish · a PyPI decision for `providers/*` · `vanta-memory` bootstrap
+> (DIST-01 unblock).
+
+| Crate | Manifest | Decision | Channel (real) | Produced by | Why |
+|-------|----------|----------|----------------|-------------|-----|
+| `vanta-memory` | publishable | Publish to crates.io (**hold**) | crates.io | `release.yml` (release-plz) | DIST-01: publishable + `release = false` hold until Trusted Publishing bootstrap (owner) — see [DIST-01](../tasks/DIST-01.md) |
+| `vantadb-python` | `publish = false` | No crates.io publish | PyPI `vantadb-py` wheels | `release-wheels.yml` (`v*.*.*`) | cdylib extension module (PyO3) — PyPI is the product channel |
+| `vantadb-node` | `publish = false` | No crates.io publish | npm `vantadb-node` | `release-npm-node.yml` (`node-v*.*.*`) | napi cdylib — npm is the channel; never published yet (404 documented) |
+| `vantadb-server` | `publish = false` | No crates.io publish | GitHub Release binaries (5 targets) | `release-binaries.yml` | Binary product — distributed as release assets, not as a crate |
+| `vantadb-mcp` | `publish = false` | No publish | Library embedded in `vantadb-server` (`--mcp`) | `release-binaries.yml` (transitive) | Library-only crate (no bin target) — ships inside the server binary |
+| `vanta-proxy` | `publish = false` | No publish (until 1.0.0) | Source build only | — | Freeze List (owner 2026-10-01): frozen, publish deferred to 1.0.0 (DIST-18 re-scoped) |
+| `providers/openai` | `publish = false` | No publish (today) | Source install (`maturin develop`) | `providers-ci.yml` (build/test) | PyO3 extension built locally; not on PyPI (404 verified 2026-10-04) |
+| `providers/ollama` | `publish = false` | No publish (today) | Source install (`maturin develop`) | `providers-ci.yml` (build/test) | Same as `providers/openai` |
+| `providers/litellm` | `publish = false` | No publish (today) | Source install (`maturin develop`) | `providers-ci.yml` (build/test) | Same as `providers/openai` |
+| `vantadb-ffi-core` | `publish = false` | No publish | None — compiled into the python/wasm/node bindings | — | Std-only leaf shared by the FFI transports; zero external consumers |
+| `fuzz` | `publish = false` | No publish | None (dev tool) | `fuzz.yml` (CI) | cargo-fuzz harness; outside the workspace; never distributed |
+
+Publishable crates for context (they complete the release-plz invariant):
+
+| Crate | Manifest | Channel | Produced by | Why |
+|-------|----------|---------|-------------|-----|
+| `vantadb` (core + `vanta-cli`) | publishable | crates.io + GitHub Release binaries | `release.yml` (release-plz) + `release-binaries.yml` | The only crates.io-published crate today (0.8.0 live) |
+| `vantadb-wasm` | publishable | npm `vantadb-wasm` (wasm-pack) | `release-npm-61.yml` (`v*.*.*`) | WASM bindings ship via npm — `release = false` in `release-plz.toml` |
+
+### Invariant — `release-plz.toml` consistency
+
+- `[workspace] publish = true` — release-plz manages the publishable
+  workspace members; the `[[package]]` overrides are the only exceptions and
+  must stay a subset of this page.
+- Current overrides: `vantadb` (changelog path `docs/CHANGELOG.md`),
+  `vantadb-wasm` (`release = false` — npm channel), `vanta-memory`
+  (`release = false` — DIST-01 hold). `release = false` means release-plz
+  ignores the package entirely (no update/changelog/tag/publish); a
+  `publish = false` manifest is a hard `cargo publish` block.
+- Empirically (0.8.0 Release PR `ef2e33bd`): the release touched only the
+  workspace version (`Cargo.toml`), `Cargo.lock`, `docs/CHANGELOG.md` (single
+  `vantadb` changelog), two API docs (`MCP.md`, `openapi.yaml`) and this
+  document — no `publish = false` crate got its own version bump, changelog
+  file or tag.
+- Channel-change protocol: manifest + `release-plz.toml` + this table change
+  in the same PR (the `vanta-memory` unblock checklist in `release-plz.toml`
+  is the template).
+
+Re-verify by command — both must match this page:
+
+```powershell
+# (a) manifest scan → exactly the 10 `publish = false` crates above
+rg -n "^\s*publish = false" --glob "**/Cargo.toml" -g "!target/**" -g "!node_modules/**"
+
+# (b) release-plz overrides → subset of {vantadb, vantadb-wasm, vanta-memory}
+#     (output also shows the workspace-level `publish = true` on line 6)
+rg -n "^\[\[package\]\]|^name = |^\s*(release|publish) = " release-plz.toml
+```
+
 ## Cascadas automaticas — `RELEASE_PLZ_TOKEN` (PAT)
 
 release-plz crea tags/releases con `GITHUB_TOKEN`; GitHub suprime los eventos
