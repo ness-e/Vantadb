@@ -6,7 +6,7 @@
 
 Every link below points to the raw Markdown source, not a rendered page. Read the
 page you need; do not read this file end to end. This index covers the
-448 documentation pages; it deliberately omits the 1056 task files,
+448 documentation pages; it deliberately omits the 1058 task files,
 which are work items rather than documentation. The full inventory of every file
 is in docs/index.md in the repository.
 
@@ -223,7 +223,7 @@ is in docs/index.md in the repository.
 - [VantaDB Documentation](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/README.md): Welcome to the VantaDB documentation vault
 - [VantaDB Documentation](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/index.md): Canonical index of the VantaDB documentation corpus.
 - [VantaDB Tutorials](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/tutorials/index.md): Step-by-step guides for using VantaDB, ordered by increasing complexity
-- [Workflows — Inventory (37 active)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/workflow/README.md): Per-workflow detail pages live next to this index (ci-gate.md,
+- [Workflows — Inventory (38 active)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/workflow/README.md): Per-workflow detail pages live next to this index (ci-gate.md,
 - [reports](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/reports/index.md): Section index.
 - [Reviews archivados (2026-08-26)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/reviews/README.md): Estos 30 reportes son snapshots históricos de auditorías/reviews/investigaciones
 - [The mdBook layer (retired 2026-09-29)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/book/README.md): Why docs/user/book/ was deleted, what survives, and what to do if it comes back
@@ -469,7 +469,7 @@ is in docs/index.md in the repository.
 - [Workflows — FAQ](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/workflow/FAQ.md): By design of GitHub, not a bug (evidence: FIND-128 — same SHA cb954abc
 - [Workflows — Publish flow per registry](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/workflow/PUBLISH.md): Publishing is tokenless (OIDC Trusted Publishing, no PATs). Post-FIND-140
 - [Workflows — Runbook](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/workflow/RUNBOOK.md): Commands use GitHub CLI (gh). All publish environments are approval-gated
-- [Workflows — Trigger matrix](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/workflow/TRIGGERS.md): Source of truth is each file's on: block (read 2026-10-02, post FIND-228)
+- [Workflows — Trigger matrix](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/workflow/TRIGGERS.md): Source of truth is each file's on: block (read 2026-10-04, post FIND-228 + DIST-05)
 - [`chaos.yml` — Chaos: Failpoint Injection & Resilience Tests](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/workflow/chaos-45.md): Ejecuta los tests de caos de VantaDB con inyección de failpoints para verificar resiliencia ante fallos inyectados (errores de I/O, panics en puntos críticos, cortes) durante operaciones normales
 - [`ci-gate.yml` — CI Gate](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/workflow/ci-gate.md): Workflow reutilizable que actúa como compuerta de calidad para workflows pesados o programados. Antes de gastar horas de cómputo (benchmarks, certificación, fuzzing), consulta el estado de los check-runs del CI en el commit objetivo de...
 - [`ci-rust.yml` — CI: Rust — Build & Lint + Tests](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/workflow/ci-rust-10.md): Pipeline de CI del núcleo Rust: 21 jobs — fmt, clippy, tests en 3 SO, cobertura ≥80%, gates de API pública (semver/snapshot/ADR), seguridad (audit/OSV/deny), Miri, sanitizers y combo release
