@@ -386,7 +386,8 @@ async fn worker_holds_lock(name: &str, hold_ms: f64) -> Result<JsValue, JsValue>
         self.postMessage({ type: "granted" });
         setTimeout(release, holdMs);
     })).catch((err) => self.postMessage({ type: "error", message: String(err) }));
-};"#.to_string();
+};"#
+    .to_string();
 
     // Blob([script], { type: "application/javascript" }) → URL → new Worker
     let parts = js_sys::Array::new();
