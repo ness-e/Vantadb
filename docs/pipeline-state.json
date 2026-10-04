@@ -1,14 +1,14 @@
 {
   "plan": "docs/dev/plans/2026-10-04-master-plan-0.9.0.md",
   "total": 72,
-  "totalCompleted": 17,
+  "totalCompleted": 21,
   "totalFailed": 0,
   "consecutiveFails": 0,
   "failMode": "parallel",
   "mode": "run",
   "maxConcurrent": 3,
-  "inProgress": ["DIST-05", "DIST-06"],
-  "notes": "DIST-06 claimed pero en espera: DIST-05 edita PUBLISH.md (colision de archivo) - se lanza al cerrar DIST-05",
-  "postPushBatch": ["FIND-236 (ASan sin panic del guard)", "FIND-233 (>=2 runs verdes + calibracion same-SHA)", "DX-01 (job Node 26 en CI)", "WSM-15 (si CI aplica)", "BENCH-01 (FIND-253 antes de proxima corrida publicada)", "DIST-05 (verificacion post-release en 0.9.0)"],
-  "lastSync": "2026-10-04T10:10:00Z"
+  "inProgress": ["ENC-01 (72)", "DX-12 (22)", "DIST-15 (23)"],
+  "notes": "F0 = 21/21 + ENC-01 en vuelo (ultima). DX-12/DIST-15 reservadas por workers; F1 requiere expansion a nivel F0 (gate de fase) + Checkpoint F0 antes de lanzarlas",
+  "postPushBatch": ["FIND-236 (ASan sin panic del guard)", "FIND-233 (>=2 runs verdes + calibracion same-SHA)", "DX-01 (job Node 26 en CI)", "WSM-15 (si CI aplica)", "BENCH-01 (FIND-253 antes de proxima corrida publicada)", "DIST-05 (verificacion post-release en 0.9.0)", "DOCS-F2 (primer run de doctests/pydoclint en CI ubuntu)"],
+  "lastSync": "2026-10-04T10:50:00Z"
 }
