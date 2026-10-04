@@ -2,7 +2,7 @@
 title: Python SDK Documentation
 kind: reference
 status: active
-description: "Note: For more details on search execution, see Hybrid Search"
+description: "Python SDK reference — Client, memory records, cognitive layer (memory_capture/memory_recall), async client and typed errors"
 tags: [vantadb, api]
 type: api
 last_reviewed: "2026-09-15"
@@ -125,7 +125,7 @@ db.system.flush()
 Notes:
 
 - Each attribute returns a lightweight delegate that holds a reference to the parent `Client`; calls are forwarded with identical signatures and results.
-- The full member lists per sub-client are fixed by [`BINDINGS_NAMESPACES.md`](BINDINGS_NAMESPACES.md) (Python section). Counts by sub-client: memory 19 (16 forwards + 3 real) · graph 11 · system 18 · wiki 1; the flat `Client` surface totals 46 methods (16 memory + 11 graph + 18 system + 1 wiki).
+- The full member lists per sub-client are fixed by [`BINDINGS_NAMESPACES.md`](BINDINGS_NAMESPACES.md) (Python section). Counts by sub-client: memory 19 (16 forwards + 3 real) · graph 11 · system 18 · wiki 1; the flat `Client` surface totals 48 methods (18 memory + 11 graph + 18 system + 1 wiki — the two extra are the cognitive-layer methods below, which are flat-only).
 - `AsyncClient` exposes `db.memory` (`get`/`list`/`delete`); all other
   async methods stay flat.
 
@@ -421,6 +421,71 @@ for hit in hits:
 ```
 
 Raises `RuntimeError` if the source `key` does not exist or has no vector.
+
+### Cognitive Layer (`memory_capture` / `memory_recall`)
+
+The cognitive layer of `vanta-memory` (L0 capture + recall) is exposed on the
+`Client` (and wrapped by `AsyncClient`). Both operations are **LLM-free by
+construction** (P4): capture never blocks on a runner and recall degrades to
+keyword overlap when no embedding provider is attached — `effective_mode`
+reports the mode actually executed.
+
+#### `memory_capture()`
+
+```python
+db.memory_capture(
+    session_id: str,
+    messages: list[dict],
+) -> dict
+```
+
+Records conversation turns into the L0 layer through the idempotent recorder
+(per-session cursor: a replayed turn is never duplicated). Roles other than
+`user`/`assistant`, empty content and code-only assistant messages are
+filtered. Each message dict:
+`{"role": "user" | "assistant", "content": str, "id"?: str, "timestamp_ms"?: int}`.
+
+Returns `{"recorded_count": int, "filtered_messages": int, "cursor_ms": int}`.
+Captured turns live under the `l0/<session_id>` namespace and are readable
+with the normal memory API (`db.memory.list("l0/<session_id>")`).
+
+#### `memory_recall()`
+
+```python
+db.memory_recall(
+    user_text: str,
+    session_key: str,
+    scope: str | None = None,        # "session" | "agent" (default) | "team"
+    max_results: int | None = None,  # default 5
+) -> dict | None
+```
+
+Returns what to inject for the current turn — L1 memories to **prepend** to
+the user prompt (`prepend_context`) and persona + scene navigation + tools
+guide to **append** to the system prompt (`append_system_context`) — or
+`None` when there is nothing to inject (never an empty block).
+`recalled_memories` carries the structured hits
+(`content` / `score` / `type` / `source_namespace` / `source_key`).
+
+```python
+# Capture the turn…
+db.memory_capture("sess-1", [
+    {"role": "user", "content": "I prefer dark mode", "timestamp_ms": 1000},
+    {"role": "assistant", "content": "Noted!", "timestamp_ms": 1001},
+])
+
+# …then recall it on the next prompt.
+result = db.memory_recall("What display mode do I prefer?", "sess-1")
+if result is not None:
+    user_prompt = (result["prepend_context"] or "") + user_prompt
+    system_prompt = (result["append_system_context"] or "") + system_prompt
+```
+
+> **Scope (DIST-02):** minimal viable surface — capture + recall (sync and
+> async). Idle consolidation (`dream`) and recall budgets/isolation are
+> follow-ups; [`VANTA_MEMORY.md`](VANTA_MEMORY.md) documents the full crate
+> surface. The layer is Python-only for now (TS/WASM scope tracked by
+> DIST-03).
 
 ### Node / Graph API (Low-Level)
 
