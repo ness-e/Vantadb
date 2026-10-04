@@ -27,6 +27,9 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 console_error_panic_hook = "0.1"
 tracing-wasm = { version = "0.2", optional = true }
+# Direct dep only to name `tracing::Level` in `set_max_level` (FIND-238);
+# already in the tree transitively via the core + tracing-wasm.
+tracing = { version = "0.1", optional = true }
 js-sys = "0.3"
 wasm-bindgen-futures = "0.4"
 getrandom = { version = "0.4", features = ["wasm_js"] }
@@ -40,6 +43,7 @@ getrandom = { version = "0.4", features = ["wasm_js"] }
 getrandom_03 = { package = "getrandom", version = "0.3", features = ["wasm_js"] }
 [features]
 default = ["tracing-wasm"]
+tracing-wasm = ["dep:tracing-wasm", "dep:tracing"]
 opfs = []
 
 [package.metadata.cargo-machete]
