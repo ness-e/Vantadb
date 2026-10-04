@@ -168,7 +168,7 @@ Verificación exacta:
 RESULTADO: ✅ COMPLETO
 STEPS_OK: 4/4 total steps
 PROXIMO_STEP: ninguno
-COMMIT_HASH: pendiente (commit local de este step; hash se registra en la recitation MCP)
+COMMIT_HASH: 805a7668 (fix(wasm): FIND-238 — silenciar logs DEBUG de Client.create())
 ARCHIVOS: vantadb-wasm/Cargo.toml, vantadb-wasm/src/lib.rs, vantadb-wasm/README.md, vantadb-ts/src/__tests__/find238.test.ts, Cargo.lock, docs/dev/tasks/FIND-238.md · (vantadb-ts/README.md quedó en 2ef38561 vía FIND-239)
 VERIFY_CONTRATO: pasa
 BLOQUEO: ninguno
