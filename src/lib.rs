@@ -52,7 +52,7 @@
 //! engine.close().unwrap();
 //! ```
 
-/// AES-256-GCM at-rest encryption for storage files.
+/// AES-256-GCM primitives for at-rest encryption (not yet wired to storage write paths — data at rest remains plaintext; FIND-249).
 #[cfg(feature = "encryption")]
 pub mod crypto;
 

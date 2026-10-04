@@ -70,7 +70,7 @@ All configuration fields available in `VantaConfig` (Rust) and via environment v
 | `quarantine_review_default_days` | `u32` | `30` | `VANTADB_QUARANTINE_REVIEW_DEFAULT_DAYS` | Default review deadline (days) applied when a record enters quarantine without an explicit deadline (ADR-0046 §D5d, SCH-05). `0` disables the automatic deadline. The deadline is a **signal only** — it never promotes a quarantined record (sticky invariant I1). |
 | `confidence_threshold` | `Option<f32>` | `None` (OFF) | `VANTADB_CONFIDENCE_THRESHOLD` | Selective-abstention threshold (ADR-0046 §D2, SCH-05/SCH-07): when set (finite, in `[0, 1]`), search hits below it are dropped and an emptied page carries an explicit `abstained` + `abstention_reason` signal instead of silently degrading (single-namespace HTTP `SearchPageV2` and the MCP search envelope — see `docs/api/MCP.md`; array-shaped binding APIs have no page). Distinct from the per-request `min_confidence` filter, which never emits the signal. |
 | `ttl_sweep_interval_ms` | `u64` | `60000` | `VANTADB_TTL_SWEEP_INTERVAL_MS` | Interval (ms) of the server's background TTL sweeper, which physically purges expired records (nodes + derived/text indexes) — the same purge as `DELETE /api/v2/maintenance/expired-records`. `0` disables it; read-only engines skip it. |
-| `encryption_key` | `Option<String>` | `None` | `VANTADB_ENCRYPTION_KEY` | AES-256-GCM key (hex 32-byte) (feature-gated: `encryption`). **Not yet applied to core storage files** — WAL/HNSW/VantaFile/backend-KV/snapshots remain plaintext today (FIND-249); the current consumer is the `vanta-proxy` envelope. |
+| `encryption_key` | `Option<String>` | `None` | `VANTADB_ENCRYPTION_KEY` | AES-256-GCM key (hex 32-byte) (feature-gated: `encryption`). **Not yet applied to core storage files** — WAL/HNSW/VantaFile/backend-KV/snapshots remain plaintext today (FIND-249); the current consumer is the `vanta-proxy` envelope. When the feature and key are both active, the engine emits a warning at open making this explicit (on-disk backends). |
 | `flat_threshold` | `Option<usize>` | `10000` | `VANTADB_FLAT_THRESHOLD` | Brute-force flat scan threshold; ≤ this many nodes skips HNSW |
 | `hot_reload_config` | `Arc<RwLock<HotReloadConfig>>` | `HotReloadConfig::default()` | — | Hot-reloadable config snapshot (feature-gated: `hot-reload`, not in `default` features). See [Hot-Reload JSON](#hot-reload-json) |
 | `rbac_config` | `RbacConfig` | `{ token_role_map: {} }` | — | RBAC config mapping API tokens to roles |
@@ -492,6 +492,7 @@ Build-time feature flags in `Cargo.toml`:
 | `arrow` | `arrow` | Apache Arrow IPC support |
 | `rkyv-serialization` | `rkyv` | Zero-copy rkyv archives for HNSW |
 | `failpoints` | `fail` | Fault-injection testing |
+| `encryption` | `aes-gcm`, `ring` | AES-256-GCM primitives (`Cipher`/`EncryptionStream`) for at-rest encryption — **not wired to storage write paths yet**: data at rest remains plaintext and the engine warns at open when the feature and key are both active (on-disk backends; FIND-249) |
 | `custom-allocator` | `mimalloc` | mimalloc global allocator |
 
 ## 8. OpenTelemetry Tracing Environment

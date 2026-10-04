@@ -762,3 +762,145 @@ fn test_persistence_full_vector_still_roundtrips() {
         ref other => panic!("expected Full, got {:?}", other),
     }
 }
+
+// ─── ENC-01 (FIND-249): encryption honesty notice ──────────────
+//
+// With the `encryption` feature compiled in AND a key configured, every
+// on-disk artifact is still plaintext (0/6, DUR-02) — the engine must say so
+// at open instead of staying silent. The notice is gated by environment
+// (feature + key) and excluded for the InMemory backend (no at-rest files).
+
+#[cfg(feature = "encryption")]
+mod encryption_notice {
+    use super::*;
+    use std::io::Write;
+    use std::sync::{Arc, Mutex};
+
+    /// Shared buffer + `MakeWriter` so a scoped subscriber can capture the
+    /// engine's log output without touching the global subscriber.
+    #[derive(Clone, Default)]
+    struct CaptureWriter(Arc<Mutex<Vec<u8>>>);
+
+    impl Write for CaptureWriter {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            self.0
+                .lock()
+                .expect("capture buffer")
+                .extend_from_slice(buf);
+            Ok(buf.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    impl<'a> tracing_subscriber::fmt::MakeWriter<'a> for CaptureWriter {
+        type Writer = CaptureWriter;
+        fn make_writer(&'a self) -> Self::Writer {
+            self.clone()
+        }
+    }
+
+    /// Run `open` under a scoped WARN-level subscriber and return everything
+    /// it logged.
+    fn capture_warnings<F: FnOnce()>(open: F) -> String {
+        let sink = CaptureWriter::default();
+        let subscriber = tracing_subscriber::fmt()
+            .with_writer(sink.clone())
+            .with_max_level(tracing::Level::WARN)
+            .with_ansi(false)
+            .finish();
+        tracing::subscriber::with_default(subscriber, open);
+        let bytes = sink.0.lock().expect("capture buffer").clone();
+        String::from_utf8_lossy(&bytes).into_owned()
+    }
+
+    /// Explicitly pinned config — an exported `VANTADB_ENCRYPTION_KEY` or
+    /// `VANTADB_BACKEND` must not change what these tests exercise.
+    fn keyed_config(path: &str, backend_kind: BackendKind) -> Config {
+        Config {
+            storage_path: path.to_string(),
+            backend_kind,
+            encryption_key: Some("ab".repeat(32)),
+            ..Config::default()
+        }
+    }
+
+    /// On-disk backend for the compiled feature set.
+    #[cfg(any(feature = "fjall", feature = "rocksdb"))]
+    fn disk_backend() -> BackendKind {
+        #[cfg(feature = "fjall")]
+        {
+            BackendKind::Fjall
+        }
+        #[cfg(all(not(feature = "fjall"), feature = "rocksdb"))]
+        {
+            BackendKind::RocksDb
+        }
+    }
+
+    #[cfg(any(feature = "fjall", feature = "rocksdb"))]
+    #[test]
+    fn test_encryption_notice_emitted_when_active() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().to_str().unwrap();
+        let logged = capture_warnings(|| {
+            let engine =
+                StorageEngine::open_with_config(path, Some(keyed_config(path, disk_backend())))
+                    .expect("open with encryption key");
+            drop(engine);
+        });
+        assert!(
+            logged.contains("NOT yet wired"),
+            "warning must say encryption is not wired; got: {logged}"
+        );
+        assert!(
+            logged.contains("PLAINTEXT"),
+            "warning must say data at rest is plaintext; got: {logged}"
+        );
+        assert!(
+            logged.contains("FIND-249"),
+            "warning must point at FIND-249; got: {logged}"
+        );
+    }
+
+    #[cfg(any(feature = "fjall", feature = "rocksdb"))]
+    #[test]
+    fn test_encryption_notice_silent_without_key() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().to_str().unwrap();
+        let logged = capture_warnings(|| {
+            let engine = StorageEngine::open_with_config(
+                path,
+                Some(Config {
+                    storage_path: path.to_string(),
+                    backend_kind: disk_backend(),
+                    encryption_key: None,
+                    ..Config::default()
+                }),
+            )
+            .expect("open without key");
+            drop(engine);
+        });
+        assert!(
+            !logged.contains("FIND-249"),
+            "no encryption notice without a key; got: {logged}"
+        );
+    }
+
+    #[test]
+    fn test_encryption_notice_silent_for_in_memory_backend() {
+        let logged = capture_warnings(|| {
+            let engine = StorageEngine::open_with_config(
+                ":memory:",
+                Some(keyed_config(":memory:", BackendKind::InMemory)),
+            )
+            .expect("open in-memory with key");
+            drop(engine);
+        });
+        assert!(
+            !logged.contains("FIND-249"),
+            "no at-rest notice for InMemory (no on-disk artifacts); got: {logged}"
+        );
+    }
+}
