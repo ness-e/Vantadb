@@ -1,13 +1,14 @@
 {
   "plan": "docs/dev/plans/2026-10-04-master-plan-0.9.0.md",
   "total": 72,
-  "totalCompleted": 13,
+  "totalCompleted": 17,
   "totalFailed": 0,
   "consecutiveFails": 0,
   "failMode": "parallel",
   "mode": "run",
   "maxConcurrent": 3,
-  "inProgress": ["DIST-01"],
-  "postPushBatch": ["FIND-236 (ASan sin panic del guard)", "FIND-233 (>=2 runs verdes + calibracion same-SHA)", "DX-01 (job Node 26 en CI)", "WSM-15 (si CI aplica)", "BENCH-01 (FIND-253 antes de proxima corrida publicada)"],
-  "lastSync": "2026-10-04T08:45:00Z"
+  "inProgress": ["DIST-05", "DIST-06"],
+  "notes": "DIST-06 claimed pero en espera: DIST-05 edita PUBLISH.md (colision de archivo) - se lanza al cerrar DIST-05",
+  "postPushBatch": ["FIND-236 (ASan sin panic del guard)", "FIND-233 (>=2 runs verdes + calibracion same-SHA)", "DX-01 (job Node 26 en CI)", "WSM-15 (si CI aplica)", "BENCH-01 (FIND-253 antes de proxima corrida publicada)", "DIST-05 (verificacion post-release en 0.9.0)"],
+  "lastSync": "2026-10-04T10:10:00Z"
 }
