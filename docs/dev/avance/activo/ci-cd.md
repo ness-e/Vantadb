@@ -583,3 +583,9 @@ tags: [vantadb, avance, ci, cd, release, github-actions]
 - **Objetivo:** el zip Windows de v0.7.0 daba 404; el flujo post-release debía verificar artefactos de verdad; `install.ps1` apuntaba a un asset inexistente.
 - **Resultado:** ✅ `scripts/verify-release.ps1` (14 assets + 4 registries + smoke con sha256) + `.github/workflows/release-verify.yml` (semanal + dispatch — backstop que habría detectado el 404 en días) + `PUBLISH.md §Post-release verification` (gate con dueño). El verify encontró que `install.ps1` estaba roto **end-to-end** contra el asset real de v0.8.0 (zip flat vs `release\vanta-cli.exe`; PS 5.1 sin parsear; fallback v0.4.0 muerto) → corregido y verificado con installs reales en PS 5.1 y 7 (`vanta-cli 0.8.0`). v0.7.0: zip faltante por accidente estructural (cascade suprimido pre-`RELEASE_PLZ_TOKEN`), no por decisión; backfill no viable honestamente (documentado + procedimiento opcional). Review P2-01 APPROVE. OPTIONALs → FIND-261/262. Verificación en 0.9.0 diferida (checklist en PUBLISH.md).
 - **Commit:** 2390344c (local, sin push)
+
+### DIST-06: Estrategia de los 11 crates `publish = false` (PUBLISH.md §crates)
+- **Fecha:** 2026-10-04
+- **Objetivo:** decidir y documentar por crate qué se publica y por qué canal (la ambigüedad que costó FIND-230).
+- **Resultado:** ✅ Nueva sección `PUBLISH.md §crates` (64 líneas): decisión por crate (10 con `publish=false` + `vanta-memory` remitiendo a DIST-01), canal real / producido-por / motivo; invariante release-plz con 2 comandos de re-verificación; política **fechada 2026-10-04 con 4 review triggers**; `release-plz.toml` intacto (0 churn). Verify: `rg '^\s*publish = false'` = 10 crates + overrides ⊆ tabla. Review P2-01 (ronda 1 → fix → delta APPROVE). Nota: durante el cierre, WIP de DOCS-F1 (check-links) hacía fallar gates globales — staging quirúrgico, ajeno a esta tarea.
+- **Commit:** 56b0bc0a (local, sin push)
