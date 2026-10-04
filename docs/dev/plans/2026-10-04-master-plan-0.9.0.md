@@ -623,16 +623,17 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **Task file:** `docs/dev/tasks/ENC-01.md` (crear en DISCOVERY)
 - **Origen:** decisión owner 2026-10-04 (question) + FIND-249 (DUR-02). El cableado completo queda en FIND-249 (Backlog, diferido).
 
-### Checkpoint F0 → Release 0.9.0
+### Checkpoint F0 → Release 0.9.0 — ✅ CERRADO (2026-10-04)
 
-- [ ] 22/22 tasks F0 (21 + ENC-01 addendum) ✅ (verify mecánico + review P2-01 por tarea)
-- [ ] `just verify` + `/audit certify` verdes en develop
-- [ ] **Release 0.9.0**: **diferido por decisión owner (2026-10-04, post-fases)** — changelog 0.8.0 limpiado ✅ + Release PR cuando se retome + verificación post-release (Task 18) — semver esperado: **minor** (features DIST-01/02/03 + fixes)
-- [ ] Registro: filas del Backlog migradas a avance (skill progreso)
+- [x] 22/22 tasks F0 (21 + ENC-01 addendum) ✅ (review P2-01 fresh por tarea; DOCS-F1/F2 escaladas → ronda 2 approve)
+- [x] `just verify` verde (fmt · clippy -D warnings · nextest audit · deny) — regresión clippy de WSM-15 detectada y arreglada (`6401261c` + `00452975`)
+- [ ] ⏸️ `/audit certify` — **DIFERIDO a la ventana del release** (plan-adjust 2026-10-04, decisión owner: certificar el estado que se publica, no un intermedio)
+- [x] **Release 0.9.0**: **diferido por decisión owner (2026-10-04, post-fases)** — changelog 0.8.0 limpiado ✅ + Release PR cuando se retome + verificación post-release (Task 18) — semver esperado: **minor** (features DIST-01/02/03 + fixes)
+- [x] Registro: filas del Backlog migradas a avance (skill progreso — por tarea)
 
 ## F1 — Distribución (post-0.9.0)
 
-> **Gate de fase:** estas tareas están a nivel "medium" (contrato + archivos). Al iniciar F1 se expanden al nivel F0 (pre-mortem + Risk Register + stop conditions) ANTES de ejecutar — regla del master-roadmap. Varias coordinan con el repo `ness-e/Vantadb-web`.
+> **Gate de fase:** ✅ CUMPLIDO — Tasks 22-36 expandidas a nivel F0 el 2026-10-04 (`3afe71c6`); listas para ejecutar.
 
 ### Task 22: DX-12 — Instalador/wizard como selector de módulos (enable/disable por componente)
 
@@ -1439,6 +1440,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **Dependencias internas:** Task 17 (DIST-04) → depende de 14/15/16 (DIST-01/02/03) · Task 47 (WIRE-16) → depende de 45/46 (WIRE-14/15) · Task 58 (MEMG-16) → consume 56/57 (MEMG-04/05) · Task 21 (DOCS-F2) → independiente · Checkpoint F0 → depende de #238 · Task 71 (F6) → al final del plan.
 - **OCR gate:** toda tarea ✅ DO cierra con OCR delegation review (pipeline-full.md §Cierre paso 5); veredicto registrado en el task file.
 - **plan-adjust:** registrar acá cualquier cambio de gate/re-estimación con el template de `plan.md` §"Evento plan adjust".
+  - **2026-10-04 — Checkpoint F0:** `/audit certify` diferido a la ventana del release (decisión owner vía question: certificar el estado que se publica, no un intermedio; `just verify` mecánico = verde ahora). F1 expandida a nivel F0 (`3afe71c6`) antes de ejecutar (gate de fase cumplido).
 - **SDP:** `campaign_discover_skills_v2` phase=PLAN (2026-10-04) → ver §SDP. Cada sub-agente corre su propio SDP en BUILD (≤10 skills) + los MCPs (codegraph, codebase-memory-mcp, campaign).
 - **Estado inicial:** 72 tareas ⬜ PENDING (71 + ENC-01 addendum owner 2026-10-04) · 0 completed · 0 failed.
 
