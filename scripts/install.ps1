@@ -7,6 +7,9 @@
 # Flags: -DryRun (simulate, no effects) -NoWizard (skip chain)
 #        -WizardNonInteractive (wizard with defaults) -Version <tag> (pin a release)
 #        -InstallDir <path> (override the default $HOME\.vanta\bin)
+#        -Modules <csv> (wizard module selection, pass-through: e.g. "mcp,embeddings";
+#                        valid ids: engine,mcp,server,proxy,desktop,embeddings,providers;
+#                        omitted = wizard defaults mcp,server,proxy,embeddings)
 # Trust: TLS 1.2 + official repo URL + sha256 of the payload verified
 # in-script when the .sha256 asset exists (warn-and-continue otherwise).
 # To verify manually, download the file and compare its hash
@@ -17,7 +20,8 @@ param(
   [switch]$DryRun,
   [switch]$WizardNonInteractive,
   [string]$Version,
-  [string]$InstallDir
+  [string]$InstallDir,
+  [string[]]$Modules
 )
 
 $ErrorActionPreference = "Stop"
@@ -38,9 +42,12 @@ if ($DryRun) {
     if (-not $NoWizard) {
         $wMode = " (interactive)"
         if ($WizardNonInteractive) { $wMode = " with -NonInteractive" }
-        Write-Host "[dry-run] would: chain wizard $wizardFile (<release-tag>/$wizardFile)$wMode, else print manual next-step" -ForegroundColor Cyan
+        $wModules = "mcp,server,proxy,embeddings (defaults)"
+        if ($Modules) { $wModules = ($Modules -join ',') }
+        Write-Host "[dry-run] would: chain wizard $wizardFile (<release-tag>/$wizardFile)$wMode [modules: $wModules; engine always-on, desktop frozen]" -ForegroundColor Cyan
     } else {
         Write-Host "[dry-run] would: skip wizard (-NoWizard)"
+        if ($Modules) { Write-Host "[dry-run] note: -Modules '$($Modules -join ',')' ignored (wizard skipped)" -ForegroundColor Yellow }
     }
     Write-Host "[dry-run] chain OK: installer -> wizard (simulated, exit 0)" -ForegroundColor Green
     exit 0
@@ -138,20 +145,26 @@ if ($NoWizard) {
     Write-Host ""
     Write-Host "⏭️  Wizard skipped (-NoWizard). Run later:" -ForegroundColor Cyan
     Write-Host "   pwsh $wizardFile -NonInteractive" -ForegroundColor Yellow
+    if ($Modules) { Write-Host "   note: -Modules '$($Modules -join ',')' ignored (wizard skipped)" -ForegroundColor Yellow }
 } else {
     Write-Host ""
     Write-Host "🧙 Chaining to the interactive setup wizard (FIND-104)..." -ForegroundColor Cyan
     $wizardArgs = @()
     if ($WizardNonInteractive) { $wizardArgs += '-NonInteractive' }
+    if ($Modules) { $wizardArgs += @('-Modules', ($Modules -join ',')) }
     try {
         $wizardTmp = Join-Path ([System.IO.Path]::GetTempPath()) ("vanta-wizard-" + [System.Guid]::NewGuid().ToString() + ".ps1")
         Invoke-WebRequest -Uri $wizardUrl -OutFile $wizardTmp -UseBasicParsing
         & pwsh -NoProfile -File $wizardTmp @wizardArgs
+        $wizardExit = $LASTEXITCODE
         Remove-Item -Force $wizardTmp -ErrorAction SilentlyContinue
+        if ($wizardExit -ne 0) { throw "wizard exited with code $wizardExit" }
         Write-Host "✅ Wizard completed" -ForegroundColor Green
     } catch {
+        if ($wizardTmp) { Remove-Item -Force $wizardTmp -ErrorAction SilentlyContinue }
         Write-Host "⚠️ Wizard did not run — CLI is installed; run manually:" -ForegroundColor Yellow
         Write-Host "   pwsh $wizardFile -NonInteractive" -ForegroundColor Yellow
+        if ($Modules) { Write-Host "   (-Modules '$($Modules -join ',')' was not applied)" -ForegroundColor Yellow }
     }
 }
 Write-Host ""

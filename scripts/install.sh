@@ -9,6 +9,9 @@ set -e
 #   curl -fsSL https://raw.githubusercontent.com/ness-e/Vantadb/main/scripts/install.sh | sh
 # Flags: --dry-run (simulate, no effects) --no-wizard (skip chain)
 #        --wizard-non-interactive (wizard with defaults) --help
+#        --modules <csv> (wizard module selection, pass-through: e.g. mcp,embeddings;
+#                         valid ids: engine,mcp,server,proxy,desktop,embeddings,providers;
+#                         omitted = wizard defaults mcp,server,proxy,embeddings)
 # Trust: TLS required + official repo URL + sha256 of the payload verified
 # in-script when the .sha256 asset exists (warn-and-continue otherwise).
 # To verify manually, download the file and compare against the
@@ -21,25 +24,49 @@ WIZARD_FILE="setup-embeddings.ps1"
 DRY_RUN=0
 WITH_WIZARD=1
 WIZARD_NONINTERACTIVE=0
+MODULES=""
 
-for arg in "$@"; do
-  case "$arg" in
+while [ $# -gt 0 ]; do
+  case "$1" in
     --dry-run) DRY_RUN=1 ;;
     --no-wizard) WITH_WIZARD=0 ;;
     --wizard-non-interactive) WIZARD_NONINTERACTIVE=1 ;;
+    --modules)
+      MODULES="$2"
+      if [ -z "$MODULES" ]; then echo "❌ --modules needs a value (csv, e.g. mcp,embeddings)"; exit 1; fi
+      shift
+      ;;
+    --modules=*)
+      MODULES="${1#--modules=}"
+      if [ -z "$MODULES" ]; then echo "❌ --modules= needs a value (csv, e.g. mcp,embeddings)"; exit 1; fi
+      ;;
     --help|-h)
-      echo "Usage: install.sh [--dry-run] [--no-wizard] [--wizard-non-interactive]"
+      echo "Usage: install.sh [--dry-run] [--no-wizard] [--wizard-non-interactive] [--modules <csv>]"
       echo "  --dry-run: print the installer->wizard chain without changes or network"
       echo "  --no-wizard: install the CLI only; run the wizard later manually"
       echo "  --wizard-non-interactive: chain the wizard with defaults (no prompts)"
+      echo "  --modules <csv>: wizard module selection (engine,mcp,server,proxy,desktop,embeddings,providers;"
+      echo "                   omitted = wizard defaults mcp,server,proxy,embeddings)"
       exit 0
       ;;
     *)
-      echo "❌ Unknown option: $arg (see --help)"
+      echo "❌ Unknown option: $1 (see --help)"
       exit 1
       ;;
   esac
+  shift
 done
+
+# Trust boundary: --modules is user input that flows into the wizard argv;
+# validate the csv shape (ids only) before any expansion (no glob/split surprises).
+if [ -n "$MODULES" ]; then
+  case "$MODULES" in
+    *[!A-Za-z,]* | [!A-Za-z]*)
+      echo "❌ --modules: invalid value '$MODULES' (csv of ids: engine,mcp,server,proxy,desktop,embeddings,providers)"
+      exit 1
+      ;;
+  esac
+fi
 
 # --- Dry-run (FIND-105 AC(a)): simulate installer -> wizard, no effects ---
 # Runs before OS detection so it works on any machine (incl. CI/Windows).
@@ -50,9 +77,11 @@ if [ "$DRY_RUN" = "1" ]; then
   echo "[dry-run] would: backup $INSTALL_DIR/$BINARY_NAME (.bak-<stamp>) + install"
   if [ "$WITH_WIZARD" = "1" ]; then
     if [ "$WIZARD_NONINTERACTIVE" = "1" ]; then MODE=" with -NonInteractive"; else MODE=" (interactive)"; fi
-    echo "[dry-run] would: chain wizard $WIZARD_FILE (<release-tag>/$WIZARD_FILE)$MODE via pwsh, else print manual next-step"
+    if [ -n "$MODULES" ]; then MODS="$MODULES"; else MODS="mcp,server,proxy,embeddings (defaults)"; fi
+    echo "[dry-run] would: chain wizard $WIZARD_FILE (<release-tag>/$WIZARD_FILE)$MODE via pwsh [modules: $MODS; engine always-on, desktop frozen]"
   else
     echo "[dry-run] would: skip wizard (--no-wizard)"
+    if [ -n "$MODULES" ]; then echo "[dry-run] note: --modules '$MODULES' ignored (wizard skipped)"; fi
   fi
   echo "[dry-run] chain OK: installer -> wizard (simulated, exit 0)"
   exit 0
@@ -158,11 +187,13 @@ if [ "$WITH_WIZARD" = "0" ]; then
   echo ""
   echo "⏭️  Wizard skipped (--no-wizard). Run later:"
   echo "   pwsh $WIZARD_FILE -NonInteractive"
+  if [ -n "$MODULES" ]; then echo "   note: --modules '$MODULES' ignored (wizard skipped)"; fi
 else
   echo ""
   echo "🧙 Chaining to the interactive setup wizard (FIND-104)..."
   WIZARD_URL="https://raw.githubusercontent.com/ness-e/Vantadb/$LATEST_RELEASE/$WIZARD_FILE"
   if [ "$WIZARD_NONINTERACTIVE" = "1" ]; then WIZARD_ARGS="-NonInteractive"; else WIZARD_ARGS=""; fi
+  if [ -n "$MODULES" ]; then WIZARD_ARGS="$WIZARD_ARGS -Modules $MODULES"; fi
   if command -v pwsh >/dev/null 2>&1 \
     && curl -sL -f --ssl-reqd -o "$TMPDIR/$WIZARD_FILE" "$WIZARD_URL" \
     && pwsh -NoProfile -File "$TMPDIR/$WIZARD_FILE" $WIZARD_ARGS; then
@@ -170,6 +201,7 @@ else
   else
     echo "⚠️ Wizard did not run — CLI is installed; run manually:"
     echo "   pwsh $WIZARD_FILE -NonInteractive"
+    if [ -n "$MODULES" ]; then echo "   (-Modules '$MODULES' was not applied)"; fi
     echo "   (tip: re-run the wizard from a downloaded file for full interactivity)"
   fi
 fi

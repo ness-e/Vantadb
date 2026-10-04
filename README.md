@@ -276,9 +276,13 @@ Download and install the CLI binary instantly in a single command without compil
 > published `.sha256` release asset before piping it to a shell.
 >
 > **What happens next:** the installer chains to the interactive setup wizard
-> (`setup-embeddings.ps1` — model, MCP block per client, proxy default-on)
-> unless skipped with `--no-wizard` (sh) / `-NoWizard` (PowerShell).
-> Preview the chain without effects via `--dry-run` / `-DryRun`.
+> (`setup-embeddings.ps1`), which asks **which modules to enable** — motor,
+> MCP, server, proxy, desktop viewer, embeddings, providers (each with a
+> declared state: installable or frozen; desktop is a frozen viewer).
+> Scripted selection: `--modules mcp,embeddings` (sh) /
+> `-Modules mcp,embeddings` (PowerShell). Skip with `--no-wizard` (sh) /
+> `-NoWizard` (PowerShell). Preview the chain without effects via
+> `--dry-run` / `-DryRun`.
 
 #### 2. Via Cargo (Rust Developers)
 
