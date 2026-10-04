@@ -565,3 +565,9 @@ tags: [vantadb, avance, ci, cd, release, github-actions]
 - **Objetivo:** perf-bench rojo crónico (13 runs desde 2026-09-25): causa raíz doble — push corría perfil 1000/100 vs baseline 10000/1000 (p99 = máximo muestral) + varianza cross-VM medida 1.7-2.4x.
 - **Resultado:** ✅ Perfil único 10000/1000 + guarda de mismatch fail-closed + bandas recalibradas (stable 25/200; noisy 300%+0.5ms; `insert.p99` ≥100ms absoluto) + re-baseline documentado + self-test 9/9. Post-push: run **37102010279 = success** ("No blocking regression detected across 16 metrics"). Derivada: FIND-233 (instrumento cross-VM).
 - **Commit:** `04b3eaa0` + `0173b339`
+
+### FIND-234: check-avance-coverage.ps1 leía docs/avance (inexistente) — reporte 0/237 engañoso
+- **Fecha:** 2026-10-04
+- **Objetivo:** El script de cobertura (referenciado por la skill progreso como check de cierre) apuntaba a `docs/avance` desde la ruptura 2026-09-23 (`b764d703`) → "0/237 (0.0%)" falso + errores de ruta.
+- **Resultado:** ✅ Fix de 1 línea (L10 → `docs/dev/avance`): `1034/1034 (100.0%)` real, sin errores de ruta, exit 0. Review P2-01 APPROVE (before reproducido desde el blob HEAD~1; conteo independiente 237+907−1034=110 ✓).
+- **Commit:** `35cbd2e1`
