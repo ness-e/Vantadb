@@ -19,8 +19,11 @@ required.
 ## 0. Install without cloning (one-liner)
 
 No clone, no Rust toolchain. Installs the pre-compiled `vanta-cli` and chains
-to the interactive setup wizard (model + MCP block per client + proxy
-default-on; skip with `--no-wizard` / `-NoWizard`):
+to the interactive setup wizard, which asks **which modules to enable** —
+motor, MCP, server, proxy, desktop viewer, embeddings, providers (each with a
+declared state: installable or frozen). Scripted selection:
+`--modules mcp,embeddings` (sh) / `-Modules mcp,embeddings` (PowerShell);
+skip the wizard with `--no-wizard` / `-NoWizard`:
 
 - **Linux / macOS / WSL**:
 
