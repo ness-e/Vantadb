@@ -1300,6 +1300,53 @@ with FINDs for the owner. Reports: `evals/runners/report_h2h_h2h-strat10_{vantad
 
 ---
 
+## 20. CI perf-bench gate — instrument limits + same-job A/B (FIND-232/FIND-233)
+
+> **Source of truth:** `benchmarks/compare_baseline.py` (bands + A/B mode) + `.github/workflows/perf-bench.yml` (workflow).
+> **Reproduce (Regla 11):**
+> ```bash
+> python benchmarks/compare_baseline.py --self-test   # prove all 15 band cases offline
+> ```
+
+### What the always-on gate detects — and what it cannot
+
+The gate runs on push (`src/**`, `vantadb-python/**`, `benchmarks/**`, `Cargo.toml`/`Cargo.lock`) and via `workflow_dispatch`, comparing the median of 3 runs against `benchmarks/python_baseline.json`. Cross-VM spread measured on identical code (FIND-232, 2026-10-03, profile 10000/1000; runs 37088714140 / 37089421873 / 37089581213) is **1.7x–2.4x** on key metrics (`insert.p99` 16.8x) — GitHub rotates runner hardware, so the bands are calibrated to that noise floor:
+
+| Family | Warn | Block |
+| :--- | :--- | :--- |
+| stable (`insert`, `rebuild`, `query_vector`) | >25% | >200% (≥3x) |
+| quarantined (`query_hybrid`, `query_text`) | >15% | >300% **and** >0.5 ms absolute |
+| `insert.p99_ms` | relative (warn only) | absolute: ≥100 ms |
+
+The gate therefore detects **collapses (≥3x)**, not fine regressions (<2-3x). A profile mismatch (`insert.total_records` ≠ baseline) refuses to compare (fail-closed). For the fine signal in a controlled environment, use `cargo bench -p vantadb --bench canonical_p99` vs the baseline in §11.
+
+### Same-job A/B (opt-in) — the fine-signal instrument
+
+Dispatch the workflow with `ab_ref` set: wheel A is built from `ab_ref` and wheel B from the triggering ref **in the same job** (the machine factor cancels), then 3 alternated pairs `(A_i, B_i)` run — alternation cancels the warm-up ramp every job shows (adjacent-run deltas −1.2%..−22% on identical code, measured from the 2026-10-03 run logs) — and `compare_baseline.py --ab-runs` gates on the **median of the paired ratios**.
+
+```bash
+# A/B vs a ref (typically the commit that generated the current baseline):
+gh workflow run perf-bench.yml --ref develop -f ab_ref=<ref-or-sha> -f size=10000 -f queries=1000 -f dim=128
+gh run watch <run-id> --exit-status
+
+# Calibration (same code on both sides — the measured deltas ARE the noise floor):
+gh workflow run perf-bench.yml --ref develop -f ab_ref=$(git rev-parse HEAD)
+```
+
+- **Bands (provisional):** warn >15% / block >50% (median of paired ratios). `insert.p99` warns but never blocks (fsync jitter, 16.8x cross-VM). Calibrate the bands with the same-SHA dispatch above and tighten them with the measured noise floor (same protocol FIND-232 used).
+- **Evidence per run:** every metric delta prints in the step log (`[ab] section.metric: B … vs A … (median delta …)`); artifact `vanta-benchmark-ab-results` carries side A's median.
+- **Cost:** ~+5-9 min per invocation (2 wheel builds + 3 extra runs + wheel swaps) — opt-in only; the push gate stays ~4.5 min (measured, run 37089421873: rust-setup 1.1 min + wheel 0.7 min + bench 2.4 min).
+
+### Post-push verification
+
+```bash
+gh run list --workflow=perf-bench.yml --limit 3 --json databaseId,conclusion,headSha
+```
+
+≥2 consecutive `success` runs on the pushed ref = the gate is stable (FIND-233 contract).
+
+---
+
 ## Planificado 2026-09-24 — sin números aún (Regla 11)
 
 > Estas mediciones están **programadas** (filas P52 del Backlog). Mientras no existan resultados, no citar como comparativa.

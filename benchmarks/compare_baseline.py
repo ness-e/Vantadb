@@ -50,10 +50,24 @@ insert.p99), not fine-grained regressions. Fine-grained gating belongs to
 A false positive outside the band is a signal to re-baseline (or widen the
 band with new evidence), not to add more tolerance blindly.
 
+Same-job A/B mode (FIND-233, opt-in via ``--ab-runs``): the cross-VM spread
+above (1.7-2.4x) makes fine regressions (<2-3x) invisible in the single-run-vs-
+stored-baseline gate. When both sides are measured in the SAME job (wheel A =
+the ``ab_ref`` ref built in-job, wheel B = HEAD), the machine factor cancels
+and paired deltas can gate at ~50%. The workflow alternates A_i, B_i pairs
+because every job shows a monotonic warm-up ramp (sub-runs of identical code:
+adjacent-pair deltas −1.2%..−22% across runs 37089421873/37089581213/
+37088714140); the median of the 3 paired ratios absorbs most of it. Bands are
+PROVISIONAL (warn >15%, block >50%) until calibrated with a same-SHA dispatch
+(``ab_ref=<HEAD sha>``): the deltas of identical code ARE the noise floor.
+``insert.p99_ms`` is fsync-jitter dominated (16.8x cross-VM) — it warns but
+never blocks in A/B mode.
+
 Usage:
   python benchmarks/compare_baseline.py                    # compare (CI gate)
   python benchmarks/compare_baseline.py --self-test        # prove the bands
   python benchmarks/compare_baseline.py --update-baseline  # re-baseline
+  python benchmarks/compare_baseline.py --ab-runs 1 2 3    # same-job A/B vs ab_results.<i>.json
 """
 
 from __future__ import annotations
@@ -76,6 +90,15 @@ NOISY_BLOCK_ABS_MS = 0.5  # FIND-232: µs-scale metrics also need an absolute fl
 # and only warn on relative moves.
 ABS_BLOCK_LEVELS_MS = {"insert.p99_ms": 100.0}
 QUARANTINED_SECTIONS = ("query_hybrid", "query_text")  # FIND-154 evidence
+
+# ── Same-job A/B bands (FIND-233, --ab-runs mode) — PROVISIONAL ──────────────
+# Calibrate with a same-SHA dispatch (ab_ref=<HEAD sha>): identical code on
+# both sides makes the measured deltas the real noise floor. Start: warn >15%,
+# block >50% (median of paired ratios). insert.p99 is fsync-jitter dominated —
+# warn-only, never blocks.
+AB_WARN_PCT = 15.0
+AB_BLOCK_PCT = 50.0
+AB_WARN_ONLY_KEYS = ("insert.p99_ms",)
 
 
 def relative_delta_pct(key: str, current: float, base: float) -> float | None:
@@ -167,8 +190,80 @@ def compare_report(median: dict, baseline: dict) -> tuple[list[str], list[str]]:
     return blocking, warnings
 
 
+def compare_ab(runs_a: list[dict], runs_b: list[dict]) -> tuple[list[str], list[str], list[str]]:
+    """Same-job A/B comparison (FIND-233): median of paired B-vs-A deltas.
+
+    Pair ``i`` is ``(runs_a[i], runs_b[i])`` — the workflow alternates A_i, B_i
+    so each pair shares its temporal position and the measured warm-up ramp
+    cancels out of the ratio. Returns ``(blocking, warnings, report_lines)``;
+    report_lines carries every metric delta so a same-SHA calibration dispatch
+    can read the real noise floor from the logs.
+    """
+    blocking: list[str] = []
+    warnings: list[str] = []
+    report: list[str] = []
+    median_a = median_report(runs_a)
+    median_b = median_report(runs_b)
+
+    if len(runs_a) != len(runs_b):
+        blocking.append(
+            f"A/B run count mismatch: {len(runs_b)} B runs vs {len(runs_a)} A runs — "
+            "the comparison needs paired runs (FIND-233)"
+        )
+        return blocking, warnings, report
+
+    a_records = median_a.get("insert", {}).get("total_records")
+    b_records = median_b.get("insert", {}).get("total_records")
+    if not a_records or not b_records:
+        blocking.append(
+            "A/B: missing insert.total_records on one side — cannot verify the bench "
+            "profile; re-run both sides with the current workflow (FIND-233)"
+        )
+    elif a_records != b_records:
+        blocking.append(
+            f"A/B profile mismatch: insert.total_records {b_records} (B) vs {a_records} (A) — "
+            "both sides must use the same bench profile"
+        )
+
+    for section, metrics in median_b.items():
+        if not isinstance(metrics, dict):
+            continue
+        for key in metrics:
+            if key != "throughput_records_per_sec" and not key.endswith("_ms"):
+                continue  # no declared direction (e.g. total_records)
+            deltas: list[float] = []
+            for ra, rb in zip(runs_a, runs_b):
+                va = ra.get(section, {}).get(key)
+                vb = rb.get(section, {}).get(key)
+                if not isinstance(va, (int, float)) or not isinstance(vb, (int, float)) or va <= 0:
+                    continue
+                delta = relative_delta_pct(key, vb, va)
+                if delta is not None:
+                    deltas.append(delta)
+            if not deltas:
+                continue
+            delta = statistics.median(deltas)
+            a_med = median_a.get(section, {}).get(key, float("nan"))
+            b_med = median_b.get(section, {}).get(key, float("nan"))
+            ref = (
+                f"{section}.{key}: B {b_med:.6g} vs A {a_med:.6g} "
+                f"(median delta {delta:+.1f}%, n={len(deltas)})"
+            )
+            report.append(ref)
+            if delta <= 0:
+                continue
+            if f"{section}.{key}" in AB_WARN_ONLY_KEYS:
+                if delta > AB_WARN_PCT:
+                    warnings.append(f"{ref} — fsync-jitter metric, warn-only > {AB_WARN_PCT}%")
+            elif delta > AB_BLOCK_PCT:
+                blocking.append(f"{ref} > {AB_BLOCK_PCT}% same-job A/B ceiling")
+            elif delta > AB_WARN_PCT:
+                warnings.append(f"{ref} — A/B warn band > {AB_WARN_PCT}%")
+    return blocking, warnings, report
+
+
 def _self_test() -> int:
-    """Prove the bands with the canonical cases (FIND-154 + FIND-232 contract)."""
+    """Prove the bands with the canonical cases (FIND-154 + FIND-232 + FIND-233 contract)."""
     baseline = {
         "benchmarks": {
             "insert": {
@@ -242,6 +337,33 @@ def _self_test() -> int:
     blocking9, _ = compare_report(report(), legacy_baseline)
     case9_ok = len(blocking9) == 1 and "missing insert.total_records" in blocking9[0]
 
+    # ── FIND-233: same-job A/B cases (--ab-runs mode, paired ratios) ──
+    a_runs = [report() for _ in range(3)]
+
+    # Case 10 — identical code on both sides must NOT block nor warn.
+    blocking10, warnings10, report10 = compare_ab(a_runs, [report() for _ in range(3)])
+    case10_ok = not blocking10 and not warnings10 and len(report10) >= 3
+
+    # Case 11 — a sustained +30% on B warns (below the 50% block ceiling).
+    blocking11, warnings11, _ = compare_ab(a_runs, [report(duration=48682.0 * 1.30) for _ in range(3)])
+    case11_ok = not blocking11 and len(warnings11) == 1
+
+    # Case 12 — a sustained +80% on B MUST block.
+    blocking12, _, _ = compare_ab(a_runs, [report(duration=48682.0 * 1.80) for _ in range(3)])
+    case12_ok = len(blocking12) == 1
+
+    # Case 13 — B faster (−40%) must NOT block nor warn.
+    blocking13, warnings13, _ = compare_ab(a_runs, [report(duration=48682.0 * 0.60) for _ in range(3)])
+    case13_ok = not blocking13 and not warnings13
+
+    # Case 14 — insert.p99 +300% warns only (fsync jitter never blocks in A/B).
+    blocking14, warnings14, _ = compare_ab(a_runs, [report(insert_p99=7.14 * 4) for _ in range(3)])
+    case14_ok = not blocking14 and len(warnings14) == 1
+
+    # Case 15 — A/B profile mismatch MUST block (fail-closed).
+    blocking15, _, _ = compare_ab(a_runs, [report(records=1000) for _ in range(3)])
+    case15_ok = len(blocking15) == 1 and "profile mismatch" in blocking15[0]
+
     cases = [
         ("noise same profile (hybrid +108.5%, text +19%)",
          case1_ok, f"blocking={len(blocking1)}, warnings={len(warnings1)}"),
@@ -261,12 +383,24 @@ def _self_test() -> int:
          case8_ok, f"blocking={len(blocking8)}"),
         ("baseline without total_records (fail-closed)",
          case9_ok, f"blocking={len(blocking9)}"),
+        ("A/B identical code (paired) — no block, no warn",
+         case10_ok, f"blocking={len(blocking10)}, warnings={len(warnings10)}"),
+        ("A/B sustained +30% on B — warn only",
+         case11_ok, f"blocking={len(blocking11)}, warnings={len(warnings11)}"),
+        ("A/B sustained +80% on B — block",
+         case12_ok, f"blocking={len(blocking12)}"),
+        ("A/B B faster -40% (clean)",
+         case13_ok, f"blocking={len(blocking13)}, warnings={len(warnings13)}"),
+        ("A/B insert.p99 +300% — warn-only (fsync jitter)",
+         case14_ok, f"blocking={len(blocking14)}, warnings={len(warnings14)}"),
+        ("A/B profile mismatch (B 1000 vs A 10000 records)",
+         case15_ok, f"blocking={len(blocking15)}"),
     ]
     for name, ok, detail in cases:
         print(f"[self-test] {name}: {'PASS' if ok else 'FAIL'} — {detail}")
     passed = sum(1 for _, ok, _ in cases if ok)
-    print(f"[self-test] {passed}/9 cases as expected")
-    return 0 if passed == 9 else 1
+    print(f"[self-test] {passed}/15 cases as expected")
+    return 0 if passed == 15 else 1
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -280,6 +414,12 @@ def main(argv: list[str] | None = None) -> int:
                         help="where the median-of-runs report is written")
     parser.add_argument("--update-baseline", action="store_true",
                         help="write the median as the new baseline instead of comparing")
+    parser.add_argument("--ab-runs", nargs="+", type=int, default=None,
+                        help="A-side run indexes read as ab_results.<i>.json; enables the "
+                             "same-job A/B comparison (B side = --runs). The stored baseline "
+                             "is not consulted and --update-baseline is ignored.")
+    parser.add_argument("--ab-median-out", default="ab_results.json",
+                        help="where the A-side median report is written in --ab-runs mode")
     parser.add_argument("--self-test", action="store_true")
     args = parser.parse_args(argv)
 
@@ -294,6 +434,30 @@ def main(argv: list[str] | None = None) -> int:
     median = median_report(runs)
     with open(args.median_out, "w") as f:
         json.dump(median, f, indent=4)
+
+    # FIND-233: same-job A/B mode — B side is --runs, A side is --ab-runs.
+    # The stored baseline is not consulted here (the push gate does that).
+    if args.ab_runs:
+        runs_a = []
+        for i in args.ab_runs:
+            with open(f"ab_results.{i}.json") as f:
+                runs_a.append(json.load(f))
+        median_a = median_report(runs_a)
+        with open(args.ab_median_out, "w") as f:
+            json.dump(median_a, f, indent=4)
+        blocking, warnings, report = compare_ab(runs_a, runs)
+        for line in report:
+            print(f"[ab] {line}")
+        for w in warnings:
+            print(f"::warning::A/B same-job: {w}")
+        if blocking:
+            for b in blocking:
+                print(f"::error::A/B same-job: {b}")
+            return 1
+        print(f"::notice::A/B same-job: no blocking regression across {len(report)} metrics "
+              f"(median of {len(runs_a)} paired runs; bands: warn >{AB_WARN_PCT}% / "
+              f"block >{AB_BLOCK_PCT}%).")
+        return 0
 
     with open(args.baseline) as f:
         baseline = json.load(f)
