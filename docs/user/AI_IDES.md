@@ -51,7 +51,7 @@ claude mcp add vantadb -- vanta-cli server --mcp --db C:/Users/<you>/.vantadb
 
 Use an **absolute path**: MCP clients spawn the server without a shell, so `~` arrives literally and the open fails. Cursor, VS Code, OpenCode and the rest: [EDITOR_INTEGRATIONS.md](operations/EDITOR_INTEGRATIONS.md).
 
-The default `agent` profile lists 37 tools (memory CRUD, search, recall, threads, scenes, wiki read); `VANTADB_MCP_PROFILE=full` lists all 79 for unrestricted clients ([MCP.md § Profiles](../api/MCP.md)).
+The default `agent` profile lists 38 tools (memory CRUD, search, recall, threads, scenes, wiki read); `VANTADB_MCP_PROFILE=full` lists all 80 for unrestricted clients ([MCP.md § Profiles](../api/MCP.md)).
 
 ### 3. Optional — automatic recall (hooks)
 

@@ -195,11 +195,11 @@ so LLM agents can branch on a stable identifier without parsing message text:
 
 ## Tool Families
 
-**79 listed tools in 8 families (85 defined − 6 WIRE-02 absorbed `code_*` projections; spec 2025-06-18, every tool carries `annotations` with `title`, `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint` per [MCP Tool Annotations](https://modelcontextprotocol.io/specification/2025-06-18/server/tools) / [blog 2026-03-16](https://blog.modelcontextprotocol.io/posts/2026-03-16-tool-annotations)):**
+**80 listed tools in 8 families (86 defined − 6 WIRE-02 absorbed `code_*` projections; spec 2025-06-18, every tool carries `annotations` with `title`, `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint` per [MCP Tool Annotations](https://modelcontextprotocol.io/specification/2025-06-18/server/tools) / [blog 2026-03-16](https://blog.modelcontextprotocol.io/posts/2026-03-16-tool-annotations)):**
 
 | Family | Count | Source module |
 |--------|-------|---------------|
-| Core | 47 | `handlers/tools.rs` — listed in `tools/list` |
+| Core | 48 | `handlers/tools.rs` — listed in `tools/list` |
 | `code_*` | 2 listed (8 defined) | `code.rs` — 6 projections absorbed dispatch-only (WIRE-02) |
 | `skill_*` | 7 | `skills.rs` |
 | `wiki_*` | 6 | `wiki.rs` |
@@ -234,10 +234,10 @@ The VantaDB MCP server exposes a **tool surface profile** via the `VANTADB_MCP_P
 
 | Profile | Tool Count | Description | Recommended For |
 |---------|------------|-------------|-----------------|
-| `agent` (**default**) | 37 | Memory CRUD + search + recall + IQL + collections + threads + scenes + context engine + wiki read. | Agent clients out of the box (the old default `full` cost ≈ 23K tokens of tool schemas per session). |
-| `full` | 79 | All listed tools: memory, graph, collections, maintenance, snapshots, backup, introspection, code intelligence (2 listed primitives), wiki, skills, threads, scenes, dreams, context engine. | Claude Desktop, Claude Code, OpenCode, unrestricted clients (pre-0.8 default; opt-in) |
-| `dev` | 36 | Memory CRUD + search + IQL + graph traversal + collections + key maintenance (snapshots, export/import, flush, compact) + axioms. Excludes: code intelligence, wiki, skills, threads, scenes, context engine, bulk import, index audit/repair, vacuum, rebuild_index. | **Cursor** (cap ~40), VS Code extensions, clients with moderate tool caps |
-| `memory` | 20 | Core memory CRUD (put/get/delete/list/versions/supersede) + search (semantic/memory/with_method/multi) + IQL + collections + capabilities + generate_snippet. | Memory-only agents, minimal clients, testing |
+| `agent` (**default**) | 38 | Memory CRUD + search + recall + IQL + collections + threads + scenes + context engine + wiki read. | Agent clients out of the box (the old default `full` cost ≈ 23K tokens of tool schemas per session). |
+| `full` | 80 | All listed tools: memory, graph, collections, maintenance, snapshots, backup, introspection, code intelligence (2 listed primitives), wiki, skills, threads, scenes, dreams, context engine. | Claude Desktop, Claude Code, OpenCode, unrestricted clients (pre-0.8 default; opt-in) |
+| `dev` | 37 | Memory CRUD + search + IQL + graph traversal + collections + key maintenance (snapshots, export/import, flush, compact) + axioms. Excludes: code intelligence, wiki, skills, threads, scenes, context engine, bulk import, index audit/repair, vacuum, rebuild_index. | **Cursor** (cap ~40), VS Code extensions, clients with moderate tool caps |
+| `memory` | 21 | Core memory CRUD (put/get/delete/list/versions/supersede) + certificate verify + search (semantic/memory/with_method/multi) + IQL + collections + capabilities + generate_snippet. | Memory-only agents, minimal clients, testing |
 
 **Usage:**
 
@@ -245,7 +245,7 @@ The VantaDB MCP server exposes a **tool surface profile** via the `VANTADB_MCP_P
 # Agent profile (default): memory + threads + scenes + context + wiki read
 vanta-cli server --mcp --db ~/.vantadb
 
-# Full profile (all 79 listed tools — the pre-0.8 default; opt-in)
+# Full profile (all 80 listed tools — the pre-0.8 default; opt-in)
 VANTADB_MCP_PROFILE=full vanta-cli server --mcp --db ~/.vantadb
 
 # Dev profile (recommended for Cursor)
@@ -273,18 +273,19 @@ VANTADB_MCP_PROFILE=memory vanta-cli server --mcp --db ~/.vantadb
 - The profile is read once at server startup from `VANTADB_MCP_PROFILE` (unknown values fall back to the default).
 - `tools/list` returns only the tools allowed by the selected profile.
 - `tools/call` for a known tool outside the profile returns `method_not_found` (-32601) with the clear error: `Tool not found: <name> (not in profile <profile>)` (WIRE-02: enforced in code; unknown names keep the plain `Tool not found: <name>` fall-through). Absorbed dispatch-only names (§Legacy & absorbed) stay callable while their canonical tool is listed in the active profile.
-- **Migration (WIRE-02):** the default changed from `full` to `agent`. Set `VANTADB_MCP_PROFILE=full` to keep the pre-0.8 79-tool listed surface; the legacy `search_memory`/`collection_list` aliases keep working.
+- **Migration (WIRE-02):** the default changed from `full` to `agent`. Set `VANTADB_MCP_PROFILE=full` to keep the pre-0.8 80-tool listed surface; the legacy `search_memory`/`collection_list` aliases keep working.
 
-## Core Tools (47)
+## Core Tools (48)
 
-### Memory CRUD (9)
+### Memory CRUD (10)
 
 | Tool | Description |
 |------|-------------|
 | `memory_put` | Inserts or updates a memory record in a namespace with payload, vector, optional sparse vector, metadata, and TTL. |
 | `memory_put_batch` | Stores multiple records in a single all-or-nothing batch; duplicate keys are upserts, vector dimensions must match the live index. |
 | `memory_get` | Retrieves a memory record by namespace and key. |
-| `memory_delete` | Deletes a memory record by namespace and key. |
+| `memory_delete` | Deletes a memory record by namespace and key. With `attest:true`, also emits the VER-02 purge certificate (per-surface residue inventory, integrity hash, VER-01 WAL chain reference) under `certificate` — verify it with `memory_verify_certificate`. |
+| `memory_verify_certificate` | DIST-16 (VER-02): verifies a stored purge certificate against the live database — counterpart of `memory_delete {attest:true}`. Checks schema + integrity hash, then re-scans the re-checkable surfaces (store, shred, vector index, version history, derived index). Accepts the certificate as a JSON object/string or the `{deleted, certificate}` envelope returned by the attested delete. Valid → `structuredContent {valid:true, verification}` (typed); edited/corrupted certificate or residues reappeared → typed `isError` envelope (ERR-MCP-01). Read-only; idempotent. The certificate is not bound to a database instance — verification matches by namespace/key/node_id against whichever database is open; the VER-01 WAL chain stays `vanta-cli verify` (cited, not duplicated). |
 | `memory_delete_by_filter` | Batch-deletes every record in a namespace whose metadata matches the given filters (AND semantics). |
 | `memory_list` | Lists memory records in a namespace with optional pagination and metadata filters. SCH-07 query params: `as_of_ms` / `valid_window` (valid time), `include_quarantined`, `min_confidence`. Response is bounded by `byte_budget` (default 40 KB); see [Output budgeting](#output-budgeting-byte_budget-mcp-39) for the truncation semantics. |
 | `memory_list_namespaces` | Lists all available namespaces in the database (API-04 canonical name). The legacy `collection_list` alias stays dispatchable but is not listed — it returns rich collection metadata (record_count/has_vector_index/created_at) while this tool returns the bare namespace list. |
@@ -649,7 +650,7 @@ Records written with `memory_put`'s `quarantine: true` flag (T1) enter the
 
 ## Parity
 
-Tool coverage on this page is enforced mechanically by `scripts/validate-docs-coverage.ps1` against `handle_tools_list()` in `vantadb-mcp/src/handlers/tools.rs`. Last sync: **2026-09-29** (SCH-07/F3.5: v2 query params — `as_of_ms`, `valid_window`, `include_quarantined`, `min_confidence` — on `memory_search`/`search_with_method`/`search_multi`/`memory_list`, plus the selective-abstention section; tool count unchanged at 79 listed). Prior — 2026-09-27 (WIRE-02: 85→79 listed — 6 redundant `code_*` projections absorbed dispatch-only; default profile `full`→`agent`; `tools/call` profile enforcement live. Prior — 2026-09-25, API-04: 87→85 — canonicalized `search_memory`/`collection_list` out of the listing; prompts renamed `recall_search`; `thread_id` is now a u128 decimal string).
+Tool coverage on this page is enforced mechanically by `scripts/validate-docs-coverage.ps1` against `handle_tools_list()` in `vantadb-mcp/src/handlers/tools.rs`. Last sync: **2026-10-04** (DIST-16: `memory_verify_certificate` — VER-02 certificate verify via the SDK `verify_purge_certificate` (CLI parity), 79→80 listed / 85→86 defined; Core 47→48, Memory CRUD 9→10; profiles agent 37→38 · full 79→80 · dev 36→37 · memory 20→21; WAL chain VER-01 cited, not duplicated → FIND-266). Prior — 2026-09-29 (SCH-07/F3.5: v2 query params — `as_of_ms`, `valid_window`, `include_quarantined`, `min_confidence` — on `memory_search`/`search_with_method`/`search_multi`/`memory_list`, plus the selective-abstention section; tool count unchanged at 79 listed). Prior — 2026-09-27 (WIRE-02: 85→79 listed — 6 redundant `code_*` projections absorbed dispatch-only; default profile `full`→`agent`; `tools/call` profile enforcement live. Prior — 2026-09-25, API-04: 87→85 — canonicalized `search_memory`/`collection_list` out of the listing; prompts renamed `recall_search`; `thread_id` is now a u128 decimal string).
 
 ## Registry manifest
 

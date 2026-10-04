@@ -688,6 +688,191 @@ fn test_memory_delete_attest_emits_purge_certificate() {
     assert_eq!(cert["chain"]["format_version"], json!(3));
 }
 
+/// DIST-16: `memory_verify_certificate` closes the VER-02 loop opened by
+/// `memory_delete {attest:true}` — verifies the certificate against the live
+/// database with a typed result. Parity contract: the tool must reproduce
+/// byte-for-byte the SDK verdict (`Embedded::verify_purge_certificate`, the
+/// same function the CLI `certificate verify` calls, crud.rs:572) for the same
+/// certificate, and accept the `{deleted, certificate}` envelope exactly like
+/// the CLI does (crud.rs:561-570).
+#[test]
+fn test_mcp_memory_verify_certificate_valid_typed_and_parity() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    // Arrange: put + attested delete → VER-02 certificate (emit path).
+    let put = Some(json!({
+        "name": "memory_put",
+        "arguments": { "namespace": "vcert_ns", "key": "vcert_key", "payload": "verify me" }
+    }));
+    let put_res = handle_tools_call(&put, &executor, &storage, &default_config()).unwrap();
+    assert!(put_res["isError"].is_null(), "put failed: {put_res}");
+
+    let del = Some(json!({
+        "name": "memory_delete",
+        "arguments": { "namespace": "vcert_ns", "key": "vcert_key", "attest": true }
+    }));
+    let del_res = handle_tools_call(&del, &executor, &storage, &default_config()).unwrap();
+    assert!(
+        del_res["isError"].is_null(),
+        "attested delete failed: {del_res}"
+    );
+    let del_payload: Value =
+        serde_json::from_str(del_res["content"][0]["text"].as_str().unwrap()).unwrap();
+    let cert = del_payload["certificate"].clone();
+
+    // SDK reference verdict — the same core function the CLI verifies with.
+    let sdk = vantadb::Embedded::from_engine(storage.clone());
+    let expected = sdk
+        .verify_purge_certificate(&cert.to_string())
+        .expect("SDK verifies the fresh certificate");
+
+    // Act 1: certificate as a JSON object → typed structuredContent.
+    let verify = Some(json!({
+        "name": "memory_verify_certificate",
+        "arguments": { "certificate": cert.clone() }
+    }));
+    let res =
+        handle_tools_call(&verify, &executor, &storage, &default_config()).expect("tool call");
+    assert!(
+        res["isError"].is_null(),
+        "valid certificate must not error: {res}"
+    );
+    let sc = &res["structuredContent"];
+    assert_eq!(sc["valid"], json!(true), "typed valid flag: {sc}");
+    assert_eq!(
+        sc["verification"],
+        serde_json::to_value(&expected).unwrap(),
+        "MCP verdict must equal the SDK/CLI verdict for the same certificate"
+    );
+
+    // Act 2: the `{deleted, certificate}` envelope round-trips (CLI parity).
+    let envelope_verify = Some(json!({
+        "name": "memory_verify_certificate",
+        "arguments": { "certificate": del_payload.clone() }
+    }));
+    let env_res = handle_tools_call(&envelope_verify, &executor, &storage, &default_config())
+        .expect("tool call");
+    assert!(
+        env_res["isError"].is_null(),
+        "envelope must verify: {env_res}"
+    );
+    assert_eq!(
+        env_res["structuredContent"]["verification"],
+        sc["verification"]
+    );
+
+    // Act 3: certificate as a JSON string.
+    let string_verify = Some(json!({
+        "name": "memory_verify_certificate",
+        "arguments": { "certificate": cert.to_string() }
+    }));
+    let str_res = handle_tools_call(&string_verify, &executor, &storage, &default_config())
+        .expect("tool call");
+    assert!(
+        str_res["isError"].is_null(),
+        "string certificate must verify: {str_res}"
+    );
+    assert_eq!(
+        str_res["structuredContent"]["verification"],
+        sc["verification"]
+    );
+
+    // Act 4: the attested-delete response text (the envelope serialized as a
+    // string) round-trips like the CLI reading the same content from a file
+    // (crud.rs:563-570) — the string branch unwraps it too.
+    let envelope_str_verify = Some(json!({
+        "name": "memory_verify_certificate",
+        "arguments": { "certificate": del_res["content"][0]["text"].clone() }
+    }));
+    let env_str_res =
+        handle_tools_call(&envelope_str_verify, &executor, &storage, &default_config())
+            .expect("tool call");
+    assert!(
+        env_str_res["isError"].is_null(),
+        "string envelope must verify (CLI parity): {env_str_res}"
+    );
+    assert_eq!(
+        env_str_res["structuredContent"]["verification"],
+        sc["verification"]
+    );
+}
+
+/// DIST-16: invalid certificates fail with the typed ERR-MCP-01 envelope —
+/// never a free-form string. Tampered → VANTADB_VALIDATION_ERROR (-32009);
+/// malformed JSON → the core's Serialization code (VANTADB_CORRUPT, error.rs
+/// :386-389); missing argument → JSON-RPC invalid_params (-32602).
+#[test]
+fn test_mcp_memory_verify_certificate_rejects_tampered_and_garbage() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    let put = Some(json!({
+        "name": "memory_put",
+        "arguments": { "namespace": "vcert_ns2", "key": "k2", "payload": "tamper target" }
+    }));
+    handle_tools_call(&put, &executor, &storage, &default_config()).unwrap();
+    let del = Some(json!({
+        "name": "memory_delete",
+        "arguments": { "namespace": "vcert_ns2", "key": "k2", "attest": true }
+    }));
+    let del_res = handle_tools_call(&del, &executor, &storage, &default_config()).unwrap();
+    let del_payload: Value =
+        serde_json::from_str(del_res["content"][0]["text"].as_str().unwrap()).unwrap();
+    let mut cert = del_payload["certificate"].clone();
+
+    // Tamper: edit a field without recomputing the integrity hash.
+    cert["namespace"] = json!("other_ns");
+    let verify = Some(json!({
+        "name": "memory_verify_certificate",
+        "arguments": { "certificate": cert }
+    }));
+    let res =
+        handle_tools_call(&verify, &executor, &storage, &default_config()).expect("tool call");
+    assert_eq!(
+        res["isError"],
+        json!(true),
+        "tampered certificate must be isError: {res}"
+    );
+    let err: Value = serde_json::from_str(res["content"][0]["text"].as_str().unwrap())
+        .expect("error content is the typed JSON envelope");
+    assert_eq!(
+        err["data"]["code"],
+        json!("VANTADB_VALIDATION_ERROR"),
+        "typed envelope code: {err}"
+    );
+    assert_eq!(err["code"], json!(-32009), "JSON-RPC code mapping: {err}");
+
+    // Garbage: not even JSON → typed core error, not a string.
+    let garbage = Some(json!({
+        "name": "memory_verify_certificate",
+        "arguments": { "certificate": "{not json" }
+    }));
+    let gres =
+        handle_tools_call(&garbage, &executor, &storage, &default_config()).expect("tool call");
+    assert_eq!(
+        gres["isError"],
+        json!(true),
+        "garbage must be isError: {gres}"
+    );
+    let gerr: Value =
+        serde_json::from_str(gres["content"][0]["text"].as_str().unwrap()).expect("typed envelope");
+    assert_eq!(
+        gerr["data"]["code"],
+        json!("VANTADB_CORRUPT"),
+        "malformed JSON maps through the core's Serialization code: {gerr}"
+    );
+
+    // Missing argument → JSON-RPC invalid_params, before any engine work.
+    let missing = Some(json!({
+        "name": "memory_verify_certificate",
+        "arguments": {}
+    }));
+    let merr = handle_tools_call(&missing, &executor, &storage, &default_config())
+        .expect_err("missing certificate is invalid params");
+    assert_eq!(merr["code"], json!(-32602), "missing arg: {merr}");
+}
+
 #[test]
 fn test_mcp_tool_query_iql() {
     let (_dir, storage) = setup_storage();
@@ -4645,7 +4830,7 @@ fn test_mcp_structured_output_and_output_schema() {
 
 /// MCP-38: Tool annotations coverage — every listed tool must expose the 4
 /// hints per spec 2025-06-18 (blog.modelcontextprotocol.io 2026-03-16).
-/// Verifies: 79 listed tools (85 defined − 6 WIRE-02 absorbed code_*
+/// Verifies: 80 listed tools (86 defined − 6 WIRE-02 absorbed code_*
 /// projections), each has title + 4 bools, destructiveHint true only on
 /// mutating tools that overwrite or delete, openWorldHint only on fs paths.
 /// MEM-59 added `memory_recall` and `memory_search` (both read-only/idempotent);
@@ -4659,8 +4844,8 @@ fn test_mcp_tool_annotations_coverage() {
     let tools = res["tools"].as_array().expect("tools array");
     assert_eq!(
         tools.len(),
-        79,
-        "expected 79 listed tools (85 defined − 6 WIRE-02 absorbed), got {}",
+        80,
+        "expected 80 listed tools (86 defined − 6 WIRE-02 absorbed), got {}",
         tools.len()
     );
 
@@ -4760,9 +4945,8 @@ fn test_mcp_tool_annotations_coverage() {
 fn test_mcp_tool_profiles() {
     use vantadb_mcp::{handle_tools_list, McpConfig, McpProfile};
 
-    // Full profile — 79 listed tools (47 base + 38 extend − 6 WIRE-02 absorbed
-    // code_* projections; 44 base + 38 extend + 2 MEM-59 + embed_texts = 85
-    // defined; API-04 canonicalization removed 2 duplicate listings).
+    // Full profile — 80 listed tools (48 base + 38 extend − 6 WIRE-02 absorbed
+    // code_* projections; 86 defined total).
     let full_config = McpConfig {
         profile: McpProfile::Full,
         ..McpConfig::default()
@@ -4771,12 +4955,12 @@ fn test_mcp_tool_profiles() {
     let full_tools = full_res["tools"].as_array().unwrap();
     assert_eq!(
         full_tools.len(),
-        79,
-        "Full profile should list 79 tools (85 defined − 6 WIRE-02 absorbed), got {}",
+        80,
+        "Full profile should list 80 tools (86 defined − 6 WIRE-02 absorbed), got {}",
         full_tools.len()
     );
 
-    // WIRE-02: `agent` is the default profile — 37 tools (20 memory + 6
+    // WIRE-02: `agent` is the default profile — 38 tools (21 memory + 6
     // threads + 5 scenes + 1 context + 5 wiki-read) ≤ 45 budget.
     let agent_config = McpConfig {
         profile: McpProfile::Agent,
@@ -4786,13 +4970,13 @@ fn test_mcp_tool_profiles() {
     let agent_tools = agent_res["tools"].as_array().unwrap();
     assert_eq!(
         agent_tools.len(),
-        37,
-        "Agent profile should have 37 tools (20 memory + 6 thread + 5 scene + 1 context + 5 wiki-read), got {}",
+        38,
+        "Agent profile should have 38 tools (21 memory + 6 thread + 5 scene + 1 context + 5 wiki-read), got {}",
         agent_tools.len()
     );
 
-    // Dev profile — exact count after API-04 canonicalization: memory set (20)
-    // + dev-only tools (16) = 36. The original 35 cap was a Cursor budget
+    // Dev profile — exact count after API-04 canonicalization: memory set (21)
+    // + dev-only tools (16) = 37. The original 35 cap was a Cursor budget
     // heuristic, not a contract.
     let dev_config = McpConfig {
         profile: McpProfile::Dev,
@@ -4802,13 +4986,14 @@ fn test_mcp_tool_profiles() {
     let dev_tools = dev_res["tools"].as_array().unwrap();
     assert_eq!(
         dev_tools.len(),
-        36,
-        "Dev profile should have 36 tools (20 memory + 16 dev-only), got {}",
+        37,
+        "Dev profile should have 37 tools (21 memory + 16 dev-only), got {}",
         dev_tools.len()
     );
 
-    // Memory profile — exact count: 20 tools (core memory CRUD + search +
-    // list + recall + embed_texts; API-04 removed 2 duplicate listings).
+    // Memory profile — exact count: 21 tools (core memory CRUD + search +
+    // list + recall + embed_texts + verify_certificate; API-04 removed 2
+    // duplicate listings).
     let memory_config = McpConfig {
         profile: McpProfile::Memory,
         ..McpConfig::default()
@@ -4817,8 +5002,8 @@ fn test_mcp_tool_profiles() {
     let memory_tools = memory_res["tools"].as_array().unwrap();
     assert_eq!(
         memory_tools.len(),
-        20,
-        "Memory profile should have 20 tools, got {}",
+        21,
+        "Memory profile should have 21 tools, got {}",
         memory_tools.len()
     );
 
@@ -4847,10 +5032,12 @@ fn test_mcp_tool_profiles() {
         "memory_list",
         "memory_search",
         "search_semantic",
+        "memory_verify_certificate",
     ] {
         assert!(full_names.contains(tool), "Full profile missing {tool}");
         assert!(dev_names.contains(tool), "Dev profile missing {tool}");
         assert!(memory_names.contains(tool), "Memory profile missing {tool}");
+        assert!(agent_names.contains(tool), "Agent profile missing {tool}");
     }
     // API-04 aliases + WIRE-02 absorbed code_* projections are never listed,
     // in any profile (dispatch-only redirects through their canonical tool).
@@ -5047,7 +5234,7 @@ fn test_mcp_agent_default_surface() {
         "agent smoke: tools/list must stay ≤45, got {}",
         tools.len()
     );
-    assert_eq!(tools.len(), 37, "agent surface drift: {}", tools.len());
+    assert_eq!(tools.len(), 38, "agent surface drift: {}", tools.len());
 
     let names: std::collections::HashSet<&str> =
         tools.iter().filter_map(|t| t["name"].as_str()).collect();
@@ -5471,8 +5658,8 @@ fn emb18_empty_base_defines_dim_no_gate() {
 /// API-04 + WIRE-02: `tools/list` exposes exactly one name per tool — the
 /// canonical `memory_search` / `memory_list_namespaces` — with zero duplicate
 /// names and zero listings of the legacy aliases or the absorbed projections.
-/// Total: 79 listed (85 defined − 6 `code_*` absorbed, WIRE-02; prior API-04:
-/// 49 base − 2 canonicalized + 38 extended = 85).
+/// Total: 80 listed (86 defined − 6 `code_*` absorbed, WIRE-02; 48 base +
+/// 38 extended = 86 since DIST-16).
 #[test]
 fn test_api04_tools_list_canonical_names_no_duplicates() {
     let res = handle_tools_list(&default_config()).unwrap();
@@ -5509,8 +5696,8 @@ fn test_api04_tools_list_canonical_names_no_duplicates() {
     );
     assert_eq!(
         names.len(),
-        79,
-        "expected 79 listed tools after WIRE-02 absorption, got {}",
+        80,
+        "expected 80 listed tools after WIRE-02 absorption, got {}",
         names.len()
     );
 }
