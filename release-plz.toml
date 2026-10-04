@@ -35,6 +35,18 @@ name = "vantadb-wasm"
 # inherited automatically via version.workspace = true in the workspace.
 release = false
 
+[[package]]
+name = "vanta-memory"
+# DIST-01 (2026-10-04): publicable en Cargo.toml (dry-run verde), pero EN HOLD
+# hasta completar el bootstrap de la primera publicación: crates.io Trusted
+# Publishing solo se configura después de que el crate existe (la primera
+# publicación requiere API token — https://crates.io/docs/trusted-publishing).
+# Unblock (owner, ventana #238): (1) primera publicación con token temporal;
+# (2) configurar Trusted Publishing (repo ness-e/Vantadb, workflow release.yml);
+# (3) borrar esta entrada → release-plz gestiona vanta-memory como vantadb.
+# Ver docs/dev/tasks/DIST-01.md §Decisión release-plz.
+release = false
+
 # NOTE: the desktop Tauri app (desktop/src-tauri, isolated workspace, versions
 # in desktop/package.json + tauri.conf.json + src-tauri/Cargo.toml) is
 # intentionally NOT listed here: [[package]] overrides must reference root
