@@ -7,10 +7,10 @@ use vantadb::storage::StorageEngine;
 /// which names `tools/call` may dispatch (WIRE-02 enforces both symmetrically).
 ///
 /// Profiles are selected via the `VANTADB_MCP_PROFILE` environment variable:
-/// - `agent` (37 tools, default): Memory CRUD + search + IQL + threads + scenes + context engine + wiki read.
-/// - `full` (79 listed tools): everything listed, including code intelligence, skills, wiki write, dreams. Opt-in for compat.
-/// - `dev` (~36 tools): Memory + graph + collections + maintenance + introspection. Recommended for Cursor (cap ~40).
-/// - `memory` (20 tools): Core memory CRUD + search + list only. For memory-only agents.
+/// - `agent` (38 tools, default): Memory CRUD + search + IQL + threads + scenes + context engine + wiki read.
+/// - `full` (80 listed tools): everything listed, including code intelligence, skills, wiki write, dreams. Opt-in for compat.
+/// - `dev` (~37 tools): Memory + graph + collections + maintenance + introspection. Recommended for Cursor (cap ~40).
+/// - `memory` (21 tools): Core memory CRUD + search + list only. For memory-only agents.
 ///
 /// WIRE-02: absorbed dispatch-only names (the 2 API-04 aliases plus 6 `code_*`
 /// projections) remain callable when their canonical listed tool is allowed in
@@ -19,18 +19,18 @@ use vantadb::storage::StorageEngine;
 /// tool-schema tokens per session (default `full` ≈ 23K tokens, report §3.6).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum McpProfile {
-    /// Agent profile (37 tools) — memory + threads + scenes + context + wiki-read.
+    /// Agent profile (38 tools) — memory + threads + scenes + context + wiki-read.
     /// Default since WIRE-02 (previously `full`); opt back into the whole
     /// surface with `VANTADB_MCP_PROFILE=full`.
     #[default]
     Agent,
-    /// Full profile (79 listed tools) — all listed base + extended families.
+    /// Full profile (80 listed tools) — all listed base + extended families.
     /// The 6 absorbed `code_*` projections stay dispatch-only (WIRE-02).
     Full,
-    /// Developer profile (~36 tools) — memory, graph, collections, key maintenance, axioms.
+    /// Developer profile (~37 tools) — memory, graph, collections, key maintenance, axioms.
     /// Recommended for Cursor (cap ~40 tools).
     Dev,
-    /// Memory-only profile (~20 tools) — core memory CRUD + search + IQL + collections + capabilities.
+    /// Memory-only profile (~21 tools) — core memory CRUD + search + IQL + collections + capabilities.
     Memory,
 }
 
