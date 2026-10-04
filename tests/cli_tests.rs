@@ -1924,4 +1924,76 @@ mod api07_cli_binary {
             "legacy --input must reach the handler, got: {stderr}"
         );
     }
+
+    // ─── FIND-237: `migrate check` — global --db fallback vs positional ─────
+
+    #[test]
+    fn migrate_check_accepts_global_db_after_subcommand() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let db = dir.path().to_string_lossy().to_string();
+        // Seed through the binary so the check has a real database to open.
+        let put = cli()
+            .args([
+                "--db",
+                &db,
+                "put",
+                "--namespace",
+                "ns",
+                "--key",
+                "k1",
+                "--payload",
+                "x",
+                "--json",
+            ])
+            .output()
+            .expect("spawn vanta-cli put");
+        assert!(put.status.success(), "seed put must succeed");
+
+        // FIND-237 repro: the flag AFTER the subcommand must work via the
+        // global --db fallback (previously clap demanded the positional TARGET).
+        let out = cli()
+            .args(["migrate", "check", "--db", &db])
+            .output()
+            .expect("spawn vanta-cli migrate check --db");
+        assert!(
+            out.status.success(),
+            "`migrate check --db` must exit 0 via the global fallback; stderr: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+    }
+
+    #[test]
+    fn migrate_check_positional_target_still_works_and_wins() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let db = dir.path().to_string_lossy().to_string();
+        let missing = dir.path().join("missing-db").to_string_lossy().to_string();
+        let put = cli()
+            .args([
+                "--db",
+                &db,
+                "put",
+                "--namespace",
+                "ns",
+                "--key",
+                "k1",
+                "--payload",
+                "x",
+                "--json",
+            ])
+            .output()
+            .expect("spawn vanta-cli put");
+        assert!(put.status.success(), "seed put must succeed");
+
+        // The positional TARGET must win over --db: pointing --db at a missing
+        // path is irrelevant while the positional is present.
+        let out = cli()
+            .args(["migrate", "check", &db, "--db", &missing])
+            .output()
+            .expect("spawn vanta-cli migrate check <TARGET>");
+        assert!(
+            out.status.success(),
+            "positional TARGET must win over --db; stderr: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+    }
 }

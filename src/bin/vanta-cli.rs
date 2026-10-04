@@ -201,25 +201,25 @@ fn run() -> anyhow::Result<()> {
             }
         },
 
+        // FIND-237: positional TARGET wins; the global `--db` is the fallback
+        // when the positional is omitted (e.g. `migrate check --db <db>`).
         Commands::Migrate(cmd) => match cmd {
             vantadb::cli::MigrateCommand::Plan { target } => {
-                cli_handlers::cmd_migrate_plan(&target, args.verbose, args.json)?
+                let target = target.as_deref().unwrap_or(&args.db);
+                cli_handlers::cmd_migrate_plan(target, args.verbose, args.json)?
             }
             vantadb::cli::MigrateCommand::Run {
                 target,
                 format,
                 dry_run,
                 force,
-            } => cli_handlers::cmd_migrate(
-                &target,
-                &format,
-                dry_run,
-                force,
-                args.verbose,
-                args.json,
-            )?,
+            } => {
+                let target = target.as_deref().unwrap_or(&args.db);
+                cli_handlers::cmd_migrate(target, &format, dry_run, force, args.verbose, args.json)?
+            }
             vantadb::cli::MigrateCommand::Check { target } => {
-                cli_handlers::cmd_migrate_check(&target, args.verbose, args.json)?
+                let target = target.as_deref().unwrap_or(&args.db);
+                cli_handlers::cmd_migrate_check(target, args.verbose, args.json)?
             }
         },
 
