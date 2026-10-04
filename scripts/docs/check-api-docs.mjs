@@ -579,9 +579,19 @@ function extractTs(reader) {
           blockKind = null;
           continue;
         }
-        if (blockKind.kind === 'class') tsClassMember(line, out, blockKind.name);
-        else if (blockKind.kind === 'interface') tsIfaceMember(line, out, blockKind.name);
-        else if (blockKind.kind === 'enum') {
+        if (blockKind.kind === 'class' || blockKind.kind === 'interface') {
+          // Only the body's own indentation level holds members. Deeper lines
+          // are method bodies and continuation lines — a call expression or a
+          // parameter line is not a member, and counting them made the surface
+          // unstable under formatting (DX-01: `toWireString(...)` /
+          // `toFilterItems(...)` on their own line appeared as new methods,
+          // `path: string,` as a new property).
+          if (!line) continue;
+          if (blockKind.memberIndent == null) blockKind.memberIndent = indent;
+          if (indent !== blockKind.memberIndent) continue;
+          if (blockKind.kind === 'class') tsClassMember(line, out, blockKind.name);
+          else tsIfaceMember(line, out, blockKind.name);
+        } else if (blockKind.kind === 'enum') {
           const k = line.match(/^([A-Za-z_$][\w$]*)\s*(?:=|,|$)/);
           if (k) out.add(`ts\tvariant\t${blockKind.name}::${k[1]}`);
         }
@@ -609,7 +619,14 @@ function extractTs(reader) {
           if (/=\s*\{\s*$/.test(line)) objLiteral = { name, indent };
         } else {
           const open = new RegExp(`^[ \\t]*(?:export\\s+)?(?:declare\\s+)?${kind}\\b[^;{]*\\{`);
-          if (open.test(line)) blockKind = { kind, name, indent };
+          if (open.test(line)) {
+            blockKind = { kind, name, indent };
+            // A one-line empty body (`export interface X {}`) must not swallow
+            // the next block: the `}` is on the same line and the close
+            // scanner would never see it (pre-existing misattribution: every
+            // member of the NEXT declaration was reported as `X::…`).
+            if (line.slice(line.indexOf('{') + 1).includes('}')) blockKind = null;
+          }
           out.add(`ts\t${kind}\t${name}`);
         }
         continue;
@@ -1039,6 +1056,41 @@ function selfTest() {
     assert(has('fn', 'wrap'), 'function');
     assert(has('type', 'NodeId'), 'type alias');
     assert(has('reexport', 'Db'), 'renamed re-export');
+  });
+
+  check('ts: call expressions and continuation lines are not class members', () => {
+    const out = new Set();
+    const src = {
+      'vantadb-ts/src/vantadb.ts': [
+        'export interface Empty {}',
+        'export class Client {',
+        '  get(input: GetInput): string | null {',
+        '    return this._wasm("get", () => {',
+        '      const raw = this.inner.get(',
+        '        toWireString(input.namespace, "get: namespace"),',
+        '        toWireString(input.key, "get: key"),',
+        '      );',
+        '      return raw;',
+        '    });',
+        '  }',
+        '  exportNamespace(',
+        '    path: string,',
+        '    namespace: string,',
+        '  ): ExportReport {',
+        '    helper(path);',
+        '  }',
+        '}',
+      ].join('\n'),
+    };
+    extractTs(stubReader(src)).forEach((e) => out.add(e));
+    const has = (k, n) => out.has(`ts\t${k}\t${n}`);
+    assert(has('interface', 'Empty'), 'one-line empty interface');
+    assert(has('method', 'Client::get'), 'method kept after one-line empty block');
+    assert(has('method', 'Client::exportNamespace'), 'multi-line declaration kept');
+    assert(!out.has('ts\tmethod\tClient::toWireString'), 'call expression is not a method');
+    assert(!out.has('ts\tmethod\tClient::helper'), 'deeper call is not a method');
+    assert(!out.has('ts\tproperty\tClient::path'), 'continuation line is not a property');
+    assert(!out.has('ts\tproperty\tClient::namespace'), 'continuation line is not a property');
   });
 
   check('ts: __tests__ and dist are excluded', () => {
