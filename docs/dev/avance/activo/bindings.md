@@ -1159,3 +1159,9 @@ tags: [vantadb, avance, bindings, python, wasm, typescript, mcp, adapters]
 - **Objetivo:** El binding WASM emitía ~40 líneas `DEBUG` (`src/config.rs`) al console en cada `Client.create()` (subscriber `tracing-wasm` con `max_level=TRACE` default). Fix: nivel `WARN` por defecto + gate `globalThis.VANTADB_LOG` (análogo portable de `RUST_LOG`), documentado en READMEs wasm/TS.
 - **Resultado:** ✅ Contrato: smoke `vantadb-ts` 2/2 (sin DEBUG por defecto; con `VANTADB_LOG="debug"` sí) — RED pre-fix 1f/1p con las líneas reales · `npm test` 334/334 · tsc/eslint 0 · `wasm-pack build --release` ✅ · `cargo check wasm32` + `--no-default-features` ✅ · docs-coverage 0 gaps · OCR 0 findings · review P2-01 ✅ APPROVE (vanta-review, solo Low). API validada contra fuente `tracing-wasm 0.2.1` (`set_as_global_default_with_config` + `set_max_level`; no existe `_with_level`).
 - **Commit:** 805a7668 + 7e093a2c (local, sin push)
+
+### WSM-15: OPFS multi-pestaña — lock por archivo vía Web Locks API (multi-tab sin corrupción)
+- **Fecha:** 2026-10-04
+- **Objetivo:** OPFS sin `navigator.locks` (IDB sí lo tenía): dos pestañas concurrentes = corrupción silenciosa; replicar el patrón de `idb.rs:62` + degradación fail-loud.
+- **Resultado:** ✅ `OpfsStorage::{write,append,delete}_file` serializados por archivo (`vantadb-opfs-write:<dir>:<path>`) + `WebLockGuard` RAII (libera en error paths) + fail-loud si no hay Web Locks (Err accionable → sugiere `connect_idb`); reads lock-free (rename atómico). Evidencia RED→GREEN en Chrome headless multi-contexto real: 69/3 pre-fix (write sin esperar lock de Worker + `NoModificationAllowedError` real) → 72/72 post-fix (+77/77 `--features opfs`); review P2-01 APPROVE (reruns independientes + RED reproducido en worktree aislado). Derivada: FIND-242 (`delete_file` sin await de `removeEntry`).
+- **Commit:** 265abe6a + 92055d2a (local, sin push)
