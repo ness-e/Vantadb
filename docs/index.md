@@ -12,7 +12,7 @@ description: "Canonical index of the VantaDB documentation corpus."
      Grouped by kind, then by status, then by title.
      Source of truth: the frontmatter of the files listed below. -->
 
-1501 documents. This page is generated from frontmatter, so it cannot fall behind the tree. If a document is missing here, its `kind` or `description` is missing.
+1503 documents. This page is generated from frontmatter, so it cannot fall behind the tree. If a document is missing here, its `kind` or `description` is missing.
 
 ## Top level (3)
 
@@ -66,7 +66,7 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [WASM Standalone Console (Vanta Studio — mode `wasm`)](./api/WASM_STANDALONE.md) | reference | The Vanta Studio console can run 100% in the browser with no server: the                                                                                                                                                                                   |
 | [vanta-proxy Reference (Endpoints, Opt-in Features, Config)](./api/PROXY.md)     | reference | vanta-proxy is a transparent LLM wire proxy: by default it forwards bytes                                                                                                                                                                                  |
 
-## Internal / contributor (1342)
+## Internal / contributor (1344)
 
 ### Architecture decision records — 56
 
@@ -402,7 +402,7 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [`sec-codeql.yml` — SEC: CodeQL — Analysis](./dev/workflow/sec-codeql-30.md)                                   | runbook | Ejecuta el análisis estático de seguridad CodeQL de GitHub sobre el código Rust del proyecto para detectar vulnerabilidades                                                                                                                     |
 | [Fuzzing Guide for VantaDB](./dev/operations/FUZZING.md)                                                       | runbook | VantaDB uses a dual fuzzing approach to maximize coverage and compatibility _(archived)_                                                                                                                                                        |
 
-### Task files — 1053
+### Task files — 1055
 
 | Document                                                                                                                                             | Kind | Summary                                                                                                                                                                                                                                                                                                                 |
 | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -1184,6 +1184,8 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [TASK DESKTOP-QW8: Sincronizar versión desktop con release-plz (H-11)](./dev/tasks/DESKTOP-QW8.md)                                                   | task | Sincronizar versión desktop con release-plz (o excluirla documentadamente): package.json:4 + tauri.conf.json:4 vs tags workspace; decisión documentada + workflow o exclude; cd desktop && npm run build verde                                                                                                          |
 | [TASK DESKTOP-QW9: Baseline medido de recursos del app (H-15 — BENCHMARKS §Desktop)](./dev/tasks/DESKTOP-QW9.md)                                     | task | Baseline medido de recursos del app (startup time, RAM idle) registrado en docs/user/operations/BENCHMARKS.md §Desktop (Regla 11: reemplaza estimación DESKTOP-01). Medir startup time y RAM idle del app desktop (via npm run build timing...                                                                          |
 | [TASK DIST-01: Publicar vanta-memory (quitar publish = false)](./dev/tasks/DIST-01.md)                                                               | task | Desbloquear la publicación de vanta-memory: dry-run verde + smoke externo + decisión release-plz (hold hasta bootstrap). No publica de verdad (owner/F6).                                                                                                                                                               |
+| [TASK DIST-02: Exponer la capa cognitiva en Python (memory_recall / memory_capture)](./dev/tasks/DIST-02.md)                                         | task | Binding Python de la capa cognitiva (vanta-memory): memory_capture (L0) + memory_recall (L1/persona) end-to-end con wheel local; stubs + PYTHON_SDK; scope mínimo, dream follow-up.                                                                                                                                     |
+| [TASK DIST-03: TS/Node/WASM — declarar scope de la capa cognitiva por binding](./dev/tasks/DIST-03.md)                                               | task | Decisión (b) implementada: capa cognitiva (vanta-memory) declarada core-only para TS/Node/WASM con rationale de viabilidad wasm verificado + matriz de scope y paridad capabilities(); FIND-255/256 derivados.                                                                                                          |
 | [TASK DUR-01: Auditoría del fsync real (WAL, snapshots, GC)](./dev/tasks/DUR-01.md)                                                                  | task | Mapa path→fsync real de WAL/rotación/snapshots/GC con gaps clasificados (fix/FIND/OK) y 1 gap resuelto con evidencia (dir-fsync al crear WAL, POSIX)                                                                                                                                                                    |
 | [TASK DUR-02: Auditoría cobertura AES (encryption) — WAL / text_index / HNSW / edge_index / snapshots](./dev/tasks/DUR-02.md)                        | task | Mapa artefacto→cifrado con evidencia de código + probe tmpdir: ningún artefacto on-disk aplica AES-256-GCM (feature sin cablear); fix pequeño aplicado (encryption_stream ignoraba self.cipher) + FIND-249                                                                                                              |
 | [TASK DUR-03: H-023 — put sobre key expirada-sin-purgar (Node ID collision)](./dev/tasks/DUR-03.md)                                                  | task | Fix: put/put_batch/put_record_exact sobre una key expirada-sin-purgar purga la entrada física (purge-on-write) y escribe fresco — fin del NodeIdCollision; regresión expirado→put→ok + race con sweeper cubiertos                                                                                                       |
