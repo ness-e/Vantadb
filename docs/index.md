@@ -12,7 +12,7 @@ description: "Canonical index of the VantaDB documentation corpus."
      Grouped by kind, then by status, then by title.
      Source of truth: the frontmatter of the files listed below. -->
 
-1497 documents. This page is generated from frontmatter, so it cannot fall behind the tree. If a document is missing here, its `kind` or `description` is missing.
+1499 documents. This page is generated from frontmatter, so it cannot fall behind the tree. If a document is missing here, its `kind` or `description` is missing.
 
 ## Top level (3)
 
@@ -66,7 +66,7 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [WASM Standalone Console (Vanta Studio — mode `wasm`)](./api/WASM_STANDALONE.md) | reference | The Vanta Studio console can run 100% in the browser with no server: the                                                                                                                                                                                   |
 | [vanta-proxy Reference (Endpoints, Opt-in Features, Config)](./api/PROXY.md)     | reference | vanta-proxy is a transparent LLM wire proxy: by default it forwards bytes                                                                                                                                                                                  |
 
-## Internal / contributor (1338)
+## Internal / contributor (1340)
 
 ### Architecture decision records — 56
 
@@ -402,7 +402,7 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [`sec-codeql.yml` — SEC: CodeQL — Analysis](./dev/workflow/sec-codeql-30.md)                                   | runbook | Ejecuta el análisis estático de seguridad CodeQL de GitHub sobre el código Rust del proyecto para detectar vulnerabilidades                                                                                                                     |
 | [Fuzzing Guide for VantaDB](./dev/operations/FUZZING.md)                                                       | runbook | VantaDB uses a dual fuzzing approach to maximize coverage and compatibility _(archived)_                                                                                                                                                        |
 
-### Task files — 1049
+### Task files — 1051
 
 | Document                                                                                                                                             | Kind | Summary                                                                                                                                                                                                                                                                                                                 |
 | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -1182,6 +1182,8 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [TASK DESKTOP-QW7: Rename namespace preserva sparse_vector (H-04)](./dev/tasks/DESKTOP-QW7.md)                                                       | task | Rename namespace preserva sparsevector (copiar campo en el ingestBatch del rename + test que lo fije); cd desktop && npm run build y npm test verde; cargo check -p vantadb si toca bridge Rust                                                                                                                         |
 | [TASK DESKTOP-QW8: Sincronizar versión desktop con release-plz (H-11)](./dev/tasks/DESKTOP-QW8.md)                                                   | task | Sincronizar versión desktop con release-plz (o excluirla documentadamente): package.json:4 + tauri.conf.json:4 vs tags workspace; decisión documentada + workflow o exclude; cd desktop && npm run build verde                                                                                                          |
 | [TASK DESKTOP-QW9: Baseline medido de recursos del app (H-15 — BENCHMARKS §Desktop)](./dev/tasks/DESKTOP-QW9.md)                                     | task | Baseline medido de recursos del app (startup time, RAM idle) registrado en docs/user/operations/BENCHMARKS.md §Desktop (Regla 11: reemplaza estimación DESKTOP-01). Medir startup time y RAM idle del app desktop (via npm run build timing...                                                                          |
+| [TASK DUR-01: Auditoría del fsync real (WAL, snapshots, GC)](./dev/tasks/DUR-01.md)                                                                  | task | Mapa path→fsync real de WAL/rotación/snapshots/GC con gaps clasificados (fix/FIND/OK) y 1 gap resuelto con evidencia (dir-fsync al crear WAL, POSIX)                                                                                                                                                                    |
+| [TASK DUR-02: Auditoría cobertura AES (encryption) — WAL / text_index / HNSW / edge_index / snapshots](./dev/tasks/DUR-02.md)                        | task | Mapa artefacto→cifrado con evidencia de código + probe tmpdir: ningún artefacto on-disk aplica AES-256-GCM (feature sin cablear); fix pequeño aplicado (encryption_stream ignoraba self.cipher) + FIND-249                                                                                                              |
 | [TASK DUR-03: H-023 — put sobre key expirada-sin-purgar (Node ID collision)](./dev/tasks/DUR-03.md)                                                  | task | Fix: put/put_batch/put_record_exact sobre una key expirada-sin-purgar purga la entrada física (purge-on-write) y escribe fresco — fin del NodeIdCollision; regresión expirado→put→ok + race con sweeper cubiertos                                                                                                       |
 | [TASK ERR-TS-01: Unificar TS/WASM codes VANTADB_* + wrapNativeError + guards VantaError](./dev/tasks/ERR-TS-01.md)                                   | task | Verificados en fuente                                                                                                                                                                                                                                                                                                   |
 | [TASK FIND-035: Fix lint cascade clippy (routing.rs unused imports + config.rs assertions_on_constants)](./dev/tasks/FIND-035.md)                    | task | cargo clippy -p vantadb --all-targets --all-features -- -D warnings exit 0 AND cargo check -p vantadb exit 0 (stretch: cargo clippy --workspace --all-targets --all-features -- -D warnings exit 0 cuando FIND-036 también verde)                                                                                       |
