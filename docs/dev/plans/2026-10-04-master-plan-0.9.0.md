@@ -1,0 +1,1105 @@
+---
+title: "Plan Maestro: Release 0.9.0 + Memoria 1.0 (post-0.8.0)"
+kind: plan
+description: "SDP v3 (taskType mixto): campaign-executor · progreso · planning-and-task-breakdown · ci-cd-and-automation · shipping-and-launch · documentation-and-adrs · source-driven-development · git-workflow-and-versioning — F0 release-ready (21 tareas full-detail) + F1-F5 campaña (profundización por fase)"
+---
+
+# Plan Maestro: Release 0.9.0 + Memoria 1.0
+
+> **Campaign ID:** _(se asigna al iniciar con `/pipeline run`)_
+> **Inicio:** 2026-10-04
+> **Estado:** ⏳ EN PROGRESO
+> **Fuente:** `docs/dev/Backlog.md` (DELTA 2026-09-30 + Alta 2026-10-01 + hallazgos FIND-233..239) + cierre de `docs/dev/plans/2026-09-28-docs-consolidation.md` (F1/F2) + validación externa v0.8.0 (2026-10-03)
+> **Autonomous:** false
+
+## Resumen
+
+| Resultado | Count |
+|-----------|-------|
+| ✅ DO | 70 |
+| 🟡 DEFER | 3 |
+| ❌ SKIP | 1 |
+| 🔴 BLOQUEADO | 2 |
+
+Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; approach de locks WSM-15; alcance de exposición DIST-02/03; hallazgos de las auditorías DUR-01/02) · ⬇️ downhill = ~250 steps pendientes (F0: 21 tareas full-detail · F1-F5: listas compactas que se profundizan al nivel F0 al iniciar cada fase — regla del master-roadmap 2026-09-26).
+
+## SDP (skills del plan)
+
+`campaign_discover_skills_v2` phase=PLAN → base: **source-driven-development · campaign-executor · progreso** · lifecycle: **planning-and-task-breakdown** · keyword-mapped: **ci-cd-and-automation · shipping-and-launch · documentation-and-adrs · git-workflow-and-versioning · security-and-hardening · test-driven-development · spec-driven-development · performance-optimization** (≤10 por sub-agente; el sub-agente corre su propio SDP en DISCOVERY).
+
+## Reglas de ejecución (para los sub-agentes — prompts §6.f)
+
+1. **Profundidad unificada:** cada tarea corre en un sub-agente que sigue `pipeline-full.md` (DISCOVERY → EJECUCIÓN → CIERRE), con el prompt de 10 bloques de `pipeline-run.md` §6.f + el "Contexto verificado del plan" copiado de este archivo (Gate Justificación, Pre-mortem, Appetite, Wave).
+2. **Skills:** el sub-agente ejecuta su SDP (`campaign_discover_skills_v2` phase=BUILD) y carga las skills útiles (**máx 10**), declarando `SKILLS_CARGADAS:` en el RESULTADO. Cada tarea lista "Skills sugeridas" como piso, no techo.
+3. **MCPs obligatorios:** `codegraph_codegraph_explore` (blast radius), `codebase-memory-mcp` (`detect_changes`, `check_index_coverage`, `get_architecture`), `campaign_*` (`get_next_task`/claim, `verify_cmd`, `update_task_state`, `session_track`). Grep solo si codegraph/CBM no cubren.
+4. **Task files canónicos:** `docs/dev/tasks/<ID>.md` con el formato de `task.md` (Impacto Regla 0, Contrato, Steps atómicos ~100 líneas, Invariantes, Review P2-01, Context Save Point, RESULTADO §7). Sin task file no hay cierre.
+5. **Cierre por tarea:** verify mecánico por step (`campaign_verify_cmd`) → verify full → OCR delegation (`dev-tools/ocr-review.ps1`; Critical/High bloquean) → review P2-01 por agente distinto → commit **LOCAL** conventional con task ID. **NUNCA push** (solo con instrucción explícita del owner).
+6. **Profundización por fase:** F0 está full-detail (ejecutable ya). F1 medium (contrato + archivos; se completa al iniciar). F2-F5 compactas — al iniciar cada fase se expanden al nivel F0 **antes** de ejecutar (gate de fase explícito).
+7. **WIP:** MAX_WIP=3 (waves); `FAIL_MODE=parallel` por defecto.
+
+## F0 — Release-ready (antes de 0.9.0)
+
+> **Gate de salida F0:** las 21 tareas cerradas + release 0.9.0 publicado (decisión #238 + changelog curado) + verificación post-release. Las tareas 1-13 son fixes/DX de cara al usuario; 14-19 son la pata de distribución P0; 20-21 cierran el plan de docs anterior.
+
+### Task 1: FIND-237 — CLI `migrate`: aceptar el global `--db` como fallback del `target` posicional
+
+- **Appetite:** max 1d
+- **Esfuerzo:** 🟢 2h
+- **Prioridad:** 🟡
+- **Archivos clave:** `src/cli.rs:423-450` (MigrateCommand), `src/bin/vanta-cli.rs:204-222` (dispatch)
+- **Verificación real:** ✅ CÓDIGO-REAL — validación externa v0.8.0 (2026-10-03): `vanta-cli migrate check --db X` falla; `--db` ES global (`cli.rs:20-26`, `global=true`, env `VANTADB_STORAGE_PATH`) pero `Check { target: String }` es posicional obligatorio (`cli.rs:446-449`) → clap no lo resuelve.
+- **Gate Justificación:** UX real medida por un tester externo; fix acotado a 1 archivo + help; elimina la confusión del único comando con convención distinta.
+- **Gate Result:** ✅ DO
+- **Contrato:** `vanta-cli migrate check --db <db>` → exit 0 (fallback al global) **y** `vanta-cli migrate check <TARGET>` sigue funcionando (positional gana); `--help` muestra ejemplo de uso; tests CLI verdes.
+- **Pre-mortem:** (1) cambio de firma rompe scripts existentes → `target` queda `Option<String>` con precedencia positional > `--db`; (2) target y db resuelven paths distintos → unificar resolución en el handler; (3) clap no muestra ejemplos en help → usar `after_help`.
+- **Stop conditions:** 2 iteraciones sin contrato verde → registrar approach alternativo (alias `--target`) y cerrar decisión.
+- **Risk Register:**
+
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟢 | Regresión de invocación existente | Positional-first; test de ambos caminos | VERIFY |
+  | 🟢×🟡 | `target` vs `--db` divergen | Test dedicado de precedencia | diseño |
+
+- **Cynefin:** 🟦 obvio
+- **Top 3 riesgos:** (1) regresión CLI; (2) ambigüedad target/db; (3) help stale.
+- **Uphill/Downhill:** ⬇️ (2 steps)
+- **DoD:** task = contrato + tests · commit = `fix(cli):` + verify · release = entrada de changelog.
+- **Validación Appetite vs Effort:** 1d ≥ 2h ✓
+- **Skills sugeridas:** campaign-executor · source-driven-development · test-driven-development · git-workflow-and-versioning
+- **Estado:** ⬜ PENDING
+- **Task file:** `docs/dev/tasks/FIND-237.md`
+
+### Task 2: FIND-238 — WASM/npm: silenciar logs DEBUG de `Client.create()` (`tracing-wasm` default-on sin filtro)
+
+- **Appetite:** max 1d
+- **Esfuerzo:** 🟢 2-3h
+- **Prioridad:** 🟡
+- **Archivos clave:** `vantadb-wasm/Cargo.toml:29,42` (`default = ["tracing-wasm"]`), `vantadb-wasm/src/lib.rs:1935-1939` (`set_as_global_default()` sin nivel), `src/config.rs:1004+` (origen de los `debug!`)
+- **Verificación real:** ✅ CÓDIGO-REAL — validación externa v0.8.0 (2026-10-03): logs verbosos en Node al crear el cliente; root cause verificado: feature en default + init sin filtro.
+- **Gate Justificación:** ruido en la primera impresión del paquete npm (la superficie de descubrimiento); fix de 1-2 líneas + decisión de nivel.
+- **Gate Result:** ✅ DO
+- **Contrato:** `Client.create()` con el wasm build no emite líneas `DEBUG` por defecto (nivel default WARN/INFO o gate por env documentado); smoke del paquete (test en `vantadb-ts`) sin DEBUG; sin cambio funcional.
+- **Pre-mortem:** (1) bajar el nivel oculta logs útiles de soporte → gate por env (patrón `RUST_LOG`) documentado en README; (2) `set_as_global_default` no acepta nivel → usar `tracing_wasm::set_as_global_default_with_level` o `LevelFilter`; (3) romper el build wasm → verificar con `wasm-pack build` local.
+- **Stop conditions:** el builder no expone filtro → decisión: sacar `tracing-wasm` de default (opt-in) + nota en README.
+- **Risk Register:**
+
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟢×🟡 | Logs útiles ocultos | Gate por env documentado | diseño |
+  | 🟢×🟢 | API de tracing-wasm distinta | Validar contra docs del crate | DISCOVERY |
+
+- **Cynefin:** 🟦 obvio
+- **Top 3 riesgos:** (1) ocultar señal; (2) API del crate; (3) build wasm roto.
+- **Uphill/Downhill:** ⬇️ (2 steps)
+- **DoD:** task = contrato + smoke · commit = `fix(wasm):` · release = changelog.
+- **Validación Appetite vs Effort:** 1d ≥ 3h ✓
+- **Skills sugeridas:** campaign-executor · source-driven-development · ci-cd-and-automation · documentation-skill
+- **Estado:** ⬜ PENDING
+- **Task file:** `docs/dev/tasks/FIND-238.md`
+
+### Task 3: FIND-239 — Docs DX: encoding Windows + puente de formatos de import + ejemplo `get_node` + caveats WASM
+
+- **Appetite:** max 1d
+- **Esfuerzo:** 🟢 3-4h
+- **Prioridad:** 🟡
+- **Archivos clave:** `docs/user/QUICKSTART.md`, `docs/api/PYTHON_SDK.md` (§bulk_import L716-730, §get_node L447-456, §export_all L835), `vantadb-ts/README.md` (tablas Maintenance/Export)
+- **Verificación real:** ✅ CÓDIGO-REAL — validación externa v0.8.0 (2026-10-03): (a) 0 notas UTF-8/chcp en README/QUICKSTART; (b) PYTHON_SDK no cruza `export_all`(JSONL)↔`import_file` vs `bulk_import`(binario `.vdbdump`, spec en EMBEDDED_SDK.md:94/102); (c) shape `fields.content` solo en docstring `lib.rs:651`; (d) tablas TS listan métodos fs sin caveat.
+- **Gate Justificación:** 4 gaps de docs medidos en flujo usuario-real; docs-only, cero riesgo; mejora directa del "funnel de 60 segundos".
+- **Gate Result:** ✅ DO
+- **Contrato:** (a) QUICKSTART/README con nota de encoding Windows (`chcp 65001` / `PYTHONIOENCODING=utf-8`); (b) PYTHON_SDK cruza formatos: `export_all`→`import_file` (JSONL) vs `bulk_import_bytes` (`.vdbdump`, link a EMBEDDED_SDK) + hint en el error de magic (si aplica); (c) ejemplo explícito `node["fields"]["content"]`; (d) caveat por método en las 2 tablas TS. `check-links`/`check-docs` exit 0.
+- **Pre-mortem:** (1) tocar el error de magic = cambio de código Rust → separar: docs ahora, hint como sub-step opcional; (2) ejemplo que no corre → validar contra el SDK real (patrón F2-T1); (3) links relativos rotos → gates.
+- **Stop conditions:** el hint de error requiere cambio no trivial → dejarlo como FIND derivado y cerrar docs.
+- **Risk Register:**
+
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟢×🟡 | Ejemplo inválido | Probar el snippet contra SDK real | VERIFY |
+  | 🟢×🟢 | Scope creep a código | Sub-step opcional + FIND derivado | diseño |
+
+- **Cynefin:** 🟦 obvio
+- **Top 3 riesgos:** (1) ejemplo no ejecutable; (2) scope creep; (3) links.
+- **Uphill/Downhill:** ⬇️ (4 steps)
+- **DoD:** task = contrato + gates · commit = `docs:` · release = n/a.
+- **Validación Appetite vs Effort:** 1d ≥ 4h ✓
+- **Skills sugeridas:** documentation-skill · writing-guidelines · documentation-and-adrs · campaign-executor
+- **Estado:** ⬜ PENDING
+- **Task file:** `docs/dev/tasks/FIND-239.md`
+
+### Task 4: FIND-233 — perf-bench: instrumento cross-VM (A/B same-job o calibración)
+
+- **Appetite:** max 1d
+- **Esfuerzo:** 🟡 4-6h
+- **Prioridad:** 🟠
+- **Archivos clave:** `benchmarks/compare_baseline.py`, `.github/workflows/perf-bench.yml`
+- **Verificación real:** ✅ CÓDIGO-REAL — medido en FIND-232 (2026-10-03): mismo método/código, 1.7-2.4x de varianza cross-VM (insert.p99 16.8x); bandas ya calibradas a colapsos; la señal fina (<2-3x) requiere entorno controlado.
+- **Gate Justificación:** sin esto, el instrumento no ve regresiones <2-3x — el claim de performance queda ciego en la zona fina; decisiones (1) A/B same-job o (2) calibración CPU o (3) banda documentada.
+- **Gate Result:** ✅ DO
+- **Contrato:** decisión implementada de UNA de las 3 opciones + `perf-bench` estable (≥2 runs verdes consecutivos post-push) + approach documentado en `BENCHMARKS.md`/task file.
+- **Pre-mortem:** (1) A/B same-job duplica el costo CI → medir y decidir con costo a la vista; (2) calibración CPU no representativa → documentar límites; (3) scope grande → stop-condition a las 6h.
+- **Stop conditions:** >6h → decisión "banda documentada" (opción 3) y FIND derivado para A/B.
+- **Risk Register:**
+
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟢 | Costo CI x2 | Medir duración; opt-in nocturno | diseño |
+  | 🟡×🟡 | Calibración inválida | Documentar límites medidos | decisión |
+
+- **Cynefin:** 🟨 complicado
+- **Top 3 riesgos:** (1) costo; (2) calibración no representativa; (3) rabbit hole.
+- **Uphill/Downhill:** ⬆️ 1 incógnita (qué opción conviene) → se resuelve en step 1 (medir) → luego ⬇️
+- **DoD:** task = contrato + runs verdes · commit = `perf(ci):` · release = n/a.
+- **Validación Appetite vs Effort:** 1d ≥ 6h ✓
+- **Skills sugeridas:** performance-optimization · ci-cd-and-automation · doubt-driven-development · campaign-executor
+- **Estado:** ⬜ PENDING
+- **Task file:** `docs/dev/tasks/FIND-233.md`
+
+### Task 5: FIND-234 — `check-avance-coverage.ps1` apunta a `docs/avance` inexistente
+
+- **Appetite:** max 1h
+- **Esfuerzo:** 🟢 1h
+- **Prioridad:** 🟢
+- **Archivos clave:** `scripts/check-avance-coverage.ps1:10`
+- **Verificación real:** ✅ CÓDIGO-REAL — detectado por PROC-04 (2026-10-03): `$dstDir = Join-Path $root "docs/avance"` stale tras migración 2026-08-23; imprime "0/237 (0.0%)" + error de ruta; sale 0 (no bloquea). La skill `progreso` lo referencia como check de cierre.
+- **Gate Justificación:** lectura falsa de cobertura en el cierre de cada campaña; fix de 1 línea + re-verificación.
+- **Gate Result:** ✅ DO
+- **Contrato:** script apunta a `docs/dev/avance`; corre sin errores de ruta; reporte real (≠ "0/237" engañoso) sobre el árbol canónico.
+- **Pre-mortem:** (1) otros paths stale en el mismo script → grep del script completo; (2) el reporte cambia números → documentar el antes/después.
+- **Stop conditions:** >1h → dejar fix mínimo + nota.
+- **Risk Register:** | 🟢×🟢 | más paths stale | revisión completa del script | DISCOVERY |
+- **Cynefin:** 🟦 obvio
+- **Top 3 riesgos:** (1) paths adicionales; (2) lectura esperada por otros scripts; (3) —
+- **Uphill/Downhill:** ⬇️ (2 steps)
+- **DoD:** task = contrato · commit = `fix(scripts):` · release = n/a.
+- **Validación Appetite vs Effort:** 1h ≥ 1h ✓
+- **Skills sugeridas:** campaign-executor · progreso
+- **Estado:** ⬜ PENDING
+- **Task file:** `docs/dev/tasks/FIND-234.md`
+
+### Task 6: FIND-235 — `docs/dev/workflow/ci-rust-10.md` stale (13 jobs vs 20; coverage 59% vs ~80%)
+
+- **Appetite:** max 1h
+- **Esfuerzo:** 🟢 30min
+- **Prioridad:** 🟢
+- **Archivos clave:** `docs/dev/workflow/ci-rust-10.md`
+- **Verificación real:** ✅ CÓDIGO-REAL — flagged por FIND-231 (2026-10-03, review ronda 1): el doc no refleja release-combo/npm gate/sanitizers.
+- **Gate Justificación:** doc de referencia del workflow principal desactualizado; fix de conteos/listas + gates.
+- **Gate Result:** ✅ DO
+- **Contrato:** conteos reales (jobs/coverage) + links válidos; `check-docs`/`check-links` exit 0.
+- **Pre-mortem:** (1) regenerar mal los conteos → derivarlos del YAML real; (2) drift recurrente → agregar nota "keep in sync" (o link al workflow).
+- **Stop conditions:** —
+- **Risk Register:** | 🟢×🟢 | re-drift | nota de sincronización | cierre |
+- **Cynefin:** 🟦 obvio
+- **Top 3 riesgos:** (1) conteo mal derivado; (2) re-drift; (3) —
+- **Uphill/Downhill:** ⬇️ (1 step)
+- **DoD:** task = contrato · commit = `docs(ci):` · release = n/a.
+- **Validación Appetite vs Effort:** 1h ≥ 30min ✓
+- **Skills sugeridas:** documentation-skill · ci-cd-and-automation
+- **Estado:** ⬜ PENDING
+- **Task file:** `docs/dev/tasks/FIND-235.md`
+
+### Task 7: FIND-236 — Job ASan: excluir `sift1m_competitive_benchmark` (guard release-only en debug)
+
+- **Appetite:** max 1h
+- **Esfuerzo:** 🟢 1h
+- **Prioridad:** 🟡
+- **Archivos clave:** `.github/workflows/ci-rust.yml` (job `sanitizer-asan`)
+- **Verificación real:** ✅ CÓDIGO-REAL — run `37102066714` (2026-10-03, post-push): el job rojo SOLO por panic de `competitive_bench.rs:64` ("must run with --release"); idéntico en el run pre-fix `111086294644` → pre-existente, NO causado por FIND-226 (leaks = 0 desde el fix).
+- **Gate Justificación:** con los leaks arreglados, este ruido impide que el rojo del job signifique "leak real"; excluir el test o gatear por perfil.
+- **Gate Result:** ✅ DO
+- **Contrato:** el job ASan no ejecuta `sift1m_competitive_benchmark` (o lo gatea por perfil) → su rojo significa solo leaks; verificación en el próximo run (comando post-push en el task file); `actionlint` 0.
+- **Pre-mortem:** (1) excluir de más y perder cobertura del test → solo ese test (release-only por diseño); (2) filtro de nextest mal escrito → validar expresión `-E 'not test(sift1m...)'`; (3) el job sigue rojo por otro test debug-only → documentar como FIND derivado.
+- **Stop conditions:** >1h → dejar exclusión mínima documentada.
+- **Risk Register:** | 🟡×🟢 | sobre-exclusión | excluir solo el test release-only | diseño | | 🟢×🟡 | otro ruido oculto | re-run y revisar | post-push |
+- **Cynefin:** 🟦 obvio
+- **Top 3 riesgos:** (1) sobre-exclusión; (2) filtro mal escrito; (3) otro ruido.
+- **Uphill/Downhill:** ⬇️ (2 steps)
+- **DoD:** task = contrato + actionlint · commit = `ci:` · release = n/a.
+- **Validación Appetite vs Effort:** 1h ≥ 1h ✓
+- **Skills sugeridas:** ci-cd-and-automation · campaign-executor
+- **Estado:** ⬜ PENDING
+- **Task file:** `docs/dev/tasks/FIND-236.md`
+
+### Task 8: DX-01 — TS WASM: `get` revienta en Node 26 (bloquea la demo TS)
+
+- **Appetite:** max 3d
+- **Esfuerzo:** 🟡 1-2d
+- **Prioridad:** 🔴
+- **Archivos clave:** `vantadb-wasm/src/lib.rs` (path `get`/memoria), `vantadb-ts/src/vantadb.ts`, CI de `vantadb-ts` (matriz Node)
+- **Verificación real:** ✅ CÓDIGO-REAL — H-009: `put` OK pero `get` lanza `memory access out of bounds` en Node v26 win32 (`vantadb_wasm_bg.js:1551`); CI TS usa Node ≥22; traceback completo en H-009.
+- **Gate Justificación:** bloquea la demo TS del binding publicado (superficie npm); repro existente; blast radius acotado al path de lectura wasm.
+- **Gate Result:** ✅ DO
+- **Contrato:** `get` funciona en Node 26 win32 (repro de H-009 pasa) **y** la matriz CI cubre Node 22 + 26 (job agregado) verde; sin regresión en Node 22; repro antes/después documentada en el task file.
+- **Pre-mortem:** (1) el bug es del runtime Node 26 (no del binding) → repro mínima primero; si es upstream: workaround + doc + FIND; (2) fix de ownership de memoria wasm con blast radius a otros métodos → correr la suite wasm completa; (3) matriz CI duplicada costosa → un job adicional, no matrix completa.
+- **Stop conditions:** 2d sin repro determinista → workaround documentado + FIND upstream; cerrar.
+- **Risk Register:**
+
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🔴 | Fix incorrecto del ownership wasm | Repro mínima + suite wasm existente | VERIFY |
+  | 🟡×🟡 | Bug upstream de Node 26 | Decidir workaround/doc con evidencia | DISCOVERY |
+
+- **Cynefin:** 🟨 complicado
+- **Top 3 riesgos:** (1) ownership mal arreglado; (2) causa upstream; (3) matriz CI.
+- **Uphill/Downhill:** ⬆️ 1 incógnita (¿nuestro binding o Node 26?) → se resuelve en step 1 (repro) → luego ⬇️
+- **DoD:** task = contrato · commit = `fix(wasm):` · release = entrada de changelog (bugfix público).
+- **Validación Appetite vs Effort:** 3d ≥ 2d ✓
+- **Skills sugeridas:** systematic-debugging · source-driven-development · rust-write-tests · ci-cd-and-automation · campaign-executor
+- **Estado:** ⬜ PENDING
+- **Task file:** `docs/dev/tasks/DX-01.md`
+
+### Task 9: WSM-15 — OPFS multi-pestaña: lock (hoy = corrupción silenciosa)
+
+- **Appetite:** max 3d
+- **Esfuerzo:** 🟡 1-2d
+- **Prioridad:** 🔴
+- **Archivos clave:** `vantadb-wasm/src/opfs.rs`, referencia del patrón: `idb.rs:62` (`navigator.locks`)
+- **Verificación real:** ✅ CÓDIGO-REAL — OPFS sin `navigator.locks` (IDB sí lo tiene, `idb.rs:62`); dos pestañas concurrentes = corrupción silenciosa; el patrón de fix ya existe en el repo.
+- **Gate Justificación:** pérdida/corrupción de datos silenciosa en la superficie browser; el fix replica un patrón propio ya probado (IDB).
+- **Gate Result:** ✅ DO
+- **Contrato:** OPFS usa `navigator.locks` (o equivalente con degradación explícita si no está disponible) → repro multi-contexto (2 pestañas/workers) sin corrupción; sin regresión single-tab (suite wasm).
+- **Pre-mortem:** (1) `navigator.locks` no disponible en todo contexto (worker) → validar + fallback fail-loud documentado; (2) lock global degrada concurrencia → lock por archivo/namespace; (3) romper flujo OPFS existente → tests existentes.
+- **Stop conditions:** >2d → decisión: degradación explícita (fail-loud en multi-tab) documentada + FIND del lock real.
+- **Risk Register:**
+
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🔴 | Fix incompleto deja corrupción | Repro multi-contexto antes/después | VERIFY |
+  | 🟢×🟡 | Locks no disponibles en un contexto | Fallback fail-loud documentado | diseño |
+
+- **Cynefin:** 🟨 complicado
+- **Top 3 riesgos:** (1) corrupción residual; (2) disponibilidad de locks; (3) regresión single-tab.
+- **Uphill/Downhill:** ⬇️ (3 steps)
+- **DoD:** task = contrato · commit = `fix(wasm):` · release = changelog.
+- **Validación Appetite vs Effort:** 3d ≥ 2d ✓
+- **Skills sugeridas:** systematic-debugging · source-driven-development · rust-write-tests · campaign-executor
+- **Estado:** ⬜ PENDING
+- **Task file:** `docs/dev/tasks/WSM-15.md`
+
+### Task 10: DUR-03 — H-023: `put` sobre key expirada-sin-purgar muere con "Node ID collision"
+
+- **Appetite:** max 2d
+- **Esfuerzo:** 🟡 1-2d
+- **Prioridad:** 🟠
+- **Archivos clave:** `src/error.rs:207`, write path de `put` (`src/sdk/api/memory.rs`), lógica de purge/expiración
+- **Verificación real:** ✅ CÓDIGO-REAL — H-023: mismo id en 3 corridas; `purge_expired()` lo resuelve; DB fresca pasa; workaround del demo: purge antes del seed.
+- **Gate Justificación:** bug de motor reproducible que muerde a usuarios reales (un `put` legítimo muere); fix = upsert o purge-on-write (decisión documentada).
+- **Gate Result:** ✅ DO
+- **Contrato:** `put` sobre una key expirada-sin-purgar hace upsert (o purge-on-write) → exit 0; test de regresión (expirado→put→ok) verde; semántica para keys vivas sin cambio (suite existente).
+- **Pre-mortem:** (1) el fix cambia semántica de expiración → decisión explícita (upsert vs purge-on-write) documentada; (2) race con el sweeper de TTL → test concurrente; (3) blast radius al write path → suite completa.
+- **Stop conditions:** semántica ambigua → Gate D (question al owner) antes de codear.
+- **Risk Register:**
+
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟡 | Cambio de semántica de expiración | Documentar decisión en task file | diseño |
+  | 🟡×🔴 | Race con TTL sweeper | Test concurrente dedicado | VERIFY |
+
+- **Cynefin:** 🟨 complicado
+- **Top 3 riesgos:** (1) semántica; (2) race; (3) regresión write path.
+- **Uphill/Downhill:** ⬇️ (3 steps)
+- **DoD:** task = contrato + test · commit = `fix(engine):` · release = changelog (bugfix público).
+- **Validación Appetite vs Effort:** 2d ≥ 2d ✓
+- **Skills sugeridas:** systematic-debugging · rust-write-tests · source-driven-development · doubt-driven-development · campaign-executor
+- **Estado:** ⬜ PENDING
+- **Task file:** `docs/dev/tasks/DUR-03.md`
+
+### Task 11: DUR-01 — Auditoría del fsync real (WAL, snapshots, GC)
+
+- **Appetite:** max 2d
+- **Esfuerzo:** 🟡 1-2d
+- **Prioridad:** 🟠
+- **Archivos clave:** `src/wal*.rs`, snapshots (`src/`), GC; inventario: `fsync` = 15 hits / `sync_all` = 7 en 93k LOC
+- **Verificación real:** ✅ CÓDIGO-REAL — research §1 (2026-09-30): el claim "durable" puntuó 7.0 por cobertura de fsync dudosa.
+- **Gate Justificación:** el claim central del producto ("durable") depende de dónde falta `fsync`; auditoría acotada con contrato de veredicto.
+- **Gate Result:** ✅ DO
+- **Contrato:** mapa path→fsync real (WAL, snapshots, GC) en el task file + gaps clasificados (fix ahora / FIND / OK-justificado) + **al menos 1 gap real resuelto o descartado con evidencia**; si hay fix de fsync: medido contra `canonical_p99` (Regla 9).
+- **Pre-mortem:** (1) auditoría sin veredicto → contrato exige clasificación completa; (2) agregar fsyncs degrada p99 → medir antes/después; (3) scope creep a "arreglar todo" → fixes solo 1-línea o FIND.
+- **Stop conditions:** >2d → cerrar mapa + FINDs derivados.
+- **Risk Register:**
+
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟡 | Degradar p99 con fsyncs nuevos | `cargo bench canonical_p99` before/after | si hay fix |
+  | 🟢×🟢 | Mapa incompleto | Checklist de paths por storage | cierre |
+
+- **Cynefin:** 🟨 complicado
+- **Top 3 riesgos:** (1) p99; (2) mapa incompleto; (3) scope creep.
+- **Uphill/Downhill:** ⬆️ 1 incógnita (dónde falta fsync) → se resuelve en el mapa → luego ⬇️
+- **DoD:** task = contrato · commit = `docs:`/`fix:` según hallazgo · release = n/a.
+- **Validación Appetite vs Effort:** 2d ≥ 2d ✓
+- **Skills sugeridas:** systematic-debugging · performance-optimization · source-driven-development · campaign-executor
+- **Estado:** ⬜ PENDING
+- **Task file:** `docs/dev/tasks/DUR-01.md`
+
+### Task 12: DUR-02 — Auditoría cobertura AES (`encryption`): WAL / text_index / HNSW / edge_index
+
+- **Appetite:** max 2d
+- **Esfuerzo:** 🟡 1-2d
+- **Prioridad:** 🟠
+- **Archivos clave:** `src/crypto.rs` (22 hits), `src/storage/vfile.rs` (13), `src/config.rs` (12); feature `encryption`
+- **Verificación real:** ✅ CÓDIGO-REAL — backlog (verificado HEAD 2026-10-01): "verificar que AES-256-GCM cubre WAL, text_index, HNSW y edge_index (no solo `put`); si no, el índice filtra plaintext".
+- **Gate Justificación:** riesgo de fuga de plaintext en artefactos on-disk bajo feature `encryption`; verificación acotada con contrato de veredicto por artefacto.
+- **Gate Result:** ✅ DO
+- **Contrato:** mapa artefacto→cifrado (WAL, text_index, HNSW, edge_index, snapshots) con evidencia de código o test con tmpdir + gaps clasificados (fix / FIND / wontfix documentado); si hay gap accionable pequeño: fix + test.
+- **Pre-mortem:** (1) feature no activable en el entorno → método alternativo (unit test con tmpdir, flags); (2) hallazgo grande (índices en plaintext) → FIND + decisión, no fix apurado; (3) falso positivo de lectura → evidencia por artefacto.
+- **Stop conditions:** >2d → cerrar mapa + FINDs.
+- **Risk Register:**
+
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🔴 | Índice filtra plaintext | Clasificar + decisión con evidencia | cierre |
+  | 🟢×🟡 | Feature no activable local | Método alternativo de verificación | DISCOVERY |
+
+- **Cynefin:** 🟨 complicado
+- **Top 3 riesgos:** (1) plaintext real; (2) método de verificación; (3) falso positivo.
+- **Uphill/Downhill:** ⬆️ 1 incógnita (cobertura real) → mapa la resuelve
+- **DoD:** task = contrato · commit = `docs:`/`fix:` · release = n/a.
+- **Validación Appetite vs Effort:** 2d ≥ 2d ✓
+- **Skills sugeridas:** security-and-hardening · systematic-debugging · source-driven-development · campaign-executor
+- **Estado:** ⬜ PENDING
+- **Task file:** `docs/dev/tasks/DUR-02.md`
+
+### Task 13: BENCH-01 — `competitive_bench`: fix del doble-conteo (mide mal lo que dice medir)
+
+- **Appetite:** max 1d
+- **Esfuerzo:** 🟢 2-3h
+- **Prioridad:** 🟡
+- **Archivos clave:** `benchmarks/competitive_bench.py:9-17` (docstring admite el workaround `--batch-size 999`)
+- **Verificación real:** ✅ CÓDIGO-REAL — el timer de Ingest cuenta un rebuild HNSW completo Y `rebuild_index()` lo repite; workaround documentado.
+- **Gate Justificación:** los números publicados del bench competitivo son la evidencia de marketing (Regla 11); medir mal invalida claims.
+- **Gate Result:** ✅ DO
+- **Contrato:** el bench no duplica el rebuild (o el workaround deja de ser necesario) + comparación before/after del número afectado documentada + docstring actualizado.
+- **Pre-mortem:** (1) números históricos incomparables → nota de comparabilidad; (2) el fix altera el baseline → regenerar/referenciar; (3) el "doble rebuild" era intencional → documentar por qué no.
+- **Stop conditions:** >1d → workaround documentado como contrato (mínimo viable).
+- **Risk Register:** | 🟢×🟢 | Incomparabilidad histórica | Nota + tabla before/after | cierre |
+- **Cynefin:** 🟦 obvio
+- **Top 3 riesgos:** (1) incomparabilidad; (2) baseline; (3) intencionalidad.
+- **Uphill/Downhill:** ⬇️ (2 steps)
+- **DoD:** task = contrato · commit = `fix(bench):` · release = n/a.
+- **Validación Appetite vs Effort:** 1d ≥ 3h ✓
+- **Skills sugeridas:** performance-optimization · systematic-debugging · campaign-executor
+- **Estado:** ⬜ PENDING
+- **Task file:** `docs/dev/tasks/BENCH-01.md`
+
+### Task 14: DIST-01 — Publicar `vanta-memory` (quitar `publish = false`)
+
+- **Appetite:** max 1d
+- **Esfuerzo:** 🟢 2-4h
+- **Prioridad:** 🔴
+- **Archivos clave:** `vanta-memory/Cargo.toml`, `Cargo.toml` (workspace), `release-plz.toml`, `.github/workflows/release.yml`
+- **Verificación real:** ✅ CÓDIGO-REAL — 11 crates con `publish=false` (verificado 2026-09-30); `vanta-memory` = 28k LOC, el diferenciador (L0→L1→L2→L3 + dream); "invisible = no hay demanda posible".
+- **Gate Justificación:** P0 del DELTA — el feature set que Mem0 cobra $249/mo; el único path monetizable del tier embebido es ser el motor dentro del producto de otro.
+- **Gate Result:** ✅ DO
+- **Contrato:** `cargo publish --dry-run -p vanta-memory` verde + smoke del crate como dependencia externa (compila en un proyecto tmp) + decisión release-plz registrada (entra en el próximo release o excluido explícitamente); workspace intacto.
+- **Pre-mortem:** (1) deps path-only no publicables → dry-run primero; si bloquea: lista exacta + decisión owner; (2) release-plz lo publicaría en el próximo release sin querer → coordinar con #238; (3) semver de crate nuevo → 0.x.
+- **Stop conditions:** dependencias internas bloquean → lista de bloqueantes + decisión owner (BLOQUEADO parcial).
+- **Risk Register:**
+
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟡 | Deps path no publicables | `--dry-run` primero | DISCOVERY |
+  | 🟡×🟢 | Publicación no coordinada con #238 | Registrar decisión release-plz | release |
+
+- **Cynefin:** 🟨 complicado
+- **Top 3 riesgos:** (1) deps; (2) coordinación release; (3) semver.
+- **Uphill/Downhill:** ⬇️ (3 steps)
+- **DoD:** task = contrato · commit = `feat(release):` · release = publicado en 0.9.0.
+- **Validación Appetite vs Effort:** 1d ≥ 4h ✓
+- **Skills sugeridas:** ci-cd-and-automation · shipping-and-launch · git-workflow-and-versioning · source-driven-development · campaign-executor
+- **Estado:** ⬜ PENDING
+- **Task file:** `docs/dev/tasks/DIST-01.md`
+
+### Task 15: DIST-02 — Exponer la capa cognitiva en Python (`memory_recall`/`memory_capture`)
+
+- **Appetite:** max 3d
+- **Esfuerzo:** 🟡 1-2d
+- **Prioridad:** 🔴
+- **Archivos clave:** `vantadb-python/src/lib.rs`, stubs `vantadb-python/vantadb_py/*.pyi`, `docs/api/PYTHON_SDK.md`
+- **Verificación real:** ✅ CÓDIGO-REAL — el binding Python NO re-exporta `vanta-memory` (0 referencias `vanta_memory`): "un usuario Python tiene una BD, no memoria" (research §4; verificado 2026-09-30).
+- **Gate Justificación:** P0 del DELTA — sin esto, MEMG-01..09 son features para nadie; el consumidor externo nunca llega a la capa cognitiva.
+- **Gate Result:** ✅ DO
+- **Contrato:** `vantadb.memory_recall(...)` / `vantadb.memory_capture(...)` (scope mínimo viable; `dream` opcional) funcionan end-to-end en smoke con wheel local; stubs `.pyi` + PYTHON_SDK actualizados; suite Python verde.
+- **Pre-mortem:** (1) scope creep (toda la capa) → scope mínimo recall+capture, dream como follow-up; (2) `vanta-memory` como dep del binding (DIST-01 la publica) → coordinar; (3) GIL/perf de las ops nuevas → patrón de las existentes (`py.detach`).
+- **Stop conditions:** scope >2d → declarar scope mínimo entregado + FIND del resto.
+- **Risk Register:**
+
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟡 | Scope creep a toda la capa | Scope mínimo escrito ANTES de codear | DISCOVERY |
+  | 🟢×🟡 | Coordinación con DIST-01 | Dependencia declarada | diseño |
+
+- **Cynefin:** 🟨 complicado
+- **Top 3 riesgos:** (1) scope; (2) dep; (3) API shape.
+- **Uphill/Downhill:** ⬇️ (4 steps)
+- **DoD:** task = contrato + smoke · commit = `feat(python):` · release = changelog (feature → minor).
+- **Validación Appetite vs Effort:** 3d ≥ 2d ✓
+- **Skills sugeridas:** api-and-interface-design · source-driven-development · rust-write-tests · documentation-skill · campaign-executor
+- **Estado:** ⬜ PENDING
+- **Task file:** `docs/dev/tasks/DIST-02.md`
+
+### Task 16: DIST-03 — TS/Node/WASM: exponer la capa cognitiva **o** declarar scope por binding
+
+- **Appetite:** max 3d
+- **Esfuerzo:** 🟡 2-3d
+- **Prioridad:** 🟠
+- **Archivos clave:** `vantadb-ts/src`, `vantadb-wasm/src`, `docs/api/BINDINGS_NAMESPACES.md`, `docs/api/VANTA_MEMORY.md`
+- **Verificación real:** ✅ CÓDIGO-REAL — la capa cognitiva es Rust-only hoy; decisión pendiente "exponer o declarar scope" (DELTA P0 DIST-03; verificado 2026-09-30).
+- **Gate Justificación:** la promesa multi-binding debe ser explícita: o se expone el scope mínimo o se declara el alcance por binding (evita expectativa rota).
+- **Gate Result:** ✅ DO
+- **Contrato:** decisión implementada y verificable: (a) exposición mínima viable en TS/WASM con smoke verde, **o** (b) declaración explícita de scope por binding en docs + `capabilities()` consistente entre bindings; sin breaking changes; matriz en BINDINGS_NAMESPACES.md actualizada.
+- **Pre-mortem:** (1) la capa usa fs/persistencia no disponible en wasm → evaluar viabilidad; si inviable, (b) documentado con motivo; (2) blast radius del binding; (3) inconsistencia entre bindings → matriz + test de paridad (DIST-17 lo profundiza).
+- **Stop conditions:** inviable en wasm → (b) + FIND derivado del port.
+- **Risk Register:**
+
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟡 | Inviabilidad en wasm | Fallback (b) con motivo escrito | DISCOVERY |
+  | 🟢×🟡 | Inconsistencia entre bindings | Matriz + capabilities() | cierre |
+
+- **Cynefin:** 🟨 complicado
+- **Top 3 riesgos:** (1) inviabilidad wasm; (2) consistencia; (3) scope.
+- **Uphill/Downhill:** ⬆️ 1 incógnita (viabilidad wasm) → step 1
+- **DoD:** task = contrato · commit = `feat(ts):`/`docs:` · release = changelog.
+- **Validación Appetite vs Effort:** 3d ≥ 3d ✓
+- **Skills sugeridas:** api-and-interface-design · source-driven-development · documentation-skill · campaign-executor
+- **Estado:** ⬜ PENDING
+- **Task file:** `docs/dev/tasks/DIST-03.md`
+
+### Task 17: DIST-04 — `VANTA_MEMORY.md` ↔ realidad (cierre post DIST-01/02/03)
+
+- **Appetite:** max 1h
+- **Esfuerzo:** 🟢 1h
+- **Prioridad:** 🟢
+- **Archivos clave:** `docs/api/VANTA_MEMORY.md`
+- **Verificación real:** ✅ CÓDIGO-REAL — el doc ya declara core-only + `publish=false` + "not exposed by any binding" (`:21-30,140-160`, verificado 2026-10-01); residual: publicar la superficie "candidate" cuando DIST-01/02 la expongan.
+- **Gate Justificación:** cierre documental que evita drift doc↔código justo cuando DIST-01/02/03 cambian la realidad.
+- **Gate Result:** ✅ DO
+- **Contrato:** el doc refleja el estado post DIST-01/02/03 (superficies publicadas/declaradas, canales) + `check-docs`/`check-links` exit 0.
+- **Pre-mortem:** (1) ejecutarse antes que DIST-01/02/03 → **dependencia dura: va última**; (2) duplicar info de otros docs → link, no copia.
+- **Stop conditions:** —
+- **Risk Register:** | 🟢×🟢 | Orden de ejecución | Dependencia declarada (post 01/02/03) | cierre |
+- **Cynefin:** 🟦 obvio
+- **Top 3 riesgos:** (1) orden; (2) duplicación; (3) —
+- **Uphill/Downhill:** ⬇️ (1 step)
+- **DoD:** task = contrato · commit = `docs:` · release = n/a.
+- **Validación Appetite vs Effort:** 1h ≥ 1h ✓
+- **Skills sugeridas:** documentation-skill · writing-guidelines
+- **Dependencias:** DIST-01, DIST-02, DIST-03 (BLOQUEANTES)
+- **Estado:** ⬜ PENDING
+- **Task file:** `docs/dev/tasks/DIST-04.md`
+
+### Task 18: DIST-05 — Assets del release + verificación post-release real (fix del 404)
+
+- **Appetite:** max 1d
+- **Esfuerzo:** 🟢 4h
+- **Prioridad:** 🟠
+- **Archivos clave:** `.github/workflows/release-binaries.yml`, `install.ps1`, `docs/dev/workflow/PUBLISH.md`
+- **Verificación real:** ✅ CÓDIGO-REAL — el zip Windows de v0.7.0 da **404 live** (re-verificado 2026-10-01: release v0.7.0 = 4 wheels, sin zip); `install.ps1` apunta a v0.7.0.
+- **Gate Justificación:** el "funnel de 60 segundos" no existe si los assets no están; además el flujo post-release debe verificar artefactos de verdad (pip/npm/crates/binarios) — justo lo que el run 0.8.0 aprendió a hacer a mano.
+- **Gate Result:** ✅ DO
+- **Contrato:** (a) flujo post-release con verificación real de artefactos + smoke del quickstart en máquina limpia (checklist ejecutable en PUBLISH.md); (b) `install.ps1` apuntando a la última release (o parametrizado); (c) ejecutado y verde en el release 0.9.0.
+- **Pre-mortem:** (1) el zip Windows faltaba por decisión → verificar historia (FIND-229/backfill) y decidir; (2) checklist que nadie corre → automatizarlo como step de workflow o gate manual en PUBLISH.md con dueño; (3) `install.ps1` hardcodeado → parametrizar con fallback.
+- **Stop conditions:** decisión de assets ambiguas → Gate D.
+- **Risk Register:**
+
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟡 | Checklist sin dueño | Dueño explícito + step en flujo | diseño |
+  | 🟢×🟢 | install.ps1 stale | Parametrizar + verificación | cierre |
+
+- **Cynefin:** 🟦 obvio
+- **Top 3 riesgos:** (1) assets por decisión; (2) checklist muerto; (3) install.ps1.
+- **Uphill/Downhill:** ⬇️ (3 steps)
+- **DoD:** task = contrato + verificación en 0.9.0 · commit = `ci:`/`docs:` · release = parte del release.
+- **Validación Appetite vs Effort:** 1d ≥ 4h ✓
+- **Skills sugeridas:** ci-cd-and-automation · shipping-and-launch · documentation-skill · campaign-executor
+- **Estado:** ⬜ PENDING
+- **Task file:** `docs/dev/tasks/DIST-05.md`
+
+### Task 19: DIST-06 — Estrategia de los 11 crates `publish = false`
+
+- **Appetite:** max 1d
+- **Esfuerzo:** 🟢 1d
+- **Prioridad:** 🟡
+- **Archivos clave:** los 11 `Cargo.toml` (`vanta-memory`, `vanta-proxy`, `vantadb-mcp`, `vantadb-python`, `vantadb-server`, `vantadb-node`, `vantadb-ffi-core`, fuzz, litellm, ollama, openai), `release-plz.toml`, `docs/dev/workflow/PUBLISH.md`
+- **Verificación real:** ✅ CÓDIGO-REAL — 11 crates `publish=false` (verificado 2026-09-30); PyPI/npm dependen de CI propio (punto único de fallo).
+- **Gate Justificación:** decidir y documentar qué se publica y por qué canal elimina la ambigüedad que costó FIND-230; DIST-01 ejecuta la parte de `vanta-memory`.
+- **Gate Result:** ✅ DO
+- **Contrato:** decisión documentada POR crate (publicar/no/publicar/canal + motivo) en `PUBLISH.md` §crates + consistencia con `release-plz.toml` (verificable por inspección + dry-run de los que pasen a publicar); sin cambios de versión.
+- **Pre-mortem:** (1) decisiones prematuras → registrar como política revisable con fecha; (2) churn en release-plz → tocar solo lo decidido; (3) duplicar con DIST-01 → DIST-06 = política, DIST-01 = ejecución de vanta-memory.
+- **Stop conditions:** decisión de negocio requerida (Pro) → Gate D.
+- **Risk Register:** | 🟢×🟢 | Churn de release-plz | Cambios mínimos | cierre |
+- **Cynefin:** 🟦 obvio
+- **Top 3 riesgos:** (1) prematuridad; (2) churn; (3) solapamiento.
+- **Uphill/Downhill:** ⬇️ (2 steps)
+- **DoD:** task = contrato · commit = `docs:`/`chore:` · release = n/a.
+- **Validación Appetite vs Effort:** 1d ≥ 1d ✓
+- **Skills sugeridas:** ci-cd-and-automation · shipping-and-launch · documentation-and-adrs
+- **Estado:** ⬜ PENDING
+- **Task file:** `docs/dev/tasks/DIST-06.md`
+
+### Task 20: DOCS-F1 — Cerrar docs-consolidation F1 (triage + mojibake + markdownlint)
+
+- **Appetite:** max 1d
+- **Esfuerzo:** 🟢 4h
+- **Prioridad:** 🟡
+- **Archivos clave:** `docs/dev/plans/2026-09-28-docs-consolidation.md` (F1), salida `check-links.mjs --json`, `docs/dev/avance/**` (mojibake), `docs/user/operations/BENCHMARKS.md` + `CONFIGURATION.md` (markdownlint), workflow markdownlint (BASELINE)
+- **Verificación real:** ✅ CÓDIGO-REAL — T8 pendiente (triage 246 links P0-P4), T9 pendiente (mojibake `[[bench]]/[[test]]/[[package]]` ~30 en avance/), T12 pendiente (7 errores markdownlint: 5 BENCHMARKS + 2 CONFIGURATION; BASELINE 12→5). T10 SKIPPED y T11 COMPLETED ya (no tocar).
+- **Gate Justificación:** cierra un plan abierto con deuda propia acotada; el triage P3/P4 fuera del gate es lo que hace el gate drenable (patrón Qdrant/LanceDB).
+- **Gate Result:** ✅ DO
+- **Contrato:** (a) cada link roto clasificado P0-P4 con P3/P4 excluidos del gate y motivo en el workflow; (b) 0 mojibake en `avance/` (fuera de `tasks/` — restricción owner); (c) markdownlint BASELINE 12→5 con CI verde; (d) F1 del plan docs-consolidation marcado ✅.
+- **Pre-mortem:** (1) restaurar mojibake sin original → `git log -S` del carácter; (2) NO usar `markdownlint --fix` sobre prosa a mano; (3) P0-P2 excede 4h → stop: dejar clasificación completa + fix parcial + FIND.
+- **Stop conditions:** >4h → entregar triage completo y derivar el drain restante.
+- **Risk Register:**
+
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟢 | Fix de mojibake sin original | `git log -S` primero | por ítem |
+  | 🟢×🟡 | Drain excede appetite | Stop → clasificación + FIND | 4h |
+
+- **Cynefin:** 🟨 complicado
+- **Top 3 riesgos:** (1) mojibake irreversible; (2) appetite; (3) markdownlint fix indebido.
+- **Uphill/Downhill:** ⬇️ (3 steps)
+- **DoD:** task = contrato + gates · commit = `docs:` · release = n/a.
+- **Validación Appetite vs Effort:** 1d ≥ 4h ✓
+- **Skills sugeridas:** documentation-skill · writing-guidelines · git-workflow-and-versioning · campaign-executor
+- **Estado:** ⬜ PENDING
+- **Task file:** `docs/dev/tasks/DOCS-F1.md`
+
+### Task 21: DOCS-F2 — Cerrar docs-consolidation F2 (ejemplos ejecutables + 2 gates)
+
+- **Appetite:** max 2d
+- **Esfuerzo:** 🟡 8h
+- **Prioridad:** 🟠
+- **Archivos clave:** `docs/api/EMBEDDED_SDK.md`, `docs/api/PYTHON_SDK.md`, `docs/user/QUICKSTART.md`, `.github/workflows/ci-examples.yml` + `ci-rustdoc.yml`, `.github/workflows/gate-docs-links.yml`
+- **Verificación real:** ✅ CÓDIGO-REAL — T13: `ci-examples.yml` ejecuta `examples/`, NO los bloques dentro de `docs/` → "hoy ningún ejemplo de la documentación se ha ejecutado jamás"; T14: falta gate API↔docs (patrón DuckDB `NeedsDocumentation.yml`); T15: falta gate anti-fuga en `docs/` (patrón CISA/Uber; complementar con push protection).
+- **Gate Justificación:** un ejemplo equivocado no compila y nunca llega a un humano — la verificación (no la revisión) es lo que funciona; y el VCS guarda arquitectura Y claves (leak gate).
+- **Gate Result:** ✅ DO
+- **Contrato:** (a) ejemplos de docs ejecutables en CI, mínimo viable por lenguaje (Rust: `RUSTDOCFLAGS="-D warnings" cargo test --doc`; Python: `pydoclint`; TS: typedoc + ejemplos como tests); (b) gate: cambio de API pública en `src/**` sin cambio en `docs/**` en el mismo commit → fail; (c) gate anti-fuga (gitleaks/trufflehog sobre `docs/`) verde; (d) F2 del plan docs-consolidation marcado ✅.
+- **Pre-mortem:** (1) doctests existentes fallan en masa → arrancar warning-only + burn-down con FIND; (2) falsos positivos del gate API↔docs → diff-based acotado a `pub`; (3) scope → stop a las 8h con sub-parte entregada.
+- **Stop conditions:** >8h → entregar los gates (b/c) y derivar (a) a FIND con plan de burn-down.
+- **Risk Register:**
+
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟡 | Doctests en masa rojos | Warning-only + burn-down | diseño |
+  | 🟢×🟡 | Falsos positivos gate API | Diff acotado a pub | VERIFY |
+
+- **Cynefin:** 🟨 complicado
+- **Top 3 riesgos:** (1) masa de doctests; (2) falsos positivos; (3) scope.
+- **Uphill/Downhill:** ⬇️ (4 steps)
+- **DoD:** task = contrato + CI verde · commit = `ci:`/`docs:` · release = n/a.
+- **Validación Appetite vs Effort:** 2d ≥ 8h ✓
+- **Skills sugeridas:** ci-cd-and-automation · documentation-skill · security-and-hardening · test-driven-development · campaign-executor
+- **Estado:** ⬜ PENDING
+- **Task file:** `docs/dev/tasks/DOCS-F2.md`
+
+### Checkpoint F0 → Release 0.9.0
+
+- [ ] 21/21 tasks F0 ✅ (verify mecánico + review P2-01 por tarea)
+- [ ] `just verify` + `/audit certify` verdes en develop
+- [ ] **Release 0.9.0**: decisión #238 (plan-adjust del hold) + curación del changelog + Release PR mergeado por el owner + verificación post-release (Task 18) — semver esperado: **minor** (features DIST-01/02/03 + fixes)
+- [ ] Registro: filas del Backlog migradas a avance (skill progreso)
+
+## F1 — Distribución (post-0.9.0)
+
+> **Gate de fase:** estas tareas están a nivel "medium" (contrato + archivos). Al iniciar F1 se expanden al nivel F0 (pre-mortem + Risk Register + stop conditions) ANTES de ejecutar — regla del master-roadmap. Varias coordinan con el repo `ness-e/Vantadb-web`.
+
+### Task 22: DX-12 — Instalador/wizard como selector de módulos (enable/disable por componente)
+
+- **Appetite:** max 2d · **Esfuerzo:** 🟡 1-2d · **Prioridad:** 🟠
+- **Archivos clave:** `scripts/install.ps1`, wizard parcial (proxy on/off + bloques MCP por cliente), `setup-embeddings.ps1`
+- **Verificación real:** ✅ — visión owner (2026-10-01): "un solo instalador que pregunte qué habilitar (motor / MCP / server / proxy / visor desktop / embeddings / providers)".
+- **Contrato:** `install.ps1` ofrece selección por componente y la aplica de forma idempotente; smoke en máquina limpia (patrón DESKTOP-41); sin romper el flujo actual (no-interactive sigue funcionando).
+- **Skills sugeridas:** ci-cd-and-automation · shipping-and-launch · campaign-executor
+- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/DX-12.md`
+
+### Task 23: DIST-15 — `graphrag_search` en bindings (Py/TS/Node/WASM)
+
+- **Appetite:** max 2d · **Esfuerzo:** 🟢 1-2d · **Prioridad:** 🟠
+- **Archivos clave:** `vantadb-python/src`, `vantadb-ts/src`, `vantadb-node/src`, `vantadb-wasm/src`, `docs/api/GRAPH_RAG.md`
+- **Verificación real:** ✅ — "El feature estrella (GraphRAG) es inalcanzable desde los bindings (`GRAPH_RAG.md:14-15` lo declara). Costo bajo, impacto desproporcionado".
+- **Contrato:** `graphrag_search` (o nombre canónico API-04) invocable desde al menos Py + TS con smoke verde; paridad de resultados con el core; docs actualizadas (quitar el "inalcanzable").
+- **Skills sugeridas:** api-and-interface-design · source-driven-development · documentation-skill · campaign-executor
+- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/DIST-15.md`
+
+### Task 24: DIST-16 — `verify` de certificados vía MCP
+
+- **Appetite:** max 1d · **Esfuerzo:** 🟢 1d · **Prioridad:** 🟡
+- **Archivos clave:** `vantadb-mcp/src/` (tools), referencia SDK/CLI que ya lo exponen
+- **Verificación real:** ✅ — "SDK y CLI ya exponen verify; falta solo la superficie MCP".
+- **Contrato:** tool MCP `verify` disponible y con smoke verde (certificado válido/inválido); paridad con CLI (`vanta-cli verify`); docs MCP.md actualizadas.
+- **Skills sugeridas:** api-and-interface-design · source-driven-development · documentation-skill
+- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/DIST-16.md`
+
+### Task 25: DIST-17 — Test de paridad cross-language (Py/Node/WASM)
+
+- **Appetite:** max 3d · **Esfuerzo:** 🟡 2-3d · **Prioridad:** 🟠
+- **Archivos clave:** tests de los 3 bindings + CI (job nuevo), `docs/api/BINDINGS_NAMESPACES.md`
+- **Verificación real:** ✅ — "Hoy hay pruebas sueltas por binding, no comparación entre lenguajes. Decisión owner 2026-10-01: los 3 conectores siguen activos".
+- **Contrato:** un escenario canónico (put/search/grafo/IQL) corre en Py/Node/WASM y produce **resultados idénticos** (hash/diff) en CI; job dedicado verde; divergencias encontradas → FINDs.
+- **Skills sugeridas:** test-driven-development · ci-cd-and-automation · source-driven-development · campaign-executor
+- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/DIST-17.md`
+
+### Task 26: WSM-14 — Plan de adopción npm (README + demo Transformers.js + keywords honestas)
+
+- **Appetite:** max 3d · **Esfuerzo:** 🟡 2-3d · **Prioridad:** 🟠
+- **Archivos clave:** `vantadb-wasm/README.md`, `vantadb-ts/README.md`, demo enlazada
+- **Verificación real:** ✅ — estrategia H-21 aprobada: posicionamiento "browser AI agent memory", demo Transformers.js, comparativa honesta vs Orama (5.44M desc/mes vs 187).
+- **Contrato:** README npm con posicionamiento + demo funcional enlazada + keywords/comparativa honesta; **sin claims de performance sin benchmark** (Regla 11); smoke del paquete.
+- **Skills sugeridas:** documentation-skill · writing-guidelines · ai-seo · campaign-executor
+- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/WSM-14.md`
+
+### Task 27: TS-10 — Plan de distribución/adopción WASM (playground + docs-site + comparativa)
+
+- **Appetite:** max 1sem · **Esfuerzo:** 🔴 1-2sem · **Prioridad:** 🟠
+- **Archivos clave:** coordinar con `ness-e/Vantadb-web` (repo separado desde 2026-09-22)
+- **Verificación real:** ✅ — adopción 12 dl/semana vs 35K-465K competidores (H-06); matriz del informe §3; requiere DISCOVERY.
+- **Contrato:** plan de adopción ejecutado en el repo web (playground interactivo + docs-site + comparativa honesta) O decisión documentada de secuencia con el owner; medible (métrica de descargas/visitas declarada).
+- **Skills sugeridas:** ai-seo · documentation-skill · campaign-executor · vanta-design-orchestrator (si hay UI)
+- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/TS-10.md`
+
+### Task 28: TS-11 — Roadmap paridad sub-clientes (wiki/conversation/skills vía WASM)
+
+- **Appetite:** max 1sem · **Esfuerzo:** 🔴 1-2sem · **Prioridad:** 🟡
+- **Archivos clave:** `vantadb-ts/src` (`db.wiki` hoy `{}` documentado — H-12), core cuando lo permita
+- **Verificación real:** ✅ — "Planificar exposición vía WASM de wiki/conversation/skills cuando core lo permita".
+- **Contrato:** roadmap documentado (qué sub-cliente, dependencia, orden) + al menos el primer slice ejecutado o decisión de defer por dependencia con fecha de revisión.
+- **Skills sugeridas:** api-and-interface-design · documentation-and-adrs · campaign-executor
+- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/TS-11.md`
+
+### Task 29: TS-13 — Posicionamiento vs Orama ("Why VantaDB" en web)
+
+- **Appetite:** max 1d · **Esfuerzo:** 🟢 1d · **Prioridad:** 🟡
+- **Archivos clave:** repo `ness-e/Vantadb-web` (coordinación), matriz de diferenciadores
+- **Verificación real:** ✅ — H-13: sección honesta con matriz (durable WAL browser, híbrido RRF nativo, grafo+IQL, errores tipados) vs FTS-first de Orama.
+- **Contrato:** sección publicada en el repo web con matriz verificada contra código; sin claims sin evidencia (Regla 11).
+- **Skills sugeridas:** documentation-skill · writing-guidelines · ai-seo
+- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/TS-13.md`
+
+### Task 30: PROV-12 — Publicar wheels PyPI de providers (estrategia H-04)
+
+- **Appetite:** max 1sem · **Esfuerzo:** 🟡 1sem · **Prioridad:** 🟠
+- **Archivos clave:** `providers/{openai,ollama,litellm}/pyproject.toml`, maturin, CI release multiplataforma (macos/windows/linux x86_64+aarch64), secrets/OIDC PyPI
+- **Verificación real:** ✅ — estrategia H-04 aprobada: "Desbloquea el diferenciador real (storage embebido local acoplado al embed)".
+- **Contrato:** wheels publicados (o dry-run TestPyPI verde + checklist owner) para los providers; CI multiplataforma; smoke de instalación en máquina limpia.
+- **Skills sugeridas:** ci-cd-and-automation · shipping-and-launch · campaign-executor
+- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/PROV-12.md`
+
+### Task 31: PROV-13 — Providers OpenAI/Ollama/LiteLLM en Windows (compilar)
+
+- **Appetite:** max 4d · **Esfuerzo:** 🟡 2-4d · **Prioridad:** 🟠
+- **Archivos clave:** `providers/{openai,ollama,litellm}/` + CI Windows
+- **Verificación real:** ✅ — decisión owner 2026-10-01: **arreglar** (no declarar límite); los 3 providers no compilan en Windows.
+- **Contrato:** los 3 providers compilan y sus tests pasan en Windows + job CI Windows verde; sin regresión en Linux/macOS.
+- **Skills sugeridas:** systematic-debugging · ci-cd-and-automation · rust-write-tests · campaign-executor
+- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/PROV-13.md`
+
+### Task 32: DESKTOP-41 — Smoke-test instalador en VM Windows limpia
+
+- **Appetite:** max 2d · **Esfuerzo:** 🟡 1d · **Prioridad:** 🟡
+- **Archivos clave:** instalador NSIS+MSI (Step 3 DESKTOP-24), sidecar server, deep link `vanta://`, WebView2 bootstrapper
+- **Verificación real:** ✅ — Step 3 pendiente: instalar NSIS+MSI, verificar arranque, sidecar, deep link, bootstrapper.
+- **Contrato:** instalador smoke-testeado en VM limpia: arranque + sidecar + deep link + WebView2; checklist con evidencia (capturas/logs).
+- **Skills sugeridas:** ci-cd-and-automation · systematic-debugging · campaign-executor
+- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/DESKTOP-41.md`
+
+### Task 33: DESKTOP-43 — Auto-update vía `tauri-plugin-updater`
+
+- **Appetite:** max 2d · **Esfuerzo:** 🟡 1-2d · **Prioridad:** 🟡
+- **Archivos clave:** `desktop/src-tauri` (updater), infra de releases desktop
+- **Verificación real:** ✅ — "Desbloquear tras decisión de distribución pública" (decisión pendiente del owner).
+- **Contrato:** updater configurado y probado (update simulado end-to-end) O decisión de defer registrada con trigger.
+- **Skills sugeridas:** source-driven-development · ci-cd-and-automation · campaign-executor
+- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/DESKTOP-43.md`
+
+### Task 34: DESKTOP-44 — Validación manual Proxy Dashboard con upstream LLM vivo
+
+- **Appetite:** max 1d · **Esfuerzo:** 🟢 2-4h · **Prioridad:** 🟡
+- **Archivos clave:** `desktop/` (dashboard), `vanta-proxy`, deuda DESKTOP-38 (TurnReports/sesiones/write-back/rate-limit)
+- **Verificación real:** ✅ — "sesión guiada owner+agente, no tarea autónoma" (deuda DESKTOP-38).
+- **Contrato:** sesión owner+agente ejecutada con upstream LLM vivo; TurnReports/sesiones/write-back/rate-limit verificados end-to-end; hallazgos → FINDs.
+- **Skills sugeridas:** source-driven-development · systematic-debugging
+- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/DESKTOP-44.md`
+
+### Task 35: SHOW-02 — Recetas clicables del playground (5-6)
+
+- **Appetite:** max 3d · **Esfuerzo:** 🟡 2-3d · **Prioridad:** 🟠
+- **Archivos clave:** `CodePlayground` + iframe WASM existente; coordinar con `ness-e/Vantadb-web`
+- **Verificación real:** ✅ — "Reutilizando `CodePlayground` + iframe WASM existente" (verificación HEAD 2026-10-01).
+- **Contrato:** 5-6 recetas clicables (RAG, híbrido, grafo, TTL, batch, persistencia) funcionando en el playground con WASM real; sin código muerto.
+- **Skills sugeridas:** frontend-ui-engineering · source-driven-development · campaign-executor
+- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/SHOW-02.md`
+
+### Task 36: WEB-09 + MKT-22 — Densidad visual del home + panel de la métrica principal
+
+- **Appetite:** max 2d · **Esfuerzo:** 🟡 1-2d · **Prioridad:** 🟡
+- **Archivos clave:** home web (repo `ness-e/Vantadb-web`), métrica SPEC de sesiones
+- **Verificación real:** ✅ — WEB-09: 73 usos de efectos (trust-bar ×11, hero 5 capas) — criterio visual del owner; MKT-22: "la métrica existe (SPEC) pero nadie la ve".
+- **Contrato:** (WEB-09) decisión visual del owner aplicada o diferida con criterio escrito; (MKT-22) número de sesiones visible en panel/reporte actualizado.
+- **Skills sugeridas:** vanta-design-orchestrator · frontend-ui-engineering · documentation-skill
+- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/WEB-09.md` (+ `MKT-22.md` si se separa)
+
+## F2 — Memoria I (cimientos del diferenciador)
+
+> **Gate de fase:** compactas — al iniciar F2 se expanden al nivel F0 (pre-mortem + Risk Register + stop conditions) antes de ejecutar. Los specs MGR de P49 (research) alimentan estas implementaciones.
+
+### Task 37: MEMG-01 — Detección de contradicción en ingesta L1
+
+- **Appetite:** max 3d · **Esfuerzo:** 🟠 2-3d · **Prioridad:** 🟠
+- **Archivos clave:** `vanta-memory/src/core/dream/` (contradiction provenance), pipeline L1, `superseded_by`
+- **Verificación real:** ✅ — DELTA P1: contradicción en ingesta L1 pendiente; la provenance de dream existe como base.
+- **Contrato:** la ingesta L1 detecta contradicciones y las marca (cuarentena/provenance) con test dedicado; no-contradictorios sin cambio de semántica.
+- **Skills sugeridas:** source-driven-development · rust-write-tests · campaign-executor
+- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/MEMG-01.md`
+
+### Task 38: MEMG-02 — Outcome loop → refuerzo de confianza post-recall
+
+- **Appetite:** max 3d · **Esfuerzo:** 🟠 2-3d · **Prioridad:** 🟠
+- **Archivos clave:** `vanta-memory` (recall path, confianza), `reinforce`
+- **Verificación real:** ✅ — `reinforce` = 4 hits, **ninguno actualiza confianza**; `outcome` = 14/48 (verificado HEAD 2026-10-01). Queja canónica contra Mem0/Letta.
+- **Contrato:** el resultado de una recall (¿resolvió? ¿corrigió?) realimenta la confianza del registro vía `reinforce` real, con test; métrica antes/después.
+- **Skills sugeridas:** source-driven-development · rust-write-tests · performance-optimization · campaign-executor
+- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/MEMG-02.md`
+
+### Task 39: MEMG-11 — Adopción del motor core en `vanta-memory` (recall híbrido + escritura batch)
+
+- **Appetite:** max 2sem · **Esfuerzo:** 🔴 1-2sem · **Prioridad:** 🔴
+- **Archivos clave:** recall L1 de `vanta-memory` (dual-pool propio), escrituras del pipeline, `put_batch`/`query_sparse`/filtros del core
+- **Verificación real:** ✅ — `put_batch` = 0 hits en `vanta-memory`; recall usa scan sin índice de texto/HNSW (reimplementación más débil del diferenciador).
+- **Contrato:** recall L1 sobre búsqueda híbrida del core (BM25+HNSW+RRF del planner) + escrituras vía `put_batch` (group-commit); **A/B documentado sin regresión p99** (`canonical_p99`); orden: medir → migrar → A/B.
+- **Skills sugeridas:** source-driven-development · performance-optimization · rust-write-tests · doubt-driven-development · campaign-executor
+- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/MEMG-11.md`
+
+### Task 40: MEMG-12 — Semántica v2 write-side en el pipeline (`confidence`/`valid_at`/TTL)
+
+- **Appetite:** max 2sem · **Esfuerzo:** 🟠 1-1.5sem · **Prioridad:** 🟠
+- **Archivos clave:** `vanta-memory/src/core/pipeline/l0_recorder.rs:243`, `pipeline_worker.rs:775`, `dream/mod.rs:537` (todos `ttl_ms: None`)
+- **Verificación real:** ✅ — con defaults, confianza y bitemporalidad quedan **inertes** ("confidence=0 en vanta-memory"); el gate de cuarentena funciona en lectura (SCH-05) pero nadie marca dudoso al escribir.
+- **Contrato:** L0→L3 escribe `confidence`/`valid_at_ms`/TTL semántico reales + transiciones de cuarentena desde dream/ingesta; round-trip test.
+- **Skills sugeridas:** source-driven-development · rust-write-tests · campaign-executor
+- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/MEMG-12.md`
+
+### Task 41: MEMG-13 — Superficies core restantes en memoria (IQL / versiones / snapshots / filtros)
+
+- **Appetite:** max 1sem · **Esfuerzo:** 🟠 3-5d · **Prioridad:** 🟡
+- **Archivos clave:** `vanta-memory` (recall/list), core: IQL, `versions`/`get_version`, snapshots, filtros/cursors
+- **Verificación real:** ✅ — `query_iql` = 0 hits en `vanta-memory`; recall hoy es `list` plano (verificado HEAD 2026-10-01).
+- **Contrato:** la memoria consume IQL + versiones + snapshots + filtros/cursors del core donde apliquen; tests por superficie.
+- **Skills sugeridas:** source-driven-development · rust-write-tests · campaign-executor
+- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/MEMG-13.md`
+
+### Task 42: MEMG-07 — Forgetting curves sobre L1
+
+- **Appetite:** max 3d · **Esfuerzo:** 🟡 2d · **Prioridad:** 🟡
+- **Archivos clave:** `vanta-memory` (eviction/decay), `BayesianDecay`
+- **Verificación real:** ✅ — "Solo `BayesianDecay` de eviction; falta curva de olvido real".
+- **Contrato:** curva de olvido real sobre L1 (decay por tipo/edad, configurable) con test + métrica; sin pérdida de registros no-expirados.
+- **Skills sugeridas:** source-driven-development · rust-write-tests · campaign-executor
+- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/MEMG-07.md`
+
+### Task 43: MEMG-20 — Checkpoints reanudables de tarea (dim 1)
+
+- **Appetite:** max 1sem · **Esfuerzo:** 🟠 3-5d · **Prioridad:** 🟡
+- **Archivos clave:** `vanta-memory` (working memory / task state)
+- **Verificación real:** ✅ — DELTA P2 (dim1): checkpoints reanudables pendientes.
+- **Contrato:** checkpoints de tarea reanudables con test de reanudación (interrupción → retoma estado); API mínima.
+- **Skills sugeridas:** source-driven-development · rust-write-tests · campaign-executor
+- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/MEMG-20.md`
+
+### Task 44: MEMG-21 — Scoring multi-señal L1 (recencia + importancia) + reflexión periódica
+
+- **Appetite:** max 3d · **Esfuerzo:** 🟡 2-3d · **Prioridad:** 🟡
+- **Archivos clave:** `vanta-memory` (scoring L1), reflexión sobre episódica
+- **Verificación real:** ✅ — dim2 gap: "falta scoring recency-relevance-importance con decaimiento, reflexión periódica" (Generative Agents degenera sin reflexión; CrewAI ya vende composite scoring).
+- **Contrato:** scoring compuesto (recencia+relevancia+importancia) + reflexión periódica con test; métrica de ordenamiento.
+- **Skills sugeridas:** source-driven-development · rust-write-tests · performance-optimization · campaign-executor
+- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/MEMG-21.md`
+
+### Task 45: WIRE-14 — T1: Seam de host aditivo en el arranque (`conversation_trigger` + servicio)
+
+- **Appetite:** max 1sem · **Esfuerzo:** 🟠 3-5d · **Prioridad:** 🟠
+- **Archivos clave:** arranque de host (`vantadb-server`), seam de inyección; dep `vanta-memory`
+- **Verificación real:** ✅ — WIRE-14..18 (scheduler T1-T5) del Alta 2026-10-01; verificación e2e: `POST /conversation/add` → L0 → pass → `l1/<session>`.
+- **Contrato:** seam aditivo (sin breaking) que permite inyectar `conversation_trigger` + servicio; e2e verde.
+- **Skills sugeridas:** source-driven-development · rust-write-tests · campaign-executor
+- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/WIRE-14.md`
+
+### Task 46: WIRE-15 — T2: Servicio scheduler en `vanta-memory` (`run_pass` + loop con shutdown)
+
+- **Appetite:** max 1sem · **Esfuerzo:** 🟠 3-5d · **Prioridad:** 🟠
+- **Archivos clave:** `vanta-memory` (timers + worker + reclaim), espejo `MemoryTtlSweeper`
+- **Verificación real:** ✅ — feature-gated; verificación: `cargo test -p vanta-memory --features http-server`.
+- **Contrato:** `run_pass` (timers+worker+reclaim) + loop helper con shutdown graceful; tests feature-gated verdes.
+- **Skills sugeridas:** source-driven-development · rust-write-tests · campaign-executor
+- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/WIRE-15.md`
+
+### Task 47: WIRE-16 — T3: Wiring del wrapper `vantadb-server` (queue + bridge + loop)
+
+- **Appetite:** max 1sem · **Esfuerzo:** 🟠 3-5d · **Prioridad:** 🟠
+- **Archivos clave:** `vantadb-server` (queue + bridge + loop), env config `VANTADB_SCHEDULER_*` (R-5)
+- **Verificación real:** ✅ — e2e `POST /conversation/add` → L0 → pass → `l1/<session>`; restart; disabled; sin runner.
+- **Contrato:** wiring completo con las 4 verificaciones e2e del punto anterior verdes.
+- **Skills sugeridas:** source-driven-development · rust-write-tests · campaign-executor
+- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/WIRE-16.md`
+
+### Task 48: WIRE-17 — T4: Docs del scheduler (wired status + promoción del rol)
+
+- **Appetite:** max 1d · **Esfuerzo:** 🟢 1d · **Prioridad:** 🟡
+- **Archivos clave:** `docs/api/VANTA_MEMORY.md` §Operational modules, `docs/user/operations/EXPERIMENTAL_FEATURES.md`
+- **Verificación real:** ✅ — WIRE-17 del Alta 2026-10-01.
+- **Contrato:** docs del scheduler (wired status + promoción del rol + fila `vanta-memory`); `check-docs`/`check-links` exit 0.
+- **Skills sugeridas:** documentation-skill · documentation-and-adrs
+- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/WIRE-17.md`
+
+### Task 49: WIRE-18 — T5: Verificación adversarial del scheduler (crash mid-pass + restart)
+
+- **Appetite:** max 1sem · **Esfuerzo:** 🟠 3-5d · **Prioridad:** 🟠
+- **Archivos clave:** `tests/` (chaos), scheduler; carril vanta-chaos / vanta-review
+- **Verificación real:** ✅ — WIRE-18 del Alta 2026-10-01: crash mid-pass + restart (cola efímera) + review P2-01.
+- **Contrato:** test de crash mid-pass + restart verde (cola no corrompe) + review P2-01 por agente distinto.
+- **Skills sugeridas:** systematic-debugging · rust-write-tests · doubt-driven-development · campaign-executor
+- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/WIRE-18.md`
+
+## F3 — Memoria II (profundo)
+
+> **Gate de fase:** compactas — expandir al nivel F0 al iniciar F3. Consume los specs MGR ya investigados (P49) + FIND-196 (repo-map).
+
+### Task 50: MEMG-03 — Grafo ↔ memoria (L1–L3 como nodos/aristas)
+
+- **Appetite:** max 2sem · **Esfuerzo:** 🔴 1-2sem · **Prioridad:** 🔴
+- **Archivos clave:** `src/graph.rs`, `edge_index`, `memory_node_id` (`src/sdk/serialization/mod.rs:77`), `node_id` (`src/sdk/types/record.rs:213-215`)
+- **Verificación real:** ✅ — el mapeo determinista ns+key→u128 YA existe; falta la integración L1–L3 como nodos/aristas (verificado HEAD 2026-10-01).
+- **Contrato:** L1–L3 como nodos/aristas reales + query "¿quién cambió la fuente de esta decisión y por qué?" respondible con test; sin regresión de recall.
+- **Skills sugeridas:** source-driven-development · rust-write-tests · api-and-interface-design · campaign-executor
+- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/MEMG-03.md`
+
+### Task 51: MEMG-06 — Spill a disco con recall
+
+- **Appetite:** max 1sem · **Esfuerzo:** 🟠 3-5d · **Prioridad:** 🟡
+- **Archivos clave:** presupuesto de contexto de `vanta-memory`; `offload/` existente (comprime in-memory sin recall)
+- **Verificación real:** ✅ — `spill` ≈ 1 hit; offload (34k) sin recall (verificado HEAD 2026-10-01).
+- **Contrato:** spill a disco con recuperación (recall de lo spilled) con test; sin pérdida de datos.
+- **Skills sugeridas:** source-driven-development · rust-write-tests · campaign-executor
+- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/MEMG-06.md`
+
+### Task 52: MEMG-08 — MGR-25: Formatos e ingestores (trait `Ingestor`)
+
+- **Appetite:** max 2sem · **Esfuerzo:** 🟠 1-2sem · **Prioridad:** 🟠
+- **Archivos clave:** `src/wiki/sources.rs:82` (hoy solo `.md`), `src/sdk/types/record.rs:124` (`MemoryInput`), `SOURCE_CHAR_BUDGET` (28k)
+- **Verificación real:** ✅ — "el path wiki solo acepta `.md` y `put` recibe `payload: String` sin extractor"; spec completa en Notion (MGR-25).
+- **Contrato:** trait `Ingestor` + orden txt/json/csv → html → pdf → docx; mínimo viable ≥2 formatos end-to-end con `metadata.source` (proveniencia); tests.
+- **Skills sugeridas:** source-driven-development · rust-write-tests · api-and-interface-design · campaign-executor
+- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/MEMG-08.md`
+
+### Task 53: MEMG-09 — Track PI restante (MGR-23/24: grafo decisión→código→test + taxonomía)
+
+- **Appetite:** max 1mes · **Esfuerzo:** 🔴 2-4sem · **Prioridad:** 🟠
+- **Archivos clave:** `vantadb-mcp/src/code.rs:42-165,192-328`, `src/graphrag/pipeline.rs`, `src/wiki/sources.rs:82`; FIND-196 (repo-map)
+- **Verificación real:** ✅ — decisión owner 2026-09-14: watcher Rust+Python+TypeScript desde el inicio; spec pendiente (MGR-23/24).
+- **Contrato:** spec (chunker + watcher + repo-map + API `code_index`/`code_watch`) + primer slice implementado según spec; research-doc.
+- **Skills sugeridas:** spec-driven-development · source-driven-development · doubt-driven-development · campaign-executor
+- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/MEMG-09.md`
+
+### Task 54: MEMG-10 — MGR-04: Policy engine (trusted/tainted + RBAC por acción)
+
+- **Appetite:** max 1mes · **Esfuerzo:** 🔴 2-3sem · **Prioridad:** 🟠
+- **Archivos clave:** `src/server/middleware.rs`, `src/server/jwt.rs`, `tests/rbac_namespace.rs`; base VER-04 (budget/ACL/audit)
+- **Verificación real:** ✅ — MGR-04 quedó fuera del plan F0–F6 (clase mínima vía SCH-05/VER-04); Notion 6 áreas §Gobernanza.
+- **Contrato:** spec + namespaces trusted/tainted con RBAC por acción (tests por acción) sobre la base VER-04.
+- **Skills sugeridas:** security-and-hardening · spec-driven-development · source-driven-development · campaign-executor
+- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/MEMG-10.md`
+
+### Task 55: MEMG-17 — Rollback + verificabilidad + erasure criptográfica
+
+- **Appetite:** max 1sem · **Esfuerzo:** 🟠 3-5d · **Prioridad:** 🟠
+- **Archivos clave:** versions (MEMG-13), hash-chain (VER-01), DEK/tombstones
+- **Verificación real:** ✅ — VMG lista Rollbackability + Verified Forgetting como primitivas; EDPS exige proof of unlearning; base versions+VER-01 existen.
+- **Contrato:** rollback semántico (a versión/snapshot con linaje) + recibos verificables + erasure (destrucción DEK + tombstone) con tests.
+- **Skills sugeridas:** security-and-hardening · source-driven-development · rust-write-tests · campaign-executor
+- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/MEMG-17.md`
+
+## F4 — Sharing & Multi-tenant (caso "equipo" + enterprise)
+
+> **Gate de fase:** compactas — expandir al nivel F0 al iniciar F4.
+
+### Task 56: MEMG-04 — Multi-tenant (enforcement + cuotas)
+
+- **Appetite:** max 1mes · **Esfuerzo:** 🔴 2-3sem · **Prioridad:** 🔴
+- **Archivos clave:** storage/API boundary, cuotas, billing boundary
+- **Verificación real:** ✅ — `rg tenant` = 0-5 hits (comentarios); sin enforcement (verificado 2026-09-30).
+- **Contrato:** aislamiento real por tenant (enforcement en storage/API) + cuotas; test de no-cruce de datos entre 2 tenants.
+- **Skills sugeridas:** security-and-hardening · source-driven-development · doubt-driven-development · campaign-executor
+- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/MEMG-04.md`
+
+### Task 57: MEMG-05 — Multi-escritor (CRDT / vector-clock / LWW declarado)
+
+- **Appetite:** max 1mes · **Esfuerzo:** 🔴 2-3sem · **Prioridad:** 🟠
+- **Archivos clave:** sync multi-device (write path)
+- **Verificación real:** ✅ — `CRDT`/`vector_clock`/`LWW` = 0 hits: "hoy el que escribe gana — escrituras paralelas pierden datos silenciosamente".
+- **Contrato:** resolución de conflictos multi-escritor implementada (opción elegida documentada) con test de escrituras paralelas sin pérdida.
+- **Skills sugeridas:** source-driven-development · doubt-driven-development · rust-write-tests · campaign-executor
+- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/MEMG-05.md`
+
+### Task 58: MEMG-16 — Compartir/colaboración multi-agente (scopes + permisos + revocación)
+
+- **Appetite:** max 1mes · **Esfuerzo:** 🔴 1-2sem · **Prioridad:** 🟠
+- **Archivos clave:** consume MEMG-04/05 + EXE-07 (P50); modelo de datos compartidos
+- **Verificación real:** ✅ — "Share & Propagate" es fase propia del lifecycle 2026; Letta/Cognee/CrewAI ya lo ofrecen; MAST (NeurIPS 2025) documenta fallos de inter-agent misalignment; sin esto no hay caso "equipo".
+- **Contrato:** memoria compartida con scopes (org/team/proyecto) + permisos + revocación, entre agentes y usuarios; modelo documentado (aislamiento/propagación/revocación); tests.
+- **Skills sugeridas:** security-and-hardening · source-driven-development · documentation-and-adrs · campaign-executor
+- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/MEMG-16.md`
+
+### Task 59: VER-10 — Attestation de escritura (extender el certificado de delete a writes)
+
+- **Appetite:** max 3d · **Esfuerzo:** 🟡 2-3d · **Prioridad:** 🟡
+- **Archivos clave:** hash-chain (VER-01), certificados de delete existentes
+- **Verificación real:** ✅ — "Hoy solo delete tiene attestation; extender a escrituras. Solapa con hash-chain (VER-01)".
+- **Contrato:** escrituras con attestation verificable (recibo) extendiendo el chain; test válido/inválido.
+- **Skills sugeridas:** security-and-hardening · source-driven-development · rust-write-tests · campaign-executor
+- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/VER-10.md`
+
+## F5 — Frontera & estrategia (research, paralelizable con F2-F4)
+
+> **Gate de fase:** compactas — expandir al nivel F0 al iniciar F5. Estas tareas son research/specs/estrategia; no bloquean releases.
+
+### Task 60: MEMG-14 — Marco 2.0: núcleo + extensiones (reformulación del marco 8/6/10/PI)
+
+- **Appetite:** max 3d · **Esfuerzo:** 🟡 2-3d · **Prioridad:** 🟡
+- **Archivos clave:** docs del marco + sync Notion; 4 research (≈100 fuentes)
+- **Verificación real:** ✅ — la validación externa 2026 muestra que la taxonomía no es cerrada (survey de seguridad arXiv 2604.16548; DAMA-DMBOK); mantener "cerrada" es riesgo de credibilidad (Regla 11).
+- **Contrato:** marco reformulado ("núcleo + extensiones") con las 7 sub-decisiones del backlog (áreas 7/8, ámbitos, ejes, presentación, sync Notion, fuera-de-alcance, lista "no elevar"); revisión documentada.
+- **Skills sugeridas:** documentation-and-adrs · writing-guidelines · campaign-executor
+- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/MEMG-14.md`
+
+### Task 61: MEMG-15 — Portabilidad/interoperabilidad (AGENTS.md / MCP / IETF + export firmado)
+
+- **Appetite:** max 1sem · **Esfuerzo:** 🟠 3-5d · **Prioridad:** 🟠
+- **Archivos clave:** formatos de export/import (VER-05/06), drafts W3C/IETF (AAIF, AIMEM, ALF, AMP)
+- **Verificación real:** ✅ — drafts activos 2026; Anthropic vende "no lock-in" con import/export; VER-05/06 ✅ habilitan el paso.
+- **Contrato:** mapeo/adopción de formatos de frontera + export con checksum/firma + versionado/migración de formatos; spec + slice mínimo.
+- **Skills sugeridas:** api-and-interface-design · documentation-and-adrs · source-driven-development · campaign-executor
+- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/MEMG-15.md`
+
+### Task 62: MEMG-18 — Multimodalidad: decisión + spec (extensión de modalidad vs 9ª dim)
+
+- **Appetite:** max 2d · **Esfuerzo:** 🟡 1-2d · **Prioridad:** 🟡
+- **Archivos clave:** marco de dimensiones; decisión owner 2026-09-14 (fuera de alcance v1.0 con triggers)
+- **Verificación real:** ✅ — "3 direcciones fuera de alcance v1.0 con triggers: ontología, multimodal (MGR-25+caso), memoria ejecutable".
+- **Contrato:** decisión documentada (extensión vs 9ª dim) + spec mínima + trigger de reevaluación.
+- **Skills sugeridas:** documentation-and-adrs · campaign-executor
+- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/MEMG-18.md`
+
+### Task 63: MEMG-19 — Prospectiva + descartes documentados (sensorial/emocional)
+
+- **Appetite:** max 1d · **Esfuerzo:** 🟢 1d · **Prioridad:** 🟢
+- **Archivos clave:** docs del repo (los respaldos hoy viven solo en Notion; grep 0 hits)
+- **Verificación real:** ✅ — dims hub §Validación + PM-Bench/MemEmo/TriggerBench (2026).
+- **Contrato:** (a) prospectiva/intencional como patrón de uso documentado; (b) descartes sensorial/emocional con respaldos + criterio de revisión (6-12m); grep del repo > 0.
+- **Skills sugeridas:** documentation-skill · writing-guidelines
+- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/MEMG-19.md`
+
+### Task 64: STRAT-04 — WASM lock-free multi-thread (prep Kuzu)
+
+- **Appetite:** max 1mes · **Esfuerzo:** 🔴 2-4sem · **Prioridad:** 🟠
+- **Archivos clave:** `vantadb-wasm` (concurrencia), SharedArrayBuffer/atomics
+- **Verificación real:** ✅ — "lo que falta para el claim Kuzu-successor" (STRAT-04, Alta 2026-10-01).
+- **Contrato:** diseño + primer slice de concurrencia lock-free en WASM multi-thread con benchmark before/after (Regla 9).
+- **Skills sugeridas:** doubt-driven-development · source-driven-development · performance-optimization · campaign-executor
+- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/STRAT-04.md`
+
+### Task 65: STRAT-05 — Ruta object storage (S3/blob)
+
+- **Appetite:** max 1sem · **Esfuerzo:** 🔴 1-2sem · **Prioridad:** 🟡
+- **Archivos clave:** backend de storage (diseño), `docs/dev/backlog-futuro.md` (referencias)
+- **Verificación real:** ✅ — STRAT-05 (Alta 2026-10-01); research/spec primero.
+- **Contrato:** research + spec de la ruta object storage (viabilidad, costo, tradeoffs) con decisión documentada.
+- **Skills sugeridas:** doubt-driven-development · documentation-and-adrs · campaign-executor
+- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/STRAT-05.md`
+
+### Task 66: STRAT-06 — Research: licencias (Khoj/Jan/Reor/OpenWebUI/Letta) + ACV OSS DBs
+
+- **Appetite:** max 3d · **Esfuerzo:** 🟡 2d · **Prioridad:** 🟢
+- **Archivos clave:** research doc nuevo (`docs/dev/research/`)
+- **Verificación real:** ✅ — STRAT-06 (Alta 2026-10-01): "los bands de revenue son modelado, no datos".
+- **Contrato:** research doc con licencias comparadas + ACV de OSS DBs + implicaciones para el modelo open-core; fuentes citadas.
+- **Skills sugeridas:** coordinated-web-search · documentation-and-adrs · campaign-executor
+- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/STRAT-06.md`
+
+### Task 67: BENCH-02 — BEIR/MTEB recall@k vs pgvector/Chroma/sqlite-vec
+
+- **Appetite:** max 1sem · **Esfuerzo:** 🟠 3-5d · **Prioridad:** 🟠
+- **Archivos clave:** `benchmarks/` (0 hits de BEIR/MTEB), `competitive_bench.py:336-358` (ya computa recall_at_k)
+- **Verificación real:** ✅ — "un número de recall@k verificado vale más que 50 tareas de roadmap" (verificado HEAD 2026-10-01).
+- **Contrato:** número de recall@k (BEIR/MTEB) vs ≥1 competidor (pgvector o sqlite-vec), reproducible con comando documentado (Regla 11); doc en BENCHMARKS.md.
+- **Skills sugeridas:** performance-optimization · documentation-skill · campaign-executor
+- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/BENCH-02.md`
+
+### Task 68: WIRE-12 — IQL: `LIMIT` / `OFFSET`
+
+- **Appetite:** max 3d · **Esfuerzo:** 🟡 2-3d · **Prioridad:** 🟡
+- **Archivos clave:** parser/planner IQL (el token `LIMIT` ya está lexado sin regla)
+- **Verificación real:** ✅ — "El token `LIMIT` ya está lexado sin regla; cierra fricción de UX (paginación)".
+- **Contrato:** `LIMIT`/`OFFSET` funcionan end-to-end (parser→planner→executor) con tests; docs IQL actualizadas.
+- **Skills sugeridas:** source-driven-development · rust-write-tests · campaign-executor
+- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/WIRE-12.md`
+
+### Task 69: WIRE-13 — IQL: agregaciones (`COUNT`/`SUM`/`GROUP BY`)
+
+- **Appetite:** max 1sem · **Esfuerzo:** 🟡 3-5d · **Prioridad:** 🟡
+- **Archivos clave:** parser/planner/executor IQL
+- **Verificación real:** ✅ — WIRE-13 (Alta 2026-10-01); habilitado por el pipeline de agregación existente.
+- **Contrato:** agregaciones básicas (COUNT/SUM/GROUP BY) end-to-end con tests; docs IQL actualizadas.
+- **Skills sugeridas:** source-driven-development · rust-write-tests · campaign-executor
+- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/WIRE-13.md`
+
+### Task 70: SRV-10 — Cifrado en reposo del server (HTTP)
+
+- **Appetite:** max 1sem · **Esfuerzo:** 🟡 3-5d · **Prioridad:** 🟡
+- **Archivos clave:** capa server (`src/server/`), feature `encryption` del core (ya existe); `HTTP_API.md:701` lo declara
+- **Verificación real:** ✅ — "El core ya tiene feature `encryption`; falta la capa server" (SRV-10, Alta 2026-10-01).
+- **Contrato:** server con cifrado en reposo activable (config + key management documentado) con test; docs HTTP_API actualizadas.
+- **Skills sugeridas:** security-and-hardening · source-driven-development · rust-write-tests · campaign-executor
+- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/SRV-10.md`
+
+## DEFER
+
+| ID | Por qué DEFER |
+|----|----------------|
+| docs-consolidation F3/F4 | Nombres de ADRs, copia `docs/user/book/src/`, task files como lastre, Structurizr C4, sitio estático — **decisión del owner** (marcado DEFER en su propio plan); reevaluar tras F0 |
+| P24 I+D futura (v3.0+) | FUT-02..15 restantes (roadmap, no campaña); triggers por decisión de producto |
+| MKT-19 / MKT-21 / DIST-18 | Lanes de marketing (humanos) + `vanta-proxy` **congelado hasta 1.0.0** (decisión owner 2026-10-01) |
+
+## SKIP
+
+| ID | Por qué SKIP |
+|----|--------------|
+| docs-consolidation F1-T3 | Ya SKIPPED en su plan con justificación: los `links: "[[README.md]]"` del glosario son **correctos** (propiedad Obsidian, exenta por diseño). F1-T4 además ya está COMPLETED (32 etiquetas reparadas). |
+
+## BLOQUEADO
+
+| ID | Bloqueante |
+|----|-----------|
+| **#238** (`chore(vantadb): release v0.9.0`) | **Decisión del owner** (cuándo el próximo release) + curación del changelog (duplicación por el squash de 0.8.0). Desbloquea el **Checkpoint F0**. |
+| **MKT-20** (adapters PyPI) | **Acción del owner** (publish lane): environment `pypi` + tag `adapters-v*.*.*`; todo lo demás ya está listo (workflow, builds 10/10, nombres libres). |
+
+## Notas
+
+- **Fuente y contexto:** creado 2026-10-04 a partir de: DELTA 2026-09-30 (fuente designada del próximo plan), Alta 2026-10-01, hallazgos FIND-233..239 (run post-release 0.8.0 + validación externa v0.8.0), y el cierre del plan `2026-09-28-docs-consolidation.md` (F1/F2 absorbidas como Tasks 20/21).
+- **Profundización por fase:** F0 full-detail (21) · F1 medium (15) · F2-F5 compactas (34) — al iniciar cada fase se expanden al nivel F0 **antes** de ejecutar (regla del master-roadmap 2026-09-26, gate de fase explícito).
+- **Dependencias internas:** Task 17 (DIST-04) → depende de 14/15/16 (DIST-01/02/03) · Task 47 (WIRE-16) → depende de 45/46 (WIRE-14/15) · Task 58 (MEMG-16) → consume 56/57 (MEMG-04/05) · Task 21 (DOCS-F2) → independiente · Checkpoint F0 → depende de #238.
+- **OCR gate:** toda tarea ✅ DO cierra con OCR delegation review (pipeline-full.md §Cierre paso 5); veredicto registrado en el task file.
+- **plan-adjust:** registrar acá cualquier cambio de gate/re-estimación con el template de `plan.md` §"Evento plan adjust".
+- **SDP:** `campaign_discover_skills_v2` phase=PLAN (2026-10-04) → ver §SDP. Cada sub-agente corre su propio SDP en BUILD (≤10 skills) + los MCPs (codegraph, codebase-memory-mcp, campaign).
+- **Estado inicial:** 70 tareas ⬜ PENDING · 0 completed · 0 failed.
+
+=== RECITATION ===
+Campaign ID: (pendiente de asignar)
+Objetivo activo: Plan Maestro creado — Release 0.9.0 + Memoria 1.0
+Estado: in-progress
+Última acción: Plan file creado 2026-10-04 (F0 21 full-detail + F1 15 medium + F2-F5 34 compactas; DEFER 3 / SKIP 1 / BLOQUEADO 2)
+Resultado: OK
+Próxima acción: `/pipeline run -PlanFile docs/dev/plans/2026-10-04-master-plan-0.9.0.md`
+Contrato: gates docs verdes + parseTasks 70 tareas
+Próxima tarea si completa: F0 completa → Checkpoint release 0.9.0
+=== END RECITATION ===
