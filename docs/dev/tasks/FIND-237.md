@@ -14,7 +14,7 @@ description: "vanta-cli migrate check --db X falla (target posicional obligatori
 - **Tipo:** Rust (CLI — superficie pública)
 - **Turns estimados:** 8-12
 - **Creado:** 2026-10-04T02:07
-- **last-synced:** 2026-10-04T02:41
+- **last-synced:** 2026-10-04T02:50
 - **Estado:** ✅ COMPLETED (2026-10-04) — contrato 4/4 + review P2-01 APPROVE; commit local (hash en la recitation MCP).
 - **Incógnitas (uphill):** 0 abiertas
 - **Pendientes (downhill):** 0 steps (cierre en este commit)
@@ -173,7 +173,7 @@ Verificación exacta (nota: en esta sesión `target/debug/vanta-cli.exe` está l
 RESULTADO: ✅ COMPLETO
 STEPS_OK: 4/4
 PROXIMO_STEP: ninguno
-COMMIT_HASH: (commit local `fix(cli):` — hash registrado en la recitation MCP)
+COMMIT_HASH: ba9f38c4 (fix(cli): FIND-237 — migrate acepta el global --db como fallback del target; commit local, sin push)
 ARCHIVOS: src/cli.rs, src/bin/vanta-cli.rs, tests/cli_tests.rs, docs/dev/tasks/FIND-237.md
 VERIFY_CONTRATO: pasa (nextest lib migrate 11/11 · E2E binario 3/3 · cli_tests 94/94 · fmt/clippy exit 0)
 BLOQUEO: ninguno
