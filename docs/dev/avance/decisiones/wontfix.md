@@ -52,6 +52,11 @@ tags: [vantadb, avance, wontfix, decisiones, yagni]
 |------|-------|
 | `DEVOPS-10` — Windows code signing (SmartScreen) | DEFERIDO (ponytail). SHA256 + .zip dan integridad básica. Agregar Azure Trusted Signing cuando el release público lo requiera. Step YAML preparado. |
 
+### Desktop — auto-update diferido (DESKTOP-43, 2026-10-04)
+| Item | Razón |
+|------|-------|
+| `DESKTOP-43` — Auto-update vía `tauri-plugin-updater` | DIFERIDO (stop condition del plan 0.9.0): la firma del updater es obligatoria e indeshabilitable (docs Tauri v2) y la firma de instaladores ya está diferida (H-08 / `DEVOPS-10`); sin decisión de distribución pública no hay canal que actualizar. **Trigger de reapertura:** decisión de distribución pública del desktop (canal + firma). **Checklist de habilitación:** [UPDATER_ENABLEMENT.md](../../desktop/UPDATER_ENABLEMENT.md). |
+
 ### Optimizaciones prematuras (bitacora R6 → VantaDB_ANALISIS_COMPLETO Sección 3.1)
 - **Async transcript I/O** — no es hot path
 - **FilterBitset overhead** — no es bottleneck

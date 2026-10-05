@@ -6,7 +6,7 @@
 
 Every link below points to the raw Markdown source, not a rendered page. Read the
 page you need; do not read this file end to end. This index covers the
-450 documentation pages; it deliberately omits the 1070 task files,
+451 documentation pages; it deliberately omits the 1071 task files,
 which are work items rather than documentation. The full inventory of every file
 is in docs/index.md in the repository.
 
@@ -198,6 +198,7 @@ is in docs/index.md in the repository.
 - [Server Configuration](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/discord/server-config.md): All categories grant ViewChannel + SendMessages to @everyone. Single-channel bilingual model — English and Spanish coexist in the same channels, language roles are cosmetic/identity only. Only STAFF category is restricted to Admin role
 - [VantaDB 5-Minute Quickstart](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/QUICKSTART.md): This quickstart validates the current v0.6.1 boundary from pre-built artifacts
 - [VantaDB Desktop — Architecture](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/desktop/ARCHITECTURE.md): This document describes the actual multi-connection model of the desktop
+- [VantaDB Desktop — Auto-update enablement (deferred)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/desktop/UPDATER_ENABLEMENT.md): Defer trigger and ordered checklist to enable tauri-plugin-updater for VantaDB Desktop: signing keys, plugin wiring, release-mode CI, E2E validation, trust model
 - [VantaDB Desktop — Installer Smoke Checklist (clean Windows VM)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/desktop/INSTALLER_SMOKE_CHECKLIST.md): Executable smoke test for the VantaDB desktop NSIS/MSI installers on a clean Windows VM: startup, sidecar binaries, vanta:// deep link, WebView2 bootstrapper — with evidence capture per step
 - [VantaDB as Persistent Memory for Claude Code (MCP)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/blog/claude_code_mcp_memory.md): By the VantaDB Team
 - [VantaDB for AI IDEs — persistent project memory over MCP](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/AI_IDES.md): One MCP server for persistent project memory in Claude Code, Cursor, OpenCode and Codex — what works today, how to install it, and what is not there yet
