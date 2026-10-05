@@ -13,10 +13,10 @@ description: "Exponer el pipeline GraphRAG (core-only hoy) en las 4 superficies 
 - **Esfuerzo:** 🟢 1-2d | **Appetite:** max 2d | **Prioridad:** 🟠
 - **Tipo:** feature-add (bindings) — glue + wire canónico + docs
 - **Creado:** 2026-10-04 (DISCOVERY) | **last-synced:** 2026-10-04
-- **Estado:** ✅ Steps 1-6 (implementación + verify full + commit); ⏳ review P2-01 pendiente (infra DNS) — campaña `taskId 23` en `in-progress` para ACCEPT del orquestador
+- **Estado:** ✅ Steps 1-6 (implementación + verify full + commit en `dd9d3333`); ✅ review P2-01 **APPROVE** (`ses_ef67ef1b8ffeaWjg9L5uP3MiQW`, 2026-10-04) — cierre de campaña `taskId 23` (`completed` + payload de review)
 - **Campaign ID:** master-plan-0.9.0-20261004
 - **Incógnitas (uphill):** 0 abiertas — viabilidad por target resuelta en DISCOVERY con compile checks reales (`cargo check -p vantadb-wasm --target wasm32-unknown-unknown` exit 0; `cargo check --manifest-path vantadb-node/Cargo.toml` exit 0); shape wire fijado por convención existente (`u128_serde`, snake_case)
-- **Pendientes (downhill):** 6 steps (6 ✅; review P2-01 pendiente por infra)
+- **Pendientes (downhill):** 6 steps (6 ✅; review P2-01 ✅ APPROVE)
 
 ## Blast Radius
 
@@ -189,24 +189,24 @@ Saldo esperado **cero o negativo**: cambio aditivo (métodos nuevos + derives) s
 - **Verify:** `check-links` exit 0 (0 broken) · `check-docs` all clear · `gen-index --check` (post-write) · `validate-docs-coverage` **0 gaps** · `check-api-docs --changed HEAD..WORKTREE` **OK** (surface cambió + docs/ + llms.txt movieron; diff Python limpio: solo `Client::graphrag_search`).
 - **Estado:** ✅
 
-### Step 6 — Cierre: verify full + OCR + review P2-01 + commit — ✅ (review P2-01 pendiente por infra)
+### Step 6 — Cierre: verify full + OCR + review P2-01 + commit — ✅
 - **Archivos:** los anteriores + task file
-- **Acción:** verify full (fmt ✅ · clippy ✅ · nextest audit workspace ✅ 3745/3745 · validate-docs-coverage ✅) → OCR delegation (`dev-tools/ocr-review.ps1 -Format json`; revisión por Rule Groups sin API key — sin Critical/High) → review P2-01 lanzado (`vanta-review`, sesión fresca) → **no completó por DNS (`getaddrinfo ENOTFOUND opencode.ai`)** → commit local `feat(bindings):`.
-- **Verify:** gates exit 0 + `git diff --cached` = set exacto (26 archivos) + commit local (sin push). Review queda para el orquestador.
-- **Estado:** ✅ (implementación + verify + commit); gate review ⏳ infra
+- **Acción:** verify full (fmt ✅ · clippy ✅ · nextest audit workspace ✅ 3745/3745 · validate-docs-coverage ✅) → OCR delegation (`dev-tools/ocr-review.ps1 -Format json`; revisión por Rule Groups sin API key — sin Critical/High) → review P2-01 intento 1: **no completó por DNS (`getaddrinfo ENOTFOUND opencode.ai`)** → set staged (26 archivos). **El commit `feat(bindings):` no llegó a crearse: la sesión paralela de cierre DIST-16 commiteó `dd9d3333` ("docs(avance): DIST-16…") y barrió el set íntegro dentro.** Cierre retomado por el cerrador: re-verify scoped + review re-lanzado → **✅ APPROVE** + task file actualizado + commit `docs(task):` de este archivo.
+- **Verify (cerrador):** re-verificación scoped toda verde (nextest graphrag 6/6 · fmt · clippy root+node · pytest 11 · vitest 3/3 + 4/4 · docs gates 0 gaps) + `git status` de los 26 archivos limpio (= HEAD `dd9d3333`, sin drift) + review P2-01 APPROVE.
+- **Estado:** ✅
 
 ## RESULTADO (§7 — contrato de retorno)
 
 ```
-RESULTADO: 🟡 INCOMPLETO (todo el trabajo + verify + commit hechos; único pendiente = review P2-01, bloqueado por infra DNS)
+RESULTADO: ✅ COMPLETO (implementación + verify + commit + review P2-01 APPROVE; excepción de proceso registrada — commit barrido en `dd9d3333` con mensaje ajeno)
 STEPS_OK: 6/6 total steps
-PROXIMO_STEP: re-lanzar review P2-01 (vanta-review, contexto fresco) → ACCEPT de campaña taskId 23 (no quedan steps de implementación)
-COMMIT_HASH: <se completa post-commit> (LOCAL, sin push)
+PROXIMO_STEP: orquestador: ACCEPT registrado (campaña taskId 23 `completed`); decidir mensaje de `dd9d3333` (amend opcional — 0 refs al hash) y próximo task F1 (DIST-17)
+COMMIT_HASH: dd9d3333 (LOCAL, sin push) — ⚠️ el set DIST-15 (26 archivos) fue barrido dentro de este commit de la sesión paralela DIST-16 (mensaje "docs(avance): DIST-16…"; el `feat(bindings):` planificado no llegó a crearse — el worker murió pre-commit). Contenido íntegro y verificado = HEAD; `git grep dd9d3333` = 0 refs → amend de mensaje seguro si el orquestador lo decide. Cierre del cerrador: commit `docs(task):` de este archivo.
 ARCHIVOS: src/graphrag/{pipeline,retrieve}.rs · tests/graphrag_test.rs · vantadb-python/{src/lib.rs,vantadb_py/vantadb_py.pyi,tests/test_graphrag.py} · vantadb-wasm/{src/lib.rs,src/vantadb_wasm.d.ts} · vantadb-ts/src/{types,vantadb,native}.ts · vantadb-ts/src/__tests__/graphrag.test.ts · vantadb-node/{src/lib.rs,dts-header.d.ts,index.d.ts,tests/graphrag.test.ts} · docs/api/{GRAPH_RAG,BINDINGS_NAMESPACES,PYTHON_SDK,NODE_SDK,TS_SDK,index}.md · docs/index.md · llms.txt · docs/dev/Backlog.md (FIND-267) · docs/dev/tasks/DIST-15.md
-VERIFY_CONTRATO: pasa (nextest audit workspace 3745/3745 exit 0 · fmt · clippy · smokes Py/TS/Node · paridad Py↔Node byte-idéntica · gates docs; validate-docs-coverage: 0 gaps en scope DIST-15, 1 gap ajeno de DIST-16 en vuelo)
-BLOQUEO: review P2-01 no completó — `getaddrinfo ENOTFOUND opencode.ai` (DNS, infra; no es falla de código)
-GATES_EVALUADOS: P:no D:no V:no C:no | P: contrato del plan sanciona la superficie · D: no disparado (nombres/casing fijados por convención BINDINGS_NAMESPACES) · V: no disparado (todo verde al primer intento por step) · C: no disparado (FIND-267 registrado; WIP ajeno intacto)
-SKILLS_CARGADAS: api-and-interface-design (pinned), source-driven-development, rust-write-tests, documentation-skill, security-and-hardening (pinned), incremental-implementation, test-driven-development, documentation-and-adrs (pinned)
+VERIFY_CONTRATO: pasa — worker: nextest audit workspace 3745/3745 · paridad Py↔Node byte-idéntica · gates docs; cerrador (re-ejecutado sobre HEAD): nextest graphrag 6/6 · fmt 0 · clippy root+node 0 · pytest 11 · vitest Node 3/3 · TS 4/4 · check-links/check-docs 0 · validate-docs-coverage 0 gaps · sin drift vs HEAD; reviewer (vanta-review): APPROVE con re-ejecución independiente del núcleo
+BLOQUEO: ninguno de contenido — review P2-01 ✅ APPROVE. Finding 🟡 de proceso: mensaje del commit (ver COMMIT_HASH; excepción registrada acá y en §Notas). Reviewer no re-ejecutó fmt/clippy/rebuilds (undetermined explícito; reportados verdes por el cerrador)
+GATES_EVALUADOS: P:no D:no V:no C:no | P: contrato del plan sanciona la superficie · D: no disparado (nombres/casing fijados por convención BINDINGS_NAMESPACES) · V: no disparado (todo verde al primer intento por step) · C: no disparado (FIND-267 registrado; WIP ajeno intacto; sweep de commit documentado)
+SKILLS_CARGADAS: api-and-interface-design (pinned), source-driven-development, rust-write-tests, documentation-skill, security-and-hardening (pinned), incremental-implementation, test-driven-development, documentation-and-adrs (pinned); cerrador: campaign-executor
 ```
 
 ## Dependencias
@@ -219,7 +219,8 @@ SKILLS_CARGADAS: api-and-interface-design (pinned), source-driven-development, r
 
 > Lo ejecuta un agente DISTINTO al implementador. Sin esto registrado, la tarea no está COMPLETED.
 
-- **Revisor:** `vanta-review` — sesión fresca `ses_ef6f67eafffer6lOh28Ys5NSYm`, lanzada en paralelo al verify. **NO completó: error de infraestructura `getaddrinfo ENOTFOUND opencode.ai` (DNS caído durante el cierre — no relacionado con el cambio).** Sin veredicto → campaña queda `in-progress` (PARTIAL, "listo para ACCEPT").
+- **Revisor:** `vanta-review` — intento 1: sesión fresca `ses_ef6f67eafffer6lOh28Ys5NSYm`, lanzada en paralelo al verify. **NO completó: `getaddrinfo ENOTFOUND opencode.ai` (DNS caído — infra, no código).** Intento 2: **re-lanzado por el cerrador** (sesión fresca `ses_ef67ef1b8ffeaWjg9L5uP3MiQW`, post-sweep) → **✅ APPROVE** (2026-10-04).
+- **Veredicto (intento 2):** ✅ **APPROVE** — contenido del changeset aprobado; re-ejecución independiente del reviewer (nextest graphrag **6/6** · pytest **11 passed** · vitest Node **3/3** · TS **4/4** · check-links/check-docs/gen-index **0** · validate-docs-coverage **0 gaps** · scan `unsafe`/`unwrap(`/`.expect(` en el diff = **0 hits**). Finding 🟡 de proceso (no de contenido): el set aterrizó en `dd9d3333` con mensaje `docs(avance): DIST-16…` — DoD Commit literal no cumplido y release-plz no verá `feat:`; **excepción registrada en §RESULTADO/§Notas** (sanción del reviewer), amend de mensaje seguro (`git grep dd9d3333` = 0 refs). 🟢 opcionales: asimetría de caps de dim entre transportes (documentada; unificar solo si DIST-17 lo pide) · Node usa `Option<Vec<f64>>` vs `Vec<f32>` del resto del archivo (correcto, solo divergencia de convención). Undetermined explícito del reviewer: fmt/clippy/suite workspace/rebuilds no re-ejecutados (reportados verdes por el cerrador; los smokes corren contra artefactos del build del cerrador).
 - **Evidencia para el reviewer del orquestador (todo re-ejecutable):**
   - `git diff --cached --stat` → **26 archivos, +1252/−36** (set exacto; sin WIP ajeno).
   - Core: `cargo nextest run --profile audit -p vantadb --test graphrag_test` → **6/6**.
@@ -230,11 +231,13 @@ SKILLS_CARGADAS: api-and-interface-design (pinned), source-driven-development, r
   - **Paridad Python↔Node:** mismo dataset/query → `context_text` + ids **byte-idénticos**.
   - Gates: `fmt` exit 0 · `clippy` (workspace, all-targets, all-features, `-D warnings`) exit 0 · `check-links` 0 broken · `check-docs` all clear · `validate-docs-coverage` **0 gaps en scope DIST-15** (54 items Python ok; 1 gap **ajeno** de DIST-16 en vuelo: `memory_verify_certificate` sin fila aún en MCP.md — su tarea lo cierra) · `check-api-docs --changed HEAD..WORKTREE` OK.
 - **Enfoque sugerido:** ¿wire shape canónico/estable? ¿fix de determinismo correcto (no rompe semántica)? ¿`op_gate`/límites en los 4 wrappers? ¿docs sincronizadas? ¿scope discipline?
-- **Veredicto:** ⏳ pendiente (re-lanzar review P2-01 — bloqueo de infra, no de código).
+- **Re-verificación del cerrador (sobre HEAD `dd9d3333`, 2026-10-04):** nextest graphrag **6/6** · fmt **0** · clippy root (`vantadb`+`vantadb_py`+`vantadb-wasm`, all-targets, `-D warnings`) **0** · clippy node **0** · pytest **11 passed** · vitest Node **3/3** · vitest TS **4/4** · check-links/check-docs **0** · validate-docs-coverage **0 gaps** · `git status` de los 26 archivos limpio (= HEAD).
 
 ## Notas
 
 - (DISCOVERY) Gate D evaluado: **no disparado** — el contrato del plan (F0-expandido, Gate Result ✅ DO) sanciona la superficie nueva; el nombre canónico se fija acá por convención existente (BINDINGS_NAMESPACES §Casing), sin ambigüedad que requiera question.
 - (DISCOVERY) `vantadb-node/Cargo.lock` aparece modificado en `git status` por el `cargo check` de discovery (lock stale vs Cargo.toml del path dep) — NO pertenece a esta tarea; no se agrega al commit.
 - (DISCOVERY) WIP ajeno presente en el worktree (`opencode.jsonc`, plan file) — excluido de commits (scope discipline).
-- (CIERRE) El review P2-01 (`vanta-review`) no completó por DNS (`getaddrinfo ENOTFOUND opencode.ai`); el RESULTADO §7 queda arriba, con la evidencia completa para que el orquestador re-lance el review y haga el ACCEPT (campaña `taskId 23` queda `in-progress` / PARTIAL).
+- (CIERRE) Intento 1 del review P2-01 murió por DNS; **intento 2 (re-lanzado por el cerrador) → ✅ APPROVE**; campaña `taskId 23` cerrada `completed` con payload de review (ver §Review).
+- (CIERRE-2) El set staged (26 archivos) fue barrido dentro de `dd9d3333` por la sesión paralela de cierre DIST-16 (`docs(avance): DIST-16…`): contenido íntegro, verificado por cerrador y reviewer; `git grep dd9d3333` = 0 refs → amend de mensaje seguro si el orquestador corrige el DoD Commit (release-plz minor). Excepción registrada acá (sanción del reviewer, finding 🟡-1).
+- (CIERRE-2) `vantadb-node/Cargo.lock` (+64/−2) queda modificado en worktree: efecto de builds (discovery `cargo check` + clippy del cerrador), fuera del blast radius — NO se commitea con DIST-15. Recomendación: commit `chore(node):` separado o decisión del lead.
