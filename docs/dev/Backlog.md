@@ -59,7 +59,7 @@ verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-hist
 | **P41** 🧩 INV-vantadb-ts | 3 (TS-10/11/13) | ~1-2 semanas | 🟠/🟡 |
 | **P42** 🧩 INV-vantadb-wasm | 1 (WSM-14) | ~1 semana | 🟠 Alta |
 | **P43** 🌐 Research web | 1 (WEB-09) | ~2-3d | 🟡 Media |
-| **P45** 🔌 Research providers | 1 (PROV-12) | ~1 semana | 🟠 Alta |
+| **P45** 🔌 Research providers | 0 — ✅ PROV-12 completada 2026-10-04 (sin filas pendientes) | — | ✅ Cerrada |
 | **P46** 🖥️ Research desktop | 3 (DESKTOP-41/43/44) | ~1-2 semanas | 🟡 Media |
 | **P47** 📦 Promoción default-members | 0 — ✅ cerrada 2026-09-09 (STABLE-09) | — | ✅ Cerrada |
 | **SHOWCASE** 🎬 Ejemplos y prototipos | 1 (SHOW-02; SHOW-03 cerrada 2026-10-01 — implementada) | ~1 semana | 🟠 Media |
@@ -720,10 +720,8 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/dev/revie
 ## P45 - Research providers 2026-08-25 (INV-providers-01, docs/dev/reviews/research-providers-20260825.md)
 
 > Score 4.0/10 (regresion vs review 2026-08-23 que dio 5.0: openai ya no compila). Quick wins aprobados (PROV-01/03/06/07/08) -> plan `docs/dev/plans/2026-08-25-research-providers-quickwins.md` listo para `/pipeline run`. Trazabilidad MOD-41..45 archivada como superada (ver historial). Estrategia H-14 -> ADR pendiente (decision en memory).
-
-| ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias |
-|----|-----------|----------|---------------|----------|-----------|--------|-------------|------------|--------------|
-| `PROV-12` | — | **Publicar wheels PyPI** (estrategia H-04 aprobada) | `providers/*/` · nuevo workflow release · `CI_POLICY` | 🟡 1sem | 🟠 Media | 🆕 Pendiente | pyproject.toml + maturin, CI release multiplataforma (macos/windows/linux x86_64+aarch64), secrets PyPI. Desbloquea el diferenciador real (storage embebido local acoplado al embed). | Origen: INV-providers-01 H-04 | Dep: PROV-01/02/04 |
+>
+> **Sin filas pendientes** — PROV-12 completada 2026-10-04 (wheels PyPI preparados + dry-run local verde; publish = owner; registro en `docs/dev/avance/activo/ci-cd.md`).
 
 ## P47 — Promoción a `default-members`: criterios 100% estables (server/mcp/memory/proxy + ts/node)
 
