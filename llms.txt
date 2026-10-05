@@ -6,7 +6,7 @@
 
 Every link below points to the raw Markdown source, not a rendered page. Read the
 page you need; do not read this file end to end. This index covers the
-449 documentation pages; it deliberately omits the 1069 task files,
+450 documentation pages; it deliberately omits the 1070 task files,
 which are work items rather than documentation. The full inventory of every file
 is in docs/index.md in the repository.
 
@@ -198,6 +198,7 @@ is in docs/index.md in the repository.
 - [Server Configuration](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/discord/server-config.md): All categories grant ViewChannel + SendMessages to @everyone. Single-channel bilingual model — English and Spanish coexist in the same channels, language roles are cosmetic/identity only. Only STAFF category is restricted to Admin role
 - [VantaDB 5-Minute Quickstart](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/QUICKSTART.md): This quickstart validates the current v0.6.1 boundary from pre-built artifacts
 - [VantaDB Desktop — Architecture](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/desktop/ARCHITECTURE.md): This document describes the actual multi-connection model of the desktop
+- [VantaDB Desktop — Installer Smoke Checklist (clean Windows VM)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/desktop/INSTALLER_SMOKE_CHECKLIST.md): Executable smoke test for the VantaDB desktop NSIS/MSI installers on a clean Windows VM: startup, sidecar binaries, vanta:// deep link, WebView2 bootstrapper — with evidence capture per step
 - [VantaDB as Persistent Memory for Claude Code (MCP)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/blog/claude_code_mcp_memory.md): By the VantaDB Team
 - [VantaDB for AI IDEs — persistent project memory over MCP](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/AI_IDES.md): One MCP server for persistent project memory in Claude Code, Cursor, OpenCode and Codex — what works today, how to install it, and what is not there yet
 - [VantaDB for agent frameworks — same memory code in dev and prod](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/FRAMEWORKS.md): Persistent memory adapters for LangGraph, CrewAI, DSPy, Haystack, LlamaIndex and more — same code in dev and prod, namespaces for multi-user isolation, migration guides from Mem0/Zep/Letta
@@ -224,7 +225,7 @@ is in docs/index.md in the repository.
 - [VantaDB Documentation](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/README.md): Welcome to the VantaDB documentation vault
 - [VantaDB Documentation](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/index.md): Canonical index of the VantaDB documentation corpus.
 - [VantaDB Tutorials](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/tutorials/index.md): Step-by-step guides for using VantaDB, ordered by increasing complexity
-- [Workflows — Inventory (38 active)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/workflow/README.md): Per-workflow detail pages live next to this index (ci-gate.md,
+- [Workflows — Inventory (40 active)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/workflow/README.md): Per-workflow detail pages live next to this index (ci-gate.md,
 - [reports](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/reports/index.md): Section index.
 - [Reviews archivados (2026-08-26)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/reviews/README.md): Estos 30 reportes son snapshots históricos de auditorías/reviews/investigaciones
 - [The mdBook layer (retired 2026-09-29)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/book/README.md): Why docs/user/book/ was deleted, what survives, and what to do if it comes back

@@ -447,3 +447,9 @@ tags: [vantadb, avance, desktop, tauri, rust, frontend]
 - **Objetivo:** `filters_by_namespace_op_and_outcome` FAIL en CI-Windows (90/91, `both docs events match`) vs PASS re-run mismo commit.
 - **Resultado:** colisión `pid+nanos` entre tests paralelos → sufijo `pid-thread-nanos-seq` (`AtomicU64`); regression test 8×8 hilos; 3 runs verdes + clippy/fmt; lead verify 6 passed.
 - **Commit:** 44a37d1b (rebase de 0f93edd3)
+
+### DESKTOP-41: smoke-test instalador en VM Windows limpia (master plan 0.9.0, Task 32)
+- **Fecha:** 2026-10-04
+- **Objetivo:** build de instaladores NSIS+MSI + smoke en VM limpia (arranque + sidecar server + deep link `vanta://` + WebView2). Sin VM disponible → stop condition del plan: checklist ejecutable + FIND, sin evidencia simulada.
+- **Resultado:** ✅ build local `npm run tauri build` exit 0 en **6m46s** (NSIS 12.18 MB + MSI 16.75 MB, SHA256 registrados); evidencia parcial estática read-only (MSI vía WindowsInstaller COM + `installer.nsi` generado): `vanta://` registrado en **ambos** instaladores, sidecars `vanta-cli.exe`/`vantadb-server.exe` incluidos, WebView2 bootstrapper embebido (custom action condicionada); checklist ejecutable `docs/dev/desktop/INSTALLER_SMOKE_CHECKLIST.md` (Test A NSIS / Test B MSI, evidencia por paso). **Smoke real ⬜ pendiente → FIND-272** (no había VM limpia utilizable: Hyper-V no enumerable sin elevación — `Get-VM` permiso denegado — sin ISOs/alternativas, shell sin elevación; no se instaló en la máquina dev — evidencia inválida).
+- **Commit:** (ver git log — `docs(desktop):` LOCAL, sin push)
