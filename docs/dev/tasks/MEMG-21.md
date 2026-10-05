@@ -192,9 +192,9 @@ description: "Scoring compuesto opt-in sobre el recall L1 (recencia vía MEMG-07
 
 ## Context Save Point
 
-- **Última acción:** Steps 1-5 ✅ (RED→GREEN por step: `scoring` 13 unit + integración recall 2 unit + métrica before/after 4 integración + `reflection` 5 unit + 5 integración; suite `-p vanta-memory` 664/664, 2 skipped; fmt/clippy OK; docs + FIND-290 + gates 0; review P2-01 APPROVE con NIT-1/NIT-2 doc-only aplicados). Step 6: commit local en curso.
-- **Próximo paso:** commit **LOCAL** `feat(memory):` con pathspec de archivos propios → commit docs de cierre (RESULTADO §7 + hash) → campaign completed taskId `44`.
-- **Estado del worktree:** HEAD `a5928a7f`; WIP ajeno (`opencode.jsonc`, master plan, `src/gc.rs`, `src/server/*`, `docs/dev/tasks/WIRE-14.md` — WIRE-14 en vuelo) NO se stagea.
+- **Última acción:** Steps 1-6 ✅ — feat commit `3fd223ab` (pre-commit hook fmt/clippy/actionlint OK) + RESULTADO §7 registrado; commit docs de cierre en curso.
+- **Próximo paso:** commit docs de cierre (task file) → campaign completed taskId `44` con recitation + payload review.
+- **Estado del worktree:** HEAD `3fd223ab`; WIP ajeno (`opencode.jsonc`, master plan, `src/gc.rs`, `src/server/*`, `docs/dev/tasks/WIRE-14.md` — WIRE-14 en vuelo) NO se stagea.
 
 ## Notas
 
@@ -205,3 +205,17 @@ description: "Scoring compuesto opt-in sobre el recall L1 (recencia vía MEMG-07
 - **WIP ajeno:** `opencode.jsonc` + master plan modificados en el árbol por otros — NO se stagean. PROHIBIDO tocar `docs/pipeline-state.json`.
 - **Disco:** si el linker falla por espacio → `dev-tools/target-cleanup.ps1 -Clean -Yes` (patrón MEMG-02/13/20).
 - **NOTICED BUT NOT TOUCHING:** (1) `recall_candidates` (dedup, `l1_reader.rs:265`) NO se re-rankea — el scoring compuesto es de recall de contexto, no de dedup (decisión documentada); (2) `heat` no entra como señal propia — su efecto viaja por recencia (`bump_heat` → `updated_at`); (3) `src/eviction.rs` (`EvictionPolicy::score` con recency/importance del core) queda como scoring de eviction — no se consume (eviction ≠ recall L1); (4) `reflect_episodic` duplica el shape de consolidación de `dream` — unificar solo si aparece un tercer consumidor.
+
+## RESULTADO §7 (contrato de retorno — pipeline-full)
+
+```
+RESULTADO: ✅ COMPLETO
+STEPS_OK: 6/6 total steps
+PROXIMO_STEP: ninguno
+COMMIT_HASH: 3fd223ab (feat local, sin push; + commit docs de cierre)
+ARCHIVOS: vanta-memory/src/core/record/scoring.rs (nuevo), vanta-memory/src/core/record/mod.rs, vanta-memory/src/core/record/lifecycle.rs, vanta-memory/src/core/record/l1_reader.rs, vanta-memory/src/core/hooks/auto_recall.rs, vanta-memory/src/core/hooks/mod.rs, vanta-memory/src/core/reflection/mod.rs (nuevo), vanta-memory/src/core/mod.rs, vanta-memory/tests/composite_scoring.rs (nuevo), vanta-memory/tests/reflection.rs (nuevo), docs/api/VANTA_MEMORY.md, docs/dev/Backlog.md (FIND-290), docs/dev/tasks/MEMG-21.md (nuevo), docs/index.md + llms.txt (generados)
+VERIFY_CONTRATO: pasa
+BLOQUEO: ninguno
+GATES_EVALUADOS: P:no D:no V:no C:no | P:plan Task 44 sanciona scoring compuesto + reflexión (Gate Result ✅ DO) · D:no disparado (pre-respondido por plan F0 — símbolos dentro de la sanción; precedente MEMG-07/13/20) · V:no disparado (verde al primer intento por step; 0 fallas mismo-error) · C:no disparado (FIND-290 registrado; WIP ajeno no stageado; NIT-1/NIT-2 doc-only aplicados)
+SKILLS_CARGADAS: campaign-executor, progreso, ponytail (base) · source-driven-development, doubt-driven-development, incremental-implementation, test-driven-development, context-engineering (SDP v3 BUILD) · rust-write-tests, performance-optimization, coordinated-web-search (rol) · documentation-skill (docs)
+```
