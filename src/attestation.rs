@@ -145,7 +145,10 @@ fn declared_limits() -> Vec<String> {
 }
 
 /// Reference the VER-01 hash-chain without re-verifying it per delete.
-fn chain_evidence() -> ChainEvidence {
+///
+/// Public since MEMG-17: `vanta-memory` erasure receipts embed the same
+/// evidence (single source for scheme/format/verifier).
+pub fn chain_evidence() -> ChainEvidence {
     let format_version = crate::wal::WAL_FORMAT_VERSION;
     ChainEvidence {
         scheme: "sha256-prev-hash".into(),

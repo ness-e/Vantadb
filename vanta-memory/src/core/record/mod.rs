@@ -20,6 +20,10 @@ pub mod lifecycle;
 /// L1 memory reader + LLM-free candidate recall (MEM-11).
 pub mod l1_reader;
 
+/// MEMG-17 (pieza a): semantic rollback to a retained version — append-only
+/// lineage over `versions` (snapshot restore stays data-only, FIND-287).
+pub mod rollback;
+
 /// MEMG-21: composite L1 scoring — recency + relevance + importance.
 ///
 /// Opt-in re-ranking of recall candidates: `composite = w_rel·relevance +
@@ -57,6 +61,7 @@ pub use l1_reader::{
     read_session_records, recall_candidates, run_decay_pass, RecordFieldChange, RecordVersion,
 };
 pub use l1_writer::{apply_dedup_batch, generate_memory_id, write_memory, EmbedFn, L1Error};
+pub use rollback::{rollback_record, RollbackReport};
 pub use scoring::{
     composite_rank, composite_score, importance_score, CompositeScoring, ScoringWeights,
 };

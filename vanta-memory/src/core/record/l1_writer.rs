@@ -523,13 +523,14 @@ pub(crate) fn put_record(
     ns: &str,
     record: &MemoryRecord,
     vector: Option<Vec<f32>>,
-) -> Result<(), L1Error> {
+) -> Result<vantadb::sdk::MemoryRecord, L1Error> {
     debug_assert!(
         record.vector.is_none(),
         "put_record expects the vector stripped from the record; pass it via the vector arg"
     );
-    db.put(record_input(ns, record, vector)?)?;
-    Ok(())
+    // Returns the stored record carrying the core-assigned storage version —
+    // the rollback lineage (MEMG-17) reads `version` off it.
+    Ok(db.put(record_input(ns, record, vector)?)?)
 }
 
 /// Inverse of [`epoch_ms_to_rfc3339`]: the L1 record's `created_at` is the

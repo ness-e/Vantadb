@@ -10,6 +10,7 @@
 //! backup:  create_snapshot(db, name)                  // point-in-time image
 //! inspect: list_snapshots(db)                         // names available
 //! restore: db.close() -> restore_snapshot(config, name) -> reopened db
+//! rollback: db.close() -> rollback_snapshot(config, name) // + declared scope (MEMG-17)
 //! ```
 //!
 //! A snapshot requires an on-disk store (Fjall): `InMemory` engines keep no
@@ -54,4 +55,53 @@ pub fn list_snapshots(db: &Embedded) -> Result<Vec<String>> {
 /// contract).
 pub fn restore_snapshot(config: Config, name: &str) -> Result<Embedded> {
     Embedded::restore_from(config, name)
+}
+
+/// Declared scope of a [`rollback_snapshot`] (MEMG-17): what the restore
+/// reverts and — explicitly — what it does not (FIND-287: the restore is
+/// data-only). Always populated, never silent.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SnapshotRollbackReport {
+    /// Snapshot name that was restored.
+    pub snapshot: String,
+    /// What the restore brings back.
+    pub reverted: Vec<String>,
+    /// What the restore leaves untouched.
+    pub not_reverted: Vec<String>,
+    /// Flow caveats of the restore.
+    pub caveats: Vec<String>,
+}
+
+/// Restore the memory store from a snapshot and return the declared rollback
+/// scope (MEMG-17, pieza a — snapshot path).
+///
+/// Thin wrapper over [`restore_snapshot`] (the core owns the semantics, MEMG-13
+/// delegation contract): same flow (close → restore → reopen) and same errors;
+/// the addition is the [`SnapshotRollbackReport`] making the data-only scope
+/// explicit — the `data/` swap is reverted, while the live backend KV
+/// (post-snapshot deletes/supersessions keep their tombstones/metadata) is
+/// **not** rolled back (FIND-287, FIND-33 decision).
+pub fn rollback_snapshot(config: Config, name: &str) -> Result<(Embedded, SnapshotRollbackReport)> {
+    let db = restore_snapshot(config, name)?;
+    Ok((db, rollback_scope(name)))
+}
+
+/// The static declared scope of a snapshot rollback.
+fn rollback_scope(name: &str) -> SnapshotRollbackReport {
+    SnapshotRollbackReport {
+        snapshot: name.to_string(),
+        reverted: vec![
+            "the `data/` directory is swapped back to the snapshot point: post-snapshot additions disappear; the snapshot's files are back on disk (record visibility still subject to the live backend tombstones — see `not_reverted`)".into(),
+            "in-memory indexes rebuild from the restored storage on reopen (fresh `Embedded`)".into(),
+        ],
+        not_reverted: vec![
+            "live backend KV (`<storage_root>/backend/`, Fjall LSM) is left in place: deletes and supersessions recorded after the snapshot keep their tombstones/metadata — data-only restore (FIND-287; FIND-33 decision)".into(),
+            "retained version history (Versions partition, live backend) is not rolled back to the snapshot point (same data-only gap, FIND-287)".into(),
+            "audit logs, WAL archives and any snapshot other than the restored one are untouched".into(),
+        ],
+        caveats: vec![
+            "requires the engine closed first (fs2 lock) — flow: close -> restore -> reopened `Embedded`".into(),
+            "fails with `NotFound` when the snapshot does not exist; the live `data/` directory is staged aside with rollback-on-failure (core contract)".into(),
+        ],
+    }
 }
