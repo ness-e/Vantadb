@@ -20,6 +20,8 @@
 //! longer need to call `.with_local_provider()` explicitly. Without the
 //! feature the call falls back to keyword overlap exactly as before MEM-47.
 
+use std::collections::HashSet;
+
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use vantadb::sdk::Embedded;
@@ -32,7 +34,7 @@ use crate::core::profile::profile_sync::{
 };
 use crate::core::record::l1_reader::{
     cosine_similarity, l1_namespace, overlap_score, read_namespace_records, read_session_records,
-    rrf_merge, significant_terms, MIN_COSINE_SIMILARITY,
+    rrf_merge, significant_terms, usable_vector_filter, MIN_COSINE_SIMILARITY,
 };
 use crate::core::record::l1_writer::EmbedFn;
 use crate::core::record::L1Error;
@@ -242,6 +244,12 @@ pub struct RecallConfig {
     /// Total char budget across all recalled lines (TDAM
     /// `maxTotalRecallChars`).
     pub max_total_recall_chars: Option<usize>,
+    /// MEMG-11: opt-in — rank the L1 pool with the core hybrid search
+    /// (BM25 text arm + HNSW vector arm + planner RRF) instead of the
+    /// in-memory dual-pool (`significant_terms` + cosine + local RRF).
+    /// Default `false`: the legacy path stays byte-identical (rollback =
+    /// flip the flag back; dual-path migration).
+    pub core_search: bool,
 }
 
 impl Default for RecallConfig {
@@ -253,6 +261,7 @@ impl Default for RecallConfig {
             min_overlap: 1,
             max_chars_per_memory: None,
             max_total_recall_chars: None,
+            core_search: false,
         }
     }
 }
@@ -334,31 +343,48 @@ pub fn perform_auto_recall_governed(
     let mut recalled = Vec::new();
     let mut semantic_ran = false;
     if !params.user_text.trim().is_empty() {
-        // Own-session records are always visible (legacy records carry no
-        // agent/team metadata and must not vanish when the scope widens).
-        let mut records = Vec::new();
-        let current_ns = l1_namespace(params.session_key);
-        if policy.allows(&current_ns) {
-            records = read_session_records(db, params.session_key)?;
-            if !records.is_empty() {
-                governance.source(&current_ns);
-            }
-        } else {
-            governance.deny(&current_ns);
-        }
-        if config.scope != RecallScope::Session {
-            records.extend(read_scoped_records(
+        if config.core_search {
+            // MEMG-11: core hybrid path (BM25 + HNSW + RRF). Same ACL/scope
+            // rules as the legacy path; see `search_records_core`.
+            let (hits, used_semantic) = search_records_core(
                 db,
-                config.scope,
-                &isolation,
+                params.user_text,
                 params.session_key,
+                &isolation,
+                &config,
+                embed,
                 policy,
                 &mut governance,
-            )?);
+            )?;
+            semantic_ran = used_semantic;
+            recalled = hits;
+        } else {
+            // Own-session records are always visible (legacy records carry no
+            // agent/team metadata and must not vanish when the scope widens).
+            let mut records = Vec::new();
+            let current_ns = l1_namespace(params.session_key);
+            if policy.allows(&current_ns) {
+                records = read_session_records(db, params.session_key)?;
+                if !records.is_empty() {
+                    governance.source(&current_ns);
+                }
+            } else {
+                governance.deny(&current_ns);
+            }
+            if config.scope != RecallScope::Session {
+                records.extend(read_scoped_records(
+                    db,
+                    config.scope,
+                    &isolation,
+                    params.session_key,
+                    policy,
+                    &mut governance,
+                )?);
+            }
+            let (hits, used_semantic) = search_records(&records, params.user_text, &config, embed);
+            semantic_ran = used_semantic;
+            recalled = hits;
         }
-        let (hits, used_semantic) = search_records(&records, params.user_text, &config, embed);
-        semantic_ran = used_semantic;
-        recalled = hits;
     }
 
     // ── L3 persona (scoped by team+agent via profile_sync) ──
@@ -671,6 +697,172 @@ fn search_records(
         })
         .collect();
     (budgeted, semantic_ran)
+}
+
+/// MEMG-11: rank the L1 pool with the core hybrid search — BM25 text arm
+/// (every record, vector or not: the D38 "a legacy record is never dropped"
+/// promise rides the text arm), HNSW vector arm (records with a usable
+/// vector) and the planner's RRF fusion. Same ACL/scope rules as the legacy
+/// path: the current session namespace plus, when the scope widens, every
+/// `l1/*` namespace allowed by the policy (cross-session hits are filtered by
+/// the record's own `agent_id`/`team_id`, D22). Quarantined records never
+/// surface (`include_quarantined: false`, SCH-05).
+///
+/// Documented divergences from the legacy path:
+/// - the text arm always runs (even in `Embedding` mode) — it carries the D38
+///   "a vectorless record is never dropped" promise; `mode` only controls
+///   whether the embedding arm is attempted, so the core route is hybrid;
+/// - `min_overlap` is not applied (BM25 relevance replaces the keyword-overlap
+///   gate; post-filtering by `significant_terms` would drop stemmed/stopword
+///   BM25 matches);
+/// - cross-namespace merging orders by `hit.score` (an RRF *intra*-namespace
+///   score) — approximate across namespaces, where the legacy path scored the
+///   global pool in one pass;
+/// - `semantic_ran` reports whether the embedding arm was *executed*
+///   (non-empty query vector) — the core route decides internally whether it
+///   contributed candidates, so `effective_mode` reflects the declared mode
+///   whenever a hook produced a vector.
+#[allow(clippy::too_many_arguments)]
+fn search_records_core(
+    db: &Embedded,
+    user_text: &str,
+    session_key: &str,
+    isolation: &ProfileIsolation,
+    config: &RecallConfig,
+    embed: Option<&EmbedFn>,
+    policy: &InjectionPolicy,
+    governance: &mut RecallGovernance,
+) -> Result<(Vec<RecallHit>, bool), RecallError> {
+    use vantadb::sdk::{MemorySearchRequest, SearchProfileConfig, SearchProfileMode};
+
+    let query_vector = match (config.mode != RecallMode::Keyword, embed) {
+        (true, Some(hook)) => hook(user_text),
+        _ => None,
+    }
+    .filter(|v| !v.is_empty() && v.iter().any(|&x| x != 0.0));
+    let semantic_ran = query_vector.is_some();
+    // The text arm always runs when there is text: it carries the D38 "a
+    // vectorless record is never dropped" promise on the core path. `mode`
+    // only controls whether the embedding arm is attempted, so the core route
+    // is always hybrid text+vector — same intent as the legacy dual-pool,
+    // which also kept the keyword pool in Embedding mode (documented
+    // divergence: the core route never drops the text arm).
+    let text_query = Some(user_text.trim().to_string()).filter(|t| !t.is_empty());
+
+    let current_ns = l1_namespace(session_key);
+    let mut namespaces = vec![current_ns.clone()];
+    if config.scope != RecallScope::Session {
+        for ns in db.list_namespaces()? {
+            if ns.starts_with("l1/") && ns != current_ns {
+                namespaces.push(ns);
+            }
+        }
+    }
+
+    // Per-namespace candidate budget leaves room for the cross-namespace
+    // merge; the final take is `max_results`.
+    let per_ns_k = config.max_results.saturating_mul(4).max(1);
+
+    let mut merged: Vec<(f32, MemoryRecord, String)> = Vec::new();
+    let mut seen: HashSet<(String, String)> = HashSet::new();
+    for ns in namespaces {
+        if !policy.allows(&ns) {
+            governance.deny(&ns);
+            continue;
+        }
+        let request = MemorySearchRequest {
+            namespace: ns.clone(),
+            query_vector: query_vector.clone().unwrap_or_default(),
+            text_query: text_query.clone(),
+            top_k: per_ns_k,
+            search_profile: Some(SearchProfileConfig {
+                mode: SearchProfileMode::Hybrid,
+                ..Default::default()
+            }),
+            include_quarantined: false,
+            ..Default::default()
+        };
+        let hits = db.search(request)?;
+        let mut contributed = false;
+        for hit in hits {
+            let Ok(mut record) = serde_json::from_str::<MemoryRecord>(&hit.record.payload) else {
+                tracing::debug!(key = %hit.record.key, "l1 record failed to deserialize; skipped");
+                continue;
+            };
+            // Cross-session visibility (D22): own-session records are always
+            // visible; other namespaces need the matching agent/team stamp.
+            if ns != current_ns {
+                let visible = match config.scope {
+                    RecallScope::Session => false,
+                    RecallScope::Agent => {
+                        record.agent_id.as_deref() == Some(isolation.agent_id.as_str())
+                    }
+                    RecallScope::Team => {
+                        record.team_id.as_deref() == Some(isolation.team_id.as_str())
+                    }
+                };
+                if !visible {
+                    continue;
+                }
+            }
+            record.vector = usable_vector_filter(hit.record.vector.as_deref());
+            let identity = (ns.clone(), hit.record.key.clone());
+            if seen.insert(identity) {
+                merged.push((hit.score, record, ns.clone()));
+                contributed = true;
+            }
+        }
+        if contributed {
+            governance.source(&ns);
+        }
+    }
+
+    merged.sort_by(|a, b| b.0.total_cmp(&a.0));
+    let hits: Vec<RecallHit> = merged
+        .into_iter()
+        .take(config.max_results)
+        .map(|(_, record, ns)| {
+            let line = format_memory_line(&record);
+            let memory_type = serde_json::to_string(&record.memory_type)
+                .unwrap_or_else(|_| "\"unknown\"".to_string());
+            let memory_type = memory_type.trim_matches('"').to_string();
+            let content = line
+                .split_once("] ")
+                .map(|(_, rest)| rest.to_string())
+                .unwrap_or_else(|| line.clone());
+            RecallHit {
+                line,
+                memory: RecalledMemory {
+                    content,
+                    // `score` stays the keyword-overlap count (legacy shape);
+                    // a record matched purely via similarity reports 0.
+                    score: overlap_score(&record.content, user_text),
+                    memory_type,
+                    // The queried namespace is where the record actually
+                    // lives (source identity for the VER-04 audit + MEMG-02
+                    // reinforcement round-trip).
+                    source_namespace: ns,
+                    source_key: record.id.clone(),
+                },
+            }
+        })
+        .collect();
+
+    // Same line-budget pass as the legacy path.
+    let budgeted_lines = apply_recall_budget(hits.iter().map(|h| h.line.clone()).collect(), config);
+    let budgeted = budgeted_lines
+        .into_iter()
+        .zip(hits)
+        .map(|(line, mut hit)| {
+            hit.memory.content = line
+                .split_once("] ")
+                .map(|(_, rest)| rest.to_string())
+                .unwrap_or_else(|| line.clone());
+            hit.line = line;
+            hit
+        })
+        .collect();
+    Ok((budgeted, semantic_ran))
 }
 
 /// Format one record as a rich natural-language line (TDAM

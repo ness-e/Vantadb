@@ -547,6 +547,55 @@ fn put_batch_after_ttl_expiry_succeeds() {
     );
 }
 
+/// MEMG-11 review r2: a batch mixing a live upsert and an expired key must not
+/// deadlock (the guard-retention approach held read guards and then purged
+/// under the write lock in the same thread). Bounded with a channel timeout so
+/// a regression fails instead of hanging the suite.
+#[test]
+fn put_batch_mixed_live_and_expired_upserts_do_not_deadlock() {
+    let dir = tempdir().expect("tempdir");
+    let db = Embedded::open(dir.path()).expect("open");
+
+    // Live key (guarded-upsert branch) + expired key (purge-on-write branch)
+    // in the SAME batch.
+    db.put(MemoryInput::new("test", "live-key", "live old"))
+        .expect("seed live");
+    let mut expired = MemoryInput::new("test", "expired-key", "expired old");
+    expired.ttl_ms = Some(1);
+    db.put(expired).expect("seed expired");
+    thread::sleep(std::time::Duration::from_millis(5));
+
+    let (tx, rx) = std::sync::mpsc::channel();
+    let handle = thread::spawn(move || {
+        let res = db.put_batch(vec![
+            MemoryInput::new("test", "live-key", "live new"),
+            MemoryInput::new("test", "expired-key", "expired new"),
+        ]);
+        let _ = tx.send(res.map(|records| records.len()));
+        db
+    });
+
+    let len = rx
+        .recv_timeout(std::time::Duration::from_secs(30))
+        .expect("put_batch with mixed live+expired keys must not deadlock");
+    assert_eq!(len.expect("batch must succeed"), 2);
+    let db = handle.join().expect("batch thread must not panic");
+    assert_eq!(
+        db.get("test", "live-key")
+            .expect("get")
+            .expect("live record present")
+            .payload,
+        "live new"
+    );
+    assert_eq!(
+        db.get("test", "expired-key")
+            .expect("get")
+            .expect("expired record revived")
+            .payload,
+        "expired new"
+    );
+}
+
 // ── 14c. Re-put vs TTL sweeper race (DUR-03) ───────────────
 
 /// DUR-03 pre-mortem #2: a re-put racing the TTL sweeper (`purge_expired`)
