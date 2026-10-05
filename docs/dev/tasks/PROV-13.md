@@ -16,7 +16,7 @@ description: "Windows job (matriz provider × ubuntu/windows) en providers-ci.ym
 - **Campaign ID:** master-plan-0.9.0-20261004 · **taskId server:** 31
 - **Ejecutor:** vanta-worker
 - **Incógnitas (uphill):** 0 abiertas (resueltas en DISCOVERY — ver Investigation Notes)
-- **Pendientes (downhill):** 4 steps (2-5)
+- **Pendientes (downhill):** 0 steps (5/5 ✅)
 
 ## Blast Radius
 
@@ -137,5 +137,13 @@ No aplica Spec formal — fix de infra CI sin símbolos públicos nuevos (no agr
 ## RESULTADO (§7)
 
 ```
-RESULTADO: (pendiente de cierre)
+RESULTADO: ✅ COMPLETO
+STEPS_OK: 5/5
+PROXIMO_STEP: ninguno
+COMMIT_HASH: b616e97c (changeset) + commit docs de cierre (RESULTADO §7)
+ARCHIVOS: .github/scripts/verify_pyi.py · .github/workflows/providers-ci.yml · docs/dev/tasks/PROV-13.md
+VERIFY_CONTRATO: pasa — cargo check/clippy -D warnings ×3 Windows ✅ · pytest 54/54 ✅ · actionlint 0 ✅ · pyi ×3 ✅ (4 records campaign_verify_cmd) + verify_changed ALL 4 PASS + verify.ps1 ALL 10 PASS
+BLOQUEO: ninguno (ENOSPC ambiental documentado; verde real del run GitHub = post-push del owner, Regla 7)
+GATES_EVALUADOS: P:no(familia CI del plan) D:no(3 archivos, sin API nueva) V:no(verify verde; ENOSPC ambiental no-code) C:si(Cargo.lock churn revertido + archivos ajenos fuera del commit)
+SKILLS_CARGADAS: ci-cd-and-automation · systematic-debugging · source-driven-development · rust-write-tests · git-workflow-and-versioning · security-and-hardening (+ base auto: campaign-executor · progreso)
 ```
