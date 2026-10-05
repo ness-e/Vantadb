@@ -6,11 +6,13 @@ on:
     branches: [ "main" ]
     paths:
       - 'providers/**'
+      - '.github/scripts/verify_pyi.py'
       - '.github/workflows/providers-ci.yml'
   pull_request:
     branches: [ "main" ]
     paths:
       - 'providers/**'
+      - '.github/scripts/verify_pyi.py'
       - '.github/workflows/providers-ci.yml'
 
 permissions:
@@ -22,13 +24,14 @@ concurrency:
 
 jobs:
   check:
-    name: Check provider (${{ matrix.provider }})
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
+    name: Check provider (${{ matrix.provider }} / ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         provider: [openai, litellm, ollama]
+        os: [ubuntu-latest, windows-latest]
 
     steps:
       - name: Checkout
@@ -47,11 +50,18 @@ jobs:
 
       - name: Rust cache
         uses: Swatinem/rust-cache@7e35be21c2b94d972b1143087fabc27d7dc881ef # v2.9.1
+        with:
+          # providers/* are standalone crates (not workspace members) that build
+          # into providers/<name>/target; the action's default (". -> target")
+          # does not cache them, so every run rebuilt the full dependency graph.
+          workspaces: |
+            providers/openai -> target
+            providers/ollama -> target
+            providers/litellm -> target
 
       - name: Clippy provider crates
         # providers/* are intentionally NOT workspace members — lint them
         # individually via --manifest-path (mirrors ci-rust.yml cargo check).
-        # A providers/ change now gates on clippy, not just rustdoc + pytest.
         run: |
           cargo clippy --manifest-path providers/openai/Cargo.toml -- -D warnings
           cargo clippy --manifest-path providers/ollama/Cargo.toml -- -D warnings
@@ -62,11 +72,21 @@ jobs:
 
       # maturin develop refuses to run outside a virtualenv/conda env
       # (was failing all 3 matrix jobs with "Couldn't find a virtualenv").
-      - name: Create virtualenv
+      # venv layout differs per OS: POSIX uses bin/, Windows uses Scripts/.
+      - name: Create virtualenv (POSIX)
+        if: runner.os != 'Windows'
         run: |
           python -m venv .venv
           echo "VIRTUAL_ENV=$PWD/.venv" >> $GITHUB_ENV
           echo "$PWD/.venv/bin" >> $GITHUB_PATH
+
+      - name: Create virtualenv (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          python -m venv .venv
+          "VIRTUAL_ENV=$env:GITHUB_WORKSPACE\.venv" >> $env:GITHUB_ENV
+          "$env:GITHUB_WORKSPACE\.venv\Scripts" >> $env:GITHUB_PATH
 
       - name: Build provider
         working-directory: providers/${{ matrix.provider }}
@@ -77,16 +97,15 @@ jobs:
         run: |
           pip install pytest pytest-asyncio
           # Tests gate on importorskip(client lib): matrix name == PyPI
-          # package (openai/litellm/ollama). vantadb-py is published (0.5.0),
-          # matching the local core version under test.
+          # package (openai/litellm/ollama). vantadb-py is unpinned, so pip
+          # resolves the latest release (core under test is built from source).
           pip install ${{ matrix.provider }} vantadb-py
           python -m pytest tests/ -v --tb=short
 
       - name: Verify .pyi matches signatures
-        working-directory: providers/${{ matrix.provider }}
-        # NOTE: the step CWD is providers/<name>, so the script path must be
-        # anchored at $GITHUB_WORKSPACE (a bare relative path 404s here).
-        # NOTE 2: '\${PROVIDER}' keeps the $ literal: unescaped, bash would
-        # expand ${PROVIDER} to empty and .replace('', ...) would interleave
-        # the provider name between every character of the script.
-        run: python -c "import os,sys; sys.path.insert(0, '.').__class__; exec(open(os.path.join(os.environ['GITHUB_WORKSPACE'], '.github/scripts/verify_pyi.py')).read().replace('\${PROVIDER}', '${{ matrix.provider }}'))"
+        # PROVIDER env mode: bash + pwsh safe (the old exec/replace hack only
+        # worked under bash — PROV-13). The script anchors the repo root at
+        # GITHUB_WORKSPACE, so no working-directory is needed.
+        env:
+          PROVIDER: ${{ matrix.provider }}
+        run: python .github/scripts/verify_pyi.py
