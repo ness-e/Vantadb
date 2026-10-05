@@ -9,6 +9,7 @@ mod engine;
 mod mmd;
 mod mmd_injector;
 mod report_store;
+mod spill;
 mod token_estimator;
 mod types;
 
@@ -17,7 +18,7 @@ pub use compressor::{
     MemoryScoreMap,
 };
 pub use engine::{
-    assemble, assemble_with_recall, AssembleConfig, AssembleOutput, IntegratedContext,
+    assemble, assemble_with_recall, AssembleConfig, AssembleOutput, IntegratedContext, SpillSink,
     RECALL_APPEND_MARKER, RECALL_PREPEND_MARKER,
 };
 pub use mmd::{
@@ -29,5 +30,6 @@ pub use report_store::{
     list_compaction_reports, record_compaction_report, PersistedCompactionReport,
     COMPACTION_REPORT_PREFIX,
 };
+pub use spill::{DbSpillSink, SpillError, SpillReclaimStats, SpillStorage, SpilledMessage};
 pub use token_estimator::{emergency_truncate, truncate_content, TokenEstimator};
 pub use types::{ChatMessage, ChatRole, CompactionMode, CompactionReport, ContextError};

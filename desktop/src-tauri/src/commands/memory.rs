@@ -233,6 +233,7 @@ fn run_assemble(
         append.as_deref(),
         None,
         None,
+        None,
     )
     .map_err(mem_err)
 }
