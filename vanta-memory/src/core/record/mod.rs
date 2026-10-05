@@ -20,6 +20,17 @@ pub mod lifecycle;
 /// L1 memory reader + LLM-free candidate recall (MEM-11).
 pub mod l1_reader;
 
+/// MEMG-21: composite L1 scoring — recency + relevance + importance.
+///
+/// Opt-in re-ranking of recall candidates: `composite = w_rel·relevance +
+/// w_rec·recency + w_imp·importance`, where recency is MEMG-07's
+/// [`lifecycle::retention_factor`] (consumed, not reimplemented), relevance is
+/// the caller's raw pool score (min-max normalized over the candidate set,
+/// Park et al. §4.1) and importance is the record's declared `priority`.
+/// Declared defaults (policy, not calibration) mirror CrewAI's composite
+/// scoring: relevance 500 · recency 300 · importance 200 per-mille.
+pub mod scoring;
+
 /// L1 memory writer — applies dedup decisions to the store (MEM-11).
 pub mod l1_writer;
 
@@ -46,6 +57,9 @@ pub use l1_reader::{
     read_session_records, recall_candidates, run_decay_pass, RecordFieldChange, RecordVersion,
 };
 pub use l1_writer::{apply_dedup_batch, generate_memory_id, write_memory, EmbedFn, L1Error};
+pub use scoring::{
+    composite_rank, composite_score, importance_score, CompositeScoring, ScoringWeights,
+};
 
 /// Canonical single-record L1 write (vector stripped, node vector separate).
 /// Shared with the dream promotion path (VER-07).

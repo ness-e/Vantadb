@@ -349,6 +349,22 @@ pub(crate) fn rrf_merge(
     vector_ranked: &[String],
     top_k: usize,
 ) -> Vec<String> {
+    rrf_merge_scored(keyword_ranked, vector_ranked, top_k)
+        .into_iter()
+        .map(|(id, _)| id)
+        .collect()
+}
+
+/// Scored variant of [`rrf_merge`]: same fusion math, returning the fused
+/// score alongside each id (best-first). MEMG-21 consumes the fused scores as
+/// the raw relevance signal when both recall arms contribute — RRF is
+/// rank-based and scale-free, so the composite re-rank never compares term
+/// counts against cosine similarities directly.
+pub(crate) fn rrf_merge_scored(
+    keyword_ranked: &[String],
+    vector_ranked: &[String],
+    top_k: usize,
+) -> Vec<(String, f32)> {
     const RRF_K: f32 = 60.0;
     let mut fused: Vec<(String, f32)> = Vec::new();
     let mut bump = |ranked: &[String]| {
@@ -363,7 +379,7 @@ pub(crate) fn rrf_merge(
     bump(keyword_ranked);
     bump(vector_ranked);
     fused.sort_by(|a, b| b.1.total_cmp(&a.1));
-    fused.into_iter().take(top_k).map(|(id, _)| id).collect()
+    fused.into_iter().take(top_k).collect()
 }
 
 /// Marker types so the reader surface is self-describing in docs/tests.
@@ -376,7 +392,10 @@ pub struct L1ReaderStats {
 
 #[cfg(test)]
 mod tests {
-    use super::{l1_namespace, overlap_score, recall_candidates, significant_terms};
+    use super::{
+        l1_namespace, overlap_score, recall_candidates, rrf_merge, rrf_merge_scored,
+        significant_terms,
+    };
     use crate::core::abstractions::{MemoryRecord, MemoryType};
 
     fn record(id: &str, content: &str, updated: &str) -> MemoryRecord {
@@ -452,5 +471,23 @@ mod tests {
 
         let none = recall_candidates(&records, "rust cargo build", 5, None);
         assert!(none.is_empty());
+    }
+
+    #[test]
+    fn rrf_merge_scored_matches_rrf_merge_ids() {
+        let keyword = vec!["a".to_string(), "b".to_string()];
+        let vector = vec!["b".to_string(), "c".to_string()];
+        let ids = rrf_merge(&keyword, &vector, 3);
+        let scored = rrf_merge_scored(&keyword, &vector, 3);
+        assert_eq!(
+            scored.iter().map(|(id, _)| id.clone()).collect::<Vec<_>>(),
+            ids,
+            "the scored variant keeps rrf_merge's exact ordering"
+        );
+        // "b" is in both pools → top fused score, strictly above the rest.
+        assert_eq!(scored[0].0, "b");
+        assert!(scored[0].1 > scored[1].1);
+        // top_k is respected.
+        assert_eq!(rrf_merge_scored(&keyword, &vector, 2).len(), 2);
     }
 }

@@ -410,7 +410,9 @@ half-life (`R = 2^(−age/half_life)`) — see
 [Forgetting curve](https://en.wikipedia.org/wiki/Forgetting_curve); the same
 source notes the simple exponential does not fit human data well, which is why
 this is a policy. The full Ebbinghaus vision (access frequency, importance,
-confirmations, salience — FUT-10) lands in the composite-scoring work (MEMG-21).
+confirmations, salience — FUT-10) is partially realized by the composite-scoring
+work (MEMG-21): the curve is consumed as the recency signal; access
+frequency/confirmations remain open.
 
 **API** (`core::record::lifecycle::{DecayPolicy, retention_factor, effective_heat, scan_decay, DecayReport}` + `core::record::run_decay_pass`):
 
@@ -448,6 +450,103 @@ known-value math is exact (`8 × 2^(−1) = 4`, `3 × 2^(−2) = 0.75 → 1`). I
 consumers today: **none** — no scheduler calls the pass yet (the pull-based
 service is WIRE-15) and the automatic discard is deliberately deferred →
 FIND-289 (Backlog).
+
+## Composite scoring (MEMG-21)
+
+Opt-in re-ranking of L1 recall candidates on top of the existing dual-pool
+relevance machinery (D38: keyword overlap + cosine fused with RRF):
+
+```text
+composite = w_rel · relevance_norm + w_rec · recency + w_imp · importance
+```
+
+**Policy, not calibration.** The weighted form is Park et al. §4.1
+([Generative Agents](https://arxiv.org/abs/2304.03442), arXiv:2304.03442v2 —
+"weighted combination of the three elements", each signal min-max normalized to
+[0,1]); the declared defaults are CrewAI's documented composite-scoring
+defaults ([unified memory](https://docs.crewai.com/en/concepts/memory) —
+`semantic 0.5 / recency 0.3 / importance 0.2`). No calibrated-accuracy claim is
+made; tune per deployment.
+
+| Signal | Source | Notes |
+|---|---|---|
+| `relevance_norm` | The caller's raw pool score (keyword overlap or cosine) or the fused RRF score when both arms contribute — min-max normalized over the candidate set | RRF is rank-based and scale-free, so the arms never compete on raw scales |
+| `recency` | [`retention_factor`](#forgetting-curve-memg-07) (MEMG-07) — `2^(−age/half_life)`, age since `updated_at` | Same exponential family as CrewAI's `decay = 0.5^(age_days/half_life_days)`; consumed, not reimplemented |
+| `importance` | The record's declared `priority` (0-100) → `[0,1]`; `priority < 0` (strict global instruction) → `1.0`; >100 clamps | Set at encoding time (Park/CrewAI agree); `heat`'s effect rides recency — `bump_heat` refreshes `updated_at` |
+
+**API** (`core::record::{ScoringWeights, CompositeScoring, importance_score, composite_score, composite_rank}` + `core::hooks::perform_auto_recall_scored`):
+
+| Function | Contract |
+|---|---|
+| `ScoringWeights::default()` | Declared per-mille weights: `relevance: 500`, `recency: 300`, `importance: 200` (CrewAI defaults). Integers keep the config `Eq`-comparable |
+| `CompositeScoring::default()` | `weights` (above) + `decay: DecayPolicy` (MEMG-07 per-type half-lives). Serde round-trips |
+| `importance_score(record) -> f64` | `priority` mapping (see table above) |
+| `composite_score(record, relevance, scoring, now_ms) -> f64` | One candidate; `relevance` expected already normalized. Degenerate all-zero weights → `relevance` (conservative fallback) |
+| `composite_rank(candidates, scoring, now_ms) -> Vec<usize>` | Best-first indices; min-max normalizes raw relevance over the set; ties: `updated_at` desc, then `id` asc |
+| `perform_auto_recall_scored(db, params, embed, policy, scoring, now_ms)` | The opt-in entry point: same ACL/scope rules as `perform_auto_recall_governed`, re-ranking **before** the `max_results` cut on both routes (in-memory dual-pool and `core_search`). `now_ms` injected for determinism |
+
+```rust
+use vanta_memory::core::hooks::{perform_auto_recall_scored, InjectionPolicy};
+use vanta_memory::core::record::CompositeScoring;
+
+let out = perform_auto_recall_scored(
+    &db,
+    params,
+    None,                            // embed hook (optional)
+    &InjectionPolicy::allow_all(),
+    &CompositeScoring::default(),    // declared weights + MEMG-07 decay policy
+    now_ms,
+)?;
+```
+
+**Guarantees** (pinned by `scoring.rs` inline tests +
+`vanta-memory/tests/composite_scoring.rs`): known-value math is exact
+(`0.5·1 + 0.3·1 + 0.2·0.5 = 0.9`; one half-life → recency `0.5`); the ordering
+metric on the fixture improves the fresh+important record's rank 2 → 1
+(before `[r1,r2,r3,r4]` → after `[r2,r1,r3,r4]`); uniform signals preserve the
+legacy order; the existing entry points keep the legacy ordering
+**byte-identical** (opt-in by construction — no caller changes behavior).
+In-repo consumers today: **none** — activation is a host decision (FIND-290).
+
+## Reflection (MEMG-21)
+
+Pull-based reflection pass over a session's **episodic** L1 records: groups
+episodes by scene and produces lessons that cite their source records, written
+to a separate `reflection/<session>/<run_id>` namespace. **The L1 store is never
+mutated** — promotion stays explicit and out of scope (FIND-290).
+
+Sources (policy, not calibration): Park et al. §4.2 (*Generative Agents*,
+arXiv:2304.03442v2 — reflections are generated periodically, synthesize
+higher-level insights and cite the records that served as evidence); the
+in-crate precedent is [`core::dream`](#operational-modules): an optional LLM
+runner with a deterministic LLM-free degradation (P4) — without a runner the
+pass emits a digest lesson per scene; nothing blocks and nothing is lost.
+
+**API** (`core::reflection::{ReflectionConfig, Reflector, ReflectionRun, reflect_episodic, reflect_session, load_reflection_run}`):
+
+| Function | Contract |
+|---|---|
+| `ReflectionConfig::default()` | `min_episodic: 3` (declared precondition), `runner: None` (LLM-free), `run_id_salt: ""`. Builders: `with_min_episodic` / `with_reflector` / `with_run_id_salt` |
+| `Reflector` trait | Host extension point (`label` + `reflect`) for true LLM synthesis; the clone of a config deliberately drops the runner (same choice as `DreamConfig`) |
+| `reflect_episodic(records, session_id, now_ms) -> Vec<MemoryRecord>` | Pure LLM-free digest: one `WorkMethod` lesson per scene, top-`DIGEST_TOP` (3) episodes by priority in the content, **every** scene id cited in `metadata.reflection.source_ids`, deterministic id (`reflect-<hash>`) |
+| `reflect_session(db, session_id, now_ms, config) -> Result<ReflectionRun, ReflectionError>` | The pass: reads `l1/<session>` (quarantine gate SCH-05 inherited), filters episodic, enforces `min_episodic` (`NotEnoughMaterial` below it — observable skip, never silent), runs the runner or the digest, persists the run under `reflection/<session>/<run_id>` |
+| `load_reflection_run(db, session_id, run_id) -> Result<Option<ReflectionRun>, ReflectionError>` | Read one run back (review/replay) |
+
+```rust
+use vanta_memory::core::reflection::{reflect_session, ReflectionConfig};
+
+let run = reflect_session(&db, "sess-1", now_ms, &ReflectionConfig::default())?;
+// run.lessons: one WorkMethod per scene, provenance in metadata.reflection
+// run.runner_label == "none" (LLM-free degradation, P4)
+```
+
+**Guarantees** (pinned by `reflection/mod.rs` inline tests +
+`vanta-memory/tests/reflection.rs`): the pass leaves `l1/<session>`
+**byte-identical** (payload comparison, all records still present); same
+salt + `now_ms` → identical run (deterministic lessons); the persona type is
+ignored; a configured runner overrides the digest and its label is persisted.
+In-repo consumers today: **none** — promotion of lessons to L1 and scheduler
+wiring are deferred → FIND-290 (Backlog).
 
 ## Contratos clave
 

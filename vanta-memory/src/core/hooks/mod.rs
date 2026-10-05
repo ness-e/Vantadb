@@ -8,7 +8,7 @@ pub mod auto_recall;
 
 pub use auto_capture::{AutoCaptureConfig, AutoCaptureHook, AutoCaptureResult, RawMessage};
 pub use auto_recall::{
-    perform_auto_recall, perform_auto_recall_governed, reinforce_recalled, AutoRecallParams,
-    InjectionPolicy, RecallConfig, RecallError, RecallGovernance, RecallMode, RecallResult,
-    RecallScope, RecalledMemory, MEMORY_TOOLS_GUIDE,
+    perform_auto_recall, perform_auto_recall_governed, perform_auto_recall_scored,
+    reinforce_recalled, AutoRecallParams, InjectionPolicy, RecallConfig, RecallError,
+    RecallGovernance, RecallMode, RecallResult, RecallScope, RecalledMemory, MEMORY_TOOLS_GUIDE,
 };
