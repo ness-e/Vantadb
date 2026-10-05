@@ -5,15 +5,21 @@ FIND-73: gate real — compara nombres de params + presencia de defaults
 (stub parseado con `ast` vs runtime con `inspect.signature`), no solo
 `hasattr`. Caza drift tipo PROV-10 (`key` en `store()`).
 
-Invocación CI (.github/workflows/providers-ci.yml): el step hace
-`exec(...read().replace('${PROVIDER}', matrix))`, por eso el placeholder
-literal de abajo DEBE mantenerse. En local se usa `PROVIDER=<name>`.
+Invocación CI (.github/workflows/providers-ci.yml): el step exporta
+`PROVIDER=<matrix>` y ejecuta el script directo (bash + pwsh; el viejo
+exec/replace solo funcionaba en bash). En local: `PROVIDER=<name>` igual.
 """
 import ast
 import inspect
 import os
 import sys
 from pathlib import Path
+
+# Windows consoles/pipes default to cp1252/ibm437: the U+2713 check mark
+# printed on success would crash with UnicodeEncodeError and turn a green
+# run red (PROV-13). Force UTF-8 stdout regardless of the host locale.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 PROVIDER = "${PROVIDER}"
 
