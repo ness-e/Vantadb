@@ -205,7 +205,6 @@ verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-hist
 
 | ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias |
 |---|---|---|---|---|---|---|---|---|---|
-| `WIRE-16` | 🟡 Media | **T3 — Wiring del wrapper `vantadb-server` (queue + bridge + loop)** | `vantadb-server/` | 🟡 1-2d | 🟡 Media | 🆕 Pendiente | Dep `vanta-memory`; construcción queue + bridge + loop; env config (`VANTADB_SCHEDULER_*`, R-5); shutdown. Verificación: e2e `POST /conversation/add` → L0 → pass → `l1/<session>`; restart; disabled; sin runner. | Origen: ADR-0054 (T3) | Dep: WIRE-15 |
 | `WIRE-17` | 🟢 Baja | **T4 — Docs del scheduler (wired status + promoción del rol)** | `docs/api/VANTA_MEMORY.md`, `docs/user/operations/EXPERIMENTAL_FEATURES.md` | 🟢 4h | 🟢 Baja | 🆕 Pendiente | `VANTA_MEMORY.md` §Operational modules (wired status) + `EXPERIMENTAL_FEATURES.md` (promoción del rol + fila `vanta-memory`). Verificación: check-docs + check-links. | Origen: ADR-0054 (T4) | Dep: WIRE-16 |
 | `WIRE-18` | 🟡 Media | **T5 — Verificación adversarial del scheduler (crash mid-pass + restart)** | `tests/` (chaos) | 🟡 1-2d | 🟡 Media | 🆕 Pendiente | Crash mid-pass + restart (cola efímera) + review P2-01. Carril: vanta-chaos / vanta-review. | Origen: ADR-0054 (T5) | Dep: WIRE-15/16 |
 
