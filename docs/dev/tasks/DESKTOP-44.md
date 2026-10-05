@@ -311,3 +311,6 @@ SKILLS_CARGADAS: test-driven-development, frontend-ui-engineering, source-driven
 - **(S3) validate_scope advisory:** los 5 paths reportan "OUTSIDE declared blast radius" — el parser del plan lista los archivos de `vanta-proxy` del bloque F0; el blast real de la prep es desktop + task file (declarado en §Blast Radius). Advisory, no bloqueante (mismo precedente DESKTOP-43).
 - **(S6) Backlog:** la fila `FIND-155` queda `Pendiente` hasta la validación de la sesión; al cerrar, remover la fila (registro en `avance/`).
 - **Learning:** el rate-limit se puede verificar sin costo con `count_tokens` (Anthropic) — el limiter cuenta cualquier request que pase auth, sin importar el status del upstream.
+
+## Decisión owner (2026-10-05)
+Sesión S1-S7 la corre el **owner cuando pueda** (respuesta: "la hago después, sola") — la tarea queda **en pausa** (in-progress) hasta entonces; el guion completo está arriba. FIND-155 permanece `Pendiente` hasta la validación E2E.

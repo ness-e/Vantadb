@@ -206,7 +206,6 @@ verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-hist
 | `SRV-10` | 🟡 Media | **Cifrado en reposo del server (HTTP)** | `docs/api/HTTP_API.md:701`, `vantadb-server/` | 🟡 3-5d | 🟡 Media | 🆕 Pendiente | `HTTP_API.md:701` lo declara ("SRV-10 is on the roadmap") pero no existía fila. El core ya tiene feature `encryption`; falta la capa server. | Origen: análisis externo 2026-10-01 (D1) | — |
 | `FIND-221` | 🟠 Alta | **`put_batch`: contrato de atomicidad ambiguo (hoy "atómico por chunk")** | `src/sdk/api/memory.rs:468`, `docs/api/PYTHON_SDK.md` | 🟡 1-2d | 🟡 Media | 🆕 Pendiente | Un fallo en el chunk 2 deja el chunk 1 commiteado (`batch_size` default 1000). Decisión owner: fix todo-o-nada + contrato actual documentado ya en `PYTHON_SDK.md` §`put_batch()`. | Origen: análisis externo 2026-10-01 (F1) | — |
 | `MKT-22` | 🟡 Media | **Panel visible de la métrica principal (sesiones)** | `README.md` | 🟢 1d | 🟡 Media | 🆕 Pendiente | La métrica existe (SPEC) pero nadie la ve; publicar el número en un panel/reporte actualizado. | Origen: análisis externo 2026-10-01 (C5) | — |
-| `PROV-13` | 🟡 Media | **Providers OpenAI/Ollama/LiteLLM en Windows (compilar)** | `integrations/`, `.github/workflows/providers-ci.yml` | 🟡 2-4d | 🟡 Media | 🆕 Pendiente | Decisión owner 2026-10-01: arreglar (no declarar límite). Los 3 providers no compilan en Windows; requiere fix + CI Windows. | Origen: decisión owner 2026-10-01 (Q5/B3) | — |
 
 ### Derivadas de ADR-0054 — hogar del planificador L0→L3
 
