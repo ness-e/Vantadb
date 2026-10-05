@@ -610,6 +610,7 @@ fn seed_l1(db: &vantadb::sdk::Embedded, session: &str, id: &str, content: &str) 
         record_id: id.into(),
         action: DedupAction::Store,
         target_ids: vec![],
+        contradicts: vec![],
         merged_content: None,
         merged_type: None,
         merged_priority: None,

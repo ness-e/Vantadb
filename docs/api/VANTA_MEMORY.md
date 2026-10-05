@@ -214,7 +214,7 @@ with `llm-driver` on: failures are loud, never a silent `NotConfigured`
 | Capa | Módulo | Qué hace |
 |---|---|---|
 | L0 | `core::conversation::l0_recorder`, `core::hooks::auto_capture` | Captura idempotente de turnos (cursor `l0_cursor/<session>`) |
-| L1 | `core::record::{l1_extractor,l1_dedup,l1_reader,l1_writer}` | Extracción 1-call LLM JSON con parse reparado; dedup 2 fases store/update/merge/skip |
+| L1 | `core::record::{l1_extractor,l1_dedup,l1_reader,l1_writer}` | Extracción 1-call LLM JSON con parse reparado; dedup 2 fases store/update/merge/skip; contradicción explícita en el juicio (`contradicts`) → flag `superseded_by` (MEMG-01, nunca delete) |
 | L2 | `core::scene::{scene_index,scene_format,scene_extractor,scene_tools}` | Escenas con META {created,updated,summary,heat}, strategy UPDATE>MERGE>CREATE, soft-delete, tools sandboxed |
 | L3 | `core::persona::{persona_generator,persona_trigger}` | Persona first/incremental con triggers P1-P4 y escape XML |
 | Recall | `core::hooks::auto_recall`, `core::memory_prompt::*`, `core::profile::profile_sync` | Prepend/append + 3 modos (`RecallScope::Session\|Agent\|Team`, default Agent) |
@@ -224,6 +224,20 @@ with `llm-driver` on: failures are loud, never a silent `NotConfigured`
 | Skills | `core::skill::skill_extractor` + `conversation_add` | Extracción desde transcript con marcadores anti role-capture; sink idempotente doble cursor+content-hash |
 | Orquestación | `services::pipeline_worker`, `utils::{pipeline_manager,stateful_pipeline_manager,managed_timer,checkpoint}` | Timers/locks estado local, trait `Clock` inyectable (FakeClock determinista), worker L0→L1→L2→L3 |
 | Gateway | `gateway::knowledge_handlers` | Handlers tipados scene_read/list/query para exposición MCP/server |
+
+**Contradicciones en ingesta (MEMG-01).** El juicio de dedup L1 —la misma
+llamada LLM, sin round-trip extra— acepta un campo opcional `contradicts` con
+ids del pool de candidatos que la memoria nueva niega EXPLÍCITAMENTE ("ya no me
+gusta X" tras "me gusta X"). Al persistir, el registro viejo se marca con
+`superseded_by` vía `mark_contradiction` (MEM-60 — misma semántica que dream:
+nunca se borra, queda auditable) y el evento de provenance queda en el tracing
+log (`mark_contradiction`; persistencia audit más allá del tracing = deuda
+declarada). Señal conservadora:
+solo negación explícita (duda → `[]`), registros ya-superseded no se re-marcan,
+ids desconocidos se saltan; `DedupDecision.contradicts` es `#[serde(default)]`
+(wire retrocompatible). Cuarentena por contradicción queda diferida
+(MGR-13 §3.4). El pool de candidatos es intra-sesión; cross-sesión es deuda
+declarada.
 
 ## Operational modules
 

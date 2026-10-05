@@ -24,6 +24,7 @@ use crate::core::conversation::sanitize_key;
 use crate::core::profile::profile_sync::ProfileIsolation;
 use crate::core::prompts::l1_extraction::epoch_ms_to_rfc3339;
 use crate::core::record::l1_reader::{l1_namespace, read_record};
+use crate::core::record::lifecycle::mark_contradiction;
 
 /// Errors surfaced by the L1 writer/reader surface. One error type for the
 /// whole L1 layer so callers depend on a single contract.
@@ -178,6 +179,19 @@ pub fn write_memory(
                     None,
                 ),
             );
+
+            // MEMG-01: flag the records this memory explicitly contradicts
+            // (supersede pointer, never delete; no-op on the common path).
+            if !decision.contradicts.is_empty() {
+                mark_contradicted_targets(
+                    db,
+                    &ns,
+                    session_key,
+                    &decision.contradicts,
+                    &record.id,
+                    now_ms,
+                )?;
+            }
             Ok(Some(record))
         }
         DedupAction::Update | DedupAction::Merge => {
@@ -245,9 +259,74 @@ pub fn write_memory(
                     None,
                 ),
             );
+
+            // MEMG-01: flag the records this memory explicitly contradicts
+            // (supersede pointer, never delete; no-op on the common path).
+            if !decision.contradicts.is_empty() {
+                mark_contradicted_targets(
+                    db,
+                    &ns,
+                    session_key,
+                    &decision.contradicts,
+                    &record.id,
+                    now_ms,
+                )?;
+            }
             Ok(Some(record))
         }
     }
+}
+
+/// MEMG-01: flag the records the new memory explicitly contradicts.
+///
+/// Reuses MEM-60 [`mark_contradiction`] — the exact semantics dream
+/// consolidation uses (`superseded_by` pointer, old record preserved, never
+/// deleted). Conservative by construction:
+/// - only ids the judgment listed as explicit contradictions,
+/// - already-superseded records are left untouched (their provenance chain
+///   is not rewritten),
+/// - the new record itself and unknown ids are skipped silently.
+///
+/// The new record must be persisted first: its id is the pointer's
+/// `new_key`. `skip` decisions never reach this helper (nothing persisted).
+///
+/// Failure semantics: a store error while marking propagates (`Err`) even
+/// though the new record is already persisted — consistent with the batch's
+/// existing partial-write model (a mid-batch error retries the flush; the
+/// generation log is the only best-effort path by design).
+fn mark_contradicted_targets(
+    db: &Embedded,
+    ns: &str,
+    session_key: &str,
+    contradicts: &[String],
+    new_key: &str,
+    now_ms: u64,
+) -> Result<(), L1Error> {
+    let new_storage_key = sanitize_key(new_key);
+    for target_id in contradicts {
+        // Compare storage keys: an id written differently that sanitizes to
+        // the new record's key would resolve to the new record itself.
+        if sanitize_key(target_id) == new_storage_key {
+            continue;
+        }
+        let Some(mut old) = read_record(db, session_key, target_id)? else {
+            tracing::debug!(record_id = %target_id, "l1 contradiction target not found; skipped");
+            continue;
+        };
+        if old.superseded_by.is_some() {
+            tracing::debug!(
+                record_id = %target_id,
+                "l1 contradiction target already superseded; skipped"
+            );
+            continue;
+        }
+        mark_contradiction(&mut old, new_key.to_string(), now_ms);
+        // Preserve the old record's node vector on re-persist (vectors live
+        // on the node, not inside the payload — see `put_record`).
+        let vector = old.vector.take();
+        put_record(db, ns, &old, vector)?;
+    }
+    Ok(())
 }
 
 /// Apply a batch of decisions (one per pending memory) and return the records
@@ -270,6 +349,7 @@ pub fn apply_dedup_batch(
                 record_id: String::new(),
                 action: DedupAction::Store,
                 target_ids: vec![],
+                contradicts: vec![],
                 merged_content: None,
                 merged_type: None,
                 merged_priority: None,
