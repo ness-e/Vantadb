@@ -1,8 +1,10 @@
 # VantaDB TypeScript SDK
 
-> WASM-powered embedded vector & graph memory for JavaScript runtimes.
+> WASM-powered embedded vector & graph memory for JavaScript runtimes — **browser AI agent memory**.
 >
 > **Status: active** (core-promise until 1.0 — published as `vantadb` on npm).
+>
+> **Try it in the browser:** [AI agent demo](https://github.com/ness-e/Vantadb/tree/main/vantadb-wasm/demo) — Transformers.js embeddings on-device + OPFS memory (`connect_persistent()` from the raw [`vantadb-wasm`](https://www.npmjs.com/package/vantadb-wasm) binding), no server.
 
 ```ts
 import { Client } from "vantadb";
@@ -82,8 +84,10 @@ const db = Client.create();
 ## WASM bundle & lazy loading
 
 The package is backed by the `vantadb-wasm` wasm-bindgen build; the compiled
-engine binary is `vantadb-wasm/pkg/vantadb_wasm_bg.wasm` (~1.3 MB). How it is
-loaded depends on the runtime:
+engine binary is `vantadb-wasm/pkg/vantadb_wasm_bg.wasm` (~1.8 MB raw,
+~739 KB gzipped transfer — measured 2026-10-04, see the
+[bundle strategy](../vantadb-wasm/README.md#1-bundle-sizes-measured-2026-10-04)).
+How it is loaded depends on the runtime:
 
 - **Bundlers (Vite/Webpack/esbuild)** — the wasm-bindgen glue
   (`vantadb_wasm.js`) imports the `.wasm` as an ES module, which bundlers
@@ -149,18 +153,18 @@ invalid value falls back to `WARN`.
 
 ### Bundle size vs JavaScript-only competitors
 
-Measured 2026-08-30. Reproducible: see
-[`../vantadb-wasm/README.md` §1](../vantadb-wasm/README.md#1-bundle-sizes-measured-2026-08-30).
+Measured 2026-10-04 (VantaDB row; competitor rows as dated below). Reproducible: see
+[`../vantadb-wasm/README.md` §1](../vantadb-wasm/README.md#1-bundle-sizes-measured-2026-10-04).
 
 | Library | Version | Gzipped | Vector | Hybrid | Persistence |
 |---------|---------|--------:|--------|--------|-------------|
 | **@orama/orama** | 3.1.18 | **23.8 KB** | ✅ | ✅ RRF | ❌ (in-mem + plugin) |
 | **MiniSearch**   | latest | **5.9 KB**  | ❌ | ❌ | ❌ |
 | **Lunr**         | 2.3.9  | **8.1 KB**  | ❌ | ❌ | ❌ |
-| **vantadb WASM** | 0.6.x  | **~670 KB transfer** (1.65 MB raw wasm gzipped — medido en `vantadb-wasm@0.6.1`) | ✅ HNSW | ✅ BM25 + RRF | ✅ OPFS / IDB / in-mem |
+| **vantadb WASM** | 0.8.x  | **~739 KB transfer** (1.77 MB raw wasm; measured 2026-10-04) | ✅ HNSW | ✅ BM25 + RRF | ✅ OPFS / IDB / in-mem |
 
-VantaDB is **~25× larger** than Orama gzipped, but ships **OPFS persistence,
-HNSW (sub-ms at 100K), TTL auto-expiry, capability graph** — features none of
+VantaDB is **~31× larger** than Orama gzipped, but ships **OPFS persistence,
+HNSW ([p99 441 µs at 100K](https://github.com/ness-e/Vantadb/blob/main/docs/user/operations/BENCHMARKS.md#-5-impact-of-loop-and-hnsw-distance-optimization-phase-2)), TTL auto-expiry, capability graph** — features none of
 the JS-only engines include. Honest tradeoff: choose Orama (23.8 KB) if you
 only need full-text + RAG in-memory with no persistence; choose VantaDB if
 any of those features matter. Full feature-gap analysis:
@@ -172,7 +176,7 @@ Two npm packages exist; they are **not** the same thing:
 
 | Package | What it is | Published | API |
 |---------|------------|-----------|-----|
-| **`vantadb`** | TypeScript SDK over the WASM build — works in browsers, Node, Bun, Deno | ✅ 0.6.1 | Synchronous, ESM-only |
+| **`vantadb`** | TypeScript SDK over the WASM build — works in browsers, Node, Bun, Deno | ✅ 0.8.0 | Synchronous, ESM-only |
 | **`vantadb-node`** | Native Node.js bindings (napi-rs) — real filesystem persistence (fjall/WAL/fsync), async API, platform-specific `.node` binaries | ❌ **not yet published** (registry 404) | Async, ESM + CommonJS |
 
 `vantadb-node` is the **native backend** you reach via
