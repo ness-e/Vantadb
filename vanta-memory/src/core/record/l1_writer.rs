@@ -15,7 +15,9 @@ use std::sync::Arc;
 use thiserror::Error;
 
 use vantadb::error::Error;
-use vantadb::sdk::{Embedded, MemoryInput, MemoryMetadata, Value};
+use vantadb::sdk::{
+    default_confidence, ConfidenceClass, Embedded, MemoryInput, MemoryMetadata, Value,
+};
 
 use crate::core::abstractions::{
     DedupAction, DedupDecision, ExtractedMemory, MemoryRecord, MemoryType,
@@ -132,7 +134,51 @@ pub fn write_memory(
     idx: usize,
     embed: Option<&EmbedFn>,
 ) -> Result<Option<MemoryRecord>, L1Error> {
+    let Some(planned) = plan_write(
+        db,
+        session_key,
+        session_id,
+        memory,
+        decision,
+        now_ms,
+        idx,
+        embed,
+    )?
+    else {
+        return Ok(None);
+    };
     let ns = l1_namespace(session_key);
+    persist_planned(db, &ns, &planned)?;
+    log_and_mark(db, &ns, session_key, &planned, now_ms)?;
+    Ok(Some(planned.record))
+}
+
+/// One planned L1 write: the record + its node vector, the update/merge
+/// targets to delete before persisting, and the MEMG-01 contradiction ids to
+/// flag after persisting. Planning is persistence-free so the batch path can
+/// group-commit every record of a flush in one `put_batch` (MEMG-11).
+struct PlannedWrite {
+    record: MemoryRecord,
+    vector: Option<Vec<f32>>,
+    /// Storage keys (`sanitize_key`) of update/merge targets, deleted first.
+    deletes: Vec<String>,
+    /// Explicit contradiction record ids (MEMG-01), flagged post-commit.
+    contradicts: Vec<String>,
+}
+
+/// Build the record a decision resolves to (store or merge), loading merge
+/// targets from the store. Pure planning: nothing is persisted here.
+#[allow(clippy::too_many_arguments)]
+fn plan_write(
+    db: &Embedded,
+    session_key: &str,
+    session_id: &str,
+    memory: &ExtractedMemory,
+    decision: &DedupDecision,
+    now_ms: u64,
+    idx: usize,
+    embed: Option<&EmbedFn>,
+) -> Result<Option<PlannedWrite>, L1Error> {
     let now = epoch_ms_to_rfc3339(now_ms);
     let (team_id, agent_id) = default_tenancy();
     let record_id = if decision.record_id.trim().is_empty() {
@@ -167,40 +213,15 @@ pub fn write_memory(
                 superseded_by: None,
             };
             let vector = embed_vector(embed, &record.content);
-            put_record(db, &ns, &record, vector)?;
-            // MEM-41 provenance: best-effort, never blocks the write (P4).
-            crate::core::memory_generation_log::record_best_effort(
-                db,
-                &crate::core::memory_generation_log::GenerationLogEntry::new(
-                    crate::core::memory_generation_log::GenerationLayer::L1,
-                    crate::core::memory_generation_log::GenerationStatus::Succeeded,
-                    session_key,
-                    Some(&record.id),
-                    None,
-                ),
-            );
-
-            // MEMG-01: flag the records this memory explicitly contradicts
-            // (supersede pointer, never delete; no-op on the common path).
-            if !decision.contradicts.is_empty() {
-                mark_contradicted_targets(
-                    db,
-                    &ns,
-                    session_key,
-                    &decision.contradicts,
-                    &record.id,
-                    now_ms,
-                )?;
-            }
-            Ok(Some(record))
+            Ok(Some(PlannedWrite {
+                record,
+                vector,
+                deletes: Vec::new(),
+                contradicts: decision.contradicts.clone(),
+            }))
         }
         DedupAction::Update | DedupAction::Merge => {
             let targets = load_targets(db, session_key, &decision.target_ids)?;
-
-            // Delete replaced records first; then upsert the merged one.
-            for target in &targets {
-                db.delete(&ns, &sanitize_key(&target.id))?;
-            }
 
             // Union of all relevant timestamps, deduped and sorted (decision
             // wins; fallback = all target timestamps + now).
@@ -247,34 +268,61 @@ pub fn write_memory(
                 superseded_by: None,
             };
             let vector = embed_vector(embed, &record.content);
-            put_record(db, &ns, &record, vector)?;
-            // MEM-41 provenance: best-effort, never blocks the write (P4).
-            crate::core::memory_generation_log::record_best_effort(
-                db,
-                &crate::core::memory_generation_log::GenerationLogEntry::new(
-                    crate::core::memory_generation_log::GenerationLayer::L1,
-                    crate::core::memory_generation_log::GenerationStatus::Succeeded,
-                    session_key,
-                    Some(&record.id),
-                    None,
-                ),
-            );
-
-            // MEMG-01: flag the records this memory explicitly contradicts
-            // (supersede pointer, never delete; no-op on the common path).
-            if !decision.contradicts.is_empty() {
-                mark_contradicted_targets(
-                    db,
-                    &ns,
-                    session_key,
-                    &decision.contradicts,
-                    &record.id,
-                    now_ms,
-                )?;
-            }
-            Ok(Some(record))
+            // Delete replaced records first; then upsert the merged one.
+            let deletes = targets.iter().map(|t| sanitize_key(&t.id)).collect();
+            Ok(Some(PlannedWrite {
+                record,
+                vector,
+                deletes,
+                contradicts: decision.contradicts.clone(),
+            }))
         }
     }
+}
+
+/// Persist one planned write: delete update/merge targets, then upsert the
+/// record (vector on the node, stripped from the payload).
+fn persist_planned(db: &Embedded, ns: &str, planned: &PlannedWrite) -> Result<(), L1Error> {
+    for key in &planned.deletes {
+        db.delete(ns, key)?;
+    }
+    put_record(db, ns, &planned.record, planned.vector.clone())?;
+    Ok(())
+}
+
+/// Post-commit per-record side effects shared by both write paths: the MEM-41
+/// generation-log entry (best-effort, never blocks the write — P4) and the
+/// MEMG-01 contradiction marking (supersede pointer, never delete; no-op on
+/// the common path).
+fn log_and_mark(
+    db: &Embedded,
+    ns: &str,
+    session_key: &str,
+    planned: &PlannedWrite,
+    now_ms: u64,
+) -> Result<(), L1Error> {
+    crate::core::memory_generation_log::record_best_effort(
+        db,
+        &crate::core::memory_generation_log::GenerationLogEntry::new(
+            crate::core::memory_generation_log::GenerationLayer::L1,
+            crate::core::memory_generation_log::GenerationStatus::Succeeded,
+            session_key,
+            Some(&planned.record.id),
+            None,
+        ),
+    );
+
+    if !planned.contradicts.is_empty() {
+        mark_contradicted_targets(
+            db,
+            ns,
+            session_key,
+            &planned.contradicts,
+            &planned.record.id,
+            now_ms,
+        )?;
+    }
+    Ok(())
 }
 
 /// MEMG-01: flag the records the new memory explicitly contradicts.
@@ -330,7 +378,10 @@ fn mark_contradicted_targets(
 }
 
 /// Apply a batch of decisions (one per pending memory) and return the records
-/// that were actually persisted. Convenience entry point for the pipeline.
+/// that were actually persisted. Group-commit entry point for the pipeline
+/// (MEMG-11): every record of the flush is persisted in ONE `put_batch`
+/// (single WAL `batch_append` + KV `write_batch` + per-record index ops)
+/// instead of N sequential `put`s.
 pub fn apply_dedup_batch(
     db: &Embedded,
     session_key: &str,
@@ -340,7 +391,10 @@ pub fn apply_dedup_batch(
     now_ms: u64,
     embed: Option<&EmbedFn>,
 ) -> Result<Vec<MemoryRecord>, L1Error> {
-    let mut written = Vec::new();
+    let ns = l1_namespace(session_key);
+
+    // Phase 1 — plan every write (record + vector + deletes + contradictions).
+    let mut planned_writes: Vec<PlannedWrite> = Vec::with_capacity(memories.len());
     for (idx, memory) in memories.iter().enumerate() {
         let decision = decisions
             .get(idx)
@@ -355,7 +409,7 @@ pub fn apply_dedup_batch(
                 merged_priority: None,
                 merged_timestamps: None,
             });
-        if let Some(record) = write_memory(
+        if let Some(planned) = plan_write(
             db,
             session_key,
             session_id,
@@ -365,8 +419,35 @@ pub fn apply_dedup_batch(
             idx,
             embed,
         )? {
-            written.push(record);
+            planned_writes.push(planned);
         }
+    }
+
+    // Phase 2 — delete update/merge targets first (same order as the
+    // sequential path: replaced records go away, then the merged one lands).
+    // Partial-write model unchanged: a mid-flush failure leaves the deletes
+    // already applied, exactly like a mid-batch failure did before.
+    for planned in &planned_writes {
+        for key in &planned.deletes {
+            db.delete(&ns, key)?;
+        }
+    }
+
+    // Phase 3 — group-commit: one `put_batch` for the whole flush.
+    let inputs = planned_writes
+        .iter()
+        .map(|planned| record_input(&ns, &planned.record, planned.vector.clone()))
+        .collect::<Result<Vec<MemoryInput>, L1Error>>()?;
+    if !inputs.is_empty() {
+        db.put_batch(inputs)?;
+    }
+
+    // Phase 4 — post-commit per-record side effects (generation log +
+    // contradiction marking), same semantics as the sequential path.
+    let mut written = Vec::with_capacity(planned_writes.len());
+    for planned in &planned_writes {
+        log_and_mark(db, &ns, session_key, planned, now_ms)?;
+        written.push(planned.record.clone());
     }
     Ok(written)
 }
@@ -393,6 +474,50 @@ fn load_targets(
 /// passes the record with `vector: None` and the node vector separately —
 /// vectors live on the node, not inside the payload. Shared with the dream
 /// promotion path (`core::dream`), which writes consolidated records verbatim.
+///
+/// **v2 write-side semantics (single write point — MEMG-12):** every L1 write
+/// (extraction store/update/merge, contradiction re-persist and dream
+/// promotion) declares its `valid_at_ms` (content birth) and confidence
+/// (`Asserted` + D_a, MGR-12 §3.4) explicitly instead of leaving both to
+/// system defaults. The values are intrinsic to the record — `created_at` is
+/// the birth; merges already carry the earliest target birth.
+/// Build the `MemoryInput` for one record under `ns` (key = sanitized record
+/// id, type/priority metadata, serialized payload, node vector separate).
+///
+/// Single input builder for both write paths (MEMG-11): `put_record` (single
+/// put) and `apply_dedup_batch` (group-commit via `put_batch`). Carries the
+/// v2 write-side fields declared in `put_record`'s doc (valid_at + confidence
+/// — MEMG-12 single write point).
+fn record_input(
+    ns: &str,
+    record: &MemoryRecord,
+    vector: Option<Vec<f32>>,
+) -> Result<MemoryInput, L1Error> {
+    let mut metadata = MemoryMetadata::new();
+    metadata.insert(
+        "type".into(),
+        Value::String(type_name(record.memory_type).to_string()),
+    );
+    metadata.insert("priority".into(), Value::Int(record.priority as i64));
+    // Content birth → validity start (ADR-046 §D7/D8). `None` only when the
+    // birth does not parse or is 0 — the core then defaults to write-time
+    // `created_at_ms` (`materialize_valid_at`).
+    let valid_at_ms = rfc3339_to_epoch_ms(&record.created_at).filter(|ms| *ms > 0);
+    Ok(MemoryInput {
+        namespace: ns.to_string(),
+        key: sanitize_key(&record.id),
+        payload: serde_json::to_string(record)?,
+        metadata,
+        vector,
+        sparse_vector: None,
+        ttl_ms: None,
+        valid_at_ms,
+        confidence_class: Some(ConfidenceClass::Asserted),
+        confidence: Some(default_confidence()),
+        ..Default::default()
+    })
+}
+
 pub(crate) fn put_record(
     db: &Embedded,
     ns: &str,
@@ -403,23 +528,19 @@ pub(crate) fn put_record(
         record.vector.is_none(),
         "put_record expects the vector stripped from the record; pass it via the vector arg"
     );
-    let mut metadata = MemoryMetadata::new();
-    metadata.insert(
-        "type".into(),
-        Value::String(type_name(record.memory_type).to_string()),
-    );
-    metadata.insert("priority".into(), Value::Int(record.priority as i64));
-    db.put(MemoryInput {
-        namespace: ns.to_string(),
-        key: sanitize_key(&record.id),
-        payload: serde_json::to_string(record)?,
-        metadata,
-        vector,
-        sparse_vector: None,
-        ttl_ms: None,
-        ..Default::default()
-    })?;
+    db.put(record_input(ns, record, vector)?)?;
     Ok(())
+}
+
+/// Inverse of [`epoch_ms_to_rfc3339`]: the L1 record's `created_at` is the
+/// content birth, and `valid_at_ms` must reflect it explicitly (ADR-046 §D7:
+/// v1 normalization `valid_at = created_at`). `None` when the string does not
+/// parse or predates the epoch — the core then defaults to `created_at_ms` at
+/// write time.
+fn rfc3339_to_epoch_ms(iso: &str) -> Option<u64> {
+    chrono::DateTime::parse_from_rfc3339(iso)
+        .ok()
+        .and_then(|dt| u64::try_from(dt.timestamp_millis()).ok())
 }
 
 /// Serde snake_case name of a memory type (matches the wire contract).
