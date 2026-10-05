@@ -147,6 +147,24 @@ impl Embedded {
     }
 }
 
+// ── MEMG-02: outcome-loop reinforcement policy (declared, not calibrated) ──
+//
+// Bump/decay are bounded (saturate at 1.0 / floor at 0.0) and the positive
+// direction is rate-limited per record so repeated signals cannot inflate the
+// score. Values are policy — empirical calibration is VER-08 (excluded here).
+
+/// Confidence bump applied by a positive reinforcement (`Used`), saturated
+/// at 1.0.
+pub(crate) const REINFORCE_CONFIDENCE_BUMP: f32 = 0.05;
+
+/// Confidence decay applied by a negative reinforcement (`Corrected`),
+/// floored at 0.0.
+pub(crate) const REINFORCE_CONFIDENCE_DECAY: f32 = 0.10;
+
+/// Minimum time between positive reinforcements of the same record (rate
+/// window, anchored on `last_validated_at_ms`). One bump per window.
+pub(crate) const REINFORCE_WINDOW_MS: u64 = 300_000; // 5 min
+
 impl Embedded {
     /// True when a vector is entirely zeros — the HNSW core rejects
     /// zero-norm vectors under cosine similarity (AUDREP-27), so the
@@ -1147,6 +1165,124 @@ impl Embedded {
             self.config.version_history_limit,
         );
         Ok(())
+    }
+
+    /// MEMG-02: report the outcome of a recalled memory and feed it back into
+    /// the record's confidence — the write-side of the outcome loop.
+    ///
+    /// The host declares the outcome explicitly ([`ReinforceOutcome`]); the
+    /// engine never infers it. Declared policy (see `docs/api/scores.md`
+    /// §Reinforcement):
+    ///
+    /// - `Used` — `confidence = min(1.0, confidence + 0.05)` and
+    ///   `last_validated_at_ms = now` (successful re-validation), rate-limited
+    ///   to one bump per record per 5-minute window anchored on the previous
+    ///   stamp; inside the window the call is a no-op (audited as
+    ///   `used_rate_limited`, never silent).
+    /// - `Corrected` — `confidence = max(0.0, confidence - 0.10)`; failures do
+    ///   NOT stamp `last_validated_at_ms` (success-only, MGR-12 §3.3).
+    /// - `Unused` — neutral: no score change, no stamp; the audit event is the
+    ///   record of the host's declaration.
+    ///
+    /// Interaction notes: a `Corrected` does NOT reset the positive rate-limit
+    /// anchor — a `Used` shortly after a correction is still limited by the
+    /// previous validation stamp (the window counts successful validations).
+    /// Quarantine state is not inspected: quarantined records are unreachable
+    /// through default recall/list (excluded by default), so a host can only
+    /// reinforce one by explicit key.
+    ///
+    /// Applies to `asserted` records only: a `derived` score is computed from
+    /// its parents (`min × DERIVATION_DISCOUNT`, ADR-046 §D4) and mutating it
+    /// would break determinism (V4) — derived records are rejected explicitly.
+    ///
+    /// State-only change (same class as `quarantine_apply`): `version` does not
+    /// change and no version-history snapshot is written (a reinforcement per
+    /// turn would flood the 32-entry history); `updated_at_ms` is refreshed and
+    /// the operation is audited as `memory_reinforce`. Callers that never
+    /// invoke this op observe exactly the previous behavior — `put` still
+    /// leaves `last_validated_at_ms = None`.
+    #[tracing::instrument(skip(self), err)]
+    pub fn reinforce(
+        &self,
+        namespace: &str,
+        key: &str,
+        outcome: ReinforceOutcome,
+    ) -> Result<MemoryRecord> {
+        self.check_read_only()?;
+        validate_namespace(namespace)?;
+        validate_key(key)?;
+        // REVIEW-13 pattern: serialize the read-modify-write (the engine's
+        // insert_lock only serializes the individual insert, not the SDK-level
+        // get + mutate) — same rationale as `supersede`/`quarantine_*`.
+        let _guard = self.supersede_lock.lock();
+
+        let Some(mut record) = self.get(namespace, key)? else {
+            return Err(Error::NotFound {
+                kind: "memory record".into(),
+                id: format!("{namespace}/{key}"),
+            });
+        };
+        if record.confidence_class == ConfidenceClass::Derived {
+            return Err(Error::InvalidInput(format!(
+                "record '{key}' is derived — its confidence is computed from its parents (min × DERIVATION_DISCOUNT) and cannot be reinforced; reinforce the parents instead"
+            )));
+        }
+
+        let now = now_ms();
+        let mut reason = outcome.as_wire_str().to_string();
+        let mut changed = false;
+        match outcome {
+            ReinforceOutcome::Used => {
+                let in_window = record
+                    .last_validated_at_ms
+                    .is_some_and(|prev| now.saturating_sub(prev) < REINFORCE_WINDOW_MS);
+                if in_window {
+                    // Rate-limited: no score change, no re-stamp. Never
+                    // silent — the audit reason distinguishes it.
+                    reason = "used_rate_limited".to_string();
+                } else {
+                    record.confidence = (record.confidence + REINFORCE_CONFIDENCE_BUMP).min(1.0);
+                    record.last_validated_at_ms = Some(now);
+                    changed = true;
+                }
+            }
+            ReinforceOutcome::Corrected => {
+                record.confidence = (record.confidence - REINFORCE_CONFIDENCE_DECAY).max(0.0);
+                changed = true;
+            }
+            ReinforceOutcome::Unused => {
+                // Neutral: nothing to write; the audit event records the
+                // explicit declaration.
+            }
+        }
+
+        if changed {
+            record.updated_at_ms = now;
+            // Same write path as the quarantine state ops: WAL + KV + HNSW via
+            // engine.insert. Payload/metadata/vector are unchanged, and the
+            // confidence fields are not indexed, so the derived text/scalar
+            // indexes stay consistent with no index writes.
+            let engine = self.engine_handle()?;
+            let (node, record) = memory_record_to_node_owned(record);
+            engine.insert(&node)?;
+            self.audit(crate::audit::AuditEvent::new(
+                "memory_reinforce",
+                namespace,
+                key,
+                "ok",
+                Some(reason),
+            ));
+            return Ok(record);
+        }
+
+        self.audit(crate::audit::AuditEvent::new(
+            "memory_reinforce",
+            namespace,
+            key,
+            "ok",
+            Some(reason),
+        ));
+        Ok(record)
     }
 
     /// T1d (ADR-046 §D5, MGR-13 §3.2): quarantine an existing record post-hoc

@@ -4830,7 +4830,7 @@ fn test_mcp_structured_output_and_output_schema() {
 
 /// MCP-38: Tool annotations coverage — every listed tool must expose the 4
 /// hints per spec 2025-06-18 (blog.modelcontextprotocol.io 2026-03-16).
-/// Verifies: 80 listed tools (86 defined − 6 WIRE-02 absorbed code_*
+/// Verifies: 81 listed tools (87 defined − 6 WIRE-02 absorbed code_*
 /// projections), each has title + 4 bools, destructiveHint true only on
 /// mutating tools that overwrite or delete, openWorldHint only on fs paths.
 /// MEM-59 added `memory_recall` and `memory_search` (both read-only/idempotent);
@@ -4844,8 +4844,8 @@ fn test_mcp_tool_annotations_coverage() {
     let tools = res["tools"].as_array().expect("tools array");
     assert_eq!(
         tools.len(),
-        80,
-        "expected 80 listed tools (86 defined − 6 WIRE-02 absorbed), got {}",
+        81,
+        "expected 81 listed tools (87 defined − 6 WIRE-02 absorbed), got {}",
         tools.len()
     );
 
@@ -4945,8 +4945,8 @@ fn test_mcp_tool_annotations_coverage() {
 fn test_mcp_tool_profiles() {
     use vantadb_mcp::{handle_tools_list, McpConfig, McpProfile};
 
-    // Full profile — 80 listed tools (48 base + 38 extend − 6 WIRE-02 absorbed
-    // code_* projections; 86 defined total).
+    // Full profile — 81 listed tools (49 base + 38 extend − 6 WIRE-02 absorbed
+    // code_* projections; 87 defined total).
     let full_config = McpConfig {
         profile: McpProfile::Full,
         ..McpConfig::default()
@@ -4955,12 +4955,12 @@ fn test_mcp_tool_profiles() {
     let full_tools = full_res["tools"].as_array().unwrap();
     assert_eq!(
         full_tools.len(),
-        80,
-        "Full profile should list 80 tools (86 defined − 6 WIRE-02 absorbed), got {}",
+        81,
+        "Full profile should list 81 tools (87 defined − 6 WIRE-02 absorbed), got {}",
         full_tools.len()
     );
 
-    // WIRE-02: `agent` is the default profile — 38 tools (21 memory + 6
+    // WIRE-02: `agent` is the default profile — 39 tools (22 memory + 6
     // threads + 5 scenes + 1 context + 5 wiki-read) ≤ 45 budget.
     let agent_config = McpConfig {
         profile: McpProfile::Agent,
@@ -4970,13 +4970,13 @@ fn test_mcp_tool_profiles() {
     let agent_tools = agent_res["tools"].as_array().unwrap();
     assert_eq!(
         agent_tools.len(),
-        38,
-        "Agent profile should have 38 tools (21 memory + 6 thread + 5 scene + 1 context + 5 wiki-read), got {}",
+        39,
+        "Agent profile should have 39 tools (22 memory + 6 thread + 5 scene + 1 context + 5 wiki-read), got {}",
         agent_tools.len()
     );
 
-    // Dev profile — exact count after API-04 canonicalization: memory set (21)
-    // + dev-only tools (16) = 37. The original 35 cap was a Cursor budget
+    // Dev profile — exact count after API-04 canonicalization: memory set (22)
+    // + dev-only tools (16) = 38. The original 35 cap was a Cursor budget
     // heuristic, not a contract.
     let dev_config = McpConfig {
         profile: McpProfile::Dev,
@@ -4986,14 +4986,14 @@ fn test_mcp_tool_profiles() {
     let dev_tools = dev_res["tools"].as_array().unwrap();
     assert_eq!(
         dev_tools.len(),
-        37,
-        "Dev profile should have 37 tools (21 memory + 16 dev-only), got {}",
+        38,
+        "Dev profile should have 38 tools (22 memory + 16 dev-only), got {}",
         dev_tools.len()
     );
 
-    // Memory profile — exact count: 21 tools (core memory CRUD + search +
-    // list + recall + embed_texts + verify_certificate; API-04 removed 2
-    // duplicate listings).
+    // Memory profile — exact count: 22 tools (core memory CRUD + search +
+    // list + recall + reinforce + embed_texts + verify_certificate; API-04
+    // removed 2 duplicate listings).
     let memory_config = McpConfig {
         profile: McpProfile::Memory,
         ..McpConfig::default()
@@ -5002,8 +5002,8 @@ fn test_mcp_tool_profiles() {
     let memory_tools = memory_res["tools"].as_array().unwrap();
     assert_eq!(
         memory_tools.len(),
-        21,
-        "Memory profile should have 21 tools, got {}",
+        22,
+        "Memory profile should have 22 tools, got {}",
         memory_tools.len()
     );
 
@@ -5234,7 +5234,7 @@ fn test_mcp_agent_default_surface() {
         "agent smoke: tools/list must stay ≤45, got {}",
         tools.len()
     );
-    assert_eq!(tools.len(), 38, "agent surface drift: {}", tools.len());
+    assert_eq!(tools.len(), 39, "agent surface drift: {}", tools.len());
 
     let names: std::collections::HashSet<&str> =
         tools.iter().filter_map(|t| t["name"].as_str()).collect();
@@ -5242,6 +5242,7 @@ fn test_mcp_agent_default_surface() {
         "memory_put",
         "memory_search",
         "memory_recall",
+        "memory_reinforce",
         "thread_create",
         "scene_read",
         "context_assemble",
@@ -5346,6 +5347,83 @@ fn test_memory_recall_rejects_unknown_scope() {
     assert!(
         err["message"].as_str().unwrap().contains("unknown scope"),
         "expected unknown-scope rejection, got: {err}"
+    );
+}
+
+/// MEMG-02: `memory_reinforce` closes the outcome loop over MCP — an explicit
+/// host signal (`used`/`corrected`/`unused`) feeds back into the record's
+/// confidence via the SDK op (policy + validation live in one place). Covers
+/// the happy path, the unknown-outcome rejection and the missing-record typed
+/// error.
+#[test]
+fn test_memory_reinforce_updates_confidence_and_rejects_bad_outcome() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    let cfg = default_config();
+
+    // Seed with a declared confidence below D_a (1.0) so the bump is
+    // observable (the MCP put surface does not declare `confidence` yet —
+    // residual gap registered as FIND; the SDK path is the single source of
+    // truth for seeding here).
+    let embedded = vantadb::Embedded::from_engine(storage.clone());
+    embedded
+        .put(vantadb::MemoryInput {
+            confidence: Some(0.5),
+            ..vantadb::MemoryInput::new("memg02", "k1", "fact")
+        })
+        .expect("seed record");
+
+    // used → +0.05 + validation stamp, structuredContent present.
+    let call = Some(json!({
+        "name": "memory_reinforce",
+        "arguments": { "namespace": "memg02", "key": "k1", "outcome": "used" }
+    }));
+    let res = handle_tools_call(&call, &executor, &storage, &cfg).unwrap();
+    let sc = res
+        .get("structuredContent")
+        .expect("memory_reinforce must expose structuredContent");
+    assert!(
+        (sc["confidence"].as_f64().unwrap() - 0.55).abs() < 1e-6,
+        "used must bump +0.05, got: {sc}"
+    );
+    assert!(sc["last_validated_at_ms"].is_u64(), "used must stamp: {sc}");
+    assert_eq!(sc["outcome"], "used");
+
+    // corrected → −0.10.
+    let call = Some(json!({
+        "name": "memory_reinforce",
+        "arguments": { "namespace": "memg02", "key": "k1", "outcome": "corrected" }
+    }));
+    let res = handle_tools_call(&call, &executor, &storage, &cfg).unwrap();
+    let sc = res["structuredContent"].clone();
+    assert!(
+        (sc["confidence"].as_f64().unwrap() - 0.45).abs() < 1e-6,
+        "corrected must decay -0.10, got: {sc}"
+    );
+
+    // Unknown outcome → JSON-RPC invalid params naming the field (never a
+    // silent no-op).
+    let call = Some(json!({
+        "name": "memory_reinforce",
+        "arguments": { "namespace": "memg02", "key": "k1", "outcome": "maybe" }
+    }));
+    let err = handle_tools_call(&call, &executor, &storage, &cfg)
+        .expect_err("unknown outcome must be invalid params");
+    assert_eq!(err["code"], -32602, "got: {err}");
+    assert!(
+        err["message"].as_str().unwrap().contains("outcome"),
+        "got: {err}"
+    );
+
+    // Missing record → typed error envelope (isError true), not a panic.
+    let call = Some(json!({
+        "name": "memory_reinforce",
+        "arguments": { "namespace": "memg02", "key": "ghost", "outcome": "used" }
+    }));
+    let res = handle_tools_call(&call, &executor, &storage, &cfg).unwrap();
+    assert_eq!(
+        res["isError"], true,
+        "missing record must be a typed error: {res}"
     );
 }
 
@@ -5658,8 +5736,8 @@ fn emb18_empty_base_defines_dim_no_gate() {
 /// API-04 + WIRE-02: `tools/list` exposes exactly one name per tool — the
 /// canonical `memory_search` / `memory_list_namespaces` — with zero duplicate
 /// names and zero listings of the legacy aliases or the absorbed projections.
-/// Total: 80 listed (86 defined − 6 `code_*` absorbed, WIRE-02; 48 base +
-/// 38 extended = 86 since DIST-16).
+/// Total: 81 listed (87 defined − 6 `code_*` absorbed, WIRE-02; 49 base +
+/// 38 extended = 87 since MEMG-02).
 #[test]
 fn test_api04_tools_list_canonical_names_no_duplicates() {
     let res = handle_tools_list(&default_config()).unwrap();
@@ -5696,8 +5774,8 @@ fn test_api04_tools_list_canonical_names_no_duplicates() {
     );
     assert_eq!(
         names.len(),
-        80,
-        "expected 80 listed tools after WIRE-02 absorption, got {}",
+        81,
+        "expected 81 listed tools after WIRE-02 absorption, got {}",
         names.len()
     );
 }

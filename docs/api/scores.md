@@ -84,6 +84,38 @@ provenance class (ADR-0046 §D2/§D4, SCH-04):
   `confidence_threshold` (config, opt-in — also triggers the explicit
   `abstained` signal when it empties the page, ADR-0046 §D2).
 
+### Reinforcement (outcome loop, MEMG-02)
+
+`Embedded::reinforce(namespace, key, outcome)` (SDK) / `memory_reinforce` (MCP)
+let the host declare what happened with a recalled memory — the engine never
+infers the outcome (no silent feedback). Declared policy (not calibrated —
+VER-08):
+
+| Outcome | Effect |
+|---------|--------|
+| `used` | `confidence = min(1.0, confidence + 0.05)` and `last_validated_at_ms = now` (successful re-validation). Rate-limited: at most one bump per record per 5-minute window anchored on the previous stamp; inside the window the call is a no-op (audited as `used_rate_limited`, never silent). |
+| `corrected` | `confidence = max(0.0, confidence - 0.10)`. `last_validated_at_ms` is **not** touched (success-only stamping, MGR-12 §3.3). |
+| `unused` | Neutral: no score change, no stamp; the audit event records the explicit declaration. |
+
+- Applies to `asserted` records only — a `derived` score is computed from its
+  parents (`min × 0.9`) and mutating it would break determinism (V4); derived
+  records are rejected explicitly.
+- Interaction notes: a `corrected` does **not** reset the positive rate-limit
+  anchor — a `used` shortly after a correction is still limited by the previous
+  validation stamp (the window counts successful validations). Quarantine state
+  is not inspected: quarantined records are excluded from default recall/list,
+  so only an explicit-key call can reach one.
+- State-only change (same class as `quarantine_apply`): `version` does not
+  change and no version-history snapshot is written; `updated_at_ms` is
+  refreshed and the operation is audited (`memory_reinforce`). Callers that
+  never invoke the op observe no change (`put` still leaves
+  `last_validated_at_ms = None`).
+- No ranking change: default search ordering is untouched (weighted ranking is
+  post-calibration); the consumer-visible effect is threshold selection
+  (`min_confidence` / `confidence_threshold`) before/after reinforcement.
+- L1–L5 calibration limits below apply: the bump/decay are declared policy,
+  not measurement.
+
 ### Calibration limits (L1–L5) — declared ranges, not probabilities
 
 | # | Limit |

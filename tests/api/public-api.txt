@@ -647,14 +647,14 @@ impl core::panic::unwind_safe::RefUnwindSafe for vantadb::cli::ExportFormat
 impl core::panic::unwind_safe::UnwindSafe for vantadb::cli::ExportFormat
 pub enum vantadb::cli::MigrateCommand
 pub vantadb::cli::MigrateCommand::Check
-pub vantadb::cli::MigrateCommand::Check::target: alloc::string::String
+pub vantadb::cli::MigrateCommand::Check::target: core::option::Option<alloc::string::String>
 pub vantadb::cli::MigrateCommand::Plan
-pub vantadb::cli::MigrateCommand::Plan::target: alloc::string::String
+pub vantadb::cli::MigrateCommand::Plan::target: core::option::Option<alloc::string::String>
 pub vantadb::cli::MigrateCommand::Run
 pub vantadb::cli::MigrateCommand::Run::dry_run: bool
 pub vantadb::cli::MigrateCommand::Run::force: bool
 pub vantadb::cli::MigrateCommand::Run::format: alloc::string::String
-pub vantadb::cli::MigrateCommand::Run::target: alloc::string::String
+pub vantadb::cli::MigrateCommand::Run::target: core::option::Option<alloc::string::String>
 impl clap_builder::derive::FromArgMatches for vantadb::cli::MigrateCommand
 pub fn vantadb::cli::MigrateCommand::from_arg_matches(&clap_builder::parser::matches::arg_matches::ArgMatches) -> core::result::Result<Self, clap_builder::Error>
 pub fn vantadb::cli::MigrateCommand::from_arg_matches_mut(&mut clap_builder::parser::matches::arg_matches::ArgMatches) -> core::result::Result<Self, clap_builder::Error>
@@ -2814,6 +2814,8 @@ pub struct vantadb::graphrag::pipeline::GraphRagEdge
 pub vantadb::graphrag::pipeline::GraphRagEdge::label: alloc::string::String
 pub vantadb::graphrag::pipeline::GraphRagEdge::source: u128
 pub vantadb::graphrag::pipeline::GraphRagEdge::target: u128
+impl serde_core::ser::Serialize for vantadb::graphrag::pipeline::GraphRagEdge
+pub fn vantadb::graphrag::pipeline::GraphRagEdge::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
 impl core::marker::Freeze for vantadb::graphrag::pipeline::GraphRagEdge
 impl core::marker::Send for vantadb::graphrag::pipeline::GraphRagEdge
 impl core::marker::Sync for vantadb::graphrag::pipeline::GraphRagEdge
@@ -2826,6 +2828,8 @@ pub vantadb::graphrag::pipeline::GraphRagNode::content: alloc::string::String
 pub vantadb::graphrag::pipeline::GraphRagNode::hop_distance: u32
 pub vantadb::graphrag::pipeline::GraphRagNode::id: u128
 pub vantadb::graphrag::pipeline::GraphRagNode::score: f32
+impl serde_core::ser::Serialize for vantadb::graphrag::pipeline::GraphRagNode
+pub fn vantadb::graphrag::pipeline::GraphRagNode::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
 impl core::marker::Freeze for vantadb::graphrag::pipeline::GraphRagNode
 impl core::marker::Send for vantadb::graphrag::pipeline::GraphRagNode
 impl core::marker::Sync for vantadb::graphrag::pipeline::GraphRagNode
@@ -2855,6 +2859,8 @@ pub vantadb::graphrag::pipeline::GraphRagResult::context_text: alloc::string::St
 pub vantadb::graphrag::pipeline::GraphRagResult::edges: alloc::vec::Vec<vantadb::graphrag::pipeline::GraphRagEdge>
 pub vantadb::graphrag::pipeline::GraphRagResult::nodes: alloc::vec::Vec<vantadb::graphrag::pipeline::GraphRagNode>
 pub vantadb::graphrag::pipeline::GraphRagResult::stats: vantadb::graphrag::pipeline::GraphRagStats
+impl serde_core::ser::Serialize for vantadb::graphrag::pipeline::GraphRagResult
+pub fn vantadb::graphrag::pipeline::GraphRagResult::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
 impl core::marker::Freeze for vantadb::graphrag::pipeline::GraphRagResult
 impl core::marker::Send for vantadb::graphrag::pipeline::GraphRagResult
 impl core::marker::Sync for vantadb::graphrag::pipeline::GraphRagResult
@@ -2867,6 +2873,8 @@ pub vantadb::graphrag::pipeline::GraphRagStats::expansion_hops_used: usize
 pub vantadb::graphrag::pipeline::GraphRagStats::nodes_expanded: usize
 pub vantadb::graphrag::pipeline::GraphRagStats::seeds_found: usize
 pub vantadb::graphrag::pipeline::GraphRagStats::total_candidates: usize
+impl serde_core::ser::Serialize for vantadb::graphrag::pipeline::GraphRagStats
+pub fn vantadb::graphrag::pipeline::GraphRagStats::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
 impl core::marker::Freeze for vantadb::graphrag::pipeline::GraphRagStats
 impl core::marker::Send for vantadb::graphrag::pipeline::GraphRagStats
 impl core::marker::Sync for vantadb::graphrag::pipeline::GraphRagStats
@@ -5184,6 +5192,33 @@ impl core::marker::Unpin for vantadb::QueryResult
 impl core::marker::UnsafeUnpin for vantadb::QueryResult
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::QueryResult
 impl core::panic::unwind_safe::UnwindSafe for vantadb::QueryResult
+#[non_exhaustive] pub enum vantadb::sdk::ReinforceOutcome
+pub vantadb::sdk::ReinforceOutcome::Corrected
+pub vantadb::sdk::ReinforceOutcome::Unused
+pub vantadb::sdk::ReinforceOutcome::Used
+impl vantadb::ReinforceOutcome
+pub fn vantadb::ReinforceOutcome::as_wire_str(&self) -> &'static str
+pub fn vantadb::ReinforceOutcome::from_wire_str(&str) -> core::option::Option<Self>
+impl core::clone::Clone for vantadb::ReinforceOutcome
+pub fn vantadb::ReinforceOutcome::clone(&self) -> Self
+impl core::cmp::Eq for vantadb::ReinforceOutcome
+impl core::cmp::PartialEq for vantadb::ReinforceOutcome
+pub fn vantadb::ReinforceOutcome::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vantadb::ReinforceOutcome
+pub fn vantadb::ReinforceOutcome::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vantadb::ReinforceOutcome
+impl core::marker::StructuralPartialEq for vantadb::ReinforceOutcome
+impl serde_core::ser::Serialize for vantadb::ReinforceOutcome
+pub fn vantadb::ReinforceOutcome::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vantadb::ReinforceOutcome
+pub fn vantadb::ReinforceOutcome::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for vantadb::ReinforceOutcome
+impl core::marker::Send for vantadb::ReinforceOutcome
+impl core::marker::Sync for vantadb::ReinforceOutcome
+impl core::marker::Unpin for vantadb::ReinforceOutcome
+impl core::marker::UnsafeUnpin for vantadb::ReinforceOutcome
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::ReinforceOutcome
+impl core::panic::unwind_safe::UnwindSafe for vantadb::ReinforceOutcome
 pub enum vantadb::sdk::RuntimeProfile
 pub vantadb::sdk::RuntimeProfile::Enterprise
 pub vantadb::sdk::RuntimeProfile::LowResource
@@ -5420,6 +5455,7 @@ pub fn vantadb::Embedded::put_batch(&self, alloc::vec::Vec<vantadb::MemoryInput>
 pub fn vantadb::Embedded::quarantine_apply(&self, &str, &str, core::option::Option<&str>) -> vantadb::error::Result<vantadb::MemoryRecord>
 pub fn vantadb::Embedded::quarantine_promote(&self, &str, &str) -> vantadb::error::Result<vantadb::MemoryRecord>
 pub fn vantadb::Embedded::quarantine_reject(&self, &str, &str) -> vantadb::error::Result<bool>
+pub fn vantadb::Embedded::reinforce(&self, &str, &str, vantadb::ReinforceOutcome) -> vantadb::error::Result<vantadb::MemoryRecord>
 pub fn vantadb::Embedded::supersede(&self, &str, &str, &str) -> vantadb::error::Result<()>
 pub fn vantadb::Embedded::verify_purge_certificate(&self, &str) -> vantadb::error::Result<vantadb::attestation::PurgeCertificateVerification>
 pub fn vantadb::Embedded::versions(&self, &str, &str) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemoryRecord>>
@@ -7833,6 +7869,33 @@ impl core::marker::Unpin for vantadb::QueryResult
 impl core::marker::UnsafeUnpin for vantadb::QueryResult
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::QueryResult
 impl core::panic::unwind_safe::UnwindSafe for vantadb::QueryResult
+#[non_exhaustive] pub enum vantadb::ReinforceOutcome
+pub vantadb::ReinforceOutcome::Corrected
+pub vantadb::ReinforceOutcome::Unused
+pub vantadb::ReinforceOutcome::Used
+impl vantadb::ReinforceOutcome
+pub fn vantadb::ReinforceOutcome::as_wire_str(&self) -> &'static str
+pub fn vantadb::ReinforceOutcome::from_wire_str(&str) -> core::option::Option<Self>
+impl core::clone::Clone for vantadb::ReinforceOutcome
+pub fn vantadb::ReinforceOutcome::clone(&self) -> Self
+impl core::cmp::Eq for vantadb::ReinforceOutcome
+impl core::cmp::PartialEq for vantadb::ReinforceOutcome
+pub fn vantadb::ReinforceOutcome::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vantadb::ReinforceOutcome
+pub fn vantadb::ReinforceOutcome::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vantadb::ReinforceOutcome
+impl core::marker::StructuralPartialEq for vantadb::ReinforceOutcome
+impl serde_core::ser::Serialize for vantadb::ReinforceOutcome
+pub fn vantadb::ReinforceOutcome::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vantadb::ReinforceOutcome
+pub fn vantadb::ReinforceOutcome::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for vantadb::ReinforceOutcome
+impl core::marker::Send for vantadb::ReinforceOutcome
+impl core::marker::Sync for vantadb::ReinforceOutcome
+impl core::marker::Unpin for vantadb::ReinforceOutcome
+impl core::marker::UnsafeUnpin for vantadb::ReinforceOutcome
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::ReinforceOutcome
+impl core::panic::unwind_safe::UnwindSafe for vantadb::ReinforceOutcome
 pub enum vantadb::RuntimeProfile
 pub vantadb::RuntimeProfile::Enterprise
 pub vantadb::RuntimeProfile::LowResource
@@ -8293,6 +8356,7 @@ pub fn vantadb::Embedded::put_batch(&self, alloc::vec::Vec<vantadb::MemoryInput>
 pub fn vantadb::Embedded::quarantine_apply(&self, &str, &str, core::option::Option<&str>) -> vantadb::error::Result<vantadb::MemoryRecord>
 pub fn vantadb::Embedded::quarantine_promote(&self, &str, &str) -> vantadb::error::Result<vantadb::MemoryRecord>
 pub fn vantadb::Embedded::quarantine_reject(&self, &str, &str) -> vantadb::error::Result<bool>
+pub fn vantadb::Embedded::reinforce(&self, &str, &str, vantadb::ReinforceOutcome) -> vantadb::error::Result<vantadb::MemoryRecord>
 pub fn vantadb::Embedded::supersede(&self, &str, &str, &str) -> vantadb::error::Result<()>
 pub fn vantadb::Embedded::verify_purge_certificate(&self, &str) -> vantadb::error::Result<vantadb::attestation::PurgeCertificateVerification>
 pub fn vantadb::Embedded::versions(&self, &str, &str) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemoryRecord>>

@@ -12,8 +12,8 @@ pub use graph::{EdgeRecord, NodeInput, NodeRecord, QueryResult};
 pub use record::{
     default_confidence, ConfidenceClass, ExportReport, FilterOp, ImportReport, MemoryExportLine,
     MemoryFilter, MemoryFilterItem, MemoryInput, MemoryListOptions, MemoryListPage, MemoryRecord,
-    NamespaceStats, NamespaceStatsMap, ValidWindow, DEFAULT_EXPIRING_SOON_WINDOW_MS,
-    DERIVATION_DISCOUNT, MAX_DERIVATION_DEPTH,
+    NamespaceStats, NamespaceStatsMap, ReinforceOutcome, ValidWindow,
+    DEFAULT_EXPIRING_SOON_WINDOW_MS, DERIVATION_DISCOUNT, MAX_DERIVATION_DEPTH,
 };
 #[cfg(debug_assertions)]
 pub use search::MemorySearchDebugReport;
