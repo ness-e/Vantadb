@@ -15,7 +15,7 @@ description: "Spec MGR-04 (trusted/tainted + RBAC por acción + integración ret
 - **Tipo:** Rust — `vanta-memory` (hook compartido VER-04) + `vanta-proxy` (config/governance) + `vantadb-mcp` (config) + core `src/server/middleware.rs` (audit RBAC) + `tests/rbac_namespace.rs` + docs (research-doc + PROXY.md/MCP.md)
 - **Turns estimados:** 12-16 (una sesión de sub-agente con corte declarado)
 - **Creado:** 2026-10-05 | **last-synced:** 2026-10-05
-- **Estado:** ⏳ IN PROGRESS (reservada como taskId `54` en el campaign server)
+- **Estado:** ✅ COMPLETADO — commit `e0373d7b`; review P2-01 APPROVE (`ses_ef20ae781ffeYWCIMdoxswKav0`); campaign taskId `54` completed.
 - **Incógnitas (uphill):** 0 abiertas —
   (a) spec MGR-04 en Notion → **RESUELTA en DISCOVERY**: página "Gobernanza del ciclo de vida de la memoria" + "Seguridad (área)" (fetch vía Notion MCP, 2026-10-05): `Namespaces trusted/tainted + RBAC por acción (MGR-04): PROPUESTA (research pendiente)` — **no existe forma exacta**; el requerimiento de la página Seguridad manda: *"el sistema debe proteger los datos y evitar que el contenido almacenado se convierta en una instrucción no confiable"* → la forma se diseña en este run con evidencia de repo (precedente MEMG-09);
   (b) solape con MEMG-09 (in-flight) → **RESUELTA**: paths disjuntos (MEMG-09 = `vantadb-mcp/src/{code_index,tools,lib}.rs` + tests; este run = `vanta-memory/**`, `vanta-proxy/**`, `vantadb-mcp/src/config.rs`, `src/server/middleware.rs`, `tests/rbac_namespace.rs`) — ver §Notas.
@@ -175,16 +175,46 @@ pre-autoriza el FIND del RBAC por acción restante. Precedente idéntico: MEMG-0
 
 ### Step 6 — Verify full + OCR + review P2-01 + commit + completed
 
-- **Archivos:** los del run (pathspec).
-- **Acción:** verify scoped completo (suites + fmt + clippy) + OCR delegation + review P2-01 (`vanta-review`) + commit local + campaign `completed` (taskId 54, payload review HARD-07). **[en progreso]**
-- **Verify:** [en progreso]
-- **Evidencia:** [en progreso]
+- **Archivos:** los del run (pathspec; shared files verificados — ver §Notas race).
+- **Acción:** verify scoped completo (suites + fmt + clippy) ✅ · OCR delegation (`dev-tools/ocr-review.ps1 -Format json`, spec `target/tmp/ocr-memg10.json`, Rule Groups 1+2 aplicados a mis archivos) → **0 Critical / 0 High** (patrón scan: sin unwrap/expect/panic/unsafe en producción; 1 clone justificado) · review P2-01 por agente distinto → **changes-required** (R1/R2 doc-only) → **fixes aplicados + delta re-review APPROVE** (ver §Iteración) · commit local **`e0373d7b`** · campaign `completed` (taskId 54, review payload).
+- **Verify:** ✅ vanta-memory **694/694** + `memg10_trust_gate` **4/4** + policy unit **9/9** · vanta-proxy **322/322** · vantadb-mcp **171/171** · `vantadb --features server --test rbac_namespace` **11/11** · `-E 'test(auth) or test(rbac)'` **48/48** · fmt ✅ (mis archivos; workspace bloqueado solo por `vanta-memory/tests/rollback.rs` de WIP ajeno) · clippy **4/4 crates** (`-D warnings`) · docs gates: check-links **0** · check-docs **0** · validate-docs-coverage **0 gaps** · gen-index --check **exit 0** (post-commit).
+- **Evidencia:** ✅ commit `e0373d7b` (17 archivos, +1012/−40; hooks pre-commit ALL CHECKS PASSED) · OCR spec `target/tmp/ocr-memg10.json` · re-review APPROVE `ses_ef20ae781ffeYWCIMdoxswKav0`.
+
+## RESULTADO (sección 7 — contrato de retorno)
+
+```
+RESULTADO: ✅ COMPLETO
+STEPS_OK: 7/7 total steps
+PROXIMO_STEP: ninguno
+COMMIT_HASH: e0373d7b (feat(security): MEMG-10 — 17 archivos, +1012/−40)
+ARCHIVOS: vanta-memory/src/core/hooks/{auto_recall,mod}.rs · vanta-memory/tests/memg10_trust_gate.rs (nuevo) · vanta-proxy/src/{config,governance,memory_tools,server}.rs · vanta-proxy/tests/{ver04_governance,icp02_privacy_demo}.rs · vantadb-mcp/src/config.rs · src/{audit.rs,server/middleware.rs} · tests/rbac_namespace.rs · docs/dev/research/mgr-04-policy-engine.md (nuevo) · docs/dev/tasks/MEMG-10.md (nuevo) · docs/api/{PROXY,MCP}.md · (shared ya en HEAD: Backlog FIND-301, index.md, llms.txt)
+VERIFY_CONTRATO: pasa (RED→GREEN trust gate + audit RBAC por acción + suites scoped + fmt/clippy + docs gates + coverage)
+BLOQUEO: ninguno
+GATES_EVALUADOS: P:no(pre-respondido por plan F0 — corte declarado L1557-59) D:no(pre-respondido por plan F0) V:no C:no | race de commits concurrente sorteado con pathspec + verificación de integridad
+SKILLS_CARGADAS: test-driven-development · systematic-debugging (pins SDP) · security-and-hardening · rust-write-tests · api-and-interface-design · documentation-skill · source-driven-development · incremental-implementation + base campaign-executor · progreso · ponytail
+```
+
+**Review P2-01:** APPROVE (fresh, reviewer `vanta-review`, contexto `ses_ef20ae781ffeYWCIMdoxswKav0` ≠ autor; 2 rondas).
+
+## Iteración post-review P2-01 (adversarial, reviewer distinto)
+
+> Review inicial: **changes-required** — solo documentación (el slice de código pasó sin Critical/Required). Findings resueltos antes del commit:
+
+| Finding | Severidad | Resolución |
+|---------|-----------|------------|
+| R1 — spec sobre-afirmaba cobertura ("ninguna superficie de inyección") vs la superficie L3 no gobernada `pipeline_worker` (`run_context_assembly` → `perform_auto_recall` allow-all → `context/<session>/__assembled`, default on, scheduler 60s) | 🟡 Required (doc) | §0/§7 acotados a "superficies gobernadas (VER-04/MGR-04)" + nuevo §5**(e)** declarando la superficie L3 + entry points desktop/Python; espejo en FIND-301 (Backlog, ítem (e)) y en el invariante #2 del task file |
+| R2 — comando de verify mal escrito (`--test rbac_namespace` sin `--features server`) | 🟡 Required (doc) | corregido a `-p vantadb --features server --test rbac_namespace`; re-ejecutado fresco → **11/11** |
+| Nit — conteo "6+2" en Step 4 | 🟢 Nit | corregido a "8 existentes + 3 nuevos → 11/11"; nit del `request_id.clone()` no aplicado (opcional, consistente con call sites previos) |
+
+**Re-verify post-fixes:** `rbac_namespace` 11/11 fresco · check-docs exit 0 · wording acotado verificado con `rg`. **Delta re-review: APPROVE (misma sesión).**
 
 ## Notas (coordinación + shared files)
 
-- **MEMG-09 en vuelo** (misma área): releído fresco en DISCOVERY (2026-10-05). Su diff toca `vantadb-mcp/src/{code_index,handlers/tools,lib}.rs`, `vantadb-mcp/tests/code_index_tests.rs`, `docs/dev/research/mgr-22-repo-map.md`, `mgr-23-24-memoria-proyecto.md`, `docs/dev/Backlog.md` (FIND-299/300), `docs/index.md`/`llms.txt` (gen-index) y el plan. **Conflicto real: ninguno** en código (paths disjuntos; `vantadb-mcp/src/config.rs` NO lo toca MEMG-09). Riesgo = **shared files**: `docs/dev/Backlog.md` (mis FIND-301 vs sus FIND-299/300) y artefactos de `gen-index` — si su contenido está sin commitear al cierre → **staging quirúrgico** del contenido propio (blob = HEAD + mi delta vía `git hash-object -w` + `git update-index --cacheinfo`) para no arrastrar su WIP; `git status`/`git diff --cached` verificado antes del commit.
-- **PROHIBIDO tocar:** `opencode.jsonc`, master plan, `docs/pipeline-state.json`; WIP ajeno listado arriba.
+- **MEMG-09** (misma área): releído fresco en DISCOVERY; **commiteado durante la ejecución** (`0905e3c5` feat + `5c38cf07`/`c5a7bc62` docs) — conflicto real: ninguno (paths disjuntos; su `config.rs` quedó en HEAD y mi wiring se construyó encima, verificado con test MCP 1/1 post-commit de ellos).
+- **MEMG-17** (apareció en vuelo a mitad del run, misma crate `vanta-memory`): paths disjuntos (rollback/erasure/attestation/Cargo.toml/lock); NO se tocó ni stageó nada suyo. Sus commits (`80cb84b0` + docs) cayeron durante mi review.
+- **Race de commits concurrente (2026-10-05):** mi primer `git commit` chocó con un commit del lead que barrió el índice (falló con "cannot lock ref 'HEAD'"); el lead rehizo su commit (`4c0da351`) sin mis archivos y el commit final **`e0373d7b`** los contiene íntegros (17 paths, verificado `git show --stat`). Los shared files (`Backlog.md` FIND-301 con ítem (e), `docs/index.md`, `llms.txt`) quedaron en HEAD vía los commits del lead con el contenido correcto; `gen-index --check` exit 0 post-commit.
+- **PROHIBIDO tocar:** `opencode.jsonc`, master plan, `docs/pipeline-state.json`.
 - Disco: si el linker falla → `dev-tools/target-cleanup.ps1 -Clean -Yes`.
-- **Campaign server:** taskId `54` (ya reservada ⏳; el guard WIP=3 rechazó re-marcar in-progress con 3 activas — MEMG-10 ya figura activa; se cierra con `completed` al final).
+- **Campaign server:** taskId `54` — cierre `completed` con payload review HARD-07 (`vanta-review` fresh, verdict approve).
 
 **Context Save Point (si el run se interrumpe):** estado en §Steps + recitation; trabajo parcial = git diff del worktree; NO re-hacer steps ✅; el slice es aditivo y reanudable (S1-S2 vanta-memory → S3 wiring → S4 core → S5 docs → S6 cierre).
