@@ -199,7 +199,6 @@ verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-hist
 | ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias |
 |---|---|---|---|---|---|---|---|---|---|
 | `DIST-15` | 🟠 Alta | **`graphrag_search` en bindings (Py/TS/Node/WASM)** | `docs/api/GRAPH_RAG.md:14-15`, `vantadb-python/`, `vantadb-node/`, `vantadb-ts/`, `vantadb-wasm/` | 🟢 1-2d | 🔴 Alta | 🆕 Pendiente | El feature estrella (GraphRAG) es inalcanzable desde los bindings (`GRAPH_RAG.md:14-15` lo declara). Costo bajo, impacto desproporcionado. | Origen: análisis externo 2026-10-01 (B1) | — |
-| `DIST-17` | 🟡 Media | **Test de paridad cross-language (mismo escenario Py/Node/WASM → resultados idénticos)** | `vantadb-python/`, `vantadb-node/`, `vantadb-wasm/` | 🟡 2-3d | 🟡 Media | 🆕 Pendiente | Hoy hay pruebas sueltas por binding, no comparación entre lenguajes. Decisión owner 2026-10-01: los 3 conectores siguen activos. | Origen: análisis externo 2026-10-01 (C3/G2) | Dep: DIST-03 (alcance) |
 | `DIST-18` | 🟢 Baja | **Publicar `vanta-proxy` (post-1.0.0 — congelado hasta entonces)** | `vanta-proxy/Cargo.toml` | 🟢 2-4h | 🟢 Baja | 🆕 Pendiente | Decisión owner 2026-10-01 (revisada): el proxy queda congelado y **sin publicar hasta 1.0.0** para no ampliar el área de desarrollo; al llegar 1.0.0 se reanuda el desarrollo y se publica. | Origen: decisión owner 2026-10-01 (B1 revisada) | Dep: 1.0.0 |
 | `WIRE-12` | 🟢 Baja | **IQL: `LIMIT`/`OFFSET`** | `src/parser/lexer.rs:50`, `docs/api/IQL.md` | 🟢 4h | 🟡 Media | 🆕 Pendiente | El token `LIMIT` ya está lexado sin regla; cierra fricción de UX (paginación). | Origen: análisis externo 2026-10-01 (B4) | — |
 | `WIRE-13` | 🟡 Media | **IQL: agregaciones (`COUNT`/`SUM`/`GROUP BY`)** | `src/parser/`, `docs/api/IQL.md` | 🟡 3-5d | 🟡 Media | 🆕 Pendiente | Habilita el caso ERP/facturas (agregar sin exportar). Parser + executor. | Origen: análisis externo 2026-10-01 (B3) | Dep: WIRE-12 (misma área) |
@@ -684,7 +683,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/dev/revie
 
 | ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias |
 |---|---|---|---|---|---|---|---|---|---|
-| `TS-10` | — | **Plan de distribución/adopción** (estratégica) | `../web` (repo externo `ness-e/Vantadb-web`), `docs/` | 🔴 1-2sem | 🟠 Media | 🆕 Pendiente | Playground browser interactivo + docs-site + comparativa honesta vs Orama/vectra/wa-sqlite/DuckDB-WASM usando la matriz del informe §3 — adopción actual 12 dl/semana vs 35K-465K competidores (H-06). Requiere DISCOVERY. Nota (verificación HEAD 2026-10-01): `web/` fue extraído a `ness-e/Vantadb-web` (2026-09-22) — coordinar con ese repo. | Origen: INV-vantadb-ts 2026-08-25 · research §3 · estrategia SHOW_HN | — |
 | `TS-11` | — | **Roadmap paridad sub-clientes** | `vantadb-wasm/src/lib.rs` · `vantadb-ts/src/vantadb.ts:333-338` | 🔴 1-2sem | 🟢 Nice-to-have | 🆕 Pendiente | Planificar exposición vía WASM de wiki/conversation/skills cuando core lo permita — hoy `db.wiki` es `{}` documentado (H-12). | Origen: INV-vantadb-ts 2026-08-25 | — |
 | `TS-13` | — | **Posicionamiento vs Orama en `web/`** (decisión HITL: mover a módulo web) | `../web` (repo externo `ness-e/Vantadb-web`) | 🟢 1d | 🟡 Baja | 🆕 Pendiente | Sección "Why VantaDB" honesta con matriz diferenciadores (durable WAL browser, híbrido RRF nativo, grafo+IQL, errores tipados) vs FTS-first de Orama (H-13). Nota (verificación HEAD 2026-10-01): coordinar con `ness-e/Vantadb-web`. | Origen: INV-vantadb-ts 2026-08-25 · research §3 | — |
 
@@ -694,7 +692,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/dev/revie
 
 | ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias |
 |---|---|---|---|---|---|---|---|---|---|
-| `WSM-14` | — | **Plan adopción npm** (estrategia H-21 aprobada) | `vantadb-wasm/pkg/README.md` template · landing docs | 🟡 2-3d | 🟠 Media | 🆕 Pendiente | README npm con posicionamiento del nicho "browser AI agent memory", demo Transformers.js enlazada, keywords/comparativa honesta vs Orama (5.44M desc/mes vs 187). Sin claims de performance sin benchmark (Regla 11). | Origen: INV-vantadb-wasm 2026-08-25 · H-21 | — |
 
 ## P43 — Research web 2026-08-25 (INV-web-01, docs/dev/reviews/research-web-prod-20260825.md)
 

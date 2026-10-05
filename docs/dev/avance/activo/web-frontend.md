@@ -154,3 +154,9 @@ tags: [vantadb, avance, web, frontend, seo, docs-site]
 - **Objetivo:** celdas comparativas sin fuente visible.
 - **Resultado:** footnote con fuente VantaDB (BENCHMARKS.md p50 10K) + competidoras calificadas aprox/sep-2026; resto filas verificado; P2-01 approve + follow-up ES/EN (d755aeec).
 - **Commit:** f0d6e9cb + d755aeec (follow-ups P2-01)
+
+### TS-10: Plan de adopción WASM — slice npm ejecutado en el repo web
+- **Fecha:** 2026-10-04
+- **Objetivo:** la brecha de adopción del binding WASM; el sitio web no mencionaba npm (0 menciones) — se ejecutaba el engine sin path de instalación.
+- **Resultado:** ✅ Card "JavaScript · npm" en `/docs` §01 Installation del repo `ness-e/Vantadb-web` (worktree `..\web-ts10` + branch local `ts10/npm-install-card` — NUNCA push; merge = decisión del owner). Métrica con fuente ANTES de prometerla (npm downloads 2026-10-04: `vantadb-wasm` 232/sem · 764/mes; Orama 1.53M/sem; visitas web no medibles → no prometidas). Secuencia en `DISTRIBUTION.md §8` (slices 2-5). Review P2-01 APPROVE; web: tsc/lint/build/playwright 2 passed.
+- **Commit:** 0b868789 + b9848852 (principal) · de5e25c (web, branch ts10/npm-install-card — NUNCA push)
