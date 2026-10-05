@@ -185,7 +185,7 @@ description: "T5 de ADR-0054: test de crash mid-pass determinista (hook = panic 
 RESULTADO: ✅ COMPLETO
 STEPS_OK: 4/4 total steps
 PROXIMO_STEP: ninguno
-COMMIT_HASH: <pendiente de commit — se completa tras `git commit` (LOCAL, sin push)>
+COMMIT_HASH: 95cdb2ce (test local, sin push; + commit docs de cierre)
 ARCHIVOS: vanta-memory/tests/scheduler_crash.rs (nuevo), docs/dev/tasks/WIRE-18.md (nuevo), docs/dev/Backlog.md (FIND-293)
 VERIFY_CONTRATO: pasa
 BLOQUEO: ninguno
