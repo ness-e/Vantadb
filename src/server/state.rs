@@ -3,8 +3,9 @@
 
 //! Shared types and DTOs for the HTTP server (REVIEW-10 split).
 //!
-//! Holds request/response shapes, the [`ServerState`] struct, the
-//! [`ConversationTrigger`] hook trait, [`AuthState`] / [`AuthIdentity`] /
+//! Holds request/response shapes, the [`ServerState`] struct, the host-seam
+//! traits [`ConversationTrigger`] / [`BackgroundService`], the [`ServerHooks`]
+//! bootstrap injection bag, [`AuthState`] / [`AuthIdentity`] /
 //! [`AuthRateLimiter`] (auth-side state) and the request-id extractor.
 //! Everything that is *data* lives here; everything that *runs* (handlers,
 //! middleware, telemetry, TLS, bootstrap) lives in [`super::routing`].
@@ -101,6 +102,44 @@ pub trait ConversationTrigger: Send + Sync {
         role: &str,
         content: &str,
     ) -> std::result::Result<(), String>;
+}
+
+/// A started background service owned by the server for its lifetime (WIRE-14).
+///
+/// Hosts (e.g. `vantadb-server`) start their service — typically a loop
+/// mirroring [`crate::gc::MemoryTtlSweeper`] (watch channel + join handle) —
+/// and hand it over through [`ServerHooks::background_services`]. The server
+/// keeps it alive for the whole run and calls [`shutdown`](Self::shutdown)
+/// once the HTTP loop returns, so no service task outlives `run` and none
+/// races the shutdown flush.
+///
+/// Dropping a service without calling `shutdown` must stop it best-effort
+/// (the `MemoryTtlSweeper` convention: signal, then abort).
+///
+/// Object-safe by construction: `shutdown` returns a boxed future so
+/// `Box<dyn BackgroundService>` works without `async_trait`.
+pub trait BackgroundService: Send {
+    /// Gracefully stop the service and join its task. Called once on the
+    /// graceful path, after the HTTP server loop returns; on early-exit error
+    /// paths the service is dropped instead (best-effort stop via `Drop`).
+    fn shutdown(self: Box<Self>)
+        -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>>;
+}
+
+/// Host-injection seam for the server bootstrap (WIRE-14, ADR-0054 T1).
+///
+/// Passed to [`crate::server::bootstrap::run_with_hooks`]. The defaults keep
+/// the pre-WIRE-14 behavior exactly: no conversation trigger, no background
+/// services — `run(config)` is `run_with_hooks(config, ServerHooks::default())`.
+#[derive(Default)]
+pub struct ServerHooks {
+    /// Optional post-save hook for `POST /api/v2/conversations` (MEM-55).
+    /// `None` keeps the route purely a thread store.
+    pub conversation_trigger: Option<Arc<dyn ConversationTrigger>>,
+    /// Background services started by the host and joined by the server after
+    /// the HTTP loop returns, in registration order. The built-in TTL sweeper
+    /// is joined after these when enabled.
+    pub background_services: Vec<Box<dyn BackgroundService>>,
 }
 
 /// Shared application state injected into every route handler.

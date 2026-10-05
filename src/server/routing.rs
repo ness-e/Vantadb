@@ -25,7 +25,9 @@ pub use crate::server::telemetry::{init_telemetry, TelemetrySink};
 // ── Bootstrap ────────────────────────────────────────────────────────────────
 #[cfg(feature = "tls")]
 pub use crate::server::bootstrap::build_tls13_config;
-pub use crate::server::bootstrap::{run, validate_auth_config, wait_for_shutdown_signal};
+pub use crate::server::bootstrap::{
+    run, run_with_hooks, validate_auth_config, wait_for_shutdown_signal,
+};
 
 // ── Errors ───────────────────────────────────────────────────────────────────
 pub use crate::server::errors::{
@@ -47,8 +49,9 @@ pub use crate::server::handlers::{
 
 // ── State re-exports ─────────────────────────────────────────────────────────
 pub use crate::server::state::{
-    AuthIdentity, AuthState, ConversationTrigger, NodeDTO, QueryRequest, QueryResponse, RequestId,
-    ServerState, AUTH_ENTITY_NS, LONG_REQUEST_TIMEOUT, REQUEST_TIMEOUT,
+    AuthIdentity, AuthState, BackgroundService, ConversationTrigger, NodeDTO, QueryRequest,
+    QueryResponse, RequestId, ServerHooks, ServerState, AUTH_ENTITY_NS, LONG_REQUEST_TIMEOUT,
+    REQUEST_TIMEOUT,
 };
 
 #[cfg(test)]

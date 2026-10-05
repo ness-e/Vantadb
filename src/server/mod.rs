@@ -37,14 +37,14 @@ pub mod telemetry;
 
 // Types (from `state`)
 pub use state::{
-    AuthIdentity, AuthRateLimiter, AuthState, ConversationTrigger, NodeDTO, QueryRequest,
-    QueryResponse, ServerState, LONG_REQUEST_TIMEOUT, REQUEST_TIMEOUT,
+    AuthIdentity, AuthRateLimiter, AuthState, BackgroundService, ConversationTrigger, NodeDTO,
+    QueryRequest, QueryResponse, ServerHooks, ServerState, LONG_REQUEST_TIMEOUT, REQUEST_TIMEOUT,
 };
 
 // Functions — only those declared `pub` in the original file.
 #[cfg(feature = "tls")]
 pub use bootstrap::build_tls13_config;
-pub use bootstrap::{run, validate_auth_config, wait_for_shutdown_signal};
+pub use bootstrap::{run, run_with_hooks, validate_auth_config, wait_for_shutdown_signal};
 
 pub use middleware::client_ip;
 pub use middleware::{auth_middleware, circuit_breaker_middleware, request_metrics_middleware};
