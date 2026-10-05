@@ -46,21 +46,31 @@ removed, not argued. Our own performance figures live in
 [BENCHMARKS.md](../../user/operations/BENCHMARKS.md) and [COMPARISON.md](../../user/COMPARISON.md)
 (sqlite-vec / LanceDB / Qdrant / Chroma — Orama is covered here, not there).
 
-### 2.1 What Orama verifiably is (checked 2026-09-19)
+### 2.1 What Orama verifiably is (re-verified 2026-10-04)
 
-Source: <https://www.npmjs.com/package/@orama/orama> (v3.1.18, Apache-2.0 —
-weekly downloads **re-measured 2026-10-04: 1,530,732** via
+Source: `GET https://registry.npmjs.org/@orama/orama/latest` (v3.1.18,
+Apache-2.0, 0 dependencies — re-checked 2026-10-04; weekly downloads
+**re-measured 2026-10-04: 1,530,732** via
 `GET https://api.npmjs.org/downloads/point/last-week/@orama/orama`; the
-686,968 figure was the 2026-09-19 npm-page check — superseded, do not quote)
-and <https://docs.orama.com/docs/orama-js/search/hybrid-search> (resolves;
-nav confirms Vector, Hybrid, BM25, Facets, Filters, Geosearch pages).
+686,968 figure was the 2026-09-19 npm-page check — superseded, do not quote),
+<https://docs.orama.com/docs/orama-js/search/hybrid-search> (updated
+31/10/2025) and the package source (<https://github.com/oramasearch/orama>,
+`packages/orama/src/`, fetched 2026-10-04):
 
 - Full-text-first search engine (JS puro): `mode: 'fulltext' | 'vector' | 'hybrid'`,
   BM25, typo tolerance, facets, geosearch, filters, boosting, 30 languages.
+- Hybrid fusion is a **weighted score sum** (default `text: 0.5` /
+  `vector: 0.5`, configurable via `hybridWeights`) — not RRF
+  (`methods/search-hybrid.ts`, `getQueryWeights`).
+- Vector search is a **brute-force scan** (cosine over every stored vector,
+  default similarity 0.8) — no ANN index (`trees/vector.ts`).
+- Persistence is a **plugin** (`@orama/plugin-data-persistence`: `persist` /
+  `restore` snapshots, JSON or binary; file persistence is server-only) over an
+  in-memory core — not a native durable engine (docs updated 8/9/2025).
+- Errors are `Error` objects carrying a `code` string (`errors.ts`,
+  `createError`) — no details payload, no JSON wire shape.
 - Embeddings via `@orama/plugin-embeddings`; client-side OpenAI via Secure Proxy;
   GenAI Answer Sessions (chat/RAG UX) since v3.0.0.
-- Persistence is a **plugin** (`@orama/plugin-data-persistence`, JSONL
-  serialization) over an in-memory core — not a native durable engine.
 - Zero-install browser evaluation: `cdn.jsdelivr.net/npm/@orama/orama@latest/+esm`.
 - The "21μs" figure in Orama's README is a trivial single-doc example without a
   dataset — not a citable benchmark (same ruling as research §53).
@@ -69,13 +79,13 @@ nav confirms Vector, Hybrid, BM25, Facets, Filters, Geosearch pages).
 
 | Library | Version | Gzipped | Source |
 | :--- | :--- | :--- | :--- |
-| `@orama/orama` | 3.1.18 | **23.8 KB** (75.2 KB min) | <https://bundlephobia.com/package/@orama/orama>, measured 2026-08-30 |
-| VantaDB WASM | 0.5.x → **0.8.0** | **~671 KB transfer** (1.58 MB raw; medido sobre 0.5.x — **re-medir `pkg/` 0.8.0 antes de citar**) | `vantadb-wasm/pkg/` via .NET GzipStream, measured 2026-09-15 (`pkg/` built 2026-09-11) |
+| `@orama/orama` | 3.1.18 | **23.8 KB** (75.2 KB min) | <https://bundlephobia.com/package/@orama/orama> API re-checked 2026-10-04 (`GET https://bundlephobia.com/api/size?package=@orama/orama@3.1.18` → 24,416 B gzip) |
+| VantaDB WASM | **0.8.x** | **~739 KB gzip transfer** (1.77 MB raw; 745,152 B gzip wasm + 11.0 KB glue) | `vantadb-wasm/pkg/` via .NET GzipStream, measured 2026-10-04 from a fresh `wasm-pack build --release` (`vantadb-wasm/README.md` §1, WSM-14) |
 
 Full table (MiniSearch 5.9 KB, Lunr 8.1 KB) and the 7-item feature-gap list live
 in [`vantadb-wasm/README.md` §4](../../../vantadb-wasm/README.md#4-honest-comparison-vs-javascript-only-search-engines)
-— read there, not repeated here. (An older 599 KB transfer figure in
-`vantadb-ts/README.md`, measured 2026-08-30, is superseded by the 2026-09-15
+— read there, not repeated here. (Older 599 KB (2026-08-30, `vantadb-ts/README.md`)
+and 671 KB (2026-09-15) transfer figures are superseded by the 2026-10-04
 measurement; rebuild `pkg/` before quoting for release.)
 
 ### 2.3 Adoption (sourced, dated — re-measured 2026-10-04)
@@ -97,9 +107,11 @@ measurement; rebuild `pkg/` before quoting for release.)
   ≤1k docs, mature search-engine features (facets/geosearch/typo tolerance),
   plugin ecosystem, and a 23.8 KB footprint.
 - **Pick VantaDB** if any of these matter: OPFS/IndexedDB durable persistence
-  with WAL across reloads, HNSW k-NN past linear-scan scale, BM25+vector RRF
-  fusion in one query, typed graph traversal (BFS/DFS/topo/DAG) beside search,
-  TTL auto-expiry — at ~671 KB transfer.
+  across reloads (atomic writes + CRC-32, Web Locks cross-tab, opt-in auto-save;
+  snapshot-based, **not** a WAL — `src/storage/engine/init.rs:41-48`), HNSW k-NN
+  past linear-scan scale, BM25+vector RRF fusion (k = 60) in one query, graph
+  traversal (BFS/DFS/topo) + IQL beside search, TTL auto-expiry — at ~739 KB
+  gzip transfer.
 - **No performance winner is declared.** Nobody in this niche publishes a
   reproducible public JS/WASM benchmark (research §53; our JS/WASM path has
   zero published numbers, H-11). The qualitative matrix is in
@@ -110,7 +122,7 @@ measurement; rebuild `pkg/` before quoting for release.)
 ## 3. Niche positioning — "browser AI agent memory"
 
 One-line: **the only embedded JS SDK that gives browser AI agents durable
-memory (OPFS + WAL) with native hybrid RRF search and graph traversal** —
+memory (OPFS + IndexedDB) with native hybrid RRF search and graph traversal** —
 versus Orama's FTS-first in-memory engine (H-13,
 research §55-59).
 
@@ -260,10 +272,11 @@ model does not load" — symptoms, both triggers, remediation and verification.
 
 ---
 
-## 8. Adoption execution sequence — web surfaces (TS-10, executed 2026-10-04)
+## 8. Adoption execution sequence — web surfaces (TS-10 + TS-13, executed 2026-10-04)
 
-> First slice executed in the web repo; the rest is sequenced with an owner.
-> Web work lives on its own repo/branch — local only, nothing pushed from here.
+> Slices 1 and 3 executed in the web repo (local branches); the rest is
+> sequenced with an owner. Web work lives on its own repo/branch — local only,
+> nothing pushed from here.
 
 **Gap found (verified 2026-10-04):** the site never mentioned the npm/WASM
 install path — `rg "npm install|npmjs" web/src` = **0 hits**; `/docs` §01
@@ -279,15 +292,31 @@ the real WASM engine. A visitor could execute the engine but not install it.
 - Verified: `npx tsc --noEmit` ✅ · `npm run lint` ✅ · `npm run build` ✅
   (Turbopack) · `npx playwright test` ✅ (2 passed) · visual check ✅.
 
+**Executed slice 3 (TS-13, web repo, local branch):**
+
+- **"VantaDB vs Orama"** comparison section on `/why-vantadb`
+  (`web/src/components/vanta/orama-comparison.tsx` + page + `oramaCompare.*`
+  i18n keys ES/EN): vector index, hybrid fusion, browser persistence, graph +
+  IQL, errors, TTL, bundle size. Every Orama cell verified 2026-10-04 against
+  the npm registry, docs.orama.com and the `oramasearch/orama` source; every
+  VantaDB cell verified against the engine source (see §2.1 for the corrections
+  this pass produced). Branch `ts13/orama-column`, commit `fad5bf3` (worktree
+  `..\web-ts13`, local only — owner merges/cherry-picks; the owner's redesign
+  replaces the page's old competitor table, this section is additive and
+  Regla 11-clean by construction).
+- Verified: `npx tsc --noEmit` ✅ · `npm run lint` ✅ · `npm run build` ✅
+  (Turbopack) · `npx playwright test flujo-critico` ✅ (1 passed) · visual
+  check ES + EN ✅.
+
 **Sequence (next slices, in order):**
 
 | # | Slice | Surface | Status / owner |
 | :--- | :--- | :--- | :--- |
 | 1 | JS/npm install card | docs-site (`/docs`) | ✅ executed — branch `ts10/npm-install-card` (`de5e25c`) |
 | 2 | Playground CTA → install + docs (i18n keys) | playground | next slice |
-| 3 | Orama column in "Why VantaDB" (content ready in §2) | web | TS-13; blocked by owner WIP in `why-vantadb/page.tsx` |
-| 4 | Re-measure bundle (`pkg/` 0.8.0) before quoting §2.2 | web/benchmarks | before any announcement |
-| 5 | npm README niche line + demo link | npm package | WSM-14 (in flight) |
+| 3 | Orama comparison in "Why VantaDB" (content §2, cells re-verified 2026-10-04) | web | ✅ executed — branch `ts13/orama-column` (`fad5bf3`), local only; merge/cherry-pick = owner decision |
+| 4 | Re-measure bundle (`pkg/` 0.8.0) before quoting §2.2 | web/benchmarks | ✅ measured 2026-10-04 (WSM-14, `vantadb-wasm/README.md` §1) — §2.2 updated; linking it from a web surface still optional before announcement |
+| 5 | npm README niche line + demo link | npm package | ✅ executed (WSM-14, commit `0c3e465e`) |
 
 **Metric (declared before promising — Regla 11):** primary = npm weekly
 downloads of `vantadb-wasm` + `vantadb`; source
