@@ -392,6 +392,49 @@ Low-level operations on the node-graph model (numeric node IDs, edges, graph tra
 | `optimizer_config()` | Return the current segment optimizer configuration |
 | `set_optimizer_config(config)` | Override the segment optimizer configuration. Takes effect on the next pipeline invocation |
 
+### Memory ↔ graph bridge (DX-04)
+
+Memory records **are** graph nodes: `put()` computes a deterministic node id
+`node_id = xxHash3_128(namespace + "\0" + key)` and exposes it on
+`MemoryRecord.node_id` — stable across reopen (same namespace + key ⇒ same id).
+That id is the bridge: use it with any graph API (`add_edge`, `get_node`,
+`graph_bfs`, …) to connect records into the graph.
+
+```rust
+let decision = db.put(MemoryInput::new("agent/main", "decision", "use provider X"))?;
+let rationale = db.put(MemoryInput::new("agent/main", "rationale", "X is cheapest"))?;
+
+// Bridge: record node ids are the graph node ids.
+db.add_edge(rationale.node_id, decision.node_id, "supports", None, None)?;
+
+// Traverse from a record's node (direction: vantadb::graph::TraversalDirection).
+let reached = db.graph_bfs(&[decision.node_id], 1, TraversalDirection::Both)?;
+```
+
+Lineage edges are created automatically by the memory ops — canonical labels,
+bidirectional, idempotent to re-runs:
+
+| Op | Edge created |
+|----|--------------|
+| `supersede(ns, old_key, new_key)` | `old --superseded_by--> new` |
+| derived `put` (`confidence_class: Derived`, `derived_from: [parent]`) | `child --derived_from--> parent` |
+
+The record fields (`superseded_by`, `derived_from`) remain the canonical data;
+the edges are derived navigability created by the op. Record rewrites (`put`,
+`put_batch`, `supersede`, `reinforce`, quarantine state ops, import) preserve
+the node's existing edges, and a derived record re-put with different parents
+drops its stale `derived_from` edge.
+
+"Who changed this source, and why?" — from a record's `node_id`, BFS reaches
+the superseding record; its payload (via `get`) is the why:
+
+```rust
+db.supersede("agent/main", "decision", "decision-v2")?;
+let reached = db.graph_bfs(&[decision.node_id], 2, TraversalDirection::Both)?;
+// `reached` contains decision-v2's node id; the why is its payload:
+let why = db.get("agent/main", "decision-v2")?.expect("record");
+```
+
 ### `NodeInput`
 
 ```rust

@@ -19,6 +19,7 @@ use super::super::serialization::{
     FIELD_UPDATED_AT_MS, FIELD_VALID_AT_MS, FIELD_VERSION,
 };
 use super::super::types::*;
+use super::graph::{LABEL_DERIVED_FROM, LABEL_SUPERSEDED_BY};
 use crate::backend::{BackendKind, BackendPartition, BackendWriteOp};
 use crate::error::{Error, Result};
 use crate::node::{FieldValue, UnifiedNode, VectorRepresentations};
@@ -79,6 +80,91 @@ fn validate_quarantine_reason(reason: &str) -> Result<()> {
         });
     }
     Ok(())
+}
+
+/// MEMG-03: carry node-resident graph state that the record→node projection
+/// cannot represent — `edges` and `label_index` — from the node currently
+/// stored under `node.id` (if any) into `node` before an upsert. The record is
+/// canonical for fields (ADR-046 §D2); graph state is not, so a record rewrite
+/// must not sever the memory↔graph bridge (lineage edges, user edges).
+///
+/// ponytail: callers skip this for provably-fresh inserts (`resolve_*` already
+/// proved no node exists), so the cost is one `engine.get` per *update* —
+/// cache-hot (the node was just read). Upgrade path if a canonical bench ever
+/// shows it (MEMG-03 Step 6 timing was noise-dominated): thread `edges`
+/// through `resolve_existing_for_write`.
+fn carry_graph_state(engine: &crate::storage::StorageEngine, node: &mut UnifiedNode) -> Result<()> {
+    if let Some(existing) = engine.get(node.id)? {
+        if !existing.edges.is_empty() {
+            node.edges = existing.edges;
+        }
+        if !existing.label_index.is_empty() {
+            node.label_index = existing.label_index;
+        }
+    }
+    Ok(())
+}
+
+/// MEMG-03: reconcile lineage edges (`derived_from`, `superseded_by`) for a
+/// record rewrite — the record field is canonical; the edge is derived
+/// navigability created by the op. Forward halves (`!reverse`) whose target is
+/// no longer declared by the field are dropped from `node.edges`; the returned
+/// `(target, label)` pairs must have their counterpart half cleaned up after
+/// the insert (best-effort — the counterpart node may already be gone).
+fn reconcile_lineage_edges(
+    engine: &crate::storage::StorageEngine,
+    node: &mut UnifiedNode,
+    namespace: &str,
+    derived_from: &[String],
+    superseded_by: Option<&str>,
+) -> Vec<(u128, &'static str)> {
+    let derived_label = engine.intern_label(LABEL_DERIVED_FROM);
+    let superseded_label = engine.intern_label(LABEL_SUPERSEDED_BY);
+    let declared_derived: HashSet<u128> = derived_from
+        .iter()
+        .map(|key| memory_node_id(namespace, key))
+        .collect();
+    let declared_superseded = superseded_by.map(|key| memory_node_id(namespace, key));
+
+    let stale_derived: Vec<u128> = node
+        .edges
+        .iter()
+        .filter(|e| {
+            !e.reverse && e.label_id == derived_label && !declared_derived.contains(&e.target)
+        })
+        .map(|e| e.target)
+        .collect();
+    let stale_superseded: Vec<u128> = node
+        .edges
+        .iter()
+        .filter(|e| {
+            !e.reverse && e.label_id == superseded_label && Some(e.target) != declared_superseded
+        })
+        .map(|e| e.target)
+        .collect();
+    if !stale_derived.is_empty() || !stale_superseded.is_empty() {
+        node.edges.retain(|e| {
+            if e.reverse {
+                return true;
+            }
+            if e.label_id == derived_label {
+                return declared_derived.contains(&e.target);
+            }
+            if e.label_id == superseded_label {
+                return Some(e.target) == declared_superseded;
+            }
+            true
+        });
+    }
+    stale_derived
+        .into_iter()
+        .map(|t| (t, LABEL_DERIVED_FROM))
+        .chain(
+            stale_superseded
+                .into_iter()
+                .map(|t| (t, LABEL_SUPERSEDED_BY)),
+        )
+        .collect()
 }
 
 impl Embedded {
@@ -576,10 +662,40 @@ impl Embedded {
             quarantined_by: quarantine.by,
             quarantine_review_due_ms: quarantine.review_due_ms,
         };
-        let (node, record) = memory_record_to_node_owned(record);
+        let (mut node, record) = memory_record_to_node_owned(record);
+
+        // MEMG-03: a rewrite must not wipe node-resident graph state (edges).
+        // Only an existing node can hold graph state — a fresh insert has
+        // nothing to preserve and skips the extra `engine.get`.
+        if existing.is_some() {
+            carry_graph_state(&engine, &mut node)?;
+        }
+        // MEMG-03: drop stale lineage edges (field = canonical; the edge is
+        // derived navigability). Covers `derived_from` and `superseded_by`
+        // (a re-put revives a superseded record: field resets to None).
+        let stale_lineage = reconcile_lineage_edges(
+            &engine,
+            &mut node,
+            &record.namespace,
+            &record.derived_from,
+            record.superseded_by.as_deref(),
+        );
 
         // Persist the node first (WAL + KV + HNSW)
         engine.insert(&node)?;
+
+        // MEMG-03: counterpart-side cleanup (best-effort) + ensure the declared
+        // derived_from lineage edges (idempotent, re-put safe).
+        for (target, label) in stale_lineage {
+            let _ = self.remove_edge(node.id, target, label);
+        }
+        for parent_key in &record.derived_from {
+            self.ensure_edge(
+                node.id,
+                memory_node_id(&record.namespace, parent_key),
+                LABEL_DERIVED_FROM,
+            )?;
+        }
 
         // Best-effort JSON shredding — if this fails the record still works
         // via the existing derived-index / PostFilter paths.
@@ -718,6 +834,10 @@ impl Embedded {
             // `previous` side of `replace_derived_indexes` per record (None =
             // fresh insert), parallel to `records`.
             let mut chunk_previous: Vec<Option<MemoryRecord>> = Vec::with_capacity(chunk.len());
+            // MEMG-03: stale lineage targets per record (counterpart-side
+            // cleanup after the batch insert), parallel to `records`.
+            let mut chunk_stale_lineage: Vec<Vec<(u128, &'static str)>> =
+                Vec::with_capacity(chunk.len());
             // SCH-05 review F3: T1 entries of this chunk, audited post-commit.
             let mut entered_quarantine: Vec<(String, String)> = Vec::new();
 
@@ -792,7 +912,21 @@ impl Embedded {
                     quarantined_by: quarantine.by,
                     quarantine_review_due_ms: quarantine.review_due_ms,
                 };
-                let (node, record) = memory_record_to_node_owned(record);
+                let (mut node, record) = memory_record_to_node_owned(record);
+                // MEMG-03: a rewrite must not wipe node-resident graph state
+                // (edges) — only an existing node can hold it — and stale
+                // derived_from lineage edges are dropped (field = canonical;
+                // the edge is derived navigability).
+                if previous.is_some() {
+                    carry_graph_state(&engine, &mut node)?;
+                }
+                chunk_stale_lineage.push(reconcile_lineage_edges(
+                    &engine,
+                    &mut node,
+                    &record.namespace,
+                    &record.derived_from,
+                    record.superseded_by.as_deref(),
+                ));
                 seen.insert(node_id, (version, quarantine_snapshot, record.clone()));
                 nodes.push(node);
                 chunk_previous.push(previous);
@@ -820,6 +954,27 @@ impl Embedded {
             let chunk_needs_rebuild = opts.needs_rebuild(chunk.len());
             engine.batch_insert_with_opts(&nodes, opts)?;
             rebuild_needed = rebuild_needed || chunk_needs_rebuild;
+
+            // MEMG-03: counterpart-side cleanup of stale lineage edges
+            // (best-effort) + ensure the declared derived_from edges
+            // (idempotent). In-batch duplicate keys: only the last occurrence
+            // wins (mirrors the upsert semantics of the record itself).
+            let mut last_wins: HashSet<u128> = HashSet::with_capacity(records.len());
+            for (record, stale) in records.iter().zip(chunk_stale_lineage.iter()).rev() {
+                if !last_wins.insert(record.node_id) {
+                    continue;
+                }
+                for &(target, label) in stale {
+                    let _ = self.remove_edge(record.node_id, target, label);
+                }
+                for parent_key in &record.derived_from {
+                    self.ensure_edge(
+                        record.node_id,
+                        memory_node_id(&record.namespace, parent_key),
+                        LABEL_DERIVED_FROM,
+                    )?;
+                }
+            }
 
             // ── Derived/text/sparse indexes: per-record replacement ──
             // Mirrors `put_one`: each record's namespace/payload/text/sparse
@@ -1145,8 +1300,41 @@ impl Embedded {
             }
         }
 
-        let (node, record) = memory_record_to_node_owned(record);
+        let (mut node, record) = memory_record_to_node_owned(record);
+        // MEMG-03: only an existing node can hold graph state (see `put_one`).
+        if previous.is_some() {
+            carry_graph_state(&engine, &mut node)?;
+        }
+        // MEMG-03: keep lineage edges consistent with the canonical fields
+        // (covers `derived_from` and `superseded_by`).
+        let stale_lineage = reconcile_lineage_edges(
+            &engine,
+            &mut node,
+            &record.namespace,
+            &record.derived_from,
+            record.superseded_by.as_deref(),
+        );
         engine.insert(&node)?;
+        // The raw transport does not validate parent existence (unlike
+        // `materialize_confidence`), so lineage edges are best-effort here — a
+        // dangling parent must not fail the import.
+        for (target, label) in stale_lineage {
+            let _ = self.remove_edge(node.id, target, label);
+        }
+        for parent_key in &record.derived_from {
+            let _ = self.ensure_edge(
+                node.id,
+                memory_node_id(&record.namespace, parent_key),
+                LABEL_DERIVED_FROM,
+            );
+        }
+        if let Some(new_key) = record.superseded_by.as_deref() {
+            let _ = self.ensure_edge(
+                node.id,
+                memory_node_id(&record.namespace, new_key),
+                LABEL_SUPERSEDED_BY,
+            );
+        }
         self.replace_derived_indexes(&engine, previous.as_ref(), Some(&record))?;
 
         Ok(record)
@@ -1231,8 +1419,29 @@ impl Embedded {
         // self-consistent (old marked, new present). Full 2PC deferred to
         // ACID Phase 0, same as insert.
         let engine = self.engine_handle()?;
-        let (node, record) = memory_record_to_node_owned(record);
+        let (mut node, record) = memory_record_to_node_owned(record);
+        carry_graph_state(&engine, &mut node)?;
+        // MEMG-03: drop stale lineage edges (legacy or previous state); the
+        // new `superseded_by` target is ensured below.
+        let stale_lineage = reconcile_lineage_edges(
+            &engine,
+            &mut node,
+            &record.namespace,
+            &record.derived_from,
+            record.superseded_by.as_deref(),
+        );
         engine.insert(&node)?;
+        for (target, label) in stale_lineage {
+            let _ = self.remove_edge(node.id, target, label);
+        }
+        // MEMG-03: lineage edge old --superseded_by--> new (bidirectional,
+        // idempotent). `superseded_by` remains the canonical field; the edge is
+        // derived navigability for the graph layer.
+        self.ensure_edge(
+            node.id,
+            memory_node_id(namespace, new_key),
+            LABEL_SUPERSEDED_BY,
+        )?;
         // Best-effort version-history snapshot, same durability class as put_one.
         let _ = super::super::version_history::write_snapshot(
             &engine,
@@ -1338,7 +1547,8 @@ impl Embedded {
             // confidence fields are not indexed, so the derived text/scalar
             // indexes stay consistent with no index writes.
             let engine = self.engine_handle()?;
-            let (node, record) = memory_record_to_node_owned(record);
+            let (mut node, record) = memory_record_to_node_owned(record);
+            carry_graph_state(&engine, &mut node)?;
             engine.insert(&node)?;
             self.audit(crate::audit::AuditEvent::new(
                 "memory_reinforce",
@@ -1398,7 +1608,8 @@ impl Embedded {
         record.updated_at_ms = now;
 
         let engine = self.engine_handle()?;
-        let (node, record) = memory_record_to_node_owned(record);
+        let (mut node, record) = memory_record_to_node_owned(record);
+        carry_graph_state(&engine, &mut node)?;
         engine.insert(&node)?;
         self.audit(crate::audit::AuditEvent::new(
             "quarantine_enter",
@@ -1442,7 +1653,8 @@ impl Embedded {
         record.updated_at_ms = now;
 
         let engine = self.engine_handle()?;
-        let (node, record) = memory_record_to_node_owned(record);
+        let (mut node, record) = memory_record_to_node_owned(record);
+        carry_graph_state(&engine, &mut node)?;
         engine.insert(&node)?;
         self.audit(crate::audit::AuditEvent::new(
             "quarantine_promote",
@@ -1956,7 +2168,19 @@ impl Embedded {
                     let expires_at_ms = now_ms().saturating_add(ttl);
                     node.set_field(FIELD_EXPIRES_AT_MS, FieldValue::Int(expires_at_ms as i64));
                 }
+                // MEMG-03: an overwrite must not wipe node-resident graph state
+                // (edges) — same bridge rule as the validated put path — and
+                // the bulk path declares no lineage (derived records are
+                // rejected above; `superseded_by` is never set), so stale
+                // lineage edges from a previous state are dropped:
+                // field = canonical, edge = derived navigability.
+                carry_graph_state(&engine, &mut node)?;
+                let stale_lineage =
+                    reconcile_lineage_edges(&engine, &mut node, &input.namespace, &[], None);
                 engine.insert(&node)?;
+                for (target, label) in stale_lineage {
+                    let _ = self.remove_edge(node.id, target, label);
+                }
             }
             batches += 1;
         }
