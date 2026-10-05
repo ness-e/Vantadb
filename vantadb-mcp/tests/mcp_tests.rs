@@ -4830,7 +4830,7 @@ fn test_mcp_structured_output_and_output_schema() {
 
 /// MCP-38: Tool annotations coverage — every listed tool must expose the 4
 /// hints per spec 2025-06-18 (blog.modelcontextprotocol.io 2026-03-16).
-/// Verifies: 81 listed tools (87 defined − 6 WIRE-02 absorbed code_*
+/// Verifies: 82 listed tools (88 defined − 6 WIRE-02 absorbed code_*
 /// projections), each has title + 4 bools, destructiveHint true only on
 /// mutating tools that overwrite or delete, openWorldHint only on fs paths.
 /// MEM-59 added `memory_recall` and `memory_search` (both read-only/idempotent);
@@ -4838,14 +4838,17 @@ fn test_mcp_structured_output_and_output_schema() {
 /// of the listing — see the contract comment at the top of handlers/tools.rs.
 /// VER-07 flipped `dream_promote` (preview stub → real promotion with
 /// destructive DELETE potential; still idempotent).
+/// MEMG-09 added `code_index` (writer; rebuilds its own derived index records —
+/// destructiveHint stays false per the `rebuild_index` precedent, openWorldHint
+/// true because it reads a host filesystem path).
 #[test]
 fn test_mcp_tool_annotations_coverage() {
     let res = handle_tools_list(&default_config()).unwrap();
     let tools = res["tools"].as_array().expect("tools array");
     assert_eq!(
         tools.len(),
-        81,
-        "expected 81 listed tools (87 defined − 6 WIRE-02 absorbed), got {}",
+        82,
+        "expected 82 listed tools (88 defined − 6 WIRE-02 absorbed), got {}",
         tools.len()
     );
 
@@ -4867,7 +4870,9 @@ fn test_mcp_tool_annotations_coverage() {
     .into_iter()
     .collect();
     let open_world_set: std::collections::HashSet<&str> =
-        ["wiki_ingest", "bulk_import_file"].into_iter().collect();
+        ["wiki_ingest", "bulk_import_file", "code_index"]
+            .into_iter()
+            .collect();
 
     for tool in tools {
         let name = tool["name"].as_str().expect("tool name");
@@ -4945,8 +4950,8 @@ fn test_mcp_tool_annotations_coverage() {
 fn test_mcp_tool_profiles() {
     use vantadb_mcp::{handle_tools_list, McpConfig, McpProfile};
 
-    // Full profile — 81 listed tools (49 base + 38 extend − 6 WIRE-02 absorbed
-    // code_* projections; 87 defined total).
+    // Full profile — 82 listed tools (49 base + 39 extend − 6 WIRE-02 absorbed
+    // code_* projections; 88 defined total).
     let full_config = McpConfig {
         profile: McpProfile::Full,
         ..McpConfig::default()
@@ -4955,8 +4960,8 @@ fn test_mcp_tool_profiles() {
     let full_tools = full_res["tools"].as_array().unwrap();
     assert_eq!(
         full_tools.len(),
-        81,
-        "Full profile should list 81 tools (87 defined − 6 WIRE-02 absorbed), got {}",
+        82,
+        "Full profile should list 82 tools (88 defined − 6 WIRE-02 absorbed), got {}",
         full_tools.len()
     );
 
@@ -5774,8 +5779,8 @@ fn test_api04_tools_list_canonical_names_no_duplicates() {
     );
     assert_eq!(
         names.len(),
-        81,
-        "expected 81 listed tools after WIRE-02 absorption, got {}",
+        82,
+        "expected 82 listed tools after WIRE-02 absorption, got {}",
         names.len()
     );
 }
