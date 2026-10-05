@@ -125,8 +125,8 @@ description: "T4 de la cadena WIRE-14→15→16→17 (ADR-0054): documentar el s
 - **Archivos:** `docs/dev/tasks/WIRE-17.md` (§Review + RESULTADO §7)
 - **Acción:** `pwsh dev-tools/ocr-review.ps1 -Format json` (advisory; Critical/High bloquean) · tier HARD-02: `docs/api/**` → **Adversarial** → fork `vanta-review` (agente distinto, contexto fresco) con contrato + diff + evidencia para el veredicto P2-01 · gates docs · commit **LOCAL** `docs:` con pathspec de archivos propios · `campaign_update_task_state(completed, taskId:"48")` con recitation + payload `review` · `skill progreso`.
 - **Verify:** veredicto registrado en §Review + `git show --stat HEAD` limitado a archivos propios + `git status` sin WIP ajeno stageado
-- **Evidencia:** ✅ OCR delegation (`pwsh dev-tools/ocr-review.ps1 -Format json`): 9 archivos en el workspace, **1 reviewable** (`vanta-memory/tests/scheduler_crash.rs` — WIRE-18, ajeno a este changeset) y **8 excluidos** con `unsupported_ext` (los archivos de este changeset son `.md`) → para un diff docs-only OCR no tiene superficie que revisar (exclusión por diseño del CLI; pasada cognitiva: 0 Critical / 0 High / 0 Medium). ✅ review P2-01 `vanta-review` **APPROVE** (sesión `ses_ef32d1dc9ffeB0W2AjzvwoINs0`; 0C/0H/0Required; Low-1 aplicado → gates re-verdes; Low-2 dispensa+coordinación; NIT-1 aplicado; NIT-2 dispensado; hallazgo out-of-scope → FIND-292). ✅ tier **Adversarial** (HARD-02). ⏳ commit local + campaign + progreso (en curso).
-- **Estado:** ⏳ IN PROGRESS (commit en curso)
+- **Evidencia:** ✅ OCR delegation (`pwsh dev-tools/ocr-review.ps1 -Format json`): 9 archivos en el workspace, **1 reviewable** (`vanta-memory/tests/scheduler_crash.rs` — WIRE-18, ajeno a este changeset) y **8 excluidos** con `unsupported_ext` (los archivos de este changeset son `.md`) → para un diff docs-only OCR no tiene superficie que revisar (exclusión por diseño del CLI; pasada cognitiva: 0 Critical / 0 High / 0 Medium). ✅ review P2-01 `vanta-review` **APPROVE** (sesión `ses_ef32d1dc9ffeB0W2AjzvwoINs0`; 0C/0H/0Required; Low-1 aplicado → gates re-verdes; Low-2 dispensa+coordinación; NIT-1 aplicado; NIT-2 dispensado; hallazgo out-of-scope → FIND-292). ✅ tier **Adversarial** (HARD-02). ✅ commit **LOCAL** `docs:` **75bd5da8** (6 archivos, pathspec: VANTA_MEMORY + EXPERIMENTAL_FEATURES + WIRE-17 + Backlog FIND-292 + index/llms; pre-commit hook verde) · ⏳ campaign completed + progreso (en curso).
+- **Estado:** ⏳ IN PROGRESS (campaign + progreso en curso)
 
 ## Dependencias
 
@@ -171,7 +171,7 @@ description: "T4 de la cadena WIRE-14→15→16→17 (ADR-0054): documentar el s
 RESULTADO: ✅ COMPLETO
 STEPS_OK: 4/4 total steps
 PROXIMO_STEP: ninguno
-COMMIT_HASH: <pendiente — se completa tras el commit local> (docs local, sin push)
+COMMIT_HASH: 75bd5da8 (docs local, sin push; + commit docs de cierre)
 ARCHIVOS: docs/api/VANTA_MEMORY.md, docs/user/operations/EXPERIMENTAL_FEATURES.md, docs/dev/tasks/WIRE-17.md (nuevo), docs/dev/Backlog.md (FIND-292), docs/index.md + llms.txt (gen-index)
 VERIFY_CONTRATO: pasa
 BLOQUEO: ninguno
