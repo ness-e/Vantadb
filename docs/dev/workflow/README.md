@@ -6,9 +6,9 @@ description: "Per-workflow detail pages live next to this index (ci-gate.md,"
 tags: [vantadb, ci, workflows, inventory]
 ---
 
-# Workflows — Inventory (38 active)
+# Workflows — Inventory (39 active)
 
-> **Count verified mechanically on 2026-10-04: 38 files** (`Get-ChildItem .github/workflows -Filter *.yml`).
+> **Count verified mechanically on 2026-10-04: 39 files** (`Get-ChildItem .github/workflows -Filter *.yml`; +1 `ci-bindings-parity.yml`, DIST-17).
 > The old "28" predates the recent waves (nightly/OCR/gates/demos) and is superseded; registry: `docs/dev/references/verified-numbers.md`.
 > Pre-rename snapshot (FIND-142 pending): filenames keep the numeric suffix
 > (`ci-rust.yml`, `release-wheels.yml`, …). After renames, this index
@@ -30,12 +30,13 @@ Per-workflow detail pages live next to this index (`ci-gate.md`,
 | `ci-examples.yml` | Examples + Python SDK smoke | push/PR (paths examples/src/python), dispatch |
 | `ci-gate.yml` | Reusable fail-closed gate for heavy jobs | `workflow_call` only |
 
-## Quality gates (2)
+## Quality gates (3)
 
 | Workflow | Purpose (1 line) | Triggers (short) |
 |----------|------------------|------------------|
 | `gate-docs.yml` | Docs coverage + router drift gate | push/PR (paths docs/router/scripts), dispatch |
 | `sec-codeql.yml` | CodeQL static analysis | push/PR `main`, weekly schedule, dispatch |
+| `ci-bindings-parity.yml` | Cross-language conformance Py/Node/WASM (canonical hash/diff) | push/PR (paths bindings), dispatch |
 
 ## Providers / compat (2)
 

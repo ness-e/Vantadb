@@ -107,6 +107,35 @@ four bindings with a matrix row.
 `src/__tests__/graphrag.test.ts` (WASM shape + WASM↔Node parity on
 `context_text`/ids) · Node `tests/graphrag.test.ts`.
 
+## Cross-language conformance runner (DIST-17)
+
+> **Status:** normative as of DIST-17 (master plan 0.9.0). One canonical
+> scenario runs on the Python, WASM and Node bindings; a mechanical comparator
+> requires identical results (canonical per-step hash + field diff) in CI —
+> the manual per-binding mirrors (WIRE-03) get a mechanical gate.
+
+- **Scenario (single source of inputs):** `tests/parity/scenario.json` —
+  `put` ×3 with fixed vectors, hybrid search (vector + text), `add_edge` ×2 +
+  `graph_bfs`, IQL write + read.
+- **Producers:** Python `tests/test_cross_language_parity.py` · WASM
+  `vantadb-ts/src/__tests__/parity.test.ts` (real `vantadb-wasm/pkg` artifact) ·
+  Node `tests/parity.test.ts`. Each emits `target/bindings-parity/<binding>.json`
+  (gitignored) and carries its own sanity asserts.
+- **Comparator:** `dev-tools/parity-compare.mjs` — canonical SHA-256 per step;
+  exit 1 on divergence, missing artifact, or a step covered by fewer than two
+  bindings (no vacuous pass).
+- **Declared exclusion:** Node does not expose an IQL `query` method
+  (capabilities report the engine flag, not a surface) → `iql` runs on
+  Python + WASM; tracked as FIND-268.
+- **Normalization (documented tolerance):** ids as decimal strings; search hits
+  sorted by (score desc, id asc) with scores quantized to 6 decimals (≈5e-7);
+  BFS sequence as produced (the core sorts each level); wall-clock fields
+  (`created_at_ms`, `updated_at_ms`, `valid_at_ms`, `last_accessed`) excluded.
+- **CI:** `.github/workflows/ci-bindings-parity.yml` — one aggregated job with
+  caches; triggers on binding paths + `vantadb-ffi-core`, the fixture and the
+  comparator. The browser `wasm-pack` suite in `ci-rust.yml` stays
+  BEST-EFFORT/non-blocking and is not part of this gate.
+
 ## v2 wire parity (SCH-07, ADR-0046)
 
 > **Status:** normative as of SCH-07 (wave F3.5). The v2 fields and query
