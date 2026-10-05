@@ -58,7 +58,7 @@ verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-hist
 | **P39–P40/P44** 🔌 Research INV (proxy/server/integrations) | 0 — sin filas pendientes | — | ✅/migrado |
 | **P41** 🧩 INV-vantadb-ts | 3 (TS-10/11/13) | ~1-2 semanas | 🟠/🟡 |
 | **P42** 🧩 INV-vantadb-wasm | 1 (WSM-14) | ~1 semana | 🟠 Alta |
-| **P43** 🌐 Research web | 1 (WEB-09) | ~2-3d | 🟡 Media |
+| **P43** 🌐 Research web | 0 — ⏳ WEB-09 diferida con criterio (2026-11-02; defer registrado) | — | ⏳ Diferida |
 | **P45** 🔌 Research providers | 0 — ✅ PROV-12 completada 2026-10-04 (sin filas pendientes) | — | ✅ Cerrada |
 | **P46** 🖥️ Research desktop | 3 (DESKTOP-41/43/44) | ~1-2 semanas | 🟡 Media |
 | **P47** 📦 Promoción default-members | 0 — ✅ cerrada 2026-09-09 (STABLE-09) | — | ✅ Cerrada |
@@ -205,8 +205,6 @@ verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-hist
 | `VER-10` | 🟡 Media | **Attestation de escritura (extender certificado de delete a writes)** | `src/attestation.rs:513` | 🟡 2-3d | 🟡 Media | 🆕 Pendiente | Hoy solo delete tiene attestation; extender a escrituras. Solapa con hash-chain (VER-01). | Origen: análisis externo 2026-10-01 (E1) | Dep: VER-01 (hash-chain) |
 | `SRV-10` | 🟡 Media | **Cifrado en reposo del server (HTTP)** | `docs/api/HTTP_API.md:701`, `vantadb-server/` | 🟡 3-5d | 🟡 Media | 🆕 Pendiente | `HTTP_API.md:701` lo declara ("SRV-10 is on the roadmap") pero no existía fila. El core ya tiene feature `encryption`; falta la capa server. | Origen: análisis externo 2026-10-01 (D1) | — |
 | `FIND-221` | 🟠 Alta | **`put_batch`: contrato de atomicidad ambiguo (hoy "atómico por chunk")** | `src/sdk/api/memory.rs:468`, `docs/api/PYTHON_SDK.md` | 🟡 1-2d | 🟡 Media | 🆕 Pendiente | Un fallo en el chunk 2 deja el chunk 1 commiteado (`batch_size` default 1000). Decisión owner: fix todo-o-nada + contrato actual documentado ya en `PYTHON_SDK.md` §`put_batch()`. | Origen: análisis externo 2026-10-01 (F1) | — |
-| `MKT-22` | 🟡 Media | **Panel visible de la métrica principal (sesiones)** | `README.md` | 🟢 1d | 🟡 Media | 🆕 Pendiente | La métrica existe (SPEC) pero nadie la ve; publicar el número en un panel/reporte actualizado. | Origen: análisis externo 2026-10-01 (C5) | — |
-
 ### Derivadas de ADR-0054 — hogar del planificador L0→L3
 
 > Decisión (2026-10-01): el hogar es **`vantadb-server`** ([ADR-0054](architecture/adr/ADR-0054-scheduler-host-vantadb-server.md)). Estas 5 filas agendan las tareas T1-T5 del ADR.
@@ -699,9 +697,7 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/dev/revie
 
 ## P43 — Research web 2026-08-25 (INV-web-01, docs/dev/reviews/research-web-prod-20260825.md)
 
-| ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias |
-|----|-----------|----------|---------------|----------|-----------|--------|-------------|------------|--------------|
-| `WEB-09` | 🟢 Baja | **Densidad efectos decorativos home** | `../web/src/app/page.tsx` + componentes mark/trust-bar (repo externo `ness-e/Vantadb-web`) | 🟡 1d | 🟡 Baja | 🆕 Pendiente (requiere input visual owner) | 73 usos (trust-bar ×11, hero 5 capas) — requiere criterio visual del owner; puede quedar diferida como decisión de diseño fino. Nota (verificación HEAD 2026-10-01): coordinar con `ness-e/Vantadb-web`. | Origen: INV-web-01 H-07 | — |
+> **⏳ Diferida 2026-10-05 — WEB-09:** recount en HEAD (el conteo stale 73 usos / ×11 / 5 capas no reproduce) + defer con criterio y fecha **2026-11-02** (sin input visual nuevo del owner; rediseño `design/v2` activo). Registro: `docs/dev/avance/activo/web-frontend.md` + `docs/dev/tasks/WEB-09-MKT-22.md` + `wontfix.md` §DEFER.
 
 ## P44 — Research integrations 2026-08-25 (INV-integrations-01, docs/dev/reviews/research-integrations-20260825.md)
 

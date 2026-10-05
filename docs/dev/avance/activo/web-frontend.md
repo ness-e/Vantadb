@@ -169,4 +169,8 @@ tags: [vantadb, avance, web, frontend, seo, docs-site]
 - **Fecha:** 2026-10-05
 - **Objetivo:** las 6 recetas existían; el contrato era verificación de EJECUCIÓN con WASM real.
 - **Resultado:** ✅ 6/6 ejecutan, con **2 defectos reales** detectados (no visibles en la validación estática): (a) **5/6 recetas eran inclicables en producción** (stacking contexts de `Reveal` con `will-change-transform` tapaban el menú; root cause diagnosticado con hit-test/`elementFromPoint`) → fix `relative z-10` (1 clase); (b) Graph BFS usaba API incorrecta (`put`+node_id vs `insert_node`) → receta corregida. Guard E2E nuevo (`playground-recipes.spec.ts`, 6 tests dropdown→run→asserts). Web: tsc/lint/build + playwright 8/8. Review P2-01 APPROVE. Branch web `show02/recipes-clickable` @ `a482da4` (LOCAL, merge = decisión owner). FIND-276 (patrón Reveal+overlay sistémico).
-- **Commit:** cfac5413 + 35e29269 (principal) · a482da4 (web, local)
+### WEB-09: Densidad del home — recount en HEAD + defer con criterio (master plan 0.9.0, Task 36)
+- **Fecha:** 2026-10-05
+- **Objetivo:** decidir densidad visual del home (decisión owner) o diferir con criterio escrito y fecha; el conteo del review INV-web-01 H-07 estaba stale.
+- **Resultado:** ⏳ Recount en HEAD `fd7b41b` del repo web (worktree `..\web-web09`, branch `web09/density-northstar` — NUNCA push): el conteo stale (73 usos / trust-bar ×11 / hero 5 capas) **no reproduce** (trust-bar = 1 token animado + 3 overlays estáticos; hero = 3 capas fondo + 1 RegMark; 81 tokens `animate-*` site-wide) → **defer** con criterio + opciones A/B/C + fecha **2026-11-02** (sin inventar criterio owner; atenuación 2026-09-02 ya mergeada `c4e7c57`; `design/v2` activo). Repo web: **0 archivos modificados**. Review P2-01 APPROVE. Detalle: `docs/dev/tasks/WEB-09-MKT-22.md` + `wontfix.md` §DEFER.
+- **Commit:** 68781ec6 (principal: README + task file + índices)
