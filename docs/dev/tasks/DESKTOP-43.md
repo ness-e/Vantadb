@@ -169,7 +169,7 @@ Entregables de esta tarea (rama defer):
 RESULTADO: ✅ COMPLETO
 STEPS_OK: 5/5 total steps
 PROXIMO_STEP: ninguno — orquestador: Task 33 registrado `completed` en campaña (taskId 33, payload review APPROVE); push diferido al owner (Regla 7)
-COMMIT_HASH: ver git log — `docs(desktop):` LOCAL, sin push (+ `docs(task):` de este archivo)
+COMMIT_HASH: d1efe133 (`docs(desktop):`, LOCAL, sin push) + cierre `docs(task):` de este archivo (ver git log)
 ARCHIVOS: docs/dev/tasks/DESKTOP-43.md · docs/dev/desktop/UPDATER_ENABLEMENT.md · docs/dev/desktop/ARCHITECTURE.md · docs/dev/avance/decisiones/wontfix.md · docs/dev/avance/activo/desktop.md · docs/dev/Backlog.md · docs/index.md · llms.txt
 VERIFY_CONTRATO: pasa (rama defer) — defer registrado con trigger + checklist de habilitación + trust model; gates docs 8/8 verdes; pipeline de releases y código intactos
 BLOQUEO: ninguno
