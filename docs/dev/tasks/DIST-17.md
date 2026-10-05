@@ -13,7 +13,7 @@ description: "Escenario canónico put/search/grafo/IQL → artefacto por binding
 - **Esfuerzo:** 🟡 2-3d | **Appetite:** max 3d | **Prioridad:** 🟠
 - **Tipo:** test-infra (harness cross-binding + CI; sin código de producción)
 - **Creado:** 2026-10-04 (DISCOVERY) | **last-synced:** 2026-10-04
-- **Estado:** ⏳ Steps 1-6 ✅ (harness + productores + comparador + job CI + docs); Step 7 (cierre: review P2-01 + commit + campaña) en curso
+- **Estado:** ✅ COMPLETED (Steps 1-7; review P2-01 **APPROVE**; commit local `3c528df3` + cierre del task file)
 - **Campaign ID:** master-plan-0.9.0-20261004 (taskId `25`)
 - **Incógnitas (uphill):** 0 abiertas — resueltas en DISCOVERY con probes empíricos: **WASM corre el escenario completo** (put/search/grafo/IQL) y produce valores **idénticos** a Python; **Node no expone IQL** → exclusión declarada + FIND-268
 - **Pendientes (downhill):** 7 steps (6 ✅)
@@ -197,11 +197,11 @@ Escenario mínimo ejecutado contra los 3 artefactos ya construidos (mismo datase
 - **Verify:** `actionlint` **exit 0**; YAML parse OK (PyYAML); conteo de workflows **39**; `check-links`/`check-docs`/`gen-index --check`/`validate-docs-coverage` exit 0
 - **Estado:** ✅
 
-### Step 7 — Cierre: verify full + OCR + review P2-01 + commit + campaña — ⬜
+### Step 7 — Cierre: verify full + OCR + review P2-01 + commit + campaña — ✅
 - **Archivos:** los anteriores + task file
-- **Acción:** verify full (fmt/clippy/nextest audit/validate-docs-coverage) → OCR delegation → review P2-01 (agente distinto) → commit local `test(bindings):` → campaña `completed` (taskId 25)
-- **Verify:** todos los gates verdes + verdict registrado + commit local
-- **Estado:** ⬜
+- **Acción:** verify full (fmt/clippy/nextest audit/validate-docs-coverage) → OCR delegation (Rule Groups revisados; sin Critical/High) → review P2-01 `vanta-review` (**APPROVE**, 5/5 adversariales del comparador) → commit local `test(bindings):` → campaña `completed` (taskId 25)
+- **Verify:** todos los gates verdes + verdict registrado + commit local `3c528df3` (13 archivos, sin WIP ajeno) + pre-commit hook ✅
+- **Estado:** ✅
 
 ## Dependencias
 
@@ -232,13 +232,13 @@ Escenario mínimo ejecutado contra los 3 artefactos ya construidos (mismo datase
 ## RESULTADO (§7 — contrato de retorno)
 
 ```
-RESULTADO: 🟡 INCOMPLETO (Steps 1-6 ✅ + verify full verde; Step 7 en curso: review P2-01 + commit + campaña)
-STEPS_OK: 6/7 total steps
-PROXIMO_STEP: Step 7 — review P2-01 (`vanta-review`) → commit local `test(bindings):` → campaña taskId 25 `completed`
-COMMIT_HASH: ninguno (pendiente)
+RESULTADO: ✅ COMPLETO
+STEPS_OK: 7/7 total steps
+PROXIMO_STEP: ninguno
+COMMIT_HASH: 3c528df3 (LOCAL, sin push) — changeset de 13 archivos; cierre del task file en el commit `docs(task):` siguiente
 ARCHIVOS: tests/parity/scenario.json · dev-tools/parity-compare.mjs · vantadb-python/tests/test_cross_language_parity.py · vantadb-ts/src/__tests__/parity.test.ts · vantadb-node/tests/parity.test.ts · .github/workflows/ci-bindings-parity.yml · docs/api/BINDINGS_NAMESPACES.md · docs/dev/workflow/{README,TRIGGERS}.md · docs/dev/Backlog.md (FIND-268/269) · docs/index.md · llms.txt · docs/dev/tasks/DIST-17.md
-VERIFY_CONTRATO: pasa — PARITY OK 3/3 + tamper detectado; suites Py 182 ✅ / TS 343 ✅ / Node 49+2 ambientales (FIND-269); Rust 3745/3745 ✅; actionlint ✅; docs gates ✅
-BLOQUEO: ninguno de contenido — Step 7 (review/commit) en curso
-GATES_EVALUADOS: P:no D:no V:no C:no | P: no aplica (sin símbolos públicos nuevos — test-infra) · D: no disparado (contrato del plan sanciona; sin ambigüedad) · V: no disparado (todo verde al primer intento; excepción ambiental FIND-269 documentada) · C: no disparado (FIND-268/269 registrados; WIP ajeno intacto)
+VERIFY_CONTRATO: pasa — PARITY OK 3/3 (hash por step idénticos) + detección demostrada (tamper +0.001, artefacto faltante, step sin exclusión, cobertura <2, scenario stale — todos exit 1 con diff); suites Py 182 ✅ / TS 343 ✅ / Node productor ✅ (suite con FIND-269 ambiental pre-existente); Rust 3745/3745 ✅; actionlint ✅; docs gates ✅
+BLOQUEO: ninguno
+GATES_EVALUADOS: P:no D:no V:no C:no | P: no aplica (sin símbolos públicos nuevos — test-infra) · D: no disparado (contrato del plan sanciona; sin ambigüedad) · V: no disparado (todo verde al primer intento; excepción ambiental FIND-269 documentada) · C: no disparado (FIND-268/269 registrados; WIP ajeno intacto; commit sin sweep)
 SKILLS_CARGADAS: test-driven-development (pinned), ci-cd-and-automation (pinned), api-and-interface-design (pinned), git-workflow-and-versioning (pinned), security-and-hardening (pinned), documentation-and-adrs (pinned), systematic-debugging (pinned), source-driven-development (base), rust-write-tests, incremental-implementation, documentation-skill
 ```
