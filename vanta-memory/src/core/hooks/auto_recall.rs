@@ -113,11 +113,31 @@ impl RecallGovernance {
 /// everything (today's behavior); anything not matched by a prefix is denied
 /// (`deny fuera de scope`).
 ///
+/// Content-trust class of a namespace (MGR-04 / MEMG-10).
+///
+/// `Trusted` is the default: content may be injected (subject to the ACL and
+/// the injection budget). `Tainted` namespaces never feed a prompt by default
+/// — hosts must opt in with `include_tainted` (e.g. review workflows). Gates
+/// compose with AND and denials are reported through the recall governance
+/// lists, never silently.
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TrustClass {
+    /// Namespace content may be injected (subject to ACL + budget).
+    Trusted,
+    /// Namespace content must not be injected unless explicitly opted in.
+    Tainted,
+}
+
 /// Prefix semantics are boundary-aware: `l1/sess-1` allows `l1/sess-1` and
 /// `l1/sess-1/...` but never `l1/sess-12`; a trailing `/` is tolerated.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct InjectionPolicy {
     allow_prefixes: Vec<String>,
+    /// MGR-04: namespaces classified as tainted (never injected by default).
+    tainted_prefixes: Vec<String>,
+    /// MGR-04: explicit opt-in to inject tainted content (default `false`).
+    include_tainted: bool,
 }
 
 impl InjectionPolicy {
@@ -126,35 +146,83 @@ impl InjectionPolicy {
         Self::default()
     }
 
-    /// Build from an operator-provided prefix list (blank/`/`-only entries
-    /// are ignored; trailing `/` is stripped).
+    /// Build from an operator-provided allowlist (blank/`/`-only entries are
+    /// ignored; trailing `/` is stripped). Tainted list empty → behavior
+    /// unchanged from VER-04.
     pub fn from_prefixes(prefixes: impl IntoIterator<Item = impl Into<String>>) -> Self {
-        let allow_prefixes = prefixes
-            .into_iter()
-            .map(|p| p.into())
-            .map(|p| p.trim().trim_end_matches('/').to_string())
-            .filter(|p| !p.is_empty())
-            .collect();
-        Self { allow_prefixes }
+        Self::from_parts(prefixes, std::iter::empty::<String>(), false)
     }
 
-    /// True when no restriction is configured (allow-all).
+    /// Build from the full governance knobs: the ACL allowlist, the tainted
+    /// namespace prefixes (MGR-04 trust class) and the tainted opt-in.
+    ///
+    /// Both prefix lists use the same boundary-aware matching and
+    /// normalization as [`Self::from_prefixes`]. The gates compose with AND:
+    /// to inject, a namespace must be ACL-allowed and trust-allowed (trusted,
+    /// or tainted with `include_tainted`).
+    pub fn from_parts(
+        allow_prefixes: impl IntoIterator<Item = impl Into<String>>,
+        tainted_prefixes: impl IntoIterator<Item = impl Into<String>>,
+        include_tainted: bool,
+    ) -> Self {
+        Self {
+            allow_prefixes: normalize_prefixes(allow_prefixes),
+            tainted_prefixes: normalize_prefixes(tainted_prefixes),
+            include_tainted,
+        }
+    }
+
+    /// True when no ACL allowlist restriction is configured. A non-empty
+    /// tainted list can still deny sources — use [`Self::allows`] for the
+    /// composed decision.
     pub fn is_empty(&self) -> bool {
         self.allow_prefixes.is_empty()
     }
 
-    /// Whether `namespace` is inside the allowed scope.
-    pub fn allows(&self, namespace: &str) -> bool {
-        if self.allow_prefixes.is_empty() {
-            return true;
+    /// MGR-04: the trust class declared for `namespace` (default `Trusted`).
+    pub fn trust_class(&self, namespace: &str) -> TrustClass {
+        if self.is_tainted(namespace) {
+            TrustClass::Tainted
+        } else {
+            TrustClass::Trusted
         }
-        self.allow_prefixes.iter().any(|prefix| {
-            namespace == prefix
-                || namespace
-                    .strip_prefix(prefix)
-                    .is_some_and(|rest| rest.starts_with('/'))
-        })
     }
+
+    /// Whether `namespace` is inside the allowed scope: ACL allowlist AND
+    /// trust (tainted sources need `include_tainted`). This is the single
+    /// predicate every injection surface routes through (VER-04).
+    pub fn allows(&self, namespace: &str) -> bool {
+        let acl_ok = self.allow_prefixes.is_empty()
+            || self
+                .allow_prefixes
+                .iter()
+                .any(|prefix| prefix_matches(prefix, namespace));
+        acl_ok && (self.include_tainted || !self.is_tainted(namespace))
+    }
+
+    fn is_tainted(&self, namespace: &str) -> bool {
+        self.tainted_prefixes
+            .iter()
+            .any(|prefix| prefix_matches(prefix, namespace))
+    }
+}
+
+/// Trim + strip trailing `/` + drop blanks (shared by every prefix list).
+fn normalize_prefixes(prefixes: impl IntoIterator<Item = impl Into<String>>) -> Vec<String> {
+    prefixes
+        .into_iter()
+        .map(Into::into)
+        .map(|p| p.trim().trim_end_matches('/').to_string())
+        .filter(|p| !p.is_empty())
+        .collect()
+}
+
+/// Boundary-aware prefix match: exact or `prefix/...` (never `prefixX`).
+fn prefix_matches(prefix: &str, namespace: &str) -> bool {
+    namespace == prefix
+        || namespace
+            .strip_prefix(prefix)
+            .is_some_and(|rest| rest.starts_with('/'))
 }
 
 /// Result of an auto-recall pass. `Ok(None)` from [`perform_auto_recall`]
@@ -1107,6 +1175,80 @@ mod tests {
     fn injection_policy_ignores_blank_entries() {
         let policy = InjectionPolicy::from_prefixes(["", "  ", "/"]);
         assert!(policy.is_empty(), "blank prefixes must not restrict");
+        assert!(policy.allows("l1/x"));
+    }
+
+    #[test]
+    fn injection_policy_tainted_namespaces_are_denied_by_default() {
+        let policy = InjectionPolicy::from_parts(std::iter::empty::<String>(), ["l1/evil"], false);
+        assert!(
+            !policy.allows("l1/evil"),
+            "tainted must not inject by default"
+        );
+        assert!(
+            !policy.allows("l1/evil/sub"),
+            "tainted prefix covers subtree"
+        );
+        assert!(policy.allows("l1/evilish"), "prefix boundary must be exact");
+        assert!(policy.allows("l1/ok"), "trusted namespaces are unaffected");
+    }
+
+    #[test]
+    fn injection_policy_include_tainted_opts_back_in() {
+        let policy = InjectionPolicy::from_parts(std::iter::empty::<String>(), ["l1/evil"], true);
+        assert!(
+            policy.allows("l1/evil"),
+            "explicit opt-in re-allows tainted"
+        );
+        assert!(policy.allows("l1/ok"));
+    }
+
+    #[test]
+    fn injection_policy_trust_class_reports_the_namespace_class() {
+        let policy =
+            InjectionPolicy::from_parts(std::iter::empty::<String>(), ["scene/review"], false);
+        assert_eq!(policy.trust_class("scene/review"), TrustClass::Tainted);
+        assert_eq!(policy.trust_class("scene/review/sub"), TrustClass::Tainted);
+        assert_eq!(policy.trust_class("scene/review2"), TrustClass::Trusted);
+        assert_eq!(policy.trust_class("l1/ok"), TrustClass::Trusted);
+        assert_eq!(
+            InjectionPolicy::allow_all().trust_class("anything"),
+            TrustClass::Trusted
+        );
+    }
+
+    #[test]
+    fn injection_policy_from_prefixes_equals_from_parts_defaults() {
+        let prefixes = ["l1/sess-1", " persona/x "];
+        let legacy = InjectionPolicy::from_prefixes(prefixes);
+        let parts = InjectionPolicy::from_parts(prefixes, std::iter::empty::<String>(), false);
+        assert_eq!(
+            legacy, parts,
+            "tainted-less from_parts must be byte-identical"
+        );
+        assert_eq!(legacy.is_empty(), parts.is_empty());
+    }
+
+    #[test]
+    fn injection_policy_acl_and_trust_gates_are_independent() {
+        // ACL allows l1/a but it is tainted → denied (AND of both gates).
+        let policy = InjectionPolicy::from_parts(["l1/a"], ["l1/a"], false);
+        assert!(!policy.allows("l1/a"));
+        assert!(
+            !policy.allows("l1/b"),
+            "outside the ACL is denied as before"
+        );
+        // include_tainted lifts the trust gate; the ACL gate still applies.
+        let policy = InjectionPolicy::from_parts(["l1/a"], ["l1/a"], true);
+        assert!(policy.allows("l1/a"));
+        assert!(!policy.allows("l1/b"));
+    }
+
+    #[test]
+    fn injection_policy_ignores_blank_tainted_entries() {
+        let policy =
+            InjectionPolicy::from_parts(std::iter::empty::<String>(), ["", " ", "/"], false);
+        assert_eq!(policy, InjectionPolicy::allow_all());
         assert!(policy.allows("l1/x"));
     }
 

@@ -555,7 +555,7 @@ After oversize trimming, `truncated` flips to `true` and the last items are drop
 ## Injection governance (VER-04)
 
 The surfaces that feed memory into a model context (`memory_recall`,
-`context_assemble`, `inject_context`) run under three per-request rules:
+`context_assemble`, `inject_context`) run under four per-request rules:
 
 **1. Budget.** `memory_recall` caps its recalled lines at the source
 (`max_chars_per_memory` / `max_total_recall_chars` = `byte_budget`) and then
@@ -587,9 +587,19 @@ namespaces were involved the last slot degrades to `…overflow`, so the bound
 never hides the ACL's existence). A pass where the ACL denies every source
 still audits: nothing is injected, but the `denied` events are recorded.
 
-**3. Injection audit (opt-in).** Set `VANTADB_MCP_AUDIT_LOG` to a file path to
-record one metadata-only event per injected memory and per ACL denial
-(append-only JSONL, rotated 10 MiB × 5):
+**3. Trust classes (opt-in; MGR-04).** Set `VANTADB_MCP_TAINTED_NAMESPACES` to
+a comma-separated list of namespace prefixes to classify them as **tainted**:
+their content is never injected by default (skipped + recorded as a `denied`
+audit event). Orthogonal to the ACL — both compose with AND (to inject, a
+source must pass the ACL *and* be trusted). `VANTADB_MCP_INCLUDE_TAINTED=1`
+(also `true`/`yes`) opts back in for review workflows (the ACL still applies).
+Empty (default) = every namespace trusted — current behavior. Classifying a
+namespace is an explicit operator act (restart with the env set): nothing is
+promoted or demoted automatically by time or content.
+
+**4. Injection audit (opt-in).** Set `VANTADB_MCP_AUDIT_LOG` to a file path to
+record one metadata-only event per injected memory and per denial (ACL or
+trust; append-only JSONL, rotated 10 MiB × 5):
 
 ```json
 {"timestamp":"2026-09-29T12:00:00Z","op":"injection","namespace":"l1/mcp","key":"m1","outcome":"ok","reason":"surface=mcp;tool=memory_recall;session=mcp;kind=l1;score=3;budget=40960;acl=allow"}

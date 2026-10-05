@@ -10,5 +10,6 @@ pub use auto_capture::{AutoCaptureConfig, AutoCaptureHook, AutoCaptureResult, Ra
 pub use auto_recall::{
     perform_auto_recall, perform_auto_recall_governed, perform_auto_recall_scored,
     reinforce_recalled, AutoRecallParams, InjectionPolicy, RecallConfig, RecallError,
-    RecallGovernance, RecallMode, RecallResult, RecallScope, RecalledMemory, MEMORY_TOOLS_GUIDE,
+    RecallGovernance, RecallMode, RecallResult, RecallScope, RecalledMemory, TrustClass,
+    MEMORY_TOOLS_GUIDE,
 };

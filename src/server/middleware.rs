@@ -196,8 +196,23 @@ pub async fn auth_middleware(mut req: Request, next: Next) -> Response {
                     _ => AccessMode::Read,
                 };
                 let is_write = matches!(mode, AccessMode::Write);
-                let permitted = if let Some(ns) = namespace {
-                    auth.rbac.can_access_namespace(role, &ns, mode)
+                // MEMG-10: the *request* action label for the audit (the
+                // enforcement mode below keeps the compat mapping — DELETE is
+                // still covered by write; strict per-action enforcement is
+                // FIND-301). `scope` names which check ran.
+                let action = match req.method().as_str() {
+                    "DELETE" => "delete",
+                    "POST" | "PUT" | "PATCH" => "write",
+                    _ => "read",
+                };
+                let enforced = if is_write { "write" } else { "read" };
+                let scope = if namespace.is_some() {
+                    "namespace"
+                } else {
+                    "global"
+                };
+                let permitted = if let Some(ns) = &namespace {
+                    auth.rbac.can_access_namespace(role, ns, mode)
                 } else {
                     // Fallback to global permissions for non-record endpoints or when ns not found
                     let permission = if is_write {
@@ -209,6 +224,19 @@ pub async fn auth_middleware(mut req: Request, next: Next) -> Response {
                 };
                 if !permitted {
                     auth.rate_limiter.reset(&client_ip);
+                    // MGR-04/MEMG-10: RBAC denials were silent — audit them
+                    // (metadata only: role + namespace + action; never the token).
+                    audit_auth(
+                        &auth,
+                        AuditEvent::auth(
+                            "rbac",
+                            namespace.as_deref().unwrap_or("N/A"),
+                            role.as_str(),
+                            "denied",
+                            Some(format!("action={action};enforced={enforced};scope={scope}")),
+                        )
+                        .with_request_id_opt(request_id.clone()),
+                    );
                     return (
                         StatusCode::FORBIDDEN,
                         Json(serde_json::json!({
