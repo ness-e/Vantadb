@@ -1459,7 +1459,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato + test de query · commit = `feat(memory):` · release = changelog (minor).
 - **Validación Appetite vs Effort:** 2sem ≥ 1-2sem ✓
 - **Skills sugeridas:** source-driven-development · rust-write-tests · api-and-interface-design · campaign-executor
-- **Estado:** ⏳ EN PROGRESO · **Task file:** `docs/dev/tasks/MEMG-03.md`
+- **Estado:** ✅ COMPLETED
 
 ### Task 51: MEMG-06 — Spill a disco con recall
 
@@ -1487,7 +1487,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato + test round-trip · commit = `feat(memory):` · release = changelog (minor).
 - **Validación Appetite vs Effort:** 1sem ≥ 5d ✓
 - **Skills sugeridas:** source-driven-development · rust-write-tests · campaign-executor
-- **Estado:** ⏳ EN PROGRESO · **Task file:** `docs/dev/tasks/MEMG-06.md`
+- **Estado:** ✅ COMPLETED · **Task file:** `docs/dev/tasks/MEMG-06.md`
 
 ### Task 52: MEMG-08 — MGR-25: Formatos e ingestores (trait `Ingestor`)
 
@@ -1515,7 +1515,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato + tests por formato · commit = `feat(wiki):` · release = changelog (minor).
 - **Validación Appetite vs Effort:** 2sem ≥ 1-2sem ✓
 - **Skills sugeridas:** source-driven-development · rust-write-tests · api-and-interface-design · campaign-executor
-- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/MEMG-08.md`
+- **Estado:** ✅ COMPLETED · **Task file:** `docs/dev/tasks/MEMG-08.md`
 
 ### Task 53: MEMG-09 — Track PI restante (MGR-23/24: grafo decisión→código→test + taxonomía)
 
@@ -1543,7 +1543,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = spec + slice + research-doc · commit = `feat(mcp):`/`docs:` · release = changelog.
 - **Validación Appetite vs Effort:** 1mes ≥ 2-4sem ✓
 - **Skills sugeridas:** spec-driven-development · source-driven-development · doubt-driven-development · campaign-executor
-- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/MEMG-09.md`
+- **Estado:** ✅ COMPLETED
 
 ### Task 54: MEMG-10 — MGR-04: Policy engine (trusted/tainted + RBAC por acción)
 
@@ -1571,7 +1571,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = spec + tests por acción · commit = `feat(server):` · release = changelog.
 - **Validación Appetite vs Effort:** 1mes ≥ 2-3sem ✓
 - **Skills sugeridas:** security-and-hardening · spec-driven-development · source-driven-development · campaign-executor
-- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/MEMG-10.md`
+- **Estado:** ✅ COMPLETED · **Task file:** `docs/dev/tasks/MEMG-10.md`
 
 ### Task 55: MEMG-17 — Rollback + verificabilidad + erasure criptográfica
 
@@ -1599,45 +1599,122 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato + tests por pieza · commit = `feat(memory):` · release = changelog (minor).
 - **Validación Appetite vs Effort:** 1sem ≥ 3-5d ✓
 - **Skills sugeridas:** security-and-hardening · source-driven-development · rust-write-tests · campaign-executor
-- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/MEMG-17.md`
+- **Estado:** ✅ COMPLETED
 
 ## F4 — Sharing & Multi-tenant (caso "equipo" + enterprise)
 
-> **Gate de fase:** compactas — expandir al nivel F0 al iniciar F4.
+> **Gate de fase:** ✅ CUMPLIDO — Tasks 56-59 expandidas a nivel F0 el 2026-10-05; listas para ejecutar.
 
 ### Task 56: MEMG-04 — Multi-tenant (enforcement + cuotas)
 
-- **Appetite:** max 1mes · **Esfuerzo:** 🔴 2-3sem · **Prioridad:** 🔴
-- **Archivos clave:** storage/API boundary, cuotas, billing boundary
-- **Verificación real:** ✅ — `rg tenant` = 0-5 hits (comentarios); sin enforcement (verificado 2026-09-30).
-- **Contrato:** aislamiento real por tenant (enforcement en storage/API) + cuotas; test de no-cruce de datos entre 2 tenants.
+- **Appetite:** max 1mes
+- **Esfuerzo:** 🔴 2-3sem
+- **Prioridad:** 🔴
+- **Archivos clave:** `src/sdk/serialization/mod.rs` (`memory_node_id:77`, `validate_namespace:108` — namespace = partición de keyspace), `src/rbac.rs` (`can_access_namespace:70`; `pub(crate)`), `src/server/middleware.rs:186-208` (enforcement RBAC namespace-scoped en records/search/list), `src/server/router.rs:134-137` (roles admin/reader/writer hardcoded), `src/config.rs:203-206` (`RbacCfg` token→role), `src/entity/mod.rs:10` + `src/entity/checker.rs:89,96` (entidades user/team con namespace — base reutilizable), límites globales (no-tenant): `src/server/bootstrap.rs:99` · `src/server/router.rs:266-284` (rate limit), `src/server/state.rs:191-222` (`AuthRateLimiter`), `src/governor.rs` + `src/memory_governor.rs` (watermarks globales), `vanta-memory/src/core/abstractions/types.rs:106-114` (`team_id`/`agent_id` por registro), `vanta-memory/src/utils/erasure.rs:6` (scope "agent or tenant", DEK por scope — MEMG-17), FIND-301 (`docs/dev/Backlog.md:449` — enforcement RBAC por acción restante)
+- **Verificación real:** ✅ CÓDIGO-REAL — `rg tenant` = solo comentarios/citas: `src/entity/mod.rs:10` ("namespace (deployment/tenant)"), `src/entity/scene.rs:8`, `src/node/bitset.rs:5,21` (claim "multi-tenant filtering"), `vanta-memory/src/core/record/l1_writer.rs:108-111` (stamp "default tenancy"), `erasure.rs:6`. Enforcement por tenant = NO existe: `namespace` es partición de keyspace (`memory_node_id` :77) sin barrera de confianza; RBAC ns-scoped (`rbac.rs:70`; middleware `:189-208`) autoriza dentro de un único trust domain (roles hardcoded `router.rs:134-137`; config token→role `RbacCfg:203`). Cuotas por tenant = 0: solo límites globales (rate limit `bootstrap.rs:99`; `AuthRateLimiter` `state.rs:191`; watermarks `memory_governor.rs`). Billing = 0 hits (única mención `vanta-proxy/src/cost.rs:87` "not billing"). Base reutilizable: entidades team/user + `PermissionChecker` (`checker.rs:89,96`) y stamps de vanta-memory (`types.rs:108,114`).
+- **Gate Justificación:** en cuanto haya 2 clientes/agentes es problema de datos cruzados; sin enforcement + cuotas no hay enterprise (Backlog MEMG-04). FIND-301 dejó pendiente el enforcement RBAC por acción — el diseño de tenant debe declarar la frontera: aislamiento (MEMG-04) vs autorización (RBAC/FIND-301).
+- **Gate Result:** ✅ DO
+- **Contrato:** (a) enforcement real por tenant: una credencial/tenant no puede leer/escribir/buscar/listar/exportar datos de otro tenant (barrera en la capa declarada en DISCOVERY: storage y/o API), con test de no-cruce entre 2 tenants por cada superficie habilitada; (b) al menos una cuota por tenant aplicada y testeada (p.ej. bytes o records por namespace/tenant con error explícito y audit) — o decisión registrada + FIND si el punto de intercepción no cabe en el appetite; (c) billing boundary documentado (metrado por tenant exportable o decisión "no billing en motor" registrada); modelo de tenant documentado (¿namespace? ¿entidad `tenant`?) con ADR si cambia semántica de autorización; sin romper RBAC/namespace/flujos actuales (suite verde).
+- **Pre-mortem:** (1) "tenant" no está modelado (0 entidad) → decidir en DISCOVERY namespace-vs-entidad nueva + migración de keyspaces existentes; (2) solape con FIND-301/MEMG-10 (RBAC por acción) → frontera declarada: MEMG-04 = barrera de aislamiento + cuota; RBAC sigue siendo el quién-puede; (3) cuotas sin punto de intercepción barato (no hay contador por namespace) → interceptar en `put`/`delete_inner` + contador por namespace; medir coste [a verificar en DISCOVERY]; (4) triple scope (enforcement + cuotas + billing-boundary) en 2-3sem → orden enforcement → test no-cruce → cuota → boundary.
+- **Stop conditions:** 2-3sem sin contrato → entregar enforcement mínimo (barrera por tenant + test de no-cruce) + FIND de cuotas/billing restante.
+- **Risk Register:**
+
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟠 | Modelo tenant inexistente (¿namespace = tenant?) | Decisión en DISCOVERY + ADR; migración declarada | DISCOVERY |
+  | 🟡×🟡 | Solape con FIND-301 / MGR-04 | Frontera: aislamiento (MEMG-04) vs autorización (RBAC) | diseño |
+  | 🟢×🟠 | Cuotas sin punto de intercepción barato | Interceptar en put/delete + contador; medir coste | diseño |
+  | 🟢×🟡 | Billing real fuera de alcance del motor | Boundary documentado o decisión registrada | cierre |
+
+- **Cynefin:** 🟨 complicado
+- **Top 3 riesgos:** (1) modelo tenant; (2) solape RBAC/FIND-301; (3) enforcement de cuotas.
+- **Uphill/Downhill:** ⬆️ 1 incógnita (¿qué es un tenant: namespace vs entidad?) → DISCOVERY → luego ⬇️ (enforcement → test no-cruce → cuota → boundary)
+- **DoD:** task = contrato + test de no-cruce · commit = `feat(core):` · release = changelog (minor).
+- **Validación Appetite vs Effort:** 1mes ≥ 2-3sem ✓
 - **Skills sugeridas:** security-and-hardening · source-driven-development · doubt-driven-development · campaign-executor
-- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/MEMG-04.md`
+- **Estado:** ⏳ EN PROGRESO · **Task file:** `docs/dev/tasks/MEMG-04.md`
 
 ### Task 57: MEMG-05 — Multi-escritor (CRDT / vector-clock / LWW declarado)
 
-- **Appetite:** max 1mes · **Esfuerzo:** 🔴 2-3sem · **Prioridad:** 🟠
-- **Archivos clave:** sync multi-device (write path)
-- **Verificación real:** ✅ — `CRDT`/`vector_clock`/`LWW` = 0 hits: "hoy el que escribe gana — escrituras paralelas pierden datos silenciosamente".
-- **Contrato:** resolución de conflictos multi-escritor implementada (opción elegida documentada) con test de escrituras paralelas sin pérdida.
+- **Appetite:** max 1mes
+- **Esfuerzo:** 🔴 2-3sem
+- **Prioridad:** 🟠
+- **Archivos clave:** write path (`src/sdk/api/memory.rs:761` `put` → `:1253` `put_record_exact` → WAL), `src/wal.rs` (framing v3 encadenado `:19-21`; `chain_hash:90`; `append:399-421` — 1-writer), `src/wal_shipping.rs:1-32` (shipping unidireccional a réplica; feature `wal-shipping`, `src/lib.rs:34`), `docs/dev/strategy/VantaDB-Analisis-Arquitectura-Producto-Competencia.md:412` (posición: "merge determinista LWW/authority, CRDT-lite sobre UpdateOperations"), `docs/api/MEMORY_INTERCHANGE_FORMAT.md:64` + `docs/api/TS_SDK.md:195` (LWW declarado en import/OPFS sin merge), `docs/dev/wasm/CRASH_MODEL.md:40` (2 pestañas = corrupción silenciosa; mitigación WSM-15 = Task 9 F0), `vanta-memory/src/core/profile/profile_sync.rs:25-47` (scope `team:{t}|agent:{a}`), `docs/dev/research/mgr-22-repo-map.md:72` (Merkle/content-hash reevaluado con MEMG-05)
+- **Verificación real:** ✅ CÓDIGO-REAL — `CRDT`/`vector_clock`/`LWW` = 0 hits en código Rust (verificado 2026-10-05): `CRDT` solo aparece en glosario (`docs/user/glosario/crdt.md`) y como ambición de producto (`strategy:412`); el comportamiento last-write-wins solo existe como dedup por ID de storage (`tests/property_durability.rs:45,110`) y evolución de campos (`src/shred/mod.rs:36`), nunca como política de conflicto multi-escritor declarada. Lo que SÍ existe: WAL encadenado 1-writer (`wal.rs:399-421`) con shipping primario→réplica vía HTTP sin merge (`wal_shipping.rs`) — replicación, no multi-escritor; OPFS documenta "last write wins with no merge" (`CRASH_MODEL.md:40`; `TS_SDK.md:195`). vanta-memory sincroniza persona por scope (`profile_sync.rs`), no réplicas. Escenario + estrategia de merge NO existen → contrato abierto [a verificar en DISCOVERY: multi-device embedded vs multi-proceso vs agentes].
+- **Gate Justificación:** multi-device/multi-agente es la posición única "memoria federada local-first" (`strategy:412`; Desktop+WASM+embedded); hoy escrituras paralelas pierden datos silenciosamente (Backlog MEMG-05) y no hay política declarada de conflicto.
+- **Gate Result:** ✅ DO
+- **Contrato:** una estrategia de resolución de conflictos multi-escritor implementada y declarada (CRDT / vector-clock / LWW explícito — elección documentada con ADR) para el escenario fijado en DISCOVERY (¿multi-device vía event-log/shipping? ¿multi-proceso?) + test de escrituras paralelas concurrentes sin pérdida silenciosa (resultado determinista: merge o winner declarado, nunca "el que escribe gana") + semántica documentada (qué gana, por qué y límites) + `wal-shipping`/write path actuales intactos (suite + failpoints verdes).
+- **Pre-mortem:** (1) escenario abierto (device/proceso/agente) → ADR de escenario en DISCOVERY, un solo escenario en v1; (2) CRDT completo excede 2-3sem → mínimo viable = LWW explícito + detección de conflicto (upgrade path CRDT declarado); (3) tocar el write path/WAL puede degradar durabilidad → cambios aditivos, chaos/failpoints verdes; (4) solape WSM-15 (Task 9: OPFS lock = exclusión) → frontera: WSM-15 exclusión, MEMG-05 resolución/merge.
+- **Stop conditions:** 2-3sem sin contrato → entregar estrategia declarada + implementación mínima en el escenario único fijado + FIND del resto (réplicas/CRDT).
+- **Risk Register:**
+
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟠 | Escenario multi-escritor no fijado | ADR de escenario en DISCOVERY; 1 escenario v1 | DISCOVERY |
+  | 🟡×🟠 | CRDT completo fuera de appetite | Mínimo LWW declarado + detección; upgrade declarado | diseño |
+  | 🟡×🟡 | Regresión del write path (WAL) | Aditivo + chaos/failpoints verdes | VERIFY |
+
+- **Cynefin:** 🟨 complicado
+- **Top 3 riesgos:** (1) escenario; (2) coste de la estrategia; (3) write path.
+- **Uphill/Downhill:** ⬆️ 2 incógnitas (escenario + estrategia) → DISCOVERY → luego ⬇️ (modelo de conflicto → write path → test concurrencia)
+- **DoD:** task = contrato + test de concurrencia · commit = `feat(sync):` · release = changelog (minor).
+- **Validación Appetite vs Effort:** 1mes ≥ 2-3sem ✓
 - **Skills sugeridas:** source-driven-development · doubt-driven-development · rust-write-tests · campaign-executor
-- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/MEMG-05.md`
+- **Estado:** ⏳ EN PROGRESO · **Task file:** `docs/dev/tasks/MEMG-05.md`
 
 ### Task 58: MEMG-16 — Compartir/colaboración multi-agente (scopes + permisos + revocación)
 
-- **Appetite:** max 1mes · **Esfuerzo:** 🔴 1-2sem · **Prioridad:** 🟠
-- **Archivos clave:** consume MEMG-04/05 + EXE-07 (P50); modelo de datos compartidos
-- **Verificación real:** ✅ — "Share & Propagate" es fase propia del lifecycle 2026; Letta/Cognee/CrewAI ya lo ofrecen; MAST (NeurIPS 2025) documenta fallos de inter-agent misalignment; sin esto no hay caso "equipo".
-- **Contrato:** memoria compartida con scopes (org/team/proyecto) + permisos + revocación, entre agentes y usuarios; modelo documentado (aislamiento/propagación/revocación); tests.
+- **Appetite:** max 1mes
+- **Esfuerzo:** 🔴 1-2sem
+- **Prioridad:** 🟠
+- **Archivos clave:** `src/entity/checker.rs` (`Action::{Read,Write,Assign,Share,Use}:37`, `Visibility::{Private,Team,Restricted,Agent,Task}:48`, `TeamRole:59`, `can_access_asset:122` — cadena allow-only de 7 pasos, `membership:213`, `acl_allows:229`), `src/entity/mod.rs` (collections `user`/`team`/`team_member`/`asset`/`acl`; claves `entity:{ns}:{collection}::{id}`), `src/entity/checker_tests.rs` (`removed_member_denied:134`, `restricted_acl_deny_effect_wins:232`, `acl_agent_subject_requires_agent_id:340`), `src/server/state.rs:297` + `src/server/middleware.rs:179` (comentario: principal → PermissionChecker — sin uso real), `vanta-memory/src/core/profile/profile_sync.rs:25-47` (scope `team:{t}|agent:{a}`), `vanta-memory/src/core/abstractions/types.rs:106-114` (team_id/agent_id por registro), `vanta-memory/src/core/hooks/auto_recall.rs:653-657` (filtro de recall Agent/Team — D22), `vanta-memory/src/utils/erasure.rs` (scope = label; DEK por scope, MEMG-17), `docs/dev/Backlog.md:144` (sharing contracts: temporary/permanent/syndicate + revocation; Dep: MEMG-04/05 + EXE-07), `docs/dev/Backlog.md:851` (EXE-07 P50: cascada multiagente; refs `tests/storage/chaos_integrity.rs`, `vanta-memory/src/core/dream/`)
+- **Verificación real:** ✅ CÓDIGO-REAL — la maquinaria de permisos existe COMPLETA y testeada: `PermissionChecker` allow-only 7 pasos (resource → owner → membership → visibility → role-default → ACL → deny; `checker.rs:122-210`), acciones incl. `Share`/`Use`, visibilidad `Agent`, sujetos ACL user/team_role/agent (`checker_tests.rs:340-366`), ACL deny gana (`:232`), revocación de membresía vía `status != active` (`checker.rs:213`; test `:134`). PERO no está cableada a ninguna superficie de producto: `rg PermissionChecker` = solo `checker.rs` + `checker_tests.rs` (+ 2 comentarios en `middleware.rs:179`, `state.rs:297`) → sin ruta HTTP/MCP/SDK. "sharing contracts" (temporary/permanent/syndicate) = 0 hits en código (`syndicate` solo en Backlog/plan). Scopes de vanta-memory = etiquetas de aislamiento (team/agent), no grants. Revocación de acceso ya concedido (propagación/efecto sobre recall) = no existe [a verificar en DISCOVERY].
+- **Gate Justificación:** "Share & Propagate" es fase propia del lifecycle 2026; Letta/Cognee/CrewAI ya lo ofrecen; MAST (NeurIPS 2025) documenta fallos inter-agent; sin esto no hay caso "equipo" (Backlog MEMG-16). Costo marginal bajo: checker + ACL + entidades ya existen — falta producto (superficie + scopes + revocación + doc).
+- **Gate Result:** ✅ DO
+- **Contrato:** memoria compartida con scopes (org/team/proyecto → mapeo declarado a namespace/entidades) + grants y revocación efectiva sobre las operaciones declaradas (read/write/use/recall entre agentes y usuarios): (a) un grant habilita acceso compartido entre 2 agentes/usuarios y (b) tras revocar, el acceso deja de permitirse en el siguiente acceso (test); (c) modelo de datos compartidos documentado (aislamiento, propagación/contagio, revocación, qué pasa con lo ya recordado — frontera con erasure MEMG-17 y cuarentena SCH-05/MEMG-10); reusa `PermissionChecker`/ACL y scopes existentes (no duplicar); containment ante error de un agente declarado (enlace o límite explícito con EXE-07); suites verdes.
+- **Pre-mortem:** (1) checker sin cablear → decidir superficie en DISCOVERY (SDK memory API vs server vs MCP) y reutilizar, no re-implementar; (2) "revocación" ambigua: ¿solo acceso futuro o purga de lo compartido? → declarar semántica en contrato + frontera con MEMG-17; (3) propagación/contagio (MAST) → scope explícito de qué se propaga y contención mínima; (4) EXE-07 (P50) pendiente → no bloquear: containment mínimo propio o dependencia declarada.
+- **Stop conditions:** 1-2sem sin contrato → entregar scopes + grants + revoke mínimo sobre el checker existente + doc del modelo + FIND (propagación/EXE-07).
+- **Risk Register:**
+
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟠 | Checker no cableado; superficie sin decidir | Decisión de superficie en DISCOVERY; reuso, no duplicación | DISCOVERY |
+  | 🟡×🟠 | Semántica de revocación (acceso vs purga) | Declarar en contrato; frontera con MEMG-17 | diseño |
+  | 🟡×🟡 | Propagación/contagio y EXE-07 pendiente | Containment mínimo propio o dependencia declarada | diseño |
+
+- **Cynefin:** 🟨 complicado
+- **Top 3 riesgos:** (1) superficie de wiring; (2) semántica de revocación; (3) propagación/EXE-07.
+- **Uphill/Downhill:** ⬆️ 1-2 incógnitas (superficie + semántica de revocación) → DISCOVERY → luego ⬇️ (scopes → grants → revocación → tests)
+- **DoD:** task = contrato + tests share/revoke · commit = `feat(memory):` · release = changelog (minor).
+- **Validación Appetite vs Effort:** 1mes ≥ 1-2sem ✓
 - **Skills sugeridas:** security-and-hardening · source-driven-development · documentation-and-adrs · campaign-executor
 - **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/MEMG-16.md`
 
 ### Task 59: VER-10 — Attestation de escritura (extender el certificado de delete a writes)
 
-- **Appetite:** max 3d · **Esfuerzo:** 🟡 2-3d · **Prioridad:** 🟡
-- **Archivos clave:** hash-chain (VER-01), certificados de delete existentes
-- **Verificación real:** ✅ — "Hoy solo delete tiene attestation; extender a escrituras. Solapa con hash-chain (VER-01)".
-- **Contrato:** escrituras con attestation verificable (recibo) extendiendo el chain; test válido/inválido.
+- **Appetite:** max 3d
+- **Esfuerzo:** 🟡 2-3d
+- **Prioridad:** 🟡
+- **Archivos clave:** `src/attestation.rs` (`PurgeCertificate:90`, `build_certificate:436`, `verify_certificate:516`, `PURGE_SURFACES:36-46`, `ChainEvidence:66` + `chain_evidence():151`, `declared_limits:136`, integridad sha256:81), `src/sdk/api/memory.rs` (`delete_certified:1201`, `verify_purge_certificate:1235`, `put:761` → `put_record_exact:1253` = write path sin recibo), `src/wal.rs` (framing v3 encadenado `:19-21`; `chain_hash:90`; `append:399-421` — computa `record_hash` pero devuelve `()`), `src/cli.rs:198-201` (`Verify` — cadena WAL) + `:475-478` (`certificate verify`), `docs/api/CERTIFIED_DELETE.md` (superficies CLI/MCP/SDK del delete certificado — status VER-02), `docs/api/WAL_INTEGRITY.md` (esquema y límites de la cadena — VER-01), precedente receipt: `vanta-memory/src/utils/erasure.rs:38-42` (ErasureReceipt embebe `chain_evidence`, MEMG-17), `docs/dev/Backlog.md:195` (VER-10; Dep: VER-01)
+- **Verificación real:** ✅ CÓDIGO-REAL — solo delete tiene attestation: `PurgeCertificate` + builder/verifier (`attestation.rs:90,436,516`), expuesto en CLI/MCP/SDK (`memory.rs:1201,1235`; `cli_handlers/crud.rs:572`; `vantadb-mcp/src/handlers/tools.rs:1681`); la superficie de escritura (`put:761`) no tiene recibo ni API equivalente (`rg receipt` en `src` = solo comentarios). La base ya cubre writes en la cadena: WAL v3 encadena `prev_hash‖record_hash` por frame (`wal.rs:19-21,399-421`) y `chain_evidence()` referencia la cadena (:151), pero `append` NO expone la `record_hash` del frame al write path → ligar un recibo a una escritura requiere API aditiva o re-lectura del WAL [a verificar en DISCOVERY: coste/unidad]. Precedente de receipt verificable con schema/integridad/límites: erasure (MEMG-17).
+- **Gate Justificación:** hoy solo el borrado es demostrable ("certified delete"); sin recibo de escritura no hay cadena de custodia completa write→delete; solapa con VER-01 (hash-chain ya lista) — coste marginal bajo (Backlog VER-10).
+- **Gate Result:** ✅ DO
+- **Contrato:** escrituras con attestation verificable extendiendo el chain: al menos el write path declarado (p.ej. `put`) emite un recibo con referencia al frame WAL encadenado (posición/`record_hash` o evidencia equivalente) + verificación que re-chequee (schema → integridad sha256 → evidencia viva, patrón VER-02) + test válido/inválido (recibo editado/corrupto y payload alterado → detección) + límites declarados (misma honestidad que VER-02: qué NO prueba) + doc (`docs/api/CERTIFIED_DELETE.md` extendido o doc nuevo de write receipts); certificados de delete y `vanta-cli verify` intactos; attestation opt-in (sin coste por defecto).
+- **Pre-mortem:** (1) `append` no expone `record_hash` → decidir en DISCOVERY API aditiva (devolver hash/posición) vs recibo derivado por re-escaneo del WAL; (2) solape VER-01/VER-02 → reusar `ChainEvidence`/schema/`finalize` existentes, no forkear el schema; (3) writes son hot path → opt-in explícito (no default) y medir coste; (4) unidad ambigua (por operación vs por frame/batch) → declarar en contrato.
+- **Stop conditions:** 3d sin contrato → entregar recibo mínimo por `put` + verify + test inválido + FIND de batches/CLI.
+- **Risk Register:**
+
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟡 | `append` no expone el `record_hash` | API aditiva o recibo por re-escaneo; decidir en DISCOVERY | DISCOVERY |
+  | 🟢×🟠 | Coste en hot path de escritura | Opt-in; off por defecto; medir | diseño |
+  | 🟢×🟡 | Solape VER-01/VER-02 | Reusar ChainEvidence + patrón receipt | diseño |
+
+- **Cynefin:** 🟨 complicado
+- **Top 3 riesgos:** (1) exposición del hash del frame; (2) coste hot path; (3) unidad del recibo.
+- **Uphill/Downhill:** ⬆️ 1 incógnita (ligar recibo↔frame: API vs re-escaneo) → DISCOVERY → luego ⬇️ (schema → recibo en put → verify → tests)
+- **DoD:** task = contrato + tests válido/inválido · commit = `feat(attestation):` · release = changelog (minor).
+- **Validación Appetite vs Effort:** 3d ≥ 2-3d ✓
 - **Skills sugeridas:** security-and-hardening · source-driven-development · rust-write-tests · campaign-executor
 - **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/VER-10.md`
 
@@ -2445,4 +2522,79 @@ Resultado: OK
 Próxima acción: ninguno (tarea cerrada). Próximo del plan a criterio del orquestador: Task 50 (MEMG-03, ⬜ PENDING)
 Contrato: verificacion: `cargo nextest run --profile audit -p vanta-memory --test scheduler_crash --build-jobs 2` → 2/2 ✅ · suites `-p vanta-memory` 670/670 (2 skip pre) y `--features http-server` 678/678 (2 skip pre) ✅ · fmt/clippy/check exit 0 ✅. evidencia: (1) crash mid-pass determinista (hook panic, no timing) → DB íntegra post-restart (L0/L1 full-record idénticos) — vanta-memory/tests/scheduler_crash.rs:173; (2) re-entrega sin doble procesamiento (dedup skip) — :270-289; (3) cola efímera + re-encolado desde L0 — :250-268; (4) reclaim tras lease — :294-347; (5) review APPROVE — ses_ef3236a90ffeBmiBYAni4QGHmX. artefactos: vanta-memory/tests/scheduler_crash.rs, docs/dev/tasks/WIRE-18.md, docs/dev/Backlog.md (FIND-293). invariantes: test-only (0 producción); crash hook determinista; cola efímera = semántica aceptada (no inventar re-enqueue automático); WIP ajeno sin stagear. deuda: FIND-293 (crash del loop completo — test de resiliencia/reclaim en tick posterior). queda_pendiente: anomalía tool `campaign_verify_cmd` (exitCode -1 sin output en 0.3s — spawn roto; verificación por shell; revisar en el server).
 Próxima tarea si completa: MEMG-03 (Task 50) — a criterio del orquestador
+=== END RECITATION ===
+
+=== RECITATION 51 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: MEMG-06 (Task 51): spill a disco del contenido compactado (payload antes del stub) + recall por id/sesion, opt-in en el worker, GC reutilizado
+Estado: completed
+Última acción: Steps 1-5 completos: (1) engine SpillSink + assemble_inner + assemble_with_recall +1 param (assemble intacto); (2) context_engine/spill.rs (SpillStorage spill/recall/recall_session/reclaim + DbSpillSink + FNV keys); (3) worker opt-in ContextAssemblyConfig.spill_enabled default false + DbSpillSink cableado + log spilled; (4) docs/api/VANTA_MEMORY.md + FIND-294/295; (5) verify full + OCR delegation (0 Critical/High) + review P2-01 vanta-review APPROVE + commits locales a76890f4 (feat) y a4dce566 (task file).
+Resultado: OK
+Próxima acción: Ninguno — tarea cerrada. Orquestador: proxima tarea F3 (Task 52 MEMG-08) y skill progreso de campana si corresponde.
+Contrato: verificacion: cargo nextest run --profile audit -p vanta-memory --build-jobs 2 -> 684/684 passed (2 skipped); focused spill 12/12; e2e_flow 8/8 (memg06 on/off); precise-tokens memg06 2/2; cargo clippy -p vanta-memory --all-targets -- -D warnings OK; cargo check -p vantadb-mcp OK; cargo check --manifest-path desktop/src-tauri/Cargo.toml OK (3m09s); fmt scoped OK; docs gates (check-links/check-docs/gen-index --check) OK; OCR delegation sin Critical/High. evidencia: claim captura-antes-del-stub -> engine.rs stub_message Option<String> + mild_cascade sink (unit test spill_sink_receives_original_before_stub, confianza alta); claim recall round-trip -> spill.rs tests spill_then_recall_by_id_round_trips_full_content + memg06 e2e (confianza alta); claim opt-in default false -> ContextAssemblyConfig.spill_enabled false + memg06_spill_default_off_writes_nothing (confianza alta); claim GC reutilizado -> reclaim_as_of usa MIN_RETENTION_DAYS + iso_to_epoch_secs (reclaimer.rs) + tests (confianza alta); claim wire intacto -> IntegratedContext sin cambios + assemble firma intacta (confianza alta); review P2-01 -> ses_ef2d63433ffeQP02M1S5njyUWV APPROVE (confianza alta). artefactos: vanta-memory/src/context_engine/spill.rs; vanta-memory/src/context_engine/engine.rs; vanta-memory/src/services/pipeline_worker.rs; docs/dev/tasks/MEMG-06.md; target/ocr-memg06.json. invariantes: engine puro (sin offload/SDK en engine.rs); IntegratedContext serde intacto; opt-in default false byte-identico; recall spilled separado del recall L1; dedup D19 first-wins; GC conservador (retencion minima + undatable nunca se borra); sin unwrap/unsafe en produccion. deuda: +1 arg en assemble_with_recall (11 args, pre-existente >3; declarado); GC op explicita sin scheduler in-repo (espeja OffloadReclaimer); FIND-294 (aggressive/emergency sin captura) y FIND-295 (hook offload sin callers) registrados en Backlog. queda_pendiente: skill progreso/campaign-plan sync al orquestador; push SOLO con instruccion del owner (commits locales).
+Próxima tarea si completa: 52
+=== END RECITATION ===
+
+=== RECITATION 50 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: MEMG-03 — Grafo ↔ memoria: aristas de linaje + fix wipe + query BFS + DX-04
+Estado: completed
+Última acción: Cierre completo: e41fef7d (feat memory) + 2b333f04 (docs task RESULTADO) + e6efbc69 (docs avance registro). Coverage gates 1034/1034 IDs + 0 doc gaps. Learnings escritos.
+Resultado: OK
+Próxima acción: Ninguno. Fold pendiente (orquestador): FIND-296/297 + filas MEMG-03/DX-04 del Backlog (en vuelo por MEMG-08).
+Contrato: verificacion: 12/12 memory_graph_lineage ✅ · scoped core 2357/2358 (1 timeout de carga documentado, pasa aislado) · vanta-memory 684/684 ✅ · fmt/clippy ✅ · docs gates ✅ · avance/docs coverage ✅ | evidencia: RED→GREEN del wipe + aristas de linaje + reconciliación + query BFS con tests (confianza alta) | artefactos: commits e41fef7d, 2b333f04, e6efbc69 | invariantes: record=canónico/arista=derivada; sin wire change; sin API pública nueva; no tocar storage/ | deuda: FINDs/rows a foldear por orquestador (Backlog en vuelo) | queda_pendiente: gate workspace-wide (diferido: MEMG-08 activo en el árbol)
+Próxima tarea si completa: Siguiente F3 según orquestador (MEMG-08 en vuelo; MEMG-09 disponible)
+=== END RECITATION ===
+
+=== RECITATION MEMG-09 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: MEMG-09 (Task 53): specs MGR-22/23/24 (research-docs) + slice v0 `code_index` (chunker por símbolo Rust + file-per-node) con tests RED→GREEN
+Estado: completed
+Última acción: Steps 0-6 completos: DISCOVERY + task file + FIND-299/300 + nota FIND-196; RED 10/10 fail ('Tool not found') → GREEN; iteración P2-01 F1-F8 (mcp_tests unfiltered 115/115, MCP.md/config/tools sincronizados 82/88, caps tests + symbols_truncated, impl_self_type robusto, nits) → re-review APPROVE; OCR 0 Critical/High; commits 0905e3c5 + 5c38cf07.
+Resultado: OK
+Próxima acción: Ninguno — tarea cerrada. Orquestador: skill progreso de campaña; F3 disponible (Task 55 MEMG-17; Task 54 MEMG-10 ya en vuelo por otro agente).
+Contrato: verificacion: cargo nextest run --profile audit -p vantadb-mcp --build-jobs 2 -> 170/170 OK · code_index_tests 13/13 OK · mcp_tests --ignore-default-filter 115/115 OK · cargo clippy -p vantadb-mcp --all-targets --all-features -- -D warnings OK · fmt scoped OK · docs gates (check-links/check-docs) OK · validate-docs-coverage.ps1 0 gaps OK. evidencia: RED->GREEN (10/10 fail 'Tool not found' -> 13/13 pass, confianza alta); idempotencia hash-skip + reconcile sin ghosts/dup edges (version==1 en skip; asserts de edges; confianza alta); WIRE-02 listed solo en full (agent/dev/memory sin el tool; confianza alta); specs con fuentes verificadas por vanta-research (Claude Code 25k tokens/50k chars persist-to-file; Aider PageRank+1k+cache; OpenHands repo.md; repo-rag/cADR NO VERIFICADOS — confianza alta); review P2-01 iterada APPROVE ses_ef26b7620ffenv8FGRSFL86eoc (confianza alta). artefactos: commit 0905e3c5 (feat, 11 archivos +2336/-38); commit 5c38cf07 (docs task); docs/dev/tasks/MEMG-09.md; docs/dev/research/mgr-22-repo-map.md; docs/dev/research/mgr-23-24-memoria-proyecto.md; target/ocr-memg09.json. invariantes: 8 code_* intactos; core intacto (0 cambios en src/); sin deps nuevas; sin unsafe/unwrap/expect en produccion; keys propias file:/sym: en namespace target; WIP ajeno no stageado (MEMG-10 config/hooks/vanta-proxy intactos en worktree; config.rs committed = HEAD+mis comentarios via blob quirurgico). deuda: FIND-299 (tree-sitter Rust/Py/TS + watcher code_watch + scene repo-map + ranking); FIND-300 (graphrag content vacio para memory records); scanner v0 heuristico declarado (ponytail). queda_pendiente: skill progreso de campana (orquestador); fmt mecanico aplicado a vanta-memory (WIP MEMG-10) para desbloquear el hook repo-wide (no stageado); drift de docs/index.md+llms.txt +1 por MEMG-10.md (ajeno; el proximo gen-index lo absorbe).
+Próxima tarea si completa: 55
+=== END RECITATION ===
+
+=== RECITATION 52 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: MEMG-08 (Task 52) — MGR-25: trait Ingestor (formato → chunks MemoryInput con metadata source/page/chunk obligatoria) + mínimo viable txt/json/csv end-to-end + budget 28k/overlap; stop L1503 (5 formatos → trait + txt/json/csv + FIND html/pdf/docx).
+Estado: completed
+Última acción: Tarea COMPLETA: trait Ingestor + Txt/Json/CsvIngestor + default_ingestors + scan_ingestable_sources (proveniencia source/page/chunk plana, budget 28k post-chunk con truncación declarada, keys determinísticas {file}#{chunk}); refactor de sources.rs (collect_text_files compartido — un solo guard traversal; scan_local_sources sin cambios de contrato); tests 4 integración e2e + 8 unit; snapshot tests/api/public-api.txt +101/−0 refrescado; review P2-01 APPROVE (ronda 1, vanta-review fresco) con fold M1/L1/L2/L3/N1; FIND-298 en Backlog (working tree). Commits LOCALES 97039053 (feat) + e281c112 (docs/task). Sin push.
+Resultado: OK
+Próxima acción: Ninguna — tarea cerrada. Orquestador: seguir con Task 53 (MEMG-09, ya en vuelo por otra sesión) / skill progreso de campaña si corresponde; fold del plan y del Backlog (FIND-298 + filas MEMG-09) pendientes de quien cierre.
+Contrato: verificacion: cargo nextest --profile audit -p vantadb --test wiki_ingestors ✅ 4/4 (default-menos-cli y fjall-only) · -p vantadb --lib -E test(wiki) ✅ 32/32 · -p vanta-memory --test ingest ✅ 15/15 · cargo clippy -p vantadb --all-targets -- -D warnings ✅ · cargo fmt --check ✅ · public_api ignored test ✅ 1/1 (compare). evidencia: {claim: 'trait Ingestor formato→chunks MemoryInput con proveniencia obligatoria', evidencia: 'src/wiki/ingestors.rs (trait + método provisto + 3 structs + registry) + test scans_supported_formats_into_chunks_with_mandatory_provenance', confianza: alta} {claim: 'txt/json/csv e2e scan→put_batch→get/search', evidencia: 'tests/wiki_ingestors.rs::ingested_chunks_round_trip_through_the_engine_and_are_searchable ✅', confianza: alta} {claim: 'budget 28k exacto con truncación + overlap 400', evidencia: 'scan_respects_source_char_budget_and_declares_truncation (total==28_000) + large_text_chunks_with_overlap_and_covers_all_content', confianza: alta} {claim: 'scan_local_sources sin regresión', evidencia: '32/32 wiki lib + 15/15 vanta-memory ingest', confianza: alta} {claim: 'review P2-01 fresh APPROVE', evidencia: 'subagente vanta-review ses_ef2818a59ffeE3B1mcXxImapTK, re-ejecutó comandos + lectura del refactor vs HEAD', confianza: alta} {claim: 'cero deps/unsafe/wire', evidencia: 'git diff de la tarea (sin Cargo.toml/unsafe)', confianza: alta}. artefactos: src/wiki/ingestors.rs, tests/wiki_ingestors.rs, src/wiki/sources.rs, src/wiki/mod.rs, tests/api/public-api.txt, docs/dev/tasks/MEMG-08.md, docs/index.md, llms.txt. invariantes: scan_local_sources firma+semántica idénticas (7 tests existentes verdes); proveniencia obligatoria por chunk; budget ≤ 28k; sin tocar wal/vector/storage; WIP ajeno intacto (MEMG-09); commits con pathspec. deuda: ponytail scan single-thread secuencial; keys stale tras shrink de archivo (sin contrato de borrado); NOTICED: gap docs/api del módulo wiki (pre-existente), symlink cycles pre-existente (review L4), keys >512 bytes solo documentado (review L2). queda_pendiente: (1) adr-gate del PR develop→main (ADR o [no-adr]) — lead; (2) pliegue de FIND-298 en Backlog (quedó en working tree, WIP de MEMG-09 adyacente) — quien cierre Backlog; (3) fold del plan — orquestador; (4) nota: docs/index.md+llms.txt commiteados incluyen entradas de archivos de MEMG-09 aún sin commitear (patrón compartido ya presente en HEAD con MEMG-03; se auto-corrige al commitear MEMG-09).
+Próxima tarea si completa: MEMG-09 (Task 53) — en vuelo
+=== END RECITATION ===
+
+=== RECITATION 55 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: MEMG-17 (Task 55) — Rollback + verificabilidad + erasure criptográfica: (a) rollback semántico a versión append-only con linaje + snapshot con alcance declarado (FIND-287); (b) recibos verificables de erasure con el contrato VER-02 (no claim-driven; firma ML-DSA-65 no sancionada → declarada); (c) erasure por destrucción de DEK (registry CSPRNG wrapped con master Cipher + tombstone); cada pieza con test propio.
+Estado: completed
+Última acción: CIERRE COMPLETO + progreso: commits LOCALES 80cb84b0 (feat) + 1ec943fe (docs/task RESULTADO+§Review) + 4c0da351 (docs/avance: registro vanta-memory + fila Backlog MEMG-17 removida). Incidente de cierre reparado: un commit intermedio (ce32ff37) arrastró WIP staged de MEMG-10 (index compartido) → revertido con reset --soft + re-commit con pathspec; staging de MEMG-10 PRESERVADO intacto (M/A en su columna). Learnings: 2 en memory/lessons (pathspec en multi-sesión; gate #![cfg(feature)] en tests). Review P2-01 ronda 2 APPROVE.
+Resultado: OK
+Próxima acción: Ninguna — tarea cerrada (taskId 55 completed). Orquestador: skill progreso de campaña; MEMG-10 (Task 54) sigue en vuelo con su WIP staged intacto; próximas: Task 58 (MEMG-16).
+Contrato: verificacion: cargo nextest run --profile audit -p vanta-memory --build-jobs 2 ✅ 701/701 · --features erasure ✅ 712/712 · --test rollback ✅ 7/7 · --test erasure --features erasure ✅ 11/11 · -p vantadb --lib -E test(attestation) ✅ 10/10 · cargo fmt --check ✅ · clippy -p vanta-memory --all-targets --all-features -D warnings ✅ · validate-docs-coverage.ps1 0 gaps ✅ · check-avance-coverage.ps1 1034/1034 ✅ · gen-index --check ✅ · OCR ✅ · review P2-01 ✅. evidencia: {claim: 'las 3 piezas del contrato L1585 completas con test propio', evidencia: 'tests/rollback.rs 7/7 + tests/erasure.rs 11/11 + §Review APPROVE en docs/dev/tasks/MEMG-17.md', confianza: alta}. artefactos: docs/dev/tasks/MEMG-17.md · docs/api/VANTA_MEMORY.md · docs/dev/Backlog.md (FIND-302, fila MEMG-17 removida) · docs/dev/avance/activo/vanta-memory.md (entrada MEMG-17). invariantes: firmas existentes intactas; wire L1 intacto; recibos nunca inválidos/nunca claim-driven; WIP ajeno no commiteado por este run (incidente ce32ff37 revertido). deuda: FIND-302 · FIND-194 · FIND-287. queda_pendiente: orquestador — MEMG-10 staged intacto para SU commit; si su sesión no retoma, el staging está listo para commit directo.
+Próxima tarea si completa: MEMG-16
+=== END RECITATION ===
+
+=== RECITATION 54 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: MEMG-10 / MGR-04 — spec (trusted/tainted + RBAC por acción + integración retrieval/inyección) + impl sobre base VER-04: trust gate por namespace + audit RBAC por acción (corte declarado stop L1559)
+Estado: completed
+Última acción: Cierre completo: commit e0373d7b (17 archivos, +1012/-40; hooks verdes) + eec590b5 (task RESULTADO) + ed57fb53 (avance + fila Backlog removida); review P2-01 APPROVE (2 rondas); OCR 0 Critical/High; suites + gates verdes
+Resultado: OK
+Próxima acción: ninguno — tarea cerrada. El orquestador resuelve la próxima vía campaign_get_next_task (F3 completa con MEMG-10)
+Contrato: verificacion: cargo nextest -p vanta-memory 694/694 + memg10_trust_gate 4/4 + policy 9/9 ✅ · -p vanta-proxy 322/322 ✅ · -p vantadb-mcp 171/171 ✅ · -p vantadb --features server --test rbac_namespace 11/11 ✅ · auth/rbac 48/48 ✅ · fmt/clippy scoped 4/4 ✅ · docs gates (links/docs/coverage) 0 + gen-index exit 0 ✅
+evidencia:
+  - claim: trust gate trusted/tainted enforced en las superficies gobernadas (tainted no inyecta por defecto; opt-in include_tainted; gates ACL AND trust) | evidencia: vanta-memory/src/core/hooks/auto_recall.rs:125-227 + tests memg10_trust_gate.rs 4/4 + unit policy 9/9 + wiring proxy (config.rs:109-116) + MCP (config.rs:119-128,195-207) | confianza: alta
+  - claim: audit RBAC por acción (auth_rbac) aditivo, sin cambio de semántica de auth, sin token en el log | evidencia: src/server/middleware.rs:203-243 + tests/rbac_namespace.rs 11/11 (read/write/delete) + 48/48 auth/rbac | confianza: alta
+  - claim: spec MGR-04 + FIND-301 con el residual declarado (incl. superficie L3 no gobernada del review R1) | evidencia: docs/dev/research/mgr-04-policy-engine.md + Backlog FIND-301 + avance/activo/vanta-memory.md | confianza: alta
+  - claim: review P2-01 adversarial por agente distinto | evidencia: vanta-review ses_ef20ae781ffeYWCIMdoxswKav0 — ronda 1 changes-required (R1/R2 doc-only) → fixes → delta re-review APPROVE | confianza: alta
+artefactos: commits e0373d7b (17 archivos, +1012/-40) · eec590b5 (task RESULTADO) · ed57fb53 (avance+Backlog); spec docs/dev/research/mgr-04-policy-engine.md; task docs/dev/tasks/MEMG-10.md
+invariantes: defaults byte-idénticos (tainted vacío == VER-04); tainted no inyecta sin opt-in en superficies gobernadas; gates ACL/trust AND; sin cambio de semántica de autorización; audit nunca registra tokens; WIP ajeno no commiteado (pathspec)
+deuda: FIND-301 — (a) enforcement RBAC por acción (NamespaceDelete + separación estricta opt-in + ADR), (b) roles namespace-scoped configurables, (c) trust en retrieval HTTP, (d) promoción curada, (e) superficie L3 pipeline_worker no gobernada
+queda_pendiente: nada del corte declarado (stop L1559 cumplido); avance registrado; race de commits concurrente documentado en task file §Notas
+Próxima tarea si completa: siguiente del plan (resolver vía campaign_get_next_task — F3 completa)
 === END RECITATION ===
