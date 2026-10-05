@@ -6791,6 +6791,8 @@ dependencies = [
  "tikv-jemallocator",
  "tokio",
  "tower",
+ "tracing",
+ "vanta-memory",
  "vantadb",
  "vantadb-mcp",
 ]

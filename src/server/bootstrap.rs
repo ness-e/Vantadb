@@ -295,12 +295,11 @@ pub async fn run(config: Config) -> Result<()> {
 /// they have already started. The server owns those services for its lifetime
 /// and joins them after the HTTP loop returns — the same lifecycle as the
 /// built-in TTL sweeper — so no service task outlives `run`.
-pub async fn run_with_hooks(config: Config, hooks: ServerHooks) -> Result<()> {
-    let ServerHooks {
-        conversation_trigger,
-        mut background_services,
-    } = hooks;
-
+///
+/// WIRE-16: hosts that need the server's database handle (single writer) set
+/// [`ServerHooks::on_storage_ready`] and complete their trigger/services
+/// there, once storage is open.
+pub async fn run_with_hooks(config: Config, mut hooks: ServerHooks) -> Result<()> {
     init_telemetry(
         crate::server::telemetry::TelemetrySink::Stdout,
         Some(config.log_format),
@@ -326,6 +325,39 @@ pub async fn run_with_hooks(config: Config, hooks: ServerHooks) -> Result<()> {
 
     log_security_mode(&config);
 
+    let db = crate::sdk::Embedded::from_engine(storage.clone());
+
+    // MOD-12 (MCP-01 twin): a raw StorageEngine skips the
+    // `Embedded::open_with_config` index reconciliation, so lexical/hybrid
+    // searches fail on fresh DBs with "text_index not found". Ensure index
+    // state at startup: idempotent — no-op when counts match, writes fresh
+    // empty state for new DBs. Read-only engines cannot rebuild, so they are
+    // skipped (same guard as `open_with_config`). Runs before the deferred
+    // host wiring (WIRE-16) so a host-started service never races the
+    // reconcile.
+    if !config.read_only {
+        if let Err(e) = db.ensure_indexes_current() {
+            crate::console::error(
+                "Failed to ensure index state at startup; text search may be unavailable",
+                Some(&e.to_string()),
+            );
+        }
+    }
+
+    // WIRE-16: deferred host wiring — the host receives a clone of the
+    // server's `Embedded` handle (single writer: the server owns the one
+    // open) and completes its trigger/services before `ServerState` and the
+    // router are built.
+    if let Some(on_storage_ready) = hooks.on_storage_ready.take() {
+        on_storage_ready(&mut hooks, db.clone());
+    }
+
+    let ServerHooks {
+        conversation_trigger,
+        mut background_services,
+        ..
+    } = hooks;
+
     let api_key: Option<Arc<str>> = config.api_key.as_deref().map(Arc::from);
     let alt_api_key: Option<Arc<str>> = config.alt_api_key.as_deref().map(Arc::from);
     let jwt_secret: Option<Arc<str>> = config.jwt_secret.as_deref().map(Arc::from);
@@ -340,7 +372,7 @@ pub async fn run_with_hooks(config: Config, hooks: ServerHooks) -> Result<()> {
     let rbac_config = config.rbac_config.clone();
     let state = Arc::new(ServerState {
         storage: storage.clone(),
-        db: crate::sdk::Embedded::from_engine(storage.clone()),
+        db,
         circuit_breaker,
         pool,
         api_key,
@@ -350,21 +382,6 @@ pub async fn run_with_hooks(config: Config, hooks: ServerHooks) -> Result<()> {
         trusted_proxies: config.trusted_proxies.clone(),
         conversation_trigger,
     });
-
-    // MOD-12 (MCP-01 twin): a raw StorageEngine skips the
-    // `Embedded::open_with_config` index reconciliation, so lexical/hybrid
-    // searches fail on fresh DBs with "text_index not found". Ensure index
-    // state at startup: idempotent — no-op when counts match, writes fresh
-    // empty state for new DBs. Read-only engines cannot rebuild, so they are
-    // skipped (same guard as `open_with_config`).
-    if !config.read_only {
-        if let Err(e) = state.db.ensure_indexes_current() {
-            crate::console::error(
-                "Failed to ensure index state at startup; text search may be unavailable",
-                Some(&e.to_string()),
-            );
-        }
-    }
 
     // WIRE-04: background TTL sweeper — keeps the TTL promise without manual
     // `purge_expired` calls (physically purges expired records + indexes).
@@ -668,6 +685,24 @@ mod tests {
         let hooks = ServerHooks::default();
         assert!(hooks.conversation_trigger.is_none());
         assert!(hooks.background_services.is_empty());
+        // WIRE-16: the deferred-wiring hook defaults inert too.
+        assert!(hooks.on_storage_ready.is_none());
+    }
+
+    /// WIRE-16: the deferred host-wiring hook is settable with the documented
+    /// signature — hosts complete trigger/services once the server shares its
+    /// `Embedded` handle (single-writer; a second open is `DatabaseBusy`).
+    #[test]
+    fn on_storage_ready_defaults_inert_and_accepts_host_wiring() {
+        let mut hooks = ServerHooks::default();
+        assert!(
+            hooks.on_storage_ready.is_none(),
+            "default must keep the pre-WIRE-16 behavior"
+        );
+        hooks.on_storage_ready = Some(Box::new(
+            |_hooks: &mut ServerHooks, _db: crate::sdk::Embedded| {},
+        ));
+        assert!(hooks.on_storage_ready.is_some());
     }
 
     /// The built-in TTL sweeper participates in the same lifecycle seam.

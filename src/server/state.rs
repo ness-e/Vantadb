@@ -130,7 +130,12 @@ pub trait BackgroundService: Send {
 ///
 /// Passed to [`crate::server::bootstrap::run_with_hooks`]. The defaults keep
 /// the pre-WIRE-14 behavior exactly: no conversation trigger, no background
-/// services — `run(config)` is `run_with_hooks(config, ServerHooks::default())`.
+/// services, no deferred wiring — `run(config)` is
+/// `run_with_hooks(config, ServerHooks::default())`.
+///
+/// WIRE-16 adds [`on_storage_ready`](Self::on_storage_ready) for hosts that
+/// need the server's database handle (single writer) to build their own
+/// trigger/services once storage is open.
 #[derive(Default)]
 pub struct ServerHooks {
     /// Optional post-save hook for `POST /api/v2/conversations` (MEM-55).
@@ -140,6 +145,16 @@ pub struct ServerHooks {
     /// the HTTP loop returns, in registration order. The built-in TTL sweeper
     /// is joined after these when enabled.
     pub background_services: Vec<Box<dyn BackgroundService>>,
+    /// Deferred host wiring (WIRE-16): called once by the bootstrap after the
+    /// server opens storage (and ensures its indexes), before `ServerState` is
+    /// built. Receives a clone of the server's [`Embedded`] handle so the host
+    /// can attach a [`ConversationTrigger`] and background services that need
+    /// the database — single writer: the server owns the process's one open
+    /// (a second `StorageEngine::open_with_config` on the same path fails with
+    /// `DatabaseBusy`), and a second `Embedded` handle would split the audit
+    /// log and the purge/supersede locks. `None` (default) keeps the
+    /// pre-WIRE-16 behavior exactly.
+    pub on_storage_ready: Option<Box<dyn FnOnce(&mut ServerHooks, Embedded) + Send>>,
 }
 
 /// Shared application state injected into every route handler.
