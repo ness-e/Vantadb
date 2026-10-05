@@ -25,6 +25,7 @@ use thiserror::Error;
 use vantadb::sdk::Embedded;
 
 use crate::core::abstractions::MemoryRecord;
+use crate::core::conversation::sanitize_key;
 use crate::core::persona::persona_generator::{get_persona, persona_namespace, PersonaError};
 use crate::core::profile::profile_sync::{
     build_profile_isolation_scope, profile_namespace, read_scoped_persona, ProfileIsolation,
@@ -453,6 +454,35 @@ pub fn perform_auto_recall_governed(
         effective_mode: config.mode.effective(semantic_ran),
         governance,
     }))
+}
+
+/// MEMG-02: report the outcome of a recalled memory back to the store —
+/// closes the recall → outcome → confidence loop.
+///
+/// Maps a [`RecalledMemory`] hit to the core
+/// [`vantadb::Embedded::reinforce`] op using the identity the recall already
+/// carries (`source_namespace` + `source_key`, VER-04). The host declares the
+/// outcome explicitly ([`vantadb::ReinforceOutcome`]) — the engine never
+/// infers it (no silent feedback). Policy (bump/decay/window) lives in the
+/// core op; see `docs/api/scores.md` §Reinforcement.
+///
+/// `source_key` is sanitized with the same rule the L1 writer used for the
+/// stored key (`sanitize_key`, `put_record`), so a hit round-trips to its
+/// record. Errors with `InvalidInput` when the hit carries no source identity
+/// (payload recalled before VER-04) instead of guessing namespace/key.
+pub fn reinforce_recalled(
+    db: &Embedded,
+    recalled: &RecalledMemory,
+    outcome: vantadb::ReinforceOutcome,
+) -> Result<vantadb::MemoryRecord, L1Error> {
+    if recalled.source_namespace.is_empty() || recalled.source_key.is_empty() {
+        return Err(L1Error::Vanta(vantadb::Error::InvalidInput(
+            "recalled memory carries no source identity (legacy payload) — cannot reinforce"
+                .to_string(),
+        )));
+    }
+    let key = sanitize_key(&recalled.source_key);
+    Ok(db.reinforce(&recalled.source_namespace, &key, outcome)?)
 }
 
 /// Cross-session L1 records visible under the given scope (D22): every

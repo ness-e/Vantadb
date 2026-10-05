@@ -119,6 +119,60 @@ impl ConfidenceClass {
     }
 }
 
+/// Outcome of a recalled memory as reported by the host after a recall pass
+/// (MEMG-02, outcome loop): the explicit signal that feeds
+/// [`crate::Embedded::reinforce`]. `#[non_exhaustive]` — the vocabulary may
+/// grow (e.g. a future `PartiallyUsed`) without a breaking change.
+///
+/// The host declares the outcome; the engine never infers it (no silent
+/// feedback). Semantics per variant are declared policy — see
+/// `docs/api/scores.md` §Reinforcement:
+///
+/// - [`Self::Used`] — the recall resolved with this memory: confidence bumps
+///   (+0.05, saturated at 1.0) and `last_validated_at_ms` is stamped, at most
+///   once per rate window (5 min).
+/// - [`Self::Corrected`] — the memory was wrong and had to be corrected:
+///   confidence decays (−0.10, floored at 0.0). Failures do not stamp
+///   `last_validated_at_ms` (success-only, MGR-12 §3.3).
+/// - [`Self::Unused`] — the memory was recalled but not used: neutral (no
+///   score change). Not evidence of incorrectness; recorded in the audit
+///   trail so the declaration stays falsifiable.
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ReinforceOutcome {
+    /// The recall resolved with this memory (positive signal).
+    Used,
+    /// The memory was wrong and the host corrected it (negative signal).
+    Corrected,
+    /// The memory was recalled but not used (neutral signal).
+    Unused,
+}
+
+impl ReinforceOutcome {
+    /// Wire name matching the serde representation (`"used"`/`"corrected"`/
+    /// `"unused"`); used for audit reasons and MCP/HTTP payloads. Drift
+    /// against serde is guarded by a unit test.
+    pub fn as_wire_str(&self) -> &'static str {
+        match self {
+            Self::Used => "used",
+            Self::Corrected => "corrected",
+            Self::Unused => "unused",
+        }
+    }
+
+    /// Parse a wire name produced by [`Self::as_wire_str`] (exact snake_case
+    /// tokens; unknown tokens → `None` — callers reject, never infer).
+    pub fn from_wire_str(value: &str) -> Option<Self> {
+        match value {
+            "used" => Some(Self::Used),
+            "corrected" => Some(Self::Corrected),
+            "unused" => Some(Self::Unused),
+            _ => None,
+        }
+    }
+}
+
 /// Stable persistent memory payload accepted by external SDKs.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct MemoryInput {
@@ -998,6 +1052,29 @@ mod tests {
             );
         }
         assert_eq!(ConfidenceClass::from_wire_str("bogus"), None);
+    }
+
+    #[test]
+    fn reinforce_outcome_wire_str_matches_serde() {
+        // Drift guard: the audit/MCP wire names must equal the serde
+        // representation, and `from_wire_str` must round-trip them.
+        for outcome in [
+            ReinforceOutcome::Used,
+            ReinforceOutcome::Corrected,
+            ReinforceOutcome::Unused,
+        ] {
+            let json = serde_json::to_string(&outcome).expect("serialize outcome");
+            assert_eq!(json, format!("\"{}\"", outcome.as_wire_str()));
+            assert_eq!(
+                ReinforceOutcome::from_wire_str(outcome.as_wire_str()),
+                Some(outcome)
+            );
+        }
+        assert_eq!(
+            ReinforceOutcome::from_wire_str("bogus"),
+            None,
+            "unknown tokens are rejected, never inferred"
+        );
     }
 
     #[test]

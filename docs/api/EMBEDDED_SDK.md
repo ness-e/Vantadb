@@ -89,6 +89,7 @@ CRUD operations for persistent memory records identified by `(namespace, key)` p
 | `explain_memory_search(request)` | Search with detailed score breakdown. Returns `SearchExplanation` |
 | `namespace_stats(expiring_soon_window_ms)` | Per-namespace statistics: total records, records expiring within the window, already-expired records. Single full scan (no N paginated `count`/`list` calls). `None` uses the 24h default window. Returns `NamespaceStatsMap` |
 | `supersede(namespace, old_key, new_key)` | Mark `old_key` as superseded by `new_key`: the old record keeps its data (soft-dead, recoverable) but gains `superseded_by`/`superseded_at_ms`, and can be hidden from search/list with `exclude_superseded`. Errors if either key is missing, if `old_key == new_key`, or if the old record is already superseded (idempotency guard) |
+| `reinforce(namespace, key, outcome: ReinforceOutcome)` | MEMG-02: report the outcome of a recalled memory and feed it back into the record's confidence (outcome loop; the engine never infers the outcome). `Used` bumps `confidence` +0.05 (saturated at 1.0) and stamps `last_validated_at_ms`, at most once per 5-minute window; `Corrected` decays −0.10 (floored at 0.0) without stamping; `Unused` is neutral (audit-only). `Derived` records are rejected — their score is computed from parents. Returns the resulting `MemoryRecord` (state-only change: `version` unchanged, no history snapshot, audited as `memory_reinforce`). Policy: [scores.md §Reinforcement](./scores.md) |
 | `purge_expired()` | Scan all memory records and physically delete those whose TTL has expired. Returns `u64` count of purged records |
 | `bulk_import_file(path)` | Bulk-import from a binary `.vdbdump` file. Bypasses per-record validation for raw throughput; commits in batches sized by `bulk_commit_interval` (default 10000) |
 | `bulk_import_stream(reader)` | Bulk-import records from a binary stream. Format: 8-byte magic `VDBJSON\n`, 1-byte version `0x01`, 8-byte LE record count, then serde_json-serialized `Vec<MemoryInput>`. Same batching/validation behavior as `bulk_import_file` |
@@ -205,6 +206,22 @@ pub struct MemoryRecord {
     pub quarantine_review_due_ms: Option<u64>, // T3 review deadline (never auto-promotes)
 }
 ```
+
+### `ReinforceOutcome`
+
+```rust
+#[non_exhaustive]
+pub enum ReinforceOutcome {
+    Used,       // the recall resolved with this memory (positive)
+    Corrected,  // the memory was wrong and the host corrected it (negative)
+    Unused,     // recalled but not used (neutral)
+}
+```
+
+Wire names are `snake_case` (`"used"` / `"corrected"` / `"unused"`);
+`ReinforceOutcome::from_wire_str` rejects unknown tokens (the engine never
+infers an outcome). See [scores.md §Reinforcement](./scores.md) for the
+declared bump/decay/window policy.
 
 ### `NamespaceStats`
 

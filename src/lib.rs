@@ -192,9 +192,9 @@ pub use sdk::{
     MemoryFilterItem, MemoryInput, MemoryListOptions, MemoryListPage, MemoryMetadata, MemoryRecord,
     MemorySearchHit, MemorySearchPage, MemorySearchRequest, MmrConfig, NamespaceStats,
     NamespaceStatsMap, NodeInput, NodeRecord, OperationalMetrics, QueryResult, RangeFilter,
-    RuntimeProfile, SearchExplanation, SearchExplanationHit, SearchHit, StorageTier,
-    TextIndexAuditReport, TextIndexRepairReport, ValidWindow, Value, DERIVATION_DISCOUNT,
-    MAX_DERIVATION_DEPTH,
+    ReinforceOutcome, RuntimeProfile, SearchExplanation, SearchExplanationHit, SearchHit,
+    StorageTier, TextIndexAuditReport, TextIndexRepairReport, ValidWindow, Value,
+    DERIVATION_DISCOUNT, MAX_DERIVATION_DEPTH,
 };
 pub use sdk::{
     SkillCreateInput, SkillListOptions, SkillListPage, SkillPatchInput, SkillRecord,
