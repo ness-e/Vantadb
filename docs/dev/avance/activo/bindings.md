@@ -1189,3 +1189,15 @@ tags: [vantadb, avance, bindings, python, wasm, typescript, mcp, adapters]
 - **Objetivo:** el MCP ya emitía certificados (`memory_delete` con `attest:true`, VER-02) pero no podía verificarlos — el loop de evidencia quedaba abierto en la puerta de agentes.
 - **Resultado:** ✅ Tool `memory_verify_certificate` con resultado **tipado** (válido → `structuredContent {valid,verification}`; inválido → `isError` + envelope ERR-MCP-01) + **paridad CLI byte-exacta** (mismo `verify_purge_certificate` que `cmd_certificate_verify`; veredicto vs SDK en test); `MCP.md` + coverage 0 gaps (48 items MCP); counts 80/86/48/38/37/21; paquete 260/260 + mcp_tests 114/114; fmt/clippy 0. Review P2-01 adversarial: APPROVE (0 Critical/High/Medium). WAL VER-01 → FIND-266.
 - **Commit:** 7f30e4cd + 4ce3ed3c (local, sin push)
+
+### DIST-17: Harness de paridad cross-language Py/Node/WASM (conformance)
+- **Fecha:** 2026-10-04
+- **Objetivo:** la paridad entre bindings se sostenía por espejos manuales; hacía falta un comparador mecánico con escenario canónico.
+- **Resultado:** ✅ `tests/parity/scenario.json` (put/search/grafo/IQL) → artefacto por binding → `dev-tools/parity-compare.mjs` (SHA-256 por step + diff, normalización documentada) + job CI `ci-bindings-parity.yml`. **Incógnita resuelta en DISCOVERY: WASM corre el escenario COMPLETO (incl. IQL) con valores byte-idénticos a Py/Node**; única exclusión real: Node × IQL (sin `query`) → FIND-268. Evidencia: PARITY OK 3/3 + 5/5 modos de fallo detectados; Rust 3745/3745 · Py 182 · TS 343 · actionlint 0. Review P2-01 APPROVE.
+- **Commit:** 3c528df3 + 6a84fc5a (local, sin push)
+
+### WSM-14: Adopción npm — posicionamiento + demo + keywords honestas
+- **Fecha:** 2026-10-04
+- **Objetivo:** el paquete npm es la superficie de descubrimiento del binding WASM; el demo existía pero la superficie publicada no posicionaba.
+- **Resultado:** ✅ Posicionamiento "browser AI agent memory" en las 2 superficies npm (`vantadb-wasm` README tracked + Cargo.toml keywords; `vantadb` README + package.json) + demo Transformers.js enlazado + comparativa re-medida y honesta (gap ~31× vs Orama declarado; 1.77 MB raw / ~739 KB transfer, 2026-10-04) + refs stale a `dev-tools/build-wasm.ps1` corregidas. Smoke: `pkg/README.md` == tracked (SHA256) tras 3 rebuilds + `smoke-pack.mjs` PASSED. Review P2-01 (R1→R3) APPROVE.
+- **Commit:** 0c3e465e + 8b7269da (local, sin push)
