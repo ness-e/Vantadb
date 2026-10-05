@@ -559,7 +559,7 @@ Sub-clients group by **domain**, never by mirrored method name. Where semantics 
 | Sub-client / slice | TS/WASM today | Exact dependency to move | Status |
 |---|---|---|---|
 | `wiki` — node archive recovery | ✅ `recoverArchivedNodes` (TS-11) | — (core SDK `src/sdk/builder.rs:243`; engine `src/storage/engine/maintenance.rs:1197`; wasm-safe `src/wiki/store.rs:4` uses `web_time`) | **landed** |
-| `wiki` — pages / TDAM | ❌ | (1) core SDK surface for `WikiStore` pages — today only the MCP consumes it (`vantadb-mcp/src/wiki.rs:40`); (2) TDAM ingest (LLM) lives in the cognitive-layer crate — blocked by FIND-255 | blocked |
+| `wiki` — pages / TDAM | ❌ | (1) no SDK surface for `WikiStore` pages — consumed directly by the MCP (`vantadb-mcp/src/wiki.rs:40`) and the cognitive-layer ingest (`vanta-memory/src/ingest/worker.rs:36`); (2) TDAM ingest (LLM) lives in the cognitive-layer crate — blocked by FIND-255 | blocked |
 | `conversation` — threads | ❌ | core SDK surface **exists** (`src/sdk/builder.rs:178-235`; `src/agentic/thread.rs`, `web_time`-safe at `:17`); needs a WASM binding + TS getter (thin — same pattern as this slice) | movable (next candidate) |
 | `conversation` — L0–L3 pipeline | ❌ | cognitive-layer wasm port (FIND-255: 6 verified gaps, see §Cognitive layer scope) + Gate P re-run (`API-STD-15`) | blocked |
 | `skills` | ❌ | (1) core SDK surface for `SkillStore` — today only the HTTP server consumes it (`src/server/handlers.rs:1472`; store is wasm-safe, `src/skills.rs:34` uses `web_time`); (2) WASM binding + TS getter | blocked on SDK surface |
