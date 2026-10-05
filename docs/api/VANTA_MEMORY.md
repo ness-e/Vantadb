@@ -223,7 +223,7 @@ with `llm-driver` on: failures are loud, never a silent `NotConfigured`
 | Offload | `offload::{state_manager,storage,reclaimer,hooks::after_tool_call}` | Cursor `lastOffloadedToolCallId`, entradas por tool_call_id, GC por retention |
 | Ingest | `ingest::{worker,merge,prompts,callback}` | Ingest wiki serial (fallo por página no bloquea), progreso canal interno + polling run_id |
 | Skills | `core::skill::skill_extractor` + `conversation_add` | Extracción desde transcript con marcadores anti role-capture; sink idempotente doble cursor+content-hash |
-| Orquestación | `services::pipeline_worker`, `utils::{pipeline_manager,stateful_pipeline_manager,managed_timer,checkpoint}` | Timers/locks estado local, trait `Clock` inyectable (FakeClock determinista), worker L0→L1→L2→L3 |
+| Orquestación | `services::pipeline_worker`, `utils::{pipeline_manager,stateful_pipeline_manager,managed_timer,checkpoint,backup}` | Timers/locks estado local, trait `Clock` inyectable (FakeClock determinista), worker L0→L1→L2→L3, backup/restore vía snapshot (MEMG-13) |
 | Gateway | `gateway::knowledge_handlers` | Handlers tipados scene_read/list/query para exposición MCP/server |
 
 **Contradicciones en ingesta (MEMG-01).** El juicio de dedup L1 —la misma
@@ -303,6 +303,42 @@ worker (`trigger_every_n = usize::MAX`, so this path never regenerates persona).
 (`src/server/bootstrap.rs:332`, field `src/server/state.rs:134`, call site
 `src/server/handlers.rs:1391`) → inactive in production until a host wires it
 (MEM-55 residual).
+
+## Audit & backup (MEMG-13)
+
+Consumption of the core `versions` and `snapshot` surfaces — audit/diff and
+backup/restore for L1 memory, with no core changes and no reimplementation.
+
+**Version history / diff** (`core::record::{read_record_versions, read_record_version, diff_records}`):
+
+| Function | Contract |
+|---|---|
+| `read_record_versions(db, session_key, record_id) -> Vec<RecordVersion>` | Every retained version of an L1 record, ascending (`RecordVersion { version: u64, record: MemoryRecord }`); core `Embedded::versions` (VS-CORE-07). Best-effort post-commit: a crash window can leave a version gap (degraded, never corrupt). **Audit surface:** does not apply the quarantine gate (SCH-05) — retained versions expose quarantined state on purpose; never feed this history into model context |
+| `read_record_version(db, session_key, record_id, version) -> Option<RecordVersion>` | One version by its storage number (core `Embedded::get_version`); `None` when the record or version is absent |
+| `diff_records(older, newer) -> Vec<RecordFieldChange>` | Top-level payload fields that differ, ordered by name; fields skipped by `skip_serializing_if` (unset optionals) read as `Null` — appearing/disappearing is reported, never silent |
+
+**Backup / restore** (`utils::backup::{create_snapshot, list_snapshots, restore_snapshot}`):
+
+```rust
+let snap = create_snapshot(&db, "mem-2026-10-05")?;    // point-in-time image
+let names = list_snapshots(&db)?;                      // names available
+db.close()?;                                           // restore needs no open engine
+let db = restore_snapshot(config, "mem-2026-10-05")?;  // reopened over restored data
+```
+
+Thin delegation to the core (`Embedded::create_snapshot`/`list_snapshots`/`restore_from`);
+the core owns quiesce/mirror/rollback and validates the snapshot name (anti
+path-traversal — the wrapper never relaxes it). Requires an on-disk store
+(Fjall); `InMemory` keeps no files. Restore scope (core contract): only
+`<storage_path>/data` is swapped back — post-snapshot additions disappear,
+while post-snapshot deletions/supersessions keep their live backend-KV
+tombstones and are **not** rolled back (FIND-287).
+
+**Evaluated, not consumed:** the recall cursor is already consumed
+(`read_namespace_records` pages via `MemoryListOptions.cursor`);
+`include_quarantined:false` (SCH-05) is consumed too. IQL and the remaining
+core filters (`min_confidence`, temporal, metadata) have no memory-side
+consumer today → FIND-285 / FIND-286 (Backlog).
 
 ## Contratos clave
 

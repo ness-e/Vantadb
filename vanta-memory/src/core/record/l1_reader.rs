@@ -3,7 +3,9 @@
 //! Phase 1 of the two-phase dedup: read the persisted L1 records of a session
 //! and recall top-k candidate pools per new memory WITHOUT an LLM call
 //! (Principio 4 — recall is optional; when it yields nothing, the pipeline
-//! stores everything).
+//! stores everything). MEMG-13 adds the version-history/diff audit surface
+//! ([`read_record_versions`], [`read_record_version`], [`diff_records`]) over
+//! the core `Embedded::versions`/`get_version` (VS-CORE-07).
 //!
 //! Persistence goes through the VantaDB SDK (Principio 2): records live under
 //! the `l1/<session>` namespace, key = sanitized record id, payload = the
@@ -87,6 +89,120 @@ pub fn read_record(
         }
         None => Ok(None),
     }
+}
+
+/// One retained version of an L1 record: the core storage version number plus
+/// the decoded memory payload for that version (VS-CORE-07).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct RecordVersion {
+    /// Core storage version (u64) — the address accepted by
+    /// [`read_record_version`].
+    pub version: u64,
+    /// Decoded L1 payload for that version.
+    pub record: MemoryRecord,
+}
+
+/// Read every retained version of an L1 record, ascending (v1..vN), mapped to
+/// the memory payload (core `Embedded::versions`, VS-CORE-07).
+///
+/// Empty when the record has no history (never written / not found / history
+/// already pruned). The history is best-effort post-commit in the core — a
+/// crash window can leave a version gap (degraded, never corrupt).
+///
+/// **Audit surface:** unlike the recall reads, this does **not** apply the
+/// quarantine gate (SCH-05) — retained versions expose quarantined state on
+/// purpose. Do not feed this history into model context; it is for audit/diff.
+pub fn read_record_versions(
+    db: &vantadb::sdk::Embedded,
+    session_key: &str,
+    record_id: &str,
+) -> Result<Vec<RecordVersion>, L1Error> {
+    let ns = l1_namespace(session_key);
+    let key = sanitize_key(record_id);
+    let mut versions = Vec::new();
+    for stored in db.versions(&ns, &key)? {
+        versions.push(decode_version(&stored)?);
+    }
+    Ok(versions)
+}
+
+/// Read one retained version of an L1 record (core `Embedded::get_version`).
+/// `None` when the record or that version does not exist.
+pub fn read_record_version(
+    db: &vantadb::sdk::Embedded,
+    session_key: &str,
+    record_id: &str,
+    version: u64,
+) -> Result<Option<RecordVersion>, L1Error> {
+    let ns = l1_namespace(session_key);
+    let key = sanitize_key(record_id);
+    match db.get_version(&ns, &key, version)? {
+        Some(stored) => Ok(Some(decode_version(&stored)?)),
+        None => Ok(None),
+    }
+}
+
+/// Map one stored core record (payload + node vector) to a [`RecordVersion`],
+/// mirroring [`read_record`]'s payload→record decoding.
+fn decode_version(stored: &vantadb::sdk::MemoryRecord) -> Result<RecordVersion, L1Error> {
+    let mut mem: MemoryRecord = serde_json::from_str(&stored.payload)?;
+    mem.vector = usable_vector_filter(stored.vector.as_deref());
+    Ok(RecordVersion {
+        version: stored.version,
+        record: mem,
+    })
+}
+
+/// One changed top-level field between two versions of an L1 record.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct RecordFieldChange {
+    /// Payload field name (`content`, `type`, `superseded_by`, ...).
+    pub field: String,
+    /// Value in the older version; [`serde_json::Value::Null`] when the field
+    /// was absent (`skip_serializing_if` — e.g. an unset optional).
+    pub before: serde_json::Value,
+    /// Value in the newer version; `Null` when the field was absent.
+    pub after: serde_json::Value,
+}
+
+/// Field-level diff of two versions of the same L1 record — the audit view
+/// over [`read_record_versions`]: every top-level payload field whose value
+/// differs, ordered by field name.
+///
+/// The comparison runs on the serialized payload (`serde_json::to_value`), so
+/// fields skipped by `skip_serializing_if` (unset optionals like `task_id` or
+/// `superseded_by`) read as [`serde_json::Value::Null`] — a field appearing or
+/// disappearing is reported, never silent.
+pub fn diff_records(
+    older: &MemoryRecord,
+    newer: &MemoryRecord,
+) -> Result<Vec<RecordFieldChange>, L1Error> {
+    let before = serde_json::to_value(older)?;
+    let after = serde_json::to_value(newer)?;
+    let mut fields: std::collections::BTreeSet<&str> = std::collections::BTreeSet::new();
+    for value in [&before, &after] {
+        if let Some(object) = value.as_object() {
+            fields.extend(object.keys().map(String::as_str));
+        }
+    }
+    let mut changes = Vec::new();
+    for field in fields {
+        let before_value = before
+            .get(field)
+            .cloned()
+            .unwrap_or(serde_json::Value::Null);
+        let after_value = after.get(field).cloned().unwrap_or(serde_json::Value::Null);
+        if before_value != after_value {
+            changes.push(RecordFieldChange {
+                field: field.to_string(),
+                before: before_value,
+                after: after_value,
+            });
+        }
+    }
+    Ok(changes)
 }
 
 /// Attach the node vector to a record, treating empty/all-zero vectors (how

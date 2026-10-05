@@ -4,6 +4,7 @@
 //! ([`local_backend`]), timer scanner, persistent checkpoint and the
 //! pipeline managers + factory.
 
+pub mod backup;
 pub mod checkpoint;
 pub mod local_backend;
 pub mod managed_timer;
@@ -14,6 +15,7 @@ pub mod stateful_pipeline_manager;
 pub mod text_utils;
 pub mod timer_scanner;
 
+pub use backup::{create_snapshot, list_snapshots, restore_snapshot};
 pub use checkpoint::{Checkpoint, CheckpointError, CheckpointManager, RunnerSessionState};
 pub use local_backend::{BackendSnapshot, LocalStateBackend, PipelineSessionStatePatch};
 pub use managed_timer::{Clock, FakeClock, ManagedTimer, SystemClock};
