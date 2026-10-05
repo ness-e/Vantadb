@@ -359,8 +359,8 @@ const reachable = await db.graph.bfs([42], 3);
 const order = await db.graph.topologicalSort([1, 2, 3]);
 if (await db.graph.isDag([1, 2])) { /* safe to topologically sort */ }
 
-// wiki — empty in v1: wiki features are core-only (not exposed via WASM yet)
-Object.keys(db.wiki); // []
+// wiki — node archive recovery (summary/archive lifecycle)
+const recovered = await db.wiki.recoverArchivedNodes(42);
 
 // system — lifecycle, metrics, IQL, maintenance, import/export
 console.log(await db.system.capabilities());
@@ -371,7 +371,7 @@ await db.system.flush();
 Notes:
 
 - Sub-clients are lazy, frozen (`Readonly`) singletons — accessing `db.graph` twice returns the same object.
-- `conversation` / `skills` sub-clients do not exist yet; their capabilities live in the core crate only.
+- `conversation` / `skills` sub-clients do not exist yet; their capabilities live in the core crate only. Wiki slice 1 (`recoverArchivedNodes`) landed in TS-11; the remaining wiki / conversation / skills surfaces are tracked with exact dependencies and promotion criteria in the [Sub-Client Roadmap](../docs/api/BINDINGS_NAMESPACES.md#sub-client-roadmap-post-d43--ts-11-reviewed-2026-10-04).
 - Python exposes the equivalent grouping via `db.memory`, `db.graph`, `db.system`, `db.wiki` — see [PYTHON_SDK.md → Domain Sub-clients](../docs/api/PYTHON_SDK.md).
 
 ## Runtimes

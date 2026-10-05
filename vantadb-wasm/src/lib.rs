@@ -1799,6 +1799,21 @@ impl Client {
         Ok(())
     }
 
+    /// Recover nodes shadow-archived by a summary node (wiki summary
+    /// lifecycle): scans the tombstone partition for nodes with a
+    /// `belonged_to` edge targeting `summary_id`, re-activates them, and
+    /// returns the recovered records (empty array when none match).
+    pub fn recover_archived_nodes(&self, summary_id: &str) -> Result<JsValue, JsValue> {
+        let _g = enter(&self.op_gate)?;
+        let records = self
+            .inner
+            .recover_archived_nodes(parse_node_id(summary_id)?)
+            .map_err(to_js_err)?;
+        let js: Vec<JsNodeRecord> = records.into_iter().map(Into::into).collect();
+        self.mark_invalid();
+        to_js(&js)
+    }
+
     /// Perform a breadth-first traversal from the given root node IDs.
     pub fn graph_bfs(
         &self,
