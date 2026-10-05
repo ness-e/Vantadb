@@ -73,6 +73,7 @@ Legend: Y = yes, — = no. `paths` means a path filter applies (see file).
 | `release-npm-61.yml` | `v*.*.*` | Y (paths wasm/ts) | Y | — |
 | `release-npm-node.yml` | `node-v*.*.*` | Y (paths node) | Y | — |
 | `release-adapters.yml` | `adapters-v*.*.*` | — | Y | — |
+| `release-providers.yml` | `providers-v*.*.*` | Y (paths providers) | Y | — |
 | `release-binaries.yml` | — | — | Y | `release` published |
 | `release-sbom.yml` | `v*` | — | Y | — |
 | `release-verify.yml` | — | — | Y | schedule Mon 08:00 |

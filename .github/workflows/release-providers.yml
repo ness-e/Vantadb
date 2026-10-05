@@ -1,0 +1,312 @@
+name: 'RELEASE: Providers — PyPI Publish'
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish_testpypi:
+        description: "Upload built wheels to TestPyPI"
+        required: false
+        default: "false"
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "providers/**"
+      - ".github/workflows/release-providers.yml"
+      - ".github/scripts/provider_wheel_smoke.py"
+  push:
+    tags: ["providers-v*.*.*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  build-wheels:
+    name: Build wheel (${{ matrix.provider }} — ${{ matrix.wheel_id }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - provider: openai
+            wheel_id: linux-x86_64
+            os: ubuntu-latest
+          - provider: ollama
+            wheel_id: linux-x86_64
+            os: ubuntu-latest
+          - provider: litellm
+            wheel_id: linux-x86_64
+            os: ubuntu-latest
+          - provider: openai
+            wheel_id: macos
+            os: macos-latest
+          - provider: ollama
+            wheel_id: macos
+            os: macos-latest
+          - provider: litellm
+            wheel_id: macos
+            os: macos-latest
+          - provider: openai
+            wheel_id: windows
+            os: windows-latest
+          - provider: ollama
+            wheel_id: windows
+            os: windows-latest
+          - provider: litellm
+            wheel_id: windows
+            os: windows-latest
+          # aarch64 Linux wheels — cross-compiled inside maturin-action's
+          # official manylinux_2_28 cross container (same pattern as
+          # release-wheels.yml). Smoke is skipped for this target: an
+          # aarch64 wheel cannot be pip-installed on the x86_64 runner;
+          # correctness is gated by the wheel platform tag
+          # (manylinux_2_28_aarch64) + the TestPyPI/PyPI install verify jobs.
+          - provider: openai
+            wheel_id: linux-aarch64
+            os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+          - provider: ollama
+            wheel_id: linux-aarch64
+            os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+          - provider: litellm
+            wheel_id: linux-aarch64
+            os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+
+    steps:
+      - name: Configure pagefile (Windows — prevent OOM)
+        if: matrix.os == 'windows-latest'
+        uses: al-cheb/configure-pagefile-action@9b6da52fb72a3c6147c1aad2df22d8d905681adc # v1.5
+        with:
+          minimum-size: 8GB
+          maximum-size: 16GB
+
+      - name: Free Disk Space (macOS — allow dynamic pager growth)
+        if: matrix.os == 'macos-latest'
+        run: |
+          sudo rm -rf /opt/hostedtoolcache
+          df -h /
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # v1
+        with:
+          toolchain: stable
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@7e35be21c2b94d972b1143087fabc27d7dc881ef # v2.9.1
+        with:
+          cache-bin: "false"
+
+      - name: Build wheel
+        uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1.51.0
+        env:
+          # El container manylinux monta target/ del host: aislarlo para que
+          # cargo no reutilice build-scripts compilados contra glibc nueva.
+          CARGO_TARGET_DIR: /tmp/maturin-target
+        with:
+          command: build
+          args: --release --out dist --manifest-path providers/${{ matrix.provider }}/Cargo.toml
+          target: ${{ matrix.target }}
+          manylinux: 2_28
+          # FIND-127: el container cross aarch64 (ghcr.io/rust-cross/manylinux_2_28-cross)
+          # es Debian-based (sin yum) mientras el pypa x86_64 usa yum — rama portable.
+          before-script-linux: |
+            if command -v yum >/dev/null 2>&1; then yum install -y clang clang-devel; else apt-get update && apt-get install -y clang; fi
+
+      - name: Install & smoke test (Unix)
+        if: matrix.os != 'windows-latest' && !matrix.target
+        shell: bash
+        run: |
+          wheel="$(ls -t ./dist/vantadb_${{ matrix.provider }}-*.whl | head -n 1)"
+          echo "Installing wheel: $wheel"
+          python -m venv /tmp/.smoke-venv
+          /tmp/.smoke-venv/bin/pip install --upgrade pip
+          /tmp/.smoke-venv/bin/pip install "$wheel"
+          /tmp/.smoke-venv/bin/python .github/scripts/provider_wheel_smoke.py ${{ matrix.provider }}
+
+      - name: Install & smoke test (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $wheel = (Get-ChildItem .\dist\vantadb_${{ matrix.provider }}-*.whl | Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName
+          Write-Output "Installing wheel: $wheel"
+          python -m venv "$env:TEMP\.smoke-venv"
+          & "$env:TEMP\.smoke-venv\Scripts\pip" install --upgrade pip
+          & "$env:TEMP\.smoke-venv\Scripts\pip" install $wheel
+          & "$env:TEMP\.smoke-venv\Scripts\python" .github\scripts\provider_wheel_smoke.py ${{ matrix.provider }}
+
+      - name: Upload wheel artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: wheels-${{ matrix.provider }}-${{ matrix.wheel_id }}
+          path: ./dist/*.whl
+          if-no-files-found: error
+
+  publish-testpypi:
+    name: Publish wheels to TestPyPI
+    runs-on: ubuntu-latest
+    needs: build-wheels
+    timeout-minutes: 10
+    if: github.event_name == 'workflow_dispatch' && inputs.publish_testpypi == 'true'
+    environment: testpypi
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Download all wheels
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: wheels-*
+          path: ./dist
+          merge-multiple: true
+
+      - name: Publish to TestPyPI
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          verbose: true
+          skip-existing: true
+
+  verify-testpypi-install:
+    name: Verify TestPyPI install (${{ matrix.provider }})
+    runs-on: ubuntu-latest
+    needs: publish-testpypi
+    timeout-minutes: 10
+    if: github.event_name == 'workflow_dispatch' && inputs.publish_testpypi == 'true'
+
+    strategy:
+      fail-fast: false
+      matrix:
+        provider: [openai, ollama, litellm]
+
+    steps:
+      - name: Checkout (for the smoke script)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+
+      - name: Extract provider version (tag or Cargo.toml)
+        id: pkg_version
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/providers-v* ]]; then
+            echo "version=${GITHUB_REF#refs/tags/providers-v}" >> "$GITHUB_OUTPUT"
+          else
+            version=$(python -c "import tomllib; print(tomllib.load(open('providers/${{ matrix.provider }}/Cargo.toml','rb'))['package']['version'])")
+            echo "version=${version}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Wait for TestPyPI CDN propagation
+        run: sleep 30
+
+      - name: Install from TestPyPI
+        run: |
+          python -m pip install \
+            --index-url https://test.pypi.org/simple/ \
+            --extra-index-url https://pypi.org/simple/ \
+            "vantadb-${{ matrix.provider }}==${{ steps.pkg_version.outputs.version }}"
+
+      - name: Functional smoke test - verify published wheel
+        run: python .github/scripts/provider_wheel_smoke.py ${{ matrix.provider }}
+
+  publish-pypi:
+    name: Publish wheels to PyPI (Production)
+    runs-on: ubuntu-latest
+    needs: build-wheels
+    timeout-minutes: 10
+    if: startsWith(github.ref, 'refs/tags/providers-v')
+    environment: pypi
+    permissions:
+      id-token: write
+      attestations: write
+
+    steps:
+      - name: Download all wheels
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: wheels-*
+          path: ./dist
+          merge-multiple: true
+
+      # CATEGORY: NON-CRITICAL — attest-build-provenance may fail if OIDC
+      # tokens are unavailable (e.g., fork PRs). Does not block publishing.
+      - name: Attest build provenance
+        continue-on-error: true
+        uses: actions/attest-build-provenance@78e6cbd37d0ac1a40113c04f2037dacf1ea3f12e # v4.1.1
+        with:
+          subject-path: './dist/*'
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          packages-dir: dist/
+          verbose: true
+          # FIND-140 gate: a re-run of the same tag skips gracefully instead
+          # of failing with HTTP 400 on an already-published version.
+          skip-existing: true
+
+  verify-pypi-install:
+    name: Verify PyPI install (${{ matrix.provider }})
+    runs-on: ubuntu-latest
+    needs: publish-pypi
+    timeout-minutes: 15
+    if: startsWith(github.ref, 'refs/tags/providers-v')
+
+    strategy:
+      fail-fast: false
+      matrix:
+        provider: [openai, ollama, litellm]
+
+    steps:
+      - name: Checkout (for the smoke script)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+
+      - name: Extract provider version (tag or Cargo.toml)
+        id: pkg_version
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/providers-v* ]]; then
+            echo "version=${GITHUB_REF#refs/tags/providers-v}" >> "$GITHUB_OUTPUT"
+          else
+            version=$(python -c "import tomllib; print(tomllib.load(open('providers/${{ matrix.provider }}/Cargo.toml','rb'))['package']['version'])")
+            echo "version=${version}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install from PyPI with retry on CDN delay
+        run: |
+          set -e
+          for i in 1 2 4 8 16 32 64; do
+            python -m pip install --no-cache-dir \
+              "vantadb-${{ matrix.provider }}==${{ steps.pkg_version.outputs.version }}" && break
+            echo "Package not yet available, retrying in ${i}s..."
+            sleep $i
+          done
+
+      - name: Functional smoke test - verify published wheel
+        run: python .github/scripts/provider_wheel_smoke.py ${{ matrix.provider }}

@@ -4,15 +4,25 @@ PyO3 cdylib that exposes a `VantaDBOllama` class — wraps Ollama's local embedd
 
 ## Install
 
-Requires Python 3.11+, a running Ollama server, and the Ollama SDK:
+> **Not on PyPI yet.** The `vantadb-ollama` wheel builds on all release
+> platforms; it goes live with the first `providers-v*` tag release. Until
+> then, build from a repo checkout.
+
+### From PyPI (after the first release)
+
+```bash
+pip install vantadb-ollama
+```
+
+The Ollama SDK is installed automatically (`ollama>=0.4,<1`).
+
+### From source
+
+Requires Python 3.11+, a running Ollama server, and the Ollama SDK. Build the
+extension with [maturin](https://www.maturin.rs/):
 
 ```bash
 pip install ollama
-```
-
-Build the extension locally with [maturin](https://www.maturin.rs/):
-
-```bash
 maturin develop --release
 ```
 

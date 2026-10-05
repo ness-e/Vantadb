@@ -4,15 +4,25 @@ PyO3 cdylib that exposes a `VantaDBLiteLLM` class — a unified embedding provid
 
 ## Install
 
-Requires Python 3.11+ and the LiteLLM SDK:
+> **Not on PyPI yet.** The `vantadb-litellm` wheel builds on all release
+> platforms; it goes live with the first `providers-v*` tag release. Until
+> then, build from a repo checkout.
+
+### From PyPI (after the first release)
+
+```bash
+pip install vantadb-litellm
+```
+
+The LiteLLM SDK is installed automatically (`litellm>=1.0,<2`).
+
+### From source
+
+Requires Python 3.11+ and the LiteLLM SDK. Build the extension with
+[maturin](https://www.maturin.rs/):
 
 ```bash
 pip install litellm
-```
-
-Build the extension locally with [maturin](https://www.maturin.rs/):
-
-```bash
 maturin develop --release
 ```
 

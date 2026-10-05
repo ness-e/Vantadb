@@ -152,6 +152,13 @@ The workspace includes several **experimental crates** that are not part of the 
 | `providers/ollama` | Ollama embedding adapter (idem) | Experimental |
 | `providers/litellm` | LiteLLM embedding adapter (idem) | Experimental |
 
+**Providers release channel (PROV-12, 2026-10-04):** `providers/{openai,ollama,litellm}` ship
+as PyPI wheels (`vantadb-openai` / `vantadb-ollama` / `vantadb-litellm`) via
+`release-providers.yml` — maturin matrix 3 providers × 4 platforms (linux x86_64 + aarch64,
+macOS, Windows), tag namespace `providers-v*.*.*`, TestPyPI dry-run via `workflow_dispatch`.
+The circuit-breaker rules below are unchanged: the release workflow does not touch
+`default-members`, workspace clippy or coverage.
+
 **Circuit breaker rules:**
 
 1. **Removed from `default-members`** in root `Cargo.toml` — `cargo check`, `cargo build`, and
