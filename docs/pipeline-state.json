@@ -1,15 +1,15 @@
 {
   "plan": "docs/dev/plans/2026-10-04-master-plan-0.9.0.md",
   "total": 72,
-  "totalCompleted": 29,
+  "totalCompleted": 37,
   "totalFailed": 0,
   "consecutiveFails": 0,
   "failMode": "parallel",
   "mode": "run",
   "maxConcurrent": 3,
-  "phase": "F1 (6/15 completadas)",
-  "inProgress": ["TS-11 (28, cerrando)", "PROV-12 (30)", "PROV-13 (31, EN ESPERA por colision con PROV-12)"],
-  "notes": "F1: DX-12/DIST-15/DIST-16/DIST-17/WSM-14/TS-10/TS-13 cerradas. TS-11 commit 9285c1db (cerrando). PROV-12 en vuelo; PROV-13 espera.",
-  "postPushBatch": ["FIND-236 (ASan sin panic del guard)", "FIND-233 (>=2 runs verdes + calibracion same-SHA)", "DX-01 (job Node 26 en CI)", "WSM-15 (si CI aplica)", "BENCH-01 (FIND-253 antes de proxima corrida publicada)", "DIST-05 (verificacion post-release en 0.9.0)", "DOCS-F2 (primer run de doctests/pydoclint en CI ubuntu)", "DIST-17 (job CI paridad en proximo PR de bindings)", "PROV-12 (dry-run TestPyPI + checklist owner)"],
-  "lastSync": "2026-10-04T14:20:00Z"
+  "phase": "F2 (1/13 completadas)",
+  "inProgress": ["DESKTOP-44 (34, pausada - sesion owner)", "MEMG-02 (38)", "MEMG-11 (39, EN ESPERA por colision l1_reader.rs con MEMG-02)"],
+  "notes": "F1 CERRADA (14/15 + DESKTOP-44 pausada). F2 expandida (76c9edeb) y arrancada: MEMG-01 cerrada, MEMG-02 en vuelo. MEMG-11 espera.",
+  "postPushBatch": ["FIND-236 (ASan sin panic del guard)", "FIND-233 (>=2 runs verdes + calibracion same-SHA)", "DX-01 (job Node 26 en CI)", "WSM-15 (si CI aplica)", "BENCH-01 (FIND-253 antes de proxima corrida publicada)", "DIST-05 (verificacion post-release en 0.9.0)", "DOCS-F2 (primer run de doctests/pydoclint en CI ubuntu)", "DIST-17 (job CI paridad en proximo PR de bindings)", "PROV-12/13 (dry-run TestPyPI + run de 6 legs CI Windows)", "DESKTOP-44 (sesion S1-S7 owner)"],
+  "lastSync": "2026-10-05T02:30:00Z"
 }
