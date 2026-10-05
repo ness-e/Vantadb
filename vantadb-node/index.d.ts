@@ -303,6 +303,46 @@ export interface FilterItem {
 
 /** Explicit dense-vector index backend override for `searchWithMethod`. */
 export type IndexMethod = 'Hnsw' | 'Ivf' | 'Flat' | 'DiskAnn' | 'Scann'
+
+/** A ranked GraphRAG node (DIST-15). */
+export interface GraphRagNode {
+  /** Decimal string (u128 ids exceed Number.MAX_SAFE_INTEGER, API-01). */
+  id: string
+  content: string
+  /** Combined relevance: 0.6·seed + 0.3·hop_boost + 0.1·degree_factor. */
+  score: number
+  /** BFS distance from the nearest seed (0 = seed itself). */
+  hop_distance: number
+}
+
+/** A relationship edge between two GraphRAG nodes (DIST-15). */
+export interface GraphRagEdge {
+  /** Decimal string node id (u128). */
+  source: string
+  /** Decimal string node id (u128). */
+  target: string
+  label: string
+}
+
+/** Pipeline counters for a GraphRAG run (DIST-15). */
+export interface GraphRagStats {
+  seeds_found: number
+  nodes_expanded: number
+  total_candidates: number
+  expansion_hops_used: number
+}
+
+/**
+ * Result of `graphragSearch()` — the canonical wire shape shared by every
+ * binding (Py/TS/Node/WASM): nodes + edges + LLM-ready `context_text` + stats.
+ */
+export interface GraphRagResult {
+  nodes: GraphRagNode[]
+  edges: GraphRagEdge[]
+  /** LLM-ready context block (nodes + relationships), empty when no seeds. */
+  context_text: string
+  stats: GraphRagStats
+}
 /**
  * Native VantaDB handle exposed to Node.js. Thin wrapper over the SDK's
  * `Embedded`; all engine methods are async to avoid blocking the JS thread.
@@ -511,5 +551,15 @@ export declare class VantaDb {
    * searched independently and results are merged by descending score.
    */
   searchMulti(namespaces: string[], request: SearchRequest): Promise<MemorySearchHit[]>
+  /**
+   * Run the GraphRAG pipeline: seed → expand → retrieve → generate context.
+   *
+   * Returns the canonical wire shape shared with the Python/TS/WASM
+   * bindings: `{nodes: [{id, content, score, hop_distance}], edges:
+   * [{source, target, label}], context_text, stats}`. u128 ids travel as
+   * decimal strings (API-01). At least one of `query` / `queryVector`
+   * should be provided; both may be combined (hybrid seeds).
+   */
+  graphragSearch(namespace: string, query?: string | undefined | null, queryVector?: Array<number> | undefined | null): Promise<GraphRagResult>
 }
 export type VantaDB = VantaDb
