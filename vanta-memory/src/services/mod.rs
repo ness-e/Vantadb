@@ -9,3 +9,8 @@ pub mod pipeline_worker;
 /// MEM-55: `/conversation/add` → memory pipeline bridge (feature `http-server`).
 #[cfg(feature = "http-server")]
 pub mod conversation_hook;
+
+/// WIRE-15: pull-based scheduler pass ([`scheduler::run_pass`] — timers +
+/// worker + reclaim, no Tokio) and the feature-gated loop helper
+/// (`scheduler::spawn_memory_scheduler`, ADR-0054 T2).
+pub mod scheduler;

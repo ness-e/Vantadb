@@ -34,6 +34,11 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "blo
 # BPE token counting instead of the chars/3 heuristic. Pinned minor to guard
 # against tokenizer drift vs OpenAI's API (Risk Register).
 tiktoken-rs = { version = "0.12", optional = true }
+# Only pulled in with `http-server` (WIRE-15): the scheduler loop helper needs
+# the Tokio driver primitives (spawn/spawn_blocking, interval, watch). The
+# pull-based pass (`services/scheduler::run_pass`) adds no Tokio usage to the
+# default build (pre-mortem ADR-0054 T2).
+tokio = { version = "1", features = ["rt", "time", "sync", "macros"], optional = true }
 
 [dev-dependencies]
 tempfile = "3"
@@ -66,10 +71,12 @@ mock = []
 # binary falls back to in-memory storage (import is not persisted).
 fjall = ["vantadb/fjall"]
 
-# MEM-55: bridges the core HTTP server's `/conversation/add` route to the
-# memory pipeline (`services/conversation_hook`). Pulls the core's `server`
+# MEM-55 + WIRE-15: bridges the core HTTP server's `/conversation/add` route
+# to the memory pipeline (`services/conversation_hook`) and enables the
+# scheduler loop helper (`services/scheduler`, Tokio driver — the pull-based
+# `run_pass` is available without this feature). Pulls the core's `server`
 # feature (axum/tokio) — opt-in so the default build stays lean.
-http-server = ["vantadb/server"]
+http-server = ["vantadb/server", "dep:tokio"]
 
 # D21 amendment (ADR-029): exact token counts via tiktoken-rs cl100k_base.
 # Opt-in: default build keeps the lean chars/3 heuristic (no new deps, no
