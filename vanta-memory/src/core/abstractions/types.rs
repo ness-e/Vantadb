@@ -20,7 +20,7 @@ use serde_json::Value;
 /// L1 memory types: chat-mode legacy types + code/work-mode team types.
 ///
 /// Source: TDAM `l1-writer.ts:31-38` (7 types).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MemoryType {
     /// Stable traits/preferences of the user.

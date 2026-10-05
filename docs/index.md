@@ -12,7 +12,7 @@ description: "Canonical index of the VantaDB documentation corpus."
      Grouped by kind, then by status, then by title.
      Source of truth: the frontmatter of the files listed below. -->
 
-1531 documents. This page is generated from frontmatter, so it cannot fall behind the tree. If a document is missing here, its `kind` or `description` is missing.
+1532 documents. This page is generated from frontmatter, so it cannot fall behind the tree. If a document is missing here, its `kind` or `description` is missing.
 
 ## Top level (3)
 
@@ -66,7 +66,7 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [WASM Standalone Console (Vanta Studio — mode `wasm`)](./api/WASM_STANDALONE.md) | reference | The Vanta Studio console can run 100% in the browser with no server: the                                                                                                                                                                                   |
 | [vanta-proxy Reference (Endpoints, Opt-in Features, Config)](./api/PROXY.md)     | reference | vanta-proxy is a transparent LLM wire proxy: by default it forwards bytes                                                                                                                                                                                  |
 
-## Internal / contributor (1371)
+## Internal / contributor (1372)
 
 ### Architecture decision records — 56
 
@@ -404,7 +404,7 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [`sec-codeql.yml` — SEC: CodeQL — Analysis](./dev/workflow/sec-codeql-30.md)                                   | runbook | Ejecuta el análisis estático de seguridad CodeQL de GitHub sobre el código Rust del proyecto para detectar vulnerabilidades                                                                                                                     |
 | [Fuzzing Guide for VantaDB](./dev/operations/FUZZING.md)                                                       | runbook | VantaDB uses a dual fuzzing approach to maximize coverage and compatibility _(archived)_                                                                                                                                                        |
 
-### Task files — 1080
+### Task files — 1081
 
 | Document                                                                                                                                             | Kind | Summary                                                                                                                                                                                                                                                                                                                     |
 | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -1222,6 +1222,7 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [TASK FIND-36: Cross-crate NativeConnection ↔ RocksDbBackend (3 ciclos get/put/delete)](./dev/tasks/FIND-36.md)                                      | task | Contrato mecánico cubierto: no se añaden pub fn nuevos, solo //! doc headers (≤15 líneas por archivo). No requiere spec-first gate para feature-add (ver tabla). Gate D no dispara (blast radius 2 archivos, sin API pública nueva, no hot...                                                                               |
 | [TASK GOV-C3 — Verify Daily Backup Verification (§3.1 + verify.ps1 daily guard)](./dev/tasks/GOV-C3.md)                                              | task | _—_                                                                                                                                                                                                                                                                                                                         |
 | [TASK MEMG-02: Outcome loop → refuerzo de confianza post-recall](./dev/tasks/MEMG-02.md)                                                             | task | Op real de refuerzo (SDK `Embedded::reinforce` + tool MCP `memory_reinforce`) que realimenta `confidence` + `last_validated_at_ms` con política declarada (used/corrected/unused; bump/decay saturado y acotado) + cierre del loop desde `vanta-memory` (`reinforce_recalled`). Calibración excluida (VER-08)               |
+| [TASK MEMG-07: Forgetting curves sobre L1](./dev/tasks/MEMG-07.md)                                                                                   | task | Curva de olvido real sobre L1 (vanta-memory): política declarada por tipo (half-life configurable) + retención exponencial por edad + pass read-only con métrica; la curva deprioriza (effective_heat), nunca purga; sin campos nuevos en el wire; descarte automático → FIND                                               |
 | [TASK MEMG-11: Adopción del motor core en vanta-memory (recall híbrido + escritura batch)](./dev/tasks/MEMG-11.md)                                   | task | "cargo nextest run --profile audit -p vanta-memory --build-jobs 2 verde + cargo clippy -p vanta-memory --all-targets --all-features -- -D wa                                                                                                                                                                                |
 | [TASK MEMG-12: Semántica v2 write-side en el pipeline (confidence/valid_at)](./dev/tasks/MEMG-12.md)                                                 | task | L1 escribe semántica v2 real en el punto único put_record (extracción + promoción dream): valid_at_ms = nacimiento del contenido + confianza Asserted/D_a explícitas; round-trip test put→export→import; TTL y derived/T1b quarantine diferidos a FIND (stop condition 1.5sem)                                              |
 | [TASK MEMG-13: Superficies core restantes en memoria (IQL / versiones / snapshots / filtros)](./dev/tasks/MEMG-13.md)                                | task | vanta-memory consume historia/diff de L1 vía core versions y backup/restore vía snapshot (tests por superficie); IQL y filtros restantes evaluados con motivo explícito → FIND (stop 1sem: 2 superficies)                                                                                                                   |
