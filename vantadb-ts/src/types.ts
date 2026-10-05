@@ -436,3 +436,47 @@ export interface GraphDegreeEntry {
   in_degree: number;
   out_degree: number;
 }
+
+// ---------------------------------------------------------------------------
+// GraphRAG (DIST-15) — canonical wire shape shared by Py/TS/Node/WASM.
+// ---------------------------------------------------------------------------
+
+/** A ranked GraphRAG node. */
+export interface GraphRagNode {
+  /** Decimal string (u128 ids exceed JS safe integers, API-01). */
+  id: string;
+  content: string;
+  /** Combined relevance: 0.6·seed + 0.3·hop_boost + 0.1·degree_factor. */
+  score: number;
+  /** BFS distance from the nearest seed (0 = seed itself). */
+  hop_distance: number;
+}
+
+/** A relationship edge between two GraphRAG nodes. */
+export interface GraphRagEdge {
+  /** Decimal string node id (u128). */
+  source: string;
+  /** Decimal string node id (u128). */
+  target: string;
+  label: string;
+}
+
+/** Pipeline counters for a GraphRAG run. */
+export interface GraphRagStats {
+  seeds_found: number;
+  nodes_expanded: number;
+  total_candidates: number;
+  expansion_hops_used: number;
+}
+
+/**
+ * Result of `graphragSearch()` / `NativeVantaDB.graphragSearch()` — the
+ * canonical wire shape shared by every binding (Py/TS/Node/WASM).
+ */
+export interface GraphRagResult {
+  nodes: GraphRagNode[];
+  edges: GraphRagEdge[];
+  /** LLM-ready context block (nodes + relationships), empty when no seeds. */
+  context_text: string;
+  stats: GraphRagStats;
+}

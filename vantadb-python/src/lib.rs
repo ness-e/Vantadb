@@ -19,7 +19,7 @@ use vantadb::sdk::{
     Embedded, MemoryInput, MemoryListOptions, MemorySearchRequest, NodeInput, ValidWindow,
 };
 // FFI guards: single source of truth from core (WSM-09).
-use vantadb::{DistanceMetric, MAX_K};
+use vantadb::{DistanceMetric, MAX_K, MAX_VEC_DIM};
 // Durability gate + ERR-022 clamp policy: shared std-only leaf (WIRE-07).
 use vantadb_ffi_core::{OpGate, OpGuard};
 // DIST-02: cognitive layer (L0 capture / recall) — all logic lives in the
@@ -1465,6 +1465,103 @@ impl Client {
                 })
             })
             .collect()
+    }
+
+    /// Run the GraphRAG pipeline: seed → expand → retrieve → generate context.
+    ///
+    /// Exposes `Embedded::graphrag_search` with the default pipeline
+    /// configuration (seed_k=10, expansion_hops=2, max_expansion_nodes=100,
+    /// retrieval_top_k=20). At least one of ``query`` / ``query_vector``
+    /// should be provided; both may be combined (hybrid seeds).
+    ///
+    /// GIL Policy: RELEASED — pure Rust search + BFS expansion + ranking.
+    ///
+    /// Args:
+    ///     namespace: Namespace whose records seed the pipeline.
+    ///     query: Optional text query for lexical (BM25) seeds.
+    ///     query_vector: Optional dense vector for ANN seeds (list, NumPy
+    ///         array, or ``Vector``).
+    ///
+    /// Returns:
+    ///     dict: ``{"nodes": [{"id", "content", "score", "hop_distance"}],
+    ///     "edges": [{"source", "target", "label"}],
+    ///     "context_text": str, "stats": {"seeds_found", "nodes_expanded",
+    ///     "total_candidates", "expansion_hops_used"}}`` — the canonical wire
+    ///     shape shared with the WASM/TS/Node bindings. u128 ids are native
+    ///     ints here; JSON transports carry them as decimal strings.
+    ///
+    /// Raises:
+    ///     ValidationError: The query vector exceeds the dimension cap.
+    ///     StorageError: The underlying engine read failed.
+    ///
+    /// Example:
+    ///     ```python
+    ///     >>> from vantadb_py import Client
+    ///     >>> db = Client(":memory:", backend="memory")
+    ///     >>> db.put("docs", "a", "vector database for agents", vector=[0.1, 0.2, 0.3])
+    ///     >>> result = db.graphrag_search("docs", query="vector database")
+    ///     >>> result["stats"]["seeds_found"] >= 1
+    ///     True
+    ///     ```
+    #[pyo3(signature = (namespace, query=None, query_vector=None))]
+    fn graphrag_search(
+        &self,
+        py: Python<'_>,
+        namespace: &str,
+        query: Option<String>,
+        query_vector: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<Py<PyAny>> {
+        let _g = enter(&self.op_gate)?;
+        let vector = match query_vector {
+            Some(v) => Some(extract_vector(v, py)?),
+            None => None,
+        };
+        if let Some(v) = &vector {
+            if v.len() > MAX_VEC_DIM {
+                return Err(ValidationError::new_err(format!(
+                    "graphrag_search: query_vector length {} exceeds max {MAX_VEC_DIM}",
+                    v.len()
+                )));
+            }
+        }
+        let namespace = namespace.to_string();
+        let engine = self.engine.clone();
+        // GIL RELEASED: pure Rust — seed search + graph expansion + ranking.
+        let result = py.detach(move || {
+            engine
+                .graphrag_search(&namespace, query.as_deref(), vector.as_deref())
+                .map_err(map_vanta_error)
+        })?;
+
+        let dict = PyDict::new(py);
+        let nodes = PyList::empty(py);
+        for node in &result.nodes {
+            let node_dict = PyDict::new(py);
+            node_dict.set_item("id", node.id)?;
+            node_dict.set_item("content", &node.content)?;
+            node_dict.set_item("score", node.score)?;
+            node_dict.set_item("hop_distance", node.hop_distance)?;
+            nodes.append(node_dict)?;
+        }
+        let edges = PyList::empty(py);
+        for edge in &result.edges {
+            let edge_dict = PyDict::new(py);
+            edge_dict.set_item("source", edge.source)?;
+            edge_dict.set_item("target", edge.target)?;
+            edge_dict.set_item("label", &edge.label)?;
+            edges.append(edge_dict)?;
+        }
+        let stats = PyDict::new(py);
+        stats.set_item("seeds_found", result.stats.seeds_found)?;
+        stats.set_item("nodes_expanded", result.stats.nodes_expanded)?;
+        stats.set_item("total_candidates", result.stats.total_candidates)?;
+        stats.set_item("expansion_hops_used", result.stats.expansion_hops_used)?;
+
+        dict.set_item("nodes", nodes)?;
+        dict.set_item("edges", edges)?;
+        dict.set_item("context_text", &result.context_text)?;
+        dict.set_item("stats", stats)?;
+        Ok(dict.unbind().into())
     }
 
     /// Rebuild ANN and derived memory indexes from canonical storage.

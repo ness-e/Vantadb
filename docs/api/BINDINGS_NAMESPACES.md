@@ -90,6 +90,7 @@ transport names the relevance field `score` (higher-is-better) and reserves
 | Node delete by id | `delete_node(id, reason)` | `deleteNode(id, reason?)` | `deleteNode(id, reason?)` | `delete_node(id, reason)` |
 | Batch write | `put_batch([{...}])` | `putBatch([{...}])` | `putBatch([{...}])` | `put_batch([{...}])` |
 | Cross-namespace search | `search_multi(namespaces, request)` | `searchMulti(request)` | `searchMulti(namespaces, request)` | `search_multi(namespaces, query_vector, …)` |
+| GraphRAG search (seed→expand→retrieve→context) | `graphrag_search(namespace, query?, query_vector?)` | `graphragSearch(namespace, query?, queryVector?)` | `graphragSearch(namespace, query?, queryVector?)` | `graphrag_search(namespace, query=None, query_vector=None)` |
 | `u128` ids on the wire | decimal string (`node_id`); traversals return `bigint[]` | decimal string + `bigint` in/out | decimal string | native `int` (exact) |
 
 **Per-binding evidence (same-PR):** Python `tests/test_w1_surface.py` · TS
@@ -99,6 +100,12 @@ suite runs against the real `vantadb-wasm/pkg` artifact (Node ESM wasm), and
 the binding source (`search_hit_to_js`, `put_batch`, `search_multi`) is the
 reference implementation for the matrix. A new W1 capability must land in all
 four bindings with a matrix row.
+
+**GraphRAG evidence (DIST-15, same-PR):** Rust
+`tests/graphrag_test.rs::graphrag_result_serializes_with_u128_ids_as_decimal_strings`
+(pins the wire shape) · Python `tests/test_graphrag.py` · TS
+`src/__tests__/graphrag.test.ts` (WASM shape + WASM↔Node parity on
+`context_text`/ids) · Node `tests/graphrag.test.ts`.
 
 ## v2 wire parity (SCH-07, ADR-0046)
 
@@ -165,7 +172,7 @@ memory-record ops (namespace+key) in WASM/TS/Node; Python node ops are now
 `insert_node`/`get_node`/`delete_node` (matching the other three bindings),
 so the bare `get`/`delete` collision is gone.
 
-## WASM (`vantadb-wasm/src/lib.rs`) — 47 pub fns
+## WASM (`vantadb-wasm/src/lib.rs`) — 48 pub fns
 
 | Method | Domain | Notes |
 |---|---|---|
@@ -182,6 +189,7 @@ so the bare `get`/`delete` collision is gone.
 | `search` | memory | hybrid request; supports `exclude_superseded` |
 | `search_vector` | memory | pure ANN |
 | `search_multi` | memory | cross-namespace hybrid search |
+| `graphrag_search` | memory | graph-RAG pipeline (seed→expand→retrieve→context) — DIST-15 |
 | `similar_to_key` | memory | vector search from existing key |
 | `count` | memory | optional operator filter |
 | `supersede` | memory | mark record as superseded |
@@ -218,11 +226,11 @@ so the bare `get`/`delete` collision is gone.
 | `bulk_import` | system | portability |
 | `bulk_import_bytes` | system | portability |
 
-**Totals:** memory 15 · graph 11 · system 21 = 47 ✔
+**Totals:** memory 16 · graph 11 · system 21 = 48 ✔
 
-## TypeScript (`vantadb-ts/src/vantadb.ts`) — 43 public methods (verificado 2026-09-15: +`count`/`supersede`/`similarToKey`/`searchMulti`/`removeEdge`)
+## TypeScript (`vantadb-ts/src/vantadb.ts`) — 44 public methods (verificado 2026-09-15: +`count`/`supersede`/`similarToKey`/`searchMulti`/`removeEdge`; +`graphragSearch` DIST-15 2026-10-04)
 
-(`native.ts` implements the sync subset: `capabilities`, `close`, `delete`, `flush`, `get`, `list`, `listNamespaces`, `put`, `putBatch`, `search`.)
+(`native.ts` implements the async subset: `capabilities`, `close`, `delete`, `flush`, `get`, `graphragSearch`, `list`, `listNamespaces`, `put`, `putBatch`, `search`.)
 
 | Method | Domain | Exposed today | Notes |
 |---|---|---|---|
@@ -242,6 +250,7 @@ so the bare `get`/`delete` collision is gone.
 | `supersede` | memory | ✅ | mark record as superseded |
 | `similarToKey` | memory | ✅ | vector search from existing key |
 | `searchMulti` | memory | ✅ | cross-namespace hybrid search |
+| `graphragSearch` | memory | ✅ | graph-RAG pipeline (DIST-15) |
 | `insertNode` | graph | ✅ | |
 | `getNode` | graph | ✅ | |
 | `deleteNode` | graph | ✅ | |
@@ -270,11 +279,11 @@ so the bare `get`/`delete` collision is gone.
 | `importRecords` | system | ✅ | |
 | `importFile` | system | ✅ | |
 
-**Totals:** memory 16 · graph 11 · system 16 = 43 ✔
+**Totals:** memory 17 · graph 11 · system 16 = 44 ✔
 
 **Not exposed in TS (wasm-only or Python-only), deferred per D43/D42:** `graph_page_rank`/`graph_degree_centrality` (Python-only), `bulk_import`/`bulk_import_bytes` (wasm/Python-only), `hardware_profile` (Python-only), `recover_archived_nodes` (Python-only). Do NOT add wrappers in SDKB-02 — v1 is grouping only.
 
-## Python (`vantadb-python/src/lib.rs`) — 48 pyclass methods (+ module-level `connect()`)
+## Python (`vantadb-python/src/lib.rs`) — 49 pyclass methods (+ module-level `connect()`)
 
 | Method | Domain | Exposed today | Notes |
 |---|---|---|---|
@@ -299,6 +308,7 @@ so the bare `get`/`delete` collision is gone.
 | `similar_to_key` | memory | ✅ | vector search from an existing key, also on `db.memory` |
 | `search` | memory | ✅ | hybrid (ex-`search_memory`, AST-008), also on `db.memory` |
 | `search_multi` | memory | ✅ | cross-namespace hybrid search (W1/API-02), also on `db.memory` |
+| `graphrag_search` | memory | ✅ | graph-RAG pipeline (seed→expand→retrieve→context) — DIST-15 |
 | `search_vector` | memory | ✅ | pure ANN (ex-`search`, AST-008), also on `db.memory` |
 | `search_batch` | memory | ✅ | Python-only |
 | `search_batch_requests` | memory | ✅ | Python-only |
@@ -328,7 +338,7 @@ so the bare `get`/`delete` collision is gone.
 | `recover_archived_nodes` | wiki | ✅ | summary-node shadow archive recovery |
 | `close` | system | ✅ | lifecycle |
 
-**Totals:** memory 18 · graph 11 · wiki 1 · system 18 = 48 pyclass methods ✔ (+ module-level `connect()` → system, 49 total surface)
+**Totals:** memory 19 · graph 11 · wiki 1 · system 18 = 49 pyclass methods ✔ (+ module-level `connect()` → system, 50 total surface)
 
 > **AST-012 (anti-stutter, TS `MemoryClient` parity):** flat `get_memory` /
 > `list_memory` / `delete_memory` were REMOVED (direct rename, no aliases).
@@ -425,7 +435,7 @@ scope for the trigger-fired design task.
 **Status note (reconciled by DIST-04, 2026-10-04):** the Python minimal surface
 (DIST-02) has **landed**; this matrix and `VANTA_MEMORY.md` reflect the landed
 surface. The Python section counts above include `memory_capture`/`memory_recall`
-(46 → 48 pyclass methods).
+(46 → 48 pyclass methods; + `graphrag_search` from DIST-15 → 49).
 
 **Mechanical invariant (TS/Node/WASM declared core-only):**
 

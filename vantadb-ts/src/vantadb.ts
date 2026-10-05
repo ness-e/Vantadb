@@ -20,6 +20,7 @@ import type {
   GraphBfsResult,
   GraphDegreeEntry,
   GraphDfsResult,
+  GraphRagResult,
   GraphTopologicalSortResult,
   GraphTraversalFilter,
   ImportReport,
@@ -704,6 +705,39 @@ export class Client {
           explanation: (h.explanation ?? undefined) as SearchHit["explanation"],
         };
       });
+    });
+  }
+
+  /**
+   * Run the GraphRAG pipeline: seed → expand → retrieve → generate context.
+   *
+   * Uses the default pipeline configuration (seed_k=10, expansion_hops=2,
+   * max_expansion_nodes=100, retrieval_top_k=20). At least one of `query` /
+   * `queryVector` should be provided; both may be combined (hybrid seeds).
+   *
+   * @param namespace - Namespace whose records seed the pipeline.
+   * @param query - Optional text query for lexical (BM25) seeds.
+   * @param queryVector - Optional dense vector for ANN seeds.
+   * @returns The canonical `GraphRagResult` wire shape (shared with the
+   *   Python/Node bindings): nodes, edges, `context_text` and stats. u128 ids
+   *   travel as decimal strings.
+   * @throws {DbError} If the instance is closed or the pipeline fails.
+   *
+   * @example
+   * ```ts
+   * const result = db.graphragSearch("docs", "vector database");
+   * console.log(result.context_text);
+   * ```
+   */
+  graphragSearch(namespace: string, query?: string, queryVector?: number[]): GraphRagResult {
+    this._assertOpen();
+    return this._wasm("graphragSearch", () => {
+      const raw = this.inner.graphrag_search(
+        toWireString(namespace, "graphragSearch: namespace"),
+        query,
+        queryVector !== undefined ? new Float32Array(queryVector) : undefined,
+      ) as unknown as GraphRagResult;
+      return raw;
     });
   }
 

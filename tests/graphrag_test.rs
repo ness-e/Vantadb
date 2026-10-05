@@ -170,3 +170,111 @@ fn test_max_expansion() {
         result.stats.nodes_expanded
     );
 }
+
+/// DIST-15: pins the canonical wire shape consumed by every binding
+/// (Py/TS/Node/WASM). u128 ids travel as decimal strings (API-01), the
+/// payload is snake_case, and the stats block is complete — a rename or a
+/// dropped field breaks every binding's smoke at once.
+#[test]
+fn graphrag_result_serializes_with_u128_ids_as_decimal_strings() {
+    let (db, _dir) = setup_test_db();
+
+    let a = insert_vector_node(
+        &db,
+        "wire",
+        "a",
+        "vector database for agents",
+        vec![0.1, 0.2, 0.3],
+    );
+    let b = insert_vector_node(
+        &db,
+        "wire",
+        "b",
+        "graph expansion uses edges",
+        vec![0.2, 0.3, 0.4],
+    );
+    db.add_edge(a, b, "uses", Some(1.0), None).expect("edge");
+
+    let result = db
+        .graphrag_search("wire", Some("vector database"), None)
+        .expect("graphrag search");
+    let json = serde_json::to_value(&result).expect("serialize GraphRagResult");
+
+    let nodes = json["nodes"].as_array().expect("nodes must be an array");
+    assert!(!nodes.is_empty(), "expected at least one node");
+    for node in nodes {
+        let id = node["id"].as_str().expect("id must be a decimal string");
+        assert!(id.parse::<u128>().is_ok(), "id '{id}' must parse as u128");
+        assert!(node["content"].is_string(), "content must be a string");
+        assert!(node["score"].is_number(), "score must be a number");
+        assert!(
+            node["hop_distance"].is_number(),
+            "hop_distance must be a number"
+        );
+    }
+
+    let edges = json["edges"].as_array().expect("edges must be an array");
+    assert!(!edges.is_empty(), "expected at least one edge");
+    for edge in edges {
+        assert!(
+            edge["source"]
+                .as_str()
+                .is_some_and(|s| s.parse::<u128>().is_ok()),
+            "source must be a decimal string"
+        );
+        assert!(
+            edge["target"]
+                .as_str()
+                .is_some_and(|s| s.parse::<u128>().is_ok()),
+            "target must be a decimal string"
+        );
+        assert!(edge["label"].is_string(), "label must be a string");
+    }
+
+    assert!(
+        json["context_text"].as_str().is_some_and(|s| !s.is_empty()),
+        "context_text must be a non-empty string"
+    );
+
+    let stats = &json["stats"];
+    assert!(
+        stats["seeds_found"].as_u64().is_some_and(|n| n > 0),
+        "seeds_found must be > 0"
+    );
+    assert!(stats["nodes_expanded"].is_number());
+    assert!(stats["total_candidates"].is_number());
+    assert!(stats["expansion_hops_used"].is_number());
+}
+
+/// DIST-15: `context_text` must be byte-identical across runs and bindings.
+/// The edge list is ordered by `(source, target, label)` — not by `HashSet`
+/// iteration (seeded per instance, which made two runs over the same graph
+/// emit different `context_text`).
+#[test]
+fn graphrag_edges_are_ordered_by_source_target_label() {
+    let (db, _dir) = setup_test_db();
+
+    let a = insert_vector_node(&db, "order", "a", "root concept", vec![0.1, 0.2, 0.3]);
+    let b = insert_vector_node(&db, "order", "b", "child b", vec![0.2, 0.3, 0.4]);
+    let c = insert_vector_node(&db, "order", "c", "child c", vec![0.3, 0.4, 0.5]);
+    db.add_edge(a, b, "uses", Some(1.0), None).expect("edge");
+    db.add_edge(a, c, "uses", Some(1.0), None).expect("edge");
+    db.add_edge(b, c, "uses", Some(1.0), None).expect("edge");
+
+    let result = db
+        .graphrag_search("order", Some("root concept"), None)
+        .expect("graphrag search");
+    assert!(!result.edges.is_empty(), "expected edges");
+
+    let emitted: Vec<(u128, u128, String)> = result
+        .edges
+        .iter()
+        .map(|e| (e.source, e.target, e.label.clone()))
+        .collect();
+    let mut expected = emitted.clone();
+    expected.sort();
+    assert_eq!(
+        emitted, expected,
+        "edges must be ordered by (source, target, label)"
+    );
+}

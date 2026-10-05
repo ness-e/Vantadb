@@ -6,7 +6,7 @@
 
 Every link below points to the raw Markdown source, not a rendered page. Read the
 page you need; do not read this file end to end. This index covers the
-449 documentation pages; it deliberately omits the 1061 task files,
+449 documentation pages; it deliberately omits the 1064 task files,
 which are work items rather than documentation. The full inventory of every file
 is in docs/index.md in the repository.
 
@@ -249,7 +249,7 @@ is in docs/index.md in the repository.
 - [Deprecations Registry](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/DEPRECATIONS.md): Concrete deprecations of the public API surfaces and their removal windows
 - [Embedded SDK Reference](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/EMBEDDED_SDK.md): Source: src/sdk/mod.rs, src/sdk/builder.rs, src/sdk/api/.rs, src/sdk/graph.rs, src/sdk/search/mod.rs
 - [Embeddings — BYO-Vector + embed-local](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/EMBEDDINGS.md): VantaDB is BYO-vector by default (“does not embed text for you”) and offers an opt-in local embedding path via the embed-local Cargo feature. No breaking changes — EmbeddingProvider is additive
-- [GraphRAG API](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/GRAPH_RAG.md): GraphRAG runs through the embedded SDK handle (Embedded). The default
+- [GraphRAG API](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/GRAPH_RAG.md): GraphRAG (seed → expand → retrieve → context) is exposed by the Rust SDK and all four bindings — Python, WASM, TypeScript and Node — with one canonical wire shape
 - [Memory interchange format (JSONL v2)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/MEMORY_INTERCHANGE_FORMAT.md): The JSONL v2 contract shared by VantaDB export, import and the third-party importers (Mem0, Zep/Graphiti, Letta), with mapping tables and declared limits
 - [Node.js Native SDK Documentation](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/NODE_SDK.md): vantadb-node is the native Node.js binding for VantaDB, built with
 - [Python SDK Documentation](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/PYTHON_SDK.md): Python SDK reference — Client, memory records, cognitive layer (memory_capture/memory_recall), async client and typed errors

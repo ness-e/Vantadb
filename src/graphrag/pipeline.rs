@@ -1,6 +1,7 @@
 use crate::error::Result;
 use crate::graphrag::{context, expand, retrieve, seed};
 use crate::sdk::Embedded;
+use serde::Serialize;
 
 pub struct GraphRagPipeline {
     pub seed_k: usize,
@@ -9,19 +10,29 @@ pub struct GraphRagPipeline {
     pub retrieval_top_k: usize,
 }
 
+/// DIST-15: canonical wire shape for the bindings (Py/TS/Node/WASM).
+/// `id`/`source`/`target` serialize as decimal strings (API-01) so u128 ids
+/// above 2^53 survive JSON; the field set is pinned by
+/// `tests/graphrag_test.rs::graphrag_result_serializes_with_u128_ids_as_decimal_strings`.
+#[derive(Serialize)]
 pub struct GraphRagNode {
+    #[serde(with = "crate::sdk::types::u128_serde")]
     pub id: u128,
     pub content: String,
     pub score: f32,
     pub hop_distance: u32,
 }
 
+#[derive(Serialize)]
 pub struct GraphRagEdge {
+    #[serde(with = "crate::sdk::types::u128_serde")]
     pub source: u128,
+    #[serde(with = "crate::sdk::types::u128_serde")]
     pub target: u128,
     pub label: String,
 }
 
+#[derive(Serialize)]
 pub struct GraphRagResult {
     pub nodes: Vec<GraphRagNode>,
     pub edges: Vec<GraphRagEdge>,
@@ -29,6 +40,7 @@ pub struct GraphRagResult {
     pub stats: GraphRagStats,
 }
 
+#[derive(Serialize)]
 pub struct GraphRagStats {
     pub seeds_found: usize,
     pub nodes_expanded: usize,

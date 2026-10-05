@@ -422,6 +422,50 @@ for hit in hits:
 
 Raises `RuntimeError` if the source `key` does not exist or has no vector.
 
+### GraphRAG (`graphrag_search`)
+
+```python
+db.graphrag_search(
+    namespace: str,
+    query: str | None = None,
+    query_vector: Any | None = None,
+) -> dict
+```
+
+Runs the GraphRAG pipeline (seed → expand → retrieve → generate context) with
+the default configuration (`seed_k=10`, `expansion_hops=2`,
+`max_expansion_nodes=100`, `retrieval_top_k=20`). At least one of `query` /
+`query_vector` should be provided; both may be combined (hybrid seeds).
+GIL-released (pure Rust search + BFS expansion + ranking).
+
+Returns the canonical wire dict shared with the WASM/TS/Node bindings:
+
+```python
+{
+    "nodes": [{"id": int, "content": str, "score": float, "hop_distance": int}],
+    "edges": [{"source": int, "target": int, "label": str}],
+    "context_text": str,   # LLM-ready block; empty when no seeds
+    "stats": {"seeds_found": int, "nodes_expanded": int,
+              "total_candidates": int, "expansion_hops_used": int},
+}
+```
+
+u128 ids are native ints on the Python wire (the JSON transports carry decimal
+strings, API-01). A `query_vector` above `MAX_VEC_DIM` (10 000) raises
+`ValidationError`.
+
+```python
+rec_a = db.put("docs", "a", "vector database for agents", vector=[0.1, 0.2, 0.3])
+rec_b = db.put("docs", "b", "graph expansion uses edges", vector=[0.2, 0.3, 0.4])
+db.add_edge(rec_a.node_id, rec_b.node_id, "uses")
+
+result = db.graphrag_search("docs", query="vector database")
+print(result["context_text"])
+```
+
+Full pipeline semantics and the per-binding wire shape:
+[`GRAPH_RAG.md`](GRAPH_RAG.md).
+
 ### Cognitive Layer (`memory_capture` / `memory_recall`)
 
 The cognitive layer of `vanta-memory` (L0 capture + recall) is exposed on the

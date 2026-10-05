@@ -629,6 +629,47 @@ impl VantaDB {
         .await?;
         serde_json::to_value(&out).map_err(serde_map_err)
     }
+
+    /// Run the GraphRAG pipeline: seed → expand → retrieve → generate context.
+    ///
+    /// Returns the canonical wire shape shared with the Python/TS/WASM
+    /// bindings: `{nodes: [{id, content, score, hop_distance}], edges:
+    /// [{source, target, label}], context_text, stats}`. u128 ids travel as
+    /// decimal strings (API-01). At least one of `query` / `queryVector`
+    /// should be provided; both may be combined (hybrid seeds).
+    #[napi(ts_return_type = "Promise<GraphRagResult>")]
+    pub async fn graphrag_search(
+        &self,
+        namespace: String,
+        query: Option<String>,
+        query_vector: Option<Vec<f64>>,
+    ) -> napi::Result<Value> {
+        let _g = enter(&self.op_gate)?;
+        let query_vector = match query_vector {
+            Some(v) => {
+                if v.len() > MAX_VEC_DIM {
+                    return Err(Error::from_reason(format!(
+                        "`query_vector` exceeds max vector dimension {MAX_VEC_DIM}"
+                    )));
+                }
+                let mut owned = Vec::with_capacity(v.len());
+                for f in v {
+                    if !f.is_finite() {
+                        return Err(Error::from_reason("`query_vector` must be a number[]"));
+                    }
+                    owned.push(f as f32);
+                }
+                Some(owned)
+            }
+            None => None,
+        };
+        let engine = self.engine.clone();
+        let out = spawn_blocking(move || {
+            engine.graphrag_search(&namespace, query.as_deref(), query_vector.as_deref())
+        })
+        .await?;
+        serde_json::to_value(&out).map_err(serde_map_err)
+    }
 }
 
 // ── helpers ──────────────────────────────────────────────────────────────────

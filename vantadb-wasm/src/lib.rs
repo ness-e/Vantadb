@@ -1295,6 +1295,37 @@ impl Client {
         Ok(arr.into())
     }
 
+    /// Run the GraphRAG pipeline: seed → expand → retrieve → generate context.
+    ///
+    /// Returns the canonical wire object shared with the Python/TS/Node
+    /// bindings: `{nodes: [{id, content, score, hop_distance}], edges:
+    /// [{source, target, label}], context_text, stats}`. u128 ids travel as
+    /// decimal strings (API-01). At least one of `query` / `query_vector`
+    /// should be provided; both may be combined (hybrid seeds).
+    pub fn graphrag_search(
+        &self,
+        namespace: &str,
+        query: Option<String>,
+        query_vector: Option<Vec<f32>>,
+    ) -> Result<JsValue, JsValue> {
+        let _g = enter(&self.op_gate)?;
+        if let Some(v) = &query_vector {
+            if v.len() > MAX_F32_VEC_LEN {
+                return Err(to_js_err(Error::InvalidInput(format!(
+                    "query vector length {} exceeds max {}",
+                    v.len(),
+                    MAX_F32_VEC_LEN
+                ))));
+            }
+        }
+        let result = self
+            .inner
+            .graphrag_search(namespace, query.as_deref(), query_vector.as_deref())
+            .map_err(to_js_err)?;
+        serde_wasm_bindgen::to_value(&result)
+            .map_err(|e| JsValue::from_str(&format!("graphrag_search serialization error: {e}")))
+    }
+
     /// Search nodes by raw vector without namespace scoping.
     ///
     /// Returns one `{node_id, distance}` entry per result (u128 ids as decimal strings).

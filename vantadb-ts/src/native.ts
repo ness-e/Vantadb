@@ -5,6 +5,7 @@ import type {
   Capabilities,
   DeleteInput,
   GetInput,
+  GraphRagResult,
   ListInput,
   MemoryInput,
   MemoryListPage,
@@ -406,5 +407,26 @@ export class NativeVantaDB {
         };
       });
     });
+  }
+
+  /**
+   * Run the GraphRAG pipeline: seed → expand → retrieve → generate context.
+   *
+   * @param namespace - Namespace whose records seed the pipeline.
+   * @param query - Optional text query for lexical (BM25) seeds.
+   * @param queryVector - Optional dense vector for ANN seeds.
+   * @returns The canonical `GraphRagResult` wire shape (shared with the
+   *   Python/WASM/TS surfaces). u128 ids travel as decimal strings.
+   * @throws {DbError} If the instance is closed or the pipeline fails.
+   */
+  async graphragSearch(
+    namespace: string,
+    query?: string,
+    queryVector?: number[],
+  ): Promise<GraphRagResult> {
+    this._assertOpen();
+    return this._native("graphragSearch", () =>
+      this.inner.graphragSearch(namespace, query ?? undefined, queryVector ?? undefined),
+    );
   }
 }
