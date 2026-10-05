@@ -1992,6 +1992,10 @@ pub fn handle_tools_call(
                 min_overlap: 1,
                 max_chars_per_memory: Some(budget_chars),
                 max_total_recall_chars: Some(budget_chars),
+                // MEMG-11 dual-path flag: keep the legacy in-memory ranking
+                // here (opt-in only — the MCP tool has not adopted the core
+                // hybrid path yet; default false = legacy byte-identical).
+                core_search: false,
             };
             let params = AutoRecallParams {
                 user_text: query,
