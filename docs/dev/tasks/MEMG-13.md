@@ -180,7 +180,7 @@ description: "vanta-memory consume historia/diff de L1 vía core versions y back
 RESULTADO: ✅ COMPLETO
 STEPS_OK: 4/4 total steps
 PROXIMO_STEP: ninguno
-COMMIT_HASH: (hash en commit docs de cierre)
+COMMIT_HASH: eb842343 (feat local, sin push; + commit docs de cierre)
 ARCHIVOS: vanta-memory/src/core/record/l1_reader.rs, vanta-memory/src/core/record/mod.rs, vanta-memory/src/utils/mod.rs, vanta-memory/src/utils/backup.rs (nuevo), vanta-memory/tests/l1_history.rs (nuevo), vanta-memory/tests/backup_snapshot.rs (nuevo), docs/api/VANTA_MEMORY.md, docs/dev/Backlog.md (FIND-285/286/287), docs/dev/tasks/MEMG-13.md, docs/index.md + llms.txt (generados)
 VERIFY_CONTRATO: pasa
 BLOQUEO: ninguno
