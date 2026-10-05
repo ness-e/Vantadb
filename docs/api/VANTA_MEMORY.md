@@ -187,6 +187,7 @@ All optional; the default build stays lean and LLM-free.
 | `precise-tokens` | Exact cl100k_base BPE counts (tiktoken-rs) instead of `chars/3` (D21 amendment) | off |
 | `mock` | Deterministic `MockLlmRunner` for tests | off |
 | `fjall` | Persistent backend for the `vanta-seed` binary | off |
+| `erasure` | Cryptographic erasure (per-scope DEK registry) + verifiable erasure receipts (pulls core `encryption`: AES-256-GCM) | off |
 | `http-server` | Core HTTP server bridge (`/conversation/add` hook) | off |
 
 ## Degradation contract (Principio 4)
@@ -362,6 +363,39 @@ tombstones and are **not** rolled back (FIND-287).
 `include_quarantined:false` (SCH-05) is consumed too. IQL and the remaining
 core filters (`min_confidence`, temporal, metadata) have no memory-side
 consumer today → FIND-285 / FIND-286 (Backlog).
+
+## Rollback, erasure & receipts (MEMG-17)
+
+Semantic rollback over the MEMG-13 version history, cryptographic erasure by
+DEK destruction and verifiable erasure receipts (VER-02 certificate contract).
+
+**Rollback:**
+
+| Function | Contract |
+|---|---|
+| `rollback_record(db, session_key, record_id, target_version, now_ms) -> RollbackReport` | Restores the target version's payload as a **new** version (append-only lineage: nothing is rewritten or dropped). Bookkeeping advances to the rollback write (`version`/`updated_at`/`timestamps`); the report carries `from_version`/`to_version`/`new_version`, the store delta (`changes = diff_records(live, restored)`, name-ordered) and the declared `out_of_scope` (supersession restored verbatim, no cross-record cascade, deletes not resurrected, audit surfaces append-only). `NotFound` when the record or version is absent — a deleted record's history is purged, it is not resurrectable from versions |
+| `rollback_snapshot(config, name) -> (Embedded, SnapshotRollbackReport)` | `restore_snapshot` plus the explicit declared scope: `reverted` (the `data/` swap + index rebuild) vs `not_reverted` (live backend KV: post-snapshot deletes/supersessions keep their tombstones/metadata — FIND-287) and the flow `caveats`. Same flow as `restore_snapshot`: close → rollback → reopened `Embedded` |
+
+**Cryptographic erasure** (feature `erasure`) — per-scope random DEK registry
+under `erasure/dek`, wrapped with the core master `Cipher`
+(`VANTADB_ENCRYPTION_KEY`; composed from `vantadb::crypto`, no new cipher):
+
+| Function | Contract |
+|---|---|
+| `create_scope(db, master, scope)` | Registers a fresh 32-byte CSPRNG DEK for the scope (record key = `sanitize_key(scope)`); an existing scope is rejected (no silent rekey — it would orphan sealed data) |
+| `seal(db, master, scope, plaintext) / open(db, master, scope, blob)` | AES-256-GCM under the scope's DEK; a different scope or a tampered blob fails to open. Blobs are caller-held — the module does not track or delete encrypted copies |
+| `erase_scope(db, scope, reason) -> ErasureReceipt` | Destroys the wrapped DEK through the core delete path (backend tombstone + version-history purge) and emits the receipt; everything sealed under it becomes cryptographically unrecoverable. Emits `not_found` receipts too — never silent |
+| `verify_erasure_receipt(db, receipt_json) -> ErasureVerification` | Schema + integrity hash first, then a live re-scan (`dek_record`, `version_history`). **Not claim-driven**: partial/edited/unknown-status receipts are rejected even with a recomputed hash, and a re-created scope breaks the old receipt's clean claim (`residues reappeared`) |
+
+`ErasureReceipt` mirrors the VER-02 purge-certificate contract: schema version,
+timestamp, scope/reason/status, fixed-order surfaces, VER-01 `ChainEvidence`,
+non-empty `out_of_scope` and an sha256 self-hash — no key material, and no
+signature (ML-DSA-65 is not sanctioned by any spec; an actor who recomputes
+the hash is not detected — declared in the receipt limits). Scope of the
+erasure: payloads sealed through `seal`; wiring envelopes into the L1 write
+path is a declared deferral → FIND-302 (Backlog). Copies of the wrapped DEK
+outside the live store (snapshots, backups, WAL archives) are declared
+out-of-scope limits — see the receipt and FIND-194.
 
 ## Task checkpoints (MEMG-20)
 
@@ -662,6 +696,7 @@ merges requeridos se registran como skipped.
 | `task_checkpoints` | checkpoints de tarea reanudables (MEMG-20; un record por `task_id`) |
 | `genlog/<session>` | provenance de generaciones (best-effort, cap 100) |
 | `dream/<session>/<run_id>` | vista consolidada por corrida (MEM-61; `discard` real; `promote` real con dry-run/gate — VER-07) |
+| `erasure/dek` | DEKs por scope wrapped con el master key (MEMG-17; feature `erasure`) |
 | skills_extract/<scope> | seed/import CLI |
 
 ## CLI

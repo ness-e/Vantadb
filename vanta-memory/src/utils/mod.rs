@@ -6,6 +6,10 @@
 
 pub mod backup;
 pub mod checkpoint;
+/// MEMG-17 (piezas b+c): cryptographic erasure (per-scope DEK registry) +
+/// verifiable erasure receipts (VER-02 contract). Requires feature `erasure`.
+#[cfg(feature = "erasure")]
+pub mod erasure;
 pub mod local_backend;
 pub mod managed_timer;
 pub mod pipeline_factory;
@@ -16,8 +20,15 @@ pub mod task_checkpoint;
 pub mod text_utils;
 pub mod timer_scanner;
 
-pub use backup::{create_snapshot, list_snapshots, restore_snapshot};
+pub use backup::{
+    create_snapshot, list_snapshots, restore_snapshot, rollback_snapshot, SnapshotRollbackReport,
+};
 pub use checkpoint::{Checkpoint, CheckpointError, CheckpointManager, RunnerSessionState};
+#[cfg(feature = "erasure")]
+pub use erasure::{
+    create_scope, erase_scope, open, seal, verify_erasure_receipt, ErasureError, ErasureReceipt,
+    ErasureVerification, ERASURE_DEK_NAMESPACE, ERASURE_RECEIPT_SCHEMA_VERSION,
+};
 pub use local_backend::{BackendSnapshot, LocalStateBackend, PipelineSessionStatePatch};
 pub use managed_timer::{Clock, FakeClock, ManagedTimer, SystemClock};
 pub use pipeline_manager::{l1_idle_member, MemoryPipelineManager, PipelineConfig};
