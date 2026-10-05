@@ -75,9 +75,9 @@ Entregables de esta prep (owner-assisted):
 
 | Nivel | Gate | Estado |
 |-------|------|--------|
-| **Task** | Prep: fix FIND-155 + guion + checklist + evidencia estática + RESULTADO §7 | ⏳ (al cierre de esta iteración) |
+| **Task** | Prep: fix FIND-155 + guion + checklist + evidencia estática + RESULTADO §7 | ✅ (prep completa) |
 | **Task (E2E)** | Sesión owner+agente con upstream LLM vivo — **pendiente** (orquestador coordina) | ⏳ pendiente |
-| **Commit** | Atómico `fix(desktop):` + `docs(desktop):`, pathspec propio (WIP ajeno fuera) | ⏳ |
+| **Commit** | Atómico `fix(desktop):` + `docs(desktop):`, pathspec propio (WIP ajeno fuera) | ✅ `5a8c06bd` + `a674849f` (LOCAL, sin push) |
 | **Release** | n/a — desktop sin release en este bloque; sin cambio de wire/versionado | ✅ justificado |
 
 ## Herramientas necesarias
@@ -259,11 +259,11 @@ cargo run --bin vanta-cli -- --db target/tmp/api05-smoke-authdb list --namespace
 - **Estado:** ✅
 
 ### Step 6 — Gates docs + commit LOCAL + recitation PARTIAL
-- **Archivos:** `docs/dev/tasks/DESKTOP-44.md` + generados (`docs/index.md`, `llms.txt`) si cambian
-- **Acción:** `check-links` + `check-docs` + `gen-index --write/--check` + `validate-docs-coverage`; OCR advisory; commits LOCALES (`fix(desktop):` + `docs(desktop):`, pathspec propio — WIP ajeno fuera); `campaign_update_task_state(taskId 34, in-progress)` con recitation PARTIAL; RESULTADO §7.
+- **Archivos:** `docs/dev/tasks/DESKTOP-44.md` + generados (`docs/index.md`, `llms.txt`) — **excluidos del commit** (su regen incluye WIP ajeno en vuelo; ver §Notas)
+- **Acción:** `check-links` + `check-docs` + `gen-index --write/--check` + `validate-docs-coverage`; OCR advisory; commits LOCALES (`fix(desktop):` + `docs(desktop):`, pathspec propio — WIP ajeno fuera); `campaign_update_task_state(taskId DESKTOP-44, in-progress)` con recitation PARTIAL; RESULTADO §7.
 - **Verify:** gates verdes + commits locales (sin push)
-- **Resultado:** ⏳
-- **Estado:** ⏳
+- **Resultado:** ✅ — gates docs 4/4 + markdownlint 0 issues + OCR 3 reviewables propios sin Critical/High; commits LOCALES `5a8c06bd` (fix) + `a674849f` (docs+FIND-275); recitation PARTIAL persistida (campaña queda `in-progress`)
+- **Estado:** ✅
 
 ## Evidencia de verificación (post-implementación, 2026-10-05)
 
