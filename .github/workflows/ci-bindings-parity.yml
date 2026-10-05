@@ -1,0 +1,131 @@
+name: 'CI: Bindings — Cross-language parity'
+
+# DIST-17 — cross-language conformance gate. One canonical scenario
+# (tests/parity/scenario.json: put/search/graph/IQL) runs on the Python, WASM
+# and Node bindings; dev-tools/parity-compare.mjs compares the canonical
+# projections (per-step SHA-256 + field diff, documented normalization) and
+# fails on any divergence.
+#
+# Design notes (DIST-17 pre-mortem #3 — CI cost):
+# - ONE aggregated job, not a per-binding matrix: the three Rust builds
+#   (wasm-pack / napi / maturin) share sccache + the Swatinem rust-cache, and
+#   the npm caches are keyed off the two lockfiles.
+# - Triggers stay on binding paths (plus the shared ffi-core leaf, the fixture
+#   and the comparator): the bindings share the same core, so core changes
+#   move all three identically — drift lives in the binding glue.
+# - The WASM step runs against the real `vantadb-wasm/pkg` artifact (same
+#   wasm-bindgen build the TS SDK tests use). The browser wasm-pack suite in
+#   ci-rust.yml stays BEST-EFFORT/non-blocking and is not part of this gate.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "vantadb-python/**"
+      - "vantadb-ts/**"
+      - "vantadb-node/**"
+      - "vantadb-wasm/**"
+      - "vantadb-ffi-core/**"
+      - "tests/parity/**"
+      - "dev-tools/parity-compare.mjs"
+      - ".github/workflows/ci-bindings-parity.yml"
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - "vantadb-python/**"
+      - "vantadb-ts/**"
+      - "vantadb-node/**"
+      - "vantadb-wasm/**"
+      - "vantadb-ffi-core/**"
+      - "tests/parity/**"
+      - "dev-tools/parity-compare.mjs"
+      - ".github/workflows/ci-bindings-parity.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  parity:
+    name: Cross-language conformance (Py/Node/WASM)
+    runs-on: ubuntu-latest
+    # Measured locally (warm caches, Windows dev box): producers + comparator
+    # ~1 min. Cold CI adds three release Rust builds behind sccache +
+    # rust-cache — 30 min is the kill-switch, not the expectation.
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Rust (sccache + rust-cache)
+        uses: ./.github/actions/rust-setup
+        with:
+          install-system-deps: false
+
+      - name: Add wasm target
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: Install wasm-pack
+        uses: jetli/wasm-pack-action@0d096b08b4e5a7de8c28de67e11e945404e9eefa # v0.4.0
+        with:
+          version: latest
+
+      - name: Setup Node.js (npm cache)
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            vantadb-ts/package-lock.json
+            vantadb-node/package-lock.json
+
+      - name: Build WASM package
+        working-directory: vantadb-wasm
+        run: wasm-pack build --release
+
+      # WSM-05: replace the auto-generated .d.ts (mostly `any`) with the
+      # hand-written source, mirroring release-npm-61.yml.
+      - name: Override .d.ts with hand-written source (WSM-05)
+        run: node dev-tools/build-wasm-types.mjs
+
+      - name: Build Node binding (napi)
+        working-directory: vantadb-node
+        run: |
+          npm ci
+          npm run build
+
+      - name: Install TS dependencies
+        working-directory: vantadb-ts
+        run: npm ci
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+
+      - name: Build Python extension (maturin)
+        run: |
+          python -m pip install --upgrade pip maturin pytest
+          maturin build --release --out dist --manifest-path vantadb-python/Cargo.toml
+          pip install dist/vantadb_py-*.whl
+
+      - name: Python producer — canonical scenario
+        working-directory: vantadb-python
+        run: python -m pytest tests/test_cross_language_parity.py -q
+
+      - name: WASM producer — canonical scenario
+        working-directory: vantadb-ts
+        run: npx vitest run src/__tests__/parity.test.ts
+
+      - name: Node producer — canonical scenario
+        working-directory: vantadb-node
+        run: npx vitest run tests/parity.test.ts
+
+      - name: Compare canonical outputs (hash + diff)
+        run: node dev-tools/parity-compare.mjs

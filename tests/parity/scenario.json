@@ -1,0 +1,23 @@
+{
+  "scenario": "canonical-v1",
+  "namespace": "parity",
+  "records": [
+    { "key": "a", "payload": "vector database for agents", "vector": [0.1, 0.2, 0.3] },
+    { "key": "b", "payload": "graph expansion uses edges", "vector": [0.2, 0.3, 0.4] },
+    { "key": "c", "payload": "BM25 lexical retrieval engine", "vector": [0.3, 0.4, 0.5] }
+  ],
+  "search": { "query_vector": [0.1, 0.2, 0.3], "text_query": "vector", "top_k": 5 },
+  "graph": {
+    "root_key": "a",
+    "max_depth": 2,
+    "direction": "Forward",
+    "edges": [
+      { "source_key": "a", "target_key": "b", "label": "uses" },
+      { "source_key": "a", "target_key": "c", "label": "uses" }
+    ]
+  },
+  "iql": {
+    "write": "INSERT NODE#42424242 TYPE ParityProbe { tag: \"canonical\" }",
+    "read": "FROM ParityProbe"
+  }
+}

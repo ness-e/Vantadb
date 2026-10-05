@@ -2,7 +2,7 @@
 title: Workflows — Trigger matrix
 kind: runbook
 status: active
-description: "Source of truth is each file's on: block (read 2026-10-04, post FIND-228 + DIST-05)"
+description: "Source of truth is each file's on: block (read 2026-10-04, post FIND-228 + DIST-05 + DIST-17)"
 tags: [vantadb, ci, workflows, triggers]
 ---
 
@@ -25,6 +25,7 @@ Legend: Y = yes, — = no. `paths` means a path filter applies (see file).
 |----------|------|--------------|----------|----------|-------|
 | `ci-rust.yml` | Y (`main`) | Y (`main`) | — | Y | — |
 | `ci-rustdoc.yml` | Y (`main`) | Y (`main`,`develop`) | — | Y | — |
+| `ci-bindings-parity.yml` | Y (`main`, paths bindings) | Y (`main`,`develop`, paths bindings) | — | Y | — |
 | `ci-examples.yml` | Y (`main`) | Y (`main`) | — | Y | — |
 | `chaos.yml` | Y (`main`) | Y (`main`) | — | Y | — |
 | `gate-docs.yml` | Y (`main`) | Y (`main`,`develop`) | — | Y | — |
