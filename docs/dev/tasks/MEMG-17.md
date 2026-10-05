@@ -152,4 +152,27 @@ Revisor: vanta-review (fresh context, P2-01, rondas 1-2) · Enfoque: contrato L1
 - **Archivos:** `docs/api/VANTA_MEMORY.md` (sección nueva), `docs/dev/tasks/MEMG-17.md` (evidencia), (+ Backlog: fila FIND si hay diferidos)
 - **Acción:** docs (EN, sección "Rollback, erasure & receipts (MEMG-17)" + feature flags n/a + debts); verify scoped completo (`-p vanta-memory` suite + `-p vantadb --lib` + fmt + clippy); OCR delegation; review P2-01 fork `vanta-review`; commit local pathspec `feat(memory):`; campaign close taskId `55`; skill progreso.
 - **Verify:** commands del contrato + `dev-tools/verify_changed.ps1` si aplica.
-- **Evidencia:** ⬜
+- **Evidencia:** ✅ Docs (VANTA_MEMORY.md: sección "Rollback, erasure & receipts (MEMG-17)" + feature flag `erasure` + namespace `erasure/dek`; Backlog: FIND-302; task file + index/llms regenerados — gates ✅). Verify full scoped: **default 701/701** · **--features erasure 712/712** · rollback 7/7 · erasure 11/11 · attestation VER-02 10/10 · `cargo fmt --check` ✅ · clippy `--all-targets --all-features -D warnings` ✅ · `scripts/validate-docs-coverage.ps1` 0 gaps ✅ · `gen-index --check` ✅. OCR delegation ejecutada (hallazgo real corregido: `decode_hex` panic-free + test). Review P2-01 ronda 1→2 **APPROVE**. Commits **LOCALES**: `80cb84b0` (feat) + `docs(task)` de esta sección (⛔ sin push).
+
+## RESULTADO (sección 7 - contrato de retorno)
+
+```
+RESULTADO: ✅ COMPLETO
+STEPS_OK: 5/5 total steps
+PROXIMO_STEP: ninguno
+COMMIT_HASH: 80cb84b0 (+ docs(task) de esta sección)
+ARCHIVOS: vanta-memory/src/core/record/{rollback.rs, l1_writer.rs, mod.rs} · vanta-memory/src/utils/{backup.rs, erasure.rs, mod.rs} · vanta-memory/Cargo.toml · Cargo.lock · vanta-memory/tests/{rollback.rs, erasure.rs} · src/attestation.rs · docs/api/VANTA_MEMORY.md · docs/dev/Backlog.md (FIND-302) · docs/dev/tasks/MEMG-17.md · docs/index.md + llms.txt (regenerados)
+VERIFY_CONTRATO: pasa (RED→GREEN por pieza (a)/(b)/(c) + suites default 701/701 y feature 712/712 + attestation 10/10 + fmt/clippy + docs gates + coverage 0-gaps + OCR + review P2-01)
+BLOQUEO: ninguno
+GATES_EVALUADOS: P:no(familia aprobada F0) D:no(pre-respondido por plan F0 — contrato sanciona las 3 piezas) V:no C:no | + coordinación: código WIP de MEMG-10 NO stageado; index/llms regenerados incluyen filas de MEMG-10 (generado del árbol — declarado en commit)
+SKILLS_CARGADAS: campaign-executor · progreso · ponytail (base auto) · source-driven-development · doubt-driven-development · incremental-implementation · test-driven-development · context-engineering (SDP phase=BUILD) · security-and-hardening · rust-write-tests · documentation-and-adrs (rol) · documentation-skill (docs)
+```
+
+**Review P2-01:** APPROVE (fresh, reviewer `vanta-review`, contexto `ses_ef20ad433ffefWeG1953lUTVFi` ≠ autor — rondas 1-2 en §Review).
+
+## Notas (coordinación + shared files)
+
+- **MEMG-10 en vuelo (misma área):** releído fresco en DISCOVERY; código suyo (`vanta-proxy/**`, `src/server/**`, `src/audit.rs`, hooks, `vantadb-mcp/**`, `tests/rbac_namespace.rs`, `tests/memg10_trust_gate.rs`, `docs/dev/research/mgr-04-policy-engine.md`) **NO stageado**. Conflicto real: ninguno (paths disjuntos). Compartidos: `Backlog.md` (su FIND-301 intacto + mi FIND-302), `docs/index.md`/`llms.txt` (regenerados; incluyen sus filas en vuelo — generado del árbol, declarado en el commit `80cb84b0`).
+- **Incidente de entorno:** server restart a mitad de sesión (subagent review interrumpido → re-fork, misma sesión de reviewer); 2 crashes transitorios del `clippy-driver` (STATUS_STACK_BUFFER_OVERRUN bajo builds concurrentes con MEMG-10) → re-run limpio ✅.
+- **PROHIBIDO y respetado:** `opencode.jsonc`, master plan, `docs/pipeline-state.json` no tocados/stageados.
+- **Context Save Point (si el run se interrumpe):** estado en §Steps (5/5 ✅) + recitation; el slice es aditivo y ya está commiteado; nada pendiente salvo el cierre campaign (taskId `55`) y `skill progreso`.
