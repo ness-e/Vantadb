@@ -62,9 +62,10 @@ recorder honoring the persisted cursor or the plugin-start floor
 **recall** — `RecallConfig` (`core/hooks/auto_recall.rs:119`) carries the search
 `mode` (default hybrid), `scope` (`RecallScope`, default `Agent` — accumulates
 across an agent's sessions without the cross-agent leak, D22), `max_results`
-(default 5) and optional char budgets. Empty `user_text` skips L1 search but
-still injects persona + scene navigation; when nothing yields, returns `Ok(None)`
-— never an empty block (`core/hooks/auto_recall.rs:193-202`).
+(default 5), optional char budgets and `core_search` (default `false`; opts into
+ranking via the core hybrid engine — see §Recall). Empty `user_text` skips L1
+search but still injects persona + scene navigation; when nothing yields, returns
+`Ok(None)` — never an empty block (`core/hooks/auto_recall.rs:193-202`).
 
 **seed** — idempotent by content-hash; `import_seed_str` / `import_seed` take
 JSON input and `import_md_dir` re-imports a directory exported via
@@ -340,6 +341,17 @@ keyword-overlap gate (`min_overlap`). With `embed-local` compiled,
 `L1DedupConfig::default` wires `local_embedding_hook()` automatically (MEM-63); without a
 provider both modes degrade to keyword-overlap (`RecallMode::effective`,
 `core/hooks/auto_recall.rs:87-98`).
+
+**Core hybrid path (MEMG-11, opt-in).** `RecallConfig { core_search: true, .. }` ranks the
+L1 pool with the core `Embedded::search` — BM25 text arm + HNSW vector arm + planner RRF —
+instead of the in-memory dual-pool. The D38 promise is preserved (the text arm always runs,
+even in `Embedding` mode: a vectorless record still ranks through BM25; tested by
+`vanta-memory/tests/recall_core_hybrid.rs`) and the same gates apply (quarantine excluded,
+VER-04 injection ACL, D22 agent/team scope across `l1/*` namespaces). Documented divergences:
+`min_overlap` is not applied (BM25 relevance replaces the overlap gate); cross-namespace
+merging orders by the per-namespace RRF score (approximate across namespaces); `semantic_ran`
+reports the embedding arm *executed* (non-empty query vector). Default `false` keeps the
+legacy path byte-identical — flip the flag to roll forward or back during the migration.
 
 ### Wiki ingest (F7)
 ```rust

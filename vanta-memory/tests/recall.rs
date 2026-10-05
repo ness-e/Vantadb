@@ -660,6 +660,7 @@ fn mcp_synthetic_session_sees_pipeline_l1_under_default_agent_scope() {
                 min_overlap: 1,
                 max_chars_per_memory: None,
                 max_total_recall_chars: None,
+                core_search: false,
             },
         },
         None,

@@ -399,6 +399,45 @@ impl Embedded {
         }
     }
 
+    /// [`Self::resolve_existing_for_write`] variant for callers that already
+    /// hold the `purge_lock` **write** guard (`put_batch_inner`'s critical
+    /// section): no read guard is taken — re-entering the non-reentrant lock
+    /// would deadlock — and expired records are purged inline through
+    /// [`Self::purge_expired_record_locked`]. Returns the live record to
+    /// upsert over (`previous`), if any, exactly like the guarded variant's
+    /// first tuple element.
+    fn resolve_existing_for_write_locked(
+        &self,
+        engine: &crate::storage::StorageEngine,
+        namespace: &str,
+        key: &str,
+    ) -> Result<Option<MemoryRecord>> {
+        let node_id = memory_node_id(namespace, key);
+        loop {
+            let Some(node) = engine.get(node_id)? else {
+                return Ok(None);
+            };
+            match record_from_node(&node) {
+                Some(record) if record.namespace == namespace && record.key == key => {
+                    return Ok(Some(record));
+                }
+                Some(_) => return Err(Error::NodeIdCollision(node_id)),
+                None => match memory_record_from_node_include_expired(&node) {
+                    Some(expired) if expired.namespace == namespace && expired.key == key => {
+                        if self
+                            .purge_expired_record_locked(engine, namespace, key, node_id)?
+                            .is_none()
+                        {
+                            return Ok(None);
+                        }
+                        continue;
+                    }
+                    _ => return Err(Error::NodeIdCollision(node_id)),
+                },
+            }
+        }
+    }
+
     /// Physically remove one expired record and its derived entries, under the
     /// `purge_lock` **write** guard. Uses the same primitives as `delete_inner`
     /// — node delete (KV + HNSW + shred), derived/text/sparse index
@@ -424,6 +463,21 @@ impl Embedded {
         node_id: u128,
     ) -> Result<Option<MemoryRecord>> {
         let _guard = self.purge_lock.write();
+        self.purge_expired_record_locked(engine, namespace, key, node_id)
+    }
+
+    /// [`Self::purge_expired_record`] without taking the lock: the caller must
+    /// already hold the `purge_lock` **write** guard. `put_batch_inner` holds
+    /// that guard for its whole critical section (resolve + insert + index
+    /// replacement), so it must purge expired keys through this variant — the
+    /// public one would re-enter the non-reentrant lock and deadlock.
+    fn purge_expired_record_locked(
+        &self,
+        engine: &crate::storage::StorageEngine,
+        namespace: &str,
+        key: &str,
+        node_id: u128,
+    ) -> Result<Option<MemoryRecord>> {
         if engine.txn.has_active() {
             return Err(Error::NodeIdCollision(node_id));
         }
@@ -604,9 +658,11 @@ impl Embedded {
     /// Insert or update multiple namespace-scoped persistent memory records.
     ///
     /// Uses `batch_insert_with_opts()` internally — a single WAL `batch_append`,
-    /// KV `write_batch`, and HNSW lock acquisition across all nodes in a chunk.
-    /// Skips the per-node existence check (caller guarantees fresh inserts or
-    /// uses `put()` for individual UPSERTS).
+    /// KV `write_batch`, and HNSW lock acquisition across all nodes in a chunk —
+    /// plus per-record derived/text/sparse index replacement (the same
+    /// `replace_derived_indexes` path `put()` uses; MEMG-11: O(batch), no
+    /// full-DB rebuild). UPSERTs bump versions like `put()` (in-batch
+    /// duplicates included).
     #[tracing::instrument(skip(self, inputs), err)]
     pub fn put_batch(&self, inputs: Vec<MemoryInput>) -> Result<Vec<MemoryRecord>> {
         let (namespace, key) = inputs
@@ -637,16 +693,31 @@ impl Embedded {
         let batch_size = self.config.batch_size.unwrap_or(1000);
         let mut all_results: Vec<MemoryRecord> = Vec::with_capacity(inputs.len());
         let mut rebuild_needed = false;
-        // Track versions + quarantine state for keys seen earlier in this
-        // batch (in-batch dedup, mirrors put_one's UPSERT semantics). Persisted
-        // before the chunk loop so duplicate keys split across chunks still
-        // bump correctly.
-        let mut seen: HashMap<u128, (u64, QuarantineState)> = HashMap::with_capacity(inputs.len());
+        // Track versions + quarantine state + the last record written for keys
+        // seen earlier in this batch (in-batch dedup, mirrors put_one's UPSERT
+        // semantics; the record is the `previous` side of the per-record
+        // derived/text/sparse index replacement below). Persisted before the
+        // chunk loop so duplicate keys split across chunks still bump
+        // correctly.
+        let mut seen: HashMap<u128, (u64, QuarantineState, MemoryRecord)> =
+            HashMap::with_capacity(inputs.len());
+        // DUR-03 (review MEMG-11 r2): hold the purge **write**-lock ONCE for
+        // the whole batch critical section (resolve + insert + per-record
+        // index replacement). A concurrent `purge_expired` cannot interleave
+        // and double-decrement the text stats (the race `put_one` closes with
+        // its read guard). A single write guard also avoids the deadlock the
+        // read-guard variant would create: expired keys are resolved through
+        // `resolve_existing_for_write_locked`/`purge_expired_record_locked`,
+        // which never re-enter the non-reentrant lock.
+        let _batch_guard = self.purge_lock.write();
 
         for chunk in inputs.chunks(batch_size) {
             let timestamp = now_ms();
             let mut nodes: Vec<UnifiedNode> = Vec::with_capacity(chunk.len());
             let mut records: Vec<MemoryRecord> = Vec::with_capacity(chunk.len());
+            // `previous` side of `replace_derived_indexes` per record (None =
+            // fresh insert), parallel to `records`.
+            let mut chunk_previous: Vec<Option<MemoryRecord>> = Vec::with_capacity(chunk.len());
             // SCH-05 review F3: T1 entries of this chunk, audited post-commit.
             let mut entered_quarantine: Vec<(String, String)> = Vec::new();
 
@@ -655,23 +726,26 @@ impl Embedded {
                 // Existing record: in-batch duplicate wins (already bumped), else
                 // consult the engine like put_one (pre-existing records from
                 // earlier batches should also increment, not reset to 1).
-                let (prev_version, prev_created_at_ms, mut quarantine) = if let Some((v, q)) =
-                    seen.get(&node_id)
-                {
-                    (Some(*v), Some(timestamp), q.clone())
-                } else {
-                    // NOTE: the guard is intentionally dropped at the end of
-                    // this match — the batch path finishes with full index
-                    // rebuilds, so it does not need the generation pinned.
-                    match self.resolve_existing_for_write(&engine, &input.namespace, &input.key)? {
-                        (Some(record), _guard) => (
-                            Some(record.version),
-                            Some(record.created_at_ms),
-                            QuarantineState::from_record(&record),
-                        ),
-                        (None, _guard) => (None, None, QuarantineState::default()),
-                    }
-                };
+                let (prev_version, prev_created_at_ms, mut quarantine, previous) =
+                    if let Some((v, q, prev)) = seen.get(&node_id) {
+                        (Some(*v), Some(timestamp), q.clone(), Some(prev.clone()))
+                    } else {
+                        // Under `_batch_guard`: no read guard is taken and
+                        // expired keys are purged inline (locked variant).
+                        match self.resolve_existing_for_write_locked(
+                            &engine,
+                            &input.namespace,
+                            &input.key,
+                        )? {
+                            Some(record) => (
+                                Some(record.version),
+                                Some(record.created_at_ms),
+                                QuarantineState::from_record(&record),
+                                Some(record),
+                            ),
+                            None => (None, None, QuarantineState::default(), None),
+                        }
+                    };
                 let created_at_ms = prev_created_at_ms.unwrap_or(timestamp);
                 let version = prev_version.map(|v| v.saturating_add(1)).unwrap_or(1);
 
@@ -689,7 +763,7 @@ impl Embedded {
                 let (confidence_class, confidence, derived_from) =
                     self.materialize_confidence(input)?;
                 let valid_at_ms = self.materialize_valid_at(input.valid_at_ms, created_at_ms)?;
-                seen.insert(node_id, (version, quarantine.clone()));
+                let quarantine_snapshot = quarantine.clone();
 
                 let record = MemoryRecord {
                     namespace: input.namespace.clone(),
@@ -719,7 +793,9 @@ impl Embedded {
                     quarantine_review_due_ms: quarantine.review_due_ms,
                 };
                 let (node, record) = memory_record_to_node_owned(record);
+                seen.insert(node_id, (version, quarantine_snapshot, record.clone()));
                 nodes.push(node);
+                chunk_previous.push(previous);
                 records.push(record);
             }
 
@@ -745,6 +821,17 @@ impl Embedded {
             engine.batch_insert_with_opts(&nodes, opts)?;
             rebuild_needed = rebuild_needed || chunk_needs_rebuild;
 
+            // ── Derived/text/sparse indexes: per-record replacement ──
+            // Mirrors `put_one`: each record's namespace/payload/text/sparse
+            // entries are replaced incrementally (with the resolved previous
+            // record as the delete side for UPSERTS). This replaces the former
+            // full-DB rebuild per batch — O(batch) instead of O(total nodes),
+            // which made small batches on large stores pathologically slow
+            // (MEMG-11 A/B: 0.07× at store=2000/batch=20).
+            for (previous, record) in chunk_previous.iter().zip(records.iter()) {
+                self.replace_derived_indexes(&engine, previous.as_ref(), Some(record))?;
+            }
+
             // SCH-05 review F3: audit each T1 entry post-commit (mirrors
             // put_one; the write-time quarantine flag is a domain event).
             for (ns, key) in &entered_quarantine {
@@ -757,7 +844,8 @@ impl Embedded {
                 ));
             }
 
-            // ── Post-processing (same as put_one but without derived indexes for batch) ──
+            // ── Post-processing (shredding; derived/text/sparse indexes were
+            // replaced per record right after the chunk insert) ──
             for record in &records {
                 if !record.metadata.is_empty() {
                     let _ = crate::shred::ShreddedRowStore::put(
@@ -777,11 +865,6 @@ impl Embedded {
                 self.config.version_history_limit,
             );
 
-            // ponytail: no `replace_derived_indexes` for batch — derived index update
-            // for UPSERTS requires per-node `engine.get()` to diff old vs new. For
-            // fresh-insert workloads (common case) there is nothing to diff. Add
-            // a second pass with existence checks when UPSERT-batch support is needed.
-
             all_results.extend(records);
         }
 
@@ -790,16 +873,8 @@ impl Embedded {
             engine.rebuild_vector_index()?;
         }
 
-        // Derived + text indexes: put_batch writes nodes directly (no per-node
-        // replace_derived_indexes), so rebuild them in one pass. Without this,
-        // list/count/text-search return 0 for batch-inserted records because the
-        // empty NamespaceIndex/TextIndex partitions are read as authoritative.
-        // ponytail: full rebuild per batch is O(total nodes); switch to
-        // incremental per-record index ops if batch-heavy workloads need it.
-        self.rebuild_derived_indexes_with_report()?;
-        self.rebuild_text_index_with_report()?;
-        self.rebuild_sparse_index_with_report()?;
-
+        // Derived/text/sparse indexes were updated incrementally per record
+        // above (same path as `put_one`), so no full rebuild is needed here.
         Ok(all_results)
     }
 
