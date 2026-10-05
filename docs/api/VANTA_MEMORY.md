@@ -223,7 +223,7 @@ with `llm-driver` on: failures are loud, never a silent `NotConfigured`
 | Offload | `offload::{state_manager,storage,reclaimer,hooks::after_tool_call}` | Cursor `lastOffloadedToolCallId`, entradas por tool_call_id, GC por retention |
 | Ingest | `ingest::{worker,merge,prompts,callback}` | Ingest wiki serial (fallo por página no bloquea), progreso canal interno + polling run_id |
 | Skills | `core::skill::skill_extractor` + `conversation_add` | Extracción desde transcript con marcadores anti role-capture; sink idempotente doble cursor+content-hash |
-| Orquestación | `services::pipeline_worker`, `utils::{pipeline_manager,stateful_pipeline_manager,managed_timer,checkpoint,backup}` | Timers/locks estado local, trait `Clock` inyectable (FakeClock determinista), worker L0→L1→L2→L3, backup/restore vía snapshot (MEMG-13) |
+| Orquestación | `services::pipeline_worker`, `utils::{pipeline_manager,stateful_pipeline_manager,managed_timer,checkpoint,task_checkpoint,backup}` | Timers/locks estado local, trait `Clock` inyectable (FakeClock determinista), worker L0→L1→L2→L3, checkpoints de tarea reanudables (MEMG-20), backup/restore vía snapshot (MEMG-13) |
 | Gateway | `gateway::knowledge_handlers` | Handlers tipados scene_read/list/query para exposición MCP/server |
 
 **Contradicciones en ingesta (MEMG-01).** El juicio de dedup L1 —la misma
@@ -340,6 +340,61 @@ tombstones and are **not** rolled back (FIND-287).
 core filters (`min_confidence`, temporal, metadata) have no memory-side
 consumer today → FIND-285 / FIND-286 (Backlog).
 
+## Task checkpoints (MEMG-20)
+
+Resumable checkpoints of **host tasks** (dim 1 working memory): current step +
+partial results + state, so a new instance resumes after an interruption
+without repeating completed steps. **Separate domain from the pipeline
+checkpoint** (TDAM `Checkpoint`, namespace `pipeline_checkpoint`): separate
+types, separate namespace (`task_checkpoints`), no shared fields. This module
+stores progress — it is **not** a task engine (no step execution or
+orchestration).
+
+**API** (`utils::task_checkpoint::{TaskCheckpointManager, TaskCheckpoint, TaskState}`):
+
+| Method | Contract |
+|---|---|
+| `begin(task_id) -> TaskCheckpoint` | Ensure a checkpoint exists: fresh at `step=0` (`InProgress`) or the existing record unchanged — **idempotent**, a re-run never clobbers progress; deliberate restart = `delete` + `begin` |
+| `advance(task_id, result) -> TaskCheckpoint` | Record one completed step: appends `result` to `partial` and `step += 1` (RMW); rejects missing (`NotFound`) or finished (`NotInProgress`) checkpoints |
+| `complete(task_id)` / `fail(task_id) -> TaskCheckpoint` | Terminal states (RMW); `fail` keeps `partial` for inspection/retry |
+| `load(task_id) -> Option<TaskCheckpoint>` | Read one checkpoint (`None` = never begun) |
+| `delete(task_id)` | Remove the checkpoint (idempotent) |
+
+`TaskCheckpoint { version, step, state, partial }` — `step` is the **next step
+to run** (steps `< step` are completed; `partial[i]` is step `i`'s result, so
+`partial.len() == step` while advanced through the manager). `version`
+(`TASK_CHECKPOINT_VERSION = 1`) is the schema-migration hook.
+
+```rust
+// Host resume loop: interruption-safe by construction.
+let checkpoints = TaskCheckpointManager::new(&db);
+let cp = checkpoints.begin("task-1")?;          // resume-safe start
+for step in cp.step..total_steps {
+    let result = run_step(step);                // host work…
+    checkpoints.advance("task-1", result)?;     // durable after each step
+}
+checkpoints.complete("task-1")?;
+```
+
+**Persistence:** one JSON record per task under `task_checkpoints` (key =
+sanitized `task_id`); RMW per record — keep a single writer per `task_id`
+(same in-process atomicity discipline as the pipeline checkpoint). Pinned by
+`vanta-memory/tests/task_checkpoint.rs`: namespace separation via raw SDK
+(no cross-contamination, no pipeline fields in a task record) and Fjall
+close/reopen resume (steps 0–1 done → new instance resumes at 2,
+`executed == [2, 3, 4]`, partial preserved).
+
+**Host limit:** resuming after the agent's *context compaction* is the host's
+concern — this manager persists the task state, not the agent's conversational
+context (that lives in the context engine). Granularity: one entry per
+completed step; mid-step progress is not persisted. Resume is
+**at-least-once**: a crash between a step's effect and `advance` re-runs that
+step — host steps should be idempotent (or reconciled) under resume.
+`task_id`s are sanitized (`[A-Za-z0-9._-]`, ≤512 bytes); keep them in the safe
+set to avoid silent key collisions. In-repo consumers today:
+**none** — the pipeline worker tasks (L1/L2/L3/Dream) are single-pass; the
+natural consumer is an agent host (dim 1 proposal) → FIND-288 (Backlog).
+
 ## Contratos clave
 
 ### Trait `LlmRunner` (host-neutral, sync)
@@ -409,6 +464,7 @@ merges requeridos se registran como skipped.
 | `persona/<session>` · `profile/{scope}` | persona · perfil sincronizado |
 | `offload/<session>` · `offload_state/<session>` | entradas offload · cursor |
 | `pipeline_checkpoint` | contadores del orquestador |
+| `task_checkpoints` | checkpoints de tarea reanudables (MEMG-20; un record por `task_id`) |
 | `genlog/<session>` | provenance de generaciones (best-effort, cap 100) |
 | `dream/<session>/<run_id>` | vista consolidada por corrida (MEM-61; `discard` real; `promote` real con dry-run/gate — VER-07) |
 | skills_extract/<scope> | seed/import CLI |
