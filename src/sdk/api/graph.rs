@@ -17,6 +17,14 @@ use crate::executor::Executor;
 use crate::node::{FieldValue, UnifiedNode, VectorRepresentations};
 use crate::sdk::serialization::now_ms;
 
+/// MEMG-03 canonical lineage labels: edge `superseded_by` runs old → new
+/// (mirrors `MemoryRecord::superseded_by`); edge `derived_from` runs
+/// child → parent (mirrors `MemoryRecord::derived_from`). The record field is
+/// canonical data; the edge is derived navigability created by the op
+/// (`supersede`, derived `put`).
+pub(crate) const LABEL_SUPERSEDED_BY: &str = "superseded_by";
+pub(crate) const LABEL_DERIVED_FROM: &str = "derived_from";
+
 impl Embedded {
     /// Insert or update a node directly. The `input` provides id, content, vector, and fields.
     #[tracing::instrument(skip(self), err)]
@@ -159,6 +167,66 @@ impl Embedded {
             .edges
             .retain(|e| !(e.target == source_id && e.label_id == label_id));
         engine.insert(&target)
+    }
+
+    /// MEMG-03: idempotently ensure a labeled bidirectional edge exists between
+    /// two existing nodes. Unlike [`Embedded::add_edge`], a half that is
+    /// already present (forward on `source_id`, reverse on `target_id`) is left
+    /// as-is — lineage ops (`supersede`, derived `put`) are safe to re-run
+    /// without duplicating edges. Returns `true` when at least one half was
+    /// created, `false` when the edge already existed in full.
+    #[tracing::instrument(skip(self), err)]
+    pub(crate) fn ensure_edge(
+        &self,
+        source_id: u128,
+        target_id: u128,
+        label: &str,
+    ) -> Result<bool> {
+        self.check_read_only()?;
+        crate::metrics::record_graph_op("ensure_edge");
+        let engine = self.engine_handle()?;
+        let label_id = engine.intern_label(label);
+        let ts = now_ms();
+
+        let mut source = engine
+            .get(source_id)?
+            .ok_or(Error::NodeNotFound(source_id))?;
+        let mut target = engine
+            .get(target_id)?
+            .ok_or(Error::NodeNotFound(target_id))?;
+
+        let mut created = false;
+        if !source
+            .edges
+            .iter()
+            .any(|e| e.target == target_id && e.label_id == label_id && !e.reverse)
+        {
+            source.edges.push(crate::node::Edge {
+                target: target_id,
+                label_id,
+                weight: 1.0,
+                reverse: false,
+                created_at_ms: ts,
+            });
+            engine.insert(&source)?;
+            created = true;
+        }
+        if !target
+            .edges
+            .iter()
+            .any(|e| e.target == source_id && e.label_id == label_id && e.reverse)
+        {
+            target.edges.push(crate::node::Edge {
+                target: source_id,
+                label_id,
+                weight: 1.0,
+                reverse: true,
+                created_at_ms: ts,
+            });
+            engine.insert(&target)?;
+            created = true;
+        }
+        Ok(created)
     }
 
     /// Collect every live non-memory-record node as an SDK record (CORE-02).
