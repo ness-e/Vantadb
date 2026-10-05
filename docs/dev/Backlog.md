@@ -685,7 +685,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/dev/revie
 
 | ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias |
 |---|---|---|---|---|---|---|---|---|---|
-| `TS-11` | — | **Roadmap paridad sub-clientes** | `vantadb-wasm/src/lib.rs` · `vantadb-ts/src/vantadb.ts:333-338` | 🔴 1-2sem | 🟢 Nice-to-have | 🆕 Pendiente | Planificar exposición vía WASM de wiki/conversation/skills cuando core lo permita — hoy `db.wiki` es `{}` documentado (H-12). | Origen: INV-vantadb-ts 2026-08-25 | — |
 
 ## P42 - Investigación INV-vantadb-wasm (2026-08-25)
 
