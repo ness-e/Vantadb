@@ -17,6 +17,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::core::abstractions::MemoryRecord;
 use crate::core::conversation::{sanitize_component, sanitize_key};
+use crate::core::record::lifecycle::{scan_decay, DecayPolicy, DecayReport};
 use crate::core::record::L1Error;
 
 /// `l1/<sanitized-session>` — persisted L1 memory records namespace.
@@ -71,6 +72,23 @@ pub fn read_namespace_records(
     }
 
     Ok(records)
+}
+
+/// Run the L1 forgetting-curve pass over one session (MEMG-07).
+///
+/// Composes [`read_session_records`] + [`scan_decay`] — **read-only**: the
+/// curve deprioritizes records (effective heat); it never mutates or deletes
+/// them, and the discard gate stays explicit
+/// ([`crate::core::record::lifecycle::PRUNE_HEAT_THRESHOLD`]). Pull-based
+/// (the owner calls it), mirroring `TimerScanner::run_once`.
+pub fn run_decay_pass(
+    db: &vantadb::sdk::Embedded,
+    session_key: &str,
+    policy: &DecayPolicy,
+    now_ms: u64,
+) -> Result<DecayReport, L1Error> {
+    let records = read_session_records(db, session_key)?;
+    Ok(scan_decay(&records, policy, now_ms))
 }
 
 /// Read a single L1 record by id, if present.

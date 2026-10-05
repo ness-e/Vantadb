@@ -12,7 +12,9 @@ pub mod l1_extractor;
 /// `decay_heat` runs on the periodic maintenance pass (signal of
 /// forgetting). `mark_contradiction` writes a `superseded_by` pointer
 /// to the new record — the OLD record is preserved (provenance, never
-/// silent deletion).
+/// silent deletion). MEMG-07 adds the forgetting curve
+/// (`retention_factor` / `effective_heat` / `scan_decay`): a declared
+/// per-type half-life policy, read-side — it deprioritizes, never purges.
 pub mod lifecycle;
 
 /// L1 memory reader + LLM-free candidate recall (MEM-11).
@@ -41,7 +43,7 @@ pub use l1_dedup::{
 pub use l1_extractor::{extract_l1_memories, extract_l1_segments, L1ExtractorConfig};
 pub use l1_reader::{
     diff_records, l1_namespace, read_record, read_record_version, read_record_versions,
-    read_session_records, recall_candidates, RecordFieldChange, RecordVersion,
+    read_session_records, recall_candidates, run_decay_pass, RecordFieldChange, RecordVersion,
 };
 pub use l1_writer::{apply_dedup_batch, generate_memory_id, write_memory, EmbedFn, L1Error};
 

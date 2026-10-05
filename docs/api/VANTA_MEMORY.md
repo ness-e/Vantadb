@@ -395,6 +395,60 @@ set to avoid silent key collisions. In-repo consumers today:
 **none** — the pipeline worker tasks (L1/L2/L3/Dream) are single-pass; the
 natural consumer is an agent host (dim 1 proposal) → FIND-288 (Backlog).
 
+## Forgetting curve (MEMG-07)
+
+Declared forgetting curve over L1 records: a per-type half-life policy that
+**deprioritizes** memories as they age without access. `heat` (bumped on every
+read) is never mutated and nothing is ever deleted — the curve is **read-side**:
+consumers derive an *effective* heat from (stored heat, age, type), and the
+discard gate stays explicit (`PRUNE_HEAT_THRESHOLD`).
+
+**Policy, not calibration.** No canonical decay formula for semantic memory has
+been validated (N-09); the half-lives below are declared, tunable defaults. The
+shape is the exponential forgetting form `R = e^(−t/S)` parametrized by
+half-life (`R = 2^(−age/half_life)`) — see
+[Forgetting curve](https://en.wikipedia.org/wiki/Forgetting_curve); the same
+source notes the simple exponential does not fit human data well, which is why
+this is a policy. The full Ebbinghaus vision (access frequency, importance,
+confirmations, salience — FUT-10) lands in the composite-scoring work (MEMG-21).
+
+**API** (`core::record::lifecycle::{DecayPolicy, retention_factor, effective_heat, scan_decay, DecayReport}` + `core::record::run_decay_pass`):
+
+| Function | Contract |
+|---|---|
+| `DecayPolicy::default()` | Declared per-type half-lives; a type absent from the map never decays (`half_life_ms` → `None`). `set_half_life` / `clear_half_life` / `half_life_ms` configure it |
+| `retention_factor(record, policy, now_ms) -> f64` | `2^(−age/half_life)` ∈ [0, 1]; `age` = time since `updated_at` (last touch — `bump_heat` refreshes it on access, so use resets retention). Exempt type / clock skew / unparseable timestamps → `1.0` (what cannot be aged is never forgotten) |
+| `effective_heat(record, policy, now_ms) -> u32` | `heat × retention`, rounded — the deprioritized value consumers rank with. Stored `heat` untouched |
+| `scan_decay(records, policy, now_ms) -> DecayReport` | Pure scan: disjoint `decayed` / `unchanged` / `exempt` counts, `below_threshold` (effective ≤ `PRUNE_HEAT_THRESHOLD`), `heat_total` / `heat_effective` / `heat_forgotten()` |
+| `run_decay_pass(db, session_key, policy, now_ms) -> Result<DecayReport, L1Error>` | The pass: `read_session_records` + `scan_decay` over one session. **Read-only**, pull-based (the owner calls it, like `TimerScanner::run_once`); never mutates or deletes |
+
+**Declared defaults** (policy; tune per deployment):
+
+| Type | Half-life | Rationale |
+|---|---|---|
+| `persona` | 90 d | stable traits/preferences |
+| `episodic` | 7 d | one-off events |
+| `instruction` | — (exempt) | followed until contradicted; never forgotten by a curve |
+| `work_fact` | 30 d | facts about the user's work/team |
+| `work_task` | 14 d | open/completed tasks age fast |
+| `work_method` | 60 d | procedures are durable |
+| `work_artifact` | 30 d | files/docs/code |
+
+```rust
+let policy = DecayPolicy::default();
+let report = run_decay_pass(&db, "sess-1", &policy, now_ms)?;
+// report.scanned / decayed / unchanged / exempt / below_threshold
+// report.heat_total → report.heat_effective  ("how much decays")
+```
+
+**Guarantees** (pinned by the `lifecycle.rs` inline tests +
+`vanta-memory/tests/forgetting_curve.rs`): the pass is idempotent (same `now_ms`
+→ same report, payloads byte-identical); it never deletes or mutates records;
+known-value math is exact (`8 × 2^(−1) = 4`, `3 × 2^(−2) = 0.75 → 1`). In-repo
+consumers today: **none** — no scheduler calls the pass yet (the pull-based
+service is WIRE-15) and the automatic discard is deliberately deferred →
+FIND-289 (Backlog).
+
 ## Contratos clave
 
 ### Trait `LlmRunner` (host-neutral, sync)
