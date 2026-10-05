@@ -145,8 +145,8 @@ description: "T3 WIRE-14→15→16 (ADR-0054): vantadb-server host del scheduler
 - **Archivos:** `docs/dev/tasks/WIRE-16.md` (§Review + RESULTADO §7)
 - **Acción:** `pwsh dev-tools/ocr-review.ps1 -Format json` (advisory; revisar por Rule Group — Critical/High bloquean; Medium → FIND) · clasificar tier HARD-02: paths `vantadb-server/**` + `src/server/**` + `docs/dev/tasks/**` → **Fast** (ninguno matchea los globs adversariales) → verify fast mecánico + **veredicto registrado**; fork `vanta-review` (agente distinto, fresh context) con contrato + diff + evidencia para el veredicto P2-01 (incluye la extensión core del seam) · gates docs (`check-links`/`check-docs`/`gen-index --check`) · commit **LOCAL** `feat(wire):` con pathspec de archivos propios · `campaign_update_task_state(completed, taskId:"47")` con recitation + payload `review` · `skill progreso`.
 - **Verify:** veredicto registrado en §Review + `git show --stat HEAD` limitado a archivos propios + `git status` sin WIP ajeno stageado
-- **Evidencia:** [a llenar]
-- **Estado:** ⬜ PENDING
+- **Evidencia:** ✅ OCR delegation (`pwsh dev-tools/ocr-review.ps1 -Format json` → 2 Rule Groups: 1 los `.rs` (server/scheduler/mcp/tests — ownership, error handling, unsafe, concurrencia, async, API), 2 `vantadb-server/Cargo.toml` (manifest hygiene); pasada cognitiva: 0 Critical / 0 High / 0 Medium — sin `unwrap`/`unsafe`/lock-a-través-de-await; WIP ajeno fuera del alcance) · ✅ review P2-01 `vanta-review` **APPROVE** (sesión `ses_ef35294d8ffeEQOowuvrmlAMap`; 0C/0H/0M; Low-1/Optional-1/NIT-1/NIT-3 aplicados y re-verificados — focused 8/8 + fmt/clippy; Low-2 → **FIND-291** en Backlog; Optional-2/NIT-2 dispensados con motivo) · ✅ tier **Fast** (HARD-02) · ✅ gates docs (`check-docs` exit 0 · `check-links` exit 0 · `gen-index --check` exit 0 tras `--write`) · ✅ commit **LOCAL** `fix(mcp):` **c05cd77d** (1 archivo; hook verde) + `feat(wire):` **679b3545** (13 archivos, pathspec; hook verde: fmt+clippy+actionlint); WIP ajeno (`opencode.jsonc`, master plan) intacto y sin stagear · ⏳ campaign completed taskId `47` + `skill progreso` (en curso).
+- **Estado:** ✅ COMPLETED
 
 ## Dependencias
 
@@ -187,19 +187,19 @@ description: "T3 WIRE-14→15→16 (ADR-0054): vantadb-server host del scheduler
 | Eje | Contador |
 |-----|----------|
 | Incógnitas abiertas (uphill) | **0** — acceso del host a la DB resuelto en DISCOVERY (§Spec #1) |
-| Pendientes de ejecución (downhill) | **1** step (4 — CIERRE) |
-| % completado | 75% (steps 1-3 ejecutados y verificados; cierre en curso) |
+| Pendientes de ejecución (downhill) | **0** steps (1-4 ejecutados — commit + campaign al cierre) |
+| % completado | 100% (steps 1-4 ejecutados y verificados; hash + campaign al cierre) |
 
 ## RESULTADO §7 (contrato de retorno — pipeline-full)
 
 ```
-RESULTADO: [a llenar]
-STEPS_OK: [a llenar]
-PROXIMO_STEP: [a llenar]
-COMMIT_HASH: [a llenar]
-ARCHIVOS: [a llenar]
-VERIFY_CONTRATO: [a llenar]
-BLOQUEO: [a llenar]
-GATES_EVALUADOS: [a llenar]
-SKILLS_CARGADAS: [a llenar]
+RESULTADO: ✅ COMPLETO
+STEPS_OK: 4/4 total steps
+PROXIMO_STEP: ninguno
+COMMIT_HASH: 679b3545 (feat local, sin push; + c05cd77d fix(mcp) colateral + commit docs de cierre)
+ARCHIVOS: src/server/state.rs, src/server/bootstrap.rs, vantadb-server/Cargo.toml, vantadb-server/src/{lib,main,server,scheduler}.rs, vantadb-server/tests/scheduler_e2e.rs, vantadb-mcp/src/handlers/tools.rs (colateral), Cargo.lock, docs/dev/tasks/WIRE-16.md, docs/dev/Backlog.md (FIND-291), docs/index.md + llms.txt (gen-index)
+VERIFY_CONTRATO: pasa
+BLOQUEO: ninguno
+GATES_EVALUADOS: P:no D:si→resuelto-por-evidencia V:no C:si→colateral-resuelto-inline | P:no disparado (plan Task 47 clasificado; sin ambigüedad de producto) · D:disparado por la extensión core del seam (1 campo público `on_storage_ready`) → resuelto por evidencia dura (single-writer: segundo open = DatabaseBusy en tests/storage/multi_process_lock.rs; sharing correcto exige el MISMO handle Embedded — builder.rs:14-18,51-59) con precedente WIRE-14/15 y transparencia total para el orquestador/reviewer (worker sin `question`, question-gates §Routing) · V:no disparado (verde al primer intento tras el colateral) · C:disparado (colateral `vantadb-mcp` E0063 — HEAD `fc4e994c` no compilaba por gap de verify scoped de MEMG-11 → arreglado inline con fix mínimo separado + lección; FIND-291 creada del review Low-2)
+SKILLS_CARGADAS: campaign-executor, progreso, ponytail (base auto) · test-driven-development, systematic-debugging (pinned) · source-driven-development, incremental-implementation, context-engineering (SDP v3 BUILD) · rust-write-tests, api-and-interface-design, documentation-skill (rol/cierre)
 ```
