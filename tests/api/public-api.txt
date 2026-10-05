@@ -7319,6 +7319,57 @@ pub mod vantadb::wiki::chunker
 pub const vantadb::wiki::chunker::DEFAULT_OVERLAP_CHARS: usize
 pub const vantadb::wiki::chunker::DEFAULT_TARGET_CHARS: usize
 pub fn vantadb::wiki::chunker::chunk_text(&str, usize, usize) -> alloc::vec::Vec<alloc::string::String>
+pub mod vantadb::wiki::ingestors
+pub struct vantadb::wiki::ingestors::CsvIngestor
+impl vantadb::wiki::ingestors::Ingestor for vantadb::wiki::ingestors::CsvIngestor
+pub fn vantadb::wiki::ingestors::CsvIngestor::extensions(&self) -> &'static [&'static str]
+pub fn vantadb::wiki::ingestors::CsvIngestor::ingest(&self, &str, &str, &str) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemoryInput>>
+impl core::marker::Freeze for vantadb::wiki::ingestors::CsvIngestor
+impl core::marker::Send for vantadb::wiki::ingestors::CsvIngestor
+impl core::marker::Sync for vantadb::wiki::ingestors::CsvIngestor
+impl core::marker::Unpin for vantadb::wiki::ingestors::CsvIngestor
+impl core::marker::UnsafeUnpin for vantadb::wiki::ingestors::CsvIngestor
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::wiki::ingestors::CsvIngestor
+impl core::panic::unwind_safe::UnwindSafe for vantadb::wiki::ingestors::CsvIngestor
+pub struct vantadb::wiki::ingestors::JsonIngestor
+impl vantadb::wiki::ingestors::Ingestor for vantadb::wiki::ingestors::JsonIngestor
+pub fn vantadb::wiki::ingestors::JsonIngestor::extensions(&self) -> &'static [&'static str]
+pub fn vantadb::wiki::ingestors::JsonIngestor::ingest(&self, &str, &str, &str) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemoryInput>>
+impl core::marker::Freeze for vantadb::wiki::ingestors::JsonIngestor
+impl core::marker::Send for vantadb::wiki::ingestors::JsonIngestor
+impl core::marker::Sync for vantadb::wiki::ingestors::JsonIngestor
+impl core::marker::Unpin for vantadb::wiki::ingestors::JsonIngestor
+impl core::marker::UnsafeUnpin for vantadb::wiki::ingestors::JsonIngestor
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::wiki::ingestors::JsonIngestor
+impl core::panic::unwind_safe::UnwindSafe for vantadb::wiki::ingestors::JsonIngestor
+pub struct vantadb::wiki::ingestors::TxtIngestor
+impl vantadb::wiki::ingestors::Ingestor for vantadb::wiki::ingestors::TxtIngestor
+pub fn vantadb::wiki::ingestors::TxtIngestor::extensions(&self) -> &'static [&'static str]
+pub fn vantadb::wiki::ingestors::TxtIngestor::ingest(&self, &str, &str, &str) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemoryInput>>
+impl core::marker::Freeze for vantadb::wiki::ingestors::TxtIngestor
+impl core::marker::Send for vantadb::wiki::ingestors::TxtIngestor
+impl core::marker::Sync for vantadb::wiki::ingestors::TxtIngestor
+impl core::marker::Unpin for vantadb::wiki::ingestors::TxtIngestor
+impl core::marker::UnsafeUnpin for vantadb::wiki::ingestors::TxtIngestor
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::wiki::ingestors::TxtIngestor
+impl core::panic::unwind_safe::UnwindSafe for vantadb::wiki::ingestors::TxtIngestor
+pub const vantadb::wiki::ingestors::META_CHUNK: &str
+pub const vantadb::wiki::ingestors::META_PAGE: &str
+pub const vantadb::wiki::ingestors::META_SOURCE: &str
+pub trait vantadb::wiki::ingestors::Ingestor: core::marker::Send + core::marker::Sync
+pub fn vantadb::wiki::ingestors::Ingestor::extensions(&self) -> &'static [&'static str]
+pub fn vantadb::wiki::ingestors::Ingestor::ingest(&self, &str, &str, &str) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemoryInput>>
+impl vantadb::wiki::ingestors::Ingestor for vantadb::wiki::ingestors::CsvIngestor
+pub fn vantadb::wiki::ingestors::CsvIngestor::extensions(&self) -> &'static [&'static str]
+pub fn vantadb::wiki::ingestors::CsvIngestor::ingest(&self, &str, &str, &str) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemoryInput>>
+impl vantadb::wiki::ingestors::Ingestor for vantadb::wiki::ingestors::JsonIngestor
+pub fn vantadb::wiki::ingestors::JsonIngestor::extensions(&self) -> &'static [&'static str]
+pub fn vantadb::wiki::ingestors::JsonIngestor::ingest(&self, &str, &str, &str) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemoryInput>>
+impl vantadb::wiki::ingestors::Ingestor for vantadb::wiki::ingestors::TxtIngestor
+pub fn vantadb::wiki::ingestors::TxtIngestor::extensions(&self) -> &'static [&'static str]
+pub fn vantadb::wiki::ingestors::TxtIngestor::ingest(&self, &str, &str, &str) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemoryInput>>
+pub fn vantadb::wiki::ingestors::default_ingestors() -> alloc::vec::Vec<alloc::boxed::Box<dyn vantadb::wiki::ingestors::Ingestor>>
+pub fn vantadb::wiki::ingestors::scan_ingestable_sources(&std::path::Path, &str, &[alloc::boxed::Box<dyn vantadb::wiki::ingestors::Ingestor>]) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemoryInput>>
 pub mod vantadb::wiki::sources
 pub struct vantadb::wiki::sources::SourceFile
 pub vantadb::wiki::sources::SourceFile::content: alloc::string::String
@@ -7479,6 +7530,28 @@ impl core::marker::Unpin for vantadb::wiki::state::WikiState
 impl core::marker::UnsafeUnpin for vantadb::wiki::state::WikiState
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::wiki::state::WikiState
 impl core::panic::unwind_safe::UnwindSafe for vantadb::wiki::state::WikiState
+pub struct vantadb::wiki::CsvIngestor
+impl vantadb::wiki::ingestors::Ingestor for vantadb::wiki::ingestors::CsvIngestor
+pub fn vantadb::wiki::ingestors::CsvIngestor::extensions(&self) -> &'static [&'static str]
+pub fn vantadb::wiki::ingestors::CsvIngestor::ingest(&self, &str, &str, &str) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemoryInput>>
+impl core::marker::Freeze for vantadb::wiki::ingestors::CsvIngestor
+impl core::marker::Send for vantadb::wiki::ingestors::CsvIngestor
+impl core::marker::Sync for vantadb::wiki::ingestors::CsvIngestor
+impl core::marker::Unpin for vantadb::wiki::ingestors::CsvIngestor
+impl core::marker::UnsafeUnpin for vantadb::wiki::ingestors::CsvIngestor
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::wiki::ingestors::CsvIngestor
+impl core::panic::unwind_safe::UnwindSafe for vantadb::wiki::ingestors::CsvIngestor
+pub struct vantadb::wiki::JsonIngestor
+impl vantadb::wiki::ingestors::Ingestor for vantadb::wiki::ingestors::JsonIngestor
+pub fn vantadb::wiki::ingestors::JsonIngestor::extensions(&self) -> &'static [&'static str]
+pub fn vantadb::wiki::ingestors::JsonIngestor::ingest(&self, &str, &str, &str) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemoryInput>>
+impl core::marker::Freeze for vantadb::wiki::ingestors::JsonIngestor
+impl core::marker::Send for vantadb::wiki::ingestors::JsonIngestor
+impl core::marker::Sync for vantadb::wiki::ingestors::JsonIngestor
+impl core::marker::Unpin for vantadb::wiki::ingestors::JsonIngestor
+impl core::marker::UnsafeUnpin for vantadb::wiki::ingestors::JsonIngestor
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::wiki::ingestors::JsonIngestor
+impl core::panic::unwind_safe::UnwindSafe for vantadb::wiki::ingestors::JsonIngestor
 pub struct vantadb::wiki::SourceFile
 pub vantadb::wiki::SourceFile::content: alloc::string::String
 pub vantadb::wiki::SourceFile::rel_path: alloc::string::String
@@ -7496,6 +7569,17 @@ impl core::marker::Unpin for vantadb::wiki::sources::SourceFile
 impl core::marker::UnsafeUnpin for vantadb::wiki::sources::SourceFile
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::wiki::sources::SourceFile
 impl core::panic::unwind_safe::UnwindSafe for vantadb::wiki::sources::SourceFile
+pub struct vantadb::wiki::TxtIngestor
+impl vantadb::wiki::ingestors::Ingestor for vantadb::wiki::ingestors::TxtIngestor
+pub fn vantadb::wiki::ingestors::TxtIngestor::extensions(&self) -> &'static [&'static str]
+pub fn vantadb::wiki::ingestors::TxtIngestor::ingest(&self, &str, &str, &str) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemoryInput>>
+impl core::marker::Freeze for vantadb::wiki::ingestors::TxtIngestor
+impl core::marker::Send for vantadb::wiki::ingestors::TxtIngestor
+impl core::marker::Sync for vantadb::wiki::ingestors::TxtIngestor
+impl core::marker::Unpin for vantadb::wiki::ingestors::TxtIngestor
+impl core::marker::UnsafeUnpin for vantadb::wiki::ingestors::TxtIngestor
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::wiki::ingestors::TxtIngestor
+impl core::panic::unwind_safe::UnwindSafe for vantadb::wiki::ingestors::TxtIngestor
 pub struct vantadb::wiki::Wiki
 pub vantadb::wiki::Wiki::created_at_ms: u64
 pub vantadb::wiki::Wiki::namespace: alloc::string::String
@@ -7575,9 +7659,26 @@ impl<'a> !core::panic::unwind_safe::RefUnwindSafe for vantadb::wiki::store::Wiki
 impl<'a> !core::panic::unwind_safe::UnwindSafe for vantadb::wiki::store::WikiStore<'a>
 pub const vantadb::wiki::DEFAULT_OVERLAP_CHARS: usize
 pub const vantadb::wiki::DEFAULT_TARGET_CHARS: usize
+pub const vantadb::wiki::META_CHUNK: &str
+pub const vantadb::wiki::META_PAGE: &str
+pub const vantadb::wiki::META_SOURCE: &str
 pub const vantadb::wiki::SOURCE_CHAR_BUDGET: usize
+pub trait vantadb::wiki::Ingestor: core::marker::Send + core::marker::Sync
+pub fn vantadb::wiki::Ingestor::extensions(&self) -> &'static [&'static str]
+pub fn vantadb::wiki::Ingestor::ingest(&self, &str, &str, &str) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemoryInput>>
+impl vantadb::wiki::ingestors::Ingestor for vantadb::wiki::ingestors::CsvIngestor
+pub fn vantadb::wiki::ingestors::CsvIngestor::extensions(&self) -> &'static [&'static str]
+pub fn vantadb::wiki::ingestors::CsvIngestor::ingest(&self, &str, &str, &str) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemoryInput>>
+impl vantadb::wiki::ingestors::Ingestor for vantadb::wiki::ingestors::JsonIngestor
+pub fn vantadb::wiki::ingestors::JsonIngestor::extensions(&self) -> &'static [&'static str]
+pub fn vantadb::wiki::ingestors::JsonIngestor::ingest(&self, &str, &str, &str) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemoryInput>>
+impl vantadb::wiki::ingestors::Ingestor for vantadb::wiki::ingestors::TxtIngestor
+pub fn vantadb::wiki::ingestors::TxtIngestor::extensions(&self) -> &'static [&'static str]
+pub fn vantadb::wiki::ingestors::TxtIngestor::ingest(&self, &str, &str, &str) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemoryInput>>
 pub fn vantadb::wiki::canonical_path(&str, &str) -> alloc::string::String
 pub fn vantadb::wiki::chunk_text(&str, usize, usize) -> alloc::vec::Vec<alloc::string::String>
+pub fn vantadb::wiki::default_ingestors() -> alloc::vec::Vec<alloc::boxed::Box<dyn vantadb::wiki::ingestors::Ingestor>>
+pub fn vantadb::wiki::scan_ingestable_sources(&std::path::Path, &str, &[alloc::boxed::Box<dyn vantadb::wiki::ingestors::Ingestor>]) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemoryInput>>
 pub fn vantadb::wiki::scan_local_sources(&std::path::Path) -> vantadb::error::Result<alloc::vec::Vec<vantadb::wiki::sources::SourceFile>>
 #[non_exhaustive] pub enum vantadb::AbstentionReason
 pub vantadb::AbstentionReason::AllQuarantined
