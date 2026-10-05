@@ -61,6 +61,7 @@ fn l1_write_registers_succeeded_entry() {
         record_id: String::new(),
         action: DedupAction::Store,
         target_ids: vec![],
+        contradicts: vec![],
         merged_content: None,
         merged_type: None,
         merged_priority: None,

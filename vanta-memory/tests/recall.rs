@@ -627,6 +627,7 @@ fn mcp_synthetic_session_sees_pipeline_l1_under_default_agent_scope() {
         record_id: String::new(), // pipeline defers the id to the writer
         action: DedupAction::Store,
         target_ids: vec![],
+        contradicts: vec![],
         merged_content: None,
         merged_type: None,
         merged_priority: None,
