@@ -1054,7 +1054,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato (decisión + número visible) · commit = `docs:` · release = n/a.
 - **Validación Appetite vs Effort:** 2d ≥ 2d ✓
 - **Skills sugeridas:** vanta-design-orchestrator · frontend-ui-engineering · documentation-skill
-- **Estado:** ⏳ EN PROGRESO
+- **Estado:** ✅ COMPLETED
 
 ## F2 — Memoria I (cimientos del diferenciador)
 
@@ -1086,7 +1086,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato + test · commit = `feat(memory):` · release = changelog (vanta-memory → minor).
 - **Validación Appetite vs Effort:** 3d ≥ 3d ✓
 - **Skills sugeridas:** source-driven-development · rust-write-tests · campaign-executor
-- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/MEMG-01.md`
+- **Estado:** ✅ COMPLETED · **Task file:** `docs/dev/tasks/MEMG-01.md`
 
 ### Task 38: MEMG-02 — Outcome loop → refuerzo de confianza post-recall
 
@@ -1114,7 +1114,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato + test + métrica · commit = `feat(memory):` · release = changelog.
 - **Validación Appetite vs Effort:** 3d ≥ 3d ✓
 - **Skills sugeridas:** source-driven-development · rust-write-tests · performance-optimization · campaign-executor
-- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/MEMG-02.md`
+- **Estado:** ✅ COMPLETED · **Task file:** `docs/dev/tasks/MEMG-02.md`
 
 ### Task 39: MEMG-11 — Adopción del motor core en `vanta-memory` (recall híbrido + escritura batch)
 
@@ -1142,7 +1142,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato + A/B · commit = `feat(memory):`/`perf(memory):` · release = changelog (minor).
 - **Validación Appetite vs Effort:** 2sem ≥ 2sem ✓
 - **Skills sugeridas:** source-driven-development · performance-optimization · rust-write-tests · doubt-driven-development · campaign-executor
-- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/MEMG-11.md`
+- **Estado:** ✅ COMPLETED · **Task file:** `docs/dev/tasks/MEMG-11.md`
 
 ### Task 40: MEMG-12 — Semántica v2 write-side en el pipeline (`confidence`/`valid_at`/TTL)
 
@@ -1171,7 +1171,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato + round-trip · commit = `feat(memory):` · release = changelog.
 - **Validación Appetite vs Effort:** 2sem ≥ 1.5sem ✓
 - **Skills sugeridas:** source-driven-development · rust-write-tests · campaign-executor
-- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/MEMG-12.md`
+- **Estado:** ✅ COMPLETED · **Task file:** `docs/dev/tasks/MEMG-12.md`
 
 ### Task 41: MEMG-13 — Superficies core restantes en memoria (IQL / versiones / snapshots / filtros)
 
@@ -1199,7 +1199,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato + tests por superficie · commit = `feat(memory):` · release = changelog.
 - **Validación Appetite vs Effort:** 1sem ≥ 5d ✓
 - **Skills sugeridas:** source-driven-development · rust-write-tests · campaign-executor
-- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/MEMG-13.md`
+- **Estado:** ✅ COMPLETED · **Task file:** `docs/dev/tasks/MEMG-13.md`
 
 ### Task 42: MEMG-07 — Forgetting curves sobre L1
 
@@ -1227,7 +1227,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato + test + métrica · commit = `feat(memory):` · release = changelog.
 - **Validación Appetite vs Effort:** 3d ≥ 2d ✓
 - **Skills sugeridas:** source-driven-development · rust-write-tests · campaign-executor
-- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/MEMG-07.md`
+- **Estado:** ✅ COMPLETED · **Task file:** `docs/dev/tasks/MEMG-07.md`
 
 ### Task 43: MEMG-20 — Checkpoints reanudables de tarea (dim 1)
 
@@ -1255,7 +1255,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato + test de reanudación · commit = `feat(memory):` · release = changelog.
 - **Validación Appetite vs Effort:** 1sem ≥ 5d ✓
 - **Skills sugeridas:** source-driven-development · rust-write-tests · campaign-executor
-- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/MEMG-20.md`
+- **Estado:** ✅ COMPLETED · **Task file:** `docs/dev/tasks/MEMG-20.md`
 
 ### Task 44: MEMG-21 — Scoring multi-señal L1 (recencia + importancia) + reflexión periódica
 
@@ -1284,7 +1284,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato + métrica · commit = `feat(memory):` · release = changelog.
 - **Validación Appetite vs Effort:** 3d ≥ 3d ✓
 - **Skills sugeridas:** source-driven-development · rust-write-tests · performance-optimization · campaign-executor
-- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/MEMG-21.md`
+- **Estado:** ✅ COMPLETED · **Task file:** `docs/dev/tasks/MEMG-21.md`
 
 ### Task 45: WIRE-14 — T1: Seam de host aditivo en el arranque (`conversation_trigger` + servicio)
 
@@ -1312,7 +1312,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato + test de servicio fake · commit = `feat(server):` · release = changelog.
 - **Validación Appetite vs Effort:** 1sem ≥ 5d ✓
 - **Skills sugeridas:** source-driven-development · rust-write-tests · campaign-executor
-- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/WIRE-14.md`
+- **Estado:** ✅ COMPLETED · **Task file:** `docs/dev/tasks/WIRE-14.md`
 
 ### Task 46: WIRE-15 — T2: Servicio scheduler en `vanta-memory` (`run_pass` + loop con shutdown)
 
@@ -1341,7 +1341,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato + tests `--features http-server` · commit = `feat(memory):` · release = changelog.
 - **Validación Appetite vs Effort:** 1sem ≥ 5d ✓
 - **Skills sugeridas:** source-driven-development · rust-write-tests · campaign-executor
-- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/WIRE-15.md`
+- **Estado:** ✅ COMPLETED · **Task file:** `docs/dev/tasks/WIRE-15.md`
 
 ### Task 47: WIRE-16 — T3: Wiring del wrapper `vantadb-server` (queue + bridge + loop)
 
@@ -1370,7 +1370,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato + e2e · commit = `feat(server):` · release = changelog.
 - **Validación Appetite vs Effort:** 1sem ≥ 5d ✓
 - **Skills sugeridas:** source-driven-development · rust-write-tests · campaign-executor
-- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/WIRE-16.md`
+- **Estado:** ✅ COMPLETED · **Task file:** `docs/dev/tasks/WIRE-16.md`
 
 ### Task 48: WIRE-17 — T4: Docs del scheduler (wired status + promoción del rol)
 
@@ -1398,7 +1398,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato + gates docs exit 0 · commit = `docs:` · release = n/a.
 - **Validación Appetite vs Effort:** 1d ≥ 1d ✓
 - **Skills sugeridas:** documentation-skill · documentation-and-adrs
-- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/WIRE-17.md`
+- **Estado:** ✅ COMPLETED
 
 ### Task 49: WIRE-18 — T5: Verificación adversarial del scheduler (crash mid-pass + restart)
 
@@ -1427,63 +1427,177 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato + chaos test + review P2-01 · commit = `test(memory):` · release = n/a.
 - **Validación Appetite vs Effort:** 1sem ≥ 5d ✓
 - **Skills sugeridas:** systematic-debugging · rust-write-tests · doubt-driven-development · campaign-executor
-- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/WIRE-18.md`
+- **Estado:** ✅ COMPLETED · **Task file:** `docs/dev/tasks/WIRE-18.md`
 
 ## F3 — Memoria II (profundo)
 
-> **Gate de fase:** compactas — expandir al nivel F0 al iniciar F3. Consume los specs MGR ya investigados (P49) + FIND-196 (repo-map).
+> **Gate de fase:** ✅ CUMPLIDO — Tasks 50-55 expandidas a nivel F0 el 2026-10-05 (consume specs MGR de P49 + FIND-196); listas para ejecutar.
 
 ### Task 50: MEMG-03 — Grafo ↔ memoria (L1–L3 como nodos/aristas)
 
-- **Appetite:** max 2sem · **Esfuerzo:** 🔴 1-2sem · **Prioridad:** 🔴
-- **Archivos clave:** `src/graph.rs`, `edge_index`, `memory_node_id` (`src/sdk/serialization/mod.rs:77`), `node_id` (`src/sdk/types/record.rs:213-215`)
-- **Verificación real:** ✅ — el mapeo determinista ns+key→u128 YA existe; falta la integración L1–L3 como nodos/aristas (verificado HEAD 2026-10-01).
-- **Contrato:** L1–L3 como nodos/aristas reales + query "¿quién cambió la fuente de esta decisión y por qué?" respondible con test; sin regresión de recall.
+- **Appetite:** max 2sem
+- **Esfuerzo:** 🔴 1-2sem
+- **Prioridad:** 🔴
+- **Archivos clave:** `src/sdk/serialization/mod.rs:77` (`memory_node_id` — XxHash3_128 ns+key→u128) + `:511` (`memory_record_to_node_owned` — proyección record→nodo), `src/sdk/types/record.rs:269` (`node_id` en `MemoryRecord`) + `:215`/`:310` (`derived_from` input/record), `src/sdk/api/memory.rs:352` (cómputo del node_id en `put`) + `:216-236` (validación V1 de `derived_from`), `src/sdk/api/graph.rs:98` (`Embedded::add_edge` — label/weight/ts, bidireccional) + `:141` (`remove_edge`), `src/graph.rs:66` (`GraphTraverser::bfs_traverse`) + `:263` (`topological_sort`), `src/edge_index.rs:29`, `vanta-memory/src/core/record/lifecycle.rs:56,96` (`ContradictionProvenance`/`mark_contradiction`), `vanta-memory/src/core/scene/scene_index.rs:40` (L2 — `scene/<session>`) y `vanta-memory/src/core/persona/persona_generator.rs:108` (L3 — `persona/<session>`)
+- **Verificación real:** ✅ CÓDIGO-REAL — el mapeo YA existe: `memory_node_id` (serialization/mod.rs:77, `pub(crate)`) + `MemoryRecord.node_id` (record.rs:269) computado en `put` (memory.rs:352); los records SON nodos (proyección `memory_record_to_node_owned` :511). Grafo: `add_edge`/`remove_edge`/`insert_node`/`get_node` (graph.rs:98,141) + `GraphTraverser` BFS/DFS/topo (graph.rs:66-300) + `edge_index` (edge_index.rs:29). L1–L3 almacenados como records: L1 (memory), L2 escenas `scene/<session>` (scene_index.rs:40), L3 persona `persona/<session>` (persona_generator.rs:108). Gaps re-verificados HEAD: `vanta-memory/src` NO usa `add_edge`/`insert_node`/`graph_bfs` (0 hits; solo serializa `node_id` en seed/offload); `supersede` NO crea arista (0 hits `edge` en memory.rs); MCP solo expone `remove_edge` (tools.rs:636) — no `add_edge`. Riesgo de mecanismo verificado: `memory_record_to_node_owned` construye `UnifiedNode::new(record.node_id)` SIN copiar edges (:511+) → un `put` sobre un nodo con aristas probablemente las pierde (confirmar con test en DISCOVERY).
+- **Gate Justificación:** "hoy memoria y grafo viven separados (se busca, no se razona); es el sustrato de la memoria de proyecto/ingeniería" (Backlog MEMG-03; Notion track PI; H-006) — el mapeo determinista y el motor de grafo ya existen → el delta es integración de aristas, no infraestructura nueva; DX-04 (puente ns+key↔nodo) cierra con esto.
+- **Gate Result:** ✅ DO
+- **Contrato:** L1–L3 como nodos/aristas reales: (a) aristas de linaje entre registros creadas en las ops correspondientes (supersede/derived_from/contradicción) con labels canónicos fijados en DISCOVERY; (b) query "¿quién cambió la fuente de esta decisión y por qué?" respondible vía BFS + provenance con test dedicado; (c) sin regresión de recall (suite `vanta-memory` verde); (d) decisión verificada sobre edges en updates de record (preservar o crear re-idempotente) + DX-04 documentado.
+- **Pre-mortem:** (1) `put` reconstruye el nodo y pierde aristas (mecanismo en serialization/mod.rs:511) → confirmar con test y decidir preservación en update vs aristas re-idempotentes por op; (2) doble fuente de verdad (campos `derived_from`/`superseded_by` vs arista) → regla declarada: campo = dato canónico, arista = navegabilidad derivada en la op; (3) scope creep a entity resolution/GraphRAG → solo linaje L1–L3; MGR-05 queda fuera.
+- **Stop conditions:** 2sem sin contrato → entregar (a) aristas de linaje (supersede + derived_from) + query de linaje con test + (b) FIND del resto (escenas/persona como nodos enlazados).
+- **Risk Register:**
+
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟠 | `put` reconstruye el nodo y pierde aristas | Confirmar con test en DISCOVERY; preservar edges o aristas re-idempotentes | DISCOVERY |
+  | 🟡×🟡 | Doble fuente de verdad (campos vs aristas) | Regla declarada: campo = dato, arista = navegabilidad | diseño |
+  | 🟢×🟡 | Scope creep a entity resolution/GraphRAG | Solo linaje L1–L3; MGR-05 fuera | cierre |
+
+- **Cynefin:** 🟨 complicado
+- **Top 3 riesgos:** (1) edges perdidas en update; (2) doble fuente de verdad; (3) scope.
+- **Uphill/Downhill:** ⬆️ 1 incógnita (¿sobreviven las aristas al `put`? → mecanismo de preservación) → DISCOVERY → luego ⬇️ (aristas → query → tests)
+- **DoD:** task = contrato + test de query · commit = `feat(memory):` · release = changelog (minor).
+- **Validación Appetite vs Effort:** 2sem ≥ 1-2sem ✓
 - **Skills sugeridas:** source-driven-development · rust-write-tests · api-and-interface-design · campaign-executor
-- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/MEMG-03.md`
+- **Estado:** ⏳ EN PROGRESO · **Task file:** `docs/dev/tasks/MEMG-03.md`
 
 ### Task 51: MEMG-06 — Spill a disco con recall
 
-- **Appetite:** max 1sem · **Esfuerzo:** 🟠 3-5d · **Prioridad:** 🟡
-- **Archivos clave:** presupuesto de contexto de `vanta-memory`; `offload/` existente (comprime in-memory sin recall)
-- **Verificación real:** ✅ — `spill` ≈ 1 hit; offload (34k) sin recall (verificado HEAD 2026-10-01).
-- **Contrato:** spill a disco con recuperación (recall de lo spilled) con test; sin pérdida de datos.
+- **Appetite:** max 1sem
+- **Esfuerzo:** 🟠 3-5d
+- **Prioridad:** 🟡
+- **Archivos clave:** `vanta-memory/src/context_engine/engine.rs:68` (`assemble`) + `:199` (`assemble_with_recall`) + `:312-320` (`stub_message` — `[compacted N chars]`) + `:384` (loop de stubs), `vanta-memory/src/context_engine/report_store.rs` (MEM-64 — reportes append-only, sin payload), `vanta-memory/src/offload/` (`storage.rs:17` `OffloadStorage` → records `offload/<session>`, `state_manager.rs`, `hooks/after_tool_call.rs`, `reclaimer.rs` — GC cursor-safe), `vanta-memory/src/services/pipeline_worker.rs:743` (caller real de `assemble_with_recall`), `skills/vantadb-mcp/assets/hooks/TOKEN-BUDGET.md` (política spill de hooks ~2.5k en Codex)
+- **Verificación real:** ✅ CÓDIGO-REAL — `spill` en `vanta-memory/src` = 0 hits (repo-wide = 1 comentario: `src/index/diskann.rs:17` "spill nodes to disk… future work"); la compactación reemplaza contenido por stubs `[compacted N chars]` (engine.rs:312-320) y el contenido original NO se persiste — solo el `CompactionReport` (report_store.rs, append-only, sin payload); `offload/` existe (persiste entries vía SDK + cursor + reclaimer) pero `recall` = 0 hits en `offload/` y `after_tool_call` no tiene callers fuera de su módulo → hoy no hay recuperación de lo compactado/spilled.
+- **Gate Justificación:** "presupuesto de contexto con spill a disco y recuperación (recall de lo spilled)" (Backlog MEMG-06; Master #11; research §7.5) — la compactación baja el presupuesto perdiendo información; el recall de lo spilled convierte la compresión en reversible.
+- **Gate Result:** ✅ DO
+- **Contrato:** spill a disco del contenido compactado (persistir payload completo antes del stub, reutilizando el patrón `offload/storage`) + recuperación (recall de lo spilled por id/sesión) con test round-trip (spill → recall devuelve contenido íntegro; sin pérdida de datos); enganchado al path real (`assemble_with_recall`/worker) o hook documentado; opt-in sin cambio de semántica para quien no lo configura; GC reutilizado (reclaimer/cursor).
+- **Pre-mortem:** (1) spill duplica storage sin GC → reutilizar `offload/reclaimer.rs` (cursor-safe) + política declarada; (2) recall de spilled compite con el recall L1 → op separada/explícita (no mezclar en el path de recall de memoria); (3) `after_tool_call` sin callers → el wiring es parte del scope o stop con FIND.
+- **Stop conditions:** 3-5d → entregar spill+recall por sesión como op explícita + test + FIND del wiring automático en el worker.
+- **Risk Register:**
+
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟡 | Spill duplica storage sin GC | Reutilizar `offload/reclaimer.rs` (cursor-safe) | diseño |
+  | 🟡×🟠 | Recall de spilled compite con recall L1 | Op separada/explícita; no mezclar paths | VERIFY |
+  | 🟢×🟡 | Hook sin callers (wiring) | Wiring en scope o stop con FIND | cierre |
+
+- **Cynefin:** 🟨 complicado
+- **Top 3 riesgos:** (1) GC/duplicación; (2) solape con recall L1; (3) wiring sin caller.
+- **Uphill/Downhill:** ⬆️ 1 incógnita (punto de enganche: `assemble` vs hook `after_tool_call`) → DISCOVERY → luego ⬇️ (persistir → recuperar → test)
+- **DoD:** task = contrato + test round-trip · commit = `feat(memory):` · release = changelog (minor).
+- **Validación Appetite vs Effort:** 1sem ≥ 5d ✓
 - **Skills sugeridas:** source-driven-development · rust-write-tests · campaign-executor
-- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/MEMG-06.md`
+- **Estado:** ⏳ EN PROGRESO · **Task file:** `docs/dev/tasks/MEMG-06.md`
 
 ### Task 52: MEMG-08 — MGR-25: Formatos e ingestores (trait `Ingestor`)
 
-- **Appetite:** max 2sem · **Esfuerzo:** 🟠 1-2sem · **Prioridad:** 🟠
-- **Archivos clave:** `src/wiki/sources.rs:82` (hoy solo `.md`), `src/sdk/types/record.rs:124` (`MemoryInput`), `SOURCE_CHAR_BUDGET` (28k)
-- **Verificación real:** ✅ — "el path wiki solo acepta `.md` y `put` recibe `payload: String` sin extractor"; spec completa en Notion (MGR-25).
-- **Contrato:** trait `Ingestor` + orden txt/json/csv → html → pdf → docx; mínimo viable ≥2 formatos end-to-end con `metadata.source` (proveniencia); tests.
+- **Appetite:** max 2sem
+- **Esfuerzo:** 🟠 1-2sem
+- **Prioridad:** 🟠
+- **Archivos clave:** `src/wiki/sources.rs:18` (`SOURCE_CHAR_BUDGET` = 28_000) + `:32` (`scan_local_sources`) + `:82` (skip non-`.md`), `src/sdk/types/record.rs:178` (`MemoryInput` — `payload: String` + `metadata`) + `:215` (`derived_from`), `vanta-memory/src/seed/md_import.rs` (round-trip `.md` con frontmatter), `vantadb-mcp/src/wiki.rs:182` (`handle_wiki_tool` — `wiki_ingest`), Backlog fila MGR-25 (spec completa en Notion — no en repo → [a verificar en DISCOVERY])
+- **Verificación real:** ✅ CÓDIGO-REAL — `sources.rs:82` acepta solo `.md` (`path.extension() != Some("md")` → skip con trace log); `SourceFile{rel_path, content}` con presupuesto 28k (:18); `MemoryInput` (record.rs:178) = `payload: String` + `metadata` (sin extractor de formatos); `wiki_ingest` existe (wiki.rs:182); `md_import.rs` = round-trip del formato `.md` (frontmatter v1/v2). La spec MGR-25 (trait + 5 formatos + proveniencia `metadata.source`) está en Notion, no en repo → [a verificar en DISCOVERY] antes de fijar la forma del trait.
+- **Gate Justificación:** "el path wiki solo acepta `.md` y `put` recibe `payload: String` sin extractor — no se pueden ingerir documentos reales" (Backlog MEMG-08) — habilita la ingesta de documentos reales (transversal; proveniencia AM7).
+- **Gate Result:** ✅ DO
+- **Contrato:** trait `Ingestor` (formato → chunks `MemoryInput` con `metadata.source={file,page,chunk}` obligatoria) + mínimo viable ≥2 formatos end-to-end (txt/json/csv) con tests + orden declarado txt/json/csv → html → pdf → docx (por costo/beneficio); respeta `SOURCE_CHAR_BUDGET` (28k) + chunking con overlap; código (rs/py/ts) NO entra (MGR-22); docs.
+- **Pre-mortem:** (1) pdf/docx = parsers pesados/deps nuevas → orden por costo, stop en el mínimo, deps solo si la spec las sanciona; (2) proveniencia inconsistente con MGR-12 → `metadata.source` como la spec manda; (3) budget 28k corto para documentos → chunking con overlap + truncación declarada.
+- **Stop conditions:** 2sem sin los 5 formatos → entregar trait + txt/json/csv end-to-end + FIND de html/pdf/docx.
+- **Risk Register:**
+
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟡 | Parsers pesados (pdf/docx) → deps nuevas | Orden por costo; mínimo txt/json/csv; deps si la spec las sanciona | DISCOVERY |
+  | 🟡×🟢 | Proveniencia inconsistente con MGR-12 | `metadata.source` obligatoria (spec) | diseño |
+  | 🟢×🟡 | Budget 28k corto para documentos | Chunking con overlap + truncación declarada | VERIFY |
+
+- **Cynefin:** 🟨 complicado
+- **Top 3 riesgos:** (1) parsers/deps; (2) proveniencia; (3) budget/chunking.
+- **Uphill/Downhill:** ⬆️ 1 incógnita (spec MGR-25: forma del trait + validación) → DISCOVERY → luego ⬇️ (trait → formatos → tests)
+- **DoD:** task = contrato + tests por formato · commit = `feat(wiki):` · release = changelog (minor).
+- **Validación Appetite vs Effort:** 2sem ≥ 1-2sem ✓
 - **Skills sugeridas:** source-driven-development · rust-write-tests · api-and-interface-design · campaign-executor
 - **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/MEMG-08.md`
 
 ### Task 53: MEMG-09 — Track PI restante (MGR-23/24: grafo decisión→código→test + taxonomía)
 
-- **Appetite:** max 1mes · **Esfuerzo:** 🔴 2-4sem · **Prioridad:** 🟠
-- **Archivos clave:** `vantadb-mcp/src/code.rs:42-165,192-328`, `src/graphrag/pipeline.rs`, `src/wiki/sources.rs:82`; FIND-196 (repo-map)
-- **Verificación real:** ✅ — decisión owner 2026-09-14: watcher Rust+Python+TypeScript desde el inicio; spec pendiente (MGR-23/24).
-- **Contrato:** spec (chunker + watcher + repo-map + API `code_index`/`code_watch`) + primer slice implementado según spec; research-doc.
+- **Appetite:** max 1mes
+- **Esfuerzo:** 🔴 2-4sem
+- **Prioridad:** 🟠
+- **Archivos clave:** `vantadb-mcp/src/code.rs` (tool defs `:42-165`, `handle_code_tool:184`, dispatch `:191-328`, stub `code_files:326`), `src/graphrag/pipeline.rs:67` (`GraphRagPipeline::search` — seed→expand→retrieve→context), `src/wiki/sources.rs:82`, `skills/vantadb-mcp/assets/hooks/` (4 clientes + tests + `TOKEN-BUDGET.md`), FIND-196 (repo-map/watcher incremental — sin research/spec), Backlog MGR-23/24 (specs en Notion track PI → [a verificar en DISCOVERY])
+- **Verificación real:** ✅ CÓDIGO-REAL — `code_*` tools existen (code_search/code_explore/code_callers/code_callees/code_impact/code_node/code_status; `code_files` = stub "not supported" :326); traversal BFS profundidad-1/parametrizado (`code_impact` max_depth clamp 1-10); `code_index`/`code_watch` = 0 hits (rg); el único watcher del repo es config hot-reload (config.rs:1719); FIND-196 = repo-map/watcher incremental NO implementado (MGR-22 sin research/spec); decisión owner 2026-09-14: watcher Rust+Python+TypeScript desde el inicio (Backlog MEMG-09). Specs MGR-23/24 en Notion → [a verificar en DISCOVERY].
+- **Gate Justificación:** "el repo como identidad persistente es el caso de uso natural del grafo+memoria; ventana Kuzu" (Backlog MEMG-09) — cierra la memoria de proyecto/ingeniería (MGR-23 ADRs/convenciones + MGR-24 bug→fix→test) con FIND-196 (repo-map) como input directo.
+- **Gate Result:** ✅ DO
+- **Contrato:** spec (chunker + watcher Rust/Py/TS + repo-map + API `code_index`/`code_watch`) + primer slice implementado según spec + research-doc; la spec incorpora los detalles de industria validados (presupuestos de carga ~25KB clase Claude Code, ranking dependiente de tarea — Aider, hooks de verificación — OpenHands); taxonomía de lo memorable declarada (mapa, convenciones, ADRs, historia, dependencias, deuda, patrones de fallo); grafo decisión→código→test (linker issue↔commit↔test) como diseño verificable.
+- **Pre-mortem:** (1) scope 2-4sem (2 specs + slice) → spec primero, slice mínimo (chunker por símbolo + `code_index` para 1 lenguaje) + FIND del resto; (2) incremental/watcher sin enfoque (FIND-120 R1: Merkle/content-hash vs full scan) → decidir en spec; (3) dep FIND-196 sin research → la spec MGR-22 nace en este task o se cita como sub-entrega.
+- **Stop conditions:** 1mes sin slice → entregar research-doc/spec + slice mínimo (chunker por símbolo + `code_index` 1 lenguaje) + FIND.
+- **Risk Register:**
+
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟠 | Scope 2-4sem (2 specs + impl) | Spec primero + slice mínimo + FIND del resto | diseño |
+  | 🟡×🟡 | Watcher/incremental sin enfoque (FIND-120/196) | Decidir en spec (Merkle/content-hash vs scan) | spec |
+  | 🟢×🟡 | Dep FIND-196 sin research | Spec MGR-22 nace aquí o sub-entrega citada | cierre |
+
+- **Cynefin:** 🟨 complicado
+- **Top 3 riesgos:** (1) scope; (2) incremental/watcher; (3) dep sin spec.
+- **Uphill/Downhill:** ⬆️ 1 incógnita (corte del primer slice: qué entra) → DISCOVERY/spec → luego ⬇️ (chunker → index → watcher)
+- **DoD:** task = spec + slice + research-doc · commit = `feat(mcp):`/`docs:` · release = changelog.
+- **Validación Appetite vs Effort:** 1mes ≥ 2-4sem ✓
 - **Skills sugeridas:** spec-driven-development · source-driven-development · doubt-driven-development · campaign-executor
 - **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/MEMG-09.md`
 
 ### Task 54: MEMG-10 — MGR-04: Policy engine (trusted/tainted + RBAC por acción)
 
-- **Appetite:** max 1mes · **Esfuerzo:** 🔴 2-3sem · **Prioridad:** 🟠
-- **Archivos clave:** `src/server/middleware.rs`, `src/server/jwt.rs`, `tests/rbac_namespace.rs`; base VER-04 (budget/ACL/audit)
-- **Verificación real:** ✅ — MGR-04 quedó fuera del plan F0–F6 (clase mínima vía SCH-05/VER-04); Notion 6 áreas §Gobernanza.
-- **Contrato:** spec + namespaces trusted/tainted con RBAC por acción (tests por acción) sobre la base VER-04.
+- **Appetite:** max 1mes
+- **Esfuerzo:** 🔴 2-3sem
+- **Prioridad:** 🟠
+- **Archivos clave:** `src/rbac.rs` (`Permission`/`AccessMode`/`Rbac::can_access_namespace:70`; `pub(crate)` + `#[allow(dead_code)]`), `src/server/middleware.rs:200,208` (namespace vs permiso global), `src/server/jwt.rs`, `src/audit.rs` (`audit_auth`), `tests/rbac_namespace.rs` (SRV-05), `docs/dev/tasks/VER-04.md` (base budget/ACL/audit), `docs/dev/research/mgr-13-cuarentena.md` (§4.1/§8 — MGR-04 como deuda declarada), Notion 6 áreas §Gobernanza (spec → [a verificar en DISCOVERY])
+- **Verificación real:** ✅ CÓDIGO-REAL — la base existe: RBAC role→permissions (`rbac.rs`: Read/Write/Delete/Admin + NamespaceRead/Write; `can_access_namespace:70`, `has_permission:57`), uso en middleware (:200,:208), JWT (`jwt.rs`), test `tests/rbac_namespace.rs` (SRV-05) y audit de auth (`audit_auth`). `tainted` = 0 hits en `src` (solo `trusted_proxies`, otro dominio) → el modelo trusted/tainted NO existe; MGR-04 quedó fuera del plan F0–F6 (clase mínima vía SCH-05/VER-04; mgr-13 §8 la lista como deuda v1.0). Spec MGR-04 en Notion (6 áreas §Gobernanza) → [a verificar en DISCOVERY].
+- **Gate Justificación:** gobernanza de memoria: cuarentena (SCH-05) y ACL por namespace (VER-04/SRV-05) son la clase mínima; falta el modelo de confianza por namespace (trusted/tainted) + RBAC por acción para cerrar el residual de mgr-13 §4.1 ("la autenticación protege quién escribe, no qué se escribe; no hay clase de confianza").
+- **Gate Result:** ✅ DO
+- **Contrato:** spec (namespaces trusted/tainted + RBAC por acción + integración con retrieval/inyección) + implementación sobre la base VER-04: clase de confianza por namespace aplicada en retrieval/inyección (tainted no inyecta por defecto) + RBAC por acción con tests por acción + audit; sin romper ACL/namespace actuales (suite verde); modelo documentado (ADR si cambia semántica de auth).
+- **Pre-mortem:** (1) scope spec+impl en 2-3sem → spec primero con corte declarado; (2) solape SCH-05 (registro) vs trusted/tainted (namespace) → semántica complementaria declarada (registro vs namespace), no duplicar gates; (3) cambio de semántica auth rompe clientes → aditivo/opt-in por config.
+- **Stop conditions:** 1mes sin contrato → entregar spec + clase mínima (clasificación trusted/tainted + gate de inyección por namespace) + FIND del RBAC por acción restante.
+- **Risk Register:**
+
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟡 | Scope spec + implementación | Spec primero con corte declarado | diseño |
+  | 🟡×🟠 | Solape SCH-05 (registro) vs trusted/tainted (namespace) | Semántica complementaria declarada; no duplicar gates | spec |
+  | 🟢×🟠 | Cambio de semántica auth rompe clientes | Aditivo/opt-in por config | VERIFY |
+
+- **Cynefin:** 🟨 complicado
+- **Top 3 riesgos:** (1) scope; (2) solape SCH-05; (3) compat auth.
+- **Uphill/Downhill:** ⬆️ 1 incógnita (spec MGR-04: modelo exacto trusted/tainted + acciones) → DISCOVERY → luego ⬇️ (spec → clasificación → RBAC por acción → tests)
+- **DoD:** task = spec + tests por acción · commit = `feat(server):` · release = changelog.
+- **Validación Appetite vs Effort:** 1mes ≥ 2-3sem ✓
 - **Skills sugeridas:** security-and-hardening · spec-driven-development · source-driven-development · campaign-executor
 - **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/MEMG-10.md`
 
 ### Task 55: MEMG-17 — Rollback + verificabilidad + erasure criptográfica
 
-- **Appetite:** max 1sem · **Esfuerzo:** 🟠 3-5d · **Prioridad:** 🟠
-- **Archivos clave:** versions (MEMG-13), hash-chain (VER-01), DEK/tombstones
-- **Verificación real:** ✅ — VMG lista Rollbackability + Verified Forgetting como primitivas; EDPS exige proof of unlearning; base versions+VER-01 existen.
-- **Contrato:** rollback semántico (a versión/snapshot con linaje) + recibos verificables + erasure (destrucción DEK + tombstone) con tests.
+- **Appetite:** max 1sem
+- **Esfuerzo:** 🟠 3-5d
+- **Prioridad:** 🟠
+- **Archivos clave:** versions (MEMG-13: `vanta-memory/src/core/record/l1_reader.rs:134,150,196` — `read_record_versions`/`read_record_version`/`diff_records`; core `src/sdk/api/memory.rs:935,953` `get_version`/`versions`), snapshot (MEMG-13: `vanta-memory/src/utils/backup.rs:38,43,55`; core `src/sdk/builder.rs:269,275,297` `create_snapshot`/`list_snapshots`/`restore_from`), hash-chain VER-01 (`src/cli.rs:198-201` `Verify` WAL; `src/attestation.rs:66` `ChainEvidence` + `:148` `chain_evidence`), certificados (`src/attestation.rs:90` `PurgeCertificate` + `:118` verificación; `src/sdk/api/memory.rs:1050,1080` `delete_with_attestation`/`verify_purge_certificate`), tombstones (`src/backend.rs:37-67` particiones `TombstoneStorage`/`Tombstones`), FIND-194 (rotación master key), FIND-287 (restore data-only)
+- **Verificación real:** ✅ CÓDIGO-REAL — versions + snapshot existen (MEMG-13 ✅: l1_reader :134-196; backup.rs :38-55; core builder.rs :269-297); hash-chain VER-01 existe (CLI `Verify` :198-201; attestation cita la cadena :66,:148); certificados de delete VER-02 existen (attestation.rs:90/:118; memory.rs:1050/:1080) con límites declarados ("no secure erase", "no parametric unlearning" — attestation.rs `declared_limits`); tombstones existen (backend.rs particiones). Gaps re-verificados HEAD: `rollback`/`erasure`/`DEK` = 0 hits en el path de memoria (rg) → las 3 capacidades NO existen; FIND-287: restore de snapshot es data-only (tombstones de delete y supersession sobreviven — canary MEMG-13); FIND-194: rotación de master key invalida envelopes (re-encrypt lazy no implementado).
+- **Gate Justificación:** "VMG lista Rollbackability + Verified Forgetting como primitivas de primera clase; EDPS exige proof of unlearning; hoy hay versions (MEMG-13) y hash-chain (VER-01) pero no rollback/recibos/erasure como capacidades" (Backlog MEMG-17; validación externa 2026-09-30: VMG arXiv 2604.16548, ChronoMem arXiv 2607.27773, W3C CG + GDPR Art.17) — cierra el ciclo de confianza de la memoria.
+- **Gate Result:** ✅ DO
+- **Contrato:** (a) rollback semántico a versión/snapshot con linaje (reusa versions/snapshot; declara explícitamente qué revierte y qué no — caveat FIND-287 data-only); (b) recibos verificables extendiendo hash-chain VER-01 con el contrato de verificación de los certificados existentes (firma ML-DSA-65 solo si la spec lo sanciona → [a verificar]); (c) erasure criptográfica (destrucción DEK + tombstone; scope declarado) — cada pieza con test propio; sin romper certificados/verify existentes (suites verdes).
+- **Pre-mortem:** (1) DEK no existe (0 hits) → verificar modelo cripto en DISCOVERY; si no hay capa por registro/namespace, diseñar en el slice o acotar a envelope/VER-03 + FIND; (2) rollback data-only (FIND-287) → semántica exacta declarada en contrato/tests (no asumir); (3) scope triple en 3-5d → orden rollback → recibos → erasure; stop a la primera pieza incompleta.
+- **Stop conditions:** 5d sin las 3 piezas → entregar (a) rollback semántico con linaje + test sobre versions/snapshot + FIND de recibos/erasure.
+- **Risk Register:**
+
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟠 | DEK no existe (0 hits) | Verificar modelo cripto en DISCOVERY; acotar o diseñar en slice | DISCOVERY |
+  | 🟡×🟡 | Rollback data-only (FIND-287) | Semántica exacta declarada en contrato/tests | diseño |
+  | 🟢×🟠 | Scope triple (3 piezas) | Orden rollback → recibos → erasure; stop | diseño |
+
+- **Cynefin:** 🟨 complicado
+- **Top 3 riesgos:** (1) DEK inexistente; (2) semántica rollback (FIND-287); (3) scope triple.
+- **Uphill/Downhill:** ⬆️ 1 incógnita (modelo cripto para erasure: ¿DEK por registro/namespace?) → DISCOVERY → luego ⬇️ (rollback → recibos → erasure)
+- **DoD:** task = contrato + tests por pieza · commit = `feat(memory):` · release = changelog (minor).
+- **Validación Appetite vs Effort:** 1sem ≥ 3-5d ✓
 - **Skills sugeridas:** security-and-hardening · source-driven-development · rust-write-tests · campaign-executor
 - **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/MEMG-17.md`
 
@@ -2188,4 +2302,147 @@ Resultado: PARTIAL
 Próxima acción: Step 1: editar README.md (subsección North Star + fila MCP) → gates docs (check-links/check-docs/gen-index/markdownlint/validate-docs-coverage)
 Contrato: verificacion: pendiente (gates docs tras Step 1) | evidencia: recount HEAD main fd7b41b (worktree web-web09) — trust-bar 1 token animado + 3 overlays; hero 3 capas + 1 RegMark; 81 animate-* site-wide; atenuación c4e7c57 en main | probes proxy-turns vacío en db/.vantadb-mcp/~/.vantadb/desktop×2 | self-test north_star_metric.py OK | artefactos: docs/dev/tasks/WEB-09-MKT-22.md | invariantes: sin números inventados (R11); web repo sin cambios; no tocar opencode.jsonc/master plan/pipeline-state; commit LOCAL | deuda: WEB-09 revisión 2026-11-02 o merge design/v2; MKT-22 número real pendiente | queda_pendiente: gates + review P2-01 + commit + cierre taskId 36
 Próxima tarea si completa: 
+=== END RECITATION ===
+
+=== RECITATION 37 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: MEMG-01 — Detección de contradicción en ingesta L1 (Task 37)
+Estado: completed
+Última acción: Steps 1-7 completos. Commit LOCAL 10b35b41 (16 archivos): campo `contradicts` en DedupDecision (juicio de dedup existente, 0 llamadas LLM nuevas) + marcado `superseded_by` vía mark_contradiction en write_memory (choke point de ambos paths de ingesta) + test dedicado l1_contradiction.rs (11/11) + docs + índices regenerados + FIND-277. Review P2-01 vanta-review ✅ approve (Low aplicados: F2 guarda sanitizada+test, F3 2 tests, F1 doc, F4 doc, F5 nota).
+Resultado: OK
+Próxima acción: Ninguno — tarea completa. Siguiente del plan: Task 38 (MEMG-02) ya en vuelo en otra sesión.
+Contrato: verificacion: `cargo nextest run -p vanta-memory --profile audit --build-jobs 2` ✅ 587/587 · `cargo nextest run -p vanta-memory --test l1_contradiction` ✅ 11/11 · `cargo clippy -p vanta-memory --all-targets --all-features -- -D warnings` ✅ 0 · `cargo fmt -p vanta-memory -- --check` ✅ 0 · docs (check-links/check-docs/gen-index/coverage) ✅ 0 | evidencia: [claim: 'la ingesta detecta y marca contradicciones explícitas (caso canónico) sin borrar el viejo' → evidencia: vanta-memory/tests/l1_contradiction.rs + commit 10b35b41, confianza alta] [claim: 'reuso de mark_contradiction, cero semántica paralela; dream/lifecycle intactos' → evidencia: vanta-memory/src/core/record/l1_writer.rs (mark_contradicted_targets) + git diff sin cambios en lifecycle/dream, confianza alta] [claim: 'review adversarial aprobado' → evidencia: sesión vanta-review ses_ef5488be8ffeQFpNJUXFP3yc3Z, confianza alta] | artefactos: docs/dev/tasks/MEMG-01.md · vanta-memory/tests/l1_contradiction.rs · docs/api/VANTA_MEMORY.md · docs/dev/Backlog.md (FIND-277) | invariantes: el viejo nunca se borra (solo superseded_by); no-contradictorios conservan store/update/merge/skip; mark_contradiction única semántica; degradación LLM-free intacta; dream intacto; cuarentena fuera de scope | deuda: cross-sesión + provenance persistente + contradicciones implícitas + consumo read-side (FIND-277) | queda_pendiente: lead — (1) asegurar commit de MEMG-02.md o regenerar índices en push-prep (docs/index.md ya incluye su fila), (2) se corrió `cargo fmt` sobre WIP ajeno no staged (src/sdk/api.rs, src/sdk/types.rs, vantadb-mcp/src/handlers/tools.rs) para desbloquear el hook — sin commitear; (3) push NO ejecutado (política owner)
+Próxima tarea si completa: MEMG-02
+=== END RECITATION ===
+
+=== RECITATION 38 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: MEMG-02 — Outcome loop → refuerzo de confianza post-recall (op SDK+MCP + loop vanta-memory)
+Estado: completed
+Última acción: 6/6 steps: RED→GREEN core (Embedded::reinforce + ReinforceOutcome; política used/corrected/unused), tool MCP memory_reinforce (4 perfiles; counts 80→81 listed / 86→87 defined), loop vanta-memory reinforce_recalled + test E2E, docs (EMBEDDED_SDK/scores/MCP) + snapshot público regenerado (absorbe drift FIND-237/DIST-15), FIND-278; review P2-01 vanta-review APPROVE (6 Low cerrados/documentados); commits locales fcc17ca7 (feat) + 782e111d (docs task).
+Resultado: OK
+Próxima acción: ninguno — tarea cerrada. Próximo del plan: MEMG-11 (Task 39) según orquestador.
+Contrato: verificacion: `cargo nextest run --profile audit -p vantadb --lib -E 'test(/reinforce/)'` 13/13 ✅ · `-p vanta-memory` 589/589 ✅ · `-p vantadb-mcp --ignore-default-filter` 261/261 (mcp_tests 115/115) ✅ · `-p vantadb --lib` 2318/2318 ✅ · `cargo fmt --check` 0 ✅ · `cargo clippy -p vantadb -p vantadb-mcp -p vanta-memory --all-targets -- -D warnings` 0 ✅ · `validate-docs-coverage.ps1` 0 gaps ✅ · check-links/check-docs/gen-index 0 ✅ · public_api snapshot compare 1/1 ✅ | evidencia: claim 'op real de refuerzo SDK+MCP' → `src/sdk/api/memory.rs` (Embedded::reinforce) + `vantadb-mcp/src/handlers/tools.rs` (memory_reinforce) confianza alta; claim 'política declarada bump/decay acotado y saturado' → `docs/api/scores.md` §Reinforcement + rustdoc confianza alta; claim 'loop cerrado recall→refuerzo' → `vanta-memory/tests/reinforce_loop.rs` 2/2 confianza alta; claim 'métrica de selección antes/después' → tests min_confidence + abstención (src/sdk/api.rs) confianza alta; claim 'review P2-01 fresh' → vanta-review APPROVE ses_ef52142a4ffexvKGFDej3kq2vs confianza alta | artefactos: docs/dev/tasks/MEMG-02.md · vanta-memory/tests/reinforce_loop.rs · commits fcc17ca7/782e111d | invariantes: put/put_batch intactos (last_validated_at_ms=None; reinforce único writer); wire v2 sin cambios; ranking default intacto (sin ponderación); sin unwrap/expect/unsafe en producción; WIP MEMG-01 (l1_writer/l1_dedup/prompts/dream) no pisado; opencode.jsonc/master plan no stageados | deuda: calibración empírica del bump/decay excluida por contrato (VER-08/MGR-12 §6.3); consumo automático más profundo del host fuera de scope (stop-condition no disparada: loop cerrado con helper) | queda_pendiente: skill progreso / registro en docs/dev/avance + limpieza fila Backlog MEMG-02 (orquestador); FIND-278 ya en Backlog; push solo con instrucción del owner.
+Próxima tarea si completa: 39
+=== END RECITATION ===
+
+=== RECITATION 40 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: MEMG-12 — Semántica v2 write-side en el pipeline: L1 escribe confidence/valid_at reales en los dos sitios (extracción + promoción) vía punto único; TTL + derived/T1b/T1c → FIND (stop 1.5sem)
+Estado: completed
+Última acción: 4/4 steps. RED 4/4 → GREEN 7/7 (l1_semantics_v2: store/merge/promotion/batch/round-trip/fallback/re-persist contradicción); suite crate 602/602; fmt/clippy 0; gates docs 0; coverage 0 gaps; FIND-279/280/281; review P2-01 vanta-review APPROVE (3 Low, 2 cerrados + 1 FIND); commits LOCALES 9d0e371d + 9ca40219 + 8b71fb89 (sin push). Coordinación MEMG-11: su refactor en vuelo integró el estampado v2 en record_input (builder compartido) — co-autoría documentada en el commit.
+Resultado: OK
+Próxima acción: Ninguno — task cerrada. El orquestador decide la próxima (MEMG-13 Task 41 o resumir MEMG-11, que sigue en vuelo en el mismo worktree sobre memory.rs/auto_recall.rs/tests).
+Contrato: verificacion: cargo nextest run --profile audit -p vanta-memory --test l1_semantics_v2 --build-jobs 2 → 7/7 ✅ · cargo nextest run --profile audit -p vanta-memory --build-jobs 2 → 602/602 ✅ · cargo fmt --all -- --check → 0 ✅ · cargo clippy -p vanta-memory --all-targets --all-features -- -D warnings → 0 ✅ · evidencia: claim='valid_at_ms = nacimiento del contenido en ambos sitios L1' evidencia=vanta-memory/src/core/record/l1_writer.rs (record_input/put_record) + tests l1_semantics_v2 confianza=alta · claim='round-trip export→import preserva v2' evidencia=test pipeline_write_roundtrips_v2_fields_via_export_import confianza=alta · claim='review fresco APPROVE' evidencia=sesión ses_ef4f06c1bffeupwI1MGt7CCS6t (vanta-review) confianza=alta · artefactos=docs/dev/tasks/MEMG-12.md + vanta-memory/tests/l1_semantics_v2.rs · invariantes='wire v2 y payload intactos; valid_at>0 (nunca Some(0)); put_record punto único; cuarentena sticky I2 no tocada; sin símbolos públicos nuevos' · deuda='TTL semántico (FIND-279, MGR-09); derived/T1b/T1c (FIND-280); re-persist contradicción resetea confidence (FIND-281, pre-existente)' · queda_pendiente='coordinar con MEMG-11: l1_writer.rs quedó commiteado con su refactor integrado (base 9d0e371d); sus cambios restantes (memory.rs/auto_recall.rs/tests) siguen sin commitear'
+Próxima tarea si completa: MEMG-13
+=== END RECITATION ===
+
+=== RECITATION 39 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: MEMG-11 — Adopción del motor core en vanta-memory (recall híbrido detrás de flag + escrituras put_batch + A/B documentado)
+Estado: completed
+Última acción: 5/5 steps. (a) RecallConfig.core_search (default false) + search_records_core (BM25+HNSW+RRF; D38 siempre-hybrid; ACL/cuarentena/scope D22) + tests (7/7 fixture). (b) apply_dedup_batch→put_batch (plan_write/record_input) + fix core de índices de put_batch (full-rebuild O(total)→replace_derived_indexes O(batch); DUR-03 con write-lock único + variantes _locked) + tests UPSERT/mixed-live-expired. A/B: escritura 2.36–2.71×; recall 457.25→41.53 ms/q (~11×); canonical_p99 run limpio p50=3.201/p95=4.5415/p99=5.7773 ms vs MGR-19 §1 (path ajeno al diff; varianza de instrumento). Review P2-01 adversarial vanta-review: r1 ❌ (1C+1H+2R) → r2 ❌ (deadlock del fix de guard, cazado con repro) → r3 ✅ APPROVE. Commit local 508e211e.
+Resultado: OK
+Próxima acción: ninguno — tarea cerrada. Próximo del plan (F2): MEMG-13 (Task 41) según orquestador.
+Contrato: verificacion: `cargo nextest run --profile audit -p vanta-memory --build-jobs 2` 605/605 ✅ · `cargo nextest run -p vantadb --lib -E 'test(put_batch) or test(incremental)'` 12/12 ✅ · sweep `-p vantadb --ignore-default-filter -E 'test(put_batch)'` 10/10 ✅ · edge_cases mixed/ttl/racing 3/3 ✅ · `cargo fmt -p vantadb -p vanta-memory -- --check` 0 ✅ · `cargo clippy -p vantadb --all-targets -- -D warnings` 0 ✅ · `cargo clippy -p vanta-memory --all-targets --all-features -- -D warnings` 0 ✅ · docs gates (check-links/check-docs/gen-index) 0 ✅ · `campaign_verify_cmd` no operativo en este entorno (no spawnea cargo, exit -1) → verificación mecánica vía shell | evidencia: [claim 'recall híbrido detrás de flag con dual-pool preservado' → evidencia: vanta-memory/src/core/hooks/auto_recall.rs + tests/recall_core_hybrid.rs 7/7, confianza alta] [claim 'escrituras del pipeline vía put_batch con paridad batch vs secuencial' → evidencia: vanta-memory/tests/l1_batch_write.rs + commit 9d0e371d (l1_writer.rs), confianza alta] [claim 'fix core put_batch: O(batch) con consistencia list/count/text/UPSERT y DUR-03 cerrado' → evidencia: src/sdk/api/memory.rs + tests core 12/12 + edge_cases 3/3 + review r3, confianza alta] [claim 'A/B medido reproducible' → evidencia: docs/dev/tasks/MEMG-11.md §A/B, confianza alta] [claim 'review P2-01 fresh APPROVE' → evidencia: vanta-review ses_ef4d5658cffesIYmJtQxXsCY0r r3, confianza alta] | artefactos: docs/dev/tasks/MEMG-11.md · vanta-memory/tests/recall_core_hybrid.rs · vanta-memory/tests/l1_batch_write.rs · commit 508e211e | invariantes: record sin vector nunca se dropea (ambos paths, aun mode Embedding); core_search=false byte-identical; cuarentena/ACL/scope intactos; put_batch consistencia list/count/text/UPSERT + DUR-03 (purge_lock→engine); v2 MEMG-12 intacto (record_input); sin unwrap/unsafe nuevos | deuda: dedup recall_candidates al motor core; query_sparse (L1 sin sparse hoy); BENCH-02/VER-08 (calidad BEIR/LongMemEval, F5) → fixture propio, no claim calibrado | queda_pendiente: orquestador — (1) registrar 3 FINDs propuestos (governance.source sin hits; BM25 sobre payload JSON; angostar sección crítica put_batch) en Backlog; (2) skill progreso/avance + limpieza fila Backlog MEMG-11; (3) índices docs regenerados incluyen MEMG-12.md (ya commiteado en 9d0e371d — OK); (4) push NO ejecutado (política owner).
+Próxima tarea si completa: 41
+=== END RECITATION ===
+
+=== RECITATION 41 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: MEMG-13 — superficies core restantes en memoria: consumir versions (historia/diff L1) + snapshot (backup/restore) con tests por superficie; IQL/filtros evaluados con motivo + FIND (stop 1sem L1187)
+Estado: completed
+Última acción: Steps 1-4 completos: versions (l1_history 2 tests, 3 versiones reales + interior) + snapshot (backup_snapshot 4 tests, Fjall round-trip + canary FIND-287) + FIND-285/286/287 + docs (VANTA_MEMORY.md, Backlog, index/llms) + verify full (suite 611/611, fmt/clippy 0, docs gates 0) + OCR sin Critical/High + review P2-01 vanta-review APPROVE post-fix + 3 commits locales (eb842343 feat, aa9e6843 docs-task, bed44b23 docs-avance) + avance 1034/1034
+Resultado: OK
+Próxima acción: Ninguno — task completa. El orquestador decide la próxima (sugerida: MEMG-07, Task 42).
+Contrato: verificacion: cargo nextest run --profile audit -p vanta-memory --build-jobs 2 => 611/611 passed, 2 skipped ✅; contrato por binario l1_history 2/2 + backup_snapshot 4/4 ✅; cargo fmt --all --check 0 ✅; cargo clippy -p vanta-memory --all-targets --all-features -- -D warnings 0 ✅; check-links/check-docs/gen-index --check/validate-docs-coverage/check-avance-coverage 0 ✅; review P2-01 vanta-review APPROVE (2 rondas: changes-required -> fix -> approve). evidencia: (1) claim 'versions consumido con historia direccionable' evidencia vanta-memory/tests/l1_history.rs (3 versiones reales, get_version interior, 99->None) confianza alta; (2) claim 'backup/restore delegado sin reimplementar' evidencia vanta-memory/src/utils/backup.rs + tests/backup_snapshot.rs (InvalidInput/NotFound/round-trip) confianza alta; (3) claim 'FIND-287 real: restore data/-only' evidencia src/storage/engine/mod.rs:795-859 + canary test + FIND-33.md:53 + plan archivado 2026-08-29 §1308 confianza alta; (4) claim 'IQL/filtros no consumidos con motivo' evidencia Backlog FIND-285/286 + §Spec #7/#8 confianza alta. artefactos: docs/dev/tasks/MEMG-13.md, docs/dev/Backlog.md (FIND-285/286/287), docs/api/VANTA_MEMORY.md, docs/dev/avance/activo/vanta-memory.md. invariantes: firmas existentes intactas (read_session_records fan-in 38); wire/payload L1 intacto; gate cuarentena recall intacto (SCH-05); src/sdk/**/src/storage/** sin tocar; sin deps; sin unwrap/unsafe en produccion. deuda: FIND-285 (IQL), FIND-286 (filtros restantes), FIND-287 (core/storage restore backend) — registradas. queda_pendiente: el orquestador registra el outcome SDP; avance ya migrado.
+Próxima tarea si completa: MEMG-07
+=== END RECITATION ===
+
+=== RECITATION 43 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: MEMG-20 — API mínima de checkpoint de tarea (dim 1) reanudable en vanta-memory; tipos/namespace separados del pipeline checkpoint; test interrupción→resume sin repetir pasos
+Estado: completed
+Última acción: Steps 1-4 completos: API `utils::task_checkpoint` + 9 tests (incl. resume Fjall close/reopen) + suite crate 620/620 + fmt/clippy/doctest + docs (VANTA_MEMORY §Task checkpoints + FIND-288) + OCR sin Critical/High + review P2-01 vanta-review APPROVE (2 Optional doc-only aplicados) + 3 commits locales + cierre avance/Backlog (coverage 1034/1034, 0 gaps)
+Resultado: OK
+Próxima acción: ninguno (tarea cerrada). Orquestador: continuar con la próxima task del plan (Task 44 MEMG-21 o lo que decida; MEMG-07 Task 42 sigue en vuelo)
+Contrato: verificacion: `cargo nextest run --profile audit -p vanta-memory --test task_checkpoint --build-jobs 2` ✅ 9/9 · suite `-p vanta-memory` ✅ 620/620 (2 skipped) · `cargo fmt --check` ✅ · `cargo clippy -p vanta-memory --all-targets --all-features -- -D warnings` ✅ · `cargo test --doc -p vanta-memory` ✅ 2/2 · docs gates ✅ 0 · avance-coverage ✅ 1034/1034 · evidencia: contrato L1241 cumplido (a separación pineada raw-SDK; b manager RMW; c resume test executed==[2,3,4]; d suite sin regresión) · artefactos: vanta-memory/src/utils/task_checkpoint.rs, vanta-memory/tests/task_checkpoint.rs, docs/dev/tasks/MEMG-20.md, docs/api/VANTA_MEMORY.md, docs/dev/Backlog.md (FIND-288), docs/dev/avance/activo/vanta-memory.md · invariantes: tipos/namespace separados del pipeline; firmas CheckpointManager intactas; sin locks/deps nuevas; core src/sdk/** no tocado · deuda: ninguna (FIND-288 = consumo por el host, plan stop L1243) · queda_pendiente: nada para el orquestador salvo decidir próxima task
+Próxima tarea si completa: ninguno (lo decide el orquestador)
+=== END RECITATION ===
+
+=== RECITATION 42 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: MEMG-07 — Forgetting curves sobre L1: curva real por tipo/edad configurable + pass read-only + métrica; la curva deprioriza, nunca purga.
+Estado: completed
+Última acción: Steps 1-4 completos: RED→GREEN (11 unit + 4 integración), verify full scoped verde, OCR sin hallazgos, review P2-01 adversarial APPROVE (NITs doc-only aplicados), commits locales 7e84244f + a9c778e5.
+Resultado: OK
+Próxima acción: ninguno — MEMG-07 cerrada. Orquestador: MEMG-21 (Task 44) puede arrancar (dependencia dura cumplida).
+Contrato: verificacion: cargo nextest run --profile audit -p vanta-memory --test forgetting_curve --build-jobs 2 → 4/4 ✅ · suite -p vanta-memory → 635/635 (2 skipped pre-existentes) ✅ · clippy -p vanta-memory --all-targets --all-features -- -D warnings ✅ · fmt -p vanta-memory --check ✅ · gates docs (check-links/check-docs/gen-index/coverage) 0 ✅ | evidencia: (1) curva por tipo/edad configurable con parámetros declarados testeados con valores conocidos (retención exacta 0/1/2 half-lives; defaults pinneados; report 15/6/9) — lifecycle.rs inline + tests/forgetting_curve.rs 4/4 [alta]; (2) pass read-only idempotente y nunca-borra (payloads byte-idénticos; registros intactos) — forgetting_curve.rs:111-153 [alta]; (3) review P2-01 adversarial APPROVE 0C/0H/0M — ses_ef4078f35ffeknsGryHe2RWk8s [alta]; (4) FIND-289 registrado (descarte automático + scheduler → WIRE-15) — Backlog.md:448 [alta] | artefactos: docs/dev/tasks/MEMG-07.md · commits locales 7e84244f (feat) + a9c778e5 (docs task) · VANTA_MEMORY.md §Forgetting curve | invariantes: la curva jamás borra ni muta; MemoryRecord sin campos nuevos (wire intacto); bump_heat/decay_heat/is_prune_eligible/PRUNE_HEAT_THRESHOLD intactos; sin unwrap/unsafe; commit local (sin push); WIP ajeno no stageado | deuda: descarte automático + wiring del pass a scheduler → FIND-289 (Backlog) | queda_pendiente: skill progreso (registro avance + fila Backlog) por el ejecutor; MEMG-21 (Task 44) desbloqueada — consume retention_factor
+Próxima tarea si completa: MEMG-21 (Task 44) — Scoring multi-señal L1 (recencia + importancia)
+=== END RECITATION ===
+
+=== RECITATION 44 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: MEMG-21 (Task 44): scoring compuesto L1 (recencia + relevancia + importancia, opt-in byte-idéntico) + reflexión periódica sobre episódica (lecciones, L1 intacto); métrica before/after; pesos declarados (CrewAI 0.5/0.3/0.2).
+Estado: completed
+Última acción: 6/6 steps: scoring.rs (13 unit) + integración recall (rrf_merge_scored + perform_auto_recall_scored + inner, 2 unit + 34/34 anti-regresión) + métrica before/after (4 integración) + reflection/mod.rs (5 unit + 5 integración) + docs (VANTA_MEMORY §Composite scoring/§Reflection, FIND-290) + verify full (suite -p vanta-memory 664/664, 2 skipped; fmt/clippy OK; gates docs 0) + OCR Group 3 sin Critical/High + review P2-01 adversarial APPROVE (0C/0H/0M, NIT-1/NIT-2 doc-only aplicados) + commits locales 3fd223ab (feat) + b3f8df68 (docs task).
+Resultado: OK
+Próxima acción: Ninguno para MEMG-21 — tarea cerrada. Orquestador: continuar con la próxima task del plan; queda_pendiente skill progreso (avance + fila Backlog) si no lo corre el orquestador.
+Contrato: verificacion: cargo nextest run --profile audit -p vanta-memory --test composite_scoring --test reflection --build-jobs 2 → 9/9 ✅ · suite -p vanta-memory → 664/664 (2 skipped pre-existentes) ✅ · anti-regresión recall/recall_core_hybrid/semantic_recall/e2e_flow → 34/34 (1 skip) ✅ · cargo fmt --check ✅ · cargo clippy -p vanta-memory --all-targets --all-features -- -D warnings ✅ · gates docs (check-links/check-docs/gen-index --check/validate-docs-coverage) 0 ✅ | evidencia: (1) scoring compuesto opt-in con fórmula Park §4.1 + defaults CrewAI citados; recencia = retention_factor de MEMG-07 consumido; importancia = priority; min-max sobre candidatos — scoring.rs + tests/composite_scoring.rs 4/4 [alta]; (2) métrica de ordenamiento before [r1,r2,r3,r4] → after [r2,r1,r3,r4], rank 2→1; neutralidad con señales uniformes; legacy byte-idéntico con None (11 callers intactos) — composite_scoring.rs + auto_recall.rs:715-725 [alta]; (3) reflexión determinista con L1 byte-idéntico (payloads) + precondición NotEnoughMaterial + runner opcional — reflection/mod.rs + tests/reflection.rs 5/5 [alta]; (4) review P2-01 adversarial APPROVE 0C/0H/0M — ses_ef3ccac26ffe1RJqOfDJL3yXtP [alta]; (5) FIND-290 registrado (activación + promotion + wiring) — Backlog.md:447 [alta]. | artefactos: docs/dev/tasks/MEMG-21.md · commits locales 3fd223ab (feat) + b3f8df68 (docs task) · docs/api/VANTA_MEMORY.md §Composite scoring/§Reflection · FIND-290. | invariantes: default None byte-idéntico (ningún caller cambia comportamiento); reflexión jamás muta L1 (solo reflection/<s>/<run_id>); sin campos nuevos en wire (DecayPolicy solo Eq aditivo); retention_factor consumido sin reimplementar; sin unwrap/unsafe en producción; sin deps nuevas; commit local (sin push); WIP ajeno no stageado. | deuda: activación del scoring en hosts + promotion de lecciones a L1 + wiring del pase de reflexión → FIND-290 (Backlog). | queda_pendiente: skill progreso (registro avance + fila Backlog) si el orquestador no lo corre; nada más.
+Próxima tarea si completa: lo decide el orquestador
+=== END RECITATION ===
+
+=== RECITATION 45 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: WIRE-14 (T1): seam de host aditivo en el arranque — inyección de ConversationTrigger + servicio de fondo con parada graceful (ADR-0054 T1)
+Estado: completed
+Última acción: Steps 1-4 completos: RED→GREEN (6 tests del seam), verify scoped verde (flake de carga documentado + aislado verde), OCR 0C/0H/0M, review P2-01 vanta-review APPROVE, commit local b5d294d2 (feat) + 4448788b (docs task). Incidente: el cierre de MEMG-21 barrió mis archivos staged con un add -A concurrente (283e23a1) — resuelto con split local content-preserving (e916c5be docs MEMG-21 + b5d294d2 feat WIRE-14).
+Resultado: OK
+Próxima acción: ninguno — WIRE-14 cerrada. Orquestador: WIRE-15 (Task 46) puede arrancar (dependencia dura cumplida; superficie ServerHooks/BackgroundService/run_with_hooks lista y estable).
+Contrato: verificacion: cargo nextest run --profile audit -p vantadb --features server --build-jobs 2 → 2676 run: 2675 passed, 4 skipped, 1 timeout = flake de carga pre-existente documentado (concurrent_insert_preserves_hnsw_invariants; re-corrido aislado: 1 passed 52.8s) · focused 6/6 · clippy -p vantadb --features server --all-targets -- -D warnings exit 0 · cargo check -p vantadb (sin server) exit 0 · fmt paths propios exit 0 · doc exit 0 (14 warnings pre-existentes, ninguno del seam). | evidencia: (1) RED real E0432/E0425 por símbolos ausentes (log wire14-red.log); (2) seam aditivo: run intacto (delega con ServerHooks::default()), ServerState 17 literales intactos, defaults inertes pinneados; (3) review P2-01 vanta-review APPROVE 0C/0H/0M (ses_ef3d02493ffe7XkwWw6D0BtiMW); (4) commit b5d294d2 (feat, 6 archivos, pre-commit hook verde: fmt+clippy+actionlint). | artefactos: docs/dev/tasks/WIRE-14.md · commits b5d294d2 + 4448788b (+ e916c5be split MEMG-21) · logs $env:TEMP/wire14-*.log | invariantes: run(config) firma/semántica intactas; ServerState sin cambios; join graceful post-loop (Drop best-effort en early-exit, documentado); sin unwrap/unsafe/deps nuevas; WIP ajeno no stageado; commit local (sin push) | deuda: ninguna del seam (wiring productivo = WIRE-16; docs = WIRE-17). Low del review: Drop best-effort obligatorio para la impl de WIRE-15 (documentado); joins secuenciales sin timeout aceptados con ≤2 servicios | queda_pendiente: skill progreso (registro avance + fila Backlog) por el ejecutor; WIRE-15/16 consumen la superficie
+Próxima tarea si completa: WIRE-15 (Task 46) — servicio scheduler en vanta-memory (run_pass + loop con shutdown)
+=== END RECITATION ===
+
+=== RECITATION 46 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: WIRE-15 (T2): servicio scheduler en vanta-memory — run_pass (timers + worker + reclaim) + loop helper feature-gated con shutdown graceful/Drop/BackgroundService (ADR-0054 T2)
+Estado: completed
+Última acción: Steps 1-4 completos: RED real (E0432/E0433) → GREEN (scheduler.rs + 8 tests) → verify scoped 676/676 + default 668/668 + fmt/clippy 0 → OCR 0C/0H/0M → review P2-01 vanta-review APPROVE (0C/0H/0M; 3 Lows + 3 NITs aplicados/dispuestos) → commits locales 1d5e1697 (feat, 9 archivos, hook verde) + 9c881047 (docs). 2 correcciones diagnósticas: E0283 de inferencia del factory `None` y `#[cfg]` faltante en spawn_memory_scheduler detectado por el gate default (cargo check sin features).
+Resultado: OK
+Próxima acción: ninguno — WIRE-15 cerrada. Orquestador: WIRE-16 (Task 47) puede arrancar (dependencia dura cumplida; superficie run_pass/MemoryScheduler/spawn_memory_scheduler + BackgroundService lista y estable).
+Contrato: verificacion: cargo nextest run --profile audit -p vanta-memory --features http-server --build-jobs 2 → 676 run: 676 passed, 2 skipped (8 nuevos) ✅ · default → 668 passed, 2 skipped ✅ · cargo check -p vanta-memory ✅ · fmt --check ✅ · clippy --all-targets (feature y default) -D warnings ✅ | evidencia: (1) RED real E0432 services::scheduler (log wire15-red.log) + E0433 tokio en scheduler_loop (consola) [alta]; (2) pass reusa TimerScanner::run_once + PipelineWorker::run_once/reclaim_stale + MemoryTaskHandler (cero lógica nueva) — vanta-memory/src/services/scheduler.rs:79-125 [alta]; (3) Drop best-effort send+abort + BackgroundService UFCS (handoff WIRE-14 Low-1) — scheduler.rs:157-181 [alta]; (4) factory Fn() -> Option<R> por pass; None → skip debug, cola intacta — tests/scheduler_loop.rs:141-171 [alta]; (5) review P2-01 vanta-review APPROVE 0C/0H/0M ses_ef3993124ffeeYg54pY1Q21uYC [alta]; (6) commits locales 1d5e1697 (feat) + 9c881047 (docs) [alta] | artefactos: docs/dev/tasks/WIRE-15.md · commits 1d5e1697 + 9c881047 · log $env:TEMP/wire15-red.log | invariantes: nada existente cambió (run_bridge_pass/PipelineWorker/TimerScanner/LocalStateBackend intactos); default build sin uso de Tokio (dep opcional inactiva); P4 skip sin runner; parada graceful + Drop; single-writer documentado; sin unwrap/unsafe; WIP ajeno no stageado; commit local (sin push) | deuda: ninguna del servicio (wiring productivo = WIRE-16; docs = WIRE-17; timers L2/Dream sin productor por diseño) | queda_pendiente: skill progreso (registro avance) por el ejecutor; WIRE-16 consume la superficie
+Próxima tarea si completa: WIRE-16 (Task 47) — wiring del wrapper vantadb-server (queue + bridge + loop)
+=== END RECITATION ===
+
+=== RECITATION 47 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: WIRE-16 (T3): wiring del wrapper vantadb-server (queue + bridge + loop) — consume superficies WIRE-14/15 (ADR-0054 T3)
+Estado: completed
+Última acción: Steps 1-4 completos: RED real (E0433/E0432 e2e + E0609×4 core) → GREEN (seam aditivo on_storage_ready + módulo scheduler + main wiring + 4 e2e + unit tests) → verify 7 gates verdes (12/12 + 39/39 + 2678/2678 + check default + fmt + clippy×2 + delta build 6.9s) → colateral bloqueante ajeno resuelto (vantadb-mcp E0063 core_search: HEAD no compilaba) → OCR 0C/0H/0M → review P2-01 vanta-review APPROVE (Low-1/Optional-1/NITs aplicados; Low-2 → FIND-291) → commits locales c05cd77d + 679b3545 + ac012bd6.
+Resultado: OK
+Próxima acción: ninguno — WIRE-16 cerrada. Orquestador: WIRE-17 (Task 48, docs del scheduler) queda habilitada (dependencia dura post WIRE-16 cumplida). Nota: el colateral mcp (c05cd77d) desbloquea el build de default-members — considerar push/CI cuando el owner lo autorice.
+Contrato: verificacion: cargo nextest run --profile audit -p vantadb-server --build-jobs 2 → 12/12 ✅ · bins excluidos --test e2e --test server --ignore-default-filter → 39/39 ✅ · cargo nextest run --profile audit -p vantadb --features server --build-jobs 2 → 2678 passed, 4 skipped ✅ · cargo check -p vantadb (default) ✅ · fmt ✅ · clippy ×2 ✅ · docs gates ×3 exit 0 ✅ | evidencia: (1) incógnita real resuelta con evidencia dura — segundo open mismo-proceso = DatabaseBusy (tests/storage/multi_process_lock.rs:14-52) + sharing exige el MISMO handle Embedded (builder.rs:14-18,51-59) → ServerHooks::on_storage_ready (src/server/state.rs) [alta]; (2) 4 e2e del contrato verdes (vantadb-server/tests/scheduler_e2e.rs: POST→L0→pass→l1 vía run_with_hooks; restart L0/L1 + cola efímera; disabled sin loop; sin runner skip P4) [alta]; (3) colateral HEAD roto: vantadb-mcp E0063 core_search (gap verify scoped MEMG-11) → fix c05cd77d [alta]; (4) review P2-01 vanta-review APPROVE 0C/0H/0M ses_ef35294d8ffeEQOowuvrmlAMap (Low-1/Optional-1/NIT-1/NIT-3 aplicados; Low-2 → FIND-291; Optional-2/NIT-2 dispensados) [alta]; (5) commits locales c05cd77d + 679b3545 + ac012bd6 [alta] | artefactos: docs/dev/tasks/WIRE-16.md · commits c05cd77d/679b3545/ac012bd6 · logs $env:TEMP/wire16-*.log | invariantes: run/run_with_hooks firma+comportamiento intactos; ServerState sin cambios; single-writer (1 open/1 handle/1 loop); P4 (sin runner → skip, cola intacta); secrets solo env (R-5); sin unwrap/unsafe en producción; WIP ajeno no stageado; commits locales (sin push) | deuda: FIND-291 (flush→join, Low) + Optional-2/NIT-2 dispensados con motivo; docs del scheduler = WIRE-17 | queda_pendiente: skill progreso (registro avance) por el ejecutor; WIRE-17 habilitada; push del colateral mcp cuando el owner autorice
+Próxima tarea si completa: WIRE-17 (Task 48) — docs del scheduler (wired status + promoción del rol)
+=== END RECITATION ===
+
+=== RECITATION 48 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: WIRE-17 (T4, ADR-0054): docs del scheduler cableado — wired status en VANTA_MEMORY.md §Operational modules + promoción del rol + fila vanta-memory en EXPERIMENTAL_FEATURES.md (post WIRE-16 ✅)
+Estado: completed
+Última acción: Steps 1-4 completos + cierre: 6 ediciones VANTA_MEMORY.md + 6 filas + revision note EXPERIMENTAL_FEATURES.md → 4 gates docs verdes + markdownlint 0 → OCR (docs excluidos por diseño) → review adversarial P2-01 vanta-review APPROVE (Low-1 aplicado; Low-2 dispensa+coordinación; NIT-1 aplicado; NIT-2 dispensado; FIND-292) → commits locales 75bd5da8 (docs, 6 archivos pathspec) + 20199096 (cierre) + 7a6a2ab9 (avance: operaciones + fila Backlog removida). skill progreso Trigger 1 ejecutado (check-avance-coverage 1034/1034 ✅).
+Resultado: OK
+Próxima acción: ninguno — WIRE-17 cerrada y registrada. Orquestador: WIRE-18 (Task 49) en vuelo en otra sesión; coordinar push de la ola (WIRE-18.md debe commitearse antes de pushear — Low-2 del review).
+Contrato: verificacion: gates docs exit 0 — check-links ✅ · check-docs ✅ · gen-index --check ✅ · validate-docs-coverage ✅ · check-avance-coverage 1034/1034 ✅ · markdownlint 0 (3 archivos) · pre-commit hook verde en los 3 commits | evidencia: (1) wired status exacto vs código HEAD [alta] — vantadb-server/src/scheduler.rs:124-146, main.rs:69-91, state.rs:140-158, bootstrap.rs:351-353; 12 claims verificados 1-a-1 por el reviewer; (2) promoción acotada sin inflación [alta] — ADR-0054:100-104; labs se mantiene; MCP/proxy/dream diferidos; (3) review adversarial APPROVE ses_ef32d1dc9ffeB0W2AjzvwoINs0 [alta]; (4) commits locales sin push 75bd5da8/20199096/7a6a2ab9; WIP ajeno intacto [alta]; (5) FIND-292 + registro avance [alta] — Backlog.md + avance/activo/operaciones.md. | artefactos: docs/api/VANTA_MEMORY.md · docs/user/operations/EXPERIMENTAL_FEATURES.md · docs/dev/tasks/WIRE-17.md · docs/dev/Backlog.md (FIND-292; fila WIRE-17 removida) · docs/dev/avance/activo/operaciones.md · docs/index.md · llms.txt · commits 75bd5da8/20199096/7a6a2ab9 | invariantes: sin promesa de más (solo el rol; labs; MCP/proxy/dream diferidos); wired status exacto; claims mapean a código; WIP ajeno no stageado; gates en los mismos commits | deuda: ninguna propia; FIND-292 (strategy docs stale → GOV-05) + Low-2 (coordinar commit de WIRE-18.md antes del push) | queda_pendiente: push diferido al owner (política git)
+Próxima tarea si completa: WIRE-18 (Task 49) — ya en vuelo; luego F3 del plan
+=== END RECITATION ===
+
+=== RECITATION 49 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: WIRE-18 — T5: verificación adversarial del scheduler (crash mid-pass + restart)
+Estado: completed
+Última acción: Steps 1-4 completos: vanta-memory/tests/scheduler_crash.rs (2 tests: crash mid-pass+restart sobre Fjall real + reclaim in-process) con RED-equivalente por mutación (skip→store → FAIL left:2/right:1, revertido) · verify scoped (fmt, clippy ×2, suites 670/670 y 678/678, check) · OCR (0C/0H/0M) · review P2-01 vanta-review APPROVE (Low-1 full-record aplicado; FIND-293 registrada) · commits LOCALES 95cdb2ce + b65ae6d0
+Resultado: OK
+Próxima acción: ninguno (tarea cerrada). Próximo del plan a criterio del orquestador: Task 50 (MEMG-03, ⬜ PENDING)
+Contrato: verificacion: `cargo nextest run --profile audit -p vanta-memory --test scheduler_crash --build-jobs 2` → 2/2 ✅ · suites `-p vanta-memory` 670/670 (2 skip pre) y `--features http-server` 678/678 (2 skip pre) ✅ · fmt/clippy/check exit 0 ✅. evidencia: (1) crash mid-pass determinista (hook panic, no timing) → DB íntegra post-restart (L0/L1 full-record idénticos) — vanta-memory/tests/scheduler_crash.rs:173; (2) re-entrega sin doble procesamiento (dedup skip) — :270-289; (3) cola efímera + re-encolado desde L0 — :250-268; (4) reclaim tras lease — :294-347; (5) review APPROVE — ses_ef3236a90ffeBmiBYAni4QGHmX. artefactos: vanta-memory/tests/scheduler_crash.rs, docs/dev/tasks/WIRE-18.md, docs/dev/Backlog.md (FIND-293). invariantes: test-only (0 producción); crash hook determinista; cola efímera = semántica aceptada (no inventar re-enqueue automático); WIP ajeno sin stagear. deuda: FIND-293 (crash del loop completo — test de resiliencia/reclaim en tick posterior). queda_pendiente: anomalía tool `campaign_verify_cmd` (exitCode -1 sin output en 0.3s — spawn roto; verificación por shell; revisar en el server).
+Próxima tarea si completa: MEMG-03 (Task 50) — a criterio del orquestador
 === END RECITATION ===
