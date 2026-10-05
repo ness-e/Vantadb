@@ -141,7 +141,7 @@ description: "T1 de la cadena WIRE-14→15→16 (ADR-0054): seam aditivo en el c
 - **Archivos:** `docs/dev/tasks/WIRE-14.md` (§Review + RESULTADO §7)
 - **Acción:** `pwsh dev-tools/ocr-review.ps1 -Format json` (advisory; revisar por Rule Group — Critical/High bloquean; Medium → FIND) · clasificar tier HARD-02: paths `src/server/**` + `src/gc.rs` + `docs/dev/tasks/**` → **Fast** (ninguno matchea los globs adversariales: `docs/api/**`, `src/sdk/**`, `src/storage/**`, wire formats) → verify fast mecánico + **veredicto registrado**; fork `vanta-review` (agente distinto, fresh context) con contrato + diff + evidencia para el veredicto P2-01 · gates docs (`check-links`/`check-docs`/`gen-index --check`) · commit **LOCAL** `feat(server):` con pathspec de archivos propios · `campaign_update_task_state(completed, taskId:"45")` con recitation + payload `review` · `skill progreso`.
 - **Verify:** veredicto registrado en §Review + `git show --stat HEAD` limitado a archivos propios + `git status` sin WIP ajeno stageado
-- **Evidencia:** ✅ OCR delegation (`pwsh dev-tools/ocr-review.ps1 -Format json` → spec 15 archivos; Rule Groups 1 `gc.rs` / 2 `src/server/**`; pasada cognitiva sobre paths propios: 0 Critical / 0 High / 0 Medium — sin `unwrap`/`unsafe`/`clone` innecesario/lock-a-traverso-de-await/O(n²) en líneas añadidas; WIP de MEMG-21 fuera del alcance) · ✅ review P2-01 `vanta-review` **APPROVE** (sesión `ses_ef3d02493ffe7XkwWw6D0BtiMW`; 0C/0H/0M; NIT-1 aplicado, NIT-4/5 justificados) · ✅ tier **Fast** (HARD-02) · ✅ commit **LOCAL** `feat(server):` (pendiente hash — ver RESULTADO) con pathspec de 5 archivos de código + este task file; WIP ajeno intacto · ⏳ campaign completed taskId `45` + `skill progreso` (en curso).
+- **Evidencia:** ✅ OCR delegation (`pwsh dev-tools/ocr-review.ps1 -Format json` → spec 15 archivos; Rule Groups 1 `gc.rs` / 2 `src/server/**`; pasada cognitiva sobre paths propios: 0 Critical / 0 High / 0 Medium — sin `unwrap`/`unsafe`/`clone` innecesario/lock-a-traverso-de-await/O(n²) en líneas añadidas; WIP de MEMG-21 fuera del alcance) · ✅ review P2-01 `vanta-review` **APPROVE** (sesión `ses_ef3d02493ffe7XkwWw6D0BtiMW`; 0C/0H/0M; NIT-1 aplicado, NIT-4/5 justificados) · ✅ tier **Fast** (HARD-02) · ✅ commit **LOCAL** `feat(server):` **b5d294d2** (6 archivos: 5 de código + task file; pre-commit hook verde: fmt+clippy+actionlint) — recuperado del barrido concurrente de MEMG-21 vía split local content-preserving (ver Notas); WIP ajeno intacto · ⏳ campaign completed taskId `45` + `skill progreso` (en curso).
 - **Estado:** ⏳ IN PROGRESS (commit local en curso)
 
 ## Dependencias
@@ -184,6 +184,7 @@ description: "T1 de la cadena WIRE-14→15→16 (ADR-0054): seam aditivo en el c
 - **NOTICED BUT NOT TOUCHING:** `run` (100+ líneas, 3 concerns) no se refactoriza; `vanta-memory` doc-comments con `/conversation/add` (API-03) no se tocan; `docs/api/**` → WIRE-17.
 - **Handoff WIRE-15/16 (review P2-01 Low-1/Low-2):** (1) la impl del host del trait DEBE implementar `Drop` best-effort (señal + abort) — el early-return de `serve_http_or_tls` no invoca shutdown graceful (espejo del sweeper; documentado en el rustdoc del trait); (2) joins secuenciales sin timeout por servicio — aceptable con ≤2 servicios (WIRE-16); revisar si el número crece; (3) WIRE-16 re-exporta `run_with_hooks` en `vantadb-server/src/server.rs` y construye `ServerHooks` por campos públicos.
 - **Corrección del plan aplicada:** la ruta legacy `/conversation/add` no existe (e2e `vantadb-server/tests/e2e.rs:781` asserta 404); el seam se ancla a la ruta vigente `POST /api/v2/conversations` (vía `ConversationTrigger` existente).
+- **Incidente de commit concurrente (resuelto, local):** entre mi `git add` y mi `git commit`, el cierre de MEMG-21 ejecutó un `git add -A`/`commit -a` que barrió mis 6 archivos staged dentro de `283e23a1 docs(avance): MEMG-21 cierre`. Recuperación sin push y con contenido preservado: `git reset --soft HEAD~1` + split → `e916c5be` (docs MEMG-21, mismo mensaje) + `b5d294d2` (feat WIRE-14, pathspec de 6 archivos). Ancla de reflog: `283e23a1`. Lección: en trabajo multi-agente concurrente, commitear con pathspec explícito (`git commit -- <paths>`) para no depender del índice compartido.
 
 ## Incógnitas (uphill) vs Pendientes (downhill) — P2-03
 
@@ -199,7 +200,7 @@ description: "T1 de la cadena WIRE-14→15→16 (ADR-0054): seam aditivo en el c
 RESULTADO: ✅ COMPLETO
 STEPS_OK: 4/4 total steps
 PROXIMO_STEP: ninguno
-COMMIT_HASH: <pendiente — este commit> (feat local, sin push; + commit docs de cierre)
+COMMIT_HASH: b5d294d2 (feat local, sin push; + commit docs de cierre)
 ARCHIVOS: src/server/state.rs, src/server/bootstrap.rs, src/server/mod.rs, src/server/routing.rs, src/gc.rs, docs/dev/tasks/WIRE-14.md (nuevo)
 VERIFY_CONTRATO: pasa
 BLOQUEO: ninguno
