@@ -1,14 +1,14 @@
 ---
-title: Workflows — Inventory (38 active)
+title: Workflows — Inventory (40 active)
 kind: index
 status: active
 description: "Per-workflow detail pages live next to this index (ci-gate.md,"
 tags: [vantadb, ci, workflows, inventory]
 ---
 
-# Workflows — Inventory (39 active)
+# Workflows — Inventory (40 active)
 
-> **Count verified mechanically on 2026-10-04: 39 files** (`Get-ChildItem .github/workflows -Filter *.yml`; +1 `ci-bindings-parity.yml`, DIST-17).
+> **Count verified mechanically on 2026-10-04: 40 files** (`Get-ChildItem .github/workflows -Filter *.yml`; +1 `ci-bindings-parity.yml`, DIST-17; +1 `release-providers.yml`, PROV-12).
 > The old "28" predates the recent waves (nightly/OCR/gates/demos) and is superseded; registry: `docs/dev/references/verified-numbers.md`.
 > Pre-rename snapshot (FIND-142 pending): filenames keep the numeric suffix
 > (`ci-rust.yml`, `release-wheels.yml`, …). After renames, this index
@@ -72,7 +72,7 @@ Per-workflow detail pages live next to this index (`ci-gate.md`,
 |----------|------------------|------------------|
 | `desktop.yml` | Tauri desktop builds | push/PR (paths desktop/server), dispatch |
 
-## Release (8)
+## Release (9)
 
 | Workflow | Purpose (1 line) | Triggers (short) |
 |----------|------------------|------------------|
@@ -81,6 +81,7 @@ Per-workflow detail pages live next to this index (`ci-gate.md`,
 | `release-npm-61.yml` | WASM + TS SDK → npm | tags `v*.*.*`, PR (paths wasm/ts), dispatch |
 | `release-npm-node.yml` | Node binding → npm | tags `node-v*.*.*`, PR (paths node), dispatch |
 | `release-adapters.yml` | 9 adapters → PyPI/TestPyPI | tags `adapters-v*.*.*`, dispatch |
+| `release-providers.yml` | 3 Rust providers → PyPI/TestPyPI (maturin 3×4 matrix) | tags `providers-v*.*.*`, PR (paths providers), dispatch |
 | `release-binaries.yml` | Binaries → GitHub Release | `release` published, dispatch (`release_tag` = backfill) |
 | `release-sbom.yml` | CycloneDX SBOM artifacts | tags `v*`, dispatch |
 | `release-verify.yml` | Post-release artifact verification (assets + registries + smoke) | schedule Mon 08:00, dispatch |

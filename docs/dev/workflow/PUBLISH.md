@@ -19,6 +19,7 @@ merge develop -> main
     -> tag v*.*.*      -> wheels-60 (PyPI) + npm-61 (npm wasm+TS) + sbom-64 (SBOM)
     -> tag node-v*.*.* -> npm-node (npm Node binding)
     -> tag adapters-v* -> adapters-62 (PyPI adapters)
+    -> tag providers-v* -> release-providers (PyPI providers)
     -> GitHub Release  -> binaries-63 (binaries)
 ```
 
@@ -85,6 +86,30 @@ El skip "already published" de `release-npm-61.yml` y `release-npm-node.yml` aho
 - `workflow_dispatch` with `publish_testpypi=true` goes to TestPyPI.
 - Own namespace so adapter-only releases never trigger core wheels/npm.
 
+## Providers — `release-providers.yml`
+
+- Tags `providers-v*.*.*` publish the 3 Rust providers (`vantadb-openai`,
+  `vantadb-ollama`, `vantadb-litellm`) to prod PyPI after the 12-wheel matrix
+  passes (3 providers × linux-x86_64 / macOS / Windows / linux-aarch64,
+  maturin-action, abi3-py311).
+- `workflow_dispatch` with `publish_testpypi=true` goes to TestPyPI
+  (+ `verify-testpypi-install`); PRs touching `providers/**` build the same
+  matrix without publishing.
+- Own namespace so provider releases never trigger core wheels/npm/adapters.
+- **Name ownership (owner decision 2026-10-04, PROV-12):** the three canonical
+  names belong to the Rust providers; the `integrations/openai` +
+  `integrations/ollama` Python twins must be renamed or retired before their
+  F6 publish (`FIND-273`).
+- **Publish = owner-assisted (PROV-12). Checklist:**
+  1. GitHub environments `pypi` + `testpypi`; PyPI/TestPyPI pending publishers
+     (Trusted Publishing/OIDC) for the three names — or token.
+  2. Dry-run: `gh workflow run release-providers.yml -f publish_testpypi=true`
+     → 12 wheels on test.pypi.org + `verify-testpypi-install` green.
+  3. Tag: `git tag providers-v0.5.0 && git push --tags` → `publish-pypi` +
+     `verify-pypi-install` green.
+  4. Post: `GET https://pypi.org/pypi/<name>/json` = 200 ×3; remove the
+     "after first release" caveats from the three provider READMEs.
+
 ## Binaries — `release-binaries.yml`
 
 - Trigger: `release: types: [published]` + manual dispatch only (FIND-140:
@@ -111,6 +136,7 @@ El skip "already published" de `release-npm-61.yml` y `release-npm-node.yml` aho
 | `v*.*.*` | wheels-60, npm-61 | PyPI (`vantadb-py`), npm (`vantadb-wasm`, `vantadb`) |
 | `node-v*.*.*` | npm-node | npm (Node binding) |
 | `adapters-v*.*.*` | adapters-62 | PyPI (9 adapters) |
+| `providers-v*.*.*` | release-providers.yml | PyPI (`vantadb-openai`, `vantadb-ollama`, `vantadb-litellm`) |
 | `v*` (broad) | sbom-64 | Artifacts only (no registry) |
 | GitHub Release | binaries-63 | Release assets (binaries) |
 
@@ -124,8 +150,8 @@ El skip "already published" de `release-npm-61.yml` y `release-npm-node.yml` aho
 > `publish = false` as the cargo-level enforcement.
 >
 > **Review triggers:** v1.0.0 (Freeze List lift) · first `vantadb-node` npm
-> publish · a PyPI decision for `providers/*` · `vanta-memory` bootstrap
-> (DIST-01 unblock).
+> publish · first `providers-v*` publish (PROV-12 prepared 2026-10-04 —
+> publish = owner) · `vanta-memory` bootstrap (DIST-01 unblock).
 
 | Crate | Manifest | Decision | Channel (real) | Produced by | Why |
 |-------|----------|----------|----------------|-------------|-----|
@@ -135,9 +161,9 @@ El skip "already published" de `release-npm-61.yml` y `release-npm-node.yml` aho
 | `vantadb-server` | `publish = false` | No crates.io publish | GitHub Release binaries (5 targets) | `release-binaries.yml` | Binary product — distributed as release assets, not as a crate |
 | `vantadb-mcp` | `publish = false` | No publish | Library embedded in `vantadb-server` (`--mcp`) | `release-binaries.yml` (transitive) | Library-only crate (no bin target) — ships inside the server binary |
 | `vanta-proxy` | `publish = false` | No publish (until 1.0.0) | Source build only | — | Freeze List (owner 2026-10-01): frozen, publish deferred to 1.0.0 (DIST-18 re-scoped) |
-| `providers/openai` | `publish = false` | No publish (today) | Source install (`maturin develop`) | `providers-ci.yml` (build/test) | PyO3 extension built locally; not on PyPI (404 verified 2026-10-04) |
-| `providers/ollama` | `publish = false` | No publish (today) | Source install (`maturin develop`) | `providers-ci.yml` (build/test) | Same as `providers/openai` |
-| `providers/litellm` | `publish = false` | No publish (today) | Source install (`maturin develop`) | `providers-ci.yml` (build/test) | Same as `providers/openai` |
+| `providers/openai` | `publish = false` | No crates.io publish | PyPI `vantadb-openai` wheels | `release-providers.yml` (`providers-v*.*.*`) | PyO3 extension (engine embedded); PyPI is the product channel — PROV-12 |
+| `providers/ollama` | `publish = false` | No crates.io publish | PyPI `vantadb-ollama` wheels | `release-providers.yml` (`providers-v*.*.*`) | Same as `providers/openai` |
+| `providers/litellm` | `publish = false` | No crates.io publish | PyPI `vantadb-litellm` wheels | `release-providers.yml` (`providers-v*.*.*`) | Same as `providers/openai` |
 | `vantadb-ffi-core` | `publish = false` | No publish | None — compiled into the python/wasm/node bindings | — | Std-only leaf shared by the FFI transports; zero external consumers |
 | `fuzz` | `publish = false` | No publish | None (dev tool) | `fuzz.yml` (CI) | cargo-fuzz harness; outside the workspace; never distributed |
 
