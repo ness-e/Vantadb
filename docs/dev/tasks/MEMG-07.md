@@ -190,7 +190,7 @@ description: "Curva de olvido real sobre L1 (vanta-memory): política declarada 
 RESULTADO: ✅ COMPLETO
 STEPS_OK: 4/4 total steps
 PROXIMO_STEP: ninguno
-COMMIT_HASH: (commit A en curso; + commit docs de cierre)
+COMMIT_HASH: 7e84244f (feat local, sin push; + commit docs de cierre)
 ARCHIVOS: vanta-memory/src/core/record/lifecycle.rs, vanta-memory/src/core/record/l1_reader.rs, vanta-memory/src/core/record/mod.rs, vanta-memory/src/core/abstractions/types.rs, vanta-memory/tests/forgetting_curve.rs (nuevo), docs/api/VANTA_MEMORY.md, docs/dev/Backlog.md (FIND-289), docs/dev/tasks/MEMG-07.md (nuevo), docs/index.md + llms.txt (generados)
 VERIFY_CONTRATO: pasa
 BLOQUEO: ninguno
