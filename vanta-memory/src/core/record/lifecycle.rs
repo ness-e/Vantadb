@@ -130,14 +130,15 @@ pub fn is_prune_eligible(record: &MemoryRecord) -> bool {
 /// for semantic memory has been validated; the defaults below are round,
 /// tunable values declared for [`retention_factor`]. The full Ebbinghaus
 /// vision (access frequency, importance, confirmations, salience — FUT-10)
-/// lands in the composite-scoring work (MEMG-21); this type carries only the
-/// type/age curve.
+/// lands in the composite-scoring work (MEMG-21): [`crate::core::record::scoring`]
+/// consumes this curve as the recency signal and adds relevance + declared
+/// importance; this type carries only the type/age curve.
 ///
 /// A type absent from the map never decays ([`Self::half_life_ms`] → `None`)
 /// — `Instruction` by default (strict instructions are followed until
 /// contradicted, never forgotten by a curve). Override with
 /// [`Self::set_half_life`] / [`Self::clear_half_life`].
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DecayPolicy {
     half_life_ms: HashMap<MemoryType, u64>,
 }

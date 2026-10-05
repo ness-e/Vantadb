@@ -34,9 +34,10 @@ use crate::core::profile::profile_sync::{
 };
 use crate::core::record::l1_reader::{
     cosine_similarity, l1_namespace, overlap_score, read_namespace_records, read_session_records,
-    rrf_merge, significant_terms, usable_vector_filter, MIN_COSINE_SIMILARITY,
+    rrf_merge_scored, significant_terms, usable_vector_filter, MIN_COSINE_SIMILARITY,
 };
 use crate::core::record::l1_writer::EmbedFn;
+use crate::core::record::scoring::{composite_rank, CompositeScoring};
 use crate::core::record::L1Error;
 use crate::core::scene::scene_index::{list_scenes, scene_namespace, SceneError};
 use crate::core::scene::scene_navigation::{generate_scene_navigation, strip_scene_navigation};
@@ -323,7 +324,7 @@ pub fn perform_auto_recall(
     params: AutoRecallParams<'_>,
     embed: Option<&EmbedFn>,
 ) -> Result<Option<RecallResult>, RecallError> {
-    perform_auto_recall_governed(db, params, embed, &InjectionPolicy::allow_all())
+    perform_auto_recall_inner(db, params, embed, &InjectionPolicy::allow_all(), None)
 }
 
 /// VER-04: auto-recall with an explicit injection ACL. Sources whose
@@ -334,6 +335,43 @@ pub fn perform_auto_recall_governed(
     params: AutoRecallParams<'_>,
     embed: Option<&EmbedFn>,
     policy: &InjectionPolicy,
+) -> Result<Option<RecallResult>, RecallError> {
+    perform_auto_recall_inner(db, params, embed, policy, None)
+}
+
+/// MEMG-21: auto-recall with **opt-in composite scoring** (recency +
+/// relevance + importance).
+///
+/// Re-ranks the recall candidates of both routes (in-memory dual-pool and the
+/// `core_search` hybrid path) before the `max_results` cut, using
+/// [`crate::core::record::scoring`]: relevance is the existing pool/fused
+/// score (min-max normalized), recency is MEMG-07's `retention_factor` and
+/// importance is the record's declared `priority`. `now_ms` is injected for
+/// determinism (the pure scoring is pinned by tests).
+///
+/// The other entry points keep the legacy ordering **byte-identical** (they
+/// delegate with no scoring) — this is the opt-in surface (pre-mortem #2:
+/// neutral defaults; no existing caller changes behavior).
+pub fn perform_auto_recall_scored(
+    db: &Embedded,
+    params: AutoRecallParams<'_>,
+    embed: Option<&EmbedFn>,
+    policy: &InjectionPolicy,
+    scoring: &CompositeScoring,
+    now_ms: u64,
+) -> Result<Option<RecallResult>, RecallError> {
+    perform_auto_recall_inner(db, params, embed, policy, Some((scoring, now_ms)))
+}
+
+/// Shared body of the auto-recall entry points. `composite` is `None` for the
+/// legacy (byte-identical) ordering and `Some((scoring, now_ms))` for the
+/// MEMG-21 opt-in re-rank.
+fn perform_auto_recall_inner(
+    db: &Embedded,
+    params: AutoRecallParams<'_>,
+    embed: Option<&EmbedFn>,
+    policy: &InjectionPolicy,
+    composite: Option<(&CompositeScoring, u64)>,
 ) -> Result<Option<RecallResult>, RecallError> {
     let config = params.config;
     let isolation = params.isolation.unwrap_or_default();
@@ -355,6 +393,7 @@ pub fn perform_auto_recall_governed(
                 embed,
                 policy,
                 &mut governance,
+                composite,
             )?;
             semantic_ran = used_semantic;
             recalled = hits;
@@ -381,7 +420,8 @@ pub fn perform_auto_recall_governed(
                     &mut governance,
                 )?);
             }
-            let (hits, used_semantic) = search_records(&records, params.user_text, &config, embed);
+            let (hits, used_semantic) =
+                search_records(&records, params.user_text, &config, embed, composite);
             semantic_ran = used_semantic;
             recalled = hits;
         }
@@ -592,11 +632,17 @@ struct RecallHit {
 /// Note on scores: [`RecalledMemory::score`] stays the keyword-overlap count;
 /// a record matched purely via similarity reports `0` there (its cosine lives
 /// in the internal ranking only).
+///
+/// MEMG-21: when `composite` is `Some((scoring, now_ms))`, the ordered
+/// candidates are re-ranked by the composite score (recency + relevance +
+/// importance) before the `max_results` cut; with `None` the legacy order is
+/// returned untouched (byte-identical).
 fn search_records(
     records: &[MemoryRecord],
     query: &str,
     config: &RecallConfig,
     embed: Option<&EmbedFn>,
+    composite: Option<(&CompositeScoring, u64)>,
 ) -> (Vec<RecallHit>, bool) {
     let terms = significant_terms(query);
     let query_vector = match (config.mode != RecallMode::Keyword, embed) {
@@ -639,17 +685,39 @@ fn search_records(
     });
 
     let semantic_ran = !vector_pool.is_empty();
-    let ordered: Vec<&MemoryRecord> = if !semantic_ran {
-        keyword_pool.iter().map(|(_, r)| *r).collect()
+    // Candidates in the legacy relevance order, paired with their raw
+    // relevance (overlap count, cosine, or fused RRF when both arms
+    // contribute). With `composite: None` the legacy order is returned
+    // untouched; MEMG-21 re-ranks on the paired signals.
+    let candidates: Vec<(&MemoryRecord, f64)> = if !semantic_ran {
+        keyword_pool
+            .iter()
+            .map(|(score, r)| (*r, *score as f64))
+            .collect()
     } else if keyword_pool.is_empty() {
-        vector_pool.iter().map(|(_, r)| *r).collect()
+        vector_pool
+            .iter()
+            .map(|(sim, r)| (*r, f64::from(*sim)))
+            .collect()
     } else {
         let keyword_ids: Vec<String> = keyword_pool.iter().map(|(_, r)| r.id.clone()).collect();
         let vector_ids: Vec<String> = vector_pool.iter().map(|(_, r)| r.id.clone()).collect();
-        rrf_merge(&keyword_ids, &vector_ids, usize::MAX)
+        rrf_merge_scored(&keyword_ids, &vector_ids, usize::MAX)
             .into_iter()
-            .filter_map(|id| records.iter().find(|r| r.id == id))
+            .filter_map(|(id, fused)| {
+                records
+                    .iter()
+                    .find(|r| r.id == id)
+                    .map(|r| (r, f64::from(fused)))
+            })
             .collect()
+    };
+    let ordered: Vec<&MemoryRecord> = match composite {
+        None => candidates.into_iter().map(|(record, _)| record).collect(),
+        Some((scoring, now_ms)) => composite_rank(&candidates, scoring, now_ms)
+            .into_iter()
+            .map(|idx| candidates[idx].0)
+            .collect(),
     };
 
     let hits: Vec<RecallHit> = ordered
@@ -732,6 +800,7 @@ fn search_records_core(
     embed: Option<&EmbedFn>,
     policy: &InjectionPolicy,
     governance: &mut RecallGovernance,
+    composite: Option<(&CompositeScoring, u64)>,
 ) -> Result<(Vec<RecallHit>, bool), RecallError> {
     use vantadb::sdk::{MemorySearchRequest, SearchProfileConfig, SearchProfileMode};
 
@@ -818,11 +887,26 @@ fn search_records_core(
     }
 
     merged.sort_by(|a, b| b.0.total_cmp(&a.0));
-    let hits: Vec<RecallHit> = merged
+    // MEMG-21: opt-in composite re-rank before the `max_results` cut. Raw
+    // relevance = the core hit score (an intra-namespace RRF score —
+    // approximate across namespaces, the same documented divergence as the
+    // legacy route).
+    let order: Vec<usize> = match composite {
+        None => (0..merged.len()).collect(),
+        Some((scoring, now_ms)) => {
+            let candidates: Vec<(&MemoryRecord, f64)> = merged
+                .iter()
+                .map(|(score, record, _)| (record, f64::from(*score)))
+                .collect();
+            composite_rank(&candidates, scoring, now_ms)
+        }
+    };
+    let hits: Vec<RecallHit> = order
         .into_iter()
         .take(config.max_results)
-        .map(|(_, record, ns)| {
-            let line = format_memory_line(&record);
+        .map(|idx| {
+            let (_, record, ns) = &merged[idx];
+            let line = format_memory_line(record);
             let memory_type = serde_json::to_string(&record.memory_type)
                 .unwrap_or_else(|_| "\"unknown\"".to_string());
             let memory_type = memory_type.trim_matches('"').to_string();
@@ -841,7 +925,7 @@ fn search_records_core(
                     // The queried namespace is where the record actually
                     // lives (source identity for the VER-04 audit + MEMG-02
                     // reinforcement round-trip).
-                    source_namespace: ns,
+                    source_namespace: ns.clone(),
                     source_key: record.id.clone(),
                 },
             }
@@ -1094,5 +1178,55 @@ mod tests {
             apply_recall_budget(lines.clone(), &RecallConfig::default()),
             lines
         );
+    }
+
+    // ── MEMG-21: composite scoring (opt-in) ──
+
+    /// Episodic fixture with explicit priority (composite signals: 7d
+    /// half-life ages the record; priority is the importance input).
+    fn aged(id: &str, content: &str, updated: &str, priority: i32) -> MemoryRecord {
+        let mut r = record(id, content, updated);
+        r.memory_type = MemoryType::Episodic;
+        r.priority = priority;
+        r
+    }
+
+    fn hit_ids(hits: &[RecallHit]) -> Vec<String> {
+        hits.iter().map(|h| h.memory.source_key.clone()).collect()
+    }
+
+    #[test]
+    fn search_records_composite_reorders_and_none_preserves_legacy() {
+        // Fixed instants (no chrono in this module): NOW = 2026-01-31T00:00Z,
+        // 30d before = 2026-01-01, 60d = 2025-12-02, 90d = 2025-11-02.
+        const NOW_MS: u64 = 1_769_817_600_000;
+        let records = vec![
+            aged(
+                "r1",
+                "deploy pipeline postgres notes",
+                "2026-01-01T00:00:00.000Z",
+                10,
+            ),
+            aged("r2", "deploy pipeline", "2026-01-31T00:00:00.000Z", 90),
+            aged("r3", "deploy postgres", "2025-12-02T00:00:00.000Z", 50),
+            aged("r4", "postgres notes", "2025-11-02T00:00:00.000Z", 20),
+        ];
+        let config = RecallConfig::default();
+
+        // Legacy (None): overlap order — r1 (3) > r2/r3 (2, newer first) > r4 (1).
+        let (legacy, _) = search_records(&records, "deploy pipeline postgres", &config, None, None);
+        assert_eq!(hit_ids(&legacy), vec!["r1", "r2", "r3", "r4"]);
+
+        // Composite: r2 (fresh + important) takes the lead; relevance still
+        // keeps r1 above r3 (stale) and r4 (weak + stale).
+        let scoring = CompositeScoring::default();
+        let (scored, _) = search_records(
+            &records,
+            "deploy pipeline postgres",
+            &config,
+            None,
+            Some((&scoring, NOW_MS)),
+        );
+        assert_eq!(hit_ids(&scored), vec!["r2", "r1", "r3", "r4"]);
     }
 }
