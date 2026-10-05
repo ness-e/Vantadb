@@ -149,8 +149,8 @@ description: "T2 de la cadena WIRE-14→15→16 (ADR-0054): pass pull-based (`ru
 - **Archivos:** `docs/dev/tasks/WIRE-15.md` (§Review + RESULTADO §7)
 - **Acción:** `pwsh dev-tools/ocr-review.ps1 -Format json` (advisory; revisar por Rule Group — Critical/High bloquean; Medium → FIND) · clasificar tier HARD-02: paths `vanta-memory/src/services/**` + `vanta-memory/Cargo.toml` + tests + `docs/dev/tasks/**` → **Fast** (ninguno matchea los globs adversariales) → verify fast mecánico + **veredicto registrado**; fork `vanta-review` (agente distinto, fresh context) con contrato + diff + evidencia para el veredicto P2-01 · gates docs (`check-links`/`check-docs`/`gen-index --check`) · commit **LOCAL** `feat(memory):` con pathspec de archivos propios · `campaign_update_task_state(completed, taskId:"46")` con recitation + payload `review` · `skill progreso`.
 - **Verify:** veredicto registrado en §Review + `git show --stat HEAD` limitado a archivos propios + `git status` sin WIP ajeno stageado
-- **Evidencia:** ✅ OCR delegation (`pwsh dev-tools/ocr-review.ps1 -Format json` → spec 2 Rule Groups: 1 `vanta-memory/Cargo.toml` (manifest hygiene) / 2 los 4 `.rs` (ownership, error handling, unsafe, concurrencia, API); pasada cognitiva: 0 Critical / 0 High / 0 Medium — sin `unwrap`/`unsafe`/lock-a-traverso-de-await/bloqueo en async; WIP ajeno fuera del alcance) · ✅ review P2-01 `vanta-review` **APPROVE** (sesión `ses_ef3993124ffeeYg54pY1Q21uYC`; 0C/0H/0M; Lows/NITs aplicados o dispuestos) · ✅ gates docs (`check-links` exit 0 · `check-docs` exit 0 · `gen-index --check` exit 0 tras `--write` de `docs/index.md`+`llms.txt` por el task file nuevo) · ✅ tier **Fast** (HARD-02) + review adversarial completa pedida por el orquestador · ✅ commit **LOCAL** `feat(wire):` con pathspec (pendiente de hash al cierre).
-- **Estado:** ⏳ IN PROGRESS (commit local en curso)
+- **Evidencia:** ✅ OCR delegation (`pwsh dev-tools/ocr-review.ps1 -Format json` → spec 2 Rule Groups: 1 `vanta-memory/Cargo.toml` (manifest hygiene) / 2 los 4 `.rs` (ownership, error handling, unsafe, concurrencia, API); pasada cognitiva: 0 Critical / 0 High / 0 Medium — sin `unwrap`/`unsafe`/lock-a-traverso-de-await/bloqueo en async; WIP ajeno fuera del alcance) · ✅ review P2-01 `vanta-review` **APPROVE** (sesión `ses_ef3993124ffeeYg54pY1Q21uYC`; 0C/0H/0M; Lows/NITs aplicados o dispuestos; re-verificado post-fix) · ✅ gates docs (`check-links` exit 0 · `check-docs` exit 0 · `gen-index --check` exit 0 tras `--write` de `docs/index.md`+`llms.txt` por el task file nuevo) · ✅ tier **Fast** (HARD-02) + review adversarial completa pedida por el orquestador · ✅ commit **LOCAL** `feat(wire):` **1d5e1697** (9 archivos, pathspec; pre-commit hook verde: fmt+clippy+actionlint) + commit docs de cierre.
+- **Estado:** ✅ COMPLETED
 
 ## Dependencias
 
@@ -210,7 +210,7 @@ description: "T2 de la cadena WIRE-14→15→16 (ADR-0054): pass pull-based (`ru
 RESULTADO: ✅ COMPLETO
 STEPS_OK: 4/4 total steps
 PROXIMO_STEP: ninguno
-COMMIT_HASH: <pendiente — commit local en curso; se actualiza en el commit docs de cierre>
+COMMIT_HASH: 1d5e1697 (feat local, sin push; + commit docs de cierre)
 ARCHIVOS: vanta-memory/src/services/scheduler.rs (nuevo), vanta-memory/src/services/mod.rs, vanta-memory/Cargo.toml, Cargo.lock (+tokio), vanta-memory/tests/scheduler.rs (nuevo), vanta-memory/tests/scheduler_loop.rs (nuevo), docs/dev/tasks/WIRE-15.md (nuevo), docs/index.md + llms.txt (gen-index)
 VERIFY_CONTRATO: pasa
 BLOQUEO: ninguno
