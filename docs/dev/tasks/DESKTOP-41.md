@@ -224,7 +224,7 @@ Entregables de esta tarea:
 RESULTADO: ✅ COMPLETO
 STEPS_OK: 5/5 total steps
 PROXIMO_STEP: ninguno — orquestador: Task 32 registrado `completed` en campaña (taskId 32, payload review); smoke real en VM limpia = FIND-272 (owner-assisted); push diferido al owner (Regla 7)
-COMMIT_HASH: <ver git log — docs(desktop): DESKTOP-41 (LOCAL, sin push)>
+COMMIT_HASH: d6d40461 (docs(desktop):, LOCAL, sin push — 6 archivos +421/−12) + 78bd4223 (chore(desktop): lockfile refresh) + cierre `docs(task):` de este archivo (LOCAL, sin push — ver git log)
 ARCHIVOS: docs/dev/tasks/DESKTOP-41.md · docs/dev/desktop/INSTALLER_SMOKE_CHECKLIST.md · docs/dev/Backlog.md (FIND-272 + fila DESKTOP-41 removida) · docs/dev/avance/activo/desktop.md · docs/index.md · llms.txt · desktop/src-tauri/Cargo.lock (refresh mecánico del build, commit aparte `chore(desktop):`)
 VERIFY_CONTRATO: pasa (fallback stop-condition) — entregables 1-4 ✅ (build + evidencia estática + checklist + FIND); entregable 5 (smoke real) ⬜ diferido por entorno, registrado en FIND-272, sin evidencia simulada
 BLOQUEO: entorno — no hay VM Windows limpia disponible (Hyper-V no enumerable sin elevación — `Get-VM` → permiso denegado; sin ISOs/alternativas); stop condition del plan aplicada
