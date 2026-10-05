@@ -1,14 +1,16 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { Client, DbError } from "../vantadb.js";
+import type { NodeId } from "../types.js";
 
 // ---------------------------------------------------------------------------
 // Sub-clients (SDKB-02) — domain-grouped views over the flat methods.
 // Contract: db.<client>.x(...) === db.x(...) (same result, same signature).
 // Pure delegation only (D43); domain map: docs/api/BINDINGS_NAMESPACES.md.
 //
-// Deferred per D43/D42 and NOT tested here because the TS surface does not
-// expose them: `supersede` (Python-only), `recover_archived_nodes` (wiki,
-// Python-only). `db.wiki` exists but is intentionally empty in v1.
+// Still NOT tested here because the TS surface does not expose it:
+// `supersede` (Python-only). `db.wiki` exposes `recoverArchivedNodes`
+// (TS-11 slice 1); the remaining wiki capabilities (pages/TDAM) stay
+// core-only — roadmap: docs/api/BINDINGS_NAMESPACES.md §Sub-Client Roadmap.
 // ---------------------------------------------------------------------------
 
 describe("Sub-client shape", () => {
@@ -26,12 +28,38 @@ describe("Sub-client shape", () => {
     expect(db.memory).toBe(db.memory);
     expect(db.graph).toBe(db.graph);
     expect(db.system).toBe(db.system);
+    expect(db.wiki).toBe(db.wiki);
     db.close();
   });
 
-  it("wiki is empty in v1 (D43: wiki features are core-only)", () => {
+  it("wiki exposes recoverArchivedNodes (TS-11) and delegates to the flat method", () => {
     const db = Client.create();
-    expect(Object.keys(db.wiki)).toEqual([]);
+    expect(Object.isFrozen(db.wiki)).toBe(true);
+    expect(typeof db.wiki.recoverArchivedNodes).toBe("function");
+    // Fresh DB has no archived nodes → empty array, identical to the flat call.
+    expect(db.wiki.recoverArchivedNodes(1)).toEqual([]);
+    expect(db.wiki.recoverArchivedNodes(1)).toEqual(db.recoverArchivedNodes(1));
+    db.close();
+  });
+
+  it("wiki.recoverArchivedNodes matches the flat error surface (invalid id)", () => {
+    // Delegation-identity on the error path — same contract as Python
+    // (vantadb-python/tests/test_subclients.py:302-308).
+    const db = Client.create();
+    let viaWiki = "";
+    let viaFlat = "";
+    try {
+      db.wiki.recoverArchivedNodes("not-a-number" as unknown as NodeId);
+    } catch (e) {
+      viaWiki = (e as DbError).message;
+    }
+    try {
+      db.recoverArchivedNodes("not-a-number" as unknown as NodeId);
+    } catch (e) {
+      viaFlat = (e as DbError).message;
+    }
+    expect(viaWiki).not.toBe("");
+    expect(viaWiki).toBe(viaFlat);
     db.close();
   });
 });

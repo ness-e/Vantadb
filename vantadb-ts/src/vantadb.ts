@@ -109,9 +109,16 @@ export interface GraphClient {
   degree(roots: NodeId[]): GraphDegreeEntry[];
 }
 
-/** Empty in TS v1: wiki features are core-only per D43 (no WASM binding yet). */
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- intentional placeholder surface for db.wiki (see getter below)
-export interface WikiClient {}
+/**
+ * Wiki domain — summary/archive lifecycle over nodes.
+ *
+ * `recoverArchivedNodes` (TS-11 slice 1) is exposed via the WASM binding;
+ * the remaining wiki capabilities (pages/TDAM) stay core-only per D43 —
+ * roadmap: docs/api/BINDINGS_NAMESPACES.md §Sub-Client Roadmap.
+ */
+export interface WikiClient {
+  recoverArchivedNodes(summaryId: NodeId): NodeRecord[];
+}
 
 export interface SystemClient {
   close(): void;
@@ -367,12 +374,16 @@ export class Client {
   private _graph?: Readonly<GraphClient>;
 
   /**
-   * Wiki domain — empty in TS v1: wiki operations (`recover_archived_nodes`,
-   * pages, TDAM) are core-only per D43 and not exposed via WASM bindings yet.
-   * The getter exists so `db.wiki.*` has an explicit, documented surface.
+   * Wiki domain — summary/archive lifecycle over nodes. Exposes
+   * `recoverArchivedNodes` (TS-11 slice 1 — WASM binding of the core
+   * `recover_archived_nodes`); the remaining wiki capabilities (pages/TDAM)
+   * stay core-only per D43 — roadmap: docs/api/BINDINGS_NAMESPACES.md.
    */
   get wiki(): Readonly<WikiClient> {
-    return (this._wiki ??= Object.freeze({}));
+    return (this._wiki ??= Object.freeze({
+      recoverArchivedNodes: (summaryId: NodeId) =>
+        this.recoverArchivedNodes(summaryId),
+    }));
   }
   private _wiki?: Readonly<WikiClient>;
 
@@ -1390,6 +1401,49 @@ export class Client {
       );
     }
     this._wasm("deleteNode", () => this.inner.delete_node(String(id), toWireString(reason, "deleteNode: reason")));
+  }
+
+  /**
+   * Recover nodes shadow-archived by a summary node (wiki summary lifecycle).
+   *
+   * Scans the tombstone partition for nodes with a `belonged_to` edge
+   * targeting `summaryId`, re-activates them, and returns the recovered
+   * records (empty array when none match).
+   *
+   * For IDs > 2^53, use bigint — JavaScript Numbers lose integer precision
+   * above 2^53.
+   *
+   * @param summaryId - Summary node ID (number or bigint).
+   * @returns The recovered node records.
+   * @throws {DbError} If the ID is not a safe integer, or if the instance is closed.
+   *
+   * @example
+   * ```ts
+   * const recovered = db.recoverArchivedNodes(42);
+   * ```
+   */
+  recoverArchivedNodes(summaryId: NodeId): NodeRecord[] {
+    this._assertOpen();
+    if (typeof summaryId === "number" && !Number.isSafeInteger(summaryId)) {
+      throw new DbError(
+        "INVALID_ARGUMENT",
+        `recoverArchivedNodes: summaryId ${summaryId} is not a safe integer — JavaScript numbers lose precision above 2^53. Use bigint for large IDs.`,
+      );
+    }
+    return this._wasm("recoverArchivedNodes", () => {
+      const raw = this.inner.recover_archived_nodes(
+        String(summaryId),
+      ) as unknown as NodeRecord[];
+      // WASM serializes u128 edge targets as strings; expose them as bigint
+      // (same SDK contract as getNode).
+      return raw.map((node) => ({
+        ...node,
+        edges: node.edges.map((e) => ({
+          ...e,
+          target: typeof e.target === "string" ? BigInt(e.target) : e.target,
+        })),
+      }));
+    });
   }
 
   /**

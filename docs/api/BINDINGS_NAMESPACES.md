@@ -9,7 +9,7 @@ tags: [vantadb, api, bindings, namespaces]
 # Bindings Namespace Map
 
 > **Status:** canonical contract for SDKB campaign (`docs/dev/plans/2026-08-22-vantadb-bindings-sdk.md`).
-> **Decisions:** D42 (sub-clients TS/Python only — zero WASM/Rust changes), D43 (v1 groups already-exposed methods only; vanta-memory pipeline is core-only and deferred), D45 (additive → minor bump).
+> **Decisions:** D42 (sub-clients TS/Python only — zero WASM/Rust changes), D43 (v1 groups already-exposed methods only; vanta-memory pipeline is core-only and deferred), D45 (additive → minor bump). **TS-11 (2026-10-04):** wiki slice 1 (`recoverArchivedNodes` WASM/TS) + §Sub-Client Roadmap for the remaining deferred sub-clients.
 > **Rule:** every public method of every SDK maps to **exactly one** domain. `system` is the catch-all for orphan operations (capabilities, import/export, metrics, lifecycle).
 >
 > **Sub-client docs:** TypeScript examples in [`vantadb-ts/README.md` → Domain Sub-clients](../../vantadb-ts/README.md#domain-sub-clients) · Python examples in [`PYTHON_SDK.md` → Domain Sub-clients](./PYTHON_SDK.md#domain-sub-clients).
@@ -22,7 +22,7 @@ tags: [vantadb, api, bindings, namespaces]
 | `graph` | Node/edge CRUD and traversals (BFS, DFS, topological sort, DAG check, PageRank, degree) |
 | `conversation` | Reserved — L0–L3 context-engine pipeline lives in crate `vanta-memory`, **not exposed via TS/Node/WASM; minimal Python surface in the 0.9.0 train** (D43; per-binding scope declared in §Cognitive layer scope, DIST-03) |
 | `skills` | Reserved — no binding surface exists today (D43) |
-| `wiki` | Summary/archive lifecycle over nodes (recover archived nodes). Full wiki features are core-only (D43) |
+| `wiki` | Summary/archive lifecycle over nodes (`recover_archived_nodes` — Python since SDKB-03, WASM/TS since TS-11). Full wiki features (pages/TDAM) are core-only (D43) — see §Sub-Client Roadmap |
 | `system` | Catch-all: constructors/lifecycle, capabilities/hardware profile, metrics, IQL query engine, index maintenance, compaction, import/export |
 
 ## Casing Contract (Gate P — API-01 foundation)
@@ -174,7 +174,7 @@ browser CI) · MCP `tests/mcp_tests.rs`
 `test_mcp_search_abstention_signal_in_structured_content`) · HTTP
 `vantadb-server/tests/e2e.rs` (`test_e2e_search_abstention_signal_and_v2_fields`).
 
-## SDK Surface Differences (verified 2026-09-15 via grep en `vantadb-ts/src/vantadb.ts`)
+## SDK Surface Differences (verified 2026-09-15 via grep en `vantadb-ts/src/vantadb.ts`; re-verified 2026-10-04 — TS-11 slice 1)
 
 | Capability | WASM | TS | Python |
 |---|---|---|---|
@@ -193,7 +193,7 @@ browser CI) · MCP `tests/mcp_tests.rs`
 | `delete_by_filter` / `search_vector` / `audit_text_index_deep` / `export_namespace_filtered` / `import_records` | ✅ | ✅ | ⚠️ `delete_by_filter` ✅; `search_vector` ✅ (pure ANN, returns `(node_id, distance)`); `audit_text_index_deep` / `export_namespace_filtered` / `import_records` ❌ |
 | `bulk_import` / `bulk_import_bytes` | ✅ | ❌ | ✅ |
 | `put_batch_raw` / `search_batch` / `search_batch_requests` / `hardware_profile` | ❌ | ❌ | ✅ |
-| `recover_archived_nodes(summary_id)` | ❌ | ❌ | ✅ (wiki) |
+| `recover_archived_nodes(summary_id)` | ✅ (wiki, TS-11) | ✅ (wiki, TS-11) | ✅ (wiki) |
 | Hybrid search request shape | `search(request)` | `search(SearchRequest)` | `search(namespace, vector, …)` hybrid (ex-`search_memory`) + `search_vector()` pure ANN |
 
 ⚠️ **Naming hazard (resolved in W1/API-02 for Python):** `get`/`delete` are
@@ -201,7 +201,7 @@ memory-record ops (namespace+key) in WASM/TS/Node; Python node ops are now
 `insert_node`/`get_node`/`delete_node` (matching the other three bindings),
 so the bare `get`/`delete` collision is gone.
 
-## WASM (`vantadb-wasm/src/lib.rs`) — 48 pub fns
+## WASM (`vantadb-wasm/src/lib.rs`) — 53 pub fns
 
 | Method | Domain | Notes |
 |---|---|---|
@@ -230,6 +230,7 @@ so the bare `get`/`delete` collision is gone.
 | `delete_node` | graph | |
 | `add_edge` | graph | |
 | `remove_edge` | graph | |
+| `recover_archived_nodes` | wiki | summary-node shadow archive recovery (TS-11) |
 | `graph_bfs` | graph | |
 | `graph_dfs` | graph | |
 | `graph_topological_sort` | graph | |
@@ -255,9 +256,9 @@ so the bare `get`/`delete` collision is gone.
 | `bulk_import` | system | portability |
 | `bulk_import_bytes` | system | portability |
 
-**Totals:** memory 16 · graph 11 · system 21 = 48 ✔
+**Totals:** memory 17 · graph 11 · wiki 1 · system 21 = 50 listed (+3 auto-save helpers not listed) — 53 `pub fn` total ✔
 
-## TypeScript (`vantadb-ts/src/vantadb.ts`) — 44 public methods (verificado 2026-09-15: +`count`/`supersede`/`similarToKey`/`searchMulti`/`removeEdge`; +`graphragSearch` DIST-15 2026-10-04)
+## TypeScript (`vantadb-ts/src/vantadb.ts`) — 45 public methods (verificado 2026-09-15: +`count`/`supersede`/`similarToKey`/`searchMulti`/`removeEdge`; +`graphragSearch` DIST-15 2026-10-04; +`recoverArchivedNodes` TS-11 2026-10-04)
 
 (`native.ts` implements the async subset: `capabilities`, `close`, `delete`, `flush`, `get`, `graphragSearch`, `list`, `listNamespaces`, `put`, `putBatch`, `search`.)
 
@@ -291,6 +292,7 @@ so the bare `get`/`delete` collision is gone.
 | `graphIsDag` | graph | ✅ | |
 | `graphFilteredTraversal` | graph | ✅ | |
 | `graphDegree` | graph | ✅ | |
+| `recoverArchivedNodes` | wiki | ✅ | summary-node shadow archive recovery (TS-11) |
 | `close` | system | ✅ | lifecycle |
 | `capabilities` | system | ✅ | |
 | `operationalMetrics` | system | ✅ | |
@@ -308,9 +310,9 @@ so the bare `get`/`delete` collision is gone.
 | `importRecords` | system | ✅ | |
 | `importFile` | system | ✅ | |
 
-**Totals:** memory 17 · graph 11 · system 16 = 44 ✔
+**Totals:** memory 17 · graph 11 · wiki 1 · system 16 = 45 ✔
 
-**Not exposed in TS (wasm-only or Python-only), deferred per D43/D42:** `graph_page_rank`/`graph_degree_centrality` (Python-only), `bulk_import`/`bulk_import_bytes` (wasm/Python-only), `hardware_profile` (Python-only), `recover_archived_nodes` (Python-only). Do NOT add wrappers in SDKB-02 — v1 is grouping only.
+**Not exposed in TS (wasm-only or Python-only), deferred per D43/D42:** `graph_page_rank`/`graph_degree_centrality` (Python-only), `bulk_import`/`bulk_import_bytes` (wasm/Python-only), `hardware_profile` (Python-only). `recover_archived_nodes` was deferred by SDKB-02 ("Do NOT add wrappers — v1 is grouping only") and **exposed in TS-11 slice 1 (2026-10-04)**; the remaining wiki/pages + conversation/skills surfaces follow §Sub-Client Roadmap.
 
 ## Python (`vantadb-python/src/lib.rs`) — 49 pyclass methods (+ module-level `connect()`)
 
@@ -505,12 +507,14 @@ class VantaDB {
     }));
   }
   get graph(): Readonly<GraphClient> { /* same pattern */ }
-  get wiki(): Readonly<WikiClient> { /* empty in TS v1 */ }
+  get wiki(): Readonly<WikiClient> { /* recoverArchivedNodes (TS-11) */ }
   get system(): Readonly<SystemClient> { /* same pattern */ }
 }
 ```
 
 - **Delegation only** — zero new logic (D43); stop condition from plan applies.
+  TS-11 slice 1 extends `wiki` with `recoverArchivedNodes` (flat + sub-client,
+  additive); the remaining surfaces follow §Sub-Client Roadmap.
 - `conversation`/`skills` getters are omitted in v1 (no methods exist; D43).
 - Types reuse existing `types.ts`; no duplicates.
 - `db.memory.x(...) === db.x(...)` result/firma identity is the test contract
@@ -536,3 +540,55 @@ mirrors this with `db.memory` (`get`/`list`/`delete` via `to_thread`).
 ### Cross-SDK rule
 
 Sub-clients group by **domain**, never by mirrored method name. Where semantics diverge (`get`/`delete`, `search`), each SDK's sub-client exposes its own real surface — this document is the arbiter.
+
+## Sub-Client Roadmap (post-D43 — TS-11, reviewed 2026-10-04)
+
+> **Why:** the multi-binding promise (same sub-clients in every SDK) is not
+> true yet for `wiki` (full) / `conversation` / `skills`. This roadmap declares
+> — per sub-client — the exact core/wasm dependency, the order, and the
+> promotion criteria, so users hit a **declared defer** instead of discovering
+> the gap per SDK. Dependencies are cited with `file:line`; no dates are
+> promised for blocked items.
+>
+> **Re-review:** 2026-11-04 — or earlier when a trigger fires (FIND-255 lands,
+> a Gate P trigger fires, or an SDK surface for `skills` lands).
+> **Landed slices:** wiki slice 1 = `recoverArchivedNodes` (TS/WASM, 2026-10-04, TS-11).
+
+### State per sub-client (verified 2026-10-04)
+
+| Sub-client / slice | TS/WASM today | Exact dependency to move | Status |
+|---|---|---|---|
+| `wiki` — node archive recovery | ✅ `recoverArchivedNodes` (TS-11) | — (core SDK `src/sdk/builder.rs:243`; engine `src/storage/engine/maintenance.rs:1197`; wasm-safe `src/wiki/store.rs:4` uses `web_time`) | **landed** |
+| `wiki` — pages / TDAM | ❌ | (1) core SDK surface for `WikiStore` pages — today only the MCP consumes it (`vantadb-mcp/src/wiki.rs:40`); (2) TDAM ingest (LLM) lives in the cognitive-layer crate — blocked by FIND-255 | blocked |
+| `conversation` — threads | ❌ | core SDK surface **exists** (`src/sdk/builder.rs:178-235`; `src/agentic/thread.rs`, `web_time`-safe at `:17`); needs a WASM binding + TS getter (thin — same pattern as this slice) | movable (next candidate) |
+| `conversation` — L0–L3 pipeline | ❌ | cognitive-layer wasm port (FIND-255: 6 verified gaps, see §Cognitive layer scope) + Gate P re-run (`API-STD-15`) | blocked |
+| `skills` | ❌ | (1) core SDK surface for `SkillStore` — today only the HTTP server consumes it (`src/server/handlers.rs:1472`; store is wasm-safe, `src/skills.rs:34` uses `web_time`); (2) WASM binding + TS getter | blocked on SDK surface |
+
+Node (`vantadb-node`) is a separate native surface (D42); it follows the same
+slices once the WASM path proves the wire shape — not part of this TS roadmap.
+
+### Order (demand + dependency)
+
+1. **`wiki`** — slice 1 landed (visible getter + Python parity). Slice 2 =
+   pages/TDAM once the SDK surface exists.
+2. **`conversation`** — threads first (thin binding over an existing SDK
+   surface), pipeline after FIND-255 + Gate P.
+3. **`skills`** — after its SDK surface exists (declared "future" in the D43
+   table).
+
+### Promotion criteria (a slice moves only when ALL hold)
+
+1. Stable core SDK surface (`Embedded` method) covered by core tests.
+2. Compiles for wasm: `cargo check -p vantadb-wasm --target wasm32-unknown-unknown`.
+3. wasm-safe: no raw `std::fs` / `SystemTime::now()` (use `web_time`); no
+   `reqwest::blocking`.
+4. Cognitive-layer crates only: a fired Gate P trigger + re-run of the
+   exposure decision (`API-STD-15`).
+5. Additive only (no breaking changes); parity-matrix row + docs updated in
+   the same PR; TS exposes flat + sub-client delegation (SDKB-02 pattern).
+
+### Mechanical invariant (until a slice lands)
+
+```bash
+rg "vanta[_-]memory" vantadb-ts vantadb-node vantadb-wasm   # → 0 matches
+```

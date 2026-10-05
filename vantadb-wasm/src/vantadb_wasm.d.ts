@@ -846,6 +846,15 @@ export class Client {
      */
     remove_edge(source_id: string, target_id: string, label: string): void;
 
+    // ── Wiki ───────────────────────────────────────────────────────────────
+
+    /**
+     * Recover nodes shadow-archived by a summary node (wiki summary
+     * lifecycle): re-activates nodes with a `belonged_to` edge targeting
+     * `summary_id` and returns the recovered records (empty when none match).
+     */
+    recover_archived_nodes(summary_id: string): NodeRecord[];
+
     /**
      * Perform a breadth-first traversal from the given root node ids
      * (decimal strings).
