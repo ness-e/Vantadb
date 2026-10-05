@@ -252,7 +252,8 @@ skip; never a silent loss.
 | `core::memory_generation_log` | Per-session generation provenance at L1/L2/L3 (MEM-41) under `genlog/<session>`; best-effort, capped keep-recent | `core/memory_generation_log/store.rs:17,35,51` |
 | `gateway::approval_handlers` | Typed handlers behind the MCP `capture_list_pending` / `capture_approve` / `capture_reject` tools (MEM-68) — boundary validation, no transport | `gateway/approval_handlers.rs:90-117` |
 | `ingest::auto_sync` | Pull-based scheduled wiki re-ingest (MEM-45): per-file FNV-1a change detection, disabled by default, interval ≥ 60 s | `ingest/auto_sync.rs:108` (`tick`), `:33-36` |
-| `services::conversation_hook` | `HttpCaptureBridge` — implements the core's `ConversationTrigger` for `POST /api/v2/conversations` (MEM-55): L0 capture + L1 task enqueue; **not wired in production yet** | `services/conversation_hook.rs:36-45,93-107` |
+| `services::conversation_hook` | `HttpCaptureBridge` — implements the core's `ConversationTrigger` for `POST /api/v2/conversations` (MEM-55): L0 capture + L1 task enqueue; **wired by `vantadb-server` HTTP mode** (WIRE-16) | `services/conversation_hook.rs:36-45,93-107` · `vantadb-server/src/scheduler.rs:124-146` |
+| `services::scheduler` | Pull-based pass (`run_pass` = expired timers + one worker pass + stale-claim reclaim) + feature-gated loop helper (`spawn_memory_scheduler`, `http-server`); host-driven with graceful join (WIRE-15/16) | `services/scheduler.rs:80` (`run_pass`), `:198` (`spawn_memory_scheduler`) |
 
 **`core::dream`** — `consolidate_session` requires the idle window (`detect_idle`,
 default 10 min) and degrades without a runner to LLM-free primitives: hash-bucket
@@ -299,10 +300,32 @@ files (`// ponytail` note in source).
 `trigger` captures the saved turn into L0 (LLM-free — data is never lost) and
 enqueues an L1 task; `run_bridge_pass` drains the queue through the MEM-16
 worker (`trigger_every_n = usize::MAX`, so this path never regenerates persona).
-**Wiring status:** the bridge ships, but the core bootstrap passes `None`
-(`src/server/bootstrap.rs:332`, field `src/server/state.rs:134`, call site
-`src/server/handlers.rs:1391`) → inactive in production until a host wires it
-(MEM-55 residual).
+**Wiring status (WIRE-16):** wired in production by `vantadb-server` in HTTP
+mode (writable servers — read-only skips the wiring, mirroring the TTL sweeper
+guard) — the host attaches `HttpCaptureBridge` through the additive
+`ServerHooks::on_storage_ready` seam, which hands it a clone of the server's
+`Embedded` handle (single writer: the server owns the process's one open; a
+second open fails with `DatabaseBusy`). The trigger reaches `ServerState`
+(field `src/server/state.rs:143`, call site `src/server/handlers.rs:1414`).
+Defaults stay inert — `ServerHooks::default()` (hence `run(config)`) passes
+`None` — and the MCP mode of the same binary does not host the scheduler
+(ADR-0054: second host deferred).
+
+**`services::scheduler`** — the reusable pass of the L0→L3 planner (WIRE-15):
+`run_pass` dispatches expired `l1_idle:<session>` timers as L1 tasks, runs one
+`PipelineWorker` pass and reclaims stale claims; unknown timer members are
+skipped with a debug log (L2/Dream timers arrive with their producer). Always
+available (no Tokio); the loop helper `spawn_memory_scheduler` is
+feature-gated (`http-server`), mirrors the core TTL sweeper (watch + join,
+`Drop` best-effort) and is joined through `BackgroundService` after the
+server's HTTP loop returns. The host owns the driver: `vantadb-server`
+(WIRE-16) wires the bridge **always** and spawns the loop only when
+`VANTADB_SCHEDULER_INTERVAL_MS > 0` (default `60000`; `0` = off — captures
+keep flowing into L0). Each pass builds its runner from the FIND-112 surface
+(`VANTADB_INGEST_CONFIG` or `<storage>/data/vanta-ingest.toml`; secrets
+env-only, R-5); no real engine → the pass skips observably and the queue is
+untouched (P4). One loop per process — the scheduler runs in the writer
+(ADR-0054).
 
 ## Audit & backup (MEMG-13)
 
@@ -447,9 +470,9 @@ let report = run_decay_pass(&db, "sess-1", &policy, now_ms)?;
 `vanta-memory/tests/forgetting_curve.rs`): the pass is idempotent (same `now_ms`
 → same report, payloads byte-identical); it never deletes or mutates records;
 known-value math is exact (`8 × 2^(−1) = 4`, `3 × 2^(−2) = 0.75 → 1`). In-repo
-consumers today: **none** — no scheduler calls the pass yet (the pull-based
-service is WIRE-15) and the automatic discard is deliberately deferred →
-FIND-289 (Backlog).
+consumers today: **none** — no scheduler calls the decay pass yet (the
+WIRE-15/16 scheduler pass covers timers + worker + reclaim only) and the
+automatic discard is deliberately deferred → FIND-289 (Backlog).
 
 ## Composite scoring (MEMG-21)
 
@@ -545,8 +568,8 @@ let run = reflect_session(&db, "sess-1", now_ms, &ReflectionConfig::default())?;
 **byte-identical** (payload comparison, all records still present); same
 salt + `now_ms` → identical run (deterministic lessons); the persona type is
 ignored; a configured runner overrides the digest and its label is persisted.
-In-repo consumers today: **none** — promotion of lessons to L1 and scheduler
-wiring are deferred → FIND-290 (Backlog).
+In-repo consumers today: **none** — promotion of lessons to L1 and its wiring
+into the scheduler are deferred → FIND-290 (Backlog).
 
 ## Contratos clave
 
