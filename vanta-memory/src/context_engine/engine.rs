@@ -12,6 +12,12 @@
 //! `protected_prefix` from the cursor (`last_offloaded_tool_call_id`):
 //! messages at indices `< protected_prefix` are already offloaded and are
 //! NEVER modified or deleted by any pass.
+//!
+//! Spill integration (MEMG-06): the engine also stays store-free for spill —
+//! the caller may pass an optional [`SpillSink`] and the mild cascade reports
+//! every message it replaces (with its full pre-compaction content) BEFORE
+//! the `[compacted N chars]` stub lands. Persistence lives outside the engine
+//! (`crate::context_engine::spill`).
 
 use crate::context_engine::compressor::{
     score_message, AggressiveBoundary, MemoryScoreMap, FLOOR_THRESHOLD, INITIAL_THRESHOLD,
@@ -53,6 +59,25 @@ pub struct AssembleOutput {
     pub boundary: Option<AggressiveBoundary>,
 }
 
+/// Outbound port for spill-to-disk of compacted content (MEMG-06).
+///
+/// The engine reports every message it is about to replace with a
+/// `[compacted N chars]` stub — carrying the full pre-compaction content —
+/// immediately BEFORE the replacement lands. Implementations persist that
+/// payload (see `crate::context_engine::SpillStorage` / `DbSpillSink`); the
+/// engine itself stays pure (no store access, no offload import).
+///
+/// Contract: called at most once per replaced message, never for messages
+/// that survive untouched. Implementations must not panic and should
+/// log-and-continue on persistence failures — the assembled context is the
+/// primary artifact, the spill is the recovery copy.
+pub trait SpillSink {
+    /// One replaced message. `message` is the in-flight message (its
+    /// `content` is already the stub); `original` is the full content that
+    /// was replaced.
+    fn spill(&mut self, message: &ChatMessage, original: &str);
+}
+
 /// Assembles a chat history under `token_budget_tokens`.
 ///
 /// Passes, in order (first success wins):
@@ -72,6 +97,29 @@ pub fn assemble(
     protected_prefix: usize,
     cfg: &AssembleConfig,
     memory_scores: Option<&MemoryScoreMap>,
+) -> Result<AssembleOutput, ContextError> {
+    assemble_inner(
+        msgs,
+        token_budget_tokens,
+        estimator,
+        protected_prefix,
+        cfg,
+        memory_scores,
+        None,
+    )
+}
+
+/// [`assemble`] with the optional spill sink threaded down to the mild
+/// cascade (MEMG-06). Kept private so the public `assemble` signature stays
+/// stable; [`assemble_with_recall`] is the spill-aware entry point.
+fn assemble_inner(
+    msgs: Vec<ChatMessage>,
+    token_budget_tokens: u64,
+    estimator: &TokenEstimator,
+    protected_prefix: usize,
+    cfg: &AssembleConfig,
+    memory_scores: Option<&MemoryScoreMap>,
+    spill: Option<&mut dyn SpillSink>,
 ) -> Result<AssembleOutput, ContextError> {
     if token_budget_tokens == 0 {
         return Err(ContextError::InvalidConfig);
@@ -108,6 +156,7 @@ pub fn assemble(
         protected_prefix,
         cfg.min_keep,
         memory_scores,
+        spill,
     );
     if estimator.estimate_messages(&mild) <= token_budget_tokens {
         return Ok(AssembleOutput {
@@ -194,6 +243,10 @@ pub struct IntegratedContext {
 /// [`ChatMessage::id`] equals `cursor_tool_call_id` is already compacted — it
 /// is folded into the protected prefix so no pass touches or duplicates it.
 ///
+/// Spill (MEMG-06): when `spill` is `Some`, every message the mild cascade
+/// replaces is reported to the sink with its full pre-compaction content
+/// BEFORE the stub lands. `None` keeps the assembly byte-identical.
+///
 /// # Errors
 /// [`ContextError::InvalidConfig`] if `budget_tokens == 0`.
 pub fn assemble_with_recall(
@@ -207,6 +260,7 @@ pub fn assemble_with_recall(
     recall_append: Option<&str>,
     cursor_tool_call_id: Option<&str>,
     memory_scores: Option<&MemoryScoreMap>,
+    spill: Option<&mut dyn SpillSink>,
 ) -> Result<IntegratedContext, ContextError> {
     if budget_tokens == 0 {
         return Err(ContextError::InvalidConfig);
@@ -227,13 +281,14 @@ pub fn assemble_with_recall(
         })
         .map_or(0, |boundary| boundary);
 
-    let out = assemble(
+    let out = assemble_inner(
         msgs,
         budget_tokens,
         estimator,
         protected_prefix.max(cursor_boundary),
         cfg,
         memory_scores,
+        spill,
     )?;
     let mut remaining = budget_tokens.saturating_sub(estimator.estimate_messages(&out.messages));
     let messages = out.messages;
@@ -311,14 +366,17 @@ fn unit_score(
 
 /// Replaces one message's content with a stub, unless the stub would be as
 /// long as the original (TDAM guard llm-input-l3.ts:530-538 — revert).
-fn stub_message(msg: &mut ChatMessage) -> bool {
-    let original_chars = msg.content.chars().count();
+/// Returns the full original content when the replacement happened.
+fn stub_message(msg: &mut ChatMessage) -> Option<String> {
+    let original = std::mem::take(&mut msg.content);
+    let original_chars = original.chars().count();
     let stub = format!("[compacted {original_chars} chars]");
     if stub.chars().count() >= original_chars {
-        return false;
+        msg.content = original;
+        return None;
     }
     msg.content = stub;
-    true
+    Some(original)
 }
 
 /// Mild cascade: sort candidate units by score desc, walk thresholds from
@@ -329,6 +387,9 @@ fn stub_message(msg: &mut ChatMessage) -> bool {
 /// Candidates are whole atomic units fully inside the compactable region
 /// `[protected_prefix .. len - min_keep)` — a tool_call/tool_result pair can
 /// never be split, and the protected prefix is never touched.
+///
+/// Every replaced message is reported to `spill` (when present) with its
+/// full original content, immediately before the stub lands (MEMG-06).
 fn mild_cascade(
     msgs: Vec<ChatMessage>,
     budget: u64,
@@ -336,6 +397,7 @@ fn mild_cascade(
     protected_prefix: usize,
     min_keep: usize,
     memory_scores: Option<&MemoryScoreMap>,
+    mut spill: Option<&mut dyn SpillSink>,
 ) -> Vec<ChatMessage> {
     let total: usize = msgs.len();
     let units = build_units(msgs);
@@ -381,7 +443,12 @@ fn mild_cascade(
             }
             let mut changed = false;
             for msg in &mut current[ui] {
-                changed |= stub_message(msg);
+                if let Some(original) = stub_message(msg) {
+                    if let Some(sink) = spill.as_deref_mut() {
+                        sink.spill(msg, &original);
+                    }
+                    changed = true;
+                }
             }
             if changed {
                 replaced[ui] = true;
@@ -468,6 +535,23 @@ mod tests {
         TokenEstimator::default()
     }
 
+    fn cfg() -> AssembleConfig {
+        AssembleConfig::default()
+    }
+
+    /// Test sink: records every replacement the engine reports.
+    #[derive(Default)]
+    struct CollectSink {
+        events: Vec<(Option<String>, ChatRole, String)>,
+    }
+
+    impl SpillSink for CollectSink {
+        fn spill(&mut self, message: &ChatMessage, original: &str) {
+            self.events
+                .push((message.id.clone(), message.role, original.to_string()));
+        }
+    }
+
     #[test]
     fn assemble_rejects_zero_budget() {
         let err = assemble(vec![], 0, &est(), 0, &AssembleConfig::default(), None);
@@ -477,10 +561,104 @@ mod tests {
     #[test]
     fn stub_guard_reverts_when_stub_not_shorter() {
         let mut msg = ChatMessage::new(ChatRole::User, "x".repeat(19));
-        assert!(!stub_message(&mut msg)); // "[compacted 19 chars]" = 20 chars ≥ 19
+        // "[compacted 19 chars]" = 20 chars ≥ 19 → revert, no original.
+        assert_eq!(stub_message(&mut msg), None);
         assert_eq!(msg.content, "x".repeat(19));
         let mut long = ChatMessage::new(ChatRole::User, "y".repeat(300));
-        assert!(stub_message(&mut long));
+        assert_eq!(stub_message(&mut long), Some("y".repeat(300)));
         assert_eq!(long.content, "[compacted 300 chars]");
+    }
+
+    /// MEMG-06: every message the mild cascade replaces is reported to the
+    /// sink BEFORE the stub lands, with its full pre-compaction content.
+    #[test]
+    fn spill_sink_receives_original_before_stub() {
+        // Same shape as the mild contract test: old big tool units score
+        // highest and get stubbed; recent messages survive.
+        let mut msgs = Vec::new();
+        for i in 0..3 {
+            msgs.push(
+                ChatMessage::new(ChatRole::ToolCall, format!("call{i} {}", "c".repeat(300)))
+                    .with_id(format!("call_{i}")),
+            );
+            msgs.push(ChatMessage::new(
+                ChatRole::ToolResult,
+                format!("res{i} {}", "r".repeat(300)),
+            ));
+        }
+        for i in 0..4 {
+            msgs.push(ChatMessage::new(
+                ChatRole::User,
+                format!("recent{i} {}", "u".repeat(300)),
+            ));
+        }
+        msgs.push(ChatMessage::new(ChatRole::User, "final question"));
+        let originals = msgs.clone();
+
+        let mut sink = CollectSink::default();
+        let out = assemble_with_recall(
+            msgs,
+            400,
+            &est(),
+            0,
+            &cfg(),
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some(&mut sink),
+        )
+        .expect("valid budget");
+
+        assert_eq!(out.report.mode, CompactionMode::Mild);
+        // Mild replaces in place (no deletions), so output[i] still
+        // corresponds to originals[i].
+        let stub_count = out
+            .messages
+            .iter()
+            .filter(|m| m.content.starts_with("[compacted "))
+            .count();
+        assert!(stub_count > 0, "mild must stub at least one unit");
+        assert_eq!(
+            sink.events.len(),
+            stub_count,
+            "one sink report per replaced message, no spurious reports"
+        );
+        for (i, m) in out.messages.iter().enumerate() {
+            if m.content.starts_with("[compacted ") {
+                let orig = &originals[i];
+                assert!(
+                    sink.events.iter().any(|(id, role, content)| {
+                        *id == orig.id && *role == orig.role && content == &orig.content
+                    }),
+                    "stub at {i} has no sink event with its original content"
+                );
+            }
+        }
+    }
+
+    /// MEMG-06: nothing compacted → the sink is never called (opt-in is
+    /// byte-identical for hosts that pass a sink but stay under budget).
+    #[test]
+    fn spill_sink_silent_when_nothing_is_compacted() {
+        let msgs = vec![ChatMessage::new(ChatRole::User, "u".repeat(300))];
+        let mut sink = CollectSink::default();
+        let out = assemble_with_recall(
+            msgs,
+            10_000,
+            &est(),
+            0,
+            &cfg(),
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some(&mut sink),
+        )
+        .expect("valid budget");
+        assert_eq!(out.report.mode, CompactionMode::None);
+        assert!(sink.events.is_empty());
     }
 }

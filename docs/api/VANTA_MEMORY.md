@@ -586,7 +586,7 @@ degrada a `success: false` / skip documentado — jamás bloquea ni corrompe est
 ### Context engine
 ```rust
 assemble(messages, budget, estimator, protected_prefix, cfg) -> AssembleOutput
-assemble_with_recall(...)  // coordinator único: assemble → inject_mmd → recall, un solo budget
+assemble_with_recall(..., spill: Option<&mut dyn SpillSink>)  // coordinator único: assemble → inject_mmd → recall, un solo budget (+ spill opt-in MEMG-06)
 ```
 - Ratio < 0.5 → skip sin tocar mensajes.
 - Mild cascade (MIN=10/INITIAL=7/FLOOR=1) → aggressive one-shot (fingerprint boundary
@@ -594,6 +594,25 @@ assemble_with_recall(...)  // coordinator único: assemble → inject_mmd → re
 - Los pares tool_call/tool_result son unidades atómicas: nunca se parten.
 - Mensajes ≤ cursor `lastOffloadedToolCallId` (MEM-20) van en `protected_prefix`.
 - `inject_mmd` agrega `<current_task_context>` tras el prefijo System con dedup fingerprint.
+
+### Spill to disk + recall (MEMG-06, opt-in)
+```rust
+pub trait SpillSink { fn spill(&mut self, message: &ChatMessage, original: &str); }
+SpillStorage::{spill, recall(session, id), recall_session(session), reclaim, reclaim_as_of}
+ContextAssemblyConfig { spill_enabled: bool /* default false */, .. }
+```
+- With `spill_enabled: true`, every message replaced by a `[compacted N chars]` stub
+  persists its full payload under `spill/<session>` **before** the replacement lands
+  (get-before-put dedup, D19; key = sanitized message id, or `anon-<fnv1a64>` for
+  id-less messages). The engine itself stays store-free: hosts pass a `SpillSink`
+  (the worker wires `DbSpillSink`).
+- Recall is explicit — `recall(session, id)` / `recall_session(session)` — and is
+  never mixed into the L1 recall path (`perform_auto_recall`).
+- GC reuses the offload reclaimer rules: `reclaim_as_of` skips passes below
+  `MIN_RETENTION_DAYS = 3` and never deletes entries with unparseable timestamps.
+  The offload cursor gate does not apply (spilled content was already consumed by
+  definition).
+- Default `false`: no extra writes, byte-identical assembly semantics.
 
 ### Recall
 ```rust

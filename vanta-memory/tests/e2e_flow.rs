@@ -16,7 +16,7 @@
 
 use vanta_memory::context_engine::{
     assemble_with_recall, load_active, save_active, AssembleConfig, ChatMessage, ChatRole,
-    CompactionMode, TaskMemory, TokenEstimator, MMD_CONTEXT_MARKER,
+    CompactionMode, SpillStorage, TaskMemory, TokenEstimator, MMD_CONTEXT_MARKER,
 };
 use vanta_memory::core::abstractions::{LlmError, LlmRunParams, LlmRunner, SceneMeta};
 use vanta_memory::core::conversation::{L0Capture, L0Message, L0Recorder, L0Role};
@@ -373,6 +373,7 @@ fn compress_then_recall_shares_one_budget_end_to_end() {
         Some(&append),
         None,
         None,
+        None,
     )
     .expect("assemble with recall");
 
@@ -488,6 +489,7 @@ fn d19_worker_assembles_context_post_l3_with_compression_active() {
     .with_context_config(ContextAssemblyConfig {
         enabled: true,
         budget_tokens: (fat_total * 13 / 100).max(1),
+        spill_enabled: false,
     });
     // Asserted order: L0 → L1 → L2 → L3 → compress+recall (post-L3).
     for kind in [TaskKind::L1, TaskKind::L2, TaskKind::L3] {
@@ -568,4 +570,114 @@ fn d19_disabled_flag_skips_the_post_l3_phase() {
     assert!(load_assembled_context(&db, session)
         .expect("read assembled")
         .is_none());
+}
+
+/// MEMG-06: opt-in spill — the post-L3 assembly persists the full
+/// pre-compaction payload of every stubbed message under `spill/<session>`;
+/// recall returns the content intact (round-trip, no data loss).
+#[test]
+fn memg06_spill_opt_in_round_trips_compacted_content() {
+    let db = open_db();
+    let session = "flow-memg06-on";
+    let runner = E2eRunner { fail_task: None };
+    capture_fat_history(&db, session, 15);
+
+    let probe_est = TokenEstimator::default();
+    let fat_total = probe_est.estimate_messages(
+        &(0..15u32)
+            .flat_map(|i| {
+                [
+                    ChatMessage::new(
+                        ChatRole::User,
+                        format!("turn{i:02} I prefer dark mode {}", "y".repeat(600)),
+                    ),
+                    ChatMessage::new(
+                        ChatRole::Assistant,
+                        format!("noted turn{i:02} {}", "z".repeat(600)),
+                    ),
+                ]
+            })
+            .collect::<Vec<_>>(),
+    );
+    let mut handler = MemoryTaskHandler::new(
+        db.clone(),
+        &runner,
+        Default::default(),
+        Default::default(),
+        50,
+    )
+    .with_context_config(ContextAssemblyConfig {
+        enabled: true,
+        budget_tokens: (fat_total * 13 / 100).max(1),
+        spill_enabled: true,
+    });
+    for kind in [TaskKind::L1, TaskKind::L2, TaskKind::L3] {
+        handler.handle(&task(kind, session)).expect("pass");
+    }
+
+    // The assembly ran and stubbed content...
+    let ctx = load_assembled_context(&db, session)
+        .expect("read assembled")
+        .expect("post-L3 assembly must persist its output");
+    assert_ne!(ctx.report.mode, CompactionMode::None);
+
+    // ...and every stubbed payload is recoverable in full via recall.
+    let spilled = SpillStorage::new(db.clone())
+        .recall_session(session)
+        .expect("recall spilled");
+    assert!(
+        !spilled.is_empty(),
+        "opt-in spill must persist the replaced payloads"
+    );
+    let expected: Vec<String> = (0..15u32)
+        .flat_map(|i| {
+            [
+                format!("turn{i:02} I prefer dark mode {}", "y".repeat(600)),
+                format!("noted turn{i:02} {}", "z".repeat(600)),
+            ]
+        })
+        .collect();
+    for entry in &spilled {
+        assert_eq!(entry.session_key, session);
+        assert!(
+            expected.iter().any(|e| e == &entry.content),
+            "recalled payload must be the full original content, byte-for-byte"
+        );
+    }
+}
+
+/// MEMG-06: default config (opt-in off) writes no spill records — assembly
+/// semantics stay unchanged for hosts that don't configure spill.
+#[test]
+fn memg06_spill_default_off_writes_nothing() {
+    let db = open_db();
+    let session = "flow-memg06-off";
+    let runner = E2eRunner { fail_task: None };
+    capture_fat_history(&db, session, 15);
+
+    let mut handler = MemoryTaskHandler::new(
+        db.clone(),
+        &runner,
+        Default::default(),
+        Default::default(),
+        50,
+    )
+    .with_context_config(ContextAssemblyConfig {
+        enabled: true,
+        budget_tokens: 150,
+        ..ContextAssemblyConfig::default()
+    });
+    for kind in [TaskKind::L1, TaskKind::L2, TaskKind::L3] {
+        handler.handle(&task(kind, session)).expect("pass");
+    }
+    assert!(load_assembled_context(&db, session)
+        .expect("read assembled")
+        .is_some());
+    assert!(
+        SpillStorage::new(db.clone())
+            .recall_session(session)
+            .expect("recall")
+            .is_empty(),
+        "spill is opt-in: default config must write nothing"
+    );
 }
