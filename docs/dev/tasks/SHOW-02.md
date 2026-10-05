@@ -39,7 +39,7 @@ description: "Verificación E2E de las 6 recetas del playground (repo ness-e/Van
 
 > "las 5-6 recetas (RAG, híbrido, grafo, TTL, batch, persistencia) funcionan en el playground con WASM real (verificación de ejecución, no solo existencia de código); sin código muerto; **o** cierre como ya-resuelto con evidencia de la verificación E2E + delta documentado si emerge." — master plan Task 35
 
-**Resultado de la verificación:** las 6 recetas EXISTEN y EJECUTAN contra el WASM real (sin API drift), pero la verificación E2E detectó un **defecto de clicabilidad**: el dropdown del playground quedaba cubierto por el panel de output (stacking context de `Reveal`), dejando 5/6 recetas no clicables (verificado también en producción `vantadb.vercel.app`). Delta real = fix puntual (1 clase) + guard E2E de las 6 recetas.
+**Resultado de la verificación:** la ejecución E2E real detectó dos defectos que la validación estática previa (2026-09-19) no veía: (1) **clicabilidad** — el dropdown del playground quedaba cubierto por el panel de output (stacking context de `Reveal`), dejando 5/6 recetas no clicables (verificado también en producción `vantadb.vercel.app`); (2) **receta Graph BFS rota** contra el API real del bundle (`put` + `node_id` u128 con `add_edge` → `Node not found`; el API exige `insert_node`). Delta real = 2 fixes acotados en `code-playground.tsx` + guard E2E de las 6 recetas (commit web `a482da4`).
 
 ## Spec (SDD — decisiones)
 
