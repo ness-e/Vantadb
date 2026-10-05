@@ -158,7 +158,8 @@ description: "Op real de refuerzo (SDK `Embedded::reinforce` + tool MCP `memory_
 - **Archivos:** `docs/dev/tasks/MEMG-02.md`
 - **Acción:** `cargo fmt --check` + `cargo clippy --workspace --all-targets --all-features -- -D warnings` + suites scoped (4) + `validate-docs-coverage.ps1` + gates docs; OCR delegation (`pwsh dev-tools/ocr-review.ps1 -Format json`); review P2-01 tier **Adversarial** (`src/sdk/**` + `docs/api/**` matchean HARD-02 → fork a `vanta-review`); registrar veredicto en §Review; commit **LOCAL** `feat(memory):` con pathspec (nunca push).
 - **Verify:** `git show --stat HEAD` limitado a archivos propios; veredicto en §Review
-- **Estado:** ⬜ PENDING
+- **Evidencia:** ✅ `cargo fmt --check` 0 · `cargo clippy -p vantadb -p vantadb-mcp -p vanta-memory --all-targets -- -D warnings` 0 (workspace completo no corrido — presupuesto; scoped de los 3 crates tocados) · suites scoped: reinforce 13/13 · vanta-memory 589/589 · vantadb-mcp 261/261 · vantadb lib 2318/2318 · `validate-docs-coverage.ps1` 0 gaps · gates docs 0 · snapshot compare 1/1 · OCR delegation (4 Rule Groups) sin Critical/High · review P2-01 `vanta-review` ✅ **APPROVE** (6 Low; 5 cerrados inline/documentados + commit body) · **commit local `fcc17ca7`** (17 archivos, +1216/−62; pre-commit hook: fmt/clippy/actionlint ok; sin push). Re-verificación post-fixes: 13/13 + fmt/clippy/docs 0.
+- **Estado:** ✅ COMPLETED
 
 ## Dependencias
 
@@ -200,7 +201,7 @@ description: "Op real de refuerzo (SDK `Embedded::reinforce` + tool MCP `memory_
 RESULTADO: ✅ COMPLETO
 STEPS_OK: 6/6 total steps
 PROXIMO_STEP: ninguno
-COMMIT_HASH: <se registra tras el commit local feat(memory): + docs(task)>
+COMMIT_HASH: fcc17ca7 (feat local, sin push)
 ARCHIVOS: src/sdk/types/record.rs, src/sdk/types.rs, src/sdk/mod.rs, src/lib.rs, src/sdk/api/memory.rs, src/sdk/api.rs, vanta-memory/src/core/hooks/auto_recall.rs, vanta-memory/src/core/hooks/mod.rs, vanta-memory/tests/reinforce_loop.rs, vantadb-mcp/src/handlers/tools.rs, vantadb-mcp/tests/mcp_tests.rs, docs/api/EMBEDDED_SDK.md, docs/api/scores.md, docs/api/MCP.md, tests/api/public-api.txt, docs/dev/Backlog.md (FIND-278), docs/dev/tasks/MEMG-02.md
 VERIFY_CONTRATO: pasa
 BLOQUEO: ninguno
