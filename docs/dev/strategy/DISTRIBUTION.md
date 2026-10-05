@@ -10,7 +10,9 @@ tags: [vantadb, distribution, npm, adoption, comparison]
 
 Strategy combining Backlog `TS-10` (distribution/adoption: playground +
 docs-site + comparison) and `WSM-14` (npm adoption plan, H-21 strategy).
-Written strategy only — zero code, zero web changes.
+Strategy + executed first slice (2026-10-04): the web npm-install-path card
+lives on local branch `ts10/npm-install-card` of `ness-e/Vantadb-web`
+(commit `de5e25c`) — see §8. No code in this repo; nothing pushed.
 
 > **Status gate:** announcement posts in §4 are **PREPARED, not published**.
 > Publishing stays paused until Fase A (`EXE-03`) is executed owner-side **and
@@ -23,7 +25,7 @@ Written strategy only — zero code, zero web changes.
 | Channel | Artifact | Install | Source of truth |
 | :--- | :--- | :--- | :--- |
 | **PyPI** | `vantadb-py` (`import vantadb`) | `pip install vantadb-py` | [README → Installation](../../../README.md#installation) · [PYTHON_RELEASE_POLICY](../../user/operations/PYTHON_RELEASE_POLICY.md) · TestPyPI first (`TEST_PYPI_API_TOKEN`), then PyPI — pending `PROV-12` |
-| **npm (browser/Node)** | `vantadb` 0.7.0 (WASM, ESM-only, `engines: node>=22.19`) | `npm install vantadb` · browser via `esm.sh` (verified 2026-08-26); jsDelivr `+esm` does **not** work (Rollup limitation) | [`vantadb-ts/README.md`](../../../vantadb-ts/README.md) · [`vantadb-ts/package.json`](../../../vantadb-ts/package.json) |
+| **npm (browser/Node)** | `vantadb` 0.8.0 (WASM, ESM-only, `engines: node>=22.19`) | `npm install vantadb` · browser via `esm.sh` (verified 2026-08-26); jsDelivr `+esm` does **not** work (Rollup limitation) | [`vantadb-ts/README.md`](../../../vantadb-ts/README.md) · [`vantadb-ts/package.json`](../../../vantadb-ts/package.json) |
 | **npm (native Node)** | `vantadb-node` (napi-rs, async, real fjall/WAL persistence) | **Not yet published** (registry 404) — do not advertise as installable | [`vantadb-ts/README.md` §"vantadb vs vantadb-node"](../../../vantadb-ts/README.md#vantadb-vs-vantadb-node-npm) |
 | **GitHub Releases** | `vanta-cli` / `vantadb-server` binaries + wheels | One-liner without clone: `install.sh` / `install.ps1` (sha256-verified, chains to setup wizard) | [QUICKSTART §0](../../user/QUICKSTART.md#0-install-without-cloning-no-cloner-no-rust-toolchain) · [README → Embedded CLI](../../../README.md#embedded-cli) |
 | **From source** | Rust workspace + maturin develop | Contributors only | [QUICKSTART §1-§4](../../user/QUICKSTART.md#1-prerequisites) |
@@ -46,9 +48,11 @@ removed, not argued. Our own performance figures live in
 
 ### 2.1 What Orama verifiably is (checked 2026-09-19)
 
-Source: <https://www.npmjs.com/package/@orama/orama> (v3.1.18, Apache-2.0,
-**686,968 weekly downloads** at check time) and
-<https://docs.orama.com/docs/orama-js/search/hybrid-search> (resolves;
+Source: <https://www.npmjs.com/package/@orama/orama> (v3.1.18, Apache-2.0 —
+weekly downloads **re-measured 2026-10-04: 1,530,732** via
+`GET https://api.npmjs.org/downloads/point/last-week/@orama/orama`; the
+686,968 figure was the 2026-09-19 npm-page check — superseded, do not quote)
+and <https://docs.orama.com/docs/orama-js/search/hybrid-search> (resolves;
 nav confirms Vector, Hybrid, BM25, Facets, Filters, Geosearch pages).
 
 - Full-text-first search engine (JS puro): `mode: 'fulltext' | 'vector' | 'hybrid'`,
@@ -66,7 +70,7 @@ nav confirms Vector, Hybrid, BM25, Facets, Filters, Geosearch pages).
 | Library | Version | Gzipped | Source |
 | :--- | :--- | :--- | :--- |
 | `@orama/orama` | 3.1.18 | **23.8 KB** (75.2 KB min) | <https://bundlephobia.com/package/@orama/orama>, measured 2026-08-30 |
-| VantaDB WASM | 0.5.x → **0.7.0** | **~671 KB transfer** (1.58 MB raw; medido sobre 0.5.x — **re-medir `pkg/` 0.7.0 antes de citar**) | `vantadb-wasm/pkg/` via .NET GzipStream, measured 2026-09-15 (`pkg/` built 2026-09-11) |
+| VantaDB WASM | 0.5.x → **0.8.0** | **~671 KB transfer** (1.58 MB raw; medido sobre 0.5.x — **re-medir `pkg/` 0.8.0 antes de citar**) | `vantadb-wasm/pkg/` via .NET GzipStream, measured 2026-09-15 (`pkg/` built 2026-09-11) |
 
 Full table (MiniSearch 5.9 KB, Lunr 8.1 KB) and the 7-item feature-gap list live
 in [`vantadb-wasm/README.md` §4](../../../vantadb-wasm/README.md#4-honest-comparison-vs-javascript-only-search-engines)
@@ -74,14 +78,18 @@ in [`vantadb-wasm/README.md` §4](../../../vantadb-wasm/README.md#4-honest-compa
 `vantadb-ts/README.md`, measured 2026-08-30, is superseded by the 2026-09-15
 measurement; rebuild `pkg/` before quoting for release.)
 
-### 2.3 Adoption (sourced, dated)
+### 2.3 Adoption (sourced, dated — re-measured 2026-10-04)
 
-- Orama: 686,968 downloads/week verified 2026-09-19 (npm page above).
-- VantaDB npm: **187 downloads/month** measured 2026-07-26→08-24 via
-  api.npmjs.org (H-21,
-  `docs/dev/reviews/archive/research-vantadb-wasm-20260825.md`). Current figure
-  **TODO re-verify** (`GET https://api.npmjs.org/downloads/point/last-month/vantadb`)
-  before any announcement quotes it — never quote H-21's number as current.
+- Orama: **1,530,732 downloads/week · 5,310,295/month** (re-measured 2026-10-04,
+  `GET https://api.npmjs.org/downloads/point/last-week/@orama/orama`; the 686,968
+  figure was the 2026-09-19 npm-page check — superseded, do not quote).
+- VantaDB npm (same source/date; week 2026-09-27→10-03, month 2026-09-04→10-03):
+  - `vantadb-wasm` (browser bindings): **232/week · 764/month**.
+  - `vantadb` (TypeScript SDK): **210/week · 548/month**.
+  - Context: H-21 measured **187/month** for the binding over 2026-07-26→08-24
+    (`docs/dev/reviews/archive/research-vantadb-wasm-20260825.md`) — the monthly
+    figure has grown ~4× since; npm counts include CI/mirror traffic, so treat
+    them as a trend signal, not a user count.
 
 ### 2.4 When to pick what (both directions honest)
 
@@ -123,7 +131,7 @@ npm keywords (already in `vantadb-ts/package.json`):
 
 | # | Item | Owner | Status |
 | :--- | :--- | :--- | :--- |
-| 1 | Re-verify §2 numbers (bundlephobia Orama + rebuild `pkg/` + npm downloads both sides) | owner | TODO |
+| 1 | Re-verify §2 numbers (bundlephobia Orama + rebuild `pkg/` + npm downloads both sides) | owner | PARTIAL — npm downloads both sides re-measured 2026-10-04 (§2.1/§2.3); bundle size + `pkg/` re-measure still pending |
 | 2 | `PROV-12`: TestPyPI → PyPI green (`pip install` clean-env + smoke) | owner (Gate V: secrets) | blocked on Gate V |
 | 3 | `EXE-03`: Fase A kit executed (5 humans, stranger-test) — pass criteria in §5 | owner-side | kit pending |
 | 4 | Draft Show HN / launch post from §2-§3 (no new numbers, link BENCHMARKS + §4 wasm README) | owner | TODO — do not post |
@@ -249,3 +257,42 @@ Draft wording (implementation may adjust while keeping 1-3):
 
 User-facing documentation: `docs/user/QUICKSTART.md` §7 "If ONNX Runtime or the
 model does not load" — symptoms, both triggers, remediation and verification.
+
+---
+
+## 8. Adoption execution sequence — web surfaces (TS-10, executed 2026-10-04)
+
+> First slice executed in the web repo; the rest is sequenced with an owner.
+> Web work lives on its own repo/branch — local only, nothing pushed from here.
+
+**Gap found (verified 2026-10-04):** the site never mentioned the npm/WASM
+install path — `rg "npm install|npmjs" web/src` = **0 hits**; `/docs` §01
+Installation covered pip / cargo / CLI binary only, while the playground runs
+the real WASM engine. A visitor could execute the engine but not install it.
+
+**Executed slice (web repo, local branch):**
+
+- `web/src/components/vanta/docs-view.tsx` — new **"JavaScript · npm"** install
+  card: `npm install vantadb` + raw-bindings note (`npm install vantadb-wasm`)
+  + link to the npm registry entry. Branch `ts10/npm-install-card`, commit
+  `de5e25c` (worktree `..\web-ts10`, local only — owner merges/cherry-picks).
+- Verified: `npx tsc --noEmit` ✅ · `npm run lint` ✅ · `npm run build` ✅
+  (Turbopack) · `npx playwright test` ✅ (2 passed) · visual check ✅.
+
+**Sequence (next slices, in order):**
+
+| # | Slice | Surface | Status / owner |
+| :--- | :--- | :--- | :--- |
+| 1 | JS/npm install card | docs-site (`/docs`) | ✅ executed — branch `ts10/npm-install-card` (`de5e25c`) |
+| 2 | Playground CTA → install + docs (i18n keys) | playground | next slice |
+| 3 | Orama column in "Why VantaDB" (content ready in §2) | web | TS-13; blocked by owner WIP in `why-vantadb/page.tsx` |
+| 4 | Re-measure bundle (`pkg/` 0.8.0) before quoting §2.2 | web/benchmarks | before any announcement |
+| 5 | npm README niche line + demo link | npm package | WSM-14 (in flight) |
+
+**Metric (declared before promising — Regla 11):** primary = npm weekly
+downloads of `vantadb-wasm` + `vantadb`; source
+`https://api.npmjs.org/downloads/point/last-week/<pkg>` (public, reproducible,
+no instrumentation). Baseline captured 2026-10-04 in §2.3. Site visits are
+**not measurable today** — the web repo ships no analytics (verified
+2026-10-04); instrumenting the site is an owner decision and is not promised
+as a metric. Announcement gate stays §4/§5 (Fase A).
