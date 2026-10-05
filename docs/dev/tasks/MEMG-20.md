@@ -185,7 +185,7 @@ description: "API mínima de checkpoint de tarea en vanta-memory (paso + parcial
 RESULTADO: ✅ COMPLETO
 STEPS_OK: 4/4 total steps
 PROXIMO_STEP: ninguno
-COMMIT_HASH: pendiente — se completa en el commit docs de cierre
+COMMIT_HASH: c1373528 (feat local, sin push; + commit docs de cierre)
 ARCHIVOS: vanta-memory/src/utils/task_checkpoint.rs (nuevo), vanta-memory/tests/task_checkpoint.rs (nuevo), vanta-memory/src/utils/mod.rs, docs/api/VANTA_MEMORY.md, docs/dev/Backlog.md (FIND-288), docs/dev/tasks/MEMG-20.md, docs/index.md + llms.txt (generados)
 VERIFY_CONTRATO: pasa
 BLOQUEO: ninguno
