@@ -160,3 +160,8 @@ tags: [vantadb, avance, web, frontend, seo, docs-site]
 - **Objetivo:** la brecha de adopción del binding WASM; el sitio web no mencionaba npm (0 menciones) — se ejecutaba el engine sin path de instalación.
 - **Resultado:** ✅ Card "JavaScript · npm" en `/docs` §01 Installation del repo `ness-e/Vantadb-web` (worktree `..\web-ts10` + branch local `ts10/npm-install-card` — NUNCA push; merge = decisión del owner). Métrica con fuente ANTES de prometerla (npm downloads 2026-10-04: `vantadb-wasm` 232/sem · 764/mes; Orama 1.53M/sem; visitas web no medibles → no prometidas). Secuencia en `DISTRIBUTION.md §8` (slices 2-5). Review P2-01 APPROVE; web: tsc/lint/build/playwright 2 passed.
 - **Commit:** 0b868789 + b9848852 (principal) · de5e25c (web, branch ts10/npm-install-card — NUNCA push)
+### TS-13: Posicionamiento vs Orama — comparativa verificada + slice web
+- **Fecha:** 2026-10-04
+- **Objetivo:** Orama es el competidor directo del nicho browser; la matriz existente no lo cubría con datos verificados.
+- **Resultado:** ✅ Componente `orama-comparison.tsx` en `/why-vantadb` del repo web (matriz 2-col × 7 filas + fuentes/fechas; branch local `ts13/orama-column` @ `fad5bf3` — NUNCA push; merge = decisión owner). Verificación Orama 2026-10-04 (hybrid = weighted score fusion, NO RRF; vector = brute-force scan; persistencia = plugin snapshot; errores = code string; 23.8 KB gzip) + size VantaDB re-medido (~739 KB) + **corrección del claim "durable WAL browser"** (no verificable: InMemory → `wal_writer=None`) → formulación verificada publicada. FIND-270/271 derivados. Review P2-01 APPROVE; web: tsc/lint/build/playwright ✓.
+- **Commit:** 63b54e6e (principal) · fad5bf3 (web, local)
