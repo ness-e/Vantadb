@@ -7,9 +7,8 @@ import type { NodeId } from "../types.js";
 // Contract: db.<client>.x(...) === db.x(...) (same result, same signature).
 // Pure delegation only (D43); domain map: docs/api/BINDINGS_NAMESPACES.md.
 //
-// Still NOT tested here because the TS surface does not expose it:
-// `supersede` (Python-only). `db.wiki` exposes `recoverArchivedNodes`
-// (TS-11 slice 1); the remaining wiki capabilities (pages/TDAM) stay
+// Coverage note: `db.wiki` exposes `recoverArchivedNodes` (TS-11 slice 1,
+// tested below); the remaining wiki capabilities (pages/TDAM) stay
 // core-only — roadmap: docs/api/BINDINGS_NAMESPACES.md §Sub-Client Roadmap.
 // ---------------------------------------------------------------------------
 
