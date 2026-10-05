@@ -4,6 +4,8 @@
 // activas team→agent→task con TTL, cola write-back pendiente y rate-limit.
 // Polling cada 5s mientras la superficie está montada; sin URL configurada
 // muestra el formulario de configuración y NO polla.
+// DESKTOP-44 (FIND-155): toda ruta del proxy exige `x-vanta-user-key` (D34)
+// — el formulario también captura la key y el snapshot la envía siempre.
 import { FormEvent, ReactNode, useEffect, useState } from "react";
 // DAUD-06: ✎ (editar URL) → Pencil Lucide — misma regla emoji-risk que FIX-D3a.
 import { Pencil } from "lucide-react";
@@ -11,6 +13,10 @@ import { tp, tt, type DesktopLang } from "../../i18n";
 import { connectionPrefs } from "../../store/connections";
 
 const LS_KEY = "vanta.proxy.url";
+// DESKTOP-44 (FIND-155): key del proxy (header `x-vanta-user-key`, D34)
+// persistida junto a la URL — mismo modelo que el Bearer de perfiles server
+// (`store/connections.ts`), en el webview local de Tauri.
+const LS_USER_KEY = "vanta.proxy.userKey";
 /** Evento disparado al guardar la URL para que el shell refresque su botón. */
 export const PROXY_URL_EVENT = "vanta-proxy-url";
 
@@ -19,6 +25,24 @@ export function proxyUrl(): string {
     return localStorage.getItem(LS_KEY) ?? "";
   } catch {
     return "";
+  }
+}
+
+/** User key del proxy (header `x-vanta-user-key`); "" si no hay configurada. */
+export function proxyUserKey(): string {
+  try {
+    return localStorage.getItem(LS_USER_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function setProxyUserKey(key: string): void {
+  try {
+    if (key) localStorage.setItem(LS_USER_KEY, key);
+    else localStorage.removeItem(LS_USER_KEY);
+  } catch {
+    // storage bloqueado → key solo de sesión vía estado local
   }
 }
 
@@ -56,8 +80,11 @@ interface SnapshotWire {
   rate_limit: { limit_per_minute: number; hits_total: number; degraded: boolean };
 }
 
-async function fetchSnapshot(base: string): Promise<SnapshotWire> {
-  const res = await fetch(`${base.replace(/\/+$/, "")}/snapshot`);
+async function fetchSnapshot(base: string, userKey: string): Promise<SnapshotWire> {
+  const res = await fetch(`${base.replace(/\/+$/, "")}/snapshot`, {
+    // FIND-155: D34 exige la key en toda ruta (incl. /snapshot, sin bypass).
+    headers: userKey ? { "x-vanta-user-key": userKey } : undefined,
+  });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return (await res.json()) as SnapshotWire;
 }
@@ -87,6 +114,7 @@ function Panel({ title, children }: { title: string; children: ReactNode }) {
 export default function ProxyDashboard({ lang = connectionPrefs.get().lang ?? "es" }: { lang?: DesktopLang }) {
   const [configured, setConfigured] = useState(!!proxyUrl());
   const [draft, setDraft] = useState("");
+  const [keyDraft, setKeyDraft] = useState("");
   const [snap, setSnap] = useState<SnapshotWire | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [polledAt, setPolledAt] = useState<number | null>(null);
@@ -97,7 +125,7 @@ export default function ProxyDashboard({ lang = connectionPrefs.get().lang ?? "e
     let alive = true;
     async function tick(): Promise<void> {
       try {
-        const s = await fetchSnapshot(proxyUrl());
+        const s = await fetchSnapshot(proxyUrl(), proxyUserKey());
         if (!alive) return;
         setSnap(s);
         setError(null);
@@ -119,6 +147,7 @@ export default function ProxyDashboard({ lang = connectionPrefs.get().lang ?? "e
     const clean = draft.trim().replace(/\/+$/, "");
     if (!clean) return;
     setProxyUrl(clean);
+    setProxyUserKey(keyDraft.trim());
     setConfigured(true);
   }
 
@@ -130,13 +159,22 @@ export default function ProxyDashboard({ lang = connectionPrefs.get().lang ?? "e
           <p className="mt-2 font-tech text-[11px] uppercase tracking-widest text-muted-foreground">
             {tt(lang, "proxy.setupHint", "configurá la URL base del proxy local (default :8096)")}
           </p>
-          <form onSubmit={handleSave} className="mt-4 flex gap-2">
+          <form onSubmit={handleSave} className="mt-4 flex flex-wrap gap-2">
             <input
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               placeholder="http://127.0.0.1:8096"
               aria-label={tt(lang, "proxy.urlAria", "URL base del proxy")}
-              className="min-w-0 flex-1 border-2 border-foreground bg-background px-3 py-1.5 text-sm placeholder:text-muted-foreground"
+              className="min-w-0 flex-1 basis-64 border-2 border-foreground bg-background px-3 py-1.5 text-sm placeholder:text-muted-foreground"
+            />
+            <input
+              type="password"
+              value={keyDraft}
+              onChange={(e) => setKeyDraft(e.target.value)}
+              placeholder="sk-…"
+              autoComplete="off"
+              aria-label={tt(lang, "proxy.userKeyAria", "User key (header x-vanta-user-key)")}
+              className="min-w-0 flex-1 basis-64 border-2 border-foreground bg-background px-3 py-1.5 text-sm placeholder:text-muted-foreground"
             />
             <button type="submit" className="press border-2 border-foreground bg-neon px-3 py-1.5 text-xs font-bold text-background">
               {tt(lang, "proxy.connect", "CONECTAR")}
@@ -156,7 +194,16 @@ export default function ProxyDashboard({ lang = connectionPrefs.get().lang ?? "e
     <div className="mx-auto max-w-6xl space-y-5 p-6">
       {/* TurnReports */}
       <Panel title={`${tt(lang, "proxy.turnsTitle", "TurnReports")}${snap ? tp(lang, "proxy.turnsCount", "· {n} recientes", { n: String(turns.length) }) : ""}`}>
-        {error && <p className="text-sm text-muted-foreground">{tp(lang, "proxy.notAvailable", "proxy no disponible: {e}", { e: error })}</p>}
+        {error && (
+          <p className="text-sm text-muted-foreground">
+            {tp(lang, "proxy.notAvailable", "proxy no disponible: {e}", { e: error })}
+            {error.includes("401") && (
+              <span className="mt-1 block">
+                {tt(lang, "proxy.authHint", "401 — la user key falta o no es válida")}
+              </span>
+            )}
+          </p>
+        )}
         {!error && turns.length === 0 && (
           <p className="text-sm text-muted-foreground">{tt(lang, "proxy.waitingSnapshot", "esperando el primer snapshot…")}</p>
         )}
@@ -272,7 +319,9 @@ export default function ProxyDashboard({ lang = connectionPrefs.get().lang ?? "e
             type="button"
             onClick={() => {
               setProxyUrl("");
+              setProxyUserKey("");
               setDraft("");
+              setKeyDraft("");
               setSnap(null);
               setError(null);
               setPolledAt(null);
