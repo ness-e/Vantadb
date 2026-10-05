@@ -181,6 +181,8 @@ impl AppState {
         // prefixes = allow-all, empty audit path = disabled.
         let governance = crate::governance::Governance::from_config(
             &config.injection.namespace_allow_prefixes,
+            &config.injection.tainted_namespaces,
+            config.injection.include_tainted,
             &config.injection.audit_log_path,
         );
         Ok(Self {

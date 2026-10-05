@@ -47,6 +47,27 @@ fn in_memory_storage() -> Arc<StorageEngine> {
     Arc::new(StorageEngine::open_with_config(":memory:", Some(config)).expect("open engine"))
 }
 
+/// Storage whose `Config.audit_log_path` feeds the server's `AuthState` audit
+/// sink (MGR-04/MEMG-10 RBAC-denial audit tests).
+fn in_memory_storage_with_audit(path: &std::path::Path) -> Arc<StorageEngine> {
+    let config = Config {
+        backend_kind: BackendKind::InMemory,
+        audit_log_path: Some(path.to_path_buf()),
+        ..Default::default()
+    };
+    Arc::new(StorageEngine::open_with_config(":memory:", Some(config)).expect("open engine"))
+}
+
+/// Append-only JSONL rows written by the audit logger.
+fn audit_rows(path: &std::path::Path) -> Vec<serde_json::Value> {
+    std::fs::read_to_string(path)
+        .unwrap_or_default()
+        .lines()
+        .filter(|l| !l.trim().is_empty())
+        .map(|l| serde_json::from_str(l).expect("audit jsonl line"))
+        .collect()
+}
+
 fn server_state(
     storage: Arc<StorageEngine>,
     token_role_map: HashMap<String, String>,
@@ -109,6 +130,23 @@ async fn http_post(addr: SocketAddr, path: &str, bearer: &str, body: &str) -> u1
     let request = format!(
         "POST {path} HTTP/1.1\r\nHost: {addr}\r\nAuthorization: Bearer {bearer}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
         body.len()
+    );
+    let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
+    stream.write_all(request.as_bytes()).await.unwrap();
+    let mut response = String::new();
+    stream.read_to_string(&mut response).await.unwrap();
+    response
+        .split_whitespace()
+        .nth(1)
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(0)
+}
+
+async fn http_delete(addr: SocketAddr, path: &str, bearer: &str) -> u16 {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    let request = format!(
+        "DELETE {path} HTTP/1.1\r\nHost: {addr}\r\nAuthorization: Bearer {bearer}\r\nConnection: close\r\n\r\n"
     );
     let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
     stream.write_all(request.as_bytes()).await.unwrap();
@@ -260,4 +298,85 @@ async fn ns_path_namespace_403_for_reader_role() {
             "reader role must be denied on {path} (no NamespaceRead(\"{ns}\")), got {s}"
         );
     }
+}
+
+// ── MGR-04/MEMG-10: RBAC denials are audited (per action) ──────────────────
+
+/// A denied write is audited with action/namespace/role — metadata only
+/// (the Bearer token never reaches the audit log).
+#[tokio::test]
+async fn rbac_write_denial_is_audited_with_action_namespace_and_role() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let audit_path = dir.path().join("audit.jsonl");
+    let state = server_state(
+        in_memory_storage_with_audit(&audit_path),
+        map_role("writer"),
+    );
+    let addr = spawn(state).await;
+
+    let s = http_post(addr, "/api/v2/records?namespace=team", KEY, "{}").await;
+    assert_eq!(s, 403, "writer without NamespaceWrite(team) must be denied");
+
+    let rows = audit_rows(&audit_path);
+    let denied = rows
+        .iter()
+        .find(|r| r["op"] == "auth_rbac")
+        .expect("RBAC denial must be audited (was silent before MEMG-10)");
+    assert_eq!(denied["outcome"], "denied");
+    assert_eq!(denied["namespace"], "team");
+    assert_eq!(denied["key"], "writer");
+    let reason = denied["reason"].as_str().unwrap_or_default();
+    assert!(reason.contains("action=write"), "reason: {reason}");
+    assert!(reason.contains("scope=namespace"), "reason: {reason}");
+
+    let raw = std::fs::read_to_string(&audit_path).unwrap_or_default();
+    assert!(!raw.contains(KEY), "the Bearer token must never be audited");
+}
+
+/// A denied read is audited with `action=read` (per-action labels).
+#[tokio::test]
+async fn rbac_read_denial_is_audited_with_action_read() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let audit_path = dir.path().join("audit.jsonl");
+    let state = server_state(
+        in_memory_storage_with_audit(&audit_path),
+        map_role("reader"),
+    );
+    let addr = spawn(state).await;
+
+    let s = http_get(addr, "/api/v2/records/team/k1", KEY).await;
+    assert_eq!(s, 403);
+
+    let denied = audit_rows(&audit_path)
+        .into_iter()
+        .find(|r| r["op"] == "auth_rbac")
+        .expect("read denial must be audited");
+    assert_eq!(denied["namespace"], "team");
+    let reason = denied["reason"].as_str().unwrap_or_default();
+    assert!(reason.contains("action=read"), "reason: {reason}");
+}
+
+/// A denied delete is audited with `action=delete` and the enforcement mode
+/// it actually went through (`enforced=write` — today's write-covers-delete
+/// mapping; the strict separation is FIND-301).
+#[tokio::test]
+async fn rbac_delete_denial_is_audited_with_action_delete() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let audit_path = dir.path().join("audit.jsonl");
+    let state = server_state(
+        in_memory_storage_with_audit(&audit_path),
+        map_role("writer"),
+    );
+    let addr = spawn(state).await;
+
+    let s = http_delete(addr, "/api/v2/records/team/k1", KEY).await;
+    assert_eq!(s, 403);
+
+    let denied = audit_rows(&audit_path)
+        .into_iter()
+        .find(|r| r["op"] == "auth_rbac")
+        .expect("delete denial must be audited");
+    let reason = denied["reason"].as_str().unwrap_or_default();
+    assert!(reason.contains("action=delete"), "reason: {reason}");
+    assert!(reason.contains("enforced=write"), "reason: {reason}");
 }

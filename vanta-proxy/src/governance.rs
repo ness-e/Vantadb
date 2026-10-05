@@ -51,11 +51,21 @@ impl Governance {
         Self { policy, audit }
     }
 
-    /// Build from raw config values (empty prefixes = allow-all; empty path =
-    /// audit disabled).
-    pub fn from_config(prefixes: &[String], audit_log_path: &str) -> Self {
+    /// Build from raw config values (empty prefixes = allow-all, empty
+    /// tainted list = every namespace trusted, `include_tainted=false`, empty
+    /// path = audit disabled).
+    pub fn from_config(
+        prefixes: &[String],
+        tainted_namespaces: &[String],
+        include_tainted: bool,
+        audit_log_path: &str,
+    ) -> Self {
         Self::new(
-            InjectionPolicy::from_prefixes(prefixes.iter().cloned()),
+            InjectionPolicy::from_parts(
+                prefixes.iter().cloned(),
+                tainted_namespaces.iter().cloned(),
+                include_tainted,
+            ),
             open_audit(audit_log_path),
         )
     }
@@ -273,7 +283,7 @@ mod tests {
 
     #[test]
     fn disabled_audit_is_a_noop() {
-        let governance = Governance::from_config(&[], "");
+        let governance = Governance::from_config(&[], &[], false, "");
         assert!(!governance.audit_enabled());
         let block = InjectionBlock {
             block: "x".into(),
@@ -285,5 +295,15 @@ mod tests {
         };
         // No sink, no file, no panic.
         governance.audit_block("sess", &block);
+    }
+
+    #[test]
+    fn tainted_namespaces_deny_injection_and_include_tainted_opts_in() {
+        let governance = Governance::from_config(&[], &["l1/evil".into()], false, "");
+        assert!(!governance.policy().allows("l1/evil"));
+        assert!(governance.policy().allows("l1/ok"));
+
+        let opted_in = Governance::from_config(&[], &["l1/evil".into()], true, "");
+        assert!(opted_in.policy().allows("l1/evil"));
     }
 }

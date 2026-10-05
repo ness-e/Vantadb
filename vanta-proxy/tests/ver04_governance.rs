@@ -246,6 +246,8 @@ async fn acl_denies_sources_outside_the_allowlist() {
     let env = setup_with(InjectionConfig {
         max_tokens: 10_000,
         namespace_allow_prefixes: vec!["other/".into()],
+        tainted_namespaces: Vec::new(),
+        include_tainted: false,
         audit_log_path: String::new(),
     })
     .await;
@@ -265,6 +267,8 @@ async fn injection_audit_logs_sources_budget_and_acl_without_payload() {
     let env = setup_with(InjectionConfig {
         max_tokens: 10_000,
         namespace_allow_prefixes: Vec::new(),
+        tainted_namespaces: Vec::new(),
+        include_tainted: false,
         audit_log_path: audit_path.to_string_lossy().to_string(),
     })
     .await;
@@ -303,6 +307,8 @@ async fn acl_denials_are_audited_with_deny_outcome() {
     let env = setup_with(InjectionConfig {
         max_tokens: 10_000,
         namespace_allow_prefixes: vec!["other/".into()],
+        tainted_namespaces: Vec::new(),
+        include_tainted: false,
         audit_log_path: audit_path.to_string_lossy().to_string(),
     })
     .await;
@@ -365,6 +371,8 @@ async fn governance_demo_producer() {
     let env = setup_with(InjectionConfig {
         max_tokens: 60,
         namespace_allow_prefixes: vec!["persona/".into()],
+        tainted_namespaces: Vec::new(),
+        include_tainted: false,
         audit_log_path: audit_path.to_string_lossy().to_string(),
     })
     .await;

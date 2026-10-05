@@ -107,6 +107,13 @@ pub struct InjectionConfig {
     /// (`persona/`, `scene/`, `l1/`, ...). Empty = allow-all (default);
     /// namespaces not matched are skipped and recorded in the audit.
     pub namespace_allow_prefixes: Vec<String>,
+    /// MGR-04: namespace prefixes classified as tainted — their content is
+    /// never injected by default (skipped + recorded as denied in the audit).
+    /// Empty = none (default; current behavior).
+    pub tainted_namespaces: Vec<String>,
+    /// MGR-04: explicit opt-in to inject tainted namespaces (default false;
+    /// review workflows only — the ACL above still applies).
+    pub include_tainted: bool,
     /// Injection audit (VER-04): JSONL path for `injection` events (which
     /// memory fed which prompt, under which budget/ACL decision). Empty =
     /// disabled. Append-only + rotated by the core `AuditLogger`.
@@ -118,6 +125,8 @@ impl Default for InjectionConfig {
         Self {
             max_tokens: DEFAULT_INJECTION_MAX_TOKENS,
             namespace_allow_prefixes: Vec::new(),
+            tainted_namespaces: Vec::new(),
+            include_tainted: false,
             audit_log_path: String::new(),
         }
     }

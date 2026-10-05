@@ -671,7 +671,7 @@ mod tests {
 
     /// VER-04: allow-all ACL, audit disabled (legacy behavior).
     fn governance() -> crate::governance::Governance {
-        crate::governance::Governance::from_config(&[], "")
+        crate::governance::Governance::from_config(&[], &[], false, "")
     }
 
     /// Default guard: redaction + envelope disabled (legacy behavior).

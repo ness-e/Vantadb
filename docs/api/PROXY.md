@@ -165,7 +165,7 @@ store: an open engine byte-range-locks its lock files. Full walkthrough:
 ## Injection governance (VER-04)
 
 The `<vanta-memory>` system-prompt block (persona + scene navigation, WIRE-01)
-is built under three governance rules. All three are enforced per request:
+is built under four governance rules. All four are enforced per request:
 
 **1. Budget.** `[injection] max_tokens` (default `2000`) caps the block with
 the canonical `estimate_text_tokens` heuristic (`ceil(len/4)`, wrapper tags
@@ -187,9 +187,21 @@ involved the last slot degrades to `…overflow`, so the bound never hides the
 ACL's existence). A pass where the ACL denied every source still audits: the
 `denied` events are emitted even though nothing was injected.
 
-**3. Injection audit (opt-in).** `[injection] audit_log_path = "injection-audit.jsonl"`
+**3. Trust classes (opt-in; MGR-04).** `[injection] tainted_namespaces =
+["l1/scratch/", "imports/"]` classifies namespace prefixes as **tainted**:
+their content is never injected by default (the block skips them and the skip
+is recorded as a `denied` audit event). This is the content-trust gate — it is
+orthogonal to the ACL and both compose with AND (to inject, a source must pass
+the ACL *and* be trusted). Set `[injection] include_tainted = true` to opt back
+in for review workflows (the ACL above still applies). Empty (default) = every
+namespace trusted — current behavior. Classifying a namespace is an explicit
+operator act (a config change): nothing is promoted or demoted automatically by
+time or content.
+
+**4. Injection audit (opt-in).** `[injection] audit_log_path = "injection-audit.jsonl"`
 turns on an append-only JSONL audit (rotated like the core audit log: 10 MiB ×
-5 files) where every injected memory and every ACL denial leaves one event:
+5 files) where every injected memory and every denial (ACL or trust) leaves one
+event:
 
 ```json
 {"timestamp":"2026-09-29T12:00:00Z","op":"injection","namespace":"persona/sess-1","key":"persona.md","outcome":"ok","reason":"surface=proxy;tool=prompt_block;session=sess-1;kind=persona;budget=42/2000;truncated=false;acl=allow"}
@@ -283,6 +295,8 @@ These are the only two sections present in the shipped
 | `translate` token clamp | default `1024` (`DEFAULT_MAX_TOKENS`), hard cap `128_000` (`MAX_MAX_TOKENS`) | `translate.rs:15-23` |
 | `injection.max_tokens` | `2000` (`DEFAULT_INJECTION_MAX_TOKENS`); `0` disables memory injection | `config.rs` (`InjectionConfig`) |
 | `injection.namespace_allow_prefixes` | `[]` — empty = allow-all (VER-04 ACL off) | `config.rs` (`InjectionConfig`) |
+| `injection.tainted_namespaces` | `[]` — empty = every namespace trusted (MGR-04 trust gate off); listed prefixes never inject by default | `config.rs` (`InjectionConfig`) |
+| `injection.include_tainted` | `false` — opt-in to inject tainted namespaces (review workflows; ACL still applies) | `config.rs` (`InjectionConfig`) |
 | `injection.audit_log_path` | `""` — empty = injection audit disabled | `config.rs` (`InjectionConfig`) |
 
 ### `[cost]` price table (USD per 1K tokens)
