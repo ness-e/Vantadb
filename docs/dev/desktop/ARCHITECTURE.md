@@ -120,3 +120,25 @@ Returns one `(id, result)` pair per connection for logging.
 `{via:"native", path}` | `{via:"server", config}`), `vanta_disconnect`,
 `vanta_list_connections`, `vanta_set_active`, and `vanta_health`. Data commands
 live in `commands/memory.rs` and route through the manager's active connection.
+
+## Distribution & updates
+
+- **Current channel: none.** Bundles (NSIS/MSI/DMG/AppImage/deb) are built by
+  `npm run tauri build` and Desktop CI as **build-only, unsigned** artifacts
+  (`.github/workflows/desktop.yml` has no `tagName`/`releaseId`); there is no
+  public release channel and no update mechanism — users run from source
+  (`desktop/README.md` "Installer status").
+- **Auto-update: deferred.** `tauri-plugin-updater` is **not** installed or
+  configured (verified 2026-10-04: 0 code refs in `desktop/src-tauri`). The
+  Tauri updater requires an update-signing keypair that cannot be disabled
+  (official docs) and installer signing is deferred by HITL decision
+  (`DEVOPS-10` / H-08 — "when the public release requires it"), so the defer
+  trigger, the enablement checklist and the proposed static-JSON-in-Releases
+  endpoint live in [UPDATER_ENABLEMENT.md](./UPDATER_ENABLEMENT.md). Re-open
+  there — do not wire the plugin ad hoc.
+- **Trust model (for the enabling change).** Enabling the updater moves the
+  desktop from "manual, unsigned installs" to a "signature-verified update
+  channel": the embedded updater public key becomes a trust anchor and the
+  private key a release-critical secret (leak → ability to ship a malicious
+  update; loss → installed users can never update). Re-assess with a short ADR
+  in the enabling PR (AGENTS.md Regla 5).

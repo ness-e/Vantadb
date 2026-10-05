@@ -709,11 +709,10 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/dev/revie
 
 ## P46 - Research desktop 2026-08-25 (INV-desktop-prod, docs/dev/reviews/research-desktop-prod-20260825.md)
 
-> Score 7.4/10. Quick wins aprobados (H-01..H-05, H-07, H-11, H-13, H-14, H-15) -> plan `docs/dev/plans/2026-08-25-research-desktop-quickwins.md` (listo para `/pipeline run`). Estrategia -> filas abajo. Firma de instaladores diferida -> wontfix (ver DEVOPS-10).
+> Score 7.4/10. Quick wins aprobados (H-01..H-05, H-07, H-11, H-13, H-14, H-15) -> plan `docs/dev/plans/2026-08-25-research-desktop-quickwins.md` (listo para `/pipeline run`). Estrategia -> filas abajo. Firma de instaladores diferida -> wontfix (ver DEVOPS-10). Auto-update (DESKTOP-43) **DEFER registrado 2026-10-04** (trigger: decisión de distribución pública) -> `wontfix.md` §DEFER + checklist `docs/dev/desktop/UPDATER_ENABLEMENT.md`.
 
 | ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias |
 |----|-----------|----------|---------------|----------|-----------|--------|-------------|------------|--------------|
-| `DESKTOP-43` | 🟢 Baja | **Auto-update vía tauri-plugin-updater** | `tauri.conf.json` plugins · CI release | 🟡 1-2d | 🟢 Nice-to-have | ⏸️ Bloqueada: firma (wontfix DEVOPS-10) + endpoint de manifests | Desbloquear tras decisión de distribución pública. | Origen: INV-desktop H-10 | Dep: decisión distribución |
 | `DESKTOP-44` | 🟢 Baja | **Validación manual Proxy Dashboard con upstream LLM vivo** | `desktop/src/components/proxy/ProxyDashboard.tsx` · vanta-proxy | 🟢 2-4h | 🟡 Baja | 🆕 Pendiente (humano) | TurnReports/sesiones/write-back/rate-limit end-to-end (deuda DESKTOP-38) — sesión guiada owner+agente, no tarea autónoma. | Origen: INV-desktop H-12 · Dueño: owner | Ver: FIND-155 |
 > Sin filas pendientes (DESKTOP-45 completada plan 2026-09-10-code, d2993c4f; H-15 DEFER con evidencia).
 

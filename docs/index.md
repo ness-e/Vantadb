@@ -12,7 +12,7 @@ description: "Canonical index of the VantaDB documentation corpus."
      Grouped by kind, then by status, then by title.
      Source of truth: the frontmatter of the files listed below. -->
 
-1520 documents. This page is generated from frontmatter, so it cannot fall behind the tree. If a document is missing here, its `kind` or `description` is missing.
+1522 documents. This page is generated from frontmatter, so it cannot fall behind the tree. If a document is missing here, its `kind` or `description` is missing.
 
 ## Top level (3)
 
@@ -66,7 +66,7 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [WASM Standalone Console (Vanta Studio — mode `wasm`)](./api/WASM_STANDALONE.md) | reference | The Vanta Studio console can run 100% in the browser with no server: the                                                                                                                                                                                   |
 | [vanta-proxy Reference (Endpoints, Opt-in Features, Config)](./api/PROXY.md)     | reference | vanta-proxy is a transparent LLM wire proxy: by default it forwards bytes                                                                                                                                                                                  |
 
-## Internal / contributor (1360)
+## Internal / contributor (1362)
 
 ### Architecture decision records — 56
 
@@ -167,11 +167,12 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [Experimental Governance — Proposed Design (NOT Implemented)](./dev/architecture/EXPERIMENTAL_GOVERNANCE_DESIGN.md)                                          | concept | The only existing code related to this document is src/gds.rs _(draft)_                                                                                                                                                                       |
 | [LISP Experimental Analysis — Features to Recover](./dev/architecture/LISP_ANALYSIS.md)                                                                      | concept | The experimental LISP DSL had fundamental architectural problems _(draft)_                                                                                                                                                                    |
 
-### Guides — 2
+### Guides — 3
 
 | Document                                                                                                     | Kind  | Summary                                                                                                                                                                                        |
 | ------------------------------------------------------------------------------------------------------------ | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [VantaDB Desktop — Architecture](./dev/desktop/ARCHITECTURE.md)                                              | howto | This document describes the actual multi-connection model of the desktop                                                                                                                       |
+| [VantaDB Desktop — Auto-update enablement (deferred)](./dev/desktop/UPDATER_ENABLEMENT.md)                   | howto | Defer trigger and ordered checklist to enable tauri-plugin-updater for VantaDB Desktop: signing keys, plugin wiring, release-mode CI, E2E validation, trust model                              |
 | [VantaDB Desktop — Installer Smoke Checklist (clean Windows VM)](./dev/desktop/INSTALLER_SMOKE_CHECKLIST.md) | howto | Executable smoke test for the VantaDB desktop NSIS/MSI installers on a clean Windows VM: startup, sidecar binaries, vanta:// deep link, WebView2 bootstrapper — with evidence capture per step |
 
 ### Index — 8
@@ -403,7 +404,7 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [`sec-codeql.yml` — SEC: CodeQL — Analysis](./dev/workflow/sec-codeql-30.md)                                   | runbook | Ejecuta el análisis estático de seguridad CodeQL de GitHub sobre el código Rust del proyecto para detectar vulnerabilidades                                                                                                                     |
 | [Fuzzing Guide for VantaDB](./dev/operations/FUZZING.md)                                                       | runbook | VantaDB uses a dual fuzzing approach to maximize coverage and compatibility _(archived)_                                                                                                                                                        |
 
-### Task files — 1070
+### Task files — 1071
 
 | Document                                                                                                                                             | Kind | Summary                                                                                                                                                                                                                                                                                                                     |
 | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -1176,6 +1177,7 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [TASK CORE-003: Question Gates Enforcement Automático (CRÍTICO #3)](./dev/tasks/CORE-003.md)                                                         | task | Archivos clave: .opencode/task-system/prompts/pipeline-run.md, .opencode/task-system/prompts/subagent-recovery.md, .opencode/task-system/prompts/question-gates.md                                                                                                                                                          |
 | [TASK CORE-01: Persistencia on-disk de vectores Binary (y no-F32) en vstore](./dev/tasks/CORE-01.md)                                                 | task | Contrato mecánico cubierto: no se añaden pub fn nuevos al SDK (solo pub(crate) flags constants + internal kind decode). No requiere major bump (additive: neuen flags bits, reader dual). Gate D no dispara pregunta al owner — blast radius...                                                                             |
 | [TASK DESKTOP-41: Smoke-test instalador en VM Windows limpia](./dev/tasks/DESKTOP-41.md)                                                             | task | Build local de instaladores NSIS+MSI (6m46s, exit 0) + evidencia parcial estática read-only (deep link vanta://, sidecars, WebView2 en ambos instaladores) + checklist ejecutable + FIND-272 (smoke real pendiente: no hay VM limpia disponible)                                                                            |
+| [TASK DESKTOP-43: Auto-update vía tauri-plugin-updater — defer registrado con trigger + checklist de habilitación](./dev/tasks/DESKTOP-43.md)        | task | Defer del auto-update (stop condition del plan): sin claves de firma (DEFER HITL H-08/DEVOPS-10) y decisión de distribución pública abierta → trigger explícito + checklist de habilitación + trust model documentado; sin tocar código ni pipeline de releases                                                             |
 | [TASK DESKTOP-QW10: E2E desktop (H-07) — specs multi-perfil conexión + proxy dashboard (mock upstream); graph/space...](./dev/tasks/DESKTOP-QW10.md) | task | E2E desktop specs multi-perfil conexión + proxy dashboard (mock upstream); graph/space quedan smoke visual manual documentado; npx playwright test verde                                                                                                                                                                    |
 | [TASK DESKTOP-QW1: CommandPalette — sincronizar union completa Surface (H-02)](./dev/tasks/DESKTOP-QW1.md)                                           | task | CommandPalette sincroniza union completa Surface: verificar que PaletteSurface incluye memoria/proxy/ajustes y que CommandPalette.tsx las expone todas con PaletteItem + keywords. Si falta alguna, agregar. cd desktop && npm run build y...                                                                               |
 | [TASK DESKTOP-QW2: Handler keydown global F1/F2 → HelpPanel (H-03)](./dev/tasks/DESKTOP-QW2.md)                                                      | task | Handler keydown global F1/F2 → HelpPanel funciona (F1 = ayuda general, F2 = proxy/ajustes según contexto); cd desktop && npm run build y npm test verde; E2E critico no regresa                                                                                                                                             |
