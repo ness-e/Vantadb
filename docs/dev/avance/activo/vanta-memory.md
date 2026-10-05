@@ -142,3 +142,9 @@ tags: [vantadb, avance, vanta-memory, tdam, memory, persona, recall]
 - **Objetivo:** la ingesta L1 detecta contradicciones explícitas contra registros vigentes de la sesión y marca el viejo con `superseded_by` (provenance, nunca delete) — el juicio viaja en el dedup existente (campo `contradicts`, 0 llamadas LLM nuevas, pre-mortem #1 resuelto) y el marcado reusa MEM-60 `mark_contradiction` en `write_memory` (choke point de ambos paths de ingesta: dos-call y MEM-69 fusionado).
 - **Resultado:** ✅ Test dedicado `tests/l1_contradiction.rs` (11 tests: caso canónico "me gusta X" → "ya no me gusta X" + E2E por `run_l1_dedup`; conservadurismo: self/desconocidos/ya-superseded saltados, skip no marca, vector del viejo preservado). Suite scoped 587/587 + clippy `--all-features -D warnings` 0 + fmt 0 + gates docs 0. Review P2-01 vanta-review APPROVE (Low aplicados; F7 → FIND-277: consumo read-side pendiente). Docs: `docs/api/VANTA_MEMORY.md` §Contradicciones en ingesta.
 - **Commit:** 10b35b41 (local, sin push)
+
+### MEMG-02: Outcome loop — refuerzo de confianza post-recall (`reinforce`)
+- **Fecha:** 2026-10-05
+- **Objetivo:** la confianza era decorativa sin feedback: `reinforce` no tocaba la confianza y `last_validated_at_ms` no tenía writer.
+- **Resultado:** ✅ `Embedded::reinforce(ns, key, outcome)` + `ReinforceOutcome { Used, Corrected, Unused }` (`#[non_exhaustive]`): Used +0.05 saturado (máx 1×/5 min), Corrected −0.10 piso 0.0 (success-only stamping), Unused neutral auditado; `derived` rechazado; state-only + audit `memory_reinforce`. MCP `memory_reinforce` (4 perfiles; counts 81/87). `vanta-memory::reinforce_recalled` + test de loop E2E. Evidencia: RED 35 → GREEN 13/13; vanta-memory 589/589; mcp 261/261; `vantadb --lib` 2318/2318; gates 0. Review P2-01 APPROVE (6 Low → 5 cerrados). FIND-278 (MCP put sin `confidence` declarable). Nota: disco C: a 2.5 MB → `target-cleanup -Clean` liberó 31 GB.
+- **Commit:** fcc17ca7 + 782e111d (local, sin push)
