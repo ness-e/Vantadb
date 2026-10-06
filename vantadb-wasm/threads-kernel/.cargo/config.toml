@@ -1,0 +1,26 @@
+# STRAT-04 slice — wasm32 threads build flags (atomics + shared memory).
+#
+# Applied when cargo runs from this crate directory (cargo merges the nearest
+# .cargo/config.toml upward from cwd). See build.ps1 for the full recipe.
+#
+# - `+atomics`: real wasm atomic instructions (requires -Zbuild-std=core so the
+#   core library is recompiled with the same target feature — the precompiled
+#   core ships without atomics).
+# - `--shared-memory` + `--max-memory` + `--import-memory`: the module imports
+#   ONE host-created `WebAssembly.Memory({shared:true})` shared by every worker
+#   instance (the wasm threads model).
+[target.wasm32-unknown-unknown]
+rustflags = [
+  "-C", "target-feature=+atomics",
+  "-C", "link-arg=--shared-memory",
+  "-C", "link-arg=--max-memory=1073741824",
+  "-C", "link-arg=--import-memory",
+  # Fixed static layout: [0, initial-memory) = data + module stack. The host
+  # places per-worker stacks and the f32 arena BEYOND this region (the wasm
+  # threads model: every instance shares one memory, so each instance needs a
+  # DISJOINT stack — see WASM_THREADS.md §Stack).
+  "-C", "link-arg=--initial-memory=2097152",
+  # Exported so the host can point each worker instance at its own stack
+  # region (mutable WebAssembly.Global, assigned from JS after instantiation).
+  "-C", "link-arg=--export=__stack_pointer",
+]
