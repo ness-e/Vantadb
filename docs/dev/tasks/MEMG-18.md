@@ -133,8 +133,8 @@ description: "Decisión documentada (extensión de modalidad transversal, no 9ª
 - **Archivos:** `docs/dev/tasks/MEMG-18.md` (§Review + RESULTADO), `docs/dev/Backlog.md` (eliminar fila MEMG-18), `docs/dev/avance/activo/operaciones.md` (registro de cierre)
 - **Acción:** `pwsh scripts/validate-docs-coverage.ps1` · OCR delegation (`pwsh dev-tools/ocr-review.ps1 -Format json`) → Critical/High bloquean; Medium → FIND. Clasificar tier HARD-02: paths `docs/**` → **Fast**. Fork `vanta-review` (fresh context) para P2-01. Commit **LOCAL** `docs(research):` con pathspec (+ staging por hunks si `Backlog.md` sigue dirty por MEMG-15); cierre `campaign_update_task_state(completed, taskId:"62")` con recitation + payload `review`; Trigger 1 progreso (fila Backlog eliminada + registro avance).
 - **Verify:** veredicto registrado + `git show --stat HEAD` limitado a archivos propios + `git status` sin WIP ajeno stageado
-- **Evidencia:** ⬜
-- **Estado:** ⬜ PENDING
+- **Evidencia:** ✅ **Gates (working tree):** `check-links` 0 broken · `check-docs` GATING all clear · `gen-index --check` exit 0 · `validate-docs-coverage.ps1` 0 gaps. **OCR delegation:** `pwsh dev-tools/ocr-review.ps1 -Format json` → 13 archivos code reviewables = **WIP ajeno** (MEMG-15: `src/**`, `tests/**`, `vantadb-python/**`, `dev-tools/heavy-test-lock.ps1`; fuera de pathspec); diff propio docs-only excluido por diseño → 0 hallazgos aplicables. **Review P2-01:** vanta-review tier Fast — ronda 1 ✅ APPROVE (O-1/N-1/N-2/N-3) + delta re-review post-profundización ✅ APPROVE final (O-2/N-2 aplicados). **Commit 1:** `789aeb23` (6 archivos propios; pre-commit hook OK) — `docs(research):` LOCAL. **Commit 2 (cierre):** Backlog.md con **staging por hunks** (solo mis 2 hunks: pointer FUT-15 + fila MEMG-18 removida; hunks MEMG-15 intactos sin stagear) + avance + task file. **Trigger 1 progreso:** fila `MEMG-18` eliminada de `Backlog.md` + registro en `operaciones.md`. **Campaign:** `completed` taskId `62` con payload review.
+- **Estado:** ✅ COMPLETED
 
 ## Dependencias
 
@@ -160,9 +160,9 @@ description: "Decisión documentada (extensión de modalidad transversal, no 9ª
 
 ## Context Save Point
 
-- **Última acción:** Steps 1-3 ✅ — DISCOVERY + task file + research-doc + pointers FUT-15/memg-14 + gates docs 4/4 verdes (`check-links` 0 broken · `check-docs` clear · `gen-index --check` exit 0 · `validate-docs-coverage` 0 gaps) + OCR delegation N/A (diff docs-only; reviewables = WIP ajeno MEMG-15).
-- **Próximo paso:** Step 4 — review P2-01 (fork `vanta-review`) → commit local `docs(research):` → cierre campaign taskId `62` + Trigger 1 progreso.
-- **Estado del worktree:** HEAD `84bbc276`; WIP ajeno (MEMG-15: `docs/api/**`, `src/**`, `Backlog.md` dirty con remoción fila MEMG-15 + FIND-309..311, `opencode.jsonc`, master plan, `dev-tools/heavy-test-lock.ps1`, `docs/dev/tasks/MEMG-15.md`) NO se stagea; prohibido tocar `docs/pipeline-state.json`.
+- **Última acción:** Steps 1-4 ✅ — doc + pointers + gates 4/4 + OCR N/A (diff docs-only) + review P2-01 APPROVE (ronda 1 + delta) + commit `789aeb23` + fila Backlog removida (staging por hunks) + registro avance + cierre campaign taskId `62`.
+- **Próximo paso:** ninguno (tarea cerrada). Handoff: los hunks MEMG-15 en `Backlog.md` (remoción fila + FIND-309..311) quedan sin stagear para su propia sesión.
+- **Estado del worktree:** HEAD `789aeb23` (+ commit de cierre docs(avance)); WIP ajeno (MEMG-15: `docs/api/**`, `src/**`, `Backlog.md` hunks MEMG-15, `opencode.jsonc`, master plan, `dev-tools/heavy-test-lock.ps1`, `docs/dev/tasks/MEMG-15.md`) NO se stagea; prohibido tocar `docs/pipeline-state.json`.
 
 ## Notas
 
@@ -187,16 +187,14 @@ description: "Decisión documentada (extensión de modalidad transversal, no 9ª
 
 ## RESULTADO §7 (contrato de retorno — pipeline-full)
 
-> Provisional — se actualiza en Step 4 (cierre).
-
 ```
-RESULTADO: 🟡 INCOMPLETO
-STEPS_OK: 1/4 total steps
-PROXIMO_STEP: Step 2 — redactar docs/dev/research/memg-18-multimodalidad.md
-COMMIT_HASH: ninguno
-ARCHIVOS: docs/dev/tasks/MEMG-18.md (nuevo)
-VERIFY_CONTRATO: no-corrido (Step 1: task file creado; contrato se verifica en Step 4)
+RESULTADO: ✅ COMPLETO
+STEPS_OK: 4/4 total steps
+PROXIMO_STEP: ninguno
+COMMIT_HASH: 789aeb23 (docs research, LOCAL — sin push) + commit de cierre docs(avance)
+ARCHIVOS: docs/dev/research/memg-18-multimodalidad.md (nuevo), docs/dev/tasks/MEMG-18.md (nuevo), docs/dev/backlog-futuro.md, docs/dev/Backlog.md (pointer FUT-15 + fila MEMG-18 removida — staging por hunks), docs/dev/research/memg-14-marco-2.0.md, docs/index.md + llms.txt (generados), docs/dev/avance/activo/operaciones.md (registro)
+VERIFY_CONTRATO: pasa — research-doc (decisión + spec mínima + trigger refinado, contrato L1790 1:1) + gates docs 4/4 exit 0 + validate-docs-coverage 0 gaps; evidencia multi-fuente 9/9 fetch-verificada (TSYS-13) + re-verificada por reviewer
 BLOQUEO: ninguno
-GATES_EVALUADOS: P:no(plan sanciona Task 62) D:no(docs-only; sin símbolos; decisión consistente) V:no C:no
+GATES_EVALUADOS: P:no(plan sanciona Task 62) D:no(docs-only; decisión consistente; sin símbolos) V:no C:no(WIP ajeno no stageado; hunks MEMG-15 intactos)
 SKILLS_CARGADAS: campaign-executor, progreso, ponytail (base) · writing-guidelines · documentation-and-adrs · documentation-skill · source-driven-development · spec-driven-development · coordinated-web-search
 ```
