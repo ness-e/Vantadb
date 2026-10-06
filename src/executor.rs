@@ -87,12 +87,19 @@ fn iql_error_position(input: &str, err: &nom::Err<nom::error::Error<&str>>) -> (
 /// as `Failure(Verify)` whose input slice starts at the second `AS OF`; that
 /// is the only failure emitted at an `AS OF` position. This maps it to a
 /// stable message and leaves every other failure with nom's default rendering.
+/// WIRE-12 adds the same treatment for malformed `LIMIT`/`OFFSET` clauses
+/// (missing count or reversed/duplicated order).
 fn iql_parse_error_message(err: &nom::Err<nom::error::Error<&str>>) -> String {
     if let nom::Err::Failure(inner) = err {
-        if inner.code == nom::error::ErrorKind::Verify
-            && inner.input.trim_start().starts_with("AS OF")
-        {
-            return "AS OF specified more than once".to_string();
+        if inner.code == nom::error::ErrorKind::Verify {
+            let head = inner.input.trim_start();
+            if head.starts_with("AS OF") {
+                return "AS OF specified more than once".to_string();
+            }
+            if head.starts_with("LIMIT") || head.starts_with("OFFSET") {
+                return "malformed LIMIT/OFFSET clause: expected `LIMIT <n> [OFFSET <m>]`"
+                    .to_string();
+            }
         }
     }
     err.to_string()
@@ -829,6 +836,177 @@ mod tests {
         }
     }
 
+    /// WIRE-12: malformed pagination clauses get a stable message and the
+    /// reported position points at the offending clause.
+    #[test]
+    fn test_malformed_pagination_reports_clear_message() {
+        let (storage, _dir) = setup_storage();
+        let ex = Executor::new(&storage);
+        let err = ex.execute_hybrid("FROM Doc LIMIT abc").unwrap_err();
+        match err {
+            Error::IqlParse { msg, line, col } => {
+                assert_eq!(
+                    msg,
+                    "malformed LIMIT/OFFSET clause: expected `LIMIT <n> [OFFSET <m>]`"
+                );
+                assert_eq!(line, 1);
+                assert_eq!(col, 9, "position must point at the malformed clause");
+            }
+            other => panic!("expected IqlParse, got {other:?}"),
+        }
+        // Reversed order is rejected with the same stable message.
+        let err = ex.execute_hybrid("FROM Doc OFFSET 2 LIMIT 5").unwrap_err();
+        assert!(matches!(err, Error::IqlParse { .. }));
+    }
+
+    /// WIRE-12: a clause after the pagination keywords is rejected at parse
+    /// time instead of silently returning a page without it (FIND-312 class).
+    #[test]
+    fn pagination_rejects_trailing_clause_instead_of_silently_dropping_it() {
+        let (storage, _dir) = setup_storage();
+        insert_five_ranked_nodes(&storage);
+        let ex = Executor::new(&storage);
+        let err = ex
+            .execute_hybrid("FROM Doc LIMIT 5 WHERE n > 1")
+            .unwrap_err();
+        assert!(matches!(err, Error::IqlParse { .. }));
+    }
+
+    // ── execute_hybrid: LIMIT / OFFSET pagination (WIRE-12) ──
+
+    /// Node shaped like a rankable graph record: `type` + integer field `n`.
+    fn insert_ranked_node(storage: &StorageEngine, id: u128, n: i64) {
+        let mut node = UnifiedNode::new(id);
+        node.set_field("type", FieldValue::String("Doc".to_string()));
+        node.set_field("n", FieldValue::Int(n));
+        storage.insert(&node).expect("insert ranked node");
+    }
+
+    fn insert_five_ranked_nodes(storage: &StorageEngine) {
+        for id in 1..=5u128 {
+            insert_ranked_node(storage, id, id as i64);
+        }
+    }
+
+    #[test]
+    fn limit_caps_scan_results() {
+        let (storage, _dir) = setup_storage();
+        insert_five_ranked_nodes(&storage);
+        let ex = Executor::new(&storage);
+        // Scan order is backend-defined; the cap is what LIMIT guarantees.
+        assert_eq!(read_ids(&ex, "FROM Doc LIMIT 2").len(), 2);
+        assert_eq!(read_ids(&ex, "FROM Doc").len(), 5, "control: no cap");
+    }
+
+    #[test]
+    fn offset_skips_leading_rows() {
+        let (storage, _dir) = setup_storage();
+        insert_five_ranked_nodes(&storage);
+        let ex = Executor::new(&storage);
+        assert_eq!(read_ids(&ex, "FROM Doc OFFSET 2").len(), 3);
+        assert_eq!(read_ids(&ex, "FROM Doc OFFSET 10"), Vec::<u128>::new());
+    }
+
+    #[test]
+    fn limit_offset_composes_skip_then_take() {
+        let (storage, _dir) = setup_storage();
+        insert_five_ranked_nodes(&storage);
+        let ex = Executor::new(&storage);
+        // RANK BY makes the order deterministic: [1,2,3,4,5] by n; skip 1, take 2.
+        assert_eq!(
+            read_ids(&ex, "FROM Doc RANK BY n LIMIT 2 OFFSET 1"),
+            vec![2, 3]
+        );
+        // Skip 3, take 10 → the tail.
+        assert_eq!(
+            read_ids(&ex, "FROM Doc RANK BY n LIMIT 10 OFFSET 3"),
+            vec![4, 5]
+        );
+    }
+
+    #[test]
+    fn rank_by_applies_before_limit() {
+        let (storage, _dir) = setup_storage();
+        insert_ranked_node(&storage, 1, 3);
+        insert_ranked_node(&storage, 2, 1);
+        insert_ranked_node(&storage, 3, 2);
+        let ex = Executor::new(&storage);
+        // Ascending by n: ids [2(n=1), 3(n=2), 1(n=3)] → top 2 = {2,3}.
+        assert_eq!(read_ids(&ex, "FROM Doc RANK BY n LIMIT 2"), vec![2, 3]);
+        // Descending by n: ids [1(n=3), 3(n=2), 2(n=1)] → top 2 = {1,3}.
+        assert_eq!(read_ids(&ex, "FROM Doc RANK BY n DESC LIMIT 2"), vec![1, 3]);
+    }
+
+    #[test]
+    fn limit_zero_returns_empty() {
+        let (storage, _dir) = setup_storage();
+        insert_five_ranked_nodes(&storage);
+        let ex = Executor::new(&storage);
+        assert_eq!(read_ids(&ex, "FROM Doc LIMIT 0"), Vec::<u128>::new());
+    }
+
+    #[test]
+    fn limit_applies_after_where_filters() {
+        let (storage, _dir) = setup_storage();
+        insert_five_ranked_nodes(&storage);
+        let ex = Executor::new(&storage);
+        // Filter first (n > 1 → ids 2..5), then cap.
+        assert_eq!(read_ids(&ex, "FROM Doc WHERE n > 1 LIMIT 2").len(), 2);
+        assert_eq!(
+            read_ids(&ex, "FROM Doc WHERE n > 4 LIMIT 2"),
+            vec![5],
+            "filter leaves one row — cap must not invent rows"
+        );
+    }
+
+    #[test]
+    fn select_path_honors_limit_offset() {
+        let (storage, _dir) = setup_storage();
+        insert_five_ranked_nodes(&storage);
+        let ex = Executor::new(&storage);
+        assert_eq!(read_ids(&ex, "SELECT * FROM Doc LIMIT 2").len(), 2);
+        // SELECT path has no RANK BY; OFFSET alone skips without a cap.
+        assert_eq!(read_ids(&ex, "SELECT * FROM Doc OFFSET 4").len(), 1);
+    }
+
+    /// Documented interaction: the valid-time filter runs AFTER the plan
+    /// (executor.rs `filter_valid_at`), so a LIMIT page can shrink below N
+    /// when `AS OF` drops rows — the short page is the end of the walk
+    /// (same convention as IQL.md §Page-completeness).
+    #[test]
+    fn as_of_filter_runs_after_limit_short_page_is_documented() {
+        let (storage, _dir) = setup_storage();
+        insert_ranked_node(&storage, 1, 1);
+        insert_ranked_node(&storage, 2, 2);
+        insert_ranked_node(&storage, 3, 3);
+        // Node 2 is not valid at t=1500; nodes 1 and 3 are.
+        {
+            let mut n2 = UnifiedNode::new(2);
+            n2.set_field("type", FieldValue::String("Doc".to_string()));
+            n2.set_field("n", FieldValue::Int(2));
+            n2.set_field(
+                crate::sdk::serialization::FIELD_VALID_AT_MS,
+                FieldValue::Int(1000),
+            );
+            n2.set_field(
+                crate::sdk::serialization::FIELD_INVALID_AT_MS,
+                FieldValue::Int(1200),
+            );
+            storage.insert(&n2).expect("re-insert node 2 with window");
+        }
+        let ex = Executor::new(&storage);
+        // Limit takes raw rows 1,2 first; AS OF then drops 2 → short page [1].
+        assert_eq!(
+            read_ids(&ex, "FROM Doc RANK BY n LIMIT 2 AS OF 1500"),
+            vec![1]
+        );
+        // With a wider window both valid rows come back.
+        assert_eq!(
+            read_ids(&ex, "FROM Doc RANK BY n LIMIT 3 AS OF 1500"),
+            vec![1, 3]
+        );
+    }
+
     // ── execute_statement: Insert ──
 
     #[test]
@@ -1276,6 +1454,8 @@ mod tests {
             subquery_conditions: vec![],
             temperature: None,
             as_of_ms: None,
+            limit: None,
+            offset: None,
         });
         let result = ex.execute_statement(select).unwrap();
         match result {
@@ -1310,6 +1490,8 @@ mod tests {
             owner_role: None,
             search_profile: None,
             as_of_ms: None,
+            limit: None,
+            offset: None,
         });
         let result = ex.execute_statement(query).unwrap();
         match result {

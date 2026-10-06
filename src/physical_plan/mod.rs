@@ -4,11 +4,13 @@
 //! into concrete storage reads, filtering, and projection.
 //!
 //! Split into per-operator submodules (REVIEW-05): `scan`, `filter`,
-//! `vector`, `project`, `sort`, `join`, `dedup` (C2S6 extension exemplar).
+//! `vector`, `project`, `sort`, `join`, `dedup` (C2S6 extension exemplar),
+//! `offset` (WIRE-12 registry extension).
 
 mod dedup;
 mod filter;
 mod join;
+mod offset;
 mod project;
 mod scan;
 mod sort;
@@ -17,6 +19,7 @@ mod vector;
 pub use dedup::PhysicalDedup;
 pub use filter::{PhysicalFilter, PhysicalTextFilter};
 pub use join::{PhysicalNestedLoopJoin, PhysicalSubqueryFilter};
+pub use offset::PhysicalOffset;
 pub use project::{PhysicalLimit, PhysicalProject};
 pub use scan::PhysicalScan;
 pub use sort::PhysicalSort;
@@ -312,6 +315,7 @@ mod tests {
         _is_send_sync::<PhysicalFilter>();
         _is_send_sync::<PhysicalProject>();
         _is_send_sync::<PhysicalLimit>();
+        _is_send_sync::<PhysicalOffset>();
         _is_send_sync::<PhysicalSort>();
     }
 
@@ -591,6 +595,63 @@ mod tests {
         limit.close().unwrap();
     }
 
+    // ── PhysicalOffset (WIRE-12) ────────────────────────────────────────
+
+    #[test]
+    fn test_physical_offset_skips_leading_rows() {
+        let child = MockScan::new(vec![int_node(1, 1), int_node(2, 2), int_node(3, 3)]);
+        let mut offset = PhysicalOffset::new(Box::new(child), 2);
+        offset.open().unwrap();
+        assert_eq!(offset.next().unwrap().unwrap().id, 3, "first two skipped");
+        assert!(offset.next().unwrap().is_none());
+        offset.close().unwrap();
+    }
+
+    #[test]
+    fn test_physical_offset_zero_passes_all() {
+        let child = MockScan::new(vec![int_node(1, 1), int_node(2, 2)]);
+        let mut offset = PhysicalOffset::new(Box::new(child), 0);
+        offset.open().unwrap();
+        assert_eq!(offset.next().unwrap().unwrap().id, 1);
+        assert_eq!(offset.next().unwrap().unwrap().id, 2);
+        assert!(offset.next().unwrap().is_none());
+        offset.close().unwrap();
+    }
+
+    #[test]
+    fn test_physical_offset_more_than_available() {
+        let child = MockScan::new(vec![int_node(1, 1)]);
+        let mut offset = PhysicalOffset::new(Box::new(child), 10);
+        offset.open().unwrap();
+        assert!(
+            offset.next().unwrap().is_none(),
+            "skip beyond stream is empty"
+        );
+        offset.close().unwrap();
+    }
+
+    #[test]
+    fn test_physical_offset_empty_child() {
+        let child = MockScan::new(vec![]);
+        let mut offset = PhysicalOffset::new(Box::new(child), 3);
+        offset.open().unwrap();
+        assert!(offset.next().unwrap().is_none());
+        offset.close().unwrap();
+    }
+
+    #[test]
+    fn test_physical_offset_open_close_cycle() {
+        let child = MockScan::new(vec![int_node(1, 1), int_node(2, 2)]);
+        let mut offset = PhysicalOffset::new(Box::new(child), 1);
+        offset.open().unwrap();
+        assert_eq!(offset.next().unwrap().unwrap().id, 2);
+        offset.close().unwrap();
+        // Re-open resets the skip counter.
+        offset.open().unwrap();
+        assert_eq!(offset.next().unwrap().unwrap().id, 2);
+        offset.close().unwrap();
+    }
+
     // ── PhysicalSort ────────────────────────────────────────────────────
 
     #[test]
@@ -740,6 +801,9 @@ mod tests {
 
         let mut l = PhysicalLimit::new(Box::new(MockScan::new(vec![])), 0);
         l.close().unwrap();
+
+        let mut o = PhysicalOffset::new(Box::new(MockScan::new(vec![])), 3);
+        o.close().unwrap();
 
         let mut s = PhysicalSort::new(Box::new(MockScan::new(vec![])), "x".into(), false);
         s.close().unwrap();

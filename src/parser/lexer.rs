@@ -51,6 +51,7 @@ pub(crate) const RESERVED_KEYWORDS: &[&str] = &[
     "MATCH",
     "MESSAGE",
     "OF",
+    "OFFSET",
     "ON",
     "PROFILE",
     "RANK",
