@@ -30,9 +30,9 @@ use std::time::Duration;
 
 use vantadb::circuit_breaker::CircuitBreaker;
 use vantadb::cli_server::{app, ServerState};
-use vantadb::config::{Config, RbacConfig};
+use vantadb::config::{Config, RbacConfig, RbacRoleCfg};
 use vantadb::connection_pool::ConnectionPool;
-use vantadb::sdk::Embedded;
+use vantadb::sdk::{Embedded, MemoryInput};
 use vantadb::storage::{BackendKind, StorageEngine};
 
 const KEY: &str = "sk-rbac-ns-test-aaaa";
@@ -81,7 +81,10 @@ fn server_state(
         api_key: Some(Arc::from(KEY)),
         alt_api_key: None,
         jwt_secret: None,
-        rbac_config: RbacConfig { token_role_map },
+        rbac_config: RbacConfig {
+            token_role_map,
+            ..Default::default()
+        },
         trusted_proxies: Vec::new(),
         conversation_trigger: None,
     })
@@ -379,4 +382,466 @@ async fn rbac_delete_denial_is_audited_with_action_delete() {
     let reason = denied["reason"].as_str().unwrap_or_default();
     assert!(reason.contains("action=delete"), "reason: {reason}");
     assert!(reason.contains("enforced=write"), "reason: {reason}");
+}
+
+// ── MEMG-04: aislamiento multi-tenant (2 credenciales namespace-scoped) ────
+
+/// Alt Bearer for the second tenant (SRV-04 key pair = the two credentials a
+/// server can hold today; N>2 provisioning is FIND-304).
+const KEY_BETA: &str = "sk-tenant-beta-bbbb";
+
+/// Two real tenant credentials: primary → `tenant_alpha` (ns `alpha`), alt →
+/// `tenant_beta` (ns `beta`). Neither role has a global read/write/admin
+/// permission, so cross-tenant access must be denied on every enabled surface
+/// and any namespace the request fails to declare falls back to the coarse
+/// check — which denies scoped roles (fail closed).
+fn two_tenant_state_with_audit(audit: Option<&std::path::Path>) -> Arc<ServerState> {
+    let mut token_role_map = HashMap::new();
+    token_role_map.insert(KEY.to_string(), "tenant_alpha".to_string());
+    token_role_map.insert(KEY_BETA.to_string(), "tenant_beta".to_string());
+    let mut roles = HashMap::new();
+    roles.insert(
+        "tenant_alpha".to_string(),
+        RbacRoleCfg {
+            // `agent/main` covers the percent-encoded-path regression (R3).
+            namespace_read: vec!["alpha".to_string(), "agent/main".to_string()],
+            namespace_write: vec!["alpha".to_string(), "agent/main".to_string()],
+        },
+    );
+    roles.insert(
+        "tenant_beta".to_string(),
+        RbacRoleCfg {
+            namespace_read: vec!["beta".to_string()],
+            namespace_write: vec!["beta".to_string()],
+        },
+    );
+    let storage = match audit {
+        Some(path) => in_memory_storage_with_audit(path),
+        None => in_memory_storage(),
+    };
+    let db = Embedded::from_engine(storage.clone());
+    Arc::new(ServerState {
+        storage,
+        db,
+        circuit_breaker: Arc::new(CircuitBreaker::new(100, Duration::from_secs(30))),
+        pool: Arc::new(ConnectionPool::new(4, Duration::from_millis(100))),
+        api_key: Some(Arc::from(KEY)),
+        alt_api_key: Some(Arc::from(KEY_BETA)),
+        jwt_secret: None,
+        rbac_config: RbacConfig {
+            token_role_map,
+            roles,
+        },
+        trusted_proxies: Vec::new(),
+        conversation_trigger: None,
+    })
+}
+
+fn two_tenant_state() -> Arc<ServerState> {
+    two_tenant_state_with_audit(None)
+}
+
+/// Read surface: own namespace passes RBAC (404 = missing record proves the
+/// handler ran), sibling namespace is 403 in both directions.
+#[tokio::test]
+async fn tenant_reads_own_namespace_and_cannot_read_sibling() {
+    let state = two_tenant_state();
+    let addr = spawn(state).await;
+
+    let own = http_get(addr, "/api/v2/records/alpha/k1", KEY).await;
+    assert!(
+        own != 401 && own != 403,
+        "alpha tenant must read its own namespace (got {own})"
+    );
+
+    let cross = http_get(addr, "/api/v2/records/beta/k1", KEY).await;
+    assert_eq!(cross, 403, "alpha tenant must not read beta records");
+
+    let cross_back = http_get(addr, "/api/v2/records/alpha/k1", KEY_BETA).await;
+    assert_eq!(cross_back, 403, "beta tenant must not read alpha records");
+}
+
+/// Write surface with the namespace declared in the JSON **body** (the
+/// pre-MEMG-04 hole: no `?namespace=` → no check).
+#[tokio::test]
+async fn tenant_writes_own_body_namespace_and_cannot_write_sibling() {
+    let state = two_tenant_state();
+    let addr = spawn(state).await;
+
+    let own = http_post(
+        addr,
+        "/api/v2/records",
+        KEY,
+        r#"{"namespace":"alpha","key":"k1","payload":"hello","metadata":{},"vector":null,"ttl_ms":null}"#,
+    )
+    .await;
+    assert_eq!(
+        own, 201,
+        "alpha tenant must write its own namespace (got {own})"
+    );
+
+    let cross = http_post(
+        addr,
+        "/api/v2/records",
+        KEY,
+        r#"{"namespace":"beta","key":"k1","payload":"x","metadata":{}}"#,
+    )
+    .await;
+    assert_eq!(cross, 403, "alpha tenant must not write into beta");
+
+    let cross_back = http_post(
+        addr,
+        "/api/v2/records",
+        KEY_BETA,
+        r#"{"namespace":"alpha","key":"k2","payload":"x","metadata":{}}"#,
+    )
+    .await;
+    assert_eq!(cross_back, 403, "beta tenant must not write into alpha");
+}
+
+/// A matching `?namespace=` query param must not mask a foreign namespace
+/// declared in the body — the check covers the union (query ∪ body).
+#[tokio::test]
+async fn tenant_query_namespace_cannot_mask_foreign_body_namespace() {
+    let state = two_tenant_state();
+    let addr = spawn(state).await;
+
+    let s = http_post(
+        addr,
+        "/api/v2/records?namespace=alpha",
+        KEY,
+        r#"{"namespace":"beta","key":"k1","payload":"x","metadata":{}}"#,
+    )
+    .await;
+    assert_eq!(
+        s, 403,
+        "query namespace must not mask a foreign body namespace"
+    );
+}
+
+/// `POST /records/batch`: any record in a foreign namespace denies the whole
+/// batch (all-or-nothing, no partial writes).
+#[tokio::test]
+async fn tenant_batch_with_any_foreign_namespace_is_denied() {
+    let state = two_tenant_state();
+    let addr = spawn(state).await;
+
+    let mixed = http_post(
+        addr,
+        "/api/v2/records/batch",
+        KEY,
+        r#"[{"namespace":"alpha","key":"a1","payload":"x","metadata":{}},{"namespace":"beta","key":"b1","payload":"x","metadata":{}}]"#,
+    )
+    .await;
+    assert_eq!(
+        mixed, 403,
+        "a batch touching a foreign namespace must be denied whole"
+    );
+
+    let own = http_post(
+        addr,
+        "/api/v2/records/batch",
+        KEY,
+        r#"[{"namespace":"alpha","key":"a1","payload":"x","metadata":{}},{"namespace":"alpha","key":"a2","payload":"y","metadata":{}}]"#,
+    )
+    .await;
+    assert_eq!(
+        own, 201,
+        "alpha batch on its own namespace must pass (got {own})"
+    );
+}
+
+/// Search surface: namespace declared in the body.
+#[tokio::test]
+async fn tenant_search_is_namespace_scoped() {
+    let state = two_tenant_state();
+    let addr = spawn(state).await;
+
+    let own = http_post(
+        addr,
+        "/api/v2/search",
+        KEY,
+        r#"{"namespace":"alpha","query_vector":[0.1,0.2],"filters":{},"text_query":null,"top_k":1,"distance_metric":"Cosine","explain":false}"#,
+    )
+    .await;
+    assert!(
+        own != 401 && own != 403,
+        "alpha tenant must search its own namespace (got {own})"
+    );
+
+    let cross = http_post(
+        addr,
+        "/api/v2/search",
+        KEY,
+        r#"{"namespace":"beta","query_vector":[0.1,0.2],"filters":{},"text_query":null,"top_k":1,"distance_metric":"Cosine","explain":false}"#,
+    )
+    .await;
+    assert_eq!(cross, 403, "alpha tenant must not search beta");
+}
+
+/// List surface: own namespace passes, sibling denied, all-namespaces fan-out
+/// denied (fail closed — no global read permission).
+#[tokio::test]
+async fn tenant_list_is_namespace_scoped_and_list_all_is_denied() {
+    let state = two_tenant_state();
+    let addr = spawn(state).await;
+
+    let own = http_get(addr, "/api/v2/list?namespace=alpha", KEY).await;
+    assert!(
+        own != 401 && own != 403,
+        "alpha tenant must list its own namespace (got {own})"
+    );
+
+    let cross = http_get(addr, "/api/v2/list?namespace=beta", KEY).await;
+    assert_eq!(cross, 403, "alpha tenant must not list beta");
+
+    let all = http_get(addr, "/api/v2/list", KEY).await;
+    assert_eq!(all, 403, "scoped tenant must not list all namespaces");
+}
+
+/// Delete surface (path namespace).
+#[tokio::test]
+async fn tenant_delete_is_namespace_scoped() {
+    let state = two_tenant_state();
+    let addr = spawn(state).await;
+
+    let cross = http_delete(addr, "/api/v2/records/beta/k1", KEY).await;
+    assert_eq!(cross, 403, "alpha tenant must not delete beta records");
+
+    let own = http_delete(addr, "/api/v2/records/alpha/k1", KEY).await;
+    assert!(
+        own != 401 && own != 403,
+        "alpha tenant may delete its own records (got {own})"
+    );
+}
+
+/// Export surface: own namespace passes, sibling denied, all-namespaces
+/// export denied (fail closed).
+#[tokio::test]
+async fn tenant_export_is_namespace_scoped_and_all_export_denied() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let out = dir.path().join("out.jsonl");
+    let state = two_tenant_state();
+    let addr = spawn(state).await;
+
+    let own_body =
+        serde_json::json!({ "path": out, "namespace": "alpha", "filter": null }).to_string();
+    let own = http_post(addr, "/api/v2/export", KEY, &own_body).await;
+    assert!(
+        own != 401 && own != 403,
+        "alpha tenant must export its own namespace (got {own})"
+    );
+
+    let cross_body =
+        serde_json::json!({ "path": out, "namespace": "beta", "filter": null }).to_string();
+    let cross = http_post(addr, "/api/v2/export", KEY, &cross_body).await;
+    assert_eq!(cross, 403, "alpha tenant must not export beta");
+
+    let all_body = serde_json::json!({ "path": out, "filter": null }).to_string();
+    let all = http_post(addr, "/api/v2/export", KEY, &all_body).await;
+    assert_eq!(
+        all, 403,
+        "scoped tenant must not export all namespaces (fail closed)"
+    );
+}
+
+/// Import surface: inline records are checked per record; path imports declare
+/// no namespace → fail closed for scoped tenants.
+#[tokio::test]
+async fn tenant_import_is_namespace_scoped_and_path_import_denied() {
+    let state = two_tenant_state();
+    // Seed one record per namespace directly against the shared engine so the
+    // import payloads carry valid node ids (import re-validates the hash).
+    let seeder = Embedded::from_engine(state.storage.clone());
+    let rec_alpha = seeder
+        .put(MemoryInput::new("alpha", "seed-a", "payload"))
+        .expect("seed alpha");
+    let rec_beta = seeder
+        .put(MemoryInput::new("beta", "seed-b", "payload"))
+        .expect("seed beta");
+    let addr = spawn(state).await;
+
+    let own_body = serde_json::json!({ "records": [rec_alpha] }).to_string();
+    let own = http_post(addr, "/api/v2/import", KEY, &own_body).await;
+    assert!(
+        own != 401 && own != 403,
+        "alpha tenant must import into its own namespace (got {own})"
+    );
+
+    let cross_body = serde_json::json!({ "records": [rec_beta] }).to_string();
+    let cross = http_post(addr, "/api/v2/import", KEY, &cross_body).await;
+    assert_eq!(cross, 403, "alpha tenant must not import into beta");
+
+    let path_body = serde_json::json!({ "path": "whatever.jsonl" }).to_string();
+    let by_path = http_post(addr, "/api/v2/import", KEY, &path_body).await;
+    assert_eq!(
+        by_path, 403,
+        "path import declares no namespace → fail closed for scoped tenants"
+    );
+}
+
+/// Fail-closed: a scoped credential whose request does not declare any
+/// namespace falls back to the coarse check, which it cannot pass.
+#[tokio::test]
+async fn scoped_tenant_missing_namespace_is_denied_fail_closed() {
+    let state = two_tenant_state();
+    let addr = spawn(state).await;
+
+    let s = http_post(addr, "/api/v2/records", KEY, "{}").await;
+    assert_eq!(
+        s, 403,
+        "body without namespace must fall back to the coarse check → deny"
+    );
+}
+
+/// A body-namespace denial is audited like the path/query denials (MEMG-10
+/// contract): namespace + role + action, never the token.
+#[tokio::test]
+async fn tenant_body_write_denial_is_audited() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let audit_path = dir.path().join("audit.jsonl");
+    let state = two_tenant_state_with_audit(Some(&audit_path));
+    let addr = spawn(state).await;
+
+    let s = http_post(
+        addr,
+        "/api/v2/records",
+        KEY,
+        r#"{"namespace":"beta","key":"k1","payload":"x"}"#,
+    )
+    .await;
+    assert_eq!(s, 403);
+
+    let rows = audit_rows(&audit_path);
+    let denied = rows
+        .iter()
+        .find(|r| r["op"] == "auth_rbac")
+        .expect("body-namespace denial must be audited");
+    assert_eq!(denied["namespace"], "beta");
+    assert_eq!(denied["key"], "tenant_alpha");
+    let reason = denied["reason"].as_str().unwrap_or_default();
+    assert!(reason.contains("action=write"), "reason: {reason}");
+
+    let raw = std::fs::read_to_string(&audit_path).unwrap_or_default();
+    assert!(!raw.contains(KEY), "the Bearer token must never be audited");
+}
+
+// ── MEMG-04 post-review P2-01: regresiones (C1/R2/R3/R4) ───────────────────
+
+/// C1 regression: `POST /search` with a matching `?namespace=` must NOT mask
+/// an **empty** body namespace — the handler treats it as "all namespaces"
+/// (`search_all`), so the scoped credential could read cross-tenant. Empty
+/// body declarations discard the query namespace and fall back to the coarse
+/// check (fail closed).
+#[tokio::test]
+async fn tenant_search_query_namespace_cannot_mask_blank_body() {
+    let state = two_tenant_state();
+    let addr = spawn(state).await;
+
+    let s = http_post(
+        addr,
+        "/api/v2/search?namespace=alpha",
+        KEY,
+        r#"{"namespace":"","query_vector":[0.1,0.2],"filters":{},"text_query":null,"top_k":1,"distance_metric":"Cosine","explain":false}"#,
+    )
+    .await;
+    assert_eq!(
+        s, 403,
+        "blank body namespace must discard the query namespace (search_all leak)"
+    );
+}
+
+/// R2: global `writer`/`reader` roles hold no `Namespace*` grants — a
+/// namespaced body write is denied, the same semantics SRV-05 already applies
+/// to path namespaces. This locks the tightening intentionally (pre-MEMG-04
+/// the body-only namespace fell through to the coarse global check).
+#[tokio::test]
+async fn global_writer_role_denied_on_body_namespace() {
+    let state = server_state(in_memory_storage(), map_role("writer"));
+    let addr = spawn(state).await;
+
+    let s = http_post(
+        addr,
+        "/api/v2/records",
+        KEY,
+        r#"{"namespace":"team","key":"k1","payload":"x","metadata":{}}"#,
+    )
+    .await;
+    assert_eq!(
+        s, 403,
+        "global writer without NamespaceWrite must be denied on a namespaced body write"
+    );
+}
+
+/// R3: a namespace containing `/` is percent-encoded in the path
+/// (`agent%2Fmain`) — the RBAC compare must decode the segment before matching
+/// the grant.
+#[tokio::test]
+async fn tenant_reads_own_namespace_with_encoded_slash() {
+    let state = two_tenant_state();
+    let addr = spawn(state).await;
+
+    let own = http_get(addr, "/api/v2/records/agent%2Fmain/k1", KEY).await;
+    assert!(
+        own != 401 && own != 403,
+        "grant `agent/main` must match the encoded path segment (got {own})"
+    );
+
+    let cross = http_get(addr, "/api/v2/records/agent%2Fmain/k1", KEY_BETA).await;
+    assert_eq!(cross, 403, "beta tenant must not read `agent/main`");
+}
+
+/// R4: a least-privilege scoped role with only `namespace_read` must be able
+/// to SEARCH its own namespace (`POST /search` is a read operation).
+#[tokio::test]
+async fn read_only_scoped_role_can_search_own_namespace() {
+    let mut token_role_map = HashMap::new();
+    token_role_map.insert(KEY.to_string(), "tenant_reader".to_string());
+    let mut roles = HashMap::new();
+    roles.insert(
+        "tenant_reader".to_string(),
+        RbacRoleCfg {
+            namespace_read: vec!["alpha".to_string()],
+            namespace_write: Vec::new(),
+        },
+    );
+    let storage = in_memory_storage();
+    let db = Embedded::from_engine(storage.clone());
+    let state = Arc::new(ServerState {
+        storage,
+        db,
+        circuit_breaker: Arc::new(CircuitBreaker::new(100, Duration::from_secs(30))),
+        pool: Arc::new(ConnectionPool::new(4, Duration::from_millis(100))),
+        api_key: Some(Arc::from(KEY)),
+        alt_api_key: None,
+        jwt_secret: None,
+        rbac_config: RbacConfig {
+            token_role_map,
+            roles,
+        },
+        trusted_proxies: Vec::new(),
+        conversation_trigger: None,
+    });
+    let addr = spawn(state).await;
+
+    let own = http_post(
+        addr,
+        "/api/v2/search",
+        KEY,
+        r#"{"namespace":"alpha","query_vector":[0.1,0.2],"filters":{},"text_query":null,"top_k":1,"distance_metric":"Cosine","explain":false}"#,
+    )
+    .await;
+    assert!(
+        own != 401 && own != 403,
+        "read-only scoped role must search its own namespace (got {own})"
+    );
+
+    let cross = http_post(
+        addr,
+        "/api/v2/search",
+        KEY,
+        r#"{"namespace":"beta","query_vector":[0.1,0.2],"filters":{},"text_query":null,"top_k":1,"distance_metric":"Cosine","explain":false}"#,
+    )
+    .await;
+    assert_eq!(cross, 403, "read-only role must not search beta");
 }

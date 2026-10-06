@@ -466,6 +466,7 @@ async fn auth_l1_alt_key_with_rbac_token_role_mapping_passes() {
     map.insert(SRV04_ALT.to_string(), "reader".to_string());
     let rbac = RbacConfig {
         token_role_map: map,
+        ..Default::default()
     };
 
     let state = server_state_with_alt_rbac(
@@ -525,6 +526,7 @@ async fn auth_l1_alt_key_unknown_role_in_map_denied() {
     );
     let rbac = RbacConfig {
         token_role_map: map,
+        ..Default::default()
     };
 
     let state = server_state_with_alt_rbac(
@@ -562,6 +564,7 @@ async fn auth_l1_alt_key_unknown_role_falls_through_to_transport() {
     map.insert(SRV04_PRIMARY.to_string(), "admin".to_string());
     let rbac = RbacConfig {
         token_role_map: map,
+        ..Default::default()
     };
 
     let state = server_state_with_alt_rbac(
