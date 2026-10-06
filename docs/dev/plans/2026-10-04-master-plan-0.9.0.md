@@ -1776,7 +1776,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato (spec + slice con roundtrip íntegro) · commit = `feat(sdk):`/`docs:` · release = changelog (minor).
 - **Validación Appetite vs Effort:** 1sem ≥ 3-5d ✓
 - **Skills sugeridas:** api-and-interface-design · documentation-and-adrs · source-driven-development · campaign-executor
-- **Estado:** ⏳ EN PROGRESO
+- **Estado:** ✅ COMPLETED
 
 ### Task 62: MEMG-18 — Multimodalidad: decisión + spec (extensión de modalidad vs 9ª dim)
 
@@ -1804,7 +1804,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato · commit = `docs:` · release = n/a.
 - **Validación Appetite vs Effort:** 2d ≥ 1-2d ✓
 - **Skills sugeridas:** documentation-and-adrs · campaign-executor
-- **Estado:** ⏳ EN PROGRESO · **Task file:** `docs/dev/tasks/MEMG-18.md`
+- **Estado:** ✅ COMPLETED · **Task file:** `docs/dev/tasks/MEMG-18.md`
 
 ### Task 63: MEMG-19 — Prospectiva + descartes documentados (sensorial/emocional)
 
@@ -1825,7 +1825,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato (grep > 0) · commit = `docs:` · release = n/a.
 - **Validación Appetite vs Effort:** 1d ≥ 1d ✓
 - **Skills sugeridas:** documentation-skill · writing-guidelines
-- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/MEMG-19.md`
+- **Estado:** ✅ COMPLETED · **Task file:** `docs/dev/tasks/MEMG-19.md`
 
 ### Task 64: STRAT-04 — WASM lock-free multi-thread (prep Kuzu)
 
@@ -1853,7 +1853,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato (diseño + slice + bench) · commit = `feat(wasm):` · release = changelog (minor).
 - **Validación Appetite vs Effort:** 1mes ≥ 2-4sem ✓
 - **Skills sugeridas:** doubt-driven-development · source-driven-development · performance-optimization · campaign-executor
-- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/STRAT-04.md`
+- **Estado:** ✅ COMPLETED · **Task file:** `docs/dev/tasks/STRAT-04.md`
 
 ### Task 65: STRAT-05 — Ruta object storage (S3/blob)
 
@@ -1881,7 +1881,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato · commit = `docs:` · release = n/a.
 - **Validación Appetite vs Effort:** ⚠️ esfuerzo (1-2sem) > appetite (1sem) — contrato acotado a research+spec+decisión (sin implementación) para caber en 1sem; si no cabe → stop condition.
 - **Skills sugeridas:** doubt-driven-development · documentation-and-adrs · campaign-executor
-- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/STRAT-05.md`
+- **Estado:** ✅ COMPLETED · **Task file:** `docs/dev/tasks/STRAT-05.md`
 
 ### Task 66: STRAT-06 — Research: licencias (Khoj/Jan/Reor/OpenWebUI/Letta) + ACV OSS DBs
 
@@ -1909,7 +1909,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato · commit = `docs:` · release = n/a.
 - **Validación Appetite vs Effort:** 3d ≥ 2d ✓
 - **Skills sugeridas:** coordinated-web-search · documentation-and-adrs · campaign-executor
-- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/STRAT-06.md`
+- **Estado:** ✅ COMPLETED · **Task file:** `docs/dev/tasks/STRAT-06.md`
 
 ### Task 67: BENCH-02 — BEIR/MTEB recall@k vs pgvector/Chroma/sqlite-vec
 
@@ -1937,7 +1937,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato (número + comando) · commit = `perf(bench):`/`docs:` · release = n/a (evidencia de marketing).
 - **Validación Appetite vs Effort:** 1sem ≥ 3-5d ✓
 - **Skills sugeridas:** performance-optimization · documentation-skill · campaign-executor
-- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/BENCH-02.md`
+- **Estado:** ✅ COMPLETED
 
 ### Task 68: WIRE-12 — IQL: `LIMIT` / `OFFSET`
 
@@ -1965,7 +1965,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato + tests · commit = `feat(iql):` · release = changelog (minor).
 - **Validación Appetite vs Effort:** 3d ≥ 2-3d ✓
 - **Skills sugeridas:** source-driven-development · rust-write-tests · campaign-executor
-- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/WIRE-12.md`
+- **Estado:** ✅ COMPLETED · **Task file:** `docs/dev/tasks/WIRE-12.md`
 
 ### Task 69: WIRE-13 — IQL: agregaciones (`COUNT`/`SUM`/`GROUP BY`)
 
@@ -1994,7 +1994,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **Validación Appetite vs Effort:** 1sem ≥ 3-5d ✓
 - **Skills sugeridas:** source-driven-development · rust-write-tests · campaign-executor
 - **Dependencias:** WIRE-12 (misma área — Backlog `:192`)
-- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/WIRE-13.md`
+- **Estado:** ✅ COMPLETED
 
 ### Task 70: SRV-10 — Cifrado en reposo del server (HTTP)
 
@@ -2022,7 +2022,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato (pleno o reducido declarado) · commit = `feat(server):`/`docs:` · release = changelog.
 - **Validación Appetite vs Effort:** 1sem ≥ 3-5d ✓
 - **Skills sugeridas:** security-and-hardening · source-driven-development · rust-write-tests · campaign-executor
-- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/SRV-10.md`
+- **Estado:** ✅ COMPLETED · **Task file:** `docs/dev/tasks/SRV-10.md`
 
 ## F6 — Cierre: publicación de adapters en PyPI (owner-assisted)
 
@@ -2053,7 +2053,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato (9 publicados o dry-run + checklist) · commit = `docs:` (limpieza) · release = `adapters-v0.5.0`.
 - **Validación Appetite vs Effort:** 1d ≥ 2h ✓
 - **Skills sugeridas:** ci-cd-and-automation · shipping-and-launch · git-workflow-and-versioning
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Task file:** `docs/dev/tasks/MKT-20.md`
 
 ## DEFER
@@ -2916,4 +2916,190 @@ Resultado: OK
 Próxima acción: Ninguna (cerrada). Handoff: aplicar draft de sync §5 (lane owner) + R-1 pre-push (secuenciar MEMG-15.md → regenerar índice si aplica).
 Contrato: verificacion: check-links 0 broken (3025 links) ✅ · check-docs GATING all clear ✅ · gen-index --check (limpio al write; stale posterior por WIP ajeno MEMG-15 — R-1 declarado) · validate-docs-coverage 0 gaps ✅ · evidencia: claim='research-doc con 7/7 sub-decisiones (a-g)' evidencia='docs/dev/research/memg-14-marco-2.0.md §2 vs Backlog.md:140' confianza=alta; claim='fuentes citadas verificadas' evidencia='11 URLs fetch 2026-10-05 (arXiv 2604.16548/W3C CG/DAMA + 8 arXiv)' confianza=alta; claim='review P2-01 fresh APPROVE' evidencia='vanta-review ses_ef0bf832cffefQ7hc1vjWRs2Qh ronda 2' confianza=alta · artefactos: docs/dev/research/memg-14-marco-2.0.md, docs/dev/tasks/MEMG-14.md, docs/dev/strategy/NOTION-SYNC-2026-09-24.md, docs/index.md + llms.txt, docs/dev/Backlog.md (fila removida), docs/dev/avance/activo/operaciones.md (registro) · invariantes: scope=reformular las 7 sub-decisiones (no rediseño); lo no verificable marcado [a verificar — Notion]; WIP ajeno nunca staged (pathspec) · deuda: aplicación del sync Notion (lane owner) + R-1 pre-push (secuenciar MEMG-15.md; regenerar índice) · queda_pendiente: sync §5 (lane owner); R-1 al push (PROC-01)
 Próxima tarea si completa: MEMG-15 (Task 61) — lo decide el orquestador
+=== END RECITATION ===
+
+=== RECITATION 62 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: MEMG-18 (Task 62): multimodalidad — decisión (extensión transversal vs 9ª dim) + spec mínima + trigger refinado con evidencia 2026; sin implementación — CERRADA
+Estado: completed
+Última acción: Steps 1-4 completos: research-doc memg-18-multimodalidad.md (decisión A/B/C + spec 3.1-3.8 + trigger refinado + 9 fuentes multi-fuente fetch-verificadas) + pointers FUT-15 (backlog-futuro + Backlog) + pointer memg-14 §2.2 + task file canónico; gates docs 4/4 verdes; OCR N/A (docs-only; reviewables WIP ajeno MEMG-15); review P2-01 vanta-review ronda 1 + delta APPROVE; commits locales 789aeb23 + c9e94b96 (staging por hunks en Backlog.md — hunks MEMG-15 intactos); fila Backlog removida + registro operaciones.md.
+Resultado: OK
+Próxima acción: Ninguna (cerrada). Handoff: hunks MEMG-15 en Backlog.md sin stagear (su sesión los commitea); push pendiente de instrucción owner (Regla 7).
+Contrato: verificacion: gates docs 4/4 exit 0 (check-links 0 broken · check-docs GATING clear · gen-index --check · validate-docs-coverage 0 gaps) ✅. evidencia: claim='decisión transversal (no 9ª dim) respaldada multi-fuente' evidencia='docs/dev/research/memg-18-multimodalidad.md §1-§2 (arXiv 2602.06052/2512.13564/2507.07957 + Mem0/Cognee/Letta + jina-clip-v2/Voyage)' confianza=alta; claim='spec anclada en superficies reales' evidencia='src/sdk/types/record.rs:178/252/562 · src/sdk/types.rs:150 · src/wiki/ingestors.rs:50' confianza=alta; claim='alcance v1.0 intacto (sin reapertura)' evidencia='FUT-15 + doc §1.3' confianza=alta; claim='review P2-01 fresh APPROVE' evidencia='ses_ef09584d6ffeDoCq87U0ZNDreX (ronda 1 + delta)' confianza=alta. artefactos='docs/dev/research/memg-18-multimodalidad.md · docs/dev/tasks/MEMG-18.md · commits 789aeb23/c9e94b96'. invariantes='alcance v1.0 no se reabre; sin código; WIP ajeno no stageado'. deuda='ninguna nueva'. queda_pendiente='push (lane owner) + hunks MEMG-15 (su sesión)'
+Próxima tarea si completa: 
+=== END RECITATION ===
+
+=== RECITATION 61 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: MEMG-15 (Task 61): portabilidad/interoperabilidad — mapeo de frontera + export con integridad + versionado (COMPLETADA).
+Estado: completed
+Última acción: CIERRE TOTAL: commits LOCALES 55b9a532 (feat sdk — 16 archivos: manifest sha256 + verify + CLI + Python report + docs contrato/frontera + Backlog FIND-309/310/311) + c29e2cb9 (docs — EMBEDDED_SDK/PYTHON_SDK refs + registro avance operaciones.md + RESULTADO §7). Gates finales: docs 4/4 (links 0 / docs 0 / gen-index 0 / coverage 0 gaps) + avance 1034/1034. Sin push (regla owner).
+Resultado: OK
+Próxima acción: Ninguno — tarea cerrada y registrada. Próxima del plan según orquestador (Task 63 MEMG-19 pendiente; Task 62 MEMG-18 ya cerrada por otra sesión).
+Contrato: verificacion: nextest -p vantadb lib 2363/2363 (--test-threads 2) ✅ · cli_tests 95/95 ✅ · memory_export_import 10/10 + importers/sdk_serialization/proptest 58/58 ✅ · fmt ✅ · clippy --all-targets --all-features -D warnings ✅ · gates docs 4/4 ✅ · avance 1034/1034 ✅. evidencia: {claim: 'slice entregado con roundtrip íntegro + manifest determinista + verify no claim-driven', evidencia: 'commits 55b9a532/c29e2cb9 · 7 tests MEMG-15 · review P2-01 R2 APPROVE', confianza: alta}. artefactos: docs/dev/tasks/MEMG-15.md · docs/api/MEMORY_INTERCHANGE_FORMAT.md · docs/api/EMBEDDED_SDK.md · docs/api/PYTHON_SDK.md · docs/dev/avance/activo/operaciones.md · docs/dev/Backlog.md (FIND-309/310/311). invariantes: JSONL v2 intacto · import sin enforcement · ExportReport aditivo · sin deps/unsafe · WIP ajeno intacto. deuda: FIND-309 (firma→vanta-audit) · FIND-310 (bindings/MCP/TS + refactor cmd_export) · FIND-311 (conversores frontera). queda_pendiente: push NO (owner).
+Próxima tarea si completa: MEMG-19 (Task 63) / según orquestador
+=== END RECITATION ===
+
+=== RECITATION 63 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: MEMG-19 (Task 63): prospectiva/intencional como patrón de uso (working+temporal+procedimental; no almacén) con benchmarks PM-Bench/TriggerBench + descartes sensorial/emocional con respaldos y criterios de revisión — CERRADA
+Estado: completed
+Última acción: Steps 1-4 completos: research-doc docs/dev/research/memg-19-prospectiva-descartes.md (prospectiva §1 + descartes §2 + registro auditable + 9 fuentes fetch-verificadas) + task file canónico; pointers memg-18 §1.1(C)/§3.8 + memg-14 §2.2/§2.7; gates docs 4/4 server-side; OCR N/A (docs-only; reviewables = WIP ajeno); review P2-01 vanta-review APPROVE (O-1/N-1/N-2 aplicados); commits locales 93846595 + b57bf445; fila Backlog removida + registro operaciones.md.
+Resultado: OK
+Próxima acción: Ninguna (cerrada). Handoff: server key real = MEMG-19 (el numérico 63 no resuelve); push pendiente de instrucción owner (Regla 7).
+Contrato: verificacion: check-links ✅ exit 0 (3072 links, 0 broken) · check-docs ✅ GATING all clear · gen-index --check ✅ exit 0 · validate-docs-coverage ✅ 0 gaps (server-side via campaign_verify_cmd; 1 hiccup transitorio de spawn resuelto en retry). evidencia: {claim: 'contrato L1818 1:1 — prospectiva patrón de uso + descartes + criterio emocional 6-12m', evidencia: 'docs/dev/research/memg-19-prospectiva-descartes.md §1-§2 + §Review en docs/dev/tasks/MEMG-19.md', confianza: alta} | {claim: 'grep del contrato >0 para ambos', evidencia: 'sensorial=10 · emocional=10 · prospectiva=7', confianza: alta} | {claim: 'fuentes externas fetch-verificadas y fechadas', evidencia: '9/9 (8 arXiv + Mem0; TSYS-13 2026-10-06) + re-verificadas en vivo por el reviewer', confianza: alta} | {claim: 'review P2-01 fresh APPROVE', evidencia: 'vanta-review ses_ef06a43f1ffeQ0YZ2vhn21XWlw (0 Required; O-1/N-1/N-2 aplicados)', confianza: alta}. artefactos: docs/dev/research/memg-19-prospectiva-descartes.md · docs/dev/tasks/MEMG-19.md · commits 93846595 + b57bf445. invariantes: prospectiva NO almacén (sin tipos/estructuras nuevas); descartes no re-litigados (reapertura = owner; ventana emocional 2027-03-30→2027-09-30); sin código/símbolos; master plan/opencode.jsonc/pipeline-state intactos; WIP ajeno no stageado (pathspec). deuda: ninguna nueva. queda_pendiente: push (lane owner); nota: server key real = MEMG-19.
+Próxima tarea si completa: lo decide el orquestador
+=== END RECITATION ===
+
+=== RECITATION 65 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: STRAT-05 — Ruta object storage (S3/blob): research + spec + decisión documentada (ADR-0056); sin implementación
+Estado: completed
+Última acción: Cierre completo: research-doc + ADR-0056 (proposed) + task file commit cb0bd21e; avance core-engine + fila Backlog removida commit bc2e8cda; gates docs 4/4 verdes; OCR N/A (docs-only); review P2-01 vanta-review APPROVE (0C/0H; FIND-1 Medium corregido inline)
+Resultado: OK
+Próxima acción: Ninguna — task cerrada. Próxima del plan: Task 66 STRAT-06 (research licencias + ACV, vanta-research)
+Contrato: verificacion: check-links 0 broken / check-docs GATING clear / gen-index --check clean / validate-docs-coverage 0 gaps / check-avance-coverage 1034/1034 / markdownlint 0 ✅
+evidencia:
+  - claim: contrato L1867 cumplido 1:1 (viabilidad+costo+tradeoffs ×3 opciones + decisión ADR + fuentes + cero implementación)
+    evidencia: docs/dev/research/strat-05-object-storage.md + docs/dev/architecture/adr/ADR-0056-object-storage-path.md + docs/dev/tasks/STRAT-05.md
+    confianza: alta
+  - claim: 16 fuentes externas fetch-verificadas 2026-10-06; reviewer re-fetcheó 10/10 fieles
+    evidencia: task file §Notas tabla + review P2-01 (ses_ef052090affeOF2ELC1afQGPOV)
+    confianza: alta
+  - claim: hoy 100% local — BackendKind Fjall/RocksDb/InMemory sin variante object storage
+    evidencia: src/backend.rs:105-132 + init.rs:275-283
+    confianza: alta
+artefactos: docs/dev/research/strat-05-object-storage.md · docs/dev/architecture/adr/ADR-0056-object-storage-path.md · docs/dev/tasks/STRAT-05.md · docs/dev/avance/activo/core-engine.md · docs/dev/Backlog.md
+invariantes: local-first intacto (ADR-0004/0020 vigentes); no re-litigar veredicto 2026/BIZ-14 (frontera backup vs storage path declarada); cero código/símbolos públicos; ADR propuesto pendiente de ratificación del owner
+deuda: ninguna nueva; FIND-6 anotado para el spec futuro de BIZ-14 (artefacto offsite, ubicación dep object_store, integridad en restore)
+queda_pendiente: ratificación del owner del ADR-0056 (proposed) y, al trigger Pro/Cloud, el spec de segment-level; orquestador: registrar outcome SDP si aplica
+Próxima tarea si completa: 66
+=== END RECITATION ===
+
+=== RECITATION 66 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: STRAT-06 — Research: licencias (Khoj/Jan/Reor/OpenWebUI/Letta) + ACV OSS DBs — licencias comparadas + ACV/bands con fuente o marcado modelado + implicaciones open-core/OEM (plan Task 66, contrato L1895)
+Estado: completed
+Última acción: Cierre completo: research-doc `docs/dev/research/strat-06-licencias-acv-oss.md` + task file; 32 fuentes fetch-verificadas 2026-10-06 (licencias GitHub API/LICENCE; ACV SEC/earnings/oficiales; Khoj Cloud sunset primary); gates docs 4/4 exit 0; OCR N/A (diff docs-only, reviewables = WIP ajeno); review P2-01 vanta-review r1 changes-required (F1 higiene commit fila STRAT-04 en índice → docs/index.md excluido del pathspec; F2 Jan 6.8M+; F3 claim 0-hits corregido; F4 tipo Redis; F5 permalinks — sub-claim Neo4j rechazado con evidencia) → fixes → delta r2 APPROVE; commits LOCALES 10e80f0c (docs research + task + llms.txt) + 6029efd1 (avance + Backlog :168 removida + nota :161 actualizada)
+Resultado: OK
+Próxima acción: Ninguno para STRAT-06 (cerrada). Orquestador: (1) al cierre de STRAT-04 regenerar/commitear docs/index.md (contiene ambas filas — deuda transitoria declarada); (2) re-verificar datos de revenue/pricing antes de decisiones de pricing/OEM (ventana 6-18m).
+Contrato: verificacion: check-links exit 0 · check-docs exit 0 (GATING clear) · gen-index --check exit 0 · validate-docs-coverage.ps1 0 gaps ✅
+evidencia:
+  - claim: "Licencias de los 5 fetch-verificadas 2026-10-06 (Khoj AGPL-3.0; Jan Apache-2.0 © Menlo; Reor AGPL-3.0 archivado; OpenWebUI BSD-3+branding clause no-OSI; Letta Apache-2.0)"
+    evidencia: "api.github.com/repos/{khoj-ai/khoj,janhq/jan,reorproject/reor,open-webui/open-webui,letta-ai/letta} + LICENSE raw (fetch 2026-10-06); reviewer re-verificó 11/11 spot-checks"
+    confianza: alta
+  - claim: "Khoj Cloud sunset 2026-04-15 (aviso oficial con razones de secuencia cloud-first)"
+    evidencia: "https://app.khoj.dev/ (fetch 2026-10-06, primaria; agenticindex secundaria confirmatoria)"
+    confianza: alta
+  - claim: "ACV con fuente por número: MongoDB 2,999 ≥$100k / 402 ≥$1M (SEC 10-Q jul-2026); Elastic 1,800+ ≥$100k ACV (Q1 FY27); Neo4j >$200M (oficial nov-2024); Redis >$300M + 12k pagos + 50+ >$1M (oficial ene-2026); ClickHouse >$350M (reportado ago-2026); Supabase $70M→~$170M (estimado Sacra)"
+    evidencia: "§2.1 + §4 del research doc (URLs completas); reviewer re-fetcheó 10-Q MDB + Yahoo Q4 + permalink Neo4j (resuelve)"
+    confianza: alta (oficial/SEC) / media (reportado/estimado, etiquetado)
+  - claim: "Bandas de ACV marcadas modelado (derivado) + columna tipo (dato/reportado/modelado) por fila"
+    evidencia: "§2.2 doc; rg -c modelado = 12"
+    confianza: alta
+  - claim: "Implicaciones open-core/OEM citan la decisión vigente (Apache-2.0 + CLA) sin re-litigarla; 3 vías de protección sin cerrar el motor + ancla OEM Neo4j"
+    evidencia: "§2.3 + §3 doc; invariante #1 task file; verificado por reviewer"
+    confianza: alta
+  - claim: "Review P2-01 APPROVE (delta r2, contexto fresco)"
+    evidencia: "task file §Review (bloque registrado); sesión reviewer ses_eeff8eb59ffeVHFdH6H9szzsx8"
+    confianza: alta
+artefactos:
+  - docs/dev/research/strat-06-licencias-acv-oss.md (nuevo)
+  - docs/dev/tasks/STRAT-06.md (nuevo)
+  - llms.txt (regenerado)
+  - docs/dev/Backlog.md (fila STRAT-06 :168 removida + nota :161 actualizada)
+  - docs/dev/avance/activo/operaciones.md (registro de cierre)
+  - commits locales 10e80f0c + 6029efd1 (⛔ sin push)
+invariantes: decisión Apache-2.0+CLA intacta (no re-litigada); cero números sin fuente (columna tipo); cero código tocado; master plan / opencode.jsonc / docs/pipeline-state.json no tocados; WIP ajeno (STRAT-04, heavy-test-lock) no stageado; sin push (Regla 7)
+deuda: docs/index.md regenerado sin commitear (contiene fila STRAT-04 de WIP ajeno — regeneración conjunta al cierre de STRAT-04); datos de revenue/pricing con ventana de validez 6-18m
+queda_pendiente: orquestador — regenerar docs/index.md al cierre de STRAT-04; nada más para STRAT-06
+Próxima tarea si completa: BENCH-02 (Task 67) — BEIR/MTEB recall@k vs pgvector/Chroma/sqlite-vec
+=== END RECITATION ===
+
+=== RECITATION 64 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: STRAT-04: WASM lock-free multi-thread (prep Kuzu) — diseño + primer slice medible
+Estado: completed
+Última acción: S1-S6 completos: research multi-fuente + decisión (SAB+atomics custom) + kernel lock-free no_std (tests 8/8) + build wasm (nightly/build-std/atomics, exports verificados) + bench before/after 5.10x wall/5.55x compute @12w (100k) y 5.10x/5.16x (400k), maxerr 5.4e-8 + S5 grafo producto EXIT=0 + WASM_THREADS.md + review P2-01 APPROVE (M1/M2 fixeados) + commits eadb07db/c54bb2c8 (LOCAL)
+Resultado: OK
+Próxima acción: ninguno — Task 65 (STRAT-05) es la siguiente del plan
+Contrato: verificacion: cd vantadb-wasm/threads-kernel && cargo test (8/8) + cargo clippy -D warnings (0) + pwsh build.ps1 (1689 bytes) + node benchmarks/wasm_threads_bench.mjs --n-vectors 100000 --dims 128 --workers 1,2,4,8,12 --repeats 7 (5.10x/5.55x) + RUSTFLAGS='--cfg getrandom_backend="wasm_js" -C target-feature=+atomics' cargo +nightly check -p vantadb-wasm --target wasm32-unknown-unknown -Zbuild-std=std,panic_abort (EXIT=0) + check-links/check-docs (exit 0)
+evidencia:
+  - claim: Kernel lock-free correcto (8/8 tests nativos, 4 threads reales, cada indice exactamente una vez) | evidencia: vantadb-wasm/threads-kernel/src/lib_tests.rs + cargo test | confianza: alta
+  - claim: Build wasm atomics+shared memory OK (imports [env.memory], exports [__stack_pointer, score_batch_chunked]) | evidencia: WebAssembly.Module.imports/exports + build.ps1 | confianza: alta
+  - claim: Speedup medido 5.10x wall / 5.55x compute @12w (100k); 5.10x/5.16x (400k) | evidencia: benchmarks/wasm_threads_results.json + _400k.json (7/5 repeats, warm-up) | confianza: alta
+  - claim: Grafo completo vantadb-wasm compila bajo build-std+atomics (go/no-go sin bloqueantes) | evidencia: target/strat04-s5-check.log (invocacion + EXIT=0) | confianza: alta
+  - claim: COOP/COEP declarado + fallback single-thread (patron Kuzu/DuckDB-WASM) | evidencia: docs/dev/architecture/WASM_THREADS.md (MDN 2026-02-10; Kuzu docs 2025-10-10) | confianza: alta
+  - claim: Review P2-01 fresco APPROVE sin Critical/High | evidencia: vanta-review ses_eefe34ce1ffeJ7khvY7Z6g61OE (re-ejecuto tests/build/bench) | confianza: alta
+artefactos: docs/dev/tasks/STRAT-04.md | docs/dev/architecture/WASM_THREADS.md | vantadb-wasm/threads-kernel/** | benchmarks/wasm_threads_bench.mjs | benchmarks/wasm_threads_worker.mjs | benchmarks/wasm_threads_results.json | benchmarks/wasm_threads_results_400k.json | target/strat04-s5-check.log
+invariantes: slice aditivo (vantadb-wasm/src y vantadb-ts intactos); kernel sin unwrap/panic en prod, unsafe con SAFETY, FFI con codigos de estado; workers=1 = camino single-thread (fallback); bench offline/determinista (seed 42)
+deuda: integracion de producto (feature threads + glue + fallback crossOriginIsolated) = FIND; CI kernel threads = FIND; validacion browser COOP/COEP pendiente; docs/index.md regenerado NO commiteado (WIP concurrente)
+queda_pendiente: orquestador: commitear docs/index.md + llms.txt; crear FINDs de integracion; coordinar MEMG-19
+Próxima tarea si completa: STRAT-05
+=== END RECITATION ===
+
+=== RECITATION 67 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: BENCH-02 — BEIR/MTEB recall@k vs sqlite-vec: harness + numero reproducible documentado
+Estado: completed
+Última acción: Cierre completo: fixes del review aplicados (R1 flat-scan en doc/JSON, R2 FIND-314/315), re-run final (JSON 04:36:31), gates docs 0, commits LOCALES 21e9ff0f (main) + 880611ff (avance+sync), fila Backlog BENCH-02 removida, registro en avance/activo/ci-cd.md, review P2-01 ronda 2 APPROVE
+Resultado: OK
+Próxima acción: Ninguno propio (tarea cerrada). Orquestador: WIRE-12 (Task 68) esta en vuelo por otra sesion; el gen-index --check rojo es por WIRE-12.md ajeno y lo paga su cierre.
+Contrato: verificacion: .venv/Scripts/python benchmarks/beir_recall_bench.py --self-test -> 16/16 exit 0 OK | corrida full exit 0 -> benchmarks/beir_recall_report.json (04:36:31) OK | node scripts/docs/check-links.mjs -> 0 roto OK | check-docs.mjs -> all clear OK | validate-docs-coverage.ps1 -> 0 gaps OK | check-avance-coverage.ps1 -> 1034/1034 OK | gen-index --check -> rojo SOLO por docs/dev/tasks/WIRE-12.md ajeno (no re-escrito, condicion C1 del review). evidencia: [claim 'recall@10 = 0.7833 / nDCG@10 = 0.6451 en BEIR SciFact test (300 queries, corpus 5183) para VantaDB y sqlite-vec' -> evidencia: benchmarks/beir_recall_report.json + BENCHMARKS.md seccion 21, confianza alta] [claim 'nDCG@10 0.6451 reproduce la referencia publicada MTEB Table 11 (MiniLM-L6 SciFact 64.51)' -> evidencia: arXiv:2210.07316v2 apendice F + verificacion del revisor, confianza alta] [claim 'ambos engines son exactos a este tamano: VantaDB flat exact scan (flat_threshold 10000 > 5183); index-recall 1.0 por construccion' -> evidencia: src/config.rs:347 + src/index/search/neighbors.rs + engine_config del JSON, confianza alta] [claim 'pgvector no viable sin Docker; sqlite-vec competidor viable' -> evidencia: docker NOT AVAILABLE + pip show sqlite-vec 0.1.9, confianza alta] [claim 'review P2-01 APPROVE ronda 2' -> evidencia: sesion vanta-review ses_eefb2b55bffeJoFCuNQT8iFHDy, confianza alta]. artefactos: benchmarks/beir_recall_bench.py · docs/user/operations/BENCHMARKS.md (seccion 21) · docs/dev/tasks/BENCH-02.md · docs/dev/avance/activo/ci-cd.md · commits 21e9ff0f + 880611ff. invariantes: competitive_bench.py intacto; cero cambios en src/ (WIP de WIRE-12 fuera del commit via staging selectivo); sin push (Regla 7); master plan/opencode.jsonc/pipeline-state sin tocar; sin claims sin comando (Regla 11). deuda: FIND-314 (pgvector no medido) + FIND-315 (medicion HNSW real >flat_threshold); gen-index --check rojo por WIRE-12.md ajeno. queda_pendiente: orquestador: ninguna accion bloqueante; opcional: re-run HNSW segun FIND-315.
+Próxima tarea si completa: WIRE-12 (Task 68) - en vuelo por otra sesion; siguiente segun plan
+=== END RECITATION ===
+
+=== RECITATION 68 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: WIRE-12 — IQL LIMIT/OFFSET end-to-end (parser→AST→planner→executor) + docs/api/IQL.md
+Estado: completed
+Última acción: Steps 1-5 ✅: RED (compile-fail por API inexistente) → GREEN (parser estricto + AST + Offset vía registry C2S6 + ventana n+m + PhysicalOffset + cost) → docs IQL.md/versión 3 → verify (lib 2399/2399, integración 19/19, public_api 1/1, fmt/clippy/docs gates) → review P2-01 adversarial ronda 1 REQUEST CHANGES (snapshot public-api stale) → fixes (refresh oficial + trailing-after-pagination + refs IQL_VERSION) → ronda 2 APPROVE → commit LOCAL 22585e1b.
+Resultado: OK
+Próxima acción: ninguno — tarea cerrada. Siguiente del plan: WIRE-13 (agregaciones, depende de esta).
+Contrato: verificacion: `cargo nextest run --profile audit -p vantadb --lib` ✅ 2399/2399 (2 skipped) · `--test parser --test joins --test executor --test operator_registry_extension` (no-cli por lock del exe MCP) ✅ 19/19 · `cargo nextest run -p vantadb --test public_api --run-ignored ignored-only` ✅ 1/1 · `cargo fmt --all -- --check` ✅ · `cargo clippy -p vantadb --no-default-features --features "cli,fjall,memmap2,fs2,roaring" -j 2 -- -D warnings` ✅ · `validate-docs-coverage.ps1` ✅ 0 gaps · check-links/check-docs/gen-index --check ✅. evidencia: claim: LIMIT/OFFSET end-to-end con skip-then-take correcto → tests parse+ejecución+RANK BY/AS OF+registry+cost+plan (52 asserts nuevos) + review adversarial que verificó planner.rs:427-443 | confianza alta. claim: sin breaking de queries existentes → LIMIT sigue reservada consumida; alias LIMITED/OFFSETX intactos; SCH-03 intacto; offset=0 path sin operador | confianza alta. claim: docs sin deriva → IQL.md v3 + sección Pagination + AST JSON + registry note; VERSIONING/openapi = 3; gen-index ✅ | confianza alta. claim: gate HARD-01 public-api → refresh oficial + compare 1/1; incluye 463 líneas de drift pre-existente (VER-10/MEMG-17) acknowledgeadas mecánicamente | confianza alta. artefactos: docs/dev/tasks/WIRE-12.md · docs/api/IQL.md · commit 22585e1b (20 archivos) · FIND-312/313 en Backlog. invariantes: LIMIT reservada consumida (no alias); Limit{top_k} intacto; planner/executor sin edición semántica; sin push (Regla 7); opencode.jsonc/master plan/pipeline-state sin tocar. deuda: ninguna nueva (FIND-312 trailing general sin paginación, FIND-313 ventana vectorial 5 — diferidos). queda_pendiente: (a) avisar a autores de VER-10/MEMG-17 del acknowledge del snapshot público; (b) limpieza opcional de `target/wire12api` (dir fresco usado por el lock del exe MCP); (c) fila Backlog WIRE-12 la remueve `skill progreso`.
+Próxima tarea si completa: WIRE-13
+=== END RECITATION ===
+
+=== RECITATION WIRE-13 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: WIRE-13 — IQL agregaciones COUNT/SUM/GROUP BY end-to-end
+Estado: in-progress
+Última acción: DISCOVERY completo: task file + FIND-316 + §Spec 14 decisiones por evidencia; blast radius Regla 0 mapeado
+Resultado: PARTIAL
+Próxima acción: Step 1 RED — tests de contrato; cargo check -p vantadb --tests debe fallar por compile-fail
+Contrato: verificacion: pendiente. evidencia: rg COUNT/SUM/GROUP/AVG src/parser = 0 hits; habilitador = OperatorRegistry C2S6 (planner.rs:250,438-443); FieldValue sin Ord (node/field.rs). artefactos: docs/dev/tasks/WIRE-13.md. invariantes: sin agregación → parseo idéntico; registry aditivo; sin push. deuda: ninguna (FIND-316 diferido).
+Próxima tarea si completa: SRV-10
+=== END RECITATION ===
+
+=== RECITATION 70 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: SRV-10 — Cifrado en reposo del server (HTTP): re-scope (b) superficie honesta (aviso key-sin-feature + feature opt-in + docs + tests; wiring=FIND-249)
+Estado: completed
+Última acción: Cierre completo: verify en worktree aislado (nextest lib+server 2509/2509 · clippy scoped + workspace all-features · fmt · gates docs) → OCR 0 Critical/High/Medium → review P2-01 vanta-review APPROVE (H2/H3/H5/H6 aplicados; H1 re-regen) → commit ca3f00da (hook completo verde en worktree, 9/9 SHA256-idéntico; movido a develop vía reset --soft — el hook del main tree fallaba solo por fmt ajeno de WIRE-13) → commit cierre 8f758e24 (avance operaciones.md + RESULTADO). Worktree eliminado; heavy lock expirado (tomado por otra sesión).
+Resultado: OK
+Próxima acción: ninguno — próxima tarea del plan la decide el orquestador (F6 Task 71 MKT-20 owner-assisted / cierre del plan)
+Contrato: verificacion: cargo nextest run --profile audit -p vantadb --features server --lib → 2509/2509 ✅ (worktree aislado; main tree no compilable por WIRE-13) · clippy --workspace --all-targets --all-features -D warnings ✅ · fmt ✅ · check-links/check-docs/gen-index/coverage ✅ · evidencia: re-scope (b) por FIND-249 diferido (Backlog.md:384) + RED 'vantadb-server does not contain this feature: encryption' + ENC-01 b02b1609 + review APPROVE (ses_eef343816ffegiJ3d5VZBtuNAM) | artefactos: docs/dev/tasks/SRV-10.md, commits ca3f00da + 8f758e24 (locales, sin push) | invariantes: frontera FIND-249 (write paths storage/WAL/HNSW/crypto.rs/vfile intactos); sin símbolos públicos nuevos; key NO loggeada; WIP ajeno sin stagear | deuda: FIND-249 (wiring diferido por owner); ruta MCP sin counterpart (fuera de alcance declarado); nota Backlog FIND-249 omitida (edición concurrente WIRE-13) | queda_pendiente: orquestador decide next task; push diferido al final del plan
+Próxima tarea si completa: MKT-20 (Task 71, F6 owner-assisted) o cierre del plan — decisión del orquestador
+=== END RECITATION ===
+
+=== RECITATION 69 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: WIRE-13 — IQL agregaciones COUNT/SUM/GROUP BY end-to-end (parser→AST→planner→executor) + docs
+Estado: completed
+Última acción: Steps 1-5 OK: RED (compile-fail probado) -> GREEN (gramatica+AST+PhysicalAggregate registry C2S6+v4) -> review adversarial r1 REQUEST CHANGES (C-1 trailing silencioso, M-1 colision key, M-2 AST programatico, M-3 tests, L-1..L-4) -> fixes -> r2 APPROVE -> verify final (lib 2440/2440, integracion 20/20, fmt/clippy, public-api 1/1, gates docs, OCR) -> commit LOCAL 753b9f78.
+Resultado: OK
+Próxima acción: ninguno — tarea cerrada. Proxima del plan: la decide el orquestador (SRV-10 ya cerro en ca3f00da).
+Contrato: verificacion: `cargo nextest run --profile audit -p vantadb --lib` -> 2440/2440 OK | integracion (--test parser --test executor --test joins --test operator_registry_extension, --no-default-features sin cli) -> 20/20 OK | `cargo fmt -p vantadb -- --check` OK | `cargo clippy -p vantadb --all-targets -- -D warnings` OK | public_api compare 1/1 OK (+74/-0) | check-links/check-docs/gen-index --check OK | evidencia: claim: COUNT/SUM/GROUP BY end-to-end (count/count_<f>/sum_<f>, first-seen, id=0) -> tests execute_hybrid_select_count_star/group_by_with_sum/where_then_aggregate/count_field/join_then_group_by + lib 2440/2440. claim: rechazos loud sin paths silenciosos (C-1) -> revisor r2 re-probo los 7 paths originales + variantes: todos ERR; tests test_parse_select_aggregation_rejects_trailing_clause + aggregation_rejects_trailing_clause_instead_of_silently_dropping_it. claim: cero edicion semantica a planner -> git diff src/planner.rs = 0 lineas. claim: superficie publica aditiva -> numstat 74 0 (AggregateFunc, LogicalOperator::Aggregate, PhysicalAggregate, AggregateCompiler/Cost, IQL_VERSION_MIN_AGGREGATION, campos SelectStatement). claim: review P2-01 APPROVE r2 -> vanta-review ses_eef119650ffeZv2X1omz1Hzc6j. | artefactos: docs/dev/tasks/WIRE-13.md | src/physical_plan/aggregate.rs (nuevo) | tests/api/public-api.txt (refresh) | docs/api/IQL.md | docs/dev/Backlog.md (FIND-316 + subcase R-1 en FIND-312) | commit 753b9f78 | invariantes: sin agregacion -> parseo identico; Limit/Offset/Dedup intactos; planner/executor sin edicion semantica; registry aditivo; RESERVED_KEYWORDS solo gana GROUP; nodos sinteticos nunca a storage; sin push (Regla 7) | deuda: ninguna introducida - FIND-316 (AVG/MIN/MAX/HAVING, multi-field GROUP BY, paginacion de grupos, valid-time-aware) + R-1 (subcase FIND-312) diferidos con fila en Backlog | queda_pendiente: orquestador: (1) SRV-10 (ca3f00da) commiteo los indices regenerados que incluian la descripcion IQL v4 de esta tarea (contaminacion benigna de regeneracion, consistente en HEAD); (2) siguiente tarea del plan.
+Próxima tarea si completa: siguiente pendiente del plan (lo decide el orquestador)
+=== END RECITATION ===
+
+=== RECITATION 71 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: MKT-20 (Task 71, F6): publish de los adapters en PyPI — preparación owner-assisted CERRADA; D1/D2 implementadas; checklist final para el owner
+Estado: completed
+Última acción: Cierre completo: D1 (twins retirados, matrices 9→7) + D2 (pins >=0.6.1,<0.9.0) implementadas y verificadas; docs alineados + índice; DoD multi-nivel registrada; review P2-01 r2.1 approve. Commits LOCALES: 9f773e92 (changeset 20 archivos) + 8d336134 (hash) + 01ef7a4c (DoD). Sin push.
+Resultado: OK
+Próxima acción: Owner (lane publish — checklist §F6-5 / PUBLISH.md §Adapters): push (cierre del plan) → pending publishers OIDC ×7 → dry-run TestPyPI (`gh workflow run release-adapters.yml -f publish_testpypi=true`; aprobar env testpypi) → tag `adapters-v0.5.0` (aprobar env pypi) → post-publish.
+Contrato: verificacion: verify.ps1 ALL 10 PASS ✅ · build ×7 + twine 14/14 + smoke ×7 (core 0.8.0 en 1 paso) ✅ · gates docs 0/0/0 ✅ · actionlint 0 ✅ · test_pins 10/10 ✅. evidencia: wheel METADATA `Requires-Dist: vantadb-py<0.9.0,>=0.6.1` + review fresh ses_eedfe4bf1ffe9AjydrN0g57x9f r2.1 approve + git status sin scope prohibido. artefactos: docs/dev/tasks/MKT-20.md · commits 9f773e92/8d336134/01ef7a4c · target/mkt20/dryrun2-*.log. invariantes: sin push/tag/publish; opencode.jsonc/master plan/pipeline-state intactos. deuda: residuales cosméticos (COMPARISON.md:209). queda_pendiente: orquestador → fila FIND-273 del Backlog (progreso Trigger 1) + avance; owner → checklist publish.
+Próxima tarea si completa: ninguno — F6/Task 71 era la última tarea del plan (queda el lane del owner)
 === END RECITATION ===
