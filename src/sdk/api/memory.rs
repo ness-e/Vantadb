@@ -593,6 +593,75 @@ impl Embedded {
         Ok(None)
     }
 
+    /// MEMG-04: per-namespace record quota check for a **fresh insert**.
+    ///
+    /// Opt-in via `Config.max_records_per_namespace`; `None` (the default)
+    /// makes this a no-op with zero cost. The count comes from the
+    /// incrementally-maintained text-index namespace stats (`doc_count`,
+    /// updated +1/−1 per put/delete/purge — never recomputed by scanning),
+    /// so the check costs one cache/KV read per fresh insert.
+    ///
+    /// The quota is a resource control (best-effort under concurrent
+    /// writers), not the multi-tenant security barrier — namespace isolation
+    /// is enforced by the server RBAC.
+    fn check_namespace_quota(
+        &self,
+        engine: &crate::storage::StorageEngine,
+        namespace: &str,
+    ) -> Result<()> {
+        let Some(limit) = self.config.max_records_per_namespace else {
+            return Ok(());
+        };
+        let current = Self::load_text_namespace_stats(engine, namespace)?
+            .map(|stats| stats.doc_count)
+            .unwrap_or(0);
+        if current >= limit {
+            return Err(Error::ResourceLimit(format!(
+                "namespace '{namespace}' is at its record quota ({current}/{limit}); \
+                 delete records or raise max_records_per_namespace"
+            )));
+        }
+        Ok(())
+    }
+
+    /// MEMG-04: batch variant — sums the **fresh** keys per namespace up front
+    /// so an over-quota batch is rejected before any chunk is written
+    /// (all-or-nothing: no partial application).
+    fn check_batch_namespace_quota(
+        &self,
+        engine: &crate::storage::StorageEngine,
+        inputs: &[MemoryInput],
+    ) -> Result<()> {
+        let Some(limit) = self.config.max_records_per_namespace else {
+            return Ok(());
+        };
+        let mut seen: HashSet<u128> = HashSet::with_capacity(inputs.len());
+        let mut fresh_per_ns: HashMap<&str, u64> = HashMap::new();
+        for input in inputs {
+            let node_id = memory_node_id(&input.namespace, &input.key);
+            if !seen.insert(node_id) {
+                continue; // in-batch duplicate: counts once
+            }
+            // A present-but-expired node is purged on write (net zero), so
+            // only truly absent nodes add to the count.
+            if engine.get(node_id)?.is_none() {
+                *fresh_per_ns.entry(input.namespace.as_str()).or_default() += 1;
+            }
+        }
+        for (namespace, fresh) in fresh_per_ns {
+            let current = Self::load_text_namespace_stats(engine, namespace)?
+                .map(|stats| stats.doc_count)
+                .unwrap_or(0);
+            if current.saturating_add(fresh) > limit {
+                return Err(Error::ResourceLimit(format!(
+                    "namespace '{namespace}' record quota exceeded: {current} existing + {fresh} new \
+                     > limit {limit}; delete records or raise max_records_per_namespace"
+                )));
+            }
+        }
+        Ok(())
+    }
+
     /// Shared logic for inserting/updating a single memory record.
     /// Used by both `put()` and `put_batch()`.
     fn put_one(&self, input: MemoryInput) -> Result<MemoryRecord> {
@@ -607,6 +676,11 @@ impl Embedded {
         // replacement (DUR-03 race hardening); `None` for fresh inserts.
         let (existing, _generation_guard) =
             self.resolve_existing_for_write(&engine, &input.namespace, &input.key)?;
+        // MEMG-04: quota applies to fresh inserts only — an update of an
+        // existing key never counts and is never blocked at the limit.
+        if existing.is_none() {
+            self.check_namespace_quota(&engine, &input.namespace)?;
+        }
 
         let timestamp = now_ms();
         let created_at_ms = existing
@@ -762,12 +836,18 @@ impl Embedded {
     pub fn put(&self, input: MemoryInput) -> Result<MemoryRecord> {
         let (namespace, key) = (input.namespace.clone(), input.key.clone());
         let res = self.put_one(input);
+        // MEMG-04: a quota rejection is audited with its reason (the generic
+        // err outcome would otherwise be silent about *why*).
+        let reason = match &res {
+            Err(Error::ResourceLimit(msg)) => Some(format!("quota_rejected: {msg}")),
+            _ => None,
+        };
         self.audit(crate::audit::AuditEvent::new(
             "put",
             &namespace,
             &key,
             if res.is_ok() { "ok" } else { "err" },
-            None,
+            reason,
         ));
         res
     }
@@ -787,12 +867,17 @@ impl Embedded {
             .map(|i| (i.namespace.clone(), i.key.clone()))
             .unwrap_or_else(|| ("N/A".to_string(), "N/A".to_string()));
         let res = self.put_batch_inner(inputs);
+        // MEMG-04: same quota-reason surfacing as `put`.
+        let reason = match &res {
+            Err(Error::ResourceLimit(msg)) => Some(format!("quota_rejected: {msg}")),
+            _ => None,
+        };
         self.audit(crate::audit::AuditEvent::new(
             "put_batch",
             &namespace,
             &key,
             if res.is_ok() { "ok" } else { "err" },
-            None,
+            reason,
         ));
         res
     }
@@ -807,6 +892,9 @@ impl Embedded {
         }
 
         let engine = self.engine_handle()?;
+        // MEMG-04: all-or-nothing quota pre-check — rejects before any chunk
+        // is written, so an over-quota batch leaves no partial state.
+        self.check_batch_namespace_quota(&engine, &inputs)?;
         let batch_size = self.config.batch_size.unwrap_or(1000);
         let mut all_results: Vec<MemoryRecord> = Vec::with_capacity(inputs.len());
         let mut rebuild_needed = false;
@@ -1285,6 +1373,11 @@ impl Embedded {
         // See `put_one`: hold the generation guard across insert + replace.
         let (previous, _generation_guard) =
             self.resolve_existing_for_write(&engine, &record.namespace, &record.key)?;
+        // MEMG-04: fresh inserts respect the namespace quota on this raw
+        // transport too (import restores/imports records through here).
+        if previous.is_none() {
+            self.check_namespace_quota(&engine, &record.namespace)?;
+        }
 
         // F4 (SCH-05 review): sticky on the raw transport — an incoming record
         // that carries no quarantine state must not clear an existing one

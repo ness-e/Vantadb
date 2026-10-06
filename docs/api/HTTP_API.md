@@ -35,6 +35,77 @@ Authorization: Bearer <VANTADB_API_KEY>
 
 Without an API key (dev mode), requests pass through unauthenticated.
 
+## Multi-tenant (namespace-scoped credentials)
+
+**Tenant model:** a **namespace is a tenant boundary** (the namespace is the
+keyspace partition: `node_id = H(namespace, key)`). There is no separate tenant
+entity; isolation is enforced at the API layer, on top of the RBAC that
+authorizes it.
+
+**Credentials:** a Bearer token can be mapped to a role via
+`rbac.token_role_map` (`Config.rbac_config`, programmatic today — no env/TOML
+loader yet). Two tenant credentials can be provisioned per server (primary
+`VANTADB_API_KEY` + rotation/alt `VANTADB_ALT_API_KEY`); N-credential
+provisioning is future work (FIND-304). Namespace-scoped roles are declared in
+`rbac.roles` (role name → `namespace_read` / `namespace_write` lists) and are
+registered **in addition to** the built-in `admin`/`reader`/`writer` roles —
+built-in names cannot be overridden.
+
+**Enforcement.** A credential whose role holds no global permission can only
+touch its granted namespaces. The namespace is read from the request path
+(`/api/v2/records/{ns}/…`), the query string (`?namespace=`) **and, on the
+surfaces below, from the JSON body** — the union is enforced (a matching
+`?namespace=` never masks a foreign body namespace). Any request whose
+namespace cannot be determined falls back to the global permission check,
+which a namespace-scoped role cannot pass (**fail closed**). Denials return
+`403` and are audited (`auth_rbac`; metadata only — role + namespace + action,
+never the token).
+
+Two clarifications on the semantics:
+
+- **Empty body declarations fail closed.** On a body-declared surface, a body
+  that declares no namespace (blank/missing field, empty body, all-namespaces
+  export, path import) **additionally requires the coarse global permission**
+  (path/query namespaces, if any, are still checked) — otherwise a scoped
+  credential could ride `?namespace=own` while the handler treats the empty
+  namespace as "all namespaces" (e.g. `search_all`).
+- **`writer`/`reader` role-bearing tokens are tightened.** They hold no
+  `Namespace*` grants, so a namespaced surface (path, query **or body**) is
+  denied — the same semantics SRV-05 already applied to path namespaces.
+  Upgrade note: pre-0.9.0 a body-only namespace on `POST /records` fell through
+  to the coarse global check and was allowed; it now returns `403`.
+- `POST /api/v2/search` is a read operation: it requires a **read** grant
+  (`namespace_read`), not a write grant.
+
+| Surface | Namespace source | Scoped credential |
+|---|---|---|
+| `GET /api/v2/records/{ns}/{key}` (+`/versions`) | path | enforced |
+| `POST /api/v2/records` | body (`namespace`) | enforced |
+| `POST /api/v2/records/batch` | body (every item) | enforced — any foreign namespace denies the whole batch |
+| `DELETE /api/v2/records/{ns}/{key}` | path | enforced |
+| `DELETE /api/v2/records?namespace=&filter=` | query | enforced |
+| `GET /api/v2/list?namespace=` | query | enforced; no `namespace` → denied (all-namespaces fan-out needs a global role) |
+| `POST /api/v2/search` | body (`namespace`) | enforced |
+| `POST /api/v2/export` | body (`namespace`) | enforced; no `namespace` → denied (all-namespaces export needs a global role) |
+| `POST /api/v2/import` | body (`records[].namespace`) | enforced; a `path` import declares no namespace → denied |
+| `/api/v2/query` (IQL), graph, maintenance, threads, skills, snapshots | — | not enabled for scoped credentials (global roles only) |
+
+**Per-namespace record quota (opt-in).** `VANTADB_MAX_RECORDS_PER_NAMESPACE`
+(or `Config::with_max_records_per_namespace`) caps the number of records per
+namespace (`0`/unset = unlimited). Fresh inserts over the cap are rejected with
+a resource-limit error and an explicit message (surfaces: `POST /records`,
+`POST /records/batch`, JSONL import; the `.vdbdump` bulk import is exempt in
+0.9.0 — FIND-304); updates of existing keys do not count; deletes free slots;
+`put_batch` is pre-checked (all-or-nothing). The
+rejection is audited (`put`/`put_batch`, outcome `err`, reason
+`quota_rejected: …`). The quota is a resource control (best-effort under
+concurrent writers) — the isolation barrier is the namespace-scoped RBAC above.
+
+**Billing boundary.** The engine does **not** bill: no metering or billing
+logic ships in `vantadb` (0.9.0). Per-tenant metering is exportable from the
+existing audit log (per-namespace `put`/`delete`/`auth_rbac` events); billing
+belongs to the host/proxy layer (see `vanta-proxy` cost tracking).
+
 ## Response conventions
 
 - **Success envelope:** write endpoints return `{ "success": true, ... }`; errors return
