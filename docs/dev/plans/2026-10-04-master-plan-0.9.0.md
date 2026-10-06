@@ -1748,7 +1748,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato (7 sub-decisiones + respaldo) · commit = `docs:` · release = n/a.
 - **Validación Appetite vs Effort:** 3d ≥ 2-3d ✓
 - **Skills sugeridas:** documentation-and-adrs · writing-guidelines · campaign-executor
-- **Estado:** ⏳ EN PROGRESO · **Task file:** `docs/dev/tasks/MEMG-14.md`
+- **Estado:** ✅ COMPLETED · **Task file:** `docs/dev/tasks/MEMG-14.md`
 
 ### Task 61: MEMG-15 — Portabilidad/interoperabilidad (AGENTS.md / MCP / IETF + export firmado)
 
@@ -1776,7 +1776,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato (spec + slice con roundtrip íntegro) · commit = `feat(sdk):`/`docs:` · release = changelog (minor).
 - **Validación Appetite vs Effort:** 1sem ≥ 3-5d ✓
 - **Skills sugeridas:** api-and-interface-design · documentation-and-adrs · source-driven-development · campaign-executor
-- **Estado:** ⏳ EN PROGRESO · **Task file:** `docs/dev/tasks/MEMG-15.md`
+- **Estado:** ⏳ EN PROGRESO
 
 ### Task 62: MEMG-18 — Multimodalidad: decisión + spec (extensión de modalidad vs 9ª dim)
 
@@ -1804,7 +1804,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato · commit = `docs:` · release = n/a.
 - **Validación Appetite vs Effort:** 2d ≥ 1-2d ✓
 - **Skills sugeridas:** documentation-and-adrs · campaign-executor
-- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/MEMG-18.md`
+- **Estado:** ⏳ EN PROGRESO · **Task file:** `docs/dev/tasks/MEMG-18.md`
 
 ### Task 63: MEMG-19 — Prospectiva + descartes documentados (sensorial/emocional)
 
@@ -2087,6 +2087,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **OCR gate:** toda tarea ✅ DO cierra con OCR delegation review (pipeline-full.md §Cierre paso 5); veredicto registrado en el task file.
 - **plan-adjust:** registrar acá cualquier cambio de gate/re-estimación con el template de `plan.md` §"Evento plan adjust".
 - **PRUEBAS PESADAS SERIALIZADAS (regla owner 2026-10-05):** UNA sola prueba pesada a la vez entre todas las sesiones (cargo nextest de crate/workspace, builds grandes, maturin). Lock: `pwsh dev-tools/heavy-test-lock.ps1 acquire|release|status` (TTL 45 min, espera hasta 30 min). Aplica a TODOS los workers; el orquestador además agenda máximo 1 tarea pesada en vuelo (emparejada con livianas/docs).
+- **INVESTIGACIÓN PROFUNDA (regla owner 2026-10-06):** toda tarea que procese una idea o modificación **nueva, grande o profunda** (p.ej. multimodalidad, portabilidad, marco 2.0, licencias, benchmarks comparativos) exige **investigación multi-fuente en internet** — skill `coordinated-web-search` (router websearch→metasearch→argus) + MCPs de búsqueda — SIEMPRE **enfocada a la implementación/caso VantaDB** (no research genérica), con fuentes verificadas y fechadas en el task file. Aplica a todos los workers.
   - **2026-10-04 — Checkpoint F0:** `/audit certify` diferido a la ventana del release (decisión owner vía question: certificar el estado que se publica, no un intermedio; `just verify` mecánico = verde ahora). F1 expandida a nivel F0 (`3afe71c6`) antes de ejecutar (gate de fase cumplido).
 - **SDP:** `campaign_discover_skills_v2` phase=PLAN (2026-10-04) → ver §SDP. Cada sub-agente corre su propio SDP en BUILD (≤10 skills) + los MCPs (codegraph, codebase-memory-mcp, campaign).
 - **Estado inicial:** 72 tareas ⬜ PENDING (71 + ENC-01 addendum owner 2026-10-04) · 0 completed · 0 failed.
@@ -2893,4 +2894,26 @@ invariantes: defaults byte-identicos · checker NO modificado · revocacion=acce
 deuda: FIND-305 (server/MCP + recall por grant + EXE-07) · O1 (template de claves duplicado, pinneado por tests) · O2 (deny reasons -> colapsar 403/404 al exponer server) · FIND-306 resuelto por VER-10
 queda_pendiente: ninguna para el orquestador — tarea cerrada. Nota: server key real = 'MEMG-16' (el taskId '58' no resolvio en campaign_update_task_state); VER-10 cerro en paralelo (sus commits aterrizaron); heavy-test-lock usado en cada corrida pesada.
 Próxima tarea si completa: orquestador decide (F5: Task 60+ MEMG-14/15/18/19; VER-10 Task 59 ya cerro)
+=== END RECITATION ===
+
+=== RECITATION MEMG-15 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: MEMG-15 (Task 61): mapeo de formatos de frontera + export JSONL con integridad verificable (checksum sha256, contrato VER-02) + versionado/migracion; firma criptografica -> FIND (stop L1764).
+Estado: in-progress
+Última acción: DISCOVERY completo: plan F0 leido; blast radius via codegraph; fuentes de frontera fetch-verificadas (W3C CG / AAIF / AIMEM / AMP URL corregida / ALF / AGENTS.md); task file docs/dev/tasks/MEMG-15.md creado (Spec 10 decisiones + Impacto mapeado Regla 0). Inicio Step 1 RED.
+Resultado: PARTIAL
+Próxima acción: Step 1 RED: tests de integridad en src/sdk/serialization/impl_export.rs (manifest sidecar, verify ok/mismatch/no_manifest, roundtrip) -> cargo nextest run --profile audit -p vantadb --lib -E 'test(export)' --build-jobs 2
+Contrato: verificacion: nextest -p vantadb --lib/--test cli_tests/--test importers + fmt + clippy + gates docs (pendiente). evidencia: {claim: 'gap real: export JSONL sin checksum/integridad', evidencia: 'rg checksum src/sdk = 0; attestation.rs:731 no digital signature', confianza: alta} | {claim: 'mecanismo decidido: extender VER-02 (sha256+limites); firma no sancionada -> FIND', evidencia: 'attestation.rs:17-20,731; FIND-302(c) MEMG-17; stop plan L1764', confianza: alta} | {claim: 'fuentes de frontera resuelven (AMP con URL corregida)', evidencia: 'w3.org/groups/cg/ai-agent-memory-interop; draft-schemacommons-aaif-00; draft-vu-aimem-bundle-00; github.com/agentmemoryprotocol/agentmemoryprotocol; github.com/agent-life/agent-life-data-format; agents.md', confianza: alta}. artefactos: docs/dev/tasks/MEMG-15.md. invariantes: JSONL v2 intacto (sidecar); ExportReport aditivo; verificacion no claim-driven; firma nunca reclamada; sin deps/unsafe; WIP ajeno no se toca; commit pathspec. deuda: ninguna nueva. queda_pendiente: Steps 1-5.
+Próxima tarea si completa: MEMG-15 Step 1 (RED)
+=== END RECITATION ===
+
+=== RECITATION 60 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: MEMG-14 (Task 60): marco reformulado 'núcleo + extensiones' (7 sub-decisiones a-g) + respaldo en repo + registro de validaciones + cadencia anual + draft de sync Notion — CERRADA
+Estado: completed
+Última acción: Steps 1-4 completos: research-doc docs/dev/research/memg-14-marco-2.0.md (7/7 + respaldo D1-D8/C1-C6/AM1-AM10/PI + registro + cadencia + draft §5) + task file canónico + pointer NOTION-SYNC §14 + índices regenerados; fuentes 11/11 fetch-verificadas (TSYS-13); gates docs 4/4; OCR N/A (docs-only; los reviewables del árbol son WIP ajeno); review P2-01 vanta-review ronda 1 changes-required → ronda 2 APPROVE; commits locales 21939b6f + 84bbc276; fila Backlog removida + registro operaciones.md.
+Resultado: OK
+Próxima acción: Ninguna (cerrada). Handoff: aplicar draft de sync §5 (lane owner) + R-1 pre-push (secuenciar MEMG-15.md → regenerar índice si aplica).
+Contrato: verificacion: check-links 0 broken (3025 links) ✅ · check-docs GATING all clear ✅ · gen-index --check (limpio al write; stale posterior por WIP ajeno MEMG-15 — R-1 declarado) · validate-docs-coverage 0 gaps ✅ · evidencia: claim='research-doc con 7/7 sub-decisiones (a-g)' evidencia='docs/dev/research/memg-14-marco-2.0.md §2 vs Backlog.md:140' confianza=alta; claim='fuentes citadas verificadas' evidencia='11 URLs fetch 2026-10-05 (arXiv 2604.16548/W3C CG/DAMA + 8 arXiv)' confianza=alta; claim='review P2-01 fresh APPROVE' evidencia='vanta-review ses_ef0bf832cffefQ7hc1vjWRs2Qh ronda 2' confianza=alta · artefactos: docs/dev/research/memg-14-marco-2.0.md, docs/dev/tasks/MEMG-14.md, docs/dev/strategy/NOTION-SYNC-2026-09-24.md, docs/index.md + llms.txt, docs/dev/Backlog.md (fila removida), docs/dev/avance/activo/operaciones.md (registro) · invariantes: scope=reformular las 7 sub-decisiones (no rediseño); lo no verificable marcado [a verificar — Notion]; WIP ajeno nunca staged (pathspec) · deuda: aplicación del sync Notion (lane owner) + R-1 pre-push (secuenciar MEMG-15.md; regenerar índice) · queda_pendiente: sync §5 (lane owner); R-1 al push (PROC-01)
+Próxima tarea si completa: MEMG-15 (Task 61) — lo decide el orquestador
 === END RECITATION ===
