@@ -12,8 +12,8 @@ description: "Agregaciones básicas (COUNT/SUM/GROUP BY) end-to-end (parser→AS
 - **Esfuerzo:** 🟡 3-5d · **Prioridad:** 🟡 · **Tipo:** Rust (parser/planner/executor IQL + registry) + `docs/api/`
 - **Turns estimados:** 15-30
 - **Creado:** 2026-10-06 · **last-synced:** 2026-10-06
-- **Estado:** ⏳ IN PROGRESS (steps 1-4 ✅; Step 5 = review P2-01 + commit + cierre)
-- **Incógnitas (uphill):** 0 (scope + shape de resultado + interacciones resueltas en §Spec con evidencia) · **Pendientes (downhill):** 1 step (cierre)
+- **Estado:** ✅ COMPLETED (steps 1-5 ✅; commit `753b9f78` + progreso `05f20b06`; campaign taskId 69 cerrado)
+- **Incógnitas (uphill):** 0 (scope + shape de resultado + interacciones resueltas en §Spec con evidencia) · **Pendientes (downhill):** 0
 
 ## Blast Radius
 
@@ -68,14 +68,14 @@ Comando de verificación (cierre): `cargo nextest run --profile audit -p vantadb
 ```
 === RECITATION ===
 Objetivo activo: WIRE-13 — IQL agregaciones COUNT/SUM/GROUP BY end-to-end
-Estado: in-progress (steps 1-5 casi cerrados → commit + campaign)
-Última acción: review adversarial r2 → ✅ APPROVE (C-1/M-1/M-2/M-3 + L-1..L-4 resueltos y re-probados por el revisor; residuales R-1 Low pre-existente → subcase FIND-312, N-2 atendido en docs). Re-verify: lib 2440/2440, integración 20/20, fmt/clippy verdes, public-api 1/1, gates docs verdes
-Resultado: PARTIAL
-Próxima acción: commit LOCAL feat(iql) (pathspec) → campaign completed taskId 69 → skill progreso → learnings
+Estado: completed (steps 1-5 ✅; commit 753b9f78 + progreso 05f20b06; campaign taskId 69 cerrado)
+Última acción: review adversarial r2 ✅ APPROVE (C-1/M-1/M-2/M-3 + L-1..L-4 resueltos y re-probados; R-1 Low pre-existente → subcase FIND-312; N-2 atendido en docs) → verify final (lib 2440/2440, integración 20/20, fmt/clippy, public-api 1/1, gates docs) → commit LOCAL 753b9f78 → campaign completed → skill progreso (05f20b06) → learnings/decisions escritos
+Resultado: OK
+Próxima acción: ninguno — tarea cerrada. Próxima del plan: la decide el orquestador.
 Contrato: ver ## Contrato
 Invariantes: sin agregación → parseo idéntico; planner/executor sin edición semántica; registry aditivo; sin push
 Deuda: ninguna (FIND-316 diferido; R-1 anotado en FIND-312)
-Próxima tarea si completa: siguiente pendiente del plan (SRV-10 ya cerró)
+Próxima tarea si completa: siguiente pendiente del plan (SRV-10 ya cerró en ca3f00da)
 last-synced: 2026-10-06
 === END RECITATION ===
 ```
@@ -149,8 +149,8 @@ last-synced: 2026-10-06
 ### Step 5: Cierre — verify contrato + OCR + review P2-01 + commit + campaña
 - **Archivos:** `docs/dev/tasks/WIRE-13.md`, `docs/dev/Backlog.md` (FIND-316), `tests/api/public-api.txt` (refresh)
 - **Acción:** suite scoped con LOCK + fmt + clippy; snapshot público refrescado; OCR delegation; review adversarial (vanta-review, tier adversarial por `src/parser/**`); commit LOCAL `feat(iql):`; cierre campaign taskId `69`; `skill progreso`
-- **Verify:** fmt ✅ · clippy ✅ · lib + integración scoped ✅ · public_api 1/1 ✅ · docs gates ✅
-- **Estado:** ⏳ IN PROGRESS (review P2-01 + commit pendientes)
+- **Verify:** fmt ✅ · clippy ✅ · lib 2440/2440 ✅ · integración 20/20 ✅ · public_api 1/1 ✅ · docs gates ✅ · OCR sin Critical/High ✅ · review P2-01 adversarial ronda 1 REQUEST CHANGES → ronda 2 ✅ APPROVE · commit LOCAL `753b9f78` · campaign taskId 69 completed · progreso `05f20b06`
+- **Estado:** ✅ COMPLETED
 
 ## Dependencias
 - WIRE-12 ✅ COMPLETED (`22585e1b`) — base releída desde HEAD (paginación + registry Offset).
