@@ -470,6 +470,37 @@ fn test_cmd_export_and_import() {
 }
 
 #[test]
+fn test_cmd_export_writes_integrity_manifest() {
+    let (_dir, path) = setup_temp_db();
+    seed_record(&path, "ex_ns", "k1", "export me");
+
+    let export_path = format!("{}/integrity-export.json", path);
+    let result = vantadb::cli_handlers::cmd_export(&path, Some("ex_ns"), &export_path, false);
+    assert!(result.is_ok(), "export failed");
+
+    let manifest_path = format!("{export_path}.manifest.json");
+    assert!(
+        Path::new(&manifest_path).exists(),
+        "manifest sidecar missing: {manifest_path}"
+    );
+
+    // The SDK verifies the CLI-written export against the same contract.
+    let config = vantadb::config::Config {
+        storage_path: path.clone(),
+        read_only: true,
+        ..Default::default()
+    };
+    let db = vantadb::Embedded::open_with_config(config).expect("open embedded");
+    let verification = db
+        .verify_export_integrity(&export_path)
+        .expect("verify export");
+    assert_eq!(verification.status, "ok");
+    assert_eq!(verification.records, 1);
+    assert_eq!(verification.namespaces, vec!["ex_ns".to_string()]);
+    assert!(!verification.limits.is_empty());
+}
+
+#[test]
 fn test_cmd_query_empty_db() {
     let (_dir, path) = setup_temp_db();
     let result = vantadb::cli_handlers::cmd_query(&path, "FROM Persona", 10, false, false);

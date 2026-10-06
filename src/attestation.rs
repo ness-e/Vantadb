@@ -367,7 +367,9 @@ fn canonical_bytes(cert: &PurgeCertificate) -> Result<Vec<u8>> {
     serde_json::to_vec(&canonical).map_err(Error::serialization)
 }
 
-fn hex_lower(bytes: &[u8]) -> String {
+/// Lowercase hex encoding of `bytes` (shared with the export integrity
+/// manifest — MEMG-15; `pub(crate)` only, not a public surface).
+pub(crate) fn hex_lower(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
