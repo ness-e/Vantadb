@@ -63,6 +63,11 @@ axum-server = { version = "0.8", features = ["tls-rustls"] }
 custom-allocator = ["mimalloc"]
 jemalloc = ["vantadb/jemalloc", "dep:tikv-jemallocator"]
 cli = ["vantadb/cli"]
+# SRV-10: opt-in at-rest encryption surface. Forwards the core `encryption`
+# feature; storage is still not wired (FIND-249) — the engine warns at open
+# when the feature+key are active (ENC-01) and `src/server/bootstrap.rs`
+# warns when a key is set without this feature.
+encryption = ["vantadb/encryption"]
 tls = ["vantadb/tls"]
 opentelemetry = ["vantadb/opentelemetry"]
 prometheus = ["vantadb/prometheus"]

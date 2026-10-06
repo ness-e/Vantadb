@@ -124,6 +124,44 @@ fn log_security_mode(config: &Config) {
     );
 }
 
+/// SRV-10 (FIND-249 frontier): with the `encryption` feature NOT compiled in,
+/// a configured `VANTADB_ENCRYPTION_KEY` is silently ignored — nothing in the
+/// server process consumes it and every on-disk artifact stays plaintext.
+/// The engine notice (ENC-01) is feature-gated, so it can never fire in this
+/// build; this server-side counterpart keeps the operator from mistaking the
+/// key for at-rest protection. When the feature IS compiled, the engine
+/// itself warns at open (`src/storage/engine/init.rs`, ENC-01).
+#[cfg(not(feature = "encryption"))]
+fn encryption_key_ignored_notice(config: &Config) -> Option<&'static str> {
+    use crate::storage::BackendKind;
+
+    config.encryption_key.as_ref()?;
+    if matches!(config.backend_kind, BackendKind::InMemory) {
+        return None;
+    }
+    Some(concat!(
+        "VANTADB_ENCRYPTION_KEY is set but this build does not include the ",
+        "`encryption` feature: the key is IGNORED and every on-disk artifact ",
+        "(WAL, HNSW index, VantaFile segments, backend KV, text index, ",
+        "snapshots) remains PLAINTEXT. Do not rely on this key for at-rest ",
+        "protection — use OS/volume-level encryption. Encryption-at-rest ",
+        "wiring is tracked in FIND-249."
+    ))
+}
+
+/// Emit the SRV-10 key-ignored notice at server start. Only fires when a key
+/// is configured in a build without the `encryption` feature (the default
+/// `vantadb-server` build); no key or feature-compiled builds are unchanged.
+#[cfg(not(feature = "encryption"))]
+fn warn_if_encryption_key_ignored(config: &Config) {
+    if let Some(notice) = encryption_key_ignored_notice(config) {
+        crate::console::warn(
+            "VANTADB_ENCRYPTION_KEY ignored — `encryption` feature not compiled",
+            Some(notice),
+        );
+    }
+}
+
 /// Flush storage and log the result using spawn_blocking to avoid blocking Tokio.
 async fn flush_on_shutdown_async(storage: Arc<StorageEngine>) {
     crate::console::warn("Flushing storage before exit...", None);
@@ -308,6 +346,11 @@ pub async fn run_with_hooks(config: Config, mut hooks: ServerHooks) -> Result<()
     crate::console::print_banner();
 
     validate_auth_config(&config)?;
+
+    // SRV-10: honest at-rest status — the engine's ENC-01 notice only exists
+    // in `encryption` builds; warn here when the key is inert (no feature).
+    #[cfg(not(feature = "encryption"))]
+    warn_if_encryption_key_ignored(&config);
 
     crate::console::progress("Initializing storage engine...", None);
 
@@ -748,5 +791,61 @@ mod tests {
         let _legacy_run = crate::server::routing::run_with_hooks;
         fn assert_trait<T: crate::cli_server::BackgroundService>() {}
         assert_trait::<crate::gc::MemoryTtlSweeper>();
+    }
+
+    // ── SRV-10: key-without-feature honesty (FIND-249 frontier) ─────────────
+
+    #[cfg(not(feature = "encryption"))]
+    mod encryption_key_ignored {
+        use super::*;
+        use crate::storage::BackendKind;
+
+        /// Hermetic config: fields pinned explicitly so an exported
+        /// `VANTADB_ENCRYPTION_KEY`/`VANTADB_BACKEND` cannot change the test.
+        fn config_with_key(backend_kind: BackendKind) -> Config {
+            Config {
+                storage_path: "srv10-test".to_string(),
+                backend_kind,
+                encryption_key: Some("ab".repeat(32)),
+                ..Config::default()
+            }
+        }
+
+        #[test]
+        fn encryption_key_ignored_notice_fires_for_on_disk_backend() {
+            let notice = encryption_key_ignored_notice(&config_with_key(BackendKind::Fjall))
+                .expect("key set without the `encryption` feature must warn");
+            assert!(
+                notice.contains("IGNORED"),
+                "notice must say the key is ignored; got: {notice}"
+            );
+            assert!(
+                notice.contains("PLAINTEXT"),
+                "notice must say data at rest is plaintext; got: {notice}"
+            );
+            assert!(
+                notice.contains("FIND-249"),
+                "notice must point at FIND-249; got: {notice}"
+            );
+        }
+
+        #[test]
+        fn encryption_key_ignored_notice_silent_without_key() {
+            let config = Config {
+                storage_path: "srv10-test".to_string(),
+                backend_kind: BackendKind::Fjall,
+                encryption_key: None,
+                ..Config::default()
+            };
+            assert!(encryption_key_ignored_notice(&config).is_none());
+        }
+
+        #[test]
+        fn encryption_key_ignored_notice_silent_for_in_memory_backend() {
+            assert!(
+                encryption_key_ignored_notice(&config_with_key(BackendKind::InMemory)).is_none(),
+                "no at-rest notice for InMemory (no on-disk artifacts)"
+            );
+        }
     }
 }

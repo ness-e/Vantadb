@@ -277,4 +277,4 @@ jq 'select(.namespace=="team-a")' /var/log/vantadb/audit.jsonl
 **Next Steps (Post-v0.5.0):**
 - SRV-06: OIDC/JWT integration (delegated)
 - SRV-09: mTLS for inter-node (distributed mode)
-- SRV-10: Encryption at rest (feature `encryption`)
+- Encryption at rest: AES-256-GCM primitives shipped (feature `encryption`) but not wired to storage write paths yet — tracked in FIND-249; use OS/volume encryption today

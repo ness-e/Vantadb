@@ -6,7 +6,7 @@
 
 Every link below points to the raw Markdown source, not a rendered page. Read the
 page you need; do not read this file end to end. This index covers the
-464 documentation pages; it deliberately omits the 1106 task files,
+464 documentation pages; it deliberately omits the 1108 task files,
 which are work items rather than documentation. The full inventory of every file
 is in docs/index.md in the repository.
 
@@ -265,7 +265,7 @@ is in docs/index.md in the repository.
 - [Vanta Memory Engine — API Reference (`vanta-memory`)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/VANTA_MEMORY.md): Crate LLM-driven para memoria de agentes: captura L0, extracción/dedup L1, escenas L2,
 - [VantaDB Error Handling Reference](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/ERROR_HANDLING.md): This is the canonical contract for how VantaDB surfaces errors across every
 - [VantaDB HTTP API](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/HTTP_API.md): Default: http://127.0.0.1:8080
-- [VantaDB IQL Reference](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/IQL.md): The parser implements IQL version 3 (adds the AS OF valid-time clause and LIMIT/OFFSET pagination). The version is exposed as IQL_VERSION
+- [VantaDB IQL Reference](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/IQL.md): The parser implements IQL version 4 (adds the AS OF valid-time clause, LIMIT/OFFSET pagination, and COUNT/SUM/GROUP BY aggregation). The version is exposed as IQL_VERSION
 - [VantaDB Model Context Protocol (MCP) Server](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/MCP.md): MCP server reference — tools, profiles, and the current implementation version (tracked below)
 - [Versioning & Stability Policy](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/VERSIONING.md): VantaDB follows Semantic Versioning with the standard
 - [WAL Integrity — tamper-evident hash-chain](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/WAL_INTEGRITY.md): Hash-chain per WAL record (VER-01): detects altered, removed or reordered frames with exact position; documented limits (suffix truncation, consistent rewrite, archived segments) and on-demand detection via vanta-cli verify

@@ -769,9 +769,12 @@ Once the binary is on your `PATH`, see [Starting the Server](#starting-the-serve
   OIDC lands, API keys, JWT, and bearer tokens are the auth surface.
 - **No mTLS for inter-node.** SRV-09 is on the roadmap. Today the HTTP
   server is single-node, so the gap is not user-visible.
-- **No encryption at rest.** SRV-10 is on the roadmap. WAL and data files
-  live on disk in plain form, so deployment to encrypted volumes or
-  block-storage encryption is the operator's responsibility.
+- **No encryption at rest.** The `encryption` feature ships AES-256-GCM
+  primitives, but no storage write path uses them yet (FIND-249): WAL and
+  data files live on disk in plain form. The server warns during startup when
+  `VANTADB_ENCRYPTION_KEY` is set; deployment to encrypted volumes or
+  block-storage encryption remains the operator's responsibility until the
+  wiring lands.
 
 **Sources** (all verified 2026-08-29 via `webfetch`):
 
