@@ -6,7 +6,7 @@
 
 Every link below points to the raw Markdown source, not a rendered page. Read the
 page you need; do not read this file end to end. This index covers the
-455 documentation pages; it deliberately omits the 1095 task files,
+456 documentation pages; it deliberately omits the 1096 task files,
 which are work items rather than documentation. The full inventory of every file
 is in docs/index.md in the repository.
 
@@ -258,6 +258,7 @@ is in docs/index.md in the repository.
 - [Python SDK Documentation](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/PYTHON_SDK.md): Python SDK reference — Client, memory records, cognitive layer (memory_capture/memory_recall), async client and typed errors
 - [Scoring Semantics — VantaDB Official Score Contract](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/scores.md): VantaDB hybrid search combines two independent rankers
 - [Search Capability Parity — VantaDB vs Milvus vs Qdrant](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/SEARCH_PARITY.md): 1. topk semantics under groupby — VantaDB caps total hits; Milvus/Qdrant cap the number of groups. Choose topk = groups × groupsize to emulate the vendor behavior
+- [Shared memory: scopes, grants, and revocation](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/SHARING.md): Multi-agent sharing over the existing permission checker: scope mapping, grants, revocation semantics, checked reads and writes, and declared boundaries
 - [TypeScript SDK Documentation](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/TS_SDK.md): Create a new in-memory instance. Accepts an optional Config object. To use persistent storage, call connect() or open() instead
 - [Vanta Memory Engine — API Reference (`vanta-memory`)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/VANTA_MEMORY.md): Crate LLM-driven para memoria de agentes: captura L0, extracción/dedup L1, escenas L2,
 - [VantaDB Error Handling Reference](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/ERROR_HANDLING.md): This is the canonical contract for how VantaDB surfaces errors across every

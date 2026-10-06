@@ -18,6 +18,7 @@ pub mod graph;
 pub mod memory;
 pub mod namespaces;
 pub mod search;
+pub mod sharing;
 
 // Re-export the only public symbol from the legacy god-file at the same path.
 pub use memory::BulkImportReport;
