@@ -75,7 +75,7 @@ All configuration fields available in `VantaConfig` (Rust) and via environment v
 | `flat_threshold` | `Option<usize>` | `10000` | `VANTADB_FLAT_THRESHOLD` | Brute-force flat scan threshold; ≤ this many nodes skips HNSW |
 | `hot_reload_config` | `Arc<RwLock<HotReloadConfig>>` | `HotReloadConfig::default()` | — | Hot-reloadable config snapshot (feature-gated: `hot-reload`, not in `default` features). See [Hot-Reload JSON](#hot-reload-json) |
 | `rbac_config` | `RbacConfig` | `{ token_role_map: {}, roles: {} }` | - | RBAC config: token-to-role mapping + operator-declared namespace-scoped roles (MEMG-04) |
-| `roles` | `HashMap<String, RbacRoleCfg>` | `{}` | - | `RbacConfig` field (MEMG-04): namespace-scoped roles, registered in addition to the built-in `admin`/`reader`/`writer` (built-in names cannot be overridden). Programmatic only (no env/TOML yet — FIND-304). See [HTTP API — Multi-tenant](../api/HTTP_API.md). |
+| `roles` | `HashMap<String, RbacRoleCfg>` | `{}` | - | `RbacConfig` field (MEMG-04): namespace-scoped roles, registered in addition to the built-in `admin`/`reader`/`writer` (built-in names cannot be overridden). Programmatic only (no env/TOML yet — FIND-304). See [HTTP API — Multi-tenant](../../api/HTTP_API.md). |
 | `namespace_read` | `Vec<String>` | `[]` | - | `RbacRoleCfg` field: namespaces the role may read (and search/list/export) |
 | `namespace_write` | `Vec<String>` | `[]` | - | `RbacRoleCfg` field: namespaces the role may write (write covers delete in 0.9.0; strict per-action separation is FIND-301) |
 | `require_auth` | `bool` | `false` | `VANTADB_REQUIRE_AUTH` | Refuse to start unless `api_key` is configured |
