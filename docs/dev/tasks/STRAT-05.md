@@ -20,7 +20,7 @@ description: "Research + spec de la ruta object storage (viabilidad, costo, trad
 - **Tipo:** Research/spec (docs-only)
 - **Turns estimados:** 8-12 (una sesión de sub-agente)
 - **Creado:** 2026-10-06 | **last-synced:** 2026-10-06
-- **Estado:** ⏳ IN PROGRESS (reservada por el orquestador; **server taskId: `65`** para el cierre — instrucción del orquestador; `analyze_task`/`validate_scope` resuelven por texto `STRAT-05`, el numérico no resuelve en esos parsers — precedente MEMG-19)
+- **Estado:** ✅ COMPLETED (2026-10-06 — server taskId `65` para el cierre — instrucción del orquestador; `analyze_task`/`validate_scope` resuelven por texto `STRAT-05`, el numérico no resuelve en esos parsers — precedente MEMG-19)
 - **Incógnitas (uphill):** 0 — resueltas en DISCOVERY: (a) ¿snapshot-level vs segment-level vs backend nativo? → resuelto por evidencia multi-fuente (precedentes + restricción mmap + costos) → snapshot-level ahora / segment-level al trigger Pro-Cloud / nativo diferido con condiciones; (b) costos → modelo con supuestos marcados + precios fetch-verificados (S3 Price List API 2026-09-28, R2 2026-10-01); (c) crate para snapshot-level → `object_store` (Apache Arrow) recomendado `[a validar al implementar]`
 - **Pendientes (downhill):** 4 steps (1-4)
 - **Campaign ID:** master-plan-0.9.0-20261004 · **Campaign taskId:** `65`
@@ -136,7 +136,7 @@ description: "Research + spec de la ruta object storage (viabilidad, costo, trad
 - **Archivos:** este task file (sync de estados) + índices regenerados si difieren
 - **Acción:** gates docs 0 (`check-links` + `check-docs` + `gen-index --write`/`--check`) + `validate-docs-coverage.ps1`; OCR delegation (`ocr-review.ps1 -Format json`); review P2-01 (fork `vanta-review` — contexto fresco, adversarial); commit **LOCAL** `docs(research):` con pathspec; cierre campaign `taskId: "65"` con payload `review` (HARD-07); `skill progreso` (Trigger 1 — elimina fila Backlog `:168` + registro avance).
 - **Verify:** gates 0 + veredicto review registrado + commit local + campaign `completed` (`updated:true`).
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (2026-10-06 — gates docs 4/4 + OCR + review P2-01 APPROVE; commits `cb0bd21e`/`bc2e8cda`; campaign taskId `65` → completed)
 
 ## Dependencias
 
@@ -232,5 +232,5 @@ description: "Research + spec de la ruta object storage (viabilidad, costo, trad
 | Eje | Contador |
 |-----|----------|
 | Incógnitas abiertas (uphill) | 0 — resueltas en DISCOVERY (ruta por evidencia; costos modelados; crate recomendado) |
-| Pendientes de ejecución (downhill) | 4 steps (1 ✅, 2-4 ⬜) |
-| % completado | 25% (Step 1) |
+| Pendientes de ejecución (downhill) | 0 (4/4 ✅) |
+| % completado | 100% (Steps 1-4) |
