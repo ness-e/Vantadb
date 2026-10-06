@@ -1632,7 +1632,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato + test de no-cruce · commit = `feat(core):` · release = changelog (minor).
 - **Validación Appetite vs Effort:** 1mes ≥ 2-3sem ✓
 - **Skills sugeridas:** security-and-hardening · source-driven-development · doubt-driven-development · campaign-executor
-- **Estado:** ⏳ EN PROGRESO · **Task file:** `docs/dev/tasks/MEMG-04.md`
+- **Estado:** ✅ COMPLETED · **Task file:** `docs/dev/tasks/MEMG-04.md`
 
 ### Task 57: MEMG-05 — Multi-escritor (CRDT / vector-clock / LWW declarado)
 
@@ -1660,7 +1660,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato + test de concurrencia · commit = `feat(sync):` · release = changelog (minor).
 - **Validación Appetite vs Effort:** 1mes ≥ 2-3sem ✓
 - **Skills sugeridas:** source-driven-development · doubt-driven-development · rust-write-tests · campaign-executor
-- **Estado:** ⏳ EN PROGRESO · **Task file:** `docs/dev/tasks/MEMG-05.md`
+- **Estado:** ✅ COMPLETED · **Task file:** `docs/dev/tasks/MEMG-05.md`
 
 ### Task 58: MEMG-16 — Compartir/colaboración multi-agente (scopes + permisos + revocación)
 
@@ -1688,7 +1688,7 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato + tests share/revoke · commit = `feat(memory):` · release = changelog (minor).
 - **Validación Appetite vs Effort:** 1mes ≥ 1-2sem ✓
 - **Skills sugeridas:** security-and-hardening · source-driven-development · documentation-and-adrs · campaign-executor
-- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/MEMG-16.md`
+- **Estado:** ✅ COMPLETED
 
 ### Task 59: VER-10 — Attestation de escritura (extender el certificado de delete a writes)
 
@@ -1716,108 +1716,311 @@ Status: ⬆️ uphill = 6 incógnitas abiertas (repro exacto DX-01 en Node 26; a
 - **DoD:** task = contrato + tests válido/inválido · commit = `feat(attestation):` · release = changelog (minor).
 - **Validación Appetite vs Effort:** 3d ≥ 2-3d ✓
 - **Skills sugeridas:** security-and-hardening · source-driven-development · rust-write-tests · campaign-executor
-- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/VER-10.md`
+- **Estado:** ✅ COMPLETED · **Task file:** `docs/dev/tasks/VER-10.md`
 
 ## F5 — Frontera & estrategia (research, paralelizable con F2-F4)
 
-> **Gate de fase:** compactas — expandir al nivel F0 al iniciar F5. Estas tareas son research/specs/estrategia; no bloquean releases.
+> **Gate de fase:** ✅ CUMPLIDO — Tasks 60-70 expandidas a nivel F0 el 2026-10-05; listas para ejecutar.
 
 ### Task 60: MEMG-14 — Marco 2.0: núcleo + extensiones (reformulación del marco 8/6/10/PI)
 
-- **Appetite:** max 3d · **Esfuerzo:** 🟡 2-3d · **Prioridad:** 🟡
-- **Archivos clave:** docs del marco + sync Notion; 4 research (≈100 fuentes)
-- **Verificación real:** ✅ — la validación externa 2026 muestra que la taxonomía no es cerrada (survey de seguridad arXiv 2604.16548; DAMA-DMBOK); mantener "cerrada" es riesgo de credibilidad (Regla 11).
-- **Contrato:** marco reformulado ("núcleo + extensiones") con las 7 sub-decisiones del backlog (áreas 7/8, ámbitos, ejes, presentación, sync Notion, fuera-de-alcance, lista "no elevar"); revisión documentada.
+- **Appetite:** max 3d
+- **Esfuerzo:** 🟡 2-3d
+- **Prioridad:** 🟡
+- **Archivos clave:** `docs/dev/strategy/NOTION-SYNC-2026-09-24.md` (§14 Sync #2 — marco núcleo+extensiones; sync completo = MEMG-14(e)), `docs/dev/research/validacion/` (8 docs de la validación externa 2026-09-30), `docs/dev/Backlog.md:140` (fila con las 7 sub-decisiones a–g), docs del marco en repo (a crear: respaldo de dims/áreas/ámbitos fuera de Notion)
+- **Verificación real:** ✅ CÓDIGO-REAL — `NOTION-SYNC-2026-09-24.md:132-144`: Sync #2 ejecutado y verificado (6/6 notas, validación externa 4 research ≈100 fuentes, commits `076d2bb1`/`fc3ec237`); el sync completo del "Marco 2.0" queda explícitamente en MEMG-14(e). Backlog `:93,:110,:140` confirman origen (8 dims · 6 áreas · 10 ámbitos · PI) y reformulación pendiente. El marco como tal NO vive en el repo (dims hub = Notion) → el respaldo es parte del contrato.
+- **Gate Justificación:** credibilidad del marco público (Regla 11): la validación 2026 muestra taxonomía no cerrada (arXiv 2604.16548; DAMA-DMBOK Interoperabilidad); "cerrada en seis" es claim refutable. Además fija el vocabulario que MEMG-15/18/19 usan en F5.
+- **Gate Result:** ✅ DO
+- **Contrato:** marco reformulado ("núcleo + extensiones") con las 7 sub-decisiones del backlog: (a) áreas 7/8 + meta-área observabilidad, (b) ámbitos +4 y ampliaciones, (c) ejes + cadencia L0→L3, (d) corrección "cerrada en seis" + separación cognitivas/ingeniería, (e) sync Notion + respaldo al repo + registro de validaciones + cadencia anual, (f) confianza calibrada como extensión + paramétrica fuera de alcance, (g) lista "no elevar" + nota bitemporal; revisión documentada; respaldo en `docs/` con enlaces a evidencia.
+- **Pre-mortem:** (1) re-litigar el marco en vez de documentar → scope = reformular las 7 sub-decisiones, no rediseño; (2) drift Notion↔repo → el respaldo cita IDs de página (patrón NOTION-SYNC) + fecha; (3) fuentes no fetch-verificadas → citar arXiv/URLs y marcar lo no verificado `[a verificar en DISCOVERY]`.
+- **Stop conditions:** >3d → entregar sub-decisiones (d)+(e) (corrección + respaldo repo) y diferir el resto a FIND.
+- **Risk Register:**
+
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟡 | Re-litigación del marco | Scope = reformular 7 sub-decisiones, no rediseñar | DISCOVERY |
+  | 🟢×🟡 | Drift Notion↔repo | Respaldo con IDs de página + fecha + commits | cierre |
+  | 🟢×🟢 | Fuentes no fetch-verificadas | Marcar `[a verificar]` las no citadas con URL | review |
+
+- **Cynefin:** 🟨 complicado
+- **Top 3 riesgos:** (1) re-litigación; (2) drift Notion↔repo; (3) fuentes no verificadas.
+- **Uphill/Downhill:** ⬇️ (3 steps: reformular → respaldar → sync/revisión)
+- **DoD:** task = contrato (7 sub-decisiones + respaldo) · commit = `docs:` · release = n/a.
+- **Validación Appetite vs Effort:** 3d ≥ 2-3d ✓
 - **Skills sugeridas:** documentation-and-adrs · writing-guidelines · campaign-executor
-- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/MEMG-14.md`
+- **Estado:** ⏳ EN PROGRESO · **Task file:** `docs/dev/tasks/MEMG-14.md`
 
 ### Task 61: MEMG-15 — Portabilidad/interoperabilidad (AGENTS.md / MCP / IETF + export firmado)
 
-- **Appetite:** max 1sem · **Esfuerzo:** 🟠 3-5d · **Prioridad:** 🟠
-- **Archivos clave:** formatos de export/import (VER-05/06), drafts W3C/IETF (AAIF, AIMEM, ALF, AMP)
-- **Verificación real:** ✅ — drafts activos 2026; Anthropic vende "no lock-in" con import/export; VER-05/06 ✅ habilitan el paso.
-- **Contrato:** mapeo/adopción de formatos de frontera + export con checksum/firma + versionado/migración de formatos; spec + slice mínimo.
+- **Appetite:** max 1sem
+- **Esfuerzo:** 🟠 3-5d
+- **Prioridad:** 🟠
+- **Archivos clave:** `src/sdk/importers/mod.rs:12` (reglas de diseño VER-05/ADR-046 §D7), `docs/api/MEMORY_INTERCHANGE_FORMAT.md` (contrato JSONL v2 compartido por export/import), `src/sdk/serialization/impl_export.rs:180` (`export_namespace`), `src/cli_handlers/export_md.rs:324` (precedente: hashes por archivo en export MD), `src/attestation.rs:18-20,731` (VER-01/VER-02: sin firma digital hoy), drafts W3C/IETF (AAIF, AIMEM, ALF, AMP — evidencia en `Backlog.md:141`)
+- **Verificación real:** ✅ CÓDIGO-REAL — VER-05/06 con contenido completo (worker) y commit = LEAD (`docs/dev/tasks/VER-05.md`; `VER-06.md:77` "COMPLETO (worker) ... commit = LEAD"; Backlog `:141` los marca ✅): importers Mem0/Zep/Letta en `src/sdk/importers/` + formato documentado en `docs/api/MEMORY_INTERCHANGE_FORMAT.md`. **Gaps verificados:** export JSONL sin checksum/firma (`rg checksum src/sdk` = 0; el doc de formato no menciona firma/signature); `src/attestation.rs:731` declara "no digital signature ... cryptographic signing is a vanta-audit decision". AGENTS.md / MCP-memory / IETF = 0 código hoy.
+- **Gate Justificación:** "no lock-in" es claim de mercado 2026 (Anthropic lo vende con import/export); con VER-05/06 el paso es barato y evita isla de formato; habilita ICP-03 (evidencia en Backlog `:141`).
+- **Gate Result:** ✅ DO
+- **Contrato:** mapeo/adopción de formatos de frontera (AGENTS.md / MCP memory / drafts IETF-W3C) documentado + export con checksum/firma (mecanismo decidido en DISCOVERY: extender VER-01 chain / VER-02 receipt vs firma nueva) + versionado/migración de formatos de memoria; spec + slice mínimo verificable (roundtrip export→import con integridad).
+- **Pre-mortem:** (1) los drafts 2026 mutan → spec con fecha + estado "borrador", no contrato congelado; (2) firma sin decisión criptográfica → DISCOVERY decide (extender VER-01/02) o degradar a checksum + FIND; (3) scope multi-formato → slice = 1 formato de frontera + integridad, resto FIND.
+- **Stop conditions:** sin decisión de firma en DISCOVERY → checksum + FIND de firma (mínimo viable).
+- **Risk Register:**
+
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟡 | Drafts IETF/W3C mutan | Fecha + estado "borrador" por formato | DISCOVERY |
+  | 🟡×🟡 | Firma sin diseño criptográfico | Decisión DISCOVERY (VER-01/02 vs nueva); fallback checksum | DISCOVERY |
+  | 🟢×🟡 | Scope multi-formato | Slice 1 formato + FIND del resto | diseño |
+
+- **Cynefin:** 🟨 complicado
+- **Top 3 riesgos:** (1) drafts mutan; (2) firma; (3) scope.
+- **Uphill/Downhill:** ⬆️ 1 incógnita (mecanismo de firma) → DISCOVERY → ⬇️ (mapeo → slice → docs)
+- **DoD:** task = contrato (spec + slice con roundtrip íntegro) · commit = `feat(sdk):`/`docs:` · release = changelog (minor).
+- **Validación Appetite vs Effort:** 1sem ≥ 3-5d ✓
 - **Skills sugeridas:** api-and-interface-design · documentation-and-adrs · source-driven-development · campaign-executor
-- **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/MEMG-15.md`
+- **Estado:** ⏳ EN PROGRESO · **Task file:** `docs/dev/tasks/MEMG-15.md`
 
 ### Task 62: MEMG-18 — Multimodalidad: decisión + spec (extensión de modalidad vs 9ª dim)
 
-- **Appetite:** max 2d · **Esfuerzo:** 🟡 1-2d · **Prioridad:** 🟡
-- **Archivos clave:** marco de dimensiones; decisión owner 2026-09-14 (fuera de alcance v1.0 con triggers)
-- **Verificación real:** ✅ — "3 direcciones fuera de alcance v1.0 con triggers: ontología, multimodal (MGR-25+caso), memoria ejecutable".
-- **Contrato:** decisión documentada (extensión vs 9ª dim) + spec mínima + trigger de reevaluación.
+- **Appetite:** max 2d
+- **Esfuerzo:** 🟡 1-2d
+- **Prioridad:** 🟡
+- **Archivos clave:** `docs/dev/backlog-futuro.md` (FUT-15: multimodal fuera de alcance v1.0, trigger MGR-25+caso), `docs/dev/Backlog.md:159` (evidencia surveys 2026: arXiv 2602.06052 / 2507.07957 / 2512.13564), `docs/dev/strategy/NOTION-SYNC-2026-09-24.md:138` ("multimodal candidata" en dims hub), docs del marco (decisión + spec a crear)
+- **Verificación real:** ✅ CÓDIGO-REAL — decisión owner 2026-09-14 registrada en `backlog-futuro.md` (FUT-15: "3 direcciones fuera de alcance v1.0 con triggers: ontología (MGR-05+17), multimodal (MGR-25+caso), memoria ejecutable (MGR-07+sandbox)") y reflejada en Backlog `:159` ("candidata más fuerte a dimensión faltante según los 5 surveys 2026; MIRIX +35% ScreenshotVQA, −99.9% storage"). En el repo NO existe spec de multimodalidad (0 docs dedicados) → el contrato la crea.
+- **Gate Justificación:** es la candidata #1 a "dimensión faltante" del marco (5 surveys 2026); documentar decisión+trigger ahora evita re-litigar en cada release y alimenta MEMG-14(b) (ámbitos candidatos).
+- **Gate Result:** ✅ DO
+- **Contrato:** decisión documentada (extensión de modalidad transversal vs 9ª dimensión) + spec mínima (qué toca: contenido multimodal en episódica/semántica + embeddings multi-modal) + trigger de reevaluación refinado (hoy: MGR-25 + caso de uso) con la evidencia 2026; sin implementación.
+- **Pre-mortem:** (1) reabrir alcance v1.0 → el contrato es decisión+spec, no código; (2) decidir sin owner → si la decisión difiere de la registrada 2026-09-14, Gate D (question al owner) antes de escribir; (3) spec sin interfaz concreta → anclar en las superficies existentes (payload/vector del record; `MemoryExportLine`) `[a verificar en DISCOVERY]`.
+- **Stop conditions:** >2d → decisión + trigger documentados, spec mínima diferida a FIND.
+- **Risk Register:**
+
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟡 | Cambio de decisión sin owner | Gate D (question) si difiere de la decisión 2026-09-14 | DISCOVERY |
+  | 🟢×🟡 | Spec desconectada del código | Anclar en `MemoryExportLine`/payload+vector | diseño |
+  | 🟢×🟢 | Scope creep a implementación | Contrato = decisión+spec; código fuera | cierre |
+
+- **Cynefin:** 🟦 obvio (decisión ya tomada; documentar)
+- **Top 3 riesgos:** (1) decisión owner; (2) spec vaga; (3) scope creep.
+- **Uphill/Downhill:** ⬇️ (2 steps: decisión → spec+trigger)
+- **DoD:** task = contrato · commit = `docs:` · release = n/a.
+- **Validación Appetite vs Effort:** 2d ≥ 1-2d ✓
 - **Skills sugeridas:** documentation-and-adrs · campaign-executor
 - **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/MEMG-18.md`
 
 ### Task 63: MEMG-19 — Prospectiva + descartes documentados (sensorial/emocional)
 
-- **Appetite:** max 1d · **Esfuerzo:** 🟢 1d · **Prioridad:** 🟢
-- **Archivos clave:** docs del repo (los respaldos hoy viven solo en Notion; grep 0 hits)
-- **Verificación real:** ✅ — dims hub §Validación + PM-Bench/MemEmo/TriggerBench (2026).
-- **Contrato:** (a) prospectiva/intencional como patrón de uso documentado; (b) descartes sensorial/emocional con respaldos + criterio de revisión (6-12m); grep del repo > 0.
+- **Appetite:** max 1d
+- **Esfuerzo:** 🟢 1d
+- **Prioridad:** 🟢
+- **Archivos clave:** docs del repo (a crear: prospectiva/intencional + descartes sensorial/emocional); evidencia: `docs/dev/Backlog.md:160`, `docs/dev/backlog-futuro.md` (FUT-15), dims hub §Validación (Notion)
+- **Verificación real:** ✅ CÓDIGO-REAL — los respaldos viven solo en Notion: en el repo "sensorial" solo aparece en `Backlog.md:160` + este plan (0 docs del marco); "emocional" solo en contexto distinto (FND-24 JTBD: `docs/dev/tasks/FND-24.md:50,59`; marketing: `04-marketing-branding-gtm-playbook.md:35`); PM-Bench/MemEmo/TriggerBench solo en Backlog/plan, sin doc dedicado. El "grep del repo > 0" del contrato es la verificación de cierre.
+- **Gate Justificación:** los descartes y la prospectiva son parte del contrato del marco ("extensiones futuras, no normativas") y hoy no son auditables desde el repo (Regla 11: evidencia fuera de Notion).
+- **Gate Result:** ✅ DO
+- **Contrato:** (a) prospectiva/intencional como patrón de uso documentado (working+temporal+procedimental; no almacén) con benchmarks de referencia (PM-Bench/TriggerBench); (b) descartes sensorial-como-almacén y emocional/motivacional con respaldos (arXiv 2602.23944 MemEmo/HLME etc.) + criterio de revisión (emocional: re-evaluar en 6-12m); grep del repo > 0 para ambos.
+- **Pre-mortem:** (1) copiar Notion sin adaptar → el doc cita IDs de página y enlaza, no transcribe; (2) citar arXiv sin fetch → marcar no-verificadas `[a verificar en DISCOVERY]`; (3) tono normativo → declarar "no normativo / extensión futura".
+- **Stop conditions:** —
+- **Risk Register:** | 🟢×🟢 | Fuentes no fetch-verificadas | Marcar `[a verificar]` o verificar antes de citar | review |
+- **Cynefin:** 🟦 obvio
+- **Top 3 riesgos:** (1) drift Notion→repo; (2) fuentes; (3) tono.
+- **Uphill/Downhill:** ⬇️ (2 steps: prospectiva → descartes)
+- **DoD:** task = contrato (grep > 0) · commit = `docs:` · release = n/a.
+- **Validación Appetite vs Effort:** 1d ≥ 1d ✓
 - **Skills sugeridas:** documentation-skill · writing-guidelines
 - **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/MEMG-19.md`
 
 ### Task 64: STRAT-04 — WASM lock-free multi-thread (prep Kuzu)
 
-- **Appetite:** max 1mes · **Esfuerzo:** 🔴 2-4sem · **Prioridad:** 🟠
-- **Archivos clave:** `vantadb-wasm` (concurrencia), SharedArrayBuffer/atomics
-- **Verificación real:** ✅ — "lo que falta para el claim Kuzu-successor" (STRAT-04, Alta 2026-10-01).
-- **Contrato:** diseño + primer slice de concurrencia lock-free en WASM multi-thread con benchmark before/after (Regla 9).
+- **Appetite:** max 1mes
+- **Esfuerzo:** 🔴 2-4sem
+- **Prioridad:** 🟠
+- **Archivos clave:** `vantadb-wasm/src/worker.rs` (bridge Web Worker OPFS — offload de I/O), `vantadb-wasm/src/lib.rs:13,68-73,420-423` (atomics solo flags/contadores), `vantadb-wasm/Cargo.toml` (sin deps de threads/rayon), `.cargo/config.toml` (solo backend getrandom), `docs/dev/architecture/WASM_STORAGE_REVIEW.md`, `benchmarks/wasm_bench.mjs`
+- **Verificación real:** ✅ CÓDIGO-REAL — hoy NO hay multi-thread lock-free: `worker.rs` es offload de I/O OPFS a un worker (no cómputo paralelo); atomics solo para `dirty`/`auto_save_enabled`/contadores (`lib.rs:13,22,40,420-423`); 0 hits de SharedArrayBuffer/threads/rayon en `vantadb-wasm` (Cargo.toml sin `wasm-bindgen-rayon`); `.cargo/config.toml` solo configura getrandom. Relacionado ya resuelto: serialización de writes OPFS vía Web Locks (WSM-15, `docs/dev/avance/activo/bindings.md:1166`).
+- **Gate Justificación:** "lo que falta para el claim Kuzu-successor" (Backlog `:171`; posicionamiento Kuzu-successor en `Backlog-negocio.md:97`); con la ventana Kuzu abierta (~12m, oct-2025), el claim necesita el slice medible o una decisión honesta de no perseguirlo.
+- **Gate Result:** ✅ DO
+- **Contrato:** diseño + primer slice de concurrencia lock-free en WASM multi-thread (SharedArrayBuffer/atomics o rayon-wasm, decidido en DISCOVERY) con benchmark before/after (Regla 9: medido, comando reproducible); si la viabilidad exige headers COOP/COEP del host, declararlo en la spec.
+- **Pre-mortem:** (1) SharedArrayBuffer requiere COOP/COEP → spec declara requisito + fallback single-thread; (2) el core no es wasm-thread-safe (estructuras no Sync) → DISCOVERY mapea qué estructura admite atomics `[a verificar en DISCOVERY]`; (3) benchmark wasm sin baseline → usar `wasm_bench.mjs` + documentar entorno.
+- **Stop conditions:** 2-4sem sin slice medible → diseño + decisión documentada (go/no-go) + FIND del slice (entregable honesto).
+- **Risk Register:**
+
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟠 | COOP/COEP del host no disponibles | Spec declara requisito + fallback | DISCOVERY |
+  | 🟡×🟠 | Core no Sync para threads | Mapear estructuras candidatas antes de codear | DISCOVERY |
+  | 🟢×🟡 | Bench sin baseline | `wasm_bench.mjs` + entorno documentado | VERIFY |
+
+- **Cynefin:** 🟨 complicado
+- **Top 3 riesgos:** (1) COOP/COEP; (2) Sync del core; (3) medición.
+- **Uphill/Downhill:** ⬆️ 2 incógnitas (viabilidad threads + estructura Sync) → DISCOVERY → ⬇️ (slice → bench → docs)
+- **DoD:** task = contrato (diseño + slice + bench) · commit = `feat(wasm):` · release = changelog (minor).
+- **Validación Appetite vs Effort:** 1mes ≥ 2-4sem ✓
 - **Skills sugeridas:** doubt-driven-development · source-driven-development · performance-optimization · campaign-executor
 - **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/STRAT-04.md`
 
 ### Task 65: STRAT-05 — Ruta object storage (S3/blob)
 
-- **Appetite:** max 1sem · **Esfuerzo:** 🔴 1-2sem · **Prioridad:** 🟡
-- **Archivos clave:** backend de storage (diseño), `docs/dev/backlog-futuro.md` (referencias)
-- **Verificación real:** ✅ — STRAT-05 (Alta 2026-10-01); research/spec primero.
-- **Contrato:** research + spec de la ruta object storage (viabilidad, costo, tradeoffs) con decisión documentada.
+- **Appetite:** max 1sem
+- **Esfuerzo:** 🔴 1-2sem
+- **Prioridad:** 🟡
+- **Archivos clave:** `src/backend.rs:105-132` (BackendKind: Fjall/RocksDb/InMemory), `docs/dev/architecture/adr/ADR-0004-storage-backend.md` + `ADR-0020-storage-backend-default.md`, `docs/dev/architecture/STORAGE-TIERS.md`, `docs/dev/Backlog-negocio.md:103` (BIZ-14 backup offsite S3/red — trigger Pro/Cloud), `docs/dev/archive/research-old/feature-verdicts-2026.md:128-137,387` (veredicto previo: "no S3 todavía; S3 es Fase 5")
+- **Verificación real:** ✅ CÓDIGO-REAL — hoy 100% local: backend abstracto en `src/backend.rs` (Fjall default / RocksDb / InMemory) sin variante object storage; precedentes: BIZ-14 (`Backlog-negocio.md:103`, "Exportar instantáneas `.vantadb` a almacenamiento de red") y veredicto 2026 (`feature-verdicts-2026.md:387`: "❌ S3 backup nativo (cloud only, Fase 5+)"). El compact citaba `backlog-futuro.md` como referencia — el archivo real de referencias es `feature-verdicts-2026.md` + `Backlog-negocio.md` (backlog-futuro no menciona S3).
+- **Gate Justificación:** research/spec primero (Backlog `:172`): decidir viabilidad/costo/tradeoffs de la ruta object storage antes de que el trigger Pro/Cloud la fuerce sin diseño; habilita backup/DR y edge futuro.
+- **Gate Result:** ✅ DO
+- **Contrato:** research + spec de la ruta object storage (viabilidad, costo, tradeoffs: snapshot-level vs segment-level vs backend nativo) con decisión documentada (ADR si toca el modelo de storage); sin implementación; fuentes citadas (Regla 11).
+- **Pre-mortem:** (1) scope a implementación → contrato = research+spec+decisión; (2) reabrir decisiones ya tomadas (veredicto 2026 / BIZ-14) → citarlas y declarar frontera (backup vs storage path), no re-litigar; (3) costos sin números → modelo con supuestos marcados `[a verificar en DISCOVERY]`.
+- **Stop conditions:** >1sem → spec con decisión + FIND del resto.
+- **Risk Register:**
+
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟡 | Scope a implementación | Contrato = research+spec+decisión | DISCOVERY |
+  | 🟢×🟡 | Duplicar BIZ-14 / veredicto previo | Citar precedentes y declarar frontera | review |
+  | 🟢×🟢 | Costos sin verificar | Supuestos marcados + fuentes | cierre |
+
+- **Cynefin:** 🟨 complicado
+- **Top 3 riesgos:** (1) scope; (2) duplicación; (3) supuestos de costo.
+- **Uphill/Downhill:** ⬆️ 1 incógnita (¿snapshot vs backend nativo?) → DISCOVERY → ⬇️ (research → spec → decisión)
+- **DoD:** task = contrato · commit = `docs:` · release = n/a.
+- **Validación Appetite vs Effort:** ⚠️ esfuerzo (1-2sem) > appetite (1sem) — contrato acotado a research+spec+decisión (sin implementación) para caber en 1sem; si no cabe → stop condition.
 - **Skills sugeridas:** doubt-driven-development · documentation-and-adrs · campaign-executor
 - **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/STRAT-05.md`
 
 ### Task 66: STRAT-06 — Research: licencias (Khoj/Jan/Reor/OpenWebUI/Letta) + ACV OSS DBs
 
-- **Appetite:** max 3d · **Esfuerzo:** 🟡 2d · **Prioridad:** 🟢
-- **Archivos clave:** research doc nuevo (`docs/dev/research/`)
-- **Verificación real:** ✅ — STRAT-06 (Alta 2026-10-01): "los bands de revenue son modelado, no datos".
-- **Contrato:** research doc con licencias comparadas + ACV de OSS DBs + implicaciones para el modelo open-core; fuentes citadas.
+- **Appetite:** max 3d
+- **Esfuerzo:** 🟡 2d
+- **Prioridad:** 🟢
+- **Archivos clave:** research doc nuevo (`docs/dev/research/`), precedentes: `docs/dev/research/validacion/01-competidores-memoria-agentes-ia.md` (Letta Apache-2.0 $20; Mem0 $19/$249), `02-bases-datos-embebidas-modelos-negocio.md`, `03-licenciamiento-y-monetizacion-open-core.md` (tabla SSPL/dual licensing), `08-monetizacion-local-first-sin-capital.md` ($79 desktop, Lemon Squeezy); `docs/dev/Backlog.md:173`
+- **Verificación real:** ✅ CÓDIGO-REAL — la base existe pero incompleta: `validacion/01:141` ya tabula Letta (Apache-2.0, $20) y pricing de competidores; `03` cubre licencias (SSPL/dual licensing) y `08` el modelo sin capital. Khoj/Jan/Reor/OpenWebUI = 0 hits en `docs/` → research nuevo; los "bands de revenue" están marcados como modelado, no datos (`Backlog.md:173`).
+- **Gate Justificación:** P3 estratégico: sin licencias comparadas + ACV real de OSS DBs, las decisiones open-core/OEM (`00-SINTESIS-EJECUTIVA2.md`: Apache-2.0 hoy + CLA ligero) quedan sin base citada.
+- **Gate Result:** ✅ DO
+- **Contrato:** research doc con licencias comparadas (Khoj/Jan/Reor/OpenWebUI/Letta + OSS DBs relevantes) + ACV/bands de OSS DBs con fuente por número (o marcado "modelado") + implicaciones para el modelo open-core; fuentes citadas (Regla 11).
+- **Pre-mortem:** (1) revenue no público → separar "dato verificado" vs "modelado" en la tabla (no inventar); (2) scope a estrategia completa → doc de research, no plan GTM; (3) licencias cambian (SSPL retiradas) → fecha por fila.
+- **Stop conditions:** >3d → doc con lo verificado + FIND de lo restante.
+- **Risk Register:**
+
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟡 | Revenue no público | Columna "dato/modelado" + fuente | DISCOVERY |
+  | 🟢×🟡 | Scope a GTM | Frontera: research, no plan | review |
+  | 🟢×🟢 | Licencias stale | Fecha por fila | cierre |
+
+- **Cynefin:** 🟦 obvio (research acotado)
+- **Top 3 riesgos:** (1) datos no públicos; (2) scope; (3) staleness.
+- **Uphill/Downhill:** ⬇️ (3 steps: recolectar → comparar → implicaciones)
+- **DoD:** task = contrato · commit = `docs:` · release = n/a.
+- **Validación Appetite vs Effort:** 3d ≥ 2d ✓
 - **Skills sugeridas:** coordinated-web-search · documentation-and-adrs · campaign-executor
 - **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/STRAT-06.md`
 
 ### Task 67: BENCH-02 — BEIR/MTEB recall@k vs pgvector/Chroma/sqlite-vec
 
-- **Appetite:** max 1sem · **Esfuerzo:** 🟠 3-5d · **Prioridad:** 🟠
-- **Archivos clave:** `benchmarks/` (0 hits de BEIR/MTEB), `competitive_bench.py:336-358` (ya computa recall_at_k)
-- **Verificación real:** ✅ — "un número de recall@k verificado vale más que 50 tareas de roadmap" (verificado HEAD 2026-10-01).
-- **Contrato:** número de recall@k (BEIR/MTEB) vs ≥1 competidor (pgvector o sqlite-vec), reproducible con comando documentado (Regla 11); doc en BENCHMARKS.md.
+- **Appetite:** max 1sem
+- **Esfuerzo:** 🟠 3-5d
+- **Prioridad:** 🟠
+- **Archivos clave:** `benchmarks/competitive_bench.py` (recall por query `:336-360`; campo `recall_at_k` `:383`; engines hoy `vanta,lance,chroma,qdrant,milvus` `:1001-1003`), `docs/user/operations/BENCHMARKS.md` (destino: §Recall@10 + §7 competitivo vs LanceDB/Chroma), `docs/dev/architecture/adr/ADR-0006-rrf-constant.md:36,53` (BEIR como precedente metodológico), `docs/api/EMBEDDINGS.md:145` (MTEB en docs)
+- **Verificación real:** ✅ CÓDIGO-REAL — `rg -i "beir|mteb" benchmarks/` = 0 hits; `competitive_bench.py` ya computa recall@k por query (`:336-360`, emitido en `:383` etc.); los engines actuales NO incluyen pgvector ni sqlite-vec (`:1001-1003`); `BENCHMARKS.md` existe con Recall@10 (stress, `:31-34`) y comparativa vs LanceDB/Chroma (§7) — falta el estándar BEIR/MTEB vs competidor del segmento.
+- **Gate Justificación:** "un número de recall@k verificado vale más que 50 tareas de roadmap" (Backlog `:142`); es la evidencia de calidad que los benches actuales (velocidad) no dan; Regla 11.
+- **Gate Result:** ✅ DO
+- **Contrato:** número de recall@k (BEIR/MTEB — dataset/split declarado) vs ≥1 competidor (pgvector **o** sqlite-vec), reproducible con comando documentado (dataset, hardware, seed); doc en `docs/user/operations/BENCHMARKS.md`; sin claims sin comando.
+- **Pre-mortem:** (1) pgvector/sqlite-vec no están en el harness → evaluar coste en DISCOVERY; si bloquea → FIND + decisión (un competidor ya soportado no cumple el contrato); (2) dataset BEIR real (descarga) vs sintético → declarar split exacto; (3) incomparabilidad con benches previos → nota de metodología.
+- **Stop conditions:** 1sem sin número reproducible → harness + comando + FIND del número (mínimo honesto).
+- **Risk Register:**
+
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟡 | Competidor no soportado (pgvector/sqlite-vec) | Evaluar en DISCOVERY; si bloquea → FIND + decisión | DISCOVERY |
+  | 🟡×🟢 | Dataset BEIR pesado/descarga | Split declarado + cache local | diseño |
+  | 🟢×🟡 | Incomparabilidad con benches previos | Nota de metodología + comando | review |
+
+- **Cynefin:** 🟨 complicado
+- **Top 3 riesgos:** (1) competidor; (2) dataset; (3) comparabilidad.
+- **Uphill/Downhill:** ⬆️ 1 incógnita (harness para pgvector/sqlite-vec) → DISCOVERY → ⬇️ (medir → doc)
+- **DoD:** task = contrato (número + comando) · commit = `perf(bench):`/`docs:` · release = n/a (evidencia de marketing).
+- **Validación Appetite vs Effort:** 1sem ≥ 3-5d ✓
 - **Skills sugeridas:** performance-optimization · documentation-skill · campaign-executor
 - **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/BENCH-02.md`
 
 ### Task 68: WIRE-12 — IQL: `LIMIT` / `OFFSET`
 
-- **Appetite:** max 3d · **Esfuerzo:** 🟡 2-3d · **Prioridad:** 🟡
-- **Archivos clave:** parser/planner IQL (el token `LIMIT` ya está lexado sin regla)
-- **Verificación real:** ✅ — "El token `LIMIT` ya está lexado sin regla; cierra fricción de UX (paginación)".
-- **Contrato:** `LIMIT`/`OFFSET` funcionan end-to-end (parser→planner→executor) con tests; docs IQL actualizadas.
+- **Appetite:** max 3d
+- **Esfuerzo:** 🟡 2-3d
+- **Prioridad:** 🟡
+- **Archivos clave:** `src/parser/lexer.rs:50` (`LIMIT` en RESERVED_KEYWORDS, sin consumidor), `src/parser/grammar.rs:139` (`parse_query`) y `:421` (`parse_select` — cláusulas FETCH/RANK BY/WITH TEMPERATURE/PROFILE), `src/query.rs:92-118` (AST `Query` sin campos limit/offset), `src/query.rs:403-405` (`LogicalOperator::Limit { top_k }` YA existe), `src/planner.rs:234-235` + `:428` (`PhysicalLimit`), `src/physical_plan/project.rs:53`, `docs/api/IQL.md`
+- **Verificación real:** ✅ CÓDIGO-REAL — el token `LIMIT` está lexado como reservada (`lexer.rs:50`) pero `rg "LIMIT|OFFSET" src/parser/` = solo esa línea: no hay regla gramatical. El operador `Limit { top_k }` existe end-to-end (enum `query.rs:403` → planner `:234` → `PhysicalLimit` `project.rs:53`; registry "limit" `operator_registry.rs:49`) pero sin productor IQL (construido solo en tests). `OFFSET` = 0 hits en parser/pipeline. `IQL.md` (373 líneas) no documenta ninguno de los dos.
+- **Gate Justificación:** cierra fricción UX real de paginación (Backlog `:191`): el lexer ya promete el keyword; falta cablearlo. Coste bajo, valor directo en clientes IQL (HTTP/MCP/bindings).
+- **Gate Result:** ✅ DO
+- **Contrato:** `LIMIT <n>`/`OFFSET <n>` funcionan end-to-end (parser→AST→planner→executor) con tests (parse + ejecución + interacción con RANK BY/AS OF) y `docs/api/IQL.md` actualizado; sin breaking de queries existentes (LIMIT sigue siendo reservada, ahora consumida).
+- **Pre-mortem:** (1) semántica de OFFSET sin operador → decidir en DISCOVERY (nuevo operador vía registry vs extender `Limit`); (2) interacción con búsqueda vectorial (top_k del motor ≠ LIMIT IQL) → documentar semántica (aplicar post-fusión) `[a verificar en DISCOVERY]`; (3) cláusula opcional que rompe aliases → usar `non_keyword_ident`/orden de cláusulas como las existentes.
+- **Stop conditions:** 2 iteraciones sin contrato verde → entregar LIMIT (sin OFFSET) + FIND de OFFSET.
+- **Risk Register:**
+
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟡 | OFFSET sin operador físico | Decisión DISCOVERY: registry vs extender Limit | DISCOVERY |
+  | 🟢×🟡 | Semántica vs top_k vectorial | Documentar post-fusión + tests | diseño |
+  | 🟢×🟢 | Orden de cláusulas rompe aliases | Patrón non_keyword_ident existente | VERIFY |
+
+- **Cynefin:** 🟨 complicado
+- **Top 3 riesgos:** (1) OFFSET; (2) semántica con búsqueda; (3) gramática.
+- **Uphill/Downhill:** ⬇️ (3 steps: gramática → plan → docs/tests)
+- **DoD:** task = contrato + tests · commit = `feat(iql):` · release = changelog (minor).
+- **Validación Appetite vs Effort:** 3d ≥ 2-3d ✓
 - **Skills sugeridas:** source-driven-development · rust-write-tests · campaign-executor
 - **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/WIRE-12.md`
 
 ### Task 69: WIRE-13 — IQL: agregaciones (`COUNT`/`SUM`/`GROUP BY`)
 
-- **Appetite:** max 1sem · **Esfuerzo:** 🟡 3-5d · **Prioridad:** 🟡
-- **Archivos clave:** parser/planner/executor IQL
-- **Verificación real:** ✅ — WIRE-13 (Alta 2026-10-01); habilitado por el pipeline de agregación existente.
-- **Contrato:** agregaciones básicas (COUNT/SUM/GROUP BY) end-to-end con tests; docs IQL actualizadas.
+- **Appetite:** max 1sem
+- **Esfuerzo:** 🟡 3-5d
+- **Prioridad:** 🟡
+- **Archivos clave:** `src/parser/lexer.rs` (sin tokens COUNT/SUM/GROUP/AVG), `src/parser/grammar.rs`, `src/query.rs:350` (`LogicalOperator` sin variante de agregación), `src/operator_registry.rs:222` (patrón de extensión: "new variant + physical file + one register line"), `src/physical_plan/` (Volcano: scan/filter/project/sort/join/dedup), `src/sdk/api.rs:691` (precedente `namespace_stats` agrega count/TTL fuera de IQL), `docs/api/IQL.md`
+- **Verificación real:** ✅ CÓDIGO-REAL — `rg "COUNT|SUM|GROUP|AVG" src/parser/` = 0 hits; `rg "Aggregate" src/operator_registry.rs src/physical_plan/ src/planner.rs src/query.rs src/executor.rs` = 0 → NO existe pipeline de agregación IQL. Lo que sí existe como habilitador: executor Volcano (`executor.rs:1-5`) + `OperatorRegistry` extensible (`operator_registry.rs:39,222`) + `namespace_stats` como agregación SDK fuera de IQL. La premisa del compact "habilitado por el pipeline de agregación existente" queda `[a verificar en DISCOVERY]` en su interpretación; el habilitador real verificado es el registry.
+- **Gate Justificación:** habilita el caso ERP/facturas (agregar sin exportar, Backlog `:192`); dependiente de WIRE-12 (misma área) — sin paginación la agregación es de utilidad limitada.
+- **Gate Result:** ✅ DO
+- **Contrato:** agregaciones básicas (`COUNT`/`SUM`/`GROUP BY`; alcance exacto en DISCOVERY) end-to-end con tests (parse + ejecución + tipos de resultado) y `docs/api/IQL.md` actualizado; sin breaking; resultado serializable en el AST JSON (patrón IQL.md `:303-339`).
+- **Pre-mortem:** (1) scope abierto (AVG/MIN/MAX/HAVING) → fijar mínimo COUNT/SUM/GROUP BY en DISCOVERY; (2) tipo de salida nuevo (no `UnifiedNode`) → decidir shape (filas agregadas) antes de codear; (3) interacción con `LIMIT` (WIRE-12) → orden de cláusulas declarado.
+- **Stop conditions:** >1sem → COUNT+GROUP BY mínimo + FIND del resto.
+- **Risk Register:**
+
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟡 | Scope de agregaciones | Mínimo COUNT/SUM/GROUP BY escrito antes de codear | DISCOVERY |
+  | 🟡×🟡 | Shape de resultado nuevo | Decisión de contrato en DISCOVERY | diseño |
+  | 🟢×🟡 | Dependencia WIRE-12 | Coordinar orden (WIRE-12 primero) | DISCOVERY |
+
+- **Cynefin:** 🟨 complicado
+- **Top 3 riesgos:** (1) scope; (2) shape de resultado; (3) dep WIRE-12.
+- **Uphill/Downhill:** ⬆️ 1 incógnita (shape de resultado) → DISCOVERY → ⬇️ (lexer/grammar → operador → tests/docs)
+- **DoD:** task = contrato + tests · commit = `feat(iql):` · release = changelog (minor).
+- **Validación Appetite vs Effort:** 1sem ≥ 3-5d ✓
 - **Skills sugeridas:** source-driven-development · rust-write-tests · campaign-executor
+- **Dependencias:** WIRE-12 (misma área — Backlog `:192`)
 - **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/WIRE-13.md`
 
 ### Task 70: SRV-10 — Cifrado en reposo del server (HTTP)
 
-- **Appetite:** max 1sem · **Esfuerzo:** 🟡 3-5d · **Prioridad:** 🟡
-- **Archivos clave:** capa server (`src/server/`), feature `encryption` del core (ya existe); `HTTP_API.md:701` lo declara
-- **Verificación real:** ✅ — "El core ya tiene feature `encryption`; falta la capa server" (SRV-10, Alta 2026-10-01).
-- **Contrato:** server con cifrado en reposo activable (config + key management documentado) con test; docs HTTP_API actualizadas.
+- **Appetite:** max 1sem
+- **Esfuerzo:** 🟡 3-5d
+- **Prioridad:** 🟡
+- **Archivos clave:** `docs/api/HTTP_API.md:772-774` (declara "No encryption at rest — SRV-10 on the roadmap"), `src/config.rs:888-895` (+`:1421-1424` env, `:1710` builder), `Cargo.toml:176` (feature `encryption` = aes-gcm+ring; `:180-188` feature `server` NO la incluye), `vantadb-server/src/main.rs:52` (`Config::from_env` → `run_with_hooks`), `vantadb-server/Cargo.toml` (deps sin `encryption`), `src/storage/engine/init.rs:612-640` (aviso FIND-249), `docs/user/operations/CONFIGURATION.md:74,499`
+- **Verificación real:** ✅ CÓDIGO-REAL — la premisa "el core ya tiene feature encryption; falta la capa server" es **parcialmente falsa**: FIND-249 (verificado DUR-02 2026-10-04, `Backlog.md:395`) demostró 0/6 artefactos cifrados (WAL/HNSW/VantaFile/backend-KV/text_index/snapshots en plaintext; `with_cipher` 0 callers); ENC-01 ya emitió el aviso honesto (`init.rs:612-640`; CONFIGURATION `:74`). En server: `main.rs:52` lee `Config::from_env()` (incluiría `VANTADB_ENCRYPTION_KEY`) pero la feature `server` no compila `encryption` (Cargo.toml `:180-188`) y `vantadb-server` no la activa. Nota: la línea citada por el compact (`HTTP_API.md:701`) ya no corresponde — la declaración real está en `:772-774`.
+- **Gate Justificación:** claim público de roadmap ("SRV-10 is on the roadmap", HTTP_API `:772`); sin cableado real + key management documentado, el server no puede sostener la expectativa; coordina con FIND-249 (decisión owner: avisar ahora, cablear luego) y ENC-01 (ya hecho).
+- **Gate Result:** ✅ DO — **con re-scope obligatorio en DISCOVERY:** el wiring on-disk está diferido como FIND-249; SRV-10 debe decidir entre (a) superficie server (config/key mgmt/docs/test del aviso) sin wiring, o (b) declarar dependencia de FIND-249 y posponer el contrato pleno.
+- **Contrato:** server con cifrado en reposo activable end-to-end (config + key management documentado) con test **o** — si FIND-249 sigue diferido — contrato reducido a: superficie de config/key mgmt + docs honestas (sin claim de protección) + test; en ambos casos `HTTP_API.md` actualizado sin prometer lo que no existe.
+- **Pre-mortem:** (1) FIND-249 diferido por decisión owner → re-scope (a)/(b) ANTES de codear; (2) duplicar FIND-249 → frontera declarada en task file; (3) habilitar `encryption` en server sin wiring = falsa sensación de seguridad → verificar que el aviso ENC-01 cubre la ruta server `[a verificar en DISCOVERY]`.
+- **Stop conditions:** si el re-scope revela que todo el valor depende de FIND-249 → decisión documentada + FIND; no inventar cifrado parcial.
+- **Risk Register:**
+
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟠×🟠 | FIND-249 diferido invalida el contrato pleno | Re-scope (a)/(b) en DISCOVERY con owner si hace falta | DISCOVERY |
+  | 🟡×🟡 | Solape con FIND-249/ENC-01 | Frontera declarada en task file | diseño |
+  | 🟢×🟠 | Feature activada sin wiring → falsa seguridad | Verificar aviso ENC-01 en ruta server + docs | VERIFY |
+
+- **Cynefin:** 🟨 complicado
+- **Top 3 riesgos:** (1) FIND-249 diferido; (2) solape; (3) falsa seguridad.
+- **Uphill/Downhill:** ⬆️ 1 incógnita (¿qué es SRV-10 si FIND-249 está diferido?) → DISCOVERY → ⬇️ (superficie → test → docs)
+- **DoD:** task = contrato (pleno o reducido declarado) · commit = `feat(server):`/`docs:` · release = changelog.
+- **Validación Appetite vs Effort:** 1sem ≥ 3-5d ✓
 - **Skills sugeridas:** security-and-hardening · source-driven-development · rust-write-tests · campaign-executor
 - **Estado:** ⬜ PENDING · **Task file:** `docs/dev/tasks/SRV-10.md`
 
@@ -2598,4 +2801,96 @@ invariantes: defaults byte-idénticos (tainted vacío == VER-04); tainted no iny
 deuda: FIND-301 — (a) enforcement RBAC por acción (NamespaceDelete + separación estricta opt-in + ADR), (b) roles namespace-scoped configurables, (c) trust en retrieval HTTP, (d) promoción curada, (e) superficie L3 pipeline_worker no gobernada
 queda_pendiente: nada del corte declarado (stop L1559 cumplido); avance registrado; race de commits concurrente documentado en task file §Notas
 Próxima tarea si completa: siguiente del plan (resolver vía campaign_get_next_task — F3 completa)
+=== END RECITATION ===
+
+=== RECITATION 57 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: MEMG-05 (taskId 57): estrategia multi-escritor declarada con ADR (LWW explícito + detección) + implementación mínima en el escenario único + tests de concurrencia deterministas + FIND del resto.
+Estado: completed
+Última acción: COMPLETO: ADR-0055 + Embedded::merge_record (merge_lock, R1-R6 post-review) + tests (unit/integración deterministas) + docs/FIND-303 + suites/failpoints/OCR + review P2-01 (CHANGES REQUIRED→delta APPROVE) + commit 12ed4000 + docs(task) abd31949. Cierre campaign.
+Resultado: OK
+Próxima acción: Ninguno — tarea completa. Lead: consolidar docs/index.md + llms.txt (regenerados sin stagear por entradas de WIP ajeno) y push solo con instrucción del owner.
+Contrato: verificacion: cargo nextest run -p vantadb --lib → 2339/2339 ✅ · --test memory_multi_writer → 11/11 ✅ · doctest merge_record 1/1 ✅ · --profile audit --ignore-default-filter (memory_api+memory_export_import) 19/19 ✅ · --profile chaos --features failpoints --test chaos_integrity → 1 passed ✅ · clippy -p vantadb --lib -D warnings exit 0 ✅ · rustfmt --check archivos tocados exit 0 ✅
+evidencia:
+  - claim: RED→GREEN TDD real (E0599 + panics unimplemented → suites verdes post-fix) | evidencia: target/tmp/mw_*.log | confianza: alta
+  - claim: review P2-01 adversarial (CHANGES REQUIRED → fixes R1-R6 → delta APPROVE) | evidencia: ses_ef187540effeyMqJDSOenbJFFw | confianza: alta
+  - claim: write path/WAL intactos; solo archivos propios (memory.rs/Backlog.md staged por hunks, 0 marcadores ajenos) | evidencia: git show 12ed4000 | confianza: alta
+artefactos: src/sdk/merge.rs · src/sdk/merge_tests.rs · tests/memory_multi_writer.rs · docs/dev/architecture/adr/ADR-0055-multi-writer-merge-lww.md · docs/dev/tasks/MEMG-05.md · target/tmp/ocr-memg05.json
+invariantes: write path/WAL intactos; merge opt-in determinista (orden total monótono, max del write set); todo merge no-silencioso; pathspec (WIP ajeno MEMG-04 intacto)
+deuda: FIND-303 (transporte sync/bindings/CRDT/vector-clock) · docs/index.md/llms.txt regenerados sin stagear (consolidación del lead)
+queda_pendiente: lead — consolidar index.md/llms.txt + push (solo con instrucción del owner)
+Próxima tarea si completa: MEMG-04 (en vuelo por otra sesión; no iniciar desde acá)
+=== END RECITATION ===
+
+=== RECITATION 56 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: MEMG-04 Multi-tenant (enforcement + cuotas): barrera de aislamiento por tenant + cuota de records por namespace + boundary billing documentado
+Estado: completed
+Última acción: S6 completo: gates verdes (34/34 enforcement+cuota, lib 2445/2445 + HNSW 1/1, request_id 3/3, fmt/clippy, docs), OCR aplicado (0 Critical/High), review P2-01 adversarial vanta-review 3 rondas (C1 bypass search + R1-R5 resueltos) APPROVE, commits locales aa79532f (feat) + 6e2491bd (docs task) — sin push
+Resultado: OK
+Próxima acción: ninguno (tarea cerrada); proximo F4 segun orquestador: Task 58 MEMG-16
+Contrato: verificacion: cargo nextest run --profile audit -p vantadb --features server --build-jobs 1 --test rbac_namespace --test quota_records → 34/34 PASS; -p vantadb --features server --lib (sin stress HNSW) → 2445/2445 PASS + HNSW stress aislado 1/1; --test request_id 3/3; cargo fmt --check 0; cargo clippy (lib+tests, -D warnings) 0; docs check-links 0 / check-docs all clear
+evidencia:
+- claim: enforcement por tenant real con test de no-cruce entre 2 tenants por superficie habilitada (records read/write body/batch/delete, list, search, export, import + fail-closed + audit) | evidencia: tests/rbac_namespace.rs (26 tests: 11 SRV-05/MEMG-10 + 15 MEMG-04) — 34/34 con quota | confianza: alta
+- claim: cuota de records por namespace aplicada y testeada con error explícito + audit | evidencia: tests/quota_records.rs 8/8; src/sdk/api/memory.rs check_namespace_quota/check_batch_namespace_quota | confianza: alta
+- claim: review P2-01 adversarial por agente distinto, C1 (bypass search query-mask) + R1-R5 resueltos y verificados con probes independientes | evidencia: vanta-review ses_ef17bff35ffe7smEq6532CUS0T, 3 rondas → APPROVE | confianza: alta
+- claim: modelo tenant + boundary billing documentados | evidencia: docs/api/HTTP_API.md §Multi-tenant; campaign_memory(decisions) 2 entradas; FIND-304 en Backlog | confianza: alta
+artefactos: docs/dev/tasks/MEMG-04.md; docs/api/HTTP_API.md; docs/dev/Backlog.md (FIND-304); tests/rbac_namespace.rs; tests/quota_records.rs; commits aa79532f + 6e2491bd
+invariantes: defaults byte-identicos (RbacCfg.roles vacio, cuota None); fail-closed (body 0-ns exige coarse global); writer/reader tightening documentado + testeado; no wire/migracion/deps/unsafe; WIP ajeno MEMG-05 commiteado por su autor (no arrastrado)
+deuda: FIND-304 (N>2 credenciales L1/L3, cuota bulk .vdbdump/OPFS/L1, roles env/TOML); FIND-301 (acciones estrictas)
+queda_pendiente: lead — staging/commit de docs/index.md + llms.txt ya regenerados (incluyen MEMG-04.md; gen-index --check pendiente); release-plz minor con upgrade note writer/reader
+Próxima tarea si completa: MEMG-16
+=== END RECITATION ===
+
+=== RECITATION MEMG-16 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: MEMG-16 (Task 58): compartir/colaboracion multi-agente — scopes + grants + revocacion sobre PermissionChecker + doc del modelo
+Estado: in-progress
+Última acción: S0-S5 completos. TDD: 9 tests RED (E0432/E0599) -> GREEN 9/9. Verify: fmt OK, lib suite 2356/2356 (CON lock), docs gates OK, OCR 0 hallazgos. Clippy crate-wide NO verde por 2 diagnosticos AJENOS — archivos propios: 0. Falta S6: review P2-01 + commit + cierre.
+Resultado: PARTIAL
+Próxima acción: Spawn vanta-review (P2-01 adversarial) -> commit LOCAL feat(memory): (pathspec estricto) + docs: fix colateral -> cierre campaign taskId 58 -> skill progreso
+Contrato: verificacion: cargo fmt --check OK · cargo nextest run --profile audit -p vantadb --lib OK 2356/2356 (CON heavy-test-lock) · cargo nextest -p vantadb --lib -E 'test(sharing)' OK 9/9 · check-links OK (gating 0) · validate-docs-coverage OK 0 gaps · clippy BLOQUEADO por 2 diagnosticos AJENOS (0 en archivos propios)
+evidencia:
+- claim: Contrato (a)+(b) grant habilita y revoke deniega el siguiente acceso (ACL y membresia) | evidencia: src/sdk/api/sharing_tests.rs (3 tests del contrato, 9/9 verdes) | confianza: alta
+- claim: Reuso del checker (cero re-implementacion) | evidencia: src/sdk/api/sharing.rs:391-407 · src/entity/checker.rs:122-257 sin cambios | confianza: alta
+- claim: Fail-closed y no-oraculo | evidencia: sharing_tests.rs (missing_asset_denies_checked_ops, grant_does_not_bypass_membership) | confianza: alta
+- claim: Superficie decidida en DISCOVERY (pre-mortem #1): SDK memory API | evidencia: docs/dev/tasks/MEMG-16.md Spec D1 | confianza: alta
+- claim: Revocacion = acceso futuro, no purga (pre-mortem #2) | evidencia: docs/api/SHARING.md Revocation semantics · task file Spec D3 | confianza: alta
+artefactos: src/sdk/api/sharing.rs (446L) · src/sdk/api/sharing_tests.rs (329L) · docs/api/SHARING.md (155L) · docs/dev/tasks/MEMG-16.md · docs/dev/Backlog.md (FIND-305/306) · src/sdk/api.rs (+1) · src/sdk/mod.rs (+4)
+invariantes: defaults byte-identicos · checker NO se modifica · revocacion=acceso futuro (purga=erasure MEMG-17) · fail-closed allow-only · deny sin registro · sin unsafe/deps/migracion · WIP VER-10 no se toca
+deuda: clippy crate-wide rojo por ajenos (attestation.rs:664 WIP VER-10 + merge_tests.rs:113 FIND-306); FIND-305 registra exposicion server/MCP + recall por grant + EXE-07
+queda_pendiente: S6: review P2-01 + commit local + cierre campaign (taskId 58). Orquestador: coordinar con VER-10 y con el fix ajeno de merge_tests.rs (FIND-306).
+Próxima tarea si completa: orquestador decide — VER-10 (Task 59) en vuelo; siguientes F5 (Task 60+)
+=== END RECITATION ===
+
+=== RECITATION 59 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: VER-10: attestation de escritura — recibo verificable por put (content binding + chain VER-01 + límites), opt-in, sin tocar wal.rs
+Estado: completed
+Última acción: 7/7 steps: schema WriteReceipt v1 + put_certified/verify_write_receipt + 11 tests integración + 8 unit + doc WRITE_RECEIPTS.md + FIND-307/308; verify scoped 20/20 + lib 2356/2356 + fmt/clippy verdes; review P2-01 ronda 1 changes-required (floats no finitos + límites) → fixes → ronda 2 approve; commits 7841879e + 4b66c5c2 + e7da542a (LOCAL, sin push)
+Resultado: OK
+Próxima acción: ninguno — última tarea de F4; el orquestador decide el cierre de fase
+Contrato: verificacion: cargo nextest run --profile audit -p vantadb --test write_receipts --test certified_delete --build-jobs 2 = 20/20 OK; -p vantadb --lib = 2356/2356 OK; cargo fmt --check OK; cargo clippy -p vantadb --all-targets -- -D warnings OK | evidencia: claim=recibo verificable por put con evidencia equivalente -> evidencia=src/attestation.rs (WriteReceipt/verify_write_receipt) + tests/write_receipts.rs (11 tests: válido/tampered/content/borrado/claimless/sparse/TTL/determinismo/non-finite) -> confianza alta | claim=delete cert y vanta-cli verify intactos -> evidencia=tests/certified_delete.rs 9/9 verde, sin cambios en sus paths -> confianza alta | claim=opt-in -> evidencia=put/put_batch sin cambios de firma; put_certified es aditivo -> confianza alta | artefactos: docs/dev/tasks/VER-10.md, docs/api/WRITE_RECEIPTS.md, commits 7841879e/4b66c5c2/e7da542a | invariantes: no tocar src/wal.rs/storage; put intacto; sin unwrap/unsafe en prod; verificación no claim-driven | deuda: FIND-307 (frame record_hash — Engine/Arch), FIND-308 (batches/CLI/MCP/bindings), firma criptográfica (vanta-audit) | queda_pendiente: nada para VER-10; F4 completa
+Próxima tarea si completa: 
+=== END RECITATION ===
+
+=== RECITATION 58 ===
+Campaign ID: master-plan-0.9.0-20261004
+Objetivo activo: MEMG-16 (Task 58): compartir/colaboracion multi-agente — scopes + grants + revocacion sobre el PermissionChecker + doc del modelo (stop package L1676)
+Estado: completed
+Última acción: Cerrada. TDD 10/10; fixes R1 (validate_entity_id: separadores de claves compuestas) + R2 (staging selectivo: Backlog por patch, indices regenerados en worktree reducido) aplicados tras review ronda 1 CHANGES-REQUIRED; ronda 2 APPROVE. Commits LOCALES 8a039119 + 97571f3f + 77e8e9d4 (sin push). fmt/clippy/lib 2359-2359/docs gates verdes. FIND-305/306 registrados.
+Resultado: OK
+Próxima acción: ninguno — tarea cerrada; orquestador: skill progreso de campana y decidir siguiente tarea (F5; VER-10 ya cerro en paralelo)
+Contrato: verificacion: cargo fmt --check OK · cargo clippy -p vantadb --all-targets -- -D warnings OK (exit 0) · cargo nextest run --profile audit -p vantadb --lib -E 'test(sharing)' OK 10/10 · cargo nextest --profile audit -p vantadb --lib OK 2359/2359 · check-links OK (0 gating) · check-docs OK · validate-docs-coverage OK 0 gaps · gen-index --check OK (worktree reducido) — todos CON heavy-test-lock
+evidencia:
+- claim: Contrato (a)+(b): grant habilita entre 2 principals y revoke deniega el siguiente acceso (ACL y membresia) | evidencia: src/sdk/api/sharing_tests.rs (3 tests del contrato + 7 mas, 10/10 verdes; re-ejecutado por el revisor) | confianza: alta
+- claim: Reuso del checker (cero re-implementacion; checker.rs sin cambios) | evidencia: src/sdk/api/sharing.rs check_access -> PermissionChecker::can_access_asset; src/entity/checker.rs intacto | confianza: alta
+- claim: R1 (colision de claves compuestas) cerrado: validate_entity_id rechaza . { } : en todos los ids compuestos + agent_id; test de regresion con los 5 constructos | evidencia: sharing.rs validate_entity_id + rejects_ids_with_composite_key_separators; verificado por revisor ronda 2 | confianza: alta
+- claim: R2 (staging) cerrado: commits sin WIP ajeno | evidencia: git show --name-only 97571f3f = 10 archivos propios; Backlog solo FIND-305/306; indices auto-consistentes (worktree temporal) | confianza: alta
+- claim: Modelo documentado con fronteras (MEMG-17/SCH-05/MEMG-10) + containment/EXE-07 | evidencia: docs/api/SHARING.md + FIND-305 | confianza: alta
+artefactos: commits 8a039119 (docs fix link) + 97571f3f (feat MEMG-16) + 77e8e9d4 (docs task cierre); src/sdk/api/sharing.rs (505L) · sharing_tests.rs (437L) · docs/api/SHARING.md (166L) · docs/dev/tasks/MEMG-16.md
+invariantes: defaults byte-identicos · checker NO modificado · revocacion=acceso futuro (purga=erasure MEMG-17) · fail-closed allow-only · deny sin registro (no oraculo) · ids compuestos sin separadores · sin unsafe/deps/migracion
+deuda: FIND-305 (server/MCP + recall por grant + EXE-07) · O1 (template de claves duplicado, pinneado por tests) · O2 (deny reasons -> colapsar 403/404 al exponer server) · FIND-306 resuelto por VER-10
+queda_pendiente: ninguna para el orquestador — tarea cerrada. Nota: server key real = 'MEMG-16' (el taskId '58' no resolvio en campaign_update_task_state); VER-10 cerro en paralelo (sus commits aterrizaron); heavy-test-lock usado en cada corrida pesada.
+Próxima tarea si completa: orquestador decide (F5: Task 60+ MEMG-14/15/18/19; VER-10 Task 59 ya cerro)
 === END RECITATION ===
