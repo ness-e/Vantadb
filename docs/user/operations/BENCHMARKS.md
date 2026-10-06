@@ -175,6 +175,8 @@ Batch search (`search_batch()`) in the SDK amortizes PyO3 FFI boundary costs by 
 
 This benchmark compares **VantaDB** directly against **LanceDB** and **ChromaDB** in ingestion, latencies, precision (Recall), and idle memory footprint.
 
+> Retrieval **quality** on a real text corpus (recall@k vs human qrels, BEIR SciFact) is §21 — a different metric from the vector-dataset `Recall@10` below (exact-kNN fidelity); the numbers are not comparable.
+
 * **Execution Date**: 2026-06-06 15:43:40
 * **Dataset Configuration**:
   * **Name**: `glove-100-angular`
@@ -1354,6 +1356,44 @@ gh run list --workflow=perf-bench.yml --limit 3 --json databaseId,conclusion,hea
 ```
 
 ≥2 consecutive `success` runs on the pushed ref = the gate is stable (FIND-233 contract).
+
+---
+
+## 21. BEIR/MTEB recall@k vs sqlite-vec (BENCH-02) — BEIR SciFact, test split
+
+> **Source of truth:** `benchmarks/beir_recall_bench.py` (harness) + `benchmarks/beir_recall_report.json` (regenerable artifact, gitignored).
+> **Reproduce (Regla 11):**
+> ```bash
+> .venv/Scripts/python benchmarks/beir_recall_bench.py
+> # defaults: --dataset scifact --split test --model all-MiniLM-L6-v2 --k 10 --top-k 100 --seed 42 --engines vanta,sqlite-vec
+> ```
+> First run downloads the dataset (~8 MB) from the HuggingFace mirror `mteb/scifact` into `benchmarks/datasets/` (cached, gitignored). Offline self-test: `--self-test`.
+
+### What this measures — and what it does not
+
+Retrieval **quality** on a real text corpus: **`recall@k` against human relevance judgments (qrels)** with MTEB/TREC semantics — `recall@k = |top-k ∩ relevant| / |relevant|`, averaged over queries — plus **nDCG@10**, MTEB's main retrieval metric (MTEB paper §3.2, [arXiv:2210.07316](https://arxiv.org/abs/2210.07316)). Every engine retrieves over the **same embeddings** (all-MiniLM-L6-v2, mean-pool + L2 norm, 384d, max_seq 256, local ONNX export of rev `1110a24`), so the comparison isolates the retrieval/index layer, not the model.
+
+- **Not comparable with:** §2 / §7 / §8 (different datasets and metrics), `competitive_bench.py` (`recall_at_k` there = fidelity of approximate search vs exact kNN on vector datasets — this section also reports that, as `index-recall`), and MTEB leaderboard values (different runtime/export; values here are pipeline-specific).
+- **Both engines are exact on this corpus.** sqlite-vec (vec0) is a brute-force scan; VantaDB routes to its **flat exact scan** at this size — `flat_threshold` defaults to 10,000 nodes (`src/config.rs:347`, `VANTADB_FLAT_THRESHOLD` unset in this run) and `use_flat_search()` picks the flat path when `nodes.len() <= threshold` (`src/index/search/neighbors.rs`). `index-recall` = 1.0 is therefore expected by construction for both; the qrels recall they reach is the retrieval-quality ceiling of the declared embedding + ranking stack, not an ANN-fidelity result.
+
+### Results — BEIR SciFact (`mteb/scifact`, split `test`), 300 queries, corpus 5,183 docs, single run 2026-10-06
+
+| Engine | recall@1 | recall@10 | recall@100 | nDCG@10 | index-recall@1/10/100 | ingest (s) | q p50 (ms) | q p99 (ms) |
+| :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| exact kNN (numpy, ceiling) | 0.4823 | 0.7833 | 0.9250 | 0.6451 | 1.0 | 0.00 | 0.208 | 0.480 |
+| **VantaDB** | **0.4823** | **0.7833** | **0.9250** | **0.6451** | **1.0** | 26.268 | 7.088 | 19.413 |
+| sqlite-vec 0.1.9 | 0.4823 | 0.7833 | 0.9250 | 0.6451 | 1.0 | 0.084 | 8.489 | 12.466 |
+
+**Reading the number.** At this corpus size (5,183 nodes) VantaDB's search is the **flat exact scan**, not the HNSW graph (see the bullet above; the JSON report records `vanta_search_mode_at_corpus_size: "flat-exact"`). So both engines are exact here, `index-recall` = 1.0000 for both is by construction, and the number that matters is the **retrieval quality of the declared embedding + ranking stack: recall@10 = 0.7833 / nDCG@10 = 0.6451** — equal for VantaDB, sqlite-vec and the numpy ceiling, as expected when every engine is exact over the same embeddings. The pipeline is cross-validated against the published MTEB reference for this model on SciFact — **nDCG@10 = 64.51** (MTEB paper appendix Table 11, [arXiv:2210.07316v2](https://arxiv.org/abs/2210.07316v2); for binary qrels the linear and exponential gain conventions coincide) — the measured 0.6451 reproduces it to the last published digit. Measuring the **HNSW graph** itself requires a corpus above `flat_threshold` or `VANTADB_FLAT_THRESHOLD=0` (set to 0 to disable the flat path, `src/config.rs:903`) — tracked as `FIND-315`.
+
+### Methodological notes (Regla 11)
+
+- **Dataset/split:** `mteb/scifact` on HuggingFace (BEIR SciFact; reference [allenai/scifact](https://github.com/allenai/scifact), license cc-by-nc-4.0). Corpus 5,183 docs; eval set = the 300 test queries with qrels (339 judgments). The canonical UKP host was unreachable from the dev network at implementation time (2026-10-06); the HF mirror carries identical files (ids verified: 300/300 query-ids, 283/283 corpus-ids).
+- **Seed:** 42 — controls the deterministic query subsample when `--limit-queries` is used (default: all queries). The reported run used all 300.
+- **Environment:** Windows 11 Pro · 12th Gen Intel Core i5-1235U (10c/12t) · 31.78 GB RAM · Python 3.11.9 · `vantadb-py` 0.8.0 (editable install) · `sqlite-vec` 0.1.9 · `onnxruntime` 1.26.0. VantaDB config: `flat_threshold` = 10,000 (default; `VANTADB_FLAT_THRESHOLD` unset) → **flat exact scan** at 5,183 nodes; `engine_config` in the JSON records it. (Python reports the OS as `Windows-10-10.0.26200-SP0` — a known Win11 reporting quirk; the OS is Windows 11 Pro.)
+- **Latency caveat:** single run, single machine; recall values are deterministic for this pipeline, latency/ingest values vary run-to-run (VantaDB ingest observed 12.6–26.3 s across runs on the same machine, machine load dependent). The exact-kNN row is a brute-force numpy reference (no index). VantaDB's ingest includes index + derived-index build; sqlite-vec's ingest is a row append — speed is not the axis measured here (see §7 and `competitive_bench.py`).
+- **Scale caveat:** 5,183 vectors is below `flat_threshold` (10,000) and below any meaningful HNSW operating range; the exact-scan tie here is not evidence about approximate-search quality at larger corpora (see §1 stress protocol for 10K-100K and `FIND-315` for a real-HNSW measurement).
+- **Competitor choice:** sqlite-vec was selected over pgvector because pgvector requires a PostgreSQL server (Docker unavailable in the dev environment; native install outside this harness's no-docker philosophy) — tracked as `FIND-314` in the Backlog.
 
 ---
 
