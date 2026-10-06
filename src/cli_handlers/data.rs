@@ -5,6 +5,7 @@
 
 use console::Term;
 use indicatif::{ProgressBar, ProgressStyle};
+use sha2::{Digest, Sha256};
 use std::time::Duration;
 
 use crate::cli_handlers::fmt::{error_style, header_style, success_style};
@@ -88,6 +89,8 @@ pub fn cmd_export(
     );
     bar.enable_steady_tick(Duration::from_millis(100));
 
+    let mut hasher = Sha256::new();
+    let mut buffer: Vec<u8> = Vec::with_capacity(256);
     for ns in &namespaces {
         let mut cursor: Option<usize> = None;
         loop {
@@ -109,9 +112,13 @@ pub fn cmd_export(
             }
             for record in &page.records {
                 let line = crate::sdk::export_line_from_record(record.clone());
-                serde_json::to_writer(&mut writer, &line)
+                buffer.clear();
+                serde_json::to_writer(&mut buffer, &line)
                     .map_err(crate::error::Error::serialization)?;
-                writer.write_all(b"\n")?;
+                buffer.push(b'\n');
+                // Hash the exact bytes written (MEMG-15 integrity manifest).
+                hasher.update(&buffer);
+                writer.write_all(&buffer)?;
             }
             let n = page.records.len() as u64;
             total += n;
@@ -126,11 +133,22 @@ pub fn cmd_export(
     writer.flush()?;
     bar.finish_and_clear();
 
+    // Integrity manifest sidecar (MEMG-15) — same contract as the SDK export.
+    let sha256 = crate::attestation::hex_lower(&hasher.finalize());
+    let manifest_path = crate::sdk::serialization::write_export_manifest(
+        std::path::Path::new(output_path),
+        &sha256,
+        total,
+        &namespaces,
+    )?;
+
     if json_output {
         return print_json(&serde_json::json!({
             "exported": total,
             "out": output_path,
             "format": "jsonl",
+            "sha256": sha256,
+            "manifest": manifest_path.display().to_string(),
         }));
     }
 
@@ -153,6 +171,7 @@ pub fn cmd_export(
         "{}",
         header_style().apply_to("╰─────────────────────────────────────────╯")
     ));
+    print_info(&format!("Integrity manifest: {}", manifest_path.display()));
 
     Ok(())
 }

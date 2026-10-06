@@ -510,6 +510,8 @@ pub(crate) fn export_report_to_pydict(py: Python, report: &ExportReport) -> PyRe
         "namespaces" => report.namespaces.clone(),
         "path" => &report.path,
         "duration_ms" => report.duration_ms,
+        "sha256" => &report.sha256,
+        "manifest_path" => &report.manifest_path,
     )
 }
 

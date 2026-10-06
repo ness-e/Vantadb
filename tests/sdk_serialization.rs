@@ -300,6 +300,8 @@ fn test_export_report_serialize() {
         namespaces: vec!["ns1".into()],
         path: "/tmp/export.jsonl".into(),
         duration_ms: 50,
+        sha256: String::new(),
+        manifest_path: String::new(),
     };
     let json = serde_json::to_string(&report).unwrap();
     let back: ExportReport = serde_json::from_str(&json).unwrap();

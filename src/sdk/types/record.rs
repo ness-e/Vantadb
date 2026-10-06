@@ -475,6 +475,67 @@ pub struct ExportReport {
     pub path: String,
     /// Duration of the export in milliseconds.
     pub duration_ms: u64,
+    /// Hex sha256 of the exact bytes written to the export file (MEMG-15).
+    /// Empty when deserializing a report produced before the integrity
+    /// manifest existed (`#[serde(default)]` keeps old JSON parseable).
+    #[serde(default)]
+    pub sha256: String,
+    /// Path of the integrity manifest sidecar (`<path>.manifest.json`).
+    #[serde(default)]
+    pub manifest_path: String,
+}
+
+/// Export integrity manifest schema version (v1, MEMG-15).
+pub const EXPORT_MANIFEST_SCHEMA_VERSION: u32 = 1;
+
+/// Format discriminator written in the integrity manifest (MEMG-15).
+pub const EXPORT_MANIFEST_FORMAT: &str = "vantadb-memory-jsonl";
+
+/// Integrity manifest sidecar for a JSONL export (`<export>.manifest.json`).
+///
+/// Deterministic by construction: no wall-clock fields and `namespaces` is
+/// sorted, so re-exporting unchanged data yields a byte-identical manifest
+/// (git-friendly, VER-06 precedent). `sha256` is an **integrity** self-hash,
+/// not a signature — see `limits` for the declared boundary (VER-02 contract:
+/// an actor who edits the file and recomputes the manifest is not detected).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExportManifest {
+    /// Manifest schema version ([`EXPORT_MANIFEST_SCHEMA_VERSION`]).
+    pub schema_version: u32,
+    /// Format discriminator ([`EXPORT_MANIFEST_FORMAT`]).
+    pub format: String,
+    /// JSONL interchange schema version covered by this manifest (`2`).
+    pub export_schema_version: u32,
+    /// Number of records in the export file.
+    pub records: u64,
+    /// Namespaces included in the export (sorted, deduplicated).
+    pub namespaces: Vec<String>,
+    /// Hex sha256 over the exact bytes of the export file.
+    pub sha256: String,
+    /// Declared limits — always present, never silent (VER-02 contract).
+    pub limits: Vec<String>,
+}
+
+/// Result of verifying an export file against its integrity manifest (MEMG-15).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExportIntegrityVerification {
+    /// Manifest schema version when a manifest was read (`0` otherwise).
+    pub schema_version: u32,
+    /// Path of the verified export file.
+    pub path: String,
+    /// `ok` (digest match), `mismatch` (digest diverged) or `no_manifest`
+    /// (pre-manifest export — not verifiable, never reported as `ok`).
+    pub status: String,
+    /// Digest recorded in the manifest, when present.
+    pub expected_sha256: Option<String>,
+    /// Digest computed from the file bytes now.
+    pub actual_sha256: String,
+    /// Record count declared by the manifest (`0` when absent).
+    pub records: u64,
+    /// Namespaces declared by the manifest (empty when absent).
+    pub namespaces: Vec<String>,
+    /// Declared limits echoed from the manifest (empty when absent).
+    pub limits: Vec<String>,
 }
 
 /// Stable report returned by JSONL memory import operations.
@@ -652,6 +713,8 @@ mod tests {
             namespaces: vec!["ns1".into()],
             path: "/tmp/export.jsonl".into(),
             duration_ms: 250,
+            sha256: String::new(),
+            manifest_path: String::new(),
         };
         assert_eq!(r.records_exported, 500);
         assert_eq!(r.namespaces, vec!["ns1"]);
@@ -915,6 +978,8 @@ mod tests {
             namespaces: vec!["ns1".into()],
             path: "/tmp/x.jsonl".into(),
             duration_ms: 50,
+            sha256: String::new(),
+            manifest_path: String::new(),
         };
         let cloned = r.clone();
         assert_eq!(r, cloned);

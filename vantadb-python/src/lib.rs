@@ -1631,7 +1631,7 @@ impl Client {
     ///
     /// Returns:
     ///     dict: Export report with keys ``records_exported``, ``namespaces``,
-    ///     ``path``, and ``duration_ms``.
+    ///     ``path``, ``duration_ms``, ``sha256``, and ``manifest_path``.
     ///
     /// Raises:
     ///     StorageError: If the target directory does not exist.
@@ -1673,7 +1673,7 @@ impl Client {
     ///
     /// Returns:
     ///     dict: Export report with keys ``records_exported``, ``namespaces``,
-    ///     ``path``, and ``duration_ms``.
+    ///     ``path``, ``duration_ms``, ``sha256``, and ``manifest_path``.
     ///
     /// Raises:
     ///     StorageError: If the target directory does not exist.

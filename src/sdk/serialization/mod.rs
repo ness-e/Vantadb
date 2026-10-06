@@ -61,6 +61,9 @@ pub(crate) const SPARSE_INDEX_SCHEMA_VERSION: u32 = 1;
 pub(crate) mod conversions;
 pub mod graph_types;
 pub(crate) mod impl_export;
+// Re-export for the CLI export path only (`cli_handlers::data`, feature `cli`).
+#[cfg(feature = "cli")]
+pub(crate) use impl_export::write_export_manifest;
 pub(crate) mod impl_index;
 pub(crate) mod impl_rebuild;
 pub(crate) mod impl_sparse_index;
