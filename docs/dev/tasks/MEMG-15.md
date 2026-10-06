@@ -174,7 +174,21 @@ Revisor: vanta-review (fresh context, P2-01, rondas 1-2) · Enfoque: contrato L1
 
 ### Step 5 — Cierre: FIND firma + gates + review + commit
 
-- **Archivos:** `docs/dev/Backlog.md` (FIND), task file (RESULTADO §7), `docs/dev/avance/activo/<dominio>.md`
+- **Archivos:** `docs/dev/Backlog.md` (FIND), task file (RESULTADO §7), `docs/dev/avance/activo/operaciones.md`
 - **Acción:** registrar FIND de firma (vanta-audit: decisión criptográfica del export — COSE_Sign1/ML-DSA-65, precedente AIMEM §5.3) + FIND de exposición bindings/MCP/TS + FIND conversores de frontera; quitar fila MEMG-15 del Backlog; verify full scoped (nextest lib+cli+importers, fmt, clippy, validate-docs-coverage, gen-index); OCR delegation; review P2-01 (fork `vanta-review`); commit LOCAL `feat(sdk):` con pathspec; campaign close taskId `61`; `skill progreso`.
 - **Verify:** comando completo del contrato + `scripts/validate-docs-coverage.ps1`.
-- **Evidencia:** ⬜
+- **Evidencia:** ✅ FIND-309/310/311 en Backlog + fila MEMG-15 removida · verify full scoped verde (lib 2363/2363 `--test-threads 2` — 1 timeout por carga concurrente en test HNSW ajeno, re-run aislado 35.9s ✅; cli 95/95; memory_export_import 10/10; importers+sdk_serialization+proptest 58/58; fmt ✅; clippy `--all-targets --all-features -D warnings` ✅; gates docs 4/4) · OCR delegation (13 archivos; 2 mejoras aplicadas: verify streaming + buffer reutilizable) · review P2-01 `vanta-review` R1 changes-required (staging WIP ajeno + O1/O2 Low) → fixes (3 tests + guard de formato + docstrings) → R2 **APPROVE** · commit LOCAL `55b9a532` (16 archivos, pathspec estricto, 0 WIP ajeno — post-commit `git show --stat` verificado) + commit de cierre `docs:` · campaign close taskId `61` ✅ (review payload fresh/approve) · `skill progreso` → `operaciones.md` + gates avance 1034/1034 + coverage 0 gaps. ⛔ sin push.
+
+## RESULTADO (§7)
+
+```
+RESULTADO: ✅ COMPLETO
+STEPS_OK: 5/5 total steps
+PROXIMO_STEP: ninguno
+COMMIT_HASH: 55b9a532 (+ commit de cierre docs:)
+ARCHIVOS: docs/api/{MEMORY_INTERCHANGE_FORMAT,index,EMBEDDED_SDK,PYTHON_SDK}.md · docs/dev/Backlog.md · docs/dev/tasks/MEMG-15.md · docs/dev/avance/activo/operaciones.md · src/attestation.rs · src/cli_handlers/data.rs · src/sdk/{mod,types,types/record,serialization/mod,serialization/impl_export}.rs · tests/{cli_tests,sdk_serialization,proptest_serialization_roundtrip}.rs · vantadb-python/src/{convert,lib}.rs
+VERIFY_CONTRATO: pasa
+BLOQUEO: ninguno
+GATES_EVALUADOS: P:no (plan F0 pre-respondio) D:no (contrato sanciona slice) V:no (sin fallo repetido) C:no (nit N1 aceptado)
+SKILLS_CARGADAS: campaign-executor · progreso · ponytail (base) · writing-guidelines · writing-plans · incremental-implementation · test-driven-development · context-engineering · source-driven-development · doubt-driven-development · api-and-interface-design (pinned) · documentation-and-adrs (pinned) · rust-write-tests · security-and-hardening · documentation-skill · coordinated-web-search (owner rule 2026-10-06)
+```

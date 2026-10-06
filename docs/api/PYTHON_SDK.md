@@ -948,7 +948,7 @@ print(f"Active namespaces: {namespaces}")
 ```python
 db.export_namespace(path: str, namespace: str) -> dict
 ```
-Export a single namespace as a JSONL file. Returns a report dict with `records_exported`, `path`, and `duration_ms`. GIL-released. The output is JSONL; import it back with [`import_file()`](#import_file) — not the binary [`bulk_import()`](#bulk_import) family.
+Export a single namespace as a JSONL file. Returns a report dict with `records_exported`, `namespaces`, `path`, `duration_ms`, `sha256`, and `manifest_path`. Also writes the integrity manifest sidecar (`<path>.manifest.json`, sha256 over the export bytes — see [MEMORY_INTERCHANGE_FORMAT.md § Integrity manifest](./MEMORY_INTERCHANGE_FORMAT.md#integrity-manifest)). GIL-released. The output is JSONL; import it back with [`import_file()`](#import_file) — not the binary [`bulk_import()`](#bulk_import) family.
 
 ```python
 report = db.export_namespace("/tmp/export.jsonl", "agent/main")
@@ -959,7 +959,7 @@ print(f"Exported {report['records_exported']} records")
 ```python
 db.export_all(path: str) -> dict
 ```
-Export all namespaces as a single JSONL file. Returns a report dict with `records_exported`, `namespaces`, and `duration_ms`. GIL-released. The output is JSONL; import it back with [`import_file()`](#import_file).
+Export all namespaces as a single JSONL file. Returns a report dict with `records_exported`, `namespaces`, `duration_ms`, `sha256`, and `manifest_path`. Also writes the integrity manifest sidecar (`<path>.manifest.json`). GIL-released. The output is JSONL; import it back with [`import_file()`](#import_file).
 
 ```python
 report = db.export_all("/tmp/full_backup.jsonl")
