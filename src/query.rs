@@ -115,6 +115,15 @@ pub struct Query {
     /// = no filter (default unchanged). Version-gated: accepted from
     /// [`IQL_VERSION_MIN_AS_OF`](crate::parser::IQL_VERSION_MIN_AS_OF).
     pub as_of_ms: Option<u64>,
+    /// Optional `LIMIT <n>` result cap (WIRE-12): the emitted plan keeps at
+    /// most `n` rows (before post-plan filters such as `AS OF`/`ROLE`).
+    /// `None` = no cap. Version-gated: accepted from
+    /// [`IQL_VERSION_MIN_PAGINATION`](crate::parser::IQL_VERSION_MIN_PAGINATION).
+    pub limit: Option<usize>,
+    /// Optional `OFFSET <n>` rows to skip (WIRE-12): skip-then-take composes
+    /// with `limit`. `None` = no skip (an explicit `0` is a no-op and emits no
+    /// plan operator).
+    pub offset: Option<usize>,
 }
 
 /// Graph traversal specification.
@@ -212,6 +221,12 @@ pub struct SelectStatement {
     /// Only accepted on the top-level SELECT — subqueries with `AS OF` fail
     /// to parse (silent no-op prevention). `None` = no filter.
     pub as_of_ms: Option<u64>,
+    /// Optional `LIMIT <n>` result cap (WIRE-12): same semantics as in
+    /// `FROM`/`MATCH`. `None` = no cap.
+    pub limit: Option<usize>,
+    /// Optional `OFFSET <n>` rows to skip (WIRE-12): same semantics as in
+    /// `FROM`/`MATCH`. `None` = no skip.
+    pub offset: Option<usize>,
 }
 
 /// The FROM clause of a SELECT — either a single entity or a JOIN of two sub-clauses.
@@ -300,6 +315,8 @@ impl SelectStatement {
                 fields: self.projections,
             });
         }
+
+        push_pagination(&mut ops, self.limit, self.offset);
 
         LogicalPlan {
             operators: ops,
@@ -404,6 +421,16 @@ pub enum LogicalOperator {
         /// Maximum rows.
         top_k: usize,
     },
+    /// Skip the first `skip` rows of the child stream (WIRE-12). Registry
+    /// extension (C2S6 pattern: variant + physical file + one register line):
+    /// compiled post-chain by `OperatorRegistry`, after the built-in `Limit`.
+    /// `Query`/`SelectStatement` composition widens the emitted `Limit`
+    /// window by the skip so the net effect is skip-then-take (see
+    /// `push_pagination`).
+    Offset {
+        /// Number of leading rows to skip.
+        skip: usize,
+    },
     /// Deduplicate consecutive rows by a relational field (C2S6 extension
     /// exemplar: compiles/costs through `OperatorRegistry` without touching
     /// the proven `planner` / `executor` matches; test-constructed, H2
@@ -445,6 +472,28 @@ pub struct LogicalPlan {
     pub enforce_role: Option<String>,
     /// Optional search profile (MEM-01): mode/RRF k/candidate budget.
     pub search_profile: Option<SearchProfileConfig>,
+}
+
+/// Push the pagination operators for `LIMIT`/`OFFSET` (WIRE-12).
+///
+/// `OFFSET` compiles as a post-chain registry extension (`PhysicalOffset`,
+/// applied by `optimize_and_compile` AFTER the built-in `Limit`), while SQL
+/// pagination is skip-then-take. When both clauses are present the emitted
+/// `Limit` window is therefore widened by the offset — the extension then
+/// trims the front, netting "skip `offset`, take `limit`". Without the
+/// widening, `Limit` would cap the stream before the skip and drop valid rows.
+fn push_pagination(ops: &mut Vec<LogicalOperator>, limit: Option<usize>, offset: Option<usize>) {
+    let offset = offset.filter(|skip| *skip > 0);
+    if let Some(limit) = limit {
+        let window = match offset {
+            Some(skip) => limit.saturating_add(skip),
+            None => limit,
+        };
+        ops.push(LogicalOperator::Limit { top_k: window });
+    }
+    if let Some(skip) = offset {
+        ops.push(LogicalOperator::Offset { skip });
+    }
 }
 
 impl Query {
@@ -498,6 +547,8 @@ impl Query {
         if let Some(fetch) = self.fetch {
             ops.push(LogicalOperator::Project { fields: fetch });
         }
+
+        push_pagination(&mut ops, self.limit, self.offset);
 
         LogicalPlan {
             operators: ops,
@@ -630,6 +681,8 @@ mod tests {
             owner_role: None,
             search_profile: None,
             as_of_ms: None,
+            limit: None,
+            offset: None,
         };
         assert_eq!(q.from_entity, "Node");
         assert!(q.traversal.is_none());
@@ -655,6 +708,8 @@ mod tests {
             owner_role: None,
             search_profile: None,
             as_of_ms: None,
+            limit: None,
+            offset: None,
         };
         assert_eq!(q.traversal.as_ref().unwrap().min_depth, 1);
         assert_eq!(q.traversal.as_ref().unwrap().max_depth, 3);
@@ -676,6 +731,8 @@ mod tests {
             owner_role: None,
             search_profile: None,
             as_of_ms: None,
+            limit: None,
+            offset: None,
         };
         let plan = q.into_logical_plan();
         assert_eq!(plan.operators.len(), 1);
@@ -706,6 +763,8 @@ mod tests {
             owner_role: None,
             search_profile: None,
             as_of_ms: None,
+            limit: None,
+            offset: None,
         };
         let plan = q.into_logical_plan();
         assert_eq!(plan.operators.len(), 2);
@@ -731,6 +790,8 @@ mod tests {
             owner_role: None,
             search_profile: None,
             as_of_ms: None,
+            limit: None,
+            offset: None,
         };
         let plan = q.into_logical_plan();
         let ops: Vec<&str> = plan
@@ -828,5 +889,79 @@ mod tests {
             }
             _ => panic!("wrong variant"),
         }
+    }
+
+    // ── Pagination plan emission (WIRE-12) ──
+
+    fn paginated_query(limit: Option<usize>, offset: Option<usize>) -> Query {
+        Query {
+            from_entity: "Doc".into(),
+            traversal: None,
+            target_alias: "target".into(),
+            where_clause: None,
+            fetch: None,
+            rank_by: None,
+            temperature: None,
+            owner_role: None,
+            search_profile: None,
+            as_of_ms: None,
+            limit,
+            offset,
+        }
+    }
+
+    #[test]
+    fn into_logical_plan_emits_limit_only() {
+        let plan = paginated_query(Some(5), None).into_logical_plan();
+        assert!(plan
+            .operators
+            .iter()
+            .any(|op| matches!(op, LogicalOperator::Limit { top_k: 5 })));
+        assert!(!plan
+            .operators
+            .iter()
+            .any(|op| matches!(op, LogicalOperator::Offset { .. })));
+    }
+
+    #[test]
+    fn into_logical_plan_widens_limit_window_when_offset_present() {
+        // OFFSET compiles post-chain through the registry (planner applies
+        // extensions AFTER the built-in Limit), so the emitted Limit window is
+        // widened by the skip: Limit{5+2} then Offset{2} = skip 2, take 5.
+        let plan = paginated_query(Some(5), Some(2)).into_logical_plan();
+        assert!(plan
+            .operators
+            .iter()
+            .any(|op| matches!(op, LogicalOperator::Limit { top_k: 7 })));
+        assert!(plan
+            .operators
+            .iter()
+            .any(|op| matches!(op, LogicalOperator::Offset { skip: 2 })));
+    }
+
+    #[test]
+    fn into_logical_plan_emits_offset_only_without_limit() {
+        let plan = paginated_query(None, Some(3)).into_logical_plan();
+        assert!(!plan
+            .operators
+            .iter()
+            .any(|op| matches!(op, LogicalOperator::Limit { .. })));
+        assert!(plan
+            .operators
+            .iter()
+            .any(|op| matches!(op, LogicalOperator::Offset { skip: 3 })));
+    }
+
+    #[test]
+    fn into_logical_plan_omits_zero_offset_and_keeps_limit() {
+        let plan = paginated_query(Some(4), Some(0)).into_logical_plan();
+        assert!(plan
+            .operators
+            .iter()
+            .any(|op| matches!(op, LogicalOperator::Limit { top_k: 4 })));
+        assert!(!plan
+            .operators
+            .iter()
+            .any(|op| matches!(op, LogicalOperator::Offset { .. })));
     }
 }

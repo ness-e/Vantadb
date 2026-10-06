@@ -8,7 +8,7 @@ use nom::{
     branch::alt,
     bytes::complete::{tag, take_while1},
     character::complete::char,
-    combinator::{map, opt},
+    combinator::{map, not, opt, peek},
     multi::{many0, separated_list1},
     number::complete::float,
     sequence::{delimited, tuple},
@@ -19,7 +19,9 @@ use super::lexer::{
     ident, non_keyword_ident, parse_literal_field_value, parse_number, parse_u128_id, parse_u64_id,
     parse_vector_lit, string_literal, ws, RESERVED_KEYWORDS,
 };
-use super::{iql_supports, IQL_VERSION_MIN_AS_OF, IQL_VERSION_MIN_PROFILE};
+use super::{
+    iql_supports, IQL_VERSION_MIN_AS_OF, IQL_VERSION_MIN_PAGINATION, IQL_VERSION_MIN_PROFILE,
+};
 use crate::node::FieldValue;
 use crate::query::*;
 use crate::search_profile::{SearchProfileConfig, SearchProfileMode};
@@ -98,9 +100,10 @@ pub(crate) fn parse_condition(i: &str) -> IResult<&str, Condition> {
 ///
 /// Strictness: when the keyword pair is consumed the timestamp is required —
 /// a malformed clause is a parse error, never a silent filter drop. Accepted
-/// in two canonical positions (right after the table spec and after the last
-/// optional clause) so both `FROM x AS OF t WHERE ...` and
-/// `FROM x WHERE ... AS OF t` work.
+/// in canonical positions (right after the table spec, after the optional
+/// clauses, and — since WIRE-12 — after pagination) so
+/// `FROM x AS OF t WHERE ...`, `FROM x WHERE ... AS OF t` and
+/// `FROM x LIMIT n AS OF t` all work.
 fn parse_as_of_clause(i: &str) -> IResult<&str, Option<u64>> {
     if !iql_supports(IQL_VERSION_MIN_AS_OF) {
         return Ok((i, None));
@@ -133,6 +136,59 @@ fn merge_as_of_clauses(
         )));
     }
     Ok(early.or(late))
+}
+
+/// Parse one optional `LIMIT <n>` / `OFFSET <n>` clause (WIRE-12).
+///
+/// Strictness (same rule as `AS OF`): once the keyword is consumed the count
+/// is required — a malformed clause is a parse error, never a silent drop.
+/// The keyword is only recognized at a clause boundary (the following
+/// character must not continue an identifier), so aliases like `LIMITED`
+/// stay valid.
+fn parse_pagination_clause<'a>(
+    i: &'a str,
+    keyword: &'static str,
+) -> IResult<&'a str, Option<usize>> {
+    let clause_start = i;
+    let mut keyword_parser = ws(tuple((
+        tag::<&str, &str, nom::error::Error<&str>>(keyword),
+        not(peek(nom::character::complete::satisfy(|c: char| {
+            c.is_alphanumeric() || c == '_'
+        }))),
+    )));
+    let Ok((i, _)) = keyword_parser(i) else {
+        return Ok((clause_start, None));
+    };
+    match ws(parse_number)(i) {
+        Ok((i, n)) => Ok((i, Some(n as usize))),
+        Err(_) => Err(nom::Err::Failure(nom::error::Error::new(
+            clause_start,
+            nom::error::ErrorKind::Verify,
+        ))),
+    }
+}
+
+/// Parse the optional `LIMIT <n>` / `OFFSET <n>` pagination clauses (WIRE-12),
+/// version-gated by [`IQL_VERSION_MIN_PAGINATION`].
+///
+/// Canonical order is `LIMIT` then `OFFSET` (SQL). Reversed or duplicated
+/// pagination keywords are rejected as a `Failure` — they would otherwise be
+/// left as trailing input and silently ignored by callers.
+fn parse_pagination(i: &str) -> IResult<&str, (Option<usize>, Option<usize>)> {
+    if !iql_supports(IQL_VERSION_MIN_PAGINATION) {
+        return Ok((i, (None, None)));
+    }
+    let (i, limit) = parse_pagination_clause(i, "LIMIT")?;
+    let (i, offset) = parse_pagination_clause(i, "OFFSET")?;
+    if ws(tag::<&str, &str, nom::error::Error<&str>>("LIMIT"))(i).is_ok()
+        || ws(tag::<&str, &str, nom::error::Error<&str>>("OFFSET"))(i).is_ok()
+    {
+        return Err(nom::Err::Failure(nom::error::Error::new(
+            i,
+            nom::error::ErrorKind::Verify,
+        )));
+    }
+    Ok((i, (limit, offset)))
 }
 
 /// Parse a `FROM`/`MATCH` query statement.
@@ -176,7 +232,14 @@ pub fn parse_query(i: &str) -> IResult<&str, Query> {
 
     let as_of_late_start = i;
     let (i, as_of_late) = parse_as_of_clause(i)?;
-    let as_of_ms = merge_as_of_clauses(as_of_early, as_of_late, as_of_late_start)?;
+    let (i, (limit, offset)) = parse_pagination(i)?;
+    let as_of_tail_start = i;
+    let (i, as_of_tail) = parse_as_of_clause(i)?;
+    let as_of_ms = merge_as_of_clauses(
+        merge_as_of_clauses(as_of_early, as_of_late, as_of_late_start)?,
+        as_of_tail,
+        as_of_tail_start,
+    )?;
 
     Ok((
         i,
@@ -198,6 +261,8 @@ pub fn parse_query(i: &str) -> IResult<&str, Query> {
                 candidate_k: cand.map(|(_, n)| n as usize),
             }),
             as_of_ms,
+            limit,
+            offset,
         },
     ))
 }
@@ -476,7 +541,14 @@ pub fn parse_select(i: &str) -> IResult<&str, SelectStatement> {
 
     let as_of_late_start = i;
     let (i, as_of_late) = parse_as_of_clause(i)?;
-    let as_of_ms = merge_as_of_clauses(as_of_early, as_of_late, as_of_late_start)?;
+    let (i, (limit, offset)) = parse_pagination(i)?;
+    let as_of_tail_start = i;
+    let (i, as_of_tail) = parse_as_of_clause(i)?;
+    let as_of_ms = merge_as_of_clauses(
+        merge_as_of_clauses(as_of_early, as_of_late, as_of_late_start)?,
+        as_of_tail,
+        as_of_tail_start,
+    )?;
 
     // Split where_items into regular conditions and subquery conditions
     let (where_conds, subq_conds) = match where_items {
@@ -503,15 +575,44 @@ pub fn parse_select(i: &str) -> IResult<&str, SelectStatement> {
             subquery_conditions: subq_conds,
             temperature: temperature.map(|(_, _, t)| t),
             as_of_ms,
+            limit,
+            offset,
         },
     ))
 }
 
 // ─── Entry Point ───────────────────────────────────────────────
 
+/// WIRE-12 strictness: once `LIMIT`/`OFFSET` was consumed, a non-empty
+/// remainder is a parse error. Without this, a clause written after the
+/// pagination keywords (`FROM x LIMIT 5 WHERE ...`) would be left as trailing
+/// input and silently ignored by the executor (FIND-312 class), returning a
+/// page *without* the trailing clause — more misleading than the pre-WIRE-12
+/// all-rows no-op. Applied at the statement entry point (not inside
+/// `parse_select`) so subqueries — where the caller consumes the closing `)` —
+/// keep parsing. A trailing statement terminator (`;`) is tolerated, matching
+/// the lenient behavior of non-paginated statements.
+fn reject_trailing_after_pagination<'a>(
+    rest: &'a str,
+    stmt: &Statement,
+) -> Result<(), nom::Err<nom::error::Error<&'a str>>> {
+    let paginated = match stmt {
+        Statement::Query(q) => q.limit.is_some() || q.offset.is_some(),
+        Statement::Select(s) => s.limit.is_some() || s.offset.is_some(),
+        _ => false,
+    };
+    if paginated && !rest.trim().trim_end_matches(';').trim().is_empty() {
+        return Err(nom::Err::Failure(nom::error::Error::new(
+            rest,
+            nom::error::ErrorKind::Verify,
+        )));
+    }
+    Ok(())
+}
+
 /// Parse any supported VantaQL statement (query, insert, update, delete, relate).
 pub fn parse_statement(i: &str) -> IResult<&str, Statement> {
-    alt((
+    let (rest, stmt) = alt((
         map(parse_insert_message, Statement::InsertMessage), // Must be before parse_insert to prevent shadowing
         map(parse_insert, Statement::Insert),
         map(parse_update, Statement::Update),
@@ -519,7 +620,9 @@ pub fn parse_statement(i: &str) -> IResult<&str, Statement> {
         map(parse_relate, Statement::Relate),
         map(parse_select, Statement::Select), // Must be before parse_query (SELECT would match as alias)
         map(parse_query, Statement::Query),
-    ))(i)
+    ))(i)?;
+    reject_trailing_after_pagination(rest, &stmt)?;
+    Ok((rest, stmt))
 }
 
 // ─── Autocomplete (VS-CORE-06) ──────────────────────────────────

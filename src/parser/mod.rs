@@ -13,9 +13,10 @@ pub use lexer::*;
 /// Bump when the grammar or literal semantics change in a way consumers must
 /// detect (new clause, changed literal semantics, removed syntax). Version-gated
 /// clauses document their minimum version — e.g. `PROFILE` (MEM-01) is accepted
-/// from [`IQL_VERSION_MIN_PROFILE`] onwards and `AS OF` (SCH-03) from
-/// [`IQL_VERSION_MIN_AS_OF`].
-pub const IQL_VERSION: u32 = 2;
+/// from [`IQL_VERSION_MIN_PROFILE`] onwards, `AS OF` (SCH-03) from
+/// [`IQL_VERSION_MIN_AS_OF`], and `LIMIT`/`OFFSET` (WIRE-12) from
+/// [`IQL_VERSION_MIN_PAGINATION`].
+pub const IQL_VERSION: u32 = 3;
 
 /// Minimum IQL version that accepts the optional `PROFILE` clause (MEM-01).
 pub const IQL_VERSION_MIN_PROFILE: u32 = 1;
@@ -23,6 +24,12 @@ pub const IQL_VERSION_MIN_PROFILE: u32 = 1;
 /// Minimum IQL version that accepts the optional `AS OF <unix-ms>` valid-time
 /// clause (SCH-03, ADR-046 §D3).
 pub const IQL_VERSION_MIN_AS_OF: u32 = 2;
+
+/// Minimum IQL version that accepts the optional `LIMIT <n>` / `OFFSET <n>`
+/// pagination clauses (WIRE-12). Canonical order: `LIMIT` then `OFFSET`;
+/// `OFFSET` may only appear together with or after `LIMIT` (reversed order is
+/// a parse error, never a silent drop).
+pub const IQL_VERSION_MIN_PAGINATION: u32 = 3;
 
 /// True when syntax whose minimum version is `min_version` is accepted by this
 /// parser (i.e. `min_version <= `[`IQL_VERSION`]). Consumers use it to
@@ -1408,20 +1415,27 @@ mod tests {
     fn test_iql_version_defined_and_gated() {
         // A concrete version is defined and exposed (crate root re-export
         // in src/lib.rs).
-        assert_eq!(IQL_VERSION, 2);
+        assert_eq!(IQL_VERSION, 3);
         // The gate is the single source of truth for versioned syntax.
         assert!(iql_supports(IQL_VERSION_MIN_PROFILE));
         assert!(iql_supports(IQL_VERSION_MIN_AS_OF));
+        assert!(iql_supports(IQL_VERSION_MIN_PAGINATION));
         assert!(
             !iql_supports(IQL_VERSION + 1),
             "syntax from a future version must not be silently enabled"
         );
-        // The gated clauses parse at the current version (MEM-01, SCH-03).
+        // The gated clauses parse at the current version (MEM-01, SCH-03, WIRE-12).
         let (_, q) = parse_query("FROM Node PROFILE vector").unwrap();
         let profile = q.search_profile.expect("PROFILE parsed at IQL_VERSION");
         assert_eq!(profile.mode, SearchProfileMode::Vector);
         let (_, q) = parse_query("FROM Node AS OF 42").unwrap();
         assert_eq!(q.as_of_ms, Some(42), "AS OF parsed at IQL_VERSION");
+        let (_, q) = parse_query("FROM Node LIMIT 1 OFFSET 2").unwrap();
+        assert_eq!(
+            (q.limit, q.offset),
+            (Some(1), Some(2)),
+            "pagination parsed at IQL_VERSION"
+        );
     }
 
     // ─── AS OF / valid-time clause (SCH-03) ──────────────────────
@@ -1539,5 +1553,153 @@ mod tests {
         assert_eq!(v["Query"]["where_clause"][0]["Relational"][2]["Int"], 28);
         assert_eq!(v["Query"]["fetch"][0], "name");
         assert_eq!(v["Query"]["search_profile"], serde_json::Value::Null);
+        // WIRE-12: pagination fields are additive and default to null.
+        assert_eq!(v["Query"]["limit"], serde_json::Value::Null);
+        assert_eq!(v["Query"]["offset"], serde_json::Value::Null);
+    }
+
+    // ─── LIMIT / OFFSET pagination (WIRE-12) ─────────────────────
+
+    #[test]
+    fn test_parse_query_limit_and_offset_capture_values() {
+        let (rest, q) = parse_query("FROM Doc LIMIT 5 OFFSET 2").unwrap();
+        assert_eq!(q.limit, Some(5));
+        assert_eq!(q.offset, Some(2));
+        assert_eq!(rest.trim(), "", "pagination clauses fully consumed");
+    }
+
+    #[test]
+    fn test_parse_query_limit_only_and_offset_only() {
+        let (_, q) = parse_query("FROM Doc LIMIT 10").unwrap();
+        assert_eq!((q.limit, q.offset), (Some(10), None));
+        let (_, q) = parse_query("FROM Doc OFFSET 3").unwrap();
+        assert_eq!((q.limit, q.offset), (None, Some(3)));
+        let (_, q) = parse_query("FROM Doc").unwrap();
+        assert_eq!((q.limit, q.offset), (None, None));
+    }
+
+    #[test]
+    fn test_parse_query_limit_zero_is_valid() {
+        // SQL semantics: LIMIT 0 is a valid empty window.
+        let (_, q) = parse_query("FROM Doc LIMIT 0").unwrap();
+        assert_eq!(q.limit, Some(0));
+    }
+
+    #[test]
+    fn test_parse_query_limit_requires_numeric_count() {
+        // Strictness (same rule as AS OF): once the keyword is seen the count
+        // is required — never a silent drop.
+        assert!(parse_query("FROM Doc LIMIT").is_err());
+        assert!(parse_query("FROM Doc LIMIT abc").is_err());
+        assert!(parse_query("FROM Doc OFFSET").is_err());
+        assert!(parse_query("FROM Doc OFFSET abc").is_err());
+    }
+
+    #[test]
+    fn test_parse_query_reversed_pagination_order_is_error() {
+        // Canonical order is LIMIT then OFFSET (SQL). Reversed or duplicated
+        // pagination keywords fail loud instead of becoming ignored trailing
+        // input.
+        assert!(parse_query("FROM Doc OFFSET 2 LIMIT 5").is_err());
+        assert!(parse_query("FROM Doc LIMIT 1 LIMIT 2").is_err());
+        assert!(parse_query("FROM Doc OFFSET 1 OFFSET 2").is_err());
+    }
+
+    #[test]
+    fn test_parse_query_limit_offset_with_rank_by_and_as_of() {
+        // Canonical order: ... RANK BY f LIMIT n OFFSET m AS OF t
+        let (rest, q) =
+            parse_query(r#"FROM Doc RANK BY name DESC LIMIT 3 OFFSET 1 AS OF 42"#).unwrap();
+        assert_eq!(
+            q.rank_by.as_ref().map(|r| (r.field.as_str(), r.desc)),
+            Some(("name", true))
+        );
+        assert_eq!(q.limit, Some(3));
+        assert_eq!(q.offset, Some(1));
+        assert_eq!(q.as_of_ms, Some(42));
+        assert_eq!(rest.trim(), "");
+        // AS OF before pagination still works (late position preserved).
+        let (_, q) = parse_query("FROM Doc AS OF 42 LIMIT 3").unwrap();
+        assert_eq!((q.as_of_ms, q.limit), (Some(42), Some(3)));
+        // Early AS OF position unchanged, combined with full pagination.
+        let (_, q) = parse_query("FROM Doc AS OF 42 WHERE n > 1 LIMIT 3 OFFSET 2").unwrap();
+        assert_eq!(
+            (q.as_of_ms, q.limit, q.offset),
+            (Some(42), Some(3), Some(2))
+        );
+    }
+
+    #[test]
+    fn test_parse_query_pagination_does_not_break_alias_identifiers() {
+        // Non-reserved identifiers with a keyword prefix stay valid aliases.
+        let (_, q) = parse_query("FROM Doc LIMITED").unwrap();
+        assert_eq!(q.target_alias, "LIMITED");
+        let (_, q) = parse_query("FROM Doc OFFSETX").unwrap();
+        assert_eq!(q.target_alias, "OFFSETX");
+    }
+
+    #[test]
+    fn test_parse_select_limit_offset_and_as_of() {
+        let (rest, stmt) = parse_statement("SELECT * FROM Doc LIMIT 5 OFFSET 2").unwrap();
+        match stmt {
+            Statement::Select(sel) => {
+                assert_eq!(sel.limit, Some(5));
+                assert_eq!(sel.offset, Some(2));
+            }
+            other => panic!("expected Select, got {other:?}"),
+        }
+        assert_eq!(rest.trim(), "");
+        // AS OF late position before pagination.
+        let (_, stmt) = parse_statement("SELECT * FROM Doc WHERE n > 1 AS OF 9 LIMIT 4").unwrap();
+        match stmt {
+            Statement::Select(sel) => {
+                assert_eq!(sel.as_of_ms, Some(9));
+                assert_eq!(sel.limit, Some(4));
+            }
+            other => panic!("expected Select, got {other:?}"),
+        }
+        // AS OF after pagination (third canonical position).
+        let (_, stmt) = parse_statement("SELECT * FROM Doc LIMIT 4 AS OF 9").unwrap();
+        match stmt {
+            Statement::Select(sel) => assert_eq!((sel.limit, sel.as_of_ms), (Some(4), Some(9))),
+            other => panic!("expected Select, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_parse_select_reversed_pagination_is_error() {
+        assert!(parse_statement("SELECT * FROM Doc OFFSET 2 LIMIT 5").is_err());
+        assert!(parse_statement("SELECT * FROM Doc LIMIT").is_err());
+    }
+
+    #[test]
+    fn test_parse_statement_rejects_trailing_clause_after_pagination() {
+        // WIRE-12: a clause after LIMIT/OFFSET would otherwise be silently
+        // dropped by the executor (FIND-312 class) and return a page without
+        // the clause — reject loud instead.
+        assert!(parse_statement("FROM Doc LIMIT 5 WHERE n > 1").is_err());
+        assert!(parse_statement("SELECT * FROM Doc LIMIT 5 WHERE n > 1").is_err());
+        assert!(parse_statement("FROM Doc OFFSET 2 garbage").is_err());
+        // Control: pagination + AS OF in either position parses fully.
+        assert!(parse_statement("FROM Doc LIMIT 5 AS OF 9").is_ok());
+        assert!(parse_statement("FROM Doc AS OF 9 LIMIT 5").is_ok());
+        // Subqueries keep parsing — the caller consumes the closing `)`.
+        assert!(
+            parse_statement("SELECT * FROM ns WHERE x > (SELECT * FROM other LIMIT 5)").is_ok()
+        );
+        // A trailing statement terminator is tolerated (lenient, same as
+        // non-paginated statements).
+        assert!(parse_statement("FROM Doc LIMIT 5;").is_ok());
+        // Boundary of this fix: statements WITHOUT pagination keep the legacy
+        // trailing-input behavior (still tracked as FIND-312).
+        assert!(parse_statement("FROM Doc garbage").is_ok());
+    }
+
+    #[test]
+    fn test_ast_json_pagination_shape() {
+        let (_, stmt) = parse_statement("FROM Doc LIMIT 5 OFFSET 2").unwrap();
+        let v = serde_json::to_value(&stmt).expect("statement must serialize to JSON");
+        assert_eq!(v["Query"]["limit"], 5);
+        assert_eq!(v["Query"]["offset"], 2);
     }
 }
