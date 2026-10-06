@@ -32,11 +32,12 @@ projects without extra services.
 | LlamaIndex | `vantadb-llamaindex` | `VantaDBVectorStore` | [integrations/llamaindex](../../integrations/llamaindex/README.md) |
 | Mem0 | `vantadb-mem0` | `VantaDBVectorStore` | [integrations/mem0](../../integrations/mem0/README.md) |
 | Letta | `vantadb-letta` | `VantaDBVectorStore` | [integrations/letta](../../integrations/letta/README.md) |
-| OpenAI SDK | `vantadb-openai` | `VantaDBOpenAI` (vector store) | [integrations/openai](../../integrations/openai/README.md) |
-| Ollama | `vantadb-ollama` | `VantaDBOllama` (embedding vector store) | [integrations/ollama](../../integrations/ollama/README.md) |
+| OpenAI SDK | `vantadb-openai` | `VantaDBOpenAI` (vector store) | [providers/openai](../../providers/openai/README.md) |
+| Ollama | `vantadb-ollama` | `VantaDBOllama` (embedding vector store) | [providers/ollama](../../providers/ollama/README.md) |
 
-All nine are standalone Python packages with their own test suites; pins,
-fixtures and test commands are catalogued in
+Seven of these are standalone Python packages with their own test suites (the
+OpenAI SDK and Ollama entries ship as the Rust providers — see their READMEs);
+pins, fixtures and test commands are catalogued in
 [integrations/README.md](../../integrations/README.md).
 
 ## Dev → prod: the checkpointer swap
@@ -90,21 +91,23 @@ not:
 
 ## Install
 
-**Alpha — not on PyPI yet.** The nine package names return 404 on the PyPI
-JSON API (verified 2026-09-30; re-check with `curl -s -o /dev/null -w "%{http_code}"
+**Alpha — not on PyPI yet.** The seven adapter names return 404 on the PyPI
+JSON API (re-verified 2026-10-06; re-check with `curl -s -o /dev/null -w "%{http_code}"
 https://pypi.org/pypi/vantadb-langchain/json`). They publish with the first
 `adapters-v*` tag via
-[release-adapters.yml](../../.github/workflows/release-adapters.yml). Until
-then, install from a repo checkout:
+[release-adapters.yml](../../.github/workflows/release-adapters.yml) (the
+`vantadb-openai`/`vantadb-ollama` names belong to the Rust providers —
+`providers-v*` lane). Until then, install from a repo checkout:
 
 ```bash
 python -m pip install ./integrations/langchain
 ```
 
-Two pin caveats for a source install (the refresh ships with the first
-adapters release; tracked in the release checklist):
+Two pin notes for a source install:
 
-- `vantadb-py>=0.5.0,<0.7.0` predates the current core major (0.7.0);
+- `vantadb-py>=0.6.1,<0.9.0` (bumped 2026-10-06 — the old
+  `>=0.5.0,<0.7.0` excluded the live core and admitted 0.5.0, which lacks
+  the `Client` API);
 - `langchain-core>=0.3,<1` predates langchain-core 1.x, which LangGraph 1.x
   requires — resolving pins normally conflicts with a current LangGraph.
 
@@ -144,9 +147,9 @@ projections.
 
 - **Not on PyPI yet (Alpha).** See install above; the switch to PyPI is a
   tracked follow-up after the first `adapters-v*` release.
-- **Pin lag.** The declared dependency ranges predate the current core and
-  LangGraph majors (details in install); the refresh ships with that same
-  first release.
+- **Pin lag.** The `langchain-core` range still predates langchain-core 1.x
+  / LangGraph 1.x (details in install); the core pin was refreshed
+  2026-10-06.
 - **Pre-1.0.** The adapters follow the core's versioning policy; expect API
   changes between minor releases ([VERSIONING.md](../api/VERSIONING.md)).
 - **What the demo covers, and what it does not.** It verifies checkpoint
@@ -158,7 +161,7 @@ projections.
 
 ## Learn more
 
-- [integrations/README.md](../../integrations/README.md) — the nine adapters, pins, test commands
+- [integrations/README.md](../../integrations/README.md) — the adapters, pins, test commands
 - [examples/langgraph_dev_to_prod](../../examples/langgraph_dev_to_prod/README.md) — the dev→prod demo
 - [COMPARISON.md](COMPARISON.md) — positioning against other stores (no competitor figures)
 - [MEMORY_INTERCHANGE_FORMAT.md](../api/MEMORY_INTERCHANGE_FORMAT.md) — the import/export contract
