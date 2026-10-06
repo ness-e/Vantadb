@@ -12,7 +12,7 @@ description: "Canonical index of the VantaDB documentation corpus."
      Grouped by kind, then by status, then by title.
      Source of truth: the frontmatter of the files listed below. -->
 
-1552 documents. This page is generated from frontmatter, so it cannot fall behind the tree. If a document is missing here, its `kind` or `description` is missing.
+1554 documents. This page is generated from frontmatter, so it cannot fall behind the tree. If a document is missing here, its `kind` or `description` is missing.
 
 ## Top level (3)
 
@@ -29,7 +29,7 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [VantaDB Documentation](./README.md) | index | Welcome to the VantaDB documentation vault           |
 | [VantaDB Documentation](./index.md)  | index | Canonical index of the VantaDB documentation corpus. |
 
-## API reference (26)
+## API reference (27)
 
 ### Index — 1
 
@@ -37,7 +37,7 @@ description: "Canonical index of the VantaDB documentation corpus."
 | ------------------------------- | ----- | -------------- |
 | [API reference](./api/index.md) | index | Section index. |
 
-### API reference — 25
+### API reference — 26
 
 | Document                                                                         | Kind      | Summary                                                                                                                                                                                                                                                    |
 | -------------------------------------------------------------------------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -65,9 +65,10 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [WASM API Reference](./api/WASM_API.md)                                          | reference | This page is the canonical entry point for VantaDB's WebAssembly surface — the                                                                                                                                                                             |
 | [WASM Persistence Documentation](./api/WASM_PERSISTENCE.md)                      | reference | How VantaDB persists data in the browser: what exists, what the verified                                                                                                                                                                                   |
 | [WASM Standalone Console (Vanta Studio — mode `wasm`)](./api/WASM_STANDALONE.md) | reference | The Vanta Studio console can run 100% in the browser with no server: the                                                                                                                                                                                   |
+| [Write receipts (VER-10) — attestation of writes](./api/WRITE_RECEIPTS.md)       | reference | Verifiable write receipts emitted by put_certified (Rust SDK): content binding (sha256), VER-01 chain reference, canonical surfaces and declared limits; point-in-time verification via schema, integrity hash and live re-scan                            |
 | [vanta-proxy Reference (Endpoints, Opt-in Features, Config)](./api/PROXY.md)     | reference | vanta-proxy is a transparent LLM wire proxy: by default it forwards bytes                                                                                                                                                                                  |
 
-## Internal / contributor (1391)
+## Internal / contributor (1392)
 
 ### Architecture decision records — 57
 
@@ -409,7 +410,7 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [`sec-codeql.yml` — SEC: CodeQL — Analysis](./dev/workflow/sec-codeql-30.md)                                   | runbook | Ejecuta el análisis estático de seguridad CodeQL de GitHub sobre el código Rust del proyecto para detectar vulnerabilidades                                                                                                                     |
 | [Fuzzing Guide for VantaDB](./dev/operations/FUZZING.md)                                                       | runbook | VantaDB uses a dual fuzzing approach to maximize coverage and compatibility _(archived)_                                                                                                                                                        |
 
-### Task files — 1096
+### Task files — 1097
 
 | Document                                                                                                                                             | Kind | Summary                                                                                                                                                                                                                                                                                                                                                                                                   |
 | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -1258,6 +1259,7 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [TASK QW-5: nits agrupados — categorize() eliminada, _normalize_score mem0 documentada, haystack count_documents(...](./dev/tasks/QW-5.md)           | task | N/A — cleanup/dedup con contrato mecánico (Wave 2 QW-5). No agrega símbolos públicos nuevos; solo elimina código DEPRECATED, documenta heurística y optimiza conteo por páginas. Tres cambios mecánicos ya pinneados por tests                                                                                                                                                                            |
 | [TASK QW-6: decisión letta — README declara estado experimental](./dev/tasks/QW-6.md)                                                                | task | N/A — doc-fix con contrato mecánico (Wave 2 QW-6). No agrega símbolos públicos nuevos; solo declara estado experimental en README                                                                                                                                                                                                                                                                         |
 | [TASK TS-11: Roadmap paridad sub-clientes (wiki/conversation/skills vía WASM)](./dev/tasks/TS-11.md)                                                 | task | Roadmap documentado de los sub-clientes diferidos (wiki/conversation/skills) con dependencia exacta del core + fecha de revisión + primer slice ejecutado: recoverArchivedNodes en WASM/TS (paridad con Python).                                                                                                                                                                                          |
+| [TASK VER-10: Attestation de escritura (extender el certificado de delete a writes)](./dev/tasks/VER-10.md)                                          | task | Recibo de escritura verificable (WriteReceipt v1): put_certified emite content binding sha256 + referencia a la cadena WAL VER-01 + superficies canónicas + límites declarados; verify no claim-driven (schema → integrity → re-scan live); opt-in, delete cert y vanta-cli verify intactos                                                                                                               |
 | [TASK WASM-QW1: Fix OpfsFile::append sobreescribe desde offset 0](./dev/tasks/WASM-QW1.md)                                                           | task | Callers → Callees → Implicaciones                                                                                                                                                                                                                                                                                                                                                                         |
 | [TASK WASM-QW3 (H-05): flush() deja de engañar](./dev/tasks/WASM-QW3.md)                                                                             | task | Implicaciones: Cambio de semántica documentada, no de API binaria. Blast radius ≤2 archivos (lib.rs + tests), sin concurrencia, sin unsafe, sin nueva dependencia. Reversible                                                                                                                                                                                                                             |
 | [TASK WEB-01: REST — superficie de la consola (CRUD + search + list + IQL + health/metrics/audit)](./dev/tasks/WEB-01.md)                            | task | Callers: appwithcors (3 callers en src/cliserver.rs) · app (27 callers) · vantadb-server crate re-exporta vantadb::cliserver::{app, authmiddleware, inittelemetry, run, AuthState, NodeDTO, QueryRequest, QueryResponse, ServerState}...                                                                                                                                                                  |
