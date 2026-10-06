@@ -164,8 +164,8 @@ description: "Estrategia multi-escritor declarada con ADR-0055 (LWW explícito +
 
 - **Archivos:** los del run (pathspec).
 - **Acción:** review P2-01 por agente distinto (`vanta-review`, sesión `ses_ef187540effeyMqJDSOenbJFFw`) → verdict inicial **CHANGES REQUIRED** (R1 Critical + R2 Required + R3 proceso + R4-R6) → **fixes aplicados** → delta re-review **APPROVE** (nits N1-N4 corregidos) → commit local `feat(sync): MEMG-05 — ...` → campaign `completed` (taskId 57, payload review) → `skill progreso` (delegado al lead, patrón MEMG-10).
-- **Verify:** ✅ review verdict registrado (approve); commit local pendiente de hash (se sincroniza en el commit `docs(task)` de cierre).
-- **Evidencia:** ✅ re-review APPROVE (`ses_ef187540effeyMqJDSOenbJFFw`); fixes R1-R6 verificados con suites re-ejecutadas post-fix (lib **2339/2339**, integración **11/11**, doctest 1/1, memory regression **19/19**, clippy/fmt exit 0).
+- **Verify:** ✅ review verdict registrado (approve); commit local **`12ed4000`** (13 archivos, +1196/−7; hooks pre-commit fmt/clippy/actionlint OK); campaign `completed` (taskId 57, payload review) pendiente de envío.
+- **Evidencia:** ✅ commit `12ed4000` (verificado: 0 marcadores ajenos en el diff committed de memory.rs) · re-review APPROVE (`ses_ef187540effeyMqJDSOenbJFFw`); fixes R1-R6 verificados con suites re-ejecutadas post-fix (lib **2339/2339**, integración **11/11**, doctest 1/1, memory regression **19/19**, clippy/fmt exit 0).
 
 ## RESULTADO (sección 7 — contrato de retorno)
 
@@ -173,7 +173,7 @@ description: "Estrategia multi-escritor declarada con ADR-0055 (LWW explícito +
 RESULTADO: ✅ COMPLETO
 STEPS_OK: 7/7 total steps
 PROXIMO_STEP: ninguno
-COMMIT_HASH: <pendiente — se sincroniza en el commit docs(task) de cierre>
+COMMIT_HASH: 12ed4000 (feat(sync): MEMG-05 — 13 archivos, +1196/−7)
 ARCHIVOS: src/sdk/merge.rs (nuevo) · src/sdk/merge_tests.rs (nuevo) · src/sdk/api/memory.rs (hunks propios) · src/sdk/builder.rs · src/sdk/mod.rs · src/lib.rs · tests/memory_multi_writer.rs (nuevo) · docs/dev/architecture/adr/ADR-0055-multi-writer-merge-lww.md (nuevo) · docs/dev/architecture/adr/README.md · docs/api/EMBEDDED_SDK.md · docs/api/MEMORY_INTERCHANGE_FORMAT.md · docs/dev/Backlog.md (FIND-303) · docs/dev/tasks/MEMG-05.md (nuevo)
 VERIFY_CONTRATO: pasa (RED→GREEN + ADR + tests concurrencia deterministas + suite/failpoints + docs gates scoped)
 BLOQUEO: ninguno
