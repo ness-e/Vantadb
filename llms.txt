@@ -6,7 +6,7 @@
 
 Every link below points to the raw Markdown source, not a rendered page. Read the
 page you need; do not read this file end to end. This index covers the
-459 documentation pages; it deliberately omits the 1100 task files,
+460 documentation pages; it deliberately omits the 1101 task files,
 which are work items rather than documentation. The full inventory of every file
 is in docs/index.md in the repository.
 
@@ -315,6 +315,7 @@ is in docs/index.md in the repository.
 - [Licenciamiento OSS y Monetización Open-Core para VantaDB](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/validacion/03-licenciamiento-y-monetizacion-open-core.md): Fecha: 2026-08-25 · Autor: Agente C (research delegada) · Estado: investigación completa; requiere revisión legal profesional antes del anuncio público
 - [MEMG-14 — Marco 2.0: núcleo + extensiones (reformulación del marco 8/6/10/PI)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/memg-14-marco-2.0.md): Marco reformulado 'núcleo + extensiones' (7 sub-decisiones a-g), respaldo de dims/áreas/ámbitos en repo, validaciones externas y cadencia anual; detalle Notion citado por página
 - [MEMG-18 — Multimodalidad: decisión + spec (extensión transversal vs 9ª dimensión)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/memg-18-multimodalidad.md): Decisión documentada (extensión de modalidad transversal, no 9ª dimensión) + spec mínima anclada en payload/vector/MemoryExportLine + trigger refinado con evidencia 2026; sin implementación
+- [MEMG-19 — Prospectiva + descartes documentados (sensorial/emocional)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/memg-19-prospectiva-descartes.md): Prospectiva/intencional como patrón de uso (working+temporal+procedimental; no almacén) con benchmarks PM-Bench/TriggerBench + descartes sensorial-como-almacén y emocional/motivacional con respaldos fetch-verificados y criterios de revisión; no normativo, sin implementación
 - [MGR-04 — Policy engine: namespaces trusted/tainted + RBAC por acción (spec + slice MGR-04/MEMG-10)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/mgr-04-policy-engine.md): Modelo de confianza por namespace (trusted/tainted) con gate de inyección en las superficies VER-04, y modelo RBAC por acción (read/write/delete namespace-scoped) con audit de denials. Slice implementado: trust gate end-to-end (proxy/MCP) + auth_rbac; enforcement por acción restante → FIND-301.
 - [MGR-10 — Bitemporalidad (dim 5): valid-time vs transaction-time, tradeoffs y plan de migración (Cierre MGR)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/mgr-10-bitemporalidad.md): Los hits de \"point-in-time\" son MVCC/snapshot de storage (src/storage/engine/txn.rs:227, src/backends/rocksdbbackend.rs:350, src/metrics/core/mod.rs:622) y comentarios afines — semántica transaccional/de proceso, no ventanas de validez...
 - [MGR-12 — Confianza: jerarquía asserted/derived, scores por registro y derivación (Cierre MGR)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/mgr-12-confianza.md): Dos ejes ortogonales por registro — nunca confundirlos
