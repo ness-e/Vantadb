@@ -150,6 +150,14 @@ gh workflow run release-adapters.yml -f publish_testpypi=true
 - `python -m pytest integrations/test_pins.py` = 10 passed · `actionlint release-adapters.yml` = 0 · docs gates = 0/0/0 · `dev-tools/verify.ps1` = **ALL 10 PASS** (árbol final).
 - Artefactos: `target/mkt20/dryrun2-builds.log` · `target/mkt20/dryrun2-smoke.log` (locales, regenerables).
 
+## Definition of Done (contrato multi-nivel — P2-08)
+
+| Nivel | Gate |
+|-------|------|
+| **Task** | Contrato ✅ — dry-run local verde (build ×7 · twine 14/14 · smoke ×7 con core 0.8.0) + checklist owner final (§F6-5) + D1/D2 implementadas y verificadas + review P2-01 ronda 2.1 approve. |
+| **Commit** | ✅ LOCAL `9f773e92` (changeset, 20 archivos) + `8d336134` (cierre) — sin push (Regla 7); `verify.ps1` ALL 10 PASS + gates pre-commit. |
+| **Release** | ⏳ Owner lane — push (cierre del plan) → pending publishers ×7 → dry-run TestPyPI → tag `adapters-v0.5.0` → post-publish. El cierre del task NO publica. |
+
 ## Review P2-01 (fresh — vanta-review, 2 rondas)
 
 - **Ronda 1 (prep — `ses_eee23c8f6ffeF2fvvmPVeQIE5u`):** ✅ APPROVE — re-ejecutó 404 ×10 (ambos índices), environments (`gh api`), diff del workflow, probe de pin en venv (0.5.0 `Client: False` / 0.8.0 `True`), twine spot, gates. Findings Medium/Low → todos aplicados en la ronda 2.
