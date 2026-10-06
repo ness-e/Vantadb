@@ -288,6 +288,16 @@ impl<'a> CostEstimator<'a> {
                     estimated_bytes: bytes,
                 }
             }
+            // WIRE-13: `Aggregate` is the third registry extension; same
+            // compiler-forced delegation (its model is passthrough).
+            LogicalOperator::Aggregate { .. } => {
+                let (rows, bytes) =
+                    crate::operator_registry::OperatorRegistry::new().estimate(op, in_rows);
+                OperatorCost {
+                    estimated_rows: rows,
+                    estimated_bytes: bytes,
+                }
+            }
         }
     }
 

@@ -94,6 +94,8 @@ fn test_join_two_entities_returns_combined_results() {
         as_of_ms: None,
         limit: None,
         offset: None,
+        aggregates: vec![],
+        group_by: None,
     });
 
     let result = ex.execute_statement(stmt).unwrap();
@@ -165,6 +167,8 @@ fn test_join_with_where_filter() {
         as_of_ms: None,
         limit: None,
         offset: None,
+        aggregates: vec![],
+        group_by: None,
     });
 
     let result = ex.execute_statement(stmt).unwrap();
@@ -210,6 +214,8 @@ fn test_join_no_matches() {
         as_of_ms: None,
         limit: None,
         offset: None,
+        aggregates: vec![],
+        group_by: None,
     });
 
     let result = ex.execute_statement(stmt).unwrap();
@@ -251,6 +257,8 @@ fn test_subquery_where_scalar() {
         as_of_ms: None,
         limit: None,
         offset: None,
+        aggregates: vec![],
+        group_by: None,
     };
 
     // Outer query: SELECT * FROM Product WHERE price >= (SELECT price FROM ...)
@@ -271,6 +279,8 @@ fn test_subquery_where_scalar() {
         as_of_ms: None,
         limit: None,
         offset: None,
+        aggregates: vec![],
+        group_by: None,
     });
 
     let result = ex.execute_statement(stmt).unwrap();
@@ -327,6 +337,8 @@ fn test_subquery_where_with_exact_match() {
         as_of_ms: None,
         limit: None,
         offset: None,
+        aggregates: vec![],
+        group_by: None,
     };
 
     // Outer: SELECT * FROM Product WHERE price = (SELECT ...)
@@ -346,6 +358,8 @@ fn test_subquery_where_with_exact_match() {
         as_of_ms: None,
         limit: None,
         offset: None,
+        aggregates: vec![],
+        group_by: None,
     });
 
     let result = ex.execute_statement(stmt).unwrap();
@@ -523,6 +537,8 @@ fn test_join_self_join() {
         as_of_ms: None,
         limit: None,
         offset: None,
+        aggregates: vec![],
+        group_by: None,
     });
 
     let result = ex.execute_statement(stmt).unwrap();
@@ -563,6 +579,8 @@ fn test_join_empty_tables() {
         as_of_ms: None,
         limit: None,
         offset: None,
+        aggregates: vec![],
+        group_by: None,
     });
 
     let result = ex.execute_statement(stmt).unwrap();
@@ -594,6 +612,8 @@ fn test_select_basic_no_join() {
         as_of_ms: None,
         limit: None,
         offset: None,
+        aggregates: vec![],
+        group_by: None,
     });
 
     let result = ex.execute_statement(stmt).unwrap();

@@ -5,8 +5,10 @@
 //!
 //! Split into per-operator submodules (REVIEW-05): `scan`, `filter`,
 //! `vector`, `project`, `sort`, `join`, `dedup` (C2S6 extension exemplar),
-//! `offset` (WIRE-12 registry extension).
+//! `offset` (WIRE-12 registry extension), `aggregate` (WIRE-13 registry
+//! extension).
 
+mod aggregate;
 mod dedup;
 mod filter;
 mod join;
@@ -16,6 +18,7 @@ mod scan;
 mod sort;
 mod vector;
 
+pub use aggregate::PhysicalAggregate;
 pub use dedup::PhysicalDedup;
 pub use filter::{PhysicalFilter, PhysicalTextFilter};
 pub use join::{PhysicalNestedLoopJoin, PhysicalSubqueryFilter};

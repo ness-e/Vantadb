@@ -45,6 +45,7 @@ pub(crate) const RESERVED_KEYWORDS: &[&str] = &[
     "DESC",
     "FETCH",
     "FROM",
+    "GROUP",
     "INSERT",
     "JOIN",
     "LIMIT",

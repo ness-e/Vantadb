@@ -180,6 +180,33 @@ pub struct RankBy {
     pub desc: bool,
 }
 
+/// Aggregate function over a field (WIRE-13).
+///
+/// Serializes with serde's default representation like the rest of the AST:
+/// `Count` as `"Count"`, `CountField("email")` as `{"CountField": "email"}`,
+/// `Sum("amount")` as `{"Sum": "amount"}`.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub enum AggregateFunc {
+    /// `COUNT(*)`: number of rows in the group.
+    Count,
+    /// `COUNT(field)`: rows where `field` is present and not `Null`.
+    CountField(String),
+    /// `SUM(field)`: sum of numeric `field` values (non-numeric ignored).
+    Sum(String),
+}
+
+impl AggregateFunc {
+    /// Output field name of this aggregate in each result row (WIRE-13):
+    /// `count`, `count_<field>`, `sum_<field>`.
+    pub fn output_name(&self) -> String {
+        match self {
+            AggregateFunc::Count => "count".to_string(),
+            AggregateFunc::CountField(field) => format!("count_{field}"),
+            AggregateFunc::Sum(field) => format!("sum_{field}"),
+        }
+    }
+}
+
 /// A JOIN clause within a SELECT statement.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct JoinClause {
@@ -227,6 +254,19 @@ pub struct SelectStatement {
     /// Optional `OFFSET <n>` rows to skip (WIRE-12): same semantics as in
     /// `FROM`/`MATCH`. `None` = no skip.
     pub offset: Option<usize>,
+    /// Aggregate functions in the SELECT list (WIRE-13). When non-empty the
+    /// query is an aggregation: the plan emits [`LogicalOperator::Aggregate`]
+    /// instead of `Project`, and each output row carries the group key plus
+    /// one field per aggregate ([`AggregateFunc::output_name`]). Parser
+    /// invariant: when non-empty, `projections` is empty and `limit`/`offset`/
+    /// `as_of_ms` are `None` (the combinations are rejected at parse time,
+    /// FIND-316) — programmatic AST construction must respect it.
+    pub aggregates: Vec<AggregateFunc>,
+    /// Optional `GROUP BY <field>` key (WIRE-13): one output row per distinct
+    /// value, in first-seen order. `None` = single global group. Requires at
+    /// least one aggregate and must not collide with an aggregate output name
+    /// (both rejected at parse time).
+    pub group_by: Option<String>,
 }
 
 /// The FROM clause of a SELECT — either a single entity or a JOIN of two sub-clauses.
@@ -310,13 +350,33 @@ impl SelectStatement {
             });
         }
 
-        if !self.projections.is_empty() {
-            ops.push(LogicalOperator::Project {
-                fields: self.projections,
+        if !self.aggregates.is_empty() {
+            // WIRE-13: aggregation replaces projection — the operator builds
+            // the output fields (group key + aggregates). LIMIT/OFFSET and
+            // AS OF are rejected at parse time for aggregation queries
+            // (FIND-316), so no pagination operators are emitted here.
+            // Programmatic AST construction must respect the same invariant —
+            // those fields would otherwise be silently ignored.
+            debug_assert!(
+                self.limit.is_none()
+                    && self.offset.is_none()
+                    && self.as_of_ms.is_none()
+                    && self.projections.is_empty(),
+                "aggregation queries must not set limit/offset/as_of_ms/projections"
+            );
+            ops.push(LogicalOperator::Aggregate {
+                funcs: self.aggregates,
+                group_by: self.group_by,
             });
-        }
+        } else {
+            if !self.projections.is_empty() {
+                ops.push(LogicalOperator::Project {
+                    fields: self.projections,
+                });
+            }
 
-        push_pagination(&mut ops, self.limit, self.offset);
+            push_pagination(&mut ops, self.limit, self.offset);
+        }
 
         LogicalPlan {
             operators: ops,
@@ -430,6 +490,18 @@ pub enum LogicalOperator {
     Offset {
         /// Number of leading rows to skip.
         skip: usize,
+    },
+    /// Aggregate rows into groups (WIRE-13). Registry extension (C2S6 pattern:
+    /// variant + physical file + one register line): compiled post-chain by
+    /// `OperatorRegistry`. Emits one synthetic `UnifiedNode` per group
+    /// (`id = 0`), carrying the group key plus one field per aggregate
+    /// ([`AggregateFunc::output_name`]). Without `group_by` it emits exactly
+    /// one row over the whole input (SQL global-aggregate semantics).
+    Aggregate {
+        /// Aggregate functions to compute, in output order.
+        funcs: Vec<AggregateFunc>,
+        /// Optional group key field; `None` = single global group.
+        group_by: Option<String>,
     },
     /// Deduplicate consecutive rows by a relational field (C2S6 extension
     /// exemplar: compiles/costs through `OperatorRegistry` without touching
@@ -963,5 +1035,77 @@ mod tests {
             .operators
             .iter()
             .any(|op| matches!(op, LogicalOperator::Offset { .. })));
+    }
+
+    // ── Aggregation (WIRE-13) ──
+
+    #[test]
+    fn aggregate_func_output_names_are_deterministic() {
+        assert_eq!(AggregateFunc::Count.output_name(), "count");
+        assert_eq!(
+            AggregateFunc::CountField("email".into()).output_name(),
+            "count_email"
+        );
+        assert_eq!(
+            AggregateFunc::Sum("amount".into()).output_name(),
+            "sum_amount"
+        );
+    }
+
+    fn aggregate_select(aggregates: Vec<AggregateFunc>, group_by: Option<&str>) -> SelectStatement {
+        SelectStatement {
+            projections: vec![],
+            from: FromClause::Single {
+                entity: "Invoice".into(),
+                alias: "target".into(),
+            },
+            where_clause: None,
+            subquery_conditions: vec![],
+            temperature: None,
+            as_of_ms: None,
+            limit: None,
+            offset: None,
+            aggregates,
+            group_by: group_by.map(String::from),
+        }
+    }
+
+    #[test]
+    fn into_logical_plan_emits_aggregate_without_project() {
+        let plan =
+            aggregate_select(vec![AggregateFunc::Count], Some("category")).into_logical_plan();
+        assert!(plan.operators.iter().any(|op| matches!(
+            op,
+            LogicalOperator::Aggregate { funcs, group_by }
+                if funcs == &vec![AggregateFunc::Count]
+                    && group_by.as_deref() == Some("category")
+        )));
+        assert!(
+            !plan
+                .operators
+                .iter()
+                .any(|op| matches!(op, LogicalOperator::Project { .. })),
+            "aggregate output fields are built by the operator, not Project"
+        );
+        assert!(!plan
+            .operators
+            .iter()
+            .any(|op| matches!(op, LogicalOperator::Limit { .. })));
+    }
+
+    #[test]
+    fn into_logical_plan_plain_select_still_emits_project() {
+        // Control: the aggregate branch must not change non-aggregate SELECT.
+        let mut select = aggregate_select(vec![], None);
+        select.projections = vec!["name".into()];
+        let plan = select.into_logical_plan();
+        assert!(plan
+            .operators
+            .iter()
+            .any(|op| matches!(op, LogicalOperator::Project { .. })));
+        assert!(!plan
+            .operators
+            .iter()
+            .any(|op| matches!(op, LogicalOperator::Aggregate { .. })));
     }
 }

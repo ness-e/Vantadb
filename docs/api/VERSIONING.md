@@ -41,7 +41,7 @@ plus an explicit breaking-change note (`feat!:` / `BREAKING CHANGE:`).
 | 5 | WebAssembly SDK | `vantadb-wasm` + OPFS/IDB persistence | [`WASM_API.md`](WASM_API.md) · [`WASM_PERSISTENCE.md`](WASM_PERSISTENCE.md) · [`WASM_STANDALONE.md`](WASM_STANDALONE.md) |
 | 6 | HTTP API + OpenAPI | `vantadb-server` — `/api/v2/*` | [`HTTP_API.md`](HTTP_API.md) + [`openapi.yaml`](openapi.yaml) |
 | 7 | MCP server | `vanta-cli server --mcp` (stdio) | [`MCP.md`](MCP.md) |
-| 8 | IQL | `IQL_VERSION = 3` grammar (`src/parser/`) | [`IQL.md`](IQL.md) |
+| 8 | IQL | `IQL_VERSION = 4` grammar (`src/parser/`) | [`IQL.md`](IQL.md) |
 | 9 | CLI | `vanta-cli` | [`CONFIGURATION.md` §4 Embedded CLI](../user/operations/CONFIGURATION.md) + built-in `--help` |
 | 10 | LLM proxy | `vanta-proxy` | [`PROXY.md`](PROXY.md) |
 | 11 | vanta-memory (Rust crate) | `vanta-memory` — L0–L3 pipeline, core-only | [`VANTA_MEMORY.md`](VANTA_MEMORY.md) |

@@ -4349,6 +4349,28 @@ pub fn vantadb::UnifiedNode::pin(&mut self)
 pub fn vantadb::UnifiedNode::unpin(&mut self)
 pub type vantadb::node::RelFields = alloc::collections::btree::map::BTreeMap<alloc::string::String, vantadb::FieldValue>
 pub mod vantadb::operator_registry
+pub struct vantadb::operator_registry::AggregateCompiler
+impl vantadb::operator_registry::OperatorCompiler for vantadb::operator_registry::AggregateCompiler
+pub fn vantadb::operator_registry::AggregateCompiler::compile<'a>(&self, &vantadb::query::LogicalOperator, alloc::boxed::Box<(dyn vantadb::query::PhysicalOperator + 'a)>) -> vantadb::error::Result<alloc::boxed::Box<(dyn vantadb::query::PhysicalOperator + 'a)>>
+pub fn vantadb::operator_registry::AggregateCompiler::operator_name(&self) -> &'static str
+impl core::marker::Freeze for vantadb::operator_registry::AggregateCompiler
+impl core::marker::Send for vantadb::operator_registry::AggregateCompiler
+impl core::marker::Sync for vantadb::operator_registry::AggregateCompiler
+impl core::marker::Unpin for vantadb::operator_registry::AggregateCompiler
+impl core::marker::UnsafeUnpin for vantadb::operator_registry::AggregateCompiler
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::operator_registry::AggregateCompiler
+impl core::panic::unwind_safe::UnwindSafe for vantadb::operator_registry::AggregateCompiler
+pub struct vantadb::operator_registry::AggregateCost
+impl vantadb::operator_registry::OperatorCostModel for vantadb::operator_registry::AggregateCost
+pub fn vantadb::operator_registry::AggregateCost::estimate(&self, &vantadb::query::LogicalOperator, f64) -> (f64, usize)
+pub fn vantadb::operator_registry::AggregateCost::operator_name(&self) -> &'static str
+impl core::marker::Freeze for vantadb::operator_registry::AggregateCost
+impl core::marker::Send for vantadb::operator_registry::AggregateCost
+impl core::marker::Sync for vantadb::operator_registry::AggregateCost
+impl core::marker::Unpin for vantadb::operator_registry::AggregateCost
+impl core::marker::UnsafeUnpin for vantadb::operator_registry::AggregateCost
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::operator_registry::AggregateCost
+impl core::panic::unwind_safe::UnwindSafe for vantadb::operator_registry::AggregateCost
 pub struct vantadb::operator_registry::DedupCompiler
 impl vantadb::operator_registry::OperatorCompiler for vantadb::operator_registry::DedupCompiler
 pub fn vantadb::operator_registry::DedupCompiler::compile<'a>(&self, &vantadb::query::LogicalOperator, alloc::boxed::Box<(dyn vantadb::query::PhysicalOperator + 'a)>) -> vantadb::error::Result<alloc::boxed::Box<(dyn vantadb::query::PhysicalOperator + 'a)>>
@@ -4417,6 +4439,9 @@ pub const vantadb::operator_registry::UNKNOWN_OPERATOR_MARKER: &str
 pub trait vantadb::operator_registry::OperatorCompiler: core::marker::Send + core::marker::Sync
 pub fn vantadb::operator_registry::OperatorCompiler::compile<'a>(&self, &vantadb::query::LogicalOperator, alloc::boxed::Box<(dyn vantadb::query::PhysicalOperator + 'a)>) -> vantadb::error::Result<alloc::boxed::Box<(dyn vantadb::query::PhysicalOperator + 'a)>>
 pub fn vantadb::operator_registry::OperatorCompiler::operator_name(&self) -> &'static str
+impl vantadb::operator_registry::OperatorCompiler for vantadb::operator_registry::AggregateCompiler
+pub fn vantadb::operator_registry::AggregateCompiler::compile<'a>(&self, &vantadb::query::LogicalOperator, alloc::boxed::Box<(dyn vantadb::query::PhysicalOperator + 'a)>) -> vantadb::error::Result<alloc::boxed::Box<(dyn vantadb::query::PhysicalOperator + 'a)>>
+pub fn vantadb::operator_registry::AggregateCompiler::operator_name(&self) -> &'static str
 impl vantadb::operator_registry::OperatorCompiler for vantadb::operator_registry::DedupCompiler
 pub fn vantadb::operator_registry::DedupCompiler::compile<'a>(&self, &vantadb::query::LogicalOperator, alloc::boxed::Box<(dyn vantadb::query::PhysicalOperator + 'a)>) -> vantadb::error::Result<alloc::boxed::Box<(dyn vantadb::query::PhysicalOperator + 'a)>>
 pub fn vantadb::operator_registry::DedupCompiler::operator_name(&self) -> &'static str
@@ -4426,6 +4451,9 @@ pub fn vantadb::operator_registry::OffsetCompiler::operator_name(&self) -> &'sta
 pub trait vantadb::operator_registry::OperatorCostModel: core::marker::Send + core::marker::Sync
 pub fn vantadb::operator_registry::OperatorCostModel::estimate(&self, &vantadb::query::LogicalOperator, f64) -> (f64, usize)
 pub fn vantadb::operator_registry::OperatorCostModel::operator_name(&self) -> &'static str
+impl vantadb::operator_registry::OperatorCostModel for vantadb::operator_registry::AggregateCost
+pub fn vantadb::operator_registry::AggregateCost::estimate(&self, &vantadb::query::LogicalOperator, f64) -> (f64, usize)
+pub fn vantadb::operator_registry::AggregateCost::operator_name(&self) -> &'static str
 impl vantadb::operator_registry::OperatorCostModel for vantadb::operator_registry::DedupCost
 pub fn vantadb::operator_registry::DedupCost::estimate(&self, &vantadb::query::LogicalOperator, f64) -> (f64, usize)
 pub fn vantadb::operator_registry::DedupCost::operator_name(&self) -> &'static str
@@ -4477,6 +4505,7 @@ impl core::marker::UnsafeUnpin for vantadb::parser::WhereItem
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::parser::WhereItem
 impl core::panic::unwind_safe::UnwindSafe for vantadb::parser::WhereItem
 pub const vantadb::parser::IQL_VERSION: u32
+pub const vantadb::parser::IQL_VERSION_MIN_AGGREGATION: u32
 pub const vantadb::parser::IQL_VERSION_MIN_AS_OF: u32
 pub const vantadb::parser::IQL_VERSION_MIN_PAGINATION: u32
 pub const vantadb::parser::IQL_VERSION_MIN_PROFILE: u32
@@ -4487,6 +4516,20 @@ pub fn vantadb::parser::parse_select(&str) -> nom::internal::IResult<&str, vanta
 pub fn vantadb::parser::parse_statement(&str) -> nom::internal::IResult<&str, vantadb::query::Statement>
 pub fn vantadb::parser::ws<'a, F, O, E: nom::error::ParseError<&'a str>>(F) -> impl core::ops::function::FnMut(&'a str) -> nom::internal::IResult<&'a str, O, E> where F: nom::internal::Parser<&'a str, O, E>
 pub mod vantadb::physical_plan
+pub struct vantadb::physical_plan::PhysicalAggregate<'a>
+impl<'a> vantadb::physical_plan::PhysicalAggregate<'a>
+pub fn vantadb::physical_plan::PhysicalAggregate<'a>::new(alloc::boxed::Box<(dyn vantadb::query::PhysicalOperator + 'a)>, alloc::vec::Vec<vantadb::query::AggregateFunc>, core::option::Option<alloc::string::String>) -> Self
+impl vantadb::query::PhysicalOperator for vantadb::physical_plan::PhysicalAggregate<'_>
+pub fn vantadb::physical_plan::PhysicalAggregate<'_>::close(&mut self) -> vantadb::error::Result<()>
+pub fn vantadb::physical_plan::PhysicalAggregate<'_>::next(&mut self) -> vantadb::error::Result<core::option::Option<vantadb::UnifiedNode>>
+pub fn vantadb::physical_plan::PhysicalAggregate<'_>::open(&mut self) -> vantadb::error::Result<()>
+impl<'a> core::marker::Freeze for vantadb::physical_plan::PhysicalAggregate<'a>
+impl<'a> core::marker::Send for vantadb::physical_plan::PhysicalAggregate<'a>
+impl<'a> core::marker::Sync for vantadb::physical_plan::PhysicalAggregate<'a>
+impl<'a> core::marker::Unpin for vantadb::physical_plan::PhysicalAggregate<'a>
+impl<'a> core::marker::UnsafeUnpin for vantadb::physical_plan::PhysicalAggregate<'a>
+impl<'a> !core::panic::unwind_safe::RefUnwindSafe for vantadb::physical_plan::PhysicalAggregate<'a>
+impl<'a> !core::panic::unwind_safe::UnwindSafe for vantadb::physical_plan::PhysicalAggregate<'a>
 pub struct vantadb::physical_plan::PhysicalDedup<'a>
 impl<'a> vantadb::physical_plan::PhysicalDedup<'a>
 pub fn vantadb::physical_plan::PhysicalDedup<'a>::new(alloc::boxed::Box<(dyn vantadb::query::PhysicalOperator + 'a)>, alloc::string::String) -> Self
@@ -4683,6 +4726,28 @@ pub const vantadb::planner::HIGH_SELECTIVITY_THRESHOLD: f32
 pub fn vantadb::planner::classify(core::option::Option<&str>, bool) -> vantadb::planner::SearchRoute
 pub fn vantadb::planner::optimize_and_compile<'a>(&vantadb::query::LogicalPlan, &'a vantadb::storage::StorageEngine) -> vantadb::error::Result<alloc::boxed::Box<(dyn vantadb::query::PhysicalOperator + 'a)>>
 pub mod vantadb::query
+pub enum vantadb::query::AggregateFunc
+pub vantadb::query::AggregateFunc::Count
+pub vantadb::query::AggregateFunc::CountField(alloc::string::String)
+pub vantadb::query::AggregateFunc::Sum(alloc::string::String)
+impl vantadb::query::AggregateFunc
+pub fn vantadb::query::AggregateFunc::output_name(&self) -> alloc::string::String
+impl core::clone::Clone for vantadb::query::AggregateFunc
+pub fn vantadb::query::AggregateFunc::clone(&self) -> Self
+impl core::cmp::PartialEq for vantadb::query::AggregateFunc
+pub fn vantadb::query::AggregateFunc::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vantadb::query::AggregateFunc
+pub fn vantadb::query::AggregateFunc::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vantadb::query::AggregateFunc
+impl serde_core::ser::Serialize for vantadb::query::AggregateFunc
+pub fn vantadb::query::AggregateFunc::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl core::marker::Freeze for vantadb::query::AggregateFunc
+impl core::marker::Send for vantadb::query::AggregateFunc
+impl core::marker::Sync for vantadb::query::AggregateFunc
+impl core::marker::Unpin for vantadb::query::AggregateFunc
+impl core::marker::UnsafeUnpin for vantadb::query::AggregateFunc
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::query::AggregateFunc
+impl core::panic::unwind_safe::UnwindSafe for vantadb::query::AggregateFunc
 pub enum vantadb::query::Condition
 pub vantadb::query::Condition::Relational(alloc::string::String, vantadb::query::RelOp, vantadb::FieldValue)
 pub vantadb::query::Condition::TextMatch(alloc::string::String, alloc::string::String)
@@ -4729,6 +4794,9 @@ impl core::marker::UnsafeUnpin for vantadb::query::FromClause
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::query::FromClause
 impl core::panic::unwind_safe::UnwindSafe for vantadb::query::FromClause
 pub enum vantadb::query::LogicalOperator
+pub vantadb::query::LogicalOperator::Aggregate
+pub vantadb::query::LogicalOperator::Aggregate::funcs: alloc::vec::Vec<vantadb::query::AggregateFunc>
+pub vantadb::query::LogicalOperator::Aggregate::group_by: core::option::Option<alloc::string::String>
 pub vantadb::query::LogicalOperator::Dedup
 pub vantadb::query::LogicalOperator::Dedup::field: alloc::string::String
 pub vantadb::query::LogicalOperator::FilterRelational
@@ -4998,8 +5066,10 @@ impl core::marker::UnsafeUnpin for vantadb::query::RelateStatement
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::query::RelateStatement
 impl core::panic::unwind_safe::UnwindSafe for vantadb::query::RelateStatement
 pub struct vantadb::query::SelectStatement
+pub vantadb::query::SelectStatement::aggregates: alloc::vec::Vec<vantadb::query::AggregateFunc>
 pub vantadb::query::SelectStatement::as_of_ms: core::option::Option<u64>
 pub vantadb::query::SelectStatement::from: vantadb::query::FromClause
+pub vantadb::query::SelectStatement::group_by: core::option::Option<alloc::string::String>
 pub vantadb::query::SelectStatement::limit: core::option::Option<usize>
 pub vantadb::query::SelectStatement::offset: core::option::Option<usize>
 pub vantadb::query::SelectStatement::projections: alloc::vec::Vec<alloc::string::String>
@@ -5090,6 +5160,10 @@ pub trait vantadb::query::PhysicalOperator: core::marker::Send + core::marker::S
 pub fn vantadb::query::PhysicalOperator::close(&mut self) -> vantadb::error::Result<()>
 pub fn vantadb::query::PhysicalOperator::next(&mut self) -> vantadb::error::Result<core::option::Option<vantadb::UnifiedNode>>
 pub fn vantadb::query::PhysicalOperator::open(&mut self) -> vantadb::error::Result<()>
+impl vantadb::query::PhysicalOperator for vantadb::physical_plan::PhysicalAggregate<'_>
+pub fn vantadb::physical_plan::PhysicalAggregate<'_>::close(&mut self) -> vantadb::error::Result<()>
+pub fn vantadb::physical_plan::PhysicalAggregate<'_>::next(&mut self) -> vantadb::error::Result<core::option::Option<vantadb::UnifiedNode>>
+pub fn vantadb::physical_plan::PhysicalAggregate<'_>::open(&mut self) -> vantadb::error::Result<()>
 impl vantadb::query::PhysicalOperator for vantadb::physical_plan::PhysicalDedup<'_>
 pub fn vantadb::physical_plan::PhysicalDedup<'_>::close(&mut self) -> vantadb::error::Result<()>
 pub fn vantadb::physical_plan::PhysicalDedup<'_>::next(&mut self) -> vantadb::error::Result<core::option::Option<vantadb::UnifiedNode>>
