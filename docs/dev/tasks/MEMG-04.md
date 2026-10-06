@@ -15,7 +15,7 @@ description: "Barrera de aislamiento por tenant (namespace=tenant): roles ns-sco
 - **Tipo:** Rust — core `src/server/{middleware,router,state}.rs` + `src/rbac.rs` (consumo) + `src/config.rs` (`RbacCfg`/`Config`) + `src/sdk/api/memory.rs` (cuota write path) + `tests/rbac_namespace.rs` + `tests/quota_records.rs` (nuevo) + docs
 - **Turns estimados:** 10-14 (una sesión de sub-agente con corte declarado)
 - **Creado:** 2026-10-05 | **last-synced:** 2026-10-05
-- **Estado:** ✅ COMPLETADO — S0-S6 ✅; review P2-01 APPROVE (vanta-review, 3 rondas: changes-required → fixes C1/R1-R5 → APPROVE)
+- **Estado:** ✅ COMPLETADO — S0-S6 ✅; commit `aa79532f`; review P2-01 APPROVE (vanta-review, 3 rondas: changes-required → fixes C1/R1-R5 → APPROVE)
 - **Incógnitas (uphill, 2 del plan — RESUELTAS en DISCOVERY):**
   (a) **¿tenant = namespace vs entidad nueva?** → **RESUELTA: namespace = tenant** (evidencia: `memory_node_id(ns,key)` particiona el keyspace `src/sdk/serialization/mod.rs:77-83`; `validate_namespace` fija charset `:108-129`; RBAC `NamespaceRead/Write` + `can_access_namespace` ya existen `src/rbac.rs:17-19,70-85`; entidades user/team son registro de auth, no barrera; ADR innecesario — no cambia el modelo de autorización, lo EXTIENDE a las superficies donde el propio SRV-05 ya prometía cobertura — ver §Spec D1/D9).
   (b) **¿punto de intercepción barato de cuotas?** → **RESUELTA: write path del core (`put_one`/`put_batch_inner`/`put_record_exact`), contador mantenido existente = text-index namespace stats `doc_count`** (`load_text_namespace_stats`, cacheado en `engine.cache.text_ns`, mantenido +1/−1 por put/delete/expurge en `text_index_ops_for_replace` — `impl_text_index.rs:293-299,269`). Coste medido por diseño: 1 lectura cache/KV solo en inserts nuevos y solo con cuota opt-in (`None` default = cero coste); no se interfiere con `put` hot path por defecto. El contador por namespace NO se re-inventa (regla memory-budget: reusar caps existentes).
@@ -200,7 +200,7 @@ description: "Barrera de aislamiento por tenant (namespace=tenant): roles ns-sco
 RESULTADO: ✅ COMPLETO
 STEPS_OK: 7/7 total steps
 PROXIMO_STEP: ninguno
-COMMIT_HASH: pendiente de commit (ver commit feat(security): siguiente; hash en el commit docs(task) inmediato)
+COMMIT_HASH: aa79532f (feat(security): MEMG-04 — 13 archivos, +1473/−71)
 ARCHIVOS: src/config.rs · src/server/{state,middleware,router}.rs · src/sdk/api/memory.rs (hunks propios) · tests/rbac_namespace.rs · tests/quota_records.rs (nuevo) · docs/api/HTTP_API.md · docs/dev/Backlog.md (FIND-304 + nota FIND-301) · docs/dev/tasks/MEMG-04.md (nuevo) · src/cli_server_auth_tests.rs · src/server/cli_server_auth_tests.rs · vantadb-server/tests/server.rs (literales RbacConfig)
 VERIFY_CONTRATO: pasa (RED→GREEN enforcement 34/34 + cuota 8/8 + lib 2445/2445 + HNSW 1/1 + request_id 3/3 + fmt/clippy + docs gates; review P2-01 APPROVE)
 BLOQUEO: ninguno (entorno: crashes rustc por builds concurrentes mitigados con clean+incremental=0+jobs1+heavy lock)
