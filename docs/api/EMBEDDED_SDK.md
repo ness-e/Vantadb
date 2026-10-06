@@ -601,8 +601,9 @@ per `(owner_agent, name)` while a head exists. Content is stored as-is
 
 | Method | Description |
 |--------|-------------|
-| `export_namespace(path, namespace)` | Export namespace as JSONL. Returns `ExportReport` |
-| `export_all(path)` | Export all namespaces as JSONL. Returns `ExportReport` |
+| `export_namespace(path, namespace)` | Export namespace as JSONL. Writes the integrity manifest sidecar (`<path>.manifest.json`). Returns `ExportReport` |
+| `export_all(path)` | Export all namespaces as JSONL. Writes the integrity manifest sidecar (`<path>.manifest.json`). Returns `ExportReport` |
+| `verify_export_integrity(path)` | Verify a JSONL export against its manifest sidecar: recomputes the sha256 and returns `ok` / `mismatch` / `no_manifest` (a corrupt or foreign manifest, or a missing file, is an error — never a status). Returns `ExportIntegrityVerification` |
 | `import_file(path)` | Import from JSONL file. Returns `ImportReport` |
 | `bulk_import_file(path)` | Bulk-import from a binary `.vdbdump` file. Bypasses per-record validation for raw throughput; commits in batches sized by `bulk_commit_interval` (default 10000) |
 | `bulk_import_stream(reader)` | Bulk-import records from a binary stream. Format: 8-byte magic `VDBJSON\n`, 1-byte version `0x01`, 8-byte LE record count, then serde_json-serialized `Vec<MemoryInput>`. Same batching/validation behavior as `bulk_import_file` |
@@ -610,6 +611,8 @@ per `(owner_agent, name)` while a head exists. Content is stored as-is
 Free-function helper (used by the MCP `import` tool to rebuild records from JSONL content received as a string): `vantadb::sdk::record_from_export_line(MemoryExportLine) -> Result<MemoryRecord>` — the inverse of [`export_line_from_record`](#export--import); recomputes the deterministic node id from namespace/key.
 
 Third-party importers (Mem0 / Zep / Letta → JSONL v2): `vantadb::sdk::importers::{mem0, zep, letta}` — each exposes `convert_str`/`convert_file` returning `Conversion { lines, stats }`, plus `Conversion::into_records` (import through the canonical transport) and `Conversion::write_jsonl` (the `vanta-cli import` input). The interchange contract, per-source mapping tables and declared discards live in [MEMORY_INTERCHANGE_FORMAT.md](./MEMORY_INTERCHANGE_FORMAT.md).
+
+The integrity manifest sidecar (deterministic sha256 over the export bytes + declared limits; integrity, not authenticity) is specified in [MEMORY_INTERCHANGE_FORMAT.md § Integrity manifest](./MEMORY_INTERCHANGE_FORMAT.md#integrity-manifest). `import_file` does not enforce the manifest — verification via `verify_export_integrity` is explicit.
 
 ## Text Index Diagnostics
 
@@ -835,6 +838,8 @@ pub struct ExportReport {
     pub namespaces: Vec<String>,
     pub path: String,
     pub duration_ms: u64,
+    pub sha256: String,        // hex digest over the export bytes (MEMG-15)
+    pub manifest_path: String, // integrity manifest sidecar path
 }
 ```
 
