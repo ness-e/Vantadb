@@ -61,7 +61,7 @@ let config = Config {
 let db = Embedded::open_with_config(config).unwrap();
 ```
 
-Each line is one JSON object: `{"timestamp":"2026-08-02T12:34:56Z","op":"put","namespace":"docs","key":"a","outcome":"ok","reason":null}`. Ops: `put`, `put_batch`, `delete`, `delete_by_filter`, `export_namespace`, `export_all`, `import_file`, `bulk_import_file`, `bulk_import_stream`. Read-only ops are not audited. See `docs/user/operations/CONFIGURATION.md`.
+Each line is one JSON object: `{"timestamp":"2026-08-02T12:34:56Z","op":"put","namespace":"docs","key":"a","outcome":"ok","reason":null}`. Ops: `put`, `put_batch`, `merge_record`, `delete`, `delete_by_filter`, `export_namespace`, `export_all`, `import_file`, `bulk_import_file`, `bulk_import_stream`. Read-only ops are not audited. See `docs/user/operations/CONFIGURATION.md`.
 
 ## Memory (Namespace-scoped) API
 
@@ -71,6 +71,7 @@ CRUD operations for persistent memory records identified by `(namespace, key)` p
 |--------|-------------|
 | `put(input: MemoryInput)` | Insert or update a memory record. Returns `MemoryRecord` |
 | `put_batch(inputs: Vec<MemoryInput>)` | Batch insert/update (parallel, up to 5x faster). Returns `Vec<MemoryRecord>` |
+| `merge_record(record: MemoryRecord)` | Multi-writer merge (MEMG-05, [ADR-0055](../dev/architecture/adr/ADR-0055-multi-writer-merge-lww.md)): resolve an incoming writer's record deterministically - explicit LWW over `(updated_at_ms, canonical content bytes)` with conflict detection at equal time. Returns `MergeResult { outcome, conflict, winner_updated_at_ms }` (`Inserted`/`Updated`/`StaleRejected`/`AlreadyCurrent`); never silent. See [Multi-writer merge](#multi-writer-merge-memg-05--adr-0055) |
 | `get(namespace, key)` | Retrieve a record by namespace+key. Returns `Option<MemoryRecord>` |
 | `get_version(namespace, key, version)` | Retrieve the record as it was at the given version (VS-CORE-07). Returns `Option<MemoryRecord>` — `None` if that version was never persisted (unknown key, purged by the retention cap, or deleted). Snapshot durability is best-effort post-commit, so a crash window can leave a version gap — degraded but never corrupt |
 | `versions(namespace, key)` | List every retained version of a record, ascending (v1..vN) (VS-CORE-07). Returns `Vec<MemoryRecord>` — empty if the key does not exist or has no history; expired versions are included as historical data until purged. `get_version(namespace, key, vN)` of the last element matches the live record |
@@ -93,6 +94,36 @@ CRUD operations for persistent memory records identified by `(namespace, key)` p
 | `purge_expired()` | Scan all memory records and physically delete those whose TTL has expired. Returns `u64` count of purged records |
 | `bulk_import_file(path)` | Bulk-import from a binary `.vdbdump` file. Bypasses per-record validation for raw throughput; commits in batches sized by `bulk_commit_interval` (default 10000) |
 | `bulk_import_stream(reader)` | Bulk-import records from a binary stream. Format: 8-byte magic `VDBJSON\n`, 1-byte version `0x01`, 8-byte LE record count, then serde_json-serialized `Vec<MemoryInput>`. Same batching/validation behavior as `bulk_import_file` |
+
+#### Multi-writer merge (MEMG-05 / ADR-0055)
+
+Declared conflict-resolution policy for records produced by **multiple writers** (devices/agents)
+whose versions converge in one store (federation / sync / interchange). Opt-in: `put`/import
+semantics are unchanged, and the WAL/shipping paths are untouched.
+
+- **Order:** explicit last-write-wins over `(updated_at_ms, canonical content bytes)` - the writer's
+  clock travels in `record.updated_at_ms` (as in import); equal timestamps are tie-broken by the
+  lexicographic order of the canonical `(payload, metadata)` encoding. The winner is identical on
+  every replica for any arrival order - never "whoever writes last wins". An identical-content
+  rewrite with a newer clock still advances the stored `updated_at_ms` (max of the write set), so
+  the final record stays arrival-order independent.
+- **Conflict detection:** equal `updated_at_ms` + different content sets `MergeResult::conflict`;
+  distinct timestamps are a declared LWW update (not a conflict).
+- **Non-silent outcomes:** `Inserted` (no prior record), `Updated` (incoming won), `StaleRejected`
+  (incoming older or tie-loser - not stored), `AlreadyCurrent` (identical content under the
+  fingerprint, no write).
+- **Field scope:** the conflict fingerprint is exactly `payload + metadata`; validity window, TTL,
+  confidence, lineage, vectors and quarantine do NOT participate in the comparison. On a stored
+  merge the incoming record is written whole - a missing derived field (e.g. `vector = None`)
+  replaces the stored one, same as import; a transport must carry complete records.
+- **Declared limits** (full list in ADR-0055): wall-clock skew can invert true causal order; the
+  tie-break is arbitrary-but-convergent; `version`/`created_at_ms` stay store-local; concurrent
+  `put` vs `merge_record` on the same key is outside v1 coverage. Upgrade path: vector clocks ->
+  CRDT-lite over update operations.
+- The deterministic `node_id` is recomputed from `(namespace, key)`, so a sync transport does not
+  need to carry it.
+- `merge_record` goes through the raw transport (`put_record_exact`): like imports, it does **not**
+  write version-history snapshots (see [Version History](#version-history-vs-core-07)).
 
 ### Version History (VS-CORE-07)
 

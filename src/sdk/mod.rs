@@ -7,6 +7,7 @@ pub mod connect;
 mod gds;
 mod graph;
 pub mod importers;
+mod merge;
 pub(crate) mod search;
 pub(crate) mod serialization;
 pub(crate) mod types;
@@ -15,6 +16,7 @@ pub(crate) mod version_history;
 pub use api::BulkImportReport;
 pub use builder::Embedded;
 pub use connect::connect;
+pub use merge::{MergeOutcome, MergeResult};
 #[allow(deprecated)]
 pub use serialization::memory_record_from_node;
 pub use serialization::{

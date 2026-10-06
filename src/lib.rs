@@ -190,10 +190,10 @@ pub use sdk::{
     Capabilities, ConfidenceClass, EdgeRecord, Embedded, ExportReport, Fields, FilterOp,
     GroupByConfig, HybridFusionReport, ImportReport, IndexRebuildReport, MemoryFilter,
     MemoryFilterItem, MemoryInput, MemoryListOptions, MemoryListPage, MemoryMetadata, MemoryRecord,
-    MemorySearchHit, MemorySearchPage, MemorySearchRequest, MmrConfig, NamespaceStats,
-    NamespaceStatsMap, NodeInput, NodeRecord, OperationalMetrics, QueryResult, RangeFilter,
-    ReinforceOutcome, RuntimeProfile, SearchExplanation, SearchExplanationHit, SearchHit,
-    StorageTier, TextIndexAuditReport, TextIndexRepairReport, ValidWindow, Value,
+    MemorySearchHit, MemorySearchPage, MemorySearchRequest, MergeOutcome, MergeResult, MmrConfig,
+    NamespaceStats, NamespaceStatsMap, NodeInput, NodeRecord, OperationalMetrics, QueryResult,
+    RangeFilter, ReinforceOutcome, RuntimeProfile, SearchExplanation, SearchExplanationHit,
+    SearchHit, StorageTier, TextIndexAuditReport, TextIndexRepairReport, ValidWindow, Value,
     DERIVATION_DISCOUNT, MAX_DERIVATION_DEPTH,
 };
 pub use sdk::{
