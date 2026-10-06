@@ -170,7 +170,7 @@ gh workflow run release-adapters.yml -f publish_testpypi=true
 RESULTADO: ✅ COMPLETO
 STEPS_OK: 6/6
 PROXIMO_STEP: ninguno (owner: push + pending publishers + dry-run dispatch + tag `adapters-v0.5.0` — checklist §F6-5)
-COMMIT_HASH: <pendiente — backfill>
+COMMIT_HASH: 9f773e92 (changeset) + commit de cierre docs (task file)
 ARCHIVOS: .github/workflows/release-adapters.yml · integrations/{langchain,llamaindex,mem0,crewai,dspy,haystack,letta}/pyproject.toml · integrations/test_pins.py · integrations/{openai,ollama}/README.md · integrations/README.md · docs/user/FRAMEWORKS.md · docs/dev/workflow/{PUBLISH,README,RUNBOOK,release-adapters-62}.md · docs/dev/tasks/MKT-20.md · docs/index.md · llms.txt
 VERIFY_CONTRATO: pasa
 BLOQUEO: ninguno
