@@ -6,7 +6,7 @@
 
 Every link below points to the raw Markdown source, not a rendered page. Read the
 page you need; do not read this file end to end. This index covers the
-463 documentation pages; it deliberately omits the 1104 task files,
+464 documentation pages; it deliberately omits the 1105 task files,
 which are work items rather than documentation. The full inventory of every file
 is in docs/index.md in the repository.
 
@@ -114,6 +114,7 @@ is in docs/index.md in the repository.
 - [VantaDB — De Código a Empresa](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/strategy/VantaDB_Manual_Estrategico_Unificado.md): Cómo transformar VantaDB en un negocio rentable
 - [VantaDB — Roadmap de Ejecución](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/strategy/ROADMAP.md): Estos riesgos no tienen item dedicado en el backlog o están subestimados. Son condiciones necesarias para cualquier release
 - [WASM Storage Review](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/WASM_STORAGE_REVIEW.md): Review of all storage backends used when VantaDB runs in a browser WASM environment
+- [WASM threads: lock-free multi-thread design (STRAT-04)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/WASM_THREADS.md): Design and measured first slice for lock-free multi-threaded WASM (SharedArrayBuffer + atomics), with COOP/COEP requirements and single-thread fallback
 - [🏛️ VantaDB — Arquitectura, Modelo de Datos, Competencia y Oportunidades de Producto](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/strategy/VantaDB-Analisis-Arquitectura-Producto-Competencia.md): Intentaste entregarme tu investigación de Notion (VantaDB-Docs-Unificado.md, el ZIP de export y los 5 análisis .md) 5 veces. Verifiqué con monitoreo en vivo, búsqueda en todo el filesystem y diagnóstico de los montajes FUSE/ossfs del...
 - [🔬 INFORME DE ANÁLISIS INTEGRAL — VantaDB](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/strategy/VantaDB-Informe-Analisis-Completo.md): VantaDB es un motor de memoria/vector embebido en Rust para agentes de IA: 214,646 líneas de Rust, 32,530 de TS/TSX, 18,273 de Python, 1,712 archivos de documentación (237K LOC — más documentación que código), 26 workflows de CI, 87...
 - [Experimental Governance — Proposed Design (NOT Implemented)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/EXPERIMENTAL_GOVERNANCE_DESIGN.md): The only existing code related to this document is src/gds.rs

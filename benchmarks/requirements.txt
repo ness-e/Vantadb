@@ -28,6 +28,14 @@ tabulate>=0.9
 # Uncomment to enable the `milvus` engine in competitive_bench.py.
 # Not installed by default; the harness skips it cleanly if absent.
 # NOTE: the harness uses the pymilvus>=2.5 `IndexParams` API, so both are required:
-# pymilvus>=2.5  # [cita NO VERIFICADA — sin red]
-# milvus-lite  # [cita NO VERIFICADA — sin red]
+# pymilvus>=2.5  # [cita NO VERIFICADA - sin red]
+# milvus-lite  # [cita NO VERIFICADA - sin red]
+
+# --- Optional: BEIR/MTEB recall@k harness (benchmarks/beir_recall_bench.py, BENCH-02) ---
+# Text-retrieval quality (recall@k vs qrels) on BEIR SciFact vs sqlite-vec.
+# Uses LOCAL ONNX model artifacts from embeddings/download.py (no torch needed).
+# Install: pip install onnxruntime tokenizers sqlite-vec
+# onnxruntime>=1.17  # [cita NO VERIFICADA - sin red]
+# tokenizers>=0.15  # [cita NO VERIFICADA - sin red]
+# sqlite-vec>=0.1.6  # [cita NO VERIFICADA - sin red]
 
