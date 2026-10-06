@@ -218,7 +218,7 @@ Resultado obtenido: 1) 8/8 ✅ · 2) 1689 bytes ✅ · 3) 5.10× wall / 5.55× c
 RESULTADO: ✅ COMPLETO
 STEPS_OK: 6/6
 PROXIMO_STEP: ninguno (Task 65: STRAT-05 es la siguiente del plan)
-COMMIT_HASH: <se completa post-commit>
+COMMIT_HASH: eadb07db (feat(wasm): STRAT-04 — kernel + slice + docs; hash de cierre sincronizado en commit docs(tasks) siguiente)
 ARCHIVOS: docs/dev/tasks/STRAT-04.md · docs/dev/architecture/WASM_THREADS.md · vantadb-wasm/threads-kernel/{Cargo.toml,Cargo.lock,build.ps1,.cargo/config.toml,src/lib.rs,src/lib_tests.rs} · benchmarks/wasm_threads_bench.mjs · benchmarks/wasm_threads_worker.mjs · benchmarks/wasm_threads_results.json · benchmarks/wasm_threads_results_400k.json
 VERIFY_CONTRATO: pasa (cargo test 8/8 + clippy/fmt kernel + build wasm + bench 5.10×/5.55× + S5 EXIT=0 + check-links/check-docs 0)
 BLOQUEO: ninguno
