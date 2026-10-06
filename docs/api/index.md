@@ -12,7 +12,7 @@ description: "Section index."
      One row per document in this section.
      Source of truth: the frontmatter of the files listed below. -->
 
-25 documents.
+26 documents.
 
 | Document                                                                     | Kind      | Summary                                                                                                                                                                                                                                                    |
 | ---------------------------------------------------------------------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -29,6 +29,7 @@ description: "Section index."
 | [Python SDK Documentation](./PYTHON_SDK.md)                                  | reference | Python SDK reference — Client, memory records, cognitive layer (memory_capture/memory_recall), async client and typed errors                                                                                                                               |
 | [Scoring Semantics — VantaDB Official Score Contract](./scores.md)           | reference | VantaDB hybrid search combines two independent rankers                                                                                                                                                                                                     |
 | [Search Capability Parity — VantaDB vs Milvus vs Qdrant](./SEARCH_PARITY.md) | reference | 1. topk semantics under groupby — VantaDB caps total hits; Milvus/Qdrant cap the number of groups. Choose topk = groups × groupsize to emulate the vendor behavior                                                                                         |
+| [Shared memory: scopes, grants, and revocation](./SHARING.md)                | reference | Multi-agent sharing over the existing permission checker: scope mapping, grants, revocation semantics, checked reads and writes, and declared boundaries                                                                                                   |
 | [TypeScript SDK Documentation](./TS_SDK.md)                                  | reference | Create a new in-memory instance. Accepts an optional Config object. To use persistent storage, call connect() or open() instead                                                                                                                            |
 | [Vanta Memory Engine — API Reference (`vanta-memory`)](./VANTA_MEMORY.md)    | reference | Crate LLM-driven para memoria de agentes: captura L0, extracción/dedup L1, escenas L2,                                                                                                                                                                     |
 | [VantaDB Error Handling Reference](./ERROR_HANDLING.md)                      | reference | This is the canonical contract for how VantaDB surfaces errors across every                                                                                                                                                                                |

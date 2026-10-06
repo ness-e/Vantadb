@@ -12,7 +12,7 @@ description: "Canonical index of the VantaDB documentation corpus."
      Grouped by kind, then by status, then by title.
      Source of truth: the frontmatter of the files listed below. -->
 
-1550 documents. This page is generated from frontmatter, so it cannot fall behind the tree. If a document is missing here, its `kind` or `description` is missing.
+1552 documents. This page is generated from frontmatter, so it cannot fall behind the tree. If a document is missing here, its `kind` or `description` is missing.
 
 ## Top level (3)
 
@@ -29,7 +29,7 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [VantaDB Documentation](./README.md) | index | Welcome to the VantaDB documentation vault           |
 | [VantaDB Documentation](./index.md)  | index | Canonical index of the VantaDB documentation corpus. |
 
-## API reference (25)
+## API reference (26)
 
 ### Index — 1
 
@@ -37,7 +37,7 @@ description: "Canonical index of the VantaDB documentation corpus."
 | ------------------------------- | ----- | -------------- |
 | [API reference](./api/index.md) | index | Section index. |
 
-### API reference — 24
+### API reference — 25
 
 | Document                                                                         | Kind      | Summary                                                                                                                                                                                                                                                    |
 | -------------------------------------------------------------------------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -53,6 +53,7 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [Python SDK Documentation](./api/PYTHON_SDK.md)                                  | reference | Python SDK reference — Client, memory records, cognitive layer (memory_capture/memory_recall), async client and typed errors                                                                                                                               |
 | [Scoring Semantics — VantaDB Official Score Contract](./api/scores.md)           | reference | VantaDB hybrid search combines two independent rankers                                                                                                                                                                                                     |
 | [Search Capability Parity — VantaDB vs Milvus vs Qdrant](./api/SEARCH_PARITY.md) | reference | 1. topk semantics under groupby — VantaDB caps total hits; Milvus/Qdrant cap the number of groups. Choose topk = groups × groupsize to emulate the vendor behavior                                                                                         |
+| [Shared memory: scopes, grants, and revocation](./api/SHARING.md)                | reference | Multi-agent sharing over the existing permission checker: scope mapping, grants, revocation semantics, checked reads and writes, and declared boundaries                                                                                                   |
 | [TypeScript SDK Documentation](./api/TS_SDK.md)                                  | reference | Create a new in-memory instance. Accepts an optional Config object. To use persistent storage, call connect() or open() instead                                                                                                                            |
 | [Vanta Memory Engine — API Reference (`vanta-memory`)](./api/VANTA_MEMORY.md)    | reference | Crate LLM-driven para memoria de agentes: captura L0, extracción/dedup L1, escenas L2,                                                                                                                                                                     |
 | [VantaDB Error Handling Reference](./api/ERROR_HANDLING.md)                      | reference | This is the canonical contract for how VantaDB surfaces errors across every                                                                                                                                                                                |
@@ -66,7 +67,7 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [WASM Standalone Console (Vanta Studio — mode `wasm`)](./api/WASM_STANDALONE.md) | reference | The Vanta Studio console can run 100% in the browser with no server: the                                                                                                                                                                                   |
 | [vanta-proxy Reference (Endpoints, Opt-in Features, Config)](./api/PROXY.md)     | reference | vanta-proxy is a transparent LLM wire proxy: by default it forwards bytes                                                                                                                                                                                  |
 
-## Internal / contributor (1390)
+## Internal / contributor (1391)
 
 ### Architecture decision records — 57
 
@@ -408,7 +409,7 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [`sec-codeql.yml` — SEC: CodeQL — Analysis](./dev/workflow/sec-codeql-30.md)                                   | runbook | Ejecuta el análisis estático de seguridad CodeQL de GitHub sobre el código Rust del proyecto para detectar vulnerabilidades                                                                                                                     |
 | [Fuzzing Guide for VantaDB](./dev/operations/FUZZING.md)                                                       | runbook | VantaDB uses a dual fuzzing approach to maximize coverage and compatibility _(archived)_                                                                                                                                                        |
 
-### Task files — 1095
+### Task files — 1096
 
 | Document                                                                                                                                             | Kind | Summary                                                                                                                                                                                                                                                                                                                                                                                                   |
 | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -1237,6 +1238,7 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [TASK MEMG-11: Adopción del motor core en vanta-memory (recall híbrido + escritura batch)](./dev/tasks/MEMG-11.md)                                   | task | "cargo nextest run --profile audit -p vanta-memory --build-jobs 2 verde + cargo clippy -p vanta-memory --all-targets --all-features -- -D wa                                                                                                                                                                                                                                                              |
 | [TASK MEMG-12: Semántica v2 write-side en el pipeline (confidence/valid_at)](./dev/tasks/MEMG-12.md)                                                 | task | L1 escribe semántica v2 real en el punto único put_record (extracción + promoción dream): valid_at_ms = nacimiento del contenido + confianza Asserted/D_a explícitas; round-trip test put→export→import; TTL y derived/T1b quarantine diferidos a FIND (stop condition 1.5sem)                                                                                                                            |
 | [TASK MEMG-13: Superficies core restantes en memoria (IQL / versiones / snapshots / filtros)](./dev/tasks/MEMG-13.md)                                | task | vanta-memory consume historia/diff de L1 vía core versions y backup/restore vía snapshot (tests por superficie); IQL y filtros restantes evaluados con motivo explícito → FIND (stop 1sem: 2 superficies)                                                                                                                                                                                                 |
+| [TASK MEMG-16: Compartir/colaboración multi-agente (scopes + permisos + revocación)](./dev/tasks/MEMG-16.md)                                         | task | Cablear el PermissionChecker (existe completo y testeado, sin superficie de producto) a una superficie SDK: grants/revocación sobre ACL + entidades existentes, scopes org/team/proyecto mapeados, ops chequeadas get/put_shared, doc del modelo (revocación = acceso futuro, no purga) y FIND de propagación/EXE-07.                                                                                     |
 | [TASK MEMG-17: Rollback + verificabilidad + erasure criptográfica](./dev/tasks/MEMG-17.md)                                                           | task | Rollback semántico de L1 a versión/snapshot con linaje declarado + recibos verificables de erasure (contrato VER-02, sin firma — no sancionada) + erasure criptográfica por destrucción de DEK (registry 32B CSPRNG wrapped con master Cipher) con scope declarado; tests por pieza                                                                                                                       |
 | [TASK MEMG-20: Checkpoints reanudables de tarea (dim 1)](./dev/tasks/MEMG-20.md)                                                                     | task | API mínima de checkpoint de tarea en vanta-memory (paso + parcial + estado + versión) reanudable: tipos/namespace separados del pipeline checkpoint; test interrupción→resume sin repetir pasos; sin consumer in-repo → FIND del consumo por el host                                                                                                                                                      |
 | [TASK MEMG-21: Scoring multi-señal L1 (recencia + relevancia + importancia) + reflexión periódica](./dev/tasks/MEMG-21.md)                           | task | Scoring compuesto opt-in sobre el recall L1 (recencia vía MEMG-07 retention_factor + relevancia dual-pool existente + importancia vía priority) con pesos configurables (defaults CrewAI declarados) + pase de reflexión pull-based sobre episódica (precedente dream, degradación P4 LLM-free, nunca muta L1); métrica de ordenamiento before/after (fixture); sin claims calibrados                     |
