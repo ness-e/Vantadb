@@ -15,7 +15,7 @@ description: "Cablear el PermissionChecker (existe completo y testeado, sin supe
 - **Tipo:** Rust — core `src/sdk/api/sharing.rs` (nuevo) + `src/sdk/mod.rs`/`src/sdk/api.rs` (re-exports) + `src/sdk/api/sharing_tests.rs` (nuevo) + `docs/api/SHARING.md` (nuevo) + `docs/dev/Backlog.md` (FIND-305)
 - **Turns estimados:** 8-12 (una sesión de sub-agente con corte declarado)
 - **Creado:** 2026-10-05 | **last-synced:** 2026-10-05
-- **Estado:** ⏳ EN PROGRESO — S0-S5 ✅; S6 ⬜ (review P2-01 en curso)
+- **Estado:** ✅ COMPLETADO — S0-S6 ✅; commits `8a039119` + `97571f3f`; review P2-01 APPROVE (vanta-review, 2 rondas: CHANGES-REQUIRED → fixes R1/R2 → APPROVE)
 - **Incógnitas (uphill, 2 del plan — RESUELTAS en DISCOVERY):**
   (a) **¿Superficie de cableado?** → **RESUELTA: SDK memory API (`Embedded`), módulo nuevo `src/sdk/api/sharing.rs`** (evidencia: `Embedded` es el choke point que consumen TODOS los demás planos — bindings Python/Node/WASM (vía `Embedded`), server (`src/server/state.rs:297` declara la intención "authorize against the resolved principal (e.g. with PermissionChecker)"), MCP (`vantadb-mcp/src/handlers/tools.rs`), vanta-memory (`profile_sync.rs:16` `use vantadb::sdk::{Embedded, ...}`); `checker.rs` + `EntityStore` viven en el core; `api-contract.md` R-8: la lógica vive en el core y los bindings son glue. Server/MCP exponen después consumiendo los mismos métodos → FIND-305).
   (b) **¿Semántica de revocación?** → **RESUELTA: revocación de ACCESO (futuro), NO purga de datos** (evidencia: contrato L1674 (b) "tras revocar, el acceso deja de permitirse en el **siguiente acceso**"; el checker lee entidades vivas en cada llamada (sin cache) → delete de ACL / `status=removed` de membresía es efectivo inmediatamente; la purga de lo compartido es erasure MEMG-17 — frontera declarada en `docs/api/SHARING.md`; convención existente `checker_tests.rs:134` (`removed_member_denied`, status "removed")). Registrado en `campaign_memory(decisions)`.
@@ -104,7 +104,8 @@ description: "Cablear el PermissionChecker (existe completo y testeado, sin supe
 
 **Saldo neto por PR:** ≤0 — aditivo (1 módulo nuevo + 7 tipos + 8 métodos que delegan en el checker/EntityStore existentes). Sin `unsafe`, sin deps, sin estructuras residentes nuevas.
 **Pago:** (1) cablea a producto el `PermissionChecker` que llevaba desde MEM-04 sin superficie (hueco explícito del plan L1671: "no está cableada a ninguna superficie de producto"); (2) expone grants/revocación reutilizando el modelo ACL existente (0 duplicación); (3) registra la semántica de revocación (acceso vs purga) que estaba ambigua — pre-mortem #2.
-**`ponytail:` notes:** (a) keys con `{`/`}`/`:` no son compartibles como asset (charset EntityStore) — encoding si aparece la necesidad; (b) ops chequeadas = `get_shared`/`put_shared` (no se instrumentan search/list/delete — mismo `check_access` disponible para consumidores; FIND-305 si se piden); (c) sin jerarquía de grants por proyecto a nivel ACL (proyecto = sub-namespace, D4) — subject `project` solo si aparece el caso.
+**`ponytail:` notes:** (a) ids con `.`/`{`/`}`/`:` no son compartibles como asset/membership (separadores de claves compuestas + charset EntityStore) — encoding si aparece la necesidad; (b) ops chequeadas = `get_shared`/`put_shared` (no se instrumentan search/list/delete — mismo `check_access` disponible para consumidores; FIND-305 si se piden); (c) sin jerarquía de grants por proyecto a nivel ACL (proyecto = sub-namespace, D4) — subject `project` solo si aparece el caso.
+**Deuda declarada del review P2-01 (O1/O2):** O1 — el template de claves ACL/membresía se reconstruye en `sharing.rs` (duplicado de `checker.rs:214,248`; pinneado por tests cruzados grant→check — builder compartido si aparece drift); O2 — `PermDecision.reason` distingue deny reasons (oráculo de estado para callers no confiables): colapsar a 403/404 uniforme al cablear server/MCP (prerequisito del slice (a) de FIND-305).
 **`NOTICED BUT NOT TOUCHING`:** `Permission::NamespaceDelete`/trust de retrieval = FIND-301 (MEMG-04); recall de vanta-memory filtrado por label D22 sin grant → FIND-305; cascada multi-agente EXE-07 (P50) → FIND-305.
 
 ## Definition of Done (contrato multi-nivel — P2-08)
@@ -142,7 +143,7 @@ description: "Cablear el PermissionChecker (existe completo y testeado, sin supe
 
 ### Step 1 — RED (TDD): tests del contrato
 
-- **Archivos:** `src/sdk/api/sharing_tests.rs` (nuevo, 329L) + `src/sdk/api/sharing.rs` (módulo mínimo: docs + wiring de tests) + `src/sdk/api.rs` (+`pub mod sharing;`).
+- **Archivos:** `src/sdk/api/sharing_tests.rs` (nuevo; 437L tras el test de regresión R1) + `src/sdk/api/sharing.rs` (módulo mínimo: docs + wiring de tests) + `src/sdk/api.rs` (+`pub mod sharing;`).
 - **Acción:** 9 tests escritos ANTES de implementar (contrato (a)/(b) user/agent, membresía, fail-closed, no-oráculo, upsert, validación, team_role); +1 test de regresión R1 tras el review P2-01 → 10.
 - **Verify:** ✅ RED genuino — compile falla por API ausente, no por tests mal escritos.
 - **Evidencia:** ✅ `cargo nextest run --profile audit -p vantadb --lib -E 'test(sharing)'` (CON LOCK) → `error[E0432]: unresolved imports super::{AccessQuery, Action, GrantInput, ...}` + 14× `error[E0599]: no method named {share_asset, grant_access, check_access, put_shared, get_shared, revoke_team_member} found` + E0609 (campos de `()`); `could not compile (lib test) due to 23 previous errors` (exit 101).
@@ -150,7 +151,7 @@ description: "Cablear el PermissionChecker (existe completo y testeado, sin supe
 ### Step 2 — GREEN gestión de entidades: `share_asset` + membresía
 
 - **Archivos:** `src/sdk/api/sharing.rs` (tipos + `share_asset`/`add_team_member`/`revoke_team_member`), `src/sdk/api.rs`, `src/sdk/mod.rs` (re-exports).
-- **Acción:** upsert de `asset` (`team_id`/`owner_user_id`/`visibility`/`status=active`) y `team_member` (`role`/`status=active`); `revoke_team_member` = `status=removed` (preserva role); audit `share`/`member_add`/`member_revoke`; validación boundary de ids (`validate_non_empty`).
+- **Acción:** upsert de `asset` (`team_id`/`owner_user_id`/`visibility`/`status=active`) y `team_member` (`role`/`status=active`); `revoke_team_member` = `status=removed` (preserva role); audit `share`/`member_add`/`member_revoke`; validación boundary de ids (`validate_entity_id` — renombrado en el fix R1).
 - **Verify:** ✅ compila + tests de gestión verdes (GREEN único con S3/S4).
 - **Evidencia:** ✅ `sharing.rs:169` (`share_asset`), `:216` (`add_team_member`), `:256` (`revoke_team_member`), helpers `:181/:228/:273/:463`.
 
@@ -170,17 +171,23 @@ description: "Cablear el PermissionChecker (existe completo y testeado, sin supe
 
 ### Step 5 — VERIFY + docs: SHARING.md + FIND-305/306 + gates
 
-- **Archivos:** `docs/api/SHARING.md` (nuevo, 155L), `docs/dev/Backlog.md` (FIND-305 + FIND-306), `docs/user/operations/CONFIGURATION.md` (fix colateral de link roto pre-existente), `docs/index.md` + `docs/api/index.md` (gen-index).
+- **Archivos:** `docs/api/SHARING.md` (nuevo; 166L con los fixes R1/N3/O4), `docs/dev/Backlog.md` (FIND-305 + FIND-306), `docs/user/operations/CONFIGURATION.md` (fix colateral de link roto pre-existente), `docs/index.md` + `docs/api/index.md` (gen-index).
 - **Acción:** doc del modelo (scopes D4, grants, revocación D3, propagación, fronteras MEMG-17/SCH-05/MEMG-10, containment/EXE-07, trust model, límites); FIND-305 (exposición server/MCP + recall + EXE-07); FIND-306 (clippy drift pre-existente); fix del link gating roto; `gen-index --write`.
 - **Verify:** ✅ fmt --check (exit 0); ✅ `cargo clippy -p vantadb --all-targets -- -D warnings` **exit 0 sin diagnósticos** (los 2 ajenos de la corrida anterior quedaron resueltos por sus sesiones: VER-10 cerró su doc lint y el fix de `merge_tests` aterrizó); ✅ `-p vantadb --lib` completo **2359/2359** (CON LOCK, 219s, tras fixes R1); ✅ check-links (0 links gating rotos) + check-docs (sin violaciones nuevas) + validate-docs-coverage 0 gaps.
 - **Evidencia:** ✅ comandos/resultados arriba; OCR delegation (advisory) aplicada sobre `sharing.rs` + `sharing_tests.rs`: 0 Critical/High/Medium.
 
 ### Step 6 — CIERRE: OCR + review P2-01 + commit + campaign
 
-- **Archivos:** commit de los paths propios.
-- **Acción:** review P2-01 (fork `vanta-review`) → commit LOCAL `feat(memory):` (+ `docs:` del fix colateral) → `campaign_update_task_state(completed, taskId=58, review)` → skill progreso.
-- **Verify:** ⬜ commit hash + review verdict + campaign updated.
-- **Evidencia:** ⬜
+- **Archivos:** commits `8a039119` (docs: fix link) + `97571f3f` (feat: MEMG-16).
+- **Acción:** ✅ OCR delegation (0 Critical/High/Medium) → review P2-01 ronda 1 `CHANGES-REQUIRED` (R1 colisión de claves compuestas + R2 staging) → fixes (`validate_entity_id` + test de regresión + staging selectivo) → ronda 2 `APPROVE` → commits LOCALES (pathspec estricto, sin WIP VER-10) → `campaign_update_task_state(completed)` → skill progreso.
+- **Verify:** ✅ hashes `8a039119` + `97571f3f`; veredicto APPROVE (sesión re-review `ses_ef1030fa9ffeMYBrzFuqL4KoXl`); campaign updated.
+- **Evidencia:** ✅ §Review abajo; re-verify post-fix: fmt 0 / clippy 0 / scoped 10-10 / lib 2359-2359.
+
+## Review P2-01 (fork vanta-review — adversarial, paths `src/sdk/**`)
+
+- **Ronda 1 (CHANGES-REQUIRED):** R1 — colisión de claves compuestas: ids con `.` aceptados en el boundary colisionaban las claves del checker (`{team}.{user}`, `{asset}.{subject_type}.{subject}.{action}`; precondición `checker.rs:25`). R2 — el commit planificado arrastraba WIP ajeno (FIND-307/308 + WRITE_RECEIPTS en índices). Nits N1-N3 + optional O1-O4.
+- **Fixes aplicados:** `validate_entity_id` (rechaza `.`/`{`/`}`/`:`; aplicado a todos los ids compuestos + `agent_id`) + test `rejects_ids_with_composite_key_separators` + `SHARING.md §Limits` + module docs; staging selectivo verificado (`git show --name-only 97571f3f` sin VER-10; Backlog solo FIND-305/306; índices regenerados en worktree temporal HEAD+docs propios, auto-consistentes para el árbol del commit); N1 (`:856`) + N2 (clippy verde re-corrido) + N3/O3/O4 aplicados; O1/O2 declarados en §Deuda.
+- **Ronda 2:** ✅ **APPROVE** (verificación del revisor: `git show` de ambos commits anti-fuga VER-10, contrato scoped 10/10 re-ejecutado, fmt/clippy/docs gates exit 0). Revisor ≠ autor (fork fresco, P2-01).
 
 ## Notas
 
@@ -189,3 +196,17 @@ description: "Cablear el PermissionChecker (existe completo y testeado, sin supe
 - **Regla nueva owner 2026-10-05 (pruebas pesadas serializadas):** `pwsh dev-tools/heavy-test-lock.ps1 acquire` → correr → `release`; TTL 45min; retry 60s si tomado. Usado en: RED, GREEN, clippy+lib suite (una sesión ajena lo retuvo ~5min — espera respetada).
 - **Review P2-01 tier:** paths del diff = `src/sdk/**` → **Adversarial** (tabla pipeline-full L167) → `vanta-review` obligatorio (fork) o degraded con waiver.
 - **Memoria de decisiones:** registrar semántica revocación (D3) + superficie (D1) en `campaign_memory(file="decisions")` al cierre.
+
+## RESULTADO (§7 — contrato de retorno)
+
+```
+RESULTADO: ✅ COMPLETO
+STEPS_OK: 7/7 (S0-S6)
+PROXIMO_STEP: ninguno
+COMMIT_HASH: 97571f3f (+ 8a039119 docs)
+ARCHIVOS: src/sdk/api/sharing.rs · src/sdk/api/sharing_tests.rs · src/sdk/api.rs · src/sdk/mod.rs · docs/api/SHARING.md · docs/dev/Backlog.md · docs/dev/tasks/MEMG-16.md · docs/user/operations/CONFIGURATION.md · docs/index.md · docs/api/index.md · llms.txt
+VERIFY_CONTRATO: pasa (fmt 0 / clippy 0 / scoped 10-10 / lib 2359-2359 / docs gates 0)
+BLOQUEO: ninguno
+GATES_EVALUADOS: P:no D:no V:no C:no | D pre-respondido por F0 (contrato manda superficie); sin stalls ni colaterales bloqueantes
+SKILLS_CARGADAS: security-and-hardening · api-and-interface-design · rust-write-tests · incremental-implementation · documentation-skill (+ base auto: campaign-executor/progreso/ponytail) | SDP v3: campaign-executor, progreso, writing-guidelines, writing-plans, incremental-implementation, test-driven-development, context-engineering, source-driven-development
+```
