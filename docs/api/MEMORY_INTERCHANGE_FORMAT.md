@@ -64,6 +64,11 @@ backfill defaults below) and rejects anything newer with
 - Conflicting content for the same key is last-write-wins on import; to keep
   history, write the new claim under a new key and link the old one with
   `superseded_by` (both records survive).
+- The raw transport keeps arrival-order LWW for third-party files. Multi-writer
+  convergence between writers (devices/agents) has a **declared policy** in the
+  merge path: `Embedded::merge_record` resolves by explicit LWW over
+  `(updated_at_ms, canonical content bytes)` with conflict detection -
+  deterministic for any arrival order (ADR-0055).
 - `Derived` records declare ≥1 `derived_from` parent key and a `confidence`
   bounded by the parents' (`min(parents) × 0.9` when computed by the engine).
   The transport validates shape (non-empty parents, class consistency,

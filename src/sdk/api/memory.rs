@@ -23,6 +23,7 @@ use super::graph::{LABEL_DERIVED_FROM, LABEL_SUPERSEDED_BY};
 use crate::backend::{BackendKind, BackendPartition, BackendWriteOp};
 use crate::error::{Error, Result};
 use crate::node::{FieldValue, UnifiedNode, VectorRepresentations};
+use crate::sdk::merge::{resolve_merge, MergeDecision, MergeOutcome, MergeResult};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use web_time::Instant;
@@ -1338,6 +1339,155 @@ impl Embedded {
         self.replace_derived_indexes(&engine, previous.as_ref(), Some(&record))?;
 
         Ok(record)
+    }
+
+    /// Merge an incoming multi-writer record into the store (MEMG-05 v1).
+    ///
+    /// Declared policy (ADR-0055): **explicit last-write-wins over a
+    /// deterministic total order** — `(updated_at_ms, canonical content
+    /// bytes)` — with conflict detection at equal logical time. See
+    /// [`crate::sdk::merge`] for the full semantics, declared limits and the
+    /// upgrade path (vector clocks / CRDT-lite).
+    ///
+    /// `put`/`put_batch`/import are intentionally untouched: this is an
+    /// opt-in path for records whose writer is another device/agent
+    /// (federation, sync, interchange). `record.updated_at_ms` carries the
+    /// writer-side clock (as in import); the deterministic identity
+    /// (`node_id`) is recomputed from `(namespace, key)`, so a transport does
+    /// not need to carry it.
+    ///
+    /// Non-silent by construction: every call returns a [`MergeResult`]
+    /// describing what won ([`MergeOutcome::Inserted`] /
+    /// [`MergeOutcome::Updated`]), what was rejected
+    /// ([`MergeOutcome::StaleRejected`]) or that nothing changed
+    /// ([`MergeOutcome::AlreadyCurrent`]), plus the `conflict` flag for
+    /// equal-time collisions.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use vantadb::config::Config;
+    /// use vantadb::{BackendKind, Embedded, MemoryRecord, MergeOutcome};
+    ///
+    /// let config = Config {
+    ///     storage_path: ":memory:".into(),
+    ///     backend_kind: BackendKind::InMemory,
+    ///     ..Default::default()
+    /// };
+    /// let db = Embedded::open_with_config(config).expect("open database");
+    ///
+    /// let incoming = MemoryRecord {
+    ///     namespace: "agent/notes".into(),
+    ///     key: "topic".into(),
+    ///     payload: "from another device".into(),
+    ///     updated_at_ms: 1_000,
+    ///     version: 1,
+    ///     ..Default::default()
+    /// };
+    /// let result = db.merge_record(incoming).expect("merge");
+    /// assert_eq!(result.outcome, MergeOutcome::Inserted);
+    /// assert!(!result.conflict);
+    ///
+    /// db.close().expect("close database");
+    /// ```
+    #[tracing::instrument(skip(self, record), err)]
+    pub fn merge_record(&self, record: MemoryRecord) -> Result<MergeResult> {
+        let (namespace, key) = (record.namespace.clone(), record.key.clone());
+        let res = self.merge_record_inner(record);
+        self.audit(crate::audit::AuditEvent::new(
+            "merge_record",
+            &namespace,
+            &key,
+            if res.is_ok() { "ok" } else { "err" },
+            None,
+        ));
+        res
+    }
+
+    /// Shared logic for [`Self::merge_record`]: resolve against the current
+    /// record under `merge_lock`, then either write through the raw transport
+    /// ([`Self::put_record_exact`]) or report the declared outcome.
+    fn merge_record_inner(&self, mut record: MemoryRecord) -> Result<MergeResult> {
+        self.check_read_only()?;
+        validate_namespace(&record.namespace)?;
+        validate_key(&record.key)?;
+        validate_metadata(&record.metadata)?;
+        // Review P2-01 R6: validate the record's invariants BEFORE deciding,
+        // so an invalid incoming record errors regardless of whether it would
+        // win or lose (the store path re-validates anyway; this keeps the
+        // merge API contract symmetric across outcomes).
+        validate_confidence_fields(
+            record.confidence_class,
+            &record.derived_from,
+            record.confidence,
+        )?;
+        if let Some(invalid_at) = record.invalid_at_ms {
+            if record.valid_at_ms > invalid_at {
+                return Err(Error::Validation {
+                    field: "invalid_at_ms".into(),
+                    reason: format!(
+                        "valid_at_ms ({}) must be <= invalid_at_ms ({invalid_at})",
+                        record.valid_at_ms
+                    ),
+                });
+            }
+        }
+
+        let engine = self.engine_handle()?;
+        // REVIEW-13 pattern: the engine's `insert_lock` only serializes the
+        // individual insert, not the SDK-level resolve + decide. Holding the
+        // merge lock across both makes the declared order scheduling-
+        // independent (two concurrent merges can no longer both decide
+        // against the same `existing` and persist the loser).
+        let _merge_guard = self.merge_lock.lock();
+
+        // The purge-lock read guard from the resolution is dropped at the end
+        // of this statement on purpose: `put_record_exact` takes its own read
+        // guard on the same (non-reentrant, writer-preferring) lock, and
+        // nesting reads can deadlock against a queued writer.
+        let existing = self
+            .resolve_existing_for_write(&engine, &record.namespace, &record.key)?
+            .0;
+
+        match resolve_merge(existing.as_ref(), &record)? {
+            MergeDecision::Unchanged => Ok(MergeResult {
+                outcome: MergeOutcome::AlreadyCurrent,
+                conflict: false,
+                winner_updated_at_ms: existing
+                    .map(|prev| prev.updated_at_ms)
+                    .unwrap_or(record.updated_at_ms),
+            }),
+            MergeDecision::KeepExisting { conflict } => Ok(MergeResult {
+                outcome: MergeOutcome::StaleRejected,
+                conflict,
+                winner_updated_at_ms: existing
+                    .map(|prev| prev.updated_at_ms)
+                    .unwrap_or(record.updated_at_ms),
+            }),
+            MergeDecision::Store { conflict } => {
+                let inserted = existing.is_none();
+                if let Some(prev) = &existing {
+                    // Store-local bookkeeping (NOT part of the conflict
+                    // fingerprint): first-seen creation stays, and the local
+                    // version counter advances past the record it replaces.
+                    record.created_at_ms = prev.created_at_ms;
+                    record.version = prev.version.saturating_add(1).max(record.version);
+                }
+                // Deterministic identity is derived, not trusted from the
+                // transport (unlike the raw import path, which validates it).
+                record.node_id = memory_node_id(&record.namespace, &record.key);
+                let stored = self.put_record_exact(record)?;
+                Ok(MergeResult {
+                    outcome: if inserted {
+                        MergeOutcome::Inserted
+                    } else {
+                        MergeOutcome::Updated
+                    },
+                    conflict,
+                    winner_updated_at_ms: stored.updated_at_ms,
+                })
+            }
+        }
     }
 
     /// Mark an existing record as superseded by another existing record (ADR-028).

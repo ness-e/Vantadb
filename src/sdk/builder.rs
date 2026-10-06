@@ -20,9 +20,18 @@ pub struct Embedded {
     /// `insert_lock` only covers the individual write, not the SDK-level
     /// read + idempotency check, so two concurrent supersedes could both pass
     /// the guard and double-mark the record. Shared across clones via `Arc`.
-    /// ponytail: global supersede lock — rare admin op; per-namespace striping
+    /// ponytail: global supersede lock - rare admin op; per-namespace striping
     /// if contention ever matters.
     pub(crate) supersede_lock: Arc<Mutex<()>>,
+    /// Serializes `merge_record()`'s read-decide-write (MEMG-05), same
+    /// rationale as `supersede_lock` (REVIEW-13): the engine's `insert_lock`
+    /// only covers the individual insert, not the SDK-level read + decision,
+    /// so two concurrent merges could both decide against the same `existing`
+    /// and persist the loser (arrival-order nondeterminism). Shared across
+    /// clones via `Arc`.
+    /// ponytail: global merge lock - merges are a sync/import path, not a hot
+    /// path; per-key striped locks only if merge throughput ever matters.
+    pub(crate) merge_lock: Arc<Mutex<()>>,
     /// Serializes purge operations against the write path (DUR-03): purge
     /// paths (`purge_expired` sweeper, purge-on-write) take the **write**
     /// guard; a put that resolves a *live* record takes the **read** guard
@@ -55,6 +64,7 @@ impl Embedded {
             audit: init_audit(&config),
             config,
             supersede_lock: Arc::new(Mutex::new(())),
+            merge_lock: Arc::new(Mutex::new(())),
             purge_lock: Arc::new(RwLock::new(())),
         }
     }
@@ -119,6 +129,7 @@ impl Embedded {
             audit: init_audit(&final_config),
             config: final_config,
             supersede_lock: Arc::new(Mutex::new(())),
+            merge_lock: Arc::new(Mutex::new(())),
             purge_lock: Arc::new(RwLock::new(())),
         };
         if !embedded.config.read_only {
@@ -157,6 +168,7 @@ impl Embedded {
             audit: init_audit(&config),
             config,
             supersede_lock: Arc::new(Mutex::new(())),
+            merge_lock: Arc::new(Mutex::new(())),
             purge_lock: Arc::new(RwLock::new(())),
         }
     }
