@@ -110,17 +110,16 @@ fn resolve_merge_equal_time_declares_the_same_winner_in_both_arrival_orders() {
     // Exactly one order stores the incoming record, and both orders agree on
     // which record wins (the same winner is "Store" in one order and
     // "KeepExisting" in the mirrored one).
-    let consistent = match (a_then_b, b_then_a) {
+    let consistent = matches!(
+        (a_then_b, b_then_a),
         (
             MergeDecision::Store { conflict: true },
             MergeDecision::KeepExisting { conflict: true },
-        ) => true,
-        (
+        ) | (
             MergeDecision::KeepExisting { conflict: true },
             MergeDecision::Store { conflict: true },
-        ) => true,
-        _ => false,
-    };
+        )
+    );
     assert!(
         consistent,
         "both arrival orders must declare the same winner: a->b={a_then_b:?} b->a={b_then_a:?}"
