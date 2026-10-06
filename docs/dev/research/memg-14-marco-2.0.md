@@ -100,7 +100,7 @@ El marco de memoria de VantaDB (8 dimensiones · 6 áreas · 10 ámbitos · trac
 - **Decisión — 4 candidatos a ámbito** (numeración AM11-AM14 tentativa; sin número asignado en el marco):
   1. **privacidad/compliance + portabilidad** — evidencia: W3C CG (erasure GDPR Art.17, cross-vendor migration), `MEMG-17` (rollback + erasure + recibos; [`../avance/activo/vanta-memory.md`](../avance/activo/vanta-memory.md):169-173), VER-03 (redacción-on-write + AEAD).
   2. **economía operacional** — evidencia: pares accuracy+tokens de VER-08; eRAG citado en `MEMG-23` (`../Backlog.md:170`). (Nota: economía **no** se eleva a área — ver §2.7(g).)
-  3. **multimodalidad** — evidencia fetch-verificada: arXiv 2602.06052 (survey; mecanismo "sensory"), 2507.07957 (MIRIX), 2512.13564 (frontera multimodal); trigger registrado en `FUT-15` (`../backlog-futuro.md:28`) y decisión+spec en `MEMG-18` (`../Backlog.md:159`).
+  3. **multimodalidad** — evidencia fetch-verificada: arXiv 2602.06052 (survey; mecanismo "sensory"), 2507.07957 (MIRIX), 2512.13564 (frontera multimodal); trigger registrado en `FUT-15` (`../backlog-futuro.md:28`) y decisión+spec **entregadas** en [`memg-18-multimodalidad.md`](memg-18-multimodalidad.md) (2026-10-06; extensión transversal, no 9ª dim).
   4. **multi-agente** — evidencia: fase Share & Propagate del survey; cascadas multiagente como problema declarado (`../../../SPEC.md:9`); sharing contracts W3C.
 - **Decisión — ampliaciones:**
   - **AM1 (hechos) + abstención/calibración** — evidencia: SCH-05 (cuarentena + abstención explícita), VER-08 (subscore de abstención).
