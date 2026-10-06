@@ -6,7 +6,7 @@
 
 Every link below points to the raw Markdown source, not a rendered page. Read the
 page you need; do not read this file end to end. This index covers the
-462 documentation pages; it deliberately omits the 1102 task files,
+463 documentation pages; it deliberately omits the 1104 task files,
 which are work items rather than documentation. The full inventory of every file
 is in docs/index.md in the repository.
 
@@ -330,6 +330,7 @@ is in docs/index.md in the repository.
 - [Psicología cognitiva aplicada a la representación de VantaDB](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/human-facing-db-ui/07-cognitive-psychology/RESEARCH.md): Evaluación del concepto 06-synthesis/SYNTHESIS.md contra cómo funciona el cerebro humano,
 - [REPORTE FINAL — Cómo debe trabajar un agente/sub-agente y un ingeniero, y qué le falta al sistema de tareas de VantaDB](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/2026-08-10-agent-engineering/REPORTE-FINAL.md): Este reporte integra, sin omitir hallazgos, las tres ramas: (1) qué debe hacer correctamente un agente/sub-agente para ejecutar tareas, proyectos, planes e investigaciones; (2) qué debe hacer correctamente un ingeniero de...
 - [STRAT-05 - Ruta object storage (S3/blob): viabilidad, costo y tradeoffs](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/strat-05-object-storage.md): Research de la ruta object storage: snapshot-level vs segment-level vs backend nativo, con costos verificados (S3/R2) y decisión documentada en ADR-0056; sin implementación
+- [STRAT-06 — Licencias comparadas (local-first AI + OSS DBs) y ACV de OSS DBs](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/strat-06-licencias-acv-oss.md): Licencias fetch-verificadas (Khoj/Jan/Reor/OpenWebUI/Letta + OSS DBs) y ACV/bands con fuente por número o marcado modelado, con implicaciones para el modelo open-core/OEM; 32 fuentes 2026-10-06
 - [Síntesis — Representación humana de VantaDB: concepto \\\\\\\\\\"Vanta Studio\\\\\\\\\\"](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/human-facing-db-ui/06-synthesis/SYNTHESIS.md): Toda la investigación converge en un mismo hueco
 - [TDAM — 01: Core pipeline L0→L3 — Investigación profunda](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/tdam/01-core-pipeline.md): TDAM implementa memoria persistente para agentes en 4 capas LLM-driven: L0 (raw conversation, JSONL diario), L1 (memorias estructuradas vía extracción LLM + dedup), L2 (scene blocks Markdown narrativos), L3 (persona/doctrina). El motor...
 - [TDAM — 02: Scene extraction + Persona — Investigación profunda](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/tdam/02-scene-persona.md): TDAM implementa L2 (escenas) y L3 (persona) como agentes LLM con herramientas de archivo, no como algoritmos deterministas. El SceneExtractor le da al LLM acceso sandboxed a sceneblocks/ (read/write/edit) para consolidar memorias L1 en...
