@@ -35,7 +35,7 @@ tags: [vantadb, research, estrategia]
 |---|---|---|
 | **A — Extensión de modalidad transversal** | La modalidad (texto/imagen/audio/video) es un eje de forma del contenido; el contenido multimodal vive en registros de episódica/semántica con payload + metadata + embeddings multimodales; sin dimensión nueva | ✅ **Elegida** |
 | **B — 9ª dimensión explícita (sensorial)** | Agregar "sensorial/modalidad" como dimensión del marco, junto a D1-D8 | ❌ Rechazada — mezcla ejes (§1.2) |
-| **C — Almacén sensorial dedicado** | Store separado para percepciones sensoriales | ❌ Ya descartado (2026-09-14; el descarte vale solo para el almacén dedicado — [`../Backlog.md:157`](../Backlog.md)) |
+| **C — Almacén sensorial dedicado** | Store separado para percepciones sensoriales | ❌ Ya descartado (2026-09-14; el descarte vale solo para el almacén dedicado — documentado en [`memg-19-prospectiva-descartes.md`](memg-19-prospectiva-descartes.md) §2.1) |
 
 ### 1.2 Fundamento (por qué A)
 
@@ -118,7 +118,7 @@ tags: [vantadb, research, estrategia]
 
 ### 3.8 Lo que NO toca
 
-- **Dims D1-D8** — no se agrega D9 (decisión §1). · **`MemoryType`** (`vanta-memory/src/core/abstractions/types.rs:25`, 7 tipos L1) — sin tipo "sensorial". · **Wire format actual** — sin cambios obligatorios. · **Hot paths / HNSW** — sin cambios de algoritmo. · **Almacén sensorial dedicado** — descartado (2026-09-14). · **Memoria paramétrica** — fuera de alcance (MEMG-14 §2.6).
+- **Dims D1-D8** — no se agrega D9 (decisión §1). · **`MemoryType`** (`vanta-memory/src/core/abstractions/types.rs:25`, 7 tipos L1) — sin tipo "sensorial". · **Wire format actual** — sin cambios obligatorios. · **Hot paths / HNSW** — sin cambios de algoritmo. · **Almacén sensorial dedicado** — descartado (2026-09-14; [memg-19](memg-19-prospectiva-descartes.md) §2.1). · **Memoria paramétrica** — fuera de alcance (MEMG-14 §2.6).
 
 ## §4. Trigger refinado
 

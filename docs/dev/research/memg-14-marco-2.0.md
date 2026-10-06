@@ -105,7 +105,7 @@ El marco de memoria de VantaDB (8 dimensiones · 6 áreas · 10 ámbitos · trac
 - **Decisión — ampliaciones:**
   - **AM1 (hechos) + abstención/calibración** — evidencia: SCH-05 (cuarentena + abstención explícita), VER-08 (subscore de abstención).
   - **AM9 (aprendizaje) + test-time learning** — evidencia: arXiv 2507.05257 (MemoryAgentBench; fetch-verificado), STATE-Bench vía `MEMG-23` (`../Backlog.md:170`).
-- **Estado:** candidatos documentados; `MEMG-18`/`MEMG-19`/`MEMG-23` (F5) los desarrollan como decisión/spec.
+- **Estado:** candidatos documentados; `MEMG-18` y `MEMG-19` entregados como decisión/spec ([multimodalidad](memg-18-multimodalidad.md); [prospectiva + descartes](memg-19-prospectiva-descartes.md)); `MEMG-23` pendiente.
 
 ### 2.3 (c) Ejes ortogonales + cadencia multiescala L0→L3
 
@@ -143,6 +143,7 @@ El marco de memoria de VantaDB (8 dimensiones · 6 áreas · 10 ámbitos · trac
 - **Decisión — lista "no elevar"** (candidatas evaluadas y NO elevadas):
   - **Idempotencia / effect semantics** — sin respaldo estable en la validación.
   - **Economía** — transversal de gobernanza, **no** área (sí permanece como ámbito candidato AM12, §2.2).
+  - **Descartes de dimensión (dims hub §Validación):** sensorial-como-almacén y emocional/motivacional — descartes documentados con respaldos fetch-verificados y criterios de revisión en [`memg-19-prospectiva-descartes.md`](memg-19-prospectiva-descartes.md) §2 (2026-10-06).
 - **Decisión — nota bitemporal (ámbito #4):** AM4 (sistema-vs-realidad) tiene **validación externa débil** declarada (`../strategy/NOTION-SYNC-2026-09-24.md:140`, "nota #4"). Contexto repo: bitemporalidad **implementada** (SCH-02: `valid_at`/`invalid_at` + `AS OF`; [`mgr-10-bitemporalidad.md`](mgr-10-bitemporalidad.md)); ranking temporal sin resolver → N-08 (`../backlog-notion.md:27`). La debilidad es de *respaldos externos del ámbito*, no del mecanismo → se declara y se re-evalúa en la cadencia (§4).
 - **Estado:** documentada.
 
