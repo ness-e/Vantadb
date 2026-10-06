@@ -154,16 +154,16 @@ Verificación: tests RED→GREEN (`tests/write_receipts.rs` + unit en `attestati
 - **Estado:** ✅ COMPLETED (2026-10-05) — todos los steps verdes; review P2-01 approve (ronda 2); pendiente solo el hash del commit en RESULTADO.
 - **Notas para el próximo agente:** `put_certified` NO modifica `put` (opt-in; solo agrega pre-check de finitud); `verify_write_receipt` recibe JSON (espejo `verify_purge_certificate`); `WRITE_SURFACES` = 2 (`store`, `wal`); el content hash cubre SOLO la proyección declarada (exclusiones enumeradas en límites); floats no finitos rechazados/fall-safe; no se tocó `src/wal.rs`/`src/storage/**`; `src/sdk/merge_tests.rs` cambió por FIND-306 (clippy 1.95), no por VER-10.
 
-## RESULTADO (§7 — se completa al cierre)
+## RESULTADO (§7)
 
 ```
-RESULTADO: <pendiente>
-STEPS_OK: 0/7
-PROXIMO_STEP: Step 1 — RED tests/write_receipts.rs
-COMMIT_HASH: ninguno
-ARCHIVOS: docs/dev/tasks/VER-10.md
-VERIFY_CONTRATO: no-corrido
+RESULTADO: ✅ COMPLETO
+STEPS_OK: 7/7
+PROXIMO_STEP: ninguno
+COMMIT_HASH: 7841879e (feat) + 4b66c5c2 (fix FIND-306)
+ARCHIVOS: src/attestation.rs · src/sdk/api/memory.rs · tests/write_receipts.rs · docs/api/WRITE_RECEIPTS.md · docs/api/CERTIFIED_DELETE.md · docs/api/WAL_INTEGRITY.md · docs/dev/tasks/VER-10.md · docs/dev/Backlog.md · docs/index.md · docs/api/index.md · llms.txt · src/sdk/merge_tests.rs (fix)
+VERIFY_CONTRATO: pasa — nextest --test write_receipts --test certified_delete 20/20 · --lib 2356/2356 · fmt --check full verde · clippy -p vantadb --all-targets -- -D warnings verde · check-links/check-docs/gen-index verdes · review P2-01 ronda 2 approve
 BLOQUEO: ninguno
-GATES_EVALUADOS: P:no D:disparado(pre-respondido por plan) V:no C:no | contrato sancionado por plan F0
-SKILLS_CARGADAS: test-driven-development · api-and-interface-design · security-and-hardening · rust-write-tests · documentation-skill (+base auto)
+GATES_EVALUADOS: P:no D:disparado(pre-respondido por plan F0) V:no C:no | Gate D pre-respondido; sin stall; contrato verificado con evidencia
+SKILLS_CARGADAS: test-driven-development · api-and-interface-design · security-and-hardening · rust-write-tests · documentation-skill (+ campaign-executor/progreso/ponytail base auto)
 ```
