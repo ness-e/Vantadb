@@ -1,15 +1,15 @@
 {
   "plan": "docs/dev/plans/2026-10-04-master-plan-0.9.0.md",
   "total": 72,
-  "totalCompleted": 49,
+  "totalCompleted": 71,
   "totalFailed": 0,
   "consecutiveFails": 0,
   "failMode": "parallel",
   "mode": "run",
   "maxConcurrent": 3,
-  "phase": "F2 CERRADA (13/13) - F3 en expansion",
-  "inProgress": ["DESKTOP-44 (34, pausada - sesion owner)", "MEMG-03 (50, en espera de expansion F3)", "MEMG-06 (51, en espera)"],
-  "notes": "F2 completa (13/13): MEMG-01/02/07/11/12/13/20/21 + WIRE-14/15/16/17/18. F3 (Tasks 50-55) en expansion a nivel F0. Cadena scheduler cableada y verificada (crash/restart).",
-  "postPushBatch": ["FIND-236 (ASan)", "FIND-233 (bench)", "DX-01 (Node 26 CI)", "WSM-15", "BENCH-01 (FIND-253)", "DIST-05 (post-release)", "DOCS-F2 (doctests ubuntu)", "DIST-17 (paridad CI)", "PROV-12/13 (TestPyPI + legs Windows)", "DESKTOP-44 (S1-S7 owner)", "WIRE-16 (colateral mcp fix c05cd77d)", "WIRE-18 (asegurar WIRE-18.md commiteado antes del push - gen-index)"],
-  "lastSync": "2026-10-05T04:00:00Z"
+  "phase": "F0-F6 COMPLETAS - run listo para cierre owner",
+  "inProgress": ["DESKTOP-44 (34, pausada - sesion S1-S7 owner)"],
+  "notes": "71/72 completadas. Solo DESKTOP-44 pausada (owner). Cierre: push final + tag adapters-v0.5.0 + publishers OIDC x7 (checklist PUBLISH.md).",
+  "postPushBatch": ["FIND-236 (ASan)", "FIND-233 (bench)", "DX-01 (Node 26 CI)", "WSM-15", "BENCH-01 (FIND-253)", "DIST-05 (post-release)", "DOCS-F2 (doctests ubuntu)", "DIST-17 (paridad CI)", "PROV-12/13 (TestPyPI + legs Windows)", "WIRE-16 (colateral mcp fix c05cd77d)", "MKT-20 (dry-run TestPyPI dispatch + tag adapters-v0.5.0)"],
+  "lastSync": "2026-10-06T20:00:00Z"
 }
