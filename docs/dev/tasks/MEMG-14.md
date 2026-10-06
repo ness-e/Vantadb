@@ -134,8 +134,8 @@ description: "Marco reformulado 'núcleo + extensiones' (7 sub-decisiones a-g), 
 - **Archivos:** `docs/dev/tasks/MEMG-14.md` (§Review + RESULTADO), `docs/dev/Backlog.md` (eliminar fila MEMG-14), `docs/dev/avance/activo/operaciones.md` (registro de cierre)
 - **Acción:** `pwsh scripts/validate-docs-coverage.ps1` · OCR delegation (`pwsh dev-tools/ocr-review.ps1 -Format json`) → Critical/High bloquean; Medium → FIND. Clasificar tier HARD-02: paths `docs/**` → **Fast** (verify mecánico + veredicto §Review). Fork `vanta-review` (fresh context) para P2-01. Commit **LOCAL** `docs(research):` con pathspec; cierre `campaign_update_task_state(completed, taskId:"60")` con recitation + payload `review`; Trigger 1 progreso (fila Backlog eliminada + registro avance).
 - **Verify:** veredicto registrado + `git show --stat HEAD` limitado a archivos propios + `git status` sin WIP ajeno stageado
-- **Evidencia:** (pendiente)
-- **Estado:** ⬜ PENDING
+- **Evidencia:** ✅ **Gates (working tree):** `check-links` 0 broken (3025 links) · `check-docs` GATING all clear · `gen-index --check` limpio al momento del write (posteriormente stale por WIP ajeno: MEMG-15 editó `docs/api/MEMORY_INTERCHANGE_FORMAT.md`; R-1 declarado) · `validate-docs-coverage.ps1` 0 gaps. **OCR delegation:** `pwsh dev-tools/ocr-review.ps1 -Format json` → 2 archivos code reviewables (`src/sdk/serialization/impl_export.rs`, `dev-tools/heavy-test-lock.ps1`) = **WIP ajeno** (fuera de pathspec; no se tocan); diff propio docs-only excluido por diseño (`unsupported_ext`) → 0 hallazgos aplicables. **Review P2-01:** vanta-review tier Fast — ronda 1 🔴 changes-required (R-1/R-2) → fixes → ronda 2 ✅ APPROVE (sesión `ses_ef0bf832cffefQ7hc1vjWRs2Qh`). **Commit:** `21939b6f` (5 archivos propios; pre-commit hook OK). **Trigger 1 progreso:** fila `MEMG-14` eliminada de `Backlog.md` (diff 1 deletion) + registro en `operaciones.md`. **Campaign:** `completed` taskId `60` con payload review.
+- **Estado:** ✅ COMPLETED
 
 ## Dependencias
 
@@ -159,9 +159,9 @@ description: "Marco reformulado 'núcleo + extensiones' (7 sub-decisiones a-g), 
 
 ## Context Save Point
 
-- **Última acción:** Steps 1-3 ✅ (task file; research-doc completo; draft sync + pointer NOTION-SYNC + gates docs verdes). Próximo: Step 4 (verify full + OCR + review P2-01 + commit + cierre).
-- **Próximo paso:** `pwsh dev-tools/ocr-review.ps1 -Format json` → review P2-01 (vanta-review, tier Fast) → commit **LOCAL** `docs(research):` con pathspec → Trigger 1 progreso + campaign completed taskId `60`.
-- **Estado del worktree:** HEAD `64eee3f7`; WIP ajeno (`opencode.jsonc`, master plan, `src/{attestation.rs,cli_handlers/data.rs,sdk/**,tests/**}`, `dev-tools/heavy-test-lock.ps1`, `docs/dev/tasks/MEMG-15.md`) NO se stagea; prohibido tocar `docs/pipeline-state.json`.
+- **Última acción:** Steps 1-4 ✅ (research-doc + gates docs + OCR + review P2-01 APPROVE ronda 2 + commit `21939b6f` + fila Backlog eliminada + registro avance + cierre campaign taskId `60`).
+- **Próximo paso:** ninguno (tarea cerrada). Handoff: aplicar el draft de sync §5 (lane owner) + R-1 pre-push (secuenciar `MEMG-15.md` → regenerar índice si aplica).
+- **Estado del worktree:** HEAD `21939b6f` (+ commit de cierre docs(avance)); WIP ajeno (`opencode.jsonc`, master plan, `src/{attestation.rs,cli_handlers/data.rs,sdk/**,tests/**}`, `dev-tools/heavy-test-lock.ps1`, `docs/dev/tasks/MEMG-15.md`, `docs/api/MEMORY_INTERCHANGE_FORMAT.md`) NO se stagea; prohibido tocar `docs/pipeline-state.json`.
 
 ## Notas
 
@@ -175,13 +175,13 @@ description: "Marco reformulado 'núcleo + extensiones' (7 sub-decisiones a-g), 
 ## RESULTADO §7 (contrato de retorno — pipeline-full)
 
 ```
-RESULTADO: 🟡 INCOMPLETO (Step 4 en curso — fixes de review ronda 1 aplicados)
-STEPS_OK: 3/4 total steps
-PROXIMO_STEP: Step 4 — verify full + OCR + review P2-01 (ronda 2) + commit local + cierre campaign
-COMMIT_HASH: ninguno
-ARCHIVOS: docs/dev/research/memg-14-marco-2.0.md (nuevo), docs/dev/tasks/MEMG-14.md (nuevo), docs/dev/strategy/NOTION-SYNC-2026-09-24.md, docs/index.md, llms.txt
-VERIFY_CONTRATO: gates docs 4/4 exit 0 en working tree (check-links 0 / gating clear / gen-index --check limpio / coverage 0 gaps); caveat R-1 (índice incluye MEMG-15.md ajeno) declarado
+RESULTADO: ✅ COMPLETO
+STEPS_OK: 4/4 total steps
+PROXIMO_STEP: ninguno
+COMMIT_HASH: 21939b6f (docs research, LOCAL — sin push) + commit de cierre docs(avance)
+ARCHIVOS: docs/dev/research/memg-14-marco-2.0.md (nuevo), docs/dev/tasks/MEMG-14.md (nuevo), docs/dev/strategy/NOTION-SYNC-2026-09-24.md, docs/index.md + llms.txt (generados), docs/dev/Backlog.md (fila removida), docs/dev/avance/activo/operaciones.md (registro)
+VERIFY_CONTRATO: pasa — research-doc (7/7 sub-decisiones + respaldo + registro + cadencia + draft) + gates docs 4/4 exit 0 en working tree (check-links 0 / gating clear / gen-index / coverage 0 gaps); R-1 (transitorio de índice por WIP ajeno MEMG-15) declarado como deuda pre-push
 BLOQUEO: ninguno
-GATES_EVALUADOS: P:no D:no V:no C:no | P:plan sanciona (Task 60 + stop) · D:no (pre-respondido plan F0; docs-only) · V:no (verde; R-2 = ancla corregida, no umbral) · C:no (WIP ajeno no stageado)
+GATES_EVALUADOS: P:no D:no V:no C:no | P:plan sanciona (Task 60 + stop) · D:no (pre-respondido plan F0; docs-only) · V:no (verde; R-2 = ancla corregida, no umbral) · C:no (WIP ajeno no stageado; R-1 declarado)
 SKILLS_CARGADAS: campaign-executor, progreso, ponytail (base) · writing-guidelines, writing-plans (base type docs) · documentation-and-adrs · documentation-skill · source-driven-development
 ```
