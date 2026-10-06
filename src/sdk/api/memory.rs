@@ -852,6 +852,43 @@ impl Embedded {
         res
     }
 
+    /// Insert or update a record and emit a **write receipt** (VER-10).
+    ///
+    /// The write itself is [`Embedded::put`] (same semantics, quota and audit
+    /// trail); the receipt is built from the persisted record and carries a
+    /// content binding plus a reference to the VER-01 chained WAL
+    /// (`vanta-cli verify` is the chain authority). Attestation is **opt-in**:
+    /// plain `put` pays nothing.
+    ///
+    /// Verify the returned receipt with [`Embedded::verify_write_receipt`]
+    /// (serialize it with `serde_json` first — JSON is the verification
+    /// surface). The receipt is a point-in-time attestation: verification
+    /// fails by design once the record is updated or deleted afterwards.
+    ///
+    /// Certified writes require **finite floats** in `metadata`, `vector` and
+    /// `sparse_vector`: the content binding serializes floats through JSON,
+    /// where `NaN`/`±Inf` collapse to `null` (ambiguous) — a non-finite input
+    /// is rejected with `Error::Validation` before anything is persisted.
+    #[tracing::instrument(skip(self, input), err)]
+    pub fn put_certified(
+        &self,
+        input: MemoryInput,
+    ) -> Result<(MemoryRecord, crate::attestation::WriteReceipt)> {
+        // Reject before the write commits: a rejected certified write must
+        // not have persisted anything (see the finiteness note above).
+        if let Some(path) = crate::attestation::first_non_finite_input(&input) {
+            return Err(Error::Validation {
+                field: "input".into(),
+                reason: format!(
+                    "non-finite float at {path}: certified writes require finite floats (the content binding would be ambiguous)"
+                ),
+            });
+        }
+        let record = self.put(input)?;
+        let receipt = crate::attestation::build_write_receipt(&record)?;
+        Ok((record, receipt))
+    }
+
     /// Insert or update multiple namespace-scoped persistent memory records.
     ///
     /// Uses `batch_insert_with_opts()` internally — a single WAL `batch_append`,
@@ -1329,6 +1366,31 @@ impl Embedded {
             serde_json::from_str(certificate_json).map_err(Error::serialization)?;
         let engine = self.engine_handle()?;
         crate::attestation::verify_certificate(&engine, &certificate)
+    }
+
+    /// Verify a stored write receipt (VER-10): schema + integrity hash, then
+    /// the live evidence — the record is re-read and its content binding
+    /// recomputed.
+    ///
+    /// Fails when the receipt is structurally invalid (claimless/partial
+    /// surface inventory, unknown status, empty declared limits), when it was
+    /// edited/corrupted (hash mismatch), when the record is no longer present
+    /// (deleted or expired since emission) or when the live content no longer
+    /// matches the attested binding (updated or re-put afterwards).
+    ///
+    /// Verification runs against the **live database handle**; a receipt
+    /// emitted by an unflushed process can yield a false negative until that
+    /// process flushes/closes (same caveat class as
+    /// [`Embedded::verify_purge_certificate`]).
+    #[tracing::instrument(skip(self, receipt_json), err)]
+    pub fn verify_write_receipt(
+        &self,
+        receipt_json: &str,
+    ) -> Result<crate::attestation::WriteReceiptVerification> {
+        let receipt: crate::attestation::WriteReceipt =
+            serde_json::from_str(receipt_json).map_err(Error::serialization)?;
+        let engine = self.engine_handle()?;
+        crate::attestation::verify_write_receipt(&engine, &receipt)
     }
 
     /// Insert or update a record with exact fields (used internally by import).

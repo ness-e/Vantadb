@@ -12,7 +12,7 @@ description: "Section index."
      One row per document in this section.
      Source of truth: the frontmatter of the files listed below. -->
 
-26 documents.
+27 documents.
 
 | Document                                                                     | Kind      | Summary                                                                                                                                                                                                                                                    |
 | ---------------------------------------------------------------------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -41,4 +41,5 @@ description: "Section index."
 | [WASM API Reference](./WASM_API.md)                                          | reference | This page is the canonical entry point for VantaDB's WebAssembly surface — the                                                                                                                                                                             |
 | [WASM Persistence Documentation](./WASM_PERSISTENCE.md)                      | reference | How VantaDB persists data in the browser: what exists, what the verified                                                                                                                                                                                   |
 | [WASM Standalone Console (Vanta Studio — mode `wasm`)](./WASM_STANDALONE.md) | reference | The Vanta Studio console can run 100% in the browser with no server: the                                                                                                                                                                                   |
+| [Write receipts (VER-10) — attestation of writes](./WRITE_RECEIPTS.md)       | reference | Verifiable write receipts emitted by put_certified (Rust SDK): content binding (sha256), VER-01 chain reference, canonical surfaces and declared limits; point-in-time verification via schema, integrity hash and live re-scan                            |
 | [vanta-proxy Reference (Endpoints, Opt-in Features, Config)](./PROXY.md)     | reference | vanta-proxy is a transparent LLM wire proxy: by default it forwards bytes                                                                                                                                                                                  |

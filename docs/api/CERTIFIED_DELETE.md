@@ -8,7 +8,7 @@ description: "Per-surface purge certificate emitted by delete (CLI/MCP/Rust): re
 
 > **Status:** ✅ VER-02 (2026-09-29) — implemented in `src/attestation.rs` (certificate schema v1), `src/sdk/api/memory.rs` (`delete_certified`) and the `vanta-cli delete --attest` / `vanta-cli certificate verify` commands. Certificate design under review by `vanta-audit` (P2-01).
 
-A **purge certificate** is a JSON document emitted after a record delete. It inventories every purge surface with its evidence, states what remained (if anything), and carries an integrity hash plus a reference to the [WAL hash-chain](./WAL_INTEGRITY.md) (VER-01). It is *honest by construction*: what is not covered is listed, never silent.
+A **purge certificate** is a JSON document emitted after a record delete. It inventories every purge surface with its evidence, states what remained (if anything), and carries an integrity hash plus a reference to the [WAL hash-chain](./WAL_INTEGRITY.md) (VER-01). It is *honest by construction*: what is not covered is listed, never silent. Writes have their own attestation — see [Write receipts](./WRITE_RECEIPTS.md) (VER-10).
 
 ## Where it is emitted
 

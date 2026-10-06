@@ -6,7 +6,7 @@
 
 Every link below points to the raw Markdown source, not a rendered page. Read the
 page you need; do not read this file end to end. This index covers the
-456 documentation pages; it deliberately omits the 1096 task files,
+457 documentation pages; it deliberately omits the 1097 task files,
 which are work items rather than documentation. The full inventory of every file
 is in docs/index.md in the repository.
 
@@ -270,6 +270,7 @@ is in docs/index.md in the repository.
 - [WASM API Reference](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/WASM_API.md): This page is the canonical entry point for VantaDB's WebAssembly surface — the
 - [WASM Persistence Documentation](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/WASM_PERSISTENCE.md): How VantaDB persists data in the browser: what exists, what the verified
 - [WASM Standalone Console (Vanta Studio — mode `wasm`)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/WASM_STANDALONE.md): The Vanta Studio console can run 100% in the browser with no server: the
+- [Write receipts (VER-10) — attestation of writes](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/WRITE_RECEIPTS.md): Verifiable write receipts emitted by put_certified (Rust SDK): content binding (sha256), VER-01 chain reference, canonical surfaces and declared limits; point-in-time verification via schema, integrity hash and live re-scan
 - [vanta-proxy Reference (Endpoints, Opt-in Features, Config)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/PROXY.md): vanta-proxy is a transparent LLM wire proxy: by default it forwards bytes
 
 ## Reports

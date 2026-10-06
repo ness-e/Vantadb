@@ -1,4 +1,5 @@
-//! Certified purge (VER-02): per-surface residue inventory + JSON certificate.
+//! Certified purge (VER-02) + certified write (VER-10): per-surface residue
+//! inventory + JSON certificates and verifiable write receipts.
 //!
 //! # Scope (honest by construction)
 //!
@@ -17,11 +18,23 @@
 //! detected. Cryptographic signing is a `vanta-audit` decision (VER-01 §Diseño
 //! deferred the external anchor the same way). The WAL side references the
 //! VER-01 hash-chain (`vanta-cli verify` is the chain authority).
+//!
+//! # Write receipts (VER-10)
+//!
+//! [`WriteReceipt`] extends the same contract to writes: `put_certified`
+//! emits a receipt carrying a **content binding** (sha256 over the record's
+//! canonical projection) and the same VER-01 chain reference. Verification
+//! re-checks schema → integrity hash → the live record (present + binding
+//! match). The WAL frame's own `record_hash` is not cited — the append path
+//! does not expose it to the write path today (declared in the receipt
+//! limits; Engine/Arch upgrade path) — so the chain reference plus the content
+//! binding are the equivalent evidence the VER-10 contract allows.
 
 use crate::backend::BackendPartition;
 use crate::error::{Error, Result};
-use crate::sdk::serialization::{impl_sparse_index, namespace_index_key};
-use crate::sdk::types::MemoryRecord;
+use crate::node::SparseVector;
+use crate::sdk::serialization::{impl_sparse_index, namespace_index_key, record_from_node};
+use crate::sdk::types::{MemoryInput, MemoryMetadata, MemoryRecord};
 use crate::sdk::version_history::version_prefix;
 use crate::storage::engine::StorageEngine;
 use serde::{Deserialize, Serialize};
@@ -636,6 +649,408 @@ pub(crate) fn verify_certificate(
     })
 }
 
+// ─── Write receipts (VER-10) ────────────────────────────────
+
+/// Write receipt schema version (v1, VER-10).
+pub const WRITE_RECEIPT_SCHEMA_VERSION: u32 = 1;
+
+/// The canonical surfaces a valid write receipt must cover exactly once
+/// (same claim-driven rejection the purge certificates enforce).
+const WRITE_SURFACES: [&str; 2] = ["store", "wal"];
+
+/// Content binding of a write receipt: sha256 over the canonical content
+/// projection of the attested record (identity, version, payload, metadata,
+/// vectors and TTL). System timestamps and derived state are declared out of
+/// scope — see [`write_declared_limits`].
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ContentBinding {
+    /// Hash algorithm (`sha256`).
+    pub algorithm: String,
+    /// Hex digest over the canonical content projection.
+    pub sha256: String,
+}
+
+/// A write receipt (VER-10): attestation of a record write with a content
+/// binding and a reference to the VER-01 chained WAL.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WriteReceipt {
+    /// Schema version ([`WRITE_RECEIPT_SCHEMA_VERSION`]).
+    pub schema_version: u32,
+    /// ISO 8601 UTC timestamp (single inherently variable field).
+    pub timestamp: String,
+    /// Record namespace.
+    pub namespace: String,
+    /// Record key.
+    pub key: String,
+    /// Deterministic node id, decimal string (u128 is not JSON-safe).
+    pub node_id: String,
+    /// Record version at write time.
+    pub version: u64,
+    /// `recorded` — the only status a write receipt carries.
+    pub status: String,
+    /// Fixed-order surface inventory (`store`, `wal`).
+    pub surfaces: Vec<SurfaceReport>,
+    /// Content binding over the attested record.
+    pub content: ContentBinding,
+    /// VER-01 chain reference (same builder the purge certificates use).
+    pub chain: ChainEvidence,
+    /// Declared limits — always present, never silent.
+    pub out_of_scope: Vec<String>,
+    /// Receipt self-integrity.
+    pub integrity: CertificateIntegrity,
+}
+
+/// Result of verifying a stored write receipt against the live database.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WriteReceiptVerification {
+    /// Schema version of the verified receipt.
+    pub schema_version: u32,
+    /// Receipt namespace.
+    pub namespace: String,
+    /// Receipt key.
+    pub key: String,
+    /// Attested record version.
+    pub version: u64,
+    /// Receipt status (echoed).
+    pub status: String,
+    /// `ok` when the integrity hash matched.
+    pub integrity: String,
+    /// `match` when the live record's content binding matched the receipt.
+    pub content: String,
+    /// Surfaces re-scanned against the live state.
+    pub rechecked_surfaces: Vec<String>,
+}
+
+/// Declared limits of a certified write (never silent, mirrors VER-02).
+fn write_declared_limits() -> Vec<String> {
+    vec![
+        "the receipt attests a live-database write: it references the VER-01 chained WAL, it does not re-verify the chain per write — `vanta-cli verify` is the chain authority, and crash durability before WAL sync/segment rotation is the WAL's domain".into(),
+        "point-in-time attestation: verification fails by design once the record is updated (a re-put bumps the version) or deleted afterwards — the receipt covers the state at emission, not later history".into(),
+        "content binding scope: ONLY the projection fields are covered (namespace, key, node_id, version, payload, metadata, dense/sparse vectors, expires_at_ms); every other record field is out of scope — including the validity window (valid_at_ms/invalid_at_ms), lineage (derived_from), provenance class (confidence_class), last_validated_at_ms, system timestamps (created/updated), quarantine state and derived index representations".into(),
+        "non-finite floats (NaN/±Inf): the content binding serializes floats through JSON, where they collapse to `null` (non-injective) — certified writes reject them before committing and verification fails safe on a live record that carries one".into(),
+        "no digital signature: integrity is an sha256 self-hash plus the live re-scan (the VER-02 contract); an actor who recomputes the hashes is not detected — cryptographic signing is a vanta-audit decision".into(),
+        "the receipt is not bound to a database instance: verification matches namespace/key against whichever database is opened".into(),
+        "an expired record (lazy TTL) reads as absent: verification reports it as not present (the read path treats a passed deadline as gone)".into(),
+        "audit logs: write events (namespace/key) survive in the audit JSONL — including rotated archives — until retention drops them".into(),
+        "the WAL frame itself is not cited by hash: `append` does not expose its per-frame `record_hash` to the write path today (declared upgrade path, Engine/Arch domain); the chain reference plus the content binding are the equivalent evidence".into(),
+    ]
+}
+
+/// Canonical content projection covered by [`ContentBinding`].
+///
+/// Deterministic by construction: `metadata` and `sparse_vector` are
+/// `BTreeMap`s (sorted keys) and the field order is fixed, so the digest is
+/// stable across processes and re-reads.
+#[derive(Serialize)]
+struct WriteContentProjection<'a> {
+    namespace: &'a str,
+    key: &'a str,
+    node_id: String,
+    version: u64,
+    payload: &'a str,
+    metadata: &'a MemoryMetadata,
+    vector: &'a Option<Vec<f32>>,
+    sparse_vector: &'a Option<SparseVector>,
+    expires_at_ms: Option<u64>,
+}
+
+/// sha256 over the canonical content projection of `record`.
+fn content_sha256(record: &MemoryRecord) -> Result<String> {
+    let projection = WriteContentProjection {
+        namespace: &record.namespace,
+        key: &record.key,
+        node_id: record.node_id.to_string(),
+        version: record.version,
+        payload: &record.payload,
+        metadata: &record.metadata,
+        vector: &record.vector,
+        sparse_vector: &record.sparse_vector,
+        expires_at_ms: record.expires_at_ms,
+    };
+    let bytes = serde_json::to_vec(&projection).map_err(Error::serialization)?;
+    Ok(hex_lower(&Sha256::digest(&bytes)))
+}
+
+/// First non-finite float in the covered content (`metadata`, `vector`,
+/// `sparse_vector`), if any — with a human-readable location.
+///
+/// The content binding serializes floats through JSON, where `NaN`/`±Inf`
+/// collapse to `null`: non-injective. Certified writes reject them up front
+/// ([`first_non_finite_input`]) and verification fails safe on them
+/// ([`first_non_finite_record`]), so the binding is injective over every
+/// receipt it actually produces.
+fn first_non_finite(
+    metadata: &MemoryMetadata,
+    vector: Option<&[f32]>,
+    sparse: Option<&SparseVector>,
+) -> Option<String> {
+    fn in_value(value: &crate::sdk::types::Value, path: &str) -> Option<String> {
+        use crate::sdk::types::Value;
+        match value {
+            Value::Float(f) if !f.is_finite() => Some(path.to_string()),
+            Value::ListFloat(items) => items
+                .iter()
+                .position(|f| !f.is_finite())
+                .map(|i| format!("{path}[{i}]")),
+            _ => None,
+        }
+    }
+    for (key, value) in metadata {
+        if let Some(path) = in_value(value, &format!("metadata['{key}']")) {
+            return Some(path);
+        }
+    }
+    if let Some(values) = vector {
+        if let Some(index) = values.iter().position(|f| !f.is_finite()) {
+            return Some(format!("vector[{index}]"));
+        }
+    }
+    if let Some(sparse) = sparse {
+        for (dimension, coefficient) in &sparse.0 {
+            if !coefficient.is_finite() {
+                return Some(format!("sparse_vector[{dimension}]"));
+            }
+        }
+    }
+    None
+}
+
+/// [`first_non_finite`] over a write input — checked **before** the certified
+/// write commits (a rejected input must not have been persisted).
+pub(crate) fn first_non_finite_input(input: &MemoryInput) -> Option<String> {
+    first_non_finite(
+        &input.metadata,
+        input.vector.as_deref(),
+        input.sparse_vector.as_ref(),
+    )
+}
+
+/// [`first_non_finite`] over a live record — verification fails safe on it.
+fn first_non_finite_record(record: &MemoryRecord) -> Option<String> {
+    first_non_finite(
+        &record.metadata,
+        record.vector.as_deref(),
+        record.sparse_vector.as_ref(),
+    )
+}
+
+/// Canonical bytes used for the receipt integrity hash: the receipt body with
+/// the `integrity.sha256` field emptied (stable across re-reads).
+fn canonical_write_bytes(receipt: &WriteReceipt) -> Result<Vec<u8>> {
+    let mut canonical = receipt.clone();
+    canonical.integrity.sha256.clear();
+    serde_json::to_vec(&canonical).map_err(Error::serialization)
+}
+
+/// Structural validation of a write receipt (same contract as the purge
+/// certificates): a well-formed receipt must carry a known `status`, a
+/// non-empty `out_of_scope` and **every canonical surface exactly once** — no
+/// omissions, duplicates or unknowns.
+fn validate_write_schema(receipt: &WriteReceipt) -> Result<()> {
+    const VALID_STATUS: [&str; 1] = ["recorded"];
+    if !VALID_STATUS.contains(&receipt.status.as_str()) {
+        return Err(Error::Validation {
+            field: "receipt.status".into(),
+            reason: format!(
+                "unknown status '{}' (expected one of {:?})",
+                receipt.status, VALID_STATUS
+            ),
+        });
+    }
+    if receipt.out_of_scope.is_empty() {
+        return Err(Error::Validation {
+            field: "receipt.out_of_scope".into(),
+            reason: "declared limits must not be empty".into(),
+        });
+    }
+    for canonical in WRITE_SURFACES {
+        let occurrences = receipt
+            .surfaces
+            .iter()
+            .filter(|s| s.surface == canonical)
+            .count();
+        if occurrences != 1 {
+            return Err(Error::Validation {
+                field: "receipt.surfaces".into(),
+                reason: format!(
+                    "surface '{canonical}' must appear exactly once (found {occurrences})"
+                ),
+            });
+        }
+    }
+    if let Some(unknown) = receipt
+        .surfaces
+        .iter()
+        .find(|s| !WRITE_SURFACES.contains(&s.surface.as_str()))
+    {
+        return Err(Error::Validation {
+            field: "receipt.surfaces".into(),
+            reason: format!("unknown surface '{}'", unknown.surface),
+        });
+    }
+    if receipt.surfaces.len() != WRITE_SURFACES.len() {
+        return Err(Error::Validation {
+            field: "receipt.surfaces".into(),
+            reason: format!(
+                "expected {} canonical surfaces, found {}",
+                WRITE_SURFACES.len(),
+                receipt.surfaces.len()
+            ),
+        });
+    }
+    Ok(())
+}
+
+fn finalize_write(mut receipt: WriteReceipt) -> Result<WriteReceipt> {
+    // The producer must never emit a structurally invalid receipt.
+    validate_write_schema(&receipt)?;
+    let digest = Sha256::digest(canonical_write_bytes(&receipt)?);
+    receipt.integrity.sha256 = hex_lower(&digest);
+    Ok(receipt)
+}
+
+/// Build a write receipt for a just-persisted record.
+///
+/// Pure: the receipt is computed from the record the write path returned; the
+/// live evidence (record present + content binding) is re-checked by
+/// [`verify_write_receipt`], never at emission (VER-02 pattern: the chain is
+/// referenced per operation and re-verified by its authority).
+pub(crate) fn build_write_receipt(record: &MemoryRecord) -> Result<WriteReceipt> {
+    let receipt = WriteReceipt {
+        schema_version: WRITE_RECEIPT_SCHEMA_VERSION,
+        timestamp: crate::audit::now_iso(),
+        namespace: record.namespace.clone(),
+        key: record.key.clone(),
+        node_id: record.node_id.to_string(),
+        version: record.version,
+        status: "recorded".into(),
+        surfaces: vec![
+            surface(
+                "store",
+                "written",
+                0,
+                "the write path applied the node (WAL frame + KV + HNSW); verification re-reads partition Default and recomputes the content binding",
+            ),
+            surface(
+                "wal",
+                "frame-recorded",
+                0,
+                "the write's WAL frame is appended before store I/O (append-only history keeps the trace by design); `vanta-cli verify` is the chain authority",
+            ),
+        ],
+        content: ContentBinding {
+            algorithm: "sha256".into(),
+            sha256: content_sha256(record)?,
+        },
+        chain: chain_evidence(),
+        out_of_scope: write_declared_limits(),
+        integrity: CertificateIntegrity {
+            algorithm: "sha256".into(),
+            sha256: String::new(),
+        },
+    };
+    finalize_write(receipt)
+}
+
+/// Verify a stored write receipt: schema + integrity hash first, then the
+/// live evidence — re-read the record and recompute its content binding.
+///
+/// Verification is **not claim-driven** (same contract as the purge
+/// certificates): before any verdict the receipt must be structurally valid
+/// (known status, non-empty declared limits, every canonical surface exactly
+/// once). A receipt that omits a surface is rejected even when its integrity
+/// hash was recomputed.
+///
+/// Fails when the receipt was edited/corrupted (hash mismatch), when the
+/// record is no longer present (deleted or expired since emission) or when the
+/// live content no longer matches the attested binding (a re-put bumps the
+/// version) — a write receipt is a point-in-time attestation.
+pub(crate) fn verify_write_receipt(
+    engine: &StorageEngine,
+    receipt: &WriteReceipt,
+) -> Result<WriteReceiptVerification> {
+    if receipt.schema_version != WRITE_RECEIPT_SCHEMA_VERSION {
+        return Err(Error::Validation {
+            field: "receipt.schema_version".into(),
+            reason: format!(
+                "unsupported receipt schema version {} (expected {})",
+                receipt.schema_version, WRITE_RECEIPT_SCHEMA_VERSION
+            ),
+        });
+    }
+    let expected = hex_lower(&Sha256::digest(canonical_write_bytes(receipt)?));
+    if receipt.integrity.algorithm != "sha256" || receipt.integrity.sha256 != expected {
+        return Err(Error::Validation {
+            field: "receipt.integrity".into(),
+            reason: "integrity hash mismatch — the receipt was edited or corrupted".into(),
+        });
+    }
+    validate_write_schema(receipt)?;
+    if receipt.content.algorithm != "sha256" {
+        return Err(Error::Validation {
+            field: "receipt.content".into(),
+            reason: format!(
+                "unsupported content binding algorithm '{}'",
+                receipt.content.algorithm
+            ),
+        });
+    }
+
+    let node_id: u128 = receipt.node_id.parse().map_err(|_| Error::Validation {
+        field: "receipt.node_id".into(),
+        reason: "node_id is not a valid u128".into(),
+    })?;
+
+    let node = engine.get(node_id)?.ok_or_else(|| Error::Validation {
+        field: "receipt.store".into(),
+        reason:
+            "the record is no longer present in the live store (deleted or expired since the receipt was issued)"
+                .into(),
+    })?;
+    let record = record_from_node(&node).ok_or_else(|| Error::Validation {
+        field: "receipt.store".into(),
+        reason: "the record is not readable as a memory record (expired or not a memory node)"
+            .into(),
+    })?;
+    if record.namespace != receipt.namespace || record.key != receipt.key {
+        return Err(Error::Validation {
+            field: "receipt.store".into(),
+            reason: "the node behind this id does not carry the attested namespace/key".into(),
+        });
+    }
+    // Fail safe: JSON collapses NaN/±Inf to `null`, so a live non-finite
+    // float would make the content comparison ambiguous (two different
+    // records could hash equal). Certified writes never bind non-finite
+    // floats — a live one means the record was altered outside the binding's
+    // injective domain.
+    if let Some(path) = first_non_finite_record(&record) {
+        return Err(Error::Validation {
+            field: "receipt.content".into(),
+            reason: format!(
+                "cannot verify: the live record carries a non-finite float at {path} — outside the injective domain of the content binding (fails safe)"
+            ),
+        });
+    }
+    let live = content_sha256(&record)?;
+    if live != receipt.content.sha256 {
+        return Err(Error::Validation {
+            field: "receipt.content".into(),
+            reason: "content mismatch — the live record no longer matches the attested binding (updated, re-put or altered since the receipt was issued)".into(),
+        });
+    }
+
+    Ok(WriteReceiptVerification {
+        schema_version: receipt.schema_version,
+        namespace: receipt.namespace.clone(),
+        key: receipt.key.clone(),
+        version: receipt.version,
+        status: receipt.status.clone(),
+        integrity: "ok".into(),
+        content: "match".into(),
+        rechecked_surfaces: vec!["store".to_string()],
+    })
+}
+
 #[cfg(test)]
 #[allow(missing_docs)]
 mod tests {
@@ -764,6 +1179,207 @@ mod tests {
         assert!(
             finalize(cert).is_err(),
             "the producer must never emit a claimless certificate"
+        );
+    }
+
+    // ── VER-10: write receipts ──
+
+    fn minimal_write_receipt() -> WriteReceipt {
+        WriteReceipt {
+            schema_version: WRITE_RECEIPT_SCHEMA_VERSION,
+            timestamp: "2026-10-05T00:00:00Z".into(),
+            namespace: "ns".into(),
+            key: "k".into(),
+            node_id: "42".into(),
+            version: 1,
+            status: "recorded".into(),
+            surfaces: WRITE_SURFACES
+                .iter()
+                .map(|s| surface(s, "written", 0, "ok"))
+                .collect(),
+            content: ContentBinding {
+                algorithm: "sha256".into(),
+                sha256: "aa".into(),
+            },
+            chain: chain_evidence(),
+            out_of_scope: write_declared_limits(),
+            integrity: CertificateIntegrity {
+                algorithm: "sha256".into(),
+                sha256: String::new(),
+            },
+        }
+    }
+
+    fn record_for_hash() -> MemoryRecord {
+        MemoryRecord {
+            namespace: "ns".into(),
+            key: "k".into(),
+            payload: "hello".into(),
+            metadata: MemoryMetadata::new(),
+            created_at_ms: 1_700_000_000_000,
+            updated_at_ms: 1_700_000_000_000,
+            version: 1,
+            node_id: 42,
+            vector: Some(vec![0.5, 0.25]),
+            sparse_vector: None,
+            expires_at_ms: None,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn write_finalize_computes_stable_hex_digest() {
+        let receipt = finalize_write(minimal_write_receipt()).unwrap();
+        assert_eq!(receipt.integrity.sha256.len(), 64);
+        assert!(receipt
+            .integrity
+            .sha256
+            .chars()
+            .all(|c| c.is_ascii_hexdigit()));
+
+        // Re-finalizing (hash already present) produces the same digest: the
+        // canonical body empties the field before hashing.
+        let again = finalize_write(receipt.clone()).unwrap();
+        assert_eq!(again.integrity.sha256, receipt.integrity.sha256);
+    }
+
+    #[test]
+    fn validate_write_schema_rejects_missing_surface() {
+        let mut receipt = minimal_write_receipt();
+        receipt.surfaces.retain(|s| s.surface != "wal");
+        let err = validate_write_schema(&receipt).expect_err("missing surface must be rejected");
+        assert!(err.to_string().contains("wal"), "got: {err}");
+    }
+
+    #[test]
+    fn validate_write_schema_rejects_empty_declared_limits() {
+        let mut receipt = minimal_write_receipt();
+        receipt.out_of_scope.clear();
+        let err = validate_write_schema(&receipt).expect_err("empty out_of_scope must be rejected");
+        assert!(err.to_string().contains("out_of_scope"), "got: {err}");
+    }
+
+    #[test]
+    fn validate_write_schema_rejects_unknown_status() {
+        let mut receipt = minimal_write_receipt();
+        receipt.status = "purged".into();
+        let err = validate_write_schema(&receipt)
+            .expect_err("a delete status must not validate as a write status");
+        assert!(err.to_string().contains("status"), "got: {err}");
+    }
+
+    #[test]
+    fn content_hash_changes_with_payload() {
+        let mut altered = record_for_hash();
+        let original = altered.clone();
+        altered.payload = "tampered".into();
+        assert_ne!(
+            content_sha256(&altered).unwrap(),
+            content_sha256(&original).unwrap(),
+            "payload is inside the binding"
+        );
+    }
+
+    #[test]
+    fn content_hash_changes_with_metadata_and_version() {
+        let mut with_meta = record_for_hash();
+        let plain = with_meta.clone();
+        with_meta.metadata.insert(
+            "color".into(),
+            crate::sdk::types::Value::String("blue".into()),
+        );
+        assert_ne!(
+            content_sha256(&with_meta).unwrap(),
+            content_sha256(&plain).unwrap()
+        );
+
+        let mut bumped = plain.clone();
+        bumped.version += 1;
+        assert_ne!(
+            content_sha256(&bumped).unwrap(),
+            content_sha256(&plain).unwrap(),
+            "version is inside the binding"
+        );
+    }
+
+    #[test]
+    fn content_hash_ignores_system_timestamps_and_derived_state() {
+        let original = record_for_hash();
+        let mut drifted = original.clone();
+        drifted.created_at_ms += 1_000;
+        drifted.updated_at_ms += 1_000;
+        drifted.confidence = 0.25;
+        drifted.last_validated_at_ms = Some(123);
+        drifted.quarantined_at_ms = Some(7);
+        drifted.quarantine_reason = Some("policy_match".into());
+        assert_eq!(
+            content_sha256(&drifted).unwrap(),
+            content_sha256(&original).unwrap(),
+            "system timestamps and derived state are declared out of scope"
+        );
+    }
+
+    #[test]
+    fn first_non_finite_flags_every_covered_float_source() {
+        use crate::sdk::types::Value;
+
+        assert_eq!(
+            first_non_finite(&MemoryMetadata::new(), Some(&[0.5, -1.0]), None),
+            None,
+            "finite floats are inside the injective domain"
+        );
+
+        let mut nan_meta = MemoryMetadata::new();
+        nan_meta.insert("score".into(), Value::Float(f64::NAN));
+        assert_eq!(
+            first_non_finite(&nan_meta, None, None).as_deref(),
+            Some("metadata['score']")
+        );
+
+        let mut inf_list = MemoryMetadata::new();
+        inf_list.insert("series".into(), Value::ListFloat(vec![1.0, f64::INFINITY]));
+        assert_eq!(
+            first_non_finite(&inf_list, None, None).as_deref(),
+            Some("metadata['series'][1]")
+        );
+
+        assert_eq!(
+            first_non_finite(&MemoryMetadata::new(), Some(&[0.5, f32::NAN]), None).as_deref(),
+            Some("vector[1]")
+        );
+
+        let sparse = SparseVector(std::collections::BTreeMap::from([(7, f32::NEG_INFINITY)]));
+        assert_eq!(
+            first_non_finite(&MemoryMetadata::new(), None, Some(&sparse)).as_deref(),
+            Some("sparse_vector[7]")
+        );
+    }
+
+    #[test]
+    fn first_non_finite_record_flags_a_live_record() {
+        let mut record = record_for_hash();
+        record.vector = Some(vec![f32::INFINITY]);
+        assert_eq!(
+            first_non_finite_record(&record).as_deref(),
+            Some("vector[0]")
+        );
+        assert_eq!(first_non_finite_record(&record_for_hash()), None);
+    }
+
+    #[test]
+    fn write_declared_limits_are_never_empty() {
+        let limits = write_declared_limits();
+        assert!(
+            limits.iter().any(|l| l.contains("point-in-time")),
+            "the point-in-time semantics must be declared"
+        );
+        assert!(
+            limits.iter().any(|l| l.contains("no digital signature")),
+            "integrity-vs-authenticity must be declared"
+        );
+        assert!(
+            limits.iter().any(|l| l.contains("record_hash")),
+            "the frame-level upgrade path must be declared"
         );
     }
 }
