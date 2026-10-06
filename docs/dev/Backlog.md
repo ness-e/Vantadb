@@ -158,14 +158,13 @@ verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-hist
 
 ### P3 — Estratégico
 
-> Filas sin bloque de detalle (movidas del Índice DELTA 2026-10-01): STRAT-04 (WASM lock-free multi-thread — vanta-arch) · STRAT-06 (research licencias + ACV — vanta-research).
+> Filas sin bloque de detalle (movidas del Índice DELTA 2026-10-01): STRAT-04 (WASM lock-free multi-thread — vanta-arch).
 
 | ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias |
 |----|-----------|----------|---------------|----------|-----------|--------|-------------|------------|--------------|
 | `MEMG-22` | — | **Procedencia multi-fuente por campo (`track_property_source`)** | `src/sdk/types/record.rs` | 🟡 1-2d | 🔵 P3 | 🆕 Pendiente | Qué: trazabilidad de fuente por campo/propiedad (p.ej. "email" de fuente A, "teléfono" de fuente B con linaje separado) sobre metadata v2; extiende MEMG-12 y el modelo W3C PROV. · Por qué: el ámbito 7 lo marca como brecha explícita ("falta track_property_source multi-fuente"); sin esto la procedencia es a nivel registro y se pierde en merges. · Evidencia (2026-09-30): ámbito 7 hub (brechas MGR-12/13 declaradas) · W3C PROV-DM · SCH-02 (campos v2) · MEMG-12. | Fuente: validación externa 2026-09-30 · Detalle §P3 · Dueño: vanta-worker · análisis 2026-09-30 · ámbito 7 · W3C PROV | Dep: MEMG-12 |
 | `MEMG-23` | — | **Evaluación "mejora con experiencia" (STATE-Bench-style)** | `evals/` | 🟡 2-3d | 🔵 P3 | 🆕 Pendiente | Qué: extender el harness VER-08 con una métrica de mejora con experiencia (¿el agente mejora al acumular memoria en tareas repetidas?) estilo STATE-Bench + MemoryAgentBench (test-time learning); declarar la economía (tokens/costo) como criterio de primera clase (ya en pares accuracy+tokens); incluir olvido selectivo (MemoryAgentBench) como métrica adicional (privacidad/Art.17). · Por qué: la métrica de la industria 2026 ya no es "¿recupera?" sino "¿el agente mejora?"; cierra el ángulo test-time learning que los ámbitos no listan. · Evidencia (2026-09-30): STATE-Bench (Microsoft, may-2026) · arXiv 2507.05257 (MemoryAgentBench) · VER-08 ✅ · eRAG (economía). | Fuente: validación externa 2026-09-30 · Detalle §P3 · Dueño: vanta-tuner (+ vanta-research) · análisis 2026-09-30 · VER-08 · STATE-Bench · arXiv 2507.05257 | Dep: VER-08 |
 | `STRAT-04` | — | **WASM lock-free multi-thread (prep Kuzu)** | `vantadb-wasm/src/` | 🔴 2-4sem | 🔵 P3 | 🆕 Pendiente | Tipo: feat — lo que falta para el claim Kuzu-successor. | Fuente: research addendum · Detalle §P3 · Dueño: vanta-arch | — |
-| `STRAT-06` | — | **Research: licencias (Khoj/Jan/Reor/OpenWebUI/Letta) + ACV OSS DBs** | — | 🟡 2d | 🔵 P3 | 🆕 Pendiente | Tipo: research — los bands de revenue son modelado, no datos. | Fuente: research §"no verificado" · Detalle §P3 · Dueño: vanta-research | — |
 
 ### Migración H-findings → Backlog (completada 2026-09-30)
 
