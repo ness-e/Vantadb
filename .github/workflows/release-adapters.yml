@@ -26,7 +26,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        adapter: [langchain, llamaindex, mem0, crewai, dspy, haystack, letta, openai, ollama]
+        # FIND-273 (owner 2026-10-06): openai/ollama twins retired from the release —
+        # canonical names belong to the Rust providers (see PUBLISH.md §Adapters).
+        adapter: [langchain, llamaindex, mem0, crewai, dspy, haystack, letta]
 
     steps:
       - name: Checkout
@@ -65,7 +67,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        adapter: [langchain, llamaindex, mem0, crewai, dspy, haystack, letta, openai, ollama]
+        # FIND-273 (owner 2026-10-06): openai/ollama twins retired from the release —
+        # canonical names belong to the Rust providers (see PUBLISH.md §Adapters).
+        adapter: [langchain, llamaindex, mem0, crewai, dspy, haystack, letta]
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

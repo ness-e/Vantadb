@@ -80,11 +80,33 @@ El skip "already published" de `release-npm-61.yml` y `release-npm-node.yml` aho
 
 ## Adapters — `release-adapters.yml`
 
-- Tags `adapters-v*.*.*` publish 9 adapters
-  (langchain, llamaindex, mem0, crewai, dspy, haystack, letta, openai, ollama)
-  to prod PyPI after the test matrix passes.
+- Tags `adapters-v*.*.*` publish the 7 adapters
+  (langchain, llamaindex, mem0, crewai, dspy, haystack, letta) to prod PyPI
+  after the test matrix passes.
 - `workflow_dispatch` with `publish_testpypi=true` goes to TestPyPI.
 - Own namespace so adapter-only releases never trigger core wheels/npm.
+- **FIND-273 — resolved 2026-10-06 (owner decision):** the
+  `integrations/openai` + `integrations/ollama` Python twins were **retired
+  from the release** (their PyPI names/modules belong to the Rust providers);
+  they stay in-repo as source-only, and the workflow matrices now carry the
+  7-adapter list. Details: [MKT-20](../tasks/MKT-20.md) §F6-2.
+- **Pins — bumped 2026-10-06 (owner decision):** the 7 adapters now declare
+  `vantadb-py>=0.6.1,<0.9.0` (was `>=0.5.0,<0.7.0`, which excluded the live
+  core and admitted 0.5.0 — no `Client` API). Evidence: MKT-20 §F6-3.
+- **Publish = owner-assisted (F6/Task 71). Checklist:**
+  1. **Pending publishers:** on PyPI **and** TestPyPI, configure Trusted
+     Publishing (OIDC) for the 7 names — owner `ness-e`, repository
+     `ness-e/Vantadb`, workflow `release-adapters.yml`, environment
+     `pypi`/`testpypi` — or use a token. Environments already exist
+     (verified 2026-10-06).
+  2. **Dry-run:** `gh workflow run release-adapters.yml -f publish_testpypi=true`
+     → approve the `testpypi` environment deployment → ≥5 dists on
+     test.pypi.org (expected: 14 — 7 wheels + 7 sdists).
+  3. **Tag:** `git tag adapters-v0.5.0 && git push --tags` → approve the
+     `pypi` environment deployment → `publish-pypi` green (OIDC).
+  4. **Post:** `GET https://pypi.org/pypi/<name>/json` = 200 ×7; remove the
+     "Not on PyPI yet" notices from the READMEs + `FRAMEWORKS.md` and re-run
+     `node scripts/docs/gen-index.mjs --check` (cleanup commit).
 
 ## Providers — `release-providers.yml`
 
@@ -135,7 +157,7 @@ El skip "already published" de `release-npm-61.yml` y `release-npm-node.yml` aho
 |-----------|-------------------|--------------|
 | `v*.*.*` | wheels-60, npm-61 | PyPI (`vantadb-py`), npm (`vantadb-wasm`, `vantadb`) |
 | `node-v*.*.*` | npm-node | npm (Node binding) |
-| `adapters-v*.*.*` | adapters-62 | PyPI (9 adapters) |
+| `adapters-v*.*.*` | adapters-62 | PyPI (7 adapters) |
 | `providers-v*.*.*` | release-providers.yml | PyPI (`vantadb-openai`, `vantadb-ollama`, `vantadb-litellm`) |
 | `v*` (broad) | sbom-64 | Artifacts only (no registry) |
 | GitHub Release | binaries-63 | Release assets (binaries) |

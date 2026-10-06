@@ -80,7 +80,7 @@ Per-workflow detail pages live next to this index (`ci-gate.md`,
 | `release-wheels.yml` | Python wheels → PyPI/TestPyPI | tags `v*.*.*`, PR (paths src/python), dispatch |
 | `release-npm-61.yml` | WASM + TS SDK → npm | tags `v*.*.*`, PR (paths wasm/ts), dispatch |
 | `release-npm-node.yml` | Node binding → npm | tags `node-v*.*.*`, PR (paths node), dispatch |
-| `release-adapters.yml` | 9 adapters → PyPI/TestPyPI | tags `adapters-v*.*.*`, dispatch |
+| `release-adapters.yml` | 7 adapters → PyPI/TestPyPI | tags `adapters-v*.*.*`, dispatch |
 | `release-providers.yml` | 3 Rust providers → PyPI/TestPyPI (maturin 3×4 matrix) | tags `providers-v*.*.*`, PR (paths providers), dispatch |
 | `release-binaries.yml` | Binaries → GitHub Release | `release` published, dispatch (`release_tag` = backfill) |
 | `release-sbom.yml` | CycloneDX SBOM artifacts | tags `v*`, dispatch |
