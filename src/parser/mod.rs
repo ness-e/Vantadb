@@ -14,9 +14,10 @@ pub use lexer::*;
 /// detect (new clause, changed literal semantics, removed syntax). Version-gated
 /// clauses document their minimum version — e.g. `PROFILE` (MEM-01) is accepted
 /// from [`IQL_VERSION_MIN_PROFILE`] onwards, `AS OF` (SCH-03) from
-/// [`IQL_VERSION_MIN_AS_OF`], and `LIMIT`/`OFFSET` (WIRE-12) from
-/// [`IQL_VERSION_MIN_PAGINATION`].
-pub const IQL_VERSION: u32 = 3;
+/// [`IQL_VERSION_MIN_AS_OF`], `LIMIT`/`OFFSET` (WIRE-12) from
+/// [`IQL_VERSION_MIN_PAGINATION`], and aggregation (`COUNT`/`SUM`/`GROUP BY`,
+/// WIRE-13) from [`IQL_VERSION_MIN_AGGREGATION`].
+pub const IQL_VERSION: u32 = 4;
 
 /// Minimum IQL version that accepts the optional `PROFILE` clause (MEM-01).
 pub const IQL_VERSION_MIN_PROFILE: u32 = 1;
@@ -30,6 +31,13 @@ pub const IQL_VERSION_MIN_AS_OF: u32 = 2;
 /// `OFFSET` may only appear together with or after `LIMIT` (reversed order is
 /// a parse error, never a silent drop).
 pub const IQL_VERSION_MIN_PAGINATION: u32 = 3;
+
+/// Minimum IQL version that accepts aggregation in `SELECT` (WIRE-13):
+/// `COUNT(*)` / `COUNT(field)` / `SUM(field)` in the projection list plus the
+/// optional `GROUP BY <field>` clause. Unsupported combinations (`AS OF`,
+/// `LIMIT`/`OFFSET`, mixed plain fields, multi-field `GROUP BY`) are loud
+/// parse errors, never silent drops.
+pub const IQL_VERSION_MIN_AGGREGATION: u32 = 4;
 
 /// True when syntax whose minimum version is `min_version` is accepted by this
 /// parser (i.e. `min_version <= `[`IQL_VERSION`]). Consumers use it to
@@ -1415,16 +1423,17 @@ mod tests {
     fn test_iql_version_defined_and_gated() {
         // A concrete version is defined and exposed (crate root re-export
         // in src/lib.rs).
-        assert_eq!(IQL_VERSION, 3);
+        assert_eq!(IQL_VERSION, 4);
         // The gate is the single source of truth for versioned syntax.
         assert!(iql_supports(IQL_VERSION_MIN_PROFILE));
         assert!(iql_supports(IQL_VERSION_MIN_AS_OF));
         assert!(iql_supports(IQL_VERSION_MIN_PAGINATION));
+        assert!(iql_supports(IQL_VERSION_MIN_AGGREGATION));
         assert!(
             !iql_supports(IQL_VERSION + 1),
             "syntax from a future version must not be silently enabled"
         );
-        // The gated clauses parse at the current version (MEM-01, SCH-03, WIRE-12).
+        // The gated clauses parse at the current version (MEM-01, SCH-03, WIRE-12, WIRE-13).
         let (_, q) = parse_query("FROM Node PROFILE vector").unwrap();
         let profile = q.search_profile.expect("PROFILE parsed at IQL_VERSION");
         assert_eq!(profile.mode, SearchProfileMode::Vector);
@@ -1436,6 +1445,14 @@ mod tests {
             (Some(1), Some(2)),
             "pagination parsed at IQL_VERSION"
         );
+        let (_, stmt) = parse_statement("SELECT COUNT(*) FROM Node GROUP BY n").unwrap();
+        match stmt {
+            Statement::Select(sel) => {
+                assert_eq!(sel.aggregates, vec![AggregateFunc::Count]);
+                assert_eq!(sel.group_by.as_deref(), Some("n"));
+            }
+            other => panic!("expected Select, got {other:?}"),
+        }
     }
 
     // ─── AS OF / valid-time clause (SCH-03) ──────────────────────
@@ -1701,5 +1718,197 @@ mod tests {
         let v = serde_json::to_value(&stmt).expect("statement must serialize to JSON");
         assert_eq!(v["Query"]["limit"], 5);
         assert_eq!(v["Query"]["offset"], 2);
+    }
+
+    // ─── Aggregations (WIRE-13) ──────────────────────────────────
+
+    #[test]
+    fn test_parse_select_count_star_aggregate() {
+        let (rest, stmt) = parse_statement("SELECT COUNT(*) FROM Invoice").unwrap();
+        assert_eq!(rest.trim(), "", "statement fully consumed");
+        match stmt {
+            Statement::Select(sel) => {
+                assert_eq!(sel.aggregates, vec![AggregateFunc::Count]);
+                assert!(sel.group_by.is_none());
+                assert!(sel.projections.is_empty());
+            }
+            other => panic!("expected Select, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_parse_select_count_field_and_sum() {
+        let (rest, stmt) =
+            parse_statement("SELECT COUNT(email), SUM(amount) FROM Invoice").unwrap();
+        assert_eq!(rest.trim(), "");
+        match stmt {
+            Statement::Select(sel) => {
+                assert_eq!(
+                    sel.aggregates,
+                    vec![
+                        AggregateFunc::CountField("email".into()),
+                        AggregateFunc::Sum("amount".into())
+                    ]
+                );
+            }
+            other => panic!("expected Select, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_parse_select_group_by_single_field() {
+        let (rest, stmt) =
+            parse_statement("SELECT COUNT(*), SUM(amount) FROM Invoice GROUP BY category").unwrap();
+        assert_eq!(rest.trim(), "");
+        match stmt {
+            Statement::Select(sel) => {
+                assert_eq!(sel.group_by.as_deref(), Some("category"));
+                assert_eq!(sel.aggregates.len(), 2);
+            }
+            other => panic!("expected Select, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_parse_select_group_by_after_where() {
+        // Canonical clause order (SQL): SELECT ... FROM ... WHERE ... GROUP BY.
+        let (rest, stmt) =
+            parse_statement("SELECT COUNT(*) FROM Invoice WHERE total > 0 GROUP BY category")
+                .unwrap();
+        assert_eq!(rest.trim(), "");
+        match stmt {
+            Statement::Select(sel) => {
+                assert_eq!(sel.group_by.as_deref(), Some("category"));
+                assert_eq!(sel.where_clause.map(|c| c.len()), Some(1));
+            }
+            other => panic!("expected Select, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_parse_select_without_aggregation_keeps_defaults() {
+        // Retrocompat: a plain SELECT keeps parsing with empty aggregate fields.
+        let (_, stmt) = parse_statement("SELECT name, age FROM Person").unwrap();
+        match stmt {
+            Statement::Select(sel) => {
+                assert!(sel.aggregates.is_empty());
+                assert!(sel.group_by.is_none());
+                assert_eq!(sel.projections, vec!["name", "age"]);
+            }
+            other => panic!("expected Select, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_parse_select_rejects_mixed_fields_and_aggregates() {
+        // Group keys come from GROUP BY and are always included; mixing plain
+        // fields into the aggregate SELECT list is a loud parse error.
+        assert!(parse_statement("SELECT name, COUNT(*) FROM Person").is_err());
+        assert!(parse_statement("SELECT COUNT(*), name FROM Person").is_err());
+    }
+
+    #[test]
+    fn test_parse_select_rejects_group_by_without_aggregate() {
+        assert!(parse_statement("SELECT * FROM Person GROUP BY name").is_err());
+        assert!(parse_statement("SELECT name FROM Person GROUP BY name").is_err());
+    }
+
+    #[test]
+    fn test_parse_select_rejects_multi_field_group_by() {
+        // Multi-field GROUP BY is deferred (FIND-316) - reject loud instead of
+        // silently grouping by the first field only (trailing-drop class).
+        assert!(parse_statement("SELECT COUNT(*) FROM Invoice GROUP BY a, b").is_err());
+    }
+
+    #[test]
+    fn test_parse_select_rejects_as_of_with_aggregation() {
+        // The valid-time filter runs post-plan; over synthetic aggregate rows
+        // it would be a silent no-op -> reject loud (subquery + AS OF pattern).
+        assert!(parse_statement("SELECT COUNT(*) FROM Invoice AS OF 5").is_err());
+        assert!(parse_statement("SELECT COUNT(*) FROM Invoice GROUP BY c AS OF 5").is_err());
+    }
+
+    #[test]
+    fn test_parse_select_rejects_pagination_with_aggregation() {
+        // LIMIT/OFFSET compile post-chain (after the aggregate); applied to the
+        // input they would silently change the count -> reject loud (FIND-316).
+        assert!(parse_statement("SELECT COUNT(*) FROM Invoice LIMIT 5").is_err());
+        assert!(parse_statement("SELECT COUNT(*) FROM Invoice OFFSET 2").is_err());
+    }
+
+    #[test]
+    fn test_parse_select_aggregation_rejects_trailing_clause() {
+        // WIRE-13 (review C-1): a clause after the strict aggregation surface
+        // would be silently dropped by the executor (FIND-312 class) and
+        // return wrong aggregate values — reject loud instead.
+        assert!(
+            parse_statement("SELECT COUNT(*) FROM Invoice GROUP BY c WHERE amount > 15").is_err()
+        );
+        assert!(
+            parse_statement("SELECT COUNT(*) FROM Invoice GROUP BY c ORDER BY count LIMIT 1")
+                .is_err()
+        );
+        assert!(parse_statement("SELECT COUNT(*) FROM Invoice GROUP BY c GROUP BY d").is_err());
+        assert!(parse_statement("SELECT COUNT(*) FROM Invoice GROUP BY").is_err());
+        assert!(
+            parse_statement("SELECT COUNT(*) FROM Invoice WITH TEMPERATURE 1.5 GROUP BY c")
+                .is_err()
+        );
+        // Control: canonical order parses fully, and `;` is tolerated.
+        assert!(
+            parse_statement("SELECT COUNT(*) FROM Invoice WHERE amount > 15 GROUP BY c").is_ok()
+        );
+        assert!(parse_statement("SELECT COUNT(*) FROM Invoice GROUP BY c;").is_ok());
+    }
+
+    #[test]
+    fn test_parse_select_rejects_group_by_colliding_with_output_name() {
+        // WIRE-13 (review M-1): the output row carries the group key plus one
+        // field per aggregate — a key colliding with an output name would
+        // silently overwrite the key.
+        assert!(parse_statement("SELECT COUNT(*) FROM Invoice GROUP BY count").is_err());
+        assert!(parse_statement("SELECT SUM(amount) FROM Invoice GROUP BY sum_amount").is_err());
+        // Control: a non-colliding field with the same aggregate parses.
+        assert!(parse_statement("SELECT SUM(amount) FROM Invoice GROUP BY category").is_ok());
+    }
+
+    #[test]
+    fn test_parse_query_rejects_group_by_on_from_surface() {
+        // Aggregation is a SELECT surface: FROM/MATCH + GROUP BY would become
+        // silently ignored trailing input (FIND-312 class) - reject loud.
+        assert!(parse_statement("FROM Invoice GROUP BY category").is_err());
+        assert!(parse_statement("MATCH Invoice GROUP BY category").is_err());
+        // Control: the SELECT spelling parses.
+        assert!(parse_statement("SELECT COUNT(*) FROM Invoice GROUP BY category").is_ok());
+    }
+
+    #[test]
+    fn test_parse_aggregate_rejects_malformed_calls() {
+        assert!(parse_statement("SELECT COUNT() FROM Invoice").is_err());
+        assert!(parse_statement("SELECT SUM(*) FROM Invoice").is_err());
+        assert!(parse_statement("SELECT COUNT(*) COUNT(*) FROM Invoice").is_err());
+    }
+
+    #[test]
+    fn test_autocomplete_suggests_group_keyword() {
+        let out = autocomplete_prefix("GRO");
+        assert!(out.contains(&"GROUP".to_string()), "got {out:?}");
+    }
+
+    #[test]
+    fn test_ast_json_select_aggregation_shape() {
+        // WIRE-13: aggregate fields serialize additively (serde default
+        // representation, same convention as the rest of the AST).
+        let (_, stmt) =
+            parse_statement("SELECT COUNT(*), SUM(amount) FROM Invoice GROUP BY category").unwrap();
+        let v = serde_json::to_value(&stmt).expect("statement must serialize to JSON");
+        assert_eq!(v["Select"]["aggregates"][0], "Count");
+        assert_eq!(v["Select"]["aggregates"][1]["Sum"], "amount");
+        assert_eq!(v["Select"]["group_by"], "category");
+        // Retrocompat: plain SELECT serializes the new fields as empty/null.
+        let (_, stmt) = parse_statement("SELECT name FROM Person").unwrap();
+        let v = serde_json::to_value(&stmt).expect("statement must serialize to JSON");
+        assert_eq!(v["Select"]["aggregates"], serde_json::json!([]));
+        assert_eq!(v["Select"]["group_by"], serde_json::Value::Null);
     }
 }

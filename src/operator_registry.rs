@@ -22,7 +22,7 @@
 use std::collections::BTreeMap;
 
 use crate::error::{Error, Result};
-use crate::physical_plan::{PhysicalDedup, PhysicalOffset};
+use crate::physical_plan::{PhysicalAggregate, PhysicalDedup, PhysicalOffset};
 use crate::query::{LogicalOperator, PhysicalOperator};
 
 /// Stable `Display` marker for compiling an unregistered operator.
@@ -48,6 +48,7 @@ pub fn operator_name(op: &LogicalOperator) -> &'static str {
         LogicalOperator::Sort { .. } => "sort",
         LogicalOperator::Limit { .. } => "limit",
         LogicalOperator::Offset { .. } => "offset",
+        LogicalOperator::Aggregate { .. } => "aggregate",
         LogicalOperator::Join { .. } => "join",
         LogicalOperator::SubqueryFilter { .. } => "subquery_filter",
         LogicalOperator::Dedup { .. } => "dedup",
@@ -124,8 +125,9 @@ pub struct OperatorRegistry {
 impl OperatorRegistry {
     /// Empty registry (built-ins are NOT preloaded — they stay in the
     /// proven `planner` / `cost_estimator` matches; see module docs).
-    /// The `dedup` and `offset` extensions ARE pre-registered so the
-    /// planner's catch-all resolves them with zero planner edits per operator.
+    /// The `dedup`, `offset` and `aggregate` extensions ARE pre-registered so
+    /// the planner's catch-all resolves them with zero planner edits per
+    /// operator.
     pub fn new() -> Self {
         let mut registry = Self {
             entries: BTreeMap::new(),
@@ -136,6 +138,9 @@ impl OperatorRegistry {
         debug_assert!(pre.is_ok());
         let _ = pre;
         let pre = registry.register("offset", OffsetCompiler, OffsetCost);
+        debug_assert!(pre.is_ok());
+        let _ = pre;
+        let pre = registry.register("aggregate", AggregateCompiler, AggregateCost);
         debug_assert!(pre.is_ok());
         let _ = pre;
         registry
@@ -316,6 +321,52 @@ impl OperatorCostModel for OffsetCost {
     }
 }
 
+/// Compiles `LogicalOperator::Aggregate` by wrapping the child chain with the
+/// aggregation operator (WIRE-13; same style as `Dedup`/`Offset` above).
+pub struct AggregateCompiler;
+
+/// Costs `Aggregate` as passthrough (same convention as `Dedup`): the group
+/// ratio is data-dependent and the estimator holds no per-value stats, so
+/// 1.0 is the honest estimate — zero invention.
+pub struct AggregateCost;
+
+impl OperatorCompiler for AggregateCompiler {
+    fn operator_name(&self) -> &'static str {
+        "aggregate"
+    }
+
+    fn compile<'a>(
+        &self,
+        op: &LogicalOperator,
+        child: Box<dyn PhysicalOperator + 'a>,
+    ) -> Result<Box<dyn PhysicalOperator + 'a>> {
+        match op {
+            LogicalOperator::Aggregate { funcs, group_by } => Ok(Box::new(PhysicalAggregate::new(
+                child,
+                funcs.clone(),
+                group_by.clone(),
+            ))),
+            other => Err(Error::Schema(format!(
+                "aggregate compiler cannot compile '{}'",
+                operator_name(other)
+            ))),
+        }
+    }
+}
+
+impl OperatorCostModel for AggregateCost {
+    fn operator_name(&self) -> &'static str {
+        "aggregate"
+    }
+
+    fn estimate(&self, _op: &LogicalOperator, in_rows: f64) -> (f64, usize) {
+        (
+            in_rows,
+            (in_rows * EXTENSION_AVG_NODE_BYTES as f64) as usize,
+        )
+    }
+}
+
 #[cfg(test)]
 #[allow(missing_docs)]
 mod tests {
@@ -438,6 +489,13 @@ mod tests {
             (LogicalOperator::Limit { top_k: 3 }, "limit"),
             (LogicalOperator::Offset { skip: 2 }, "offset"),
             (
+                LogicalOperator::Aggregate {
+                    funcs: vec![crate::query::AggregateFunc::Count],
+                    group_by: None,
+                },
+                "aggregate",
+            ),
+            (
                 LogicalOperator::Dedup {
                     field: "name".into(),
                 },
@@ -461,17 +519,19 @@ mod tests {
                 "subquery_filter",
             ),
         ];
-        assert_eq!(cases.len(), 12, "one case per operator");
+        assert_eq!(cases.len(), 13, "one case per operator");
         for (op, want) in &cases {
             assert_eq!(operator_name(op), *want);
         }
-        // Built-ins stay in the proven matches; dedup/offset are registry extensions.
+        // Built-ins stay in the proven matches; dedup/offset/aggregate are
+        // registry extensions.
         assert_eq!(BUILTIN_OPERATOR_NAMES.len(), 10);
         for name in BUILTIN_OPERATOR_NAMES {
             assert!(is_builtin(name), "{name} must be builtin");
         }
         assert!(!is_builtin("dedup"));
         assert!(!is_builtin("offset"));
+        assert!(!is_builtin("aggregate"));
     }
 
     #[test]
@@ -484,8 +544,8 @@ mod tests {
         assert!(registry.contains("traverse"));
         assert_eq!(
             registry.len(),
-            3,
-            "dedup + offset pre-registered, + traverse"
+            4,
+            "dedup + offset + aggregate pre-registered, + traverse"
         );
         let child: Box<dyn PhysicalOperator> = Box::new(MockScan::new(vec![]));
         let compiled = registry
@@ -589,5 +649,60 @@ mod tests {
             Err(e) => e,
         };
         assert!(err.to_string().contains("offset compiler cannot compile"));
+    }
+
+    // ─── WIRE-13: aggregate extension ───────────────────────────
+
+    fn count_op() -> LogicalOperator {
+        LogicalOperator::Aggregate {
+            funcs: vec![crate::query::AggregateFunc::Count],
+            group_by: None,
+        }
+    }
+
+    #[test]
+    fn aggregate_extension_compiles_and_counts_through_registry() {
+        // WIRE-13: AGGREGATE is the third registry extension (after dedup and
+        // offset) — it compiles post-chain through `OperatorRegistry::compile`
+        // and emits one synthetic row per group.
+        let registry = OperatorRegistry::new();
+        assert!(registry.contains("aggregate"), "aggregate pre-registered");
+        let child: Box<dyn PhysicalOperator> = Box::new(MockScan::new(vec![
+            UnifiedNode::new(1),
+            UnifiedNode::new(2),
+            UnifiedNode::new(3),
+        ]));
+        let mut op = registry
+            .compile(&count_op(), child)
+            .expect("aggregate compiles through registry");
+        op.open().expect("open");
+        let row = op.next().expect("next").expect("one aggregate row");
+        assert_eq!(row.relational.get("count"), Some(&FieldValue::Int(3)));
+        assert!(op.next().expect("next").is_none());
+        op.close().expect("close");
+    }
+
+    #[test]
+    fn aggregate_cost_is_passthrough() {
+        // Honest estimate (same convention as `DedupCost`): the group ratio is
+        // data-dependent and the estimator holds no per-value stats.
+        let registry = OperatorRegistry::new();
+        let (rows, bytes) = registry.estimate(&count_op(), 10.0);
+        assert_eq!(rows, 10.0);
+        assert_eq!(bytes, 10 * EXTENSION_AVG_NODE_BYTES);
+    }
+
+    #[test]
+    fn aggregate_wrong_type_is_schema_error() {
+        let compiler = AggregateCompiler;
+        let child: Box<dyn PhysicalOperator> = Box::new(MockScan::new(vec![]));
+        let other = LogicalOperator::Scan { entity: "E".into() };
+        let err = match compiler.compile(&other, child) {
+            Ok(_) => panic!("non-aggregate must fail"),
+            Err(e) => e,
+        };
+        assert!(err
+            .to_string()
+            .contains("aggregate compiler cannot compile"));
     }
 }

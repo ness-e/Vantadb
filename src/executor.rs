@@ -89,6 +89,14 @@ fn iql_error_position(input: &str, err: &nom::Err<nom::error::Error<&str>>) -> (
 /// stable message and leaves every other failure with nom's default rendering.
 /// WIRE-12 adds the same treatment for malformed `LIMIT`/`OFFSET` clauses
 /// (missing count or reversed/duplicated order).
+///
+/// WIRE-13 aggregation restrictions use `ErrorKind::Fail` (distinct from the
+/// structural `Verify`) so each unsupported combination maps to a stable
+/// message keyed by the failure input prefix: `GROUP BY` without aggregate or
+/// with a colliding field, `AS OF`/`LIMIT`/`OFFSET` with aggregation,
+/// `GROUP BY` on the FROM surface, multi-field `GROUP BY` (`,`), and mixed
+/// plain fields + aggregates (statement start, `SELECT`). Any other `Fail`
+/// falls back to a generic message — never a misleading specific one.
 fn iql_parse_error_message(err: &nom::Err<nom::error::Error<&str>>) -> String {
     if let nom::Err::Failure(inner) = err {
         if inner.code == nom::error::ErrorKind::Verify {
@@ -100,6 +108,29 @@ fn iql_parse_error_message(err: &nom::Err<nom::error::Error<&str>>) -> String {
                 return "malformed LIMIT/OFFSET clause: expected `LIMIT <n> [OFFSET <m>]`"
                     .to_string();
             }
+        }
+        if inner.code == nom::error::ErrorKind::Fail {
+            let head = inner.input.trim_start();
+            if head.starts_with("GROUP BY") {
+                return "invalid GROUP BY clause: requires at least one aggregate function (COUNT/SUM) and a group field that does not collide with an aggregate output name".to_string();
+            }
+            if head.starts_with("AS OF") {
+                return "AS OF is not supported with aggregation queries".to_string();
+            }
+            if head.starts_with("LIMIT") || head.starts_with("OFFSET") {
+                return "LIMIT/OFFSET are not supported with aggregation queries".to_string();
+            }
+            if head.starts_with("FROM") || head.starts_with("MATCH") {
+                return "aggregation (COUNT/SUM/GROUP BY) is only supported in SELECT queries"
+                    .to_string();
+            }
+            if head.starts_with(',') {
+                return "only a single GROUP BY field is supported".to_string();
+            }
+            if head.starts_with("SELECT") {
+                return "cannot mix plain fields and aggregate functions in SELECT; group keys come from GROUP BY".to_string();
+            }
+            return "invalid aggregation syntax".to_string();
         }
     }
     err.to_string()
@@ -1456,6 +1487,8 @@ mod tests {
             as_of_ms: None,
             limit: None,
             offset: None,
+            aggregates: vec![],
+            group_by: None,
         });
         let result = ex.execute_statement(select).unwrap();
         match result {
@@ -1571,5 +1604,242 @@ mod tests {
             "admission budget must be freed on the error path"
         );
         ALLOCATED_BYTES.store(0, Ordering::SeqCst);
+    }
+
+    // ── execute_hybrid: aggregations (WIRE-13) ──
+
+    /// Node shaped like an ERP invoice: `type` + `category` + integer `amount`.
+    fn insert_invoice(storage: &StorageEngine, id: u128, category: &str, amount: i64) {
+        let mut node = UnifiedNode::new(id);
+        node.set_field("type", FieldValue::String("Invoice".to_string()));
+        node.set_field("category", FieldValue::String(category.to_string()));
+        node.set_field("amount", FieldValue::Int(amount));
+        storage.insert(&node).expect("insert invoice");
+    }
+
+    fn read_rows(ex: &Executor<'_>, query: &str) -> Vec<UnifiedNode> {
+        match ex.execute_hybrid(query).expect("execute") {
+            ExecutionResult::Read(nodes) => nodes,
+            other => panic!("expected Read, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn execute_hybrid_select_count_star_aggregates_all_rows() {
+        let (storage, _dir) = setup_storage();
+        insert_invoice(&storage, 1, "a", 10);
+        insert_invoice(&storage, 2, "b", 20);
+        insert_invoice(&storage, 3, "a", 30);
+        let ex = Executor::new(&storage);
+
+        let rows = read_rows(&ex, "SELECT COUNT(*) FROM Invoice");
+        assert_eq!(rows.len(), 1, "global aggregate yields one row");
+        assert_eq!(rows[0].relational.get("count"), Some(&FieldValue::Int(3)));
+    }
+
+    #[test]
+    fn execute_hybrid_select_group_by_category_with_sum() {
+        let (storage, _dir) = setup_storage();
+        insert_invoice(&storage, 1, "a", 10);
+        insert_invoice(&storage, 2, "b", 20);
+        insert_invoice(&storage, 3, "a", 30);
+        let ex = Executor::new(&storage);
+
+        let rows = read_rows(
+            &ex,
+            "SELECT COUNT(*), SUM(amount) FROM Invoice GROUP BY category",
+        );
+        assert_eq!(rows.len(), 2, "one row per category");
+        // First-seen order: "a" appears first.
+        assert_eq!(
+            rows[0].relational.get("category"),
+            Some(&FieldValue::String("a".into()))
+        );
+        assert_eq!(rows[0].relational.get("count"), Some(&FieldValue::Int(2)));
+        assert_eq!(
+            rows[0].relational.get("sum_amount"),
+            Some(&FieldValue::Int(40))
+        );
+        assert_eq!(
+            rows[1].relational.get("category"),
+            Some(&FieldValue::String("b".into()))
+        );
+        assert_eq!(
+            rows[1].relational.get("sum_amount"),
+            Some(&FieldValue::Int(20))
+        );
+    }
+
+    #[test]
+    fn execute_hybrid_where_then_aggregate_filters_before_grouping() {
+        let (storage, _dir) = setup_storage();
+        insert_invoice(&storage, 1, "a", 10);
+        insert_invoice(&storage, 2, "a", 30);
+        let ex = Executor::new(&storage);
+
+        let rows = read_rows(&ex, "SELECT SUM(amount) FROM Invoice WHERE amount > 10");
+        assert_eq!(rows.len(), 1);
+        assert_eq!(
+            rows[0].relational.get("sum_amount"),
+            Some(&FieldValue::Int(30)),
+            "WHERE applies before aggregation"
+        );
+    }
+
+    #[test]
+    fn execute_hybrid_count_field_ignores_missing_and_null() {
+        let (storage, _dir) = setup_storage();
+        insert_invoice(&storage, 1, "a", 10); // has `amount`
+                                              // Node without `amount` and node with explicit null: neither counts.
+        let mut bare = UnifiedNode::new(2);
+        bare.set_field("type", FieldValue::String("Invoice".to_string()));
+        storage.insert(&bare).expect("insert bare");
+        let mut null_amount = UnifiedNode::new(3);
+        null_amount.set_field("type", FieldValue::String("Invoice".to_string()));
+        null_amount.set_field("amount", FieldValue::Null);
+        storage.insert(&null_amount).expect("insert null");
+        let ex = Executor::new(&storage);
+
+        let rows = read_rows(&ex, "SELECT COUNT(amount) FROM Invoice");
+        assert_eq!(rows.len(), 1);
+        assert_eq!(
+            rows[0].relational.get("count_amount"),
+            Some(&FieldValue::Int(1)),
+            "only the row with a present, non-null amount counts"
+        );
+    }
+
+    #[test]
+    fn execute_hybrid_join_then_group_by_aggregates_merged_rows() {
+        // Aggregation wraps the full chain (JOIN included): group by a merged
+        // field across the joined rows.
+        let (storage, _dir) = setup_storage();
+        for (id, addr) in [(1u128, 10i64), (2, 10), (3, 20)] {
+            let mut n = UnifiedNode::new(id);
+            n.set_field("type", FieldValue::String("Person".to_string()));
+            n.set_field("addr_id", FieldValue::Int(addr));
+            storage.insert(&n).expect("insert person");
+        }
+        for (id, city) in [(10u128, "ccs"), (20, "mcy")] {
+            let mut n = UnifiedNode::new(id);
+            n.set_field("type", FieldValue::String("Address".to_string()));
+            n.set_field("city", FieldValue::String(city.to_string()));
+            // The join condition `p.addr_id = a.id` resolves the relational
+            // field `id` (not the node id).
+            n.set_field("id", FieldValue::Int(id as i64));
+            storage.insert(&n).expect("insert address");
+        }
+        let ex = Executor::new(&storage);
+
+        let rows = read_rows(
+            &ex,
+            "SELECT COUNT(*) FROM Person p JOIN Address a ON p.addr_id = a.id GROUP BY city",
+        );
+        assert_eq!(rows.len(), 2, "one row per joined city");
+        assert_eq!(
+            rows[0].relational.get("city"),
+            Some(&FieldValue::String("ccs".into()))
+        );
+        assert_eq!(rows[0].relational.get("count"), Some(&FieldValue::Int(2)));
+        assert_eq!(
+            rows[1].relational.get("city"),
+            Some(&FieldValue::String("mcy".into()))
+        );
+        assert_eq!(rows[1].relational.get("count"), Some(&FieldValue::Int(1)));
+    }
+
+    #[test]
+    fn aggregation_rejects_trailing_clause_instead_of_silently_dropping_it() {
+        // WIRE-13 (review C-1): `GROUP BY c WHERE ...` would otherwise run the
+        // WHERE-less aggregate (wrong values) — reject loud at parse time
+        // instead of silently returning a result without the clause.
+        let (storage, _dir) = setup_storage();
+        insert_invoice(&storage, 1, "a", 10);
+        let ex = Executor::new(&storage);
+        let err = ex
+            .execute_hybrid("SELECT COUNT(*) FROM Invoice GROUP BY category WHERE amount > 15")
+            .unwrap_err();
+        assert!(matches!(err, Error::IqlParse { .. }));
+    }
+
+    /// WIRE-13: aggregation restrictions fail loud with stable messages and
+    /// positions pointing at the offending clause (never silent wrong results).
+    #[test]
+    fn execute_hybrid_aggregation_restrictions_report_clear_messages() {
+        let (storage, _dir) = setup_storage();
+        let ex = Executor::new(&storage);
+
+        // LIMIT with aggregation: position points at the LIMIT clause.
+        let err = ex
+            .execute_hybrid("SELECT COUNT(*) FROM Invoice LIMIT 5")
+            .unwrap_err();
+        match err {
+            Error::IqlParse { msg, line, col } => {
+                assert_eq!(
+                    msg,
+                    "LIMIT/OFFSET are not supported with aggregation queries"
+                );
+                assert_eq!(line, 1);
+                assert_eq!(col, 29, "position must point at the LIMIT clause");
+            }
+            other => panic!("expected IqlParse, got {other:?}"),
+        }
+
+        // AS OF with aggregation: position points at the AS OF clause.
+        let err = ex
+            .execute_hybrid("SELECT COUNT(*) FROM Invoice AS OF 5")
+            .unwrap_err();
+        match err {
+            Error::IqlParse { msg, line, col } => {
+                assert_eq!(msg, "AS OF is not supported with aggregation queries");
+                assert_eq!(line, 1);
+                assert_eq!(col, 29, "position must point at the AS OF clause");
+            }
+            other => panic!("expected IqlParse, got {other:?}"),
+        }
+
+        // Mixed plain fields + aggregates: position points at the statement.
+        let err = ex
+            .execute_hybrid("SELECT name, COUNT(*) FROM Invoice")
+            .unwrap_err();
+        match err {
+            Error::IqlParse { msg, line, col } => {
+                assert_eq!(
+                    msg,
+                    "cannot mix plain fields and aggregate functions in SELECT; group keys come from GROUP BY"
+                );
+                assert_eq!((line, col), (1, 1));
+            }
+            other => panic!("expected IqlParse, got {other:?}"),
+        }
+
+        // GROUP BY without an aggregate.
+        let err = ex
+            .execute_hybrid("SELECT * FROM Invoice GROUP BY category")
+            .unwrap_err();
+        match err {
+            Error::IqlParse { msg, line, col } => {
+                assert_eq!(
+                    msg,
+                    "invalid GROUP BY clause: requires at least one aggregate function (COUNT/SUM) and a group field that does not collide with an aggregate output name"
+                );
+                assert_eq!((line, col), (1, 22));
+            }
+            other => panic!("expected IqlParse, got {other:?}"),
+        }
+
+        // GROUP BY on the FROM/MATCH surface (aggregation is a SELECT surface).
+        let err = ex
+            .execute_hybrid("FROM Invoice GROUP BY category")
+            .unwrap_err();
+        match err {
+            Error::IqlParse { msg, .. } => {
+                assert_eq!(
+                    msg,
+                    "aggregation (COUNT/SUM/GROUP BY) is only supported in SELECT queries"
+                );
+            }
+            other => panic!("expected IqlParse, got {other:?}"),
+        }
     }
 }

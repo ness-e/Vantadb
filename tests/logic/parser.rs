@@ -131,3 +131,31 @@ fn dml_relate_ast_snapshot() {
     let (_, stmt_rel) = parse_statement(q_rel).expect("Relate parse failed");
     insta::assert_debug_snapshot!("dml_relate_ast", stmt_rel);
 }
+
+// ─── Aggregations (WIRE-13) ─────────────────────────────────────────────────
+
+#[test]
+fn dql_aggregation_certification() {
+    // COUNT/SUM/GROUP BY parse end-to-end; the AST exposes the additive
+    // aggregate fields; unsupported combinations fail loud (never silent).
+    let (rest, stmt) =
+        parse_statement("SELECT COUNT(*), SUM(amount) FROM Invoice GROUP BY category")
+            .expect("aggregation parses");
+    assert_eq!(rest.trim(), "");
+    match stmt {
+        Statement::Select(sel) => {
+            assert_eq!(
+                sel.aggregates,
+                vec![AggregateFunc::Count, AggregateFunc::Sum("amount".into())]
+            );
+            assert_eq!(sel.group_by.as_deref(), Some("category"));
+        }
+        other => panic!("expected Select, got {other:?}"),
+    }
+
+    // Loud rejections of the deferred combinations (FIND-316).
+    assert!(parse_statement("SELECT name, COUNT(*) FROM Invoice").is_err());
+    assert!(parse_statement("FROM Invoice GROUP BY category").is_err());
+    assert!(parse_statement("SELECT COUNT(*) FROM Invoice LIMIT 5").is_err());
+    assert!(parse_statement("SELECT COUNT(*) FROM Invoice AS OF 5").is_err());
+}
