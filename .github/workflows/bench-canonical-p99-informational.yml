@@ -122,7 +122,13 @@ jobs:
     name: Run canonical_p99 vs baseline (informational)
     needs: toolchain-check
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    # FIND-317 (2026-10-07): 90 -> 240 min. Evidence from the first re-run
+    # (job 112599866271): criterion's own estimate for the insert bench alone —
+    # "Collecting 10 samples in estimated 7652.6 s" (~128 min; ~12.7 min per
+    # 100k x 1536d insert iteration on the runner). 90 min could never hold
+    # insert + search; 240 gives margin. If this still times out, next step:
+    # split insert/search into parallel jobs (documented in FIND-317).
+    timeout-minutes: 240
     # CATEGORY: INFORMATIONAL — numbers are published for Regla 9 decisions;
     # regressions open issues, they never fail the PR (Q5 informativo primero).
     continue-on-error: true
