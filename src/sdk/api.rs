@@ -955,6 +955,53 @@ mod tests {
     }
 
     #[test]
+    fn test_concurrent_same_key_upserts_do_not_corrupt_text_stats() {
+        // CODEX-132 / DUR-03 r3: two concurrent upserts of the same key each
+        // resolved the same `previous` generation and both applied its
+        // text-index decrement, driving the term df negative (Validation:
+        // "text index df would go negative" — seen in CI Windows from same-ms
+        // L0 cursor writes). The put read-modify-write must be serialized:
+        // the second upsert waits, re-resolves the generation the first one
+        // left, and its transition stays consistent.
+        use std::sync::{Arc, Barrier};
+        use std::thread;
+
+        let db = make_embedded_real();
+        put_mem(&db, "ns", "k", "seed payload"); // every write below is an upsert
+
+        const N: usize = 8;
+        const ITERS: usize = 100;
+        let barrier = Arc::new(Barrier::new(N));
+        let handles: Vec<_> = (0..N)
+            .map(|t| {
+                let db = db.clone();
+                let barrier = Arc::clone(&barrier);
+                thread::spawn(move || {
+                    barrier.wait();
+                    for i in 0..ITERS {
+                        let input = MemoryInput::new("ns", "k", format!("payload t{t} i{i}"));
+                        if let Err(e) = db.put(input) {
+                            return Some(e.to_string());
+                        }
+                    }
+                    None
+                })
+            })
+            .collect();
+
+        let mut errors: Vec<String> = Vec::new();
+        for handle in handles {
+            if let Some(e) = handle.join().expect("worker thread") {
+                errors.push(e);
+            }
+        }
+        assert!(
+            errors.is_empty(),
+            "concurrent same-key upserts corrupted text-index stats: {errors:?}"
+        );
+    }
+
+    #[test]
     fn test_list_exclude_superseded_hides_and_default_keeps() {
         let db = make_embedded_real();
         put_mem(&db, "ns", "old", "p");
