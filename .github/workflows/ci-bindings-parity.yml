@@ -116,8 +116,13 @@ jobs:
           pip install dist/vantadb_py-*.whl
 
       - name: Python producer — canonical scenario
-        working-directory: vantadb-python
-        run: python -m pytest tests/test_cross_language_parity.py -q
+        # DIST-17 (2026-10-06): run from the repo root — with cwd=vantadb-python
+        # the in-tree source dirs (`vantadb/`, `vantadb_py/`) shadow the
+        # installed wheel (`python -m` puts cwd on sys.path) and the conftest's
+        # `import vantadb_py` fails (`No module named 'vantadb_py.vantadb_py'`:
+        # no native ext in-tree). Root cwd resolves to site-packages; the test
+        # locates the scenario and writes the artifact repo-root-relative.
+        run: python -m pytest vantadb-python/tests/test_cross_language_parity.py -q
 
       - name: WASM producer — canonical scenario
         working-directory: vantadb-ts
