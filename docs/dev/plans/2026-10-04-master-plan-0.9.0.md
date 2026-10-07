@@ -2134,13 +2134,13 @@ Resultado: OK
 Próxima acción: ninguno — tarea cerrada. nextTask: FIND-239.
 Contrato: verificacion: `cd vantadb-ts && npx vitest run src/__tests__/find238.test.ts` ✅ 2/2 (vía campaign_verify_cmd) · `cd vantadb-ts && npm test` ✅ 334/334 · `cargo check -p vantadb-wasm --target wasm32-unknown-unknown` ✅ · `cargo fmt -p vantadb-wasm --check` ✅ · `wasm-pack build --release` ✅ (3m26s) · `scripts/validate-docs-coverage.ps1` ✅ 0 gaps · pre-commit hook (fmt+clippy+actionlint) ✅
 evidencia:
-  - claim: Client.create() no emite DEBUG por defecto (nivel WARN)
+- claim: Client.create() no emite DEBUG por defecto (nivel WARN)
     evidencia: test find238.test.ts (a) + RED pre-fix con 40+ líneas `DEBUG src\config.rs:*` capturadas
     confianza: alta
-  - claim: gate globalThis.VANTADB_LOG re-activa los DEBUG y cae a WARN con valores inválidos
+- claim: gate globalThis.VANTADB_LOG re-activa los DEBUG y cae a WARN con valores inválidos
     evidencia: test (b) + probes del reviewer (123/bogus → WARN, sin crash)
     confianza: alta
-  - claim: API del crate es set_as_global_default_with_config + WASMLayerConfigBuilder::set_max_level (no `_with_level`)
+- claim: API del crate es set_as_global_default_with_config + WASMLayerConfigBuilder::set_max_level (no `_with_level`)
     evidencia: tracing-wasm-0.2.1/src/lib.rs:265-268,416 (fuente local del crate) + docs.rs
     confianza: alta
 artefactos: docs/dev/tasks/FIND-238.md · vantadb-ts/src/__tests__/find238.test.ts · vantadb-wasm/{Cargo.toml,src/lib.rs,README.md} · Cargo.lock
@@ -2234,10 +2234,10 @@ Resultado: OK
 Próxima acción: Ninguno — tarea cerrada. Push diferido al cierre del plan (owner); los jobs CI Node 26 correrán post-push.
 Contrato: verificacion: cd vantadb-ts && npm test (Node 26.8.1) 338/338 · Node 22.23.3 338/338 · npx tsc --noEmit 0 · npm run lint 0 · actionlint release-npm-61.yml 0 · repro H-009 post-fix: get({key:5}) coerce -> payload, get({key:{}}) -> DbError VANTADB_INVALID_ARGUMENT (sin trap) · gate api-docs --changed HEAD^..HEAD OK · docs gates 0
 evidencia:
-  - claim: repro determinista H-009 (get con arg no-string → RuntimeError memory access out of bounds @ passStringToWasm0:1551) | evidencia: stack raw + repro en Node 22.23.3/26.0.0/26.8.1/26.10.0 con vantadb@0.8.0 publicado | confianza: alta
-  - claim: fix verificado RED→GREEN | evidencia: dx01.test.ts 4/4 fallos pre-fix (trap exacto) → 4/4 pass post-fix; suite 338/338 en 2 versiones | confianza: alta
-  - claim: CI cubre Node 22+26 (job agregado) | evidencia: job tests-node26 espejo del gate + publish-wasm needs [tests, tests-node26] + actionlint 0 | confianza: alta
-  - claim: review por agente distinto | evidencia: vanta-review APPROVE — re-ejecutó suite, repro independiente del glue crudo, diff normalizado de jobs | confianza: alta
+- claim: repro determinista H-009 (get con arg no-string → RuntimeError memory access out of bounds @ passStringToWasm0:1551) | evidencia: stack raw + repro en Node 22.23.3/26.0.0/26.8.1/26.10.0 con vantadb@0.8.0 publicado | confianza: alta
+- claim: fix verificado RED→GREEN | evidencia: dx01.test.ts 4/4 fallos pre-fix (trap exacto) → 4/4 pass post-fix; suite 338/338 en 2 versiones | confianza: alta
+- claim: CI cubre Node 22+26 (job agregado) | evidencia: job tests-node26 espejo del gate + publish-wasm needs [tests, tests-node26] + actionlint 0 | confianza: alta
+- claim: review por agente distinto | evidencia: vanta-review APPROVE — re-ejecutó suite, repro independiente del glue crudo, diff normalizado de jobs | confianza: alta
 artefactos: docs/dev/tasks/DX-01.md · vantadb-ts/src/__tests__/dx01.test.ts · commits locales bd641387 (fix) + c5004b0b (gate fix) + c742143b (avance) + fd9f1b51 (RESULTADO)
 invariantes: get/delete/list con strings intactos; sin cambio de wire format ni firmas; put/search (serde) sin cambios; job Node 22 sin cambios
 deuda: ninguna (FIND-243 = residual trazado: superficie vantadb-wasm directa sigue expuesta a la misma clase)
@@ -2353,11 +2353,11 @@ Resultado: OK
 Próxima acción: Re-review adversarial del delta (vanta-review) — luego DOCS-F2 ya cerrada; siguiente del plan: lo que defina el orquestador
 Contrato: verificacion: checkout limpio (git archive HEAD 83ceea01): check-links 0 broken/20 wikilinks exit 0 | gen-index --check 0. Local: check-links 0 | check-docs 0 | gen-index 0 | markdownlint 0 en superficie controlada (N CI = 0) | actionlint 0
 evidencia:
-  - claim: C-1 resuelto — 0 links dependientes de archivos gitignored (HTTP_API .opencode -> code span; discord todo.md -> de-link); checkout limpio da 0 (pre-ronda2: 2) | evidencia: git archive HEAD + node scripts/docs/check-links.mjs | confianza: alta
-  - claim: R-1 resuelto — rrf.md restaurado completo: 49 runs CP437 -> 0; H1 '# RRF—Reciprocal Rank Fusion'; L231 `[BM25](./bm25.md)` (code-span, no clicable); cross-check contra revision limpia 58a41ad8 | evidencia: rg CP437 = 0; git show 58a41ad8:... | confianza: alta
-  - claim: R-2/O-1 resueltos — FIND-264 (recitations MD007 + nota de retiro) y FIND-265 (barrido CP437 restante) registrados en Backlog; 263 ya tomado por DOCS-F2 en vuelo (reasignado) | evidencia: docs/dev/Backlog.md filas 264/265 | confianza: alta
-  - claim: R-3 resuelto — triage reconciliado contra snapshot canonico (checkout limpio 3bdc3fd5): local 55 (20/11/24) vs canonico 60 (22/11/27); delta +5 CI-only via .venv/.opencode/todo.md | evidencia: docs/dev/tasks/DOCS-F1.md tabla + N6 | confianza: alta
-  - claim: O-2/O-4 resueltos — '21 de 44' -> '15 de 46 fully-in-code' con metodo documentado (N6 + comentario del script); nota de tamano de commit en DoD (generados no cuentan) | evidencia: scripts/docs/check-links.mjs + DOCS-F1.md | confianza: alta
+- claim: C-1 resuelto — 0 links dependientes de archivos gitignored (HTTP_API .opencode -> code span; discord todo.md -> de-link); checkout limpio da 0 (pre-ronda2: 2) | evidencia: git archive HEAD + node scripts/docs/check-links.mjs | confianza: alta
+- claim: R-1 resuelto — rrf.md restaurado completo: 49 runs CP437 -> 0; H1 '# RRF—Reciprocal Rank Fusion'; L231 `[BM25](./bm25.md)` (code-span, no clicable); cross-check contra revision limpia 58a41ad8 | evidencia: rg CP437 = 0; git show 58a41ad8:... | confianza: alta
+- claim: R-2/O-1 resueltos — FIND-264 (recitations MD007 + nota de retiro) y FIND-265 (barrido CP437 restante) registrados en Backlog; 263 ya tomado por DOCS-F2 en vuelo (reasignado) | evidencia: docs/dev/Backlog.md filas 264/265 | confianza: alta
+- claim: R-3 resuelto — triage reconciliado contra snapshot canonico (checkout limpio 3bdc3fd5): local 55 (20/11/24) vs canonico 60 (22/11/27); delta +5 CI-only via .venv/.opencode/todo.md | evidencia: docs/dev/tasks/DOCS-F1.md tabla + N6 | confianza: alta
+- claim: O-2/O-4 resueltos — '21 de 44' -> '15 de 46 fully-in-code' con metodo documentado (N6 + comentario del script); nota de tamano de commit en DoD (generados no cuentan) | evidencia: scripts/docs/check-links.mjs + DOCS-F1.md | confianza: alta
 artefactos: docs/dev/tasks/DOCS-F1.md; docs/api/HTTP_API.md; docs/user/discord/README.md; docs/user/glosario/rrf.md; docs/dev/Backlog.md; scripts/docs/check-links.mjs; commits a5909e38 (ronda 2) + 5404ebb3 (avance ronda 2)
 invariantes: tasks/plans no se mueven; property links de Obsidian intacta; indices generados no se editan a mano; links solo con destino unico verificado; master plan/opencode.jsonc intactos; no se toco el staging de DOCS-F2
 deuda: FIND-264 (master plan MD007 + retiro de exclusion al archivar); FIND-265 (barrido CP437: ann 28, compaction 29, failpoints 13, ci-cd 7, Informe 1, generados 2+2); wikilinks frozen (20) en budget
@@ -2493,27 +2493,27 @@ Resultado: OK
 Próxima acción: Ninguno - task cerrada. Ejecutar FIND-272 en VM limpia (owner-assisted) con docs/dev/desktop/INSTALLER_SMOKE_CHECKLIST.md; siguiente tarea del plan: DESKTOP-43 (Task 33).
 Contrato: verificacion: Fallback stop-condition del plan COMPLETO - entregables 1-4 (build + evidencia estatica read-only + checklist ejecutable + FIND-272); smoke real diferido (FIND-272) por ausencia de VM limpia; gates docs verdes (check-links/check-docs/gen-index --check/validate-docs-coverage/markdownlint exit 0)
 evidencia:
-  - claim: Build de instaladores exit 0 en 6m46s (cold); NSIS 12.18MB sha256 6B30B044... + MSI 16.75MB sha256 0069AB1A...
+- claim: Build de instaladores exit 0 en 6m46s (cold); NSIS 12.18MB sha256 6B30B044... + MSI 16.75MB sha256 0069AB1A...
     evidencia: desktop/src-tauri/target/release/bundle/{nsis,msi}/* (hashes re-verificados por vanta-review ronda 1)
     confianza: alta
-  - claim: vanta:// registrado en AMBOS instaladores (NSIS script :650-653 + MSI Registry table Software\Classes\vanta URL Protocol)
+- claim: vanta:// registrado en AMBOS instaladores (NSIS script :650-653 + MSI Registry table Software\Classes\vanta URL Protocol)
     evidencia: target/release/nsis/x64/installer.nsi + COM read-only sobre el MSI (re-ejecutado por reviewer)
     confianza: alta
-  - claim: Sidecars vanta-cli.exe + vantadb-server.exe incluidos en ambos; WebView2 bootstrapper embebido (custom action condicionada)
+- claim: Sidecars vanta-cli.exe + vantadb-server.exe incluidos en ambos; WebView2 bootstrapper embebido (custom action condicionada)
     evidencia: installer.nsi:642-643 + main.wxs:202-217 + MSI File/Binary/CustomAction tables
     confianza: alta
-  - claim: No hay VM limpia utilizable (stop condition legitima)
+- claim: No hay VM limpia utilizable (stop condition legitima)
     evidencia: Get-VM permiso denegado sin elevacion; sin VBox/VMware/Sandbox/multipass/WSL/ISOs; sin instalacion en maquina dev (verificado por reviewer)
     confianza: alta
-  - claim: Review P2-01 APPROVE con contexto fresco (ronda 1 CHANGES-REQUIRED -> fixes M1/M2/L1/L19/L230 -> ronda 2 pre-autorizado APPROVE, aplicado exactamente)
+- claim: Review P2-01 APPROVE con contexto fresco (ronda 1 CHANGES-REQUIRED -> fixes M1/M2/L1/L19/L230 -> ronda 2 pre-autorizado APPROVE, aplicado exactamente)
     evidencia: ses_ef5e58bb4ffeaZOBh8XSGS3Ew7
     confianza: alta
 artefactos:
-  - docs/dev/desktop/INSTALLER_SMOKE_CHECKLIST.md (checklist ejecutable Test A NSIS / Test B MSI)
-  - docs/dev/tasks/DESKTOP-41.md (task file + RESULTADO §7 + review)
-  - docs/dev/Backlog.md (FIND-272 nueva; fila DESKTOP-41 removida -> avance)
-  - docs/dev/avance/activo/desktop.md (registro de cierre)
-  - desktop/src-tauri/Cargo.lock (refresh mecanico, commit aparte)
+- docs/dev/desktop/INSTALLER_SMOKE_CHECKLIST.md (checklist ejecutable Test A NSIS / Test B MSI)
+- docs/dev/tasks/DESKTOP-41.md (task file + RESULTADO §7 + review)
+- docs/dev/Backlog.md (FIND-272 nueva; fila DESKTOP-41 removida -> avance)
+- docs/dev/avance/activo/desktop.md (registro de cierre)
+- desktop/src-tauri/Cargo.lock (refresh mecanico, commit aparte)
 invariantes: No instalar en maquina dev; no simular evidencia; no commitear binaries/ (gitignored); no tocar opencode.jsonc/master plan/pipeline-state/providers (PROV-12); commit local sin push
 deuda: Smoke real en VM limpia (FIND-272) - arranque + sidecar + deep link funcional + WebView2 install-time + uninstall
 queda_pendiente: FIND-272 (owner-assisted VM run) consume el checklist; siguiente tarea del plan: DESKTOP-43 (Task 33)
@@ -2793,10 +2793,10 @@ Resultado: OK
 Próxima acción: ninguno — tarea cerrada. El orquestador resuelve la próxima vía campaign_get_next_task (F3 completa con MEMG-10)
 Contrato: verificacion: cargo nextest -p vanta-memory 694/694 + memg10_trust_gate 4/4 + policy 9/9 ✅ · -p vanta-proxy 322/322 ✅ · -p vantadb-mcp 171/171 ✅ · -p vantadb --features server --test rbac_namespace 11/11 ✅ · auth/rbac 48/48 ✅ · fmt/clippy scoped 4/4 ✅ · docs gates (links/docs/coverage) 0 + gen-index exit 0 ✅
 evidencia:
-  - claim: trust gate trusted/tainted enforced en las superficies gobernadas (tainted no inyecta por defecto; opt-in include_tainted; gates ACL AND trust) | evidencia: vanta-memory/src/core/hooks/auto_recall.rs:125-227 + tests memg10_trust_gate.rs 4/4 + unit policy 9/9 + wiring proxy (config.rs:109-116) + MCP (config.rs:119-128,195-207) | confianza: alta
-  - claim: audit RBAC por acción (auth_rbac) aditivo, sin cambio de semántica de auth, sin token en el log | evidencia: src/server/middleware.rs:203-243 + tests/rbac_namespace.rs 11/11 (read/write/delete) + 48/48 auth/rbac | confianza: alta
-  - claim: spec MGR-04 + FIND-301 con el residual declarado (incl. superficie L3 no gobernada del review R1) | evidencia: docs/dev/research/mgr-04-policy-engine.md + Backlog FIND-301 + avance/activo/vanta-memory.md | confianza: alta
-  - claim: review P2-01 adversarial por agente distinto | evidencia: vanta-review ses_ef20ae781ffeYWCIMdoxswKav0 — ronda 1 changes-required (R1/R2 doc-only) → fixes → delta re-review APPROVE | confianza: alta
+- claim: trust gate trusted/tainted enforced en las superficies gobernadas (tainted no inyecta por defecto; opt-in include_tainted; gates ACL AND trust) | evidencia: vanta-memory/src/core/hooks/auto_recall.rs:125-227 + tests memg10_trust_gate.rs 4/4 + unit policy 9/9 + wiring proxy (config.rs:109-116) + MCP (config.rs:119-128,195-207) | confianza: alta
+- claim: audit RBAC por acción (auth_rbac) aditivo, sin cambio de semántica de auth, sin token en el log | evidencia: src/server/middleware.rs:203-243 + tests/rbac_namespace.rs 11/11 (read/write/delete) + 48/48 auth/rbac | confianza: alta
+- claim: spec MGR-04 + FIND-301 con el residual declarado (incl. superficie L3 no gobernada del review R1) | evidencia: docs/dev/research/mgr-04-policy-engine.md + Backlog FIND-301 + avance/activo/vanta-memory.md | confianza: alta
+- claim: review P2-01 adversarial por agente distinto | evidencia: vanta-review ses_ef20ae781ffeYWCIMdoxswKav0 — ronda 1 changes-required (R1/R2 doc-only) → fixes → delta re-review APPROVE | confianza: alta
 artefactos: commits e0373d7b (17 archivos, +1012/-40) · eec590b5 (task RESULTADO) · ed57fb53 (avance+Backlog); spec docs/dev/research/mgr-04-policy-engine.md; task docs/dev/tasks/MEMG-10.md
 invariantes: defaults byte-idénticos (tainted vacío == VER-04); tainted no inyecta sin opt-in en superficies gobernadas; gates ACL/trust AND; sin cambio de semántica de autorización; audit nunca registra tokens; WIP ajeno no commiteado (pathspec)
 deuda: FIND-301 — (a) enforcement RBAC por acción (NamespaceDelete + separación estricta opt-in + ADR), (b) roles namespace-scoped configurables, (c) trust en retrieval HTTP, (d) promoción curada, (e) superficie L3 pipeline_worker no gobernada
@@ -2813,9 +2813,9 @@ Resultado: OK
 Próxima acción: Ninguno — tarea completa. Lead: consolidar docs/index.md + llms.txt (regenerados sin stagear por entradas de WIP ajeno) y push solo con instrucción del owner.
 Contrato: verificacion: cargo nextest run -p vantadb --lib → 2339/2339 ✅ · --test memory_multi_writer → 11/11 ✅ · doctest merge_record 1/1 ✅ · --profile audit --ignore-default-filter (memory_api+memory_export_import) 19/19 ✅ · --profile chaos --features failpoints --test chaos_integrity → 1 passed ✅ · clippy -p vantadb --lib -D warnings exit 0 ✅ · rustfmt --check archivos tocados exit 0 ✅
 evidencia:
-  - claim: RED→GREEN TDD real (E0599 + panics unimplemented → suites verdes post-fix) | evidencia: target/tmp/mw_*.log | confianza: alta
-  - claim: review P2-01 adversarial (CHANGES REQUIRED → fixes R1-R6 → delta APPROVE) | evidencia: ses_ef187540effeyMqJDSOenbJFFw | confianza: alta
-  - claim: write path/WAL intactos; solo archivos propios (memory.rs/Backlog.md staged por hunks, 0 marcadores ajenos) | evidencia: git show 12ed4000 | confianza: alta
+- claim: RED→GREEN TDD real (E0599 + panics unimplemented → suites verdes post-fix) | evidencia: target/tmp/mw_*.log | confianza: alta
+- claim: review P2-01 adversarial (CHANGES REQUIRED → fixes R1-R6 → delta APPROVE) | evidencia: ses_ef187540effeyMqJDSOenbJFFw | confianza: alta
+- claim: write path/WAL intactos; solo archivos propios (memory.rs/Backlog.md staged por hunks, 0 marcadores ajenos) | evidencia: git show 12ed4000 | confianza: alta
 artefactos: src/sdk/merge.rs · src/sdk/merge_tests.rs · tests/memory_multi_writer.rs · docs/dev/architecture/adr/ADR-0055-multi-writer-merge-lww.md · docs/dev/tasks/MEMG-05.md · target/tmp/ocr-memg05.json
 invariantes: write path/WAL intactos; merge opt-in determinista (orden total monótono, max del write set); todo merge no-silencioso; pathspec (WIP ajeno MEMG-04 intacto)
 deuda: FIND-303 (transporte sync/bindings/CRDT/vector-clock) · docs/index.md/llms.txt regenerados sin stagear (consolidación del lead)
@@ -2960,13 +2960,13 @@ Resultado: OK
 Próxima acción: Ninguna — task cerrada. Próxima del plan: Task 66 STRAT-06 (research licencias + ACV, vanta-research)
 Contrato: verificacion: check-links 0 broken / check-docs GATING clear / gen-index --check clean / validate-docs-coverage 0 gaps / check-avance-coverage 1034/1034 / markdownlint 0 ✅
 evidencia:
-  - claim: contrato L1867 cumplido 1:1 (viabilidad+costo+tradeoffs ×3 opciones + decisión ADR + fuentes + cero implementación)
+- claim: contrato L1867 cumplido 1:1 (viabilidad+costo+tradeoffs ×3 opciones + decisión ADR + fuentes + cero implementación)
     evidencia: docs/dev/research/strat-05-object-storage.md + docs/dev/architecture/adr/ADR-0056-object-storage-path.md + docs/dev/tasks/STRAT-05.md
     confianza: alta
-  - claim: 16 fuentes externas fetch-verificadas 2026-10-06; reviewer re-fetcheó 10/10 fieles
+- claim: 16 fuentes externas fetch-verificadas 2026-10-06; reviewer re-fetcheó 10/10 fieles
     evidencia: task file §Notas tabla + review P2-01 (ses_ef052090affeOF2ELC1afQGPOV)
     confianza: alta
-  - claim: hoy 100% local — BackendKind Fjall/RocksDb/InMemory sin variante object storage
+- claim: hoy 100% local — BackendKind Fjall/RocksDb/InMemory sin variante object storage
     evidencia: src/backend.rs:105-132 + init.rs:275-283
     confianza: alta
 artefactos: docs/dev/research/strat-05-object-storage.md · docs/dev/architecture/adr/ADR-0056-object-storage-path.md · docs/dev/tasks/STRAT-05.md · docs/dev/avance/activo/core-engine.md · docs/dev/Backlog.md
@@ -2985,31 +2985,31 @@ Resultado: OK
 Próxima acción: Ninguno para STRAT-06 (cerrada). Orquestador: (1) al cierre de STRAT-04 regenerar/commitear docs/index.md (contiene ambas filas — deuda transitoria declarada); (2) re-verificar datos de revenue/pricing antes de decisiones de pricing/OEM (ventana 6-18m).
 Contrato: verificacion: check-links exit 0 · check-docs exit 0 (GATING clear) · gen-index --check exit 0 · validate-docs-coverage.ps1 0 gaps ✅
 evidencia:
-  - claim: "Licencias de los 5 fetch-verificadas 2026-10-06 (Khoj AGPL-3.0; Jan Apache-2.0 © Menlo; Reor AGPL-3.0 archivado; OpenWebUI BSD-3+branding clause no-OSI; Letta Apache-2.0)"
+- claim: "Licencias de los 5 fetch-verificadas 2026-10-06 (Khoj AGPL-3.0; Jan Apache-2.0 © Menlo; Reor AGPL-3.0 archivado; OpenWebUI BSD-3+branding clause no-OSI; Letta Apache-2.0)"
     evidencia: "api.github.com/repos/{khoj-ai/khoj,janhq/jan,reorproject/reor,open-webui/open-webui,letta-ai/letta} + LICENSE raw (fetch 2026-10-06); reviewer re-verificó 11/11 spot-checks"
     confianza: alta
-  - claim: "Khoj Cloud sunset 2026-04-15 (aviso oficial con razones de secuencia cloud-first)"
+- claim: "Khoj Cloud sunset 2026-04-15 (aviso oficial con razones de secuencia cloud-first)"
     evidencia: "https://app.khoj.dev/ (fetch 2026-10-06, primaria; agenticindex secundaria confirmatoria)"
     confianza: alta
-  - claim: "ACV con fuente por número: MongoDB 2,999 ≥$100k / 402 ≥$1M (SEC 10-Q jul-2026); Elastic 1,800+ ≥$100k ACV (Q1 FY27); Neo4j >$200M (oficial nov-2024); Redis >$300M + 12k pagos + 50+ >$1M (oficial ene-2026); ClickHouse >$350M (reportado ago-2026); Supabase $70M→~$170M (estimado Sacra)"
+- claim: "ACV con fuente por número: MongoDB 2,999 ≥$100k / 402 ≥$1M (SEC 10-Q jul-2026); Elastic 1,800+ ≥$100k ACV (Q1 FY27); Neo4j >$200M (oficial nov-2024); Redis >$300M + 12k pagos + 50+ >$1M (oficial ene-2026); ClickHouse >$350M (reportado ago-2026); Supabase $70M→~$170M (estimado Sacra)"
     evidencia: "§2.1 + §4 del research doc (URLs completas); reviewer re-fetcheó 10-Q MDB + Yahoo Q4 + permalink Neo4j (resuelve)"
     confianza: alta (oficial/SEC) / media (reportado/estimado, etiquetado)
-  - claim: "Bandas de ACV marcadas modelado (derivado) + columna tipo (dato/reportado/modelado) por fila"
+- claim: "Bandas de ACV marcadas modelado (derivado) + columna tipo (dato/reportado/modelado) por fila"
     evidencia: "§2.2 doc; rg -c modelado = 12"
     confianza: alta
-  - claim: "Implicaciones open-core/OEM citan la decisión vigente (Apache-2.0 + CLA) sin re-litigarla; 3 vías de protección sin cerrar el motor + ancla OEM Neo4j"
+- claim: "Implicaciones open-core/OEM citan la decisión vigente (Apache-2.0 + CLA) sin re-litigarla; 3 vías de protección sin cerrar el motor + ancla OEM Neo4j"
     evidencia: "§2.3 + §3 doc; invariante #1 task file; verificado por reviewer"
     confianza: alta
-  - claim: "Review P2-01 APPROVE (delta r2, contexto fresco)"
+- claim: "Review P2-01 APPROVE (delta r2, contexto fresco)"
     evidencia: "task file §Review (bloque registrado); sesión reviewer ses_eeff8eb59ffeVHFdH6H9szzsx8"
     confianza: alta
 artefactos:
-  - docs/dev/research/strat-06-licencias-acv-oss.md (nuevo)
-  - docs/dev/tasks/STRAT-06.md (nuevo)
-  - llms.txt (regenerado)
-  - docs/dev/Backlog.md (fila STRAT-06 :168 removida + nota :161 actualizada)
-  - docs/dev/avance/activo/operaciones.md (registro de cierre)
-  - commits locales 10e80f0c + 6029efd1 (⛔ sin push)
+- docs/dev/research/strat-06-licencias-acv-oss.md (nuevo)
+- docs/dev/tasks/STRAT-06.md (nuevo)
+- llms.txt (regenerado)
+- docs/dev/Backlog.md (fila STRAT-06 :168 removida + nota :161 actualizada)
+- docs/dev/avance/activo/operaciones.md (registro de cierre)
+- commits locales 10e80f0c + 6029efd1 (⛔ sin push)
 invariantes: decisión Apache-2.0+CLA intacta (no re-litigada); cero números sin fuente (columna tipo); cero código tocado; master plan / opencode.jsonc / docs/pipeline-state.json no tocados; WIP ajeno (STRAT-04, heavy-test-lock) no stageado; sin push (Regla 7)
 deuda: docs/index.md regenerado sin commitear (contiene fila STRAT-04 de WIP ajeno — regeneración conjunta al cierre de STRAT-04); datos de revenue/pricing con ventana de validez 6-18m
 queda_pendiente: orquestador — regenerar docs/index.md al cierre de STRAT-04; nada más para STRAT-06
@@ -3025,12 +3025,12 @@ Resultado: OK
 Próxima acción: ninguno — Task 65 (STRAT-05) es la siguiente del plan
 Contrato: verificacion: cd vantadb-wasm/threads-kernel && cargo test (8/8) + cargo clippy -D warnings (0) + pwsh build.ps1 (1689 bytes) + node benchmarks/wasm_threads_bench.mjs --n-vectors 100000 --dims 128 --workers 1,2,4,8,12 --repeats 7 (5.10x/5.55x) + RUSTFLAGS='--cfg getrandom_backend="wasm_js" -C target-feature=+atomics' cargo +nightly check -p vantadb-wasm --target wasm32-unknown-unknown -Zbuild-std=std,panic_abort (EXIT=0) + check-links/check-docs (exit 0)
 evidencia:
-  - claim: Kernel lock-free correcto (8/8 tests nativos, 4 threads reales, cada indice exactamente una vez) | evidencia: vantadb-wasm/threads-kernel/src/lib_tests.rs + cargo test | confianza: alta
-  - claim: Build wasm atomics+shared memory OK (imports [env.memory], exports [__stack_pointer, score_batch_chunked]) | evidencia: WebAssembly.Module.imports/exports + build.ps1 | confianza: alta
-  - claim: Speedup medido 5.10x wall / 5.55x compute @12w (100k); 5.10x/5.16x (400k) | evidencia: benchmarks/wasm_threads_results.json + _400k.json (7/5 repeats, warm-up) | confianza: alta
-  - claim: Grafo completo vantadb-wasm compila bajo build-std+atomics (go/no-go sin bloqueantes) | evidencia: target/strat04-s5-check.log (invocacion + EXIT=0) | confianza: alta
-  - claim: COOP/COEP declarado + fallback single-thread (patron Kuzu/DuckDB-WASM) | evidencia: docs/dev/architecture/WASM_THREADS.md (MDN 2026-02-10; Kuzu docs 2025-10-10) | confianza: alta
-  - claim: Review P2-01 fresco APPROVE sin Critical/High | evidencia: vanta-review ses_eefe34ce1ffeJ7khvY7Z6g61OE (re-ejecuto tests/build/bench) | confianza: alta
+- claim: Kernel lock-free correcto (8/8 tests nativos, 4 threads reales, cada indice exactamente una vez) | evidencia: vantadb-wasm/threads-kernel/src/lib_tests.rs + cargo test | confianza: alta
+- claim: Build wasm atomics+shared memory OK (imports [env.memory], exports [__stack_pointer, score_batch_chunked]) | evidencia: WebAssembly.Module.imports/exports + build.ps1 | confianza: alta
+- claim: Speedup medido 5.10x wall / 5.55x compute @12w (100k); 5.10x/5.16x (400k) | evidencia: benchmarks/wasm_threads_results.json + _400k.json (7/5 repeats, warm-up) | confianza: alta
+- claim: Grafo completo vantadb-wasm compila bajo build-std+atomics (go/no-go sin bloqueantes) | evidencia: target/strat04-s5-check.log (invocacion + EXIT=0) | confianza: alta
+- claim: COOP/COEP declarado + fallback single-thread (patron Kuzu/DuckDB-WASM) | evidencia: docs/dev/architecture/WASM_THREADS.md (MDN 2026-02-10; Kuzu docs 2025-10-10) | confianza: alta
+- claim: Review P2-01 fresco APPROVE sin Critical/High | evidencia: vanta-review ses_eefe34ce1ffeJ7khvY7Z6g61OE (re-ejecuto tests/build/bench) | confianza: alta
 artefactos: docs/dev/tasks/STRAT-04.md | docs/dev/architecture/WASM_THREADS.md | vantadb-wasm/threads-kernel/** | benchmarks/wasm_threads_bench.mjs | benchmarks/wasm_threads_worker.mjs | benchmarks/wasm_threads_results.json | benchmarks/wasm_threads_results_400k.json | target/strat04-s5-check.log
 invariantes: slice aditivo (vantadb-wasm/src y vantadb-ts intactos); kernel sin unwrap/panic en prod, unsafe con SAFETY, FFI con codigos de estado; workers=1 = camino single-thread (fallback); bench offline/determinista (seed 42)
 deuda: integracion de producto (feature threads + glue + fallback crossOriginIsolated) = FIND; CI kernel threads = FIND; validacion browser COOP/COEP pendiente; docs/index.md regenerado NO commiteado (WIP concurrente)

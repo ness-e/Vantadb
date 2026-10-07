@@ -138,7 +138,7 @@ Comando: `cargo bench -p vantadb --bench canonical_p99 -- search_1000_queries_15
 |-----|----------|
 | Incógnitas abiertas (uphill) | 0 — dual-pool resuelta (test + semántica BM25); mecanismo de escritura resuelto por medición (fix core + migración incondicional) |
 | Pendientes de ejecución (downhill) | 3 — Steps 3 (cierre A/B), 4 (verify+OCR), 5 (review+commit) |
-| % completado | 50% (Steps 0-2 ✅)
+| % completado | 50% (Steps 0-2 ✅) |
 
 ## Fases explícitas — SECURITY | PERFORMANCE (P2-07)
 
