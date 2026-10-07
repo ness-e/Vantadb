@@ -7,9 +7,8 @@
   "failMode": "parallel",
   "mode": "run",
   "maxConcurrent": 3,
-  "phase": "F0-F6 COMPLETAS - run listo para cierre owner",
+  "phase": "Cierre CI PR #242 - fixes completos (race 6f3990aa + 9 checks), push pendiente",
   "inProgress": ["DESKTOP-44 (34, pausada - sesion S1-S7 owner)"],
-  "notes": "71/72 completadas. Solo DESKTOP-44 pausada (owner). Cierre: push final + tag adapters-v0.5.0 + publishers OIDC x7 (checklist PUBLISH.md).",
-  "postPushBatch": ["FIND-236 (ASan)", "FIND-233 (bench)", "DX-01 (Node 26 CI)", "WSM-15", "BENCH-01 (FIND-253)", "DIST-05 (post-release)", "DOCS-F2 (doctests ubuntu)", "DIST-17 (paridad CI)", "PROV-12/13 (TestPyPI + legs Windows)", "WIRE-16 (colateral mcp fix c05cd77d)", "MKT-20 (dry-run TestPyPI dispatch + tag adapters-v0.5.0)"],
-  "lastSync": "2026-10-06T20:00:00Z"
+  "notes": "71/72 + cierre CI: 10 checks rojos clasificados/resueltos (race mismo-key fix 6f3990aa review APPROVE; ASan FIND-244; paridad DIST-17; markdownlint; CodeQL; desktop timeout; semver doc HARD-01; TSan/bench documentados FIND-227/317). Push unico pendiente. Post-push: re-run CI PR #242 + merge/release (owner).",
+  "lastSync": "2026-10-06T21:50:00Z"
 }
