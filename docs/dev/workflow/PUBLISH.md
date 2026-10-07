@@ -94,11 +94,21 @@ El skip "already published" de `release-npm-61.yml` y `release-npm-node.yml` aho
   `vantadb-py>=0.6.1,<0.9.0` (was `>=0.5.0,<0.7.0`, which excluded the live
   core and admitted 0.5.0 — no `Client` API). Evidence: MKT-20 §F6-3.
 - **Publish = owner-assisted (F6/Task 71). Checklist:**
-  1. **Pending publishers:** on PyPI **and** TestPyPI, configure Trusted
-     Publishing (OIDC) for the 7 names — owner `ness-e`, repository
-     `ness-e/Vantadb`, workflow `release-adapters.yml`, environment
-     `pypi`/`testpypi` — or use a token. Environments already exist
-     (verified 2026-10-06).
+  1. **Publishers — new names need a token first (PyPI constraint, verified
+     2026-10-07):** PyPI allows **one pending publisher per
+     (repository, workflow, environment) tuple** — a second pending
+     publisher for another project name with the same tuple is rejected
+     ("already been registered for a different project name"). Since all 7
+     adapters share `ness-e/Vantadb` + `release-adapters.yml` + `pypi`, the
+     pending-publisher route **cannot create the 7 names**. Correct path:
+     (a) **first publish of each new name with an API token** (`twine
+     upload`; back off on 429 — PyPI rate-limits new-project creation), then
+     (b) configure the **normal** GitHub publisher per project (Manage →
+     Publishing; normal publishers are shared objects and CAN carry the same
+     tuple across projects). `publish-pypi` (tag) has `skip-existing: true`,
+     so it re-runs gracefully once the names exist. Environments already
+     exist (verified 2026-10-06). Historical state: 4/7 published by token
+     2026-10-07 (langchain, crewai, dspy, haystack).
   2. **Dry-run:** `gh workflow run release-adapters.yml -f publish_testpypi=true`
      → approve the `testpypi` environment deployment → ≥5 dists on
      test.pypi.org (expected: 14 — 7 wheels + 7 sdists).
@@ -123,8 +133,9 @@ El skip "already published" de `release-npm-61.yml` y `release-npm-node.yml` aho
   `integrations/ollama` Python twins must be renamed or retired before their
   F6 publish (`FIND-273`).
 - **Publish = owner-assisted (PROV-12). Checklist:**
-  1. GitHub environments `pypi` + `testpypi`; PyPI/TestPyPI pending publishers
-     (Trusted Publishing/OIDC) for the three names — or token.
+  1. GitHub environments `pypi` + `testpypi`; publishers for the three names
+     — **same PyPI pending-publisher constraint as §Adapters (2026-10-07):
+     token-first for new names, then normal publishers** — or token.
   2. Dry-run: `gh workflow run release-providers.yml -f publish_testpypi=true`
      → 12 wheels on test.pypi.org + `verify-testpypi-install` green.
   3. Tag: `git tag providers-v0.5.0 && git push --tags` → `publish-pypi` +
