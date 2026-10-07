@@ -41,6 +41,8 @@ pub struct Embedded {
     /// (a second decrement would drive the term df negative).
     /// `resolve_existing_for_write` keeps a read guard for decision-only
     /// callers (`merge_record_inner`). Shared across clones via `Arc`.
+    /// ponytail: global write serialization per handle - correctness first
+    /// (DUR-03 r3); per-key striped locks only if write throughput demands it.
     pub(crate) purge_lock: Arc<RwLock<()>>,
 }
 
