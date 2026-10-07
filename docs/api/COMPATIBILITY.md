@@ -26,10 +26,10 @@ deprecations are registered in [`DEPRECATIONS.md`](DEPRECATIONS.md).
 | Python boundary | `cargo test --test python_sdk_boundary` | Python SDK surface (#2) | `cargo nextest` (ci-rust) |
 
 > **Reading the semver gate on `develop`:** `check-release` compares the tree
-> against the latest crates.io release (0.7.0). While accepted breaks for the
+> against the latest crates.io release (0.8.0). While accepted breaks for the
 > next MINOR sit unreleased on `develop`, it exits `100` with the delta list
 > below — that is the decision signal at the develop→main PR. On the release
-> commit (version bumped, e.g. 0.8.0) the same command exits `0`, because 0.x
+> commit (version bumped, e.g. 0.9.0) the same command exits `0`, because 0.x
 > MINOR bumps may contain breaking changes ([`VERSIONING.md`
 > § Pre-1.0](VERSIONING.md#pre-10-stability-contract)).
 
@@ -49,43 +49,32 @@ deprecations are registered in [`DEPRECATIONS.md`](DEPRECATIONS.md).
 | 10 | LLM proxy | [`PROXY.md`](PROXY.md) | review-only — see § Gaps |
 | 11 | vanta-memory (Rust crate) | [`VANTA_MEMORY.md`](VANTA_MEMORY.md) | review-only — see § Gaps |
 
-## Pre-release deltas (vs published 0.7.0)
+## Pre-release deltas (vs published 0.8.0)
 
-Accepted breaking changes merged to `develop` **after** the `v0.7.0` release
-cut (2026-09-25), to ship in the next MINOR (`0.8.0`, under 0.x rules). Detected
-by `cargo semver-checks check-release` (exit 100; 9 deny-level lint families).
-Four are **CLI-only (#9)**: the three `Commands`-shape lints plus the
-`cli_handlers::cmd_*` arity wave. Three are **core-only (#1)**: the `FormatKind`
-discriminant shift, the `Embedded::import_*` arity, and the Cargo-feature
-decouple (`server` no longer enables `cli` — a feature-graph change, not a Rust
-item signature). The remaining two mix surfaces: `constructible_struct_adds_field`
-(CLI `Cli` + core wire structs/`Config`) and `enum_variant_added` (`Commands` +
-`FormatKind`):
+Accepted breaking changes merged to `develop` **after** the `v0.8.0` release
+cut (2026-10-03), to ship in the next MINOR (`0.9.0`, under 0.x rules). Detected
+by `cargo semver-checks check-release` (exit 100; 3 deny-level lint families).
+All three are **core-only (#1)** — the IQL pagination/aggregation wave
+(`LIMIT`/`OFFSET`, `COUNT`/`SUM`/`GROUP BY`) and the portable-export manifest
+fields:
 
 | lint (`cargo-semver-checks`) | What changed | Commit |
 |------------------------------|--------------|--------|
-| `constructible_struct_adds_field` | `Cli.json` (`src/cli.rs:38`); `Config` +5 fields (`config.rs:783-821`): `insert_batch`, `memory_default_ttl_ms`, `ttl_sweep_interval_ms`, `quarantine_review_default_days`, `confidence_threshold`; v2 fields on the wire structs (`MemoryRecord` ×10, `MemoryInput` ×5, `MemoryExportLine` ×10, `MemorySearchRequest` ×8, `MemoryListOptions` ×4, `Query`/`SelectStatement` `as_of_ms`, `ImportReport`/`BulkImportReport` `quarantined`) | `f6c395ef` · WIRE-08 · SCH-02..07 |
-| `enum_no_repr_variant_discriminant_changed` | `FormatKind::Schema` discriminant `3 -> 4` (`src/migration.rs:30`) — `Records` inserted before it | SCH-02 (`7af34366`) |
-| `enum_struct_variant_changed_kind` | `Commands::Stats` changed variant kind (`src/cli.rs:192`) | `f6c395ef` |
-| `enum_struct_variant_field_added` | `query_flag` / `limit` added to `Search` / `SearchMulti` / `SearchAll` / `SimilarToKey`; `attest` / `out` added to `Delete` | `f6c395ef` · VER-02 (`ccc51d09`) |
-| `enum_struct_variant_field_missing` | `json` / `top_k` removed or renamed on several `Commands` variants | `f6c395ef` |
-| `enum_variant_added` | `Commands::McpCall` (`src/cli.rs:380`), `Commands::Verify` (`:201`) and `Commands::Certificate` (`:261`) added; `FormatKind::Records` (`src/migration.rs:28`) | `8e55e853` · SCH-02 · VER-01/02 |
-| `feature_no_longer_enables_feature` | **`feature server` no longer enables `cli`** (WIRE-07 feature decouple): the HTTP binary (`vantadb-server`/`vantadb-mcp`, now `default-features = false`) stops dragging `clap`/`clap_complete`/`indicatif`/`console`/`anyhow`. Downstreams that relied on the implication restore it with `features = ["server", "cli"]`; `vantadb-server` keeps its own opt-in `cli = ["vantadb/cli"]` | WIRE-07 |
-| `function_parameter_count_changed` | 26 `pub` `cli_handlers::cmd_*` gained one parameter (path/POSIX + global `--json` plumbing) | `f6c395ef` |
-| `method_parameter_count_changed` | `Embedded::import_records` / `import_file` gain `quarantine: bool` (`src/sdk/serialization/impl_export.rs`) | SCH-05 (`83d65518`) |
+| `constructible_struct_adds_field` | `Query.limit` / `Query.offset` (`src/query.rs:122,126`); `ExportReport.sha256` / `ExportReport.manifest_path` (`src/sdk/types/record.rs:482,485`) | WIRE-12 (`22585e1b`) · MEMG-15 (`55b9a532`) |
+| `enum_no_repr_variant_discriminant_changed` | `LogicalOperator::Dedup` `8 -> 10`, `Join` `9 -> 11`, `SubqueryFilter` `10 -> 12` (`src/query.rs:510,515,526`) — `Offset`/`Aggregate` inserted before them | WIRE-12 (`22585e1b`) · WIRE-13 (`753b9f78`) |
+| `enum_variant_added` | `LogicalOperator::Offset` (`src/query.rs:490`), `LogicalOperator::Aggregate` (`:500`) — exhaustive enum | WIRE-12 (`22585e1b`) · WIRE-13 (`753b9f78`) |
 
-- **Disposition:** accepted under the 0.x MINOR policy (introduced by `feat!:` /
+- **Disposition:** accepted under the 0.x MINOR policy (introduced by `feat:` /
   `fix:` commits on `develop`); **not** excluded and no lint levels weakened —
-  the gate keeps its teeth. The consumer-facing write-up ships with `0.8.0` in
+  the gate keeps its teeth. The consumer-facing write-up ships with `0.9.0` in
   [`UPGRADE.md`](../user/operations/UPGRADE.md).
-- **Reproduce:** `cargo semver-checks check-release --baseline-rev v0.7.0`
-  (rustdoc builds; `cargo-semver-checks` 0.49.0). Raw evidence: 196 checks —
-  187 pass / 9 fail / 57 skip, exit 100 (measured 2026-10-01 at `ae97538e`;
-  cold `target/semver-checks` cache: 3303s total — 1897s current + 1379s
-  baseline rustdoc builds, `CARGO_BUILD_JOBS=2`; warm runs ≈150s, 2026-09-27).
-  The 9-family / 187-9-57 counts match the SCH-07 run of 2026-09-29; the two
-  families added over the WIRE-07 run (2026-09-28, 7 families) are the
-  `FormatKind` discriminant and the `Embedded::import_*` arity. Isolate with
+- **Reproduce:** `cargo semver-checks check-release` (baseline: latest crates.io
+  release `0.8.0`; rustdoc builds; warm runs ≈150s). Raw evidence (CI, PR #242,
+  2026-10-06): exit 100 — `3 major and 0 minor checks failed`; current rustdoc
+  build `Finished [1398s]`. Exit `100` on `develop` is the decision signal; the
+  same command exits `0` on the release commit once the version is bumped to
+  `0.9.0` (0.x MINOR may contain breaking changes — [`VERSIONING.md`
+  § Pre-1.0](VERSIONING.md#pre-10-stability-contract)). Isolate with
   `CARGO_TARGET_DIR` when concurrent sessions share the `target/semver-checks`
   cache.
 
