@@ -130,7 +130,7 @@ gh workflow run release-adapters.yml -f publish_testpypi=true
 
 **Ejecución (7 adapters):**
 
-1. **Pending publishers** (PyPI **y** TestPyPI, Trusted Publishing/OIDC) para los 7 nombres — owner `ness-e`, repo `ness-e/Vantadb`, workflow `release-adapters.yml`, environment `pypi`/`testpypi` — o token. *(Environments: ✅ existen — verificado 2026-10-06.)*
+1. **Publishers** (⚠️ 2026-10-07: PyPI limita **1 pending por repo+workflow+environment** — los nombres nuevos se crean con token/twine primero; ver PUBLISH.md §Adapters) para los 7 nombres — owner `ness-e`, repo `ness-e/Vantadb`, workflow `release-adapters.yml`, environment `pypi`/`testpypi` — o token. *(Environments: ✅ existen — verificado 2026-10-06.)*
 2. **Dry-run TestPyPI:** `gh workflow run release-adapters.yml -f publish_testpypi=true` → **aprobar el deployment del environment `testpypi`** → verificar ≥5 dists en `test.pypi.org` (esperado: 14 — 7 wheels + 7 sdists).
 3. **Smoke (opcional):** `pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ vantadb-langchain==0.5.0` → import + operación básica.
 4. **Tag:** `git tag adapters-v0.5.0 && git push --tags` → **aprobar el deployment del environment `pypi`** → job `publish-pypi` (OIDC) verde.
