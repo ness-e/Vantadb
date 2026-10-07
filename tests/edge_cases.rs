@@ -261,6 +261,12 @@ fn all_zeros_vector_insert_and_search() {
     assert_eq!(result.nodes[0].id, 2, "only non-zero vector should match");
 }
 
+/// AUDREP-27 / FIND-244: `put_one` filters vectors that are not usable
+/// (`usable_vector`: empty or zero-norm — HNSW cosine rejects zero-norm).
+/// A put of an all-zeros vector must succeed as a payload-only record; the
+/// vector is intentionally NOT stored. (This expectation went stale when the
+/// filter landed; the binary is excluded from the nextest default-filter, so
+/// only `cargo test` — the ASan job — surfaced it.)
 #[test]
 fn all_zeros_vector_put_and_list() {
     let dir = tempdir().expect("tempdir");
@@ -269,15 +275,17 @@ fn all_zeros_vector_put_and_list() {
     let mut input = MemoryInput::new("test", "all-zeros", "payload");
     input.vector = Some(vec![0.0, 0.0, 0.0]);
     let record = db.put(input).expect("put all-zeros vector");
-    assert!(record.vector.is_some(), "all-zeros vector should be stored");
-    assert_eq!(
-        record.vector.as_ref().unwrap().len(),
-        3,
-        "vector dimension should be preserved"
+    assert!(
+        record.vector.is_none(),
+        "zero-norm vectors are not usable (AUDREP-27): put must filter, not store"
     );
 
     let fetched = db.get("test", "all-zeros").expect("get").expect("record");
-    assert_eq!(fetched.vector, record.vector);
+    assert_eq!(fetched.vector, None, "a filtered vector must not resurface");
+    assert_eq!(
+        fetched.payload, "payload",
+        "the record itself must round-trip"
+    );
 }
 
 // ── 10. Concurrent connections / rapid requests ────────────
