@@ -45,6 +45,14 @@ name = "vanta-memory"
 # (2) configurar Trusted Publishing (repo ness-e/Vantadb, workflow release.yml);
 # (3) borrar esta entrada → release-plz gestiona vanta-memory como vantadb.
 # Ver docs/dev/tasks/DIST-01.md §Decisión release-plz.
+#
+# ACTUALIZADO 2026-10-07 (dry-run del bootstrap falló): el primer publish NO
+# puede ser antes de que exista vantadb 0.9.0 — el build empaquetado usa
+# `Embedded::reinforce`/`ReinforceOutcome` (MEMG-02, post-0.8.0) y el spec
+# `vantadb = "^0.8.0"` resuelve contra el 0.8.0 publicado → no compila aislado.
+# Orden revisado: publicar vantadb 0.9.0 (release) → actualizar el spec a
+# "0.9.0" → primer publish vanta-memory 0.9.0 (token) → TP (owner) → borrar
+# esta entrada (release-plz lo gestiona desde el release siguiente).
 release = false
 
 # NOTE: the desktop Tauri app (desktop/src-tauri, isolated workspace, versions
