@@ -720,6 +720,10 @@ jobs:
       # skipped here (CI_POLICY tiering: hnsw validation / SIFT / competitive
       # bench / stress never gate; they run in NIGHTLY Heavy Certification), so
       # this job stays red only for real memory findings.
+      # 2nd pass (2026-10-07): the suite then reached the timing-bound stress
+      # tests — their own budgets (60s / 120s) cannot hold under ASan's
+      # 10-20x slowdown (multi_namespace_stress: 265s vs its 60s assert) —
+      # skipped as timing-bound, not correctness.
       - name: Test with AddressSanitizer
         run: |
           cargo +nightly test \
@@ -742,7 +746,9 @@ jobs:
             --skip hnsw_recall_snapshot_deterministic_across_scales \
             --skip test_hybrid_ranking_metrics \
             --skip deterministic_corpus_certifies_text_vector_hybrid_and_phrase_paths \
-            --skip extended_corpus_certifies_bm25_ranking_edge_cases_and_multi_namespace
+            --skip extended_corpus_certifies_bm25_ranking_edge_cases_and_multi_namespace \
+            --skip concurrent_multi_namespace_stress \
+            --skip memory_volume_kpi_10k
         env:
           ASAN_OPTIONS: "detect_stack_use_after_return=1:detect_leaks=1:halt_on_error=0"
           LSAN_OPTIONS: "suppressions=.lsan_suppressions"
