@@ -32,14 +32,15 @@ pub struct Embedded {
     /// ponytail: global merge lock - merges are a sync/import path, not a hot
     /// path; per-key striped locks only if merge throughput ever matters.
     pub(crate) merge_lock: Arc<Mutex<()>>,
-    /// Serializes purge operations against the write path (DUR-03): purge
-    /// paths (`purge_expired` sweeper, purge-on-write) take the **write**
-    /// guard; a put that resolves a *live* record takes the **read** guard
-    /// across insert + index replacement so the generation it is replacing
-    /// cannot be purged underneath it (a second stats decrement would drive
-    /// the text df negative). Shared across clones via `Arc`; only held on
-    /// the purge path and on upserts of existing records — fresh inserts do
-    /// not need it.
+    /// Serializes the record write/delete read-modify-write against every
+    /// other writer and against purge (DUR-03 r3): `put_one`,
+    /// `put_record_exact`, `put_batch_inner`, `delete_inner` and the purge
+    /// paths (`purge_expired` sweeper, purge-on-write) all take the **write**
+    /// guard across resolve + insert/delete + index replacement, so no two
+    /// writers can apply the same generation's text-index decrement twice
+    /// (a second decrement would drive the term df negative).
+    /// `resolve_existing_for_write` keeps a read guard for decision-only
+    /// callers (`merge_record_inner`). Shared across clones via `Arc`.
     pub(crate) purge_lock: Arc<RwLock<()>>,
 }
 

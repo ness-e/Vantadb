@@ -417,11 +417,12 @@ impl Embedded {
     /// `purge_expired` does not).
     ///
     /// Returns the existing live record (if any) **plus the read guard that
-    /// stabilizes its generation**: the caller must hold it across the
-    /// subsequent insert + index replacement, so a concurrent purge cannot
-    /// remove the generation's stats in between (a second decrement would
-    /// drive the text df negative). The guard is `None` for a fresh insert —
-    /// there is no generation to protect.
+    /// stabilizes its generation**. Kept for callers that only need a
+    /// decision snapshot (`merge_record_inner`); the record-write paths
+    /// (`put_one`, `put_record_exact`) instead hold the **write** guard for
+    /// their whole read-modify-write — a concurrent purge, upsert or delete
+    /// would otherwise apply the generation's text-index decrement twice and
+    /// drive the term df negative (DUR-03 r3).
     ///
     /// [`Error::NodeIdCollision`] is returned when the deterministic id is
     /// occupied by a different key or a non-memory node; inside an active
@@ -487,9 +488,10 @@ impl Embedded {
     }
 
     /// [`Self::resolve_existing_for_write`] variant for callers that already
-    /// hold the `purge_lock` **write** guard (`put_batch_inner`'s critical
-    /// section): no read guard is taken — re-entering the non-reentrant lock
-    /// would deadlock — and expired records are purged inline through
+    /// hold the `purge_lock` **write** guard (`put_one`, `put_record_exact`
+    /// and `put_batch_inner` critical sections): no read guard is taken —
+    /// re-entering the non-reentrant lock would deadlock — and expired
+    /// records are purged inline through
     /// [`Self::purge_expired_record_locked`]. Returns the live record to
     /// upsert over (`previous`), if any, exactly like the guarded variant's
     /// first tuple element.
@@ -672,10 +674,17 @@ impl Embedded {
 
         let engine = self.engine_handle()?;
         let node_id = memory_node_id(&input.namespace, &input.key);
-        // The guard stabilizes a live generation across insert + index
-        // replacement (DUR-03 race hardening); `None` for fresh inserts.
-        let (existing, _generation_guard) =
-            self.resolve_existing_for_write(&engine, &input.namespace, &input.key)?;
+        // DUR-03 r3 (CODEX-132): hold the purge **write** guard across the
+        // whole read-modify-write — resolve + insert + index replacement —
+        // fresh inserts included. Two concurrent upserts of the same key
+        // otherwise both resolve the same generation and both apply its
+        // text-index decrement (term df goes negative); a fresh insert's
+        // stats also land after its node is already readable, so an upsert
+        // can snapshot a generation whose stats are not applied yet. Mirrors
+        // `put_batch_inner`'s critical section (same lock, locked resolver).
+        let _write_guard = self.purge_lock.write();
+        let existing =
+            self.resolve_existing_for_write_locked(&engine, &input.namespace, &input.key)?;
         // MEMG-04: quota applies to fresh inserts only — an update of an
         // existing key never counts and is never blocked at the limit.
         if existing.is_none() {
@@ -946,9 +955,10 @@ impl Embedded {
         // DUR-03 (review MEMG-11 r2): hold the purge **write**-lock ONCE for
         // the whole batch critical section (resolve + insert + per-record
         // index replacement). A concurrent `purge_expired` cannot interleave
-        // and double-decrement the text stats (the race `put_one` closes with
-        // its read guard). A single write guard also avoids the deadlock the
-        // read-guard variant would create: expired keys are resolved through
+        // and double-decrement the text stats (the race `put_one` closes by
+        // holding the same write guard). A single write guard also avoids the
+        // deadlock the read-guard variant would create: expired keys are
+        // resolved through
         // `resolve_existing_for_write_locked`/`purge_expired_record_locked`,
         // which never re-enter the non-reentrant lock.
         let _batch_guard = self.purge_lock.write();
@@ -1276,6 +1286,10 @@ impl Embedded {
         validate_namespace(namespace)?;
         validate_key(key)?;
 
+        // DUR-03 r3: same read-modify-write serialization as `put_one` — a
+        // concurrent delete/put (or delete/delete) of the same key must not
+        // both apply the replaced generation's text-index decrement.
+        let _write_guard = self.purge_lock.write();
         let Some(existing) = self.get(namespace, key)? else {
             return Ok(None);
         };
@@ -1432,9 +1446,11 @@ impl Embedded {
         }
 
         let engine = self.engine_handle()?;
-        // See `put_one`: hold the generation guard across insert + replace.
-        let (previous, _generation_guard) =
-            self.resolve_existing_for_write(&engine, &record.namespace, &record.key)?;
+        // See `put_one`: hold the purge write guard across the whole
+        // read-modify-write (resolve + insert + replace).
+        let _write_guard = self.purge_lock.write();
+        let previous =
+            self.resolve_existing_for_write_locked(&engine, &record.namespace, &record.key)?;
         // MEMG-04: fresh inserts respect the namespace quota on this raw
         // transport too (import restores/imports records through here).
         if previous.is_none() {
@@ -1597,9 +1613,9 @@ impl Embedded {
         let _merge_guard = self.merge_lock.lock();
 
         // The purge-lock read guard from the resolution is dropped at the end
-        // of this statement on purpose: `put_record_exact` takes its own read
-        // guard on the same (non-reentrant, writer-preferring) lock, and
-        // nesting reads can deadlock against a queued writer.
+        // of this statement on purpose: `put_record_exact` takes its own
+        // **write** guard on the same (non-reentrant) lock — holding the read
+        // guard across that acquisition would self-deadlock.
         let existing = self
             .resolve_existing_for_write(&engine, &record.namespace, &record.key)?
             .0;
@@ -2012,8 +2028,9 @@ impl Embedded {
         self.check_read_only()?;
         let engine = self.engine_handle()?;
         // DUR-03: serialize against the purge-on-write path and against
-        // upserts that hold the read guard (a second stats decrement for the
-        // same generation would drive the text df negative).
+        // record writes/deletes that hold the same write guard (a second
+        // stats decrement for the same generation would drive the text df
+        // negative).
         let _guard = self.purge_lock.write();
         // DUR-03 review (round 2): inside an active transaction `engine.delete`
         // only buffers the node delete while the index cleanup would apply
