@@ -23,9 +23,9 @@ hybrid-search parity.
 
 ## Tokenization
 
-- Active tokenizer spec: `lowercase-ascii-alnum`, version `1`.
-- Split on non-ASCII-alphanumeric characters.
-- Lowercase ASCII tokens and preserve numeric tokens.
+- Active tokenizer spec: `lowercase-alnum`, version `2` (v2: Unicode alphanumeric — accented words stay whole; EGO-04).
+- Split on non-alphanumeric (Unicode) characters.
+- Lowercase tokens and preserve numeric tokens.
 - No stemming, stop words, Unicode folding, or language-specific normalization
   are implemented in this phase.
 - Phrase handling uses the same tokenizer and exact consecutive token

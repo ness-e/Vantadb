@@ -130,7 +130,7 @@ fn ingested_chunks_round_trip_through_the_engine_and_are_searchable() {
 
     // Text search finds the ingested chunks; provenance rides along. The query
     // is a simple token so the assertion holds under both the basic
-    // (`lowercase-ascii-alnum`) and the advanced tokenizer feature sets.
+    // (`lowercase-alnum`) and the advanced tokenizer feature sets.
     let hits = db
         .search(MemorySearchRequest {
             namespace: "docs".to_string(),
