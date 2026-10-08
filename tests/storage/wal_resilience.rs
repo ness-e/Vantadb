@@ -253,6 +253,10 @@ fn test_wal_selective_crc_corruption_recovery() {
 
     // Parsear la estructura del WAL para encontrar el CRC del segundo registro
     // WalHeader::SIZE = 20
+    // VER-01: format ≥ 3 frames append prev_hash + record_hash (64 bytes). Sin
+    // este extra el walk lee los 32B de prev_hash génesis (ceros) como 4
+    // "registros" fantasma de len=0 y cuenta 5 en vez de 3 (ASan/heavy cert).
+    let chain_extra = wal_chain_extra(&file_content);
     let mut offset = 20;
     let mut records = Vec::new();
     while offset + 8 <= file_content.len() {
@@ -260,7 +264,7 @@ fn test_wal_selective_crc_corruption_recovery() {
         let len = u32::from_le_bytes(len_bytes.try_into().unwrap()) as usize;
         let payload_start = offset + 4;
         let crc_start = payload_start + len;
-        let record_end = crc_start + 4;
+        let record_end = crc_start + 4 + chain_extra;
 
         if record_end > file_content.len() {
             break;
@@ -274,6 +278,13 @@ fn test_wal_selective_crc_corruption_recovery() {
         records.len(),
         3,
         "Deberíamos tener exactamente 3 registros en el WAL"
+    );
+    // Endurecido: el walk debe consumir el archivo exactamente — un framing
+    // nuevo que el walk no entienda debe fallar acá, no contar mal en silencio.
+    assert_eq!(
+        offset,
+        file_content.len(),
+        "El walk del WAL debe consumir el archivo exactamente (framing stale?)"
     );
 
     // Corromper selectivamente el campo CRC del segundo registro (índice 1)
