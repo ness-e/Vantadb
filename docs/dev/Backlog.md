@@ -227,6 +227,19 @@ verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-hist
 
 ---
 
+## 📥 Alta 2026-10-08 — Higiene repo-health (análisis arquitectura)
+
+> Origen: análisis repo-health 2026-10-08 (verificado contra `develop` `a64d6992`: 268 archivos en `src/`, 40 workflows vs 28 declarados, plan maestro 3105 líneas, ~1900 archivos en `docs/`, `ARCHITECTURE.md` en v0.6.1). Nada aquí toca el core ni el proceso: son gaps mecánicos puntuales. Lo estructural (split del core, poda de eras, dieta de ceremonia) queda diferido a post-1.0 por decisión pendiente del owner — ver dictamen en sesión.
+
+| ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias |
+|---|---|---|---|---|---|---|---|---|---|
+| `FIND-321` | 🟡 Media | **Drift inventario workflows: `CI_POLICY.md` declara 28, el árbol tiene 40** | `docs/dev/operations/CI_POLICY.md:16` · `.github/workflows/` | 🟢 2-4h | 🟡 Baja | 🆕 Pendiente | Re-verificar inventario real (conteo 2026-10-08: 40 archivos, +12 en 11 días) + actualizar `CI_POLICY.md` §1 + refs en `TRIGGERS.md`/gate docs; ideal: gate mecánico que falle si el conteo diverge (no manual). No duplica `FIND-174` (aquel = jobs del gate-docs; este = inventario). | Origen: análisis repo-health 2026-10-08 §7 | Ver: `FIND-174` |
+| `FIND-322` | 🟢 Baja | **`ARCHITECTURE.md` declara truth v0.6.1 (stale vs tren 0.9.0)** | `docs/dev/architecture/ARCHITECTURE.md:5,13` | 🟡 1-2d | 🟡 Baja | 🆕 Pendiente | Refresh scoped (no reescritura): WAL layout, record variants, HTTP ownership, retrieval model y límites re-verificados contra develop + frontmatter actualizado. | Origen: análisis repo-health 2026-10-08 §12 | — |
+| `FIND-323` | 🟢 Baja | **Capa docs product-first: decisión de adopción (qué es / me sirve / qué runtime)** | `docs/` (2-3 páginas nuevas + índice) | 🟢 1-2d | 🟢 Nice-to-have | 🆕 Pendiente | Curaduría sobre páginas existentes (`PYTHON_SDK.md`, `TS_SDK.md`, `NODE_SDK.md`, `BINDINGS_NAMESPACES.md`, `ARCHITECTURE.md`): qué es VantaDB, si sirve para mi caso, qué runtime elegir + links. Sin duplicar contenido (una verdad, un archivo). | Origen: análisis repo-health 2026-10-08 §14 | — |
+| `FIND-324` | — | **Poda documental: eras históricas y retención en `docs/` (~1900 archivos)** | `docs/` | 🟡 3-5d | 🔵 Futuro | 🔮 Futuro: post-1.0 (ventana de consolidación) | `docs/` (25 MiB vs 4.3 MiB de `src/`) acumula planes archivados, research, snapshots y auditorías sin regla de retención. Acción cuando dispare el trigger: regla de retención por tipo + poda/archivo mecánico. No ejecutar antes del release (riesgo sin retorno inmediato). | Origen: análisis repo-health 2026-10-08 §11 | — |
+
+---
+
 ## Phase 5: 📖 Docs & Community
 
 > Preparación de documentación pública, comunidad, y onboarding.
