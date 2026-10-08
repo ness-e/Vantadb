@@ -1181,6 +1181,26 @@ fn count_files(path: &std::path::Path) -> usize {
     total
 }
 
+/// Helper: read every WAL file (`vanta*.wal*`: shards + shard meta) under
+/// `<snapshot>/data`, name-sorted, as (name, bytes). These are the files the
+/// snapshot reopen replays — they must be a frozen point-in-time image.
+fn snapshot_wal_files(snap_root: &std::path::Path) -> Vec<(String, Vec<u8>)> {
+    let data = snap_root.join("data");
+    let mut out = Vec::new();
+    for entry in std::fs::read_dir(&data).expect("read snapshot data dir") {
+        let entry = entry.expect("snapshot dir entry");
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if name.starts_with("vanta") && name.contains(".wal") {
+            out.push((
+                name,
+                fs::read(entry.path()).expect("read snapshot wal file"),
+            ));
+        }
+    }
+    out.sort_by(|a, b| a.0.cmp(&b.0));
+    out
+}
+
 #[test]
 fn test_hardlink_snapshot_instant() {
     TerminalReporter::suite_banner("HARD-LINK SNAPSHOT INSTANT", 1);
@@ -1240,11 +1260,63 @@ fn test_hardlink_snapshot_independence() {
             // Snapshot the original state
             let snap = db.create_snapshot("pre-modify").expect("create snapshot");
 
+            // Deterministic isolation probe (no timing dependence): capture the
+            // snapshot's own WAL files as of snapshot time. Pre-fix, Unix
+            // hard-linked these to the live WAL, so the post-snapshot put below
+            // appended to the SAME inode and silently mutated the snapshot —
+            // reopening it then replayed the "modified" record. Asserting the
+            // bytes are frozen catches the shared inode directly on any
+            // platform (the ASan job runs plain `cargo test`, the only CI path
+            // that executes this binary — nextest's default filter excludes it).
+            let snap_wal_before = snapshot_wal_files(&snap.path);
+            assert!(
+                !snap_wal_before.is_empty(),
+                "snapshot must capture the WAL files (replay source)"
+            );
+
             // Modify the original data
             let mut input2 = MemoryInput::new("ns/indep", "key-a", "modified payload");
             input2.vector = Some(vec![99.0, 0.0, 0.0]);
             db.put(input2).expect("put modified");
             db.flush().expect("flush modified");
+
+            // The snapshot's WAL must be byte-identical: no post-snapshot
+            // append may reach it through a shared inode.
+            let snap_wal_after = snapshot_wal_files(&snap.path);
+            assert_eq!(
+                snap_wal_before, snap_wal_after,
+                "post-snapshot writes must not mutate the snapshot's WAL files \
+                 (appendable files must be copied, not hard-linked)"
+            );
+
+            // Unix: direct inode-level proof — the snapshot's WAL files must
+            // not be hard links of the live ones (nlink == 1).
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::MetadataExt;
+                let live_data = dir.path().join("data");
+                let snap_data = snap.path.join("data");
+                for (name, _) in &snap_wal_before {
+                    let live_file = live_data.join(name);
+                    if !live_file.exists() {
+                        continue;
+                    }
+                    let snap_meta = fs::metadata(snap_data.join(name)).expect("snap wal metadata");
+                    assert_eq!(
+                        snap_meta.nlink(),
+                        1,
+                        "snapshot WAL file {name} is hard-linked (nlink={}) — \
+                         post-snapshot appends would mutate the snapshot",
+                        snap_meta.nlink()
+                    );
+                    let live_meta = fs::metadata(&live_file).expect("live wal metadata");
+                    assert_ne!(
+                        snap_meta.ino(),
+                        live_meta.ino(),
+                        "snapshot WAL file {name} shares the live inode — not independent"
+                    );
+                }
+            }
 
             // Verify the snapshot directory still exists and has content
             assert!(
