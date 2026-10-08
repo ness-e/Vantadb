@@ -59,7 +59,7 @@ Regla: `vantadb-node/src/lib.rs` se toca en EGO-01, EGO-05 (si el wire lo exige)
 - **Gate Result:** ✅ DO
 - **Contrato:** `db.list({namespace, limit: 100, cursor: undefined})` → página OK; `cursor: "0"` → página OK; `cursor: "abc"` → error `cursor must be a number`; suite `api.test.ts` verde.
 - **Task file:** `docs/dev/tasks/EGO-01.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (unit 8/8 + napi 29/29; review degradado pendiente externo)
 - **Branch:** develop
 - **Commit:**
 

@@ -823,11 +823,20 @@ fn parse_list_options(value: Option<&Value>) -> napi::Result<MemoryListOptions> 
                 as usize;
         }
         if let Some(c) = obj.get("cursor") {
-            cursor = Some(
-                c.as_u64()
-                    .ok_or_else(|| Error::from_reason("cursor must be a number"))?
-                    as usize,
-            );
+            // EGO-01: napi serializa `cursor: undefined` como Null; el backend
+            // WASM emite cursores como string decimal. Ambos deben aceptarse.
+            if !c.is_null() {
+                let num = c
+                    .as_u64()
+                    .or_else(|| {
+                        c.as_f64()
+                            .filter(|f| f.is_finite() && *f >= 0.0 && f.fract() == 0.0)
+                            .map(|f| f as u64)
+                    })
+                    .or_else(|| c.as_str().and_then(|s| s.trim().parse::<u64>().ok()))
+                    .ok_or_else(|| Error::from_reason("cursor must be a number"))?;
+                cursor = Some(num as usize);
+            }
         }
         // SCH-07: temporal + quarantine-view + confidence params (ADR-046
         // §D2/§D3/§D5) — same wire names as the SDK.
@@ -1296,6 +1305,59 @@ mod tests {
                 .expect("empty parses")
                 .is_none()
         );
+    }
+
+    /// EGO-01: napi serializa `cursor: undefined` como Null (debe ignorarse) y
+    /// el backend WASM emite cursores como string decimal (debe aceptarse).
+    #[test]
+    fn parse_list_options_accepts_null_and_string_cursor() {
+        // Ausente y Null (undefined de JS) => sin paginar.
+        let absent = json!({ "limit": 2 });
+        assert!(parse_list_options(Some(&absent))
+            .expect("parses")
+            .cursor
+            .is_none());
+        let null = json!({ "limit": 2, "cursor": null });
+        assert!(parse_list_options(Some(&null))
+            .expect("parses")
+            .cursor
+            .is_none());
+
+        // Número entero y float integral (napi entrega f64).
+        let num = json!({ "cursor": 7 });
+        assert_eq!(
+            parse_list_options(Some(&num)).expect("parses").cursor,
+            Some(7)
+        );
+        let float = json!({ "cursor": 7.0 });
+        assert_eq!(
+            parse_list_options(Some(&float)).expect("parses").cursor,
+            Some(7)
+        );
+
+        // String decimal (WASM) => misma página que el numérico.
+        let text = json!({ "cursor": "7" });
+        assert_eq!(
+            parse_list_options(Some(&text)).expect("parses").cursor,
+            Some(7)
+        );
+
+        // Inválidos siguen fallando con el mismo mensaje.
+        for raw in [
+            json!({ "cursor": "abc" }),
+            json!({ "cursor": "" }),
+            json!({ "cursor": "-5" }),
+            json!({ "cursor": 5.5 }),
+            json!({ "cursor": true }),
+            json!({ "cursor": {} }),
+        ] {
+            let err = parse_list_options(Some(&raw)).unwrap_err();
+            assert!(
+                err.reason.contains("cursor must be a number"),
+                "got: {}",
+                err.reason
+            );
+        }
     }
 
     #[test]

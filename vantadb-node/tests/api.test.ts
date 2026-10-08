@@ -136,6 +136,44 @@ describe("vantadb-node api surface", () => {
     }
   });
 
+  it("EGO-01: list accepts undefined/null cursor and decimal-string cursors", async () => {
+    const db = await VantaDb.connect(tmp("cursor-ego01"));
+    try {
+      await db.putBatch([
+        { namespace: "page", key: "a", payload: "1" },
+        { namespace: "page", key: "b", payload: "2" },
+        { namespace: "page", key: "c", payload: "3" },
+      ]);
+
+      // `cursor: undefined` (napi Null) and omitted cursor => first page.
+      const undef = await db.list("page", { limit: 2, cursor: undefined });
+      expect(undef.records).toHaveLength(2);
+      const omitted = await db.list("page", { limit: 2 });
+      expect(omitted.records.map((r) => r.key)).toEqual(
+        undef.records.map((r) => r.key),
+      );
+
+      // Decimal string (WASM shape) => same page as the numeric cursor.
+      const numeric = await db.list("page", { limit: 2, cursor: undef.next_cursor });
+      const text = await db.list("page", {
+        limit: 2,
+        cursor: String(undef.next_cursor),
+      });
+      expect(text.records.map((r) => r.key)).toEqual(
+        numeric.records.map((r) => r.key),
+      );
+
+      // Invalid cursors still fail with the same message.
+      for (const cursor of ["abc", "", "-5", 5.5, true, {}]) {
+        await expect(
+          db.list("page", { limit: 2, cursor: cursor as unknown as number }),
+        ).rejects.toThrow("cursor must be a number");
+      }
+    } finally {
+      await db.close();
+    }
+  });
+
   it("list honors metadata filters", async () => {
     const db = await VantaDb.connect(tmp("filter"));
     try {
