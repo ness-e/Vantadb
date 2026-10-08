@@ -16,15 +16,16 @@ description: "7 hallazgos de integración real Ego x VantaDB (bugs, inconsistenc
 
 | Resultado | Count |
 |-----------|-------|
-| ✅ DO | 7 |
+| ✅ DO (tren 0.9.0) | 10 |
+| ✅ DO (tren 0.10.0) | 4 |
 | 🟡 DEFER | 0 |
 | ❌ SKIP | 0 |
 | 🔴 BLOQUEADO | 0 |
 
-Status: ⬆️ uphill = 4 incógnitas abiertas (finalizer napi en EGO-06; wiring ONNX + prebuilts en EGO-07; shape del scope en MEMG-25) · ⬇️ downhill = ~35 steps pendientes (ver § Orden de ejecución).
+Status: ⬆️ uphill = 5 incógnitas abiertas (finalizer napi en EGO-06; wiring ONNX + prebuilts en EGO-07; shape del scope en MEMG-25; alcance de exposición en DIST-19) · ⬇️ downhill = ~45 steps pendientes (ver § Orden de ejecución + § Tren 0.10.0).
 
 > **Determinación owner-delegada 2026-10-08:** entran al tren 0.9.0 EGO-01..07 + MEMG-25 + FIND-320 + EGO-08. MEMG-26 solo-spec en ventana (implementación → 0.10): un modelo de eventos apurado es deuda de esquema permanente. EGO-04/05 rompen wire/formato y la ventana 0.x para romper es ahora — en 0.10 costarían a Ego una segunda migración.
-
+>
 > Verificación previa (2026-10-08, sesión de análisis): los 7 gaps se confirmaron contra código real — `vantadb-node/src/lib.rs:825-831` (cursor), `src/sdk/types.rs:106` (`Value`), `src/sdk/api/memory.rs:733` (sin inferencia), `src/sdk/serialization/mod.rs:111` (sin `*`), `vantadb-ts/src/guards.ts:220-243` (WIRE-03 parcial), `src/text_index.rs:176` (ASCII-only). Sin DEFER/SKIP que confirmar (decisión owner 2026-10-08: los 7 en 0.9.0).
 
 ## Orden de ejecución (olas, MAX_WIP=3, FAIL_MODE=parallel)
@@ -463,3 +464,156 @@ Regla: `vantadb-node/src/lib.rs` se toca en EGO-01, EGO-05 (si el wire lo exige)
   **Notas:**
 
 > MEMG-26 (Semantic Event Log) queda **spec-only en ventana** por determinación 2026-10-08 — sin task de implementación en este plan; su spec puede correr en paralelo a cualquier ola.
+
+## Tren 0.10.0 — Fachada cognitiva (Alta Ego 2026-10-07)
+
+> Las 4 filas de interoperabilidad nativa del Ego Readiness Plan. No entran al tren 0.9.0 (sumarían ~3-4sem y la fachada merece tren propio con su certificación); entran aquí planificadas con contratos para ejecución inmediata post-0.9.0. Con la Ola 4 + este tren, Ego queda sin workarounds y con fachada nativa.
+
+### Task 11: DIST-19 — fachada `VantaCognitiveAPI` en `vantadb-node`
+
+- **Appetite:** max 3sem
+- **Esfuerzo:** 🔴 1-2sem
+- **Prioridad:** 🟠 P1
+- **Archivos clave:** `vantadb-node/src/`, `vanta-memory/`
+- **Verificación real:** ✅ CÓDIGO-REAL — `vanta-memory` existe (L0-L3, recall/scopes, dream, checkpoints); el binding Node no lo re-exporta (0 refs).
+- **Gate Justificación:** es LA tarea que elimina el subproceso MCP interno de Ego; sin ella todo lo demás son parches sobre dos transportes.
+- **Gate Result:** ✅ DO (tren 0.10.0)
+- **Contrato:** `NativeVantaDB.memory.*` / `context.*` / `tasks.*` operativos in-process (recall con scopes, assemble, consolidate, reinforce, checkpoints) + suite verde + Ego corre sin subproceso MCP interno.
+- **Task file:** `docs/dev/tasks/DIST-19.md`
+- **Estado:** ⬜ PENDING
+- **Branch:** develop
+- **Commit:**
+
+- **Pre-mortem:**
+  1. Scope creep (toda la capa cognitiva) → scope mínimo viable escrito ANTES de codear (recall+capture+checkpoints primero).
+  2. GIL/perf en ops nuevas → patrón `py.detach`/spawn_blocking existente.
+  3. Spec SDD obligatoria + Gate P/D con `question` (superficie pública nueva).
+- **Stop conditions:** >3sem → slice mínimo entregado + FIND del resto.
+- **Risk Register:**
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🔴 | Superficie enorme sin IBM | Spec con scope mínimo primero | DISCOVERY |
+  | 🟡×🟡 | Perf/Event-loop | spawn_blocking + bench | VERIFY |
+- **Cynefin:** 🟧 complejo — empaquetado de capa cognitiva solo emerge al integrar.
+- **Top 3 riesgos:** (1) scope; (2) perf; (3) semántica de scopes (liga MEMG-25).
+- **Uphill/Downhill:** ⬆️ 1 incógnita (alcance de exposición) · ⬇️ 10 steps.
+- **DoD:** task = contrato + suites · commit = `feat(node):` · release = changelog (minor) + docs + matriz de scopes.
+- **Validación Appetite vs Effort:** 3sem ≥ 1-2sem ✓
+
+  **Iteraciones:**
+  | # | Acción | Resultado | Herramienta |
+  |---|--------|-----------|-------------|
+  | — | — | — | — |
+
+  **Notas:**
+  - Dep: `vanta-memory` (existe) + MEMG-25 (scopes tipados) recomendable antes.
+
+### Task 12: DIST-20 — `AbortSignal` en `vantadb-node`
+
+- **Appetite:** max 1sem
+- **Esfuerzo:** 🟢 1-2d
+- **Prioridad:** 🟠 P1
+- **Archivos clave:** `vantadb-node/src/`
+- **Verificación real:** 🟡 VERIFICAR — sin soporte de cancelación hoy (confirmar en DISCOVERY).
+- **Gate Justificación:** sin cancelación, Ego no puede abortar GraphRAG/search largos desde UI (CPU 100% huérfana).
+- **Gate Result:** ✅ DO (tren 0.10.0)
+- **Contrato:** `search`/`graphragSearch` aceptan `AbortSignal` opcional y abortan computación Tokio (test: señal abortada → rechazo rápido, sin trabajo residual).
+- **Task file:** `docs/dev/tasks/DIST-20.md`
+- **Estado:** ⬜ PENDING
+- **Branch:** develop
+- **Commit:**
+
+- **Pre-mortem:**
+  1. Cancelación no-cooperativa deja tareas Tokio vivas → cancelación cooperativa con checkpoints.
+  2. API inestable entre versiones Node → tipos defensivos + test en matriz.
+- **Stop conditions:** >1sem → señal solo en `search` + FIND del resto.
+- **Risk Register:**
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟡 | Tareas huérfanas | Test de no-residuo | VERIFY |
+- **Cynefin:** 🟨 complicado — 1 incógnita (propagación Tokio).
+- **Top 3 riesgos:** (1) residuo; (2) API.
+- **Uphill/Downhill:** ⬆️ 1 · ⬇️ 4 steps.
+- **DoD:** task = contrato · commit = `feat(node):` · release = changelog.
+- **Validación Appetite vs Effort:** 1sem ≥ 1-2d ✓
+
+  **Iteraciones:**
+  | # | Acción | Resultado | Herramienta |
+  |---|--------|-----------|-------------|
+  | — | — | — | — |
+
+  **Notas:**
+
+### Task 13: DIST-21 — CI Electron real (`asarUnpack`)
+
+- **Appetite:** max 1sem
+- **Esfuerzo:** 🟢 1-2d
+- **Prioridad:** 🔴 P0
+- **Archivos clave:** `.github/workflows/`, `vantadb-node/`
+- **Verificación real:** 🟡 VERIFICAR — sin job Electron hoy (confirmar en DISCOVERY).
+- **Gate Justificación:** P0 del readiness Ego: sin esto, ABI drift o empaquetado ASAR rompen en cliente sin aviso. Además valida EGO-06 en Windows real.
+- **Gate Result:** ✅ DO (tren 0.10.0)
+- **Contrato:** job CI (win/mac/linux) que carga `.node` en Electron headless + `connect()` sobre disco + `asarUnpack` verificado, verde.
+- **Task file:** `docs/dev/tasks/DIST-21.md`
+- **Estado:** ⬜ PENDING
+- **Branch:** develop
+- **Commit:**
+
+- **Pre-mortem:**
+  1. Runners sin Electron/headless → usar imágenes con dependencias + fallback documentado.
+  2. Tiempo de CI ×3 plataformas → job separado, no Fast Gate.
+- **Stop conditions:** >1sem → Windows-only + FIND de mac/linux.
+- **Risk Register:**
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟡 | Entorno CI sin GUI | headless + deps del runner | diseño |
+- **Cynefin:** 🟨 complicado.
+- **Top 3 riesgos:** (1) entorno; (2) tiempo CI.
+- **Uphill/Downhill:** ⬇️ (4 steps).
+- **DoD:** task = job verde ×3 · commit = `ci:` · release = n/a.
+- **Validación Appetite vs Effort:** 1sem ≥ 1-2d ✓
+
+  **Iteraciones:**
+  | # | Acción | Resultado | Herramienta |
+  |---|--------|-----------|-------------|
+  | — | — | — | — |
+
+  **Notas:**
+  - Valida EGO-06 en Windows real (liga registrada en ambas filas).
+
+### Task 14: MEMG-24 — suite de contrato Ego ↔ VantaDB
+
+- **Appetite:** max 1sem
+- **Esfuerzo:** 🟢 2-3d
+- **Prioridad:** 🟠 P1
+- **Archivos clave:** `vantadb-node/tests/`, `tests/`
+- **Verificación real:** 🟡 VERIFICAR — sin suite cruzada hoy (confirmar en DISCOVERY).
+- **Gate Justificación:** detecta breaking changes antes de publicar; es el candado que protege a Ego en cada release.
+- **Gate Result:** ✅ DO (tren 0.10.0)
+- **Contrato:** suite que valida firmas + comportamiento de `NativeVantaDB` contra `EgoMemoryAdapter.ts`, verde en CI; un breaking intencional de prueba la pone roja.
+- **Task file:** `docs/dev/tasks/MEMG-24.md`
+- **Estado:** ⬜ PENDING
+- **Branch:** develop
+- **Commit:**
+
+- **Pre-mortem:**
+  1. Acoplar la suite al repo Ego (path externo) → la suite vive en VantaDB con fixtures que espejan `EgoMemory` (sin importar Ego).
+  2. Falsos rojos por drift de API → versionar el contrato espejado.
+- **Stop conditions:** >1sem → firmas solas (sin comportamiento) + FIND.
+- **Risk Register:**
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟢 | Drift del espejo | Versión del contrato + re-sync por release | cierre |
+- **Cynefin:** 🟦 obvio.
+- **Top 3 riesgos:** (1) drift.
+- **Uphill/Downhill:** ⬇️ (5 steps).
+- **DoD:** task = suite verde en CI · commit = `test:` · release = n/a.
+- **Validación Appetite vs Effort:** 1sem ≥ 2-3d ✓
+
+  **Iteraciones:**
+  | # | Acción | Resultado | Herramienta |
+  |---|--------|-----------|-------------|
+  | — | — | — | — |
+
+  **Notas:**
+  - Dep: `DIST-19` (la suite cubre la fachada cuando exista; mientras tanto cubre el Fast Path).
