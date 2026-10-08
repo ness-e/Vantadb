@@ -217,13 +217,16 @@ export function buildSearchRequestBase(
       "buildSearchRequestBase: namespace must be a non-empty string",
     );
   }
-  if (!Array.isArray(request.query_vector)) {
+  if (!Array.isArray(request.query_vector) && request.query_vector !== undefined && request.query_vector !== null) {
     throw new DbError(
       ERROR_CODES.VALIDATION_ERROR,
       "buildSearchRequestBase: query_vector must be an array",
     );
   }
-  if (request.query_vector.length === 0) {
+  // EGO-02: query_vector is optional when the caller only wants text/sparse
+  // search — default to [] so text-only callers don't have to pass it.
+  const query_vector: unknown[] = (request.query_vector ?? []) as unknown[];
+  if (query_vector.length === 0) {
     // WIRE-03: text-only (`text_query`) and sparse-only (`query_sparse`)
     // searches legitimately run without a dense vector. An empty vector
     // alone is a caller error — reject it here with a distinct message
@@ -241,8 +244,8 @@ export function buildSearchRequestBase(
       );
     }
   }
-  for (let i = 0; i < request.query_vector.length; i++) {
-    const n: unknown = request.query_vector[i];
+  for (let i = 0; i < query_vector.length; i++) {
+    const n: unknown = query_vector[i];
     if (typeof n !== "number" || !Number.isFinite(n)) {
       throw new DbError(
         ERROR_CODES.VALIDATION_ERROR,
@@ -278,7 +281,7 @@ export function buildSearchRequestBase(
   }
   return {
     namespace: request.namespace,
-    query_vector: request.query_vector,
+    query_vector: query_vector as number[],
     top_k,
     distance_metric,
     explain: effExplain,
