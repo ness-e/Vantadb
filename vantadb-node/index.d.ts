@@ -107,7 +107,9 @@ export interface MemoryRecord {
 export interface MemoryListOptions {
   filters?: VantaMetadata
   limit?: number
-  cursor?: number
+  /** Page cursor: number, decimal string (WASM emits strings), or omitted/null
+   * (first page). Anything else is rejected with `cursor must be a number`. */
+  cursor?: number | string
   /** Valid-time point (SCH-07, ADR-046 §D3): keep only records whose validity
    * window contains this unix-ms instant. Omit/null = no temporal filter. */
   as_of_ms?: number | null

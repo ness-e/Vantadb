@@ -330,9 +330,10 @@ export class NativeVantaDB {
       const wire = {
         filters: options.filters !== undefined ? normalizeMetadataForNative(options.filters) : undefined,
         limit: options.limit,
-        // FIND-125: `ListOptions.cursor` is `string | number` (union of both
-        // backends — WASM emits decimal strings); napi only takes numbers, so
-        // narrow at the boundary. Erased cast: zero runtime change.
+        // FIND-125 (updated EGO-01): `ListOptions.cursor` is `string | number`
+        // (union of both backends — WASM emits decimal strings); napi accepts
+        // both since EGO-01, so pass through untouched. Erased cast kept for
+        // the `ListInput` union type.
         cursor: options.cursor as number | undefined,
         // SCH-07: temporal + quarantine-view + confidence passthrough.
         as_of_ms: options.as_of_ms,
