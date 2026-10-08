@@ -100,7 +100,7 @@ Regla: `vantadb-node/src/lib.rs` se toca en EGO-01, EGO-05 (si el wire lo exige)
 - **Gate Result:** ✅ DO
 - **Contrato:** `buildSearchRequestBase({namespace, text_query: "hola"})` → base con `query_vector: []`; sin `text_query` ni `sparse` y sin vector → sigue lanzando; `d5a-validation.test.ts` + suite TS verdes.
 - **Task file:** `docs/dev/tasks/EGO-02.md`
-- **Estado:** ✅ COMPLETED (commit `9f6bc7ab`; review degradado pendiente externo)
+- **Estado:** ✅ COMPLETED (commit `c82f4b2d`; review degradado pendiente externo)
 - **Branch:** develop
 - **Commit:** `9f6bc7ab`
 
@@ -141,9 +141,9 @@ Regla: `vantadb-node/src/lib.rs` se toca en EGO-01, EGO-05 (si el wire lo exige)
 - **Gate Result:** ✅ DO
 - **Contrato:** `search_multi(["kb/*"], req)` retorna hits mergeados de los namespaces coincidentes; `put({namespace: "kb/*"})` sigue dando VALIDATION_ERROR; tests core + node verdes.
 - **Task file:** `docs/dev/tasks/EGO-03.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (search_multi 5/5 + search 236; review degradado pendiente externo)
 - **Branch:** develop
-- **Commit:**
+- **Commit:** `a60d8f78`
 
 - **Pre-mortem:**
   1. `validate_namespace` compartida con put/get → NO relajarla; patrón separado solo-search.
