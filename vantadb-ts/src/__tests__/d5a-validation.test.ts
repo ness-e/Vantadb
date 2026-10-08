@@ -142,6 +142,32 @@ describe("D5a: buildSearchRequestBase valida", () => {
     }
   });
 
+  it("EGO-02: query_vector ausente defaultea a [] con text_query o query_sparse", () => {
+    const { query_vector: _omitted, ...noVector } = base;
+    expect(
+      buildSearchRequestBase({ ...noVector, text_query: "hola" }).query_vector,
+    ).toEqual([]);
+    expect(
+      buildSearchRequestBase({ ...noVector, query_sparse: { 1: 0.5 } })
+        .query_vector,
+    ).toEqual([]);
+    expect(
+      buildSearchRequestBase({ ...noVector, query_vector: null as unknown as number[], text_query: "hola" })
+        .query_vector,
+    ).toEqual([]);
+  });
+
+  it("EGO-02: query_vector ausente sin texto/sparse sigue lanzando; no-array lanza", () => {
+    const { query_vector: _omitted, ...noVector } = base;
+    expect(() => buildSearchRequestBase({ ...noVector })).toThrow(DbError);
+    expect(() =>
+      buildSearchRequestBase({
+        ...noVector,
+        query_vector: 123 as unknown as number[],
+      }),
+    ).toThrow("query_vector must be an array");
+  });
+
   it("rechaza top_k negativo, fraccionario, NaN o no-numérico", () => {
     for (const top_k of [-1, 1.5, NaN, Infinity, "5"]) {
       let caught: unknown;

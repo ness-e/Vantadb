@@ -192,7 +192,10 @@ export interface SimilarToKeyInput {
 
 export interface SearchRequest {
   namespace: string;
-  query_vector: number[];
+  /** Optional since EGO-02: omit (or `[]`) when running text-only (`text_query`)
+   * or sparse-only (`query_sparse`) search — it defaults to `[]`. An empty
+   * vector without `text_query`/`query_sparse` is still rejected. */
+  query_vector?: number[];
   /** Sparse query vector keyed by dimension id. Fused with any dense/text
    * scores. Requires the native backend (`vantadb/native`); the WASM backend
    * throws an explicit error (sparse is not wired there). An empty
