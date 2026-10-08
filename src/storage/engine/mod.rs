@@ -161,7 +161,9 @@ pub struct Snapshot {
 /// A filesystem-level snapshot created via POSIX hard links (or copy on Windows).
 ///
 /// Unlike the MVCC `Snapshot`, this is a point-in-time copy of all data files
-/// in the storage directory — instant O(1) on Unix via hard links, O(n) on Windows
+/// in the storage directory — hard links (O(1)) for the immutable bulk on
+/// Unix, copies for files the engine keeps writing to (WAL shards, HNSW
+/// image) so post-snapshot writes cannot mutate the snapshot; O(n) on Windows
 /// via fallback copy.
 #[derive(Debug, Clone)]
 pub struct FsSnapshot {
@@ -504,8 +506,35 @@ fn mirror_file(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<
     std::fs::copy(src, dst).map(|_| ())
 }
 
+/// Does the live engine keep writing to this `data_dir` file after a snapshot?
+///
+/// Hard-linking such a file lets every later write mutate the snapshot through
+/// the shared inode: the sharded WAL grows with post-snapshot records, so
+/// reopening the snapshot replays them (`test_hardlink_snapshot_independence`
+/// reopened with the *modified* payload — real isolation bug exposed by the
+/// ASan job). These files are small, so [`mirror_data_dir`] copies them
+/// instead. Only the bulk files that are not rewritten in place — the
+/// pre-allocated `vstore_L*.vanta` segments and the rotated WAL archives
+/// (`vanta.shard<N>.wal.<timestamp>`, renamed away by rotation and never
+/// appended afterwards) — stay hard-linked (the O(1) promise).
+fn is_mutable_after_snapshot(name: &std::ffi::OsStr) -> bool {
+    let name = name.to_string_lossy();
+    name == "vanta.wal" // single-shard WAL (wal_shards = 1)
+        || name == "vanta.wal.shards" // shard-layout sidecar
+        || name == ".wal_ship_marker" // wal-shipping progress marker (rewritten)
+        || name == "vector_index.bin" // HNSW image (rewritten by every flush)
+        // Active WAL shards `vanta.shard<N>.wal`. Rotated archives carry a
+        // `.wal.<timestamp>` suffix instead, so they do NOT match here.
+        || (name.starts_with("vanta.shard") && name.ends_with(".wal"))
+}
+
 /// Recursively mirror `src` into `dst`, hard-linking (Unix) or copying
 /// (Windows/WASM) regular files.
+///
+/// Files the live engine keeps writing to after the snapshot
+/// ([`is_mutable_after_snapshot`]) are ALWAYS copied — a hard link would let
+/// post-snapshot appends mutate the snapshot through the shared inode. Only
+/// the immutable bulk (segments, WAL archives) is hard-linked on Unix.
 ///
 /// Skips the `snapshots` subdirectory: it lives INSIDE `data_dir` (created by
 /// [`StorageEngine::create_snapshot`] itself), so recursing into it would nest
@@ -523,7 +552,12 @@ fn mirror_data_dir(src: &std::path::Path, dst: &std::path::Path) -> std::io::Res
             std::fs::create_dir_all(&sub)?;
             mirror_data_dir(&path, &sub)?;
         } else if path.is_file() {
-            mirror_file(&path, &dst.join(name))?;
+            let dst_path = dst.join(&name);
+            if is_mutable_after_snapshot(&name) {
+                std::fs::copy(&path, &dst_path).map(|_| ())?;
+            } else {
+                mirror_file(&path, &dst_path)?;
+            }
         }
     }
     Ok(())
@@ -539,6 +573,13 @@ fn mirror_data_dir(src: &std::path::Path, dst: &std::path::Path) -> std::io::Res
 /// local and must be acquired afresh by the next opener. Returns Ok(()) if the
 /// storage root is missing or has no backend files (InMemory engines store
 /// nothing on disk — see `init_storage`'s early return for `BackendKind::InMemory`).
+///
+/// fjall's ACTIVE journal (`<id>.jnl`, pre-allocated and opened in append
+/// mode) is copied, never hard-linked: post-snapshot backend writes append to
+/// the same inode, which would mutate the captured backend (same shared-inode
+/// class as the `data/` WAL in [`mirror_data_dir`]). Sealed journals (lower
+/// ids) are immutable until fjall deletes them — the hard link keeps their
+/// bytes alive across the unlink, so they stay hard-linked.
 fn mirror_backend_to(
     storage_root: &std::path::Path,
     snap_root: &std::path::Path,
@@ -546,6 +587,7 @@ fn mirror_backend_to(
     if !storage_root.exists() {
         return Ok(());
     }
+    let active_journal = active_journal_id(storage_root);
     let dst = snap_root.join("backend");
     std::fs::create_dir_all(&dst)?;
     for entry in std::fs::read_dir(storage_root)? {
@@ -558,10 +600,32 @@ fn mirror_backend_to(
             continue;
         }
         if path.is_file() {
-            mirror_file(&path, &dst.join(&name))?;
+            let is_active_journal =
+                active_journal.is_some_and(|id| name.to_string_lossy() == format!("{id}.jnl"));
+            if is_active_journal {
+                std::fs::copy(&path, dst.join(&name)).map(|_| ())?;
+            } else {
+                mirror_file(&path, &dst.join(&name))?;
+            }
         }
     }
     Ok(())
+}
+
+/// Highest `*.jnl` id under `storage_root` — fjall's active journal
+/// (`journal/recovery.rs` continues the max id; only that one is appended).
+/// `None` when no journal exists (or the directory is unreadable).
+fn active_journal_id(storage_root: &std::path::Path) -> Option<u64> {
+    let mut max_id: Option<u64> = None;
+    for entry in std::fs::read_dir(storage_root).ok()?.flatten() {
+        let name = entry.file_name();
+        if let Some(stem) = name.to_string_lossy().strip_suffix(".jnl") {
+            if let Ok(id) = stem.parse::<u64>() {
+                max_id = Some(max_id.map_or(id, |m: u64| m.max(id)));
+            }
+        }
+    }
+    max_id
 }
 
 impl StorageEngine {
@@ -623,9 +687,14 @@ impl StorageEngine {
     /// worse than a slower one. Callers needing high-frequency snapshots
     /// should rate-limit instead of bypassing the flush.
     ///
-    /// On Unix, files are hard-linked (O(1) per file — kernel directory
-    /// entries pointing at the same inode). On Windows/WASM, falls back to
-    /// [`std::fs::copy`] (O(n) per file). Subdirectories under `data_dir`
+    /// On Unix, immutable bulk files (the pre-allocated vstore segments and
+    /// the rotated WAL archives) are hard-linked (O(1) per file — kernel
+    /// directory entries pointing at the same inode); files the engine keeps
+    /// writing to after the snapshot (active WAL shards, HNSW image —
+    /// [`is_mutable_after_snapshot`]) are copied instead, so no post-snapshot
+    /// write can reach the snapshot through a shared inode. On Windows/WASM,
+    /// everything falls back to [`std::fs::copy`] (O(n) per file).
+    /// Subdirectories under `data_dir`
     /// (if any appear in future layouts) are mirrored recursively; the
     /// engine-owned `snapshots/` directory is excluded.
     ///
@@ -675,7 +744,16 @@ impl StorageEngine {
         // touch any file, so no writes are in-flight during the mirror and
         // the captured set is mutually consistent.
         let storage_root = self.data_dir.parent().unwrap_or(&self.data_dir);
-        mirror_data_dir(&self.data_dir, &snap_data)?;
+        {
+            // Quiesce writers across the data/ mirror: every mutating path
+            // appends its WAL record under `insert_lock` (ERR-010), so holding
+            // it here captures a coherent round-robin shard set (reopen runs
+            // `verify_shard_counts`) and freezes the hard-linked segments at
+            // the same point in time as the copied WAL/index files.
+            let _guard = self
+                .acquire_insert_lock("acquire insert_lock in create_snapshot (coherent mirror)")?;
+            mirror_data_dir(&self.data_dir, &snap_data)?;
+        }
         mirror_backend_to(storage_root, &snap_dir)?;
         Ok(FsSnapshot {
             path: snap_dir,
@@ -715,7 +793,14 @@ impl StorageEngine {
         }
 
         let storage_root = self.data_dir.parent().unwrap_or(&self.data_dir);
-        mirror_data_dir(&self.data_dir, &snap_data)?;
+        {
+            // Same coherent-mirror quiesce as the Unix variant: WAL appends
+            // run under `insert_lock` (ERR-010), so the copied shard set is a
+            // quiescent round-robin prefix (`verify_shard_counts` on reopen).
+            let _guard = self
+                .acquire_insert_lock("acquire insert_lock in create_snapshot (coherent mirror)")?;
+            mirror_data_dir(&self.data_dir, &snap_data)?;
+        }
         mirror_backend_to(storage_root, &snap_dir)?;
         Ok(FsSnapshot {
             path: snap_dir,
