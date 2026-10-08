@@ -12,7 +12,7 @@ description: "Canonical index of the VantaDB documentation corpus."
      Grouped by kind, then by status, then by title.
      Source of truth: the frontmatter of the files listed below. -->
 
-1572 documents. This page is generated from frontmatter, so it cannot fall behind the tree. If a document is missing here, its `kind` or `description` is missing.
+1573 documents. This page is generated from frontmatter, so it cannot fall behind the tree. If a document is missing here, its `kind` or `description` is missing.
 
 ## Top level (3)
 
@@ -68,7 +68,7 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [Write receipts (VER-10) — attestation of writes](./api/WRITE_RECEIPTS.md)       | reference | Verifiable write receipts emitted by put_certified (Rust SDK): content binding (sha256), VER-01 chain reference, canonical surfaces and declared limits; point-in-time verification via schema, integrity hash and live re-scan                            |
 | [vanta-proxy Reference (Endpoints, Opt-in Features, Config)](./api/PROXY.md)     | reference | vanta-proxy is a transparent LLM wire proxy: by default it forwards bytes                                                                                                                                                                                  |
 
-## Internal / contributor (1410)
+## Internal / contributor (1411)
 
 ### Architecture decision records — 58
 
@@ -193,7 +193,7 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [Workflows — Inventory (40 active)](./dev/workflow/README.md)                               | index | Per-workflow detail pages live next to this index (ci-gate.md,                                                                                                                                                                           |
 | [Reviews archivados (2026-08-26)](./dev/reviews/README.md)                                  | index | Estos 30 reportes son snapshots históricos de auditorías/reviews/investigaciones _(archived)_                                                                                                                                            |
 
-### Plans — 9
+### Plans — 10
 
 | Document                                                                                                               | Kind | Summary                                                                                                                                                                                                                                                                                                  |
 | ---------------------------------------------------------------------------------------------------------------------- | ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -201,6 +201,7 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [Plan Maestro: Release 0.9.0 + Memoria 1.0 (post-0.8.0)](./dev/plans/2026-10-04-master-plan-0.9.0.md)                  | plan | SDP v3 (taskType mixto): campaign-executor · progreso · planning-and-task-breakdown · ci-cd-and-automation · shipping-and-launch · documentation-and-adrs · source-driven-development · git-workflow-and-versioning — F0 release-ready (21 tareas full-detail) + F1-F5 campaña (profundización por fase) |
 | [Plan de Consolidación Documental — enlaces, metadata, índices y skill](./dev/plans/2026-09-28-docs-consolidation.md)  | plan | documentation-skill → campaign-executor → progreso → writing-plans → systematic-debugging → writing-guidelines                                                                                                                                                                                           |
 | [Plan de Ejecución: Master Roadmap VantaDB — de 0.7.x a 1.0 (fuente única)](./dev/plans/2026-09-26-master-roadmap.md)  | plan | SDP: campaign-executor · progreso · writing-plans · planning-and-task-breakdown · api-and-interface-design · spec-driven-development · documentation-and-adrs · writing-guidelines                                                                                                                       |
+| [Plan de campaña: feedback Ego (EGO-01..07) para release 0.9.0](./dev/plans/2026-10-08-ego-feedback-0.9.0.md)          | plan | 7 hallazgos de integración real Ego x VantaDB (bugs, inconsistencias, mejoras) con fix, contrato mecánico y gates para el tren 0.9.0.                                                                                                                                                                    |
 | [Upstream PR draft — CrewAI](./dev/plans/artifacts/mkt-18f-prs/crewai.md)                                              | plan | Prereq (bloquea merge upstream): publicar vantadb-crewai en PyPI (tag adapters-v0.5.0)                                                                                                                                                                                                                   |
 | [Upstream PR draft — DSPy](./dev/plans/artifacts/mkt-18f-prs/dspy.md)                                                  | plan | Prereq (bloquea merge upstream): publicar vantadb-dspy en PyPI (tag adapters-v0.5.0)                                                                                                                                                                                                                     |
 | [Upstream PR draft — LangChain](./dev/plans/artifacts/mkt-18f-prs/langchain.md)                                        | plan | Prereq (bloquea merge upstream): publicar vantadb-langchain en PyPI (tag adapters-v0.5.0). Upstream no linkea paquetes 404                                                                                                                                                                               |
