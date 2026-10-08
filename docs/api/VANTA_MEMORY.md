@@ -175,6 +175,26 @@ Rules:
   and the WASM port gap list captured as `FIND-255`.
 - Triggers are reviewed at release-train time, not continuously.
 
+## Consumer status (host-gated primitives — 2026-10-08)
+
+Several delivered primitives have **no in-repo consumer yet by design**.
+Wiring them speculatively (without a host that defines the policy) was
+explicitly rejected (precedent: MEMG-21 pre-mortem #2). The natural consumer
+is a host agent runtime via `DIST-19` (`VantaCognitiveAPI`) — e.g. Ego.
+
+| Primitive | Status | Tracked in | Consumer / trigger |
+|---|---|---|---|
+| Composite scoring + reflection (`perform_auto_recall_scored`, `reflect_session`) | Opt-in, byte-identical by default | `FIND-290` | Host config + scheduler (`WIRE-15`); lesson promotion with quality gate |
+| L1 decay pass + prune gate (`run_decay_pass`, `is_prune_eligible`) | Read-only pass delivered; auto-prune out of contract | `FIND-289` | Maintenance cycle of the host/scheduler |
+| Task checkpoints (`begin`/`advance`/`load`) | API + resume test delivered | `FIND-288` | Host wires `begin`/`advance`/`load` per task |
+| Tool-call offload hook (`AfterToolCallHook`) | Storage + cursor + reclaimer delivered | `FIND-295` | Host post-tool-call capture, or declared host-API |
+| Core filters in recall (`min_confidence`, `as_of_ms`, `filters`) | Partially consumed (cursor + quarantine already wired) | `FIND-286` | Concrete consumer + product decision (recall "as of T") |
+| IQL from `vanta-memory` | Evaluated and deferred (would change ranking semantics) | `FIND-285` | Demand + dual-path by flag |
+| `governance.source` schema field | Zero hits (hygiene) | `FIND-282` | Remove or first caller |
+
+Rule: a row leaves this table only when a host consumes it (wiring PR) or a
+decision retires it — never by speculative wiring.
+
 ## Feature flags
 
 All optional; the default build stays lean and LLM-free.
