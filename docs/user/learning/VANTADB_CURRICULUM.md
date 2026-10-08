@@ -129,7 +129,7 @@ Everything in the curriculum builds toward those four abilities. Anything that d
 **What to learn (in order):**
 - **Embeddings first (conceptually):** what a vector is, cosine similarity, dimensions, why embedding models map semantics. Read `docs/user/glosario/vectors.md`, `vector-similarity.md`.
 - **HNSW:** the algorithm (multi-layer graph, `M`, `ef_construction`, `ef_search`), how recall/latency trade off, persistence via mmap, the known concurrency issue (AUD-03: rebuild vs lookup). Read the `docs/user/glosario/hnsw.md` fully — it even has the SIMD and cache-friendly optimizations.
-- **BM25:** the inverted index, tokenizer (`lowercase-ascii-alnum`, `docs/dev/architecture/TEXT_INDEX_DESIGN.md`), `k1=1.2`, `b=0.75`, IDF formula, phrase matching over token positions.
+- **BM25:** the inverted index, tokenizer (`lowercase-alnum` v2, `docs/dev/architecture/TEXT_INDEX_DESIGN.md`), `k1=1.2`, `b=0.75`, IDF formula, phrase matching over token positions.
 - **RRF fusion** (`docs/user/glosario/rrf.md`): why it ignores raw scores and fuses ranks, `k=60`, the candidate-budget logic from TEXT_INDEX_DESIGN.md.
 - **Recall / ANN metrics:** read `docs/user/glosario/recall.md`, `ann.md`. Learn to *measure*, not just run.
 

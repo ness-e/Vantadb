@@ -61,7 +61,7 @@ Regla: `vantadb-node/src/lib.rs` se toca en EGO-01, EGO-05 (si el wire lo exige)
 - **Task file:** `docs/dev/tasks/EGO-01.md`
 - **Estado:** ✅ COMPLETED (unit 8/8 + napi 29/29; review degradado pendiente externo)
 - **Branch:** develop
-- **Commit:**
+- **Commit:** `82317d89`
 
 - **Pre-mortem:**
   1. `get_opt_u64` tiene semántica distinta (f64 vs Value) → adaptar, no llamar a ciegas.
@@ -183,9 +183,9 @@ Regla: `vantadb-node/src/lib.rs` se toca en EGO-01, EGO-05 (si el wire lo exige)
 - **Gate Result:** ✅ DO
 - **Contrato:** `tokenize("¿Cuáles son los principios?")` contiene `cuáles` y `principios` (sin fragmentos `cu`/`les`); `TOKENIZER_VERSION` bumpeada; índice viejo → rebuild/reindex verificado (no panic, no corrupción silenciosa); suite text_index verde.
 - **Task file:** `docs/dev/tasks/EGO-04.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (lib 73/73 + recovery 17/17; review degradado pendiente externo)
 - **Branch:** develop
-- **Commit:**
+- **Commit:** `1c9ff1a0`
 
 - **Pre-mortem:**
   1. Cambio de formato on-disk sin migración → DBs 0.8.0 ilegibles o, peor, leídas a medias; definir rebuild automático o error explícito.
