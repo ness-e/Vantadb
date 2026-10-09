@@ -154,4 +154,4 @@ Want to see the query planner and RRF in action? Get the engine in one line:
 pip install vantadb-py
 ```
 
-Join the community on Discord and star the [VantaDB repository](https://github.com/ness-e/Vantadb). For a deeper look at why we chose LSM-trees and BFS compaction over a B-tree, read [SQLite for AI Agents: Benchmarks and Architecture Decisions](/blog/sqlite-for-ai-agents).
+Join the community on Discord and star the [VantaDB repository](https://github.com/ness-e/Vantadb). For a deeper look at why we chose LSM-trees and BFS compaction over a B-tree, read [SQLite for AI Agents: Benchmarks and Architecture Decisions](./sqlite_for_ai_agents.md).

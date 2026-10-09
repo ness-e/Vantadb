@@ -8,7 +8,9 @@
 use pyo3::buffer::PyBuffer;
 use pyo3::exceptions::{PyRuntimeError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::{PyAnyMethods, PyDict, PyDictMethods, PyModuleMethods, PyTuple};
+use pyo3::types::{
+    PyAnyMethods, PyDict, PyDictMethods, PyList, PyListMethods, PyModuleMethods, PyTuple,
+};
 use std::collections::HashMap;
 use vantadb::config::Config;
 use vantadb::index::IndexType;
@@ -17,9 +19,16 @@ use vantadb::sdk::{
     Embedded, MemoryInput, MemoryListOptions, MemorySearchRequest, NodeInput, ValidWindow,
 };
 // FFI guards: single source of truth from core (WSM-09).
-use vantadb::{DistanceMetric, MAX_K};
+use vantadb::{DistanceMetric, MAX_K, MAX_VEC_DIM};
 // Durability gate + ERR-022 clamp policy: shared std-only leaf (WIRE-07).
 use vantadb_ffi_core::{OpGate, OpGuard};
+// DIST-02: cognitive layer (L0 capture / recall) — all logic lives in the
+// crate (api-contract R-8); this binding is glue + type mapping.
+use vanta_memory::core::conversation::L0Error;
+use vanta_memory::core::hooks::{
+    perform_auto_recall, AutoCaptureConfig, AutoCaptureHook, AutoRecallParams, RawMessage,
+    RecallConfig, RecallError, RecallMode, RecallResult, RecallScope,
+};
 
 mod convert;
 use convert::parse_direction;
@@ -567,6 +576,117 @@ fn record_to_memory_input(py: Python<'_>, record: &Bound<'_, PyAny>) -> PyResult
     }
 
     Ok(input)
+}
+
+// ---------------------------------------------------------------------------
+// Cognitive layer (DIST-02): vanta-memory glue
+//
+// Thin wrappers over `vanta-memory` (L0 capture + recall). All logic lives in
+// the crate (api-contract R-8): this section parses Python arguments, releases
+// the GIL, and maps the crate's result structs to plain dicts — the same
+// mirror shape the desktop host consumes
+// (`desktop/src-tauri/src/commands/memory.rs`).
+// ---------------------------------------------------------------------------
+
+/// Parse one Python message dict into a `RawMessage`.
+fn parse_raw_message(index: usize, msg: &Bound<'_, PyAny>) -> PyResult<RawMessage> {
+    let dict = msg.cast::<PyDict>().map_err(|_| {
+        PyTypeError::new_err(format!(
+            "messages[{index}] must be a dict with 'role' and 'content'"
+        ))
+    })?;
+    let role = dict
+        .get_item("role")?
+        .ok_or_else(|| PyValueError::new_err(format!("messages[{index}] is missing 'role'")))?
+        .extract::<String>()
+        .map_err(|_| PyTypeError::new_err(format!("messages[{index}]['role'] must be a str")))?;
+    let content = dict
+        .get_item("content")?
+        .ok_or_else(|| PyValueError::new_err(format!("messages[{index}] is missing 'content'")))?
+        .extract::<String>()
+        .map_err(|_| PyTypeError::new_err(format!("messages[{index}]['content'] must be a str")))?;
+    let id = match dict.get_item("id")? {
+        Some(value) if !value.is_none() => Some(value.extract::<String>().map_err(|_| {
+            PyTypeError::new_err(format!("messages[{index}]['id'] must be a str or None"))
+        })?),
+        _ => None,
+    };
+    let timestamp_ms = match dict.get_item("timestamp_ms")? {
+        Some(value) if !value.is_none() => Some(value.extract::<u64>().map_err(|_| {
+            PyTypeError::new_err(format!(
+                "messages[{index}]['timestamp_ms'] must be an int or None"
+            ))
+        })?),
+        _ => None,
+    };
+    Ok(RawMessage {
+        id,
+        role,
+        content,
+        timestamp_ms,
+    })
+}
+
+/// Parse the Python `scope` argument into a `RecallScope` (default: agent).
+fn parse_recall_scope(value: Option<&str>) -> PyResult<RecallScope> {
+    match value {
+        None | Some("agent") => Ok(RecallScope::Agent),
+        Some("session") => Ok(RecallScope::Session),
+        Some("team") => Ok(RecallScope::Team),
+        Some(other) => Err(PyValueError::new_err(format!(
+            "Unknown recall scope \"{other}\" — known values: session, agent, team"
+        ))),
+    }
+}
+
+/// Map an L0 capture error into the Python exception hierarchy.
+fn map_l0_error(err: L0Error) -> PyErr {
+    match err {
+        L0Error::Vanta(core) => map_vanta_error(core),
+        L0Error::InvalidRole(role) => PyValueError::new_err(format!("invalid L0 role: {role}")),
+        L0Error::Cursor(cursor) => {
+            CorruptError::new_err(format!("malformed cursor payload: {cursor}"))
+        }
+    }
+}
+
+/// Map a recall error into the Python exception hierarchy.
+fn map_recall_error(err: RecallError) -> PyErr {
+    match err {
+        RecallError::Vanta(core) => map_vanta_error(core),
+        other => PyRuntimeError::new_err(format!("memory recall failed: {other}")),
+    }
+}
+
+/// Effective recall mode as its wire tag (TDAM `cfg.recall.strategy`).
+fn recall_mode_tag(mode: RecallMode) -> &'static str {
+    match mode {
+        RecallMode::Keyword => "keyword",
+        RecallMode::Embedding => "embedding",
+        RecallMode::Hybrid => "hybrid",
+    }
+}
+
+/// Convert a recall result into a plain Python dict (mirror of the desktop
+/// `RecallOutcome`; `RecallResult` is not `Serialize`).
+fn recall_result_to_pydict(py: Python<'_>, result: RecallResult) -> PyResult<Py<PyAny>> {
+    let dict = PyDict::new(py);
+    dict.set_item("prepend_context", result.prepend_context)?;
+    dict.set_item("append_system_context", result.append_system_context)?;
+    let memories = PyList::empty(py);
+    for memory in &result.recalled_memories {
+        let entry = PyDict::new(py);
+        entry.set_item("content", &memory.content)?;
+        entry.set_item("score", memory.score)?;
+        entry.set_item("type", &memory.memory_type)?;
+        entry.set_item("source_namespace", &memory.source_namespace)?;
+        entry.set_item("source_key", &memory.source_key)?;
+        memories.append(entry)?;
+    }
+    dict.set_item("recalled_memories", memories)?;
+    dict.set_item("persona", result.persona)?;
+    dict.set_item("effective_mode", recall_mode_tag(result.effective_mode))?;
+    Ok(dict.unbind().into())
 }
 
 #[pymethods]
@@ -1347,6 +1467,103 @@ impl Client {
             .collect()
     }
 
+    /// Run the GraphRAG pipeline: seed → expand → retrieve → generate context.
+    ///
+    /// Exposes `Embedded::graphrag_search` with the default pipeline
+    /// configuration (seed_k=10, expansion_hops=2, max_expansion_nodes=100,
+    /// retrieval_top_k=20). At least one of ``query`` / ``query_vector``
+    /// should be provided; both may be combined (hybrid seeds).
+    ///
+    /// GIL Policy: RELEASED — pure Rust search + BFS expansion + ranking.
+    ///
+    /// Args:
+    ///     namespace: Namespace whose records seed the pipeline.
+    ///     query: Optional text query for lexical (BM25) seeds.
+    ///     query_vector: Optional dense vector for ANN seeds (list, NumPy
+    ///         array, or ``Vector``).
+    ///
+    /// Returns:
+    ///     dict: ``{"nodes": [{"id", "content", "score", "hop_distance"}],
+    ///     "edges": [{"source", "target", "label"}],
+    ///     "context_text": str, "stats": {"seeds_found", "nodes_expanded",
+    ///     "total_candidates", "expansion_hops_used"}}`` — the canonical wire
+    ///     shape shared with the WASM/TS/Node bindings. u128 ids are native
+    ///     ints here; JSON transports carry them as decimal strings.
+    ///
+    /// Raises:
+    ///     ValidationError: The query vector exceeds the dimension cap.
+    ///     StorageError: The underlying engine read failed.
+    ///
+    /// Example:
+    ///     ```python
+    ///     >>> from vantadb_py import Client
+    ///     >>> db = Client(":memory:", backend="memory")
+    ///     >>> db.put("docs", "a", "vector database for agents", vector=[0.1, 0.2, 0.3])
+    ///     >>> result = db.graphrag_search("docs", query="vector database")
+    ///     >>> result["stats"]["seeds_found"] >= 1
+    ///     True
+    ///     ```
+    #[pyo3(signature = (namespace, query=None, query_vector=None))]
+    fn graphrag_search(
+        &self,
+        py: Python<'_>,
+        namespace: &str,
+        query: Option<String>,
+        query_vector: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<Py<PyAny>> {
+        let _g = enter(&self.op_gate)?;
+        let vector = match query_vector {
+            Some(v) => Some(extract_vector(v, py)?),
+            None => None,
+        };
+        if let Some(v) = &vector {
+            if v.len() > MAX_VEC_DIM {
+                return Err(ValidationError::new_err(format!(
+                    "graphrag_search: query_vector length {} exceeds max {MAX_VEC_DIM}",
+                    v.len()
+                )));
+            }
+        }
+        let namespace = namespace.to_string();
+        let engine = self.engine.clone();
+        // GIL RELEASED: pure Rust — seed search + graph expansion + ranking.
+        let result = py.detach(move || {
+            engine
+                .graphrag_search(&namespace, query.as_deref(), vector.as_deref())
+                .map_err(map_vanta_error)
+        })?;
+
+        let dict = PyDict::new(py);
+        let nodes = PyList::empty(py);
+        for node in &result.nodes {
+            let node_dict = PyDict::new(py);
+            node_dict.set_item("id", node.id)?;
+            node_dict.set_item("content", &node.content)?;
+            node_dict.set_item("score", node.score)?;
+            node_dict.set_item("hop_distance", node.hop_distance)?;
+            nodes.append(node_dict)?;
+        }
+        let edges = PyList::empty(py);
+        for edge in &result.edges {
+            let edge_dict = PyDict::new(py);
+            edge_dict.set_item("source", edge.source)?;
+            edge_dict.set_item("target", edge.target)?;
+            edge_dict.set_item("label", &edge.label)?;
+            edges.append(edge_dict)?;
+        }
+        let stats = PyDict::new(py);
+        stats.set_item("seeds_found", result.stats.seeds_found)?;
+        stats.set_item("nodes_expanded", result.stats.nodes_expanded)?;
+        stats.set_item("total_candidates", result.stats.total_candidates)?;
+        stats.set_item("expansion_hops_used", result.stats.expansion_hops_used)?;
+
+        dict.set_item("nodes", nodes)?;
+        dict.set_item("edges", edges)?;
+        dict.set_item("context_text", &result.context_text)?;
+        dict.set_item("stats", stats)?;
+        Ok(dict.unbind().into())
+    }
+
     /// Rebuild ANN and derived memory indexes from canonical storage.
     ///
     /// GIL Policy: RELEASED — allows Python threads to run during index rebuild.
@@ -1414,7 +1631,7 @@ impl Client {
     ///
     /// Returns:
     ///     dict: Export report with keys ``records_exported``, ``namespaces``,
-    ///     ``path``, and ``duration_ms``.
+    ///     ``path``, ``duration_ms``, ``sha256``, and ``manifest_path``.
     ///
     /// Raises:
     ///     StorageError: If the target directory does not exist.
@@ -1456,7 +1673,7 @@ impl Client {
     ///
     /// Returns:
     ///     dict: Export report with keys ``records_exported``, ``namespaces``,
-    ///     ``path``, and ``duration_ms``.
+    ///     ``path``, ``duration_ms``, ``sha256``, and ``manifest_path``.
     ///
     /// Raises:
     ///     StorageError: If the target directory does not exist.
@@ -1945,6 +2162,124 @@ impl Client {
                 .add_edge(source_id, target_id, &label_str, weight, created_at_ms)
                 .map_err(map_vanta_error)
         })
+    }
+
+    /// Capture conversation turns into the L0 memory layer (LLM-free).
+    ///
+    /// Records each message through the idempotent L0 recorder (per-session
+    /// cursor: a replayed turn is never duplicated). Roles other than
+    /// ``user``/``assistant``, empty content and code-only assistant messages
+    /// are filtered — never lost silently. No LLM is involved: capture can
+    /// never block on a runner.
+    ///
+    /// GIL Policy: RELEASED — pure Rust role filtering, sanitizing and L0
+    /// storage writes.
+    ///
+    /// Args:
+    ///     session_id: Session whose turns are being captured.
+    ///     messages: List of dicts with ``role`` (``"user"``/``"assistant"``)
+    ///         and ``content``; optional ``id`` (str) and ``timestamp_ms``
+    ///         (int, Unix ms — defaults to now).
+    ///
+    /// Returns:
+    ///     dict: ``{"recorded_count": int, "filtered_messages": int,
+    ///     "cursor_ms": int}``.
+    ///
+    /// Raises:
+    ///     ValueError: A message is missing ``role``/``content``.
+    ///     TypeError: ``messages`` is not a list of dicts, or a field has the
+    ///         wrong type.
+    ///     StorageError: The underlying engine write failed.
+    #[pyo3(signature = (session_id, messages))]
+    fn memory_capture(
+        &self,
+        py: Python<'_>,
+        session_id: &str,
+        messages: Vec<Bound<'_, PyAny>>,
+    ) -> PyResult<Py<PyAny>> {
+        let _g = enter(&self.op_gate)?;
+        // Parse while the GIL is held; the detached closure only sees owned
+        // Rust values (never Python objects).
+        let parsed: PyResult<Vec<RawMessage>> = messages
+            .iter()
+            .enumerate()
+            .map(|(index, msg)| parse_raw_message(index, msg))
+            .collect();
+        let parsed = parsed?;
+        let session_id = session_id.to_string();
+        let engine = self.engine.clone();
+        // GIL RELEASED: pure Rust — filtering, sanitizing, L0 writes.
+        let result = py.detach(move || {
+            let hook = AutoCaptureHook::new(engine, AutoCaptureConfig::default());
+            hook.capture(&session_id, parsed).map_err(map_l0_error)
+        })?;
+        let dict = PyDict::new(py);
+        dict.set_item("recorded_count", result.recorded_count)?;
+        dict.set_item("filtered_messages", result.filtered_messages)?;
+        dict.set_item("cursor_ms", result.cursor_ms)?;
+        Ok(dict.unbind().into())
+    }
+
+    /// Recall memories for the current turn: relevant L1 memories + persona +
+    /// scene navigation (LLM-free).
+    ///
+    /// Returns ``None`` when there is nothing to inject — never an empty
+    /// block. Without an embedding provider attached, ``hybrid`` degrades to
+    /// keyword overlap and ``effective_mode`` reports the degradation (D38).
+    ///
+    /// GIL Policy: RELEASED — pure Rust storage reads + scoring.
+    ///
+    /// Args:
+    ///     user_text: Raw user text of the current turn (empty still injects
+    ///         persona/scene navigation).
+    ///     session_key: Session whose L1 records / scenes are searched.
+    ///     scope: Cross-session reach — ``"session"``, ``"agent"`` (default)
+    ///         or ``"team"``.
+    ///     max_results: Maximum memories injected per turn (default 5).
+    ///
+    /// Returns:
+    ///     dict | None: ``{"prepend_context", "append_system_context",
+    ///     "recalled_memories", "persona", "effective_mode"}``, or ``None``
+    ///     when nothing is available to inject.
+    ///
+    /// Raises:
+    ///     ValueError: Unknown ``scope``.
+    ///     StorageError: The underlying engine read failed.
+    #[pyo3(signature = (user_text, session_key, scope=None, max_results=None))]
+    fn memory_recall(
+        &self,
+        py: Python<'_>,
+        user_text: &str,
+        session_key: &str,
+        scope: Option<&str>,
+        max_results: Option<usize>,
+    ) -> PyResult<Option<Py<PyAny>>> {
+        let _g = enter(&self.op_gate)?;
+        let mut config = RecallConfig {
+            scope: parse_recall_scope(scope)?,
+            ..RecallConfig::default()
+        };
+        if let Some(max_results) = max_results {
+            config.max_results = max_results;
+        }
+        let user_text = user_text.to_string();
+        let session_key = session_key.to_string();
+        let engine = self.engine.clone();
+        // GIL RELEASED: pure Rust — L1 scoring + persona/scene reads.
+        let result = py.detach(move || {
+            let params = AutoRecallParams {
+                user_text: &user_text,
+                session_key: &session_key,
+                isolation: None,
+                config,
+            };
+            // No embedding hook: hybrid/embedding degrade to keyword (D38).
+            perform_auto_recall(&engine, params, None).map_err(map_recall_error)
+        })?;
+        match result {
+            Some(result) => Ok(Some(recall_result_to_pydict(py, result)?)),
+            None => Ok(None),
+        }
     }
 
     /// Flush and close the embedded engine handle.

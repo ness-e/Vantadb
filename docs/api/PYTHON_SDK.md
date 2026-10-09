@@ -2,7 +2,7 @@
 title: Python SDK Documentation
 kind: reference
 status: active
-description: "Note: For more details on search execution, see Hybrid Search"
+description: "Python SDK reference — Client, memory records, cognitive layer (memory_capture/memory_recall), async client and typed errors"
 tags: [vantadb, api]
 type: api
 last_reviewed: "2026-09-15"
@@ -125,7 +125,7 @@ db.system.flush()
 Notes:
 
 - Each attribute returns a lightweight delegate that holds a reference to the parent `Client`; calls are forwarded with identical signatures and results.
-- The full member lists per sub-client are fixed by [`BINDINGS_NAMESPACES.md`](BINDINGS_NAMESPACES.md) (Python section). Counts by sub-client: memory 19 (16 forwards + 3 real) · graph 11 · system 18 · wiki 1; the flat `Client` surface totals 46 methods (16 memory + 11 graph + 18 system + 1 wiki).
+- The full member lists per sub-client are fixed by [`BINDINGS_NAMESPACES.md`](BINDINGS_NAMESPACES.md) (Python section). Counts by sub-client: memory 19 (16 forwards + 3 real) · graph 11 · system 18 · wiki 1; the flat `Client` surface totals 48 methods (18 memory + 11 graph + 18 system + 1 wiki — the two extra are the cognitive-layer methods below, which are flat-only).
 - `AsyncClient` exposes `db.memory` (`get`/`list`/`delete`); all other
   async methods stay flat.
 
@@ -422,6 +422,126 @@ for hit in hits:
 
 Raises `RuntimeError` if the source `key` does not exist or has no vector.
 
+### GraphRAG (`graphrag_search`)
+
+```python
+db.graphrag_search(
+    namespace: str,
+    query: str | None = None,
+    query_vector: Any | None = None,
+) -> dict
+```
+
+Runs the GraphRAG pipeline (seed → expand → retrieve → generate context) with
+the default configuration (`seed_k=10`, `expansion_hops=2`,
+`max_expansion_nodes=100`, `retrieval_top_k=20`). At least one of `query` /
+`query_vector` should be provided; both may be combined (hybrid seeds).
+GIL-released (pure Rust search + BFS expansion + ranking).
+
+Returns the canonical wire dict shared with the WASM/TS/Node bindings:
+
+```python
+{
+    "nodes": [{"id": int, "content": str, "score": float, "hop_distance": int}],
+    "edges": [{"source": int, "target": int, "label": str}],
+    "context_text": str,   # LLM-ready block; empty when no seeds
+    "stats": {"seeds_found": int, "nodes_expanded": int,
+              "total_candidates": int, "expansion_hops_used": int},
+}
+```
+
+u128 ids are native ints on the Python wire (the JSON transports carry decimal
+strings, API-01). A `query_vector` above `MAX_VEC_DIM` (10 000) raises
+`ValidationError`.
+
+```python
+rec_a = db.put("docs", "a", "vector database for agents", vector=[0.1, 0.2, 0.3])
+rec_b = db.put("docs", "b", "graph expansion uses edges", vector=[0.2, 0.3, 0.4])
+db.add_edge(rec_a.node_id, rec_b.node_id, "uses")
+
+result = db.graphrag_search("docs", query="vector database")
+print(result["context_text"])
+```
+
+Full pipeline semantics and the per-binding wire shape:
+[`GRAPH_RAG.md`](GRAPH_RAG.md).
+
+### Cognitive Layer (`memory_capture` / `memory_recall`)
+
+The cognitive layer of `vanta-memory` (L0 capture + recall) is exposed on the
+`Client` (and wrapped by `AsyncClient`). Both operations are **LLM-free by
+construction** (P4): capture never blocks on a runner and recall degrades to
+keyword overlap when no embedding provider is attached — `effective_mode`
+reports the mode actually executed.
+
+#### `memory_capture()`
+
+```python
+db.memory_capture(
+    session_id: str,
+    messages: list[dict],
+) -> dict
+```
+
+Records conversation turns into the L0 layer through the idempotent recorder
+(per-session cursor: a replayed turn is never duplicated). Roles other than
+`user`/`assistant`, empty content and code-only assistant messages are
+filtered. Each message dict:
+`{"role": "user" | "assistant", "content": str, "id"?: str, "timestamp_ms"?: int}`.
+
+Returns `{"recorded_count": int, "filtered_messages": int, "cursor_ms": int}`.
+Captured turns live under the `l0/<session_id>` namespace and are readable
+with the normal memory API (`db.memory.list("l0/<session_id>")`).
+
+#### `memory_recall()`
+
+```python
+db.memory_recall(
+    user_text: str,
+    session_key: str,
+    scope: str | None = None,        # "session" | "agent" (default) | "team"
+    max_results: int | None = None,  # default 5
+) -> dict | None
+```
+
+Returns what to inject for the current turn — L1 memories to **prepend** to
+the user prompt (`prepend_context`) and persona + scene navigation + tools
+guide to **append** to the system prompt (`append_system_context`) — or
+`None` when there is nothing to inject (never an empty block).
+`recalled_memories` carries the structured hits
+(`content` / `score` / `type` / `source_namespace` / `source_key`).
+
+> **Recall pool:** `memory_recall` reads the **derived** layers (L1 memories,
+> L2 scenes, L3 persona) — never the raw L0 turns. LLM-free capture stores L0
+> only, so a recall right after `memory_capture` returns `None` until memories
+> are derived by the pipeline (LLM runner / `dream`, not exposed in Python
+> yet) or written to `l1/<session>` directly. L1 payloads the reader cannot
+> parse are skipped silently; valid `type` values are `persona`, `episodic`,
+> `instruction`, `work_fact`, `work_task`, `work_method`, `work_artifact`
+> (see [`VANTA_MEMORY.md`](VANTA_MEMORY.md) for the crate's namespace/wire
+> contracts).
+
+```python
+# Capture the turn into L0 (LLM-free): stored, never lost.
+db.memory_capture("sess-1", [
+    {"role": "user", "content": "I prefer dark mode", "timestamp_ms": 1000},
+    {"role": "assistant", "content": "Noted!", "timestamp_ms": 1001},
+])
+
+# Recall reads the derived layers — e.g. an L1 memory in `l1/<session>`
+# (written by the memory pipeline when a runner derives it, or by the host).
+result = db.memory_recall("What display mode do I prefer?", "sess-1")
+if result is not None:
+    user_prompt = (result["prepend_context"] or "") + user_prompt
+    system_prompt = (result["append_system_context"] or "") + system_prompt
+```
+
+> **Scope (DIST-02):** minimal viable surface — capture + recall (sync and
+> async). Idle consolidation (`dream`) and recall budgets/isolation are
+> follow-ups; [`VANTA_MEMORY.md`](VANTA_MEMORY.md) documents the full crate
+> surface. The layer is Python-only for now (TS/WASM scope tracked by
+> DIST-03).
+
 ### Node / Graph API (Low-Level)
 
 #### `insert_node()` (W1/API-02)
@@ -450,11 +570,12 @@ db.get_node(
     id: int,
 ) -> Optional[dict]
 ```
-Retrieve a graph node by its numeric ID. Returns a dict with `id`, `vector`, `vector_dims`, `fields`, `edges`, `confidence_score`, `importance`, `hits`, `tier`, and `is_alive`, or `None` if not found. GIL-released.
+Retrieve a graph node by its numeric ID. Returns a dict with `id`, `vector`, `vector_dims`, `fields`, `edges`, `confidence_score`, `importance`, `hits`, `tier`, and `is_alive`, or `None` if not found. The `content` passed to `insert_node()` is stored as `fields["content"]` (extra `fields={...}` keys sit alongside it). GIL-released.
 
 ```python
 node = db.get_node(id=42)
 if node:
+    print(node["fields"]["content"])  # "VantaDB is a vector-graph database."
     print(node["fields"], node["vector_dims"])
 ```
 
@@ -721,13 +842,15 @@ db.bulk_import(
 ```
 Bulk-import records from a binary `.vdbdump` file. Returns a dict with `total_records`, `batches_committed`, `duration_ms`. GIL-released.
 
+> **Format bridge:** `.vdbdump` is the **binary** bulk format (magic `VDBJSON\n`), not the JSONL written by [`export_namespace()`](#export_namespace) / [`export_all()`](#export_all). To re-import a JSONL export, use [`import_file()`](#import_file). Layout spec: [EMBEDDED_SDK.md § Bulk Import](./EMBEDDED_SDK.md#bulk-import).
+
 #### `bulk_import_bytes()`
 ```python
 db.bulk_import_bytes(
     data: bytes,
 ) -> Dict[str, Any]
 ```
-Bulk-import records from binary bytes (`.vdbdump` format). Returns a dict with `total_records`, `batches_committed`, `duration_ms`. GIL-released.
+Bulk-import records from binary bytes (`.vdbdump` format). Returns a dict with `total_records`, `batches_committed`, `duration_ms`. GIL-released. Same binary format as [`bulk_import()`](#bulk_import) (magic `VDBJSON\n`) — for JSONL exports use [`import_file()`](#import_file).
 
 #### `recover_archived_nodes()`
 ```python
@@ -825,7 +948,7 @@ print(f"Active namespaces: {namespaces}")
 ```python
 db.export_namespace(path: str, namespace: str) -> dict
 ```
-Export a single namespace as a JSONL file. Returns a report dict with `records_exported`, `path`, and `duration_ms`. GIL-released.
+Export a single namespace as a JSONL file. Returns a report dict with `records_exported`, `namespaces`, `path`, `duration_ms`, `sha256`, and `manifest_path`. Also writes the integrity manifest sidecar (`<path>.manifest.json`, sha256 over the export bytes — see [MEMORY_INTERCHANGE_FORMAT.md § Integrity manifest](./MEMORY_INTERCHANGE_FORMAT.md#integrity-manifest)). GIL-released. The output is JSONL; import it back with [`import_file()`](#import_file) — not the binary [`bulk_import()`](#bulk_import) family.
 
 ```python
 report = db.export_namespace("/tmp/export.jsonl", "agent/main")
@@ -836,7 +959,7 @@ print(f"Exported {report['records_exported']} records")
 ```python
 db.export_all(path: str) -> dict
 ```
-Export all namespaces as a single JSONL file. Returns a report dict with `records_exported`, `namespaces`, and `duration_ms`. GIL-released.
+Export all namespaces as a single JSONL file. Returns a report dict with `records_exported`, `namespaces`, `duration_ms`, `sha256`, and `manifest_path`. Also writes the integrity manifest sidecar (`<path>.manifest.json`). GIL-released. The output is JSONL; import it back with [`import_file()`](#import_file).
 
 ```python
 report = db.export_all("/tmp/full_backup.jsonl")
@@ -847,7 +970,7 @@ print(f"All-namespace export: {report}")
 ```python
 db.import_file(path: str) -> dict
 ```
-Import records from a VantaDB memory JSONL export file. Returns a report dict with `inserted`, `updated`, `skipped`, `errors`, and `duration_ms`. GIL-released.
+Import records from a VantaDB memory JSONL export file. Returns a report dict with `inserted`, `updated`, `skipped`, `errors`, and `duration_ms`. GIL-released. This is the inverse of the JSONL exports above; for the binary `.vdbdump` format use [`bulk_import()`](#bulk_import) / [`bulk_import_bytes()`](#bulk_import_bytes).
 
 ```python
 report = db.import_file("/tmp/export.jsonl")

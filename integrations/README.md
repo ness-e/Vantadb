@@ -1,25 +1,36 @@
-# VantaDB integrations (9 adapters)
+# VantaDB integrations (7 adapters + 2 superseded twins)
 
 Python adapters standalone. Cada uno vive en su carpeta con `pyproject.toml`,
-tests propios y README. Ninguno se publica por separado a mano: el release
-es el workflow `release-adapters.yml` (tag manual `adapters-v*`).
+tests propios y README. Los 7 adapters publicables se liberan juntos via el
+workflow `release-adapters.yml` (tag manual `adapters-v*`); los twins
+`openai`/`ollama` quedan **source-only** (superseded por los providers Rust —
+ver FIND-273 abajo).
 
 ## Estado PyPI: Alpha, no publicados
 
-Los 9 paquetes estan en `Development Status :: 3 - Alpha` (classifier en
-cada `pyproject.toml`) y **ninguno esta en PyPI** ([cita registry NO
-VERIFICADA — sin red]: sin acceso a red en esta sesion no se pudo consultar
-el indice; la evidencia local es la ausencia de tags `adapters-v*` en el
-repo + la nota "Not on PyPI yet" en los 9 READMEs). Publicar sin mantenedor
-por adapter no es salida valida (Stop del plan) → documentar Alpha SI es la
+Los 7 paquetes publicables estan en `Development Status :: 3 - Alpha`
+(classifier en cada `pyproject.toml`) y **ninguno esta en PyPI** (verificado
+live 2026-10-06: `GET https://pypi.org/pypi/<nombre>/json` = 404 ×7, y lo
+mismo en test.pypi.org; `vantadb-py` = 0.8.0). Publicar sin mantenedor por
+adapter no es salida valida (Stop del plan) → documentar Alpha SI es la
 salida. Instalacion hasta el primer release: `cd integrations/<adapter> &&
 pip install .`
+
+> **FIND-273 (resuelto 2026-10-06):** los twins `openai` y `ollama` fueron
+> **retirados del release** (decisión owner): sus nombres/módulos PyPI
+> pertenecen a los providers Rust canónicos (`vantadb-openai`/`vantadb-ollama`)
+> y quedan en repo como **source-only** (sus READMEs lo indican). Ver
+> [MKT-20 §F6-2](../docs/dev/tasks/MKT-20.md).
 
 ## Pins (FIND-84)
 
 Toda dependencia de framework declara upper-bound next-major. Gate:
-`python -m pytest integrations/test_pins.py` (10 tests parametrizados ×9
-adapters; `vantadb-py>=0.5.0,<0.7.0` exenta por traer techo propio).
+`python -m pytest integrations/test_pins.py` (1 test de matriz + 9
+parametrizados ×9 dirs; `vantadb-py>=0.6.1,<0.9.0` exenta por traer techo propio).
+
+> Nota (2026-10-06): pin `vantadb-py` bumpeado a `>=0.6.1,<0.9.0` (decisión
+> owner) — piso real: 0.5.0 no tiene la API `Client`; el techo permite el
+> core live 0.8.0. Evidencia en [MKT-20 §F6-3](../docs/dev/tasks/MKT-20.md).
 
 | Adapter | Paquete | Framework pin |
 |---------|---------|---------------|
@@ -44,8 +55,8 @@ de breaking. NOTICED (fuera de scope, no fix): compat fija `ollama 0.3`
 
 Todas las fixtures usan `tmp_path` (auto-cleanup de pytest): cero
 `tempfile.mkdtemp()` sin liberar, cero subdirectorios inexistentes, cero
-escrituras a disco fuera de tmpdir. Los adapters ignoran `db_path` bajo
-test via el shim (in-memory).
+escrituras a disco fuera de tmpdir. Las fixtures crean la DB bajo `tmp_path`
+(backend real; sin shim — FIND-94).
 
 ## `dist/`: decision (FIND-84)
 
@@ -57,21 +68,18 @@ integrations/<adapter>/dist/`). Limpieza local si molesta:
 `rm -rf integrations/*/dist` (nunca commitear el borrado: no hay nada
 trackeado que borrar).
 
-## Suites + shim temporal (FIND-84, pendiente FIND-94)
+## Suites (FIND-84; migración FIND-94 completada)
 
 `python -m pytest integrations/<adapter>/tests/` **por adapter separado**
 (un solo proceso para varios adapters colisiona: cada `tests/` trae
 `conftest.py` + `__init__.py` con el mismo nombre de modulo).
-Los 9 adapters construyen `vanta.VantaDB(...)` (API pre-0.5.0) pero el SDK
-0.5.0 solo expone `Client`/`connect` → todas las suites fallaban con
-`AttributeError` (FIND-94, Backlog :236, NO absorbido: migrar 12 call-sites
-prod excede appetite y toca `dspy/vectorstore.py` prohibido por FIND-69).
-Hasta FIND-94: `integrations/vantadb_test_shim.py` (`_FakeVantaDB`
-in-memory + fallback `dspy.Prediction` contra el shadowing del directorio
-local) importado por los 9 `tests/conftest.py`. **Borrar shim + 9 imports
-cuando FIND-94 migre el prod.**
+FIND-94 (2026-09-16) migró los adapters de `vanta.VantaDB(...)` (API
+pre-0.5.0) a `Client`/`memory.*` y eliminó el shim in-memory
+(`integrations/vantadb_test_shim.py` ya no existe); las suites corren contra
+el backend real (`tmp_path`). Cubren los 9 dirs (7 publicables + 2 twins
+source-only).
 
-Estado verificado 2026-09-15 (mocks, sin red): crewai 11 passed/2 skipped,
+Estado verificado 2026-09-15 (pre-migración, mocks — histórico): crewai 11 passed/2 skipped,
 dspy 8 passed, haystack skipped (sin SDK), langchain 47 passed, letta 17
 passed, llamaindex skipped (sin SDK), mem0 skipped (sin SDK), ollama 9
 passed, openai 9 passed, pins 10 passed. Skips = `importorskip` por SDK de
@@ -88,5 +96,5 @@ HALLAZGO → FIND-94 (convencion `score`): el shim emite similitud coseno
 langchain (`store.py:254`, `vectorstore.py:270,349`), llamaindex
 (`vectorstore.py:210,264`) y mem0 (`vectorstore.py:46`) describen el backend
 como distancia (menor = mejor). Evidencia de motor no dirimente (engine
-ordena DESC + `>= min_score`). FIND-94 debe fijar la convencion verdadera
-contra el backend real y ajustar el test crewai o los 3 adapters.
+ordena DESC + `>= min_score`). Resuelto por FIND-94 (2026-09-16):
+`score`-similitud contra el backend real.

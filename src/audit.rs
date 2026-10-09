@@ -91,7 +91,10 @@ impl AuditEvent {
 
     /// Build an authentication event (`auth_{l1|l2|l3}` op) for the 3-layer
     /// server auth (MEM-05): `l1` (Bearer token), `l2` (service-id), `l3`
-    /// (user-key → user identity).
+    /// (user-key → user identity). MEMG-10 adds the `rbac` layer
+    /// (`auth_rbac`) for authorization denials: subject = role, namespace =
+    /// the denied namespace (or `"N/A"`), reason = `action`/`enforced`/`scope`
+    /// — never the token.
     ///
     /// `layer` is validated against the known layers; unknown layers fall back
     /// to the raw string so the JSONL remains appendable (error-silent).

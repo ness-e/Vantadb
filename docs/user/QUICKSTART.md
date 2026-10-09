@@ -19,8 +19,11 @@ required.
 ## 0. Install without cloning (one-liner)
 
 No clone, no Rust toolchain. Installs the pre-compiled `vanta-cli` and chains
-to the interactive setup wizard (model + MCP block per client + proxy
-default-on; skip with `--no-wizard` / `-NoWizard`):
+to the interactive setup wizard, which asks **which modules to enable** —
+motor, MCP, server, proxy, desktop viewer, embeddings, providers (each with a
+declared state: installable or frozen). Scripted selection:
+`--modules mcp,embeddings` (sh) / `-Modules mcp,embeddings` (PowerShell);
+skip the wizard with `--no-wizard` / `-NoWizard`:
 
 - **Linux / macOS / WSL**:
 
@@ -206,6 +209,18 @@ print("hybrid:", [hit.key for hit in hybrid_hits])
 db.flush()
 db.close()
 ```
+
+> **Windows encoding note:** PowerShell's default code page cannot represent
+> UTF-8 — output with accents, arrows, or CJK raises `UnicodeEncodeError` or
+> prints as mojibake. Before running any Python example, switch the session to
+> UTF-8:
+>
+> ```powershell
+> chcp 65001                        # console output → UTF-8
+> $env:PYTHONIOENCODING = "utf-8"   # Python stdout/stderr → UTF-8
+> ```
+>
+> For a single run you can also use `python -X utf8 quickstart_memory.py`.
 
 Run it:
 

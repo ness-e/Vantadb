@@ -52,7 +52,7 @@
 //! engine.close().unwrap();
 //! ```
 
-/// AES-256-GCM at-rest encryption for storage files.
+/// AES-256-GCM primitives for at-rest encryption (not yet wired to storage write paths — data at rest remains plaintext; FIND-249).
 #[cfg(feature = "encryption")]
 pub mod crypto;
 
@@ -190,11 +190,11 @@ pub use sdk::{
     Capabilities, ConfidenceClass, EdgeRecord, Embedded, ExportReport, Fields, FilterOp,
     GroupByConfig, HybridFusionReport, ImportReport, IndexRebuildReport, MemoryFilter,
     MemoryFilterItem, MemoryInput, MemoryListOptions, MemoryListPage, MemoryMetadata, MemoryRecord,
-    MemorySearchHit, MemorySearchPage, MemorySearchRequest, MmrConfig, NamespaceStats,
-    NamespaceStatsMap, NodeInput, NodeRecord, OperationalMetrics, QueryResult, RangeFilter,
-    RuntimeProfile, SearchExplanation, SearchExplanationHit, SearchHit, StorageTier,
-    TextIndexAuditReport, TextIndexRepairReport, ValidWindow, Value, DERIVATION_DISCOUNT,
-    MAX_DERIVATION_DEPTH,
+    MemorySearchHit, MemorySearchPage, MemorySearchRequest, MergeOutcome, MergeResult, MmrConfig,
+    NamespaceStats, NamespaceStatsMap, NodeInput, NodeRecord, OperationalMetrics, QueryResult,
+    RangeFilter, ReinforceOutcome, RuntimeProfile, SearchExplanation, SearchExplanationHit,
+    SearchHit, StorageTier, TextIndexAuditReport, TextIndexRepairReport, ValidWindow, Value,
+    DERIVATION_DISCOUNT, MAX_DERIVATION_DEPTH,
 };
 pub use sdk::{
     SkillCreateInput, SkillListOptions, SkillListPage, SkillPatchInput, SkillRecord,

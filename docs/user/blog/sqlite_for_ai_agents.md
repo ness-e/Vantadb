@@ -115,4 +115,4 @@ Run the hardware profiles and benchmarks on your own device — the engine insta
 pip install vantadb-py
 ```
 
-Join the community on Discord and star the [VantaDB repository](https://github.com/ness-e/Vantadb). To understand how BM25 and HNSW are orchestrated and fused with RRF, read [How Hybrid Search Works](/blog/how-hybrid-search-works).
+Join the community on Discord and star the [VantaDB repository](https://github.com/ness-e/Vantadb). To understand how BM25 and HNSW are orchestrated and fused with RRF, read [How Hybrid Search Works](./how_hybrid_search_works.md).

@@ -20,7 +20,7 @@ use serde_json::Value;
 /// L1 memory types: chat-mode legacy types + code/work-mode team types.
 ///
 /// Source: TDAM `l1-writer.ts:31-38` (7 types).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MemoryType {
     /// Stable traits/preferences of the user.
@@ -166,6 +166,12 @@ pub struct DedupDecision {
     /// IDs of existing records to replace/remove (update/merge).
     #[serde(default)]
     pub target_ids: Vec<String>,
+    /// MEMG-01: ids of existing records the new memory explicitly contradicts
+    /// (flagged as superseded via `lifecycle::mark_contradiction`; the old
+    /// record is never deleted and never also listed in `target_ids`).
+    /// Empty = no contradiction detected (safe default).
+    #[serde(default)]
+    pub contradicts: Vec<String>,
     /// Merged/updated content text (update/merge).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub merged_content: Option<String>,
@@ -351,6 +357,7 @@ mod tests {
             record_id: "m_2".into(),
             action: DedupAction::Merge,
             target_ids: vec!["m_old".into()],
+            contradicts: vec![],
             merged_content: Some("merged text".into()),
             merged_type: Some(MemoryType::Episodic),
             merged_priority: Some(70),

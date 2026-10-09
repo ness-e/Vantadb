@@ -1,2 +1,9 @@
 # RocksDB known leaks (not our code)
 leak:rocksdb
+
+# FIND-226 (2026-10-03): the former dominant leak class (~1.74 GB: in-memory
+# StorageEngine buffers leaked by unit tests in src/graph.rs / src/gds.rs via an
+# unnecessary Box::leak) was FIXED at the source, not suppressed here. Keep this
+# file free of test-code suppressions so real leaks in the same paths stay loud.
+# Note: LSan suppression patterns match symbolized stacks — the ASan job now
+# provides llvm-symbolizer (ci-rust.yml, job sanitizer-asan).

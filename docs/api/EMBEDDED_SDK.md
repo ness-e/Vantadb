@@ -61,7 +61,7 @@ let config = Config {
 let db = Embedded::open_with_config(config).unwrap();
 ```
 
-Each line is one JSON object: `{"timestamp":"2026-08-02T12:34:56Z","op":"put","namespace":"docs","key":"a","outcome":"ok","reason":null}`. Ops: `put`, `put_batch`, `delete`, `delete_by_filter`, `export_namespace`, `export_all`, `import_file`, `bulk_import_file`, `bulk_import_stream`. Read-only ops are not audited. See `docs/user/operations/CONFIGURATION.md`.
+Each line is one JSON object: `{"timestamp":"2026-08-02T12:34:56Z","op":"put","namespace":"docs","key":"a","outcome":"ok","reason":null}`. Ops: `put`, `put_batch`, `merge_record`, `delete`, `delete_by_filter`, `export_namespace`, `export_all`, `import_file`, `bulk_import_file`, `bulk_import_stream`. Read-only ops are not audited. See `docs/user/operations/CONFIGURATION.md`.
 
 ## Memory (Namespace-scoped) API
 
@@ -71,6 +71,7 @@ CRUD operations for persistent memory records identified by `(namespace, key)` p
 |--------|-------------|
 | `put(input: MemoryInput)` | Insert or update a memory record. Returns `MemoryRecord` |
 | `put_batch(inputs: Vec<MemoryInput>)` | Batch insert/update (parallel, up to 5x faster). Returns `Vec<MemoryRecord>` |
+| `merge_record(record: MemoryRecord)` | Multi-writer merge (MEMG-05, [ADR-0055](../dev/architecture/adr/ADR-0055-multi-writer-merge-lww.md)): resolve an incoming writer's record deterministically - explicit LWW over `(updated_at_ms, canonical content bytes)` with conflict detection at equal time. Returns `MergeResult { outcome, conflict, winner_updated_at_ms }` (`Inserted`/`Updated`/`StaleRejected`/`AlreadyCurrent`); never silent. See [Multi-writer merge](#multi-writer-merge-memg-05--adr-0055) |
 | `get(namespace, key)` | Retrieve a record by namespace+key. Returns `Option<MemoryRecord>` |
 | `get_version(namespace, key, version)` | Retrieve the record as it was at the given version (VS-CORE-07). Returns `Option<MemoryRecord>` — `None` if that version was never persisted (unknown key, purged by the retention cap, or deleted). Snapshot durability is best-effort post-commit, so a crash window can leave a version gap — degraded but never corrupt |
 | `versions(namespace, key)` | List every retained version of a record, ascending (v1..vN) (VS-CORE-07). Returns `Vec<MemoryRecord>` — empty if the key does not exist or has no history; expired versions are included as historical data until purged. `get_version(namespace, key, vN)` of the last element matches the live record |
@@ -80,7 +81,7 @@ CRUD operations for persistent memory records identified by `(namespace, key)` p
 | `list(namespace, options)` | List records in a namespace with cursor pagination. Returns `MemoryListPage` |
 | `list_namespaces()` | List all namespaces. Returns `Vec<String>` |
 | `search(request: MemorySearchRequest)` | [hybrid-search](../user/glosario/hybrid-search.md) (vector + lexical) search. Returns `Vec<MemorySearchHit>` |
-| `search_page(request: MemorySearchRequest)` | Same pipeline as `search` with cursor-based pagination (WIRE-08). Returns `MemorySearchPage { hits, next_cursor, abstained, abstention_reason }`: `next_cursor` is `Some` only when the page is full (`hits.len() == top_k`); a short page is the last page. `abstained`/`abstention_reason` carry the selective-abstention signal (ADR-0046 §D2, SCH-07) when the configured `confidence_threshold` empties the page. Resume by passing the token back in `MemorySearchRequest::cursor` — the next page returns hits after the last returned hit's identity in the current ranking. Resume is **best-effort, not a snapshot**: a hit returned in a previous page can be returned again (or skipped) when interleaved writes reorder its rank across the anchor (BM25/IDF are recalculated corpus-wide on every write); writes that rank *before* the anchor are never duplicated. The token is bound to the request's plan fingerprint (mismatch → `SEARCH_CURSOR_INVALID`) and to the current process; pagination is rejected with `mmr`/`group_by`. See [[SEARCH_PARITY\|SEARCH_PARITY]] for the Milvus/Qdrant mapping |
+| `search_page(request: MemorySearchRequest)` | Same pipeline as `search` with cursor-based pagination (WIRE-08). Returns `MemorySearchPage { hits, next_cursor, abstained, abstention_reason }`: `next_cursor` is `Some` only when the page is full (`hits.len() == top_k`); a short page is the last page. `abstained`/`abstention_reason` carry the selective-abstention signal (ADR-0046 §D2, SCH-07) when the configured `confidence_threshold` empties the page. Resume by passing the token back in `MemorySearchRequest::cursor` — the next page returns hits after the last returned hit's identity in the current ranking. Resume is **best-effort, not a snapshot**: a hit returned in a previous page can be returned again (or skipped) when interleaved writes reorder its rank across the anchor (BM25/IDF are recalculated corpus-wide on every write); writes that rank *before* the anchor are never duplicated. The token is bound to the request's plan fingerprint (mismatch → `SEARCH_CURSOR_INVALID`) and to the current process; pagination is rejected with `mmr`/`group_by`. See [SEARCH_PARITY](./SEARCH_PARITY.md) for the Milvus/Qdrant mapping |
 | `search_with_method(request, method)` | Same as `search` with an explicit index backend override for the dense-vector portion: `Some(IndexType::Ivf)` / `Some(IndexType::Scann)` / `Some(IndexType::Flat)` / `Some(IndexType::Hnsw)`. `None` (default) keeps automatic engine routing untouched; the shared engine config is never mutated (thread-safe, per-search override) |
 | `search_page_with_method(request, method)` | SCH-07: the page-shaped mirror of `search_with_method` — same hits as `search_with_method` plus the `MemorySearchPage` envelope (`next_cursor`, `abstained`, `abstention_reason`). Used by page-shaped transports (MCP `search_with_method`) so the abstention signal is never dropped at the `Vec` edge |
 | `search_with_entity_boost(request, boost)` | Same as `search` with the opt-in deterministic entity-cluster boost (WIRE-05). Hits sharing an entity cluster with other fused candidates receive an additive delta (`weight × peers × 1/(rrf_k+1)`) before the final ranking. Returns `EntityBoostedSearch { hits, boost_report }` with per-hit provenance (cluster, peers, `base_score`, `delta`) — reversible, no stored data mutated; an empty `EntityBoost` is byte-identical to `search`. Single-channel routes (text-only/vector-only/sparse-only) are returned unchanged |
@@ -89,9 +90,40 @@ CRUD operations for persistent memory records identified by `(namespace, key)` p
 | `explain_memory_search(request)` | Search with detailed score breakdown. Returns `SearchExplanation` |
 | `namespace_stats(expiring_soon_window_ms)` | Per-namespace statistics: total records, records expiring within the window, already-expired records. Single full scan (no N paginated `count`/`list` calls). `None` uses the 24h default window. Returns `NamespaceStatsMap` |
 | `supersede(namespace, old_key, new_key)` | Mark `old_key` as superseded by `new_key`: the old record keeps its data (soft-dead, recoverable) but gains `superseded_by`/`superseded_at_ms`, and can be hidden from search/list with `exclude_superseded`. Errors if either key is missing, if `old_key == new_key`, or if the old record is already superseded (idempotency guard) |
+| `reinforce(namespace, key, outcome: ReinforceOutcome)` | MEMG-02: report the outcome of a recalled memory and feed it back into the record's confidence (outcome loop; the engine never infers the outcome). `Used` bumps `confidence` +0.05 (saturated at 1.0) and stamps `last_validated_at_ms`, at most once per 5-minute window; `Corrected` decays −0.10 (floored at 0.0) without stamping; `Unused` is neutral (audit-only). `Derived` records are rejected — their score is computed from parents. Returns the resulting `MemoryRecord` (state-only change: `version` unchanged, no history snapshot, audited as `memory_reinforce`). Policy: [scores.md §Reinforcement](./scores.md) |
 | `purge_expired()` | Scan all memory records and physically delete those whose TTL has expired. Returns `u64` count of purged records |
 | `bulk_import_file(path)` | Bulk-import from a binary `.vdbdump` file. Bypasses per-record validation for raw throughput; commits in batches sized by `bulk_commit_interval` (default 10000) |
 | `bulk_import_stream(reader)` | Bulk-import records from a binary stream. Format: 8-byte magic `VDBJSON\n`, 1-byte version `0x01`, 8-byte LE record count, then serde_json-serialized `Vec<MemoryInput>`. Same batching/validation behavior as `bulk_import_file` |
+
+#### Multi-writer merge (MEMG-05 / ADR-0055)
+
+Declared conflict-resolution policy for records produced by **multiple writers** (devices/agents)
+whose versions converge in one store (federation / sync / interchange). Opt-in: `put`/import
+semantics are unchanged, and the WAL/shipping paths are untouched.
+
+- **Order:** explicit last-write-wins over `(updated_at_ms, canonical content bytes)` - the writer's
+  clock travels in `record.updated_at_ms` (as in import); equal timestamps are tie-broken by the
+  lexicographic order of the canonical `(payload, metadata)` encoding. The winner is identical on
+  every replica for any arrival order - never "whoever writes last wins". An identical-content
+  rewrite with a newer clock still advances the stored `updated_at_ms` (max of the write set), so
+  the final record stays arrival-order independent.
+- **Conflict detection:** equal `updated_at_ms` + different content sets `MergeResult::conflict`;
+  distinct timestamps are a declared LWW update (not a conflict).
+- **Non-silent outcomes:** `Inserted` (no prior record), `Updated` (incoming won), `StaleRejected`
+  (incoming older or tie-loser - not stored), `AlreadyCurrent` (identical content under the
+  fingerprint, no write).
+- **Field scope:** the conflict fingerprint is exactly `payload + metadata`; validity window, TTL,
+  confidence, lineage, vectors and quarantine do NOT participate in the comparison. On a stored
+  merge the incoming record is written whole - a missing derived field (e.g. `vector = None`)
+  replaces the stored one, same as import; a transport must carry complete records.
+- **Declared limits** (full list in ADR-0055): wall-clock skew can invert true causal order; the
+  tie-break is arbitrary-but-convergent; `version`/`created_at_ms` stay store-local; concurrent
+  `put` vs `merge_record` on the same key is outside v1 coverage. Upgrade path: vector clocks ->
+  CRDT-lite over update operations.
+- The deterministic `node_id` is recomputed from `(namespace, key)`, so a sync transport does not
+  need to carry it.
+- `merge_record` goes through the raw transport (`put_record_exact`): like imports, it does **not**
+  write version-history snapshots (see [Version History](#version-history-vs-core-07)).
 
 ### Version History (VS-CORE-07)
 
@@ -165,7 +197,7 @@ pub struct MemorySearchRequest {
 
 | Field | Contract |
 |-------|----------|
-| `range: RangeFilter { min_score, max_score }` | Post-ranking score filter, **inclusive** bounds in score space (higher = more relevant, matching `MemorySearchHit::score`). `None` bound = unbounded. Rejected (`SEARCH_OPTIONS_INVALID`) when non-finite or `min_score > max_score`. Score-space equivalent of Milvus `radius`/`range_filter` and Qdrant `score_threshold` — see [[SEARCH_PARITY\|SEARCH_PARITY]]. The fetch window deepens (bounded by 10 000) when the bounds can shorten the page |
+| `range: RangeFilter { min_score, max_score }` | Post-ranking score filter, **inclusive** bounds in score space (higher = more relevant, matching `MemorySearchHit::score`). `None` bound = unbounded. Rejected (`SEARCH_OPTIONS_INVALID`) when non-finite or `min_score > max_score`. Score-space equivalent of Milvus `radius`/`range_filter` and Qdrant `score_threshold` — see [SEARCH_PARITY](./SEARCH_PARITY.md). The fetch window deepens (bounded by 10 000) when the bounds can shorten the page |
 | `group_by: GroupByConfig { field, group_size }` | Post-ranking group-by on a metadata field: walk hits in rank order, keep a hit while its group value has fewer than `group_size` selected hits (default `1`); `top_k` caps **total hits** (unlike Milvus/Qdrant, where `limit` caps the number of groups). Records missing the field form their own group. `field` must be non-empty and `group_size >= 1` |
 | `mmr: MmrConfig { lambda, fetch_k }` | Maximal Marginal Relevance reranking: `lambda` in `[0, 1]` (default `0.5`; `1.0` = pure relevance = identity order, `0.0` = pure diversity). `fetch_k` is the candidate window (default `top_k * 5`, clamped to `[top_k, 16384]`). Relevance is min-max normalized inside the window so `lambda` is comparable across fusion routes; diversity uses cosine between the records' dense vectors (records without vectors compete on relevance only). Mutually exclusive with `cursor` |
 | `cursor: Option<String>` | Opaque continuation token returned by `search_page`. Valid only for the same plan fingerprint (namespace, query, filters, metric, profile, range) and the same process — never persist or parse it. Resuming skips past the anchor hit's identity; the fetch window grows (bounded by 10 000) to compensate for writes that landed before the anchor. Mutually exclusive with `mmr`/`group_by` |
@@ -205,6 +237,22 @@ pub struct MemoryRecord {
     pub quarantine_review_due_ms: Option<u64>, // T3 review deadline (never auto-promotes)
 }
 ```
+
+### `ReinforceOutcome`
+
+```rust
+#[non_exhaustive]
+pub enum ReinforceOutcome {
+    Used,       // the recall resolved with this memory (positive)
+    Corrected,  // the memory was wrong and the host corrected it (negative)
+    Unused,     // recalled but not used (neutral)
+}
+```
+
+Wire names are `snake_case` (`"used"` / `"corrected"` / `"unused"`);
+`ReinforceOutcome::from_wire_str` rejects unknown tokens (the engine never
+infers an outcome). See [scores.md §Reinforcement](./scores.md) for the
+declared bump/decay/window policy.
 
 ### `NamespaceStats`
 
@@ -375,6 +423,49 @@ Low-level operations on the node-graph model (numeric node IDs, edges, graph tra
 | `optimizer_config()` | Return the current segment optimizer configuration |
 | `set_optimizer_config(config)` | Override the segment optimizer configuration. Takes effect on the next pipeline invocation |
 
+### Memory ↔ graph bridge (DX-04)
+
+Memory records **are** graph nodes: `put()` computes a deterministic node id
+`node_id = xxHash3_128(namespace + "\0" + key)` and exposes it on
+`MemoryRecord.node_id` — stable across reopen (same namespace + key ⇒ same id).
+That id is the bridge: use it with any graph API (`add_edge`, `get_node`,
+`graph_bfs`, …) to connect records into the graph.
+
+```rust
+let decision = db.put(MemoryInput::new("agent/main", "decision", "use provider X"))?;
+let rationale = db.put(MemoryInput::new("agent/main", "rationale", "X is cheapest"))?;
+
+// Bridge: record node ids are the graph node ids.
+db.add_edge(rationale.node_id, decision.node_id, "supports", None, None)?;
+
+// Traverse from a record's node (direction: vantadb::graph::TraversalDirection).
+let reached = db.graph_bfs(&[decision.node_id], 1, TraversalDirection::Both)?;
+```
+
+Lineage edges are created automatically by the memory ops — canonical labels,
+bidirectional, idempotent to re-runs:
+
+| Op | Edge created |
+|----|--------------|
+| `supersede(ns, old_key, new_key)` | `old --superseded_by--> new` |
+| derived `put` (`confidence_class: Derived`, `derived_from: [parent]`) | `child --derived_from--> parent` |
+
+The record fields (`superseded_by`, `derived_from`) remain the canonical data;
+the edges are derived navigability created by the op. Record rewrites (`put`,
+`put_batch`, `supersede`, `reinforce`, quarantine state ops, import) preserve
+the node's existing edges, and a derived record re-put with different parents
+drops its stale `derived_from` edge.
+
+"Who changed this source, and why?" — from a record's `node_id`, BFS reaches
+the superseding record; its payload (via `get`) is the why:
+
+```rust
+db.supersede("agent/main", "decision", "decision-v2")?;
+let reached = db.graph_bfs(&[decision.node_id], 2, TraversalDirection::Both)?;
+// `reached` contains decision-v2's node id; the why is its payload:
+let why = db.get("agent/main", "decision-v2")?.expect("record");
+```
+
 ### `NodeInput`
 
 ```rust
@@ -510,8 +601,9 @@ per `(owner_agent, name)` while a head exists. Content is stored as-is
 
 | Method | Description |
 |--------|-------------|
-| `export_namespace(path, namespace)` | Export namespace as JSONL. Returns `ExportReport` |
-| `export_all(path)` | Export all namespaces as JSONL. Returns `ExportReport` |
+| `export_namespace(path, namespace)` | Export namespace as JSONL. Writes the integrity manifest sidecar (`<path>.manifest.json`). Returns `ExportReport` |
+| `export_all(path)` | Export all namespaces as JSONL. Writes the integrity manifest sidecar (`<path>.manifest.json`). Returns `ExportReport` |
+| `verify_export_integrity(path)` | Verify a JSONL export against its manifest sidecar: recomputes the sha256 and returns `ok` / `mismatch` / `no_manifest` (a corrupt or foreign manifest, or a missing file, is an error — never a status). Returns `ExportIntegrityVerification` |
 | `import_file(path)` | Import from JSONL file. Returns `ImportReport` |
 | `bulk_import_file(path)` | Bulk-import from a binary `.vdbdump` file. Bypasses per-record validation for raw throughput; commits in batches sized by `bulk_commit_interval` (default 10000) |
 | `bulk_import_stream(reader)` | Bulk-import records from a binary stream. Format: 8-byte magic `VDBJSON\n`, 1-byte version `0x01`, 8-byte LE record count, then serde_json-serialized `Vec<MemoryInput>`. Same batching/validation behavior as `bulk_import_file` |
@@ -519,6 +611,8 @@ per `(owner_agent, name)` while a head exists. Content is stored as-is
 Free-function helper (used by the MCP `import` tool to rebuild records from JSONL content received as a string): `vantadb::sdk::record_from_export_line(MemoryExportLine) -> Result<MemoryRecord>` — the inverse of [`export_line_from_record`](#export--import); recomputes the deterministic node id from namespace/key.
 
 Third-party importers (Mem0 / Zep / Letta → JSONL v2): `vantadb::sdk::importers::{mem0, zep, letta}` — each exposes `convert_str`/`convert_file` returning `Conversion { lines, stats }`, plus `Conversion::into_records` (import through the canonical transport) and `Conversion::write_jsonl` (the `vanta-cli import` input). The interchange contract, per-source mapping tables and declared discards live in [MEMORY_INTERCHANGE_FORMAT.md](./MEMORY_INTERCHANGE_FORMAT.md).
+
+The integrity manifest sidecar (deterministic sha256 over the export bytes + declared limits; integrity, not authenticity) is specified in [MEMORY_INTERCHANGE_FORMAT.md § Integrity manifest](./MEMORY_INTERCHANGE_FORMAT.md#integrity-manifest). `import_file` does not enforce the manifest — verification via `verify_export_integrity` is explicit.
 
 ## Text Index Diagnostics
 
@@ -744,6 +838,8 @@ pub struct ExportReport {
     pub namespaces: Vec<String>,
     pub path: String,
     pub duration_ms: u64,
+    pub sha256: String,        // hex digest over the export bytes (MEMG-15)
+    pub manifest_path: String, // integrity manifest sidecar path
 }
 ```
 

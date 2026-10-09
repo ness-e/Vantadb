@@ -9,6 +9,10 @@
 //!   file that crosses the budget is truncated to fit.
 //! - Non-`.md`, unreadable or non-UTF-8 files are skipped with a trace log
 //!   (pre-mortem: binary files mixed into the tree).
+//!
+//! The traversal itself (`collect_text_files`, `pub(crate)`) is shared with
+//! the document ingestors (MEMG-08, `super::ingestors`) so the traversal guard
+//! lives exactly once.
 
 use std::path::{Path, PathBuf};
 
@@ -30,6 +34,51 @@ pub struct SourceFile {
 /// lexicographic path order. Errors with [`Error::InvalidInput`] when the
 /// root does not exist / is not a directory.
 pub fn scan_local_sources(root: &Path) -> Result<Vec<SourceFile>> {
+    let mut files = Vec::new();
+    let mut budget = SOURCE_CHAR_BUDGET;
+    collect_text_files(root, &|ext| ext == "md", &mut |rel_path, content| {
+        let char_count = content.chars().count();
+        if char_count >= budget {
+            // Budget exhausted: include the truncation that fits, then stop.
+            files.push(SourceFile {
+                rel_path,
+                content: content.chars().take(budget).collect(),
+            });
+            budget = 0;
+            return false;
+        }
+        budget -= char_count;
+        files.push(SourceFile { rel_path, content });
+        true
+    })?;
+    Ok(files)
+}
+
+/// Guard: `path` (already canonicalized) must stay inside canonicalized
+/// `root`. Trust-boundary check against `..`/symlink escape.
+fn ensure_within_root(root: &Path, path: &Path) -> bool {
+    path.starts_with(root)
+}
+
+/// Recursively collect UTF-8 text files under `root` in deterministic
+/// (lexicographic path) order, applying the shared traversal guard
+/// ([`ensure_within_root`]).
+///
+/// `accept` decides by file extension (no dot, as reported by `Path::extension`)
+/// whether a file is eligible; `visit` receives `(rel_path, content)` for every
+/// readable, non-empty accepted file and returns `false` to stop the walk
+/// (callers use this for budget exhaustion). Only a missing/invalid root is an
+/// error — unreadable files, non-UTF-8 content and escaping paths are skipped
+/// with a trace log (pre-mortem: binary files mixed into the tree).
+///
+/// This is the single traversal implementation shared by the `.md` wiki
+/// scanner ([`scan_local_sources`]) and the document ingestors
+/// (`super::ingestors`) — the path-traversal guard must not be duplicated.
+pub(crate) fn collect_text_files(
+    root: &Path,
+    accept: &dyn Fn(&str) -> bool,
+    visit: &mut dyn FnMut(String, String) -> bool,
+) -> Result<()> {
     let canon_root = root.canonicalize().map_err(|e| {
         Error::InvalidInput(format!(
             "wiki source root `{}` is not accessible: {e}",
@@ -42,45 +91,41 @@ pub fn scan_local_sources(root: &Path) -> Result<Vec<SourceFile>> {
             root.display()
         )));
     }
-    let mut files = Vec::new();
-    let mut budget = SOURCE_CHAR_BUDGET;
-    walk(&canon_root, &canon_root, &mut files, &mut budget);
-    Ok(files)
+    walk_files(&canon_root, &canon_root, accept, visit);
+    Ok(())
 }
 
-/// Guard: `path` (already canonicalized) must stay inside canonicalized
-/// `root`. Trust-boundary check against `..`/symlink escape.
-fn ensure_within_root(root: &Path, path: &Path) -> bool {
-    path.starts_with(root)
-}
-
-fn walk(root: &Path, dir: &Path, out: &mut Vec<SourceFile>, budget: &mut usize) {
-    if *budget == 0 {
-        return;
-    }
+/// Walk body of [`collect_text_files`]. Returns `false` when the walk must stop
+/// (a `visit` callback signalled it); recursion propagates the stop.
+fn walk_files(
+    root: &Path,
+    dir: &Path,
+    accept: &dyn Fn(&str) -> bool,
+    visit: &mut dyn FnMut(String, String) -> bool,
+) -> bool {
     let entries = match std::fs::read_dir(dir) {
         Ok(entries) => entries,
         // Unreadable subtree: skip, do not fail the whole scan.
-        Err(_) => return,
+        Err(_) => return true,
     };
     let mut paths: Vec<PathBuf> = entries.filter_map(|e| e.ok()).map(|e| e.path()).collect();
     paths.sort(); // deterministic discovery order
     for path in paths {
-        if *budget == 0 {
-            return;
-        }
         let Ok(meta) = std::fs::metadata(&path) else {
             continue;
         };
         if meta.is_dir() {
-            walk(root, &path, out, budget);
+            if !walk_files(root, &path, accept, visit) {
+                return false;
+            }
             continue;
         }
         if !meta.is_file() {
             continue;
         }
-        if path.extension().and_then(|e| e.to_str()) != Some("md") {
-            tracing::debug!(path = %path.display(), "wiki scan: skipped non-.md entry");
+        let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+        if !accept(ext) {
+            tracing::debug!(path = %path.display(), "wiki scan: skipped non-accepted entry");
             continue;
         }
         // Traversal guard: resolve symlinks/`..` and require containment.
@@ -101,23 +146,14 @@ fn walk(root: &Path, dir: &Path, out: &mut Vec<SourceFile>, budget: &mut usize) 
                 continue;
             }
         };
-        let rel_path = rel_path(root, &canon);
-        let char_count = content.chars().count();
-        if char_count == 0 {
+        if content.is_empty() {
             continue;
         }
-        if char_count >= *budget {
-            // Budget exhausted: include the truncation that fits, then stop.
-            out.push(SourceFile {
-                rel_path,
-                content: content.chars().take(*budget).collect(),
-            });
-            *budget = 0;
-            return;
+        if !visit(rel_path(root, &canon), content) {
+            return false;
         }
-        *budget -= char_count;
-        out.push(SourceFile { rel_path, content });
     }
+    true
 }
 
 /// Forward-slash relative path from `root` to `path` (both canonicalized).

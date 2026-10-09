@@ -20,9 +20,30 @@ pub struct Embedded {
     /// `insert_lock` only covers the individual write, not the SDK-level
     /// read + idempotency check, so two concurrent supersedes could both pass
     /// the guard and double-mark the record. Shared across clones via `Arc`.
-    /// ponytail: global supersede lock — rare admin op; per-namespace striping
+    /// ponytail: global supersede lock - rare admin op; per-namespace striping
     /// if contention ever matters.
     pub(crate) supersede_lock: Arc<Mutex<()>>,
+    /// Serializes `merge_record()`'s read-decide-write (MEMG-05), same
+    /// rationale as `supersede_lock` (REVIEW-13): the engine's `insert_lock`
+    /// only covers the individual insert, not the SDK-level read + decision,
+    /// so two concurrent merges could both decide against the same `existing`
+    /// and persist the loser (arrival-order nondeterminism). Shared across
+    /// clones via `Arc`.
+    /// ponytail: global merge lock - merges are a sync/import path, not a hot
+    /// path; per-key striped locks only if merge throughput ever matters.
+    pub(crate) merge_lock: Arc<Mutex<()>>,
+    /// Serializes the record write/delete read-modify-write against every
+    /// other writer and against purge (DUR-03 r3): `put_one`,
+    /// `put_record_exact`, `put_batch_inner`, `delete_inner` and the purge
+    /// paths (`purge_expired` sweeper, purge-on-write) all take the **write**
+    /// guard across resolve + insert/delete + index replacement, so no two
+    /// writers can apply the same generation's text-index decrement twice
+    /// (a second decrement would drive the term df negative).
+    /// `resolve_existing_for_write` keeps a read guard for decision-only
+    /// callers (`merge_record_inner`). Shared across clones via `Arc`.
+    /// ponytail: global write serialization per handle - correctness first
+    /// (DUR-03 r3); per-key striped locks only if write throughput demands it.
+    pub(crate) purge_lock: Arc<RwLock<()>>,
 }
 
 impl std::fmt::Debug for Embedded {
@@ -46,6 +67,8 @@ impl Embedded {
             audit: init_audit(&config),
             config,
             supersede_lock: Arc::new(Mutex::new(())),
+            merge_lock: Arc::new(Mutex::new(())),
+            purge_lock: Arc::new(RwLock::new(())),
         }
     }
 
@@ -109,6 +132,8 @@ impl Embedded {
             audit: init_audit(&final_config),
             config: final_config,
             supersede_lock: Arc::new(Mutex::new(())),
+            merge_lock: Arc::new(Mutex::new(())),
+            purge_lock: Arc::new(RwLock::new(())),
         };
         if !embedded.config.read_only {
             embedded.ensure_indexes_current()?;
@@ -146,6 +171,8 @@ impl Embedded {
             audit: init_audit(&config),
             config,
             supersede_lock: Arc::new(Mutex::new(())),
+            merge_lock: Arc::new(Mutex::new(())),
+            purge_lock: Arc::new(RwLock::new(())),
         }
     }
 

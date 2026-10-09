@@ -48,4 +48,6 @@ Query {
     owner_role: None,
     search_profile: None,
     as_of_ms: None,
+    limit: None,
+    offset: None,
 }

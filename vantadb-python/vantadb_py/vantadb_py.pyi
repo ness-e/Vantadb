@@ -289,6 +289,21 @@ class Client:
     def purge_expired(self) -> int: ...
     def list_namespaces(self) -> list[str]: ...
 
+    # ── GraphRAG (seed → expand → retrieve → context) ──────────────────────
+
+    def graphrag_search(self, namespace: str, query: str | None = None, query_vector: Any | None = None) -> dict: ...
+
+    # ── Cognitive layer (vanta-memory: L0 capture + recall) ────────────────
+
+    def memory_capture(self, session_id: str, messages: list[dict]) -> dict: ...
+    def memory_recall(
+        self,
+        user_text: str,
+        session_key: str,
+        scope: str | None = None,
+        max_results: int | None = None,
+    ) -> dict | None: ...
+
     # ── Graph nodes and edges (also grouped under db.graph.*) ──────────────
 
     def insert_node(

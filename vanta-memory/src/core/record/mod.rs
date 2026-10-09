@@ -12,11 +12,28 @@ pub mod l1_extractor;
 /// `decay_heat` runs on the periodic maintenance pass (signal of
 /// forgetting). `mark_contradiction` writes a `superseded_by` pointer
 /// to the new record — the OLD record is preserved (provenance, never
-/// silent deletion).
+/// silent deletion). MEMG-07 adds the forgetting curve
+/// (`retention_factor` / `effective_heat` / `scan_decay`): a declared
+/// per-type half-life policy, read-side — it deprioritizes, never purges.
 pub mod lifecycle;
 
 /// L1 memory reader + LLM-free candidate recall (MEM-11).
 pub mod l1_reader;
+
+/// MEMG-17 (pieza a): semantic rollback to a retained version — append-only
+/// lineage over `versions` (snapshot restore stays data-only, FIND-287).
+pub mod rollback;
+
+/// MEMG-21: composite L1 scoring — recency + relevance + importance.
+///
+/// Opt-in re-ranking of recall candidates: `composite = w_rel·relevance +
+/// w_rec·recency + w_imp·importance`, where recency is MEMG-07's
+/// [`lifecycle::retention_factor`] (consumed, not reimplemented), relevance is
+/// the caller's raw pool score (min-max normalized over the candidate set,
+/// Park et al. §4.1) and importance is the record's declared `priority`.
+/// Declared defaults (policy, not calibration) mirror CrewAI's composite
+/// scoring: relevance 500 · recency 300 · importance 200 per-mille.
+pub mod scoring;
 
 /// L1 memory writer — applies dedup decisions to the store (MEM-11).
 pub mod l1_writer;
@@ -39,8 +56,15 @@ pub use l1_dedup::{
     CONFLICT_DETECTION_TASK_ID,
 };
 pub use l1_extractor::{extract_l1_memories, extract_l1_segments, L1ExtractorConfig};
-pub use l1_reader::{l1_namespace, read_record, read_session_records, recall_candidates};
+pub use l1_reader::{
+    diff_records, l1_namespace, read_record, read_record_version, read_record_versions,
+    read_session_records, recall_candidates, run_decay_pass, RecordFieldChange, RecordVersion,
+};
 pub use l1_writer::{apply_dedup_batch, generate_memory_id, write_memory, EmbedFn, L1Error};
+pub use rollback::{rollback_record, RollbackReport};
+pub use scoring::{
+    composite_rank, composite_score, importance_score, CompositeScoring, ScoringWeights,
+};
 
 /// Canonical single-record L1 write (vector stripped, node vector separate).
 /// Shared with the dream promotion path (VER-07).

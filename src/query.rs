@@ -115,6 +115,15 @@ pub struct Query {
     /// = no filter (default unchanged). Version-gated: accepted from
     /// [`IQL_VERSION_MIN_AS_OF`](crate::parser::IQL_VERSION_MIN_AS_OF).
     pub as_of_ms: Option<u64>,
+    /// Optional `LIMIT <n>` result cap (WIRE-12): the emitted plan keeps at
+    /// most `n` rows (before post-plan filters such as `AS OF`/`ROLE`).
+    /// `None` = no cap. Version-gated: accepted from
+    /// [`IQL_VERSION_MIN_PAGINATION`](crate::parser::IQL_VERSION_MIN_PAGINATION).
+    pub limit: Option<usize>,
+    /// Optional `OFFSET <n>` rows to skip (WIRE-12): skip-then-take composes
+    /// with `limit`. `None` = no skip (an explicit `0` is a no-op and emits no
+    /// plan operator).
+    pub offset: Option<usize>,
 }
 
 /// Graph traversal specification.
@@ -171,6 +180,33 @@ pub struct RankBy {
     pub desc: bool,
 }
 
+/// Aggregate function over a field (WIRE-13).
+///
+/// Serializes with serde's default representation like the rest of the AST:
+/// `Count` as `"Count"`, `CountField("email")` as `{"CountField": "email"}`,
+/// `Sum("amount")` as `{"Sum": "amount"}`.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub enum AggregateFunc {
+    /// `COUNT(*)`: number of rows in the group.
+    Count,
+    /// `COUNT(field)`: rows where `field` is present and not `Null`.
+    CountField(String),
+    /// `SUM(field)`: sum of numeric `field` values (non-numeric ignored).
+    Sum(String),
+}
+
+impl AggregateFunc {
+    /// Output field name of this aggregate in each result row (WIRE-13):
+    /// `count`, `count_<field>`, `sum_<field>`.
+    pub fn output_name(&self) -> String {
+        match self {
+            AggregateFunc::Count => "count".to_string(),
+            AggregateFunc::CountField(field) => format!("count_{field}"),
+            AggregateFunc::Sum(field) => format!("sum_{field}"),
+        }
+    }
+}
+
 /// A JOIN clause within a SELECT statement.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct JoinClause {
@@ -212,6 +248,25 @@ pub struct SelectStatement {
     /// Only accepted on the top-level SELECT — subqueries with `AS OF` fail
     /// to parse (silent no-op prevention). `None` = no filter.
     pub as_of_ms: Option<u64>,
+    /// Optional `LIMIT <n>` result cap (WIRE-12): same semantics as in
+    /// `FROM`/`MATCH`. `None` = no cap.
+    pub limit: Option<usize>,
+    /// Optional `OFFSET <n>` rows to skip (WIRE-12): same semantics as in
+    /// `FROM`/`MATCH`. `None` = no skip.
+    pub offset: Option<usize>,
+    /// Aggregate functions in the SELECT list (WIRE-13). When non-empty the
+    /// query is an aggregation: the plan emits [`LogicalOperator::Aggregate`]
+    /// instead of `Project`, and each output row carries the group key plus
+    /// one field per aggregate ([`AggregateFunc::output_name`]). Parser
+    /// invariant: when non-empty, `projections` is empty and `limit`/`offset`/
+    /// `as_of_ms` are `None` (the combinations are rejected at parse time,
+    /// FIND-316) — programmatic AST construction must respect it.
+    pub aggregates: Vec<AggregateFunc>,
+    /// Optional `GROUP BY <field>` key (WIRE-13): one output row per distinct
+    /// value, in first-seen order. `None` = single global group. Requires at
+    /// least one aggregate and must not collide with an aggregate output name
+    /// (both rejected at parse time).
+    pub group_by: Option<String>,
 }
 
 /// The FROM clause of a SELECT — either a single entity or a JOIN of two sub-clauses.
@@ -295,10 +350,32 @@ impl SelectStatement {
             });
         }
 
-        if !self.projections.is_empty() {
-            ops.push(LogicalOperator::Project {
-                fields: self.projections,
+        if !self.aggregates.is_empty() {
+            // WIRE-13: aggregation replaces projection — the operator builds
+            // the output fields (group key + aggregates). LIMIT/OFFSET and
+            // AS OF are rejected at parse time for aggregation queries
+            // (FIND-316), so no pagination operators are emitted here.
+            // Programmatic AST construction must respect the same invariant —
+            // those fields would otherwise be silently ignored.
+            debug_assert!(
+                self.limit.is_none()
+                    && self.offset.is_none()
+                    && self.as_of_ms.is_none()
+                    && self.projections.is_empty(),
+                "aggregation queries must not set limit/offset/as_of_ms/projections"
+            );
+            ops.push(LogicalOperator::Aggregate {
+                funcs: self.aggregates,
+                group_by: self.group_by,
             });
+        } else {
+            if !self.projections.is_empty() {
+                ops.push(LogicalOperator::Project {
+                    fields: self.projections,
+                });
+            }
+
+            push_pagination(&mut ops, self.limit, self.offset);
         }
 
         LogicalPlan {
@@ -404,6 +481,28 @@ pub enum LogicalOperator {
         /// Maximum rows.
         top_k: usize,
     },
+    /// Skip the first `skip` rows of the child stream (WIRE-12). Registry
+    /// extension (C2S6 pattern: variant + physical file + one register line):
+    /// compiled post-chain by `OperatorRegistry`, after the built-in `Limit`.
+    /// `Query`/`SelectStatement` composition widens the emitted `Limit`
+    /// window by the skip so the net effect is skip-then-take (see
+    /// `push_pagination`).
+    Offset {
+        /// Number of leading rows to skip.
+        skip: usize,
+    },
+    /// Aggregate rows into groups (WIRE-13). Registry extension (C2S6 pattern:
+    /// variant + physical file + one register line): compiled post-chain by
+    /// `OperatorRegistry`. Emits one synthetic `UnifiedNode` per group
+    /// (`id = 0`), carrying the group key plus one field per aggregate
+    /// ([`AggregateFunc::output_name`]). Without `group_by` it emits exactly
+    /// one row over the whole input (SQL global-aggregate semantics).
+    Aggregate {
+        /// Aggregate functions to compute, in output order.
+        funcs: Vec<AggregateFunc>,
+        /// Optional group key field; `None` = single global group.
+        group_by: Option<String>,
+    },
     /// Deduplicate consecutive rows by a relational field (C2S6 extension
     /// exemplar: compiles/costs through `OperatorRegistry` without touching
     /// the proven `planner` / `executor` matches; test-constructed, H2
@@ -445,6 +544,28 @@ pub struct LogicalPlan {
     pub enforce_role: Option<String>,
     /// Optional search profile (MEM-01): mode/RRF k/candidate budget.
     pub search_profile: Option<SearchProfileConfig>,
+}
+
+/// Push the pagination operators for `LIMIT`/`OFFSET` (WIRE-12).
+///
+/// `OFFSET` compiles as a post-chain registry extension (`PhysicalOffset`,
+/// applied by `optimize_and_compile` AFTER the built-in `Limit`), while SQL
+/// pagination is skip-then-take. When both clauses are present the emitted
+/// `Limit` window is therefore widened by the offset — the extension then
+/// trims the front, netting "skip `offset`, take `limit`". Without the
+/// widening, `Limit` would cap the stream before the skip and drop valid rows.
+fn push_pagination(ops: &mut Vec<LogicalOperator>, limit: Option<usize>, offset: Option<usize>) {
+    let offset = offset.filter(|skip| *skip > 0);
+    if let Some(limit) = limit {
+        let window = match offset {
+            Some(skip) => limit.saturating_add(skip),
+            None => limit,
+        };
+        ops.push(LogicalOperator::Limit { top_k: window });
+    }
+    if let Some(skip) = offset {
+        ops.push(LogicalOperator::Offset { skip });
+    }
 }
 
 impl Query {
@@ -498,6 +619,8 @@ impl Query {
         if let Some(fetch) = self.fetch {
             ops.push(LogicalOperator::Project { fields: fetch });
         }
+
+        push_pagination(&mut ops, self.limit, self.offset);
 
         LogicalPlan {
             operators: ops,
@@ -630,6 +753,8 @@ mod tests {
             owner_role: None,
             search_profile: None,
             as_of_ms: None,
+            limit: None,
+            offset: None,
         };
         assert_eq!(q.from_entity, "Node");
         assert!(q.traversal.is_none());
@@ -655,6 +780,8 @@ mod tests {
             owner_role: None,
             search_profile: None,
             as_of_ms: None,
+            limit: None,
+            offset: None,
         };
         assert_eq!(q.traversal.as_ref().unwrap().min_depth, 1);
         assert_eq!(q.traversal.as_ref().unwrap().max_depth, 3);
@@ -676,6 +803,8 @@ mod tests {
             owner_role: None,
             search_profile: None,
             as_of_ms: None,
+            limit: None,
+            offset: None,
         };
         let plan = q.into_logical_plan();
         assert_eq!(plan.operators.len(), 1);
@@ -706,6 +835,8 @@ mod tests {
             owner_role: None,
             search_profile: None,
             as_of_ms: None,
+            limit: None,
+            offset: None,
         };
         let plan = q.into_logical_plan();
         assert_eq!(plan.operators.len(), 2);
@@ -731,6 +862,8 @@ mod tests {
             owner_role: None,
             search_profile: None,
             as_of_ms: None,
+            limit: None,
+            offset: None,
         };
         let plan = q.into_logical_plan();
         let ops: Vec<&str> = plan
@@ -828,5 +961,151 @@ mod tests {
             }
             _ => panic!("wrong variant"),
         }
+    }
+
+    // ── Pagination plan emission (WIRE-12) ──
+
+    fn paginated_query(limit: Option<usize>, offset: Option<usize>) -> Query {
+        Query {
+            from_entity: "Doc".into(),
+            traversal: None,
+            target_alias: "target".into(),
+            where_clause: None,
+            fetch: None,
+            rank_by: None,
+            temperature: None,
+            owner_role: None,
+            search_profile: None,
+            as_of_ms: None,
+            limit,
+            offset,
+        }
+    }
+
+    #[test]
+    fn into_logical_plan_emits_limit_only() {
+        let plan = paginated_query(Some(5), None).into_logical_plan();
+        assert!(plan
+            .operators
+            .iter()
+            .any(|op| matches!(op, LogicalOperator::Limit { top_k: 5 })));
+        assert!(!plan
+            .operators
+            .iter()
+            .any(|op| matches!(op, LogicalOperator::Offset { .. })));
+    }
+
+    #[test]
+    fn into_logical_plan_widens_limit_window_when_offset_present() {
+        // OFFSET compiles post-chain through the registry (planner applies
+        // extensions AFTER the built-in Limit), so the emitted Limit window is
+        // widened by the skip: Limit{5+2} then Offset{2} = skip 2, take 5.
+        let plan = paginated_query(Some(5), Some(2)).into_logical_plan();
+        assert!(plan
+            .operators
+            .iter()
+            .any(|op| matches!(op, LogicalOperator::Limit { top_k: 7 })));
+        assert!(plan
+            .operators
+            .iter()
+            .any(|op| matches!(op, LogicalOperator::Offset { skip: 2 })));
+    }
+
+    #[test]
+    fn into_logical_plan_emits_offset_only_without_limit() {
+        let plan = paginated_query(None, Some(3)).into_logical_plan();
+        assert!(!plan
+            .operators
+            .iter()
+            .any(|op| matches!(op, LogicalOperator::Limit { .. })));
+        assert!(plan
+            .operators
+            .iter()
+            .any(|op| matches!(op, LogicalOperator::Offset { skip: 3 })));
+    }
+
+    #[test]
+    fn into_logical_plan_omits_zero_offset_and_keeps_limit() {
+        let plan = paginated_query(Some(4), Some(0)).into_logical_plan();
+        assert!(plan
+            .operators
+            .iter()
+            .any(|op| matches!(op, LogicalOperator::Limit { top_k: 4 })));
+        assert!(!plan
+            .operators
+            .iter()
+            .any(|op| matches!(op, LogicalOperator::Offset { .. })));
+    }
+
+    // ── Aggregation (WIRE-13) ──
+
+    #[test]
+    fn aggregate_func_output_names_are_deterministic() {
+        assert_eq!(AggregateFunc::Count.output_name(), "count");
+        assert_eq!(
+            AggregateFunc::CountField("email".into()).output_name(),
+            "count_email"
+        );
+        assert_eq!(
+            AggregateFunc::Sum("amount".into()).output_name(),
+            "sum_amount"
+        );
+    }
+
+    fn aggregate_select(aggregates: Vec<AggregateFunc>, group_by: Option<&str>) -> SelectStatement {
+        SelectStatement {
+            projections: vec![],
+            from: FromClause::Single {
+                entity: "Invoice".into(),
+                alias: "target".into(),
+            },
+            where_clause: None,
+            subquery_conditions: vec![],
+            temperature: None,
+            as_of_ms: None,
+            limit: None,
+            offset: None,
+            aggregates,
+            group_by: group_by.map(String::from),
+        }
+    }
+
+    #[test]
+    fn into_logical_plan_emits_aggregate_without_project() {
+        let plan =
+            aggregate_select(vec![AggregateFunc::Count], Some("category")).into_logical_plan();
+        assert!(plan.operators.iter().any(|op| matches!(
+            op,
+            LogicalOperator::Aggregate { funcs, group_by }
+                if funcs == &vec![AggregateFunc::Count]
+                    && group_by.as_deref() == Some("category")
+        )));
+        assert!(
+            !plan
+                .operators
+                .iter()
+                .any(|op| matches!(op, LogicalOperator::Project { .. })),
+            "aggregate output fields are built by the operator, not Project"
+        );
+        assert!(!plan
+            .operators
+            .iter()
+            .any(|op| matches!(op, LogicalOperator::Limit { .. })));
+    }
+
+    #[test]
+    fn into_logical_plan_plain_select_still_emits_project() {
+        // Control: the aggregate branch must not change non-aggregate SELECT.
+        let mut select = aggregate_select(vec![], None);
+        select.projections = vec!["name".into()];
+        let plan = select.into_logical_plan();
+        assert!(plan
+            .operators
+            .iter()
+            .any(|op| matches!(op, LogicalOperator::Project { .. })));
+        assert!(!plan
+            .operators
+            .iter()
+            .any(|op| matches!(op, LogicalOperator::Aggregate { .. })));
     }
 }

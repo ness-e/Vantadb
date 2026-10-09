@@ -65,7 +65,7 @@ tags: [vantadb, operations, master-index, catalog]
 | [FUZZING.md](../../dev/operations/FUZZING.md) | Fuzzing setup and results |
 | [REPO_CHECKLIST.md](../../dev/operations/REPO_CHECKLIST.md) | Repository maintenance checklist |
 | [TEST_MAP.md](../../dev/operations/TEST_MAP.md) | Test map: qué suite correr por cambio (cifra canónica de tests) |
-| [chaos-testing.md](chaos-testing.md) | Chaos/failpoint testing guide (failpoint paths vigentes) |
+| [chaos-testing.md](../../dev/operations/chaos-testing.md) | Chaos/failpoint testing guide (failpoint paths vigentes) |
 | [ci-cd-guide.md](../../dev/operations/ci-cd-guide.md) | CI/CD setup and operations guide |
 
 ## 6. Programs & Registry (6)
@@ -89,7 +89,7 @@ tags: [vantadb, operations, master-index, catalog]
 
 | File | Description |
 |------|-------------|
-| [EXTRACCION-DOC-OLD-2026-08-05.md](../../archive/EXTRACCION-DOC-OLD-2026-08-05.md) | Extracción de documentación legacy (2026-08-05) |
-| [legacy-docs-investigacion-2026-07-16.md](../../archive/legacy-docs-investigacion-2026-07-16.md) | Docs legacy de investigación (2026-07-16) |
+| [EXTRACCION-DOC-OLD-2026-08-05.md](../../dev/archive/EXTRACCION-DOC-OLD-2026-08-05.md) | Extracción de documentación legacy (2026-08-05) |
+| [legacy-docs-investigacion-2026-07-16.md](../../dev/archive/legacy-docs-investigacion-2026-07-16.md) | Docs legacy de investigación (2026-07-16) |
 
 > Optional: `docs/dev/backlog-futuro.md` vive suelto en la raíz de `docs/` (no archivado); plan Open Core archivado en `docs/dev/plans/archive/2026-08-06-oc-vantadb-pro.md`.

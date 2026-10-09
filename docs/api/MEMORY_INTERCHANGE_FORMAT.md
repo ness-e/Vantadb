@@ -2,7 +2,7 @@
 title: "Memory interchange format (JSONL v2)"
 kind: reference
 status: active
-description: "The JSONL v2 contract shared by VantaDB export, import and the third-party importers (Mem0, Zep/Graphiti, Letta), with mapping tables and declared limits"
+description: "The JSONL v2 contract shared by VantaDB export, import and the third-party importers (Mem0, Zep/Graphiti, Letta): mapping tables, integrity manifest, frontier-format mapping, declared limits"
 tags: [api, memory, import]
 ---
 
@@ -64,6 +64,11 @@ backfill defaults below) and rejects anything newer with
 - Conflicting content for the same key is last-write-wins on import; to keep
   history, write the new claim under a new key and link the old one with
   `superseded_by` (both records survive).
+- The raw transport keeps arrival-order LWW for third-party files. Multi-writer
+  convergence between writers (devices/agents) has a **declared policy** in the
+  merge path: `Embedded::merge_record` resolves by explicit LWW over
+  `(updated_at_ms, canonical content bytes)` with conflict detection -
+  deterministic for any arrival order (ADR-0055).
 - `Derived` records declare ≥1 `derived_from` parent key and a `confidence`
   bounded by the parents' (`min(parents) × 0.9` when computed by the engine).
   The transport validates shape (non-empty parents, class consistency,
@@ -89,6 +94,40 @@ the confidence boundary and the validity window. `import_records` and
   call the source system's API.
 - **Vectors.** None of the supported export files carry embeddings; attach
   `vector` per line before importing if semantic search is required.
+
+## Integrity manifest
+
+File exports (`export_namespace` / `export_all`, and `vanta-cli export`) write a
+sidecar **integrity manifest** next to the JSONL file: `<path>.manifest.json`.
+The manifest is deterministic (no wall-clock fields, `namespaces` sorted), so
+re-exporting unchanged data is byte-identical — the same git-friendly property
+as the MD export.
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `schema_version` | u32 | Manifest schema version (`1`). |
+| `format` | string | `"vantadb-memory-jsonl"` discriminator. |
+| `export_schema_version` | u32 | JSONL schema version covered (`2`). |
+| `records` | u64 | Records in the export file. |
+| `namespaces` | [string] | Namespaces included (sorted, deduplicated). |
+| `sha256` | string | Hex digest over the exact bytes of the export file. |
+| `limits` | [string] | Declared limits — always present, never silent. |
+
+`ExportReport` carries the same digest (`sha256`) and the sidecar path
+(`manifest_path`). Verify a file against its manifest with
+`Embedded::verify_export_integrity(path)`: it recomputes the digest and reports
+`ok` (match), `mismatch` (diverged) or `no_manifest` (pre-manifest export —
+never reported as `ok`). A corrupt sidecar, a sidecar from another format, or a
+missing export file returns an error — never a status.
+
+**Declared limits — integrity, not authenticity.** The manifest is an sha256
+self-hash: an actor who edits the file *and* recomputes the manifest is not
+detected; there is no engine key and no digital signature (the same contract as
+the VER-02 certificates; cryptographic signing is a vanta-audit decision). The
+manifest covers the JSONL file bytes only — it does not bind the exporting
+database instance, the import target, or edits made after export. `import_file`
+does not enforce the manifest; verification is explicit. Transports that carry
+only the JSONL (e.g. the MCP inline `export` tool) do not carry the sidecar.
 
 ## Importers (Mem0 / Zep / Letta)
 
@@ -192,6 +231,48 @@ archival-memory passages nor data-source file contents, and exported secrets are
   `xxh3_128(namespace, payload)` content keys. Re-importing the same export
   therefore **updates** records (`ImportReport.updated`) instead of duplicating
   them — the same content-hash idempotency used by the Markdown seed importer.
+
+## Versioning and migration
+
+- **JSONL schema (`schema_version`):** export always writes `2`; import accepts
+  `1..=2` and normalizes v1 lines with the backfill defaults above. Anything
+  newer is rejected (`unsupported memory export schema_version`) — a v1 reader
+  never silently misreads a future line. Additive fields keep the same version;
+  a breaking change bumps it.
+- **Manifest schema (`schema_version`):** independent of the JSONL schema (`1`
+  today). New manifest fields are additive; unknown fields are ignored by
+  readers.
+- **Migration:** v1 → v2 is handled on import (normalization), no manual step.
+  Export → import is the supported path to move data between instances or
+  versions; keep the sidecar manifest with the file to retain verifiability.
+
+## Frontier formats (2026-10-05 survey)
+
+How this format relates to the memory-portability formats active when this
+section was written. The 2026 drafts mutate; each row carries its status and
+date, and the mapping is a snapshot, not a frozen contract.
+
+| Format | What it defines | Relation to JSONL v2 | Status |
+|--------|-----------------|----------------------|--------|
+| [AGENTS.md](https://agents.md/) | Plain-Markdown instructions for coding agents (no memory schema). | Complementary: instructions live in Markdown; VantaDB memory is data. The MD export lane (`--format md`) covers the human-readable repo-memory side. | Stable de-facto format (stewarded by the Agentic AI Foundation, Linux Foundation). |
+| [MCP](https://modelcontextprotocol.io/) | Tool-call transport; "memory servers" are a server category, not a canonical memory format. | VantaDB exposes memory tools over MCP (`export` / `import` inline JSONL); MCP standardizes transport, the interchange format is this document. | Active standard; no memory wire format to adopt. |
+| [AAIF](https://datatracker.ietf.org/doc/draft-schemacommons-aaif/) | Portable agent *definition* + Agent State checkpoints (SHA-256 checksum of canonical JSON; signature field). | Different layer (agent definition/state, not memory records). Its checkpoint checksum aligns with this manifest's integrity approach. | IETF individual draft — v00, 2026-06-25, expires 2026-12-27 (work in progress). |
+| [AIMEM](https://datatracker.ietf.org/doc/draft-vu-aimem-bundle/) | Memory interchange *bundle* (chunks/edges/entities), sha256 checksum over canonicalized JSON, COSE_Sign1 detached signature, idempotent re-import. | Closest frontier format: shared direction on checksum + deterministic idempotent keys; not adopted yet: signatures (delegated), bundle envelope, graph edges/entities. | IETF individual draft — v00, 2026-06-14, expires 2026-12-16 (work in progress). |
+| [ALF](https://github.com/agent-life/agent-life-data-format) | ZIP container of agent durable state: memory partitions (JSONL), identity, principals, encrypted credentials. | Same memory lane (JSONL partitions + manifest); VantaDB keeps memory only — identity/credentials are out of scope. | Release candidate (1.0.0-rc.5). |
+| [AMP](https://github.com/agentmemoryprotocol/agentmemoryprotocol) | Markdown-first, graph-native memory nodes with wiki-links. | Complementary lane: human-editable Markdown (similar to the MD export lane); JSONL remains the machine transport. | Community draft (spec v0.1). |
+| [W3C CG AI Agent Memory Interop](https://www.w3.org/groups/cg/ai-agent-memory-interop/) | Protocol-level memory cell: encrypted unit, post-quantum identity binding (ML-DSA-65), per-cell DEK envelopes, tamper-evident audit trails, cryptographic erasure. | Future-facing: encryption and PQC signatures are out of current scope (signature delegated to vanta-audit; encryption is a separate track). | Community Group; v1.0 charter adopted 2026-06-19. Its normative home is the SAIHM draft below — the CG publishes reports, not standards. |
+| [SAIHM](https://datatracker.ietf.org/doc/draft-saihm-memory-protocol/) | Memory-layer protocol companion to MCP: encrypted cells (per-cell DEK), ML-DSA-65 identity binding, CBOR cells/receipts, sharing contracts with revocation, cryptographic erasure (GDPR Art.17); eight MCP tools. | Future-facing protocol layer: VantaDB's export carries records + sha256 integrity; signing/encryption/erasure receipts are separate tracks (FIND-309 / MEMG-17). | IETF individual draft — v01, 2026-05-27, expires 2026-11-28 (work in progress). |
+| [Portable Agent Memory](https://arxiv.org/abs/2605.11032) | Cryptographically-verified memory transfer: content-addressable entries linked by a Merkle-DAG provenance graph (tamper-evidence), capability-based scoped disclosure, injection-resistant rehydration, JSON-first + optional CBOR. | Same direction as this manifest (tamper-evidence over exported memory); a Merkle-DAG is an alternative to per-file signatures for the deferred signing decision (FIND-309). | Research preprint — arXiv:2605.11032, 2026-05-10 (Apache-2.0 reference SDK). |
+| [memorywire](https://arxiv.org/abs/2606.01138) | Operations wire format: JSON-Schema 2020-12 for five memory operations (remember / recall / forget / merge / expire) over four memory types, a MemoryStore interface, provenance field, optional HITL governance. | Complementary operations layer (not a storage format); composes with MCP, which VantaDB already speaks. | Research preprint — arXiv:2606.01138 v4, 2026-08-12 (reference implementation). |
+
+Adoption boundary: this document (the interchange format) is the adopted
+contract; the frontier rows above are mapped, not implemented, except where
+noted (the integrity manifest aligns with AIMEM's checksum direction).
+
+Industry baseline (Major Labs, *The State of Agent Memory*, June 2026): none of
+the six leading systems (Letta, Mem0, Zep, LangMem, model-native memory,
+Cognee) signs memory or ships full-fidelity export portability — a portable,
+signed, verifiable memory record is still unshipped market-wide.
 
 ## See also
 

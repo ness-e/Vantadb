@@ -20,20 +20,24 @@
 //! longer need to call `.with_local_provider()` explicitly. Without the
 //! feature the call falls back to keyword overlap exactly as before MEM-47.
 
+use std::collections::HashSet;
+
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use vantadb::sdk::Embedded;
 
 use crate::core::abstractions::MemoryRecord;
+use crate::core::conversation::sanitize_key;
 use crate::core::persona::persona_generator::{get_persona, persona_namespace, PersonaError};
 use crate::core::profile::profile_sync::{
     build_profile_isolation_scope, profile_namespace, read_scoped_persona, ProfileIsolation,
 };
 use crate::core::record::l1_reader::{
     cosine_similarity, l1_namespace, overlap_score, read_namespace_records, read_session_records,
-    rrf_merge, significant_terms, MIN_COSINE_SIMILARITY,
+    rrf_merge_scored, significant_terms, usable_vector_filter, MIN_COSINE_SIMILARITY,
 };
 use crate::core::record::l1_writer::EmbedFn;
+use crate::core::record::scoring::{composite_rank, CompositeScoring};
 use crate::core::record::L1Error;
 use crate::core::scene::scene_index::{list_scenes, scene_namespace, SceneError};
 use crate::core::scene::scene_navigation::{generate_scene_navigation, strip_scene_navigation};
@@ -109,11 +113,31 @@ impl RecallGovernance {
 /// everything (today's behavior); anything not matched by a prefix is denied
 /// (`deny fuera de scope`).
 ///
+/// Content-trust class of a namespace (MGR-04 / MEMG-10).
+///
+/// `Trusted` is the default: content may be injected (subject to the ACL and
+/// the injection budget). `Tainted` namespaces never feed a prompt by default
+/// — hosts must opt in with `include_tainted` (e.g. review workflows). Gates
+/// compose with AND and denials are reported through the recall governance
+/// lists, never silently.
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TrustClass {
+    /// Namespace content may be injected (subject to ACL + budget).
+    Trusted,
+    /// Namespace content must not be injected unless explicitly opted in.
+    Tainted,
+}
+
 /// Prefix semantics are boundary-aware: `l1/sess-1` allows `l1/sess-1` and
 /// `l1/sess-1/...` but never `l1/sess-12`; a trailing `/` is tolerated.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct InjectionPolicy {
     allow_prefixes: Vec<String>,
+    /// MGR-04: namespaces classified as tainted (never injected by default).
+    tainted_prefixes: Vec<String>,
+    /// MGR-04: explicit opt-in to inject tainted content (default `false`).
+    include_tainted: bool,
 }
 
 impl InjectionPolicy {
@@ -122,35 +146,83 @@ impl InjectionPolicy {
         Self::default()
     }
 
-    /// Build from an operator-provided prefix list (blank/`/`-only entries
-    /// are ignored; trailing `/` is stripped).
+    /// Build from an operator-provided allowlist (blank/`/`-only entries are
+    /// ignored; trailing `/` is stripped). Tainted list empty → behavior
+    /// unchanged from VER-04.
     pub fn from_prefixes(prefixes: impl IntoIterator<Item = impl Into<String>>) -> Self {
-        let allow_prefixes = prefixes
-            .into_iter()
-            .map(|p| p.into())
-            .map(|p| p.trim().trim_end_matches('/').to_string())
-            .filter(|p| !p.is_empty())
-            .collect();
-        Self { allow_prefixes }
+        Self::from_parts(prefixes, std::iter::empty::<String>(), false)
     }
 
-    /// True when no restriction is configured (allow-all).
+    /// Build from the full governance knobs: the ACL allowlist, the tainted
+    /// namespace prefixes (MGR-04 trust class) and the tainted opt-in.
+    ///
+    /// Both prefix lists use the same boundary-aware matching and
+    /// normalization as [`Self::from_prefixes`]. The gates compose with AND:
+    /// to inject, a namespace must be ACL-allowed and trust-allowed (trusted,
+    /// or tainted with `include_tainted`).
+    pub fn from_parts(
+        allow_prefixes: impl IntoIterator<Item = impl Into<String>>,
+        tainted_prefixes: impl IntoIterator<Item = impl Into<String>>,
+        include_tainted: bool,
+    ) -> Self {
+        Self {
+            allow_prefixes: normalize_prefixes(allow_prefixes),
+            tainted_prefixes: normalize_prefixes(tainted_prefixes),
+            include_tainted,
+        }
+    }
+
+    /// True when no ACL allowlist restriction is configured. A non-empty
+    /// tainted list can still deny sources — use [`Self::allows`] for the
+    /// composed decision.
     pub fn is_empty(&self) -> bool {
         self.allow_prefixes.is_empty()
     }
 
-    /// Whether `namespace` is inside the allowed scope.
-    pub fn allows(&self, namespace: &str) -> bool {
-        if self.allow_prefixes.is_empty() {
-            return true;
+    /// MGR-04: the trust class declared for `namespace` (default `Trusted`).
+    pub fn trust_class(&self, namespace: &str) -> TrustClass {
+        if self.is_tainted(namespace) {
+            TrustClass::Tainted
+        } else {
+            TrustClass::Trusted
         }
-        self.allow_prefixes.iter().any(|prefix| {
-            namespace == prefix
-                || namespace
-                    .strip_prefix(prefix)
-                    .is_some_and(|rest| rest.starts_with('/'))
-        })
     }
+
+    /// Whether `namespace` is inside the allowed scope: ACL allowlist AND
+    /// trust (tainted sources need `include_tainted`). This is the single
+    /// predicate every injection surface routes through (VER-04).
+    pub fn allows(&self, namespace: &str) -> bool {
+        let acl_ok = self.allow_prefixes.is_empty()
+            || self
+                .allow_prefixes
+                .iter()
+                .any(|prefix| prefix_matches(prefix, namespace));
+        acl_ok && (self.include_tainted || !self.is_tainted(namespace))
+    }
+
+    fn is_tainted(&self, namespace: &str) -> bool {
+        self.tainted_prefixes
+            .iter()
+            .any(|prefix| prefix_matches(prefix, namespace))
+    }
+}
+
+/// Trim + strip trailing `/` + drop blanks (shared by every prefix list).
+fn normalize_prefixes(prefixes: impl IntoIterator<Item = impl Into<String>>) -> Vec<String> {
+    prefixes
+        .into_iter()
+        .map(Into::into)
+        .map(|p| p.trim().trim_end_matches('/').to_string())
+        .filter(|p| !p.is_empty())
+        .collect()
+}
+
+/// Boundary-aware prefix match: exact or `prefix/...` (never `prefixX`).
+fn prefix_matches(prefix: &str, namespace: &str) -> bool {
+    namespace == prefix
+        || namespace
+            .strip_prefix(prefix)
+            .is_some_and(|rest| rest.starts_with('/'))
 }
 
 /// Result of an auto-recall pass. `Ok(None)` from [`perform_auto_recall`]
@@ -241,6 +313,12 @@ pub struct RecallConfig {
     /// Total char budget across all recalled lines (TDAM
     /// `maxTotalRecallChars`).
     pub max_total_recall_chars: Option<usize>,
+    /// MEMG-11: opt-in — rank the L1 pool with the core hybrid search
+    /// (BM25 text arm + HNSW vector arm + planner RRF) instead of the
+    /// in-memory dual-pool (`significant_terms` + cosine + local RRF).
+    /// Default `false`: the legacy path stays byte-identical (rollback =
+    /// flip the flag back; dual-path migration).
+    pub core_search: bool,
 }
 
 impl Default for RecallConfig {
@@ -252,6 +330,7 @@ impl Default for RecallConfig {
             min_overlap: 1,
             max_chars_per_memory: None,
             max_total_recall_chars: None,
+            core_search: false,
         }
     }
 }
@@ -313,7 +392,7 @@ pub fn perform_auto_recall(
     params: AutoRecallParams<'_>,
     embed: Option<&EmbedFn>,
 ) -> Result<Option<RecallResult>, RecallError> {
-    perform_auto_recall_governed(db, params, embed, &InjectionPolicy::allow_all())
+    perform_auto_recall_inner(db, params, embed, &InjectionPolicy::allow_all(), None)
 }
 
 /// VER-04: auto-recall with an explicit injection ACL. Sources whose
@@ -325,6 +404,43 @@ pub fn perform_auto_recall_governed(
     embed: Option<&EmbedFn>,
     policy: &InjectionPolicy,
 ) -> Result<Option<RecallResult>, RecallError> {
+    perform_auto_recall_inner(db, params, embed, policy, None)
+}
+
+/// MEMG-21: auto-recall with **opt-in composite scoring** (recency +
+/// relevance + importance).
+///
+/// Re-ranks the recall candidates of both routes (in-memory dual-pool and the
+/// `core_search` hybrid path) before the `max_results` cut, using
+/// [`crate::core::record::scoring`]: relevance is the existing pool/fused
+/// score (min-max normalized), recency is MEMG-07's `retention_factor` and
+/// importance is the record's declared `priority`. `now_ms` is injected for
+/// determinism (the pure scoring is pinned by tests).
+///
+/// The other entry points keep the legacy ordering **byte-identical** (they
+/// delegate with no scoring) — this is the opt-in surface (pre-mortem #2:
+/// neutral defaults; no existing caller changes behavior).
+pub fn perform_auto_recall_scored(
+    db: &Embedded,
+    params: AutoRecallParams<'_>,
+    embed: Option<&EmbedFn>,
+    policy: &InjectionPolicy,
+    scoring: &CompositeScoring,
+    now_ms: u64,
+) -> Result<Option<RecallResult>, RecallError> {
+    perform_auto_recall_inner(db, params, embed, policy, Some((scoring, now_ms)))
+}
+
+/// Shared body of the auto-recall entry points. `composite` is `None` for the
+/// legacy (byte-identical) ordering and `Some((scoring, now_ms))` for the
+/// MEMG-21 opt-in re-rank.
+fn perform_auto_recall_inner(
+    db: &Embedded,
+    params: AutoRecallParams<'_>,
+    embed: Option<&EmbedFn>,
+    policy: &InjectionPolicy,
+    composite: Option<(&CompositeScoring, u64)>,
+) -> Result<Option<RecallResult>, RecallError> {
     let config = params.config;
     let isolation = params.isolation.unwrap_or_default();
     let mut governance = RecallGovernance::default();
@@ -333,31 +449,50 @@ pub fn perform_auto_recall_governed(
     let mut recalled = Vec::new();
     let mut semantic_ran = false;
     if !params.user_text.trim().is_empty() {
-        // Own-session records are always visible (legacy records carry no
-        // agent/team metadata and must not vanish when the scope widens).
-        let mut records = Vec::new();
-        let current_ns = l1_namespace(params.session_key);
-        if policy.allows(&current_ns) {
-            records = read_session_records(db, params.session_key)?;
-            if !records.is_empty() {
-                governance.source(&current_ns);
-            }
-        } else {
-            governance.deny(&current_ns);
-        }
-        if config.scope != RecallScope::Session {
-            records.extend(read_scoped_records(
+        if config.core_search {
+            // MEMG-11: core hybrid path (BM25 + HNSW + RRF). Same ACL/scope
+            // rules as the legacy path; see `search_records_core`.
+            let (hits, used_semantic) = search_records_core(
                 db,
-                config.scope,
-                &isolation,
+                params.user_text,
                 params.session_key,
+                &isolation,
+                &config,
+                embed,
                 policy,
                 &mut governance,
-            )?);
+                composite,
+            )?;
+            semantic_ran = used_semantic;
+            recalled = hits;
+        } else {
+            // Own-session records are always visible (legacy records carry no
+            // agent/team metadata and must not vanish when the scope widens).
+            let mut records = Vec::new();
+            let current_ns = l1_namespace(params.session_key);
+            if policy.allows(&current_ns) {
+                records = read_session_records(db, params.session_key)?;
+                if !records.is_empty() {
+                    governance.source(&current_ns);
+                }
+            } else {
+                governance.deny(&current_ns);
+            }
+            if config.scope != RecallScope::Session {
+                records.extend(read_scoped_records(
+                    db,
+                    config.scope,
+                    &isolation,
+                    params.session_key,
+                    policy,
+                    &mut governance,
+                )?);
+            }
+            let (hits, used_semantic) =
+                search_records(&records, params.user_text, &config, embed, composite);
+            semantic_ran = used_semantic;
+            recalled = hits;
         }
-        let (hits, used_semantic) = search_records(&records, params.user_text, &config, embed);
-        semantic_ran = used_semantic;
-        recalled = hits;
     }
 
     // ── L3 persona (scoped by team+agent via profile_sync) ──
@@ -455,6 +590,35 @@ pub fn perform_auto_recall_governed(
     }))
 }
 
+/// MEMG-02: report the outcome of a recalled memory back to the store —
+/// closes the recall → outcome → confidence loop.
+///
+/// Maps a [`RecalledMemory`] hit to the core
+/// [`vantadb::Embedded::reinforce`] op using the identity the recall already
+/// carries (`source_namespace` + `source_key`, VER-04). The host declares the
+/// outcome explicitly ([`vantadb::ReinforceOutcome`]) — the engine never
+/// infers it (no silent feedback). Policy (bump/decay/window) lives in the
+/// core op; see `docs/api/scores.md` §Reinforcement.
+///
+/// `source_key` is sanitized with the same rule the L1 writer used for the
+/// stored key (`sanitize_key`, `put_record`), so a hit round-trips to its
+/// record. Errors with `InvalidInput` when the hit carries no source identity
+/// (payload recalled before VER-04) instead of guessing namespace/key.
+pub fn reinforce_recalled(
+    db: &Embedded,
+    recalled: &RecalledMemory,
+    outcome: vantadb::ReinforceOutcome,
+) -> Result<vantadb::MemoryRecord, L1Error> {
+    if recalled.source_namespace.is_empty() || recalled.source_key.is_empty() {
+        return Err(L1Error::Vanta(vantadb::Error::InvalidInput(
+            "recalled memory carries no source identity (legacy payload) — cannot reinforce"
+                .to_string(),
+        )));
+    }
+    let key = sanitize_key(&recalled.source_key);
+    Ok(db.reinforce(&recalled.source_namespace, &key, outcome)?)
+}
+
 /// Cross-session L1 records visible under the given scope (D22): every
 /// `l1/*` namespace except the current session's, filtered by the record's
 /// own `agent_id` / `team_id`. Records without the matching metadata are
@@ -536,11 +700,17 @@ struct RecallHit {
 /// Note on scores: [`RecalledMemory::score`] stays the keyword-overlap count;
 /// a record matched purely via similarity reports `0` there (its cosine lives
 /// in the internal ranking only).
+///
+/// MEMG-21: when `composite` is `Some((scoring, now_ms))`, the ordered
+/// candidates are re-ranked by the composite score (recency + relevance +
+/// importance) before the `max_results` cut; with `None` the legacy order is
+/// returned untouched (byte-identical).
 fn search_records(
     records: &[MemoryRecord],
     query: &str,
     config: &RecallConfig,
     embed: Option<&EmbedFn>,
+    composite: Option<(&CompositeScoring, u64)>,
 ) -> (Vec<RecallHit>, bool) {
     let terms = significant_terms(query);
     let query_vector = match (config.mode != RecallMode::Keyword, embed) {
@@ -583,17 +753,39 @@ fn search_records(
     });
 
     let semantic_ran = !vector_pool.is_empty();
-    let ordered: Vec<&MemoryRecord> = if !semantic_ran {
-        keyword_pool.iter().map(|(_, r)| *r).collect()
+    // Candidates in the legacy relevance order, paired with their raw
+    // relevance (overlap count, cosine, or fused RRF when both arms
+    // contribute). With `composite: None` the legacy order is returned
+    // untouched; MEMG-21 re-ranks on the paired signals.
+    let candidates: Vec<(&MemoryRecord, f64)> = if !semantic_ran {
+        keyword_pool
+            .iter()
+            .map(|(score, r)| (*r, *score as f64))
+            .collect()
     } else if keyword_pool.is_empty() {
-        vector_pool.iter().map(|(_, r)| *r).collect()
+        vector_pool
+            .iter()
+            .map(|(sim, r)| (*r, f64::from(*sim)))
+            .collect()
     } else {
         let keyword_ids: Vec<String> = keyword_pool.iter().map(|(_, r)| r.id.clone()).collect();
         let vector_ids: Vec<String> = vector_pool.iter().map(|(_, r)| r.id.clone()).collect();
-        rrf_merge(&keyword_ids, &vector_ids, usize::MAX)
+        rrf_merge_scored(&keyword_ids, &vector_ids, usize::MAX)
             .into_iter()
-            .filter_map(|id| records.iter().find(|r| r.id == id))
+            .filter_map(|(id, fused)| {
+                records
+                    .iter()
+                    .find(|r| r.id == id)
+                    .map(|r| (r, f64::from(fused)))
+            })
             .collect()
+    };
+    let ordered: Vec<&MemoryRecord> = match composite {
+        None => candidates.into_iter().map(|(record, _)| record).collect(),
+        Some((scoring, now_ms)) => composite_rank(&candidates, scoring, now_ms)
+            .into_iter()
+            .map(|idx| candidates[idx].0)
+            .collect(),
     };
 
     let hits: Vec<RecallHit> = ordered
@@ -641,6 +833,188 @@ fn search_records(
         })
         .collect();
     (budgeted, semantic_ran)
+}
+
+/// MEMG-11: rank the L1 pool with the core hybrid search — BM25 text arm
+/// (every record, vector or not: the D38 "a legacy record is never dropped"
+/// promise rides the text arm), HNSW vector arm (records with a usable
+/// vector) and the planner's RRF fusion. Same ACL/scope rules as the legacy
+/// path: the current session namespace plus, when the scope widens, every
+/// `l1/*` namespace allowed by the policy (cross-session hits are filtered by
+/// the record's own `agent_id`/`team_id`, D22). Quarantined records never
+/// surface (`include_quarantined: false`, SCH-05).
+///
+/// Documented divergences from the legacy path:
+/// - the text arm always runs (even in `Embedding` mode) — it carries the D38
+///   "a vectorless record is never dropped" promise; `mode` only controls
+///   whether the embedding arm is attempted, so the core route is hybrid;
+/// - `min_overlap` is not applied (BM25 relevance replaces the keyword-overlap
+///   gate; post-filtering by `significant_terms` would drop stemmed/stopword
+///   BM25 matches);
+/// - cross-namespace merging orders by `hit.score` (an RRF *intra*-namespace
+///   score) — approximate across namespaces, where the legacy path scored the
+///   global pool in one pass;
+/// - `semantic_ran` reports whether the embedding arm was *executed*
+///   (non-empty query vector) — the core route decides internally whether it
+///   contributed candidates, so `effective_mode` reflects the declared mode
+///   whenever a hook produced a vector.
+#[allow(clippy::too_many_arguments)]
+fn search_records_core(
+    db: &Embedded,
+    user_text: &str,
+    session_key: &str,
+    isolation: &ProfileIsolation,
+    config: &RecallConfig,
+    embed: Option<&EmbedFn>,
+    policy: &InjectionPolicy,
+    governance: &mut RecallGovernance,
+    composite: Option<(&CompositeScoring, u64)>,
+) -> Result<(Vec<RecallHit>, bool), RecallError> {
+    use vantadb::sdk::{MemorySearchRequest, SearchProfileConfig, SearchProfileMode};
+
+    let query_vector = match (config.mode != RecallMode::Keyword, embed) {
+        (true, Some(hook)) => hook(user_text),
+        _ => None,
+    }
+    .filter(|v| !v.is_empty() && v.iter().any(|&x| x != 0.0));
+    let semantic_ran = query_vector.is_some();
+    // The text arm always runs when there is text: it carries the D38 "a
+    // vectorless record is never dropped" promise on the core path. `mode`
+    // only controls whether the embedding arm is attempted, so the core route
+    // is always hybrid text+vector — same intent as the legacy dual-pool,
+    // which also kept the keyword pool in Embedding mode (documented
+    // divergence: the core route never drops the text arm).
+    let text_query = Some(user_text.trim().to_string()).filter(|t| !t.is_empty());
+
+    let current_ns = l1_namespace(session_key);
+    let mut namespaces = vec![current_ns.clone()];
+    if config.scope != RecallScope::Session {
+        for ns in db.list_namespaces()? {
+            if ns.starts_with("l1/") && ns != current_ns {
+                namespaces.push(ns);
+            }
+        }
+    }
+
+    // Per-namespace candidate budget leaves room for the cross-namespace
+    // merge; the final take is `max_results`.
+    let per_ns_k = config.max_results.saturating_mul(4).max(1);
+
+    let mut merged: Vec<(f32, MemoryRecord, String)> = Vec::new();
+    let mut seen: HashSet<(String, String)> = HashSet::new();
+    for ns in namespaces {
+        if !policy.allows(&ns) {
+            governance.deny(&ns);
+            continue;
+        }
+        let request = MemorySearchRequest {
+            namespace: ns.clone(),
+            query_vector: query_vector.clone().unwrap_or_default(),
+            text_query: text_query.clone(),
+            top_k: per_ns_k,
+            search_profile: Some(SearchProfileConfig {
+                mode: SearchProfileMode::Hybrid,
+                ..Default::default()
+            }),
+            include_quarantined: false,
+            ..Default::default()
+        };
+        let hits = db.search(request)?;
+        let mut contributed = false;
+        for hit in hits {
+            let Ok(mut record) = serde_json::from_str::<MemoryRecord>(&hit.record.payload) else {
+                tracing::debug!(key = %hit.record.key, "l1 record failed to deserialize; skipped");
+                continue;
+            };
+            // Cross-session visibility (D22): own-session records are always
+            // visible; other namespaces need the matching agent/team stamp.
+            if ns != current_ns {
+                let visible = match config.scope {
+                    RecallScope::Session => false,
+                    RecallScope::Agent => {
+                        record.agent_id.as_deref() == Some(isolation.agent_id.as_str())
+                    }
+                    RecallScope::Team => {
+                        record.team_id.as_deref() == Some(isolation.team_id.as_str())
+                    }
+                };
+                if !visible {
+                    continue;
+                }
+            }
+            record.vector = usable_vector_filter(hit.record.vector.as_deref());
+            let identity = (ns.clone(), hit.record.key.clone());
+            if seen.insert(identity) {
+                merged.push((hit.score, record, ns.clone()));
+                contributed = true;
+            }
+        }
+        if contributed {
+            governance.source(&ns);
+        }
+    }
+
+    merged.sort_by(|a, b| b.0.total_cmp(&a.0));
+    // MEMG-21: opt-in composite re-rank before the `max_results` cut. Raw
+    // relevance = the core hit score (an intra-namespace RRF score —
+    // approximate across namespaces, the same documented divergence as the
+    // legacy route).
+    let order: Vec<usize> = match composite {
+        None => (0..merged.len()).collect(),
+        Some((scoring, now_ms)) => {
+            let candidates: Vec<(&MemoryRecord, f64)> = merged
+                .iter()
+                .map(|(score, record, _)| (record, f64::from(*score)))
+                .collect();
+            composite_rank(&candidates, scoring, now_ms)
+        }
+    };
+    let hits: Vec<RecallHit> = order
+        .into_iter()
+        .take(config.max_results)
+        .map(|idx| {
+            let (_, record, ns) = &merged[idx];
+            let line = format_memory_line(record);
+            let memory_type = serde_json::to_string(&record.memory_type)
+                .unwrap_or_else(|_| "\"unknown\"".to_string());
+            let memory_type = memory_type.trim_matches('"').to_string();
+            let content = line
+                .split_once("] ")
+                .map(|(_, rest)| rest.to_string())
+                .unwrap_or_else(|| line.clone());
+            RecallHit {
+                line,
+                memory: RecalledMemory {
+                    content,
+                    // `score` stays the keyword-overlap count (legacy shape);
+                    // a record matched purely via similarity reports 0.
+                    score: overlap_score(&record.content, user_text),
+                    memory_type,
+                    // The queried namespace is where the record actually
+                    // lives (source identity for the VER-04 audit + MEMG-02
+                    // reinforcement round-trip).
+                    source_namespace: ns.clone(),
+                    source_key: record.id.clone(),
+                },
+            }
+        })
+        .collect();
+
+    // Same line-budget pass as the legacy path.
+    let budgeted_lines = apply_recall_budget(hits.iter().map(|h| h.line.clone()).collect(), config);
+    let budgeted = budgeted_lines
+        .into_iter()
+        .zip(hits)
+        .map(|(line, mut hit)| {
+            hit.memory.content = line
+                .split_once("] ")
+                .map(|(_, rest)| rest.to_string())
+                .unwrap_or_else(|| line.clone());
+            hit.line = line;
+            hit
+        })
+        .collect();
+    Ok((budgeted, semantic_ran))
 }
 
 /// Format one record as a rich natural-language line (TDAM
@@ -805,6 +1179,80 @@ mod tests {
     }
 
     #[test]
+    fn injection_policy_tainted_namespaces_are_denied_by_default() {
+        let policy = InjectionPolicy::from_parts(std::iter::empty::<String>(), ["l1/evil"], false);
+        assert!(
+            !policy.allows("l1/evil"),
+            "tainted must not inject by default"
+        );
+        assert!(
+            !policy.allows("l1/evil/sub"),
+            "tainted prefix covers subtree"
+        );
+        assert!(policy.allows("l1/evilish"), "prefix boundary must be exact");
+        assert!(policy.allows("l1/ok"), "trusted namespaces are unaffected");
+    }
+
+    #[test]
+    fn injection_policy_include_tainted_opts_back_in() {
+        let policy = InjectionPolicy::from_parts(std::iter::empty::<String>(), ["l1/evil"], true);
+        assert!(
+            policy.allows("l1/evil"),
+            "explicit opt-in re-allows tainted"
+        );
+        assert!(policy.allows("l1/ok"));
+    }
+
+    #[test]
+    fn injection_policy_trust_class_reports_the_namespace_class() {
+        let policy =
+            InjectionPolicy::from_parts(std::iter::empty::<String>(), ["scene/review"], false);
+        assert_eq!(policy.trust_class("scene/review"), TrustClass::Tainted);
+        assert_eq!(policy.trust_class("scene/review/sub"), TrustClass::Tainted);
+        assert_eq!(policy.trust_class("scene/review2"), TrustClass::Trusted);
+        assert_eq!(policy.trust_class("l1/ok"), TrustClass::Trusted);
+        assert_eq!(
+            InjectionPolicy::allow_all().trust_class("anything"),
+            TrustClass::Trusted
+        );
+    }
+
+    #[test]
+    fn injection_policy_from_prefixes_equals_from_parts_defaults() {
+        let prefixes = ["l1/sess-1", " persona/x "];
+        let legacy = InjectionPolicy::from_prefixes(prefixes);
+        let parts = InjectionPolicy::from_parts(prefixes, std::iter::empty::<String>(), false);
+        assert_eq!(
+            legacy, parts,
+            "tainted-less from_parts must be byte-identical"
+        );
+        assert_eq!(legacy.is_empty(), parts.is_empty());
+    }
+
+    #[test]
+    fn injection_policy_acl_and_trust_gates_are_independent() {
+        // ACL allows l1/a but it is tainted → denied (AND of both gates).
+        let policy = InjectionPolicy::from_parts(["l1/a"], ["l1/a"], false);
+        assert!(!policy.allows("l1/a"));
+        assert!(
+            !policy.allows("l1/b"),
+            "outside the ACL is denied as before"
+        );
+        // include_tainted lifts the trust gate; the ACL gate still applies.
+        let policy = InjectionPolicy::from_parts(["l1/a"], ["l1/a"], true);
+        assert!(policy.allows("l1/a"));
+        assert!(!policy.allows("l1/b"));
+    }
+
+    #[test]
+    fn injection_policy_ignores_blank_tainted_entries() {
+        let policy =
+            InjectionPolicy::from_parts(std::iter::empty::<String>(), ["", " ", "/"], false);
+        assert_eq!(policy, InjectionPolicy::allow_all());
+        assert!(policy.allows("l1/x"));
+    }
+
+    #[test]
     fn recall_governance_bounds_lists_and_marks_overflow() {
         let mut governance = RecallGovernance::default();
         for i in 0..(RecallGovernance::MAX_ENTRIES + 5) {
@@ -872,5 +1320,55 @@ mod tests {
             apply_recall_budget(lines.clone(), &RecallConfig::default()),
             lines
         );
+    }
+
+    // ── MEMG-21: composite scoring (opt-in) ──
+
+    /// Episodic fixture with explicit priority (composite signals: 7d
+    /// half-life ages the record; priority is the importance input).
+    fn aged(id: &str, content: &str, updated: &str, priority: i32) -> MemoryRecord {
+        let mut r = record(id, content, updated);
+        r.memory_type = MemoryType::Episodic;
+        r.priority = priority;
+        r
+    }
+
+    fn hit_ids(hits: &[RecallHit]) -> Vec<String> {
+        hits.iter().map(|h| h.memory.source_key.clone()).collect()
+    }
+
+    #[test]
+    fn search_records_composite_reorders_and_none_preserves_legacy() {
+        // Fixed instants (no chrono in this module): NOW = 2026-01-31T00:00Z,
+        // 30d before = 2026-01-01, 60d = 2025-12-02, 90d = 2025-11-02.
+        const NOW_MS: u64 = 1_769_817_600_000;
+        let records = vec![
+            aged(
+                "r1",
+                "deploy pipeline postgres notes",
+                "2026-01-01T00:00:00.000Z",
+                10,
+            ),
+            aged("r2", "deploy pipeline", "2026-01-31T00:00:00.000Z", 90),
+            aged("r3", "deploy postgres", "2025-12-02T00:00:00.000Z", 50),
+            aged("r4", "postgres notes", "2025-11-02T00:00:00.000Z", 20),
+        ];
+        let config = RecallConfig::default();
+
+        // Legacy (None): overlap order — r1 (3) > r2/r3 (2, newer first) > r4 (1).
+        let (legacy, _) = search_records(&records, "deploy pipeline postgres", &config, None, None);
+        assert_eq!(hit_ids(&legacy), vec!["r1", "r2", "r3", "r4"]);
+
+        // Composite: r2 (fresh + important) takes the lead; relevance still
+        // keeps r1 above r3 (stale) and r4 (weak + stale).
+        let scoring = CompositeScoring::default();
+        let (scored, _) = search_records(
+            &records,
+            "deploy pipeline postgres",
+            &config,
+            None,
+            Some((&scoring, NOW_MS)),
+        );
+        assert_eq!(hit_ids(&scored), vec!["r2", "r1", "r3", "r4"]);
     }
 }

@@ -322,6 +322,28 @@ impl core::marker::Unpin for vantadb::attestation::ChainEvidence
 impl core::marker::UnsafeUnpin for vantadb::attestation::ChainEvidence
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::attestation::ChainEvidence
 impl core::panic::unwind_safe::UnwindSafe for vantadb::attestation::ChainEvidence
+pub struct vantadb::attestation::ContentBinding
+pub vantadb::attestation::ContentBinding::algorithm: alloc::string::String
+pub vantadb::attestation::ContentBinding::sha256: alloc::string::String
+impl core::clone::Clone for vantadb::attestation::ContentBinding
+pub fn vantadb::attestation::ContentBinding::clone(&self) -> Self
+impl core::cmp::Eq for vantadb::attestation::ContentBinding
+impl core::cmp::PartialEq for vantadb::attestation::ContentBinding
+pub fn vantadb::attestation::ContentBinding::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vantadb::attestation::ContentBinding
+pub fn vantadb::attestation::ContentBinding::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vantadb::attestation::ContentBinding
+impl serde_core::ser::Serialize for vantadb::attestation::ContentBinding
+pub fn vantadb::attestation::ContentBinding::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vantadb::attestation::ContentBinding
+pub fn vantadb::attestation::ContentBinding::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for vantadb::attestation::ContentBinding
+impl core::marker::Send for vantadb::attestation::ContentBinding
+impl core::marker::Sync for vantadb::attestation::ContentBinding
+impl core::marker::Unpin for vantadb::attestation::ContentBinding
+impl core::marker::UnsafeUnpin for vantadb::attestation::ContentBinding
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::attestation::ContentBinding
+impl core::panic::unwind_safe::UnwindSafe for vantadb::attestation::ContentBinding
 pub struct vantadb::attestation::PurgeCertificate
 pub vantadb::attestation::PurgeCertificate::chain: vantadb::attestation::ChainEvidence
 pub vantadb::attestation::PurgeCertificate::integrity: vantadb::attestation::CertificateIntegrity
@@ -404,7 +426,69 @@ impl core::marker::Unpin for vantadb::attestation::SurfaceReport
 impl core::marker::UnsafeUnpin for vantadb::attestation::SurfaceReport
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::attestation::SurfaceReport
 impl core::panic::unwind_safe::UnwindSafe for vantadb::attestation::SurfaceReport
+pub struct vantadb::attestation::WriteReceipt
+pub vantadb::attestation::WriteReceipt::chain: vantadb::attestation::ChainEvidence
+pub vantadb::attestation::WriteReceipt::content: vantadb::attestation::ContentBinding
+pub vantadb::attestation::WriteReceipt::integrity: vantadb::attestation::CertificateIntegrity
+pub vantadb::attestation::WriteReceipt::key: alloc::string::String
+pub vantadb::attestation::WriteReceipt::namespace: alloc::string::String
+pub vantadb::attestation::WriteReceipt::node_id: alloc::string::String
+pub vantadb::attestation::WriteReceipt::out_of_scope: alloc::vec::Vec<alloc::string::String>
+pub vantadb::attestation::WriteReceipt::schema_version: u32
+pub vantadb::attestation::WriteReceipt::status: alloc::string::String
+pub vantadb::attestation::WriteReceipt::surfaces: alloc::vec::Vec<vantadb::attestation::SurfaceReport>
+pub vantadb::attestation::WriteReceipt::timestamp: alloc::string::String
+pub vantadb::attestation::WriteReceipt::version: u64
+impl core::clone::Clone for vantadb::attestation::WriteReceipt
+pub fn vantadb::attestation::WriteReceipt::clone(&self) -> Self
+impl core::cmp::Eq for vantadb::attestation::WriteReceipt
+impl core::cmp::PartialEq for vantadb::attestation::WriteReceipt
+pub fn vantadb::attestation::WriteReceipt::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vantadb::attestation::WriteReceipt
+pub fn vantadb::attestation::WriteReceipt::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vantadb::attestation::WriteReceipt
+impl serde_core::ser::Serialize for vantadb::attestation::WriteReceipt
+pub fn vantadb::attestation::WriteReceipt::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vantadb::attestation::WriteReceipt
+pub fn vantadb::attestation::WriteReceipt::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for vantadb::attestation::WriteReceipt
+impl core::marker::Send for vantadb::attestation::WriteReceipt
+impl core::marker::Sync for vantadb::attestation::WriteReceipt
+impl core::marker::Unpin for vantadb::attestation::WriteReceipt
+impl core::marker::UnsafeUnpin for vantadb::attestation::WriteReceipt
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::attestation::WriteReceipt
+impl core::panic::unwind_safe::UnwindSafe for vantadb::attestation::WriteReceipt
+pub struct vantadb::attestation::WriteReceiptVerification
+pub vantadb::attestation::WriteReceiptVerification::content: alloc::string::String
+pub vantadb::attestation::WriteReceiptVerification::integrity: alloc::string::String
+pub vantadb::attestation::WriteReceiptVerification::key: alloc::string::String
+pub vantadb::attestation::WriteReceiptVerification::namespace: alloc::string::String
+pub vantadb::attestation::WriteReceiptVerification::rechecked_surfaces: alloc::vec::Vec<alloc::string::String>
+pub vantadb::attestation::WriteReceiptVerification::schema_version: u32
+pub vantadb::attestation::WriteReceiptVerification::status: alloc::string::String
+pub vantadb::attestation::WriteReceiptVerification::version: u64
+impl core::clone::Clone for vantadb::attestation::WriteReceiptVerification
+pub fn vantadb::attestation::WriteReceiptVerification::clone(&self) -> Self
+impl core::cmp::Eq for vantadb::attestation::WriteReceiptVerification
+impl core::cmp::PartialEq for vantadb::attestation::WriteReceiptVerification
+pub fn vantadb::attestation::WriteReceiptVerification::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vantadb::attestation::WriteReceiptVerification
+pub fn vantadb::attestation::WriteReceiptVerification::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vantadb::attestation::WriteReceiptVerification
+impl serde_core::ser::Serialize for vantadb::attestation::WriteReceiptVerification
+pub fn vantadb::attestation::WriteReceiptVerification::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vantadb::attestation::WriteReceiptVerification
+pub fn vantadb::attestation::WriteReceiptVerification::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for vantadb::attestation::WriteReceiptVerification
+impl core::marker::Send for vantadb::attestation::WriteReceiptVerification
+impl core::marker::Sync for vantadb::attestation::WriteReceiptVerification
+impl core::marker::Unpin for vantadb::attestation::WriteReceiptVerification
+impl core::marker::UnsafeUnpin for vantadb::attestation::WriteReceiptVerification
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::attestation::WriteReceiptVerification
+impl core::panic::unwind_safe::UnwindSafe for vantadb::attestation::WriteReceiptVerification
 pub const vantadb::attestation::PURGE_CERTIFICATE_SCHEMA_VERSION: u32
+pub const vantadb::attestation::WRITE_RECEIPT_SCHEMA_VERSION: u32
+pub fn vantadb::attestation::chain_evidence() -> vantadb::attestation::ChainEvidence
 pub mod vantadb::audit
 pub struct vantadb::audit::AuditEvent
 pub vantadb::audit::AuditEvent::key: alloc::string::String
@@ -647,14 +731,14 @@ impl core::panic::unwind_safe::RefUnwindSafe for vantadb::cli::ExportFormat
 impl core::panic::unwind_safe::UnwindSafe for vantadb::cli::ExportFormat
 pub enum vantadb::cli::MigrateCommand
 pub vantadb::cli::MigrateCommand::Check
-pub vantadb::cli::MigrateCommand::Check::target: alloc::string::String
+pub vantadb::cli::MigrateCommand::Check::target: core::option::Option<alloc::string::String>
 pub vantadb::cli::MigrateCommand::Plan
-pub vantadb::cli::MigrateCommand::Plan::target: alloc::string::String
+pub vantadb::cli::MigrateCommand::Plan::target: core::option::Option<alloc::string::String>
 pub vantadb::cli::MigrateCommand::Run
 pub vantadb::cli::MigrateCommand::Run::dry_run: bool
 pub vantadb::cli::MigrateCommand::Run::force: bool
 pub vantadb::cli::MigrateCommand::Run::format: alloc::string::String
-pub vantadb::cli::MigrateCommand::Run::target: alloc::string::String
+pub vantadb::cli::MigrateCommand::Run::target: core::option::Option<alloc::string::String>
 impl clap_builder::derive::FromArgMatches for vantadb::cli::MigrateCommand
 pub fn vantadb::cli::MigrateCommand::from_arg_matches(&clap_builder::parser::matches::arg_matches::ArgMatches) -> core::result::Result<Self, clap_builder::Error>
 pub fn vantadb::cli::MigrateCommand::from_arg_matches_mut(&mut clap_builder::parser::matches::arg_matches::ArgMatches) -> core::result::Result<Self, clap_builder::Error>
@@ -1404,6 +1488,7 @@ pub vantadb::config::Config::local_model_path: alloc::string::String
 pub vantadb::config::Config::log_format: vantadb::config::LogFormat
 pub vantadb::config::Config::max_blocking_threads: usize
 pub vantadb::config::Config::max_connections: usize
+pub vantadb::config::Config::max_records_per_namespace: core::option::Option<u64>
 pub vantadb::config::Config::memory_default_ttl_ms: alloc::collections::btree::map::BTreeMap<alloc::string::String, u64>
 pub vantadb::config::Config::memory_limit: core::option::Option<u64>
 pub vantadb::config::Config::mmap_hnsw: bool
@@ -1459,6 +1544,7 @@ pub fn vantadb::config::Config::with_jwt_secret(self, core::option::Option<alloc
 pub fn vantadb::config::Config::with_local_model_path(self, alloc::string::String) -> Self
 pub fn vantadb::config::Config::with_log_format(self, vantadb::config::LogFormat) -> Self
 pub fn vantadb::config::Config::with_max_blocking_threads(self, usize) -> Self
+pub fn vantadb::config::Config::with_max_records_per_namespace(self, u64) -> Self
 pub fn vantadb::config::Config::with_memory_limit(self, u64) -> Self
 pub fn vantadb::config::Config::with_mmap_hnsw(self, bool) -> Self
 pub fn vantadb::config::Config::with_prefetch_mode(self, vantadb::config::PrefetchMode) -> Self
@@ -1621,6 +1707,7 @@ impl core::marker::UnsafeUnpin for vantadb::config::PoolCfg
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::config::PoolCfg
 impl core::panic::unwind_safe::UnwindSafe for vantadb::config::PoolCfg
 pub struct vantadb::config::RbacCfg
+pub vantadb::config::RbacCfg::roles: std::collections::hash::map::HashMap<alloc::string::String, vantadb::config::RbacRoleCfg>
 pub vantadb::config::RbacCfg::token_role_map: std::collections::hash::map::HashMap<alloc::string::String, alloc::string::String>
 impl core::clone::Clone for vantadb::config::RbacCfg
 pub fn vantadb::config::RbacCfg::clone(&self) -> Self
@@ -1637,6 +1724,22 @@ impl core::marker::Unpin for vantadb::config::RbacCfg
 impl core::marker::UnsafeUnpin for vantadb::config::RbacCfg
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::config::RbacCfg
 impl core::panic::unwind_safe::UnwindSafe for vantadb::config::RbacCfg
+pub struct vantadb::config::RbacRoleCfg
+pub vantadb::config::RbacRoleCfg::namespace_read: alloc::vec::Vec<alloc::string::String>
+pub vantadb::config::RbacRoleCfg::namespace_write: alloc::vec::Vec<alloc::string::String>
+impl core::clone::Clone for vantadb::config::RbacRoleCfg
+pub fn vantadb::config::RbacRoleCfg::clone(&self) -> Self
+impl core::default::Default for vantadb::config::RbacRoleCfg
+pub fn vantadb::config::RbacRoleCfg::default() -> Self
+impl core::fmt::Debug for vantadb::config::RbacRoleCfg
+pub fn vantadb::config::RbacRoleCfg::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Freeze for vantadb::config::RbacRoleCfg
+impl core::marker::Send for vantadb::config::RbacRoleCfg
+impl core::marker::Sync for vantadb::config::RbacRoleCfg
+impl core::marker::Unpin for vantadb::config::RbacRoleCfg
+impl core::marker::UnsafeUnpin for vantadb::config::RbacRoleCfg
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::config::RbacRoleCfg
+impl core::panic::unwind_safe::UnwindSafe for vantadb::config::RbacRoleCfg
 pub struct vantadb::config::ServerCfg
 pub vantadb::config::ServerCfg::allow_insecure: bool
 pub vantadb::config::ServerCfg::allowed_origins: alloc::vec::Vec<alloc::string::String>
@@ -2814,6 +2917,8 @@ pub struct vantadb::graphrag::pipeline::GraphRagEdge
 pub vantadb::graphrag::pipeline::GraphRagEdge::label: alloc::string::String
 pub vantadb::graphrag::pipeline::GraphRagEdge::source: u128
 pub vantadb::graphrag::pipeline::GraphRagEdge::target: u128
+impl serde_core::ser::Serialize for vantadb::graphrag::pipeline::GraphRagEdge
+pub fn vantadb::graphrag::pipeline::GraphRagEdge::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
 impl core::marker::Freeze for vantadb::graphrag::pipeline::GraphRagEdge
 impl core::marker::Send for vantadb::graphrag::pipeline::GraphRagEdge
 impl core::marker::Sync for vantadb::graphrag::pipeline::GraphRagEdge
@@ -2826,6 +2931,8 @@ pub vantadb::graphrag::pipeline::GraphRagNode::content: alloc::string::String
 pub vantadb::graphrag::pipeline::GraphRagNode::hop_distance: u32
 pub vantadb::graphrag::pipeline::GraphRagNode::id: u128
 pub vantadb::graphrag::pipeline::GraphRagNode::score: f32
+impl serde_core::ser::Serialize for vantadb::graphrag::pipeline::GraphRagNode
+pub fn vantadb::graphrag::pipeline::GraphRagNode::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
 impl core::marker::Freeze for vantadb::graphrag::pipeline::GraphRagNode
 impl core::marker::Send for vantadb::graphrag::pipeline::GraphRagNode
 impl core::marker::Sync for vantadb::graphrag::pipeline::GraphRagNode
@@ -2855,6 +2962,8 @@ pub vantadb::graphrag::pipeline::GraphRagResult::context_text: alloc::string::St
 pub vantadb::graphrag::pipeline::GraphRagResult::edges: alloc::vec::Vec<vantadb::graphrag::pipeline::GraphRagEdge>
 pub vantadb::graphrag::pipeline::GraphRagResult::nodes: alloc::vec::Vec<vantadb::graphrag::pipeline::GraphRagNode>
 pub vantadb::graphrag::pipeline::GraphRagResult::stats: vantadb::graphrag::pipeline::GraphRagStats
+impl serde_core::ser::Serialize for vantadb::graphrag::pipeline::GraphRagResult
+pub fn vantadb::graphrag::pipeline::GraphRagResult::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
 impl core::marker::Freeze for vantadb::graphrag::pipeline::GraphRagResult
 impl core::marker::Send for vantadb::graphrag::pipeline::GraphRagResult
 impl core::marker::Sync for vantadb::graphrag::pipeline::GraphRagResult
@@ -2867,6 +2976,8 @@ pub vantadb::graphrag::pipeline::GraphRagStats::expansion_hops_used: usize
 pub vantadb::graphrag::pipeline::GraphRagStats::nodes_expanded: usize
 pub vantadb::graphrag::pipeline::GraphRagStats::seeds_found: usize
 pub vantadb::graphrag::pipeline::GraphRagStats::total_candidates: usize
+impl serde_core::ser::Serialize for vantadb::graphrag::pipeline::GraphRagStats
+pub fn vantadb::graphrag::pipeline::GraphRagStats::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
 impl core::marker::Freeze for vantadb::graphrag::pipeline::GraphRagStats
 impl core::marker::Send for vantadb::graphrag::pipeline::GraphRagStats
 impl core::marker::Sync for vantadb::graphrag::pipeline::GraphRagStats
@@ -4238,6 +4349,28 @@ pub fn vantadb::UnifiedNode::pin(&mut self)
 pub fn vantadb::UnifiedNode::unpin(&mut self)
 pub type vantadb::node::RelFields = alloc::collections::btree::map::BTreeMap<alloc::string::String, vantadb::FieldValue>
 pub mod vantadb::operator_registry
+pub struct vantadb::operator_registry::AggregateCompiler
+impl vantadb::operator_registry::OperatorCompiler for vantadb::operator_registry::AggregateCompiler
+pub fn vantadb::operator_registry::AggregateCompiler::compile<'a>(&self, &vantadb::query::LogicalOperator, alloc::boxed::Box<(dyn vantadb::query::PhysicalOperator + 'a)>) -> vantadb::error::Result<alloc::boxed::Box<(dyn vantadb::query::PhysicalOperator + 'a)>>
+pub fn vantadb::operator_registry::AggregateCompiler::operator_name(&self) -> &'static str
+impl core::marker::Freeze for vantadb::operator_registry::AggregateCompiler
+impl core::marker::Send for vantadb::operator_registry::AggregateCompiler
+impl core::marker::Sync for vantadb::operator_registry::AggregateCompiler
+impl core::marker::Unpin for vantadb::operator_registry::AggregateCompiler
+impl core::marker::UnsafeUnpin for vantadb::operator_registry::AggregateCompiler
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::operator_registry::AggregateCompiler
+impl core::panic::unwind_safe::UnwindSafe for vantadb::operator_registry::AggregateCompiler
+pub struct vantadb::operator_registry::AggregateCost
+impl vantadb::operator_registry::OperatorCostModel for vantadb::operator_registry::AggregateCost
+pub fn vantadb::operator_registry::AggregateCost::estimate(&self, &vantadb::query::LogicalOperator, f64) -> (f64, usize)
+pub fn vantadb::operator_registry::AggregateCost::operator_name(&self) -> &'static str
+impl core::marker::Freeze for vantadb::operator_registry::AggregateCost
+impl core::marker::Send for vantadb::operator_registry::AggregateCost
+impl core::marker::Sync for vantadb::operator_registry::AggregateCost
+impl core::marker::Unpin for vantadb::operator_registry::AggregateCost
+impl core::marker::UnsafeUnpin for vantadb::operator_registry::AggregateCost
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::operator_registry::AggregateCost
+impl core::panic::unwind_safe::UnwindSafe for vantadb::operator_registry::AggregateCost
 pub struct vantadb::operator_registry::DedupCompiler
 impl vantadb::operator_registry::OperatorCompiler for vantadb::operator_registry::DedupCompiler
 pub fn vantadb::operator_registry::DedupCompiler::compile<'a>(&self, &vantadb::query::LogicalOperator, alloc::boxed::Box<(dyn vantadb::query::PhysicalOperator + 'a)>) -> vantadb::error::Result<alloc::boxed::Box<(dyn vantadb::query::PhysicalOperator + 'a)>>
@@ -4260,6 +4393,28 @@ impl core::marker::Unpin for vantadb::operator_registry::DedupCost
 impl core::marker::UnsafeUnpin for vantadb::operator_registry::DedupCost
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::operator_registry::DedupCost
 impl core::panic::unwind_safe::UnwindSafe for vantadb::operator_registry::DedupCost
+pub struct vantadb::operator_registry::OffsetCompiler
+impl vantadb::operator_registry::OperatorCompiler for vantadb::operator_registry::OffsetCompiler
+pub fn vantadb::operator_registry::OffsetCompiler::compile<'a>(&self, &vantadb::query::LogicalOperator, alloc::boxed::Box<(dyn vantadb::query::PhysicalOperator + 'a)>) -> vantadb::error::Result<alloc::boxed::Box<(dyn vantadb::query::PhysicalOperator + 'a)>>
+pub fn vantadb::operator_registry::OffsetCompiler::operator_name(&self) -> &'static str
+impl core::marker::Freeze for vantadb::operator_registry::OffsetCompiler
+impl core::marker::Send for vantadb::operator_registry::OffsetCompiler
+impl core::marker::Sync for vantadb::operator_registry::OffsetCompiler
+impl core::marker::Unpin for vantadb::operator_registry::OffsetCompiler
+impl core::marker::UnsafeUnpin for vantadb::operator_registry::OffsetCompiler
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::operator_registry::OffsetCompiler
+impl core::panic::unwind_safe::UnwindSafe for vantadb::operator_registry::OffsetCompiler
+pub struct vantadb::operator_registry::OffsetCost
+impl vantadb::operator_registry::OperatorCostModel for vantadb::operator_registry::OffsetCost
+pub fn vantadb::operator_registry::OffsetCost::estimate(&self, &vantadb::query::LogicalOperator, f64) -> (f64, usize)
+pub fn vantadb::operator_registry::OffsetCost::operator_name(&self) -> &'static str
+impl core::marker::Freeze for vantadb::operator_registry::OffsetCost
+impl core::marker::Send for vantadb::operator_registry::OffsetCost
+impl core::marker::Sync for vantadb::operator_registry::OffsetCost
+impl core::marker::Unpin for vantadb::operator_registry::OffsetCost
+impl core::marker::UnsafeUnpin for vantadb::operator_registry::OffsetCost
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::operator_registry::OffsetCost
+impl core::panic::unwind_safe::UnwindSafe for vantadb::operator_registry::OffsetCost
 pub struct vantadb::operator_registry::OperatorRegistry
 impl vantadb::operator_registry::OperatorRegistry
 pub fn vantadb::operator_registry::OperatorRegistry::compile<'a>(&self, &vantadb::query::LogicalOperator, alloc::boxed::Box<(dyn vantadb::query::PhysicalOperator + 'a)>) -> vantadb::error::Result<alloc::boxed::Box<(dyn vantadb::query::PhysicalOperator + 'a)>>
@@ -4284,15 +4439,27 @@ pub const vantadb::operator_registry::UNKNOWN_OPERATOR_MARKER: &str
 pub trait vantadb::operator_registry::OperatorCompiler: core::marker::Send + core::marker::Sync
 pub fn vantadb::operator_registry::OperatorCompiler::compile<'a>(&self, &vantadb::query::LogicalOperator, alloc::boxed::Box<(dyn vantadb::query::PhysicalOperator + 'a)>) -> vantadb::error::Result<alloc::boxed::Box<(dyn vantadb::query::PhysicalOperator + 'a)>>
 pub fn vantadb::operator_registry::OperatorCompiler::operator_name(&self) -> &'static str
+impl vantadb::operator_registry::OperatorCompiler for vantadb::operator_registry::AggregateCompiler
+pub fn vantadb::operator_registry::AggregateCompiler::compile<'a>(&self, &vantadb::query::LogicalOperator, alloc::boxed::Box<(dyn vantadb::query::PhysicalOperator + 'a)>) -> vantadb::error::Result<alloc::boxed::Box<(dyn vantadb::query::PhysicalOperator + 'a)>>
+pub fn vantadb::operator_registry::AggregateCompiler::operator_name(&self) -> &'static str
 impl vantadb::operator_registry::OperatorCompiler for vantadb::operator_registry::DedupCompiler
 pub fn vantadb::operator_registry::DedupCompiler::compile<'a>(&self, &vantadb::query::LogicalOperator, alloc::boxed::Box<(dyn vantadb::query::PhysicalOperator + 'a)>) -> vantadb::error::Result<alloc::boxed::Box<(dyn vantadb::query::PhysicalOperator + 'a)>>
 pub fn vantadb::operator_registry::DedupCompiler::operator_name(&self) -> &'static str
+impl vantadb::operator_registry::OperatorCompiler for vantadb::operator_registry::OffsetCompiler
+pub fn vantadb::operator_registry::OffsetCompiler::compile<'a>(&self, &vantadb::query::LogicalOperator, alloc::boxed::Box<(dyn vantadb::query::PhysicalOperator + 'a)>) -> vantadb::error::Result<alloc::boxed::Box<(dyn vantadb::query::PhysicalOperator + 'a)>>
+pub fn vantadb::operator_registry::OffsetCompiler::operator_name(&self) -> &'static str
 pub trait vantadb::operator_registry::OperatorCostModel: core::marker::Send + core::marker::Sync
 pub fn vantadb::operator_registry::OperatorCostModel::estimate(&self, &vantadb::query::LogicalOperator, f64) -> (f64, usize)
 pub fn vantadb::operator_registry::OperatorCostModel::operator_name(&self) -> &'static str
+impl vantadb::operator_registry::OperatorCostModel for vantadb::operator_registry::AggregateCost
+pub fn vantadb::operator_registry::AggregateCost::estimate(&self, &vantadb::query::LogicalOperator, f64) -> (f64, usize)
+pub fn vantadb::operator_registry::AggregateCost::operator_name(&self) -> &'static str
 impl vantadb::operator_registry::OperatorCostModel for vantadb::operator_registry::DedupCost
 pub fn vantadb::operator_registry::DedupCost::estimate(&self, &vantadb::query::LogicalOperator, f64) -> (f64, usize)
 pub fn vantadb::operator_registry::DedupCost::operator_name(&self) -> &'static str
+impl vantadb::operator_registry::OperatorCostModel for vantadb::operator_registry::OffsetCost
+pub fn vantadb::operator_registry::OffsetCost::estimate(&self, &vantadb::query::LogicalOperator, f64) -> (f64, usize)
+pub fn vantadb::operator_registry::OffsetCost::operator_name(&self) -> &'static str
 pub fn vantadb::operator_registry::is_builtin(&str) -> bool
 pub fn vantadb::operator_registry::operator_name(&vantadb::query::LogicalOperator) -> &'static str
 pub mod vantadb::parser
@@ -4338,7 +4505,9 @@ impl core::marker::UnsafeUnpin for vantadb::parser::WhereItem
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::parser::WhereItem
 impl core::panic::unwind_safe::UnwindSafe for vantadb::parser::WhereItem
 pub const vantadb::parser::IQL_VERSION: u32
+pub const vantadb::parser::IQL_VERSION_MIN_AGGREGATION: u32
 pub const vantadb::parser::IQL_VERSION_MIN_AS_OF: u32
+pub const vantadb::parser::IQL_VERSION_MIN_PAGINATION: u32
 pub const vantadb::parser::IQL_VERSION_MIN_PROFILE: u32
 pub fn vantadb::parser::autocomplete_prefix(&str) -> alloc::vec::Vec<alloc::string::String>
 pub const fn vantadb::parser::iql_supports(u32) -> bool
@@ -4347,6 +4516,20 @@ pub fn vantadb::parser::parse_select(&str) -> nom::internal::IResult<&str, vanta
 pub fn vantadb::parser::parse_statement(&str) -> nom::internal::IResult<&str, vantadb::query::Statement>
 pub fn vantadb::parser::ws<'a, F, O, E: nom::error::ParseError<&'a str>>(F) -> impl core::ops::function::FnMut(&'a str) -> nom::internal::IResult<&'a str, O, E> where F: nom::internal::Parser<&'a str, O, E>
 pub mod vantadb::physical_plan
+pub struct vantadb::physical_plan::PhysicalAggregate<'a>
+impl<'a> vantadb::physical_plan::PhysicalAggregate<'a>
+pub fn vantadb::physical_plan::PhysicalAggregate<'a>::new(alloc::boxed::Box<(dyn vantadb::query::PhysicalOperator + 'a)>, alloc::vec::Vec<vantadb::query::AggregateFunc>, core::option::Option<alloc::string::String>) -> Self
+impl vantadb::query::PhysicalOperator for vantadb::physical_plan::PhysicalAggregate<'_>
+pub fn vantadb::physical_plan::PhysicalAggregate<'_>::close(&mut self) -> vantadb::error::Result<()>
+pub fn vantadb::physical_plan::PhysicalAggregate<'_>::next(&mut self) -> vantadb::error::Result<core::option::Option<vantadb::UnifiedNode>>
+pub fn vantadb::physical_plan::PhysicalAggregate<'_>::open(&mut self) -> vantadb::error::Result<()>
+impl<'a> core::marker::Freeze for vantadb::physical_plan::PhysicalAggregate<'a>
+impl<'a> core::marker::Send for vantadb::physical_plan::PhysicalAggregate<'a>
+impl<'a> core::marker::Sync for vantadb::physical_plan::PhysicalAggregate<'a>
+impl<'a> core::marker::Unpin for vantadb::physical_plan::PhysicalAggregate<'a>
+impl<'a> core::marker::UnsafeUnpin for vantadb::physical_plan::PhysicalAggregate<'a>
+impl<'a> !core::panic::unwind_safe::RefUnwindSafe for vantadb::physical_plan::PhysicalAggregate<'a>
+impl<'a> !core::panic::unwind_safe::UnwindSafe for vantadb::physical_plan::PhysicalAggregate<'a>
 pub struct vantadb::physical_plan::PhysicalDedup<'a>
 impl<'a> vantadb::physical_plan::PhysicalDedup<'a>
 pub fn vantadb::physical_plan::PhysicalDedup<'a>::new(alloc::boxed::Box<(dyn vantadb::query::PhysicalOperator + 'a)>, alloc::string::String) -> Self
@@ -4403,6 +4586,20 @@ impl<'a> core::marker::Unpin for vantadb::physical_plan::PhysicalNestedLoopJoin<
 impl<'a> core::marker::UnsafeUnpin for vantadb::physical_plan::PhysicalNestedLoopJoin<'a>
 impl<'a> !core::panic::unwind_safe::RefUnwindSafe for vantadb::physical_plan::PhysicalNestedLoopJoin<'a>
 impl<'a> !core::panic::unwind_safe::UnwindSafe for vantadb::physical_plan::PhysicalNestedLoopJoin<'a>
+pub struct vantadb::physical_plan::PhysicalOffset<'a>
+impl<'a> vantadb::physical_plan::PhysicalOffset<'a>
+pub fn vantadb::physical_plan::PhysicalOffset<'a>::new(alloc::boxed::Box<(dyn vantadb::query::PhysicalOperator + 'a)>, usize) -> Self
+impl vantadb::query::PhysicalOperator for vantadb::physical_plan::PhysicalOffset<'_>
+pub fn vantadb::physical_plan::PhysicalOffset<'_>::close(&mut self) -> vantadb::error::Result<()>
+pub fn vantadb::physical_plan::PhysicalOffset<'_>::next(&mut self) -> vantadb::error::Result<core::option::Option<vantadb::UnifiedNode>>
+pub fn vantadb::physical_plan::PhysicalOffset<'_>::open(&mut self) -> vantadb::error::Result<()>
+impl<'a> core::marker::Freeze for vantadb::physical_plan::PhysicalOffset<'a>
+impl<'a> core::marker::Send for vantadb::physical_plan::PhysicalOffset<'a>
+impl<'a> core::marker::Sync for vantadb::physical_plan::PhysicalOffset<'a>
+impl<'a> core::marker::Unpin for vantadb::physical_plan::PhysicalOffset<'a>
+impl<'a> core::marker::UnsafeUnpin for vantadb::physical_plan::PhysicalOffset<'a>
+impl<'a> !core::panic::unwind_safe::RefUnwindSafe for vantadb::physical_plan::PhysicalOffset<'a>
+impl<'a> !core::panic::unwind_safe::UnwindSafe for vantadb::physical_plan::PhysicalOffset<'a>
 pub struct vantadb::physical_plan::PhysicalProject<'a>
 impl<'a> vantadb::physical_plan::PhysicalProject<'a>
 pub fn vantadb::physical_plan::PhysicalProject<'a>::new(alloc::boxed::Box<(dyn vantadb::query::PhysicalOperator + 'a)>, alloc::vec::Vec<alloc::string::String>) -> Self
@@ -4529,6 +4726,28 @@ pub const vantadb::planner::HIGH_SELECTIVITY_THRESHOLD: f32
 pub fn vantadb::planner::classify(core::option::Option<&str>, bool) -> vantadb::planner::SearchRoute
 pub fn vantadb::planner::optimize_and_compile<'a>(&vantadb::query::LogicalPlan, &'a vantadb::storage::StorageEngine) -> vantadb::error::Result<alloc::boxed::Box<(dyn vantadb::query::PhysicalOperator + 'a)>>
 pub mod vantadb::query
+pub enum vantadb::query::AggregateFunc
+pub vantadb::query::AggregateFunc::Count
+pub vantadb::query::AggregateFunc::CountField(alloc::string::String)
+pub vantadb::query::AggregateFunc::Sum(alloc::string::String)
+impl vantadb::query::AggregateFunc
+pub fn vantadb::query::AggregateFunc::output_name(&self) -> alloc::string::String
+impl core::clone::Clone for vantadb::query::AggregateFunc
+pub fn vantadb::query::AggregateFunc::clone(&self) -> Self
+impl core::cmp::PartialEq for vantadb::query::AggregateFunc
+pub fn vantadb::query::AggregateFunc::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vantadb::query::AggregateFunc
+pub fn vantadb::query::AggregateFunc::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vantadb::query::AggregateFunc
+impl serde_core::ser::Serialize for vantadb::query::AggregateFunc
+pub fn vantadb::query::AggregateFunc::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl core::marker::Freeze for vantadb::query::AggregateFunc
+impl core::marker::Send for vantadb::query::AggregateFunc
+impl core::marker::Sync for vantadb::query::AggregateFunc
+impl core::marker::Unpin for vantadb::query::AggregateFunc
+impl core::marker::UnsafeUnpin for vantadb::query::AggregateFunc
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::query::AggregateFunc
+impl core::panic::unwind_safe::UnwindSafe for vantadb::query::AggregateFunc
 pub enum vantadb::query::Condition
 pub vantadb::query::Condition::Relational(alloc::string::String, vantadb::query::RelOp, vantadb::FieldValue)
 pub vantadb::query::Condition::TextMatch(alloc::string::String, alloc::string::String)
@@ -4575,6 +4794,9 @@ impl core::marker::UnsafeUnpin for vantadb::query::FromClause
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::query::FromClause
 impl core::panic::unwind_safe::UnwindSafe for vantadb::query::FromClause
 pub enum vantadb::query::LogicalOperator
+pub vantadb::query::LogicalOperator::Aggregate
+pub vantadb::query::LogicalOperator::Aggregate::funcs: alloc::vec::Vec<vantadb::query::AggregateFunc>
+pub vantadb::query::LogicalOperator::Aggregate::group_by: core::option::Option<alloc::string::String>
 pub vantadb::query::LogicalOperator::Dedup
 pub vantadb::query::LogicalOperator::Dedup::field: alloc::string::String
 pub vantadb::query::LogicalOperator::FilterRelational
@@ -4588,6 +4810,8 @@ pub vantadb::query::LogicalOperator::Join::right_field: alloc::string::String
 pub vantadb::query::LogicalOperator::Join::right_plan: alloc::boxed::Box<vantadb::query::LogicalPlan>
 pub vantadb::query::LogicalOperator::Limit
 pub vantadb::query::LogicalOperator::Limit::top_k: usize
+pub vantadb::query::LogicalOperator::Offset
+pub vantadb::query::LogicalOperator::Offset::skip: usize
 pub vantadb::query::LogicalOperator::Project
 pub vantadb::query::LogicalOperator::Project::fields: alloc::vec::Vec<alloc::string::String>
 pub vantadb::query::LogicalOperator::Scan
@@ -4774,6 +4998,8 @@ pub struct vantadb::query::Query
 pub vantadb::query::Query::as_of_ms: core::option::Option<u64>
 pub vantadb::query::Query::fetch: core::option::Option<alloc::vec::Vec<alloc::string::String>>
 pub vantadb::query::Query::from_entity: alloc::string::String
+pub vantadb::query::Query::limit: core::option::Option<usize>
+pub vantadb::query::Query::offset: core::option::Option<usize>
 pub vantadb::query::Query::owner_role: core::option::Option<alloc::string::String>
 pub vantadb::query::Query::rank_by: core::option::Option<vantadb::query::RankBy>
 pub vantadb::query::Query::search_profile: core::option::Option<vantadb::search_profile::SearchProfileConfig>
@@ -4840,8 +5066,12 @@ impl core::marker::UnsafeUnpin for vantadb::query::RelateStatement
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::query::RelateStatement
 impl core::panic::unwind_safe::UnwindSafe for vantadb::query::RelateStatement
 pub struct vantadb::query::SelectStatement
+pub vantadb::query::SelectStatement::aggregates: alloc::vec::Vec<vantadb::query::AggregateFunc>
 pub vantadb::query::SelectStatement::as_of_ms: core::option::Option<u64>
 pub vantadb::query::SelectStatement::from: vantadb::query::FromClause
+pub vantadb::query::SelectStatement::group_by: core::option::Option<alloc::string::String>
+pub vantadb::query::SelectStatement::limit: core::option::Option<usize>
+pub vantadb::query::SelectStatement::offset: core::option::Option<usize>
 pub vantadb::query::SelectStatement::projections: alloc::vec::Vec<alloc::string::String>
 pub vantadb::query::SelectStatement::subquery_conditions: alloc::vec::Vec<vantadb::query::SubqueryCondition>
 pub vantadb::query::SelectStatement::temperature: core::option::Option<f32>
@@ -4930,6 +5160,10 @@ pub trait vantadb::query::PhysicalOperator: core::marker::Send + core::marker::S
 pub fn vantadb::query::PhysicalOperator::close(&mut self) -> vantadb::error::Result<()>
 pub fn vantadb::query::PhysicalOperator::next(&mut self) -> vantadb::error::Result<core::option::Option<vantadb::UnifiedNode>>
 pub fn vantadb::query::PhysicalOperator::open(&mut self) -> vantadb::error::Result<()>
+impl vantadb::query::PhysicalOperator for vantadb::physical_plan::PhysicalAggregate<'_>
+pub fn vantadb::physical_plan::PhysicalAggregate<'_>::close(&mut self) -> vantadb::error::Result<()>
+pub fn vantadb::physical_plan::PhysicalAggregate<'_>::next(&mut self) -> vantadb::error::Result<core::option::Option<vantadb::UnifiedNode>>
+pub fn vantadb::physical_plan::PhysicalAggregate<'_>::open(&mut self) -> vantadb::error::Result<()>
 impl vantadb::query::PhysicalOperator for vantadb::physical_plan::PhysicalDedup<'_>
 pub fn vantadb::physical_plan::PhysicalDedup<'_>::close(&mut self) -> vantadb::error::Result<()>
 pub fn vantadb::physical_plan::PhysicalDedup<'_>::next(&mut self) -> vantadb::error::Result<core::option::Option<vantadb::UnifiedNode>>
@@ -4946,6 +5180,10 @@ impl vantadb::query::PhysicalOperator for vantadb::physical_plan::PhysicalNested
 pub fn vantadb::physical_plan::PhysicalNestedLoopJoin<'_>::close(&mut self) -> vantadb::error::Result<()>
 pub fn vantadb::physical_plan::PhysicalNestedLoopJoin<'_>::next(&mut self) -> vantadb::error::Result<core::option::Option<vantadb::UnifiedNode>>
 pub fn vantadb::physical_plan::PhysicalNestedLoopJoin<'_>::open(&mut self) -> vantadb::error::Result<()>
+impl vantadb::query::PhysicalOperator for vantadb::physical_plan::PhysicalOffset<'_>
+pub fn vantadb::physical_plan::PhysicalOffset<'_>::close(&mut self) -> vantadb::error::Result<()>
+pub fn vantadb::physical_plan::PhysicalOffset<'_>::next(&mut self) -> vantadb::error::Result<core::option::Option<vantadb::UnifiedNode>>
+pub fn vantadb::physical_plan::PhysicalOffset<'_>::open(&mut self) -> vantadb::error::Result<()>
 impl vantadb::query::PhysicalOperator for vantadb::physical_plan::PhysicalProject<'_>
 pub fn vantadb::physical_plan::PhysicalProject<'_>::close(&mut self) -> vantadb::error::Result<()>
 pub fn vantadb::physical_plan::PhysicalProject<'_>::next(&mut self) -> vantadb::error::Result<core::option::Option<vantadb::UnifiedNode>>
@@ -5104,6 +5342,30 @@ impl core::marker::Unpin for vantadb::AbstentionReason
 impl core::marker::UnsafeUnpin for vantadb::AbstentionReason
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::AbstentionReason
 impl core::panic::unwind_safe::UnwindSafe for vantadb::AbstentionReason
+#[non_exhaustive] pub enum vantadb::sdk::Action
+pub vantadb::sdk::Action::Assign
+pub vantadb::sdk::Action::Read
+pub vantadb::sdk::Action::Share
+pub vantadb::sdk::Action::Use
+pub vantadb::sdk::Action::Write
+impl vantadb::entity::checker::Action
+pub fn vantadb::entity::checker::Action::as_str(&self) -> &'static str
+impl core::clone::Clone for vantadb::entity::checker::Action
+pub fn vantadb::entity::checker::Action::clone(&self) -> Self
+impl core::cmp::Eq for vantadb::entity::checker::Action
+impl core::cmp::PartialEq for vantadb::entity::checker::Action
+pub fn vantadb::entity::checker::Action::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vantadb::entity::checker::Action
+pub fn vantadb::entity::checker::Action::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vantadb::entity::checker::Action
+impl core::marker::StructuralPartialEq for vantadb::entity::checker::Action
+impl core::marker::Freeze for vantadb::entity::checker::Action
+impl core::marker::Send for vantadb::entity::checker::Action
+impl core::marker::Sync for vantadb::entity::checker::Action
+impl core::marker::Unpin for vantadb::entity::checker::Action
+impl core::marker::UnsafeUnpin for vantadb::entity::checker::Action
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::entity::checker::Action
+impl core::panic::unwind_safe::UnwindSafe for vantadb::entity::checker::Action
 #[non_exhaustive] pub enum vantadb::sdk::ConfidenceClass
 pub vantadb::sdk::ConfidenceClass::Asserted
 pub vantadb::sdk::ConfidenceClass::Derived
@@ -5156,6 +5418,27 @@ impl core::marker::Unpin for vantadb::FilterOp
 impl core::marker::UnsafeUnpin for vantadb::FilterOp
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::FilterOp
 impl core::panic::unwind_safe::UnwindSafe for vantadb::FilterOp
+#[non_exhaustive] pub enum vantadb::sdk::MergeOutcome
+pub vantadb::sdk::MergeOutcome::AlreadyCurrent
+pub vantadb::sdk::MergeOutcome::Inserted
+pub vantadb::sdk::MergeOutcome::StaleRejected
+pub vantadb::sdk::MergeOutcome::Updated
+impl core::clone::Clone for vantadb::MergeOutcome
+pub fn vantadb::MergeOutcome::clone(&self) -> Self
+impl core::cmp::Eq for vantadb::MergeOutcome
+impl core::cmp::PartialEq for vantadb::MergeOutcome
+pub fn vantadb::MergeOutcome::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vantadb::MergeOutcome
+pub fn vantadb::MergeOutcome::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vantadb::MergeOutcome
+impl core::marker::StructuralPartialEq for vantadb::MergeOutcome
+impl core::marker::Freeze for vantadb::MergeOutcome
+impl core::marker::Send for vantadb::MergeOutcome
+impl core::marker::Sync for vantadb::MergeOutcome
+impl core::marker::Unpin for vantadb::MergeOutcome
+impl core::marker::UnsafeUnpin for vantadb::MergeOutcome
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::MergeOutcome
+impl core::panic::unwind_safe::UnwindSafe for vantadb::MergeOutcome
 pub enum vantadb::sdk::QueryResult
 pub vantadb::sdk::QueryResult::Read(alloc::vec::Vec<vantadb::NodeRecord>)
 pub vantadb::sdk::QueryResult::StaleContext
@@ -5184,6 +5467,33 @@ impl core::marker::Unpin for vantadb::QueryResult
 impl core::marker::UnsafeUnpin for vantadb::QueryResult
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::QueryResult
 impl core::panic::unwind_safe::UnwindSafe for vantadb::QueryResult
+#[non_exhaustive] pub enum vantadb::sdk::ReinforceOutcome
+pub vantadb::sdk::ReinforceOutcome::Corrected
+pub vantadb::sdk::ReinforceOutcome::Unused
+pub vantadb::sdk::ReinforceOutcome::Used
+impl vantadb::ReinforceOutcome
+pub fn vantadb::ReinforceOutcome::as_wire_str(&self) -> &'static str
+pub fn vantadb::ReinforceOutcome::from_wire_str(&str) -> core::option::Option<Self>
+impl core::clone::Clone for vantadb::ReinforceOutcome
+pub fn vantadb::ReinforceOutcome::clone(&self) -> Self
+impl core::cmp::Eq for vantadb::ReinforceOutcome
+impl core::cmp::PartialEq for vantadb::ReinforceOutcome
+pub fn vantadb::ReinforceOutcome::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vantadb::ReinforceOutcome
+pub fn vantadb::ReinforceOutcome::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vantadb::ReinforceOutcome
+impl core::marker::StructuralPartialEq for vantadb::ReinforceOutcome
+impl serde_core::ser::Serialize for vantadb::ReinforceOutcome
+pub fn vantadb::ReinforceOutcome::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vantadb::ReinforceOutcome
+pub fn vantadb::ReinforceOutcome::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for vantadb::ReinforceOutcome
+impl core::marker::Send for vantadb::ReinforceOutcome
+impl core::marker::Sync for vantadb::ReinforceOutcome
+impl core::marker::Unpin for vantadb::ReinforceOutcome
+impl core::marker::UnsafeUnpin for vantadb::ReinforceOutcome
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::ReinforceOutcome
+impl core::panic::unwind_safe::UnwindSafe for vantadb::ReinforceOutcome
 pub enum vantadb::sdk::RuntimeProfile
 pub vantadb::sdk::RuntimeProfile::Enterprise
 pub vantadb::sdk::RuntimeProfile::LowResource
@@ -5257,6 +5567,51 @@ impl core::marker::Unpin for vantadb::StorageTier
 impl core::marker::UnsafeUnpin for vantadb::StorageTier
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::StorageTier
 impl core::panic::unwind_safe::UnwindSafe for vantadb::StorageTier
+#[non_exhaustive] pub enum vantadb::sdk::Subject
+pub vantadb::sdk::Subject::Agent(alloc::string::String)
+pub vantadb::sdk::Subject::TeamRole(vantadb::entity::checker::TeamRole)
+pub vantadb::sdk::Subject::User(alloc::string::String)
+impl vantadb::sdk::Subject
+pub fn vantadb::sdk::Subject::agent(impl core::convert::Into<alloc::string::String>) -> Self
+pub fn vantadb::sdk::Subject::team_role(vantadb::entity::checker::TeamRole) -> Self
+pub fn vantadb::sdk::Subject::user(impl core::convert::Into<alloc::string::String>) -> Self
+impl core::clone::Clone for vantadb::sdk::Subject
+pub fn vantadb::sdk::Subject::clone(&self) -> Self
+impl core::cmp::Eq for vantadb::sdk::Subject
+impl core::cmp::PartialEq for vantadb::sdk::Subject
+pub fn vantadb::sdk::Subject::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vantadb::sdk::Subject
+pub fn vantadb::sdk::Subject::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vantadb::sdk::Subject
+impl core::marker::Freeze for vantadb::sdk::Subject
+impl core::marker::Send for vantadb::sdk::Subject
+impl core::marker::Sync for vantadb::sdk::Subject
+impl core::marker::Unpin for vantadb::sdk::Subject
+impl core::marker::UnsafeUnpin for vantadb::sdk::Subject
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::sdk::Subject
+impl core::panic::unwind_safe::UnwindSafe for vantadb::sdk::Subject
+#[non_exhaustive] pub enum vantadb::sdk::TeamRole
+pub vantadb::sdk::TeamRole::Admin
+pub vantadb::sdk::TeamRole::Member
+pub vantadb::sdk::TeamRole::Reviewer
+impl vantadb::entity::checker::TeamRole
+pub fn vantadb::entity::checker::TeamRole::as_str(&self) -> &'static str
+impl core::clone::Clone for vantadb::entity::checker::TeamRole
+pub fn vantadb::entity::checker::TeamRole::clone(&self) -> Self
+impl core::cmp::Eq for vantadb::entity::checker::TeamRole
+impl core::cmp::PartialEq for vantadb::entity::checker::TeamRole
+pub fn vantadb::entity::checker::TeamRole::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vantadb::entity::checker::TeamRole
+pub fn vantadb::entity::checker::TeamRole::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vantadb::entity::checker::TeamRole
+impl core::marker::StructuralPartialEq for vantadb::entity::checker::TeamRole
+impl core::marker::Freeze for vantadb::entity::checker::TeamRole
+impl core::marker::Send for vantadb::entity::checker::TeamRole
+impl core::marker::Sync for vantadb::entity::checker::TeamRole
+impl core::marker::Unpin for vantadb::entity::checker::TeamRole
+impl core::marker::UnsafeUnpin for vantadb::entity::checker::TeamRole
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::entity::checker::TeamRole
+impl core::panic::unwind_safe::UnwindSafe for vantadb::entity::checker::TeamRole
 pub enum vantadb::sdk::Value
 pub vantadb::sdk::Value::Bool(bool)
 pub vantadb::sdk::Value::DateTime(chrono::datetime::DateTime<chrono::offset::utc::Utc>)
@@ -5295,6 +5650,47 @@ impl core::marker::Unpin for vantadb::Value
 impl core::marker::UnsafeUnpin for vantadb::Value
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::Value
 impl core::panic::unwind_safe::UnwindSafe for vantadb::Value
+#[non_exhaustive] pub enum vantadb::sdk::Visibility
+pub vantadb::sdk::Visibility::Agent
+pub vantadb::sdk::Visibility::Private
+pub vantadb::sdk::Visibility::Restricted
+pub vantadb::sdk::Visibility::Task
+pub vantadb::sdk::Visibility::Team
+impl vantadb::entity::checker::Visibility
+pub fn vantadb::entity::checker::Visibility::as_str(&self) -> &'static str
+impl core::clone::Clone for vantadb::entity::checker::Visibility
+pub fn vantadb::entity::checker::Visibility::clone(&self) -> Self
+impl core::cmp::Eq for vantadb::entity::checker::Visibility
+impl core::cmp::PartialEq for vantadb::entity::checker::Visibility
+pub fn vantadb::entity::checker::Visibility::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vantadb::entity::checker::Visibility
+pub fn vantadb::entity::checker::Visibility::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vantadb::entity::checker::Visibility
+impl core::marker::StructuralPartialEq for vantadb::entity::checker::Visibility
+impl core::marker::Freeze for vantadb::entity::checker::Visibility
+impl core::marker::Send for vantadb::entity::checker::Visibility
+impl core::marker::Sync for vantadb::entity::checker::Visibility
+impl core::marker::Unpin for vantadb::entity::checker::Visibility
+impl core::marker::UnsafeUnpin for vantadb::entity::checker::Visibility
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::entity::checker::Visibility
+impl core::panic::unwind_safe::UnwindSafe for vantadb::entity::checker::Visibility
+pub struct vantadb::sdk::AccessQuery<'a>
+pub vantadb::sdk::AccessQuery::action: vantadb::entity::checker::Action
+pub vantadb::sdk::AccessQuery::agent_id: core::option::Option<&'a str>
+pub vantadb::sdk::AccessQuery::asset_id: &'a str
+pub vantadb::sdk::AccessQuery::namespace: &'a str
+pub vantadb::sdk::AccessQuery::user_id: &'a str
+impl<'a> core::clone::Clone for vantadb::sdk::AccessQuery<'a>
+pub fn vantadb::sdk::AccessQuery<'a>::clone(&self) -> Self
+impl<'a> core::fmt::Debug for vantadb::sdk::AccessQuery<'a>
+pub fn vantadb::sdk::AccessQuery<'a>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'a> core::marker::Freeze for vantadb::sdk::AccessQuery<'a>
+impl<'a> core::marker::Send for vantadb::sdk::AccessQuery<'a>
+impl<'a> core::marker::Sync for vantadb::sdk::AccessQuery<'a>
+impl<'a> core::marker::Unpin for vantadb::sdk::AccessQuery<'a>
+impl<'a> core::marker::UnsafeUnpin for vantadb::sdk::AccessQuery<'a>
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for vantadb::sdk::AccessQuery<'a>
+impl<'a> core::panic::unwind_safe::UnwindSafe for vantadb::sdk::AccessQuery<'a>
 pub struct vantadb::sdk::Bm25TermContribution
 pub vantadb::sdk::Bm25TermContribution::contribution: f32
 pub vantadb::sdk::Bm25TermContribution::df: u64
@@ -5403,6 +5799,15 @@ pub fn vantadb::Embedded::restore_graph_nodes(&self, alloc::vec::Vec<vantadb::No
 pub fn vantadb::Embedded::set_optimizer_config(&mut self, vantadb::storage::engine::SegmentOptimizerConfig)
 pub fn vantadb::Embedded::vacuum(&self) -> vantadb::error::Result<vantadb::storage::engine::VacuumReport>
 impl vantadb::Embedded
+pub fn vantadb::Embedded::add_team_member(&self, vantadb::sdk::TeamMemberInput<'_>) -> vantadb::error::Result<vantadb::entity::Entity>
+pub fn vantadb::Embedded::check_access(&self, vantadb::sdk::AccessQuery<'_>) -> vantadb::error::Result<vantadb::entity::checker::PermDecision>
+pub fn vantadb::Embedded::get_shared(&self, &str, &str, &str, core::option::Option<&str>) -> vantadb::error::Result<vantadb::sdk::SharedOutcome>
+pub fn vantadb::Embedded::grant_access(&self, vantadb::sdk::GrantInput<'_>) -> vantadb::error::Result<vantadb::entity::Entity>
+pub fn vantadb::Embedded::put_shared(&self, &str, vantadb::MemoryInput, core::option::Option<&str>) -> vantadb::error::Result<vantadb::sdk::SharedOutcome>
+pub fn vantadb::Embedded::revoke_access(&self, vantadb::sdk::GrantInput<'_>) -> vantadb::error::Result<bool>
+pub fn vantadb::Embedded::revoke_team_member(&self, &str, &str, &str) -> vantadb::error::Result<bool>
+pub fn vantadb::Embedded::share_asset(&self, vantadb::sdk::ShareAssetInput<'_>) -> vantadb::error::Result<vantadb::entity::Entity>
+impl vantadb::Embedded
 pub fn vantadb::Embedded::audit_text_index(&self, core::option::Option<&str>) -> vantadb::error::Result<vantadb::TextIndexAuditReport>
 pub fn vantadb::Embedded::audit_text_index_deep(&self, core::option::Option<&str>) -> vantadb::error::Result<vantadb::TextIndexAuditReport>
 pub fn vantadb::Embedded::generate_snippet(&self, &str, &str, bool) -> core::option::Option<alloc::string::String>
@@ -5414,14 +5819,18 @@ pub fn vantadb::Embedded::delete(&self, &str, &str) -> vantadb::error::Result<bo
 pub fn vantadb::Embedded::delete_certified(&self, &str, &str) -> vantadb::error::Result<vantadb::attestation::PurgeCertificate>
 pub fn vantadb::Embedded::get(&self, &str, &str) -> vantadb::error::Result<core::option::Option<vantadb::MemoryRecord>>
 pub fn vantadb::Embedded::get_version(&self, &str, &str, u64) -> vantadb::error::Result<core::option::Option<vantadb::MemoryRecord>>
+pub fn vantadb::Embedded::merge_record(&self, vantadb::MemoryRecord) -> vantadb::error::Result<vantadb::MergeResult>
 pub fn vantadb::Embedded::purge_expired(&self) -> vantadb::error::Result<u64>
 pub fn vantadb::Embedded::put(&self, vantadb::MemoryInput) -> vantadb::error::Result<vantadb::MemoryRecord>
 pub fn vantadb::Embedded::put_batch(&self, alloc::vec::Vec<vantadb::MemoryInput>) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemoryRecord>>
+pub fn vantadb::Embedded::put_certified(&self, vantadb::MemoryInput) -> vantadb::error::Result<(vantadb::MemoryRecord, vantadb::attestation::WriteReceipt)>
 pub fn vantadb::Embedded::quarantine_apply(&self, &str, &str, core::option::Option<&str>) -> vantadb::error::Result<vantadb::MemoryRecord>
 pub fn vantadb::Embedded::quarantine_promote(&self, &str, &str) -> vantadb::error::Result<vantadb::MemoryRecord>
 pub fn vantadb::Embedded::quarantine_reject(&self, &str, &str) -> vantadb::error::Result<bool>
+pub fn vantadb::Embedded::reinforce(&self, &str, &str, vantadb::ReinforceOutcome) -> vantadb::error::Result<vantadb::MemoryRecord>
 pub fn vantadb::Embedded::supersede(&self, &str, &str, &str) -> vantadb::error::Result<()>
 pub fn vantadb::Embedded::verify_purge_certificate(&self, &str) -> vantadb::error::Result<vantadb::attestation::PurgeCertificateVerification>
+pub fn vantadb::Embedded::verify_write_receipt(&self, &str) -> vantadb::error::Result<vantadb::attestation::WriteReceiptVerification>
 pub fn vantadb::Embedded::versions(&self, &str, &str) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemoryRecord>>
 impl vantadb::Embedded
 pub fn vantadb::Embedded::capabilities(&self) -> vantadb::Capabilities
@@ -5462,6 +5871,7 @@ pub fn vantadb::Embedded::export_all(&self, impl core::convert::AsRef<std::path:
 pub fn vantadb::Embedded::export_namespace(&self, impl core::convert::AsRef<std::path::Path>, &str, core::option::Option<vantadb::MemoryFilter>) -> vantadb::error::Result<vantadb::ExportReport>
 pub fn vantadb::Embedded::import_file(&self, impl core::convert::AsRef<std::path::Path>, bool) -> vantadb::error::Result<vantadb::ImportReport>
 pub fn vantadb::Embedded::import_records(&self, alloc::vec::Vec<vantadb::MemoryRecord>, bool) -> vantadb::error::Result<vantadb::ImportReport>
+pub fn vantadb::Embedded::verify_export_integrity(&self, impl core::convert::AsRef<std::path::Path>) -> vantadb::error::Result<vantadb::sdk::ExportIntegrityVerification>
 impl vantadb::Embedded
 pub fn vantadb::Embedded::graph_accumulator_add(&self, &vantadb::accumulator::GraphAccumulator, u128, f64) -> vantadb::error::Result<f64>
 pub fn vantadb::Embedded::graph_accumulator_get(&self, &vantadb::accumulator::GraphAccumulator, u128) -> vantadb::error::Result<core::option::Option<f64>>
@@ -5582,11 +5992,68 @@ impl core::marker::Unpin for vantadb::sdk::EntityBoostedSearch
 impl core::marker::UnsafeUnpin for vantadb::sdk::EntityBoostedSearch
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::sdk::EntityBoostedSearch
 impl core::panic::unwind_safe::UnwindSafe for vantadb::sdk::EntityBoostedSearch
+pub struct vantadb::sdk::ExportIntegrityVerification
+pub vantadb::sdk::ExportIntegrityVerification::actual_sha256: alloc::string::String
+pub vantadb::sdk::ExportIntegrityVerification::expected_sha256: core::option::Option<alloc::string::String>
+pub vantadb::sdk::ExportIntegrityVerification::limits: alloc::vec::Vec<alloc::string::String>
+pub vantadb::sdk::ExportIntegrityVerification::namespaces: alloc::vec::Vec<alloc::string::String>
+pub vantadb::sdk::ExportIntegrityVerification::path: alloc::string::String
+pub vantadb::sdk::ExportIntegrityVerification::records: u64
+pub vantadb::sdk::ExportIntegrityVerification::schema_version: u32
+pub vantadb::sdk::ExportIntegrityVerification::status: alloc::string::String
+impl core::clone::Clone for vantadb::sdk::ExportIntegrityVerification
+pub fn vantadb::sdk::ExportIntegrityVerification::clone(&self) -> Self
+impl core::cmp::Eq for vantadb::sdk::ExportIntegrityVerification
+impl core::cmp::PartialEq for vantadb::sdk::ExportIntegrityVerification
+pub fn vantadb::sdk::ExportIntegrityVerification::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vantadb::sdk::ExportIntegrityVerification
+pub fn vantadb::sdk::ExportIntegrityVerification::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vantadb::sdk::ExportIntegrityVerification
+impl serde_core::ser::Serialize for vantadb::sdk::ExportIntegrityVerification
+pub fn vantadb::sdk::ExportIntegrityVerification::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vantadb::sdk::ExportIntegrityVerification
+pub fn vantadb::sdk::ExportIntegrityVerification::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for vantadb::sdk::ExportIntegrityVerification
+impl core::marker::Send for vantadb::sdk::ExportIntegrityVerification
+impl core::marker::Sync for vantadb::sdk::ExportIntegrityVerification
+impl core::marker::Unpin for vantadb::sdk::ExportIntegrityVerification
+impl core::marker::UnsafeUnpin for vantadb::sdk::ExportIntegrityVerification
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::sdk::ExportIntegrityVerification
+impl core::panic::unwind_safe::UnwindSafe for vantadb::sdk::ExportIntegrityVerification
+pub struct vantadb::sdk::ExportManifest
+pub vantadb::sdk::ExportManifest::export_schema_version: u32
+pub vantadb::sdk::ExportManifest::format: alloc::string::String
+pub vantadb::sdk::ExportManifest::limits: alloc::vec::Vec<alloc::string::String>
+pub vantadb::sdk::ExportManifest::namespaces: alloc::vec::Vec<alloc::string::String>
+pub vantadb::sdk::ExportManifest::records: u64
+pub vantadb::sdk::ExportManifest::schema_version: u32
+pub vantadb::sdk::ExportManifest::sha256: alloc::string::String
+impl core::clone::Clone for vantadb::sdk::ExportManifest
+pub fn vantadb::sdk::ExportManifest::clone(&self) -> Self
+impl core::cmp::Eq for vantadb::sdk::ExportManifest
+impl core::cmp::PartialEq for vantadb::sdk::ExportManifest
+pub fn vantadb::sdk::ExportManifest::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vantadb::sdk::ExportManifest
+pub fn vantadb::sdk::ExportManifest::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vantadb::sdk::ExportManifest
+impl serde_core::ser::Serialize for vantadb::sdk::ExportManifest
+pub fn vantadb::sdk::ExportManifest::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vantadb::sdk::ExportManifest
+pub fn vantadb::sdk::ExportManifest::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for vantadb::sdk::ExportManifest
+impl core::marker::Send for vantadb::sdk::ExportManifest
+impl core::marker::Sync for vantadb::sdk::ExportManifest
+impl core::marker::Unpin for vantadb::sdk::ExportManifest
+impl core::marker::UnsafeUnpin for vantadb::sdk::ExportManifest
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::sdk::ExportManifest
+impl core::panic::unwind_safe::UnwindSafe for vantadb::sdk::ExportManifest
 pub struct vantadb::sdk::ExportReport
 pub vantadb::sdk::ExportReport::duration_ms: u64
+pub vantadb::sdk::ExportReport::manifest_path: alloc::string::String
 pub vantadb::sdk::ExportReport::namespaces: alloc::vec::Vec<alloc::string::String>
 pub vantadb::sdk::ExportReport::path: alloc::string::String
 pub vantadb::sdk::ExportReport::records_exported: u64
+pub vantadb::sdk::ExportReport::sha256: alloc::string::String
 impl core::clone::Clone for vantadb::ExportReport
 pub fn vantadb::ExportReport::clone(&self) -> Self
 impl core::cmp::Eq for vantadb::ExportReport
@@ -5606,6 +6073,22 @@ impl core::marker::Unpin for vantadb::ExportReport
 impl core::marker::UnsafeUnpin for vantadb::ExportReport
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::ExportReport
 impl core::panic::unwind_safe::UnwindSafe for vantadb::ExportReport
+pub struct vantadb::sdk::GrantInput<'a>
+pub vantadb::sdk::GrantInput::action: vantadb::entity::checker::Action
+pub vantadb::sdk::GrantInput::asset_id: &'a str
+pub vantadb::sdk::GrantInput::namespace: &'a str
+pub vantadb::sdk::GrantInput::subject: vantadb::sdk::Subject
+impl<'a> core::clone::Clone for vantadb::sdk::GrantInput<'a>
+pub fn vantadb::sdk::GrantInput<'a>::clone(&self) -> Self
+impl<'a> core::fmt::Debug for vantadb::sdk::GrantInput<'a>
+pub fn vantadb::sdk::GrantInput<'a>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'a> core::marker::Freeze for vantadb::sdk::GrantInput<'a>
+impl<'a> core::marker::Send for vantadb::sdk::GrantInput<'a>
+impl<'a> core::marker::Sync for vantadb::sdk::GrantInput<'a>
+impl<'a> core::marker::Unpin for vantadb::sdk::GrantInput<'a>
+impl<'a> core::marker::UnsafeUnpin for vantadb::sdk::GrantInput<'a>
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for vantadb::sdk::GrantInput<'a>
+impl<'a> core::panic::unwind_safe::UnwindSafe for vantadb::sdk::GrantInput<'a>
 pub struct vantadb::sdk::GroupByConfig
 pub vantadb::sdk::GroupByConfig::field: alloc::string::String
 pub vantadb::sdk::GroupByConfig::group_size: usize
@@ -5987,6 +6470,26 @@ impl core::marker::Unpin for vantadb::MemorySearchRequest
 impl core::marker::UnsafeUnpin for vantadb::MemorySearchRequest
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::MemorySearchRequest
 impl core::panic::unwind_safe::UnwindSafe for vantadb::MemorySearchRequest
+#[non_exhaustive] pub struct vantadb::sdk::MergeResult
+pub vantadb::sdk::MergeResult::conflict: bool
+pub vantadb::sdk::MergeResult::outcome: vantadb::MergeOutcome
+pub vantadb::sdk::MergeResult::winner_updated_at_ms: u64
+impl core::clone::Clone for vantadb::MergeResult
+pub fn vantadb::MergeResult::clone(&self) -> Self
+impl core::cmp::Eq for vantadb::MergeResult
+impl core::cmp::PartialEq for vantadb::MergeResult
+pub fn vantadb::MergeResult::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vantadb::MergeResult
+pub fn vantadb::MergeResult::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vantadb::MergeResult
+impl core::marker::StructuralPartialEq for vantadb::MergeResult
+impl core::marker::Freeze for vantadb::MergeResult
+impl core::marker::Send for vantadb::MergeResult
+impl core::marker::Sync for vantadb::MergeResult
+impl core::marker::Unpin for vantadb::MergeResult
+impl core::marker::UnsafeUnpin for vantadb::MergeResult
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::MergeResult
+impl core::panic::unwind_safe::UnwindSafe for vantadb::MergeResult
 pub struct vantadb::sdk::MmrConfig
 pub vantadb::sdk::MmrConfig::fetch_k: core::option::Option<usize>
 pub vantadb::sdk::MmrConfig::lambda: f32
@@ -6164,6 +6667,24 @@ impl core::marker::Unpin for vantadb::OperationalMetrics
 impl core::marker::UnsafeUnpin for vantadb::OperationalMetrics
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::OperationalMetrics
 impl core::panic::unwind_safe::UnwindSafe for vantadb::OperationalMetrics
+pub struct vantadb::sdk::PermDecision
+pub vantadb::sdk::PermDecision::allowed: bool
+pub vantadb::sdk::PermDecision::reason: alloc::string::String
+impl core::clone::Clone for vantadb::entity::checker::PermDecision
+pub fn vantadb::entity::checker::PermDecision::clone(&self) -> Self
+impl core::cmp::Eq for vantadb::entity::checker::PermDecision
+impl core::cmp::PartialEq for vantadb::entity::checker::PermDecision
+pub fn vantadb::entity::checker::PermDecision::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vantadb::entity::checker::PermDecision
+pub fn vantadb::entity::checker::PermDecision::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vantadb::entity::checker::PermDecision
+impl core::marker::Freeze for vantadb::entity::checker::PermDecision
+impl core::marker::Send for vantadb::entity::checker::PermDecision
+impl core::marker::Sync for vantadb::entity::checker::PermDecision
+impl core::marker::Unpin for vantadb::entity::checker::PermDecision
+impl core::marker::UnsafeUnpin for vantadb::entity::checker::PermDecision
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::entity::checker::PermDecision
+impl core::panic::unwind_safe::UnwindSafe for vantadb::entity::checker::PermDecision
 pub struct vantadb::sdk::RangeFilter
 pub vantadb::sdk::RangeFilter::max_score: core::option::Option<f32>
 pub vantadb::sdk::RangeFilter::min_score: core::option::Option<f32>
@@ -6284,6 +6805,37 @@ impl core::marker::Unpin for vantadb::search_profile::SearchProfileConfig
 impl core::marker::UnsafeUnpin for vantadb::search_profile::SearchProfileConfig
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::search_profile::SearchProfileConfig
 impl core::panic::unwind_safe::UnwindSafe for vantadb::search_profile::SearchProfileConfig
+pub struct vantadb::sdk::ShareAssetInput<'a>
+pub vantadb::sdk::ShareAssetInput::asset_id: &'a str
+pub vantadb::sdk::ShareAssetInput::namespace: &'a str
+pub vantadb::sdk::ShareAssetInput::owner_user_id: &'a str
+pub vantadb::sdk::ShareAssetInput::team_id: &'a str
+pub vantadb::sdk::ShareAssetInput::visibility: vantadb::entity::checker::Visibility
+impl<'a> core::clone::Clone for vantadb::sdk::ShareAssetInput<'a>
+pub fn vantadb::sdk::ShareAssetInput<'a>::clone(&self) -> Self
+impl<'a> core::fmt::Debug for vantadb::sdk::ShareAssetInput<'a>
+pub fn vantadb::sdk::ShareAssetInput<'a>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'a> core::marker::Freeze for vantadb::sdk::ShareAssetInput<'a>
+impl<'a> core::marker::Send for vantadb::sdk::ShareAssetInput<'a>
+impl<'a> core::marker::Sync for vantadb::sdk::ShareAssetInput<'a>
+impl<'a> core::marker::Unpin for vantadb::sdk::ShareAssetInput<'a>
+impl<'a> core::marker::UnsafeUnpin for vantadb::sdk::ShareAssetInput<'a>
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for vantadb::sdk::ShareAssetInput<'a>
+impl<'a> core::panic::unwind_safe::UnwindSafe for vantadb::sdk::ShareAssetInput<'a>
+pub struct vantadb::sdk::SharedOutcome
+pub vantadb::sdk::SharedOutcome::decision: vantadb::entity::checker::PermDecision
+pub vantadb::sdk::SharedOutcome::record: core::option::Option<vantadb::MemoryRecord>
+impl core::clone::Clone for vantadb::sdk::SharedOutcome
+pub fn vantadb::sdk::SharedOutcome::clone(&self) -> Self
+impl core::fmt::Debug for vantadb::sdk::SharedOutcome
+pub fn vantadb::sdk::SharedOutcome::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Freeze for vantadb::sdk::SharedOutcome
+impl core::marker::Send for vantadb::sdk::SharedOutcome
+impl core::marker::Sync for vantadb::sdk::SharedOutcome
+impl core::marker::Unpin for vantadb::sdk::SharedOutcome
+impl core::marker::UnsafeUnpin for vantadb::sdk::SharedOutcome
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::sdk::SharedOutcome
+impl core::panic::unwind_safe::UnwindSafe for vantadb::sdk::SharedOutcome
 pub struct vantadb::sdk::SkillCreateInput
 pub vantadb::sdk::SkillCreateInput::content: alloc::string::String
 pub vantadb::sdk::SkillCreateInput::description: alloc::string::String
@@ -6458,6 +7010,22 @@ impl core::marker::Unpin for vantadb::SkillWriteResult
 impl core::marker::UnsafeUnpin for vantadb::SkillWriteResult
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::SkillWriteResult
 impl core::panic::unwind_safe::UnwindSafe for vantadb::SkillWriteResult
+pub struct vantadb::sdk::TeamMemberInput<'a>
+pub vantadb::sdk::TeamMemberInput::namespace: &'a str
+pub vantadb::sdk::TeamMemberInput::role: vantadb::entity::checker::TeamRole
+pub vantadb::sdk::TeamMemberInput::team_id: &'a str
+pub vantadb::sdk::TeamMemberInput::user_id: &'a str
+impl<'a> core::clone::Clone for vantadb::sdk::TeamMemberInput<'a>
+pub fn vantadb::sdk::TeamMemberInput<'a>::clone(&self) -> Self
+impl<'a> core::fmt::Debug for vantadb::sdk::TeamMemberInput<'a>
+pub fn vantadb::sdk::TeamMemberInput<'a>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'a> core::marker::Freeze for vantadb::sdk::TeamMemberInput<'a>
+impl<'a> core::marker::Send for vantadb::sdk::TeamMemberInput<'a>
+impl<'a> core::marker::Sync for vantadb::sdk::TeamMemberInput<'a>
+impl<'a> core::marker::Unpin for vantadb::sdk::TeamMemberInput<'a>
+impl<'a> core::marker::UnsafeUnpin for vantadb::sdk::TeamMemberInput<'a>
+impl<'a> core::panic::unwind_safe::RefUnwindSafe for vantadb::sdk::TeamMemberInput<'a>
+impl<'a> core::panic::unwind_safe::UnwindSafe for vantadb::sdk::TeamMemberInput<'a>
 pub struct vantadb::sdk::TextIndexAuditReport
 pub vantadb::sdk::TextIndexAuditReport::actual_entries: u64
 pub vantadb::sdk::TextIndexAuditReport::deep_audit: bool
@@ -6556,6 +7124,8 @@ impl core::marker::UnsafeUnpin for vantadb::ValidWindow
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::ValidWindow
 impl core::panic::unwind_safe::UnwindSafe for vantadb::ValidWindow
 pub const vantadb::sdk::DERIVATION_DISCOUNT: f32
+pub const vantadb::sdk::EXPORT_MANIFEST_FORMAT: &str
+pub const vantadb::sdk::EXPORT_MANIFEST_SCHEMA_VERSION: u32
 pub const vantadb::sdk::FIELD_CREATED_AT_MS: &str
 pub const vantadb::sdk::FIELD_EXPIRES_AT_MS: &str
 pub const vantadb::sdk::FIELD_KEY: &str
@@ -7283,6 +7853,57 @@ pub mod vantadb::wiki::chunker
 pub const vantadb::wiki::chunker::DEFAULT_OVERLAP_CHARS: usize
 pub const vantadb::wiki::chunker::DEFAULT_TARGET_CHARS: usize
 pub fn vantadb::wiki::chunker::chunk_text(&str, usize, usize) -> alloc::vec::Vec<alloc::string::String>
+pub mod vantadb::wiki::ingestors
+pub struct vantadb::wiki::ingestors::CsvIngestor
+impl vantadb::wiki::ingestors::Ingestor for vantadb::wiki::ingestors::CsvIngestor
+pub fn vantadb::wiki::ingestors::CsvIngestor::extensions(&self) -> &'static [&'static str]
+pub fn vantadb::wiki::ingestors::CsvIngestor::ingest(&self, &str, &str, &str) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemoryInput>>
+impl core::marker::Freeze for vantadb::wiki::ingestors::CsvIngestor
+impl core::marker::Send for vantadb::wiki::ingestors::CsvIngestor
+impl core::marker::Sync for vantadb::wiki::ingestors::CsvIngestor
+impl core::marker::Unpin for vantadb::wiki::ingestors::CsvIngestor
+impl core::marker::UnsafeUnpin for vantadb::wiki::ingestors::CsvIngestor
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::wiki::ingestors::CsvIngestor
+impl core::panic::unwind_safe::UnwindSafe for vantadb::wiki::ingestors::CsvIngestor
+pub struct vantadb::wiki::ingestors::JsonIngestor
+impl vantadb::wiki::ingestors::Ingestor for vantadb::wiki::ingestors::JsonIngestor
+pub fn vantadb::wiki::ingestors::JsonIngestor::extensions(&self) -> &'static [&'static str]
+pub fn vantadb::wiki::ingestors::JsonIngestor::ingest(&self, &str, &str, &str) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemoryInput>>
+impl core::marker::Freeze for vantadb::wiki::ingestors::JsonIngestor
+impl core::marker::Send for vantadb::wiki::ingestors::JsonIngestor
+impl core::marker::Sync for vantadb::wiki::ingestors::JsonIngestor
+impl core::marker::Unpin for vantadb::wiki::ingestors::JsonIngestor
+impl core::marker::UnsafeUnpin for vantadb::wiki::ingestors::JsonIngestor
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::wiki::ingestors::JsonIngestor
+impl core::panic::unwind_safe::UnwindSafe for vantadb::wiki::ingestors::JsonIngestor
+pub struct vantadb::wiki::ingestors::TxtIngestor
+impl vantadb::wiki::ingestors::Ingestor for vantadb::wiki::ingestors::TxtIngestor
+pub fn vantadb::wiki::ingestors::TxtIngestor::extensions(&self) -> &'static [&'static str]
+pub fn vantadb::wiki::ingestors::TxtIngestor::ingest(&self, &str, &str, &str) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemoryInput>>
+impl core::marker::Freeze for vantadb::wiki::ingestors::TxtIngestor
+impl core::marker::Send for vantadb::wiki::ingestors::TxtIngestor
+impl core::marker::Sync for vantadb::wiki::ingestors::TxtIngestor
+impl core::marker::Unpin for vantadb::wiki::ingestors::TxtIngestor
+impl core::marker::UnsafeUnpin for vantadb::wiki::ingestors::TxtIngestor
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::wiki::ingestors::TxtIngestor
+impl core::panic::unwind_safe::UnwindSafe for vantadb::wiki::ingestors::TxtIngestor
+pub const vantadb::wiki::ingestors::META_CHUNK: &str
+pub const vantadb::wiki::ingestors::META_PAGE: &str
+pub const vantadb::wiki::ingestors::META_SOURCE: &str
+pub trait vantadb::wiki::ingestors::Ingestor: core::marker::Send + core::marker::Sync
+pub fn vantadb::wiki::ingestors::Ingestor::extensions(&self) -> &'static [&'static str]
+pub fn vantadb::wiki::ingestors::Ingestor::ingest(&self, &str, &str, &str) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemoryInput>>
+impl vantadb::wiki::ingestors::Ingestor for vantadb::wiki::ingestors::CsvIngestor
+pub fn vantadb::wiki::ingestors::CsvIngestor::extensions(&self) -> &'static [&'static str]
+pub fn vantadb::wiki::ingestors::CsvIngestor::ingest(&self, &str, &str, &str) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemoryInput>>
+impl vantadb::wiki::ingestors::Ingestor for vantadb::wiki::ingestors::JsonIngestor
+pub fn vantadb::wiki::ingestors::JsonIngestor::extensions(&self) -> &'static [&'static str]
+pub fn vantadb::wiki::ingestors::JsonIngestor::ingest(&self, &str, &str, &str) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemoryInput>>
+impl vantadb::wiki::ingestors::Ingestor for vantadb::wiki::ingestors::TxtIngestor
+pub fn vantadb::wiki::ingestors::TxtIngestor::extensions(&self) -> &'static [&'static str]
+pub fn vantadb::wiki::ingestors::TxtIngestor::ingest(&self, &str, &str, &str) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemoryInput>>
+pub fn vantadb::wiki::ingestors::default_ingestors() -> alloc::vec::Vec<alloc::boxed::Box<dyn vantadb::wiki::ingestors::Ingestor>>
+pub fn vantadb::wiki::ingestors::scan_ingestable_sources(&std::path::Path, &str, &[alloc::boxed::Box<dyn vantadb::wiki::ingestors::Ingestor>]) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemoryInput>>
 pub mod vantadb::wiki::sources
 pub struct vantadb::wiki::sources::SourceFile
 pub vantadb::wiki::sources::SourceFile::content: alloc::string::String
@@ -7443,6 +8064,28 @@ impl core::marker::Unpin for vantadb::wiki::state::WikiState
 impl core::marker::UnsafeUnpin for vantadb::wiki::state::WikiState
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::wiki::state::WikiState
 impl core::panic::unwind_safe::UnwindSafe for vantadb::wiki::state::WikiState
+pub struct vantadb::wiki::CsvIngestor
+impl vantadb::wiki::ingestors::Ingestor for vantadb::wiki::ingestors::CsvIngestor
+pub fn vantadb::wiki::ingestors::CsvIngestor::extensions(&self) -> &'static [&'static str]
+pub fn vantadb::wiki::ingestors::CsvIngestor::ingest(&self, &str, &str, &str) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemoryInput>>
+impl core::marker::Freeze for vantadb::wiki::ingestors::CsvIngestor
+impl core::marker::Send for vantadb::wiki::ingestors::CsvIngestor
+impl core::marker::Sync for vantadb::wiki::ingestors::CsvIngestor
+impl core::marker::Unpin for vantadb::wiki::ingestors::CsvIngestor
+impl core::marker::UnsafeUnpin for vantadb::wiki::ingestors::CsvIngestor
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::wiki::ingestors::CsvIngestor
+impl core::panic::unwind_safe::UnwindSafe for vantadb::wiki::ingestors::CsvIngestor
+pub struct vantadb::wiki::JsonIngestor
+impl vantadb::wiki::ingestors::Ingestor for vantadb::wiki::ingestors::JsonIngestor
+pub fn vantadb::wiki::ingestors::JsonIngestor::extensions(&self) -> &'static [&'static str]
+pub fn vantadb::wiki::ingestors::JsonIngestor::ingest(&self, &str, &str, &str) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemoryInput>>
+impl core::marker::Freeze for vantadb::wiki::ingestors::JsonIngestor
+impl core::marker::Send for vantadb::wiki::ingestors::JsonIngestor
+impl core::marker::Sync for vantadb::wiki::ingestors::JsonIngestor
+impl core::marker::Unpin for vantadb::wiki::ingestors::JsonIngestor
+impl core::marker::UnsafeUnpin for vantadb::wiki::ingestors::JsonIngestor
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::wiki::ingestors::JsonIngestor
+impl core::panic::unwind_safe::UnwindSafe for vantadb::wiki::ingestors::JsonIngestor
 pub struct vantadb::wiki::SourceFile
 pub vantadb::wiki::SourceFile::content: alloc::string::String
 pub vantadb::wiki::SourceFile::rel_path: alloc::string::String
@@ -7460,6 +8103,17 @@ impl core::marker::Unpin for vantadb::wiki::sources::SourceFile
 impl core::marker::UnsafeUnpin for vantadb::wiki::sources::SourceFile
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::wiki::sources::SourceFile
 impl core::panic::unwind_safe::UnwindSafe for vantadb::wiki::sources::SourceFile
+pub struct vantadb::wiki::TxtIngestor
+impl vantadb::wiki::ingestors::Ingestor for vantadb::wiki::ingestors::TxtIngestor
+pub fn vantadb::wiki::ingestors::TxtIngestor::extensions(&self) -> &'static [&'static str]
+pub fn vantadb::wiki::ingestors::TxtIngestor::ingest(&self, &str, &str, &str) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemoryInput>>
+impl core::marker::Freeze for vantadb::wiki::ingestors::TxtIngestor
+impl core::marker::Send for vantadb::wiki::ingestors::TxtIngestor
+impl core::marker::Sync for vantadb::wiki::ingestors::TxtIngestor
+impl core::marker::Unpin for vantadb::wiki::ingestors::TxtIngestor
+impl core::marker::UnsafeUnpin for vantadb::wiki::ingestors::TxtIngestor
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::wiki::ingestors::TxtIngestor
+impl core::panic::unwind_safe::UnwindSafe for vantadb::wiki::ingestors::TxtIngestor
 pub struct vantadb::wiki::Wiki
 pub vantadb::wiki::Wiki::created_at_ms: u64
 pub vantadb::wiki::Wiki::namespace: alloc::string::String
@@ -7539,9 +8193,26 @@ impl<'a> !core::panic::unwind_safe::RefUnwindSafe for vantadb::wiki::store::Wiki
 impl<'a> !core::panic::unwind_safe::UnwindSafe for vantadb::wiki::store::WikiStore<'a>
 pub const vantadb::wiki::DEFAULT_OVERLAP_CHARS: usize
 pub const vantadb::wiki::DEFAULT_TARGET_CHARS: usize
+pub const vantadb::wiki::META_CHUNK: &str
+pub const vantadb::wiki::META_PAGE: &str
+pub const vantadb::wiki::META_SOURCE: &str
 pub const vantadb::wiki::SOURCE_CHAR_BUDGET: usize
+pub trait vantadb::wiki::Ingestor: core::marker::Send + core::marker::Sync
+pub fn vantadb::wiki::Ingestor::extensions(&self) -> &'static [&'static str]
+pub fn vantadb::wiki::Ingestor::ingest(&self, &str, &str, &str) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemoryInput>>
+impl vantadb::wiki::ingestors::Ingestor for vantadb::wiki::ingestors::CsvIngestor
+pub fn vantadb::wiki::ingestors::CsvIngestor::extensions(&self) -> &'static [&'static str]
+pub fn vantadb::wiki::ingestors::CsvIngestor::ingest(&self, &str, &str, &str) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemoryInput>>
+impl vantadb::wiki::ingestors::Ingestor for vantadb::wiki::ingestors::JsonIngestor
+pub fn vantadb::wiki::ingestors::JsonIngestor::extensions(&self) -> &'static [&'static str]
+pub fn vantadb::wiki::ingestors::JsonIngestor::ingest(&self, &str, &str, &str) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemoryInput>>
+impl vantadb::wiki::ingestors::Ingestor for vantadb::wiki::ingestors::TxtIngestor
+pub fn vantadb::wiki::ingestors::TxtIngestor::extensions(&self) -> &'static [&'static str]
+pub fn vantadb::wiki::ingestors::TxtIngestor::ingest(&self, &str, &str, &str) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemoryInput>>
 pub fn vantadb::wiki::canonical_path(&str, &str) -> alloc::string::String
 pub fn vantadb::wiki::chunk_text(&str, usize, usize) -> alloc::vec::Vec<alloc::string::String>
+pub fn vantadb::wiki::default_ingestors() -> alloc::vec::Vec<alloc::boxed::Box<dyn vantadb::wiki::ingestors::Ingestor>>
+pub fn vantadb::wiki::scan_ingestable_sources(&std::path::Path, &str, &[alloc::boxed::Box<dyn vantadb::wiki::ingestors::Ingestor>]) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemoryInput>>
 pub fn vantadb::wiki::scan_local_sources(&std::path::Path) -> vantadb::error::Result<alloc::vec::Vec<vantadb::wiki::sources::SourceFile>>
 #[non_exhaustive] pub enum vantadb::AbstentionReason
 pub vantadb::AbstentionReason::AllQuarantined
@@ -7805,6 +8476,27 @@ impl core::marker::Unpin for vantadb::FilterOp
 impl core::marker::UnsafeUnpin for vantadb::FilterOp
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::FilterOp
 impl core::panic::unwind_safe::UnwindSafe for vantadb::FilterOp
+#[non_exhaustive] pub enum vantadb::MergeOutcome
+pub vantadb::MergeOutcome::AlreadyCurrent
+pub vantadb::MergeOutcome::Inserted
+pub vantadb::MergeOutcome::StaleRejected
+pub vantadb::MergeOutcome::Updated
+impl core::clone::Clone for vantadb::MergeOutcome
+pub fn vantadb::MergeOutcome::clone(&self) -> Self
+impl core::cmp::Eq for vantadb::MergeOutcome
+impl core::cmp::PartialEq for vantadb::MergeOutcome
+pub fn vantadb::MergeOutcome::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vantadb::MergeOutcome
+pub fn vantadb::MergeOutcome::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vantadb::MergeOutcome
+impl core::marker::StructuralPartialEq for vantadb::MergeOutcome
+impl core::marker::Freeze for vantadb::MergeOutcome
+impl core::marker::Send for vantadb::MergeOutcome
+impl core::marker::Sync for vantadb::MergeOutcome
+impl core::marker::Unpin for vantadb::MergeOutcome
+impl core::marker::UnsafeUnpin for vantadb::MergeOutcome
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::MergeOutcome
+impl core::panic::unwind_safe::UnwindSafe for vantadb::MergeOutcome
 pub enum vantadb::QueryResult
 pub vantadb::QueryResult::Read(alloc::vec::Vec<vantadb::NodeRecord>)
 pub vantadb::QueryResult::StaleContext
@@ -7833,6 +8525,33 @@ impl core::marker::Unpin for vantadb::QueryResult
 impl core::marker::UnsafeUnpin for vantadb::QueryResult
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::QueryResult
 impl core::panic::unwind_safe::UnwindSafe for vantadb::QueryResult
+#[non_exhaustive] pub enum vantadb::ReinforceOutcome
+pub vantadb::ReinforceOutcome::Corrected
+pub vantadb::ReinforceOutcome::Unused
+pub vantadb::ReinforceOutcome::Used
+impl vantadb::ReinforceOutcome
+pub fn vantadb::ReinforceOutcome::as_wire_str(&self) -> &'static str
+pub fn vantadb::ReinforceOutcome::from_wire_str(&str) -> core::option::Option<Self>
+impl core::clone::Clone for vantadb::ReinforceOutcome
+pub fn vantadb::ReinforceOutcome::clone(&self) -> Self
+impl core::cmp::Eq for vantadb::ReinforceOutcome
+impl core::cmp::PartialEq for vantadb::ReinforceOutcome
+pub fn vantadb::ReinforceOutcome::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vantadb::ReinforceOutcome
+pub fn vantadb::ReinforceOutcome::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vantadb::ReinforceOutcome
+impl core::marker::StructuralPartialEq for vantadb::ReinforceOutcome
+impl serde_core::ser::Serialize for vantadb::ReinforceOutcome
+pub fn vantadb::ReinforceOutcome::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vantadb::ReinforceOutcome
+pub fn vantadb::ReinforceOutcome::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for vantadb::ReinforceOutcome
+impl core::marker::Send for vantadb::ReinforceOutcome
+impl core::marker::Sync for vantadb::ReinforceOutcome
+impl core::marker::Unpin for vantadb::ReinforceOutcome
+impl core::marker::UnsafeUnpin for vantadb::ReinforceOutcome
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::ReinforceOutcome
+impl core::panic::unwind_safe::UnwindSafe for vantadb::ReinforceOutcome
 pub enum vantadb::RuntimeProfile
 pub vantadb::RuntimeProfile::Enterprise
 pub vantadb::RuntimeProfile::LowResource
@@ -8114,6 +8833,7 @@ pub vantadb::Config::local_model_path: alloc::string::String
 pub vantadb::Config::log_format: vantadb::config::LogFormat
 pub vantadb::Config::max_blocking_threads: usize
 pub vantadb::Config::max_connections: usize
+pub vantadb::Config::max_records_per_namespace: core::option::Option<u64>
 pub vantadb::Config::memory_default_ttl_ms: alloc::collections::btree::map::BTreeMap<alloc::string::String, u64>
 pub vantadb::Config::memory_limit: core::option::Option<u64>
 pub vantadb::Config::mmap_hnsw: bool
@@ -8169,6 +8889,7 @@ pub fn vantadb::config::Config::with_jwt_secret(self, core::option::Option<alloc
 pub fn vantadb::config::Config::with_local_model_path(self, alloc::string::String) -> Self
 pub fn vantadb::config::Config::with_log_format(self, vantadb::config::LogFormat) -> Self
 pub fn vantadb::config::Config::with_max_blocking_threads(self, usize) -> Self
+pub fn vantadb::config::Config::with_max_records_per_namespace(self, u64) -> Self
 pub fn vantadb::config::Config::with_memory_limit(self, u64) -> Self
 pub fn vantadb::config::Config::with_mmap_hnsw(self, bool) -> Self
 pub fn vantadb::config::Config::with_prefetch_mode(self, vantadb::config::PrefetchMode) -> Self
@@ -8276,6 +8997,15 @@ pub fn vantadb::Embedded::restore_graph_nodes(&self, alloc::vec::Vec<vantadb::No
 pub fn vantadb::Embedded::set_optimizer_config(&mut self, vantadb::storage::engine::SegmentOptimizerConfig)
 pub fn vantadb::Embedded::vacuum(&self) -> vantadb::error::Result<vantadb::storage::engine::VacuumReport>
 impl vantadb::Embedded
+pub fn vantadb::Embedded::add_team_member(&self, vantadb::sdk::TeamMemberInput<'_>) -> vantadb::error::Result<vantadb::entity::Entity>
+pub fn vantadb::Embedded::check_access(&self, vantadb::sdk::AccessQuery<'_>) -> vantadb::error::Result<vantadb::entity::checker::PermDecision>
+pub fn vantadb::Embedded::get_shared(&self, &str, &str, &str, core::option::Option<&str>) -> vantadb::error::Result<vantadb::sdk::SharedOutcome>
+pub fn vantadb::Embedded::grant_access(&self, vantadb::sdk::GrantInput<'_>) -> vantadb::error::Result<vantadb::entity::Entity>
+pub fn vantadb::Embedded::put_shared(&self, &str, vantadb::MemoryInput, core::option::Option<&str>) -> vantadb::error::Result<vantadb::sdk::SharedOutcome>
+pub fn vantadb::Embedded::revoke_access(&self, vantadb::sdk::GrantInput<'_>) -> vantadb::error::Result<bool>
+pub fn vantadb::Embedded::revoke_team_member(&self, &str, &str, &str) -> vantadb::error::Result<bool>
+pub fn vantadb::Embedded::share_asset(&self, vantadb::sdk::ShareAssetInput<'_>) -> vantadb::error::Result<vantadb::entity::Entity>
+impl vantadb::Embedded
 pub fn vantadb::Embedded::audit_text_index(&self, core::option::Option<&str>) -> vantadb::error::Result<vantadb::TextIndexAuditReport>
 pub fn vantadb::Embedded::audit_text_index_deep(&self, core::option::Option<&str>) -> vantadb::error::Result<vantadb::TextIndexAuditReport>
 pub fn vantadb::Embedded::generate_snippet(&self, &str, &str, bool) -> core::option::Option<alloc::string::String>
@@ -8287,14 +9017,18 @@ pub fn vantadb::Embedded::delete(&self, &str, &str) -> vantadb::error::Result<bo
 pub fn vantadb::Embedded::delete_certified(&self, &str, &str) -> vantadb::error::Result<vantadb::attestation::PurgeCertificate>
 pub fn vantadb::Embedded::get(&self, &str, &str) -> vantadb::error::Result<core::option::Option<vantadb::MemoryRecord>>
 pub fn vantadb::Embedded::get_version(&self, &str, &str, u64) -> vantadb::error::Result<core::option::Option<vantadb::MemoryRecord>>
+pub fn vantadb::Embedded::merge_record(&self, vantadb::MemoryRecord) -> vantadb::error::Result<vantadb::MergeResult>
 pub fn vantadb::Embedded::purge_expired(&self) -> vantadb::error::Result<u64>
 pub fn vantadb::Embedded::put(&self, vantadb::MemoryInput) -> vantadb::error::Result<vantadb::MemoryRecord>
 pub fn vantadb::Embedded::put_batch(&self, alloc::vec::Vec<vantadb::MemoryInput>) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemoryRecord>>
+pub fn vantadb::Embedded::put_certified(&self, vantadb::MemoryInput) -> vantadb::error::Result<(vantadb::MemoryRecord, vantadb::attestation::WriteReceipt)>
 pub fn vantadb::Embedded::quarantine_apply(&self, &str, &str, core::option::Option<&str>) -> vantadb::error::Result<vantadb::MemoryRecord>
 pub fn vantadb::Embedded::quarantine_promote(&self, &str, &str) -> vantadb::error::Result<vantadb::MemoryRecord>
 pub fn vantadb::Embedded::quarantine_reject(&self, &str, &str) -> vantadb::error::Result<bool>
+pub fn vantadb::Embedded::reinforce(&self, &str, &str, vantadb::ReinforceOutcome) -> vantadb::error::Result<vantadb::MemoryRecord>
 pub fn vantadb::Embedded::supersede(&self, &str, &str, &str) -> vantadb::error::Result<()>
 pub fn vantadb::Embedded::verify_purge_certificate(&self, &str) -> vantadb::error::Result<vantadb::attestation::PurgeCertificateVerification>
+pub fn vantadb::Embedded::verify_write_receipt(&self, &str) -> vantadb::error::Result<vantadb::attestation::WriteReceiptVerification>
 pub fn vantadb::Embedded::versions(&self, &str, &str) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemoryRecord>>
 impl vantadb::Embedded
 pub fn vantadb::Embedded::capabilities(&self) -> vantadb::Capabilities
@@ -8335,6 +9069,7 @@ pub fn vantadb::Embedded::export_all(&self, impl core::convert::AsRef<std::path:
 pub fn vantadb::Embedded::export_namespace(&self, impl core::convert::AsRef<std::path::Path>, &str, core::option::Option<vantadb::MemoryFilter>) -> vantadb::error::Result<vantadb::ExportReport>
 pub fn vantadb::Embedded::import_file(&self, impl core::convert::AsRef<std::path::Path>, bool) -> vantadb::error::Result<vantadb::ImportReport>
 pub fn vantadb::Embedded::import_records(&self, alloc::vec::Vec<vantadb::MemoryRecord>, bool) -> vantadb::error::Result<vantadb::ImportReport>
+pub fn vantadb::Embedded::verify_export_integrity(&self, impl core::convert::AsRef<std::path::Path>) -> vantadb::error::Result<vantadb::sdk::ExportIntegrityVerification>
 impl vantadb::Embedded
 pub fn vantadb::Embedded::graph_accumulator_add(&self, &vantadb::accumulator::GraphAccumulator, u128, f64) -> vantadb::error::Result<f64>
 pub fn vantadb::Embedded::graph_accumulator_get(&self, &vantadb::accumulator::GraphAccumulator, u128) -> vantadb::error::Result<core::option::Option<f64>>
@@ -8393,9 +9128,11 @@ impl core::panic::unwind_safe::RefUnwindSafe for vantadb::engine::EngineStats
 impl core::panic::unwind_safe::UnwindSafe for vantadb::engine::EngineStats
 pub struct vantadb::ExportReport
 pub vantadb::ExportReport::duration_ms: u64
+pub vantadb::ExportReport::manifest_path: alloc::string::String
 pub vantadb::ExportReport::namespaces: alloc::vec::Vec<alloc::string::String>
 pub vantadb::ExportReport::path: alloc::string::String
 pub vantadb::ExportReport::records_exported: u64
+pub vantadb::ExportReport::sha256: alloc::string::String
 impl core::clone::Clone for vantadb::ExportReport
 pub fn vantadb::ExportReport::clone(&self) -> Self
 impl core::cmp::Eq for vantadb::ExportReport
@@ -8811,6 +9548,26 @@ impl core::marker::Unpin for vantadb::MemorySearchRequest
 impl core::marker::UnsafeUnpin for vantadb::MemorySearchRequest
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::MemorySearchRequest
 impl core::panic::unwind_safe::UnwindSafe for vantadb::MemorySearchRequest
+#[non_exhaustive] pub struct vantadb::MergeResult
+pub vantadb::MergeResult::conflict: bool
+pub vantadb::MergeResult::outcome: vantadb::MergeOutcome
+pub vantadb::MergeResult::winner_updated_at_ms: u64
+impl core::clone::Clone for vantadb::MergeResult
+pub fn vantadb::MergeResult::clone(&self) -> Self
+impl core::cmp::Eq for vantadb::MergeResult
+impl core::cmp::PartialEq for vantadb::MergeResult
+pub fn vantadb::MergeResult::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vantadb::MergeResult
+pub fn vantadb::MergeResult::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vantadb::MergeResult
+impl core::marker::StructuralPartialEq for vantadb::MergeResult
+impl core::marker::Freeze for vantadb::MergeResult
+impl core::marker::Send for vantadb::MergeResult
+impl core::marker::Sync for vantadb::MergeResult
+impl core::marker::Unpin for vantadb::MergeResult
+impl core::marker::UnsafeUnpin for vantadb::MergeResult
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::MergeResult
+impl core::panic::unwind_safe::UnwindSafe for vantadb::MergeResult
 pub struct vantadb::MmrConfig
 pub vantadb::MmrConfig::fetch_k: core::option::Option<usize>
 pub vantadb::MmrConfig::lambda: f32

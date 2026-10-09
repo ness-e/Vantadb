@@ -88,7 +88,7 @@ def error_to_dict(exc: BaseException) -> dict:
 
     Parameters
     ----------
-    exc:
+    exc : BaseException
         Any exception (VantaDB or otherwise) to serialize.
 
     Returns
@@ -157,7 +157,7 @@ class SearchRequest:
     explain: bool = False
     query_sparse: dict | None = None
 
-    def asdict(self):
+    def asdict(self) -> dict:
         """Return this request as a plain dict (for non-dataclass callers).
 
         Returns
@@ -360,6 +360,34 @@ class AsyncClient:
             vector,
             ttl_ms,
             sparse_vector,
+        )
+
+    # ── Cognitive layer (DIST-02: vanta-memory capture/recall) ──
+
+    async def memory_capture(self, session_id: str, messages: list[dict]) -> dict:
+        """Capture conversation turns into the L0 memory layer (LLM-free).
+
+        ``messages``: list of ``{"role", "content", "id"?, "timestamp_ms"?}``
+        dicts. Returns ``{"recorded_count", "filtered_messages", "cursor_ms"}``.
+        """
+        return await self._run(self._sync.memory_capture, session_id, messages)
+
+    async def memory_recall(
+        self,
+        user_text: str,
+        session_key: str,
+        *,
+        scope: str | None = None,
+        max_results: int | None = None,
+    ):
+        """Recall L1 memories + persona + scene navigation for the current turn.
+
+        Returns the injection dict (``prepend_context`` /
+        ``append_system_context`` / ``recalled_memories`` / ``persona`` /
+        ``effective_mode``) or ``None`` when there is nothing to inject.
+        """
+        return await self._run(
+            self._sync.memory_recall, user_text, session_key, scope, max_results
         )
 
     async def delete_by_filter(self, namespace: str, filters: dict) -> int:

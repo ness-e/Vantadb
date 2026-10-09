@@ -1,0 +1,45 @@
+[build-system]
+requires = ["maturin>=1.15.0,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "vantadb-litellm"
+# Single source of truth: providers/litellm/Cargo.toml — maturin resolves the
+# crate version at build time. NEVER pin a static version here: it drifts
+# from the crate (same rule as vantadb-python/pyproject.toml, PyPI 0.6.0
+# incident 2026-09-21).
+dynamic = ["version"]
+description = "LiteLLM embedding gateway + VantaDB storage — unified embedding provider with local vector search"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "Apache-2.0"}
+authors = [{name = "VantaDB Team"}]
+keywords = ["vantadb", "litellm", "embeddings", "vector-store", "rag", "ai-memory", "gateway"]
+# FIND-85: classifiers list only what CI verifies (build + tests on 3.11).
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Topic :: Database",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+# H-10: the SDK requirement was previously hidden in the README. Declared
+# here so `pip install vantadb-litellm` brings a working embed() out of the box.
+dependencies = ["litellm>=1.0,<2"]
+
+[project.urls]
+Homepage = "https://github.com/ness-e/Vantadb"
+Repository = "https://github.com/ness-e/Vantadb"
+Documentation = "https://github.com/ness-e/Vantadb/tree/main/providers/litellm"
+Issues = "https://github.com/ness-e/Vantadb/issues"
+
+[tool.maturin]
+# Module name = [lib] name in Cargo.toml (vantadb_litellm); explicit here so
+# the wheel's import surface can never drift from the .pyi filename.
+module-name = "vantadb_litellm"
+features = ["python"]

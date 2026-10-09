@@ -164,6 +164,7 @@ fn build_rbac_context(api_key: &str, role: &str) -> TestContext {
         jwt_secret: None,
         rbac_config: RbacConfig {
             token_role_map: HashMap::from([(api_key.to_string(), role.to_string())]),
+            ..Default::default()
         },
         trusted_proxies: vec![],
         conversation_trigger: None,

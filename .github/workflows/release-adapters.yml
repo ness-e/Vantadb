@@ -26,7 +26,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        adapter: [langchain, llamaindex, mem0, crewai, dspy, haystack, letta, openai, ollama]
+        # FIND-273 (owner 2026-10-06): openai/ollama twins retired from the release —
+        # canonical names belong to the Rust providers (see PUBLISH.md §Adapters).
+        adapter: [langchain, llamaindex, mem0, crewai, dspy, haystack, letta]
 
     steps:
       - name: Checkout
@@ -39,7 +41,7 @@ jobs:
           cache: pip
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # v1
+        uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # v1
         with:
           toolchain: stable
 
@@ -65,7 +67,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        adapter: [langchain, llamaindex, mem0, crewai, dspy, haystack, letta, openai, ollama]
+        # FIND-273 (owner 2026-10-06): openai/ollama twins retired from the release —
+        # canonical names belong to the Rust providers (see PUBLISH.md §Adapters).
+        adapter: [langchain, llamaindex, mem0, crewai, dspy, haystack, letta]
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

@@ -74,4 +74,4 @@ Short-term memory is the context window. Long-term memory is a database with an 
 vanta-cli server --mcp --db ~/.vantadb
 ```
 
-Star the [VantaDB repository](https://github.com/ness-e/Vantadb) and join the Discord to share your memory setup. For the fully-offline variant of this pattern with local models, read [Local Agent Memory with Ollama + VantaDB](/blog/ollama-vantadb-local-memory).
+Star the [VantaDB repository](https://github.com/ness-e/Vantadb) and join the Discord to share your memory setup. For the fully-offline variant of this pattern with local models, read [Local Agent Memory with Ollama + VantaDB](./ollama_vantadb_local_memory.md).

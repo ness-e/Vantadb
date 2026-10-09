@@ -281,6 +281,22 @@ is documented inline in the Rust source
 hit carries `matched_tokens`, `matched_phrases`, and per-term BM25
 contributions (`bm25_terms`), plus RRF ranks when hybrid fusion ran.
 
+### GraphRAG
+
+```js
+const result = await db.graphragSearch("docs", "vector database", undefined);
+// { nodes: [{id, content, score, hop_distance}],
+//   edges: [{source, target, label}],
+//   context_text,
+//   stats: { seeds_found, nodes_expanded, total_candidates, expansion_hops_used } }
+```
+
+`graphragSearch(namespace, query?, queryVector?)` runs the GraphRAG pipeline
+(seed → expand → retrieve → generate context) on a blocking thread
+(`spawn_blocking`). `id` / `source` / `target` are decimal strings (u128 ids
+exceed `Number.MAX_SAFE_INTEGER`). An oversized `queryVector` is rejected at
+the boundary. Full pipeline semantics: [`GRAPH_RAG.md`](GRAPH_RAG.md).
+
 ### Graph
 
 ```js

@@ -11,6 +11,7 @@
 
 mod axioms;
 mod code;
+mod code_index;
 mod config;
 mod context;
 mod dreams;

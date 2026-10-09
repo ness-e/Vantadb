@@ -5,6 +5,7 @@ import type {
   Capabilities,
   DeleteInput,
   GetInput,
+  GraphRagResult,
   ListInput,
   MemoryInput,
   MemoryListPage,
@@ -329,9 +330,10 @@ export class NativeVantaDB {
       const wire = {
         filters: options.filters !== undefined ? normalizeMetadataForNative(options.filters) : undefined,
         limit: options.limit,
-        // FIND-125: `ListOptions.cursor` is `string | number` (union of both
-        // backends — WASM emits decimal strings); napi only takes numbers, so
-        // narrow at the boundary. Erased cast: zero runtime change.
+        // FIND-125 (updated EGO-01): `ListOptions.cursor` is `string | number`
+        // (union of both backends — WASM emits decimal strings); napi accepts
+        // both since EGO-01, so pass through untouched. Erased cast kept for
+        // the `ListInput` union type.
         cursor: options.cursor as number | undefined,
         // SCH-07: temporal + quarantine-view + confidence passthrough.
         as_of_ms: options.as_of_ms,
@@ -406,5 +408,26 @@ export class NativeVantaDB {
         };
       });
     });
+  }
+
+  /**
+   * Run the GraphRAG pipeline: seed → expand → retrieve → generate context.
+   *
+   * @param namespace - Namespace whose records seed the pipeline.
+   * @param query - Optional text query for lexical (BM25) seeds.
+   * @param queryVector - Optional dense vector for ANN seeds.
+   * @returns The canonical `GraphRagResult` wire shape (shared with the
+   *   Python/WASM/TS surfaces). u128 ids travel as decimal strings.
+   * @throws {DbError} If the instance is closed or the pipeline fails.
+   */
+  async graphragSearch(
+    namespace: string,
+    query?: string,
+    queryVector?: number[],
+  ): Promise<GraphRagResult> {
+    this._assertOpen();
+    return this._native("graphragSearch", () =>
+      this.inner.graphragSearch(namespace, query ?? undefined, queryVector ?? undefined),
+    );
   }
 }

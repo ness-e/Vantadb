@@ -267,7 +267,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Rust (Windows)
-        uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # v1
+        uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # v1
         with:
           toolchain: stable
           components: clippy
@@ -483,6 +483,39 @@ jobs:
           cargo check --manifest-path providers/ollama/Cargo.toml
           cargo check --manifest-path providers/litellm/Cargo.toml
 
+  release-combo:
+    # FIND-231: no job compiled the release profile of the published binaries
+    # under `-D warnings` (tests run in debug; desktop.yml builds the same
+    # combo but without RUSTFLAGS), so the combo that broke the first
+    # release-binaries run (0.8.0, FIND-229: unused imports + dead code under
+    # -D warnings with debug_assertions off) only surfaced at release time and
+    # burned the cycle. This gate checks the exact release combo — keep in
+    # sync with release-binaries.yml:109-122: `server` + allocator for
+    # vanta-cli, allocator for vantadb-server.
+    # RED-proven against the fix reverted — docs/dev/tasks/FIND-231.md.
+    # RUSTFLAGS mirrors the release lane: actions-rust-lang/setup-rust-toolchain
+    # (release-binaries) defaults to `-D warnings`; dtolnay/rust-toolchain (used
+    # by ./rust-setup) does not — hence the explicit env.
+    name: Release Combo (server + allocator, -D warnings)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [fmt, clippy]
+    env:
+      RUSTFLAGS: "-D warnings"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/rust-setup
+        with:
+          install-system-deps: true
+          swap-mb: 4096
+
+      - name: Check release combo — vanta-cli (server + jemalloc)
+        run: cargo check --release --features "server,jemalloc" --package vantadb --bin vanta-cli
+
+      - name: Check release combo — vantadb-server (jemalloc)
+        run: cargo check --release --features "jemalloc" --package vantadb-server
+
   audit:
     name: Security Audit
     runs-on: ubuntu-latest
@@ -561,7 +594,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Rust (Nightly + Miri)
-        uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # v1
+        uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # v1
         with:
           toolchain: nightly
           components: miri
@@ -630,7 +663,13 @@ jobs:
   sanitizer-asan:
     name: ASan (AddressSanitizer)
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # CI closure (2026-10-06/07): 45 -> 75 min. FIND-244 (fixed) unblocked the
+    # suite; it then progressed into the Heavy Certification set under ASan
+    # (hardware_certification_full alone: 17.8 min) and was killed at the 45m
+    # timeout while running hnsw_validation. The Heavy-tier tests are now
+    # skipped below (CI_POLICY tiering: Heavy never gates; it runs in NIGHTLY
+    # Heavy Certification) — 75 min is margin for the non-Heavy suite.
+    timeout-minutes: 75
     needs: [fmt, clippy]
     # CATEGORY: BEST-EFFORT — nightly ASan can produce false positives.
     # Failures are reviewed manually. Does not gate releases.
@@ -639,7 +678,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install nightly
-        uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # v1
+        uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # v1
         with:
           toolchain: nightly
           components: rust-src
@@ -647,9 +686,44 @@ jobs:
       - name: Install system deps
         run: |
           sudo apt-get update
-          sudo apt-get install -y libclang-dev clang librocksdb-dev
+          sudo apt-get install -y libclang-dev clang librocksdb-dev llvm
+
+      # FIND-226: without llvm-symbolizer the ASan/LSan leak report printed raw
+      # addresses only (BuildId + offsets) — no triage possible. apt `llvm`
+      # provides /usr/bin/llvm-symbolizer (Ubuntu noble filelist); the env var
+      # is the documented override (clang.llvm.org/docs/AddressSanitizer.html
+      # §"Symbolizing the Reports"). Fail loud if absent: a symbolized report
+      # is the entire point of this job (job is best-effort by design).
+      - name: Resolve llvm-symbolizer (ASan/LSan)
+        run: |
+          SYMBOLIZER="$(command -v llvm-symbolizer || true)"
+          if [ -z "$SYMBOLIZER" ]; then
+            SYMBOLIZER="$(find /usr/lib/llvm-* -name llvm-symbolizer -type f 2>/dev/null | sort -V | tail -1)"
+          fi
+          if [ -z "$SYMBOLIZER" ]; then
+            echo "::error::llvm-symbolizer not found after installing llvm"
+            exit 1
+          fi
+          echo "ASAN_SYMBOLIZER_PATH=$SYMBOLIZER" >> "$GITHUB_ENV"
+          echo "Using symbolizer: $SYMBOLIZER"
 
       # CATEGORY: BEST-EFFORT — job-level continue-on-error covers this
+      # FIND-236 (2026-10-04): `sift1m_competitive_benchmark` is skipped below —
+      # it carries a release-only guard that panics in debug by design
+      # (tests/certification/competitive_bench.rs:64), keeping this job red with
+      # pre-existing noise (run 37102066714 / job 111086294644). With leaks at zero
+      # (FIND-226), red should mean "real leak", not the guard.
+      # CI closure (2026-10-06/07): FIND-244 fixed the stale all-zeros test, so
+      # the suite ran past it — and spent the whole budget inside the Heavy
+      # Certification set (hardware_certification_full 17.8 min, then
+      # hnsw_validation killed at the 45m timeout). Heavy-tier material is
+      # skipped here (CI_POLICY tiering: hnsw validation / SIFT / competitive
+      # bench / stress never gate; they run in NIGHTLY Heavy Certification), so
+      # this job stays red only for real memory findings.
+      # 2nd pass (2026-10-07): the suite then reached the timing-bound stress
+      # tests — their own budgets (60s / 120s) cannot hold under ASan's
+      # 10-20x slowdown (multi_namespace_stress: 265s vs its 60s assert) —
+      # skipped as timing-bound, not correctness.
       - name: Test with AddressSanitizer
         run: |
           cargo +nightly test \
@@ -658,7 +732,23 @@ jobs:
             --features "cli,arrow,tls,opentelemetry" \
             --config 'target.x86_64-unknown-linux-gnu.rustflags = ["-Zsanitizer=address", "-Cunsafe-allow-abi-mismatch=sanitizer"]' \
             -- \
-            --skip test_benchmark_internal_10k
+            --skip test_benchmark_internal_10k \
+            --skip sift1m_competitive_benchmark \
+            --skip hardware_certification_full \
+            --skip hnsw_hard_validation_certification \
+            --skip hnsw_core_logic_certification \
+            --skip recall_certification_runner \
+            --skip stress_protocol_certification \
+            --skip glove_dimension_scale \
+            --skip validate_sift_dataset_integrity \
+            --skip test_glove100_hnsw_basic \
+            --skip hnsw_recall_snapshot_baseline \
+            --skip hnsw_recall_snapshot_deterministic_across_scales \
+            --skip test_hybrid_ranking_metrics \
+            --skip deterministic_corpus_certifies_text_vector_hybrid_and_phrase_paths \
+            --skip extended_corpus_certifies_bm25_ranking_edge_cases_and_multi_namespace \
+            --skip concurrent_multi_namespace_stress \
+            --skip memory_volume_kpi_10k
         env:
           ASAN_OPTIONS: "detect_stack_use_after_return=1:detect_leaks=1:halt_on_error=0"
           LSAN_OPTIONS: "suppressions=.lsan_suppressions"
@@ -671,11 +761,25 @@ jobs:
     # CATEGORY: BEST-EFFORT — nightly TSan is unstable.
     # Failures are reviewed manually. Does not gate releases.
     continue-on-error: true
+    # FIND-227 (2026-10-03): chronic red is documented noise, not a VantaDB
+    # race. Evidence (runs 37090029650/565 reports, 37082038794/583): all
+    # from the `-p vantadb --lib` binary; families = std/libtest (mpmc
+    # Channel, test::run_test, compiler_copy/move), rayon StackJob/Sleep
+    # (fence sync), fjall/flume/crossbeam teardown, allocator ops
+    # (free/__tsan_memcpy). Root-cause class: std not instrumented (no
+    # `-Zbuild-std`) + TSan cannot see fences — rust-lang/rust#39608/#65097,
+    # rayon-rs/rayon#812/#1211; Rust Unstable Book §ThreadSanitizer.
+    # No tsan.supp on purpose (`race:` matches any frame — LLVM docs
+    # §Suppressions): targeted std/libtest suppressions remove only
+    # 17/565 reports (job stays red); converging would need blanket
+    # free/memcpy + fjall/flume/rayon suppressions (over-suppression).
+    # Decision: status quo (best-effort) — full analysis in
+    # docs/dev/tasks/FIND-227.md.
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install nightly
-        uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # v1
+        uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # v1
         with:
           toolchain: nightly
 

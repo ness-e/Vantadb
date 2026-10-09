@@ -1,8 +1,10 @@
 # VantaDB TypeScript SDK
 
-> WASM-powered embedded vector & graph memory for JavaScript runtimes.
+> WASM-powered embedded vector & graph memory for JavaScript runtimes — **browser AI agent memory**.
 >
 > **Status: active** (core-promise until 1.0 — published as `vantadb` on npm).
+>
+> **Try it in the browser:** [AI agent demo](https://github.com/ness-e/Vantadb/tree/main/vantadb-wasm/demo) — Transformers.js embeddings on-device + OPFS memory (`connect_persistent()` from the raw [`vantadb-wasm`](https://www.npmjs.com/package/vantadb-wasm) binding), no server.
 
 ```ts
 import { Client } from "vantadb";
@@ -82,8 +84,10 @@ const db = Client.create();
 ## WASM bundle & lazy loading
 
 The package is backed by the `vantadb-wasm` wasm-bindgen build; the compiled
-engine binary is `vantadb-wasm/pkg/vantadb_wasm_bg.wasm` (~1.3 MB). How it is
-loaded depends on the runtime:
+engine binary is `vantadb-wasm/pkg/vantadb_wasm_bg.wasm` (~1.8 MB raw,
+~739 KB gzipped transfer — measured 2026-10-04, see the
+[bundle strategy](../vantadb-wasm/README.md#1-bundle-sizes-measured-2026-10-04)).
+How it is loaded depends on the runtime:
 
 - **Bundlers (Vite/Webpack/esbuild)** — the wasm-bindgen glue
   (`vantadb_wasm.js`) imports the `.wasm` as an ES module, which bundlers
@@ -132,20 +136,35 @@ and serve the output files yourself.
   it is loaded lazily via dynamic `import()` and gives real filesystem
   persistence (fjall/WAL) that the WASM build cannot.
 
+### Console logging
+
+The WASM engine installs a `console.log`-based tracing subscriber at level
+**`WARN`** — `DEBUG` traces (e.g. the core's env-var config dump) are not
+printed by default. To opt into more detail, set the global **before the
+first client is created**:
+
+```js
+globalThis.VANTADB_LOG = "debug"; // "trace" | "debug" | "info" | "warn" | "error"
+const db = Client.create();
+```
+
+The value is read once per process (the subscriber is global); an absent or
+invalid value falls back to `WARN`.
+
 ### Bundle size vs JavaScript-only competitors
 
-Measured 2026-08-30. Reproducible: see
-[`../vantadb-wasm/README.md` §1](../vantadb-wasm/README.md#1-bundle-sizes-measured-2026-08-30).
+Measured 2026-10-04 (VantaDB row; competitor rows as dated below). Reproducible: see
+[`../vantadb-wasm/README.md` §1](../vantadb-wasm/README.md#1-bundle-sizes-measured-2026-10-04).
 
 | Library | Version | Gzipped | Vector | Hybrid | Persistence |
 |---------|---------|--------:|--------|--------|-------------|
 | **@orama/orama** | 3.1.18 | **23.8 KB** | ✅ | ✅ RRF | ❌ (in-mem + plugin) |
 | **MiniSearch**   | latest | **5.9 KB**  | ❌ | ❌ | ❌ |
 | **Lunr**         | 2.3.9  | **8.1 KB**  | ❌ | ❌ | ❌ |
-| **vantadb WASM** | 0.6.x  | **~670 KB transfer** (1.65 MB raw wasm gzipped — medido en `vantadb-wasm@0.6.1`) | ✅ HNSW | ✅ BM25 + RRF | ✅ OPFS / IDB / in-mem |
+| **vantadb WASM** | 0.8.x  | **~739 KB transfer** (1.77 MB raw wasm; measured 2026-10-04) | ✅ HNSW | ✅ BM25 + RRF | ✅ OPFS / IDB / in-mem |
 
-VantaDB is **~25× larger** than Orama gzipped, but ships **OPFS persistence,
-HNSW (sub-ms at 100K), TTL auto-expiry, capability graph** — features none of
+VantaDB is **~31× larger** than Orama gzipped, but ships **OPFS persistence,
+HNSW ([p99 441 µs at 100K](https://github.com/ness-e/Vantadb/blob/main/docs/user/operations/BENCHMARKS.md#-5-impact-of-loop-and-hnsw-distance-optimization-phase-2)), TTL auto-expiry, capability graph** — features none of
 the JS-only engines include. Honest tradeoff: choose Orama (23.8 KB) if you
 only need full-text + RAG in-memory with no persistence; choose VantaDB if
 any of those features matter. Full feature-gap analysis:
@@ -157,7 +176,7 @@ Two npm packages exist; they are **not** the same thing:
 
 | Package | What it is | Published | API |
 |---------|------------|-----------|-----|
-| **`vantadb`** | TypeScript SDK over the WASM build — works in browsers, Node, Bun, Deno | ✅ 0.6.1 | Synchronous, ESM-only |
+| **`vantadb`** | TypeScript SDK over the WASM build — works in browsers, Node, Bun, Deno | ✅ 0.8.0 | Synchronous, ESM-only |
 | **`vantadb-node`** | Native Node.js bindings (napi-rs) — real filesystem persistence (fjall/WAL/fsync), async API, platform-specific `.node` binaries | ❌ **not yet published** (registry 404) | Async, ESM + CommonJS |
 
 `vantadb-node` is the **native backend** you reach via
@@ -262,24 +281,26 @@ the same dimensionality. Full walkthrough:
 
 ### Maintenance
 
-| Method | Description |
-|--------|-------------|
-| `.flush()` | Flush WAL to storage |
-| `.compactWal()` | Compact WAL |
-| `.purgeExpired()` | Remove TTL-expired records |
-| `.rebuildIndex()` | Rebuild ANN index |
-| `.compactLayout()` | Compact storage layout |
-| `.operationalMetrics()` | Get runtime metrics |
-| `.capabilities()` | Get build capabilities |
+| Method | Description | WASM caveat |
+|--------|-------------|-------------|
+| `.flush()` | Flush WAL to storage | Engine buffers only — **not a durability guarantee**; browser persistence is via OPFS/IDB ([WASM bundle & lazy loading](#wasm-bundle--lazy-loading)), real WAL/fsync on the [native backend](#vantadb-vs-vantadb-node-npm) |
+| `.compactWal()` | Compact WAL | WASM: engine-internal WAL — same durability caveat as `.flush()` |
+| `.purgeExpired()` | Remove TTL-expired records | — |
+| `.rebuildIndex()` | Rebuild ANN index | — |
+| `.compactLayout()` | Compact storage layout | — |
+| `.operationalMetrics()` | Get runtime metrics | — |
+| `.capabilities()` | Get build capabilities | — |
 
 ### Export / Import
 
-| Method | Description |
-|--------|-------------|
-| `.exportNamespace(path, namespace)` | Export a namespace to JSONL |
-| `.exportAll(path)` | Export all namespaces to JSONL |
-| `.importRecords(records)` | Import records from an array |
-| `.importFile(path)` | Import records from a JSONL file |
+| Method | Description | WASM caveat |
+|--------|-------------|-------------|
+| `.exportNamespace(path, namespace)` | Export a namespace to JSONL | **Not supported on the WASM runtime** — throws `IO error: operation not supported on this platform` (no `std::fs`) |
+| `.exportAll(path)` | Export all namespaces to JSONL | **Not supported on the WASM runtime** — same platform IO error |
+| `.importRecords(records)` | Import records from an array | — (no filesystem involved) |
+| `.importFile(path)` | Import records from a JSONL file | **Not supported on the WASM runtime** — same platform IO error; use `.importRecords()` for array input |
+
+> FS-backed export/import needs a filesystem-backed runtime, which the WASM build cannot reach (tracked as FIND-79; a native/WASI wiring is deferred). For file JSONL round-trips today use `vanta-cli export` / `vanta-cli import` or the Python SDK ([PYTHON_SDK.md](../docs/api/PYTHON_SDK.md)); `.importRecords()` covers in-memory import. Backend split: [vantadb vs vantadb-node](#vantadb-vs-vantadb-node-npm).
 
 ### Text Index
 
@@ -338,8 +359,8 @@ const reachable = await db.graph.bfs([42], 3);
 const order = await db.graph.topologicalSort([1, 2, 3]);
 if (await db.graph.isDag([1, 2])) { /* safe to topologically sort */ }
 
-// wiki — empty in v1: wiki features are core-only (not exposed via WASM yet)
-Object.keys(db.wiki); // []
+// wiki — node archive recovery (summary/archive lifecycle)
+const recovered = await db.wiki.recoverArchivedNodes(42);
 
 // system — lifecycle, metrics, IQL, maintenance, import/export
 console.log(await db.system.capabilities());
@@ -350,7 +371,7 @@ await db.system.flush();
 Notes:
 
 - Sub-clients are lazy, frozen (`Readonly`) singletons — accessing `db.graph` twice returns the same object.
-- `conversation` / `skills` sub-clients do not exist yet; their capabilities live in the core crate only.
+- `conversation` / `skills` sub-clients do not exist yet; their capabilities live in the core crate only. Wiki slice 1 (`recoverArchivedNodes`) landed in TS-11; the remaining wiki / conversation / skills surfaces are tracked with exact dependencies and promotion criteria in the [Sub-Client Roadmap](../docs/api/BINDINGS_NAMESPACES.md#sub-client-roadmap-post-d43--ts-11-reviewed-2026-10-04).
 - Python exposes the equivalent grouping via `db.memory`, `db.graph`, `db.system`, `db.wiki` — see [PYTHON_SDK.md → Domain Sub-clients](../docs/api/PYTHON_SDK.md).
 
 ## Runtimes

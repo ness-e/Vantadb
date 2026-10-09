@@ -40,7 +40,7 @@
 import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { join, dirname, relative, sep, resolve as pathResolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { buildTargetSet, listDocs, proseOf, WIKI_LINK, MD_LINK } from './lib.mjs';
+import { buildTargetSet, listDocs, parseFrontmatter, proseOf, segment, WIKI_LINK, MD_LINK } from './lib.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const DOCS = join(ROOT, 'docs');
@@ -53,37 +53,21 @@ const FAIL_WIKILINKS = !ARGS.has('--no-wikilinks');
 /**
  * Broken internal Markdown links, tolerated.
  *
- * 2026-09-28: 109, of which 34 in docs/user/, 28 in docs/api/, 46 in docs/dev/.
- * `repair-links.mjs` fixed only 1 of 110 automatically, which is the diagnostic:
- * these are not links with a drifted path, they are links to documents that do
- * not exist anywhere in the repository. Repairing them is a content decision --
- * write the missing page, or delete the sentence that claims it exists -- and it
- * is tracked as F1-T1 in docs/dev/plans/2026-09-28-docs-consolidation.md.
+ * 2026-10-04 (F1-T1 drained, DOCS-F1): 0. Every broken entry was triaged P0-P4
+ * (docs/dev/tasks/DOCS-F1.md); the P0-P2 residue was repaired and the P3 frozen
+ * trees are excluded below. A non-zero budget now means a real regression in the
+ * navigable surface, so keep it at 0.
  *
- * 62 of the 109 are user-facing (docs/user + docs/api). That is real rot and it
- * is the highest-value documentation task queued. Until F1-T1 drains it, the gate
- * holds the line at this number instead of blocking every PR over damage no PR
- * caused. Lower it as it falls.
- */
-/**
- * Broken internal Markdown links, tolerated.
- *
- * 2026-09-28: 58. `repair-links.mjs` fixed only 1 of 110 automatically, which is
- * the diagnostic: these are not links with a drifted path, they are claims in the
- * prose about documents that do not exist anywhere in the repository. Repairing
- * them is a content decision -- write the missing page, or delete the sentence --
- * tracked as F1-T1 in docs/dev/plans/2026-09-28-docs-consolidation.md.
- *
- * The number was 109 before the resolution index was widened to the whole repo.
- * Fifty-one of them were false positives: docs/api/VERSIONING.md -> ../../CONTRIBUTING.md
- * is a correct GitHub link, and a checker that only indexes docs/ cannot see it.
- * A tolerance number that hides false positives trains you to ignore the gate.
+ * History: 109 (2026-09-28) -> 58 (resolution index widened to the whole repo:
+ * 51 were false positives) -> 44 -> 0. `repair-links.mjs` fixed only 1 of 110
+ * automatically, which is the diagnostic: the rest were claims in prose about
+ * documents that did not exist, links inside code spans, or frozen history.
  */
 const BROKEN_MD_BUDGET = Number(
-  (process.argv.find((a) => a.startsWith('--max-broken=')) ?? '').split('=')[1] || 58,
+  (process.argv.find((a) => a.startsWith('--max-broken=')) ?? '').split('=')[1] || 0,
 );
 const WIKILINK_BUDGET = Number(
-  (process.argv.find((a) => a.startsWith('--max-wikilinks=')) ?? '').split('=')[1] || 40,
+  (process.argv.find((a) => a.startsWith('--max-wikilinks=')) ?? '').split('=')[1] || 20,
 );
 
 /**
@@ -94,20 +78,29 @@ const WIKILINK_BUDGET = Number(
  * a stronger reason: Obsidian types that property vault-wide, so rewriting it
  * would corrupt all 1725 files.
  *
- * 2026-09-28: 40 occurrences, in two groups.
- *   - ~30 mojibake from an earlier encoding pass (`[[bench]]`, `[[test]]`,
- *     `[[package]]`, `[[bin]]`), where the original characters are gone and the
- *     text cannot be recovered from the file. F1-T2 in the plan.
- *   - ~10 genuine dead links to files that were renamed or deleted
- *     (`../architecture/hnsw_index`, `../api/PYTHON_SDK.md`, ...). F1-T1.
+ * 2026-10-04 (DOCS-F1): 20 occurrences, down from 40 (2026-09-28), all in
+ * frozen trees: 19 in tasks/** work-items + 1 in avance/historial/ snapshots.
+ * The F1-T2 mojibake ([[bench]]/[[test]]/[[package]]) was drained to 0 in
+ * prose, and the live surface has no prose wikilinks left. The remaining
+ * `[[table]]` hits are legitimate TOML references inside code spans and are
+ * not counted.
  *
- * The gate's job is to stop the count going UP. Lower it as F1 drains it.
+ * The gate's job is to stop the count going UP. Lower it as the debt drains.
  */
 
 // Frozen history is never repaired, so it is not part of the gate. Same
 // rationale as the .markdownlint-cli2.yaml `ignores` block.
 const ARCHIVE_RE = /(^|\/)(archive|target|node_modules|\.obsidian)(\/|$)/;
 const SKIP_DIR = new Set(['.obsidian', 'node_modules']);
+
+// P3 sources (F1 triage 2026-10-04, docs/dev/tasks/DOCS-F1.md): frozen by
+// design, so a broken link inside them is never repaired and must not gate.
+//   avance/historial/**  the historical registry (snapshots, campaign records)
+//   tasks/**             frozen work-items (owner restriction: they do not move
+//                        and are not edited without their own task file)
+// `archive/` trees are already out of scope via ARCHIVE_RE above. The motivo for
+// this exclusion lives in .github/workflows/gate-docs-links.yml.
+const FROZEN_RE = /(^|\/)(avance\/historial|tasks)(\/|$)/;
 
 // ---------------------------------------------------------------- file index
 
@@ -148,7 +141,34 @@ const report = {
   broken: [], // { file, line, target, kind }
 };
 
-const countLines = (text, index) => text.slice(0, index).split('\n').length;
+/**
+ * Line number for a character index into `proseOf(text)`.
+ *
+ * proseOf() concatenates only the safe segments, and every safe segment is a
+ * single line (the segmenter pushes per line), so a match's line is the line of
+ * the segment holding its first character. Counting newlines in the RAW text
+ * with an index from the prose string reports the wrong line as soon as a code
+ * span appears before the match.
+ */
+function proseLineLookup(text) {
+  // segment()'s line numbers do not count the front matter block (the walker
+  // starts after it), so add its line count back -- otherwise every reported
+  // line is off by the size of the frontmatter. The boundary comes from
+  // parseFrontmatter() so it cannot drift from the parser it mirrors.
+  const fm = parseFrontmatter(text);
+  const offset = fm.hadFrontmatter ? text.slice(0, fm.end).split('\n').length - 1 : 0;
+  const bounds = [];
+  let acc = 0;
+  for (const s of segment(text)) {
+    if (!s.safe) continue;
+    acc += s.text.length;
+    bounds.push({ end: acc, line: s.line + offset });
+  }
+  return (idx) => {
+    for (const b of bounds) if (idx < b.end) return b.line;
+    return 0;
+  };
+}
 
 for (const rel of mdFiles) {
   report.filesScanned++;
@@ -159,7 +179,17 @@ for (const rel of mdFiles) {
   const text = readFileSync(abs, 'utf8');
   const dir = dirname(rel);
 
-  for (const m of text.matchAll(MD_LINK)) {
+  const prose = proseOf(text);
+  const lineAt = proseLineLookup(text);
+
+  // Scanned over proseOf(), not raw text: a `[label](path.md)` inside an inline
+  // code span or a fenced block is documentation OF a link, not a clickable
+  // link -- GitHub does not render it as one. Counting it made every document
+  // that shows link syntax a permanent false positive (same class the wikilink
+  // scan below already excludes). Measured on the clean pre-fix snapshot
+  // (3bdc3fd5): 15 of 46 broken entries sat fully inside code (14-18 depending
+  // on the segment-boundary convention; method in docs/dev/tasks/DOCS-F1.md).
+  for (const m of prose.matchAll(MD_LINK)) {
     const raw = m[1];
     if (/^(https?:|mailto:|tel:|data:|obsidian:|#|\/\/)/i.test(raw)) {
       report.externalLinks++;
@@ -176,7 +206,11 @@ for (const rel of mdFiles) {
       : normalise(`${dir}/${decoded}`);
 
     if (!allFiles.has(candidate)) {
-      report.broken.push({ file: rel, line: countLines(text, m.index), target: raw, kind: 'md' });
+      // P3 frozen sources do not gate (FROZEN_RE above): the link is left as-is
+      // by policy, so counting it would be permanent noise.
+      if (!FROZEN_RE.test(rel)) {
+        report.broken.push({ file: rel, line: lineAt(m.index), target: raw, kind: 'md' });
+      }
     } else if (anchor && candidate.endsWith('.md')) {
       // Fragment is advisory: a missing heading is a softer failure than a
       // missing file, so it is tracked separately and does not fail the gate.
@@ -185,7 +219,7 @@ for (const rel of mdFiles) {
     }
   }
 
-  for (const m of proseOf(text).matchAll(WIKI_LINK)) {
+  for (const m of prose.matchAll(WIKI_LINK)) {
     report.wikilinksRemaining++;
     const target = m[1].trim();
     const base = target.toLowerCase();
@@ -252,7 +286,7 @@ if (JSON_OUT) {
       brokenMdCount > BROKEN_MD_BUDGET
         ? `\nOVER BUDGET: ${brokenMdCount} broken markdown links > ${BROKEN_MD_BUDGET}.`
         : `\nwithin budget: ${brokenMdCount} broken markdown links of ${BROKEN_MD_BUDGET} tolerated. ` +
-          'Drain with F1-T1 in docs/dev/plans/2026-09-28-docs-consolidation.md. ' +
+          'P0-P2 must be 0 (F1 triage: docs/dev/tasks/DOCS-F1.md). ' +
           'Each one is a claim in the prose about a document that does not exist: ' +
           'write the page or delete the sentence.',
     );

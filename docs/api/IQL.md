@@ -2,7 +2,7 @@
 title: VantaDB IQL Reference
 kind: reference
 status: active
-description: The parser implements IQL version 2 (adds the AS OF valid-time clause). The version is exposed as IQL_VERSION
+description: The parser implements IQL version 4 (adds the AS OF valid-time clause, LIMIT/OFFSET pagination, and COUNT/SUM/GROUP BY aggregation). The version is exposed as IQL_VERSION
 tags: [vantadb, api, iql]
 ---
 
@@ -12,7 +12,7 @@ tags: [vantadb, api, iql]
 
 ## Language Version
 
-The parser implements **IQL version 2**. The version is exposed as `IQL_VERSION`
+The parser implements **IQL version 4**. The version is exposed as `IQL_VERSION`
 (`vantadb::IQL_VERSION`, re-exported at the crate root); version-gated syntax
 documents its minimum version and can be feature-detected from Rust with
 `vantadb::parser::iql_supports(min_version)` — a clause is guaranteed to parse
@@ -22,12 +22,17 @@ when `iql_supports(<clause minimum>)` is true at the reported version.
 |---------|---------|
 | 1 | `FROM`/`MATCH`/`SELECT` (+ `JOIN`, subqueries) · DML (`INSERT`, `UPDATE`, `DELETE`, `RELATE`, `INSERT MESSAGE`) · `PROFILE` (minimum: `IQL_VERSION_MIN_PROFILE`) · operators `=`, `==`, `!=`, `<`, `<=`, `>`, `>=`, `~` |
 | 2 | Adds the optional `AS OF <unix-ms>` valid-time clause on top-level `FROM`/`MATCH`/`SELECT` (minimum: `IQL_VERSION_MIN_AS_OF`). Version 1 statements keep parsing unchanged |
+| 3 | Adds the optional `LIMIT <n>` / `OFFSET <m>` pagination clauses on top-level `FROM`/`MATCH`/`SELECT` (minimum: `IQL_VERSION_MIN_PAGINATION`). Versions 1–2 statements keep parsing unchanged |
+| 4 | Adds aggregation in `SELECT`: `COUNT(*)` / `COUNT(field)` / `SUM(field)` projection functions plus the optional `GROUP BY <field>` clause (minimum: `IQL_VERSION_MIN_AGGREGATION`). Versions 1–3 statements keep parsing unchanged |
 
 A clause documented in this file is guaranteed to parse at the reported version.
 Wire consumers (MCP `query_iql`, HTTP `/api/v2/query`, bindings `query()`)
-feature-detect by statement shape: `AS OF` is opt-in, so a version-2 parser
-still accepts every version-1 statement — new syntax fails loudly with a parse
-error on older parsers instead of being silently ignored.
+feature-detect by statement shape: `AS OF`, `LIMIT`/`OFFSET` and aggregation are
+opt-in, so a version-4 parser still accepts every version-1/2/3 statement — new
+syntax fails loudly with a parse error on older parsers instead of being
+silently ignored. Exception: `GROUP` joined the reserved keywords in version 4,
+so an uppercase `GROUP` can no longer be used as an alias or field name
+(lowercase `group` is unaffected) — see [Aggregations](#aggregations-count--sum--group-by).
 
 ## Statements
 
@@ -82,6 +87,7 @@ FROM <entity> [SIGUE <min>..<max> "<label>" [TYPE <type>] [AS <alias>]] [<alias>
   WITH TEMPERATURE <float>
   ROLE "<role>"
   PROFILE keyword|vector|hybrid [rrf_k <n>] [candidate_k <n>]
+  LIMIT <n> [OFFSET <m>]
   AS OF <unix-ms>
 ```
 
@@ -94,13 +100,15 @@ FROM <entity> [SIGUE <min>..<max> "<label>" [TYPE <type>] [AS <alias>]] [<alias>
 | `TYPE <type>` | Optional target type filter for traversal. |
 | `AS <alias>` | Alias for traversed nodes. |
 | `<alias>` | Target alias for result nodes (defaults to `"target"`). |
-| `AS OF <unix-ms>` | Valid-time point (SCH-03, ADR-0046 §D3, minimum `IQL_VERSION_MIN_AS_OF` = 2): keep only records valid at that instant (`valid_at_ms <= T < invalid_at_ms`). Accepted after the table spec and at the end of the statement; repeating the clause is a parse error (`AS OF specified more than once`). Graph nodes without validity metadata are never excluded by it. |
+| `AS OF <unix-ms>` | Valid-time point (SCH-03, ADR-0046 §D3, minimum `IQL_VERSION_MIN_AS_OF` = 2): keep only records valid at that instant (`valid_at_ms <= T < invalid_at_ms`). Accepted after the table spec, before pagination, and at the end of the statement; repeating the clause is a parse error (`AS OF specified more than once`). Graph nodes without validity metadata are never excluded by it. |
 | `WHERE <cond> AND <cond>...` | Filter conditions (see [Conditions](#conditions)). |
 | `FETCH <field1>, <field2>` | Projection: return only these fields. |
-| `RANK BY <field> [DESC]` | Sort results by a field. |
+| `RANK BY <field> [DESC]` | Sort results by a field (applied before `LIMIT`/`OFFSET`). |
 | `WITH TEMPERATURE <float>` | Query temperature (0.0 = deterministic/exhaustive). |
 | `ROLE "<role>"` | RBAC owner role filter. |
 | `PROFILE keyword\|vector\|hybrid [rrf_k <n>] [candidate_k <n>]` | Search profile: fusion mode + RRF k + candidate budget (MEM-01). `rrf_k` / `candidate_k` default to the core constants when omitted. |
+| `LIMIT <n>` | Result cap (minimum `IQL_VERSION_MIN_PAGINATION` = 3): keep at most `n` rows after filters/ranking. `LIMIT 0` returns an empty result. See [Pagination](#pagination-limit--offset). |
+| `OFFSET <m>` | Skip the first `m` rows of the result (minimum `IQL_VERSION_MIN_PAGINATION` = 3). Must follow `LIMIT` when both are present — the reversed order (`OFFSET` then `LIMIT`) is a parse error. See [Pagination](#pagination-limit--offset). |
 
 > **`AS OF` is valid time, not transaction time.** It answers "what did the
 > record say was true at T" (the valid-time axis). Transaction-time travel is
@@ -112,21 +120,25 @@ FROM <entity> [SIGUE <min>..<max> "<label>" [TYPE <type>] [AS <alias>]] [<alias>
 ## Select (`SELECT`)
 
 ```
-SELECT <field>, ... | * FROM <entity> [<alias>] [AS OF <unix-ms>]
+SELECT <field>, ... | <aggregate>, ... | * FROM <entity> [<alias>] [AS OF <unix-ms>]
   [JOIN <entity> <alias> ON <left_field> = <right_field>] ...
   [WHERE <item> AND <item> ...]
+  [GROUP BY <field>]
   [WITH TEMPERATURE <float>]
+  [LIMIT <n> [OFFSET <m>]]
   [AS OF <unix-ms>]
 ```
 
 | Clause | Description |
 |--------|-------------|
-| `SELECT <field>, ...` / `SELECT *` | Projection: named fields, or `*` for all fields (empty projection = no narrowing). |
+| `SELECT <field>, ...` / `SELECT *` | Projection: named fields, or `*` for all fields (empty projection = no narrowing). Aggregate function calls (`COUNT`/`SUM`) switch the query to aggregation — see [Aggregations](#aggregations-count--sum--group-by). |
+| `GROUP BY <field>` | Single group key for aggregation (minimum `IQL_VERSION_MIN_AGGREGATION` = 4): one output row per distinct value, first-seen order. Requires at least one aggregate in the projection. |
 | `FROM <entity> [<alias>]` | Same scan surface as `FROM`/`MATCH`; alias defaults to `target`. |
 | `AS OF <unix-ms>` | Valid-time point (SCH-03): same semantics as in `FROM`/`MATCH`. A subquery containing `AS OF` is a parse error — the clause is top-level only (no silent scoping). |
 | `JOIN <entity> <alias> ON <left> = <right>` | Chained joins; `ON` fields are alias-qualified (`p.addr_id = a.id`). |
 | `WHERE` | Mixes regular conditions and scalar subqueries: `<field> <op> (SELECT ...)`. |
 | `WITH TEMPERATURE <float>` | Query temperature (0.0 = deterministic/exhaustive). |
+| `LIMIT <n> [OFFSET <m>]` | Pagination: same semantics as in `FROM`/`MATCH` (see [Pagination](#pagination-limit--offset)). |
 
 Example:
 
@@ -134,7 +146,105 @@ Example:
 SELECT name, age FROM Person p
   JOIN Address a ON p.addr_id = a.id
   WHERE a.city == "Caracas"
+  LIMIT 20 OFFSET 40
 ```
+
+---
+
+## Aggregations (`COUNT` / `SUM` / `GROUP BY`)
+
+> Added in IQL version 4 (WIRE-13). Aggregation is a `SELECT` surface: the
+> projection list may contain aggregate function calls, and the optional
+> `GROUP BY <field>` clause defines the group key.
+
+```sql
+-- One row per category: group key + one field per aggregate.
+SELECT COUNT(*), SUM(amount) FROM Invoice GROUP BY category
+
+-- Global aggregate: exactly one row over the whole result set.
+SELECT COUNT(email), SUM(amount) FROM Invoice WHERE total > 0
+```
+
+Functions (case-sensitive UPPERCASE):
+
+| Function | Result field | Semantics |
+|----------|--------------|-----------|
+| `COUNT(*)` | `count` | Number of rows in the group. |
+| `COUNT(field)` | `count_<field>` | Rows where `field` is present and not `null`. |
+| `SUM(field)` | `sum_<field>` | Sum of numeric `field` values. |
+
+Semantics:
+
+- **Output rows** are synthetic result rows (node `id = 0`): the group key
+  (when `GROUP BY` is present) plus one field per aggregate, using the result
+  names above.
+- **Group order** is first-seen order (the order rows arrive from the scan),
+  the same contract as the `dedup` operator.
+- **`GROUP BY <field>`** accepts a single field. Rows missing the field and rows
+  with an explicit `null` group together (SQL NULL grouping). Field names are
+  matched exactly as stored — no alias-qualified resolution (`GROUP BY a.city`
+  groups by the literal field name, matching plain-field projections and
+  `WHERE`). The group field must not collide with an aggregate output name
+  (`GROUP BY count` + `COUNT(*)` is a parse error — the output row would
+  otherwise overwrite the key).
+- **Without `GROUP BY`** the result is exactly one row — even over an empty
+  input: `COUNT` is `0` and `SUM` is `null` (SQL semantics). With `GROUP BY`
+  over an empty input there are zero rows.
+- **`SUM` types:** all-`Int` contributions sum to `Int` (saturating); a mixed
+  `Int`/`Float` group promotes to `Float`; a group with no numeric contribution
+  is `null`. Non-numeric values (`string`/`bool`/`null`/missing) are ignored —
+  no coercion, consistent with the type-strict comparison rules above.
+- **`WHERE` applies before aggregation** (`... WHERE total > 0 GROUP BY c`).
+- **`ROLE`** does not exist on the `SELECT` surface, so RBAC pruning cannot
+  interact with aggregate rows.
+
+Restrictions (loud parse errors, never silent drops — deferred to a later
+version, tracked as FIND-316):
+
+- Mixing plain fields and aggregates in the same `SELECT` list (group keys come
+  from `GROUP BY` and are always included in each output row).
+- `GROUP BY` without at least one aggregate function.
+- Multi-field `GROUP BY a, b` (single field only in this version).
+- `LIMIT`/`OFFSET` with aggregation (pagination of groups is deferred).
+- `AS OF` with aggregation (the valid-time filter runs after plan execution and
+  would be a silent no-op over synthetic rows).
+- `GROUP BY` on the `FROM`/`MATCH` surface — aggregation is a `SELECT` surface.
+- Any clause placed after the aggregation surface (`... GROUP BY c WHERE ...`,
+  `... GROUP BY c ORDER BY ...`) — a non-empty remainder is a parse error, the
+  same strictness as pagination (WIRE-12); a trailing statement terminator
+  (`;`) is tolerated.
+
+---
+
+## Pagination (`LIMIT` / `OFFSET`)
+
+> Added in IQL version 3 (WIRE-12). Both clauses are optional; canonical order is
+> `LIMIT <n>` then `OFFSET <m>` (SQL order). The reversed order or a duplicated
+> pagination keyword is a parse error — never a silent drop.
+
+```
+FROM person WHERE age > 18 RANK BY age LIMIT 10 OFFSET 20
+SELECT * FROM kb LIMIT 5
+FROM person OFFSET 100
+```
+
+Semantics:
+
+- `LIMIT <n>` caps the result at `n` rows **after** filters, traversal,
+  ranking and — for hybrid searches — RRF fusion; `LIMIT 0` is a valid empty
+  window. `OFFSET <m>` skips the first `m` rows of that result; combined they
+  mean "skip `m`, take `n`".
+- `OFFSET` without `LIMIT` skips and returns the rest; `OFFSET 0` is a no-op.
+- Both are strict: `LIMIT`/`OFFSET` without a numeric count is a parse error
+  (same rule as `AS OF`).
+- **Vector searches:** the cap applies to the stream produced by the search
+  operators. The vector candidate window of the IQL execution path is
+  currently fixed at 5 (`PhysicalVectorSearch`), so a vector-only query yields
+  at most 5 rows regardless of a larger `LIMIT` (tracked as FIND-313).
+- **Interaction with `AS OF` and `ROLE`:** the valid-time filter and RBAC role
+  pruning run after plan execution, so a `LIMIT` page can shrink below `n` when
+  those filters drop rows — the short page is the end of the walk (same
+  convention as the temporal page-completeness guarantee below).
 
 ---
 
@@ -333,10 +443,21 @@ Example — `FROM Person p WHERE edad == 28 FETCH name`:
     "rank_by": null,
     "temperature": null,
     "owner_role": null,
-    "search_profile": null
+    "search_profile": null,
+    "as_of_ms": null,
+    "limit": null,
+    "offset": null
   }
 }
 ```
+
+`LIMIT`/`OFFSET` serialize as `limit`/`offset` (`null` when absent), e.g.
+`FROM Doc LIMIT 5 OFFSET 2` → `"limit": 5, "offset": 2`.
+
+Aggregation fields serialize additively on `SELECT`
+(`SELECT COUNT(*), SUM(amount) FROM Invoice GROUP BY category` →
+`"aggregates": ["Count", {"Sum": "amount"}], "group_by": "category"`;
+`"aggregates": []` and `"group_by": null` when absent).
 
 ## Error Handling
 
@@ -364,6 +485,18 @@ operators to the registry, and unregistered names fail as
 `Schema("SCHEMA_UNKNOWN_OPERATOR: ...")` instead of being silently dropped.
 `Dedup` has no IQL producer yet (test-constructed plans only). New operators:
 add the enum variant + physical file + one `register` line.
+
+`LogicalOperator::Offset { skip }` (WIRE-12) is the second shipped extension —
+same pattern (variant + `src/physical_plan/offset.rs` + one `register` line,
+zero planner/executor match edits), and it has a real IQL producer: `OFFSET`
+composes with the built-in `Limit` as skip-then-take (the emitted `Limit`
+window is widened by the offset so the post-chain `Offset` trims the front).
+
+`LogicalOperator::Aggregate { funcs, group_by }` (WIRE-13) is the third shipped
+extension — same pattern (variant + `src/physical_plan/aggregate.rs` + one
+`register` line, zero planner/executor match edits), with a real IQL producer:
+`COUNT`/`SUM`/`GROUP BY` in `SELECT`. It drains its child and emits one
+synthetic row per group (`id = 0`); without `GROUP BY`, exactly one row.
 
 ## Related
 

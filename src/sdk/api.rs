@@ -18,6 +18,7 @@ pub mod graph;
 pub mod memory;
 pub mod namespaces;
 pub mod search;
+pub mod sharing;
 
 // Re-export the only public symbol from the legacy god-file at the same path.
 pub use memory::BulkImportReport;
@@ -954,6 +955,53 @@ mod tests {
     }
 
     #[test]
+    fn test_concurrent_same_key_upserts_do_not_corrupt_text_stats() {
+        // CODEX-132 / DUR-03 r3: two concurrent upserts of the same key each
+        // resolved the same `previous` generation and both applied its
+        // text-index decrement, driving the term df negative (Validation:
+        // "text index df would go negative" — seen in CI Windows from same-ms
+        // L0 cursor writes). The put read-modify-write must be serialized:
+        // the second upsert waits, re-resolves the generation the first one
+        // left, and its transition stays consistent.
+        use std::sync::{Arc, Barrier};
+        use std::thread;
+
+        let db = make_embedded_real();
+        put_mem(&db, "ns", "k", "seed payload"); // every write below is an upsert
+
+        const N: usize = 8;
+        const ITERS: usize = 100;
+        let barrier = Arc::new(Barrier::new(N));
+        let handles: Vec<_> = (0..N)
+            .map(|t| {
+                let db = db.clone();
+                let barrier = Arc::clone(&barrier);
+                thread::spawn(move || {
+                    barrier.wait();
+                    for i in 0..ITERS {
+                        let input = MemoryInput::new("ns", "k", format!("payload t{t} i{i}"));
+                        if let Err(e) = db.put(input) {
+                            return Some(e.to_string());
+                        }
+                    }
+                    None
+                })
+            })
+            .collect();
+
+        let mut errors: Vec<String> = Vec::new();
+        for handle in handles {
+            if let Some(e) = handle.join().expect("worker thread") {
+                errors.push(e);
+            }
+        }
+        assert!(
+            errors.is_empty(),
+            "concurrent same-key upserts corrupted text-index stats: {errors:?}"
+        );
+    }
+
+    #[test]
     fn test_list_exclude_superseded_hides_and_default_keeps() {
         let db = make_embedded_real();
         put_mem(&db, "ns", "old", "p");
@@ -1592,5 +1640,312 @@ mod tests {
         assert!(record.superseded_by.is_none());
         assert!(record.invalid_at_ms.is_none());
         assert_eq!(record.valid_at_ms, future);
+    }
+
+    // ── MEMG-02: outcome loop — `Embedded::reinforce` ─────────────────────
+
+    fn put_with_confidence(db: &Embedded, ns: &str, key: &str, payload: &str, confidence: f32) {
+        db.put(MemoryInput {
+            confidence: Some(confidence),
+            ..MemoryInput::new(ns, key, payload)
+        })
+        .expect("put with declared confidence");
+    }
+
+    fn list_min_confidence(db: &Embedded, ns: &str, min: f32) -> Vec<String> {
+        db.list(
+            ns,
+            MemoryListOptions {
+                min_confidence: Some(min),
+                ..MemoryListOptions::default()
+            },
+        )
+        .expect("list with min_confidence")
+        .records
+        .iter()
+        .map(|r| r.key.clone())
+        .collect()
+    }
+
+    #[test]
+    fn reinforce_used_bumps_confidence_and_stamps_validation() {
+        let db = make_embedded_real();
+        put_with_confidence(&db, "ns", "k", "fact", 0.5);
+        let before = now_ms();
+        let record = db
+            .reinforce("ns", "k", ReinforceOutcome::Used)
+            .expect("reinforce used");
+        assert!(
+            (record.confidence - 0.55).abs() < 1e-6,
+            "Used must bump +0.05 (0.50 -> 0.55), got {}",
+            record.confidence
+        );
+        let stamped = record
+            .last_validated_at_ms
+            .expect("Used must stamp last_validated_at_ms (successful re-validation)");
+        assert!(stamped >= before, "stamp must be a fresh timestamp");
+        // Persisted, not just returned.
+        let stored = db.get("ns", "k").unwrap().unwrap();
+        assert!((stored.confidence - 0.55).abs() < 1e-6);
+        assert_eq!(stored.last_validated_at_ms, Some(stamped));
+    }
+
+    #[test]
+    fn reinforce_used_is_rate_limited_within_window() {
+        let db = make_embedded_real();
+        put_with_confidence(&db, "ns", "k", "fact", 0.5);
+        let first = db.reinforce("ns", "k", ReinforceOutcome::Used).unwrap();
+        let second = db.reinforce("ns", "k", ReinforceOutcome::Used).unwrap();
+        assert!(
+            (second.confidence - first.confidence).abs() < 1e-6,
+            "a second Used inside the rate window must not compound the bump"
+        );
+        assert_eq!(
+            second.last_validated_at_ms, first.last_validated_at_ms,
+            "a second Used inside the rate window must not re-stamp"
+        );
+    }
+
+    #[test]
+    fn reinforce_rate_limited_is_audited_and_does_not_bump_version() {
+        // Review P2-01 #3: the rate-limited no-op must be observable (audit
+        // reason `used_rate_limited`, never silent) and must not bump
+        // `version`/`updated_at_ms` (state-only change, Spec #7).
+        let dir = tempfile::tempdir().expect("tempdir");
+        let audit_path = dir.path().join("audit.jsonl");
+        let config = Config {
+            storage_path: ":memory:".into(),
+            backend_kind: crate::BackendKind::InMemory,
+            audit_log_path: Some(audit_path.clone()),
+            ..Default::default()
+        };
+        let db = Embedded::open_with_config(config).expect("open with audit log");
+        put_with_confidence(&db, "ns", "k", "fact", 0.5);
+
+        let first = db
+            .reinforce("ns", "k", ReinforceOutcome::Used)
+            .expect("first used");
+        let second = db
+            .reinforce("ns", "k", ReinforceOutcome::Used)
+            .expect("second used (rate-limited)");
+        assert_eq!(
+            second.version, first.version,
+            "reinforce must not bump version (state-only change)"
+        );
+        assert_eq!(
+            second.updated_at_ms, first.updated_at_ms,
+            "the rate-limited no-op must not refresh updated_at_ms"
+        );
+
+        let log = std::fs::read_to_string(&audit_path).expect("read audit log");
+        assert!(
+            log.contains("memory_reinforce"),
+            "audit event missing: {log}"
+        );
+        assert!(
+            log.contains("used_rate_limited"),
+            "the rate-limited no-op must be audited (never silent): {log}"
+        );
+    }
+
+    #[test]
+    fn reinforce_used_after_window_bumps_again() {
+        let db = make_embedded_real();
+        put_with_confidence(&db, "ns", "k", "fact", 0.5);
+        // Simulate a validation older than the rate window via the raw
+        // transport choke point (in-crate): anchor the window in the past.
+        let mut record = db.get("ns", "k").unwrap().unwrap();
+        record.last_validated_at_ms =
+            Some(now_ms().saturating_sub(super::memory::REINFORCE_WINDOW_MS + 1));
+        db.put_record_exact(record).unwrap();
+
+        let out = db.reinforce("ns", "k", ReinforceOutcome::Used).unwrap();
+        assert!(
+            (out.confidence - 0.55).abs() < 1e-6,
+            "Used after the window must bump again, got {}",
+            out.confidence
+        );
+    }
+
+    #[test]
+    fn reinforce_corrected_decays_and_does_not_stamp() {
+        let db = make_embedded_real();
+        put_with_confidence(&db, "ns", "k", "fact", 0.5);
+        let out = db
+            .reinforce("ns", "k", ReinforceOutcome::Corrected)
+            .expect("reinforce corrected");
+        assert!(
+            (out.confidence - 0.4).abs() < 1e-6,
+            "Corrected must decay -0.10 (0.50 -> 0.40), got {}",
+            out.confidence
+        );
+        assert_eq!(
+            out.last_validated_at_ms, None,
+            "failures must not stamp last_validated_at_ms (success-only, MGR-12 §3.3)"
+        );
+        let again = db
+            .reinforce("ns", "k", ReinforceOutcome::Corrected)
+            .unwrap();
+        assert!(
+            (again.confidence - 0.3).abs() < 1e-6,
+            "corrections are not window-limited, got {}",
+            again.confidence
+        );
+    }
+
+    #[test]
+    fn reinforce_corrected_floors_at_zero() {
+        let db = make_embedded_real();
+        put_with_confidence(&db, "ns", "k", "fact", 0.05);
+        let out = db
+            .reinforce("ns", "k", ReinforceOutcome::Corrected)
+            .unwrap();
+        assert_eq!(out.confidence, 0.0, "decay is floored at 0.0");
+        let again = db
+            .reinforce("ns", "k", ReinforceOutcome::Corrected)
+            .unwrap();
+        assert_eq!(
+            again.confidence, 0.0,
+            "no underflow on repeated corrections"
+        );
+    }
+
+    #[test]
+    fn reinforce_used_saturates_at_one() {
+        let db = make_embedded_real();
+        // Default asserted record: D_a = 1.0. The bump saturates; the value of
+        // `Used` here is the freshness stamp.
+        db.put(MemoryInput::new("ns", "k", "fact")).unwrap();
+        let out = db.reinforce("ns", "k", ReinforceOutcome::Used).unwrap();
+        assert_eq!(
+            out.confidence, 1.0,
+            "bump saturates at 1.0, never overflows"
+        );
+        assert!(
+            out.last_validated_at_ms.is_some(),
+            "saturated Used still stamps freshness"
+        );
+    }
+
+    #[test]
+    fn reinforce_unused_is_neutral() {
+        let db = make_embedded_real();
+        put_with_confidence(&db, "ns", "k", "fact", 0.5);
+        let out = db.reinforce("ns", "k", ReinforceOutcome::Unused).unwrap();
+        assert!(
+            (out.confidence - 0.5).abs() < 1e-6,
+            "Unused is not evidence of incorrectness: no score change"
+        );
+        assert_eq!(out.last_validated_at_ms, None, "Unused does not stamp");
+    }
+
+    #[test]
+    fn reinforce_missing_record_errors_not_found() {
+        let db = make_embedded_real();
+        let err = db
+            .reinforce("ns", "ghost", ReinforceOutcome::Used)
+            .unwrap_err();
+        assert!(
+            matches!(err, Error::NotFound { .. }),
+            "reinforcing a missing record must be NotFound, got {err:?}"
+        );
+    }
+
+    #[test]
+    fn reinforce_rejects_derived_record() {
+        let db = make_embedded_real();
+        db.put(MemoryInput::new("ns", "parent", "base fact"))
+            .unwrap();
+        db.put(MemoryInput {
+            confidence_class: Some(ConfidenceClass::Derived),
+            derived_from: Some(vec!["parent".into()]),
+            ..MemoryInput::new("ns", "child", "computed fact")
+        })
+        .unwrap();
+
+        let err = db
+            .reinforce("ns", "child", ReinforceOutcome::Used)
+            .unwrap_err();
+        assert!(
+            matches!(err, Error::InvalidInput(ref msg) if msg.contains("derived")),
+            "derived scores are computed from parents (V2/V4) — reinforcement must be rejected, got {err:?}"
+        );
+        // The parent (asserted) stays reinforceable.
+        assert!(db.reinforce("ns", "parent", ReinforceOutcome::Used).is_ok());
+    }
+
+    #[test]
+    fn reinforce_flips_min_confidence_selection_before_after() {
+        // Consumer-visible metric: the opt-in `min_confidence` gate (SCH-04/07)
+        // — the only retrieval consumer of confidence (weighted ranking is
+        // excluded by MGR-12 §8). Before: both records under the gate. After
+        // a positive reinforcement of one and corrections of the other, the
+        // selection flips.
+        let db = make_embedded_real();
+        put_with_confidence(&db, "ns", "a", "alpha", 0.9);
+        put_with_confidence(&db, "ns", "b", "beta", 0.9);
+        assert!(
+            list_min_confidence(&db, "ns", 0.92).is_empty(),
+            "before: 0.90 < 0.92 → no record selected"
+        );
+
+        db.reinforce("ns", "a", ReinforceOutcome::Used).unwrap(); // a = 0.95
+        assert_eq!(
+            list_min_confidence(&db, "ns", 0.92),
+            vec!["a"],
+            "after: only the reinforced record crosses the gate"
+        );
+
+        db.reinforce("ns", "b", ReinforceOutcome::Corrected)
+            .unwrap(); // b = 0.80
+        db.reinforce("ns", "b", ReinforceOutcome::Corrected)
+            .unwrap(); // b = 0.70
+        assert_eq!(
+            list_min_confidence(&db, "ns", 0.8),
+            vec!["a"],
+            "after corrections: the corrected record drops out of the gate"
+        );
+    }
+
+    #[test]
+    fn reinforce_flips_confidence_threshold_abstention_before_after() {
+        // Consumer-visible metric: the selective-abstention gate (SCH-05).
+        // 0.50 < 0.55 abstains; one Used bump (0.55) clears the threshold.
+        let config = Config {
+            storage_path: ":memory:".into(),
+            backend_kind: crate::BackendKind::InMemory,
+            confidence_threshold: Some(0.55),
+            ..Default::default()
+        };
+        let db = Embedded::open_with_config(config).expect("open with threshold");
+        put_with_confidence(&db, "ns", "k", "content lorem", 0.5);
+
+        let search = |db: &Embedded| {
+            db.search_page(MemorySearchRequest {
+                namespace: "ns".into(),
+                text_query: Some("lorem".into()),
+                top_k: 10,
+                ..Default::default()
+            })
+            .expect("search_page")
+        };
+
+        let before = search(&db);
+        assert!(
+            before.abstained,
+            "before: best hit 0.50 < threshold 0.55 must abstain"
+        );
+        assert_eq!(
+            before.abstention_reason,
+            Some(AbstentionReason::NoCandidatesAboveThreshold)
+        );
+
+        db.reinforce("ns", "k", ReinforceOutcome::Used).unwrap(); // 0.55
+        let after = search(&db);
+        assert!(
+            !after.abstained,
+            "after: 0.55 >= threshold must clear the abstention"
+        );
+        assert_eq!(after.hits.len(), 1);
     }
 }

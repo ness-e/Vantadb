@@ -29,6 +29,10 @@ impl StorageEngine {
     pub fn open_with_config(path: &str, config: Option<Config>) -> Result<Self> {
         let startup_started = Instant::now();
         let config = config.unwrap_or_default();
+        // ENC-01 (FIND-249): activating `encryption` today protects nothing at
+        // rest — silence would read as "encrypted". Say it explicitly.
+        #[cfg(feature = "encryption")]
+        warn_encryption_not_wired(&config);
         let caps = crate::hardware::HardwareCapabilities::global();
         let effective_memory = config.memory_limit.unwrap_or(caps.total_memory);
 
@@ -604,5 +608,36 @@ impl StorageEngine {
             }
         }
         Ok((wal_replay_ms, wal_records_replayed))
+    }
+}
+
+/// ENC-01 (FIND-249): the `encryption` feature ships AES-256-GCM primitives,
+/// but no storage write path uses them — with the feature compiled in and a
+/// key configured, every on-disk artifact is still plaintext. Returns the
+/// notice the engine must emit at open; `None` when encryption is not active
+/// (no key) or there is nothing at rest to protect (`InMemory`).
+#[cfg(feature = "encryption")]
+fn encryption_not_wired_notice(config: &Config) -> Option<&'static str> {
+    config.encryption_key.as_ref()?;
+    if matches!(config.backend_kind, BackendKind::InMemory) {
+        return None;
+    }
+    Some(concat!(
+        "encryption is NOT yet wired: with the `encryption` feature enabled and ",
+        "an encryption key configured, no on-disk artifact is encrypted — WAL, ",
+        "HNSW index, VantaFile segments, backend KV, text index and snapshots ",
+        "remain PLAINTEXT. Do not rely on this feature for at-rest protection; ",
+        "use OS/volume-level encryption if you need it today. See FIND-249."
+    ))
+}
+
+/// Emit the FIND-249 notice at engine open. Gated by environment: it only
+/// fires when the `encryption` feature is compiled in AND a key is configured
+/// (one notice per activation/open — the condition itself is the gate, no
+/// process-global state).
+#[cfg(feature = "encryption")]
+fn warn_encryption_not_wired(config: &Config) {
+    if let Some(notice) = encryption_not_wired_notice(config) {
+        tracing::warn!("{notice}");
     }
 }

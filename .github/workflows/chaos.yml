@@ -2,7 +2,7 @@ name: 'Chaos: Failpoint Injection & Resilience Tests'
 
 on:
   push:
-    branches: [ "main", "develop" ]
+    branches: [ "main" ]
     paths:
       - 'src/**'
       - 'tests/**'

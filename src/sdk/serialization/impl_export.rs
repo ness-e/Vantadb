@@ -7,9 +7,10 @@ use super::{
 };
 use crate::backend::BackendPartition;
 use crate::error::{Error, Result};
+use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
 use std::fs::File;
-use std::io::{BufRead, BufReader, BufWriter, Write};
+use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use tracing;
 use web_time::Instant;
@@ -23,6 +24,69 @@ fn quarantine_reason_from_report(
         Some(r) if r.quarantined > 0 => Some(format!("{} quarantined", r.quarantined)),
         _ => None,
     }
+}
+
+/// Declared limits of the export integrity manifest (MEMG-15) — always
+/// present, never silent (same contract as the VER-02 certificates:
+/// integrity, not authenticity).
+fn export_manifest_limits() -> Vec<String> {
+    vec![
+        "integrity, not authenticity: the manifest is an sha256 self-hash over the export bytes — an actor who edits the file and recomputes the manifest is not detected; there is no engine key and no digital signature (same contract as the VER-02 certificates; cryptographic signing is a vanta-audit decision)".into(),
+        "the manifest covers the JSONL file bytes only: it does not bind the exporting database instance, the import target, or edits made after export; import_file does not enforce it — verification is explicit".into(),
+        "transports that carry only the JSONL (e.g. the MCP inline export) do not carry the sidecar manifest".into(),
+    ]
+}
+
+/// Sidecar path for an export file: `<path>.manifest.json`.
+fn manifest_path_for(path: &Path) -> PathBuf {
+    let mut os = path.as_os_str().to_os_string();
+    os.push(".manifest.json");
+    PathBuf::from(os)
+}
+
+/// Streaming sha256 of a file with bounded memory (64 KiB chunks) — mirrors
+/// the write path, so verifying a large export never materializes the file
+/// in memory (MEMG-15).
+fn sha256_file(path: &Path) -> Result<String> {
+    let file = File::open(path).map_err(Error::Io)?;
+    let mut reader = BufReader::new(file);
+    let mut hasher = Sha256::new();
+    let mut buf = [0u8; 64 * 1024];
+    loop {
+        let n = reader.read(&mut buf).map_err(Error::Io)?;
+        if n == 0 {
+            break;
+        }
+        hasher.update(&buf[..n]);
+    }
+    Ok(crate::attestation::hex_lower(&hasher.finalize()))
+}
+
+/// Write the deterministic integrity manifest sidecar of an export file and
+/// return its path. Crate-internal so the CLI export path shares the exact
+/// same manifest instead of reimplementing it (MEMG-15).
+pub(crate) fn write_export_manifest(
+    path: &Path,
+    sha256: &str,
+    records: u64,
+    namespaces: &[String],
+) -> Result<PathBuf> {
+    let mut namespaces: Vec<String> = namespaces.to_vec();
+    namespaces.sort();
+    namespaces.dedup();
+    let manifest = super::super::types::ExportManifest {
+        schema_version: super::super::types::EXPORT_MANIFEST_SCHEMA_VERSION,
+        format: super::super::types::EXPORT_MANIFEST_FORMAT.to_string(),
+        export_schema_version: super::EXPORT_SCHEMA_VERSION,
+        records,
+        namespaces,
+        sha256: sha256.to_string(),
+        limits: export_manifest_limits(),
+    };
+    let manifest_path = manifest_path_for(path);
+    let bytes = serde_json::to_vec_pretty(&manifest).map_err(Error::serialization)?;
+    std::fs::write(&manifest_path, bytes).map_err(Error::Io)?;
+    Ok(manifest_path)
 }
 
 impl Embedded {
@@ -175,7 +239,9 @@ impl Embedded {
     /// When `filter` is `Some`, only records matching the AND-combined filter
     /// items are exported (e.g. `Eq` on a metadata field). `None` (or an empty
     /// filter) exports the full namespace — backward-compatible with the
-    /// pre-filter signature.
+    /// pre-filter signature. Writes the integrity manifest sidecar
+    /// (`<path>.manifest.json`) next to the file — verify with
+    /// [`Self::verify_export_integrity`].
     #[tracing::instrument(skip(self, path), err)]
     pub fn export_namespace(
         &self,
@@ -242,6 +308,9 @@ impl Embedded {
         self.write_export_file(&resolved, records, vec![namespace.to_string()], started)
     }
 
+    /// Export all records (every namespace) to a JSONL file, plus its
+    /// integrity manifest sidecar (`<path>.manifest.json`) — verify with
+    /// [`Self::verify_export_integrity`].
     #[tracing::instrument(skip(self, path), err)]
     pub fn export_all(&self, path: impl AsRef<Path>) -> Result<super::super::types::ExportReport> {
         let res = self.export_all_inner(path);
@@ -284,14 +353,22 @@ impl Embedded {
 
         let file = File::create(path).map_err(Error::Io)?;
         let mut writer = BufWriter::new(file);
+        let mut hasher = Sha256::new();
         let records_exported = records.len() as u64;
 
+        // One reusable line buffer: hash and write the exact same bytes.
+        let mut buffer: Vec<u8> = Vec::with_capacity(256);
         for record in records {
             let line = export_line_from_record(record);
-            serde_json::to_writer(&mut writer, &line).map_err(Error::serialization)?;
-            writer.write_all(b"\n").map_err(Error::Io)?;
+            buffer.clear();
+            serde_json::to_writer(&mut buffer, &line).map_err(Error::serialization)?;
+            buffer.push(b'\n');
+            hasher.update(&buffer);
+            writer.write_all(&buffer).map_err(Error::Io)?;
         }
         writer.flush().map_err(Error::Io)?;
+        let sha256 = crate::attestation::hex_lower(&hasher.finalize());
+        let manifest_path = write_export_manifest(path, &sha256, records_exported, &namespaces)?;
         crate::metrics::record_export(records_exported);
 
         Ok(super::super::types::ExportReport {
@@ -299,6 +376,72 @@ impl Embedded {
             namespaces,
             path: path.to_string_lossy().into_owned(),
             duration_ms: started.elapsed().as_millis() as u64,
+            sha256,
+            manifest_path: manifest_path.to_string_lossy().into_owned(),
+        })
+    }
+
+    /// Verify a JSONL export file against its integrity manifest sidecar
+    /// (MEMG-15).
+    ///
+    /// Reads `<path>.manifest.json` when present, recomputes the sha256 over
+    /// the file bytes and reports `ok` (digest match), `mismatch` (digest
+    /// diverged) or `no_manifest` (pre-manifest export — not verifiable,
+    /// never reported as `ok`). Verification is never claim-driven, and
+    /// `import_file` does not enforce the manifest: verification is explicit.
+    #[tracing::instrument(skip(self, path), err)]
+    pub fn verify_export_integrity(
+        &self,
+        path: impl AsRef<Path>,
+    ) -> Result<super::super::types::ExportIntegrityVerification> {
+        let resolved = self.resolve_export_path(path.as_ref())?;
+        let actual_sha256 = sha256_file(&resolved)?;
+
+        let manifest_path = manifest_path_for(&resolved);
+        let manifest = match std::fs::read_to_string(&manifest_path) {
+            Ok(raw) => serde_json::from_str::<super::super::types::ExportManifest>(&raw)
+                .map_err(Error::serialization)?,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                return Ok(super::super::types::ExportIntegrityVerification {
+                    schema_version: 0,
+                    path: resolved.to_string_lossy().into_owned(),
+                    status: "no_manifest".into(),
+                    expected_sha256: None,
+                    actual_sha256,
+                    records: 0,
+                    namespaces: Vec::new(),
+                    limits: Vec::new(),
+                });
+            }
+            Err(e) => return Err(Error::Io(e)),
+        };
+
+        // Discriminator guard (review O2): a sidecar from another tool/format
+        // must not be judged by digest semantics it does not follow.
+        if manifest.format != super::super::types::EXPORT_MANIFEST_FORMAT {
+            return Err(Error::Validation {
+                field: "manifest.format".into(),
+                reason: format!(
+                    "not a VantaDB export manifest (format: {})",
+                    manifest.format
+                ),
+            });
+        }
+
+        let status = if manifest.sha256 == actual_sha256 {
+            "ok"
+        } else {
+            "mismatch"
+        };
+        Ok(super::super::types::ExportIntegrityVerification {
+            schema_version: manifest.schema_version,
+            path: resolved.to_string_lossy().into_owned(),
+            status: status.into(),
+            expected_sha256: Some(manifest.sha256),
+            actual_sha256,
+            records: manifest.records,
+            namespaces: manifest.namespaces,
+            limits: manifest.limits,
         })
     }
 
@@ -824,5 +967,166 @@ mod tests {
         assert_eq!(r1.payload, "payload for k1");
         let r2 = db2.get("rt", "k2").unwrap().unwrap();
         assert_eq!(r2.payload, "payload for k2");
+    }
+
+    // ─── export integrity manifest (MEMG-15) ───────────────────
+
+    #[test]
+    fn export_writes_integrity_manifest_sidecar() {
+        let db = in_memory_db();
+        db.put(sample_input("mns", "k1")).unwrap();
+        db.put(sample_input("mns", "k2")).unwrap();
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("export.jsonl");
+        let report = db.export_namespace(&path, "mns", None).unwrap();
+
+        assert_eq!(report.sha256.len(), 64, "sha256 hex digest");
+        assert!(report.sha256.chars().all(|c| c.is_ascii_hexdigit()));
+        assert!(
+            std::path::Path::new(&report.manifest_path).exists(),
+            "manifest sidecar missing: {}",
+            report.manifest_path
+        );
+        assert!(report.manifest_path.ends_with("export.jsonl.manifest.json"));
+
+        let raw = std::fs::read_to_string(&report.manifest_path).unwrap();
+        let manifest: ExportManifest = serde_json::from_str(&raw).unwrap();
+        assert_eq!(manifest.schema_version, 1);
+        assert_eq!(manifest.format, "vantadb-memory-jsonl");
+        assert_eq!(manifest.export_schema_version, 2);
+        assert_eq!(manifest.records, 2);
+        assert_eq!(manifest.namespaces, vec!["mns".to_string()]);
+        assert_eq!(manifest.sha256, report.sha256);
+        assert!(
+            !manifest.limits.is_empty(),
+            "declared limits must never be empty"
+        );
+        assert!(manifest
+            .limits
+            .iter()
+            .any(|l| l.contains("not authenticity")));
+    }
+
+    #[test]
+    fn verify_export_integrity_ok_then_mismatch_on_tamper() {
+        let db = in_memory_db();
+        db.put(sample_input("vns", "k1")).unwrap();
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("verify.jsonl");
+        db.export_namespace(&path, "vns", None).unwrap();
+
+        let ok = db.verify_export_integrity(&path).unwrap();
+        assert_eq!(ok.status, "ok");
+        assert_eq!(
+            ok.expected_sha256.as_deref(),
+            Some(ok.actual_sha256.as_str())
+        );
+        assert_eq!(ok.records, 1);
+        assert_eq!(ok.namespaces, vec!["vns".to_string()]);
+        assert!(!ok.limits.is_empty());
+
+        // Tamper one byte in the middle of the file: the digest must diverge.
+        let mut bytes = std::fs::read(&path).unwrap();
+        let mid = bytes.len() / 2;
+        bytes[mid] = bytes[mid].wrapping_add(1);
+        std::fs::write(&path, bytes).unwrap();
+
+        let tampered = db.verify_export_integrity(&path).unwrap();
+        assert_eq!(tampered.status, "mismatch");
+        assert_ne!(tampered.expected_sha256.unwrap(), tampered.actual_sha256);
+    }
+
+    #[test]
+    fn verify_export_integrity_reports_missing_manifest() {
+        let db = in_memory_db();
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("plain.jsonl");
+        db.export_namespace(&path, "nns", None).unwrap();
+
+        // Simulate a pre-manifest export: remove the sidecar.
+        std::fs::remove_file(format!("{}.manifest.json", path.display())).unwrap();
+
+        let v = db.verify_export_integrity(&path).unwrap();
+        assert_eq!(v.status, "no_manifest");
+        assert!(v.expected_sha256.is_none());
+        assert_eq!(v.actual_sha256.len(), 64);
+    }
+
+    #[test]
+    fn verify_export_integrity_rejects_corrupt_manifest() {
+        let db = in_memory_db();
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("corrupt.jsonl");
+        db.export_namespace(&path, "cns", None).unwrap();
+
+        // Garbage sidecar: must surface as a mapped error, never as a verdict.
+        std::fs::write(format!("{}.manifest.json", path.display()), "{not json").unwrap();
+        let err = db.verify_export_integrity(&path).unwrap_err();
+        assert!(
+            matches!(err, crate::error::Error::Serialization(_)),
+            "corrupt manifest must be a Serialization error, got: {err}"
+        );
+    }
+
+    #[test]
+    fn verify_export_integrity_rejects_foreign_manifest_format() {
+        let db = in_memory_db();
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("foreign.jsonl");
+        db.export_namespace(&path, "fns", None).unwrap();
+
+        // A well-formed manifest with the wrong format discriminator must not
+        // be judged by digest semantics it does not follow (review O2).
+        let manifest_path = format!("{}.manifest.json", path.display());
+        let raw = std::fs::read_to_string(&manifest_path).unwrap();
+        let mut manifest: ExportManifest = serde_json::from_str(&raw).unwrap();
+        manifest.format = "some-other-format".into();
+        std::fs::write(&manifest_path, serde_json::to_string(&manifest).unwrap()).unwrap();
+
+        let err = db.verify_export_integrity(&path).unwrap_err();
+        assert!(
+            err.to_string().contains("not a VantaDB export manifest"),
+            "got: {err}"
+        );
+    }
+
+    #[test]
+    fn verify_export_integrity_missing_file_is_error() {
+        let db = in_memory_db();
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("ghost.jsonl");
+
+        // No file at all: an Io error, never a fabricated status.
+        let err = db.verify_export_integrity(&path).unwrap_err();
+        assert!(
+            matches!(err, crate::error::Error::Io(_)),
+            "missing export must be an Io error, got: {err}"
+        );
+    }
+
+    #[test]
+    fn export_verify_import_roundtrip_is_intact_and_deterministic() {
+        let db = in_memory_db();
+        db.put(sample_input_with_meta("rti", "k1", "green"))
+            .unwrap();
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("roundtrip.jsonl");
+        let first = db.export_namespace(&path, "rti", None).unwrap();
+        assert_eq!(db.verify_export_integrity(&path).unwrap().status, "ok");
+
+        // Re-exporting unchanged data is byte-stable (same sha256).
+        let second = db.export_namespace(&path, "rti", None).unwrap();
+        assert_eq!(second.sha256, first.sha256);
+
+        // The verified file still imports cleanly into a fresh database.
+        let db2 = in_memory_db();
+        let report = db2.import_file(&path, false).unwrap();
+        assert_eq!(report.inserted, 1);
+        assert_eq!(report.errors, 0);
+        let record = db2.get("rti", "k1").unwrap().unwrap();
+        assert_eq!(record.payload, "payload for k1");
     }
 }

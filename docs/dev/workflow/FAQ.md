@@ -17,10 +17,11 @@ produced a `push` run and a `pull_request` run 6 s apart).
   `push` (ref `refs/heads/develop`) and `pull_request` (ref `refs/pull/N/merge`).
 - `concurrency.group` includes `${{ github.ref }}`, so the two refs never
   cancel each other — you see a green/red pair for the same code.
-- Mitigation (FIND-134): `ci-rust.yml` dropped `develop` from
-  `push.branches`; PR validation covers pre-merge, `push: [main]` covers
-  post-merge. Other dual-trigger workflows (`chaos`, `ci-examples`,
-  `desktop`, `gate-docs`, …) still double-fire when paths match.
+- Mitigation (FIND-134/FIND-228): `ci-rust.yml` dropped `develop` from
+  `push.branches` (FIND-134); FIND-228 completed the same drop on the other
+  15 CI/demo/gate workflows. PR validation covers pre-merge, `push: [main]`
+  covers post-merge. Only `perf-bench.yml` still lists `develop` under
+  `push.branches` (documented exception — FIND-232).
 
 ## What does `cancel-in-progress` mean here?
 

@@ -278,6 +278,26 @@ impl<'a> CostEstimator<'a> {
                     estimated_bytes: bytes,
                 }
             }
+            // WIRE-12: `Offset` is the second registry extension; same
+            // compiler-forced delegation (its model shrinks rows by the skip).
+            LogicalOperator::Offset { .. } => {
+                let (rows, bytes) =
+                    crate::operator_registry::OperatorRegistry::new().estimate(op, in_rows);
+                OperatorCost {
+                    estimated_rows: rows,
+                    estimated_bytes: bytes,
+                }
+            }
+            // WIRE-13: `Aggregate` is the third registry extension; same
+            // compiler-forced delegation (its model is passthrough).
+            LogicalOperator::Aggregate { .. } => {
+                let (rows, bytes) =
+                    crate::operator_registry::OperatorRegistry::new().estimate(op, in_rows);
+                OperatorCost {
+                    estimated_rows: rows,
+                    estimated_bytes: bytes,
+                }
+            }
         }
     }
 
@@ -440,6 +460,18 @@ mod tests {
         let est = CostEstimator::new(&engine);
         let cost = est.estimate_operator(&LogicalOperator::Limit { top_k: 5 }, 100.0);
         assert_eq!(cost.estimated_rows, 5.0, "Limit trims rows to top_k");
+    }
+
+    #[test]
+    fn test_estimate_operator_offset_skips_rows() {
+        // WIRE-12: `Offset` delegates to its registered cost model (C2S6
+        // pattern) — rows shrink by the skip and floor at zero.
+        let engine = in_memory_engine();
+        let est = CostEstimator::new(&engine);
+        let cost = est.estimate_operator(&LogicalOperator::Offset { skip: 4 }, 10.0);
+        assert_eq!(cost.estimated_rows, 6.0, "Offset drops the skipped rows");
+        let cost = est.estimate_operator(&LogicalOperator::Offset { skip: 12 }, 10.0);
+        assert_eq!(cost.estimated_rows, 0.0, "skip beyond input floors at zero");
     }
 
     /// Build a CPIndex with `n` nodes (level-0 only, fast for tests) using `cfg`.

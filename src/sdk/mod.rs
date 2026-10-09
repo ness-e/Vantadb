@@ -7,14 +7,20 @@ pub mod connect;
 mod gds;
 mod graph;
 pub mod importers;
+mod merge;
 pub(crate) mod search;
 pub(crate) mod serialization;
 pub(crate) mod types;
 pub(crate) mod version_history;
 
+pub use api::sharing::{
+    AccessQuery, Action, GrantInput, PermDecision, ShareAssetInput, SharedOutcome, Subject,
+    TeamMemberInput, TeamRole, Visibility,
+};
 pub use api::BulkImportReport;
 pub use builder::Embedded;
 pub use connect::connect;
+pub use merge::{MergeOutcome, MergeResult};
 #[allow(deprecated)]
 pub use serialization::memory_record_from_node;
 pub use serialization::{
@@ -25,13 +31,14 @@ pub use serialization::{
 pub use types::{
     default_confidence, AbstentionReason, Bm25TermContribution, Capabilities, ConfidenceClass,
     EdgeRecord, EntityBoost, EntityBoostProvenance, EntityBoostReport, EntityBoostedSearch,
-    ExportReport, Fields, FilterOp, GroupByConfig, HybridFusionReport, ImportReport,
-    IndexRebuildReport, MemoryExportLine, MemoryFilter, MemoryFilterItem, MemoryInput,
-    MemoryListOptions, MemoryListPage, MemoryMetadata, MemoryRecord, MemorySearchHit,
-    MemorySearchPage, MemorySearchRequest, MmrConfig, NamespaceStats, NamespaceStatsMap, NodeInput,
-    NodeRecord, OperationalMetrics, QueryResult, RangeFilter, RuntimeProfile, SearchExplanation,
-    SearchExplanationHit, SearchHit, SearchProfileConfig, SearchProfileMode, SkillCreateInput,
-    SkillListOptions, SkillListPage, SkillPatchInput, SkillRecord, SkillUpdateInput,
-    SkillWriteResult, StorageTier, TextIndexAuditReport, TextIndexRepairReport, ValidWindow, Value,
-    DERIVATION_DISCOUNT, MAX_DERIVATION_DEPTH,
+    ExportIntegrityVerification, ExportManifest, ExportReport, Fields, FilterOp, GroupByConfig,
+    HybridFusionReport, ImportReport, IndexRebuildReport, MemoryExportLine, MemoryFilter,
+    MemoryFilterItem, MemoryInput, MemoryListOptions, MemoryListPage, MemoryMetadata, MemoryRecord,
+    MemorySearchHit, MemorySearchPage, MemorySearchRequest, MmrConfig, NamespaceStats,
+    NamespaceStatsMap, NodeInput, NodeRecord, OperationalMetrics, QueryResult, RangeFilter,
+    ReinforceOutcome, RuntimeProfile, SearchExplanation, SearchExplanationHit, SearchHit,
+    SearchProfileConfig, SearchProfileMode, SkillCreateInput, SkillListOptions, SkillListPage,
+    SkillPatchInput, SkillRecord, SkillUpdateInput, SkillWriteResult, StorageTier,
+    TextIndexAuditReport, TextIndexRepairReport, ValidWindow, Value, DERIVATION_DISCOUNT,
+    EXPORT_MANIFEST_FORMAT, EXPORT_MANIFEST_SCHEMA_VERSION, MAX_DERIVATION_DEPTH,
 };

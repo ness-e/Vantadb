@@ -175,6 +175,8 @@ Batch search (`search_batch()`) in the SDK amortizes PyO3 FFI boundary costs by 
 
 This benchmark compares **VantaDB** directly against **LanceDB** and **ChromaDB** in ingestion, latencies, precision (Recall), and idle memory footprint.
 
+> Retrieval **quality** on a real text corpus (recall@k vs human qrels, BEIR SciFact) is §21 — a different metric from the vector-dataset `Recall@10` below (exact-kNN fidelity); the numbers are not comparable.
+
 * **Execution Date**: 2026-06-06 15:43:40
 * **Dataset Configuration**:
   * **Name**: `glove-100-angular`
@@ -1103,7 +1105,7 @@ se reporta lo medido en esta maquina, no absolutos universales (pre-mortem Fallo
 > >
 > > **Reproduce (Regla 11):**
 > > ```powershell
-> > python benchmarks/competitive_bench.py --dataset synthetic --size 2000 --queries 50 --engines vanta,lance,chroma,qdrant --batch-size 999
+> > python benchmarks/competitive_bench.py --dataset synthetic --size 2000 --queries 50 --engines vanta,lance,chroma,qdrant
 > > # fila Milvus (harness adaptado a IndexParams, ver caveats):
 > > pip install "pymilvus==2.5.18" "milvus-lite==3.2.0"
 > > python benchmarks/competitive_bench.py --engines milvus --dataset synthetic --size 2000 --queries 50 --json-output docs/user/benchmarks/competitive_sdk_bench_milvus.json --output benchmarks/_n.md --yes
@@ -1122,8 +1124,18 @@ se reporta lo medido en esta maquina, no absolutos universales (pre-mortem Fallo
 | Milvus (lite) | 4,644.8 | 617.1 | 206.8 | 4.718 | 6.654 | 63.60% | 302.4 |
 
 Metodología: 3 iteraciones por motor, mediana (D4); warmup 10 queries (D3);
-ground truth brute-force numpy; `--batch-size 999` (evita doble rebuild).
-`N/A (Inc)` = índice incremental sin fase de build medible.
+ground truth brute-force numpy; chunks < 1000 forzados por el harness (sin
+rebuild oculto dentro del timer Ingest — BENCH-01). `N/A (Inc)` = índice
+incremental sin fase de build medible.
+
+> [!NOTE]
+> **Comparabilidad (BENCH-01, 2026-10-04):** este run se midió con el harness
+> anterior al fix, cuyo timer Ingest incluía la construcción del cliente
+> (~317 ms medidos en la máquina del fix) y la preparación de payloads; desde
+> BENCH-01 la región mide solo los calls de inserción + `flush`. El run no se
+> regenera (fuera de alcance); el delta de región medido es ≈ +8–11% de Ingest
+> QPS en esta configuración. Ver `benchmarks/competitive_bench.py` (header) y
+> `docs/dev/tasks/BENCH-01.md`.
 
 ### Entorno (Regla 11)
 
@@ -1297,6 +1309,91 @@ single-threaded, local, machine-load sensitive; (6) Zep and Letta were **not run
 slice — dispositions (no API key / architectural mismatch) live in `evals/runners/README.md`
 with FINDs for the owner. Reports: `evals/runners/report_h2h_h2h-strat10_{vantadb,mem0}.json`
 (gitignored — regenerate with the command above).
+
+---
+
+## 20. CI perf-bench gate — instrument limits + same-job A/B (FIND-232/FIND-233)
+
+> **Source of truth:** `benchmarks/compare_baseline.py` (bands + A/B mode) + `.github/workflows/perf-bench.yml` (workflow).
+> **Reproduce (Regla 11):**
+> ```bash
+> python benchmarks/compare_baseline.py --self-test   # prove all 15 band cases offline
+> ```
+
+### What the always-on gate detects — and what it cannot
+
+The gate runs on push (`src/**`, `vantadb-python/**`, `benchmarks/**`, `Cargo.toml`/`Cargo.lock`) and via `workflow_dispatch`, comparing the median of 3 runs against `benchmarks/python_baseline.json`. Cross-VM spread measured on identical code (FIND-232, 2026-10-03, profile 10000/1000; runs 37088714140 / 37089421873 / 37089581213) is **1.7x–2.4x** on key metrics (`insert.p99` 16.8x) — GitHub rotates runner hardware, so the bands are calibrated to that noise floor:
+
+| Family | Warn | Block |
+| :--- | :--- | :--- |
+| stable (`insert`, `rebuild`, `query_vector`) | >25% | >200% (≥3x) |
+| quarantined (`query_hybrid`, `query_text`) | >15% | >300% **and** >0.5 ms absolute |
+| `insert.p99_ms` | relative (warn only) | absolute: ≥100 ms |
+
+The gate therefore detects **collapses (≥3x)**, not fine regressions (<2-3x). A profile mismatch (`insert.total_records` ≠ baseline) refuses to compare (fail-closed). For the fine signal in a controlled environment, use `cargo bench -p vantadb --bench canonical_p99` vs the baseline in §11.
+
+### Same-job A/B (opt-in) — the fine-signal instrument
+
+Dispatch the workflow with `ab_ref` set: wheel A is built from `ab_ref` and wheel B from the triggering ref **in the same job** (the machine factor cancels), then 3 alternated pairs `(A_i, B_i)` run — alternation cancels the warm-up ramp every job shows (adjacent-run deltas −1.2%..−22% on identical code, measured from the 2026-10-03 run logs) — and `compare_baseline.py --ab-runs` gates on the **median of the paired ratios**.
+
+```bash
+# A/B vs a ref (typically the commit that generated the current baseline):
+gh workflow run perf-bench.yml --ref develop -f ab_ref=<ref-or-sha> -f size=10000 -f queries=1000 -f dim=128
+gh run watch <run-id> --exit-status
+
+# Calibration (same code on both sides — the measured deltas ARE the noise floor):
+gh workflow run perf-bench.yml --ref develop -f ab_ref=$(git rev-parse HEAD)
+```
+
+- **Bands (provisional):** warn >15% / block >50% (median of paired ratios). `insert.p99` warns but never blocks (fsync jitter, 16.8x cross-VM). Calibrate the bands with the same-SHA dispatch above and tighten them with the measured noise floor (same protocol FIND-232 used).
+- **Evidence per run:** every metric delta prints in the step log (`[ab] section.metric: B … vs A … (median delta …)`); artifact `vanta-benchmark-ab-results` carries side A's median.
+- **Cost:** ~+5-9 min per invocation (2 wheel builds + 3 extra runs + wheel swaps) — opt-in only; the push gate stays ~4.5 min (measured, run 37089421873: rust-setup 1.1 min + wheel 0.7 min + bench 2.4 min).
+
+### Post-push verification
+
+```bash
+gh run list --workflow=perf-bench.yml --limit 3 --json databaseId,conclusion,headSha
+```
+
+≥2 consecutive `success` runs on the pushed ref = the gate is stable (FIND-233 contract).
+
+---
+
+## 21. BEIR/MTEB recall@k vs sqlite-vec (BENCH-02) — BEIR SciFact, test split
+
+> **Source of truth:** `benchmarks/beir_recall_bench.py` (harness) + `benchmarks/beir_recall_report.json` (regenerable artifact, gitignored).
+> **Reproduce (Regla 11):**
+> ```bash
+> .venv/Scripts/python benchmarks/beir_recall_bench.py
+> # defaults: --dataset scifact --split test --model all-MiniLM-L6-v2 --k 10 --top-k 100 --seed 42 --engines vanta,sqlite-vec
+> ```
+> First run downloads the dataset (~8 MB) from the HuggingFace mirror `mteb/scifact` into `benchmarks/datasets/` (cached, gitignored). Offline self-test: `--self-test`.
+
+### What this measures — and what it does not
+
+Retrieval **quality** on a real text corpus: **`recall@k` against human relevance judgments (qrels)** with MTEB/TREC semantics — `recall@k = |top-k ∩ relevant| / |relevant|`, averaged over queries — plus **nDCG@10**, MTEB's main retrieval metric (MTEB paper §3.2, [arXiv:2210.07316](https://arxiv.org/abs/2210.07316)). Every engine retrieves over the **same embeddings** (all-MiniLM-L6-v2, mean-pool + L2 norm, 384d, max_seq 256, local ONNX export of rev `1110a24`), so the comparison isolates the retrieval/index layer, not the model.
+
+- **Not comparable with:** §2 / §7 / §8 (different datasets and metrics), `competitive_bench.py` (`recall_at_k` there = fidelity of approximate search vs exact kNN on vector datasets — this section also reports that, as `index-recall`), and MTEB leaderboard values (different runtime/export; values here are pipeline-specific).
+- **Both engines are exact on this corpus.** sqlite-vec (vec0) is a brute-force scan; VantaDB routes to its **flat exact scan** at this size — `flat_threshold` defaults to 10,000 nodes (`src/config.rs:347`, `VANTADB_FLAT_THRESHOLD` unset in this run) and `use_flat_search()` picks the flat path when `nodes.len() <= threshold` (`src/index/search/neighbors.rs`). `index-recall` = 1.0 is therefore expected by construction for both; the qrels recall they reach is the retrieval-quality ceiling of the declared embedding + ranking stack, not an ANN-fidelity result.
+
+### Results — BEIR SciFact (`mteb/scifact`, split `test`), 300 queries, corpus 5,183 docs, single run 2026-10-06
+
+| Engine | recall@1 | recall@10 | recall@100 | nDCG@10 | index-recall@1/10/100 | ingest (s) | q p50 (ms) | q p99 (ms) |
+| :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| exact kNN (numpy, ceiling) | 0.4823 | 0.7833 | 0.9250 | 0.6451 | 1.0 | 0.00 | 0.208 | 0.480 |
+| **VantaDB** | **0.4823** | **0.7833** | **0.9250** | **0.6451** | **1.0** | 26.268 | 7.088 | 19.413 |
+| sqlite-vec 0.1.9 | 0.4823 | 0.7833 | 0.9250 | 0.6451 | 1.0 | 0.084 | 8.489 | 12.466 |
+
+**Reading the number.** At this corpus size (5,183 nodes) VantaDB's search is the **flat exact scan**, not the HNSW graph (see the bullet above; the JSON report records `vanta_search_mode_at_corpus_size: "flat-exact"`). So both engines are exact here, `index-recall` = 1.0000 for both is by construction, and the number that matters is the **retrieval quality of the declared embedding + ranking stack: recall@10 = 0.7833 / nDCG@10 = 0.6451** — equal for VantaDB, sqlite-vec and the numpy ceiling, as expected when every engine is exact over the same embeddings. The pipeline is cross-validated against the published MTEB reference for this model on SciFact — **nDCG@10 = 64.51** (MTEB paper appendix Table 11, [arXiv:2210.07316v2](https://arxiv.org/abs/2210.07316v2); for binary qrels the linear and exponential gain conventions coincide) — the measured 0.6451 reproduces it to the last published digit. Measuring the **HNSW graph** itself requires a corpus above `flat_threshold` or `VANTADB_FLAT_THRESHOLD=0` (set to 0 to disable the flat path, `src/config.rs:903`) — tracked as `FIND-315`.
+
+### Methodological notes (Regla 11)
+
+- **Dataset/split:** `mteb/scifact` on HuggingFace (BEIR SciFact; reference [allenai/scifact](https://github.com/allenai/scifact), license cc-by-nc-4.0). Corpus 5,183 docs; eval set = the 300 test queries with qrels (339 judgments). The canonical UKP host was unreachable from the dev network at implementation time (2026-10-06); the HF mirror carries identical files (ids verified: 300/300 query-ids, 283/283 corpus-ids).
+- **Seed:** 42 — controls the deterministic query subsample when `--limit-queries` is used (default: all queries). The reported run used all 300.
+- **Environment:** Windows 11 Pro · 12th Gen Intel Core i5-1235U (10c/12t) · 31.78 GB RAM · Python 3.11.9 · `vantadb-py` 0.8.0 (editable install) · `sqlite-vec` 0.1.9 · `onnxruntime` 1.26.0. VantaDB config: `flat_threshold` = 10,000 (default; `VANTADB_FLAT_THRESHOLD` unset) → **flat exact scan** at 5,183 nodes; `engine_config` in the JSON records it. (Python reports the OS as `Windows-10-10.0.26200-SP0` — a known Win11 reporting quirk; the OS is Windows 11 Pro.)
+- **Latency caveat:** single run, single machine; recall values are deterministic for this pipeline, latency/ingest values vary run-to-run (VantaDB ingest observed 12.6–26.3 s across runs on the same machine, machine load dependent). The exact-kNN row is a brute-force numpy reference (no index). VantaDB's ingest includes index + derived-index build; sqlite-vec's ingest is a row append — speed is not the axis measured here (see §7 and `competitive_bench.py`).
+- **Scale caveat:** 5,183 vectors is below `flat_threshold` (10,000) and below any meaningful HNSW operating range; the exact-scan tie here is not evidence about approximate-search quality at larger corpora (see §1 stress protocol for 10K-100K and `FIND-315` for a real-HNSW measurement).
+- **Competitor choice:** sqlite-vec was selected over pgvector because pgvector requires a PostgreSQL server (Docker unavailable in the dev environment; native install outside this harness's no-docker philosophy) — tracked as `FIND-314` in the Backlog.
 
 ---
 

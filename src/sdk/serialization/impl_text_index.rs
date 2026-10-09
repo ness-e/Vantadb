@@ -671,4 +671,16 @@ mod tests {
         state.schema_version = 999;
         assert!(!Embedded::text_index_state_matches_spec(&state));
     }
+
+    /// EGO-04: a v1 (ASCII-only) index state must NOT match the v2 spec, so
+    /// `ensure_text_index_current_with` rebuilds it instead of reading stale
+    /// postings (loud migration, never silent corruption).
+    #[test]
+    fn test_text_index_state_v1_ascii_mismatches_v2_spec() {
+        let counts = TextIndexCounts::default();
+        let mut state = Embedded::fresh_text_index_state(counts);
+        state.tokenizer = "lowercase-ascii-alnum".to_string();
+        state.tokenizer_version = 1;
+        assert!(!Embedded::text_index_state_matches_spec(&state));
+    }
 }

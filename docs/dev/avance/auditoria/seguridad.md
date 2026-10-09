@@ -189,3 +189,33 @@ tags: [vantadb, avance, security, audit, fuzz, miri, ffi]
 - **Resultado:** ✅ RED→GREEN por slice (snapshot-name traversal+DoS, bulk_import 4ª ruta, refuse-to-start paridad FIND-07); verify lead 4/4+6/6; P2-01 vanta-audit approve con re-ejecución propia
 - **Commit:** 6a0f6934
 - **Observación:** `mirror_data_dir` dest-dentro-de-src inalcanzable vía API (validate_snapshot_name); `:`/espacios en nombres sin PoC → no findings
+
+### FIND-225: CodeQL — triage de 48 alertas (6 critical + 42 high)
+- **Fecha:** 2026-10-03
+- **Objetivo:** 48 alertas open en la pestaña Security (todas en tests/scripts de docs; 0 en `src/`).
+- **Resultado:** ✅ 48/48 resueltas vía API con justificación por alerta: 40× `used in tests` (6 salt fixtures no-criptográficos — `DefaultHasher` — + 34 assert-messages) + 8× `false positive` (tooling docs sin sink de seguridad). Contrato `open=0` + review P2-01 approve con spot-check adversarial (9 alertas, 4 grupos).
+- **Commit:** `c8c3e0fe` (task file)
+
+### FIND-226: ASan — símbolos (llvm-symbolizer) + fix de leaks reales (1.81 GB)
+- **Fecha:** 2026-10-03
+- **Objetivo:** Job ASan sin símbolos (intriageable) + dominante 28×64MB de engines in-memory no liberados al salir los tests.
+- **Resultado:** ✅ Causa raíz: `Box::leak(Box::new(storage))` innecesario en tests de `src/graph.rs` (21) + `src/gds.rs` (7) — reemplazado por `&storage` (los constructores ya tomaban `&'a StorageEngine`; test-only, asserts intactos). Job con `llvm` + `ASAN_SYMBOLIZER_PATH` fail-loud. Decisión: fix en fuente, SIN supresión LSAN (no enmascarar leaks futuros). actionlint/fmt/clippy/nextest 55/55 verdes. Review P2-01 approve.
+- **Commit:** `7ea9ab3e`
+
+### FIND-227: TSan — decisión "status quo (best-effort)" documentada
+- **Fecha:** 2026-10-03
+- **Objetivo:** Job TSan crónico-rojo; la premisa del plan ("race 100% mpmc/libtest") resultó parcial al analizar los logs crudos.
+- **Resultado:** ✅ Análisis de 565 reports: mpmc/libtest/compiler_* = solo 17/565; el resto allocator-op/rayon/fjall (una supresión convergente exigiría blanket `free`/`__tsan_memcpy` = sobre-supresión que ocultaría races reales). Decisión documentada in-place (comment-only) + causa raíz contra fuentes oficiales: std sin instrumentar + fences no soportados por TSan (rust-lang/rust#39608/#65097). Follow-up: evaluar `-Zbuild-std` (costo owner). Review P2-01 approve (ronda 2).
+- **Commit:** `a63c9d00`
+
+### DUR-02: Auditoría cobertura AES (`encryption`) — WAL / text_index / HNSW / edge_index / snapshots
+- **Fecha:** 2026-10-04
+- **Objetivo:** mapa artefacto→cifrado con evidencia de código o test con tmpdir + gaps clasificados (fix/FIND/wontfix); si hay gap accionable pequeño: fix + test.
+- **Resultado:** ✅ Contrato completo — mapa **0/6 artefactos cifrados** (evidencia file:línea por artefacto + probe tmpdir: canary plaintext en `vanta.shard0.wal` y `0.jnl` con feature `encryption` + key válida) · fix pequeño aplicado: `File::encryption_stream` usa el cipher adjunto (`with_cipher`) — RED→GREEN, nextest scoped 42/42 · gap grande → **FIND-249** (wiring vs primitivas-only; decisión de diseño) · `edge_index` OK-justificado (derivado sin artefacto) · docs corregidos (CONFIGURATION.md, FEATURES.md; HTTP_API.md ya era honesto) · gates: fmt/clippy(feature)/nextest 42/42/check-links/check-docs/gen-index/validate-docs-coverage 0 · OCR sin Critical/High · review P2-01 vanta-review ✅ APPROVE (H1-H4 incorporados).
+- **Commit:** `16afd036` (local, sin push)
+
+### ENC-01: Cifrado honesto — aviso al activar + docs (FIND-249 parte 1)
+- **Fecha:** 2026-10-04
+- **Objetivo:** Warning explícito y accionable al activar `encryption` (feature + `VANTADB_ENCRYPTION_KEY`) — el cifrado no protege ningún artefacto on-disk (0/6, DUR-02) — + docs/rustdoc sin ambigüedad (FIND-249) + tests que lo fijan. Cableado completo diferido por el owner (FIND-249).
+- **Resultado:** ✅ Contrato completo — `StorageEngine::open_with_config` emite el aviso (punto de activación; gating por entorno; excluye InMemory) · RED→GREEN 3/3 · scoped hermético en 4 escenarios de env (limpio / key / `VANTADB_BACKEND=memory` / ambas) · suites completas 2575/2575 (con feature) + 2549/2549 (sin) · fmt/clippy 0 · gates docs 0 · OCR 0 Critical/High · review P2-01 adversarial R1 changes-required (hermeticidad de tests) → fix → R2 APPROVE. Docs: `CONFIGURATION.md` (:73 + §7) + `FEATURES.md:47` + rustdoc `config.rs`/`lib.rs`. Nota "key sin feature compilada no avisa" registrada en FIND-249.
+- **Commit:** `b02b1609` (local, sin push)

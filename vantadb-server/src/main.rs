@@ -66,7 +66,30 @@ async fn main() -> anyhow::Result<()> {
             .await
             .context("failed to start MCP server")
     } else {
-        vantadb::cli_server::run(config)
+        // WIRE-16 (ADR-0054 T3): HTTP mode is the scheduler host — wire the
+        // conversation bridge + memory scheduler through the server's
+        // deferred `on_storage_ready` hook (single writer: the server owns
+        // the DB open; the host receives its `Embedded` handle). Read-only
+        // servers skip the wiring (mirrors the TTL sweeper guard). The env/
+        // TOML reads happen inside the hook so R-5 warnings are visible —
+        // `run_with_hooks` installs telemetry before the hook fires.
+        let mut hooks = vantadb::cli_server::ServerHooks::default();
+        if !config.read_only {
+            let storage_path = config.storage_path.clone();
+            hooks.on_storage_ready = Some(Box::new(
+                move |hooks: &mut vantadb::cli_server::ServerHooks, db: vantadb::sdk::Embedded| {
+                    let interval_ms = vantadb_server::scheduler::scheduler_interval_ms_from_env();
+                    let ingest = vantadb_server::scheduler::ingest_runner_cfg(&storage_path);
+                    vantadb_server::scheduler::wire_memory(
+                        hooks,
+                        db,
+                        interval_ms,
+                        vantadb_server::scheduler::ingest_runner_factory(ingest),
+                    );
+                },
+            ));
+        }
+        vantadb::cli_server::run_with_hooks(config, hooks)
             .await
             .context("server error")
     }

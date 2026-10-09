@@ -28,6 +28,10 @@ on:
         required: false
         default: false
         type: boolean
+      ab_ref:
+        description: 'FIND-233: same-job A/B — commit/tag built as side A in this job (wheel A vs wheel B = this ref); empty = normal single-side run'
+        required: false
+        default: ''
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -61,6 +65,8 @@ jobs:
         cache-dependency-path: vantadb-python/pyproject.toml
 
     - name: Build & install Python wheel
+      # FIND-233: skipped when ab_ref is set — the A/B path builds both wheels.
+      if: ${{ !inputs.ab_ref }}
       run: |
         python -m venv .venv
         .venv/bin/python -m pip install --upgrade pip
@@ -70,28 +76,89 @@ jobs:
         .venv/bin/python -c "import vantadb_py; print('Import OK:', vantadb_py.__version__)"
 
     - name: Run Standard Ingestion & Search Benchmark (3 runs)
+      if: ${{ !inputs.ab_ref }}
+      # FIND-232: push and dispatch must use the SAME profile the baseline was
+      # generated with (10000/1000 — canonical command in benchmarks/README.md
+      # and docs/user/operations/BENCHMARKS.md §2/§3). A 1000/100 run against a
+      # 10000/1000 baseline is apples-to-oranges: p99 over 100 queries *is* the
+      # max sample, and query_hybrid.p50 alone inflated +65-141% (measured
+      # 2026-09-25..10-02 across 13 red runs). Guarded in compare_baseline.py.
       run: |
-        SIZE="${{ github.event.inputs && github.event.inputs.size || '1000' }}"
-        QUERIES="${{ github.event.inputs && github.event.inputs.queries || '100' }}"
+        SIZE="${{ github.event.inputs && github.event.inputs.size || '10000' }}"
+        QUERIES="${{ github.event.inputs && github.event.inputs.queries || '1000' }}"
         DIM="${{ github.event.inputs && github.event.inputs.dim || '128' }}"
         for i in 1 2 3; do
           .venv/bin/python benchmarks/vantadb_local_bench.py --size $SIZE --dim $DIM --queries $QUERIES --output benchmark_results.$i.json
         done
 
+    # ── FIND-233: same-job A/B (opt-in via ab_ref) ──────────────────────────
+    # Cross-VM spread measured by FIND-232 is 1.7-2.4x (insert.p99 16.8x), so
+    # the single-side gate cannot see fine (<2-3x) regressions. With both sides
+    # measured in THIS job the machine factor cancels: wheel A is built from
+    # ab_ref and wheel B from the triggering ref, then 3 ALTERNATED pairs
+    # (A_i, B_i) run — alternation cancels the warm-up ramp every job shows
+    # (adjacent-run deltas -1.2%..-22% on identical code). compare_baseline.py
+    # --ab-runs gates on the median of the paired ratios (bands provisional:
+    # warn >15% / block >50%; calibrate with a same-SHA dispatch ab_ref=HEAD).
+    # Cost: ~+5-9 min per invocation (2 builds + 3 extra runs + wheel swaps);
+    # the push path never sets ab_ref, so the always-on gate stays ~4.5 min.
+    - name: A/B same-job — checkout A side
+      if: ${{ inputs.ab_ref }}
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        ref: ${{ inputs.ab_ref }}
+        path: ab-ref
+
+    - name: A/B same-job — build A (ref) and B (this ref) wheels
+      if: ${{ inputs.ab_ref }}
+      run: |
+        python -m venv .venv
+        .venv/bin/python -m pip install --upgrade pip
+        .venv/bin/python -m pip install maturin
+        .venv/bin/maturin build --manifest-path ab-ref/vantadb-python/Cargo.toml --release --out ab-ref/vantadb-python/dist
+        .venv/bin/maturin build --manifest-path vantadb-python/Cargo.toml --release --out vantadb-python/dist
+        echo "AB_WHEEL=$(ls -t ab-ref/vantadb-python/dist/vantadb_py-*.whl | head -n 1)" >> "$GITHUB_ENV"
+        echo "B_WHEEL=$(ls -t vantadb-python/dist/vantadb_py-*.whl | head -n 1)" >> "$GITHUB_ENV"
+
+    - name: A/B same-job — alternated paired runs (A_i, B_i)
+      if: ${{ inputs.ab_ref }}
+      run: |
+        SIZE="${{ github.event.inputs && github.event.inputs.size || '10000' }}"
+        QUERIES="${{ github.event.inputs && github.event.inputs.queries || '1000' }}"
+        DIM="${{ github.event.inputs && github.event.inputs.dim || '128' }}"
+        for i in 1 2 3; do
+          .venv/bin/pip install "$AB_WHEEL" --force-reinstall
+          .venv/bin/python benchmarks/vantadb_local_bench.py --size $SIZE --dim $DIM --queries $QUERIES --output ab_results.$i.json
+          .venv/bin/pip install "$B_WHEEL" --force-reinstall
+          .venv/bin/python benchmarks/vantadb_local_bench.py --size $SIZE --dim $DIM --queries $QUERIES --output benchmark_results.$i.json
+        done
+
     - name: Compare vs baseline (median of 3 runs)
-      # Tolerance bands live in benchmarks/compare_baseline.py (FIND-154):
-      # stable metrics block > 15%; quarantined families (query_hybrid,
-      # query_text) warn > 15% and block only at the 300% catastrophic
-      # ceiling. `--self-test` proves both cases offline.
+      id: bench-compare
+      # Tolerance bands live in benchmarks/compare_baseline.py (FIND-154,
+      # recalibrated FIND-232): stable metrics warn > 25% and block > 200%
+      # (measured cross-job spread up to 2.4x; 2.1x on a same-SHA pair);
+      # quarantined families (query_hybrid, query_text) warn > 15% and block
+      # only past the 300% ceiling AND a 0.5 ms absolute increase; insert.p99
+      # gates on a 100 ms absolute level. A profile mismatch (total_records)
+      # refuses to compare. `--self-test` proves all cases offline.
       run: |
         if [ "${{ inputs.update_baseline }}" = "true" ]; then
           .venv/bin/python benchmarks/compare_baseline.py --update-baseline
+          echo "baseline_updated=true" >> "$GITHUB_OUTPUT"
         else
           .venv/bin/python benchmarks/compare_baseline.py
         fi
 
+    - name: A/B same-job — compare paired deltas (FIND-233)
+      if: ${{ inputs.ab_ref }}
+      run: .venv/bin/python benchmarks/compare_baseline.py --ab-runs 1 2 3
+
     - name: Upload Baseline Candidate
-      if: ${{ inputs.update_baseline == 'true' }}
+      # FIND-232: gate on the step output, not on `inputs.update_baseline`
+      # (boolean input vs string comparison made this step skip silently on
+      # every update run — including the 2026-09-25 baseline generation).
+      if: ${{ steps.bench-compare.outputs.baseline_updated == 'true' }}
       uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
       with:
         name: vanta-benchmark-baseline-candidate
@@ -107,4 +174,12 @@ jobs:
       with:
         name: vanta-benchmark-results
         path: benchmark_results.json
+        retention-days: 14
+
+    - name: Upload A/B results artifact (side A median)
+      if: ${{ inputs.ab_ref }}
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      with:
+        name: vanta-benchmark-ab-results
+        path: ab_results.json
         retention-days: 14

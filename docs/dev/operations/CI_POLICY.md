@@ -63,6 +63,7 @@ governance semantics are excluded from the default fast lane.
 | `experimental-check` | Experimental Crates Check (continue-on-error, non-blocking) |
 | `sanitizer-asan` | AddressSanitizer (nightly, continue-on-error) |
 | `sanitizer-tsan` | ThreadSanitizer (nightly, continue-on-error) |
+| `release-combo` | Release Combo Check — `cargo check --release` of `vanta-cli` (`server,jemalloc`) + `vantadb-server` (`jemalloc`) with `RUSTFLAGS=-D warnings`; the exact combo of `release-binaries.yml` (FIND-231) |
 
 > **Note (ERR-OBS-01):** the `test` job exercises error-observability behavior
 > in `error::tests` (backtrace capture is env-gated via `RUST_BACKTRACE`/
@@ -150,6 +151,13 @@ The workspace includes several **experimental crates** that are not part of the 
 | `providers/openai` | OpenAI embedding adapter (NOT a workspace member — checked via `--manifest-path`) | Experimental |
 | `providers/ollama` | Ollama embedding adapter (idem) | Experimental |
 | `providers/litellm` | LiteLLM embedding adapter (idem) | Experimental |
+
+**Providers release channel (PROV-12, 2026-10-04):** `providers/{openai,ollama,litellm}` ship
+as PyPI wheels (`vantadb-openai` / `vantadb-ollama` / `vantadb-litellm`) via
+`release-providers.yml` — maturin matrix 3 providers × 4 platforms (linux x86_64 + aarch64,
+macOS, Windows), tag namespace `providers-v*.*.*`, TestPyPI dry-run via `workflow_dispatch`.
+The circuit-breaker rules below are unchanged: the release workflow does not touch
+`default-members`, workspace clippy or coverage.
 
 **Circuit breaker rules:**
 

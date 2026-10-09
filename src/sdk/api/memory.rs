@@ -11,17 +11,19 @@
 
 use super::super::builder::Embedded;
 use super::super::serialization::{
-    memory_node_id, memory_record_to_node_owned, now_ms, record_from_node,
-    validate_confidence_fields, validate_key, validate_metadata, validate_namespace,
-    DERIVED_INDEX_SCHEMA_VERSION, FIELD_CONFIDENCE_CLASS, FIELD_CREATED_AT_MS, FIELD_EXPIRES_AT_MS,
-    FIELD_KEY, FIELD_NAMESPACE, FIELD_PAYLOAD, FIELD_QUARANTINED_AT_MS, FIELD_QUARANTINED_BY,
-    FIELD_QUARANTINE_REASON, FIELD_QUARANTINE_REVIEW_DUE_MS, FIELD_UPDATED_AT_MS,
-    FIELD_VALID_AT_MS, FIELD_VERSION,
+    memory_node_id, memory_record_from_node_include_expired, memory_record_to_node_owned, now_ms,
+    record_from_node, validate_confidence_fields, validate_key, validate_metadata,
+    validate_namespace, DERIVED_INDEX_SCHEMA_VERSION, FIELD_CONFIDENCE_CLASS, FIELD_CREATED_AT_MS,
+    FIELD_EXPIRES_AT_MS, FIELD_KEY, FIELD_NAMESPACE, FIELD_PAYLOAD, FIELD_QUARANTINED_AT_MS,
+    FIELD_QUARANTINED_BY, FIELD_QUARANTINE_REASON, FIELD_QUARANTINE_REVIEW_DUE_MS,
+    FIELD_UPDATED_AT_MS, FIELD_VALID_AT_MS, FIELD_VERSION,
 };
 use super::super::types::*;
+use super::graph::{LABEL_DERIVED_FROM, LABEL_SUPERSEDED_BY};
 use crate::backend::{BackendKind, BackendPartition, BackendWriteOp};
 use crate::error::{Error, Result};
 use crate::node::{FieldValue, UnifiedNode, VectorRepresentations};
+use crate::sdk::merge::{resolve_merge, MergeDecision, MergeOutcome, MergeResult};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use web_time::Instant;
@@ -79,6 +81,91 @@ fn validate_quarantine_reason(reason: &str) -> Result<()> {
         });
     }
     Ok(())
+}
+
+/// MEMG-03: carry node-resident graph state that the record→node projection
+/// cannot represent — `edges` and `label_index` — from the node currently
+/// stored under `node.id` (if any) into `node` before an upsert. The record is
+/// canonical for fields (ADR-046 §D2); graph state is not, so a record rewrite
+/// must not sever the memory↔graph bridge (lineage edges, user edges).
+///
+/// ponytail: callers skip this for provably-fresh inserts (`resolve_*` already
+/// proved no node exists), so the cost is one `engine.get` per *update* —
+/// cache-hot (the node was just read). Upgrade path if a canonical bench ever
+/// shows it (MEMG-03 Step 6 timing was noise-dominated): thread `edges`
+/// through `resolve_existing_for_write`.
+fn carry_graph_state(engine: &crate::storage::StorageEngine, node: &mut UnifiedNode) -> Result<()> {
+    if let Some(existing) = engine.get(node.id)? {
+        if !existing.edges.is_empty() {
+            node.edges = existing.edges;
+        }
+        if !existing.label_index.is_empty() {
+            node.label_index = existing.label_index;
+        }
+    }
+    Ok(())
+}
+
+/// MEMG-03: reconcile lineage edges (`derived_from`, `superseded_by`) for a
+/// record rewrite — the record field is canonical; the edge is derived
+/// navigability created by the op. Forward halves (`!reverse`) whose target is
+/// no longer declared by the field are dropped from `node.edges`; the returned
+/// `(target, label)` pairs must have their counterpart half cleaned up after
+/// the insert (best-effort — the counterpart node may already be gone).
+fn reconcile_lineage_edges(
+    engine: &crate::storage::StorageEngine,
+    node: &mut UnifiedNode,
+    namespace: &str,
+    derived_from: &[String],
+    superseded_by: Option<&str>,
+) -> Vec<(u128, &'static str)> {
+    let derived_label = engine.intern_label(LABEL_DERIVED_FROM);
+    let superseded_label = engine.intern_label(LABEL_SUPERSEDED_BY);
+    let declared_derived: HashSet<u128> = derived_from
+        .iter()
+        .map(|key| memory_node_id(namespace, key))
+        .collect();
+    let declared_superseded = superseded_by.map(|key| memory_node_id(namespace, key));
+
+    let stale_derived: Vec<u128> = node
+        .edges
+        .iter()
+        .filter(|e| {
+            !e.reverse && e.label_id == derived_label && !declared_derived.contains(&e.target)
+        })
+        .map(|e| e.target)
+        .collect();
+    let stale_superseded: Vec<u128> = node
+        .edges
+        .iter()
+        .filter(|e| {
+            !e.reverse && e.label_id == superseded_label && Some(e.target) != declared_superseded
+        })
+        .map(|e| e.target)
+        .collect();
+    if !stale_derived.is_empty() || !stale_superseded.is_empty() {
+        node.edges.retain(|e| {
+            if e.reverse {
+                return true;
+            }
+            if e.label_id == derived_label {
+                return declared_derived.contains(&e.target);
+            }
+            if e.label_id == superseded_label {
+                return Some(e.target) == declared_superseded;
+            }
+            true
+        });
+    }
+    stale_derived
+        .into_iter()
+        .map(|t| (t, LABEL_DERIVED_FROM))
+        .chain(
+            stale_superseded
+                .into_iter()
+                .map(|t| (t, LABEL_SUPERSEDED_BY)),
+        )
+        .collect()
 }
 
 impl Embedded {
@@ -146,6 +233,24 @@ impl Embedded {
         Ok(Some((at, reason, by, due)))
     }
 }
+
+// ── MEMG-02: outcome-loop reinforcement policy (declared, not calibrated) ──
+//
+// Bump/decay are bounded (saturate at 1.0 / floor at 0.0) and the positive
+// direction is rate-limited per record so repeated signals cannot inflate the
+// score. Values are policy — empirical calibration is VER-08 (excluded here).
+
+/// Confidence bump applied by a positive reinforcement (`Used`), saturated
+/// at 1.0.
+pub(crate) const REINFORCE_CONFIDENCE_BUMP: f32 = 0.05;
+
+/// Confidence decay applied by a negative reinforcement (`Corrected`),
+/// floored at 0.0.
+pub(crate) const REINFORCE_CONFIDENCE_DECAY: f32 = 0.10;
+
+/// Minimum time between positive reinforcements of the same record (rate
+/// window, anchored on `last_validated_at_ms`). One bump per window.
+pub(crate) const REINFORCE_WINDOW_MS: u64 = 300_000; // 5 min
 
 impl Embedded {
     /// True when a vector is entirely zeros — the HNSW core rejects
@@ -299,6 +404,266 @@ impl Embedded {
         }
     }
 
+    /// Resolve the existing record for a write to `(namespace, key)`.
+    ///
+    /// A physically present node whose record is hidden by lazy TTL eviction
+    /// (`record_from_node` → `None`) is **purged on write** (DUR-03 / H-023):
+    /// the expired record is logically absent — `get` hides it, `delete`
+    /// reports nothing, `list`/search exclude it — so a write must not
+    /// collide with it. Purging first gives the same observable outcome as
+    /// the documented `purge_expired()`-then-`put` workaround: fresh version 1
+    /// and `created_at_ms` reset (the single-record purge is a superset of the
+    /// sweeper's cleanup — it also removes sparse index entries, which
+    /// `purge_expired` does not).
+    ///
+    /// Returns the existing live record (if any) **plus the read guard that
+    /// stabilizes its generation**. Kept for callers that only need a
+    /// decision snapshot (`merge_record_inner`); the record-write paths
+    /// (`put_one`, `put_record_exact`) instead hold the **write** guard for
+    /// their whole read-modify-write — a concurrent purge, upsert or delete
+    /// would otherwise apply the generation's text-index decrement twice and
+    /// drive the term df negative (DUR-03 r3).
+    ///
+    /// [`Error::NodeIdCollision`] is returned when the deterministic id is
+    /// occupied by a different key or a non-memory node; inside an active
+    /// transaction the expired case keeps that same error (see
+    /// `purge_expired_record`).
+    fn resolve_existing_for_write(
+        &self,
+        engine: &crate::storage::StorageEngine,
+        namespace: &str,
+        key: &str,
+    ) -> Result<(
+        Option<MemoryRecord>,
+        Option<parking_lot::RwLockReadGuard<'_, ()>>,
+    )> {
+        let node_id = memory_node_id(namespace, key);
+        loop {
+            let Some(node) = engine.get(node_id)? else {
+                return Ok((None, None));
+            };
+            match record_from_node(&node) {
+                Some(record) if record.namespace == namespace && record.key == key => {
+                    // Live record: take the read guard and re-verify under it
+                    // (a purge may have won the race since the peek).
+                    let guard = self.purge_lock.read();
+                    let Some(node) = engine.get(node_id)? else {
+                        drop(guard);
+                        continue;
+                    };
+                    match record_from_node(&node) {
+                        Some(record) if record.namespace == namespace && record.key == key => {
+                            return Ok((Some(record), Some(guard)));
+                        }
+                        Some(_) => return Err(Error::NodeIdCollision(node_id)),
+                        None => {
+                            // Expired between the peek and the guard: retry as
+                            // the purge-on-write case.
+                            drop(guard);
+                            if self
+                                .purge_expired_record(engine, namespace, key, node_id)?
+                                .is_none()
+                            {
+                                return Ok((None, None));
+                            }
+                            continue;
+                        }
+                    }
+                }
+                Some(_) => return Err(Error::NodeIdCollision(node_id)),
+                None => match memory_record_from_node_include_expired(&node) {
+                    Some(expired) if expired.namespace == namespace && expired.key == key => {
+                        if self
+                            .purge_expired_record(engine, namespace, key, node_id)?
+                            .is_none()
+                        {
+                            return Ok((None, None));
+                        }
+                        continue;
+                    }
+                    _ => return Err(Error::NodeIdCollision(node_id)),
+                },
+            }
+        }
+    }
+
+    /// [`Self::resolve_existing_for_write`] variant for callers that already
+    /// hold the `purge_lock` **write** guard (`put_one`, `put_record_exact`
+    /// and `put_batch_inner` critical sections): no read guard is taken —
+    /// re-entering the non-reentrant lock would deadlock — and expired
+    /// records are purged inline through
+    /// [`Self::purge_expired_record_locked`]. Returns the live record to
+    /// upsert over (`previous`), if any, exactly like the guarded variant's
+    /// first tuple element.
+    fn resolve_existing_for_write_locked(
+        &self,
+        engine: &crate::storage::StorageEngine,
+        namespace: &str,
+        key: &str,
+    ) -> Result<Option<MemoryRecord>> {
+        let node_id = memory_node_id(namespace, key);
+        loop {
+            let Some(node) = engine.get(node_id)? else {
+                return Ok(None);
+            };
+            match record_from_node(&node) {
+                Some(record) if record.namespace == namespace && record.key == key => {
+                    return Ok(Some(record));
+                }
+                Some(_) => return Err(Error::NodeIdCollision(node_id)),
+                None => match memory_record_from_node_include_expired(&node) {
+                    Some(expired) if expired.namespace == namespace && expired.key == key => {
+                        if self
+                            .purge_expired_record_locked(engine, namespace, key, node_id)?
+                            .is_none()
+                        {
+                            return Ok(None);
+                        }
+                        continue;
+                    }
+                    _ => return Err(Error::NodeIdCollision(node_id)),
+                },
+            }
+        }
+    }
+
+    /// Physically remove one expired record and its derived entries, under the
+    /// `purge_lock` **write** guard. Uses the same primitives as `delete_inner`
+    /// — node delete (KV + HNSW + shred), derived/text/sparse index
+    /// replacement to `None`, version-history purge — plus a re-check: if a
+    /// concurrent purge already removed the node, or a concurrent write
+    /// refreshed it, the cleanup must not run again (a second stats decrement
+    /// would drive the text df negative).
+    ///
+    /// Returns `Ok(Some(record))` when the node was refreshed into a live
+    /// record of this key (the caller should upsert over it), `Ok(None)` when
+    /// the expired record was purged or the node vanished, and
+    /// [`Error::NodeIdCollision`] when the id now holds a foreign node.
+    ///
+    /// Inside an active transaction `engine.delete` only buffers the node
+    /// delete while the index cleanup would apply immediately — an abort
+    /// would leave the node present with its stats already gone — so this
+    /// refuses to purge and the caller keeps the pre-DUR-03 collision error.
+    fn purge_expired_record(
+        &self,
+        engine: &crate::storage::StorageEngine,
+        namespace: &str,
+        key: &str,
+        node_id: u128,
+    ) -> Result<Option<MemoryRecord>> {
+        let _guard = self.purge_lock.write();
+        self.purge_expired_record_locked(engine, namespace, key, node_id)
+    }
+
+    /// [`Self::purge_expired_record`] without taking the lock: the caller must
+    /// already hold the `purge_lock` **write** guard. `put_batch_inner` holds
+    /// that guard for its whole critical section (resolve + insert + index
+    /// replacement), so it must purge expired keys through this variant — the
+    /// public one would re-enter the non-reentrant lock and deadlock.
+    fn purge_expired_record_locked(
+        &self,
+        engine: &crate::storage::StorageEngine,
+        namespace: &str,
+        key: &str,
+        node_id: u128,
+    ) -> Result<Option<MemoryRecord>> {
+        if engine.txn.has_active() {
+            return Err(Error::NodeIdCollision(node_id));
+        }
+        let Some(node) = engine.get(node_id)? else {
+            return Ok(None);
+        };
+        match record_from_node(&node) {
+            Some(record) if record.namespace == namespace && record.key == key => {
+                return Ok(Some(record));
+            }
+            Some(_) => return Err(Error::NodeIdCollision(node_id)),
+            None => {}
+        }
+        let Some(current) = memory_record_from_node_include_expired(&node) else {
+            // Present but not a parseable memory record of this key: a foreign
+            // node — never silently overwrite it.
+            return Err(Error::NodeIdCollision(node_id));
+        };
+        if current.namespace != namespace || current.key != key {
+            return Err(Error::NodeIdCollision(node_id));
+        }
+        engine.delete(node_id, "ttl_rewrite")?;
+        self.replace_derived_indexes(engine, Some(&current), None)?;
+        // Best-effort class, same as `delete_inner` (VS-CORE-07).
+        let _ = super::super::version_history::purge_key(engine, &current.namespace, &current.key);
+        Ok(None)
+    }
+
+    /// MEMG-04: per-namespace record quota check for a **fresh insert**.
+    ///
+    /// Opt-in via `Config.max_records_per_namespace`; `None` (the default)
+    /// makes this a no-op with zero cost. The count comes from the
+    /// incrementally-maintained text-index namespace stats (`doc_count`,
+    /// updated +1/−1 per put/delete/purge — never recomputed by scanning),
+    /// so the check costs one cache/KV read per fresh insert.
+    ///
+    /// The quota is a resource control (best-effort under concurrent
+    /// writers), not the multi-tenant security barrier — namespace isolation
+    /// is enforced by the server RBAC.
+    fn check_namespace_quota(
+        &self,
+        engine: &crate::storage::StorageEngine,
+        namespace: &str,
+    ) -> Result<()> {
+        let Some(limit) = self.config.max_records_per_namespace else {
+            return Ok(());
+        };
+        let current = Self::load_text_namespace_stats(engine, namespace)?
+            .map(|stats| stats.doc_count)
+            .unwrap_or(0);
+        if current >= limit {
+            return Err(Error::ResourceLimit(format!(
+                "namespace '{namespace}' is at its record quota ({current}/{limit}); \
+                 delete records or raise max_records_per_namespace"
+            )));
+        }
+        Ok(())
+    }
+
+    /// MEMG-04: batch variant — sums the **fresh** keys per namespace up front
+    /// so an over-quota batch is rejected before any chunk is written
+    /// (all-or-nothing: no partial application).
+    fn check_batch_namespace_quota(
+        &self,
+        engine: &crate::storage::StorageEngine,
+        inputs: &[MemoryInput],
+    ) -> Result<()> {
+        let Some(limit) = self.config.max_records_per_namespace else {
+            return Ok(());
+        };
+        let mut seen: HashSet<u128> = HashSet::with_capacity(inputs.len());
+        let mut fresh_per_ns: HashMap<&str, u64> = HashMap::new();
+        for input in inputs {
+            let node_id = memory_node_id(&input.namespace, &input.key);
+            if !seen.insert(node_id) {
+                continue; // in-batch duplicate: counts once
+            }
+            // A present-but-expired node is purged on write (net zero), so
+            // only truly absent nodes add to the count.
+            if engine.get(node_id)?.is_none() {
+                *fresh_per_ns.entry(input.namespace.as_str()).or_default() += 1;
+            }
+        }
+        for (namespace, fresh) in fresh_per_ns {
+            let current = Self::load_text_namespace_stats(engine, namespace)?
+                .map(|stats| stats.doc_count)
+                .unwrap_or(0);
+            if current.saturating_add(fresh) > limit {
+                return Err(Error::ResourceLimit(format!(
+                    "namespace '{namespace}' record quota exceeded: {current} existing + {fresh} new \
+                     > limit {limit}; delete records or raise max_records_per_namespace"
+                )));
+            }
+        }
+        Ok(())
+    }
+
     /// Shared logic for inserting/updating a single memory record.
     /// Used by both `put()` and `put_batch()`.
     fn put_one(&self, input: MemoryInput) -> Result<MemoryRecord> {
@@ -309,20 +674,22 @@ impl Embedded {
 
         let engine = self.engine_handle()?;
         let node_id = memory_node_id(&input.namespace, &input.key);
-        let existing = match engine.get(node_id)? {
-            Some(node) => match record_from_node(&node) {
-                Some(record) if record.namespace == input.namespace && record.key == input.key => {
-                    Some(record)
-                }
-                _ => {
-                    return Err(Error::NodeIdCollision(memory_node_id(
-                        &input.namespace,
-                        &input.key,
-                    )));
-                }
-            },
-            None => None,
-        };
+        // DUR-03 r3 (CODEX-132): hold the purge **write** guard across the
+        // whole read-modify-write — resolve + insert + index replacement —
+        // fresh inserts included. Two concurrent upserts of the same key
+        // otherwise both resolve the same generation and both apply its
+        // text-index decrement (term df goes negative); a fresh insert's
+        // stats also land after its node is already readable, so an upsert
+        // can snapshot a generation whose stats are not applied yet. Mirrors
+        // `put_batch_inner`'s critical section (same lock, locked resolver).
+        let _write_guard = self.purge_lock.write();
+        let existing =
+            self.resolve_existing_for_write_locked(&engine, &input.namespace, &input.key)?;
+        // MEMG-04: quota applies to fresh inserts only — an update of an
+        // existing key never counts and is never blocked at the limit.
+        if existing.is_none() {
+            self.check_namespace_quota(&engine, &input.namespace)?;
+        }
 
         let timestamp = now_ms();
         let created_at_ms = existing
@@ -379,10 +746,40 @@ impl Embedded {
             quarantined_by: quarantine.by,
             quarantine_review_due_ms: quarantine.review_due_ms,
         };
-        let (node, record) = memory_record_to_node_owned(record);
+        let (mut node, record) = memory_record_to_node_owned(record);
+
+        // MEMG-03: a rewrite must not wipe node-resident graph state (edges).
+        // Only an existing node can hold graph state — a fresh insert has
+        // nothing to preserve and skips the extra `engine.get`.
+        if existing.is_some() {
+            carry_graph_state(&engine, &mut node)?;
+        }
+        // MEMG-03: drop stale lineage edges (field = canonical; the edge is
+        // derived navigability). Covers `derived_from` and `superseded_by`
+        // (a re-put revives a superseded record: field resets to None).
+        let stale_lineage = reconcile_lineage_edges(
+            &engine,
+            &mut node,
+            &record.namespace,
+            &record.derived_from,
+            record.superseded_by.as_deref(),
+        );
 
         // Persist the node first (WAL + KV + HNSW)
         engine.insert(&node)?;
+
+        // MEMG-03: counterpart-side cleanup (best-effort) + ensure the declared
+        // derived_from lineage edges (idempotent, re-put safe).
+        for (target, label) in stale_lineage {
+            let _ = self.remove_edge(node.id, target, label);
+        }
+        for parent_key in &record.derived_from {
+            self.ensure_edge(
+                node.id,
+                memory_node_id(&record.namespace, parent_key),
+                LABEL_DERIVED_FROM,
+            )?;
+        }
 
         // Best-effort JSON shredding — if this fails the record still works
         // via the existing derived-index / PostFilter paths.
@@ -448,22 +845,67 @@ impl Embedded {
     pub fn put(&self, input: MemoryInput) -> Result<MemoryRecord> {
         let (namespace, key) = (input.namespace.clone(), input.key.clone());
         let res = self.put_one(input);
+        // MEMG-04: a quota rejection is audited with its reason (the generic
+        // err outcome would otherwise be silent about *why*).
+        let reason = match &res {
+            Err(Error::ResourceLimit(msg)) => Some(format!("quota_rejected: {msg}")),
+            _ => None,
+        };
         self.audit(crate::audit::AuditEvent::new(
             "put",
             &namespace,
             &key,
             if res.is_ok() { "ok" } else { "err" },
-            None,
+            reason,
         ));
         res
+    }
+
+    /// Insert or update a record and emit a **write receipt** (VER-10).
+    ///
+    /// The write itself is [`Embedded::put`] (same semantics, quota and audit
+    /// trail); the receipt is built from the persisted record and carries a
+    /// content binding plus a reference to the VER-01 chained WAL
+    /// (`vanta-cli verify` is the chain authority). Attestation is **opt-in**:
+    /// plain `put` pays nothing.
+    ///
+    /// Verify the returned receipt with [`Embedded::verify_write_receipt`]
+    /// (serialize it with `serde_json` first — JSON is the verification
+    /// surface). The receipt is a point-in-time attestation: verification
+    /// fails by design once the record is updated or deleted afterwards.
+    ///
+    /// Certified writes require **finite floats** in `metadata`, `vector` and
+    /// `sparse_vector`: the content binding serializes floats through JSON,
+    /// where `NaN`/`±Inf` collapse to `null` (ambiguous) — a non-finite input
+    /// is rejected with `Error::Validation` before anything is persisted.
+    #[tracing::instrument(skip(self, input), err)]
+    pub fn put_certified(
+        &self,
+        input: MemoryInput,
+    ) -> Result<(MemoryRecord, crate::attestation::WriteReceipt)> {
+        // Reject before the write commits: a rejected certified write must
+        // not have persisted anything (see the finiteness note above).
+        if let Some(path) = crate::attestation::first_non_finite_input(&input) {
+            return Err(Error::Validation {
+                field: "input".into(),
+                reason: format!(
+                    "non-finite float at {path}: certified writes require finite floats (the content binding would be ambiguous)"
+                ),
+            });
+        }
+        let record = self.put(input)?;
+        let receipt = crate::attestation::build_write_receipt(&record)?;
+        Ok((record, receipt))
     }
 
     /// Insert or update multiple namespace-scoped persistent memory records.
     ///
     /// Uses `batch_insert_with_opts()` internally — a single WAL `batch_append`,
-    /// KV `write_batch`, and HNSW lock acquisition across all nodes in a chunk.
-    /// Skips the per-node existence check (caller guarantees fresh inserts or
-    /// uses `put()` for individual UPSERTS).
+    /// KV `write_batch`, and HNSW lock acquisition across all nodes in a chunk —
+    /// plus per-record derived/text/sparse index replacement (the same
+    /// `replace_derived_indexes` path `put()` uses; MEMG-11: O(batch), no
+    /// full-DB rebuild). UPSERTs bump versions like `put()` (in-batch
+    /// duplicates included).
     #[tracing::instrument(skip(self, inputs), err)]
     pub fn put_batch(&self, inputs: Vec<MemoryInput>) -> Result<Vec<MemoryRecord>> {
         let (namespace, key) = inputs
@@ -471,12 +913,17 @@ impl Embedded {
             .map(|i| (i.namespace.clone(), i.key.clone()))
             .unwrap_or_else(|| ("N/A".to_string(), "N/A".to_string()));
         let res = self.put_batch_inner(inputs);
+        // MEMG-04: same quota-reason surfacing as `put`.
+        let reason = match &res {
+            Err(Error::ResourceLimit(msg)) => Some(format!("quota_rejected: {msg}")),
+            _ => None,
+        };
         self.audit(crate::audit::AuditEvent::new(
             "put_batch",
             &namespace,
             &key,
             if res.is_ok() { "ok" } else { "err" },
-            None,
+            reason,
         ));
         res
     }
@@ -491,19 +938,42 @@ impl Embedded {
         }
 
         let engine = self.engine_handle()?;
+        // MEMG-04: all-or-nothing quota pre-check — rejects before any chunk
+        // is written, so an over-quota batch leaves no partial state.
+        self.check_batch_namespace_quota(&engine, &inputs)?;
         let batch_size = self.config.batch_size.unwrap_or(1000);
         let mut all_results: Vec<MemoryRecord> = Vec::with_capacity(inputs.len());
         let mut rebuild_needed = false;
-        // Track versions + quarantine state for keys seen earlier in this
-        // batch (in-batch dedup, mirrors put_one's UPSERT semantics). Persisted
-        // before the chunk loop so duplicate keys split across chunks still
-        // bump correctly.
-        let mut seen: HashMap<u128, (u64, QuarantineState)> = HashMap::with_capacity(inputs.len());
+        // Track versions + quarantine state + the last record written for keys
+        // seen earlier in this batch (in-batch dedup, mirrors put_one's UPSERT
+        // semantics; the record is the `previous` side of the per-record
+        // derived/text/sparse index replacement below). Persisted before the
+        // chunk loop so duplicate keys split across chunks still bump
+        // correctly.
+        let mut seen: HashMap<u128, (u64, QuarantineState, MemoryRecord)> =
+            HashMap::with_capacity(inputs.len());
+        // DUR-03 (review MEMG-11 r2): hold the purge **write**-lock ONCE for
+        // the whole batch critical section (resolve + insert + per-record
+        // index replacement). A concurrent `purge_expired` cannot interleave
+        // and double-decrement the text stats (the race `put_one` closes by
+        // holding the same write guard). A single write guard also avoids the
+        // deadlock the read-guard variant would create: expired keys are
+        // resolved through
+        // `resolve_existing_for_write_locked`/`purge_expired_record_locked`,
+        // which never re-enter the non-reentrant lock.
+        let _batch_guard = self.purge_lock.write();
 
         for chunk in inputs.chunks(batch_size) {
             let timestamp = now_ms();
             let mut nodes: Vec<UnifiedNode> = Vec::with_capacity(chunk.len());
             let mut records: Vec<MemoryRecord> = Vec::with_capacity(chunk.len());
+            // `previous` side of `replace_derived_indexes` per record (None =
+            // fresh insert), parallel to `records`.
+            let mut chunk_previous: Vec<Option<MemoryRecord>> = Vec::with_capacity(chunk.len());
+            // MEMG-03: stale lineage targets per record (counterpart-side
+            // cleanup after the batch insert), parallel to `records`.
+            let mut chunk_stale_lineage: Vec<Vec<(u128, &'static str)>> =
+                Vec::with_capacity(chunk.len());
             // SCH-05 review F3: T1 entries of this chunk, audited post-commit.
             let mut entered_quarantine: Vec<(String, String)> = Vec::new();
 
@@ -512,30 +982,24 @@ impl Embedded {
                 // Existing record: in-batch duplicate wins (already bumped), else
                 // consult the engine like put_one (pre-existing records from
                 // earlier batches should also increment, not reset to 1).
-                let (prev_version, prev_created_at_ms, mut quarantine) =
-                    if let Some((v, q)) = seen.get(&node_id) {
-                        (Some(*v), Some(timestamp), q.clone())
+                let (prev_version, prev_created_at_ms, mut quarantine, previous) =
+                    if let Some((v, q, prev)) = seen.get(&node_id) {
+                        (Some(*v), Some(timestamp), q.clone(), Some(prev.clone()))
                     } else {
-                        match engine.get(node_id)? {
-                            Some(node) => match record_from_node(&node) {
-                                Some(record)
-                                    if record.namespace == input.namespace
-                                        && record.key == input.key =>
-                                {
-                                    (
-                                        Some(record.version),
-                                        Some(record.created_at_ms),
-                                        QuarantineState::from_record(&record),
-                                    )
-                                }
-                                _ => {
-                                    return Err(Error::NodeIdCollision(memory_node_id(
-                                        &input.namespace,
-                                        &input.key,
-                                    )));
-                                }
-                            },
-                            None => (None, None, QuarantineState::default()),
+                        // Under `_batch_guard`: no read guard is taken and
+                        // expired keys are purged inline (locked variant).
+                        match self.resolve_existing_for_write_locked(
+                            &engine,
+                            &input.namespace,
+                            &input.key,
+                        )? {
+                            Some(record) => (
+                                Some(record.version),
+                                Some(record.created_at_ms),
+                                QuarantineState::from_record(&record),
+                                Some(record),
+                            ),
+                            None => (None, None, QuarantineState::default(), None),
                         }
                     };
                 let created_at_ms = prev_created_at_ms.unwrap_or(timestamp);
@@ -555,7 +1019,7 @@ impl Embedded {
                 let (confidence_class, confidence, derived_from) =
                     self.materialize_confidence(input)?;
                 let valid_at_ms = self.materialize_valid_at(input.valid_at_ms, created_at_ms)?;
-                seen.insert(node_id, (version, quarantine.clone()));
+                let quarantine_snapshot = quarantine.clone();
 
                 let record = MemoryRecord {
                     namespace: input.namespace.clone(),
@@ -584,8 +1048,24 @@ impl Embedded {
                     quarantined_by: quarantine.by,
                     quarantine_review_due_ms: quarantine.review_due_ms,
                 };
-                let (node, record) = memory_record_to_node_owned(record);
+                let (mut node, record) = memory_record_to_node_owned(record);
+                // MEMG-03: a rewrite must not wipe node-resident graph state
+                // (edges) — only an existing node can hold it — and stale
+                // derived_from lineage edges are dropped (field = canonical;
+                // the edge is derived navigability).
+                if previous.is_some() {
+                    carry_graph_state(&engine, &mut node)?;
+                }
+                chunk_stale_lineage.push(reconcile_lineage_edges(
+                    &engine,
+                    &mut node,
+                    &record.namespace,
+                    &record.derived_from,
+                    record.superseded_by.as_deref(),
+                ));
+                seen.insert(node_id, (version, quarantine_snapshot, record.clone()));
                 nodes.push(node);
+                chunk_previous.push(previous);
                 records.push(record);
             }
 
@@ -611,6 +1091,38 @@ impl Embedded {
             engine.batch_insert_with_opts(&nodes, opts)?;
             rebuild_needed = rebuild_needed || chunk_needs_rebuild;
 
+            // MEMG-03: counterpart-side cleanup of stale lineage edges
+            // (best-effort) + ensure the declared derived_from edges
+            // (idempotent). In-batch duplicate keys: only the last occurrence
+            // wins (mirrors the upsert semantics of the record itself).
+            let mut last_wins: HashSet<u128> = HashSet::with_capacity(records.len());
+            for (record, stale) in records.iter().zip(chunk_stale_lineage.iter()).rev() {
+                if !last_wins.insert(record.node_id) {
+                    continue;
+                }
+                for &(target, label) in stale {
+                    let _ = self.remove_edge(record.node_id, target, label);
+                }
+                for parent_key in &record.derived_from {
+                    self.ensure_edge(
+                        record.node_id,
+                        memory_node_id(&record.namespace, parent_key),
+                        LABEL_DERIVED_FROM,
+                    )?;
+                }
+            }
+
+            // ── Derived/text/sparse indexes: per-record replacement ──
+            // Mirrors `put_one`: each record's namespace/payload/text/sparse
+            // entries are replaced incrementally (with the resolved previous
+            // record as the delete side for UPSERTS). This replaces the former
+            // full-DB rebuild per batch — O(batch) instead of O(total nodes),
+            // which made small batches on large stores pathologically slow
+            // (MEMG-11 A/B: 0.07× at store=2000/batch=20).
+            for (previous, record) in chunk_previous.iter().zip(records.iter()) {
+                self.replace_derived_indexes(&engine, previous.as_ref(), Some(record))?;
+            }
+
             // SCH-05 review F3: audit each T1 entry post-commit (mirrors
             // put_one; the write-time quarantine flag is a domain event).
             for (ns, key) in &entered_quarantine {
@@ -623,7 +1135,8 @@ impl Embedded {
                 ));
             }
 
-            // ── Post-processing (same as put_one but without derived indexes for batch) ──
+            // ── Post-processing (shredding; derived/text/sparse indexes were
+            // replaced per record right after the chunk insert) ──
             for record in &records {
                 if !record.metadata.is_empty() {
                     let _ = crate::shred::ShreddedRowStore::put(
@@ -643,11 +1156,6 @@ impl Embedded {
                 self.config.version_history_limit,
             );
 
-            // ponytail: no `replace_derived_indexes` for batch — derived index update
-            // for UPSERTS requires per-node `engine.get()` to diff old vs new. For
-            // fresh-insert workloads (common case) there is nothing to diff. Add
-            // a second pass with existence checks when UPSERT-batch support is needed.
-
             all_results.extend(records);
         }
 
@@ -656,16 +1164,8 @@ impl Embedded {
             engine.rebuild_vector_index()?;
         }
 
-        // Derived + text indexes: put_batch writes nodes directly (no per-node
-        // replace_derived_indexes), so rebuild them in one pass. Without this,
-        // list/count/text-search return 0 for batch-inserted records because the
-        // empty NamespaceIndex/TextIndex partitions are read as authoritative.
-        // ponytail: full rebuild per batch is O(total nodes); switch to
-        // incremental per-record index ops if batch-heavy workloads need it.
-        self.rebuild_derived_indexes_with_report()?;
-        self.rebuild_text_index_with_report()?;
-        self.rebuild_sparse_index_with_report()?;
-
+        // Derived/text/sparse indexes were updated incrementally per record
+        // above (same path as `put_one`), so no full rebuild is needed here.
         Ok(all_results)
     }
 
@@ -786,6 +1286,10 @@ impl Embedded {
         validate_namespace(namespace)?;
         validate_key(key)?;
 
+        // DUR-03 r3: same read-modify-write serialization as `put_one` — a
+        // concurrent delete/put (or delete/delete) of the same key must not
+        // both apply the replaced generation's text-index decrement.
+        let _write_guard = self.purge_lock.write();
         let Some(existing) = self.get(namespace, key)? else {
             return Ok(None);
         };
@@ -878,6 +1382,31 @@ impl Embedded {
         crate::attestation::verify_certificate(&engine, &certificate)
     }
 
+    /// Verify a stored write receipt (VER-10): schema + integrity hash, then
+    /// the live evidence — the record is re-read and its content binding
+    /// recomputed.
+    ///
+    /// Fails when the receipt is structurally invalid (claimless/partial
+    /// surface inventory, unknown status, empty declared limits), when it was
+    /// edited/corrupted (hash mismatch), when the record is no longer present
+    /// (deleted or expired since emission) or when the live content no longer
+    /// matches the attested binding (updated or re-put afterwards).
+    ///
+    /// Verification runs against the **live database handle**; a receipt
+    /// emitted by an unflushed process can yield a false negative until that
+    /// process flushes/closes (same caveat class as
+    /// [`Embedded::verify_purge_certificate`]).
+    #[tracing::instrument(skip(self, receipt_json), err)]
+    pub fn verify_write_receipt(
+        &self,
+        receipt_json: &str,
+    ) -> Result<crate::attestation::WriteReceiptVerification> {
+        let receipt: crate::attestation::WriteReceipt =
+            serde_json::from_str(receipt_json).map_err(Error::serialization)?;
+        let engine = self.engine_handle()?;
+        crate::attestation::verify_write_receipt(&engine, &receipt)
+    }
+
     /// Insert or update a record with exact fields (used internally by import).
     ///
     /// Raw transport choke point (SDK Rust / HTTP `import` records / WASM
@@ -917,19 +1446,16 @@ impl Embedded {
         }
 
         let engine = self.engine_handle()?;
-        let previous = match engine.get(record.node_id)? {
-            Some(node) => match record_from_node(&node) {
-                Some(previous)
-                    if previous.namespace == record.namespace && previous.key == record.key =>
-                {
-                    Some(previous)
-                }
-                _ => {
-                    return Err(Error::NodeIdCollision(record.node_id));
-                }
-            },
-            None => None,
-        };
+        // See `put_one`: hold the purge write guard across the whole
+        // read-modify-write (resolve + insert + replace).
+        let _write_guard = self.purge_lock.write();
+        let previous =
+            self.resolve_existing_for_write_locked(&engine, &record.namespace, &record.key)?;
+        // MEMG-04: fresh inserts respect the namespace quota on this raw
+        // transport too (import restores/imports records through here).
+        if previous.is_none() {
+            self.check_namespace_quota(&engine, &record.namespace)?;
+        }
 
         // F4 (SCH-05 review): sticky on the raw transport — an incoming record
         // that carries no quarantine state must not clear an existing one
@@ -946,11 +1472,193 @@ impl Embedded {
             }
         }
 
-        let (node, record) = memory_record_to_node_owned(record);
+        let (mut node, record) = memory_record_to_node_owned(record);
+        // MEMG-03: only an existing node can hold graph state (see `put_one`).
+        if previous.is_some() {
+            carry_graph_state(&engine, &mut node)?;
+        }
+        // MEMG-03: keep lineage edges consistent with the canonical fields
+        // (covers `derived_from` and `superseded_by`).
+        let stale_lineage = reconcile_lineage_edges(
+            &engine,
+            &mut node,
+            &record.namespace,
+            &record.derived_from,
+            record.superseded_by.as_deref(),
+        );
         engine.insert(&node)?;
+        // The raw transport does not validate parent existence (unlike
+        // `materialize_confidence`), so lineage edges are best-effort here — a
+        // dangling parent must not fail the import.
+        for (target, label) in stale_lineage {
+            let _ = self.remove_edge(node.id, target, label);
+        }
+        for parent_key in &record.derived_from {
+            let _ = self.ensure_edge(
+                node.id,
+                memory_node_id(&record.namespace, parent_key),
+                LABEL_DERIVED_FROM,
+            );
+        }
+        if let Some(new_key) = record.superseded_by.as_deref() {
+            let _ = self.ensure_edge(
+                node.id,
+                memory_node_id(&record.namespace, new_key),
+                LABEL_SUPERSEDED_BY,
+            );
+        }
         self.replace_derived_indexes(&engine, previous.as_ref(), Some(&record))?;
 
         Ok(record)
+    }
+
+    /// Merge an incoming multi-writer record into the store (MEMG-05 v1).
+    ///
+    /// Declared policy (ADR-0055): **explicit last-write-wins over a
+    /// deterministic total order** — `(updated_at_ms, canonical content
+    /// bytes)` — with conflict detection at equal logical time. See
+    /// [`crate::sdk::merge`] for the full semantics, declared limits and the
+    /// upgrade path (vector clocks / CRDT-lite).
+    ///
+    /// `put`/`put_batch`/import are intentionally untouched: this is an
+    /// opt-in path for records whose writer is another device/agent
+    /// (federation, sync, interchange). `record.updated_at_ms` carries the
+    /// writer-side clock (as in import); the deterministic identity
+    /// (`node_id`) is recomputed from `(namespace, key)`, so a transport does
+    /// not need to carry it.
+    ///
+    /// Non-silent by construction: every call returns a [`MergeResult`]
+    /// describing what won ([`MergeOutcome::Inserted`] /
+    /// [`MergeOutcome::Updated`]), what was rejected
+    /// ([`MergeOutcome::StaleRejected`]) or that nothing changed
+    /// ([`MergeOutcome::AlreadyCurrent`]), plus the `conflict` flag for
+    /// equal-time collisions.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use vantadb::config::Config;
+    /// use vantadb::{BackendKind, Embedded, MemoryRecord, MergeOutcome};
+    ///
+    /// let config = Config {
+    ///     storage_path: ":memory:".into(),
+    ///     backend_kind: BackendKind::InMemory,
+    ///     ..Default::default()
+    /// };
+    /// let db = Embedded::open_with_config(config).expect("open database");
+    ///
+    /// let incoming = MemoryRecord {
+    ///     namespace: "agent/notes".into(),
+    ///     key: "topic".into(),
+    ///     payload: "from another device".into(),
+    ///     updated_at_ms: 1_000,
+    ///     version: 1,
+    ///     ..Default::default()
+    /// };
+    /// let result = db.merge_record(incoming).expect("merge");
+    /// assert_eq!(result.outcome, MergeOutcome::Inserted);
+    /// assert!(!result.conflict);
+    ///
+    /// db.close().expect("close database");
+    /// ```
+    #[tracing::instrument(skip(self, record), err)]
+    pub fn merge_record(&self, record: MemoryRecord) -> Result<MergeResult> {
+        let (namespace, key) = (record.namespace.clone(), record.key.clone());
+        let res = self.merge_record_inner(record);
+        self.audit(crate::audit::AuditEvent::new(
+            "merge_record",
+            &namespace,
+            &key,
+            if res.is_ok() { "ok" } else { "err" },
+            None,
+        ));
+        res
+    }
+
+    /// Shared logic for [`Self::merge_record`]: resolve against the current
+    /// record under `merge_lock`, then either write through the raw transport
+    /// ([`Self::put_record_exact`]) or report the declared outcome.
+    fn merge_record_inner(&self, mut record: MemoryRecord) -> Result<MergeResult> {
+        self.check_read_only()?;
+        validate_namespace(&record.namespace)?;
+        validate_key(&record.key)?;
+        validate_metadata(&record.metadata)?;
+        // Review P2-01 R6: validate the record's invariants BEFORE deciding,
+        // so an invalid incoming record errors regardless of whether it would
+        // win or lose (the store path re-validates anyway; this keeps the
+        // merge API contract symmetric across outcomes).
+        validate_confidence_fields(
+            record.confidence_class,
+            &record.derived_from,
+            record.confidence,
+        )?;
+        if let Some(invalid_at) = record.invalid_at_ms {
+            if record.valid_at_ms > invalid_at {
+                return Err(Error::Validation {
+                    field: "invalid_at_ms".into(),
+                    reason: format!(
+                        "valid_at_ms ({}) must be <= invalid_at_ms ({invalid_at})",
+                        record.valid_at_ms
+                    ),
+                });
+            }
+        }
+
+        let engine = self.engine_handle()?;
+        // REVIEW-13 pattern: the engine's `insert_lock` only serializes the
+        // individual insert, not the SDK-level resolve + decide. Holding the
+        // merge lock across both makes the declared order scheduling-
+        // independent (two concurrent merges can no longer both decide
+        // against the same `existing` and persist the loser).
+        let _merge_guard = self.merge_lock.lock();
+
+        // The purge-lock read guard from the resolution is dropped at the end
+        // of this statement on purpose: `put_record_exact` takes its own
+        // **write** guard on the same (non-reentrant) lock — holding the read
+        // guard across that acquisition would self-deadlock.
+        let existing = self
+            .resolve_existing_for_write(&engine, &record.namespace, &record.key)?
+            .0;
+
+        match resolve_merge(existing.as_ref(), &record)? {
+            MergeDecision::Unchanged => Ok(MergeResult {
+                outcome: MergeOutcome::AlreadyCurrent,
+                conflict: false,
+                winner_updated_at_ms: existing
+                    .map(|prev| prev.updated_at_ms)
+                    .unwrap_or(record.updated_at_ms),
+            }),
+            MergeDecision::KeepExisting { conflict } => Ok(MergeResult {
+                outcome: MergeOutcome::StaleRejected,
+                conflict,
+                winner_updated_at_ms: existing
+                    .map(|prev| prev.updated_at_ms)
+                    .unwrap_or(record.updated_at_ms),
+            }),
+            MergeDecision::Store { conflict } => {
+                let inserted = existing.is_none();
+                if let Some(prev) = &existing {
+                    // Store-local bookkeeping (NOT part of the conflict
+                    // fingerprint): first-seen creation stays, and the local
+                    // version counter advances past the record it replaces.
+                    record.created_at_ms = prev.created_at_ms;
+                    record.version = prev.version.saturating_add(1).max(record.version);
+                }
+                // Deterministic identity is derived, not trusted from the
+                // transport (unlike the raw import path, which validates it).
+                record.node_id = memory_node_id(&record.namespace, &record.key);
+                let stored = self.put_record_exact(record)?;
+                Ok(MergeResult {
+                    outcome: if inserted {
+                        MergeOutcome::Inserted
+                    } else {
+                        MergeOutcome::Updated
+                    },
+                    conflict,
+                    winner_updated_at_ms: stored.updated_at_ms,
+                })
+            }
+        }
     }
 
     /// Mark an existing record as superseded by another existing record (ADR-028).
@@ -1032,8 +1740,29 @@ impl Embedded {
         // self-consistent (old marked, new present). Full 2PC deferred to
         // ACID Phase 0, same as insert.
         let engine = self.engine_handle()?;
-        let (node, record) = memory_record_to_node_owned(record);
+        let (mut node, record) = memory_record_to_node_owned(record);
+        carry_graph_state(&engine, &mut node)?;
+        // MEMG-03: drop stale lineage edges (legacy or previous state); the
+        // new `superseded_by` target is ensured below.
+        let stale_lineage = reconcile_lineage_edges(
+            &engine,
+            &mut node,
+            &record.namespace,
+            &record.derived_from,
+            record.superseded_by.as_deref(),
+        );
         engine.insert(&node)?;
+        for (target, label) in stale_lineage {
+            let _ = self.remove_edge(node.id, target, label);
+        }
+        // MEMG-03: lineage edge old --superseded_by--> new (bidirectional,
+        // idempotent). `superseded_by` remains the canonical field; the edge is
+        // derived navigability for the graph layer.
+        self.ensure_edge(
+            node.id,
+            memory_node_id(namespace, new_key),
+            LABEL_SUPERSEDED_BY,
+        )?;
         // Best-effort version-history snapshot, same durability class as put_one.
         let _ = super::super::version_history::write_snapshot(
             &engine,
@@ -1041,6 +1770,125 @@ impl Embedded {
             self.config.version_history_limit,
         );
         Ok(())
+    }
+
+    /// MEMG-02: report the outcome of a recalled memory and feed it back into
+    /// the record's confidence — the write-side of the outcome loop.
+    ///
+    /// The host declares the outcome explicitly ([`ReinforceOutcome`]); the
+    /// engine never infers it. Declared policy (see `docs/api/scores.md`
+    /// §Reinforcement):
+    ///
+    /// - `Used` — `confidence = min(1.0, confidence + 0.05)` and
+    ///   `last_validated_at_ms = now` (successful re-validation), rate-limited
+    ///   to one bump per record per 5-minute window anchored on the previous
+    ///   stamp; inside the window the call is a no-op (audited as
+    ///   `used_rate_limited`, never silent).
+    /// - `Corrected` — `confidence = max(0.0, confidence - 0.10)`; failures do
+    ///   NOT stamp `last_validated_at_ms` (success-only, MGR-12 §3.3).
+    /// - `Unused` — neutral: no score change, no stamp; the audit event is the
+    ///   record of the host's declaration.
+    ///
+    /// Interaction notes: a `Corrected` does NOT reset the positive rate-limit
+    /// anchor — a `Used` shortly after a correction is still limited by the
+    /// previous validation stamp (the window counts successful validations).
+    /// Quarantine state is not inspected: quarantined records are unreachable
+    /// through default recall/list (excluded by default), so a host can only
+    /// reinforce one by explicit key.
+    ///
+    /// Applies to `asserted` records only: a `derived` score is computed from
+    /// its parents (`min × DERIVATION_DISCOUNT`, ADR-046 §D4) and mutating it
+    /// would break determinism (V4) — derived records are rejected explicitly.
+    ///
+    /// State-only change (same class as `quarantine_apply`): `version` does not
+    /// change and no version-history snapshot is written (a reinforcement per
+    /// turn would flood the 32-entry history); `updated_at_ms` is refreshed and
+    /// the operation is audited as `memory_reinforce`. Callers that never
+    /// invoke this op observe exactly the previous behavior — `put` still
+    /// leaves `last_validated_at_ms = None`.
+    #[tracing::instrument(skip(self), err)]
+    pub fn reinforce(
+        &self,
+        namespace: &str,
+        key: &str,
+        outcome: ReinforceOutcome,
+    ) -> Result<MemoryRecord> {
+        self.check_read_only()?;
+        validate_namespace(namespace)?;
+        validate_key(key)?;
+        // REVIEW-13 pattern: serialize the read-modify-write (the engine's
+        // insert_lock only serializes the individual insert, not the SDK-level
+        // get + mutate) — same rationale as `supersede`/`quarantine_*`.
+        let _guard = self.supersede_lock.lock();
+
+        let Some(mut record) = self.get(namespace, key)? else {
+            return Err(Error::NotFound {
+                kind: "memory record".into(),
+                id: format!("{namespace}/{key}"),
+            });
+        };
+        if record.confidence_class == ConfidenceClass::Derived {
+            return Err(Error::InvalidInput(format!(
+                "record '{key}' is derived — its confidence is computed from its parents (min × DERIVATION_DISCOUNT) and cannot be reinforced; reinforce the parents instead"
+            )));
+        }
+
+        let now = now_ms();
+        let mut reason = outcome.as_wire_str().to_string();
+        let mut changed = false;
+        match outcome {
+            ReinforceOutcome::Used => {
+                let in_window = record
+                    .last_validated_at_ms
+                    .is_some_and(|prev| now.saturating_sub(prev) < REINFORCE_WINDOW_MS);
+                if in_window {
+                    // Rate-limited: no score change, no re-stamp. Never
+                    // silent — the audit reason distinguishes it.
+                    reason = "used_rate_limited".to_string();
+                } else {
+                    record.confidence = (record.confidence + REINFORCE_CONFIDENCE_BUMP).min(1.0);
+                    record.last_validated_at_ms = Some(now);
+                    changed = true;
+                }
+            }
+            ReinforceOutcome::Corrected => {
+                record.confidence = (record.confidence - REINFORCE_CONFIDENCE_DECAY).max(0.0);
+                changed = true;
+            }
+            ReinforceOutcome::Unused => {
+                // Neutral: nothing to write; the audit event records the
+                // explicit declaration.
+            }
+        }
+
+        if changed {
+            record.updated_at_ms = now;
+            // Same write path as the quarantine state ops: WAL + KV + HNSW via
+            // engine.insert. Payload/metadata/vector are unchanged, and the
+            // confidence fields are not indexed, so the derived text/scalar
+            // indexes stay consistent with no index writes.
+            let engine = self.engine_handle()?;
+            let (mut node, record) = memory_record_to_node_owned(record);
+            carry_graph_state(&engine, &mut node)?;
+            engine.insert(&node)?;
+            self.audit(crate::audit::AuditEvent::new(
+                "memory_reinforce",
+                namespace,
+                key,
+                "ok",
+                Some(reason),
+            ));
+            return Ok(record);
+        }
+
+        self.audit(crate::audit::AuditEvent::new(
+            "memory_reinforce",
+            namespace,
+            key,
+            "ok",
+            Some(reason),
+        ));
+        Ok(record)
     }
 
     /// T1d (ADR-046 §D5, MGR-13 §3.2): quarantine an existing record post-hoc
@@ -1081,7 +1929,8 @@ impl Embedded {
         record.updated_at_ms = now;
 
         let engine = self.engine_handle()?;
-        let (node, record) = memory_record_to_node_owned(record);
+        let (mut node, record) = memory_record_to_node_owned(record);
+        carry_graph_state(&engine, &mut node)?;
         engine.insert(&node)?;
         self.audit(crate::audit::AuditEvent::new(
             "quarantine_enter",
@@ -1125,7 +1974,8 @@ impl Embedded {
         record.updated_at_ms = now;
 
         let engine = self.engine_handle()?;
-        let (node, record) = memory_record_to_node_owned(record);
+        let (mut node, record) = memory_record_to_node_owned(record);
+        carry_graph_state(&engine, &mut node)?;
         engine.insert(&node)?;
         self.audit(crate::audit::AuditEvent::new(
             "quarantine_promote",
@@ -1177,6 +2027,18 @@ impl Embedded {
     pub fn purge_expired(&self) -> Result<u64> {
         self.check_read_only()?;
         let engine = self.engine_handle()?;
+        // DUR-03: serialize against the purge-on-write path and against
+        // record writes/deletes that hold the same write guard (a second
+        // stats decrement for the same generation would drive the text df
+        // negative).
+        let _guard = self.purge_lock.write();
+        // DUR-03 review (round 2): inside an active transaction `engine.delete`
+        // only buffers the node delete while the index cleanup would apply
+        // immediately — an abort would leave the node present with its stats
+        // already gone. Skip the sweep; the next one (post-txn) purges.
+        if engine.txn.has_active() {
+            return Ok(0);
+        }
         let now = now_ms();
         let mut to_delete: Vec<MemoryRecord> = Vec::new();
 
@@ -1628,7 +2490,19 @@ impl Embedded {
                     let expires_at_ms = now_ms().saturating_add(ttl);
                     node.set_field(FIELD_EXPIRES_AT_MS, FieldValue::Int(expires_at_ms as i64));
                 }
+                // MEMG-03: an overwrite must not wipe node-resident graph state
+                // (edges) — same bridge rule as the validated put path — and
+                // the bulk path declares no lineage (derived records are
+                // rejected above; `superseded_by` is never set), so stale
+                // lineage edges from a previous state are dropped:
+                // field = canonical, edge = derived navigability.
+                carry_graph_state(&engine, &mut node)?;
+                let stale_lineage =
+                    reconcile_lineage_edges(&engine, &mut node, &input.namespace, &[], None);
                 engine.insert(&node)?;
+                for (target, label) in stale_lineage {
+                    let _ = self.remove_edge(node.id, target, label);
+                }
             }
             batches += 1;
         }

@@ -10,10 +10,11 @@ mod search;
 
 pub use graph::{EdgeRecord, NodeInput, NodeRecord, QueryResult};
 pub use record::{
-    default_confidence, ConfidenceClass, ExportReport, FilterOp, ImportReport, MemoryExportLine,
-    MemoryFilter, MemoryFilterItem, MemoryInput, MemoryListOptions, MemoryListPage, MemoryRecord,
-    NamespaceStats, NamespaceStatsMap, ValidWindow, DEFAULT_EXPIRING_SOON_WINDOW_MS,
-    DERIVATION_DISCOUNT, MAX_DERIVATION_DEPTH,
+    default_confidence, ConfidenceClass, ExportIntegrityVerification, ExportManifest, ExportReport,
+    FilterOp, ImportReport, MemoryExportLine, MemoryFilter, MemoryFilterItem, MemoryInput,
+    MemoryListOptions, MemoryListPage, MemoryRecord, NamespaceStats, NamespaceStatsMap,
+    ReinforceOutcome, ValidWindow, DEFAULT_EXPIRING_SOON_WINDOW_MS, DERIVATION_DISCOUNT,
+    EXPORT_MANIFEST_FORMAT, EXPORT_MANIFEST_SCHEMA_VERSION, MAX_DERIVATION_DEPTH,
 };
 #[cfg(debug_assertions)]
 pub use search::MemorySearchDebugReport;

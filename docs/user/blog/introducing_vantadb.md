@@ -35,4 +35,4 @@ The result is an engine that runs in-process, serves hybrid queries in 1.2ms, re
 pip install vantadb-py
 ```
 
-Join the community on Discord and star the [VantaDB repository](https://github.com/ness-e/Vantadb). If you want the story behind the engine, read [Why I Built a Local Memory Engine for AI Agents in Rust](/blog/why-i-built-vantadb-local-memory-engine).
+Join the community on Discord and star the [VantaDB repository](https://github.com/ness-e/Vantadb). If you want the story behind the engine, read [Why I Built a Local Memory Engine for AI Agents in Rust](./why_i_built.md).

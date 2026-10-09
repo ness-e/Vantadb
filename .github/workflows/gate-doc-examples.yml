@@ -17,7 +17,7 @@ name: 'GATE: Docs — Code examples are real API'
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
     paths:
       - 'docs/**'
       - 'scripts/docs/**'
@@ -100,3 +100,26 @@ jobs:
 
       - name: Every attribute a runnable example touches exists
         run: node scripts/docs/check-doc-examples.mjs
+
+  # DOCS-F2 (2026-10-04): la mitad Python del contrato T13 se cumplía a nivel
+  # de EJEMPLOS (el job de arriba resuelve cada bloque runnable contra el
+  # paquete real). Lo que no existía era el chequeo docstring ↔ firma del
+  # propio binding: pydoclint. Medido 2026-10-04: 4 violaciones (DOC109/110/105
+  # en error_to_dict, DOC203 en SearchRequest.asdict) → drenadas a 0 en el
+  # mismo commit que cablea este job. No necesita el wheel: es análisis
+  # estático de los .py del binding, por eso es un job aparte y barato.
+  # En pydoclint 0.11 `--check-style` se renombró a `--style` (el comando del
+  # plan docs-consolidation quedó viejo); versión pinneada para reproducibilidad.
+  python-docstrings:
+    name: Python docstrings match signatures (pydoclint)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.11'
+      - name: Install pydoclint (pinned)
+        run: python -m pip install pydoclint==0.11.0
+      - name: Docstrings must match signatures (numpy style)
+        run: pydoclint --style=numpy vantadb-python/vantadb_py vantadb-python/vantadb

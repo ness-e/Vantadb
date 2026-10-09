@@ -3,8 +3,9 @@
 
 //! Shared types and DTOs for the HTTP server (REVIEW-10 split).
 //!
-//! Holds request/response shapes, the [`ServerState`] struct, the
-//! [`ConversationTrigger`] hook trait, [`AuthState`] / [`AuthIdentity`] /
+//! Holds request/response shapes, the [`ServerState`] struct, the host-seam
+//! traits [`ConversationTrigger`] / [`BackgroundService`], the [`ServerHooks`]
+//! bootstrap injection bag, [`AuthState`] / [`AuthIdentity`] /
 //! [`AuthRateLimiter`] (auth-side state) and the request-id extractor.
 //! Everything that is *data* lives here; everything that *runs* (handlers,
 //! middleware, telemetry, TLS, bootstrap) lives in [`super::routing`].
@@ -101,6 +102,59 @@ pub trait ConversationTrigger: Send + Sync {
         role: &str,
         content: &str,
     ) -> std::result::Result<(), String>;
+}
+
+/// A started background service owned by the server for its lifetime (WIRE-14).
+///
+/// Hosts (e.g. `vantadb-server`) start their service — typically a loop
+/// mirroring [`crate::gc::MemoryTtlSweeper`] (watch channel + join handle) —
+/// and hand it over through [`ServerHooks::background_services`]. The server
+/// keeps it alive for the whole run and calls [`shutdown`](Self::shutdown)
+/// once the HTTP loop returns, so no service task outlives `run` and none
+/// races the shutdown flush.
+///
+/// Dropping a service without calling `shutdown` must stop it best-effort
+/// (the `MemoryTtlSweeper` convention: signal, then abort).
+///
+/// Object-safe by construction: `shutdown` returns a boxed future so
+/// `Box<dyn BackgroundService>` works without `async_trait`.
+pub trait BackgroundService: Send {
+    /// Gracefully stop the service and join its task. Called once on the
+    /// graceful path, after the HTTP server loop returns; on early-exit error
+    /// paths the service is dropped instead (best-effort stop via `Drop`).
+    fn shutdown(self: Box<Self>)
+        -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>>;
+}
+
+/// Host-injection seam for the server bootstrap (WIRE-14, ADR-0054 T1).
+///
+/// Passed to [`crate::server::bootstrap::run_with_hooks`]. The defaults keep
+/// the pre-WIRE-14 behavior exactly: no conversation trigger, no background
+/// services, no deferred wiring — `run(config)` is
+/// `run_with_hooks(config, ServerHooks::default())`.
+///
+/// WIRE-16 adds [`on_storage_ready`](Self::on_storage_ready) for hosts that
+/// need the server's database handle (single writer) to build their own
+/// trigger/services once storage is open.
+#[derive(Default)]
+pub struct ServerHooks {
+    /// Optional post-save hook for `POST /api/v2/conversations` (MEM-55).
+    /// `None` keeps the route purely a thread store.
+    pub conversation_trigger: Option<Arc<dyn ConversationTrigger>>,
+    /// Background services started by the host and joined by the server after
+    /// the HTTP loop returns, in registration order. The built-in TTL sweeper
+    /// is joined after these when enabled.
+    pub background_services: Vec<Box<dyn BackgroundService>>,
+    /// Deferred host wiring (WIRE-16): called once by the bootstrap after the
+    /// server opens storage (and ensures its indexes), before `ServerState` is
+    /// built. Receives a clone of the server's [`Embedded`] handle so the host
+    /// can attach a [`ConversationTrigger`] and background services that need
+    /// the database — single writer: the server owns the process's one open
+    /// (a second `StorageEngine::open_with_config` on the same path fails with
+    /// `DatabaseBusy`), and a second `Embedded` handle would split the audit
+    /// log and the purge/supersede locks. `None` (default) keeps the
+    /// pre-WIRE-16 behavior exactly.
+    pub on_storage_ready: Option<Box<dyn FnOnce(&mut ServerHooks, Embedded) + Send>>,
 }
 
 /// Shared application state injected into every route handler.
@@ -358,12 +412,15 @@ pub(crate) fn simple_url_decode(s: &str) -> String {
 pub(crate) fn extract_namespace(path: &str, query: Option<&str>) -> Option<String> {
     // 1. Path params: /api/v2/records/{ns}/{key}, /api/v2/records/{ns}/{key}/versions
     // Pattern: /api/v2/records/{ns}/ or /api/v2/records/{ns}/
+    // MEMG-04: the segment is percent-decoded before the RBAC compare —
+    // namespaces may contain `/` (`agent%2Fmain`), and the grant side stores
+    // the decoded form.
     if let Some(rest) = path.strip_prefix("/api/v2/records/") {
         if let Some(ns_end) = rest.find('/') {
-            return Some(rest[..ns_end].to_string());
+            return Some(simple_url_decode(&rest[..ns_end]));
         } else if !rest.is_empty() && rest != "batch" {
             // /api/v2/records/{ns} (no trailing slash)
-            return Some(rest.to_string());
+            return Some(simple_url_decode(rest));
         }
     }
     // 2. Query param: ?namespace= or ?ns=
@@ -377,6 +434,79 @@ pub(crate) fn extract_namespace(path: &str, query: Option<&str>) -> Option<Strin
         }
     }
     None
+}
+
+/// MEMG-04: POST surfaces whose namespace(s) travel in the JSON **body** —
+/// the pre-MEMG-04 blind spot (`extract_namespace` only sees path/query, so
+/// these routes silently fell back to the coarse global check). Body
+/// inspection runs only for role-bearing credentials, and only here.
+pub(crate) fn is_body_namespace_route(path: &str, method: &str) -> bool {
+    method == "POST"
+        && matches!(
+            path,
+            "/api/v2/records"
+                | "/api/v2/records/batch"
+                | "/api/v2/search"
+                | "/api/v2/export"
+                | "/api/v2/import"
+        )
+}
+
+/// MEMG-04: namespaces declared by a body on [`is_body_namespace_route`].
+///
+/// Route-aware and intentionally precise — only the route's own namespace
+/// field(s) are read, never a deep walk (a nested `metadata.namespace` must
+/// not create a false denial):
+/// - `/records`, `/search`, `/export`: top-level `namespace`;
+/// - `/records/batch`: `namespace` of every array item;
+/// - `/import`: `namespace` of every item of the `records` array.
+///
+/// Blank namespaces are ignored (the read surfaces treat them as
+/// "all namespaces"; the caller's coarse fallback handles them fail-closed).
+/// Duplicates are removed, first occurrence wins.
+pub(crate) fn body_namespaces_for_route(path: &str, value: &serde_json::Value) -> Vec<String> {
+    fn namespace_of(value: &serde_json::Value) -> Option<&str> {
+        value
+            .get("namespace")
+            .and_then(serde_json::Value::as_str)
+            .map(str::trim)
+            .filter(|ns| !ns.is_empty())
+    }
+
+    fn push_unique(out: &mut Vec<String>, ns: &str) {
+        if !out.iter().any(|existing| existing == ns) {
+            out.push(ns.to_string());
+        }
+    }
+
+    let mut out: Vec<String> = Vec::new();
+    match path {
+        "/api/v2/records" | "/api/v2/search" | "/api/v2/export" => {
+            if let Some(ns) = namespace_of(value) {
+                push_unique(&mut out, ns);
+            }
+        }
+        "/api/v2/records/batch" => {
+            if let Some(items) = value.as_array() {
+                for item in items {
+                    if let Some(ns) = namespace_of(item) {
+                        push_unique(&mut out, ns);
+                    }
+                }
+            }
+        }
+        "/api/v2/import" => {
+            if let Some(items) = value.get("records").and_then(serde_json::Value::as_array) {
+                for item in items {
+                    if let Some(ns) = namespace_of(item) {
+                        push_unique(&mut out, ns);
+                    }
+                }
+            }
+        }
+        _ => {}
+    }
+    out
 }
 
 /// First non-empty match of the request tracing headers, truncated to
@@ -476,4 +606,104 @@ pub(crate) fn resolve_identity(
     }
 
     Ok(AuthIdentity::Transport)
+}
+
+#[cfg(test)]
+#[allow(missing_docs)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn body_namespaces_single_surfaces_read_top_level() {
+        let value = serde_json::json!({"namespace": "alpha", "key": "k"});
+        for path in ["/api/v2/records", "/api/v2/search", "/api/v2/export"] {
+            assert_eq!(
+                body_namespaces_for_route(path, &value),
+                vec!["alpha".to_string()],
+                "{path}"
+            );
+        }
+    }
+
+    #[test]
+    fn body_namespaces_batch_reads_every_item_once() {
+        let value = serde_json::json!([
+            {"namespace": "beta"},
+            {"namespace": "alpha"},
+            {"namespace": "beta"},
+        ]);
+        assert_eq!(
+            body_namespaces_for_route("/api/v2/records/batch", &value),
+            vec!["beta".to_string(), "alpha".to_string()]
+        );
+    }
+
+    #[test]
+    fn body_namespaces_import_reads_records_array() {
+        let value = serde_json::json!({
+            "records": [{"namespace": "alpha"}, {"namespace": "alpha"}],
+        });
+        assert_eq!(
+            body_namespaces_for_route("/api/v2/import", &value),
+            vec!["alpha".to_string()]
+        );
+    }
+
+    #[test]
+    fn body_namespaces_blank_or_absent_yields_empty() {
+        for path in ["/api/v2/records", "/api/v2/search", "/api/v2/export"] {
+            assert!(
+                body_namespaces_for_route(path, &serde_json::json!({"namespace": "   "}))
+                    .is_empty()
+            );
+            assert!(body_namespaces_for_route(path, &serde_json::json!({})).is_empty());
+        }
+        // export-all / import-by-path declare no namespace → coarse fallback.
+        assert!(body_namespaces_for_route(
+            "/api/v2/export",
+            &serde_json::json!({"path": "/x.jsonl"})
+        )
+        .is_empty());
+        assert!(body_namespaces_for_route(
+            "/api/v2/import",
+            &serde_json::json!({"path": "x.jsonl"})
+        )
+        .is_empty());
+    }
+
+    #[test]
+    fn body_namespaces_nested_metadata_is_not_read() {
+        let value = serde_json::json!({
+            "namespace": "alpha",
+            "metadata": {"namespace": "beta"},
+        });
+        assert_eq!(
+            body_namespaces_for_route("/api/v2/records", &value),
+            vec!["alpha".to_string()]
+        );
+    }
+
+    #[test]
+    fn body_namespaces_non_body_routes_yield_empty() {
+        let value = serde_json::json!({"namespace": "alpha"});
+        assert!(body_namespaces_for_route("/api/v2/threads", &value).is_empty());
+        assert!(body_namespaces_for_route("/api/v2/records/alpha/k", &value).is_empty());
+    }
+
+    #[test]
+    fn body_route_predicate_matches_only_declared_post_surfaces() {
+        for path in [
+            "/api/v2/records",
+            "/api/v2/records/batch",
+            "/api/v2/search",
+            "/api/v2/export",
+            "/api/v2/import",
+        ] {
+            assert!(is_body_namespace_route(path, "POST"), "{path}");
+            assert!(!is_body_namespace_route(path, "GET"), "{path}");
+        }
+        assert!(!is_body_namespace_route("/api/v2/threads", "POST"));
+        assert!(!is_body_namespace_route("/api/v2/conversations", "POST"));
+        assert!(!is_body_namespace_route("/api/v2/records/alpha/k1", "POST"));
+    }
 }

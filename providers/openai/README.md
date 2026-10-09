@@ -4,15 +4,25 @@ PyO3 cdylib that exposes a `VantaDBOpenAI` class — wraps OpenAI's embedding AP
 
 ## Install
 
-Requires Python 3.11+ and the OpenAI SDK:
+> **Not on PyPI yet.** The `vantadb-openai` wheel builds on all release
+> platforms; it goes live with the first `providers-v*` tag release. Until
+> then, build from a repo checkout.
+
+### From PyPI (after the first release)
+
+```bash
+pip install vantadb-openai
+```
+
+The OpenAI SDK is installed automatically (`openai>=1.0,<2`).
+
+### From source
+
+Requires Python 3.11+ and the OpenAI SDK. Build the extension with
+[maturin](https://www.maturin.rs/):
 
 ```bash
 pip install openai
-```
-
-Build the extension locally with [maturin](https://www.maturin.rs/):
-
-```bash
 maturin develop --release
 ```
 

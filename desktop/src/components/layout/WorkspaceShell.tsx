@@ -605,10 +605,11 @@ export default function WorkspaceShell({
             <SideButton icon={<Asterisk className="h-4 w-4" strokeWidth={2.5} />} label="ESPACIO" title={tt(lang, "shell.goEspacio", "Ir a ESPACIO — proyección 2D de embeddings")} active={surface === "espacio"} onClick={() => setSurface("espacio")} />
             {/* DESKTOP-37: sexta lente — memoria contextual de vanta-memory. */}
             <SideButton icon="◉" label="MEMORIA" title={tt(lang, "shell.goMemoria", "Ir a MEMORIA — escenas con heat, persona, skills versionadas y generation log (L1/L2/L3)")} active={surface === "memoria"} onClick={() => setSurface("memoria")} />
-            {/* DESKTOP-38: lente PROXY — solo si el proxy está configurado. */}
-            {proxyConfigured && (
-              <SideButton icon="⇋" label="PROXY" title={tt(lang, "shell.goProxy", "Ir a PROXY — TurnReports, sesiones activas, cola write-back y rate-limit del proxy local")} active={surface === "proxy"} onClick={() => setSurface("proxy")} />
-            )}
+            {/* DESKTOP-38: lente PROXY — dashboard REST del proxy local.
+                DESKTOP-44: siempre visible — la lente incluye el formulario de
+                primer setup; condicionarla a `proxyUrl()` la hacía inalcanzable
+                sin configurar (y el form de FIND-155 vive acá). */}
+            <SideButton icon="⇋" label="PROXY" title={tt(lang, "shell.goProxy", "Ir a PROXY — TurnReports, sesiones activas, cola write-back y rate-limit del proxy local")} active={surface === "proxy"} onClick={() => setSurface("proxy")} />
             {/* DESKTOP-31: ajustes — perfiles de conexión, defaults de búsqueda, idioma. */}
             <SideButton icon={<SettingsIcon className="h-4 w-4" strokeWidth={2.5} />} label="AJUSTES" title={tt(lang, "shell.goAjustes", "Ir a AJUSTES — perfiles de conexión (server + Bearer), defaults de búsqueda e idioma")} active={surface === "ajustes"} onClick={() => setSurface("ajustes")} />
           </div>

@@ -135,6 +135,30 @@ pub fn app_with_cors(state: Arc<ServerState>, rpm: u32, allowed_origins: &[Strin
     rbac.add_role("admin", vec![Permission::Admin]);
     rbac.add_role("reader", vec![Permission::Read]);
     rbac.add_role("writer", vec![Permission::Read, Permission::Write]);
+    // MEMG-04: operator-declared namespace-scoped roles (tenant isolation).
+    // Registered in addition to the built-ins; a config entry that collides
+    // with a built-in name is ignored (no silent privilege change).
+    for (name, role_cfg) in &state.rbac_config.roles {
+        if matches!(name.as_str(), "admin" | "reader" | "writer") {
+            tracing::warn!(
+                role = %name,
+                "rbac.roles entry shadows a built-in role — ignored"
+            );
+            continue;
+        }
+        let mut permissions: Vec<Permission> = role_cfg
+            .namespace_read
+            .iter()
+            .map(|ns| Permission::NamespaceRead(ns.clone()))
+            .collect();
+        permissions.extend(
+            role_cfg
+                .namespace_write
+                .iter()
+                .map(|ns| Permission::NamespaceWrite(ns.clone())),
+        );
+        rbac.add_role(name, permissions);
+    }
     let auth_state = AuthState::new(
         state.api_key.as_ref().map(|k| k.to_string()),
         state.alt_api_key.as_ref().map(|k| k.to_string()),

@@ -227,7 +227,7 @@ VantaDB is **one product** you install once (one installer → one CLI → one w
 | Surface | What it is | Status until 1.0 |
 | :--- | :--- | :--- |
 | **Engine** (core) | Embedded memory: WAL-backed durability, HNSW vector retrieval, BM25 + hybrid (RRF), namespaces, metadata indexes, export/import — plus the **agentic memory engine `vanta-memory` (L0→L3)**: capture → dedup → scenes → persona + dream consolidation. | **Active** |
-| **Agent** (MCP) | `vantadb-mcp` — the door for AI IDEs and agents ([setup guide](docs/api/MCP.md)). This is where the North Star is measured: sessions with successful recall. | **Active** |
+| **Agent** (MCP) | `vantadb-mcp` — the door for AI IDEs and agents ([setup guide](docs/api/MCP.md)). This is where the North Star is measured: sessions with put + search ([details](#north-star)). | **Active** |
 | **Studio** (desktop) | Tauri app, being **reduced to a viewer** (inspect memory and sessions). The rest of its surface is frozen. | **Frozen** (viewer) |
 | **Lab** | Explicitly bounded experiments: `vanta-proxy` (LLM gateway — frozen, **not published until 1.0.0**), web console (separate repo), remote LLM providers, GraphRAG exposure, IQL extras. | **Frozen** |
 
@@ -236,6 +236,16 @@ VantaDB is **one product** you install once (one installer → one CLI → one w
 **Not part of the product until 1.0** (closed list): cloud/enterprise platform, HA/replication/clustering, SQL/OLTP/warehouse/time-series, plugins/marketplace, multimodal, alternative ANN indexes (IVF/DiskANN/ScaNN), RBAC/multi-tenancy, proxy gateway features. See the [Freeze List](docs/user/operations/EXPERIMENTAL_FEATURES.md) for the owner-approved scope.
 
 *VantaDB is an embedded memory engine for agents — not a universal multimodel database or a cloud platform.*
+
+### North Star
+
+The product North Star — **sessions with put + search in a 7-day window** — is computed from the proxy store, where both halves land (`proxy-turns` and `proxy-memory-events`):
+
+```bash
+python scripts/north_star_metric.py --db <proxy-db-path> [--days 7] [--json]
+```
+
+**Status: first measurement pending.** No proxy store with captured sessions exists yet (`vanta-proxy` ships frozen until 1.0.0), and no number is published without a reproducible run. See [PROXY.md § North Star metric](docs/api/PROXY.md#north-star-metric-icp-01) for the methodology; `--self-test` exercises the windowing logic offline.
 
 ### Platform notes
 
@@ -276,9 +286,13 @@ Download and install the CLI binary instantly in a single command without compil
 > published `.sha256` release asset before piping it to a shell.
 >
 > **What happens next:** the installer chains to the interactive setup wizard
-> (`setup-embeddings.ps1` — model, MCP block per client, proxy default-on)
-> unless skipped with `--no-wizard` (sh) / `-NoWizard` (PowerShell).
-> Preview the chain without effects via `--dry-run` / `-DryRun`.
+> (`setup-embeddings.ps1`), which asks **which modules to enable** — motor,
+> MCP, server, proxy, desktop viewer, embeddings, providers (each with a
+> declared state: installable or frozen; desktop is a frozen viewer).
+> Scripted selection: `--modules mcp,embeddings` (sh) /
+> `-Modules mcp,embeddings` (PowerShell). Skip with `--no-wizard` (sh) /
+> `-NoWizard` (PowerShell). Preview the chain without effects via
+> `--dry-run` / `-DryRun`.
 
 #### 2. Via Cargo (Rust Developers)
 

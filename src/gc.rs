@@ -114,6 +114,23 @@ impl MemoryTtlSweeper {
     }
 }
 
+/// WIRE-14: the sweeper participates in the server's host seam — the
+/// bootstrap joins it through the generic
+/// [`crate::server::state::BackgroundService`] path (same graceful stop as
+/// its inherent [`MemoryTtlSweeper::shutdown`]).
+#[cfg(feature = "server")]
+impl crate::server::state::BackgroundService for MemoryTtlSweeper {
+    fn shutdown(
+        self: Box<Self>,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>> {
+        Box::pin(async move {
+            // UFCS: resolve to the inherent graceful stop (signal + join),
+            // never this trait method.
+            MemoryTtlSweeper::shutdown(*self).await;
+        })
+    }
+}
+
 #[cfg(feature = "server")]
 impl Drop for MemoryTtlSweeper {
     fn drop(&mut self) {

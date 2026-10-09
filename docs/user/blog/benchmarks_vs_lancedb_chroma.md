@@ -122,4 +122,4 @@ Want to check the numbers against the engine? Install it and run the local bench
 pip install vantadb-py
 ```
 
-Join the community on Discord and star the [VantaDB repository](https://github.com/ness-e/Vantadb). To understand how the engine fuses lexical and semantic search under the hood, read [How Hybrid Search Works](/blog/how-hybrid-search-works).
+Join the community on Discord and star the [VantaDB repository](https://github.com/ness-e/Vantadb). To understand how the engine fuses lexical and semantic search under the hood, read [How Hybrid Search Works](./how_hybrid_search_works.md).

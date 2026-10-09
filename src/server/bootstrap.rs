@@ -9,7 +9,7 @@ use crate::connection_pool::ConnectionPool;
 use crate::error::ChainedError;
 use crate::error::Result;
 use crate::server::router::{app_with_cors, mount_dashboard};
-use crate::server::state::ServerState;
+use crate::server::state::{BackgroundService, ServerHooks, ServerState};
 use crate::server::telemetry::init_telemetry;
 use crate::storage::StorageEngine;
 use crate::Error;
@@ -122,6 +122,44 @@ fn log_security_mode(config: &Config) {
             auth_status, rate_status, tls_status
         )),
     );
+}
+
+/// SRV-10 (FIND-249 frontier): with the `encryption` feature NOT compiled in,
+/// a configured `VANTADB_ENCRYPTION_KEY` is silently ignored — nothing in the
+/// server process consumes it and every on-disk artifact stays plaintext.
+/// The engine notice (ENC-01) is feature-gated, so it can never fire in this
+/// build; this server-side counterpart keeps the operator from mistaking the
+/// key for at-rest protection. When the feature IS compiled, the engine
+/// itself warns at open (`src/storage/engine/init.rs`, ENC-01).
+#[cfg(not(feature = "encryption"))]
+fn encryption_key_ignored_notice(config: &Config) -> Option<&'static str> {
+    use crate::storage::BackendKind;
+
+    config.encryption_key.as_ref()?;
+    if matches!(config.backend_kind, BackendKind::InMemory) {
+        return None;
+    }
+    Some(concat!(
+        "VANTADB_ENCRYPTION_KEY is set but this build does not include the ",
+        "`encryption` feature: the key is IGNORED and every on-disk artifact ",
+        "(WAL, HNSW index, VantaFile segments, backend KV, text index, ",
+        "snapshots) remains PLAINTEXT. Do not rely on this key for at-rest ",
+        "protection — use OS/volume-level encryption. Encryption-at-rest ",
+        "wiring is tracked in FIND-249."
+    ))
+}
+
+/// Emit the SRV-10 key-ignored notice at server start. Only fires when a key
+/// is configured in a build without the `encryption` feature (the default
+/// `vantadb-server` build); no key or feature-compiled builds are unchanged.
+#[cfg(not(feature = "encryption"))]
+fn warn_if_encryption_key_ignored(config: &Config) {
+    if let Some(notice) = encryption_key_ignored_notice(config) {
+        crate::console::warn(
+            "VANTADB_ENCRYPTION_KEY ignored — `encryption` feature not compiled",
+            Some(notice),
+        );
+    }
 }
 
 /// Flush storage and log the result using spawn_blocking to avoid blocking Tokio.
@@ -281,7 +319,25 @@ pub async fn build_tls13_config(
 }
 
 /// Start the HTTP (or TLS) server, binding to the address in the config.
+///
+/// Pre-WIRE-14 entry point, unchanged: equivalent to calling
+/// [`run_with_hooks`] with [`ServerHooks::default()`].
 pub async fn run(config: Config) -> Result<()> {
+    run_with_hooks(config, ServerHooks::default()).await
+}
+
+/// Start the HTTP (or TLS) server with host-provided hooks (WIRE-14).
+///
+/// Additive seam over [`run`]: hosts inject a [`crate::server::state::ConversationTrigger`]
+/// (post-save hook for `POST /api/v2/conversations`) and background services
+/// they have already started. The server owns those services for its lifetime
+/// and joins them after the HTTP loop returns — the same lifecycle as the
+/// built-in TTL sweeper — so no service task outlives `run`.
+///
+/// WIRE-16: hosts that need the server's database handle (single writer) set
+/// [`ServerHooks::on_storage_ready`] and complete their trigger/services
+/// there, once storage is open.
+pub async fn run_with_hooks(config: Config, mut hooks: ServerHooks) -> Result<()> {
     init_telemetry(
         crate::server::telemetry::TelemetrySink::Stdout,
         Some(config.log_format),
@@ -290,6 +346,11 @@ pub async fn run(config: Config) -> Result<()> {
     crate::console::print_banner();
 
     validate_auth_config(&config)?;
+
+    // SRV-10: honest at-rest status — the engine's ENC-01 notice only exists
+    // in `encryption` builds; warn here when the key is inert (no feature).
+    #[cfg(not(feature = "encryption"))]
+    warn_if_encryption_key_ignored(&config);
 
     crate::console::progress("Initializing storage engine...", None);
 
@@ -307,6 +368,39 @@ pub async fn run(config: Config) -> Result<()> {
 
     log_security_mode(&config);
 
+    let db = crate::sdk::Embedded::from_engine(storage.clone());
+
+    // MOD-12 (MCP-01 twin): a raw StorageEngine skips the
+    // `Embedded::open_with_config` index reconciliation, so lexical/hybrid
+    // searches fail on fresh DBs with "text_index not found". Ensure index
+    // state at startup: idempotent — no-op when counts match, writes fresh
+    // empty state for new DBs. Read-only engines cannot rebuild, so they are
+    // skipped (same guard as `open_with_config`). Runs before the deferred
+    // host wiring (WIRE-16) so a host-started service never races the
+    // reconcile.
+    if !config.read_only {
+        if let Err(e) = db.ensure_indexes_current() {
+            crate::console::error(
+                "Failed to ensure index state at startup; text search may be unavailable",
+                Some(&e.to_string()),
+            );
+        }
+    }
+
+    // WIRE-16: deferred host wiring — the host receives a clone of the
+    // server's `Embedded` handle (single writer: the server owns the one
+    // open) and completes its trigger/services before `ServerState` and the
+    // router are built.
+    if let Some(on_storage_ready) = hooks.on_storage_ready.take() {
+        on_storage_ready(&mut hooks, db.clone());
+    }
+
+    let ServerHooks {
+        conversation_trigger,
+        mut background_services,
+        ..
+    } = hooks;
+
     let api_key: Option<Arc<str>> = config.api_key.as_deref().map(Arc::from);
     let alt_api_key: Option<Arc<str>> = config.alt_api_key.as_deref().map(Arc::from);
     let jwt_secret: Option<Arc<str>> = config.jwt_secret.as_deref().map(Arc::from);
@@ -321,7 +415,7 @@ pub async fn run(config: Config) -> Result<()> {
     let rbac_config = config.rbac_config.clone();
     let state = Arc::new(ServerState {
         storage: storage.clone(),
-        db: crate::sdk::Embedded::from_engine(storage.clone()),
+        db,
         circuit_breaker,
         pool,
         api_key,
@@ -329,30 +423,16 @@ pub async fn run(config: Config) -> Result<()> {
         jwt_secret,
         rbac_config,
         trusted_proxies: config.trusted_proxies.clone(),
-        conversation_trigger: None,
+        conversation_trigger,
     });
-
-    // MOD-12 (MCP-01 twin): a raw StorageEngine skips the
-    // `Embedded::open_with_config` index reconciliation, so lexical/hybrid
-    // searches fail on fresh DBs with "text_index not found". Ensure index
-    // state at startup: idempotent — no-op when counts match, writes fresh
-    // empty state for new DBs. Read-only engines cannot rebuild, so they are
-    // skipped (same guard as `open_with_config`).
-    if !config.read_only {
-        if let Err(e) = state.db.ensure_indexes_current() {
-            crate::console::error(
-                "Failed to ensure index state at startup; text search may be unavailable",
-                Some(&e.to_string()),
-            );
-        }
-    }
 
     // WIRE-04: background TTL sweeper — keeps the TTL promise without manual
     // `purge_expired` calls (physically purges expired records + indexes).
     // Disabled on read-only engines (purge is a write) and when the configured
     // interval is 0. Held for the server's lifetime; stopped after the run
-    // loop returns so no sweep races the shutdown flush.
-    let ttl_sweeper = if !config.read_only && config.ttl_sweep_interval_ms > 0 {
+    // loop returns so no sweep races the shutdown flush. WIRE-14: joined
+    // through the same host seam as injected services, after them.
+    if !config.read_only && config.ttl_sweep_interval_ms > 0 {
         crate::console::ok(
             "TTL sweeper",
             Some(&format!(
@@ -360,13 +440,12 @@ pub async fn run(config: Config) -> Result<()> {
                 config.ttl_sweep_interval_ms
             )),
         );
-        Some(crate::gc::spawn_memory_ttl_sweeper(
+        let sweeper = crate::gc::spawn_memory_ttl_sweeper(
             state.db.clone(),
             Duration::from_millis(config.ttl_sweep_interval_ms),
-        ))
-    } else {
-        None
-    };
+        );
+        background_services.push(Box::new(sweeper));
+    }
 
     let rpm = config.rate_limit_rpm;
     let router = app_with_cors(state, rpm, &config.allowed_origins);
@@ -377,11 +456,19 @@ pub async fn run(config: Config) -> Result<()> {
         return Err(Error::Cli(ChainedError::msg("Server exited with errors")));
     }
 
-    if let Some(sweeper) = ttl_sweeper {
-        sweeper.shutdown().await;
-    }
+    // WIRE-14: graceful stop of every owned background service — host services
+    // first (registration order), then the built-in TTL sweeper. Mirrors the
+    // pre-WIRE-14 join: no service races the shutdown flush.
+    shutdown_background_services(background_services).await;
 
     Ok(())
+}
+
+/// Stop and join every background service, in registration order.
+async fn shutdown_background_services(services: Vec<Box<dyn BackgroundService>>) {
+    for service in services {
+        service.shutdown().await;
+    }
 }
 
 /// Wait for SIGINT (or SIGTERM on Unix) to trigger graceful shutdown.
@@ -410,6 +497,7 @@ pub async fn wait_for_shutdown_signal() {
 mod tests {
     use super::*;
     use crate::config::Config;
+    use crate::server::state::{BackgroundService, ServerHooks};
     use crate::Error;
 
     #[test]
@@ -541,5 +629,223 @@ mod tests {
         assert!(!is_loopback_host("192.168.1.10"));
         assert!(!is_loopback_host("db.internal")); // unresolvable → fail closed
         assert!(!is_loopback_host(""));
+    }
+
+    // ── WIRE-14: host seam — background-service lifecycle ────────────────────
+
+    /// Fake host service mirroring the TTL sweeper lifecycle (watch + join):
+    /// a spawned loop that runs until its watch channel flips, with a
+    /// `stopped` flag set right before the task completes — so a completed
+    /// join implies the flag is set.
+    struct FakeService {
+        shutdown_tx: tokio::sync::watch::Sender<bool>,
+        handle: Option<tokio::task::JoinHandle<()>>,
+        stopped: Arc<std::sync::atomic::AtomicBool>,
+    }
+
+    impl FakeService {
+        /// Spawn the fake loop; the returned receiver fires once it is running.
+        fn spawn() -> (Self, tokio::sync::oneshot::Receiver<()>) {
+            use std::sync::atomic::Ordering;
+            let (shutdown_tx, mut shutdown_rx) = tokio::sync::watch::channel(false);
+            let (started_tx, started_rx) = tokio::sync::oneshot::channel();
+            let stopped = Arc::new(std::sync::atomic::AtomicBool::new(false));
+            let stopped_task = stopped.clone();
+            let handle = tokio::spawn(async move {
+                let _ = started_tx.send(());
+                let _ = shutdown_rx.changed().await;
+                stopped_task.store(true, Ordering::SeqCst);
+            });
+            (
+                Self {
+                    shutdown_tx,
+                    handle: Some(handle),
+                    stopped,
+                },
+                started_rx,
+            )
+        }
+    }
+
+    impl BackgroundService for FakeService {
+        fn shutdown(
+            mut self: Box<Self>,
+        ) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>> {
+            Box::pin(async move {
+                let _ = self.shutdown_tx.send(true);
+                if let Some(handle) = self.handle.take() {
+                    let _ = handle.await;
+                }
+            })
+        }
+    }
+
+    /// WIRE-14 contract: a host-spawned service handed to the seam is stopped
+    /// and joined by the server's graceful-shutdown path.
+    #[tokio::test]
+    async fn background_services_shutdown_joins_spawned_service() {
+        use std::sync::atomic::Ordering;
+        // Arrange: the host starts the service before handing it over.
+        let (service, started) = FakeService::spawn();
+        let stopped = service.stopped.clone();
+        assert!(started.await.is_ok(), "fake service loop must start");
+
+        // Act: the server's shutdown path.
+        shutdown_background_services(vec![Box::new(service)]).await;
+
+        // Assert: the loop saw the stop signal and the join completed (the
+        // flag is stored before the task returns; shutdown awaits its handle).
+        assert!(
+            stopped.load(Ordering::SeqCst),
+            "service loop must be stopped and joined"
+        );
+    }
+
+    /// Every registered service is joined, not just the first.
+    #[tokio::test]
+    async fn background_services_shutdown_joins_every_registered_service() {
+        use std::sync::atomic::Ordering;
+        let (first, first_started) = FakeService::spawn();
+        let (second, second_started) = FakeService::spawn();
+        let first_stopped = first.stopped.clone();
+        let second_stopped = second.stopped.clone();
+        assert!(first_started.await.is_ok(), "first loop must start");
+        assert!(second_started.await.is_ok(), "second loop must start");
+
+        shutdown_background_services(vec![Box::new(first), Box::new(second)]).await;
+
+        assert!(first_stopped.load(Ordering::SeqCst), "first must be joined");
+        assert!(
+            second_stopped.load(Ordering::SeqCst),
+            "second must be joined"
+        );
+    }
+
+    /// Defaults keep the pre-WIRE-14 behavior exactly (plan contract):
+    /// no trigger, no services.
+    #[test]
+    fn default_server_hooks_keep_pre_wire14_behavior() {
+        let hooks = ServerHooks::default();
+        assert!(hooks.conversation_trigger.is_none());
+        assert!(hooks.background_services.is_empty());
+        // WIRE-16: the deferred-wiring hook defaults inert too.
+        assert!(hooks.on_storage_ready.is_none());
+    }
+
+    /// WIRE-16: the deferred host-wiring hook is settable with the documented
+    /// signature — hosts complete trigger/services once the server shares its
+    /// `Embedded` handle (single-writer; a second open is `DatabaseBusy`).
+    #[test]
+    fn on_storage_ready_defaults_inert_and_accepts_host_wiring() {
+        let mut hooks = ServerHooks::default();
+        assert!(
+            hooks.on_storage_ready.is_none(),
+            "default must keep the pre-WIRE-16 behavior"
+        );
+        hooks.on_storage_ready = Some(Box::new(
+            |_hooks: &mut ServerHooks, _db: crate::sdk::Embedded| {},
+        ));
+        assert!(hooks.on_storage_ready.is_some());
+    }
+
+    /// The built-in TTL sweeper participates in the same lifecycle seam.
+    #[test]
+    fn memory_ttl_sweeper_implements_background_service() {
+        fn assert_impl<T: BackgroundService>() {}
+        assert_impl::<crate::gc::MemoryTtlSweeper>();
+    }
+
+    /// Runtime proof of the sweeper's trait impl: a real sweeper boxed as the
+    /// seam sees it is joined through the generic path (no hang, no recursion
+    /// into the trait method — the impl delegates to the inherent shutdown).
+    #[tokio::test]
+    async fn ttl_sweeper_joins_through_background_service_seam() {
+        let dir = match tempfile::tempdir() {
+            Ok(d) => d,
+            Err(e) => panic!("tempdir: {e}"),
+        };
+        let config = Config {
+            backend_kind: crate::storage::BackendKind::InMemory,
+            ..Default::default()
+        };
+        let path = match dir.path().to_str() {
+            Some(p) => p,
+            None => panic!("non-utf8 tempdir path"),
+        };
+        let storage = match StorageEngine::open_with_config(path, Some(config)) {
+            Ok(s) => Arc::new(s),
+            Err(e) => panic!("open storage: {e}"),
+        };
+        let db = crate::sdk::Embedded::from_engine(storage);
+        let sweeper = crate::gc::spawn_memory_ttl_sweeper(db, Duration::from_millis(20));
+
+        shutdown_background_services(vec![Box::new(sweeper)]).await;
+    }
+
+    /// The historical facades (`cli_server` and `server::routing`) re-export
+    /// the WIRE-14 seam for external hosts (WIRE-15/16). Compile-time pin.
+    #[test]
+    fn facades_reexport_wire14_seam() {
+        let _hooks = crate::cli_server::ServerHooks::default();
+        let _run = crate::cli_server::run_with_hooks;
+        let _legacy_run = crate::server::routing::run_with_hooks;
+        fn assert_trait<T: crate::cli_server::BackgroundService>() {}
+        assert_trait::<crate::gc::MemoryTtlSweeper>();
+    }
+
+    // ── SRV-10: key-without-feature honesty (FIND-249 frontier) ─────────────
+
+    #[cfg(not(feature = "encryption"))]
+    mod encryption_key_ignored {
+        use super::*;
+        use crate::storage::BackendKind;
+
+        /// Hermetic config: fields pinned explicitly so an exported
+        /// `VANTADB_ENCRYPTION_KEY`/`VANTADB_BACKEND` cannot change the test.
+        fn config_with_key(backend_kind: BackendKind) -> Config {
+            Config {
+                storage_path: "srv10-test".to_string(),
+                backend_kind,
+                encryption_key: Some("ab".repeat(32)),
+                ..Config::default()
+            }
+        }
+
+        #[test]
+        fn encryption_key_ignored_notice_fires_for_on_disk_backend() {
+            let notice = encryption_key_ignored_notice(&config_with_key(BackendKind::Fjall))
+                .expect("key set without the `encryption` feature must warn");
+            assert!(
+                notice.contains("IGNORED"),
+                "notice must say the key is ignored; got: {notice}"
+            );
+            assert!(
+                notice.contains("PLAINTEXT"),
+                "notice must say data at rest is plaintext; got: {notice}"
+            );
+            assert!(
+                notice.contains("FIND-249"),
+                "notice must point at FIND-249; got: {notice}"
+            );
+        }
+
+        #[test]
+        fn encryption_key_ignored_notice_silent_without_key() {
+            let config = Config {
+                storage_path: "srv10-test".to_string(),
+                backend_kind: BackendKind::Fjall,
+                encryption_key: None,
+                ..Config::default()
+            };
+            assert!(encryption_key_ignored_notice(&config).is_none());
+        }
+
+        #[test]
+        fn encryption_key_ignored_notice_silent_for_in_memory_backend() {
+            assert!(
+                encryption_key_ignored_notice(&config_with_key(BackendKind::InMemory)).is_none(),
+                "no at-rest notice for InMemory (no on-disk artifacts)"
+            );
+        }
     }
 }

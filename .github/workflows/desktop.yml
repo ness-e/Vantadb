@@ -20,7 +20,7 @@ name: Desktop CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
     paths:
       - 'desktop/**'
       - 'src/**'
@@ -186,7 +186,11 @@ jobs:
   linux:
     name: Build & Test (Linux)
     runs-on: ubuntu-22.04
-    timeout-minutes: 30
+    # CI closure (2026-10-06): 30 -> 45 min. Measured wall time on passing runs
+    # is 11-24 min (warm caches); the 237-commit develop push invalidated the
+    # caches and the cold build was killed mid-rustc at 30m05s (run
+    # 37500084174). 45 matches the macOS budget (measured + headroom, FIND-135).
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 

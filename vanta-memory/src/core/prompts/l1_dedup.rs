@@ -110,6 +110,7 @@ OUTPUT: Return ONLY a valid JSON array, one object per NEW memory, in the same o
     "record_id": "the new memory's record_id from the input",
     "action": "store|update|merge|skip",
     "target_ids": ["existing record ids to remove/replace"],
+    "contradicts": ["existing record ids this memory EXPLICITLY negates (omit if none)"],
     "merged_content": "full merged content (update/merge only; omit for store/skip)",
     "merged_type": "best type after merge (omit if unchanged)",
     "merged_priority": 80,
@@ -120,6 +121,7 @@ Rules:
 - Every new memory MUST appear exactly once; never drop one.
 - "store" needs no target_ids; "update"/"merge" need at least one target_id from the candidate pool; "skip" needs no merged_* fields.
 - For "store", only record_id and action are required.
+- "contradicts" (optional, default []): ONLY candidate ids the new memory EXPLICITLY negates or retracts — e.g. "no longer likes X" after "likes X", "switched from A to B", "changed my mind". A contradicted record is flagged as superseded (auditable, never deleted) and must NOT also appear in target_ids. When the negation is implicit or uncertain, use [] — false positives are worse than misses.
 - Output strictly the JSON array — no markdown code fences, no explanatory text."#;
 
 const WORK_SYSTEM_PROMPT: &str = r#"You are an expert in long-term memory deduplication for an AI assistant embedded in a work/team environment.
@@ -139,6 +141,7 @@ OUTPUT: Return ONLY a valid JSON array, one object per NEW memory, in the same o
     "record_id": "the new memory's record_id from the input",
     "action": "store|update|merge|skip",
     "target_ids": ["existing record ids to remove/replace"],
+    "contradicts": ["existing record ids this memory EXPLICITLY negates (omit if none)"],
     "merged_content": "full merged content (update/merge only; omit for store/skip)",
     "merged_type": "best type after merge (omit if unchanged)",
     "merged_priority": 80,
@@ -149,6 +152,7 @@ Rules:
 - Every new memory MUST appear exactly once; never drop one.
 - "store" needs no target_ids; "update"/"merge" need at least one target_id from the candidate pool; "skip" needs no merged_* fields.
 - For "store", only record_id and action are required.
+- "contradicts" (optional, default []): ONLY candidate ids the new memory EXPLICITLY negates or retracts — e.g. "no longer likes X" after "likes X", "switched from A to B", "changed my mind". A contradicted record is flagged as superseded (auditable, never deleted) and must NOT also appear in target_ids. When the negation is implicit or uncertain, use [] — false positives are worse than misses.
 - Output strictly the JSON array — no markdown code fences, no explanatory text."#;
 
 #[cfg(test)]

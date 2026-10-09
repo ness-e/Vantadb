@@ -7,7 +7,7 @@ param([switch]$Detail)
 
 $root   = Split-Path $PSScriptRoot -Parent
 $srcDir = Join-Path $root "docs/dev/avance/historial/fuentes"
-$dstDir = Join-Path $root "docs/avance"
+$dstDir = Join-Path $root "docs/dev/avance"
 
 # --- 0. Fuentes vivas externas (no se mueven; se catalogan por referencia) ---
 # Carpeta -> catálogo en docs/avance que la integra sin moverla

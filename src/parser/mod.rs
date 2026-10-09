@@ -13,9 +13,11 @@ pub use lexer::*;
 /// Bump when the grammar or literal semantics change in a way consumers must
 /// detect (new clause, changed literal semantics, removed syntax). Version-gated
 /// clauses document their minimum version — e.g. `PROFILE` (MEM-01) is accepted
-/// from [`IQL_VERSION_MIN_PROFILE`] onwards and `AS OF` (SCH-03) from
-/// [`IQL_VERSION_MIN_AS_OF`].
-pub const IQL_VERSION: u32 = 2;
+/// from [`IQL_VERSION_MIN_PROFILE`] onwards, `AS OF` (SCH-03) from
+/// [`IQL_VERSION_MIN_AS_OF`], `LIMIT`/`OFFSET` (WIRE-12) from
+/// [`IQL_VERSION_MIN_PAGINATION`], and aggregation (`COUNT`/`SUM`/`GROUP BY`,
+/// WIRE-13) from [`IQL_VERSION_MIN_AGGREGATION`].
+pub const IQL_VERSION: u32 = 4;
 
 /// Minimum IQL version that accepts the optional `PROFILE` clause (MEM-01).
 pub const IQL_VERSION_MIN_PROFILE: u32 = 1;
@@ -23,6 +25,19 @@ pub const IQL_VERSION_MIN_PROFILE: u32 = 1;
 /// Minimum IQL version that accepts the optional `AS OF <unix-ms>` valid-time
 /// clause (SCH-03, ADR-046 §D3).
 pub const IQL_VERSION_MIN_AS_OF: u32 = 2;
+
+/// Minimum IQL version that accepts the optional `LIMIT <n>` / `OFFSET <n>`
+/// pagination clauses (WIRE-12). Canonical order: `LIMIT` then `OFFSET`;
+/// `OFFSET` may only appear together with or after `LIMIT` (reversed order is
+/// a parse error, never a silent drop).
+pub const IQL_VERSION_MIN_PAGINATION: u32 = 3;
+
+/// Minimum IQL version that accepts aggregation in `SELECT` (WIRE-13):
+/// `COUNT(*)` / `COUNT(field)` / `SUM(field)` in the projection list plus the
+/// optional `GROUP BY <field>` clause. Unsupported combinations (`AS OF`,
+/// `LIMIT`/`OFFSET`, mixed plain fields, multi-field `GROUP BY`) are loud
+/// parse errors, never silent drops.
+pub const IQL_VERSION_MIN_AGGREGATION: u32 = 4;
 
 /// True when syntax whose minimum version is `min_version` is accepted by this
 /// parser (i.e. `min_version <= `[`IQL_VERSION`]). Consumers use it to
@@ -1408,20 +1423,36 @@ mod tests {
     fn test_iql_version_defined_and_gated() {
         // A concrete version is defined and exposed (crate root re-export
         // in src/lib.rs).
-        assert_eq!(IQL_VERSION, 2);
+        assert_eq!(IQL_VERSION, 4);
         // The gate is the single source of truth for versioned syntax.
         assert!(iql_supports(IQL_VERSION_MIN_PROFILE));
         assert!(iql_supports(IQL_VERSION_MIN_AS_OF));
+        assert!(iql_supports(IQL_VERSION_MIN_PAGINATION));
+        assert!(iql_supports(IQL_VERSION_MIN_AGGREGATION));
         assert!(
             !iql_supports(IQL_VERSION + 1),
             "syntax from a future version must not be silently enabled"
         );
-        // The gated clauses parse at the current version (MEM-01, SCH-03).
+        // The gated clauses parse at the current version (MEM-01, SCH-03, WIRE-12, WIRE-13).
         let (_, q) = parse_query("FROM Node PROFILE vector").unwrap();
         let profile = q.search_profile.expect("PROFILE parsed at IQL_VERSION");
         assert_eq!(profile.mode, SearchProfileMode::Vector);
         let (_, q) = parse_query("FROM Node AS OF 42").unwrap();
         assert_eq!(q.as_of_ms, Some(42), "AS OF parsed at IQL_VERSION");
+        let (_, q) = parse_query("FROM Node LIMIT 1 OFFSET 2").unwrap();
+        assert_eq!(
+            (q.limit, q.offset),
+            (Some(1), Some(2)),
+            "pagination parsed at IQL_VERSION"
+        );
+        let (_, stmt) = parse_statement("SELECT COUNT(*) FROM Node GROUP BY n").unwrap();
+        match stmt {
+            Statement::Select(sel) => {
+                assert_eq!(sel.aggregates, vec![AggregateFunc::Count]);
+                assert_eq!(sel.group_by.as_deref(), Some("n"));
+            }
+            other => panic!("expected Select, got {other:?}"),
+        }
     }
 
     // ─── AS OF / valid-time clause (SCH-03) ──────────────────────
@@ -1539,5 +1570,345 @@ mod tests {
         assert_eq!(v["Query"]["where_clause"][0]["Relational"][2]["Int"], 28);
         assert_eq!(v["Query"]["fetch"][0], "name");
         assert_eq!(v["Query"]["search_profile"], serde_json::Value::Null);
+        // WIRE-12: pagination fields are additive and default to null.
+        assert_eq!(v["Query"]["limit"], serde_json::Value::Null);
+        assert_eq!(v["Query"]["offset"], serde_json::Value::Null);
+    }
+
+    // ─── LIMIT / OFFSET pagination (WIRE-12) ─────────────────────
+
+    #[test]
+    fn test_parse_query_limit_and_offset_capture_values() {
+        let (rest, q) = parse_query("FROM Doc LIMIT 5 OFFSET 2").unwrap();
+        assert_eq!(q.limit, Some(5));
+        assert_eq!(q.offset, Some(2));
+        assert_eq!(rest.trim(), "", "pagination clauses fully consumed");
+    }
+
+    #[test]
+    fn test_parse_query_limit_only_and_offset_only() {
+        let (_, q) = parse_query("FROM Doc LIMIT 10").unwrap();
+        assert_eq!((q.limit, q.offset), (Some(10), None));
+        let (_, q) = parse_query("FROM Doc OFFSET 3").unwrap();
+        assert_eq!((q.limit, q.offset), (None, Some(3)));
+        let (_, q) = parse_query("FROM Doc").unwrap();
+        assert_eq!((q.limit, q.offset), (None, None));
+    }
+
+    #[test]
+    fn test_parse_query_limit_zero_is_valid() {
+        // SQL semantics: LIMIT 0 is a valid empty window.
+        let (_, q) = parse_query("FROM Doc LIMIT 0").unwrap();
+        assert_eq!(q.limit, Some(0));
+    }
+
+    #[test]
+    fn test_parse_query_limit_requires_numeric_count() {
+        // Strictness (same rule as AS OF): once the keyword is seen the count
+        // is required — never a silent drop.
+        assert!(parse_query("FROM Doc LIMIT").is_err());
+        assert!(parse_query("FROM Doc LIMIT abc").is_err());
+        assert!(parse_query("FROM Doc OFFSET").is_err());
+        assert!(parse_query("FROM Doc OFFSET abc").is_err());
+    }
+
+    #[test]
+    fn test_parse_query_reversed_pagination_order_is_error() {
+        // Canonical order is LIMIT then OFFSET (SQL). Reversed or duplicated
+        // pagination keywords fail loud instead of becoming ignored trailing
+        // input.
+        assert!(parse_query("FROM Doc OFFSET 2 LIMIT 5").is_err());
+        assert!(parse_query("FROM Doc LIMIT 1 LIMIT 2").is_err());
+        assert!(parse_query("FROM Doc OFFSET 1 OFFSET 2").is_err());
+    }
+
+    #[test]
+    fn test_parse_query_limit_offset_with_rank_by_and_as_of() {
+        // Canonical order: ... RANK BY f LIMIT n OFFSET m AS OF t
+        let (rest, q) =
+            parse_query(r#"FROM Doc RANK BY name DESC LIMIT 3 OFFSET 1 AS OF 42"#).unwrap();
+        assert_eq!(
+            q.rank_by.as_ref().map(|r| (r.field.as_str(), r.desc)),
+            Some(("name", true))
+        );
+        assert_eq!(q.limit, Some(3));
+        assert_eq!(q.offset, Some(1));
+        assert_eq!(q.as_of_ms, Some(42));
+        assert_eq!(rest.trim(), "");
+        // AS OF before pagination still works (late position preserved).
+        let (_, q) = parse_query("FROM Doc AS OF 42 LIMIT 3").unwrap();
+        assert_eq!((q.as_of_ms, q.limit), (Some(42), Some(3)));
+        // Early AS OF position unchanged, combined with full pagination.
+        let (_, q) = parse_query("FROM Doc AS OF 42 WHERE n > 1 LIMIT 3 OFFSET 2").unwrap();
+        assert_eq!(
+            (q.as_of_ms, q.limit, q.offset),
+            (Some(42), Some(3), Some(2))
+        );
+    }
+
+    #[test]
+    fn test_parse_query_pagination_does_not_break_alias_identifiers() {
+        // Non-reserved identifiers with a keyword prefix stay valid aliases.
+        let (_, q) = parse_query("FROM Doc LIMITED").unwrap();
+        assert_eq!(q.target_alias, "LIMITED");
+        let (_, q) = parse_query("FROM Doc OFFSETX").unwrap();
+        assert_eq!(q.target_alias, "OFFSETX");
+    }
+
+    #[test]
+    fn test_parse_select_limit_offset_and_as_of() {
+        let (rest, stmt) = parse_statement("SELECT * FROM Doc LIMIT 5 OFFSET 2").unwrap();
+        match stmt {
+            Statement::Select(sel) => {
+                assert_eq!(sel.limit, Some(5));
+                assert_eq!(sel.offset, Some(2));
+            }
+            other => panic!("expected Select, got {other:?}"),
+        }
+        assert_eq!(rest.trim(), "");
+        // AS OF late position before pagination.
+        let (_, stmt) = parse_statement("SELECT * FROM Doc WHERE n > 1 AS OF 9 LIMIT 4").unwrap();
+        match stmt {
+            Statement::Select(sel) => {
+                assert_eq!(sel.as_of_ms, Some(9));
+                assert_eq!(sel.limit, Some(4));
+            }
+            other => panic!("expected Select, got {other:?}"),
+        }
+        // AS OF after pagination (third canonical position).
+        let (_, stmt) = parse_statement("SELECT * FROM Doc LIMIT 4 AS OF 9").unwrap();
+        match stmt {
+            Statement::Select(sel) => assert_eq!((sel.limit, sel.as_of_ms), (Some(4), Some(9))),
+            other => panic!("expected Select, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_parse_select_reversed_pagination_is_error() {
+        assert!(parse_statement("SELECT * FROM Doc OFFSET 2 LIMIT 5").is_err());
+        assert!(parse_statement("SELECT * FROM Doc LIMIT").is_err());
+    }
+
+    #[test]
+    fn test_parse_statement_rejects_trailing_clause_after_pagination() {
+        // WIRE-12: a clause after LIMIT/OFFSET would otherwise be silently
+        // dropped by the executor (FIND-312 class) and return a page without
+        // the clause — reject loud instead.
+        assert!(parse_statement("FROM Doc LIMIT 5 WHERE n > 1").is_err());
+        assert!(parse_statement("SELECT * FROM Doc LIMIT 5 WHERE n > 1").is_err());
+        assert!(parse_statement("FROM Doc OFFSET 2 garbage").is_err());
+        // Control: pagination + AS OF in either position parses fully.
+        assert!(parse_statement("FROM Doc LIMIT 5 AS OF 9").is_ok());
+        assert!(parse_statement("FROM Doc AS OF 9 LIMIT 5").is_ok());
+        // Subqueries keep parsing — the caller consumes the closing `)`.
+        assert!(
+            parse_statement("SELECT * FROM ns WHERE x > (SELECT * FROM other LIMIT 5)").is_ok()
+        );
+        // A trailing statement terminator is tolerated (lenient, same as
+        // non-paginated statements).
+        assert!(parse_statement("FROM Doc LIMIT 5;").is_ok());
+        // Boundary of this fix: statements WITHOUT pagination keep the legacy
+        // trailing-input behavior (still tracked as FIND-312).
+        assert!(parse_statement("FROM Doc garbage").is_ok());
+    }
+
+    #[test]
+    fn test_ast_json_pagination_shape() {
+        let (_, stmt) = parse_statement("FROM Doc LIMIT 5 OFFSET 2").unwrap();
+        let v = serde_json::to_value(&stmt).expect("statement must serialize to JSON");
+        assert_eq!(v["Query"]["limit"], 5);
+        assert_eq!(v["Query"]["offset"], 2);
+    }
+
+    // ─── Aggregations (WIRE-13) ──────────────────────────────────
+
+    #[test]
+    fn test_parse_select_count_star_aggregate() {
+        let (rest, stmt) = parse_statement("SELECT COUNT(*) FROM Invoice").unwrap();
+        assert_eq!(rest.trim(), "", "statement fully consumed");
+        match stmt {
+            Statement::Select(sel) => {
+                assert_eq!(sel.aggregates, vec![AggregateFunc::Count]);
+                assert!(sel.group_by.is_none());
+                assert!(sel.projections.is_empty());
+            }
+            other => panic!("expected Select, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_parse_select_count_field_and_sum() {
+        let (rest, stmt) =
+            parse_statement("SELECT COUNT(email), SUM(amount) FROM Invoice").unwrap();
+        assert_eq!(rest.trim(), "");
+        match stmt {
+            Statement::Select(sel) => {
+                assert_eq!(
+                    sel.aggregates,
+                    vec![
+                        AggregateFunc::CountField("email".into()),
+                        AggregateFunc::Sum("amount".into())
+                    ]
+                );
+            }
+            other => panic!("expected Select, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_parse_select_group_by_single_field() {
+        let (rest, stmt) =
+            parse_statement("SELECT COUNT(*), SUM(amount) FROM Invoice GROUP BY category").unwrap();
+        assert_eq!(rest.trim(), "");
+        match stmt {
+            Statement::Select(sel) => {
+                assert_eq!(sel.group_by.as_deref(), Some("category"));
+                assert_eq!(sel.aggregates.len(), 2);
+            }
+            other => panic!("expected Select, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_parse_select_group_by_after_where() {
+        // Canonical clause order (SQL): SELECT ... FROM ... WHERE ... GROUP BY.
+        let (rest, stmt) =
+            parse_statement("SELECT COUNT(*) FROM Invoice WHERE total > 0 GROUP BY category")
+                .unwrap();
+        assert_eq!(rest.trim(), "");
+        match stmt {
+            Statement::Select(sel) => {
+                assert_eq!(sel.group_by.as_deref(), Some("category"));
+                assert_eq!(sel.where_clause.map(|c| c.len()), Some(1));
+            }
+            other => panic!("expected Select, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_parse_select_without_aggregation_keeps_defaults() {
+        // Retrocompat: a plain SELECT keeps parsing with empty aggregate fields.
+        let (_, stmt) = parse_statement("SELECT name, age FROM Person").unwrap();
+        match stmt {
+            Statement::Select(sel) => {
+                assert!(sel.aggregates.is_empty());
+                assert!(sel.group_by.is_none());
+                assert_eq!(sel.projections, vec!["name", "age"]);
+            }
+            other => panic!("expected Select, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_parse_select_rejects_mixed_fields_and_aggregates() {
+        // Group keys come from GROUP BY and are always included; mixing plain
+        // fields into the aggregate SELECT list is a loud parse error.
+        assert!(parse_statement("SELECT name, COUNT(*) FROM Person").is_err());
+        assert!(parse_statement("SELECT COUNT(*), name FROM Person").is_err());
+    }
+
+    #[test]
+    fn test_parse_select_rejects_group_by_without_aggregate() {
+        assert!(parse_statement("SELECT * FROM Person GROUP BY name").is_err());
+        assert!(parse_statement("SELECT name FROM Person GROUP BY name").is_err());
+    }
+
+    #[test]
+    fn test_parse_select_rejects_multi_field_group_by() {
+        // Multi-field GROUP BY is deferred (FIND-316) - reject loud instead of
+        // silently grouping by the first field only (trailing-drop class).
+        assert!(parse_statement("SELECT COUNT(*) FROM Invoice GROUP BY a, b").is_err());
+    }
+
+    #[test]
+    fn test_parse_select_rejects_as_of_with_aggregation() {
+        // The valid-time filter runs post-plan; over synthetic aggregate rows
+        // it would be a silent no-op -> reject loud (subquery + AS OF pattern).
+        assert!(parse_statement("SELECT COUNT(*) FROM Invoice AS OF 5").is_err());
+        assert!(parse_statement("SELECT COUNT(*) FROM Invoice GROUP BY c AS OF 5").is_err());
+    }
+
+    #[test]
+    fn test_parse_select_rejects_pagination_with_aggregation() {
+        // LIMIT/OFFSET compile post-chain (after the aggregate); applied to the
+        // input they would silently change the count -> reject loud (FIND-316).
+        assert!(parse_statement("SELECT COUNT(*) FROM Invoice LIMIT 5").is_err());
+        assert!(parse_statement("SELECT COUNT(*) FROM Invoice OFFSET 2").is_err());
+    }
+
+    #[test]
+    fn test_parse_select_aggregation_rejects_trailing_clause() {
+        // WIRE-13 (review C-1): a clause after the strict aggregation surface
+        // would be silently dropped by the executor (FIND-312 class) and
+        // return wrong aggregate values — reject loud instead.
+        assert!(
+            parse_statement("SELECT COUNT(*) FROM Invoice GROUP BY c WHERE amount > 15").is_err()
+        );
+        assert!(
+            parse_statement("SELECT COUNT(*) FROM Invoice GROUP BY c ORDER BY count LIMIT 1")
+                .is_err()
+        );
+        assert!(parse_statement("SELECT COUNT(*) FROM Invoice GROUP BY c GROUP BY d").is_err());
+        assert!(parse_statement("SELECT COUNT(*) FROM Invoice GROUP BY").is_err());
+        assert!(
+            parse_statement("SELECT COUNT(*) FROM Invoice WITH TEMPERATURE 1.5 GROUP BY c")
+                .is_err()
+        );
+        // Control: canonical order parses fully, and `;` is tolerated.
+        assert!(
+            parse_statement("SELECT COUNT(*) FROM Invoice WHERE amount > 15 GROUP BY c").is_ok()
+        );
+        assert!(parse_statement("SELECT COUNT(*) FROM Invoice GROUP BY c;").is_ok());
+    }
+
+    #[test]
+    fn test_parse_select_rejects_group_by_colliding_with_output_name() {
+        // WIRE-13 (review M-1): the output row carries the group key plus one
+        // field per aggregate — a key colliding with an output name would
+        // silently overwrite the key.
+        assert!(parse_statement("SELECT COUNT(*) FROM Invoice GROUP BY count").is_err());
+        assert!(parse_statement("SELECT SUM(amount) FROM Invoice GROUP BY sum_amount").is_err());
+        // Control: a non-colliding field with the same aggregate parses.
+        assert!(parse_statement("SELECT SUM(amount) FROM Invoice GROUP BY category").is_ok());
+    }
+
+    #[test]
+    fn test_parse_query_rejects_group_by_on_from_surface() {
+        // Aggregation is a SELECT surface: FROM/MATCH + GROUP BY would become
+        // silently ignored trailing input (FIND-312 class) - reject loud.
+        assert!(parse_statement("FROM Invoice GROUP BY category").is_err());
+        assert!(parse_statement("MATCH Invoice GROUP BY category").is_err());
+        // Control: the SELECT spelling parses.
+        assert!(parse_statement("SELECT COUNT(*) FROM Invoice GROUP BY category").is_ok());
+    }
+
+    #[test]
+    fn test_parse_aggregate_rejects_malformed_calls() {
+        assert!(parse_statement("SELECT COUNT() FROM Invoice").is_err());
+        assert!(parse_statement("SELECT SUM(*) FROM Invoice").is_err());
+        assert!(parse_statement("SELECT COUNT(*) COUNT(*) FROM Invoice").is_err());
+    }
+
+    #[test]
+    fn test_autocomplete_suggests_group_keyword() {
+        let out = autocomplete_prefix("GRO");
+        assert!(out.contains(&"GROUP".to_string()), "got {out:?}");
+    }
+
+    #[test]
+    fn test_ast_json_select_aggregation_shape() {
+        // WIRE-13: aggregate fields serialize additively (serde default
+        // representation, same convention as the rest of the AST).
+        let (_, stmt) =
+            parse_statement("SELECT COUNT(*), SUM(amount) FROM Invoice GROUP BY category").unwrap();
+        let v = serde_json::to_value(&stmt).expect("statement must serialize to JSON");
+        assert_eq!(v["Select"]["aggregates"][0], "Count");
+        assert_eq!(v["Select"]["aggregates"][1]["Sum"], "amount");
+        assert_eq!(v["Select"]["group_by"], "category");
+        // Retrocompat: plain SELECT serializes the new fields as empty/null.
+        let (_, stmt) = parse_statement("SELECT name FROM Person").unwrap();
+        let v = serde_json::to_value(&stmt).expect("statement must serialize to JSON");
+        assert_eq!(v["Select"]["aggregates"], serde_json::json!([]));
+        assert_eq!(v["Select"]["group_by"], serde_json::Value::Null);
     }
 }

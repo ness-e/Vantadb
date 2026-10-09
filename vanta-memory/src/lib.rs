@@ -19,12 +19,15 @@
 //!
 //! ## Stability
 //!
-//! **Core-only by decision** (Gate P, D42/D43): this crate is an internal
-//! workspace member (`publish = false`), consumed in-process by `vantadb-mcp`,
-//! `vanta-proxy` and the desktop shell — it is **not** re-exported by any
-//! binding (Python/TS/Node/WASM). The public Rust API documented in
-//! `docs/api/VANTA_MEMORY.md` is the stable surface; binding exposure requires
-//! new Rust bindings plus demonstrated demand (post-release).
+//! **Core-only by decision** (Gate P, D42/D43): consumed in-process by
+//! `vantadb-mcp`, `vanta-proxy` and the desktop shell — it is **not**
+//! re-exported by any binding (Python/TS/Node/WASM). The public Rust API
+//! documented in `docs/api/VANTA_MEMORY.md` is the stable surface; binding
+//! exposure requires new Rust bindings plus demonstrated demand (post-release).
+//!
+//! **Publishing (DIST-01, 2026-10-04):** the crate is publishable on
+//! crates.io; the first release is owner-coordinated (bootstrap + Trusted
+//! Publishing pending — see `release-plz.toml`).
 //!
 //! F4 task order: MEM-08a (this scaffold) → MEM-08b (contracts + trait) →
 //! MEM-09..21 (L0→L1→L2→L3, triggers, skill extract, recall, cursor, MCP

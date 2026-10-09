@@ -13,7 +13,7 @@ name: 'GATE: Docs — Links, Schema, Indexes, Structure'
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
     paths:
       - 'docs/**'
       - 'scripts/docs/**'
@@ -47,6 +47,11 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
+      # Budgets live in the script: broken links = 0 (P0-P2 drained by the F1
+      # triage, docs/dev/tasks/DOCS-F1.md; P3 frozen trees -- avance/historial/**
+      # and tasks/** -- are excluded there, and P4 external URLs never gate:
+      # they are counted and swept by the weekly schedule instead, the
+      # qdrant/lancedb `fail: false` pattern), wikilinks = 20 occurrences.
       - name: Check internal Markdown links and legacy wikilinks
         run: node scripts/docs/check-links.mjs
 
@@ -123,21 +128,26 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
-      # The 2026-09-28 wikilink migration introduced 7 errors in 2 files while
-      # fixing 47% of the links. A count is easier to hold than a rule set:
-      # markdownlint's own --fix is deliberately not used, because these files
-      # are hand-written prose. Fix the cause, then lower BASELINE.
+      # 2026-10-04 (DOCS-F1): the migration debt is drained -- the 7 errors in
+      # BENCHMARKS/CONFIGURATION are gone and the 1 MD052 the generated index
+      # carried is fixed in gen-index.mjs -- so every controlled file must stay
+      # at 0. The master plan is EXCLUDED from the count: it is orchestrator-
+      # owned and carries machine-appended recitation blocks whose MD007s are
+      # tracked as `FIND-264` (Backlog, 2026-10-04) and fixed at the source, not here — remove this exclusion once the master plan is archived. A count is easier
+      # to hold than a rule set; markdownlint's own --fix is deliberately not
+      # used, because these files are hand-written prose.
       - name: Lint
         run: npx markdownlint-cli2 "docs/**/*.md" 2>&1 | tee /tmp/lint.txt || true
       - name: Fail if the error count exceeds the recorded baseline
         env:
-          BASELINE: '12'
+          BASELINE: '0'
         run: |
-          N=$(grep -c 'error MD' /tmp/lint.txt || echo 0)
-          echo "markdownlint errors: $N (baseline $BASELINE)"
+          N=$(grep 'error MD' /tmp/lint.txt | grep -cv 'docs/dev/plans/2026-10-04-master-plan-0.9.0.md' || true)
+          N=${N:-0}
+          echo "markdownlint errors (excluding the master plan): $N (baseline $BASELINE)"
           if [ "$N" -gt "$BASELINE" ]; then
             echo "::error::markdownlint regressions: $N > baseline $BASELINE"
-            grep 'error MD' /tmp/lint.txt | head -20
+            grep 'error MD' /tmp/lint.txt | grep -v 'master-plan-0.9.0.md' | head -20
             exit 1
           fi
       - name: Weekly full-repo lint (informational, never blocks)

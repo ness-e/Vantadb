@@ -420,16 +420,21 @@ pub enum SnapshotCommand {
 
 /// Subcommands for database migration
 #[derive(Subcommand, Debug, Clone)]
+#[command(after_help = "\
+Examples:
+  vanta-cli migrate check ./my-db         # positional target
+  vanta-cli migrate check --db ./my-db    # global --db fallback
+  vanta-cli migrate run ./my-db --dry-run # preview without modifying")]
 pub enum MigrateCommand {
     /// Plan migrations that would be performed
     Plan {
-        /// Path to the database directory
-        target: String,
+        /// Path to the database directory (defaults to the global `--db`)
+        target: Option<String>,
     },
     /// Run migrations to bring formats up to date
     Run {
-        /// Path to the database directory
-        target: String,
+        /// Path to the database directory (defaults to the global `--db`)
+        target: Option<String>,
         /// Specific format to migrate (all, vfile, index, wal, records, schema)
         #[arg(long, default_value = "all")]
         format: String,
@@ -442,8 +447,8 @@ pub enum MigrateCommand {
     },
     /// Check storage integrity for all formats
     Check {
-        /// Path to the database directory
-        target: String,
+        /// Path to the database directory (defaults to the global `--db`)
+        target: Option<String>,
     },
 }
 
@@ -536,6 +541,71 @@ mod tests {
         assert!(
             help.contains("all"),
             "`migrate run --help` must list `all`:\n{help}"
+        );
+    }
+
+    /// FIND-237: `migrate check --db <db>` must parse — the global `--db` is
+    /// the fallback when the positional TARGET is omitted.
+    #[test]
+    fn migrate_check_accepts_global_db_without_positional() {
+        let cli = Cli::try_parse_from(["vanta-cli", "migrate", "check", "--db", "./some-db"])
+            .expect("`migrate check --db` must parse (global --db fallback)");
+        assert_eq!(cli.db, "./some-db");
+        match cli.command {
+            Commands::Migrate(MigrateCommand::Check { target }) => {
+                assert_eq!(target, None, "no positional target was given");
+            }
+            other => panic!("expected `migrate check`, got {other:?}"),
+        }
+    }
+
+    /// FIND-237: the positional TARGET keeps winning when both forms are present.
+    #[test]
+    fn migrate_check_positional_target_wins_over_global_db() {
+        let cli = Cli::try_parse_from([
+            "vanta-cli",
+            "migrate",
+            "check",
+            "./positional-db",
+            "--db",
+            "./global-db",
+        ])
+        .expect("both target forms together must parse");
+        match cli.command {
+            Commands::Migrate(MigrateCommand::Check { target }) => {
+                assert_eq!(target.as_deref(), Some("./positional-db"));
+            }
+            other => panic!("expected `migrate check`, got {other:?}"),
+        }
+    }
+
+    /// FIND-237: plan/run follow the same convention (no positional required).
+    #[test]
+    fn migrate_plan_and_run_accept_global_db_without_positional() {
+        let plan = Cli::try_parse_from(["vanta-cli", "migrate", "plan", "--db", "./db"])
+            .expect("`migrate plan --db` must parse");
+        assert!(matches!(
+            plan.command,
+            Commands::Migrate(MigrateCommand::Plan { target: None })
+        ));
+
+        let run = Cli::try_parse_from(["vanta-cli", "migrate", "run", "--db", "./db"])
+            .expect("`migrate run --db` must parse");
+        assert!(matches!(
+            run.command,
+            Commands::Migrate(MigrateCommand::Run { target: None, .. })
+        ));
+    }
+
+    /// FIND-237: `migrate --help` shows a usage example with the --db fallback.
+    #[test]
+    fn migrate_help_shows_db_fallback_example() {
+        let err = Cli::try_parse_from(["vanta-cli", "migrate", "--help"])
+            .expect_err("--help must exit with a DisplayHelp error");
+        let help = err.to_string();
+        assert!(
+            help.contains("migrate check --db"),
+            "`migrate --help` must show the --db fallback example:\n{help}"
         );
     }
 }

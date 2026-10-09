@@ -18,6 +18,8 @@ the consolidated scope inventory (core-promise vs labs) is defined in §Scope Bu
 > **Revision 2026-09-27 (DEF-02):** full row-by-row re-verification against the codebase at workspace version 0.7.0 (`Cargo.toml:781`); stale version references removed, MCP tool count corrected to 85, labs categories (core-promise vs labs) made explicit, dead example paths and links fixed. Supersedes the 2026-09-24 pass (false IQL, MCP, consolidation, PyPI, and tokenizer claims corrected; Labs rows introduced). The historical 0.1-era revision of this document is obsolete.
 >
 > **Revision 2026-09-27 (DEF-07):** Scope Budget section added — the core-promise vs labs classification is finalized per surface (DEF-02's provisional labels resolved: `vanta-memory` stays core-promise; `vanta-proxy`, Vanta Studio and the web console stay labs) and the inversion rule (admission → promotion → freeze) is documented. `SPEC.md` §Frontera now references this section.
+>
+> **Revision 2026-10-05 (WIRE-17):** scheduler-host promotion applied per ADR-0054 §Scope Budget — `vantadb-server` keeps **labs** but its scheduler-host role is promoted (scoped; no general thaw), and `vanta-memory` moves from "scheduler host pending" to host resolved (WIRE-16 wiring).
 
 ## Scope Budget — core-promise vs labs
 
@@ -30,12 +32,12 @@ Every surface spends one of two budgets. **core-promise** surfaces spend the bud
 | Core engine + Rust SDK + CLI (incl. installers) | **core-promise** | Accelerate | The recall path itself: `src/sdk/api/memory.rs`, `src/wal.rs`; one-command installers per SPEC F1/F2 |
 | Python SDK (`vantadb-py`) | **core-promise** | Accelerate | QUICKSTART path (Production-Facing MVP below); ICP-03 entry via PyPI (`VISION.md` §Update 2026-09-24) |
 | MCP server (`vantadb-mcp`) | **core-promise** | Accelerate | ICP-01 entry gate (`VISION.md` §Update); North Star measured "in proxy/MCP" (DEF-05) |
-| `vanta-memory` (L0→L3) | **core-promise** | Accelerate (partial — scheduler host pending, WIRE-01) | Memory lifecycle is the North Star substance (capture → recall → consolidate); SPEC F5; finalizes DEF-02's provisional label |
+| `vanta-memory` (L0→L3) | **core-promise** | Accelerate — scheduler host resolved (ADR-0054, WIRE-16) | Memory lifecycle is the North Star substance (capture → recall → consolidate); SPEC F5; finalizes DEF-02's provisional label |
 | Local embeddings (`embed-local`) | **core-promise** | Accelerate | The zero-config promise requires real local embeddings (SPEC F1/F6); Optional section below ("not Experimental") |
 | Framework adapters & importers (`integrations/`) | **core-promise** | Accelerate | ICP-03 gate: adapters on PyPI + Mem0/Zep importers (`VISION.md` §Update; MKT-18f) |
 | Verification harness & benchmarks (`benches/`, `benchmarks/`) | **core-promise** | Accelerate | Evidence layer of the promise: guardrails (p99 gate), Regla 11 public claims, memory-quality harness (VER-08/09) |
 | `vanta-proxy` (LLM gateway) | **labs** | Freeze gateway features (rate-limit, cache/translate, failover, cost, virtual keys). Carve-out, maintenance only: memory loop (capture/inject) is the MVP auto-recall path and the North Star instrumentation (DEF-05); the redaction path feeds ICP-02 | DEF-02 "Category: labs"; research §3 (`docs/dev/research/product-definition-gap-2026-09-24.md`) |
-| `vantadb-server` (HTTP wrapper) | **labs** | Freeze — optional wrapper (local dev / network exposure); maintenance only. Only core-adjacent role: prospective host of the `vanta-memory` scheduler (`src/server/bootstrap.rs:332`, WIRE-01) — promote that role via the inversion rule if it lands there | Optional section below; research §3 (JWT/rate-limit = overrun); no ICP gate requires it |
+| `vantadb-server` (HTTP wrapper) | **labs** | Freeze — optional wrapper (local dev / network exposure); maintenance only, **except its promoted role**: host of the `vanta-memory` scheduler (ADR-0054 — landed WIRE-16: bridge always wired on writable servers + opt-in loop via `VANTADB_SCHEDULER_INTERVAL_MS`, `0` = off). Scoped to the role — no general thaw | Optional section below; research §3 (JWT/rate-limit = overrun); no ICP gate requires it |
 | Vanta Studio (desktop) | **labs** | Freeze the 12-surface GUI product. Promotion candidate: ICP-01's minimal "viewer" if F5 evidence requires it — viewer only, not the Studio | DEF-02 "Category: labs"; research §3 (GUI = overrun) |
 | Web console | **labs** | Freeze — separate site ([`ness-e/Vantadb-web`](https://github.com/ness-e/Vantadb-web)); no surface in this tree | Experimental section below; DEF-02 "Category: labs" |
 | WASM/TS/Node bindings (`vantadb-wasm`, `vantadb-ts`, `vantadb-node`) | **labs** | Freeze — published artifacts stay; no new feature budget. Promotion requires North Star evidence from JS runtimes or an ICP gate pulling them | research §3 (overrun); ICP-03 is Python/PyPI only (`VISION.md`); `vantadb-wasm` outside `default-members` (Cargo.toml, ADR-0031) |
@@ -50,7 +52,7 @@ Every surface spends one of two budgets. **core-promise** surfaces spend the bud
 
 **Mechanical consequences.** Core-promise surfaces carry the promise's quality bars (SPEC success criteria + North Star guardrails: p99 regression gate, Regla 11 claims, install SLO per DEF-08). Labs surfaces cannot block a core release — precedent: `vanta-proxy` and `vantadb-wasm` already sit outside `default-members`/Fast Gate (Cargo.toml CATEGORY comment, ADR-0031). When labs and core-promise compete for the same budget (attention, CI time, release risk, doc surface), core-promise wins by default.
 
-**Promotion watchlist (next triggers).** `vanta-proxy` gateway features: only with session telemetry showing gateway use drives successful recalls · Vanta Studio: ICP-01/F5 evidence that a minimal viewer is required · WASM/TS/Node: JS-runtime North Star evidence or a new JS gate · `vantadb-server`: the WIRE-01 scheduler-host decision or ICP-02 network-deployment evidence. **Review cadence:** re-checked every release together with the frontier gate, and on every new-surface proposal (rule 1).
+**Promotion watchlist (next triggers).** `vanta-proxy` gateway features: only with session telemetry showing gateway use drives successful recalls · Vanta Studio: ICP-01/F5 evidence that a minimal viewer is required · WASM/TS/Node: JS-runtime North Star evidence or a new JS gate · `vantadb-server`: scheduler-host role **landed** (ADR-0054, WIRE-16); remaining trigger: ICP-02 network-deployment evidence. **Review cadence:** re-checked every release together with the frontier gate, and on every new-surface proposal (rule 1).
 
 ## Freeze List until 1.0 (owner-approved, 2026-10-01)
 
@@ -73,7 +75,7 @@ Every surface spends one of two budgets. **core-promise** surfaces spend the bud
 | Surface | State until 1.0 | Change (owner 2026-10-01) |
 | --- | --- | --- |
 | `vanta-proxy` (LLM gateway) | Frozen; **not published until 1.0.0** — development resumes at 1.0.0 | publish deferred (DIST-18 re-scoped) |
-| `vantadb-server` | Frozen except its scheduler-host role (ADR-0054) + embedder starter | + role |
+| `vantadb-server` | Frozen except its scheduler-host role (ADR-0054 — **landed** WIRE-16) + embedder starter | + role |
 | Vanta Studio | Frozen; reduced to a minimal viewer | + viewer |
 | Web console | Frozen (separate repo, `ness-e/Vantadb-web`) | — |
 | WASM/TS/Node bindings | **Active** — parity maintained, cross-language guard (DIST-17) | unfrozen |
@@ -133,7 +135,7 @@ These surfaces may exist in the repository, but they are not stable product clai
 | Area | Boundary | Evidence |
 | --- | --- | --- |
 | IQL/LISP/DQL parser, evaluator, and executor paths | **IQL shipped** (2026-09-24): `POST /api/v2/query` + SDK/CLI/MCP expose SELECT/INSERT/RELATE with JOIN (no aggregations). What was archived (2024-06-10, legacy batch codename, not a release date) is the LISP runtime evaluator (borrow checker/GIL); the legacy fuzz target is preserved in [`FUZZING.md`](../../dev/operations/FUZZING.md). Syntax stabilization: API-06 (P51) | `src/parser/` · `src/server/router.rs` (`/api/v2/query`) · `src/cli.rs` (`query`) |
-| MCP API | **Shipped** — 85 tools + resources + prompts (v0.7.0). Naming/schema stabilization: API-04 (P51); profile enforcement + default `agent` profile: WIRE-02 (P56) | `vantadb-mcp/src/handlers/tools.rs:25` ("85 tools total, 47 base + 38 extend") · `docs/api/MCP.md:536` |
+| MCP API | **Shipped** — 86 tools + resources + prompts (v0.7.0). Naming/schema stabilization: API-04 (P51); profile enforcement + default `agent` profile: WIRE-02 (P56) | `vantadb-mcp/src/handlers/tools.rs:25` ("86 tool definitions, 48 base + 38 extend") · `docs/api/MCP.md:198` (80 listed across profiles) |
 | Remote LLM/Ollama integration (`remote-inference` feature, `OllamaProvider`/`OpenAIProvider`) | External optional integration, not core dependency — alternative to `embed-local` | `feature:remote-inference` (`Cargo.toml:159`) · `src/llm.rs` |
 | Governance and maintenance semantics | Legacy framework runtime archived (2024-06-10, batch codename). Current governance: supersede/TTL/version_history (SDK) + MGR program (P49) → v0.7 manual → v1.0 automatic. Extracted utilities live in `src/utils/` (Bloom filter wiring into the write path pending — FUT-09/VER-07) | `src/sdk/api/memory.rs` (`supersede`, `versions`, `purge_expired`) · `src/utils/` |
 | Graph traversal beyond stored local edges | Experimental, not a graph database claim | `src/sdk/graph.rs` · `src/graphrag/` · MCP `graph_*` tools |
@@ -141,7 +143,7 @@ These surfaces may exist in the repository, but they are not stable product clai
 | **vanta-proxy (LLM gateway)** | **Category: labs** — multi-stage request pipeline (auth → rate-limit → session → mem-commands → inject → redact → context trim → cache/translate → forward + failover → capture/writeback; stages numbered inline in `vanta-proxy/src/server.rs`). `/snapshot` auth: ✅ API-05 (P51) — every route requires `x-vanta-user-key` (`vanta-proxy/src/auth.rs:19`; desktop: FIND-155); memory loop + cost output: WIRE-01 (P56) | `vanta-proxy/` · `docs/api/PROXY.md` |
 | **Vanta Studio (Tauri desktop)** | **Category: labs** — 12 workspace surfaces / 3 transport modes; Desktop CI builds installers + runs `src-tauri` tests on Windows/macOS/Linux — frontend unit/E2E tests (vitest/Playwright) still outside CI | `desktop/src/components/layout/WorkspaceShell.tsx` (`Surface`) · `desktop/src/transport.ts` · `.github/workflows/desktop.yml` |
 | **Web console** | **Category: labs** — separate site in [`ness-e/Vantadb-web`](https://github.com/ness-e/Vantadb-web) (user docs live in its docs/user/web/ tree) | external repo — no surface in this tree |
-| **vanta-memory (L0→L3)** | **Category: core-promise** (finalized by the DEF-07 Scope Budget) — **Partially shipped**: full pipeline; scheduler without a ubiquitous host (`src/server/bootstrap.rs:332` → `conversation_trigger: None`; trigger trait implemented in `vanta-memory/src/services/conversation_hook.rs`); dreams dry-run/promote real: VER-07 (P52) | `vanta-memory/` · `src/server/bootstrap.rs:332` |
+| **vanta-memory (L0→L3)** | **Category: core-promise** (finalized by the DEF-07 Scope Budget) — **Partially shipped — scheduler host landed (WIRE-16/ADR-0054)**: full pipeline + host in `vantadb-server` HTTP mode (writable servers: bridge always wired; loop opt-in via `VANTADB_SCHEDULER_INTERVAL_MS`, `0` = off; MCP/proxy hosts deferred); trigger trait implemented in `vanta-memory/src/services/conversation_hook.rs`; dreams dry-run/promote real: VER-07 (P52) | `vanta-memory/` · `vantadb-server/src/scheduler.rs` |
 
 ## Extracted Utilities (Production-Ready)
 
@@ -167,7 +169,7 @@ The following are explicitly outside the v0.7.0 MVP:
 
 | Area | Boundary | Evidence |
 | --- | --- | --- |
-| Agent metacognition and automatic memory consolidation | **Partially shipped (2026-09-24)** — dreams L0→L3 + `dream_consolidate`/`promote` in MCP (v0.6.x); dry-run + real promote: VER-07 (P52); automatic consumption depends on the host scheduler (WIRE-01) | `vanta-memory/src/core/dream/` · MCP `dream_*` tools (`vantadb-mcp/src/handlers/tools.rs`) |
+| Agent metacognition and automatic memory consolidation | **Partially shipped (2026-09-24)** — dreams L0→L3 + `dream_consolidate`/`promote` in MCP (v0.6.x); dry-run + real promote: VER-07 (P52); automatic consumption still pending: the host scheduler landed (WIRE-16) but its pass dispatches `l1_idle` timers only — dream timers have no producer yet | `vanta-memory/src/core/dream/` · `vanta-memory/src/services/scheduler.rs` · MCP `dream_*` tools (`vantadb-mcp/src/handlers/tools.rs`) |
 | Plugins and marketplace | Deferred | No surface in tree (`rg -li "plugin|marketplace" src` → 0 hits) |
 | RBAC, true multi-tenancy, quotas, and enterprise audit | Deferred — a basic `pub(crate)` token→role map already ships with the server (programmatic only, not env-configurable yet — FIND-49); true multi-tenancy, quotas, and enterprise audit remain deferred | `src/rbac.rs` · `src/server/state.rs` (`rbac`) |
 | HA, replication, clustering, and cloud managed service | Deferred — no HA/clustering/managed-service surface; an opt-in experimental WAL-shipping primitive exists (not in default features) | `feature:wal-shipping` (`src/wal_shipping.rs`) |

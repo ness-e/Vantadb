@@ -25,8 +25,17 @@ vantadb = { path = "..", default-features = false, features = [
     "sysinfo",
 ] }
 vantadb-mcp = { path = "../vantadb-mcp" }
+# WIRE-16 (ADR-0054 T3): the host wires the vanta-memory scheduler.
+# `http-server` enables the loop helper (`services::scheduler`) + conversation
+# bridge; `llm-driver` enables the standalone runner's HTTP transport. Both
+# features are already active in the workspace via `vantadb-mcp` (delta de
+# build ~0) — declared here directly for this crate's own contract.
+vanta-memory = { path = "../vanta-memory", features = ["http-server", "llm-driver"] }
 # ERR-CORE-02: bin-only human error chain (.context() en main).
 anyhow = "1"
+# WIRE-16: R-5 warn+default for `VANTADB_SCHEDULER_*` parsing (already in the
+# workspace graph via every other crate).
+tracing = "0.1"
 tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "sync", "signal", "net", "time"] }
 
 [dev-dependencies]
@@ -54,6 +63,11 @@ axum-server = { version = "0.8", features = ["tls-rustls"] }
 custom-allocator = ["mimalloc"]
 jemalloc = ["vantadb/jemalloc", "dep:tikv-jemallocator"]
 cli = ["vantadb/cli"]
+# SRV-10: opt-in at-rest encryption surface. Forwards the core `encryption`
+# feature; storage is still not wired (FIND-249) — the engine warns at open
+# when the feature+key are active (ENC-01) and `src/server/bootstrap.rs`
+# warns when a key is set without this feature.
+encryption = ["vantadb/encryption"]
 tls = ["vantadb/tls"]
 opentelemetry = ["vantadb/opentelemetry"]
 prometheus = ["vantadb/prometheus"]

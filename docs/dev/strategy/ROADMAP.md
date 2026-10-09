@@ -482,4 +482,4 @@ Sem 13-16: FASE 4 — MADUREZ
 ---
 
 > **Próxima revisión:** ninguna — documento histórico (ver banner superior, revisión 2026-08-17). Actualizado 2026-09-14: enlaces verificados.
-> **Ver también:** [`docs/dev/Backlog.md`](../Backlog.md) para detalle de cada item, `docs/dev/strategy/ACTION_PLAN.md` (plan de acción v1.0, Jul 3 — supercedido por este documento y eliminado del repo), [`docs/master-index.md`](../../master-index.md) (índice global de documentación).
+> **Ver también:** [`docs/dev/Backlog.md`](../Backlog.md) para detalle de cada item, `docs/dev/strategy/ACTION_PLAN.md` (plan de acción v1.0, Jul 3 — supercedido por este documento y eliminado del repo), [`docs/master-index.md`](../master-index.md) (índice global de documentación).

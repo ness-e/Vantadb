@@ -1,10 +1,17 @@
-# vantadb-wasm — bundle strategy
+# vantadb-wasm — browser AI agent memory
 
-> **Status: active** (core-promise until 1.0 — one of the three active language connectors).
+> **Status: active** (core-promise until 1.0 — one of the three active language connectors; published as `vantadb-wasm` on npm).
 >
-> **Why this file exists:** The WASM bundle is `~1.6 MB` raw (`1.58 MB` measured
-> from `pkg/vantadb_wasm_bg.wasm`, pkg built 2026-09-11 — see §1 for the
-> repro command and staleness note), which is **~28× the size of Orama**
+> **Browser AI agent memory.** VantaDB WASM is an embedded vector + graph memory
+> engine that runs entirely in the browser — persistent agent memory (OPFS),
+> HNSW vector search, BM25 + RRF hybrid retrieval — no server required. Try the
+> **[browser AI agent demo](https://github.com/ness-e/Vantadb/tree/main/vantadb-wasm/demo)**
+> (Transformers.js embeddings on-device + OPFS memory), or start from the
+> higher-level [`vantadb`](https://www.npmjs.com/package/vantadb) SDK.
+>
+> **Why this file exists:** The WASM bundle is `~1.8 MB` raw (`1.77 MB` measured
+> 2026-10-04 from `pkg/vantadb_wasm_bg.wasm` — see §1 for the
+> repro command), which is **~31× the size of Orama**
 > (23.8 KB gzipped per [bundlephobia](https://bundlephobia.com/package/@orama/orama)).
 > That gap is real and intentional: VantaDB ships persistence (OPFS/WAL/fjall),
 > HNSW vector index, BM25 full-text, RRF hybrid fusion, capability graphs, and
@@ -14,29 +21,31 @@
 
 ---
 
-## 1. Bundle sizes (measured 2026-09-15; `pkg/` built 2026-09-11)
+## 1. Bundle sizes (measured 2026-10-04)
 
 Reproducible from `vantadb-wasm/pkg/` (generated, gitignored — see
-`vantadb-wasm/pkg/.gitignore`; rebuild with `wasm-pack build --release
---target bundler` from `dev-tools/build-wasm.ps1`):
+`vantadb-wasm/pkg/.gitignore`; rebuild with `wasm-pack build --release`
+from `vantadb-wasm/`, then sync the hand-written types with
+`node dev-tools/build-wasm-types.mjs` — the same sequence the publish job
+runs in `.github/workflows/release-npm-61.yml`):
 
 | File | Raw bytes | Raw (KB / MB) | Gzipped | Gzipped (KB) | What it is |
 |------|----------:|---------------|--------:|--------------|------------|
-| `vantadb_wasm_bg.wasm`  |  1,658,202 | **1.58 MB** | 676,239 | **660 KB** | Engine binary (Rust → wasm32) |
-| `vantadb_wasm_bg.js`    |     56,925 |   55.6 KB    |  10,886 |  10.6 KB     | wasm-bindgen glue (bundler ESM) |
+| `vantadb_wasm_bg.wasm`  |  1,856,638 | **1.77 MB** | 745,152 | **728 KB** | Engine binary (Rust → wasm32) |
+| `vantadb_wasm_bg.js`    |     58,519 |   57.1 KB    |  11,265 |  11.0 KB     | wasm-bindgen glue (bundler ESM) |
 | `vantadb_wasm.js`       |        245 |    245 B     |     156 |   156 B      | bundler re-export stub (`export { Client }`) |
-| **TOTAL transfer (gzip)** | **1,715,372** | **1.64 MB** | **687,281** | **~671 KB** | What the browser actually fetches |
+| **TOTAL transfer (gzip)** | **1,915,402** | **1.83 MB** | **756,573** | **~739 KB** | What the browser actually fetches |
 
-> **Staleness note (2026-09-15):** `pkg/` predates the latest `src/lib.rs`
-> edits (pkg 2026-09-11 01:44 < lib.rs 2026-09-11 15:29), so a fresh
-> `wasm-pack build` may shift these numbers. Re-run the commands below
+> **Build provenance (2026-10-04):** measured from a fresh
+> `wasm-pack build --release` (wasm-pack 0.15.0, `wasm-opt -Oz`, Windows x64).
+> Numbers shift between builds (toolchain + code) — re-run the commands below
 > after rebuilding; never copy numbers between builds.
 
 ### How to reproduce
 
 ```powershell
 # Raw sizes
-Get-ChildItem -Path "vantadb-wasm/pkg" -Filter "vantadb_wasm_bg.wasm","vantadb_wasm_bg.js","vantadb_wasm.js" |
+Get-Item "vantadb-wasm/pkg/vantadb_wasm_bg.wasm","vantadb-wasm/pkg/vantadb_wasm_bg.js","vantadb-wasm/pkg/vantadb_wasm.js" |
     Select-Object Name, Length
 
 # Gzipped sizes (PowerShell + .NET GzipStream, default level)
@@ -48,7 +57,7 @@ function Get-GzipSize($Path) {
     $gz.Write($bytes, 0, $bytes.Length); $gz.Close()
     return $ms.ToArray().Length
 }
-Get-GzipSize "vantadb-wasm/pkg/vantadb_wasm_bg.wasm"   # → 676,239 (measured 2026-09-15)
+Get-GzipSize "vantadb-wasm/pkg/vantadb_wasm_bg.wasm"   # → 745,152 (measured 2026-10-04)
 ```
 
 ### Types sync (`.d.ts` src vs `pkg/`)
@@ -64,8 +73,10 @@ node dev-tools/build-wasm-types.mjs --check   # exit 0 = in sync; exit 3 = stale
 node dev-tools/build-wasm-types.mjs           # apply: overwrite pkg/vantadb_wasm.d.ts
 ```
 
-Source of truth: `dev-tools/build-wasm.ps1` produces `vantadb-wasm/pkg/` via
-`wasm-pack build --release`. The `Cargo.toml` already opts into `-Oz`:
+Source of truth: `wasm-pack build --release` (run from `vantadb-wasm/`)
+produces `vantadb-wasm/pkg/`; CI runs the same command in the `publish-wasm`
+job of `.github/workflows/release-npm-61.yml`. The `Cargo.toml` already opts
+into `-Oz`:
 
 ```toml
 [package.metadata.wasm-pack.profile.release]
@@ -184,33 +195,66 @@ wasm-pack build --release --target bundler --features opfs
 wasm-pack build --release --target bundler --no-default-features
 ```
 
+### Console logging
+
+The default build installs a `console.log`-based tracing subscriber
+(feature `tracing-wasm`) at level **`WARN`**: the core emits a `DEBUG` trace
+for every env-var read while building its config, which would otherwise flood
+the console on every `Client.create()`.
+
+To opt into more detail, set the global **before the first client is
+created** (the WASM analog of the core's `RUST_LOG`, see `src/console.rs`):
+
+```js
+globalThis.VANTADB_LOG = "debug"; // "trace" | "debug" | "info" | "warn" | "error"
+const db = new Client();
+```
+
+The value is read once per process (the tracing subscriber is global and can
+only be installed once); an absent or invalid value falls back to `WARN`.
+
+### Multi-tab safety (OPFS)
+
+OPFS writes (`save()`, `append_file`, `delete_file`) acquire a per-file
+[Web Lock](https://developer.mozilla.org/en-US/docs/Web/API/Web_Locks_API)
+(`vantadb-opfs-write:<directory>:<path>`): multiple tabs or workers on the same
+origin serialize writes to the same file — no interleaved writes, no lost
+appends, no clobbered temp file. (Whole-file `save()` remains last-writer-wins
+across tabs, now without corruption.) Writes to different files do not contend,
+and reads are lock-free (writes publish atomically via temp file + rename).
+
+When the Web Locks API is unavailable (Safari 15.2–15.3), OPFS **writes fail
+with a descriptive error** rather than risk multi-tab corruption — reads keep
+working. On those browsers use `connect_idb` (IndexedDB) if you need writes.
+
 ---
 
 ## 4. Honest comparison vs JavaScript-only search engines
 
 **Regla 11 note:** every number below links to a reproducible source. Re-run
 `bundlephobia.com/package/<name>` for current numbers (the JS ecosystem
-re-ships often; this table was measured 2026-09-15, `pkg/` built 2026-09-11).
+re-ships often; the VantaDB row was measured 2026-10-04, competitor rows as
+sourced below).
 
 | Library | Version | Min | **Gzipped** | Vector? | Hybrid? | Persistence? | Feature parity with VantaDB |
 |---------|---------|----:|------------:|---------|---------|--------------|-----------------------------|
 | **@orama/orama** | 3.1.18 | 75.2 KB | **23.8 KB** | ✅ (`mode:'vector'`) | ✅ (`mode:'hybrid'`, RRF) | ❌ in-memory only (plugin for disk) | **No** — Orama has no HNSW, no OPFS, no WAL, no Fjall, no capability graph, no TTL auto-expiry |
 | **MiniSearch** | latest | ~22 KB | **5.9 KB** | ❌ (full-text only) | ❌ | ❌ | **No** — full-text only |
 | **Lunr** | 2.3.9 | 28.5 KB | **8.1 KB** | ❌ (full-text only) | ❌ | ❌ | **No** — full-text only, no vectors |
-| **VantaDB WASM** | 0.5.x | 1.58 MB | **~671 KB transfer** | ✅ HNSW | ✅ BM25 + RRF | ✅ OPFS / IndexedDB / in-mem | ✅ |
+| **VantaDB WASM** | 0.8.x | 1.77 MB | **~739 KB transfer** | ✅ HNSW | ✅ BM25 + RRF | ✅ OPFS / IndexedDB / in-mem | ✅ |
 
 Sources:
 - Orama gzipped: <https://bundlephobia.com/package/@orama/orama> (75.2 KB min, 23.8 KB gzipped, 2026-08-30)
 - MiniSearch gzipped: <https://devpick.co/pkg/minisearch> (5.9 KB gzipped, 2026)
 - Lunr gzipped: <https://bundlephobia.com/package/lunr> (28.5 KB min, 8.1 KB gzipped)
-- VantaDB WASM gzipped: `vantadb-wasm/pkg/` measured via PowerShell `.NET GzipStream`, 2026-09-15 (pkg built 2026-09-11)
+- VantaDB WASM gzipped: `vantadb-wasm/pkg/` measured via PowerShell `.NET GzipStream`, 2026-10-04 (fresh `wasm-pack build --release`, wasm-pack 0.15.0)
 
 ### Feature gap (what you lose if you switch to Orama for size)
 
-VantaDB's 671 KB gzipped includes things Orama does not ship:
+VantaDB's ~739 KB gzipped transfer includes things Orama does not ship:
 
 1. **OPFS persistence** — `connect_persistent`, `connect_idb`, `connect_worker` (worker-backed, durable across reloads)
-2. **HNSW vector index** — sub-millisecond k-NN at 100K scale, vs Orama's linear-scan `searchVector` (10.3 KB gzipped per bundlephobia export breakdown — for `search`/`searchVector` together)
+2. **HNSW vector index** — sub-millisecond k-NN at 100K scale ([p99 441 µs, SIFT1M Balanced Cos](https://github.com/ness-e/Vantadb/blob/main/docs/user/operations/BENCHMARKS.md#-5-impact-of-loop-and-hnsw-distance-optimization-phase-2)), vs Orama's linear-scan `searchVector` (10.3 KB gzipped per bundlephobia export breakdown — for `search`/`searchVector` together)
 3. **BM25 + RRF hybrid** — fused vector + text search, not "or", actually combined with reciprocal rank fusion
 4. **Capability graphs** — typed nodes + edges (`BFS`, `DFS`, `topological_sort`)
 5. **TTL auto-expiry** — records can expire automatically (`expires_at_ms`)
@@ -238,8 +282,11 @@ size delta buys you real capability.
 
 ## 5. Migration / upgrade story
 
-The WASM bundle is shipped from `vantadb-wasm/pkg/` as part of the npm
-`vantadb` package. Consumers do not interact with the `.wasm` directly:
+The WASM bundle is shipped from `vantadb-wasm/pkg/` as the npm
+`vantadb-wasm` package (a dependency of `vantadb`). Consumers do not interact
+with the `.wasm` directly. `pkg/README.md` and the npm metadata (keywords,
+description) are copied from this file and `vantadb-wasm/Cargo.toml` by
+`wasm-pack` at build time — edit the tracked sources, never `pkg/`:
 
 - **Bundler users** — the wasm-bindgen glue handles it once
   `vite-plugin-wasm` (or equivalent) is installed.
@@ -259,11 +306,11 @@ The WASM bundle is shipped from `vantadb-wasm/pkg/` as part of the npm
 | Split engine into OPFS vs in-mem core | ~30% if user only needs in-mem | **deferred** | first-class API change, would break ABI |
 | Lazy-imported WASM module init | zero — already lazy | ✅ shipped | first call only |
 | Custom Rust allocator (mimalloc-rs / dlmalloc) | 5-15 KB | **deferred** | Requires benchmark against canonical P99 first (Regla 9) |
-| LTO (`lto = true` in profile.release) | ~50-100 KB | **deferred** | Compile-time cost > benefit at 1.58 MB; revisit if size matters more than dev-loop speed |
+| LTO (`lto = true` in profile.release) | ~50-100 KB | **deferred** | Compile-time cost > benefit at 1.77 MB; revisit if size matters more than dev-loop speed |
 
 Per **Regla 9** ("No optimize without measuring"), none of the deferred
 levers ship until a baseline benchmark (`benches/canonical_p99.rs` or a
-dedicated `wasm_size` bench) records the current 1.58 MB and the change
+dedicated `wasm_size` bench) records the current 1.77 MB and the change
 demonstrates a measured reduction without regressions.
 
 ---
@@ -275,7 +322,7 @@ demonstrates a measured reduction without regressions.
   except via `node dev-tools/build-wasm-types.mjs` for the `.d.ts`)
 - `vantadb-wasm/src/vantadb_wasm.d.ts` — hand-written TypeScript types
   (source of truth; sync into `pkg/` with the command in §1)
-- `vantadb-wasm/demo/` — browser demo (Transformers.js + OPFS)
+- [`vantadb-wasm/demo/`](https://github.com/ness-e/Vantadb/tree/main/vantadb-wasm/demo) — browser AI agent demo (Transformers.js + OPFS)
 - `vantadb-ts/README.md` §"WASM bundle & lazy loading" — runtime-specific recipes
 - `docs/user/QUICKSTART.md` §"4. Real Embeddings" — full walkthrough
 - `docs/dev/research/research-vantadb-wasm-20260825.md` §H-17 — origin ticket
@@ -283,7 +330,7 @@ demonstrates a measured reduction without regressions.
 
 ---
 
-**Last reviewed:** 2026-09-15 (FIND-75 — vanta-worker). Numbers re-measured
-from `pkg/` (built 2026-09-11; predates latest `src/lib.rs` edits — rebuild
-before quoting for release). Re-verify with bundlephobia for JS-only competitors;
-WASM size only changes when `Cargo.toml` features or `Cargo.lock` deps change.
+**Last reviewed:** 2026-10-04 (WSM-14 — vanta-worker). Numbers re-measured from
+a fresh `pkg/` build of the same commit (see §1). Re-verify with bundlephobia
+for JS-only competitors; WASM size shifts with code, toolchain, and
+`Cargo.toml`/`Cargo.lock` changes.

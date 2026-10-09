@@ -11,7 +11,7 @@ tags: [vantadb, desktop, overview, vanta-studio]
 
 Desktop console for VantaDB built with **Tauri v2** (Rust shell + React frontend).
 The same UI runs against three interchangeable backends without code changes —
-see [ARCHITECTURE.md](ARCHITECTURE.md) for the design and [GUIDE.md](GUIDE.md)
+see [ARCHITECTURE.md](../../dev/desktop/ARCHITECTURE.md) for the design and [GUIDE.md](GUIDE.md)
 for per-mode user instructions.
 
 ## Transport Modes
@@ -89,7 +89,7 @@ dispatched to the **active** connection by the `ConnectionManager`.
 
 ## Design Docs
 
-- [ARCHITECTURE.md](ARCHITECTURE.md) — multi-connection model, transports, lifecycle.
+- [ARCHITECTURE.md](../../dev/desktop/ARCHITECTURE.md) — multi-connection model, transports, lifecycle.
 - ADRs: [ADR-0026](../../dev/architecture/adr/ADR-0026-vanta-studio-fase3-rest-dashboard.md)
   (REST `/api/v2/*` + embedded dashboard),
   [ADR-0027](../../dev/architecture/adr/ADR-0027-fase4-cierre-deuda-rest-wasm-opfs.md)

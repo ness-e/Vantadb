@@ -129,7 +129,7 @@ Consulta: `memory_list` (`vantadb-mcp`, read-only — `handlers/tools.rs:200-218
 | Guardrail | Fuente | Medición |
 |---|---|---|
 | 0 hallazgos high sin parche ≤ 7 días | owner 2026-09-24 (`VISION.md` §North Star) | Revisión semanal: filas abiertas high/crítica en `docs/dev/Backlog.md` + reportes de `docs/dev/reviews/` — ninguna con antigüedad > 7 días |
-| 0 regresión p99 > 15% | gate revivido HARD-06/FIND-154 (2026-09-27) | `python benchmarks/compare_baseline.py` (bloqueo >15% en familias estables; bandas por familia) · Rust: `cargo bench -p vantadb --bench canonical_p99` vs `docs/user/operations/BENCHMARKS.md` §8 |
+| 0 colapso de performance en CI (≥3x) · regresión fina vía bench canónico | gate revivido HARD-06/FIND-154 (2026-09-27) · bandas recalibradas FIND-232 (2026-10-03) · A/B same-job opt-in FIND-233 (2026-10-04) | `python benchmarks/compare_baseline.py` — stable: warn >25% / bloqueo >200%; `query_hybrid`/`query_text`: warn >15% / bloqueo >300% + 0.5 ms absolutos; `insert.p99`: solo ≥100 ms absoluto. La señal fina (<2–3x) vive en `cargo bench -p vantadb --bench canonical_p99` vs `docs/user/operations/BENCHMARKS.md` §11 · instrumento cross-VM: A/B same-job opt-in (`perf-bench.yml` `ab_ref`, FIND-233) |
 | 100% artefactos con versión sincronizada | rails HARD-01 (`docs/api/COMPATIBILITY.md`, `docs/api/VERSIONING.md`) + release-plz | Post-release: versión publicada (crates.io `vantadb` · npm `vantadb`/`vantadb-wasm` · PyPI `vantadb-py` · GitHub Release) == head de `docs/CHANGELOG.md` |
 | 0 violaciones Regla 11 en material público | `AGENTS.md` Regla 11 | Review pre-publicación: todo claim de performance cita bench reproducible + comando (`BENCHMARKS.md`) |
 

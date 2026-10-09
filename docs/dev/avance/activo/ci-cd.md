@@ -87,10 +87,6 @@ tags: [vantadb, avance, ci, cd, release, github-actions]
 | CODE-058 | Ignored advisories sin rationale |
 | CODE-066 | workflow name fallback |
 
-## Docker & packaging — retired (2026-10-02)
-
-Docker eliminado del repo por decisión del owner: job `docker-image` borrado de `release-binaries.yml`, Dockerfiles/compose `git rm`, docs purgadas. Historial: WEB-02 (Dockerfile webapp → ghcr) + Docker build CI multi-arch (wontfix).
-
 ## Changelog & release discipline
 
 - `release-plz` con Conventional Commits: `feat:`→minor, `fix:`→patch, `docs:/test:/perf:/refactor:`→patch, `feat!:`/`BREAKING CHANGE:`→major, `ci:/chore:`→no release.
@@ -517,3 +513,121 @@ Docker eliminado del repo por decisión del owner: job `docker-image` borrado de
 - **Objetivo:** Cerrar la campaña "Estandarización 11 APIs": `docs/api/VERSIONING.md` con las 11 superficies (Gate P), sync de `docs/api/` (19 files), gates de cierre verdes.
 - **Resultado:** ✅ Contrato 6/6 — coverage 0 gaps · `verify.ps1` ALL 11 PASS (fix tooling: `llvm-cov nextest run`→`nextest`; coverage real 81.63% ≥60) · MCP re-smoke 11/11 · OCR 0 Critical/High · plan 18/18 + campaña 9/9 · review P2-01 fresco ✅ APPROVE (3 nits Low aplicados) · FIND-161/162 registradas.
 - **Commit:** 032cbd0f (local, sin push)
+
+---
+
+## Release 0.8.0 — cierre post-release (2026-10-02)
+
+### Release 0.8.0: merge #233 → publish completo + política de merge commit
+- **Fecha:** 2026-10-02
+- **Objetivo:** Publicar 0.8.0 (schema v2 + estandarización API + fixes pre-release) con changelog curado y docs de API sincronizadas.
+- **Resultado:** ✅ Merge develop→main #233 (`72353e7f`) + Release PR `cca43b9e` → **publicado y verificado: crates.io · PyPI · npm wasm+TS · binarios 5/5 · SBOM**. Docs API sincronizadas a 0.8.0 (`2f8528f1`, `f54e0b8c`) + CHANGELOG enriquecido curado de los 184 commits del ciclo (`ef30ab1f`, owner-approved) + snapshot public-api refrescado (`eb1d09b2`). Decisión owner: merges develop→main con merge commit (no squash) para changelog rico (`d5339480`).
+- **Commit:** `72353e7f` (main) + `cca43b9e` (main)
+
+### FIND-229: `release-binaries` falló en su PRIMERA ejecución (0.8.0) — combo release + Docker retirado + backfill
+- **Fecha:** 2026-10-02
+- **Objetivo:** Desbloquear el primer run de `release-binaries`: `-D warnings` (default de setup-rust-toolchain) + features `server,jemalloc` SIN `cli` moría por imports sin cfg-gate en `debug_ops.rs` + `fuse_rrf` dead-code (CI no cubre el combo); y `docker build .` sin Dockerfile en la raíz.
+- **Resultado:** ✅ cfg-gate (`9004c43f`) + **Docker eliminado repo-wide por decisión del owner** (`fc50adb2`: job `docker-image` borrado, Dockerfiles/compose `git rm`, docs purgadas) + input `release_tag` para backfills + merge topológico a main (`c2afb9dd`) + dispatch backfill v0.8.0 → **binarios 5/5**. Historial Docker: WEB-02 (Dockerfile webapp → ghcr) + Docker build CI multi-arch (wontfix). Derivadas: FIND-230 (gate npm version) + FIND-231 (job CI del combo release).
+- **Commit:** `9004c43f` + `fc50adb2` (+ `c2afb9dd` merge)
+
+### npm TS backfill: `vantadb-ts` 0.7.0 → 0.8.0 + publish-ts no-skip
+- **Fecha:** 2026-10-02
+- **Objetivo:** El tren npm 0.8.0 saltó el publish de `vantadb-ts` en silencio (`package.json` quedó 0.7.0 y el check "already published" salió success sin publicar); el backfill `package=ts` destapó que `publish-ts` también se saltaba cuando `publish-wasm` se saltaba.
+- **Resultado:** ✅ bump `package.json`/lock a 0.8.0 (`e62e0f62`) + republicación manual (dispatch `package=ts`) + fix del workflow `needs + always` (`70dd6eb3`: solo bloquea si wasm falla) + limpieza del escape literal (`723bc291`). Gate mecánico anti-repetición: FIND-230 en Backlog (Task 3 del plan post-release).
+- **Commit:** `e62e0f62` + `70dd6eb3` + `723bc291`
+
+### rustls ARM64: reqwest → rustls en `vanta-memory` + root (drop native-tls/openssl)
+- **Fecha:** 2026-10-02
+- **Objetivo:** El build release `aarch64-unknown-linux-gnu` moría cross-compilando `openssl-sys` (native-tls vía reqwest default; sin sysroot cross) → asset ARM64 bloqueado del backfill de binarios.
+- **Resultado:** ✅ migración a `rustls-tls` en `vanta-memory` + root (alineado con mcp/server/proxy): openssl fuera de todo árbol Linux (-86 líneas de lock) + `deny.toml` allow `CDLA-Permissive-2.0` (`webpki-roots`) y drop del ignore stale RUSTSEC-2024-0429 (`cf86e49b`, `cargo deny check` OK). Parte del backfill de binarios v0.8.0 (FIND-229).
+- **Commit:** `01d86ab4` + `cf86e49b`
+
+### FIND-228: Dedupe de triggers CI — drop `develop` de `push.branches` (15 workflows)
+- **Fecha:** 2026-10-03
+- **Objetivo:** RULE 1 (RULES.md §1): los 15 workflows listaban `develop` en `push.branches` → duplicado push+PR por el mismo SHA en ventanas de release (~80 checks vs ~45 esperados).
+- **Resultado:** ✅ `develop` removido de `push.branches` en 15 workflows (queda `[main]`; `pull_request` intacto) + TRIGGERS.md/RULES.md/FAQ.md actualizados + actionlint 0 + review P2-01 approve. Contrato verificado EN VIVO: el push de cierre disparó SOLO `PERF` (run 37102010279).
+- **Commit:** `0e5c9e9d`
+
+### FIND-230: Gate mecánico de versiones npm (anti skip-silencioso)
+- **Fecha:** 2026-10-03
+- **Objetivo:** `vantadb-ts` quedó 0.7.0 vs workspace 0.8.0 → el publish npm saltó silencioso en el release 0.8.0 (run 37045932895).
+- **Resultado:** ✅ `scripts/docs/check-npm-versions.mjs` (self-test 10/10, fail-closed) + job `check-npm-versions` en gate-docs.yml + `::warning::` visible en los skips de release-npm-61/node + PUBLISH.md (orden del bump). Contrato FAIL/PASS verificado (0.7.0→exit 1 / 0.8.0→exit 0). Review P2-01 approve.
+- **Commit:** `838ec8b6`
+
+### FIND-231: Job `release-combo` — combo de release cubierto en CI
+- **Fecha:** 2026-10-03
+- **Objetivo:** El combo `server`+allocator con `-D warnings` (que rompió el primer run de release-binaries 0.8.0) no lo compilaba ningún job (los tests van en debug).
+- **Resultado:** ✅ Job `release-combo` en ci-rust.yml (réplica de release-binaries.yml:109-122; `check --release` + `RUSTFLAGS=-D warnings`; 24-25s warm) + repro del rojo documentada (6 errores idénticos al run 37045939672 con el fix revertido). Review P2-01 approve (ronda 2).
+- **Commit:** `4e1bb03a`
+
+### FIND-232: perf-bench — perfil alineado + bandas cross-VM + re-baseline
+- **Fecha:** 2026-10-03
+- **Objetivo:** perf-bench rojo crónico (13 runs desde 2026-09-25): causa raíz doble — push corría perfil 1000/100 vs baseline 10000/1000 (p99 = máximo muestral) + varianza cross-VM medida 1.7-2.4x.
+- **Resultado:** ✅ Perfil único 10000/1000 + guarda de mismatch fail-closed + bandas recalibradas (stable 25/200; noisy 300%+0.5ms; `insert.p99` ≥100ms absoluto) + re-baseline documentado + self-test 9/9. Post-push: run **37102010279 = success** ("No blocking regression detected across 16 metrics"). Derivada: FIND-233 (instrumento cross-VM).
+- **Commit:** `04b3eaa0` + `0173b339`
+
+### FIND-234: check-avance-coverage.ps1 leía docs/avance (inexistente) — reporte 0/237 engañoso
+- **Fecha:** 2026-10-04
+- **Objetivo:** El script de cobertura (referenciado por la skill progreso como check de cierre) apuntaba a `docs/avance` desde la ruptura 2026-09-23 (`b764d703`) → "0/237 (0.0%)" falso + errores de ruta.
+- **Resultado:** ✅ Fix de 1 línea (L10 → `docs/dev/avance`): `1034/1034 (100.0%)` real, sin errores de ruta, exit 0. Review P2-01 APPROVE (before reproducido desde el blob HEAD~1; conteo independiente 237+907−1034=110 ✓).
+- **Commit:** `35cbd2e1`
+
+### BENCH-01: competitive_bench — región medida del Ingest aislada + fin del doble rebuild
+- **Fecha:** 2026-10-04
+- **Objetivo:** El timer de Ingest del harness competitivo envolvía setup (client init ~317 ms + prep de payloads) y el modo single-call duplicaba el rebuild HNSW (hidden rebuild dentro de Ingest + `rebuild_index()` en Index) → el número medido no era el que decía medir.
+- **Resultado:** ✅ Región medida = `put_batch_raw` calls + `flush` (init/prep fuera) + `effective_chunk_size()` clampa todo chunk a <1000 por construcción (sin doble build posible; `--batch-size 0` legacy clampeado a 999) + `--self-test` 9/9 (fixture de regiones con stub engine: init excluido, calls <1000, exactamente 1 rebuild; RED→GREEN capturado) + docstring/README/BENCHMARKS §18/COMPETITIVE_SDK_BENCH/ANALYSIS actualizados con nota de comparabilidad (números publicados no regenerados). Review P2-01 delegado al orquestador (worker leaf) con evidencia mecánica completa.
+- **Commit:** `860340b9` (+ `8cc49824` bookkeeping)
+
+### DIST-05: Assets del release + verificación post-release real (fix del 404)
+- **Fecha:** 2026-10-04
+- **Objetivo:** el zip Windows de v0.7.0 daba 404; el flujo post-release debía verificar artefactos de verdad; `install.ps1` apuntaba a un asset inexistente.
+- **Resultado:** ✅ `scripts/verify-release.ps1` (14 assets + 4 registries + smoke con sha256) + `.github/workflows/release-verify.yml` (semanal + dispatch — backstop que habría detectado el 404 en días) + `PUBLISH.md §Post-release verification` (gate con dueño). El verify encontró que `install.ps1` estaba roto **end-to-end** contra el asset real de v0.8.0 (zip flat vs `release\vanta-cli.exe`; PS 5.1 sin parsear; fallback v0.4.0 muerto) → corregido y verificado con installs reales en PS 5.1 y 7 (`vanta-cli 0.8.0`). v0.7.0: zip faltante por accidente estructural (cascade suprimido pre-`RELEASE_PLZ_TOKEN`), no por decisión; backfill no viable honestamente (documentado + procedimiento opcional). Review P2-01 APPROVE. OPTIONALs → FIND-261/262. Verificación en 0.9.0 diferida (checklist en PUBLISH.md).
+- **Commit:** 2390344c (local, sin push)
+
+### DIST-06: Estrategia de los 11 crates `publish = false` (PUBLISH.md §crates)
+- **Fecha:** 2026-10-04
+- **Objetivo:** decidir y documentar por crate qué se publica y por qué canal (la ambigüedad que costó FIND-230).
+- **Resultado:** ✅ Nueva sección `PUBLISH.md §crates` (64 líneas): decisión por crate (10 con `publish=false` + `vanta-memory` remitiendo a DIST-01), canal real / producido-por / motivo; invariante release-plz con 2 comandos de re-verificación; política **fechada 2026-10-04 con 4 review triggers**; `release-plz.toml` intacto (0 churn). Verify: `rg '^\s*publish = false'` = 10 crates + overrides ⊆ tabla. Review P2-01 (ronda 1 → fix → delta APPROVE). Nota: durante el cierre, WIP de DOCS-F1 (check-links) hacía fallar gates globales — staging quirúrgico, ajeno a esta tarea.
+- **Commit:** 56b0bc0a (local, sin push)
+
+### DOCS-F1: Cerrar docs-consolidation F1 (triage de links + mojibake + markdownlint)
+- **Fecha:** 2026-10-04
+- **Objetivo:** cerrar F1 del plan docs-consolidation: triage P0-P4 de los 55 enlaces rotos vigentes, mojibake `[[bench]]`/`[[test]]` en prosa de `avance/`, y los 7 errores markdownlint introducidos por la migración (BASELINE 12→5).
+- **Resultado:** ✅ Triage completo P0-P4 en `docs/dev/tasks/DOCS-F1.md` (P0-P2 drenados → **0 rotos fuera de frozen**; P3/P4 excluidos del gate con motivo en script `FROZEN_RE` + workflow). Scanner: links md ahora sobre `proseOf` (solo clicables gatean; 15 de 46 canónicos fully-in-code); budgets 58→0 y 40→20; líneas con offset de frontmatter corregido. T9: mojibake a 0 en prosa (2 a code span, `git log -S` sin variante anterior) + fórmula corrupta en `rrf.md` (`$[0, \infty)$`). T12: los 7 de BENCHMARKS/CONFIGURATION ya estaban drenados; MD052 del índice corregido en `gen-index.mjs` (escape de celdas); **ratchet 12→0 para la superficie controlada** (master plan excluido del conteo: recitations machine-appended del orquestador, FIND — su conteo creció 7→11 durante el cierre) con CI verde simulado (N=0). `postcard.md` nuevo + banner de deprecación en `master-index`. F1 ✅ en el plan (T8/T9/T12 COMPLETED). Verify: check-links 0/20 exit 0 · check-docs 0 · gen-index 0 · markdownlint 0 scoped · actionlint 0 · coverage 0 gaps. Review P2-01 ronda 1 degradado (subagente hoja) + OCR 0 Critical/High. **Ronda 2 (review adversarial fresco `vanta-review` `ses_ef8f093d1ffeuZhUBhU4WR3rW9`): 🔴 changes-required → fixes C-1 (links CI-only: HTTP_API `.opencode`→code span, discord `todo.md`→de-link), R-1 (`rrf.md` completo: 49 runs CP437→0), R-2/O-1 (FIND-264/265; 263 ya tomado por DOCS-F2), R-3 (triage reconciliado 55 local / 60 canónico), O-2/O-4.** Verificado con checkout limpio (`git archive HEAD`): check-links 0 · gen-index 0; local: check-links 0 · check-docs 0 · gen-index 0 · markdownlint 0 scoped.
+- **Commit:** `6b07d1d9` + ronda 2 `a5909e38` (local, sin push)
+
+### DOCS-F2: Cerrar docs-consolidation F2 (ejemplos ejecutables en CI + verificación de gates)
+- **Fecha:** 2026-10-04
+- **Objetivo:** cerrar F2 del plan docs-consolidation: T13 (ejemplos de docs ejecutables), T14 (gate API↔docs) y T15 (gate anti-fuga).
+- **Resultado:** ✅ Reconciliación plan↔repo: T14/T15 **ya existían** desde 2026-09-29 (commit `71139665`: `gate-api-docs.yml` patrón DuckDB + `gate-docs-secrets.yml`) — verificados, no reimplementados (self-tests 17/17 y 29/29; 0 fugas). Hueco real de T13 cableado: **job `doctests`** en `ci-rustdoc.yml` (`RUSTDOCFLAGS="-D warnings" cargo test --doc --workspace`, medido EXIT 0: 13+1i vantadb, 1 vanta-memory, 1 mcp; `vantadb_py` cdylib skip) + **job `python-docstrings`** en `gate-doc-examples.yml` (pydoclint==0.11.0 `--style=numpy`; 4 violaciones DOC105/109/110/203 drenadas a 0). TS (typedoc + ejemplos como tests) → **FIND-263** con burn-down medido (typedoc 0 errores/39 warnings; sin infra CI de TS). F2 ✅ en el plan (T13/T14/T15 COMPLETED). Verify: verify.ps1 ALL 10 PASS · doctests EXIT 0 · pydoclint 0 · actionlint 0 · gates docs verdes · OCR 0 Critical/High. Review P2-01 degradado (subagente hoja) + escalado a vanta-review formal. Nota: el commit concurrente `a5909e38` (DOCS-F1 ronda 2) absorbió la regeneración de índices + la fila FIND-263 (staging quirúrgico, sin drift).
+- **Commit:** `100e3fef` (local, sin push)
+
+### PROV-12: Publicar wheels PyPI de providers (estrategia H-04) — lane de release + dry-run local
+- **Fecha:** 2026-10-04
+- **Objetivo:** dar camino de distribución PyPI a los 3 providers Rust (`providers/{openai,ollama,litellm}`): sin `pyproject.toml`/maturin, PyPI 404 (H-04 aprobada: publicar). Publish real = owner.
+- **Resultado:** ✅ 3 `pyproject.toml` maturin (nombres canónicos `vantadb-openai`/`vantadb-ollama`/`vantadb-litellm`, `dynamic = ["version"]`, deps SDK declaradas) + `abi3-py311` ×3 → wheels `cp311-abi3`; **`.github/workflows/release-providers.yml`** (matriz 3 providers × 4 plataformas — linux x86_64 + aarch64 manylinux_2_28, macOS, Windows; maturin-action; OIDC TestPyPI dispatch / PyPI tag `providers-v*.*.*`; `skip-existing`; smoke por plataforma + verify installs; guard tag↔versión) + `.github/scripts/provider_wheel_smoke.py` (1 fuente para build/TestPyPI/PyPI). Verify: `maturin build` ×3 + `twine check` PASSED ×3 + smoke venv limpio ×3 + pytest 18/17/19 + actionlint 0 + `verify.ps1` ALL 10 + gates docs 0/0/0. Docs: `CI_POLICY` (canal), `PUBLISH.md` §Providers + checklist owner (durable), `TRIGGERS`/`README` (inventario 40), READMEs (Install PyPI con caveat). **Gate D owner:** colisión de nombres PyPI (`integrations/{openai,ollama}` reclamaban los mismos nombres/módulos) → providers canónicos; twins a renombrar/retirar en F6 (**FIND-273**); higiene de IDs de campañas archivadas → **FIND-274**. Review P2-01 APPROVE (`vanta-review` `ses_ef5dd5fa7ffejGRYYZxxlz3hA7`; M1 tag↔versión aplicado post-review). Publish = owner (checklist en `PUBLISH.md` §Providers).
+- **Commit:** `04be0ec1` + `8ee81ef1` (local, sin push)
+
+### PROV-13: Providers en Windows — job CI + fix real (verify_pyi.py Unicode)
+- **Fecha:** 2026-10-05
+- **Objetivo:** los 3 providers en Windows + job CI Windows (matriz provider).
+- **Resultado:** ✅ DISCOVERY: la premisa "no compilan en Windows" estaba **stale** (resuelta por PROV-01/02/04; PROV-12 ya lo había anotado) — repro fresco: `cargo check`/`clippy -D warnings` ×3 ✅ + **54/54 tests** ✅. El bloqueante Windows REAL aislado: `.github/scripts/verify_pyi.py` crasheaba (`UnicodeEncodeError`, U+2713 vs cp1252) → fix raíz (`sys.stdout.reconfigure(utf-8)`), no parche en el workflow. Job CI Windows (matriz provider × os) + cache de target. Review P2-01 APPROVE (contexto fresco); `verify.ps1` ALL 10.
+- **Commit:** b616e97c + 078e2fe2 (local, sin push)
+
+### BENCH-02: BEIR/MTEB recall@k vs sqlite-vec — harness + número reproducible (BEIR SciFact test)
+- **Fecha:** 2026-10-06
+- **Objetivo:** medir calidad de recuperación (no solo velocidad) con el estándar BEIR/MTEB: recall@k contra qrels vs ≥1 competidor del segmento, reproducible con comando documentado (dataset/hardware/seed).
+- **Resultado:** ✅ `benchmarks/beir_recall_bench.py` (recall@k MTEB/TREC + nDCG@10 + index-recall vs exact kNN; VantaDB vs sqlite-vec 0.1.9 sobre los MISMOS embeddings all-MiniLM-L6-v2 ONNX locales — sin torch; dataset `mteb/scifact` split test: 300 queries / 5.183 docs; seed 42; `--self-test` offline 16/16) + `BENCHMARKS.md` §21 (comando + entorno + notas de comparabilidad). **Número: recall@10 = 0.7833 / nDCG@10 = 0.6451** — nDCG@10 reproduce la referencia publicada MTEB Table 11 (MiniLM-L6 SciFact = 64.51). Ambos engines exactos a este tamaño (VantaDB rutea al flat exact scan: `flat_threshold` default 10.000 > 5.183 → `index-recall` 1.0 por construcción; `engine_config` en el JSON) — el número mide el stack embedding+ranking, no fidelidad ANN (declarado; FIND-315 para la medición HNSW real). pgvector no viable (sin Docker) → FIND-314. Review P2-01 `vanta-review` ronda 1 REQUEST CHANGES (R1 atribución HNSW + R2 FIND-312 duplicado con WIRE-12) → fixes → **ronda 2 APPROVE** (27/27 celdas §21 ↔ JSON, sha256 recomputados, IDs sin duplicados). Gates docs: check-links/check-docs/coverage 0; `gen-index --check` rojo por `WIRE-12.md` ajeno (staging quirúrgico, condición C1 del review — no se re-escribió).
+- **Commit:** `21e9ff0f` (local, sin push)
+
+### MKT-20 (F6/Task 71): Adapters PyPI — prep final con decisiones owner (retirar twins + bump pins)
+- **Fecha:** 2026-10-06
+- **Objetivo:** publicación de adapters (owner-assisted): dry-run + checklist; decisiones D1/D2 del owner.
+- **Resultado:** ✅ **D1 (FIND-273):** twins `openai`/`ollama` RETIRADOS del release (matrices 9→7 ×2; dirs source-only con nota "superseded by providers"; FRAMEWORKS/PUBLISH/README re-apuntados) — decisión owner 2026-10-06. **D2:** pins `vantadb-py>=0.5.0,<0.7.0` → **`>=0.6.1,<0.9.0`** ×7 (piso real: 0.5.0 ✗ sin `Client`; 0.6.1/0.7.0/0.8.0 ✓). Re-verify: build ×7 + twine 14/14 + smoke ×7 (core 0.8.0 en UN paso) + `verify.ps1` ALL 10 + actionlint 0. Review 2 rondas APPROVE. **Checklist owner listo** (§F6-5): push → publishers OIDC ×7 → dry-run TestPyPI → tag `adapters-v0.5.0` → post-publish.
+- **Commit:** 9f773e92 + 8d336134 + 01ef7a4c (local, sin push)
+### Cierre CI PR #242 (2026-10-06): fixes para verde antes de main
+- **Objetivo:** resolver los checks rojos del PR #242 (develop→main) antes del release 0.9.0.
+- **Resultado:** ✅ 10 fallos clasificados y resueltos: **Tests (Windows)** race mismo-key (fix DUR-03 r3, 6f3990aa) · **ASan** FIND-244 (test stale vs `usable_vector`; expectativa corregida, 5ab753ce; verificado con `cargo test` 29/29) · **DIST-17 conformance** (producer Python desde root: dirs in-tree tapaban el wheel; a93152c6, validado local `1 passed`) · **markdownlint** (dedent recitations FIND-264 + pipe MEMG-11; d7053a74) · **gen-index/CodeQL** (escapes backslash ×4 + regen; 7625d655; 15 alertas test-only dismissadas, triaje vanta-audit) · **Desktop CI Linux** (timeout 30→45 cold-cache; 6e1b5d8c) · **Semver** (deltas vs 0.8.0 documentados en COMPATIBILITY.md, 0bc58339 — rojo en develop→main = señal de decisión; verde en release commit) · **TSan** (status quo FIND-227; no gatea) · **bench-informational** (crónico → FIND-317; no gatea).
+- **Commits:** d7053a74 · 0bc58339 · 7625d655 · a93152c6 · 5ab753ce · 6e1b5d8c · 0602bcfb · 6f3990aa (+ este cierre; todos locales)
+- **Snapshot (2026-10-08):** el ASan destapó `test_hardlink_snapshot_independence` (binario EXCLUIDO del default-filter de nextest → solo el job ASan lo ejecutaba): el snapshot hardlinkeaba archivos MUTABLES (WAL shards append+sync por put, `vector_index.bin`, journal fjall activo) → escrituras post-snapshot mutaban el snapshot (determinista en Linux; Windows copia → inmune). Fix worker `936868e5`: copiar appendables / hardlinkear solo inmutables (O(1) preservado, FIND-33 intacto) + test determinista RED→GREEN. Residuales → FIND-318 (vstore in-place: delete/compactación) + FIND-319 (keyspaces no recursado).
+- **WAL (2026-10-08, capa 5 ASan):** `test_wal_selective_crc_corruption_recovery` rojo **determinista desde VER-01** (framing v3): el walk legacy leía los 32B génesis del `prev_hash` como 4 registros fantasma (len=0) → 5 vs 3 esperados. Invisible 9 días porque `wal_resilience` está EXCLUIDO del default-filter de nextest (línea 33) → solo lo corren el ASan (`cargo test` plano) y heavy cert (rojo desde Oct 4 sin triage; mismo `left: 5`). Fix worker `310aadda`: walk chain-aware + assert de consumo exacto del archivo (un framing futuro falla loud). Verificado 5/5 (+ storage 3/3, durability 7/7, path failpoints 5/5). Notas sistémicas: (1) el test corre en ~5s → candidato a gate más frecuente que weekly; (2) heavy cert arrastra 4 jobs rojos desde Oct 4 (other_heavy, memory_concurrency, mutation_test, failpoint_injections) — el failpoint_injections queda verde con este fix. (FIND pendiente de registrar cuando el Backlog esté libre — WIP ajeno.)

@@ -20,6 +20,7 @@ import type {
   GraphBfsResult,
   GraphDegreeEntry,
   GraphDfsResult,
+  GraphRagResult,
   GraphTopologicalSortResult,
   GraphTraversalFilter,
   ImportReport,
@@ -108,9 +109,16 @@ export interface GraphClient {
   degree(roots: NodeId[]): GraphDegreeEntry[];
 }
 
-/** Empty in TS v1: wiki features are core-only per D43 (no WASM binding yet). */
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- intentional placeholder surface for db.wiki (see getter below)
-export interface WikiClient {}
+/**
+ * Wiki domain — summary/archive lifecycle over nodes.
+ *
+ * `recoverArchivedNodes` (TS-11 slice 1) is exposed via the WASM binding;
+ * the remaining wiki capabilities (pages/TDAM) stay core-only per D43 —
+ * roadmap: docs/api/BINDINGS_NAMESPACES.md §Sub-Client Roadmap.
+ */
+export interface WikiClient {
+  recoverArchivedNodes(summaryId: NodeId): NodeRecord[];
+}
 
 export interface SystemClient {
   close(): void;
@@ -133,6 +141,39 @@ export interface SystemClient {
   ): ExportReport;
   importRecords(records: MemoryInput[]): ImportReport;
   importFile(path: string): ImportReport;
+}
+
+/**
+ * Normalize a value bound for a wasm `&str` parameter (DX-01 / H-009).
+ *
+ * The wasm-bindgen glue marshals `&str` args through `passStringToWasm0`,
+ * which does not validate types: a non-string makes it call
+ * `__wbindgen_realloc` with an invalid pointer and the instance traps with
+ * `RuntimeError: memory access out of bounds` (H-009; reproduced on Node 22
+ * and 26 with the published `vantadb@0.8.0`). Normalize at this boundary:
+ *
+ *  - `string` → unchanged;
+ *  - `number` (safe integer only) / `bigint` → decimal string, same
+ *    convention as `_rootsToWire` / `insertNode(String(id))`;
+ *  - anything else → `DbError` with `VANTADB_INVALID_ARGUMENT`.
+ */
+function toWireString(value: unknown, field: string): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "number") {
+    if (!Number.isSafeInteger(value)) {
+      throw new DbError(
+        ERROR_CODES.INVALID_ARGUMENT,
+        `${field} ${value} is not a safe integer — JavaScript numbers lose precision above 2^53. Use bigint for large values.`,
+      );
+    }
+    return String(value);
+  }
+  if (typeof value === "bigint") return String(value);
+  const got = value === null ? "null" : Array.isArray(value) ? "array" : typeof value;
+  throw new DbError(
+    ERROR_CODES.INVALID_ARGUMENT,
+    `${field} must be a string (got ${got})`,
+  );
 }
 
 export class Client {
@@ -169,8 +210,11 @@ export class Client {
    */
   static connect(path?: string): Client {
     try {
-      const inner = path && path !== ":memory:"
-        ? WasmClient.open(path)
+      // Preserve the pre-DX-01 falsy semantics (`connect(null)`/`connect("")`/
+      // `connect(0)` → in-memory); only truthy values hit the string guard.
+      const target = path ? toWireString(path, "connect: path") : undefined;
+      const inner = target && target !== ":memory:"
+        ? WasmClient.open(target)
         : new WasmClient(null);
       return new Client(inner);
     } catch (e) {
@@ -226,7 +270,7 @@ export class Client {
    */
   static open(path: string): Client {
     try {
-      const inner = WasmClient.open(path);
+      const inner = WasmClient.open(toWireString(path, "open: path"));
       return new Client(inner);
     } catch (e) {
       throw wrapWasmError(e, "open");
@@ -330,12 +374,16 @@ export class Client {
   private _graph?: Readonly<GraphClient>;
 
   /**
-   * Wiki domain — empty in TS v1: wiki operations (`recover_archived_nodes`,
-   * pages, TDAM) are core-only per D43 and not exposed via WASM bindings yet.
-   * The getter exists so `db.wiki.*` has an explicit, documented surface.
+   * Wiki domain — summary/archive lifecycle over nodes. Exposes
+   * `recoverArchivedNodes` (TS-11 slice 1 — WASM binding of the core
+   * `recover_archived_nodes`); the remaining wiki capabilities (pages/TDAM)
+   * stay core-only per D43 — roadmap: docs/api/BINDINGS_NAMESPACES.md.
    */
   get wiki(): Readonly<WikiClient> {
-    return (this._wiki ??= Object.freeze({}));
+    return (this._wiki ??= Object.freeze({
+      recoverArchivedNodes: (summaryId: NodeId) =>
+        this.recoverArchivedNodes(summaryId),
+    }));
   }
   private _wiki?: Readonly<WikiClient>;
 
@@ -507,7 +555,10 @@ export class Client {
   get(input: GetInput): MemoryRecord | null {
     this._assertOpen();
     return this._wasm("get", () => {
-      const raw = this.inner.get(input.namespace, input.key);
+      const raw = this.inner.get(
+        toWireString(input.namespace, "get: namespace"),
+        toWireString(input.key, "get: key"),
+      );
       return raw != null ? _mapRecord(raw) : null;
     });
   }
@@ -526,7 +577,12 @@ export class Client {
    */
   delete(input: DeleteInput): boolean {
     this._assertOpen();
-    return this._wasm("delete", () => this.inner.delete(input.namespace, input.key));
+    return this._wasm("delete", () =>
+      this.inner.delete(
+        toWireString(input.namespace, "delete: namespace"),
+        toWireString(input.key, "delete: key"),
+      ),
+    );
   }
 
   /**
@@ -572,7 +628,10 @@ export class Client {
         // breaks the WASM deserializer (not the same as an absent field).
         wire.filters = normalizeMetadata(options.filters);
       }
-      const raw = this.inner.list(namespace, wire as unknown as ListOptionsInput);
+      const raw = this.inner.list(
+        toWireString(namespace, "list: namespace"),
+        wire as unknown as ListOptionsInput,
+      );
       const items: unknown[] = raw.records ?? [];
       for (let i = 0; i < items.length; i++) {
         items[i] = _mapRecord(items[i]);
@@ -661,6 +720,39 @@ export class Client {
   }
 
   /**
+   * Run the GraphRAG pipeline: seed → expand → retrieve → generate context.
+   *
+   * Uses the default pipeline configuration (seed_k=10, expansion_hops=2,
+   * max_expansion_nodes=100, retrieval_top_k=20). At least one of `query` /
+   * `queryVector` should be provided; both may be combined (hybrid seeds).
+   *
+   * @param namespace - Namespace whose records seed the pipeline.
+   * @param query - Optional text query for lexical (BM25) seeds.
+   * @param queryVector - Optional dense vector for ANN seeds.
+   * @returns The canonical `GraphRagResult` wire shape (shared with the
+   *   Python/Node bindings): nodes, edges, `context_text` and stats. u128 ids
+   *   travel as decimal strings.
+   * @throws {DbError} If the instance is closed or the pipeline fails.
+   *
+   * @example
+   * ```ts
+   * const result = db.graphragSearch("docs", "vector database");
+   * console.log(result.context_text);
+   * ```
+   */
+  graphragSearch(namespace: string, query?: string, queryVector?: number[]): GraphRagResult {
+    this._assertOpen();
+    return this._wasm("graphragSearch", () => {
+      const raw = this.inner.graphrag_search(
+        toWireString(namespace, "graphragSearch: namespace"),
+        query,
+        queryVector !== undefined ? new Float32Array(queryVector) : undefined,
+      ) as unknown as GraphRagResult;
+      return raw;
+    });
+  }
+
+  /**
    * Search across multiple namespaces in a single call. Results from each
    * namespace are merged by descending score and capped at `request.top_k`
    * globally.
@@ -738,7 +830,10 @@ export class Client {
   count(input: CountInput): bigint {
     this._assertOpen();
     return this._wasm("count", () =>
-      this.inner.count(input.namespace, toFilterItems(input.filters)),
+      this.inner.count(
+        toWireString(input.namespace, "count: namespace"),
+        toFilterItems(input.filters),
+      ),
     );
   }
 
@@ -759,7 +854,13 @@ export class Client {
    */
   supersede(input: SupersedeInput): void {
     this._assertOpen();
-    this._wasm("supersede", () => this.inner.supersede(input.namespace, input.oldKey, input.newKey));
+    this._wasm("supersede", () =>
+      this.inner.supersede(
+        toWireString(input.namespace, "supersede: namespace"),
+        toWireString(input.oldKey, "supersede: oldKey"),
+        toWireString(input.newKey, "supersede: newKey"),
+      ),
+    );
   }
 
   /**
@@ -780,7 +881,11 @@ export class Client {
     this._assertOpen();
     return this._wasm("similarToKey", () => {
       const { namespace, key, topK = 10 } = input;
-      const raw = this.inner.similar_to_key(namespace, key, topK) as unknown[];
+      const raw = this.inner.similar_to_key(
+        toWireString(namespace, "similarToKey: namespace"),
+        toWireString(key, "similarToKey: key"),
+        topK,
+      ) as unknown[];
       return raw.map((hit: unknown) => {
         const h = hit as Record<string, unknown>;
         return {
@@ -880,9 +985,11 @@ export class Client {
       // FIND-125: runtime is the core `ExportReport`
       // (`src/sdk/types/record.rs:179-188`); the wasm `.d.ts` shape is
       // drifted. Erased cast: zero runtime change.
+      const wirePath = toWireString(path, "exportNamespace: path");
+      const wireNamespace = toWireString(namespace, "exportNamespace: namespace");
       return (items.length > 0
-        ? this.inner.export_namespace_filtered(path, namespace, items)
-        : this.inner.export_namespace(path, namespace)) as unknown as ExportReport;
+        ? this.inner.export_namespace_filtered(wirePath, wireNamespace, items)
+        : this.inner.export_namespace(wirePath, wireNamespace)) as unknown as ExportReport;
     });
   }
 
@@ -902,7 +1009,10 @@ export class Client {
   deleteByFilter(input: DeleteByFilterInput): bigint {
     this._assertOpen();
     return this._wasm("deleteByFilter", () =>
-      this.inner.delete_by_filter(input.namespace, toFilterItems(input.filter)),
+      this.inner.delete_by_filter(
+        toWireString(input.namespace, "deleteByFilter: namespace"),
+        toFilterItems(input.filter),
+      ),
     );
   }
 
@@ -920,7 +1030,7 @@ export class Client {
    */
   exportAll(path: string): ExportReport {
     this._assertOpen();
-    return this._wasm("exportAll", () => this.inner.export_all(path) as unknown as ExportReport);
+    return this._wasm("exportAll", () => this.inner.export_all(toWireString(path, "exportAll: path")) as unknown as ExportReport);
   }
 
   /**
@@ -955,7 +1065,11 @@ export class Client {
       let errors = 0;
       for (const r of records) {
         try {
-          const existed = this.inner.get(r.namespace, r.key) != null;
+          const existed =
+            this.inner.get(
+              toWireString(r.namespace, "importRecords: namespace"),
+              toWireString(r.key, "importRecords: key"),
+            ) != null;
           const wire = { ...r } as MemoryInput;
           if (r.metadata !== undefined) {
             wire.metadata = normalizeMetadata(r.metadata);
@@ -989,7 +1103,7 @@ export class Client {
    */
   importFile(path: string): ImportReport {
     this._assertOpen();
-    return this._wasm("importFile", () => this.inner.import_file(path) as unknown as ImportReport);
+    return this._wasm("importFile", () => this.inner.import_file(toWireString(path, "importFile: path")) as unknown as ImportReport);
   }
 
   /**
@@ -1027,7 +1141,12 @@ export class Client {
    */
   reindexHnswFromText(namespace: string, pageSize: number = 1000): unknown {
     this._assertOpen();
-    return this._wasm("reindexHnswFromText", () => this.inner.reindex_hnsw_from_text(namespace, pageSize));
+    return this._wasm("reindexHnswFromText", () =>
+      this.inner.reindex_hnsw_from_text(
+        toWireString(namespace, "reindexHnswFromText: namespace"),
+        pageSize,
+      ),
+    );
   }
 
   /**
@@ -1055,7 +1174,11 @@ export class Client {
    */
   auditTextIndex(namespace?: string): unknown {
     this._assertOpen();
-    return this._wasm("auditTextIndex", () => this.inner.audit_text_index(namespace ?? null));
+    return this._wasm("auditTextIndex", () =>
+      this.inner.audit_text_index(
+        namespace == null ? null : toWireString(namespace, "auditTextIndex: namespace"),
+      ),
+    );
   }
 
   /**
@@ -1067,7 +1190,11 @@ export class Client {
    */
   auditTextIndexDeep(namespace?: string): unknown {
     this._assertOpen();
-    return this._wasm("auditTextIndexDeep", () => this.inner.audit_text_index_deep(namespace ?? null));
+    return this._wasm("auditTextIndexDeep", () =>
+      this.inner.audit_text_index_deep(
+        namespace == null ? null : toWireString(namespace, "auditTextIndexDeep: namespace"),
+      ),
+    );
   }
 
   /**
@@ -1162,7 +1289,7 @@ export class Client {
     // FIND-125: runtime is the core `QueryResult` enum, externally tagged
     // (`src/sdk/types/graph.rs:14-32`); the wasm `.d.ts` `IqlResult {kind…}`
     // shape is drifted. Erased cast: zero runtime change.
-    return this._wasm("query", () => this.inner.query(query) as unknown as QueryResult);
+    return this._wasm("query", () => this.inner.query(toWireString(query, "query: iql")) as unknown as QueryResult);
   }
 
   /**
@@ -1201,7 +1328,7 @@ export class Client {
     this._wasm("insertNode", () =>
       this.inner.insert_node(
         String(id),
-        content ?? null,
+        content == null ? null : toWireString(content, "insertNode: content"),
         vector ? new Float32Array(vector) : null,
         normalizedFields,
       ),
@@ -1273,7 +1400,50 @@ export class Client {
         `deleteNode: id ${id} is not a safe integer — JavaScript numbers lose precision above 2^53. Use bigint for large IDs.`,
       );
     }
-    this._wasm("deleteNode", () => this.inner.delete_node(String(id), reason));
+    this._wasm("deleteNode", () => this.inner.delete_node(String(id), toWireString(reason, "deleteNode: reason")));
+  }
+
+  /**
+   * Recover nodes shadow-archived by a summary node (wiki summary lifecycle).
+   *
+   * Scans the tombstone partition for nodes with a `belonged_to` edge
+   * targeting `summaryId`, re-activates them, and returns the recovered
+   * records (empty array when none match).
+   *
+   * For IDs > 2^53, use bigint — JavaScript Numbers lose integer precision
+   * above 2^53.
+   *
+   * @param summaryId - Summary node ID (number or bigint).
+   * @returns The recovered node records.
+   * @throws {DbError} If the ID is not a safe integer, or if the instance is closed.
+   *
+   * @example
+   * ```ts
+   * const recovered = db.recoverArchivedNodes(42);
+   * ```
+   */
+  recoverArchivedNodes(summaryId: NodeId): NodeRecord[] {
+    this._assertOpen();
+    if (typeof summaryId === "number" && !Number.isSafeInteger(summaryId)) {
+      throw new DbError(
+        "INVALID_ARGUMENT",
+        `recoverArchivedNodes: summaryId ${summaryId} is not a safe integer — JavaScript numbers lose precision above 2^53. Use bigint for large IDs.`,
+      );
+    }
+    return this._wasm("recoverArchivedNodes", () => {
+      const raw = this.inner.recover_archived_nodes(
+        String(summaryId),
+      ) as unknown as NodeRecord[];
+      // WASM serializes u128 edge targets as strings; expose them as bigint
+      // (same SDK contract as getNode).
+      return raw.map((node) => ({
+        ...node,
+        edges: node.edges.map((e) => ({
+          ...e,
+          target: typeof e.target === "string" ? BigInt(e.target) : e.target,
+        })),
+      }));
+    });
   }
 
   /**
@@ -1317,7 +1487,7 @@ export class Client {
       this.inner.add_edge(
         String(source),
         String(target),
-        label,
+        toWireString(label, "addEdge: label"),
         weight ?? null,
         createdAtMs != null ? BigInt(createdAtMs) : null,
       ),
@@ -1356,7 +1526,7 @@ export class Client {
       );
     }
     this._wasm("removeEdge", () =>
-      this.inner.remove_edge(String(source), String(target), label),
+      this.inner.remove_edge(String(source), String(target), toWireString(label, "removeEdge: label")),
     );
   }
 
@@ -1381,7 +1551,11 @@ export class Client {
   ): GraphBfsResult {
     this._assertOpen();
     return this._wasm("graphBfs", () =>
-      this.inner.graph_bfs(this._rootsToWire(roots), maxDepth, direction) as unknown as GraphBfsResult,
+      this.inner.graph_bfs(
+        this._rootsToWire(roots),
+        maxDepth,
+        toWireString(direction, "graphBfs: direction") as typeof direction,
+      ) as unknown as GraphBfsResult,
     );
   }
 
@@ -1405,7 +1579,11 @@ export class Client {
   ): GraphDfsResult {
     this._assertOpen();
     return this._wasm("graphDfs", () =>
-      this.inner.graph_dfs(this._rootsToWire(roots), maxDepth, direction) as unknown as GraphDfsResult,
+      this.inner.graph_dfs(
+        this._rootsToWire(roots),
+        maxDepth,
+        toWireString(direction, "graphDfs: direction") as typeof direction,
+      ) as unknown as GraphDfsResult,
     );
   }
 
@@ -1478,7 +1656,7 @@ export class Client {
       this.inner.graph_filtered_traversal(
         this._rootsToWire(roots),
         maxDepth,
-        direction,
+        toWireString(direction, "graphFilteredTraversal: direction") as typeof direction,
         // Public input allows `time_range: null`; the wasm binding models
         // absence as `undefined`. Normalize at the boundary.
         filter === null || filter === undefined
@@ -1533,7 +1711,11 @@ export class Client {
   ): string | undefined {
     this._assertOpen();
     return this._wasm("generateSnippet", () =>
-      this.inner.generate_snippet(payload, query, withHighlighting) ?? undefined,
+      this.inner.generate_snippet(
+        toWireString(payload, "generateSnippet: payload"),
+        toWireString(query, "generateSnippet: query"),
+        withHighlighting,
+      ) ?? undefined,
     );
   }
 }
