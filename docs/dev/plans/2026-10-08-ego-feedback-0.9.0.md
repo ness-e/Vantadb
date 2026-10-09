@@ -26,6 +26,8 @@ Status: ⬆️ uphill = 5 incógnitas abiertas (finalizer napi en EGO-06; wiring
 
 > **Determinación owner-delegada 2026-10-08:** entran al tren 0.9.0 EGO-01..07 + MEMG-25 + FIND-320 + EGO-08. MEMG-26 solo-spec en ventana (implementación → 0.10): un modelo de eventos apurado es deuda de esquema permanente. EGO-04/05 rompen wire/formato y la ventana 0.x para romper es ahora — en 0.10 costarían a Ego una segunda migración.
 >
+> **Re-scope owner 2026-10-09 (reemplaza lo anterior para el alcance):** el tren 0.9.0 cierra con EGO-01..06 (+ EGO-08 si es solo docs). **EGO-07, MEMG-25 y FIND-320 se mueven al tren 0.10.0** (Ego aún no guarda datos reales; EGO-07 tiene riesgo 🔴 de prebuilts ONNX y el PR #242 ya acumula 288 commits). Motivo: estabilizar el PR de release; costo aceptado: Ego conserva el workaround de embeddings un ciclo más.
+>
 > Verificación previa (2026-10-08, sesión de análisis): los 7 gaps se confirmaron contra código real — `vantadb-node/src/lib.rs:825-831` (cursor), `src/sdk/types.rs:106` (`Value`), `src/sdk/api/memory.rs:733` (sin inferencia), `src/sdk/serialization/mod.rs:111` (sin `*`), `vantadb-ts/src/guards.ts:220-243` (WIRE-03 parcial), `src/text_index.rs:176` (ASCII-only). Sin DEFER/SKIP que confirmar (decisión owner 2026-10-08: los 7 en 0.9.0).
 
 ## Orden de ejecución (olas, MAX_WIP=3, FAIL_MODE=parallel)
@@ -103,7 +105,7 @@ Regla: `vantadb-node/src/lib.rs` se toca en EGO-01, EGO-05 (si el wire lo exige)
 - **Task file:** `docs/dev/tasks/EGO-02.md`
 - **Estado:** ✅ COMPLETED (commit `c82f4b2d`; review degradado pendiente externo)
 - **Branch:** develop
-- **Commit:** `9f6bc7ab`
+- **Commit:** `c82f4b2d`
 
 - **Pre-mortem:**
   1. El guard es compartido native+wasm → el cambio afecta ambos paths (deseado, pero correr ambas suites).
@@ -144,7 +146,7 @@ Regla: `vantadb-node/src/lib.rs` se toca en EGO-01, EGO-05 (si el wire lo exige)
 - **Task file:** `docs/dev/tasks/EGO-03.md`
 - **Estado:** ✅ COMPLETED (search_multi 5/5 + search 236; review degradado pendiente externo)
 - **Branch:** develop
-- **Commit:** `a60d8f78`
+- **Commit:** `36ac14ff`
 
 - **Pre-mortem:**
   1. `validate_namespace` compartida con put/get → NO relajarla; patrón separado solo-search.
@@ -186,7 +188,7 @@ Regla: `vantadb-node/src/lib.rs` se toca en EGO-01, EGO-05 (si el wire lo exige)
 - **Task file:** `docs/dev/tasks/EGO-04.md`
 - **Estado:** ✅ COMPLETED (lib 73/73 + recovery 17/17; review degradado pendiente externo)
 - **Branch:** develop
-- **Commit:** `1c9ff1a0`
+- **Commit:** `b04d33bf`
 
 - **Pre-mortem:**
   1. Cambio de formato on-disk sin migración → DBs 0.8.0 ilegibles o, peor, leídas a medias; definir rebuild automático o error explícito.
