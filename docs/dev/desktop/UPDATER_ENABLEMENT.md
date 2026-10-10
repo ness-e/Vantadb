@@ -8,7 +8,7 @@ tags: [vantadb, desktop, updater]
 
 # VantaDB Desktop — Auto-update enablement (deferred)
 
-> **Status: DEFERRED (2026-10-04).** `tauri-plugin-updater` is **not** installed or configured. This document is the enablement contract registered by [DESKTOP-43](../tasks/DESKTOP-43.md): why it is deferred, the trigger that re-opens it, and the ordered checklist to enable it. Decision record: [wontfix.md](../avance/decisiones/wontfix.md) § DEFER (`DESKTOP-43`).
+> **Status: DEFERRED (2026-10-04).** `tauri-plugin-updater` is **not** installed or configured. This document is the enablement contract registered by DESKTOP-43: why it is deferred, the trigger that re-opens it, and the ordered checklist to enable it. Decision record: [wontfix.md](../avance/decisiones/wontfix.md) § DEFER (`DESKTOP-43`).
 
 ## Why deferred
 

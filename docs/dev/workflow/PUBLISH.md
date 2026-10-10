@@ -89,7 +89,7 @@ El skip "already published" de `release-npm-61.yml` y `release-npm-node.yml` aho
   `integrations/openai` + `integrations/ollama` Python twins were **retired
   from the release** (their PyPI names/modules belong to the Rust providers);
   they stay in-repo as source-only, and the workflow matrices now carry the
-  7-adapter list. Details: [MKT-20](../tasks/MKT-20.md) §F6-2.
+  7-adapter list. Details: MKT-20 §F6-2.
 - **Pins — bumped 2026-10-06 (owner decision):** the 7 adapters now declare
   `vantadb-py>=0.6.1,<0.9.0` (was `>=0.5.0,<0.7.0`, which excluded the live
   core and admitted 0.5.0 — no `Client` API). Evidence: MKT-20 §F6-3.
@@ -188,7 +188,7 @@ El skip "already published" de `release-npm-61.yml` y `release-npm-node.yml` aho
 
 | Crate | Manifest | Decision | Channel (real) | Produced by | Why |
 |-------|----------|----------|----------------|-------------|-----|
-| `vanta-memory` | publishable | Publish to crates.io (**hold**) | crates.io | `release.yml` (release-plz) | DIST-01: publishable + `release = false` hold until Trusted Publishing bootstrap (owner) — see [DIST-01](../tasks/DIST-01.md) |
+| `vanta-memory` | publishable | Publish to crates.io (**hold**) | crates.io | `release.yml` (release-plz) | DIST-01: publishable + `release = false` hold until Trusted Publishing bootstrap (owner) — see DIST-01 |
 | `vantadb-python` | `publish = false` | No crates.io publish | PyPI `vantadb-py` wheels | `release-wheels.yml` (`v*.*.*`) | cdylib extension module (PyO3) — PyPI is the product channel |
 | `vantadb-node` | `publish = false` | No crates.io publish | npm `vantadb-node` | `release-npm-node.yml` (`node-v*.*.*`) | napi cdylib — npm is the channel; never published yet (404 documented) |
 | `vantadb-server` | `publish = false` | No crates.io publish | GitHub Release binaries (5 targets) | `release-binaries.yml` | Binary product — distributed as release assets, not as a crate |
