@@ -89,6 +89,26 @@
       "timeout": 120000,
       "description": "Playwright MCP — automatización de browser via accessibility tree (browser_navigate/snapshot/click/type/evaluate). Para testing web/, E2E desktop/ y visual review."
     },
+    "ai-media": {
+      "type": "local",
+      "command": [
+        "node",
+        ".opencode/mcp/ai-media-server.mjs"
+      ],
+      "disabled": false,
+      "timeout": 600000,
+      "description": "Generacion gratis SIN API key ni login: generate_image (SANA), generate_text (GPT-OSS 20B), generate_gif (N frames + ffmpeg local). Fuente: image/text.pollinations.ai capa anonima; reintenta con backoff ante 402. Salida en ~/ai-out. Verificado 2026-10-01."
+    },
+    "seo-audit": {
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "mcp-seo-audit@latest"
+      ],
+      "disabled": false,
+      "description": "Auditoria SEO/marketing sin API key: audit_page, extract_schema (JSON-LD), check_robots, parse_sitemap, extract_links, crawl_site. Solo check_vitals (CrUX) pide CRUX_API_KEY opcional. Para la fase de marketing."
+    },
     "semgrep": {
       "type": "local",
       "command": [
