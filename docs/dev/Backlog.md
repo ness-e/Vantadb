@@ -209,7 +209,7 @@ verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-hist
 
 ## 📥 Alta 2026-10-08 — Feedback integración real Ego (7 hallazgos VDB-* → tren 0.9.0)
 
-> Origen: `Ego/docs/VANTADB-FEEDBACK-Y-MEJORAS.md` (2026-10-07 — integración real Ego × VantaDB 0.8.0 + vantadb-node Fjall/NAPI-RS) + verificación contra código VantaDB 2026-10-08. Decisión owner 2026-10-08: los 7 entran en el tren 0.9.0 (minor 0.x admite breaking → EGO-04/05 encajan). Plan: [2026-10-08-ego-feedback-0.9.0.md](plans/2026-10-08-ego-feedback-0.9.0.md). Prefijo `EGO-*` nuevo (feedback Ego; registrar en taxonomía). Workarounds vigentes en Ego: `packages/memory/EgoMemoryAdapter.ts` (cursor omitido, metadata tagged, expansión wildcard manual) + `packages/memory/EgoMemoryLifecycle.ts` (sanitizado de prompt).
+> Origen: `Ego/docs/VANTADB-FEEDBACK-Y-MEJORAS.md` (2026-10-07 — integración real Ego × VantaDB 0.8.0 + vantadb-node Fjall/NAPI-RS) + verificación contra código VantaDB 2026-10-08. Decisión owner 2026-10-08: los 7 entran en el tren 0.9.0 (minor 0.x admite breaking → EGO-04/05 encajan). Plan: `2026-10-08-ego-feedback-0.9.0.md` (borrado 2026-10-10 con el resto de planes cerrados; filas EGO-* siguen abiertas aquí). Prefijo `EGO-*` nuevo (feedback Ego; registrar en taxonomía). Workarounds vigentes en Ego: `packages/memory/EgoMemoryAdapter.ts` (cursor omitido, metadata tagged, expansión wildcard manual) + `packages/memory/EgoMemoryLifecycle.ts` (sanitizado de prompt).
 
 | ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado | Descripción | Relaciones | Dependencias |
 |---|---|---|---|---|---|---|---|---|---|

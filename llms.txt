@@ -6,7 +6,7 @@
 
 Every link below points to the raw Markdown source, not a rendered page. Read the
 page you need; do not read this file end to end. This index covers the
-465 documentation pages; it deliberately omits the 1108 task files,
+463 documentation pages; it deliberately omits the 604 task files,
 which are work items rather than documentation. The full inventory of every file
 is in docs/index.md in the repository.
 
@@ -237,10 +237,7 @@ is in docs/index.md in the repository.
 ## Plans
 
 - [BND-08 — Checklist de publicación `vantadb-node` (para el humano)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/plans/artifacts/bnd-08-publish-checklist.md): Nota local vs CI: el tarball local incluye UN solo .node (win32-x64-msvc, el build de
-- [Plan Maestro: Release 0.9.0 + Memoria 1.0 (post-0.8.0)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/plans/2026-10-04-master-plan-0.9.0.md): SDP v3 (taskType mixto): campaign-executor · progreso · planning-and-task-breakdown · ci-cd-and-automation · shipping-and-launch · documentation-and-adrs · source-driven-development · git-workflow-and-versioning — F0 release-ready (21 tareas full-detail) + F1-F5 campaña (profundización por fase)
 - [Plan de Consolidación Documental — enlaces, metadata, índices y skill](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/plans/2026-09-28-docs-consolidation.md): documentation-skill → campaign-executor → progreso → writing-plans → systematic-debugging → writing-guidelines
-- [Plan de Ejecución: Master Roadmap VantaDB — de 0.7.x a 1.0 (fuente única)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/plans/2026-09-26-master-roadmap.md): SDP: campaign-executor · progreso · writing-plans · planning-and-task-breakdown · api-and-interface-design · spec-driven-development · documentation-and-adrs · writing-guidelines
-- [Plan de campaña: feedback Ego (EGO-01..07) para release 0.9.0](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/plans/2026-10-08-ego-feedback-0.9.0.md): 7 hallazgos de integración real Ego x VantaDB (bugs, inconsistencias, mejoras) con fix, contrato mecánico y gates para el tren 0.9.0.
 - [Upstream PR draft — CrewAI](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/plans/artifacts/mkt-18f-prs/crewai.md): Prereq (bloquea merge upstream): publicar vantadb-crewai en PyPI (tag adapters-v0.5.0)
 - [Upstream PR draft — DSPy](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/plans/artifacts/mkt-18f-prs/dspy.md): Prereq (bloquea merge upstream): publicar vantadb-dspy en PyPI (tag adapters-v0.5.0)
 - [Upstream PR draft — LangChain](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/plans/artifacts/mkt-18f-prs/langchain.md): Prereq (bloquea merge upstream): publicar vantadb-langchain en PyPI (tag adapters-v0.5.0). Upstream no linkea paquetes 404
@@ -329,6 +326,7 @@ is in docs/index.md in the repository.
 - [Monetización Local-First Sin Nube y Sin Capital — Corrección de la Estrategia v1](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/validacion/08-monetizacion-local-first-sin-capital.md): Fecha: 2026-08-25 · Autor: vanta-lead (corrección post-feedback) · Reemplaza a: las recomendaciones de monetización de validacion/02, validacion/03 y validacion/00-SINTESIS-EJECUTIVA.md
 - [Plan de Acción Research — Validación de 53 investigaciones (2026-08-26)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/PLAN-ACCION-RESEARCH-2026-08-26.md): Estos archivos son extracciones/analysis que NO debe perderse aunque estén históricos
 - [Plan de Investigación Profunda — TencentDB-Agent-Memory (TDAM)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/tdam/PLAN.md): Una vez completados los 9, el lead lee TODOS los archivos, cruza hallazgos, resuelve contradicciones y produce la síntesis con el plan de acción concreto (qué crate, qué features core, qué MCP tools, orden de implementación)
+- [Preservado antes del borrado 2026-10-09 23:56](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/historial/borrada-2026-10-10.md): Git HEAD: b14c2ab7 docs(plan): re-scope 0.9.0 (EGO-07/MEMG-25/FIND-320 -> 0.10.0) y corrige hashes EGO-02..04
 - [Psicología cognitiva aplicada a la representación de VantaDB](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/human-facing-db-ui/07-cognitive-psychology/RESEARCH.md): Evaluación del concepto 06-synthesis/SYNTHESIS.md contra cómo funciona el cerebro humano,
 - [REPORTE FINAL — Cómo debe trabajar un agente/sub-agente y un ingeniero, y qué le falta al sistema de tareas de VantaDB](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/2026-08-10-agent-engineering/REPORTE-FINAL.md): Este reporte integra, sin omitir hallazgos, las tres ramas: (1) qué debe hacer correctamente un agente/sub-agente para ejecutar tareas, proyectos, planes e investigaciones; (2) qué debe hacer correctamente un ingeniero de...
 - [STRAT-05 - Ruta object storage (S3/blob): viabilidad, costo y tradeoffs](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/strat-05-object-storage.md): Research de la ruta object storage: snapshot-level vs segment-level vs backend nativo, con costos verificados (S3/R2) y decisión documentada en ADR-0056; sin implementación
