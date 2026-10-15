@@ -12,7 +12,7 @@ description: "Section index."
      One row per document in this section.
      Source of truth: the frontmatter of the files listed below. -->
 
-27 documents.
+28 documents.
 
 | Document                                                                     | Kind      | Summary                                                                                                                                                                                                                                                    |
 | ---------------------------------------------------------------------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -26,6 +26,7 @@ description: "Section index."
 | [GraphRAG API](./GRAPH_RAG.md)                                               | reference | GraphRAG (seed → expand → retrieve → context) is exposed by the Rust SDK and all four bindings — Python, WASM, TypeScript and Node — with one canonical wire shape                                                                                         |
 | [Memory interchange format (JSONL v2)](./MEMORY_INTERCHANGE_FORMAT.md)       | reference | The JSONL v2 contract shared by VantaDB export, import and the third-party importers (Mem0, Zep/Graphiti, Letta): mapping tables, integrity manifest, frontier-format mapping, declared limits                                                             |
 | [Node.js Native SDK Documentation](./NODE_SDK.md)                            | reference | vantadb-node is the native Node.js binding for VantaDB, built with                                                                                                                                                                                         |
+| [Public Surface Manifest](./SURFACE_MANIFEST.md)                             | reference | Generated inventory of every public surface with status and version                                                                                                                                                                                        |
 | [Python SDK Documentation](./PYTHON_SDK.md)                                  | reference | Python SDK reference — Client, memory records, cognitive layer (memory_capture/memory_recall), async client and typed errors                                                                                                                               |
 | [Scoring Semantics — VantaDB Official Score Contract](./scores.md)           | reference | VantaDB hybrid search combines two independent rankers                                                                                                                                                                                                     |
 | [Search Capability Parity — VantaDB vs Milvus vs Qdrant](./SEARCH_PARITY.md) | reference | 1. topk semantics under groupby — VantaDB caps total hits; Milvus/Qdrant cap the number of groups. Choose topk = groups × groupsize to emulate the vendor behavior                                                                                         |
