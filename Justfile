@@ -153,3 +153,8 @@ ocr:
 # OCR delegation spec en JSON (para agentes: preview + rules)
 ocr-json:
     pwsh -NoProfile -File dev-tools/ocr-review.ps1 -Format json
+
+# Surface check: contract gates for first-run DX (DX-13)
+surface-check:
+    {{cargo}} nextest run --profile audit -p vantadb --test version_coherence --test sdk_serialization --build-jobs 2
+    @echo "SKIP: public_api + openapi_yaml_parity (no such test targets yet - DX-13 follow-up); check-npm-versions (no script yet)"
