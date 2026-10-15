@@ -465,6 +465,7 @@ BLOQUEADO: `PROC-01-push` (requiere OK explícito owner, Regla 7), carril negoci
   |---|--------|-----------|-------------|
   | 1 | FIND-321 + hallazgo SRV-10-código resuelto + Gate D | Worker1: inventario 28→40 + SRV-10 SKIP documentado (resuelto en ca3f00da/8f758e24). Gate D owner: CI-08 COMPLETA 40→18 (worker2 en fondo) | TRIGGERS 40/40, diff --check 0 |
   | 2 | CI-08 Steps 2-3 (worker2) | 40→32: 5 demos→demo-acceptance.yml + 4 info→nightly.yml, 0 jobs perdidos, release* intactos. Step 4 pendiente (32→18, tabla lista). BLOQUEO: branch protection required-checks renombrados (acción admin pre-merge) | checker PASS, conteo 32 |
+  | 3 | CI-08 Step 4 + review P2-01 + 7 fixes | 32→18 ✅. Review: CHANGES-REQUIRED (3 Critical + 1 Required) → fixes aplicados + re-verificado. APPROVE | yaml 18/18, patrones limpios, diff --check 0 |
 
   **Notas:** Cubre `CI-08` + `FIND-321` (inventario primero, consolidación después).
 

@@ -24,45 +24,24 @@ Legend: Y = yes, — = no. `paths` means a path filter applies (see file).
 | Workflow | push | pull_request | schedule | dispatch | Other |
 |----------|------|--------------|----------|----------|-------|
 | `ci-rust.yml` | Y (`main`) | Y (`main`) | — | Y | — |
-| `ci-rustdoc.yml` | Y (`main`) | Y (`main`,`develop`) | — | Y | — |
-| `ci-bindings-parity.yml` | Y (`main`, paths bindings) | Y (`main`,`develop`, paths bindings) | — | Y | — |
-| `ci-examples.yml` | Y (`main`) | Y (`main`) | — | Y | — |
-| `chaos.yml` | Y (`main`) | Y (`main`) | — | Y | — |
-| `gate-docs.yml` | Y (`main`) | Y (`main`,`develop`) | — | Y | — |
-| `gate-docs-links.yml` | Y (`main`) | Y (`main`,`develop`) | Y (Mon 07:23) | Y | — |
-| `gate-docs-secrets.yml` | Y (`main`) | Y (`main`,`develop`) | — | Y | — |
-| `gate-api-docs.yml` | Y (`main`) | Y (`main`,`develop`) | — | Y | — |
-| `gate-doc-examples.yml` | Y (`main`) | Y (`main`,`develop`) | — | Y | — |
-| `providers-ci.yml` | Y (`main`) | Y (`main`) | — | Y | — |
-| `desktop.yml` | Y (`main`) | Y (`main`) | — | Y | — |
+| `docs-gates.yml` | Y (`main`) | Y (`main`,`develop`) | Y (Mon 07:23) | Y | 17 jobs (CI-08 Step 4) |
+| `ci-fleet.yml` | Y (`main`) | Y (`main`,`develop`) | Y (Sun 03:00) | Y | 5 jobs (CI-08 Step 4) |
 | `perf-bench.yml` | Y (`main`,`develop`) | — | — | Y | — |
-| `sec-codeql.yml` | Y (`main`) | Y (`main`) | Y (Sun) | Y | — |
+| `platform-ops.yml` | Y (`main`, desktop paths) | Y (`main`, desktop paths) | Y (Sun 00:00, daily 04:00) | Y | `issue_comment`, `review_comment`; 8 jobs (CI-08 Step 4) |
 | `ci-gate.yml` | — | — | — | — | `workflow_call` |
 
 ## Demos (acceptance — F5/F6)
 
 | Workflow | push | pull_request | schedule | dispatch | Other |
 |----------|------|--------------|----------|----------|-------|
-| `ci-ai-ides-demo.yml` | Y (`main`) | Y (`main`) | — | Y | — |
-| `ci-frameworks-demo.yml` | Y (`main`) | Y (`main`) | — | Y | — |
-| `icp02-privacy-demo.yml` | Y (`main`) | Y (`main`) | — | Y | — |
-| `injection-governance-demo.yml` | Y (`main`) | Y (`main`) | — | Y | — |
-| `wal-verify-demo.yml` | Y (`main`) | Y (`main`) | — | Y | — |
+| `demo-acceptance.yml` | Y (`main`, union paths) | Y (`main`, union paths) | — | Y | 5 jobs (CI-08 Step 2) |
 
 ## Heavy / fuzz / informational / bots
 
 | Workflow | push | pull_request | schedule | dispatch | Other |
 |----------|------|--------------|----------|----------|-------|
-| `fuzz.yml` | — | Y (paths src/fuzz) | Y (Mon 06:00) | Y | — |
-| `heavy-bench-nightly.yml` | — | — (C-06: fuera del Fast Gate) | Y (daily 02:00) | Y | — |
-| `heavy-certification.yml` | — | — | Y (Sun 03:00) | Y | — |
-| `nightly.yml` | — | — | Y (daily 05:00) | Y | — |
-| `adapters-compat.yml` | — | — | Y (Sun 03:00) | Y | — |
-| `arch-metrics-informational.yml` | — | Y (paths src/Cargo) | — | Y | — |
-| `bench-canonical-p99-informational.yml` | — | Y (paths index/storage) | — | Y | — |
-| `ocr-delegate.yml` | — | Y (all) | — | Y | — |
-| `ocr-nightly.yml` | — | — | Y (daily 04:00) | Y | — |
-| `opencode.yml` | — | — | — | — | `issue_comment`, `review_comment` |
+| `certification.yml` | Y (`main`, chaos paths) | Y (paths, no `branches` — fuzz verbatim) | Y (daily 02:00, Sun 03:00, Mon 06:00) | Y | 21 jobs, ci-gate dedup ×3→1 (CI-08 Step 4) |
+| `nightly.yml` | — | Y (paths info-only; heavy jobs skip PR) | Y (daily 05:00) | Y | 5 info jobs (CI-08 Step 3) |
 
 ## Release (tag namespaces)
 
@@ -82,15 +61,17 @@ Legend: Y = yes, — = no. `paths` means a path filter applies (see file).
 
 - `release.yml` is the only workflow on bare `push: branches: [main]`
   (FIND-140: release-plz entry point). All other `push` entries carry
-  `branches` + `paths` (exception: `sec-codeql.yml` scopes by `branches`
-  only); since FIND-228 every CI/demo/gate push scopes to `[main]` —
-  pre-merge validation lives in `pull_request`.
+  `branches` + `paths`; since FIND-228 every CI/demo/gate push scopes to
+  `[main]` — pre-merge validation lives in `pull_request`. Post CI-08
+  Step 4 hay una excepción adicional: `certification.yml` `pull_request`
+  sin `branches` (preserva `fuzz.yml` verbatim — RULES §7 follow-up,
+  igual que `nightly.yml` en Step 3).
 - Tags never evaluate `branches`/`paths` (FIND-140): tag workflows keep a
   tags-only `push:` block; branch CI for the same area goes through `pull_request`.
 - Dual `pull_request` → `develop` validation is intentional (FIND-128
-  proposal item 3; gate-docs gap closed by FIND-139) and kept on exactly
-  six workflows: `ci-rustdoc`, `gate-docs`, `gate-docs-links`,
-  `gate-docs-secrets`, `gate-api-docs`, `gate-doc-examples`.
+  proposal item 3; gate-docs gap closed by FIND-139) and, post CI-08 Step 4,
+  rides `docs-gates.yml` + `ci-fleet.yml` (union trigger conserva ambas ramas;
+  los 6 workflows origen con dual validation viven ahi como jobs).
 - FIND-228 (2026-10-02): 15 workflows dropped `develop` from
   `push.branches` (compliance with RULES.md §1; duplicate pair measured on
   PR #233: ~80 checks vs ~45 expected). Exception: `perf-bench.yml` keeps
@@ -98,7 +79,16 @@ Legend: Y = yes, — = no. `paths` means a path filter applies (see file).
   verification (separate decision).
 - `ci-web.yml` row removed 2026-10-02: the file was deleted in `82317140`
   (W-05 — `web/` extracted to `ness-e/Vantadb-web`).
-- `lurkr-informational.yml` is not yet in the matrix (out of FIND-228 scope).
+- `lurkr-informational.yml` absorbed into `nightly.yml` (CI-08 Step 3,
+  2026-10-15 — job `lurkr`); file deleted, no matrix row needed.
+- CI-08 Steps 2-4 (2026-10-15): 5 demos → `demo-acceptance.yml`;
+  4 informational → jobs in `nightly.yml` (40 → 32); resto 32 → 18 via
+  `docs-gates.yml` (6→1), `ci-fleet.yml` (4→1), `certification.yml` (4→1,
+  `ci-gate` ×3 dedup), `platform-ops.yml` (4→1). Estructura final:
+  CI (`ci-rust`, `ci-gate`, `docs-gates`, `ci-fleet`, `demo-acceptance`,
+  `nightly`, `perf-bench`) / Certificación (`certification`) /
+  Release (9 `release-*` intactos, filenames/prohibit§BLOQUEO SRV-10).
+  `release*.yml`, tag-namespaces y publish paths: intactos (verificado).
 - Schedule slots (FIND-141 + HARD-02): bench daily 02:00, cert Sun 03:00,
   ocr-nightly daily 04:00, nightly subset daily 05:00, fuzz Mon 06:00,
   docs-links weekly Mon 07:23, release-verify weekly Mon 08:00 — no overlaps.
