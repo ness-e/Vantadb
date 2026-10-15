@@ -183,3 +183,46 @@ fn public_surfaces_report_same_version() {
         );
     }
 }
+
+// SURF-01 / REL-03: the generated surface manifest must stay in sync with the
+// workspace version instead of competing with this suite. The manifest itself
+// is produced by `node scripts/docs/gen-surface-manifest.mjs --write`; this
+// test only pins liveness (header version + every declared surface present)
+// so a stale manifest fails the suite instead of drifting silently.
+#[test]
+fn generated_surface_manifest_matches_workspace() {
+    let root = repo_root();
+
+    let cargo_toml = read(root.join("Cargo.toml"));
+    let version = extract_cargo_version(&cargo_toml, &cargo_toml);
+
+    let manifest = read(root.join("docs").join("api").join("SURFACE_MANIFEST.md"));
+    assert!(
+        manifest.contains(&format!("workspace version: {}", version)),
+        "SURFACE_MANIFEST.md header must declare the workspace version {} \
+         (regenerate with `node scripts/docs/gen-surface-manifest.mjs --write`)",
+        version
+    );
+    for surface in [
+        "vantadb",
+        "vantadb-wasm",
+        "vanta-memory",
+        "vantadb-python",
+        "vantadb-node",
+        "vantadb-server",
+        "vantadb-mcp",
+        "vanta-proxy",
+        "vantadb-ffi-core",
+        "providers/openai",
+        "providers/ollama",
+        "providers/litellm",
+        "fuzz",
+    ] {
+        assert!(
+            manifest.contains(surface),
+            "SURFACE_MANIFEST.md must list surface `{}` \
+             (regenerate with `node scripts/docs/gen-surface-manifest.mjs --write`)",
+            surface
+        );
+    }
+}
