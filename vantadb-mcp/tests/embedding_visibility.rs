@@ -5,7 +5,7 @@
 //! DEF-08 visible fallback (MCP surface): `capabilities` must report
 //! `embedding.fallback = true` + the user-facing notice when local embeddings
 //! degrade — an agent reading the status tool is never left in the dark
-//! (`SPEC.md` L74: "fallback avisado, nunca silencioso").
+//! (`docs/specs/SPEC.md` L74: "fallback avisado, nunca silencioso").
 
 use std::sync::Arc;
 

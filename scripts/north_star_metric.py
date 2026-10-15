@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """North Star metric — sessions with put + search in a 7-day window.
 
-Definition (``SPEC.md`` §North Star, DEF-05; search side instrumented by
+Definition (``docs/specs/SPEC.md`` §North Star, DEF-05; search side instrumented by
 ICP-01): the operational count is sessions that appear BOTH in
 ``proxy-turns`` (auto-captured PUT) and in ``proxy-memory-events`` with a
 ``kind="search"`` event with ``hits >= 1``, inside the same window.

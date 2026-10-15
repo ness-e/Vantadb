@@ -1,3 +1,11 @@
+---
+title: "Constraints — VantaDB Quality Bar"
+kind: concept
+status: active
+description: "Quality bar de VantaDB: floors siempre enforced y reglas con números"
+tags: [quality-bar, constraints]
+---
+
 # Constraints — VantaDB Quality Bar
 
 > **Este archivo es la fuente canonica del quality bar de VantaDB.**

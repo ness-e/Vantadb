@@ -12,7 +12,7 @@ description: "Canonical index of the VantaDB documentation corpus."
      Grouped by kind, then by status, then by title.
      Source of truth: the frontmatter of the files listed below. -->
 
-1067 documents. This page is generated from frontmatter, so it cannot fall behind the tree. If a document is missing here, its `kind` or `description` is missing.
+1072 documents. This page is generated from frontmatter, so it cannot fall behind the tree. If a document is missing here, its `kind` or `description` is missing.
 
 ## Top level (3)
 
@@ -68,7 +68,7 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [Write receipts (VER-10) — attestation of writes](./api/WRITE_RECEIPTS.md)       | reference | Verifiable write receipts emitted by put_certified (Rust SDK): content binding (sha256), VER-01 chain reference, canonical surfaces and declared limits; point-in-time verification via schema, integrity hash and live re-scan                            |
 | [vanta-proxy Reference (Endpoints, Opt-in Features, Config)](./api/PROXY.md)     | reference | vanta-proxy is a transparent LLM wire proxy: by default it forwards bytes                                                                                                                                                                                  |
 
-## Internal / contributor (905)
+## Internal / contributor (907)
 
 ### Architecture decision records — 58
 
@@ -193,17 +193,18 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [Workflows — Inventory (40 active)](./dev/workflow/README.md)                               | index | Per-workflow detail pages live next to this index (ci-gate.md,                                                                                                                                                                           |
 | [Reviews archivados (2026-08-26)](./dev/reviews/README.md)                                  | index | Estos 30 reportes son snapshots históricos de auditorías/reviews/investigaciones _(archived)_                                                                                                                                            |
 
-### Plans — 7
+### Plans — 8
 
-| Document                                                                                                               | Kind | Summary                                                                                                                    |
-| ---------------------------------------------------------------------------------------------------------------------- | ---- | -------------------------------------------------------------------------------------------------------------------------- |
-| [BND-08 — Checklist de publicación `vantadb-node` (para el humano)](./dev/plans/artifacts/bnd-08-publish-checklist.md) | plan | Nota local vs CI: el tarball local incluye UN solo .node (win32-x64-msvc, el build de                                      |
-| [Plan de Consolidación Documental — enlaces, metadata, índices y skill](./dev/plans/2026-09-28-docs-consolidation.md)  | plan | documentation-skill → campaign-executor → progreso → writing-plans → systematic-debugging → writing-guidelines             |
-| [Upstream PR draft — CrewAI](./dev/plans/artifacts/mkt-18f-prs/crewai.md)                                              | plan | Prereq (bloquea merge upstream): publicar vantadb-crewai en PyPI (tag adapters-v0.5.0)                                     |
-| [Upstream PR draft — DSPy](./dev/plans/artifacts/mkt-18f-prs/dspy.md)                                                  | plan | Prereq (bloquea merge upstream): publicar vantadb-dspy en PyPI (tag adapters-v0.5.0)                                       |
-| [Upstream PR draft — LangChain](./dev/plans/artifacts/mkt-18f-prs/langchain.md)                                        | plan | Prereq (bloquea merge upstream): publicar vantadb-langchain en PyPI (tag adapters-v0.5.0). Upstream no linkea paquetes 404 |
-| [Upstream PR draft — LlamaIndex](./dev/plans/artifacts/mkt-18f-prs/llamaindex.md)                                      | plan | Prereq (bloquea merge upstream): publicar vantadb-llamaindex en PyPI (tag adapters-v0.5.0)                                 |
-| [Upstream PR draft — Mem0](./dev/plans/artifacts/mkt-18f-prs/mem0.md)                                                  | plan | Prereq (bloquea merge upstream): publicar vantadb-mem0 en PyPI (tag adapters-v0.5.0)                                       |
+| Document                                                                                                                        | Kind | Summary                                                                                                                    |
+| ------------------------------------------------------------------------------------------------------------------------------- | ---- | -------------------------------------------------------------------------------------------------------------------------- |
+| [BND-08 — Checklist de publicación `vantadb-node` (para el humano)](./dev/plans/artifacts/bnd-08-publish-checklist.md)          | plan | Nota local vs CI: el tarball local incluye UN solo .node (win32-x64-msvc, el build de                                      |
+| [Plan de Consolidación Documental — enlaces, metadata, índices y skill](./dev/plans/2026-09-28-docs-consolidation.md)           | plan | documentation-skill → campaign-executor → progreso → writing-plans → systematic-debugging → writing-guidelines             |
+| [Plan de Ejecución: Pre-mercado VantaDB — orden, estabilización y salida](./dev/plans/2026-10-15-pre-mercado-estabilizacion.md) | plan | Campaña pre-mercado: orden, estabilización y salida (12 tasks DO)                                                          |
+| [Upstream PR draft — CrewAI](./dev/plans/artifacts/mkt-18f-prs/crewai.md)                                                       | plan | Prereq (bloquea merge upstream): publicar vantadb-crewai en PyPI (tag adapters-v0.5.0)                                     |
+| [Upstream PR draft — DSPy](./dev/plans/artifacts/mkt-18f-prs/dspy.md)                                                           | plan | Prereq (bloquea merge upstream): publicar vantadb-dspy en PyPI (tag adapters-v0.5.0)                                       |
+| [Upstream PR draft — LangChain](./dev/plans/artifacts/mkt-18f-prs/langchain.md)                                                 | plan | Prereq (bloquea merge upstream): publicar vantadb-langchain en PyPI (tag adapters-v0.5.0). Upstream no linkea paquetes 404 |
+| [Upstream PR draft — LlamaIndex](./dev/plans/artifacts/mkt-18f-prs/llamaindex.md)                                               | plan | Prereq (bloquea merge upstream): publicar vantadb-llamaindex en PyPI (tag adapters-v0.5.0)                                 |
+| [Upstream PR draft — Mem0](./dev/plans/artifacts/mkt-18f-prs/mem0.md)                                                           | plan | Prereq (bloquea merge upstream): publicar vantadb-mem0 en PyPI (tag adapters-v0.5.0)                                       |
 
 ### Reports — 2
 
@@ -416,7 +417,7 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [`sec-codeql.yml` — SEC: CodeQL — Analysis](./dev/workflow/sec-codeql-30.md)                                   | runbook | Ejecuta el análisis estático de seguridad CodeQL de GitHub sobre el código Rust del proyecto para detectar vulnerabilidades                                                                                                                     |
 | [Fuzzing Guide for VantaDB](./dev/operations/FUZZING.md)                                                       | runbook | VantaDB uses a dual fuzzing approach to maximize coverage and compatibility _(archived)_                                                                                                                                                        |
 
-### Task files — 604
+### Task files — 605
 
 | Document                                                                                                                                          | Kind | Summary                                                                                                                                                                                                                                                                                                                                                                                                   |
 | ------------------------------------------------------------------------------------------------------------------------------------------------- | ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -633,6 +634,7 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [FIND-26: PITR dead code (WalArchiver/PitrRestorer) — REMOVER](./dev/tasks/FIND-26.md)                                                            | task | Archivos leídos completos: src/walarchiver.rs (496L), docs/dev/plans/2026-08-25-batch-backup-restore-chain.md (130L)                                                                                                                                                                                                                                                                                      |
 | [FIND-30 — unused var `ns` en cli_server.rs:1302 (clippy -D warnings blocker)](./dev/tasks/FIND-30.md)                                            | task | REVIEW-17 apuntaba al bloque; la línea real del closure es 1330)                                                                                                                                                                                                                                                                                                                                          |
 | [FIND-31 — purge_expired tras reopen falla \\\\\\\\\\\\\\\\\\"text index df would go negative\\\\\\\\\\\\\\\\\\"](./dev/tasks/FIND-31.md)         | task | aplica con checkedstatsvalue (api.rs:1041-1098) → ValidationError \\"text index {label} would go negative\\"                                                                                                                                                                                                                                                                                              |
+| [FIND-336: Mover SPEC.md + CONSTRAINTS.md a docs/specs/ + fix refs](./dev/tasks/FIND-336.md)                                                      | task | Higiene raíz: SPEC y CONSTRAINTS a docs/specs con fix de refs vivas                                                                                                                                                                                                                                                                                                                                       |
 | [FIND-50 — Split src/parser/mod.rs 1682L (grammar.rs + lexer.rs)](./dev/tasks/FIND-50.md)                                                         | task | Veredicto: NO dispara. Blast radius = 3 archivos (executor.rs:8, server/handlers.rs:569, lib.rs:115 decl) + tests/logic/parser.rs vía glob vantadb::parser:: (preservado por re-exports). Sin símbolos públicos nuevos (move puro, pub use...                                                                                                                                                             |
 | [FIND-56: `vantadb-server/Dockerfile` roto — DEPRECAR a favor del Dockerfile raíz (Gate D N/A, decisión en DISCOVERY)](./dev/tasks/FIND-56.md)    | task | rg \\"COPY vantadb/\\" vantadb-server/Dockerfile → archivo inexistente (eliminado) Y rg -l \\"vantadb-server/Dockerfile\\" --glob '!docs/dev/plans/archive/' --glob '!docs/dev/reviews/archive/' = solo hits históricos exentos (SRV-07.md...                                                                                                                                                             |
 | [FIND-57: Default `worker_count` 4→1 en AsyncIngestionPipeline (Gate D aprobado)](./dev/tasks/FIND-57.md)                                         | task | rg -n \\"workercount\\" src/ingestion.rs \| rg -c \\"1\\" ≥1 Y rg \\"workercount: 4\|workercount = 4\|= 4\\" src/ingestion.rs == 0 Y cargo test -p vantadb --lib ingestion --features async-ingestion 0 failed Y BENCHMARKS §13 con números post-default Y...                                                                                                                                             |
@@ -1038,6 +1040,21 @@ description: "Canonical index of the VantaDB documentation corpus."
 | Document                                                  | Kind   | Summary                                                                                                                          |
 | --------------------------------------------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------- |
 | [Pipeline Evaluation Report](./reports/pipeline-evals.md) | report | Métricas del pipeline vs North Star (RULES.md) — verify calls, primer intento, regresiones — generado por evals/eval-metrics.mjs |
+
+## specs (3)
+
+### Concepts & architecture — 2
+
+| Document                                                                            | Kind    | Summary                                                                                       |
+| ----------------------------------------------------------------------------------- | ------- | --------------------------------------------------------------------------------------------- |
+| [Constraints — VantaDB Quality Bar](./specs/CONSTRAINTS.md)                         | concept | Quality bar de VantaDB: floors siempre enforced y reglas con números                          |
+| [Spec: MVP — VantaDB como memoria automática en agentes de código](./specs/SPEC.md) | concept | Contrato del MVP: memoria automática en agentes de código con un comando y cero configuración |
+
+### Index — 1
+
+| Document                  | Kind  | Summary        |
+| ------------------------- | ----- | -------------- |
+| [specs](./specs/index.md) | index | Section index. |
 
 ## End-user documentation (130)
 
