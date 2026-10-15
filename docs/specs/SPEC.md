@@ -1,3 +1,11 @@
+---
+title: "Spec: MVP — VantaDB como memoria automática en agentes de código"
+kind: concept
+status: active
+description: "Contrato del MVP: memoria automática en agentes de código con un comando y cero configuración"
+tags: [spec, producto]
+---
+
 # Spec: MVP — VantaDB como memoria automática en agentes de código
 
 > **Para qué es este archivo:** es el contrato del plan `docs/dev/plans/2026-09-17-mvp-memoria-agentes.md`. Dice QUÉ se va a construir, POR QUÉ (el problema que resuelve), CÓMO se verifica y QUÉ NO entra. Se lee antes de ejecutar cualquier tarea del plan y se actualiza si una decisión cambia. **Para qué se utiliza:** los sub-agentes lo usan como fuente de verdad (objetivo, límites, criterios de éxito) para no desviarse; el owner lo usa para auditar alcance.

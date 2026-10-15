@@ -231,7 +231,7 @@ not duplicated.
 ## North Star metric (ICP-01)
 
 The product North Star — *sessions with put + search in a 7-day window*
-(`SPEC.md` §North Star) — is measurable directly from the proxy store. Both
+(`docs/specs/SPEC.md` §North Star) — is measurable directly from the proxy store. Both
 halves are persisted in the proxy's own database (`[auth] db_path`):
 
 | Half | Where it lands | Shape |

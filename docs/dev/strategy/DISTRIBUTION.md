@@ -159,7 +159,7 @@ patch version note), never edit a published registry artifact in place.
 
 > Gate that unpauses the announcement (§4 item 3). Instrument: the 5 tester
 > fichas of `docs/dev/FASE-A.md` §1 — human, clock-based, zero new code.
-> Anchor: SPEC Success #1 (`SPEC.md`:101) — a recall saved and retrieved by
+> Anchor: SPEC Success #1 (`docs/specs/SPEC.md`:101) — a recall saved and retrieved by
 > synonym in the user's agent **in <30 min, without compiling or cloning**.
 
 **SLO — both must hold:**
@@ -171,7 +171,7 @@ patch version note), never edit a published registry artifact in place.
 
 **A ficha passes** when: install completed without owner help (ficha §1 Q1 =
 "sí"), first recall succeeded **with the real model** (semantic recall per
-`SPEC.md`:101 — a `fallback:true` run is not a passing recall; record the
+`docs/specs/SPEC.md`:101 — a `fallback:true` run is not a passing recall; record the
 provider state per §7), and `TTFR ≤ 30 min` (SLO 1). Success rate = passing
 fichas / 5. *Scope note: this SLO is the install proxy; semantic quality of the
 shipped default is covered by §7 + the FASE-A §2 checklist.*
@@ -193,7 +193,7 @@ source.
 fichas pass and the FASE-A §2 checklist stays green (`FASE-A.md`:55 — 0
 críticos = no automatic NO-GO). On a failed run: fix the top blockers and
 re-run with fresh testers — **the numbers are not relaxed post-hoc**. This is
-the install gate; the product-level metric is the North Star (`SPEC.md`
+the install gate; the product-level metric is the North Star (`docs/specs/SPEC.md`
 §North Star — DEF-05).
 
 ## 6. Telemetry — opt-in, privacy-first (DEF-08 spec)
@@ -227,7 +227,7 @@ the install gate; the product-level metric is the North Star (`SPEC.md`
    variables, API keys/tokens, IP-derived location, raw connection metadata
    (IP/port/timing) at the receiver, stack traces.
 5. **Never telemetry-only.** `fallback_used` implies a local user-visible
-   notice (§7) — the design never allows silence (`SPEC.md`:74).
+   notice (§7) — the design never allows silence (`docs/specs/SPEC.md`:74).
 6. **Review gate.** Before implementation, this design passes the P2-01
    privacy review (telemetry = user data — DEF-08 §SECURITY). The
    implementation spec must additionally pin: consent prompt/revocation
@@ -235,7 +235,7 @@ the install gate; the product-level metric is the North Star (`SPEC.md`
 
 ## 7. Visible fallback — message spec (DEF-08)
 
-Contract: "fallback avisado (`fallback:true`), nunca silencioso" (`SPEC.md`:74).
+Contract: "fallback avisado (`fallback:true`), nunca silencioso" (`docs/specs/SPEC.md`:74).
 Existing behavior (`src/llm.rs`:341-419, regression test
 `f100_incompatible_dylib_never_panics` at `src/llm.rs`:1087):
 

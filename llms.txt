@@ -6,7 +6,7 @@
 
 Every link below points to the raw Markdown source, not a rendered page. Read the
 page you need; do not read this file end to end. This index covers the
-463 documentation pages; it deliberately omits the 604 task files,
+467 documentation pages; it deliberately omits the 605 task files,
 which are work items rather than documentation. The full inventory of every file
 is in docs/index.md in the repository.
 
@@ -16,6 +16,7 @@ is in docs/index.md in the repository.
 - [API reference](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/index.md): Section index.
 - [VantaDB Documentation](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/index.md): Canonical index of the VantaDB documentation corpus.
 - [reports](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/reports/index.md): Section index.
+- [specs](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/specs/index.md): Section index.
 - [End-user documentation](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/index.md): Section index.
 
 ## Architecture decision records
@@ -88,6 +89,7 @@ is in docs/index.md in the repository.
 - [Advanced Tokenizer](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/ADVANCED_TOKENIZER.md): The advanced tokenizer provides multilingual text processing with stemming, stopwords removal, and Unicode folding for improved text search quality across multiple languages. It is built on top of Tantivy. The feature is enabled by...
 - [Blog Series Completion Plan](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/strategy/BLOG_SERIES_PLAN.md): The blog series is 4 of 5 posts complete as drafts in docs/user/blog/, but the production site exposes 4 posts (one of them, introducing-vantadb, has no source draft in docs/user/blog/). Every live post has metadata drift between the...
 - [Cargo Feature Registry — per-feature status](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/FEATURES.md): Inventario honesto de las features declaradas en Cargo.toml [features]
+- [Constraints — VantaDB Quality Bar](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/specs/CONSTRAINTS.md): Quality bar de VantaDB: floors siempre enforced y reglas con números
 - [FEAT-03b Core Decay Implementation Contract](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/FEAT-03b-core-decay-contract.md): Status: ready for vanta-worker · Decision: ADR-0028
 - [FND-20: HNSW Trade-off (ef_search/M: recall vs latency) and why not IVF/FAISS](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/FND-20-hnsw-tradeoff.md): src/index/mod.rs:27-30) with M=32, Mmax0=64, efconstruction=100,
 - [Los 5 tipos de contexto (investigación GTM 2026-06, rescatada)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/strategy/context-types-2026-09-30.md): Framework de posicionamiento rescatado del OLD: Ephemeral / Session / Project / Entity / Episodic — los 5 tipos de contexto que toda herramienta de IA necesita.
@@ -101,6 +103,7 @@ is in docs/index.md in the repository.
 - [Roadmap v0.7 → v0.8.0 → v1.0 — Gobernanza del ciclo de vida](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/strategy/ROADMAP-v0.7.md): Re-baseline 2026-09-30: 0.7.0 publicado; gobernanza manual + migración única = corte 0.8.0 (ADR-046); v1.0 = automática
 - [Search Quality v2 Scoping](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/SEARCH_QUALITY_V2_SCOPING.md): Define the public API surface for snippet generation + highlighting in v0.6,
 - [Show HN — VantaDB — Embedded, Persistent Memory & Hybrid Search Engine in Rust](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/strategy/SHOW_HN_PREP.md): This document contains the official draft for the VantaDB HackerNews launch, along with a defensive risk analysis (Q&A) covering the 10 most likely technical criticisms
+- [Spec: MVP — VantaDB como memoria automática en agentes de código](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/specs/SPEC.md): Contrato del MVP: memoria automática en agentes de código con un comando y cero configuración
 - [Storage Tiers](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/STORAGE-TIERS.md): Vector segments in VantaDB are stored as level-mapped VantaFile (mmap) blocks,
 - [Task-System Chaos and Resilience Suite](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/task-system-chaos-resilience.md): vanta-chaos fuzzes the Rust source code (fuzz/ targets, chaosintegrity
 - [Task-System Parallel Waves](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/task-system-waves-parallel.md): The task harness currently runs plans as a single loop: one task at a time,
@@ -231,6 +234,7 @@ is in docs/index.md in the repository.
 - [VantaDB Tutorials](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/tutorials/index.md): Step-by-step guides for using VantaDB, ordered by increasing complexity
 - [Workflows — Inventory (40 active)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/workflow/README.md): Per-workflow detail pages live next to this index (ci-gate.md,
 - [reports](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/reports/index.md): Section index.
+- [specs](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/specs/index.md): Section index.
 - [Reviews archivados (2026-08-26)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/reviews/README.md): Estos 30 reportes son snapshots históricos de auditorías/reviews/investigaciones
 - [The mdBook layer (retired 2026-09-29)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/book/README.md): Why docs/user/book/ was deleted, what survives, and what to do if it comes back
 
@@ -238,6 +242,7 @@ is in docs/index.md in the repository.
 
 - [BND-08 — Checklist de publicación `vantadb-node` (para el humano)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/plans/artifacts/bnd-08-publish-checklist.md): Nota local vs CI: el tarball local incluye UN solo .node (win32-x64-msvc, el build de
 - [Plan de Consolidación Documental — enlaces, metadata, índices y skill](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/plans/2026-09-28-docs-consolidation.md): documentation-skill → campaign-executor → progreso → writing-plans → systematic-debugging → writing-guidelines
+- [Plan de Ejecución: Pre-mercado VantaDB — orden, estabilización y salida](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/plans/2026-10-15-pre-mercado-estabilizacion.md): Campaña pre-mercado: orden, estabilización y salida (12 tasks DO)
 - [Upstream PR draft — CrewAI](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/plans/artifacts/mkt-18f-prs/crewai.md): Prereq (bloquea merge upstream): publicar vantadb-crewai en PyPI (tag adapters-v0.5.0)
 - [Upstream PR draft — DSPy](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/plans/artifacts/mkt-18f-prs/dspy.md): Prereq (bloquea merge upstream): publicar vantadb-dspy en PyPI (tag adapters-v0.5.0)
 - [Upstream PR draft — LangChain](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/plans/artifacts/mkt-18f-prs/langchain.md): Prereq (bloquea merge upstream): publicar vantadb-langchain en PyPI (tag adapters-v0.5.0). Upstream no linkea paquetes 404

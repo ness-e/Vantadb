@@ -1,6 +1,6 @@
 //! DEF-08 code-follow-up — visible fallback for local embeddings.
 //!
-//! Contract: `docs/dev/strategy/DISTRIBUTION.md` §7 and `SPEC.md` L74 —
+//! Contract: `docs/dev/strategy/DISTRIBUTION.md` §7 and `docs/specs/SPEC.md` L74 —
 //! "fallback avisado (`fallback: true`), nunca silencioso". This module is the
 //! single probe behind every *status* surface (CLI `status`, MCP
 //! `capabilities`, the `setup-embeddings.ps1` live test) so the notice text is
