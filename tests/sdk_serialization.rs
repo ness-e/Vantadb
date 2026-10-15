@@ -357,7 +357,7 @@ mod wire_schema_parity {
         assert_exact_parity(
             &schema,
             "ValidWindow",
-            serde_json::to_value(&ValidWindow {
+            serde_json::to_value(ValidWindow {
                 from_ms: 1,
                 to_ms: 2,
             })
