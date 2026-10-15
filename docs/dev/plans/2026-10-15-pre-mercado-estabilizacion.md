@@ -13,7 +13,6 @@ tags: [pre-mercado, release]
 > **Fuente:** `docs/dev/Backlog.md` (DELTA + EGO + SURF) + `docs/dev/Backlog-negocio.md` + auditoría `auditor_a_pre_mercado_y_plan_de_salida_vantadb.md` (verificada contra disco 2026-10-15)
 > **Autonomous:** false
 > **Decisiones owner locked (2026-10-15):** SPEC/CONSTRAINTS→`docs/specs/` nueva · CLA→`.github/cla/` · borrar bak+`.md` ✅ · `.editorconfig` nuevo ✅ · hooks→`pre-commit` único · superficie/docs ✅ · DX ✅ · PROC-01 solo-preparar · tren EGO completo · carril negocio-humano separado
-
 > **Normas harness (revisión `.opencode`, todo el plan en español):**
 > - **Taxonomía:** solo IDs registrados (`FIND-*`, `EGO-*`, `SURF-*`, `DOC-*`, `API-*`, `DX-*`, `DIST-*`, `MEMG-*`, `SRV-*`, `BIZ-*`). Los `HYG-*/COG-*/REL-PREP` del borrador se renombran abajo a `FIND-336..340` y a IDs backlog existentes. Sin prefijos nuevos.
 > - **Skills obligatorias:** `documentation-skill` antes de tocar `docs/**`; `codebase-memory` antes de `codegraph_*`; `progreso` al abrir/cerrar; `ponytail` siempre.
@@ -173,7 +172,7 @@ BLOQUEADO: `PROC-01-push` (requiere OK explícito owner, Regla 7), carril negoci
 - **Uphill/Downhill:** ⬆️ 1 (shim Windows) / ⬇️ 2
 - **DoD task:** contrato ✅ · task file sync · recitation
 - **Task file:** `docs/dev/tasks/FIND-339.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Branch:**
 - **Commit:**
 
@@ -187,7 +186,7 @@ BLOQUEADO: `PROC-01-push` (requiere OK explícito owner, Regla 7), carril negoci
   **Iteraciones:**
   | # | Acción | Resultado | Herramienta |
   |---|--------|-----------|-------------|
-  | — | — | — | — |
+  | 1 | Steps 1-3 + gates + review P2-01 | ✅ COMPLETED — APPROVE vanta-review (shim LF+sh-syntax, yaml válido, hooks propios verdes) | pre-commit run, sh -n, yaml parse |
 
   **Notas:** ID `FIND-339` libre verificado.
 

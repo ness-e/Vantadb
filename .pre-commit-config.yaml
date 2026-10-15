@@ -1,5 +1,11 @@
 # Pre-commit hooks — https://pre-commit.com
-# Install: pipx install pre-commit && pre-commit install && pre-commit autoupdate
+# Instalación: pipx install pre-commit (NO ejecutar `pre-commit install`:
+# los hooks corren vía `git config core.hooksPath .githooks`, cuyo pre-commit
+# delega a `pre-commit run`. `pre-commit install` escribiría en .git/hooks,
+# ignorado bajo core.hooksPath, y los gates de Python/JS/docs nunca correrían.
+# Actualizar revs: pre-commit autoupdate
+# Sistema único: este archivo define TODOS los gates deterministas del stage
+# pre-commit. El stage pre-push sigue nativo en .githooks/pre-push (barrera SIPP).
 # CI-01: gate para formatters — cada hook está scoped a su lenguaje/directorio.
 repos:
   # ── Rust root (workspace) ────────────────────────────────────────────────
@@ -11,6 +17,14 @@ repos:
         language: system
         pass_filenames: false
         files: '\.rs$'
+      - id: cargo-clippy
+        name: cargo clippy (subset rápido)
+        entry: cargo clippy -p vantadb -j 2 -- -D warnings
+        language: system
+        pass_filenames: false
+        files: '\.rs$'
+        # Saltar con: SKIP=cargo-clippy git commit (nativo de pre-commit).
+        # El gate completo (workspace/all-targets/all-features) corre en CI + pre-push.
 
   # ── Python (vantadb-python/) ─────────────────────────────────────────────
   - repo: https://github.com/astral-sh/ruff-pre-commit
