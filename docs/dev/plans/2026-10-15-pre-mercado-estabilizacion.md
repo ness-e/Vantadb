@@ -211,7 +211,7 @@ BLOQUEADO: `PROC-01-push` (requiere OK explícito owner, Regla 7), carril negoci
 - **Uphill/Downhill:** ⬆️ 1 / ⬇️ 2
 - **DoD task:** contrato ✅ · task file sync · recitation
 - **Task file:** `docs/dev/tasks/SURF-01.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Branch:**
 - **Commit:**
 
@@ -225,7 +225,7 @@ BLOQUEADO: `PROC-01-push` (requiere OK explícito owner, Regla 7), carril negoci
   **Iteraciones:**
   | # | Acción | Resultado | Herramienta |
   |---|--------|-----------|-------------|
-  | — | — | — | — |
+  | 1 | Steps 1-2 (vanta-docs) + review P2-01 | ✅ COMPLETED — APPROVE vanta-review (generador fail-closed, sin duplicación) | manifest --check, check-npm/links/docs, gen-index |
 
   **Notas:** Cubre `DOC-22` + `REL-03` como slices del mismo manifest (trazabilidad en task file).
 
