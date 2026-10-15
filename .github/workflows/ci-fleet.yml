@@ -1,0 +1,444 @@
+name: 'CI: Fleet - examples, bindings parity, adapters, providers'
+
+# CI-08 Step 4 (SRV-10.md tabla migracion): consolida 4 workflows (5 jobs 1:1).
+# Origenes: ci-examples.yml, ci-bindings-parity.yml, adapters-compat.yml,
+#   providers-ci.yml.
+# Triggers = union de paths + schedule semanal adapters-compat (dom 03:00 UTC).
+# Deltas: compat-matrix gateado a schedule/dispatch (su unico trigger real);
+#   resto gateado != schedule (nunca corrian en schedule). env = union
+#   (CARGO_TERM_COLOR + CARGO_INCREMENTAL=0, valores coincidentes).
+on:
+  push:
+    branches: [main]
+    paths: &fleet-paths
+      - 'examples/**'
+      - 'src/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'vantadb-python/**'
+      - 'vantadb-ts/**'
+      - 'vantadb-node/**'
+      - 'vantadb-wasm/**'
+      - 'vantadb-ffi-core/**'
+      - 'tests/parity/**'
+      - 'dev-tools/parity-compare.mjs'
+      - 'providers/**'
+      - '.github/scripts/verify_pyi.py'
+      - '.github/workflows/ci-fleet.yml'
+  pull_request:
+    branches: [main, develop]
+    paths: *fleet-paths
+  schedule:
+    - cron: '0 3 * * 0'
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  rust-examples:
+    if: github.event_name != 'schedule'
+
+    name: "Rust Examples (${{ matrix.os }})"
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/rust-setup
+        with:
+          install-system-deps: true
+          swap-mb: 4096
+
+      # Each example runs as its own step so failures name the example that broke.
+      # `cargo run --example <name>` compiles then executes the example; all four
+      # use local storage paths (./examples_*_data) and exit 0 on success.
+      - name: "Rust example: basic"
+        run: cargo run --example basic
+      - name: "Rust example: hybrid"
+        run: cargo run --example hybrid
+      - name: "Rust example: graphrag"
+        run: cargo run --example graphrag
+      - name: "Rust example: concurrent"
+        run: cargo run --example concurrent
+  python-examples:
+    if: github.event_name != 'schedule'
+
+    name: "Python Examples (${{ matrix.os }})"
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    # Windows runners default to cp1252 stdout: examples print emoji, so force
+    # UTF-8 mode (no-op on ubuntu/macos, fixes UnicodeEncodeError on Windows).
+    env:
+      PYTHONUTF8: 1
+    # CATEGORY: SMOKE — every example imports ONLY `vantadb_py` + stdlib.
+    # None import framework libs (langchain, haystack, crewai, autogen, dspy,
+    # semantic_kernel, mem0, langgraph) and none read API keys / env vars, so no
+    # framework deps are installed and nothing is excluded on those grounds.
+    # `demo.py` degrades gracefully to mock embeddings when sentence-transformers
+    # is absent.
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/rust-setup
+        with:
+          install-system-deps: true
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Build vantadb_py wheel (maturin)
+        uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1.51.0
+        with:
+          command: build
+          args: --release --out dist --manifest-path ./vantadb-python/Cargo.toml
+
+      - name: Install wheel + example requirements
+        # bash on all OSes: the wheel pick uses $(...) command substitution,
+        # which PowerShell (windows-latest default) cannot parse.
+        shell: bash
+        run: |
+          wheel="$(ls -t ./dist/vantadb_py-*.whl | head -n 1)"
+          python -m pip install --upgrade pip
+          python -m pip install "$wheel"
+          python -m pip install -r examples/demo/requirements.txt
+          # langchain_ollama_rag.py imports vantadb_langchain (unpublished on
+          # PyPI): install the in-repo adapter. Its vantadb-py>=0.5.0 dep is
+          # already satisfied by the wheel above; langchain-core comes from
+          # PyPI. The example itself degrades to mock embeddings without
+          # Ollama running, so no server needed.
+          python -m pip install ./integrations/langchain
+
+      # ── Smoke tests against the current API (vantadb-py 0.5.0) ──
+      # Each example runs as its own step so failures name the example that broke.
+      - name: "Python smoke: agent_memory"
+        run: python examples/python/agent_memory.py
+      - name: "Python smoke: langchain_ollama_rag"
+        run: python examples/python/langchain_ollama_rag.py
+      - name: "Python smoke: demo"
+        run: python examples/demo/demo.py
+      - name: "Python smoke: autogen_memory"
+        run: python examples/python/autogen_memory.py
+      - name: "Python smoke: langgraph_checkpoint"
+        run: python examples/python/langgraph_checkpoint.py
+      - name: "Python smoke: crewai_memory"
+        run: python examples/python/crewai_memory.py
+      - name: "Python smoke: dspy_retriever"
+        run: python examples/python/dspy_retriever.py
+      - name: "Python smoke: haystack_documentstore"
+        run: python examples/python/haystack_documentstore.py
+      - name: "Python smoke: mem0_integration"
+        run: python examples/python/mem0_integration.py
+      - name: "Python smoke: semantic_kernel_memory"
+        run: python examples/python/semantic_kernel_memory.py
+  parity:
+    if: github.event_name != 'schedule'
+
+    name: Cross-language conformance (Py/Node/WASM)
+    runs-on: ubuntu-latest
+    # Measured locally (warm caches, Windows dev box): producers + comparator
+    # ~1 min. Cold CI adds three release Rust builds behind sccache +
+    # rust-cache — 30 min is the kill-switch, not the expectation.
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Rust (sccache + rust-cache)
+        uses: ./.github/actions/rust-setup
+        with:
+          install-system-deps: false
+
+      - name: Add wasm target
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: Install wasm-pack
+        uses: jetli/wasm-pack-action@0d096b08b4e5a7de8c28de67e11e945404e9eefa # v0.4.0
+        with:
+          version: latest
+
+      - name: Setup Node.js (npm cache)
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            vantadb-ts/package-lock.json
+            vantadb-node/package-lock.json
+
+      - name: Build WASM package
+        working-directory: vantadb-wasm
+        run: wasm-pack build --release
+
+      # WSM-05: replace the auto-generated .d.ts (mostly `any`) with the
+      # hand-written source, mirroring release-npm-61.yml.
+      - name: Override .d.ts with hand-written source (WSM-05)
+        run: node dev-tools/build-wasm-types.mjs
+
+      - name: Build Node binding (napi)
+        working-directory: vantadb-node
+        run: |
+          npm ci
+          npm run build
+
+      - name: Install TS dependencies
+        working-directory: vantadb-ts
+        run: npm ci
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+
+      - name: Build Python extension (maturin)
+        run: |
+          python -m pip install --upgrade pip maturin pytest
+          maturin build --release --out dist --manifest-path vantadb-python/Cargo.toml
+          pip install dist/vantadb_py-*.whl
+
+      - name: Python producer — canonical scenario
+        # DIST-17 (2026-10-06): run from the repo root — with cwd=vantadb-python
+        # the in-tree source dirs (`vantadb/`, `vantadb_py/`) shadow the
+        # installed wheel (`python -m` puts cwd on sys.path) and the conftest's
+        # `import vantadb_py` fails (`No module named 'vantadb_py.vantadb_py'`:
+        # no native ext in-tree). Root cwd resolves to site-packages; the test
+        # locates the scenario and writes the artifact repo-root-relative.
+        run: python -m pytest vantadb-python/tests/test_cross_language_parity.py -q
+
+      - name: WASM producer — canonical scenario
+        working-directory: vantadb-ts
+        run: npx vitest run src/__tests__/parity.test.ts
+
+      - name: Node producer — canonical scenario
+        working-directory: vantadb-node
+        run: npx vitest run tests/parity.test.ts
+
+      - name: Compare canonical outputs (hash + diff)
+        run: node dev-tools/parity-compare.mjs
+  compat-matrix:
+    if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+
+    name: Adapter compat (${{ matrix.adapter }}/${{ matrix.framework_version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # langchain-core versions
+          - adapter: langchain
+            framework_version: "0.3"
+            extra_deps: ""
+          - adapter: langchain
+            framework_version: "latest"
+            extra_deps: ""
+
+          # llama-index versions
+          - adapter: llamaindex
+            framework_version: "0.12"
+            extra_deps: ""
+          - adapter: llamaindex
+            framework_version: "latest"
+            extra_deps: ""
+
+          # mem0 versions
+          - adapter: mem0
+            framework_version: "0.1"
+            extra_deps: ""
+          - adapter: mem0
+            framework_version: "latest"
+            extra_deps: ""
+
+          # crewai versions
+          - adapter: crewai
+            framework_version: "0.100"
+            extra_deps: ""
+          - adapter: crewai
+            framework_version: "latest"
+            extra_deps: ""
+
+          # dspy versions
+          - adapter: dspy
+            framework_version: "2.6"
+            extra_deps: ""
+          - adapter: dspy
+            framework_version: "latest"
+            extra_deps: ""
+
+          # haystack versions
+          - adapter: haystack
+            framework_version: "2.10"
+            extra_deps: ""
+          - adapter: haystack
+            framework_version: "latest"
+            extra_deps: ""
+
+          # letta versions
+          - adapter: letta
+            framework_version: "0.2"
+            extra_deps: ""
+          - adapter: letta
+            framework_version: "latest"
+            extra_deps: ""
+
+          # openai versions
+          - adapter: openai
+            framework_version: "1.40"
+            extra_deps: ""
+          - adapter: openai
+            framework_version: "latest"
+            extra_deps: ""
+
+          # ollama versions
+          - adapter: ollama
+            framework_version: "0.3"
+            extra_deps: ""
+          - adapter: ollama
+            framework_version: "latest"
+            extra_deps: ""
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # v1
+        with:
+          toolchain: stable
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@7e35be21c2b94d972b1143087fabc27d7dc881ef # v2.9.1
+
+      - name: Install adapter + test deps
+        run: |
+          python -m pip install --upgrade pip hatchling
+          pip install -e vantadb-python
+          cd integrations/${{ matrix.adapter }}
+          pip install -e .
+          if [ "${{ matrix.framework_version }}" != "latest" ]; then
+            pip install "${{ matrix.adapter }}-core==${{ matrix.framework_version }}" 2>/dev/null || \
+            pip install "${{ matrix.adapter }}==${{ matrix.framework_version }}" 2>/dev/null || \
+            pip install "${{ matrix.framework_version }}" 2>/dev/null
+          fi
+          pip install pytest pytest-asyncio
+
+      - name: Run adapter tests
+        run: |
+          cd integrations/${{ matrix.adapter }}
+          python -m pytest tests/ -v --tb=short
+  check:
+    if: github.event_name != 'schedule'
+
+    name: Check provider (${{ matrix.provider }} / ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        provider: [openai, litellm, ollama]
+        os: [ubuntu-latest, windows-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # v1
+        with:
+          toolchain: stable
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@7e35be21c2b94d972b1143087fabc27d7dc881ef # v2.9.1
+        with:
+          # providers/* are standalone crates (not workspace members) that build
+          # into providers/<name>/target; the action's default (". -> target")
+          # does not cache them, so every run rebuilt the full dependency graph.
+          workspaces: |
+            providers/openai -> target
+            providers/ollama -> target
+            providers/litellm -> target
+
+      - name: Clippy provider crates
+        # providers/* are intentionally NOT workspace members — lint them
+        # individually via --manifest-path (mirrors ci-rust.yml cargo check).
+        run: |
+          cargo clippy --manifest-path providers/openai/Cargo.toml -- -D warnings
+          cargo clippy --manifest-path providers/ollama/Cargo.toml -- -D warnings
+          cargo clippy --manifest-path providers/litellm/Cargo.toml -- -D warnings
+
+      - name: Install maturin
+        run: python -m pip install --upgrade pip maturin
+
+      # maturin develop refuses to run outside a virtualenv/conda env
+      # (was failing all 3 matrix jobs with "Couldn't find a virtualenv").
+      # venv layout differs per OS: POSIX uses bin/, Windows uses Scripts/.
+      - name: Create virtualenv (POSIX)
+        if: runner.os != 'Windows'
+        run: |
+          python -m venv .venv
+          echo "VIRTUAL_ENV=$PWD/.venv" >> $GITHUB_ENV
+          echo "$PWD/.venv/bin" >> $GITHUB_PATH
+
+      - name: Create virtualenv (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          python -m venv .venv
+          "VIRTUAL_ENV=$env:GITHUB_WORKSPACE\.venv" >> $env:GITHUB_ENV
+          "$env:GITHUB_WORKSPACE\.venv\Scripts" >> $env:GITHUB_PATH
+
+      - name: Build provider
+        working-directory: providers/${{ matrix.provider }}
+        run: maturin develop --release
+
+      - name: Run provider tests
+        working-directory: providers/${{ matrix.provider }}
+        run: |
+          pip install pytest pytest-asyncio
+          # Tests gate on importorskip(client lib): matrix name == PyPI
+          # package (openai/litellm/ollama). vantadb-py is unpinned, so pip
+          # resolves the latest release (core under test is built from source).
+          pip install ${{ matrix.provider }} vantadb-py
+          python -m pytest tests/ -v --tb=short
+
+      - name: Verify .pyi matches signatures
+        # PROVIDER env mode: bash + pwsh safe (the old exec/replace hack only
+        # worked under bash — PROV-13). The script anchors the repo root at
+        # GITHUB_WORKSPACE, so no working-directory is needed.
+        env:
+          PROVIDER: ${{ matrix.provider }}
+        run: python .github/scripts/verify_pyi.py

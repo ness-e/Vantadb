@@ -13,7 +13,7 @@ engine, VantaDB enforces a split Continuous Integration architecture.
 
 ## CI Workflow Inventory
 
-VantaDB has **28 active workflow files** in `.github/workflows/` (verificado 2026-09-27; 28 in FIND-128 minus one rustdoc workflow merged into `ci-rustdoc.yml` in FIND-137, renames in FIND-142, +1 `nightly.yml` HARD-02). Each workflow is documented below. See `docs/dev/workflow/README.md` (inventory) and `docs/dev/workflow/TRIGGERS.md` (trigger matrix — source of truth is each file's `on:` block).
+VantaDB has **40 active workflow files** in `.github/workflows/` (recount 2026-10-15, FIND-321: 28 in FIND-128 grew to 40 — +12 in ~11 days; history: minus one rustdoc workflow merged into `ci-rustdoc.yml` in FIND-137, renames in FIND-142, +1 `nightly.yml` HARD-02). Each workflow is documented below. See `docs/dev/workflow/README.md` (inventory) and `docs/dev/workflow/TRIGGERS.md` (trigger matrix - source of truth is each file's `on:` block; matrix covers 40/40 files, verified 2026-10-15).
 
 ### Local Verification Scripts — Rutas Canónicas
 

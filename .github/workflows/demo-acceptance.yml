@@ -1,0 +1,210 @@
+name: 'CI: Demo acceptance (F5/F6) — 5 acceptance demos'
+
+# CI-08 Step 2 (SRV-10, 2026-10-15): consolidation of 5 demo workflows into one
+# file. Jobs migrate 1:1 — same job IDs, same steps, same SHAs, same timeouts.
+# Origin -> job table (no job lost, none killed):
+#   ci-ai-ides-demo.yml          -> cross-session-demo
+#   ci-frameworks-demo.yml       -> dev-to-prod
+#   icp02-privacy-demo.yml       -> privacy-chain
+#   injection-governance-demo.yml -> injection-governance
+#   wal-verify-demo.yml          -> wal-verify
+# Triggers = union of the 5 originals' path sets (every original path pattern
+# is covered below), self-reference updated to this file. Blocking semantics
+# preserved: no `continue-on-error` anywhere — a broken demo blocks the PR.
+# NOTE (review gate): check names change from `<old-file> / <job>` to
+# `demo-acceptance / <job>` — branch protection required checks MUST be
+# updated accordingly before merge.
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - 'vantadb-mcp/**'
+      - 'vanta-memory/**'
+      - 'vanta-proxy/**'
+      - 'src/**'
+      - 'tests/wal_chain_verify.rs'
+      - 'scripts/north_star_metric.py'
+      - 'scripts/demo-privacy-e2e.ps1'
+      - 'scripts/demo-governance-e2e.ps1'
+      - 'scripts/demo-verify-e2e.ps1'
+      - 'examples/langgraph_dev_to_prod/**'
+      - 'integrations/langchain/**'
+      - 'integrations/test_pins.py'
+      - 'vantadb-python/**'
+      - 'docs/user/PRIVACY.md'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/demo-acceptance.yml'
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - 'vantadb-mcp/**'
+      - 'vanta-memory/**'
+      - 'vanta-proxy/**'
+      - 'src/**'
+      - 'tests/wal_chain_verify.rs'
+      - 'scripts/north_star_metric.py'
+      - 'scripts/demo-privacy-e2e.ps1'
+      - 'scripts/demo-governance-e2e.ps1'
+      - 'scripts/demo-verify-e2e.ps1'
+      - 'examples/langgraph_dev_to_prod/**'
+      - 'integrations/langchain/**'
+      - 'integrations/test_pins.py'
+      - 'vantadb-python/**'
+      - 'docs/user/PRIVACY.md'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/demo-acceptance.yml'
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+concurrency:
+  group: demo-acceptance-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # Origin: ci-ai-ides-demo.yml. ICP-01 (track AI-IDEs, F5): session 1 stores a
+  # note (auto-embed on put), session 2 recalls it with a synonym query that
+  # shares ZERO literal tokens with the stored text. Deterministic and offline:
+  # in-process fake Ollama (`POST /api/embed`) as test double. Ubuntu only.
+  cross-session-demo:
+    name: "Session 1 put -> session 2 synonym recall"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/rust-setup
+        with:
+          install-system-deps: true
+          install-nextest: true
+
+      # `remote-inference` compiles the env-selected provider path the demo
+      # drives (OllamaProvider -> fake `/api/embed`). Without it the test fails
+      # gated via required-features; this workflow runs it WITH the feature (PR-blocking).
+      - name: "Demo: cross-session synonym recall (MCP)"
+        run: cargo nextest run -p vantadb-mcp --features remote-inference --test demo_ai_ides --build-jobs 2
+
+      # North Star metric (ICP-01): windowing logic of the query script -
+      # offline, no store needed.
+      - name: "Metric: north_star_metric.py self-test"
+        run: python3 scripts/north_star_metric.py --self-test
+
+  # Origin: ci-frameworks-demo.yml. ICP-03 (track frameworks, F5): five fresh
+  # processes prove "same code works in dev and prod" — same graph with
+  # InMemorySaver (dev) and VantaDBCheckpointer (prod). Deterministic and
+  # offline: plain-Python graph node, no LLM, no tokens. Ubuntu only.
+  # Install notes (Alpha disposition, MKT-18f): `vantadb-langchain` is NOT on
+  # PyPI yet — the demo installs the in-repo adapter with --no-deps (pins
+  # refresh ships with the first adapters release, Task 41).
+  dev-to-prod:
+    name: "Same graph: dev InMemorySaver -> prod VantaDB checkpointer"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # Keep stdout encoding stable on any runner (demo prints ASCII; belt).
+      PYTHONUTF8: 1
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/rust-setup
+        with:
+          install-system-deps: true
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Build vantadb_py wheel (maturin)
+        uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1.51.0
+        with:
+          command: build
+          args: --release --out dist --manifest-path ./vantadb-python/Cargo.toml
+
+      - name: Install wheel + LangGraph + in-repo adapter
+        # bash on all OSes: the wheel pick uses $(...) command substitution,
+        # which PowerShell (windows-latest default) cannot parse. ubuntu-only
+        # job today, same recipe as ci-examples.yml.
+        shell: bash
+        run: |
+          wheel="$(ls -t ./dist/vantadb_py-*.whl | head -n 1)"
+          python -m pip install --upgrade pip
+          python -m pip install "$wheel"
+          # LangGraph runtime + test runner. Brings its current dependency set
+          # (langchain-core>=1.4.7, langgraph-checkpoint 4.x).
+          python -m pip install "langgraph>=1,<2" pytest
+          # --no-deps explained in the header: pins refresh ships with the first
+          # adapters release; today the adapter runs against the wheel above.
+          python -m pip install --no-deps ./integrations/langchain
+
+      - name: "Demo: same graph code, dev (InMemorySaver) vs prod (VantaDB)"
+        run: python examples/langgraph_dev_to_prod/demo.py
+
+      - name: "Adapters: pin gate (FIND-84)"
+        run: python -m pytest integrations/test_pins.py -q
+
+  # Origin: icp02-privacy-demo.yml. ICP-02: end-to-end privacy demo on one
+  # on-disk store — capture synthetic PII -> PII audit (0 cleartext) ->
+  # certified forget via the real CLI -> injection audit consult. Runs the same
+  # script users run locally: scripts/demo-privacy-e2e.ps1.
+  privacy-chain:
+    name: "Privacy chain E2E (ubuntu)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/rust-setup
+        with:
+          install-system-deps: true
+          install-nextest: true
+          swap-mb: 4096
+
+      - name: Run privacy chain demo
+        run: pwsh -NoProfile -File scripts/demo-privacy-e2e.ps1
+
+  # Origin: injection-governance-demo.yml. EXE-01 (F6): one governed request
+  # through the real proxy wire proves budget + ACL + audit guarantees.
+  # Deterministic and offline: in-memory store, mock upstream on loopback.
+  injection-governance:
+    name: "Budget + ACL + audit (proxy wire)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/rust-setup
+        with:
+          install-system-deps: true
+          install-nextest: true
+          swap-mb: 4096
+
+      - name: Run injection governance demo
+        run: pwsh -NoProfile -File scripts/demo-governance-e2e.ps1
+
+  # Origin: wal-verify-demo.yml. EXE-01 (F6): clean chained WAL verifies green
+  # (exit 0); two tamper classes must make `vanta-cli verify` exit != 0; then
+  # certified-delete roundtrip. Deterministic and offline: local fixtures.
+  wal-verify:
+    name: "WAL tamper detection + certified delete"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/rust-setup
+        with:
+          install-system-deps: true
+          install-nextest: true
+
+      - name: Run WAL verify demo
+        run: pwsh -NoProfile -File scripts/demo-verify-e2e.ps1
