@@ -241,6 +241,18 @@ _arguments "${_arguments_options[@]}" : \
 '--help[Print help]' \
 && ret=0
 ;;
+(verify)
+_arguments "${_arguments_options[@]}" : \
+'-d+[Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--db=[Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'--json[Output complete, machine-readable JSON on stdout (never truncated). Errors still go to stderr and exit codes are unchanged. Applies to every subcommand that produces data output]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
 (completions)
 _arguments "${_arguments_options[@]}" : \
 '--shell=[Shell type for the completion script]:SHELL:((bash\:"Bash shell completions"
@@ -278,9 +290,11 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 '--namespace=[Namespace of the record]:NAMESPACE:_default' \
 '--key=[Key of the record to delete]:KEY:_default' \
+'--out=[With --attest\: write the certificate to this file (UTF-8, written by the CLI itself — preferred over shell redirection on Windows)]:OUT:_default' \
 '-d+[Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--db=[Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
+'--attest[Emit a purge certificate (VER-02)\: per-surface residue inventory + integrity hash + VER-01 WAL chain reference (JSON on stdout)]' \
 '-v[Enable verbose output]' \
 '--verbose[Enable verbose output]' \
 '--json[Output complete, machine-readable JSON on stdout (never truncated). Errors still go to stderr and exit codes are unchanged. Applies to every subcommand that produces data output]' \
@@ -301,6 +315,67 @@ _arguments "${_arguments_options[@]}" : \
 '-h[Print help]' \
 '--help[Print help]' \
 && ret=0
+;;
+(certificate)
+_arguments "${_arguments_options[@]}" : \
+'-d+[Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--db=[Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'--json[Output complete, machine-readable JSON on stdout (never truncated). Errors still go to stderr and exit codes are unchanged. Applies to every subcommand that produces data output]' \
+'-h[Print help]' \
+'--help[Print help]' \
+":: :_vanta-cli__subcmd__certificate_commands" \
+"*::: :->certificate" \
+&& ret=0
+
+    case $state in
+    (certificate)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:vanta-cli-certificate-command-$line[1]:"
+        case $line[1] in
+            (verify)
+_arguments "${_arguments_options[@]}" : \
+'--file=[Path to the certificate JSON file (emitted by \`delete --attest\`)]:FILE:_default' \
+'-d+[Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--db=[Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'--json[Output complete, machine-readable JSON on stdout (never truncated). Errors still go to stderr and exit codes are unchanged. Applies to every subcommand that produces data output]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+":: :_vanta-cli__subcmd__certificate__subcmd__help_commands" \
+"*::: :->help" \
+&& ret=0
+
+    case $state in
+    (help)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:vanta-cli-certificate-help-command-$line[1]:"
+        case $line[1] in
+            (verify)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+        esac
+    ;;
+esac
 ;;
 (count)
 _arguments "${_arguments_options[@]}" : \
@@ -361,12 +436,12 @@ _arguments "${_arguments_options[@]}" : \
 '--json[Output complete, machine-readable JSON on stdout (never truncated). Errors still go to stderr and exit codes are unchanged. Applies to every subcommand that produces data output]' \
 '-h[Print help]' \
 '--help[Print help]' \
-':target -- Path to the database directory:_default' \
+'::target -- Path to the database directory (defaults to the global `--db`):_default' \
 && ret=0
 ;;
 (run)
 _arguments "${_arguments_options[@]}" : \
-'--format=[Specific format to migrate (vfile, index, wal, schema, all)]:FORMAT:_default' \
+'--format=[Specific format to migrate (all, vfile, index, wal, records, schema)]:FORMAT:_default' \
 '-d+[Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--db=[Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
@@ -377,7 +452,7 @@ _arguments "${_arguments_options[@]}" : \
 '--json[Output complete, machine-readable JSON on stdout (never truncated). Errors still go to stderr and exit codes are unchanged. Applies to every subcommand that produces data output]' \
 '-h[Print help]' \
 '--help[Print help]' \
-':target -- Path to the database directory:_default' \
+'::target -- Path to the database directory (defaults to the global `--db`):_default' \
 && ret=0
 ;;
 (check)
@@ -390,7 +465,7 @@ _arguments "${_arguments_options[@]}" : \
 '--json[Output complete, machine-readable JSON on stdout (never truncated). Errors still go to stderr and exit codes are unchanged. Applies to every subcommand that produces data output]' \
 '-h[Print help]' \
 '--help[Print help]' \
-':target -- Path to the database directory:_default' \
+'::target -- Path to the database directory (defaults to the global `--db`):_default' \
 && ret=0
 ;;
 (help)
@@ -816,6 +891,10 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
+(verify)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
 (completions)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
@@ -831,6 +910,26 @@ _arguments "${_arguments_options[@]}" : \
 (delete-by-filter)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
+;;
+(certificate)
+_arguments "${_arguments_options[@]}" : \
+":: :_vanta-cli__subcmd__help__subcmd__certificate_commands" \
+"*::: :->certificate" \
+&& ret=0
+
+    case $state in
+    (certificate)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:vanta-cli-help-certificate-command-$line[1]:"
+        case $line[1] in
+            (verify)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
 ;;
 (count)
 _arguments "${_arguments_options[@]}" : \
@@ -991,10 +1090,12 @@ _vanta-cli_commands() {
 'doctor:Run comprehensive health diagnostics on the database' \
 'inspect:Inspect a single record showing all fields, vectors, and metadata' \
 'stats:Display detailed database statistics in human-readable or JSON format' \
+'verify:Verify the WAL hash-chain integrity (tamper-evident, VER-01)\: detects altered or removed records with their exact position. Read-only and offline — no engine open. Exit code ≠0 when integrity fails' \
 'completions:Generate shell completion scripts' \
 'search:Search records semantically across a namespace' \
 'delete:Delete a record by namespace and key' \
 'delete-by-filter:Delete all records in a namespace matching a JSON metadata filter' \
+'certificate:Verification of purge certificates (VER-02)' \
 'count:Count records in a namespace, optionally filtered by metadata' \
 'similar-to-key:Find records similar to a given key using vector similarity search' \
 'migrate:Migrate a database to the latest storage schema version' \
@@ -1018,6 +1119,37 @@ _vanta-cli__subcmd__audit-index_commands() {
 _vanta-cli__subcmd__backup_commands() {
     local commands; commands=()
     _describe -t commands 'vanta-cli backup commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__certificate_commands] )) ||
+_vanta-cli__subcmd__certificate_commands() {
+    local commands; commands=(
+'verify:Verify a stored purge certificate\: integrity hash + live re-scan of the re-checkable surfaces (store, shred, vector index, versions). Exit code ≠0 when the certificate is invalid or residues reappeared' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'vanta-cli certificate commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__certificate__subcmd__help_commands] )) ||
+_vanta-cli__subcmd__certificate__subcmd__help_commands() {
+    local commands; commands=(
+'verify:Verify a stored purge certificate\: integrity hash + live re-scan of the re-checkable surfaces (store, shred, vector index, versions). Exit code ≠0 when the certificate is invalid or residues reappeared' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'vanta-cli certificate help commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__certificate__subcmd__help__subcmd__help_commands] )) ||
+_vanta-cli__subcmd__certificate__subcmd__help__subcmd__help_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli certificate help help commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__certificate__subcmd__help__subcmd__verify_commands] )) ||
+_vanta-cli__subcmd__certificate__subcmd__help__subcmd__verify_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli certificate help verify commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__certificate__subcmd__verify_commands] )) ||
+_vanta-cli__subcmd__certificate__subcmd__verify_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli certificate verify commands' commands "$@"
 }
 (( $+functions[_vanta-cli__subcmd__completions_commands] )) ||
 _vanta-cli__subcmd__completions_commands() {
@@ -1072,10 +1204,12 @@ _vanta-cli__subcmd__help_commands() {
 'doctor:Run comprehensive health diagnostics on the database' \
 'inspect:Inspect a single record showing all fields, vectors, and metadata' \
 'stats:Display detailed database statistics in human-readable or JSON format' \
+'verify:Verify the WAL hash-chain integrity (tamper-evident, VER-01)\: detects altered or removed records with their exact position. Read-only and offline — no engine open. Exit code ≠0 when integrity fails' \
 'completions:Generate shell completion scripts' \
 'search:Search records semantically across a namespace' \
 'delete:Delete a record by namespace and key' \
 'delete-by-filter:Delete all records in a namespace matching a JSON metadata filter' \
+'certificate:Verification of purge certificates (VER-02)' \
 'count:Count records in a namespace, optionally filtered by metadata' \
 'similar-to-key:Find records similar to a given key using vector similarity search' \
 'migrate:Migrate a database to the latest storage schema version' \
@@ -1099,6 +1233,18 @@ _vanta-cli__subcmd__help__subcmd__audit-index_commands() {
 _vanta-cli__subcmd__help__subcmd__backup_commands() {
     local commands; commands=()
     _describe -t commands 'vanta-cli help backup commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__help__subcmd__certificate_commands] )) ||
+_vanta-cli__subcmd__help__subcmd__certificate_commands() {
+    local commands; commands=(
+'verify:Verify a stored purge certificate\: integrity hash + live re-scan of the re-checkable surfaces (store, shred, vector index, versions). Exit code ≠0 when the certificate is invalid or residues reappeared' \
+    )
+    _describe -t commands 'vanta-cli help certificate commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__help__subcmd__certificate__subcmd__verify_commands] )) ||
+_vanta-cli__subcmd__help__subcmd__certificate__subcmd__verify_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli help certificate verify commands' commands "$@"
 }
 (( $+functions[_vanta-cli__subcmd__help__subcmd__completions_commands] )) ||
 _vanta-cli__subcmd__help__subcmd__completions_commands() {
@@ -1279,6 +1425,11 @@ _vanta-cli__subcmd__help__subcmd__stats_commands() {
 _vanta-cli__subcmd__help__subcmd__status_commands() {
     local commands; commands=()
     _describe -t commands 'vanta-cli help status commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__help__subcmd__verify_commands] )) ||
+_vanta-cli__subcmd__help__subcmd__verify_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli help verify commands' commands "$@"
 }
 (( $+functions[_vanta-cli__subcmd__help__subcmd__wal_commands] )) ||
 _vanta-cli__subcmd__help__subcmd__wal_commands() {
@@ -1524,6 +1675,11 @@ _vanta-cli__subcmd__stats_commands() {
 _vanta-cli__subcmd__status_commands() {
     local commands; commands=()
     _describe -t commands 'vanta-cli status commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__verify_commands] )) ||
+_vanta-cli__subcmd__verify_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli verify commands' commands "$@"
 }
 (( $+functions[_vanta-cli__subcmd__wal_commands] )) ||
 _vanta-cli__subcmd__wal_commands() {

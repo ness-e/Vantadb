@@ -267,7 +267,7 @@ BLOQUEADO: `PROC-01-push` (requiere OK explícito owner, Regla 7), carril negoci
   |---|--------|-----------|-------------|
   | 1 | Steps S1-S4 (vanta-worker) + review P2-01 | ✅ COMPLETED — APPROVE vanta-review (drift TS real corregido, RED→GREEN documentado) | nextest 36+1, check-npm, links, fmt |
 
-  **Notas:** No usar `scripts/check_openapi_parity.mjs` (ruta inválida del reporte) — lo real está en `scripts/docs/check-*.mjs`. Regla dura `-p`: iterar con `-p vantadb`, `--workspace` solo al cierre.
+  **Notas:** No usar `scripts/check_openapi_parity.mjs` (ruta inválida del reporte) — lo real está en `scripts/docs/check-*.mjs`. Regla dura `-p`: iterar con `-p vantadb`, `--workspace` solo al cierre. Incidente de cierre: el commit `174410d7` barrió 5 deletes stageados por el worker CI-08 en curso (colisión de índice compartido; el `Select-String -Match` de verificación no existe en pwsh5.1 y el control salió ciego) — remediación: no reescribir historia con el worker activo; el commit CI-08 siguiente aporta las migraciones y lo declara. Guardia futura: `git diff --cached --name-only` revisado a mano antes de cada commit en paralelo.
 
 ### Task 7: DX-13 — Doctor, completions y dead code (DX-02 + DEAD-01)
 
@@ -290,7 +290,7 @@ BLOQUEADO: `PROC-01-push` (requiere OK explícito owner, Regla 7), carril negoci
 - **Uphill/Downhill:** ⬆️ 0 / ⬇️ 3
 - **DoD task:** contrato ✅ · task file sync · recitation
 - **Task file:** `docs/dev/tasks/DX-13.md`
-- **Estado:** ⏳ IN PROGRESS (Wave 0, worker en fondo)
+- **Estado:** ✅ COMPLETED
 - **Branch:**
 - **Commit:**
 
@@ -303,7 +303,7 @@ BLOQUEADO: `PROC-01-push` (requiere OK explícito owner, Regla 7), carril negoci
   **Iteraciones:**
   | # | Acción | Resultado | Herramienta |
   |---|--------|-----------|-------------|
-  | — | — | — | — |
+  | 1 | Steps 1-5 (vanta-worker) + fix :360 + review P2-01 | ✅ COMPLETED — APPROVE condicionado cumplido (bloqueo reescrito, commit selectivo) | doctor, clippy all-targets, surface-check 25 |
 
   **Notas:** Cubre `DX-02` (preflight doctor) + `DEAD-01` en el mismo barrido.
 
@@ -464,6 +464,7 @@ BLOQUEADO: `PROC-01-push` (requiere OK explícito owner, Regla 7), carril negoci
   | # | Acción | Resultado | Herramienta |
   |---|--------|-----------|-------------|
   | 1 | FIND-321 + hallazgo SRV-10-código resuelto + Gate D | Worker1: inventario 28→40 + SRV-10 SKIP documentado (resuelto en ca3f00da/8f758e24). Gate D owner: CI-08 COMPLETA 40→18 (worker2 en fondo) | TRIGGERS 40/40, diff --check 0 |
+  | 2 | CI-08 Steps 2-3 (worker2) | 40→32: 5 demos→demo-acceptance.yml + 4 info→nightly.yml, 0 jobs perdidos, release* intactos. Step 4 pendiente (32→18, tabla lista). BLOQUEO: branch protection required-checks renombrados (acción admin pre-merge) | checker PASS, conteo 32 |
 
   **Notas:** Cubre `CI-08` + `FIND-321` (inventario primero, consolidación después).
 
