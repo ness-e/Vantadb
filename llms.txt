@@ -6,7 +6,7 @@
 
 Every link below points to the raw Markdown source, not a rendered page. Read the
 page you need; do not read this file end to end. This index covers the
-468 documentation pages; it deliberately omits the 609 task files,
+468 documentation pages; it deliberately omits the 611 task files,
 which are work items rather than documentation. The full inventory of every file
 is in docs/index.md in the repository.
 
@@ -202,7 +202,7 @@ is in docs/index.md in the repository.
 - [Privacy & local LLMs — what VantaDB guarantees (and what it doesn't)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/PRIVACY.md): The exact privacy guarantees of the local-first stack — redaction-on-write, encrypted originals, certified delete, injection governance — with commands and a covered / not covered table
 - [SQLite for AI Agents: The Missing Memory Layer](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/blog/sqlite_for_ai_agents.md): By the VantaDB Team
 - [Server Configuration](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/discord/server-config.md): All categories grant ViewChannel + SendMessages to @everyone. Single-channel bilingual model — English and Spanish coexist in the same channels, language roles are cosmetic/identity only. Only STAFF category is restricted to Admin role
-- [VantaDB 5-Minute Quickstart](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/QUICKSTART.md): This quickstart validates the current v0.6.1 boundary from pre-built artifacts
+- [VantaDB 5-Minute Quickstart](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/QUICKSTART.md): This quickstart validates the current v0.8.0 boundary from pre-built artifacts
 - [VantaDB Desktop — Architecture](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/desktop/ARCHITECTURE.md): This document describes the actual multi-connection model of the desktop
 - [VantaDB Desktop — Auto-update enablement (deferred)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/desktop/UPDATER_ENABLEMENT.md): Defer trigger and ordered checklist to enable tauri-plugin-updater for VantaDB Desktop: signing keys, plugin wiring, release-mode CI, E2E validation, trust model
 - [VantaDB Desktop — Installer Smoke Checklist (clean Windows VM)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/desktop/INSTALLER_SMOKE_CHECKLIST.md): Executable smoke test for the VantaDB desktop NSIS/MSI installers on a clean Windows VM: startup, sidecar binaries, vanta:// deep link, WebView2 bootstrapper — with evidence capture per step

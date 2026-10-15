@@ -72,6 +72,11 @@ export interface MemoryRecord {
   // iterable; consumers must accept either form.
   vector?: Float32Array | number[];
   expires_at_ms?: string | number;
+  /** Key (same namespace) of the record that supersedes this one (ADR-028);
+   * absent = current. Superseded records stay in storage (soft-dead). */
+  superseded_by?: string | null;
+  /** Unix-ms timestamp when the supersession was recorded (ADR-028). */
+  superseded_at_ms?: string | number | null;
   /** Provenance class (ADR-046): `"Asserted"` (direct writer claim) or
    * `"Derived"` (computed by the engine from `derived_from` parents). */
   confidence_class?: "Asserted" | "Derived";

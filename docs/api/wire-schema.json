@@ -1,0 +1,183 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ness-e/Vantadb/blob/develop/docs/api/wire-schema.json",
+  "title": "VantaDB wire DTO schema (API-10 slice 1)",
+  "description": "Canonical JSON Schema of the wire DTOs shared by every binding (Rust core serde JSON, Python PyO3 dicts, TS/WASM JSON, HTTP/MCP payloads). Canonical field source: src/sdk/types/{record,search,graph}.rs + src/sdk/serialization/vector_types.rs + src/sdk/serialization/graph_types.rs. Drift gate: tests/sdk_serialization.rs::wire_schema_parity (exact key-set parity Rust<->schema + TS mirror + u128-as-string wire rule). Real codegen is API-10 slice 2 (post-1.0) — this file is hand-written on purpose (no new dependency, zero build impact).",
+  "type": "object",
+  "properties": {
+    "MemoryInput": {
+      "type": "object",
+      "description": "Stable persistent memory payload accepted by external SDKs (src/sdk/types/record.rs).",
+      "properties": {
+        "namespace": { "type": "string" },
+        "key": { "type": "string" },
+        "payload": { "type": "string" },
+        "metadata": { "type": "object" },
+        "vector": { "type": ["array", "null"], "items": { "type": "number" } },
+        "sparse_vector": { "type": ["object", "null"] },
+        "ttl_ms": { "type": ["integer", "null"] },
+        "valid_at_ms": { "type": ["integer", "null"] },
+        "confidence_class": { "type": ["string", "null"], "enum": ["Asserted", "Derived", null] },
+        "confidence": { "type": ["number", "null"] },
+        "derived_from": { "type": ["array", "null"], "items": { "type": "string" } },
+        "quarantine": { "type": "boolean" }
+      },
+      "required": ["namespace", "key", "payload", "metadata", "vector", "ttl_ms"],
+      "additionalProperties": false
+    },
+    "MemoryRecord": {
+      "type": "object",
+      "description": "Stable persistent memory view returned to external SDKs (src/sdk/types/record.rs). node_id travels as a decimal string (u128 > 2^53).",
+      "properties": {
+        "namespace": { "type": "string" },
+        "key": { "type": "string" },
+        "payload": { "type": "string" },
+        "metadata": { "type": "object" },
+        "created_at_ms": { "type": "integer" },
+        "updated_at_ms": { "type": "integer" },
+        "version": { "type": "integer" },
+        "node_id": { "type": "string", "pattern": "^[0-9]+$" },
+        "vector": { "type": ["array", "null"], "items": { "type": "number" } },
+        "sparse_vector": { "type": ["object", "null"] },
+        "expires_at_ms": { "type": ["integer", "null"] },
+        "superseded_by": { "type": ["string", "null"] },
+        "superseded_at_ms": { "type": ["integer", "null"] },
+        "valid_at_ms": { "type": "integer" },
+        "invalid_at_ms": { "type": ["integer", "null"] },
+        "confidence_class": { "type": "string", "enum": ["Asserted", "Derived"] },
+        "confidence": { "type": "number" },
+        "last_validated_at_ms": { "type": ["integer", "null"] },
+        "derived_from": { "type": "array", "items": { "type": "string" } },
+        "quarantined_at_ms": { "type": ["integer", "null"] },
+        "quarantine_reason": { "type": ["string", "null"] },
+        "quarantined_by": { "type": ["string", "null"] },
+        "quarantine_review_due_ms": { "type": ["integer", "null"] }
+      },
+      "required": ["namespace", "key", "payload", "metadata", "created_at_ms", "updated_at_ms", "version", "node_id", "vector", "expires_at_ms"],
+      "additionalProperties": false
+    },
+    "MemorySearchHit": {
+      "type": "object",
+      "description": "Scored record (src/sdk/serialization/vector_types.rs).",
+      "properties": {
+        "record": { "$ref": "#/properties/MemoryRecord" },
+        "score": { "type": "number" },
+        "explanation": { "type": ["object", "null"] }
+      },
+      "required": ["record", "score", "explanation"],
+      "additionalProperties": false
+    },
+    "MemorySearchPage": {
+      "type": "object",
+      "description": "Paginated search result with the selective-abstention signal (SCH-07).",
+      "properties": {
+        "hits": { "type": "array", "items": { "$ref": "#/properties/MemorySearchHit" } },
+        "next_cursor": { "type": ["string", "null"] },
+        "abstained": { "type": "boolean" },
+        "abstention_reason": { "type": ["string", "null"] }
+      },
+      "required": ["hits", "next_cursor", "abstained", "abstention_reason"],
+      "additionalProperties": false
+    },
+    "MemoryListPage": {
+      "type": "object",
+      "description": "Stable list page returned by namespace-scoped scans.",
+      "properties": {
+        "records": { "type": "array", "items": { "$ref": "#/properties/MemoryRecord" } },
+        "next_cursor": { "type": ["integer", "null"] }
+      },
+      "required": ["records", "next_cursor"],
+      "additionalProperties": false
+    },
+    "MemorySearchRequest": {
+      "type": "object",
+      "description": "Hybrid search request (src/sdk/serialization/vector_types.rs). Only the required subset is pinned here; every other field is optional-with-default.",
+      "properties": {
+        "namespace": { "type": "string" },
+        "query_vector": { "type": "array", "items": { "type": "number" } },
+        "query_sparse": { "type": ["object", "null"] },
+        "filters": { "type": "object" },
+        "text_query": { "type": ["string", "null"] },
+        "top_k": { "type": "integer" },
+        "distance_metric": { "type": "string", "enum": ["Cosine", "Euclidean", "SparseDot"] },
+        "explain": { "type": "boolean" },
+        "exclude_superseded": { "type": "boolean" },
+        "min_confidence": { "type": ["number", "null"] },
+        "as_of_ms": { "type": ["integer", "null"] },
+        "valid_window": { "type": ["object", "null"] },
+        "include_quarantined": { "type": "boolean" },
+        "search_profile": { "type": ["object", "null"] },
+        "range": { "type": ["object", "null"] },
+        "group_by": { "type": ["object", "null"] },
+        "mmr": { "type": ["object", "null"] },
+        "cursor": { "type": ["string", "null"] }
+      },
+      "required": ["namespace", "query_vector", "filters", "text_query", "top_k", "distance_metric", "explain"],
+      "additionalProperties": false
+    },
+    "SearchHit": {
+      "type": "object",
+      "description": "Legacy vector-search hit (numeric node id as decimal string).",
+      "properties": {
+        "node_id": { "type": "string", "pattern": "^[0-9]+$" },
+        "distance": { "type": "number" }
+      },
+      "required": ["node_id", "distance"],
+      "additionalProperties": false
+    },
+    "NodeRecord": {
+      "type": "object",
+      "description": "Stable node view returned to external SDKs (src/sdk/serialization/graph_types.rs).",
+      "properties": {
+        "id": { "type": "string", "pattern": "^[0-9]+$" },
+        "fields": { "type": "object" },
+        "vector": { "type": ["array", "null"], "items": { "type": "number" } },
+        "vector_dimensions": { "type": "integer" },
+        "edges": { "type": "array", "items": { "$ref": "#/properties/EdgeRecord" } },
+        "confidence_score": { "type": "number" },
+        "importance": { "type": "number" },
+        "hits": { "type": "integer" },
+        "last_accessed": { "type": "integer" },
+        "epoch": { "type": "integer" },
+        "tier": { "type": "string" },
+        "is_alive": { "type": "boolean" }
+      },
+      "required": ["id", "fields", "vector", "vector_dimensions", "edges", "confidence_score", "importance", "hits", "last_accessed", "epoch", "tier", "is_alive"],
+      "additionalProperties": false
+    },
+    "EdgeRecord": {
+      "type": "object",
+      "description": "Stable graph edge representation for external SDKs.",
+      "properties": {
+        "target": { "type": "string", "pattern": "^[0-9]+$" },
+        "label": { "type": "string" },
+        "weight": { "type": "number" },
+        "reverse": { "type": "boolean" },
+        "created_at_ms": { "type": "integer" }
+      },
+      "required": ["target", "label", "weight", "reverse", "created_at_ms"],
+      "additionalProperties": false
+    },
+    "MemoryFilterItem": {
+      "type": "object",
+      "description": "Single metadata filter: field + operator + value.",
+      "properties": {
+        "field": { "type": "string" },
+        "op": { "type": "string", "enum": ["Eq", "Neq", "Gt", "Lt", "Gte", "Lte"] },
+        "value": { "type": "object" }
+      },
+      "required": ["field", "op", "value"],
+      "additionalProperties": false
+    },
+    "ValidWindow": {
+      "type": "object",
+      "description": "Half-open valid-time query window [from_ms, to_ms).",
+      "properties": {
+        "from_ms": { "type": "integer" },
+        "to_ms": { "type": "integer" }
+      },
+      "required": ["from_ms", "to_ms"],
+      "additionalProperties": false
+    }
+  }
+}
