@@ -329,7 +329,7 @@ BLOQUEADO: `PROC-01-push` (requiere OK explícito owner, Regla 7), carril negoci
 - **Uphill/Downhill:** ⬆️ 1 / ⬇️ 3
 - **DoD task:** contrato ✅ · task file sync · recitation
 - **Task file:** `docs/dev/tasks/EGO-01.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ⏳ IN PROGRESS (Wave 1, worker en fondo)
 - **Branch:**
 - **Commit:**
 
@@ -449,7 +449,7 @@ BLOQUEADO: `PROC-01-push` (requiere OK explícito owner, Regla 7), carril negoci
 - **Uphill/Downhill:** ⬆️ 1 / ⬇️ 2
 - **DoD task:** contrato ✅ · task file sync · recitation
 - **Task file:** `docs/dev/tasks/SRV-10.md`
-- **Estado:** ⏳ IN PROGRESS (Wave 0, worker en fondo)
+- **Estado:** ✅ COMPLETED
 - **Branch:**
 - **Commit:**
 
@@ -490,7 +490,7 @@ BLOQUEADO: `PROC-01-push` (requiere OK explícito owner, Regla 7), carril negoci
 - **Uphill/Downhill:** ⬆️ 0 / ⬇️ 3
 - **DoD task:** contrato ✅ · task file sync · recitation
 - **Task file:** `docs/dev/tasks/FIND-340.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ⏳ IN PROGRESS (Wave 1, worker en fondo)
 - **Branch:**
 - **Commit:**
 
