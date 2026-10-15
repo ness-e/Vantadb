@@ -490,7 +490,7 @@ BLOQUEADO: `PROC-01-push` (requiere OK explícito owner, Regla 7), carril negoci
 - **Uphill/Downhill:** ⬆️ 0 / ⬇️ 3
 - **DoD task:** contrato ✅ · task file sync · recitation
 - **Task file:** `docs/dev/tasks/FIND-340.md`
-- **Estado:** ⏳ IN PROGRESS (Wave 1, worker en fondo)
+- **Estado:** ✅ COMPLETED
 - **Branch:**
 - **Commit:**
 
@@ -504,7 +504,7 @@ BLOQUEADO: `PROC-01-push` (requiere OK explícito owner, Regla 7), carril negoci
   **Iteraciones:**
   | # | Acción | Resultado | Herramienta |
   |---|--------|-----------|-------------|
-  | — | — | — | — |
+  | 1 | Steps S1-S5 (vanta-worker) + review P2-01 | ✅ COMPLETED — APPROVE vanta-review (backup verify 0, pins 0, ARCHITECTURE scoped) | bundle verify, pins, gates docs |
 
   **Notas:** `PROC-01-push` queda 🔴 BLOQUEADO hasta tu `push` explícito. Carril negocio `BIZ-04/10/11`, `STRAT-01/02`, `FASE-A/R-05`, `BIZ-16/17` es humano y vive en `Backlog-negocio.md` — fuera de este plan. ID `FIND-340` libre verificado. Sin tocar versiones/CHANGELOG/tags (release-plz).
 
