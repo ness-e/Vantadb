@@ -14,7 +14,7 @@ Demonstrates:
 Run:
   python examples/demo/demo.py
 
-Requires:  vantadb-py>=0.4  (install from TestPyPI or build from source)
+Requires:  vantadb-py>=0.8.0  (install from PyPI or build from source)
 Optional:  sentence-transformers (generates real embeddings — see README)
 """
 
