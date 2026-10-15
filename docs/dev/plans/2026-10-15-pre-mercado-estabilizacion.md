@@ -251,7 +251,7 @@ BLOQUEADO: `PROC-01-push` (requiere OK explícito owner, Regla 7), carril negoci
 - **Uphill/Downhill:** ⬆️ 1 / ⬇️ 2
 - **DoD task:** contrato ✅ · task file sync · recitation
 - **Task file:** `docs/dev/tasks/API-10.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Branch:**
 - **Commit:**
 
@@ -265,7 +265,7 @@ BLOQUEADO: `PROC-01-push` (requiere OK explícito owner, Regla 7), carril negoci
   **Iteraciones:**
   | # | Acción | Resultado | Herramienta |
   |---|--------|-----------|-------------|
-  | — | — | — | — |
+  | 1 | Steps S1-S4 (vanta-worker) + review P2-01 | ✅ COMPLETED — APPROVE vanta-review (drift TS real corregido, RED→GREEN documentado) | nextest 36+1, check-npm, links, fmt |
 
   **Notas:** No usar `scripts/check_openapi_parity.mjs` (ruta inválida del reporte) — lo real está en `scripts/docs/check-*.mjs`. Regla dura `-p`: iterar con `-p vantadb`, `--workspace` solo al cierre.
 
@@ -290,7 +290,7 @@ BLOQUEADO: `PROC-01-push` (requiere OK explícito owner, Regla 7), carril negoci
 - **Uphill/Downhill:** ⬆️ 0 / ⬇️ 3
 - **DoD task:** contrato ✅ · task file sync · recitation
 - **Task file:** `docs/dev/tasks/DX-13.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ⏳ IN PROGRESS (Wave 0, worker en fondo)
 - **Branch:**
 - **Commit:**
 
@@ -449,7 +449,7 @@ BLOQUEADO: `PROC-01-push` (requiere OK explícito owner, Regla 7), carril negoci
 - **Uphill/Downhill:** ⬆️ 1 / ⬇️ 2
 - **DoD task:** contrato ✅ · task file sync · recitation
 - **Task file:** `docs/dev/tasks/SRV-10.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ⏳ IN PROGRESS (Wave 0, worker en fondo)
 - **Branch:**
 - **Commit:**
 
@@ -463,7 +463,7 @@ BLOQUEADO: `PROC-01-push` (requiere OK explícito owner, Regla 7), carril negoci
   **Iteraciones:**
   | # | Acción | Resultado | Herramienta |
   |---|--------|-----------|-------------|
-  | — | — | — | — |
+  | 1 | FIND-321 + hallazgo SRV-10-código resuelto + Gate D | Worker1: inventario 28→40 + SRV-10 SKIP documentado (resuelto en ca3f00da/8f758e24). Gate D owner: CI-08 COMPLETA 40→18 (worker2 en fondo) | TRIGGERS 40/40, diff --check 0 |
 
   **Notas:** Cubre `CI-08` + `FIND-321` (inventario primero, consolidación después).
 
