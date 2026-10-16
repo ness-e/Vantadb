@@ -409,7 +409,7 @@ BLOQUEADO: `PROC-01-push` (requiere OK explícito owner, Regla 7), carril negoci
 - **Uphill/Downhill:** ⬆️ 2 / ⬇️ 3
 - **DoD task:** contrato ✅ · task file sync · recitation
 - **Task file:** `docs/dev/tasks/DIST-19.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ⏳ IN PROGRESS (Wave 3: S0/S1/S3 ✅ + review; S4/S5 pendientes)
 - **Branch:**
 - **Commit:**
 
@@ -423,7 +423,7 @@ BLOQUEADO: `PROC-01-push` (requiere OK explícito owner, Regla 7), carril negoci
   **Iteraciones:**
   | # | Acción | Resultado | Herramienta |
   |---|--------|-----------|-------------|
-  | — | — | — | — |
+  | 1 | S0/S1 (worker1) + S3/S8 (worker2) + review P2-01 | S3 ✅ APPROVE (6 fns reales, guards, quarantine); S4/S5 pendientes | cargo check/clippy/fmt, napi |
 
   **Notas:** Épico `DIST-19` cubre `MEMG-03/09/24/25/26`, `FIND-320`, `DIST-20/21` (trazabilidad en task file).
 
