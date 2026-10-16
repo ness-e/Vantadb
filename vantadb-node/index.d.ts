@@ -346,6 +346,29 @@ export interface GraphRagResult {
   stats: GraphRagStats
 }
 /**
+ * DIST-20 (S4) cooperative cancellation token for long engine ops.
+ *
+ * Why not the DOM `AbortSignal` (spec draft): napi's `AbortSignal` is
+ * `!Send` by construction (`Rc` internals, `napi-3.12.0/.../task.rs:57`)
+ * and only feeds `AsyncTask` (libuv thread) — it can never enter a
+ * `#[napi]` tokio future, not even as an unused param (verified with
+ * `cargo check`: the future is `!Send`). `AbortHandle` is the `Send`-safe
+ * bridge with identical detach semantics. JS ergonomics are one line:
+ * `signal.addEventListener('abort', () => handle.abort())` (the S5 suite
+ * proves this wiring). Abort = detach: the blocking op runs on, the engine
+ * is never cancelled, `close()` never blocks on a cancelled op.
+ */
+export declare class AbortHandle {
+  /** Create a fresh token (starts un-fired). */
+  constructor()
+  /**
+   * Fire cancellation. Idempotent; safe to call before or after the op
+   * settles. A pre-fired handle fails the next op fast with `Cancelled`.
+   */
+  abort(): void
+}
+
+/**
  * Native VantaDB handle exposed to Node.js. Thin wrapper over the SDK's
  * `Embedded`; all engine methods are async to avoid blocking the JS thread.
  *
@@ -436,7 +459,7 @@ export declare class VantaDb {
    * see `docs/api/TS_SDK.md` → "Distance vs Score (CODE-091)" for the full
    * cross-binding table.
    */
-  search(request: SearchRequest): Promise<MemorySearchHit[]>
+  search(request: SearchRequest, abort?: AbortHandle | undefined | null): Promise<MemorySearchHit[]>
   /** Return stable runtime capabilities. */
   capabilities(): Capabilities
   /**
@@ -581,8 +604,12 @@ export declare class VantaDb {
   /**
    * One auto-recall pass over L1/session/agent/team memory (MEMG-24).
    * `options`: `{user_text, session_key, scope?, max_results?, min_overlap?,
-   * team_id?, agent_id?, allow_prefixes?}`. Returns the recall JSON, or
+   * team_id?, agent_id?, allow_prefixes?, trust_aware?, now_ms?}`. Returns the recall JSON, or
    * `null` when there is nothing to inject (never an empty block).
+   * `trust_aware` (default `false`) opts into the composite re-rank
+   * (S8/FIND-320, MEMG-21 precedent); `false` keeps the legacy ordering
+   * byte-identical. `now_ms` (epoch ms, default: wall-clock) only feeds
+   * the opt-in path and makes it deterministic in tests.
    */
   memoryRecall(options: any): Promise<any>
   /**

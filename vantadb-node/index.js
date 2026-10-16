@@ -703,6 +703,7 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { VantaDb, VantaDB } = nativeBinding
+const { AbortHandle, VantaDb, VantaDB } = nativeBinding
+export { AbortHandle }
 export { VantaDb }
 export { VantaDB }

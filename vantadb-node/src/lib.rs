@@ -20,7 +20,9 @@ use napi_derive::napi;
 use serde_json::{json, Map, Value};
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::{Mutex, OnceLock, PoisonError};
+use std::sync::{Arc, Mutex, OnceLock, PoisonError};
+use std::time::{SystemTime, UNIX_EPOCH};
+use tokio::sync::Notify;
 use vantadb::config::Config;
 use vantadb::graph::TraversalDirection;
 use vantadb::index::IndexType;
@@ -40,10 +42,11 @@ use vanta_memory::context_engine::{
 };
 use vanta_memory::core::dream::{consolidate_session, DreamConfig};
 use vanta_memory::core::hooks::auto_recall::{
-    perform_auto_recall_governed, reinforce_recalled, AutoRecallParams, InjectionPolicy,
-    RecallConfig, RecallScope, RecalledMemory,
+    perform_auto_recall_governed, perform_auto_recall_scored, reinforce_recalled, AutoRecallParams,
+    InjectionPolicy, RecallConfig, RecallScope, RecalledMemory,
 };
 use vanta_memory::core::profile::profile_sync::ProfileIsolation;
+use vanta_memory::core::record::CompositeScoring;
 use vantadb::ReinforceOutcome;
 
 /// Clamp `top_k`/`k` to [`MAX_K`], warning when the caller requested more than
@@ -58,6 +61,46 @@ fn clamp_top_k(requested: usize) -> usize {
         );
     }
     effective
+}
+
+/// DIST-20 (S4) cooperative cancellation token for long engine ops.
+///
+/// Why not the DOM `AbortSignal` (spec draft): napi's `AbortSignal` is
+/// `!Send` by construction (`Rc` internals, `napi-3.12.0/.../task.rs:57`)
+/// and only feeds `AsyncTask` (libuv thread) — it can never enter a
+/// `#[napi]` tokio future, not even as an unused param (verified with
+/// `cargo check`: the future is `!Send`). `AbortHandle` is the `Send`-safe
+/// bridge with identical detach semantics. JS ergonomics are one line:
+/// `signal.addEventListener('abort', () => handle.abort())` (the S5 suite
+/// proves this wiring). Abort = detach: the blocking op runs on, the engine
+/// is never cancelled, `close()` never blocks on a cancelled op.
+#[napi]
+pub struct AbortHandle {
+    notify: Arc<Notify>,
+}
+
+impl Default for AbortHandle {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[napi]
+impl AbortHandle {
+    /// Create a fresh token (starts un-fired).
+    #[napi(constructor)]
+    pub fn new() -> Self {
+        Self {
+            notify: Arc::new(Notify::new()),
+        }
+    }
+
+    /// Fire cancellation. Idempotent; safe to call before or after the op
+    /// settles. A pre-fired handle fails the next op fast with `Cancelled`.
+    #[napi]
+    pub fn abort(&self) {
+        self.notify.notify_one();
+    }
 }
 
 /// Native VantaDB handle exposed to Node.js. Thin wrapper over the SDK's
@@ -442,12 +485,45 @@ impl VantaDB {
     pub async fn search(
         &self,
         #[napi(ts_arg_type = "SearchRequest")] request: Value,
+        abort: Option<&AbortHandle>,
     ) -> napi::Result<Value> {
         let (gate, engine) = self.snapshot();
         let _g = enter(&gate)?;
         let request = parse_search_request(&request)?;
-        let out: Vec<vantadb::sdk::MemorySearchHit> =
-            spawn_blocking(move || engine.search(request)).await?;
+        // The borrow ends here: only the cloned `Arc` (Send + Sync) crosses
+        // the await below, so the future stays `Send`.
+        let abort_notify: Option<Arc<Notify>> = abort.map(|h| h.notify.clone());
+        // DIST-20 (S4): cooperative abort via `select!` against the
+        // `spawn_blocking` handle. The `Notify` stores one permit, so a fire
+        // between registration and `select!` is never missed (the remaining
+        // gap — a fire before this call — fails fast instead of hanging).
+        // Abort = detach: returning drops the `JoinHandle` (the blocking
+        // search runs on, the engine is never cancelled) and the `OpGuard`
+        // (released, so `close()` never blocks on a cancelled op). No guard
+        // or lock is held past this point (concurrency R-2; `OpGuard` is a
+        // drain permit, held across await exactly like every other method
+        // per js-ecosystem R-4).
+        let mut handle = tokio::task::spawn_blocking(move || engine.search(request));
+        let out: Vec<vantadb::sdk::MemorySearchHit> = match abort_notify {
+            Some(notify) => {
+                tokio::select! {
+                    _ = notify.notified() => {
+                        return Err(napi::Error::new(
+                            napi::Status::Cancelled,
+                            "search aborted (op detached, engine untouched)".to_string(),
+                        ))
+                    }
+                    res = &mut handle => {
+                        res.map_err(|e| Error::from_reason(format!("blocking task failed: {e}")))?
+                            .map_err(map_err)?
+                    }
+                }
+            }
+            None => handle
+                .await
+                .map_err(|e| Error::from_reason(format!("blocking task failed: {e}")))?
+                .map_err(map_err)?,
+        };
         serde_json::to_value(&out).map_err(serde_map_err)
     }
 
@@ -913,7 +989,7 @@ impl VantaDB {
 // `vanta-memory`/core (api-contract R-8). Per method: snapshot + enter
 // (OpGate, js-ecosystem R-4), engine work in `spawn_blocking` (concurrency
 // R-1, guard never held across await per R-2). `context_assemble` is pure CPU
-// (no engine state) so it skips the gate. Pending: AbortSignal (S4/DIST-20),
+// (no engine state) so it skips the gate. Done: AbortHandle (S4/DIST-20),
 // Ego parity suite (S5/MEMG-24), trust-aware opt-in (S8/FIND-320 — recall
 // stays byte-identical default until then). No `dts-header`: the boundary is
 // `serde_json::Value` (→ `any`), napi default generation covers it.
@@ -921,8 +997,12 @@ impl VantaDB {
 impl VantaDB {
     /// One auto-recall pass over L1/session/agent/team memory (MEMG-24).
     /// `options`: `{user_text, session_key, scope?, max_results?, min_overlap?,
-    /// team_id?, agent_id?, allow_prefixes?}`. Returns the recall JSON, or
+    /// team_id?, agent_id?, allow_prefixes?, trust_aware?, now_ms?}`. Returns the recall JSON, or
     /// `null` when there is nothing to inject (never an empty block).
+    /// `trust_aware` (default `false`) opts into the composite re-rank
+    /// (S8/FIND-320, MEMG-21 precedent); `false` keeps the legacy ordering
+    /// byte-identical. `now_ms` (epoch ms, default: wall-clock) only feeds
+    /// the opt-in path and makes it deterministic in tests.
     #[napi]
     pub async fn memory_recall(&self, options: Value) -> napi::Result<Value> {
         let (gate, engine) = self.snapshot();
@@ -936,8 +1016,22 @@ impl VantaDB {
                 isolation: Some(owned.isolation),
                 config: owned.config,
             };
-            perform_auto_recall_governed(&engine, params, None, &owned.policy)
+            // S8 (FIND-320): opt-in composite re-rank (MEMG-21 precedent);
+            // default path untouched → byte-identical.
+            if owned.trust_aware {
+                perform_auto_recall_scored(
+                    &engine,
+                    params,
+                    None,
+                    &owned.policy,
+                    &CompositeScoring::default(),
+                    owned.now_ms,
+                )
                 .map_err(|e| format!("memory_recall failed: {e:?}"))
+            } else {
+                perform_auto_recall_governed(&engine, params, None, &owned.policy)
+                    .map_err(|e| format!("memory_recall failed: {e:?}"))
+            }
         })
         .await
         .map_err(|e| Error::from_reason(format!("blocking task failed: {e}")))?
@@ -975,22 +1069,17 @@ impl VantaDB {
             .transpose()
             .map_err(|e| Error::from_reason(format!("`messages` must be ChatMessage[]: {e}")))?
             .unwrap_or_default();
-        let token_budget = opts
-            .get("token_budget")
-            .and_then(Value::as_u64)
+        let token_budget = opt_u64(&opts, "token_budget")
             .filter(|&b| b > 0)
             .ok_or_else(|| Error::from_reason("`token_budget` must be a positive integer"))?;
-        let protected_prefix = opts
-            .get("protected_prefix")
-            .and_then(Value::as_u64)
-            .unwrap_or(0) as usize;
+        let protected_prefix = opt_u64(&opts, "protected_prefix").unwrap_or(0) as usize;
         let mut cfg = AssembleConfig::default();
         if let Some(ratio) = opts.get("compaction_ratio").and_then(Value::as_f64) {
             if ratio > 0.0 {
                 cfg.compaction_ratio = ratio;
             }
         }
-        if let Some(min_keep) = opts.get("min_keep").and_then(Value::as_u64) {
+        if let Some(min_keep) = opt_u64(&opts, "min_keep") {
             cfg.min_keep = min_keep as usize;
         }
         let out = tokio::task::spawn_blocking(move || {
@@ -1032,16 +1121,16 @@ impl VantaDB {
         let _g = enter(&gate)?;
         let opts = options.as_object().cloned().unwrap_or_default();
         let session_id = get_str(&opts, "session_id")?;
-        let now_ms = opts
-            .get("now_ms")
-            .and_then(Value::as_u64)
+        if session_id.trim().is_empty() {
+            return Err(Error::from_reason(
+                "`session_id` must be a non-empty string",
+            ));
+        }
+        let now_ms = opt_u64(&opts, "now_ms")
             .ok_or_else(|| Error::from_reason("`now_ms` must be an epoch-ms integer"))?;
-        let last_active_at_ms = opts
-            .get("last_active_at_ms")
-            .and_then(Value::as_u64)
-            .unwrap_or(now_ms);
+        let last_active_at_ms = opt_u64(&opts, "last_active_at_ms").unwrap_or(now_ms);
         let mut config = DreamConfig::default();
-        if let Some(t) = opts.get("idle_threshold_ms").and_then(Value::as_u64) {
+        if let Some(t) = opt_u64(&opts, "idle_threshold_ms") {
             config.idle_threshold_ms = t;
         }
         let out = tokio::task::spawn_blocking(move || {
@@ -1125,6 +1214,22 @@ impl VantaDB {
     }
 }
 
+/// Read an optional u64 JSON option. Accepts real JSON integers AND integral
+/// doubles: JS has no int64, so epoch-ms values like `Date.now()` always
+/// arrive as f64 (napi converts small ints to u64 but big ones to f64, and
+/// `Value::as_u64` rejects f64 outright). Non-integral, negative, or
+/// out-of-range (> 2^53, exact-integer limit) doubles are rejected.
+fn opt_u64(opts: &Map<String, Value>, key: &str) -> Option<u64> {
+    opts.get(key).and_then(|v| {
+        v.as_u64().or_else(|| {
+            v.as_f64().and_then(|f| {
+                ((0.0..=9_007_199_254_740_992.0).contains(&f) && f.fract() == 0.0)
+                    .then_some(f as u64)
+            })
+        })
+    })
+}
+
 /// Owned, validated arguments for [`VantaDB::memory_recall`], built from the
 /// JSON boundary so the `spawn_blocking` closure is `'static` (concurrency
 /// R-2: no borrowed state crosses the await).
@@ -1134,12 +1239,19 @@ struct MemoryRecallArgs {
     isolation: ProfileIsolation,
     config: RecallConfig,
     policy: InjectionPolicy,
+    trust_aware: bool,
+    now_ms: u64,
 }
 
 impl MemoryRecallArgs {
     fn parse(opts: &Map<String, Value>) -> napi::Result<Self> {
         let user_text = get_str(opts, "user_text")?;
         let session_key = get_str(opts, "session_key")?;
+        if session_key.trim().is_empty() {
+            return Err(Error::from_reason(
+                "`session_key` must be a non-empty string",
+            ));
+        }
         let scope = match opts.get("scope").and_then(Value::as_str).unwrap_or("agent") {
             "session" => RecallScope::Session,
             "agent" => RecallScope::Agent,
@@ -1154,8 +1266,7 @@ impl MemoryRecallArgs {
         // `vantadb-ffi-core`); recall never takes 0 (means "inject nothing",
         // which the core already signals with `null`).
         let max_results = clamp_top_k(
-            opts.get("max_results")
-                .and_then(Value::as_u64)
+            opt_u64(opts, "max_results")
                 .map(|v| v as usize)
                 .unwrap_or(5),
         )
@@ -1165,7 +1276,7 @@ impl MemoryRecallArgs {
             max_results,
             ..Default::default()
         };
-        if let Some(min_overlap) = opts.get("min_overlap").and_then(Value::as_u64) {
+        if let Some(min_overlap) = opt_u64(opts, "min_overlap") {
             config.min_overlap = min_overlap as usize;
         }
         let isolation = ProfileIsolation {
@@ -1188,12 +1299,27 @@ impl MemoryRecallArgs {
             ),
             _ => InjectionPolicy::allow_all(),
         };
+        // S8 (FIND-320): trust-aware re-rank, opt-in (default false =
+        // byte-identical legacy ordering). `now_ms` is injectable for
+        // determinism; it defaults to wall-clock time.
+        let trust_aware = opts
+            .get("trust_aware")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        let now_ms = opt_u64(opts, "now_ms").unwrap_or_else(|| {
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis() as u64
+        });
         Ok(Self {
             user_text,
             session_key,
             isolation,
             config,
             policy,
+            trust_aware,
+            now_ms,
         })
     }
 }

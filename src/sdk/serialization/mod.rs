@@ -77,7 +77,12 @@ pub(crate) fn now_ms() -> u64 {
         .as_millis() as u64
 }
 
-pub(crate) fn memory_node_id(namespace: &str, key: &str) -> u128 {
+/// Deterministic node id for a memory record: `XxHash3_128(ns + "\0" + key)`.
+///
+/// MEMG-03 (DIST-19 S6): the grafo↔memoria bridge. Every record projects to
+/// the node with this id (`memory_record_to_node_owned`), so memory and graph
+/// traversals meet on one stable address with no lookup table.
+pub fn memory_node_id(namespace: &str, key: &str) -> u128 {
     let mut hasher = XxHash3_128::default();
     hasher.write(namespace.as_bytes());
     hasher.write(&[0]);
@@ -511,7 +516,10 @@ fn memory_record_from_node_inner(node: &UnifiedNode, apply_lazy_ttl: bool) -> Op
     })
 }
 
-pub(crate) fn memory_record_to_node_owned(mut record: MemoryRecord) -> (UnifiedNode, MemoryRecord) {
+/// Project a record to its graph node (MEMG-03): the node id is the record's
+/// deterministic [`memory_node_id`], and the record's addressing fields
+/// travel on the node. Returns the node plus the record back.
+pub fn memory_record_to_node_owned(mut record: MemoryRecord) -> (UnifiedNode, MemoryRecord) {
     let namespace = std::mem::take(&mut record.namespace);
     let key = std::mem::take(&mut record.key);
     let payload = std::mem::take(&mut record.payload);
@@ -901,6 +909,29 @@ mod tests {
 
         let d = memory_node_id("other", "key1");
         assert_ne!(a, d);
+    }
+
+    // DIST-19 S6 (MEMG-03): the grafo↔memoria bridge — a record projects to
+    // the node whose id is the deterministic `memory_node_id(ns, key)`, and
+    // the node carries the namespace/key back (ns+key ↔ node_id round-trip).
+    #[test]
+    fn test_record_to_node_preserves_deterministic_id() {
+        let record = MemoryRecord {
+            namespace: "ns".into(),
+            key: "key1".into(),
+            node_id: memory_node_id("ns", "key1"),
+            ..Default::default()
+        };
+        let (node, _) = memory_record_to_node_owned(record);
+        assert_eq!(node.id, memory_node_id("ns", "key1"));
+        assert_eq!(
+            node.get_field(FIELD_NAMESPACE),
+            Some(&FieldValue::String("ns".into()))
+        );
+        assert_eq!(
+            node.get_field(FIELD_KEY),
+            Some(&FieldValue::String("key1".into()))
+        );
     }
 
     // ΓöÇΓöÇΓöÇ validate_namespace ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
