@@ -172,6 +172,18 @@ El skip "already published" de `release-npm-61.yml` y `release-npm-node.yml` aho
 | `providers-v*.*.*` | release-providers.yml | PyPI (`vantadb-openai`, `vantadb-ollama`, `vantadb-litellm`) |
 | `v*` (broad) | sbom-64 | Artifacts only (no registry) |
 | GitHub Release | binaries-63 | Release assets (binaries) |
+| manual dispatch only | publish-mcp-registry.yml | MCP Registry (`io.github.ness-e/vantadb`) — owner-gated, first publish = owner login/claim |
+
+## MCP Registry — `publish-mcp-registry.yml` (FIND-344)
+
+- `server.json` (repo root) is the version source; validated against its
+  `$schema` by `scripts/validate-mcp-server.py` (offline, fail-closed).
+- The workflow runs ONLY on `workflow_dispatch` (environment `mcp-registry`,
+  owner approval): validate → stamp version → `mcp-publisher publish`
+  (OIDC). No tag triggers until the first manual publish succeeds.
+- First publish requires the owner: registry claim for `io.github.ness-e/*`
+  (`mcp-publisher login github`) + `.mcpb` bundle decision (GAP documented
+  in `docs/dev/tasks/FIND-344.md` — no `packages[]` invented).
 
 ## Crates — publish decision per crate (DIST-06)
 

@@ -515,3 +515,4 @@ plan-adjust [2026-10-16]: release-gaps B–F a FIND-342 (worker vanta-lead en fo
 plan-adjust [2026-10-16]: FIND-342 B-E ✅ COMPLETED (APPROVE; commit orquestador). F con Gate D STOP → propuesta dispatch al owner (F1 pendiente decisión). Main sin protection = acción owner; D4 sin objeto.
 plan-adjust [2026-10-16]: F dispatch APROBADO por owner → F1 en curso (fanout en release.yml, sin tocar publish ifs).
 plan-adjust [2026-10-16]: F1 ✅ COMPLETED (APPROVE; commit orquestador). MCP registry → FIND-344 (worker en fondo). EGO-03 slices 2+ en fondo.
+plan-adjust [2026-10-16]: FIND-344 ✅ COMPLETED (APPROVE; server.json 0 errores vs $schema con jsonschema lib). Queda owner: login + first publish. EGO-03 slices en fondo, luego DIST-19.
