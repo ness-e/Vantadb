@@ -9,7 +9,7 @@ tags: [pre-mercado, release]
 # Plan de Ejecución: Pre-mercado VantaDB — orden, estabilización y salida
 
 > **Inicio:** 2026-10-15
-> **Estado:** ⏳ EN PROGRESO
+> **Estado:** ✅ COMPLETADA (12/12 DO + extras FIND-337/338/339/341/342/344 + CI-FIXES; 2026-10-16)
 > **Fuente:** `docs/dev/Backlog.md` (DELTA + EGO + SURF) + `docs/dev/Backlog-negocio.md` + auditoría `auditor_a_pre_mercado_y_plan_de_salida_vantadb.md` (verificada contra disco 2026-10-15)
 > **Autonomous:** false
 > **Decisiones owner locked (2026-10-15):** SPEC/CONSTRAINTS→`docs/specs/` nueva · CLA→`.github/cla/` · borrar bak+`.md` ✅ · `.editorconfig` nuevo ✅ · hooks→`pre-commit` único · superficie/docs ✅ · DX ✅ · PROC-01 solo-preparar · tren EGO completo · carril negocio-humano separado
@@ -30,7 +30,13 @@ tags: [pre-mercado, release]
 | ❌ SKIP | 2 |
 | 🔴 BLOQUEADO | 2 |
 
-Status: ⬆️ uphill = 3 (contrato Ego completo, pre-commit shim Windows, pins npm) · ⬇️ downhill = 12 tasks pendientes
+Status: ⬆️ uphill = 0 · ⬇️ downhill = 0 (12/12 DO ✅ + extras ✅; DEFER/SKIP/BLOQUEADO según triage, fuera del tren)
+
+## Retrospectiva de cierre (Start/Stop/Continue + 1 acción medida)
+- **Start (seguir haciendo):** review P2-01 con re-ejecución por agente distinto — cazó defectos reales que los gates mecánicos no ven (ifs truncados, pin 37-hex, Deserialize wire). Staged-set revisado a mano antes de cada commit en paralelo (lección del incidente `174410d7`).
+- **Stop (dejar de hacer):** `git add -A` con workers en paralelo (colisión de índice); confiar en `Select-String -Match` (no existe en pwsh 5.1, usar `-Pattern`); builds en background (mueren con la sesión — foreground con timeout largo).
+- **Continue:** task files como estado durable + Save Points precisos (permitieron 5 resurrecciones de sesiones sin pérdida) + contratos mecánicos por task.
+- **Acción medida:** `cargo`/`rustup`/`pre-commit`/`ruff` vía PATH completo o `python -m` en cada comando (baseline: 4 bloqueos ambientales por binario ausente en subshells → meta 0).
 
 DEFER: `JS-01`, `PY-04`, `DIST-18`, `DIST-01`, `CORE-03-ejecución`, `FIND-324` (post-1.0, Freeze List).
 SKIP: `docs/dev/references/.editorconfig` (no existe — crear nuevo), `docs/dev/plans/2026-10-04-*` (cita inválida del reporte).
@@ -409,7 +415,7 @@ BLOQUEADO: `PROC-01-push` (requiere OK explícito owner, Regla 7), carril negoci
 - **Uphill/Downhill:** ⬆️ 2 / ⬇️ 3
 - **DoD task:** contrato ✅ · task file sync · recitation
 - **Task file:** `docs/dev/tasks/DIST-19.md`
-- **Estado:** ⏳ IN PROGRESS (Wave 3: S0/S1/S3 ✅ + review; S4/S5 pendientes)
+- **Estado:** ✅ COMPLETED (S0-S8; S9/S2b/Regla-8 como follow-ups con dueño)
 - **Branch:**
 - **Commit:**
 
@@ -424,6 +430,7 @@ BLOQUEADO: `PROC-01-push` (requiere OK explícito owner, Regla 7), carril negoci
   | # | Acción | Resultado | Herramienta |
   |---|--------|-----------|-------------|
   | 1 | S0/S1 (worker1) + S3/S8 (worker2) + review P2-01 | S3 ✅ APPROVE (6 fns reales, guards, quarantine); S4/S5 pendientes | cargo check/clippy/fmt, napi |
+  | 2 | S4-S8 (worker2 cont.) + review P2-01 final | ✅ COMPLETED — APPROVE (vitest 10/10 + 69/69, specs EN, trust byte-idéntico) | vitest, clippy, fmt |
 
   **Notas:** Épico `DIST-19` cubre `MEMG-03/09/24/25/26`, `FIND-320`, `DIST-20/21` (trazabilidad en task file).
 

@@ -6,7 +6,7 @@
 
 Every link below points to the raw Markdown source, not a rendered page. Read the
 page you need; do not read this file end to end. This index covers the
-468 documentation pages; it deliberately omits the 618 task files,
+470 documentation pages; it deliberately omits the 619 task files,
 which are work items rather than documentation. The full inventory of every file
 is in docs/index.md in the repository.
 
@@ -232,7 +232,7 @@ is in docs/index.md in the repository.
 - [VantaDB Documentation](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/README.md): Welcome to the VantaDB documentation vault
 - [VantaDB Documentation](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/index.md): Canonical index of the VantaDB documentation corpus.
 - [VantaDB Tutorials](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/tutorials/index.md): Step-by-step guides for using VantaDB, ordered by increasing complexity
-- [Workflows — Inventory (19 active)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/workflow/README.md): Per-workflow detail pages live next to this index (ci-gate.md,
+- [Workflows — Inventory (20 active)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/workflow/README.md): Per-workflow detail pages live next to this index (ci-gate.md,
 - [reports](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/reports/index.md): Section index.
 - [specs](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/specs/index.md): Section index.
 - [Reviews archivados (2026-08-26)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/reviews/README.md): Estos 30 reportes son snapshots históricos de auditorías/reviews/investigaciones
@@ -259,11 +259,13 @@ is in docs/index.md in the repository.
 - [Embeddings — BYO-Vector + embed-local](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/EMBEDDINGS.md): VantaDB is BYO-vector by default (“does not embed text for you”) and offers an opt-in local embedding path via the embed-local Cargo feature. No breaking changes — EmbeddingProvider is additive
 - [GraphRAG API](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/GRAPH_RAG.md): GraphRAG (seed → expand → retrieve → context) is exposed by the Rust SDK and all four bindings — Python, WASM, TypeScript and Node — with one canonical wire shape
 - [Memory interchange format (JSONL v2)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/MEMORY_INTERCHANGE_FORMAT.md): The JSONL v2 contract shared by VantaDB export, import and the third-party importers (Mem0, Zep/Graphiti, Letta): mapping tables, integrity manifest, frontier-format mapping, declared limits
+- [Memory scopes: multi-level isolation model for hosts (MEMG-25 spec)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/memory-scopes.md): Spec-first scope model for memory hosts: scope levels, visibility, trust, authority, provenance, validity, retention, owner and writer; fields, defaults and wire; no enforcement
 - [Node.js Native SDK Documentation](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/NODE_SDK.md): vantadb-node is the native Node.js binding for VantaDB, built with
 - [Public Surface Manifest](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/SURFACE_MANIFEST.md): Generated inventory of every public surface with status and version
 - [Python SDK Documentation](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/PYTHON_SDK.md): Python SDK reference — Client, memory records, cognitive layer (memory_capture/memory_recall), async client and typed errors
 - [Scoring Semantics — VantaDB Official Score Contract](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/scores.md): VantaDB hybrid search combines two independent rankers
 - [Search Capability Parity — VantaDB vs Milvus vs Qdrant](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/SEARCH_PARITY.md): 1. topk semantics under groupby — VantaDB caps total hits; Milvus/Qdrant cap the number of groups. Choose topk = groups × groupsize to emulate the vendor behavior
+- [Semantic events and provenance log (MEMG-26 spec)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/memory-events.md): Spec-first semantic event model for causal memory history: event types, envelope fields, causal links and wire rules; a layer over VantaDB, not a WAL replacement
 - [Shared memory: scopes, grants, and revocation](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/SHARING.md): Multi-agent sharing over the existing permission checker: scope mapping, grants, revocation semantics, checked reads and writes, and declared boundaries
 - [TypeScript SDK Documentation](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/TS_SDK.md): Create a new in-memory instance. Accepts an optional Config object. To use persistent storage, call connect() or open() instead
 - [Vanta Memory Engine — API Reference (`vanta-memory`)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/VANTA_MEMORY.md): Crate LLM-driven para memoria de agentes: captura L0, extracción/dedup L1, escenas L2,
