@@ -9,7 +9,7 @@ tags: [vantadb, desktop, installer, smoke-test]
 # VantaDB Desktop — Installer Smoke Checklist (clean Windows VM)
 
 Executable smoke test for the Windows installers produced by
-`cd desktop && npm run tauri build` (Step 3 of DESKTOP-24, task DESKTOP-41).
+`cd feature-freez/desktop && npm run tauri build` (Step 3 of DESKTOP-24, task DESKTOP-41).
 
 **Why this checklist exists:** the install-time *configuration* was verified
 read-only on 2026-10-04 (see [Static pre-verification](#static-pre-verification-read-only--not-a-substitute)),
@@ -23,11 +23,11 @@ fill in the evidence tables below.**
 
 | Installer | Path (repo) | Size | SHA256 |
 |---|---|---|---|
-| NSIS (`-setup.exe`) | `desktop/src-tauri/target/release/bundle/nsis/vantadb-desktop_0.1.0_x64-setup.exe` | 12.18 MB | `6B30B04439E6A493C3A70D9FD1BA7E8F544DAA5742FC9EDA95FA0AEA61511E4F` |
-| MSI | `desktop/src-tauri/target/release/bundle/msi/vantadb-desktop_0.1.0_x64_en-US.msi` | 16.75 MB | `0069AB1AEEBA33C44D1364DA8001AB246D72C2D49E5A2271C0F66C988716F668` |
+| NSIS (`-setup.exe`) | `feature-freez/desktop/src-tauri/target/release/bundle/nsis/vantadb-desktop_0.1.0_x64-setup.exe` | 12.18 MB | `6B30B04439E6A493C3A70D9FD1BA7E8F544DAA5742FC9EDA95FA0AEA61511E4F` |
+| MSI | `feature-freez/desktop/src-tauri/target/release/bundle/msi/vantadb-desktop_0.1.0_x64_en-US.msi` | 16.75 MB | `0069AB1AEEBA33C44D1364DA8001AB246D72C2D49E5A2271C0F66C988716F668` |
 
 Rebuild (measured 2026-10-04: **6m46s** cold on the dev machine):
-`cd desktop && npm run tauri build`
+`cd feature-freez/desktop && npm run tauri build`
 
 Alternative without a local build: GitHub Actions **Desktop CI** →
 artifact `vantadb-desktop-windows-installers` (build-only; never smoke-tested).
@@ -134,7 +134,7 @@ Sources: [Tauri v2 — Windows Installer](https://v2.tauri.app/distribute/window
 - NSIS = per-user (`HKCU`), MSI = per-machine (`HKLM`/`HKCR`): different hives
   are correct, not a bug.
 - The app re-registers `vanta://` in `HKCU` on every launch
-  (`desktop/src-tauri/src/lib.rs:134-139`) — belt-and-suspenders, does not
+  (`feature-freez/desktop/src-tauri/src/lib.rs:134-139`) — belt-and-suspenders, does not
   replace the installer check.
 - `vanta://?query=x` is the easiest deep link to observe end-to-end: it
-  navigates to MEMORIAS and runs the search (`desktop/src/components/layout/WorkspaceShell.tsx:533-559`).
+  navigates to MEMORIAS and runs the search (`feature-freez/desktop/src/components/layout/WorkspaceShell.tsx:533-559`).

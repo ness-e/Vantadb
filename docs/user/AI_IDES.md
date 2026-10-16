@@ -66,8 +66,8 @@ Deterministic hooks wire `memory_recall` into each session: recall on session st
 |---------|--------|----------|
 | MCP server over stdio, tool profiles | ✅ | `vanta-cli server --mcp` — [MCP.md](../api/MCP.md) |
 | Hooks for 4 clients | ✅ schema-tested offline | [hooks/README.md](../../skills/vantadb-mcp/assets/hooks/README.md) + `test-hooks.ps1` |
-| Desktop memory viewer (Memory Lens) | ✅ in the desktop app | [desktop/README.md](../../desktop/README.md) |
-| Cross-session recall demo | ✅ PR-blocking in CI | [demo_ai_ides.rs](../../vantadb-mcp/tests/demo_ai_ides.rs) · [ci-ai-ides-demo.yml](../../.github/workflows/ci-ai-ides-demo.yml) |
+| Desktop memory viewer (Memory Lens) | ✅ in the desktop app | [desktop/README.md](../../feature-freez/desktop/README.md) |
+| Cross-session recall demo | ✅ PR-blocking in CI | [demo_ai_ides.rs](../../vantadb-mcp/tests/demo_ai_ides.rs) · [demo-acceptance.yml](../../.github/workflows/demo-acceptance.yml) |
 | North Star metric (put+search per 7 days) | ✅ proxy-side | [north_star_metric.py](../../scripts/north_star_metric.py) · [PROXY.md § North Star](../api/PROXY.md) |
 
 The demo is the acceptance test of this track: session 1 stores a note (`memory_put` with embed-on-put), session 2 recalls it with a **synonym query that shares zero literal tokens** with the stored text (a keyword-only path could never hit it — the test asserts the zero-overlap property itself). Embeddings come from a deterministic in-process fake provider, declared as a test double: it proves the pipeline (embed → store → embed query → similarity ranking), not model quality. Offline, no tokens, no model files — a regression turns CI red.

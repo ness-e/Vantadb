@@ -130,9 +130,9 @@ The Vanta Studio build externalizes the WASM glue so the lazy `import()` is
 
 | Build mode | WASM loaded? | Source |
 |------------|-------------|--------|
-| Tauri desktop | ❌ never (uses native backend) | `desktop/vite.config.ts` |
-| HTTP mode | ❌ never (uses HTTP backend) | `desktop/vite.config.ts` |
-| `vite build --mode wasm` | ✅ only on first WASM call | `desktop/vite.config.ts`, WASM-03 |
+| Tauri desktop | ❌ never (uses native backend) | `feature-freez/desktop/vite.config.ts` |
+| HTTP mode | ❌ never (uses HTTP backend) | `feature-freez/desktop/vite.config.ts` |
+| `vite build --mode wasm` | ✅ only on first WASM call | `feature-freez/desktop/vite.config.ts`, WASM-03 |
 
 The lazy `import()` only fires when a user opts into the WASM backend explicitly.
 

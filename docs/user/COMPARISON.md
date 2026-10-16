@@ -209,7 +209,7 @@ embedded engine — the graph code does not change, only the checkpointer.
   Letta, OpenAI, Ollama): [FRAMEWORKS.md](FRAMEWORKS.md).
 - The dev→prod claim is CI-verified by a dedicated five-process demo
   ([examples/langgraph_dev_to_prod](../../examples/langgraph_dev_to_prod/README.md) ·
-  [ci-frameworks-demo.yml](../../.github/workflows/ci-frameworks-demo.yml)):
+  [demo-acceptance.yml](../../.github/workflows/demo-acceptance.yml)):
   the same graph runs with `InMemorySaver` (dev) and `VantaDBCheckpointer`
   (prod); the demo fails if the business code differs, if prod does not
   resume state across processes, or if two threads leak into each other.

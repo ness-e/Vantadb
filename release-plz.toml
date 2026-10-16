@@ -55,11 +55,11 @@ name = "vanta-memory"
 # esta entrada (release-plz lo gestiona desde el release siguiente).
 release = false
 
-# NOTE: the desktop Tauri app (desktop/src-tauri, isolated workspace, versions
-# in desktop/package.json + tauri.conf.json + src-tauri/Cargo.toml) is
+# NOTE: the desktop Tauri app (feature-freez/desktop/src-tauri, isolated workspace, versions
+# in feature-freez/desktop/package.json + tauri.conf.json + src-tauri/Cargo.toml) is
 # intentionally NOT listed here: [[package]] overrides must reference root
 # workspace members, and release-plz never touches non-members anyway
-# (engine publishes via release.yml; desktop bundles via desktop.yml).
+# (engine publishes via release.yml; desktop builds frozen — no bundle channel).
 
 # Changelog header — must stay byte-compatible with the docs frontmatter
 # (scripts/docs/check-docs.mjs gates on title+kind): release-plz rewrites

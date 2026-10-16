@@ -14,7 +14,7 @@ tags: [vantadb, desktop, updater]
 
 | Blocker | Evidence |
 |---|---|
-| Public-distribution decision not taken | Backlog `DESKTOP-43` ("Desbloquear tras decisión de distribución pública"; fila removida al registrar el defer — nota vigente en `docs/dev/Backlog.md` P46) · master plan 0.9.0 Task 33 ("decisión aún abierta") · `desktop/README.md` "No public installer yet" |
+| Public-distribution decision not taken | Backlog `DESKTOP-43` ("Desbloquear tras decisión de distribución pública"; fila removida al registrar el defer — nota vigente en `docs/dev/Backlog.md` P46) · master plan 0.9.0 Task 33 ("decisión aún abierta") · `feature-freez/desktop/README.md` "No public installer yet" |
 | Updater signing is mandatory — and installer signing is already deferred | [Tauri docs](https://v2.tauri.app/plugin/updater/): "Tauri's updater needs a signature to verify that the update is from a trusted source. **This cannot be disabled.**" · signing deferred by HITL decision (`wontfix.md` H-08 / `DEVOPS-10` — "when the public release requires it") · CI has no signing secrets (`gh secret list` → only `RELEASE_PLZ_TOKEN`, 2026-10-04) |
 
 **Trigger to re-open:** the owner takes the **public-distribution decision** for the desktop app (release channel + signing). Then execute this checklist top to bottom and supersede the `wontfix.md` defer entry.
@@ -30,10 +30,10 @@ The update channel is only as trustworthy as this keypair: the public key is emb
 
 ## 2. Wire the plugin (code)
 
-- [ ] `desktop/src-tauri/Cargo.toml`: add `tauri-plugin-updater = "2"`
-- [ ] `desktop/src-tauri/src/lib.rs`: register `tauri_plugin_updater::Builder::new().build()` in the Tauri builder chain
-- [ ] `desktop/src-tauri/capabilities/default.json`: add `"updater:default"` (check / download / install / download-and-install)
-- [ ] `desktop/src-tauri/tauri.conf.json`:
+- [ ] `feature-freez/desktop/src-tauri/Cargo.toml`: add `tauri-plugin-updater = "2"`
+- [ ] `feature-freez/desktop/src-tauri/src/lib.rs`: register `tauri_plugin_updater::Builder::new().build()` in the Tauri builder chain
+- [ ] `feature-freez/desktop/src-tauri/capabilities/default.json`: add `"updater:default"` (check / download / install / download-and-install)
+- [ ] `feature-freez/desktop/src-tauri/tauri.conf.json`:
 
   ```json
   {
@@ -61,12 +61,12 @@ The update channel is only as trustworthy as this keypair: the public key is emb
 - [ ] **Simulated E2E (local, throwaway keypair — no production keys needed):** build vN with a test pubkey; build vN+1 signed with the test private key; serve `latest.json` + artifact locally; confirm detect → signature verify → install → relaunch
 - [ ] **Negative:** tampered manifest / bad signature → rejected (no install)
 - [ ] **Real E2E (clean VM):** install vN → publish vN+1 release → app updates; reuse the evidence style of [INSTALLER_SMOKE_CHECKLIST.md](./INSTALLER_SMOKE_CHECKLIST.md)
-- [ ] Keep the version triple in sync per release (`desktop/package.json` + `tauri.conf.json` + `src-tauri/Cargo.toml`; isolated from release-plz — see DESKTOP-QW8)
+- [ ] Keep the version triple in sync per release (`feature-freez/desktop/package.json` + `tauri.conf.json` + `src-tauri/Cargo.toml`; isolated from release-plz — see DESKTOP-QW8)
 
 ## 5. Trust model & docs (the enabling PR)
 
 - [ ] Short ADR (AGENTS.md Regla 5): pubkey = embedded trust anchor; private-key custody; rollback story (the updater only moves forward unless `version_comparator` is customized)
-- [ ] Update [ARCHITECTURE.md](./ARCHITECTURE.md) § Distribution & updates (remove "deferred") and `desktop/README.md` installer status
+- [ ] Update [ARCHITECTURE.md](./ARCHITECTURE.md) § Distribution & updates (remove "deferred") and `feature-freez/desktop/README.md` installer status
 - [ ] Supersede the `wontfix.md` DEFER entry for `DESKTOP-43`
 
 ## References

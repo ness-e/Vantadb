@@ -369,7 +369,7 @@ BLOQUEADO: `PROC-01-push` (requiere OK explícito owner, Regla 7), carril negoci
 - **Uphill/Downhill:** ⬆️ 2 / ⬇️ 4
 - **DoD task:** contrato ✅ · task file sync · recitation
 - **Task file:** `docs/dev/tasks/EGO-03.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ⏳ IN PROGRESS (Wave 2: Slice 1 EGO-15 ✅ + verify; slices 2+ pendientes; Gate D EGO-11 resuelto por owner: `scan()` explícito, NO match-all)
 - **Branch:**
 - **Commit:**
 
@@ -510,3 +510,4 @@ BLOQUEADO: `PROC-01-push` (requiere OK explícito owner, Regla 7), carril negoci
 
 plan-adjust [2026-10-15]: revisión `.opencode` — `HYG-*/COG-*/SRV-CI/REL-PREP/EGO-P0/EGO-FULL` renombrados a taxonomía (`FIND-336..340` + épicos `SURF-01/API-10/DX-13/EGO-01/EGO-03/DIST-19/SRV-10`); añadidas `documentation-skill`, Regla 0, cierre Clean/`/cleanCA`/`just verify`/`ocr-review`, roles git y regla de idioma. Plan íntegro en español.
 - ⬆️ uphill antes: destino SPEC/CLA/hooks sin decidir → después: locked (docs/specs, .github/cla, pre-commit único).
+plan-adjust [2026-10-16]: orden directa owner fuera de las 12 tasks — FIND-341 congela desktop en `feature-freez/` (jobs CI fuera, dependabot fuera, refs mecánicas + docs vivas re-pathadas); EGO-11 Gate D resuelto (`scan()` explícito).

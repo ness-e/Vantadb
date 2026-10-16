@@ -87,7 +87,7 @@
       "disabled": false,
       "type": "local",
       "timeout": 120000,
-      "description": "Playwright MCP — automatización de browser via accessibility tree (browser_navigate/snapshot/click/type/evaluate). Para testing web/, E2E desktop/ y visual review."
+      "description": "Playwright MCP — automatización de browser via accessibility tree (browser_navigate/snapshot/click/type/evaluate). Para testing web/, E2E feature-freez/desktop/ y visual review."
     },
     "ai-media": {
       "type": "local",

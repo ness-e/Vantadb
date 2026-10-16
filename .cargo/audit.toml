@@ -34,7 +34,7 @@ ignore = [
 
     # RUSTSEC-2024-0429 (glib <0.20.0, Unsoundness in VariantStrIter).
     # Transitive via Tauri2 Linux stack (gio/gdk/javascriptcore -> glib 0.18.5,
-    # desktop/src-tauri/Cargo.lock:1862); root Cargo.lock has 0 hits (core/server/wasm clean).
+    # feature-freez/desktop/src-tauri/Cargo.lock:1862); root Cargo.lock has 0 hits (core/server/wasm clean).
     # No PoC in VantaDB: VariantStrIter is never used in own code (transitive webview only).
     # Bump to >=0.20.0 blocked by Tauri2 (pins gtk/glib 0.18).
     # Owner: vanta-lead · Decided: VULN-C1 (plan 2026-09-22-vulnerabilities, owner accept-risk 2026-09-22)
