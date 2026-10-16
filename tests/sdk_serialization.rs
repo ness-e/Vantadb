@@ -846,3 +846,77 @@ fn memory_record_v1_json_without_confidence_defaults_to_d_a() {
     assert_eq!(record.last_validated_at_ms, None);
     assert!(record.derived_from.is_empty());
 }
+
+// EGO-05: `Value` acepta escalares JS planos (NAPI/serde_json entregan f64,
+// string, bool, null sin tag). El formato tagged existente sigue válido
+// (retrocompatible); la serialización NO cambia.
+#[test]
+fn test_vanta_value_accepts_plain_scalars() {
+    let cases: &[(&str, Value)] = &[
+        // strings planos
+        (r#""hello""#, Value::String("hello".into())),
+        // enteros planos (i64 y f64 integral tipo Date.now())
+        ("42", Value::Int(42)),
+        ("-7", Value::Int(-7)),
+        ("1753728000000", Value::Int(1753728000000)),
+        // floats no-integrales
+        ("2.5", Value::Float(2.5)),
+        // bool y null planos
+        ("true", Value::Bool(true)),
+        ("false", Value::Bool(false)),
+        ("null", Value::Null),
+    ];
+    for (json, expected) in cases {
+        let got: Value = serde_json::from_str(json).unwrap();
+        assert_eq!(&got, expected, "plain scalar {json}");
+    }
+}
+
+#[test]
+fn test_vanta_value_accepts_plain_homogeneous_arrays() {
+    let cases: &[(&str, Value)] = &[
+        (
+            r#"["a","b"]"#,
+            Value::ListString(vec!["a".into(), "b".into()]),
+        ),
+        ("[1,2,3]", Value::ListInt(vec![1, 2, 3])),
+        ("[1.5,2.5]", Value::ListFloat(vec![1.5, 2.5])),
+        ("[true,false]", Value::ListBool(vec![true, false])),
+    ];
+    for (json, expected) in cases {
+        let got: Value = serde_json::from_str(json).unwrap();
+        assert_eq!(&got, expected, "plain array {json}");
+    }
+}
+
+#[test]
+fn test_vanta_value_bare_null_string_roundtrips() {
+    // serde serializa el unit variant sin wrapper: Value::Null ⇄ `"Null"`.
+    // El bare `"Null"` debe leerse como Null (como el derived), no como String.
+    let json = serde_json::to_string(&Value::Null).unwrap();
+    assert_eq!(json, r#""Null""#);
+    let back: Value = serde_json::from_str(&json).unwrap();
+    assert_eq!(back, Value::Null);
+}
+
+#[test]
+fn test_vanta_value_tagged_form_still_parses() {
+    let cases: &[(&str, Value)] = &[
+        (r#"{"String":"hi"}"#, Value::String("hi".into())),
+        (r#"{"Int":42}"#, Value::Int(42)),
+        (r#"{"Float":2.5}"#, Value::Float(2.5)),
+        (r#"{"Bool":true}"#, Value::Bool(true)),
+        (r#"{"Null":null}"#, Value::Null),
+        (r#"{"ListInt":[1,2]}"#, Value::ListInt(vec![1, 2])),
+    ];
+    for (json, expected) in cases {
+        let got: Value = serde_json::from_str(json).unwrap();
+        assert_eq!(&got, expected, "tagged {json}");
+    }
+}
+
+#[test]
+fn test_vanta_value_rejects_mixed_arrays() {
+    let got: Result<Value, _> = serde_json::from_str(r#"[1,"a"]"#);
+    assert!(got.is_err(), "mixed arrays must fail, got: {:?}", got.ok());
+}

@@ -906,6 +906,20 @@ impl Embedded {
     /// `replace_derived_indexes` path `put()` uses; MEMG-11: O(batch), no
     /// full-DB rebuild). UPSERTs bump versions like `put()` (in-batch
     /// duplicates included).
+    ///
+    /// # Atomicity (FIND-221 — current contract)
+    ///
+    /// - **Upfront validation is all-or-nothing:** namespace/key/metadata
+    ///   shape validation plus the namespace quota pre-check run over the
+    ///   WHOLE batch before any chunk commits — a batch rejected here
+    ///   leaves zero records behind.
+    /// - **Past validation, commits are per-chunk, not all-or-nothing:**
+    ///   records commit in `batch_size` chunks (default 1000), each chunk
+    ///   one WAL `batch_append` + KV `write_batch`. If a later chunk fails
+    ///   (e.g. a confidence/derivation rule or an I/O error), earlier
+    ///   chunks stay committed. True batch-wide atomicity (2PC) needs
+    ///   engine-level support and is tracked under FIND-221 — do not
+    ///   assume rollback of committed chunks.
     #[tracing::instrument(skip(self, inputs), err)]
     pub fn put_batch(&self, inputs: Vec<MemoryInput>) -> Result<Vec<MemoryRecord>> {
         let (namespace, key) = inputs

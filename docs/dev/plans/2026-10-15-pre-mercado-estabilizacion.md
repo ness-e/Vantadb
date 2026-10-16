@@ -329,7 +329,7 @@ BLOQUEADO: `PROC-01-push` (requiere OK explícito owner, Regla 7), carril negoci
 - **Uphill/Downhill:** ⬆️ 1 / ⬇️ 3
 - **DoD task:** contrato ✅ · task file sync · recitation
 - **Task file:** `docs/dev/tasks/EGO-01.md`
-- **Estado:** ⏳ IN PROGRESS (Wave 1, worker en fondo)
+- **Estado:** ✅ COMPLETED
 - **Branch:**
 - **Commit:**
 
@@ -343,7 +343,7 @@ BLOQUEADO: `PROC-01-push` (requiere OK explícito owner, Regla 7), carril negoci
   **Iteraciones:**
   | # | Acción | Resultado | Herramienta |
   |---|--------|-----------|-------------|
-  | — | — | — | — |
+  | 1 | Slices 1-3 (vanta-worker) + review P2-01 | ✅ COMPLETED — APPROVE vanta-review (Deserialize quirúrgico, red-team sin rupturas, Regla 8 limpia) | nextest/binarios directos, clippy, fmt |
 
   **Notas:** EGO-01/02/03/04 tienen commits (`82317d89`, `c82f4b2d`, `36ac14ff`, `b04d33bf`) pendientes de review P2-01 + backfill `FIND-335` — verificar antes de re-implementar. Cubre `EGO-05`, `EGO-09` y `FIND-221` bajo el épico `EGO-01` (trazabilidad en task file, sin prefijos nuevos).
 

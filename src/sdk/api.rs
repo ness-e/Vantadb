@@ -156,6 +156,36 @@ mod tests {
     }
 
     #[test]
+    fn test_put_batch_upfront_validation_writes_nothing() {
+        // FIND-221: shape validation runs over the whole batch before any
+        // chunk commits — a batch rejected here must leave zero records.
+        let db = make_embedded(false);
+        let inputs = vec![
+            MemoryInput::new("ns", "k1", "v1"),
+            MemoryInput::new("bad ns!", "k2", "v2"),
+        ];
+        let r = db.put_batch(inputs);
+        assert!(r.is_err(), "invalid namespace must reject the batch");
+        assert!(
+            db.get("ns", "k1").expect("get").is_none(),
+            "upfront rejection must not commit earlier inputs"
+        );
+    }
+
+    #[test]
+    fn test_put_batch_valid_writes_all() {
+        let db = make_embedded(false);
+        let inputs = vec![
+            MemoryInput::new("ns", "k1", "v1"),
+            MemoryInput::new("ns", "k2", "v2"),
+        ];
+        let records = db.put_batch(inputs).expect("valid batch commits");
+        assert_eq!(records.len(), 2);
+        assert_eq!(db.get("ns", "k1").expect("get").expect("k1").payload, "v1");
+        assert_eq!(db.get("ns", "k2").expect("get").expect("k2").payload, "v2");
+    }
+
+    #[test]
     fn test_get_no_engine() {
         let db = make_embedded(false);
         let _ = db.get("ns", "k");

@@ -99,6 +99,46 @@ impl Embedded {
         Self::open_with_config(config)
     }
 
+    /// Open a VantaDB database at the given path in read-only mode (EGO-09).
+    ///
+    /// Equivalent to `open_with_config` with `read_only: true`. Write
+    /// operations on the handle are rejected (`check_read_only`); the
+    /// engine underneath takes a **shared** OS lock instead of the
+    /// exclusive writer lock, so any number of read-only handles can
+    /// coexist — but a live exclusive **writer still blocks** the open
+    /// (`Error::DatabaseBusy`), and an uninitialized path fails with
+    /// `Error::NotFound` (read-only opens never create schema or lock
+    /// files). The Fjall backend itself has no read-only mode (it opens
+    /// read-write and holds its own lock), so a reader alongside a writer
+    /// on the same directory is NOT supported at the backend level.
+    ///
+    /// # Shared read-write pattern
+    ///
+    /// For one writer + many readers on the same directory, run a single
+    /// long-lived writer process (daemon) that owns the directory and
+    /// expose reads/writes to sidecars over a local socket or stdio/JSONL
+    /// (the pattern Ego uses for its `vantadb-py` sidecar) instead of
+    /// opening the directory twice.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use vantadb::Embedded;
+    ///
+    /// let db = Embedded::open_readonly("/var/lib/vantadb").expect("open read-only");
+    /// assert!(db.get("docs", "greeting").expect("read").is_some());
+    /// db.close().expect("close database");
+    /// ```
+    #[tracing::instrument(skip(path), err)]
+    pub fn open_readonly(path: impl AsRef<Path>) -> Result<Self> {
+        let config = Config {
+            storage_path: path.as_ref().to_string_lossy().into_owned(),
+            read_only: true,
+            ..Default::default()
+        };
+        Self::open_with_config(config)
+    }
+
     /// Open a VantaDB database with a fully custom configuration.
     ///
     /// # Examples
