@@ -242,6 +242,74 @@ fn certified_delete_not_found_is_honest_not_silent() {
 /// omitted — with a **recomputed** integrity hash must still fail
 /// verification while residues are live. Verification is not claim-driven:
 /// the canonical surface inventory is validated before any verdict.
+/// EGO-16: auditoría de borrado físico — tras delete + vacuum + merge +
+/// WAL-compact + flush + close, ningún byte del payload puede seguir
+/// legible en el directorio de datos.
+///
+/// Estado 2026-10-16: IGNORADO porque FALLA por diseño actual (evidencia
+/// abajo) — el fix exige rediseño Engine (el WAL es commit point + cadena
+/// VER-01; borrar historia rompe recovery) y sale del boundary worker.
+/// Corre en jobs de certificación/auditoría (`--ignored`), no en Fast Gate.
+///
+/// Evidencia (FIND-343): payload legible en `data/vanta.shard0.wal`
+/// (`compact_wal` rota, no borra — `maintenance.rs:129`) y en `0.jnl`
+/// (journal Fjall conserva el KV hasta su propio GC). El certificado
+/// (`delete_certified`) sigue garantizando 0 residuos a nivel API.
+#[test]
+#[ignore = "EGO-16: borrado físico pendiente de Engine (payload sobrevive en WAL rotado + journal Fjall); ver FIND en Backlog"]
+fn physical_erasure_no_payload_bytes_after_full_maintenance() {
+    use vantadb::PipelineMode;
+
+    // Marcador único e improbable: solo existe en el payload de este test.
+    const MARKER: &str = "EGO16-PROBE-payload-debe-desaparecer-7f3a9c1e5b2d4860";
+    const PAYLOAD: &str =
+        "borrado fisico EGO16-PROBE-payload-debe-desaparecer-7f3a9c1e5b2d4860 fin";
+
+    let dir = tempfile::tempdir().expect("tempdir");
+    let db = open_temp_db(&dir);
+    let mut input = certified_input("erase", "target");
+    input.payload = PAYLOAD.to_string();
+    db.put(input).expect("put");
+    db.delete("erase", "target").expect("delete");
+
+    // Mantenimiento completo: purga HNSW, reescritura de segmentos,
+    // compactación WAL, descarga y cierre (los mmap/WAL deben estar
+    // descargados antes del escaneo en disco).
+    let vacuum = db.vacuum().expect("vacuum");
+    assert!(vacuum.success, "vacuum must succeed");
+    let pipe = db
+        .pipeline(PipelineMode::MergeOnly)
+        .expect("merge pipeline");
+    assert!(pipe.success, "merge pipeline must succeed");
+    db.compact_wal().expect("compact wal");
+    db.flush().expect("flush");
+    db.close().expect("close");
+
+    // Escaneo crudo recursivo del directorio de datos.
+    fn visit(path: &std::path::Path, needle: &[u8], hits: &mut Vec<String>) {
+        let Ok(entries) = std::fs::read_dir(path) else {
+            return;
+        };
+        for entry in entries.flatten() {
+            let p = entry.path();
+            if p.is_dir() {
+                visit(&p, needle, hits);
+            } else if let Ok(bytes) = std::fs::read(&p) {
+                if bytes.windows(needle.len()).any(|w| w == needle) {
+                    hits.push(p.to_string_lossy().to_string());
+                }
+            }
+        }
+    }
+    let mut hits = Vec::new();
+    visit(dir.path(), MARKER.as_bytes(), &mut hits);
+    assert!(
+        hits.is_empty(),
+        "physical erasure failed: payload bytes still readable on disk in: {hits:?} \
+         (API-level purge only — see EGO-16)"
+    );
+}
+
 #[test]
 fn verify_rejects_claimless_certificate_even_with_recomputed_hash() {
     use sha2::{Digest, Sha256};

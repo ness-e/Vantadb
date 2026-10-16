@@ -15,6 +15,23 @@ pub fn expand_nodes(
     hops: usize,
     max_nodes: usize,
 ) -> Result<ExpandedNodes> {
+    expand_nodes_capped(engine, seed_ids, hops, max_nodes, usize::MAX, None)
+}
+
+/// BFS expansion with per-node degree and weight guards (EGO-15).
+///
+/// Follows at most `max_degree_per_node` edges out of each visited node, in
+/// storage order (deterministic per graph). `usize::MAX` disables the cap.
+/// Edges below `min_edge_weight` are skipped before the cap applies (`None`
+/// keeps all edges). Seeds are always visited; a cap of 0 yields seeds only.
+pub fn expand_nodes_capped(
+    engine: &StorageEngine,
+    seed_ids: &[u128],
+    hops: usize,
+    max_nodes: usize,
+    max_degree_per_node: usize,
+    min_edge_weight: Option<f32>,
+) -> Result<ExpandedNodes> {
     if hops == 0 || seed_ids.is_empty() {
         let hop_distances: HashMap<u128, u32> = seed_ids.iter().map(|&id| (id, 0)).collect();
         return Ok(ExpandedNodes {
@@ -48,7 +65,17 @@ pub fn expand_nodes(
         let Ok(Some(node)) = engine.get(current) else {
             continue;
         };
-        for edge in &node.edges {
+        // EGO-15: cap hub fan-out — a high-degree node otherwise triggers a
+        // combinatorial read burst (Ego bounded this defensively client-side).
+        // Weak edges are filtered before the cap so the budget is spent on
+        // eligible edges.
+        let passes_weight = |w: f32| min_edge_weight.is_none_or(|m| w >= m);
+        for edge in node
+            .edges
+            .iter()
+            .filter(|e| passes_weight(e.weight))
+            .take(max_degree_per_node)
+        {
             if visited.len() >= max_nodes {
                 break;
             }

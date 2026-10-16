@@ -61,6 +61,7 @@
   ],
   "license": "Apache-2.0",
   "dependencies": {
+    "vantadb-node": "file:../vantadb-node",
     "vantadb-wasm": "file:../vantadb-wasm/pkg"
   },
   "devDependencies": {
@@ -70,7 +71,6 @@
     "eslint": "^10.7.0",
     "typescript": "^5.7.0",
     "typescript-eslint": "^8.64.0",
-    "vantadb-node": "file:../vantadb-node",
     "vite-plugin-wasm": "^3.6.0",
     "vitest": "^4.1.11"
   }

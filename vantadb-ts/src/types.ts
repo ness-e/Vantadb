@@ -168,6 +168,18 @@ export interface ListInput extends ListOptions {
   namespace: string;
 }
 
+/**
+ * Input for `scan` (EGO-11): namespace plus page cursor only — no filters.
+ * `scan()` is the explicit full-sweep entry point; `search`/`searchMulti`
+ * rank by relevance and require a query signal, so they never sweep.
+ */
+export interface ScanInput {
+  namespace: string;
+  limit?: number;
+  /** Opaque page cursor, same form as `ListOptions.cursor`. */
+  cursor?: string | number;
+}
+
 /** Input for `count`. */
 export interface CountInput {
   namespace: string;

@@ -369,7 +369,7 @@ BLOQUEADO: `PROC-01-push` (requiere OK explícito owner, Regla 7), carril negoci
 - **Uphill/Downhill:** ⬆️ 2 / ⬇️ 4
 - **DoD task:** contrato ✅ · task file sync · recitation
 - **Task file:** `docs/dev/tasks/EGO-03.md`
-- **Estado:** ⏳ IN PROGRESS (Wave 2: Slice 1 EGO-15 ✅ + verify; slices 2+ pendientes; Gate D EGO-11 resuelto por owner: `scan()` explícito, NO match-all)
+- **Estado:** ✅ COMPLETED
 - **Branch:**
 - **Commit:**
 
@@ -383,7 +383,7 @@ BLOQUEADO: `PROC-01-push` (requiere OK explícito owner, Regla 7), carril negoci
   **Iteraciones:**
   | # | Acción | Resultado | Herramienta |
   |---|--------|-----------|-------------|
-  | — | — | — | — |
+  | 1 | Slices 1-8 + briefs (vanta-worker) + review P2-01 + fixes | ✅ COMPLETED — APPROVE (red-team sin rupturas, Regla 8 limpia, FIND-343 derivado) | nextest/binarios, clippy, fmt, public-api regen |
 
   **Notas:** Épico `EGO-03` cubre el resto del tren (trazabilidad por ID en el task file, sin prefijos nuevos).
 

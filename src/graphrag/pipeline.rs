@@ -8,6 +8,12 @@ pub struct GraphRagPipeline {
     pub expansion_hops: usize,
     pub max_expansion_nodes: usize,
     pub retrieval_top_k: usize,
+    /// EGO-15: max edges followed out of each node during expansion.
+    /// Caps hub fan-out (`usize::MAX` = uncapped, the pre-EGO-15 behavior).
+    pub max_degree_per_node: usize,
+    /// EGO-15 (follow-up): skip edges below this weight during expansion
+    /// (`None` = keep all edges, the pre-EGO-15 behavior).
+    pub min_edge_weight: Option<f32>,
 }
 
 /// DIST-15: canonical wire shape for the bindings (Py/TS/Node/WASM).
@@ -61,6 +67,8 @@ impl GraphRagPipeline {
             expansion_hops: 2,
             max_expansion_nodes: 100,
             retrieval_top_k: 20,
+            max_degree_per_node: usize::MAX,
+            min_edge_weight: None,
         }
     }
 
@@ -90,11 +98,13 @@ impl GraphRagPipeline {
         }
 
         let seed_ids: Vec<u128> = seed_scores.iter().map(|(id, _)| *id).collect();
-        let expanded = expand::expand_nodes(
+        let expanded = expand::expand_nodes_capped(
             &engine,
             &seed_ids,
             self.expansion_hops,
             self.max_expansion_nodes,
+            self.max_degree_per_node,
+            self.min_edge_weight,
         )?;
 
         let top_nodes =
