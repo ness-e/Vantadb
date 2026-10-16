@@ -24,7 +24,7 @@ Legend: Y = yes, — = no. `paths` means a path filter applies (see file).
 | Workflow | push | pull_request | schedule | dispatch | Other |
 |----------|------|--------------|----------|----------|-------|
 | `ci-rust.yml` | Y (`main`) | Y (`main`) | — | Y | — |
-| `docs-gates.yml` | Y (`main`) | Y (`main`,`develop`) | Y (Mon 07:23) | Y | 17 jobs (CI-08 Step 4) |
+| `docs-gates.yml` | Y (`main`) | Y (`main`,`develop`) | Y (Mon 07:23) | Y | 18 jobs (CI-08 Step 4 + actionlint) |
 | `ci-fleet.yml` | Y (`main`) | Y (`main`,`develop`) | Y (Sun 03:00) | Y | 5 jobs (CI-08 Step 4) |
 | `perf-bench.yml` | Y (`main`,`develop`) | — | — | Y | — |
 | `platform-ops.yml` | Y (`main`, desktop paths) | Y (`main`, desktop paths) | Y (Sun 00:00, daily 04:00) | Y | `issue_comment`, `review_comment`; 8 jobs (CI-08 Step 4) |

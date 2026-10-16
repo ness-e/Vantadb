@@ -17,6 +17,9 @@ name: 'HEAVY: Certification - tests, benches, chaos, fuzz'
 # - schedule dispara todos los jobs schedule-gated a la vez (bench+cert en cada
 #   cron): costo extra aceptado de la consolidacion (jobs ajenos quedan skipped).
 # - heavy-cert sin concurrency group -> ahora grupo estandar cancelable.
+# - bench nocturno (light-benchmarks/high-density/analyze/critcmp-regression):
+#   concurrency job-level cancel-in-progress:false — restaura la proteccion
+#   de heavy-bench-nightly (un push durante el bench 02:00 no lo cancela).
 on:
   push:
     branches: [main]
@@ -372,6 +375,10 @@ jobs:
 
     name: Light benchmarks
     needs: ci-gate
+    # Restaura proteccion heavy-bench-nightly (cancel:false): el bench ~2h no se cancela.
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -428,6 +435,10 @@ jobs:
 
     name: High density
     needs: ci-gate
+    # Restaura proteccion heavy-bench-nightly (cancel:false): el bench ~2h no se cancela.
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 360
     steps:
@@ -456,6 +467,10 @@ jobs:
 
     name: Analyze
     needs: [ci-gate, light-benchmarks, high-density]
+    # Restaura proteccion heavy-bench-nightly (cancel:false).
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -624,6 +639,10 @@ jobs:
     name: critcmp regression (candidate)
     if: github.event.inputs.enable_critcmp == 'true'
     needs: ci-gate
+    # Restaura proteccion heavy-bench-nightly (cancel:false).
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:

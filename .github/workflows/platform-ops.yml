@@ -11,7 +11,8 @@ name: 'OPS: Platform - desktop, CodeQL, opencode bot, OCR nightly'
 #   + gate a eventos de comentario (antes imposible otro evento).
 # - resto de jobs excluyen eventos de comentario (un comentario no debe
 #   compilar Tauri ni correr CodeQL).
-# - ocr/codeql cancel-in-progress: false del origen -> grupo estandar
+# - ocr/codeql cancel-in-progress: false del origen -> grupo estandar;
+#   codeql lleva concurrency job-level false (scan semanal protegido).
 #   cancelable (runs nocturnos supersedidos se cancelan; deseable).
 on:
   push:
@@ -254,6 +255,10 @@ jobs:
     if: (github.event_name != 'issue_comment' && github.event_name != 'pull_request_review_comment')
 
     name: Analyze
+    # Restaura proteccion sec-codeql (cancel:false): el scan semanal no se cancela.
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:

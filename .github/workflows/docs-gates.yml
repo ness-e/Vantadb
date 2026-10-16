@@ -10,6 +10,9 @@ name: 'GATES: Docs - lint, links, secrets, API surface, examples, rustdoc'
 # - jobs no-links llevan gate != schedule (nunca corrian en schedule).
 # - ci-rust.yml / release-* con continue-on-error bare: fuera de alcance
 #   (NOTICED BUT NOT TOUCHING, ver SRV-10.md).
+# - actionlint job + inventory gate (conteo vs CI_POLICY.md); paths incluyen
+#   .github/workflows/** para lintar workflow-only PRs. Nota: 'vantadb-*/**'
+#   ya cubre vantadb-python/** completo (pyproject/tests incluidos).
 on:
   push:
     branches: [main]
@@ -26,12 +29,12 @@ on:
       - 'vantadb-*/**'
       - 'vanta-memory/**'
       - 'providers/**'
+      - '.github/workflows/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
       - 'README.md'
       - 'llms.txt'
       - '.markdownlint-cli2.yaml'
-      - '.github/workflows/docs-gates.yml'
   pull_request:
     branches: [main, develop]
     paths: *docs-paths
@@ -556,3 +559,28 @@ jobs:
 
       - name: Doc-tests must compile and pass with warnings denied
         run: cargo test --doc --workspace
+
+  actionlint:
+    name: actionlint (workflows lint + inventory gate)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install actionlint v1.7.7 (pinned sha256)
+        run: |
+          curl -sSL -o /tmp/actionlint.tar.gz https://github.com/rhysd/actionlint/releases/download/v1.7.7/actionlint_1.7.7_linux_amd64.tar.gz
+          echo "023070a287cd8cccd71515fedc843f1985bf96c436b7effaecce67290e7e0757  /tmp/actionlint.tar.gz" | sha256sum -c -
+          tar -xzf /tmp/actionlint.tar.gz -C /tmp actionlint
+
+      - name: Lint workflows
+        run: /tmp/actionlint -color
+
+      - name: Workflow inventory gate (count vs CI_POLICY.md)
+        run: |
+          expected=$(grep -oP '\*\*\K[0-9]+(?= active workflow files)' docs/dev/operations/CI_POLICY.md)
+          actual=$(ls .github/workflows/*.yml | wc -l)
+          echo "workflows: $actual (CI_POLICY.md: $expected)"
+          test "$actual" = "$expected"
