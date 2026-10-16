@@ -56,6 +56,7 @@ Legend: Y = yes, — = no. `paths` means a path filter applies (see file).
 | `release-binaries.yml` | — | — | Y | `release` published |
 | `release-sbom.yml` | `v*` | — | Y | — |
 | `release-verify.yml` | — | — | Y | schedule Mon 08:00 |
+| `publish-mcp-registry.yml` | — | — | Y (dispatch only, environment `mcp-registry`) | — |
 
 ## Notes
 
