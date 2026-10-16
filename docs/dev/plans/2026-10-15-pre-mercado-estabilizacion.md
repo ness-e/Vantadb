@@ -513,3 +513,5 @@ plan-adjust [2026-10-15]: revisión `.opencode` — `HYG-*/COG-*/SRV-CI/REL-PREP
 plan-adjust [2026-10-16]: orden directa owner fuera de las 12 tasks — FIND-341 congela desktop en `feature-freez/` (jobs CI fuera, dependabot fuera, refs mecánicas + docs vivas re-pathadas); EGO-11 Gate D resuelto (`scan()` explícito).
 plan-adjust [2026-10-16]: release-gaps B–F a FIND-342 (worker vanta-lead en fondo). Decisiones: B bump+gate (submit=owner), C bump 0.8.0 (sidecars 200 OK), D manifest, E tarball-check, F fan-out (probar en próximo release). Main SIN branch protection (404) = acción owner; D4 sin objeto. Rama: main estable-release, develop desarrollo (Regla 7 vigente: push solo con OK explícito).
 plan-adjust [2026-10-16]: FIND-342 B-E ✅ COMPLETED (APPROVE; commit orquestador). F con Gate D STOP → propuesta dispatch al owner (F1 pendiente decisión). Main sin protection = acción owner; D4 sin objeto.
+plan-adjust [2026-10-16]: F dispatch APROBADO por owner → F1 en curso (fanout en release.yml, sin tocar publish ifs).
+plan-adjust [2026-10-16]: F1 ✅ COMPLETED (APPROVE; commit orquestador). MCP registry → FIND-344 (worker en fondo). EGO-03 slices 2+ en fondo.

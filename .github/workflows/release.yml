@@ -21,6 +21,10 @@ jobs:
       contents: write
       pull-requests: read
       id-token: write
+    # FIND-342/F1: expone el resultado del release al job fanout (tag publicado).
+    outputs:
+      releases: ${{ steps.release-plz.outputs.releases }}
+      releases_created: ${{ steps.release-plz.outputs.releases_created }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -35,6 +39,7 @@ jobs:
           install-llvm-cov: false
           install-system-deps: true
       - name: Run release-plz
+        id: release-plz
         uses: release-plz/action@b8d6b54b02889ff2ae2bb82e8b57c3a8fc1683a5 # v0.5.139
         with:
           command: release
@@ -69,3 +74,43 @@ jobs:
           command: release-pr
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN || secrets.GITHUB_TOKEN }}
+
+  # FIND-342/F1: fan-out explicito a los lanes tag-triggered (wheels, npm-61,
+  # npm-node, sbom, binaries). Los tags creados por release-plz con GITHUB_TOKEN
+  # no disparan esos workflows (GitHub suprime eventos derivados); este job los
+  # dispara por API SOBRE el tag, asi que cada downstream ve
+  # `github.ref == refs/tags/v*` y publica SIN tocar ningun `if:`.
+  # El PAT queda como credencial del dispatch + cascada implicita de fallback
+  # (PUBLISH.md). pypi/npm siguen tras su `environment:` (aprueba el owner).
+  # Prueba real imposible sin release (declarado): validacion mecanica maxima.
+  fanout:
+    name: Fan-out downstream release workflows
+    needs: [release-plz-release]
+    if: needs.release-plz-release.outputs.releases_created == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: write
+    env:
+      GH_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN || secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Dispatch downstream workflows on the released tag
+        env:
+          RELEASES_JSON: ${{ needs.release-plz-release.outputs.releases }}
+        run: |
+          if [ -z "${{ secrets.RELEASE_PLZ_TOKEN }}" ]; then
+            echo "::error::RELEASE_PLZ_TOKEN is not set. Dispatches authenticated with GITHUB_TOKEN do not trigger downstream runs (GitHub suppresses derived events), so the fan-out would silently no-op. Set the PAT (PUBLISH.md, seccion Cascadas) — the PAT tag-cascade remains the fallback."
+            exit 1
+          fi
+          TAG=$(echo "$RELEASES_JSON" | jq -r '.[0].tag_name // .[0].tag // empty')
+          if [ -z "$TAG" ]; then
+            echo "::error::Could not derive the released tag from release-plz outputs: $RELEASES_JSON"
+            exit 1
+          fi
+          echo "Fanning out on tag $TAG"
+          gh workflow run release-wheels.yml --ref "$TAG"
+          gh workflow run release-npm-61.yml --ref "$TAG" -f package=both
+          gh workflow run release-npm-node.yml --ref "$TAG"
+          gh workflow run release-sbom.yml --ref "$TAG"
+          gh workflow run release-binaries.yml --ref "$TAG" -f release_tag="$TAG"

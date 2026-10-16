@@ -237,7 +237,32 @@ rg -n "^\s*publish = false" --glob "**/Cargo.toml" -g "!target/**" -g "!node_mod
 rg -n "^\[\[package\]\]|^name = |^\s*(release|publish) = " release-plz.toml
 ```
 
-## Cascadas automaticas — `RELEASE_PLZ_TOKEN` (PAT)
+## Cascadas automaticas — fan-out explicito + `RELEASE_PLZ_TOKEN` (PAT, fallback)
+
+### Primario: job `fanout` en `release.yml` (FIND-342/F1)
+
+Tras `release-plz-release`, si hubo release (`releases_created`), un job
+`fanout` dispara por API los 5 lanes sobre el tag publicado
+(`gh workflow run <downstream> --ref <tag>`, tag derivado de los outputs
+`releases`/`releases_created` de `release-plz/action`):
+
+- `release-wheels.yml --ref <tag>` (sin inputs)
+- `release-npm-61.yml --ref <tag> -f package=both` (`package` es requerido)
+- `release-npm-node.yml --ref <tag>` · `release-sbom.yml --ref <tag>` (sin inputs)
+- `release-binaries.yml --ref <tag> -f release_tag=<tag>`
+
+No toca ningun `if:` downstream: cada run corre SOBRE el tag, asi que
+`github.ref` es `refs/tags/v*` dentro de cada lane (wheels/npm/sbom publican
+por su gate de tag; binaries por `inputs.release_tag != ''`; npm-node publica
+por la rama `workflow_dispatch` de su `if:`). pypi/npm siguen detras de su
+`environment:` — el owner aprueba los pending deployments.
+El dispatch se autentica con `RELEASE_PLZ_TOKEN` (misma expresion con fallback
+del archivo); con `GITHUB_TOKEN` el dispatch NO dispara downstreams (GitHub
+suprime eventos derivados), asi que sin PAT el job falla en rojo en vez de
+verde-vacio. Prueba real: proximo release (declarado — sin release no hay
+forma mecanica de probarlo).
+
+### Fallback: cascada implicita por PAT
 
 release-plz crea tags/releases con `GITHUB_TOKEN`; GitHub suprime los eventos
 generados por ese token, asi que los workflows tag-triggered (`v*.*.*`,
