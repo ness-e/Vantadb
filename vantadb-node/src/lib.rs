@@ -33,6 +33,18 @@ use vantadb::sdk::{
 use vantadb::{SparseVector, MAX_K, MAX_VEC_DIM};
 // Durability gate + ERR-022 clamp policy: shared std-only leaf (WIRE-07).
 use vantadb_ffi_core::{OpGate, OpGuard};
+// DIST-19 S3: thin facade over vanta-memory (logic lives in the core/memory
+// crates — api-contract R-8; these imports are glue only).
+use vanta_memory::context_engine::{
+    assemble as assemble_context, AssembleConfig, ChatMessage, TokenEstimator,
+};
+use vanta_memory::core::dream::{consolidate_session, DreamConfig};
+use vanta_memory::core::hooks::auto_recall::{
+    perform_auto_recall_governed, reinforce_recalled, AutoRecallParams, InjectionPolicy,
+    RecallConfig, RecallScope, RecalledMemory,
+};
+use vanta_memory::core::profile::profile_sync::ProfileIsolation;
+use vantadb::ReinforceOutcome;
 
 /// Clamp `top_k`/`k` to [`MAX_K`], warning when the caller requested more than
 /// the cap so silent truncation stays observable (ERR-022). The compare→cap
@@ -893,6 +905,296 @@ impl VantaDB {
         })
         .await?;
         serde_json::to_value(&out).map_err(serde_map_err)
+    }
+}
+
+// ── DIST-19 S3: VantaCognitiveAPI — in-process facade over vanta-memory ─────
+// Thin wrappers (JSON boundary + guards only); behaviour lives in
+// `vanta-memory`/core (api-contract R-8). Per method: snapshot + enter
+// (OpGate, js-ecosystem R-4), engine work in `spawn_blocking` (concurrency
+// R-1, guard never held across await per R-2). `context_assemble` is pure CPU
+// (no engine state) so it skips the gate. Pending: AbortSignal (S4/DIST-20),
+// Ego parity suite (S5/MEMG-24), trust-aware opt-in (S8/FIND-320 — recall
+// stays byte-identical default until then). No `dts-header`: the boundary is
+// `serde_json::Value` (→ `any`), napi default generation covers it.
+#[napi]
+impl VantaDB {
+    /// One auto-recall pass over L1/session/agent/team memory (MEMG-24).
+    /// `options`: `{user_text, session_key, scope?, max_results?, min_overlap?,
+    /// team_id?, agent_id?, allow_prefixes?}`. Returns the recall JSON, or
+    /// `null` when there is nothing to inject (never an empty block).
+    #[napi]
+    pub async fn memory_recall(&self, options: Value) -> napi::Result<Value> {
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
+        let opts = options.as_object().cloned().unwrap_or_default();
+        let owned = MemoryRecallArgs::parse(&opts)?;
+        let out = tokio::task::spawn_blocking(move || {
+            let params = AutoRecallParams {
+                user_text: &owned.user_text,
+                session_key: &owned.session_key,
+                isolation: Some(owned.isolation),
+                config: owned.config,
+            };
+            perform_auto_recall_governed(&engine, params, None, &owned.policy)
+                .map_err(|e| format!("memory_recall failed: {e:?}"))
+        })
+        .await
+        .map_err(|e| Error::from_reason(format!("blocking task failed: {e}")))?
+        .map_err(Error::from_reason)?;
+        match out {
+            None => Ok(Value::Null),
+            // `RecallResult` has no `Serialize` (internal type); map the
+            // fields — every part is `Serialize` (`RecalledMemory`,
+            // `RecallMode`, `RecallGovernance`).
+            Some(r) => Ok(json!({
+                "prepend_context": r.prepend_context,
+                "append_system_context": r.append_system_context,
+                "recalled_memories": serde_json::to_value(&r.recalled_memories)
+                    .map_err(serde_map_err)?,
+                "persona": r.persona,
+                "effective_mode": serde_json::to_value(r.effective_mode)
+                    .map_err(serde_map_err)?,
+                "governance": serde_json::to_value(&r.governance).map_err(serde_map_err)?,
+            })),
+        }
+    }
+
+    /// Compact a chat history under a token budget (pure function, no engine
+    /// state — works even while the database is closing). `options`:
+    /// `{messages: ChatMessage[], token_budget, protected_prefix?,
+    /// compaction_ratio?, min_keep?}`. Uses the lean chars/3 heuristic
+    /// (`TokenEstimator::default`; `precise-tokens` stays opt-in).
+    #[napi]
+    pub async fn context_assemble(&self, options: Value) -> napi::Result<Value> {
+        let opts = options.as_object().cloned().unwrap_or_default();
+        let messages: Vec<ChatMessage> = opts
+            .get("messages")
+            .cloned()
+            .map(serde_json::from_value)
+            .transpose()
+            .map_err(|e| Error::from_reason(format!("`messages` must be ChatMessage[]: {e}")))?
+            .unwrap_or_default();
+        let token_budget = opts
+            .get("token_budget")
+            .and_then(Value::as_u64)
+            .filter(|&b| b > 0)
+            .ok_or_else(|| Error::from_reason("`token_budget` must be a positive integer"))?;
+        let protected_prefix = opts
+            .get("protected_prefix")
+            .and_then(Value::as_u64)
+            .unwrap_or(0) as usize;
+        let mut cfg = AssembleConfig::default();
+        if let Some(ratio) = opts.get("compaction_ratio").and_then(Value::as_f64) {
+            if ratio > 0.0 {
+                cfg.compaction_ratio = ratio;
+            }
+        }
+        if let Some(min_keep) = opts.get("min_keep").and_then(Value::as_u64) {
+            cfg.min_keep = min_keep as usize;
+        }
+        let out = tokio::task::spawn_blocking(move || {
+            assemble_context(
+                messages,
+                token_budget,
+                &TokenEstimator::default(),
+                protected_prefix,
+                &cfg,
+                None,
+            )
+            .map_err(|e| format!("context_assemble failed: {e:?}"))
+        })
+        .await
+        .map_err(|e| Error::from_reason(format!("blocking task failed: {e}")))?
+        .map_err(Error::from_reason)?;
+        // `AssembleOutput` has no `Serialize`; map the fields (`ChatMessage`
+        // is `Serialize`, the report is scalars + a `Debug` mode name).
+        Ok(json!({
+            "messages": serde_json::to_value(&out.messages).map_err(serde_map_err)?,
+            "report": {
+                "mode": format!("{:?}", out.report.mode),
+                "msgs_conserved": out.report.msgs_conserved,
+                "msgs_before": out.report.msgs_before,
+                "tokens_before": out.report.tokens_before,
+                "tokens_after": out.report.tokens_after,
+            },
+            "has_boundary": out.boundary.is_some(),
+        }))
+    }
+
+    /// LLM-free consolidation pass over one session (dream primitives:
+    /// dedup, contradiction provenance, date normalization). `options`:
+    /// `{session_id, now_ms, last_active_at_ms?, idle_threshold_ms?}`.
+    /// Fail-closed: a non-idle session is an error, never a silent no-op.
+    #[napi]
+    pub async fn memory_consolidate(&self, options: Value) -> napi::Result<Value> {
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
+        let opts = options.as_object().cloned().unwrap_or_default();
+        let session_id = get_str(&opts, "session_id")?;
+        let now_ms = opts
+            .get("now_ms")
+            .and_then(Value::as_u64)
+            .ok_or_else(|| Error::from_reason("`now_ms` must be an epoch-ms integer"))?;
+        let last_active_at_ms = opts
+            .get("last_active_at_ms")
+            .and_then(Value::as_u64)
+            .unwrap_or(now_ms);
+        let mut config = DreamConfig::default();
+        if let Some(t) = opts.get("idle_threshold_ms").and_then(Value::as_u64) {
+            config.idle_threshold_ms = t;
+        }
+        let out = tokio::task::spawn_blocking(move || {
+            consolidate_session(&engine, &session_id, now_ms, last_active_at_ms, &config)
+                .map_err(|e| format!("memory_consolidate failed: {e}"))
+        })
+        .await
+        .map_err(|e| Error::from_reason(format!("blocking task failed: {e}")))?
+        .map_err(Error::from_reason)?;
+        serde_json::to_value(&out).map_err(serde_map_err)
+    }
+
+    /// Reinforce one recalled memory (`hit` = a `recalled_memories[]` item
+    /// from [`VantaDB::memory_recall`]). `outcome`: `used`|`corrected`|`unused`
+    /// (wire names of `ReinforceOutcome`; unknown tokens rejected, never
+    /// inferred). Returns the updated record.
+    #[napi]
+    pub async fn memory_reinforce(&self, hit: Value, outcome: String) -> napi::Result<Value> {
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
+        let recalled: RecalledMemory = serde_json::from_value(hit).map_err(|e| {
+            Error::from_reason(format!("`hit` must be a recalled memory object: {e}"))
+        })?;
+        let outcome = ReinforceOutcome::from_wire_str(&outcome)
+            .ok_or_else(|| Error::from_reason("`outcome` must be one of used|corrected|unused"))?;
+        let out = tokio::task::spawn_blocking(move || {
+            reinforce_recalled(&engine, &recalled, outcome)
+                .map_err(|e| format!("memory_reinforce failed: {e:?}"))
+        })
+        .await
+        .map_err(|e| Error::from_reason(format!("blocking task failed: {e}")))?
+        .map_err(Error::from_reason)?;
+        serde_json::to_value(&out).map_err(serde_map_err)
+    }
+
+    /// Full-database checkpoint: JSONL export (`export_all`) to `path`.
+    /// Backed by the core export (integrity manifest included) — this method
+    /// only moves the call across the FFI boundary.
+    #[napi]
+    pub async fn checkpoint_save(&self, path: String) -> napi::Result<Value> {
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
+        if path.is_empty() {
+            return Err(Error::from_reason("`path` must be a non-empty file path"));
+        }
+        let out = tokio::task::spawn_blocking(move || {
+            engine
+                .export_all(&path)
+                .map_err(|e| format!("checkpoint_save failed: {e}"))
+        })
+        .await
+        .map_err(|e| Error::from_reason(format!("blocking task failed: {e}")))?
+        .map_err(Error::from_reason)?;
+        serde_json::to_value(&out).map_err(serde_map_err)
+    }
+
+    /// Restore a checkpoint written by [`VantaDB::checkpoint_save`].
+    /// `quarantine` defaults to `true` (safe default: untrusted content is
+    /// quarantined unless the host opts out explicitly).
+    #[napi]
+    pub async fn checkpoint_load(
+        &self,
+        path: String,
+        quarantine: Option<bool>,
+    ) -> napi::Result<Value> {
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
+        if path.is_empty() {
+            return Err(Error::from_reason("`path` must be a non-empty file path"));
+        }
+        let quarantine = quarantine.unwrap_or(true);
+        let out = tokio::task::spawn_blocking(move || {
+            engine
+                .import_file(&path, quarantine)
+                .map_err(|e| format!("checkpoint_load failed: {e}"))
+        })
+        .await
+        .map_err(|e| Error::from_reason(format!("blocking task failed: {e}")))?
+        .map_err(Error::from_reason)?;
+        serde_json::to_value(&out).map_err(serde_map_err)
+    }
+}
+
+/// Owned, validated arguments for [`VantaDB::memory_recall`], built from the
+/// JSON boundary so the `spawn_blocking` closure is `'static` (concurrency
+/// R-2: no borrowed state crosses the await).
+struct MemoryRecallArgs {
+    user_text: String,
+    session_key: String,
+    isolation: ProfileIsolation,
+    config: RecallConfig,
+    policy: InjectionPolicy,
+}
+
+impl MemoryRecallArgs {
+    fn parse(opts: &Map<String, Value>) -> napi::Result<Self> {
+        let user_text = get_str(opts, "user_text")?;
+        let session_key = get_str(opts, "session_key")?;
+        let scope = match opts.get("scope").and_then(Value::as_str).unwrap_or("agent") {
+            "session" => RecallScope::Session,
+            "agent" => RecallScope::Agent,
+            "team" => RecallScope::Team,
+            other => {
+                return Err(Error::from_reason(format!(
+                    "`scope` must be one of session|agent|team, got `{other}`"
+                )))
+            }
+        };
+        // ERR-022 policy shared with search (`clamp_top_k` lives in
+        // `vantadb-ffi-core`); recall never takes 0 (means "inject nothing",
+        // which the core already signals with `null`).
+        let max_results = clamp_top_k(
+            opts.get("max_results")
+                .and_then(Value::as_u64)
+                .map(|v| v as usize)
+                .unwrap_or(5),
+        )
+        .max(1);
+        let mut config = RecallConfig {
+            scope,
+            max_results,
+            ..Default::default()
+        };
+        if let Some(min_overlap) = opts.get("min_overlap").and_then(Value::as_u64) {
+            config.min_overlap = min_overlap as usize;
+        }
+        let isolation = ProfileIsolation {
+            team_id: opts
+                .get("team_id")
+                .and_then(Value::as_str)
+                .unwrap_or("default")
+                .to_string(),
+            agent_id: opts
+                .get("agent_id")
+                .and_then(Value::as_str)
+                .unwrap_or("default")
+                .to_string(),
+        };
+        // VER-04: explicit ACL surface — `allow_prefixes` narrows injection;
+        // absent means allow-all (the `perform_auto_recall` default).
+        let policy = match opts.get("allow_prefixes") {
+            Some(Value::Array(items)) => InjectionPolicy::from_prefixes(
+                items.iter().filter_map(Value::as_str).map(str::to_string),
+            ),
+            _ => InjectionPolicy::allow_all(),
+        };
+        Ok(Self {
+            user_text,
+            session_key,
+            isolation,
+            config,
+            policy,
+        })
     }
 }
 

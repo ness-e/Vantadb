@@ -578,5 +578,46 @@ export declare class VantaDb {
    * should be provided; both may be combined (hybrid seeds).
    */
   graphragSearch(namespace: string, query?: string | undefined | null, queryVector?: Array<number> | undefined | null): Promise<GraphRagResult>
+  /**
+   * One auto-recall pass over L1/session/agent/team memory (MEMG-24).
+   * `options`: `{user_text, session_key, scope?, max_results?, min_overlap?,
+   * team_id?, agent_id?, allow_prefixes?}`. Returns the recall JSON, or
+   * `null` when there is nothing to inject (never an empty block).
+   */
+  memoryRecall(options: any): Promise<any>
+  /**
+   * Compact a chat history under a token budget (pure function, no engine
+   * state — works even while the database is closing). `options`:
+   * `{messages: ChatMessage[], token_budget, protected_prefix?,
+   * compaction_ratio?, min_keep?}`. Uses the lean chars/3 heuristic
+   * (`TokenEstimator::default`; `precise-tokens` stays opt-in).
+   */
+  contextAssemble(options: any): Promise<any>
+  /**
+   * LLM-free consolidation pass over one session (dream primitives:
+   * dedup, contradiction provenance, date normalization). `options`:
+   * `{session_id, now_ms, last_active_at_ms?, idle_threshold_ms?}`.
+   * Fail-closed: a non-idle session is an error, never a silent no-op.
+   */
+  memoryConsolidate(options: any): Promise<any>
+  /**
+   * Reinforce one recalled memory (`hit` = a `recalled_memories[]` item
+   * from [`VantaDB::memory_recall`]). `outcome`: `used`|`corrected`|`unused`
+   * (wire names of `ReinforceOutcome`; unknown tokens rejected, never
+   * inferred). Returns the updated record.
+   */
+  memoryReinforce(hit: any, outcome: string): Promise<any>
+  /**
+   * Full-database checkpoint: JSONL export (`export_all`) to `path`.
+   * Backed by the core export (integrity manifest included) — this method
+   * only moves the call across the FFI boundary.
+   */
+  checkpointSave(path: string): Promise<any>
+  /**
+   * Restore a checkpoint written by [`VantaDB::checkpoint_save`].
+   * `quarantine` defaults to `true` (safe default: untrusted content is
+   * quarantined unless the host opts out explicitly).
+   */
+  checkpointLoad(path: string, quarantine?: boolean | undefined | null): Promise<any>
 }
 export type VantaDB = VantaDb
