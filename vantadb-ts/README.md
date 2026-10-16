@@ -98,7 +98,7 @@ How it is loaded depends on the runtime:
   at first use; no plugin required.
 - **Vanta Studio desktop/web builds** — the WASM backend is **code-split out**:
   the glue module is externalized so the lazy `import()` never executes in
-  Tauri/HTTP modes (see `desktop/vite.config.ts`, WASM-02). It only loads in
+  Tauri/HTTP modes (see `feature-freez/desktop/vite.config.ts`, WASM-02). It only loads in
   `vite build --mode wasm` (WASM-03).
 
 ### Zero-install CDN usage (verified 2026-08-26)

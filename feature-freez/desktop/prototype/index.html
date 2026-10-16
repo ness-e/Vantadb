@@ -1,0 +1,1255 @@
+<!doctype html>
+<html lang="es" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Vanta Studio — Prototipo Fase 0</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Mono:wght@400;700&family=Geist:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style type="text/tailwindcss">
+      /* ============================================================
+         VantaDB — Manga / Linocut / Neo-Brutalist Design System
+         (copiado VERBATIM de web/src/app/globals.css — VS-00)
+         ============================================================ */
+
+      @theme inline {
+        --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
+        --font-display: "Anton", sans-serif;
+        --font-mono: "Space Mono", ui-monospace, monospace;
+        --font-tech: "Space Mono", ui-monospace, monospace;
+        --color-ring: var(--ring);
+        --color-input: var(--input);
+        --color-border: var(--border);
+        --color-destructive: var(--destructive);
+        --color-accent-foreground: var(--accent-foreground);
+        --color-accent: var(--accent);
+        --color-muted-foreground: var(--muted-foreground);
+        --color-muted: var(--muted);
+        --color-secondary-foreground: var(--secondary-foreground);
+        --color-secondary: var(--secondary);
+        --color-primary-foreground: var(--primary-foreground);
+        --color-primary: var(--primary);
+        --color-popover-foreground: var(--popover-foreground);
+        --color-popover: var(--popover);
+        --color-card-foreground: var(--card-foreground);
+        --color-card: var(--card);
+        --color-background: var(--background);
+        --color-foreground: var(--foreground);
+        --color-chart-5: var(--chart-5);
+        --color-chart-4: var(--chart-4);
+        --color-chart-3: var(--chart-3);
+        --color-chart-2: var(--chart-2);
+        --color-chart-1: var(--chart-1);
+        /* VantaDB manga/linocut palette */
+        --color-cream: #fbf9f5;
+        --color-ink: #000000;
+        --color-neon: #ff5500;
+        --color-paper: #f2ede2;
+        --color-smoke: #1a1a1a;
+        --radius-sm: calc(var(--radius) - 4px);
+        --radius-md: calc(var(--radius) - 2px);
+        --radius-lg: var(--radius);
+        --radius-xl: calc(var(--radius) + 4px);
+        /* Motion tokens */
+        --duration-fast: 90ms;
+        --duration-normal: 200ms;
+        --duration-slow: 300ms;
+        --ease-default: cubic-bezier(0.2, 0.8, 0.2, 1);
+      }
+
+      :root {
+        --radius: 0.125rem;
+        --background: #fbf9f5;
+        --foreground: #000000;
+        --card: #fbf9f5;
+        --card-foreground: #000000;
+        --popover: #fbf9f5;
+        --popover-foreground: #000000;
+        --primary: #000000;
+        --primary-foreground: #fbf9f5;
+        --secondary: #f2ede2;
+        --secondary-foreground: #000000;
+        --muted: #ece6d8;
+        --muted-foreground: #3a3a3a;
+        --accent: #ff5500;
+        --accent-foreground: #fbf9f5;
+        --destructive: #ff5500;
+        --border: #000000;
+        --input: #000000;
+        --ring: #000000;
+        --chart-1: #000000;
+        --chart-2: #ff5500;
+        --chart-3: #4a4a4a;
+        --chart-4: #1a1a1a;
+        --chart-5: #c9c0ac;
+        --sidebar: #fbf9f5;
+        --sidebar-foreground: #000000;
+        --sidebar-primary: #000000;
+        --sidebar-primary-foreground: #fbf9f5;
+        --sidebar-accent: #ff5500;
+        --sidebar-accent-foreground: #fbf9f5;
+        --sidebar-border: #000000;
+        --sidebar-ring: #000000;
+      }
+
+      /* Dark theme — paleta propia diseñada (la web no tiene tokens dark).
+         Vanta Black #0a0a0a, fg cream, neon preservado, surface #1A1A1A. */
+      [data-theme="dark"] {
+        --background: #0a0a0a;
+        --foreground: #fbf9f5;
+        --card: #0a0a0a;
+        --card-foreground: #fbf9f5;
+        --popover: #0a0a0a;
+        --popover-foreground: #fbf9f5;
+        --primary: #fbf9f5;
+        --primary-foreground: #0a0a0a;
+        --secondary: #1a1a1a;
+        --secondary-foreground: #fbf9f5;
+        --muted: #1f1f1f;
+        --muted-foreground: #b8b3a8;
+        --accent: #ff5500;
+        --accent-foreground: #0a0a0a;
+        --destructive: #ff5500;
+        --border: #fbf9f5;
+        --input: #fbf9f5;
+        --ring: #fbf9f5;
+        --chart-1: #fbf9f5;
+        --chart-2: #ff5500;
+        --chart-3: #7a7a7a;
+        --chart-4: #b8b3a8;
+        --chart-5: #3a3a3a;
+        --sidebar: #0a0a0a;
+        --sidebar-foreground: #fbf9f5;
+        --sidebar-primary: #fbf9f5;
+        --sidebar-primary-foreground: #0a0a0a;
+        --sidebar-accent: #ff5500;
+        --sidebar-accent-foreground: #0a0a0a;
+        --sidebar-border: #fbf9f5;
+        --sidebar-ring: #fbf9f5;
+      }
+
+      :root body {
+        background-color: var(--background);
+        color: var(--foreground);
+        font-feature-settings: "ss01", "cv01";
+      }
+      ::selection {
+        background: #ff5500;
+        color: #fbf9f5;
+      }
+
+      /* Press effect */
+      .press {
+        transition: transform var(--duration-fast) var(--ease-default),
+          box-shadow var(--duration-fast) var(--ease-default);
+        box-shadow: 6px 6px 0 0 var(--press-shadow, #000);
+      }
+      .press:hover {
+        transform: translate(2px, 2px);
+        box-shadow: 4px 4px 0 0 var(--press-shadow, #000);
+      }
+      .press:active {
+        transform: translate(6px, 6px);
+        box-shadow: 0 0 0 0 var(--press-shadow, #000);
+      }
+      .press-lg {
+        transition: transform 100ms var(--ease-default),
+          box-shadow 100ms var(--ease-default);
+        box-shadow: 8px 8px 0 0 var(--press-shadow, #000);
+      }
+      .press-lg:hover {
+        transform: translate(3px, 3px);
+        box-shadow: 5px 5px 0 0 var(--press-shadow, #000);
+      }
+      .press-lg:active {
+        transform: translate(8px, 8px);
+        box-shadow: 0 0 0 0 var(--press-shadow, #000);
+      }
+      .press-neon {
+        transition: transform var(--duration-fast) var(--ease-default),
+          box-shadow var(--duration-fast) var(--ease-default),
+          background-color 120ms ease;
+        box-shadow: 6px 6px 0 0 var(--press-shadow, #000);
+      }
+      .press-neon:hover {
+        transform: translate(2px, 2px);
+        box-shadow: 4px 4px 0 0 var(--press-shadow, #000);
+      }
+      .press-neon:active {
+        transform: translate(6px, 6px);
+        box-shadow: 0 0 0 0 var(--press-shadow, #000);
+      }
+
+      /* Halftone */
+      .halftone {
+        background-image: radial-gradient(circle, var(--halftone-ink, #000) 1.4px, transparent 1.6px);
+        background-size: 12px 12px;
+      }
+      .halftone-fade {
+        -webkit-mask-image: linear-gradient(to bottom right, #000 10%, transparent 75%);
+        mask-image: linear-gradient(to bottom right, #000 10%, transparent 75%);
+      }
+
+      /* Speed lines */
+      .speed-lines {
+        background-image: repeating-linear-gradient(
+          90deg,
+          transparent 0,
+          transparent 8px,
+          rgba(0, 0, 0, 0.55) 8px,
+          rgba(0, 0, 0, 0.55) 9px,
+          transparent 9px,
+          transparent 24px
+        );
+      }
+      .speed-lines-radial {
+        background: conic-gradient(
+          from 0deg,
+          transparent 0deg,
+          transparent 6deg,
+          rgba(0, 0, 0, 0.4) 6deg,
+          rgba(0, 0, 0, 0.4) 7deg,
+          transparent 7deg,
+          transparent 18deg
+        );
+      }
+      [data-theme="dark"] .speed-lines,
+      [data-theme="dark"] .speed-lines-radial {
+        opacity: 0.5;
+      }
+
+      /* Crosshatch grid */
+      .grid-tech {
+        background-image: linear-gradient(to right, rgba(0, 0, 0, 0.06) 1px, transparent 1px),
+          linear-gradient(to bottom, rgba(0, 0, 0, 0.06) 1px, transparent 1px);
+        background-size: 28px 28px;
+      }
+      [data-theme="dark"] .grid-tech {
+        background-image: linear-gradient(to right, rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+          linear-gradient(to bottom, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+      }
+
+      /* Stencil */
+      .text-stencil {
+        letter-spacing: -0.02em;
+        line-height: 0.9;
+      }
+      .text-outline-neon {
+        -webkit-text-stroke: 2px #ff5500;
+        color: transparent;
+      }
+
+      /* Custom scrollbar */
+      .scroll-manga {
+        scrollbar-width: thin;
+        scrollbar-color: var(--foreground) var(--background);
+      }
+      .scroll-manga::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+      }
+      .scroll-manga::-webkit-scrollbar-track {
+        background: var(--background);
+        border-left: 2px solid var(--foreground);
+      }
+      .scroll-manga::-webkit-scrollbar-thumb {
+        background: var(--foreground);
+        border: 2px solid var(--background);
+      }
+      .scroll-manga::-webkit-scrollbar-thumb:hover {
+        background: #ff5500;
+      }
+
+      /* Animations */
+      @keyframes vanta-blink {
+        0%, 49% { opacity: 1; }
+        50%, 100% { opacity: 0; }
+      }
+      .animate-blink {
+        animation: vanta-blink 1.1s step-end infinite;
+      }
+      @keyframes vanta-flicker {
+        0%, 100% { opacity: 1; }
+        43% { opacity: 1; }
+        45% { opacity: 0.4; }
+        47% { opacity: 1; }
+        92% { opacity: 1; }
+        94% { opacity: 0.6; }
+        96% { opacity: 1; }
+      }
+      .animate-flicker {
+        animation: vanta-flicker 4.5s linear infinite;
+      }
+      @keyframes vanta-rise {
+        from { opacity: 0; transform: translateY(14px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .animate-rise {
+        animation: vanta-rise 0.5s var(--ease-default) both;
+      }
+      @keyframes vanta-stamp {
+        0% { opacity: 0; transform: scale(1.6) rotate(-12deg); }
+        60% { opacity: 1; transform: scale(0.92) rotate(-12deg); }
+        100% { opacity: 1; transform: scale(1) rotate(-12deg); }
+      }
+      .animate-stamp {
+        animation: vanta-stamp 0.5s var(--ease-default) both;
+      }
+      @keyframes vanta-pulse-ring {
+        0% { box-shadow: 0 0 0 0 rgba(255, 85, 0, 0.55); }
+        70% { box-shadow: 0 0 0 14px rgba(255, 85, 0, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(255, 85, 0, 0); }
+      }
+      .animate-pulse-ring {
+        animation: vanta-pulse-ring 2s ease-out infinite;
+      }
+
+      /* Accessibility */
+      :focus-visible {
+        outline: 3px solid #ff5500;
+        outline-offset: 2px;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+          scroll-behavior: auto !important;
+        }
+      }
+
+      /* Slider */
+      .vanta-slider {
+        -webkit-appearance: none;
+        appearance: none;
+        height: 8px;
+        border: 2px solid var(--foreground);
+        outline: none;
+        cursor: pointer;
+      }
+      .vanta-slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 18px;
+        height: 22px;
+        background: var(--foreground);
+        border: 3px solid #ff5500;
+        cursor: grab;
+        box-shadow: 2px 2px 0 0 var(--foreground);
+      }
+
+      /* Glow neon */
+      .glow-neon {
+        text-shadow: 0 0 8px rgba(255, 85, 0, 0.6), 0 0 16px rgba(255, 85, 0, 0.3);
+      }
+      .glow-box-neon {
+        box-shadow: 0 0 0 0 rgba(255, 85, 0, 0.4);
+        animation: vanta-glow-pulse 2.5s ease-in-out infinite;
+      }
+      @keyframes vanta-glow-pulse {
+        0%, 100% { box-shadow: 0 0 5px 0 rgba(255, 85, 0, 0.3); }
+        50% { box-shadow: 0 0 20px 4px rgba(255, 85, 0, 0.5); }
+      }
+
+      /* Glitch hover */
+      .glitch-hover {
+        position: relative;
+        transition: text-shadow 150ms ease;
+      }
+      .glitch-hover:hover {
+        text-shadow: 2px 0 #ff5500, -2px 0 #7ec7ff;
+        animation: vanta-glitch 300ms steps(2) 1;
+      }
+      @keyframes vanta-glitch {
+        0% { transform: translate(0); }
+        25% { transform: translate(-1px, 1px); }
+        50% { transform: translate(1px, -1px); }
+        75% { transform: translate(-1px, -1px); }
+        100% { transform: translate(0); }
+      }
+
+      /* Neon underline */
+      .neon-underline {
+        position: relative;
+        display: inline;
+      }
+      .neon-underline::after {
+        content: "";
+        position: absolute;
+        bottom: -2px;
+        left: 0;
+        width: 0;
+        height: 3px;
+        background: #ff5500;
+        transition: width var(--duration-slow) var(--ease-default);
+      }
+      .neon-underline:hover::after {
+        width: 100%;
+      }
+
+      /* Scanlines */
+      .scanlines::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background: repeating-linear-gradient(
+          0deg,
+          transparent 0px,
+          transparent 2px,
+          rgba(0, 0, 0, 0.03) 2px,
+          rgba(0, 0, 0, 0.03) 4px
+        );
+        z-index: 1;
+      }
+
+      /* Neon pulse button */
+      .btn-neon-glow {
+        position: relative;
+        overflow: hidden;
+        transition: transform var(--duration-fast) var(--ease-default),
+          box-shadow var(--duration-fast) var(--ease-default);
+      }
+      .btn-neon-glow::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(135deg, transparent 40%, rgba(255, 85, 0, 0.3) 50%, transparent 60%);
+        transform: translateX(-100%);
+        transition: transform 500ms ease;
+      }
+      .btn-neon-glow:hover::before {
+        transform: translateX(100%);
+      }
+      .btn-neon-glow:hover {
+        box-shadow: 4px 4px 0 0 var(--foreground), 0 0 20px rgba(255, 85, 0, 0.4), 0 0 40px rgba(255, 85, 0, 0.15);
+      }
+      .btn-neon-glow:active {
+        transform: translate(6px, 6px);
+        box-shadow: 0 0 0 0 transparent;
+      }
+
+      /* Animated gradient border */
+      @keyframes vanta-gradient-border {
+        0% { background-position: 0% 50%; }
+        100% { background-position: 200% 50%; }
+      }
+      .animated-gradient-border {
+        height: 4px;
+        background: linear-gradient(90deg, #ff5500 0%, var(--foreground) 25%, #ff5500 50%, var(--foreground) 75%, #ff5500 100%);
+        background-size: 200% 100%;
+        animation: vanta-gradient-border 3s linear infinite;
+      }
+
+      /* Ink divider */
+      .ink-divider {
+        position: relative;
+        height: 32px;
+        overflow: hidden;
+      }
+      .ink-divider::before {
+        content: "";
+        position: absolute;
+        top: 50%;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: var(--foreground);
+      }
+      .ink-divider::after {
+        content: "◆";
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 14px;
+        color: #ff5500;
+        background: var(--background);
+        padding: 0 12px;
+        z-index: 1;
+      }
+
+      /* Float */
+      @keyframes vanta-float {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-6px); }
+      }
+      .animate-float {
+        animation: vanta-float 3s ease-in-out infinite;
+      }
+
+      /* Stagger children */
+      .stagger-children > * {
+        opacity: 0;
+        animation: vanta-rise 0.4s var(--ease-default) forwards;
+      }
+      .stagger-children > *:nth-child(1) { animation-delay: 0ms; }
+      .stagger-children > *:nth-child(2) { animation-delay: 80ms; }
+      .stagger-children > *:nth-child(3) { animation-delay: 160ms; }
+      .stagger-children > *:nth-child(4) { animation-delay: 240ms; }
+      .stagger-children > *:nth-child(5) { animation-delay: 320ms; }
+      .stagger-children > *:nth-child(6) { animation-delay: 400ms; }
+
+      /* TTL countdown bar */
+      @keyframes vanta-ttl {
+        from { width: 100%; }
+        to { width: 0%; }
+      }
+
+      /* MARK node pulse (keyframes CSS — reemplaza outElastic de Anime.js) */
+      @keyframes mark-node-pulse {
+        0% { r: 2.2; }
+        30% { r: 2.9; }
+        100% { r: 2.2; }
+      }
+      @keyframes mark-node-pulse-slow {
+        0%, 100% { opacity: 0.35; }
+        50% { opacity: 0.9; }
+      }
+
+      /* Prototype-specific: screen switching */
+      .screen { display: none; }
+      .screen.active { display: block; }
+      .inspector-open #inspector-panel { display: block; }
+      .inspector-open #memorias-screen { display: none; }
+      .side-btn.active {
+        background: var(--foreground);
+        color: var(--background);
+      }
+    </style>
+  </head>
+
+  <body class="scroll-manga" id="app">
+    <!-- ==================== WORKSPACE SHELL ==================== -->
+    <div class="flex h-screen w-screen overflow-hidden bg-background text-foreground">
+      <!-- ========== SIDEBAR ========== -->
+      <aside
+        id="sidebar"
+        class="flex w-60 shrink-0 flex-col border-r-4 border-foreground bg-background"
+        aria-label="Panel lateral"
+      >
+        <!-- Logo / brand -->
+        <div class="border-b-4 border-foreground p-4">
+          <div class="flex items-center gap-2">
+            <div class="flex h-8 w-8 items-center justify-center border-2 border-foreground bg-neon font-display text-lg leading-none text-background shadow-[2px_2px_0_0_var(--foreground)]">
+              ◆
+            </div>
+            <div class="leading-none">
+              <div class="font-display text-xl tracking-wide">Vanta Studio</div>
+              <div class="font-tech text-[9px] uppercase tracking-widest text-muted-foreground">memory workspace</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Nav -->
+        <nav class="flex-1 overflow-y-auto scroll-manga p-3" aria-label="Navegación principal">
+          <div class="font-tech text-[10px] uppercase tracking-widest text-muted-foreground">Workspace</div>
+          <div class="mt-2 space-y-2">
+            <button class="side-btn press flex w-full items-center gap-3 border-2 border-foreground px-3 py-2 text-left text-sm font-semibold" data-screen="home" onclick="showScreen('home')">
+              <span class="text-neon">◫</span> RESUMEN
+            </button>
+            <button class="side-btn press flex w-full items-center gap-3 border-2 border-foreground px-3 py-2 text-left text-sm font-semibold" data-screen="memorias" onclick="showScreen('memorias')">
+              <span class="text-neon">▦</span> MEMORIAS
+            </button>
+            <button class="side-btn press flex w-full items-center gap-3 border-2 border-foreground px-3 py-2 text-left text-sm font-semibold opacity-60" data-screen="timeline" onclick="showScreen('memorias')">
+              <span>◷</span> ACTIVITY <span class="ml-auto font-tech text-[9px] text-neon">F1</span>
+            </button>
+            <button class="side-btn press flex w-full items-center gap-3 border-2 border-foreground px-3 py-2 text-left text-sm font-semibold opacity-60" onclick="showScreen('memorias')">
+              <span>⠿</span> ÍNDICES <span class="ml-auto font-tech text-[9px] text-neon">F1</span>
+            </button>
+            <button class="side-btn press flex w-full items-center gap-3 border-2 border-foreground px-3 py-2 text-left text-sm font-semibold opacity-60" onclick="showScreen('memorias')">
+              <span>⌘</span> IQL <span class="ml-auto font-tech text-[9px] text-neon">F2</span>
+            </button>
+          </div>
+
+          <div class="mt-6 font-tech text-[10px] uppercase tracking-widest text-muted-foreground">Namespaces</div>
+          <div class="mt-2 space-y-2" id="ns-list"></div>
+        </nav>
+
+        <!-- Footer -->
+        <div class="border-t-4 border-foreground p-3">
+          <div class="flex items-center justify-between gap-2">
+            <div class="font-tech text-[9px] uppercase tracking-wider text-muted-foreground">
+              v0.1.0 · <span class="text-neon">embedded</span>
+            </div>
+            <button id="theme-toggle" onclick="toggleTheme()" class="press flex h-7 w-7 items-center justify-center border-2 border-foreground text-sm" title="Cambiar tema" aria-label="Cambiar tema claro/oscuro">
+              ☾
+            </button>
+          </div>
+          <div class="mt-2 h-2 border-2 border-foreground">
+            <div class="h-full bg-neon" style="width:64%"></div>
+          </div>
+          <div class="mt-1 flex justify-between font-tech text-[9px] uppercase text-muted-foreground">
+            <span>memoria</span><span>64%</span>
+          </div>
+        </div>
+      </aside>
+
+      <!-- ========== MAIN ========== -->
+      <div class="flex flex-1 flex-col overflow-hidden">
+        <!-- ========== TOPBAR ========== -->
+        <header class="flex items-center gap-3 border-b-4 border-foreground px-4 py-3">
+          <button class="press flex items-center gap-2 border-2 border-foreground bg-background px-3 py-1.5 text-xs font-semibold" onclick="showScreen('home')">
+            <span class="text-neon">◆</span>
+            <span id="active-ns-label">vanta-core</span>
+          </button>
+
+          <div class="relative flex-1">
+            <input
+              id="global-search"
+              type="search"
+              placeholder="Buscar memoria…  (⌘K)"
+              class="w-full border-2 border-foreground bg-background px-3 py-1.5 pl-9 text-sm placeholder:text-muted-foreground"
+            />
+            <span class="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-neon">🔎</span>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <div class="hidden items-center gap-1 border-2 border-foreground bg-muted px-2 py-1 font-tech text-[10px] uppercase md:flex">
+              <span class="h-1.5 w-1.5 rounded-full bg-neon animate-pulse-ring"></span>
+              BM25 · HNSW · RRF
+            </div>
+            <button class="btn-neon-glow border-2 border-foreground bg-neon px-3 py-1.5 text-xs font-bold text-background" onclick="showScreen('memorias')">
+              + NUEVA
+            </button>
+          </div>
+        </header>
+
+        <!-- ========== CENTRAL SURFACE ========== -->
+        <main class="flex-1 overflow-hidden bg-background">
+          <!-- ===== HOME ===== -->
+          <section id="home-screen" class="screen active h-full overflow-y-auto scroll-manga">
+            <div class="p-6">
+              <div class="flex items-end justify-between">
+                <div>
+                  <div class="font-tech text-[11px] uppercase tracking-widest text-neon">Overview</div>
+                  <h1 class="font-display text-4xl text-stencil">MEMORIA EN VISTA</h1>
+                </div>
+                <div class="text-right font-tech text-[10px] uppercase text-muted-foreground">
+                  sync 12ms ago ·<br /><span class="text-neon">WAL ok</span>
+                </div>
+              </div>
+
+              <div class="ink-divider mt-4"></div>
+
+              <!-- Cards overview -->
+              <div class="stagger-children mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+                <!-- Total records -->
+                <div class="press-lg border-4 border-foreground bg-card p-5" onclick="showScreen('memorias')" role="button" tabindex="0">
+                  <div class="flex items-center justify-between">
+                    <span class="font-tech text-[10px] uppercase tracking-widest text-muted-foreground">Total records</span>
+                    <span class="border-2 border-foreground bg-background px-1.5 font-tech text-[9px] text-neon">+12%</span>
+                  </div>
+                  <div class="mt-2 font-display text-5xl">1,284</div>
+                  <div class="mt-2 flex items-center gap-2">
+                    <span class="inline-flex items-center gap-1 border-2 border-foreground bg-muted px-2 py-0.5 font-tech text-[10px] uppercase"><span class="text-neon">▲</span> 152 / 7d</span>
+                    <span class="inline-flex items-center gap-1 border-2 border-foreground bg-background px-2 py-0.5 font-tech text-[10px] uppercase"><span class="text-neon">▼</span> 24 / 7d</span>
+                  </div>
+                </div>
+
+                <!-- Type distribution -->
+                <div class="press-lg border-4 border-foreground bg-card p-5">
+                  <div class="flex items-center justify-between">
+                    <span class="font-tech text-[10px] uppercase tracking-widest text-muted-foreground">Tipos de metadata</span>
+                    <span class="text-neon">▦</span>
+                  </div>
+                  <div class="mt-3 space-y-2">
+                    <div class="flex items-center gap-2">
+                      <span class="w-14 font-tech text-[10px] uppercase">string</span>
+                      <div class="h-3 flex-1 border-2 border-foreground bg-background"><div class="h-full bg-foreground" style="width:52%"></div></div>
+                      <span class="w-10 text-right font-tech text-[10px]">52%</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <span class="w-14 font-tech text-[10px] uppercase">int</span>
+                      <div class="h-3 flex-1 border-2 border-foreground bg-background"><div class="h-full bg-neon" style="width:23%"></div></div>
+                      <span class="w-10 text-right font-tech text-[10px]">23%</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <span class="w-14 font-tech text-[10px] uppercase">bool</span>
+                      <div class="h-3 flex-1 border-2 border-foreground bg-background"><div class="h-full bg-chart-3" style="width:11%"></div></div>
+                      <span class="w-10 text-right font-tech text-[10px]">11%</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <span class="w-14 font-tech text-[10px] uppercase">list</span>
+                      <div class="h-3 flex-1 border-2 border-foreground bg-background"><div class="h-full bg-chart-5" style="width:9%"></div></div>
+                      <span class="w-10 text-right font-tech text-[10px]">9%</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <span class="w-14 font-tech text-[10px] uppercase">null</span>
+                      <div class="h-3 flex-1 border-2 border-foreground bg-background"><div class="h-full bg-muted-foreground" style="width:5%"></div></div>
+                      <span class="w-10 text-right font-tech text-[10px]">5%</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- TTL countdown -->
+                <div class="press-lg border-4 border-foreground bg-card p-5">
+                  <div class="flex items-center justify-between">
+                    <span class="font-tech text-[10px] uppercase tracking-widest text-muted-foreground">Próximos a expirar</span>
+                    <span class="text-neon">⏳</span>
+                  </div>
+                  <div class="mt-2 font-display text-5xl">7</div>
+                  <div class="mt-1 font-tech text-[11px] text-muted-foreground">en las próximas 24h</div>
+                  <div class="mt-3 space-y-2">
+                    <div class="flex items-center justify-between gap-2">
+                      <span class="truncate font-tech text-[11px]">session::tmp_0181f3</span>
+                      <span class="shrink-0 font-tech text-[10px] text-neon">02:13:44</span>
+                    </div>
+                    <div class="h-2 border-2 border-foreground bg-background"><div class="h-full bg-neon" style="width:9%"></div></div>
+                    <div class="flex items-center justify-between gap-2">
+                      <span class="truncate font-tech text-[11px]">cache::geo_berlin</span>
+                      <span class="shrink-0 font-tech text-[10px] text-neon">07:40:12</span>
+                    </div>
+                    <div class="h-2 border-2 border-foreground bg-background"><div class="h-full bg-neon" style="width:32%"></div></div>
+                  </div>
+                </div>
+
+                <!-- Activity (updated recientes — decisión usuario) -->
+                <div class="press-lg border-4 border-foreground bg-card p-5">
+                  <div class="flex items-center justify-between">
+                    <span class="font-tech text-[10px] uppercase tracking-widest text-muted-foreground">Actividad reciente</span>
+                    <span class="inline-flex items-center gap-1 border-2 border-foreground bg-background px-1.5 py-0.5 font-tech text-[9px] uppercase text-neon">updated_at</span>
+                  </div>
+                  <div class="mt-3 space-y-2.5">
+                    <div class="flex items-center gap-2">
+                      <span class="h-2 w-2 shrink-0 bg-neon"></span>
+                      <span class="truncate font-tech text-[11px]">user::alice_prof</span>
+                      <span class="ml-auto shrink-0 font-tech text-[10px] text-muted-foreground">12s</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <span class="h-2 w-2 shrink-0 bg-neon"></span>
+                      <span class="truncate font-tech text-[11px]">doc::rfc_003</span>
+                      <span class="ml-auto shrink-0 font-tech text-[10px] text-muted-foreground">4m</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <span class="h-2 w-2 shrink-0 bg-neon"></span>
+                      <span class="truncate font-tech text-[11px]">chat::session_9f2c</span>
+                      <span class="ml-auto shrink-0 font-tech text-[10px] text-muted-foreground">19m</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <span class="h-2 w-2 shrink-0 bg-chart-3"></span>
+                      <span class="truncate font-tech text-[11px]">cache::geo_tokyo</span>
+                      <span class="ml-auto shrink-0 font-tech text-[10px] text-muted-foreground">1h</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <span class="h-2 w-2 shrink-0 bg-chart-3"></span>
+                      <span class="truncate font-tech text-[11px]">kv::app_config</span>
+                      <span class="ml-auto shrink-0 font-tech text-[10px] text-muted-foreground">3h</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Per-namespace counts -->
+                <div class="press-lg border-4 border-foreground bg-card p-5">
+                  <div class="flex items-center justify-between">
+                    <span class="font-tech text-[10px] uppercase tracking-widest text-muted-foreground">Por namespace</span>
+                    <span class="text-neon">▤</span>
+                  </div>
+                  <div class="mt-3 space-y-2">
+                    <div class="flex items-center justify-between border-2 border-foreground bg-background px-2 py-1.5">
+                      <span class="font-tech text-[11px]">vanta-core</span>
+                      <span class="font-display text-lg">612</span>
+                    </div>
+                    <div class="flex items-center justify-between border-2 border-foreground bg-background px-2 py-1.5">
+                      <span class="font-tech text-[11px]">users</span>
+                      <span class="font-display text-lg">318</span>
+                    </div>
+                    <div class="flex items-center justify-between border-2 border-foreground bg-background px-2 py-1.5">
+                      <span class="font-tech text-[11px]">chats</span>
+                      <span class="font-display text-lg">204</span>
+                    </div>
+                    <div class="flex items-center justify-between border-2 border-foreground bg-background px-2 py-1.5 opacity-60">
+                      <span class="font-tech text-[11px]">cache</span>
+                      <span class="font-display text-lg">96</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Expired -->
+                <div class="press-lg border-4 border-foreground bg-card p-5">
+                  <div class="flex items-center justify-between">
+                    <span class="font-tech text-[10px] uppercase tracking-widest text-muted-foreground">Expirados recientes</span>
+                    <span class="text-neon">∅</span>
+                  </div>
+                  <div class="mt-2 font-display text-5xl">3</div>
+                  <div class="mt-1 font-tech text-[11px] text-muted-foreground">últimas 24h · auto-limpiados por WAL</div>
+                  <div class="mt-3 flex flex-wrap gap-2">
+                    <span class="border-2 border-foreground bg-background px-2 py-0.5 font-tech text-[10px] line-through decoration-neon">session::old_00</span>
+                    <span class="border-2 border-foreground bg-background px-2 py-0.5 font-tech text-[10px] line-through decoration-neon">cache::tmp_77</span>
+                    <span class="border-2 border-foreground bg-background px-2 py-0.5 font-tech text-[10px] line-through decoration-neon">kv::exp_0</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ===== MEMORIAS ===== -->
+          <section id="memorias-screen" class="screen h-full overflow-y-auto scroll-manga">
+            <div class="p-6">
+              <div class="flex items-end justify-between">
+                <div>
+                  <div class="font-tech text-[11px] uppercase tracking-widest text-neon">namespace / <span id="grid-ns-label">vanta-core</span></div>
+                  <h1 class="font-display text-4xl text-stencil">MEMORIAS</h1>
+                </div>
+                <div class="flex items-center gap-2">
+                  <button class="press border-2 border-foreground bg-background px-3 py-1.5 text-xs font-semibold" onclick="openFilters()">⚙ FILTROS</button>
+                  <button class="press border-2 border-foreground bg-background px-3 py-1.5 text-xs font-semibold" onclick="openFilters()">▤ TIPO</button>
+                  <button class="press border-2 border-foreground bg-background px-3 py-1.5 text-xs font-semibold" onclick="openFilters()">⏳ TTL</button>
+                </div>
+              </div>
+
+              <div class="ink-divider mt-4"></div>
+
+              <!-- Toolbar -->
+              <div class="mt-4 flex items-center justify-between gap-3">
+                <div class="flex items-center gap-2 font-tech text-[10px] uppercase text-muted-foreground">
+                  <span class="inline-flex items-center gap-1 border-2 border-foreground bg-background px-2 py-1"><span class="h-1.5 w-1.5 rounded-full bg-neon animate-pulse-ring"></span> 612 registros</span>
+                  <span class="border-2 border-foreground bg-background px-2 py-1">virtualizado · cursor</span>
+                </div>
+                <div class="flex items-center gap-2 font-tech text-[10px] uppercase">
+                  <span class="text-muted-foreground">orden:</span>
+                  <button class="press border-2 border-foreground bg-background px-2 py-1 text-neon">updated_at ▼</button>
+                  <button class="press border-2 border-foreground bg-background px-2 py-1">key ▲</button>
+                </div>
+              </div>
+
+              <!-- Grid -->
+              <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3" id="memorias-grid"></div>
+
+              <!-- MARK empty state -->
+              <div id="mark-empty-state" class="mt-10 hidden">
+                <div class="press-lg mx-auto max-w-md border-4 border-foreground bg-card p-6 text-center">
+                  <div id="mark-wrap" class="relative mx-auto aspect-square w-full max-w-[240px] cursor-pointer"></div>
+                  <p class="mt-4 font-tech text-[11px] uppercase tracking-widest text-muted-foreground">
+                    sin resultados — MARK no encuentra coincidencias
+                  </p>
+                </div>
+              </div>
+            </div>
+          </section>
+        </main>
+
+        <!-- ========== INSPECTOR (master-detail, derecha) ========== -->
+        <aside
+          id="inspector-panel"
+          class="hidden w-[400px] shrink-0 flex-col overflow-hidden border-l-4 border-foreground bg-card"
+          aria-label="Inspector de registro"
+        >
+          <div class="flex items-center justify-between border-b-4 border-foreground px-4 py-3">
+            <div class="font-tech text-[10px] uppercase tracking-widest text-neon">Inspector</div>
+            <button onclick="closeInspector()" class="press flex h-6 w-6 items-center justify-center border-2 border-foreground text-xs" aria-label="Cerrar inspector">✕</button>
+          </div>
+          <div class="flex-1 overflow-y-auto scroll-manga p-4" id="inspector-body"></div>
+        </aside>
+      </div>
+    </div>
+
+    <!-- ==================== MARK (variante desktop, sin Anime.js) ==================== -->
+    <script>
+      /* MARK geometry — port fiel de mark-classic.tsx (VS-02 spec) */
+      const GRAPH_NODES = [
+        { x: 12, y: 25, r: 2.2 },
+        { x: 88, y: 22, r: 2.8 },
+        { x: 22, y: 75, r: 2.2 },
+        { x: 78, y: 80, r: 2.4 },
+        { x: 50, y: 15, r: 1.6 },
+        { x: 94, y: 55, r: 1.8 },
+        { x: 6, y: 55, r: 1.8 },
+        { x: 50, y: 92, r: 1.6 },
+        { x: 35, y: 45, r: 1.4 },
+        { x: 68, y: 50, r: 1.4 },
+      ];
+      const GRAPH_EDGES = [
+        [0, 4], [4, 1], [1, 5], [5, 3], [3, 7], [7, 2], [2, 6], [6, 0],
+        [0, 1], [2, 3], [4, 7], [5, 6],
+        [8, 4], [8, 0], [8, 2], [9, 5], [9, 1], [9, 3],
+      ];
+
+      /* MARK state */
+      const mark = {
+        pupilOffset: { x: 0, y: 0 },
+        sphereOffset: { x: 0, y: 0 },
+        targetPupil: { x: 0, y: 0 },
+        targetSphere: { x: 0, y: 0 },
+        squintHeight: 10,
+        blinking: false,
+        raf: null,
+        last: 0,
+      };
+
+      const darkIsNeon = () => document.documentElement.dataset.theme === "dark";
+
+      function buildMark() {
+        const wrap = document.getElementById("mark-wrap");
+        if (!wrap) return;
+        wrap.innerHTML = `
+          <svg class="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+            ${GRAPH_EDGES.map(([a, b], i) => `
+              <line class="mark-edge" data-a="${a}" data-b="${b}"
+                x1="${GRAPH_NODES[a].x}" y1="${GRAPH_NODES[a].y}"
+                x2="${GRAPH_NODES[b].x}" y2="${GRAPH_NODES[b].y}"
+                stroke="var(--foreground)" stroke-width="0.25" stroke-dasharray="1 1.2" opacity="0.5" pointer-events="none"/>
+            `).join("")}
+            ${GRAPH_NODES.map((n, i) => `
+              <circle class="mark-node" data-idx="${i}" cx="${n.x}" cy="${n.y}" r="${n.r}"
+                fill="var(--foreground)" opacity="0.35" style="transform-origin:${n.x}px ${n.y}px"/>
+            `).join("")}
+          </svg>
+          <div class="absolute inset-0 flex items-center justify-center">
+            <svg width="78%" height="78%" viewBox="0 0 100 100" fill="none"
+              style="filter: drop-shadow(0 0 28px rgba(255,85,0,0.22))">
+              <circle cx="50" cy="50" r="42" fill="none" stroke="var(--foreground)" stroke-width="3.5"/>
+              <circle cx="50" cy="50" r="42" fill="none" stroke="#FF5500" stroke-width="0.6" opacity="0.3">
+                <animate attributeName="r" values="42;46;42" dur="3.5s" repeatCount="indefinite"/>
+                <animate attributeName="opacity" values="0.3;0;0.3" dur="3.5s" repeatCount="indefinite"/>
+              </circle>
+              <circle id="mark-sphere" cx="${50 + mark.sphereOffset.x}" cy="${50 + mark.sphereOffset.y}" r="22" fill="#FF5500"/>
+              <rect id="mark-left-eye" x="41" y="45" width="4" height="10" fill="var(--foreground)" rx="2"/>
+              <rect id="mark-right-eye" x="55" y="45" width="4" height="10" fill="var(--foreground)" rx="2"/>
+            </svg>
+          </div>
+          <span class="absolute left-0 top-0 z-20 inline-flex items-center border-2 border-foreground bg-neon px-2 py-0.5 font-display text-[10px] uppercase tracking-wider text-background shadow-[2px_2px_0_0_var(--foreground)]" style="transform:rotate(-6deg)">1.2ms</span>
+          <span class="absolute right-0 top-6 z-20 inline-flex items-center border-2 border-foreground bg-background px-2 py-0.5 font-display text-[10px] uppercase tracking-wider shadow-[2px_2px_0_0_var(--foreground)]" style="transform:rotate(5deg)">RRF</span>
+          <span class="absolute bottom-6 left-0 z-20 inline-flex items-center border-2 border-foreground bg-background px-2 py-0.5 font-display text-[10px] uppercase tracking-wider shadow-[2px_2px_0_0_var(--foreground)]" style="transform:rotate(-3deg)">WAL · CRC32C</span>
+          <span class="absolute bottom-0 right-0 z-20 inline-flex items-center border-2 border-foreground bg-neon px-2 py-0.5 font-display text-[10px] uppercase tracking-wider text-background shadow-[2px_2px_0_0_var(--foreground)]" style="transform:rotate(4deg)">ZERO NET</span>
+          <div class="absolute -bottom-3 -left-3 z-20 rotate-[-4deg] border-4 border-foreground bg-neon px-2.5 py-0.5 font-display text-[11px] uppercase text-background shadow-[4px_4px_0_0_var(--foreground)]">IN-PROCESS</div>
+        `;
+
+        /* interaction: rAF lerp (τ: ojos ~60ms, esfera ~130ms) — sin Anime.js */
+        wrap.addEventListener("mousemove", (e) => {
+          const rect = wrap.getBoundingClientRect();
+          const x = ((e.clientX - rect.left) / rect.width) * 100 - 50;
+          const y = ((e.clientY - rect.top) / rect.height) * 100 - 50;
+          mark.targetPupil = { x: Math.max(-16, Math.min(16, x * 0.4)), y: Math.max(-16, Math.min(16, y * 0.4)) };
+          mark.targetSphere = { x: Math.max(-7, Math.min(7, x * 0.18)), y: Math.max(-7, Math.min(7, y * 0.18)) };
+          const d = Math.hypot(e.clientX - (rect.left + rect.width / 2), e.clientY - (rect.top + rect.height / 2));
+          mark.squintHeight = d < 180 ? Math.max(3, Math.min(10, 10 - (180 - d) / 30)) : 10;
+          if (!mark.raf) mark.raf = requestAnimationFrame(tickMark);
+        });
+
+        wrap.addEventListener("mouseleave", () => {
+          mark.targetPupil = { x: 0, y: 0 };
+          mark.targetSphere = { x: 0, y: 0 };
+          mark.squintHeight = 10;
+          if (!mark.raf) mark.raf = requestAnimationFrame(tickMark);
+        });
+
+        wrap.addEventListener("click", () => blinkMark());
+
+        /* node hover: pulse + neon */
+        wrap.querySelectorAll(".mark-node").forEach((node, i) => {
+          node.addEventListener("mouseenter", () => {
+            node.setAttribute("fill", "#FF5500");
+            node.setAttribute("opacity", "1");
+            node.style.animation = `mark-node-pulse 400ms var(--ease-default)`;
+            wrap.querySelectorAll(".mark-edge").forEach((edge) => {
+              const a = +edge.dataset.a, b = +edge.dataset.b;
+              if (a === i || b === i) { edge.setAttribute("stroke", "#FF5500"); edge.setAttribute("opacity", "0.95"); edge.setAttribute("stroke-width", "0.4"); }
+            });
+          });
+          node.addEventListener("mouseleave", () => {
+            node.setAttribute("fill", "var(--foreground)");
+            node.setAttribute("opacity", "0.35");
+            node.style.animation = "";
+            wrap.querySelectorAll(".mark-edge").forEach((edge) => {
+              edge.setAttribute("stroke", "var(--foreground)");
+              edge.setAttribute("opacity", "0.5");
+              edge.setAttribute("stroke-width", "0.25");
+            });
+          });
+        });
+
+        /* ambient node pulse (CSS keyframes, stagger por delay) */
+        wrap.querySelectorAll(".mark-node").forEach((node, i) => {
+          node.style.animation = `mark-node-pulse 2400ms ease-in-out ${i * 180}ms infinite`;
+        });
+      }
+
+      function tickMark(ts) {
+        const dt = Math.min(50, ts - mark.last);
+        mark.last = ts;
+        const tauPupil = 60, tauSphere = 130;
+        mark.pupilOffset.x += (mark.targetPupil.x - mark.pupilOffset.x) * (1 - Math.exp(-dt / tauPupil));
+        mark.pupilOffset.y += (mark.targetPupil.y - mark.pupilOffset.y) * (1 - Math.exp(-dt / tauPupil));
+        mark.sphereOffset.x += (mark.targetSphere.x - mark.sphereOffset.x) * (1 - Math.exp(-dt / tauSphere));
+        mark.sphereOffset.y += (mark.targetSphere.y - mark.sphereOffset.y) * (1 - Math.exp(-dt / tauSphere));
+        const le = document.getElementById("mark-left-eye");
+        const re = document.getElementById("mark-right-eye");
+        const sp = document.getElementById("mark-sphere");
+        if (le && !mark.blinking) { le.setAttribute("x", 43 + mark.pupilOffset.x - 2); le.setAttribute("y", 45 + mark.pupilOffset.y); le.setAttribute("height", mark.squintHeight); }
+        if (re && !mark.blinking) { re.setAttribute("x", 57 + mark.pupilOffset.x - 2); re.setAttribute("y", 45 + mark.pupilOffset.y); re.setAttribute("height", mark.squintHeight); }
+        if (sp) { sp.setAttribute("cx", 50 + mark.sphereOffset.x); sp.setAttribute("cy", 50 + mark.sphereOffset.y); }
+        mark.raf = null;
+      }
+
+      function blinkMark() {
+        if (mark.blinking) return;
+        mark.blinking = true;
+        const le = document.getElementById("mark-left-eye");
+        const re = document.getElementById("mark-right-eye");
+        [le, re].forEach((eye) => { if (eye) eye.setAttribute("height", "2"); });
+        setTimeout(() => {
+          [le, re].forEach((eye) => { if (eye) { eye.setAttribute("height", mark.squintHeight); eye.setAttribute("y", 45 + mark.pupilOffset.y); } });
+          mark.blinking = false;
+        }, 130);
+      }
+    </script>
+
+    <!-- ==================== PROTOTYPE DATA + INTERACTION ==================== -->
+    <script>
+      /* Mock data — modelo VantaMemoryRecord (namespace, key, payload, metadata, timestamps, version, node_id, vector, expires_at) */
+      const NAMESPACES = {
+        "vanta-core": 612,
+        users: 318,
+        chats: 204,
+        cache: 96,
+      };
+      let ACTIVE_NS = "vanta-core";
+
+      const TYPES = ["string", "int", "float", "bool", "datetime", "list", "null"];
+      const randomItem = (a) => a[Math.floor(Math.random() * a.length)];
+
+      function makeRecord(i) {
+        const now = Date.now();
+        const rnd = () => Math.random();
+        const age = Math.floor(rnd() * 72 * 3600e3);
+        const type = randomItem(TYPES);
+        const hasVector = rnd() > 0.35;
+        const hasTtl = rnd() > 0.7;
+        const metaVal = (t) => {
+          switch (t) {
+            case "string": return `"${randomItem(["alice", "active", "es", "prod", "beta"])}"`;
+            case "int": return String(Math.floor(rnd() * 1000));
+            case "float": return (rnd() * 100).toFixed(2);
+            case "bool": return rnd() > 0.5 ? "true" : "false";
+            case "datetime": return new Date(now - age).toISOString();
+            case "list": return `[${Array.from({ length: 3 }, () => Math.floor(rnd() * 9)).join(",")}]`;
+            case "null": return "null";
+          }
+        };
+        const meta = Object.fromEntries(
+          Array.from({ length: 2 + Math.floor(rnd() * 3) }, (_, j) => [
+            randomItem(["role", "lang", "priority", "score", "tags", "status", "region", "owner"]),
+            metaVal(randomItem(TYPES)),
+          ])
+        );
+        return {
+          key: randomItem(["user::", "doc::", "session::", "chat::", "kv::", "cache::", "evt::", "node::"]) + randomItem(["alice", "bob", "rfc_003", "9f2c", "geo_berlin", "app_config", "tmp_77", "sess_01", "plan_q3", "embed_v2", "auth_tok", "cron_daily"]) + "_" + i.toString(36),
+          payload: randomItem([
+            "Resumen de la conversación sobre arquitectura vectorial.",
+            '{"model":"v3","k":20,"ef_construction":128}',
+            "El usuario prefiere respuestas en español con contexto técnico.",
+            "Recuerda: desplegar en martes, ventana de 04:00–05:00 UTC.",
+            "Embedding candidato a reindexar tras el cambio de encoder.",
+            "Nota de la sesión: probar RRF con pesos 0.6/0.4.",
+          ]),
+          metadata: meta,
+          version: 1 + Math.floor(rnd() * 12),
+          created_at_ms: now - age - Math.floor(rnd() * 30 * 86400e3),
+          updated_at_ms: now - age,
+          node_id: BigInt(0x1a2b3c4d5e6f7081 + Math.floor(rnd() * 1e6)).toString(16),
+          vector: hasVector ? { dim: 384, norm: (1 + rnd()).toFixed(3) } : null,
+          expires_at_ms: hasTtl ? now + Math.floor(rnd() * 72 * 3600e3) : null,
+        };
+      }
+
+      const RECORDS = Array.from({ length: 18 }, (_, i) => makeRecord(i));
+
+      /* metadata type inference → chip color (encoding redundante: color + ícono + texto) */
+      function chipClass(v) {
+        const val = String(v).replace(/^"|"$/g, "");
+        if (val === "null") return { bg: "bg-background", text: "text-muted-foreground", icon: "∅" };
+        if (val === "true" || val === "false") return { bg: "bg-secondary", text: "", icon: "◉" };
+        if (/^-?\d+$/.test(val)) return { bg: "bg-background", text: "text-neon", icon: "#" };
+        if (/^-?\d*\.\d+$/.test(val)) return { bg: "bg-background", text: "text-neon", icon: "ƒ" };
+        if (!isNaN(Date.parse(val)) && /\d{4}-\d{2}/.test(val)) return { bg: "bg-secondary", text: "", icon: "◷" };
+        if (val.startsWith("[")) return { bg: "bg-secondary", text: "", icon: "▤" };
+        return { bg: "bg-background", text: "", icon: "§" };
+      }
+
+      function fmtRel(ms) {
+        const s = Math.floor((Date.now() - ms) / 1000);
+        if (s < 60) return `${s}s`;
+        const m = Math.floor(s / 60);
+        if (m < 60) return `${m}m`;
+        const h = Math.floor(m / 60);
+        if (h < 24) return `${h}h`;
+        return `${Math.floor(h / 24)}d`;
+      }
+
+      function fmtTtl(ms) {
+        const s = Math.max(0, Math.floor((ms - Date.now()) / 1000));
+        const h = Math.floor(s / 3600);
+        const m = Math.floor((s % 3600) / 60);
+        const sec = s % 60;
+        return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+      }
+
+      function ttlPct(ms, created) {
+        const total = ms - created;
+        const left = ms - Date.now();
+        return Math.max(4, Math.min(100, (left / total) * 100));
+      }
+
+      /* Render */
+      function renderNsList() {
+        const el = document.getElementById("ns-list");
+        el.innerHTML = Object.entries(NAMESPACES)
+          .map(
+            ([ns, count]) => `
+              <button class="press ns-btn flex w-full items-center gap-2 border-2 border-foreground px-2.5 py-1.5 text-left text-xs font-semibold ${ns === ACTIVE_NS ? "bg-foreground text-background" : "bg-background"}" data-ns="${ns}" onclick="setActiveNs('${ns}')">
+                <span class="h-1.5 w-1.5 rounded-full ${ns === ACTIVE_NS ? "bg-neon" : "bg-muted-foreground"}"></span>
+                <span class="truncate">${ns}</span>
+                <span class="ml-auto font-tech text-[10px] text-neon">${count}</span>
+              </button>`
+          )
+          .join("");
+      }
+
+      function setActiveNs(ns) {
+        ACTIVE_NS = ns;
+        document.getElementById("active-ns-label").textContent = ns;
+        document.getElementById("grid-ns-label").textContent = ns;
+        renderNsList();
+      }
+
+      function renderGrid() {
+        const grid = document.getElementById("memorias-grid");
+        const empty = document.getElementById("mark-empty-state");
+        if (RECORDS.length === 0) {
+          grid.innerHTML = "";
+          empty.classList.remove("hidden");
+          return;
+        }
+        empty.classList.add("hidden");
+        grid.innerHTML = RECORDS.map((r, i) => {
+          const chips = Object.entries(r.metadata)
+            .slice(0, 4)
+            .map(([k, v]) => {
+              const c = chipClass(v);
+              return `<span class="inline-flex items-center gap-1 border-2 border-foreground bg-background px-1.5 py-0.5 font-tech text-[10px] ${c.text}"><span class="${c.bg}">${c.icon}</span>${k}:${String(v).replace(/^"|"$/g, "").slice(0, 10)}</span>`;
+            })
+            .join(" ");
+          const ttl = r.expires_at_ms
+            ? `<div class="mt-2"><div class="flex items-center justify-between font-tech text-[10px] text-neon"><span>TTL</span><span>${fmtTtl(r.expires_at_ms)}</span></div><div class="mt-0.5 h-1.5 border-2 border-foreground bg-background"><div class="h-full bg-neon" style="width:${ttlPct(r.expires_at_ms, r.created_at_ms)}%"></div></div></div>`
+            : "";
+          return `
+            <article class="press cursor-pointer border-4 border-foreground bg-card p-4" tabindex="0" role="button" onclick="openInspector(${i})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openInspector(${i})}">
+              <div class="flex items-center justify-between gap-2">
+                <h3 class="truncate font-mono text-sm font-bold text-neon">${r.key}</h3>
+                <span class="shrink-0 border-2 border-foreground bg-background px-1.5 font-tech text-[9px] uppercase">v${r.version}</span>
+              </div>
+              <p class="mt-2 line-clamp-2 text-xs text-foreground/80">${r.payload}</p>
+              <div class="mt-2 flex flex-wrap gap-1.5">${chips || '<span class="font-tech text-[10px] text-muted-foreground">sin metadata</span>'}</div>
+              <div class="mt-2 flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2">
+                  <span class="inline-flex items-center gap-1 border-2 border-foreground bg-background px-1.5 py-0.5 font-tech text-[9px] uppercase ${r.vector ? "text-neon" : "text-muted-foreground"}">${r.vector ? `▣ 384d` : "no vector"}</span>
+                  <span class="font-tech text-[9px] text-muted-foreground">${r.vector ? `n=${r.vector.norm}` : ""}</span>
+                </div>
+                <span class="font-tech text-[9px] text-muted-foreground">${fmtRel(r.updated_at_ms)}</span>
+              </div>
+              ${ttl}
+            </article>`;
+        }).join("");
+      }
+
+      function openInspector(i) {
+        const r = RECORDS[i];
+        const body = document.getElementById("inspector-body");
+        const chips = Object.entries(r.metadata)
+          .map(([k, v]) => {
+            const c = chipClass(v);
+            return `<div class="flex items-center gap-2 py-1.5"><span class="w-24 truncate font-mono text-[11px] font-bold">${k}</span><span class="inline-flex items-center gap-1 border-2 border-foreground bg-background px-1.5 py-0.5 font-tech text-[10px] ${c.text}">${c.icon}</span><span class="truncate font-mono text-[11px]">${String(v).replace(/^"|"$/g, "").slice(0, 40)}</span></div>`;
+          })
+          .join("");
+        body.innerHTML = `
+          <div class="font-tech text-[10px] uppercase tracking-widest text-muted-foreground">General</div>
+          <div class="mt-2 space-y-1.5 border-2 border-foreground bg-background p-3">
+            <div class="flex gap-2"><span class="w-24 shrink-0 font-tech text-[10px] uppercase text-muted-foreground">key</span><span class="break-all font-mono text-[11px] text-neon">${r.key}</span></div>
+            <div class="flex gap-2"><span class="w-24 shrink-0 font-tech text-[10px] uppercase text-muted-foreground">namespace</span><span class="font-mono text-[11px]">${ACTIVE_NS}</span></div>
+            <div class="flex gap-2"><span class="w-24 shrink-0 font-tech text-[10px] uppercase text-muted-foreground">node_id</span><span class="break-all font-mono text-[11px]">0x${r.node_id}</span></div>
+            <div class="flex gap-2"><span class="w-24 shrink-0 font-tech text-[10px] uppercase text-muted-foreground">version</span><span class="font-mono text-[11px]">${r.version}</span></div>
+            <div class="flex gap-2"><span class="w-24 shrink-0 font-tech text-[10px] uppercase text-muted-foreground">created</span><span class="font-mono text-[11px]">${new Date(r.created_at_ms).toLocaleString()}</span></div>
+            <div class="flex gap-2"><span class="w-24 shrink-0 font-tech text-[10px] uppercase text-muted-foreground">updated</span><span class="font-mono text-[11px]">${new Date(r.updated_at_ms).toLocaleString()} <span class="text-neon">(${fmtRel(r.updated_at_ms)})</span></span></div>
+            ${r.expires_at_ms ? `<div class="flex gap-2"><span class="w-24 shrink-0 font-tech text-[10px] uppercase text-muted-foreground">expires</span><span class="font-mono text-[11px] text-neon">${fmtTtl(r.expires_at_ms)}</span></div>` : `<div class="flex gap-2"><span class="w-24 shrink-0 font-tech text-[10px] uppercase text-muted-foreground">expires</span><span class="font-mono text-[11px] text-muted-foreground">ninguno</span></div>`}
+          </div>
+
+          <div class="mt-4 flex items-center justify-between">
+            <div class="font-tech text-[10px] uppercase tracking-widest text-muted-foreground">Metadata (KV)</div>
+            <span class="border-2 border-foreground bg-background px-1.5 font-tech text-[9px] text-neon">tipo inferido</span>
+          </div>
+          <div class="mt-2 border-2 border-foreground bg-background p-3">${chips || '<div class="font-tech text-[10px] text-muted-foreground">sin metadata</div>'}</div>
+
+          <div class="mt-4 font-tech text-[10px] uppercase tracking-widest text-muted-foreground">Vector</div>
+          <div class="mt-2 border-2 border-foreground bg-background p-3">
+            ${r.vector ? `
+              <div class="flex items-center justify-between"><span class="font-tech text-[10px] uppercase">dimensión</span><span class="font-mono text-[11px]">${r.vector.dim}</span></div>
+              <div class="mt-1 flex items-center justify-between"><span class="font-tech text-[10px] uppercase">norma</span><span class="font-mono text-[11px] text-neon">${r.vector.norm}</span></div>
+              <div class="mt-2 h-8 w-full border-2 border-foreground bg-background overflow-hidden flex items-end gap-px" aria-label="sparkline de valores vectoriales">
+                ${Array.from({ length: 40 }, () => Math.floor(Math.random() * 24)).map((h) => `<span class="flex-1 bg-foreground/70" style="height:${h}px"></span>`).join("")}
+              </div>
+            ` : `<div class="font-tech text-[10px] uppercase text-muted-foreground">sin vector — solo texto</div>`}
+          </div>
+
+          <div class="mt-5 border-t-2 border-dashed border-foreground pt-4">
+            <div class="font-tech text-[10px] uppercase tracking-widest text-neon">Commit explícito — nunca auto-guardar</div>
+            <div class="mt-3 flex gap-2">
+              <button class="btn-neon-glow flex-1 border-2 border-foreground bg-neon px-3 py-2 text-xs font-bold text-background">EDITAR</button>
+              <button class="press border-2 border-foreground bg-background px-3 py-2 text-xs font-semibold opacity-60" title="Historial+Diff llega tras VS-CORE-07 (F1)">HISTORIAL</button>
+            </div>
+          </div>
+        `;
+        document.body.classList.add("inspector-open");
+      }
+
+      function closeInspector() {
+        document.body.classList.remove("inspector-open");
+      }
+
+      function showScreen(name) {
+        document.querySelectorAll(".screen").forEach((s) => s.classList.remove("active"));
+        const screen = document.getElementById(`${name}-screen`);
+        if (screen) screen.classList.add("active");
+        document.querySelectorAll(".side-btn").forEach((b) => b.classList.remove("active"));
+        const btn = document.querySelector(`.side-btn[data-screen="${name}"]`);
+        if (btn) btn.classList.add("active");
+        closeInspector();
+      }
+
+      function openFilters() {
+        /* prototipo: filtros compositor AND/OR en Fase 0 (react-querybuilder) */
+        alert("Filtros compuestos (AND/OR visual) — VS-07, Fase 0");
+      }
+
+      function toggleTheme() {
+        const html = document.documentElement;
+        const next = html.dataset.theme === "light" ? "dark" : "light";
+        html.dataset.theme = next;
+        document.getElementById("theme-toggle").textContent = next === "dark" ? "☀" : "☾";
+        mark.squintHeight = 10; /* re-apply current eye geometry on theme swap */
+      }
+
+      /* Init */
+      renderNsList();
+      renderGrid();
+      document.getElementById("active-ns-label").textContent = ACTIVE_NS;
+      showScreen("home");
+      buildMark();
+
+      /* Ctrl+K → foco búsqueda */
+      document.addEventListener("keydown", (e) => {
+        if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+          e.preventDefault();
+          document.getElementById("global-search").focus();
+        }
+      });
+    </script>
+  </body>
+</html>

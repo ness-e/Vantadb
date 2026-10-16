@@ -42,7 +42,7 @@ Per-workflow detail pages live next to this index (`ci-gate.md`,
 
 | Workflow | Purpose (1 line) | Triggers (short) |
 |----------|------------------|------------------|
-| `platform-ops.yml` | Desktop builds + CodeQL + opencode bot + OCR nightly (8 jobs) | push/PR (paths desktop), 2 schedules, comments, dispatch |
+| `platform-ops.yml` | CodeQL + opencode bot + OCR nightly (5 jobs; desktop builds removidos por freeze 2026-10-16) | push/PR (paths src/server), 2 schedules, comments, dispatch |
 
 ## Release (9)
 

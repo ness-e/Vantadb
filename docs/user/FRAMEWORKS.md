@@ -60,7 +60,7 @@ across processes, or if two threads in one database leak into each other.
 
 - Run it: `python examples/langgraph_dev_to_prod/demo.py` — see
   [examples/langgraph_dev_to_prod](../../examples/langgraph_dev_to_prod/README.md)
-- CI: [ci-frameworks-demo.yml](../../.github/workflows/ci-frameworks-demo.yml) (PR-blocking)
+- CI: [demo-acceptance.yml](../../.github/workflows/demo-acceptance.yml) (PR-blocking)
 
 ## Multi-user isolation
 

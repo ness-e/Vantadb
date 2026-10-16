@@ -1,0 +1,152 @@
+/* MARK — VantaDB mascot (VS-02). Self-contained CSS: desktop has no Tailwind
+   until VS-01 lands, so classes are plain CSS namespaced .vmark-* (mirrors the
+   tokens of web/src/app/globals.css: cream #FBF9F5, ink #000, neon #FF5500).
+   VS-01 migration to Tailwind utilities is optional and non-breaking. */
+
+.vmark {
+  position: relative;
+  margin-inline: auto;
+  aspect-ratio: 1;
+  width: 100%;
+  max-width: 460px;
+  cursor: pointer;
+}
+@media (min-width: 1024px) {
+  .vmark {
+    max-width: none;
+  }
+}
+
+/* Background graph — fills the container, stretches to it. */
+.vmark-graph {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Edges: stroke comes from currentColor (JSX switches to #FF5500 on hover);
+   the opacity attribute is transitioned (presentation attr maps to CSS). */
+.vmark-edge {
+  color: rgba(0, 0, 0, 0.25);
+  transition: opacity 300ms ease;
+}
+
+/* Nodes: fill via currentColor; keyframe pulses scale around the node box. */
+.vmark-node {
+  color: rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.vmark-node-ambient {
+  animation: vmark-node-ambient 2400ms infinite ease-in-out;
+}
+.vmark-node-pulse {
+  animation: vmark-node-pulse 400ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+@keyframes vmark-node-pulse {
+  0% { transform: scale(1); }
+  60% { transform: scale(2.5); }
+  100% { transform: scale(2.2); }
+}
+@keyframes vmark-node-ambient {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.3); }
+}
+
+/* MARK face — centered over the graph, 78% of the container. */
+.vmark-face-wrap {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.vmark-face {
+  width: 78%;
+  height: 78%;
+  filter: drop-shadow(0 0 28px rgba(255, 85, 0, 0.22));
+}
+
+/* Manga SFX label (SfxLabel) — Anton display, 2px ink border + hard shadow. */
+.vmark-label {
+  position: absolute;
+  z-index: 20;
+  display: inline-flex;
+  align-items: center;
+  border: 2px solid #000;
+  padding: 2px 8px;
+  font-family: "Anton", "Arial Narrow", sans-serif;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  box-shadow: 2px 2px 0 0 #000;
+  white-space: nowrap;
+}
+.vmark-label-neon {
+  background: #ff5500;
+  color: #000;
+}
+.vmark-label-ink {
+  background: #fbf9f5;
+  color: #000;
+}
+.vmark-pos-tl { top: 0; left: 0; }
+.vmark-pos-tr { top: 24px; right: 0; }
+.vmark-pos-bl { bottom: 24px; left: 0; }
+.vmark-pos-br { bottom: 0; right: 0; }
+
+/* Corner clip tag — neon by default, overridable per status. */
+.vmark-tag {
+  position: absolute;
+  bottom: -16px;
+  left: -16px;
+  z-index: 20;
+  transform: rotate(-4deg);
+  border: 4px solid #000;
+  background: #ff5500;
+  padding: 4px 12px;
+  font-family: "Anton", "Arial Narrow", sans-serif;
+  font-size: 14px;
+  text-transform: uppercase;
+  color: #000;
+  box-shadow: 4px 4px 0 0 #000;
+  white-space: nowrap;
+}
+.vmark-tag-cream {
+  background: #fbf9f5;
+}
+.vmark-tag-ink {
+  background: #000;
+  color: #ff5500;
+}
+
+/* Hint chip — Space Mono, 9px, ink bg + neon text. */
+.vmark-hint {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  z-index: 20;
+  border: 2px solid #000;
+  background: #000;
+  padding: 2px 8px;
+  font-family: "Space Mono", "Geist Mono", ui-monospace, monospace;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #ff5500;
+  white-space: nowrap;
+}
+
+/* Reduced motion: kill CSS keyframe animation (mirrors web globals.css).
+   JS motion (follow/blink) and SMIL glow are handled in the hook/variant. */
+@media (prefers-reduced-motion: reduce) {
+  .vmark-node-ambient,
+  .vmark-node-pulse {
+    animation: none;
+  }
+  .vmark-edge {
+    transition: none;
+  }
+}

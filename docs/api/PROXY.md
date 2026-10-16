@@ -49,7 +49,7 @@ header resolved against the local `user` entity collection (`auth.rs`, D34);
 missing or unknown keys get `401`. There is deliberately **no loopback
 bypass**: local silent exposure of sessions/cost was the API-05 finding.
 The desktop Proxy Dashboard
-([`desktop/src/components/proxy/ProxyDashboard.tsx`](../../desktop/src/components/proxy/ProxyDashboard.tsx))
+([`feature-freez/desktop/src/components/proxy/ProxyDashboard.tsx`](../../feature-freez/desktop/src/components/proxy/ProxyDashboard.tsx))
 does not send the header yet — tracked as `FIND-155`.
 
 ## Opt-in features (9)

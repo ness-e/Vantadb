@@ -9,7 +9,7 @@ tags: [vantadb, desktop, architecture, tauri]
 # VantaDB Desktop — Architecture
 
 This document describes the **actual** multi-connection model of the desktop
-app (`desktop/`), as implemented in `desktop/src-tauri/src/connections/`.
+app (`feature-freez/desktop/`), as implemented in `feature-freez/desktop/src-tauri/src/connections/`.
 Strategic decisions live in the ADRs — this document references them and does
 not duplicate them:
 
@@ -25,14 +25,14 @@ not duplicate them:
 Transport is pluggable at two layers:
 
 ```
-┌─────────────────────────── Console (React, desktop/src/) ───────────────────────────┐
+┌─────────────────────────── Console (React, feature-freez/desktop/src/) ───────────────────────────┐
 │  VantaTransport (transport.ts)                                                      │
 │  ├── TauriBackend   → Tauri IPC invoke("vanta_*")            [in Tauri shell]       │
 │  ├── HttpBackend    → fetch /api/v2/* on vantadb-server      [plain browser]        │
 │  └── WasmBackend    → vantadb-wasm + OPFS/IndexedDB          [--mode wasm build]    │
 └─────────────────────────────────────────────────────────────────────────────────────┘
                     │ (TauriBackend only)
-┌────────────────────▼──── Shell (Rust, desktop/src-tauri/src/) ──────────────────────┐
+┌────────────────────▼──── Shell (Rust, feature-freez/desktop/src-tauri/src/) ──────────────────────┐
 │  ConnectionManager (manager.rs)                                                     │
 │  registry: HashMap<String, Box<dyn VantaConnection>> + active_id                    │
 │  ├── NativeConnection  (native.rs)  → embedded vantadb::VantaEmbedded (fjall)       │
@@ -127,9 +127,9 @@ live in `commands/memory.rs` and route through the manager's active connection.
   `npm run tauri build` and Desktop CI as **build-only, unsigned** artifacts
   (`.github/workflows/desktop.yml` has no `tagName`/`releaseId`); there is no
   public release channel and no update mechanism — users run from source
-  (`desktop/README.md` "Installer status").
+  (`feature-freez/desktop/README.md` "Installer status").
 - **Auto-update: deferred.** `tauri-plugin-updater` is **not** installed or
-  configured (verified 2026-10-04: 0 code refs in `desktop/src-tauri`). The
+  configured (verified 2026-10-04: 0 code refs in `feature-freez/desktop/src-tauri`). The
   Tauri updater requires an update-signing keypair that cannot be disabled
   (official docs) and installer signing is deferred by HITL decision
   (`DEVOPS-10` / H-08 — "when the public release requires it"), so the defer

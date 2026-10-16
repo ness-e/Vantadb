@@ -173,7 +173,7 @@ Expected output (abridged):
    put + delete --attest + certificate verify: exit 0 x3
 ```
 
-CI: [wal-verify-demo.yml](../../.github/workflows/wal-verify-demo.yml).
+CI: [demo-acceptance.yml](../../.github/workflows/demo-acceptance.yml).
 
 ### Injection governance (budget, ACL, audit)
 
@@ -202,7 +202,7 @@ The audit rows for that run (timestamp omitted; one per decision, no payload):
 | `persona/sess-1` | `ok` | `…;kind=persona;budget=60/60;truncated=true;acl=allow` |
 | `scene/sess-1` | `denied` | `…;budget=60/60;acl=deny;…` |
 
-CI: [injection-governance-demo.yml](../../.github/workflows/injection-governance-demo.yml).
+CI: [demo-acceptance.yml](../../.github/workflows/demo-acceptance.yml).
 
 ## Covered / not covered
 

@@ -22,7 +22,7 @@ exclude = [
     "examples/",
     "docs/",
     "assets/",
-    "desktop/",
+    "feature-freez/desktop/",
     "e2e/",
     "evals/",
     "embeddings/",
