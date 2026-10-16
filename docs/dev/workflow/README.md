@@ -1,15 +1,15 @@
 ---
-title: Workflows — Inventory (19 active)
+title: Workflows — Inventory (20 active)
 kind: index
 status: active
 description: "Per-workflow detail pages live next to this index (ci-gate.md,"
 tags: [vantadb, ci, workflows, inventory]
 ---
 
-# Workflows — Inventory (19 active)
+# Workflows — Inventory (20 active)
 
-> **Count verified mechanically on 2026-10-16: 19 files** (`Get-ChildItem .github/workflows -Filter *.yml`).
-> Post CI-08 (SRV-10): 40 → 32 (Steps 2-3) → 18 (Step 4) → 19 (+`publish-mcp-registry.yml` FIND-344). Registry: `docs/dev/references/verified-numbers.md`.
+> **Count verified mechanically on 2026-10-16: 20 files** (`Get-ChildItem .github/workflows -Filter *.yml`).
+> Post CI-08 (SRV-10): 40 → 32 (Steps 2-3) → 18 (Step 4) → 19 (+`publish-mcp-registry.yml` FIND-344) → 20 (+`electron-node.yml` DIST-19). Registry: `docs/dev/references/verified-numbers.md`.
 > Pre-rename snapshot (FIND-142 pending): filenames keep the numeric suffix
 > (`ci-rust.yml`, `release-wheels.yml`, …). After renames, this index
 > must be updated. History: 28 in FIND-128; `rustdoc-70.yml` merged into
