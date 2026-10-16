@@ -20,9 +20,10 @@
 # (raises the GitHub API rate limit; the repo is public — the token is only
 # ever sent to api.github.com, never to the registries).
 #
-# Maintenance: the expected asset list (5 targets + 4 wheels) mirrors
-# `.github/workflows/release-binaries.yml` and `release-wheels.yml` — update
-# both together when the build matrix changes.
+# Maintenance: the expected asset/registry list lives in
+# `release-manifest.json` (single source of truth, FIND-342) — update it when
+# the build matrix changes. This script renders from the manifest, never
+# hardcodes the lists.
 param(
   [string]$Tag,
   [switch]$Smoke,
@@ -60,6 +61,16 @@ $Ver = $Matches[1]
 Write-Host "Verifying release $Tag (version $Ver) - $Repo" -ForegroundColor Cyan
 Write-Host ""
 
+# --- 0. Expected list: single source of truth (FIND-342) ---------------------
+# release-manifest.json owns the channel->name->version map. Fail closed when
+# it cannot be read: a hardcoded fallback would be a second mirrored list.
+$ManifestPath = Join-Path $PSScriptRoot ".." "release-manifest.json"
+try { $manifest = Get-Content -Raw $ManifestPath | ConvertFrom-Json }
+catch {
+  Write-Host "FAIL cannot read release-manifest.json ($ManifestPath): $($_.Exception.Message)" -ForegroundColor Red
+  exit 2
+}
+
 # --- 1. GitHub release: binary assets + wheels --------------------------------
 Write-Host "GitHub release assets"
 try { $release = Invoke-Api "https://api.github.com/repos/$Repo/releases/tags/$Tag" }
@@ -69,25 +80,16 @@ catch {
 }
 $assetNames = @($release.assets | ForEach-Object { $_.name })
 
-$targets = @(
-  "x86_64-unknown-linux-gnu",
-  "x86_64-apple-darwin",
-  "aarch64-apple-darwin",
-  "aarch64-unknown-linux-gnu",
-  "x86_64-pc-windows-msvc"
-)
-foreach ($t in $targets) {
-  $ext = "tar.gz"
-  if ($t -like "*windows*") { $ext = "zip" }
-  $archive = "vantadb-$t.$ext"
+foreach ($b in $manifest.github.binaries) {
+  $archive = "vantadb-$($b.target).$($b.ext)"
   if ($assetNames -contains $archive) { Write-Ok $archive } else { Write-Bad "$archive missing" }
   if ($assetNames -contains "$archive.sha256") { Write-Ok "$archive.sha256" } else { Write-Bad "$archive.sha256 missing" }
 }
-$wheelPlatforms = @("macosx_11_0_arm64", "manylinux_2_28_aarch64", "manylinux_2_28_x86_64", "win_amd64")
-foreach ($p in $wheelPlatforms) {
-  $wheel = "vantadb_py-$Ver-cp311-abi3-$p.whl"
+foreach ($p in $manifest.github.wheels.platforms) {
+  $wheel = ($manifest.github.wheels.template -replace '\{version\}', $Ver) -replace '\{platform\}', $p
   if ($assetNames -contains $wheel) { Write-Ok $wheel } else { Write-Bad "$wheel missing" }
 }
+foreach ($d in $manifest.documented_only) { Write-Skip "$($d.label): $($d.reason)" }
 
 # --- 2. Registries -------------------------------------------------------------
 Write-Host ""
@@ -96,10 +98,9 @@ function Test-Artifact([string]$label, [string]$url) {
   try { Invoke-Api $url | Out-Null; Write-Ok "$label $Ver is live" }
   catch { Write-Bad "$label $Ver NOT live ($url)" }
 }
-Test-Artifact "crates.io vantadb" "https://crates.io/api/v1/crates/vantadb/$Ver"
-Test-Artifact "PyPI vantadb-py"   "https://pypi.org/pypi/vantadb-py/$Ver/json"
-Test-Artifact "npm vantadb"       "https://registry.npmjs.org/vantadb/$Ver"
-Test-Artifact "npm vantadb-wasm"  "https://registry.npmjs.org/vantadb-wasm/$Ver"
+foreach ($r in $manifest.registries) {
+  Test-Artifact $r.label ($r.url_template -replace '\{version\}', $Ver)
+}
 
 # --- 3. Smoke: current platform's archive -> sha256 -> run ----------------------
 if ($Smoke) {

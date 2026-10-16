@@ -36,12 +36,23 @@ import { abs } from './lib.mjs';
 const WORKSPACE_MANIFEST = 'Cargo.toml';
 
 /**
- * The npm manifests this gate owns. Only packages a release tag publishes are
- * tracked: a package with no publish path cannot produce the silent skip this
- * gate exists to prevent. Keep the list explicit and small.
+ * The npm manifests this gate owns, plus server.json (stale-descriptor risk,
+ * same Release-PR fix — see its `why`). Only packages a release tag publishes
+ * are tracked on the npm side: a package with no publish path cannot produce
+ * the silent skip this gate exists to prevent. Keep the list explicit and small.
  */
 export const TARGETS = [
   { name: 'vantadb', path: 'vantadb-ts/package.json', policy: 'workspace' },
+  {
+    name: 'mcp-server',
+    path: 'server.json',
+    policy: 'workspace',
+    // server.json carries a top-level "version" (same shape the parser reads)
+    // that must track the workspace version
+    // (docs/user/operations/MCP_REGISTRY.md). No silent-skip risk — the
+    // failure mode is a stale public descriptor, not a skipped publish.
+    why: 'is the public MCP registry descriptor (docs/user/operations/MCP_REGISTRY.md)',
+  },
   {
     name: 'vantadb-node',
     path: 'vantadb-node/package.json',
@@ -128,9 +139,10 @@ export function evaluate({ workspace, packages }) {
         found,
         expected,
         message:
-          `${p.path}: version ${found} != workspace version ${expected} (expected ${expected}) — ` +
+          `${p.path}: version ${found} != workspace version ${expected} (expected ${expected}) - ` +
           `bump it in the same PR that bumps the workspace version (the release-plz Release PR), ` +
-          `or the npm publish step will skip silently (see docs/dev/workflow/PUBLISH.md)`,
+          (p.why ? `${p.why} ` : `or the npm publish step will skip silently `) +
+          `(see docs/dev/workflow/PUBLISH.md)`,
       });
     }
 
@@ -252,6 +264,14 @@ function selfTest() {
     assert(parsePackageVersion('not json') === null, 'invalid JSON');
     assert(parsePackageVersion('{"version":3}') === null, 'non-string version');
     assert(parsePackageVersion('{}') === null, 'missing version');
+  });
+  check('gate: server.json at the workspace version passes (workspace policy)', () => {
+    const srv = { name: 'mcp-server', path: 'server.json', policy: 'workspace' };
+    const r = evaluate({ workspace: '0.8.0', packages: [{ ...srv, version: '0.8.0' }] });
+    assert(r.pass, 'expected pass');
+    const r2 = evaluate({ workspace: '0.8.0', packages: [{ ...srv, version: '0.6.1' }] });
+    assert(!r2.pass, 'expected fail');
+    assert(r2.failures[0].message.includes('server.json'), 'must name the file');
   });
   check('gate: in-sync package passes', () => {
     const r = evaluate({ workspace: '0.8.0', packages: [{ ...tsPack, version: '0.8.0' }] });
