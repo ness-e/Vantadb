@@ -94,7 +94,7 @@ F requiere diseño (ver abajo). Ningún slice toca `src/`, bindings, versiones d
 - [x] D1 — `release-manifest.json` nuevo (canal→nombre→versión; adapters/providers/node documentados)
 - [x] D2 — `verify-release.ps1` consume el manifest (única fuente; SKIP documentados)
 - [x] E1 — `release-verify.yml`: job `tarball-build` con probe de red (`NO-VERIFICADO` honesto)
-- [ ] F1 — diseño fan-out + Save Point (Gate D DISPARADO: ver §Slice F — no implementar sin owner)
+- [x] F1 — fan-out dispatch implementado (release.yml: job `fanout` + outputs; PUBLISH.md §cascada) — review+commit los hace el orquestador
 - [x] VAL — yaml parse + `node` gate + pwsh parse + `git diff --check`
 
 ## Slice F — hallazgo de DISCOVERY (Gate D)
@@ -125,12 +125,36 @@ binaries recibe `-f release_tag=`; npm/sbom igual. Solo se toca `release.yml`
 de npm-61 exactos + outputs de `release-plz/action@v0.5.139` (¿expone tag?) +
 aprobar elevación de permisos. Prueba real: próximo release (declarado).
 
+## Slice F — validación DISCOVERY→ACT (Gate D owner-APROBADO 2026-10-16, implementar)
+
+Verificado leyendo (cero cambios en downstreams — Gate D intacto):
+
+- `release-npm-61.yml:171-173` — `publish-wasm`: `startsWith(github.ref,'refs/tags/v') || (dispatch && package!='ts')`. Dispatch `--ref <tag>` ⇒ primera cláusula TRUE ⇒ publica. Requiere `-f package=both` (`package` es required).
+- `release-npm-61.yml:257-261` — `publish-ts`: `always() && wasm!='failure' && (tags/v || dispatch && package!='wasm')`. Dispatch `--ref <tag>` ⇒ TRUE ⇒ publica.
+- `release-wheels.yml:175` — `publish-pypi`: `startsWith(github.ref,'refs/tags/v')`. Dispatch `--ref <tag>` ⇒ TRUE ⇒ publica. Sin inputs en `workflow_dispatch`.
+- `release-binaries.yml:146` — upload: `event=='release' || inputs.release_tag!=''`. Dispatch con `-f release_tag=<tag>` ⇒ TRUE ⇒ sube. `release_tag` ya existe como input.
+- `release-npm-node.yml:141-143` — `publish`: `startsWith(ref,'refs/tags/node-v') || event=='workflow_dispatch'`. Dispatch ⇒ segunda cláusula TRUE ⇒ publica. (Step `Attach to Release:221` salta bajo dispatch — step-level, sin cambios.)
+- `release-sbom.yml:3-6` — `push tags v*` + `workflow_dispatch` sin inputs ni gates: read-only, dispatch directo.
+- `release-plz/action` outputs (action.yml oficial): `releases` (JSON de `release -o json`) + `releases_created`. Tag derivado con `jq '.[0].tag_name // .[0].tag // empty'` + fail-closed si vacío.
+
+Implementado (solo `release.yml` + `PUBLISH.md` §cascada):
+
+- `release-plz-release`: `outputs.releases`/`releases_created` + `id: release-plz` en el step (aditivo, OIDC/PAT intactos).
+- Job `fanout` (`needs: release-plz-release`, `if: releases_created=='true'`, `actions: write`, `timeout-minutes: 10`): guard PAT (sin PAT falla en rojo — el dispatch con `GITHUB_TOKEN` no dispara downstreams por supresión de eventos derivados) + 5 `gh workflow run --ref $TAG` (inputs requeridos incluidos).
+- `PUBLISH.md`: §cascada ahora documenta fan-out como primario y PAT como fallback. PAT conservado en el workflow (no borrado).
+- Supuesto declarado NO verificado contra docs oficiales (fetch 404, sin reintento por budget): que `GITHUB_TOKEN` no dispara `workflow_dispatch` vía API. El diseño es robusto en ambos casos (con PAT funciona siempre; sin PAT falla en rojo, nunca verde-vacío). Verificar en el próximo release.
+
 ## Save Point (reanudación sin pérdida)
 
 - B/C/D/E: trabajo en worktree sin commitear (el orquestador hace review+commit).
   Verificación por slice en §Validación del RESULTADO.
-- F: NO TOCADO (ningún archivo). Próximo step = `F1`: validar alternativa dispatch
-  (leer `release-npm-61.yml:165-180,250-265` + outputs release-plz + decidir con owner).
+- F: IMPLEMENTADO (archivos: `release.yml` job fanout + outputs, `PUBLISH.md`
+  §cascada). Incidente en el camino: un edit con oldString amplio borró los
+  steps de `release-plz-release` — reparado con `git checkout -- release.yml`
+  (estaba limpio antes) y reaplicado en 3 edits mínimos secuenciales.
+  Validación pendiente (orquestador o este worker en verify): yaml parse +
+  `git diff --check` + confirmar que solo `release.yml` cambió bajo
+  `.github/workflows/`. Prueba real imposible sin release (declarado).
 - `PROXIMO_STEP="review + commit"` (orquestador).
 
 ## Decisions log (owner 2026-10-16, resumidas del prompt)
@@ -144,4 +168,5 @@ aprobar elevación de permisos. Prueba real: próximo release (declarado).
 ## Review (Gate P2-01)
 - **Revisor:** vanta-review, sesión distinta al implementador (veredicto 2026-10-16, contratos re-ejecutados).
 - **Veredicto:** ✅ APPROVE FIND-342 (B-E; F pendiente decisión) — shas = sidecars oficiales por red, manifest fail-closed sin fallback, tarball probe honesto, Gate D en F respetado (0 archivos fan-out). Sin Required/Optional.
-- **Estado:** ✅ COMPLETED (B-E + F documentado como propuesta al owner).
+- **Veredicto F1:** ✅ APPROVE F1 (2026-10-16, re-ejecución: originals intactos, downstreams sin cambios, diseño robusto con/sin PAT). 2 Optional + 2 nits como follow-up (tabla invariante, `.[0].tag` primario, DIST-01 multi-release).
+- **Estado:** ✅ COMPLETED (B-E + F1 fan-out dispatch aprobado por owner).
