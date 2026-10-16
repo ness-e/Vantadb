@@ -278,3 +278,123 @@ fn graphrag_edges_are_ordered_by_source_target_label() {
         "edges must be ordered by (source, target, label)"
     );
 }
+
+/// EGO-15: `max_degree_per_node` caps hub fan-out during expansion.
+/// A hub with 6 leaves, `expansion_hops: 1` and `max_degree_per_node: 2`
+/// visits hub + 2 leaves (3 nodes); the default pipeline stays uncapped (7).
+#[test]
+fn test_expansion_max_degree_per_node_caps_hub() {
+    let (db, _dir) = setup_test_db();
+
+    let hub = insert_vector_node(
+        &db,
+        "degree",
+        "hub",
+        "hub central alpha node",
+        vec![0.1, 0.2, 0.3],
+    );
+    for i in 0..6 {
+        let leaf = insert_vector_node(
+            &db,
+            "degree",
+            &format!("leaf{i}"),
+            &format!("leaf number {i} beta"),
+            vec![0.4 + i as f32 * 0.1, 0.5, 0.6],
+        );
+        db.add_edge(hub, leaf, "connects", Some(1.0), None)
+            .expect("edge");
+    }
+
+    let capped = GraphRagPipeline {
+        seed_k: 1,
+        expansion_hops: 1,
+        max_expansion_nodes: 100,
+        max_degree_per_node: 2,
+        ..GraphRagPipeline::new()
+    };
+    let result = capped
+        .search(&db, "degree", Some("hub central alpha"), None)
+        .expect("search");
+    assert_eq!(result.stats.seeds_found, 1, "hub must be the single seed");
+    assert_eq!(
+        result.stats.nodes_expanded, 3,
+        "hub + 2 leaves with max_degree_per_node=2, got {}",
+        result.stats.nodes_expanded
+    );
+
+    let full = GraphRagPipeline {
+        seed_k: 1,
+        expansion_hops: 1,
+        max_expansion_nodes: 100,
+        ..GraphRagPipeline::new()
+    };
+    let result = full
+        .search(&db, "degree", Some("hub central alpha"), None)
+        .expect("search");
+    assert_eq!(
+        result.stats.nodes_expanded, 7,
+        "default pipeline stays uncapped, got {}",
+        result.stats.nodes_expanded
+    );
+}
+
+/// EGO-15 (follow-up): `min_edge_weight` filters weak edges during
+/// expansion. Hub with 6 leaves (3 strong @1.0, 3 weak @0.1),
+/// `min_edge_weight: Some(0.5)` visits hub + 3 strong leaves (4 nodes);
+/// `None` (default) visits all 7.
+#[test]
+fn test_expansion_min_edge_weight_filters_weak_edges() {
+    let (db, _dir) = setup_test_db();
+
+    let hub = insert_vector_node(
+        &db,
+        "weight",
+        "hub",
+        "hub central alpha node",
+        vec![0.1, 0.2, 0.3],
+    );
+    for i in 0..6 {
+        let leaf = insert_vector_node(
+            &db,
+            "weight",
+            &format!("leaf{i}"),
+            &format!("leaf number {i} beta"),
+            vec![0.4 + i as f32 * 0.1, 0.5, 0.6],
+        );
+        let w = if i % 2 == 0 { 1.0 } else { 0.1 };
+        db.add_edge(hub, leaf, "connects", Some(w), None)
+            .expect("edge");
+    }
+
+    let filtered = GraphRagPipeline {
+        seed_k: 1,
+        expansion_hops: 1,
+        max_expansion_nodes: 100,
+        min_edge_weight: Some(0.5),
+        ..GraphRagPipeline::new()
+    };
+    let result = filtered
+        .search(&db, "weight", Some("hub central alpha"), None)
+        .expect("search");
+    assert_eq!(result.stats.seeds_found, 1, "hub must be the single seed");
+    assert_eq!(
+        result.stats.nodes_expanded, 4,
+        "hub + 3 strong leaves with min_edge_weight=0.5, got {}",
+        result.stats.nodes_expanded
+    );
+
+    let unfiltered = GraphRagPipeline {
+        seed_k: 1,
+        expansion_hops: 1,
+        max_expansion_nodes: 100,
+        ..GraphRagPipeline::new()
+    };
+    let result = unfiltered
+        .search(&db, "weight", Some("hub central alpha"), None)
+        .expect("search");
+    assert_eq!(
+        result.stats.nodes_expanded, 7,
+        "default (None) keeps weak edges, got {}",
+        result.stats.nodes_expanded
+    );
+}

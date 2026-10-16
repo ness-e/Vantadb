@@ -201,7 +201,7 @@ pub use sdk::{
     SkillUpdateInput, SkillWriteResult,
 };
 pub use storage::vfile::VFILE_VERSION;
-pub use storage::BackendKind;
+pub use storage::{BackendKind, MergeReport, PipelineMode, PipelineReport, VacuumReport};
 pub use text_index::{TextIndexSpec, TextTokenizerSpec};
 pub use utils::compute_confidence_friction;
 pub use wal::{WalReader, WalRecord, WalWriter};

@@ -240,7 +240,7 @@ export function buildSearchRequestBase(
     if (!hasText && !hasSparse) {
       throw new DbError(
         ERROR_CODES.VALIDATION_ERROR,
-        "buildSearchRequestBase: query_vector must be a non-empty array unless text_query or query_sparse is provided",
+        "buildSearchRequestBase: query_vector must be a non-empty array unless text_query or query_sparse is provided; for full sweeps use scan()/list(), not search",
       );
     }
   }

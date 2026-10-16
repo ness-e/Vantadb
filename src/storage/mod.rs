@@ -10,5 +10,6 @@ pub(crate) mod wal;
 // Re-export public types from engine
 pub use engine::{
     BackendKind, BackendPartition, BatchInsertOptions, EvictionReport, FsSnapshot,
-    IndexRebuildReport, InsertMode, MemoryStats, StorageEngine,
+    IndexRebuildReport, InsertMode, MemoryStats, MergeReport, PipelineMode, PipelineReport,
+    StorageEngine, VacuumReport,
 };

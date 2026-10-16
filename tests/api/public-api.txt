@@ -2912,6 +2912,7 @@ impl core::marker::UnsafeUnpin for vantadb::graphrag::expand::ExpandedNodes
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::graphrag::expand::ExpandedNodes
 impl core::panic::unwind_safe::UnwindSafe for vantadb::graphrag::expand::ExpandedNodes
 pub fn vantadb::graphrag::expand::expand_nodes(&vantadb::storage::StorageEngine, &[u128], usize, usize) -> vantadb::error::Result<vantadb::graphrag::expand::ExpandedNodes>
+pub fn vantadb::graphrag::expand::expand_nodes_capped(&vantadb::storage::StorageEngine, &[u128], usize, usize, usize, core::option::Option<f32>) -> vantadb::error::Result<vantadb::graphrag::expand::ExpandedNodes>
 pub mod vantadb::graphrag::pipeline
 pub struct vantadb::graphrag::pipeline::GraphRagEdge
 pub vantadb::graphrag::pipeline::GraphRagEdge::label: alloc::string::String
@@ -2942,7 +2943,9 @@ impl core::panic::unwind_safe::RefUnwindSafe for vantadb::graphrag::pipeline::Gr
 impl core::panic::unwind_safe::UnwindSafe for vantadb::graphrag::pipeline::GraphRagNode
 pub struct vantadb::graphrag::pipeline::GraphRagPipeline
 pub vantadb::graphrag::pipeline::GraphRagPipeline::expansion_hops: usize
+pub vantadb::graphrag::pipeline::GraphRagPipeline::max_degree_per_node: usize
 pub vantadb::graphrag::pipeline::GraphRagPipeline::max_expansion_nodes: usize
+pub vantadb::graphrag::pipeline::GraphRagPipeline::min_edge_weight: core::option::Option<f32>
 pub vantadb::graphrag::pipeline::GraphRagPipeline::retrieval_top_k: usize
 pub vantadb::graphrag::pipeline::GraphRagPipeline::seed_k: usize
 impl vantadb::graphrag::pipeline::GraphRagPipeline
@@ -5642,7 +5645,7 @@ impl core::marker::StructuralPartialEq for vantadb::Value
 impl serde_core::ser::Serialize for vantadb::Value
 pub fn vantadb::Value::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
 impl<'de> serde_core::de::Deserialize<'de> for vantadb::Value
-pub fn vantadb::Value::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub fn vantadb::Value::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
 impl core::marker::Freeze for vantadb::Value
 impl core::marker::Send for vantadb::Value
 impl core::marker::Sync for vantadb::Value
@@ -5792,12 +5795,12 @@ pub fn vantadb::Embedded::delete_node(&self, u128, &str) -> vantadb::error::Resu
 pub fn vantadb::Embedded::get_node(&self, u128) -> vantadb::error::Result<core::option::Option<vantadb::NodeRecord>>
 pub fn vantadb::Embedded::insert_node(&self, vantadb::NodeInput) -> vantadb::error::Result<()>
 pub fn vantadb::Embedded::optimizer_config(&self) -> vantadb::storage::engine::SegmentOptimizerConfig
-pub fn vantadb::Embedded::pipeline(&self, vantadb::storage::engine::PipelineMode) -> vantadb::error::Result<vantadb::storage::engine::PipelineReport>
+pub fn vantadb::Embedded::pipeline(&self, vantadb::PipelineMode) -> vantadb::error::Result<vantadb::PipelineReport>
 pub fn vantadb::Embedded::query(&self, &str) -> vantadb::error::Result<vantadb::QueryResult>
 pub fn vantadb::Embedded::remove_edge(&self, u128, u128, &str) -> vantadb::error::Result<()>
 pub fn vantadb::Embedded::restore_graph_nodes(&self, alloc::vec::Vec<vantadb::NodeRecord>) -> vantadb::error::Result<usize>
 pub fn vantadb::Embedded::set_optimizer_config(&mut self, vantadb::storage::engine::SegmentOptimizerConfig)
-pub fn vantadb::Embedded::vacuum(&self) -> vantadb::error::Result<vantadb::storage::engine::VacuumReport>
+pub fn vantadb::Embedded::vacuum(&self) -> vantadb::error::Result<vantadb::VacuumReport>
 impl vantadb::Embedded
 pub fn vantadb::Embedded::add_team_member(&self, vantadb::sdk::TeamMemberInput<'_>) -> vantadb::error::Result<vantadb::entity::Entity>
 pub fn vantadb::Embedded::check_access(&self, vantadb::sdk::AccessQuery<'_>) -> vantadb::error::Result<vantadb::entity::checker::PermDecision>
@@ -5851,6 +5854,7 @@ pub fn vantadb::Embedded::graphrag_search(&self, &str, core::option::Option<&str
 pub fn vantadb::Embedded::list_snapshots(&self) -> vantadb::error::Result<alloc::vec::Vec<alloc::string::String>>
 pub fn vantadb::Embedded::list_threads(&self, usize, usize) -> vantadb::error::Result<alloc::vec::Vec<vantadb::agentic::thread::MessageThread>>
 pub fn vantadb::Embedded::open(impl core::convert::AsRef<std::path::Path>) -> vantadb::error::Result<Self>
+pub fn vantadb::Embedded::open_readonly(impl core::convert::AsRef<std::path::Path>) -> vantadb::error::Result<Self>
 pub fn vantadb::Embedded::open_with_config(vantadb::config::Config) -> vantadb::error::Result<Self>
 pub fn vantadb::Embedded::purge_expired_threads(&self) -> vantadb::error::Result<usize>
 pub fn vantadb::Embedded::recover_archived_nodes(&self, u128) -> vantadb::error::Result<alloc::vec::Vec<vantadb::NodeRecord>>
@@ -7406,6 +7410,32 @@ impl core::marker::Unpin for vantadb::storage::InsertMode
 impl core::marker::UnsafeUnpin for vantadb::storage::InsertMode
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::storage::InsertMode
 impl core::panic::unwind_safe::UnwindSafe for vantadb::storage::InsertMode
+pub enum vantadb::storage::PipelineMode
+pub vantadb::storage::PipelineMode::CompactL0Only
+pub vantadb::storage::PipelineMode::CompactOnly
+pub vantadb::storage::PipelineMode::FreshHnswOnly
+pub vantadb::storage::PipelineMode::Full
+pub vantadb::storage::PipelineMode::IndexOnly
+pub vantadb::storage::PipelineMode::MergeOnly
+pub vantadb::storage::PipelineMode::VacuumOnly
+impl core::clone::Clone for vantadb::PipelineMode
+pub fn vantadb::PipelineMode::clone(&self) -> Self
+impl core::cmp::Eq for vantadb::PipelineMode
+impl core::cmp::PartialEq for vantadb::PipelineMode
+pub fn vantadb::PipelineMode::eq(&self, &Self) -> bool
+impl core::default::Default for vantadb::PipelineMode
+pub fn vantadb::PipelineMode::default() -> Self
+impl core::fmt::Debug for vantadb::PipelineMode
+pub fn vantadb::PipelineMode::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vantadb::PipelineMode
+impl core::marker::StructuralPartialEq for vantadb::PipelineMode
+impl core::marker::Freeze for vantadb::PipelineMode
+impl core::marker::Send for vantadb::PipelineMode
+impl core::marker::Sync for vantadb::PipelineMode
+impl core::marker::Unpin for vantadb::PipelineMode
+impl core::marker::UnsafeUnpin for vantadb::PipelineMode
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::PipelineMode
+impl core::panic::unwind_safe::UnwindSafe for vantadb::PipelineMode
 pub struct vantadb::storage::BatchInsertOptions
 pub vantadb::storage::BatchInsertOptions::incremental_threshold: core::option::Option<usize>
 pub vantadb::storage::BatchInsertOptions::insert_mode: vantadb::storage::InsertMode
@@ -7504,6 +7534,47 @@ impl core::marker::Unpin for vantadb::storage::MemoryStats
 impl core::marker::UnsafeUnpin for vantadb::storage::MemoryStats
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::storage::MemoryStats
 impl core::panic::unwind_safe::UnwindSafe for vantadb::storage::MemoryStats
+pub struct vantadb::storage::MergeReport
+pub vantadb::storage::MergeReport::duration_ms: u64
+pub vantadb::storage::MergeReport::saved_bytes: u64
+pub vantadb::storage::MergeReport::segments_after: u64
+pub vantadb::storage::MergeReport::segments_before: u64
+pub vantadb::storage::MergeReport::success: bool
+impl core::clone::Clone for vantadb::MergeReport
+pub fn vantadb::MergeReport::clone(&self) -> Self
+impl core::default::Default for vantadb::MergeReport
+pub fn vantadb::MergeReport::default() -> Self
+impl core::fmt::Debug for vantadb::MergeReport
+pub fn vantadb::MergeReport::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vantadb::MergeReport
+impl core::marker::Freeze for vantadb::MergeReport
+impl core::marker::Send for vantadb::MergeReport
+impl core::marker::Sync for vantadb::MergeReport
+impl core::marker::Unpin for vantadb::MergeReport
+impl core::marker::UnsafeUnpin for vantadb::MergeReport
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::MergeReport
+impl core::panic::unwind_safe::UnwindSafe for vantadb::MergeReport
+pub struct vantadb::storage::PipelineReport
+pub vantadb::storage::PipelineReport::fresh_hnsw: core::option::Option<vantadb::index_port::FreshHnswReport>
+pub vantadb::storage::PipelineReport::index: core::option::Option<vantadb::storage::IndexRebuildReport>
+pub vantadb::storage::PipelineReport::lsm: core::option::Option<alloc::vec::Vec<vantadb::storage::engine::LsmReport>>
+pub vantadb::storage::PipelineReport::merge: core::option::Option<vantadb::MergeReport>
+pub vantadb::storage::PipelineReport::success: bool
+pub vantadb::storage::PipelineReport::total_duration_ms: u64
+pub vantadb::storage::PipelineReport::vacuum: core::option::Option<vantadb::VacuumReport>
+impl core::clone::Clone for vantadb::PipelineReport
+pub fn vantadb::PipelineReport::clone(&self) -> Self
+impl core::default::Default for vantadb::PipelineReport
+pub fn vantadb::PipelineReport::default() -> Self
+impl core::fmt::Debug for vantadb::PipelineReport
+pub fn vantadb::PipelineReport::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Freeze for vantadb::PipelineReport
+impl core::marker::Send for vantadb::PipelineReport
+impl core::marker::Sync for vantadb::PipelineReport
+impl core::marker::Unpin for vantadb::PipelineReport
+impl core::marker::UnsafeUnpin for vantadb::PipelineReport
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::PipelineReport
+impl core::panic::unwind_safe::UnwindSafe for vantadb::PipelineReport
 pub struct vantadb::storage::StorageEngine
 pub vantadb::storage::StorageEngine::config: vantadb::config::Config
 pub vantadb::storage::StorageEngine::data_dir: std::path::PathBuf
@@ -7550,14 +7621,14 @@ pub fn vantadb::storage::StorageEngine::evict_cold_nodes(&self, f64) -> vantadb:
 pub fn vantadb::storage::StorageEngine::evict_cold_nodes_with_reason(&self, f64, vantadb::storage::engine::EvictionReason) -> vantadb::error::Result<vantadb::storage::EvictionReport>
 pub fn vantadb::storage::StorageEngine::flush(&self) -> vantadb::error::Result<()>
 pub fn vantadb::storage::StorageEngine::fresh_hnsw(&self) -> vantadb::error::Result<vantadb::index_port::FreshHnswReport>
-pub fn vantadb::storage::StorageEngine::merge_segments(&self) -> vantadb::error::Result<vantadb::storage::engine::MergeReport>
+pub fn vantadb::storage::StorageEngine::merge_segments(&self) -> vantadb::error::Result<vantadb::MergeReport>
 pub fn vantadb::storage::StorageEngine::rebuild_vector_index(&self) -> vantadb::error::Result<vantadb::storage::IndexRebuildReport>
 pub fn vantadb::storage::StorageEngine::recover_archived_nodes(&self, u128) -> vantadb::error::Result<alloc::vec::Vec<vantadb::UnifiedNode>>
 pub fn vantadb::storage::StorageEngine::refresh_index(&self, &vantadb::UnifiedNode, u64) -> vantadb::error::Result<()>
-pub fn vantadb::storage::StorageEngine::run_pipeline(&self, vantadb::storage::engine::PipelineMode) -> vantadb::error::Result<vantadb::storage::engine::PipelineReport>
+pub fn vantadb::storage::StorageEngine::run_pipeline(&self, vantadb::PipelineMode) -> vantadb::error::Result<vantadb::PipelineReport>
 pub fn vantadb::storage::StorageEngine::run_quantization_maintenance(&self) -> vantadb::error::Result<vantadb::storage::engine::QuantizationMaintenanceReport>
 pub fn vantadb::storage::StorageEngine::trigger_compaction(&self) -> vantadb::error::Result<()>
-pub fn vantadb::storage::StorageEngine::vacuum(&self) -> vantadb::error::Result<vantadb::storage::engine::VacuumReport>
+pub fn vantadb::storage::StorageEngine::vacuum(&self) -> vantadb::error::Result<vantadb::VacuumReport>
 impl vantadb::storage::StorageEngine
 pub fn vantadb::storage::StorageEngine::create_snapshot(&self, &str) -> vantadb::error::Result<vantadb::storage::FsSnapshot>
 pub fn vantadb::storage::StorageEngine::list_snapshots(&self) -> vantadb::error::Result<alloc::vec::Vec<alloc::string::String>>
@@ -7596,6 +7667,26 @@ impl core::marker::Unpin for vantadb::storage::StorageEngine
 impl core::marker::UnsafeUnpin for vantadb::storage::StorageEngine
 impl !core::panic::unwind_safe::RefUnwindSafe for vantadb::storage::StorageEngine
 impl !core::panic::unwind_safe::UnwindSafe for vantadb::storage::StorageEngine
+pub struct vantadb::storage::VacuumReport
+pub vantadb::storage::VacuumReport::duration_ms: u64
+pub vantadb::storage::VacuumReport::reclaimed_bytes: u64
+pub vantadb::storage::VacuumReport::removed_nodes: u64
+pub vantadb::storage::VacuumReport::scanned_nodes: u64
+pub vantadb::storage::VacuumReport::success: bool
+impl core::clone::Clone for vantadb::VacuumReport
+pub fn vantadb::VacuumReport::clone(&self) -> Self
+impl core::default::Default for vantadb::VacuumReport
+pub fn vantadb::VacuumReport::default() -> Self
+impl core::fmt::Debug for vantadb::VacuumReport
+pub fn vantadb::VacuumReport::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vantadb::VacuumReport
+impl core::marker::Freeze for vantadb::VacuumReport
+impl core::marker::Send for vantadb::VacuumReport
+impl core::marker::Sync for vantadb::VacuumReport
+impl core::marker::Unpin for vantadb::VacuumReport
+impl core::marker::UnsafeUnpin for vantadb::VacuumReport
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::VacuumReport
+impl core::panic::unwind_safe::UnwindSafe for vantadb::VacuumReport
 pub mod vantadb::sync_ext
 pub trait vantadb::sync_ext::MutexExt<T>
 pub fn vantadb::sync_ext::MutexExt::lock_mutex(&self) -> std::sync::poison::mutex::MutexGuard<'_, T>
@@ -8497,6 +8588,32 @@ impl core::marker::Unpin for vantadb::MergeOutcome
 impl core::marker::UnsafeUnpin for vantadb::MergeOutcome
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::MergeOutcome
 impl core::panic::unwind_safe::UnwindSafe for vantadb::MergeOutcome
+pub enum vantadb::PipelineMode
+pub vantadb::PipelineMode::CompactL0Only
+pub vantadb::PipelineMode::CompactOnly
+pub vantadb::PipelineMode::FreshHnswOnly
+pub vantadb::PipelineMode::Full
+pub vantadb::PipelineMode::IndexOnly
+pub vantadb::PipelineMode::MergeOnly
+pub vantadb::PipelineMode::VacuumOnly
+impl core::clone::Clone for vantadb::PipelineMode
+pub fn vantadb::PipelineMode::clone(&self) -> Self
+impl core::cmp::Eq for vantadb::PipelineMode
+impl core::cmp::PartialEq for vantadb::PipelineMode
+pub fn vantadb::PipelineMode::eq(&self, &Self) -> bool
+impl core::default::Default for vantadb::PipelineMode
+pub fn vantadb::PipelineMode::default() -> Self
+impl core::fmt::Debug for vantadb::PipelineMode
+pub fn vantadb::PipelineMode::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vantadb::PipelineMode
+impl core::marker::StructuralPartialEq for vantadb::PipelineMode
+impl core::marker::Freeze for vantadb::PipelineMode
+impl core::marker::Send for vantadb::PipelineMode
+impl core::marker::Sync for vantadb::PipelineMode
+impl core::marker::Unpin for vantadb::PipelineMode
+impl core::marker::UnsafeUnpin for vantadb::PipelineMode
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::PipelineMode
+impl core::panic::unwind_safe::UnwindSafe for vantadb::PipelineMode
 pub enum vantadb::QueryResult
 pub vantadb::QueryResult::Read(alloc::vec::Vec<vantadb::NodeRecord>)
 pub vantadb::QueryResult::StaleContext
@@ -8649,7 +8766,7 @@ impl core::marker::StructuralPartialEq for vantadb::Value
 impl serde_core::ser::Serialize for vantadb::Value
 pub fn vantadb::Value::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
 impl<'de> serde_core::de::Deserialize<'de> for vantadb::Value
-pub fn vantadb::Value::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub fn vantadb::Value::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
 impl core::marker::Freeze for vantadb::Value
 impl core::marker::Send for vantadb::Value
 impl core::marker::Sync for vantadb::Value
@@ -8990,12 +9107,12 @@ pub fn vantadb::Embedded::delete_node(&self, u128, &str) -> vantadb::error::Resu
 pub fn vantadb::Embedded::get_node(&self, u128) -> vantadb::error::Result<core::option::Option<vantadb::NodeRecord>>
 pub fn vantadb::Embedded::insert_node(&self, vantadb::NodeInput) -> vantadb::error::Result<()>
 pub fn vantadb::Embedded::optimizer_config(&self) -> vantadb::storage::engine::SegmentOptimizerConfig
-pub fn vantadb::Embedded::pipeline(&self, vantadb::storage::engine::PipelineMode) -> vantadb::error::Result<vantadb::storage::engine::PipelineReport>
+pub fn vantadb::Embedded::pipeline(&self, vantadb::PipelineMode) -> vantadb::error::Result<vantadb::PipelineReport>
 pub fn vantadb::Embedded::query(&self, &str) -> vantadb::error::Result<vantadb::QueryResult>
 pub fn vantadb::Embedded::remove_edge(&self, u128, u128, &str) -> vantadb::error::Result<()>
 pub fn vantadb::Embedded::restore_graph_nodes(&self, alloc::vec::Vec<vantadb::NodeRecord>) -> vantadb::error::Result<usize>
 pub fn vantadb::Embedded::set_optimizer_config(&mut self, vantadb::storage::engine::SegmentOptimizerConfig)
-pub fn vantadb::Embedded::vacuum(&self) -> vantadb::error::Result<vantadb::storage::engine::VacuumReport>
+pub fn vantadb::Embedded::vacuum(&self) -> vantadb::error::Result<vantadb::VacuumReport>
 impl vantadb::Embedded
 pub fn vantadb::Embedded::add_team_member(&self, vantadb::sdk::TeamMemberInput<'_>) -> vantadb::error::Result<vantadb::entity::Entity>
 pub fn vantadb::Embedded::check_access(&self, vantadb::sdk::AccessQuery<'_>) -> vantadb::error::Result<vantadb::entity::checker::PermDecision>
@@ -9049,6 +9166,7 @@ pub fn vantadb::Embedded::graphrag_search(&self, &str, core::option::Option<&str
 pub fn vantadb::Embedded::list_snapshots(&self) -> vantadb::error::Result<alloc::vec::Vec<alloc::string::String>>
 pub fn vantadb::Embedded::list_threads(&self, usize, usize) -> vantadb::error::Result<alloc::vec::Vec<vantadb::agentic::thread::MessageThread>>
 pub fn vantadb::Embedded::open(impl core::convert::AsRef<std::path::Path>) -> vantadb::error::Result<Self>
+pub fn vantadb::Embedded::open_readonly(impl core::convert::AsRef<std::path::Path>) -> vantadb::error::Result<Self>
 pub fn vantadb::Embedded::open_with_config(vantadb::config::Config) -> vantadb::error::Result<Self>
 pub fn vantadb::Embedded::purge_expired_threads(&self) -> vantadb::error::Result<usize>
 pub fn vantadb::Embedded::recover_archived_nodes(&self, u128) -> vantadb::error::Result<alloc::vec::Vec<vantadb::NodeRecord>>
@@ -9548,6 +9666,26 @@ impl core::marker::Unpin for vantadb::MemorySearchRequest
 impl core::marker::UnsafeUnpin for vantadb::MemorySearchRequest
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::MemorySearchRequest
 impl core::panic::unwind_safe::UnwindSafe for vantadb::MemorySearchRequest
+pub struct vantadb::MergeReport
+pub vantadb::MergeReport::duration_ms: u64
+pub vantadb::MergeReport::saved_bytes: u64
+pub vantadb::MergeReport::segments_after: u64
+pub vantadb::MergeReport::segments_before: u64
+pub vantadb::MergeReport::success: bool
+impl core::clone::Clone for vantadb::MergeReport
+pub fn vantadb::MergeReport::clone(&self) -> Self
+impl core::default::Default for vantadb::MergeReport
+pub fn vantadb::MergeReport::default() -> Self
+impl core::fmt::Debug for vantadb::MergeReport
+pub fn vantadb::MergeReport::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vantadb::MergeReport
+impl core::marker::Freeze for vantadb::MergeReport
+impl core::marker::Send for vantadb::MergeReport
+impl core::marker::Sync for vantadb::MergeReport
+impl core::marker::Unpin for vantadb::MergeReport
+impl core::marker::UnsafeUnpin for vantadb::MergeReport
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::MergeReport
+impl core::panic::unwind_safe::UnwindSafe for vantadb::MergeReport
 #[non_exhaustive] pub struct vantadb::MergeResult
 pub vantadb::MergeResult::conflict: bool
 pub vantadb::MergeResult::outcome: vantadb::MergeOutcome
@@ -9800,6 +9938,27 @@ impl core::marker::Unpin for vantadb::OperationalMetrics
 impl core::marker::UnsafeUnpin for vantadb::OperationalMetrics
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::OperationalMetrics
 impl core::panic::unwind_safe::UnwindSafe for vantadb::OperationalMetrics
+pub struct vantadb::PipelineReport
+pub vantadb::PipelineReport::fresh_hnsw: core::option::Option<vantadb::index_port::FreshHnswReport>
+pub vantadb::PipelineReport::index: core::option::Option<vantadb::storage::IndexRebuildReport>
+pub vantadb::PipelineReport::lsm: core::option::Option<alloc::vec::Vec<vantadb::storage::engine::LsmReport>>
+pub vantadb::PipelineReport::merge: core::option::Option<vantadb::MergeReport>
+pub vantadb::PipelineReport::success: bool
+pub vantadb::PipelineReport::total_duration_ms: u64
+pub vantadb::PipelineReport::vacuum: core::option::Option<vantadb::VacuumReport>
+impl core::clone::Clone for vantadb::PipelineReport
+pub fn vantadb::PipelineReport::clone(&self) -> Self
+impl core::default::Default for vantadb::PipelineReport
+pub fn vantadb::PipelineReport::default() -> Self
+impl core::fmt::Debug for vantadb::PipelineReport
+pub fn vantadb::PipelineReport::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Freeze for vantadb::PipelineReport
+impl core::marker::Send for vantadb::PipelineReport
+impl core::marker::Sync for vantadb::PipelineReport
+impl core::marker::Unpin for vantadb::PipelineReport
+impl core::marker::UnsafeUnpin for vantadb::PipelineReport
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::PipelineReport
+impl core::panic::unwind_safe::UnwindSafe for vantadb::PipelineReport
 pub struct vantadb::RangeFilter
 pub vantadb::RangeFilter::max_score: core::option::Option<f32>
 pub vantadb::RangeFilter::min_score: core::option::Option<f32>
@@ -10269,6 +10428,26 @@ impl core::marker::Unpin for vantadb::UnifiedNode
 impl core::marker::UnsafeUnpin for vantadb::UnifiedNode
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::UnifiedNode
 impl core::panic::unwind_safe::UnwindSafe for vantadb::UnifiedNode
+pub struct vantadb::VacuumReport
+pub vantadb::VacuumReport::duration_ms: u64
+pub vantadb::VacuumReport::reclaimed_bytes: u64
+pub vantadb::VacuumReport::removed_nodes: u64
+pub vantadb::VacuumReport::scanned_nodes: u64
+pub vantadb::VacuumReport::success: bool
+impl core::clone::Clone for vantadb::VacuumReport
+pub fn vantadb::VacuumReport::clone(&self) -> Self
+impl core::default::Default for vantadb::VacuumReport
+pub fn vantadb::VacuumReport::default() -> Self
+impl core::fmt::Debug for vantadb::VacuumReport
+pub fn vantadb::VacuumReport::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vantadb::VacuumReport
+impl core::marker::Freeze for vantadb::VacuumReport
+impl core::marker::Send for vantadb::VacuumReport
+impl core::marker::Sync for vantadb::VacuumReport
+impl core::marker::Unpin for vantadb::VacuumReport
+impl core::marker::UnsafeUnpin for vantadb::VacuumReport
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::VacuumReport
+impl core::panic::unwind_safe::UnwindSafe for vantadb::VacuumReport
 pub struct vantadb::ValidWindow
 pub vantadb::ValidWindow::from_ms: u64
 pub vantadb::ValidWindow::to_ms: u64

@@ -10,6 +10,7 @@ import type {
   MemoryInput,
   MemoryListPage,
   MemoryRecord,
+  ScanInput,
   SearchHit,
   SearchRequest,
   MetadataInput,
@@ -27,6 +28,23 @@ import type { SearchRequest as NativeSearchRequest } from "vantadb-node";
 export interface NativeConnectOptions {
   read_only?: boolean;
   memory_limit?: number;
+}
+
+/**
+ * Report returned by `NativeVantaDB.vacuum()` (EGO-14). Mirrors the napi
+ * `VacuumReport` wire shape (`vantadb-node/index.d.ts`, built explicitly
+ * because the core `VacuumReport` does not derive `Serialize`).
+ *
+ * Note: `delete()` already detaches the node from HNSW, so `removed_nodes`
+ * is usually 0 — vacuum reaps orphaned tombstones (crash windows), not
+ * every deleted record.
+ */
+export interface VacuumReport {
+  scanned_nodes: number;
+  removed_nodes: number;
+  reclaimed_bytes: number;
+  duration_ms: number;
+  success: boolean;
 }
 
 /**
@@ -388,8 +406,33 @@ export class NativeVantaDB {
   }
 
   /**
+   * Sweep every record in a namespace with cursor pagination (EGO-11).
+   *
+   * The explicit full-scan entry point, mirroring `Client.scan()` on the
+   * WASM backend: unfiltered pages via `list()`; a `filters` key is rejected
+   * with `VALIDATION_ERROR`. `search` ranks by relevance and requires a
+   * query signal — it never sweeps.
+   *
+   * @param input - `{namespace}` plus pagination options (limit, cursor).
+   */
+  async scan(input: ScanInput): Promise<MemoryListPage> {
+    this._assertOpen();
+    if ((input as { filters?: unknown }).filters !== undefined) {
+      throw new DbError(
+        ERROR_CODES.VALIDATION_ERROR,
+        "scan: sweeps are unfiltered — use list() with filters",
+      );
+    }
+    return this.list({ namespace: input.namespace, limit: input.limit, cursor: input.cursor });
+  }
+
+  /**
    * Search for memory records by vector similarity, with optional text +
    * hybrid search.
+   *
+   * Requires a query signal (dense vector, `text_query` or `query_sparse`):
+   * `search` ranks by relevance and never sweeps — walk every record with
+   * `scan()`/`list()` instead.
    *
    * @param request - The search request parameters.
    * @returns Array of search hits ordered by relevance (closest first).
@@ -429,5 +472,44 @@ export class NativeVantaDB {
     return this._native("graphragSearch", () =>
       this.inner.graphragSearch(namespace, query ?? undefined, queryVector ?? undefined),
     );
+  }
+
+  /**
+   * Purge tombstoned nodes from the HNSW index (EGO-14).
+   *
+   * Long-lived agents accumulate ghost nodes/edges that degrade size and
+   * recall — call periodically. See `VacuumReport` for the
+   * `removed_nodes`-is-usually-0 contract.
+   *
+   * @returns Counts, reclaimed-bytes estimate and timing.
+   * @throws {DbError} If the instance is closed or the engine fails.
+   */
+  async vacuum(): Promise<VacuumReport> {
+    this._assertOpen();
+    return this._native("vacuum", () => this.inner.vacuum() as Promise<VacuumReport>);
+  }
+
+  /**
+   * Reopen the database on this same handle without rebinding consumers
+   * (EGO-12). Same path by default, or `path` to switch directories.
+   *
+   * In-flight ops drain before the swap; on open failure the handle is left
+   * cleanly closed rather than half-open (re-`connect` instead).
+   *
+   * @param path - Optional new filesystem path (defaults to the current one).
+   * @throws {DbError} If the instance is closed or the open fails.
+   *
+   * @example
+   * ```ts
+   * await db.close();
+   * await db.reopen(); // mismo objeto, sin re-vincular servicios
+   * ```
+   */
+  async reopen(path?: string): Promise<void> {
+    // Sin `_assertOpen`: reopen existe precisamente para revivir un handle
+    // cerrado. `_closed` se resetea solo en éxito; si el core falla, el
+    // handle sigue cerrado.
+    await this._native("reopen", () => this.inner.reopen(path ?? undefined));
+    this._closed = false;
   }
 }

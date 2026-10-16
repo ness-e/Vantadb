@@ -348,6 +348,11 @@ export interface GraphRagResult {
 /**
  * Native VantaDB handle exposed to Node.js. Thin wrapper over the SDK's
  * `Embedded`; all engine methods are async to avoid blocking the JS thread.
+ *
+ * EGO-06: GC safety net via `#[napi(custom_finalize)]` — explicit `close()`
+ * stays primary (timely flush + errors; GC timing is never guaranteed), but
+ * a discarded handle drains in-flight ops and closes the engine on finalize
+ * instead of relying on refcount accidents to free the Fjall lock.
  */
 export declare class VantaDb {
   /**
@@ -359,6 +364,16 @@ export declare class VantaDb {
    * `options` (optional): `{ read_only?: boolean, memory_limit?: number }`.
    */
   static connect(path: string, options?: ConnectOptions): Promise<VantaDb>
+  /**
+   * Reopen the database on this same handle without rebinding consumers
+   * (EGO-12). Drains + closes the current engine, then opens fresh —
+   * same path by default, or `path` to switch directories.
+   *
+   * The gate is replaced (fresh durability barrier); in-flight ops drain
+   * before the swap (R-4). On open failure the handle is left cleanly
+   * closed (reservation freed) rather than half-open.
+   */
+  reopen(path?: string | undefined | null): Promise<void>
   /** Flush the WAL and memory-mapped files to disk. */
   flush(): Promise<void>
   /**

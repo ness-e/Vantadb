@@ -33,6 +33,7 @@ import type {
   NodeRecord,
   OperationalMetrics,
   QueryResult,
+  ScanInput,
   SearchHit,
   SearchRequest,
   SearchVectorInput,
@@ -55,6 +56,7 @@ export interface MemoryClient {
   delete(input: DeleteInput): boolean;
   deleteByFilter(input: DeleteByFilterInput): bigint;
   list(input: ListInput): MemoryListPage;
+  scan(input: ScanInput): MemoryListPage;
   listNamespaces(): string[];
   count(input: CountInput): bigint;
   supersede(input: SupersedeInput): void;
@@ -319,6 +321,7 @@ export class Client {
       delete: (input: DeleteInput) => this.delete(input),
       deleteByFilter: (input: DeleteByFilterInput) => this.deleteByFilter(input),
       list: (input: ListInput) => this.list(input),
+      scan: (input: ScanInput) => this.scan(input),
       listNamespaces: () => this.listNamespaces(),
       count: (input: CountInput) => this.count(input),
       supersede: (input: SupersedeInput) => this.supersede(input),
@@ -643,6 +646,42 @@ export class Client {
     });
   }
 
+  /**
+   * Sweep every record in a namespace with cursor pagination (EGO-11).
+   *
+   * This is the explicit full-scan entry point: unlike `search`/`searchMulti`
+   * (relevance-ranked, require a query signal), `scan()` walks the namespace
+   * without filters. Filtered pages stay on `list()`.
+   *
+   * @param input - `{namespace}` plus pagination options (limit, cursor).
+   *   A `filters` key is rejected with `VALIDATION_ERROR` — sweeps are
+   *   unfiltered by contract.
+   * @returns A page of records with an optional cursor for continuation.
+   * @throws {DbError} If the instance is closed or `filters` is present.
+   *
+   * @example
+   * ```ts
+   * let cursor = undefined;
+   * do {
+   *   const page = db.scan({ namespace: "docs", limit: 100, cursor });
+   *   for (const r of page.records) console.log(r.key);
+   *   cursor = page.next_cursor;
+   * } while (cursor !== undefined);
+   * ```
+   */
+  scan(input: ScanInput): MemoryListPage {
+    this._assertOpen();
+    return this._wasm("scan", () => {
+      if ((input as { filters?: unknown }).filters !== undefined) {
+        throw new DbError(
+          ERROR_CODES.VALIDATION_ERROR,
+          "scan: sweeps are unfiltered — use list() with filters",
+        );
+      }
+      return this.list({ namespace: input.namespace, limit: input.limit, cursor: input.cursor });
+    });
+  }
+
   private _buildSearchRequest(request: SearchRequest, explain?: boolean): SearchRequestInput {
     // ERR-028 (AUDREP-55): a zero-norm cosine query vector is undefined
     // (cosine = 0/0). The core rejects it with Error::InvalidInput
@@ -756,6 +795,9 @@ export class Client {
    * Search across multiple namespaces in a single call. Results from each
    * namespace are merged by descending score and capped at `request.top_k`
    * globally.
+   *
+   * `searchMulti` ranks by relevance and requires a query signal — it never
+   * sweeps. Walk every record with `scan()`/`list()` instead.
    *
    * @param request - Search parameters with `namespaces` instead of `namespace`.
    * @returns Array of search hits ordered by relevance (highest score first).
