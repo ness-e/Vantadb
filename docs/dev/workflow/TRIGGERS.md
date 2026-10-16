@@ -42,6 +42,7 @@ Legend: Y = yes, — = no. `paths` means a path filter applies (see file).
 |----------|------|--------------|----------|----------|-------|
 | `certification.yml` | Y (`main`, chaos paths) | Y (paths, no `branches` — fuzz verbatim) | Y (daily 02:00, Sun 03:00, Mon 06:00) | Y | 21 jobs, ci-gate dedup ×3→1 (CI-08 Step 4) |
 | `nightly.yml` | — | Y (paths info-only; heavy jobs skip PR) | Y (daily 05:00) | Y | 5 info jobs (CI-08 Step 3) |
+| `electron-node.yml` | — | Y (paths `vantadb-node/**` + self) | — | Y | matrix win/mac/linux + packaging-contract (DIST-19) |
 
 ## Release (tag namespaces)
 
