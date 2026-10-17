@@ -167,13 +167,24 @@ impl crate::index::VecIndex for FlatIndex {
                 "FlatIndex nodes lock poisoned",
             ))
         })?;
-        nodes.push(FlatEntry {
-            id,
-            bitset,
-            vec: vec_data,
-            inv_cached_norm,
-            storage_offset,
-        });
+        if vec_data.is_none() {
+            nodes.retain(|e| e.id != id);
+            return Ok(());
+        }
+        if let Some(entry) = nodes.iter_mut().find(|e| e.id == id) {
+            entry.bitset = bitset;
+            entry.vec = vec_data;
+            entry.inv_cached_norm = inv_cached_norm;
+            entry.storage_offset = storage_offset;
+        } else {
+            nodes.push(FlatEntry {
+                id,
+                bitset,
+                vec: vec_data,
+                inv_cached_norm,
+                storage_offset,
+            });
+        }
         Ok(())
     }
 
@@ -350,5 +361,46 @@ mod flat_tests {
             matches!(err, crate::error::Error::Runtime(_)),
             "expected Runtime, got {err:?}"
         );
+    }
+
+    #[test]
+    fn test_find374_add_updates_existing_entry_deduplicating_id() {
+        let idx = FlatIndex::new(DistanceMetric::Cosine);
+        let bs = FilterBitset::new();
+        idx.add(
+            1,
+            bs.clone(),
+            VectorRepresentations::Full(vec![1.0, 0.0]),
+            0,
+        )
+        .unwrap();
+        assert_eq!(idx.len(), 1);
+
+        // Add again with the same id and a new vector: must update in-place, len() remains 1.
+        idx.add(
+            1,
+            bs.clone(),
+            VectorRepresentations::Full(vec![0.0, 1.0]),
+            0,
+        )
+        .unwrap();
+        assert_eq!(idx.len(), 1);
+
+        // Searching should find id=1 with high similarity to [0.0, 1.0].
+        let results = idx.search(
+            &[0.0, 1.0],
+            &FilterBitset::all_set(),
+            5,
+            None,
+            DistanceMetric::Cosine,
+        );
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].0, 1);
+        assert!((results[0].1 - 1.0).abs() < 1e-4);
+
+        // Adding with VectorRepresentations::None should remove the entry.
+        idx.add(1, bs, VectorRepresentations::None, 0).unwrap();
+        assert_eq!(idx.len(), 0);
+        assert!(idx.is_empty());
     }
 }

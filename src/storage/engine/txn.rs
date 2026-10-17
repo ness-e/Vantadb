@@ -323,14 +323,16 @@ impl StorageEngine {
         //    On any error we write an Abort marker so recovery discards the
         //    phase-1 ops (no matching Commit) and return the error to the caller
         //    (truthful error path, RES-01 / ACID Phase 4a).
+        //    FIND-345: Do NOT call apply_insert_stats / apply_delete_stats while
+        //    holding `_guard` (`insert_lock`), as they acquire `cardinality_stats.write()`
+        //    which would invert the lock order against `insert()`/`delete()` (Rule 8).
+        //    Capture deleted nodes before applying tombstones so stats can be
+        //    decremented after `_guard` is released.
+        let mut deleted_nodes_for_stats = Vec::new();
         let apply_result: Result<()> = (|| {
             for op in &buffer {
                 match op {
                     BufferedWrite::Insert(node) => {
-                        // ERR-013: cardinality/index updates are deferred from the
-                        // buffering stage to commit; applied here so they only
-                        // count records that actually commit.
-                        self.apply_insert_stats(node);
                         // Remove old from HNSW/cache so the new insert can take its place
                         {
                             let hnsw = self.hnsw.load();
@@ -340,9 +342,9 @@ impl StorageEngine {
                         self.apply_insert_with_txn(node, txn_id)?;
                     }
                     BufferedWrite::Delete(id) => {
-                        // ERR-013: cardinality/index decrement is deferred from the
-                        // buffering delete path; apply it here on commit.
-                        self.apply_delete_stats(*id);
+                        if let Ok(Some(existing_node)) = self.get(*id) {
+                            deleted_nodes_for_stats.push(existing_node);
+                        }
                         // Stamp metadata as deleted_by this txn instead of removing
                         self.stamp_deleted_in_backend(*id, txn_id)?;
                         // Still tombstone vstore + remove from HNSW + cache.
@@ -374,6 +376,24 @@ impl StorageEngine {
         // 6. Phase 2: write the Commit marker. THIS is the durability commit point.
         if let Some(ref sharded) = self.wal {
             sharded.append(&crate::wal::WalRecord::Commit(txn_id))?;
+        }
+
+        // FIND-345: Release `insert_lock` BEFORE acquiring `cardinality_stats.write()`
+        // or mutating secondary indexes (Rule 8 lock hierarchy).
+        drop(_guard);
+
+        let mut deleted_iter = deleted_nodes_for_stats.into_iter();
+        for op in &buffer {
+            match op {
+                BufferedWrite::Insert(node) => {
+                    self.apply_insert_stats(node);
+                }
+                BufferedWrite::Delete(id) => {
+                    if let Some(node) = deleted_iter.next() {
+                        self.apply_delete_stats_for_node(*id, &node);
+                    }
+                }
+            }
         }
 
         Ok(())
@@ -545,13 +565,11 @@ impl StorageEngine {
                 }
                 let vec_start = header.vector_offset as usize;
                 let slice = &vstore.mmap_bytes()[vec_start..vec_end as usize];
-                let f32_vec: &[f32] = unsafe {
-                    std::slice::from_raw_parts(
-                        slice.as_ptr() as *const f32,
-                        header.vector_len as usize,
-                    )
-                };
-                VectorRepresentations::Full(f32_vec.to_vec())
+                let f32_vec: Vec<f32> = slice
+                    .chunks_exact(4)
+                    .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
+                    .collect();
+                VectorRepresentations::Full(f32_vec)
             }
         } else {
             match kind {
@@ -568,13 +586,11 @@ impl StorageEngine {
                     let vec_start = header.vector_offset as usize;
                     let vec_end = vec_end as usize;
                     let vec_bytes = &vstore.mmap_bytes()[vec_start..vec_end];
-                    let f32_vec: &[f32] = unsafe {
-                        std::slice::from_raw_parts(
-                            vec_bytes.as_ptr() as *const f32,
-                            header.vector_len as usize,
-                        )
-                    };
-                    VectorRepresentations::Full(f32_vec.to_vec())
+                    let f32_vec: Vec<f32> = vec_bytes
+                        .chunks_exact(4)
+                        .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
+                        .collect();
+                    VectorRepresentations::Full(f32_vec)
                 }
                 crate::node::NodeFlags::VECTOR_KIND_BINARY => {
                     let Some(vec_len_bytes) = (header.vector_len as u64).checked_mul(8) else {
