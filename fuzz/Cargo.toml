@@ -3,6 +3,7 @@ name = "vantadb-fuzz"
 version = "0.0.0"
 publish = false
 edition = "2021"
+license = "Apache-2.0"
 
 # This crate is intentionally excluded from the workspace:
 # cargo-fuzz requires nightly + sanitizers (AddressSanitizer/LibFuzzer)

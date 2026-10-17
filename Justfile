@@ -157,4 +157,4 @@ ocr-json:
 # Surface check: contract gates for first-run DX (DX-13)
 surface-check:
     {{cargo}} nextest run --profile audit -p vantadb --test version_coherence --test sdk_serialization --build-jobs 2
-    @echo "SKIP: public_api + openapi_yaml_parity (no such test targets yet - DX-13 follow-up); check-npm-versions (no script yet)"
+    node scripts/docs/check-npm-versions.mjs

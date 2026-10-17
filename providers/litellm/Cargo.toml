@@ -21,3 +21,7 @@ pyo3 = { version = "0.29", optional = true, features = ["extension-module", "abi
 
 [workspace]
 
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+

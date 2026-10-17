@@ -22,7 +22,7 @@ exclude = [
     "examples/",
     "docs/",
     "assets/",
-    "feature-freez/desktop/",
+    "feature-freez/",
     "e2e/",
     "evals/",
     "embeddings/",
@@ -166,6 +166,7 @@ jemalloc = ["dep:tikv-jemallocator", "dep:tikv-jemalloc-ctl", "tikv-jemalloc-ctl
 wasm = ["dep:getrandom_03", "dep:getrandom_04"]
 advanced-tokenizer = ["dep:tantivy"]
 opentelemetry = [
+    "server",
     "dep:opentelemetry",
     "dep:tracing-opentelemetry",
     "dep:opentelemetry_sdk",
@@ -185,7 +186,7 @@ server = [
     "dep:tower-http",
     "dep:jsonwebtoken",
 ]
-tls = ["dep:axum-server", "dep:rustls"]
+tls = ["server", "dep:axum-server", "dep:rustls"]
 prometheus = ["dep:prometheus"]
 rayon = ["dep:rayon"]
 sysinfo = ["dep:sysinfo"]
@@ -803,6 +804,7 @@ default-members = [
 version = "0.8.0"
 edition = "2021"
 rust-version = "1.94.1"
+license = "Apache-2.0"
 
 [profile.test]
 debug = 1

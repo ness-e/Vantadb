@@ -300,6 +300,7 @@ jobs:
             exit 1
           fi
           npm pkg set "dependencies.vantadb-wasm=^${WASM_VER}"
+          node -e "const fs = require('fs'); const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8')); let changed = false; for (const field of ['dependencies', 'optionalDependencies', 'devDependencies']) { if (pkg[field]?.['vantadb-node']?.startsWith('file:')) { delete pkg[field]['vantadb-node']; changed = true; } } if (changed) { fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n'); }"
 
       # TS-05 guard: a tarball without engines.node fails confusingly on
       # Node < 22.12 (`require(esm)` syntax error). Fail the release here
