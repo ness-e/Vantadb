@@ -4,9 +4,6 @@ kind: reference
 status: active
 description: "Python SDK reference — Client, memory records, cognitive layer (memory_capture/memory_recall), async client and typed errors"
 tags: [vantadb, api]
-type: api
-last_reviewed: "2026-09-15"
-related: [TS_SDK.md, NODE_SDK.md, EMBEDDED_SDK.md, BINDINGS_NAMESPACES.md]
 ---
 
 # Python SDK Documentation

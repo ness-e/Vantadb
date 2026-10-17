@@ -143,7 +143,7 @@ pip install --upgrade pip pytest
 pip install ./dist/vantadb_py-0.8.0-*.whl
 ```
 
-Wheels are attached to each GitHub Release (`release-wheels-60.yml`) and built
+Wheels are attached to each GitHub Release (`release-wheels.yml`) and built
 locally with `maturin build --out dist --manifest-path ./vantadb-python/Cargo.toml`
 (`vantadb-python/dist/` when building from that directory).
 

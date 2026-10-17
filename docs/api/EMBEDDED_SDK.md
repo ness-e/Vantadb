@@ -4,8 +4,6 @@ kind: reference
 status: active
 description: "Source: src/sdk/mod.rs, src/sdk/builder.rs, src/sdk/api/.rs, src/sdk/graph.rs, src/sdk/search/mod.rs"
 tags: [vantadb, api]
-type: api
-last_reviewed: "2026-09-01"
 ---
 
 # Embedded SDK Reference

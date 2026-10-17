@@ -4,9 +4,6 @@ kind: runbook
 status: active
 description: This document compiles the certified performance metrics for VantaDB at the MVP version. It covers both the internal Rust engine tests (Stress Protocol) and telemetry from the Python SDK wrapper
 tags: [vantadb, operations, benchmarks]
-type: operations
-last_reviewed: "2026-09-15"
-related: [TEST_MAP.md, CI_POLICY.md, ivf_bench.md]
 ---
 
 # VantaDB — HNSW & Lexical Engine Performance Benchmarks

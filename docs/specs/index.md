@@ -16,6 +16,6 @@ description: "Section index."
 
 | Document                                                                      | Kind    | Summary                                                                                       |
 | ----------------------------------------------------------------------------- | ------- | --------------------------------------------------------------------------------------------- |
-| [Constraints — VantaDB Quality Bar](./CONSTRAINTS.md)                         | concept | Quality bar de VantaDB: floors siempre enforced y reglas con números                          |
+| [Constraints — VantaDB Quality Bar](./CONSTRAINTS.md)                         | concept | VantaDB quality bar: always enforced floors and quantified rules                              |
 | [Spec: MVP — VantaDB como memoria automática en agentes de código](./SPEC.md) | concept | Contrato del MVP: memoria automática en agentes de código con un comando y cero configuración |
 | [specs](./index.md)                                                           | index   | Section index.                                                                                |

@@ -6,7 +6,7 @@
 
 Every link below points to the raw Markdown source, not a rendered page. Read the
 page you need; do not read this file end to end. This index covers the
-470 documentation pages; it deliberately omits the 619 task files,
+471 documentation pages; it deliberately omits the 619 task files,
 which are work items rather than documentation. The full inventory of every file
 is in docs/index.md in the repository.
 
@@ -89,7 +89,7 @@ is in docs/index.md in the repository.
 - [Advanced Tokenizer](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/ADVANCED_TOKENIZER.md): The advanced tokenizer provides multilingual text processing with stemming, stopwords removal, and Unicode folding for improved text search quality across multiple languages. It is built on top of Tantivy. The feature is enabled by...
 - [Blog Series Completion Plan](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/strategy/BLOG_SERIES_PLAN.md): The blog series is 4 of 5 posts complete as drafts in docs/user/blog/, but the production site exposes 4 posts (one of them, introducing-vantadb, has no source draft in docs/user/blog/). Every live post has metadata drift between the...
 - [Cargo Feature Registry — per-feature status](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/FEATURES.md): Inventario honesto de las features declaradas en Cargo.toml [features]
-- [Constraints — VantaDB Quality Bar](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/specs/CONSTRAINTS.md): Quality bar de VantaDB: floors siempre enforced y reglas con números
+- [Constraints — VantaDB Quality Bar](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/specs/CONSTRAINTS.md): VantaDB quality bar: always enforced floors and quantified rules
 - [FEAT-03b Core Decay Implementation Contract](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/FEAT-03b-core-decay-contract.md): Status: ready for vanta-worker · Decision: ADR-0028
 - [FND-20: HNSW Trade-off (ef_search/M: recall vs latency) and why not IVF/FAISS](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/architecture/FND-20-hnsw-tradeoff.md): src/index/mod.rs:27-30) with M=32, Mmax0=64, efconstruction=100,
 - [Los 5 tipos de contexto (investigación GTM 2026-06, rescatada)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/strategy/context-types-2026-09-30.md): Framework de posicionamiento rescatado del OLD: Ephemeral / Session / Project / Entity / Episodic — los 5 tipos de contexto que toda herramienta de IA necesita.
@@ -268,7 +268,7 @@ is in docs/index.md in the repository.
 - [Semantic events and provenance log (MEMG-26 spec)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/memory-events.md): Spec-first semantic event model for causal memory history: event types, envelope fields, causal links and wire rules; a layer over VantaDB, not a WAL replacement
 - [Shared memory: scopes, grants, and revocation](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/SHARING.md): Multi-agent sharing over the existing permission checker: scope mapping, grants, revocation semantics, checked reads and writes, and declared boundaries
 - [TypeScript SDK Documentation](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/TS_SDK.md): Create a new in-memory instance. Accepts an optional Config object. To use persistent storage, call connect() or open() instead
-- [Vanta Memory Engine — API Reference (`vanta-memory`)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/VANTA_MEMORY.md): Crate LLM-driven para memoria de agentes: captura L0, extracción/dedup L1, escenas L2,
+- [Vanta Memory Engine — API Reference (`vanta-memory`)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/VANTA_MEMORY.md): LLM-driven crate for agent memory: L0 capture, L1 extraction/dedup, L2 scenes, L3 persona, scoped recall, context engine (compression), offload, and wiki generation.
 - [VantaDB Error Handling Reference](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/ERROR_HANDLING.md): This is the canonical contract for how VantaDB surfaces errors across every
 - [VantaDB HTTP API](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/HTTP_API.md): Default: http://127.0.0.1:8080
 - [VantaDB IQL Reference](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/api/IQL.md): The parser implements IQL version 4 (adds the AS OF valid-time clause, LIMIT/OFFSET pagination, and COUNT/SUM/GROUP BY aggregation). The version is exposed as IQL_VERSION
@@ -334,7 +334,7 @@ is in docs/index.md in the repository.
 - [Monetización Local-First Sin Nube y Sin Capital — Corrección de la Estrategia v1](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/validacion/08-monetizacion-local-first-sin-capital.md): Fecha: 2026-08-25 · Autor: vanta-lead (corrección post-feedback) · Reemplaza a: las recomendaciones de monetización de validacion/02, validacion/03 y validacion/00-SINTESIS-EJECUTIVA.md
 - [Plan de Acción Research — Validación de 53 investigaciones (2026-08-26)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/PLAN-ACCION-RESEARCH-2026-08-26.md): Estos archivos son extracciones/analysis que NO debe perderse aunque estén históricos
 - [Plan de Investigación Profunda — TencentDB-Agent-Memory (TDAM)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/tdam/PLAN.md): Una vez completados los 9, el lead lee TODOS los archivos, cruza hallazgos, resuelve contradicciones y produce la síntesis con el plan de acción concreto (qué crate, qué features core, qué MCP tools, orden de implementación)
-- [Preservado antes del borrado 2026-10-09 23:56](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/historial/borrada-2026-10-10.md): Git HEAD: b14c2ab7 docs(plan): re-scope 0.9.0 (EGO-07/MEMG-25/FIND-320 -> 0.10.0) y corrige hashes EGO-02..04
+- [Preservado antes del borrado 2026-10-09 23:56](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/historial/borrada-2026-10-10.md): Registro de cambios locales preservados antes de la limpieza de worktree del 2026-10-09
 - [Psicología cognitiva aplicada a la representación de VantaDB](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/human-facing-db-ui/07-cognitive-psychology/RESEARCH.md): Evaluación del concepto 06-synthesis/SYNTHESIS.md contra cómo funciona el cerebro humano,
 - [REPORTE FINAL — Cómo debe trabajar un agente/sub-agente y un ingeniero, y qué le falta al sistema de tareas de VantaDB](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/2026-08-10-agent-engineering/REPORTE-FINAL.md): Este reporte integra, sin omitir hallazgos, las tres ramas: (1) qué debe hacer correctamente un agente/sub-agente para ejecutar tareas, proyectos, planes e investigaciones; (2) qué debe hacer correctamente un ingeniero de...
 - [STRAT-05 - Ruta object storage (S3/blob): viabilidad, costo y tradeoffs](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/strat-05-object-storage.md): Research de la ruta object storage: snapshot-level vs segment-level vs backend nativo, con costos verificados (S3/R2) y decisión documentada en ADR-0056; sin implementación
@@ -373,6 +373,7 @@ is in docs/index.md in the repository.
 - [Archivo Histórico — No-Progreso](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/avance/historial/archivo-historico.md): Fuente: Backlog (Investigaciones de Seguridad) INV-001
 - [Archivo Histórico — No-Progreso](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/avance/historial/fuentes/ARCHIVO_HISTORICO.md): Fuente: Backlog (Investigaciones de Seguridad) INV-001
 - [Audit Quick — 2026-09-16 — post-cierre campaña FIND 31/31](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/reviews/audit-quick-20260916-061609.md): Profile: vantadb (unified-review --mode quick)
+- [Auditoría Integral Multi-Agente VantaDB v0.8.0 (5 Dominios + Gates)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/reviews/audit-full-20261017-multiagent.md): Auditoría completa de código, módulos, paquetes, bindings FFI, servicios y documentación orquestada en 5 dominios con verificación empírica de gates
 - [Auditoría — Dependencias](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/avance/auditoria/dependencias.md)
 - [Auditoría — Seguridad](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/avance/auditoria/seguridad.md)
 - [Avance — Bindings (SDK, Adapters, MCP)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/avance/activo/bindings.md): fuente (#[napi(tsreturntype = \"Promise<bigint>\")], patrón existente ×12) +

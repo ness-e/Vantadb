@@ -326,6 +326,8 @@ vanta-cli export --db ./vanta_data --namespace agent/main --out ./memory.jsonl
 vanta-cli rebuild-index --db ./vanta_data
 vanta-cli audit-index --db ./vanta_data --namespace agent/main --json --deep
 vanta-cli repair-text-index --db ./vanta_data
+vanta-cli verify --db ./vanta_data
+vanta-cli certificate verify --file ./cert.json --db ./vanta_data
 ```
 
 *(If you are developing locally inside this repository, you can also run directly from source using `cargo run --bin vanta-cli -- <command>`).*
