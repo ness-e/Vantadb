@@ -290,7 +290,8 @@ pub fn app_with_cors(state: Arc<ServerState>, rpm: u32, allowed_origins: &[Strin
         let period_ms = rate_limit_period_ms(rpm);
         // REST-01: full burst without auth (local web console), conservative
         // burst with auth (AUD-021 fail-closed posture).
-        let burst_size = rate_limit_burst(rpm, state.api_key.is_some());
+        let burst_size =
+            rate_limit_burst(rpm, state.api_key.is_some() || state.jwt_secret.is_some());
 
         // AUD-021: fail-closed. Should the governor config ever fail to build,
         // refuse to start rather than serving requests without a rate limit.

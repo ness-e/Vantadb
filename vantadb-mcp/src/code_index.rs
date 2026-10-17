@@ -102,6 +102,17 @@ pub(crate) fn handle_code_index(
     validate_identifier(namespace, "namespace", config.max_namespace_length)
         .map_err(|e| e.to_json())?;
     let raw_path = required_str(args, "path")?;
+    if raw_path.is_empty()
+        || raw_path.contains('\0')
+        || Path::new(raw_path)
+            .components()
+            .any(|c| matches!(c, std::path::Component::ParentDir))
+    {
+        return Err(McpError::invalid_params(
+            "'path' must be a safe filesystem path without parent directory traversal ('..')",
+        )
+        .to_json());
+    }
     let max_files = args["max_files"]
         .as_u64()
         .map(|n| n as usize)

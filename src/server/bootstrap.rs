@@ -44,20 +44,21 @@ pub fn validate_auth_config(config: &Config) -> Result<()> {
             "alt_api_key requires api_key to be set (rotation needs a primary key)".into(),
         ));
     }
-    if config.require_auth && config.api_key.is_none() {
+    let has_auth = config.api_key.is_some() || config.jwt_secret.is_some();
+    if config.require_auth && !has_auth {
         crate::console::error(
-            "Forced authentication enabled but no API key configured",
+            "Forced authentication enabled but no API key or JWT secret configured",
             Some(
-                "Set the VANTADB_API_KEY environment variable to provide an authentication \
-                 token. Alternatively, unset VANTADB_REQUIRE_AUTH / remove --require-auth \
-                 to allow unauthenticated (dev) mode.",
+                "Set the VANTADB_API_KEY (or VANTADB_JWT_SECRET) environment variable to provide \
+                 authentication credentials. Alternatively, unset VANTADB_REQUIRE_AUTH / remove \
+                 --require-auth to allow unauthenticated (dev) mode.",
             ),
         );
         return Err(Error::InvalidInput(
-            "require_auth is set but no api_key is configured".into(),
+            "require_auth is set but no api_key or jwt_secret is configured".into(),
         ));
     }
-    if config.api_key.is_none() && !is_loopback_host(&config.host) {
+    if !has_auth && !is_loopback_host(&config.host) {
         if config.allow_insecure {
             crate::console::warn(
                 "INSECURE MODE: HTTP server exposed on non-loopback host WITHOUT authentication",
@@ -69,12 +70,12 @@ pub fn validate_auth_config(config: &Config) -> Result<()> {
             );
         } else {
             crate::console::error(
-                "Refusing to start: non-loopback host without an API key",
+                "Refusing to start: non-loopback host without an API key or JWT secret",
                 Some(&format!(
-                    "Binding '{}' without VANTADB_API_KEY exposes an unauthenticated \
-                     server to the network. Fix either way: (1) set VANTADB_API_KEY to \
-                     enable Bearer auth, or (2) bind a loopback host (127.0.0.1/localhost/::1), \
-                     or (3) pass --allow-insecure to override this check in dev.",
+                    "Binding '{}' without VANTADB_API_KEY or VANTADB_JWT_SECRET exposes an \
+                     unauthenticated server to the network. Fix either way: (1) set VANTADB_API_KEY \
+                     or VANTADB_JWT_SECRET to enable Bearer auth, or (2) bind a loopback host \
+                     (127.0.0.1/localhost/::1), or (3) pass --allow-insecure to override this check in dev.",
                     config.host
                 )),
             );
@@ -89,11 +90,12 @@ pub fn validate_auth_config(config: &Config) -> Result<()> {
 }
 
 fn log_security_mode(config: &Config) {
-    let auth_status = match (&config.api_key, config.require_auth) {
-        (Some(_), true) => "Bearer token auth ✓ (forced)",
-        (Some(_), false) => "Bearer token auth ✓",
-        (None, true) => "ERROR: require_auth but no key configured",
-        (None, false) => "No auth (dev mode)",
+    let has_auth = config.api_key.is_some() || config.jwt_secret.is_some();
+    let auth_status = match (has_auth, config.require_auth) {
+        (true, true) => "Bearer token auth ✓ (forced)",
+        (true, false) => "Bearer token auth ✓",
+        (false, true) => "ERROR: require_auth but no key configured",
+        (false, false) => "No auth (dev mode)",
     };
 
     let rate_status = if config.rate_limit_rpm == 0 {

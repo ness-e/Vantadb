@@ -11,12 +11,65 @@
 
 use crate::config::ReportConfig;
 use crate::report::{ReportHook, TurnReport};
-use std::sync::mpsc;
+use std::sync::Arc;
 
 /// POST timeout: a hung collector must not pile up exports forever.
 const EXPORT_TIMEOUT_SECS: u64 = 5;
 /// OTel-valid trace/span ids derived from nanosecond timestamps.
 const NANOS_PER_SEC: u128 = 1_000_000_000;
+
+/// Async exporter for Langfuse/OTel traces.
+#[derive(Clone)]
+pub struct LangfuseExporter {
+    client: reqwest::Client,
+    endpoint: String,
+    auth: String,
+}
+
+impl LangfuseExporter {
+    /// Create a new exporter for the given endpoint and optional authorization header.
+    pub fn new(endpoint: String, auth: String) -> Self {
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(EXPORT_TIMEOUT_SECS))
+            .build()
+            .unwrap_or_else(|_| reqwest::Client::new());
+        Self {
+            client,
+            endpoint,
+            auth,
+        }
+    }
+
+    /// Flush one telemetry event using the current Tokio runtime or a detached thread.
+    pub fn flush_event(&self, report: &TurnReport) {
+        let client = self.client.clone();
+        let endpoint = self.endpoint.clone();
+        let auth = self.auth.clone();
+        let report = report.clone();
+        let fut = async move {
+            if let Err(e) = post_span_async(&client, &endpoint, &auth, &report).await {
+                tracing::warn!(
+                    target: "vanta_proxy::report",
+                    error = %e,
+                    "langfuse span export failed (turn continues)"
+                );
+            }
+        };
+
+        if let Ok(handle) = tokio::runtime::Handle::try_current() {
+            handle.spawn(fut);
+        } else {
+            std::thread::spawn(move || {
+                if let Ok(rt) = tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                {
+                    rt.block_on(fut);
+                }
+            });
+        }
+    }
+}
 
 /// Build the hook wiring per-turn reports to the configured OTLP endpoint.
 ///
@@ -26,38 +79,22 @@ pub fn langfuse_hook(config: &ReportConfig) -> Option<ReportHook> {
     if !config.enabled() {
         return None;
     }
-    let endpoint = config.langfuse_endpoint.clone();
-    let auth = config.langfuse_auth_header.clone();
-    let (tx, rx) = mpsc::channel::<TurnReport>();
-    if std::thread::Builder::new()
-        .name("langfuse-export".into())
-        .spawn(move || {
-            for report in rx {
-                if let Err(e) = post_span(&endpoint, &auth, &report) {
-                    tracing::warn!(
-                        target: "vanta_proxy::report",
-                        error = %e,
-                        "langfuse span export failed (turn continues)"
-                    );
-                }
-            }
-        })
-        .is_err()
-    {
-        tracing::warn!(target: "vanta_proxy::report", "could not spawn langfuse exporter");
-        return None;
-    }
+    let exporter = Arc::new(LangfuseExporter::new(
+        config.langfuse_endpoint.clone(),
+        config.langfuse_auth_header.clone(),
+    ));
     Some(Box::new(move |report: &TurnReport| {
-        // Unbounded send: infallible for our purposes, never blocks.
-        let _ = tx.send(report.clone());
+        exporter.flush_event(report);
     }))
 }
 
-fn post_span(endpoint: &str, auth: &str, report: &TurnReport) -> Result<(), String> {
-    let client = reqwest::blocking::Client::builder()
-        .timeout(std::time::Duration::from_secs(EXPORT_TIMEOUT_SECS))
-        .build()
-        .map_err(|e| format!("client build: {e}"))?;
+/// Asynchronous POST of one span payload to the OTLP/HTTP endpoint.
+pub async fn post_span_async(
+    client: &reqwest::Client,
+    endpoint: &str,
+    auth: &str,
+    report: &TurnReport,
+) -> Result<(), String> {
     let mut request = client
         .post(endpoint)
         .header("content-type", "application/json")
@@ -67,11 +104,25 @@ fn post_span(endpoint: &str, auth: &str, report: &TurnReport) -> Result<(), Stri
     }
     let response = request
         .send()
+        .await
         .map_err(|e| format!("post {endpoint}: {e}"))?;
     if !response.status().is_success() {
         return Err(format!("export rejected: HTTP {}", response.status()));
     }
     Ok(())
+}
+
+#[cfg(test)]
+fn post_span(endpoint: &str, auth: &str, report: &TurnReport) -> Result<(), String> {
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .map_err(|e| format!("runtime build: {e}"))?;
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(EXPORT_TIMEOUT_SECS))
+        .build()
+        .map_err(|e| format!("client build: {e}"))?;
+    rt.block_on(post_span_async(&client, endpoint, auth, report))
 }
 
 /// One turn → one OTLP/HTTP JSON export payload (`TracesService` shape).

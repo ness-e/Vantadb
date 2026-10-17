@@ -445,12 +445,21 @@ impl AppState {
         // l1/{session} for the search path, keeping this prefix stable).
         // VER-04: the ACL policy gates every source namespace and the block
         // metadata (sources/denials/budget) feeds the injection audit.
-        let memory_block = inject::build_memory_block(
-            &self.memory,
-            &key,
-            self.config.injection.max_tokens,
-            self.governance.policy(),
-        );
+        let memory = self.memory.clone();
+        let key_clone = key.clone();
+        let max_tokens = self.config.injection.max_tokens;
+        let policy = self.governance.policy().clone();
+        let memory_block = match tokio::task::spawn_blocking(move || {
+            inject::build_memory_block(&memory, &key_clone, max_tokens, &policy)
+        })
+        .await
+        {
+            Ok(block) => block,
+            Err(e) => {
+                tracing::warn!("inject::build_memory_block task failed: {e}");
+                inject::InjectionBlock::empty(max_tokens)
+            }
+        };
         self.governance.audit_block(&key, &memory_block);
         let body = match inject::inject_into(&body, protocol, &memory_block.block) {
             Ok(Some(modified)) => Bytes::from(modified),
@@ -800,27 +809,47 @@ impl AppState {
             else {
                 return sse_intercept::replay(parts, captured.chunks);
             };
-            let results: Vec<(String, String)> = calls
-                .iter()
-                .map(|call| {
-                    let text = memory_tools::execute(
-                        &self.memory,
-                        &self.writeback,
-                        session_key,
-                        protocol_label,
-                        space_id,
-                        model,
-                        call,
-                        &capture::WriteGuard {
-                            redactor: &self.redactor,
-                            envelope: &self.envelope,
-                        },
-                        &self.governance,
-                        self.config.injection.max_tokens.saturating_mul(4),
-                    );
-                    (call.id.clone(), text)
+            let mut results = Vec::with_capacity(calls.len());
+            for call in calls {
+                let memory = self.memory.clone();
+                let writeback = self.writeback.clone();
+                let session_key_owned = session_key.to_string();
+                let protocol_label_owned = protocol_label.to_string();
+                let space_id_owned = space_id.to_string();
+                let model_owned = model.to_string();
+                let redactor = self.redactor.clone();
+                let envelope = self.envelope.clone();
+                let governance = self.governance.clone();
+                let max_chars = self.config.injection.max_tokens.saturating_mul(4);
+                let call_id = call.id.clone();
+                let text = match tokio::task::spawn_blocking(move || {
+                    let guard = capture::WriteGuard {
+                        redactor: &redactor,
+                        envelope: &envelope,
+                    };
+                    memory_tools::execute(
+                        &memory,
+                        &writeback,
+                        &session_key_owned,
+                        &protocol_label_owned,
+                        &space_id_owned,
+                        &model_owned,
+                        &call,
+                        &guard,
+                        &governance,
+                        max_chars,
+                    )
                 })
-                .collect();
+                .await
+                {
+                    Ok(text) => text,
+                    Err(e) => {
+                        tracing::warn!("memory tool execution task failed: {e}");
+                        format!("Tool execution failed: {e}")
+                    }
+                };
+                results.push((call_id, text));
+            }
             executed += 1;
             memory_tools::append_exchange(protocol, &mut request, &message, &results);
             current = match serde_json::to_vec(&request) {
