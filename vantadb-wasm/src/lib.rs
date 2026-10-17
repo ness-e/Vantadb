@@ -55,6 +55,33 @@ use vantadb::{BackendKind, Error, SparseVector, MAX_BATCH_SIZE, MAX_F32_VEC_LEN,
 use vantadb_ffi_core::{OpGate, OpGuard};
 use wasm_bindgen::prelude::*;
 
+#[cfg(target_arch = "wasm32")]
+mod web_sys {
+    pub mod console {
+        use wasm_bindgen::prelude::*;
+        #[wasm_bindgen]
+        extern "C" {
+            #[wasm_bindgen(js_namespace = console, js_name = warn)]
+            pub fn warn_1(s: &JsValue);
+        }
+    }
+}
+
+/// Clamp `top_k`/`k` to [`MAX_K`], warning via `console.warn` when the caller
+/// requested more than the cap so silent truncation is observable (ERR-022).
+fn clamp_top_k_warn(requested: usize) -> usize {
+    let (effective, was_clamped) = vantadb_ffi_core::clamp_top_k(requested, MAX_K);
+    if was_clamped {
+        #[cfg(target_arch = "wasm32")]
+        {
+            let msg =
+                format!("top_k={requested} exceeds MAX_K={MAX_K}; clamping to {MAX_K} (ERR-022)");
+            web_sys::console::warn_1(&JsValue::from_str(&msg));
+        }
+    }
+    effective
+}
+
 mod opfs;
 /// OPFS file handle abstraction wrapping a JS `FileSystemFileHandle`.
 pub use opfs::OpfsFile;
@@ -1271,7 +1298,7 @@ impl Client {
             #[allow(deprecated)]
             filters: req.filters,
             text_query: req.text_query,
-            top_k: req.top_k.min(MAX_K),
+            top_k: clamp_top_k_warn(req.top_k),
             distance_metric: distance,
             explain: req.explain,
             exclude_superseded: req.exclude_superseded,
@@ -1343,7 +1370,7 @@ impl Client {
         }
         let hits = self
             .inner
-            .search_vector(&vector, top_k.min(MAX_K))
+            .search_vector(&vector, clamp_top_k_warn(top_k))
             .map_err(to_js_err)?;
         let arr = js_sys::Array::new();
         for hit in hits {
@@ -1377,7 +1404,7 @@ impl Client {
             #[allow(deprecated)]
             filters: req.filters,
             text_query: req.text_query,
-            top_k: req.top_k.min(MAX_K),
+            top_k: clamp_top_k_warn(req.top_k),
             distance_metric: distance,
             explain: true,
             exclude_superseded: req.exclude_superseded,
@@ -1484,7 +1511,7 @@ impl Client {
         let _g = enter(&self.op_gate)?;
         let hits = self
             .inner
-            .similar_to_key(namespace, key, top_k.min(MAX_K))
+            .similar_to_key(namespace, key, clamp_top_k_warn(top_k))
             .map_err(to_js_err)?;
         let arr = js_sys::Array::new();
         for hit in hits {
@@ -1522,7 +1549,7 @@ impl Client {
             filters: req.filters,
             query_sparse: None,
             text_query: req.text_query,
-            top_k: req.top_k.min(MAX_K),
+            top_k: clamp_top_k_warn(req.top_k),
             distance_metric: distance,
             explain: req.explain,
             exclude_superseded: req.exclude_superseded,

@@ -61,12 +61,10 @@ __all__ = [
     "error_to_dict",
 ]
 
-
 def error_to_dict(exc: BaseException) -> dict[str, Any]:
     """Serialize a VantaDB error to a plain dict mirroring TS ``toJSON()``
     (``docs/api/ERROR_HANDLING.md`` §5.2): name/code/message/retriable/hint."""
     ...
-
 
 class SearchRequest:
     """Full search request for batch searches.
@@ -76,7 +74,7 @@ class SearchRequest:
     """
 
     namespace: str
-    query_vector: list[float]
+    query_vector: list[float] | None = None
     filters: dict | None
     text_query: str | None
     top_k: int
@@ -88,7 +86,7 @@ class SearchRequest:
     def __init__(
         self,
         namespace: str,
-        query_vector: list[float],
+        query_vector: list[float] | None = None,
         filters: dict | None = None,
         text_query: str | None = None,
         top_k: int = 10,
@@ -97,11 +95,9 @@ class SearchRequest:
         explain: bool = False,
         query_sparse: dict | None = None,
     ) -> None: ...
-
     def asdict(self) -> dict:
         """Return this request as a plain dict (for non-dataclass callers)."""
         ...
-
 
 class AsyncMemoryClient:
     """Async view over ``db.memory`` (AST-012: short names, no surname)."""
@@ -124,7 +120,6 @@ class AsyncMemoryClient:
     async def delete(self, namespace: str, key: str) -> bool: ...
     def __repr__(self) -> str: ...
 
-
 class AsyncClient:
     """Async wrapper around ``Client``.
 
@@ -135,11 +130,10 @@ class AsyncClient:
     def __init__(self, *args: Any, max_concurrency: int = 4, **kwargs: Any) -> None: ...
     async def __aenter__(self) -> AsyncClient: ...
     async def __aexit__(self, *exc: Any) -> None: ...
-
     async def search(
         self,
         namespace: str,
-        query_vector: list[float],
+        query_vector: list[float] | None = None,
         *,
         filters: dict | None = None,
         text_query: str | None = None,
@@ -171,6 +165,13 @@ class AsyncClient:
         valid_window: dict | None = None,
         include_quarantined: bool = False,
     ) -> list[SearchHit]: ...
+    async def graphrag_search(
+        self,
+        namespace: str,
+        *,
+        query: str | None = None,
+        query_vector: list[float] | None = None,
+    ) -> dict: ...
     @property
     def memory(self) -> AsyncMemoryClient: ...
     # `search_vector` is the pure-ANN op (OD-2=B).
@@ -238,7 +239,6 @@ class AsyncClient:
     async def operational_metrics(self) -> dict: ...
     async def get_node(self, id: int) -> dict | None: ...
     async def delete_node(self, id: int, reason: str = "manual deletion") -> None: ...
-    async def search_vector(self, vector: Any, top_k: int = 10) -> list[tuple[int, float]]: ...
     async def search_batch(
         self, vectors: list[Any], top_k: int = 10
     ) -> list[list[tuple[int, float]]]: ...
@@ -259,6 +259,14 @@ class AsyncClient:
     ) -> None: ...
     async def graph_bfs(
         self, roots: list[int], max_depth: int = 999999, direction: str = "Forward"
+    ) -> list[int]: ...
+    async def graph_bfs_filtered(
+        self,
+        roots: list[int],
+        max_depth: int = 999999,
+        direction: str = "Forward",
+        labels: list[int] | None = None,
+        time_range: tuple[int, int] | None = None,
     ) -> list[int]: ...
     async def graph_dfs(
         self, roots: list[int], max_depth: int = 999999, direction: str = "Forward"
