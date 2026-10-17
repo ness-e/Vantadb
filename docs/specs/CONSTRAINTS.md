@@ -2,33 +2,33 @@
 title: "Constraints — VantaDB Quality Bar"
 kind: concept
 status: active
-description: "Quality bar de VantaDB: floors siempre enforced y reglas con números"
+description: "VantaDB quality bar: always enforced floors and quantified rules"
 tags: [quality-bar, constraints]
 ---
 
 # Constraints — VantaDB Quality Bar
 
-> **Este archivo es la fuente canonica del quality bar de VantaDB.**
-> Leido por agents en cada sesion (via `constraint-driven-development` skill).
-> No debilitar para que un cambio pase — tightening es silencioso, loosening es ruidoso.
-> Ver: `.opencode/skills/constraint-driven-development/SKILL.md` y `.opencode/references/floor-guard.md`.
+> **This file is the canonical source of VantaDB's quality bar.**
+> Read by agents in every session (via `constraint-driven-development` skill).
+> Do not weaken to let a change pass — tightening is silent, loosening is loud.
+> See: `.opencode/skills/constraint-driven-development/SKILL.md` and `.opencode/references/floor-guard.md`.
 
 Last reviewed: 2026-09-27 by @ness-e
 Next review: 2026-12-01
 
 ---
 
-## Floor (siempre enforced, no setup required)
+## Floor (always enforced, no setup required)
 
-Estos 5 checks **nunca** se violan, sin importar la configuracion:
+These 5 checks are **never** violated, regardless of configuration:
 
-- No new suppression comments: `#[allow(...)]` en Rust, `@ts-ignore`, `eslint-disable`, `# noqa`, `# type: ignore`
+- No new suppression comments: `#[allow(...)]` in Rust, `@ts-ignore`, `eslint-disable`, `# noqa`, `# type: ignore`
 - No unimplemented stubs: `unimplemented!()`, `todo!()`, `panic!("not implemented")`, `throw new Error("Not implemented")`, empty `catch {}`
 - No skipped or deleted tests without a reason in the commit message
 - No secrets in source (API keys, tokens, passwords) — gitleaks must pass
 - This file does not get weakened to make a change pass
 
-**Checked by:** `dev-tools/floor-guard.ps1` (diff-scoped, exit 0/1/2) — ver `.opencode/references/floor-guard.md`
+**Checked by:** `dev-tools/floor-guard.ps1` (diff-scoped, exit 0/1/2) — see `.opencode/references/floor-guard.md`
 **Runs at:** every edit (diff), every commit, CI
 
 ---
@@ -94,19 +94,19 @@ Every row names the command that produces the verdict. A dimension with a number
 | W1 | `clippy::too_many_arguments` | `src/engine.rs:search*` | Search API has 7 params, refactor tracked in DRV-XXX | @ness-e | 2026-12-01 |
 | W2 | `unsafe` without Miri | `vantadb-wasm/src/opfs.rs` | OPFS shim, Miri not applicable to WASM | @ness-e | 2027-03-01 |
 
-> Exceptions requieren owner + expiry. Review en cada `Last reviewed` date. Expiry >1y no permitido.
+> Exceptions require owner + expiry. Review on each `Last reviewed` date. Expiry >1y not permitted.
 
 ---
 
 ## Ratchets
 
-Cuando no tienes un numero target, registra donde estas y no empeores:
+When you do not have a target number, record where you are and do not regress:
 
-- Project coverage: per-directory budget en nightly (`coverage-budget`; baseline 2026-09-26, must not fall >1.0 pt below per directory — tabla en `docs/dev/operations/CI_POLICY.md` §Coverage; local on-demand `-IncludeCoverage`; CI ADR-0018 root ≥80% unchanged)
+- Project coverage: per-directory budget in nightly (`coverage-budget`; baseline 2026-09-26, must not fall >1.0 pt below per directory — table in `docs/dev/operations/CI_POLICY.md` §Coverage; local on-demand `-IncludeCoverage`; CI ADR-0018 root ≥80% unchanged)
 - Binary size: measure today, hold the line
 - p99: first bench is the ratchet baseline
 
-Ver `constraint-driven-development` Step 7: Ratchets.
+See `constraint-driven-development` Step 7: Ratchets.
 
 ---
 

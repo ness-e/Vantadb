@@ -2,21 +2,21 @@
 title: "Vanta Memory Engine — API Reference (`vanta-memory`)"
 kind: reference
 status: active
-description: "Crate LLM-driven para memoria de agentes: captura L0, extracción/dedup L1, escenas L2,"
+description: "LLM-driven crate for agent memory: L0 capture, L1 extraction/dedup, L2 scenes, L3 persona, scoped recall, context engine (compression), offload, and wiki generation."
 tags: [vantadb, api, vanta-memory, memory-engine]
 ---
 
 # Vanta Memory Engine — API Reference (`vanta-memory`)
 
-> **Estado:** ✅ documentación canónica del crate (cierra la cita de ADR-0029 §Nota mecánica).
-> **Nota:** `scripts/validate-docs-coverage.ps1` hoy NO escanea `vanta-memory`; esta página es
-> la referencia manual. Las superficies F1-F3 (search profile, entity_*, skills) viven en
+> **Status:** ✅ Canonical crate documentation (closes ADR-0029 §Mechanical note citation).
+> **Note:** `scripts/validate-docs-coverage.ps1` currently does NOT scan `vanta-memory`; this page is
+> the manual reference. The F1-F3 surfaces (search profile, entity_*, skills) live in
 > `EMBEDDED_SDK.md`.
 
-Crate LLM-driven para memoria de agentes: captura L0, extracción/dedup L1, escenas L2,
-persona L3, recall con scope, context engine (compresión), offload y generación wiki.
-**Principio rector:** el LLM es opcional (P4) — todo flujo degrada sin perder datos cuando
-el runner falla o no está configurado.
+LLM-driven crate for agent memory: L0 capture, L1 extraction/dedup, L2 scenes,
+L3 persona, scoped recall, context engine (compression), offload, and wiki generation.
+**Guiding principle:** the LLM is optional (P4) — every flow degrades without data loss when
+the runner fails or is not configured.
 
 ## Scope & stability (Gate P — 2026-09-24)
 
@@ -27,12 +27,12 @@ el runner falla o no está configurado.
   with the WASM viability evidence in
   [`BINDINGS_NAMESPACES.md` §Cognitive layer scope](./BINDINGS_NAMESPACES.md#cognitive-layer-vanta-memory-scope-per-binding-dist-03-2026-10-04);
   a **minimal Python surface** (`memory_recall`/`memory_capture`) **landed** for the 0.9.0
-  train (DIST-02, 2026-10-04 — smoke e2e con wheel local). This page and that matrix are
+  train (DIST-02, 2026-10-04 — smoke e2e with local wheel). This page and that matrix are
   reconciled to the landed surface (DIST-04, 2026-10-04).
 - **Crate distribution (DIST-01, 2026-10-04):** `vanta-memory` is **publishable**
-  (`publish = false` removed; `cargo publish --dry-run` verde + smoke externo) with an
+  (`publish = false` removed; `cargo publish --dry-run` green + external smoke) with an
   explicit **hold** in `release-plz.toml` until the owner bootstraps crates.io Trusted
-  Publishing (the first publish requires an API token — bootstrap checklist in the `release-plz.toml` hold entry; rationale in `docs/dev/tasks/DIST-01.md` §Decisión).
+  Publishing (the first publish requires an API token — bootstrap checklist in the `release-plz.toml` hold entry; rationale in `docs/dev/tasks/DIST-01.md` §Decision).
 - **Stable Rust API:** the public surface documented here is the stable contract for in-repo
   consumers. Binding re-export: **none for TS/Node/WASM** — `0` symbols by design (checked
   with `rg "vanta[_-]memory" vantadb-ts vantadb-node vantadb-wasm` → 0 matches).
