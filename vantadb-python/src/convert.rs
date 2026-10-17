@@ -14,7 +14,9 @@ use vantadb::sdk::{
     QueryResult, RuntimeProfile, SearchExplanation, SearchExplanationHit, StorageTier,
     TextIndexAuditReport, TextIndexRepairReport, Value,
 };
-use vantadb::SparseVector;
+use vantadb::{SparseVector, MAX_VEC_DIM};
+
+type VantaValueError = PyValueError;
 
 use crate::vector::Vector;
 
@@ -200,24 +202,62 @@ pub(crate) fn try_numpy_array(py: Python<'_>, data: &[f32]) -> PyResult<Option<P
 pub(crate) fn extract_vector<'py>(obj: &Bound<'py, PyAny>, py: Python<'py>) -> PyResult<Vec<f32>> {
     // Attempt zero-copy via buffer protocol (requires Python 3.11+)
     if let Ok(buf) = pyo3::buffer::PyBuffer::<f32>::get(obj) {
+        if buf.dimensions() != 1 {
+            return Err(VantaValueError::new_err(
+                "vector buffer must be 1-dimensional",
+            ));
+        }
+        let len = buf.item_count();
+        if len > MAX_VEC_DIM {
+            return Err(VantaValueError::new_err(format!(
+                "vector dimension {len} exceeds maximum {MAX_VEC_DIM}"
+            )));
+        }
         if buf.is_c_contiguous() {
             if let Some(slice) = buf.as_slice(py) {
-                return Ok(slice.iter().map(|cell| cell.get()).collect());
+                let vec: Vec<f32> = slice.iter().map(|cell| cell.get()).collect();
+                if vec.iter().any(|v| !v.is_finite()) {
+                    return Err(VantaValueError::new_err(
+                        "vector contains NaN or infinite values",
+                    ));
+                }
+                return Ok(vec);
             }
         }
         // Non-contiguous or as_slice failed: use to_vec as fallback
         if let Ok(v) = buf.to_vec(py) {
+            if v.iter().any(|v| !v.is_finite()) {
+                return Err(VantaValueError::new_err(
+                    "vector contains NaN or infinite values",
+                ));
+            }
             return Ok(v);
         }
     }
     // Try f64 buffer (common in NumPy) and downcast to f32
     if let Ok(buf) = pyo3::buffer::PyBuffer::<f64>::get(obj) {
+        if buf.dimensions() != 1 {
+            return Err(VantaValueError::new_err(
+                "vector buffer must be 1-dimensional",
+            ));
+        }
+        let len = buf.item_count();
+        if len > MAX_VEC_DIM {
+            return Err(VantaValueError::new_err(format!(
+                "vector dimension {len} exceeds maximum {MAX_VEC_DIM}"
+            )));
+        }
         if buf.is_c_contiguous() {
             if let Ok(v) = buf.to_vec(py) {
                 let len = v.len();
                 let mut result = Vec::with_capacity(len);
                 for x in v {
                     let cast = x as f32;
+                    if !cast.is_finite() {
+                        return Err(VantaValueError::new_err(
+                            "vector contains NaN or infinite values",
+                        ));
+                    }
                     // CODE-082: warn on significant precision loss
                     if (cast as f64 - x).abs() > 1e-7 {
                         tracing::debug!(
@@ -240,6 +280,17 @@ pub(crate) fn extract_vector<'py>(obj: &Bound<'py, PyAny>, py: Python<'py>) -> P
             e
         ))
     })?;
+    let len = result.len();
+    if len > MAX_VEC_DIM {
+        return Err(VantaValueError::new_err(format!(
+            "vector dimension {len} exceeds maximum {MAX_VEC_DIM}"
+        )));
+    }
+    if result.iter().any(|v| !v.is_finite()) {
+        return Err(VantaValueError::new_err(
+            "vector contains NaN or infinite values",
+        ));
+    }
     Ok(result)
 }
 
