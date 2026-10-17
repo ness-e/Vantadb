@@ -64,9 +64,7 @@ def _parse_stub(path: Path) -> dict[str, dict[str, dict[str, list[str]]]]:
         for item in node.body:
             if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 args = item.args
-                params = [
-                    a.arg for a in args.posonlyargs + args.args + args.kwonlyargs
-                ]
+                params = [a.arg for a in args.posonlyargs + args.args + args.kwonlyargs]
                 if "self" in params:
                     params.remove("self")
                 is_prop = any(
@@ -99,18 +97,12 @@ def _stub_required_params(args: ast.arguments) -> set[str]:
 
 
 def _public_callables(cls: type) -> set[str]:
-    return {
-        n
-        for n in dir(cls)
-        if not n.startswith("_") and callable(getattr(cls, n))
-    }
+    return {n for n in dir(cls) if not n.startswith("_") and callable(getattr(cls, n))}
 
 
 def _public_noncallables(cls: type) -> set[str]:
     return {
-        n
-        for n in dir(cls)
-        if not n.startswith("_") and not callable(getattr(cls, n))
+        n for n in dir(cls) if not n.startswith("_") and not callable(getattr(cls, n))
     }
 
 
@@ -151,13 +143,15 @@ def _assert_method_parity(stub: dict[str, list[str]], native_cls: type, label: s
     stub_names = {n for n in stub if not n.startswith("_")}
     missing = real - stub_names
     extra = stub_names - real
-    assert not missing, f"{label}: métodos nativos sin declarar en el stub: {sorted(missing)}"
-    assert not extra, f"{label}: métodos del stub que no existen en nativo: {sorted(extra)}"
+    assert not missing, (
+        f"{label}: métodos nativos sin declarar en el stub: {sorted(missing)}"
+    )
+    assert not extra, (
+        f"{label}: métodos del stub que no existen en nativo: {sorted(extra)}"
+    )
 
 
-def _assert_param_parity(
-    stub: dict[str, list[str]], native_cls: type, label: str
-):
+def _assert_param_parity(stub: dict[str, list[str]], native_cls: type, label: str):
     """For every shared method, stub param names and requiredness must match
     the native signature (catches renamed/missing params and wrong defaults)."""
     for name in sorted(set(stub) & _public_callables(native_cls)):
@@ -173,10 +167,7 @@ def _assert_param_parity(
         # Recompute requiredness from the stub via a targeted parse.
         tree = ast.parse((PKG / "vantadb_py.pyi").read_text(encoding="utf-8"))
         for node in ast.walk(tree):
-            if (
-                isinstance(node, ast.ClassDef)
-                and node.name == label.split(".")[0]
-            ):
+            if isinstance(node, ast.ClassDef) and node.name == label.split(".")[0]:
                 for item in node.body:
                     if isinstance(item, ast.FunctionDef) and item.name == name:
                         stub_required = _stub_required_params(item.args)
@@ -195,7 +186,9 @@ def test_native_stub_declares_every_module_name():
     declared = set(stub) | {n for n in dir(native) if not n.startswith("_")}
     real = {n for n in dir(native) if not n.startswith("_")}
     missing = real - declared
-    assert not missing, f"nombres del módulo nativo sin declarar en el stub: {sorted(missing)}"
+    assert not missing, (
+        f"nombres del módulo nativo sin declarar en el stub: {sorted(missing)}"
+    )
     # connect must match its real signature.
     sig = inspect.signature(native.connect)
     assert [p for p in sig.parameters] == [
@@ -231,9 +224,7 @@ def test_subclient_stubs_match_native_subclients():
             ("wiki", "WikiClient"),
         ]:
             client_cls = type(getattr(db, prop))
-            _assert_method_parity(
-                stub[stub_class]["methods"], client_cls, stub_class
-            )
+            _assert_method_parity(stub[stub_class]["methods"], client_cls, stub_class)
             # Subclients are plain forwarders: stub params (via *args/**kwargs
             # passthrough) are not introspectable, so only method-set parity.
     finally:
@@ -249,17 +240,12 @@ def test_put_batch_return_type_is_typed_not_dict():
         ret = None
         tree = ast.parse((PKG / "vantadb_py.pyi").read_text(encoding="utf-8"))
         for node in ast.walk(tree):
-            if (
-                isinstance(node, ast.ClassDef)
-                and node.name == "Client"
-            ):
+            if isinstance(node, ast.ClassDef) and node.name == "Client":
                 for item in node.body:
                     if isinstance(item, ast.FunctionDef) and item.name == name:
                         ret = ast.unparse(item.returns) if item.returns else None
         assert ret is not None, f"Client.{name} sin anotación de retorno en el stub"
-        assert "Record" in ret, (
-            f"Client.{name} return type {ret!r} no menciona Record"
-        )
+        assert "Record" in ret, f"Client.{name} return type {ret!r} no menciona Record"
 
 
 @needs_native
@@ -273,7 +259,10 @@ def test_wrapper_stub_reexports_native_names():
         if isinstance(node, ast.ImportFrom) and node.module == "vantadb_py":
             imported |= {a.name for a in node.names if a.name != "*"}
     missing = {n for n in imported if not hasattr(native, n)}
-    assert not missing, f"re-exports de __init__.pyi que no existen en nativo: {sorted(missing)}"
+    assert not missing, (
+        f"re-exports de __init__.pyi que no existen en nativo: {sorted(missing)}"
+    )
+
     # __all__ must be identical between the wrapper .py and its stub.
     def _all_of(path: Path) -> list[str]:
         for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
@@ -295,24 +284,28 @@ def test_async_wrapper_stub_matches_real_asyncclient():
     """AsyncClient in __init__.pyi must mirror the real wrapper in
     __init__.py (methods + params + requiredness)."""
     if vanta is None:
-        pytest.skip("compiled vantadb_py module not available (run `maturin develop` first)")
+        pytest.skip(
+            "compiled vantadb_py module not available (run `maturin develop` first)"
+        )
     stub = _parse_stub(PKG / "__init__.pyi")["AsyncClient"]
     _assert_method_parity(stub["methods"], vanta.AsyncClient, "AsyncClient")
     for name in sorted(set(stub["methods"]) & _public_callables(vanta.AsyncClient)):
         real_params = [
-            p for p in inspect.signature(getattr(vanta.AsyncClient, name)).parameters
+            p
+            for p in inspect.signature(getattr(vanta.AsyncClient, name)).parameters
             if p != "self"
         ]
         real_required = {
             p
-            for p, par in inspect.signature(getattr(vanta.AsyncClient, name)).parameters.items()
+            for p, par in inspect.signature(
+                getattr(vanta.AsyncClient, name)
+            ).parameters.items()
             if p != "self" and par.default is inspect.Parameter.empty
         }
-        for fn in ast.walk(ast.parse((PKG / "__init__.pyi").read_text(encoding="utf-8"))):
-            if (
-                isinstance(fn, ast.ClassDef)
-                and fn.name == "AsyncClient"
-            ):
+        for fn in ast.walk(
+            ast.parse((PKG / "__init__.pyi").read_text(encoding="utf-8"))
+        ):
+            if isinstance(fn, ast.ClassDef) and fn.name == "AsyncClient":
                 for item in fn.body:
                     if isinstance(item, ast.FunctionDef) and item.name == name:
                         stub_params, stub_required = _stub_function(item)
@@ -327,8 +320,16 @@ def test_async_wrapper_stub_matches_real_asyncclient():
 def test_wrapper_stub_declares_search_request():
     """SearchRequest dataclass must exist in __init__.pyi with its real fields."""
     stub = _parse_stub(PKG / "__init__.pyi")["SearchRequest"]
-    fields = {"namespace", "query_vector", "filters", "text_query", "top_k",
-              "distance_metric", "method", "explain"}
+    fields = {
+        "namespace",
+        "query_vector",
+        "filters",
+        "text_query",
+        "top_k",
+        "distance_metric",
+        "method",
+        "explain",
+    }
     assert fields <= set(stub["members"]) | set(stub["methods"]), (
         f"SearchRequest incompleto en stub: members={sorted(stub['members'])}"
     )

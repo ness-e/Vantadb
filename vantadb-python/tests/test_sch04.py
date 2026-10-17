@@ -101,7 +101,9 @@ def _write_v2_fixture(tmp_path):
         },
     ]
     path = tmp_path / "sch04-v2.jsonl"
-    path.write_text("\n".join(json.dumps(line) for line in lines) + "\n", encoding="utf-8")
+    path.write_text(
+        "\n".join(json.dumps(line) for line in lines) + "\n", encoding="utf-8"
+    )
     return path
 
 

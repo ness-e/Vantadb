@@ -27,7 +27,10 @@ def _seed_graph(db: Client) -> list[int]:
         ("b", "graph expansion uses edges", [0.2, 0.3, 0.4]),
         ("c", "BM25 lexical retrieval engine", [0.3, 0.4, 0.5]),
     ]
-    ids = [db.put("graphrag", key, payload, vector=vector).node_id for key, payload, vector in records]
+    ids = [
+        db.put("graphrag", key, payload, vector=vector).node_id
+        for key, payload, vector in records
+    ]
     db.add_edge(ids[0], ids[1], "uses")
     db.add_edge(ids[0], ids[2], "uses")
     return ids

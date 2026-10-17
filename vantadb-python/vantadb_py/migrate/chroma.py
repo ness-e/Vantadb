@@ -41,7 +41,9 @@ def migrate_from_chroma(
     try:
         import chromadb
     except ImportError:
-        raise ImportError("chromadb is required for this migration: pip install chromadb")
+        raise ImportError(
+            "chromadb is required for this migration: pip install chromadb"
+        )
 
     from vantadb import Client
 
@@ -95,11 +97,25 @@ def main(argv: list[str] | None = None) -> int:
         prog="python -m vantadb_py.migrate.chroma",
         description="Migrate a ChromaDB persistent store into VantaDB.",
     )
-    parser.add_argument("--source", required=True, help="Path to the ChromaDB persistent store")
-    parser.add_argument("--dest", required=True, help="Path where the VantaDB database will be created")
-    parser.add_argument("--collection-name", default=None, help="Migrate only this collection (default: all)")
-    parser.add_argument("--namespace", default=None, help="Target VantaDB namespace (default: collection name)")
-    parser.add_argument("--batch-size", type=int, default=500, help="Records per batch (default: 500)")
+    parser.add_argument(
+        "--source", required=True, help="Path to the ChromaDB persistent store"
+    )
+    parser.add_argument(
+        "--dest", required=True, help="Path where the VantaDB database will be created"
+    )
+    parser.add_argument(
+        "--collection-name",
+        default=None,
+        help="Migrate only this collection (default: all)",
+    )
+    parser.add_argument(
+        "--namespace",
+        default=None,
+        help="Target VantaDB namespace (default: collection name)",
+    )
+    parser.add_argument(
+        "--batch-size", type=int, default=500, help="Records per batch (default: 500)"
+    )
     args = parser.parse_args(argv)
 
     count = migrate_from_chroma(

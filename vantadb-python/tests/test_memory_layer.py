@@ -27,7 +27,9 @@ def db():
     instance.close()
 
 
-def _l1_record(content: str, session_key: str = "sess-1", record_id: str = "m1") -> dict:
+def _l1_record(
+    content: str, session_key: str = "sess-1", record_id: str = "m1"
+) -> dict:
     """Minimal L1 ``MemoryRecord`` wire shape (serde defaults fill the rest)."""
     return {
         "id": record_id,
@@ -43,7 +45,9 @@ def _l1_record(content: str, session_key: str = "sess-1", record_id: str = "m1")
     }
 
 
-def _seed_l1(db, content: str, session_key: str = "sess-1", record_id: str = "m1") -> None:
+def _seed_l1(
+    db, content: str, session_key: str = "sess-1", record_id: str = "m1"
+) -> None:
     """Persist an L1 record exactly as the recall reader expects it."""
     db.put(
         "l1/" + session_key,

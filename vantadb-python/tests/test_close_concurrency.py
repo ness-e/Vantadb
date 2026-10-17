@@ -50,9 +50,7 @@ def test_close_concurrent_stress(tmp_path):
     errors: list[Exception] = []
 
     workers = [
-        threading.Thread(
-            target=_worker_loop, args=(db, stop, errors, i), daemon=True
-        )
+        threading.Thread(target=_worker_loop, args=(db, stop, errors, i), daemon=True)
         for i in range(4)
     ]
     for w in workers:
