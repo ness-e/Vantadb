@@ -43,4 +43,8 @@ ignore = [
     "RUSTSEC-2024-0429",
 
     # (removed RUSTSEC-2026-0176/0177 — pyo3 0.29.0 is past the vulnerable range)
+
+    # RUSTSEC-2024-0449 (unsafe-libyaml 0.2.11, unmaintained — dev-only via serde_yaml).
+    # Mirror of deny.toml [advisories] triage (FIND-351, 2026-10-17).
+    "RUSTSEC-2024-0449",
 ]

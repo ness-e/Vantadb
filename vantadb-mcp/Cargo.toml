@@ -3,6 +3,7 @@ name = "vantadb-mcp"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+license = "Apache-2.0"
 description = "Autocontained Model Context Protocol (MCP) interface for VantaDB"
 publish = false
 
