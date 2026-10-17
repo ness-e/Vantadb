@@ -177,11 +177,6 @@ impl StorageEngine {
             }
         }
 
-        // Non-transaction path: stats minus eager cardinality/index updates
-        // (shared with commit_transaction), then WAL + apply inside a single
-        // insert_lock
-        self.apply_insert_stats(node);
-
         self.ensure_writable()?;
         #[cfg(feature = "failpoints")]
         fail::fail_point!("storage_insert_fail", |_| {
@@ -199,9 +194,9 @@ impl StorageEngine {
 
         // Non-transaction path: WAL + apply inside a single insert_lock
         // critical section (ERR-010). flush() takes the same guard around
-        // [drain ΓåÆ serialize ΓåÆ checkpoint_seq write], so a concurrent flush
+        // [drain → serialize → checkpoint_seq write], so a concurrent flush
         // can never count this WAL record before its HNSW mutation has been
-        // drained into the serialized snapshot ΓÇö no invisible records and no
+        // drained into the serialized snapshot — no invisible records and no
         // duplicates on replay. `apply_insert` queues to the pending batch
         // (try_push_pending_hnsw never blocks on the guard we hold here).
         {
@@ -209,19 +204,24 @@ impl StorageEngine {
             if let Some(ref sharded) = self.wal {
                 let mut wal_node = node.clone();
                 wal_node.last_accessed = now_ms;
-                // moved (not cloned again) ΓÇö eliminates the 2nd clone
+                // moved (not cloned again) — eliminates the 2nd clone
                 sharded.append(&crate::wal::WalRecord::Insert(wal_node))?;
             }
-            // Pass &node directly ΓÇö no active_node intermediate needed
+            // Pass &node directly — no active_node intermediate needed
             self.apply_insert(node)?;
             // We hold the guard, so try_push_pending_hnsw (called inside
-            // apply_insert) could never opportunistically drain ΓÇö drain the
+            // apply_insert) could never opportunistically drain — drain the
             // batch NOW under the same latch so the HNSW entry exists for
             // immediate reads (get()/search), exactly like the pre-ERR-010
             // eager path did.
             self.drain_hnsw_batch_locked()?;
-            Ok(())
         }
+
+        // FIND-363 / FIND-345: Apply cardinality stats and secondary index
+        // updates AFTER WAL + store commit and outside `insert_lock` so
+        // read-only/WAL failures never leave phantom secondary index entries.
+        self.apply_insert_stats(node);
+        Ok(())
     }
 
     /// Apply cardinality stats + edge/scalar index updates for an insert.

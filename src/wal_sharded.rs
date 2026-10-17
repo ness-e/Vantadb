@@ -487,6 +487,7 @@ impl ShardedWal {
         let extra_shards = checkpoint_seq % self.num_shards as u64;
 
         let mut shard_counts = vec![0u64; self.num_shards];
+        let mut records = Vec::new();
 
         for (i, shard) in self.shards.iter().enumerate() {
             let path = {
@@ -507,7 +508,7 @@ impl ShardedWal {
                 if current_seq <= shard_skip {
                     continue;
                 }
-                f(record)?;
+                records.push((current_seq, i, record));
             }
             shard_counts[i] = current_seq;
         }
@@ -519,6 +520,14 @@ impl ShardedWal {
             if let Some(msg) = verify_shard_counts(&shard_counts) {
                 return Err(Error::wal_error(msg));
             }
+        }
+
+        // FIND-354: sort records by (seq, shard_idx) to restore exact round-robin causal global order
+        // instead of replaying shard-by-shard.
+        records.sort_by_key(|(seq, shard_idx, _)| (*seq, *shard_idx));
+
+        for (_seq, _shard_idx, record) in records {
+            f(record)?;
         }
         Ok(())
     }
@@ -1217,5 +1226,33 @@ mod tests {
         for b in done.backups {
             let _ = std::fs::remove_file(b);
         }
+    }
+
+    #[test]
+    fn test_find354_recover_interleaved_writes_in_strict_global_seq_order() {
+        let path = test_wal_path();
+        let num_shards = 4;
+        let sw = ShardedWal::new(&path, num_shards, SyncMode::Periodic).unwrap();
+
+        // Append 8 records with IDs 1..=8 (round-robin distributed across 4 shards)
+        for i in 1..=8 {
+            sw.append(&make_record(i)).unwrap();
+        }
+        sw.flush_all().unwrap();
+
+        let mut recovered_ids = Vec::new();
+        sw.recover(0, |record| {
+            if let WalRecord::Insert(node) = record {
+                recovered_ids.push(node.id);
+            }
+            Ok(())
+        })
+        .unwrap();
+
+        // Shard 0 held [1, 5], Shard 1 held [2, 6], Shard 2 held [3, 7], Shard 3 held [4, 8].
+        // Before the fix, recover yielded [1, 5, 2, 6, 3, 7, 4, 8].
+        // In strict causal global_seq order, it must yield [1, 2, 3, 4, 5, 6, 7, 8].
+        assert_eq!(recovered_ids, vec![1, 2, 3, 4, 5, 6, 7, 8]);
+        clean_shards(&path, num_shards);
     }
 }

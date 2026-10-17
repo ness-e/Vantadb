@@ -32,13 +32,11 @@ impl StorageEngine {
             }
         }
 
-        // Non-transaction path: cardinality/index updates + WAL + stores.
-        self.apply_delete_stats(id);
-
-        // WAL + apply inside a single insert_lock critical section (ERR-010) ΓÇö
+        // WAL + apply inside a single insert_lock critical section (ERR-010) —
         // see insert()/delete().
         self.ensure_writable()?;
-        {
+        let pre_delete_node = self.get(id).ok().flatten();
+        let res = {
             let _guard = self.acquire_insert_lock("acquire insert_lock in delete (WAL + apply)")?;
             if let Some(ref sharded) = self.wal {
                 sharded.append(&crate::wal::WalRecord::Delete { id })?;
@@ -56,22 +54,30 @@ impl StorageEngine {
                 let _ = crate::shred::ShreddedRowStore::delete(id, &*self.backend);
             }
             res
+        };
+        if res.is_ok() {
+            // FIND-363 / FIND-345: Update cardinality stats and secondary indexes
+            // only after WAL + store delete succeeds and outside `insert_lock`.
+            if let Some(ref node) = pre_delete_node {
+                self.apply_delete_stats_for_node(id, node);
+            }
         }
+        res
     }
 
-    /// Apply cardinality stats + edge/scalar index removal for a delete.
+    /// Apply cardinality stats + edge/scalar index removal for a pre-fetched deleted node.
     ///
     /// Called from the non-transactional `delete()` path and from
     /// `commit_transaction` when a buffered delete is actually committed.
     /// It is intentionally NOT called while a delete is being buffered into a
-    /// transaction ΓÇö an abort would otherwise leave the counters deflated for
+    /// transaction — an abort would otherwise leave the counters deflated for
     /// records that were never removed (ERR-013).
-    pub(crate) fn apply_delete_stats(&self, id: u128) {
-        if let Ok(Some(node)) = self.get(id) {
+    pub(crate) fn apply_delete_stats_for_node(&self, id: u128, node: &crate::node::UnifiedNode) {
+        {
             let mut stats = self.cache.cardinality_stats.write();
-            for (field, value) in node.relational {
+            for (field, value) in &node.relational {
                 let val_keys = value.to_cardinality_keys();
-                if let Some(val_map) = stats.get_mut(&field) {
+                if let Some(val_map) = stats.get_mut(field) {
                     for val_key in val_keys {
                         if let Some(count) = val_map.get_mut(&val_key) {
                             if *count > 0 {
@@ -93,15 +99,15 @@ impl StorageEngine {
                     stats.remove(&min_field);
                 }
             }
+        }
 
-            // PERF-07: cascade ΓÇö remove all edges referencing this node
-            if let Some(ref ei) = self.edge_index {
-                ei.remove_all_for_node(id);
-            }
-            // PERF-08: remove node from scalar index
-            if let Some(ref si) = self.scalar_index {
-                si.remove_node(id);
-            }
+        // PERF-07: cascade — remove all edges referencing this node
+        if let Some(ref ei) = self.edge_index {
+            ei.remove_all_for_node(id);
+        }
+        // PERF-08: remove node from scalar index
+        if let Some(ref si) = self.scalar_index {
+            si.remove_node(id);
         }
     }
 

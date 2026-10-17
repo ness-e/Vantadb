@@ -310,7 +310,7 @@ impl HardwareScout {
 
         // Helper: render a plain-text version to measure, then build styled line
         let hw_row_plain = format!(
-            " ⚡  CPU  {}   RAM {}GB (cache {}GB)  │  {} cores  │  score {}",
+            " ⚡  CPU [ {} ]   RAM {}GB (cache {}GB)  │  {} cores  │  score {}",
             instr_label, ram_gb, cache_gb, caps.logical_cores, caps.resource_score
         );
         let prof_row_plain = format!(" ★  Profile: {}   Source: {}", profile_label, source);
@@ -331,7 +331,7 @@ impl HardwareScout {
         eprintln!("{}", style(&top).color256(240).dim());
         eprintln!("{blank}");
         eprintln!(
-            "  │ ⚡  {} [ {} ]   RAM {}GB (cache {}GB)  │  {} cores  │  score {}{}│",
+            "  │ ⚡  {} [ {} ]   RAM {} (cache {})  │  {} cores  │  score {}{}│",
             style("CPU").bold().white(),
             instr_styled,
             style(format!("{}GB", ram_gb)).white(),
