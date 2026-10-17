@@ -30,10 +30,12 @@ import pytest
 
 import vantadb_py
 
-_MIN_TEST_MEMORY_LIMIT = 1024 * 1024 * 1024  # 1 GiB — interpreter + test deps baseline + headroom
+_MIN_TEST_MEMORY_LIMIT = (
+    1024 * 1024 * 1024
+)  # 1 GiB — interpreter + test deps baseline + headroom
 
 _REGISTRY = []  # Client instances created during the current test
-_BY_PATH = {}   # abspath -> instance, for file-backed handles only
+_BY_PATH = {}  # abspath -> instance, for file-backed handles only
 
 
 def _close_quietly(db):
@@ -68,7 +70,9 @@ def _tracking_vantadb(*args, **kwargs):
     if len(args) >= 2 and isinstance(args[1], int):
         args[1] = max(args[1], _MIN_TEST_MEMORY_LIMIT)
     if isinstance(kwargs.get("memory_limit_bytes"), int):
-        kwargs["memory_limit_bytes"] = max(kwargs["memory_limit_bytes"], _MIN_TEST_MEMORY_LIMIT)
+        kwargs["memory_limit_bytes"] = max(
+            kwargs["memory_limit_bytes"], _MIN_TEST_MEMORY_LIMIT
+        )
     db = _original_vantadb(*args, **kwargs)
     if key is not None:
         _BY_PATH[key] = db

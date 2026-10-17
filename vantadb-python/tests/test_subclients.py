@@ -60,9 +60,11 @@ def test_memory_search_identity(db):
 def test_memory_list_and_namespaces_identity(db):
     db.put("ns-a", "k", "v")
     db.put("ns-b", "k", "v")
-    assert sorted(db.memory.list_namespaces()) == sorted(
-        db.list_namespaces()
-    ) == ["ns-a", "ns-b"]
+    assert (
+        sorted(db.memory.list_namespaces())
+        == sorted(db.list_namespaces())
+        == ["ns-a", "ns-b"]
+    )
     listed_sub = db.memory.list("ns-a")
     assert listed_sub[0].key == "k"
 
@@ -107,9 +109,11 @@ def test_memory_count_identity(db):
     db.memory.put("ns", "a", "alpha", metadata={"category": "task"})
     db.memory.put("ns", "b", "beta", metadata={"category": "note"})
     assert db.memory.count("ns") == db.count("ns") == 2
-    assert db.memory.count("ns", {"category": "task"}) == db.count(
-        "ns", {"category": "task"}
-    ) == 1
+    assert (
+        db.memory.count("ns", {"category": "task"})
+        == db.count("ns", {"category": "task"})
+        == 1
+    )
 
 
 def test_memory_delete_by_filter_identity(db):
@@ -281,12 +285,7 @@ def test_system_bulk_import_bytes_identity(db):
         }
     ]
     body = json.dumps(records).encode()
-    blob = (
-        b"VDBJSON\n"
-        + bytes([0x01])
-        + struct.pack("<Q", len(records))
-        + body
-    )
+    blob = b"VDBJSON\n" + bytes([0x01]) + struct.pack("<Q", len(records)) + body
     report = db.system.bulk_import_bytes(blob)
     assert report["total_records"] == 1
     assert report["batches_committed"] >= 1

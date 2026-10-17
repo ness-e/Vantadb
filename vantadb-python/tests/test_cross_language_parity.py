@@ -51,11 +51,17 @@ def _run_scenario(scenario: dict) -> dict:
             text_query=search["text_query"],
             top_k=search["top_k"],
         )
-        search_rows = [{"id": str(hit.node_id), "score": float(hit.score)} for hit in hits]
+        search_rows = [
+            {"id": str(hit.node_id), "score": float(hit.score)} for hit in hits
+        ]
 
         graph = scenario["graph"]
         for edge in graph["edges"]:
-            db.add_edge(int(ids[edge["source_key"]]), int(ids[edge["target_key"]]), edge["label"])
+            db.add_edge(
+                int(ids[edge["source_key"]]),
+                int(ids[edge["target_key"]]),
+                edge["label"],
+            )
         bfs = [
             str(node_id)
             for node_id in db.graph_bfs(
@@ -105,10 +111,14 @@ def test_canonical_scenario_produces_binding_artifact():
     assert len(search_rows) >= 2
     assert all(row["id"] in expected_ids and row["score"] > 0 for row in search_rows)
 
-    assert bfs[0] == artifact["steps"]["put"][0]["node_id"], "BFS must start at the root"
+    assert bfs[0] == artifact["steps"]["put"][0]["node_id"], (
+        "BFS must start at the root"
+    )
     assert set(bfs) == expected_ids, f"BFS must visit every record node, got {bfs}"
 
     assert artifact["steps"]["iql"]["read_ids"] == ["42424242"]
 
     _ARTIFACT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    _ARTIFACT_PATH.write_text(json.dumps(artifact, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    _ARTIFACT_PATH.write_text(
+        json.dumps(artifact, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )

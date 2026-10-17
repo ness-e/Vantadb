@@ -13,6 +13,7 @@ or used programmatically:
     count = migrate_from_lancedb("./lancedb_dir", "./vantadb_db")
 """
 
+
 def migrate_from_chroma(*args, **kwargs):
     """Migrate a ChromaDB persistent store into VantaDB. See ``vantadb_py.migrate.chroma``."""
     from .chroma import migrate_from_chroma as fn
