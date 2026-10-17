@@ -66,17 +66,18 @@ pub async fn auth_middleware(mut req: Request, next: Next) -> Response {
         .get::<RequestId>()
         .and_then(|r| r.0.clone());
 
-    // No API key configured — allow all (dev mode), but surface it so the
+    // No API key and no JWT secret configured — allow all (dev mode), but surface it so the
     // silent auth bypass is visible (not rate-limited: tracing::rate_limited is
     // unstable and unavailable in the pinned tracing 0.1.44).
-    let Some(expected_key) = &auth.api_key else {
+    // FIND-346: If jwt_secret IS configured, enforce Bearer auth even when api_key is None.
+    if auth.api_key.is_none() && auth.jwt_secret.is_none() {
         tracing::warn!(
             method = %req.method(),
             path = %req.uri().path(),
-            "no API key configured; allowing unauthenticated request (dev mode)"
+            "no API key or JWT secret configured; allowing unauthenticated request (dev mode)"
         );
         return next.run(req).await;
-    };
+    }
 
     // Extract client IP for rate limiting (respects X-Forwarded-For)
     let client_ip = client_ip(&req, &auth.trusted_proxies);
@@ -105,8 +106,8 @@ pub async fn auth_middleware(mut req: Request, next: Next) -> Response {
         .and_then(|v| v.strip_prefix("Bearer "));
 
     // SRV-04: accept either primary or alt API key for zero-downtime rotation.
-    let key_ok = match token {
-        Some(token) => {
+    let key_ok = match (token, auth.api_key.as_deref()) {
+        (Some(token), Some(expected_key)) => {
             let token_bytes = token.as_bytes();
             let primary_ok = expected_key.as_bytes().ct_eq(token_bytes).into();
             let alt_ok = auth
@@ -116,7 +117,7 @@ pub async fn auth_middleware(mut req: Request, next: Next) -> Response {
                 .unwrap_or(false);
             primary_ok || alt_ok
         }
-        None => false,
+        _ => false,
     };
 
     // SRV-06: HS256 JWT fallback (ADR-039) — offline verification, only when a

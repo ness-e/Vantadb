@@ -769,6 +769,24 @@ pub struct ImportRequest {
     format: Option<String>,
 }
 
+/// FIND-347: Enforce that HTTP `/api/v2/export` and `/api/v2/import` never read
+/// or write arbitrary absolute host paths when `export_base_dir` is not explicitly
+/// configured. Relative paths remain subject to `prevent_path_traversal` (`..`
+/// rejected), and when `export_base_dir` IS configured `resolve_export_path`
+/// enforces containment inside that base directory.
+fn validate_http_export_import_path(db: &crate::sdk::Embedded, raw_path: &str) -> Result<()> {
+    crate::storage::ops::prevent_path_traversal(raw_path)?;
+    if db.config.export_base_dir.is_none() && std::path::Path::new(raw_path).is_absolute() {
+        return Err(Error::Validation {
+            field: "path".into(),
+            reason: format!(
+                "Absolute path '{raw_path}' is not allowed over HTTP when export_base_dir is not configured"
+            ),
+        });
+    }
+    Ok(())
+}
+
 #[tracing::instrument(skip(state))]
 pub async fn export_v2(
     State(state): State<Arc<ServerState>>,
@@ -776,9 +794,12 @@ pub async fn export_v2(
 ) -> Response {
     let namespace = req.namespace.clone();
     let filter = req.filter.clone();
-    match run_db_op(&state, move |db| match namespace.as_deref() {
-        Some(ns) => db.export_namespace(&req.path, ns, filter),
-        None => db.export_all(&req.path),
+    match run_db_op(&state, move |db| {
+        validate_http_export_import_path(db, &req.path)?;
+        match namespace.as_deref() {
+            Some(ns) => db.export_namespace(&req.path, ns, filter),
+            None => db.export_all(&req.path),
+        }
     })
     .await
     {
@@ -802,6 +823,7 @@ pub async fn import_v2(
             serde_json::to_value(db.import_records(records, false)?)
                 .map_err(Error::serialization)?
         } else if let Some(path) = path {
+            validate_http_export_import_path(db, &path)?;
             if format.as_deref() == Some("bulk") {
                 serde_json::to_value(db.bulk_import_file(&path)?).map_err(Error::serialization)?
             } else {

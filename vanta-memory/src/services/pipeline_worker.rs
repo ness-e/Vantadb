@@ -117,7 +117,14 @@ impl LayerTelemetry {
             "L2" => self.l2_latency_ms,
             "L3" => self.l3_latency_ms,
             "recall" => self.recall_latency_ms,
-            other => unreachable!("unknown layer telemetry kind: {other}"),
+            other => {
+                tracing::warn!(
+                    session_id,
+                    kind = other,
+                    "unknown layer telemetry kind; ignoring"
+                );
+                return;
+            }
         };
         tracing::debug!(
             target: "vanta_memory::telemetry",

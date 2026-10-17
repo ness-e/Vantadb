@@ -104,24 +104,27 @@ impl ListRecordsUseCase {
                 truncated_namespaces: Vec::new(),
             });
         }
+        let start = cmd.cursor.unwrap_or(0);
+        let fetch_limit = start.saturating_add(cmd.limit);
         let mut names = ports.list_namespaces_sorted()?;
         names.sort();
         let mut pages = Vec::with_capacity(names.len());
         for ns in names {
             let options = MemoryListOptions {
                 filter_ops: cmd.filter_ops.clone(),
-                limit: cmd.limit,
-                cursor: cmd.cursor,
+                limit: fetch_limit,
+                cursor: None,
                 ..Default::default()
             };
             let page = ports.list_in(&ns, options)?;
             pages.push((ns, page));
         }
         let (records, truncated_namespaces) = merge_all_namespaces_pages(pages);
-        let start = cmd.cursor.unwrap_or(0).min(records.len());
+        let start = start.min(records.len());
         let end = (start + cmd.limit).min(records.len());
         let window = records[start..end].to_vec();
-        let next_cursor = (end < records.len()).then_some(end);
+        let has_more = (end < records.len()) || !truncated_namespaces.is_empty();
+        let next_cursor = has_more.then_some(end);
         Ok(ListRecordsOutput {
             records: window,
             next_cursor,
@@ -273,15 +276,37 @@ mod tests {
         // Assert: wire formula start=min(cursor, len), end=min(start+limit, len).
         assert_eq!(out.records.len(), 3);
         assert_eq!(out.next_cursor, Some(3));
-        // Act: follow the cursor. Quirk preservado del handler original
-        // (wire idéntico, D1c no lo cambia): el cursor global se aplica
-        // TAMBIÉN por namespace (options_for usaba el mismo `cursor`), así
-        // que con cursor=3 cada ns de 2 registros devuelve página vacía y
-        // el merge queda vacío con next_cursor None.
+        // Act: follow the cursor.
+        // FIND-355: Global cursor offset is applied once on merged results;
+        // per-namespace fetches use cursor=None with fetch_limit=start+limit.
         let out2 = ListRecordsUseCase::execute(&ports, FakePorts::cmd(None, 3, Some(3))).unwrap();
         // Assert
-        assert!(out2.records.is_empty());
+        assert_eq!(out2.records.len(), 1);
+        assert_eq!(out2.records[0].payload, "b/k2");
         assert_eq!(out2.next_cursor, None);
+    }
+
+    #[test]
+    fn all_namespaces_pagination_across_namespaces_without_double_skipping() {
+        // Arrange: 2 ns × 2 records = 4 merged (a/k1, a/k2, b/k1, b/k2).
+        let ports = FakePorts::with_ns(vec![
+            ("a".to_string(), vec![record("a", "k1"), record("a", "k2")]),
+            ("b".to_string(), vec![record("b", "k1"), record("b", "k2")]),
+        ]);
+        // Act: page 1 (limit 2, cursor None)
+        let page1 = ListRecordsUseCase::execute(&ports, FakePorts::cmd(None, 2, None)).unwrap();
+        assert_eq!(page1.records.len(), 2);
+        assert_eq!(page1.records[0].payload, "a/k1");
+        assert_eq!(page1.records[1].payload, "a/k2");
+        assert_eq!(page1.next_cursor, Some(2));
+
+        // Act: page 2 (limit 2, cursor Some(2))
+        let page2 = ListRecordsUseCase::execute(&ports, FakePorts::cmd(None, 2, Some(2))).unwrap();
+        // Assert: 3rd and 4th global records returned without double-skipping
+        assert_eq!(page2.records.len(), 2);
+        assert_eq!(page2.records[0].payload, "b/k1");
+        assert_eq!(page2.records[1].payload, "b/k2");
+        assert_eq!(page2.next_cursor, None);
     }
 
     #[test]
