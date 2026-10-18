@@ -133,6 +133,19 @@ export function transformSurfaceManifest(text, newVersion) {
   return text.replace(/(workspace version:\s*)[^\s*)]+/g, `$1${newVersion}`);
 }
 
+export function parseNodeCargoVersion(text) {
+  const mPkg = String(text).match(/^\[package\][\s\S]*?^version\s*=\s*"([^"]+)"/m);
+  const mDep = String(text).match(/^vanta-memory\s*=\s*\{[^}]*version\s*=\s*"([^"]+)"/m);
+  if (!mPkg || !mDep) return null;
+  return mPkg[1] === mDep[1] ? mPkg[1] : `${mPkg[1]} (vanta-memory=${mDep[1]})`;
+}
+
+export function transformNodeCargoToml(text, newVersion) {
+  return String(text)
+    .replace(/^(\[package\][\s\S]*?^version\s*=\s*)"[^"]+"/m, `$1"${newVersion}"`)
+    .replace(/^(vanta-memory\s*=\s*\{[^}]*version\s*=\s*)"[^"]+"/m, `$1"${newVersion}"`);
+}
+
 // --------------------------------------------------------------- evaluation
 
 export function buildTargetSpecs(workspaceVersion) {
@@ -144,6 +157,20 @@ export function buildTargetSpecs(workspaceVersion) {
       expected: workspaceVersion,
       parse: parsePackageVersion,
       transform: transformPackageJson,
+    },
+    {
+      name: 'vantadb-node/package.json',
+      relPath: 'vantadb-node/package.json',
+      expected: workspaceVersion,
+      parse: parsePackageVersion,
+      transform: transformPackageJson,
+    },
+    {
+      name: 'vantadb-node/Cargo.toml',
+      relPath: 'vantadb-node/Cargo.toml',
+      expected: workspaceVersion,
+      parse: parseNodeCargoVersion,
+      transform: transformNodeCargoToml,
     },
     {
       name: 'server.json',

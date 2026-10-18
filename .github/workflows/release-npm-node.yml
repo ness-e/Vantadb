@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       publish:
-        description: 'Publish package to npm (requires npm readiness)'
+        description: 'Publish package to npm'
         required: false
-        default: false
+        default: true
         type: boolean
       dry_run:
         description: "Dry run (no actual publish)"
@@ -16,7 +16,7 @@ on:
     # Tags solo: publish. CI de ramas va por pull_request (paths).
     # (paths no se evalúa en tags; tags+branches+paths en un bloque es
     # ambiguo — FIND-140)
-    tags: ["node-v*.*.*"]
+    tags: ["v*.*.*", "node-v*.*.*"]
   pull_request:
     paths:
       - "vantadb-node/**"
@@ -38,7 +38,7 @@ jobs:
   build:
     name: Build ${{ matrix.target }}
     runs-on: ${{ matrix.runs-on }}
-    timeout-minutes: 20
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
@@ -80,11 +80,24 @@ jobs:
           toolchain: stable
           target: ${{ matrix.rust-target }}
 
+      - name: Install cross-compilation toolchain (Linux cross/musl targets)
+        if: runner.os == 'Linux' && matrix.rust-target != 'x86_64-unknown-linux-gnu'
+        run: |
+          python3 -m pip install --break-system-packages ziglang cargo-zigbuild
+
       - name: Build vantadb-node (${{ matrix.target }})
+        working-directory: vantadb-node
+        env:
+          RUST_TARGET: ${{ matrix.rust-target }}
+          RUNNER_OS: ${{ runner.os }}
         run: |
           npm ci
-          npm run build
-        working-directory: vantadb-node
+          ZIG_FLAG=""
+          if [ "$RUNNER_OS" = "Linux" ] && [ "$RUST_TARGET" != "x86_64-unknown-linux-gnu" ]; then
+            ZIG_FLAG="--zig"
+          fi
+          npx napi build --platform --release --target "$RUST_TARGET" $ZIG_FLAG --js index.cjs
+          npx napi build --platform --release --target "$RUST_TARGET" $ZIG_FLAG --esm --js index.js
 
       - name: Run tests
         if: runner.os == 'Linux' && matrix.target == 'x86_64-unknown-linux-gnu'
@@ -144,8 +157,9 @@ jobs:
     name: Publish vantadb-node to npm
     needs: [build, test]
     if: >
+      startsWith(github.ref, 'refs/tags/v') ||
       startsWith(github.ref, 'refs/tags/node-v') ||
-      (github.event_name == 'workflow_dispatch' && inputs.publish == true)
+      (github.event_name == 'workflow_dispatch' && inputs.publish != false)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: npm
@@ -176,6 +190,10 @@ jobs:
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
+
+      # OIDC trusted publishing requires npm >= 11.5.1 (Node 22 ships npm 10).
+      - name: Upgrade npm for OIDC trusted publishing
+        run: npm install -g npm@11
 
       - name: Verify all targets present
         run: |

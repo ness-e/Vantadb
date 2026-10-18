@@ -1,6 +1,6 @@
 [package]
 name = "vantadb-node"
-version = "0.7.0"
+version = "0.8.0"
 edition = "2021"
 rust-version = "1.94.1"
 description = "Native Node.js bindings for VantaDB via napi-rs (additional backend to WASM)"

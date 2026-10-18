@@ -56,13 +56,7 @@ export const TARGETS = [
   {
     name: 'vantadb-node',
     path: 'vantadb-node/package.json',
-    policy: 'never-published',
-    // Versions never published to npm carry zero skip risk: there is no
-    // registry entry that can "already exist". Recorded 2026-10-03
-    // (`npm view vantadb-node` → E404). On the node train's FIRST release the
-    // package must be bumped to the workspace version; from then on this
-    // entry moves to policy 'workspace' (see docs/dev/workflow/PUBLISH.md).
-    neverPublished: ['0.7.0'],
+    policy: 'workspace',
   },
 ];
 
