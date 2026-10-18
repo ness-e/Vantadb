@@ -244,6 +244,8 @@ jobs:
           (startsWith(github.ref, 'refs/tags/v') ||
            github.event_name == 'workflow_dispatch')
         working-directory: vantadb-wasm/pkg
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: >
           npm publish ${{ inputs.dry_run == 'true' && '--dry-run' || '' }}
 
@@ -332,5 +334,7 @@ jobs:
       - name: Publish to npm
         if: steps.check-ts.outputs.exists != 'true'
         working-directory: vantadb-ts
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: >
           npm publish ${{ inputs.dry_run == 'true' && '--dry-run' || '' }}
