@@ -143,8 +143,6 @@ jobs:
           echo "Fanning out on tag $TAG"
           gh workflow run release-wheels.yml --ref "$TAG"
           gh workflow run release-npm-61.yml --ref "$TAG" -f package=both
-          # FIND-331 / FIND-379: release-npm-node.yml is decoupled from core v* releases;
-          # vantadb-node has an independent node-v*.*.* release lifecycle and is on hold
-          # at 0.7.0. Triggered only by node-v*.*.* tags or manual workflow_dispatch.
+          gh workflow run release-npm-node.yml --ref "$TAG" -f publish=true
           gh workflow run release-sbom.yml --ref "$TAG"
           gh workflow run release-binaries.yml --ref "$TAG" -f release_tag="$TAG"
