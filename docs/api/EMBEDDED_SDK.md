@@ -43,6 +43,7 @@ let db = Embedded::from_engine(engine);
 | Method | Description |
 |--------|-------------|
 | `open(path)` | Open or create a database at the given filesystem path with default config |
+| `open_readonly(path)` | Open an existing database in read-only mode |
 | `open_with_config(config)` | Open or create with full `Config` |
 | `from_engine(engine)` | Wrap an existing `Arc<StorageEngine>` handle |
 
