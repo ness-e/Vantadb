@@ -83,12 +83,13 @@ jobs:
       # 10000/1000 baseline is apples-to-oranges: p99 over 100 queries *is* the
       # max sample, and query_hybrid.p50 alone inflated +65-141% (measured
       # 2026-09-25..10-02 across 13 red runs). Guarded in compare_baseline.py.
+      env:
+        SIZE: ${{ github.event.inputs && github.event.inputs.size || '10000' }}
+        QUERIES: ${{ github.event.inputs && github.event.inputs.queries || '1000' }}
+        DIM: ${{ github.event.inputs && github.event.inputs.dim || '128' }}
       run: |
-        SIZE="${{ github.event.inputs && github.event.inputs.size || '10000' }}"
-        QUERIES="${{ github.event.inputs && github.event.inputs.queries || '1000' }}"
-        DIM="${{ github.event.inputs && github.event.inputs.dim || '128' }}"
         for i in 1 2 3; do
-          .venv/bin/python benchmarks/vantadb_local_bench.py --size $SIZE --dim $DIM --queries $QUERIES --output benchmark_results.$i.json
+          .venv/bin/python benchmarks/vantadb_local_bench.py --size "$SIZE" --dim "$DIM" --queries "$QUERIES" --output benchmark_results.$i.json
         done
 
     # ── FIND-233: same-job A/B (opt-in via ab_ref) ──────────────────────────
@@ -122,15 +123,16 @@ jobs:
 
     - name: A/B same-job — alternated paired runs (A_i, B_i)
       if: ${{ inputs.ab_ref }}
+      env:
+        SIZE: ${{ github.event.inputs && github.event.inputs.size || '10000' }}
+        QUERIES: ${{ github.event.inputs && github.event.inputs.queries || '1000' }}
+        DIM: ${{ github.event.inputs && github.event.inputs.dim || '128' }}
       run: |
-        SIZE="${{ github.event.inputs && github.event.inputs.size || '10000' }}"
-        QUERIES="${{ github.event.inputs && github.event.inputs.queries || '1000' }}"
-        DIM="${{ github.event.inputs && github.event.inputs.dim || '128' }}"
         for i in 1 2 3; do
           .venv/bin/pip install "$AB_WHEEL" --force-reinstall
-          .venv/bin/python benchmarks/vantadb_local_bench.py --size $SIZE --dim $DIM --queries $QUERIES --output ab_results.$i.json
+          .venv/bin/python benchmarks/vantadb_local_bench.py --size "$SIZE" --dim "$DIM" --queries "$QUERIES" --output ab_results.$i.json
           .venv/bin/pip install "$B_WHEEL" --force-reinstall
-          .venv/bin/python benchmarks/vantadb_local_bench.py --size $SIZE --dim $DIM --queries $QUERIES --output benchmark_results.$i.json
+          .venv/bin/python benchmarks/vantadb_local_bench.py --size "$SIZE" --dim "$DIM" --queries "$QUERIES" --output benchmark_results.$i.json
         done
 
     - name: Compare vs baseline (median of 3 runs)
@@ -142,8 +144,10 @@ jobs:
       # only past the 300% ceiling AND a 0.5 ms absolute increase; insert.p99
       # gates on a 100 ms absolute level. A profile mismatch (total_records)
       # refuses to compare. `--self-test` proves all cases offline.
+      env:
+        UPDATE_BASELINE: ${{ inputs.update_baseline }}
       run: |
-        if [ "${{ inputs.update_baseline }}" = "true" ]; then
+        if [ "$UPDATE_BASELINE" = "true" ]; then
           .venv/bin/python benchmarks/compare_baseline.py --update-baseline
           echo "baseline_updated=true" >> "$GITHUB_OUTPUT"
         else

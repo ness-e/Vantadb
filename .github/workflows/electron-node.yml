@@ -8,10 +8,14 @@ name: electron-node
 
 on:
   pull_request:
+    branches: [main]
     paths:
       - "vantadb-node/**"
       - ".github/workflows/electron-node.yml"
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   native-matrix:

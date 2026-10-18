@@ -20,7 +20,7 @@ Per-workflow detail pages live next to this index (`ci-gate.md`,
 [TRIGGERS.md](./TRIGGERS.md) for the full trigger matrix and
 [PUBLISH.md](./PUBLISH.md) for the release chain.
 
-## CI (7)
+## CI (8)
 
 | Workflow | Purpose (1 line) | Triggers (short) |
 |----------|------------------|------------------|
@@ -31,6 +31,7 @@ Per-workflow detail pages live next to this index (`ci-gate.md`,
 | `demo-acceptance.yml` | Acceptance demos ×5 (F5/F6) | push/PR (union paths), dispatch |
 | `nightly.yml` | Nightly heavy-cert subset + 5 informational jobs | schedule daily 05:00, PR (paths info-only), dispatch |
 | `perf-bench.yml` | Python perf bench vs baseline | push (paths src/python/bench), dispatch |
+| `electron-node.yml` | Native Node-API load matrix + packaging contract for Electron desktop hosts (DIST-19/21) | PR (paths vantadb-node), dispatch |
 
 ## Certificación (1)
 
@@ -44,7 +45,7 @@ Per-workflow detail pages live next to this index (`ci-gate.md`,
 |----------|------------------|------------------|
 | `platform-ops.yml` | CodeQL + opencode bot + OCR nightly (5 jobs; desktop builds removidos por freeze 2026-10-16) | push/PR (paths src/server), 2 schedules, comments, dispatch |
 
-## Release (9)
+## Release (10)
 
 | Workflow | Purpose (1 line) | Triggers (short) |
 |----------|------------------|------------------|
@@ -57,6 +58,7 @@ Per-workflow detail pages live next to this index (`ci-gate.md`,
 | `release-binaries.yml` | Binaries → GitHub Release | `release` published, dispatch (`release_tag` = backfill) |
 | `release-sbom.yml` | CycloneDX SBOM artifacts | tags `v*`, dispatch |
 | `release-verify.yml` | Post-release artifact verification (assets + registries + smoke) | schedule Mon 08:00, dispatch |
+| `publish-mcp-registry.yml` | MCP Registry validation + owner-gated publish (FIND-344) | dispatch (`action: validate-only \| publish`) |
 
 ## See also
 
