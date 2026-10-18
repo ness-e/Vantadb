@@ -33,6 +33,7 @@ from .vantadb_py import (
     Vector,
     __version__,
     connect,
+    memory_node_id,
 )
 
 # AST-010: rename nativo completo — sin puentes legacy.

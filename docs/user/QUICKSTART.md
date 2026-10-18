@@ -306,6 +306,13 @@ client/MCP does not see the session environment the wizard set
 (`ORT_DYLIB_PATH`, and `VANTADB_LOCAL_MODEL` for the model path) — re-run the
 wizard in that terminal, or export those variables yourself.
 
+## Operational Notes & Troubleshooting
+
+- **Record Attributes (`record.key` & `record.payload`):** Returned records expose `.key` (string) and `.payload` (JSON/dict metadata or stored text string). To obtain the deterministic 128-bit graph node ID for `add_edge`, use `VantaDB.memory_node_id(namespace, key)` (or `db.memory_node_id(namespace, key)` / `vantadb.memory_node_id(namespace, key)`).
+- **Path Security (`..` Traversal Rejection):** CLI and MCP file/export commands strictly reject relative paths containing `..` parent traversal components; pass canonical or clean forward relative paths (e.g. `./exports/backup.vanta`).
+- **Orphan Lock Recovery:** If a local server process was terminated abruptly and holds the storage lock, call `POST /api/shutdown` (when running) or ensure no stale `vantadb-server` process remains active before reopening the directory in embedded mode.
+- **Pre-allocated Storage Footprint:** VantaDB pre-allocates WAL and storage segments on initialization for zero-allocation write throughput, so a newly initialized database directory consumes several megabytes on disk even with few records.
+
 ## Current Boundary
 
 This quickstart covers the production-facing MVP: embedded storage, WAL-backed

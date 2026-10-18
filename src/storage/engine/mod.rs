@@ -354,6 +354,7 @@ pub struct StorageEngine {
     /// All new writes go to index 0. Reads use unpack_offset() to select the correct file.
     pub vector_store: Vec<RwLock<File>>,
     /// Multi-level LSM segment registry tracking level metadata.
+    // Reason: accessed by compaction and LSM tiering routines; kept on engine struct for lifecycle ownership.
     #[allow(dead_code)]
     pub(crate) segment_registry: SegmentRegistry,
     /// Sharded write-ahead log for crash durability with reduced mutex contention.

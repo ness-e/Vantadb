@@ -741,6 +741,16 @@ impl Client {
         )
     }
 
+    /// Compute the deterministic 128-bit graph/storage node ID for a `(namespace, key)` pair.
+    ///
+    /// Use this ID when linking SDK memory records (`db.put(key, ..., namespace=ns)`)
+    /// with graph edges (`db.add_edge(src_id, dst_id, ...)`).
+    #[staticmethod]
+    #[pyo3(signature = (namespace, key))]
+    fn memory_node_id(namespace: &str, key: &str) -> u128 {
+        vantadb::sdk::memory_node_id(namespace, key)
+    }
+
     /// Insert a node with content and an optional embedding vector.
     ///
     /// Canonical name (W1/API-02): ``insert_node`` — same across WASM/TS/Node.
@@ -1658,10 +1668,22 @@ impl Client {
         let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         let path = path.to_string();
-        let namespace = namespace.to_string();
+        let ns = namespace.to_string();
         let report = py
-            .detach(move || engine.export_namespace(&path, &namespace, None))
+            .detach(move || engine.export_namespace(&path, &ns, None))
             .map_err(map_vanta_error)?;
+        if report.records_exported == 0 {
+            if let Ok(msg) = std::ffi::CString::new(format!(
+                "export_namespace: namespace '{namespace}' exported 0 records (namespace is empty or does not exist)"
+            )) {
+                let _ = PyErr::warn(
+                    py,
+                    &py.get_type::<pyo3::exceptions::PyUserWarning>(),
+                    msg.as_c_str(),
+                    1,
+                );
+            }
+        }
         export_report_to_pydict(py, &report)
     }
 
@@ -2825,6 +2847,16 @@ fn connect(
     open_vantadb(py, storage_path, memory_limit, read_only, backend)
 }
 
+/// Compute the deterministic 128-bit graph/storage node ID for a `(namespace, key)` pair.
+///
+/// Use this ID when linking SDK memory records (`db.put(key, ..., namespace=ns)`)
+/// with graph edges (`db.add_edge(src_id, dst_id, ...)`).
+#[pyfunction]
+#[pyo3(signature = (namespace, key))]
+fn memory_node_id(namespace: &str, key: &str) -> u128 {
+    vantadb::sdk::memory_node_id(namespace, key)
+}
+
 /// The Python module for VantaDB.
 /// Usage: `import vantadb_py`
 #[pymodule]
@@ -2836,6 +2868,7 @@ fn vantadb_py(_py: Python, m: &Bound<'_, pyo3::types::PyModule>) -> PyResult<()>
     m.add_class::<VantaPyMemoryRecord>()?;
     m.add_class::<VantaPyListResult>()?;
     m.add_function(wrap_pyfunction!(connect, m)?)?;
+    m.add_function(wrap_pyfunction!(memory_node_id, m)?)?;
     // Typed exception hierarchy (MOD-20).
     m.add("Error", _py.get_type::<Error>())?;
     m.add("NotFoundError", _py.get_type::<NotFoundError>())?;
