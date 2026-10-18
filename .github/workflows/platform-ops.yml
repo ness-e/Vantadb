@@ -46,13 +46,9 @@ permissions:
 
 jobs:
   analyze:
-    if: (github.event_name != 'issue_comment' && github.event_name != 'pull_request_review_comment')
+    if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
 
     name: Analyze
-    # Restaura proteccion sec-codeql (cancel:false): el scan semanal no se cancela.
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}
-      cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
