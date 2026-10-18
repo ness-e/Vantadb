@@ -816,3 +816,39 @@ s_len‖ns‖key_len‖key‖ver BE) + hooks put/put_batch/delete/purge_expired 
 - **Objetivo:** habilitar el caso ERP/facturas (agregar sin exportar): agregaciones básicas `COUNT(*)`/`COUNT(field)`/`SUM(field)` + `GROUP BY` single-field end-to-end (parser→AST→planner→executor) con tests (parse + ejecución + tipos de resultado) y `docs/api/IQL.md`; sin breaking; resultado serializable en el AST JSON. Premisa del compact ("pipeline de agregación existente") corregida en DISCOVERY: el habilitador real es `OperatorRegistry` (C2S6) + Volcano.
 - **Resultado:** ✅ Contrato completo - gramática `SELECT` con funciones de agregación + `GROUP BY` en posición SQL; `AggregateFunc` + campos AST + `LogicalOperator::Aggregate` como tercera extensión del registry (variante + `physical_plan/aggregate.rs` + register, **cero ediciones semánticas** a planner/executor: `git diff src/planner.rs` = 0); `PhysicalAggregate` drena el child y emite una fila sintética por grupo (`id=0`, first-seen, null grouping SQL, SUM Int saturating/Float promocionado/Null sin aportes, sin GROUP BY + vacío = 1 fila); **rechazos loud** de todo lo diferido (AS OF/LIMIT/OFFSET con agregación, mezcla fields+agregados, GROUP BY sin agregado o con key colisionante, multi-field, superficie FROM/MATCH) + trailing tras la superficie estricta (fix del review C-1: `GROUP BY c WHERE ...` ya no descarta el WHERE); mensajes estables por `ErrorKind::Fail`; `IQL_VERSION` 3→4 (+ `IQL_VERSION_MIN_AGGREGATION`); docs IQL.md v4 (§Aggregations + AST JSON + registry) + VERSIONING/openapi. Gates: lib **2440/2440** · integración 20/20 (no-cli) · fmt/clippy verdes · public_api 1/1 (refresh oficial +74/−0, solo símbolos nuevos) · docs gates 4/4 · OCR sin Critical/High · review P2-01 adversarial `vanta-review` ronda 1 REQUEST CHANGES (C-1 trailing silencioso + M-1 colisión key + M-2 AST programático + M-3 tests + L-1..L-4) → fixes → re-verify → ronda 2 **APPROVE**. Deuda: ninguna nueva; FIND-316 (AVG/MIN/MAX/HAVING, multi-field GROUP BY, paginación de grupos, valid-time-aware) + subcase R-1 anotado en FIND-312.
 - **Commit:** 753b9f78 (local, sin push)
+
+### SAFE-01: Validación de límites de memoria y buffers en operaciones del motor
+- **Fecha:** 2026-10-15
+- **Objetivo:** Prevenir desbordamientos y validación estricta de límites de memoria (`MAX_PERSISTED_NODE_BYTES`) en des-serialización de payloads.
+- **Resultado:** ✅ Validación aplicada en `deserialize_node_payload` y puntos de ingesta.
+
+### SAFE-02: Jerarquía estricta de locks y prevención de ciclos en el storage engine
+- **Fecha:** 2026-10-15
+- **Objetivo:** Reforzar el cumplimiento de la jerarquía de adquisición de locks (`concurrency-async.md` Regla 8) entre `insert_lock` y estructuras secundarias.
+- **Resultado:** ✅ Eliminados bloqueos cruzados y ciclo AB-BA en transacciones.
+
+### PERF-02: Optimización de deserialización y reutilización de buffers
+- **Fecha:** 2026-10-15
+- **Objetivo:** Optimizar las rutas críticas de lectura de nodos reduciendo allocations efímeras.
+- **Resultado:** ✅ Reutilización eficiente de buffers en operaciones de escaneo y lectura.
+
+### PERF-03: Reducción de contención en el write path
+- **Fecha:** 2026-10-15
+- **Objetivo:** Desacoplar la actualización de estadísticas de cardinalidad del lock de inserción principal para maximizar el throughput concurrente.
+- **Resultado:** ✅ Actualización asíncrona/desacoplada de estadísticas fuera del lock crítico.
+
+### STD-04: Estandarización de interfaces de retorno y errores tipados en storage
+- **Fecha:** 2026-10-15
+- **Objetivo:** Unificar los tipos de retorno y códigos de error en el subsistema de almacenamiento.
+- **Resultado:** ✅ Mapeo tipado exhaustivo a través de `crate::error::Error`.
+
+### HIG-03: Higiene y auditoría de `#[allow(dead_code)]` en `src/`
+- **Fecha:** 2026-10-18
+- **Objetivo:** Auditar exhaustivamente todas las directivas `#[allow(dead_code)]` en el código fuente de `src/`, eliminando código muerto real o documentando de forma explícita las justificaciones de compatibilidad binaria/esquema y feature gates.
+- **Resultado:** ✅ Módulos auditados; código huérfano saneado y remaining occurrences formalmente justificadas bajo `cargo clippy --workspace --all-targets -- -D warnings`.
+
+### DX-07: Resolución de ruta de `.vanta_profile` fuera del CWD
+- **Fecha:** 2026-10-18
+- **Objetivo:** Evitar la escritura de `.vanta_profile` en el directorio de trabajo del usuario (CWD), resolviendo hacia `VANTADB_PROFILE_PATH` o `~/.vanta/.vanta_profile`.
+- **Resultado:** ✅ Actualizado `src/hardware/mod.rs` para resolver la ruta en el directorio de usuario o variable de entorno sin ensuciar el CWD.
+

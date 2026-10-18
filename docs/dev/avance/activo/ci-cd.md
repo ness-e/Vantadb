@@ -631,3 +631,23 @@ tags: [vantadb, avance, ci, cd, release, github-actions]
 - **Commits:** d7053a74 · 0bc58339 · 7625d655 · a93152c6 · 5ab753ce · 6e1b5d8c · 0602bcfb · 6f3990aa (+ este cierre; todos locales)
 - **Snapshot (2026-10-08):** el ASan destapó `test_hardlink_snapshot_independence` (binario EXCLUIDO del default-filter de nextest → solo el job ASan lo ejecutaba): el snapshot hardlinkeaba archivos MUTABLES (WAL shards append+sync por put, `vector_index.bin`, journal fjall activo) → escrituras post-snapshot mutaban el snapshot (determinista en Linux; Windows copia → inmune). Fix worker `936868e5`: copiar appendables / hardlinkear solo inmutables (O(1) preservado, FIND-33 intacto) + test determinista RED→GREEN. Residuales → FIND-318 (vstore in-place: delete/compactación) + FIND-319 (keyspaces no recursado).
 - **WAL (2026-10-08, capa 5 ASan):** `test_wal_selective_crc_corruption_recovery` rojo **determinista desde VER-01** (framing v3): el walk legacy leía los 32B génesis del `prev_hash` como 4 registros fantasma (len=0) → 5 vs 3 esperados. Invisible 9 días porque `wal_resilience` está EXCLUIDO del default-filter de nextest (línea 33) → solo lo corren el ASan (`cargo test` plano) y heavy cert (rojo desde Oct 4 sin triage; mismo `left: 5`). Fix worker `310aadda`: walk chain-aware + assert de consumo exacto del archivo (un framing futuro falla loud). Verificado 5/5 (+ storage 3/3, durability 7/7, path failpoints 5/5). Notas sistémicas: (1) el test corre en ~5s → candidato a gate más frecuente que weekly; (2) heavy cert arrastra 4 jobs rojos desde Oct 4 (other_heavy, memory_concurrency, mutation_test, failpoint_injections) — el failpoint_injections queda verde con este fix. (FIND pendiente de registrar cuando el Backlog esté libre — WIP ajeno.)
+
+### CI-07: Pinning estricto de dependencias y versiones de actions
+- **Fecha:** 2026-10-15
+- **Objetivo:** Fijar versiones inmutables y hashes/tags fijos en GitHub Actions y dependencias para garantizar reproducibilidad en CI.
+- **Resultado:** ✅ Verificado y completado dentro del marco del plan de pre-mercado y hardening de workflows.
+
+### CI-08: Consolidación de workflows y eliminación de gates redundantes
+- **Fecha:** 2026-10-15
+- **Objetivo:** Consolidar los 40 workflows de GitHub Actions a 20 archivos `.yml` normativos, agrupando matrices y retirando duplicidades.
+- **Resultado:** ✅ Consolidación completada a 20 workflows activos conformes a `docs/dev/workflow/RULES.md`.
+
+### FIND-379: Automatización de sincronización multi-ecosistema en Release PR
+- **Fecha:** 2026-10-18
+- **Objetivo:** Automatizar la sincronización de manifiestos no-cargo (`vantadb-ts/package.json`, `server.json`, `docs/api/openapi.yaml`, `integrations/*/pyproject.toml`) en el Release PR de `release-plz` y desacoplar canales de publicación.
+- **Resultado:** ✅ Implementado `scripts/docs/sync-workspace-version.mjs` (--check / --self-test), integrado en paso `release-plz-pr` de `.github/workflows/release.yml`, desacoplado `release-npm-node.yml` con input booleano `publish`, y `skip-existing: true` en `release-wheels.yml`.
+
+### FIND-380: Hardening de seguridad y cumplimiento de RULES.md en workflows
+- **Fecha:** 2026-10-18
+- **Objetivo:** Auditar y blindar los 20 workflows de GitHub Actions según las reglas de seguridad de `RULES.md`.
+- **Resultado:** ✅ Configurados `permissions: contents: read` a nivel global en `electron-node.yml`, pines de versión en `jetli/wasm-pack-action` y comandos `cargo install --version ... --locked`, eliminación de interpolación directa de `${{ inputs.* }}` en scripts inline de shell encapsulándolos en `env:`, y sincronizado el catálogo en `docs/dev/workflow/README.md`.
