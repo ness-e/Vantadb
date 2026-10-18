@@ -206,6 +206,7 @@ jobs:
         with:
           packages-dir: dist/
           verbose: true
+          skip-existing: true
 
   verify-testpypi-install:
     name: Verify TestPyPI install

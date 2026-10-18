@@ -60,19 +60,34 @@ Los PRs `develop → main` se mergean con **merge commit** (`gh pr merge --merge
 - PRs touching `vantadb-node/**` run CI only.
 - Own namespace so core `v*` releases never publish the Node package by accident.
 
-## Orden del bump npm (FIND-230) — gate `check-npm-versions`
+## Orden del bump npm y sincronización multi-manifiesto (FIND-230, FIND-379) — gate `check-npm-versions`
+
+### Automatic version synchronization across manifests (FIND-230, FIND-379)
+
+A partir de FIND-379, la sincronización de versiones entre todos los manifiestos del monorepo está completamente automatizada mediante el script `scripts/docs/sync-workspace-version.mjs` y el job `release-plz-pr` en `.github/workflows/release.yml`.
+
+Cuando `release-plz` abre o actualiza el Release PR en la rama `release-plz-*`, el paso `Sync workspace version across monorepo manifests on Release PR branch` ejecuta:
+```bash
+node scripts/docs/sync-workspace-version.mjs --write
+```
+Este script sincroniza automáticamente con la versión de `[workspace.package]` en `Cargo.toml`:
+1. `vantadb-ts/package.json`: actualiza `"version": "<version>"`.
+2. `server.json`: actualiza `"version": "<version>"` (descriptor público del registro MCP).
+3. `docs/api/openapi.yaml`: actualiza `  version: "<version>"` en el bloque `info:`.
+4. `docs/api/MCP.md`: actualiza `Current MCP implementation version: <version>`.
+5. Todos los 9 adapters en `integrations/{crewai,dspy,haystack,langchain,letta,llamaindex,mem0,ollama,openai}/pyproject.toml`: actualiza la cota superior `"vantadb-py>=X.Y.Z,<0.N.0"` a `<0.${minor+1}.0`.
+6. `docs/api/SURFACE_MANIFEST.md`: regenera el inventario de superficies públicas vía `node scripts/docs/gen-surface-manifest.mjs --write`.
+
+Si se detectan cambios, el bot de GitHub Actions commitea directamente a la rama del Release PR (`chore(release): sync monorepo surface manifests to v<version>`), garantizando que cuando el PR se mergee a `main`, todos los manifiestos estén alineados y los gates de CI (`check-npm-versions`, `version_coherence.rs`, etc.) pasen en verde.
+
+El script puede ejecutarse manualmente o en CI:
+- `node scripts/docs/sync-workspace-version.mjs --check`: verifica que no haya desalineación (exit 0 si está sincronizado, exit 1 si hay drift).
+- `node scripts/docs/sync-workspace-version.mjs --write`: actualiza los archivos desalineados en disco.
+- `node scripts/docs/sync-workspace-version.mjs --self-test`: ejecuta validaciones de transformación en memoria (exit 0).
 
 `vantadb-ts/package.json` debe estar **en la misma versión que `[workspace.package]`** para que el tag publique el tren completo. Si queda atrás, `release-npm-61.yml` pregunta por la versión vieja, npm responde "ya publicada" y el publish **se saltea en un run verde** — pasó en 0.8.0: TS quedó en 0.7.0, el tag `v0.8.0` publicó wasm y para `vantadb` solo imprimió `Version 0.7.0 already published — skipping` (run `37045932895`, conclusión success); el backfill fue manual (`e62e0f62` + dispatch).
 
-Regla mecánica: el gate **`Check npm package versions`** (`gate-docs.yml`, script `scripts/docs/check-npm-versions.mjs` — mismo script local y CI) falla si `vantadb-ts/package.json` ≠ versión del workspace. Flujo correcto:
-
-1. `release-plz` abre el Release PR (bumpea `Cargo.toml` → X.Y.Z).
-2. **Antes de mergearlo**, agregar el bump npm a la **misma rama** del Release PR: `vantadb-ts/package.json` → X.Y.Z (y `vantadb-node/package.json` desde el primer release del train node).
-3. El gate queda verde en ese PR → merge → tag `vX.Y.Z` → `release-npm-61.yml` publica `vantadb@X.Y.Z` (sin skip).
-
-Cuidado con release-plz: `release-plz-pr` corre en **cada push a `main`** y no preserva commits humanos — si vuelve a correr mientras el bump está en su rama, cierra ese PR y abre uno nuevo **sin el bump**. Por eso: mergear el Release PR sin demora, verificar en el diff que el bump sigue presente justo antes de mergear, y si el PR fue cerrado/reabierto, **re-aplicar el bump** y esperar el gate verde. El fallo nunca es mudo: el gate se pone rojo y el publish emite `::warning::`.
-
-No bumpear npm en `develop` antes del Release PR: `npm ≠ workspace` y el gate lo marca igual — las dos versiones viajan juntas.
+Regla mecánica: el gate **`Check npm package versions`** (`gate-docs.yml`, script `scripts/docs/check-npm-versions.mjs` — mismo script local y CI) falla si `vantadb-ts/package.json` ≠ versión del workspace.
 
 Excepción `vantadb-node`: **nunca publicado** en npm (registry 404, 2026-10-03). Su versión puede quedarse en `0.7.0` (versión "never-published" documentada en el script); a partir de su primer release debe igualar la versión del workspace (y la entrada `TARGETS` del script — `scripts/docs/check-npm-versions.mjs` — pasa manualmente a `policy: 'workspace'`). `vantadb-wasm` no necesita gate: su manifest npm lo genera wasm-pack desde el crate, que hereda `version.workspace = true`.
 
