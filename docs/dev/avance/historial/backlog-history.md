@@ -335,3 +335,17 @@ Re-escaladas en el propio Backlog (misma fecha): RES-09 (fila WAL a fsync-batchi
 - **FIND-190** (overwrite Cold invisible a get/list) - ✅ cerrado 2026-10-01: invalidación de cache en write path + tests RED→GREEN; review P2-01 APPROVE (commit `06496a9a`); derivadas: FIND-222 (race prefetch), FIND-223 (dream promote).
 - **FIND-172** (MD028 preexistente en README_ES) - ✅ cerrado 2026-10-01: callouts `[!NOTE]` fusionados (fix aplicado durante el grupo A del README); markdownlint limpio.
 - **RES-17** (investigación: instalador interactivo personalizado; ex `INV-installer-01`) - ✅ entregada 2026-10-01: `docs/dev/research/installer-personalizado/RESEARCH.md` (31 URLs verificadas; roadmap F1-F4); alimenta DX-12.
+
+## Verificacion contra HEAD (2026-10-18, 12 lotes de sub-agentes read-only)
+
+Filas retiradas **sin completar** porque ya no aplican (obsoletas o superadas). Las filas **completadas** de esta misma verificacion quedaron registradas en docs/dev/avance/activo/* y NO aparecen aqui.
+
+- **FIND-196** (Claim de repo-map superseded) - obsoleto: La spec + slice v0 se entregaron bajo MGR-22; el residual v1 vive en FIND-299 (`docs/dev/research/mgr-22-repo-map.md:129`). Fila removida del catalogo.
+- **FIND-275** (Typecheck del desktop Electron) - obsoleto: Desktop congelado el 2026-10-16 (`feature-freez/README.md:10`, commit `6c809f11`): sin fixes ni jobs CI previstos. Fila removida del catalogo.
+- **FIND-276** (Auditoria del patron Reveal en web/) - obsoleto: `web/` fue extraido a `ness-e/Vantadb-web` (commit `82317140`); el componente vive en el repo externo. Fila removida del catalogo.
+- **STU-02** (react-querybuilder en Vanta Studio) - obsoleto: Desktop congelado; la ruta `desktop/src/components/` ya no existe (la dependencia vive en `feature-freez/desktop/package.json:34`). Fila removida del catalogo.
+- **UX-06** (Legibilidad de la lente de indices) - obsoleto: Desktop congelado (`feature-freez/README.md:10`); el residual persiste en la copia congelada y no hay trabajo previsto. Fila removida del catalogo.
+- **UX-09** (ConfirmDiscard unificado) - obsoleto: Desktop congelado (`feature-freez/README.md:10`); el residual persiste en la copia congelada. Fila removida del catalogo.
+- **UX-10** (Toggle de visibilidad de columnas) - obsoleto: Desktop congelado (`feature-freez/README.md:10`); el residual persiste en la copia congelada. Fila removida del catalogo.
+- **UX-12** (Jerarquia del bloque RESUMEN) - obsoleto: Desktop congelado (`feature-freez/README.md:10`); el residual persiste en la copia congelada. Fila removida del catalogo.
+- **UX-15** (Microcopy EN en DataExplorer) - obsoleto: Desktop congelado (`feature-freez/README.md:10`); el residual persiste en la copia congelada. Fila removida del catalogo.

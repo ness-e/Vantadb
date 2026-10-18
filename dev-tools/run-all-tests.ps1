@@ -51,7 +51,8 @@
     Imprime el plan (comando de cada capa) y sale sin ejecutar nada. Exit code 0.
 
 .EXAMPLE
-    .\dev-tools\run-all-tests.ps1                      # las tres capas, en debug
+    .\dev-tools\run-all-tests.ps1                      # MENU interactivo (sin argumentos)
+    .\dev-tools\run-all-tests.ps1 -NoMenu              # las tres capas, en debug (igual que antes)
     .\dev-tools\run-all-tests.ps1 -Mode Quick           # solo el gate de todo el workspace
     .\dev-tools\run-all-tests.ps1 -Mode Heavy -Release  # TODOS los binarios, compilado
     .\dev-tools\run-all-tests.ps1 -Mode Bindings -Slow  # wasm + ts + node + pytest
@@ -67,8 +68,60 @@ param(
     [string]$Mode = 'All',
     [switch]$Release,
     [switch]$Slow,
-    [switch]$DryRun
+    [switch]$DryRun,
+    # Si se pasan argumentos, el script se comporta como siempre (no menu).
+    # Sin argumentos, arranca el menu interactivo de abajo.
+    [switch]$NoMenu
 )
+
+# ---------------------------------------------------------------------------
+# Menu interactivo: sin argumentos no hay que acordarse de los flags.
+# Con argumentos, comportamiento identico al anterior (util en CI/agentes).
+# ---------------------------------------------------------------------------
+if ($PSBoundParameters.Count -eq 0 -and -not $NoMenu) {
+    try { Invoke-Menu } catch {
+        # Host sin consola (agente, CI, servicio): el menu no es posible.
+        Write-Host ''
+        Write-Host '  Sin consola interactiva: menu no disponible.' -ForegroundColor Yellow
+        Write-Host '  Usa flags:  -Mode All|Quick|Heavy|Bindings  [-Release] [-Slow] [-DryRun] [-NoMenu]'
+        Write-Host '  Ejemplo:    .\dev-tools\run-all-tests.ps1 -Mode Quick'
+        exit 2
+    }
+}
+
+function Invoke-Menu {
+    Write-Host ''
+    Write-Host '  VantaDB - suite de tests completa' -ForegroundColor Cyan
+    Write-Host '  ---------------------------------' -ForegroundColor DarkGray
+    Write-Host '   1) Ver el plan de ejecucion (no corre nada)'
+    Write-Host '   2) Quick  - gate de todo el workspace        (~5-15 min)'
+    Write-Host '   3) Heavy  - TODOS los binarios, en release     (horas)'
+    Write-Host '   4) Bindings - wasm + ts + node + python       (~10-30 min)'
+    Write-Host '   5) Todo (Quick + Heavy + Bindings)            (horas)'
+    Write-Host '   6) Bindings + tests lentos de python (-Slow)'
+    Write-Host '   0) Salir'
+    Write-Host ''
+    $choice = Read-Host 'Elige opcion'
+    switch ($choice) {
+        '1' { $Mode = 'All';        $DryRun = $true }
+        '2' { $Mode = 'Quick' }
+        '3' { $Mode = 'Heavy';      $Release = $true }
+        '4' { $Mode = 'Bindings' }
+        '5' { $Mode = 'All';        $Release = $true }
+        '6' { $Mode = 'Bindings';   $Slow = $true }
+        '0' { Write-Host 'Cancelado.' -ForegroundColor DarkGray; exit 0 }
+        default {
+            Write-Host 'Opcion no valida.' -ForegroundColor Red
+            Write-Host 'Opciones: 1 plan | 2 quick | 3 heavy | 4 bindings | 5 todo | 6 bindings+slow | 0 salir' -ForegroundColor Yellow
+            exit 2
+        }
+    }
+    $confirm = Read-Host ("Ejecutar '{0}'{1}{2}? (s/N)" -f $Mode, $(if ($Release) { ' +Release' } else { '' }), $(if ($Slow) { ' +Slow' } else { '' }))
+    if ($confirm -notmatch '^[sSyY]') {
+        Write-Host 'Cancelado (usa -DryRun para ver el plan sin ejecutar).' -ForegroundColor DarkGray
+        exit 0
+    }
+}
 
 # ---------------------------------------------------------------------------
 # Raiz del proyecto.

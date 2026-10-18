@@ -459,3 +459,14 @@ tags: [vantadb, avance, desktop, tauri, rust, frontend]
 - **Objetivo:** auto-update vía `tauri-plugin-updater`; sin claves de firma (DEFER HITL H-08/DEVOPS-10) y decisión de distribución pública abierta → stop condition del plan: defer registrado con trigger + checklist de habilitación.
 - **Resultado:** ✅ DISCOVERY completo (updater 0 refs de código; `gh secret list` sin claves de firma; distribución no decidida; docs Tauri v2 verificadas por webfetch). Defer registrado: `wontfix.md` §DEFER (trigger: decisión de distribución pública) + checklist `docs/dev/desktop/UPDATER_ENABLEMENT.md` (claves → wiring → CI release-mode → E2E → trust model) + sección `ARCHITECTURE.md` §Distribution & updates; fila Backlog removida. Sin código ni pipeline de releases tocados (contrato del defer).
 - **Commit:** (ver git log — `docs(desktop):` LOCAL, sin push)
+
+### FIND-155: Desktop `ProxyDashboard` consume `GET /snapshot` sin `x-vanta-user-key` → 401 desde API-05
+- **Fecha:** 2026-10-18
+- **Objetivo:** Identidad de usuario en el dashboard proxy
+- **Resultado:** ✅ Header `x-vanta-user-key` implementado (`feature-freez/desktop/src/components/proxy/ProxyDashboard.tsx:83-90`).
+- **Commit:** 5a8c06bd
+
+### STU-03: Contadores/TTL stats + versiones históricas para diff + explain tipado en SDKs
+- **Fecha:** 2026-10-18
+- **Objetivo:** Stats/TTL, versiones historicas y explain tipado para Studio
+- **Resultado:** ✅ Superficies de SDK entregadas: stats/TTL por namespace (`src/sdk/api/namespaces.rs:396`), historial de versiones (`src/sdk/version_history.rs`) y explain tipado (`src/sdk/search/explain.rs:12`).
