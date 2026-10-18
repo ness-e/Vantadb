@@ -139,6 +139,7 @@ jobs:
         if: matrix.os != 'windows-latest' && !matrix.target
         shell: bash
         run: |
+          # shellcheck disable=SC2012 # Safe for generated wheel names
           wheel="$(ls -t ./dist/vantadb_${{ matrix.provider }}-*.whl | head -n 1)"
           echo "Installing wheel: $wheel"
           python -m venv /tmp/.smoke-venv

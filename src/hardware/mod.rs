@@ -94,7 +94,8 @@ impl HardwareCapabilities {
     /// 2. `~/.vanta/.vanta_profile` (or `%USERPROFILE%\.vanta\.vanta_profile` on Windows),
     ///    creating the `~/.vanta` directory if it does not already exist.
     /// 3. `.vanta_profile` in the current working directory as fallback.
-    pub fn default_profile_path() -> std::path::PathBuf {
+    #[cfg(any(feature = "sysinfo", test))]
+    pub(crate) fn default_profile_path() -> std::path::PathBuf {
         if let Some(custom) = std::env::var_os("VANTADB_PROFILE_PATH") {
             if !custom.is_empty() {
                 return std::path::PathBuf::from(custom);
@@ -108,11 +109,6 @@ impl HardwareCapabilities {
             }
         }
         std::path::PathBuf::from(".vanta_profile")
-    }
-
-    /// Load cached hardware capabilities or run benchmark and save the profile.
-    pub fn load_or_run_benchmark() -> Self {
-        HardwareScout::detect()
     }
 }
 

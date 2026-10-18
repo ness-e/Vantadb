@@ -34,6 +34,14 @@ id = "RUSTSEC-2026-0253"
 ignoreUntil = "2027-01-01T00:00:00Z"
 reason = "Mirror of deny.toml triage: transitive via tantivy only; direct lru 0.18.4 patched. Revisit on tantivy bump. Owner: vanta-lead."
 
+# RUSTSEC-2024-0449: unsafe-libyaml unmaintained (transitive via dev-dependency
+# serde_yaml 0.9.34; tests/api/openapi_yaml_parity.rs only).
+# Mirror of deny.toml triage (FIND-351). Owner: vanta-lead.
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0449"
+ignoreUntil = "2027-06-01T00:00:00Z"
+reason = "Mirror of deny.toml triage (FIND-351): dev-dependency only (serde_yaml in tests/api/openapi_yaml_parity.rs), zero production reachability. Owner: vanta-lead."
+
 # NOTE: RUSTSEC-2024-0429 (glib, desktop-lock only) is intentionally NOT listed:
 # this config applies to ./Cargo.lock only (no propagation) and the root lock
 # has 0 glib hits (see audit.toml VULN-C1). An unused ignore would be noise.

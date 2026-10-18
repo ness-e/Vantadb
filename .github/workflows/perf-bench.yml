@@ -118,6 +118,7 @@ jobs:
         .venv/bin/python -m pip install maturin
         .venv/bin/maturin build --manifest-path ab-ref/vantadb-python/Cargo.toml --release --out ab-ref/vantadb-python/dist
         .venv/bin/maturin build --manifest-path vantadb-python/Cargo.toml --release --out vantadb-python/dist
+        # shellcheck disable=SC2012 # Safe for generated wheel names
         echo "AB_WHEEL=$(ls -t ab-ref/vantadb-python/dist/vantadb_py-*.whl | head -n 1)" >> "$GITHUB_ENV"
         echo "B_WHEEL=$(ls -t vantadb-python/dist/vantadb_py-*.whl | head -n 1)" >> "$GITHUB_ENV"
 

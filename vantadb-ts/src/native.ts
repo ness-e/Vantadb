@@ -1017,7 +1017,7 @@ export class NativeVantaDB implements NativeClientBinding {
       : namespacesOrRequest.namespaces;
     const req = Array.isArray(namespacesOrRequest)
       ? (request as SearchRequest)
-      : (namespacesOrRequest as SearchRequest);
+      : (namespacesOrRequest as unknown as SearchRequest);
     return this._native("searchMulti", async () => {
       const raw: unknown[] = await this.inner.searchMulti(
         namespaces,

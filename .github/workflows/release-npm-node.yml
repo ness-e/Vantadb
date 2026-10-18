@@ -87,17 +87,18 @@ jobs:
 
       - name: Build vantadb-node (${{ matrix.target }})
         working-directory: vantadb-node
+        shell: bash
         env:
           RUST_TARGET: ${{ matrix.rust-target }}
           RUNNER_OS: ${{ runner.os }}
         run: |
           npm ci
-          ZIG_FLAG=""
+          CROSS_FLAG=""
           if [ "$RUNNER_OS" = "Linux" ] && [ "$RUST_TARGET" != "x86_64-unknown-linux-gnu" ]; then
-            ZIG_FLAG="--zig"
+            CROSS_FLAG="--cross-compile"
           fi
-          npx napi build --platform --release --target "$RUST_TARGET" $ZIG_FLAG --js index.cjs
-          npx napi build --platform --release --target "$RUST_TARGET" $ZIG_FLAG --esm --js index.js
+          npx napi build --platform --release --target "$RUST_TARGET" $CROSS_FLAG --js index.cjs
+          npx napi build --platform --release --target "$RUST_TARGET" $CROSS_FLAG --esm --js index.js
 
       - name: Run tests
         if: runner.os == 'Linux' && matrix.target == 'x86_64-unknown-linux-gnu'
@@ -228,7 +229,7 @@ jobs:
       - name: Smoke-test packed tarball
         working-directory: vantadb-node
         run: |
-          TARBALL=$(ls *.tgz)
+          TARBALL=$(ls ./*.tgz)
           mkdir -p /tmp/smoke-test && cd /tmp/smoke-test
           npm install --ignore-scripts "${GITHUB_WORKSPACE}/vantadb-node/${TARBALL}"
           node -e "const { VantaDb } = require('vantadb-node'); console.log('Smoke test OK:', typeof VantaDb.connect)"
@@ -250,5 +251,5 @@ jobs:
         if: steps.check-node.outputs.exists != 'true'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish ${{ inputs.dry_run == 'true' && '--dry-run' || '' }} --access public *.tgz
+        run: npm publish ${{ inputs.dry_run == 'true' && '--dry-run' || '' }} --access public ./*.tgz
         working-directory: vantadb-node
