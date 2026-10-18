@@ -23,7 +23,7 @@ describe("SCH-04: confidence fields + min_confidence (node)", () => {
 
   afterAll(() => {
     for (const dir of dirs) {
-      rmSync(dir, { recursive: true, force: true });
+      rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
   });
 
