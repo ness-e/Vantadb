@@ -272,6 +272,7 @@ jobs:
           # FIND-140 gate: a re-run of the same tag skips gracefully instead
           # of failing with HTTP 400 on an already-published version.
           skip-existing: true
+          password: ${{ secrets.PYPI_TOKEN }}
 
   verify-pypi-install:
     name: Verify PyPI install (${{ matrix.provider }})
