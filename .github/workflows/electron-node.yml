@@ -41,7 +41,7 @@ jobs:
       - run: npm run build
       - name: smoke load .node (connect + put + get + close)
         run: |
-          node -e "const m = require('./index.cjs'); (async () => { const db = await m.VantaDB.connect(require('os').tmpdir() + '/vanta-smoke'); await db.put({namespace: 'smoke', key: 'k', payload: 'hi'}); const r = await db.get({namespace: 'smoke', key: 'k'}); if (!r) throw new Error('get empty'); await db.close(); console.log('smoke ok'); })()"
+          node -e "const m = require('./index.cjs'); const VantaDb = m.VantaDb || m.VantaDB; (async () => { const db = await VantaDb.connect(require('os').tmpdir() + '/vanta-smoke'); await db.put({namespace: 'smoke', key: 'k', payload: 'hi'}); const r = await db.get('smoke', 'k'); if (!r) throw new Error('get empty'); await db.close(); console.log('smoke ok'); })()"
       - run: npm test
 
   packaging-contract:
