@@ -80,6 +80,9 @@ jobs:
           toolchain: stable
           targets: ${{ matrix.rust-target }}
 
+      - name: Add Rust target
+        run: rustup target add ${{ matrix.rust-target }}
+
       - name: Install cross-compilation toolchain (Linux cross/musl targets)
         if: runner.os == 'Linux' && matrix.rust-target != 'x86_64-unknown-linux-gnu'
         run: |
