@@ -48,7 +48,10 @@ jobs:
 
   release-plz-pr:
     name: Release-plz PR
+    needs: [release-plz-release]
+    if: needs.release-plz-release.outputs.releases_created != 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: write
       pull-requests: write
@@ -68,12 +71,41 @@ jobs:
           install-nextest: false
           install-llvm-cov: false
           install-system-deps: true
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
       - name: Run release-plz
+        id: release-plz
         uses: release-plz/action@b8d6b54b02889ff2ae2bb82e8b57c3a8fc1683a5 # v0.5.139
         with:
           command: release-pr
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN || secrets.GITHUB_TOKEN }}
+      - name: Sync workspace version across monorepo manifests on Release PR branch
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN || github.token }}
+        run: |
+          set -euo pipefail
+          git fetch origin
+          PR_BRANCH=$(gh pr list --state open --base main --json headRefName --jq '[.[] | select(.headRefName | startswith("release-plz-"))][0].headRefName // empty')
+          if [ -z "$PR_BRANCH" ]; then
+            echo "No open release-plz PR branch found; skipping manifest sync."
+            exit 0
+          fi
+          echo "Checking out Release PR branch: $PR_BRANCH"
+          git checkout -B "$PR_BRANCH" "origin/$PR_BRANCH"
+          node scripts/docs/sync-workspace-version.mjs --write
+          if [ -n "$(git status --porcelain)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add -A
+            NEW_VER=$(node -e 'const fs=require("fs");const m=fs.readFileSync("Cargo.toml","utf8").match(/\[workspace\.package\][\s\S]*?^version\s*=\s*"([^"]+)"/m);console.log(m[1]);')
+            git commit -m "chore(release): sync monorepo surface manifests to v${NEW_VER}"
+            git push origin "HEAD:$PR_BRANCH"
+          else
+            echo "All monorepo manifests already synchronized."
+          fi
 
   # FIND-342/F1: fan-out explicito a los lanes tag-triggered (wheels, npm-61,
   # npm-node, sbom, binaries). Los tags creados por release-plz con GITHUB_TOKEN
@@ -111,6 +143,8 @@ jobs:
           echo "Fanning out on tag $TAG"
           gh workflow run release-wheels.yml --ref "$TAG"
           gh workflow run release-npm-61.yml --ref "$TAG" -f package=both
-          gh workflow run release-npm-node.yml --ref "$TAG"
+          # FIND-331 / FIND-379: release-npm-node.yml is decoupled from core v* releases;
+          # vantadb-node has an independent node-v*.*.* release lifecycle and is on hold
+          # at 0.7.0. Triggered only by node-v*.*.* tags or manual workflow_dispatch.
           gh workflow run release-sbom.yml --ref "$TAG"
           gh workflow run release-binaries.yml --ref "$TAG" -f release_tag="$TAG"

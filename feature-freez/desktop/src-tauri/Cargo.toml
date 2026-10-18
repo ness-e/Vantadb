@@ -2,6 +2,7 @@
 name = "vantadb-desktop"
 version = "0.1.0"
 edition = "2021"
+publish = false
 rust-version = "1.94.1"
 description = "VantaDB Desktop — Tauri v2 shell over the VantaDB core, with a typed multi-connection client contract."
 license = "Apache-2.0"
