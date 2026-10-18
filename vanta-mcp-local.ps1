@@ -63,7 +63,16 @@ if (-not (Test-Path (Join-Path $Model 'model.onnx'))) {
 if (-not $VantaCli) {
     $local = Join-Path $PSScriptRoot 'target/debug/vanta-cli.exe'
     if (Test-Path $local) {
-        $VantaCli = $local
+        # WIN-LOCK: copy binary to temp so running MCP doesn't lock target/debug/vanta-cli.exe
+        $mcpDir = Join-Path $env:TEMP 'vanta-mcp-bin'
+        New-Item -ItemType Directory -Force -Path $mcpDir | Out-Null
+        $mcpExe = Join-Path $mcpDir 'vanta-cli.exe'
+        Copy-Item -Path $local -Destination $mcpExe -Force -ErrorAction SilentlyContinue
+        if (Test-Path $mcpExe) {
+            $VantaCli = $mcpExe
+        } else {
+            $VantaCli = $local
+        }
     } else {
         $cmd = Get-Command 'vanta-cli' -ErrorAction SilentlyContinue
         if ($cmd) { $VantaCli = $cmd.Source }
