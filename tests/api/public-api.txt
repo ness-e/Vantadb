@@ -7141,7 +7141,9 @@ pub const vantadb::sdk::MAX_DERIVATION_DEPTH: usize
 pub fn vantadb::sdk::connect(&str) -> vantadb::error::Result<vantadb::Embedded>
 pub fn vantadb::sdk::default_confidence() -> f32
 pub fn vantadb::sdk::export_line_from_record(vantadb::MemoryRecord) -> vantadb::sdk::MemoryExportLine
+pub fn vantadb::sdk::memory_node_id(&str, &str) -> u128
 pub fn vantadb::sdk::memory_record_from_node(&vantadb::UnifiedNode) -> core::option::Option<vantadb::MemoryRecord>
+pub fn vantadb::sdk::memory_record_to_node_owned(vantadb::MemoryRecord) -> (vantadb::UnifiedNode, vantadb::MemoryRecord)
 pub fn vantadb::sdk::record_from_export_line(vantadb::sdk::MemoryExportLine) -> vantadb::error::Result<vantadb::MemoryRecord>
 pub fn vantadb::sdk::record_from_node(&vantadb::UnifiedNode) -> core::option::Option<vantadb::MemoryRecord>
 pub type vantadb::sdk::Fields = alloc::collections::btree::map::BTreeMap<alloc::string::String, vantadb::Value>
