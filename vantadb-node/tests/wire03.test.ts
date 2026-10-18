@@ -26,7 +26,7 @@ describe("WIRE-03: query_sparse + text-only + advanced filters (node)", () => {
 
   afterAll(() => {
     for (const dir of dirs) {
-      rmSync(dir, { recursive: true, force: true });
+      rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
   });
 
