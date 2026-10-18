@@ -61,10 +61,10 @@
   ],
   "license": "Apache-2.0",
   "dependencies": {
-    "vantadb-wasm": "file:../vantadb-wasm/pkg"
+    "vantadb-wasm": "file:../vantadb-wasm/pkg",
+    "vantadb-node": "file:../vantadb-node"
   },
   "devDependencies": {
-    "vantadb-node": "file:../vantadb-node",
     "@eslint/js": "^10.0.1",
     "@vitest/coverage-v8": "^4.1.10",
     "c8": "^12.0.0",

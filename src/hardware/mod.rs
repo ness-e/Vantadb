@@ -116,11 +116,6 @@ impl HardwareCapabilities {
 pub struct HardwareScout;
 
 impl HardwareScout {
-    /// Benchmark / probe host hardware capabilities.
-    pub fn load_or_run_benchmark() -> HardwareCapabilities {
-        Self::detect()
-    }
-
     /// Probe the current host and return a fully populated `HardwareCapabilities`.
     pub fn detect() -> HardwareCapabilities {
         #[cfg(feature = "sysinfo")]

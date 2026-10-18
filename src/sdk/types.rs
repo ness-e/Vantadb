@@ -18,7 +18,7 @@ pub use record::{
     ReinforceOutcome, ValidWindow, DEFAULT_EXPIRING_SOON_WINDOW_MS, DERIVATION_DISCOUNT,
     EXPORT_MANIFEST_FORMAT, EXPORT_MANIFEST_SCHEMA_VERSION, MAX_DERIVATION_DEPTH,
 };
-#[cfg(debug_assertions)]
+#[cfg(any(debug_assertions, test))]
 pub use search::MemorySearchDebugReport;
 // NOTE (AST-002): no `VantaMemorySearchDebugReport` re-export here — debug-only
 // `doc(hidden)` diagnostic that never crossed the `sdk` boundary; the def-site

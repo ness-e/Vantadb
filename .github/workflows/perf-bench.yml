@@ -72,7 +72,8 @@ jobs:
         .venv/bin/python -m pip install --upgrade pip
         .venv/bin/python -m pip install maturin
         .venv/bin/maturin build --manifest-path vantadb-python/Cargo.toml --release --out vantadb-python/dist
-        .venv/bin/pip install $(ls -t vantadb-python/dist/vantadb_py-*.whl | head -n 1) --force-reinstall
+        WHEEL=$(find vantadb-python/dist -name "vantadb_py-*.whl" | head -n 1)
+        .venv/bin/pip install "$WHEEL" --force-reinstall
         .venv/bin/python -c "import vantadb_py; print('Import OK:', vantadb_py.__version__)"
 
     - name: Run Standard Ingestion & Search Benchmark (3 runs)
@@ -118,9 +119,10 @@ jobs:
         .venv/bin/python -m pip install maturin
         .venv/bin/maturin build --manifest-path ab-ref/vantadb-python/Cargo.toml --release --out ab-ref/vantadb-python/dist
         .venv/bin/maturin build --manifest-path vantadb-python/Cargo.toml --release --out vantadb-python/dist
-        # shellcheck disable=SC2012 # Safe for generated wheel names
-        echo "AB_WHEEL=$(ls -t ab-ref/vantadb-python/dist/vantadb_py-*.whl | head -n 1)" >> "$GITHUB_ENV"
-        echo "B_WHEEL=$(ls -t vantadb-python/dist/vantadb_py-*.whl | head -n 1)" >> "$GITHUB_ENV"
+        AB_WHEEL=$(find ab-ref/vantadb-python/dist -name "vantadb_py-*.whl" | head -n 1)
+        B_WHEEL=$(find vantadb-python/dist -name "vantadb_py-*.whl" | head -n 1)
+        echo "AB_WHEEL=$AB_WHEEL" >> "$GITHUB_ENV"
+        echo "B_WHEEL=$B_WHEEL" >> "$GITHUB_ENV"
 
     - name: A/B same-job — alternated paired runs (A_i, B_i)
       if: ${{ inputs.ab_ref }}

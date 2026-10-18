@@ -78,7 +78,7 @@ jobs:
         uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # v1
         with:
           toolchain: stable
-          target: ${{ matrix.rust-target }}
+          targets: ${{ matrix.rust-target }}
 
       - name: Install cross-compilation toolchain (Linux cross/musl targets)
         if: runner.os == 'Linux' && matrix.rust-target != 'x86_64-unknown-linux-gnu'

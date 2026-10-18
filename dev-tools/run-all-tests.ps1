@@ -317,6 +317,7 @@ function Invoke-Ts {
     } else {
         Run-Step 'wasm build (wasm-pack)' @('wasm-pack', 'build', '--release') $wasmDir
     }
+    Copy-WasmTypes
     Run-Step 'ts npm ci' @('npm', 'ci') $tsDir
     Run-Step 'ts build (tsc)' @('npm', 'run', 'build') $tsDir
     Run-Step 'ts test (vitest)' @('npm', 'test') $tsDir
@@ -333,9 +334,30 @@ function Invoke-Node {
 }
 
 function Invoke-Wasm {
-    $script:WasmBuilt = $true
     Write-Head 'WASM'
+    $script:WasmBuilt = $true
     Run-Step 'wasm build (wasm-pack --release)' @('wasm-pack', 'build', '--release') $wasmDir
+    Copy-WasmTypes
+}
+
+# WSM-05: el .d.ts que genera wasm-bindgen sale casi todo `any` y NO declara
+# ListOptionsInput / MemoryRecordInput / SearchRequestInput, que el SDK TS importa.
+# CI reemplaza el generado por el hand-written (vantadb-wasm\src\vantadb_wasm.d.ts);
+# sin este paso `tsc` falla con TS2305. Es el mismo paso que hace ci-fleet.yml.
+function Copy-WasmTypes {
+    $src = Join-Path $wasmDir 'src\vantadb_wasm.d.ts'
+    $dst = Join-Path $wasmDir 'pkg\vantadb_wasm.d.ts'
+    $name = 'wasm tipos (.d.ts hand-written, WSM-05)'
+    if (-not (Test-Path -LiteralPath $src)) { Add-Skip $name "no existe $src"; return }
+    if ($DryRun) {
+        Write-Host "  [plan] copiaria vantadb-wasm\src\vantadb_wasm.d.ts -> vantadb-wasm\pkg\vantadb_wasm.d.ts" -ForegroundColor DarkGray
+        return
+    }
+    if (-not (Test-Path -LiteralPath $dst)) { Add-Skip $name 'pkg/vantadb_wasm.d.ts no existe (wasm-pack no corrio?)'; return }
+    Copy-Item -LiteralPath $src -Destination $dst -Force
+    Write-Host "  [PASS] $name" -ForegroundColor Green
+    Add-Content -Path $LogFile -Value "[PASS] $name :: Copy-Item $src -> $dst"
+    $script:Pass.Add($name)
 }
 
 function Invoke-Adapters($Which) {
@@ -400,6 +422,17 @@ Write-Host ''
 if (-not (Get-Command cargo -ErrorAction SilentlyContinue)) {
     Write-Host '  aviso: cargo no esta en PATH (la capa Rust quedara SKIPPED)' -ForegroundColor Yellow
 }
+
+# Preflight de disco: el build --release de todo el workspace se come decenas de GB
+# y Fjall aborta a mitad de suite con os error 112 (StorageFull). Avisar ANTES.
+try {
+    $drive = ([IO.Path]::GetPathRoot($ProjectRoot)) -replace '[\\:]', ''
+    $freeGb = [math]::Round((Get-PSDrive $drive).Free / 1GB, 1)
+    if ($freeGb -lt 20) {
+        Write-Host ("  aviso: solo {0} GB libres en {1}: el build --release se quedara sin espacio" -f $freeGb, $drive) -ForegroundColor Yellow
+        Write-Host '         (los tests de Fjall fallan con os error 112 / StorageFull). Libera espacio o usa -Weight Light.' -ForegroundColor Yellow
+    }
+} catch { }
 if (-not $Py -or -not (Test-Path -LiteralPath $Py)) {
     if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
         Write-Host '  aviso: no hay .venv ni python en PATH (la capa Python quedara SKIPPED)' -ForegroundColor Yellow

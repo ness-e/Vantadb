@@ -728,6 +728,7 @@ jobs:
       - name: Test with AddressSanitizer
         run: |
           cargo +nightly test \
+            --lib --tests --bins \
             --target x86_64-unknown-linux-gnu \
             --package vantadb \
             --features "cli,arrow,tls,opentelemetry" \
@@ -793,6 +794,7 @@ jobs:
       - name: Test with ThreadSanitizer
         run: |
           cargo +nightly test \
+            --lib --tests --bins \
             --target x86_64-unknown-linux-gnu \
             --package vantadb \
             --features "cli,arrow,tls,opentelemetry" \
