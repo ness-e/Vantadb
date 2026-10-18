@@ -35,7 +35,7 @@ pub fn rank_map(hits: &[MemorySearchHit]) -> BTreeMap<(String, String), usize> {
 /// Extract hit identities as `"namespace\0key"` strings.
 ///
 /// Only compiled in `debug_assertions` builds since all callers are test-only.
-#[cfg(debug_assertions)]
+#[cfg(any(debug_assertions, test))]
 pub fn hit_identities(hits: &[MemorySearchHit]) -> Vec<String> {
     hits.iter()
         .map(|hit| format!("{}\0{}", hit.record.namespace, hit.record.key))

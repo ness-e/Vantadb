@@ -1,16 +1,16 @@
 use super::super::builder::Embedded;
 use super::super::serialization::{validate_metadata, validate_namespace};
-#[cfg(debug_assertions)]
+#[cfg(any(debug_assertions, test))]
 use super::super::serialization::{DERIVED_INDEX_STATE_KEY, TEXT_INDEX_STATE_KEY};
 use super::super::types::*;
 use super::debug;
 use crate::backend::BackendPartition;
-#[cfg(debug_assertions)]
+#[cfg(any(debug_assertions, test))]
 use crate::backend::BackendWriteOp;
 use crate::error::{Error, Result};
 
 impl Embedded {
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, test))]
     #[doc(hidden)]
     pub fn debug_memory_breakdown(&self) -> serde_json::Value {
         let metrics = self.operational_metrics();
@@ -25,7 +25,7 @@ impl Embedded {
         })
     }
 
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, test))]
     #[doc(hidden)]
     pub fn debug_corrupt_derived_index_state_for_tests(&self) -> Result<()> {
         let engine = self.engine_handle()?;
@@ -36,7 +36,7 @@ impl Embedded {
         )
     }
 
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, test))]
     #[doc(hidden)]
     pub fn debug_clear_derived_indexes_for_tests(&self) -> Result<()> {
         let engine = self.engine_handle()?;
@@ -56,7 +56,7 @@ impl Embedded {
         engine.write_backend_batch(ops)
     }
 
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, test))]
     #[doc(hidden)]
     pub fn debug_corrupt_text_index_state_for_tests(&self) -> Result<()> {
         let engine = self.engine_handle()?;
@@ -67,7 +67,7 @@ impl Embedded {
         )
     }
 
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, test))]
     #[doc(hidden)]
     pub fn debug_clear_text_index_for_tests(&self) -> Result<()> {
         let engine = self.engine_handle()?;
@@ -81,7 +81,7 @@ impl Embedded {
         engine.write_backend_batch(ops)
     }
 
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, test))]
     #[doc(hidden)]
     pub fn debug_corrupt_text_index_posting_tf_for_tests(
         &self,
@@ -103,7 +103,7 @@ impl Embedded {
         engine.put_to_partition(BackendPartition::TextIndex, &pkey, &val)
     }
 
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, test))]
     #[doc(hidden)]
     pub fn debug_corrupt_text_index_posting_positions_for_tests(
         &self,
@@ -125,7 +125,7 @@ impl Embedded {
         engine.put_to_partition(BackendPartition::TextIndex, &pkey, &val)
     }
 
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, test))]
     #[doc(hidden)]
     pub fn debug_corrupt_text_index_term_stats_for_tests(
         &self,
@@ -139,7 +139,7 @@ impl Embedded {
         engine.put_to_partition(BackendPartition::TextIndex, &skey, &val)
     }
 
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, test))]
     #[doc(hidden)]
     pub fn debug_corrupt_text_index_doc_stats_for_tests(
         &self,
@@ -160,7 +160,7 @@ impl Embedded {
         engine.put_to_partition(BackendPartition::TextIndex, &dkey, &val)
     }
 
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, test))]
     #[doc(hidden)]
     pub fn debug_text_index_posting_keys_for_tests(&self) -> Result<Vec<Vec<u8>>> {
         let engine = self.engine_handle()?;
@@ -174,7 +174,7 @@ impl Embedded {
         Ok(keys)
     }
 
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, test))]
     #[doc(hidden)]
     pub fn debug_text_index_posting_for_tests(
         &self,
@@ -194,13 +194,13 @@ impl Embedded {
         Ok(Some((posting.node_id, posting.tf)))
     }
 
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, test))]
     #[doc(hidden)]
     pub fn debug_text_index_audit_for_tests(&self) -> Result<TextIndexAuditReport> {
         self.audit_text_index_deep(None)
     }
 
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, test))]
     #[doc(hidden)]
     pub fn debug_memory_search_plan_for_tests(
         &self,
