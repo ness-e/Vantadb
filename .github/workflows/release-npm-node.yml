@@ -250,5 +250,5 @@ jobs:
         if: steps.check-node.outputs.exists != 'true'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish ${{ inputs.dry_run == 'true' && '--dry-run' || '' }} *.tgz
+        run: npm publish ${{ inputs.dry_run == 'true' && '--dry-run' || '' }} --access public *.tgz
         working-directory: vantadb-node
