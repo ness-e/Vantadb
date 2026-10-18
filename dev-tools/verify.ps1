@@ -41,6 +41,11 @@ if (-not (Test-Path $msvcMarker)) {
     New-Item -Force $msvcMarker | Out-Null
 }
 
+$cargoDir = Join-Path ([Environment]::GetFolderPath("UserProfile")) ".cargo\bin"
+if ((Test-Path $cargoDir) -and ($env:PATH -notlike "*$cargoDir*")) {
+    $env:PATH = "$cargoDir;$env:PATH"
+}
+
 $SysInfo = Get-CimInstance Win32_ComputerSystem -ErrorAction SilentlyContinue
 $TotalRAM = if ($SysInfo.TotalPhysicalMemory) { [math]::Round($SysInfo.TotalPhysicalMemory / 1GB) } else { 2 }
 $Cores = if ($SysInfo.NumberOfLogicalProcessors) { $SysInfo.NumberOfLogicalProcessors } else { 1 }
