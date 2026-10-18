@@ -121,12 +121,29 @@ export function transformMcpMd(text, newVersion) {
   );
 }
 
+export const PROVIDER_PACKAGES = ['openai', 'ollama', 'litellm'];
+
+export function parsePyprojectVersionAndBound(text) {
+  const mVer = String(text).match(/^\[project\][\s\S]*?^version\s*=\s*"([^"]+)"/m);
+  const mBound = String(text).match(/['"]vantadb-py>=[^,'"]+,(<0\.\d+\.0)['"]/);
+  if (!mVer || !mBound) return null;
+  return `${mVer[1]} (${mBound[1]})`;
+}
+
 export function transformPyprojectToml(text, newVersion) {
   const newBound = getPyprojectExpectedBound(newVersion);
-  return text.replace(
-    /(['"]vantadb-py>=[^,'"]+,)<0\.\d+\.0(['"])/g,
-    `$1${newBound}$2`,
-  );
+  return String(text)
+    .replace(/^(\[project\][\s\S]*?^version\s*=\s*)"[^"]+"/m, `$1"${newVersion}"`)
+    .replace(/(['"]vantadb-py>=[^,'"]+,)<0\.\d+\.0(['"])/g, `$1${newBound}$2`);
+}
+
+export function parseCargoPkgVersion(text) {
+  const mPkg = String(text).match(/^\[package\][\s\S]*?^version\s*=\s*"([^"]+)"/m);
+  return mPkg ? mPkg[1] : null;
+}
+
+export function transformCargoPkgToml(text, newVersion) {
+  return String(text).replace(/^(\[package\][\s\S]*?^version\s*=\s*)"[^"]+"/m, `$1"${newVersion}"`);
 }
 
 export function transformSurfaceManifest(text, newVersion) {
@@ -199,9 +216,19 @@ export function buildTargetSpecs(workspaceVersion) {
     specs.push({
       name: `integrations/${pkg}/pyproject.toml`,
       relPath: `integrations/${pkg}/pyproject.toml`,
-      expected: expectedBound,
-      parse: parsePyprojectUpperBound,
+      expected: `${workspaceVersion} (${expectedBound})`,
+      parse: parsePyprojectVersionAndBound,
       transform: transformPyprojectToml,
+    });
+  }
+
+  for (const prov of PROVIDER_PACKAGES) {
+    specs.push({
+      name: `providers/${prov}/Cargo.toml`,
+      relPath: `providers/${prov}/Cargo.toml`,
+      expected: workspaceVersion,
+      parse: parseCargoPkgVersion,
+      transform: transformCargoPkgToml,
     });
   }
 
