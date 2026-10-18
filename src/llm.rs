@@ -118,6 +118,7 @@ pub struct LocalOnnxProvider {
     tokenizer: Option<tokenizers::Tokenizer>,
     dim: usize,
     family: EmbedFamily,
+    // Reason: retained for ONNX provider diagnostics and reload introspection under embed-local.
     #[allow(dead_code)]
     model_dir: String,
 }

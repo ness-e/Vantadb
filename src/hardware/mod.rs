@@ -86,14 +86,44 @@ impl HardwareCapabilities {
             CAPS.get_or_init(HardwareScout::detect)
         }
     }
+
+    /// Return the default path to the hardware profile cache file (`.vanta_profile`).
+    ///
+    /// Resolution order:
+    /// 1. `VANTADB_PROFILE_PATH` environment variable if set and non-empty.
+    /// 2. `~/.vanta/.vanta_profile` (or `%USERPROFILE%\.vanta\.vanta_profile` on Windows),
+    ///    creating the `~/.vanta` directory if it does not already exist.
+    /// 3. `.vanta_profile` in the current working directory as fallback.
+    pub fn default_profile_path() -> std::path::PathBuf {
+        if let Some(custom) = std::env::var_os("VANTADB_PROFILE_PATH") {
+            if !custom.is_empty() {
+                return std::path::PathBuf::from(custom);
+            }
+        }
+        if let Some(home) = std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE")) {
+            if !home.is_empty() {
+                let dir = std::path::PathBuf::from(home).join(".vanta");
+                let _ = std::fs::create_dir_all(&dir);
+                return dir.join(".vanta_profile");
+            }
+        }
+        std::path::PathBuf::from(".vanta_profile")
+    }
+
+    /// Load cached hardware capabilities or run benchmark and save the profile.
+    pub fn load_or_run_benchmark() -> Self {
+        HardwareScout::detect()
+    }
 }
 
 /// Hardware detection utility that probes CPU features and system memory at startup.
 pub struct HardwareScout;
 
 impl HardwareScout {
-    #[cfg(feature = "sysinfo")]
-    const PROFILE_PATH: &'static str = ".vanta_profile";
+    /// Benchmark / probe host hardware capabilities.
+    pub fn load_or_run_benchmark() -> HardwareCapabilities {
+        Self::detect()
+    }
 
     /// Probe the current host and return a fully populated `HardwareCapabilities`.
     pub fn detect() -> HardwareCapabilities {
@@ -114,8 +144,11 @@ impl HardwareScout {
             }
             let env_hash = hasher.finish();
 
+            let profile_path_buf = HardwareCapabilities::default_profile_path();
+            let profile_path = profile_path_buf.as_path();
+
             // Check if we have a valid cached profile
-            if let Ok(data) = fs::read_to_string(Self::PROFILE_PATH) {
+            if let Ok(data) = fs::read_to_string(profile_path) {
                 if data.len() > 1024 * 1024 {
                     tracing::warn!("Hardware cache file exceeds 1MB, ignoring");
                 } else if let Ok(cached_caps) = serde_json::from_str::<HardwareCapabilities>(&data)
@@ -149,7 +182,7 @@ impl HardwareScout {
 
             // Save new profile
             if let Ok(json) = serde_json::to_string_pretty(&caps) {
-                let _ = fs::write(Self::PROFILE_PATH, json);
+                let _ = fs::write(profile_path, json);
             }
 
             caps
@@ -687,5 +720,31 @@ mod tests {
         assert_eq!(deserialized.total_memory, 16 * GIB);
         assert_eq!(deserialized.resource_score, 50);
         assert_eq!(deserialized.env_hash, 42);
+    }
+
+    // ─── Profile path resolution (DX-07) ──────────────────────
+
+    #[test]
+    fn test_default_profile_path_resolution() {
+        let path = HardwareCapabilities::default_profile_path();
+        assert!(
+            path.ends_with(".vanta_profile"),
+            "profile path must end with .vanta_profile, got: {path:?}"
+        );
+
+        if std::env::var_os("VANTADB_PROFILE_PATH").is_none()
+            && (std::env::var_os("HOME").is_some() || std::env::var_os("USERPROFILE").is_some())
+        {
+            assert!(
+                path.components().count() > 1,
+                "profile path should be within home directory (.vanta), not bare CWD: {path:?}"
+            );
+            assert!(
+                path.parent()
+                    .map(|p| p.ends_with(".vanta"))
+                    .unwrap_or(false),
+                "parent directory of profile path should be .vanta, got: {path:?}"
+            );
+        }
     }
 }

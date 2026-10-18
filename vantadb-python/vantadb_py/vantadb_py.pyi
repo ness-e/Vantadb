@@ -148,6 +148,7 @@ class ListResult:
 
     records: list[Record]
     total_count: int
+    """Number of records returned in this page/filter window (use ``db.count(namespace)`` for full namespace cardinality)."""
     next_cursor: int | None
 
     def __len__(self) -> int: ...
@@ -180,6 +181,9 @@ class Client:
         read_only: bool = False,
         backend: str | None = None,
     ) -> None: ...
+
+    @staticmethod
+    def memory_node_id(namespace: str, key: str) -> int: ...
 
     # ── Memory records (also grouped under db.memory.*) ────────────────────
 
@@ -569,5 +573,7 @@ def connect(
     read_only: bool = False,
     backend: str | None = None,
 ) -> Client: ...
+
+def memory_node_id(namespace: str, key: str) -> int: ...
 
 __version__: str

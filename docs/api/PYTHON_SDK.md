@@ -278,6 +278,8 @@ db.memory.list(
 ```
 Returns a `ListResult` object with `.records`, `.total_count`, and `.next_cursor`. Supports `__getitem__` for dict-style access (`result["records"]`, `result["next_cursor"]`) and `__iter__` for record iteration. The SCH-07 v2 params (`as_of_ms`, `valid_window` `{"from_ms", "to_ms"}`, `include_quarantined`, `min_confidence`) mirror the SDK wire names (ADR-0046 §D2/§D3/§D5).
 
+> **Semantics of `page.total_count` vs `db.count()`:** `page.total_count` represents the number of records returned in the current page/filter window (equivalent to `len(page.records)`). To obtain the full cardinality of records in a namespace, call `db.count(namespace)` (or `db.memory.count(namespace)`).
+
 ```python
 page = db.memory.list("ns", limit=10)
 for record in page:
@@ -668,6 +670,21 @@ requests = [
 all_hits = db.search_batch_requests(requests)
 ```
 
+#### `memory_node_id()` (Graph/Memory Bridge)
+```python
+db.memory_node_id(namespace: str, key: str) -> int
+# Also available as a static method on Client / module function:
+vantadb.Client.memory_node_id(namespace: str, key: str) -> int
+vantadb.memory_node_id(namespace: str, key: str) -> int
+```
+Compute the deterministic 128-bit graph node ID (`XxHash3_128(ns + "\0" + key)`) for a memory record `(namespace, key)` pair. This bridges the memory record layer (`db.put(namespace, key, ...)`) and the low-level property graph layer (`db.add_edge(source_id, target_id, label)`), allowing you to link memory records directly in the graph without an external lookup table.
+
+```python
+src_id = db.memory_node_id("agent/main", "task-1")
+dst_id = db.memory_node_id("agent/main", "task-2")
+db.add_edge(source_id=src_id, target_id=dst_id, label="depends_on")
+```
+
 #### `add_edge()`
 ```python
 db.add_edge(
@@ -946,6 +963,8 @@ print(f"Active namespaces: {namespaces}")
 db.export_namespace(path: str, namespace: str) -> dict
 ```
 Export a single namespace as a JSONL file. Returns a report dict with `records_exported`, `namespaces`, `path`, `duration_ms`, `sha256`, and `manifest_path`. Also writes the integrity manifest sidecar (`<path>.manifest.json`, sha256 over the export bytes — see [MEMORY_INTERCHANGE_FORMAT.md § Integrity manifest](./MEMORY_INTERCHANGE_FORMAT.md#integrity-manifest)). GIL-released. The output is JSONL; import it back with [`import_file()`](#import_file) — not the binary [`bulk_import()`](#bulk_import) family.
+
+> **Warning on 0 records:** If the specified namespace exports 0 records (`report["records_exported"] == 0`), indicating that the namespace is empty, does not exist, or was misspelled, `export_namespace()` emits a Python `UserWarning` alerting the caller.
 
 ```python
 report = db.export_namespace("/tmp/export.jsonl", "agent/main")
