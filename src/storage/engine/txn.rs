@@ -328,11 +328,14 @@ impl StorageEngine {
         //    which would invert the lock order against `insert()`/`delete()` (Rule 8).
         //    Capture deleted nodes before applying tombstones so stats can be
         //    decremented after `_guard` is released.
+        let mut pre_existing_for_insert = Vec::new();
         let mut deleted_nodes_for_stats = Vec::new();
         let apply_result: Result<()> = (|| {
             for op in &buffer {
                 match op {
                     BufferedWrite::Insert(node) => {
+                        let pre = self.existing_meta(node.id);
+                        pre_existing_for_insert.push(pre);
                         // Remove old from HNSW/cache so the new insert can take its place
                         {
                             let hnsw = self.hnsw.load();
@@ -382,11 +385,13 @@ impl StorageEngine {
         // or mutating secondary indexes (Rule 8 lock hierarchy).
         drop(_guard);
 
+        let mut insert_iter = pre_existing_for_insert.into_iter();
         let mut deleted_iter = deleted_nodes_for_stats.into_iter();
         for op in &buffer {
             match op {
                 BufferedWrite::Insert(node) => {
-                    self.apply_insert_stats(node);
+                    let pre = insert_iter.next().flatten();
+                    self.apply_insert_stats(node, pre.as_ref());
                 }
                 BufferedWrite::Delete(id) => {
                     if let Some(node) = deleted_iter.next() {
