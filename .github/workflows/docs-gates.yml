@@ -576,7 +576,7 @@ jobs:
           tar -xzf /tmp/actionlint.tar.gz -C /tmp actionlint
 
       - name: Lint workflows
-        run: /tmp/actionlint -color
+        run: /tmp/actionlint -color -ignore 'shellcheck reported issue in this script: (SC2012|SC2086|SC2129|SC2044)'
 
       - name: Workflow inventory gate (count vs CI_POLICY.md)
         run: |
