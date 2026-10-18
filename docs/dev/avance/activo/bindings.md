@@ -1218,3 +1218,33 @@ tags: [vantadb, avance, bindings, python, wasm, typescript, mcp, adapters]
 - **Objetivo:** la fila `DIST-15` seguía 🆕 Pendiente en Backlog pero el trabajo estaba entregado desde 2026-10-04 (task file + review P2-01 APPROVE, commit `ae991966`).
 - **Resultado:** ✅ Fila eliminada del Backlog (higiene). Evidencia re-verificada en `develop` (`a64d6992`): `graphrag_search` en los 4 bindings — `vantadb-python/src/lib.rs:1507`, `vantadb-node/src/lib.rs:641`, `vantadb-wasm/src/lib.rs:1305`, `vantadb-ts/src/native.ts:422` + `vantadb-ts/src/vantadb.ts:743` — con test de paridad `vantadb-ts/src/__tests__/graphrag.test.ts` y doc `docs/api/GRAPH_RAG.md:13-15` (4 bindings declarados). Sin drift doc↔código.
 - **Commit:** n/a (cierre documental; implementación en commits previos al 2026-10-04)
+
+### P2-5: Optimización de deserialización e interoperabilidad en bindings FFI
+- **Fecha:** 2026-10-15
+- **Objetivo:** Optimizar conversiones de tipos y buffers en interfaces FFI (Python PyO3 y WASM bindgen).
+- **Resultado:** ✅ Verificado y completado en el paquete de estabilización de bindings.
+
+### DX-04: Exposición de `memory_node_id` en Python SDK
+- **Fecha:** 2026-10-18
+- **Objetivo:** Exponer la función determinista `memory_node_id(namespace: str, key: str) -> int` en `vantadb-python` (`src/lib.rs` y stubs `.pyi`), resolviendo el puente canónico entre memoria clave-valor y el grafo de nodos.
+- **Resultado:** ✅ Método expuesto en `vantadb-python/src/lib.rs` y tipado en stubs `__init__.pyi` / `vantadb_py.pyi`.
+
+### DX-05: Aviso de namespace vacío en `export_namespace`
+- **Fecha:** 2026-10-18
+- **Objetivo:** Emitir un `UserWarning` en Python cuando `export_namespace` exporta 0 registros para evitar confusiones ante namespaces inexistentes o vacíos.
+- **Resultado:** ✅ Implementada advertencia explícita en `vantadb-python` cuando `records_exported == 0`.
+
+### DX-06: Clarificación semántica de `total_count` en listados de memoria
+- **Fecha:** 2026-10-18
+- **Objetivo:** Clarificar en `vantadb-python/src/types.rs` y `docs/api/PYTHON_SDK.md` que `page.total_count` refleja los elementos devueltos en la página actual y remitir a `db.count(namespace)` para el conteo total del namespace.
+- **Resultado:** ✅ Documentación y docstrings de tipos actualizados reflejando la semántica exacta.
+
+### DX-08: Documentación de notas operativas y onboarding en QUICKSTART
+- **Fecha:** 2026-10-18
+- **Objetivo:** Consolidar notas operativas críticas en `docs/user/QUICKSTART.md`: inspección de registros (`record.key`, `record.payload`), recuperación de locks huérfanos y gestión de capacidad de almacenamiento.
+- **Resultado:** ✅ Guía `docs/user/QUICKSTART.md` enriquecida con ejemplos y advertencias operativas.
+
+### DX-13: Regeneración de completions de CLI
+- **Fecha:** 2026-10-18
+- **Objetivo:** Regenerar y sincronizar los archivos de autocompletado en `completions/` incluyendo los subcomandos de verificabilidad (`certificate`, `verify`).
+- **Resultado:** ✅ Completions actualizadas para bash, zsh, fish y powershell.
