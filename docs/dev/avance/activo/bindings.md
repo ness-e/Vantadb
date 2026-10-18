@@ -1248,3 +1248,81 @@ tags: [vantadb, avance, bindings, python, wasm, typescript, mcp, adapters]
 - **Fecha:** 2026-10-18
 - **Objetivo:** Regenerar y sincronizar los archivos de autocompletado en `completions/` incluyendo los subcomandos de verificabilidad (`certificate`, `verify`).
 - **Resultado:** ✅ Completions actualizadas para bash, zsh, fish y powershell.
+
+### DIST-04: `VANTA_MEMORY.md` ↔ realidad (alinear)
+- **Fecha:** 2026-10-18
+- **Objetivo:** Alinear VANTA_MEMORY.md con la realidad
+- **Resultado:** ✅ Doc reconciliado con HEAD (`docs/api/VANTA_MEMORY.md:26-31`) y superficie Python minima landing (`vantadb-python/src/lib.rs:2211,2268`).
+
+### DIST-08: Pins de versión en docs (post-0.7.0 live)
+- **Fecha:** 2026-10-18
+- **Objetivo:** Pins de version en docs coherentes con el release
+- **Resultado:** ✅ QUICKSTART y docs de la demo alineados a la 0.8.0 publicada (`QUICKSTART.md:54-55,113,143,161`).
+- **Commit:** 174410d7
+
+### DIST-19: Fachada modular `vanta-memory` en `vantadb-node` (`VantaCognitiveAPI`)
+- **Fecha:** 2026-10-18
+- **Objetivo:** Fachada cognitiva de alto nivel en Node-API
+- **Resultado:** ✅ `VantaCognitiveAPI` completa: recall, context_assemble, consolidate, reinforce, checkpointSave/Load (`vantadb-node/src/lib.rs:996-1210`).
+- **Commit:** eda872e2, 1afda9ad
+
+### EGO-01: cursor `undefined`/`Null` rechazado en `db.list()` + cursor string no aceptado
+- **Fecha:** 2026-10-18
+- **Objetivo:** Que list() acepte cursores de Node y de WASM
+- **Resultado:** ✅ `undefined`/`Null` y cursor string aceptados en `db.list()` con tests (`vantadb-node/src/lib.rs:1477-1493,1962-2010`).
+- **Commit:** 82317d89
+
+### EGO-02: `query_vector` obligatorio para BM25 puro en TS
+- **Fecha:** 2026-10-18
+- **Objetivo:** Permitir busqueda vectorial con texto o sparse
+- **Resultado:** ✅ `query_vector` acepta `text`/`sparse` opcionales con guard compartido native+WASM (`vantadb-ts/src/guards.ts:226-245`, `types.ts:215`).
+- **Commit:** c82f4b2d
+
+### EGO-03: Soporte nativo de comodines/prefijo en `search_multi`
+- **Fecha:** 2026-10-18
+- **Objetivo:** Comodines nativos en busqueda solo-texto
+- **Resultado:** ✅ `wildcard_prefix` + expansion implementados (`src/sdk/search/multi.rs:15-84`).
+- **Commit:** 36ac14ff
+
+### EGO-04: Tokenizador default parte palabras con acento (ASCII-only)
+- **Fecha:** 2026-10-18
+- **Objetivo:** Tokenizador Unicode correcto
+- **Resultado:** ✅ Tokenizacion con test (¿Cuáles/principios) y formato v2 (`TOKENIZER_VERSION=2`, `src/text_index.rs:23,178,855`).
+- **Commit:** b04d33bf
+
+### EGO-05: `Value` no acepta escalares JS planos (IEEE-754 → Int)
+- **Fecha:** 2026-10-18
+- **Objetivo:** Aceptar escalares JS planos en Value
+- **Resultado:** ✅ `Deserialize` tolerante human-readable (`src/sdk/types.rs:350-361`) con tests en `tests/sdk_serialization.rs:850-871`.
+
+### EGO-06: Lock Fjall retenido en Windows si el proceso falla antes de `close()`
+- **Fecha:** 2026-10-18
+- **Objetivo:** Liberar Fjall al descartar el handle
+- **Resultado:** ✅ Finalizer + registro por path de handles abiertos (`vantadb-node/src/lib.rs:109-113,158,201-229`).
+
+### EGO-09: Exclusión multi-proceso Fjall (`flock`) + modo `open_readonly`
+- **Fecha:** 2026-10-18
+- **Objetivo:** Apertura sin escritura y patron daemon
+- **Resultado:** ✅ `open_readonly` + patron daemon/socket (`src/sdk/builder.rs:102-121`, `tests/embedded_readonly.rs:15-49`). Lock-free de Fjall diferido a Engine.
+
+### EGO-11: `text_query: ""` como match-all + método `scan()` explícito
+- **Fecha:** 2026-10-18
+- **Objetivo:** scan() explicito en el SDK TS
+- **Resultado:** ✅ `scan()` expuesto y match-all prohibido por doc (`vantadb-ts/src/native.ts:553`, `types.ts:172`).
+
+### EGO-12: `db.reopen(path)` tras `close()` sin re-inyección en consumers
+- **Fecha:** 2026-10-18
+- **Objetivo:** reopen() sin revincular consumers
+- **Resultado:** ✅ `reopen()` revive el mismo handle (`vantadb-node/src/lib.rs:288`, `vantadb-ts/src/native.ts:643` + `reopen.test.ts`).
+
+### FIND-239: Docs DX post-validación v0.8.0: encoding Windows + puente `export_all`(JSONL)↔`import_file` vs `bulk_import`(binario ...
+- **Fecha:** 2026-10-18
+- **Objetivo:** Docs de SDK al dia con el release
+- **Resultado:** ✅ 4 sub-puntos aplicados y verificados (`QUICKSTART.md:213-220`, `PYTHON_SDK.md:577,859`, `vantadb-ts/README.md:284-303`).
+- **Commit:** 2ef38561
+
+### FIND-269: Suite `vantadb-node` falla con ENOSPC (`os error 112`) bajo carga completa en Windows
+- **Fecha:** 2026-10-18
+- **Objetivo:** Evitar ENOSPC en la suite de Node
+- **Resultado:** ✅ Serializacion + `maxRetries` implementados (`vantadb-node/vitest.config.ts`, `tests/api.test.ts:27`).
+- **Commit:** 1729e956

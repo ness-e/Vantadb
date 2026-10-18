@@ -655,3 +655,37 @@ tags: [vantadb, avance, ci, cd, release, github-actions]
 - **Fecha:** 2026-10-02
 - **Objetivo:** El test del snapshot de API p, build de rustdoc nightly) corr del fast gate local (`nextest -p vantadb`, profile audit, terminate-after 180s): con target fr el timeout de forma determinista (verify.ps1 2026-09-27: `TIMEOUT [180.364s]`, 2268/2269) y el snapshot whole-crate pod ya commiteado entre regeneraciones. Sacarlo del gate sin perder la se del surface.
 - **Resultado:** ✅ Resuelto en `2510c16e`: el test es `#[ignore]` y qued; corre solo en el job dedicado (`--run-ignored ignored-only`) y los comandos de actualizaci (`VANTADB_PUBLIC_API_UPDATE=1`) quedaron documentados (header del test + COMPATIBILITY/VERSIONING). Residual relacionado (stack overflow cold-cache) en `FIND-191`. Origen: WIRE-04 cierre (2026-09-27).
+
+### FIND-235: `docs/dev/workflow/ci-rust-10.md` stale — dice "13 jobs" (hoy 20) y coverage "59%" (hoy ~80%)
+- **Fecha:** 2026-10-18
+- **Objetivo:** Doc de CI alineada con el YAML real
+- **Resultado:** ✅ 21 jobs y cobertura >=80% coinciden con `ci-rust.yml` (`docs/dev/workflow/ci-rust-10.md:19`).
+- **Commit:** 357be38e
+
+### FIND-236: Job ASan corre `sift1m_competitive_benchmark` (guard release-only) en debug → panic pre-existente mantiene el job roj...
+- **Fecha:** 2026-10-18
+- **Objetivo:** Test release-only sin coste en cada CI
+- **Resultado:** ✅ Skip aplicado en `.github/workflows/ci-rust.yml:711-715,736`; task file completada y borrada.
+- **Commit:** bec2dd1b
+
+### FIND-321: Drift inventario workflows: `CI_POLICY.md` declara 28, el árbol tiene 40
+- **Fecha:** 2026-10-18
+- **Objetivo:** Gate mecanico del catalogo de workflows
+- **Resultado:** ✅ Gate activo e inventario reconciliado 40->20 (`docs/dev/workflow/README.md:9-16`, `docs-gates.yml:581-585`).
+
+### FIND-327: Parser del test WAL quedó stale tras VER-01 (framing v3); invisible 9 días por exclusión de nextest + heavy-cert sin ...
+- **Fecha:** 2026-10-18
+- **Objetivo:** Test de WAL parser alineado al framing v3
+- **Resultado:** ✅ Parser chain-aware (5 vs 3 registros) y fixture en el gate nightly (`tests/storage/wal_resilience.rs:256-267`, `nightly.yml:108`).
+- **Commit:** 310aadda
+
+### MKT-20: Publicar 5 adapters en PyPI (re-escalado 2026-09-03)
+- **Fecha:** 2026-10-18
+- **Objetivo:** Publicar los 5 adapters en PyPI
+- **Resultado:** ✅ 5/5 live en PyPI 0.5.0 (vantadb-langchain, llamaindex, mem0, crewai, dspy; 2026-10-07/08). Solo queda texto stale en READMEs (FIND-330).
+
+### REL-03: Manifest único de versiones y superficies de distribución (generado)
+- **Fecha:** 2026-10-18
+- **Objetivo:** Manifest generado de versiones por superficie
+- **Resultado:** ✅ Version/canal/tag por superficie generados (`SURFACE_MANIFEST.md:37-46`) con gates `version_coherence` y npm anti-skip.
+- **Commit:** f84f7c70

@@ -852,3 +852,48 @@ s_len‖ns‖key_len‖key‖ver BE) + hooks put/put_batch/delete/purge_expired 
 - **Objetivo:** Evitar la escritura de `.vanta_profile` en el directorio de trabajo del usuario (CWD), resolviendo hacia `VANTADB_PROFILE_PATH` o `~/.vanta/.vanta_profile`.
 - **Resultado:** ✅ Actualizado `src/hardware/mod.rs` para resolver la ruta en el directorio de usuario o variable de entorno sin ensuciar el CWD.
 
+
+### API-10: Schema-first / codegen para DTOs y tipos públicos
+- **Fecha:** 2026-10-18
+- **Objetivo:** JSON Schema de los DTOs wire + test de paridad
+- **Resultado:** ✅ Slice 1 entregado: `docs/api/wire-schema.json` + modulo `wire_schema_parity` (`tests/sdk_serialization.rs:147-171`). Slice 2 (codegen real) declarado post-1.0.
+
+### DOC-22: Single Source of Truth documental (Document Authority Map)
+- **Fecha:** 2026-10-18
+- **Objetivo:** Un mapa que diga que documento manda sobre que
+- **Resultado:** ✅ Document Authority Map generado (concepto -> fuente canonica) en `docs/api/SURFACE_MANIFEST.md:48-64`.
+- **Commit:** f84f7c70
+
+### DX-02: H-027: extender doctor con preflight de entorno
+- **Fecha:** 2026-10-18
+- **Objetivo:** doctor con preflight de entorno
+- **Resultado:** ✅ Preflight de disco, locks, onnxruntime, codepage, Python/Node (`src/cli_handlers/diagnostics.rs:217-290`).
+- **Commit:** c777d72c
+
+### FIND-201: `integrations/README.md` §"shim temporal" stale (FIND-94 ya migrado en `880cd0f3`)
+- **Fecha:** 2026-10-18
+- **Objetivo:** README de integrations sin texto stale
+- **Resultado:** ✅ Seccion stale corregida y shim documentado como eliminado (`integrations/README.md:71-78`).
+- **Commit:** 9f773e92
+
+### FIND-216: OTel/tracing: spans del ciclo de query (hoy solo `http_request`)
+- **Fecha:** 2026-10-18
+- **Objetivo:** Telemetria por defecto en el SDK
+- **Resultado:** ✅ 185 `#[instrument]` en put/get/delete/search + configuracion OTEL documentada (`CONFIGURATION.md:508`).
+
+### FIND-218: Política de estabilidad/deprecación de API formalizada
+- **Fecha:** 2026-10-18
+- **Objetivo:** Politica de versionado y deprecacion
+- **Resultado:** ✅ `docs/api/VERSIONING.md:97-110` + `DEPRECATIONS.md` + 10 `#[deprecated]` reales en el codigo.
+
+### FIND-322: `ARCHITECTURE.md` declara truth v0.6.1 (stale vs tren 0.9.0)
+- **Fecha:** 2026-10-18
+- **Objetivo:** ARCHITECTURE.md alineado al workspace
+- **Resultado:** ✅ Doc y frontmatter alineados a la 0.8.0, verificados 2026-10-15.
+- **Commit:** b678b335
+
+### SURF-01: Public Surface Manifest (PUBLIC/INTERNAL/EXPERIMENTAL/FROZEN/RETIRED)
+- **Fecha:** 2026-10-18
+- **Objetivo:** Clasificacion mecanica de la superficie publica
+- **Resultado:** ✅ Manifest PUBLIC/INTERNAL/EXPERIMENTAL/FROZEN/RETIRED generado por `scripts/docs/gen-surface-manifest.mjs`; task file cerrado.
+- **Commit:** f84f7c70

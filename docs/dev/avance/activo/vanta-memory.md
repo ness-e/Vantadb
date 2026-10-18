@@ -235,3 +235,19 @@ tags: [vantadb, avance, vanta-memory, tdam, memory, persona, recall]
 - **Objetivo:** cerrar el doble decremento de stats del text index con upserts concurrentes de la misma key (CI Windows rojo: `text index df would go negative` en `concurrent_same_ms_triggers_lose_no_messages`).
 - **Resultado:** ✅ Root cause: `put_one`/`put_record_exact` solo tomaban el read guard del `purge_lock` (compartido — protege vs purge, no vs otro writer) y `delete_inner` no tomaba nada; dos writers resolvían la misma generación y ambos aplicaban su decremento (FIND-252). Fix: **write guard** en todo el read-modify-write (resolve + insert/delete + index replacement) en `put_one`/`put_record_exact`/`delete_inner` — la misma sección crítica de `put_batch_inner`. Test de regresión `test_concurrent_same_key_upserts_do_not_corrupt_text_stats` (8×100; RED <1s pre-fix → 10/10 GREEN). Review P2-01 **APPROVE** (barrido de reentrancy/lock-order sin hallazgos; residuales anotados en FIND-245). Verificación lead: regresión PASS + `conversation_hook` 4/4 + `edge_cases` 29/29.
 - **Commit:** 6f3990aa (local, sin push)
+
+### MEMG-24: Suite de tests de contrato Ego ↔ VantaDB (`VantaCognitiveAPI` v1)
+- **Fecha:** 2026-10-18
+- **Objetivo:** Suite de contrato Ego <-> VantaDB
+- **Resultado:** ✅ Tests vitest del contrato `VantaCognitiveAPI` v1: firmas y abort pineados (`vantadb-node/tests/cognitive-contract.test.ts`).
+- **Commit:** 1afda9ad
+
+### MGR-04: Modelo de namespaces trusted/tainted + RBAC por acción
+- **Fecha:** 2026-10-18
+- **Objetivo:** Namespaces de confianza y RBAC por accion
+- **Resultado:** ✅ Trust gate de namespaces (MEMG-10) + RBAC por accion entregados; spec en `docs/dev/research/mgr-04-policy-engine.md`.
+
+### MGR-22: PI-1 Repo-map + indexación incremental del repo (memoria de proyecto/ingeniería)
+- **Fecha:** 2026-10-18
+- **Objetivo:** Repo-map e indexacion incremental del repo
+- **Resultado:** ✅ Spec completa (`mgr-22-repo-map.md`) + slice v0 (`vantadb-mcp/src/code_index.rs`). El residual v1 (tree-sitter/watcher/ranking) vive en FIND-299.
