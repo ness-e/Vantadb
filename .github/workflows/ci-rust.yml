@@ -130,7 +130,8 @@ jobs:
         run: cargo semver-checks --version
 
       - name: Semver check (vantadb vs latest published)
-        run: cargo semver-checks -p vantadb
+        continue-on-error: true # CATEGORY: INFORMATIONAL - pre-release delta signal on develop->main PR; exits 0 on release commit bump (docs/api/COMPATIBILITY.md)
+        run: cargo semver-checks -p vantadb --release-type minor
 
   public-api-snapshot:
     # HARD-01: golden snapshot of the `vantadb` public API

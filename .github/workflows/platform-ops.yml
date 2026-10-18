@@ -19,7 +19,7 @@ name: 'OPS: Platform - CodeQL, opencode bot, OCR nightly'
 on:
   push:
     branches: [main]
-    paths: &ops-paths
+    paths:
       - 'src/**'
       - 'vantadb-server/**'
       - 'Cargo.toml'
@@ -27,7 +27,12 @@ on:
       - '.github/workflows/platform-ops.yml'
   pull_request:
     branches: [main]
-    paths: *ops-paths
+    paths:
+      - 'src/**'
+      - 'vantadb-server/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/platform-ops.yml'
   schedule:
     - cron: '0 0 * * 0'
     - cron: '0 4 * * *'
@@ -198,6 +203,7 @@ jobs:
         run: |
           ocr config set llm.url "$OCR_LLM_URL"
           ocr config set llm.model "$OCR_LLM_MODEL"
+          # shellcheck disable=SC2016 # Token variable intentionally expanded by ocr subshell at runtime
           ocr config set llm.auth_token_cmd 'printf "%s" "$OCR_LLM_TOKEN"'
 
       - name: Full review (24h window, json evidence)
