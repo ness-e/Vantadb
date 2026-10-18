@@ -207,6 +207,7 @@ jobs:
           packages-dir: dist/
           verbose: true
           skip-existing: true
+          password: ${{ secrets.PYPI_TOKEN }}
 
   verify-testpypi-install:
     name: Verify TestPyPI install

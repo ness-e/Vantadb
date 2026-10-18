@@ -170,3 +170,4 @@ jobs:
           # ya tiene) — re-run del mismo tag hace skip graceful en vez de
           # fallar con HTTP 400 por versión duplicada.
           skip-existing: true
+          password: ${{ secrets.PYPI_TOKEN }}
