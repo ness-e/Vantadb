@@ -651,3 +651,7 @@ tags: [vantadb, avance, ci, cd, release, github-actions]
 - **Fecha:** 2026-10-18
 - **Objetivo:** Auditar y blindar los 20 workflows de GitHub Actions según las reglas de seguridad de `RULES.md`.
 - **Resultado:** ✅ Configurados `permissions: contents: read` a nivel global en `electron-node.yml`, pines de versión en `jetli/wasm-pack-action` y comandos `cargo install --version ... --locked`, eliminación de interpolación directa de `${{ inputs.* }}` en scripts inline de shell encapsulándolos en `env:`, y sincronizado el catálogo en `docs/dev/workflow/README.md`.
+### FIND-178: `public_api_snapshot_matches_committed_file` fuera del fast gate local
+- **Fecha:** 2026-10-02
+- **Objetivo:** El test del snapshot de API p, build de rustdoc nightly) corr del fast gate local (`nextest -p vantadb`, profile audit, terminate-after 180s): con target fr el timeout de forma determinista (verify.ps1 2026-09-27: `TIMEOUT [180.364s]`, 2268/2269) y el snapshot whole-crate pod ya commiteado entre regeneraciones. Sacarlo del gate sin perder la se del surface.
+- **Resultado:** ✅ Resuelto en `2510c16e`: el test es `#[ignore]` y qued; corre solo en el job dedicado (`--run-ignored ignored-only`) y los comandos de actualizaci (`VANTADB_PUBLIC_API_UPDATE=1`) quedaron documentados (header del test + COMPATIBILITY/VERSIONING). Residual relacionado (stack overflow cold-cache) en `FIND-191`. Origen: WIRE-04 cierre (2026-09-27).
