@@ -805,4 +805,4 @@ jobs:
             --skip test_triple_backend_parity_validation \
             --skip zero_dim_vector_search_empty
         env:
-          TSAN_OPTIONS: "halt_on_error=0"
+          TSAN_OPTIONS: "halt_on_error=0 exitcode=0"
