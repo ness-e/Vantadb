@@ -173,7 +173,10 @@ fn dir_bytes_map(root: &Path) -> BTreeMap<String, Vec<u8>> {
 /// Engine-internal journals carry the write-path wall clock (`last_accessed`)
 /// and are excluded from the strict byte comparison — see the module docs.
 fn is_volatile_engine_journal(rel: &str) -> bool {
-    rel.contains("wal") || rel.contains("journal") || rel.ends_with("db.lock")
+    rel.contains("wal")
+        || rel.contains("journal")
+        || rel.ends_with("db.lock")
+        || rel.ends_with(".vanta.lock")
 }
 
 /// Strict comparison: same file set everywhere; byte-equality for every file
