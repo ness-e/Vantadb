@@ -18,11 +18,26 @@ git_tag_name = "v{{ version }}"
 # GitHub release
 git_release_enable = true
 
-# Semver validation: enforced separately by the dedicated `semver-checks`
-# gate in ci-rust.yml (30m budget + 4GB swap). Disabling here avoids a
-# redundant 18-minute cold compilation inside release-plz and allows
-# release-pr generation to complete in seconds via Conventional Commits.
-semver_check = false
+# Semver validation: MUST stay enabled.
+#
+# This is NOT a duplicate of the `Semver Checks (public API)` job in
+# ci-rust.yml. That job runs the same tool with the same `--release-type
+# minor`, but it is INFORMATIONAL (step-level `continue-on-error`) and,
+# crucially, it cannot feed a version back. This check can:
+#
+#   compatible   -> keep the conventional-commit bump (0.8.0 -> 0.9.0)
+#   incompatible -> OVERRIDE it with a breaking bump (0.9.0 -> 0.10.0)
+#
+# (release_plz_core version.rs: `SemverCheck::Incompatible` ->
+# `VersionIncrement::breaking`.) Disabling it would let a public-API removal
+# committed as `fix:` ship as a patch release, because the bump would then
+# come from the commit message alone.
+#
+# Cost: a full compile of the workspace + the published crate (~12 min with
+# swap). It fits because release.yml's release-plz-pr job now has
+# timeout-minutes: 30 and swap-mb: 4096 - it used to be killed at 15 min
+# (run 39324117624, job 118306356063: semver check still running at 10m53s).
+semver_check = true
 
 # Changelog
 changelog_update = true
