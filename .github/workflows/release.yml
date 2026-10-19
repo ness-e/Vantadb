@@ -11,7 +11,11 @@ jobs:
   release-plz-release:
     name: Release-plz release
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # 45 min, same rationale as release-plz-pr: `cargo publish --verify`
+    # compiles the crate (ONNX Runtime, arrow, simsimd) on the same 7GB
+    # runner. A timeout here would leave the tag created but the crate
+    # unpublished.
+    timeout-minutes: 45
     concurrency:
       group: release-plz-release-${{ github.ref }}
       cancel-in-progress: false
@@ -56,7 +60,16 @@ jobs:
     needs: [release-plz-release]
     if: needs.release-plz-release.outputs.releases_created != 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # 45 min, not 30. The cargo-semver-checks run inside `release-plz release-pr`
+    # is a full cold compile of the workspace + the published baseline, and it
+    # has NEVER completed in this repo: the 2026-10-02 run had nothing to
+    # release (8s, check skipped) and the 2026-10-19 run was killed at 15 min
+    # with the check still going at 10m53s (run 39324117624, job 118306356063).
+    # The equivalent CI job measures 13m21s uncontended and >23m under the
+    # parallel matrix. release-plz adds ~4 min on top (version determination
+    # 3m25s + baseline build). 30 min is a coin flip on the release path;
+    # 45 min is not.
+    timeout-minutes: 45
     permissions:
       contents: write
       pull-requests: write
