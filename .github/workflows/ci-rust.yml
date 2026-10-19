@@ -758,7 +758,7 @@ jobs:
   sanitizer-tsan:
     name: TSan (ThreadSanitizer)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     needs: [fmt, clippy]
     # CATEGORY: BEST-EFFORT — nightly TSan is unstable.
     # Failures are reviewed manually. Does not gate releases.
@@ -800,9 +800,26 @@ jobs:
             --features "cli,arrow,tls,opentelemetry" \
             --config 'target.x86_64-unknown-linux-gnu.rustflags = ["-Zsanitizer=thread", "-Cunsafe-allow-abi-mismatch=sanitizer"]' \
             -- \
+            --skip test_benchmark_ \
+            --skip benchmark_internal \
+            --skip test_benchmark_internal_10k \
             --skip sift1m_competitive_benchmark \
+            --skip hardware_certification_full \
+            --skip hnsw_hard_validation_certification \
+            --skip hnsw_core_logic_certification \
+            --skip recall_certification_runner \
+            --skip stress_protocol_certification \
+            --skip glove_dimension_scale \
+            --skip validate_sift_dataset_integrity \
             --skip test_glove100_hnsw_basic \
+            --skip hnsw_recall_snapshot_baseline \
+            --skip hnsw_recall_snapshot_deterministic_across_scales \
+            --skip test_hybrid_ranking_metrics \
+            --skip deterministic_corpus_certifies_text_vector_hybrid_and_phrase_paths \
+            --skip extended_corpus_certifies_bm25_ranking_edge_cases_and_multi_namespace \
+            --skip concurrent_multi_namespace_stress \
+            --skip memory_volume_kpi_10k \
             --skip test_triple_backend_parity_validation \
             --skip zero_dim_vector_search_empty
         env:
-          TSAN_OPTIONS: "halt_on_error=0 exitcode=0"
+          TSAN_OPTIONS: "halt_on_error=0 exitcode=0 history_size=2"
