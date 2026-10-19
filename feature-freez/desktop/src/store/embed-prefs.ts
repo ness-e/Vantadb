@@ -13,6 +13,7 @@ const STORAGE_KEY = "vanta.embed.v1";
 /** Catálogo curado — match exacto con `embeddings/manifest.json`. */
 export const EMBED_MODELS = [
   { id: "multilingual-e5-small", label: "multilingual-e5-small (ES+EN 16+, 384d, MIT) — DEFAULT" },
+  { id: "embeddinggemma-2", label: "embeddinggemma-2 (Google DeepMind, 768d, Gemma) — SOTA LOCAL" },
   { id: "all-MiniLM-L6-v2", label: "all-MiniLM-L6-v2 (EN, 384d, Apache-2.0, ultra-ligero)" },
   { id: "bge-small-en-v1.5", label: "bge-small-en-v1.5 (EN, 384d, MIT, baseline)" },
   { id: "bge-base-en-v1.5", label: "bge-base-en-v1.5 (EN, 768d, MIT, balance)" },
