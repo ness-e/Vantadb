@@ -52,6 +52,7 @@ async fn main() -> anyhow::Result<()> {
     let config = vantadb::config::Config::from_env();
 
     if is_mcp {
+        std::env::set_var("VANTADB_QUIET", "1");
         // Init telemetry first (MCP-35 proxy needs tracing before storage open)
         vantadb::cli_server::init_telemetry(
             vantadb::cli_server::TelemetrySink::Stderr,

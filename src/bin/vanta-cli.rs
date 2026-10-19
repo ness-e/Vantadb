@@ -30,6 +30,10 @@ fn main() -> anyhow::Result<()> {
 fn run() -> anyhow::Result<()> {
     let args = Cli::parse();
 
+    if args.json {
+        std::env::set_var("VANTADB_QUIET", "1");
+    }
+
     if args.verbose {
         console::init_logging(LogFormat::Full);
     }
