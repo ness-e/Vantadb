@@ -55,9 +55,11 @@ let vec = provider.embed("hola mundo")?;
 let batch = provider.embed_batch(&["hola mundo".into(), "hello world".into()])?;
 ```
 
-- With `embed-local` active, default `VANTADB_EMBEDDING_PROVIDER` is `local` (model `embeddings/models/multilingual-e5-small/onnx`, dim 384).
+- With `embed-local` active, default `VANTADB_EMBEDDING_PROVIDER` is `local` (default model `embeddings/models/multilingual-e5-small/onnx` [384d], or modern `embeddinggemma-2` [768d] via `vanta config set embeddings.model embeddinggemma-2`).
 - Without `embed-local`, default is `ollama`.
-- `LocalOnnxProvider::new("embeddings/models/multilingual-e5-small/onnx")` validates session loading and enforces strict embeddings when configured. Synthetic fallback is permitted only when `VANTADB_ALLOW_DUMMY_EMBEDDINGS=true` or `--allow-dummy-embeddings` is supplied.
+- `LocalOnnxProvider::new("embeddings/models/<id>/onnx")` validates session loading and enforces strict embeddings when configured. Synthetic fallback is permitted only when `VANTADB_ALLOW_DUMMY_EMBEDDINGS=true` or `--allow-dummy-embeddings` is supplied.
+- **Dimension Isolation & Namespacing:** Embedding models with differing dimensions (e.g., 384d for `multilingual-e5-small` vs. 768d for `embeddinggemma-2`) cannot be mixed inside the same vector namespace. When switching models, write to a dedicated namespace (e.g. `--namespace gemma_docs`) or a dedicated database path.
+- **Runtime Dylib Discovery:** `ort` loads the native ONNX runtime from `ORT_DYLIB_PATH`. When unset, VantaDB auto-probes local Python virtualenvs (`.venv/Lib/site-packages/onnxruntime/capi/onnxruntime.dll` / `.so` / `.dylib`) before falling back to system PATH.
 
 ## `LocalOnnxProvider` internals
 

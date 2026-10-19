@@ -80,6 +80,15 @@ fn flatten_toml_table(prefix: &str, table: &toml::Table, map: &mut BTreeMap<Stri
     }
 }
 
+fn normalize_model_path(val: &str) -> String {
+    let trimmed = val.trim();
+    if !trimmed.is_empty() && !trimmed.contains('/') && !trimmed.contains('\\') {
+        format!("embeddings/models/{trimmed}/onnx")
+    } else {
+        trimmed.to_string()
+    }
+}
+
 fn resolve_item(
     key: &'static str,
     env_var: &'static str,
@@ -89,53 +98,37 @@ fn resolve_item(
     project_map: &BTreeMap<String, toml::Value>,
     user_map: &BTreeMap<String, toml::Value>,
 ) -> ConfigItem {
-    if let Some(cli) = cli_override {
-        return ConfigItem {
-            key,
-            env_var,
-            value: cli.to_string(),
-            layer: ConfigLayer::CliFlag,
-            is_secret,
-        };
-    }
-
-    if let Ok(env_val) = std::env::var(env_var) {
+    let (raw_val, layer) = if let Some(cli) = cli_override {
+        (cli.to_string(), ConfigLayer::CliFlag)
+    } else if let Ok(env_val) = std::env::var(env_var) {
         if !env_val.is_empty() {
-            return ConfigItem {
-                key,
-                env_var,
-                value: env_val,
-                layer: ConfigLayer::Environment,
-                is_secret,
-            };
+            (env_val, ConfigLayer::Environment)
+        } else if let Some(proj_val) = project_map.get(key) {
+            (toml_val_to_str(proj_val), ConfigLayer::ProjectFile)
+        } else if let Some(user_val) = user_map.get(key) {
+            (toml_val_to_str(user_val), ConfigLayer::UserGlobalFile)
+        } else {
+            (default_val.to_string(), ConfigLayer::DefaultValue)
         }
-    }
+    } else if let Some(proj_val) = project_map.get(key) {
+        (toml_val_to_str(proj_val), ConfigLayer::ProjectFile)
+    } else if let Some(user_val) = user_map.get(key) {
+        (toml_val_to_str(user_val), ConfigLayer::UserGlobalFile)
+    } else {
+        (default_val.to_string(), ConfigLayer::DefaultValue)
+    };
 
-    if let Some(proj_val) = project_map.get(key) {
-        return ConfigItem {
-            key,
-            env_var,
-            value: toml_val_to_str(proj_val),
-            layer: ConfigLayer::ProjectFile,
-            is_secret,
-        };
-    }
-
-    if let Some(user_val) = user_map.get(key) {
-        return ConfigItem {
-            key,
-            env_var,
-            value: toml_val_to_str(user_val),
-            layer: ConfigLayer::UserGlobalFile,
-            is_secret,
-        };
-    }
+    let value = if key == "local_model_path" {
+        normalize_model_path(&raw_val)
+    } else {
+        raw_val
+    };
 
     ConfigItem {
         key,
         env_var,
-        value: default_val.to_string(),
-        layer: ConfigLayer::DefaultValue,
+        value,
+        layer,
         is_secret,
     }
 }
@@ -412,19 +405,29 @@ pub fn cmd_config_set(key: &str, value: &str, global: bool, json_output: bool) -
         toml::Table::new()
     };
 
-    let parsed_val = if value == "true" {
-        toml::Value::Boolean(true)
-    } else if value == "false" {
-        toml::Value::Boolean(false)
-    } else if let Ok(i) = value.parse::<i64>() {
-        toml::Value::Integer(i)
-    } else if let Ok(f) = value.parse::<f64>() {
-        toml::Value::Float(f)
-    } else {
-        toml::Value::String(value.to_string())
+    let (target_key, target_value) = match key {
+        "model"
+        | "embeddings.model"
+        | "local_model"
+        | "embeddings.local_model"
+        | "local_model_path"
+        | "embeddings.local_model_path" => ("local_model_path", normalize_model_path(value)),
+        _ => (key, value.to_string()),
     };
 
-    table.insert(key.to_string(), parsed_val);
+    let parsed_val = if target_value == "true" {
+        toml::Value::Boolean(true)
+    } else if target_value == "false" {
+        toml::Value::Boolean(false)
+    } else if let Ok(i) = target_value.parse::<i64>() {
+        toml::Value::Integer(i)
+    } else if let Ok(f) = target_value.parse::<f64>() {
+        toml::Value::Float(f)
+    } else {
+        toml::Value::String(target_value.clone())
+    };
+
+    table.insert(target_key.to_string(), parsed_val);
 
     let serialized = toml::to_string_pretty(&table).map_err(|e| {
         Error::Cli(ChainedError::msg(format!(
@@ -442,15 +445,15 @@ pub fn cmd_config_set(key: &str, value: &str, global: bool, json_output: bool) -
     if json_output {
         print_json(&json!({
             "command": "config_set",
-            "key": key,
-            "value": value,
+            "key": target_key,
+            "value": target_value,
             "file": target_path.display().to_string(),
             "global": global,
             "success": true
         }))?;
     } else {
         print_success(&format!(
-            "Set `{key} = {value}` in {}",
+            "Set `{target_key} = {target_value}` in {}",
             target_path.display()
         ));
     }
@@ -594,15 +597,44 @@ pub fn cmd_config_doctor(db_path: &str, json_output: bool) -> Result<()> {
     };
     checks.push(("Storage Lock", lock_status.0, lock_status.1));
 
-    // 3. Strict embeddings & model check
+    // 3. Strict embeddings & model physical integrity check
     let strict = std::env::var("VANTADB_STRICT_EMBEDDINGS")
         .map(|v| v != "false" && v != "0")
         .unwrap_or(true);
-    let provider =
-        std::env::var("VANTADB_EMBEDDING_PROVIDER").unwrap_or_else(|_| "ollama".to_string());
-    let embedding_desc =
-        format!("Provider: {provider} | Strict mode: {strict} (fail-closed on model absence)");
-    checks.push(("Embeddings Policy", true, embedding_desc));
+    let health = crate::embedding_health::embedding_health();
+    let (emb_ok, emb_desc) = match health.fallback {
+        Some(true) => {
+            let detail = health.detail.unwrap_or_else(|| "unusable".to_string());
+            (
+                !strict,
+                format!(
+                    "Provider: {} (DEGRADED: {}) | Strict mode: {} (fail-closed)",
+                    health.provider, detail, strict
+                ),
+            )
+        }
+        Some(false) => {
+            let model_info = health.model_dir.unwrap_or_else(|| "default".to_string());
+            (
+                true,
+                format!(
+                    "Provider: {} | Verified at '{}' | Strict mode: {}",
+                    health.provider, model_info, strict
+                ),
+            )
+        }
+        None => {
+            let detail = health.detail.unwrap_or_else(|| "configured".to_string());
+            (
+                true,
+                format!(
+                    "Provider: {} ({}) | Strict mode: {}",
+                    health.provider, detail, strict
+                ),
+            )
+        }
+    };
+    checks.push(("Embeddings Health", emb_ok, emb_desc));
 
     // 4. Server Port check
     let port = std::env::var("VANTADB_PORT")
