@@ -38,6 +38,10 @@ jobs:
           install-nextest: false
           install-llvm-cov: false
           install-system-deps: true
+          # `cargo publish --verify` compiles the crate (ONNX Runtime, arrow,
+          # simsimd) on the same 7GB runner that OOM-thrashed the semver
+          # check in release-plz-pr. Swap keeps the publish path alive.
+          swap-mb: 4096
       - name: Run release-plz
         id: release-plz
         uses: release-plz/action@b8d6b54b02889ff2ae2bb82e8b57c3a8fc1683a5 # v0.5.139
