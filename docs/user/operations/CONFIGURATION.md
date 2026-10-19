@@ -59,6 +59,7 @@ All configuration fields available in `VantaConfig` (Rust) and via environment v
 | `openai_api_key` | `Option<String>` | `None` | `VANTADB_OPENAI_API_KEY` | OpenAI API key for remote embeddings (optional; missing key defers error to embed call, B2b) |
 | `openai_model` | `String` | `text-embedding-3-small` | `VANTADB_OPENAI_MODEL` | OpenAI embedding model name |
 | `embedding_provider` | `String` | `ollama` | `VANTADB_EMBEDDING_PROVIDER` | Embedding provider selector: `ollama`, `openai`, `local` (ONNX) |
+| `strict_embeddings` | `bool` | `true` | `VANTADB_STRICT_EMBEDDINGS`, `VANTADB_ALLOW_DUMMY_EMBEDDINGS` | Fail-closed policy for vector embeddings. When `true` (default), refuses to silently degrade to synthetic/dummy vectors if the ONNX runtime or model weights are missing. Explicit opt-out via `VANTADB_ALLOW_DUMMY_EMBEDDINGS=true`. |
 | `wal_shards` | `usize` | `4` | `VANTADB_WAL_SHARDS` | Number of round-robin [wal](../glosario/wal.md) shard files for write parallelism |
 | `wal_buffer_size` | `Option<usize>` | `65536` (64KB) | `VANTADB_WAL_BUFFER_SIZE` | Per-shard WAL buffer in bytes (`None` = OS default) |
 | `flush_threshold` | `Option<usize>` | `None` (disabled) | `VANTADB_FLUSH_THRESHOLD` | Auto-flush after N nodes inserted (`None` = disabled) |
@@ -121,8 +122,26 @@ These env vars are read at runtime outside `VantaConfig::from_env()`:
 | Env Var | Default | Description |
 |---------|---------|-------------|
 | `VANTADB_REPORTED_VERSION` | crate version | Overrides the version string reported by banners and MCP surfaces (must be a valid semver, e.g. `1.2.3-rc1`; internal mechanism, excepted from Config per FIND-89) |
+| `VANTADB_SELF_HEALING_IDLE_SECS` | `900` (15 min) | Inactivity quiet window threshold (seconds) before automated background vacuum and HNSW index rebuild executes |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4317` | OTLP gRPC endpoint (third-party OpenTelemetry standard, not a VantaDB config) |
 | `OTEL_SERVICE_NAME` | `vantadb-server` | Logical service name for trace identification (third-party OpenTelemetry standard) |
+
+### Five-Layer Configuration Hierarchy & CLI Wizard (FIND-385)
+
+VantaDB resolves settings through a strict 5-layer hierarchy with deterministic precedence:
+
+1. **CLI Arguments:** Highest priority (e.g., `--port 8080`, `--storage-path ./my_data`).
+2. **Environment Variables:** Canonical `VANTADB_*` variables (e.g., `VANTADB_PORT=8080`).
+3. **Project File (`./vanta.toml`):** Project-local configuration checked in with the codebase.
+4. **Global User File (`~/.vanta/config.toml`):** Machine-wide defaults persisted across sessions.
+5. **Engine Defaults:** Production safe defaults (`127.0.0.1`, port 8080, strict embeddings).
+
+#### Managing Configuration with `vanta config`
+
+- **`vanta config show`**: Displays the resolved effective configuration and the source layer for each value.
+- **`vanta config doctor`**: Runs a comprehensive environment audit checking storage write permissions, ONNX dylib presence, local model files, lock integrity, and memory thresholds.
+- **`vanta config set <key> <value> [--global]`**: Safely updates and validates settings in `./vanta.toml` (or `~/.vanta/config.toml` with `--global`).
+- **`vanta config init [--force]`**: Generates a clean starter `vanta.toml` template in the current working directory.
 
 ### Audit Log Format
 

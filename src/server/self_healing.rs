@@ -106,6 +106,11 @@ pub fn spawn_self_healing_service(
     activity_tracker: Arc<ActivityTracker>,
     quiet_window_secs: u64,
 ) -> SelfHealingService {
+    let quiet_window_secs = std::env::var("VANTADB_SELF_HEALING_IDLE_SECS")
+        .ok()
+        .and_then(|s| s.trim().parse::<u64>().ok())
+        .unwrap_or(quiet_window_secs);
+
     let (shutdown_tx, mut shutdown_rx) = watch::channel(false);
     // Bounded check interval: check at least every 30s or half the quiet window (min 1s)
     let check_interval = Duration::from_secs(30.min(quiet_window_secs / 2).max(1));
@@ -149,6 +154,35 @@ pub fn spawn_self_healing_service(
                                     tracing::error!(error = %join_err, "Self-healing worker task join failed");
                                 }
                             }
+
+                            // Cooperative cancellation check: if user requests resumed during vacuum,
+                            // defer index rebuild to prioritize live query latency.
+                            if activity_tracker.idle_seconds() < quiet_window_secs {
+                                tracing::info!(
+                                    "User traffic resumed during vacuum; deferring index rebuild to next quiet window"
+                                );
+                            } else {
+                                let db_rebuild = db.clone();
+                                let rebuild_res = tokio::task::spawn_blocking(move || {
+                                    db_rebuild.rebuild_index()
+                                }).await;
+
+                                match rebuild_res {
+                                    Ok(Ok(report)) => {
+                                        tracing::info!(
+                                            duration_ms = report.duration_ms,
+                                            "Self-healing index rebuild completed successfully"
+                                        );
+                                    }
+                                    Ok(Err(e)) => {
+                                        tracing::warn!(error = %e, "Self-healing index rebuild encountered error");
+                                    }
+                                    Err(join_err) => {
+                                        tracing::error!(error = %join_err, "Self-healing index rebuild task join failed");
+                                    }
+                                }
+                            }
+
                             has_performed_for_idle.store(true, Ordering::Relaxed);
                         }
                     } else {

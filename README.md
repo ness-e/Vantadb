@@ -320,6 +320,16 @@ cargo install --git https://github.com/ness-e/Vantadb.git --bin vanta-cli
 Once installed and added to your `PATH`, use the global `vanta-cli` command:
 
 ```bash
+# Configuration & Health Diagnostics
+vanta-cli config show              # Display effective 5-layer configuration
+vanta-cli config doctor            # Pre-flight check: storage, ONNX runtime, locks, memory
+vanta-cli config set port 8081     # Persist settings in vanta.toml or ~/.vanta/config.toml
+
+# In-Process Server & Agent MCP Door
+vanta-cli server start --port 8080 # Launch unified HTTP/REST server with Self-Healing daemon
+vanta-cli server --mcp             # Launch Model Context Protocol (MCP) Stdio server
+
+# Data & Knowledge Graph Operations
 vanta-cli put --db ./vanta_data --namespace agent/main --key mem-1 --payload "hello"
 vanta-cli list --db ./vanta_data --namespace agent/main
 vanta-cli export --db ./vanta_data --namespace agent/main --out ./memory.jsonl
@@ -334,24 +344,30 @@ vanta-cli certificate verify --file ./cert.json --db ./vanta_data
 
 ---
 
-## Optional Server Mode
+## Server Mode & Self-Healing Daemon
 
-For local development or network exposure without Python, you can run the standalone binary. This wraps the embedded core; it is not the primary product identity.
+For network exposure or agent hosting without Python bindings, you can run the server directly via `vanta-cli server start` or using the standalone `vantadb-server` binary.
 
-1. Download the tarball for your platform from [GitHub Releases](https://github.com/ness-e/Vantadb/releases) (e.g. `vantadb-x86_64-unknown-linux-gnu.tar.gz`).
-2. Extract and run the binary:
+### Key Capabilities:
+- **Unified In-Process Runtime:** Serves REST APIs and MCP tools directly with zero external process spawning.
+- **Automated Self-Healing:** An internal background daemon tracks request activity via `ActivityTracker`. During low-activity quiet windows, it executes storage vacuum and HNSW index reconstruction, with cooperative cancellation if user traffic resumes.
+- **Orphan Lock Auto-Recovery:** Detects stale lock files left by crashes via OS PID probes (`OpenProcess` on Windows / `kill(pid, 0)` on Unix) and safely reclaims the database directory.
+- **Strict Embeddings Mode:** Enforces fail-closed validation on embedding models by default, preventing silent synthetic vector degradation.
 
-   ```bash
-   tar xzf vantadb-x86_64-unknown-linux-gnu.tar.gz
-   ./vantadb-server
-   ```
+```bash
+# Run server with custom port and host
+vanta-cli server start --host 0.0.0.0 --port 8080
+
+# Or execute standalone binary
+./vantadb-server
+```
 
 **Defaults:**
 
 - **Data Directory**: Creates a `vantadb_data` folder in the current execution directory.
 - **Bind Address**: Listens on `127.0.0.1:8080` (safe localhost default).
 
-**Exposing to the Network:** Override the host via environment variable:
+**Exposing to the Network:** Override the host via environment variable or CLI flag:
 
 ```bash
 export VANTADB_HOST=0.0.0.0
