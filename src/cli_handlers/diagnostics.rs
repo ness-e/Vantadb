@@ -230,17 +230,40 @@ fn environment_preflight(db_path: &str) -> Vec<PreflightCheck> {
             detail: "free space not measured (built without sysinfo)".to_string(),
         }),
     }
-    // ponytail: orphan `.vanta.lock` is report-only — deleting it risks data
-    // loss; clean shutdown via `/api/shutdown`, manual review required (H-020).
     let lock = std::path::Path::new(db_path).join(".vanta.lock");
+    let (lock_ok, lock_detail) = if !lock.is_file() {
+        (true, "no stale lock".to_string())
+    } else {
+        match crate::storage::lock::read_lock_metadata(&lock) {
+            Some(meta) => {
+                if crate::storage::lock::is_process_alive(meta.pid) {
+                    (
+                        false,
+                        format!(
+                            "locked by active process '{}' (PID {}) on host '{}'",
+                            meta.process_name, meta.pid, meta.hostname
+                        ),
+                    )
+                } else {
+                    (
+                        true,
+                        format!(
+                            "orphaned lock from dead process '{}' (PID {}) — auto-recoverable on start",
+                            meta.process_name, meta.pid
+                        ),
+                    )
+                }
+            }
+            None => (
+                true,
+                "unformatted lock file present — auto-recoverable on start".to_string(),
+            ),
+        }
+    };
     checks.push(PreflightCheck {
         name: "orphan_lock",
-        ok: !lock.is_file(),
-        detail: if lock.is_file() {
-            "stale `.vanta.lock` present — manual review required (see /api/shutdown)".to_string()
-        } else {
-            "no stale lock".to_string()
-        },
+        ok: lock_ok,
+        detail: lock_detail,
     });
     match onnxruntime_location() {
         Some(found) => checks.push(PreflightCheck {

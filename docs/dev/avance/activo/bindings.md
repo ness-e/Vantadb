@@ -1326,3 +1326,14 @@ tags: [vantadb, avance, bindings, python, wasm, typescript, mcp, adapters]
 - **Objetivo:** Evitar ENOSPC en la suite de Node
 - **Resultado:** ✅ Serializacion + `maxRetries` implementados (`vantadb-node/vitest.config.ts`, `tests/api.test.ts:27`).
 - **Commit:** 1729e956
+
+### FIND-221: `put_batch`: contrato de atomicidad documentado y verificado
+- **Fecha:** 2026-10-19
+- **Objetivo:** Documentar y pintear con tests el contrato de atomicidad por validación upfront de `put_batch`
+- **Resultado:** ✅ Docstrings actualizados en SDK, contrato documentado en `PYTHON_SDK.md` y 2 tests unitarios en `src/sdk/api.rs` fijando el comportamiento.
+
+### EGO-15: Poda de grado en `graphragSearch` (`max_degree_per_node`)
+- **Fecha:** 2026-10-19
+- **Objetivo:** Poda por grado para evitar abanico combinatorio de lecturas en nodos centrales
+- **Resultado:** ✅ Campo `max_degree_per_node` agregado en `GraphRagOptions` y aplicado durante la expansión en `src/graphrag/expand.rs:77` y `src/graphrag/pipeline.rs:13,106`.
+

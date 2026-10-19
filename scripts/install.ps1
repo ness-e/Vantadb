@@ -1,4 +1,4 @@
-﻿# VantaDB installer for Windows PowerShell.
+# VantaDB installer for Windows PowerShell.
 # Downloads the release zip and extracts vanta-cli.exe to $HOME/.vanta/bin,
 # then chains to the interactive setup wizard (FIND-104).
 #
@@ -167,10 +167,35 @@ if ($NoWizard) {
         if ($Modules) { Write-Host "   (-Modules '$($Modules -join ',')' was not applied)" -ForegroundColor Yellow }
     }
 }
+# --- Environment persistence (FIND-384) ---
+try {
+    $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+    $pathParts = if ($userPath) { $userPath -split ';' } else { @() }
+    if ($pathParts -notcontains $installDir) {
+        $newPath = if ($userPath) { "$userPath;$installDir" } else { $installDir }
+        [Environment]::SetEnvironmentVariable('Path', $newPath, 'User')
+        Write-Host "✅ Added $installDir to User PATH permanently" -ForegroundColor Green
+    } else {
+        Write-Host "ℹ️ $installDir is already in User PATH" -ForegroundColor Cyan
+    }
+
+    $vantaHome = [Environment]::GetEnvironmentVariable('VANTADB_HOME', 'User')
+    $defaultVantaHome = "$HOME\.vanta"
+    if (-not $vantaHome) {
+        [Environment]::SetEnvironmentVariable('VANTADB_HOME', $defaultVantaHome, 'User')
+        $env:VANTADB_HOME = $defaultVantaHome
+        Write-Host "✅ Set VANTADB_HOME=$defaultVantaHome in User environment" -ForegroundColor Green
+    }
+
+    # Also activate in current session
+    if (($env:Path -split ';') -notcontains $installDir) {
+        $env:Path += ";$installDir"
+    }
+} catch {
+    Write-Host "⚠️ Could not persist environment variables automatically: $_" -ForegroundColor Yellow
+}
+
 Write-Host ""
-Write-Host "💡 To use it immediately, add it to your PATH for this session:" -ForegroundColor Cyan
-Write-Host "   `$env:Path += ';$installDir'" -ForegroundColor Yellow
-Write-Host ""
-Write-Host "To make this change permanent for your user account, run:" -ForegroundColor Cyan
-Write-Host "   [Environment]::SetEnvironmentVariable('Path', [Environment]::GetEnvironmentVariable('Path', 'User') + ';$installDir', 'User')" -ForegroundColor Yellow
-Write-Host "   (Note: You will need to restart your terminal for this permanent change to take effect)" -ForegroundColor Yellow
+Write-Host "💡 VantaDB CLI is ready to use in this session." -ForegroundColor Cyan
+Write-Host "   (Note: Open a new terminal window for changes to take full effect across all processes)" -ForegroundColor Yellow
+

@@ -274,6 +274,8 @@ pub struct ServerCfg {
     pub audit_log_path: Option<std::path::PathBuf>,
     pub audit_max_bytes: u64,
     pub audit_max_files: u32,
+    pub self_healing: bool,
+    pub self_healing_quiet_secs: u64,
 }
 
 /// LLM domain view (F3C C3).
@@ -293,6 +295,8 @@ pub struct LlmCfg {
     /// Values: `ollama`, `openai`, `local` (ONNX). Configured via `VANTADB_EMBEDDING_PROVIDER`
     /// (legacy `VANTA_EMBEDDING_PROVIDER` is deprecated).
     pub embedding_provider: String,
+    /// When true, embedding generation fails closed if ONNX or local models are unavailable.
+    pub strict_embeddings: bool,
     #[cfg(feature = "advanced-tokenizer")]
     pub advanced_tokenizer_config: Option<AdvancedTokenizerConfig>,
 }
@@ -372,6 +376,8 @@ impl Default for ServerCfg {
             audit_log_path: None,
             audit_max_bytes: 10 * 1024 * 1024,
             audit_max_files: 5,
+            self_healing: true,
+            self_healing_quiet_secs: 300,
         }
     }
 }
@@ -386,6 +392,7 @@ impl Default for LlmCfg {
             openai_api_key: None,
             openai_model: "text-embedding-3-small".to_string(),
             embedding_provider: "ollama".to_string(),
+            strict_embeddings: true,
             #[cfg(feature = "advanced-tokenizer")]
             advanced_tokenizer_config: None,
         }
@@ -466,6 +473,8 @@ impl From<&Config> for ServerCfg {
             audit_log_path: cfg.audit_log_path.clone(),
             audit_max_bytes: cfg.audit_max_bytes,
             audit_max_files: cfg.audit_max_files,
+            self_healing: cfg.self_healing,
+            self_healing_quiet_secs: cfg.self_healing_quiet_secs,
         }
     }
 }
@@ -480,6 +489,7 @@ impl From<&Config> for LlmCfg {
             openai_api_key: cfg.openai_api_key.clone(),
             openai_model: cfg.openai_model.clone(),
             embedding_provider: cfg.embedding_provider.clone(),
+            strict_embeddings: cfg.strict_embeddings,
             #[cfg(feature = "advanced-tokenizer")]
             advanced_tokenizer_config: cfg.advanced_tokenizer_config.clone(),
         }
@@ -680,6 +690,9 @@ pub struct Config {
     /// Values: `ollama`, `openai`, `local` (ONNX). Configured via `VANTADB_EMBEDDING_PROVIDER`
     /// (legacy `VANTA_EMBEDDING_PROVIDER` is deprecated).
     pub embedding_provider: String,
+    /// When true, embedding operations fail-closed if ONNX or local models are unavailable.
+    /// Default: `true`. Overridden via `VANTADB_STRICT_EMBEDDINGS=false` or `VANTADB_ALLOW_DUMMY_EMBEDDINGS=true`.
+    pub strict_embeddings: bool,
     /// Optional memory limit in bytes.
     pub memory_limit: Option<u64>,
     /// MEMG-04: opt-in per-namespace record quota (fresh inserts only;
@@ -851,6 +864,12 @@ pub struct Config {
     /// periodically. `0` disables the sweeper. Default: 60000 (1 minute).
     /// Configured via `VANTADB_TTL_SWEEP_INTERVAL_MS`.
     pub ttl_sweep_interval_ms: u64,
+    /// When true, enables background self-healing maintenance (vacuum during quiet windows).
+    /// Default: `true`. Configured via `VANTADB_SELF_HEALING`.
+    pub self_healing: bool,
+    /// Minimum seconds of client inactivity before self-healing maintenance executes (default: 300s / 5 minutes).
+    /// Configured via `VANTADB_SELF_HEALING_QUIET_SECS`.
+    pub self_healing_quiet_secs: u64,
     /// Bulk import commit interval — number of records per batch commit (default: 10000).
     /// Configured via `VANTADB_BULK_COMMIT_INTERVAL`.
     pub bulk_commit_interval: Option<usize>,
@@ -1090,6 +1109,17 @@ impl Default for Config {
                 let v =
                     env::var("VANTADB_EMBEDDING_PROVIDER").unwrap_or_else(|_| "ollama".to_string());
                 debug!(val = %v, "VANTADB_EMBEDDING_PROVIDER");
+                v
+            },
+            strict_embeddings: {
+                let v = match env::var("VANTADB_STRICT_EMBEDDINGS") {
+                    Ok(s) => !matches!(s.trim().to_lowercase().as_str(), "0" | "false" | "no"),
+                    Err(_) => match env::var("VANTADB_ALLOW_DUMMY_EMBEDDINGS") {
+                        Ok(s) => !matches!(s.trim().to_lowercase().as_str(), "1" | "true" | "yes"),
+                        Err(_) => true,
+                    },
+                };
+                debug!(val = v, "VANTADB_STRICT_EMBEDDINGS");
                 v
             },
             memory_limit: {
@@ -1353,6 +1383,16 @@ impl Default for Config {
             ttl_sweep_interval_ms: {
                 let v = parse_env_or("VANTADB_TTL_SWEEP_INTERVAL_MS", 60_000u64);
                 debug!(val = v, "VANTADB_TTL_SWEEP_INTERVAL_MS");
+                v
+            },
+            self_healing: {
+                let v = parse_env_or("VANTADB_SELF_HEALING", true);
+                debug!(val = v, "VANTADB_SELF_HEALING");
+                v
+            },
+            self_healing_quiet_secs: {
+                let v = parse_env_or("VANTADB_SELF_HEALING_QUIET_SECS", 300u64);
+                debug!(val = v, "VANTADB_SELF_HEALING_QUIET_SECS");
                 v
             },
             bulk_commit_interval: {

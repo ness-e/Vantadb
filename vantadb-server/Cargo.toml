@@ -7,6 +7,10 @@ license = "Apache-2.0"
 publish = false
 description = "Optional local server wrapper and MCP interface for VantaDB"
 
+[[bin]]
+name = "vantadb-server"
+path = "src/main.rs"
+
 [dependencies]
 # WIRE-07 feature decouple: the HTTP binary must not drag `cli`
 # (clap/clap_complete/indicatif/console/anyhow for the REPL — strategy §grafo,

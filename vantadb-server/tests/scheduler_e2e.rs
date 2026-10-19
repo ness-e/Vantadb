@@ -145,6 +145,7 @@ fn build_state(
         rbac_config: Default::default(),
         trusted_proxies: vec![],
         conversation_trigger: trigger,
+        activity_tracker: Arc::new(vantadb::server::ActivityTracker::new()),
     })
 }
 

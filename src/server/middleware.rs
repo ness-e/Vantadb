@@ -454,6 +454,7 @@ pub async fn circuit_breaker_middleware(
             .into_response();
     }
 
+    state.activity_tracker.record_activity();
     let res = next.run(req).await;
     if res.status().is_server_error() {
         state.circuit_breaker.record_failure();

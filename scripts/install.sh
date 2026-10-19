@@ -207,8 +207,36 @@ else
 fi
 rm -rf "$TMPDIR"
 
+# --- Environment persistence (FIND-384) ---
+add_to_profile() {
+  PROFILE_FILE="$1"
+  if [ -f "$PROFILE_FILE" ] || [ "$2" = "force" ]; then
+    if ! grep -q "# >>> vantadb initialize >>>" "$PROFILE_FILE" 2>/dev/null; then
+      cat << 'EOF' >> "$PROFILE_FILE"
+
+# >>> vantadb initialize >>>
+export PATH="$HOME/.vanta/bin:$PATH"
+export VANTADB_HOME="$HOME/.vanta"
+# <<< vantadb initialize <<<
+EOF
+      echo "✅ Added VantaDB to $PROFILE_FILE"
+    else
+      echo "ℹ️ VantaDB configuration already present in $PROFILE_FILE"
+    fi
+  fi
+}
+
+# Apply to common shells
+add_to_profile "$HOME/.bashrc" "optional"
+add_to_profile "$HOME/.zshrc" "optional"
+if [ ! -f "$HOME/.bashrc" ] && [ ! -f "$HOME/.zshrc" ]; then
+  add_to_profile "$HOME/.profile" "force"
+fi
+
 echo ""
-echo "💡 To use it immediately, add it to your PATH:"
-echo "   export PATH=\"\$PATH:$INSTALL_DIR\""
+echo "💡 To use it immediately in this shell:"
+echo "   export PATH=\"$INSTALL_DIR:\$PATH\""
+echo "   export VANTADB_HOME=\"\$HOME/.vanta\""
 echo ""
-echo "To make this change permanent, add that line to your ~/.bashrc or ~/.zshrc."
+echo "Restart your terminal session or run: source ~/.bashrc (or ~/.zshrc) to reload."
+

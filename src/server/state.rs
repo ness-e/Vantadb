@@ -186,6 +186,8 @@ pub struct ServerState {
     /// Optional post-save hook for `POST /api/v2/conversations` (MEM-55). `None`
     /// keeps the route purely a thread store (pre-MEM-55 behavior).
     pub conversation_trigger: Option<Arc<dyn ConversationTrigger>>,
+    /// Client activity tracker driving automated self-healing maintenance.
+    pub activity_tracker: Arc<crate::server::self_healing::ActivityTracker>,
 }
 
 /// Per-IP rate limiter for authentication failures.

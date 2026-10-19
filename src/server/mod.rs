@@ -27,6 +27,7 @@ pub mod middleware;
 pub mod pagination;
 pub mod router;
 pub mod routing;
+pub mod self_healing;
 pub mod state;
 pub mod telemetry;
 
@@ -35,7 +36,8 @@ pub mod telemetry;
 // external callers and downstream binaries do not need to update their
 // imports (REVIEW-10 pre-mortem: do not break the public API).
 
-// Types (from `state`)
+// Types (from `state` and `self_healing`)
+pub use self_healing::{spawn_self_healing_service, ActivityTracker, SelfHealingService};
 pub use state::{
     AuthIdentity, AuthRateLimiter, AuthState, BackgroundService, ConversationTrigger, NodeDTO,
     QueryRequest, QueryResponse, ServerHooks, ServerState, LONG_REQUEST_TIMEOUT, REQUEST_TIMEOUT,
