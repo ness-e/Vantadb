@@ -120,9 +120,9 @@ pub fn print_info(msg: &str) {
     let _ = term.write_line(&format!("{} {}", info_style().apply_to("ℹ"), msg));
 }
 
-/// Print a yellow warning message to stdout
+/// Print a yellow warning message to stderr (protecting stdout for piped/JSON data)
 pub fn print_warning(msg: &str) {
-    let term = Term::stdout();
+    let term = Term::stderr();
     let _ = term.write_line(&format!("{} {}", warning_style().apply_to("⚠"), msg));
 }
 
