@@ -16,7 +16,7 @@ name: 'GATES: Docs - lint, links, secrets, API surface, examples, rustdoc'
 on:
   push:
     branches: [main]
-    paths: &docs-paths
+    paths:
       - 'docs/**'
       - 'scripts/**'
       - 'src/**'
@@ -37,7 +37,25 @@ on:
       - '.markdownlint-cli2.yaml'
   pull_request:
     branches: [main, develop]
-    paths: *docs-paths
+    paths:
+      - 'docs/**'
+      - 'scripts/**'
+      - 'src/**'
+      - 'tests/**'
+      - 'vantadb-python/vantadb_py/**'
+      - 'vantadb-python/vantadb/**'
+      - 'vantadb-ts/src/**'
+      - 'vantadb-ts/package.json'
+      - 'vantadb-node/package.json'
+      - 'vantadb-*/**'
+      - 'vanta-memory/**'
+      - 'providers/**'
+      - '.github/workflows/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'README.md'
+      - 'llms.txt'
+      - '.markdownlint-cli2.yaml'
   schedule:
     - cron: '23 7 * * 1'
   workflow_dispatch:

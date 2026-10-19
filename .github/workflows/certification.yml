@@ -23,7 +23,7 @@ name: 'HEAVY: Certification - tests, benches, chaos, fuzz'
 on:
   push:
     branches: [main]
-    paths: &cert-paths
+    paths:
       - 'src/**'
       - 'tests/**'
       - 'Cargo.toml'
@@ -34,7 +34,16 @@ on:
       - 'vanta-memory/**'
       - '.github/workflows/certification.yml'
   pull_request:
-    paths: *cert-paths
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.config/nextest.toml'
+      - 'fuzz/**'
+      - 'vantadb-*/**'
+      - 'vanta-memory/**'
+      - '.github/workflows/certification.yml'
   schedule:
     - cron: '0 2 * * *'
     - cron: '0 3 * * 0'
