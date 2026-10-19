@@ -299,7 +299,13 @@ impl HardwareScout {
     }
 
     #[cfg(feature = "cli")]
-    fn log_adaptive_status(caps: &HardwareCapabilities, cached: bool) {
+    pub(crate) fn log_adaptive_status(caps: &HardwareCapabilities, cached: bool) {
+        if std::env::var_os("VANTADB_QUIET").is_some()
+            || std::env::var_os("VANTADB_SILENT").is_some()
+        {
+            return;
+        }
+
         use console::style;
 
         // Fixed inner width = 76 chars (between the │ borders)
@@ -377,7 +383,7 @@ impl HardwareScout {
     }
 
     #[cfg(not(feature = "cli"))]
-    fn log_adaptive_status(caps: &HardwareCapabilities, _cached: bool) {
+    pub(crate) fn log_adaptive_status(caps: &HardwareCapabilities, _cached: bool) {
         tracing::info!(
             "Hardware Profile: {:?} | Cores: {} | RAM: {}GB | Score: {}",
             caps.profile,
@@ -737,5 +743,22 @@ mod tests {
                 "parent directory of profile path should be .vanta, got: {path:?}"
             );
         }
+    }
+
+    #[test]
+    #[cfg(feature = "cli")]
+    fn test_log_adaptive_status_respects_quiet_env() {
+        let caps = HardwareCapabilities {
+            instructions: InstructionSet::Avx2,
+            profile: HardwareProfile::Performance,
+            logical_cores: 4,
+            total_memory: 16 * GIB,
+            resource_score: 50,
+            env_hash: 1,
+        };
+
+        std::env::set_var("VANTADB_QUIET", "1");
+        HardwareScout::log_adaptive_status(&caps, false);
+        std::env::remove_var("VANTADB_QUIET");
     }
 }
