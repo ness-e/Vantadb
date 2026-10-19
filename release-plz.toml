@@ -25,18 +25,21 @@ git_release_enable = true
 # minor`, but it is INFORMATIONAL (step-level `continue-on-error`) and,
 # crucially, it cannot feed a version back. This check can:
 #
-#   compatible   -> keep the conventional-commit bump (0.8.0 -> 0.9.0)
-#   incompatible -> OVERRIDE it with a breaking bump (0.9.0 -> 0.10.0)
+#   compatible   -> keep the conventional-commit bump
+#   incompatible -> OVERRIDE it with a breaking bump
 #
 # (release_plz_core version.rs: `SemverCheck::Incompatible` ->
-# `VersionIncrement::breaking`.) Disabling it would let a public-API removal
-# committed as `fix:` ship as a patch release, because the bump would then
-# come from the commit message alone.
+# `VersionIncrement::breaking`; next_version version_increment.rs:
+# `breaking(0.8.0)` -> `Minor` -> 0.9.0.) Disabling it would let a
+# public-API removal committed as `fix:` ship as a patch release, because
+# the bump would then come from the commit message alone.
 #
-# Cost: a full compile of the workspace + the published crate (~12 min with
-# swap). It fits because release.yml's release-plz-pr job now has
-# timeout-minutes: 30 and swap-mb: 4096 - it used to be killed at 15 min
-# (run 39324117624, job 118306356063: semver check still running at 10m53s).
+# Cost: a full cold compile of the workspace + the published baseline. The
+# equivalent CI job measures 13m21s uncontended and 23m12s under the parallel
+# matrix; release-plz adds ~4 min on top (3m25s determining the version plus
+# the baseline build). release.yml's release-plz-pr job therefore needs
+# timeout-minutes: 45 and swap-mb: 4096 - at 15 min it was killed with the
+# check still running at 10m53s (run 39324117624, job 118306356063).
 semver_check = true
 
 # Changelog
