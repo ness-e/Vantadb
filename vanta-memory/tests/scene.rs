@@ -70,6 +70,7 @@ fn upsert_create_sets_heat_one_and_timestamps() {
 fn upsert_update_preserves_created_bumps_heat() {
     let db = open_db();
     let first = upsert_scene(&db, SESSION, SCENE, SUMMARY, CONTENT).expect("create");
+    std::thread::sleep(std::time::Duration::from_millis(5));
 
     // Same scene, new summary → UPDATE.
     let second =
@@ -98,7 +99,9 @@ fn list_scenes_sorted_by_heat_then_updated() {
     let db = open_db();
 
     upsert_scene(&db, SESSION, "2024-08-01-22-10", "s1", "c1").expect("create s1");
+    std::thread::sleep(std::time::Duration::from_millis(5));
     upsert_scene(&db, SESSION, "2024-08-01-23-00", "s2", "c2").expect("create s2");
+    std::thread::sleep(std::time::Duration::from_millis(5));
     // Update s1 again → heat 2, newer updated than s2 (heat 1).
     upsert_scene(&db, SESSION, "2024-08-01-22-10", "s1-updated", "c1-updated").expect("update s1");
 
@@ -131,7 +134,9 @@ fn current_scene_returns_most_recently_updated() {
     assert!(current_scene(&db, SESSION).expect("none").is_none());
 
     upsert_scene(&db, SESSION, "2024-08-01-22-10", "s1", "c1").expect("create s1");
+    std::thread::sleep(std::time::Duration::from_millis(5));
     upsert_scene(&db, SESSION, "2024-08-01-23-00", "s2", "c2").expect("create s2");
+    std::thread::sleep(std::time::Duration::from_millis(5));
     // Update s1 → it becomes the current scene again.
     upsert_scene(&db, SESSION, "2024-08-01-22-10", "s1-updated", "c1-updated").expect("update s1");
 
