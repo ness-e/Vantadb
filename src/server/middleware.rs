@@ -7,8 +7,9 @@ use crate::audit::AuditEvent;
 use crate::metrics;
 use crate::rbac::{AccessMode, Permission};
 use crate::server::state::{
-    audit_auth, client_ip as state_client_ip, extract_namespace, extract_request_id,
-    resolve_identity as state_resolve_identity, AuthIdentity, AuthState, RequestId,
+    audit_auth, body_namespaces_for_route, client_ip as state_client_ip, extract_namespace,
+    extract_request_id, is_body_namespace_route, resolve_identity as state_resolve_identity,
+    AuthIdentity, AuthState, RequestId,
 };
 use axum::{
     extract::{Request, State},
@@ -65,17 +66,18 @@ pub async fn auth_middleware(mut req: Request, next: Next) -> Response {
         .get::<RequestId>()
         .and_then(|r| r.0.clone());
 
-    // No API key configured — allow all (dev mode), but surface it so the
+    // No API key and no JWT secret configured — allow all (dev mode), but surface it so the
     // silent auth bypass is visible (not rate-limited: tracing::rate_limited is
     // unstable and unavailable in the pinned tracing 0.1.44).
-    let Some(expected_key) = &auth.api_key else {
+    // FIND-346: If jwt_secret IS configured, enforce Bearer auth even when api_key is None.
+    if auth.api_key.is_none() && auth.jwt_secret.is_none() {
         tracing::warn!(
             method = %req.method(),
             path = %req.uri().path(),
-            "no API key configured; allowing unauthenticated request (dev mode)"
+            "no API key or JWT secret configured; allowing unauthenticated request (dev mode)"
         );
         return next.run(req).await;
-    };
+    }
 
     // Extract client IP for rate limiting (respects X-Forwarded-For)
     let client_ip = client_ip(&req, &auth.trusted_proxies);
@@ -104,8 +106,8 @@ pub async fn auth_middleware(mut req: Request, next: Next) -> Response {
         .and_then(|v| v.strip_prefix("Bearer "));
 
     // SRV-04: accept either primary or alt API key for zero-downtime rotation.
-    let key_ok = match token {
-        Some(token) => {
+    let key_ok = match (token, auth.api_key.as_deref()) {
+        (Some(token), Some(expected_key)) => {
             let token_bytes = token.as_bytes();
             let primary_ok = expected_key.as_bytes().ct_eq(token_bytes).into();
             let alt_ok = auth
@@ -115,7 +117,7 @@ pub async fn auth_middleware(mut req: Request, next: Next) -> Response {
                 .unwrap_or(false);
             primary_ok || alt_ok
         }
-        None => false,
+        _ => false,
     };
 
     // SRV-06: HS256 JWT fallback (ADR-039) — offline verification, only when a
@@ -177,47 +179,144 @@ pub async fn auth_middleware(mut req: Request, next: Next) -> Response {
     // Coarse transport RBAC applies only to bare Bearer (L1) identities —
     // service (L2) and user (L3) identities authorize downstream via their
     // resolved principal (PermissionChecker).
-    if identity == AuthIdentity::Transport {
-        if let Some(token_val) = token {
-            if let Some(role) = auth.token_role_map.get(token_val) {
-                // SRV-05: namespace-scoped RBAC for record/search endpoints.
-                // Extract namespace from path/query for /api/v2/records/* and /api/v2/search.
-                let path = req.uri().path();
-                let is_record_endpoint = path.starts_with("/api/v2/records")
-                    || path.starts_with("/api/v2/search")
-                    || path.starts_with("/api/v2/list");
-                let namespace = if is_record_endpoint {
-                    extract_namespace(req.uri().path(), req.uri().query())
-                } else {
-                    None
-                };
-                let mode = match req.method().as_str() {
+    // MEMG-04: clone the mapped role out first — the body read below needs
+    // `&mut req`, which the borrowed `token` would otherwise block.
+    let transport_role: Option<String> = if identity == AuthIdentity::Transport {
+        token.and_then(|t| auth.token_role_map.get(t)).cloned()
+    } else {
+        None
+    };
+    if let Some(role) = transport_role.as_deref() {
+        // `admin` bypasses namespace scoping by definition
+        // (`Permission::Admin` short-circuits `can_access_namespace`) — skip
+        // extraction and the body read.
+        if !auth.rbac.has_permission(role, &Permission::Admin) {
+            // SRV-05: namespace-scoped RBAC for record/search/list endpoints
+            // (namespace in path or query).
+            let path = req.uri().path().to_string();
+            let query = req.uri().query().map(str::to_string);
+            let is_scoped_route = path.starts_with("/api/v2/records")
+                || path.starts_with("/api/v2/search")
+                || path.starts_with("/api/v2/list");
+            let mut namespaces: Vec<String> = if is_scoped_route {
+                extract_namespace(&path, query.as_deref())
+                    .into_iter()
+                    .collect()
+            } else {
+                Vec::new()
+            };
+            // MEMG-04: surfaces whose namespace travels in the JSON body
+            // (records put/batch, search, export, import). Body-declared
+            // namespaces join the check as a union — a matching `?namespace=`
+            // must never mask a foreign namespace in the body.
+            //
+            // Fail closed on empty declarations: when the body declares no
+            // namespace (blank/missing field, empty body, all-namespaces
+            // export, path import), the handler may treat the operation as
+            // "all namespaces" (e.g. `search_all`) — so the coarse GLOBAL
+            // permission is additionally required, on top of any path/query
+            // namespace check. A scoped credential cannot ride `?namespace=own`
+            // while the empty body escalates the operation to all namespaces;
+            // global roles keep their coarse semantics.
+            let mut require_coarse = false;
+            if is_body_namespace_route(&path, req.method().as_str()) {
+                match read_body_json(&mut req).await {
+                    Ok(Some(value)) => {
+                        let body_namespaces = body_namespaces_for_route(&path, &value);
+                        if body_namespaces.is_empty() {
+                            require_coarse = true;
+                        } else {
+                            for ns in body_namespaces {
+                                if !namespaces.contains(&ns) {
+                                    namespaces.push(ns);
+                                }
+                            }
+                        }
+                    }
+                    Ok(None) => require_coarse = true,
+                    Err(resp) => return resp,
+                }
+            }
+            // `POST /api/v2/search` is a read operation (no mutation): map it
+            // to `AccessMode::Read` so a least-privilege scoped role with
+            // only `namespace_read` can search its own namespace. All other
+            // write methods keep the write mapping (DELETE-is-write is the
+            // compat behavior; strict per-action separation is FIND-301).
+            let is_search_post =
+                req.method() == axum::http::Method::POST && path == "/api/v2/search";
+            let mode = if is_search_post {
+                AccessMode::Read
+            } else {
+                match req.method().as_str() {
                     "POST" | "PUT" | "PATCH" | "DELETE" => AccessMode::Write,
                     _ => AccessMode::Read,
-                };
-                let is_write = matches!(mode, AccessMode::Write);
-                let permitted = if let Some(ns) = namespace {
-                    auth.rbac.can_access_namespace(role, &ns, mode)
-                } else {
-                    // Fallback to global permissions for non-record endpoints or when ns not found
-                    let permission = if is_write {
-                        Permission::Write
-                    } else {
-                        Permission::Read
-                    };
-                    auth.rbac.has_permission(role, &permission)
-                };
-                if !permitted {
-                    auth.rate_limiter.reset(&client_ip);
-                    return (
-                        StatusCode::FORBIDDEN,
-                        Json(serde_json::json!({
-                            "success": false,
-                            "error": "Forbidden: insufficient permissions for this operation",
-                        })),
-                    )
-                        .into_response();
                 }
+            };
+            let is_write = matches!(mode, AccessMode::Write);
+            // MEMG-10: the *request* action label for the audit (the
+            // enforcement mode below keeps the compat mapping — DELETE is
+            // still covered by write; strict per-action enforcement is
+            // FIND-301). `scope` names which check ran.
+            let action = if is_search_post {
+                "read"
+            } else {
+                match req.method().as_str() {
+                    "DELETE" => "delete",
+                    "POST" | "PUT" | "PATCH" => "write",
+                    _ => "read",
+                }
+            };
+            let enforced = if is_write { "write" } else { "read" };
+            let coarse_ok = {
+                let permission = if is_write {
+                    Permission::Write
+                } else {
+                    Permission::Read
+                };
+                auth.rbac.has_permission(role, &permission)
+            };
+            // Fail closed on the first namespace the role cannot access.
+            let denied_ns: Option<&str> = namespaces
+                .iter()
+                .find(|ns| !auth.rbac.can_access_namespace(role, ns, mode))
+                .map(String::as_str);
+            // MEMG-04: an empty body declaration on a body-declared route
+            // may make the handler operate across ALL namespaces — the coarse
+            // global permission is required too, and when that is what denied
+            // the request it is audited under `scope=global`.
+            let denied_by_coarse = require_coarse && !coarse_ok;
+            let (permitted, scope) = if namespaces.is_empty() {
+                // No namespace anywhere: coarse check only (non-scoped
+                // routes, or an ambiguous body).
+                (coarse_ok, "global")
+            } else if denied_ns.is_none() && denied_by_coarse {
+                (false, "global")
+            } else {
+                (denied_ns.is_none(), "namespace")
+            };
+            if !permitted {
+                auth.rate_limiter.reset(&client_ip);
+                // MGR-04/MEMG-10: RBAC denials were silent — audit them
+                // (metadata only: role + namespace + action; never the token).
+                audit_auth(
+                    &auth,
+                    AuditEvent::auth(
+                        "rbac",
+                        denied_ns.unwrap_or("N/A"),
+                        role,
+                        "denied",
+                        Some(format!("action={action};enforced={enforced};scope={scope}")),
+                    )
+                    .with_request_id_opt(request_id.clone()),
+                );
+                return (
+                    StatusCode::FORBIDDEN,
+                    Json(serde_json::json!({
+                        "success": false,
+                        "error": "Forbidden: insufficient permissions for this operation",
+                    })),
+                )
+                    .into_response();
             }
         }
     }
@@ -255,6 +354,56 @@ pub async fn auth_middleware(mut req: Request, next: Next) -> Response {
 
     req.extensions_mut().insert(identity);
     next.run(req).await
+}
+
+/// Max bytes buffered to inspect a body for namespace extraction. Matches the
+/// router's `DefaultBodyLimit` (1 MB) plus headroom, so a body the handler
+/// would accept is never rejected by this gate.
+const BODY_NAMESPACE_READ_LIMIT: usize = 1_100_000;
+
+/// MEMG-04: read the request body (bounded) as JSON and **restore** the body
+/// so downstream handlers still receive it.
+///
+/// `Ok(None)` = empty body. `Err(response)` = the gate itself rejects the
+/// request (oversized → 413; malformed JSON → 400) — only role-bearing
+/// credentials on body-namespace routes reach this function.
+async fn read_body_json(
+    req: &mut Request,
+) -> std::result::Result<Option<serde_json::Value>, Response> {
+    let placeholder = Request::new(axum::body::Body::empty());
+    let (parts, body) = std::mem::replace(req, placeholder).into_parts();
+    let bytes = match axum::body::to_bytes(body, BODY_NAMESPACE_READ_LIMIT).await {
+        Ok(bytes) => bytes,
+        Err(_) => {
+            return Err((
+                StatusCode::PAYLOAD_TOO_LARGE,
+                Json(serde_json::json!({
+                    "success": false,
+                    "error": "request body too large to enforce namespace scoping",
+                })),
+            )
+                .into_response())
+        }
+    };
+    let value = if bytes.is_empty() {
+        None
+    } else {
+        match serde_json::from_slice::<serde_json::Value>(&bytes) {
+            Ok(value) => Some(value),
+            Err(_) => {
+                return Err((
+                    StatusCode::BAD_REQUEST,
+                    Json(serde_json::json!({
+                        "success": false,
+                        "error": "invalid JSON body on a namespace-scoped route",
+                    })),
+                )
+                    .into_response())
+            }
+        }
+    };
+    *req = Request::from_parts(parts, axum::body::Body::from(bytes));
+    Ok(value)
 }
 
 /// Axum middleware that records HTTP request duration and status metrics.
@@ -305,6 +454,7 @@ pub async fn circuit_breaker_middleware(
             .into_response();
     }
 
+    state.activity_tracker.record_activity();
     let res = next.run(req).await;
     if res.status().is_server_error() {
         state.circuit_breaker.record_failure();

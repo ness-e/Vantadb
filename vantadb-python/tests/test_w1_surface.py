@@ -68,7 +68,9 @@ def test_hybrid_search_hit_exposes_score_not_distance():
         hits = db.search("ns", [1.0, 0.0, 0.0], top_k=1)
         assert hits, "expected at least one hit"
         hit = hits[0]
-        assert isinstance(hit.score, float), f"score must be float, got {type(hit.score)}"
+        assert isinstance(hit.score, float), (
+            f"score must be float, got {type(hit.score)}"
+        )
         assert hit.score > 0.99, f"exact match must score ~1.0, got {hit.score}"
         assert not hasattr(hit, "distance"), "SearchHit must not expose distance (W1)"
     finally:

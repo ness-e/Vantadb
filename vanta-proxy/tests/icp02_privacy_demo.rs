@@ -264,6 +264,8 @@ async fn privacy_chain_capture_audit_forget_injection_end_to_end() {
         injection: InjectionConfig {
             max_tokens: 10_000,
             namespace_allow_prefixes: Vec::new(),
+            tainted_namespaces: Vec::new(),
+            include_tainted: false,
             audit_log_path: audit_path.to_string_lossy().to_string(),
         },
         envelope: envelope_cfg.clone(),

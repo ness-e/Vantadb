@@ -33,6 +33,11 @@ server) on the same process/CPU/RAM, so the comparison is direct.
 python benchmarks/competitive_bench.py --dataset glove-100-angular --size 10000 --queries 100
 ```
 
+The Ingest column measures only the `put_batch_raw` calls + `flush` (client init
+and payload preparation are excluded), and `--batch-size` is clamped below the
+engine's 1000-node incremental threshold — no hidden HNSW rebuild can run inside
+the Ingest timer (BENCH-01; see the script header for the full methodology).
+
 > [!NOTE]
 > Dataset downloads are slow. The default dataset for quick local runs is
 > synthetic; pass `--dataset` to opt into real ann-benchmarks data.
@@ -61,16 +66,27 @@ python benchmarks/vantadb_local_bench.py --size 10000 --queries 1000 --output re
 
 The scripts accept either install path (PyPI wheel or `maturin develop`).
 
+## CI gate and same-job A/B
+
+The `perf-bench.yml` workflow compares each run against `python_baseline.json` (collapse detection — bands calibrated to the measured 1.7-2.4x cross-VM spread; full rationale in [`docs/user/operations/BENCHMARKS.md` §20](../docs/user/operations/BENCHMARKS.md)). For fine regressions (<2-3x), dispatch the same-job A/B mode: wheel A is built from `ab_ref` and wheel B from the current ref in the same runner, 3 alternated pairs run, and the gate compares the median of the paired ratios:
+
+```bash
+gh workflow run perf-bench.yml --ref develop -f ab_ref=<ref-or-sha>
+```
+
+Prove all bands offline: `python benchmarks/compare_baseline.py --self-test` (15 cases).
+
 ## Published results
 
 - Latest CI results: [`docs/user/operations/BENCHMARKS.md`](../docs/user/operations/BENCHMARKS.md)
-- CI badge: `perf-bench-40` workflow (see GitHub Actions)
+- CI badge: `perf-bench.yml` workflow (see GitHub Actions)
 
 ## Scripts
 
 | Script | Purpose |
 | :--- | :--- |
 | `vantadb_local_bench.py` | BENCH-01: ingestion + lexical/vector/hybrid search latencies (zero-dep besides `vantadb`) |
+| `compare_baseline.py` | CI gate comparator: calibrated bands + `--ab-runs` same-job A/B; `--self-test` proves 15 cases offline |
 | `competitive_bench.py` | VantaDB vs LanceDB vs ChromaDB vs Qdrant vs **Milvus** (embedded, no docker; ingestion, QPS, latency, recall, RSS). Milvus via `pymilvus` + `milvus-lite`. |
 | `batch_vs_sequential_bench.py` | `search_batch()` vs sequential `search()` FFI amortization |
 | `prefetch_comparison.py` | Predictive kernel prefetch impact (SCALE-01) |

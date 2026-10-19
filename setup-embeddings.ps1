@@ -1,12 +1,21 @@
 #Requires -Version 7.0
 <#
 .SYNOPSIS
-  Asistente de instalacion de embeddings locales VantaDB (EMB-11, Q1/Q2 owner).
+  Asistente de instalacion VantaDB: seleccion de modulos + embeddings locales
+  (EMB-11 Q1/Q2 owner; DX-12 seleccion por componente).
 
 .DESCRIPTION
   Deja modelo local funcionando con Enter-Enter. `-NonInteractive` aplica todo
   por default (provider `local`, modelo default del manifest) sin preguntar.
   Modo interactivo: cada prompt muestra su default y Enter = auto.
+
+  SELECCION POR MODULO (DX-12): 7 componentes con estado declarado
+  (installable/frozen): motor, MCP, server, proxy, visor desktop, embeddings,
+  providers. Interactivo: tabla + un prompt (Enter = defaults actuales).
+  No-interactive: `-Modules mcp,server,proxy,embeddings` (o `none`; vacio =
+  defaults). Frozen no finge soporte: desktop (viewer) no se instala; proxy
+  (Lab) solo escribe su TOML. Disable = no (re)escribir (lo existente no se
+  borra). Defaults = comportamiento actual (mcp+server+proxy+embeddings).
 
   ONNX RUNTIME NATIVO (restriccion EMB-10): `ort` compila ORT_API_VERSION=27 y
   exige onnxruntime nativo >= 1.27. El de System32 (1.17.1) ABORTA el proceso
@@ -20,6 +29,8 @@
 .EXAMPLE
   pwsh -NoProfile -File setup-embeddings.ps1 -NonInteractive
 .EXAMPLE
+  pwsh -NoProfile -File setup-embeddings.ps1 -NonInteractive -Modules mcp,server
+.EXAMPLE
   pwsh -NoProfile -File setup-embeddings.ps1
 #>
 [CmdletBinding()]
@@ -27,6 +38,7 @@ param(
   [switch]$NonInteractive,
   [switch]$Help,
   [string]$DbPath,
+  [string[]]$Modules,
   [switch]$NoProxy,
   [switch]$SkipLiveTest
 )
@@ -336,11 +348,80 @@ function Install-AgentRule {
   }
 }
 
+# --- DX-12: seleccion por modulo (enable/disable por componente) ---
+# Tabla estatica de los 7 componentes del owner (lista cerrada; ponytail:
+# extraer a manifest si crece). engine = core (siempre); desktop = frozen.
+$script:moduleTable = @(
+  [pscustomobject]@{ Id = 'engine';     Name = 'Motor (core)';           State = 'installable'; Note = 'vanta-cli: WAL+HNSW+BM25+RRF (instalado por el instalador; siempre presente)' }
+  [pscustomobject]@{ Id = 'mcp';        Name = 'MCP (agent door)';       State = 'installable'; Note = 'bloques MCP por cliente (opencode/claude/cursor) en la DB + regla agente' }
+  [pscustomobject]@{ Id = 'server';     Name = 'Server HTTP/MCP';        State = 'installable'; Note = 'incluido en vanta-cli (server --http|--mcp); sin artefacto extra' }
+  [pscustomobject]@{ Id = 'proxy';      Name = 'Proxy LLM';              State = 'frozen';      Note = 'Lab: binario no publicado hasta 1.0.0; el wizard solo escribe vanta-proxy.toml' }
+  [pscustomobject]@{ Id = 'desktop';    Name = 'Visor desktop (Studio)'; State = 'frozen';      Note = 'viewer Tauri frozen; no instalable desde el wizard' }
+  [pscustomobject]@{ Id = 'embeddings'; Name = 'Embeddings locales';     State = 'installable'; Note = 'modelo ONNX + ORT nativo + provider local' }
+  [pscustomobject]@{ Id = 'providers';  Name = 'Providers remotos';      State = 'installable'; Note = 'ollama/openai (config; nada que instalar; requiere servicio/key)' }
+)
+$script:defaultModules = @('mcp', 'server', 'proxy', 'embeddings')  # defaults actuales (contrato DX-12 back-compat)
+
+function Resolve-Modules($Raw) {
+  # CSV -> set de ids validos. Vacio = defaults actuales; 'none' = ninguno.
+  # Desconocidos: warn + ignore (nunca rompe el flujo).
+  $valid = @($script:moduleTable | ForEach-Object { $_.Id })
+  if ([string]::IsNullOrWhiteSpace($Raw)) { return ,@($script:defaultModules) }
+  if ($Raw.Trim().ToLowerInvariant() -eq 'none') { return ,@() }
+  $sel = @()
+  foreach ($part in ($Raw -split ',')) {
+    $id = $part.Trim().ToLowerInvariant()
+    if (-not $id) { continue }
+    if ($valid -notcontains $id) {
+      Write-Host "[setup] AVISO: modulo '$id' desconocido (validos: $($valid -join ', '), none) -> ignorado." -ForegroundColor Yellow
+      continue
+    }
+    if ($sel -notcontains $id) { $sel += $id }
+  }
+  return ,$sel
+}
+
+function Test-Module($Modules, $Id) { $Modules -contains $Id }
+
+function Show-ModuleTable($Modules) {
+  Write-Host ''
+  Write-Host 'Modulos (seleccion por componente; estado installable/frozen):'
+  foreach ($m in $script:moduleTable) {
+    $on = (Test-Module $Modules $m.Id) -or ($m.Id -eq 'engine')
+    $mark = $on ? '[x]' : '[ ]'
+    Write-Host ("  {0} {1,-10} {2,-22} {3,-11} {4}" -f $mark, $m.Id, $m.Name, $m.State, $m.Note)
+  }
+  Write-Host ''
+}
+
 # --- main ---
 if ($Help) {
   Get-Help $PSCommandPath -Detailed
   exit 0
 }
+
+# --- DX-12: resolver seleccion de modulos (flag o prompt interactivo) ---
+$modulesRaw = ($Modules -join ',')
+$moduleSet = Resolve-Modules $modulesRaw
+if (-not $NonInteractive -and [string]::IsNullOrWhiteSpace($modulesRaw)) {
+  Show-ModuleTable $moduleSet
+  $answer = Read-WithDefault 'Modulos a habilitar (csv; none = ninguno)' ($moduleSet -join ',')
+  $moduleSet = Resolve-Modules $answer
+}
+if ($NoProxy -and ($moduleSet -contains 'proxy')) {
+  $moduleSet = @($moduleSet | Where-Object { $_ -ne 'proxy' })
+  Write-Host '[setup] -NoProxy: proxy fuera de la seleccion.'
+}
+$mcpOn = Test-Module $moduleSet 'mcp'
+$serverOn = Test-Module $moduleSet 'server'
+$proxyOn = Test-Module $moduleSet 'proxy'
+$embeddingsOn = Test-Module $moduleSet 'embeddings'
+$providersOn = Test-Module $moduleSet 'providers'
+if (Test-Module $moduleSet 'desktop') {
+  Write-Host '[setup] AVISO: visor desktop esta frozen (viewer Tauri, README): no hay nada que instalar.'
+}
+$moduleLabel = ($moduleSet.Count -gt 0) ? ($moduleSet -join ',') : 'none'
+Write-Host "[setup] modules=$moduleLabel (engine siempre; desktop frozen)"
 
 $manifest = Get-Manifest
 $defaultId = $manifest.default
@@ -349,8 +430,15 @@ if (-not $model) { throw "default '$defaultId' no esta en manifest.json" }
 $provider = 'local'
 $autoDownload = $NonInteractive  # NonInteractive: default sin preguntar.
 
-if (-not $NonInteractive) {
-  $provider = (Read-WithDefault 'Provider (local/ollama/openai)' 'local').ToLower()
+if (-not $embeddingsOn) {
+  Write-Host '[setup] embeddings OFF: sin modelo local ni provider (el engine cae a embeddings dummy si falta el modelo; DEF-08).'
+  if ($providersOn) { Write-Host '[setup] AVISO: providers sin embeddings no aplica (el provider es de embeddings).' }
+} elseif (-not $NonInteractive) {
+  if ($providersOn) {
+    $provider = (Read-WithDefault 'Provider (local/ollama/openai)' 'local').ToLower()
+  } else {
+    Write-Host '[setup] providers OFF: provider=local (para ollama/openai habilita el modulo providers).'
+  }
   if ($provider -notin @('local', 'ollama', 'openai')) {
     Write-Host "[setup] provider '$provider' desconocido -> uso 'local'."
     $provider = 'local'
@@ -394,28 +482,31 @@ if (-not $NonInteractive) {
 }
 
 $mode = $NonInteractive ? 'defaults, -NonInteractive' : 'interactivo'
-Write-Host "[setup] provider=$provider model=$($model.id) ($mode)"
-if ($provider -eq 'local' -and -not (Test-ModelPresent $model)) {
-  if (-not $autoDownload) { throw "modelo $($model.id) no presente (interactivo cancelado)." }
-  Write-Host "[setup] descargando $($model.id)..."
-  Invoke-DownloadModel $model
-}
+if ($embeddingsOn) {
+  Write-Host "[setup] provider=$provider model=$($model.id) ($mode)"
+  if ($provider -eq 'local' -and -not (Test-ModelPresent $model)) {
+    if (-not $autoDownload) { throw "modelo $($model.id) no presente (interactivo cancelado)." }
+    Write-Host "[setup] descargando $($model.id)..."
+    Invoke-DownloadModel $model
+  }
 
-$onnxDir = Join-Path (Get-RepoRoot) "embeddings/models/$($model.id)/onnx"
-if ($script:onnxOverride) { $onnxDir = $script:onnxOverride }
-$env:VANTADB_EMBEDDING_PROVIDER = $provider
-if ($provider -eq 'local') {
-  $env:VANTADB_LOCAL_MODEL = (Resolve-Path $onnxDir).Path
-  Write-Host "[setup] VANTADB_EMBEDDING_PROVIDER=local"
-  Write-Host "[setup] VANTADB_LOCAL_MODEL=$env:VANTADB_LOCAL_MODEL"
-} else {
-  Write-Host "[setup] VANTADB_EMBEDDING_PROVIDER=$provider (requisito marcado arriba; sin modelo local que verificar)"
-}
+  $onnxDir = Join-Path (Get-RepoRoot) "embeddings/models/$($model.id)/onnx"
+  if ($script:onnxOverride) { $onnxDir = $script:onnxOverride }
+  $env:VANTADB_EMBEDDING_PROVIDER = $provider
+  if ($provider -eq 'local') {
+    $env:VANTADB_LOCAL_MODEL = (Resolve-Path $onnxDir).Path
+    Write-Host "[setup] VANTADB_EMBEDDING_PROVIDER=local"
+    Write-Host "[setup] VANTADB_LOCAL_MODEL=$env:VANTADB_LOCAL_MODEL"
+  } else {
+    Write-Host "[setup] VANTADB_EMBEDDING_PROVIDER=$provider (requisito marcado arriba; sin modelo local que verificar)"
+  }
 
-Invoke-DownloadCheck
-if ($provider -eq 'local') { Ensure-OrtNative $NonInteractive; Write-Host "[setup] ORT_DYLIB_PATH=$env:ORT_DYLIB_PATH (solo sesion)" }
-if ($provider -eq 'local') {
-  Write-Host "[setup] OK modelo $($model.id) dim=$($model.dim) langs=$($model.langs -join ',') presente y verificado (--check)."
+  Invoke-DownloadCheck
+  if ($provider -eq 'local') {
+    Ensure-OrtNative $NonInteractive
+    Write-Host "[setup] ORT_DYLIB_PATH=$env:ORT_DYLIB_PATH (solo sesion)"
+    Write-Host "[setup] OK modelo $($model.id) dim=$($model.dim) langs=$($model.langs -join ',') presente y verificado (--check)."
+  }
 }
 
 # --- S1: carpeta de base + bloques MCP + regla agente (FIND-104) ---
@@ -426,21 +517,22 @@ if (-not (Test-Path $DbPath)) {
   New-Item -ItemType Directory -Force $DbPath | Out-Null
   Write-Host "[setup] DB creada: $DbPath"
 } else { Write-Host "[setup] DB existente (re-ejecutable, sin romper): $DbPath" }
-Install-McpBlocks $DbPath
-if ($NonInteractive) {
-  Write-Host '[setup] -NonInteractive: omito regla AGENTS.md/CLAUDE.md (ejecuta interactivo para agregarla).'
+if ($mcpOn) {
+  Install-McpBlocks $DbPath
+  if ($NonInteractive) {
+    Write-Host '[setup] -NonInteractive: omito regla AGENTS.md/CLAUDE.md (ejecuta interactivo para agregarla).'
+  } else {
+    if (Confirm-YesNo 'Agregar linea de regla VantaDB a ./AGENTS.md y ./CLAUDE.md (idempotente)?') { Install-AgentRule }
+    else { Write-Host '[setup] regla agente omitida (re-ejecuta para agregarla).' }
+  }
 } else {
-  if (Confirm-YesNo 'Agregar linea de regla VantaDB a ./AGENTS.md y ./CLAUDE.md (idempotente)?') { Install-AgentRule }
-  else { Write-Host '[setup] regla agente omitida (re-ejecuta para agregarla).' }
+  Write-Host '[setup] MCP OFF: sin bloques MCP ni regla agente (artefactos existentes intactos).'
 }
 
-# --- S2: proxy default-on + TOML minima + guia + resumen (FIND-104, SPEC Q4) ---
-$proxyOn = -not $NoProxy
-if (-not $NonInteractive -and -not $NoProxy) {
-  Write-Host '[setup] Proxy vanta-proxy: proceso extra :8096 que captura turnos a proxy-turns (curaduria a hilos via inbox, nunca auto-promote). Apagado facil: no arranques el proxy o Ctrl+C.'
-  $proxyOn = Confirm-YesNo 'Prender proxy por defecto (recomendado, opt-out en 1 paso)?'
-}
+# --- S2: proxy (modulo) + TOML minima + guia + resumen (FIND-104, SPEC Q4; DX-12) ---
 if ($proxyOn) {
+  Write-Host '[setup] Proxy vanta-proxy: proceso extra :8096 que captura turnos a proxy-turns (curaduria a hilos via inbox, nunca auto-promote). Apagado facil: no arranques el proxy o Ctrl+C.'
+  Write-Host '[setup] Proxy estado: frozen (Lab) — binario no publicado hasta 1.0.0 (README); TOML listo para cuando lo compiles del repo.'
   $proxyToml = Join-Path $DbPath 'vanta-proxy.toml'
   if (-not (Test-Path $proxyToml)) {
     $proxyContent = @'
@@ -464,13 +556,24 @@ models = []
   } else { Write-Host "[setup] proxy TOML existente (sin overwrite): $proxyToml" }
   Write-Host '[setup] PROXY base_url por cliente: http://127.0.0.1:8096 (OpenAI-compat: --base-url / baseURL / openai.api_base).'
   Write-Host '[setup] Curaduria: memory_list en proxy-turns (keys {ms}-{seq}) -> propuesta thread_send -> inbox aprueba/rechaza.'
-} else { Write-Host '[setup] proxy OFF (opt-out; re-ejecuta sin -NoProxy para prenderlo).' }
+} else { Write-Host '[setup] proxy OFF (modulo no seleccionado; un vanta-proxy.toml existente no se borra; re-ejecuta con proxy en -Modules para prenderlo).' }
+
+# --- DX-12: server (subcomando del binario unificado; sin artefacto) ---
+if ($serverOn) {
+  Write-Host '[setup] server ON: incluido en vanta-cli (`vanta-cli server --http` o `--mcp`); no requiere instalacion extra.'
+}
 
 Write-Host ''
 Write-Host '========== RESUMEN =========='
-Write-Host "[setup] provider=$provider model=$($model.id) db=$DbPath proxy=$(($proxyOn) ? 'ON :8096' : 'OFF')"
-Write-Host "[setup] MCP bloques: $DbPath/mcp-opencode.json, mcp-claude.json, mcp-cursor.json (+ plantillas skills/vantadb-mcp/assets/install/)"
-Write-Host "[setup] Siguiente: apunta tu cliente al bloque MCP + (si proxy ON) base_url http://127.0.0.1:8096 + arranca: vanta-proxy `"$DbPath/vanta-proxy.toml`""
+$providerLabel = $embeddingsOn ? $provider : 'off'
+$modelLabel = $embeddingsOn ? $model.id : 'off'
+Write-Host "[setup] modules=$moduleLabel | provider=$providerLabel model=$modelLabel db=$DbPath proxy=$(($proxyOn) ? 'ON :8096' : 'OFF')"
+if ($mcpOn) {
+  Write-Host "[setup] MCP bloques: $DbPath/mcp-opencode.json, mcp-claude.json, mcp-cursor.json (+ plantillas skills/vantadb-mcp/assets/install/)"
+}
+$nextProxy = ''
+if ($proxyOn) { $nextProxy = " + (proxy ON) base_url http://127.0.0.1:8096 + arranca: vanta-proxy `"$DbPath/vanta-proxy.toml`"" }
+Write-Host "[setup] Siguiente: apunta tu cliente al bloque MCP$nextProxy"
 Write-Host '============================='
 
 # --- S4: prueba viva final put->get->search (FIND-104) ---

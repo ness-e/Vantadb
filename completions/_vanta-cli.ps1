@@ -46,10 +46,12 @@ Register-ArgumentCompleter -Native -CommandName 'vanta-cli' -ScriptBlock {
             [CompletionResult]::new('doctor', 'doctor', [CompletionResultType]::ParameterValue, 'Run comprehensive health diagnostics on the database')
             [CompletionResult]::new('inspect', 'inspect', [CompletionResultType]::ParameterValue, 'Inspect a single record showing all fields, vectors, and metadata')
             [CompletionResult]::new('stats', 'stats', [CompletionResultType]::ParameterValue, 'Display detailed database statistics in human-readable or JSON format')
+            [CompletionResult]::new('verify', 'verify', [CompletionResultType]::ParameterValue, 'Verify the WAL hash-chain integrity (tamper-evident, VER-01): detects altered or removed records with their exact position. Read-only and offline — no engine open. Exit code ≠0 when integrity fails')
             [CompletionResult]::new('completions', 'completions', [CompletionResultType]::ParameterValue, 'Generate shell completion scripts')
             [CompletionResult]::new('search', 'search', [CompletionResultType]::ParameterValue, 'Search records semantically across a namespace')
             [CompletionResult]::new('delete', 'delete', [CompletionResultType]::ParameterValue, 'Delete a record by namespace and key')
             [CompletionResult]::new('delete-by-filter', 'delete-by-filter', [CompletionResultType]::ParameterValue, 'Delete all records in a namespace matching a JSON metadata filter')
+            [CompletionResult]::new('certificate', 'certificate', [CompletionResultType]::ParameterValue, 'Verification of purge certificates (VER-02)')
             [CompletionResult]::new('count', 'count', [CompletionResultType]::ParameterValue, 'Count records in a namespace, optionally filtered by metadata')
             [CompletionResult]::new('similar-to-key', 'similar-to-key', [CompletionResultType]::ParameterValue, 'Find records similar to a given key using vector similarity search')
             [CompletionResult]::new('migrate', 'migrate', [CompletionResultType]::ParameterValue, 'Migrate a database to the latest storage schema version')
@@ -253,6 +255,17 @@ Register-ArgumentCompleter -Native -CommandName 'vanta-cli' -ScriptBlock {
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
             break
         }
+        'vanta-cli;verify' {
+            [CompletionResult]::new('-d', '-d', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or ''./db'' if neither is set')
+            [CompletionResult]::new('--db', '--db', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or ''./db'' if neither is set')
+            [CompletionResult]::new('--memory-limit', '--memory-limit', [CompletionResultType]::ParameterName, 'Optional memory limit for the database engine, in bytes. Accepts suffixes: KB, MB, GB (also KiB, MiB, GiB), e.g. `500MB` or `2GB`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Enable verbose output')
+            [CompletionResult]::new('--verbose', '--verbose', [CompletionResultType]::ParameterName, 'Enable verbose output')
+            [CompletionResult]::new('--json', '--json', [CompletionResultType]::ParameterName, 'Output complete, machine-readable JSON on stdout (never truncated). Errors still go to stderr and exit codes are unchanged. Applies to every subcommand that produces data output')
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            break
+        }
         'vanta-cli;completions' {
             [CompletionResult]::new('--shell', '--shell', [CompletionResultType]::ParameterName, 'Shell type for the completion script')
             [CompletionResult]::new('-d', '-d', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or ''./db'' if neither is set')
@@ -283,9 +296,11 @@ Register-ArgumentCompleter -Native -CommandName 'vanta-cli' -ScriptBlock {
         'vanta-cli;delete' {
             [CompletionResult]::new('--namespace', '--namespace', [CompletionResultType]::ParameterName, 'Namespace of the record')
             [CompletionResult]::new('--key', '--key', [CompletionResultType]::ParameterName, 'Key of the record to delete')
+            [CompletionResult]::new('--out', '--out', [CompletionResultType]::ParameterName, 'With --attest: write the certificate to this file (UTF-8, written by the CLI itself — preferred over shell redirection on Windows)')
             [CompletionResult]::new('-d', '-d', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or ''./db'' if neither is set')
             [CompletionResult]::new('--db', '--db', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or ''./db'' if neither is set')
             [CompletionResult]::new('--memory-limit', '--memory-limit', [CompletionResultType]::ParameterName, 'Optional memory limit for the database engine, in bytes. Accepts suffixes: KB, MB, GB (also KiB, MiB, GiB), e.g. `500MB` or `2GB`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable')
+            [CompletionResult]::new('--attest', '--attest', [CompletionResultType]::ParameterName, 'Emit a purge certificate (VER-02): per-surface residue inventory + integrity hash + VER-01 WAL chain reference (JSON on stdout)')
             [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Enable verbose output')
             [CompletionResult]::new('--verbose', '--verbose', [CompletionResultType]::ParameterName, 'Enable verbose output')
             [CompletionResult]::new('--json', '--json', [CompletionResultType]::ParameterName, 'Output complete, machine-readable JSON on stdout (never truncated). Errors still go to stderr and exit codes are unchanged. Applies to every subcommand that produces data output')
@@ -304,6 +319,42 @@ Register-ArgumentCompleter -Native -CommandName 'vanta-cli' -ScriptBlock {
             [CompletionResult]::new('--json', '--json', [CompletionResultType]::ParameterName, 'Output complete, machine-readable JSON on stdout (never truncated). Errors still go to stderr and exit codes are unchanged. Applies to every subcommand that produces data output')
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            break
+        }
+        'vanta-cli;certificate' {
+            [CompletionResult]::new('-d', '-d', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or ''./db'' if neither is set')
+            [CompletionResult]::new('--db', '--db', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or ''./db'' if neither is set')
+            [CompletionResult]::new('--memory-limit', '--memory-limit', [CompletionResultType]::ParameterName, 'Optional memory limit for the database engine, in bytes. Accepts suffixes: KB, MB, GB (also KiB, MiB, GiB), e.g. `500MB` or `2GB`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Enable verbose output')
+            [CompletionResult]::new('--verbose', '--verbose', [CompletionResultType]::ParameterName, 'Enable verbose output')
+            [CompletionResult]::new('--json', '--json', [CompletionResultType]::ParameterName, 'Output complete, machine-readable JSON on stdout (never truncated). Errors still go to stderr and exit codes are unchanged. Applies to every subcommand that produces data output')
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('verify', 'verify', [CompletionResultType]::ParameterValue, 'Verify a stored purge certificate: integrity hash + live re-scan of the re-checkable surfaces (store, shred, vector index, versions). Exit code ≠0 when the certificate is invalid or residues reappeared')
+            [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
+            break
+        }
+        'vanta-cli;certificate;verify' {
+            [CompletionResult]::new('--file', '--file', [CompletionResultType]::ParameterName, 'Path to the certificate JSON file (emitted by `delete --attest`)')
+            [CompletionResult]::new('-d', '-d', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or ''./db'' if neither is set')
+            [CompletionResult]::new('--db', '--db', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or ''./db'' if neither is set')
+            [CompletionResult]::new('--memory-limit', '--memory-limit', [CompletionResultType]::ParameterName, 'Optional memory limit for the database engine, in bytes. Accepts suffixes: KB, MB, GB (also KiB, MiB, GiB), e.g. `500MB` or `2GB`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Enable verbose output')
+            [CompletionResult]::new('--verbose', '--verbose', [CompletionResultType]::ParameterName, 'Enable verbose output')
+            [CompletionResult]::new('--json', '--json', [CompletionResultType]::ParameterName, 'Output complete, machine-readable JSON on stdout (never truncated). Errors still go to stderr and exit codes are unchanged. Applies to every subcommand that produces data output')
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            break
+        }
+        'vanta-cli;certificate;help' {
+            [CompletionResult]::new('verify', 'verify', [CompletionResultType]::ParameterValue, 'Verify a stored purge certificate: integrity hash + live re-scan of the re-checkable surfaces (store, shred, vector index, versions). Exit code ≠0 when the certificate is invalid or residues reappeared')
+            [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
+            break
+        }
+        'vanta-cli;certificate;help;verify' {
+            break
+        }
+        'vanta-cli;certificate;help;help' {
             break
         }
         'vanta-cli;count' {
@@ -360,7 +411,7 @@ Register-ArgumentCompleter -Native -CommandName 'vanta-cli' -ScriptBlock {
             break
         }
         'vanta-cli;migrate;run' {
-            [CompletionResult]::new('--format', '--format', [CompletionResultType]::ParameterName, 'Specific format to migrate (vfile, index, wal, schema, all)')
+            [CompletionResult]::new('--format', '--format', [CompletionResultType]::ParameterName, 'Specific format to migrate (all, vfile, index, wal, records, schema)')
             [CompletionResult]::new('-d', '-d', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or ''./db'' if neither is set')
             [CompletionResult]::new('--db', '--db', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or ''./db'' if neither is set')
             [CompletionResult]::new('--memory-limit', '--memory-limit', [CompletionResultType]::ParameterName, 'Optional memory limit for the database engine, in bytes. Accepts suffixes: KB, MB, GB (also KiB, MiB, GiB), e.g. `500MB` or `2GB`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable')
@@ -651,10 +702,12 @@ Register-ArgumentCompleter -Native -CommandName 'vanta-cli' -ScriptBlock {
             [CompletionResult]::new('doctor', 'doctor', [CompletionResultType]::ParameterValue, 'Run comprehensive health diagnostics on the database')
             [CompletionResult]::new('inspect', 'inspect', [CompletionResultType]::ParameterValue, 'Inspect a single record showing all fields, vectors, and metadata')
             [CompletionResult]::new('stats', 'stats', [CompletionResultType]::ParameterValue, 'Display detailed database statistics in human-readable or JSON format')
+            [CompletionResult]::new('verify', 'verify', [CompletionResultType]::ParameterValue, 'Verify the WAL hash-chain integrity (tamper-evident, VER-01): detects altered or removed records with their exact position. Read-only and offline — no engine open. Exit code ≠0 when integrity fails')
             [CompletionResult]::new('completions', 'completions', [CompletionResultType]::ParameterValue, 'Generate shell completion scripts')
             [CompletionResult]::new('search', 'search', [CompletionResultType]::ParameterValue, 'Search records semantically across a namespace')
             [CompletionResult]::new('delete', 'delete', [CompletionResultType]::ParameterValue, 'Delete a record by namespace and key')
             [CompletionResult]::new('delete-by-filter', 'delete-by-filter', [CompletionResultType]::ParameterValue, 'Delete all records in a namespace matching a JSON metadata filter')
+            [CompletionResult]::new('certificate', 'certificate', [CompletionResultType]::ParameterValue, 'Verification of purge certificates (VER-02)')
             [CompletionResult]::new('count', 'count', [CompletionResultType]::ParameterValue, 'Count records in a namespace, optionally filtered by metadata')
             [CompletionResult]::new('similar-to-key', 'similar-to-key', [CompletionResultType]::ParameterValue, 'Find records similar to a given key using vector similarity search')
             [CompletionResult]::new('migrate', 'migrate', [CompletionResultType]::ParameterValue, 'Migrate a database to the latest storage schema version')
@@ -713,6 +766,9 @@ Register-ArgumentCompleter -Native -CommandName 'vanta-cli' -ScriptBlock {
         'vanta-cli;help;stats' {
             break
         }
+        'vanta-cli;help;verify' {
+            break
+        }
         'vanta-cli;help;completions' {
             break
         }
@@ -723,6 +779,13 @@ Register-ArgumentCompleter -Native -CommandName 'vanta-cli' -ScriptBlock {
             break
         }
         'vanta-cli;help;delete-by-filter' {
+            break
+        }
+        'vanta-cli;help;certificate' {
+            [CompletionResult]::new('verify', 'verify', [CompletionResultType]::ParameterValue, 'Verify a stored purge certificate: integrity hash + live re-scan of the re-checkable surfaces (store, shred, vector index, versions). Exit code ≠0 when the certificate is invalid or residues reappeared')
+            break
+        }
+        'vanta-cli;help;certificate;verify' {
             break
         }
         'vanta-cli;help;count' {

@@ -267,6 +267,17 @@ pub(crate) fn handle_wiki_tool(
         "wiki_ingest" => {
             let (namespace, slug) = required_scope(args)?;
             let root = required_str(args, "root")?;
+            if root.is_empty()
+                || root.contains('\0')
+                || std::path::Path::new(root)
+                    .components()
+                    .any(|c| matches!(c, std::path::Component::ParentDir))
+            {
+                return Err(McpError::invalid_params(
+                    "'root' must be a safe filesystem path without parent directory traversal ('..')",
+                )
+                .to_json());
+            }
             let path = PathBuf::from(root);
             if !path.is_dir() {
                 return Ok(error_content(format!(
@@ -383,18 +394,20 @@ fn ingest_toml_path(storage: &Arc<StorageEngine>) -> PathBuf {
     storage.data_dir.join("vanta-ingest.toml")
 }
 
+/// FIND-365: Maximum number of tracked runs before evicting the oldest.
+pub const MAX_TRACKED_RUNS: usize = 1_000;
+
 /// One async build known to this process, keyed by `run_id`.
 #[derive(Clone)]
 struct IngestRun {
     tracker: ProgressTracker,
     namespace: String,
     slug: String,
+    started_at_ms: u64,
 }
 
 /// Registry of started builds. Entries outlive completion so `ready`/`failed`
-/// stay consultable by run_id (contract D19); the map is bounded by the number
-/// of ingests per process.
-// ponytail: entries are never pruned — one small struct per ingest run; add\n// TTL eviction only if a long-lived server runs thousands of ingests.
+/// stay consultable by run_id (contract D19); bounded by MAX_TRACKED_RUNS.
 fn ingest_runs() -> &'static Mutex<HashMap<String, IngestRun>> {
     static RUNS: OnceLock<Mutex<HashMap<String, IngestRun>>> = OnceLock::new();
     RUNS.get_or_init(|| Mutex::new(HashMap::new()))
@@ -444,13 +457,29 @@ where
         0,
         0,
     ));
+    let now_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0);
     if let Ok(mut runs) = ingest_runs().lock() {
+        while runs.len() >= MAX_TRACKED_RUNS {
+            if let Some(oldest_key) = runs
+                .iter()
+                .min_by_key(|(_, r)| r.started_at_ms)
+                .map(|(k, _)| k.clone())
+            {
+                runs.remove(&oldest_key);
+            } else {
+                break;
+            }
+        }
         runs.insert(
             run_id.clone(),
             IngestRun {
                 tracker: tracker.clone(),
                 namespace: namespace.to_string(),
                 slug: slug.to_string(),
+                started_at_ms: now_ms,
             },
         );
     }

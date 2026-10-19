@@ -110,6 +110,18 @@
       "license": "Apache-2.0",
       "group": "combined",
       "exception": ">3GB — MTEB #1 75.1, GPU only, ONNX not recommended"
+    },
+    {
+      "id": "embeddinggemma-2",
+      "repo": "onnx-community/embeddinggemma-2-ONNX",
+      "rev": "daa72c5",
+      "dim": 768,
+      "size_onnx_mb": 550,
+      "size_hf_mb": 600,
+      "onnx": "onnx/model.onnx",
+      "langs": ["es", "en", "code", "100+"],
+      "license": "Gemma",
+      "group": "combined"
     }
   ]
 }

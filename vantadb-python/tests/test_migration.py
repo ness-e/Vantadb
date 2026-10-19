@@ -16,15 +16,45 @@ from vantadb_py import Client
 from vantadb_py.migrate import migrate_from_chroma, migrate_from_lancedb
 
 CHROMA_DOCS = [
-    ("c1", "VantaDB is an embedded vector database.", {"source": "docs", "page": 1}, [1.0, 0.0, 0.0]),
-    ("c2", "It supports Python, TypeScript, and Rust.", {"source": "docs", "page": 2}, [0.0, 1.0, 0.0]),
-    ("c3", "Graph edges connect related memories.", {"source": "blog", "page": 3}, [0.0, 0.0, 1.0]),
+    (
+        "c1",
+        "VantaDB is an embedded vector database.",
+        {"source": "docs", "page": 1},
+        [1.0, 0.0, 0.0],
+    ),
+    (
+        "c2",
+        "It supports Python, TypeScript, and Rust.",
+        {"source": "docs", "page": 2},
+        [0.0, 1.0, 0.0],
+    ),
+    (
+        "c3",
+        "Graph edges connect related memories.",
+        {"source": "blog", "page": 3},
+        [0.0, 0.0, 1.0],
+    ),
 ]
 
 LANCE_ROWS = [
-    {"id": "l1", "vector": [1.0, 0.0, 0.0], "text": "Hybrid search fuses BM25 with HNSW.", "source": "docs"},
-    {"id": "l2", "vector": [0.0, 1.0, 0.0], "text": "TTL expiry removes stale records.", "source": "docs"},
-    {"id": "l3", "vector": [0.0, 0.0, 1.0], "text": "Namespaces are created lazily on put.", "source": "blog"},
+    {
+        "id": "l1",
+        "vector": [1.0, 0.0, 0.0],
+        "text": "Hybrid search fuses BM25 with HNSW.",
+        "source": "docs",
+    },
+    {
+        "id": "l2",
+        "vector": [0.0, 1.0, 0.0],
+        "text": "TTL expiry removes stale records.",
+        "source": "docs",
+    },
+    {
+        "id": "l3",
+        "vector": [0.0, 0.0, 1.0],
+        "text": "Namespaces are created lazily on put.",
+        "source": "blog",
+    },
 ]
 
 
@@ -43,7 +73,9 @@ def chroma_source() -> Path:
         )
         yield path
     finally:
-        shutil.rmtree(path, ignore_errors=True)  # mkdtemp leaks ~100 MB/run otherwise (13.7 GB accumulated)
+        shutil.rmtree(
+            path, ignore_errors=True
+        )  # mkdtemp leaks ~100 MB/run otherwise (13.7 GB accumulated)
 
 
 @pytest.fixture()
@@ -58,7 +90,9 @@ def lancedb_source() -> Path:
         shutil.rmtree(path, ignore_errors=True)
 
 
-def _verify(target_path: Path, namespace: str, expected: list[tuple[str, list[float]]]) -> None:
+def _verify(
+    target_path: Path, namespace: str, expected: list[tuple[str, list[float]]]
+) -> None:
     db = Client(str(target_path))
     try:
         for key, vector in expected:
@@ -67,7 +101,9 @@ def _verify(target_path: Path, namespace: str, expected: list[tuple[str, list[fl
             assert record.payload
         hits = db.search(namespace, expected[0][1], top_k=3)
         assert len(hits) >= 1, "search returned no hits"
-        assert hits[0].key == expected[0][0], f"top hit {hits[0].key} != {expected[0][0]}"
+        assert hits[0].key == expected[0][0], (
+            f"top hit {hits[0].key} != {expected[0][0]}"
+        )
     finally:
         db.close()
 

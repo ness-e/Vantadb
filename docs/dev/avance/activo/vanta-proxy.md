@@ -61,4 +61,8 @@ tags: [vantadb, avance, vanta-proxy, proxy, gateway, knowledge, wiki, rate-limit
 - **Fecha:** 2026-09-15
 - **Objetivo:** cablear coste output-side o ratificar DEFER con evidencia.
 - **Resultado:** ✅ DEFER-ratificado: sin punto de buffer general (forward + drain gated inútil para usage, 0 callers prod, sin doble conteo); suite proxy 163/163 + clippy 0.
-- **Commit:** 33d0da0a (docs solo-task-file)
+### MKT-22: North Star publicado en README — metodología + comando, número pendiente (master plan 0.9.0, Task 36)
+- **Fecha:** 2026-10-05
+- **Objetivo:** la métrica principal (sesiones con put + search en ventana de 7 días, computada del proxy store) existía pero nadie la veía; publicarla como evidencia externa.
+- **Resultado:** ✅ Sección `### North Star` en `README.md` (definición + comando reproducible `python scripts/north_star_metric.py --db <proxy-db-path>` + estado "first measurement pending") + fila Agent (MCP) alineada. **Sin datos reales** (5 probes de stores → `proxy-turns` vacío; proxy frozen) → stop condition aplicada: 0 números inventados (Regla 11). Gates docs 5/5 + `--self-test` ✅. Review P2-01 APPROVE.
+- **Commit:** 68781ec6 (principal: README + task file + índices)

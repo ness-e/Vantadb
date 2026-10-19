@@ -45,6 +45,7 @@ links: master-index.md
 | [mvcc](./mvcc.md) | Multi-Version Concurrency Control | Transactional isolation |
 | [crdt](./crdt.md) | Conflict-free Replicated Data Types | Distributed convergence for multi-node scaling |
 | [bincode](./bincode.md) | Legacy binary format, no longer a dependency | Superseded by postcard for WAL and index state |
+| [postcard](./postcard.md) | Compact serde-based binary format | WAL records, index metadata and SDK structures |
 | [serde](./serde.md) | Rust serialization/deserialization framework | JSON for HTTP API, postcard for disk storage |
 
 ---

@@ -1,0 +1,79 @@
+# MCP Registry publish — VALIDATE by default, PUBLISH only owner-gated.
+#
+# Decision owner (FIND-344): flujo CI automatizado, nunca manual. Pero el
+# primer publish real exige OAuth/OIDC del owner (mcp-publisher login) y un
+# packages[] con artefacto publicado (.mcpb en releases) que HOY NO EXISTE.
+# Por eso: NADA auto en tags hasta el primer publish manual exitoso del owner.
+# - validate-only (default): gate offline del server.json, siempre verde/rojo.
+# - publish: requiere confirm='PUBLISH' + approval del environment
+#   'mcp-registry' (owner). Sin approval no hay publish.
+#
+# OIDC: el job publish usa `mcp-publisher login github-oidc` (sin secretos,
+# segun la guia oficial de GitHub Actions del registry). El first-claim de
+# `io.github.*` lo hace el owner con su cuenta de GitHub.
+
+name: publish-mcp-registry
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "validate-only | publish (owner-gated)"
+        required: true
+        default: "validate-only"
+        type: choice
+        options:
+          - validate-only
+          - publish
+      confirm:
+        description: "Escribir PUBLISH para publicar de verdad"
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Validate server.json (offline gate)
+        run: python scripts/validate-mcp-server.py
+      - name: Stamp check (version tracks server.json)
+        run: |
+          python - <<'EOF'
+          import json
+          srv = json.load(open('server.json'))
+          print(f"server.json name={srv['name']} version={srv['version']}")
+          # El publish exige packages[] o remotes[] con artefacto publicado;
+          # sin ellos el registry acepta el registro pero sin instalacion.
+          assert not srv.get('packages') and not srv.get('remotes'), \
+            'unexpected packages/remotes — workflow publish path not implemented for them yet (FIND-344 GAP)'
+          print('STAMP: metadata-only, no installable package yet (expected pre-first-publish)')
+          EOF
+
+  publish:
+    needs: validate
+    if: inputs.action == 'publish' && inputs.confirm == 'PUBLISH'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write # OIDC para mcp-publisher login github-oidc
+    environment: mcp-registry # approval del owner = gate humano
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Registry publish (owner-gated dry-run until .mcpb exists)
+        run: |
+          echo 'GAP FIND-344: no hay packages[] publicable (.mcpb ausente).'
+          echo 'Este job valida el wiring OIDC; el publish real queda pendiente'
+          echo 'de: (1) construir el .mcpb, (2) first-claim del owner, (3) flip a publish.'
+          exit 1

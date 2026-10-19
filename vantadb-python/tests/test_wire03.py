@@ -95,7 +95,9 @@ def test_sparse_query_rejects_non_numeric_weight():
 def _seed_timeline(db) -> None:
     db.put(NS, "old", "a", metadata={"when": datetime(2026, 1, 1, tzinfo=timezone.utc)})
     db.put(NS, "mid", "b", metadata={"when": datetime(2026, 6, 1, tzinfo=timezone.utc)})
-    db.put(NS, "new", "c", metadata={"when": datetime(2026, 12, 1, tzinfo=timezone.utc)})
+    db.put(
+        NS, "new", "c", metadata={"when": datetime(2026, 12, 1, tzinfo=timezone.utc)}
+    )
 
 
 def test_advanced_filter_datetime_range_count():

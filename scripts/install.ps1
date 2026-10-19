@@ -5,33 +5,49 @@
 # One-liner (no clone, no rustup):
 #   irm https://raw.githubusercontent.com/ness-e/Vantadb/main/scripts/install.ps1 | iex
 # Flags: -DryRun (simulate, no effects) -NoWizard (skip chain)
-#        -WizardNonInteractive (wizard with defaults)
+#        -WizardNonInteractive (wizard with defaults) -Version <tag> (pin a release)
+#        -InstallDir <path> (override the default $HOME\.vanta\bin)
+#        -Modules <csv> (wizard module selection, pass-through: e.g. "mcp,embeddings";
+#                        valid ids: engine,mcp,server,proxy,desktop,embeddings,providers;
+#                        omitted = wizard defaults mcp,server,proxy,embeddings)
 # Trust: TLS 1.2 + official repo URL + sha256 of the payload verified
 # in-script when the .sha256 asset exists (warn-and-continue otherwise).
 # To verify manually, download the file and compare its hash
 # against the published .sha256 asset before piping to iex.
+# Compat: Windows PowerShell 5.1+ and PowerShell 7+ (DIST-05).
 param(
   [switch]$NoWizard,
   [switch]$DryRun,
-  [switch]$WizardNonInteractive
+  [switch]$WizardNonInteractive,
+  [string]$Version,
+  [string]$InstallDir,
+  [string[]]$Modules
 )
 
 $ErrorActionPreference = "Stop"
 
-$installDir = "$HOME\.vanta\bin"
+if (-not $installDir) { $installDir = "$HOME\.vanta\bin" }
 $binaryName = "vanta-cli.exe"
 $wizardFile = "setup-embeddings.ps1"
 
 if ($DryRun) {
     Write-Host "[dry-run] install.ps1 -DryRun: no changes, no network." -ForegroundColor Cyan
-    Write-Host "[dry-run] would: fetch latest tag (api.github.com/repos/ness-e/Vantadb/releases/latest)"
+    if ($Version) {
+        Write-Host "[dry-run] would: use pinned tag $Version (-Version)"
+    } else {
+        Write-Host "[dry-run] would: fetch latest tag (api.github.com/repos/ness-e/Vantadb/releases/latest)"
+    }
     Write-Host "[dry-run] would: download vantadb-x86_64-pc-windows-msvc.zip + .sha256, verify checksum"
     Write-Host "[dry-run] would: backup $installDir\$binaryName (.bak-<stamp>) + install"
     if (-not $NoWizard) {
-        $wMode = $WizardNonInteractive ? " with -NonInteractive" : " (interactive)"
-        Write-Host "[dry-run] would: chain wizard $wizardFile (<latest-tag>/$wizardFile)$wMode, else print manual next-step" -ForegroundColor Cyan
+        $wMode = " (interactive)"
+        if ($WizardNonInteractive) { $wMode = " with -NonInteractive" }
+        $wModules = "mcp,server,proxy,embeddings (defaults)"
+        if ($Modules) { $wModules = ($Modules -join ',') }
+        Write-Host "[dry-run] would: chain wizard $wizardFile (<release-tag>/$wizardFile)$wMode [modules: $wModules; engine always-on, desktop frozen]" -ForegroundColor Cyan
     } else {
         Write-Host "[dry-run] would: skip wizard (-NoWizard)"
+        if ($Modules) { Write-Host "[dry-run] note: -Modules '$($Modules -join ',')' ignored (wizard skipped)" -ForegroundColor Yellow }
     }
     Write-Host "[dry-run] chain OK: installer -> wizard (simulated, exit 0)" -ForegroundColor Green
     exit 0
@@ -42,16 +58,26 @@ if (!(Test-Path $installDir)) {
     New-Item -ItemType Directory -Force -Path $installDir | Out-Null
 }
 
-Write-Host "🔍 Fetching latest VantaDB release version..." -ForegroundColor Cyan
-
-$latestRelease = $null
-try {
-    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-    $releases = Invoke-RestMethod -Uri "https://api.github.com/repos/ness-e/Vantadb/releases/latest" -UseBasicParsing
-    $latestRelease = $releases.tag_name
-} catch {
-    $latestRelease = "v0.4.0"
-    Write-Host "⚠️ Could not fetch latest release via API. Falling back to v0.4.0 (pin may skew vs wizard; prefer -Version <tag> explicitly)" -ForegroundColor Yellow
+if ($Version) {
+    if ($Version -notmatch '^v\d+\.\d+\.\d+$') {
+        Write-Host "❌ Invalid -Version '$Version': expected a release tag like v0.8.0" -ForegroundColor Red
+        exit 1
+    }
+    $latestRelease = $Version
+    Write-Host "📌 Pinned release: $latestRelease (-Version)" -ForegroundColor Cyan
+} else {
+    Write-Host "🔍 Fetching latest VantaDB release version..." -ForegroundColor Cyan
+    $latestRelease = $null
+    try {
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        $releases = Invoke-RestMethod -Uri "https://api.github.com/repos/ness-e/Vantadb/releases/latest" -UseBasicParsing
+        $latestRelease = $releases.tag_name
+    } catch {
+        Write-Host "❌ Could not fetch the latest release from the GitHub API (offline or rate-limited)." -ForegroundColor Red
+        Write-Host "   Browse https://github.com/ness-e/Vantadb/releases, then re-run with an explicit tag:" -ForegroundColor Yellow
+        Write-Host "   pwsh install.ps1 -Version v0.8.0" -ForegroundColor Yellow
+        exit 1
+    }
 }
 
 $zipName = "vantadb-x86_64-pc-windows-msvc.zip"
@@ -68,6 +94,8 @@ try {
     Invoke-WebRequest -Uri $downloadUrl -OutFile $zipPath -UseBasicParsing
 } catch {
     Write-Host "❌ Failed to download from $downloadUrl" -ForegroundColor Red
+    Write-Host "   If this is a 404: the release has no Windows binary asset (binaries ship from v0.8.0 on)." -ForegroundColor Yellow
+    Write-Host "   Check https://github.com/ness-e/Vantadb/releases/tag/$latestRelease — or pin a release that has it with -Version." -ForegroundColor Yellow
     Remove-Item -Recurse -Force $tmpDir -ErrorAction SilentlyContinue
     Exit 1
 }
@@ -89,6 +117,15 @@ try {
 # Extract vanta-cli.exe from zip
 Expand-Archive -Path $zipPath -DestinationPath $tmpDir -Force
 
+# The archive layout is flat today (vanta-cli.exe at the root); older/newer
+# packagers may nest it under release/ — resolve either way (DIST-05).
+$binItem = Get-ChildItem -Path $tmpDir -Recurse -Filter $binaryName -File | Select-Object -First 1
+if (-not $binItem) {
+    Write-Host "❌ $binaryName not found inside the downloaded zip (unexpected archive layout)" -ForegroundColor Red
+    Remove-Item -Recurse -Force $tmpDir -ErrorAction SilentlyContinue
+    Exit 1
+}
+
 # Idempotency (FIND-105 pre-mortem #2): back up any previous binary.
 $existing = Join-Path $installDir $binaryName
 if (Test-Path $existing) {
@@ -96,7 +133,7 @@ if (Test-Path $existing) {
     Copy-Item $existing "$existing.bak-$stamp" -Force
     Write-Host "💾 Backed up previous binary to $binaryName.bak-$stamp" -ForegroundColor Cyan
 }
-Copy-Item (Join-Path $tmpDir "release\$binaryName") $installDir -Force
+Copy-Item $binItem.FullName $installDir -Force
 
 Remove-Item -Recurse -Force $tmpDir -ErrorAction SilentlyContinue
 
@@ -108,26 +145,57 @@ if ($NoWizard) {
     Write-Host ""
     Write-Host "⏭️  Wizard skipped (-NoWizard). Run later:" -ForegroundColor Cyan
     Write-Host "   pwsh $wizardFile -NonInteractive" -ForegroundColor Yellow
+    if ($Modules) { Write-Host "   note: -Modules '$($Modules -join ',')' ignored (wizard skipped)" -ForegroundColor Yellow }
 } else {
     Write-Host ""
     Write-Host "🧙 Chaining to the interactive setup wizard (FIND-104)..." -ForegroundColor Cyan
     $wizardArgs = @()
     if ($WizardNonInteractive) { $wizardArgs += '-NonInteractive' }
+    if ($Modules) { $wizardArgs += @('-Modules', ($Modules -join ',')) }
     try {
         $wizardTmp = Join-Path ([System.IO.Path]::GetTempPath()) ("vanta-wizard-" + [System.Guid]::NewGuid().ToString() + ".ps1")
         Invoke-WebRequest -Uri $wizardUrl -OutFile $wizardTmp -UseBasicParsing
         & pwsh -NoProfile -File $wizardTmp @wizardArgs
+        $wizardExit = $LASTEXITCODE
         Remove-Item -Force $wizardTmp -ErrorAction SilentlyContinue
+        if ($wizardExit -ne 0) { throw "wizard exited with code $wizardExit" }
         Write-Host "✅ Wizard completed" -ForegroundColor Green
     } catch {
+        if ($wizardTmp) { Remove-Item -Force $wizardTmp -ErrorAction SilentlyContinue }
         Write-Host "⚠️ Wizard did not run — CLI is installed; run manually:" -ForegroundColor Yellow
         Write-Host "   pwsh $wizardFile -NonInteractive" -ForegroundColor Yellow
+        if ($Modules) { Write-Host "   (-Modules '$($Modules -join ',')' was not applied)" -ForegroundColor Yellow }
     }
 }
+# --- Environment persistence (FIND-384) ---
+try {
+    $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+    $pathParts = if ($userPath) { $userPath -split ';' } else { @() }
+    if ($pathParts -notcontains $installDir) {
+        $newPath = if ($userPath) { "$userPath;$installDir" } else { $installDir }
+        [Environment]::SetEnvironmentVariable('Path', $newPath, 'User')
+        Write-Host "✅ Added $installDir to User PATH permanently" -ForegroundColor Green
+    } else {
+        Write-Host "ℹ️ $installDir is already in User PATH" -ForegroundColor Cyan
+    }
+
+    $vantaHome = [Environment]::GetEnvironmentVariable('VANTADB_HOME', 'User')
+    $defaultVantaHome = "$HOME\.vanta"
+    if (-not $vantaHome) {
+        [Environment]::SetEnvironmentVariable('VANTADB_HOME', $defaultVantaHome, 'User')
+        $env:VANTADB_HOME = $defaultVantaHome
+        Write-Host "✅ Set VANTADB_HOME=$defaultVantaHome in User environment" -ForegroundColor Green
+    }
+
+    # Also activate in current session
+    if (($env:Path -split ';') -notcontains $installDir) {
+        $env:Path += ";$installDir"
+    }
+} catch {
+    Write-Host "⚠️ Could not persist environment variables automatically: $_" -ForegroundColor Yellow
+}
+
 Write-Host ""
-Write-Host "💡 To use it immediately, add it to your PATH for this session:" -ForegroundColor Cyan
-Write-Host "   `$env:Path += ';$installDir'" -ForegroundColor Yellow
-Write-Host ""
-Write-Host "To make this change permanent for your user account, run:" -ForegroundColor Cyan
-Write-Host "   [Environment]::SetEnvironmentVariable('Path', [Environment]::GetEnvironmentVariable('Path', 'User') + ';$installDir', 'User')" -ForegroundColor Yellow
-Write-Host "   (Note: You will need to restart your terminal for this permanent change to take effect)" -ForegroundColor Yellow
+Write-Host "💡 VantaDB CLI is ready to use in this session." -ForegroundColor Cyan
+Write-Host "   (Note: Open a new terminal window for changes to take full effect across all processes)" -ForegroundColor Yellow
+

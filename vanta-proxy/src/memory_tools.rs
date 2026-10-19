@@ -50,7 +50,7 @@ pub(crate) fn announces(body: &[u8]) -> bool {
 }
 
 /// One server-executable memory tool invocation.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct MemoryCall {
     pub id: String,
     pub name: String,
@@ -216,18 +216,19 @@ fn search_event_job(memory: Embedded, session_key: &str, hits: usize) -> L0Job {
         let key = key.clone();
         let payload = payload.clone();
         Box::pin(async move {
-            // ponytail: sync storage op inside async — same ceiling as
-            // capture.rs (proxy scale tolerates it; move to spawn_blocking if
-            // events ever show in latency profiles).
-            memory
-                .put(MemoryInput {
-                    namespace: EVENTS_NAMESPACE.into(),
-                    key,
-                    payload,
-                    ..Default::default()
-                })
-                .map(|_| ())
-                .map_err(|e| e.to_string())
+            tokio::task::spawn_blocking(move || {
+                memory
+                    .put(MemoryInput {
+                        namespace: EVENTS_NAMESPACE.into(),
+                        key,
+                        payload,
+                        ..Default::default()
+                    })
+                    .map(|_| ())
+                    .map_err(|e| e.to_string())
+            })
+            .await
+            .map_err(|e| format!("search_event_job spawn_blocking failed: {e}"))?
         })
     })
 }
@@ -671,7 +672,7 @@ mod tests {
 
     /// VER-04: allow-all ACL, audit disabled (legacy behavior).
     fn governance() -> crate::governance::Governance {
-        crate::governance::Governance::from_config(&[], "")
+        crate::governance::Governance::from_config(&[], &[], false, "")
     }
 
     /// Default guard: redaction + envelope disabled (legacy behavior).

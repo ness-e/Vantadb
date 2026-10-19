@@ -3,6 +3,11 @@ name: 'RELEASE: NPM — vantadb-node'
 on:
   workflow_dispatch:
     inputs:
+      publish:
+        description: 'Publish package to npm'
+        required: false
+        default: true
+        type: boolean
       dry_run:
         description: "Dry run (no actual publish)"
         required: false
@@ -11,7 +16,7 @@ on:
     # Tags solo: publish. CI de ramas va por pull_request (paths).
     # (paths no se evalúa en tags; tags+branches+paths en un bloque es
     # ambiguo — FIND-140)
-    tags: ["node-v*.*.*"]
+    tags: ["v*.*.*", "node-v*.*.*"]
   pull_request:
     paths:
       - "vantadb-node/**"
@@ -33,7 +38,7 @@ jobs:
   build:
     name: Build ${{ matrix.target }}
     runs-on: ${{ matrix.runs-on }}
-    timeout-minutes: 20
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
@@ -70,16 +75,33 @@ jobs:
           registry-url: https://registry.npmjs.org
 
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # v1
+        uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # v1
         with:
           toolchain: stable
-          target: ${{ matrix.rust-target }}
+          targets: ${{ matrix.rust-target }}
+
+      - name: Add Rust target
+        run: rustup target add ${{ matrix.rust-target }}
+
+      - name: Install cross-compilation toolchain (Linux cross/musl targets)
+        if: runner.os == 'Linux' && matrix.rust-target != 'x86_64-unknown-linux-gnu'
+        run: |
+          python3 -m pip install --break-system-packages ziglang cargo-zigbuild
 
       - name: Build vantadb-node (${{ matrix.target }})
+        working-directory: vantadb-node
+        shell: bash
+        env:
+          RUST_TARGET: ${{ matrix.rust-target }}
+          RUNNER_OS: ${{ runner.os }}
         run: |
           npm ci
-          npm run build
-        working-directory: vantadb-node
+          CROSS_FLAG=""
+          if [ "$RUNNER_OS" = "Linux" ] && [ "$RUST_TARGET" != "x86_64-unknown-linux-gnu" ]; then
+            CROSS_FLAG="--cross-compile"
+          fi
+          npx napi build --platform --release --target "$RUST_TARGET" $CROSS_FLAG --js index.cjs
+          npx napi build --platform --release --target "$RUST_TARGET" $CROSS_FLAG --esm --js index.js
 
       - name: Run tests
         if: runner.os == 'Linux' && matrix.target == 'x86_64-unknown-linux-gnu'
@@ -139,8 +161,9 @@ jobs:
     name: Publish vantadb-node to npm
     needs: [build, test]
     if: >
+      startsWith(github.ref, 'refs/tags/v') ||
       startsWith(github.ref, 'refs/tags/node-v') ||
-      github.event_name == 'workflow_dispatch'
+      (github.event_name == 'workflow_dispatch' && inputs.publish != false)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: npm
@@ -172,6 +195,10 @@ jobs:
           node-version: 22
           registry-url: https://registry.npmjs.org
 
+      # OIDC trusted publishing requires npm >= 11.5.1 (Node 22 ships npm 10).
+      - name: Upgrade npm for OIDC trusted publishing
+        run: npm install -g npm@11
+
       - name: Verify all targets present
         run: |
           echo "Checking for required native binaries..."
@@ -196,7 +223,7 @@ jobs:
           VERSION=$(node -p "require('./package.json').version")
           if npm view "vantadb-node@${VERSION}" version >/dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
-            echo "Version ${VERSION} already published — skipping"
+            echo "::warning::vantadb-node@${VERSION} already published — skipping publish. On a release tag this means the version was not bumped for the release — gate: scripts/docs/check-npm-versions.mjs, runbook: docs/dev/workflow/PUBLISH.md"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
             echo "Version ${VERSION} not published — will publish"
@@ -205,7 +232,7 @@ jobs:
       - name: Smoke-test packed tarball
         working-directory: vantadb-node
         run: |
-          TARBALL=$(ls *.tgz)
+          TARBALL=$(ls ./*.tgz)
           mkdir -p /tmp/smoke-test && cd /tmp/smoke-test
           npm install --ignore-scripts "${GITHUB_WORKSPACE}/vantadb-node/${TARBALL}"
           node -e "const { VantaDb } = require('vantadb-node'); console.log('Smoke test OK:', typeof VantaDb.connect)"
@@ -225,5 +252,7 @@ jobs:
 
       - name: Publish to npm
         if: steps.check-node.outputs.exists != 'true'
-        run: npm publish ${{ inputs.dry_run == 'true' && '--dry-run' || '' }} *.tgz
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish ${{ inputs.dry_run == 'true' && '--dry-run' || '' }} --access public ./*.tgz
         working-directory: vantadb-node

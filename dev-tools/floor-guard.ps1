@@ -1,6 +1,6 @@
 # Floor Guard — VantaDB Reference Implementation
-# Diff-scoped 5 checks for CONSTRAINTS.md floor (exit 0/1/2, patterns adaptable)
-# Ver: .opencode/references/floor-guard.md y CONSTRAINTS.md
+# Diff-scoped 5 checks for docs/specs/CONSTRAINTS.md floor (exit 0/1/2, patterns adaptable)
+# Ver: .opencode/references/floor-guard.md y docs/specs/CONSTRAINTS.md
 # Checked by: constraint-driven-development skill, Step 6
 
 param(
@@ -14,7 +14,7 @@ $exitCode = 0
 $findings = @()
 $warnings = @()
 
-Write-Host "=== Floor Guard (CONSTRAINTS.md) ===" -ForegroundColor Cyan
+Write-Host "=== Floor Guard (docs/specs/CONSTRAINTS.md) ===" -ForegroundColor Cyan
 Write-Host "Base: $BaseBranch | DiffOnly: $DiffOnly | Strict: $Strict" -ForegroundColor Gray
 
 # Helper: get diff files
@@ -173,28 +173,28 @@ if ($useRegexFallback) {
     }
 }
 
-# 5. CONSTRAINTS.md not weakened
-Write-Host "[5/5] Checking CONSTRAINTS.md not weakened..." -ForegroundColor Yellow
+# 5. docs/specs/CONSTRAINTS.md not weakened
+Write-Host "[5/5] Checking docs/specs/CONSTRAINTS.md not weakened..." -ForegroundColor Yellow
 try {
-    $constraintsDiff = git diff $BaseBranch -- CONSTRAINTS.md 2>$null | Out-String
-    if (-not $constraintsDiff) { $constraintsDiff = git diff HEAD~1 -- CONSTRAINTS.md 2>$null | Out-String }
+    $constraintsDiff = git diff $BaseBranch -- docs/specs/CONSTRAINTS.md 2>$null | Out-String
+    if (-not $constraintsDiff) { $constraintsDiff = git diff HEAD~1 -- docs/specs/CONSTRAINTS.md 2>$null | Out-String }
     if ($constraintsDiff) {
         # Check if thresholds lowered (look for - lines with numbers)
         $removedThresholds = $constraintsDiff | Select-String -Pattern "^-.*\|.*\d+.*\|" -AllMatches
         $addedThresholds = $constraintsDiff | Select-String -Pattern "^\+\s*\|.*\d+.*\|" -AllMatches
         if ($removedThresholds -and $constraintsDiff -match "-\s*\|.*\d+%|-\s*\|.*\d+\s*ms|-\s*\|.*coverage") {
-            $findings += "CONSTRAINTS_WEAKENED: CONSTRAINTS.md thresholds may have been lowered"
+            $findings += "CONSTRAINTS_WEAKENED: docs/specs/CONSTRAINTS.md thresholds may have been lowered"
             $findings += "  Diff: $($constraintsDiff.Substring(0, [Math]::Min(200, $constraintsDiff.Length)))"
             $exitCode = 2
-            Write-Host "  FAIL: CONSTRAINTS.md weakened" -ForegroundColor Red
+            Write-Host "  FAIL: docs/specs/CONSTRAINTS.md weakened" -ForegroundColor Red
         } else {
-            Write-Host "  PASS: CONSTRAINTS.md not weakened (or strengthened)" -ForegroundColor Green
+            Write-Host "  PASS: docs/specs/CONSTRAINTS.md not weakened (or strengthened)" -ForegroundColor Green
         }
     } else {
-        Write-Host "  PASS: No changes to CONSTRAINTS.md" -ForegroundColor Green
+        Write-Host "  PASS: No changes to docs/specs/CONSTRAINTS.md" -ForegroundColor Green
     }
 } catch {
-    Write-Host "  PASS: No CONSTRAINTS.md diff to check" -ForegroundColor Green
+    Write-Host "  PASS: No docs/specs/CONSTRAINTS.md diff to check" -ForegroundColor Green
 }
 
 # Summary

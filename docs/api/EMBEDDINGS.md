@@ -42,22 +42,24 @@ pub trait EmbeddingProvider: Send + Sync {
 
 | Provider | Feature | Env | Notes |
 |---|---|---|---|
-| `LocalOnnxProvider` | `embed-local` | `VANTA_EMBEDDING_PROVIDER=local`, `VANTA_LOCAL_MODEL=embeddings/models/<id>/onnx` | ONNX via `ort`+`tokenizers`, mean-pool + L2, dummy deterministic fallback (384d) if model missing — keeps CI green |
-| `OllamaProvider` | `remote-inference` | `VANTA_LLM_URL` (default `http://localhost:11434`), `VANTA_LLM_MODEL` (default `all-minilm`) | `POST /api/embeddings` |
-| `OpenAIProvider` | `remote-inference` | `VANTA_OPENAI_API_KEY` (required), `VANTA_OPENAI_MODEL` (default `text-embedding-3-small`) | `POST https://api.openai.com/v1/embeddings` |
+| `LocalOnnxProvider` | `embed-local` | `VANTADB_EMBEDDING_PROVIDER=local`, `VANTADB_LOCAL_MODEL=embeddings/models/<id>/onnx` | ONNX via `ort`+`tokenizers`, mean-pool + L2. In strict mode (default), fails closed if runtime or model weights are missing; dummy fallback requires `VANTADB_ALLOW_DUMMY_EMBEDDINGS=true` |
+| `OllamaProvider` | `remote-inference` | `VANTADB_LLM_URL` (default `http://localhost:11434`), `VANTADB_LLM_MODEL` (default `all-minilm`) | `POST /api/embeddings` |
+| `OpenAIProvider` | `remote-inference` | `VANTADB_OPENAI_API_KEY` (required), `VANTADB_OPENAI_MODEL` (default `text-embedding-3-small`) | `POST https://api.openai.com/v1/embeddings` |
 
 Factory `src/llm.rs:39` `get_embedding_provider()`:
 
 ```rust
-// VANTA_EMBEDDING_PROVIDER=local|multilingual-e5-small|ollama|openai
+// VANTADB_EMBEDDING_PROVIDER=local|multilingual-e5-small|ollama|openai
 let provider = vantadb::llm::get_embedding_provider();
 let vec = provider.embed("hola mundo")?;
 let batch = provider.embed_batch(&["hola mundo".into(), "hello world".into()])?;
 ```
 
-- With `embed-local` active, default `VANTA_EMBEDDING_PROVIDER` is `local` (model `embeddings/models/multilingual-e5-small/onnx`, dim 384).
+- With `embed-local` active, default `VANTADB_EMBEDDING_PROVIDER` is `local` (default model `embeddings/models/multilingual-e5-small/onnx` [384d], or modern `embeddinggemma-2` [768d] via `vanta config set embeddings.model embeddinggemma-2`).
 - Without `embed-local`, default is `ollama`.
-- `LocalOnnxProvider::new("embeddings/models/multilingual-e5-small/onnx")` always succeeds (falls back to dummy 384d when `model.onnx`/`tokenizer.json` missing or `ort` fails to load).
+- `LocalOnnxProvider::new("embeddings/models/<id>/onnx")` validates session loading and enforces strict embeddings when configured. Synthetic fallback is permitted only when `VANTADB_ALLOW_DUMMY_EMBEDDINGS=true` or `--allow-dummy-embeddings` is supplied.
+- **Dimension Isolation & Namespacing:** Embedding models with differing dimensions (e.g., 384d for `multilingual-e5-small` vs. 768d for `embeddinggemma-2`) cannot be mixed inside the same vector namespace. When switching models, write to a dedicated namespace (e.g. `--namespace gemma_docs`) or a dedicated database path.
+- **Runtime Dylib Discovery:** `ort` loads the native ONNX runtime from `ORT_DYLIB_PATH`. When unset, VantaDB auto-probes local Python virtualenvs (`.venv/Lib/site-packages/onnxruntime/capi/onnxruntime.dll` / `.so` / `.dylib`) before falling back to system PATH.
 
 ## `LocalOnnxProvider` internals
 

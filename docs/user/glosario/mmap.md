@@ -321,7 +321,7 @@ fn safe_unmap(mmap: Mmap, path: &Path) -> Result<()> {
 - [zero-config](./zero-config.md) — mmap enables instant loading
 
 ### Related Implementation Documentation
-- [[../architecture/hnsw_index|HNSW Index Architecture]]
+- [HNSW trade-offs and parameters (FND-20)](../../dev/architecture/FND-20-hnsw-tradeoff.md)
 - [Memory Telemetry](../operations/MEMORY_TELEMETRY.md)
 
 ---

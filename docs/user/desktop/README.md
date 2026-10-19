@@ -11,7 +11,7 @@ tags: [vantadb, desktop, overview, vanta-studio]
 
 Desktop console for VantaDB built with **Tauri v2** (Rust shell + React frontend).
 The same UI runs against three interchangeable backends without code changes —
-see [ARCHITECTURE.md](ARCHITECTURE.md) for the design and [GUIDE.md](GUIDE.md)
+see [ARCHITECTURE.md](../../dev/desktop/ARCHITECTURE.md) for the design and [GUIDE.md](GUIDE.md)
 for per-mode user instructions.
 
 ## Transport Modes
@@ -22,7 +22,7 @@ for per-mode user instructions.
 | **HTTP server** | `ServerConnection` → REST `/api/v2/*` on a running `vantadb-server` | Remote server, multiple users, Bearer auth | Server-side |
 | **WASM-OPFS** | `WasmBackend` → `vantadb-wasm` in the browser | Standalone browser demo, offline, zero install | OPFS (IndexedDB fallback) |
 
-Transport is selected automatically at load time (`desktop/src/transport.ts`):
+Transport is selected automatically at load time (`feature-freez/desktop/src/transport.ts`):
 inside Tauri it uses IPC; in a plain browser it uses HTTP (`VITE_VANTA_API_BASE`
 overrides the origin); with `VITE_VANTA_MODE=wasm` or
 `npm run build:wasm` it runs fully in-browser against WASM + OPFS.
@@ -33,11 +33,11 @@ Prerequisites: [Rust](https://rustup.rs), Node.js ≥ 20, and the Tauri v2
 prerequisites for your OS ([tauri.app](https://v2.tauri.app/start/prerequisites/)).
 
 ```bash
-cd desktop
+cd feature-freez/desktop
 npm install
 ```
 
-The Rust shell (`desktop/src-tauri`) links the local `vantadb` crate from the
+The Rust shell (`feature-freez/desktop/src-tauri`) links the local `vantadb` crate from the
 workspace root — build it from the repo root so workspace paths resolve.
 
 ## Running
@@ -57,7 +57,7 @@ node scripts/selfcheck-wasm-e2e.ts   # E2E smoke (needs wasm-pack pkg built)
 
 ## Tauri Commands (IPC surface)
 
-Defined in `desktop/src-tauri/src/commands/`. Connection lifecycle:
+Defined in `feature-freez/desktop/src-tauri/src/commands/`. Connection lifecycle:
 
 | Command | Purpose |
 |---------|---------|
@@ -72,9 +72,9 @@ dispatched to the **active** connection by the `ConnectionManager`.
 
 ## Local Development
 
-- Frontend: React + Vite (`desktop/src/`). Tests: `npm test` (Node TS strip mode + vitest).
-- Rust shell: `cargo test` inside `desktop/src-tauri/`.
-- The connections layer lives in `desktop/src-tauri/src/connections/`
+- Frontend: React + Vite (`feature-freez/desktop/src/`). Tests: `npm test` (Node TS strip mode + vitest).
+- Rust shell: `cargo test` inside `feature-freez/desktop/src-tauri/`.
+- The connections layer lives in `feature-freez/desktop/src-tauri/src/connections/`
   (`manager.rs`, `native.rs`, `server.rs`, `server_client.rs`, `trait.rs`).
 
 ## Troubleshooting
@@ -89,7 +89,7 @@ dispatched to the **active** connection by the `ConnectionManager`.
 
 ## Design Docs
 
-- [ARCHITECTURE.md](ARCHITECTURE.md) — multi-connection model, transports, lifecycle.
+- [ARCHITECTURE.md](../../dev/desktop/ARCHITECTURE.md) — multi-connection model, transports, lifecycle.
 - ADRs: [ADR-0026](../../dev/architecture/adr/ADR-0026-vanta-studio-fase3-rest-dashboard.md)
   (REST `/api/v2/*` + embedded dashboard),
   [ADR-0027](../../dev/architecture/adr/ADR-0027-fase4-cierre-deuda-rest-wasm-opfs.md)

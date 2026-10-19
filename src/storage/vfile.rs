@@ -458,8 +458,8 @@ impl File {
     #[cfg(feature = "encryption")]
     pub fn encryption_stream(&self) -> Option<EncryptionStream<&StdFile>> {
         let file = self.file.as_ref()?;
-        let stream_cipher = Cipher::from_env().ok()?;
-        Some(EncryptionStream::new(file, stream_cipher))
+        let cipher = self.cipher.clone()?;
+        Some(EncryptionStream::new(file, cipher))
     }
 }
 
@@ -910,5 +910,53 @@ mod tests {
         let vf = File::create_in_memory(128);
         let bytes = engine_mmap_resident_bytes(&index, &vf);
         assert!(bytes.is_some());
+    }
+
+    #[cfg(feature = "encryption")]
+    #[test]
+    fn test_vfile_encryption_stream_uses_attached_cipher() {
+        // DUR-02: the stream must use the cipher attached via `with_cipher`,
+        // not an ambient env-resolved one (`Cipher::from_env`). Regression for
+        // the pre-fix behavior where `self.cipher` was ignored entirely.
+        use std::io::{Read, Seek, SeekFrom, Write};
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("enc_stream.vfle");
+        let payload = b"dur02 encrypted payload";
+        let cipher = Cipher::new(&[0x5Au8; 32]);
+        let vf = File::open(path.clone(), 128)
+            .unwrap()
+            .with_cipher(cipher.clone());
+
+        // Act: write through the stream obtained from the File.
+        {
+            let mut stream = vf
+                .encryption_stream()
+                .expect("an attached cipher must yield an encryption stream");
+            stream.write_all(payload).unwrap();
+            stream.flush().unwrap();
+        }
+
+        // Assert 1: the on-disk frame decrypts with the ATTACHED cipher.
+        let raw = std::fs::read(&path).unwrap();
+        let frame_len = u32::from_le_bytes(raw[0..4].try_into().unwrap()) as usize;
+        let frame = &raw[4..4 + frame_len];
+        let decrypted = cipher
+            .decrypt(frame)
+            .expect("attached cipher must decrypt the stream output");
+        assert_eq!(decrypted, payload);
+
+        // Assert 2: no plaintext on disk.
+        assert!(
+            !raw.windows(payload.len()).any(|w| w == payload),
+            "encryption stream must not write plaintext"
+        );
+
+        // Assert 3: the read side round-trips through the same attached cipher.
+        vf.file.as_ref().unwrap().seek(SeekFrom::Start(0)).unwrap();
+        let mut reader = vf.encryption_stream().expect("stream for read");
+        let mut out = vec![0u8; payload.len()];
+        reader.read_exact(&mut out).unwrap();
+        assert_eq!(&out, payload);
     }
 }

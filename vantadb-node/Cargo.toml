@@ -1,6 +1,6 @@
 [package]
 name = "vantadb-node"
-version = "0.5.0"
+version = "0.8.0"
 edition = "2021"
 rust-version = "1.94.1"
 description = "Native Node.js bindings for VantaDB via napi-rs (additional backend to WASM)"
@@ -20,8 +20,12 @@ crate-type = ["cdylib"]
 napi = { version = "3", default-features = false, features = ["napi8", "serde-json", "tokio_rt"] }
 napi-derive = "3"
 serde_json = "1.0"
-tokio = { version = "1", features = ["rt"] }
+tokio = { version = "1", features = ["rt", "sync", "macros"] }
 vantadb = { path = "..", default-features = false, features = ["fjall", "memmap2", "rayon"] }
+# DIST-19 S3: in-process cognitive facade — same path+version pattern as `vantadb`
+# above (version 0.8.0 = [workspace.package], verified). Default (lean) build:
+# LLM-free recall/assemble/consolidate only, no reqwest/tokio pull-in.
+vanta-memory = { path = "../vanta-memory", version = "0.8.0" }
 # WIRE-07: durability gate (OpGate) + ERR-022 clamp policy — std-only leaf.
 vantadb-ffi-core = { path = "../vantadb-ffi-core" }
 
@@ -36,3 +40,7 @@ ignored = ["napi-build"]
 [profile.release]
 lto = true
 strip = "symbols"
+
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"

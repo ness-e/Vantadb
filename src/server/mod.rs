@@ -27,6 +27,7 @@ pub mod middleware;
 pub mod pagination;
 pub mod router;
 pub mod routing;
+pub mod self_healing;
 pub mod state;
 pub mod telemetry;
 
@@ -35,16 +36,17 @@ pub mod telemetry;
 // external callers and downstream binaries do not need to update their
 // imports (REVIEW-10 pre-mortem: do not break the public API).
 
-// Types (from `state`)
+// Types (from `state` and `self_healing`)
+pub use self_healing::{spawn_self_healing_service, ActivityTracker, SelfHealingService};
 pub use state::{
-    AuthIdentity, AuthRateLimiter, AuthState, ConversationTrigger, NodeDTO, QueryRequest,
-    QueryResponse, ServerState, LONG_REQUEST_TIMEOUT, REQUEST_TIMEOUT,
+    AuthIdentity, AuthRateLimiter, AuthState, BackgroundService, ConversationTrigger, NodeDTO,
+    QueryRequest, QueryResponse, ServerHooks, ServerState, LONG_REQUEST_TIMEOUT, REQUEST_TIMEOUT,
 };
 
 // Functions — only those declared `pub` in the original file.
 #[cfg(feature = "tls")]
 pub use bootstrap::build_tls13_config;
-pub use bootstrap::{run, validate_auth_config, wait_for_shutdown_signal};
+pub use bootstrap::{run, run_with_hooks, validate_auth_config, wait_for_shutdown_signal};
 
 pub use middleware::client_ip;
 pub use middleware::{auth_middleware, circuit_breaker_middleware, request_metrics_middleware};

@@ -88,7 +88,7 @@ def error_to_dict(exc: BaseException) -> dict:
 
     Parameters
     ----------
-    exc:
+    exc : BaseException
         Any exception (VantaDB or otherwise) to serialize.
 
     Returns
@@ -148,7 +148,7 @@ class SearchRequest:
     """
 
     namespace: str
-    query_vector: list[float]
+    query_vector: list[float] | None = None
     filters: dict | None = None
     text_query: str | None = None
     top_k: int = 10
@@ -157,7 +157,7 @@ class SearchRequest:
     explain: bool = False
     query_sparse: dict | None = None
 
-    def asdict(self):
+    def asdict(self) -> dict:
         """Return this request as a plain dict (for non-dataclass callers).
 
         Returns
@@ -262,7 +262,7 @@ class AsyncClient:
     async def search(
         self,
         namespace: str,
-        query_vector: list[float],
+        query_vector: list[float] | None = None,
         *,
         filters: dict | None = None,
         text_query: str | None = None,
@@ -330,6 +330,21 @@ class AsyncClient:
             include_quarantined,
         )
 
+    async def graphrag_search(
+        self,
+        namespace: str,
+        *,
+        query: str | None = None,
+        query_vector: list[float] | None = None,
+    ):
+        """Run the GraphRAG pipeline: seed -> expand -> retrieve -> generate context."""
+        return await self._run(
+            self._sync.graphrag_search,
+            namespace,
+            query=query,
+            query_vector=query_vector,
+        )
+
     @property
     def memory(self) -> AsyncMemoryClient:
         """Grouped async memory-record operations (``await db.memory.get(...)``).
@@ -362,15 +377,41 @@ class AsyncClient:
             sparse_vector,
         )
 
+    # ── Cognitive layer (DIST-02: vanta-memory capture/recall) ──
+
+    async def memory_capture(self, session_id: str, messages: list[dict]) -> dict:
+        """Capture conversation turns into the L0 memory layer (LLM-free).
+
+        ``messages``: list of ``{"role", "content", "id"?, "timestamp_ms"?}``
+        dicts. Returns ``{"recorded_count", "filtered_messages", "cursor_ms"}``.
+        """
+        return await self._run(self._sync.memory_capture, session_id, messages)
+
+    async def memory_recall(
+        self,
+        user_text: str,
+        session_key: str,
+        *,
+        scope: str | None = None,
+        max_results: int | None = None,
+    ):
+        """Recall L1 memories + persona + scene navigation for the current turn.
+
+        Returns the injection dict (``prepend_context`` /
+        ``append_system_context`` / ``recalled_memories`` / ``persona`` /
+        ``effective_mode``) or ``None`` when there is nothing to inject.
+        """
+        return await self._run(
+            self._sync.memory_recall, user_text, session_key, scope, max_results
+        )
+
     async def delete_by_filter(self, namespace: str, filters: dict) -> int:
         return await self._run(self._sync.delete_by_filter, namespace, filters)
 
     async def count(self, namespace: str, filters: dict | None = None) -> int:
         return await self._run(self._sync.count, namespace, filters)
 
-    async def similar_to_key(
-        self, namespace: str, key: str, top_k: int = 10
-    ) -> list:
+    async def similar_to_key(self, namespace: str, key: str, top_k: int = 10) -> list:
         return await self._run(self._sync.similar_to_key, namespace, key, top_k)
 
     async def compact_wal(self):
@@ -390,9 +431,7 @@ class AsyncClient:
 
     async def insert_node(self, id, content, vector, fields=None):
         """Insert a node by explicit id (W1/API-02 canonical name)."""
-        return await self._run(
-            self._sync.insert_node, id, content, vector, fields
-        )
+        return await self._run(self._sync.insert_node, id, content, vector, fields)
 
     async def put_batch(self, records):
         """Insert records from a list of dicts (W1/API-02 array-of-objects).
@@ -444,14 +483,10 @@ class AsyncClient:
         return await self._run(self._sync.bulk_import_bytes, data)
 
     async def reindex_hnsw_from_text(self, namespace: str, *, page_size: int = 1000):
-        return await self._run(
-            self._sync.reindex_hnsw_from_text, namespace, page_size
-        )
+        return await self._run(self._sync.reindex_hnsw_from_text, namespace, page_size)
 
     async def export_namespace(self, path, namespace):
-        return await self._run(
-            self._sync.export_namespace, path, namespace
-        )
+        return await self._run(self._sync.export_namespace, path, namespace)
 
     async def export_all(self, path):
         return await self._run(self._sync.export_all, path)
@@ -460,9 +495,7 @@ class AsyncClient:
         return await self._run(self._sync.import_file, path)
 
     async def audit_text_index(self, namespace=None, deep=False):
-        return await self._run(
-            self._sync.audit_text_index, namespace, deep
-        )
+        return await self._run(self._sync.audit_text_index, namespace, deep)
 
     async def repair_text_index(self):
         return await self._run(self._sync.repair_text_index)
@@ -482,14 +515,10 @@ class AsyncClient:
         return await self._run(self._sync.search_vector, vector, top_k)
 
     async def search_batch(self, vectors, top_k=10):
-        return await self._run(
-            self._sync.search_batch, vectors, top_k
-        )
+        return await self._run(self._sync.search_batch, vectors, top_k)
 
     async def search_batch_requests(self, requests, top_k=10):
-        return await self._run(
-            self._sync.search_batch_requests, requests, top_k
-        )
+        return await self._run(self._sync.search_batch_requests, requests, top_k)
 
     async def query(self, iql_query):
         return await self._run(self._sync.query, iql_query)
@@ -513,19 +542,30 @@ class AsyncClient:
         )
 
     async def graph_bfs(self, roots, max_depth=999999, direction="Forward"):
+        return await self._run(self._sync.graph_bfs, roots, max_depth, direction)
+
+    async def graph_bfs_filtered(
+        self,
+        roots,
+        max_depth=999999,
+        direction="Forward",
+        labels=None,
+        time_range=None,
+    ):
         return await self._run(
-            self._sync.graph_bfs, roots, max_depth, direction
+            self._sync.graph_bfs_filtered,
+            roots,
+            max_depth,
+            direction,
+            labels,
+            time_range,
         )
 
     async def graph_dfs(self, roots, max_depth=999999, direction="Forward"):
-        return await self._run(
-            self._sync.graph_dfs, roots, max_depth, direction
-        )
+        return await self._run(self._sync.graph_dfs, roots, max_depth, direction)
 
     async def graph_topological_sort(self, roots):
-        return await self._run(
-            self._sync.graph_topological_sort, roots
-        )
+        return await self._run(self._sync.graph_topological_sort, roots)
 
     async def graph_is_dag(self, roots):
         return await self._run(self._sync.graph_is_dag, roots)
@@ -550,9 +590,7 @@ class AsyncClient:
     async def list_namespaces(self):
         return await self._run(self._sync.list_namespaces)
 
-    async def generate_snippet(
-        self, payload, text_query, with_highlighting=False
-    ):
+    async def generate_snippet(self, payload, text_query, with_highlighting=False):
         return await self._run(
             self._sync.generate_snippet,
             payload,
@@ -589,5 +627,3 @@ class AsyncClient:
 
     def __repr__(self):
         return f"AsyncClient(sync={self._sync!r})"
-
-

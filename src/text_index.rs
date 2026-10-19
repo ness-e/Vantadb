@@ -18,9 +18,9 @@ pub(crate) const TEXT_INDEX_SCHEMA_VERSION: u32 = 4;
 #[cfg(not(feature = "advanced-tokenizer"))]
 pub(crate) const TEXT_INDEX_SCHEMA_VERSION: u32 = 3;
 /// Name of the built-in tokenizer.
-pub(crate) const TOKENIZER_NAME: &str = "lowercase-ascii-alnum";
-/// Version of the built-in tokenizer.
-pub(crate) const TOKENIZER_VERSION: u32 = 1;
+pub(crate) const TOKENIZER_NAME: &str = "lowercase-alnum";
+/// Version of the built-in tokenizer (v2: Unicode alphanumeric, EGO-04).
+pub(crate) const TOKENIZER_VERSION: u32 = 2;
 /// Name of the advanced (tantivy-multilingual) tokenizer.
 #[cfg(feature = "advanced-tokenizer")]
 pub(crate) const ADVANCED_TOKENIZER_NAME: &str = "tantivy-multilingual";
@@ -173,7 +173,9 @@ pub(crate) fn tokenize_with_spec(spec: &TextTokenizerSpec, text: &str) -> Vec<St
     let mut current = String::new();
 
     for ch in text.chars().flat_map(char::to_lowercase) {
-        if ch.is_ascii_alphanumeric() {
+        // EGO-04: Unicode alphanumeric — accented words stay whole
+        // ("cuáles" not "cu"+"les"); punctuation still separates.
+        if ch.is_alphanumeric() {
             current.push(ch);
         } else if !current.is_empty() {
             tokens.push(std::mem::take(&mut current));
@@ -849,9 +851,21 @@ mod tests {
     use super::*;
 
     #[test]
-    fn tokenization_is_lowercase_ascii_alnum() {
+    fn tokenization_is_lowercase_alnum() {
         let tokens = tokenize("Hello, VantaDB! Agent-42 memory.");
         assert_eq!(tokens, vec!["hello", "vantadb", "agent", "42", "memory"]);
+    }
+
+    #[test]
+    fn tokenization_keeps_accented_words_whole_ego04() {
+        // EGO-04 RED→GREEN: ASCII-only split "cuáles" into "cu"+"les".
+        let tokens = tokenize("¿Cuáles son los principios?");
+        assert!(tokens.contains(&"cuáles".to_string()), "got: {tokens:?}");
+        assert!(
+            tokens.contains(&"principios".to_string()),
+            "got: {tokens:?}"
+        );
+        assert!(!tokens.iter().any(|t| t == "cu" || t == "les"));
     }
 
     #[test]
@@ -998,8 +1012,8 @@ mod tests {
         #[cfg(not(feature = "advanced-tokenizer"))]
         {
             assert_eq!(spec.schema_version, 3);
-            assert_eq!(spec.tokenizer.name, "lowercase-ascii-alnum");
-            assert_eq!(spec.tokenizer.version, 1);
+            assert_eq!(spec.tokenizer.name, "lowercase-alnum");
+            assert_eq!(spec.tokenizer.version, 2);
         }
         assert_eq!(spec.key_format, "namespace\\0token\\0key");
     }

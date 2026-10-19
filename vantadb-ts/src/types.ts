@@ -72,6 +72,11 @@ export interface MemoryRecord {
   // iterable; consumers must accept either form.
   vector?: Float32Array | number[];
   expires_at_ms?: string | number;
+  /** Key (same namespace) of the record that supersedes this one (ADR-028);
+   * absent = current. Superseded records stay in storage (soft-dead). */
+  superseded_by?: string | null;
+  /** Unix-ms timestamp when the supersession was recorded (ADR-028). */
+  superseded_at_ms?: string | number | null;
   /** Provenance class (ADR-046): `"Asserted"` (direct writer claim) or
    * `"Derived"` (computed by the engine from `derived_from` parents). */
   confidence_class?: "Asserted" | "Derived";
@@ -163,6 +168,18 @@ export interface ListInput extends ListOptions {
   namespace: string;
 }
 
+/**
+ * Input for `scan` (EGO-11): namespace plus page cursor only — no filters.
+ * `scan()` is the explicit full-sweep entry point; `search`/`searchMulti`
+ * rank by relevance and require a query signal, so they never sweep.
+ */
+export interface ScanInput {
+  namespace: string;
+  limit?: number;
+  /** Opaque page cursor, same form as `ListOptions.cursor`. */
+  cursor?: string | number;
+}
+
 /** Input for `count`. */
 export interface CountInput {
   namespace: string;
@@ -192,7 +209,10 @@ export interface SimilarToKeyInput {
 
 export interface SearchRequest {
   namespace: string;
-  query_vector: number[];
+  /** Optional since EGO-02: omit (or `[]`) when running text-only (`text_query`)
+   * or sparse-only (`query_sparse`) search — it defaults to `[]`. An empty
+   * vector without `text_query`/`query_sparse` is still rejected. */
+  query_vector?: number[];
   /** Sparse query vector keyed by dimension id. Fused with any dense/text
    * scores. Requires the native backend (`vantadb/native`); the WASM backend
    * throws an explicit error (sparse is not wired there). An empty
@@ -435,4 +455,48 @@ export interface GraphDegreeEntry {
   id: string;
   in_degree: number;
   out_degree: number;
+}
+
+// ---------------------------------------------------------------------------
+// GraphRAG (DIST-15) — canonical wire shape shared by Py/TS/Node/WASM.
+// ---------------------------------------------------------------------------
+
+/** A ranked GraphRAG node. */
+export interface GraphRagNode {
+  /** Decimal string (u128 ids exceed JS safe integers, API-01). */
+  id: string;
+  content: string;
+  /** Combined relevance: 0.6·seed + 0.3·hop_boost + 0.1·degree_factor. */
+  score: number;
+  /** BFS distance from the nearest seed (0 = seed itself). */
+  hop_distance: number;
+}
+
+/** A relationship edge between two GraphRAG nodes. */
+export interface GraphRagEdge {
+  /** Decimal string node id (u128). */
+  source: string;
+  /** Decimal string node id (u128). */
+  target: string;
+  label: string;
+}
+
+/** Pipeline counters for a GraphRAG run. */
+export interface GraphRagStats {
+  seeds_found: number;
+  nodes_expanded: number;
+  total_candidates: number;
+  expansion_hops_used: number;
+}
+
+/**
+ * Result of `graphragSearch()` / `NativeVantaDB.graphragSearch()` — the
+ * canonical wire shape shared by every binding (Py/TS/Node/WASM).
+ */
+export interface GraphRagResult {
+  nodes: GraphRagNode[];
+  edges: GraphRagEdge[];
+  /** LLM-ready context block (nodes + relationships), empty when no seeds. */
+  context_text: string;
+  stats: GraphRagStats;
 }

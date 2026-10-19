@@ -67,13 +67,27 @@ def _write_temporal_fixture(tmp_path):
         "confidence": 1.0,
     }
     lines = [
-        {**base, "namespace": "tt", "key": "early", "payload": "alpha temporal",
-         "valid_at_ms": 1000, "invalid_at_ms": 2000},
-        {**base, "namespace": "tt", "key": "late", "payload": "alpha temporal",
-         "valid_at_ms": 2000, "invalid_at_ms": 3000},
+        {
+            **base,
+            "namespace": "tt",
+            "key": "early",
+            "payload": "alpha temporal",
+            "valid_at_ms": 1000,
+            "invalid_at_ms": 2000,
+        },
+        {
+            **base,
+            "namespace": "tt",
+            "key": "late",
+            "payload": "alpha temporal",
+            "valid_at_ms": 2000,
+            "invalid_at_ms": 3000,
+        },
     ]
     path = tmp_path / "sch07-temporal.jsonl"
-    path.write_text("\n".join(json.dumps(line) for line in lines) + "\n", encoding="utf-8")
+    path.write_text(
+        "\n".join(json.dumps(line) for line in lines) + "\n", encoding="utf-8"
+    )
     return path
 
 
@@ -131,12 +145,20 @@ def _write_quarantine_fixture(tmp_path):
     }
     lines = [
         {**base, "namespace": "q", "key": "safe", "payload": "alpha shared"},
-        {**base, "namespace": "q", "key": "suspect", "payload": "alpha shared",
-         "quarantined_at_ms": 1500, "quarantine_reason": "unreviewed_import",
-         "quarantined_by": "system:import"},
+        {
+            **base,
+            "namespace": "q",
+            "key": "suspect",
+            "payload": "alpha shared",
+            "quarantined_at_ms": 1500,
+            "quarantine_reason": "unreviewed_import",
+            "quarantined_by": "system:import",
+        },
     ]
     path = tmp_path / "sch07-quarantine.jsonl"
-    path.write_text("\n".join(json.dumps(line) for line in lines) + "\n", encoding="utf-8")
+    path.write_text(
+        "\n".join(json.dumps(line) for line in lines) + "\n", encoding="utf-8"
+    )
     return path
 
 

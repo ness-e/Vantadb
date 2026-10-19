@@ -30,6 +30,10 @@ fn main() -> anyhow::Result<()> {
 fn run() -> anyhow::Result<()> {
     let args = Cli::parse();
 
+    if args.json {
+        std::env::set_var("VANTADB_QUIET", "1");
+    }
+
     if args.verbose {
         console::init_logging(LogFormat::Full);
     }
@@ -201,25 +205,25 @@ fn run() -> anyhow::Result<()> {
             }
         },
 
+        // FIND-237: positional TARGET wins; the global `--db` is the fallback
+        // when the positional is omitted (e.g. `migrate check --db <db>`).
         Commands::Migrate(cmd) => match cmd {
             vantadb::cli::MigrateCommand::Plan { target } => {
-                cli_handlers::cmd_migrate_plan(&target, args.verbose, args.json)?
+                let target = target.as_deref().unwrap_or(&args.db);
+                cli_handlers::cmd_migrate_plan(target, args.verbose, args.json)?
             }
             vantadb::cli::MigrateCommand::Run {
                 target,
                 format,
                 dry_run,
                 force,
-            } => cli_handlers::cmd_migrate(
-                &target,
-                &format,
-                dry_run,
-                force,
-                args.verbose,
-                args.json,
-            )?,
+            } => {
+                let target = target.as_deref().unwrap_or(&args.db);
+                cli_handlers::cmd_migrate(target, &format, dry_run, force, args.verbose, args.json)?
+            }
             vantadb::cli::MigrateCommand::Check { target } => {
-                cli_handlers::cmd_migrate_check(&target, args.verbose, args.json)?
+                let target = target.as_deref().unwrap_or(&args.db);
+                cli_handlers::cmd_migrate_check(target, args.verbose, args.json)?
             }
         },
 
@@ -347,6 +351,21 @@ fn run() -> anyhow::Result<()> {
             let engine = std::sync::Arc::new(cli_handlers::open_database(&args.db, true)?);
             vantadb::tui::run_tui(engine)?
         }
+
+        Commands::Config(cmd) => match cmd {
+            vantadb::cli::ConfigCommand::Show { reveal_secrets } => {
+                cli_handlers::cmd_config_show(&args.db, reveal_secrets, args.json)?
+            }
+            vantadb::cli::ConfigCommand::Set { key, value, global } => {
+                cli_handlers::cmd_config_set(&key, &value, global, args.json)?
+            }
+            vantadb::cli::ConfigCommand::Init { force } => {
+                cli_handlers::cmd_config_init(force, args.json)?
+            }
+            vantadb::cli::ConfigCommand::Doctor => {
+                cli_handlers::cmd_config_doctor(&args.db, args.json)?
+            }
+        },
     }
 
     Ok(())

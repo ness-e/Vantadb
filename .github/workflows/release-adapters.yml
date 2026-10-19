@@ -3,12 +3,16 @@ name: 'RELEASE: Adapters — PyPI Publish'
 on:
   workflow_dispatch:
     inputs:
+      publish_pypi:
+        description: "Upload to Production PyPI"
+        required: false
+        default: "true"
       publish_testpypi:
         description: "Upload to TestPyPI"
         required: false
         default: "false"
   push:
-    tags: ["adapters-v*.*.*"]
+    tags: ["v*.*.*", "adapters-v*.*.*"]
 
 permissions:
   contents: read
@@ -26,7 +30,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        adapter: [langchain, llamaindex, mem0, crewai, dspy, haystack, letta, openai, ollama]
+        # FIND-273 (owner 2026-10-06): openai/ollama twins retired from the release —
+        # canonical names belong to the Rust providers (see PUBLISH.md §Adapters).
+        adapter: [langchain, llamaindex, mem0, crewai, dspy, haystack, letta]
 
     steps:
       - name: Checkout
@@ -39,7 +45,7 @@ jobs:
           cache: pip
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # v1
+        uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # v1
         with:
           toolchain: stable
 
@@ -65,7 +71,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        adapter: [langchain, llamaindex, mem0, crewai, dspy, haystack, letta, openai, ollama]
+        # FIND-273 (owner 2026-10-06): openai/ollama twins retired from the release —
+        # canonical names belong to the Rust providers (see PUBLISH.md §Adapters).
+        adapter: [langchain, llamaindex, mem0, crewai, dspy, haystack, letta]
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -121,7 +129,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: publish-adapter
     timeout-minutes: 10
-    if: startsWith(github.ref, 'refs/tags/adapters-v')
+    if: >
+      startsWith(github.ref, 'refs/tags/v') ||
+      startsWith(github.ref, 'refs/tags/adapters-v') ||
+      (github.event_name == 'workflow_dispatch' && inputs.publish_pypi != 'false' && inputs.publish_testpypi != 'true')
     environment: pypi
     permissions:
       id-token: write
@@ -159,3 +170,4 @@ jobs:
           # ya tiene) — re-run del mismo tag hace skip graceful en vez de
           # fallar con HTTP 400 por versión duplicada.
           skip-existing: true
+          password: ${{ secrets.PYPI_TOKEN }}

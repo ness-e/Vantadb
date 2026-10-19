@@ -203,6 +203,28 @@ impl InsertBatchConfig {
 pub struct RbacCfg {
     /// Map of token values to role names.
     pub token_role_map: HashMap<String, String>,
+    /// MEMG-04: operator-declared namespace-scoped roles (tenant isolation).
+    ///
+    /// Registered in addition to the built-in `admin`/`reader`/`writer`
+    /// roles; an entry whose name collides with a built-in is ignored (the
+    /// built-in definition cannot be overridden). A credential mapped (via
+    /// `token_role_map`) to a namespace-scoped role can only touch the
+    /// namespaces granted here — on every namespace-enforced surface.
+    pub roles: HashMap<String, RbacRoleCfg>,
+}
+
+/// MEMG-04: namespace grants for one operator-declared role.
+///
+/// A role with only namespace grants has no global read/write permission:
+/// requests whose namespace cannot be determined fall back to the global
+/// check and are denied (fail closed).
+#[derive(Debug, Clone, Default)]
+pub struct RbacRoleCfg {
+    /// Namespaces this role may read (and search/list/export).
+    pub namespace_read: Vec<String>,
+    /// Namespaces this role may write (write covers delete in v0.9.0;
+    /// action-level separation is FIND-301).
+    pub namespace_write: Vec<String>,
 }
 
 /// Compat alias: `RbacConfig` es el nombre historico; `RbacCfg` es el canonico F3C.
@@ -252,6 +274,8 @@ pub struct ServerCfg {
     pub audit_log_path: Option<std::path::PathBuf>,
     pub audit_max_bytes: u64,
     pub audit_max_files: u32,
+    pub self_healing: bool,
+    pub self_healing_quiet_secs: u64,
 }
 
 /// LLM domain view (F3C C3).
@@ -271,6 +295,8 @@ pub struct LlmCfg {
     /// Values: `ollama`, `openai`, `local` (ONNX). Configured via `VANTADB_EMBEDDING_PROVIDER`
     /// (legacy `VANTA_EMBEDDING_PROVIDER` is deprecated).
     pub embedding_provider: String,
+    /// When true, embedding generation fails closed if ONNX or local models are unavailable.
+    pub strict_embeddings: bool,
     #[cfg(feature = "advanced-tokenizer")]
     pub advanced_tokenizer_config: Option<AdvancedTokenizerConfig>,
 }
@@ -350,6 +376,8 @@ impl Default for ServerCfg {
             audit_log_path: None,
             audit_max_bytes: 10 * 1024 * 1024,
             audit_max_files: 5,
+            self_healing: true,
+            self_healing_quiet_secs: 300,
         }
     }
 }
@@ -364,6 +392,7 @@ impl Default for LlmCfg {
             openai_api_key: None,
             openai_model: "text-embedding-3-small".to_string(),
             embedding_provider: "ollama".to_string(),
+            strict_embeddings: true,
             #[cfg(feature = "advanced-tokenizer")]
             advanced_tokenizer_config: None,
         }
@@ -444,6 +473,8 @@ impl From<&Config> for ServerCfg {
             audit_log_path: cfg.audit_log_path.clone(),
             audit_max_bytes: cfg.audit_max_bytes,
             audit_max_files: cfg.audit_max_files,
+            self_healing: cfg.self_healing,
+            self_healing_quiet_secs: cfg.self_healing_quiet_secs,
         }
     }
 }
@@ -458,6 +489,7 @@ impl From<&Config> for LlmCfg {
             openai_api_key: cfg.openai_api_key.clone(),
             openai_model: cfg.openai_model.clone(),
             embedding_provider: cfg.embedding_provider.clone(),
+            strict_embeddings: cfg.strict_embeddings,
             #[cfg(feature = "advanced-tokenizer")]
             advanced_tokenizer_config: cfg.advanced_tokenizer_config.clone(),
         }
@@ -498,6 +530,7 @@ impl From<&Config> for RbacCfg {
     fn from(cfg: &Config) -> Self {
         Self {
             token_role_map: cfg.rbac_config.token_role_map.clone(),
+            roles: cfg.rbac_config.roles.clone(),
         }
     }
 }
@@ -657,8 +690,20 @@ pub struct Config {
     /// Values: `ollama`, `openai`, `local` (ONNX). Configured via `VANTADB_EMBEDDING_PROVIDER`
     /// (legacy `VANTA_EMBEDDING_PROVIDER` is deprecated).
     pub embedding_provider: String,
+    /// When true, embedding operations fail-closed if ONNX or local models are unavailable.
+    /// Default: `true`. Overridden via `VANTADB_STRICT_EMBEDDINGS=false` or `VANTADB_ALLOW_DUMMY_EMBEDDINGS=true`.
+    pub strict_embeddings: bool,
     /// Optional memory limit in bytes.
     pub memory_limit: Option<u64>,
+    /// MEMG-04: opt-in per-namespace record quota (fresh inserts only;
+    /// updates and same-key rewrites never count). `None` (default) =
+    /// unlimited. Configured via `VANTADB_MAX_RECORDS_PER_NAMESPACE`
+    /// (`0` also means unlimited). Enforced on `put`/`put_batch`/
+    /// `put_record_exact` (the JSONL import path); the `.vdbdump` bulk-import
+    /// path is exempt in 0.9.0 — it bypasses both the check and the
+    /// text-index counter (FIND-304). Best-effort under concurrency — the
+    /// isolation barrier is namespace-scoped RBAC, this is a resource control.
+    pub max_records_per_namespace: Option<u64>,
     /// If true, the engine operates in read-only mode.
     pub read_only: bool,
     /// If true, force mmap-based vector storage.
@@ -819,6 +864,12 @@ pub struct Config {
     /// periodically. `0` disables the sweeper. Default: 60000 (1 minute).
     /// Configured via `VANTADB_TTL_SWEEP_INTERVAL_MS`.
     pub ttl_sweep_interval_ms: u64,
+    /// When true, enables background self-healing maintenance (vacuum during quiet windows).
+    /// Default: `true`. Configured via `VANTADB_SELF_HEALING`.
+    pub self_healing: bool,
+    /// Minimum seconds of client inactivity before self-healing maintenance executes (default: 300s / 5 minutes).
+    /// Configured via `VANTADB_SELF_HEALING_QUIET_SECS`.
+    pub self_healing_quiet_secs: u64,
     /// Bulk import commit interval — number of records per batch commit (default: 10000).
     /// Configured via `VANTADB_BULK_COMMIT_INTERVAL`.
     pub bulk_commit_interval: Option<usize>,
@@ -855,9 +906,11 @@ pub struct Config {
     pub rbac_config: RbacConfig,
     /// Optional AES-256-GCM encryption key (hex-encoded 32-byte value).
     ///
-    /// When set, storage files are transparently encrypted at rest using this
-    /// key. Requires the `encryption` feature. Configured via
-    /// `VANTADB_ENCRYPTION_KEY` environment variable.
+    /// Requires the `encryption` feature. Configured via
+    /// `VANTADB_ENCRYPTION_KEY`. **Not yet applied to any storage write
+    /// path:** WAL, HNSW, VantaFile, backend KV, text index and snapshots
+    /// remain plaintext (FIND-249); the engine warns at open when the feature
+    /// and key are both active.
     pub encryption_key: Option<String>,
     /// Number of WAL shards for reduced mutex contention (default: 4).
     /// Each shard has its own append lock; workloads hash node IDs across shards.
@@ -1058,6 +1111,17 @@ impl Default for Config {
                 debug!(val = %v, "VANTADB_EMBEDDING_PROVIDER");
                 v
             },
+            strict_embeddings: {
+                let v = match env::var("VANTADB_STRICT_EMBEDDINGS") {
+                    Ok(s) => !matches!(s.trim().to_lowercase().as_str(), "0" | "false" | "no"),
+                    Err(_) => match env::var("VANTADB_ALLOW_DUMMY_EMBEDDINGS") {
+                        Ok(s) => !matches!(s.trim().to_lowercase().as_str(), "1" | "true" | "yes"),
+                        Err(_) => true,
+                    },
+                };
+                debug!(val = v, "VANTADB_STRICT_EMBEDDINGS");
+                v
+            },
             memory_limit: {
                 let v = match env::var("VANTADB_MEMORY_LIMIT") {
                     Ok(raw) => match parse_memory_limit(&raw) {
@@ -1075,6 +1139,13 @@ impl Default for Config {
                 };
                 debug!(?v, "VANTADB_MEMORY_LIMIT");
                 v
+            },
+            max_records_per_namespace: {
+                // MEMG-04: 0 (default) = unlimited. Legacy-style env parse
+                // (same shape as the other numeric knobs above).
+                let v = parse_env_or("VANTADB_MAX_RECORDS_PER_NAMESPACE", 0u64);
+                debug!(val = v, "VANTADB_MAX_RECORDS_PER_NAMESPACE");
+                (v > 0).then_some(v)
             },
             read_only: false,
             force_mmap: false,
@@ -1314,6 +1385,16 @@ impl Default for Config {
                 debug!(val = v, "VANTADB_TTL_SWEEP_INTERVAL_MS");
                 v
             },
+            self_healing: {
+                let v = parse_env_or("VANTADB_SELF_HEALING", true);
+                debug!(val = v, "VANTADB_SELF_HEALING");
+                v
+            },
+            self_healing_quiet_secs: {
+                let v = parse_env_or("VANTADB_SELF_HEALING_QUIET_SECS", 300u64);
+                debug!(val = v, "VANTADB_SELF_HEALING_QUIET_SECS");
+                v
+            },
             bulk_commit_interval: {
                 let v = parse_env_or::<u32>("VANTADB_BULK_COMMIT_INTERVAL", 0)
                     .try_into()
@@ -1453,6 +1534,12 @@ impl Config {
     /// Overrides the memory limit.
     pub fn with_memory_limit(mut self, limit: u64) -> Self {
         self.memory_limit = Some(limit);
+        self
+    }
+
+    /// Sets the per-namespace record quota (MEMG-04). `0` = unlimited.
+    pub fn with_max_records_per_namespace(mut self, limit: u64) -> Self {
+        self.max_records_per_namespace = (limit > 0).then_some(limit);
         self
     }
 
@@ -1657,7 +1744,9 @@ impl Config {
     /// Sets the encryption key for at-rest AES-256-GCM encryption.
     ///
     /// The key should be a hex-encoded 32-byte (64 hex char) value.
-    /// Requires the `encryption` feature to have any effect.
+    /// Requires the `encryption` feature. Note: the feature ships AES-256-GCM
+    /// primitives but no storage write path is wired yet — data at rest stays
+    /// plaintext (FIND-249) and the engine warns at open.
     pub fn with_encryption(mut self, key: String) -> Self {
         self.encryption_key = Some(key);
         self
@@ -2416,6 +2505,7 @@ mod tests {
             token_role_map: [("tok".to_string(), "admin".to_string())]
                 .into_iter()
                 .collect(),
+            ..Default::default()
         };
         let legacy: RbacConfig = cfg.clone();
         assert_eq!(legacy.token_role_map.get("tok").unwrap(), "admin");

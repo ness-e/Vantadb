@@ -133,7 +133,7 @@ pub fn list_scenes(
 ///
 /// Compares `updated` lexicographically: every timestamp comes from
 /// [`epoch_ms_to_rfc3339`] with a fixed-width format, so string order equals
-/// chronological order.
+/// chronological order. Ties are broken by `heat` descending.
 pub fn current_scene(
     db: &vantadb::sdk::Embedded,
     session_key: &str,
@@ -142,7 +142,12 @@ pub fn current_scene(
     Ok(blocks
         .into_iter()
         .filter(|b| !b.is_deleted())
-        .max_by(|a, b| a.meta.updated.cmp(&b.meta.updated)))
+        .max_by(|a, b| {
+            a.meta
+                .updated
+                .cmp(&b.meta.updated)
+                .then_with(|| a.meta.heat.cmp(&b.meta.heat))
+        }))
 }
 
 // ── helpers ──

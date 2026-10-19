@@ -79,10 +79,15 @@ pub fn collect_edges(
     top_ids: &HashSet<u128>,
     expanded_set: &HashSet<u128>,
 ) -> Result<Vec<GraphRagEdge>> {
-    let all: Vec<u128> = top_ids.iter().copied().collect();
+    let mut all: Vec<u128> = top_ids.iter().copied().collect();
     if all.is_empty() {
         return Ok(Vec::new());
     }
+    // DIST-15: deterministic node iteration. `HashSet` is seeded per instance,
+    // so iterating it directly produced differently ordered edges on two runs
+    // over the same graph — a non-deterministic `context_text` that broke
+    // cross-binding parity. Sort by id before fetching.
+    all.sort_unstable();
 
     let nodes = engine.get_many(&all)?;
     let mut edges = Vec::new();
@@ -98,6 +103,12 @@ pub fn collect_edges(
             }
         }
     }
+
+    // Final order is pinned: (source, target, label). Cross-binding parity
+    // requires the same `context_text` for the same graph on every surface.
+    edges.sort_by(|a, b| {
+        (a.source, a.target, a.label.as_str()).cmp(&(b.source, b.target, b.label.as_str()))
+    });
 
     Ok(edges)
 }

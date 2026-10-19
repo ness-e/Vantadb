@@ -118,7 +118,7 @@ pub struct InjectionBlock {
 
 impl InjectionBlock {
     /// An empty block: nothing to inject (disabled budget / no memory).
-    fn empty(budget_tokens: u64) -> Self {
+    pub(crate) fn empty(budget_tokens: u64) -> Self {
         Self {
             budget_tokens,
             ..Self::default()

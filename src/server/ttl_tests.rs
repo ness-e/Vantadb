@@ -61,6 +61,7 @@ fn ttl_state(namespace_defaults: &[(&str, u64)]) -> TtlContext {
         rbac_config: Default::default(),
         trusted_proxies: vec![],
         conversation_trigger: None,
+        activity_tracker: Arc::new(crate::server::self_healing::ActivityTracker::new()),
     });
     TtlContext {
         _temp_dir: dir,

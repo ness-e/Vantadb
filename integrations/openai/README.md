@@ -4,19 +4,22 @@ OpenAI embedding + storage adapter for [VantaDB](https://github.com/ness-e/Vanta
 
 ## Install
 
-> **Not on PyPI yet.** The `vantadb-openai` package builds and passes
-> `twine check` locally; it will go live with the first `adapters-v*` tag
-> release. Until then, install from source.
+> **Superseded — not part of the PyPI release (FIND-273, owner decision
+> 2026-10-06).** The `vantadb-openai` PyPI name and `vantadb_openai` module
+> belong to the canonical Rust provider
+> [`providers/openai`](../../providers/openai/README.md); this Python adapter
+> stays in-repo as a source-only reference and is **not** published by the
+> `adapters-v*` lane.
 
 ```bash
-# Today, from a repo checkout
+# Source-only, from a repo checkout
 cd integrations/openai && pip install .
 ```
 
-### Install from PyPI (after first release)
+### From PyPI (the provider, after its first release)
 
 ```bash
-pip install vantadb-openai
+pip install vantadb-openai   # installs the Rust provider (providers-v* lane)
 ```
 
 ## Quickstart

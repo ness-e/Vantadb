@@ -143,11 +143,6 @@ mod tests {
     use crate::node::{LabelIntern, UnifiedNode};
     use crate::sdk::types::Value;
 
-    #[allow(dead_code)]
-    fn empty_intern() -> LabelIntern {
-        LabelIntern::new()
-    }
-
     #[test]
     fn test_node_input_new() {
         let input = NodeInput::new(42);

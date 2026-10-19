@@ -305,36 +305,54 @@ cargo install --git https://github.com/ness-e/Vantadb.git --bin vanta-cli
 Una vez instalado y añadido a tu `PATH`, puedes usar el comando global `vanta-cli`:
 
 ```bash
+# Configuración y Diagnóstico de Salud
+vanta-cli config show              # Muestra la configuración efectiva de 5 capas
+vanta-cli config doctor            # Pre-vuelo: storage, runtime ONNX, locks y memoria
+vanta-cli config set port 8081     # Persiste ajustes en vanta.toml o ~/.vanta/config.toml
+
+# Servidor In-Process y Puerta de Agentes MCP
+vanta-cli server start --port 8080 # Inicia el servidor unificado HTTP/REST con Self-Healing
+vanta-cli server --mcp             # Inicia el servidor Model Context Protocol (MCP) vía Stdio
+
+# Operaciones de Datos y Grafo de Conocimiento
 vanta-cli put --db ./vanta_data --namespace agent/main --key mem-1 --payload "hello"
 vanta-cli list --db ./vanta_data --namespace agent/main
 vanta-cli export --db ./vanta_data --namespace agent/main --out ./memory.jsonl
 vanta-cli rebuild-index --db ./vanta_data
 vanta-cli audit-index --db ./vanta_data --namespace agent/main --json --deep
 vanta-cli repair-text-index --db ./vanta_data
+vanta-cli verify --db ./vanta_data
+vanta-cli certificate verify --file ./cert.json --db ./vanta_data
 ```
 
 *(Si estás desarrollando localmente dentro de este repositorio, también puedes ejecutar directamente con `cargo run --bin vanta-cli -- <comando>`).*
 
 ---
 
-## Modo servidor opcional
+## Modo Servidor y Demonio Self-Healing
 
-Para desarrollo local o exposición a la red sin Python, puedes ejecutar el binario independiente. Envuelve el núcleo embebido; no es la identidad principal del producto.
+Para exposición a la red o alojamiento de agentes sin bindings de Python, puedes ejecutar el servidor directamente vía `vanta-cli server start` o mediante el binario independiente `vantadb-server`.
 
-1. Descarga el tarball de tu plataforma desde [GitHub Releases](https://github.com/ness-e/Vantadb/releases) (p. ej. `vantadb-x86_64-unknown-linux-gnu.tar.gz`).
-2. Extrae y ejecuta el binario:
+### Capacidades Principales:
+- **Runtime Unificado In-Process:** Sirve APIs REST y herramientas MCP de forma nativa sin generar subprocesos externos.
+- **Auto-Mantenimiento (Self-Healing):** Un demonio interno en segundo plano audita la actividad mediante `ActivityTracker`. En ventanas de inactividad, ejecuta `vacuum` y reconstrucción de índices HNSW con cancelación cooperativa inmediata si se reanudan las consultas del usuario.
+- **Auto-Recuperación de Locks Huérfanos:** Detecta bloqueos stale tras fallos de energía o terminaciones abruptas mediante sondeos de PID activo en el SO (`OpenProcess` en Windows / `kill(pid, 0)` en Unix) y recupera el acceso al almacenamiento.
+- **Modo Estricto de Embeddings:** Validación *fail-closed* activa por defecto en modelos de embeddings, impidiendo la degradación sintética silenciosa.
 
-   ```bash
-   tar xzf vantadb-x86_64-unknown-linux-gnu.tar.gz
-   ./vantadb-server
-   ```
+```bash
+# Iniciar servidor con puerto y host personalizados
+vanta-cli server start --host 0.0.0.0 --port 8080
+
+# O ejecutar el binario independiente
+./vantadb-server
+```
 
 **Predeterminados:**
 
 - **Directorio de datos**: crea una carpeta `vantadb_data` en el directorio actual de ejecución.
 - **Dirección de bind**: escucha en `127.0.0.1:8080` (por defecto, localhost seguro).
 
-**Exponer a la red:** sobrescribe el host mediante la variable de entorno:
+**Exponer a la red:** sobrescribe el host mediante la variable de entorno o flag CLI:
 
 ```bash
 export VANTADB_HOST=0.0.0.0

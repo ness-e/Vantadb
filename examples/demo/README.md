@@ -17,14 +17,14 @@ End-to-end showcase of VantaDB's embedded persistent memory engine for local AI 
 ## Requirements
 
 - Python ≥ 3.11
-- [vantadb-py](https://pypi.org/project/vantadb-py/) ≥ 0.5.0
+- [vantadb-py](https://pypi.org/project/vantadb-py/) ≥ 0.8.0
 - _Optional:_ `sentence-transformers` for real embeddings
 
 ## Installation
 
 ```bash
 # 1. Install VantaDB Python SDK
-pip install "vantadb-py>=0.5.0"
+pip install "vantadb-py>=0.8.0"
 
 # 2. (Optional) Enable real embeddings
 pip install sentence-transformers

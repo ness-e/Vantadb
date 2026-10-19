@@ -1,4 +1,4 @@
-#![doc(html_root_url = "https://docs.rs/vantadb/0.3.0/vantadb/")]
+#![doc(html_root_url = "https://docs.rs/vantadb/0.8.0/vantadb/")]
 #![deny(unsafe_op_in_unsafe_fn)]
 // Tests use `unwrap`/`expect` freely for invariants that would panic anyway in
 // production. Keep deny on prod code, allow inside `#[cfg(test)]` only.
@@ -52,7 +52,7 @@
 //! engine.close().unwrap();
 //! ```
 
-/// AES-256-GCM at-rest encryption for storage files.
+/// AES-256-GCM primitives for at-rest encryption (not yet wired to storage write paths — data at rest remains plaintext; FIND-249).
 #[cfg(feature = "encryption")]
 pub mod crypto;
 
@@ -190,18 +190,18 @@ pub use sdk::{
     Capabilities, ConfidenceClass, EdgeRecord, Embedded, ExportReport, Fields, FilterOp,
     GroupByConfig, HybridFusionReport, ImportReport, IndexRebuildReport, MemoryFilter,
     MemoryFilterItem, MemoryInput, MemoryListOptions, MemoryListPage, MemoryMetadata, MemoryRecord,
-    MemorySearchHit, MemorySearchPage, MemorySearchRequest, MmrConfig, NamespaceStats,
-    NamespaceStatsMap, NodeInput, NodeRecord, OperationalMetrics, QueryResult, RangeFilter,
-    RuntimeProfile, SearchExplanation, SearchExplanationHit, SearchHit, StorageTier,
-    TextIndexAuditReport, TextIndexRepairReport, ValidWindow, Value, DERIVATION_DISCOUNT,
-    MAX_DERIVATION_DEPTH,
+    MemorySearchHit, MemorySearchPage, MemorySearchRequest, MergeOutcome, MergeResult, MmrConfig,
+    NamespaceStats, NamespaceStatsMap, NodeInput, NodeRecord, OperationalMetrics, QueryResult,
+    RangeFilter, ReinforceOutcome, RuntimeProfile, SearchExplanation, SearchExplanationHit,
+    SearchHit, StorageTier, TextIndexAuditReport, TextIndexRepairReport, ValidWindow, Value,
+    DERIVATION_DISCOUNT, MAX_DERIVATION_DEPTH,
 };
 pub use sdk::{
     SkillCreateInput, SkillListOptions, SkillListPage, SkillPatchInput, SkillRecord,
     SkillUpdateInput, SkillWriteResult,
 };
 pub use storage::vfile::VFILE_VERSION;
-pub use storage::BackendKind;
+pub use storage::{BackendKind, MergeReport, PipelineMode, PipelineReport, VacuumReport};
 pub use text_index::{TextIndexSpec, TextTokenizerSpec};
 pub use utils::compute_confidence_friction;
 pub use wal::{WalReader, WalRecord, WalWriter};

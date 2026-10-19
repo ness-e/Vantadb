@@ -17,7 +17,7 @@ created: "2026-10-01"
 WIRE-01 cerró el loop de memoria del proxy (captura → recall, commit `679c75a9`) pero dejó
 explícito un pendiente: **el planificador L0→L3** — el mecanismo que hace correr dedup →
 escenas (L2) → persona (L3) + dream/consolidación — **no corre solo**; ningún proceso lo
-dispara hoy ([WIRE-01](../../tasks/WIRE-01.md):36,136 — "scheduler host = MEM-55, fuera de scope").
+dispara hoy (WIRE-01:36,136 — "scheduler host = MEM-55, fuera de scope").
 
 Estado del código que encuadra la decisión (verificado en HEAD):
 
@@ -55,7 +55,7 @@ Restricciones técnicas que deciden:
    `src/cli.rs:337-347`) tampoco. El host debe ser un crate/binario externo que dependa de
    `vanta-memory`.
 4. **Los hooks del terminal son one-shot.** `vanta-cli mcp-call` spawnea `vantadb-server --mcp`,
-   hace un roundtrip JSON-RPC y muere ([WIRE-10](../../tasks/WIRE-10.md) Steps 3-4): no hay
+   hace un roundtrip JSON-RPC y muere (WIRE-10 Steps 3-4): no hay
    proceso vivo donde colgar timers/idle.
 
 ## Decision
@@ -183,7 +183,7 @@ wiring esté verde.
 ## References
 
 - Decisión delegada: owner 2026-10-01 ("Que vanta-arch decida con un ADR corto").
-- Tarea origen: [WIRE-01](../../tasks/WIRE-01.md) (commit `679c75a9`) · residual
+- Tarea origen: WIRE-01 (commit `679c75a9`) · residual
   [MEM-55](../../tasks/complete/MEM-55.md) · diseño previo del owner-scheduler MCP:
   [FIND-113-spec](../../tasks/FIND-113-spec.md).
 - Scope Budget / identidad: [EXPERIMENTAL_FEATURES.md](../../../user/operations/EXPERIMENTAL_FEATURES.md):22-52

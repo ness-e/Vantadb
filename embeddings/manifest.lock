@@ -15,6 +15,11 @@
       "id": "multilingual-e5-small",
       "repo": "intfloat/multilingual-e5-small",
       "rev": "614241f"
+    },
+    {
+      "id": "embeddinggemma-2",
+      "repo": "onnx-community/embeddinggemma-2-ONNX",
+      "rev": "daa72c5"
     }
   ]
 }

@@ -75,6 +75,7 @@ fn build_state(audit_path: &std::path::Path) -> Arc<ServerState> {
         rbac_config: Default::default(),
         trusted_proxies: Vec::new(),
         conversation_trigger: None,
+        activity_tracker: Arc::new(vantadb::cli_server::ActivityTracker::new()),
     })
 }
 

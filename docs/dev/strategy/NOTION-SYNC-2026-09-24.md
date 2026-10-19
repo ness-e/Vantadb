@@ -140,5 +140,5 @@ tags: [vantadb, notion, sync, investigacion, post-investigacion]
   - `Los 10 ámbitos afectados` (`3dbd0445-…d2f6`): +4 candidatos + ampliaciones #1/#9 + nota #4 (validación débil).
   - `Memoria de Proyecto e Ingeniería (PI)` (`3dbd0445-…69ce`): industria (scopes, budgets, ranking por tarea, hooks, churn de formatos).
 - **Verificación post-sync:** 6/6 notas presentes (fetch live) + 2/2 calificaciones inline confirmadas; sin borrados.
-- **Pendiente (opcional):** nota equivalente en `Seguridad de la memoria` (firmas post-cuánticas/erasure — `MEMG-17`) — diferida al sync completo de `MEMG-14`.
-- **Estado:** Sync #2 ejecutado y verificado; el sync completo del "Marco 2.0" queda en `MEMG-14 (e)`.
+- **Pendiente (opcional):** nota equivalente en `Seguridad de la memoria` (firmas post-cuánticas/erasure — `MEMG-17`) — diferida al sync completo de `MEMG-14` (incluida en el draft del research-doc §5).
+- **Estado:** Sync #2 ejecutado y verificado; el sync completo del "Marco 2.0" queda en `MEMG-14 (e)` → **respaldo en repo + draft de sync listos** (`docs/dev/research/memg-14-marco-2.0.md`, 2026-10-05; aplicación del sync pendiente — lane owner).

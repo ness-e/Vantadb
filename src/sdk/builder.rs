@@ -20,9 +20,30 @@ pub struct Embedded {
     /// `insert_lock` only covers the individual write, not the SDK-level
     /// read + idempotency check, so two concurrent supersedes could both pass
     /// the guard and double-mark the record. Shared across clones via `Arc`.
-    /// ponytail: global supersede lock — rare admin op; per-namespace striping
+    /// ponytail: global supersede lock - rare admin op; per-namespace striping
     /// if contention ever matters.
     pub(crate) supersede_lock: Arc<Mutex<()>>,
+    /// Serializes `merge_record()`'s read-decide-write (MEMG-05), same
+    /// rationale as `supersede_lock` (REVIEW-13): the engine's `insert_lock`
+    /// only covers the individual insert, not the SDK-level read + decision,
+    /// so two concurrent merges could both decide against the same `existing`
+    /// and persist the loser (arrival-order nondeterminism). Shared across
+    /// clones via `Arc`.
+    /// ponytail: global merge lock - merges are a sync/import path, not a hot
+    /// path; per-key striped locks only if merge throughput ever matters.
+    pub(crate) merge_lock: Arc<Mutex<()>>,
+    /// Serializes the record write/delete read-modify-write against every
+    /// other writer and against purge (DUR-03 r3): `put_one`,
+    /// `put_record_exact`, `put_batch_inner`, `delete_inner` and the purge
+    /// paths (`purge_expired` sweeper, purge-on-write) all take the **write**
+    /// guard across resolve + insert/delete + index replacement, so no two
+    /// writers can apply the same generation's text-index decrement twice
+    /// (a second decrement would drive the term df negative).
+    /// `resolve_existing_for_write` keeps a read guard for decision-only
+    /// callers (`merge_record_inner`). Shared across clones via `Arc`.
+    /// ponytail: global write serialization per handle - correctness first
+    /// (DUR-03 r3); per-key striped locks only if write throughput demands it.
+    pub(crate) purge_lock: Arc<RwLock<()>>,
 }
 
 impl std::fmt::Debug for Embedded {
@@ -46,6 +67,8 @@ impl Embedded {
             audit: init_audit(&config),
             config,
             supersede_lock: Arc::new(Mutex::new(())),
+            merge_lock: Arc::new(Mutex::new(())),
+            purge_lock: Arc::new(RwLock::new(())),
         }
     }
 
@@ -71,6 +94,46 @@ impl Embedded {
     pub fn open(path: impl AsRef<Path>) -> Result<Self> {
         let config = Config {
             storage_path: path.as_ref().to_string_lossy().into_owned(),
+            ..Default::default()
+        };
+        Self::open_with_config(config)
+    }
+
+    /// Open a VantaDB database at the given path in read-only mode (EGO-09).
+    ///
+    /// Equivalent to `open_with_config` with `read_only: true`. Write
+    /// operations on the handle are rejected (`check_read_only`); the
+    /// engine underneath takes a **shared** OS lock instead of the
+    /// exclusive writer lock, so any number of read-only handles can
+    /// coexist — but a live exclusive **writer still blocks** the open
+    /// (`Error::DatabaseBusy`), and an uninitialized path fails with
+    /// `Error::NotFound` (read-only opens never create schema or lock
+    /// files). The Fjall backend itself has no read-only mode (it opens
+    /// read-write and holds its own lock), so a reader alongside a writer
+    /// on the same directory is NOT supported at the backend level.
+    ///
+    /// # Shared read-write pattern
+    ///
+    /// For one writer + many readers on the same directory, run a single
+    /// long-lived writer process (daemon) that owns the directory and
+    /// expose reads/writes to sidecars over a local socket or stdio/JSONL
+    /// (the pattern Ego uses for its `vantadb-py` sidecar) instead of
+    /// opening the directory twice.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use vantadb::Embedded;
+    ///
+    /// let db = Embedded::open_readonly("/var/lib/vantadb").expect("open read-only");
+    /// assert!(db.get("docs", "greeting").expect("read").is_some());
+    /// db.close().expect("close database");
+    /// ```
+    #[tracing::instrument(skip(path), err)]
+    pub fn open_readonly(path: impl AsRef<Path>) -> Result<Self> {
+        let config = Config {
+            storage_path: path.as_ref().to_string_lossy().into_owned(),
+            read_only: true,
             ..Default::default()
         };
         Self::open_with_config(config)
@@ -109,6 +172,8 @@ impl Embedded {
             audit: init_audit(&final_config),
             config: final_config,
             supersede_lock: Arc::new(Mutex::new(())),
+            merge_lock: Arc::new(Mutex::new(())),
+            purge_lock: Arc::new(RwLock::new(())),
         };
         if !embedded.config.read_only {
             embedded.ensure_indexes_current()?;
@@ -146,6 +211,8 @@ impl Embedded {
             audit: init_audit(&config),
             config,
             supersede_lock: Arc::new(Mutex::new(())),
+            merge_lock: Arc::new(Mutex::new(())),
+            purge_lock: Arc::new(RwLock::new(())),
         }
     }
 

@@ -32,7 +32,7 @@ use vantadb::sdk::Embedded;
 /// (TDAM `reclaimer.ts:75-78`).
 pub const MIN_RETENTION_DAYS: u64 = 3;
 
-const SECS_PER_DAY: i64 = 86_400;
+pub(crate) const SECS_PER_DAY: i64 = 86_400;
 
 /// Outcome of one reclamation pass over a session.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -145,7 +145,8 @@ impl OffloadReclaimer {
 /// Parse an ISO-8601 timestamp (`YYYY-MM-DDTHH:MM:SS`, optional `.frac`,
 /// optional `Z` / `±HH:MM`) into UTC epoch seconds. `None` when malformed —
 /// callers must treat undatable entries as un-GC-able.
-fn iso_to_epoch_secs(ts: &str) -> Option<i64> {
+/// Shared with the spill reclaimer (MEMG-06).
+pub(crate) fn iso_to_epoch_secs(ts: &str) -> Option<i64> {
     let b = ts.as_bytes();
     if b.len() < 19
         || b[4] != b'-'

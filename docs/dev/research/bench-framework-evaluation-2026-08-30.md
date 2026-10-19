@@ -177,7 +177,7 @@ When one of these fires, file a new TBH-XX task referencing this document and re
 **No action.** Do not add `divan` to `Cargo.toml`. Do not port any bench to divan.
 
 This decision follows the D1 principle (conservative strategy, no framework duplication) and
-the D5 principle (justify before adding), plus the [`ponytail`](../../.opencode/skills/ponytail/SKILL.md)
+the D5 principle (justify before adding), plus the `ponytail`
 reflex: the smallest change that works is no change.
 
 ## 7. References

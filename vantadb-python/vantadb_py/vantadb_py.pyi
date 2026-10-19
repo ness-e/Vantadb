@@ -26,7 +26,6 @@ from __future__ import annotations
 
 from typing import Any
 
-
 class Error(RuntimeError):
     """Base class for every VantaDB error raised by this binding.
 
@@ -47,46 +46,35 @@ class Error(RuntimeError):
     hint: str | None
     """Recovery hint from ``recovery_hint()``; ``None`` when absent."""
 
-
 class NotFoundError(Error):
     """A requested node/record/namespace was not found."""
-
 
 class ValidationError(Error):
     """Input validation failed (bad dimensions, invalid IQL, schema, etc.)."""
 
-
 class CorruptError(Error):
     """Persisted data is corrupt or uses an incompatible format."""
-
 
 class StorageError(Error):
     """An I/O or storage-backend error occurred."""
 
-
 class ConflictError(Error):
     """An execution conflict or graph cycle was detected."""
-
 
 class UnsupportedError(Error):
     """An unsupported operation was attempted."""
 
-
 class ResourceLimitError(Error):
     """A resource limit (e.g. memory) was exceeded."""
-
 
 class BusyError(Error):
     """The database is busy or not initialized."""
 
-
 class NoVectorError(Error):
     """A record exists but carries no vector."""
 
-
 class TimeoutError(Error):
     """An operation exceeded its time budget (VantaDB's, not the builtin)."""
-
 
 class Vector:
     """Read-only view over a ``f32`` vector exposed by search hits."""
@@ -96,11 +84,9 @@ class Vector:
     def __iter__(self) -> VectorIter: ...
     def __repr__(self) -> str: ...
 
-
 class VectorIter:
     def __iter__(self) -> VectorIter: ...
     def __next__(self) -> float: ...
-
 
 class SearchHit:
     """A single search result."""
@@ -130,7 +116,6 @@ class SearchHit:
 
     def __repr__(self) -> str: ...
 
-
 class Record:
     """A memory record with typed property access."""
 
@@ -158,12 +143,12 @@ class Record:
     def __getitem__(self, key: str) -> Any: ...
     def __repr__(self) -> str: ...
 
-
 class ListResult:
     """A page of memory records with pagination info."""
 
     records: list[Record]
     total_count: int
+    """Number of records returned in this page/filter window (use ``db.count(namespace)`` for full namespace cardinality)."""
     next_cursor: int | None
 
     def __len__(self) -> int: ...
@@ -171,11 +156,9 @@ class ListResult:
     def __iter__(self) -> ListResultIter: ...
     def __repr__(self) -> str: ...
 
-
 class ListResultIter:
     def __iter__(self) -> ListResultIter: ...
     def __next__(self) -> Record: ...
-
 
 class Client:
     """Create or open a VantaDB database.
@@ -198,6 +181,9 @@ class Client:
         read_only: bool = False,
         backend: str | None = None,
     ) -> None: ...
+
+    @staticmethod
+    def memory_node_id(namespace: str, key: str) -> int: ...
 
     # ── Memory records (also grouped under db.memory.*) ────────────────────
 
@@ -232,7 +218,7 @@ class Client:
     def search(
         self,
         namespace: str,
-        query_vector: Any,
+        query_vector: Any | None = None,
         filters: dict | None = None,
         text_query: str | None = None,
         top_k: int = 10,
@@ -262,7 +248,9 @@ class Client:
         valid_window: dict | None = None,
         include_quarantined: bool = False,
     ) -> list[SearchHit]: ...
-    def search_vector(self, vector: Any, top_k: int = 10) -> list[tuple[int, float]]: ...
+    def search_vector(
+        self, vector: Any, top_k: int = 10
+    ) -> list[tuple[int, float]]: ...
     def search_batch(
         self, vectors: list[Any], top_k: int = 10
     ) -> list[list[tuple[int, float]]]: ...
@@ -288,6 +276,23 @@ class Client:
     ) -> str | None: ...
     def purge_expired(self) -> int: ...
     def list_namespaces(self) -> list[str]: ...
+
+    # ── GraphRAG (seed → expand → retrieve → context) ──────────────────────
+
+    def graphrag_search(
+        self, namespace: str, query: str | None = None, query_vector: Any | None = None
+    ) -> dict: ...
+
+    # ── Cognitive layer (vanta-memory: L0 capture + recall) ────────────────
+
+    def memory_capture(self, session_id: str, messages: list[dict]) -> dict: ...
+    def memory_recall(
+        self,
+        user_text: str,
+        session_key: str,
+        scope: str | None = None,
+        max_results: int | None = None,
+    ) -> dict | None: ...
 
     # ── Graph nodes and edges (also grouped under db.graph.*) ──────────────
 
@@ -344,7 +349,9 @@ class Client:
     def rebuild_index(self) -> dict: ...
     def reindex_hnsw_from_text(self, namespace: str, page_size: int = 1000) -> dict: ...
     def repair_text_index(self) -> dict: ...
-    def audit_text_index(self, namespace: str | None = None, deep: bool = False) -> dict: ...
+    def audit_text_index(
+        self, namespace: str | None = None, deep: bool = False
+    ) -> dict: ...
     def export_namespace(self, path: str, namespace: str) -> dict: ...
     def export_all(self, path: str) -> dict: ...
     def import_file(self, path: str) -> dict: ...
@@ -366,7 +373,6 @@ class Client:
     def system(self) -> SystemClient: ...
     @property
     def wiki(self) -> WikiClient: ...
-
 
 class MemoryClient:
     """Grouped view over ``Client`` memory-record methods (``db.memory.*``).
@@ -409,7 +415,7 @@ class MemoryClient:
     def search(
         self,
         namespace: str,
-        query_vector: Any,
+        query_vector: Any | None = None,
         filters: dict | None = None,
         text_query: str | None = None,
         top_k: int = 10,
@@ -439,7 +445,9 @@ class MemoryClient:
         valid_window: dict | None = None,
         include_quarantined: bool = False,
     ) -> list[SearchHit]: ...
-    def search_vector(self, vector: Any, top_k: int = 10) -> list[tuple[int, float]]: ...
+    def search_vector(
+        self, vector: Any, top_k: int = 10
+    ) -> list[tuple[int, float]]: ...
     def search_batch(
         self, vectors: list[Any], top_k: int = 10
     ) -> list[list[tuple[int, float]]]: ...
@@ -482,7 +490,6 @@ class MemoryClient:
         min_confidence: float | None = None,
     ) -> ListResult: ...
     def delete(self, namespace: str, key: str) -> bool: ...
-
 
 class GraphClient:
     """Grouped view over ``Client`` graph methods (``db.graph.*``).
@@ -531,7 +538,6 @@ class GraphClient:
         self, roots: list[int]
     ) -> dict[int, tuple[int, int]]: ...
 
-
 class SystemClient:
     """Catch-all grouped view over ``Client`` system methods (``db.system.*``)."""
 
@@ -546,7 +552,9 @@ class SystemClient:
     def rebuild_index(self) -> dict: ...
     def reindex_hnsw_from_text(self, namespace: str, page_size: int = 1000) -> dict: ...
     def repair_text_index(self) -> dict: ...
-    def audit_text_index(self, namespace: str | None = None, deep: bool = False) -> dict: ...
+    def audit_text_index(
+        self, namespace: str | None = None, deep: bool = False
+    ) -> dict: ...
     def export_namespace(self, path: str, namespace: str) -> dict: ...
     def export_all(self, path: str) -> dict: ...
     def import_file(self, path: str) -> dict: ...
@@ -554,12 +562,10 @@ class SystemClient:
     def bulk_import_bytes(self, data: bytes) -> dict: ...
     def close(self) -> None: ...
 
-
 class WikiClient:
     """Wiki summary-archive recovery (``db.wiki.*``)."""
 
     def recover_archived_nodes(self, summary_id: str) -> list[Any]: ...
-
 
 def connect(
     path: str,
@@ -567,5 +573,7 @@ def connect(
     read_only: bool = False,
     backend: str | None = None,
 ) -> Client: ...
+
+def memory_node_id(namespace: str, key: str) -> int: ...
 
 __version__: str

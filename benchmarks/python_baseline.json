@@ -1,39 +1,38 @@
 {
   "metadata": {
-    "description": "Baseline de rendimiento del benchmark Python de VantaDB (perf-bench.yml). Mediana de 3 runs; regresion > 15% hace fallar el job.",
+    "description": "Baseline de rendimiento del benchmark Python de VantaDB (perf-bench.yml). Mediana de 3 runs; las bandas de tolerancia viven en benchmarks/compare_baseline.py (single source of truth).",
     "workflow": ".github/workflows/perf-bench.yml",
     "runs": 3,
     "aggregate": "median",
-    "threshold_pct": 15.0,
-    "updated": "2026-09-25",
-    "note": "Baseline activo (activado 2026-09-25 via workflow_dispatch update_baseline=true, run 36093538630)."
+    "updated": "2026-10-03",
+    "note": "Re-baseline FIND-232: run 37089581213 (dispatch update_baseline=true @ develop bf1e7476), perfil 10000/1000, mediana extraida del artifact vanta-benchmark-results (el step Upload Baseline Candidate skipeaba por bug boolean-vs-string, arreglado en el mismo commit). Delta vs baseline 2026-09-25 (run 36093538630): insert -2%, rebuild -1.3%, vector +3..19%, hybrid +5..11%, text +8..13% — dentro de la varianza cross-VM medida (1.7x-2.4x en codigo identico; tabla en docs/dev/tasks/FIND-232.md). Bandas revisadas: stable warn>25%/block>200%; quarantined 300%+0.5ms absolutos; insert.p99 bloquea solo >=100ms absoluto."
   },
   "benchmarks": {
     "insert": {
       "total_records": 10000,
-      "total_duration_ms": 48681.99116299996,
-      "throughput_records_per_sec": 205.41476963251975,
-      "p50_ms": 4.932989999986148,
-      "p95_ms": 5.666953000002195,
-      "p99_ms": 7.141413999988799
+      "total_duration_ms": 47775.979229000004,
+      "throughput_records_per_sec": 209.31020486399584,
+      "p50_ms": 4.750267000019903,
+      "p95_ms": 5.417635000014798,
+      "p99_ms": 8.517428000004656
     },
     "rebuild": {
-      "duration_ms": 6433.030234999989
+      "duration_ms": 6349.99489300003
     },
     "query_text": {
-      "p50_ms": 0.0038570000242543756,
-      "p95_ms": 0.003977000005761511,
-      "p99_ms": 0.0056999999742402
+      "p50_ms": 0.004167999975379644,
+      "p95_ms": 0.004357999983994887,
+      "p99_ms": 0.00646200001597208
     },
     "query_vector": {
-      "p50_ms": 2.1310879999987264,
-      "p95_ms": 2.645669999992606,
-      "p99_ms": 3.281680000043252
+      "p50_ms": 2.464232000022548,
+      "p95_ms": 3.1575019999650067,
+      "p99_ms": 3.394426999989264
     },
     "query_hybrid": {
-      "p50_ms": 5.758806000017103,
-      "p95_ms": 6.80649599996741,
-      "p99_ms": 11.314860000027238
+      "p50_ms": 6.373022000019546,
+      "p95_ms": 7.383976999989272,
+      "p99_ms": 11.823235999997905
     }
   }
 }

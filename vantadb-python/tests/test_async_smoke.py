@@ -30,6 +30,7 @@ def test_async_smoke_crud_flush_purge():
     """put/memory.get/search, flush, ttl purge, and memory.delete."""
     path = _tmp_db()
     try:
+
         async def run():
             async with vanta.AsyncClient(
                 path, memory_limit_bytes=128 * 1024 * 1024
@@ -37,7 +38,9 @@ def test_async_smoke_crud_flush_purge():
                 await db.put("ns", "k", "hello", metadata={"tag": "smoke"})
                 rec = await db.memory.get("ns", "k")
                 assert rec is not None, "memory.get should return the put record"
-                assert rec["payload"] == "hello", f"expected 'hello', got {rec['payload']}"
+                assert rec["payload"] == "hello", (
+                    f"expected 'hello', got {rec['payload']}"
+                )
 
                 hits = await db.search("ns", [1.0, 0.0, 0.0], top_k=5)
                 assert isinstance(hits, list), "search should return a list"
@@ -64,6 +67,7 @@ def test_async_smoke_query_graph():
     """query (IQL), graph traversal/algorithms, and low-level delete by id."""
     path = _tmp_db()
     try:
+
         async def run():
             async with vanta.AsyncClient(
                 path, memory_limit_bytes=128 * 1024 * 1024
@@ -72,8 +76,9 @@ def test_async_smoke_query_graph():
                 assert isinstance(write, str), "INSERT should return a str"
 
                 result = await db.query("FROM Person")
-                assert isinstance(result, str) and "7" in result, \
+                assert isinstance(result, str) and "7" in result, (
                     f"query result should mention node 7, got {result!r}"
+                )
 
                 await db.insert_node(1, "A", [])
                 await db.insert_node(2, "B", [])
@@ -85,19 +90,26 @@ def test_async_smoke_query_graph():
                 assert 2 in dfs, f"expected target 2 in DFS, got {dfs}"
 
                 order = await db.graph_topological_sort([1])
-                assert isinstance(order, list) and set(order) == {1, 2}, \
+                assert isinstance(order, list) and set(order) == {1, 2}, (
                     f"expected topo order over {{1,2}}, got {order}"
+                )
 
                 assert await db.graph_is_dag([1]) is True, "expected DAG"
 
                 ranks = await db.graph_page_rank([1], max_iterations=20)
-                assert 1 in ranks and 2 in ranks, f"expected ranks for 1,2, got {ranks.keys()}"
+                assert 1 in ranks and 2 in ranks, (
+                    f"expected ranks for 1,2, got {ranks.keys()}"
+                )
 
                 cent = await db.graph_degree_centrality([1, 2])
-                assert 1 in cent and 2 in cent, f"expected centrality for 1,2, got {cent}"
+                assert 1 in cent and 2 in cent, (
+                    f"expected centrality for 1,2, got {cent}"
+                )
 
                 await db.delete_node(1, "smoke cleanup")
-                assert await db.get_node(1) is None, "node 1 should be None after delete"
+                assert await db.get_node(1) is None, (
+                    "node 1 should be None after delete"
+                )
 
         asyncio.run(run())
     finally:
@@ -109,13 +121,17 @@ def test_async_smoke_export():
     path = _tmp_db()
     try:
         with tempfile.TemporaryDirectory() as tmp:
+
             async def run():
                 async with vanta.AsyncClient(
                     path, memory_limit_bytes=128 * 1024 * 1024
                 ) as db:
                     await db.put(
-                        "agent/main", "exp", "portable",
-                        metadata={"c": "note"}, vector=[1.0, 0.0, 0.0],
+                        "agent/main",
+                        "exp",
+                        "portable",
+                        metadata={"c": "note"},
+                        vector=[1.0, 0.0, 0.0],
                     )
                     await db.flush()
 
@@ -123,11 +139,15 @@ def test_async_smoke_export():
                     all_path = os.path.join(tmp, "all.jsonl")
 
                     exp = await db.export_namespace(ns_path, "agent/main")
-                    assert exp["records_exported"] == 1, f"expected 1 exported, got {exp}"
+                    assert exp["records_exported"] == 1, (
+                        f"expected 1 exported, got {exp}"
+                    )
                     assert os.path.exists(ns_path), f"export file missing: {ns_path}"
 
                     all_e = await db.export_all(all_path)
-                    assert all_e["records_exported"] == 1, f"expected 1, got {all_e['records_exported']}"
+                    assert all_e["records_exported"] == 1, (
+                        f"expected 1, got {all_e['records_exported']}"
+                    )
 
             asyncio.run(run())
     finally:

@@ -15,10 +15,10 @@
 //! → StorageBackend → RocksDbBackend`; there is no back-edge, so the
 //! "3 cycles get/put/delete" reported by CodeGraph (Leiden clustering of the
 //! shared method names) is a false positive — verified by `rg` zero
-//! cross-imports + isolated workspaces (`desktop/src-tauri` has
+//! cross-imports + isolated workspaces (`feature-freez/desktop/src-tauri` has
 //! `[workspace] members = ["."]`, `cargo check -p vantadb` stays invariant)
 //! and `cargo check --all-targets --all-features` 0 cycles.
-//! See `desktop/src-tauri/src/connections/native.rs` header for the desktop side.
+//! See `feature-freez/desktop/src-tauri/src/connections/native.rs` header for the desktop side.
 //!
 //! `// ponytail: doc justifies Leiden false positive without trait refactor; extract trait if real SCC emerges`
 

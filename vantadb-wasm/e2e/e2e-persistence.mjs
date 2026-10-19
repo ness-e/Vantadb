@@ -5,7 +5,7 @@
 //     (the web-target pkg imports the wasm as an ES module, which stable
 //     Chrome/Edge reject — verified 2026-08-19; the no-modules variant loads
 //     the wasm via classic script + fetch and works everywhere)
-//   - playwright installed in desktop/node_modules
+//   - playwright installed in feature-freez/desktop/node_modules
 //   - a real browser (msedge/chrome) — Playwright's bundled chromium build
 //     does not expose navigator.storage.getDirectory (OPFS), so it cannot
 //     run the OPFS phase (verified 2026-08-19)
@@ -24,7 +24,7 @@ import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const require = createRequire(import.meta.url);
-const { chromium } = require("../../desktop/node_modules/playwright");
+const { chromium } = require("../../feature-freez/desktop/node_modules/playwright");
 
 const root = normalize(fileURLToPath(new URL("..", import.meta.url))); // vantadb-wasm/
 const MIME = {

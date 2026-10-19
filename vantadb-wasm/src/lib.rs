@@ -55,6 +55,33 @@ use vantadb::{BackendKind, Error, SparseVector, MAX_BATCH_SIZE, MAX_F32_VEC_LEN,
 use vantadb_ffi_core::{OpGate, OpGuard};
 use wasm_bindgen::prelude::*;
 
+#[cfg(target_arch = "wasm32")]
+mod web_sys {
+    pub mod console {
+        use wasm_bindgen::prelude::*;
+        #[wasm_bindgen]
+        extern "C" {
+            #[wasm_bindgen(js_namespace = console, js_name = warn)]
+            pub fn warn_1(s: &JsValue);
+        }
+    }
+}
+
+/// Clamp `top_k`/`k` to [`MAX_K`], warning via `console.warn` when the caller
+/// requested more than the cap so silent truncation is observable (ERR-022).
+fn clamp_top_k_warn(requested: usize) -> usize {
+    let (effective, was_clamped) = vantadb_ffi_core::clamp_top_k(requested, MAX_K);
+    if was_clamped {
+        #[cfg(target_arch = "wasm32")]
+        {
+            let msg =
+                format!("top_k={requested} exceeds MAX_K={MAX_K}; clamping to {MAX_K} (ERR-022)");
+            web_sys::console::warn_1(&JsValue::from_str(&msg));
+        }
+    }
+    effective
+}
+
 mod opfs;
 /// OPFS file handle abstraction wrapping a JS `FileSystemFileHandle`.
 pub use opfs::OpfsFile;
@@ -1271,7 +1298,7 @@ impl Client {
             #[allow(deprecated)]
             filters: req.filters,
             text_query: req.text_query,
-            top_k: req.top_k.min(MAX_K),
+            top_k: clamp_top_k_warn(req.top_k),
             distance_metric: distance,
             explain: req.explain,
             exclude_superseded: req.exclude_superseded,
@@ -1295,6 +1322,37 @@ impl Client {
         Ok(arr.into())
     }
 
+    /// Run the GraphRAG pipeline: seed → expand → retrieve → generate context.
+    ///
+    /// Returns the canonical wire object shared with the Python/TS/Node
+    /// bindings: `{nodes: [{id, content, score, hop_distance}], edges:
+    /// [{source, target, label}], context_text, stats}`. u128 ids travel as
+    /// decimal strings (API-01). At least one of `query` / `query_vector`
+    /// should be provided; both may be combined (hybrid seeds).
+    pub fn graphrag_search(
+        &self,
+        namespace: &str,
+        query: Option<String>,
+        query_vector: Option<Vec<f32>>,
+    ) -> Result<JsValue, JsValue> {
+        let _g = enter(&self.op_gate)?;
+        if let Some(v) = &query_vector {
+            if v.len() > MAX_F32_VEC_LEN {
+                return Err(to_js_err(Error::InvalidInput(format!(
+                    "query vector length {} exceeds max {}",
+                    v.len(),
+                    MAX_F32_VEC_LEN
+                ))));
+            }
+        }
+        let result = self
+            .inner
+            .graphrag_search(namespace, query.as_deref(), query_vector.as_deref())
+            .map_err(to_js_err)?;
+        serde_wasm_bindgen::to_value(&result)
+            .map_err(|e| JsValue::from_str(&format!("graphrag_search serialization error: {e}")))
+    }
+
     /// Search nodes by raw vector without namespace scoping.
     ///
     /// Returns one `{node_id, distance}` entry per result (u128 ids as decimal strings).
@@ -1312,7 +1370,7 @@ impl Client {
         }
         let hits = self
             .inner
-            .search_vector(&vector, top_k.min(MAX_K))
+            .search_vector(&vector, clamp_top_k_warn(top_k))
             .map_err(to_js_err)?;
         let arr = js_sys::Array::new();
         for hit in hits {
@@ -1346,7 +1404,7 @@ impl Client {
             #[allow(deprecated)]
             filters: req.filters,
             text_query: req.text_query,
-            top_k: req.top_k.min(MAX_K),
+            top_k: clamp_top_k_warn(req.top_k),
             distance_metric: distance,
             explain: true,
             exclude_superseded: req.exclude_superseded,
@@ -1453,7 +1511,7 @@ impl Client {
         let _g = enter(&self.op_gate)?;
         let hits = self
             .inner
-            .similar_to_key(namespace, key, top_k.min(MAX_K))
+            .similar_to_key(namespace, key, clamp_top_k_warn(top_k))
             .map_err(to_js_err)?;
         let arr = js_sys::Array::new();
         for hit in hits {
@@ -1491,7 +1549,7 @@ impl Client {
             filters: req.filters,
             query_sparse: None,
             text_query: req.text_query,
-            top_k: req.top_k.min(MAX_K),
+            top_k: clamp_top_k_warn(req.top_k),
             distance_metric: distance,
             explain: req.explain,
             exclude_superseded: req.exclude_superseded,
@@ -1768,6 +1826,21 @@ impl Client {
         Ok(())
     }
 
+    /// Recover nodes shadow-archived by a summary node (wiki summary
+    /// lifecycle): scans the tombstone partition for nodes with a
+    /// `belonged_to` edge targeting `summary_id`, re-activates them, and
+    /// returns the recovered records (empty array when none match).
+    pub fn recover_archived_nodes(&self, summary_id: &str) -> Result<JsValue, JsValue> {
+        let _g = enter(&self.op_gate)?;
+        let records = self
+            .inner
+            .recover_archived_nodes(parse_node_id(summary_id)?)
+            .map_err(to_js_err)?;
+        let js: Vec<JsNodeRecord> = records.into_iter().map(Into::into).collect();
+        self.mark_invalid();
+        to_js(&js)
+    }
+
     /// Perform a breadth-first traversal from the given root node IDs.
     pub fn graph_bfs(
         &self,
@@ -1932,11 +2005,33 @@ impl Client {
 
 static TRACING_INIT: AtomicBool = AtomicBool::new(false);
 
+/// Console log level for the WASM tracing subscriber (FIND-238).
+///
+/// The core emits a `debug!` line for every env-var read during config
+/// construction (`src/config.rs`), which flooded the console on
+/// `Client.create()` while the subscriber ran with its builder default
+/// (`TRACE`). Default is now `WARN`; set
+/// `globalThis.VANTADB_LOG = "trace" | "debug" | "info" | "warn" | "error"`
+/// **before the first client is created** to change it — the WASM analog of
+/// the core's `RUST_LOG` gate (`src/console.rs`).
+#[cfg(feature = "tracing-wasm")]
+fn console_log_level() -> tracing::Level {
+    js_sys::Reflect::get(&js_sys::global(), &"VANTADB_LOG".into())
+        .ok()
+        .and_then(|v| v.as_string())
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(tracing::Level::WARN)
+}
+
 fn init() {
     if !TRACING_INIT.swap(true, Ordering::Relaxed) {
         console_error_panic_hook::set_once();
         #[cfg(feature = "tracing-wasm")]
-        tracing_wasm::set_as_global_default();
+        tracing_wasm::set_as_global_default_with_config(
+            tracing_wasm::WASMLayerConfigBuilder::new()
+                .set_max_level(console_log_level())
+                .build(),
+        );
     }
 }
 

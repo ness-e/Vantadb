@@ -11,7 +11,7 @@ pub(crate) mod snippet;
 pub(crate) mod text_index;
 
 pub(crate) mod audit;
-#[cfg(debug_assertions)]
+#[cfg(any(debug_assertions, test))]
 pub(crate) mod debug_ops;
 pub(crate) mod explain;
 pub(crate) mod fusion;

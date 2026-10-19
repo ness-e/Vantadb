@@ -350,9 +350,7 @@ pub enum Error {
     /// A node's edge count exceeds the `u16` `edge_count` field of the fixed 64-byte
     /// `DiskNodeHeader` (ERR-CORE-01: typed replacement for the `ResourceLimit(format!)`
     /// catch-all; ERR-029 originally made this a hard error instead of silent truncation).
-    #[error(
-        "node {id} has {count} edges, exceeding the DiskNodeHeader u16 edge_count limit of {limit}"
-    )]
+    #[error("node {id} edge_count {count} exceeds u16 limit of {limit}")]
     EdgeCountOverflow {
         /// Node whose edges cannot be persisted.
         id: u128,
@@ -361,6 +359,10 @@ pub enum Error {
         /// Maximum edge count representable in the header field.
         limit: u16,
     },
+
+    /// Embedding generation failed or strict mode violated.
+    #[error("Embedding error: {0}")]
+    Embedding(String),
 }
 
 impl Error {
@@ -404,6 +406,7 @@ impl Error {
             | Error::UnsupportedOperation { .. }
             | Error::ExecutionConflict { .. }
             | Error::InvalidInput(_)
+            | Error::Embedding(_)
             | Error::NoVectorForKey(_) => "VANTADB_VALIDATION_ERROR",
         }
     }
@@ -423,6 +426,9 @@ impl Error {
     /// Returns a human-readable recovery hint for the error, if available.
     pub fn recovery_hint(&self) -> Option<&'static str> {
         match self {
+            Error::Embedding(_) => Some(
+                "Configure ORT_DYLIB_PATH / local model weights or set VANTADB_ALLOW_DUMMY_EMBEDDINGS=true",
+            ),
             Error::DatabaseBusy(_) => Some("Wait for the lock to be released and retry"),
             Error::Timeout { .. } => Some("Increase the timeout or reduce system load"),
             Error::ResourceLimit(_) => Some("Reduce memory pressure or increase configured limits"),

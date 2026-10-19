@@ -1,0 +1,2 @@
+# ShellCheck configuration for GitHub Actions scripts
+disable=SC2012,SC2086,SC2129,SC2044

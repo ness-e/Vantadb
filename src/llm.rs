@@ -118,8 +118,10 @@ pub struct LocalOnnxProvider {
     tokenizer: Option<tokenizers::Tokenizer>,
     dim: usize,
     family: EmbedFamily,
+    // Reason: retained for ONNX provider diagnostics and reload introspection under embed-local.
     #[allow(dead_code)]
     model_dir: String,
+    allow_dummy: bool,
 }
 
 /// Embedding model family — decides the e5 `query:`/`passage:` prefixes.
@@ -203,14 +205,14 @@ impl LocalOnnxProvider {
         let tokenizer = Self::try_load_tokenizer(model_dir);
         // try to load session
         let session = Self::try_load_session(model_dir);
-        // Always succeed — fallback to dummy if either missing, so factory never panics.
-        // If both missing, we are in dummy mode (deterministic hash embeddings).
+        let allow_dummy = !cfg.strict_embeddings;
         Ok(Self {
             session: session.map(parking_lot::Mutex::new),
             tokenizer,
             dim,
             family,
             model_dir: model_dir.to_string(),
+            allow_dummy,
         })
     }
 
@@ -222,6 +224,7 @@ impl LocalOnnxProvider {
             dim,
             family: EmbedFamily::Other,
             model_dir: "__dummy__".to_string(),
+            allow_dummy: true,
         }
     }
 
@@ -310,18 +313,45 @@ impl LocalOnnxProvider {
     fn resolve_ort_dylib_path() -> std::path::PathBuf {
         match std::env::var("ORT_DYLIB_PATH") {
             Ok(s) if !s.is_empty() => std::path::PathBuf::from(s),
-            _ => std::path::PathBuf::from({
+            _ => {
                 #[cfg(target_os = "windows")]
                 {
-                    "onnxruntime.dll"
+                    let candidates = [
+                        std::path::Path::new(".venv/Lib/site-packages/onnxruntime/capi/onnxruntime.dll"),
+                        std::path::Path::new("vantadb-python/.venv/Lib/site-packages/onnxruntime/capi/onnxruntime.dll"),
+                    ];
+                    for c in candidates {
+                        if c.exists() {
+                            return c.to_path_buf();
+                        }
+                    }
+                    std::path::PathBuf::from("onnxruntime.dll")
                 }
                 #[cfg(any(target_os = "linux", target_os = "android", target_os = "freebsd"))]
                 {
-                    "libonnxruntime.so"
+                    let candidates = [
+                        std::path::Path::new(".venv/lib/site-packages/onnxruntime/capi/libonnxruntime.so"),
+                        std::path::Path::new("vantadb-python/.venv/lib/site-packages/onnxruntime/capi/libonnxruntime.so"),
+                    ];
+                    for c in candidates {
+                        if c.exists() {
+                            return c.to_path_buf();
+                        }
+                    }
+                    std::path::PathBuf::from("libonnxruntime.so")
                 }
                 #[cfg(any(target_os = "macos", target_os = "ios"))]
                 {
-                    "libonnxruntime.dylib"
+                    let candidates = [
+                        std::path::Path::new(".venv/lib/site-packages/onnxruntime/capi/libonnxruntime.dylib"),
+                        std::path::Path::new("vantadb-python/.venv/lib/site-packages/onnxruntime/capi/libonnxruntime.dylib"),
+                    ];
+                    for c in candidates {
+                        if c.exists() {
+                            return c.to_path_buf();
+                        }
+                    }
+                    std::path::PathBuf::from("libonnxruntime.dylib")
                 }
                 #[cfg(not(any(
                     target_os = "windows",
@@ -332,9 +362,9 @@ impl LocalOnnxProvider {
                     target_os = "ios"
                 )))]
                 {
-                    "onnxruntime"
+                    std::path::PathBuf::from("onnxruntime")
                 }
-            }),
+            }
         }
     }
 
@@ -527,6 +557,14 @@ impl LocalOnnxProvider {
             if v.len() == self.dim {
                 return Ok(v);
             }
+        }
+        if !self.allow_dummy {
+            return Err(Error::Embedding(
+                "strict embeddings mode: ONNX runtime or model weights unavailable. \
+                 Run `vanta setup embeddings` or set ORT_DYLIB_PATH, or configure \
+                 VANTADB_ALLOW_DUMMY_EMBEDDINGS=true to permit synthetic fallback"
+                    .to_string(),
+            ));
         }
         Ok(self.deterministic_embed(text))
     }
@@ -1232,6 +1270,29 @@ mod tests {
             "dummy query/doc must match, got {}",
             cosine(&v_doc, &v_q)
         );
+    }
+
+    #[test]
+    fn test_strict_embeddings_policy() {
+        let mut cfg = crate::config::LlmCfg {
+            local_model_path: "nonexistent_dir_for_test".to_string(),
+            strict_embeddings: true,
+            ..Default::default()
+        };
+        let strict_provider = LocalOnnxProvider::from_llm_cfg(&cfg).expect("provider build");
+        let err = strict_provider.embed("test text").unwrap_err();
+        assert!(
+            matches!(err, Error::Embedding(_)),
+            "expected strict Error::Embedding, got: {:?}",
+            err
+        );
+
+        cfg.strict_embeddings = false;
+        let permissive_provider = LocalOnnxProvider::from_llm_cfg(&cfg).expect("provider build");
+        let vec = permissive_provider
+            .embed("test text")
+            .expect("permissive embed");
+        assert_eq!(vec.len(), 384);
     }
 }
 

@@ -1,6 +1,6 @@
 [package]
 name = "vantadb-ollama"
-version = "0.5.0"
+version = "0.8.0"
 edition = "2021"
 rust-version = "1.94.1"
 license = "Apache-2.0"
@@ -17,7 +17,11 @@ python = ["pyo3"]
 
 [dependencies]
 vantadb = { path = "../..", default-features = false, features = ["fjall", "memmap2"] }
-pyo3 = { version = "0.29", optional = true, features = ["extension-module"] }
+pyo3 = { version = "0.29", optional = true, features = ["extension-module", "abi3-py311"] }
 
 [workspace]
+
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
 

@@ -52,13 +52,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Breaking changes (accepted under the 0.x MINOR policy)
 
 Nine lint families vs published `0.7.0`, inventoried with commits in [COMPATIBILITY.md](./api/COMPATIBILITY.md) — migration guide: [UPGRADE.md § 0.8.0](./user/operations/UPGRADE.md#upgrading-to-080-from-07x).
+
 ### Other
 
 - [**breaking**] develop -> main (0.8.0 — schema v2 + estandarizacion API + fixes pre-release) ([#233](https://github.com/ness-e/Vantadb/pull/233))
-- *(release)* RELEASE_PLZ_TOKEN (PAT) con fallback GITHUB_TOKEN + runbook cascadas ([#229](https://github.com/ness-e/Vantadb/pull/229))
-- *(release)* HIG-01 CHANGELOG dedup (1x H1/Unreleased, orden 0.7.0->0.4.0) + release_always=false ([#227](https://github.com/ness-e/Vantadb/pull/227))
-- *(changelog)* fix mojibake in v0.7.0 entry (UTF-8 arrow and accent) ([#226](https://github.com/ness-e/Vantadb/pull/226))
-- *(vantadb)* release v0.7.0 ([#223](https://github.com/ness-e/Vantadb/pull/223))
 ## [0.7.0](https://github.com/ness-e/Vantadb/compare/v0.6.1...v0.7.0) - 2026-09-25
 
 ### Other

@@ -1,0 +1,862 @@
+name: 'HEAVY: Certification - tests, benches, chaos, fuzz'
+
+# CI-08 Step 4 (SRV-10.md tabla migracion): consolida 4 workflows (21 jobs).
+# Origenes: heavy-certification.yml, heavy-bench-nightly.yml, chaos.yml, fuzz.yml.
+# DEDUP: los 3 jobs 'ci-gate' (reusable call a ci-gate.yml, identicos) -> 1.
+# Triggers = push[main] + PR(sin branches: preserva fuzz verbatim, RULES True
+#   follow-up igual que Step 3) + 3 schedules (bench 02:00 diario, cert dom
+#   03:00, fuzz lun 06:00) + dispatch con inputs union.
+# Deltas documentados vs origenes:
+# - dispatch: max_seconds pasa de required:true a required:false default '60'
+#   (un solo dispatch compartido; no romper triggers manuales de otros jobs).
+# - bench jobs sin permissions job-level heredan write/issues del workflow
+#   origen: se les inyecta permissions job-level identico (cero cambio real).
+# - jobs cert/bench solo corrian en schedule/dispatch -> gate explicito.
+# - chaos nunca corria en schedule -> gate != schedule.
+# - fuzz nunca corria en push -> gate != push (fuzz en push seria carga nueva).
+# - schedule dispara todos los jobs schedule-gated a la vez (bench+cert en cada
+#   cron): costo extra aceptado de la consolidacion (jobs ajenos quedan skipped).
+# - heavy-cert sin concurrency group -> ahora grupo estandar cancelable.
+# - bench nocturno (light-benchmarks/high-density/analyze/critcmp-regression):
+#   concurrency job-level cancel-in-progress:false — restaura la proteccion
+#   de heavy-bench-nightly (un push durante el bench 02:00 no lo cancela).
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.config/nextest.toml'
+      - 'fuzz/**'
+      - 'vantadb-*/**'
+      - 'vanta-memory/**'
+      - '.github/workflows/certification.yml'
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.config/nextest.toml'
+      - 'fuzz/**'
+      - 'vantadb-*/**'
+      - 'vanta-memory/**'
+      - '.github/workflows/certification.yml'
+  schedule:
+    - cron: '0 2 * * *'
+    - cron: '0 3 * * 0'
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+    inputs:
+      include_sift:
+        description: "Run SIFT-1M validation (requires dataset download)"
+        type: boolean
+        default: false
+      include_competitive:
+        description: "Run competitive benchmarks"
+        type: boolean
+        default: false
+      enable_critcmp:
+        description: 'Run critcmp regression comparison (requires a previous critcmp-baseline artifact from an earlier enabled run)'
+        type: boolean
+        default: false
+      max_seconds:
+        description: 'Seconds per fuzz target'
+        required: false
+        default: '60'
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  ci-gate:
+    uses: ./.github/workflows/ci-gate.yml
+    permissions:
+      checks: read
+    with:
+      event_name: ${{ github.event_name }}
+  stress-protocol:
+    if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+
+    name: "Certification: stress_protocol"
+    needs: ci-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/rust-setup
+        with:
+          swap-mb: 8192
+          free-disk: true
+      - name: Run stress protocol
+        run: cargo test --release --test stress_protocol -- --nocapture --test-threads=1
+  multi-namespace-stress:
+    if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+
+    name: "Certification: multi_namespace_stress"
+    needs: ci-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/rust-setup
+      - name: Run multi-namespace stress test
+        run: cargo test --release --test multi_namespace_stress -- --nocapture --test-threads=1
+  hnsw-validation:
+    if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+
+    name: "Certification: hnsw_validation"
+    needs: ci-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/rust-setup
+        with:
+          swap-mb: 8192
+          free-disk: true
+      - name: Run HNSW validation
+        run: cargo test --release --test hnsw_validation -- --nocapture --test-threads=1
+  hnsw-recall:
+    if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+
+    name: "Certification: hnsw_recall_certification"
+    needs: ci-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/rust-setup
+        with:
+          free-disk: true
+      - name: Run HNSW recall certification
+        timeout-minutes: 25
+        run: cargo test --release --test hnsw_recall_certification -- --nocapture --test-threads=1
+  sift-validation:
+    name: "Certification: sift_validation"
+    if: github.event_name == 'workflow_dispatch' && inputs.include_sift == true
+    needs: ci-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/rust-setup
+      - name: Run SIFT validation
+        timeout-minutes: 30
+        run: cargo test --release --test sift_validation -- --nocapture --test-threads=1
+  competitive-bench:
+    name: "Certification: competitive_bench"
+    if: github.event_name == 'workflow_dispatch' && inputs.include_competitive == true
+    needs: ci-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/rust-setup
+      - name: Run competitive benchmark
+        timeout-minutes: 30
+        run: cargo test --release --test competitive_bench -- --nocapture --test-threads=1
+  failpoint-tests:
+    if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+
+    name: "Certification: failpoint_injections"
+    needs: ci-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: failpoints-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/rust-setup
+      - name: Run failpoint tests
+        env:
+          RUST_BACKTRACE: 1
+        run: >
+          cargo test --features failpoints
+          --test chaos_integrity
+          --test wal_resilience
+          --test crash_injection
+          --
+          --test-threads=1
+  storage-persistence:
+    if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+
+    name: "Certification: storage_persistence"
+    needs: ci-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/rust-setup
+        with:
+          swap-mb: 4096
+          free-disk: true
+      - name: Run storage persistence & recovery tests
+        timeout-minutes: 75
+        run: >
+          cargo test --release --features cli
+          --test backend_tests
+          --test storage
+          --test durability_recovery
+          --test derived_index_recovery
+          --test index_reconstruction
+          --test fjall_cold_copy_restore
+          --test property_durability
+          --test file_locking_stress
+          --test schema_evolution
+          --test gc
+          --test mmap_index
+          --test mutations
+          --test antilocality_layout
+          --test tombstone_ann_vstore
+          --test multi_process_lock
+          --test operational_metrics
+          --test prefetch_benchmark
+          --
+          --test-threads=1
+  text-index:
+    if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+
+    name: "Certification: text_index_recovery"
+    needs: ci-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/rust-setup
+        with:
+          swap-mb: 4096
+      - name: Run text index recovery tests
+        timeout-minutes: 45
+        run: cargo test --release --test text_index_recovery -- --test-threads=1 --nocapture
+  memory-concurrency:
+    if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+
+    name: "Certification: memory_concurrency"
+    needs: ci-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/rust-setup
+        with:
+          swap-mb: 4096
+          free-disk: true
+      - name: Run memory & concurrency heavy tests (batch 1 — fast)
+        timeout-minutes: 30
+        run: >
+          cargo test --release
+          --features rocksdb
+          --test concurrency_parity
+          --test edge_cases
+          --
+          --test-threads=1
+          --nocapture
+      - name: Run memory & concurrency heavy tests (batch 2 — memory)
+        timeout-minutes: 90
+        run: >
+          cargo test --release
+          --features rocksdb
+          --test memory_brutality
+          --test memory_export_import
+          --test memory_api
+          --test memory_telemetry
+          --
+          --test-threads=1
+          --nocapture
+      - name: Run fuzz proptest
+        timeout-minutes: 30
+        run: >
+          cargo test --release
+          --test fuzz_proptest
+          --
+          --test-threads=1
+  other-heavy:
+    if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+
+    name: "Certification: other_heavy"
+    needs: ci-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/rust-setup
+        with:
+          swap-mb: 4096
+          free-disk: true
+      # TBH-01: pre-test gate — fail fast if expected datasets are missing.
+      # Without this, certification tests silently skip and Recall@10 can
+      # regress without CI noticing. Runs before the download step so a
+      # missing dataset surfaces the diagnostic table immediately.
+      - name: Verify required benchmark datasets (TBH-01)
+        run: bash scripts/verify_datasets.sh
+      - name: Download benchmark datasets
+        run: bash scripts/download_benchmark_datasets.sh
+      - name: Run remaining heavy tests
+        # ponytail: 45 min fit cached runs; bump to 60 so a cold release
+        # compile (~40 min) + tests (~18 min) fits within the job window.
+        timeout-minutes: 60
+        run: |
+          cargo test --release --features cli,arrow \
+            --test benchmark_internal \
+            --test benchmark_datasets \
+            --test cli_tests \
+            --test structured_api_v2 \
+            --test python_sdk_boundary \
+            --test hybrid_ranking_metrics \
+            --test hybrid_retrieval_quality \
+            --test basic_node \
+            --test hardware_profiles \
+            --test vector_scale_check \
+            --test integration \
+            --test multilingual_tokenizer_integration \
+            --test columnar \
+            -- \
+            --test-threads=1
+          cargo test --release \
+            --package vantadb-server \
+            --features prometheus \
+            --test mcp_integration \
+            --test e2e \
+            --test benchmarks \
+            --test server \
+            -- \
+            --test-threads=1
+          cargo test --release \
+            --package vantadb-mcp \
+            --test mcp_tests \
+            -- \
+            --test-threads=1
+          cargo test --release \
+            --package vantadb \
+            --lib index::tests::concurrent_insert_preserves_hnsw_invariants \
+            -- \
+            --nocapture
+  mutation-test:
+    if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+
+    name: "Certification: mutation_test (cargo-mutants)"
+    needs: ci-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    # Mutation testing is slow per design (one mutant = full cargo test cycle).
+    # Scope to root crate only (-p vantadb) per plan file D5/risk table.
+    # --check: only run mutants; --timeout 120: per-mutant cap (contract).
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/rust-setup
+      - name: Install cargo-mutants
+        uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853 # v2.83.2
+        with:
+          tool: cargo-mutants
+      - name: Run cargo mutants (TBH-07)
+        timeout-minutes: 100
+        run: |
+          mkdir -p benchmarks
+          cargo mutants --check -p vantadb --timeout 120 \
+            --output-json benchmarks/mutation_score.json || true
+          # NB: cargo-mutants exits non-zero when mutants SURVIVE (which is
+          # expected and useful — we want a score, not a binary pass/fail).
+          # The artifact is the signal; gate enforcement lives in code review.
+      - name: Upload mutation score report
+        if: always()
+        uses: actions/upload-artifact@4e7e4d1bb8e5ae8b5b8e6dad68a47e8afbd4d76a # v4.5.0
+        with:
+          name: mutation-score
+          path: benchmarks/mutation_score.json
+          if-no-files-found: warn
+  light-benchmarks:
+    if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+    permissions:
+      contents: write
+      issues: write
+
+    name: Light benchmarks
+    needs: ci-gate
+    # Restaura proteccion heavy-bench-nightly (cancel:false): el bench ~2h no se cancela.
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/rust-setup
+        with:
+          swap-mb: 6144
+          free-disk: true
+
+      - name: Run HNSW benchmarks
+        run: cargo bench --bench hnsw_pure -- --nocapture 2>&1 | tee nightly_hnsw_results.txt
+
+      - name: Run hybrid queries benchmarks
+        run: cargo bench --bench hybrid_queries -- --nocapture 2>&1 | tee nightly_hybrid_results.txt
+
+      - name: Run stress test benchmarks
+        run: cargo bench --bench stress_test -- --nocapture 2>&1 | tee nightly_stress_results.txt
+
+      - name: Run concurrent benchmarks
+        run: cargo bench --bench bench_concurrent -- --nocapture 2>&1 | tee nightly_concurrent_results.txt
+
+      # FIND-70: `ingestion_concurrent` requires `--features async-ingestion`
+      # (Cargo.toml `required-features`) — without the flag cargo silently
+      # SKIPS it, so the nightly gate cited in docs/user/operations/BENCHMARKS.md
+      # §13 never ran. Run it explicitly with the feature.
+      - name: Run ingestion_concurrent benchmarks
+        run: cargo bench --bench ingestion_concurrent --features async-ingestion -- --nocapture 2>&1 | tee nightly_ingestion_results.txt
+
+      - name: Run canonical_p99 benchmarks
+        run: cargo bench --bench canonical_p99 -- --nocapture 2>&1 | tee nightly_canonical_p99_results.txt
+
+      - name: Run memory_budget benchmarks
+        run: cargo bench --bench memory_budget -- --nocapture 2>&1 | tee nightly_memory_budget_results.txt
+
+      - name: Run incremental_bench benchmarks
+        run: cargo bench --bench incremental_bench -- --nocapture 2>&1 | tee nightly_incremental_bench_results.txt
+
+      - name: Run ivf_bench benchmarks
+        run: cargo bench --bench ivf_bench -- --nocapture 2>&1 | tee nightly_ivf_bench_results.txt
+
+      - name: Upload light results
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: light-bench-results
+          path: |
+            nightly_*_results.txt
+            target/criterion/
+  high-density:
+    if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+    permissions:
+      contents: write
+      issues: write
+
+    name: High density
+    needs: ci-gate
+    # Restaura proteccion heavy-bench-nightly (cancel:false): el bench ~2h no se cancela.
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/rust-setup
+        with:
+          swap-mb: 6144
+          free-disk: true
+
+      - name: Run high density benchmarks
+        run: cargo bench --bench high_density -- --nocapture 2>&1 | tee nightly_density_results.txt
+
+      - name: Upload density results
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: density-bench-results
+          path: |
+            nightly_density_results.txt
+            target/criterion/
+  analyze:
+    if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+    permissions:
+      contents: write
+      issues: write
+
+    name: Analyze
+    needs: [ci-gate, light-benchmarks, high-density]
+    # Restaura proteccion heavy-bench-nightly (cancel:false).
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libclang-dev clang librocksdb-dev
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+
+      - name: Download light results
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: light-bench-results
+          path: light/
+
+      - name: Download density results
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: density-bench-results
+          path: density/
+
+      - name: Merge criterion results
+        run: |
+          mkdir -p target/criterion
+          if [ -d light/target/criterion ]; then
+            cp -r light/target/criterion/* target/criterion/
+          fi
+          if [ -d density/target/criterion ]; then
+            cp -r density/target/criterion/* target/criterion/
+          fi
+          cp light/nightly_*_results.txt . 2>/dev/null || true
+          cp density/nightly_*_results.txt . 2>/dev/null || true
+
+      - name: Extract criterion estimates
+        id: extract
+        run: |
+          python scripts/bench_regression.py extract \
+            --criterion-root target/criterion \
+            --output benchmark_report_criterion.json
+
+      # CATEGORY: INFORMATIONAL — regression comparison may fail when no
+      # baseline exists (first run) or baseline format changes. Non-blocking.
+      - name: Compare against baseline
+        id: compare
+        continue-on-error: true
+        run: |
+          python scripts/bench_regression.py compare \
+            benchmark_report_criterion.json \
+            --format json \
+            --output bench_comparison_result.json \
+            --fail-on-regression
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+
+      - name: Detect regressions
+        id: check_regression
+        run: |
+          if [ -f bench_comparison_result.json ]; then
+            HAS_REG=$(python -c "import json; print(json.load(open('bench_comparison_result.json'))['has_regression'])")
+            echo "has_regression=$HAS_REG" >> "$GITHUB_OUTPUT"
+            echo "Regression detected: $HAS_REG"
+          else
+            echo "has_regression=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create regression issue
+        if: steps.check_regression.outputs.has_regression == 'True'
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        with:
+          script: |
+            const fs = require('fs');
+            const report = JSON.parse(fs.readFileSync('bench_comparison_result.json', 'utf8'));
+            const markdown = fs.readFileSync('nightly_hnsw_results.txt', 'utf8').slice(0, 500)
+              + '\n...\n*(truncated — see workflow artifacts for full logs)*';
+
+            let body = `## ⚠️ Benchmark Regression Detected
+
+            **Commit:** \`${context.sha}\`
+            **Workflow:** [${context.workflow}](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID})
+            **Threshold:** ${report.threshold_pct}%
+
+            ### Regressions
+
+            | Benchmark | Before (ms) | After (ms) | Change | Severity |
+            |---|---|---|---|---|
+            `;
+
+            for (const r of report.regressions) {
+              const icon = r.severity === 'critical' ? '🔴' : '🟡';
+              body += `| ${r.label} | ${r.prev_ms} | ${r.current_ms} | +${r.change_pct}% | ${icon} ${r.severity} |\n`;
+            }
+
+            body += `\n<details><summary>Raw benchmark logs (truncated)</summary>\n\n\`\`\`\n${markdown}\n\`\`\`\n</details>`;
+
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: ['benchmark', 'regression'],
+            });
+
+            const existing = issues.find(i =>
+              i.title.startsWith('[Benchmark] Regression detected')
+            );
+
+            if (existing) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                body: `**Re-checked on ${new Date().toISOString()}** — regression still present.\n\n${body}`,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `[Benchmark] Regression detected — ${new Date().toISOString().slice(0, 10)}`,
+                labels: ['benchmark', 'regression'],
+                body: body,
+              });
+            }
+
+      - name: Store benchmark results
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: nightly-benchmark-results
+          path: |
+            nightly_*_results.txt
+            benchmark_report_criterion.json
+            bench_comparison_result.json
+          retention-days: 30
+
+      # AUD-030: promote tonight's clean run to the new baseline so the
+      # regression gate never compares against a stale baseline. Nightly
+      # (schedule) only — PR runs must NOT mutate the repo baseline. Skipped
+      # when a regression was detected so a bad run is never baked in.
+      - name: Update and commit baseline (nightly only)
+        if: github.event_name == 'schedule' && steps.check_regression.outputs.has_regression != 'True'
+        run: |
+          python scripts/bench_regression.py update-baseline benchmark_report_criterion.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add benchmarks/criterion_baseline.json
+          git commit -m "chore(ci): update criterion bench baseline (nightly) [skip ci]" || echo "No baseline change"
+          git push
+
+  # critcmp regression candidate — OFF by default.
+  # Enabled via `workflow_dispatch` input `enable_critcmp=true`. On the first
+  # enabled run there is no prior baseline, so it only seeds the
+  # `critcmp-baseline` artifact; on subsequent enabled runs it downloads that
+  # artifact and compares base vs candidate. Gated by `if:` (NOT
+  # continue-on-error) so it never breaks the default nightly run. The main
+  # bench runs above stay on criterion's default `new/` output so
+  # scripts/bench_regression.py keeps working.
+  critcmp-regression:
+    permissions:
+      contents: write
+      issues: write
+
+    name: critcmp regression (candidate)
+    if: github.event.inputs.enable_critcmp == 'true'
+    needs: ci-gate
+    # Restaura proteccion heavy-bench-nightly (cancel:false).
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/rust-setup
+        with:
+          swap-mb: 6144
+          free-disk: true
+
+      - name: Install critcmp
+        run: cargo install critcmp --version 0.1.8 --locked
+
+      - name: Run hnsw_pure bench with candidate baseline
+        run: cargo bench --bench hnsw_pure -- --save-baseline candidate
+
+      - name: Fetch previous critcmp baseline (if any)
+        id: getbase
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          AID=$(gh api "repos/${{ github.repository }}/actions/artifacts?per_page=100" \
+                --jq '.artifacts[] | select(.name=="critcmp-baseline" and .expired==false) | .id' \
+                | head -n1 || true)
+          if [ -n "$AID" ]; then
+            gh api "repos/${{ github.repository }}/actions/artifacts/$AID/zip" \
+              -H "Accept: application/vnd.github+zip" > /tmp/critcmp_base.zip
+            mkdir -p /tmp/critcmp_prev
+            unzip -o /tmp/critcmp_base.zip -d /tmp/critcmp_prev
+            if [ -d /tmp/critcmp_prev/hnsw_pure/candidate ]; then
+              echo "found=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "found=false" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Compare with critcmp
+        if: steps.getbase.outputs.found == 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p target/criterion/hnsw_pure
+          cp -r /tmp/critcmp_prev/hnsw_pure/candidate target/criterion/hnsw_pure/base
+          critcmp base candidate
+
+      - name: Upload candidate as new baseline
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: critcmp-baseline
+          path: target/criterion/
+          retention-days: 30
+  chaos:
+    if: github.event_name != 'schedule'
+
+    name: Chaos Tests (failpoints)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/rust-setup
+        with:
+          install-nextest: true
+          install-system-deps: true
+          swap-mb: 4096
+
+      - name: Run chaos tests (chaos nextest profile)
+        run: cargo nextest run --profile chaos --features failpoints -p vantadb
+  build:
+    name: Build fuzz targets
+    needs: ci-gate
+    # el fuzz completo queda para schedule/dispatch; PRs usan fuzz-pr
+    if: github.event_name != 'pull_request' && github.event_name != 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # v1
+        with:
+          toolchain: nightly
+
+      - uses: Swatinem/rust-cache@7e35be21c2b94d972b1143087fabc27d7dc881ef # v2.9.1
+        with:
+          shared-key: fuzz-build
+
+      - name: Install cargo-fuzz
+        uses: taiki-e/install-action@25f25a6eff908c77b40880d0b1f5d2a032b6e75a # v2.83.4
+        with:
+          tool: cargo-fuzz
+
+      - name: Build all fuzz targets
+        run: cargo +nightly fuzz build --target x86_64-unknown-linux-gnu
+  fuzz:
+    name: Fuzz ${{ matrix.target }}
+    needs: [ci-gate, build]
+    # el fuzz completo queda para schedule/dispatch; PRs usan fuzz-pr
+    if: github.event_name != 'pull_request' && github.event_name != 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - fuzz_parser
+          - fuzz_node_deserialize
+          - fuzz_wal
+          - fuzz_archive
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # v1
+        with:
+          toolchain: nightly
+
+      - uses: Swatinem/rust-cache@7e35be21c2b94d972b1143087fabc27d7dc881ef # v2.9.1
+        with:
+          shared-key: fuzz-build
+
+      - name: Restore fuzz corpus cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: fuzz/corpus/${{ matrix.target }}
+          key: fuzz-corpus-${{ matrix.target }}-${{ github.ref_name }}
+          restore-keys: |
+            fuzz-corpus-${{ matrix.target }}-
+
+      - name: Clean stale crash artifacts
+        run: rm -rf fuzz/artifacts/${{ matrix.target }}/
+
+      - name: Install cargo-fuzz
+        uses: taiki-e/install-action@25f25a6eff908c77b40880d0b1f5d2a032b6e75a # v2.83.4
+        with:
+          tool: cargo-fuzz
+
+      - name: Run ${{ matrix.target }}
+        env:
+          MAX_SECONDS: ${{ inputs.max_seconds || '60' }}
+        run: cargo +nightly fuzz run --target x86_64-unknown-linux-gnu ${{ matrix.target }} -- -max_total_time="$MAX_SECONDS" -max_len=8192
+
+      - name: Upload fuzz corpus + crashes
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: fuzz-${{ matrix.target }}-${{ github.run_id }}
+          path: |
+            fuzz/artifacts/${{ matrix.target }}/
+            fuzz/corpus/${{ matrix.target }}/
+          if-no-files-found: warn
+          retention-days: 14  # FIND-141: corpus por run_id efimero (weekly Mon 06:00)
+  fuzz-pr:
+    # Gate acotado para PRs: 75s por target (4 targets en paralelo ≈ 5-8 min).
+    # Ubuntu-only (Windows da flaky en fuzz); timeout <= 15 min; sin continue-on-error (Regla 2).
+    name: Fuzz PR gate ${{ matrix.target }}
+    if: (github.event_name == 'pull_request') && (github.event_name != 'push')
+    needs: ci-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - fuzz_parser
+          - fuzz_node_deserialize
+          - fuzz_wal
+          - fuzz_archive
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # v1
+        with:
+          toolchain: nightly
+
+      - uses: Swatinem/rust-cache@7e35be21c2b94d972b1143087fabc27d7dc881ef # v2.9.1
+        with:
+          shared-key: fuzz-build
+
+      - name: Restore fuzz corpus cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: fuzz/corpus/${{ matrix.target }}
+          key: fuzz-corpus-${{ matrix.target }}-${{ github.ref_name }}
+          restore-keys: |
+            fuzz-corpus-${{ matrix.target }}-
+
+      - name: Install cargo-fuzz
+        uses: taiki-e/install-action@25f25a6eff908c77b40880d0b1f5d2a032b6e75a # v2.83.4
+        with:
+          tool: cargo-fuzz
+
+      - name: Run bounded fuzz on ${{ matrix.target }}
+        run: cargo +nightly fuzz run --target x86_64-unknown-linux-gnu ${{ matrix.target }} -- -max_total_time=75 -max_len=8192
+
+      - name: Upload fuzz corpus + crashes
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: fuzz-pr-${{ matrix.target }}-${{ github.run_id }}
+          path: |
+            fuzz/artifacts/${{ matrix.target }}/
+            fuzz/corpus/${{ matrix.target }}/
+          if-no-files-found: warn
+          retention-days: 14  # FIND-141: mismo criterio que job fuzz (artefactos PR efimeros)

@@ -24,6 +24,10 @@ lru = "0.18"
 vantadb = { path = "../", default-features = false, features = ["fjall", "memmap2", "rayon"] }
 # WIRE-07: durability gate (OpGate) + ERR-022 clamp policy — std-only leaf.
 vantadb-ffi-core = { path = "../vantadb-ffi-core" }
+# DIST-02: cognitive layer (L0 capture + recall). Default features keep it
+# LLM-free: without a runner the pipeline degrades per P4 (never blocks, never
+# loses data); recall falls back to keyword overlap (D38) and reports it.
+vanta-memory = { path = "../vanta-memory", default-features = false }
 
 [lints]
 workspace = true

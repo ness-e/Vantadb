@@ -23,7 +23,7 @@ Serve the entire `vantadb-wasm/` directory so the demo can import `../pkg/vantad
 
 ## Requirements
 
-- A browser that supports WASM and OPFS (Chrome 86+, Edge 86+, Firefox 111+, Safari 15.2+)
+- A browser that supports WASM, OPFS and the Web Locks API (Chrome 86+, Edge 86+, Firefox 111+, Safari 15.4+)
 - ~100MB free memory for the Transformers.js model
 - First load downloads the embedding model (~23MB)
 

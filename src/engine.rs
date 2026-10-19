@@ -158,7 +158,6 @@ impl InMemoryEngine {
     pub fn with_wal(wal_path: impl AsRef<Path>) -> Result<Self> {
         let path = wal_path.as_ref().to_path_buf();
         let mut nodes_map = HashMap::with_capacity(DEFAULT_INITIAL_CAPACITY);
-        let mut max_id: u128 = 0;
 
         // ShardedWal reconciles to a pre-existing WAL's on-disk shard layout
         // when present (AUDREP-16); 4 is only the default for a brand-new WAL.
@@ -166,11 +165,9 @@ impl InMemoryEngine {
         sharded.recover(0, |record| {
             match record {
                 WalRecord::Insert(node) => {
-                    max_id = max_id.max(node.id);
                     nodes_map.insert(node.id, node);
                 }
                 WalRecord::Update { id, node } => {
-                    max_id = max_id.max(id);
                     nodes_map.insert(id, node);
                 }
                 WalRecord::Delete { id } => {
@@ -201,12 +198,20 @@ impl InMemoryEngine {
             }
         }
 
+        let next_seq_id = nodes_map
+            .keys()
+            .copied()
+            .filter(|&id| id <= u64::MAX as u128)
+            .map(|id| id as u64)
+            .max()
+            .map_or(1, |m| m.saturating_add(1));
+
         let alive_count = nodes_map.values().filter(|n| n.is_alive()).count() as u64;
 
         Ok(Self {
             nodes: RwLock::new(nodes_map),
             wal: Some(sharded),
-            next_id: AtomicU64::new((max_id + 1) as u64),
+            next_id: AtomicU64::new(next_seq_id),
             edge_index,
             scalar_index,
             node_count: AtomicU64::new(alive_count),
@@ -1111,5 +1116,22 @@ mod tests {
         let reopened = InMemoryEngine::with_wal(&path).unwrap();
         assert!(reopened.get(5).is_none());
         assert_eq!(reopened.node_count(), 0);
+    }
+
+    #[test]
+    fn test_find353_with_wal_u128_truncation_collision_prevented() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("wal");
+        let high_u128_id: u128 = (1u128 << 96) + 1;
+        {
+            let engine = InMemoryEngine::with_wal(&path).unwrap();
+            engine.insert(create_node(5)).unwrap();
+            engine.insert(create_node(high_u128_id)).unwrap();
+            engine.flush_wal().unwrap();
+        }
+        let reopened = InMemoryEngine::with_wal(&path).unwrap();
+        // High u128 hash ID must not wrap into sequential u64 space (e.g. ((1<<96)+2) as u64 == 2).
+        // It must filter on id <= u64::MAX and set next_id to 5 + 1 = 6.
+        assert_eq!(reopened.next_id(), 6);
     }
 }

@@ -1,11 +1,10 @@
 //! Hybrid quantization algorithms for scalar and binary vector compression.
-
-/// Hybrid Quantization Algorithms (Phase 31)
-/// Contains carefully engineered quantization schemes for MMap Zero-Copy and L1 Caching.
-///
-/// SAFETY: All packed outputs are padded to 8-byte (u64) alignment boundaries
-/// to prevent SIMD segfaults on unaligned mmap reads.
-use core::f32;
+//!
+//! Hybrid Quantization Algorithms (Phase 31)
+//! Contains carefully engineered quantization schemes for MMap Zero-Copy and L1 Caching.
+//!
+//! SAFETY: All packed outputs are padded to 8-byte (u64) alignment boundaries
+//! to prevent SIMD segfaults on unaligned mmap reads.
 
 /// Required alignment for mmap-safe SIMD reads (AVX2 minimum = 32, but u64 = 8 is our pack unit).
 const MMAP_ALIGNMENT: usize = 8;

@@ -23,7 +23,11 @@ Un solo job `benchmark`:
 5. Opcionalmente actualiza `BENCHMARKS.md` con `benchmarks/update_markdown.py`
 6. Sube `benchmark_results.json` como artifact
 
-Parámetros por defecto: 1000 vectores, 128 dimensiones, 100 queries.
+Parámetros por defecto: 10000 vectores, 128 dimensiones, 1000 queries (perfil único push/dispatch — FIND-232).
+
+### Modo A/B same-job (FIND-233, opt-in)
+
+Con `ab_ref` seteado (solo dispatch), el job construye **dos** wheels — A desde `ab_ref` y B desde el ref disparado — y corre 3 pares alternados `(A_i, B_i)`; `compare_baseline.py --ab-runs` gatea la mediana de los ratios pareados (bandas provisionales warn>15%/block>50%; calibración con `ab_ref=<SHA HEAD>`). Costo ~+5-9 min por invocación; el push no lo ejecuta. Detalle: `docs/user/operations/BENCHMARKS.md` §20.
 
 ## ¿Qué tests usa?
 
@@ -41,5 +45,5 @@ Medir y trackear el rendimiento del SDK Python de VantaDB. Genera un reporte JSO
 
 ## ¿Cuándo se ejecuta?
 
-- **Push** a `main` con cambios en: `src/**`, `vantadb-python/**`, `benchmarks/**`, `Cargo.toml`, `Cargo.lock`
-- **Workflow dispatch** manual con parámetros configurables (size, queries, dim)
+- **Push** a `main` y `develop` con cambios en: `src/**`, `vantadb-python/**`, `benchmarks/**`, `Cargo.toml`, `Cargo.lock`
+- **Workflow dispatch** manual con parámetros configurables (size, queries, dim, update_baseline, ab_ref)

@@ -1,0 +1,48 @@
+{
+  "_comment": "Single source of truth for post-release verification (FIND-342). scripts/verify-release.ps1 renders its expected asset/registry list from this file — never hardcode those lists anywhere else. Bump version/tag with each core release; entries that ride other tag namespaces (adapters-v*, providers-v*, node-v*) carry documented_only status instead of a core version.",
+  "version": "0.8.0",
+  "tag": "v0.8.0",
+  "github": {
+    "repo": "ness-e/Vantadb",
+    "binaries": [
+      { "target": "x86_64-unknown-linux-gnu", "ext": "tar.gz" },
+      { "target": "x86_64-apple-darwin", "ext": "tar.gz" },
+      { "target": "aarch64-apple-darwin", "ext": "tar.gz" },
+      { "target": "aarch64-unknown-linux-gnu", "ext": "tar.gz" },
+      { "target": "x86_64-pc-windows-msvc", "ext": "zip" }
+    ],
+    "wheels": {
+      "template": "vantadb_py-{version}-cp311-abi3-{platform}.whl",
+      "platforms": [
+        "macosx_11_0_arm64",
+        "manylinux_2_28_aarch64",
+        "manylinux_2_28_x86_64",
+        "win_amd64"
+      ]
+    }
+  },
+  "registries": [
+    { "label": "crates.io vantadb", "url_template": "https://crates.io/api/v1/crates/vantadb/{version}" },
+    { "label": "PyPI vantadb-py", "url_template": "https://pypi.org/pypi/vantadb-py/{version}/json" },
+    { "label": "npm vantadb", "url_template": "https://registry.npmjs.org/vantadb/{version}" },
+    { "label": "npm vantadb-wasm", "url_template": "https://registry.npmjs.org/vantadb-wasm/{version}" }
+  ],
+  "documented_only": [
+    {
+      "label": "PyPI adapters (7)",
+      "reason": "versioned by adapters-v* tags (own namespace); not gated on the core version — see PUBLISH.md Adapters"
+    },
+    {
+      "label": "PyPI providers (3)",
+      "reason": "versioned by providers-v* tags (own namespace); not gated on the core version — see PUBLISH.md Providers"
+    },
+    {
+      "label": "npm vantadb-node",
+      "reason": "never published (registry 404); version gated by scripts/docs/check-npm-versions.mjs never-published policy — see PUBLISH.md"
+    },
+    {
+      "label": "crates.io vanta-memory",
+      "reason": "on hold in release-plz.toml (DIST-01); excluded from the check"
+    }
+  ]
+}

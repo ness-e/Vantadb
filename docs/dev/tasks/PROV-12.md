@@ -1,145 +1,166 @@
 ---
-title: "PROV-12 — publicar wheels PyPI vía CI (lista para publicar, sin publish local)"
+title: "TASK PROV-12: Publicar wheels PyPI de providers (estrategia H-04)"
 kind: task
-description: "Objetivo: dejar el release de wheels PyPI listo y verificado en seco, SIN publish local (el token vive en GitHub Secrets / OIDC, inaccesible desde esta máquina)"
+description: "pyproject.toml + release-providers.yml (maturin; matriz 3 providers × 4 plataformas) + build/validación local + checklist owner para el publish real. Gate D: colisión de nombres PyPI resuelta por owner (providers canónicos)."
 ---
 
-# PROV-12 — publicar wheels PyPI vía CI (lista para publicar, sin publish local)
+# TASK PROV-12: Publicar wheels PyPI de providers (estrategia H-04)
 
-> **Plan:** `docs/dev/plans/2026-09-19-publicacion.md` · **Wave:** Wave2 primera en secuencia · **Ruta:** vanta-lead
-> **Branch:** develop · **Commit:** `ci: PROV-12 — ...` · **Appetite:** 2d · **Esfuerzo:** 🟡 · **Prioridad:** 🔴 Alta
-> **Estado:** ⏳ IN PROGRESS (DISCOVERY completo, Gate D GO)
-> **SDP:** `campaign_discover_skills_v2` phase=BUILD keywords=[pypi, maturin, wheels, release, CI, secrets, testpypi] → base+keyword skills abajo
+## Metadata
 
-## TAREA
+- **Plan file:** `docs/dev/plans/2026-10-04-master-plan-0.9.0.md` (Task 30, F1)
+- **Fuente:** Backlog P45 PROV-12 (INV-providers-01 H-04, estrategia aprobada: publicar); deps PROV-01/02/04 ✅
+- **Esfuerzo:** 🟡 1sem | **Appetite:** max 1sem | **Prioridad:** 🟠
+- **Tipo:** Release/Packaging (CI/CD + packaging; sin cambios de contrato de los providers)
+- **Creado:** 2026-10-04 | **Estado:** ⏳ EN PROGRESO
+- **Campaign ID:** master-plan-0.9.0-20261004 · **taskId server:** 30
+- **Ejecutor:** vanta-lead (dominio release/packaging)
+- **Incógnitas (uphill):** 0 abiertas (resueltas en DISCOVERY — ver Investigation Notes)
+- **Pendientes (downhill):** 6 steps (2-7)
+- **Nota de archivo:** este path contenía el task file de la campaña ARCHIVADA `2026-09-19-publicacion` (PROV-12 core-wheels dry-run, plan en `plans/archive/`, registro en `docs/dev/avance/meta.md:328`). El master plan 0.9.0 (Task 30) designa este path para el nuevo PROV-12 (providers) → el contenido previo quedó en git (`b764d703`..HEAD) y se registró `FIND-274` (higiene de IDs reusados entre campañas).
 
-**Objetivo:** dejar el release de wheels PyPI listo y verificado en seco, SIN publish local (el token vive en GitHub Secrets / OIDC, inaccesible desde esta máquina).
+## Gate D — decisión owner (colisión de nombres PyPI)
 
-**Contrato:**
-1. Workflow release de wheels listo y verificado en seco (TestPyPI primero).
-2. `pip install` en entorno limpio + smoke `Client` verde (con wheel construida localmente — el artefacto es el mismo que CI publica).
-3. Docs con versión == código.
-4. Si falta el secret / prereq → STOP con instrucción exacta al owner (no inventar, no publicar a ciegas).
-5. La task cierra como **"lista para publicar"**, NO como "publicado".
+**Descubrimiento (Paso 0 no lo vio):** `integrations/{openai,ollama}` (adapters Python, MKT-20/Task 71 F6) declaran en su `pyproject.toml` los nombres PyPI `vantadb-openai`/`vantadb-ollama` **y el mismo módulo** (`vantadb_openai`) que los providers Rust de esta tarea (H-04 + ADR-0033 + research: `pip install vantadb-openai` → `VantaDBOpenAI(path, key)`). Ambos 404 en PyPI/TestPyPI hoy → solo uno puede reclamarlos. Además el `vantadb-litellm` del trío GTM solo existe como provider.
 
-**AC (acceptance criteria):**
-- [ ] Prereqs PROV-01/02/04 verificados (o veredicto documentado de N/A con evidencia).
-- [ ] `release-wheels-60.yml` leído entero; `actionlint` verde (o fix mínimo si está roto).
-- [ ] `maturin build --release` OK sin publish + metadata del wheel verificada (nombre `vantadb-py`, versión == workspace).
-- [ ] `pip install <wheel>` en venv limpio + `verify_published_wheel.py` verde (put/get/list/search/capabilities/durabilidad).
-- [ ] Coherencia de versión: `[workspace.package] version` == `pyproject.toml version` == `__version__` del wheel instalado.
-- [ ] Docs con versión == código (sin hardcodes divergentes en el scope tocado).
-- [ ] STOP honesto: publish real (TestPyPI/PyPI) requiere al owner — instrucción exacta entregada, nada publicado desde esta máquina, ningún secret a disco/código/logs.
-- [ ] Commit `ci: PROV-12 — ...` con staging SELECTIVO (solo paths propios), NO PUSH.
+**Question (2026-10-04) + respuesta owner:** **"Providers canónicos"** → los providers conservan `vantadb-openai`/`vantadb-ollama`/`vantadb-litellm`; los twins `integrations/openai`+`integrations/ollama` se renombran o retiran antes del publish de F6/MKT-20.
 
-**Estrategia H-04 aprobada:** pyproject.toml + maturin, CI release multiplataforma.
-**Gate V (resuelto por owner 2026-09-19 — NO re-preguntar):** (1) token en GitHub Secrets — SIN publish local; (2) TestPyPI primero; (3) versión derivada del tag (release-plz, sin edición manual).
-**Pre-mortem:** (1) sin token visible no hay publish → vía CI; si el secret falta → STOP con instrucción exacta; (2) matriz multiplataforma rompe en un OS → ship con la matriz que pase + nota.
+**Materialización:** fila `FIND-273` (Backlog) + ítem #0 del Checklist owner + nota en `PUBLISH.md` §Providers.
 
-## ARCHIVOS
+## Blast Radius
 
-**Clave (leídos completos antes de actuar):**
-- `vantadb-python/pyproject.toml:7` (version 0.5.0), `:40-57` ([tool.maturin], module-name `vantadb_py`, include/exclude H-05), `:63-67` (pytest slow-marks FX-3)
-- `vantadb-python/Cargo.toml:3` (version.workspace), `:8` (publish=false), `:11` (lib name `vantadb_native`), `:15` (abi3-py311), `:24` (core dep path)
-- `.github/workflows/release-wheels-60.yml:3-19` (triggers: dispatch+PR+tag), `:41-57` (matriz 4 targets), `:94-95` (version_coherence gate), `:97-106` (maturin build), `:107-129` (smoke unix/windows), `:139-163` (publish-testpypi dispatch+`TEST_PYPI_API_TOKEN`/OIDC env testpypi), `:164-202` (publish-pypi en tag + attestations + attach release), `:204-310` (verify TestPyPI/PyPI install + provenance)
-- `docs/dev/operations/CI_POLICY.md:424-431` (§9 workflow wheels: build+smoke, TestPyPI manual, PyPI diferido)
-- `vantadb-python/verify_published_wheel.py:1-80` (smoke post-publish: version+put/get/list/search/caps/durabilidad)
-- `Cargo.toml:727-730` ([workspace.package] version 0.5.0, edition 2021, rust 1.94.1)
+**Archivos exactos del cambio (nuevos/modificados):** `providers/openai/pyproject.toml` · `providers/ollama/pyproject.toml` · `providers/litellm/pyproject.toml` · `providers/openai/Cargo.toml` · `providers/ollama/Cargo.toml` · `providers/litellm/Cargo.toml` · `.github/workflows/release-providers.yml` · `.github/scripts/provider_wheel_smoke.py` · `docs/dev/operations/CI_POLICY.md` · `docs/dev/workflow/PUBLISH.md` · `docs/dev/workflow/TRIGGERS.md` · `docs/dev/workflow/README.md` · `docs/dev/Backlog.md` · `docs/dev/tasks/PROV-12.md` · `providers/openai/README.md` · `providers/ollama/README.md` · `providers/litellm/README.md`
 
-**Relacionados (lectura según necesidad):**
-- `Cargo.toml` workspace version (coherencia), `docs/CHANGELOG.md` (release-plz lo maneja — NO editar)
-- `vantadb-python/tests/test_sdk.py` (smoke que CI corre contra el wheel)
-- `.opencode/rules/release-ci.md` (Regla 4 version sync, Regla 5 continue-on-error+CATEGORY), `.opencode/rules/python-bindings.md`
+| Dirección | Módulos |
+|-----------|---------|
+| Callers | `providers-ci.yml` (build/test ubuntu), `CI_POLICY` (circuit breaker experimental), `PUBLISH.md` §crates (canal), READMEs de providers; nadie los importa desde el workspace (standalone, `[workspace]` vacío) |
+| Callees | `providers/{openai,ollama,litellm}/` (Cargo.toml + src + tests + .pyi + README), `vantadb` (path dep compilado dentro del wheel), SDKs Python (`openai`/`ollama`/`litellm` — duck-typing por reflexión), patrón: `release-wheels.yml` + `release-adapters.yml` |
+| Implicaciones | Aditivo: 3 `pyproject.toml` nuevos + 1 workflow nuevo + 1 script smoke + docs. **Sin cambios de contrato Python** (módulos/clases/firmas intactos). El wheel embebe el core (path dep) → sin pin de `vantadb-py`. `publish = false` del crate se mantiene (no crates.io). Windows: `cargo check` ×3 ✅ verificado 2026-10-04 (premisa de PROV-13 stale — ver Notes). |
 
-**Prohibidos (WIP ajeno / datos vivos — NO tocar):**
-`reparacion.bat`, `.opencode/`, `Justfile`, `ocr-*`, `completions/*`, `desktop/src-tauri/Cargo.lock`, stash@{0} GOV-C4, `docs/dev/Backlog.md`, plan file (solo recitation al cierre — ver nota CIERRE), `C:/Users/Eros/.vantadb*` (datos vivos), `src/` (cero cambios core), `web/`, `examples/` (SHOW-02/03 cerrados). Ningún token a disco/código/logs. Ningún publish a PyPI/TestPyPI desde esta máquina.
+## Impacto mapeado (Regla 0)
 
-## DEPENDENCIAS
+- **Archivos leídos (completos):** `providers/{openai,ollama,litellm}/Cargo.toml` (23L c/u), `providers/openai/src/python.rs` (parcial 1-100), tests (`test_openai.py` 1-119; importorskips ×3), READMEs (openai/litellm completos), `.github/workflows/release-wheels.yml` (316L), `.github/workflows/release-adapters.yml` (161L), `.github/workflows/providers-ci.yml` (92L), `vantadb-python/pyproject.toml` (70L) + `Cargo.toml` (33L, `abi3-py311`), `docs/dev/operations/CI_POLICY.md:142-171`, `docs/dev/workflow/PUBLISH.md` (1-190), `integrations/{openai,ollama}/pyproject.toml` + `integrations/openai/vantadb_openai/{__init__,vectorstore}.py` (colisión), `docs/dev/reviews/archive/research-providers-20260825.md` (H-04/H-14), `ADR-0033` (276L), `docs/user/FRAMEWORKS.md`, `docs/dev/tasks/MKT-20.md`, `docs/dev/tasks/DIST-06.md`, plan Tasks 30/31/71.
+- **Archivos referenciados hacia dentro (imports/deps):** los 3 crates dependen de `vantadb` (path `../..`, features `fjall,memmap2`) + `pyo3 0.29` opcional; el wheel compilado los embebe (self-contained). `providers/shared_py.rs` compartido vía `#[path]`.
+- **Archivos que referencian a los editados (referencias entrantes):** `providers-ci.yml` (matrix de nombres — se mantiene), `CI_POLICY` (tabla experimental), `PUBLISH.md` (tabla §crates + namespace), Backlog P45 (fila PROV-12). Ningún consumidor parsea los pyproject (nuevos).
+- **Veredicto impacto:** **BAJO-MEDIO** — aditivo; el único punto sensible es la **identidad PyPI** (resuelta por Gate D) y la estabilidad del build multiplataforma (verificada local en Windows; el resto de plataformas se valida en el primer run del workflow).
 
-- **Wave:** Wave2 primera en secuencia (Wave0 ✅ FIND-98-retry + SHOW-02, Wave1 ✅ SHOW-03 + DIST-10/14).
-- **Bloqueantes:** Gate V RESUELTO por owner 2026-09-19 (§ arriba). Prereqs nominales PROV-01/02/04 → veredicto en INVESTIGACIÓN (paso 1).
-- **Si prereqs faltan en sustancia → STOP + re-triage** (no forzar, no ejecutar a ciegas).
-- **NextTask tras cierre:** EXE-03-prep (la ejecuta el orquestador, no yo). **P2-01:** lo hace el orquestador (no yo).
+## Contrato
 
-## REFERENCIAS
+> Del plan (Task 30) — "wheels publicados **o** dry-run TestPyPI verde (5+ dists) + checklist owner para el publish real". El publish real es del owner (patrón MKT-20/Task 71; push diferido al final del plan).
 
-- **Rules (lectura completa antes de actuar — HECHA):** `.opencode/rules/release-ci.md` (42L: allocators prod, sccache único, Dockerfile MSRV, version sync §4, continue-on-error+CATEGORY §5).
-- **Refs:** `.opencode/references/definition-of-done.md` (DoD standing + DoD VantaDB comandos + shippable trunk-based), `docs/dev/operations/CI_POLICY.md` §9, `dev-tools.md` (vía AGENTS).
-- **Commands:** `pipeline.md`, `audit.md`. **SPEC:** `SPEC.md` raíz. **Tabla Spec:** N/A (release/packaging, 0 greenfield).
+1. **Distribución preparada y verificada**: 3 `pyproject.toml` maturin (nombres canónicos) + `release-providers.yml` (matriz 3×4: linux-x86_64/macos/windows/linux-aarch64; OIDC; input TestPyPI; skip-existing; tag `providers-v*.*.*`) — ⬜ Steps 2-4
+2. **Dry-run local verde**: build de wheels ×3 + `twine check` + smoke en venv limpio por provider (`pip install <wheel>` → import → init → store/search con vector fake, sin red) — **equivalente ejecutable del dry-run** (el dispatch real a TestPyPI requiere push + environments del owner) — ⬜ Step 6
+3. **Checklist owner** para el publish real (TestPyPI dispatch → smoke → tag → verificación post) — ⬜ Step 5
+4. **CI multiplataforma**: el workflow construye los 4 targets (12 wheels) en PR/tag/dispatch; `actionlint` 0 — ⬜ Steps 4, 6
+5. **CI_POLICY actualizado** (canal de release de providers) + `PUBLISH.md` (namespace + §crates + §Providers) — ⬜ Step 5
+6. **Sin cambios de contrato de los providers** (PROV-04 cerrado): módulos, clases y firmas Python intactos; `publish = false` del crate se mantiene — invariante verificado en cierre — ⬜ Step 6
+7. **Colisión de nombres**: `FIND-273` registrado (twins de integrations a renombrar/retirar en F6) — ⬜ Step 5
 
-## SKILLS (SDP Paso 0b — ejecutado, scores en tool result)
+## Spec (decisiones — SDD)
 
-- `ci-cd-and-automation` (sugerida plan — CARGADA: quality gates, staged rollout TestPyPI→PyPI, rollback plan, secrets en manager) — aplica a todo el workflow release.
-- `git-workflow-and-versioning` (sugerida plan — CARGADA: semver desde tag, atomic commits, pre-commit hygiene sin secrets) — aplica a versionado + commit `ci:`.
-- `security-and-hardening` (sugerida plan — CARGADA: threat-model secrets, never-commit-secrets, trusted publishing OIDC) — aplica a manejo de tokens/OIDC.
-- `shipping-and-launch` (SDP keyword — CARGADA: pre-launch checklist, staged rollout, rollback strategy) — aplica a estrategia TestPyPI-primero + rollback plan.
-- `source-driven-development` (SDP base) — NO cargada como skill (sin ambigüedad de APIs externas que lo exija; docs PyPI solo si gap — N/A).
-- `incremental-implementation` / `test-driven-development` / `context-engineering` / `doubt-driven-development` / `frontend-ui-engineering` / `api-and-interface-design` (SDP lifecycle genéricos) — NO aplican (0 código nuevo, 0 UI, 0 API nueva); se declaran para trazabilidad.
-- `SKILLS_CARGADAS:` ci-cd-and-automation, git-workflow-and-versioning, security-and-hardening, shipping-and-launch (+ SDP scoring registrado arriba).
+| # | Decisión | Opciones (+tradeoff) | Resuelto |
+|---|----------|----------------------|----------|
+| 1 | Nombres PyPI | A) **canónicos `vantadb-{openai,ollama,litellm}`** (H-04/ADR-0033/research; trío GTM = familia providers) / B) nombres nuevos para providers (rompe contrato + research) | ✅ **Gate D owner 2026-10-04: A** (FIND-273 para twins) |
+| 2 | Build backend | A) **maturin `>=1.15.0,<2.0`** (convención del repo: `vantadb-python/pyproject.toml:2`; providers ya construyen con maturin en providers-ci) / B) setuptools-rust (fuera de convención) | ✅ A (evidencia: repo + CI real) |
+| 3 | Versión | A) **`dynamic = ["version"]`** (single source: Cargo.toml 0.5.0; convención `vantadb-python` + lección "PyPI 0.6.0 incident") / B) versión estática (drift) | ✅ A |
+| 4 | Deps del wheel | A) **declarar SDK** (`openai>=1.0,<2` / `ollama>=0.4,<1` / `litellm>=1.0,<2`) — cierra H-10 "requisito pip oculto"; convención integrations / B) no declarar (el usuario descubre el ImportError) | ✅ A (evidencia: research H-10 + convención repo) |
+| 5 | abi3 | A) **`abi3-py311`** (1 wheel por plataforma para ≥3.11; convención core `vantadb-python/Cargo.toml:15`) — verificación: compila + tests pasan / B) cp311-only (wheels inútiles en 3.12/3.13) | ✅ A condicionado a verificación (fallback B + FIND) |
+| 6 | sdist | A) **no sdist** (path dep `vantadb = ../..` no resoluble por consumidores externos; wheels prebuilt self-contained) / B) sdist (roto para el consumidor) | ✅ A (evidencia: `providers/openai/Cargo.toml:19`) |
+| 7 | Matriz de plataformas | A) **4 targets** = patrón release-wheels (ubuntu x86_64 + macos + windows + linux aarch64 cross manylinux_2_28) / B) menos (incumple contrato) | ✅ A |
+| 8 | Tag namespace | A) **`providers-v*.*.*`** (propio; no dispara `v*`/`node-v*`/`adapters-v*`; patrón tabla `PUBLISH.md:107-115`) / B) reusar `adapters-v*` (dispara los 9 adapters) | ✅ A |
+| 9 | Smoke | A) **script compartido `.github/scripts/provider_wheel_smoke.py`** (usado por build-smoke ×12, verify-testpypi y verify-pypi; 1 fuente) / B) inline ×3 shells (duplicación) | ✅ A |
+| 10 | Dónde vive el checklist owner | A) **`PUBLISH.md` §Providers (durable) + task file** / B) solo task file (se archiva) | ✅ A |
+| 11 | READMEs | A) **sección "Install from PyPI (after first release)"** con caveat (patrón MKT-20 C4) / B) dejarlos (quedan stale al publicar) | ✅ A (mínimo) |
 
-## HERRAMIENTAS+MCP
+## Invariantes de dominio (handoff — MUST)
 
-- `maturin build --release --out dist --manifest-path ./vantadb-python/Cargo.toml` (SIN publish) + inspección metadata wheel (`vantadb_py-*.whl`, `METADATA`, tags).
-- `actionlint .github/workflows/release-wheels-60.yml` (disponible vía winget) si se toca el workflow; si no se toca → solo lectura + actionlint de verificación.
-- `cargo test --test version_coherence` (gate que CI corre; local solo si el costo compila lo justifica — ver step 3).
-- `python -m venv` limpio + `pip install <wheel>` + `python vantadb-python/verify_published_wheel.py` con `VANTADB_EXPECTED_VERSION`.
-- `campaign_verify_cmd` para verify mecánico (BUG exit -1 conocido → bash directa + mención en RESULTADO).
-- Cargo con `-j 2` si compila (OOM Windows). Internet SOLO para docs oficiales PyPI/TestPyPI si gap (URLs verificadas; sin red → `[cita NO VERIFICADA]` + deuda TSYS-13).
+- **Invariantes a preservar:** (1) **sin push, sin tags, sin publish real** (push diferido al final del plan — instrucción owner; publish = owner); (2) contrato Python de los providers intacto (módulos `vantadb_openai|ollama|litellm`, clases `VantaDB*`, firmas `#[pyo3(signature)]` — PROV-04); (3) `publish = false` del crate se mantiene (no crates.io); (4) WIP ajeno intacto (`opencode.jsonc`, master plan, `docs/pipeline-state.json`, `docs/dev/tasks/TS-*`, `..\web`, cambios en vuelo de TS-11/TS-13); (5) Cargo.lock de providers sin churn (lección PROV-openai: revertir, no commitear); (6) los workflows existentes (`providers-ci.yml`, `release-wheels.yml`, `release-adapters.yml`) NO se modifican.
+- **Comandos de verificación:** ver Contrato (2/4) + `campaign_verify_cmd`.
+- **Deuda pendiente:** ninguna nueva. Notas: PROV-13 (Windows CI en providers-ci) queda como está (premisa stale — check ✅ local); rename/retiro de twins = FIND-273 (F6).
 
-## INVESTIGACIÓN CÓDIGO (blast radius — generado en DISCOVERY)
+## Definition of Done (contrato multi-nivel — P2-08)
 
-- **Workflow `release-wheels-60.yml` (310L, leído entero):** completo y coherente — build 4 targets (linux-x86_64, macos, windows, linux-aarch64 cross), smoke install+pytest por plataforma nativa (aarch64 exento con justificación MKT-18h/BND-09), publish TestPyPI por `workflow_dispatch` (`publish_testpypi=true`, environment `testpypi`), publish PyPI en tag `v*` (environment `pypi` + attestations NON-CRITICAL + attach a GH Release), verify-install en ambos (TestPyPI con espera CDN 30s, PyPI con retry backoff) + verificación de provenance. Pins SHA en todas las actions ✅. `continue-on-error: true` solo en attest con `# CATEGORY: NON-CRITICAL` ✅ (Regla 5 OK).
-- **Hallazgo clave (secret-state):** los jobs de publish usan `id-token: write` (Trusted Publishing OIDC) + `environment: testpypi/pypi` — NO referencian `${{ secrets.TEST_PYPI_API_TOKEN }}` ni `PYPI_API_TOKEN`. El owner debe configurar Trusted Publisher en PyPI/TestPyPI (o añadir API token como secret del environment) — la instrucción exacta va en el STOP/handoff.
-- **pyproject/Cargo.toml:** versión 0.5.0 en ambos, `version.workspace=true`, `publish=false` (el crate Rust no se publica; solo el wheel), abi3-py311, classifiers 3.11+3.13 (FIND-85).
-- **Prereqs PROV-01/02/04:** SIN filas en `docs/dev/Backlog.md` (solo mención P45 como quickwins aprobados → plan 2026-08-25 nunca ejecutado como filas). Sustancia: eran quickwins de `providers/*` (adapters externos). `providers/` están EXCLUIDOS del workspace (Backlog:495 CRIT) y el wheel `vantadb-py` depende solo del core (`vantadb` path dep) — los providers NO bloquean la publicación del wheel. **Veredicto: N/A en sustancia, documentado; no re-triage (no se ejecuta a ciegas: se verifica lo verificable).**
-- **Impacto mapeado (Regla 0):** archivos leídos completos: pyproject.toml, vantadb-python/Cargo.toml, release-wheels-60.yml, CI_POLICY.md §9, verify_published_wheel.py, release-ci.md, definition-of-done.md. Referencias hacia dentro: workflow → `vantadb-python/tests/test_sdk.py`, `verify_published_wheel.py`, `Cargo.toml` workspace, environments `testpypi/pypi`. Referencias entrantes: CI_POLICY §9, Backlog PROV-12, plan Wave2. **Veredicto: impacto BAJO — tarea de verificación; cambios esperados: ninguno en workflow/código (o fix mínimo), task file nuevo + commit `ci:`.**
+| Nivel | Gate |
+|-------|------|
+| **Task** | Contrato 1-7 ✅ (pyprojects + workflow + dry-run local verde + checklist + docs + FIND + invariante de contrato). |
+| **Commit** | Commit local `ci(providers):` (conventional; SIN push), verificación mecánica (nunca auto-reporte), sin archivos fuera del blast radius. |
+| **Release** | Wheels en PyPI — ejecutado por el owner vía checklist (dispatch TestPyPI → tag `providers-v0.5.0`). El cierre del task NO publica. |
 
-## INVESTIGACIÓN PROBLEMA
+## Steps
 
-- **Publish sin secret local (vía CI):** imposible publicar desde esta máquina (sin token, sin OIDC). Lo verificable aquí: build del wheel, metadata, install local en venv limpio, smoke funcional, coherencia de versión, lint del workflow. Lo que REQUIERE al owner: configurar Trusted Publishing (o API tokens) en GitHub environments + PyPI/TestPyPI, disparar `workflow_dispatch` con `publish_testpypi=true`, luego tag `v*` para PyPI.
-- **TestPyPI-primero:** orden ya codificado en el workflow (dispatch manual → tag). Estrategia: 1) dispatch TestPyPI, 2) verify-install verde, 3) tag → PyPI + verify + provenance.
-- **Versión-desde-tag:** release-plz deriva del tag; el workflow extrae versión del tag (`${GITHUB_REF#refs/tags/v}`) con fallback a `Cargo.toml` en TestPyPI. Sin edición manual ✅.
+1. ✅ **Task file + Spec + Gate D** (este archivo; decisión owner registrada).
+2. ✅ **pyproject.toml ×3** (maturin, nombres canónicos, dynamic version, deps SDK, module-name explícito).
+3. ✅ **abi3-py311 ×3** (`pyo3` features) — verificado: `cargo check` ×3 + `maturin build --release` ×3 → wheels `cp311-abi3` ✅ + suites de providers contra los wheels (18/17/19 passed).
+4. ✅ **`release-providers.yml`** (matriz 3×4 + smoke + publish-testpypi + publish-pypi + verify jobs) + `.github/scripts/provider_wheel_smoke.py` — `actionlint` 0.
+5. ✅ **Docs**: `CI_POLICY` (canal), `PUBLISH.md` (namespace + §crates + §Providers + checklist), `TRIGGERS.md`/`README.md` (inventario 40), READMEs ×3 (Install PyPI), `FIND-273` (Backlog).
+6. ✅ **Verificación local**: `maturin build` ×3 + `twine check` ×3 PASSED + smoke venv limpio ×3 (SMOKE OK) + pytest ×3 (18/17/19) + `actionlint` 0 + gates docs (check-links 0 · check-docs 0 · gen-index 0) + `dev-tools/verify_changed.ps1` ALL 3 PASS + `dev-tools/verify.ps1` **ALL 10 PASS**.
+7. ⬜ **Cierre**: OCR delegation + review P2-01 (vanta-review) + commit local + campaign close (taskId 30) + progreso.
 
-## INVESTIGACIÓN INTERNET
+## Evidencia de verificación (2026-10-04, local Windows)
 
-- N/A — el workflow existente + CI_POLICY §9 documentan el flujo completo; sin gaps de docs PyPI que lo exijan. (Si surge gap en EJECUCIÓN → solo docs oficiales, URLs verificadas.)
+| Gate | Comando | Resultado |
+|------|---------|-----------|
+| Compila (abi3) | `cargo check --manifest-path providers/{openai,ollama,litellm}/Cargo.toml` | ✅ ×3 |
+| Build wheels | `maturin build --release --manifest-path ... --out dist` | ✅ `vantadb_{openai,ollama,litellm}-0.5.0-cp311-abi3-win_amd64.whl` |
+| Metadata | `python -m twine check dist/vantadb_{openai,ollama,litellm}-*.whl` | ✅ PASSED ×3 |
+| Smoke venv limpio | `.github/scripts/provider_wheel_smoke.py <provider>` (venv 3.11, `pip install <wheel>`) | ✅ SMOKE OK ×3 (import+init+store+search+list, sin red) |
+| Suites providers | `pytest providers/<p>/tests/` contra el wheel instalado | ✅ openai 18 · ollama 17 (requiere `vantadb-py`, como CI) · litellm 19 |
+| Workflow | `actionlint .github/workflows/release-providers.yml` (+ dir completo) | ✅ 0 |
+| Verify rápido | `dev-tools/verify_changed.ps1` | ✅ ALL 3 PASS (fmt/check/clippy) |
+| Verify full | `dev-tools/verify.ps1` | ✅ **ALL 10 PASS** (fmt/check/clippy/audit/deny/nextest 2518/docs-coverage/cli-probes/consumo/backup) |
+| Docs gates | `check-links` · `check-docs` · `gen-index --check` | ✅ 0 · 0 · 0 (índice regenerado; no staged por entradas ajenas en vuelo) |
 
-## STEPS (atómicos, ~100 líneas/step, cada uno reversible)
+Nota ENOSPC (ambiental, clase FIND-269): la primera corrida de `verify.ps1` falló 2/2518 tests con `Os code 112 StorageFull` por presión de disco; ambos pasan en aislamiento y la re-corrida completa con disco liberado dio ALL 10 PASS.
 
-- [x] **Step 1 — DISCOVERY: prereqs + workflow + rules + Gate D** → veredicto PROV-01/02/04 N/A en sustancia; workflow leído entero; rules/refs leídas; Gate D GO. (este step)
-- [x] **Step 2 — EJECUCIÓN: actionlint + coherencia versión + maturin build (dry-run sin publish)** → ✅ actionlint exit 0 · workspace 0.5.0 == pyproject 0.5.0 · `__version__`=reported_version()=CARGO_PKG_VERSION (`src/metadata.rs:28`, `vantadb-python/src/lib.rs:2414`) · `maturin build --release` OK (5m05s, `-j 2` vía CARGO_BUILD_JOBS) → `dist/vantadb_py-0.5.0-cp311-abi3-win_amd64.whl` · METADATA: Name vantadb-py / Version 0.5.0 / Requires-Python >=3.11. Nota: 15 warnings pre-existentes del core en release (no míos, fuera de scope); wheel cayó en `dist/` raíz (gitignored ✅).
-- [x] **Step 3 — EJECUCIÓN: venv limpio + pip install wheel + smoke verify_published_wheel.py verde + docs versión==código** → ✅ venv fresco en `%TEMP%\prov12-smoke` · `pip install dist/vantadb_py-0.5.0-...whl` OK (vantadb-py-0.5.0) · `verify_published_wheel.py` PASSED con `VANTADB_EXPECTED_VERSION=0.5.0` (version match + put/get/list/search/caps/durabilidad) · docs: `pip install vantadb-py` sin pin (`PYTHON_SDK.md:29` ✅), sin hardcodes divergentes; menciones 0.5.0/0.6.0 son marcadores de disponibilidad, no pins. Observación (Gate C): `DeprecationWarning: 'vantadb_py' import name deprecated → use 'import vantadb'` (pre-existente, área python-bindings, fuera de scope).
-- [x] **Step 4 — CIERRE: verify contrato + Gate C (colaterales) + commit selectivo `ci:` (NO PUSH) + STOP/handoff owner + RESULTADO §7** → ✅ contrato en seco cumplido (ver AC) · `campaign_verify_cmd` bug exit -1 confirmado (bash directa: actionlint exit 0) · Gate C vía question → "arregla todo": (3) wheels viejas 0.1.5/0.4.0 ELIMINADAS de `dist/` y `vantadb-python/dist/` (artefactos gitignored, queda solo 0.5.0 fresca); (1) DeprecationWarning `vantadb_py→vantadb` es deprecación INTENCIONAL (AST-010, removal en 0.6.0) — no se revierte, el smoke CI la usa por diseño; (2) 15 warnings core en release → `src/` PROHIBIDO en esta task, se deriva al orquestador (candidata FIND-*; ni Backlog ni src/ tocados). Commit selectivo solo `docs/dev/tasks/PROV-12.md`, NO PUSH. STOP publish: requiere owner (instrucción exacta abajo).
+## Checklist owner (publish real — ejecuta el owner)
+
+> Referencia durable: `PUBLISH.md` §Providers. Precondición: **push** (al final del plan) + environments.
+
+0. **Decisión de nombres** — ✅ RESUELTA 2026-10-04: providers canónicos; coordinar `FIND-273` (twins de integrations) antes del publish de F6.
+1. **Habilitar publicación**: GitHub environments `pypi` + `testpypi` (si no existen); PyPI/TestPyPI → *pending publisher* (Trusted Publishing/OIDC) para `vantadb-openai`, `vantadb-ollama`, `vantadb-litellm` (o token).
+2. **Dry-run TestPyPI**: `gh workflow run release-providers.yml -f publish_testpypi=true` → 12 wheels (3 proyectos × 4 plataformas) en test.pypi.org + job `verify-testpypi-install` verde.
+3. **Smoke TestPyPI (manual, opcional)**: `pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ vantadb-openai==0.5.0` → import + init + store/search.
+4. **Tag release**: `git tag providers-v0.5.0 && git push --tags` → `publish-pypi` (OIDC) + `verify-pypi-install` verde.
+5. **Post-publish**: `GET https://pypi.org/pypi/<nombre>/json` = 200 ×3; quitar el caveat "after first release" de los READMEs (commit de limpieza); opcional: `pypistats`.
+
+## Investigation Notes (DISCOVERY — 2026-10-04)
+
+1. **Estado real**: providers sin `pyproject.toml` (`git ls-files` ✅), PyPI 404 ×3 (live: pypi.org + test.pypi.org), crate 0.5.0, `publish=false`, no workspace members (`CI_POLICY:151-153`).
+2. **Windows**: `cargo check --manifest-path providers/{openai,ollama,litellm}/Cargo.toml` → **✅ ×3 en Windows local (2026-10-04)**; la premisa de PROV-13 ("no compilan en Windows") no reproduce en HEAD → anotado para Task 31 (verificar antes de ejecutarla).
+3. **Colisión de nombres** (Gate D): integrations twins 2026-07-10; providers (restructure "Python for frameworks, Rust for providers") 2026-07-22; ambos reclaman los nombres; owner → providers canónicos (FIND-273).
+4. **Patrón release-wheels** (316L): matriz 4 targets, maturin-action, smoke por plataforma, TestPyPI dispatch, publish por tag `v*`, verify installs, attestations. **Patrón release-adapters** (161L): matriz 9, OIDC, `skip-existing`, tag propio, upload/download-artifact `merge-multiple`. PROV-12 combina ambos (maturin del primero; namespace/OIDC/skip del segundo).
+5. **Convención pyproject** (`vantadb-python`): maturin `>=1.15.0,<2.0`, `dynamic = ["version"]`, `[tool.maturin] module-name`, license `{text}`, classifiers "solo lo que CI verifica" (FIND-85).
+6. **Signatures** (smoke): openai `(db_path, api_key, ...)`; ollama `(db_path, base_url=..., ...)`; litellm `(db_path, api_key=None, ...)`; namespaces default `openai_store`/`ollama_store`/`litellm_store`; clase `VantaDB{OpenAI,Ollama,LiteLLM}`.
+7. **Lecciones aplicables**: PROV-openai (Cargo.lock churn → revertir, no commitear); PyO3 (no usar python 3.14 system para providers; `.venv` 3.11.9 del repo); MKT-20 (reuso > duplicado; dry-run real requiere owner; checklist 3 pasos).
+8. **Tooling local verificado**: maturin 1.15.0, actionlint 1.7.12, twine 7.0.0, `.venv` Python 3.11.9.
+
+## Review P2-01 (fresh — vanta-review)
+
+- **Revisor:** vanta-review (P2-01, contexto fresco — no participó de la implementación; sesión `ses_ef5dd5fa7ffejGRYYZxxlz3hA7`)
+- **Enfoque:** contrato 7/7 + red-team del lane de release (tag↔versión, permisos, pins, OIDC, skip-existing, failsafe) + re-ejecución mecánica en contexto fresco
+- **Cómo se probó:** actionlint exit 0 · twine check ×3 PASSED · smoke ×3 en venv limpio (SMOKE OK) · maturin build con los args exactos del workflow (wheel abi3 + metadata) · gates docs 0/0/0 · wheel contents (.pyi/py.typed/`__init__.py`) y firmas pyo3 verificadas
+- **Veredicto:** ✅ **APPROVE** — contrato 7/7; 0 Critical/High.
+  - **M1 (Medium, tag↔versión):** RESUELTO post-review — ambos `Extract provider version` ahora derivan del tag cuando `GITHUB_REF` es `refs/tags/providers-v*` (espejo de `release-wheels.yml:226-234`); actionlint re-corrido ✅.
+  - **L1 (sweep de commit vecino `d6d40461`):** `docs/index.md`/`llms.txt`/FIND-273 ya commiteados por el vecino; `Backlog.md` quedó con solo FIND-274 → se stagea en este commit.
+  - **L2 (Blast Radius):** completado con `TRIGGERS.md` + `README.md`.
+  - **L3 (Cargo.lock stale) / O1 (verify 3.11) / N1 (retry loop):** documentados, sin acción (L3: revert mantenido; O1/N1: alineados con los lanes del core).
 
 ## Context Save Point
 
-- Rama: develop (verificado). Versión: 0.5.0 workspace == pyproject (verificado). Maturin 1.15.0 disponible. actionlint disponible (winget). Python local 3.14.7 (classifiers declaran 3.11/3.13 — wheel abi3-py311 instalable en >=3.11; notar en step 3 si hay fricción).
-- WIP ajeno en `git status` (`.opencode`, `completions/*`, `docs/dev/Backlog.md`, plan file, `skills/*`, `reparacion.bat` untracked) → staging SELECTIVO: solo `docs/dev/tasks/PROV-12.md` (+ workflow si hay fix mínimo, no esperado).
-- Nada publicado, ningún secret tocado. Secret-state: workflow usa OIDC trusted publishing (sin secrets.* en el YAML).
+- **Step actual:** 7 (cierre) — review P2-01 en curso (vanta-review, fork contexto fresco); commit pendiente del veredicto.
+- **Worktree:** `develop` (commits locales; sin push)
+- **Próxima acción:** recoger veredicto → RESULTADO §7 → commit local `ci(providers):` (solo archivos del blast radius) → campaign close (taskId 30) → progreso.
 
-## STOP / HANDOFF AL OWNER (publish real — no verificable ni ejecutable desde aquí)
+## RESULTADO (§7)
 
-**Estado:** "lista para publicar", NO "publicado". Nada se publicó; ningún secret existe en esta máquina.
-
-**Hallazgo normativo:** `release-wheels-60.yml` NO usa `secrets.TEST_PYPI_API_TOKEN` / `secrets.PYPI_API_TOKEN` — los jobs `publish-testpypi` (`:139-163`) y `publish-pypi` (`:164-202`) usan **Trusted Publishing OIDC** (`permissions: id-token: write` + `environment: testpypi/pypi`). El owner debe configurar UNA de las dos vías:
-
-**Vía A (recomendada, sin tokens): Trusted Publishing**
-1. TestPyPI: https://test.pypi.org/manage/account/publishing/ → Add publisher → owner `ness-e`, repo `Vantadb`, workflow `release-wheels-60.yml`, environment `testpypi`.
-2. PyPI: https://pypi.org/manage/account/publishing/ → igual con environment `pypi`.
-3. GitHub repo → Settings → Environments → crear `testpypi` y `pypi` (protection rules a criterio; `pypi` con required reviewers recomendado).
-
-**Vía B (tokens):** TestPyPI/PyPI → API token (scope proyecto `vantadb-py`) → GitHub repo → Settings → Secrets and variables → Actions → **Environment secrets** (NO repository secrets): `TEST_PYPI_API_TOKEN` en environment `testpypi`, `PYPI_API_TOKEN` en environment `pypi` — y añadir `password: ${{ secrets... }}`... NOTA: el workflow actual NO tiene campo `password:` (asume OIDC); si se usa Vía B hay que editar el workflow (task follow-up, no esta).
-
-**Orden de disparo (TestPyPI primero, Gate V):**
-1. Actions → `RELEASE: Wheels — Build & Publish` → Run workflow (branch main) → `publish_testpypi: true` → verde + job `verify-testpypi-install` verde.
-2. `pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ "vantadb-py==<tag>"` en máquina limpia + smoke.
-3. Tag `git tag -a v<ver> && git push origin v<ver>` (release-plz coordina versión) → job `publish-pypi` + `verify-pypi-install` verdes.
-4. Rollback: yank release en PyPI + `git revert` del tag-commit si el wheel está roto; matriz parcial por OS con nota (pre-mortem §2).
-
-## VALIDACIÓN+CIERRE
-
-- Verify contrato (steps 2-3) + `campaign_verify_cmd` (bug exit -1 → bash directa + mención).
-- OCR delegation: N/A-justificado (CI/config, 0 código tocado — sin superficie para OCR; se corre solo si hay fix en workflow).
-- DoD 3 niveles: (v1) determinista lo aplicable (fmt N/A sin código; clippy N/A; nextest N/A — se declara); standing checklist (correctness del dry-run, quality scope-discipline, integration con CI existente, docs); shippable trunk-based (rollback = revert del commit `ci:` / no hay migración).
-- P2-01: lo hace el orquestador (no yo). Plan file: NO lo edito (WIP ajeno en working tree) — recitation para el orquestador en el mensaje de cierre.
-- Gates: D ✅ GO (question 2026-09-19) · V resuelto por owner (no re-preguntar) · C vía `question` al cierre (colaterales).
+```
+RESULTADO: ✅ COMPLETO
+STEPS_OK: 7/7
+PROXIMO_STEP: ninguno
+COMMIT_HASH: 04be0ec1 (changeset) + commit de cierre docs (task file)
+ARCHIVOS: providers/{openai,ollama,litellm}/{pyproject.toml,Cargo.toml,README.md} · .github/workflows/release-providers.yml · .github/scripts/provider_wheel_smoke.py · docs/dev/operations/CI_POLICY.md · docs/dev/workflow/{PUBLISH,TRIGGERS,README}.md · docs/dev/Backlog.md (FIND-273/274) · docs/dev/tasks/PROV-12.md
+VERIFY_CONTRATO: pasa
+BLOQUEO: ninguno
+GATES_EVALUADOS: P:no(familia del plan aprobada) D:si(colisión nombres → owner, resuelta) V:no C:si(sweep ajeno L1 documentado)
+SKILLS_CARGADAS: ci-cd-and-automation · git-workflow-and-versioning · shipping-and-launch · source-driven-development · doubt-driven-development · documentation-skill (+ base auto: campaign-executor · progreso)
+```

@@ -74,26 +74,26 @@ pub fn print_banner() {
     let tagline1 = "Embedded Persistent Memory Engine";
     let tagline2 = "Vector · Graph · BM25 · WAL · Rust";
 
-    println!();
-    println!("{top}");
-    println!("{blank}");
-    println!(
+    eprintln!();
+    eprintln!("{top}");
+    eprintln!("{blank}");
+    eprintln!(
         "{}",
         box_line_center(&title_text, style(&title_text).bold().color256(166))
     );
-    println!("{blank}");
-    println!("{divider}");
-    println!(
+    eprintln!("{blank}");
+    eprintln!("{divider}");
+    eprintln!(
         "{}",
         box_line_center(tagline1, style(tagline1).white().dim())
     );
-    println!(
+    eprintln!(
         "{}",
         box_line_center(tagline2, style(tagline2).color256(240).dim())
     );
-    println!("{blank}");
-    println!("{bottom}");
-    println!();
+    eprintln!("{blank}");
+    eprintln!("{bottom}");
+    eprintln!();
 }
 
 // ─── Logging Initialization ─────────────────────────────────────────────────

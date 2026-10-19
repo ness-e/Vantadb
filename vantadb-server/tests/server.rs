@@ -164,9 +164,11 @@ fn build_rbac_context(api_key: &str, role: &str) -> TestContext {
         jwt_secret: None,
         rbac_config: RbacConfig {
             token_role_map: HashMap::from([(api_key.to_string(), role.to_string())]),
+            ..Default::default()
         },
         trusted_proxies: vec![],
         conversation_trigger: None,
+        activity_tracker: Arc::new(vantadb::server::ActivityTracker::new()),
     });
     TestContext {
         _temp_dir: dir,
@@ -386,6 +388,7 @@ async fn test_circuit_breaker_open_returns_503_with_retry_after() {
         rbac_config: Default::default(),
         trusted_proxies: vec![],
         conversation_trigger: None,
+        activity_tracker: Arc::new(vantadb::server::ActivityTracker::new()),
     });
     breaker.record_failure(); // opens (threshold == 1)
     assert_eq!(
@@ -433,6 +436,7 @@ async fn test_circuit_breaker_half_open_probe_success_closes() {
         rbac_config: Default::default(),
         trusted_proxies: vec![],
         conversation_trigger: None,
+        activity_tracker: Arc::new(vantadb::server::ActivityTracker::new()),
     });
     breaker.record_failure(); // open (0s timeout → immediately eligible for probe)
     let router = app(state, 0);

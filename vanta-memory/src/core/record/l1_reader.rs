@@ -3,7 +3,9 @@
 //! Phase 1 of the two-phase dedup: read the persisted L1 records of a session
 //! and recall top-k candidate pools per new memory WITHOUT an LLM call
 //! (Principio 4 — recall is optional; when it yields nothing, the pipeline
-//! stores everything).
+//! stores everything). MEMG-13 adds the version-history/diff audit surface
+//! ([`read_record_versions`], [`read_record_version`], [`diff_records`]) over
+//! the core `Embedded::versions`/`get_version` (VS-CORE-07).
 //!
 //! Persistence goes through the VantaDB SDK (Principio 2): records live under
 //! the `l1/<session>` namespace, key = sanitized record id, payload = the
@@ -15,6 +17,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::core::abstractions::MemoryRecord;
 use crate::core::conversation::{sanitize_component, sanitize_key};
+use crate::core::record::lifecycle::{scan_decay, DecayPolicy, DecayReport};
 use crate::core::record::L1Error;
 
 /// `l1/<sanitized-session>` — persisted L1 memory records namespace.
@@ -71,6 +74,23 @@ pub fn read_namespace_records(
     Ok(records)
 }
 
+/// Run the L1 forgetting-curve pass over one session (MEMG-07).
+///
+/// Composes [`read_session_records`] + [`scan_decay`] — **read-only**: the
+/// curve deprioritizes records (effective heat); it never mutates or deletes
+/// them, and the discard gate stays explicit
+/// ([`crate::core::record::lifecycle::PRUNE_HEAT_THRESHOLD`]). Pull-based
+/// (the owner calls it), mirroring `TimerScanner::run_once`.
+pub fn run_decay_pass(
+    db: &vantadb::sdk::Embedded,
+    session_key: &str,
+    policy: &DecayPolicy,
+    now_ms: u64,
+) -> Result<DecayReport, L1Error> {
+    let records = read_session_records(db, session_key)?;
+    Ok(scan_decay(&records, policy, now_ms))
+}
+
 /// Read a single L1 record by id, if present.
 pub fn read_record(
     db: &vantadb::sdk::Embedded,
@@ -87,6 +107,120 @@ pub fn read_record(
         }
         None => Ok(None),
     }
+}
+
+/// One retained version of an L1 record: the core storage version number plus
+/// the decoded memory payload for that version (VS-CORE-07).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct RecordVersion {
+    /// Core storage version (u64) — the address accepted by
+    /// [`read_record_version`].
+    pub version: u64,
+    /// Decoded L1 payload for that version.
+    pub record: MemoryRecord,
+}
+
+/// Read every retained version of an L1 record, ascending (v1..vN), mapped to
+/// the memory payload (core `Embedded::versions`, VS-CORE-07).
+///
+/// Empty when the record has no history (never written / not found / history
+/// already pruned). The history is best-effort post-commit in the core — a
+/// crash window can leave a version gap (degraded, never corrupt).
+///
+/// **Audit surface:** unlike the recall reads, this does **not** apply the
+/// quarantine gate (SCH-05) — retained versions expose quarantined state on
+/// purpose. Do not feed this history into model context; it is for audit/diff.
+pub fn read_record_versions(
+    db: &vantadb::sdk::Embedded,
+    session_key: &str,
+    record_id: &str,
+) -> Result<Vec<RecordVersion>, L1Error> {
+    let ns = l1_namespace(session_key);
+    let key = sanitize_key(record_id);
+    let mut versions = Vec::new();
+    for stored in db.versions(&ns, &key)? {
+        versions.push(decode_version(&stored)?);
+    }
+    Ok(versions)
+}
+
+/// Read one retained version of an L1 record (core `Embedded::get_version`).
+/// `None` when the record or that version does not exist.
+pub fn read_record_version(
+    db: &vantadb::sdk::Embedded,
+    session_key: &str,
+    record_id: &str,
+    version: u64,
+) -> Result<Option<RecordVersion>, L1Error> {
+    let ns = l1_namespace(session_key);
+    let key = sanitize_key(record_id);
+    match db.get_version(&ns, &key, version)? {
+        Some(stored) => Ok(Some(decode_version(&stored)?)),
+        None => Ok(None),
+    }
+}
+
+/// Map one stored core record (payload + node vector) to a [`RecordVersion`],
+/// mirroring [`read_record`]'s payload→record decoding.
+fn decode_version(stored: &vantadb::sdk::MemoryRecord) -> Result<RecordVersion, L1Error> {
+    let mut mem: MemoryRecord = serde_json::from_str(&stored.payload)?;
+    mem.vector = usable_vector_filter(stored.vector.as_deref());
+    Ok(RecordVersion {
+        version: stored.version,
+        record: mem,
+    })
+}
+
+/// One changed top-level field between two versions of an L1 record.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct RecordFieldChange {
+    /// Payload field name (`content`, `type`, `superseded_by`, ...).
+    pub field: String,
+    /// Value in the older version; [`serde_json::Value::Null`] when the field
+    /// was absent (`skip_serializing_if` — e.g. an unset optional).
+    pub before: serde_json::Value,
+    /// Value in the newer version; `Null` when the field was absent.
+    pub after: serde_json::Value,
+}
+
+/// Field-level diff of two versions of the same L1 record — the audit view
+/// over [`read_record_versions`]: every top-level payload field whose value
+/// differs, ordered by field name.
+///
+/// The comparison runs on the serialized payload (`serde_json::to_value`), so
+/// fields skipped by `skip_serializing_if` (unset optionals like `task_id` or
+/// `superseded_by`) read as [`serde_json::Value::Null`] — a field appearing or
+/// disappearing is reported, never silent.
+pub fn diff_records(
+    older: &MemoryRecord,
+    newer: &MemoryRecord,
+) -> Result<Vec<RecordFieldChange>, L1Error> {
+    let before = serde_json::to_value(older)?;
+    let after = serde_json::to_value(newer)?;
+    let mut fields: std::collections::BTreeSet<&str> = std::collections::BTreeSet::new();
+    for value in [&before, &after] {
+        if let Some(object) = value.as_object() {
+            fields.extend(object.keys().map(String::as_str));
+        }
+    }
+    let mut changes = Vec::new();
+    for field in fields {
+        let before_value = before
+            .get(field)
+            .cloned()
+            .unwrap_or(serde_json::Value::Null);
+        let after_value = after.get(field).cloned().unwrap_or(serde_json::Value::Null);
+        if before_value != after_value {
+            changes.push(RecordFieldChange {
+                field: field.to_string(),
+                before: before_value,
+                after: after_value,
+            });
+        }
+    }
+    Ok(changes)
 }
 
 /// Attach the node vector to a record, treating empty/all-zero vectors (how
@@ -215,6 +349,22 @@ pub(crate) fn rrf_merge(
     vector_ranked: &[String],
     top_k: usize,
 ) -> Vec<String> {
+    rrf_merge_scored(keyword_ranked, vector_ranked, top_k)
+        .into_iter()
+        .map(|(id, _)| id)
+        .collect()
+}
+
+/// Scored variant of [`rrf_merge`]: same fusion math, returning the fused
+/// score alongside each id (best-first). MEMG-21 consumes the fused scores as
+/// the raw relevance signal when both recall arms contribute — RRF is
+/// rank-based and scale-free, so the composite re-rank never compares term
+/// counts against cosine similarities directly.
+pub(crate) fn rrf_merge_scored(
+    keyword_ranked: &[String],
+    vector_ranked: &[String],
+    top_k: usize,
+) -> Vec<(String, f32)> {
     const RRF_K: f32 = 60.0;
     let mut fused: Vec<(String, f32)> = Vec::new();
     let mut bump = |ranked: &[String]| {
@@ -229,7 +379,7 @@ pub(crate) fn rrf_merge(
     bump(keyword_ranked);
     bump(vector_ranked);
     fused.sort_by(|a, b| b.1.total_cmp(&a.1));
-    fused.into_iter().take(top_k).map(|(id, _)| id).collect()
+    fused.into_iter().take(top_k).collect()
 }
 
 /// Marker types so the reader surface is self-describing in docs/tests.
@@ -242,7 +392,10 @@ pub struct L1ReaderStats {
 
 #[cfg(test)]
 mod tests {
-    use super::{l1_namespace, overlap_score, recall_candidates, significant_terms};
+    use super::{
+        l1_namespace, overlap_score, recall_candidates, rrf_merge, rrf_merge_scored,
+        significant_terms,
+    };
     use crate::core::abstractions::{MemoryRecord, MemoryType};
 
     fn record(id: &str, content: &str, updated: &str) -> MemoryRecord {
@@ -318,5 +471,23 @@ mod tests {
 
         let none = recall_candidates(&records, "rust cargo build", 5, None);
         assert!(none.is_empty());
+    }
+
+    #[test]
+    fn rrf_merge_scored_matches_rrf_merge_ids() {
+        let keyword = vec!["a".to_string(), "b".to_string()];
+        let vector = vec!["b".to_string(), "c".to_string()];
+        let ids = rrf_merge(&keyword, &vector, 3);
+        let scored = rrf_merge_scored(&keyword, &vector, 3);
+        assert_eq!(
+            scored.iter().map(|(id, _)| id.clone()).collect::<Vec<_>>(),
+            ids,
+            "the scored variant keeps rrf_merge's exact ordering"
+        );
+        // "b" is in both pools → top fused score, strictly above the rest.
+        assert_eq!(scored[0].0, "b");
+        assert!(scored[0].1 > scored[1].1);
+        // top_k is respected.
+        assert_eq!(rrf_merge_scored(&keyword, &vector, 2).len(), 2);
     }
 }

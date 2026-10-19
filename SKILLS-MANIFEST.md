@@ -90,7 +90,7 @@ These 37 skills form the lean VantaDB toolset. Load the relevant ones based on t
 | `ci-cd-and-automation` | 7/10 | CI/CD pipelines, Shift Left. |
 | `git-workflow-and-versioning` | 8/10 | Atomic commits, trunk-based. |
 | `documentation-and-adrs` | 7/10 | ADRs, API docs, feature docs. |
-| `constraint-driven-development` | 8/10 | **Define quality bar as written contract (CONSTRAINTS.md)** with numbered thresholds, floor guards, ratchets. Use when no quality bar written, CI checks unclear, or agent silences checks to get green. |
+| `constraint-driven-development` | 8/10 | **Define quality bar as written contract (docs/specs/CONSTRAINTS.md)** with numbered thresholds, floor guards, ratchets. Use when no quality bar written, CI checks unclear, or agent silences checks to get green. |
 
 ---
 
@@ -277,7 +277,7 @@ These 37 skills form the lean VantaDB toolset. Load the relevant ones based on t
 | ci-cd-and-automation | 7 | KEEP | CI/CD pipelines, Shift Left. |
 | shipping-and-launch | 7 | KEEP | Pre-deploy checklists. |
 | documentation-and-adrs | 7 | KEEP | ADRs, API docs, feature docs. |
-| constraint-driven-development | 8 | KEEP | Quality bar as written contract (CONSTRAINTS.md) with numbered thresholds, floor guards, ratchets. Sync from addyosmani/agent-skills 2026-09-01. |
+| constraint-driven-development | 8 | KEEP | Quality bar as written contract (docs/specs/CONSTRAINTS.md) with numbered thresholds, floor guards, ratchets. Sync from addyosmani/agent-skills 2026-09-01. |
 | deprecation-and-migration | 7 | KEEP | Sunset old systems. |
 | observability-and-instrumentation | 7 | KEEP | Logging, metrics, tracing. |
 | using-agent-skills | 8 | KEEP | Meta-skill for skill discovery. |

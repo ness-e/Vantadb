@@ -2,13 +2,13 @@
 title: VantaDB 5-Minute Quickstart
 kind: howto
 status: active
-description: This quickstart validates the current v0.6.1 boundary from pre-built artifacts
+description: This quickstart validates the current v0.8.0 boundary from pre-built artifacts
 tags: [vantadb]
 ---
 
 # VantaDB 5-Minute Quickstart
 
-This quickstart validates the current v0.6.1 boundary from pre-built artifacts
+This quickstart validates the current v0.8.0 boundary from pre-built artifacts
 (no clone, no Rust toolchain required): install `vantadb-py` from PyPI /
 `vantadb` from npm, or use the embedded CLI. The from-source path for
 contributors is kept in §1–§4.
@@ -19,8 +19,11 @@ required.
 ## 0. Install without cloning (one-liner)
 
 No clone, no Rust toolchain. Installs the pre-compiled `vanta-cli` and chains
-to the interactive setup wizard (model + MCP block per client + proxy
-default-on; skip with `--no-wizard` / `-NoWizard`):
+to the interactive setup wizard, which asks **which modules to enable** —
+motor, MCP, server, proxy, desktop viewer, embeddings, providers (each with a
+declared state: installable or frozen). Scripted selection:
+`--modules mcp,embeddings` (sh) / `-Modules mcp,embeddings` (PowerShell);
+skip the wizard with `--no-wizard` / `-NoWizard`:
 
 - **Linux / macOS / WSL**:
 
@@ -48,8 +51,8 @@ irm https://raw.githubusercontent.com/ness-e/Vantadb/main/scripts/install.ps1 -O
 pwsh -NoProfile -File install.ps1 -DryRun
 ```
 
-> **Note**: the Python examples in §5 use `vantadb-py>=0.6.1` from PyPI
-> (`pip install vantadb-py==0.6.1` — verified 2026-09-23: vector/text/hybrid
+> **Note**: the Python examples in §5 use `vantadb-py>=0.8.0` from PyPI
+> (`pip install vantadb-py==0.8.0` — verified 2026-10-06: vector/text/hybrid
 > search green in a clean venv, no Rust toolchain).
 > TypeScript examples live in [`vantadb-ts/examples/`](../../vantadb-ts/examples/)
 > (LangChain, LlamaIndex, Vercel AI SDK — indexed in [examples/README.md](../../examples/README.md)).
@@ -107,7 +110,7 @@ Expected result: `get` prints `local durable memory`, and `list` shows
 > python -m venv .venv
 > .\.venv\Scripts\Activate.ps1
 > python -m pip install --upgrade pip
-> pip install vantadb-py==0.6.1
+> pip install vantadb-py==0.8.0
 > ```
 >
 > From-source install (contributors):
@@ -137,10 +140,10 @@ GitHub Release, install it directly without needing the Rust toolchain:
 python -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip pytest
-pip install ./dist/vantadb_py-0.6.1-*.whl
+pip install ./dist/vantadb_py-0.8.0-*.whl
 ```
 
-Wheels are attached to each GitHub Release (`release-wheels-60.yml`) and built
+Wheels are attached to each GitHub Release (`release-wheels.yml`) and built
 locally with `maturin build --out dist --manifest-path ./vantadb-python/Cargo.toml`
 (`vantadb-python/dist/` when building from that directory).
 
@@ -155,7 +158,7 @@ pip install --upgrade pip
 pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ vantadb-py
 ```
 
-> **Note**: TestPyPI carries the same version (`0.6.1`). Both registries publish
+> **Note**: TestPyPI carries the same version (`0.8.0`). Both registries publish
 > via OIDC trusted publishing (no API tokens). Production PyPI is available
 > since 0.6.1 — prefer it over TestPyPI.
 
@@ -206,6 +209,18 @@ print("hybrid:", [hit.key for hit in hybrid_hits])
 db.flush()
 db.close()
 ```
+
+> **Windows encoding note:** PowerShell's default code page cannot represent
+> UTF-8 — output with accents, arrows, or CJK raises `UnicodeEncodeError` or
+> prints as mojibake. Before running any Python example, switch the session to
+> UTF-8:
+>
+> ```powershell
+> chcp 65001                        # console output → UTF-8
+> $env:PYTHONIOENCODING = "utf-8"   # Python stdout/stderr → UTF-8
+> ```
+>
+> For a single run you can also use `python -X utf8 quickstart_memory.py`.
 
 Run it:
 
@@ -290,6 +305,13 @@ If both pass and you still see degraded recall, the process running your
 client/MCP does not see the session environment the wizard set
 (`ORT_DYLIB_PATH`, and `VANTADB_LOCAL_MODEL` for the model path) — re-run the
 wizard in that terminal, or export those variables yourself.
+
+## Operational Notes & Troubleshooting
+
+- **Record Attributes (`record.key` & `record.payload`):** Returned records expose `.key` (string) and `.payload` (JSON/dict metadata or stored text string). To obtain the deterministic 128-bit graph node ID for `add_edge`, use `VantaDB.memory_node_id(namespace, key)` (or `db.memory_node_id(namespace, key)` / `vantadb.memory_node_id(namespace, key)`).
+- **Path Security (`..` Traversal Rejection):** CLI and MCP file/export commands strictly reject relative paths containing `..` parent traversal components; pass canonical or clean forward relative paths (e.g. `./exports/backup.vanta`).
+- **Orphan Lock Recovery:** If a local server process was terminated abruptly and holds the storage lock, call `POST /api/shutdown` (when running) or ensure no stale `vantadb-server` process remains active before reopening the directory in embedded mode.
+- **Pre-allocated Storage Footprint:** VantaDB pre-allocates WAL and storage segments on initialization for zero-allocation write throughput, so a newly initialized database directory consumes several megabytes on disk even with few records.
 
 ## Current Boundary
 

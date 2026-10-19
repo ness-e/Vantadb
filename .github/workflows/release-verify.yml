@@ -1,0 +1,78 @@
+name: 'RELEASE: Verify — Artifacts live check'
+
+# Post-release verification (DIST-05): a release is complete only when every
+# artifact is live. Weekly it checks `releases/latest`; dispatch checks any tag
+# (the checkout stays on the dispatched ref, so dispatch from `main`).
+# Remediation: docs/dev/workflow/PUBLISH.md, Post-release verification.
+on:
+  schedule:
+    - cron: '0 8 * * 1' # Mon 08:00 UTC — no overlap with other scheduled slots (TRIGGERS.md)
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to verify (e.g. v0.9.0). Empty = latest release.'
+        required: false
+        type: string
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify release artifacts
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Verify release (assets + registries + smoke)
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }} # avoids anonymous API rate limits
+          TARGET_TAG: ${{ inputs.tag }} # passed via env (never interpolated into the script)
+        run: |
+          $scriptArgs = @("-Smoke")
+          if ($env:TARGET_TAG) { $scriptArgs += @("-Tag", $env:TARGET_TAG) }
+          ./scripts/verify-release.ps1 @scriptArgs
+
+  tarball-build:
+    # FIND-342 (slice E): the crates.io tarball must not only exist — it must
+    # BUILD. Installs the published version locked into an isolated root and
+    # runs the binary. No network/unpublished tarball = NO-VERIFICADO declared
+    # (warning + skip), never invented; a failed build is a real FAIL.
+    name: Tarball builds from crates.io
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Resolve version (dispatch tag or latest release)
+        id: ver
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_TAG: ${{ inputs.tag }}
+        run: |
+          if [ -n "$TARGET_TAG" ]; then TAG="$TARGET_TAG"; else TAG="$(gh release list --limit 1 --json tagName --jq '.[0].tagName')"; fi
+          case "$TAG" in v[0-9]*.[0-9]*.[0-9]*) VER="${TAG#v}";; *) echo "FAIL invalid tag '$TAG' (expected vX.Y.Z)"; exit 1;; esac
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "ver=$VER" >> "$GITHUB_OUTPUT"
+
+      - name: Probe the published tarball (network)
+        id: probe
+        run: |
+          if curl -fsSL -o /dev/null "https://crates.io/api/v1/crates/vantadb/${{ steps.ver.outputs.ver }}/download"; then
+            echo "reachable=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::crates.io tarball for vantadb ${{ steps.ver.outputs.ver }} not reachable (network or unpublished) — tarball build NO-VERIFICADO, not failed."
+            echo "reachable=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build the published tarball (locked, isolated root)
+        if: steps.probe.outputs.reachable == 'true'
+        run: |
+          cargo install vantadb --vers "${{ steps.ver.outputs.ver }}" --locked --root "${{ runner.temp }}/tarball-check" --force
+          "${{ runner.temp }}/tarball-check/bin/vanta-cli" --version

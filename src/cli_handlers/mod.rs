@@ -1,6 +1,7 @@
 //! CLI command handlers — fragmented submodules.
 
 pub mod backup;
+pub mod config;
 pub mod crud;
 pub mod data;
 pub mod db;
@@ -18,6 +19,7 @@ pub mod util;
 pub mod wal;
 
 pub use backup::*;
+pub use config::*;
 pub use crud::*;
 pub use data::*;
 pub use db::*;

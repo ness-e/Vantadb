@@ -470,6 +470,37 @@ fn test_cmd_export_and_import() {
 }
 
 #[test]
+fn test_cmd_export_writes_integrity_manifest() {
+    let (_dir, path) = setup_temp_db();
+    seed_record(&path, "ex_ns", "k1", "export me");
+
+    let export_path = format!("{}/integrity-export.json", path);
+    let result = vantadb::cli_handlers::cmd_export(&path, Some("ex_ns"), &export_path, false);
+    assert!(result.is_ok(), "export failed");
+
+    let manifest_path = format!("{export_path}.manifest.json");
+    assert!(
+        Path::new(&manifest_path).exists(),
+        "manifest sidecar missing: {manifest_path}"
+    );
+
+    // The SDK verifies the CLI-written export against the same contract.
+    let config = vantadb::config::Config {
+        storage_path: path.clone(),
+        read_only: true,
+        ..Default::default()
+    };
+    let db = vantadb::Embedded::open_with_config(config).expect("open embedded");
+    let verification = db
+        .verify_export_integrity(&export_path)
+        .expect("verify export");
+    assert_eq!(verification.status, "ok");
+    assert_eq!(verification.records, 1);
+    assert_eq!(verification.namespaces, vec!["ex_ns".to_string()]);
+    assert!(!verification.limits.is_empty());
+}
+
+#[test]
 fn test_cmd_query_empty_db() {
     let (_dir, path) = setup_temp_db();
     let result = vantadb::cli_handlers::cmd_query(&path, "FROM Persona", 10, false, false);
@@ -1922,6 +1953,78 @@ mod api07_cli_binary {
         assert!(
             stderr.contains("Input file not found"),
             "legacy --input must reach the handler, got: {stderr}"
+        );
+    }
+
+    // ─── FIND-237: `migrate check` — global --db fallback vs positional ─────
+
+    #[test]
+    fn migrate_check_accepts_global_db_after_subcommand() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let db = dir.path().to_string_lossy().to_string();
+        // Seed through the binary so the check has a real database to open.
+        let put = cli()
+            .args([
+                "--db",
+                &db,
+                "put",
+                "--namespace",
+                "ns",
+                "--key",
+                "k1",
+                "--payload",
+                "x",
+                "--json",
+            ])
+            .output()
+            .expect("spawn vanta-cli put");
+        assert!(put.status.success(), "seed put must succeed");
+
+        // FIND-237 repro: the flag AFTER the subcommand must work via the
+        // global --db fallback (previously clap demanded the positional TARGET).
+        let out = cli()
+            .args(["migrate", "check", "--db", &db])
+            .output()
+            .expect("spawn vanta-cli migrate check --db");
+        assert!(
+            out.status.success(),
+            "`migrate check --db` must exit 0 via the global fallback; stderr: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+    }
+
+    #[test]
+    fn migrate_check_positional_target_still_works_and_wins() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let db = dir.path().to_string_lossy().to_string();
+        let missing = dir.path().join("missing-db").to_string_lossy().to_string();
+        let put = cli()
+            .args([
+                "--db",
+                &db,
+                "put",
+                "--namespace",
+                "ns",
+                "--key",
+                "k1",
+                "--payload",
+                "x",
+                "--json",
+            ])
+            .output()
+            .expect("spawn vanta-cli put");
+        assert!(put.status.success(), "seed put must succeed");
+
+        // The positional TARGET must win over --db: pointing --db at a missing
+        // path is irrelevant while the positional is present.
+        let out = cli()
+            .args(["migrate", "check", &db, "--db", &missing])
+            .output()
+            .expect("spawn vanta-cli migrate check <TARGET>");
+        assert!(
+            out.status.success(),
+            "positional TARGET must win over --db; stderr: {}",
+            String::from_utf8_lossy(&out.stderr)
         );
     }
 }
