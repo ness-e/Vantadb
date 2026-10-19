@@ -347,6 +347,21 @@ fn run() -> anyhow::Result<()> {
             let engine = std::sync::Arc::new(cli_handlers::open_database(&args.db, true)?);
             vantadb::tui::run_tui(engine)?
         }
+
+        Commands::Config(cmd) => match cmd {
+            vantadb::cli::ConfigCommand::Show { reveal_secrets } => {
+                cli_handlers::cmd_config_show(&args.db, reveal_secrets, args.json)?
+            }
+            vantadb::cli::ConfigCommand::Set { key, value, global } => {
+                cli_handlers::cmd_config_set(&key, &value, global, args.json)?
+            }
+            vantadb::cli::ConfigCommand::Init { force } => {
+                cli_handlers::cmd_config_init(force, args.json)?
+            }
+            vantadb::cli::ConfigCommand::Doctor => {
+                cli_handlers::cmd_config_doctor(&args.db, args.json)?
+            }
+        },
     }
 
     Ok(())

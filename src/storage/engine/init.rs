@@ -222,6 +222,12 @@ impl StorageEngine {
 
                 if lock_res.is_ok() {
                     acquired = true;
+                    if !config.read_only {
+                        let _ = crate::storage::lock::write_lock_metadata(
+                            &file,
+                            &crate::storage::lock::LockMetadata::current(),
+                        );
+                    }
                     break;
                 }
 
@@ -235,15 +241,24 @@ impl StorageEngine {
             }
 
             if !acquired {
+                let holder_detail = crate::storage::lock::read_lock_metadata(&lock_path)
+                    .map(|meta| {
+                        format!(
+                            " (held by '{}', PID {} on host '{}')",
+                            meta.process_name, meta.pid, meta.hostname
+                        )
+                    })
+                    .unwrap_or_default();
+
                 let msg = if config.read_only {
                     format!(
-                        "Database at '{}' is locked exclusively by another process (writer). \
+                        "Database at '{}' is locked exclusively by another process (writer){holder_detail}. \
                          Cannot acquire shared read-only lock within timeout.",
                         base_path.display()
                     )
                 } else {
                     format!(
-                        "Database at '{}' is locked by another process. \
+                        "Database at '{}' is locked by another process{holder_detail}. \
                          Cannot acquire exclusive writer lock within timeout.",
                         base_path.display()
                     )

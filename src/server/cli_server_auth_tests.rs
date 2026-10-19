@@ -261,6 +261,7 @@ fn server_state(storage: Arc<StorageEngine>, api_key: Option<&str>) -> Arc<Serve
         rbac_config: RbacConfig::default(),
         trusted_proxies: Vec::new(),
         conversation_trigger: None,
+        activity_tracker: Arc::new(crate::server::self_healing::ActivityTracker::new()),
     })
 }
 
@@ -282,6 +283,7 @@ fn server_state_with_alt_rbac(
         rbac_config,
         trusted_proxies: Vec::new(),
         conversation_trigger: None,
+        activity_tracker: Arc::new(crate::server::self_healing::ActivityTracker::new()),
     })
 }
 
@@ -648,6 +650,7 @@ fn server_state_with_jwt(
         rbac_config: RbacConfig::default(),
         trusted_proxies: Vec::new(),
         conversation_trigger: None,
+        activity_tracker: Arc::new(crate::server::self_healing::ActivityTracker::new()),
     })
 }
 

@@ -87,6 +87,7 @@ fn server_state(
         },
         trusted_proxies: Vec::new(),
         conversation_trigger: None,
+        activity_tracker: Arc::new(vantadb::cli_server::ActivityTracker::new()),
     })
 }
 
@@ -434,6 +435,7 @@ fn two_tenant_state_with_audit(audit: Option<&std::path::Path>) -> Arc<ServerSta
         },
         trusted_proxies: Vec::new(),
         conversation_trigger: None,
+        activity_tracker: Arc::new(vantadb::cli_server::ActivityTracker::new()),
     })
 }
 
@@ -821,6 +823,7 @@ async fn read_only_scoped_role_can_search_own_namespace() {
         },
         trusted_proxies: Vec::new(),
         conversation_trigger: None,
+        activity_tracker: Arc::new(vantadb::cli_server::ActivityTracker::new()),
     });
     let addr = spawn(state).await;
 

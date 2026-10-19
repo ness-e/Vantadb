@@ -392,6 +392,39 @@ pub enum Commands {
         #[arg(long, default_value = "60")]
         timeout_secs: u64,
     },
+
+    /// Manage, view, and validate VantaDB configuration across all 5 cascade layers (FIND-385)
+    #[command(subcommand)]
+    Config(ConfigCommand),
+}
+
+/// Subcommands for unified configuration management (FIND-385)
+#[derive(Subcommand, Debug, Clone)]
+pub enum ConfigCommand {
+    /// Show current effective configuration with layer origins (CLI > Env > ./vanta.toml > ~/.vanta/config.toml > Defaults)
+    Show {
+        /// Reveal sensitive secrets (API keys, JWT, passwords) instead of masking them
+        #[arg(long)]
+        reveal_secrets: bool,
+    },
+    /// Set a configuration value in local or global configuration file
+    Set {
+        /// Configuration key (e.g. storage_path, port, embedding_provider, strict_embeddings)
+        key: String,
+        /// Value to assign
+        value: String,
+        /// Save to user global config (~/.vanta/config.toml) instead of project-local (./vanta.toml)
+        #[arg(long, short)]
+        global: bool,
+    },
+    /// Generate an annotated vanta.toml configuration file with defaults
+    Init {
+        /// Overwrite existing vanta.toml if present
+        #[arg(long, short)]
+        force: bool,
+    },
+    /// Run comprehensive pre-flight health and configuration checks
+    Doctor,
 }
 
 /// Subcommands for namespace management

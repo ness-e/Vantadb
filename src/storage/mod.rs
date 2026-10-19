@@ -2,6 +2,7 @@
 
 pub mod archive;
 pub(crate) mod engine;
+pub mod lock;
 pub(crate) mod ops;
 pub mod vfile;
 pub(crate) mod vfile_mmap;

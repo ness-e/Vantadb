@@ -415,6 +415,7 @@ pub async fn run_with_hooks(config: Config, mut hooks: ServerHooks) -> Result<()
         Duration::from_millis(config.pool_acquire_timeout_ms),
     ));
     let rbac_config = config.rbac_config.clone();
+    let activity_tracker = Arc::new(crate::server::self_healing::ActivityTracker::new());
     let state = Arc::new(ServerState {
         storage: storage.clone(),
         db,
@@ -426,6 +427,7 @@ pub async fn run_with_hooks(config: Config, mut hooks: ServerHooks) -> Result<()
         rbac_config,
         trusted_proxies: config.trusted_proxies.clone(),
         conversation_trigger,
+        activity_tracker: activity_tracker.clone(),
     });
 
     // WIRE-04: background TTL sweeper — keeps the TTL promise without manual
@@ -447,6 +449,23 @@ pub async fn run_with_hooks(config: Config, mut hooks: ServerHooks) -> Result<()
             Duration::from_millis(config.ttl_sweep_interval_ms),
         );
         background_services.push(Box::new(sweeper));
+    }
+
+    // FIND-384: automated self-healing maintenance (vacuum during quiet periods).
+    if !config.read_only && config.self_healing {
+        crate::console::ok(
+            "Self-healing daemon",
+            Some(&format!(
+                "auto-vacuum when idle for {}s",
+                config.self_healing_quiet_secs
+            )),
+        );
+        let healer = crate::server::self_healing::spawn_self_healing_service(
+            state.db.clone(),
+            activity_tracker,
+            config.self_healing_quiet_secs,
+        );
+        background_services.push(Box::new(healer));
     }
 
     let rpm = config.rate_limit_rpm;

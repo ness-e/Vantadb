@@ -62,6 +62,9 @@ tags: [vantadb, reports, index, registry]
 | 20260910 | full-modulos | `docs/dev/reviews/archive/review-full-20260910-modulos.md` | ⚠️ cond | 1/14/51/42 | vigente | Revisión 19 módulos (vanta-review read-only, waves ×3): score ~7.4; 0 critical; 6 High + 13 medium → FIND-63..81 |
 | 20260916-061609 | quick | `docs/dev/reviews/audit-quick-20260916-061609.md` | ❌ FAIL | 0/0/2/1/0 | vigente | Post-cierre campaña FIND 31/31: fmt/check/clippy/deny/machete verdes; cargo audit rojo (rustls RUSTSEC-2026-0285 + rsa RUSTSEC-2023-0071, transitivas) → FIND-96/97; lru unsound low sin fila |
 | 20261017-145700 | full | `docs/dev/reviews/audit-full-20261017-multiagent.md` | ✅ PASS (post-fix) | 6/11/11/6/0 | vigente | Auditoría integral 5 dominios (Core/Storage, Services/Memory, FFI/Bindings, Packages/Manifests, Docs/API) + gates mecánicos. 34 hallazgos registrados como `FIND-345..378` en `Backlog.md` y remediados in-session |
+| 20261019-033000 | remediation-plan | `docs/dev/plans/2026-10-19-pre-merge-systems-and-ux-remediation.md` | ✅ PASS | 0/0/0/0/0 | vigente | Remediación integral pre-merge de 7 pasos (FIND-213, FIND-214, FIND-242, FIND-381..385, FIND-335) resolviendo memory leak en NL_POOL, mutexes en Scann, OPFS async, strict embeddings, auto-recuperación de locks huérfanos con PID check, unificación server/mcp in-process, setup wizard persistence + self-healing daemon, y config unificada de 5 capas |
+| 20261019-040000 | systems-ux-analysis | `docs/dev/reports/2026-10-19-systems-and-ux-analysis.md` | ✅ PASS | 0/0/0/0/0 | vigente | Análisis integral de flujo de usuarios, instalación, experiencia de usuario y mantenimiento automatizado |
+
 
 Notas:
 - Los rows marcados `(Sync pendiente)` necesitan que se complete su fila con datos reales (fecha estándar, QG, findings) antes de archivarse.

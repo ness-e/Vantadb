@@ -498,17 +498,22 @@ impl OpfsStorage {
 
     async fn delete_file_unlocked(&self, path: &str) -> Result<(), JsValue> {
         let remove = get_fn(&self.dir_handle, "removeEntry")?;
-        let result = remove.call1(&self.dir_handle, &path.into());
-        if let Err(e) = result {
-            let name = Reflect::get(&e, &"name".into())
-                .ok()
-                .and_then(|v| v.as_string());
-            if name.as_deref() == Some("NotFoundError") {
-                return Ok(());
+        let val = remove.call1(&self.dir_handle, &path.into())?;
+        let promise = val
+            .dyn_into::<Promise>()
+            .map_err(|_| JsValue::from_str("expected Promise from removeEntry"))?;
+        match wasm_bindgen_futures::JsFuture::from(promise).await {
+            Ok(_) => Ok(()),
+            Err(e) => {
+                let name = Reflect::get(&e, &"name".into())
+                    .ok()
+                    .and_then(|v| v.as_string());
+                if name.as_deref() == Some("NotFoundError") {
+                    return Ok(());
+                }
+                Err(e)
             }
-            return Err(e);
         }
-        Ok(())
     }
 
     /// Append data to an existing file, keeping the CRC-footer format used

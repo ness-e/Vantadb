@@ -120,6 +120,7 @@ indicatif = { version = "0.18", optional = true }
 console = { version = "0.16", optional = true }
 clap = { version = "4.4", features = ["derive", "env"], optional = true }
 clap_complete = { version = "4.4", optional = true }
+toml = { version = "0.8", optional = true }
 # ERR-CORE-02: anyhow es SOLO para los bins (src/bin/*), nunca para src/lib.
 # Gated tras `cli` (vanta-cli required-features=["cli"]) para no gravar a los
 # consumidores de la librería.
@@ -156,7 +157,7 @@ arrow = ["dep:arrow"]
 rocksdb = ["dep:rocksdb"]
 fjall = ["dep:fjall"]
 roaring = ["dep:croaring"]
-cli = ["dep:indicatif", "dep:console", "dep:clap", "dep:clap_complete", "dep:anyhow"]
+cli = ["dep:indicatif", "dep:console", "dep:clap", "dep:clap_complete", "dep:anyhow", "dep:toml"]
 failpoints = ["dep:fail", "dep:tempfile"]
 remote-inference = ["dep:reqwest"]
 embed-local = ["dep:ort", "dep:tokenizers"]

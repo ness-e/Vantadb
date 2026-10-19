@@ -51,6 +51,7 @@ fn server_state(
         rbac_config: RbacConfig::default(),
         trusted_proxies: Vec::new(),
         conversation_trigger: None,
+        activity_tracker: Arc::new(vantadb::cli_server::ActivityTracker::new()),
     })
 }
 
