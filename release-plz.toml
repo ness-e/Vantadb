@@ -18,8 +18,11 @@ git_tag_name = "v{{ version }}"
 # GitHub release
 git_release_enable = true
 
-# Semver validation
-semver_check = true
+# Semver validation: enforced separately by the dedicated `semver-checks`
+# gate in ci-rust.yml (30m budget + 4GB swap). Disabling here avoids a
+# redundant 18-minute cold compilation inside release-plz and allows
+# release-pr generation to complete in seconds via Conventional Commits.
+semver_check = false
 
 # Changelog
 changelog_update = true
