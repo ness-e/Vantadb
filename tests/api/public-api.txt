@@ -600,6 +600,7 @@ pub vantadb::cli::Commands::Backup::out: core::option::Option<alloc::string::Str
 pub vantadb::cli::Commands::Certificate(vantadb::cli::CertificateCommand)
 pub vantadb::cli::Commands::Completions
 pub vantadb::cli::Commands::Completions::shell: vantadb::cli::Shell
+pub vantadb::cli::Commands::Config(vantadb::cli::ConfigCommand)
 pub vantadb::cli::Commands::Count
 pub vantadb::cli::Commands::Count::filter: core::option::Option<alloc::string::String>
 pub vantadb::cli::Commands::Count::namespace: alloc::string::String
@@ -705,6 +706,36 @@ impl core::marker::Unpin for vantadb::cli::Commands
 impl core::marker::UnsafeUnpin for vantadb::cli::Commands
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::cli::Commands
 impl core::panic::unwind_safe::UnwindSafe for vantadb::cli::Commands
+pub enum vantadb::cli::ConfigCommand
+pub vantadb::cli::ConfigCommand::Doctor
+pub vantadb::cli::ConfigCommand::Init
+pub vantadb::cli::ConfigCommand::Init::force: bool
+pub vantadb::cli::ConfigCommand::Set
+pub vantadb::cli::ConfigCommand::Set::global: bool
+pub vantadb::cli::ConfigCommand::Set::key: alloc::string::String
+pub vantadb::cli::ConfigCommand::Set::value: alloc::string::String
+pub vantadb::cli::ConfigCommand::Show
+pub vantadb::cli::ConfigCommand::Show::reveal_secrets: bool
+impl clap_builder::derive::FromArgMatches for vantadb::cli::ConfigCommand
+pub fn vantadb::cli::ConfigCommand::from_arg_matches(&clap_builder::parser::matches::arg_matches::ArgMatches) -> core::result::Result<Self, clap_builder::Error>
+pub fn vantadb::cli::ConfigCommand::from_arg_matches_mut(&mut clap_builder::parser::matches::arg_matches::ArgMatches) -> core::result::Result<Self, clap_builder::Error>
+pub fn vantadb::cli::ConfigCommand::update_from_arg_matches(&mut self, &clap_builder::parser::matches::arg_matches::ArgMatches) -> core::result::Result<(), clap_builder::Error>
+pub fn vantadb::cli::ConfigCommand::update_from_arg_matches_mut<'b>(&mut self, &mut clap_builder::parser::matches::arg_matches::ArgMatches) -> core::result::Result<(), clap_builder::Error>
+impl clap_builder::derive::Subcommand for vantadb::cli::ConfigCommand
+pub fn vantadb::cli::ConfigCommand::augment_subcommands<'b>(clap_builder::builder::command::Command) -> clap_builder::builder::command::Command
+pub fn vantadb::cli::ConfigCommand::augment_subcommands_for_update<'b>(clap_builder::builder::command::Command) -> clap_builder::builder::command::Command
+pub fn vantadb::cli::ConfigCommand::has_subcommand(&str) -> bool
+impl core::clone::Clone for vantadb::cli::ConfigCommand
+pub fn vantadb::cli::ConfigCommand::clone(&self) -> Self
+impl core::fmt::Debug for vantadb::cli::ConfigCommand
+pub fn vantadb::cli::ConfigCommand::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Freeze for vantadb::cli::ConfigCommand
+impl core::marker::Send for vantadb::cli::ConfigCommand
+impl core::marker::Sync for vantadb::cli::ConfigCommand
+impl core::marker::Unpin for vantadb::cli::ConfigCommand
+impl core::marker::UnsafeUnpin for vantadb::cli::ConfigCommand
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::cli::ConfigCommand
+impl core::panic::unwind_safe::UnwindSafe for vantadb::cli::ConfigCommand
 pub enum vantadb::cli::ExportFormat
 pub vantadb::cli::ExportFormat::Jsonl
 pub vantadb::cli::ExportFormat::Md
@@ -976,6 +1007,35 @@ impl core::panic::unwind_safe::RefUnwindSafe for vantadb::cli_handlers::RestoreO
 impl core::panic::unwind_safe::UnwindSafe for vantadb::cli_handlers::RestoreOptions
 pub fn vantadb::cli_handlers::backup::cmd_backup(&str, core::option::Option<&str>, bool, bool) -> vantadb::error::Result<()>
 pub fn vantadb::cli_handlers::backup::cmd_restore(&str, &str, vantadb::cli_handlers::RestoreOptions, bool) -> vantadb::error::Result<()>
+pub mod vantadb::cli_handlers::config
+pub enum vantadb::cli_handlers::config::ConfigLayer
+pub vantadb::cli_handlers::config::ConfigLayer::CliFlag
+pub vantadb::cli_handlers::config::ConfigLayer::DefaultValue
+pub vantadb::cli_handlers::config::ConfigLayer::Environment
+pub vantadb::cli_handlers::config::ConfigLayer::ProjectFile
+pub vantadb::cli_handlers::config::ConfigLayer::UserGlobalFile
+impl vantadb::cli_handlers::ConfigLayer
+pub fn vantadb::cli_handlers::ConfigLayer::label(self) -> &'static str
+impl core::clone::Clone for vantadb::cli_handlers::ConfigLayer
+pub fn vantadb::cli_handlers::ConfigLayer::clone(&self) -> Self
+impl core::cmp::Eq for vantadb::cli_handlers::ConfigLayer
+impl core::cmp::PartialEq for vantadb::cli_handlers::ConfigLayer
+pub fn vantadb::cli_handlers::ConfigLayer::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vantadb::cli_handlers::ConfigLayer
+pub fn vantadb::cli_handlers::ConfigLayer::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vantadb::cli_handlers::ConfigLayer
+impl core::marker::StructuralPartialEq for vantadb::cli_handlers::ConfigLayer
+impl core::marker::Freeze for vantadb::cli_handlers::ConfigLayer
+impl core::marker::Send for vantadb::cli_handlers::ConfigLayer
+impl core::marker::Sync for vantadb::cli_handlers::ConfigLayer
+impl core::marker::Unpin for vantadb::cli_handlers::ConfigLayer
+impl core::marker::UnsafeUnpin for vantadb::cli_handlers::ConfigLayer
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::cli_handlers::ConfigLayer
+impl core::panic::unwind_safe::UnwindSafe for vantadb::cli_handlers::ConfigLayer
+pub fn vantadb::cli_handlers::config::cmd_config_doctor(&str, bool) -> vantadb::error::Result<()>
+pub fn vantadb::cli_handlers::config::cmd_config_init(bool, bool) -> vantadb::error::Result<()>
+pub fn vantadb::cli_handlers::config::cmd_config_set(&str, &str, bool, bool) -> vantadb::error::Result<()>
+pub fn vantadb::cli_handlers::config::cmd_config_show(&str, bool, bool) -> vantadb::error::Result<()>
 pub mod vantadb::cli_handlers::crud
 pub fn vantadb::cli_handlers::crud::cmd_certificate_verify(&str, &str, bool) -> vantadb::error::Result<i32>
 pub fn vantadb::cli_handlers::crud::cmd_count(&str, &str, core::option::Option<&str>, bool, bool) -> vantadb::error::Result<()>
@@ -1152,6 +1212,30 @@ impl core::marker::Unpin for vantadb::cli_handlers::CallOutcome
 impl core::marker::UnsafeUnpin for vantadb::cli_handlers::CallOutcome
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::cli_handlers::CallOutcome
 impl core::panic::unwind_safe::UnwindSafe for vantadb::cli_handlers::CallOutcome
+pub enum vantadb::cli_handlers::ConfigLayer
+pub vantadb::cli_handlers::ConfigLayer::CliFlag
+pub vantadb::cli_handlers::ConfigLayer::DefaultValue
+pub vantadb::cli_handlers::ConfigLayer::Environment
+pub vantadb::cli_handlers::ConfigLayer::ProjectFile
+pub vantadb::cli_handlers::ConfigLayer::UserGlobalFile
+impl vantadb::cli_handlers::ConfigLayer
+pub fn vantadb::cli_handlers::ConfigLayer::label(self) -> &'static str
+impl core::clone::Clone for vantadb::cli_handlers::ConfigLayer
+pub fn vantadb::cli_handlers::ConfigLayer::clone(&self) -> Self
+impl core::cmp::Eq for vantadb::cli_handlers::ConfigLayer
+impl core::cmp::PartialEq for vantadb::cli_handlers::ConfigLayer
+pub fn vantadb::cli_handlers::ConfigLayer::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vantadb::cli_handlers::ConfigLayer
+pub fn vantadb::cli_handlers::ConfigLayer::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vantadb::cli_handlers::ConfigLayer
+impl core::marker::StructuralPartialEq for vantadb::cli_handlers::ConfigLayer
+impl core::marker::Freeze for vantadb::cli_handlers::ConfigLayer
+impl core::marker::Send for vantadb::cli_handlers::ConfigLayer
+impl core::marker::Sync for vantadb::cli_handlers::ConfigLayer
+impl core::marker::Unpin for vantadb::cli_handlers::ConfigLayer
+impl core::marker::UnsafeUnpin for vantadb::cli_handlers::ConfigLayer
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::cli_handlers::ConfigLayer
+impl core::panic::unwind_safe::UnwindSafe for vantadb::cli_handlers::ConfigLayer
 pub enum vantadb::cli_handlers::DoctorFix
 pub vantadb::cli_handlers::DoctorFix::Apply
 pub vantadb::cli_handlers::DoctorFix::DryRun
@@ -1321,6 +1405,10 @@ pub fn vantadb::cli_handlers::cmd_audit_index(&str, core::option::Option<&str>, 
 pub fn vantadb::cli_handlers::cmd_backup(&str, core::option::Option<&str>, bool, bool) -> vantadb::error::Result<()>
 pub fn vantadb::cli_handlers::cmd_certificate_verify(&str, &str, bool) -> vantadb::error::Result<i32>
 pub fn vantadb::cli_handlers::cmd_completions(vantadb::cli::Shell)
+pub fn vantadb::cli_handlers::cmd_config_doctor(&str, bool) -> vantadb::error::Result<()>
+pub fn vantadb::cli_handlers::cmd_config_init(bool, bool) -> vantadb::error::Result<()>
+pub fn vantadb::cli_handlers::cmd_config_set(&str, &str, bool, bool) -> vantadb::error::Result<()>
+pub fn vantadb::cli_handlers::cmd_config_show(&str, bool, bool) -> vantadb::error::Result<()>
 pub fn vantadb::cli_handlers::cmd_count(&str, &str, core::option::Option<&str>, bool, bool) -> vantadb::error::Result<()>
 pub fn vantadb::cli_handlers::cmd_delete(&str, &str, &str, bool, bool) -> vantadb::error::Result<()>
 pub fn vantadb::cli_handlers::cmd_delete_by_filter(&str, &str, &str, bool, bool) -> vantadb::error::Result<()>
@@ -1504,7 +1592,10 @@ pub vantadb::config::Config::read_only: bool
 pub vantadb::config::Config::require_auth: bool
 pub vantadb::config::Config::rss_threshold: f64
 pub vantadb::config::Config::segment_optimizer: vantadb::storage::engine::SegmentOptimizerConfig
+pub vantadb::config::Config::self_healing: bool
+pub vantadb::config::Config::self_healing_quiet_secs: u64
 pub vantadb::config::Config::storage_path: alloc::string::String
+pub vantadb::config::Config::strict_embeddings: bool
 pub vantadb::config::Config::sync_mode: vantadb::config::SyncMode
 pub vantadb::config::Config::tls_cert_path: core::option::Option<alloc::string::String>
 pub vantadb::config::Config::tls_key_path: core::option::Option<alloc::string::String>
@@ -1667,6 +1758,7 @@ pub vantadb::config::LlmCfg::llm_url: alloc::string::String
 pub vantadb::config::LlmCfg::local_model_path: alloc::string::String
 pub vantadb::config::LlmCfg::openai_api_key: core::option::Option<alloc::string::String>
 pub vantadb::config::LlmCfg::openai_model: alloc::string::String
+pub vantadb::config::LlmCfg::strict_embeddings: bool
 impl core::clone::Clone for vantadb::config::LlmCfg
 pub fn vantadb::config::LlmCfg::clone(&self) -> Self
 impl core::convert::From<&vantadb::config::Config> for vantadb::config::LlmCfg
@@ -1755,6 +1847,8 @@ pub vantadb::config::ServerCfg::log_format: vantadb::config::LogFormat
 pub vantadb::config::ServerCfg::port: u16
 pub vantadb::config::ServerCfg::rate_limit_rpm: u32
 pub vantadb::config::ServerCfg::require_auth: bool
+pub vantadb::config::ServerCfg::self_healing: bool
+pub vantadb::config::ServerCfg::self_healing_quiet_secs: u64
 pub vantadb::config::ServerCfg::tls_cert_path: core::option::Option<alloc::string::String>
 pub vantadb::config::ServerCfg::tls_key_path: core::option::Option<alloc::string::String>
 pub vantadb::config::ServerCfg::trusted_proxies: alloc::vec::Vec<core::net::ip_addr::IpAddr>
@@ -2582,6 +2676,7 @@ pub vantadb::error::Error::EdgeCountOverflow
 pub vantadb::error::Error::EdgeCountOverflow::count: usize
 pub vantadb::error::Error::EdgeCountOverflow::id: u128
 pub vantadb::error::Error::EdgeCountOverflow::limit: u16
+pub vantadb::error::Error::Embedding(alloc::string::String)
 pub vantadb::error::Error::ExecutionConflict
 pub vantadb::error::Error::ExecutionConflict::detail: alloc::string::String
 pub vantadb::error::Error::ExecutionConflict::resource: alloc::string::String
@@ -7305,6 +7400,36 @@ pub mod vantadb::storage::archive
 pub fn vantadb::storage::archive::compact_layout(&mut vantadb::storage::vfile::File, &dyn vantadb::index_port::IndexPort, &[u128], u64) -> vantadb::error::Result<(std::collections::hash::map::HashMap<u128, u64>, u64)>
 pub fn vantadb::storage::archive::reindex_nodes(&dyn vantadb::index_port::IndexPort, &std::collections::hash::map::HashMap<u128, u64>)
 pub fn vantadb::storage::archive::traverse_graph(&dyn vantadb::index_port::IndexPort, u128) -> alloc::vec::Vec<u128>
+pub mod vantadb::storage::lock
+pub struct vantadb::storage::lock::LockMetadata
+pub vantadb::storage::lock::LockMetadata::hostname: alloc::string::String
+pub vantadb::storage::lock::LockMetadata::pid: u32
+pub vantadb::storage::lock::LockMetadata::process_name: alloc::string::String
+pub vantadb::storage::lock::LockMetadata::timestamp_ms: u64
+impl vantadb::storage::lock::LockMetadata
+pub fn vantadb::storage::lock::LockMetadata::current() -> Self
+impl core::clone::Clone for vantadb::storage::lock::LockMetadata
+pub fn vantadb::storage::lock::LockMetadata::clone(&self) -> Self
+impl core::cmp::Eq for vantadb::storage::lock::LockMetadata
+impl core::cmp::PartialEq for vantadb::storage::lock::LockMetadata
+pub fn vantadb::storage::lock::LockMetadata::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vantadb::storage::lock::LockMetadata
+pub fn vantadb::storage::lock::LockMetadata::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vantadb::storage::lock::LockMetadata
+impl serde_core::ser::Serialize for vantadb::storage::lock::LockMetadata
+pub fn vantadb::storage::lock::LockMetadata::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vantadb::storage::lock::LockMetadata
+pub fn vantadb::storage::lock::LockMetadata::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for vantadb::storage::lock::LockMetadata
+impl core::marker::Send for vantadb::storage::lock::LockMetadata
+impl core::marker::Sync for vantadb::storage::lock::LockMetadata
+impl core::marker::Unpin for vantadb::storage::lock::LockMetadata
+impl core::marker::UnsafeUnpin for vantadb::storage::lock::LockMetadata
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::storage::lock::LockMetadata
+impl core::panic::unwind_safe::UnwindSafe for vantadb::storage::lock::LockMetadata
+pub fn vantadb::storage::lock::is_process_alive(u32) -> bool
+pub fn vantadb::storage::lock::read_lock_metadata(&std::path::Path) -> core::option::Option<vantadb::storage::lock::LockMetadata>
+pub fn vantadb::storage::lock::write_lock_metadata(&std::fs::File, &vantadb::storage::lock::LockMetadata) -> core::io::error::Result<()>
 pub mod vantadb::storage::vfile
 pub struct vantadb::storage::vfile::File
 pub vantadb::storage::vfile::File::file: core::option::Option<std::fs::File>
@@ -8423,6 +8548,7 @@ pub vantadb::Error::EdgeCountOverflow
 pub vantadb::Error::EdgeCountOverflow::count: usize
 pub vantadb::Error::EdgeCountOverflow::id: u128
 pub vantadb::Error::EdgeCountOverflow::limit: u16
+pub vantadb::Error::Embedding(alloc::string::String)
 pub vantadb::Error::ExecutionConflict
 pub vantadb::Error::ExecutionConflict::detail: alloc::string::String
 pub vantadb::Error::ExecutionConflict::resource: alloc::string::String
@@ -8968,7 +9094,10 @@ pub vantadb::Config::read_only: bool
 pub vantadb::Config::require_auth: bool
 pub vantadb::Config::rss_threshold: f64
 pub vantadb::Config::segment_optimizer: vantadb::storage::engine::SegmentOptimizerConfig
+pub vantadb::Config::self_healing: bool
+pub vantadb::Config::self_healing_quiet_secs: u64
 pub vantadb::Config::storage_path: alloc::string::String
+pub vantadb::Config::strict_embeddings: bool
 pub vantadb::Config::sync_mode: vantadb::config::SyncMode
 pub vantadb::Config::tls_cert_path: core::option::Option<alloc::string::String>
 pub vantadb::Config::tls_key_path: core::option::Option<alloc::string::String>

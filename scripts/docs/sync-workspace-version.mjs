@@ -416,15 +416,27 @@ for (const spec of specs) {
 
 if (writeMode) {
   // Regenerate SURFACE_MANIFEST.md via gen-surface-manifest.mjs --write to ensure full table sync
-  const genScript = abs('scripts/docs/gen-surface-manifest.mjs');
-  if (existsSync(genScript)) {
+  const genSurfaceScript = abs('scripts/docs/gen-surface-manifest.mjs');
+  if (existsSync(genSurfaceScript)) {
     try {
-      execFileSync(process.execPath, [genScript, '--write'], { stdio: 'inherit' });
+      execFileSync(process.execPath, [genSurfaceScript, '--write'], { stdio: 'inherit' });
       console.log('Regenerated docs/api/SURFACE_MANIFEST.md via gen-surface-manifest.mjs --write');
     } catch (e) {
       console.warn(`Warning: gen-surface-manifest.mjs --write invocation failed: ${e.message}`);
     }
   }
+
+  // Regenerate canonical documentation indexes and llms.txt via gen-index.mjs --write
+  const genIndexScript = abs('scripts/docs/gen-index.mjs');
+  if (existsSync(genIndexScript)) {
+    try {
+      execFileSync(process.execPath, [genIndexScript, '--write'], { stdio: 'inherit' });
+      console.log('Regenerated docs/index.md and llms.txt via gen-index.mjs --write');
+    } catch (e) {
+      console.warn(`Warning: gen-index.mjs --write invocation failed: ${e.message}`);
+    }
+  }
+
   console.log(`\nSync complete: ${updatedCount} file(s) updated.`);
   process.exit(0);
 }
