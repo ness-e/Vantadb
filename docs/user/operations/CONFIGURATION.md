@@ -87,6 +87,8 @@ All configuration fields available in `VantaConfig` (Rust) and via environment v
 | `audit_log_path` | `Option<PathBuf>` | `None` | `VANTADB_AUDIT_LOG_PATH` | Append-only JSONL audit log (ISO 8601 timestamp + op per write/delete/export/import). When `None`, audit is disabled. |
 | `audit_max_bytes` | `u64` | `10 MiB` | `VANTADB_AUDIT_MAX_BYTES` | Audit log rotation threshold (bytes; accepts `KB`/`MB`/`GB` suffixes in env). Rotates to `<path>.1` when exceeded (SRV-01). |
 | `audit_max_files` | `u32` | `5` | `VANTADB_AUDIT_MAX_FILES` | Rotated audit archives retained (`.1`..`.N`); older files deleted (SRV-01). |
+| `self_healing` | `bool` | `true` | `VANTADB_SELF_HEALING` | Master switch for automated background maintenance (vacuum and index rebuild) during low-activity windows. Default: `true`. |
+| `self_healing_quiet_secs` | `u64` | `300` | `VANTADB_SELF_HEALING_QUIET_SECS` | Inactivity threshold in seconds before self-healing maintenance triggers. Default: `300` (5 minutes). |
 | `segment_optimizer` | `SegmentOptimizerConfig` | `{enabled: true, vacuum_threshold_pct: 15.0, auto_run_interval_secs: 3600, max_pipeline_duration_secs: 300}` | — | Segment optimizer configuration: master switch, tombstone vacuum threshold (%), auto-run interval (s), max pipeline duration (s), and per-level LSM compaction config. See also `pipeline()` / `optimizer_config()` / `set_optimizer_config()` in the SDK. |
 
 ### Environment Variables Outside `VantaConfig`
