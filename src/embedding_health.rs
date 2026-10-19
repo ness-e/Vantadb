@@ -1,6 +1,6 @@
 //! DEF-08 code-follow-up — visible fallback for local embeddings.
 //!
-//! Contract: `docs/dev/strategy/DISTRIBUTION.md` §7 and `SPEC.md` L74 —
+//! Contract: `docs/dev/strategy/DISTRIBUTION.md` §7 and `docs/specs/SPEC.md` L74 —
 //! "fallback avisado (`fallback: true`), nunca silencioso". This module is the
 //! single probe behind every *status* surface (CLI `status`, MCP
 //! `capabilities`, the `setup-embeddings.ps1` live test) so the notice text is
@@ -220,18 +220,53 @@ fn entries_one_level(dir: &str) -> Vec<std::path::PathBuf> {
 fn resolve_ort_dylib_path() -> std::path::PathBuf {
     match std::env::var("ORT_DYLIB_PATH") {
         Ok(s) if !s.is_empty() => std::path::PathBuf::from(s),
-        _ => std::path::PathBuf::from({
+        _ => {
             #[cfg(target_os = "windows")]
             {
-                "onnxruntime.dll"
+                let candidates = [
+                    std::path::Path::new(
+                        ".venv/Lib/site-packages/onnxruntime/capi/onnxruntime.dll",
+                    ),
+                    std::path::Path::new(
+                        "vantadb-python/.venv/Lib/site-packages/onnxruntime/capi/onnxruntime.dll",
+                    ),
+                ];
+                for c in candidates {
+                    if c.exists() {
+                        return c.to_path_buf();
+                    }
+                }
+                std::path::PathBuf::from("onnxruntime.dll")
             }
             #[cfg(any(target_os = "linux", target_os = "android", target_os = "freebsd"))]
             {
-                "libonnxruntime.so"
+                let candidates = [
+                    std::path::Path::new(
+                        ".venv/lib/site-packages/onnxruntime/capi/libonnxruntime.so",
+                    ),
+                    std::path::Path::new(
+                        "vantadb-python/.venv/lib/site-packages/onnxruntime/capi/libonnxruntime.so",
+                    ),
+                ];
+                for c in candidates {
+                    if c.exists() {
+                        return c.to_path_buf();
+                    }
+                }
+                std::path::PathBuf::from("libonnxruntime.so")
             }
             #[cfg(any(target_os = "macos", target_os = "ios"))]
             {
-                "libonnxruntime.dylib"
+                let candidates = [
+                    std::path::Path::new(".venv/lib/site-packages/onnxruntime/capi/libonnxruntime.dylib"),
+                    std::path::Path::new("vantadb-python/.venv/lib/site-packages/onnxruntime/capi/libonnxruntime.dylib"),
+                ];
+                for c in candidates {
+                    if c.exists() {
+                        return c.to_path_buf();
+                    }
+                }
+                std::path::PathBuf::from("libonnxruntime.dylib")
             }
             #[cfg(not(any(
                 target_os = "windows",
@@ -242,9 +277,9 @@ fn resolve_ort_dylib_path() -> std::path::PathBuf {
                 target_os = "ios"
             )))]
             {
-                "onnxruntime"
+                std::path::PathBuf::from("onnxruntime")
             }
-        }),
+        }
     }
 }
 

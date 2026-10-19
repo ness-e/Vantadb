@@ -51,7 +51,11 @@ fn litellm_embed_chunk(
     if let Some(t) = store.timeout {
         kwargs.set_item("timeout", t)?;
     }
-    let func = store.embed_fn.as_ref().unwrap().bind(py);
+    let func = store
+        .embed_fn
+        .as_ref()
+        .ok_or_else(|| PyRuntimeError::new_err("liteLLM embedding function is not initialized"))?
+        .bind(py);
     let response = func
         .call((), Some(&kwargs))
         .map_err(|e| PyRuntimeError::new_err(format!("liteLLM embed error: {}", e)))?;

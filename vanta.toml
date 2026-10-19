@@ -1,0 +1,22 @@
+# VantaDB Unified Configuration File (vanta.toml)
+# Precedence: CLI flags > Environment variables > ./vanta.toml > ~/.vanta/config.toml > Defaults
+
+[storage]
+storage_path = "vantadb_data"
+wal_shards = 4
+sync_mode = "periodic"
+
+[server]
+host = "127.0.0.1"
+port = 8080
+require_auth = false
+rate_limit_rpm = 600
+
+[embeddings]
+embedding_provider = "local"
+strict_embeddings = true
+local_model_path = "embeddings/models/embeddinggemma-2/onnx"
+
+[maintenance]
+self_healing = true
+self_healing_quiet_secs = 300

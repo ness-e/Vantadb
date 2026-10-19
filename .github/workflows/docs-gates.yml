@@ -1,0 +1,605 @@
+name: 'GATES: Docs - lint, links, secrets, API surface, examples, rustdoc'
+
+# CI-08 Step 4 (SRV-10.md tabla migracion): consolida 6 workflows (17 jobs 1:1).
+# Origenes: gate-docs.yml, gate-docs-links.yml, gate-api-docs.yml,
+#   gate-doc-examples.yml, gate-docs-secrets.yml, ci-rustdoc.yml.
+# Triggers = union de paths + schedule semanal de docs-links (lun 07:23 UTC).
+# Deltas documentados vs origenes:
+# - rustdoc usaba concurrency group 'rustdoc-${{ github.ref }}'; ahora grupo
+#   estandar (evita runs huerfanos fuera del grupo; historial en git).
+# - jobs no-links llevan gate != schedule (nunca corrian en schedule).
+# - ci-rust.yml / release-* con continue-on-error bare: fuera de alcance
+#   (NOTICED BUT NOT TOUCHING, ver SRV-10.md).
+# - actionlint job + inventory gate (conteo vs CI_POLICY.md); paths incluyen
+#   .github/workflows/** para lintar workflow-only PRs. Nota: 'vantadb-*/**'
+#   ya cubre vantadb-python/** completo (pyproject/tests incluidos).
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - 'scripts/**'
+      - 'src/**'
+      - 'tests/**'
+      - 'vantadb-python/vantadb_py/**'
+      - 'vantadb-python/vantadb/**'
+      - 'vantadb-ts/src/**'
+      - 'vantadb-ts/package.json'
+      - 'vantadb-node/package.json'
+      - 'vantadb-*/**'
+      - 'vanta-memory/**'
+      - 'providers/**'
+      - '.github/workflows/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'README.md'
+      - 'llms.txt'
+      - '.markdownlint-cli2.yaml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'docs/**'
+      - 'scripts/**'
+      - 'src/**'
+      - 'tests/**'
+      - 'vantadb-python/vantadb_py/**'
+      - 'vantadb-python/vantadb/**'
+      - 'vantadb-ts/src/**'
+      - 'vantadb-ts/package.json'
+      - 'vantadb-node/package.json'
+      - 'vantadb-*/**'
+      - 'vanta-memory/**'
+      - 'providers/**'
+      - '.github/workflows/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'README.md'
+      - 'llms.txt'
+      - '.markdownlint-cli2.yaml'
+  schedule:
+    - cron: '23 7 * * 1'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint-markdown:
+    if: github.event_name != 'schedule'
+
+    name: Lint Markdown
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - name: Lint Markdown
+        run: npx markdownlint-cli2 "docs/**/*.md"
+  check-format:
+    if: github.event_name != 'schedule'
+
+    name: Check Frontmatter
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - name: Check frontmatter required fields
+        run: |
+          PASS=true
+          for f in $(find docs -name "*.md"); do
+            if head -1 "$f" | grep -q "^---$"; then
+              title=$(sed -n '/^---$/,/^---$/p' "$f" | grep -i "^title:" | head -1)
+              if [ -z "$title" ]; then
+                echo "::error file=$f::Missing frontmatter field: title"
+                PASS=false
+              fi
+            fi
+          done
+          if [ "$PASS" != "true" ]; then exit 1; fi
+          echo "All documents have valid frontmatter."
+  check-api-version:
+    if: github.event_name != 'schedule'
+
+    name: Check API Docs Version
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - name: Check OpenAPI/router parity (GOV-B4)
+        run: node scripts/check_openapi_parity.mjs
+      - name: Check docs/api headers match workspace version
+        run: |
+          VER=$(sed -n '/^\[workspace.package\]/,/^\[/p' Cargo.toml | grep '^version' | head -1 | awk '{print $3}' | tr -d '"')
+          echo "Workspace version: $VER"
+          FAIL=0
+          # openapi.yaml info.version (first version: line in file)
+          OAPI=$(grep -m1 '^  version:' docs/api/openapi.yaml | awk '{print $2}' | tr -d '"')
+          echo "openapi.yaml: $OAPI"
+          if [ "$OAPI" != "$VER" ]; then
+            echo "::error file=docs/api/openapi.yaml::version $OAPI != workspace $VER"
+            FAIL=1
+          fi
+          # MCP.md implementation version (tracks workspace version; HTTP_API.md is protocol version 0.0.4 — intentionally not checked)
+          MCP=$(grep -m1 'Current MCP implementation version:' docs/api/MCP.md | awk '{print $NF}')
+          echo "MCP.md: $MCP"
+          if [ "$MCP" != "$VER" ]; then
+            echo "::error file=docs/api/MCP.md::version $MCP != workspace $VER"
+            FAIL=1
+          fi
+          if [ "$FAIL" != "0" ]; then exit 1; fi
+          echo "All tracked API doc headers match workspace version $VER."
+
+  # FIND-230: the sibling of `check-api-version` for npm packaging. A stale
+  # `vantadb-ts/package.json` made the 0.8.0 tag ask npm for an already
+  # published version, so release-npm-61 skipped the publish in a green run
+  # (run 37045932895). Pure string comparison, no network, no build.
+  check-npm-versions:
+    if: github.event_name != 'schedule'
+
+    name: Check npm package versions match workspace
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - name: Self-test
+        run: node scripts/docs/check-npm-versions.mjs --self-test
+      - name: Gate — npm versions match the workspace version
+        run: node scripts/docs/check-npm-versions.mjs
+      - name: Machine-readable report on failure
+        if: failure()
+        run: node scripts/docs/check-npm-versions.mjs --json
+        continue-on-error: true # CATEGORY: INFORMATIONAL - extra detail for a red build; the gate step already failed
+  check-frontier:
+    if: github.event_name != 'schedule'
+
+    name: Check Product Frontier
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Validate product frontier (docs vs features/routes)
+        run: pwsh -NoProfile -File scripts/validate-frontier.ps1
+  docs-links:
+    name: Internal links resolve
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      # Budgets live in the script: broken links = 0 (P0-P2 drained by the F1
+      # triage, docs/dev/tasks/DOCS-F1.md; P3 frozen trees -- avance/historial/**
+      # and tasks/** -- are excluded there, and P4 external URLs never gate:
+      # they are counted and swept by the weekly schedule instead, the
+      # qdrant/lancedb `fail: false` pattern), wikilinks = 20 occurrences.
+      - name: Check internal Markdown links and legacy wikilinks
+        run: node scripts/docs/check-links.mjs
+  docs-schema:
+    name: Frontmatter schema, kind agreement, orphans
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - name: Validate frontmatter against docs/_schema/frontmatter.schema.json
+        run: node scripts/docs/check-docs.mjs
+      - name: Reduction hints
+        if: failure()
+        run: node scripts/docs/check-docs.mjs --fix-hints
+  docs-index:
+    name: Generated indexes are current
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - name: docs/index.md, ADR index and llms.txt must match the frontmatter
+        run: node scripts/docs/gen-index.mjs --check
+  docs-structure:
+    name: No section has lost its body
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      # A 2026-09-29 regression in lib.mjs segment() reordered file content on
+      # write-back: code-free lines were buffered and flushed at the END of the
+      # file, which pushed each affected file's H1 hundreds of lines down and
+      # emptied the sections above it. Every read-only checker stayed green
+      # because proseOf() does not care about segment order -- only the writer
+      # reproduced it. 32 files were damaged before it was found.
+      #
+      # BUDGET counts DAMAGED FILES and is a ratchet, not a target: it must only
+      # go down. It has come down 109 -> 101 -> 96 -> 87 -> 40, and two of those
+      # steps were the gate's own bugs, not the docs getting better:
+      #   109 -> 101  66 files wrote their title as `#Fjall` with no space, so
+      #               GitHub rendered them as a paragraph and every
+      #               heading-anchored check blamed the surrounding content.
+      #               498 of 511 "stranded prose" findings were that one space.
+      #   96  -> 40   the blank-line test treated any `Key: value` as YAML, so
+      #               every ADR's `## Status` read as an empty section. 47 of
+      #               87 damaged files were sections that are perfectly full.
+      - name: Segmenter round-trip must be lossless
+        run: node scripts/docs/wikilinks-to-md.mjs --self-test
+      - name: Empty sections, stranded prose, malformed headings
+        # The budget is a flag, not an env var: check-structure.mjs reads
+        # --budget=. Wiring it as BUDGET: silently ran with a budget of 0, so
+        # the gate would have failed on a tree whose only damage predates it.
+        run: node scripts/docs/check-structure.mjs --budget=40
+      - name: Attribute any new defect to this change or to the last commit
+        if: failure()
+        run: node scripts/docs/attribute-structure.mjs
+  docs-lint-regression:
+    name: Markdownlint does not regress
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      # 2026-10-04 (DOCS-F1): the migration debt is drained -- the 7 errors in
+      # BENCHMARKS/CONFIGURATION are gone and the 1 MD052 the generated index
+      # carried is fixed in gen-index.mjs -- so every controlled file must stay
+      # at 0. The master plan is EXCLUDED from the count: it is orchestrator-
+      # owned and carries machine-appended recitation blocks whose MD007s are
+      # tracked as `FIND-264` (Backlog, 2026-10-04) and fixed at the source, not here — remove this exclusion once the master plan is archived. A count is easier
+      # to hold than a rule set; markdownlint's own --fix is deliberately not
+      # used, because these files are hand-written prose.
+      - name: Lint
+        run: npx markdownlint-cli2 "docs/**/*.md" 2>&1 | tee /tmp/lint.txt || true
+      - name: Fail if the error count exceeds the recorded baseline
+        env:
+          BASELINE: '0'
+        run: |
+          N=$(grep 'error MD' /tmp/lint.txt | grep -cv 'docs/dev/plans/2026-10-04-master-plan-0.9.0.md' || true)
+          N=${N:-0}
+          echo "markdownlint errors (excluding the master plan): $N (baseline $BASELINE)"
+          if [ "$N" -gt "$BASELINE" ]; then
+            echo "::error::markdownlint regressions: $N > baseline $BASELINE"
+            grep 'error MD' /tmp/lint.txt | grep -v 'master-plan-0.9.0.md' | head -20
+            exit 1
+          fi
+      - name: Weekly full-repo lint (informational, never blocks)
+        if: github.event_name == 'schedule'
+        run: npx markdownlint-cli2 "**/*.md" 2>&1 | tail -40
+        continue-on-error: true # CATEGORY: INFORMATIONAL - advisory sweep across the whole repo, not the docs gate
+  api-docs:
+    if: github.event_name != 'schedule'
+
+    name: Public API surface moves only with documentation
+    runs-on: ubuntu-latest
+    # Measured: 6s on a 2-ref diff of the full three-language surface. The
+    # margin is for a cold runner and a cold git object cache.
+    timeout-minutes: 5
+    steps:
+      # `fetch-depth: 0` is load-bearing, not a habit. The gate diffs two refs,
+      # and `actions/checkout` defaults to a depth-1 clone of a synthetic merge
+      # ref whose parents are not present — `git diff base..head` would fail and
+      # the script would report DEGRADED. A full history is the only way to make
+      # the base ref reliable without a second fetch step. Cost on this repo is
+      # a few seconds; the alternative is a gate that cannot resolve its own base.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+
+      # Pick the base ref BEFORE the gate, and print what was chosen. On a PR
+      # `github.event.pull_request.base.sha` is a commit that EXISTS in the
+      # fetch-depth-0 clone, so no ref lookup can fail. On push/dispatch there is
+      # no base and BASE is empty on purpose: there is nothing to diff against,
+      # so the job reports it and does not pretend to have gated.
+      - name: Resolve base ref
+        id: base
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          if [ "$EVENT_NAME" = "pull_request" ] && [ -n "$PR_BASE_SHA" ]; then
+            if git cat-file -e "$PR_BASE_SHA^{commit}" 2>/dev/null; then
+              echo "sha=$PR_BASE_SHA" >> "$GITHUB_OUTPUT"
+              echo "resolved: PR base sha $PR_BASE_SHA"
+            else
+              # Loud, not silent. A missing base is a checkout problem, and
+              # swallowing it would leave the job green having gated nothing.
+              echo "::warning::base sha $PR_BASE_SHA is absent from the checkout; falling back to the base branch ref"
+              echo "sha=origin/$PR_BASE_REF" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "sha=" >> "$GITHUB_OUTPUT"
+            echo "no base ref (event=$EVENT_NAME) — this run reports the surface, it does not gate"
+          fi
+
+      - name: Self-test
+        run: node scripts/docs/check-api-docs.mjs --self-test
+
+      - name: Report the surface
+        run: node scripts/docs/check-api-docs.mjs --api-surface
+
+      # Exit 3 (DEGRADED) is a FAILURE here, deliberately. A gate that cannot
+      # resolve its base has proven nothing, and a green check mark for "I did
+      # not look" is the exact failure mode RULES.md rule 6 exists to prevent.
+      - name: Gate — surface change requires a doc change
+        id: gate
+        env:
+          BASE: ${{ steps.base.outputs.sha }}
+        run: |
+          if [ -z "$BASE" ]; then
+            echo "::notice::no base ref on this event — gate not applicable"
+            exit 0
+          fi
+          set +e
+          node scripts/docs/check-api-docs.mjs --changed "$BASE..HEAD"
+          CODE=$?
+          set -e
+          if [ "$CODE" = "3" ]; then
+            echo "::error::gate could not be evaluated (DEGRADED) — this is not a pass"
+            exit 1
+          fi
+          exit "$CODE"
+
+      - name: Machine-readable report on failure
+        if: failure() && steps.base.outputs.sha != ''
+        run: node scripts/docs/check-api-docs.mjs --changed "${{ steps.base.outputs.sha }}..HEAD" --json
+        continue-on-error: true # CATEGORY: INFORMATIONAL - extra detail for a red build; the gate step already failed
+  doc-examples:
+    if: github.event_name != 'schedule'
+
+    name: Python examples match the real SDK
+    runs-on: ubuntu-latest
+    # Calibrated from ci-examples.yml, which builds the same wheel: a cold debug
+    # build of vantadb-python plus its core dependency dominates. 30 min is that
+    # job's measured wall time; rule 2 wants measured + margin, not optimism.
+    timeout-minutes: 30
+    env:
+      CARGO_TERM_COLOR: always
+      CARGO_INCREMENTAL: 0
+      PYTHONUTF8: 1
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+
+      # Same wheel, same toolchain, same approach as ci-examples.yml. Inventing a
+      # second way to get the package into Python is how the two lanes drift.
+      - uses: ./.github/actions/rust-setup
+        with:
+          install-system-deps: true
+          swap-mb: 4096
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Build vantadb_py wheel (maturin)
+        uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1.51.0
+        with:
+          command: build
+          args: --release --out dist --manifest-path ./vantadb-python/Cargo.toml
+
+      - name: Install the wheel
+        # bash on all runners: the wheel pick uses $(...) substitution, which the
+        # default shell cannot parse. Same pattern as ci-examples.yml.
+        shell: bash
+        run: |
+          wheel="$(ls -t ./dist/vantadb_py-*.whl | head -n 1)"
+          python -m pip install --upgrade pip
+          python -m pip install "$wheel"
+          python -c "import vantadb; print('vantadb', vantadb.__version__)"
+
+      # The gate's own logic, proven on synthetic snippets: a real method must
+      # pass, an invented method must fail, a fragment must classify as a
+      # fragment. No test framework, 17 assertions, exits non-zero on any failure.
+      # It runs AFTER the wheel is installed so the two API assertions execute
+      # for real instead of printing SKIP.
+      - name: Self-test the gate logic
+        run: node scripts/docs/check-doc-examples.mjs --self-test
+
+      - name: Every attribute a runnable example touches exists
+        run: node scripts/docs/check-doc-examples.mjs
+
+  # DOCS-F2 (2026-10-04): la mitad Python del contrato T13 se cumplía a nivel
+  # de EJEMPLOS (el job de arriba resuelve cada bloque runnable contra el
+  # paquete real). Lo que no existía era el chequeo docstring ↔ firma del
+  # propio binding: pydoclint. Medido 2026-10-04: 4 violaciones (DOC109/110/105
+  # en error_to_dict, DOC203 en SearchRequest.asdict) → drenadas a 0 en el
+  # mismo commit que cablea este job. No necesita el wheel: es análisis
+  # estático de los .py del binding, por eso es un job aparte y barato.
+  # En pydoclint 0.11 `--check-style` se renombró a `--style` (el comando del
+  # plan docs-consolidation quedó viejo); versión pinneada para reproducibilidad.
+  python-docstrings:
+    if: github.event_name != 'schedule'
+
+    name: Python docstrings match signatures (pydoclint)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.11'
+      - name: Install pydoclint (pinned)
+        run: python -m pip install pydoclint==0.11.0
+      - name: Docstrings must match signatures (numpy style)
+        run: pydoclint --style=numpy vantadb-python/vantadb_py vantadb-python/vantadb
+  docs-secrets:
+    if: github.event_name != 'schedule'
+
+    name: No credential in published docs
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - name: Assert the rules themselves still detect their own shapes
+        run: node scripts/docs/check-secrets.mjs --self-test
+      - name: Scan prose for credential shapes
+        run: node scripts/docs/check-secrets.mjs
+  docs-secrets-json:
+    if: github.event_name != 'schedule'
+
+    name: Machine-readable report
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      # Same scan, second surface. The human job prints a per-file report a
+      # reviewer can act on; this one emits the aggregate that a later promotion
+      # or a weekly trend report can consume without re-deriving it from logs.
+      - name: Emit the JSON report
+        run: node scripts/docs/check-secrets.mjs --json
+  rustdoc:
+    if: github.event_name != 'schedule'
+
+    name: Generate API reference (rustdoc)
+    runs-on: ubuntu-latest
+    # FIND-137: 30 = build rustdoc ~10min medido (FIND-133) + margen cold-cache
+    # con bindgen rocksdb (margen 3×, criterio FIND-135: duración real + margen).
+    timeout-minutes: 30
+    env:
+      CARGO_TERM_COLOR: always
+      CARGO_INCREMENTAL: 0
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # rust-setup composite: toolchain stable + sccache + cache.
+      # --all-features pulls rocksdb -> librocksdb-sys (bindgen) which needs
+      # libclang: system deps ARE required for the doc build itself.
+      - uses: ./.github/actions/rust-setup
+        with:
+          toolchain: stable
+          components: ''
+          install-nextest: false
+          install-llvm-cov: false
+          install-system-deps: true
+          swap-mb: 0
+
+      # `--no-deps` evita descargar/parsear crates externos (la doc de dependencias
+      # la sirve docs.rs). `--workspace` cubre core + vantadb-*/providers.
+      # `--all-features` consistente con cargo clippy --all-features del job clippy.
+      # Falla por defecto en docstrings con links rotos / markdown inválido (gate de calidad).
+      - name: Generate rustdoc
+        run: cargo doc --no-deps --workspace --all-features --document-private-items
+
+      - name: Compress API reference
+        run: |
+          tar -czf api-reference-rust.tar.gz -C target/doc .
+          du -h api-reference-rust.tar.gz
+
+      - name: Upload API reference artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: api-reference-rust
+          path: api-reference-rust.tar.gz
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Rustdoc Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- Workflow: ${{ github.workflow }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Ref: ${{ github.ref }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Artifact: api-reference-rust.tar.gz (30-day retention)" >> $GITHUB_STEP_SUMMARY
+          echo "- Command: cargo doc --no-deps --workspace --all-features --document-private-items" >> $GITHUB_STEP_SUMMARY
+
+  # DOCS-F2 (2026-10-04): los ejemplos de la documentación nunca se ejecutaban
+  # en CI. `cargo doc` construye el artefacto y valida links, pero los doctests
+  # (bloques ``` de los docstrings) sólo corren con `cargo test --doc`. Medido
+  # 2026-10-04 (Windows, warm): `RUSTDOCFLAGS="-D warnings" cargo test --doc
+  # --workspace` → EXIT 0 (13 + 1 ignored en vantadb, 1 en vanta-memory, 1 en
+  # vantadb-mcp; compile 2m47s + 16.8s de tests). `vantadb_py` queda fuera por
+  # tipo cdylib — warning de cargo, no error. Job separado del artefacto para que
+  # un fallo nombre el doctest roto, no el build de docs (mismo criterio que
+  # ci-examples.yml). `-D warnings` convierte cada warning de rustdoc en error:
+  # un ejemplo que no compila no llega a un humano. Primer run real en
+  # ubuntu-latest (medición local en Windows): un fallo platform-specific
+  # es finding real, no ruido.
+  doctests:
+    if: github.event_name != 'schedule'
+
+    name: Doc-tests (RUSTDOCFLAGS=-D warnings)
+    runs-on: ubuntu-latest
+    # 30 = mismo margen que el job rustdoc hermano (build del workspace en
+    # perfil test + 20s de tests; medido warm: 2m47s + 16.8s; cold = margen 3×).
+    timeout-minutes: 30
+    env:
+      CARGO_TERM_COLOR: always
+      CARGO_INCREMENTAL: 0
+      RUSTDOCFLAGS: "-D warnings"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Mismo composite que el job rustdoc: toolchain stable + sccache + cache.
+      - uses: ./.github/actions/rust-setup
+        with:
+          toolchain: stable
+          components: ''
+          install-nextest: false
+          install-llvm-cov: false
+          install-system-deps: true
+          swap-mb: 0
+
+      - name: Doc-tests must compile and pass with warnings denied
+        run: cargo test --doc --workspace
+
+  actionlint:
+    name: actionlint (workflows lint + inventory gate)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install actionlint v1.7.7 (pinned sha256)
+        run: |
+          curl -sSL -o /tmp/actionlint.tar.gz https://github.com/rhysd/actionlint/releases/download/v1.7.7/actionlint_1.7.7_linux_amd64.tar.gz
+          echo "023070a287cd8cccd71515fedc843f1985bf96c436b7effaecce67290e7e0757  /tmp/actionlint.tar.gz" | sha256sum -c -
+          tar -xzf /tmp/actionlint.tar.gz -C /tmp actionlint
+
+      - name: Lint workflows
+        run: |
+          /tmp/actionlint -color -ignore 'shellcheck reported issue in this script: (SC2012|SC2086|SC2129|SC2044)'
+
+      - name: Workflow inventory gate (count vs CI_POLICY.md)
+        run: |
+          expected=$(grep -oP '\*\*\K[0-9]+(?= active workflow files)' docs/dev/operations/CI_POLICY.md)
+          actual=$(ls .github/workflows/*.yml | wc -l)
+          echo "workflows: $actual (CI_POLICY.md: $expected)"
+          test "$actual" = "$expected"

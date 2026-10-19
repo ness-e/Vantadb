@@ -1,7 +1,7 @@
 {
   "name": "vantadb",
   "version": "0.8.0",
-  "description": "VantaDB TypeScript SDK — WASM-powered embedded vector & graph memory for JS runtimes (Node, Bun, Deno, browser)",
+  "description": "VantaDB TypeScript SDK — browser AI agent memory: WASM-powered embedded vector & graph memory for JS runtimes (Node, Bun, Deno, browser)",
   "type": "module",
   "engines": {
     "node": ">=22.19"
@@ -53,11 +53,16 @@
     "graph",
     "wasm",
     "ai",
-    "semantic-search"
+    "semantic-search",
+    "browser",
+    "agent-memory",
+    "local-first",
+    "hybrid-search"
   ],
   "license": "Apache-2.0",
   "dependencies": {
-    "vantadb-wasm": "file:../vantadb-wasm/pkg"
+    "vantadb-wasm": "file:../vantadb-wasm/pkg",
+    "vantadb-node": "file:../vantadb-node"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -66,7 +71,6 @@
     "eslint": "^10.7.0",
     "typescript": "^5.7.0",
     "typescript-eslint": "^8.64.0",
-    "vantadb-node": "file:../vantadb-node",
     "vite-plugin-wasm": "^3.6.0",
     "vitest": "^4.1.11"
   }

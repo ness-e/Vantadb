@@ -18,6 +18,11 @@
 use napi::Error;
 use napi_derive::napi;
 use serde_json::{json, Map, Value};
+use std::collections::HashMap;
+use std::path::PathBuf;
+use std::sync::{Arc, Mutex, OnceLock, PoisonError};
+use std::time::{SystemTime, UNIX_EPOCH};
+use tokio::sync::Notify;
 use vantadb::config::Config;
 use vantadb::graph::TraversalDirection;
 use vantadb::index::IndexType;
@@ -30,6 +35,19 @@ use vantadb::sdk::{
 use vantadb::{SparseVector, MAX_K, MAX_VEC_DIM};
 // Durability gate + ERR-022 clamp policy: shared std-only leaf (WIRE-07).
 use vantadb_ffi_core::{OpGate, OpGuard};
+// DIST-19 S3: thin facade over vanta-memory (logic lives in the core/memory
+// crates — api-contract R-8; these imports are glue only).
+use vanta_memory::context_engine::{
+    assemble as assemble_context, AssembleConfig, ChatMessage, TokenEstimator,
+};
+use vanta_memory::core::dream::{consolidate_session, DreamConfig};
+use vanta_memory::core::hooks::auto_recall::{
+    perform_auto_recall_governed, perform_auto_recall_scored, reinforce_recalled, AutoRecallParams,
+    InjectionPolicy, RecallConfig, RecallScope, RecalledMemory,
+};
+use vanta_memory::core::profile::profile_sync::ProfileIsolation;
+use vanta_memory::core::record::CompositeScoring;
+use vantadb::ReinforceOutcome;
 
 /// Clamp `top_k`/`k` to [`MAX_K`], warning when the caller requested more than
 /// the cap so silent truncation stays observable (ERR-022). The compare→cap
@@ -45,12 +63,169 @@ fn clamp_top_k(requested: usize) -> usize {
     effective
 }
 
+/// DIST-20 (S4) cooperative cancellation token for long engine ops.
+///
+/// Why not the DOM `AbortSignal` (spec draft): napi's `AbortSignal` is
+/// `!Send` by construction (`Rc` internals, `napi-3.12.0/.../task.rs:57`)
+/// and only feeds `AsyncTask` (libuv thread) — it can never enter a
+/// `#[napi]` tokio future, not even as an unused param (verified with
+/// `cargo check`: the future is `!Send`). `AbortHandle` is the `Send`-safe
+/// bridge with identical detach semantics. JS ergonomics are one line:
+/// `signal.addEventListener('abort', () => handle.abort())` (the S5 suite
+/// proves this wiring). Abort = detach: the blocking op runs on, the engine
+/// is never cancelled, `close()` never blocks on a cancelled op.
+#[napi]
+pub struct AbortHandle {
+    notify: Arc<Notify>,
+}
+
+impl Default for AbortHandle {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[napi]
+impl AbortHandle {
+    /// Create a fresh token (starts un-fired).
+    #[napi(constructor)]
+    pub fn new() -> Self {
+        Self {
+            notify: Arc::new(Notify::new()),
+        }
+    }
+
+    /// Fire cancellation. Idempotent; safe to call before or after the op
+    /// settles. A pre-fired handle fails the next op fast with `Cancelled`.
+    #[napi]
+    pub fn abort(&self) {
+        self.notify.notify_one();
+    }
+}
+
 /// Native VantaDB handle exposed to Node.js. Thin wrapper over the SDK's
 /// `Embedded`; all engine methods are async to avoid blocking the JS thread.
-#[napi]
+///
+/// EGO-06: GC safety net via `#[napi(custom_finalize)]` — explicit `close()`
+/// stays primary (timely flush + errors; GC timing is never guaranteed), but
+/// a discarded handle drains in-flight ops and closes the engine on finalize
+/// instead of relying on refcount accidents to free the Fjall lock.
+#[napi(custom_finalize)]
 pub struct VantaDB {
+    /// Mutable handle state behind one mutex (EGO-12): every method snapshots
+    /// `(gate, engine)` under a brief lock and never holds it across await,
+    /// so `close()`/`reopen()` can't deadlock against in-flight ops.
+    inner: Mutex<VantaInner>,
+}
+
+/// Replaceable state of a [`VantaDB`] handle.
+struct VantaInner {
     engine: Embedded,
-    op_gate: OpGate,
+    gate: OpGate,
+    /// This handle's registry reservation; taken exactly once by `close()`,
+    /// `reopen()` or the finalizer so a double-close can never release
+    /// someone else's reservation.
+    slot: Option<PathBuf>,
+    /// Last config that opened successfully; `reopen()` rebuilds from it.
+    config: Config,
+}
+
+impl VantaDB {
+    /// Clone the gate + engine under a brief lock. The lock is never held
+    /// across await (deadlock safety); the `OpGuard` from `enter(&gate)`
+    /// keeps the durability barrier (R-4) across the async op.
+    fn snapshot(&self) -> (OpGate, Embedded) {
+        let inner = self.inner.lock().unwrap_or_else(PoisonError::into_inner);
+        (inner.gate.clone(), inner.engine.clone())
+    }
+}
+
+/// In-process registry of open database paths (EGO-06).
+///
+/// Fjall's lock is an OS flock (`fjall` `locked_file.rs`): it dies with the
+/// process, so a `Locked` error on reopen always means a live handle in THIS
+/// process — a forgotten `close()`, a leaked clone, or a second open of the
+/// same path. The registry turns that cryptic failure into a fail-fast
+/// `VANTADB_BUSY` naming the path.
+///
+/// Exclusion is TOTAL (one handle per path, any mode): `FjallBackend::open`
+/// ignores `read_only` (fjall 3.1.x has no read-only mode — EGO-01 Engine
+/// debt), so even a second read-only open dies in the core with `Locked`.
+/// Shared multi-handle reads arrive with Engine lock-free reads; until then
+/// the pattern is daemon/socket (EGO-09). Identical path strings are
+/// caught; different spellings of the same directory fall through to the
+/// core flock (status quo ante, no regression).
+static OPEN_PATHS: OnceLock<Mutex<HashMap<PathBuf, bool>>> = OnceLock::new();
+
+fn open_paths() -> &'static Mutex<HashMap<PathBuf, bool>> {
+    OPEN_PATHS.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+/// Lexical key for a database path. `:memory:`/empty engines hold no files
+/// and are exempt. `absolute()` needs no existence (the directory may be
+/// created by open); symlinks/`..` spellings can miss — the core flock
+/// backstops those.
+fn open_path_key(path: &str) -> Option<PathBuf> {
+    if path.is_empty() || path == ":memory:" {
+        return None;
+    }
+    std::path::absolute(path).ok()
+}
+
+/// Reserve a path before opening. Fails fast with `DatabaseBusy`
+/// (`VANTADB_BUSY`) when the path already has a live handle in this process.
+fn reserve_open_path(key: &PathBuf, read_only: bool) -> vantadb::error::Result<()> {
+    let mut map = open_paths().lock().unwrap_or_else(PoisonError::into_inner);
+    if let Some(holder_reader) = map.get(key) {
+        return Err(vantadb::error::Error::DatabaseBusy(format!(
+            "database at {} is already open in this process ({}); \
+             close the existing handle before reopening",
+            key.display(),
+            if *holder_reader { "reader" } else { "writer" },
+        )));
+    }
+    map.insert(key.clone(), read_only);
+    Ok(())
+}
+
+/// Release a reservation. Each handle takes its slot exactly once
+/// (`close()` or finalizer), so a plain `remove` can never free another
+/// handle's entry.
+fn release_open_path(key: &PathBuf) {
+    open_paths()
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .remove(key);
+}
+
+impl napi::bindgen_prelude::ObjectFinalize for VantaDB {
+    /// GC safety net (EGO-06): drain in-flight ops (R-4) and close the engine
+    /// so a discarded handle flushes and frees the Fjall lock promptly.
+    /// Explicit `close()` stays primary — GC timing is never guaranteed.
+    ///
+    /// SAFETY: no JS calls, no await (GC thread); `drain`/`close` are the
+    /// same sync calls explicit `close()` makes. A panic must never unwind
+    /// across the `extern "C"` finalizer (process abort), so the body runs
+    /// under `catch_unwind` and any failure is dropped with `self`.
+    fn finalize(self, _env: napi::Env) -> napi::Result<()> {
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let (gate, engine, slot) = match self.inner.lock() {
+                Ok(mut inner) => {
+                    let gate = inner.gate.clone();
+                    let engine = inner.engine.clone();
+                    let slot = inner.slot.take();
+                    (gate, engine, slot)
+                }
+                Err(_) => return,
+            };
+            gate.drain();
+            let _ = engine.close();
+            if let Some(key) = slot {
+                release_open_path(&key);
+            }
+        }));
+        Ok(())
+    }
 }
 
 #[napi]
@@ -70,18 +245,110 @@ impl VantaDB {
         #[napi(ts_arg_type = "ConnectOptions")] options: Option<Value>,
     ) -> napi::Result<VantaDB> {
         let config = build_config(&path, options.as_ref())?;
-        let engine = spawn_blocking(move || Embedded::open_with_config(config)).await?;
-        Ok(VantaDB {
-            engine,
-            op_gate: OpGate::new(),
+        let read_only = config.read_only;
+        // EGO-06: fail fast on a second in-process open of the same path
+        // (cryptic `FjallError: Locked` otherwise). Reserved before the first
+        // await; released if open fails so a failed connect leaves no entry.
+        let key = open_path_key(&path);
+        if let Some(ref k) = key {
+            reserve_open_path(k, read_only).map_err(map_err)?;
+        }
+        let engine = match spawn_blocking({
+            let open_config = config.clone();
+            move || Embedded::open_with_config(open_config)
         })
+        .await
+        {
+            Ok(engine) => engine,
+            Err(e) => {
+                if let Some(k) = key {
+                    release_open_path(&k);
+                }
+                return Err(e);
+            }
+        };
+        Ok(VantaDB {
+            inner: Mutex::new(VantaInner {
+                engine,
+                gate: OpGate::new(),
+                slot: key,
+                config,
+            }),
+        })
+    }
+
+    /// Reopen the database on this same handle without rebinding consumers
+    /// (EGO-12). Drains + closes the current engine, then opens fresh —
+    /// same path by default, or `path` to switch directories.
+    ///
+    /// The gate is replaced (fresh durability barrier); in-flight ops drain
+    /// before the swap (R-4). On open failure the handle is left cleanly
+    /// closed (reservation freed) rather than half-open.
+    #[napi]
+    pub async fn reopen(
+        &self,
+        #[napi(ts_arg_type = "string | undefined | null")] path: Option<String>,
+    ) -> napi::Result<()> {
+        let (gate, engine, mut config) = {
+            let inner = self.inner.lock().unwrap_or_else(PoisonError::into_inner);
+            (
+                inner.gate.clone(),
+                inner.engine.clone(),
+                inner.config.clone(),
+            )
+        };
+        gate.drain();
+        spawn_blocking(move || engine.close()).await?;
+        if let Ok(mut inner) = self.inner.lock() {
+            if let Some(key) = inner.slot.take() {
+                release_open_path(&key);
+            }
+        }
+        if let Some(p) = path {
+            // Same backend selection as `connect`: explicit memory paths stay
+            // in-memory, anything else opens persistent (Fjall default).
+            config.backend_kind = if p.is_empty() || p == ":memory:" {
+                vantadb::storage::BackendKind::InMemory
+            } else {
+                vantadb::storage::BackendKind::Fjall
+            };
+            config.storage_path = p;
+        }
+        let read_only = config.read_only;
+        let key = open_path_key(&config.storage_path);
+        if let Some(ref k) = key {
+            reserve_open_path(k, read_only).map_err(map_err)?;
+        }
+        let engine = match spawn_blocking({
+            let open_config = config.clone();
+            move || Embedded::open_with_config(open_config)
+        })
+        .await
+        {
+            Ok(engine) => engine,
+            Err(e) => {
+                if let Some(k) = key {
+                    release_open_path(&k);
+                }
+                return Err(e);
+            }
+        };
+        if let Ok(mut inner) = self.inner.lock() {
+            *inner = VantaInner {
+                engine,
+                gate: OpGate::new(),
+                slot: key,
+                config,
+            };
+        }
+        Ok(())
     }
 
     /// Flush the WAL and memory-mapped files to disk.
     #[napi]
     pub async fn flush(&self) -> napi::Result<()> {
-        let _g = enter(&self.op_gate)?;
-        let engine = self.engine.clone();
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
         spawn_blocking(move || engine.flush()).await
     }
 
@@ -94,9 +361,20 @@ impl VantaDB {
     /// process exit.
     #[napi]
     pub async fn close(&self) -> napi::Result<()> {
-        self.op_gate.drain();
-        let engine = self.engine.clone();
-        spawn_blocking(move || engine.close()).await
+        let (gate, engine) = self.snapshot();
+        gate.drain();
+        let out = spawn_blocking(move || engine.close()).await;
+        // EGO-06: free the path reservation on a successful close. The slot
+        // is taken (not copied) so a double-close can never release someone
+        // else's reservation.
+        if out.is_ok() {
+            if let Ok(mut inner) = self.inner.lock() {
+                if let Some(key) = inner.slot.take() {
+                    release_open_path(&key);
+                }
+            }
+        }
+        out
     }
 
     /// Insert or update a persistent memory record.
@@ -108,9 +386,9 @@ impl VantaDB {
         &self,
         #[napi(ts_arg_type = "MemoryInput")] record: Value,
     ) -> napi::Result<Value> {
-        let _g = enter(&self.op_gate)?;
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
         let input = parse_memory_input(&record)?;
-        let engine = self.engine.clone();
         let out = spawn_blocking(move || engine.put(input)).await?;
         serde_json::to_value(&out).map_err(serde_map_err)
     }
@@ -121,7 +399,8 @@ impl VantaDB {
         &self,
         #[napi(ts_arg_type = "MemoryInput[]")] records: Value,
     ) -> napi::Result<Value> {
-        let _g = enter(&self.op_gate)?;
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
         let arr = records
             .as_array()
             .ok_or_else(|| Error::from_reason("records must be an array"))?;
@@ -129,7 +408,6 @@ impl VantaDB {
             .iter()
             .map(parse_memory_input)
             .collect::<napi::Result<Vec<MemoryInput>>>()?;
-        let engine = self.engine.clone();
         let out = spawn_blocking(move || engine.put_batch(inputs)).await?;
         serde_json::to_value(&out).map_err(serde_map_err)
     }
@@ -137,8 +415,8 @@ impl VantaDB {
     /// Retrieve a memory record by namespace and key. Returns `null` if absent.
     #[napi(ts_return_type = "Promise<MemoryRecord | null>")]
     pub async fn get(&self, namespace: String, key: String) -> napi::Result<Option<Value>> {
-        let _g = enter(&self.op_gate)?;
-        let engine = self.engine.clone();
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
         let out = spawn_blocking(move || engine.get(&namespace, &key)).await?;
         match out {
             Some(record) => Ok(Some(serde_json::to_value(&record).map_err(serde_map_err)?)),
@@ -150,8 +428,8 @@ impl VantaDB {
     /// was actually deleted, `false` if it did not exist.
     #[napi]
     pub async fn delete(&self, namespace: String, key: String) -> napi::Result<bool> {
-        let _g = enter(&self.op_gate)?;
-        let engine = self.engine.clone();
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
         spawn_blocking(move || engine.delete(&namespace, &key)).await
     }
 
@@ -165,9 +443,9 @@ impl VantaDB {
         namespace: String,
         #[napi(ts_arg_type = "MemoryListOptions")] options: Option<Value>,
     ) -> napi::Result<Value> {
-        let _g = enter(&self.op_gate)?;
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
         let opts = parse_list_options(options.as_ref())?;
-        let engine = self.engine.clone();
         let out = spawn_blocking(move || engine.list(&namespace, opts)).await?;
         serde_json::to_value(&out).map_err(serde_map_err)
     }
@@ -175,8 +453,8 @@ impl VantaDB {
     /// Return all namespaces that contain at least one memory record.
     #[napi]
     pub async fn list_namespaces(&self) -> napi::Result<Vec<String>> {
-        let _g = enter(&self.op_gate)?;
-        let engine = self.engine.clone();
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
         spawn_blocking(move || engine.list_namespaces()).await
     }
 
@@ -207,19 +485,53 @@ impl VantaDB {
     pub async fn search(
         &self,
         #[napi(ts_arg_type = "SearchRequest")] request: Value,
+        abort: Option<&AbortHandle>,
     ) -> napi::Result<Value> {
-        let _g = enter(&self.op_gate)?;
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
         let request = parse_search_request(&request)?;
-        let engine = self.engine.clone();
-        let out: Vec<vantadb::sdk::MemorySearchHit> =
-            spawn_blocking(move || engine.search(request)).await?;
+        // The borrow ends here: only the cloned `Arc` (Send + Sync) crosses
+        // the await below, so the future stays `Send`.
+        let abort_notify: Option<Arc<Notify>> = abort.map(|h| h.notify.clone());
+        // DIST-20 (S4): cooperative abort via `select!` against the
+        // `spawn_blocking` handle. The `Notify` stores one permit, so a fire
+        // between registration and `select!` is never missed (the remaining
+        // gap — a fire before this call — fails fast instead of hanging).
+        // Abort = detach: returning drops the `JoinHandle` (the blocking
+        // search runs on, the engine is never cancelled) and the `OpGuard`
+        // (released, so `close()` never blocks on a cancelled op). No guard
+        // or lock is held past this point (concurrency R-2; `OpGuard` is a
+        // drain permit, held across await exactly like every other method
+        // per js-ecosystem R-4).
+        let mut handle = tokio::task::spawn_blocking(move || engine.search(request));
+        let out: Vec<vantadb::sdk::MemorySearchHit> = match abort_notify {
+            Some(notify) => {
+                tokio::select! {
+                    _ = notify.notified() => {
+                        return Err(napi::Error::new(
+                            napi::Status::Cancelled,
+                            "search aborted (op detached, engine untouched)".to_string(),
+                        ))
+                    }
+                    res = &mut handle => {
+                        res.map_err(|e| Error::from_reason(format!("blocking task failed: {e}")))?
+                            .map_err(map_err)?
+                    }
+                }
+            }
+            None => handle
+                .await
+                .map_err(|e| Error::from_reason(format!("blocking task failed: {e}")))?
+                .map_err(map_err)?,
+        };
         serde_json::to_value(&out).map_err(serde_map_err)
     }
 
     /// Return stable runtime capabilities.
     #[napi(ts_return_type = "Capabilities")]
     pub fn capabilities(&self) -> Value {
-        let caps = self.engine.capabilities();
+        let (_, engine) = self.snapshot();
+        let caps = engine.capabilities();
         json!({
             "runtime_profile": runtime_profile_label(caps.runtime_profile),
             "persistence": caps.persistence,
@@ -239,18 +551,18 @@ impl VantaDB {
         &self,
         #[napi(ts_arg_type = "GraphNodeInput")] input: Value,
     ) -> napi::Result<()> {
-        let _g = enter(&self.op_gate)?;
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
         let input = parse_node_input(&input)?;
-        let engine = self.engine.clone();
         spawn_blocking(move || engine.insert_node(input)).await
     }
 
     /// Retrieve a graph node by id. Returns `null` if absent.
     #[napi(ts_return_type = "Promise<GraphNodeRecord | null>")]
     pub async fn get_node(&self, id: String) -> napi::Result<Option<Value>> {
-        let _g = enter(&self.op_gate)?;
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
         let id = parse_node_id(&id)?;
-        let engine = self.engine.clone();
         let out = spawn_blocking(move || engine.get_node(id)).await?;
         match out {
             Some(node) => Ok(Some(serde_json::to_value(&node).map_err(serde_map_err)?)),
@@ -261,9 +573,9 @@ impl VantaDB {
     /// Delete a graph node by id. The `reason` string is recorded for auditing.
     #[napi]
     pub async fn delete_node(&self, id: String, reason: String) -> napi::Result<()> {
-        let _g = enter(&self.op_gate)?;
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
         let id = parse_node_id(&id)?;
-        let engine = self.engine.clone();
         spawn_blocking(move || engine.delete_node(id, &reason)).await
     }
 
@@ -281,11 +593,11 @@ impl VantaDB {
         weight: Option<f64>,
         created_at_ms: Option<f64>,
     ) -> napi::Result<()> {
-        let _g = enter(&self.op_gate)?;
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
         let source_id = parse_node_id(&source_id)?;
         let target_id = parse_node_id(&target_id)?;
         let created_at_ms = opt_f64_to_u64(created_at_ms, "created_at_ms")?;
-        let engine = self.engine.clone();
         spawn_blocking(move || {
             engine.add_edge(
                 source_id,
@@ -306,10 +618,10 @@ impl VantaDB {
         target_id: String,
         label: String,
     ) -> napi::Result<()> {
-        let _g = enter(&self.op_gate)?;
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
         let source_id = parse_node_id(&source_id)?;
         let target_id = parse_node_id(&target_id)?;
-        let engine = self.engine.clone();
         spawn_blocking(move || engine.remove_edge(source_id, target_id, &label)).await
     }
 
@@ -324,10 +636,10 @@ impl VantaDB {
         max_depth: u32,
         direction: String,
     ) -> napi::Result<Vec<String>> {
-        let _g = enter(&self.op_gate)?;
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
         let roots = parse_node_ids(&roots)?;
         let dir = parse_direction(&direction)?;
-        let engine = self.engine.clone();
         let out = spawn_blocking(move || engine.graph_bfs(&roots, max_depth as usize, dir)).await?;
         Ok(out.iter().map(|id| id.to_string()).collect())
     }
@@ -343,10 +655,10 @@ impl VantaDB {
         max_depth: u32,
         direction: String,
     ) -> napi::Result<Vec<String>> {
-        let _g = enter(&self.op_gate)?;
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
         let roots = parse_node_ids(&roots)?;
         let dir = parse_direction(&direction)?;
-        let engine = self.engine.clone();
         let out = spawn_blocking(move || engine.graph_dfs(&roots, max_depth as usize, dir)).await?;
         Ok(out.iter().map(|id| id.to_string()).collect())
     }
@@ -356,9 +668,9 @@ impl VantaDB {
     /// Errors if the subgraph contains a cycle. Returns node ids as decimal strings.
     #[napi]
     pub async fn graph_topological_sort(&self, roots: Vec<String>) -> napi::Result<Vec<String>> {
-        let _g = enter(&self.op_gate)?;
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
         let roots = parse_node_ids(&roots)?;
-        let engine = self.engine.clone();
         let out = spawn_blocking(move || engine.graph_topological_sort(&roots)).await?;
         Ok(out.iter().map(|id| id.to_string()).collect())
     }
@@ -366,9 +678,9 @@ impl VantaDB {
     /// Return whether the subgraph reachable from the given roots forms a DAG.
     #[napi]
     pub async fn graph_is_dag(&self, roots: Vec<String>) -> napi::Result<bool> {
-        let _g = enter(&self.op_gate)?;
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
         let roots = parse_node_ids(&roots)?;
-        let engine = self.engine.clone();
         spawn_blocking(move || engine.graph_is_dag(&roots)).await
     }
 
@@ -386,11 +698,11 @@ impl VantaDB {
         direction: String,
         #[napi(ts_arg_type = "GraphFilterOptions")] filter: Option<Value>,
     ) -> napi::Result<Vec<String>> {
-        let _g = enter(&self.op_gate)?;
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
         let roots = parse_node_ids(&roots)?;
         let dir = parse_direction(&direction)?;
         let (labels, time_range) = parse_graph_filter(filter.as_ref())?;
-        let engine = self.engine.clone();
         let out = spawn_blocking(move || {
             engine.graph_bfs_filtered(&roots, max_depth as usize, dir, &labels, time_range)
         })
@@ -404,9 +716,9 @@ impl VantaDB {
     /// decimal strings).
     #[napi(ts_return_type = "Promise<DegreeEntry[]>")]
     pub async fn graph_degree(&self, roots: Vec<String>) -> napi::Result<Value> {
-        let _g = enter(&self.op_gate)?;
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
         let roots = parse_node_ids(&roots)?;
-        let engine = self.engine.clone();
         let degrees = spawn_blocking(move || engine.graph_degree_centrality(&roots)).await?;
         let entries = degrees
             .into_iter()
@@ -426,9 +738,9 @@ impl VantaDB {
         &self,
         #[napi(ts_arg_type = "SearchRequest")] request: Value,
     ) -> napi::Result<Value> {
-        let _g = enter(&self.op_gate)?;
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
         let request = parse_search_request(&request)?;
-        let engine = self.engine.clone();
         let out: SearchExplanation =
             spawn_blocking(move || engine.explain_memory_search(request)).await?;
         serde_json::to_value(&out).map_err(serde_map_err)
@@ -440,8 +752,8 @@ impl VantaDB {
     /// Empty if the key does not exist or has no history.
     #[napi(ts_return_type = "Promise<MemoryRecord[]>")]
     pub async fn versions(&self, namespace: String, key: String) -> napi::Result<Value> {
-        let _g = enter(&self.op_gate)?;
-        let engine = self.engine.clone();
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
         let out = spawn_blocking(move || engine.versions(&namespace, &key)).await?;
         serde_json::to_value(&out).map_err(serde_map_err)
     }
@@ -455,10 +767,10 @@ impl VantaDB {
         key: String,
         version: f64,
     ) -> napi::Result<Option<Value>> {
-        let _g = enter(&self.op_gate)?;
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
         let v = opt_f64_to_u64(Some(version), "version")?
             .ok_or_else(|| Error::from_reason("`version` must be a positive integer"))?;
-        let engine = self.engine.clone();
         let out = spawn_blocking(move || engine.get_version(&namespace, &key, v)).await?;
         match out {
             Some(record) => Ok(Some(serde_json::to_value(&record).map_err(serde_map_err)?)),
@@ -475,16 +787,16 @@ impl VantaDB {
         old_key: String,
         new_key: String,
     ) -> napi::Result<()> {
-        let _g = enter(&self.op_gate)?;
-        let engine = self.engine.clone();
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
         spawn_blocking(move || engine.supersede(&namespace, &old_key, &new_key)).await
     }
 
     /// Purge tombstoned nodes from the HNSW index. Returns counts and timing.
     #[napi(ts_return_type = "Promise<VacuumReport>")]
     pub async fn vacuum(&self) -> napi::Result<Value> {
-        let _g = enter(&self.op_gate)?;
-        let engine = self.engine.clone();
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
         // MOD-10: VacuumReport does not derive Serialize; build the JSON object
         // explicitly (same field set as `src/storage/engine/mod.rs:VacuumReport`).
         let report = spawn_blocking(move || engine.vacuum()).await?;
@@ -501,8 +813,8 @@ impl VantaDB {
     /// index from scratch. Returns scan/index/timing counts.
     #[napi(ts_return_type = "Promise<RebuildReport>")]
     pub async fn rebuild_index(&self) -> napi::Result<Value> {
-        let _g = enter(&self.op_gate)?;
-        let engine = self.engine.clone();
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
         let out = spawn_blocking(move || engine.rebuild_index()).await?;
         serde_json::to_value(&out).map_err(serde_map_err)
     }
@@ -511,8 +823,8 @@ impl VantaDB {
     /// Returns estimated bytes reclaimed.
     #[napi(ts_return_type = "Promise<bigint>")]
     pub async fn compact_layout(&self) -> napi::Result<u64> {
-        let _g = enter(&self.op_gate)?;
-        let engine = self.engine.clone();
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
         spawn_blocking(move || engine.compact_layout()).await
     }
 
@@ -521,8 +833,8 @@ impl VantaDB {
     /// Compact the WAL: flush, archive the current WAL file, and start fresh.
     #[napi]
     pub async fn compact_wal(&self) -> napi::Result<()> {
-        let _g = enter(&self.op_gate)?;
-        let engine = self.engine.clone();
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
         spawn_blocking(move || engine.compact_wal()).await
     }
 
@@ -530,8 +842,8 @@ impl VantaDB {
     /// expired. Returns the number of records purged.
     #[napi(ts_return_type = "Promise<bigint>")]
     pub async fn purge_expired(&self) -> napi::Result<u64> {
-        let _g = enter(&self.op_gate)?;
-        let engine = self.engine.clone();
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
         spawn_blocking(move || engine.purge_expired()).await
     }
 
@@ -545,9 +857,9 @@ impl VantaDB {
         namespace: String,
         #[napi(ts_arg_type = "FilterItem[]")] filter: Value,
     ) -> napi::Result<u64> {
-        let _g = enter(&self.op_gate)?;
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
         let items = parse_filter_items(&filter)?;
-        let engine = self.engine.clone();
         spawn_blocking(move || engine.delete_by_filter(&namespace, items)).await
     }
 
@@ -559,12 +871,12 @@ impl VantaDB {
         namespace: String,
         #[napi(ts_arg_type = "FilterItem[] | null")] filter: Option<Value>,
     ) -> napi::Result<u64> {
-        let _g = enter(&self.op_gate)?;
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
         let items = match filter {
             None | Some(Value::Null) => None,
             Some(v) => Some(parse_filter_items(&v)?),
         };
-        let engine = self.engine.clone();
         spawn_blocking(move || engine.count(&namespace, items)).await
     }
 
@@ -578,13 +890,13 @@ impl VantaDB {
         key: String,
         top_k: f64,
     ) -> napi::Result<Value> {
-        let _g = enter(&self.op_gate)?;
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
         let k = clamp_top_k(
             opt_f64_to_u64(Some(top_k), "top_k")?
                 .ok_or_else(|| Error::from_reason("`top_k` must be a positive integer"))?
                 as usize,
         );
-        let engine = self.engine.clone();
         let out = spawn_blocking(move || engine.similar_to_key(&namespace, &key, k)).await?;
         serde_json::to_value(&out).map_err(serde_map_err)
     }
@@ -598,13 +910,13 @@ impl VantaDB {
         #[napi(ts_arg_type = "SearchRequest")] request: Value,
         method: Option<String>,
     ) -> napi::Result<Value> {
-        let _g = enter(&self.op_gate)?;
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
         let request = parse_search_request(&request)?;
         let method_idx = match method.as_deref() {
             None => None,
             Some(s) => Some(parse_index_method(s)?),
         };
-        let engine = self.engine.clone();
         let out = spawn_blocking(move || engine.search_with_method(request, method_idx)).await?;
         serde_json::to_value(&out).map_err(serde_map_err)
     }
@@ -618,9 +930,9 @@ impl VantaDB {
         #[napi(ts_arg_type = "string[]")] namespaces: Vec<String>,
         #[napi(ts_arg_type = "SearchRequest")] request: Value,
     ) -> napi::Result<Value> {
-        let _g = enter(&self.op_gate)?;
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
         let request = parse_search_request(&request)?;
-        let engine = self.engine.clone();
         let owned: Vec<String> = namespaces;
         let out = spawn_blocking(move || {
             let refs: Vec<&str> = owned.iter().map(String::as_str).collect();
@@ -628,6 +940,387 @@ impl VantaDB {
         })
         .await?;
         serde_json::to_value(&out).map_err(serde_map_err)
+    }
+
+    /// Run the GraphRAG pipeline: seed → expand → retrieve → generate context.
+    ///
+    /// Returns the canonical wire shape shared with the Python/TS/WASM
+    /// bindings: `{nodes: [{id, content, score, hop_distance}], edges:
+    /// [{source, target, label}], context_text, stats}`. u128 ids travel as
+    /// decimal strings (API-01). At least one of `query` / `queryVector`
+    /// should be provided; both may be combined (hybrid seeds).
+    #[napi(ts_return_type = "Promise<GraphRagResult>")]
+    pub async fn graphrag_search(
+        &self,
+        namespace: String,
+        query: Option<String>,
+        query_vector: Option<Vec<f64>>,
+    ) -> napi::Result<Value> {
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
+        let query_vector = match query_vector {
+            Some(v) => {
+                if v.len() > MAX_VEC_DIM {
+                    return Err(Error::from_reason(format!(
+                        "`query_vector` exceeds max vector dimension {MAX_VEC_DIM}"
+                    )));
+                }
+                let mut owned = Vec::with_capacity(v.len());
+                for f in v {
+                    if !f.is_finite() {
+                        return Err(Error::from_reason("`query_vector` must be a number[]"));
+                    }
+                    owned.push(f as f32);
+                }
+                Some(owned)
+            }
+            None => None,
+        };
+        let out = spawn_blocking(move || {
+            engine.graphrag_search(&namespace, query.as_deref(), query_vector.as_deref())
+        })
+        .await?;
+        serde_json::to_value(&out).map_err(serde_map_err)
+    }
+}
+
+// ── DIST-19 S3: VantaCognitiveAPI — in-process facade over vanta-memory ─────
+// Thin wrappers (JSON boundary + guards only); behaviour lives in
+// `vanta-memory`/core (api-contract R-8). Per method: snapshot + enter
+// (OpGate, js-ecosystem R-4), engine work in `spawn_blocking` (concurrency
+// R-1, guard never held across await per R-2). `context_assemble` is pure CPU
+// (no engine state) so it skips the gate. Done: AbortHandle (S4/DIST-20),
+// Ego parity suite (S5/MEMG-24), trust-aware opt-in (S8/FIND-320 — recall
+// stays byte-identical default until then). No `dts-header`: the boundary is
+// `serde_json::Value` (→ `any`), napi default generation covers it.
+#[napi]
+impl VantaDB {
+    /// One auto-recall pass over L1/session/agent/team memory (MEMG-24).
+    /// `options`: `{user_text, session_key, scope?, max_results?, min_overlap?,
+    /// team_id?, agent_id?, allow_prefixes?, trust_aware?, now_ms?}`. Returns the recall JSON, or
+    /// `null` when there is nothing to inject (never an empty block).
+    /// `trust_aware` (default `false`) opts into the composite re-rank
+    /// (S8/FIND-320, MEMG-21 precedent); `false` keeps the legacy ordering
+    /// byte-identical. `now_ms` (epoch ms, default: wall-clock) only feeds
+    /// the opt-in path and makes it deterministic in tests.
+    #[napi]
+    pub async fn memory_recall(&self, options: Value) -> napi::Result<Value> {
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
+        let opts = options.as_object().cloned().unwrap_or_default();
+        let owned = MemoryRecallArgs::parse(&opts)?;
+        let out = tokio::task::spawn_blocking(move || {
+            let params = AutoRecallParams {
+                user_text: &owned.user_text,
+                session_key: &owned.session_key,
+                isolation: Some(owned.isolation),
+                config: owned.config,
+            };
+            // S8 (FIND-320): opt-in composite re-rank (MEMG-21 precedent);
+            // default path untouched → byte-identical.
+            if owned.trust_aware {
+                perform_auto_recall_scored(
+                    &engine,
+                    params,
+                    None,
+                    &owned.policy,
+                    &CompositeScoring::default(),
+                    owned.now_ms,
+                )
+                .map_err(|e| format!("memory_recall failed: {e:?}"))
+            } else {
+                perform_auto_recall_governed(&engine, params, None, &owned.policy)
+                    .map_err(|e| format!("memory_recall failed: {e:?}"))
+            }
+        })
+        .await
+        .map_err(|e| Error::from_reason(format!("blocking task failed: {e}")))?
+        .map_err(Error::from_reason)?;
+        match out {
+            None => Ok(Value::Null),
+            // `RecallResult` has no `Serialize` (internal type); map the
+            // fields — every part is `Serialize` (`RecalledMemory`,
+            // `RecallMode`, `RecallGovernance`).
+            Some(r) => Ok(json!({
+                "prepend_context": r.prepend_context,
+                "append_system_context": r.append_system_context,
+                "recalled_memories": serde_json::to_value(&r.recalled_memories)
+                    .map_err(serde_map_err)?,
+                "persona": r.persona,
+                "effective_mode": serde_json::to_value(r.effective_mode)
+                    .map_err(serde_map_err)?,
+                "governance": serde_json::to_value(&r.governance).map_err(serde_map_err)?,
+            })),
+        }
+    }
+
+    /// Compact a chat history under a token budget (pure function, no engine
+    /// state — works even while the database is closing). `options`:
+    /// `{messages: ChatMessage[], token_budget, protected_prefix?,
+    /// compaction_ratio?, min_keep?}`. Uses the lean chars/3 heuristic
+    /// (`TokenEstimator::default`; `precise-tokens` stays opt-in).
+    #[napi]
+    pub async fn context_assemble(&self, options: Value) -> napi::Result<Value> {
+        let opts = options.as_object().cloned().unwrap_or_default();
+        let messages: Vec<ChatMessage> = opts
+            .get("messages")
+            .cloned()
+            .map(serde_json::from_value)
+            .transpose()
+            .map_err(|e| Error::from_reason(format!("`messages` must be ChatMessage[]: {e}")))?
+            .unwrap_or_default();
+        let token_budget = opt_u64(&opts, "token_budget")
+            .filter(|&b| b > 0)
+            .ok_or_else(|| Error::from_reason("`token_budget` must be a positive integer"))?;
+        let protected_prefix = opt_u64(&opts, "protected_prefix").unwrap_or(0) as usize;
+        let mut cfg = AssembleConfig::default();
+        if let Some(ratio) = opts.get("compaction_ratio").and_then(Value::as_f64) {
+            if ratio > 0.0 {
+                cfg.compaction_ratio = ratio;
+            }
+        }
+        if let Some(min_keep) = opt_u64(&opts, "min_keep") {
+            cfg.min_keep = min_keep as usize;
+        }
+        let out = tokio::task::spawn_blocking(move || {
+            assemble_context(
+                messages,
+                token_budget,
+                &TokenEstimator::default(),
+                protected_prefix,
+                &cfg,
+                None,
+            )
+            .map_err(|e| format!("context_assemble failed: {e:?}"))
+        })
+        .await
+        .map_err(|e| Error::from_reason(format!("blocking task failed: {e}")))?
+        .map_err(Error::from_reason)?;
+        // `AssembleOutput` has no `Serialize`; map the fields (`ChatMessage`
+        // is `Serialize`, the report is scalars + a `Debug` mode name).
+        Ok(json!({
+            "messages": serde_json::to_value(&out.messages).map_err(serde_map_err)?,
+            "report": {
+                "mode": format!("{:?}", out.report.mode),
+                "msgs_conserved": out.report.msgs_conserved,
+                "msgs_before": out.report.msgs_before,
+                "tokens_before": out.report.tokens_before,
+                "tokens_after": out.report.tokens_after,
+            },
+            "has_boundary": out.boundary.is_some(),
+        }))
+    }
+
+    /// LLM-free consolidation pass over one session (dream primitives:
+    /// dedup, contradiction provenance, date normalization). `options`:
+    /// `{session_id, now_ms, last_active_at_ms?, idle_threshold_ms?}`.
+    /// Fail-closed: a non-idle session is an error, never a silent no-op.
+    #[napi]
+    pub async fn memory_consolidate(&self, options: Value) -> napi::Result<Value> {
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
+        let opts = options.as_object().cloned().unwrap_or_default();
+        let session_id = get_str(&opts, "session_id")?;
+        if session_id.trim().is_empty() {
+            return Err(Error::from_reason(
+                "`session_id` must be a non-empty string",
+            ));
+        }
+        let now_ms = opt_u64(&opts, "now_ms")
+            .ok_or_else(|| Error::from_reason("`now_ms` must be an epoch-ms integer"))?;
+        let last_active_at_ms = opt_u64(&opts, "last_active_at_ms").unwrap_or(now_ms);
+        let mut config = DreamConfig::default();
+        if let Some(t) = opt_u64(&opts, "idle_threshold_ms") {
+            config.idle_threshold_ms = t;
+        }
+        let out = tokio::task::spawn_blocking(move || {
+            consolidate_session(&engine, &session_id, now_ms, last_active_at_ms, &config)
+                .map_err(|e| format!("memory_consolidate failed: {e}"))
+        })
+        .await
+        .map_err(|e| Error::from_reason(format!("blocking task failed: {e}")))?
+        .map_err(Error::from_reason)?;
+        serde_json::to_value(&out).map_err(serde_map_err)
+    }
+
+    /// Reinforce one recalled memory (`hit` = a `recalled_memories[]` item
+    /// from [`VantaDB::memory_recall`]). `outcome`: `used`|`corrected`|`unused`
+    /// (wire names of `ReinforceOutcome`; unknown tokens rejected, never
+    /// inferred). Returns the updated record.
+    #[napi]
+    pub async fn memory_reinforce(&self, hit: Value, outcome: String) -> napi::Result<Value> {
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
+        let recalled: RecalledMemory = serde_json::from_value(hit).map_err(|e| {
+            Error::from_reason(format!("`hit` must be a recalled memory object: {e}"))
+        })?;
+        let outcome = ReinforceOutcome::from_wire_str(&outcome)
+            .ok_or_else(|| Error::from_reason("`outcome` must be one of used|corrected|unused"))?;
+        let out = tokio::task::spawn_blocking(move || {
+            reinforce_recalled(&engine, &recalled, outcome)
+                .map_err(|e| format!("memory_reinforce failed: {e:?}"))
+        })
+        .await
+        .map_err(|e| Error::from_reason(format!("blocking task failed: {e}")))?
+        .map_err(Error::from_reason)?;
+        serde_json::to_value(&out).map_err(serde_map_err)
+    }
+
+    /// Full-database checkpoint: JSONL export (`export_all`) to `path`.
+    /// Backed by the core export (integrity manifest included) — this method
+    /// only moves the call across the FFI boundary.
+    #[napi]
+    pub async fn checkpoint_save(&self, path: String) -> napi::Result<Value> {
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
+        if path.is_empty() {
+            return Err(Error::from_reason("`path` must be a non-empty file path"));
+        }
+        let out = tokio::task::spawn_blocking(move || {
+            engine
+                .export_all(&path)
+                .map_err(|e| format!("checkpoint_save failed: {e}"))
+        })
+        .await
+        .map_err(|e| Error::from_reason(format!("blocking task failed: {e}")))?
+        .map_err(Error::from_reason)?;
+        serde_json::to_value(&out).map_err(serde_map_err)
+    }
+
+    /// Restore a checkpoint written by [`VantaDB::checkpoint_save`].
+    /// `quarantine` defaults to `true` (safe default: untrusted content is
+    /// quarantined unless the host opts out explicitly).
+    #[napi]
+    pub async fn checkpoint_load(
+        &self,
+        path: String,
+        quarantine: Option<bool>,
+    ) -> napi::Result<Value> {
+        let (gate, engine) = self.snapshot();
+        let _g = enter(&gate)?;
+        if path.is_empty() {
+            return Err(Error::from_reason("`path` must be a non-empty file path"));
+        }
+        let quarantine = quarantine.unwrap_or(true);
+        let out = tokio::task::spawn_blocking(move || {
+            engine
+                .import_file(&path, quarantine)
+                .map_err(|e| format!("checkpoint_load failed: {e}"))
+        })
+        .await
+        .map_err(|e| Error::from_reason(format!("blocking task failed: {e}")))?
+        .map_err(Error::from_reason)?;
+        serde_json::to_value(&out).map_err(serde_map_err)
+    }
+}
+
+/// Read an optional u64 JSON option. Accepts real JSON integers AND integral
+/// doubles: JS has no int64, so epoch-ms values like `Date.now()` always
+/// arrive as f64 (napi converts small ints to u64 but big ones to f64, and
+/// `Value::as_u64` rejects f64 outright). Non-integral, negative, or
+/// out-of-range (> 2^53, exact-integer limit) doubles are rejected.
+fn opt_u64(opts: &Map<String, Value>, key: &str) -> Option<u64> {
+    opts.get(key).and_then(|v| {
+        v.as_u64().or_else(|| {
+            v.as_f64().and_then(|f| {
+                ((0.0..=9_007_199_254_740_992.0).contains(&f) && f.fract() == 0.0)
+                    .then_some(f as u64)
+            })
+        })
+    })
+}
+
+/// Owned, validated arguments for [`VantaDB::memory_recall`], built from the
+/// JSON boundary so the `spawn_blocking` closure is `'static` (concurrency
+/// R-2: no borrowed state crosses the await).
+struct MemoryRecallArgs {
+    user_text: String,
+    session_key: String,
+    isolation: ProfileIsolation,
+    config: RecallConfig,
+    policy: InjectionPolicy,
+    trust_aware: bool,
+    now_ms: u64,
+}
+
+impl MemoryRecallArgs {
+    fn parse(opts: &Map<String, Value>) -> napi::Result<Self> {
+        let user_text = get_str(opts, "user_text")?;
+        let session_key = get_str(opts, "session_key")?;
+        if session_key.trim().is_empty() {
+            return Err(Error::from_reason(
+                "`session_key` must be a non-empty string",
+            ));
+        }
+        let scope = match opts.get("scope").and_then(Value::as_str).unwrap_or("agent") {
+            "session" => RecallScope::Session,
+            "agent" => RecallScope::Agent,
+            "team" => RecallScope::Team,
+            other => {
+                return Err(Error::from_reason(format!(
+                    "`scope` must be one of session|agent|team, got `{other}`"
+                )))
+            }
+        };
+        // ERR-022 policy shared with search (`clamp_top_k` lives in
+        // `vantadb-ffi-core`); recall never takes 0 (means "inject nothing",
+        // which the core already signals with `null`).
+        let max_results = clamp_top_k(
+            opt_u64(opts, "max_results")
+                .map(|v| v as usize)
+                .unwrap_or(5),
+        )
+        .max(1);
+        let mut config = RecallConfig {
+            scope,
+            max_results,
+            ..Default::default()
+        };
+        if let Some(min_overlap) = opt_u64(opts, "min_overlap") {
+            config.min_overlap = min_overlap as usize;
+        }
+        let isolation = ProfileIsolation {
+            team_id: opts
+                .get("team_id")
+                .and_then(Value::as_str)
+                .unwrap_or("default")
+                .to_string(),
+            agent_id: opts
+                .get("agent_id")
+                .and_then(Value::as_str)
+                .unwrap_or("default")
+                .to_string(),
+        };
+        // VER-04: explicit ACL surface — `allow_prefixes` narrows injection;
+        // absent means allow-all (the `perform_auto_recall` default).
+        let policy = match opts.get("allow_prefixes") {
+            Some(Value::Array(items)) => InjectionPolicy::from_prefixes(
+                items.iter().filter_map(Value::as_str).map(str::to_string),
+            ),
+            _ => InjectionPolicy::allow_all(),
+        };
+        // S8 (FIND-320): trust-aware re-rank, opt-in (default false =
+        // byte-identical legacy ordering). `now_ms` is injectable for
+        // determinism; it defaults to wall-clock time.
+        let trust_aware = opts
+            .get("trust_aware")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        let now_ms = opt_u64(opts, "now_ms").unwrap_or_else(|| {
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis() as u64
+        });
+        Ok(Self {
+            user_text,
+            session_key,
+            isolation,
+            config,
+            policy,
+            trust_aware,
+            now_ms,
+        })
     }
 }
 
@@ -782,11 +1475,20 @@ fn parse_list_options(value: Option<&Value>) -> napi::Result<MemoryListOptions> 
                 as usize;
         }
         if let Some(c) = obj.get("cursor") {
-            cursor = Some(
-                c.as_u64()
-                    .ok_or_else(|| Error::from_reason("cursor must be a number"))?
-                    as usize,
-            );
+            // EGO-01: napi serializa `cursor: undefined` como Null; el backend
+            // WASM emite cursores como string decimal. Ambos deben aceptarse.
+            if !c.is_null() {
+                let num = c
+                    .as_u64()
+                    .or_else(|| {
+                        c.as_f64()
+                            .filter(|f| f.is_finite() && *f >= 0.0 && f.fract() == 0.0)
+                            .map(|f| f as u64)
+                    })
+                    .or_else(|| c.as_str().and_then(|s| s.trim().parse::<u64>().ok()))
+                    .ok_or_else(|| Error::from_reason("cursor must be a number"))?;
+                cursor = Some(num as usize);
+            }
         }
         // SCH-07: temporal + quarantine-view + confidence params (ADR-046
         // §D2/§D3/§D5) — same wire names as the SDK.
@@ -1255,6 +1957,59 @@ mod tests {
                 .expect("empty parses")
                 .is_none()
         );
+    }
+
+    /// EGO-01: napi serializa `cursor: undefined` como Null (debe ignorarse) y
+    /// el backend WASM emite cursores como string decimal (debe aceptarse).
+    #[test]
+    fn parse_list_options_accepts_null_and_string_cursor() {
+        // Ausente y Null (undefined de JS) => sin paginar.
+        let absent = json!({ "limit": 2 });
+        assert!(parse_list_options(Some(&absent))
+            .expect("parses")
+            .cursor
+            .is_none());
+        let null = json!({ "limit": 2, "cursor": null });
+        assert!(parse_list_options(Some(&null))
+            .expect("parses")
+            .cursor
+            .is_none());
+
+        // Número entero y float integral (napi entrega f64).
+        let num = json!({ "cursor": 7 });
+        assert_eq!(
+            parse_list_options(Some(&num)).expect("parses").cursor,
+            Some(7)
+        );
+        let float = json!({ "cursor": 7.0 });
+        assert_eq!(
+            parse_list_options(Some(&float)).expect("parses").cursor,
+            Some(7)
+        );
+
+        // String decimal (WASM) => misma página que el numérico.
+        let text = json!({ "cursor": "7" });
+        assert_eq!(
+            parse_list_options(Some(&text)).expect("parses").cursor,
+            Some(7)
+        );
+
+        // Inválidos siguen fallando con el mismo mensaje.
+        for raw in [
+            json!({ "cursor": "abc" }),
+            json!({ "cursor": "" }),
+            json!({ "cursor": "-5" }),
+            json!({ "cursor": 5.5 }),
+            json!({ "cursor": true }),
+            json!({ "cursor": {} }),
+        ] {
+            let err = parse_list_options(Some(&raw)).unwrap_err();
+            assert!(
+                err.reason.contains("cursor must be a number"),
+                "got: {}",
+                err.reason
+            );
+        }
     }
 
     #[test]

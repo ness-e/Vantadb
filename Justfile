@@ -153,3 +153,16 @@ ocr:
 # OCR delegation spec en JSON (para agentes: preview + rules)
 ocr-json:
     pwsh -NoProfile -File dev-tools/ocr-review.ps1 -Format json
+
+# Surface check: contract gates for first-run DX (DX-13)
+surface-check:
+    {{cargo}} nextest run --profile audit -p vantadb --test version_coherence --test sdk_serialization --build-jobs 2
+    node scripts/docs/check-npm-versions.mjs
+
+# Regenerate documentation indexes (docs/index.md, llms.txt)
+docs-index:
+    node scripts/docs/gen-index.mjs --write
+
+# Synchronize all monorepo manifests, surfaces, and doc indexes
+sync:
+    node scripts/docs/sync-workspace-version.mjs --write

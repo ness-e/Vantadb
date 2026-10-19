@@ -389,6 +389,20 @@ explainSearch(request: SearchRequest): any
 
 Returns a detailed breakdown of how a search arrives at its results, including the planner route (hybrid / text-only / vector-only), per-hit score breakdown, and RRF fusion report.
 
+#### `graphragSearch()`
+
+```ts
+graphragSearch(namespace: string, query?: string, queryVector?: number[]): GraphRagResult
+```
+
+Runs the GraphRAG pipeline (seed → expand → retrieve → generate context) with
+the default configuration (`seed_k=10`, `expansion_hops=2`,
+`max_expansion_nodes=100`, `retrieval_top_k=20`). Returns the canonical
+`GraphRagResult` (`nodes` / `edges` / `context_text` / `stats`); ids are
+decimal strings (u128). Available on both backends: the WASM `Client` and
+`NativeVantaDB` (`vantadb/native`). Full pipeline semantics:
+[`GRAPH_RAG.md`](GRAPH_RAG.md).
+
 ### Graph API (Low-Level Node)
 
 #### `insertNode()`

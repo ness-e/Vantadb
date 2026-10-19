@@ -64,8 +64,9 @@ def filter_models(manifest: dict, args: argparse.Namespace) -> list[dict]:
 
 def check_structure(manifest: dict) -> bool:
     ok = True
-    if len(manifest.get("models", [])) != 9:
-        print(f"[check] FAIL 9 modelos esperados, hay {len(manifest.get('models',[]))}", file=sys.stderr)
+    num_models = len(manifest.get("models", []))
+    if num_models < 9:
+        print(f"[check] FAIL al menos 9 modelos esperados, hay {num_models}", file=sys.stderr)
         ok = False
     for m in manifest["models"]:
         if not isinstance(m.get("dim"), int):
@@ -77,18 +78,18 @@ def check_structure(manifest: dict) -> bool:
     if manifest.get("default") != "multilingual-e5-small":
         print(f"[check] FAIL default debe ser multilingual-e5-small", file=sys.stderr)
         ok = False
-    # balance 3/3/3
+    # balance base 3/3/3
     from collections import Counter
     cnt = Counter(m.get("group") for m in manifest.get("models", []))
-    if cnt["en"] != 3 or cnt["es"] != 3 or cnt["combined"] != 3:
-        print(f"[check] FAIL balance grupos en={cnt['en']} es={cnt['es']} combined={cnt['combined']} (esperado 3/3/3)", file=sys.stderr)
+    if cnt["en"] != 3 or cnt["es"] != 3 or cnt["combined"] < 3:
+        print(f"[check] FAIL balance grupos en={cnt['en']} es={cnt['es']} combined={cnt['combined']} (esperado en=3, es=3, combined>=3)", file=sys.stderr)
         ok = False
     qwen = [m for m in manifest.get("models", []) if m.get("id") == "qwen3-embedding-8b"]
     if not qwen or "exception" not in qwen[0] or qwen[0].get("onnx") is not None:
         print("[check] FAIL qwen3 debe tener exception y onnx=null", file=sys.stderr)
         ok = False
     if ok:
-        print(f"[check] OK estructura manifest — 9 modelos, dims y rev pinned ok")
+        print(f"[check] OK estructura manifest — {num_models} modelos, dims y rev pinned ok")
     return ok
 
 

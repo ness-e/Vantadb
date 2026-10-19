@@ -119,6 +119,60 @@ impl ConfidenceClass {
     }
 }
 
+/// Outcome of a recalled memory as reported by the host after a recall pass
+/// (MEMG-02, outcome loop): the explicit signal that feeds
+/// [`crate::Embedded::reinforce`]. `#[non_exhaustive]` — the vocabulary may
+/// grow (e.g. a future `PartiallyUsed`) without a breaking change.
+///
+/// The host declares the outcome; the engine never infers it (no silent
+/// feedback). Semantics per variant are declared policy — see
+/// `docs/api/scores.md` §Reinforcement:
+///
+/// - [`Self::Used`] — the recall resolved with this memory: confidence bumps
+///   (+0.05, saturated at 1.0) and `last_validated_at_ms` is stamped, at most
+///   once per rate window (5 min).
+/// - [`Self::Corrected`] — the memory was wrong and had to be corrected:
+///   confidence decays (−0.10, floored at 0.0). Failures do not stamp
+///   `last_validated_at_ms` (success-only, MGR-12 §3.3).
+/// - [`Self::Unused`] — the memory was recalled but not used: neutral (no
+///   score change). Not evidence of incorrectness; recorded in the audit
+///   trail so the declaration stays falsifiable.
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ReinforceOutcome {
+    /// The recall resolved with this memory (positive signal).
+    Used,
+    /// The memory was wrong and the host corrected it (negative signal).
+    Corrected,
+    /// The memory was recalled but not used (neutral signal).
+    Unused,
+}
+
+impl ReinforceOutcome {
+    /// Wire name matching the serde representation (`"used"`/`"corrected"`/
+    /// `"unused"`); used for audit reasons and MCP/HTTP payloads. Drift
+    /// against serde is guarded by a unit test.
+    pub fn as_wire_str(&self) -> &'static str {
+        match self {
+            Self::Used => "used",
+            Self::Corrected => "corrected",
+            Self::Unused => "unused",
+        }
+    }
+
+    /// Parse a wire name produced by [`Self::as_wire_str`] (exact snake_case
+    /// tokens; unknown tokens → `None` — callers reject, never infer).
+    pub fn from_wire_str(value: &str) -> Option<Self> {
+        match value {
+            "used" => Some(Self::Used),
+            "corrected" => Some(Self::Corrected),
+            "unused" => Some(Self::Unused),
+            _ => None,
+        }
+    }
+}
+
 /// Stable persistent memory payload accepted by external SDKs.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct MemoryInput {
@@ -421,6 +475,67 @@ pub struct ExportReport {
     pub path: String,
     /// Duration of the export in milliseconds.
     pub duration_ms: u64,
+    /// Hex sha256 of the exact bytes written to the export file (MEMG-15).
+    /// Empty when deserializing a report produced before the integrity
+    /// manifest existed (`#[serde(default)]` keeps old JSON parseable).
+    #[serde(default)]
+    pub sha256: String,
+    /// Path of the integrity manifest sidecar (`<path>.manifest.json`).
+    #[serde(default)]
+    pub manifest_path: String,
+}
+
+/// Export integrity manifest schema version (v1, MEMG-15).
+pub const EXPORT_MANIFEST_SCHEMA_VERSION: u32 = 1;
+
+/// Format discriminator written in the integrity manifest (MEMG-15).
+pub const EXPORT_MANIFEST_FORMAT: &str = "vantadb-memory-jsonl";
+
+/// Integrity manifest sidecar for a JSONL export (`<export>.manifest.json`).
+///
+/// Deterministic by construction: no wall-clock fields and `namespaces` is
+/// sorted, so re-exporting unchanged data yields a byte-identical manifest
+/// (git-friendly, VER-06 precedent). `sha256` is an **integrity** self-hash,
+/// not a signature — see `limits` for the declared boundary (VER-02 contract:
+/// an actor who edits the file and recomputes the manifest is not detected).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExportManifest {
+    /// Manifest schema version ([`EXPORT_MANIFEST_SCHEMA_VERSION`]).
+    pub schema_version: u32,
+    /// Format discriminator ([`EXPORT_MANIFEST_FORMAT`]).
+    pub format: String,
+    /// JSONL interchange schema version covered by this manifest (`2`).
+    pub export_schema_version: u32,
+    /// Number of records in the export file.
+    pub records: u64,
+    /// Namespaces included in the export (sorted, deduplicated).
+    pub namespaces: Vec<String>,
+    /// Hex sha256 over the exact bytes of the export file.
+    pub sha256: String,
+    /// Declared limits — always present, never silent (VER-02 contract).
+    pub limits: Vec<String>,
+}
+
+/// Result of verifying an export file against its integrity manifest (MEMG-15).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExportIntegrityVerification {
+    /// Manifest schema version when a manifest was read (`0` otherwise).
+    pub schema_version: u32,
+    /// Path of the verified export file.
+    pub path: String,
+    /// `ok` (digest match), `mismatch` (digest diverged) or `no_manifest`
+    /// (pre-manifest export — not verifiable, never reported as `ok`).
+    pub status: String,
+    /// Digest recorded in the manifest, when present.
+    pub expected_sha256: Option<String>,
+    /// Digest computed from the file bytes now.
+    pub actual_sha256: String,
+    /// Record count declared by the manifest (`0` when absent).
+    pub records: u64,
+    /// Namespaces declared by the manifest (empty when absent).
+    pub namespaces: Vec<String>,
+    /// Declared limits echoed from the manifest (empty when absent).
+    pub limits: Vec<String>,
 }
 
 /// Stable report returned by JSONL memory import operations.
@@ -598,6 +713,8 @@ mod tests {
             namespaces: vec!["ns1".into()],
             path: "/tmp/export.jsonl".into(),
             duration_ms: 250,
+            sha256: String::new(),
+            manifest_path: String::new(),
         };
         assert_eq!(r.records_exported, 500);
         assert_eq!(r.namespaces, vec!["ns1"]);
@@ -861,6 +978,8 @@ mod tests {
             namespaces: vec!["ns1".into()],
             path: "/tmp/x.jsonl".into(),
             duration_ms: 50,
+            sha256: String::new(),
+            manifest_path: String::new(),
         };
         let cloned = r.clone();
         assert_eq!(r, cloned);
@@ -998,6 +1117,29 @@ mod tests {
             );
         }
         assert_eq!(ConfidenceClass::from_wire_str("bogus"), None);
+    }
+
+    #[test]
+    fn reinforce_outcome_wire_str_matches_serde() {
+        // Drift guard: the audit/MCP wire names must equal the serde
+        // representation, and `from_wire_str` must round-trip them.
+        for outcome in [
+            ReinforceOutcome::Used,
+            ReinforceOutcome::Corrected,
+            ReinforceOutcome::Unused,
+        ] {
+            let json = serde_json::to_string(&outcome).expect("serialize outcome");
+            assert_eq!(json, format!("\"{}\"", outcome.as_wire_str()));
+            assert_eq!(
+                ReinforceOutcome::from_wire_str(outcome.as_wire_str()),
+                Some(outcome)
+            );
+        }
+        assert_eq!(
+            ReinforceOutcome::from_wire_str("bogus"),
+            None,
+            "unknown tokens are rejected, never inferred"
+        );
     }
 
     #[test]

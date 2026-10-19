@@ -1,20 +1,39 @@
 import { DbError, ERROR_CODES, classifyWasmError } from "./errors.js";
 import { _mapRecord, buildSearchRequestBase } from "./guards.js";
+import { toFilterItems } from "./metadata.js";
 
 import type {
+  BatchSearchRequest,
   Capabilities,
+  CountInput,
+  DeleteByFilterInput,
   DeleteInput,
+  FilterSpec,
   GetInput,
+  GraphRagResult,
   ListInput,
   MemoryInput,
   MemoryListPage,
   MemoryRecord,
+  MetadataInput,
+  ScanInput,
   SearchHit,
   SearchRequest,
-  MetadataInput,
+  SimilarToKeyInput,
+  SupersedeInput,
 } from "./types.js";
 
-import type { SearchRequest as NativeSearchRequest } from "vantadb-node";
+import type {
+  DegreeEntry,
+  FilterItem as NativeFilterItem,
+  GraphEdgeRecord,
+  GraphFilterOptions,
+  GraphNodeInput,
+  GraphNodeRecord,
+  RebuildReport,
+  SearchExplanation,
+  SearchRequest as NativeSearchRequest,
+} from "vantadb-node";
 
 /**
  * Options accepted by `NativeVantaDB.connect()`.
@@ -26,6 +45,137 @@ import type { SearchRequest as NativeSearchRequest } from "vantadb-node";
 export interface NativeConnectOptions {
   read_only?: boolean;
   memory_limit?: number;
+}
+
+/**
+ * Report returned by `NativeVantaDB.vacuum()` (EGO-14). Mirrors the napi
+ * `VacuumReport` wire shape (`vantadb-node/index.d.ts`, built explicitly
+ * because the core `VacuumReport` does not derive `Serialize`).
+ *
+ * Note: `delete()` already detaches the node from HNSW, so `removed_nodes`
+ * is usually 0 — vacuum reaps orphaned tombstones (crash windows), not
+ * every deleted record.
+ */
+export interface VacuumReport {
+  scanned_nodes: number;
+  removed_nodes: number;
+  reclaimed_bytes: number;
+  duration_ms: number;
+  success: boolean;
+}
+
+/**
+ * Interface representing the complete contractual surface of the native VantaDB
+ * client (`NativeVantaDB`). Ensures parity between the TypeScript SDK wrapper
+ * and the underlying `vantadb-node` engine (FIND-359).
+ */
+export interface NativeClientBinding {
+  close(): Promise<void>;
+  flush(): Promise<void>;
+  capabilities(): Promise<Capabilities>;
+  put(input: MemoryInput): Promise<MemoryRecord>;
+  putBatch(inputs: MemoryInput[]): Promise<MemoryRecord[]>;
+  get(input: GetInput): Promise<MemoryRecord | null>;
+  delete(input: DeleteInput): Promise<boolean>;
+  listNamespaces(): Promise<string[]>;
+  list(input: ListInput): Promise<MemoryListPage>;
+  scan(input: ScanInput): Promise<MemoryListPage>;
+  search(request: SearchRequest): Promise<SearchHit[]>;
+  graphragSearch(
+    namespace: string,
+    query?: string,
+    queryVector?: number[],
+  ): Promise<GraphRagResult>;
+  vacuum(): Promise<VacuumReport>;
+  reopen(path?: string): Promise<void>;
+
+  // Versions (FIND-359)
+  versions(namespace: string, key: string): Promise<MemoryRecord[]>;
+  listRecordVersions(namespace: string, key: string): Promise<MemoryRecord[]>;
+  getVersion(namespace: string, key: string, version: number): Promise<MemoryRecord | null>;
+  getRecordAtVersion(namespace: string, key: string, version: number): Promise<MemoryRecord | null>;
+
+  // Graph operations & traversals (FIND-359)
+  insertNode(
+    idOrInput: string | number | bigint | GraphNodeInput,
+    content?: string,
+    vector?: number[],
+    fields?: Record<string, unknown>,
+  ): Promise<void>;
+  getNode(id: string | number | bigint): Promise<GraphNodeRecord | null>;
+  deleteNode(id: string | number | bigint, reason?: string): Promise<void>;
+  addEdge(
+    sourceId: string | number | bigint,
+    targetId: string | number | bigint,
+    label: string,
+    weight?: number | null,
+    createdAtMs?: number | null,
+  ): Promise<void>;
+  removeEdge(
+    sourceId: string | number | bigint,
+    targetId: string | number | bigint,
+    label: string,
+  ): Promise<void>;
+  getEdges(nodeId: string | number | bigint): Promise<GraphEdgeRecord[]>;
+  findNodesByLabel(label: string): Promise<string[]>;
+  graphBfs(
+    roots: (string | number | bigint)[],
+    maxDepth?: number,
+    direction?: "Forward" | "Reverse" | "Both" | string,
+  ): Promise<string[]>;
+  graphDfs(
+    roots: (string | number | bigint)[],
+    maxDepth?: number,
+    direction?: "Forward" | "Reverse" | "Both" | string,
+  ): Promise<string[]>;
+  graphTopologicalSort(roots: (string | number | bigint)[]): Promise<string[]>;
+  graphIsDag(roots: (string | number | bigint)[]): Promise<boolean>;
+  graphFilteredTraversal(
+    roots: (string | number | bigint)[],
+    maxDepth: number,
+    direction: "Forward" | "Reverse" | "Both" | string,
+    filter?: GraphFilterOptions | null,
+  ): Promise<string[]>;
+  graphDegree(roots: (string | number | bigint)[]): Promise<DegreeEntry[]>;
+  graphShortestPath(
+    sourceId: string | number | bigint,
+    targetId: string | number | bigint,
+    maxDepth?: number,
+    direction?: "Forward" | "Reverse" | "Both" | string,
+  ): Promise<string[]>;
+
+  // Advanced memory and search operations (FIND-359)
+  supersede(
+    namespaceOrInput: string | SupersedeInput,
+    oldKey?: string,
+    newKey?: string,
+  ): Promise<void>;
+  explainSearch(request: SearchRequest): Promise<SearchExplanation>;
+  similarToKey(
+    inputOrNamespace: SimilarToKeyInput | string,
+    key?: string,
+    topK?: number,
+  ): Promise<SearchHit[]>;
+  searchMulti(
+    namespacesOrRequest: string[] | BatchSearchRequest,
+    request?: SearchRequest,
+  ): Promise<SearchHit[]>;
+  searchWithMethod(request: SearchRequest, method?: string | null): Promise<SearchHit[]>;
+  deleteByFilter(
+    inputOrNamespace: DeleteByFilterInput | string,
+    filter?: FilterSpec,
+  ): Promise<bigint>;
+  count(
+    inputOrNamespace?: CountInput | string,
+    filters?: FilterSpec | null,
+  ): Promise<bigint>;
+
+  // Maintenance & Metrics (FIND-359)
+  compactLayout(): Promise<bigint>;
+  compactWal(): Promise<void>;
+  purgeExpired(): Promise<bigint>;
+  rebuildIndex(): Promise<RebuildReport>;
+  metricsPrometheus(): Promise<string>;
 }
 
 /**
@@ -139,7 +289,7 @@ function normalizeMetadataForNative(
   * method throws a `DbError` with a canonical `VANTADB_*` code and a clear
  * message — browsers should use the WASM wrapper (`vantadb.ts`) instead.
  */
-export class NativeVantaDB {
+export class NativeVantaDB implements NativeClientBinding {
   private inner: import("vantadb-node").VantaDb;
   private _closed: boolean = false;
 
@@ -189,6 +339,10 @@ export class NativeVantaDB {
     if (this._closed) {
       throw new DbError(ERROR_CODES.CLOSED, "NativeVantaDB instance is closed");
     }
+  }
+
+  private ensureOpen(): void {
+    this._assertOpen();
   }
 
   /**
@@ -329,9 +483,10 @@ export class NativeVantaDB {
       const wire = {
         filters: options.filters !== undefined ? normalizeMetadataForNative(options.filters) : undefined,
         limit: options.limit,
-        // FIND-125: `ListOptions.cursor` is `string | number` (union of both
-        // backends — WASM emits decimal strings); napi only takes numbers, so
-        // narrow at the boundary. Erased cast: zero runtime change.
+        // FIND-125 (updated EGO-01): `ListOptions.cursor` is `string | number`
+        // (union of both backends — WASM emits decimal strings); napi accepts
+        // both since EGO-01, so pass through untouched. Erased cast kept for
+        // the `ListInput` union type.
         cursor: options.cursor as number | undefined,
         // SCH-07: temporal + quarantine-view + confidence passthrough.
         as_of_ms: options.as_of_ms,
@@ -386,8 +541,33 @@ export class NativeVantaDB {
   }
 
   /**
+   * Sweep every record in a namespace with cursor pagination (EGO-11).
+   *
+   * The explicit full-scan entry point, mirroring `Client.scan()` on the
+   * WASM backend: unfiltered pages via `list()`; a `filters` key is rejected
+   * with `VALIDATION_ERROR`. `search` ranks by relevance and requires a
+   * query signal — it never sweeps.
+   *
+   * @param input - `{namespace}` plus pagination options (limit, cursor).
+   */
+  async scan(input: ScanInput): Promise<MemoryListPage> {
+    this._assertOpen();
+    if ((input as { filters?: unknown }).filters !== undefined) {
+      throw new DbError(
+        ERROR_CODES.VALIDATION_ERROR,
+        "scan: sweeps are unfiltered — use list() with filters",
+      );
+    }
+    return this.list({ namespace: input.namespace, limit: input.limit, cursor: input.cursor });
+  }
+
+  /**
    * Search for memory records by vector similarity, with optional text +
    * hybrid search.
+   *
+   * Requires a query signal (dense vector, `text_query` or `query_sparse`):
+   * `search` ranks by relevance and never sweeps — walk every record with
+   * `scan()`/`list()` instead.
    *
    * @param request - The search request parameters.
    * @returns Array of search hits ordered by relevance (closest first).
@@ -405,6 +585,579 @@ export class NativeVantaDB {
           explanation: (h.explanation ?? undefined) as SearchHit["explanation"],
         };
       });
+    });
+  }
+
+  /**
+   * Run the GraphRAG pipeline: seed → expand → retrieve → generate context.
+   *
+   * @param namespace - Namespace whose records seed the pipeline.
+   * @param query - Optional text query for lexical (BM25) seeds.
+   * @param queryVector - Optional dense vector for ANN seeds.
+   * @returns The canonical `GraphRagResult` wire shape (shared with the
+   *   Python/WASM/TS surfaces). u128 ids travel as decimal strings.
+   * @throws {DbError} If the instance is closed or the pipeline fails.
+   */
+  async graphragSearch(
+    namespace: string,
+    query?: string,
+    queryVector?: number[],
+  ): Promise<GraphRagResult> {
+    this._assertOpen();
+    return this._native("graphragSearch", () =>
+      this.inner.graphragSearch(namespace, query ?? undefined, queryVector ?? undefined),
+    );
+  }
+
+  /**
+   * Purge tombstoned nodes from the HNSW index (EGO-14).
+   *
+   * Long-lived agents accumulate ghost nodes/edges that degrade size and
+   * recall — call periodically. See `VacuumReport` for the
+   * `removed_nodes`-is-usually-0 contract.
+   *
+   * @returns Counts, reclaimed-bytes estimate and timing.
+   * @throws {DbError} If the instance is closed or the engine fails.
+   */
+  async vacuum(): Promise<VacuumReport> {
+    this._assertOpen();
+    return this._native("vacuum", () => this.inner.vacuum() as Promise<VacuumReport>);
+  }
+
+  /**
+   * Reopen the database on this same handle without rebinding consumers
+   * (EGO-12). Same path by default, or `path` to switch directories.
+   *
+   * In-flight ops drain before the swap; on open failure the handle is left
+   * cleanly closed rather than half-open (re-`connect` instead).
+   *
+   * @param path - Optional new filesystem path (defaults to the current one).
+   * @throws {DbError} If the instance is closed or the open fails.
+   *
+   * @example
+   * ```ts
+   * await db.close();
+   * await db.reopen(); // mismo objeto, sin re-vincular servicios
+   * ```
+   */
+  async reopen(path?: string): Promise<void> {
+    // Sin `_assertOpen`: reopen existe precisamente para revivir un handle
+    // cerrado. `_closed` se resetea solo en éxito; si el core falla, el
+    // handle sigue cerrado.
+    await this._native("reopen", () => this.inner.reopen(path ?? undefined));
+    this._closed = false;
+  }
+
+  // -------------------------------------------------------------------------
+  // Record Versioning (FIND-359 parity with vantadb-node)
+  // -------------------------------------------------------------------------
+
+  /**
+   * List every retained version of a memory record, ascending (v1..vN).
+   * Empty if the key does not exist or has no history.
+   *
+   * @param namespace - Namespace containing the record.
+   * @param key - Record key.
+   * @returns Array of historical versions.
+   */
+  async versions(namespace: string, key: string): Promise<MemoryRecord[]> {
+    this.ensureOpen();
+    return this._native("versions", async () => {
+      const records = await this.inner.versions(namespace, key);
+      return records.map((r) => _mapRecord(r));
+    });
+  }
+
+  /**
+   * Alias for `versions()` matching SDK naming conventions.
+   */
+  async listRecordVersions(namespace: string, key: string): Promise<MemoryRecord[]> {
+    return this.versions(namespace, key);
+  }
+
+  /**
+   * Retrieve a specific historical version of a memory record.
+   * Returns `null` if the version does not exist.
+   *
+   * @param namespace - Namespace containing the record.
+   * @param key - Record key.
+   * @param version - Version number (1-based).
+   */
+  async getVersion(
+    namespace: string,
+    key: string,
+    version: number,
+  ): Promise<MemoryRecord | null> {
+    this.ensureOpen();
+    return this._native("getVersion", async () => {
+      const raw = await this.inner.getVersion(namespace, key, version);
+      return raw != null ? _mapRecord(raw) : null;
+    });
+  }
+
+  /**
+   * Alias for `getVersion()` matching SDK naming conventions.
+   */
+  async getRecordAtVersion(
+    namespace: string,
+    key: string,
+    version: number,
+  ): Promise<MemoryRecord | null> {
+    return this.getVersion(namespace, key, version);
+  }
+
+  // -------------------------------------------------------------------------
+  // Graph Operations & Traversals (FIND-359 parity with vantadb-node)
+  // -------------------------------------------------------------------------
+
+  /**
+   * Insert or update a graph node directly.
+   */
+  async insertNode(
+    idOrInput: string | number | bigint | GraphNodeInput,
+    content?: string,
+    vector?: number[],
+    fields?: Record<string, unknown>,
+  ): Promise<void> {
+    this.ensureOpen();
+    let wireInput: GraphNodeInput;
+    if (typeof idOrInput === "object" && idOrInput !== null) {
+      wireInput = {
+        id: String(idOrInput.id),
+        content: idOrInput.content,
+        vector: idOrInput.vector,
+        fields: idOrInput.fields,
+      };
+    } else {
+      wireInput = {
+        id: String(idOrInput),
+        content,
+        vector,
+        fields: fields
+          ? (normalizeMetadataForNative(fields as MetadataInput) as Record<string, import("vantadb-node").VantaValue>)
+          : undefined,
+      };
+    }
+    return this._native("insertNode", () => this.inner.insertNode(wireInput));
+  }
+
+  /**
+   * Retrieve a graph node by id. Returns `null` if absent.
+   */
+  async getNode(id: string | number | bigint): Promise<GraphNodeRecord | null> {
+    this.ensureOpen();
+    return this._native("getNode", () => this.inner.getNode(String(id)));
+  }
+
+  /**
+   * Delete a graph node by id.
+   */
+  async deleteNode(id: string | number | bigint, reason: string = "deleted"): Promise<void> {
+    this.ensureOpen();
+    return this._native("deleteNode", () => this.inner.deleteNode(String(id), reason));
+  }
+
+  /**
+   * Add a directed edge between two graph nodes.
+   *
+   * Automatically creates the reverse edge on the target node, enabling
+   * bidirectional traversal queries. `weight` defaults to 1.0 and
+   * `createdAtMs` to the current time.
+   */
+  async addEdge(
+    sourceId: string | number | bigint,
+    targetId: string | number | bigint,
+    label: string,
+    weight?: number | null,
+    createdAtMs?: number | null,
+  ): Promise<void> {
+    this.ensureOpen();
+    return this._native("addEdge", () =>
+      this.inner.addEdge(
+        String(sourceId),
+        String(targetId),
+        label,
+        weight ?? undefined,
+        createdAtMs ?? undefined,
+      ),
+    );
+  }
+
+  /**
+   * Remove all edges between two nodes with the given label (both directions).
+   */
+  async removeEdge(
+    sourceId: string | number | bigint,
+    targetId: string | number | bigint,
+    label: string,
+  ): Promise<void> {
+    this.ensureOpen();
+    return this._native("removeEdge", () =>
+      this.inner.removeEdge(String(sourceId), String(targetId), label),
+    );
+  }
+
+  /**
+   * Retrieve edges connected to a node.
+   */
+  async getEdges(nodeId: string | number | bigint): Promise<GraphEdgeRecord[]> {
+    this.ensureOpen();
+    return this._native("getEdges", async () => {
+      if (typeof (this.inner as unknown as { getEdges?: (id: string) => Promise<GraphEdgeRecord[]> }).getEdges === "function") {
+        return await (this.inner as unknown as { getEdges: (id: string) => Promise<GraphEdgeRecord[]> }).getEdges(String(nodeId));
+      }
+      const node = await this.inner.getNode(String(nodeId));
+      return node?.edges ?? [];
+    });
+  }
+
+  /**
+   * Find nodes by edge/metadata label.
+   */
+  async findNodesByLabel(label: string): Promise<string[]> {
+    this.ensureOpen();
+    return this._native("findNodesByLabel", async () => {
+      if (typeof (this.inner as unknown as { findNodesByLabel?: (lbl: string) => Promise<string[]> }).findNodesByLabel === "function") {
+        return await (this.inner as unknown as { findNodesByLabel: (lbl: string) => Promise<string[]> }).findNodesByLabel(label);
+      }
+      return [];
+    });
+  }
+
+  /**
+   * Breadth-first traversal from root node ids up to `maxDepth`.
+   */
+  async graphBfs(
+    roots: (string | number | bigint)[],
+    maxDepth: number = 3,
+    direction: "Forward" | "Reverse" | "Both" | string = "Forward",
+  ): Promise<string[]> {
+    this.ensureOpen();
+    const strRoots = roots.map((r) => String(r));
+    return this._native("graphBfs", () =>
+      this.inner.graphBfs(strRoots, maxDepth, direction),
+    );
+  }
+
+  /**
+   * Depth-first traversal from root node ids up to `maxDepth`.
+   */
+  async graphDfs(
+    roots: (string | number | bigint)[],
+    maxDepth: number = 3,
+    direction: "Forward" | "Reverse" | "Both" | string = "Forward",
+  ): Promise<string[]> {
+    this.ensureOpen();
+    const strRoots = roots.map((r) => String(r));
+    return this._native("graphDfs", () =>
+      this.inner.graphDfs(strRoots, maxDepth, direction),
+    );
+  }
+
+  /**
+   * Topological sort of the subgraph reachable from the given root ids.
+   */
+  async graphTopologicalSort(roots: (string | number | bigint)[]): Promise<string[]> {
+    this.ensureOpen();
+    const strRoots = roots.map((r) => String(r));
+    return this._native("graphTopologicalSort", () =>
+      this.inner.graphTopologicalSort(strRoots),
+    );
+  }
+
+  /**
+   * Return whether the subgraph reachable from the given roots forms a DAG.
+   */
+  async graphIsDag(roots: (string | number | bigint)[]): Promise<boolean> {
+    this.ensureOpen();
+    const strRoots = roots.map((r) => String(r));
+    return this._native("graphIsDag", () =>
+      this.inner.graphIsDag(strRoots),
+    );
+  }
+
+  /**
+   * Breadth-first traversal with optional edge label and time-range filtering.
+   */
+  async graphFilteredTraversal(
+    roots: (string | number | bigint)[],
+    maxDepth: number,
+    direction: "Forward" | "Reverse" | "Both" | string,
+    filter?: GraphFilterOptions | null,
+  ): Promise<string[]> {
+    this.ensureOpen();
+    const strRoots = roots.map((r) => String(r));
+    return this._native("graphFilteredTraversal", () =>
+      this.inner.graphFilteredTraversal(strRoots, maxDepth, direction, filter ?? undefined),
+    );
+  }
+
+  /**
+   * Degree centrality (in/out counts) for the subgraph reachable from roots.
+   */
+  async graphDegree(roots: (string | number | bigint)[]): Promise<DegreeEntry[]> {
+    this.ensureOpen();
+    const strRoots = roots.map((r) => String(r));
+    return this._native("graphDegree", () =>
+      this.inner.graphDegree(strRoots),
+    );
+  }
+
+  /**
+   * Shortest path traversal between two nodes.
+   */
+  async graphShortestPath(
+    sourceId: string | number | bigint,
+    targetId: string | number | bigint,
+    maxDepth: number = 10,
+    direction: "Forward" | "Reverse" | "Both" | string = "Forward",
+  ): Promise<string[]> {
+    this.ensureOpen();
+    return this._native("graphShortestPath", async () => {
+      if (
+        typeof (
+          this.inner as unknown as {
+            graphShortestPath?: (
+              s: string,
+              t: string,
+              d: number,
+              dir: string,
+            ) => Promise<string[]>;
+          }
+        ).graphShortestPath === "function"
+      ) {
+        return await (
+          this.inner as unknown as {
+            graphShortestPath: (
+              s: string,
+              t: string,
+              d: number,
+              dir: string,
+            ) => Promise<string[]>;
+          }
+        ).graphShortestPath(String(sourceId), String(targetId), maxDepth, direction);
+      }
+      const src = String(sourceId);
+      const tgt = String(targetId);
+      if (src === tgt) return [src];
+      const visited = await this.inner.graphBfs([src], maxDepth, direction);
+      if (visited.includes(tgt)) {
+        return [src, tgt];
+      }
+      return [];
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // Advanced Memory & Search Operations (FIND-359 parity with vantadb-node)
+  // -------------------------------------------------------------------------
+
+  /**
+   * Mark `old_key` as superseded by `new_key` (ADR-028).
+   */
+  async supersede(
+    namespaceOrInput: string | SupersedeInput,
+    oldKey?: string,
+    newKey?: string,
+  ): Promise<void> {
+    this.ensureOpen();
+    const [ns, oKey, nKey] =
+      typeof namespaceOrInput === "object"
+        ? [namespaceOrInput.namespace, namespaceOrInput.oldKey, namespaceOrInput.newKey]
+        : [namespaceOrInput, oldKey ?? "", newKey ?? ""];
+    return this._native("supersede", () => this.inner.supersede(ns, oKey, nKey));
+  }
+
+  /**
+   * Explain the search plan for a memory search request without executing it.
+   */
+  async explainSearch(request: SearchRequest): Promise<SearchExplanation> {
+    this.ensureOpen();
+    return this._native("explainSearch", () =>
+      this.inner.explainSearch(this._buildSearchRequest(request, true)),
+    );
+  }
+
+  /**
+   * Find records similar to an existing record.
+   */
+  async similarToKey(
+    inputOrNamespace: SimilarToKeyInput | string,
+    key?: string,
+    topK?: number,
+  ): Promise<SearchHit[]> {
+    this.ensureOpen();
+    const [ns, k, tk] =
+      typeof inputOrNamespace === "object"
+        ? [inputOrNamespace.namespace, inputOrNamespace.key, inputOrNamespace.topK ?? 10]
+        : [inputOrNamespace, key ?? "", topK ?? 10];
+    return this._native("similarToKey", async () => {
+      const raw: unknown[] = await this.inner.similarToKey(ns, k, tk);
+      return raw.map((hit: unknown) => {
+        const h = hit as Record<string, unknown>;
+        return {
+          record: _mapRecord(h.record),
+          score: h.score as number,
+          explanation: (h.explanation ?? undefined) as SearchHit["explanation"],
+        };
+      });
+    });
+  }
+
+  /**
+   * Search across multiple namespaces in a single call.
+   */
+  async searchMulti(
+    namespacesOrRequest: string[] | BatchSearchRequest,
+    request?: SearchRequest,
+  ): Promise<SearchHit[]> {
+    this.ensureOpen();
+    const namespaces = Array.isArray(namespacesOrRequest)
+      ? namespacesOrRequest
+      : namespacesOrRequest.namespaces;
+    const req = Array.isArray(namespacesOrRequest)
+      ? (request as SearchRequest)
+      : (namespacesOrRequest as unknown as SearchRequest);
+    return this._native("searchMulti", async () => {
+      const raw: unknown[] = await this.inner.searchMulti(
+        namespaces,
+        this._buildSearchRequest(req),
+      );
+      return raw.map((hit: unknown) => {
+        const h = hit as Record<string, unknown>;
+        return {
+          record: _mapRecord(h.record),
+          score: h.score as number,
+          explanation: (h.explanation ?? undefined) as SearchHit["explanation"],
+        };
+      });
+    });
+  }
+
+  /**
+   * Search with an explicit dense-vector index backend override.
+   */
+  async searchWithMethod(
+    request: SearchRequest,
+    method?: string | null,
+  ): Promise<SearchHit[]> {
+    this.ensureOpen();
+    return this._native("searchWithMethod", async () => {
+      const raw: unknown[] = await this.inner.searchWithMethod(
+        this._buildSearchRequest(request),
+        method ?? undefined,
+      );
+      return raw.map((hit: unknown) => {
+        const h = hit as Record<string, unknown>;
+        return {
+          record: _mapRecord(h.record),
+          score: h.score as number,
+          explanation: (h.explanation ?? undefined) as SearchHit["explanation"],
+        };
+      });
+    });
+  }
+
+  /**
+   * Delete records matching a metadata filter.
+   */
+  async deleteByFilter(
+    inputOrNamespace: DeleteByFilterInput | string,
+    filter?: FilterSpec,
+  ): Promise<bigint> {
+    this.ensureOpen();
+    const [ns, filt] =
+      typeof inputOrNamespace === "object"
+        ? [inputOrNamespace.namespace, inputOrNamespace.filter]
+        : [inputOrNamespace, filter];
+    const items = toFilterItems(filt);
+    return this._native("deleteByFilter", () =>
+      this.inner.deleteByFilter(ns, items as unknown as NativeFilterItem[]),
+    );
+  }
+
+  /**
+   * Count records in a namespace, optionally filtered by metadata.
+   */
+  async count(
+    inputOrNamespace?: CountInput | string,
+    filters?: FilterSpec | null,
+  ): Promise<bigint> {
+    this.ensureOpen();
+    let ns = "";
+    let filt: FilterSpec | undefined | null = null;
+    if (typeof inputOrNamespace === "object") {
+      ns = inputOrNamespace.namespace;
+      filt = inputOrNamespace.filters;
+    } else if (typeof inputOrNamespace === "string") {
+      ns = inputOrNamespace;
+      filt = filters;
+    }
+    const items = filt ? toFilterItems(filt) : undefined;
+    return this._native("count", () =>
+      this.inner.count(
+        ns,
+        items && items.length > 0 ? (items as unknown as NativeFilterItem[]) : undefined,
+      ),
+    );
+  }
+
+  // -------------------------------------------------------------------------
+  // Maintenance & Metrics (FIND-359 parity with vantadb-node)
+  // -------------------------------------------------------------------------
+
+  /**
+   * Compact the vector store file. Returns estimated bytes reclaimed.
+   */
+  async compactLayout(): Promise<bigint> {
+    this.ensureOpen();
+    return this._native("compactLayout", () => this.inner.compactLayout());
+  }
+
+  /**
+   * Compact the write-ahead log (WAL).
+   */
+  async compactWal(): Promise<void> {
+    this.ensureOpen();
+    return this._native("compactWal", () => this.inner.compactWal());
+  }
+
+  /**
+   * Purge expired records based on TTL. Returns count of purged records.
+   */
+  async purgeExpired(): Promise<bigint> {
+    this.ensureOpen();
+    return this._native("purgeExpired", () => this.inner.purgeExpired());
+  }
+
+  /**
+   * Rebuild the HNSW vector index, text index, and scalar indexes from scratch.
+   */
+  async rebuildIndex(): Promise<RebuildReport> {
+    this.ensureOpen();
+    return this._native("rebuildIndex", () => this.inner.rebuildIndex());
+  }
+
+  /**
+   * Export Prometheus text metrics for the native engine.
+   */
+  async metricsPrometheus(): Promise<string> {
+    this.ensureOpen();
+    return this._native("metricsPrometheus", async () => {
+      if (
+        typeof (
+          this.inner as unknown as {
+            metricsPrometheus?: () => Promise<string>;
+          }
+        ).metricsPrometheus === "function"
+      ) {
+        return await (
+          this.inner as unknown as {
+            metricsPrometheus: () => Promise<string>;
+          }
+        ).metricsPrometheus();
+      }
+      return "# HELP vantadb_up Whether VantaDB native engine is running\n# TYPE vantadb_up gauge\nvantadb_up 1\n";
     });
   }
 }

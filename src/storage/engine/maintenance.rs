@@ -158,6 +158,15 @@ impl StorageEngine {
         Ok(())
     }
 
+    /// Resolve the vector representation for a node to an owned `Vec<f32>` if possible.
+    pub(crate) fn get_node_vector(&self, node: &UnifiedNode) -> Option<Vec<f32>> {
+        if let Some(vec) = node.vector.to_f32() {
+            return Some(vec);
+        }
+        let hnsw = self.hnsw.load();
+        hnsw.stored_vector(node.id).and_then(|v| v.to_f32())
+    }
+
     /// Apply the HNSW index entry for a node WITHOUT acquiring `insert_lock`.
     ///
     /// Callers MUST already hold `insert_lock` (e.g. the `*_locked` variants of
@@ -171,23 +180,27 @@ impl StorageEngine {
             return Ok(());
         }
         let index = self.hnsw.load();
-        if node.flags.is_set(crate::node::NodeFlags::HAS_VECTOR) {
-            if let VectorRepresentations::Full(vec) = &node.vector {
-                index.add_node(
-                    node.id,
-                    node.bitset.clone(),
-                    VectorRepresentations::Full(vec.clone()),
-                    storage_offset,
-                )?;
-                return Ok(());
+        let vector_rep = if node.flags.is_set(crate::node::NodeFlags::HAS_VECTOR) {
+            match &node.vector {
+                VectorRepresentations::Full(vec) => VectorRepresentations::Full(vec.clone()),
+                VectorRepresentations::SQ8(data, scale) => {
+                    VectorRepresentations::SQ8(data.clone(), *scale)
+                }
+                VectorRepresentations::Binary(data) => VectorRepresentations::Binary(data.clone()),
+                VectorRepresentations::Turbo(data) => VectorRepresentations::Turbo(data.clone()),
+                VectorRepresentations::MmapFull(_) => {
+                    if let Some(vec) = self.get_node_vector(node) {
+                        VectorRepresentations::Full(vec)
+                    } else {
+                        node.vector.clone()
+                    }
+                }
+                VectorRepresentations::None => VectorRepresentations::None,
             }
-        }
-        index.add_node(
-            node.id,
-            node.bitset.clone(),
-            VectorRepresentations::None,
-            storage_offset,
-        )?;
+        } else {
+            VectorRepresentations::None
+        };
+        index.add_node(node.id, node.bitset.clone(), vector_rep, storage_offset)?;
         Ok(())
     }
 

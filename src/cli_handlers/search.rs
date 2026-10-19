@@ -101,17 +101,7 @@ pub fn cmd_search(
     spinner.finish_and_clear();
 
     if json_output {
-        let results: Vec<serde_json::Value> = hits
-            .iter()
-            .map(|hit| {
-                serde_json::json!({
-                    "key": hit.record.key,
-                    "namespace": hit.record.namespace,
-                    "payload": hit.record.payload,
-                    "score": hit.score,
-                })
-            })
-            .collect();
+        let results: Vec<serde_json::Value> = hits.iter().map(hit_to_json).collect();
         println!(
             "{}",
             serde_json::to_string_pretty(&results).map_err(|e| {
@@ -235,17 +225,7 @@ pub fn cmd_similar_to_key(
     spinner.finish_and_clear();
 
     if json_output {
-        let results: Vec<serde_json::Value> = hits
-            .iter()
-            .map(|hit| {
-                serde_json::json!({
-                    "key": hit.record.key,
-                    "namespace": hit.record.namespace,
-                    "payload": hit.record.payload,
-                    "score": hit.score,
-                })
-            })
-            .collect();
+        let results: Vec<serde_json::Value> = hits.iter().map(hit_to_json).collect();
         println!(
             "{}",
             serde_json::to_string_pretty(&results).map_err(|e| {
@@ -334,6 +314,25 @@ fn parse_query_vector(s: Option<&str>) -> crate::error::Result<Vec<f32>> {
     }
 }
 
+/// Convert a memory search hit into a structured JSON value for `--json` output.
+/// Includes stable key, namespace, node_id, payload, score, version, and metadata.
+pub(crate) fn hit_to_json(hit: &crate::sdk::MemorySearchHit) -> serde_json::Value {
+    let mut val = serde_json::json!({
+        "key": hit.record.key,
+        "namespace": hit.record.namespace,
+        "node_id": hit.record.node_id.to_string(),
+        "payload": hit.record.payload,
+        "score": hit.score,
+        "version": hit.record.version,
+    });
+    if !hit.record.metadata.is_empty() {
+        if let Ok(meta) = serde_json::to_value(&hit.record.metadata) {
+            val["metadata"] = meta;
+        }
+    }
+    val
+}
+
 /// Render search hits to stdout (shared by search_multi and search_all).
 fn print_hits(
     hits: &[crate::sdk::MemorySearchHit],
@@ -341,17 +340,7 @@ fn print_hits(
     header: &str,
 ) -> crate::error::Result<()> {
     if json_output {
-        let results: Vec<serde_json::Value> = hits
-            .iter()
-            .map(|hit| {
-                serde_json::json!({
-                    "key":       hit.record.key,
-                    "namespace": hit.record.namespace,
-                    "payload":   hit.record.payload,
-                    "score":     hit.score,
-                })
-            })
-            .collect();
+        let results: Vec<serde_json::Value> = hits.iter().map(hit_to_json).collect();
         println!(
             "{}",
             serde_json::to_string_pretty(&results).map_err(|e| {

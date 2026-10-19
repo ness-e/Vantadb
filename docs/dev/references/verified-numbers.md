@@ -17,7 +17,7 @@ tags: [vantadb, references, numbers, metrics]
 
 | Número | Valor verificado | Comando de verificación | Verificado |
 |---|---|---|---|
-| Workflows (archivos `.yml`) | **37** | `(Get-ChildItem .github/workflows -Filter *.yml).Count` | 2026-10-01 |
+| Workflows (archivos `.yml`) | **38** | `(Get-ChildItem .github/workflows -Filter *.yml).Count` | 2026-10-04 (incl. `release-verify.yml`, DIST-05) |
 | ADRs (numerados) | **55** | `(Get-ChildItem docs/dev/architecture/adr -Filter 'ADR-*.md').Count` | 2026-10-01 (incl. ADR-0054) |
 | Archivos totales en `adr/` | 57 (= 55 ADRs + `README.md` + `DECISIONS-NOT-TAKEN.md`) | `(Get-ChildItem docs/dev/architecture/adr -File).Count` | 2026-10-01 (incl. ADR-0054) |
 | Documentos `.md` totales | **1689** (1469 no-archivados) | `node scripts/docs/check-docs.mjs` (línea `documents:`) | 2026-10-01 |
@@ -35,7 +35,7 @@ tags: [vantadb, references, numbers, metrics]
 |---|---|---|
 | Suites de prueba ("77") | Sin definición mecánica (¿test binaries? ¿archivos? ¿nextest?) | Definir convención + comando (`cargo nextest list`) y registrar |
 | Crates del workspace ("17+") | Sin conteo mecánico | `cargo metadata` o conteo de `Cargo.toml` y registrar |
-| Workflows "activos" | **Stale**: el inventario (`docs/dev/workflow/README.md`) dice "28 active"; hay 37 archivos | A4: definir convención (activos vs total) y corregir el inventario |
+| Workflows "activos" | Convención sin definir (A4): el inventario usa "38 active" = total de archivos (38, tras DIST-05) | A4: formalizar la convención (activos vs total) |
 
 ## Reglas de uso
 

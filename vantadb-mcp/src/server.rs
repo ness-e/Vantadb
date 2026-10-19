@@ -227,6 +227,7 @@ pub async fn spawn_writer_http(storage: Arc<StorageEngine>) -> std::io::Result<(
         rbac_config: config.rbac_config.clone(),
         trusted_proxies: config.trusted_proxies.clone(),
         conversation_trigger: None,
+        activity_tracker: std::sync::Arc::new(vantadb::server::ActivityTracker::new()),
     });
     // Ensure indexes current for health probe to succeed (same as bootstrap)
     if !config.read_only {

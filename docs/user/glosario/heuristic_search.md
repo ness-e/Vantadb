@@ -95,4 +95,4 @@ Sin la heurística de diversidad, el grafo HNSW tendería a conectar cada nodo c
 - [hnsw](./hnsw.md) — Algoritmo que utiliza esta heurística
 - [vector-search](./vector-search.md) — Búsqueda por similitud vectorial
 - [ann](./ann.md) — Approximate Nearest Neighbor
-- [[../architecture/hnsw_index|HNSW Index Architecture]]
+- [HNSW trade-offs and parameters (FND-20)](../../dev/architecture/FND-20-hnsw-tradeoff.md)

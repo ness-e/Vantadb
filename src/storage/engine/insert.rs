@@ -177,11 +177,6 @@ impl StorageEngine {
             }
         }
 
-        // Non-transaction path: stats minus eager cardinality/index updates
-        // (shared with commit_transaction), then WAL + apply inside a single
-        // insert_lock
-        self.apply_insert_stats(node);
-
         self.ensure_writable()?;
         #[cfg(feature = "failpoints")]
         fail::fail_point!("storage_insert_fail", |_| {
@@ -192,6 +187,10 @@ impl StorageEngine {
 
         self.touch_activity();
 
+        // Probe for an existing node BEFORE applying the insert so old stats
+        // and index entries can be decremented/removed during overwrite.
+        let pre_existing = self.existing_meta(node.id);
+
         let now_ms = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
@@ -199,9 +198,9 @@ impl StorageEngine {
 
         // Non-transaction path: WAL + apply inside a single insert_lock
         // critical section (ERR-010). flush() takes the same guard around
-        // [drain ΓåÆ serialize ΓåÆ checkpoint_seq write], so a concurrent flush
+        // [drain → serialize → checkpoint_seq write], so a concurrent flush
         // can never count this WAL record before its HNSW mutation has been
-        // drained into the serialized snapshot ΓÇö no invisible records and no
+        // drained into the serialized snapshot — no invisible records and no
         // duplicates on replay. `apply_insert` queues to the pending batch
         // (try_push_pending_hnsw never blocks on the guard we hold here).
         {
@@ -209,19 +208,24 @@ impl StorageEngine {
             if let Some(ref sharded) = self.wal {
                 let mut wal_node = node.clone();
                 wal_node.last_accessed = now_ms;
-                // moved (not cloned again) ΓÇö eliminates the 2nd clone
+                // moved (not cloned again) — eliminates the 2nd clone
                 sharded.append(&crate::wal::WalRecord::Insert(wal_node))?;
             }
-            // Pass &node directly ΓÇö no active_node intermediate needed
+            // Pass &node directly — no active_node intermediate needed
             self.apply_insert(node)?;
             // We hold the guard, so try_push_pending_hnsw (called inside
-            // apply_insert) could never opportunistically drain ΓÇö drain the
+            // apply_insert) could never opportunistically drain — drain the
             // batch NOW under the same latch so the HNSW entry exists for
             // immediate reads (get()/search), exactly like the pre-ERR-010
             // eager path did.
             self.drain_hnsw_batch_locked()?;
-            Ok(())
         }
+
+        // FIND-363 / FIND-345: Apply cardinality stats and secondary index
+        // updates AFTER WAL + store commit and outside `insert_lock` so
+        // read-only/WAL failures never leave phantom secondary index entries.
+        self.apply_insert_stats(node, pre_existing.as_ref());
+        Ok(())
     }
 
     /// Apply cardinality stats + edge/scalar index updates for an insert.
@@ -229,44 +233,23 @@ impl StorageEngine {
     /// Called from the non-transactional `insert()` path and from
     /// `commit_transaction` when a buffered insert is actually committed.
     /// It is intentionally NOT called while an insert is being buffered into a
-    /// transaction ΓÇö an abort would otherwise leave these counters inflated
+    /// transaction — an abort would otherwise leave these counters inflated
     /// for records that never committed (ERR-013).
-    pub(crate) fn apply_insert_stats(&self, node: &UnifiedNode) {
-        if let Ok(Some(existing_node)) = self.get(node.id) {
+    pub(crate) fn apply_insert_stats(
+        &self,
+        node: &UnifiedNode,
+        pre_existing: Option<&ExistingMeta>,
+    ) {
+        {
             let mut stats = self.cache.cardinality_stats.write();
-            for (field, value) in &existing_node.relational {
-                let val_keys = value.to_cardinality_keys();
-                if let Some(val_map) = stats.get_mut(field.as_str()) {
-                    for val_key in val_keys {
-                        if let Some(count) = val_map.get_mut(&val_key) {
-                            if *count > 0 {
-                                *count -= 1;
-                            }
-                        }
-                    }
-                    val_map.retain(|_, &mut v| v > 0);
-                }
+            if let Some(existing) = pre_existing {
+                decrement_existing_stats(&mut stats, existing);
             }
-
-            // increment new-node cardinality stats (same lock)
             Self::bump_cardinality(&mut stats, node);
+        }
 
-            // PERF-07: remove old edges from global index
-            if let Some(ref ei) = self.edge_index {
-                for edge in &existing_node.edges {
-                    ei.remove_edge(node.id, edge.target);
-                }
-            }
-            // PERF-08: remove old scalar entries
-            if let Some(ref si) = self.scalar_index {
-                for (field, value) in &existing_node.relational {
-                    si.remove(field, value, node.id);
-                }
-            }
-        } else {
-            // insert-only: increment cardinality stats
-            let mut stats = self.cache.cardinality_stats.write();
-            Self::bump_cardinality(&mut stats, node);
+        if let Some(existing) = pre_existing {
+            self.remove_existing_indexes(existing, node.id);
         }
 
         // PERF-07: add new edges to global index
@@ -749,8 +732,7 @@ impl StorageEngine {
     ///
     /// Used by the non-rayon fallback path; the rayon path uses the amortized
     /// [`Self::existing_for_batch_many`].
-    #[cfg(not(feature = "rayon"))]
-    fn existing_for_batch(&self, id: u128) -> Option<ExistingMeta> {
+    pub(crate) fn existing_meta(&self, id: u128) -> Option<ExistingMeta> {
         // Read-your-writes: check active txn buffer first (parity with get()).
         // Impossible-branch guard degrades to fallthrough (AUD-031): probe()
         // only errors on active-set corruption, which this best-effort probe
@@ -769,7 +751,7 @@ impl StorageEngine {
             _ => {}
         }
 
-        // Shared read() only ΓÇö no write lock, no hits bookkeeping (probe, not a read).
+        // Shared read() only — no write lock, no hits bookkeeping (probe, not a read).
         if let Some(node) = self.cache.volatile.read().get(&id) {
             if !node.flags.is_set(crate::node::NodeFlags::TOMBSTONE) {
                 return Some(ExistingMeta {
@@ -781,6 +763,11 @@ impl StorageEngine {
         }
 
         self.backend_existing_meta(id)
+    }
+
+    #[cfg(not(feature = "rayon"))]
+    fn existing_for_batch(&self, id: u128) -> Option<ExistingMeta> {
+        self.existing_meta(id)
     }
 
     /// Batch variant of [`Self::existing_for_batch`] that amortizes lock

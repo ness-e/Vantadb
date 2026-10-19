@@ -44,6 +44,7 @@ pub fn build_server_state(
         rbac_config: Default::default(),
         trusted_proxies: vec![],
         conversation_trigger: None,
+        activity_tracker: Arc::new(vantadb_server::server::ActivityTracker::new()),
     });
     (dir, state)
 }

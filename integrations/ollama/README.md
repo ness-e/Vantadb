@@ -4,19 +4,22 @@ Ollama embedding + storage adapter for [VantaDB](https://github.com/ness-e/Vanta
 
 ## Install
 
-> **Not on PyPI yet.** The `vantadb-ollama` package declares Alpha
-> status and will go live with the first `adapters-v*` tag release
-> (no local `dist/` built yet). Until then, install from source.
+> **Superseded — not part of the PyPI release (FIND-273, owner decision
+> 2026-10-06).** The `vantadb-ollama` PyPI name and `vantadb_ollama` module
+> belong to the canonical Rust provider
+> [`providers/ollama`](../../providers/ollama/README.md); this Python adapter
+> stays in-repo as a source-only reference and is **not** published by the
+> `adapters-v*` lane.
 
 ```bash
-# Today, from a repo checkout
+# Source-only, from a repo checkout
 cd integrations/ollama && pip install .
 ```
 
-### Install from PyPI (after first release)
+### From PyPI (the provider, after its first release)
 
 ```bash
-pip install vantadb-ollama
+pip install vantadb-ollama   # installs the Rust provider (providers-v* lane)
 ```
 
 ## Quickstart

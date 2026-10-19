@@ -242,6 +242,7 @@ async fn test_e2e_persistence_across_restart() {
         rbac_config: Default::default(),
         trusted_proxies: vec![],
         conversation_trigger: None,
+        activity_tracker: Arc::new(vantadb::server::ActivityTracker::new()),
     });
     let (base2, handle2) = spawn_server(state2, 0).await;
 
@@ -1055,6 +1056,7 @@ async fn test_e2e_search_abstention_signal_and_v2_fields() {
         rbac_config: Default::default(),
         trusted_proxies: vec![],
         conversation_trigger: None,
+        activity_tracker: Arc::new(vantadb::server::ActivityTracker::new()),
     });
     let (base, _handle) = spawn_server(state, 0).await;
     let client = reqwest::Client::new();

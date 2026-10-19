@@ -149,7 +149,7 @@ paths:
         IQL keywords are case-sensitive UPPERCASE (`FROM`, `WHERE`, `SIGUE`,
         `INSERT`, `TYPE`, …) — lowercase variants fail with a parse error.
         Verified against `src/parser/mod.rs`.
-        Language version: `IQL_VERSION = 1` (see `docs/api/IQL.md`).
+        Language version: `IQL_VERSION = 4` (see `docs/api/IQL.md`).
 
         Supported operations are passed as a single IQL query string:
 

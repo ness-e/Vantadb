@@ -1,6 +1,8 @@
 //! Stable public types for the VantaDB SDK boundary.
 //! All types in this module are serializable and designed for third-party bindings.
 
+use serde::de::Error as _;
+use serde::de::VariantAccess as _;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -10,12 +12,13 @@ mod search;
 
 pub use graph::{EdgeRecord, NodeInput, NodeRecord, QueryResult};
 pub use record::{
-    default_confidence, ConfidenceClass, ExportReport, FilterOp, ImportReport, MemoryExportLine,
-    MemoryFilter, MemoryFilterItem, MemoryInput, MemoryListOptions, MemoryListPage, MemoryRecord,
-    NamespaceStats, NamespaceStatsMap, ValidWindow, DEFAULT_EXPIRING_SOON_WINDOW_MS,
-    DERIVATION_DISCOUNT, MAX_DERIVATION_DEPTH,
+    default_confidence, ConfidenceClass, ExportIntegrityVerification, ExportManifest, ExportReport,
+    FilterOp, ImportReport, MemoryExportLine, MemoryFilter, MemoryFilterItem, MemoryInput,
+    MemoryListOptions, MemoryListPage, MemoryRecord, NamespaceStats, NamespaceStatsMap,
+    ReinforceOutcome, ValidWindow, DEFAULT_EXPIRING_SOON_WINDOW_MS, DERIVATION_DISCOUNT,
+    EXPORT_MANIFEST_FORMAT, EXPORT_MANIFEST_SCHEMA_VERSION, MAX_DERIVATION_DEPTH,
 };
-#[cfg(debug_assertions)]
+#[cfg(any(debug_assertions, test))]
 pub use search::MemorySearchDebugReport;
 // NOTE (AST-002): no `VantaMemorySearchDebugReport` re-export here — debug-only
 // `doc(hidden)` diagnostic that never crossed the `sdk` boundary; the def-site
@@ -101,7 +104,22 @@ pub enum StorageTier {
 }
 
 /// Stable field value representation for external SDKs.
-#[derive(Debug, Clone, PartialEq, PartialOrd, Serialize, Deserialize)]
+///
+/// Serialization is externally-tagged (`{"Int":42}`) and unchanged.
+/// Deserialization branches on `is_human_readable` (EGO-05):
+/// - JSON-model formats (JSON, WASM `serde-wasm-bindgen`): tolerant —
+///   plain scalars are accepted in addition to the tagged form (`"s"` →
+///   `String`, integral numbers → `Int`, non-integral → `Float`,
+///   `true/false` → `Bool`, `null` → `Null`, homogeneous arrays →
+///   `List*`). Plain strings always become `String` (never `DateTime` —
+///   use the tagged form for datetimes), EXCEPT the bare `"Null"`: `Null`
+///   is the only unit variant and serde serializes it wrapper-less, so
+///   `"Null"` reads back as `Null` (like derived) to keep roundtrips.
+///   Mixed-type and empty arrays are rejected: tag them explicitly.
+/// - Binary formats (postcard snapshots): the exact derived
+///   externally-tagged encoding, byte-identical both ways — storage
+///   bytes written before this change read back unchanged.
+#[derive(Debug, Clone, PartialEq, PartialOrd, Serialize)]
 pub enum Value {
     /// UTF-8 string value.
     String(String),
@@ -125,6 +143,325 @@ pub enum Value {
     ListDateTime(Vec<chrono::DateTime<chrono::Utc>>),
     /// Explicit null value.
     Null,
+}
+
+struct ValueVisitor;
+
+/// Bare-string decoding shared by `visit_str`/`visit_string`/`visit_bytes`.
+///
+/// `Null` is the sole unit variant, and serde serializes unit variants
+/// WITHOUT the map wrapper (`Value::Null` ⇄ `"Null"`). The bare `"Null"`
+/// must therefore read back as `Null` — exactly like derived Deserialize —
+/// or `Serialize`/`Deserialize` roundtrips break. Every other bare string
+/// is a plain `String` (EGO-05 tolerance; `Serialize` never emits them, so
+/// there is no roundtrip conflict). If a unit variant is ever added, extend
+/// this match.
+fn plain_string_value(v: &str) -> Value {
+    if v == "Null" {
+        Value::Null
+    } else {
+        Value::String(v.to_owned())
+    }
+}
+
+impl<'de> serde::de::Visitor<'de> for ValueVisitor {
+    type Value = Value;
+
+    fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.write_str("a plain scalar, homogeneous array, or single-key tagged Value object")
+    }
+
+    fn visit_str<E: serde::de::Error>(self, v: &str) -> Result<Value, E> {
+        Ok(plain_string_value(v))
+    }
+
+    fn visit_string<E: serde::de::Error>(self, v: String) -> Result<Value, E> {
+        Ok(plain_string_value(&v))
+    }
+
+    fn visit_bytes<E: serde::de::Error>(self, v: &[u8]) -> Result<Value, E> {
+        Ok(plain_string_value(
+            std::str::from_utf8(v).map_err(E::custom)?,
+        ))
+    }
+
+    fn visit_bool<E: serde::de::Error>(self, v: bool) -> Result<Value, E> {
+        Ok(Value::Bool(v))
+    }
+
+    fn visit_i64<E: serde::de::Error>(self, v: i64) -> Result<Value, E> {
+        Ok(Value::Int(v))
+    }
+
+    fn visit_u64<E: serde::de::Error>(self, v: u64) -> Result<Value, E> {
+        i64::try_from(v)
+            .map(Value::Int)
+            .map_err(|_| E::custom(format!("integer {v} overflows Int (i64)")))
+    }
+
+    fn visit_f64<E: serde::de::Error>(self, v: f64) -> Result<Value, E> {
+        if !v.is_finite() {
+            return Err(E::custom("non-finite float has no Value representation"));
+        }
+        // JS numbers arrive as f64: integral ones (e.g. `Date.now()`) keep
+        // the historical Int semantics Ego tags by hand (EGO-05).
+        if v.fract() == 0.0 && v >= i64::MIN as f64 && v <= i64::MAX as f64 {
+            Ok(Value::Int(v as i64))
+        } else {
+            Ok(Value::Float(v))
+        }
+    }
+
+    fn visit_none<E: serde::de::Error>(self) -> Result<Value, E> {
+        Ok(Value::Null)
+    }
+
+    fn visit_unit<E: serde::de::Error>(self) -> Result<Value, E> {
+        Ok(Value::Null)
+    }
+
+    fn visit_seq<A>(self, mut seq: A) -> Result<Value, A::Error>
+    where
+        A: serde::de::SeqAccess<'de>,
+    {
+        let mut items: Vec<Value> = Vec::with_capacity(seq.size_hint().unwrap_or(0));
+        while let Some(item) = seq.next_element::<Value>()? {
+            items.push(item);
+        }
+        if items.is_empty() {
+            return Err(A::Error::custom(
+                "cannot infer Value variant from empty array; use the tagged form",
+            ));
+        }
+        // ponytail: homogeneous-only fold; Int+Float mixes promote to Float
+        // (that's exactly what JS `[1, 2.5]` deserializes to: all f64).
+        if items.iter().all(|v| matches!(v, Value::String(_))) {
+            Ok(Value::ListString(
+                items
+                    .into_iter()
+                    .map(|v| match v {
+                        Value::String(s) => s,
+                        _ => unreachable!("guarded by all()"),
+                    })
+                    .collect(),
+            ))
+        } else if items.iter().all(|v| matches!(v, Value::Int(_))) {
+            Ok(Value::ListInt(
+                items
+                    .into_iter()
+                    .map(|v| match v {
+                        Value::Int(i) => i,
+                        _ => unreachable!("guarded by all()"),
+                    })
+                    .collect(),
+            ))
+        } else if items
+            .iter()
+            .all(|v| matches!(v, Value::Int(_) | Value::Float(_)))
+        {
+            Ok(Value::ListFloat(
+                items
+                    .into_iter()
+                    .map(|v| match v {
+                        Value::Int(i) => i as f64,
+                        Value::Float(f) => f,
+                        _ => unreachable!("guarded by all()"),
+                    })
+                    .collect(),
+            ))
+        } else if items.iter().all(|v| matches!(v, Value::Bool(_))) {
+            Ok(Value::ListBool(
+                items
+                    .into_iter()
+                    .map(|v| match v {
+                        Value::Bool(b) => b,
+                        _ => unreachable!("guarded by all()"),
+                    })
+                    .collect(),
+            ))
+        } else if items.iter().all(|v| matches!(v, Value::DateTime(_))) {
+            Ok(Value::ListDateTime(
+                items
+                    .into_iter()
+                    .map(|v| match v {
+                        Value::DateTime(dt) => dt,
+                        _ => unreachable!("guarded by all()"),
+                    })
+                    .collect(),
+            ))
+        } else {
+            Err(A::Error::custom(
+                "mixed-type arrays have no Value representation; use the tagged form",
+            ))
+        }
+    }
+
+    fn visit_map<A>(self, mut map: A) -> Result<Value, A::Error>
+    where
+        A: serde::de::MapAccess<'de>,
+    {
+        let tag: String = map.next_key()?.ok_or_else(|| {
+            A::Error::custom("expected single-key tagged Value object, found empty map")
+        })?;
+        let value = match tag.as_str() {
+            "String" => Value::String(map.next_value()?),
+            "Int" => Value::Int(map.next_value()?),
+            "Float" => Value::Float(map.next_value::<f64>()?),
+            "Bool" => Value::Bool(map.next_value()?),
+            "DateTime" => Value::DateTime(map.next_value()?),
+            "ListString" => Value::ListString(map.next_value()?),
+            "ListInt" => Value::ListInt(map.next_value()?),
+            "ListFloat" => Value::ListFloat(map.next_value::<Vec<f64>>()?),
+            "ListBool" => Value::ListBool(map.next_value()?),
+            "ListDateTime" => Value::ListDateTime(map.next_value()?),
+            "Null" => {
+                map.next_value::<serde::de::IgnoredAny>()?;
+                Value::Null
+            }
+            other => {
+                return Err(A::Error::unknown_variant(
+                    other,
+                    &[
+                        "String",
+                        "Int",
+                        "Float",
+                        "Bool",
+                        "DateTime",
+                        "ListString",
+                        "ListInt",
+                        "ListFloat",
+                        "ListBool",
+                        "ListDateTime",
+                        "Null",
+                    ],
+                ))
+            }
+        };
+        // Tagged form is exactly one key; trailing keys are a malformed payload.
+        if map.next_key::<String>()?.is_some() {
+            return Err(A::Error::custom(
+                "tagged Value object must have exactly one key",
+            ));
+        }
+        Ok(value)
+    }
+}
+
+impl<'de> Deserialize<'de> for Value {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        // EGO-05: tolerance is a human-readable (JSON-model) affair only.
+        // Binary formats (postcard snapshots) keep the exact derived
+        // externally-tagged encoding — byte-identical both ways.
+        if deserializer.is_human_readable() {
+            deserializer.deserialize_any(ValueVisitor)
+        } else {
+            deserializer.deserialize_enum("Value", VARIANTS, CompactVisitor)
+        }
+    }
+}
+
+/// Variant names in DECLARATION order — the non-human-readable branch
+/// mirrors what `#[derive(Deserialize)]` generates for an
+/// externally-tagged enum (postcard addresses variants by this index).
+const VARIANTS: &[&str] = &[
+    "String",
+    "Int",
+    "Float",
+    "Bool",
+    "DateTime",
+    "ListString",
+    "ListInt",
+    "ListFloat",
+    "ListBool",
+    "ListDateTime",
+    "Null",
+];
+
+/// Compact-enum decoding for binary formats (postcard): variant addressed
+/// by declaration index (`u32`, postcard/bincode style) or by name.
+/// Payload decoding is field-for-field what the derive would do, via
+/// `PhantomData` seeds — the on-disk encoding is untouched.
+struct CompactVisitor;
+
+impl<'de> serde::de::Visitor<'de> for CompactVisitor {
+    type Value = Value;
+
+    fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.write_str("a tagged Value enum (variant index or name plus payload)")
+    }
+
+    fn visit_enum<A: serde::de::EnumAccess<'de>>(self, data: A) -> Result<Value, A::Error> {
+        use std::marker::PhantomData;
+        let (tag, payload): (u8, A::Variant) = data.variant_seed(TagSeed)?;
+        match tag {
+            0 => Ok(Value::String(payload.newtype_variant_seed(PhantomData)?)),
+            1 => Ok(Value::Int(payload.newtype_variant_seed(PhantomData)?)),
+            2 => Ok(Value::Float(payload.newtype_variant_seed(PhantomData)?)),
+            3 => Ok(Value::Bool(payload.newtype_variant_seed(PhantomData)?)),
+            4 => Ok(Value::DateTime(payload.newtype_variant_seed(PhantomData)?)),
+            5 => Ok(Value::ListString(
+                payload.newtype_variant_seed(PhantomData)?,
+            )),
+            6 => Ok(Value::ListInt(payload.newtype_variant_seed(PhantomData)?)),
+            7 => Ok(Value::ListFloat(payload.newtype_variant_seed(PhantomData)?)),
+            8 => Ok(Value::ListBool(payload.newtype_variant_seed(PhantomData)?)),
+            9 => Ok(Value::ListDateTime(
+                payload.newtype_variant_seed(PhantomData)?,
+            )),
+            10 => {
+                payload.unit_variant()?;
+                Ok(Value::Null)
+            }
+            other => Err(serde::de::Error::invalid_value(
+                serde::de::Unexpected::Unsigned(u64::from(other)),
+                &"variant index 0..=10",
+            )),
+        }
+    }
+}
+
+/// Variant seed accepting a postcard-style `u32` index or a name.
+/// Index order MUST match the `Value` declaration order (= `VARIANTS`).
+struct TagSeed;
+
+impl<'de> serde::de::DeserializeSeed<'de> for TagSeed {
+    type Value = u8;
+
+    fn deserialize<D: serde::Deserializer<'de>>(self, deserializer: D) -> Result<u8, D::Error> {
+        deserializer.deserialize_identifier(TagVisitor)
+    }
+}
+
+struct TagVisitor;
+
+impl serde::de::Visitor<'_> for TagVisitor {
+    type Value = u8;
+
+    fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.write_str("Value variant index (0..=10) or name")
+    }
+
+    fn visit_u32<E: serde::de::Error>(self, v: u32) -> Result<u8, E> {
+        u8::try_from(v)
+            .ok()
+            .filter(|&i| i <= 10)
+            .ok_or_else(|| E::invalid_value(serde::de::Unexpected::Unsigned(u64::from(v)), &self))
+    }
+
+    fn visit_u64<E: serde::de::Error>(self, v: u64) -> Result<u8, E> {
+        u8::try_from(v)
+            .ok()
+            .filter(|&i| i <= 10)
+            .ok_or_else(|| E::invalid_value(serde::de::Unexpected::Unsigned(v), &self))
+    }
+
+    fn visit_str<E: serde::de::Error>(self, v: &str) -> Result<u8, E> {
+        VARIANTS
+            .iter()
+            .position(|&name| name == v)
+            .map(|i| i as u8)
+            .ok_or_else(|| E::unknown_variant(v, VARIANTS))
+    }
 }
 
 impl Value {
@@ -412,6 +749,36 @@ mod tests {
     fn test_runtime_profile_variants() {
         assert_ne!(RuntimeProfile::Enterprise, RuntimeProfile::Performance);
         assert_ne!(RuntimeProfile::LowResource, RuntimeProfile::Enterprise);
+    }
+
+    // ── Value ──
+
+    /// EGO-05: the binary (postcard) branch must roundtrip every variant
+    /// byte-identically — storage snapshots written before/after this
+    /// change stay mutually readable.
+    #[test]
+    fn test_value_postcard_roundtrips_all_variants() {
+        let dt = chrono::DateTime::parse_from_rfc3339("2024-05-01T12:00:00Z")
+            .expect("fixture datetime")
+            .with_timezone(&chrono::Utc);
+        let variants = vec![
+            Value::String("test".into()),
+            Value::Int(-42),
+            Value::Float(std::f64::consts::PI),
+            Value::Bool(true),
+            Value::DateTime(dt),
+            Value::ListString(vec!["a".into(), "b".into()]),
+            Value::ListInt(vec![1, -2, 3]),
+            Value::ListFloat(vec![1.5, -2.5]),
+            Value::ListBool(vec![true, false]),
+            Value::ListDateTime(vec![dt]),
+            Value::Null,
+        ];
+        for v in variants {
+            let bytes = postcard::to_stdvec(&v).expect("postcard encode");
+            let back: Value = postcard::from_bytes(&bytes).expect("postcard decode");
+            assert_eq!(v, back);
+        }
     }
 
     #[test]

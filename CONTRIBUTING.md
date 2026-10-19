@@ -63,7 +63,20 @@ cargo deny check
 ```
 
 The same gate runs in CI on every PR/push (`.github/workflows/ci-gate.yml`) and
-is enforced locally by the git hooks (`.githooks/pre-commit`, `.githooks/pre-push`).
+is enforced locally by the git hooks. Setup (once per clone):
+
+```bash
+git config core.hooksPath .githooks   # hooks nativos (pre-push) + shim pre-commit
+pipx install pre-commit               # gates de Rust/Python/JS/docs vía .pre-commit-config.yaml
+```
+
+Do NOT run `pre-commit install` — it writes to `.git/hooks`, which is ignored
+while `core.hooksPath` is set, silently disabling the Python/JS/docs gates.
+The pre-commit stage is defined ONLY in `.pre-commit-config.yaml`
+(fmt, clippy subset, ruff, prettier, markdownlint); `.githooks/pre-commit` is a
+shim that delegates to it (plus actionlint-if-present and a cargo-fmt fallback
+without the binary). The pre-push stage stays native in `.githooks/pre-push`
+(full SIPP barrier). Skip one hook with `SKIP=<hook-id> git commit`.
 Never push with `--no-verify` — fix the error and re-run instead (see
 `.opencode/AGENTS.md` → Regla 1).
 
@@ -205,9 +218,9 @@ When a crash artifact is produced:
 
 ### CI Integration
 
-Fuzzing runs as a scheduled job in `.github/workflows/fuzz-40.yml`
+Fuzzing runs as a scheduled job in `.github/workflows/nightly.yml`
 (LibFuzzer corpus + regression, Linux runners only). The
-`heavy-certification-50.yml` workflow additionally runs the `fuzz_proptest`
+`certification.yml` workflow additionally runs the `fuzz_proptest`
 integration test. Fuzzing is **not** part of standard PR validation because it
 requires nightly and long wall-clock time.
 

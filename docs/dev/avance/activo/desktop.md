@@ -447,3 +447,26 @@ tags: [vantadb, avance, desktop, tauri, rust, frontend]
 - **Objetivo:** `filters_by_namespace_op_and_outcome` FAIL en CI-Windows (90/91, `both docs events match`) vs PASS re-run mismo commit.
 - **Resultado:** colisión `pid+nanos` entre tests paralelos → sufijo `pid-thread-nanos-seq` (`AtomicU64`); regression test 8×8 hilos; 3 runs verdes + clippy/fmt; lead verify 6 passed.
 - **Commit:** 44a37d1b (rebase de 0f93edd3)
+
+### DESKTOP-41: smoke-test instalador en VM Windows limpia (master plan 0.9.0, Task 32)
+- **Fecha:** 2026-10-04
+- **Objetivo:** build de instaladores NSIS+MSI + smoke en VM limpia (arranque + sidecar server + deep link `vanta://` + WebView2). Sin VM disponible → stop condition del plan: checklist ejecutable + FIND, sin evidencia simulada.
+- **Resultado:** ✅ build local `npm run tauri build` exit 0 en **6m46s** (NSIS 12.18 MB + MSI 16.75 MB, SHA256 registrados); evidencia parcial estática read-only (MSI vía WindowsInstaller COM + `installer.nsi` generado): `vanta://` registrado en **ambos** instaladores, sidecars `vanta-cli.exe`/`vantadb-server.exe` incluidos, WebView2 bootstrapper embebido (custom action condicionada); checklist ejecutable `docs/dev/desktop/INSTALLER_SMOKE_CHECKLIST.md` (Test A NSIS / Test B MSI, evidencia por paso). **Smoke real ⬜ pendiente → FIND-272** (no había VM limpia utilizable: Hyper-V no enumerable sin elevación — `Get-VM` permiso denegado — sin ISOs/alternativas, shell sin elevación; no se instaló en la máquina dev — evidencia inválida).
+- **Commit:** (ver git log — `docs(desktop):` LOCAL, sin push)
+
+### DESKTOP-43: auto-update deferido con trigger + checklist (master plan 0.9.0, Task 33)
+- **Fecha:** 2026-10-04
+- **Objetivo:** auto-update vía `tauri-plugin-updater`; sin claves de firma (DEFER HITL H-08/DEVOPS-10) y decisión de distribución pública abierta → stop condition del plan: defer registrado con trigger + checklist de habilitación.
+- **Resultado:** ✅ DISCOVERY completo (updater 0 refs de código; `gh secret list` sin claves de firma; distribución no decidida; docs Tauri v2 verificadas por webfetch). Defer registrado: `wontfix.md` §DEFER (trigger: decisión de distribución pública) + checklist `docs/dev/desktop/UPDATER_ENABLEMENT.md` (claves → wiring → CI release-mode → E2E → trust model) + sección `ARCHITECTURE.md` §Distribution & updates; fila Backlog removida. Sin código ni pipeline de releases tocados (contrato del defer).
+- **Commit:** (ver git log — `docs(desktop):` LOCAL, sin push)
+
+### FIND-155: Desktop `ProxyDashboard` consume `GET /snapshot` sin `x-vanta-user-key` → 401 desde API-05
+- **Fecha:** 2026-10-18
+- **Objetivo:** Identidad de usuario en el dashboard proxy
+- **Resultado:** ✅ Header `x-vanta-user-key` implementado (`feature-freez/desktop/src/components/proxy/ProxyDashboard.tsx:83-90`).
+- **Commit:** 5a8c06bd
+
+### STU-03: Contadores/TTL stats + versiones históricas para diff + explain tipado en SDKs
+- **Fecha:** 2026-10-18
+- **Objetivo:** Stats/TTL, versiones historicas y explain tipado para Studio
+- **Resultado:** ✅ Superficies de SDK entregadas: stats/TTL por namespace (`src/sdk/api/namespaces.rs:396`), historial de versiones (`src/sdk/version_history.rs`) y explain tipado (`src/sdk/search/explain.rs:12`).

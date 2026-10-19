@@ -8,7 +8,8 @@
 //! Reuses the exact tolerances of both paths instead of a second parser:
 //! [`memory_from_value`](crate::offload::local_llm::parsers::l1_parser) for
 //! memories, [`decision_from_value`](crate::core::record::l1_dedup) for the
-//! inline `dedup` judgment. Degradation (Principio 4): runner failure →
+//! inline `dedup` judgment (MEMG-01: the judgment also carries `contradicts`
+//! — explicit negations flagged on write). Degradation (Principio 4): runner failure →
 //! `success: false`, empty; missing/malformed `dedup` → `store` (never drops
 //! a memory). Opt-in primitive: `pipeline_worker` is untouched (wiring is a
 //! follow-up slice).
@@ -175,12 +176,16 @@ fn format_batch_prompt(
          TASK — DEDUP JUDGMENT (same call, no second round-trip):\n\
          For each extracted memory add a \"dedup\" object:\n\
          {{\"action\": \"store|update|merge|skip\", \"target_ids\": [...], \
+         \"contradicts\": [\"existing ids explicitly negated\"], \
          \"merged_content\": \"...\", \"merged_type\": \"...\", \
          \"merged_priority\": 80, \"merged_timestamps\": [...]}}:\n\
          - \"store\" — new, conflicts with nothing (action only).\n\
          - \"skip\" — fully covered by existing record_ids in \"target_ids\".\n\
          - \"update\"/\"merge\" — fuse with \"target_ids\" (must reference \
          EXISTING MEMORIES above); include the merged_* fields.\n\
+         - \"contradicts\" — candidate ids the memory EXPLICITLY negates \
+         (\"no longer\", \"changed my mind\"); flagged as superseded, never \
+         deleted; not also in \"target_ids\". Omit or [] when unsure.\n\
          - Every memory MUST carry exactly one \"dedup\" object; a missing or \
          malformed one is stored as-is.",
         pool_json = format_pool(pool),
@@ -193,7 +198,9 @@ fn batch_system_prompt(config: &L1ExtractorConfig) -> String {
         "{}\n\nADDITIONAL TASK — DEDUP JUDGMENT:\n\
          Every extracted memory carries a \"dedup\" judgment \
          (store|update|merge|skip + target_ids referencing the EXISTING \
-         MEMORIES list). Judge against those candidates only.",
+         MEMORIES list). Judge against those candidates only. List candidate \
+         ids the memory explicitly negates in \"contradicts\" (flagged as \
+         superseded, never deleted; [] when unsure).",
         extract_memories_system_prompt(config.prompt_mode),
     )
 }
@@ -272,6 +279,7 @@ fn store_decision(record_id: &str) -> DedupDecision {
         record_id: record_id.to_string(),
         action: DedupAction::Store,
         target_ids: vec![],
+        contradicts: vec![],
         merged_content: None,
         merged_type: None,
         merged_priority: None,

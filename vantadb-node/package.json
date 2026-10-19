@@ -1,6 +1,6 @@
 {
   "name": "vantadb-node",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "VantaDB native Node.js bindings via napi-rs — persistent embedded memory & vector search (additional backend to WASM)",
   "type": "module",
   "main": "./index.cjs",
@@ -55,5 +55,8 @@
     "x64",
     "arm64"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "license": "Apache-2.0"
 }

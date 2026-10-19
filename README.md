@@ -227,7 +227,7 @@ VantaDB is **one product** you install once (one installer → one CLI → one w
 | Surface | What it is | Status until 1.0 |
 | :--- | :--- | :--- |
 | **Engine** (core) | Embedded memory: WAL-backed durability, HNSW vector retrieval, BM25 + hybrid (RRF), namespaces, metadata indexes, export/import — plus the **agentic memory engine `vanta-memory` (L0→L3)**: capture → dedup → scenes → persona + dream consolidation. | **Active** |
-| **Agent** (MCP) | `vantadb-mcp` — the door for AI IDEs and agents ([setup guide](docs/api/MCP.md)). This is where the North Star is measured: sessions with successful recall. | **Active** |
+| **Agent** (MCP) | `vantadb-mcp` — the door for AI IDEs and agents ([setup guide](docs/api/MCP.md)). This is where the North Star is measured: sessions with put + search ([details](#north-star)). | **Active** |
 | **Studio** (desktop) | Tauri app, being **reduced to a viewer** (inspect memory and sessions). The rest of its surface is frozen. | **Frozen** (viewer) |
 | **Lab** | Explicitly bounded experiments: `vanta-proxy` (LLM gateway — frozen, **not published until 1.0.0**), web console (separate repo), remote LLM providers, GraphRAG exposure, IQL extras. | **Frozen** |
 
@@ -236,6 +236,16 @@ VantaDB is **one product** you install once (one installer → one CLI → one w
 **Not part of the product until 1.0** (closed list): cloud/enterprise platform, HA/replication/clustering, SQL/OLTP/warehouse/time-series, plugins/marketplace, multimodal, alternative ANN indexes (IVF/DiskANN/ScaNN), RBAC/multi-tenancy, proxy gateway features. See the [Freeze List](docs/user/operations/EXPERIMENTAL_FEATURES.md) for the owner-approved scope.
 
 *VantaDB is an embedded memory engine for agents — not a universal multimodel database or a cloud platform.*
+
+### North Star
+
+The product North Star — **sessions with put + search in a 7-day window** — is computed from the proxy store, where both halves land (`proxy-turns` and `proxy-memory-events`):
+
+```bash
+python scripts/north_star_metric.py --db <proxy-db-path> [--days 7] [--json]
+```
+
+**Status: first measurement pending.** No proxy store with captured sessions exists yet (`vanta-proxy` ships frozen until 1.0.0), and no number is published without a reproducible run. See [PROXY.md § North Star metric](docs/api/PROXY.md#north-star-metric-icp-01) for the methodology; `--self-test` exercises the windowing logic offline.
 
 ### Platform notes
 
@@ -276,9 +286,13 @@ Download and install the CLI binary instantly in a single command without compil
 > published `.sha256` release asset before piping it to a shell.
 >
 > **What happens next:** the installer chains to the interactive setup wizard
-> (`setup-embeddings.ps1` — model, MCP block per client, proxy default-on)
-> unless skipped with `--no-wizard` (sh) / `-NoWizard` (PowerShell).
-> Preview the chain without effects via `--dry-run` / `-DryRun`.
+> (`setup-embeddings.ps1`), which asks **which modules to enable** — motor,
+> MCP, server, proxy, desktop viewer, embeddings, providers (each with a
+> declared state: installable or frozen; desktop is a frozen viewer).
+> Scripted selection: `--modules mcp,embeddings` (sh) /
+> `-Modules mcp,embeddings` (PowerShell). Skip with `--no-wizard` (sh) /
+> `-NoWizard` (PowerShell). Preview the chain without effects via
+> `--dry-run` / `-DryRun`.
 
 #### 2. Via Cargo (Rust Developers)
 
@@ -306,36 +320,54 @@ cargo install --git https://github.com/ness-e/Vantadb.git --bin vanta-cli
 Once installed and added to your `PATH`, use the global `vanta-cli` command:
 
 ```bash
+# Configuration & Health Diagnostics
+vanta-cli config show              # Display effective 5-layer configuration
+vanta-cli config doctor            # Pre-flight check: storage, ONNX runtime, locks, memory
+vanta-cli config set port 8081     # Persist settings in vanta.toml or ~/.vanta/config.toml
+
+# In-Process Server & Agent MCP Door
+vanta-cli server start --port 8080 # Launch unified HTTP/REST server with Self-Healing daemon
+vanta-cli server --mcp             # Launch Model Context Protocol (MCP) Stdio server
+
+# Data & Knowledge Graph Operations
 vanta-cli put --db ./vanta_data --namespace agent/main --key mem-1 --payload "hello"
 vanta-cli list --db ./vanta_data --namespace agent/main
 vanta-cli export --db ./vanta_data --namespace agent/main --out ./memory.jsonl
 vanta-cli rebuild-index --db ./vanta_data
 vanta-cli audit-index --db ./vanta_data --namespace agent/main --json --deep
 vanta-cli repair-text-index --db ./vanta_data
+vanta-cli verify --db ./vanta_data
+vanta-cli certificate verify --file ./cert.json --db ./vanta_data
 ```
 
 *(If you are developing locally inside this repository, you can also run directly from source using `cargo run --bin vanta-cli -- <command>`).*
 
 ---
 
-## Optional Server Mode
+## Server Mode & Self-Healing Daemon
 
-For local development or network exposure without Python, you can run the standalone binary. This wraps the embedded core; it is not the primary product identity.
+For network exposure or agent hosting without Python bindings, you can run the server directly via `vanta-cli server start` or using the standalone `vantadb-server` binary.
 
-1. Download the tarball for your platform from [GitHub Releases](https://github.com/ness-e/Vantadb/releases) (e.g. `vantadb-x86_64-unknown-linux-gnu.tar.gz`).
-2. Extract and run the binary:
+### Key Capabilities:
+- **Unified In-Process Runtime:** Serves REST APIs and MCP tools directly with zero external process spawning.
+- **Automated Self-Healing:** An internal background daemon tracks request activity via `ActivityTracker`. During low-activity quiet windows, it executes storage vacuum and HNSW index reconstruction, with cooperative cancellation if user traffic resumes.
+- **Orphan Lock Auto-Recovery:** Detects stale lock files left by crashes via OS PID probes (`OpenProcess` on Windows / `kill(pid, 0)` on Unix) and safely reclaims the database directory.
+- **Strict Embeddings Mode:** Enforces fail-closed validation on embedding models by default, preventing silent synthetic vector degradation.
 
-   ```bash
-   tar xzf vantadb-x86_64-unknown-linux-gnu.tar.gz
-   ./vantadb-server
-   ```
+```bash
+# Run server with custom port and host
+vanta-cli server start --host 0.0.0.0 --port 8080
+
+# Or execute standalone binary
+./vantadb-server
+```
 
 **Defaults:**
 
 - **Data Directory**: Creates a `vantadb_data` folder in the current execution directory.
 - **Bind Address**: Listens on `127.0.0.1:8080` (safe localhost default).
 
-**Exposing to the Network:** Override the host via environment variable:
+**Exposing to the Network:** Override the host via environment variable or CLI flag:
 
 ```bash
 export VANTADB_HOST=0.0.0.0

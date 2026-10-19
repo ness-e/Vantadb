@@ -25,12 +25,19 @@ Cuatro jobs independientes que miden cuatro números que antes no se medían.
 | Wikilinks en prosa | 650 | **40** en 33 ficheros (presupuesto) |
 | Violaciones de esquema que gatean | — (no había gate) | **0** |
 
+| Estado 2026-10-04 (F1 cerrado) | Valor |
+|---|---|
+| Enlaces markdown rotos (fuera de frozen) | **0** (de 44; triage P0-P4 en `docs/dev/tasks/DOCS-F1.md`) |
+| Wikilinks en prosa | **20** (de 40) — 19 en `tasks/**` congelados + 1 en historial; superficie viva = 0 |
+| Errores markdownlint | **0** en la superficie controlada (de 12); el master plan (recitations) queda excluido del ratchet — FIND |
+| Mojibake en prosa (`[[bench]]`/`[[test]]`/`[[package]]`) | **0** fuera de `tasks/` |
+
 | Job | Comprueba | Script | Gate |
 |---|---|---|---|
-| `docs-links` | Enlaces markdown resuelven dentro de presupuesto; wikilinks dentro de presupuesto | `check-links.mjs` | sí, sobre presupuesto |
+| `docs-links` | Enlaces markdown resuelven (0 rotos fuera de frozen); wikilinks ≤ 20 | `check-links.mjs` | sí |
 | `docs-schema` | Frontmatter válido, `kind` de acuerdo con la ruta, huérfanos | `check-docs.mjs` | parcial (ver abajo) |
 | `docs-index` | Índices generados al día | `gen-index.mjs --check` | sí |
-| `docs-lint-regression` | markdownlint no empeora | baseline = 12 | sí, sobre presupuesto |
+| `docs-lint-regression` | markdownlint no empeora (master plan excluido: FIND) | baseline = 0 | sí, sobre presupuesto |
 
 ## ¿Por qué `docs-schema` no gatea los huérfanos todavía?
 
@@ -53,6 +60,27 @@ gate que nace rojo se apaga. Los tres están fechados y referenciados a una tare
 | Enlaces markdown rotos | 109 | `repair-links.mjs` sólo reparó 1 de 110 automáticamente. No son rutas desviadas: son enlaces a documentos que **no existen en el repo**. 62 de los 109 son de superficie pública (`docs/user` 34 + `docs/api` 28) | F1-T1 |
 | Wikilinks en prosa | 40 ocurrencias / 33 ficheros | ~30 son mojibake de una pasada de codificación anterior: `[[bench]]`, `[[test]]`, `[[package]]`, `[[bin]]`. El texto original no existe en el fichero, así que restaurarlo requiere leer `git log`. ~10 son enlaces a ficheros renombrados | F1-T1, F1-T2 |
 | Errores markdownlint | 12 | 5 preexistentes + 7 introducidos por la propia migración de wikilinks. `markdownlint --fix` no se usa: son ficheros de prosa escritos a mano | F1-T5 |
+
+**Estado 2026-10-04 (F1 cerrado):** los tres presupuestos bajaron — enlaces
+rotos **0** (P0-P2 drenados; P3 excluido del gate, ver abajo), wikilinks **20**
+(de 40), markdownlint **0** en la superficie controlada (de 12; el master plan
+— recitations machine-appended del orquestador — queda excluido del ratchet,
+FIND).
+Triage completo de las 55 entradas: `docs/dev/tasks/DOCS-F1.md`.
+
+## ¿Qué queda fuera del gate bloqueante? (P3/P4 — triage F1)
+
+El triage de las 55 entradas rotas (2026-10-04, `docs/dev/tasks/DOCS-F1.md`)
+clasificó cada una P0-P4. Quedan **fuera del gate** por política, con el motivo
+en el script (`FROZEN_RE`) y en el workflow (`gate-docs-links.yml`):
+
+- **P3 — frozen by design:** `docs/dev/avance/historial/**` (registro histórico:
+  snapshots y campañas) y `docs/dev/tasks/**` (work-items congelados; restricción
+  del owner: no se mueven ni se editan sin su propio task file). Un enlace roto
+  ahí nunca se repara, así que contarlo sería ruido permanente. `archive/**` ya
+  estaba fuera de scope por `ARCHIVE_RE`.
+- **P4 — externos:** nunca gatean (solo conteo); el `schedule` semanal hace el
+  barrido (patrón qdrant/lancedb: `fail: false` + issue de seguimiento).
 
 Cada presupuesto tiene su flag para ajustarlo sin tocar código:
 `--max-broken=N`, `--max-wikilinks=N`, y `BASELINE` en el propio workflow.

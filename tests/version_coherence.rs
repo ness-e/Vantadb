@@ -145,41 +145,86 @@ fn public_surfaces_report_same_version() {
         version
     );
 
-    // Optional: Verify langchain-vantadb if it exists in the repository
-    let langchain_path = root
-        .join("packages")
-        .join("langchain-vantadb")
-        .join("pyproject.toml");
-    if langchain_path.exists() {
-        let langchain_pyproject = read(&langchain_path);
+    // Verify that all integrations declare a compatible vantadb-py dependency allowing the workspace version
+    let version_parts: Vec<&str> = version.split('.').collect();
+    let current_minor: u32 = version_parts
+        .get(1)
+        .and_then(|m| m.parse().ok())
+        .expect("valid minor version");
+    let next_minor = current_minor + 1;
+    let upper_bound = format!("<0.{}.0", next_minor);
+
+    let integrations = [
+        "langchain",
+        "llamaindex",
+        "crewai",
+        "dspy",
+        "haystack",
+        "mem0",
+        "letta",
+        "openai",
+        "ollama",
+    ];
+    for integration in integrations {
+        let pyproject_path = root
+            .join("integrations")
+            .join(integration)
+            .join("pyproject.toml");
         assert!(
-            langchain_pyproject.contains(&format!("version = \"{}\"", version)),
-            "packages/langchain-vantadb/pyproject.toml must match Cargo.toml version {}",
-            version
+            pyproject_path.exists(),
+            "integrations/{}/pyproject.toml must exist",
+            integration
         );
+        let pyproject = read(&pyproject_path);
         assert!(
-            langchain_pyproject.contains(&format!("\"vantadb-py>={}\"", version)),
-            "packages/langchain-vantadb/pyproject.toml must require vantadb-py >= {}",
+            pyproject.contains("vantadb-py>=") && pyproject.contains(&upper_bound),
+            "integrations/{}/pyproject.toml must declare compatible vantadb-py dependency with upper bound {} (allowing workspace version {})",
+            integration,
+            upper_bound,
             version
         );
     }
+}
 
-    // Optional: Verify llamaindex-vantadb if it exists in the repository
-    let llamaindex_path = root
-        .join("packages")
-        .join("llamaindex-vantadb")
-        .join("pyproject.toml");
-    if llamaindex_path.exists() {
-        let llamaindex_pyproject = read(&llamaindex_path);
+// SURF-01 / REL-03: the generated surface manifest must stay in sync with the
+// workspace version instead of competing with this suite. The manifest itself
+// is produced by `node scripts/docs/gen-surface-manifest.mjs --write`; this
+// test only pins liveness (header version + every declared surface present)
+// so a stale manifest fails the suite instead of drifting silently.
+#[test]
+fn generated_surface_manifest_matches_workspace() {
+    let root = repo_root();
+
+    let cargo_toml = read(root.join("Cargo.toml"));
+    let version = extract_cargo_version(&cargo_toml, &cargo_toml);
+
+    let manifest = read(root.join("docs").join("api").join("SURFACE_MANIFEST.md"));
+    assert!(
+        manifest.contains(&format!("workspace version: {}", version)),
+        "SURFACE_MANIFEST.md header must declare the workspace version {} \
+         (regenerate with `node scripts/docs/gen-surface-manifest.mjs --write`)",
+        version
+    );
+    for surface in [
+        "vantadb",
+        "vantadb-wasm",
+        "vanta-memory",
+        "vantadb-python",
+        "vantadb-node",
+        "vantadb-server",
+        "vantadb-mcp",
+        "vanta-proxy",
+        "vantadb-ffi-core",
+        "providers/openai",
+        "providers/ollama",
+        "providers/litellm",
+        "fuzz",
+    ] {
         assert!(
-            llamaindex_pyproject.contains(&format!("version = \"{}\"", version)),
-            "packages/llamaindex-vantadb/pyproject.toml must match Cargo.toml version {}",
-            version
-        );
-        assert!(
-            llamaindex_pyproject.contains(&format!("\"vantadb-py>={}\"", version)),
-            "packages/llamaindex-vantadb/pyproject.toml must require vantadb-py >= {}",
-            version
+            manifest.contains(surface),
+            "SURFACE_MANIFEST.md must list surface `{}` \
+             (regenerate with `node scripts/docs/gen-surface-manifest.mjs --write`)",
+            surface
         );
     }
 }

@@ -3,7 +3,7 @@
 # Mirror of deny.toml [advisories] + .cargo/audit.toml triage: every ignore
 # here MUST have owner + expiry + tracked-reference, same as deny.toml.
 # Config applies to the colocated ./Cargo.lock (does not propagate to
-# desktop/src-tauri, fuzz/, providers/*, vantadb-node/ — separate lockfiles).
+# feature-freez/desktop/src-tauri, fuzz/, providers/*, vantadb-node/ — separate lockfiles).
 
 # RUSTSEC-2023-0089: atomic-polyfill unmaintained (transitive postcard->heapless).
 # Owner: vanta-lead | Tracked: postcard 2.0 -> heapless 0.9 + portable-atomic.
@@ -33,6 +33,14 @@ reason = "Mirror of audit.toml triage: build-time only, no runtime impact. Track
 id = "RUSTSEC-2026-0253"
 ignoreUntil = "2027-01-01T00:00:00Z"
 reason = "Mirror of deny.toml triage: transitive via tantivy only; direct lru 0.18.4 patched. Revisit on tantivy bump. Owner: vanta-lead."
+
+# RUSTSEC-2024-0449: unsafe-libyaml unmaintained (transitive via dev-dependency
+# serde_yaml 0.9.34; tests/api/openapi_yaml_parity.rs only).
+# Mirror of deny.toml triage (FIND-351). Owner: vanta-lead.
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0449"
+ignoreUntil = "2027-06-01T00:00:00Z"
+reason = "Mirror of deny.toml triage (FIND-351): dev-dependency only (serde_yaml in tests/api/openapi_yaml_parity.rs), zero production reachability. Owner: vanta-lead."
 
 # NOTE: RUSTSEC-2024-0429 (glib, desktop-lock only) is intentionally NOT listed:
 # this config applies to ./Cargo.lock only (no propagation) and the root lock

@@ -1,0 +1,28 @@
+[package]
+name = "vantadb-wasm-threads-kernel"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.94"
+publish = false
+description = "STRAT-04 slice: lock-free parallel scoring kernel for wasm32 threads (shared memory + atomics). Standalone spike — see docs/dev/architecture/WASM_THREADS.md"
+license = "Apache-2.0"
+
+# Deliberately standalone (NOT a workspace member): spike artifact for
+# STRAT-04 slice 1. Product integration is a follow-up FIND; wiring this crate
+# into the workspace/CI is part of that follow-up.
+[workspace]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# no_std float math (f32::sqrt is std-only; core_float_math is still unstable).
+# Pure Rust, no build scripts that matter, no_std-compatible.
+libm = "0.2"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+# Required for the no_std wasm build (no unwinding support on this target).
+panic = "abort"

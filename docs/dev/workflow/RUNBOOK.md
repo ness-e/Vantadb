@@ -19,7 +19,7 @@ gh run rerun <run-id> --failed
 ```
 
 - Never `gh run rerun` without `--failed` on release workflows: it rebuilds
-  every matrix target (5 binaries, 9 adapters) and burns runners.
+  every matrix target (5 binaries, 7 adapters) and burns runners.
 - Publishing rule (plan owner decision): extra care — rollback is
   `git revert` of the offending commit + re-run of the workflow, never a
   force-push of a tag.

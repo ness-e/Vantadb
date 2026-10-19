@@ -384,7 +384,14 @@ proptest! {
         path: String,
         duration_ms: u64,
     ) {
-        let report = ExportReport { records_exported, namespaces, path, duration_ms };
+        let report = ExportReport {
+            records_exported,
+            namespaces,
+            path,
+            duration_ms,
+            sha256: String::new(),
+            manifest_path: String::new(),
+        };
         assert_json(&report);
         assert_postcard(&report);
     }

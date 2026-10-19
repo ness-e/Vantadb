@@ -1,0 +1,110 @@
+{
+  "timestamp": "2026-10-06T07:23:17.186Z",
+  "node": "v26.8.1",
+  "platform": "win32-x64",
+  "cpu_cores": 12,
+  "dims": 128,
+  "n_vectors": 400000,
+  "chunk": 256,
+  "seed": 42,
+  "repeats": 5,
+  "rows": [
+    {
+      "workers": 1,
+      "median_ms": 45.44,
+      "compute_ms": 45.07,
+      "min_ms": 43.25,
+      "max_ms": 61.1,
+      "speedup_vs_1": 1,
+      "compute_speedup_vs_1": 1,
+      "vectors_per_s": 8803631,
+      "max_abs_err": 3.9299373588708164e-8,
+      "worker_kernel_ms": [
+        43
+      ],
+      "correct": true
+    },
+    {
+      "workers": 2,
+      "median_ms": 28.39,
+      "compute_ms": 28.13,
+      "min_ms": 26.63,
+      "max_ms": 29.3,
+      "speedup_vs_1": 1.6,
+      "compute_speedup_vs_1": 1.6,
+      "vectors_per_s": 14088079,
+      "max_abs_err": 3.9299373588708164e-8,
+      "worker_kernel_ms": [
+        29.1,
+        29
+      ],
+      "correct": true
+    },
+    {
+      "workers": 4,
+      "median_ms": 15.29,
+      "compute_ms": 15.05,
+      "min_ms": 14.54,
+      "max_ms": 17.17,
+      "speedup_vs_1": 2.97,
+      "compute_speedup_vs_1": 2.99,
+      "vectors_per_s": 26155073,
+      "max_abs_err": 3.9299373588708164e-8,
+      "worker_kernel_ms": [
+        14.2,
+        14.2,
+        14.1,
+        14.2
+      ],
+      "correct": true
+    },
+    {
+      "workers": 8,
+      "median_ms": 9.35,
+      "compute_ms": 9.09,
+      "min_ms": 9.07,
+      "max_ms": 10.65,
+      "speedup_vs_1": 4.86,
+      "compute_speedup_vs_1": 4.96,
+      "vectors_per_s": 42781664,
+      "max_abs_err": 3.9299373588708164e-8,
+      "worker_kernel_ms": [
+        10,
+        10,
+        10,
+        9.9,
+        10,
+        10,
+        9.9,
+        9.9
+      ],
+      "correct": true
+    },
+    {
+      "workers": 12,
+      "median_ms": 8.91,
+      "compute_ms": 8.74,
+      "min_ms": 7.8,
+      "max_ms": 9.9,
+      "speedup_vs_1": 5.1,
+      "compute_speedup_vs_1": 5.16,
+      "vectors_per_s": 44883303,
+      "max_abs_err": 3.9299373588708164e-8,
+      "worker_kernel_ms": [
+        8.9,
+        9,
+        9.1,
+        9.1,
+        8.7,
+        8.3,
+        8.5,
+        8.8,
+        8.8,
+        6.2,
+        6.2,
+        5.5
+      ],
+      "correct": true
+    }
+  ]
+}

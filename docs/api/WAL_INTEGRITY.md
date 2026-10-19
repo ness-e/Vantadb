@@ -10,6 +10,8 @@ description: "Hash-chain per WAL record (VER-01): detects altered, removed or re
 
 Each WAL record stores `record_hash = SHA-256(prev_hash ‖ len ‖ payload ‖ crc)`; `prev_hash` is the previous frame's `record_hash` (genesis per file/shard). No re-hash of the whole file on append: the chain is incremental, +64 B per record.
 
+Consumers: the [purge certificates](./CERTIFIED_DELETE.md) (VER-02) and the [write receipts](./WRITE_RECEIPTS.md) (VER-10) **reference** the chain (`status: "referenced"`) — per-operation chain re-verification stays with `vanta-cli verify`.
+
 ## What the chain covers
 
 1. **Content tampering with recomputed CRC** — alter payload + recompute `crc` → `record_hash` no longer matches → `tampered` at the record's exact offset. (CRC32C alone cannot see this; the chain can.)

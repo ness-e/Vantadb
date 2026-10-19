@@ -53,7 +53,7 @@ pub struct TextIndexRepairReport {
     pub success: bool,
 }
 
-#[cfg(debug_assertions)]
+#[cfg(any(debug_assertions, test))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[doc(hidden)]
 pub struct MemorySearchDebugReport {

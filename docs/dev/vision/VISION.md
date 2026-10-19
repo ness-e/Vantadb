@@ -250,13 +250,13 @@ La matriz de arriba cubre vector DBs. El **wallet de memoria real** compite cont
 
 Guardrails: 0 hallazgos high sin parche ≤7 días · 0 regresión p99 >15% (gate revivido) · 100% artefactos con versión sincronizada · 0 violaciones Regla 11 en material público.
 
-Medición, baseline 0 (2026-09-26) y estado de instrumentalización (PUT derivable hoy; SEARCH → FIND + DEFER parcial, sin instrumentar código): `SPEC.md` § North Star (producto). ICP-01 instrumenta la métrica en la demo CI.
+Medición, baseline 0 (2026-09-26) y estado de instrumentalización (PUT derivable hoy; SEARCH → FIND + DEFER parcial, sin instrumentar código): `docs/specs/SPEC.md` § North Star (producto). ICP-01 instrumenta la métrica en la demo CI.
 
 ---
 
 ## See Also
 
-- [Master Index](../../master-index.md) — Parent document
+- [Master Index](../master-index.md) — Parent document
 - [ARCHITECTURE.md](../architecture/ARCHITECTURE.md) — How the vision is implemented
 - [GO_TO_MARKET.md](../strategy/GO_TO_MARKET.md) — How it's commercialized
 - [ROADMAP.md](../strategy/ROADMAP.md) — When capabilities ship

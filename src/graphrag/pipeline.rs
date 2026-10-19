@@ -1,27 +1,44 @@
 use crate::error::Result;
 use crate::graphrag::{context, expand, retrieve, seed};
 use crate::sdk::Embedded;
+use serde::Serialize;
 
 pub struct GraphRagPipeline {
     pub seed_k: usize,
     pub expansion_hops: usize,
     pub max_expansion_nodes: usize,
     pub retrieval_top_k: usize,
+    /// EGO-15: max edges followed out of each node during expansion.
+    /// Caps hub fan-out (`usize::MAX` = uncapped, the pre-EGO-15 behavior).
+    pub max_degree_per_node: usize,
+    /// EGO-15 (follow-up): skip edges below this weight during expansion
+    /// (`None` = keep all edges, the pre-EGO-15 behavior).
+    pub min_edge_weight: Option<f32>,
 }
 
+/// DIST-15: canonical wire shape for the bindings (Py/TS/Node/WASM).
+/// `id`/`source`/`target` serialize as decimal strings (API-01) so u128 ids
+/// above 2^53 survive JSON; the field set is pinned by
+/// `tests/graphrag_test.rs::graphrag_result_serializes_with_u128_ids_as_decimal_strings`.
+#[derive(Serialize)]
 pub struct GraphRagNode {
+    #[serde(with = "crate::sdk::types::u128_serde")]
     pub id: u128,
     pub content: String,
     pub score: f32,
     pub hop_distance: u32,
 }
 
+#[derive(Serialize)]
 pub struct GraphRagEdge {
+    #[serde(with = "crate::sdk::types::u128_serde")]
     pub source: u128,
+    #[serde(with = "crate::sdk::types::u128_serde")]
     pub target: u128,
     pub label: String,
 }
 
+#[derive(Serialize)]
 pub struct GraphRagResult {
     pub nodes: Vec<GraphRagNode>,
     pub edges: Vec<GraphRagEdge>,
@@ -29,6 +46,7 @@ pub struct GraphRagResult {
     pub stats: GraphRagStats,
 }
 
+#[derive(Serialize)]
 pub struct GraphRagStats {
     pub seeds_found: usize,
     pub nodes_expanded: usize,
@@ -49,6 +67,8 @@ impl GraphRagPipeline {
             expansion_hops: 2,
             max_expansion_nodes: 100,
             retrieval_top_k: 20,
+            max_degree_per_node: usize::MAX,
+            min_edge_weight: None,
         }
     }
 
@@ -78,11 +98,13 @@ impl GraphRagPipeline {
         }
 
         let seed_ids: Vec<u128> = seed_scores.iter().map(|(id, _)| *id).collect();
-        let expanded = expand::expand_nodes(
+        let expanded = expand::expand_nodes_capped(
             &engine,
             &seed_ids,
             self.expansion_hops,
             self.max_expansion_nodes,
+            self.max_degree_per_node,
+            self.min_edge_weight,
         )?;
 
         let top_nodes =

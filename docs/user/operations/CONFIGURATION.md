@@ -22,6 +22,7 @@ All configuration fields available in `VantaConfig` (Rust) and via environment v
 | `host` | `String` | `127.0.0.1` | `VANTADB_HOST` (fallback `HOST`) | Bind address for HTTP server |
 | `port` | `u16` | `8080` | `VANTADB_PORT` | TCP port for HTTP server |
 | `memory_limit` | `Option<u64>` | `None` | `VANTADB_MEMORY_LIMIT` | Memory budget hint for backend and mmap selection (string with optional KB/MB/GB suffix, e.g. `500MB`) |
+| `max_records_per_namespace` | `Option<u64>` | `None` | `VANTADB_MAX_RECORDS_PER_NAMESPACE` | Opt-in per-namespace record quota (fresh inserts only; `0`/unset = unlimited; `.vdbdump` bulk import exempt — FIND-304). MEMG-04 |
 | `read_only` | `bool` | `false` | — | Opens engine in read-only mode |
 | `force_mmap` | `bool` | `false` | — | Force memory-mapped I/O for vector store |
 | `mmap_hnsw` | `bool` | `true` | — | Enable memory-mapped [hnsw](../glosario/hnsw.md) index |
@@ -58,6 +59,7 @@ All configuration fields available in `VantaConfig` (Rust) and via environment v
 | `openai_api_key` | `Option<String>` | `None` | `VANTADB_OPENAI_API_KEY` | OpenAI API key for remote embeddings (optional; missing key defers error to embed call, B2b) |
 | `openai_model` | `String` | `text-embedding-3-small` | `VANTADB_OPENAI_MODEL` | OpenAI embedding model name |
 | `embedding_provider` | `String` | `ollama` | `VANTADB_EMBEDDING_PROVIDER` | Embedding provider selector: `ollama`, `openai`, `local` (ONNX) |
+| `strict_embeddings` | `bool` | `true` | `VANTADB_STRICT_EMBEDDINGS`, `VANTADB_ALLOW_DUMMY_EMBEDDINGS` | Fail-closed policy for vector embeddings. When `true` (default), refuses to silently degrade to synthetic/dummy vectors if the ONNX runtime or model weights are missing. Explicit opt-out via `VANTADB_ALLOW_DUMMY_EMBEDDINGS=true`. |
 | `wal_shards` | `usize` | `4` | `VANTADB_WAL_SHARDS` | Number of round-robin [wal](../glosario/wal.md) shard files for write parallelism |
 | `wal_buffer_size` | `Option<usize>` | `65536` (64KB) | `VANTADB_WAL_BUFFER_SIZE` | Per-shard WAL buffer in bytes (`None` = OS default) |
 | `flush_threshold` | `Option<usize>` | `None` (disabled) | `VANTADB_FLUSH_THRESHOLD` | Auto-flush after N nodes inserted (`None` = disabled) |
@@ -70,10 +72,13 @@ All configuration fields available in `VantaConfig` (Rust) and via environment v
 | `quarantine_review_default_days` | `u32` | `30` | `VANTADB_QUARANTINE_REVIEW_DEFAULT_DAYS` | Default review deadline (days) applied when a record enters quarantine without an explicit deadline (ADR-0046 §D5d, SCH-05). `0` disables the automatic deadline. The deadline is a **signal only** — it never promotes a quarantined record (sticky invariant I1). |
 | `confidence_threshold` | `Option<f32>` | `None` (OFF) | `VANTADB_CONFIDENCE_THRESHOLD` | Selective-abstention threshold (ADR-0046 §D2, SCH-05/SCH-07): when set (finite, in `[0, 1]`), search hits below it are dropped and an emptied page carries an explicit `abstained` + `abstention_reason` signal instead of silently degrading (single-namespace HTTP `SearchPageV2` and the MCP search envelope — see `docs/api/MCP.md`; array-shaped binding APIs have no page). Distinct from the per-request `min_confidence` filter, which never emits the signal. |
 | `ttl_sweep_interval_ms` | `u64` | `60000` | `VANTADB_TTL_SWEEP_INTERVAL_MS` | Interval (ms) of the server's background TTL sweeper, which physically purges expired records (nodes + derived/text indexes) — the same purge as `DELETE /api/v2/maintenance/expired-records`. `0` disables it; read-only engines skip it. |
-| `encryption_key` | `Option<String>` | `None` | `VANTADB_ENCRYPTION_KEY` | AES-256-GCM key (hex 32-byte) for at-rest encryption (feature-gated: `encryption`) |
+| `encryption_key` | `Option<String>` | `None` | `VANTADB_ENCRYPTION_KEY` | AES-256-GCM key (hex 32-byte) (feature-gated: `encryption`). **Not yet applied to core storage files** — WAL/HNSW/VantaFile/backend-KV/snapshots remain plaintext today (FIND-249); the current consumer is the `vanta-proxy` envelope. When the feature and key are both active, the engine emits a warning at open making this explicit (on-disk backends). **Server:** `vantadb-server` does not compile `encryption` by default (opt in with `--features encryption`); without it a configured key is ignored and the HTTP server warns at startup (SRV-10). |
 | `flat_threshold` | `Option<usize>` | `10000` | `VANTADB_FLAT_THRESHOLD` | Brute-force flat scan threshold; ≤ this many nodes skips HNSW |
 | `hot_reload_config` | `Arc<RwLock<HotReloadConfig>>` | `HotReloadConfig::default()` | — | Hot-reloadable config snapshot (feature-gated: `hot-reload`, not in `default` features). See [Hot-Reload JSON](#hot-reload-json) |
-| `rbac_config` | `RbacConfig` | `{ token_role_map: {} }` | — | RBAC config mapping API tokens to roles |
+| `rbac_config` | `RbacConfig` | `{ token_role_map: {}, roles: {} }` | - | RBAC config: token-to-role mapping + operator-declared namespace-scoped roles (MEMG-04) |
+| `roles` | `HashMap<String, RbacRoleCfg>` | `{}` | - | `RbacConfig` field (MEMG-04): namespace-scoped roles, registered in addition to the built-in `admin`/`reader`/`writer` (built-in names cannot be overridden). Programmatic only (no env/TOML yet — FIND-304). See [HTTP API — Multi-tenant](../../api/HTTP_API.md). |
+| `namespace_read` | `Vec<String>` | `[]` | - | `RbacRoleCfg` field: namespaces the role may read (and search/list/export) |
+| `namespace_write` | `Vec<String>` | `[]` | - | `RbacRoleCfg` field: namespaces the role may write (write covers delete in 0.9.0; strict per-action separation is FIND-301) |
 | `require_auth` | `bool` | `false` | `VANTADB_REQUIRE_AUTH` | Refuse to start unless `api_key` is configured |
 | `allow_insecure` | `bool` | `false` | — (CLI flag `--allow-insecure`) | Dev override for the refuse-to-start guard: when the server binds a non-loopback host without an API key it refuses to start unless this is set; then it logs a prominent WARNING and starts unauthenticated (FIND-07) |
 | `token_role_map` | `HashMap<String, String>` | `{}` | — | `RbacConfig` field: token → role name mapping |
@@ -82,6 +87,8 @@ All configuration fields available in `VantaConfig` (Rust) and via environment v
 | `audit_log_path` | `Option<PathBuf>` | `None` | `VANTADB_AUDIT_LOG_PATH` | Append-only JSONL audit log (ISO 8601 timestamp + op per write/delete/export/import). When `None`, audit is disabled. |
 | `audit_max_bytes` | `u64` | `10 MiB` | `VANTADB_AUDIT_MAX_BYTES` | Audit log rotation threshold (bytes; accepts `KB`/`MB`/`GB` suffixes in env). Rotates to `<path>.1` when exceeded (SRV-01). |
 | `audit_max_files` | `u32` | `5` | `VANTADB_AUDIT_MAX_FILES` | Rotated audit archives retained (`.1`..`.N`); older files deleted (SRV-01). |
+| `self_healing` | `bool` | `true` | `VANTADB_SELF_HEALING` | Master switch for automated background maintenance (vacuum and index rebuild) during low-activity windows. Default: `true`. |
+| `self_healing_quiet_secs` | `u64` | `300` | `VANTADB_SELF_HEALING_QUIET_SECS` | Inactivity threshold in seconds before self-healing maintenance triggers. Default: `300` (5 minutes). |
 | `segment_optimizer` | `SegmentOptimizerConfig` | `{enabled: true, vacuum_threshold_pct: 15.0, auto_run_interval_secs: 3600, max_pipeline_duration_secs: 300}` | — | Segment optimizer configuration: master switch, tombstone vacuum threshold (%), auto-run interval (s), max pipeline duration (s), and per-level LSM compaction config. See also `pipeline()` / `optimizer_config()` / `set_optimizer_config()` in the SDK. |
 
 ### Environment Variables Outside `VantaConfig`
@@ -117,8 +124,26 @@ These env vars are read at runtime outside `VantaConfig::from_env()`:
 | Env Var | Default | Description |
 |---------|---------|-------------|
 | `VANTADB_REPORTED_VERSION` | crate version | Overrides the version string reported by banners and MCP surfaces (must be a valid semver, e.g. `1.2.3-rc1`; internal mechanism, excepted from Config per FIND-89) |
+| `VANTADB_SELF_HEALING_IDLE_SECS` | `900` (15 min) | Inactivity quiet window threshold (seconds) before automated background vacuum and HNSW index rebuild executes |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4317` | OTLP gRPC endpoint (third-party OpenTelemetry standard, not a VantaDB config) |
 | `OTEL_SERVICE_NAME` | `vantadb-server` | Logical service name for trace identification (third-party OpenTelemetry standard) |
+
+### Five-Layer Configuration Hierarchy & CLI Wizard (FIND-385)
+
+VantaDB resolves settings through a strict 5-layer hierarchy with deterministic precedence:
+
+1. **CLI Arguments:** Highest priority (e.g., `--port 8080`, `--storage-path ./my_data`).
+2. **Environment Variables:** Canonical `VANTADB_*` variables (e.g., `VANTADB_PORT=8080`).
+3. **Project File (`./vanta.toml`):** Project-local configuration checked in with the codebase.
+4. **Global User File (`~/.vanta/config.toml`):** Machine-wide defaults persisted across sessions.
+5. **Engine Defaults:** Production safe defaults (`127.0.0.1`, port 8080, strict embeddings).
+
+#### Managing Configuration with `vanta config`
+
+- **`vanta config show`**: Displays the resolved effective configuration and the source layer for each value.
+- **`vanta config doctor`**: Runs a comprehensive environment audit checking storage write permissions, ONNX dylib presence, local model files, lock integrity, and memory thresholds.
+- **`vanta config set <key> <value> [--global]`**: Safely updates and validates settings in `./vanta.toml` (or `~/.vanta/config.toml` with `--global`).
+- **`vanta config init [--force]`**: Generates a clean starter `vanta.toml` template in the current working directory.
 
 ### Audit Log Format
 
@@ -492,6 +517,7 @@ Build-time feature flags in `Cargo.toml`:
 | `arrow` | `arrow` | Apache Arrow IPC support |
 | `rkyv-serialization` | `rkyv` | Zero-copy rkyv archives for HNSW |
 | `failpoints` | `fail` | Fault-injection testing |
+| `encryption` | `aes-gcm`, `ring` | AES-256-GCM primitives (`Cipher`/`EncryptionStream`) for at-rest encryption — **not wired to storage write paths yet**: data at rest remains plaintext and the engine warns at open when the feature and key are both active (on-disk backends; FIND-249). On the HTTP server, enable it via `cargo build -p vantadb-server --features encryption`; without the feature a configured `VANTADB_ENCRYPTION_KEY` is ignored and the HTTP server warns at startup (SRV-10) |
 | `custom-allocator` | `mimalloc` | mimalloc global allocator |
 
 ## 8. OpenTelemetry Tracing Environment

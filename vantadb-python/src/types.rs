@@ -275,7 +275,7 @@ impl VantaPyListResult {
         self.records.clone()
     }
 
-    /// Return the number of records in this page.
+    /// Number of records returned in this page/filter window (use `db.count(namespace)` for full namespace cardinality).
     #[getter]
     fn total_count(&self) -> usize {
         self.records.len()

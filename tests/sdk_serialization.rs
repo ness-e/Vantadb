@@ -144,6 +144,294 @@ fn test_search_hit_serialize() {
     assert_eq!(hit.record.node_id, back.record.node_id);
 }
 
+// ── API-10 slice 1: schema-first parity (Rust → wire-schema.json → TS) ────
+// The canonical wire schema lives in docs/api/wire-schema.json (hand-written
+// on purpose — real codegen is slice 2, post-1.0). These tests pin the
+// contract: every wire DTO serializes to EXACTLY the key set the schema
+// declares (no silent field additions/removals per binding), u128 ids travel
+// as decimal strings, and the TS mirror declares the same v2 fields.
+
+mod wire_schema_parity {
+    use std::collections::BTreeSet;
+    use std::fs;
+    use std::path::PathBuf;
+
+    fn repo_root() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+    }
+
+    fn load_schema() -> serde_json::Value {
+        let raw = fs::read_to_string(
+            repo_root()
+                .join("docs")
+                .join("api")
+                .join("wire-schema.json"),
+        )
+        .expect("read docs/api/wire-schema.json");
+        serde_json::from_str(&raw).expect("wire-schema.json must be valid JSON")
+    }
+
+    fn schema_keys(schema: &serde_json::Value, dto: &str) -> BTreeSet<String> {
+        schema["properties"][dto]["properties"]
+            .as_object()
+            .unwrap_or_else(|| panic!("schema must declare properties for {dto}"))
+            .keys()
+            .cloned()
+            .collect()
+    }
+
+    fn schema_required(schema: &serde_json::Value, dto: &str) -> BTreeSet<String> {
+        schema["properties"][dto]["required"]
+            .as_array()
+            .unwrap_or_else(|| panic!("schema must declare required for {dto}"))
+            .iter()
+            .map(|v| {
+                v.as_str()
+                    .expect("required entries are strings")
+                    .to_string()
+            })
+            .collect()
+    }
+
+    fn value_keys(value: &serde_json::Value, what: &str) -> BTreeSet<String> {
+        value
+            .as_object()
+            .unwrap_or_else(|| panic!("{what} must serialize to a JSON object"))
+            .keys()
+            .cloned()
+            .collect()
+    }
+
+    /// Exact key-set parity: the Rust serde shape IS the schema shape.
+    /// A new field anywhere (core or binding) fails here until the schema
+    /// is updated in the same PR — that is the anti-drift contract.
+    fn assert_exact_parity(schema: &serde_json::Value, dto: &str, value: serde_json::Value) {
+        let want = schema_keys(schema, dto);
+        let got = value_keys(&value, dto);
+        let missing: Vec<_> = want.difference(&got).collect();
+        let extra: Vec<_> = got.difference(&want).collect();
+        assert!(
+            missing.is_empty() && extra.is_empty(),
+            "{dto} drift: missing from Rust wire = {missing:?}, extra in Rust wire = {extra:?} \
+             (update docs/api/wire-schema.json in the same PR)"
+        );
+        let required = schema_required(schema, dto);
+        let absent: Vec<_> = required.difference(&got).collect();
+        assert!(
+            absent.is_empty(),
+            "{dto}: schema-required keys absent from Rust wire = {absent:?}"
+        );
+    }
+
+    #[test]
+    fn wire_dto_key_sets_match_canonical_schema() {
+        use vantadb::sdk::*;
+        use vantadb::Value;
+
+        let schema = load_schema();
+
+        // MemoryInput — write path (all-optional v2 fields present as null/false).
+        let input = MemoryInput::new("ns", "k", "p");
+        assert_exact_parity(
+            &schema,
+            "MemoryInput",
+            serde_json::to_value(&input).expect("serialize MemoryInput"),
+        );
+
+        // MemoryRecord — read path; node_id must be a decimal string (u128 > 2^53).
+        let record = MemoryRecord {
+            namespace: "ns".into(),
+            key: "k".into(),
+            payload: "p".into(),
+            metadata: Default::default(),
+            created_at_ms: 1,
+            updated_at_ms: 2,
+            version: 1,
+            node_id: (1u128 << 63) + 7,
+            ..Default::default()
+        };
+        let record_json = serde_json::to_value(&record).expect("serialize MemoryRecord");
+        assert!(
+            record_json["node_id"].is_string(),
+            "MemoryRecord.node_id must travel as a decimal string"
+        );
+        assert_exact_parity(&schema, "MemoryRecord", record_json);
+
+        // MemorySearchHit — explanation present so the key exists regardless
+        // of any future skip_serializing_if on the Option.
+        let hit = MemorySearchHit {
+            record,
+            score: 0.5,
+            explanation: Some(SearchExplanationHit {
+                identity: "ns\x00k".into(),
+                score: 0.5,
+                snippet: None,
+                matched_tokens: vec![],
+                matched_phrases: vec![],
+                bm25_terms: vec![],
+                rrf_text_rank: None,
+                rrf_vector_rank: None,
+            }),
+        };
+        assert_exact_parity(
+            &schema,
+            "MemorySearchHit",
+            serde_json::to_value(&hit).expect("serialize MemorySearchHit"),
+        );
+
+        // MemorySearchPage — abstention signal populated (SCH-07 wire).
+        let page = MemorySearchPage {
+            hits: vec![],
+            next_cursor: None,
+            abstained: true,
+            abstention_reason: Some(AbstentionReason::NoCandidatesAboveThreshold),
+        };
+        assert_exact_parity(
+            &schema,
+            "MemorySearchPage",
+            serde_json::to_value(&page).expect("serialize MemorySearchPage"),
+        );
+
+        // MemoryListPage.
+        let list = MemoryListPage {
+            records: vec![],
+            next_cursor: None,
+        };
+        assert_exact_parity(
+            &schema,
+            "MemoryListPage",
+            serde_json::to_value(&list).expect("serialize MemoryListPage"),
+        );
+
+        // NodeRecord + EdgeRecord — graph wire; id/target as decimal strings.
+        let node = NodeRecord {
+            id: (1u128 << 63) + 7,
+            fields: Default::default(),
+            vector: Some(vec![0.5]),
+            vector_dimensions: 1,
+            edges: vec![EdgeRecord {
+                target: 2,
+                label: "related".into(),
+                weight: 0.8,
+                reverse: false,
+                created_at_ms: 0,
+            }],
+            confidence_score: 0.9,
+            importance: 0.5,
+            hits: 10,
+            last_accessed: 1000,
+            epoch: 0,
+            tier: StorageTier::Hot,
+            is_alive: true,
+        };
+        let node_json = serde_json::to_value(&node).expect("serialize NodeRecord");
+        assert!(
+            node_json["id"].is_string(),
+            "NodeRecord.id must travel as a decimal string"
+        );
+        assert_exact_parity(&schema, "NodeRecord", node_json);
+        assert_exact_parity(
+            &schema,
+            "EdgeRecord",
+            serde_json::to_value(&EdgeRecord {
+                target: 2,
+                label: "related".into(),
+                weight: 0.8,
+                reverse: false,
+                created_at_ms: 0,
+            })
+            .expect("serialize EdgeRecord"),
+        );
+
+        // Filter + window DTOs.
+        assert_exact_parity(
+            &schema,
+            "MemoryFilterItem",
+            serde_json::to_value(&MemoryFilterItem {
+                field: "kind".into(),
+                op: FilterOp::Eq,
+                value: Value::String("note".into()),
+            })
+            .expect("serialize MemoryFilterItem"),
+        );
+        assert_exact_parity(
+            &schema,
+            "ValidWindow",
+            serde_json::to_value(ValidWindow {
+                from_ms: 1,
+                to_ms: 2,
+            })
+            .expect("serialize ValidWindow"),
+        );
+
+        // MemorySearchRequest — required-subset contract (the request carries
+        // many optional-with-default fields; the schema pins which are required).
+        let req = MemorySearchRequest {
+            namespace: "ns".into(),
+            query_vector: vec![0.1],
+            query_sparse: None,
+            filters: Default::default(),
+            text_query: None,
+            top_k: 5,
+            distance_metric: vantadb::DistanceMetric::Cosine,
+            explain: false,
+            exclude_superseded: false,
+            min_confidence: None,
+            as_of_ms: None,
+            valid_window: None,
+            include_quarantined: false,
+            search_profile: None,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
+        };
+        let req_json = serde_json::to_value(&req).expect("serialize MemorySearchRequest");
+        let req_keys = value_keys(&req_json, "MemorySearchRequest");
+        for key in schema_required(&schema, "MemorySearchRequest") {
+            assert!(
+                req_keys.contains(&key),
+                "MemorySearchRequest: schema-required key '{key}' missing from Rust wire"
+            );
+        }
+        for key in req_keys {
+            assert!(
+                schema_keys(&schema, "MemorySearchRequest").contains(&key),
+                "MemorySearchRequest: Rust wire key '{key}' not declared in schema \
+                 (update docs/api/wire-schema.json in the same PR)"
+            );
+        }
+    }
+
+    #[test]
+    fn ts_mirror_declares_same_wire_fields() {
+        // Rust→TS parity without codegen (slice 1): the TS mirror must declare
+        // the same wire field names the schema pins — above all the v2 fields
+        // (confidence, quarantine, valid-time) and the u128-as-string ids.
+        // Python .pyi is excluded: vantadb-python/** is foreign WIP (see task file).
+        let ts = fs::read_to_string(repo_root().join("vantadb-ts").join("src").join("types.ts"))
+            .expect("read vantadb-ts/src/types.ts");
+        for field in [
+            "node_id",
+            "superseded_by",
+            "valid_at_ms",
+            "invalid_at_ms",
+            "confidence",
+            "confidence_class",
+            "quarantined_at_ms",
+            "quarantine_reason",
+            "include_quarantined",
+            "min_confidence",
+        ] {
+            assert!(
+                ts.contains(field),
+                "vantadb-ts/src/types.ts must declare wire field '{field}' \
+                 (drift vs docs/api/wire-schema.json)"
+            );
+        }
+    }
+}
+
 #[test]
 fn test_list_page_serialize() {
     let page = MemoryListPage {
@@ -300,6 +588,8 @@ fn test_export_report_serialize() {
         namespaces: vec!["ns1".into()],
         path: "/tmp/export.jsonl".into(),
         duration_ms: 50,
+        sha256: String::new(),
+        manifest_path: String::new(),
     };
     let json = serde_json::to_string(&report).unwrap();
     let back: ExportReport = serde_json::from_str(&json).unwrap();
@@ -555,4 +845,78 @@ fn memory_record_v1_json_without_confidence_defaults_to_d_a() {
     assert_eq!(record.confidence, 1.0);
     assert_eq!(record.last_validated_at_ms, None);
     assert!(record.derived_from.is_empty());
+}
+
+// EGO-05: `Value` acepta escalares JS planos (NAPI/serde_json entregan f64,
+// string, bool, null sin tag). El formato tagged existente sigue válido
+// (retrocompatible); la serialización NO cambia.
+#[test]
+fn test_vanta_value_accepts_plain_scalars() {
+    let cases: &[(&str, Value)] = &[
+        // strings planos
+        (r#""hello""#, Value::String("hello".into())),
+        // enteros planos (i64 y f64 integral tipo Date.now())
+        ("42", Value::Int(42)),
+        ("-7", Value::Int(-7)),
+        ("1753728000000", Value::Int(1753728000000)),
+        // floats no-integrales
+        ("2.5", Value::Float(2.5)),
+        // bool y null planos
+        ("true", Value::Bool(true)),
+        ("false", Value::Bool(false)),
+        ("null", Value::Null),
+    ];
+    for (json, expected) in cases {
+        let got: Value = serde_json::from_str(json).unwrap();
+        assert_eq!(&got, expected, "plain scalar {json}");
+    }
+}
+
+#[test]
+fn test_vanta_value_accepts_plain_homogeneous_arrays() {
+    let cases: &[(&str, Value)] = &[
+        (
+            r#"["a","b"]"#,
+            Value::ListString(vec!["a".into(), "b".into()]),
+        ),
+        ("[1,2,3]", Value::ListInt(vec![1, 2, 3])),
+        ("[1.5,2.5]", Value::ListFloat(vec![1.5, 2.5])),
+        ("[true,false]", Value::ListBool(vec![true, false])),
+    ];
+    for (json, expected) in cases {
+        let got: Value = serde_json::from_str(json).unwrap();
+        assert_eq!(&got, expected, "plain array {json}");
+    }
+}
+
+#[test]
+fn test_vanta_value_bare_null_string_roundtrips() {
+    // serde serializa el unit variant sin wrapper: Value::Null ⇄ `"Null"`.
+    // El bare `"Null"` debe leerse como Null (como el derived), no como String.
+    let json = serde_json::to_string(&Value::Null).unwrap();
+    assert_eq!(json, r#""Null""#);
+    let back: Value = serde_json::from_str(&json).unwrap();
+    assert_eq!(back, Value::Null);
+}
+
+#[test]
+fn test_vanta_value_tagged_form_still_parses() {
+    let cases: &[(&str, Value)] = &[
+        (r#"{"String":"hi"}"#, Value::String("hi".into())),
+        (r#"{"Int":42}"#, Value::Int(42)),
+        (r#"{"Float":2.5}"#, Value::Float(2.5)),
+        (r#"{"Bool":true}"#, Value::Bool(true)),
+        (r#"{"Null":null}"#, Value::Null),
+        (r#"{"ListInt":[1,2]}"#, Value::ListInt(vec![1, 2])),
+    ];
+    for (json, expected) in cases {
+        let got: Value = serde_json::from_str(json).unwrap();
+        assert_eq!(&got, expected, "tagged {json}");
+    }
+}
+
+#[test]
+fn test_vanta_value_rejects_mixed_arrays() {
+    let got: Result<Value, _> = serde_json::from_str(r#"[1,"a"]"#);
+    assert!(got.is_err(), "mixed arrays must fail, got: {:?}", got.ok());
 }

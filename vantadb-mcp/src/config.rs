@@ -7,10 +7,10 @@ use vantadb::storage::StorageEngine;
 /// which names `tools/call` may dispatch (WIRE-02 enforces both symmetrically).
 ///
 /// Profiles are selected via the `VANTADB_MCP_PROFILE` environment variable:
-/// - `agent` (37 tools, default): Memory CRUD + search + IQL + threads + scenes + context engine + wiki read.
-/// - `full` (79 listed tools): everything listed, including code intelligence, skills, wiki write, dreams. Opt-in for compat.
-/// - `dev` (~36 tools): Memory + graph + collections + maintenance + introspection. Recommended for Cursor (cap ~40).
-/// - `memory` (20 tools): Core memory CRUD + search + list only. For memory-only agents.
+/// - `agent` (39 tools, default): Memory CRUD + search + IQL + threads + scenes + context engine + wiki read.
+/// - `full` (82 listed tools): everything listed, including code intelligence, skills, wiki write, dreams. Opt-in for compat.
+/// - `dev` (38 tools): Memory + graph + collections + maintenance + introspection. Recommended for Cursor (cap ~40).
+/// - `memory` (22 tools): Core memory CRUD + search + list only. For memory-only agents.
 ///
 /// WIRE-02: absorbed dispatch-only names (the 2 API-04 aliases plus 6 `code_*`
 /// projections) remain callable when their canonical listed tool is allowed in
@@ -19,18 +19,18 @@ use vantadb::storage::StorageEngine;
 /// tool-schema tokens per session (default `full` ≈ 23K tokens, report §3.6).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum McpProfile {
-    /// Agent profile (37 tools) — memory + threads + scenes + context + wiki-read.
+    /// Agent profile (39 tools) — memory + threads + scenes + context + wiki-read.
     /// Default since WIRE-02 (previously `full`); opt back into the whole
     /// surface with `VANTADB_MCP_PROFILE=full`.
     #[default]
     Agent,
-    /// Full profile (79 listed tools) — all listed base + extended families.
+    /// Full profile (82 listed tools) — all listed base + extended families.
     /// The 6 absorbed `code_*` projections stay dispatch-only (WIRE-02).
     Full,
-    /// Developer profile (~36 tools) — memory, graph, collections, key maintenance, axioms.
+    /// Developer profile (38 tools) — memory, graph, collections, key maintenance, axioms.
     /// Recommended for Cursor (cap ~40 tools).
     Dev,
-    /// Memory-only profile (~20 tools) — core memory CRUD + search + IQL + collections + capabilities.
+    /// Memory-only profile (22 tools) — core memory CRUD + search + IQL + collections + capabilities.
     Memory,
 }
 
@@ -117,6 +117,15 @@ pub struct McpConfig {
     /// Empty = allow-all (default, current behavior). Set via
     /// `VANTADB_MCP_INJECT_NAMESPACES` (comma-separated prefixes).
     pub injection_namespaces: Vec<String>,
+    /// MGR-04: namespace prefixes classified as tainted — their content is
+    /// never injected by default (skipped + audited as denied). Empty = none
+    /// (default, current behavior). Set via
+    /// `VANTADB_MCP_TAINTED_NAMESPACES` (comma-separated prefixes).
+    pub injection_tainted: Vec<String>,
+    /// MGR-04: explicit opt-in to inject tainted namespaces (default false;
+    /// review workflows only — the ACL above still applies). Set via
+    /// `VANTADB_MCP_INCLUDE_TAINTED` (`1`/`true`/`yes`).
+    pub injection_include_tainted: bool,
     /// VER-04: injection-audit sink (append-only JSONL + rotation). `None`
     /// (default) disables audit. Set via `VANTADB_MCP_AUDIT_LOG`.
     pub audit: Option<std::sync::Arc<vantadb::audit::AuditLogger>>,
@@ -147,6 +156,8 @@ impl Default for McpConfig {
             min_byte_budget: 1024,
             max_byte_budget: 1024 * 1024,
             injection_namespaces: Vec::new(),
+            injection_tainted: Vec::new(),
+            injection_include_tainted: false,
             audit: None,
         }
     }
@@ -180,6 +191,20 @@ impl McpConfig {
                 .filter(|p| !p.is_empty())
                 .collect();
         }
+        // MGR-04: tainted namespaces (trust gate; empty → none) + opt-in.
+        if let Ok(raw) = std::env::var("VANTADB_MCP_TAINTED_NAMESPACES") {
+            config.injection_tainted = raw
+                .split(',')
+                .map(|p| p.trim().to_string())
+                .filter(|p| !p.is_empty())
+                .collect();
+        }
+        if let Ok(raw) = std::env::var("VANTADB_MCP_INCLUDE_TAINTED") {
+            config.injection_include_tainted = matches!(
+                raw.trim().to_ascii_lowercase().as_str(),
+                "1" | "true" | "yes"
+            );
+        }
         // VER-04: opt-in injection audit (failed open → warn + disabled).
         if let Ok(path) = std::env::var("VANTADB_MCP_AUDIT_LOG") {
             config.audit = crate::governance::open_audit(&path);
@@ -187,11 +212,47 @@ impl McpConfig {
         config
     }
 
-    /// VER-04: the injection ACL derived from `injection_namespaces`
-    /// (empty → allow-all).
+    /// VER-04 + MGR-04: the injection policy derived from
+    /// `injection_namespaces` (ACL; empty → allow-all) and
+    /// `injection_tainted` (trust; empty → all trusted). Tainted namespaces
+    /// are denied unless `injection_include_tainted` opts in.
     pub fn injection_policy(&self) -> vanta_memory::core::hooks::InjectionPolicy {
-        vanta_memory::core::hooks::InjectionPolicy::from_prefixes(
+        vanta_memory::core::hooks::InjectionPolicy::from_parts(
             self.injection_namespaces.iter().cloned(),
+            self.injection_tainted.iter().cloned(),
+            self.injection_include_tainted,
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn injection_policy_composes_acl_and_trust() {
+        let config = McpConfig {
+            injection_namespaces: vec!["l1/mcp".into()],
+            injection_tainted: vec!["l1/mcp/evil".into()],
+            ..Default::default()
+        };
+        let policy = config.injection_policy();
+        assert!(policy.allows("l1/mcp"));
+        assert!(!policy.allows("l1/mcp/evil"), "tainted must not inject");
+        assert!(!policy.allows("l1/other"), "ACL still applies");
+        assert_eq!(
+            policy.trust_class("l1/mcp/evil"),
+            vanta_memory::core::hooks::TrustClass::Tainted
+        );
+
+        let opted_in = McpConfig {
+            injection_include_tainted: true,
+            ..config.clone()
+        };
+        assert!(opted_in.injection_policy().allows("l1/mcp/evil"));
+        assert!(
+            !config.injection_policy().allows("l1/mcp/evil"),
+            "opt-in must not leak into the original config"
+        );
     }
 }

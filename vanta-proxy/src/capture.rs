@@ -154,26 +154,28 @@ pub fn turn_job(
         let l1_record = l1_record.clone();
         let l1_namespace = l1_namespace.clone();
         Box::pin(async move {
-            // ponytail: sync storage op inside async — proxy scale tolerates it;
-            // move to spawn_blocking if puts ever show in latency profiles.
-            memory.put(input).map_err(|e| e.to_string())?;
-            let l1_payload = serde_json::to_string(&l1_record).map_err(|e| e.to_string())?;
-            let mut metadata = MemoryMetadata::new();
-            metadata.insert("type".into(), SdkValue::String("episodic".into()));
-            metadata.insert("priority".into(), SdkValue::Int(50));
-            memory
-                .put(MemoryInput {
-                    namespace: l1_namespace,
-                    key: l1_record.id.clone(),
-                    payload: l1_payload,
-                    metadata,
-                    vector: None,
-                    sparse_vector: None,
-                    ttl_ms: None,
-                    ..Default::default()
-                })
-                .map(|_| ())
-                .map_err(|e| e.to_string())
+            tokio::task::spawn_blocking(move || {
+                memory.put(input).map_err(|e| e.to_string())?;
+                let l1_payload = serde_json::to_string(&l1_record).map_err(|e| e.to_string())?;
+                let mut metadata = MemoryMetadata::new();
+                metadata.insert("type".into(), SdkValue::String("episodic".into()));
+                metadata.insert("priority".into(), SdkValue::Int(50));
+                memory
+                    .put(MemoryInput {
+                        namespace: l1_namespace,
+                        key: l1_record.id.clone(),
+                        payload: l1_payload,
+                        metadata,
+                        vector: None,
+                        sparse_vector: None,
+                        ttl_ms: None,
+                        ..Default::default()
+                    })
+                    .map(|_| ())
+                    .map_err(|e| e.to_string())
+            })
+            .await
+            .map_err(|e| format!("turn_job spawn_blocking failed: {e}"))?
         })
     })
 }

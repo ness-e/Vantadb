@@ -45,8 +45,7 @@ def test_query_write_node_id_is_decimal_string(tmp_path):
 
         node_id = result["node_id"]
         assert isinstance(node_id, str), (
-            "u128 node_id must cross as a decimal string, "
-            f"got {type(node_id).__name__}"
+            f"u128 node_id must cross as a decimal string, got {type(node_id).__name__}"
         )
         assert node_id == str(BIG), (
             f"f64 would round {BIG} -> 9007199254740992; got {node_id!r}"

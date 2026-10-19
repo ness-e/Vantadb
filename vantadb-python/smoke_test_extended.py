@@ -4,17 +4,19 @@ import shutil
 
 DB_PATH = "./test_vanta_db_extended"
 
+
 def cleanup():
     if os.path.exists(DB_PATH):
         shutil.rmtree(DB_PATH)
 
+
 def run_test():
     cleanup()
     print("--- SMOKE TEST: START ---")
-    
+
     print(f"1. Opening database at {DB_PATH}")
     db = vanta.Client(db_path=DB_PATH)
-    
+
     print("2. Writing memory data")
     record = db.put(
         "smoke/main",
@@ -24,7 +26,7 @@ def run_test():
         vector=[0.1, 0.2, 0.3],
     )
     print(f"   Put Result: {record}")
-    
+
     print("3. Reading memory data")
     read_res = db.memory.get("smoke/main", "first")
     print(f"   Read Result: {read_res}")
@@ -49,9 +51,9 @@ def run_test():
     print("7. Flushing and closing")
     db.flush()
     db.close()
-    
+
     print("8. Reopening database")
-    
+
     db2 = vanta.Client(db_path=DB_PATH)
     print("9. Reading memory data again to verify persistence")
     read_res2 = db2.memory.get("smoke/main", "first")
@@ -59,8 +61,9 @@ def run_test():
     assert read_res2 is not None
     assert read_res2["payload"] == "verified"
     db2.close()
-    
+
     print("--- SMOKE TEST: PASSED ---")
+
 
 if __name__ == "__main__":
     try:

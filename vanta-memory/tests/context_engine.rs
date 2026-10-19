@@ -264,6 +264,7 @@ fn mem37_a_post_aggressive_recall_mmd_respect_total_budget() {
         Some("<user-persona>\nNight owl builder.\n</user-persona>"),
         None,
         None,
+        None,
     )
     .expect("valid budget");
     // Aggressive ran (mild's 10-stub cap can't reach the budget).
@@ -325,6 +326,7 @@ fn mem37_b_messages_at_or_below_cursor_not_recompressed_nor_duplicated() {
             None,
             None,
             cursor.as_deref(),
+            None,
             None,
         )
         .expect("assemble")

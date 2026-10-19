@@ -8,7 +8,9 @@
 use pyo3::buffer::PyBuffer;
 use pyo3::exceptions::{PyRuntimeError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::{PyAnyMethods, PyDict, PyDictMethods, PyModuleMethods, PyTuple};
+use pyo3::types::{
+    PyAnyMethods, PyDict, PyDictMethods, PyList, PyListMethods, PyModuleMethods, PyTuple,
+};
 use std::collections::HashMap;
 use vantadb::config::Config;
 use vantadb::index::IndexType;
@@ -17,9 +19,16 @@ use vantadb::sdk::{
     Embedded, MemoryInput, MemoryListOptions, MemorySearchRequest, NodeInput, ValidWindow,
 };
 // FFI guards: single source of truth from core (WSM-09).
-use vantadb::{DistanceMetric, MAX_K};
+use vantadb::{DistanceMetric, MAX_K, MAX_VEC_DIM};
 // Durability gate + ERR-022 clamp policy: shared std-only leaf (WIRE-07).
 use vantadb_ffi_core::{OpGate, OpGuard};
+// DIST-02: cognitive layer (L0 capture / recall) — all logic lives in the
+// crate (api-contract R-8); this binding is glue + type mapping.
+use vanta_memory::core::conversation::L0Error;
+use vanta_memory::core::hooks::{
+    perform_auto_recall, AutoCaptureConfig, AutoCaptureHook, AutoRecallParams, RawMessage,
+    RecallConfig, RecallError, RecallMode, RecallResult, RecallScope,
+};
 
 mod convert;
 use convert::parse_direction;
@@ -342,7 +351,7 @@ forward_to_db!(MemoryClient {
         let engine = client.engine.clone();
         let n = namespace.to_string();
         let k = key.to_string();
-        let record = py.detach(move || engine.get(&n, &k).map_err(map_vanta_error))?;
+        let record = py.detach(move || engine.get(&n, &k)).map_err(map_vanta_error)?;
         match record {
             Some(record) => Ok(Some(VantaPyMemoryRecord::new(record))),
             None => Ok(None),
@@ -377,7 +386,7 @@ forward_to_db!(MemoryClient {
         let engine = client.engine.clone();
         let namespace = namespace.to_string();
         let key = key.to_string();
-        py.detach(move || engine.delete(&namespace, &key).map_err(map_vanta_error))
+        py.detach(move || engine.delete(&namespace, &key)).map_err(map_vanta_error)
     }
 
     /// List namespace-scoped persistent memory records.
@@ -429,9 +438,9 @@ forward_to_db!(MemoryClient {
         let filters_meta = py_dict_to_metadata(filters)?;
         let valid_window = py_valid_window(valid_window)?;
         let engine = client.engine.clone();
-        let page = py.detach(move || {
-            engine
-                .list(
+        let page = py
+            .detach(move || {
+                engine.list(
                     &namespace,
                     MemoryListOptions {
                         #[allow(deprecated)]
@@ -448,8 +457,8 @@ forward_to_db!(MemoryClient {
                         min_confidence,
                     },
                 )
-                .map_err(map_vanta_error)
-        })?;
+            })
+            .map_err(map_vanta_error)?;
 
         let records: Vec<VantaPyMemoryRecord> = page
             .records
@@ -569,6 +578,117 @@ fn record_to_memory_input(py: Python<'_>, record: &Bound<'_, PyAny>) -> PyResult
     Ok(input)
 }
 
+// ---------------------------------------------------------------------------
+// Cognitive layer (DIST-02): vanta-memory glue
+//
+// Thin wrappers over `vanta-memory` (L0 capture + recall). All logic lives in
+// the crate (api-contract R-8): this section parses Python arguments, releases
+// the GIL, and maps the crate's result structs to plain dicts — the same
+// mirror shape the desktop host consumes
+// (`desktop/src-tauri/src/commands/memory.rs`).
+// ---------------------------------------------------------------------------
+
+/// Parse one Python message dict into a `RawMessage`.
+fn parse_raw_message(index: usize, msg: &Bound<'_, PyAny>) -> PyResult<RawMessage> {
+    let dict = msg.cast::<PyDict>().map_err(|_| {
+        PyTypeError::new_err(format!(
+            "messages[{index}] must be a dict with 'role' and 'content'"
+        ))
+    })?;
+    let role = dict
+        .get_item("role")?
+        .ok_or_else(|| PyValueError::new_err(format!("messages[{index}] is missing 'role'")))?
+        .extract::<String>()
+        .map_err(|_| PyTypeError::new_err(format!("messages[{index}]['role'] must be a str")))?;
+    let content = dict
+        .get_item("content")?
+        .ok_or_else(|| PyValueError::new_err(format!("messages[{index}] is missing 'content'")))?
+        .extract::<String>()
+        .map_err(|_| PyTypeError::new_err(format!("messages[{index}]['content'] must be a str")))?;
+    let id = match dict.get_item("id")? {
+        Some(value) if !value.is_none() => Some(value.extract::<String>().map_err(|_| {
+            PyTypeError::new_err(format!("messages[{index}]['id'] must be a str or None"))
+        })?),
+        _ => None,
+    };
+    let timestamp_ms = match dict.get_item("timestamp_ms")? {
+        Some(value) if !value.is_none() => Some(value.extract::<u64>().map_err(|_| {
+            PyTypeError::new_err(format!(
+                "messages[{index}]['timestamp_ms'] must be an int or None"
+            ))
+        })?),
+        _ => None,
+    };
+    Ok(RawMessage {
+        id,
+        role,
+        content,
+        timestamp_ms,
+    })
+}
+
+/// Parse the Python `scope` argument into a `RecallScope` (default: agent).
+fn parse_recall_scope(value: Option<&str>) -> PyResult<RecallScope> {
+    match value {
+        None | Some("agent") => Ok(RecallScope::Agent),
+        Some("session") => Ok(RecallScope::Session),
+        Some("team") => Ok(RecallScope::Team),
+        Some(other) => Err(PyValueError::new_err(format!(
+            "Unknown recall scope \"{other}\" — known values: session, agent, team"
+        ))),
+    }
+}
+
+/// Map an L0 capture error into the Python exception hierarchy.
+fn map_l0_error(err: L0Error) -> PyErr {
+    match err {
+        L0Error::Vanta(core) => map_vanta_error(core),
+        L0Error::InvalidRole(role) => PyValueError::new_err(format!("invalid L0 role: {role}")),
+        L0Error::Cursor(cursor) => {
+            CorruptError::new_err(format!("malformed cursor payload: {cursor}"))
+        }
+    }
+}
+
+/// Map a recall error into the Python exception hierarchy.
+fn map_recall_error(err: RecallError) -> PyErr {
+    match err {
+        RecallError::Vanta(core) => map_vanta_error(core),
+        other => PyRuntimeError::new_err(format!("memory recall failed: {other}")),
+    }
+}
+
+/// Effective recall mode as its wire tag (TDAM `cfg.recall.strategy`).
+fn recall_mode_tag(mode: RecallMode) -> &'static str {
+    match mode {
+        RecallMode::Keyword => "keyword",
+        RecallMode::Embedding => "embedding",
+        RecallMode::Hybrid => "hybrid",
+    }
+}
+
+/// Convert a recall result into a plain Python dict (mirror of the desktop
+/// `RecallOutcome`; `RecallResult` is not `Serialize`).
+fn recall_result_to_pydict(py: Python<'_>, result: RecallResult) -> PyResult<Py<PyAny>> {
+    let dict = PyDict::new(py);
+    dict.set_item("prepend_context", result.prepend_context)?;
+    dict.set_item("append_system_context", result.append_system_context)?;
+    let memories = PyList::empty(py);
+    for memory in &result.recalled_memories {
+        let entry = PyDict::new(py);
+        entry.set_item("content", &memory.content)?;
+        entry.set_item("score", memory.score)?;
+        entry.set_item("type", &memory.memory_type)?;
+        entry.set_item("source_namespace", &memory.source_namespace)?;
+        entry.set_item("source_key", &memory.source_key)?;
+        memories.append(entry)?;
+    }
+    dict.set_item("recalled_memories", memories)?;
+    dict.set_item("persona", result.persona)?;
+    dict.set_item("effective_mode", recall_mode_tag(result.effective_mode))?;
+    Ok(dict.unbind().into())
+}
+
 #[pymethods]
 impl Client {
     /// Create or open a VantaDB database.
@@ -619,6 +739,16 @@ impl Client {
             read_only,
             backend,
         )
+    }
+
+    /// Compute the deterministic 128-bit graph/storage node ID for a `(namespace, key)` pair.
+    ///
+    /// Use this ID when linking SDK memory records (`db.put(key, ..., namespace=ns)`)
+    /// with graph edges (`db.add_edge(src_id, dst_id, ...)`).
+    #[staticmethod]
+    #[pyo3(signature = (namespace, key))]
+    fn memory_node_id(namespace: &str, key: &str) -> u128 {
+        vantadb::sdk::memory_node_id(namespace, key)
     }
 
     /// Insert a node with content and an optional embedding vector.
@@ -675,7 +805,8 @@ impl Client {
 
         let engine = self.engine.clone();
         // PERF-24: GIL RELEASED — pure Rust node insert + WAL write
-        py.detach(move || engine.insert_node(input).map_err(map_vanta_error))?;
+        py.detach(move || engine.insert_node(input))
+            .map_err(map_vanta_error)?;
 
         Ok(())
     }
@@ -718,7 +849,9 @@ impl Client {
         }
 
         let engine = self.engine.clone();
-        let records = py.detach(move || engine.put_batch(inputs).map_err(map_vanta_error))?;
+        let records = py
+            .detach(move || engine.put_batch(inputs))
+            .map_err(map_vanta_error)?;
         Ok(records.into_iter().map(VantaPyMemoryRecord::new).collect())
     }
 
@@ -823,8 +956,9 @@ impl Client {
                         &|i| view.row_to_vec(i),
                     )?;
                     let engine = self.engine.clone();
-                    let records =
-                        py.detach(move || engine.put_batch(inputs).map_err(map_vanta_error))?;
+                    let records = py
+                        .detach(move || engine.put_batch(inputs))
+                        .map_err(map_vanta_error)?;
                     return Ok(records.into_iter().map(VantaPyMemoryRecord::new).collect());
                 }
             }
@@ -846,7 +980,9 @@ impl Client {
                 },
             )?;
             let engine = self.engine.clone();
-            let records = py.detach(move || engine.put_batch(inputs).map_err(map_vanta_error))?;
+            let records = py
+                .detach(move || engine.put_batch(inputs))
+                .map_err(map_vanta_error)?;
             return Ok(records.into_iter().map(VantaPyMemoryRecord::new).collect());
         }
 
@@ -887,7 +1023,9 @@ impl Client {
                 },
             )?;
             let engine = self.engine.clone();
-            let records = py.detach(move || engine.put_batch(inputs).map_err(map_vanta_error))?;
+            let records = py
+                .detach(move || engine.put_batch(inputs))
+                .map_err(map_vanta_error)?;
             return Ok(records.into_iter().map(VantaPyMemoryRecord::new).collect());
         }
 
@@ -969,7 +1107,9 @@ impl Client {
 
         let engine = self.engine.clone();
         // PERF-24: GIL RELEASED — pure Rust storage write + index update
-        let record = py.detach(move || engine.put(input).map_err(map_vanta_error))?;
+        let record = py
+            .detach(move || engine.put(input))
+            .map_err(map_vanta_error)?;
         Ok(VantaPyMemoryRecord::new(record))
     }
 
@@ -1010,11 +1150,8 @@ impl Client {
         let filter_ops = py_dict_to_filter_ops(Some(filters))?;
         let engine = self.engine.clone();
         let namespace = namespace.to_string();
-        py.detach(move || {
-            engine
-                .delete_by_filter(&namespace, filter_ops)
-                .map_err(map_vanta_error)
-        })
+        py.detach(move || engine.delete_by_filter(&namespace, filter_ops))
+            .map_err(map_vanta_error)
     }
 
     /// Count memory records in a namespace, optionally filtered by metadata.
@@ -1059,11 +1196,8 @@ impl Client {
         };
         let engine = self.engine.clone();
         let namespace = namespace.to_string();
-        py.detach(move || {
-            engine
-                .count(&namespace, filter_ops)
-                .map_err(map_vanta_error)
-        })
+        py.detach(move || engine.count(&namespace, filter_ops))
+            .map_err(map_vanta_error)
     }
 
     /// Search namespace-scoped memory records by vector similarity from an
@@ -1107,11 +1241,9 @@ impl Client {
         let engine = self.engine.clone();
         let namespace = namespace.to_string();
         let key = key.to_string();
-        let hits = py.detach(move || {
-            engine
-                .similar_to_key(&namespace, &key, clamp_top_k(top_k))
-                .map_err(map_vanta_error)
-        })?;
+        let hits = py
+            .detach(move || engine.similar_to_key(&namespace, &key, clamp_top_k(top_k)))
+            .map_err(map_vanta_error)?;
         hits.into_iter()
             .map(|hit| {
                 Ok(VantaPySearchHit {
@@ -1172,13 +1304,13 @@ impl Client {
     ///     True
     ///     ```
     // PyO3 keyword argument binding requires matching function parameters in Rust.
-    #[pyo3(signature = (namespace, query_vector, filters=None, text_query=None, top_k=10, distance_metric=None, method=None, explain=false, exclude_superseded=false, query_sparse=None, min_confidence=None, as_of_ms=None, valid_window=None, include_quarantined=false))]
+    #[pyo3(signature = (namespace, query_vector=None, filters=None, text_query=None, top_k=10, distance_metric=None, method=None, explain=false, exclude_superseded=false, query_sparse=None, min_confidence=None, as_of_ms=None, valid_window=None, include_quarantined=false))]
     #[allow(clippy::too_many_arguments)]
     fn search(
         &self,
         py: Python,
         namespace: &str,
-        query_vector: &Bound<'_, PyAny>,
+        query_vector: Option<&Bound<'_, PyAny>>,
         filters: Option<&Bound<'_, PyDict>>,
         text_query: Option<String>,
         top_k: usize,
@@ -1196,9 +1328,14 @@ impl Client {
         let metric = parse_distance_metric(distance_metric)?;
         let method = parse_search_method(method)?;
 
+        let query_vector = match query_vector {
+            Some(v) if !v.is_none() => extract_vector(v, py)?,
+            _ => Vec::new(),
+        };
+
         let request = MemorySearchRequest {
             namespace: namespace.to_string(),
-            query_vector: extract_vector(query_vector, py)?,
+            query_vector,
             query_sparse: py_dict_to_sparse_vector(query_sparse)?,
             filters: py_dict_to_metadata(filters)?,
             text_query,
@@ -1223,11 +1360,9 @@ impl Client {
 
         let engine = self.engine.clone();
         // PERF-24: GIL RELEASED — pure Rust distance computation + HNSW traversal
-        let hits = py.detach(move || {
-            engine
-                .search_with_method(request, method)
-                .map_err(map_vanta_error)
-        })?;
+        let hits = py
+            .detach(move || engine.search_with_method(request, method))
+            .map_err(map_vanta_error)?;
 
         // Pure Rust struct wrapping — no Python objects created
         hits.into_iter()
@@ -1330,12 +1465,12 @@ impl Client {
         };
 
         let engine = self.engine.clone();
-        let hits = py.detach(move || {
-            let ns_refs: Vec<&str> = namespaces.iter().map(String::as_str).collect();
-            engine
-                .search_multi(&ns_refs, request)
-                .map_err(map_vanta_error)
-        })?;
+        let hits = py
+            .detach(move || {
+                let ns_refs: Vec<&str> = namespaces.iter().map(String::as_str).collect();
+                engine.search_multi(&ns_refs, request)
+            })
+            .map_err(map_vanta_error)?;
 
         hits.into_iter()
             .map(|hit| {
@@ -1345,6 +1480,101 @@ impl Client {
                 })
             })
             .collect()
+    }
+
+    /// Run the GraphRAG pipeline: seed → expand → retrieve → generate context.
+    ///
+    /// Exposes `Embedded::graphrag_search` with the default pipeline
+    /// configuration (seed_k=10, expansion_hops=2, max_expansion_nodes=100,
+    /// retrieval_top_k=20). At least one of ``query`` / ``query_vector``
+    /// should be provided; both may be combined (hybrid seeds).
+    ///
+    /// GIL Policy: RELEASED — pure Rust search + BFS expansion + ranking.
+    ///
+    /// Args:
+    ///     namespace: Namespace whose records seed the pipeline.
+    ///     query: Optional text query for lexical (BM25) seeds.
+    ///     query_vector: Optional dense vector for ANN seeds (list, NumPy
+    ///         array, or ``Vector``).
+    ///
+    /// Returns:
+    ///     dict: ``{"nodes": [{"id", "content", "score", "hop_distance"}],
+    ///     "edges": [{"source", "target", "label"}],
+    ///     "context_text": str, "stats": {"seeds_found", "nodes_expanded",
+    ///     "total_candidates", "expansion_hops_used"}}`` — the canonical wire
+    ///     shape shared with the WASM/TS/Node bindings. u128 ids are native
+    ///     ints here; JSON transports carry them as decimal strings.
+    ///
+    /// Raises:
+    ///     ValidationError: The query vector exceeds the dimension cap.
+    ///     StorageError: The underlying engine read failed.
+    ///
+    /// Example:
+    ///     ```python
+    ///     >>> from vantadb_py import Client
+    ///     >>> db = Client(":memory:", backend="memory")
+    ///     >>> db.put("docs", "a", "vector database for agents", vector=[0.1, 0.2, 0.3])
+    ///     >>> result = db.graphrag_search("docs", query="vector database")
+    ///     >>> result["stats"]["seeds_found"] >= 1
+    ///     True
+    ///     ```
+    #[pyo3(signature = (namespace, query=None, query_vector=None))]
+    fn graphrag_search(
+        &self,
+        py: Python<'_>,
+        namespace: &str,
+        query: Option<String>,
+        query_vector: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<Py<PyAny>> {
+        let _g = enter(&self.op_gate)?;
+        let vector = match query_vector {
+            Some(v) => Some(extract_vector(v, py)?),
+            None => None,
+        };
+        if let Some(v) = &vector {
+            if v.len() > MAX_VEC_DIM {
+                return Err(ValidationError::new_err(format!(
+                    "graphrag_search: query_vector length {} exceeds max {MAX_VEC_DIM}",
+                    v.len()
+                )));
+            }
+        }
+        let namespace = namespace.to_string();
+        let engine = self.engine.clone();
+        // GIL RELEASED: pure Rust — seed search + graph expansion + ranking.
+        let result = py
+            .detach(move || engine.graphrag_search(&namespace, query.as_deref(), vector.as_deref()))
+            .map_err(map_vanta_error)?;
+
+        let dict = PyDict::new(py);
+        let nodes = PyList::empty(py);
+        for node in &result.nodes {
+            let node_dict = PyDict::new(py);
+            node_dict.set_item("id", node.id)?;
+            node_dict.set_item("content", &node.content)?;
+            node_dict.set_item("score", node.score)?;
+            node_dict.set_item("hop_distance", node.hop_distance)?;
+            nodes.append(node_dict)?;
+        }
+        let edges = PyList::empty(py);
+        for edge in &result.edges {
+            let edge_dict = PyDict::new(py);
+            edge_dict.set_item("source", edge.source)?;
+            edge_dict.set_item("target", edge.target)?;
+            edge_dict.set_item("label", &edge.label)?;
+            edges.append(edge_dict)?;
+        }
+        let stats = PyDict::new(py);
+        stats.set_item("seeds_found", result.stats.seeds_found)?;
+        stats.set_item("nodes_expanded", result.stats.nodes_expanded)?;
+        stats.set_item("total_candidates", result.stats.total_candidates)?;
+        stats.set_item("expansion_hops_used", result.stats.expansion_hops_used)?;
+
+        dict.set_item("nodes", nodes)?;
+        dict.set_item("edges", edges)?;
+        dict.set_item("context_text", &result.context_text)?;
+        dict.set_item("stats", stats)?;
+        Ok(dict.unbind().into())
     }
 
     /// Rebuild ANN and derived memory indexes from canonical storage.
@@ -1377,7 +1607,9 @@ impl Client {
     fn rebuild_index(&self, py: Python) -> PyResult<Py<PyAny>> {
         let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
-        let report = py.detach(move || engine.rebuild_index().map_err(map_vanta_error))?;
+        let report = py
+            .detach(move || engine.rebuild_index())
+            .map_err(map_vanta_error)?;
         rebuild_report_to_pydict(py, &report)
     }
 
@@ -1396,11 +1628,9 @@ impl Client {
         let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         let namespace = namespace.to_string();
-        let report = py.detach(move || {
-            engine
-                .reindex_hnsw_from_text(&namespace, Some(page_size))
-                .map_err(map_vanta_error)
-        })?;
+        let report = py
+            .detach(move || engine.reindex_hnsw_from_text(&namespace, Some(page_size)))
+            .map_err(map_vanta_error)?;
         rebuild_report_to_pydict(py, &report)
     }
 
@@ -1414,7 +1644,7 @@ impl Client {
     ///
     /// Returns:
     ///     dict: Export report with keys ``records_exported``, ``namespaces``,
-    ///     ``path``, and ``duration_ms``.
+    ///     ``path``, ``duration_ms``, ``sha256``, and ``manifest_path``.
     ///
     /// Raises:
     ///     StorageError: If the target directory does not exist.
@@ -1438,12 +1668,22 @@ impl Client {
         let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         let path = path.to_string();
-        let namespace = namespace.to_string();
-        let report = py.detach(move || {
-            engine
-                .export_namespace(&path, &namespace, None)
-                .map_err(map_vanta_error)
-        })?;
+        let ns = namespace.to_string();
+        let report = py
+            .detach(move || engine.export_namespace(&path, &ns, None))
+            .map_err(map_vanta_error)?;
+        if report.records_exported == 0 {
+            if let Ok(msg) = std::ffi::CString::new(format!(
+                "export_namespace: namespace '{namespace}' exported 0 records (namespace is empty or does not exist)"
+            )) {
+                let _ = PyErr::warn(
+                    py,
+                    &py.get_type::<pyo3::exceptions::PyUserWarning>(),
+                    msg.as_c_str(),
+                    1,
+                );
+            }
+        }
         export_report_to_pydict(py, &report)
     }
 
@@ -1456,7 +1696,7 @@ impl Client {
     ///
     /// Returns:
     ///     dict: Export report with keys ``records_exported``, ``namespaces``,
-    ///     ``path``, and ``duration_ms``.
+    ///     ``path``, ``duration_ms``, ``sha256``, and ``manifest_path``.
     ///
     /// Raises:
     ///     StorageError: If the target directory does not exist.
@@ -1479,7 +1719,9 @@ impl Client {
         let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         let path = path.to_string();
-        let report = py.detach(move || engine.export_all(&path).map_err(map_vanta_error))?;
+        let report = py
+            .detach(move || engine.export_all(&path))
+            .map_err(map_vanta_error)?;
         export_report_to_pydict(py, &report)
     }
 
@@ -1522,8 +1764,9 @@ impl Client {
         let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         let path = path.to_string();
-        let report =
-            py.detach(move || engine.import_file(&path, false).map_err(map_vanta_error))?;
+        let report = py
+            .detach(move || engine.import_file(&path, false))
+            .map_err(map_vanta_error)?;
         import_report_to_pydict(py, &report)
     }
 
@@ -1533,7 +1776,9 @@ impl Client {
         let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         let path = path.to_string();
-        let report = py.detach(move || engine.bulk_import_file(&path).map_err(map_vanta_error))?;
+        let report = py
+            .detach(move || engine.bulk_import_file(&path))
+            .map_err(map_vanta_error)?;
         bulk_import_report_to_pydict(py, &report)
     }
 
@@ -1543,12 +1788,12 @@ impl Client {
         let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         let data = data.to_vec();
-        let report = py.detach(move || {
-            let mut cursor = std::io::Cursor::new(&data[..]);
-            engine
-                .bulk_import_stream(&mut cursor)
-                .map_err(map_vanta_error)
-        })?;
+        let report = py
+            .detach(move || {
+                let mut cursor = std::io::Cursor::new(&data[..]);
+                engine.bulk_import_stream(&mut cursor)
+            })
+            .map_err(map_vanta_error)?;
         bulk_import_report_to_pydict(py, &report)
     }
 
@@ -1580,7 +1825,9 @@ impl Client {
     fn repair_text_index(&self, py: Python) -> PyResult<Py<PyAny>> {
         let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
-        let report = py.detach(move || engine.repair_text_index().map_err(map_vanta_error))?;
+        let report = py
+            .detach(move || engine.repair_text_index())
+            .map_err(map_vanta_error)?;
         text_index_repair_report_to_pydict(py, &report)
     }
 
@@ -1625,7 +1872,9 @@ impl Client {
     fn get_node(&self, py: Python, id: u128) -> PyResult<Option<Py<PyAny>>> {
         let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
-        let node = py.detach(move || engine.get_node(id).map_err(map_vanta_error))?;
+        let node = py
+            .detach(move || engine.get_node(id))
+            .map_err(map_vanta_error)?;
         match node {
             Some(node) => Ok(Some(node_to_pydict(py, &node)?)),
             None => Ok(None),
@@ -1643,7 +1892,8 @@ impl Client {
         let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         let reason_str = reason.to_string();
-        py.detach(move || engine.delete_node(id, &reason_str).map_err(map_vanta_error))
+        py.detach(move || engine.delete_node(id, &reason_str))
+            .map_err(map_vanta_error)
     }
 
     /// K-NN vector search. Returns a list of (node_id, distance) tuples.
@@ -1665,18 +1915,13 @@ impl Client {
         let v = extract_vector(vector, py)?;
         let engine = self.engine.clone();
         // GIL RELEASED: only pure Rust — distance computation + graph traversal
-        py.detach(move || {
-            engine
-                .search_vector(&v, clamp_top_k(top_k))
-                .map(|hits| {
-                    // Pure Rust tuple mapping — no Python objects created
-                    // node_id is u128 in core; keep full precision (ERR-023)
-                    hits.into_iter()
-                        .map(|hit| (hit.node_id, hit.distance))
-                        .collect()
-                })
-                .map_err(map_vanta_error)
-        })
+        let hits = py
+            .detach(move || engine.search_vector(&v, clamp_top_k(top_k)))
+            .map_err(map_vanta_error)?;
+        Ok(hits
+            .into_iter()
+            .map(|hit| (hit.node_id, hit.distance))
+            .collect())
     }
 
     /// K-NN vector search for a batch of vectors.
@@ -1700,22 +1945,24 @@ impl Client {
         let parsed = parsed?;
         let engine = self.engine.clone();
         // GIL RELEASED: pure Rust — parallel graph traversal, no Python objects
-        py.detach(move || {
-            use rayon::prelude::*;
-            parsed
-                .into_par_iter()
-                .map(|vector| {
-                    engine
-                        .search_vector(&vector, clamp_top_k(top_k))
-                        .map(|hits| {
-                            hits.into_iter()
-                                .map(|hit| (hit.node_id, hit.distance))
-                                .collect()
-                        })
-                        .map_err(map_vanta_error)
-                })
-                .collect::<Result<Vec<Vec<(u128, f32)>>, _>>()
-        })
+        let results = py
+            .detach(move || {
+                use rayon::prelude::*;
+                parsed
+                    .into_par_iter()
+                    .map(|vector| {
+                        engine
+                            .search_vector(&vector, clamp_top_k(top_k))
+                            .map(|hits| {
+                                hits.into_iter()
+                                    .map(|hit| (hit.node_id, hit.distance))
+                                    .collect()
+                            })
+                    })
+                    .collect::<Result<Vec<Vec<(u128, f32)>>, _>>()
+            })
+            .map_err(map_vanta_error)?;
+        Ok(results)
     }
 
     /// Hybrid memory search for a batch of full search requests.
@@ -1756,36 +2003,27 @@ impl Client {
             .map(|obj| self.parse_search_request(obj, py, top_k))
             .collect();
         let parsed = parsed?;
-        let count = parsed.len();
         let engine = self.engine.clone();
-        let results: std::sync::Mutex<Vec<Vec<VantaPySearchHit>>> =
-            std::sync::Mutex::new((0..count).map(|_| Vec::new()).collect());
-        let results_ref = &results;
         // GIL RELEASED: pure Rust — parallel hybrid search, no Python objects
-        py.detach(move || -> PyResult<()> {
+        let results: Result<Vec<Vec<_>>, _> = py.detach(move || {
             use rayon::prelude::*;
             parsed
                 .into_par_iter()
-                .enumerate()
-                .try_for_each(|(index, (request, method))| {
-                    let hits = engine
-                        .search_with_method(request, method)
-                        .map_err(map_vanta_error)?;
-                    results_ref.lock().map_err(|_| {
-                        PyRuntimeError::new_err("search_batch_requests: result mutex poisoned")
-                    })?[index] = hits
-                        .into_iter()
-                        .map(|hit| VantaPySearchHit {
-                            inner: hit.record,
-                            score: hit.score,
-                        })
-                        .collect();
-                    Ok(())
-                })
-        })?;
-        results
-            .into_inner()
-            .map_err(|_| PyRuntimeError::new_err("search_batch_requests: result mutex poisoned"))
+                .map(|(request, method)| engine.search_with_method(request, method))
+                .collect()
+        });
+        let raw_hits = results.map_err(map_vanta_error)?;
+        Ok(raw_hits
+            .into_iter()
+            .map(|hits| {
+                hits.into_iter()
+                    .map(|hit| VantaPySearchHit {
+                        inner: hit.record,
+                        score: hit.score,
+                    })
+                    .collect()
+            })
+            .collect())
     }
 
     /// Execute an IQL or LISP query string. Returns a formatted result string.
@@ -1797,12 +2035,10 @@ impl Client {
         let engine = self.engine.clone();
         let query_str = iql_query.to_string();
 
-        py.detach(move || {
-            engine
-                .query(&query_str)
-                .map(|result| format_query_result(&result))
-                .map_err(map_vanta_error)
-        })
+        let result = py
+            .detach(move || engine.query(&query_str))
+            .map_err(map_vanta_error)?;
+        Ok(format_query_result(&result))
     }
 
     /// Execute an IQL or LISP query string. Returns a structured dict (MOD-20)
@@ -1824,7 +2060,9 @@ impl Client {
         let engine = self.engine.clone();
         let query_str = iql_query.to_string();
 
-        let result = py.detach(move || engine.query(&query_str).map_err(map_vanta_error))?;
+        let result = py
+            .detach(move || engine.query(&query_str))
+            .map_err(map_vanta_error)?;
         query_result_to_pydict(py, &result)
     }
 
@@ -1834,7 +2072,7 @@ impl Client {
     fn flush(&self, py: Python) -> PyResult<()> {
         let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
-        py.detach(move || engine.flush().map_err(map_vanta_error))
+        py.detach(move || engine.flush()).map_err(map_vanta_error)
     }
 
     /// Compact the WAL: flush, archive ``vanta.wal`` as
@@ -1843,7 +2081,8 @@ impl Client {
     fn compact_wal(&self, py: Python) -> PyResult<()> {
         let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
-        py.detach(move || engine.compact_wal().map_err(map_vanta_error))
+        py.detach(move || engine.compact_wal())
+            .map_err(map_vanta_error)
     }
 
     /// Scan all memory records and physically delete expired ones.
@@ -1852,7 +2091,8 @@ impl Client {
     fn purge_expired(&self, py: Python) -> PyResult<u64> {
         let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
-        py.detach(move || engine.purge_expired().map_err(map_vanta_error))
+        py.detach(move || engine.purge_expired())
+            .map_err(map_vanta_error)
     }
 
     /// Mark an existing record as superseded by another existing record
@@ -1870,11 +2110,8 @@ impl Client {
         let old_key = old_key.to_string();
         let new_key = new_key.to_string();
         let engine = self.engine.clone();
-        py.detach(move || {
-            engine
-                .supersede(&namespace, &old_key, &new_key)
-                .map_err(map_vanta_error)
-        })
+        py.detach(move || engine.supersede(&namespace, &old_key, &new_key))
+            .map_err(map_vanta_error)
     }
 
     /// Introspect the stable runtime capabilities exposed by the SDK boundary.
@@ -1940,11 +2177,130 @@ impl Client {
         let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         let label_str = label.to_string();
-        py.detach(move || {
-            engine
-                .add_edge(source_id, target_id, &label_str, weight, created_at_ms)
-                .map_err(map_vanta_error)
-        })
+        py.detach(move || engine.add_edge(source_id, target_id, &label_str, weight, created_at_ms))
+            .map_err(map_vanta_error)
+    }
+
+    /// Capture conversation turns into the L0 memory layer (LLM-free).
+    ///
+    /// Records each message through the idempotent L0 recorder (per-session
+    /// cursor: a replayed turn is never duplicated). Roles other than
+    /// ``user``/``assistant``, empty content and code-only assistant messages
+    /// are filtered — never lost silently. No LLM is involved: capture can
+    /// never block on a runner.
+    ///
+    /// GIL Policy: RELEASED — pure Rust role filtering, sanitizing and L0
+    /// storage writes.
+    ///
+    /// Args:
+    ///     session_id: Session whose turns are being captured.
+    ///     messages: List of dicts with ``role`` (``"user"``/``"assistant"``)
+    ///         and ``content``; optional ``id`` (str) and ``timestamp_ms``
+    ///         (int, Unix ms — defaults to now).
+    ///
+    /// Returns:
+    ///     dict: ``{"recorded_count": int, "filtered_messages": int,
+    ///     "cursor_ms": int}``.
+    ///
+    /// Raises:
+    ///     ValueError: A message is missing ``role``/``content``.
+    ///     TypeError: ``messages`` is not a list of dicts, or a field has the
+    ///         wrong type.
+    ///     StorageError: The underlying engine write failed.
+    #[pyo3(signature = (session_id, messages))]
+    fn memory_capture(
+        &self,
+        py: Python<'_>,
+        session_id: &str,
+        messages: Vec<Bound<'_, PyAny>>,
+    ) -> PyResult<Py<PyAny>> {
+        let _g = enter(&self.op_gate)?;
+        // Parse while the GIL is held; the detached closure only sees owned
+        // Rust values (never Python objects).
+        let parsed: PyResult<Vec<RawMessage>> = messages
+            .iter()
+            .enumerate()
+            .map(|(index, msg)| parse_raw_message(index, msg))
+            .collect();
+        let parsed = parsed?;
+        let session_id = session_id.to_string();
+        let engine = self.engine.clone();
+        // GIL RELEASED: pure Rust — filtering, sanitizing, L0 writes.
+        let result = py
+            .detach(move || {
+                let hook = AutoCaptureHook::new(engine, AutoCaptureConfig::default());
+                hook.capture(&session_id, parsed)
+            })
+            .map_err(map_l0_error)?;
+        let dict = PyDict::new(py);
+        dict.set_item("recorded_count", result.recorded_count)?;
+        dict.set_item("filtered_messages", result.filtered_messages)?;
+        dict.set_item("cursor_ms", result.cursor_ms)?;
+        Ok(dict.unbind().into())
+    }
+
+    /// Recall memories for the current turn: relevant L1 memories + persona +
+    /// scene navigation (LLM-free).
+    ///
+    /// Returns ``None`` when there is nothing to inject — never an empty
+    /// block. Without an embedding provider attached, ``hybrid`` degrades to
+    /// keyword overlap and ``effective_mode`` reports the degradation (D38).
+    ///
+    /// GIL Policy: RELEASED — pure Rust storage reads + scoring.
+    ///
+    /// Args:
+    ///     user_text: Raw user text of the current turn (empty still injects
+    ///         persona/scene navigation).
+    ///     session_key: Session whose L1 records / scenes are searched.
+    ///     scope: Cross-session reach — ``"session"``, ``"agent"`` (default)
+    ///         or ``"team"``.
+    ///     max_results: Maximum memories injected per turn (default 5).
+    ///
+    /// Returns:
+    ///     dict | None: ``{"prepend_context", "append_system_context",
+    ///     "recalled_memories", "persona", "effective_mode"}``, or ``None``
+    ///     when nothing is available to inject.
+    ///
+    /// Raises:
+    ///     ValueError: Unknown ``scope``.
+    ///     StorageError: The underlying engine read failed.
+    #[pyo3(signature = (user_text, session_key, scope=None, max_results=None))]
+    fn memory_recall(
+        &self,
+        py: Python<'_>,
+        user_text: &str,
+        session_key: &str,
+        scope: Option<&str>,
+        max_results: Option<usize>,
+    ) -> PyResult<Option<Py<PyAny>>> {
+        let _g = enter(&self.op_gate)?;
+        let mut config = RecallConfig {
+            scope: parse_recall_scope(scope)?,
+            ..RecallConfig::default()
+        };
+        if let Some(max_results) = max_results {
+            config.max_results = max_results;
+        }
+        let user_text = user_text.to_string();
+        let session_key = session_key.to_string();
+        let engine = self.engine.clone();
+        // GIL RELEASED: pure Rust — L1 scoring + persona/scene reads.
+        let result = py
+            .detach(move || {
+                let params = AutoRecallParams {
+                    user_text: &user_text,
+                    session_key: &session_key,
+                    isolation: None,
+                    config,
+                };
+                // No embedding hook: hybrid/embedding degrade to keyword (D38).
+                perform_auto_recall(&engine, params, None)
+            })
+            .map_err(map_recall_error)?;
+        match result {
+            Some(result) => Ok(Some(recall_result_to_pydict(py, result)?)),
+            None => Ok(None),
+        }
     }
 
     /// Flush and close the embedded engine handle.
@@ -1961,7 +2317,7 @@ impl Client {
         let gate = self.op_gate.clone();
         py.detach(move || gate.drain());
         let engine = self.engine.clone();
-        py.detach(move || engine.close().map_err(map_vanta_error))
+        py.detach(move || engine.close()).map_err(map_vanta_error)
     }
 
     /// Enter the synchronous context manager.
@@ -2020,11 +2376,8 @@ impl Client {
         let dir = parse_direction(direction)?;
         let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
-        py.detach(move || {
-            engine
-                .graph_bfs(&roots, max_depth, dir)
-                .map_err(map_vanta_error)
-        })
+        py.detach(move || engine.graph_bfs(&roots, max_depth, dir))
+            .map_err(map_vanta_error)
     }
 
     /// Breadth-First-Search with optional edge label and time filtering.
@@ -2058,11 +2411,8 @@ impl Client {
         let labels = labels.unwrap_or_default();
         let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
-        py.detach(move || {
-            engine
-                .graph_bfs_filtered(&roots, max_depth, dir, &labels, time_range)
-                .map_err(map_vanta_error)
-        })
+        py.detach(move || engine.graph_bfs_filtered(&roots, max_depth, dir, &labels, time_range))
+            .map_err(map_vanta_error)
     }
 
     /// Depth-First-Search starting from a designated set of root IDs,
@@ -2080,11 +2430,8 @@ impl Client {
         let dir = parse_direction(direction)?;
         let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
-        py.detach(move || {
-            engine
-                .graph_dfs(&roots, max_depth, dir)
-                .map_err(map_vanta_error)
-        })
+        py.detach(move || engine.graph_dfs(&roots, max_depth, dir))
+            .map_err(map_vanta_error)
     }
 
     /// Performs a topological sort on the subgraph reachable from the given roots.
@@ -2094,11 +2441,8 @@ impl Client {
     fn graph_topological_sort(&self, py: Python, roots: Vec<u128>) -> PyResult<Vec<u128>> {
         let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
-        py.detach(move || {
-            engine
-                .graph_topological_sort(&roots)
-                .map_err(map_vanta_error)
-        })
+        py.detach(move || engine.graph_topological_sort(&roots))
+            .map_err(map_vanta_error)
     }
 
     /// Checks if the subgraph reachable from the given roots is a Directed Acyclic Graph (DAG).
@@ -2107,7 +2451,8 @@ impl Client {
     fn graph_is_dag(&self, py: Python, roots: Vec<u128>) -> PyResult<bool> {
         let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
-        py.detach(move || engine.graph_is_dag(&roots).map_err(map_vanta_error))
+        py.detach(move || engine.graph_is_dag(&roots))
+            .map_err(map_vanta_error)
     }
 
     /// Compute PageRank for the subgraph reachable from the given roots.
@@ -2133,11 +2478,8 @@ impl Client {
     ) -> PyResult<HashMap<u128, f64>> {
         let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
-        py.detach(move || {
-            engine
-                .graph_page_rank(&roots, max_iterations, damping, tolerance)
-                .map_err(map_vanta_error)
-        })
+        py.detach(move || engine.graph_page_rank(&roots, max_iterations, damping, tolerance))
+            .map_err(map_vanta_error)
     }
 
     /// Compute degree centrality (in/out degree counts) for the subgraph
@@ -2157,11 +2499,8 @@ impl Client {
     ) -> PyResult<HashMap<u128, (usize, usize)>> {
         let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
-        py.detach(move || {
-            engine
-                .graph_degree_centrality(&roots)
-                .map_err(map_vanta_error)
-        })
+        py.detach(move || engine.graph_degree_centrality(&roots))
+            .map_err(map_vanta_error)
     }
 
     /// Compact the storage layout: reorders nodes in BFS order to improve
@@ -2169,7 +2508,8 @@ impl Client {
     fn compact_layout(&self, py: Python) -> PyResult<u64> {
         let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
-        py.detach(move || engine.compact_layout().map_err(map_vanta_error))
+        py.detach(move || engine.compact_layout())
+            .map_err(map_vanta_error)
     }
 
     /// Recover shadow-archived nodes that belonged to a summary node.
@@ -2193,8 +2533,9 @@ impl Client {
         })?;
         let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
-        let nodes =
-            py.detach(move || engine.recover_archived_nodes(sid).map_err(map_vanta_error))?;
+        let nodes = py
+            .detach(move || engine.recover_archived_nodes(sid))
+            .map_err(map_vanta_error)?;
         nodes.into_iter().map(|n| node_to_pydict(py, &n)).collect()
     }
 
@@ -2202,7 +2543,8 @@ impl Client {
     fn list_namespaces(&self, py: Python) -> PyResult<Vec<String>> {
         let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
-        py.detach(move || engine.list_namespaces().map_err(map_vanta_error))
+        py.detach(move || engine.list_namespaces())
+            .map_err(map_vanta_error)
     }
 
     /// Generate a text snippet from a payload, highlighting matched query terms.
@@ -2267,11 +2609,9 @@ impl Client {
 
         let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
-        let explanation = py.detach(move || {
-            engine
-                .explain_memory_search(request)
-                .map_err(map_vanta_error)
-        })?;
+        let explanation = py
+            .detach(move || engine.explain_memory_search(request))
+            .map_err(map_vanta_error)?;
 
         search_explanation_to_pydict(py, &explanation)
     }
@@ -2507,6 +2847,16 @@ fn connect(
     open_vantadb(py, storage_path, memory_limit, read_only, backend)
 }
 
+/// Compute the deterministic 128-bit graph/storage node ID for a `(namespace, key)` pair.
+///
+/// Use this ID when linking SDK memory records (`db.put(key, ..., namespace=ns)`)
+/// with graph edges (`db.add_edge(src_id, dst_id, ...)`).
+#[pyfunction]
+#[pyo3(signature = (namespace, key))]
+fn memory_node_id(namespace: &str, key: &str) -> u128 {
+    vantadb::sdk::memory_node_id(namespace, key)
+}
+
 /// The Python module for VantaDB.
 /// Usage: `import vantadb_py`
 #[pymodule]
@@ -2518,6 +2868,7 @@ fn vantadb_py(_py: Python, m: &Bound<'_, pyo3::types::PyModule>) -> PyResult<()>
     m.add_class::<VantaPyMemoryRecord>()?;
     m.add_class::<VantaPyListResult>()?;
     m.add_function(wrap_pyfunction!(connect, m)?)?;
+    m.add_function(wrap_pyfunction!(memory_node_id, m)?)?;
     // Typed exception hierarchy (MOD-20).
     m.add("Error", _py.get_type::<Error>())?;
     m.add("NotFoundError", _py.get_type::<NotFoundError>())?;

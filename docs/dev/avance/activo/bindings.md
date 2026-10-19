@@ -1153,3 +1153,187 @@ tags: [vantadb, avance, bindings, python, wasm, typescript, mcp, adapters]
 - **Objetivo:** Estabilizar la API Rust de `vanta-memory` (Gate P core-only): degradación por diseño verificada, deudas D37/D21/MEM-16 con DEFER fundado, 0 símbolos nuevos en bindings.
 - **Resultado:** ✅ Contrato 4/4 — 28 targets 0 failed · degradación `llm_free_mode_reports_not_configured` 1/1 · `rg vanta[_-]memory` en bindings = 0 · `docs/api/VANTA_MEMORY.md` (+107/−20) + rustdoc `## Stability` · review P2-01 ronda 2 ✅ APPROVE · FIND-160 registrada.
 - **Commit:** ade86a1c (local, sin push)
+
+### FIND-238: WASM/npm — silenciar logs DEBUG de `Client.create()` (tracing-wasm default-on sin filtro)
+- **Fecha:** 2026-10-04
+- **Objetivo:** El binding WASM emitía ~40 líneas `DEBUG` (`src/config.rs`) al console en cada `Client.create()` (subscriber `tracing-wasm` con `max_level=TRACE` default). Fix: nivel `WARN` por defecto + gate `globalThis.VANTADB_LOG` (análogo portable de `RUST_LOG`), documentado en READMEs wasm/TS.
+- **Resultado:** ✅ Contrato: smoke `vantadb-ts` 2/2 (sin DEBUG por defecto; con `VANTADB_LOG="debug"` sí) — RED pre-fix 1f/1p con las líneas reales · `npm test` 334/334 · tsc/eslint 0 · `wasm-pack build --release` ✅ · `cargo check wasm32` + `--no-default-features` ✅ · docs-coverage 0 gaps · OCR 0 findings · review P2-01 ✅ APPROVE (vanta-review, solo Low). API validada contra fuente `tracing-wasm 0.2.1` (`set_as_global_default_with_config` + `set_max_level`; no existe `_with_level`).
+- **Commit:** 805a7668 + 7e093a2c (local, sin push)
+
+### WSM-15: OPFS multi-pestaña — lock por archivo vía Web Locks API (multi-tab sin corrupción)
+- **Fecha:** 2026-10-04
+- **Objetivo:** OPFS sin `navigator.locks` (IDB sí lo tenía): dos pestañas concurrentes = corrupción silenciosa; replicar el patrón de `idb.rs:62` + degradación fail-loud.
+- **Resultado:** ✅ `OpfsStorage::{write,append,delete}_file` serializados por archivo (`vantadb-opfs-write:<dir>:<path>`) + `WebLockGuard` RAII (libera en error paths) + fail-loud si no hay Web Locks (Err accionable → sugiere `connect_idb`); reads lock-free (rename atómico). Evidencia RED→GREEN en Chrome headless multi-contexto real: 69/3 pre-fix (write sin esperar lock de Worker + `NoModificationAllowedError` real) → 72/72 post-fix (+77/77 `--features opfs`); review P2-01 APPROVE (reruns independientes + RED reproducido en worktree aislado). Derivada: FIND-242 (`delete_file` sin await de `removeEntry`).
+- **Commit:** 265abe6a + 92055d2a (local, sin push)
+
+### DX-01: TS WASM `get` en Node 26 — H-009 (guard de args no-string + job CI Node 26)
+- **Fecha:** 2026-10-04
+- **Objetivo:** H-009: `get` (y toda la clase de métodos con args string) trapeaba `RuntimeError: memory access out of bounds` en `passStringToWasm0` (glue wasm-bindgen, `vantadb_wasm_bg.js:1551`) cuando el argumento no era string (`len=undefined` → `malloc(0)` → `realloc` con ptr inválido). Reproducido con `vantadb@0.8.0` en Node 22.23.3/26.0.0/26.8.1/26.10.0 → NO específico de Node 26; el trigger real es el tipo del argumento.
+- **Resultado:** ✅ `toWireString` (string pass-through; number safe-int/bigint → `String()`; resto → `DbError VANTADB_INVALID_ARGUMENT`) en todos los call sites string del wrapper TS; test de regresión `dx01.test.ts` (RED 4/4 pre-fix con el trap exacto → GREEN); job `tests-node26` espejo del gate (Node 22+26) + `publish-wasm needs [tests, tests-node26]`; troubleshooting doc; FIND-243 (superficie `vantadb-wasm` directa, residual aceptado por el review). Suite 338/338 en Node 26.8.1 y 22.23.3; tsc/eslint/actionlint 0; OCR 0 findings; review P2-01 ✅ APPROVE (vanta-review, contexto fresco; 3 optionals aplicados). Prerequisito de cierre: fix del extractor TS del gate api-docs (commit `c5004b0b`).
+- **Commit:** bd641387 + c5004b0b (local, sin push)
+
+### DIST-03: TS/Node/WASM — scope de la capa cognitiva declarado (decisión b, con evidencia)
+- **Fecha:** 2026-10-04
+- **Objetivo:** la capa cognitiva es Rust-only; decidir entre exponer (a) o declarar scope por binding (b).
+- **Resultado:** ✅ Decisión (b) implementada: sección "Cognitive layer scope per binding" en BINDINGS_NAMESPACES.md (matriz 7×4 + rationale + paridad `capabilities()` + invariante `rg`) + sync de VANTA_MEMORY.md. Evidencia decisiva: `vanta-memory` no compila para wasm32 (getrandom `wasm_js`), `SystemTime::now()` paniquea en 4 sitios de producción, `std::fs` error siempre, llm-driver/embeddings no compilan (E0433/E0432) → port de 3-5d + re-run Gate P → FIND-255. La matriz descubrió drift real de `capabilities()` (Python `profile`+UPPER vs `runtime_profile`+PascalCase) → FIND-256. Review P2-01 (ronda 1 changes-required → R-1 corregido → APPROVE).
+- **Commit:** e10710f5 + 9b3baa89 + 38c728fd + 173103cb + 03d2a511 (local, sin push)
+
+### DIST-02: capa cognitiva expuesta en Python — `memory_capture` + `memory_recall` (review P2-01 ✅)
+- **Fecha:** 2026-10-04
+- **Objetivo:** el binding Python no re-exportaba `vanta-memory` (0 refs; "un usuario Python tiene una BD, no memoria"): exponer el scope mínimo — capture L0 (LLM-free, idempotente por cursor) + recall L1/persona (degrada a keyword sin hook; `None` si no hay nada que inyectar) — con stubs, docs y smoke con wheel local.
+- **Resultado:** ✅ Contrato 1-4: `Client.memory_capture`/`memory_recall` (+ wrappers `AsyncClient`) sobre `vanta-memory` (dep path, default features LLM-free; `cargo tree`: sin reqwest) · RED→GREEN (10 fallos por AttributeError → 11/11) · suite completa 173 passed/4 skipped · smoke e2e con wheel local en venv limpio (capture → reopen persistente → recall hit → `None`) · stubs con paridad (`test_stub_drift` 7/7) · `check-api-docs --changed HEAD~1..HEAD` ✅ (+12 superficie Python, docs + llms.txt movidos) · docs-coverage 0 gaps (53 items Python ok en PYTHON_SDK.md) · OCR 0 Critical/High/Medium · review P2-01 (vanta-review, contexto fresco): ronda 1 changes-required (R1: el ejemplo de docs prometía un loop capture→recall inexistente — recall lee L1/L2/L3, nunca L0) → fix de docs + test que lo pinea (`ee731884`) → APPROVE. Derivadas: FIND-257 (gate api-docs: falsos positivos con worktree CRLF), FIND-258 (código `VANTADB_*` perdido en wrappers anidados de `RecallError`), FIND-259 (L1 con `type` inválido invisible + enum sin enumerar en VANTA_MEMORY). `dream` = follow-up declarado (contrato).
+- **Commit:** 2a3bccbc + ee731884 (local, sin push)
+
+### DIST-16: `verify` de certificados vía MCP (`memory_verify_certificate`)
+- **Fecha:** 2026-10-04
+- **Objetivo:** el MCP ya emitía certificados (`memory_delete` con `attest:true`, VER-02) pero no podía verificarlos — el loop de evidencia quedaba abierto en la puerta de agentes.
+- **Resultado:** ✅ Tool `memory_verify_certificate` con resultado **tipado** (válido → `structuredContent {valid,verification}`; inválido → `isError` + envelope ERR-MCP-01) + **paridad CLI byte-exacta** (mismo `verify_purge_certificate` que `cmd_certificate_verify`; veredicto vs SDK en test); `MCP.md` + coverage 0 gaps (48 items MCP); counts 80/86/48/38/37/21; paquete 260/260 + mcp_tests 114/114; fmt/clippy 0. Review P2-01 adversarial: APPROVE (0 Critical/High/Medium). WAL VER-01 → FIND-266.
+- **Commit:** 7f30e4cd + 4ce3ed3c (local, sin push)
+
+### DIST-17: Harness de paridad cross-language Py/Node/WASM (conformance)
+- **Fecha:** 2026-10-04
+- **Objetivo:** la paridad entre bindings se sostenía por espejos manuales; hacía falta un comparador mecánico con escenario canónico.
+- **Resultado:** ✅ `tests/parity/scenario.json` (put/search/grafo/IQL) → artefacto por binding → `dev-tools/parity-compare.mjs` (SHA-256 por step + diff, normalización documentada) + job CI `ci-bindings-parity.yml`. **Incógnita resuelta en DISCOVERY: WASM corre el escenario COMPLETO (incl. IQL) con valores byte-idénticos a Py/Node**; única exclusión real: Node × IQL (sin `query`) → FIND-268. Evidencia: PARITY OK 3/3 + 5/5 modos de fallo detectados; Rust 3745/3745 · Py 182 · TS 343 · actionlint 0. Review P2-01 APPROVE.
+- **Commit:** 3c528df3 + 6a84fc5a (local, sin push)
+
+### WSM-14: Adopción npm — posicionamiento + demo + keywords honestas
+- **Fecha:** 2026-10-04
+- **Objetivo:** el paquete npm es la superficie de descubrimiento del binding WASM; el demo existía pero la superficie publicada no posicionaba.
+- **Resultado:** ✅ Posicionamiento "browser AI agent memory" en las 2 superficies npm (`vantadb-wasm` README tracked + Cargo.toml keywords; `vantadb` README + package.json) + demo Transformers.js enlazado + comparativa re-medida y honesta (gap ~31× vs Orama declarado; 1.77 MB raw / ~739 KB transfer, 2026-10-04) + refs stale a `dev-tools/build-wasm.ps1` corregidas. Smoke: `pkg/README.md` == tracked (SHA256) tras 3 rebuilds + `smoke-pack.mjs` PASSED. Review P2-01 (R1→R3) APPROVE.
+- **Commit:** 0c3e465e + 8b7269da (local, sin push)
+### TS-11: Roadmap de sub-clientes + primer slice (recoverArchivedNodes en WASM/TS)
+- **Fecha:** 2026-10-04
+- **Objetivo:** la paridad de sub-clientes (wiki/conversation/skills) era un gap silencioso (`db.wiki` placeholder); hacía falta roadmap explícito + un slice ejecutado.
+- **Resultado:** ✅ Roadmap en `BINDINGS_NAMESPACES.md` §Sub-Client Roadmap (post-D43): por sub-cliente/slice → dependencia exacta core/wasm con file:line, orden wiki→conversation→skills, criterio de promoción (5 condiciones), re-review 2026-11-04 + triggers. **Slice ejecutado:** `recoverArchivedNodes` (wiki, paridad con Python): WASM `recover_archived_nodes` + d.ts + pkg rebuild + `build-wasm-types --check`; TS flat + `db.wiki.recoverArchivedNodes` (SDKB-02). TDD RED→GREEN (18/18; suite 344/344). Review P2-01 fresh APPROVE (15 re-ejecuciones; claims 15/15; 3 Low aplicados). Nota: el clippy wasm-target pre-existente del core (`src/index/serialize/file.rs:146`) ya está trackeado como FIND-241.
+- **Commit:** 9285c1db + 799ebf1e (local, sin push)
+
+### STRAT-04: WASM lock-free multi-thread (prep Kuzu) — diseño + primer slice
+- **Fecha:** 2026-10-06
+- **Objetivo:** "lo que falta para el claim Kuzu-successor": diseño + primer slice medible de concurrencia lock-free en WASM multi-thread, con la decisión (SharedArrayBuffer/atomics vs rayon-wasm) tomada por evidencia.
+- **Resultado:** ✅ **Decisión por evidencia: SAB + atomics custom** (bench Node-reproducible; wasm-bindgen-rayon = glue browser-only + fork personal tras archivar GoogleChromeLabs; control del layout de memoria para el arena). **Slice:** `vantadb-wasm/threads-kernel/` (crate standalone `no_std`, lock-free chunk claim con `AtomicU32::fetch_add`; build nightly + `-Zbuild-std` + `+atomics` + shared-memory; `--export=__stack_pointer` para asignar stack por worker — obligatorio, hallazgo documentado) + harness Node (`worker_threads`, warm-up V8 Liftoff→TurboFan obligatorio, gates de corrección NaN + referencia f64). **Medido: 5.10× wall / 5.55× compute a 12 workers (100k×128; 400k → 5.10×/5.16×), maxerr 5.4e-8.** Go/no-go: el grafo completo de `vantadb-wasm` compila bajo build-std+atomics (EXIT=0) → sin bloqueantes de toolchain para la integración. Spec COOP/COEP + fallback single-thread declarado (patrón Kuzu/DuckDB-WASM) en `docs/dev/architecture/WASM_THREADS.md` (fuentes fechadas). Review P2-01 (vanta-review, contexto fresco): APPROVE (M1/M2 fixeados). Derivadas: integración de producto (feature `threads` + glue + fallback `crossOriginIsolated`), CI del kernel threads, validación browser COOP/COEP real = FINDs pendientes de crear.
+- **Commit:** eadb07db + c54bb2c8 (local, sin push)
+
+### DIST-15: `graphrag_search` en bindings (Py/TS/Node/WASM) — cierre por verificación
+- **Fecha:** 2026-10-08
+- **Objetivo:** la fila `DIST-15` seguía 🆕 Pendiente en Backlog pero el trabajo estaba entregado desde 2026-10-04 (task file + review P2-01 APPROVE, commit `ae991966`).
+- **Resultado:** ✅ Fila eliminada del Backlog (higiene). Evidencia re-verificada en `develop` (`a64d6992`): `graphrag_search` en los 4 bindings — `vantadb-python/src/lib.rs:1507`, `vantadb-node/src/lib.rs:641`, `vantadb-wasm/src/lib.rs:1305`, `vantadb-ts/src/native.ts:422` + `vantadb-ts/src/vantadb.ts:743` — con test de paridad `vantadb-ts/src/__tests__/graphrag.test.ts` y doc `docs/api/GRAPH_RAG.md:13-15` (4 bindings declarados). Sin drift doc↔código.
+- **Commit:** n/a (cierre documental; implementación en commits previos al 2026-10-04)
+
+### P2-5: Optimización de deserialización e interoperabilidad en bindings FFI
+- **Fecha:** 2026-10-15
+- **Objetivo:** Optimizar conversiones de tipos y buffers en interfaces FFI (Python PyO3 y WASM bindgen).
+- **Resultado:** ✅ Verificado y completado en el paquete de estabilización de bindings.
+
+### DX-04: Exposición de `memory_node_id` en Python SDK
+- **Fecha:** 2026-10-18
+- **Objetivo:** Exponer la función determinista `memory_node_id(namespace: str, key: str) -> int` en `vantadb-python` (`src/lib.rs` y stubs `.pyi`), resolviendo el puente canónico entre memoria clave-valor y el grafo de nodos.
+- **Resultado:** ✅ Método expuesto en `vantadb-python/src/lib.rs` y tipado en stubs `__init__.pyi` / `vantadb_py.pyi`.
+
+### DX-05: Aviso de namespace vacío en `export_namespace`
+- **Fecha:** 2026-10-18
+- **Objetivo:** Emitir un `UserWarning` en Python cuando `export_namespace` exporta 0 registros para evitar confusiones ante namespaces inexistentes o vacíos.
+- **Resultado:** ✅ Implementada advertencia explícita en `vantadb-python` cuando `records_exported == 0`.
+
+### DX-06: Clarificación semántica de `total_count` en listados de memoria
+- **Fecha:** 2026-10-18
+- **Objetivo:** Clarificar en `vantadb-python/src/types.rs` y `docs/api/PYTHON_SDK.md` que `page.total_count` refleja los elementos devueltos en la página actual y remitir a `db.count(namespace)` para el conteo total del namespace.
+- **Resultado:** ✅ Documentación y docstrings de tipos actualizados reflejando la semántica exacta.
+
+### DX-08: Documentación de notas operativas y onboarding en QUICKSTART
+- **Fecha:** 2026-10-18
+- **Objetivo:** Consolidar notas operativas críticas en `docs/user/QUICKSTART.md`: inspección de registros (`record.key`, `record.payload`), recuperación de locks huérfanos y gestión de capacidad de almacenamiento.
+- **Resultado:** ✅ Guía `docs/user/QUICKSTART.md` enriquecida con ejemplos y advertencias operativas.
+
+### DX-13: Regeneración de completions de CLI
+- **Fecha:** 2026-10-18
+- **Objetivo:** Regenerar y sincronizar los archivos de autocompletado en `completions/` incluyendo los subcomandos de verificabilidad (`certificate`, `verify`).
+- **Resultado:** ✅ Completions actualizadas para bash, zsh, fish y powershell.
+
+### DIST-04: `VANTA_MEMORY.md` ↔ realidad (alinear)
+- **Fecha:** 2026-10-18
+- **Objetivo:** Alinear VANTA_MEMORY.md con la realidad
+- **Resultado:** ✅ Doc reconciliado con HEAD (`docs/api/VANTA_MEMORY.md:26-31`) y superficie Python minima landing (`vantadb-python/src/lib.rs:2211,2268`).
+
+### DIST-08: Pins de versión en docs (post-0.7.0 live)
+- **Fecha:** 2026-10-18
+- **Objetivo:** Pins de version en docs coherentes con el release
+- **Resultado:** ✅ QUICKSTART y docs de la demo alineados a la 0.8.0 publicada (`QUICKSTART.md:54-55,113,143,161`).
+- **Commit:** 174410d7
+
+### DIST-19: Fachada modular `vanta-memory` en `vantadb-node` (`VantaCognitiveAPI`)
+- **Fecha:** 2026-10-18
+- **Objetivo:** Fachada cognitiva de alto nivel en Node-API
+- **Resultado:** ✅ `VantaCognitiveAPI` completa: recall, context_assemble, consolidate, reinforce, checkpointSave/Load (`vantadb-node/src/lib.rs:996-1210`).
+- **Commit:** eda872e2, 1afda9ad
+
+### EGO-01: cursor `undefined`/`Null` rechazado en `db.list()` + cursor string no aceptado
+- **Fecha:** 2026-10-18
+- **Objetivo:** Que list() acepte cursores de Node y de WASM
+- **Resultado:** ✅ `undefined`/`Null` y cursor string aceptados en `db.list()` con tests (`vantadb-node/src/lib.rs:1477-1493,1962-2010`).
+- **Commit:** 82317d89
+
+### EGO-02: `query_vector` obligatorio para BM25 puro en TS
+- **Fecha:** 2026-10-18
+- **Objetivo:** Permitir busqueda vectorial con texto o sparse
+- **Resultado:** ✅ `query_vector` acepta `text`/`sparse` opcionales con guard compartido native+WASM (`vantadb-ts/src/guards.ts:226-245`, `types.ts:215`).
+- **Commit:** c82f4b2d
+
+### EGO-03: Soporte nativo de comodines/prefijo en `search_multi`
+- **Fecha:** 2026-10-18
+- **Objetivo:** Comodines nativos en busqueda solo-texto
+- **Resultado:** ✅ `wildcard_prefix` + expansion implementados (`src/sdk/search/multi.rs:15-84`).
+- **Commit:** 36ac14ff
+
+### EGO-04: Tokenizador default parte palabras con acento (ASCII-only)
+- **Fecha:** 2026-10-18
+- **Objetivo:** Tokenizador Unicode correcto
+- **Resultado:** ✅ Tokenizacion con test (¿Cuáles/principios) y formato v2 (`TOKENIZER_VERSION=2`, `src/text_index.rs:23,178,855`).
+- **Commit:** b04d33bf
+
+### EGO-05: `Value` no acepta escalares JS planos (IEEE-754 → Int)
+- **Fecha:** 2026-10-18
+- **Objetivo:** Aceptar escalares JS planos en Value
+- **Resultado:** ✅ `Deserialize` tolerante human-readable (`src/sdk/types.rs:350-361`) con tests en `tests/sdk_serialization.rs:850-871`.
+
+### EGO-06: Lock Fjall retenido en Windows si el proceso falla antes de `close()`
+- **Fecha:** 2026-10-18
+- **Objetivo:** Liberar Fjall al descartar el handle
+- **Resultado:** ✅ Finalizer + registro por path de handles abiertos (`vantadb-node/src/lib.rs:109-113,158,201-229`).
+
+### EGO-09: Exclusión multi-proceso Fjall (`flock`) + modo `open_readonly`
+- **Fecha:** 2026-10-18
+- **Objetivo:** Apertura sin escritura y patron daemon
+- **Resultado:** ✅ `open_readonly` + patron daemon/socket (`src/sdk/builder.rs:102-121`, `tests/embedded_readonly.rs:15-49`). Lock-free de Fjall diferido a Engine.
+
+### EGO-11: `text_query: ""` como match-all + método `scan()` explícito
+- **Fecha:** 2026-10-18
+- **Objetivo:** scan() explicito en el SDK TS
+- **Resultado:** ✅ `scan()` expuesto y match-all prohibido por doc (`vantadb-ts/src/native.ts:553`, `types.ts:172`).
+
+### EGO-12: `db.reopen(path)` tras `close()` sin re-inyección en consumers
+- **Fecha:** 2026-10-18
+- **Objetivo:** reopen() sin revincular consumers
+- **Resultado:** ✅ `reopen()` revive el mismo handle (`vantadb-node/src/lib.rs:288`, `vantadb-ts/src/native.ts:643` + `reopen.test.ts`).
+
+### FIND-239: Docs DX post-validación v0.8.0: encoding Windows + puente `export_all`(JSONL)↔`import_file` vs `bulk_import`(binario ...
+- **Fecha:** 2026-10-18
+- **Objetivo:** Docs de SDK al dia con el release
+- **Resultado:** ✅ 4 sub-puntos aplicados y verificados (`QUICKSTART.md:213-220`, `PYTHON_SDK.md:577,859`, `vantadb-ts/README.md:284-303`).
+- **Commit:** 2ef38561
+
+### FIND-269: Suite `vantadb-node` falla con ENOSPC (`os error 112`) bajo carga completa en Windows
+- **Fecha:** 2026-10-18
+- **Objetivo:** Evitar ENOSPC en la suite de Node
+- **Resultado:** ✅ Serializacion + `maxRetries` implementados (`vantadb-node/vitest.config.ts`, `tests/api.test.ts:27`).
+- **Commit:** 1729e956
+
+### FIND-221: `put_batch`: contrato de atomicidad documentado y verificado
+- **Fecha:** 2026-10-19
+- **Objetivo:** Documentar y pintear con tests el contrato de atomicidad por validación upfront de `put_batch`
+- **Resultado:** ✅ Docstrings actualizados en SDK, contrato documentado en `PYTHON_SDK.md` y 2 tests unitarios en `src/sdk/api.rs` fijando el comportamiento.
+
+### EGO-15: Poda de grado en `graphragSearch` (`max_degree_per_node`)
+- **Fecha:** 2026-10-19
+- **Objetivo:** Poda por grado para evitar abanico combinatorio de lecturas en nodos centrales
+- **Resultado:** ✅ Campo `max_degree_per_node` agregado en `GraphRagOptions` y aplicado durante la expansión en `src/graphrag/expand.rs:77` y `src/graphrag/pipeline.rs:13,106`.
+

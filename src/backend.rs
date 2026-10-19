@@ -178,6 +178,7 @@ pub(crate) trait Scannable: Send + Sync {
     ///
     /// The default implementation collects from the streaming iterator.
     /// Backends may override if a more efficient materialization exists.
+    // Reason: trait default method retained for backend implementors and materialized prefix scans.
     #[allow(dead_code)]
     fn scan_prefix(
         &self,

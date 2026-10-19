@@ -19,6 +19,7 @@ TEST_DB = "./test_perf_15_16_db"
 
 def _clean():
     import glob
+
     for path in glob.glob(f"{TEST_DB}_*"):
         if os.path.exists(path):
             shutil.rmtree(path, ignore_errors=True)
@@ -85,9 +86,13 @@ def test_put_batch_raw_persists():
 def test_vanta_search_hit_properties():
     _clean()
     db = vanta.Client(_unique(), memory_limit_bytes=128 * 1024 * 1024)
-    db.put("ns", "props", "payload",
-           metadata={"a": 1, "b": "two"},
-           vector=np.array([1.0, 0.0, 0.0], dtype=np.float32))
+    db.put(
+        "ns",
+        "props",
+        "payload",
+        metadata={"a": 1, "b": "two"},
+        vector=np.array([1.0, 0.0, 0.0], dtype=np.float32),
+    )
 
     hits = db.search("ns", np.array([1.0, 0.0, 0.0], dtype=np.float32), top_k=1)
     hit = hits[0]
@@ -111,9 +116,13 @@ def test_vanta_search_hit_properties():
 def test_vanta_search_hit_expires_at():
     _clean()
     db = vanta.Client(_unique(), memory_limit_bytes=128 * 1024 * 1024)
-    db.put("ns", "ttl-hit", "payload",
-           vector=np.array([1.0, 0.0, 0.0], dtype=np.float32),
-           ttl_ms=86_400_000)
+    db.put(
+        "ns",
+        "ttl-hit",
+        "payload",
+        vector=np.array([1.0, 0.0, 0.0], dtype=np.float32),
+        ttl_ms=86_400_000,
+    )
     hits = db.search("ns", np.array([1.0, 0.0, 0.0], dtype=np.float32), top_k=1)
     assert hits[0].expires_at_ms is not None
     assert hits[0].expires_at_ms > 0
@@ -122,22 +131,28 @@ def test_vanta_search_hit_expires_at():
 def test_vanta_search_hit_no_ttl_returns_none():
     _clean()
     db = vanta.Client(_unique(), memory_limit_bytes=128 * 1024 * 1024)
-    db.put("ns", "no-ttl", "payload",
-           vector=np.array([1.0, 0.0, 0.0], dtype=np.float32))
+    db.put(
+        "ns", "no-ttl", "payload", vector=np.array([1.0, 0.0, 0.0], dtype=np.float32)
+    )
     hits = db.search("ns", np.array([1.0, 0.0, 0.0], dtype=np.float32), top_k=1)
     assert hits[0].expires_at_ms is None
 
 
 def test_vanta_search_hit_accessible_from_package():
-    assert hasattr(vanta, "SearchHit"), \
+    assert hasattr(vanta, "SearchHit"), (
         "SearchHit must be accessible from the package level"
+    )
 
 
 def test_vanta_search_hit_with_text_query():
     _clean()
     db = vanta.Client(_unique(), memory_limit_bytes=128 * 1024 * 1024)
-    db.put("ns", "text-hit", "hello world",
-           vector=np.array([1.0, 0.0, 0.0], dtype=np.float32))
+    db.put(
+        "ns",
+        "text-hit",
+        "hello world",
+        vector=np.array([1.0, 0.0, 0.0], dtype=np.float32),
+    )
     hits = db.search("ns", [], text_query="hello", top_k=3)
     assert len(hits) >= 1
     assert isinstance(hits[0], vanta.SearchHit)

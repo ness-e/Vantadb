@@ -137,12 +137,22 @@ const table = (rows) => {
 
 const rowFor = (r, fromRel) => {
   const href = encodePath(linkFrom(fromRel, r.rel));
-  const t = `[${r.title.replace(/\|/g, '\\|')}](${href})`;
+  const t = `[${r.title.replace(/\\/g, '\\\\').replace(/\|/g, '\\|')}](${href})`;
   const k = r.kind;
-  let d = (r.desc ?? '').replace(/\|/g, '\\|');
+  let d = cellDesc(r);
   if (r.status && r.status !== 'active' && r.status !== 'stable') d = `${d} _(${r.status})_`;
   return { t, k, d: d || '_—_' };
 };
+
+/**
+ * Table-cell-safe description. Escape the two CommonMark hazards a description
+ * can carry: a pipe splits the cell, and `[text][ref]` parses as a reference
+ * link (markdownlint MD052). Both render identically after escaping; without
+ * it, one description containing `["fields"]["content"]` (FIND-239) fails the
+ * lint gate for the whole generated index.
+ */
+const cellDesc = (r) =>
+  (r.desc ?? '').replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/[\[\]]/g, '\\$&');
 
 // --------------------------------------------------------------- generators
 
@@ -213,8 +223,8 @@ const outputs = new Map(); // rel -> content
     const rows = adrs.map((r) => {
       const num = r.rel.split('/').pop().match(/(\d+)/)?.[1] ?? '—';
       const href = encodePath(linkFrom(target, r.rel));
-      const t = `[${num} · ${r.title.replace(/\|/g, '\\|')}](${href})`;
-      let d = (r.desc ?? '').replace(/\|/g, '\\|');
+      const t = `[${num} · ${r.title.replace(/\\/g, '\\\\').replace(/\|/g, '\\|')}](${href})`;
+      let d = cellDesc(r);
       if (r.status) d = `${d} _(${r.status})_`;
       return { t, k: '', d: d || '_—_' };
     });

@@ -1,136 +1,138 @@
 ---
 title: SHOW-02 — recetas clicables del playground (5-6)
 kind: task
-description: "Objetivo: showcase que prueba valor público — 5-6 recetas clicables corriendo contra el playground WASM existente (RAG, híbrido, grafo, TTL, batch, persistencia). Prerrequisito del anuncio"
+description: "Verificación E2E de las 6 recetas del playground (repo ness-e/Vantadb-web) contra WASM real; defecto de clicabilidad detectado y fixeado + guard E2E."
 ---
 
 # SHOW-02 — recetas clicables del playground (5-6)
 
-> **Plan:** `docs/dev/plans/2026-09-19-publicacion.md` (Wave0, segunda en secuencia) · **Ruta:** vanta-worker
-> **Estado:** ✅ COMPLETO · **Appetite:** 2d · **Esfuerzo:** 🟡 · **Branch:** develop · **Commit:** `feat: SHOW-02 — ...`
-> **SDP:** campaign-executor, frontend-ui-engineering, design-taste-frontend, incremental-implementation, test-driven-development, context-engineering, source-driven-development, doubt-driven-development + manual: systematic-debugging, documentation-and-adrs
+## Metadata
 
-## 1. TAREA
+- **Plan file:** docs/dev/plans/2026-10-04-master-plan-0.9.0.md (Task 35; campaign taskId `35`)
+- **Fuente:** Backlog SHOW-02 (prerrequisito del anuncio) + master plan F1 Task 35 (expandido a F0)
+- **Esfuerzo:** 🟡 2-3d (contrato re-scopeado a verificación E2E; delta real = 1 fix puntual + guard)
+- **Prioridad:** 🟠
+- **Tipo:** Verificación de ejecución (showcase) + fix puntual web — sin lógica nueva
+- **Turns estimados:** 6
+- **Creado:** 2026-09-19 (ejecución previa, repo viejo) · **Re-scopeado:** 2026-10-05
+- **last-synced:** 2026-10-05
+- **Estado:** ✅ COMPLETO (2026-10-05 — review P2-01 approve; web `a482da4` + commit docs de cierre)
+- **Incógnitas (uphill):** 0 — resueltas en DISCOVERY
+- **Pendientes (downhill):** 0
 
-**Objetivo:** showcase que prueba valor público — 5-6 recetas clicables corriendo contra el playground WASM existente (RAG, híbrido, grafo, TTL, batch, persistencia). Prerrequisito del anuncio.
+## Blast Radius
 
-**Contrato exacto (del plan):**
-- (a) 5-6 recetas clicables corriendo contra el playground (cada una: setup + run + resultado visible).
-- (b) 1 línea `docs/api/MCP.md`: ops dependientes en invocaciones secuenciales (nota smoke Fase 2: batches multi-call se reordenan).
-- (c) coverage 0 gaps si toca docs (`scripts/validate-docs-coverage.ps1`).
+| Dirección | Módulos |
+|-----------|---------|
+| Callers | `src/app/playground/page.tsx:14` y `src/components/vanta/docs-view.tsx:450` renderizan `<CodePlayground />` (2 callers; `EXAMPLES` es const interna, no exportada — verificado rg) |
+| Callees | `code-playground.tsx` → `playground-executor.tsx` (iframe), `public/playground-executor.html` (harness `new Function` + VantaDB WASM), `public/vanta-wasm/*` (bundle 1.2MB), `reveal.tsx` (stacking contexts), `toast.tsx`, `code-tokenizer.ts` |
+| Implicaciones | Sin cambio de API pública; fix de stacking local (1 clase en `code-playground.tsx`); afecta playground en `/playground` y `/docs` (mismo componente); reversible (`git revert`); sin impacto perf/serialización |
 
-**Acceptance criteria:**
-- [ ] Dropdown del playground lista 6 recetas: RAG, Híbrido, Grafo, TTL, Batch, Persistencia.
-- [ ] Cada receta: setup (puts) + run (query/op) + resultado visible vía `console.log` (panel output existente).
-- [ ] Solo se usan APIs verificadas en `vantadb-wasm/src/vantadb_wasm.d.ts` (ver §7).
-- [ ] 1 línea en MCP.md sobre invocaciones secuenciales.
-- [ ] `npx tsc --noEmit` (web) + `node --check` de recetas + `validate-docs-coverage.ps1` verdes.
-- [ ] Commit `feat: SHOW-02 — ...` con staging SELECTIVO (solo paths de esta tarea). NO PUSH.
+## Impacto mapeado (Regla 0)
 
-**Reutilización (NO reconstruir):** `CodePlayground` (`web/src/components/vanta/code-playground.tsx:116`) + iframe sandbox `PlaygroundExecutor` (`playground-executor.tsx:28`, `sandbox="allow-scripts allow-same-origin"`) + `public/playground-executor.html` + bundle servido `public/vanta-wasm/vantadb_wasm.{js,wasm}` (1.2MB, presente).
+- **Archivos leídos (completos):** `src/components/vanta/code-playground.tsx` (471L) · `src/components/vanta/playground-executor.tsx` (118L) · `public/playground-executor.html` (107L) · `public/vanta-wasm/vantadb_wasm.d.ts` (279L) · `src/components/vanta/reveal.tsx` (76L) · `src/app/playground/page.tsx` (17L) · `playwright.config.ts` (36L) · `e2e/flujo-critico.spec.ts` (32L) · `AGENTS.md` (102L) · bloque Task 35 del master plan · task file previo (2026-09-19).
+- **Archivos referenciados hacia dentro:** `code-playground.tsx` → `playground-executor` (handle `execute`/`isReady`), `reveal`, `toast`, `code-tokenizer`, `utils`, `language-provider`, `lucide-react`; `playground-executor.tsx` → iframe `/playground-executor.html`; executor.html → `/vanta-wasm/vantadb_wasm.js` + `_bg.wasm`.
+- **Archivos que referencian a los editados (referencias entrantes):** `app/playground/page.tsx` (import) y `docs-view.tsx:29,450` (import + render); ninguno depende de nombres internos (`EXAMPLES` no exportado).
+- **Veredicto impacto:** BAJO — fix = 1 clase en 1 archivo (stacking) + 1 spec E2E nuevo (aditivo); nada se rompe si se revierte; sin símbolos públicos nuevos.
 
-**Stop del plan:** playground base no corre → DEFER con diagnóstico (no rediseñar `web/`). **Veredicto DISCOVERY: base SANA → se ejecuta** (evidencia §8).
+## Contrato
 
-## 2. ARCHIVOS
+> "las 5-6 recetas (RAG, híbrido, grafo, TTL, batch, persistencia) funcionan en el playground con WASM real (verificación de ejecución, no solo existencia de código); sin código muerto; **o** cierre como ya-resuelto con evidencia de la verificación E2E + delta documentado si emerge." — master plan Task 35
 
-**Clave (con :línea):**
-- `web/src/components/vanta/code-playground.tsx:24-114` — `STARTER_CODE` + `EXAMPLES` (4 actuales → 6 recetas)
-- `web/src/app/playground/page.tsx:1-17` — ruta `/playground` (lectura, no se toca salvo necesidad)
-- `docs/api/MCP.md:196-211` — ancla: blockquote annotations tras tabla Tool Families (1 línea nueva)
+**Resultado de la verificación:** la ejecución E2E real detectó dos defectos que la validación estática previa (2026-09-19) no veía: (1) **clicabilidad** — el dropdown del playground quedaba cubierto por el panel de output (stacking context de `Reveal`), dejando 5/6 recetas no clicables (verificado también en producción `vantadb.vercel.app`); (2) **receta Graph BFS rota** contra el API real del bundle (`put` + `node_id` u128 con `add_edge` → `Node not found`; el API exige `insert_node`). Delta real = 2 fixes acotados en `code-playground.tsx` + guard E2E de las 6 recetas (commit web `a482da4`).
 
-**Relacionados (callers/callees codegraph + trace):**
-- `web/src/components/vanta/playground-executor.tsx:1-118` — iframe executor (postMessage execute/result, ping/retry ready); callers: `code-playground.tsx:287`; sin tests (conocido)
-- `web/src/components/vanta/docs-view.tsx` — segundo caller de `CodePlayground` (verificar que el cambio de EXAMPLES no rompe su uso)
-- `web/public/playground-executor.html:53-82` — `executeSnippet`: `new mod.VantaDB({storage_path:"playground_data"})`, `new Function("VantaDB","db","console",...)` async → recetas pueden usar `await` + `db` instancia `Client`
-- `vantadb-wasm/src/vantadb_wasm.d.ts` — superficie verificada: `put:558`, `put_batch:563`, `get:566`, `search:583` (+`text_query:227`), `save:515`/`load:527` async, `purge_expired:702`, `add_edge:737`, `graph_bfs:750` (`TraversalDirectionStr="Forward"|"Reverse"|"Both":419`), `MemoryRecord.node_id:148`, `ttl_ms:178` (relativo)
-- `src/sdk/types/record.rs:51-53` — `ttl_ms` relativo: `expires_at_ms = now_ms() + ttl_ms` (put lo computa server-side)
-- `examples/` — patrones de recetas (lectura referencia); SHOW-05 referenció `vantadb-ts/examples/` (solo lectura)
-- E2E guard WEB-08: `web/e2e/flujo-critico.spec.ts` (landing→docs→playground) — no se toca, es evidencia de base sana
+## Spec (SDD — decisiones)
 
-**Prohibidos (WIP ajeno / fuera de scope — NO tocar):**
-`web/` fuera del playground · `reparacion.bat` · `.opencode/` · `Justfile` · `ocr-*` · `completions/*` · `desktop/src-tauri/Cargo.lock` · stash@{0} GOV-C4 · `docs/dev/Backlog.md` · plan file (solo recitation al cierre) · `C:/Users/Eros/.vantadb*` (datos vivos) · `src/` Rust core (cero cambios) · `vantadb-mcp/src/` (no tocar) · `target/` (builds).
+| # | Decisión | Evidencia / porqué |
+|---|----------|--------------------|
+| 1 | Verificar EJECUCIÓN E2E real (browser + WASM), no solo existencia de código | Plan Task 35 lo exige; la ejecución previa (2026-09-19) solo validó estáticamente (`node --check` + tsc) — la clicabilidad nunca se probó |
+| 2 | Base de verificación = worktree `..\web-show02` desde `origin/main` (detached), sin tocar `design/v2` (WIP owner) | Playground idéntico entre `origin/main` y `design/v2` (`git diff` vacío en paths del playground); worktree aísla del WIP |
+| 3 | Fix = elevar el stacking context del header Reveal (`relative z-10`) | Root cause: `Reveal` (`will-change-transform` + `translate-y-0`, `reveal.tsx:64`) crea stacking contexts persistentes; el header (DOM-early, z-auto) pinta debajo del grid (DOM-late) → el menú `z-50` queda confinado al contexto del header. `relative z-10` en el Reveal del header lo pinta sobre el grid. Precedente del patrón: navbar (`sticky z-50`) |
+| 4 | Commit web: branch local `show02/recipes-clickable` con fix + spec E2E `e2e/playground-recipes.spec.ts` (regresión del defecto — TDD Prove-It) | Instrucción del orquestador; repo web = flujo propio (owner mergea); spec e2e local es precedente commiteado (`web09-screenshots.spec.ts`); E2E no corre en CI web aún → sin carga CI |
+| 5 | No tocar `design/v2`, `ts10/*`, `ts13/*`; NUNCA push | Invariantes del orquestador |
 
-## 3. DEPENDENCIAS
+## Invariantes de dominio (handoff — MUST)
 
-- **Wave:** Wave0 segunda en secuencia (FIND-98-retry ✅ STOP contractual antes; archivos disjuntos: bins fuera-del-repo vs web+docs).
-- **Bloqueantes:** ninguno.
-- **Previa:** FIND-98-retry (✅ completada, commit `8d7d1bbf`).
-- **NextTask tras cierre:** SHOW-03 (la ejecuta el orquestador, no yo).
+- ⛔ NUNCA `git push` — ni repo principal ni web.
+- ⛔ No tocar: `opencode.jsonc`, master plan 0.9.0, `docs/pipeline-state.json`, `docs/dev/Backlog.md`, `design/v2` (WIP owner), branches `ts10/*`/`ts13/*`, áreas PROV-13/DESKTOP-44.
+- Repo principal: `git add` por pathspec explícito (WIP ajeno presente: master plan M, opencode.jsonc M).
+- El trabajo del web vive en su repo (branch local); su merge es decisión del owner.
+- Scope = recetas; no refactor del playground.
 
-## 4. REFERENCIAS
+## Deuda técnica (Regla 6)
 
-- **Rules (leída completa antes de actuar — toca `web/`):** `.opencode/rules/frontend-web.md` — aplican R-FE-4 (light-only, recetas no tocan estilos), R-FE-5 (dropdown/buttons existentes ya ≥44px, no se agregan targets nuevos), R-FE-6 (sin motion nueva). R-FE-1/2/3/7 N/A (sin errores/dep/json-ld/utilities).
-- **Refs:** `.opencode/references/definition-of-done.md` (DoD 3 niveles al cierre) · `dev-tools.md` + `test-suite.md` (verify) · `ocr-review.md` (gate VERIFY, docs-only→N/A-justificado) · `SPEC.md` raíz Success Criteria (sin cambios).
-- **Commands:** `pipeline.md` (ejecución) · `audit.md` (verify post-tarea).
-- **Tabla Spec:** N/A — showcase/docs, sin símbolos públicos nuevos (`EXAMPLES` es const interna del módulo; línea MCP.md es prosa). Sin endpoints/métodos/tool nuevos → sin decisión que documentar.
+Sin deuda nueva: fix = 1 clase (reemplaza un bug, no agrega complejidad); spec E2E = cobertura nueva (+). Saldo neto ≤ 0. Observación sistémica (patrón `Reveal` + overlay fuera del playground) → `queda_pendiente` para routing FIND del orquestador (no se toca `Backlog.md` acá).
 
-## 5. SKILLS (SDP Paso 0b — `campaign_discover_skills_v2` phase=BUILD, keywords [playground, recetas, wasm, clickable, demo, e2e])
+## Definition of Done
 
-| Skill | Cuándo aplica (1 línea) |
-|-------|------------------------|
-| campaign-executor | Base: state machine PLAN→ACT→VERIFY + recitation/handoff de la tarea |
-| frontend-ui-engineering | Dropdown/editor/output accesibles; no introducir AI-slop visual en recetas |
-| design-taste-frontend | Recetas heredan estética manga/linocut existente sin rediseñar |
-| incremental-implementation | Slice 1 (EXAMPLES) + Slice 2 (MCP.md), ~100 líneas/slice, repo compilable |
-| test-driven-development | Receta = test e2e por construcción: `node --check` sintaxis + tsc + click→Run existente |
-| context-engineering | Context pack del slice: rules → plan → source + d.ts verificado, sin inventar APIs |
-| source-driven-development | APIs validadas contra `vantadb_wasm.d.ts` + `record.rs`, no contra memoria del modelo |
-| doubt-driven-development | Cambio visible público (showcase): verificación adversarial de cada snippet |
-| systematic-debugging (manual) | Si una receta falla verify: root-cause antes de fix (trazar d.ts, no adivinar) |
-| documentation-and-adrs (manual) | 1 línea MCP.md precisa + honesta (Regla 11: sin claims sin fuente) |
+- **Task:** contrato verificado — 6 recetas ejecutan E2E (dropdown → run → output correcto, sin ✗) con evidencia por receta; defecto detectado y fixeado (clicabilidad 6/6).
+- **Commit:** repo principal `docs: SHOW-02 — …` (task file + RESULTADO); web `fix(web): SHOW-02 — …` (branch local `show02/recipes-clickable`, NUNCA push).
+- **Release:** n/a.
 
-## 6. HERRAMIENTAS + MCP
+## Herramientas necesarias
 
-- `codegraph_explore` — ya usado en DISCOVERY (blast radius §7); solo re-usar si un edit toca `engine.rs`/`node.rs` (no es el caso).
-- `campaign_verify_cmd` — BUG exit -1 conocido → **bash directa + mención en RESULTADO**.
-- Verificación mecánica por slice: `cd web && npx tsc --noEmit` · `node --check` sobre recetas extraídas · `pwsh scripts/validate-docs-coverage.ps1` (tras MCP.md).
-- Playwright MCP: N/A-justificado — E2E guard WEB-08 ya cubre landing→playground WASM run (3.1s verde documentado); click-through de 6 recetas = scope creep fuera de appetite (pre-mortem: recetas solo-local con nota).
-- Cargo: N/A (cero cambios Rust; evitar builds pesados sin motivo). Internet: N/A (todo local).
+- git (worktree/commit local web; status/diff/pathspec principal) · node/npm (tsc/lint/build/playwright en web) · playwright-cli (diagnóstico) · gates docs (`scripts/docs/*.mjs`) · `campaign_*` (state) · `pwsh dev-tools/ocr-review.ps1` · `vanta-review` (P2-01).
 
-## 7. INVESTIGACIÓN CÓDIGO (blast radius — generado en DISCOVERY)
+**Skills cargadas (SDP v3, phase=BUILD + mandato):** campaign-executor · progreso · security-and-hardening (pinned) · frontend-ui-engineering · test-driven-development · source-driven-development · documentation-skill · playwright-cli · incremental-implementation · context-engineering.
 
-- `CodePlayground` (`code-playground.tsx:116`): 2 callers (`app/playground/page.tsx`, `components/vanta/docs-view.tsx`); sin tests. Cambio: solo el const `EXAMPLES` (líneas 46-114) — dropdown (`238-264`), `loadExample` (`212-217`), `reset` (`206-210`) y `run`/output (`157-204`, `354-410`) funcionan por construcción para cualquier snippet (mismo mecanismo que los 4 ejemplos actuales).
-- `PlaygroundExecutor` (`playground-executor.tsx:28`): 1 caller; postMessage `execute {code, requestId}` → `result {output, error}`; timeout 30s; ping/retry ready. Sin cambios.
-- `playground-executor.html:53-82`: cada Run = `new mod.VantaDB({storage_path:"playground_data"})` fresco + `new Function` async con `(VantaDB, db, console)` → recetas usan `db` (instancia con todos los métodos `Client`) y `await` libremente. `db.close()` automático post-run.
-- Recetas existentes vs faltantes: ✅ Híbrido (mejorar con `text_query`) · ✅ Batch · ❌ RAG · ❌ Grafo · ❌ TTL · ❌ Persistencia → Slice 1 crea las 6 finales (RAG, Híbrido, Grafo, TTL, Batch, Persistencia).
-- `docs-view.tsx` usa `CodePlayground` — verificar tras el edit que no referencia `EXAMPLES` por nombre (grep en VERIFY).
-- `docs/api/MCP.md` (523 líneas): ancla § Tool Families, tras blockquote annotations (~línea 211). `validate-docs-coverage.ps1` valida cobertura de tools — 1 línea prosa no la afecta (verificar en VERIFY).
+## Investigation Notes
 
-## 8. INVESTIGACIÓN PROBLEMA — ¿el playground base corre hoy?
-
-**Veredicto: SÍ (evidencia estática + guard existente, sin opinión).**
-- `web/src/components/vanta/code-playground.tsx` (425 líneas) + `playground-executor.tsx` (118) + `web/src/app/playground/page.tsx` existen y codegraph los resuelve con callers sanos.
-- `web/public/playground-executor.html` (107 líneas) + bundle servido `web/public/vanta-wasm/vantadb_wasm.js` (56KB) + `vantadb_wasm_bg.wasm` (1.2MB) presentes → el iframe puede `fetch /vanta-wasm/*` mismo-origen.
-- E2E guard WEB-08 (`web/e2e/flujo-critico.spec.ts`): landing→`/docs#quickstart`→`/playground` con WASM run, documentado verde local (~3.1s) en `web/AGENTS.md`.
-- Deuda honesta: no se re-ejecutó el browser E2E en esta sesión (appetite/budget; pre-mortem lo permite: recetas solo-local). `npx tsc --noEmit` en VERIFY confirma compilación. → **NO DEFER.**
-
-## 9. INVESTIGACIÓN INTERNET
-
-N/A — todo local (playground + WASM + docs). Sin red usada, nada que marcar (TSYS-13 sin citas).
-
-## 10. VALIDACIÓN + CIERRE
-
-- Verify contrato: tsc + node --check + coverage ps1 (bash directa por bug exit -1, con mención).
-- OCR delegation (`pwsh dev-tools/ocr-review.ps1`): cambio docs+showcase de 2 archivos, sin trust boundaries nuevos (iframe sandbox intacto, sin `allow-*` nuevos, sin input de red) → si el diff es solo EXAMPLES+prosa, N/A-justificado con evidencia del diff; si el CLI marca Critical/High → bloquea.
-- DoD 3 niveles (definition-of-done.md) + P2-01 lo hace el orquestador (no yo) + Gates D/V/C vía `question` (D: evaluado no-dispara §7; V/C al cierre si aplica).
-- RESULTADO §7 obligatorio al final. Commit `feat: SHOW-02 — ...` selectivo, NO PUSH.
+- **(a) Estado del repo web (2026-10-05):** checkout `..\web` en `design/v2` con WIP del owner; worktrees `..\web-ts10` (branch `ts10/npm-install-card`) y `..\web-ts13` (`ts13/orama-column`) pendientes de merge. `origin/main` = `fd7b41b`. Playground idéntico entre `origin/main` y `design/v2` (`git diff` vacío en los 4 paths del playground + bundle).
+- **(b) Las 6 recetas existen** en `EXAMPLES` (`code-playground.tsx:46-163`): RAG Mini :48 · Hybrid Search :65 · Graph BFS :84 · TTL Expiry :106 · Batch Insert :123 · Persistence :146. Dropdown `loadExample` :258. Ejecución real vía iframe sandbox (`playground-executor.html:53-82`: `new mod.VantaDB({storage_path:"playground_data"})` + `new Function("VantaDB","db","console", …)`).
+- **(c) API del bundle servido (d.ts 279L) cubre todas las recetas:** `put` :164 · `put_batch` :168 · `search` :199 · `get` :96 · `add_edge` :15 · `graph_bfs` :104 · `purge_expired` :160 · `save` :191 · `load` :140 · `list_namespaces` :136 · `flush` :88 · `close` :44 — sin drift de API.
+- **(d) DEFECTO DETECTADO (clicabilidad):** el menú del dropdown (`.absolute z-50`) queda **cubierto por el panel de output** — hit-test (`document.elementFromPoint`): "Persistence" → `scroll-manga h-80` (output panel); "RAG Mini" → el item mismo. 5/6 items no clicables (verificado local `localhost:3000` **y** producción `vantadb.vercel.app`). Root cause: stacking contexts de `Reveal` (`reveal.tsx:64` `will-change-transform` + `translate-y-0`); el header Reveal (sin z-index) pinta debajo del grid Reveal (posterior en DOM). Fix: `relative z-10` en el Reveal del header.
+- **(e) Ejecución previa (2026-09-19, repo viejo — histórico):** las 6 recetas se crearon y validaron estáticamente (`node --check` 6/6, tsc, eslint); Playwright fue N/A-justificado → el defecto de clicabilidad no se detectó entonces. Esta iteración re-verifica en el repo nuevo con ejecución real.
+- **(f) Worktree `..\web-show02`** (detached `origin/main`, `npm ci` 646 paquetes/36s); spec temporal `e2e/show02-recipes.spec.ts` + evidencia `show02-evidence.json` + screenshots `show02-shots/`.
 
 ## Steps atómicos
 
-- [x] **Step 1 — EXAMPLES 6 recetas** (`code-playground.tsx:46-114`): RAG (put 3 docs + search vector+text_query + síntesis con citas) · Híbrido (puts + search `text_query`, log scores) · Grafo (3 puts + `add_edge` + `graph_bfs(roots,2,"Forward")`) · TTL (`ttl_ms:1` + `purge_expired` + get→null) · Batch (existente, conservar) · Persistencia (`put` + `await db.save()` + nota OPFS). Verify: `node --check` + `tsc --noEmit` + grep `docs-view.tsx` no rompe.
-- [x] **Step 2 — 1 línea MCP.md** (tras blockquote annotations § Tool Families): ops dependientes en invocaciones secuenciales, no en un batch multi-call (nota smoke Fase 2: batches multi-call se reordenan). Verify: `validate-docs-coverage.ps1` 0 gaps.
-- [x] **Step 3 — Cierre**: verify full → OCR justificado → commit selectivo `feat:` → recitation completed + RESULTADO §7.
+- [x] **Step 1 — DISCOVERY**: repo web + código + bundle + API + defecto reproducido (local + prod) — ✅ COMPLETED (2026-10-05)
+- [x] **Step 2 — Fix puntual**: `relative z-10` en Reveal del header (`code-playground.tsx`) + branch `show02/recipes-clickable` — ✅ COMPLETED (hit-test post-fix: menú sobre el panel; screenshot after)
+- [x] **Step 3 — Verificación E2E 6/6**: spec Playwright (dropdown → run → output) RED→GREEN + gates web (tsc/lint/build/playwright full 8/8) + commit web `a482da4` (LOCAL) — ✅ COMPLETED
+- [x] **Step 4 — Cierre**: task file + OCR + DoD + review P2-01 + commit docs local + campaign taskId 35 + RESULTADO §7 — ✅ COMPLETED (review P2-01 APPROVE `ses_ef5869fbbffefxEijm7HLgO9zM`; commit docs pathspec explícito)
 
-## Evidencia VERIFY (2026-09-19)
+## Evidencia VERIFY
 
-- `node --check` 6/6 recetas (extracción EXAMPLES→temp, `recipe_*.js`): ok=6 fail=0.
-- `cd web && npx tsc --noEmit`: EXIT 0.
-- `cd web && npx eslint src/components/vanta/code-playground.tsx`: EXIT 0.
-- `pwsh scripts/validate-docs-coverage.ps1`: EXIT 0 — "0 gaps" (MCP.md 49 tools ok).
-- OCR: preview/rules OK (advisory sin API key); `code-playground.tsx` cae en rule group `web/**`; self-review sin Critical/High (solo strings estáticos, sin lógica/hooks/eval/secrets; sandbox iframe intacto) → N/A-justificado.
-- `docs-view.tsx` solo renderiza `<CodePlayground />` (líneas 29,450) — sin dependencia de nombres EXAMPLES.
-- `campaign_verify_cmd` no usado directo (bug exit -1 conocido) → bash directa + mención (esta sección).
+**E2E real (Playwright/Chromium, iframe WASM, worktree `..\web-show02` desde `origin/main`):**
+
+| # | Receta | Output clave (evidencia por receta) | Líneas ✗ |
+|---|--------|--------------------------------------|----------|
+| 1 | RAG Mini | `retrieved 2 chunks:` · `[doc-auth] score=0.0164` · `answer (cited): … see doc-auth, doc-ttl` | 0 |
+| 2 | Hybrid Search | `doc-2 score=0.0328` · `doc-1 score=0.0161` · `doc-0 score=0.0159` | 0 |
+| 3 | Graph BFS | `bfs from alice (depth 2): 3 nodes` · `alice` · `bob` · `carol` | 0 |
+| 4 | TTL Expiry | `purged 1 expired record(s)` · `session -> null` · `pinned  -> pinned - never expires` | 0 |
+| 5 | Batch Insert | `inserted 100 records` · `found 10 results` | 0 |
+| 6 | Persistence | `saved to OPFS` · `after load -> notita - survives save/load roundtrip` · `namespaces: agent/main` | 0 |
+
+Todas incluyen `✓ VantaDB WASM engine loaded` + `◆ executed in Xms · wasm32 (sandboxed iframe)` (engine real, sin mocks). Artefactos: `..\web-show02\show02-evidence.json` (6/6 `ok:true`) · `show02-shots/` (screenshot por receta) · `show02-menu-open.png` (ANTES: solo "RAG MINI" visible, resto cubierto) · `show02-menu-open-after.png` (DESPUÉS: 6 items visibles).
+
+**RED→GREEN (TDD Prove-It):** corrida 1 → 6/6 fallan (menú cubierto; hit-test "Persistence" → panel de output). Fix stacking → corrida 2 → 4/6 (Graph BFS: `✗ Node not found` — receta rota, API real exige `insert_node`). Fix receta → corrida 3 → **6/6 pass** (15.0s).
+
+**Gates web (branch `show02/recipes-clickable`):** `npx tsc --noEmit` ✅ · `npm run lint` ✅ · `npm run build` ✅ (exit 0) · `npx playwright test` ✅ **8/8** (flujo-critico + web09 + playground-recipes 6/6). Commit web: `a482da4` (2 files, +116/−14) — LOCAL, nunca push.
+
+**Docs gates (repo principal):** `check-links.mjs` ✅ · `check-docs.mjs` ✅ · `gen-index.mjs --check` ✅ · OCR delegation (`pwsh dev-tools/ocr-review.ps1 -Format json`): 11 archivos en workspace; reviewables (2) = `.github/scripts/verify_pyi.py` + `.github/workflows/providers-ci.yml` (WIP de PROV-13, fuera de scope); el diff de esta tarea (`docs/dev/tasks/SHOW-02.md`) queda excluido por `unsupported_ext` → N/A-justificado.
+
+**Review P2-01:** ✅ APPROVE — ver sección Review.
+
+## Review (GATE — P2-01) — ✅ APPROVE
+
+- **Tier:** Fast (paths `docs/dev/**` + contenido web) → verify mecánico + spot-check; reviewer `vanta-review` fresh context (sesión `ses_ef5869fbbffefxEijm7HLgO9zM`).
+- **Enfoque:** contrato Task 35 (ejecución E2E) · scope del commit web `a482da4` · causa-raíz del fix de stacking · API real de la receta Graph · evidencia 6/6 · invariantes (no push).
+- **Cómo se probó:** `git show --stat a482da4` (solo 2 files) · **re-ejecución independiente del guard** `npx playwright test e2e/playground-recipes.spec.ts` → **6 passed (15.3s)** · `npx tsc --noEmit` exit 0 · gates docs re-verificados · OCR preview (exclusión `unsupported_ext` verificada) · `git log origin/main..show02/recipes-clickable` (sin push).
+- **Veredicto:** ✅ APPROVE — 0 Critical/Required; Optional: commit docs con pathspec explícito para no arrastrar el master plan M (aplicado); Nit: selector por clase en el spec (pragmático, aceptado).
+
+## RESULTADO §7
+
+- **Estado:** ✅ COMPLETO
+- **Steps:** 4/4
+- **Commits:** web `a482da4` en branch `show02/recipes-clickable` (LOCAL — nunca push; merge = decisión del owner) + commit docs de cierre en repo principal (task file).
+- **Verificación:** E2E 6/6 recetas (dropdown → run → output, WASM real; `show02-evidence.json` + screenshots before/after) · web: tsc ✅ lint ✅ build ✅ playwright 8/8 ✅ · docs: check-links ✅ check-docs ✅ gen-index ✅ · OCR N/A-justificado · review P2-01 ✅ APPROVE.
+- **Contrato:** cumplido con delta — las 6 recetas EJECUTAN (verificación de ejecución real, no existencia); delta emergido y cerrado: defecto de clicabilidad (stacking) + receta Graph BFS rota contra el API real → fix puntual + guard E2E.
+- **Handoff/deuda:** observación sistémica (patrón `Reveal` + overlay fuera del playground) → routing FIND del orquestador; `progreso`/avance + fila Backlog SHOW-02 → orquestador (Backlog.md bajo edición concurrente); merge del branch web = owner.
 
 ## Context Save Point
 
-DISCOVERY completo 2026-09-19. Si se reanuda: Steps 1-2 ⬜ pendientes (ver § Steps). Archivos: `web/src/components/vanta/code-playground.tsx`, `docs/api/MCP.md`. No hay trabajo parcial en worktree (solo este task file + recitation in-progress). NextTask: SHOW-03 (orquestador).
+- **Última acción:** cierre — review P2-01 APPROVE + RESULTADO §7; commit docs local (task file).
+- **Próximo paso:** ninguno (tarea cerrada). Orquestador: routing FIND de la observación sistémica (Reveal+overlay); `progreso`/avance + fila Backlog SHOW-02 (Backlog.md bajo edición concurrente); merge del branch web `show02/recipes-clickable` = owner.
+- **Estado del repo:** principal `develop` con WIP ajeno (master plan M, opencode.jsonc M — no tocar); web en `design/v2` intacto + worktree `..\web-show02` (branch `show02/recipes-clickable`, commit `a482da4`; evidencia en `show02-*.json/png`, `show02-shots/`).
+- **Evidencia clave:** `show02-evidence.json` (6/6 ok) · `show02-menu-open.png` / `show02-menu-open-after.png` (before/after del fix).

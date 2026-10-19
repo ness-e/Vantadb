@@ -19,6 +19,8 @@ pub type L0Future = std::pin::Pin<Box<dyn std::future::Future<Output = Result<()
 
 pub(crate) const DEFAULT_ATTEMPTS: u32 = 3;
 pub(crate) const DEFAULT_BASE_MS: u64 = 500;
+/// FIND-365: Maximum number of pending entries before evicting the oldest.
+pub const MAX_PENDING_ENTRIES: usize = 10_000;
 
 struct PendingEntry {
     label: String,
@@ -66,11 +68,21 @@ impl WriteBack {
     }
 
     fn enqueue(&self, entry: PendingEntry) {
-        self.inner
+        let mut guard = self
+            .inner
             .pending
             .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .push(entry);
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        while guard.len() >= MAX_PENDING_ENTRIES {
+            let evicted = guard.remove(0);
+            tracing::warn!(
+                evicted = %evicted.label,
+                capacity = MAX_PENDING_ENTRIES,
+                "writeback pending queue at capacity; evicted oldest entry"
+            );
+        }
+        guard.push(entry);
+        drop(guard);
         self.persist_append();
     }
 
@@ -376,5 +388,32 @@ mod tests {
         assert_eq!(body.lines().count(), 2, "one line per failure: {body}");
         assert!(body.contains("first") && body.contains("second"));
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn enqueue_evicts_oldest_when_at_capacity() {
+        let wb = WriteBack::new(None);
+        let dead: L0Job = Arc::new(|| Box::pin(async { Err("x".into()) }) as L0Future);
+        for i in 0..MAX_PENDING_ENTRIES {
+            wb.enqueue(PendingEntry {
+                label: format!("item-{i}"),
+                job: dead.clone(),
+            });
+        }
+        assert_eq!(wb.pending_count(), MAX_PENDING_ENTRIES);
+        assert_eq!(
+            wb.pending_labels().first().map(|s| s.as_str()),
+            Some("item-0")
+        );
+
+        // Push one more: item-0 must be evicted, new length still MAX_PENDING_ENTRIES
+        wb.enqueue(PendingEntry {
+            label: "overflow".into(),
+            job: dead,
+        });
+        assert_eq!(wb.pending_count(), MAX_PENDING_ENTRIES);
+        let labels = wb.pending_labels();
+        assert_eq!(labels.first().map(|s| s.as_str()), Some("item-1"));
+        assert_eq!(labels.last().map(|s| s.as_str()), Some("overflow"));
     }
 }

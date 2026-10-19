@@ -2,15 +2,13 @@
 title: VantaDB Internal Architecture
 kind: concept
 status: active
-description: "This document reflects the current repo truth for v0.6.1 (verified 2026-09-23: WAL layout, record variants, HTTP ownership). It describes the embedded core, the durability path, the current retrieval model, and the limits that still..."
+description: "This document reflects the current repo truth for v0.8.0 (verified 2026-10-15: WAL layout, record variants incl. WAL v2 transactions, HTTP ownership). It describes the embedded core, the durability path, the current retrieval model, and the limits that still..."
 tags: [vantadb, architecture]
-type: architecture
-last_reviewed: "2026-09-23"
 ---
 
 # VantaDB Internal Architecture
 
-This document reflects the current repo truth for `v0.6.1` (verified 2026-09-23: WAL layout, record variants, HTTP ownership). It describes the embedded core, the durability path, the current retrieval model, and the limits that still matter for product claims.
+This document reflects the current repo truth for `v0.8.0` (verified 2026-10-15: WAL layout, record variants including WAL v2 transactions, HTTP ownership). It describes the embedded core, the durability path, the current retrieval model, and the limits that still matter for product claims.
 
 ---
 
@@ -106,6 +104,11 @@ Per-record format:
 │   ├── Delete { id }                 │
 │   └── Checkpoint { node_count,      │
 │       index_checksum, timestamp }    │
+│   Transaction markers (WAL v2):      │
+│   ├── Begin(txn_id)                 │
+│   ├── Prepare { txn_id, op_count }  │
+│   ├── Commit(txn_id)                │
+│   └── Abort(txn_id)                 │
 ├─────────────────────────────────────┤
 │ CRC32C of payload: u32 LE           │
 └─────────────────────────────────────┘

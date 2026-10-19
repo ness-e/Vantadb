@@ -62,7 +62,7 @@ Exclusiones deliberadas: códigos `VANTADB_*` (wire entre bindings), funciones l
 - `rg "export (interface|type|class) Vanta" vantadb-ts/src/` → 10 hits (`types.ts` 7 + `errors.ts` 2 + `vantadb.ts:134 `VantaDB``).
 - `rg "class Vanta|def (search_memory|get_memory|list_memory|delete_memory)" vantadb-python/` → 8 clases PyO3 + 4 métodos `AsyncVantaDB` (`__init__.py:144-240`).
 - Blast radius CodeGraph: `VantaSearchHit` 6 callers; re-exports vía `src/sdk/mod.rs:15`, `src/sdk/types.rs:11,19`; tests `tests/query_result_basic.rs`.
-- Referencias: `.opencode/rules/api-contract.md` (R-1: todo claim apunta a símbolo real), `docs/api/BINDINGS_NAMESPACES.md` (naming hazard `get`/`delete`), `release-plz.toml` (`semver_check=true`), `CONSTRAINTS.md` (floor: sin supresiones/stubs/secrets).
+- Referencias: `.opencode/rules/api-contract.md` (R-1: todo claim apunta a símbolo real), `docs/api/BINDINGS_NAMESPACES.md` (naming hazard `get`/`delete`), `release-plz.toml` (`semver_check=true`), `docs/specs/CONSTRAINTS.md` (floor: sin supresiones/stubs/secrets).
 
 ### Evidencia adicional — API-01 (2026-09-25, IA — recomendación, no decisión)
 

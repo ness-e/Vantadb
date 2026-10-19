@@ -139,6 +139,7 @@ fn context_assemble(
         append.as_deref(),
         None,
         None,
+        None,
     ) {
         Ok(ctx) => {
             // VER-04: envelope coherence — `byte_count`/`truncated` ride as

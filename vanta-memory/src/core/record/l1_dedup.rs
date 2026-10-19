@@ -5,7 +5,10 @@
 //!    top-k pool of existing records via keyword overlap (see `l1_reader`).
 //! 2. **Phase 2 — batch LLM judgment:** ONE `LlmRunner` call judges every new
 //!    memory against its candidate pool and returns one [`DedupDecision`] per
-//!    memory (`store|update|merge|skip`).
+//!    memory (`store|update|merge|skip`). MEMG-01: a decision may also carry
+//!    `contradicts` — explicit negations flagged as superseded on write
+//!    (`mark_contradiction`), still inside this same call (no second LLM
+//!    round-trip).
 //!
 //! Degradation (Principio 4 — the LLM is optional, the pipeline never loses
 //! data): no candidates → all `store`; runner fails → all `store`; tolerant
@@ -247,6 +250,7 @@ fn store_decision(record_id: &str) -> DedupDecision {
         record_id: record_id.to_string(),
         action: DedupAction::Store,
         target_ids: vec![],
+        contradicts: vec![],
         merged_content: None,
         merged_type: None,
         merged_priority: None,
@@ -274,6 +278,9 @@ pub(crate) fn decision_from_value(v: &serde_json::Value) -> Option<DedupDecision
     };
 
     let target_ids = string_array(obj.get("target_ids"));
+    // MEMG-01: explicit contradictions travel in the same judgment (tolerant:
+    // missing/malformed → empty, never fails the batch).
+    let contradicts = string_array(obj.get("contradicts"));
     let merged_content = obj
         .get("merged_content")
         .and_then(serde_json::Value::as_str)
@@ -299,6 +306,7 @@ pub(crate) fn decision_from_value(v: &serde_json::Value) -> Option<DedupDecision
         record_id,
         action,
         target_ids,
+        contradicts,
         merged_content,
         merged_type,
         merged_priority,

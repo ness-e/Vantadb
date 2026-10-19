@@ -21,7 +21,7 @@ use std::time::Instant;
 
 use crate::context_engine::{
     assemble_with_recall, load_active, record_compaction_report, AssembleConfig, ChatMessage,
-    ChatRole, PersistedCompactionReport, TokenEstimator,
+    ChatRole, DbSpillSink, PersistedCompactionReport, SpillSink, SpillStorage, TokenEstimator,
 };
 use crate::core::abstractions::LlmRunner;
 use crate::core::conversation::{L0Message, L0Recorder, L0Role};
@@ -117,7 +117,14 @@ impl LayerTelemetry {
             "L2" => self.l2_latency_ms,
             "L3" => self.l3_latency_ms,
             "recall" => self.recall_latency_ms,
-            other => unreachable!("unknown layer telemetry kind: {other}"),
+            other => {
+                tracing::warn!(
+                    session_id,
+                    kind = other,
+                    "unknown layer telemetry kind; ignoring"
+                );
+                return;
+            }
         };
         tracing::debug!(
             target: "vanta_memory::telemetry",
@@ -184,6 +191,12 @@ pub struct ContextAssemblyConfig {
     /// Shared token budget for compress → MMD → recall (MEM-37 contract:
     /// the union is guaranteed ≤ budget).
     pub budget_tokens: u64,
+    /// Spill-to-disk of compacted content (MEMG-06): when `true`, every
+    /// message replaced by a compaction stub is persisted in full under
+    /// `spill/<session>` before the replacement lands — recoverable via
+    /// [`crate::context_engine::SpillStorage::recall`]. Opt-in: `false`
+    /// keeps assembly semantics byte-identical (no extra writes).
+    pub spill_enabled: bool,
 }
 
 impl Default for ContextAssemblyConfig {
@@ -191,6 +204,7 @@ impl Default for ContextAssemblyConfig {
         Self {
             enabled: true,
             budget_tokens: 8192,
+            spill_enabled: false,
         }
     }
 }
@@ -740,6 +754,14 @@ impl<'a, R: LlmRunner> MemoryTaskHandler<'a, R> {
         })
         .ok();
 
+        let spill_storage = SpillStorage::new(self.db.clone());
+        let mut spill_sink = DbSpillSink::new(&spill_storage, session_id);
+        let spill: Option<&mut dyn SpillSink> = if self.context_config.spill_enabled {
+            Some(&mut spill_sink)
+        } else {
+            None
+        };
+
         let out = assemble_with_recall(
             msgs,
             self.context_config.budget_tokens,
@@ -751,6 +773,7 @@ impl<'a, R: LlmRunner> MemoryTaskHandler<'a, R> {
             append.as_deref(),
             cursor.as_deref(),
             memory_scores.as_ref(),
+            spill,
         )
         .map_err(|e| format!("context assembly failed: {e}"))?;
         tracing::debug!(
@@ -760,6 +783,7 @@ impl<'a, R: LlmRunner> MemoryTaskHandler<'a, R> {
             msgs_conserved = out.report.msgs_conserved,
             mmd_injected = out.mmd_injected,
             recall_injected = out.recall_injected,
+            spilled = spill_sink.spilled_count(),
             "context assembled post-L3"
         );
 

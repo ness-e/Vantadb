@@ -474,6 +474,43 @@ export interface GraphDegreeEntry {
     out_degree: number;
 }
 
+/** A ranked GraphRAG node (DIST-15). */
+export interface GraphRagNode {
+    /** u128 node id as a decimal string (API-01). */
+    id: string;
+    content: string;
+    /** Combined relevance: 0.6·seed + 0.3·hop_boost + 0.1·degree_factor. */
+    score: number;
+    /** BFS distance from the nearest seed (0 = seed itself). */
+    hop_distance: number;
+}
+
+/** A relationship edge between two GraphRAG nodes (DIST-15). */
+export interface GraphRagEdge {
+    /** u128 node id as a decimal string. */
+    source: string;
+    /** u128 node id as a decimal string. */
+    target: string;
+    label: string;
+}
+
+/** Pipeline counters for a GraphRAG run (DIST-15). */
+export interface GraphRagStats {
+    seeds_found: number;
+    nodes_expanded: number;
+    total_candidates: number;
+    expansion_hops_used: number;
+}
+
+/** Result of `graphrag_search` — the canonical wire shape across bindings (DIST-15). */
+export interface GraphRagResult {
+    nodes: GraphRagNode[];
+    edges: GraphRagEdge[];
+    /** LLM-ready context block (nodes + relationships); empty when no seeds. */
+    context_text: string;
+    stats: GraphRagStats;
+}
+
 /** Traversal direction string accepted by graph traversal entry points. */
 export type TraversalDirectionStr = "Forward" | "Reverse" | "Both";
 
@@ -665,6 +702,14 @@ export class Client {
     search_multi(namespaces: string[], request: SearchRequestInput): SearchHit[];
 
     /**
+     * Run the GraphRAG pipeline: seed → expand → retrieve → generate context.
+     * Returns the canonical {@link GraphRagResult} wire shape shared with the
+     * Python/TS/Node bindings; u128 ids travel as decimal strings (API-01).
+     * At least one of `query` / `query_vector` should be provided.
+     */
+    graphrag_search(namespace: string, query?: string | null, query_vector?: Float32Array | number[] | null): GraphRagResult;
+
+    /**
      * Run a search with explanation metadata for debugging scoring.
      * Returns the raw engine explanation object.
      */
@@ -800,6 +845,15 @@ export class Client {
      * (both directions).
      */
     remove_edge(source_id: string, target_id: string, label: string): void;
+
+    // ── Wiki ───────────────────────────────────────────────────────────────
+
+    /**
+     * Recover nodes shadow-archived by a summary node (wiki summary
+     * lifecycle): re-activates nodes with a `belonged_to` edge targeting
+     * `summary_id` and returns the recovered records (empty when none match).
+     */
+    recover_archived_nodes(summary_id: string): NodeRecord[];
 
     /**
      * Perform a breadth-first traversal from the given root node ids

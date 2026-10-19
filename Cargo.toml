@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 description = "VantaDB: An embedded persistent memory and vector retrieval engine for local-first AI applications."
-license = "Apache-2.0"
+license.workspace = true
 readme = "README.md"
 repository = "https://github.com/ness-e/Vantadb"
 homepage = "https://vantadb.dev"
@@ -22,7 +22,7 @@ exclude = [
     "examples/",
     "docs/",
     "assets/",
-    "desktop/",
+    "feature-freez/",
     "e2e/",
     "evals/",
     "embeddings/",
@@ -120,6 +120,7 @@ indicatif = { version = "0.18", optional = true }
 console = { version = "0.16", optional = true }
 clap = { version = "4.4", features = ["derive", "env"], optional = true }
 clap_complete = { version = "4.4", optional = true }
+toml = { version = "0.8", optional = true }
 # ERR-CORE-02: anyhow es SOLO para los bins (src/bin/*), nunca para src/lib.
 # Gated tras `cli` (vanta-cli required-features=["cli"]) para no gravar a los
 # consumidores de la librería.
@@ -156,7 +157,7 @@ arrow = ["dep:arrow"]
 rocksdb = ["dep:rocksdb"]
 fjall = ["dep:fjall"]
 roaring = ["dep:croaring"]
-cli = ["dep:indicatif", "dep:console", "dep:clap", "dep:clap_complete", "dep:anyhow"]
+cli = ["dep:indicatif", "dep:console", "dep:clap", "dep:clap_complete", "dep:anyhow", "dep:toml"]
 failpoints = ["dep:fail", "dep:tempfile"]
 remote-inference = ["dep:reqwest"]
 embed-local = ["dep:ort", "dep:tokenizers"]
@@ -166,6 +167,7 @@ jemalloc = ["dep:tikv-jemallocator", "dep:tikv-jemalloc-ctl", "tikv-jemalloc-ctl
 wasm = ["dep:getrandom_03", "dep:getrandom_04"]
 advanced-tokenizer = ["dep:tantivy"]
 opentelemetry = [
+    "server",
     "dep:opentelemetry",
     "dep:tracing-opentelemetry",
     "dep:opentelemetry_sdk",
@@ -185,7 +187,7 @@ server = [
     "dep:tower-http",
     "dep:jsonwebtoken",
 ]
-tls = ["dep:axum-server", "dep:rustls"]
+tls = ["server", "dep:axum-server", "dep:rustls"]
 prometheus = ["dep:prometheus"]
 rayon = ["dep:rayon"]
 sysinfo = ["dep:sysinfo"]
@@ -803,6 +805,7 @@ default-members = [
 version = "0.8.0"
 edition = "2021"
 rust-version = "1.94.1"
+license = "Apache-2.0"
 
 [profile.test]
 debug = 1

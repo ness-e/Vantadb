@@ -79,7 +79,7 @@ jobs:
           python-version: "3.11"
 
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # v1
+        uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # v1
         with:
           toolchain: stable
 
@@ -114,6 +114,7 @@ jobs:
         if: matrix.os != 'windows-latest' && !matrix.target
         shell: bash
         run: |
+          # shellcheck disable=SC2012 # Safe for generated wheel names
           wheel="$(ls -t ./dist/vantadb_py-*.whl | head -n 1)"
           echo "Installing wheel: $wheel"
           python -m venv /tmp/.smoke-venv
@@ -206,6 +207,8 @@ jobs:
         with:
           packages-dir: dist/
           verbose: true
+          skip-existing: true
+          password: ${{ secrets.PYPI_TOKEN }}
 
   verify-testpypi-install:
     name: Verify TestPyPI install
@@ -301,6 +304,7 @@ jobs:
         run: |
           pip download --no-deps --dest /tmp/verify_whl \
             "vantadb-py==${{ steps.pkg_version.outputs.version }}"
+          # shellcheck disable=SC2012 # Safe for single downloaded wheel
           wheel_file=$(ls /tmp/verify_whl/vantadb_py-*.whl | head -1)
           echo "Verifying provenance for: ${wheel_file}"
           gh attestation verify "${wheel_file}" \

@@ -189,3 +189,76 @@ tags: [vantadb, avance, security, audit, fuzz, miri, ffi]
 - **Resultado:** ✅ RED→GREEN por slice (snapshot-name traversal+DoS, bulk_import 4ª ruta, refuse-to-start paridad FIND-07); verify lead 4/4+6/6; P2-01 vanta-audit approve con re-ejecución propia
 - **Commit:** 6a0f6934
 - **Observación:** `mirror_data_dir` dest-dentro-de-src inalcanzable vía API (validate_snapshot_name); `:`/espacios en nombres sin PoC → no findings
+
+### FIND-225: CodeQL — triage de 48 alertas (6 critical + 42 high)
+- **Fecha:** 2026-10-03
+- **Objetivo:** 48 alertas open en la pestaña Security (todas en tests/scripts de docs; 0 en `src/`).
+- **Resultado:** ✅ 48/48 resueltas vía API con justificación por alerta: 40× `used in tests` (6 salt fixtures no-criptográficos — `DefaultHasher` — + 34 assert-messages) + 8× `false positive` (tooling docs sin sink de seguridad). Contrato `open=0` + review P2-01 approve con spot-check adversarial (9 alertas, 4 grupos).
+- **Commit:** `c8c3e0fe` (task file)
+
+### FIND-226: ASan — símbolos (llvm-symbolizer) + fix de leaks reales (1.81 GB)
+- **Fecha:** 2026-10-03
+- **Objetivo:** Job ASan sin símbolos (intriageable) + dominante 28×64MB de engines in-memory no liberados al salir los tests.
+- **Resultado:** ✅ Causa raíz: `Box::leak(Box::new(storage))` innecesario en tests de `src/graph.rs` (21) + `src/gds.rs` (7) — reemplazado por `&storage` (los constructores ya tomaban `&'a StorageEngine`; test-only, asserts intactos). Job con `llvm` + `ASAN_SYMBOLIZER_PATH` fail-loud. Decisión: fix en fuente, SIN supresión LSAN (no enmascarar leaks futuros). actionlint/fmt/clippy/nextest 55/55 verdes. Review P2-01 approve.
+- **Commit:** `7ea9ab3e`
+
+### FIND-227: TSan — decisión "status quo (best-effort)" documentada
+- **Fecha:** 2026-10-03
+- **Objetivo:** Job TSan crónico-rojo; la premisa del plan ("race 100% mpmc/libtest") resultó parcial al analizar los logs crudos.
+- **Resultado:** ✅ Análisis de 565 reports: mpmc/libtest/compiler_* = solo 17/565; el resto allocator-op/rayon/fjall (una supresión convergente exigiría blanket `free`/`__tsan_memcpy` = sobre-supresión que ocultaría races reales). Decisión documentada in-place (comment-only) + causa raíz contra fuentes oficiales: std sin instrumentar + fences no soportados por TSan (rust-lang/rust#39608/#65097). Follow-up: evaluar `-Zbuild-std` (costo owner). Review P2-01 approve (ronda 2).
+- **Commit:** `a63c9d00`
+
+### DUR-02: Auditoría cobertura AES (`encryption`) — WAL / text_index / HNSW / edge_index / snapshots
+- **Fecha:** 2026-10-04
+- **Objetivo:** mapa artefacto→cifrado con evidencia de código o test con tmpdir + gaps clasificados (fix/FIND/wontfix); si hay gap accionable pequeño: fix + test.
+- **Resultado:** ✅ Contrato completo — mapa **0/6 artefactos cifrados** (evidencia file:línea por artefacto + probe tmpdir: canary plaintext en `vanta.shard0.wal` y `0.jnl` con feature `encryption` + key válida) · fix pequeño aplicado: `File::encryption_stream` usa el cipher adjunto (`with_cipher`) — RED→GREEN, nextest scoped 42/42 · gap grande → **FIND-249** (wiring vs primitivas-only; decisión de diseño) · `edge_index` OK-justificado (derivado sin artefacto) · docs corregidos (CONFIGURATION.md, FEATURES.md; HTTP_API.md ya era honesto) · gates: fmt/clippy(feature)/nextest 42/42/check-links/check-docs/gen-index/validate-docs-coverage 0 · OCR sin Critical/High · review P2-01 vanta-review ✅ APPROVE (H1-H4 incorporados).
+- **Commit:** `16afd036` (local, sin push)
+
+### ENC-01: Cifrado honesto — aviso al activar + docs (FIND-249 parte 1)
+- **Fecha:** 2026-10-04
+- **Objetivo:** Warning explícito y accionable al activar `encryption` (feature + `VANTADB_ENCRYPTION_KEY`) — el cifrado no protege ningún artefacto on-disk (0/6, DUR-02) — + docs/rustdoc sin ambigüedad (FIND-249) + tests que lo fijan. Cableado completo diferido por el owner (FIND-249).
+- **Resultado:** ✅ Contrato completo — `StorageEngine::open_with_config` emite el aviso (punto de activación; gating por entorno; excluye InMemory) · RED→GREEN 3/3 · scoped hermético en 4 escenarios de env (limpio / key / `VANTADB_BACKEND=memory` / ambas) · suites completas 2575/2575 (con feature) + 2549/2549 (sin) · fmt/clippy 0 · gates docs 0 · OCR 0 Critical/High · review P2-01 adversarial R1 changes-required (hermeticidad de tests) → fix → R2 APPROVE. Docs: `CONFIGURATION.md` (:73 + §7) + `FEATURES.md:47` + rustdoc `config.rs`/`lib.rs`. Nota "key sin feature compilada no avisa" registrada en FIND-249.
+- **Commit:** `b02b1609` (local, sin push)
+
+### Auditoría Integral Pre-Mercado (2026-10-18 — FIND-345..378)
+- **Fecha:** 2026-10-18
+- **Objetivo:** Remediación integral de los 34 hallazgos de la auditoría multi-agente en 5 dominios (`docs/dev/reviews/audit-full-20261017-multiagent.md`) previo al lanzamiento del tren 0.9.0.
+- **Resultado:** ✅ 34/34 hallazgos resueltos, verificados y testeados sin regresiones.
+
+| ID | Severidad | Área / Módulo | Descripción / Solución | Estado |
+|---|---|---|---|---|
+| `FIND-345` | 🔴 CRITICAL | `src/storage/engine/txn.rs` | Deadlock AB-BA en commit_transaction: insert_lock liberado antes de actualizar cardinality_stats | ✅ RESUELTO |
+| `FIND-346` | 🔴 CRITICAL | `src/server/middleware.rs` | Bypass auth HTTP cuando se configuraba solo JWT sin api_key: dev-mode condicionado a ambos None | ✅ RESUELTO |
+| `FIND-347` | 🔴 CRITICAL | `src/server/handlers.rs` | Traversal y escritura arbitraria de archivos en /api/v2/export e import: confinamiento y rechazo de rutas absolutas | ✅ RESUELTO |
+| `FIND-348` | 🔴 CRITICAL | `vantadb-python/src/lib.rs` | Deadlock GIL en py.detach y par_iter Rayon: desacoplado mapeo de errores fuera de closures | ✅ RESUELTO |
+| `FIND-349` | 🔴 CRITICAL | `desktop/src-tauri/Cargo.toml` | Rutas relativas rotas en Cargo.toml tras mover a feature-freez: ../../.. corregido | ✅ RESUELTO |
+| `FIND-350` | 🔴 CRITICAL | `vantadb-ts/package.json` | Protocolo file:../vantadb-node en dependencies npm: movido a devDependencies | ✅ RESUELTO |
+| `FIND-351` | 🟠 HIGH | `Cargo.lock` / `deny.toml` | Advisories rustls y unsafe-libyaml en cargo deny check: actualización rustls y remediación | ✅ RESUELTO |
+| `FIND-352` | 🟠 HIGH | `src/storage/maintenance.rs` | Corrupción HNSW en nodos cuantizados (SQ8/Binary/Turbo/MmapFull): preservación de vectores en reindex | ✅ RESUELTO |
+| `FIND-353` | 🟠 HIGH | `src/engine.rs` | Truncamiento u128->u64 de next_id tras recuperación WAL: acotado seguro saturating_add | ✅ RESUELTO |
+| `FIND-354` | 🟠 HIGH | `src/wal_sharded.rs` | Replay causal desordenado entre shards: ordenamiento global por seq antes de callback | ✅ RESUELTO |
+| `FIND-355` | 🟠 HIGH | `src/server/list_records.rs` | Doble offset de cursor en paginación multi-namespace: corte global único [start..end] | ✅ RESUELTO |
+| `FIND-356` | 🟠 HIGH | `vanta-proxy/src/` | Operaciones síncronas bloqueando workers Tokio: delegación en tokio::task::spawn_blocking | ✅ RESUELTO |
+| `FIND-357` | 🟠 HIGH | `vantadb-python/src/convert.rs` | Buffers multidimensionales / NaN / Inf en extract_vector: validación estricta 1D y finitud | ✅ RESUELTO |
+| `FIND-358` | 🟠 HIGH | `vantadb-wasm/src/lib.rs` | Truncamiento silencioso de top_k: uso de clamp_top_k de ffi-core con warning en consola | ✅ RESUELTO |
+| `FIND-359` | 🟠 HIGH | `vantadb-ts/src/native.ts` | Brecha de paridad NativeVantaDB frente a métodos de vantadb-node: wrappers agregados | ✅ RESUELTO |
+| `FIND-360` | 🟠 HIGH | `vantadb-python/src/lib.rs` | query_vector posicional sin default None en search: firma actualizada con default None y .pyi | ✅ RESUELTO |
+| `FIND-361` | 🟠 HIGH | `docs/dev/reports/INDEX.md` | Tabla Markdown corrupta en reports/INDEX.md: normalización de filas a 7 columnas | ✅ RESUELTO |
+| `FIND-362` | 🟡 MEDIUM | `src/storage/engine/txn.rs` | Bloques unsafe sin // SAFETY: y chequeo de alineación f32: decodificación segura chunks_exact | ✅ RESUELTO |
+| `FIND-363` | 🟡 MEDIUM | `src/storage/insert.rs` | Mutación de índices secundarios previa a WAL append: movida post-confirmación y post-lock | ✅ RESUELTO |
+| `FIND-364` | 🟡 MEDIUM | `scripts/docs/check-docs.mjs` | Frontmatter faltante en borrada-2026-10-10.md y claves legacy: saneamiento YAML | ✅ RESUELTO |
+| `FIND-365` | 🟡 MEDIUM | `vanta-proxy` / `vantadb-mcp` | Memoria sin cota en WritebackBuffer y wiki::RUNS: límites máximos y desalojo FIFO | ✅ RESUELTO |
+| `FIND-366` | 🟡 MEDIUM | `vantadb-mcp/src/` | Falta de validate_safe_path en code_index y wiki_ingest: validación previa de traversal | ✅ RESUELTO |
+| `FIND-367` | 🟡 MEDIUM | `vantadb-python/stubs` | Stub duplicado search_vector y métodos faltantes en AsyncClient: stubs unificados | ✅ RESUELTO |
+| `FIND-368` | 🟡 MEDIUM | `integrations/` / `providers/` | Cotas <0.7.0 y versiones desfasadas en manifiestos: ampliación a <0.9.0 y alineación | ✅ RESUELTO |
+| `FIND-369` | 🟡 MEDIUM | `tests/version_coherence.rs` | Rutas obsoletas packages/langchain en tests: re-apuntadas a integrations/* | ✅ RESUELTO |
+| `FIND-370` | 🟡 MEDIUM | Manifiestos Cargo | Features tls/opentelemetry incompletas y licencias faltantes: saneamiento Cargo.toml | ✅ RESUELTO |
+| `FIND-371` | 🟡 MEDIUM | `docs/api/VANTA_MEMORY.md` | Texto en español en documentación técnica en inglés: traducción conforme a Regla 3 | ✅ RESUELTO |
+| `FIND-372` | 🟡 MEDIUM | `CONTRIBUTING.md` / `QUICKSTART`| Workflows con nombres obsoletos referenciados en docs: actualizados a nombres vigentes | ✅ RESUELTO |
+| `FIND-373` | 🟢 LOW | `src/hardware/mod.rs` | Sufijo GBGB duplicado y desalineación en banner ASCII: formateo limpio | ✅ RESUELTO |
+| `FIND-374` | 🟢 LOW | `src/index/flat.rs` | Nodos duplicados en FlatIndex::add: actualización in-place si el ID ya existe | ✅ RESUELTO |
+| `FIND-375` | 🟢 LOW | `vanta-memory/pipeline_worker` | unreachable!() ante kind desconocido en LayerTelemetry::emit: warn + early return | ✅ RESUELTO |
+| `FIND-376` | 🟢 LOW | `vanta-proxy/src/langfuse.rs` | reqwest::blocking en runtime Tokio: migración a reqwest asíncrono y retiro de feature | ✅ RESUELTO |
+| `FIND-377` | 🟢 LOW | `src/lib.rs` / `Cargo.toml` | html_root_url en 0.3.0 y exclusión estrecha de feature-freez: alineados a 0.8.0 y raíz | ✅ RESUELTO |
+| `FIND-378` | 🟢 LOW | `README.md` | Comandos verify y certificate verify omitidos en bloque CLI: documentados | ✅ RESUELTO |
+

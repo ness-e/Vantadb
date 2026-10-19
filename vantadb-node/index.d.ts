@@ -107,7 +107,9 @@ export interface MemoryRecord {
 export interface MemoryListOptions {
   filters?: VantaMetadata
   limit?: number
-  cursor?: number
+  /** Page cursor: number, decimal string (WASM emits strings), or omitted/null
+   * (first page). Anything else is rejected with `cursor must be a number`. */
+  cursor?: number | string
   /** Valid-time point (SCH-07, ADR-046 §D3): keep only records whose validity
    * window contains this unix-ms instant. Omit/null = no temporal filter. */
   as_of_ms?: number | null
@@ -303,9 +305,77 @@ export interface FilterItem {
 
 /** Explicit dense-vector index backend override for `searchWithMethod`. */
 export type IndexMethod = 'Hnsw' | 'Ivf' | 'Flat' | 'DiskAnn' | 'Scann'
+
+/** A ranked GraphRAG node (DIST-15). */
+export interface GraphRagNode {
+  /** Decimal string (u128 ids exceed Number.MAX_SAFE_INTEGER, API-01). */
+  id: string
+  content: string
+  /** Combined relevance: 0.6·seed + 0.3·hop_boost + 0.1·degree_factor. */
+  score: number
+  /** BFS distance from the nearest seed (0 = seed itself). */
+  hop_distance: number
+}
+
+/** A relationship edge between two GraphRAG nodes (DIST-15). */
+export interface GraphRagEdge {
+  /** Decimal string node id (u128). */
+  source: string
+  /** Decimal string node id (u128). */
+  target: string
+  label: string
+}
+
+/** Pipeline counters for a GraphRAG run (DIST-15). */
+export interface GraphRagStats {
+  seeds_found: number
+  nodes_expanded: number
+  total_candidates: number
+  expansion_hops_used: number
+}
+
+/**
+ * Result of `graphragSearch()` — the canonical wire shape shared by every
+ * binding (Py/TS/Node/WASM): nodes + edges + LLM-ready `context_text` + stats.
+ */
+export interface GraphRagResult {
+  nodes: GraphRagNode[]
+  edges: GraphRagEdge[]
+  /** LLM-ready context block (nodes + relationships), empty when no seeds. */
+  context_text: string
+  stats: GraphRagStats
+}
+/**
+ * DIST-20 (S4) cooperative cancellation token for long engine ops.
+ *
+ * Why not the DOM `AbortSignal` (spec draft): napi's `AbortSignal` is
+ * `!Send` by construction (`Rc` internals, `napi-3.12.0/.../task.rs:57`)
+ * and only feeds `AsyncTask` (libuv thread) — it can never enter a
+ * `#[napi]` tokio future, not even as an unused param (verified with
+ * `cargo check`: the future is `!Send`). `AbortHandle` is the `Send`-safe
+ * bridge with identical detach semantics. JS ergonomics are one line:
+ * `signal.addEventListener('abort', () => handle.abort())` (the S5 suite
+ * proves this wiring). Abort = detach: the blocking op runs on, the engine
+ * is never cancelled, `close()` never blocks on a cancelled op.
+ */
+export declare class AbortHandle {
+  /** Create a fresh token (starts un-fired). */
+  constructor()
+  /**
+   * Fire cancellation. Idempotent; safe to call before or after the op
+   * settles. A pre-fired handle fails the next op fast with `Cancelled`.
+   */
+  abort(): void
+}
+
 /**
  * Native VantaDB handle exposed to Node.js. Thin wrapper over the SDK's
  * `Embedded`; all engine methods are async to avoid blocking the JS thread.
+ *
+ * EGO-06: GC safety net via `#[napi(custom_finalize)]` — explicit `close()`
+ * stays primary (timely flush + errors; GC timing is never guaranteed), but
+ * a discarded handle drains in-flight ops and closes the engine on finalize
+ * instead of relying on refcount accidents to free the Fjall lock.
  */
 export declare class VantaDb {
   /**
@@ -317,6 +387,16 @@ export declare class VantaDb {
    * `options` (optional): `{ read_only?: boolean, memory_limit?: number }`.
    */
   static connect(path: string, options?: ConnectOptions): Promise<VantaDb>
+  /**
+   * Reopen the database on this same handle without rebinding consumers
+   * (EGO-12). Drains + closes the current engine, then opens fresh —
+   * same path by default, or `path` to switch directories.
+   *
+   * The gate is replaced (fresh durability barrier); in-flight ops drain
+   * before the swap (R-4). On open failure the handle is left cleanly
+   * closed (reservation freed) rather than half-open.
+   */
+  reopen(path?: string | undefined | null): Promise<void>
   /** Flush the WAL and memory-mapped files to disk. */
   flush(): Promise<void>
   /**
@@ -379,7 +459,7 @@ export declare class VantaDb {
    * see `docs/api/TS_SDK.md` → "Distance vs Score (CODE-091)" for the full
    * cross-binding table.
    */
-  search(request: SearchRequest): Promise<MemorySearchHit[]>
+  search(request: SearchRequest, abort?: AbortHandle | undefined | null): Promise<MemorySearchHit[]>
   /** Return stable runtime capabilities. */
   capabilities(): Capabilities
   /**
@@ -511,5 +591,60 @@ export declare class VantaDb {
    * searched independently and results are merged by descending score.
    */
   searchMulti(namespaces: string[], request: SearchRequest): Promise<MemorySearchHit[]>
+  /**
+   * Run the GraphRAG pipeline: seed → expand → retrieve → generate context.
+   *
+   * Returns the canonical wire shape shared with the Python/TS/WASM
+   * bindings: `{nodes: [{id, content, score, hop_distance}], edges:
+   * [{source, target, label}], context_text, stats}`. u128 ids travel as
+   * decimal strings (API-01). At least one of `query` / `queryVector`
+   * should be provided; both may be combined (hybrid seeds).
+   */
+  graphragSearch(namespace: string, query?: string | undefined | null, queryVector?: Array<number> | undefined | null): Promise<GraphRagResult>
+  /**
+   * One auto-recall pass over L1/session/agent/team memory (MEMG-24).
+   * `options`: `{user_text, session_key, scope?, max_results?, min_overlap?,
+   * team_id?, agent_id?, allow_prefixes?, trust_aware?, now_ms?}`. Returns the recall JSON, or
+   * `null` when there is nothing to inject (never an empty block).
+   * `trust_aware` (default `false`) opts into the composite re-rank
+   * (S8/FIND-320, MEMG-21 precedent); `false` keeps the legacy ordering
+   * byte-identical. `now_ms` (epoch ms, default: wall-clock) only feeds
+   * the opt-in path and makes it deterministic in tests.
+   */
+  memoryRecall(options: any): Promise<any>
+  /**
+   * Compact a chat history under a token budget (pure function, no engine
+   * state — works even while the database is closing). `options`:
+   * `{messages: ChatMessage[], token_budget, protected_prefix?,
+   * compaction_ratio?, min_keep?}`. Uses the lean chars/3 heuristic
+   * (`TokenEstimator::default`; `precise-tokens` stays opt-in).
+   */
+  contextAssemble(options: any): Promise<any>
+  /**
+   * LLM-free consolidation pass over one session (dream primitives:
+   * dedup, contradiction provenance, date normalization). `options`:
+   * `{session_id, now_ms, last_active_at_ms?, idle_threshold_ms?}`.
+   * Fail-closed: a non-idle session is an error, never a silent no-op.
+   */
+  memoryConsolidate(options: any): Promise<any>
+  /**
+   * Reinforce one recalled memory (`hit` = a `recalled_memories[]` item
+   * from [`VantaDB::memory_recall`]). `outcome`: `used`|`corrected`|`unused`
+   * (wire names of `ReinforceOutcome`; unknown tokens rejected, never
+   * inferred). Returns the updated record.
+   */
+  memoryReinforce(hit: any, outcome: string): Promise<any>
+  /**
+   * Full-database checkpoint: JSONL export (`export_all`) to `path`.
+   * Backed by the core export (integrity manifest included) — this method
+   * only moves the call across the FFI boundary.
+   */
+  checkpointSave(path: string): Promise<any>
+  /**
+   * Restore a checkpoint written by [`VantaDB::checkpoint_save`].
+   * `quarantine` defaults to `true` (safe default: untrusted content is
+   * quarantined unless the host opts out explicitly).
+   */
+  checkpointLoad(path: string, quarantine?: boolean | undefined | null): Promise<any>
 }
 export type VantaDB = VantaDb

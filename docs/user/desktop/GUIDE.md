@@ -119,4 +119,4 @@ evaluar colisiones con el sistema antes de activarlo.
 | `401` en modo server | Credenciales Bearer incorrectas o faltantes. |
 | Registros desaparecen en WASM | Limpiaste los datos del sitio, o estabas en modo incógnito (IndexedDB efímero). |
 
-Más detalles técnicos: [README](README.md) · [ARCHITECTURE](ARCHITECTURE.md).
+Más detalles técnicos: [README](README.md) · [ARCHITECTURE](../../dev/desktop/ARCHITECTURE.md).

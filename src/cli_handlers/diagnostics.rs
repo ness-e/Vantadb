@@ -118,10 +118,254 @@ pub struct DoctorOptions {
     pub verbose: Verbosity,
 }
 
+/// One environment preflight check (DX-02/H-027: first-run failures).
+/// Report-only: a failing check warns, it never changes the exit code.
+#[derive(Debug)]
+struct PreflightCheck {
+    name: &'static str,
+    ok: bool,
+    detail: String,
+}
+
+/// Run `program args`, return the first stdout (else stderr) line, if any.
+fn check_cmd(program: &str, args: &[&str]) -> Option<String> {
+    let out = std::process::Command::new(program)
+        .args(args)
+        .output()
+        .ok()?;
+    let combined = if out.stdout.is_empty() {
+        out.stderr
+    } else {
+        out.stdout
+    };
+    let text = String::from_utf8(combined).ok()?;
+    let first = text.lines().next()?.trim();
+    if first.is_empty() {
+        None
+    } else {
+        Some(first.to_string())
+    }
+}
+
+/// Locate an ONNX runtime library on the search path, if any.
+fn onnxruntime_location() -> Option<String> {
+    let names: &[&str] = if cfg!(windows) {
+        &["onnxruntime.dll"]
+    } else {
+        &["libonnxruntime.so", "libonnxruntime.dylib"]
+    };
+    let mut dirs: Vec<std::path::PathBuf> = Vec::new();
+    if let Some(paths) = std::env::var_os("PATH") {
+        dirs.extend(std::env::split_paths(&paths));
+    }
+    if cfg!(windows) {
+        if let Some(root) = std::env::var_os("SystemRoot") {
+            dirs.push(std::path::PathBuf::from(root).join("System32"));
+        }
+    }
+    for dir in &dirs {
+        for name in names {
+            let candidate = dir.join(name);
+            if candidate.is_file() {
+                return Some(candidate.display().to_string());
+            }
+        }
+    }
+    None
+}
+
+/// Active Windows console code page (e.g. `65001` = UTF-8), if readable.
+fn windows_codepage() -> Option<String> {
+    if !cfg!(windows) {
+        return None;
+    }
+    let text = check_cmd("chcp", &[])?;
+    let digits: String = text.chars().filter(|c| c.is_ascii_digit()).collect();
+    if digits.is_empty() {
+        None
+    } else {
+        Some(digits)
+    }
+}
+
+#[cfg(feature = "sysinfo")]
+fn disk_free_bytes(path: &str) -> Option<u64> {
+    use sysinfo::Disks;
+    let disks = Disks::new_with_refreshed_list();
+    let target = std::path::Path::new(path);
+    // ponytail: longest-prefix mount match; fallback to first disk when the
+    // path does not exist yet (first-run) or matches nothing.
+    let mut best: Option<(usize, u64)> = None;
+    for disk in disks.list() {
+        let mount = disk.mount_point();
+        if target.starts_with(mount) {
+            let len = mount.components().count();
+            if best.is_none_or(|(bl, _)| len > bl) {
+                best = Some((len, disk.available_space()));
+            }
+        }
+    }
+    best.map(|(_, free)| free)
+        .or_else(|| disks.list().first().map(|d| d.available_space()))
+}
+
+#[cfg(not(feature = "sysinfo"))]
+fn disk_free_bytes(_path: &str) -> Option<u64> {
+    None
+}
+
+/// Environment preflight for first-run (DX-02): disk, orphan locks,
+/// onnxruntime, UTF-8 codepage, Python/Node versions. Best-effort only.
+fn environment_preflight(db_path: &str) -> Vec<PreflightCheck> {
+    let mut checks = Vec::new();
+    match disk_free_bytes(db_path) {
+        Some(free) => checks.push(PreflightCheck {
+            name: "disk",
+            ok: free > 256 * 1024 * 1024,
+            detail: format!("{} free", human_readable_size(free)),
+        }),
+        None => checks.push(PreflightCheck {
+            name: "disk",
+            ok: true,
+            detail: "free space not measured (built without sysinfo)".to_string(),
+        }),
+    }
+    let lock = std::path::Path::new(db_path).join(".vanta.lock");
+    let (lock_ok, lock_detail) = if !lock.is_file() {
+        (true, "no stale lock".to_string())
+    } else {
+        match crate::storage::lock::read_lock_metadata(&lock) {
+            Some(meta) => {
+                if crate::storage::lock::is_process_alive(meta.pid) {
+                    (
+                        false,
+                        format!(
+                            "locked by active process '{}' (PID {}) on host '{}'",
+                            meta.process_name, meta.pid, meta.hostname
+                        ),
+                    )
+                } else {
+                    (
+                        true,
+                        format!(
+                            "orphaned lock from dead process '{}' (PID {}) — auto-recoverable on start",
+                            meta.process_name, meta.pid
+                        ),
+                    )
+                }
+            }
+            None => (
+                true,
+                "unformatted lock file present — auto-recoverable on start".to_string(),
+            ),
+        }
+    };
+    checks.push(PreflightCheck {
+        name: "orphan_lock",
+        ok: lock_ok,
+        detail: lock_detail,
+    });
+    match onnxruntime_location() {
+        Some(found) => checks.push(PreflightCheck {
+            name: "onnxruntime",
+            ok: true,
+            detail: found,
+        }),
+        None => checks.push(PreflightCheck {
+            name: "onnxruntime",
+            ok: true,
+            detail: "not found (only needed for onnx embedding providers)".to_string(),
+        }),
+    }
+    if cfg!(windows) {
+        match windows_codepage() {
+            Some(cp) => checks.push(PreflightCheck {
+                name: "codepage_utf8",
+                ok: cp == "65001",
+                detail: format!("active code page {cp} (UTF-8 is 65001)"),
+            }),
+            None => checks.push(PreflightCheck {
+                name: "codepage_utf8",
+                ok: true,
+                detail: "could not read code page".to_string(),
+            }),
+        }
+    } else {
+        checks.push(PreflightCheck {
+            name: "codepage_utf8",
+            ok: true,
+            detail: "non-Windows platform".to_string(),
+        });
+    }
+    match check_cmd("python", &["--version"]).or_else(|| check_cmd("python3", &["--version"])) {
+        Some(v) => checks.push(PreflightCheck {
+            name: "python",
+            ok: true,
+            detail: v,
+        }),
+        None => checks.push(PreflightCheck {
+            name: "python",
+            ok: true,
+            detail: "not on PATH".to_string(),
+        }),
+    }
+    match check_cmd("node", &["--version"]) {
+        Some(v) => checks.push(PreflightCheck {
+            name: "node",
+            ok: true,
+            detail: v,
+        }),
+        None => checks.push(PreflightCheck {
+            name: "node",
+            ok: true,
+            detail: "not on PATH".to_string(),
+        }),
+    }
+    checks
+}
+
+fn preflight_json(checks: &[PreflightCheck]) -> serde_json::Value {
+    serde_json::Value::Array(
+        checks
+            .iter()
+            .map(|c| {
+                serde_json::json!({
+                    "name": c.name,
+                    "ok": c.ok,
+                    "detail": c.detail,
+                })
+            })
+            .collect(),
+    )
+}
+
+fn report_preflight(checks: &[PreflightCheck]) {
+    let bad: Vec<&PreflightCheck> = checks.iter().filter(|c| !c.ok).collect();
+    if bad.is_empty() {
+        print_info(&format!(
+            "Preflight: all {} environment checks ok",
+            checks.len()
+        ));
+    } else {
+        print_warning(&format!(
+            "Preflight: {} of {} checks need attention",
+            bad.len(),
+            checks.len()
+        ));
+        for c in bad {
+            print_warning(&format!("  [{}] {}", c.name, c.detail));
+        }
+    }
+}
+
 #[tracing::instrument]
 /// Run comprehensive health diagnostics on the database
 pub fn cmd_doctor(db_path: &str, opts: DoctorOptions, json_output: bool) -> Result<()> {
     let mut fixes: Vec<String> = Vec::new();
+    let preflight = environment_preflight(db_path);
+    if !json_output {
+        report_preflight(&preflight);
+    }
     if !matches!(opts.fix, DoctorFix::Off) {
         let pending = pending_safe_repairs(db_path);
         if !matches!(opts.fix, DoctorFix::Apply) {
@@ -163,7 +407,7 @@ pub fn cmd_doctor(db_path: &str, opts: DoctorOptions, json_output: bool) -> Resu
                 if json_output {
                     return print_json(&serde_json::json!({
                         "path": db_path,
-                        "fixes": fixes,
+                        "fixes": fixes, "preflight": preflight_json(&preflight),
                         "diagnostics": serde_json::Value::Null,
                     }));
                 }
@@ -184,7 +428,7 @@ pub fn cmd_doctor(db_path: &str, opts: DoctorOptions, json_output: bool) -> Resu
         if json_output {
             return print_json(&serde_json::json!({
                 "path": db_path,
-                "fixes": fixes,
+                "fixes": fixes, "preflight": preflight_json(&preflight),
                 "diagnostics": serde_json::Value::Null,
             }));
         }
@@ -207,7 +451,7 @@ pub fn cmd_doctor(db_path: &str, opts: DoctorOptions, json_output: bool) -> Resu
             if json_output {
                 return print_json(&serde_json::json!({
                     "path": db_path,
-                    "fixes": fixes,
+                    "fixes": fixes, "preflight": preflight_json(&preflight),
                     "diagnostics": serde_json::Value::Null,
                     "note": format!("database is empty/uninitialised ({e})"),
                 }));
@@ -264,7 +508,7 @@ pub fn cmd_doctor(db_path: &str, opts: DoctorOptions, json_output: bool) -> Resu
     if json_output {
         return print_json(&serde_json::json!({
             "path": db_path,
-            "fixes": fixes,
+            "fixes": fixes, "preflight": preflight_json(&preflight),
             "diagnostics": {
                 "total_nodes": total_nodes,
                 "namespaces": namespaces,

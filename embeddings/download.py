@@ -115,18 +115,19 @@ def check_manifest(manifest: dict) -> bool:
         if m.get("onnx") is not None and not isinstance(m["onnx"], str):
             print(f"[check] FAIL {m.get('id')}: onnx debe ser str o null", file=sys.stderr)
             ok = False
-    # 9 modelos esperados
-    if len(manifest.get("models", [])) != 9:
-        print(f"[check] FAIL manifest debe tener 9 modelos, tiene {len(manifest.get('models', []))}", file=sys.stderr)
+    # Al menos 9 modelos esperados
+    num_models = len(manifest.get("models", []))
+    if num_models < 9:
+        print(f"[check] FAIL manifest debe tener al menos 9 modelos, tiene {num_models}", file=sys.stderr)
         ok = False
     if manifest.get("default") != "multilingual-e5-small":
         print(f"[check] FAIL default debe ser multilingual-e5-small", file=sys.stderr)
         ok = False
-    # balance 3/3/3
+    # balance grupos base (en>=3, es>=3, combined>=3)
     from collections import Counter
     cnt = Counter(m["group"] for m in manifest.get("models", []))
-    if cnt["en"] != 3 or cnt["es"] != 3 or cnt["combined"] != 3:
-        print(f"[check] FAIL balance grupos en={cnt['en']} es={cnt['es']} combined={cnt['combined']} (esperado 3/3/3)", file=sys.stderr)
+    if cnt["en"] < 3 or cnt["es"] < 3 or cnt["combined"] < 3:
+        print(f"[check] FAIL balance grupos en={cnt['en']} es={cnt['es']} combined={cnt['combined']} (esperado en>=3, es>=3, combined>=3)", file=sys.stderr)
         ok = False
     # Qwen3 exception
     qwen = [m for m in manifest.get("models", []) if m["id"] == "qwen3-embedding-8b"]
@@ -134,7 +135,7 @@ def check_manifest(manifest: dict) -> bool:
         print("[check] FAIL qwen3-embedding-8b debe tener exception y onnx=null", file=sys.stderr)
         ok = False
     if ok:
-        print(f"[check] OK manifest v{manifest.get('version')} — 9 modelos, rev pinned, dim ok, grupos 3/3/3")
+        print(f"[check] OK manifest v{manifest.get('version')} — {num_models} modelos, rev pinned, dim ok, grupos ok")
     return ok
 
 

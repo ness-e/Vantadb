@@ -348,41 +348,44 @@ fn cmd_server_mcp(
         cmd
     };
 
-    let mut child = match build_cmd(std::path::Path::new(&exe_name)).spawn() {
-        Ok(c) => c,
-        Err(ref err) if err.kind() == std::io::ErrorKind::NotFound => {
-            if let Ok(mut current_exe) = std::env::current_exe() {
-                current_exe.set_file_name(&exe_name);
-                if current_exe.exists() {
-                    build_cmd(&current_exe).spawn().map_err(|e| {
-                        Error::Cli(ChainedError::msg(format!(
-                            "Failed to start vantadb-server from {}: {e}",
-                            current_exe.display()
-                        )))
-                    })?
-                } else {
-                    return Err(Error::Cli(ChainedError::msg(format!(
-                        "vantadb-server binary not found. \
-                         Searched PATH for '{}' and CLI directory for '{}'. \
-                         The MCP server requires the vantadb-server binary (compiled with the 'server' feature). \
-                         Install it via 'cargo build --bin vantadb-server' or place it alongside this binary.",
-                        exe_name,
-                        current_exe.display()
-                    ))));
-                }
-            } else {
-                return Err(Error::Cli(ChainedError::msg(format!(
-                    "vantadb-server binary '{}' not found in PATH. \
-                     Current executable path could not be determined. \
-                     Ensure vantadb-server is installed and available in PATH.",
-                    exe_name
-                ))));
-            }
+    let mut candidates = Vec::new();
+    if let Ok(cur) = std::env::current_exe() {
+        if cur
+            .file_stem()
+            .map(|s| s == "vanta" || s == "vantadb-server")
+            .unwrap_or(false)
+        {
+            candidates.push(cur.clone());
         }
-        Err(e) => {
+        let mut sibling_vanta = cur.clone();
+        sibling_vanta.set_file_name(if cfg!(windows) { "vanta.exe" } else { "vanta" });
+        candidates.push(sibling_vanta);
+        let mut sibling_server = cur.clone();
+        sibling_server.set_file_name(&exe_name);
+        candidates.push(sibling_server);
+    }
+    candidates.push(std::path::PathBuf::from(if cfg!(windows) {
+        "vanta.exe"
+    } else {
+        "vanta"
+    }));
+    candidates.push(std::path::PathBuf::from(&exe_name));
+
+    let mut spawned = None;
+    for target in &candidates {
+        if let Ok(child) = build_cmd(target).spawn() {
+            spawned = Some(child);
+            break;
+        }
+    }
+
+    let mut child = match spawned {
+        Some(c) => c,
+        None => {
             return Err(Error::Cli(ChainedError::msg(format!(
-                "Failed to spawn vantadb-server process (db_path={}): {e}",
-                db_path
+                "MCP server host binary ('vanta' or '{}') not found. \
+                 Install via 'cargo build -p vantadb-server' or place the unified 'vanta' binary in PATH.",
+                exe_name
             ))));
         }
     };

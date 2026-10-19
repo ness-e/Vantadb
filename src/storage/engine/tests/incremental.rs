@@ -1,10 +1,12 @@
 //! Tests for InsertMode (Incremental / Auto / Rebuild) in batch_insert_with_opts
 //! and SDK put_batch.
 //!
-//! Covers 7 test scenarios:
+//! Covers 9 test scenarios:
 //!   1–4: engine-level batch_insert_with_opts with InsertMode variants
 //!   5–6: SDK-level put_batch with small and large batches
 //!   7:   recall@10 parity between Incremental and Rebuild modes
+//!   8:   put_batch keeps list/count/text-search indexes consistent
+//!   9:   put_batch UPSERT replaces stale derived/text indexes (MEMG-11)
 
 use super::super::*;
 use super::in_memory_engine;
@@ -385,4 +387,67 @@ fn test_put_batch_list_count_text_consistent() {
         !hits.is_empty(),
         "text search must find batch-inserted records"
     );
+}
+
+// ─── Test 9: put_batch UPSERT replaces derived/text/sparse indexes ─────────
+
+/// MEMG-11 review P2-01: the UPSERT branch (`previous = Some` from disk) is
+/// the only place where the per-record index replacement supersedes the old
+/// full rebuild — it must delete the stale entries (text postings in
+/// particular) instead of leaving both versions indexed.
+#[test]
+fn test_put_batch_upsert_replaces_indexes() {
+    let db = Embedded::open_with_config(Config {
+        backend_kind: BackendKind::InMemory,
+        ..Default::default()
+    })
+    .expect("open Embedded");
+
+    let ns = "inc_upsert";
+    let mut first = MemoryInput::new(ns, "key_1", "alpha original payload");
+    first.vector = Some(make_vector(1, DIMS));
+    db.put_batch(vec![first]).expect("first batch");
+
+    // Same key, new payload/vector — the UPSERT branch runs.
+    let mut second = MemoryInput::new(ns, "key_1", "beta replacement payload");
+    second.vector = Some(make_vector(2, DIMS));
+    db.put_batch(vec![second]).expect("upsert batch");
+
+    // Derived index (list/count): exactly one record, updated payload.
+    let page = db
+        .list(
+            ns,
+            MemoryListOptions {
+                limit: 100,
+                ..Default::default()
+            },
+        )
+        .expect("list");
+    assert_eq!(page.records.len(), 1, "upsert must not duplicate");
+    assert_eq!(page.records[0].payload, "beta replacement payload");
+    assert_eq!(db.count(ns, None).expect("count"), 1);
+
+    // Text index: the stale term must be gone, the new one findable.
+    let stale = db
+        .search(MemorySearchRequest {
+            namespace: ns.into(),
+            text_query: Some("alpha".into()),
+            top_k: 10,
+            ..Default::default()
+        })
+        .expect("search alpha");
+    assert!(
+        stale.is_empty(),
+        "stale text postings for 'alpha' must be removed by the upsert"
+    );
+    let fresh = db
+        .search(MemorySearchRequest {
+            namespace: ns.into(),
+            text_query: Some("beta".into()),
+            top_k: 10,
+            ..Default::default()
+        })
+        .expect("search beta");
+    assert_eq!(fresh.len(), 1, "new term must be findable after the upsert");
+    assert_eq!(fresh[0].record.payload, "beta replacement payload");
 }
