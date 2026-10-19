@@ -3986,6 +3986,7 @@ fn manifest_model_table() -> Vec<(String, usize, Option<u64>)> {
         ("multilingual-e5-small".to_string(), 384, Some(220)),
         ("bge-m3".to_string(), 1024, Some(1200)),
         ("qwen3-embedding-8b".to_string(), 4096, None),
+        ("embeddinggemma-2".to_string(), 768, Some(550)),
     ]
 }
 
