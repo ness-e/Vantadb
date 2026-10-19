@@ -335,7 +335,6 @@ impl Embedded {
 #[cfg(test)]
 #[allow(missing_docs)]
 mod tests {
-    use super::super::super::types::*;
     use super::*;
     use crate::node::SparseVector;
 
