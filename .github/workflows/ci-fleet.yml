@@ -10,7 +10,7 @@ name: 'CI: Fleet - examples, bindings parity, adapters, providers'
 on:
   push:
     branches: [main]
-    paths: &fleet-paths
+    paths:
       - 'examples/**'
       - 'src/**'
       - 'Cargo.toml'
@@ -27,7 +27,21 @@ on:
       - '.github/workflows/ci-fleet.yml'
   pull_request:
     branches: [main, develop]
-    paths: *fleet-paths
+    paths:
+      - 'examples/**'
+      - 'src/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'vantadb-python/**'
+      - 'vantadb-ts/**'
+      - 'vantadb-node/**'
+      - 'vantadb-wasm/**'
+      - 'vantadb-ffi-core/**'
+      - 'tests/parity/**'
+      - 'dev-tools/parity-compare.mjs'
+      - 'providers/**'
+      - '.github/scripts/verify_pyi.py'
+      - '.github/workflows/ci-fleet.yml'
   schedule:
     - cron: '0 3 * * 0'
   workflow_dispatch:
