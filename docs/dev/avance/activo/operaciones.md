@@ -516,3 +516,20 @@ tags: [vantadb, avance, ops, api, docs, backup, enterprise]
 - **Objetivo:** Re-scope obligatorio en DISCOVERY (FIND-249 diferido por decisión owner): contrato reducido a superficie de config/key mgmt + docs honestas (sin claim de protección) + test. Motivo real: el aviso ENC-01 es feature-gated y el build default del server no compila `encryption` → `VANTADB_ENCRYPTION_KEY` era silenciosamente ignorada (falsa seguridad, pre-mortem #3).
 - **Resultado:** ✅ Contrato reducido completo — `vantadb-server` gana feature opt-in `encryption = ["vantadb/encryption"]` (RED→GREEN: "does not contain this feature" → check verde; con ella el aviso ENC-01 cubre la ruta server vía `open_with_config`, `bootstrap.rs:314`) · aviso nuevo `encryption_key_ignored_notice` + call en `run_with_hooks` (cubre `vanta-cli server --http` + `vantadb-server`; excluye InMemory; NO loggea la key; RED→GREEN 3/3) · docs honestas: `HTTP_API.md` (sin "SRV-10 on the roadmap"; ahora aviso + FIND-249), `CONFIGURATION.md:74,499`, `hardening.md:280` · verify en worktree aislado (MCP server lockea bins — FIND-177; sin matar procesos): suite lib+server **2509/2509** · clippy scoped + workspace all-features · fmt · gates docs (check-links/check-docs/gen-index/coverage) · OCR 0 Critical/High/Medium · review P2-01 adversarial vanta-review **APPROVE** (H2/H3/H5/H6 aplicados post-verdict; H1 gen-index stale por IQL.md de WIRE-13 → re-regen al commit). Frontera respetada: sin tocar write paths de storage/WAL/HNSW/crypto.rs/vfile (cifrado real = FIND-249). Commit creado en worktree de verificación (hook completo verde; 9/9 SHA256-idéntico) + `reset --soft` a develop; `--no-verify` NO usado.
 - **Commit:** `ca3f00da` (local, sin push)
+### FIND-445: 21 hallazgos P2/P3 del árbol de docs + 5 P1 adyacentes
+- **Fecha:** 2026-10-20
+- **Resultado:** ✅ Corregidos contra el código real: sintaxis IQL de vector search que no
+  existía (`VECTOR_SEARCH(...)` → `<field> ~ "texto", min = 0.88`), endpoint de embeddings de
+  Ollama, conteos de tools y version del registro MCP, el claim "every error response carries
+  `error.data.code`" (las 5 factorías JSON-RPC lo omiten), 9 responses de `openapi.yaml` con
+  envoltorio `{success,error,data}` inexistente, `/dashboard` documentado como público de
+  loopback, `x-vanta-user-key` como security scheme, la ruta viva `POST /api/v2/mcp/proxy`,
+  el flag inexistente `--allow-dummy-embeddings`, `VANTA_EMBEDDING_PROVIDER` → `VANTADB_*`,
+  7 citas `archivo:línea` obsoletas en `docs/api/scores.md` y 1 afirmación de comportamiento
+  falsa, `sync_mode` con su env var, `heavy-certification.yml` → `certification.yml` y el
+  Recall@10 atribuido a 50K. ADR-0011 → `superseded` por ADR-0058 y ADR-0012 → `superseded`
+  por ADR-0059 (los dos quedan `proposed`: los ratifica el owner).
+  Gates: check-docs (GATING all clear), validate-docs-coverage (0 gaps), check_openapi_parity
+  (37 paths = 37), check-links (0 rotos), check-doc-examples (OK), gen-index --check (al día).
+  43 citas `archivo:línea` verificadas contra el símbolo correcto (0 mismatch).
+  PR: `docs/docs-tree-and-skills` (#270).

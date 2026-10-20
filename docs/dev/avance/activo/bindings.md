@@ -264,7 +264,9 @@ tags: [vantadb, avance, bindings, python, wasm, typescript, mcp, adapters]
 - **Resultado:** ✅ comando Tauri `vanta_query` + `vanta_iql_autocomplete` (shim core-side sobre `parse_statement`); wrapper `queryIql()` en `vanta.ts`. Commit `ebf9acc1`.
 
 ### CORE-02: Bug IQL transporte WASM — graph-store vacío en standalone - completado 2026-08-23
-- **Resultado:** ✅ root cause = snapshot OPFS/IDB (persist_payload → db_state.json) solo exportaba VantaMemoryRecords; nodos de grafo (insert_node/add_edge/IQL RELATE) sin FIELD_NAMESPACE quedaban fuera y el graph-store moría en cada reopen. Fix: archivo lateral graph_state.json escrito por save()/save_idb() + restaurado por load()/load_idb()/connect_worker; SDK suma collect_graph_nodes()/estore_graph_nodes(); VantaEdgeRecord += everse/created_at_ms (#[serde(default)], back-compat). Contrato: test bindgen wasm32 roundtrip edge→IQL FROM ok (wasm-pack --node) + 2 tests nativos core. Verify: nextest audit workspace 2712/2712, clippy 0 warnings. Commit 3a8bf366. Pendiente relacionado: FIND-CORE02a/b (tests lib.rs bajo node pre-existentes fallando; VantaFields difícil desde JS puro) y desbloqueo anta_query en anta-wasm-map.ts (trabajo UI/wire separado).
+- **Resultado:** ✅ root cause = snapshot OPFS/IDB (persist_payload → db_state.json) solo exportaba VantaMemoryRecords; nodos de grafo (insert_node/add_edge/IQL RELATE) sin FIELD_NAMESPACE quedaban fuera y el graph-store moría en cada reopen. Fix: archivo lateral graph_state.json escrito por save()/save_idb() + restaurado por load()/load_idb()/connect_worker; SDK suma collect_graph_nodes()/
+estore_graph_nodes(); VantaEdgeRecord += 
+everse/created_at_ms (#[serde(default)], back-compat). Contrato: test bindgen wasm32 roundtrip edge→IQL FROM ok (wasm-pack --node) + 2 tests nativos core. Verify: nextest audit workspace 2712/2712, clippy 0 warnings. Commit 3a8bf366. Pendiente relacionado: FIND-CORE02a/b (tests lib.rs bajo node pre-existentes fallando; VantaFields difícil desde JS puro) y desbloqueo anta_query en anta-wasm-map.ts (trabajo UI/wire separado).
 
 ### MOD-17: Deadlock potencial OpGate::drain() sosteniendo GIL en close() - completado 2026-08-23
 - **Resultado:** ✅ root cause = close() llamaba drain() con GIL tomado: un op in-flight saliendo de su propio py.detach necesita re-adquirir el GIL para dropear su OpGuard -> bloqueo mutuo que congela el intérprete (review python.md H2). Fix: drain dentro de py.detach + derive(Clone) en OpGate (2 líneas, PyO3 0.29 parallelism guide). Contrato: test estrés 4 workers put/get + closer thread — RED probado contra binario buggy vía stash (watchdog faulthandler.dump_traceback_later exit=True capturó el deadlock @30s; el intérprete entero se congela, ni el assert de timeout propio corre), GREEN 5/5 estable. pytest -q completo = 111 passed (la cascada previa de 78 failed era disco lleno os error 112, no código). Verify: fmt/clippy workspace/nextest audit 2714/2714/docs-coverage 0 gaps. Commit 50319e30.
@@ -1337,3 +1339,34 @@ tags: [vantadb, avance, bindings, python, wasm, typescript, mcp, adapters]
 - **Objetivo:** Poda por grado para evitar abanico combinatorio de lecturas en nodos centrales
 - **Resultado:** ✅ Campo `max_degree_per_node` agregado en `GraphRagOptions` y aplicado durante la expansión en `src/graphrag/expand.rs:77` y `src/graphrag/pipeline.rs:13,106`.
 
+### FIND-448: 26 hallazgos P2/P3 de los READMEs (raíz + sub-paquetes)
+- **Fecha:** 2026-10-20
+- **Resultado:** ✅ Badges a workflows inexistentes (`gate-docs.yml` → `docs-gates.yml`,
+  `sec-codeql.yml` → `platform-ops.yml`, `heavy-certification.yml` → `certification.yml`,
+  `ci-examples.yml` → `ci-fleet.yml`, `adapters-compat.yml` → job `compat-matrix`);
+  `vanta-cli server start` → `vanta-cli server --http`; b��nners "Not on PyPI yet" falsos en los
+  7 adapters y los 3 providers; API de quickstart que no compila (`search("q")` →
+  `search(query, vectors, top_k=…)`, `r["payload"]` → `r.payload`, `count_documents(filters)` →
+  `count_documents()`, firmas reales de crewai/dspy/letta/ollama); 20 `await` engañosos en los
+  ejemplos del SDK TS; pins 0.8.0 → 0.9.0 y `vantadb_py` → `vantadb`; 5 anclas/links rotos;
+  estado real de npm (`vantadb` y `vantadb-node` ambos 0.9.0); sección North Star traducida al
+  ES; README nuevo de `vantadb-mcp`. 6 correcciones extra no listadas en el ledger (versiones
+  reales de PyPI/npm, firma de `VantaDBRetriever`, `delete_documents(document_ids=None)`, lane de
+  release de los adapters). El ejemplo del §5 del QUICKSTART se ejecutó en un venv limpio con
+  `vantadb-py==0.9.0` (vector/text/hybrid verdes). PR: `docs/readme-claims` (#268).
+
+### FIND-447: 11 hallazgos P2/P3 de las skills de usuario
+- **Fecha:** 2026-10-20
+- **Resultado:** ✅ Las 11 tools MCP que faltaban en `references/api-reference.md`
+  (`memory_reinforce`, `memory_recall`, `memory_verify_certificate`, `search_with_method`,
+  `search_multi`, `write_axiom`, `delete_axiom`, `snapshot_create`, `snapshot_restore`,
+  `embed_texts`, `code_index`) + conteos 85 → 82 listadas / 88 definidas; 9 enlaces relativos
+  rotos → URLs absolutas (única forma válida en los dos espejos); `VANTA_DB` inexistente →
+  `VANTADB_STORAGE_PATH`; 4 env vars MCP reales documentadas; protocolo MCP `2024-11-05` →
+  `2025-06-18`; `setup-vantadb.sh` lee la versión de `[workspace.package]` del `Cargo.toml`;
+  `test-mcp.py` exporta el perfil al hijo (`VANTADB_MCP_PROFILE`) — sin eso el smoke test
+  comparaba el perfil `agent` contra el bucket `full` y no podía pasar nunca; assets
+  `~/.vantadb` → ruta absoluta y se añadieron los directorios `hooks/` e `install/` que faltaban
+  en el espejo. Espejo verificado con SHA-256 sobre 25 ficheros: 0 drift. Los cambios del espejo
+  `.opencode/skills/**` se commitearon en `ness-e/configOpencode` (repo aparte).
+  PR: `docs/docs-tree-and-skills` (#270).
