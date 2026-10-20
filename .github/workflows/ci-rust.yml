@@ -339,6 +339,37 @@ jobs:
         timeout-minutes: 25
         run: cargo nextest run --profile audit --features "cli,arrow,tls,opentelemetry"
 
+  test-embedding-features:
+    name: Tests (embeddings features)
+    # FIND-489: el gate NO corria los tests del lib con `remote-inference` ni con
+    # `embed-local`, asi que un contrato roto del brazo vectorial llego a `develop`
+    # con 5 tests preexistentes en rojo y ningun check lo vio (FIND-413). Con esas
+    # features cambia el contrato del operador vectorial (provider caido -> error,
+    # no 0 hits) y el `cfg` de `LlmCfg::for_local_model` solo tiene llamador en el
+    # build `embed-local`, asi que hacen falta **las dos** combinaciones por separado.
+    # Es un job de LIB: lo que cambia con esas features es el contrato, y los tests
+    # del lib lo cubren sin red (el embedder se inyecta).
+    if: github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    needs: [fmt, clippy]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/rust-setup
+        with:
+          install-nextest: true
+          install-system-deps: true
+          swap-mb: 8192
+
+      - name: Run lib tests (remote-inference)
+        timeout-minutes: 18
+        run: cargo nextest run -p vantadb --lib --profile audit --features "cli,arrow,tls,opentelemetry,remote-inference"
+
+      - name: Run lib tests (embed-local)
+        timeout-minutes: 18
+        run: cargo nextest run -p vantadb --lib --profile audit --features "cli,arrow,tls,opentelemetry,embed-local"
+
   msrv:
     name: MSRV Check (1.94.1)
     if: github.actor != 'dependabot[bot]'
