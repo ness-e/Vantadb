@@ -113,6 +113,22 @@ pub(crate) fn iql_table_name_for_namespace(namespace: &str) -> String {
     out
 }
 
+/// Validate a vector dimension against the dimension established by the
+/// vector index (`expected = None` → the index holds no vector yet, so
+/// there is nothing to validate against).
+///
+/// FIND-411: a vector index holds vectors of **one** dimension. A vector
+/// (or a query vector) of a different length used to be accepted and then
+/// scored as a *perfect* match — the distance kernels returned `0.0` for two
+/// vectors of different lengths, which is the best possible Euclidean
+/// score. The mismatch is now rejected at the entry point.
+pub(crate) fn validate_vector_dimension(expected: Option<usize>, got: usize) -> Result<()> {
+    match expected {
+        Some(expected) if expected != got => Err(Error::dimension_mismatch(expected, got)),
+        _ => Ok(()),
+    }
+}
+
 pub(crate) fn validate_namespace(namespace: &str) -> Result<()> {
     if namespace.is_empty() {
         return Err(Error::Validation {

@@ -47,9 +47,35 @@ pub(crate) fn flat_search(
         })
         .collect();
 
-    results.sort_unstable_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
-    results.truncate(top_k);
+    finalize_flat_results(&mut results, metric, top_k);
     results
+}
+
+/// Order + trim the flat-scan results so they match the HNSW path exactly.
+///
+/// FIND-411:
+/// - A candidate whose dimension differs from the query scores `NaN`; it is
+///   not a candidate and is dropped (it used to score `0.0` — the *best*
+///   possible Euclidean score — and outranked every valid candidate).
+/// - Euclidean scores are converted from "negative squared distance" to
+///   "negative distance", the same scale `search_nearest_with_metric`
+///   returns for the HNSW path, so both paths report the same score for the
+///   same candidate.
+/// - The ordering uses `total_cmp_sim` (NaN-aware) instead of `partial_cmp`
+///   so a NaN can never be sorted to the front.
+fn finalize_flat_results(
+    results: &mut Vec<(u128, f32)>,
+    metric: crate::node::DistanceMetric,
+    top_k: usize,
+) {
+    results.retain(|(_, score)| !score.is_nan());
+    if metric == crate::node::DistanceMetric::Euclidean {
+        for entry in results.iter_mut() {
+            entry.1 = crate::index::euclidean_score_from_similarity(entry.1);
+        }
+    }
+    results.sort_unstable_by(|a, b| super::graph::total_cmp_sim(b.1, a.1));
+    results.truncate(top_k);
 }
 
 /// A simple brute-force (flat) index that stores vectors in a `Vec` and
@@ -136,8 +162,7 @@ impl crate::index::VecIndex for FlatIndex {
             })
             .collect();
 
-        results.sort_unstable_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
-        results.truncate(top_k);
+        finalize_flat_results(&mut results, metric, top_k);
         results
     }
 
@@ -402,5 +427,91 @@ mod flat_tests {
         idx.add(1, bs, VectorRepresentations::None, 0).unwrap();
         assert_eq!(idx.len(), 0);
         assert!(idx.is_empty());
+    }
+}
+
+/// FIND-411 — the vector dimension was never validated.
+///
+/// The distance kernels returned `0.0` for two vectors of different lengths,
+/// which is the **best** possible Euclidean score: the mismatched candidate
+/// outranked every valid one. The three index paths (flat scan, HNSW over
+/// the vector store, HNSW over the inline vector data) also disagreed on
+/// the score of the same candidate.
+#[cfg(test)]
+mod dimension_mismatch_tests {
+    use super::*;
+    use crate::index::graph::{CPIndex, HnswConfig};
+
+    /// Build an index holding one 3d node (id 1) and one 5d node (id 2).
+    fn mixed_dimension_index() -> CPIndex {
+        let index = CPIndex::new_with_config(HnswConfig {
+            distance_metric: DistanceMetric::Euclidean,
+            // force the HNSW path (the flat path is exercised separately)
+            flat_threshold: None,
+            ..HnswConfig::default()
+        });
+        index
+            .add(
+                1,
+                FilterBitset::new(),
+                VectorRepresentations::Full(vec![0.0, 1.0, 0.0]),
+                0,
+            )
+            .expect("3d node");
+        index
+            .add(
+                2,
+                FilterBitset::new(),
+                VectorRepresentations::Full(vec![1.0, 0.0, 0.0, 0.0, 0.0]),
+                0,
+            )
+            .expect("5d node");
+        index
+    }
+
+    #[test]
+    fn flat_scan_drops_the_dimension_mismatched_candidate() {
+        let index = mixed_dimension_index();
+        let query = vec![1.0, 0.0, 0.0];
+
+        let results = flat_search(
+            &index.nodes,
+            &query,
+            &FilterBitset::all_set(),
+            5,
+            DistanceMetric::Euclidean,
+        );
+
+        assert_eq!(
+            results.len(),
+            1,
+            "the 5d node is not a candidate for a 3d query"
+        );
+        assert_eq!(results[0].0, 1, "the 3d node must win");
+        assert!(
+            !results[0].1.is_nan(),
+            "the surviving score must be a real number"
+        );
+    }
+
+    #[test]
+    fn flat_scan_and_hnsw_agree_on_the_same_corpus() {
+        let index = mixed_dimension_index();
+        let query = vec![1.0, 0.0, 0.0];
+        let mask = FilterBitset::all_set();
+
+        let flat = flat_search(&index.nodes, &query, &mask, 5, DistanceMetric::Euclidean);
+        let hnsw = index.search_nearest(&query, None, None, &mask, 5, None);
+
+        assert_eq!(
+            flat.iter().map(|r| r.0).collect::<Vec<_>>(),
+            hnsw.iter().map(|r| r.0).collect::<Vec<_>>(),
+            "the flat scan and the HNSW traversal must rank the same candidates in the same order"
+        );
+        assert_eq!(
+            flat.iter().map(|r| r.1).collect::<Vec<_>>(),
+            hnsw.iter().map(|r| r.1).collect::<Vec<_>>(),
+            "the flat scan and the HNSW traversal must score the same candidates alike"
+        );
     }
 }

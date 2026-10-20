@@ -195,6 +195,17 @@ impl CPIndex {
         node: &HnswNode,
         metric: DistanceMetric,
     ) -> f32 {
+        // FIND-411 — scoring semantics shared by the three index paths
+        // (flat scan, HNSW over the vector store, HNSW over the inline
+        // vector data): a candidate whose dimension differs from the query
+        // scores `NaN` in every path, so a malformed vector can never
+        // outrank a valid one and the three paths always agree.
+        //
+        // Euclidean uses the cached-norms identity
+        // `‖a‖² + ‖b‖² - 2·dot(a,b)` instead of the per-element difference
+        // — algebraically the same squared distance (up to FP rounding),
+        // and `euclidean_distance_sq_with_norms` returns `NaN` for a
+        // dimension mismatch instead of the bogus `-(‖q‖² + ‖n‖²)`.
         match metric {
             DistanceMetric::Cosine => {
                 if let Some(q_inv_norm) = query_inv_norm {

@@ -49,6 +49,15 @@ fn sq8_similarity(
     metric: DistanceMetric,
     _query_norm: Option<f32>,
 ) -> f32 {
+    // FIND-411: a dimension mismatch is not a (truncated) distance — it is
+    // "not comparable" and scores `NaN`, the sentinel the index filters out.
+    // The previous behaviour clamped the remainder to the shorter length
+    // (NV-01, a DoS fix) which silently compared only the leading dims.
+    if matches!(metric, DistanceMetric::Cosine | DistanceMetric::Euclidean)
+        && raw_query.len() != sq8_data.len()
+    {
+        return super::kernels::DIMENSION_MISMATCH_SCORE;
+    }
     let inv_scale = sq8_scale / 127.0;
     match metric {
         DistanceMetric::Cosine => {
@@ -141,6 +150,12 @@ fn sq8_similarity(
 }
 
 /// Compute similarity between a raw query and a node's stored vector representation.
+///
+/// FIND-411: a stored vector whose dimension differs from the query scores
+/// `NaN` (the dimension-mismatch sentinel) — never a plausible finite score.
+/// `NaN` is what the index already uses to mean "not a candidate":
+/// `total_cmp_sim` pins it below every finite score and
+/// `search_nearest_with_metric` filters it out of the result set.
 pub fn calculate_similarity(
     raw_query: &[f32],
     query_norm: Option<f32>,
@@ -212,6 +227,22 @@ pub(crate) fn f32_slice_similarity(
         DistanceMetric::Euclidean => -euclidean_distance_squared_f32(query_vec, candidate),
         DistanceMetric::SparseDot => 0.0,
     }
+}
+
+/// Convert a raw Euclidean similarity (a negative squared distance) into the
+/// distance-scale score the index returns (a negative distance).
+///
+/// FIND-411: the flat scan and the HNSW traversal must return the **same**
+/// score for the same candidate. `search_nearest_with_metric` applies this
+/// conversion to the HNSW results, so the flat path applies it too — a
+/// dataset under `flat_threshold` used to return a different score than the
+/// same query over a larger dataset.
+#[inline]
+pub fn euclidean_score_from_similarity(similarity: f32) -> f32 {
+    if similarity.is_nan() {
+        return similarity;
+    }
+    -(-similarity).max(0.0).sqrt()
 }
 
 #[cfg(test)]
@@ -564,7 +595,12 @@ mod tests {
 
     /// NV-01 regression: mismatched dims used to panic OOB inside
     /// `sq8_similarity`. 15d query → rem_q=7; 9d sq8 → rem_s=1; indexing
-    /// rem_s[1..6] used to panic → DoS. Must now return, clamped to min len.
+    /// rem_s[1..6] used to panic → DoS.
+    ///
+    /// FIND-411: the clamp that fixed the panic compared only the leading
+    /// dimensions — a silently truncated similarity. A dimension mismatch is
+    /// now reported as `NaN` (the "not comparable" sentinel) and the
+    /// candidate is dropped by the index instead of being ranked.
     #[test]
     fn test_sq8_similarity_mismatched_dims_no_panic() {
         let q = vec![
@@ -580,7 +616,10 @@ mod tests {
                 &VectorRepresentations::SQ8(data.clone(), scale),
                 metric,
             );
-            assert!(sim.is_finite(), "sim must be finite, got {sim}");
+            assert!(
+                sim.is_nan(),
+                "FIND-411: mismatched dims must score NaN, got {sim}"
+            );
         }
     }
 

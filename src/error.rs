@@ -481,6 +481,17 @@ impl Error {
         Error::Serialization(Box::new(e))
     }
 
+    /// Create a vector-dimension mismatch error.
+    ///
+    /// FIND-411: a vector index holds vectors of one dimension. A vector
+    /// (or a query vector) of a different length is rejected with this
+    /// error instead of being scored as a *perfect* match — the distance
+    /// kernels used to return `0.0` for two vectors of different lengths,
+    /// which is the best possible Euclidean score.
+    pub fn dimension_mismatch(expected: usize, got: usize) -> Self {
+        Error::DimensionMismatch { expected, got }
+    }
+
     /// Create a generic error — **last resort** (see [`Error::Generic`]).
     /// Prefer a typed variant or one of the domain constructors above.
     pub fn generic_error(msg: impl Into<String>) -> Self {
