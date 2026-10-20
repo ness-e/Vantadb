@@ -14,6 +14,11 @@
 //      dependency upper bound "vantadb-py>=X.Y.Z,<0.N.0" -> "<0.{minor+1}.0"
 //   6. docs/api/SURFACE_MANIFEST.md: header "workspace version: <version>"
 //      (and regenerates via gen-surface-manifest.mjs --write when --write is set)
+//   7. release-manifest.json: "version" and "tag" (FIND-342: single source of
+//      truth for post-release verification - its own comment says to bump
+//      version/tag with each core release)
+//   8. vantadb-ts/package-lock.json: root "version" (2 places: root and
+//      packages[""]). The lockfile ships inside the published npm tarball.
 //
 // USAGE / EXIT CODES
 //   node scripts/docs/sync-workspace-version.mjs [--check]  (default)
@@ -150,6 +155,42 @@ export function transformSurfaceManifest(text, newVersion) {
   return text.replace(/(workspace version:\s*)[^\s*)]+/g, `$1${newVersion}`);
 }
 
+// release-manifest.json (FIND-342) es la fuente de verdad de la verificacion
+// post-release: su propio comentario dice "Bump version/tag with each core
+// release". Sin esto, el tag v0.9.0 llevaba un manifiesto describiendo la
+// v0.8.0.
+export function parseReleaseManifestVersionAndTag(text) {
+  const mVer = String(text).match(/^\s*"version":\s*"([^"]+)"/m);
+  const mTag = String(text).match(/^\s*"tag":\s*"([^"]+)"/m);
+  if (!mVer || !mTag) return null;
+  return `${mVer[1]} (${mTag[1]})`;
+}
+
+export function transformReleaseManifest(text, newVersion) {
+  return String(text)
+    .replace(/^(\s*"version":\s*)"[^"]+"/m, `$1"${newVersion}"`)
+    .replace(/^(\s*"tag":\s*)"v[^"]+"/m, `$1"v${newVersion}"`);
+}
+
+// El lockfile de npm viaja dentro del tarball publicado: su "version" raiz
+// (2 sitios: raiz y packages[""]) debe coincidir con package.json. npm ci
+// tolera el desajuste y ningun gate lo comprueba, pero publicar un
+// lockfile que dice 0.8.0 en un release 0.9.0 es drift.
+export function parseNodeLockVersion(text) {
+  const m = String(text).match(/^\s*"version":\s*"([^"]+)"/m);
+  return m ? m[1] : null;
+}
+
+export function transformNodeLockJson(text, newVersion) {
+  let seen = 0;
+  return String(text).replace(/^(\s*)"version":\s*"[^"]+"/gm, (match, indent) => {
+    seen += 1;
+    // Solo los 2 primeros: raiz y packages[""]. A partir de ahi son las
+    // versiones de las dependencias.
+    return seen <= 2 ? `${indent}"version": "${newVersion}"` : match;
+  });
+}
+
 export function parseNodeCargoVersion(text) {
   const mPkg = String(text).match(/^\[package\][\s\S]*?^version\s*=\s*"([^"]+)"/m);
   const mDep = String(text).match(/^vanta-memory\s*=\s*\{[^}]*version\s*=\s*"([^"]+)"/m);
@@ -240,6 +281,22 @@ export function buildTargetSpecs(workspaceVersion) {
     transform: transformSurfaceManifest,
   });
 
+  specs.push({
+    name: 'release-manifest.json',
+    relPath: 'release-manifest.json',
+    expected: `${workspaceVersion} (v${workspaceVersion})`,
+    parse: parseReleaseManifestVersionAndTag,
+    transform: transformReleaseManifest,
+  });
+
+  specs.push({
+    name: 'vantadb-ts/package-lock.json',
+    relPath: 'vantadb-ts/package-lock.json',
+    expected: workspaceVersion,
+    parse: parseNodeLockVersion,
+    transform: transformNodeLockJson,
+  });
+
   return specs;
 }
 
@@ -326,6 +383,24 @@ export function selfTest() {
     const out = transformSurfaceManifest(fixture, '0.9.0');
     assert(parseSurfaceManifestVersion(out) === '0.9.0', `got ${parseSurfaceManifestVersion(out)}`);
     assert(out.includes('workspace version: 0.9.0'), `output mismatch: ${out}`);
+  });
+
+  // 8. release-manifest.json: version + tag
+  check('release-manifest.json: transforms version and tag together', () => {
+    const fixture = '{\n  "version": "0.8.0",\n  "tag": "v0.8.0",\n  "github": {}\n}\n';
+    const out = transformReleaseManifest(fixture, '0.9.0');
+    assert(parseReleaseManifestVersionAndTag(out) === '0.9.0 (v0.9.0)', `got ${parseReleaseManifestVersionAndTag(out)}`);
+    assert(out.includes('"tag": "v0.9.0"'), 'tag not bumped');
+  });
+
+  // 9. vantadb-ts/package-lock.json: solo raiz y packages[""], no las deps
+  check('package-lock.json: bumps root version twice, leaves dependency versions', () => {
+    const fixture = '{\n  "name": "vantadb",\n  "version": "0.8.0",\n  "packages": {\n    "": {\n      "name": "vantadb",\n      "version": "0.8.0"\n    },\n    "node_modules/dep": {\n      "version": "0.8.0"\n    }\n  }\n}\n';
+    const out = transformNodeLockJson(fixture, '0.9.0');
+    assert(parseNodeLockVersion(out) === '0.9.0', `got ${parseNodeLockVersion(out)}`);
+    assert(out.includes('"version": "0.9.0",\n  "packages"'), 'root version not bumped');
+    assert(out.includes('"version": "0.9.0"\n    }'), 'packages[""] version not bumped');
+    assert(out.includes('"node_modules/dep": {\n      "version": "0.8.0"'), 'dependency version was touched');
   });
 
   const failed = results.filter((r) => !r.ok);
