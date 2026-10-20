@@ -167,6 +167,9 @@ jobs:
           repository-url: https://test.pypi.org/legacy/
           verbose: true
           skip-existing: true
+          # Publicacion por token, no por Trusted Publishing (mismo criterio
+          # que el publish de produccion, que ya usa secrets.PYPI_TOKEN).
+          password: ${{ secrets.TEST_PYPI_TOKEN }}
 
   publish-pypi:
     name: Publish wheels to PyPI (Production)
