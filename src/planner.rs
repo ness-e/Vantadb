@@ -166,6 +166,21 @@ pub fn optimize_and_compile<'a>(
     plan: &crate::query::LogicalPlan,
     storage: &'a crate::storage::StorageEngine,
 ) -> crate::error::Result<Box<dyn crate::query::PhysicalOperator + 'a>> {
+    optimize_and_compile_with(plan, storage, None)
+}
+
+/// Compile a plan with an explicit query embedder (FIND-413 test seam).
+///
+/// `embedder = None` → every vector operator resolves the env-selected
+/// provider (production). `Some(e)` → `e` embeds the query text of every
+/// vector operator in the plan (join sides and subqueries included), so a test
+/// can reproduce "this build has no embedding capability" (`Ok(None)`)
+/// without a live provider.
+fn optimize_and_compile_with<'a>(
+    plan: &crate::query::LogicalPlan,
+    storage: &'a crate::storage::StorageEngine,
+    embedder: Option<crate::physical_plan::QueryEmbedder>,
+) -> crate::error::Result<Box<dyn crate::query::PhysicalOperator + 'a>> {
     // ---- First pass: collect metadata and detect plan shape ----
     let mut entity = "*".to_string();
     let mut relational_filters = Vec::new();
@@ -303,8 +318,8 @@ pub fn optimize_and_compile<'a>(
         // a hypothetical inconsistency into `Schema` instead of a panic.
         let (left_plan, right_plan, left_field, right_field) = join_spec
             .ok_or_else(|| crate::error::Error::Schema("JOIN operator without join spec".into()))?;
-        let left_op = optimize_and_compile(&left_plan, storage)?;
-        let right_op = optimize_and_compile(&right_plan, storage)?;
+        let left_op = optimize_and_compile_with(&left_plan, storage, embedder.clone())?;
+        let right_op = optimize_and_compile_with(&right_plan, storage, embedder.clone())?;
         let mut join_op: Box<dyn crate::query::PhysicalOperator + 'a> =
             Box::new(crate::physical_plan::PhysicalNestedLoopJoin::new(
                 left_op,
@@ -326,9 +341,12 @@ pub fn optimize_and_compile<'a>(
         // proven vector-then-filter path below is byte-identical.
         let fuse_rrf = plan.search_profile.is_some() && !text_matches.is_empty();
         if fuse_rrf {
-            let vector_arm: Box<dyn crate::query::PhysicalOperator + 'a> = Box::new(
-                crate::physical_plan::PhysicalVectorSearch::new(storage, query_text, min_score),
-            );
+            let mut vector_arm_op =
+                crate::physical_plan::PhysicalVectorSearch::new(storage, query_text, min_score);
+            if let Some(e) = &embedder {
+                vector_arm_op = vector_arm_op.with_embedder(e.clone());
+            }
+            let vector_arm: Box<dyn crate::query::PhysicalOperator + 'a> = Box::new(vector_arm_op);
             let mut lexical_arm: Box<dyn crate::query::PhysicalOperator + 'a> =
                 Box::new(crate::physical_plan::PhysicalScan::new(storage, entity));
             for (field, query) in &text_matches {
@@ -361,13 +379,19 @@ pub fn optimize_and_compile<'a>(
                     scan_op, field, rel_op, value,
                 ));
             }
-            Box::new(crate::physical_plan::PhysicalVectorRefine::new(
-                scan_op, query_text, min_score,
-            ))
+            let mut refine_op =
+                crate::physical_plan::PhysicalVectorRefine::new(scan_op, query_text, min_score);
+            if let Some(e) = &embedder {
+                refine_op = refine_op.with_embedder(e.clone());
+            }
+            Box::new(refine_op)
         } else {
-            let mut vs_op: Box<dyn crate::query::PhysicalOperator + 'a> = Box::new(
-                crate::physical_plan::PhysicalVectorSearch::new(storage, query_text, min_score),
-            );
+            let mut vs_search =
+                crate::physical_plan::PhysicalVectorSearch::new(storage, query_text, min_score);
+            if let Some(e) = &embedder {
+                vs_search = vs_search.with_embedder(e.clone());
+            }
+            let mut vs_op: Box<dyn crate::query::PhysicalOperator + 'a> = Box::new(vs_search);
             for (field, rel_op, value) in sorted_filters {
                 vs_op = Box::new(crate::physical_plan::PhysicalFilter::new(
                     vs_op, field, rel_op, value,
@@ -388,7 +412,7 @@ pub fn optimize_and_compile<'a>(
 
     // Apply SubqueryFilter operators on top of the chain
     for (field, op, subq_plan) in subquery_filters {
-        let subq_op = optimize_and_compile(&subq_plan, storage)?;
+        let subq_op = optimize_and_compile_with(&subq_plan, storage, embedder.clone())?;
         current_operator = Box::new(crate::physical_plan::PhysicalSubqueryFilter::new(
             current_operator,
             subq_op,
@@ -759,6 +783,17 @@ mod wire08_rrf_tests {
         ids
     }
 
+    /// Embedding seam standing in for "this build has no embedding capability"
+    /// (neither `remote-inference` nor `embed-local`): the vector arm stays
+    /// empty — a build-time fact, not a provider failure.
+    ///
+    /// Injecting it keeps the premise of the `rrf_cbo_*` tests true in EVERY
+    /// feature combination: without it, a build with `remote-inference` would
+    /// embed the query (and fail, or filter) instead of leaving the arm empty.
+    fn no_embedding_capability() -> crate::physical_plan::QueryEmbedder {
+        std::sync::Arc::new(|_text: &str| -> crate::error::Result<Option<Vec<f32>>> { Ok(None) })
+    }
+
     #[test]
     fn rrf_fusion_scores_by_rank_and_dedups_overlap() {
         // arm1 = [1, 2], arm2 = [2, 3] with rrf_k = 60:
@@ -837,14 +872,16 @@ mod wire08_rrf_tests {
         ];
 
         // Without a profile: proven intersection path — the (empty, no embedding
-        // feature) vector arm is post-filtered by text → zero rows.
+        // capability) vector arm is post-filtered by text → zero rows.
         let plan_no_profile = LogicalPlan {
             operators: operators.clone(),
             temperature: 0.0,
             enforce_role: None,
             search_profile: None,
         };
-        let mut op = optimize_and_compile(&plan_no_profile, &storage).unwrap();
+        let mut op =
+            optimize_and_compile_with(&plan_no_profile, &storage, Some(no_embedding_capability()))
+                .unwrap();
         op.open().unwrap();
         assert!(
             op.next().unwrap().is_none(),
@@ -853,7 +890,7 @@ mod wire08_rrf_tests {
         op.close().unwrap();
 
         // With a Hybrid profile: RRF operator fuses the text arm (vector arm is
-        // empty without embedding features) → the text-only match survives.
+        // empty without embedding capability) → the text-only match survives.
         let plan_profile = LogicalPlan {
             operators,
             temperature: 0.0,
@@ -864,7 +901,9 @@ mod wire08_rrf_tests {
                 candidate_k: None,
             }),
         };
-        let mut op = optimize_and_compile(&plan_profile, &storage).unwrap();
+        let mut op =
+            optimize_and_compile_with(&plan_profile, &storage, Some(no_embedding_capability()))
+                .unwrap();
         op.open().unwrap();
         let row = op.next().unwrap().expect("fused row");
         assert_eq!(row.id, 1, "lexical arm match is returned by the fusion");
@@ -929,7 +968,8 @@ mod wire08_rrf_tests {
                 candidate_k: None,
             }),
         };
-        let mut op = optimize_and_compile(&plan, &storage).unwrap();
+        let mut op =
+            optimize_and_compile_with(&plan, &storage, Some(no_embedding_capability())).unwrap();
         op.open().unwrap();
         let rows = drain(op.as_mut());
         op.close().unwrap();

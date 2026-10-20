@@ -383,8 +383,25 @@ impl<'a> Executor<'a> {
                     let provider = crate::llm::get_embedding_provider();
                     match provider.embed(text) {
                         Ok(vec) => {
-                            node.vector = VectorRepresentations::Full(vec);
-                            node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
+                            let cfg = crate::config::Config::default().llm_cfg();
+                            if Self::is_synthetic_local_fallback(
+                                &cfg.embedding_provider,
+                                &cfg.local_model_path,
+                            ) {
+                                // Fallback avisado, nunca silencioso (FIND-485):
+                                // un vector sintético persistido ensucia el índice
+                                // con vecinos falsos — peor que un nodo sin vector.
+                                tracing::warn!(
+                                    "Auto-embedding for INSERT node {node_id} produced a synthetic \
+                                     vector (local model files missing under '{}'): the node is \
+                                     stored WITHOUT a vector — a synthetic vector would pollute \
+                                     the index with false neighbours",
+                                    cfg.local_model_path
+                                );
+                            } else {
+                                node.vector = VectorRepresentations::Full(vec);
+                                node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
+                            }
                         }
                         Err(e) => {
                             tracing::warn!("Auto-embedding failed for INSERT node {node_id}: {e}")
@@ -393,6 +410,28 @@ impl<'a> Executor<'a> {
                 }
             }
         }
+    }
+
+    /// `true` when the vector the provider just returned is a SYNTHETIC one
+    /// (the deterministic dummy), i.e. the local provider could not load the
+    /// model files.
+    ///
+    /// Parity with the MCP path (`vantadb-mcp/src/handlers/tools.rs`): a local
+    /// provider without model files never persists vectors. A remote provider
+    /// (ollama/openai) computes a real vector on the server, so it is kept.
+    #[cfg(all(feature = "remote-inference", feature = "embed-local"))]
+    fn is_synthetic_local_fallback(provider_name: &str, model_dir: &str) -> bool {
+        if !crate::embedding_health::routes_to_local(provider_name) {
+            return false;
+        }
+        !crate::embedding_health::model_files_present(model_dir)
+    }
+
+    /// This build has no local provider: every vector comes from a server, so
+    /// none of them is synthetic.
+    #[cfg(all(feature = "remote-inference", not(feature = "embed-local")))]
+    fn is_synthetic_local_fallback(_provider_name: &str, _model_dir: &str) -> bool {
+        false
     }
 
     /// Without `remote-inference` there is no provider: warn once, insert without a vector.

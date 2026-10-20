@@ -28,6 +28,9 @@ pub use scan::PhysicalScan;
 pub use sort::PhysicalSort;
 pub use vector::{PhysicalVectorRefine, PhysicalVectorSearch};
 
+/// Query-embedder seam (FIND-413) — `pub(crate)`: test-only injection point.
+pub(crate) use vector::QueryEmbedder;
+
 #[cfg(test)]
 pub(crate) use filter::evaluate_condition;
 
@@ -749,12 +752,24 @@ mod tests {
 
     // ── PhysicalVectorRefine (passthrough when no embedding) ────────────
 
+    /// Embedding seam standing in for "this build has no embedding capability"
+    /// (neither `remote-inference` nor `embed-local`): the vector arm stays
+    /// empty, so the refine passes the child rows through unfiltered.
+    ///
+    /// Injecting it keeps the premise of these tests true in EVERY feature
+    /// combination — without it, a build with `remote-inference` would embed
+    /// the query (and fail, or filter) instead of leaving the arm empty.
+    fn no_embedding_capability() -> QueryEmbedder {
+        std::sync::Arc::new(|_text: &str| -> Result<Option<Vec<f32>>> { Ok(None) })
+    }
+
     #[test]
     fn test_physical_vector_refine_passthrough_no_embedding() {
-        // Without `remote-inference` feature, query_vector stays None
+        // Without embedding capability, query_vector stays None
         // so next() passes through all child nodes unfiltered.
         let child = MockScan::new(vec![bool_node(1, true), bool_node(2, false)]);
-        let mut refine = PhysicalVectorRefine::new(Box::new(child), "query".into(), 0.5);
+        let mut refine = PhysicalVectorRefine::new(Box::new(child), "query".into(), 0.5)
+            .with_embedder(no_embedding_capability());
         refine.open().unwrap();
         let r1 = refine.next().unwrap().expect("passthrough node 1");
         assert_eq!(r1.id, 1);
@@ -767,7 +782,8 @@ mod tests {
     #[test]
     fn test_physical_vector_refine_empty_child() {
         let child = MockScan::new(vec![]);
-        let mut refine = PhysicalVectorRefine::new(Box::new(child), "query".into(), 0.5);
+        let mut refine = PhysicalVectorRefine::new(Box::new(child), "query".into(), 0.5)
+            .with_embedder(no_embedding_capability());
         refine.open().unwrap();
         assert!(refine.next().unwrap().is_none());
         refine.close().unwrap();
@@ -776,7 +792,8 @@ mod tests {
     #[test]
     fn test_physical_vector_refine_open_close_cycle() {
         let child = MockScan::new(vec![bool_node(1, true)]);
-        let mut refine = PhysicalVectorRefine::new(Box::new(child), "query".into(), 0.5);
+        let mut refine = PhysicalVectorRefine::new(Box::new(child), "query".into(), 0.5)
+            .with_embedder(no_embedding_capability());
         refine.open().unwrap();
         assert!(refine.next().unwrap().is_some());
         refine.close().unwrap();
