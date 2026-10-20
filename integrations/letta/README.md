@@ -4,16 +4,16 @@ Letta storage adapter for [VantaDB](https://github.com/ness-e/Vantadb).
 
 ## Install
 
-> **Not on PyPI yet.** The `vantadb-letta` package declares Alpha
-> status and will go live with the first `adapters-v*` tag release
-> (no local `dist/` built yet). Until then, install from source.
+> **Published on PyPI at 0.9.0** (verified live 2026-10-20). The PyPI
+> install pulls the published release; to run against the current tree use
+> the repo-checkout path.
 
 ```bash
-# Today, from a repo checkout
+# From a repo checkout (current tree)
 cd integrations/letta && pip install .
 ```
 
-### Install from PyPI (after first release)
+### Install from PyPI
 
 ```bash
 pip install vantadb-letta

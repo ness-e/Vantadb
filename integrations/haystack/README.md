@@ -4,16 +4,16 @@ Haystack DocumentStore adapter for [VantaDB](https://github.com/ness-e/Vantadb).
 
 ## Install
 
-> **Not on PyPI yet.** The `vantadb-haystack` package declares Alpha
-> status and will go live with the first `adapters-v*` tag release
-> (no local `dist/` built yet). Until then, install from source.
+> **Published on PyPI at 0.9.0** (verified live 2026-10-20). The PyPI
+> install pulls the published release; to run against the current tree use
+> the repo-checkout path.
 
 ```bash
-# Today, from a repo checkout
+# From a repo checkout (current tree)
 cd integrations/haystack && pip install .
 ```
 
-### Install from PyPI (after first release)
+### Install from PyPI
 
 ```bash
 pip install vantadb-haystack
@@ -42,8 +42,8 @@ for doc in results:
 
 - `write_documents(documents, policy)` — store documents
 - `filter_documents(filters)` — retrieve by filter
-- `delete_documents(filters)` — remove documents
-- `count_documents(filters)` — count documents
+- `delete_documents(document_ids=None)` — remove documents by id
+- `count_documents()` — count documents
 
 ## Why VantaDB?
 

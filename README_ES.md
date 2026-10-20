@@ -6,8 +6,9 @@
 
 <div align="left">
   <a href="https://github.com/ness-e/Vantadb/actions/workflows/ci-rust.yml"><img src="https://img.shields.io/github/actions/workflow/status/ness-e/Vantadb/ci-rust.yml?label=Rust+CI" alt="Rust CI"></a>
-  <a href="https://github.com/ness-e/Vantadb/actions/workflows/gate-docs.yml"><img src="https://img.shields.io/github/actions/workflow/status/ness-e/Vantadb/gate-docs.yml?label=Docs" alt="Docs"></a>
-  <a href="https://github.com/ness-e/Vantadb/actions/workflows/sec-codeql.yml"><img src="https://img.shields.io/github/actions/workflow/status/ness-e/Vantadb/sec-codeql.yml?label=Security+Audit" alt="Security Audit"></a>
+  <a href="https://github.com/ness-e/Vantadb/actions/workflows/docs-gates.yml"><img src="https://img.shields.io/github/actions/workflow/status/ness-e/Vantadb/docs-gates.yml?label=Docs" alt="Docs"></a>
+  <a href="https://github.com/ness-e/Vantadb/actions/workflows/platform-ops.yml"><img src="https://img.shields.io/github/actions/workflow/status/ness-e/Vantadb/platform-ops.yml?label=Security+Audit" alt="Security Audit"></a>
+  <a href="https://github.com/ness-e/Vantadb/actions/workflows/nightly.yml"><img src="https://img.shields.io/github/actions/workflow/status/ness-e/Vantadb/nightly.yml?label=Nightly" alt="Nightly"></a>
 
   <br>
 
@@ -43,7 +44,7 @@ VantaDB es un motor de memoria embebido, local-first, diseñado para agentes de 
 | Probar el MVP en cinco minutos | [Quickstart de 5 minutos](docs/user/QUICKSTART.md) |
 | Instalar vía pip | [Instalación](#instalación) |
 | Usar la CLI embebida | [Referencia de CLI](#cli-embebida) |
-| Ejecutar como servidor local | [Modo servidor](#modo-servidor-opcional) |
+| Ejecutar como servidor local | [Modo servidor](#modo-servidor-y-demonio-self-healing) |
 | Seguir un tutorial | [Tutoriales](docs/user/tutorials/) |
 | Ejecutar ejemplos ejecutables | [Demo + Colab](examples/README.md) · [TypeScript](vantadb-ts/examples/) |
 | Leer las FAQ | [FAQ](docs/user/FAQ.md) |
@@ -64,11 +65,13 @@ pip install vantadb-py
 ```
 
 > **Nota:** El nombre de distribución es `vantadb-py`, y el import canónico es
-> `import vantadb` (igual que el crate de Rust y el paquete de npm). `import vantadb_py`
-> sigue disponible sin cambios.
+> `import vantadb` (igual que el crate de Rust y el paquete de npm).
+> `import vantadb_py` sigue funcionando pero emite un `DeprecationWarning`.
 >
 > **Nombres (ADR-0047 anti-stutter):** los nombres canónicos son `Client` (el alias legacy
-> `VantaDB` fue removido en 0.6.0, AST-010), `Record`, `SearchHit`, `Config`. Los métodos de memoria
+> `VantaDB` fue removido en 0.6.0, AST-010), `Record`, `SearchHit`/`Hit`,
+> `ListResult`, `Vector` (el SDK de TypeScript expone además un tipo `Config`).
+> Los métodos de memoria
 > viven en el sub-cliente `db.memory` (`memory.get` / `memory.list` / `memory.delete`);
 > la búsqueda híbrida es `db.search(...)` (AST-008/AST-012: `search_memory`/`get_memory` planos removidos),
 > y la ANN vectorial pura es `db.search_vector(...)`.
@@ -76,6 +79,9 @@ pip install vantadb-py
 > **Convención de nombres:** el producto es **VantaDB**; el crate de Rust es `vantadb`,
 > el paquete de PyPI es `vantadb-py`, los paquetes de npm son `vantadb` (TypeScript/WASM)
 > y `vantadb-node` (nativo), y el repositorio de GitHub es `ness-e/Vantadb`.
+> Los tres conectores de lenguaje activos son **TypeScript/WASM** (`vantadb` en npm),
+> **Node nativo** (`vantadb-node` en npm) y **Python** (`vantadb-py` en PyPI);
+> el binding WASM crudo se publica bajo el SDK de TypeScript como `vantadb-wasm`.
 > Ver [ADR-0030](docs/dev/architecture/adr/ADR-0030-brand-identity-naming-convention.md)
 > para la auditoría completa y la justificación.
 
@@ -97,7 +103,7 @@ vantadb = { git = "https://github.com/ness-e/Vantadb" }
 ## Quickstart en 5 minutos
 
 
-Inicializa un almacén de memoria persistente, guarda registros estructurados con vectores y ejecuta una búsqueda híbrida en Python puro:
+Inicializa un almacén de memoria persistente, guarda registros estructurados con vectores y ejecuta recuperación en Python puro (híbrida BM25 + RRF en cuanto pases `text_query=`):
 
 ```python
 import vantadb
@@ -117,7 +123,7 @@ record = db.put(
 # 3. Recupera el registro exacto por clave
 stored = db.memory.get("agent/main", "memory-001")
 
-# 4. Búsqueda híbrida (BM25 + Similitud del Coseno fusionada vía RRF)
+# 4. Búsqueda vectorial (añade `text_query="..."` para híbrida BM25 + RRF)
 hits = db.search("agent/main", query_vector=[0.11, 0.89, 0.55], top_k=5)
 
 # 5. Telemetría operativa y apagado seguro
@@ -135,7 +141,7 @@ print(caps)
 
 ## Integraciones
 
-VantaDB incluye ejemplos Python ejecutables que conectan el motor embebido con frameworks populares de memoria / RAG para IA. Cada ejemplo define una clase envolvente ligera sobre el SDK Python estable (`vantadb_py`) y se ejercita de extremo a extremo por la suite de ejemplo de humo del CI (`ci-examples.yml`).
+VantaDB incluye ejemplos Python ejecutables que conectan el motor embebido con frameworks populares de memoria / RAG para IA. Cada ejemplo define una clase envolvente ligera sobre el SDK Python estable (`vantadb`) y se ejercita de extremo a extremo por la suite de ejemplo de humo del CI (`ci-fleet.yml`).
 
 ### Mem0 — backend de persistencia
 
@@ -199,12 +205,12 @@ python examples/python/dspy_retriever.py
 | :--- | :--- | :--- |
 | **Núcleo persistente** | `StorageBackend` + VantaFile + WAL | Fjall (por defecto); RocksDB opt-in (feature Cargo `rocksdb` + `VANTADB_BACKEND=rocksdb`), in-memory vía `VANTADB_BACKEND=memory`. Recuperación automática de fallos mediante Write-Ahead Log con checksums CRC32C. |
 | **Búsqueda híbrida** | BM25 + HNSW vía RRF | Fusiona la puntuación léxica y la similitud de vectores usando Reciprocal Rank Fusion. Se enruta automáticamente por el planificador de consultas. |
-| **Recuperación vectorial** | HNSW nativo | Similitud del coseno con `M`, `ef_construction` y `ef_search` configurables. Validado en datasets sintéticos de 10 K–100 K. |
+| **Recuperación vectorial** | HNSW nativo | Similitud del coseno. `M`, `ef_construction` y `ef_search` se ajustan a nivel de la API de Rust (`HnswParams`); la configuración de usuario expone `mmap_hnsw` y `flat_threshold` (`VANTADB_FLAT_THRESHOLD`). Validado en datasets sintéticos de 10 K–100 K. |
 | **API de memoria** | Registros `namespace + key` | `put/get/delete/list/search` almacenan payloads UTF-8, metadatos escalares, vectores opcionales, marcas de tiempo, versiones e IDs de nodo deterministas. |
 | **Índices estructurados** | Índices derivados por prefijo | Los filtros de igualdad usan índices de metadatos persistidos que pueden reconstruirse desde los registros canónicos. |
 | **Aristas de grafo** | Listas de adyacencia locales | Aristas dirigidas con pesos opcionales almacenadas en el modelo de nodo interno. No pretende ser una base de datos de grafos. |
 | **Flujos operativos** | Rebuild + JSONL + Métricas | Rebuild de ANN, export/import de memoria, reparación de índice de texto, reparación de índice derivado obsoleto y telemetría de proceso expuesta a través del límite del SDK. |
-| **Superficie embebida** | Núcleo en Rust + Bindings PyO3 | Overhead de red cero. Los bindings de Python pasan por un límite estable `src/sdk.rs`. |
+| **Superficie embebida** | Núcleo en Rust + Bindings PyO3 | Overhead de red cero. Los bindings de Python pasan por un límite estable `src/sdk/`. |
 
 No se requiere clúster, daemon ni servicio externo. VantaDB se ejecuta en-proceso.
 
@@ -215,7 +221,7 @@ No se requiere clúster, daemon ni servicio externo. VantaDB se ejecuta en-proce
 - El camino de ANN incluido usa **similitud de coseno**.
 - `list/search` con ámbito de namespace usan índices derivados de namespace y metadatos escalares, y los registros canónicos siguen siendo la fuente de verdad.
 - La **búsqueda híbrida** se soporta de forma nativa. El motor planifica y ejecuta consultas léxicas (BM25) y vectoriales (Coseno), fusionándolas con Reciprocal Rank Fusion (RRF).
-- SIFT-1M sigue siendo útil como un escenario de estrés/recuperación mediante el workflow de [Certificación Pesada](https://github.com/ness-e/Vantadb/actions/workflows/heavy-certification.yml).
+- SIFT-1M sigue siendo útil como un escenario de estrés/recuperación mediante el workflow de [Certificación Pesada](https://github.com/ness-e/Vantadb/actions/workflows/certification.yml).
 
 ---
 
@@ -226,7 +232,7 @@ VantaDB es **un producto** que se instala una vez (un instalador → una CLI →
 | Superficie | Qué es | Estado hasta 1.0 |
 | :--- | :--- | :--- |
 | **Motor** (núcleo) | Memoria embebida: durabilidad con WAL, recuperación vectorial HNSW, BM25 + híbrida (RRF), namespaces, índices de metadatos, export/import — más el **motor de memoria agéntica `vanta-memory` (L0→L3)**: captura → dedup → escenas → persona + consolidación (dream). | **Activa** |
-| **Agente** (MCP) | `vantadb-mcp` — la puerta para IDEs de IA y agentes ([guía de configuración](docs/api/MCP.md)). Acá se mide la North Star: sesiones con recall exitoso. | **Activa** |
+| **Agente** (MCP) | `vantadb-mcp` — la puerta para IDEs de IA y agentes ([guía de configuración](docs/api/MCP.md)). Acá se mide la North Star: **sesiones con put + search en una ventana de 7 días** ([detalles](#north-star)). | **Activa** |
 | **Estudio** (escritorio) | App Tauri, **reducida a visor** (inspeccionar memoria y sesiones). El resto de su superficie queda congelado. | **Congelado** (visor) |
 | **Laboratorio** | Experimentos explícitamente acotados: `vanta-proxy` (gateway LLM — congelado, **sin publicar hasta 1.0.0**), consola web (repo aparte), providers LLM remotos, GraphRAG, extras de IQL. | **Congelado** |
 
@@ -235,6 +241,16 @@ VantaDB es **un producto** que se instala una vez (un instalador → una CLI →
 **Fuera del producto hasta 1.0** (lista cerrada): plataforma en la nube/empresa, HA/replicación/clúster, SQL/OLTP/warehouse/series temporales, plugins/marketplace, multimodal, índices ANN alternativos (IVF/DiskANN/ScaNN), RBAC/multi-tenencia, features de gateway del proxy. Ver la [Lista de congelados](docs/user/operations/EXPERIMENTAL_FEATURES.md) para el alcance aprobado por el owner.
 
 *VantaDB es un motor de memoria para agentes — no una base de datos universal multimodelo ni una plataforma en la nube.*
+
+### North Star
+
+La North Star del producto — **sesiones con put + search en una ventana de 7 días** — se calcula a partir del almacén del proxy, donde landing ambas mitades (`proxy-turns` y `proxy-memory-events`):
+
+```bash
+python scripts/north_star_metric.py --db <proxy-db-path> [--days 7] [--json]
+```
+
+**Estado: primera medición pendiente.** Todavía no existe un almacén del proxy con sesiones capturadas (`vanta-proxy` va congelado hasta 1.0.0), y no se publica ningún número sin una corrida reproducible. Ver [PROXY.md § North Star metric](docs/api/PROXY.md#north-star-metric-icp-01) para la metodología; `--self-test` ejercita la lógica de ventanas offline.
 
 ### Notas de plataforma
 
@@ -275,9 +291,14 @@ Descarga e instala el binario de la CLI al instante en un solo comando, sin comp
 > `.sha256` publicado en el release antes de pasarlo a un shell.
 >
 > **Qué ocurre después:** el instalador encadena al wizard interactivo de setup
-> (`setup-embeddings.ps1` — modelo, bloque MCP por cliente, proxy activado por defecto)
-> salvo que se omita con `--no-wizard` (sh) / `-NoWizard` (PowerShell).
-> Previsualiza la cadena sin efectos con `--dry-run` / `-DryRun`.
+> (`setup-embeddings.ps1`), que pregunta **qué módulos habilitar** — motor,
+> MCP, server, proxy, visor de escritorio, embeddings, providers (cada uno con
+> un estado declarado: instalable o congelado; el escritorio es un visor
+> congelado).
+> Selección por script: `--modules mcp,embeddings` (sh) /
+> `-Modules mcp,embeddings` (PowerShell). Omitir con `--no-wizard` (sh) /
+> `-NoWizard` (PowerShell). Previsualiza la cadena sin efectos con
+> `--dry-run` / `-DryRun`.
 
 #### 2. Vía Cargo (desarrolladores Rust)
 
@@ -311,7 +332,7 @@ vanta-cli config doctor            # Pre-vuelo: storage, runtime ONNX, locks y m
 vanta-cli config set port 8081     # Persiste ajustes en vanta.toml o ~/.vanta/config.toml
 
 # Servidor In-Process y Puerta de Agentes MCP
-vanta-cli server start --port 8080 # Inicia el servidor unificado HTTP/REST con Self-Healing
+vanta-cli server --http --port 8080 # Inicia el servidor unificado HTTP/REST con Self-Healing
 vanta-cli server --mcp             # Inicia el servidor Model Context Protocol (MCP) vía Stdio
 
 # Operaciones de Datos y Grafo de Conocimiento
@@ -331,7 +352,7 @@ vanta-cli certificate verify --file ./cert.json --db ./vanta_data
 
 ## Modo Servidor y Demonio Self-Healing
 
-Para exposición a la red o alojamiento de agentes sin bindings de Python, puedes ejecutar el servidor directamente vía `vanta-cli server start` o mediante el binario independiente `vantadb-server`.
+Para exposición a la red o alojamiento de agentes sin bindings de Python, puedes ejecutar el servidor directamente vía `vanta-cli server --http` o mediante el binario independiente `vantadb-server`.
 
 ### Capacidades Principales:
 - **Runtime Unificado In-Process:** Sirve APIs REST y herramientas MCP de forma nativa sin generar subprocesos externos.
@@ -341,7 +362,7 @@ Para exposición a la red o alojamiento de agentes sin bindings de Python, puede
 
 ```bash
 # Iniciar servidor con puerto y host personalizados
-vanta-cli server start --host 0.0.0.0 --port 8080
+vanta-cli server --http --host 0.0.0.0 --port 8080
 
 # O ejecutar el binario independiente
 ./vantadb-server

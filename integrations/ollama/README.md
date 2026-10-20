@@ -16,13 +16,32 @@ Ollama embedding + storage adapter for [VantaDB](https://github.com/ness-e/Vanta
 cd integrations/ollama && pip install .
 ```
 
-### From PyPI (the provider, after its first release)
+### From PyPI (the canonical Rust provider)
 
 ```bash
-pip install vantadb-ollama   # installs the Rust provider (providers-v* lane)
+pip install vantadb-ollama   # installs the Rust provider (published since 0.9.0)
 ```
 
+> **Name collision:** `pip install vantadb-ollama` installs the **Rust
+> provider**, not this Python adapter — and the two expose different APIs
+> (both use the module name `vantadb_ollama`). Pick the quickstart that
+> matches what you installed.
+
 ## Quickstart
+
+### Rust provider (`pip install vantadb-ollama`)
+
+```python
+from vantadb_ollama import VantaDBOllama
+
+store = VantaDBOllama("/tmp/vantadb-ollama")  # base_url defaults to http://localhost:11434
+emb = store.embed(["VantaDB is an embedded vector database."])
+rid = store.store("VantaDB is an embedded vector database.", emb[0], metadata={"lang": "en"})
+results = store.search("ollama_store", emb[0], top_k=5)
+print(rid, results)
+```
+
+### Python adapter (source-only, this repo)
 
 ```python
 from vantadb_ollama import VantaDBOllama
@@ -39,6 +58,15 @@ for doc in results:
 ```
 
 ## API
+
+### Rust provider (`vantadb-ollama` on PyPI)
+
+- `embed(texts)` — generate embeddings via Ollama's `/api/embed`
+- `store(text, embedding, metadata=None, key=None)` — store a record; returns `"<namespace>:<key>"`
+- `search(namespace, query_embedding, text_query=None, filters=None, distance_metric=None, top_k=10)` — hybrid vector + BM25 search
+- `get(namespace, key)` · `list(namespace, limit=100, cursor=None)` · `delete(key, namespace=None)` · `list_namespaces()`
+
+### Python adapter (source-only)
 
 - `add_texts(texts, metadatas=None, ids=None)` — embed and store texts
 - `similarity_search(query, k=4)` — search by query text

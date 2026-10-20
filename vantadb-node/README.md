@@ -1,6 +1,7 @@
 # vantadb-node
 
-> **Status: active** (core-promise until 1.0 — one of the three active language connectors; cross-language parity guard).
+> **Status: active** (core-promise until 1.0 — one of the three active language
+> connectors: native Node.js; see the [root README](../README.md#installation)).
 
 VantaDB native Node.js bindings via [napi-rs](https://napi.rs) — persistent embedded memory & vector search, with graph traversal and hybrid search. The native backend to [`vantadb-ts`](../vantadb-ts) (WASM).
 
@@ -9,12 +10,20 @@ VantaDB native Node.js bindings via [napi-rs](https://napi.rs) — persistent em
 > full API incl. lifecycle/maintenance/advanced search). This README is a
 > minimal pointer — details live there.
 >
-> **Estado 2026-09-09:** paquete pre-npm (instalación desde source; `npm pack`
-> incluye el prebuild `*.node` verificado). Ver
-> `docs/dev/reviews/archive/research-vantadb-node-20260825.md` para el plan de distribución
-> y `docs/dev/tasks/TS-12.md` para la checklist del publish humano.
+> **Estado 2026-10-20:** publicado en npm (`vantadb-node@0.9.0`, verificado live
+> contra el registry). La instalación desde source sigue siendo válida para
+> trabajar contra el árbol actual. Ver
+> `docs/dev/reviews/archive/research-vantadb-node-20260825.md` para el plan de
+> distribución y `docs/dev/avance/activo/ci-cd.md` §TS-12 para la checklist
+> del publish humano.
 
-## Instalación (source)
+## Instalación
+
+```bash
+npm install vantadb-node
+```
+
+O desde el código fuente:
 
 ```bash
 git clone <repo> && cd vantadb-node

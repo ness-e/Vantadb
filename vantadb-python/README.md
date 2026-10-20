@@ -22,7 +22,7 @@ pip install vantadb-py
 
 > **Note:** The distribution name is `vantadb-py` and the canonical import is `import vantadb` (same as the Rust crate and the npm package). `import vantadb_py` remains available and is not broken.
 >
-> **Naming (ADR-041 anti-stutter):** the canonical client name is `Client`
+> **Naming (ADR-0047 anti-stutter):** the canonical client name is `Client`
 > (`VantaDB` was removed — use `Client`); canonical type names are `Record`,
 > `SearchHit`/`Hit`, `ListResult`, `Vector`. Memory methods live under
 > `db.memory` (`get` / `list` / `search` / `delete`); the flat `Client`
@@ -117,7 +117,7 @@ db.put(
 
 Use **one embedding model per namespace** — stored and query vectors must
 share the same dimensionality. Full walkthrough:
-[QUICKSTART → Real Embeddings](../docs/user/QUICKSTART.md#4-real-embeddings-optional).
+[QUICKSTART → Local Embeddings](../docs/user/QUICKSTART.md#7-optional-local-embeddings-embed-local).
 
 ## Cross-SDK Search Parity
 
@@ -162,7 +162,7 @@ VantaDB is optimized to act as **long-term memory** for local autonomous agents 
 pytest tests/test_sdk.py -v
 
 # Format Python code
-black tests/ vantadb_python/
+black tests/ vantadb_py/
 ```
 
 ## 📜 License

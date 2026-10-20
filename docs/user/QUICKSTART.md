@@ -2,13 +2,13 @@
 title: VantaDB 5-Minute Quickstart
 kind: howto
 status: active
-description: This quickstart validates the current v0.8.0 boundary from pre-built artifacts
+description: This quickstart validates the current v0.9.0 boundary from pre-built artifacts
 tags: [vantadb]
 ---
 
 # VantaDB 5-Minute Quickstart
 
-This quickstart validates the current v0.8.0 boundary from pre-built artifacts
+This quickstart validates the current v0.9.0 boundary from pre-built artifacts
 (no clone, no Rust toolchain required): install `vantadb-py` from PyPI /
 `vantadb` from npm, or use the embedded CLI. The from-source path for
 contributors is kept in §1–§4.
@@ -51,8 +51,8 @@ irm https://raw.githubusercontent.com/ness-e/Vantadb/main/scripts/install.ps1 -O
 pwsh -NoProfile -File install.ps1 -DryRun
 ```
 
-> **Note**: the Python examples in §5 use `vantadb-py>=0.8.0` from PyPI
-> (`pip install vantadb-py==0.8.0` — verified 2026-10-06: vector/text/hybrid
+> **Note**: the Python examples in §5 use `vantadb-py==0.9.0` from PyPI
+> (`pip install vantadb-py==0.9.0` — verified 2026-10-20: vector/text/hybrid
 > search green in a clean venv, no Rust toolchain).
 > TypeScript examples live in [`vantadb-ts/examples/`](../../vantadb-ts/examples/)
 > (LangChain, LlamaIndex, Vercel AI SDK — indexed in [examples/README.md](../../examples/README.md)).
@@ -110,7 +110,7 @@ Expected result: `get` prints `local durable memory`, and `list` shows
 > python -m venv .venv
 > .\.venv\Scripts\Activate.ps1
 > python -m pip install --upgrade pip
-> pip install vantadb-py==0.8.0
+> pip install vantadb-py==0.9.0
 > ```
 >
 > From-source install (contributors):
@@ -140,7 +140,7 @@ GitHub Release, install it directly without needing the Rust toolchain:
 python -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip pytest
-pip install ./dist/vantadb_py-0.8.0-*.whl
+pip install ./dist/vantadb_py-0.9.0-*.whl
 ```
 
 Wheels are attached to each GitHub Release (`release-wheels.yml`) and built
@@ -158,9 +158,10 @@ pip install --upgrade pip
 pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ vantadb-py
 ```
 
-> **Note**: TestPyPI carries the same version (`0.8.0`). Both registries publish
-> via OIDC trusted publishing (no API tokens). Production PyPI is available
-> since 0.6.1 — prefer it over TestPyPI.
+> **Note**: production PyPI carries the current release (`0.9.0`, verified
+> 2026-10-20) — prefer it. TestPyPI is behind (latest `0.6.1`) and exists
+> only for pre-release testing. Both registries publish via OIDC trusted
+> publishing (no API tokens).
 
 ## 5. Search by Vector, Text, and Hybrid Retrieval
 

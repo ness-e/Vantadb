@@ -1,6 +1,8 @@
 # vantadb-wasm — browser AI agent memory
 
-> **Status: active** (core-promise until 1.0 — one of the three active language connectors; published as `vantadb-wasm` on npm).
+> **Status: active** (core-promise until 1.0 — one of the three active language
+> connectors: the raw WASM binding under the TypeScript/WASM SDK; see the
+> [root README](../README.md#installation)). Published as `vantadb-wasm` on npm.
 >
 > **Browser AI agent memory.** VantaDB WASM is an embedded vector + graph memory
 > engine that runs entirely in the browser — persistent agent memory (OPFS),
@@ -116,9 +118,9 @@ Without the plugin the build fails at bundle time. The plugin fetches the `.wasm
 The wasm-bindgen Node target reads the `.wasm` from disk at first use:
 
 ```js
-import { VantaDB } from "vantadb";
+import { Client } from "vantadb";
 // ↑ first call lazy-loads pkg/vantadb_wasm_bg.wasm via fs.readFile()
-const db = VantaDB.create();
+const db = Client.create();
 ```
 
 No plugin required. Loader hits disk on first method call.
@@ -151,11 +153,11 @@ for the full table. Short version:
 
 ```ts
 // ❌ BAD: top-level eager instantiation breaks SSR
-const db = VantaDB.create(); // throws if window is undefined
+const db = Client.create(); // throws if window is undefined
 
 // ✅ GOOD: instantiate inside useEffect / useMemo / client boundary
 useEffect(() => {
-  const db = VantaDB.create();
+  const db = Client.create();
   return () => db.close();
 }, []);
 ```
@@ -206,8 +208,10 @@ To opt into more detail, set the global **before the first client is
 created** (the WASM analog of the core's `RUST_LOG`, see `src/console.rs`):
 
 ```js
+import { Client } from "vantadb";
+
 globalThis.VANTADB_LOG = "debug"; // "trace" | "debug" | "info" | "warn" | "error"
-const db = new Client();
+const db = Client.create();
 ```
 
 The value is read once per process (the tracing subscriber is global and can
@@ -241,7 +245,7 @@ sourced below).
 | **@orama/orama** | 3.1.18 | 75.2 KB | **23.8 KB** | ✅ (`mode:'vector'`) | ✅ (`mode:'hybrid'`, RRF) | ❌ in-memory only (plugin for disk) | **No** — Orama has no HNSW, no OPFS, no WAL, no Fjall, no capability graph, no TTL auto-expiry |
 | **MiniSearch** | latest | ~22 KB | **5.9 KB** | ❌ (full-text only) | ❌ | ❌ | **No** — full-text only |
 | **Lunr** | 2.3.9 | 28.5 KB | **8.1 KB** | ❌ (full-text only) | ❌ | ❌ | **No** — full-text only, no vectors |
-| **VantaDB WASM** | 0.8.x | 1.77 MB | **~739 KB transfer** | ✅ HNSW | ✅ BM25 + RRF | ✅ OPFS / IndexedDB / in-mem | ✅ |
+| **VantaDB WASM** | 0.9.x | 1.77 MB | **~739 KB transfer** | ✅ HNSW | ✅ BM25 + RRF | ✅ OPFS / IndexedDB / in-mem | ✅ |
 
 Sources:
 - Orama gzipped: <https://bundlephobia.com/package/@orama/orama> (75.2 KB min, 23.8 KB gzipped, 2026-08-30)
@@ -324,7 +328,7 @@ demonstrates a measured reduction without regressions.
   (source of truth; sync into `pkg/` with the command in §1)
 - [`vantadb-wasm/demo/`](https://github.com/ness-e/Vantadb/tree/main/vantadb-wasm/demo) — browser AI agent demo (Transformers.js + OPFS)
 - `vantadb-ts/README.md` §"WASM bundle & lazy loading" — runtime-specific recipes
-- `docs/user/QUICKSTART.md` §"4. Real Embeddings" — full walkthrough
+- `docs/user/QUICKSTART.md` §7 "Optional: Local Embeddings" — full walkthrough
 - `docs/dev/research/research-vantadb-wasm-20260825.md` §H-17 — origin ticket
 - `docs/dev/_templates/adr.md` — format reference for any future ADR on lazy-loading strategy
 

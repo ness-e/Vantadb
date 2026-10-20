@@ -11,8 +11,8 @@ import { Client } from "vantadb";
 
 const db = Client.create();
 
-await db.put({ namespace: "docs", key: "intro", payload: "VantaDB is a vector database", vector: [0.1, 0.2, ...] });
-const results = await db.search({ namespace: "docs", query_vector: [0.15, 0.25, ...], top_k: 5 });
+db.put({ namespace: "docs", key: "intro", payload: "VantaDB is a vector database", vector: [0.1, 0.2, ...] });
+const results = db.search({ namespace: "docs", query_vector: [0.15, 0.25, ...], top_k: 5 });
 ```
 
 ## Features
@@ -42,7 +42,7 @@ const db = Client.create();
 // const db = Client.open("./vanta_data");
 
 // Store
-await db.put({
+db.put({
   namespace: "memories",
   key: "greeting",
   payload: "Hello, world!",
@@ -51,7 +51,7 @@ await db.put({
 });
 
 // Search
-const hits = await db.search({
+const hits = db.search({
   namespace: "memories",
   query_vector: [0.1, 0.2, 0.3],
   top_k: 10,
@@ -62,20 +62,26 @@ console.log(hits[0].record.payload); // "Hello, world!"
 db.close();
 ```
 
+> **Sync API:** every method on `Client` is synchronous — `put`, `search`,
+> `get`, `list` return their value directly, never a `Promise` (only the
+> `fetch` calls in the examples are awaited). The asynchronous API lives in
+> the native package [`vantadb-node`](../vantadb-node).
+
 ## Module Formats (ESM / CommonJS)
 
 The package is **ESM-only** (the `vantadb-wasm` dependency is an ES module and the
 API is fully synchronous, so a CommonJS build would not be loadable without an
 async rewrite). `import` works everywhere — Node, Bun, Deno, bundlers.
 
-CommonJS consumers on **Node.js ≥ 22.12** can `require("vantadb")` directly:
-Node's `require(esm)` loads the module graph because it contains no top-level
+CommonJS consumers on **Node.js ≥ 22.19** — this package's `engines.node`
+floor — can `require("vantadb")` directly: Node's `require(esm)` has been
+unflagged since 22.12, and the module graph contains no top-level
 `await`. On older Node versions, migrate the consumer to `import`, or use the
 native backend ([`vantadb-node`](../vantadb-node)) whose API is async and
 CommonJS-friendly.
 
 ```js
-// Node.js >= 22.12
+// Node.js >= 22.19
 const { Client } = require("vantadb");
 const db = Client.create();
 // ...same synchronous API as the ESM build
@@ -113,8 +119,8 @@ How it is loaded depends on the runtime:
   // Verified working (wasm is inlined by esm.sh's build):
   import { Client } from "https://esm.sh/vantadb";
   const db = Client.create();
-  await db.put({ namespace: "demo", key: "k", payload: "hello" });
-  console.log((await db.get({ namespace: "demo", key: "k" }))?.payload); // "hello"
+  db.put({ namespace: "demo", key: "k", payload: "hello" });
+  console.log(db.get({ namespace: "demo", key: "k" })?.payload); // "hello"
   db.close();
 </script>
 ```
@@ -161,7 +167,7 @@ Measured 2026-10-04 (VantaDB row; competitor rows as dated below). Reproducible:
 | **@orama/orama** | 3.1.18 | **23.8 KB** | ✅ | ✅ RRF | ❌ (in-mem + plugin) |
 | **MiniSearch**   | latest | **5.9 KB**  | ❌ | ❌ | ❌ |
 | **Lunr**         | 2.3.9  | **8.1 KB**  | ❌ | ❌ | ❌ |
-| **vantadb WASM** | 0.8.x  | **~739 KB transfer** (1.77 MB raw wasm; measured 2026-10-04) | ✅ HNSW | ✅ BM25 + RRF | ✅ OPFS / IDB / in-mem |
+| **vantadb WASM** | 0.9.x  | **~739 KB transfer** (1.77 MB raw wasm; measured 2026-10-04) | ✅ HNSW | ✅ BM25 + RRF | ✅ OPFS / IDB / in-mem |
 
 VantaDB is **~31× larger** than Orama gzipped, but ships **OPFS persistence,
 HNSW ([p99 441 µs at 100K](https://github.com/ness-e/Vantadb/blob/main/docs/user/operations/BENCHMARKS.md#-5-impact-of-loop-and-hnsw-distance-optimization-phase-2)), TTL auto-expiry, capability graph** — features none of
@@ -176,8 +182,8 @@ Two npm packages exist; they are **not** the same thing:
 
 | Package | What it is | Published | API |
 |---------|------------|-----------|-----|
-| **`vantadb`** | TypeScript SDK over the WASM build — works in browsers, Node, Bun, Deno | ✅ 0.8.0 | Synchronous, ESM-only |
-| **`vantadb-node`** | Native Node.js bindings (napi-rs) — real filesystem persistence (fjall/WAL/fsync), async API, platform-specific `.node` binaries | ❌ **not yet published** (registry 404) | Async, ESM + CommonJS |
+| **`vantadb`** | TypeScript SDK over the WASM build — works in browsers, Node, Bun, Deno | ✅ 0.9.0 | Synchronous, ESM-only |
+| **`vantadb-node`** | Native Node.js bindings (napi-rs) — real filesystem persistence (fjall/WAL/fsync), async API, platform-specific `.node` binaries | ✅ 0.9.0 | Async, ESM + CommonJS |
 
 `vantadb-node` is the **native backend** you reach via
 `NativeVantaDB.connect()` (lazy-loaded); `vantadb` is the **WASM backend**
@@ -227,14 +233,14 @@ const res = await fetch("http://localhost:11434/api/embed", {
 });
 const [vec] = (await res.json()).embeddings;
 
-await db.put({ namespace: "memories", key: "greeting", payload: "Hello, world!", vector: vec });
-const hits = await db.search({ namespace: "memories", query_vector: vec, top_k: 10 });
+db.put({ namespace: "memories", key: "greeting", payload: "Hello, world!", vector: vec });
+const hits = db.search({ namespace: "memories", query_vector: vec, top_k: 10 });
 console.log(hits[0].record.payload); // "Hello, world!"
 ```
 
 Use one embedding model per namespace — stored and query vectors must share
 the same dimensionality. Full walkthrough:
-[QUICKSTART → Real Embeddings](../docs/user/QUICKSTART.md#4-real-embeddings-optional).
+[QUICKSTART → Local Embeddings](../docs/user/QUICKSTART.md#7-optional-local-embeddings-embed-local).
 
 ## API
 
@@ -242,7 +248,7 @@ the same dimensionality. Full walkthrough:
 
 | Method | Description |
 |--------|-------------|
-| `VantaDB.create(config?)` | Create in-memory or configured instance |
+| `Client.create(config?)` | Create in-memory or configured instance |
 | `Client.open(path)` | Open persistent store from disk |
 | `.close()` | Free WASM resources |
 
@@ -349,23 +355,23 @@ Every flat method is also reachable through a **domain sub-client**: `db.memory.
 
 ```ts
 // memory — namespace+key records, search, TTL
-await db.memory.put({ namespace: "docs", key: "intro", payload: "...", vector: [0.1, 0.2] });
-const hits = await db.memory.search({ namespace: "docs", query_vector: [0.15, 0.25], top_k: 5 });
-await db.memory.purgeExpired();
+db.memory.put({ namespace: "docs", key: "intro", payload: "...", vector: [0.1, 0.2] });
+const hits = db.memory.search({ namespace: "docs", query_vector: [0.15, 0.25], top_k: 5 });
+db.memory.purgeExpired();
 
 // graph — node/edge CRUD + traversals (traversals use short names)
-const node = await db.graph.getNode(42);
-const reachable = await db.graph.bfs([42], 3);
-const order = await db.graph.topologicalSort([1, 2, 3]);
-if (await db.graph.isDag([1, 2])) { /* safe to topologically sort */ }
+const node = db.graph.getNode(42);
+const reachable = db.graph.bfs([42], 3);
+const order = db.graph.topologicalSort([1, 2, 3]);
+if (db.graph.isDag([1, 2])) { /* safe to topologically sort */ }
 
 // wiki — node archive recovery (summary/archive lifecycle)
-const recovered = await db.wiki.recoverArchivedNodes(42);
+const recovered = db.wiki.recoverArchivedNodes(42);
 
 // system — lifecycle, metrics, IQL, maintenance, import/export
-console.log(await db.system.capabilities());
-const result = await db.system.query("(match (node :content \"rust\") (return node))");
-await db.system.flush();
+console.log(db.system.capabilities());
+const result = db.system.query("(match (node :content \"rust\") (return node))");
+db.system.flush();
 ```
 
 Notes:
@@ -378,8 +384,8 @@ Notes:
 
 | Runtime | Status |
 |---------|--------|
-| Node.js 22.12+ | ✅ (ESM + `require()` via `require(esm)`) |
-| Node.js 18–22.11 | ⚠️ ESM only — use `import` |
+| Node.js ≥ 22.19 | ✅ (ESM + `require()` via `require(esm)`) |
+| Node.js 18 – 22.18 | ❌ below the `engines.node >= 22.19` floor declared in `package.json` — use the native [`vantadb-node`](../vantadb-node) (Node ≥ 18) instead |
 | Bun | ✅ |
 | Deno | ✅ |
 | Browser | ✅ (ESM) |
