@@ -204,6 +204,26 @@ export function transformNodeCargoToml(text, newVersion) {
     .replace(/^(vanta-memory\s*=\s*\{[^}]*version\s*=\s*)"[^"]+"/m, `$1"${newVersion}"`);
 }
 
+// vanta-memory depende del crate raiz del workspace con un requisito de
+// version literal: `vantadb = { path = "../", version = "0.9.0" }`. Ese
+// requisito tiene que seguir a la version del workspace, porque el path dep
+// local debe SATISFACERLO: si el workspace pasa a 0.10.0 y el requisito
+// sigue en 0.9.0, cargo no resuelve el workspace entero
+// ("failed to select a version for the requirement `vantadb = ^0.9.0`").
+// release-plz no lo actualiza, porque vanta-memory esta en hold
+// (`release = false`) y por tanto no se procesa.
+export function parseVantaMemoryDepRequirement(text) {
+  const m = String(text).match(/^vantadb\s*=\s*\{[^}]*version\s*=\s*"([^"]+)"/m);
+  return m ? m[1] : null;
+}
+
+export function transformVantaMemoryDepRequirement(text, newVersion) {
+  return String(text).replace(
+    /^(vantadb\s*=\s*\{[^}]*version\s*=\s*)"[^"]+"/m,
+    `$1"${newVersion}"`,
+  );
+}
+
 // --------------------------------------------------------------- evaluation
 
 export function buildTargetSpecs(workspaceVersion) {
@@ -295,6 +315,14 @@ export function buildTargetSpecs(workspaceVersion) {
     expected: workspaceVersion,
     parse: parseNodeLockVersion,
     transform: transformNodeLockJson,
+  });
+
+  specs.push({
+    name: 'vanta-memory/Cargo.toml',
+    relPath: 'vanta-memory/Cargo.toml',
+    expected: workspaceVersion,
+    parse: parseVantaMemoryDepRequirement,
+    transform: transformVantaMemoryDepRequirement,
   });
 
   return specs;
@@ -401,6 +429,15 @@ export function selfTest() {
     assert(out.includes('"version": "0.9.0",\n  "packages"'), 'root version not bumped');
     assert(out.includes('"version": "0.9.0"\n    }'), 'packages[""] version not bumped');
     assert(out.includes('"node_modules/dep": {\n      "version": "0.8.0"'), 'dependency version was touched');
+  });
+
+  // 10. vanta-memory: el requisito del path dep debe seguir al workspace
+  check('vanta-memory/Cargo.toml: bumps the vantadb path-dep requirement', () => {
+    const fixture = '[package]\nname = "vanta-memory"\nversion.workspace = true\n\n[dependencies]\nvantadb = { path = "../", version = "0.8.0", default-features = false }\n';
+    const out = transformVantaMemoryDepRequirement(fixture, '0.9.0');
+    assert(parseVantaMemoryDepRequirement(out) === '0.9.0', `got ${parseVantaMemoryDepRequirement(out)}`);
+    assert(out.includes('version = "0.9.0"'), `output mismatch: ${out}`);
+    assert(out.includes('path = "../"'), 'path dep lost');
   });
 
   const failed = results.filter((r) => !r.ok);
