@@ -5,10 +5,17 @@
 // contract — see individual `expect` strings for the specific invariant.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 
-//! AES-256-GCM at-rest encryption for VantaDB storage.
+//! AES-256-GCM primitives and envelope format for VantaDB.
 //!
 //! Provides [`Cipher`] for encrypt/decrypt operations and [`EncryptionStream`]
 //! for transparent Read/Write wrapping of storage streams.
+//!
+//! **Scope (honest, 2026-10-20):** these primitives are wired into the
+//! `vanta-proxy` envelope. They are **not** applied to the core storage files
+//! yet (WAL, HNSW, VantaFile, backend-KV, snapshots stay plaintext) — the only
+//! call site of `with_cipher` in `src/` is a test. The wiring is designed in
+//! `ADR-0057` and tracked as `FIND-249`; see `docs/user/operations/CONFIGURATION.md`
+//! (`encryption_key`) for the user-facing statement.
 //!
 //! # Key Derivation
 //!

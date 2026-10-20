@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- *(security)* `SECURITY.md` deja de publicar como capacidad el cifrado en reposo: las primitivas AES-256-GCM existen detrás de la feature `encryption` (`src/crypto.rs`) y las usa el envelope de `vanta-proxy`, pero los ficheros de storage del core (WAL, HNSW, VantaFile, backend-KV, snapshots) siguen en claro. Diseño del wiring: `ADR-0057` (`FIND-407`, `FIND-249`).
 
 ## [0.9.0](https://github.com/ness-e/Vantadb/compare/v0.8.0...v0.9.0) - 2026-10-20
 
@@ -32,7 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - *(api-10/s1)* canonical wire-schema.json + parity gate + TS superseded_* + QUICKSTART pins
 - *(search)* EGO-03 comodines nativos en search_multi
 - *(iql)* WIRE-13 - agregaciones COUNT/SUM/GROUP BY end-to-end (parser->AST->planner->executor)
-- *(server)* SRV-10 — cifrado en reposo honesto: aviso key-sin-feature, feature opt-in encryption, docs sin claim (re-scope b; wiring=FIND-249)
+- *(server)* SRV-10 — cifrado en reposo: aviso key-sin-feature, feature opt-in encryption; el claim de cifrado en reposo de `SECURITY.md` **no** se retiró en 0.9.0 (se corrigió en el repo tras el release: `FIND-407`; wiring del cifrado real: `FIND-249`/`ADR-0057`)
 - *(iql)* WIRE-12 — paginación LIMIT/OFFSET end-to-end (parser→AST→planner→executor)
 - *(wasm)* STRAT-04 - lock-free threads kernel + measured slice (prep Kuzu)
 - *(sdk)* MEMG-15 — export JSONL con integridad verificable (manifest sha256) + mapeo de frontera 2026
