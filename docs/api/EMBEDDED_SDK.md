@@ -691,6 +691,13 @@ pub struct MemorySearchHit {
 }
 ```
 
+`score` is higher-is-better. Its scale depends on the metric: for **cosine** (the default) it is
+the similarity ∈ [-1, 1]; for **Euclidean** it is the negated L2 distance (`-d`). Since
+FIND-411 the Euclidean scale is the same in every backend (the flat scan used to return `-d²`
+while the HNSW path returned `-d`, so scores were not comparable across backends or across
+corpora of different sizes under the same `flat_threshold`). The full contract is in
+[scores.md](./scores.md).
+
 ### `EdgeRecord`
 
 ```rust
