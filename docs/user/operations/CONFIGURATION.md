@@ -12,9 +12,9 @@ last_reviewed: "2026-09-02"
 
 This document tracks the current runtime knobs for the embedded core and the optional local server wrapper.
 
-## 1. VantaConfig Reference
+## 1. Config Reference
 
-All configuration fields available in `VantaConfig` (Rust) and via environment variables.
+All configuration fields available in `Config` (Rust) and via environment variables.
 
 | Field | Type | Default | Env Var | Description |
 |-------|------|---------|---------|-------------|
@@ -34,7 +34,7 @@ All configuration fields available in `VantaConfig` (Rust) and via environment v
 | `eviction_weight_recency` | `f64` | `1.0` | — | Weight for recency in eviction |
 | `eviction_ratio` | `f64` | `0.20` | — | Fraction of hot nodes to evict when memory pressure triggers |
 | `backend_kind` | `BackendKind` | `Fjall` | `VANTADB_BACKEND` | KV backend: `[fjall](../glosario/fjall.md)`, `[rocksdb](../glosario/rocksdb.md)`, `memory` |
-| `max_blocking_threads` | `usize` | `16` | `VANTADB_MAX_BLOCKING_THREADS` | Max threads for blocking thread pool |
+| `max_blocking_threads` | `usize` | `2 x available_parallelism()` (fallback `16` if the CPU count cannot be read) | `VANTADB_MAX_BLOCKING_THREADS` | Max threads for blocking thread pool |
 | `max_connections` | `usize` | `max_blocking_threads * 2` | `VANTADB_MAX_CONNECTIONS` | Max concurrent HTTP query pool permits |
 | `pool_acquire_timeout_ms` | `u64` | `5000` | `VANTADB_POOL_ACQUIRE_TIMEOUT_MS` | Timeout acquiring a pool permit before the query fails fast with 503 |
 | `circuit_breaker_failure_threshold` | `u32` | `5` | `VANTADB_CIRCUIT_BREAKER_FAILURE_THRESHOLD` | Consecutive 5xx failures before the circuit breaker opens |
@@ -61,7 +61,7 @@ All configuration fields available in `VantaConfig` (Rust) and via environment v
 | `embedding_provider` | `String` | `ollama` | `VANTADB_EMBEDDING_PROVIDER` | Embedding provider selector: `ollama`, `openai`, `local` (ONNX) |
 | `strict_embeddings` | `bool` | `true` | `VANTADB_STRICT_EMBEDDINGS`, `VANTADB_ALLOW_DUMMY_EMBEDDINGS` | Fail-closed policy for vector embeddings. When `true` (default), refuses to silently degrade to synthetic/dummy vectors if the ONNX runtime or model weights are missing. Explicit opt-out via `VANTADB_ALLOW_DUMMY_EMBEDDINGS=true`. |
 | `wal_shards` | `usize` | `4` | `VANTADB_WAL_SHARDS` | Number of round-robin [wal](../glosario/wal.md) shard files for write parallelism |
-| `wal_buffer_size` | `Option<usize>` | `65536` (64KB) | `VANTADB_WAL_BUFFER_SIZE` | Per-shard WAL buffer in bytes (`None` = OS default) |
+| `wal_buffer_size` | `Option<usize>` | `None` (OS default) | `VANTADB_WAL_BUFFER_SIZE` | Per-shard WAL buffer in bytes; `None` leaves the buffer size to the OS |
 | `flush_threshold` | `Option<usize>` | `None` (disabled) | `VANTADB_FLUSH_THRESHOLD` | Auto-flush after N nodes inserted (`None` = disabled) |
 | `advanced_tokenizer_config` | `Option<...>` | `None` | — | Advanced tokenizer config (feature-gated) |
 | `batch_size` | `Option<usize>` | `None` (1000) | `VANTADB_BATCH_SIZE` | Max nodes per batch ingestion operation |
@@ -91,7 +91,7 @@ All configuration fields available in `VantaConfig` (Rust) and via environment v
 | `self_healing_quiet_secs` | `u64` | `300` | `VANTADB_SELF_HEALING_QUIET_SECS` | Inactivity threshold in seconds before self-healing maintenance triggers. Default: `300` (5 minutes). |
 | `segment_optimizer` | `SegmentOptimizerConfig` | `{enabled: true, vacuum_threshold_pct: 15.0, auto_run_interval_secs: 3600, max_pipeline_duration_secs: 300}` | — | Segment optimizer configuration: master switch, tombstone vacuum threshold (%), auto-run interval (s), max pipeline duration (s), and per-level LSM compaction config. See also `pipeline()` / `optimizer_config()` / `set_optimizer_config()` in the SDK. |
 
-### Environment Variables Outside `VantaConfig`
+### Environment Variables Outside `Config`
 
 > **F3C + FIND-89 breaking (B+B, Q3=A):** all legacy `VANTA_*` vars have been unified
 > to `VANTADB_*` **without shims**. The F3C change covered 7 vars owned by `Config`:
@@ -107,7 +107,7 @@ All configuration fields available in `VantaConfig` (Rust) and via environment v
 > `VANTA_*` reads have been removed from source.
 
 The following legacy env vars are **deprecated** and no longer read by VantaDB:
-(they were consolidated into `VantaConfig` with `VANTADB_*` prefixes)
+(they were consolidated into `Config` with `VANTADB_*` prefixes)
 
 | Legacy Env Var | Replaced By | Notes |
 |----------------|-------------|-------|
@@ -119,10 +119,16 @@ The following legacy env vars are **deprecated** and no longer read by VantaDB:
 | `VANTA_DISABLE_PREFETCH` | `VANTADB_DISABLE_PREFETCH` | Moved into `Config` / `EvictionCfg` (F3C) |
 | `VANTA_LOCAL_MODEL` | `VANTADB_LOCAL_MODEL` | Moved into `Config` / `LlmCfg` (F3C) |
 
-These env vars are read at runtime outside `VantaConfig::from_env()`:
+These env vars are read at runtime outside `Config::from_env()`:
 
 | Env Var | Default | Description |
 |---------|---------|-------------|
+| `VANTADB_QUIET` | unset | Suppress the hardware banner and the startup output (`src/hardware/mod.rs`; also set by `vanta-cli` itself) |
+| `VANTADB_SILENT` | unset | Silent-mode alias of `VANTADB_QUIET` (`src/hardware/mod.rs`) |
+| `VANTADB_PROFILE_PATH` | unset (falls back to `~/.vanta/.vanta_profile`, then `.vanta_profile` in the CWD) | Path of the hardware profile cache file (`src/hardware/mod.rs`) |
+| `VANTADB_SYNC_MODE` | `periodic` | Storage sync mode. Read by the `vanta config` layer, **not** by `Config::from_env()` (`src/cli_handlers/config.rs`) |
+| `VANTADB_SCHEDULER_INTERVAL_MS` | `60000` (60s) | Interval of the vanta-memory scheduler pass; `0` disables the loop (`vantadb-server/src/scheduler.rs`) |
+| `VANTADB_INGEST_CONFIG` | `<storage_path>/data/vanta-ingest.toml` | Ingest configuration file; takes precedence over the default path (`vantadb-server/src/scheduler.rs`) |
 | `VANTADB_REPORTED_VERSION` | crate version | Overrides the version string reported by banners and MCP surfaces (must be a valid semver, e.g. `1.2.3-rc1`; internal mechanism, excepted from Config per FIND-89) |
 | `VANTADB_SELF_HEALING_IDLE_SECS` | `900` (15 min) | Inactivity quiet window threshold (seconds) before automated background vacuum and HNSW index rebuild executes |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4317` | OTLP gRPC endpoint (third-party OpenTelemetry standard, not a VantaDB config) |
@@ -158,7 +164,7 @@ Each line is one JSON object:
 - `outcome`: `ok` or `err`. Failures still record the attempt; error details go to the `reason` field where available.
 - `reason`: optional contextual detail (e.g. `memory delete` on delete, deleted count on `delete_by_filter`).
 - Read-only operations (`search`, `get`, `list`) are **not** audited.
-- The file is opened in append mode; each record is flushed immediately. Set `VANTADB_AUDIT_LOG_PATH` or `VantaConfig.audit_log_path` via the Rust builder `with_audit_log_path(path)` to enable.
+- The file is opened in append mode; each record is flushed immediately. Set `VANTADB_AUDIT_LOG_PATH` or `Config.audit_log_path` via the Rust builder `with_audit_log_path(path)` to enable.
 - **Rotation (SRV-01):** once the active file reaches `audit_max_bytes` (default 10 MiB, env `VANTADB_AUDIT_MAX_BYTES`, accepts `KB`/`MB`/`GB` suffixes) it rotates to `<path>.1`; older archives shift down and files beyond `audit_max_files` (default 5, env `VANTADB_AUDIT_MAX_FILES`) are deleted. Builders: `with_audit_max_bytes(bytes)`, `with_audit_max_files(files)`.
 - **Request correlation (SRV-02):** server auth/request events include `request_id` when the HTTP request carries `x-request-id`, `x-tracing-id` or `traceparent` (first match, ≤256 chars).
 
@@ -173,8 +179,8 @@ Each line is one JSON object:
 
 ### Builder API
 
-Configuration in Rust uses the builder pattern: `VantaConfig::default()` reads **all** environment
-variables listed above, `VantaConfig::from_env()` is a thin alias of `default()`, and each `with_*`
+Configuration in Rust uses the builder pattern: `Config::default()` reads **all** environment
+variables listed above, `Config::from_env()` is a thin alias of `default()`, and each `with_*`
 method overrides a single field on the returned builder. Builder methods are additive — fields you do
 not touch keep their env-var or default value. **No `config.toml` (or any other config file) is read
 at startup.** The only file-based mechanism is the optional JSON hot-reload watcher described in
@@ -182,9 +188,9 @@ at startup.** The only file-based mechanism is the optional JSON hot-reload watc
 startup configuration.
 
 ```rust
-use vantadb::VantaConfig;
+use vantadb::Config;
 
-let cfg = VantaConfig::from_env()
+let cfg = Config::from_env()
     .with_storage_path("./vanta_data".to_string())
     .with_memory_limit(512_000_000)
     .with_wal_buffer_size(64 * 1024)
@@ -197,13 +203,13 @@ let cfg = VantaConfig::from_env()
 ### Hot-Reload JSON
 
 Behind the `hot-reload` Cargo feature (not included in `default`; pulls in `notify`),
-`VantaConfig::watch_config(config, path, on_reload)` spawns a background thread that watches a single
+`Config::watch_config(config, path, on_reload)` spawns a background thread that watches a single
 JSON file and atomically applies safe-to-reload fields at runtime. It is the **only file-based
 configuration mechanism**; there is no `config.toml` and no config file is read at startup.
 
 Mechanism (`#[cfg(feature = "hot-reload")]`, `src/config.rs`):
 
-- `watch_config(config: Arc<RwLock<VantaConfig>>, path, on_reload)` returns
+- `watch_config(config: Arc<RwLock<Config>>, path, on_reload)` returns
   `io::Result<mpsc::Sender<()>>`. Dropping the returned `Sender` shuts the watcher thread down.
 - The file is parsed as **JSON only** (`serde_json`); invalid JSON or files larger than 1 MB are
   ignored with a warning. The parent directory is watched non-recursively; only
@@ -221,7 +227,7 @@ Example file (all keys optional):
   "log_format": "json",
   "rate_limit_rpm": 100,
   "batch_size": 1000,
-  "wal_buffer_size": 65536,
+  "wal_buffer_size": null,
   "flush_threshold": 10000,
   "insert_lock_timeout_ms": 5000,
   "sync_mode": "periodic"
@@ -241,10 +247,10 @@ Example file (all keys optional):
 
 ```rust
 use std::sync::{Arc, RwLock};
-use vantadb::VantaConfig;
+use vantadb::Config;
 
-let cfg = Arc::new(RwLock::new(VantaConfig::from_env()));
-let watcher = VantaConfig::watch_config(
+let cfg = Arc::new(RwLock::new(Config::from_env()));
+let watcher = Config::watch_config(
     Arc::clone(&cfg),
     "./hot-reload.json",
     || tracing::info!("config hot-reloaded"),
@@ -284,10 +290,10 @@ export VANTADB_LOG_FORMAT=json
 ### (b) Rust builder
 
 ```rust
-use vantadb::VantaConfig;
+use vantadb::Config;
 use vantadb::BackendKind;
 
-let cfg = VantaConfig::from_env()
+let cfg = Config::from_env()
     .with_storage_path("/var/lib/vantadb".to_string())
     .with_memory_limit(2 * 1024 * 1024 * 1024) // 2 GB
     .with_backend(BackendKind::Fjall)
@@ -315,10 +321,10 @@ only the `HotReloadConfig` subset is applied at runtime (see [Hot-Reload JSON](#
 
 ```rust
 use std::sync::{Arc, RwLock};
-use vantadb::VantaConfig;
+use vantadb::Config;
 
-let cfg = Arc::new(RwLock::new(VantaConfig::from_env()));
-let watcher = VantaConfig::watch_config(
+let cfg = Arc::new(RwLock::new(Config::from_env()));
+let watcher = Config::watch_config(
     Arc::clone(&cfg),
     "./vanta-reload.json",
     || tracing::info!("config hot-reloaded"),
@@ -380,7 +386,7 @@ The CLI uses the embedded core directly and does not require the optional HTTP s
 | `--json` | — | `false` | Output in JSON format |
 | `--quiet` | — | `false` | Suppress non-essential output |
 
-> **Note (ADR-0012, 2026-08-05; updated FIND-89 2026-09-14):** `VANTADB_STORAGE_PATH` is the unified config env for both CLI flag `--db` and `VantaConfig::from_env()`. Precedence: CLI flag `--db` > `VANTADB_STORAGE_PATH` env > defaults. The `vantadb-server` child sets `VANTADB_STORAGE_PATH` from `--db` so the MCP/config path resolves correctly (fix TECH-01). Legacy `VANTA_DB` is deprecated. See `docs/dev/architecture/adr/ADR-0012-env-var-naming.md`.
+> **Note (ADR-0012, 2026-08-05; updated FIND-89 2026-09-14):** `VANTADB_STORAGE_PATH` is the unified config env for both CLI flag `--db` and `Config::from_env()`. Precedence: CLI flag `--db` > `VANTADB_STORAGE_PATH` env > defaults. The `vantadb-server` child sets `VANTADB_STORAGE_PATH` from `--db` so the MCP/config path resolves correctly (fix TECH-01). Legacy `VANTA_DB` is deprecated. See `docs/dev/architecture/adr/ADR-0012-env-var-naming.md`.
 
 ### Commands
 

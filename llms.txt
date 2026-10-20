@@ -394,7 +394,7 @@ is in docs/index.md in the repository.
 - [Avance — Desktop (Tauri)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/avance/activo/desktop.md): Verificación: Select-String DAUD docs/dev/Backlog.md 0 filas | \DAUD- (solo header P37 0 Cerrada + historial), pwsh scripts/check-avance-coverage.ps1 1038+9/1038+9 (o 1038/1038 sin DAUD en fuentes) 0 gaps, pwsh...
 - [Avance — Investigaciones (INV)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/avance/investigaciones.md): COMP-001/002/003/004/005/007/011/015/020/030 catalogados en historial/backlog-history.md → P10. Incluyen SQ8/PQ, HNSW persist, in-filter, bitset, params, inline u128, CRUD tombstones, hybrid pipeline, RRF fusion, survival mode
 - [Avance — Meta / Proceso](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/avance/meta.md): Los archivos de docs/dev/avance/activo/ se actualizan al cierre de cada campaña (no daily); los dominios del mirror = crates activos del workspace. Un crate nuevo ⇒ archivo de dominio nuevo en el mismo cierre. Verificación: muestreo...
-- [Avance — Operaciones & API](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/avance/activo/operaciones.md)
+- [Avance — Operaciones & API](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/avance/activo/operaciones.md): existía (VECTORSEARCH(...) → <field> ~ "texto", min = 0.88), endpoint de embeddings de
 - [Avance — Vanta Memory](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/avance/activo/vanta-memory.md)
 - [Avance — Vanta Proxy](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/avance/activo/vanta-proxy.md)
 - [Avance — Web Frontend](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/avance/activo/web-frontend.md)
