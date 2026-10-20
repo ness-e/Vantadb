@@ -107,7 +107,11 @@ jobs:
           if [ "$PASS" != "true" ]; then exit 1; fi
           echo "All documents have valid frontmatter."
   check-api-version:
-    if: github.actor != 'dependabot[bot]' && (github.event_name != 'schedule')
+    # Sin guard de dependabot (FIND-472): un job omitido por `if:` reporta
+    # 'skipped' y GitHub cuenta 'skipped' como required check SATISFECHO.
+    # Este check es barato (checks de docs: segundos) y es required: si se omite, un PR de
+    # Dependabot mergearia sin el. Los jobs caros siguen blindados.
+    if: (github.event_name != 'schedule')
 
     name: Check API Docs Version
     runs-on: ubuntu-latest
@@ -146,7 +150,11 @@ jobs:
   # published version, so release-npm-61 skipped the publish in a green run
   # (run 37045932895). Pure string comparison, no network, no build.
   check-npm-versions:
-    if: github.actor != 'dependabot[bot]' && (github.event_name != 'schedule')
+    # Sin guard de dependabot (FIND-472): un job omitido por `if:` reporta
+    # 'skipped' y GitHub cuenta 'skipped' como required check SATISFECHO.
+    # Este check es barato (checks de docs: segundos) y es required: si se omite, un PR de
+    # Dependabot mergearia sin el. Los jobs caros siguen blindados.
+    if: (github.event_name != 'schedule')
 
     name: Check npm package versions match workspace
     runs-on: ubuntu-latest
@@ -178,7 +186,10 @@ jobs:
         run: pwsh -NoProfile -File scripts/validate-frontier.ps1
   docs-links:
     name: Internal links resolve
-    if: github.actor != 'dependabot[bot]'
+    # Sin guard de dependabot (FIND-472): un job omitido por `if:` reporta
+    # 'skipped' y GitHub cuenta 'skipped' como required check SATISFECHO.
+    # Este check es barato (links internos rotos: segundos) y es required: si se omite, un PR de
+    # Dependabot mergearia sin el. Los jobs caros siguen blindados.
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -195,7 +206,10 @@ jobs:
         run: node scripts/docs/check-links.mjs
   docs-schema:
     name: Frontmatter schema, kind agreement, orphans
-    if: github.actor != 'dependabot[bot]'
+    # Sin guard de dependabot (FIND-472): un job omitido por `if:` reporta
+    # 'skipped' y GitHub cuenta 'skipped' como required check SATISFECHO.
+    # Este check es barato (frontmatter y huerfanos: segundos) y es required: si se omite, un PR de
+    # Dependabot mergearia sin el. Los jobs caros siguen blindados.
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -210,7 +224,10 @@ jobs:
         run: node scripts/docs/check-docs.mjs --fix-hints
   docs-index:
     name: Generated indexes are current
-    if: github.actor != 'dependabot[bot]'
+    # Sin guard de dependabot (FIND-472): un job omitido por `if:` reporta
+    # 'skipped' y GitHub cuenta 'skipped' como required check SATISFECHO.
+    # Este check es barato (indices generados al dia: segundos) y es required: si se omite, un PR de
+    # Dependabot mergearia sin el. Los jobs caros siguen blindados.
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -585,7 +602,10 @@ jobs:
 
   actionlint:
     name: actionlint (workflows lint + inventory gate)
-    if: github.actor != 'dependabot[bot]'
+    # Sin guard de dependabot (FIND-472): un job omitido por `if:` reporta
+    # 'skipped' y GitHub cuenta 'skipped' como required check SATISFECHO.
+    # Este check es barato (lint de workflows: segundos) y es required: si se omite, un PR de
+    # Dependabot mergearia sin el. Los jobs caros siguen blindados.
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
