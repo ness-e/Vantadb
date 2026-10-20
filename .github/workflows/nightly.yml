@@ -259,8 +259,9 @@ jobs:
   # cargo-coupling 0.4.0. rust-dsm stays local-only (run manually).
   arch-metrics:
     name: ADP + coupling thermometers
+    if: github.actor != 'dependabot[bot]'
     # CI-08: PR/dispatch only — never on the daily schedule (see header).
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    if: github.actor != 'dependabot[bot]' && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     # CATEGORY: INFORMATIONAL - advisory thermometers, never gate merge (Regla 2)
@@ -306,8 +307,9 @@ jobs:
   # toolchain opens a HALLAZGO issue with an owner instead of false-green.
   toolchain-check:
     name: Toolchain compiles bench (release, no run)
+    if: github.actor != 'dependabot[bot]'
     # CI-08: PR/dispatch only — never on the daily schedule (see header).
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    if: github.actor != 'dependabot[bot]' && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -389,8 +391,9 @@ jobs:
   # issue, the PR stays green (Q5 informativo primero).
   bench-informational:
     name: Run canonical_p99 vs baseline (informational)
+    if: github.actor != 'dependabot[bot]'
     # CI-08: PR/dispatch only — never on the daily schedule (see header).
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    if: github.actor != 'dependabot[bot]' && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch')
     needs: toolchain-check
     runs-on: ubuntu-latest
     # FIND-317 (2026-10-07): 90 -> 240 min (criterion estimate ~128 min for the
@@ -525,8 +528,9 @@ jobs:
   # passed; the promotion decision belongs to the owner, not this consolidation.
   lurkr:
     name: Lurkr capability scan
+    if: github.actor != 'dependabot[bot]'
     # CI-08: PR/dispatch only — never on the daily schedule (see header).
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    if: github.actor != 'dependabot[bot]' && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     continue-on-error: true # CATEGORY: INFORMATIONAL (hasta 2026-10-08, ver header)
@@ -569,8 +573,9 @@ jobs:
   # @alibaba-group/open-code-review 1.12.9 (npm).
   ocr-delegate:
     name: OCR preview + rules spec
+    if: github.actor != 'dependabot[bot]'
     # CI-08: PR/dispatch only — never on the daily schedule (see header).
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    if: github.actor != 'dependabot[bot]' && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     # CATEGORY: INFORMATIONAL - advisory spec only, never gates merge (Regla 2)
@@ -627,10 +632,11 @@ jobs:
 
   notify-failure:
     name: "Notify failure (auto-issue)"
+    if: github.actor != 'dependabot[bot]'
     # CI-08: informational jobs intentionally NOT in `needs` — their findings
     # open their own issues; they never page the nightly notify (see header).
     needs: [failpoint-tests, storage-persistence, hnsw-validation, hnsw-recall, text-index, coverage-budget, release-dry-run]
-    if: ${{ failure() }}
+    if: github.actor != 'dependabot[bot]' && (failure())
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

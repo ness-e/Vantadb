@@ -72,6 +72,7 @@ jobs:
     if: github.event_name != 'schedule'
 
     name: Lint Markdown
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -85,6 +86,7 @@ jobs:
     if: github.event_name != 'schedule'
 
     name: Check Frontmatter
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -110,6 +112,7 @@ jobs:
     if: github.event_name != 'schedule'
 
     name: Check API Docs Version
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -149,6 +152,7 @@ jobs:
     if: github.event_name != 'schedule'
 
     name: Check npm package versions match workspace
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -168,6 +172,7 @@ jobs:
     if: github.event_name != 'schedule'
 
     name: Check Product Frontier
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -178,6 +183,7 @@ jobs:
         run: pwsh -NoProfile -File scripts/validate-frontier.ps1
   docs-links:
     name: Internal links resolve
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -194,6 +200,7 @@ jobs:
         run: node scripts/docs/check-links.mjs
   docs-schema:
     name: Frontmatter schema, kind agreement, orphans
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -208,6 +215,7 @@ jobs:
         run: node scripts/docs/check-docs.mjs --fix-hints
   docs-index:
     name: Generated indexes are current
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -219,6 +227,7 @@ jobs:
         run: node scripts/docs/gen-index.mjs --check
   docs-structure:
     name: No section has lost its body
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -255,6 +264,7 @@ jobs:
         run: node scripts/docs/attribute-structure.mjs
   docs-lint-regression:
     name: Markdownlint does not regress
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 6
     steps:
@@ -292,6 +302,7 @@ jobs:
     if: github.event_name != 'schedule'
 
     name: Public API surface moves only with documentation
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     # Measured: 6s on a 2-ref diff of the full three-language surface. The
     # margin is for a cold runner and a cold git object cache.
@@ -373,6 +384,7 @@ jobs:
     if: github.event_name != 'schedule'
 
     name: Python examples match the real SDK
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     # Calibrated from ci-examples.yml, which builds the same wheel: a cold debug
     # build of vantadb-python plus its core dependency dominates. 30 min is that
@@ -441,6 +453,7 @@ jobs:
     if: github.event_name != 'schedule'
 
     name: Python docstrings match signatures (pydoclint)
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -456,6 +469,7 @@ jobs:
     if: github.event_name != 'schedule'
 
     name: No credential in published docs
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -471,6 +485,7 @@ jobs:
     if: github.event_name != 'schedule'
 
     name: Machine-readable report
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -487,6 +502,7 @@ jobs:
     if: github.event_name != 'schedule'
 
     name: Generate API reference (rustdoc)
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     # FIND-137: 30 = build rustdoc ~10min medido (FIND-133) + margen cold-cache
     # con bindgen rocksdb (margen 3×, criterio FIND-135: duración real + margen).
@@ -554,6 +570,7 @@ jobs:
     if: github.event_name != 'schedule'
 
     name: Doc-tests (RUSTDOCFLAGS=-D warnings)
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     # 30 = mismo margen que el job rustdoc hermano (build del workspace en
     # perfil test + 20s de tests; medido warm: 2m47s + 16.8s; cold = margen 3×).
@@ -580,6 +597,7 @@ jobs:
 
   actionlint:
     name: actionlint (workflows lint + inventory gate)
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:

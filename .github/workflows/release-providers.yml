@@ -34,6 +34,7 @@ env:
 jobs:
   build-wheels:
     name: Build wheel (${{ matrix.provider }} — ${{ matrix.wheel_id }})
+    if: github.actor != 'dependabot[bot]'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
 

@@ -20,6 +20,7 @@ permissions:
 jobs:
   native-matrix:
     name: native load (${{ matrix.os }})
+    if: github.actor != 'dependabot[bot]'
     strategy:
       fail-fast: false
       matrix:
@@ -46,6 +47,7 @@ jobs:
 
   packaging-contract:
     name: packaging contract (asarUnpack)
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     defaults:

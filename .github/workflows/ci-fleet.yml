@@ -72,6 +72,7 @@ jobs:
     if: github.event_name != 'schedule'
 
     name: "Rust Examples (${{ matrix.os }})"
+    if: github.actor != 'dependabot[bot]'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
 
@@ -103,6 +104,7 @@ jobs:
     if: github.event_name != 'schedule'
 
     name: "Python Examples (${{ matrix.os }})"
+    if: github.actor != 'dependabot[bot]'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     # Windows runners default to cp1252 stdout: examples print emoji, so force
@@ -182,6 +184,7 @@ jobs:
     if: github.event_name != 'schedule'
 
     name: Cross-language conformance (Py/Node/WASM)
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     # Measured locally (warm caches, Windows dev box): producers + comparator
     # ~1 min. Cold CI adds three release Rust builds behind sccache +
@@ -382,6 +385,7 @@ jobs:
     if: github.event_name != 'schedule'
 
     name: Check provider (${{ matrix.provider }} / ${{ matrix.os }})
+    if: github.actor != 'dependabot[bot]'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     strategy:
