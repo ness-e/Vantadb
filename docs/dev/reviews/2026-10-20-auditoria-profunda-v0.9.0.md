@@ -44,7 +44,9 @@ tags: [vantadb, audit, reviews, release, docs, security]
 | 10+11+12 · Harness / CI / release en vuelo | `.opencode/`, `.github/workflows/`, `scripts/`, `release-manifest.json` | 0 | 2 | 7 | 3 | 12 |
 | **Total** | | **2** | **39** | **59** | **41** | **141** |
 
-⚠️ Áreas 4 (Providers) y 5 (Adapters): sin pase profundo de subagente (S1, S4, S8 no produjeron informe). Los hallazgos que les tocan están contados en las filas 9 (READMEs de adapters/providers) y 10-12. Ver §5.2.
+⚠️ S1, S4 y S8 no produjeron informe **a tiempo**. Estado a 2026-10-20: **S1 (CI/release) y S4 (providers/adapters) sí lo entregaron más tarde** y sus hallazgos están incorporados; **S8 (harness `.opencode/`) no entregó** — esa área la cubrió la wave W0 del orquestador (`audit-deep-w0-harness-20261020-033416.md`). Ver §5.2.
+
+⚠️ Límites de verificabilidad de toda la campaña (declarados por la propia auditoría): **solo verificación estática** (no había `cargo` en el PATH → la suite no se ejecutó) y **sin segundo autor** (el tool `task` no existía; las 11 waves las ejecutó el orquestador, y W10 fue auto-verificación). Ver `docs/dev/reviews/audit-deep-sintesis-20261020-033416.md` §1 y el backlog `FIND-410`.
 
 ### 1.3 Veredicto
 
@@ -344,13 +346,40 @@ Ledger completo con evidencia `ruta:línea` en **el ledger de hallazgos**. Resum
 | S5 | 6 · MCP + Server + 7 · Skills de usuario | **Completo** (57 KB, 30 hallazgos) | el informe del subagente S5 |
 | S6 | 8 · Docs (`docs/**`) | **Completo** (55 KB, 26 hallazgos) | el informe del subagente S6 |
 | S7 | 9 · READMEs | **Completo** (56 KB, 40 hallazgos) | el informe del subagente S7 |
-| S8 | 10 · `.opencode/` harness | **Sin informe** (log 0 B) | — |
+| S8 | 10 · `.opencode/` harness | **Sin informe** (log 0 B) — **cubierto por la wave W0** del orquestador (`audit-deep-w0-harness-20261020-033416.md`) | — |
 
-### 5.2 Áreas SIN pase profundo de subagente (3)
+### 5.2 Áreas SIN pase profundo de subagente (estado real a 2026-10-20)
 
-1. **Área 11/12 — CI y release 0.9.0 en vuelo.** S1 no produjo informe. **Cobertura parcial por el orquestador** (verificado a mano, con evidencia): diff de los 9 commits de la rama; `release.yml` completo; `release-manifest.json` (15 registries, contrastados 1:1 con el fan-out de `release.yml:182-188`); `sync-workspace-version.mjs` leído íntegro y ejecutado (`--check` → 22/22 en sync, `--self-test` → 12/12); `release-plz.toml` completo; `ci-rust.yml`, `ci-fleet.yml`, `docs-gates.yml`, `certification.yml`, `demo-acceptance.yml`, `electron-node.yml`, `nightly.yml`, `platform-ops.yml`, `release-{adapters,providers,wheels,npm-61,npm-node}.yml` (diff final); `.github/dependabot.yml` completo; ruleset `main` y `develop` vía `gh api` (lectura). **No cubierto por nadie:** los 9 workflows no tocados por la rama (`ci-gate.yml`, `ci-gate`, `perf-bench.yml`, `publish-mcp-registry.yml`, `release-binaries.yml`, `release-sbom.yml`, `release-verify.yml`) revisados a fondo; `scripts/verify-release.ps1` (leído solo en su parte de consumo del manifest, no ejecutado — requiere red y escribir un informe); `docs/dev/workflow/PUBLISH.md` (22 KB) contrastado solo parcialmente; `.githooks/`, `Justfile`, `deny.toml`, `osv-scanner.toml`.
-2. **Área 4 — Providers (`providers/{openai,ollama,litellm}`, `vanta-proxy/`).** S4 no produjo informe. **Cobertura parcial por el orquestador**: nombres de paquete/módulo y versiones de los 3 providers (`providers/*/Cargo.toml:2-3,11`), matrices de `release-providers.yml` (12 wheels), `verify-pypi-install` / `verify-testpypi-install` (checks de instalación post-publish), `providers/*/pyproject.toml` (deps declaradas), y la colisión de nombre PyPI con los adaptadores (AUD-11). **No cubierto:** redaction de API keys, budgets/ACL/audit, streaming SSE, timeouts/retries/backoff, `vanta-proxy` (rutas, auth, SSRF, límites de body) — **nadie ha auditado el proxy en esta pasada**.
-3. **Área 10 — `.opencode/` harness.** S8 no produjo informe. **Cobertura parcial por el orquestador**: inventario real (198 dirs / 197 con SKILL.md, 11 agents, 13 commands, 14 rules, 24 references, 20 workflows) contrastado con los claims de `SKILLS-MANIFEST.md:3,7` y `.opencode/AGENTS.md:184`; `permission: subagent` de los 11 agentes (7 leaf con `deny`, 4 orquestadores sin deny — coherente con la tabla de AGENTS.md); índice de `.opencode/rules/README.md` (13 entradas) vs 14 ficheros (13 reglas + README) — coherente; Entry Points de AGENTS.md (13 comandos) vs 13 ficheros — coherente; `Path Resolution` y el árbol de `docs/dev/tasks/{,complete/,closed/}` — coherentes; `skills-index.json` (232 KB) **NO auditado en detalle** (S8 debía hacerlo y no llegó); `C0-unified.mjs`, `RULES.md`, `parity-check.mjs`, `state-tools.mjs`, `pre-call-checks.md` **NO auditados**; `plugins/ponytail.ts`, `mcp/`, `mcp-profiles/`, `configs/`, `locks/` **NO auditados**.
+Las tres áreas listadas aquí **no quedaron sin cubrir**: el estado se corrigió cuando los informes
+llegaron tarde y cuando las waves del orquestador cubrieron lo que faltaba. Lo que sí queda abierto
+no es "auditar X" sino **verificar en runtime** y **revisar con otro autor**.
+
+1. **Área 11/12 — CI y release 0.9.0 en vuelo.** ~~S1 no produjo informe~~ → **S1 sí entregó**
+   (`subagents/S1.md`, CI + release mechanics, 12 hallazgos) y la wave **W8** cubrió tooling,
+   scripts y workflows. Cobertura adicional del orquestador: `release-manifest.json` contrastado
+   1:1 con el fan-out de `release.yml:182-188`; `sync-workspace-version.mjs` ejecutado (`--check`
+   → 22/22, `--self-test` → 12/12); `release-plz.toml`, `dependabot.yml` y los rulesets `main`/
+   `develop` leídos vía `gh api`. Pendiente de ejecución (no de lectura): `scripts/verify-release.ps1`
+   (necesita red y escribe un informe).
+2. **Área 4 — Providers (`providers/{openai,ollama,litellm}`, `vanta-proxy/`).** ~~S4 no produjo
+   informe~~ → **S4 sí entregó** (`subagents/S4.md`, providers + adapters, 16 hallazgos) y la wave
+   **W4** cubrió embeddings + providers + integrations. Lo que la auditoría **no** afirma es haber
+   medido en runtime la redacción de API keys, los budgets, el streaming SSE ni los timeouts/
+   retries de los providers: son afirmaciones estáticas (código leído), no de ejecución.
+3. **Área 10 — `.opencode/` harness.** S8 no entregó informe, pero la wave **W0** lo cubrió a
+   fondo (`audit-deep-w0-harness-20261020-033416.md`): inventario real (198 dirs / 197 con
+   `SKILL.md`, 11 agents, 13 commands, 14 rules, 24 references), coherencia comando↔skill↔agent↔rule,
+   `permission: subagent` de los 11 agentes, índice de `rules/README.md` vs ficheros reales y
+   `skills-index.json`. Pendiente de esa wave: `plugins/ponytail.ts`, `mcp/`, `mcp-profiles/`,
+   `configs/`, `locks/` (sin auditoría profunda).
+
+**Límite transversal de toda la campaña (no por área):** la verificación fue **estática** —no había
+`cargo`/`rustc`/`nextest` en el PATH, así que `cargo nextest run --profile audit -p vantadb` no se
+ejecutó— y **no hubo segundo autor**: el tool de subagentes (`task`) no existía en la sesión, el
+orquestador ejecutó las 11 waves y W10 (verificación adversarial) fue auto-verificación. Los
+hallazgos de comportamiento (orden de locks, O(n²), carreras) son hipótesis estáticas hasta que se
+confirmen en runtime. Ver `docs/dev/reviews/audit-deep-sintesis-20261020-033416.md` §1 y el
+backlog `FIND-410`.
 
 ### 5.3 Cobertura por área (detalle)
 

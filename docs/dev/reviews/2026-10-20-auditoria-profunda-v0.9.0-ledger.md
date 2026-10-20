@@ -125,41 +125,41 @@ Severidad: P0 = bloquea el release 0.9.0 en vuelo · P1 = alto · P2 = medio · 
 - `VDB-06 | P3 | rust-core/txn | src/storage/engine/txn.rs:281-287,140-145; src/storage/engine/init.rs:532-540` — `commit_transaction` de un id desconocido o ya comiteado escribe un `Commit` espurio en el WAL y devuelve `Ok(())`.
 - `VDB-07 | P3 | rust-core/storage | src/storage/ (dos rutas de escritura) | La copia en WAL y la almacenada divergen en `last_accessed` en direcciones opuestas tras crash+replay; afecta al orden de evicción LRU.
 - `VDB-08 | P3 | rust-core/delete | src/storage/engine/delete.rs:38,75-112` — La sonda pre-delete descarta el error (`self.get(id).ok().flatten()`): un fallo de lectura se confunde con "nodo no existe" y los contadores/índices quedan desincronizados.
-- `S3-A9 | P3 | docs | docs/api/BINDINGS_NAMESPACES.md:261,313,317,372 | Tablas de superficie cross-binding desfasadas ("45 public methods", "49 pyclass methods").
+- `S3-A9 | P3 | docs | docs/api/BINDINGS_NAMESPACES.md:261,313,317,372 | Tablas de superficie cross-binding desfasadas ("45 public methods", "49 pyclass methods").`
 - `S3-A10 | P3 | docs | bindings python/ts | No hay superficie de embeddings en Python ni TS pese a documentarse en `docs/api/EMBEDDINGS.md`.
 - `S3-B12 | P3 | docs | embeddings/manifest.json (10 modelos) vs docs/api/EMBEDDINGS.md:89,94,105,133,145-149; embeddings/README.md:22,36,87; embeddings/download.py:69` — "9 modelos" en todas partes; el manifest tiene 10 (`embeddinggemma-2` incluido).
 - `S3-B13 | P3 | docs | docs/api/EMBEDDINGS.md:97 vs embeddings/verify.py:1-20,141-203 | El doc dice que `verify.py` hace "ONNX vs HF > 0.98"; el script solo imprime el cosine, nunca lo asserta, y no hay baseline HF.
-- `S3-B14 | P3 | embeddings | embeddings/sanity_embed.py | Resuelve rutas relativas al CWD.
-- `S3-B15 | P3 | setup | setup-embeddings.ps1 | El claim "falls back to dummy" contradice el default estricto.
+- `S3-B14 | P3 | embeddings | embeddings/sanity_embed.py | Resuelve rutas relativas al CWD.`
+- `S3-B15 | P3 | setup | setup-embeddings.ps1 | El claim "falls back to dummy" contradice el default estricto.`
 - `S3-B16 | P3 | docs | docs/api/EMBEDDINGS.md §`LocalOnnxProvider` internals` | Internos der drifted.
 - `S3-B17 | P3 | embeddings | src/llm.rs (embed_batch) | `embed_batch` es un bucle secuencial, no una llamada batched.
 - `S5-A9 | P3 | docs/api | docs/api/openapi.yaml:1764-1772; src/server/middleware.rs:166-176 | El header `x-vanta-user-key` (tercer nivel de identidad, con 401 que lo nombra) no está declarado como security scheme ni documentado.
-- `S5-A10 | P3 | docs/api | docs/api/MCP.md:665 vs scripts/validate-docs-coverage.ps1:176-181 | El claim "tool coverage … enforced mechanically" es más ancho que lo que el gate realmente cubre (49 de 82).
+- `S5-A10 | P3 | docs/api | docs/api/MCP.md:665 vs scripts/validate-docs-coverage.ps1:176-181 | El claim "tool coverage … enforced mechanically" es más ancho que lo que el gate realmente cubre (49 de 82).`
 - `S5-A11 | P3 | mcp/registry | server.json:1-22 | Válido contra el schema pero no instalable (sin `packages[]`/`remotes[]`) y con `websiteUrl` apuntando a `blob/develop` (rama móvil).
 - `S5-A12 | P3 | harness | opencode.jsonc:69 | La entrada MCP del propio repo declara "85 tools perfil full"; el launcher nunca fija `VANTADB_MCP_PROFILE` y el default es `agent` (39).
 - `S5-A13 | P3 | mcp | vantadb-mcp/src/server.rs:499-526,571-635 | Un panic en `initialize`/`tools/list`/`prompts/*` (inline, fuera de `spawn_blocking`) aborta la task sin escribir respuesta → cuelgue silencioso del cliente.
 - `S5-B14 | P3 | user-skill | .opencode/skills/vantadb-mcp/SKILL.md:594,668 | Llama "stub" a `docs/api/MCP.md` en ambas direcciones, aunque es la referencia completa.
-- `S5-B15 | P3 | user-skill | .opencode/skills/vantadb-mcp/references/mcp-protocol.md:7 | Repite el conteo obsoleto de 85 tools.
+- `S5-B15 | P3 | user-skill | .opencode/skills/vantadb-mcp/references/mcp-protocol.md:7 | Repite el conteo obsoleto de 85 tools.`
 - `S5-B16 | P3 | user-skill | .opencode/skills/vantadb-mcp/ vs skills/vantadb-mcp/ | El mirror `.opencode` no tiene los dos directorios de assets (hooks/, install/).
-- `S5-B17 | P3 | user-skill | .opencode/skills/vantadb-mcp/SKILL.md:8,437; docs/api/MCP.md:494 | "2 resources" vs "2 static + 2 dynamic" dentro del mismo fichero.
+- `S5-B17 | P3 | user-skill | .opencode/skills/vantadb-mcp/SKILL.md:8,437; docs/api/MCP.md:494 | "2 resources" vs "2 static + 2 dynamic" dentro del mismo fichero.`
 - `D-21 | P3 | docs/adr | docs/dev/architecture/adr/ADR-0011-sparse-vectors-native.md:36` | Dice que `SparseVector` está en `src/node.rs`; vive en `src/node/vector_data.rs:30` y `src/node.rs` ya no existe.
-- `D-22 | P3 | docs/benchmarks | docs/user/operations/BENCHMARKS.md:34-36 | 6.1/1.2 = 5.08x, pero el factor publicado es 4.88x (calculado pre-redondeo).
+- `D-22 | P3 | docs/benchmarks | docs/user/operations/BENCHMARKS.md:34-36 | 6.1/1.2 = 5.08x, pero el factor publicado es 4.88x (calculado pre-redondeo).`
 - `D-23 | P3 | docs/dev | docs/dev/tasks/ (634 ficheros) | `status:` usa dos grafías para el mismo estado: `in_progress` (11) e `in-progress` (6).
 - `D-24 | P3 | root-doc | llms.txt:1-14 | Los conteos son correctos (475 páginas / 634 tasks / 1109 total) pero no existe generador para `llms.txt` → se mantiene a mano.
 - `D-25 | P3 | docs/api | docs/api/VERSIONING.md:17-19 | Los ejemplos de versión de la política (`0.5.0 → 0.6.0`) van 4 releases atrasados.
 - `D-26 | P3 | user-skill | skills/vantadb-mcp/scripts/test-mcp.py:26-28,60-61 | El docstring declara 85/36/20 citando `mcp_tests.rs::test_mcp_tool_profiles` como fuente, que afirma 82/39/38/22.
-- `S7-29 | P3 | readme | README.md:201 vs README_ES.md:200 | EN dice backend "File", ES dice "VantaFile" — dos backends distintos en tablas equivalentes.
-- `S7-30 | P3 | readme | README_ES.md:9-10 vs README.md:8-11 | Falta el badge Nightly en la traducción ES.
+- `S7-29 | P3 | readme | README.md:201 vs README_ES.md:200 | EN dice backend "File", ES dice "VantaFile" — dos backends distintos en tablas equivalentes.`
+- `S7-30 | P3 | readme | README_ES.md:9-10 vs README.md:8-11 | Falta el badge Nightly en la traducción ES.`
 - `S7-31 | P3 | readme | README.md:139; README_ES.md:138 vs examples/python/mem0_integration.py:1 | Señala `vantadb_py` (deprecado) como nombre canónico; los ejemplos importan `vantadb`.
 - `S7-32 | P3 | readme/integrations | integrations/crewai/README.md:44 vs integrations/crewai/vantadb_crewai/vectorstore.py:32 | La API table da una firma posicional que no existe (`embedding` es el primer parámetro, `db_path`/`namespace` son keyword-only).
 - `S7-33 | P3 | readme | README.md:203; README_ES.md:202 vs src/config.rs | Afirma que M/ef_construction/ef_search son configurables; no están expuestos en `Config`.
 - `S7-34 | P3 | readme | README.md:121-122; README_ES.md:120-121 vs src/sdk/search/debug_ops.rs:241-245 | Etiqueta como "Hybrid Search" una llamada solo-vector (sin `text_query`), que toma el brazo denso.
 - `S7-35 | P3 | readme/server | vantadb-server/README.md:5 | Referencia `DEPLOYMENT_GUIDE.md` sin ruta (real: `docs/user/operations/DEPLOYMENT_GUIDE.md`).
 - `S7-36 | P3 | readme/proxy | vanta-proxy/README.md:16 | Referencia `docs/api/PROXY.md` ambigua desde el subpaquete.
-- `S7-37 | P3 | readme/mcp | vantadb-mcp/ | El paquete no tiene README, siendo una de las cuatro superficies del producto.
+- `S7-37 | P3 | readme/mcp | vantadb-mcp/ | El paquete no tiene README, siendo una de las cuatro superficies del producto.`
 - `S7-38 | P3 | docs/user | docs/user/QUICKSTART.md:~57-60 | Pinea `vantadb-py>=0.8.0` sin reconciliar con el árbol 0.9.0.
-- `S7-39 | P3 | readme | vantadb-node/README.md:3; vantadb-wasm/README.md:3; vantadb-ts/README.md:5; vantadb-python/README.md:3 | "tres conectores de lenguaje activos" nunca definidos; conviven con "cuatro superficies" y "4+ paquetes".
+- `S7-39 | P3 | readme | vantadb-node/README.md:3; vantadb-wasm/README.md:3; vantadb-ts/README.md:5; vantadb-python/README.md:3 | "tres conectores de lenguaje activos" nunca definidos; conviven con "cuatro superficies" y "4+ paquetes".`
 - `S7-40 | P3 | readme/ts | vantadb-ts/README.md:206-214 vs vantadb-ts/src/vantadb.ts:746 | Ejemplo sin `await` junto a otros que sí lo usan, sin fijar el contrato sync/async.
-- `AUD-08 | P3 | harness | SKILLS-MANIFEST.md:3,7; .opencode/AGENTS.md:184 | Declaran "196 skills en 197 dirs"; en disco hay 198 dirs y 197 con SKILL.md.
-- `AUD-09 | P3 | harness | .opencode/AGENTS.md:137 | Autorreferencia rota: "La tabla de Path Resolution (línea 78)" — la línea 78 pertenece a la tabla "Intención → comando" (la real está en 99-108).
+- `AUD-08 | P3 | harness | SKILLS-MANIFEST.md:3,7; .opencode/AGENTS.md:184 | Declaran "196 skills en 197 dirs"; en disco hay 198 dirs y 197 con SKILL.md.`
+- `AUD-09 | P3 | harness | .opencode/AGENTS.md:137 | Autorreferencia rota: "La tabla de Path Resolution (línea 78)" — la línea 78 pertenece a la tabla "Intención → comando" (la real está en 99-108).`
 - `AUD-17 | P3 | docs/api | docs/api/openapi.yaml:121 vs src/server/router.rs:380 | El path parametrizado del dashboard usa `{path}` en el spec y `{*path}` (axum 0.8) en el código.
