@@ -363,6 +363,54 @@ pub enum Error {
     /// Embedding generation failed or strict mode violated.
     #[error("Embedding error: {0}")]
     Embedding(String),
+
+    /// An encrypted artefact was found but no encryption key resolved.
+    ///
+    /// Requires the `encryption` feature (ADR-0057 D6/D7). The artefact is
+    /// **not** corrupt: the database is encrypted and the operator has to
+    /// supply a key (`VANTADB_ENCRYPTION_KEY`, `…_KEY_FILE` or `…_KEY_CMD`).
+    #[cfg(feature = "encryption")]
+    #[error("Encryption key required for {artifact}")]
+    EncryptionKeyRequired {
+        /// The artefact that needs the key (`"wal"`, `"vfile"`, …).
+        artifact: String,
+    },
+
+    /// The AEAD tag did not authenticate: wrong key **or** tampered data.
+    ///
+    /// Requires the `encryption` feature (ADR-0057 D6). A single AEAD tag
+    /// cannot tell the two apart, so the message says "wrong key or tampered
+    /// data" — claiming more would be a false statement.
+    #[cfg(feature = "encryption")]
+    #[error("Encryption key rejected for {artifact} (wrong key or tampered data)")]
+    EncryptionKeyRejected {
+        /// The artefact that failed to authenticate.
+        artifact: String,
+    },
+
+    /// The structural check of an encrypted artefact failed (CRC, length, magic).
+    ///
+    /// Requires the `encryption` feature (ADR-0057 D6).
+    #[cfg(feature = "encryption")]
+    #[error("Encrypted artefact corrupt: {artifact}: {detail}")]
+    EncryptionCorrupt {
+        /// The artefact that failed the structural check.
+        artifact: String,
+        /// What exactly failed.
+        detail: String,
+    },
+
+    /// The artefact's format version is newer than this build understands.
+    ///
+    /// Requires the `encryption` feature (ADR-0057 D6).
+    #[cfg(feature = "encryption")]
+    #[error("Encrypted artefact {artifact} uses format version {found_version}, unsupported by this build")]
+    EncryptionUnsupported {
+        /// The artefact with the unsupported version.
+        artifact: String,
+        /// The version found on disk.
+        found_version: u16,
+    },
 }
 
 impl Error {
@@ -408,6 +456,15 @@ impl Error {
             | Error::InvalidInput(_)
             | Error::Embedding(_)
             | Error::NoVectorForKey(_) => "VANTADB_VALIDATION_ERROR",
+            // ADR-0057 D6: the four encryption variants reuse the canonical
+            // code set — the wire contract (10 codes, docs/api/ERROR_HANDLING.md
+            // §1.1) does not grow, so no binding has to learn a new code.
+            #[cfg(feature = "encryption")]
+            Error::EncryptionKeyRequired { .. }
+            | Error::EncryptionKeyRejected { .. }
+            | Error::EncryptionUnsupported { .. } => "VANTADB_VALIDATION_ERROR",
+            #[cfg(feature = "encryption")]
+            Error::EncryptionCorrupt { .. } => "VANTADB_CORRUPT",
         }
     }
 

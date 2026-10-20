@@ -245,6 +245,12 @@ pub struct StorageCfg {
     pub wal_buffer_size: Option<usize>,
     pub flush_threshold: Option<usize>,
     pub encryption_key: Option<String>,
+    /// Path to a file holding the hex-encoded master key.
+    /// Configured via `VANTADB_ENCRYPTION_KEY_FILE`.
+    pub encryption_key_file: Option<std::path::PathBuf>,
+    /// Command whose stdout is the hex-encoded master key.
+    /// Configured via `VANTADB_ENCRYPTION_KEY_CMD`.
+    pub encryption_key_cmd: Option<String>,
     pub wal_shards: usize,
     pub flat_threshold: Option<usize>,
     pub export_base_dir: Option<std::path::PathBuf>,
@@ -347,6 +353,8 @@ impl Default for StorageCfg {
             wal_buffer_size: None,
             flush_threshold: None,
             encryption_key: None,
+            encryption_key_file: None,
+            encryption_key_cmd: None,
             wal_shards: 4,
             flat_threshold: Some(10000),
             export_base_dir: None,
@@ -467,6 +475,8 @@ impl From<&Config> for StorageCfg {
             wal_buffer_size: cfg.wal_buffer_size,
             flush_threshold: cfg.flush_threshold,
             encryption_key: cfg.encryption_key.clone(),
+            encryption_key_file: cfg.encryption_key_file.clone(),
+            encryption_key_cmd: cfg.encryption_key_cmd.clone(),
             wal_shards: cfg.wal_shards,
             flat_threshold: cfg.flat_threshold,
             export_base_dir: cfg.export_base_dir.clone(),
@@ -935,6 +945,21 @@ pub struct Config {
     /// remain plaintext (FIND-249); the engine warns at open when the feature
     /// and key are both active.
     pub encryption_key: Option<String>,
+    /// Path to a file holding the hex-encoded master key.
+    ///
+    /// Second source of the fixed key-source precedence
+    /// (environment → file → command, ADR-0057 D2). Configured via
+    /// `VANTADB_ENCRYPTION_KEY_FILE`. On Unix the file must be a regular
+    /// file (never a symlink) with `0600`-equivalent permissions; on Windows
+    /// the check is limited to "regular file, non-empty".
+    pub encryption_key_file: Option<std::path::PathBuf>,
+    /// Command whose stdout is the hex-encoded master key (KMS shim).
+    ///
+    /// Last source of the fixed key-source precedence
+    /// (environment → file → command, ADR-0057 D2). Configured via
+    /// `VANTADB_ENCRYPTION_KEY_CMD`. The command runs **once at open**; its
+    /// output is captured into a zeroizing buffer and is never logged.
+    pub encryption_key_cmd: Option<String>,
     /// Number of WAL shards for reduced mutex contention (default: 4).
     /// Each shard has its own append lock; workloads hash node IDs across shards.
     /// Set to 0 to disable WAL, or 1 for single-file (legacy) behaviour.
@@ -1488,6 +1513,22 @@ impl Default for Config {
                 }
                 v
             },
+            encryption_key_file: {
+                let v = env::var("VANTADB_ENCRYPTION_KEY_FILE")
+                    .ok()
+                    .map(std::path::PathBuf::from);
+                if v.is_some() {
+                    debug!("VANTADB_ENCRYPTION_KEY_FILE is set (path not logged)");
+                }
+                v
+            },
+            encryption_key_cmd: {
+                let v = env::var("VANTADB_ENCRYPTION_KEY_CMD").ok();
+                if v.is_some() {
+                    debug!("VANTADB_ENCRYPTION_KEY_CMD is set (command not logged)");
+                }
+                v
+            },
             wal_shards: parse_env_or("VANTADB_WAL_SHARDS", 4usize),
             flat_threshold: {
                 let v = parse_env_or::<u32>("VANTADB_FLAT_THRESHOLD", 10000);
@@ -1772,6 +1813,26 @@ impl Config {
     /// plaintext (FIND-249) and the engine warns at open.
     pub fn with_encryption(mut self, key: String) -> Self {
         self.encryption_key = Some(key);
+        self
+    }
+
+    /// Sets the path of the file holding the hex master key.
+    ///
+    /// Second source of the fixed key-source precedence
+    /// (environment → file → command, ADR-0057 D2). On Unix the file must
+    /// have `0600`-equivalent permissions and must not be a symlink.
+    pub fn with_encryption_key_file(mut self, path: impl Into<std::path::PathBuf>) -> Self {
+        self.encryption_key_file = Some(path.into());
+        self
+    }
+
+    /// Sets the command whose stdout is the hex master key (KMS shim).
+    ///
+    /// Last source of the fixed key-source precedence
+    /// (environment → file → command, ADR-0057 D2). The command runs once at
+    /// open; its output is never logged.
+    pub fn with_encryption_key_cmd(mut self, cmd: impl Into<String>) -> Self {
+        self.encryption_key_cmd = Some(cmd.into());
         self
     }
 
