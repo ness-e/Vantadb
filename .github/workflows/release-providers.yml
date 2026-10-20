@@ -34,6 +34,7 @@ env:
 jobs:
   build-wheels:
     name: Build wheel (${{ matrix.provider }} — ${{ matrix.wheel_id }})
+    if: github.actor != 'dependabot[bot]'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
 
@@ -189,6 +190,9 @@ jobs:
           repository-url: https://test.pypi.org/legacy/
           verbose: true
           skip-existing: true
+          # Publicacion por token, no por Trusted Publishing (mismo criterio
+          # que el publish de produccion, que ya usa secrets.PYPI_TOKEN).
+          password: ${{ secrets.TEST_PYPI_TOKEN }}
 
   verify-testpypi-install:
     name: Verify TestPyPI install (${{ matrix.provider }})

@@ -38,6 +38,7 @@ env:
 jobs:
   tests:
     name: Tests (npm/TS)
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     # STABLE-06: measured 2026-09-05 on clean `npm ci` (node v26.8.1):
     # install ~11s + build ~2s + vitest 278/278 ~16s (Duration) + eslint 0
@@ -111,6 +112,7 @@ jobs:
   # job, not a full matrix (cost; see DX-01 task file).
   tests-node26:
     name: Tests (npm/TS, Node 26)
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 10
 

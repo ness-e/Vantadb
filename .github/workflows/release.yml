@@ -53,6 +53,16 @@ jobs:
           command: release
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN || secrets.GITHUB_TOKEN }}
+          # Publicacion por token de crates.io (no Trusted Publishing).
+          #
+          # OJO: cargo decide entre token y OIDC por la PRESENCIA de esta
+          # variable, no por su valor. Si el secret no existiese, la variable
+          # quedaria definida y VACIA, cargo se saltaria el intercambio OIDC y
+          # el publish fallaria con "please provide a non-empty token" (asi
+          # fallo el publish de 0.9.0: run 39368867477, job 118451918327).
+          # El secret existe y esta verificado (cargo owner --list vantadb
+          # autentica con el), asi que la variable es no-vacia y el token es
+          # el que se usa.
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
   release-plz-pr:
@@ -121,7 +131,16 @@ jobs:
             git add -A
             NEW_VER=$(node -e 'const fs=require("fs");const m=fs.readFileSync("Cargo.toml","utf8").match(/\[workspace\.package\][\s\S]*?^version\s*=\s*"([^"]+)"/m);console.log(m[1]);')
             git commit -m "chore(release): sync monorepo surface manifests to v${NEW_VER}"
-            git push origin "HEAD:$PR_BRANCH"
+            # The checkout uses persist-credentials: false (RULES: least
+            # privilege), so `git push` has no credentials and dies with
+            # "could not read Username for 'https://github.com'" (run
+            # 39353698789, job 118404027216 - the sync commit was created
+            # but never pushed). release-plz pushes with its own --git-token;
+            # this step does not. Authenticate the push explicitly with the
+            # same token `gh` already uses.
+            AUTH=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
+            git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $AUTH" \
+                push origin "HEAD:$PR_BRANCH"
           else
             echo "All monorepo manifests already synchronized."
           fi

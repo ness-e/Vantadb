@@ -25,6 +25,14 @@ on:
       - 'providers/**'
       - '.github/scripts/verify_pyi.py'
       - '.github/workflows/ci-fleet.yml'
+      # El ruleset de `main` exige el check "Cross-language conformance
+      # (Py/Node/WASM)", que produce este workflow. Con el filtro de paths
+      # anterior, un PR que solo tocara CI/docs nunca lo disparaba, el check
+      # no reportaba nunca y el merge quedaba bloqueado para siempre
+      # (PR #242 y #257, ambos resueltos con bypass de admin). Cubrir los
+      # ficheros de workflow y de release hace que el check reporte siempre.
+      - '.github/workflows/**'
+      - 'release-plz.toml'
   pull_request:
     branches: [main, develop]
     paths:
@@ -42,6 +50,8 @@ on:
       - 'providers/**'
       - '.github/scripts/verify_pyi.py'
       - '.github/workflows/ci-fleet.yml'
+      - '.github/workflows/**'
+      - 'release-plz.toml'
   schedule:
     - cron: '0 3 * * 0'
   workflow_dispatch:
@@ -59,7 +69,7 @@ permissions:
 
 jobs:
   rust-examples:
-    if: github.event_name != 'schedule'
+    if: github.actor != 'dependabot[bot]' && (github.event_name != 'schedule')
 
     name: "Rust Examples (${{ matrix.os }})"
     runs-on: ${{ matrix.os }}
@@ -90,7 +100,7 @@ jobs:
       - name: "Rust example: concurrent"
         run: cargo run --example concurrent
   python-examples:
-    if: github.event_name != 'schedule'
+    if: github.actor != 'dependabot[bot]' && (github.event_name != 'schedule')
 
     name: "Python Examples (${{ matrix.os }})"
     runs-on: ${{ matrix.os }}
@@ -169,7 +179,7 @@ jobs:
       - name: "Python smoke: semantic_kernel_memory"
         run: python examples/python/semantic_kernel_memory.py
   parity:
-    if: github.event_name != 'schedule'
+    if: github.actor != 'dependabot[bot]' && (github.event_name != 'schedule')
 
     name: Cross-language conformance (Py/Node/WASM)
     runs-on: ubuntu-latest
@@ -369,7 +379,7 @@ jobs:
           cd integrations/${{ matrix.adapter }}
           python -m pytest tests/ -v --tb=short
   check:
-    if: github.event_name != 'schedule'
+    if: github.actor != 'dependabot[bot]' && (github.event_name != 'schedule')
 
     name: Check provider (${{ matrix.provider }} / ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
