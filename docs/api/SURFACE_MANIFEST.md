@@ -9,7 +9,7 @@ tags: [vantadb, surface, release]
 
 # Public Surface Manifest
 
-> **workspace version: 0.8.0** (source: root `Cargo.toml` `[workspace.package]`).
+> **workspace version: 0.9.0** (source: root `Cargo.toml` `[workspace.package]`).
 > Status per surface is declared once in `STATUS_OVERRIDES` inside the generator;
 > versions, members, publish flags and release-plz overrides are derived mechanically.
 > Consolidates (by reference, never by copy) the binding taxonomy, the DIST-06 crate table, and the release taxonomy:
@@ -20,15 +20,15 @@ tags: [vantadb, surface, release]
 
 | Surface (path) | Crate / package | Version | Status | Channel | Tag namespace | Why |
 |---|---|---|---|---|---|---|
-| `.` | `vantadb` | 0.8.0 (workspace) | **PUBLIC** | crates.io (release-plz managed) | `v*.*.*` (wheels-60, npm-61) | crates.io via release-plz (`release.yml`); the only crates.io-published crate |
-| `vantadb-python` | `vantadb_py` | 0.8.0 (workspace) | **PUBLIC** | `publish = false` (non-crates.io channel) | `v*.*.*` (wheels-60 → PyPI `vantadb-py`) | PyPI `vantadb-py` wheels (`release-wheels-60.yml`); `publish = false` (PyO3 cdylib — PyPI is the product channel) |
-| `vantadb-server` | `vantadb-server` | 0.8.0 (workspace) | **PUBLIC** | `publish = false` (non-crates.io channel) | GitHub Release assets (binaries-63) | GitHub Release binaries, 5 targets (`release-binaries.yml`); `publish = false` (binary product, not a crate) |
-| `vantadb-mcp` | `vantadb-mcp` | 0.8.0 (workspace) | **INTERNAL** | `publish = false` (non-crates.io channel) | transitive via server binaries | library embedded in `vantadb-server` (`--mcp`); no independent distribution |
-| `vantadb-wasm` | `vantadb-wasm` | 0.8.0 (workspace) | **PUBLIC** | release-plz `release = false` | `v*.*.*` (npm-61) | npm `vantadb-wasm` via wasm-pack (`release-npm-61.yml`); release-plz `release = false` (npm channel, not crates.io) |
-| `vantadb-ffi-core` | `vantadb-ffi-core` | 0.8.0 (workspace) | **INTERNAL** | `publish = false` (non-crates.io channel) | none (compiled into bindings) | std-only FFI leaf shared by node/python/wasm; zero external consumers (dependency-only crate) |
-| `vanta-memory` | `vanta-memory` | 0.8.0 (workspace) | **EXPERIMENTAL** | release-plz `release = false` | `v*.*.*` (held — DIST-01) | DIST-01 hold: manifest publishable, release-plz `release = false` until Trusted Publishing bootstrap (owner) |
-| `vanta-proxy` | `vanta-proxy` | 0.8.0 (workspace) | **FROZEN** | `publish = false` (non-crates.io channel) | none until 1.0 (frozen) | Freeze List until 1.0 (DIST-18 re-scoped); source build only, no publish |
-| `vantadb-node` | `vantadb-node (npm)` | 0.8.0 | **EXPERIMENTAL** | npm (planned; `release-npm-node.yml`) | `node-v*.*.*` (npm-node; first release pending) | npm `vantadb-node` planned, never published (registry 404, 2026-10-03); `release-npm-node.yml` on `node-v*` tags |
+| `.` | `vantadb` | 0.9.0 (workspace) | **PUBLIC** | crates.io (release-plz managed) | `v*.*.*` (wheels-60, npm-61) | crates.io via release-plz (`release.yml`); the only crates.io-published crate |
+| `vantadb-python` | `vantadb_py` | 0.9.0 (workspace) | **PUBLIC** | `publish = false` (non-crates.io channel) | `v*.*.*` (wheels-60 → PyPI `vantadb-py`) | PyPI `vantadb-py` wheels (`release-wheels-60.yml`); `publish = false` (PyO3 cdylib — PyPI is the product channel) |
+| `vantadb-server` | `vantadb-server` | 0.9.0 (workspace) | **PUBLIC** | `publish = false` (non-crates.io channel) | GitHub Release assets (binaries-63) | GitHub Release binaries, 5 targets (`release-binaries.yml`); `publish = false` (binary product, not a crate) |
+| `vantadb-mcp` | `vantadb-mcp` | 0.9.0 (workspace) | **INTERNAL** | `publish = false` (non-crates.io channel) | transitive via server binaries | library embedded in `vantadb-server` (`--mcp`); no independent distribution |
+| `vantadb-wasm` | `vantadb-wasm` | 0.9.0 (workspace) | **PUBLIC** | release-plz `release = false` | `v*.*.*` (npm-61) | npm `vantadb-wasm` via wasm-pack (`release-npm-61.yml`); release-plz `release = false` (npm channel, not crates.io) |
+| `vantadb-ffi-core` | `vantadb-ffi-core` | 0.9.0 (workspace) | **INTERNAL** | `publish = false` (non-crates.io channel) | none (compiled into bindings) | std-only FFI leaf shared by node/python/wasm; zero external consumers (dependency-only crate) |
+| `vanta-memory` | `vanta-memory` | 0.9.0 (workspace) | **EXPERIMENTAL** | release-plz `release = false` | `v*.*.*` (held — DIST-01) | DIST-01 hold: manifest publishable, release-plz `release = false` until Trusted Publishing bootstrap (owner) |
+| `vanta-proxy` | `vanta-proxy` | 0.9.0 (workspace) | **FROZEN** | `publish = false` (non-crates.io channel) | none until 1.0 (frozen) | Freeze List until 1.0 (DIST-18 re-scoped); source build only, no publish |
+| `vantadb-node` | `vantadb-node (npm)` | 0.9.0 | **EXPERIMENTAL** | npm (planned; `release-npm-node.yml`) | `node-v*.*.*` (npm-node; first release pending) | npm `vantadb-node` planned, never published (registry 404, 2026-10-03); `release-npm-node.yml` on `node-v*` tags |
 | `providers/openai` | `vantadb-openai` | see manifest | **EXPERIMENTAL** | `publish = false` (non-crates.io channel) | `providers-v*.*.*` (pending first publish) | PyPI `vantadb-openai` channel prepared (PROV-12), not yet published |
 | `providers/ollama` | `vantadb-ollama` | see manifest | **EXPERIMENTAL** | `publish = false` (non-crates.io channel) | `providers-v*.*.*` (pending first publish) | PyPI `vantadb-ollama` channel prepared (PROV-12), not yet published |
 | `providers/litellm` | `vantadb-litellm` | see manifest | **EXPERIMENTAL** | `publish = false` (non-crates.io channel) | `providers-v*.*.*` (pending first publish) | PyPI `vantadb-litellm` channel prepared (PROV-12), not yet published |
@@ -38,10 +38,10 @@ tags: [vantadb, surface, release]
 
 | Surface | Found | Expected |
 |---|---|---|
-| workspace (Rust crates) | 0.8.0 | 0.8.0 |
-| `vantadb` (npm, vantadb-ts) | 0.8.0 | 0.8.0 |
-| `vantadb-node` (npm, never-published allowance 0.7.0) | 0.8.0 | 0.8.0 |
-| `vantadb-py` (maturin dynamic version) | dynamic → 0.8.0 | dynamic → 0.8.0 |
+| workspace (Rust crates) | 0.9.0 | 0.9.0 |
+| `vantadb` (npm, vantadb-ts) | 0.9.0 | 0.9.0 |
+| `vantadb-node` (npm, never-published allowance 0.7.0) | 0.9.0 | 0.9.0 |
+| `vantadb-py` (maturin dynamic version) | dynamic → 0.9.0 | dynamic → 0.9.0 |
 
 Gates: `node scripts/docs/check-npm-versions.mjs` (npm) + `tests/version_coherence.rs` (Rust surfaces + this manifest).
 

@@ -1,7 +1,7 @@
 {
   "_comment": "Single source of truth for post-release verification (FIND-342). scripts/verify-release.ps1 renders its expected asset/registry list from this file — never hardcode those lists anywhere else. Bump version/tag with each core release; entries that ride other tag namespaces (adapters-v*, providers-v*, node-v*) carry documented_only status instead of a core version.",
-  "version": "0.8.0",
-  "tag": "v0.8.0",
+  "version": "0.9.0",
+  "tag": "v0.9.0",
   "github": {
     "repo": "ness-e/Vantadb",
     "binaries": [
