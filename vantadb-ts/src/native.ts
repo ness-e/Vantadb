@@ -493,6 +493,9 @@ export class NativeVantaDB implements NativeClientBinding {
         valid_window: options.valid_window,
         include_quarantined: options.include_quarantined,
         min_confidence: options.min_confidence,
+        // FIND-412: ADR-028 flag — hide records replaced by a newer one.
+        // Default false, same as WASM/Python (absent ⇒ false).
+        exclude_superseded: options.exclude_superseded ?? false,
       };
       const raw = await this.inner.list(namespace, wire);
       const items: unknown[] = raw.records ?? [];
@@ -533,6 +536,9 @@ export class NativeVantaDB implements NativeClientBinding {
       query_sparse: (request.query_sparse as unknown as Record<string, number> | null | undefined) ?? undefined,
       // SCH-04: opt-in confidence filter passthrough (ADR-046 §D2).
       min_confidence: request.min_confidence ?? undefined,
+      // FIND-412: ADR-028 flag — hide records replaced by a newer one.
+      // Default false, same as WASM/Python (absent ⇒ false).
+      exclude_superseded: request.exclude_superseded ?? false,
       // SCH-07: temporal + quarantine-view passthrough (ADR-046 §D3/§D5).
       as_of_ms: request.as_of_ms ?? undefined,
       valid_window: request.valid_window ?? undefined,

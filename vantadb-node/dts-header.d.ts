@@ -119,6 +119,10 @@ export interface MemoryListOptions {
   /** Include quarantined records (SCH-07, ADR-046 §D5). Default false:
    * quarantined content is excluded from search/list/retrieval. */
   include_quarantined?: boolean
+  /** Hide records replaced by a newer one (ADR-028). Default false:
+   * superseded records remain listed for backward compatibility — same
+   * default as the WASM and Python bindings. */
+  exclude_superseded?: boolean
   /** Opt-in confidence filter (SCH-07, ADR-046 §D2): keep only records whose
    * `confidence` is `>= min_confidence` (finite, in [0, 1]). */
   min_confidence?: number | null
@@ -160,6 +164,10 @@ export interface SearchRequest {
   /** Include quarantined records (SCH-07, ADR-046 §D5). Default false:
    * quarantined content is excluded from search/list/retrieval. */
   include_quarantined?: boolean
+  /** Hide records replaced by a newer one (ADR-028). Default false:
+   * superseded records remain searchable for backward compatibility — same
+   * default as the WASM and Python bindings. */
+  exclude_superseded?: boolean
   explain?: boolean
 }
 
