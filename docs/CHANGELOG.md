@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - *(security)* `SECURITY.md` deja de publicar como capacidad el cifrado en reposo: las primitivas AES-256-GCM existen detrás de la feature `encryption` (`src/crypto.rs`) y las usa el envelope de `vanta-proxy`, pero los ficheros de storage del core (WAL, HNSW, VantaFile, backend-KV, snapshots) siguen en claro. Diseño del wiring: `ADR-0057` (`FIND-407`, `FIND-249`).
+- *(index)* **BREAKING**: la dimensión del vector se valida. Un `put` (o `put_batch`, `bulk_import`, `put_record_exact`) cuyo vector no tenga la dimensión del índice se rechaza con `Error::DimensionMismatch { expected, got }`, y una búsqueda con un `query_vector` de otra longitud devuelve ese mismo error. Antes, un vector de otra dimensión puntuaba `0.0` — el **mejor** score Euclidean posible — y se colaba por delante de los vectores válidos, y los tres backends (flat, HNSW, HNSW-inline) no coincidían. Como el índice de vectores admite una sola dimensión, la regla pasa a ser **un modelo por base de datos** (no por namespace): usar una ruta de base de datos distinta al cambiar de modelo (`FIND-411`).
+- *(index)* **BREAKING**: el score Euclidean que ve el SDK cambia de `-d²` a `-d` para los corpus por debajo de `flat_threshold` (10 000 nodos): el flat scan y el path HNSW devuelven ahora la misma escala, así que un score Euclidean ya es comparable entre backends. Quien filtrara o comparara por score debe re-medir (`FIND-411`).
+- *(embeddings)* **BREAKING**: un fallo de embedding en una búsqueda IQL por vector ahora devuelve **error** en vez de 0 hits silenciosos (el mensaje dice por qué falló: p. ej. `Embedding error: local model not loaded`). Con `remote-inference` y el provider caído, la búsqueda deja de responder "no hay resultados" (`FIND-413`).
+- *(embeddings)* `LocalOnnxProvider` lee la configuración real del entorno (`VANTADB_EMBEDDING_PROVIDER`, `VANTADB_LOCAL_MODEL`, `VANTADB_STRICT_EMBEDDINGS`, `VANTADB_ALLOW_DUMMY_EMBEDDINGS`): antes los leía `LlmCfg::default()`, es decir, los ignoraba (`FIND-414`).
+- *(bindings)* `exclude_superseded` se honra en la ruta nativa de Node y TS (antes solo en WASM): el mismo código de cliente daba resultados distintos según el runtime (`FIND-412`).
 
 ## [0.9.0](https://github.com/ness-e/Vantadb/compare/v0.8.0...v0.9.0) - 2026-10-20
 

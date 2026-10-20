@@ -92,7 +92,7 @@ See `docs/api/EMBEDDINGS.md` for `LocalOnnxProvider` internals (mean-pool + L2, 
 
 **Balance:** 3 EN + 3 ES + 4 Combined — tantos para español como para inglés y combinados.
 
-**One-model-per-namespace (regla de oro):** **un modelo por namespace** — misma `dim` para writes y query. Cross-model search rompe HNSW (dim mismatch → `DimensionMismatch` error). En benchmarks usar `namespace="bench-{model}"`. Ver bench `benchmarks/embed_bench.py` (ingest 1k EN+ES, `--skip-exception` vs `--include-exception`).
+**One-model-per-database (regla de oro):** **un modelo por base de datos** — misma `dim` para writes y query. El índice de vectores admite vectores de **una sola dimensión**, y un `put` con otra longitud se rechaza con `DimensionMismatch` (FIND-411). Ojo: la regla es **por base de datos**, no por namespace — el índice se comparte entre namespaces, así que un namespace dedicado no basta: usa otra ruta de base de datos. En benchmarks usar una base por modelo (`bench-{model}`). Ver bench `benchmarks/embed_bench.py` (ingest 1k EN+ES, `--skip-exception` vs `--include-exception`).
 
 ## Choosing a model
 
