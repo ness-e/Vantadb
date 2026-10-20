@@ -5,7 +5,7 @@ description: VantaDB Model Context Protocol (MCP) server integration for persist
 
 # VantaDB MCP Integration
 
-VantaDB provides a complete MCP (Model Context Protocol) server implementation for persistent memory storage with hybrid vector and text search capabilities. The MCP server exposes **85 tools** (47 core + 7 `skill_*` + 8 `code_*` + 6 `wiki_*` + 1 `context_assemble` + 5 `scene_*` + 6 `thread_*` + 5 `dream_*`), 2 resources, and 4 prompt templates over stdio JSON-RPC 2.0.
+VantaDB provides a complete MCP (Model Context Protocol) server implementation for persistent memory storage with hybrid vector and text search capabilities. The MCP server exposes **82 listed tools** (88 defined − 6 absorbed `code_*` projections): 49 core + 7 `skill_*` + 3 listed `code_*` + 6 `wiki_*` + 1 `context_assemble` + 5 `scene_*` + 6 `thread_*` + 5 `dream_*`. It also serves 2 static resources (plus 2 dynamic URI schemes via `resources/read`) and 4 prompt templates over stdio JSON-RPC 2.0.
 
 ## Quick Start
 
@@ -121,23 +121,23 @@ name — the legacy `collection_list` alias stays dispatchable but is not listed
 }
 ```
 
-## Available MCP Tools (85)
+## Available MCP Tools (82 listed / 88 defined)
 
-The full contract for all **85 tools** lives in
-[references/api-reference.md](references/api-reference.md) § "MCP Tools" — the single source of truth. The sections below document the 47 core tools in detail; the other 38 are summarized here.
+The full contract for all **82 listed tools** (88 defined) lives in
+[references/api-reference.md](references/api-reference.md) § "MCP Tools" — the single source of truth. The sections below document the 49 core tools in detail; the other 33 are summarized here.
 
 | Group | Count | Tools | Precondition |
 |-------|-------|-------|--------------|
-| Core (Memory/Search/Collections/Graph/IQL/GDS/Recovery) | 47 | documented below | none beyond an open DB |
+| Core (Memory/Search/Collections/Graph/IQL/GDS/Recovery) | 49 | documented below | none beyond an open DB |
 | Review-agent Skills (`skill_*`) | 7 | `skill_list`, `skill_view`, `skill_create`, `skill_update`, `skill_patch`, `skill_files_write`, `skill_extract` | `owner_agent` caller identity; writes need `expected_version` |
-| Code Intelligence (`code_*`) | 8 | `code_search`, `code_explore`, `code_callers`, `code_callees`, `code_impact`, `code_node`, `code_status`, `code_files`* | graph nodes/edges ingested first; query-only |
+| Code Intelligence (`code_*`) | 3 listed (9 defined) | `code_search`, `code_explore`, `code_index` | graph nodes/edges ingested first; query-only. The 6 projections `code_callers`, `code_callees`, `code_impact`, `code_node`, `code_status`, `code_files` stay **dispatch-only** (WIRE-02): callable via `tools/call`, never listed. |
 | Wiki Knowledge (`wiki_*`) | 6 | `wiki_search`, `wiki_read`, `wiki_list`, `wiki_graph`, `wiki_ingest`, `wiki_ingest_status` | wiki lifecycle in `ready` state |
 | Context Engine (`context_assemble`) | 1 | `context_assemble` | read-only; session recall needs prior memory capture into the session |
 | Scenes API (`scene_*`) | 5 | `scene_read`, `scene_list`, `scene_query`, `scene_write`, `scene_edit` | reads are query-only; writes need an existing session store |
 | Threads (`thread_*`) | 6 | `thread_create`, `thread_send`, `thread_get`, `thread_list`, `thread_delete`, `thread_purge_expired` | conversation history CRUD; ids are u128 strings; delete is permanent |
 | Dreams (`dream_*`) | 5 | `dream_list`, `dream_load`, `dream_discard`, `dream_consolidate`, `dream_promote` | reviewable consolidation runs; `dream_promote` is **dry-run by default** (`dry_run:true` = plan only, L1 untouched); `dry_run:false` applies the plan to `l1/<session>` (idempotent, gated, destructive-hinted) |
 
-\* `code_files` is a documented not-supported stub: the built-in GraphRAG has no file-per-node concept.
+\* `code_files` (dispatch-only) is a documented not-supported stub: the built-in GraphRAG has no file-per-node concept.
 
 ### Memory CRUD Operations
 
@@ -581,17 +581,17 @@ paraphrase / e5-small) needs no re-ingest; cross-dim switch needs a new DB or fu
 
 VantaDB provides Python SDK integrations for popular AI frameworks:
 
-- **CrewAI**: See [examples/python/crewai_memory.py](../../examples/python/crewai_memory.py)
-- **Mem0**: See [examples/python/mem0_integration.py](../../examples/python/mem0_integration.py)
-- **AutoGen**: See [examples/python/autogen_memory.py](../../examples/python/autogen_memory.py)
-- **Haystack**: See [examples/python/haystack_documentstore.py](../../examples/python/haystack_documentstore.py)
-- **LangGraph**: See [examples/python/langgraph_checkpoint.py](../../examples/python/langgraph_checkpoint.py)
-- **Semantic Kernel**: See [examples/python/semantic_kernel_memory.py](../../examples/python/semantic_kernel_memory.py)
-- **DSPy**: See [examples/python/dspy_retriever.py](../../examples/python/dspy_retriever.py)
+- **CrewAI**: See [examples/python/crewai_memory.py](https://github.com/ness-e/Vantadb/blob/main/examples/python/crewai_memory.py)
+- **Mem0**: See [examples/python/mem0_integration.py](https://github.com/ness-e/Vantadb/blob/main/examples/python/mem0_integration.py)
+- **AutoGen**: See [examples/python/autogen_memory.py](https://github.com/ness-e/Vantadb/blob/main/examples/python/autogen_memory.py)
+- **Haystack**: See [examples/python/haystack_documentstore.py](https://github.com/ness-e/Vantadb/blob/main/examples/python/haystack_documentstore.py)
+- **LangGraph**: See [examples/python/langgraph_checkpoint.py](https://github.com/ness-e/Vantadb/blob/main/examples/python/langgraph_checkpoint.py)
+- **Semantic Kernel**: See [examples/python/semantic_kernel_memory.py](https://github.com/ness-e/Vantadb/blob/main/examples/python/semantic_kernel_memory.py)
+- **DSPy**: See [examples/python/dspy_retriever.py](https://github.com/ness-e/Vantadb/blob/main/examples/python/dspy_retriever.py)
 
 ## Editor Integration
 
-For per-IDE setup (Cursor, Claude Code, Windsurf, OpenCode, Cline, VS Code), see [docs/api/MCP.md](../../docs/api/MCP.md) (a stub). The source of truth for the MCP contract is this skill — [references/api-reference.md](references/api-reference.md) § "MCP Tools (85)".
+For per-IDE setup (Cursor, Claude Code, Windsurf, OpenCode, Cline, VS Code), see the [MCP API reference](https://github.com/ness-e/Vantadb/blob/main/docs/api/MCP.md) — the complete reference for the MCP surface. The quick contract for this skill is [references/api-reference.md](references/api-reference.md) § "MCP Tools (82 listed / 88 defined)".
 
 Supported editors:
 - Cursor
@@ -665,4 +665,4 @@ These files provide in-depth technical details for:
 - Performance optimization
 - Security configuration
 
-For general documentation, see [docs/api/MCP.md](../../docs/api/MCP.md) — a stub pointing back to this skill as the source of truth.
+For general documentation, see the [MCP API reference](https://github.com/ness-e/Vantadb/blob/main/docs/api/MCP.md) — the complete reference for the MCP surface.

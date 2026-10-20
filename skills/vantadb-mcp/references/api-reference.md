@@ -2,17 +2,23 @@
 
 > Verified against the real SDK boundary: `src/sdk/types.rs`, `src/sdk/api.rs`, `src/sdk/builder.rs`, `src/index/graph.rs`, `src/error.rs`. Only symbols that exist in the code are documented here.
 
-## MCP Tools (85)
+## MCP Tools (82 listed / 88 defined)
 
 > **This is the single source of truth for the VantaDB MCP contract.**
-> Verified against `vantadb-mcp/src/`: exactly **85 tools** = 47 core
-> (`handlers/tools.rs` `base_tools` — 47) + 7 `skill_*` (`skills.rs`) + 8 `code_*`
-> (`code.rs`) + 6 `wiki_*` (`wiki.rs`) + 1 `context_assemble`
+> Verified against `vantadb-mcp/src/`: **88 tool definitions** = 49 core
+> (`handlers/tools.rs` `base_tools` — 49) + 7 `skill_*` (`skills.rs`) + 9 `code_*`
+> (`code.rs` — 8 — plus `code_index.rs` — 1) + 6 `wiki_*` (`wiki.rs`) + 1 `context_assemble`
 > (`context.rs`) + 5 `scene_*` (`scenes.rs`) + 6 `thread_*` (`threads.rs`) + 5 `dream_*` (`dreams.rs`). All eight sets are announced together
 > in `tools/list` via extend (`handlers/tools.rs`).
-> Last synced against code: 2026-09-25 — 85 tools = 47 core + 7 skill_* + 8 code_* + 6 wiki_* + 1 context_assemble + 5 scene_* + 6 thread_* + 5 dream_* (API-04: `search_memory`/`collection_list` canonicalized out of the listing — dispatch-only legacy aliases; `thread_id` is a u128 decimal string).
+> **`tools/list` returns 82 of them.** WIRE-02 absorbs 6 `code_*` projections
+> (`code_callers`, `code_callees`, `code_impact`, `code_node`, `code_status`,
+> `code_files`) as *dispatch-only*: they are callable via `tools/call` but never
+> listed, because the listed surface is what costs clients tool-schema tokens.
+> The 2 API-04 legacy aliases (`search_memory`, `collection_list`) are likewise
+> dispatch-only and are not tool definitions at all.
+> Last synced against code: 2026-10-20 — 82 listed / 88 defined = 49 core + 7 skill_* + 3 listed code_* (9 defined) + 6 wiki_* + 1 context_assemble + 5 scene_* + 6 thread_* + 5 dream_* (`thread_id` is a u128 decimal string).
 
-### Core — Memory / Search / Collections / Graph / IQL / GDS / Recovery (47)
+### Core — Memory / Search / Collections / Graph / IQL / GDS / Recovery (49)
 
 | Tool | Purpose | Main params |
 |------|---------|-------------|
@@ -25,8 +31,13 @@
 | `memory_list_namespaces` | List all namespaces (API-04 canonical listing) | none |
 | `memory_versions` (MOD-10) | List every retained version of a record, ascending v1..vN (snapshots drop supersession fields) | `namespace`, `key`; returns array of memory records (empty `[]` when missing) |
 | `memory_supersede` (MOD-10) | Mark a record as superseded by another (durable soft-dead) | `namespace`, `old_key`, `new_key`; errors on missing key / same-key / already superseded; returns `{superseded: true}` |
+| `memory_reinforce` (MEMG-02) | Declare the outcome of a recalled memory (`used` / `corrected` / `unused`) and adjust `confidence` accordingly; the engine never infers the outcome | `namespace`, `key`, `outcome` (`used` \| `corrected` \| `unused`); `used` bumps `confidence` by +0.05 (saturating) and stamps `last_validated_at_ms`, rate-limited to one bump per 5-minute window; `corrected` decays it by −0.10 (floor 0) and does not stamp. Asserted records only — a derived record is rejected |
 | `query_iql` | Execute an IQL statement (reads + node mutations; LISP NOT supported) | `query` |
+| `memory_recall` | High-level recall that mirrors the auto-recall hook: keyword/embedding/hybrid search over the L1 records visible under the given scope, ranked with the dual-pool + RRF logic. Read-only, idempotent, no `session_key` needed | `query` (req); `scope` (`session` \| `agent` \| `team`; default `agent`); `top_k` (5). Returns `{prepend_context, recalled: [{content, score, type}], effective_mode}` |
+| `memory_verify_certificate` (VER-02) | Verify a stored purge certificate against the live database — the counterpart of `memory_delete {attest:true}`. Checks the schema and the integrity hash, then re-scans the re-checkable surfaces. Valid → `{valid:true, verification}`; edited certificate or residues reappeared → typed error (isError) | `certificate` (req; the certificate as a JSON object, a JSON string, or the `{deleted, certificate}` envelope returned by `memory_delete {attest:true}`) |
 | `memory_search` | Hybrid vector + text search with filters/profile/explain (API-04 canonical name; legacy `search_memory` is a dispatch-only alias) | `namespace`; `query_vector`, `text_query`, `top_k` (10), `distance_metric` (cosine \| euclidean, per-request), `explain`, `filters`, `search_profile` `{mode, rrf_k, candidate_k}` |
+| `search_with_method` (MCP-24) | Hybrid memory search with an explicit dense-index backend override | same request fields as `memory_search` plus `method` (optional: `hnsw` \| `ivf` \| `flat` \| `diskann` \| `scann`); omit to keep automatic engine routing |
+| `search_multi` | Run one search request across **multiple namespaces** and merge the results (sorted by descending score, capped at `top_k` globally) | `namespaces` (req, array of strings); the other parameters match `memory_search` (temporal/quarantine/confidence included). Returns a flat hit array; the multi-namespace merge carries no page-level abstention signal |
 | `search_semantic` | Raw HNSW vector search | `vector`, `k` (required in schema, defaults 5 if omitted); returns real distances (`1 − cosine_similarity`) ascending |
 | `get_node_neighbors` | Inspect node's outgoing edges (alive targets only) | `node_id` (u128 decimal string) |
 | `graph_page_rank` (MCP-21) | PageRank over the subgraph reachable from the roots | `roots` (array of u128 decimal strings, req); `max_iterations` (100), `damping_factor` (0.85), `tolerance` (1e-6); returns `{scores: {"<id>": rank}}` |
@@ -37,6 +48,8 @@
 | `remove_edge` (MOD-10) | Remove all edges between two nodes with the given label (both directions) | `source_id`, `target_id` (u128 decimal strings, req), `label` (req); returns `{removed: true}` |
 | `inject_context` | Inject context into a thread for consolidation | `content`, `thread_id` (u128 decimal string; legacy number ≤2^53 accepted) |
 | `read_axioms` | Read active Iron Axioms | none |
+| `write_axiom` | Register or update an agent axiom (an invariant rule). Axioms live in the reserved `_axioms` namespace; the built-in Iron Axioms are read-only and never affected. Upsert by name; the id is auto-assigned (> 4) | `name` (req); `description` (req) |
+| `delete_axiom` | Remove an agent axiom **by name** from the reserved `_axioms` namespace. The built-in Iron Axioms cannot be deleted | `name` (req) |
 | `collection_stats` | Stats for a namespace/collection | `namespace` |
 | `collection_list` (legacy alias, unlisted) | Dispatch-only redirect kept for rich collection metadata (record_count/has_vector_index/created_at); canonical listing is `memory_list_namespaces` | none |
 | `collection_delete` | Delete an entire namespace/collection | `namespace`, `confirm` (must be `"yes"`) |
@@ -56,6 +69,9 @@
 | `capabilities` (MCP-26) | Introspect engine features | none; returns `{runtime_profile, persistence, vector_search, iql_queries, read_only}` |
 | `generate_snippet` (MCP-26) | Extract a snippet from a payload around matched query terms | `payload`, `text_query` (req); `with_highlighting` (bool, default false); returns `{snippet}` or `{snippet: null}` when the query yields no terms |
 | `list_snapshots` (MCP-26) | List physical snapshot names under `<data_dir>/snapshots` | none; returns `{snapshots: [...]}` |
+| `snapshot_create` | Create a physical filesystem snapshot under `<data_dir>/snapshots/<name>` (instant hard-link image on Unix, copy fallback on Windows) | `name` (req); returns `{path, created_at}` |
+| `snapshot_restore` | **Destructive** — replace the live database directory with the contents of snapshot `<name>`. The current data is staged aside with rollback-on-failure; all snapshots survive the swap. The running engine must be reopened afterwards to serve the restored state | `name` (req); `confirm` (req, must be `true`) |
+| `embed_texts` (MCP-26) | Embed a batch of texts into dense vectors via the active `EmbeddingProvider` | `texts` (array, 1–128 items, req); `model` (optional override); `cursor` (pagination). Returns `{embeddings: float[][]}` plus `fallback` + `warning` when serving deterministic vectors (never silent) |
 
 Detailed behavior notes (response envelope, error channels, IQL syntax, edge cases F4–F11): see [`SKILL.md`](../SKILL.md).
 
@@ -74,7 +90,7 @@ Versioned agent skills over the core `SkillStore` (MEM-07).
 | `skill_files_write` | Write a resource file into the skill manifest (5 MB/file, 50 MB/skill) | `skill_id`, `owner_agent`, `expected_version`, `path` (relative only), `content`; `encoding` (utf-8 \| base64), `mime_type`, `is_executable` |
 | `skill_extract` (FIND-111) | Review a transcript and return reusable-skill candidates WITHOUT writing (read-only; no LLM runner in MCP, so non-empty transcripts degrade to `{success:false, candidates:[], error}`) | `transcript` |
 
-### Code Intelligence (8 × `code_*`)
+### Code Intelligence (3 listed / 9 defined × `code_*`)
 
 Read-only wrappers over the **built-in** GraphRAG pipeline + graph traversal primitives (MEM-32; no external codegraph dependency).
 **Precondition:** the target database must contain ingested graph nodes/edges first (via `query_iql` `INSERT NODE`, the SDK node API, or an ingestion pipeline). All are query-only; domain errors come back as `isError` content.
@@ -88,7 +104,13 @@ Read-only wrappers over the **built-in** GraphRAG pipeline + graph traversal pri
 | `code_impact` | Reachable subgraph within max_depth hops | `node_id`; `max_depth` (3, cap 10), `direction` (Forward \| Reverse \| Both) |
 | `code_node` | Fetch one node as a full record | `node_id` |
 | `code_status` | Operational-metrics snapshot of the backing engine | none |
-| `code_files` | **Not supported** — built-in graphrag has no file-per-node concept; always errors by design | none |
+| `code_index` (MEMG-09) | Index a Rust source tree by symbol into a namespace: writes file-per-node records + `defines` edges; idempotent by content hash | `path` (source root, req); `namespace` |
+| `code_callers` *(dispatch-only, WIRE-02)* | Incoming edges (reverse traversal minus root) | `node_id` |
+| `code_callees` *(dispatch-only, WIRE-02)* | Outgoing edges (forward traversal minus root) | `node_id` |
+| `code_impact` *(dispatch-only, WIRE-02)* | Reachable subgraph within max_depth hops | `node_id`; `max_depth` (3, cap 10), `direction` (Forward \| Reverse \| Both) |
+| `code_node` *(dispatch-only, WIRE-02)* | Fetch one node as a full record | `node_id` |
+| `code_status` *(dispatch-only, WIRE-02)* | Operational-metrics snapshot of the backing engine | none |
+| `code_files` *(dispatch-only, WIRE-02)* | **Not supported** — built-in graphrag has no file-per-node concept; always errors by design | none |
 
 ### Wiki Knowledge (6 × `wiki_*`)
 

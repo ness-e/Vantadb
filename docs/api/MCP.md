@@ -18,7 +18,7 @@ VantaDB runs as a **stdio JSON-RPC 2.0 server**: your MCP client spawns the proc
 
 ### Requirements
 
-- The VantaDB CLI (`vanta-cli` ≥ **0.5.0**) installed and on PATH — see [Embedded CLI](../../README.md#embedded-cli) for one-line installers.
+- The VantaDB CLI (`vanta-cli` ≥ **0.9.0**) installed and on PATH — see [Embedded CLI](../../README.md#embedded-cli) for one-line installers.
 - A writable directory for the database (e.g. `~/.vantadb`).
 - An MCP-capable client: Claude Desktop, Claude Code, Cursor, OpenCode, or any client speaking MCP over stdio.
 
@@ -103,9 +103,13 @@ For the full behavioral contract (error channels, response envelope, edge cases)
 ## Error Handling & JSON-RPC Codes
 
 The VantaDB MCP server speaks [JSON-RPC 2.0](https://www.jsonrpc.org/specification)
-over stdio. Every error response carries both a **JSON-RPC transport code**
-(the `error.code` field) and a **Vanta canonical code** (in `error.data.code`)
-from the 10-element contract in [`docs/api/ERROR_HANDLING.md`](ERROR_HANDLING.md).
+over stdio. A **domain/typed** error response carries both a **JSON-RPC transport
+code** (the `error.code` field) and a **Vanta canonical code** (in
+`error.data.code`) from the 10-element contract in
+[`docs/api/ERROR_HANDLING.md`](ERROR_HANDLING.md). The five **standard JSON-RPC
+factories** below are transport-level only: they omit the `data` member
+entirely (`vantadb-mcp/src/error.rs:21-27,123-129` — `plain()` sets
+`data: Value::Null`, and `to_json()` drops the key when it is null).
 
 > **Canonical reference:** [`docs/api/ERROR_HANDLING.md`](ERROR_HANDLING.md) §6
 > — full code table, LLM retry guidance, and the upcoming `From<Error>
@@ -405,7 +409,7 @@ Model catalog source of truth: `embeddings/manifest.json` (9 ids, rev pinned). F
 | `bulk_import_file` | Bulk-imports from a binary `.vdbdump` file on the host filesystem, **by design** bypassing per-record validation for throughput (MCP-25; do not "normalize" — it would lose the raw-throughput contract). |
 | `bulk_import_stream` | Bulk-imports inline NDJSON or raw `.vdbdump` content (max 10 MB); imported entries are raw engine nodes, **by design** not addressable via `memory_get`/`memory_list` (MCP-25). |
 
-## Extended Tool Families (38 defined; 32 listed)
+## Extended Tool Families (39 defined; 33 listed)
 
 Dispatched via `tools/call`, defined outside `handlers/tools.rs` (9+7+6+5+6+1+5 = 39 defined; WIRE-02 absorbs 6 `code_*` → 33 listed):
 
@@ -477,6 +481,23 @@ Read wrappers plus a scoped delete over the vanta-memory dream store (`vanta_mem
 | `dream_discard` | Discards one dream run (deletes `dream/<session>/<run_id>`) after review. L1 remains untouched. Idempotent. Scoped destructive (dream namespace only). |
 | `dream_consolidate` | Runs one LLM-free consolidation pass (`dedupe + contradictions + date normalization`) and persists the view to `dream/<session>/<run_id>`. Fails as error-content when not idle. Write path. |
 | `dream_promote` | Promotes a run into `l1/<session>`: returns the record-level diff `{action: ADD\|UPDATE\|DELETE\|NOOP, key, reason}` (`reason`: `normalize`/`supersede`/`merge`/`dedup`/`new`/`content`/`unchanged`) and applies it only with `dry_run:false` (default `dry_run:true` = preview, nothing mutates). Idempotent (re-apply → all NOOP). Fail-closed quality gate on supersedes; DELETE only touches records the run scanned (post-run additions survive). |
+
+### Threads API - `threads.rs` (6)
+
+Conversation-history CRUD over the agentic thread store (`src/agentic/thread.rs`,
+reached through the SDK builder; MCP-32). Thread ids are `u128` and travel as
+JSON **strings** — the same wire convention every other u128-facing tool uses.
+Domain errors (unknown thread) surface as error-content results the caller can
+self-correct; malformed params are JSON-RPC `-32602`.
+
+| Tool | Description |
+|------|-------------|
+| `thread_create` | Creates a conversation thread. Returns `{thread_id}` (u128 string). `ttl_secs` is optional — expired threads are reaped later by `thread_purge_expired`. Write path. |
+| `thread_send` | Appends one message to a thread. Roles are free-form strings (`user`, `assistant`, …). Returns `{ok:true}`. Write path. |
+| `thread_get` | Reads one thread with its full message history: `{thread:{thread_id,title,messages:[{role,content,timestamp}],created_at,updated_at}}`. Missing thread → error-content "not found". Read-only. |
+| `thread_list` | Lists threads with `{limit?, offset?}` pagination. Returns `{threads:[...],count}`. Read-only. |
+| `thread_delete` | Deletes a thread and its messages. Returns `{deleted:true}` — permanent, no undo. Scoped destructive. |
+| `thread_purge_expired` | Removes every thread whose TTL has expired. Returns `{purged:n}`. Scoped destructive (TTL-expired threads only). |
 
 ## Prompts (4)
 
@@ -662,7 +683,7 @@ Records written with `memory_put`'s `quarantine: true` flag (T1) enter the
 
 ## Parity
 
-Tool coverage on this page is enforced mechanically by `scripts/validate-docs-coverage.ps1` against `handle_tools_list()` in `vantadb-mcp/src/handlers/tools.rs`. Last sync: **2026-10-05** (MEMG-09: `code_index` — MGR-22 slice v0: chunker por símbolo Rust + records file-per-node + edges `defines`, idempotente por content-hash; 81→82 listed / 87→88 defined; code intelligence 2→3 listed / 8→9 defined; profiles full 81→82 · openWorldHint true 2→3. Prior — 2026-10-05 (MEMG-02: `memory_reinforce` — outcome loop → refuerzo de confianza post-recall (`used`/`corrected`/`unused`; +0.05 saturado / −0.10 con piso, ventana de 5 min, stamp success-only, derived rechazado), 80→81 listed / 86→87 defined; Core 48→49, Memory CRUD 10→11; profiles agent 38→39 · full 80→81 · dev 37→38 · memory 21→22). Prior — 2026-10-04 (DIST-16: `memory_verify_certificate` — VER-02 certificate verify via the SDK `verify_purge_certificate` (CLI parity), 79→80 listed / 85→86 defined; Core 47→48, Memory CRUD 9→10; profiles agent 37→38 · full 79→80 · dev 36→37 · memory 20→21; WAL chain VER-01 cited, not duplicated → FIND-266). Prior — 2026-09-29 (SCH-07/F3.5: v2 query params — `as_of_ms`, `valid_window`, `include_quarantined`, `min_confidence` — on `memory_search`/`search_with_method`/`search_multi`/`memory_list`, plus the selective-abstention section; tool count unchanged at 79 listed). Prior — 2026-09-27 (WIRE-02: 85→79 listed — 6 redundant `code_*` projections absorbed dispatch-only; default profile `full`→`agent`; `tools/call` profile enforcement live. Prior — 2026-09-25, API-04: 87→85 — canonicalized `search_memory`/`collection_list` out of the listing; prompts renamed `recall_search`; `thread_id` is now a u128 decimal string).
+Tool coverage on this page is **partially** enforced mechanically by `scripts/validate-docs-coverage.ps1`. That gate scans only the `handle_tools_list()` block in `vantadb-mcp/src/handlers/tools.rs` (the **49 core** tools) and checks that each name appears on this page — it does **not** cover the 33 extended tools listed in §Extended Tool Families, so those 33 are maintained by hand. Last sync: **2026-10-05** (MEMG-09: `code_index` — MGR-22 slice v0: chunker por símbolo Rust + records file-per-node + edges `defines`, idempotente por content-hash; 81→82 listed / 87→88 defined; code intelligence 2→3 listed / 8→9 defined; profiles full 81→82 · openWorldHint true 2→3. Prior — 2026-10-05 (MEMG-02: `memory_reinforce` — outcome loop → refuerzo de confianza post-recall (`used`/`corrected`/`unused`; +0.05 saturado / −0.10 con piso, ventana de 5 min, stamp success-only, derived rechazado), 80→81 listed / 86→87 defined; Core 48→49, Memory CRUD 10→11; profiles agent 38→39 · full 80→81 · dev 37→38 · memory 21→22). Prior — 2026-10-04 (DIST-16: `memory_verify_certificate` — VER-02 certificate verify via the SDK `verify_purge_certificate` (CLI parity), 79→80 listed / 85→86 defined; Core 47→48, Memory CRUD 9→10; profiles agent 37→38 · full 79→80 · dev 36→37 · memory 20→21; WAL chain VER-01 cited, not duplicated → FIND-266). Prior — 2026-09-29 (SCH-07/F3.5: v2 query params — `as_of_ms`, `valid_window`, `include_quarantined`, `min_confidence` — on `memory_search`/`search_with_method`/`search_multi`/`memory_list`, plus the selective-abstention section; tool count unchanged at 79 listed). Prior — 2026-09-27 (WIRE-02: 85→79 listed — 6 redundant `code_*` projections absorbed dispatch-only; default profile `full`→`agent`; `tools/call` profile enforcement live. Prior — 2026-09-25, API-04: 87→85 — canonicalized `search_memory`/`collection_list` out of the listing; prompts renamed `recall_search`; `thread_id` is now a u128 decimal string).
 
 ## Registry manifest
 
@@ -673,7 +694,7 @@ the repo root: [`/server.json`](../../server.json) (schema version `2025-12-11`)
 | Field | Value |
 |-------|-------|
 | `name` | `io.github.ness-e/vantadb` |
-| `version` | tracks `[workspace.package].version` (`0.5.0` as of this doc) |
+| `version` | tracks `[workspace.package].version` (`0.9.0` as of this doc) |
 | `transport` | stdio (no remote service; no published `packages[]` — install via `cargo install --git`) |
 | `repository` | [`ness-e/Vantadb`](https://github.com/ness-e/Vantadb) |
 

@@ -1,14 +1,27 @@
 ---
 title: "ADR-0012: Naming de env vars — `VANTA_DB` vs `VANTADB_STORAGE_PATH`"
 kind: adr
-status: accepted
-description: Coexisten dos lecturas de env vars para la ubicación de la base de datos
+status: superseded
+description: "Superseded by ADR-0059 — the VANTA_DB / VANTADB_STORAGE_PATH coexistence is gone; both the CLI --db flag and Config::from_env() read VANTADB_STORAGE_PATH, and VANTA_DB is read nowhere in the tree"
 tags: [vantadb, adr]
+superseded_by: docs/dev/architecture/adr/ADR-0059-storage-path-env-unification.md
 ---
 
 # ADR-0012: Naming de env vars — `VANTA_DB` vs `VANTADB_STORAGE_PATH`
 
-- **Status:** Accepted
+## Status
+
+Superseded by [ADR-0059](./ADR-0059-storage-path-env-unification.md). The
+coexistence this ADR decided no longer exists in the code: the global `--db`
+flag and `VantaConfig::from_env()` both read `VANTADB_STORAGE_PATH`, and
+`VANTA_DB` is read **nowhere** in the tree (verified 2026-10-20).
+
+The decision text below is left unedited as the historical record. The debt
+it named — *"la coexistencia de dos nombres persiste"* — was settled later by
+the FIND-89 env-var consolidation (2026-09-14), which folded the `--db` flag's
+env into `VANTADB_STORAGE_PATH` with no shims.
+
+- **Status:** Accepted (2026-08-05) — superseded 2026-10-20 by ADR-0059
 - **Date:** 2026-08-05
 - **Deciders:** vanta-lead, vanta-arch
 - **Related:** TECH-01 (fix `--db` MCP child), TECH-04, AUD-010

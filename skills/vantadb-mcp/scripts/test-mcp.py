@@ -18,10 +18,11 @@ BUILD FROM SOURCE (required — a stale installed binary masks drift):
   # Or via env var:
   VANTADB_MCP_BIN=target/debug/vantadb-server.exe python skills/vantadb-mcp/scripts/test-mcp.py
 
-TOOL PROFILES (VANTADB_MCP_PROFILE env var, default "full"):
-  full   (default): 85 tools exacto
-  dev:              36 tools exacto
-  memory:           20 tools exacto
+TOOL PROFILES (VANTADB_MCP_PROFILE env var, default "agent"):
+  agent  (default): 39 tools exacto
+  full:             82 tools exacto (88 definidos - 6 code_* absorbidos)
+  dev:              38 tools exacto
+  memory:           22 tools exacto
   Source of truth: vantadb-mcp/tests/mcp_tests.rs::test_mcp_tool_profiles
   (+ handle_tools_list/profile_allowed_tools in handlers/tools.rs).
 
@@ -51,14 +52,17 @@ if hasattr(sys.stdout, "reconfigure"):
 # Source of truth: vantadb-mcp/tests/mcp_tests.rs::test_mcp_tool_profiles
 # (API-04: counts are exact per profile after canonicalizing the legacy
 # `search_memory`/`collection_list` aliases out of the listing).
-# Full = 20 memory + 16 dev-only + 11 base-full + 38 extended
-# (code 8 + wiki 6 + skill 7 + thread 6 + scene 5 + dreams 5 + context 1)
-# = 85. Profile via VANTADB_MCP_PROFILE (default "full", see
-# vantadb-mcp/src/config.rs).
+# agent  = 22 memory + 6 thread + 5 scene + 1 context + 5 wiki-read = 39
+# full   = 22 memory + 27 base-full + 33 extended = 82 listed (88 defined -
+#          6 WIRE-02 absorbed code_* projections)
+# dev    = 22 memory + 16 dev-only = 38
+# memory = 22. Profile via VANTADB_MCP_PROFILE (default "agent", see
+# vantadb-mcp/src/config.rs — McpProfile::default() is Agent).
 EXPECTED_TOOLS = {
-    "full": (85, 85),
-    "dev": (36, 36),
-    "memory": (20, 20),
+    "agent": (39, 39),
+    "full": (82, 82),
+    "dev": (38, 38),
+    "memory": (22, 22),
 }
 EXPECTED_RESOURCES = 2  # metrics://, schema:// (handlers/resources.rs)
 EXPECTED_PROMPTS = 4  # recall_search, analyze_namespace, summarize_context,
@@ -107,14 +111,18 @@ def resolve_server(explicit):
 class McpSession:
     """One stdio MCP server process; all requests share it."""
 
-    def __init__(self, binary, kind):
+    def __init__(self, binary, kind, profile="agent"):
+        self._profile = profile
         self._db = tempfile.mkdtemp(prefix="vantadb-test-")
+        # The profile must reach the child: without VANTADB_MCP_PROFILE the
+        # server falls back to its own default ("agent"), and the counts below
+        # would be compared against the wrong bucket (FIND-82).
+        env = dict(os.environ, VANTADB_MCP_PROFILE=self._profile)
         if kind == "vanta-cli":
             cmd = [binary, "server", "--mcp", "--db", self._db]
-            env = None
         else:
             cmd = [binary, "--mcp"]
-            env = dict(os.environ, VANTADB_STORAGE_PATH=self._db)
+            env["VANTADB_STORAGE_PATH"] = self._db
         self._proc = subprocess.Popen(
             cmd,
             stdin=subprocess.PIPE,
@@ -162,7 +170,7 @@ class McpSession:
 def main():
     explicit = sys.argv[1] if len(sys.argv) > 1 else os.environ.get("VANTADB_MCP_BIN")
     binary, kind = resolve_server(explicit)
-    profile = os.environ.get("VANTADB_MCP_PROFILE", "full").lower()
+    profile = os.environ.get("VANTADB_MCP_PROFILE", "agent").lower()
     if profile not in EXPECTED_TOOLS:
         print(
             f"❌ unknown VANTADB_MCP_PROFILE={profile!r} "
@@ -172,7 +180,7 @@ def main():
     print(f"🧪 Testing VantaDB MCP server: {binary} ({kind}, profile {profile!r})")
     print("=" * 50)
 
-    session = McpSession(binary, kind)
+    session = McpSession(binary, kind, profile)
     passed = 0
     try:
         tests = [

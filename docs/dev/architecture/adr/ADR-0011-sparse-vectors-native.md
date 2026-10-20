@@ -1,13 +1,34 @@
 ---
 title: "ADR-0011: Native sparse vectors — representation, metric, and coexistence with BM25"
 kind: adr
-status: accepted
-description: "VantaDB exposes dense-only vector search (VantaMemorySearchRequest.queryvector: Vec<f32>)"
+status: superseded
+description: "Superseded by ADR-0058, which restates the same decision with the code references verified against the 0.9.0 tree (SparseVector lives in src/node/vector_data.rs:30; sparse vectors are native, not dense-only)"
 tags: [vantadb, architecture, adr, vector, sparse, hybrid]
+superseded_by: docs/dev/architecture/adr/ADR-0058-sparse-vectors-native-verified.md
 created: "2026-08-02"
 ---
 
 # ADR-0011: Native sparse vectors — representation, metric, and coexistence with BM25
+
+## Status
+
+Superseded by [ADR-0058](./ADR-0058-sparse-vectors-native-verified.md). The
+**decision does not change** — sparse vectors are native, user-supplied, scored
+by plain dot product, and coexist with BM25 and dense through the same RRF
+helper. ADR-0058 restates it with the code references verified against the
+0.9.0 tree.
+
+Two documentation defects are corrected by that supersession (verified
+2026-10-20):
+
+- The frontmatter `description` said *"VantaDB exposes dense-only vector
+  search"*. That was the **pre-decision** state; the shipped engine is
+  sparse-native.
+- §Decision #2 says `SparseVector` is "defined in `src/node.rs` next to
+  `DistanceMetric`". `src/node.rs` **no longer exists**. The verified
+  locations are `src/node/vector_data.rs:30` (the `SparseVector` newtype) and
+  `src/node/vector_data.rs:11` (the `DistanceMetric` enum). The rest of this
+  ADR's text is left unedited as the historical record.
 
 ## Context
 

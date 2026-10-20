@@ -101,11 +101,15 @@ paths:
       description: |
         Serves the Vanta Studio console when started with `--dashboard-dir`;
         otherwise returns 404 with a hint to enable it (WEB-03).
+
+        Mounted **outside** the auth middleware (`src/server/router.rs`,
+        `mount_dashboard`), so this route is **public on loopback** even when
+        `require_auth` guards `/api/v2/*` — `security: []` below is deliberate,
+        not an omission.
       operationId: dashboardDisabled
       tags:
         - System
-      security:
-        - bearerAuth: []
+      security: []
       responses:
         "200":
           description: Dashboard index.html (when --dashboard-dir configured)
@@ -121,12 +125,16 @@ paths:
   /dashboard/{path}:
     get:
       summary: Web console static assets
-      description: Static file serving fallback for the dashboard SPA.
+      description: |
+        Static file serving fallback for the dashboard SPA.
+
+        Like `/dashboard`, this route is mounted outside the auth middleware
+        (`src/server/router.rs`, `mount_dashboard`) and is **public on
+        loopback** — `security: []` below is deliberate.
       operationId: dashboardStaticPath
       tags:
         - System
-      security:
-        - bearerAuth: []
+      security: []
       parameters:
         - name: path
           in: path
@@ -276,11 +284,11 @@ paths:
               $ref: "#/components/schemas/RecordInput"
       responses:
         "201":
-          description: Record stored
+          description: Record stored (the stored record itself — no envelope)
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AckResponse"
+                $ref: "#/components/schemas/RecordResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -317,7 +325,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AckResponse"
+                $ref: "#/components/schemas/DeleteCountResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -348,11 +356,13 @@ paths:
                 $ref: "#/components/schemas/RecordInput"
       responses:
         "201":
-          description: Batch stored
+          description: Batch stored (array of records — no envelope)
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AckResponse"
+                type: array
+                items:
+                  $ref: "#/components/schemas/RecordResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -378,11 +388,11 @@ paths:
         - $ref: "#/components/parameters/KeyPath"
       responses:
         "200":
-          description: The stored record
+          description: The stored record (the record itself — no envelope)
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/RecordEnvelope"
+                $ref: "#/components/schemas/RecordResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -410,7 +420,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AckResponse"
+                $ref: "#/components/schemas/DeleteResult"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -667,7 +677,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AckResponse"
+                $ref: "#/components/schemas/ExportReport"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -700,7 +710,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AckResponse"
+                $ref: "#/components/schemas/ImportReport"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -1301,7 +1311,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AckResponse"
+                $ref: "#/components/schemas/DeleteResult"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -1705,7 +1715,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AckResponse"
+                $ref: "#/components/schemas/SnapshotCreated"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -1770,6 +1780,17 @@ components:
         Bearer token authentication. If `api_key` is configured in Config,
         all requests to `/api/*` endpoints must include this header.
         Use the environment variable `VANTADB_API_KEY` to set the key.
+    userKey:
+      type: apiKey
+      in: header
+      name: x-vanta-user-key
+      description: |
+        Third identity level (L3) — a Bearer token **plus** a user key
+        resolved against the `user` principal (`src/server/state.rs`,
+        `USER_KEY_HEADER`). Resolution is deny-by-default: a missing or
+        unknown key fails closed with `401` and the hint
+        "Provide a valid x-vanta-user-key header."
+        Not needed for plain Bearer (L1) or service (L2) identities.
 
   schemas:
     # ── Core requests ──
@@ -2041,37 +2062,188 @@ components:
 
     # ── Generic envelopes ──
 
-    AckResponse:
-      description: Generic success envelope returned by write endpoints.
+    RecordResponse:
+      description: |
+        A stored memory record, serialized as the SDK's `MemoryRecord`
+        (`src/sdk/types/record.rs`). The v2 endpoints return this object
+        **directly** — there is no `{success, error, data}` wrapper on
+        success paths. Errors are the only place `success` appears.
       type: object
       required:
-        - success
+        - namespace
+        - key
+        - payload
+        - metadata
+        - created_at_ms
+        - updated_at_ms
+        - version
       properties:
-        success:
-          type: boolean
-        error:
+        namespace:
           type: string
-          nullable: true
-        data:
-          description: Endpoint-specific payload (count, id, etc.)
-          nullable: true
-
-    RecordEnvelope:
-      description: Single-record response envelope (`{success, data|error}`).
-      type: object
-      required:
-        - success
-      properties:
-        success:
-          type: boolean
-        error:
+          description: Namespace the record belongs to
+        key:
           type: string
+          description: Unique key within the namespace
+        payload:
+          type: string
+          description: Payload text content
+        metadata:
+          type: object
+          description: Arbitrary metadata key-value pairs
+          additionalProperties: true
+        created_at_ms:
+          type: integer
+          format: int64
+          description: Unix-ms creation timestamp
+        updated_at_ms:
+          type: integer
+          format: int64
+          description: Unix-ms last-update timestamp
+        version:
+          type: integer
+          format: int64
+          description: Monotonic version counter
+        node_id:
+          type: string
+          description: Deterministic node id derived from namespace and key (u128 decimal string)
+        vector:
+          type: array
           nullable: true
-        data:
-          description: Record wire shape (namespace/key/payload/metadata/vector/ttl)
+          items:
+            type: number
+            format: float
+          description: Optional dense embedding vector
+        sparse_vector:
           type: object
           nullable: true
-          additionalProperties: true
+          additionalProperties:
+            type: number
+            format: float
+          description: Optional sparse term-weight vector (dimension id -> weight)
+        expires_at_ms:
+          type: integer
+          format: int64
+          nullable: true
+          description: Absolute Unix-ms expiry; null = never expires
+        superseded_by:
+          type: string
+          nullable: true
+          description: Key (same namespace) of the record that supersedes this one
+        superseded_at_ms:
+          type: integer
+          format: int64
+          nullable: true
+          description: Unix-ms timestamp when the supersession was recorded
+        valid_at_ms:
+          type: integer
+          format: int64
+          description: Start of the validity window [valid_at_ms, invalid_at_ms)
+        invalid_at_ms:
+          type: integer
+          format: int64
+          nullable: true
+          description: End of validity (exclusive); null = open
+        confidence_class:
+          type: string
+          enum: [Asserted, Derived]
+          description: Provenance class
+        confidence:
+          type: number
+          format: float
+          description: Declared/computed confidence in [0,1]
+      additionalProperties: true
+
+    DeleteResult:
+      description: 'Deletion acknowledgement — {"deleted": true}.'
+      type: object
+      required:
+        - deleted
+      properties:
+        deleted:
+          type: boolean
+
+    DeleteCountResponse:
+      description: 'Number of records deleted by a filter — {"deleted": <count>}.'
+      type: object
+      required:
+        - deleted
+      properties:
+        deleted:
+          type: integer
+          format: int64
+
+    SnapshotCreated:
+      description: 'Snapshot created — {"name": ..., "path": ...}.'
+      type: object
+      required:
+        - name
+        - path
+      properties:
+        name:
+          type: string
+        path:
+          type: string
+
+    ExportReport:
+      description: Result of an export (the SDK's `ExportReport`).
+      type: object
+      required:
+        - records_exported
+        - namespaces
+        - path
+        - duration_ms
+      properties:
+        records_exported:
+          type: integer
+          format: int64
+        namespaces:
+          type: array
+          items:
+            type: string
+        path:
+          type: string
+          description: Filesystem path to the export file
+        duration_ms:
+          type: integer
+          format: int64
+        sha256:
+          type: string
+          description: Hex sha256 of the exact bytes written
+        manifest_path:
+          type: string
+          description: Path of the integrity manifest sidecar
+
+    ImportReport:
+      description: |
+        Result of an import — the SDK's `ImportReport` (JSONL import) or
+        `BulkImportReport` (`format: "bulk"`).
+      type: object
+      properties:
+        inserted:
+          type: integer
+          format: int64
+        updated:
+          type: integer
+          format: int64
+        skipped:
+          type: integer
+          format: int64
+        errors:
+          type: integer
+          format: int64
+        quarantined:
+          type: integer
+          format: int64
+        duration_ms:
+          type: integer
+          format: int64
+        total_records:
+          type: integer
+          format: int64
+        batches_committed:
+          type: integer
+          format: int64
+      additionalProperties: true
 
     ListPageResponse:
       description: Cursor-paginated record list.

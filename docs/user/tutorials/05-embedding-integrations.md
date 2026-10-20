@@ -10,7 +10,7 @@ tags: [vantadb, tutorial, embeddings, embed-local, byo-vector]
 
 VantaDB **does not embed text for you** by default. This is intentional (BYO-vector): you control the embedding model, dimension, and lifecycle. Bring your own `vector=[...]` on `put()` and `query_vector` on `search()`.
 
-`embed-local` adds an **opt-in** local path: 9 ONNX+HF models (8 ≤3 GB + 1 exception) via `LocalOnnxProvider` (`ort`+`tokenizers`, `embed-local` feature). No breaking changes.
+`embed-local` adds an **opt-in** local path: 10 ONNX+HF models (8 ≤3 GB + 1 int8-pinned + 1 exception) via `LocalOnnxProvider` (`ort`+`tokenizers`, `embed-local` feature). No breaking changes.
 
 > **Source of truth:** `embeddings/manifest.json` (rev pinned). One-liner: `python embeddings/download.py --only multilingual-e5-small`.
 
@@ -42,8 +42,8 @@ WANTA_EMBEDDING_PROVIDER=local WANTA_LOCAL_MODEL=embeddings/models/multilingual-
   cargo run --features embed-local --bin vanta-cli -- put --db ./vanta_data --namespace agent/main --key k3 --payload "hola mundo"
 
 # 3. Verify (offline check, no download)
-python embeddings/verify.py --check         # dims, revs, 3/3/3 balance
-python embeddings/download.py --check      # manifest v1, 9 models
+python embeddings/verify.py --check         # dims, revs, en>=3 / es>=3 / combined>=3 balance
+python embeddings/download.py --check      # manifest v1, 10 models
 python benchmarks/embed_bench.py --models multilingual-e5-small,bge-m3 --dataset tiny-en-es-1k
 ```
 
@@ -57,19 +57,19 @@ let provider = LocalOnnxProvider::new("embeddings/models/multilingual-e5-small/o
 let v = provider.embed("hola mundo")?;               // 384d, L2-normalized
 let batch = provider.embed_batch(&["hola mundo".into(), "hello world".into()])?;
 
-let via_env: Box<dyn EmbeddingProvider> = get_embedding_provider(); // VANTA_EMBEDDING_PROVIDER=local
+let via_env: Box<dyn EmbeddingProvider> = get_embedding_provider(); // VANTADB_EMBEDDING_PROVIDER=local
 ```
 
 Env:
 
 ```bash
-VANTA_EMBEDDING_PROVIDER=local        # local | ollama | openai
-VANTA_LOCAL_MODEL=embeddings/models/multilingual-e5-small/onnx
+VANTADB_EMBEDDING_PROVIDER=local        # local | ollama | openai
+VANTADB_LOCAL_MODEL=embeddings/models/multilingual-e5-small/onnx
 ```
 
 See `docs/api/EMBEDDINGS.md` for `LocalOnnxProvider` internals (mean-pool + L2, `load-dynamic`, dummy fallback).
 
-## Model matrix — 9 models (8 ≤3 GB + 1 exception >3 GB)
+## Model matrix — 10 models (8 ≤3 GB + 1 int8-pinned + 1 exception >3 GB)
 
 > All sizes are **per-format**; total per model = ONNX+HF. All accept EN or ES.
 
@@ -82,14 +82,15 @@ See `docs/api/EMBEDDINGS.md` for `LocalOnnxProvider` internals (mean-pool + L2, 
 | 5 | `paraphrase-multilingual-MiniLM-L12-v2` | `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` | 384 | 118M | 470 MB | 471 MB | **941 MB** ✅ | **ES** | 63.0 multi | ES+EN 50+ | Apache-2.0 | ES multi ligero |
 | 6 | `distiluse-multilingual` | `sentence-transformers/distiluse-base-multilingual-cased-v1` | 512 | 135M | 540 MB | 539 MB | **1.08 GB** ✅ | **ES** | 62.8 multi | ES+EN 15+ | Apache-2.0 | ES multi base |
 | 7 | **`multilingual-e5-small`** | `intfloat/multilingual-e5-small` | 384 | 118M | 220 MB | 471 MB | **691 MB** ✅ | **Combined** | 64.1 multi | **ES+EN 16+** | MIT | **DEFAULT** |
-| 8 | `bge-m3` | `BAAI/bge-m3` | 1024 | 568M | 1.20 GB (int8) | 2.27 GB | **3.47 GB*** ✅ | **Combined** | 69.1 | ES+EN 100+ | MIT | SOTA local ≤3 GB int8 |
-| 9 | `qwen3-embedding-8b` | `Qwen/Qwen3-Embedding-8B` | 4096 | 8B | — (HF only) | **16.0 GB** | **16.0 GB** >3 GB ⚠️ | **Combined** | **75.1** | ES+EN 100+ | Apache-2.0 | **EXCEPCIÓN >3 GB — MTEB #1 Jun 2026, Matryoshka, GPU** |
+| 8 | `bge-m3` | `BAAI/bge-m3` | 1024 | 568M | 1.20 GB (int8) | 2.27 GB | **3.47 GB**\* | **Combined** | 69.1 | ES+EN 100+ | MIT | SOTA local, ONNX pinneado a int8 |
+| 9 | `embeddinggemma-2` | `onnx-community/embeddinggemma-2-ONNX` | 768 | — | 550 MB | 600 MB | **1.15 GB** ✅ | **Combined** | — | ES+EN+code 100+ | Gemma | moderno 768d |
+| 10 | `qwen3-embedding-8b` | `Qwen/Qwen3-Embedding-8B` | 4096 | 8B | — (HF only) | **16.0 GB** | **16.0 GB** >3 GB ⚠️ | **Combined** | **75.1** | ES+EN 100+ | Apache-2.0 | **EXCEPCIÓN >3 GB — MTEB #1 Jun 2026, Matryoshka, GPU** |
 
 \* `bge-m3` fp32 ONNX 2.3 GB + HF 2.27 GB = 4.57 GB >3 GB total; pinned `model_int8.onnx` (1.20 GB) → total 3.47 GB.
 
 \* MTEB Retrieval EN / multi, Jun 2026. Latency `e5-small` ONNX ~10 ms/512t CPU M1, `bge-m3` ~80 ms, `Qwen3` GPU.
 
-**Balance:** 3 EN + 3 ES + 3 Combined — tantos para español como para inglés y combinados.
+**Balance:** 3 EN + 3 ES + 4 Combined — tantos para español como para inglés y combinados.
 
 **One-model-per-namespace (regla de oro):** **un modelo por namespace** — misma `dim` para writes y query. Cross-model search rompe HNSW (dim mismatch → `DimensionMismatch` error). En benchmarks usar `namespace="bench-{model}"`. Ver bench `benchmarks/embed_bench.py` (ingest 1k EN+ES, `--skip-exception` vs `--include-exception`).
 
@@ -109,7 +110,7 @@ See `docs/api/EMBEDDINGS.md` for `LocalOnnxProvider` internals (mean-pool + L2, 
 | Layer | With `embed-local` |
 |-------|--------------------|
 | `vanta-memory` L1 | `L1DedupConfig::with_local_provider(Arc<dyn EmbeddingProvider>)` uses `LocalOnnxProvider` instead of hash dim=8 |
-| `src/physical_plan/vector.rs` | `VECTOR_SEARCH('hola mundo')` offline via `LocalOnnxProvider::embed(query_text)` (was no-op without `remote-inference`) |
+| `src/physical_plan/vector.rs` | The IQL vector condition `<field> ~ "hola mundo", min = 0.88` embeds offline via `LocalOnnxProvider` (was no-op without `remote-inference`). There is no `VECTOR_SEARCH(...)` function in the IQL grammar — the operator is the `~` condition (`src/parser/grammar.rs`) |
 | `vantadb-mcp` | `embed_texts { texts, model? } -> { embeddings: float[][] }` via `embed_batch` (budgeted 25k tokens) |
 | Python/TS | Still BYO-vector; Rust `embed-local` via `benchmarks/embed_bench.py` validation |
 

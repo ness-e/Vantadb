@@ -2,7 +2,7 @@
   "mcp": {
     "vantadb": {
       "type": "local",
-      "command": ["vanta-cli", "server", "--mcp", "--db", "~/.vantadb"],
+      "command": ["vanta-cli", "server", "--mcp", "--db", "C:/Users/<you>/.vantadb"],
       "enabled": true
     }
   }
