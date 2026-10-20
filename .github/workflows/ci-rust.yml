@@ -106,7 +106,6 @@ jobs:
     # HARD-01: rails inventory + triage of accepted deltas:
     # docs/api/COMPATIBILITY.md. Companion snapshot job: public-api-snapshot.
     name: Semver Checks (public API)
-    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     if: github.actor != 'dependabot[bot]' && (github.ref == 'refs/heads/main' || github.base_ref == 'main')
     timeout-minutes: 30
@@ -145,7 +144,6 @@ jobs:
     # snapshot (VANTADB_PUBLIC_API_UPDATE=1) in the PR; rails inventory:
     # docs/api/COMPATIBILITY.md.
     name: Public API Snapshot
-    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     if: github.actor != 'dependabot[bot]' && (github.ref == 'refs/heads/main' || github.base_ref == 'main')
     timeout-minutes: 45
@@ -175,7 +173,6 @@ jobs:
     # marked [no-adr] in the title/description with a justification.
     # Lazy by design: one depth-1 fetch + two-tree diff — no full history.
     name: ADR Gate (public API)
-    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     if: github.actor != 'dependabot[bot]' && (github.event_name == 'pull_request')
@@ -450,7 +447,6 @@ jobs:
 
   wasm-test:
     name: WASM (wasm-pack browser tests)
-    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     # CATEGORY: BEST-EFFORT — WASM is Tier 3 Experimental.

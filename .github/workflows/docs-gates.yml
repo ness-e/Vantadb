@@ -69,10 +69,9 @@ permissions:
 
 jobs:
   lint-markdown:
-    if: github.event_name != 'schedule'
+    if: github.actor != 'dependabot[bot]' && (github.event_name != 'schedule')
 
     name: Lint Markdown
-    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -83,10 +82,9 @@ jobs:
       - name: Lint Markdown
         run: npx markdownlint-cli2 "docs/**/*.md"
   check-format:
-    if: github.event_name != 'schedule'
+    if: github.actor != 'dependabot[bot]' && (github.event_name != 'schedule')
 
     name: Check Frontmatter
-    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -109,10 +107,9 @@ jobs:
           if [ "$PASS" != "true" ]; then exit 1; fi
           echo "All documents have valid frontmatter."
   check-api-version:
-    if: github.event_name != 'schedule'
+    if: github.actor != 'dependabot[bot]' && (github.event_name != 'schedule')
 
     name: Check API Docs Version
-    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -149,10 +146,9 @@ jobs:
   # published version, so release-npm-61 skipped the publish in a green run
   # (run 37045932895). Pure string comparison, no network, no build.
   check-npm-versions:
-    if: github.event_name != 'schedule'
+    if: github.actor != 'dependabot[bot]' && (github.event_name != 'schedule')
 
     name: Check npm package versions match workspace
-    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -169,10 +165,9 @@ jobs:
         run: node scripts/docs/check-npm-versions.mjs --json
         continue-on-error: true # CATEGORY: INFORMATIONAL - extra detail for a red build; the gate step already failed
   check-frontier:
-    if: github.event_name != 'schedule'
+    if: github.actor != 'dependabot[bot]' && (github.event_name != 'schedule')
 
     name: Check Product Frontier
-    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -299,10 +294,9 @@ jobs:
         run: npx markdownlint-cli2 "**/*.md" 2>&1 | tail -40
         continue-on-error: true # CATEGORY: INFORMATIONAL - advisory sweep across the whole repo, not the docs gate
   api-docs:
-    if: github.event_name != 'schedule'
+    if: github.actor != 'dependabot[bot]' && (github.event_name != 'schedule')
 
     name: Public API surface moves only with documentation
-    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     # Measured: 6s on a 2-ref diff of the full three-language surface. The
     # margin is for a cold runner and a cold git object cache.
@@ -381,10 +375,9 @@ jobs:
         run: node scripts/docs/check-api-docs.mjs --changed "${{ steps.base.outputs.sha }}..HEAD" --json
         continue-on-error: true # CATEGORY: INFORMATIONAL - extra detail for a red build; the gate step already failed
   doc-examples:
-    if: github.event_name != 'schedule'
+    if: github.actor != 'dependabot[bot]' && (github.event_name != 'schedule')
 
     name: Python examples match the real SDK
-    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     # Calibrated from ci-examples.yml, which builds the same wheel: a cold debug
     # build of vantadb-python plus its core dependency dominates. 30 min is that
@@ -450,10 +443,9 @@ jobs:
   # En pydoclint 0.11 `--check-style` se renombró a `--style` (el comando del
   # plan docs-consolidation quedó viejo); versión pinneada para reproducibilidad.
   python-docstrings:
-    if: github.event_name != 'schedule'
+    if: github.actor != 'dependabot[bot]' && (github.event_name != 'schedule')
 
     name: Python docstrings match signatures (pydoclint)
-    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -466,10 +458,9 @@ jobs:
       - name: Docstrings must match signatures (numpy style)
         run: pydoclint --style=numpy vantadb-python/vantadb_py vantadb-python/vantadb
   docs-secrets:
-    if: github.event_name != 'schedule'
+    if: github.actor != 'dependabot[bot]' && (github.event_name != 'schedule')
 
     name: No credential in published docs
-    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -482,10 +473,9 @@ jobs:
       - name: Scan prose for credential shapes
         run: node scripts/docs/check-secrets.mjs
   docs-secrets-json:
-    if: github.event_name != 'schedule'
+    if: github.actor != 'dependabot[bot]' && (github.event_name != 'schedule')
 
     name: Machine-readable report
-    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -499,10 +489,9 @@ jobs:
       - name: Emit the JSON report
         run: node scripts/docs/check-secrets.mjs --json
   rustdoc:
-    if: github.event_name != 'schedule'
+    if: github.actor != 'dependabot[bot]' && (github.event_name != 'schedule')
 
     name: Generate API reference (rustdoc)
-    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     # FIND-137: 30 = build rustdoc ~10min medido (FIND-133) + margen cold-cache
     # con bindgen rocksdb (margen 3×, criterio FIND-135: duración real + margen).
@@ -567,10 +556,9 @@ jobs:
   # ubuntu-latest (medición local en Windows): un fallo platform-specific
   # es finding real, no ruido.
   doctests:
-    if: github.event_name != 'schedule'
+    if: github.actor != 'dependabot[bot]' && (github.event_name != 'schedule')
 
     name: Doc-tests (RUSTDOCFLAGS=-D warnings)
-    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     # 30 = mismo margen que el job rustdoc hermano (build del workspace en
     # perfil test + 20s de tests; medido warm: 2m47s + 16.8s; cold = margen 3×).

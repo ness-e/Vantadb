@@ -647,7 +647,6 @@ jobs:
       issues: write
 
     name: critcmp regression (candidate)
-    if: github.actor != 'dependabot[bot]'
     if: github.actor != 'dependabot[bot]' && (github.event.inputs.enable_critcmp == 'true')
     needs: ci-gate
     # Restaura proteccion heavy-bench-nightly (cancel:false).
@@ -709,10 +708,9 @@ jobs:
           path: target/criterion/
           retention-days: 30
   chaos:
-    if: github.event_name != 'schedule'
+    if: github.actor != 'dependabot[bot]' && (github.event_name != 'schedule')
 
     name: Chaos Tests (failpoints)
-    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -813,7 +811,6 @@ jobs:
     # Gate acotado para PRs: 75s por target (4 targets en paralelo ≈ 5-8 min).
     # Ubuntu-only (Windows da flaky en fuzz); timeout <= 15 min; sin continue-on-error (Regla 2).
     name: Fuzz PR gate ${{ matrix.target }}
-    if: github.actor != 'dependabot[bot]'
     if: github.actor != 'dependabot[bot]' && ((github.event_name == 'pull_request') && (github.event_name != 'push'))
     needs: ci-gate
     runs-on: ubuntu-latest
