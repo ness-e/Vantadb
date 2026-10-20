@@ -459,6 +459,8 @@ Results are printed to the console and written to `vanta_benchmark_report.json` 
 | [CI Policy](docs/dev/operations/CI_POLICY.md) | Continuous integration strategy, profiles, and certification gates. |
 | [Benchmarks](docs/user/operations/BENCHMARKS.md) | Performance benchmark methodology and results. |
 | [Changelog](docs/CHANGELOG.md) | Version history and release notes. |
+| [Deep Audit (2026-10-20)](docs/dev/reviews/2026-10-20-auditoria-profunda-v0.9.0.md) | Exhaustive self-review of the v0.9.0 tree: 141 findings with per-area coverage, the fix for each, and the limits of the verification. |
+| [v0.9.0 Release Post-Mortem](docs/dev/reviews/2026-10-20-release-v0.9.0-postmortem.md) | The 7 failures that cost the v0.9.0 release, their root causes, and the pre-flight checklist that prevents a repeat. |
 | [Blog: Hybrid Search](docs/user/blog/how_hybrid_search_works.md) | How BM25 + HNSW + RRF work together in VantaDB's query engine. |
 | [Blog: SQLite for AI Agents](docs/user/blog/sqlite_for_ai_agents.md) | Benchmarks and architecture decisions behind VantaDB's LSM storage. |
 | [Blog: Why I Built VantaDB](docs/user/blog/why_i_built.md) | The motivation for a local memory engine for AI agents in Rust. |

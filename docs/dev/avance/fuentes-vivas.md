@@ -37,6 +37,12 @@ tags: [vantadb, avance, index, live-sources, plans, audit-reports, reviews]
 | `review-certify-2026-08-05-2025.md` | 74 | Certify reciente |
 | `review-full-2026-08-05-t1545.md` | 53 | Review rápido |
 | `audit-full-20260808-002617.md` | — | Audit completo vigente |
+| `2026-10-20-auditoria-profunda-v0.9.0.md` | 407 | **Auditoría exhaustiva del árbol v0.9.0** (informe consolidado: veredicto por área, P0/P1 con fix, cobertura) |
+| `2026-10-20-auditoria-profunda-v0.9.0-ledger.md` | 165 | **Ledger de los 141 hallazgos** de esa campaña (id, severidad, área, ubicación) |
+| `2026-10-20-release-v0.9.0-postmortem.md` | 302 | **Post-mortem del release v0.9.0** (7 fallos, causa raíz, checklist de pre-flight) |
+| `audit-deep-w0..w10-*.md` + `audit-deep-sintesis-*.md` | 13 | Campaña 11 waves: informe por wave + síntesis global |
+| `audit-subagent-s1..s7-*.md` | 7 | Informes crudos de los 7 subagentes (evidencia por área) |
+| `INDEX.md` | — | Índice de esta carpeta: qué informe es cuál |
 | `archive/review.md` | 61 | Archivado |
 | `archive/` (14 files) | — | Audits/reviews superados pre-unificación + `audit-full-2025-07-27.md` |
 
