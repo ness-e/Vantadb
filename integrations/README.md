@@ -2,19 +2,18 @@
 
 Python adapters standalone. Cada uno vive en su carpeta con `pyproject.toml`,
 tests propios y README. Los 7 adapters publicables se liberan juntos via el
-workflow `release-adapters.yml` (tag manual `adapters-v*`); los twins
-`openai`/`ollama` quedan **source-only** (superseded por los providers Rust —
-ver FIND-273 abajo).
+workflow `release-adapters.yml` (tag del core `v*.*.*` o tag manual
+`adapters-v*`); los twins `openai`/`ollama` quedan **source-only**
+(superseded por los providers Rust — ver FIND-273 abajo).
 
-## Estado PyPI: Alpha, no publicados
+## Estado PyPI: Alpha, publicados
 
 Los 7 paquetes publicables estan en `Development Status :: 3 - Alpha`
-(classifier en cada `pyproject.toml`) y **ninguno esta en PyPI** (verificado
-live 2026-10-06: `GET https://pypi.org/pypi/<nombre>/json` = 404 ×7, y lo
-mismo en test.pypi.org; `vantadb-py` = 0.8.0). Publicar sin mantenedor por
-adapter no es salida valida (Stop del plan) → documentar Alpha SI es la
-salida. Instalacion hasta el primer release: `cd integrations/<adapter> &&
-pip install .`
+(classifier en cada `pyproject.toml`) y **los 7 estan publicados en PyPI**
+(verificado live 2026-10-20: `GET https://pypi.org/pypi/<nombre>/json` = 200
+×7, version 0.9.0 — la misma que el workspace; `vantadb-py` = 0.9.0).
+Instalacion: `pip install vantadb-<adapter>` (release publicada) o, para
+trabajar contra el arbol actual, `cd integrations/<adapter> && pip install .`
 
 > **FIND-273 (resuelto 2026-10-06):** los twins `openai` y `ollama` fueron
 > **retirados del release** (decisión owner): sus nombres/módulos PyPI
@@ -26,11 +25,12 @@ pip install .`
 
 Toda dependencia de framework declara upper-bound next-major. Gate:
 `python -m pytest integrations/test_pins.py` (1 test de matriz + 9
-parametrizados ×9 dirs; `vantadb-py>=0.6.1,<0.9.0` exenta por traer techo propio).
+parametrizados ×9 dirs; `vantadb-py>=0.6.1,<0.10.0` exenta por traer techo propio).
 
-> Nota (2026-10-06): pin `vantadb-py` bumpeado a `>=0.6.1,<0.9.0` (decisión
+> Nota (2026-10-06): pin `vantadb-py` bumpeado a `>=0.6.1,<0.10.0` (decisión
 > owner) — piso real: 0.5.0 no tiene la API `Client`; el techo permite el
-> core live 0.8.0. Evidencia en [MKT-20 §F6-3](../docs/dev/tasks/MKT-20.md).
+> core live 0.9.0. Los 2 twins source-only (`ollama`/`openai`) declaran
+> `>=0.5.0,<0.10.0`. Evidencia en [MKT-20 §F6-3](../docs/dev/tasks/MKT-20.md).
 
 | Adapter | Paquete | Framework pin |
 |---------|---------|---------------|
@@ -45,11 +45,11 @@ parametrizados ×9 dirs; `vantadb-py>=0.6.1,<0.9.0` exenta por traer techo propi
 | openai | `vantadb-openai` | `openai>=1.0,<2` |
 
 Techos elegidos contra la matriz de compatibilidad
-(`.github/workflows/adapters-compat.yml`, que fija minors: dspy 2.6,
-haystack 2.10, openai 1.40…): next-major es el techo seguro sin evidencia
-de breaking. NOTICED (fuera de scope, no fix): compat fija `ollama 0.3`
-< pin `>=0.4`, y `letta 0.2` (paquete `letta`) vs pin `letta-client>=1.0.0`
-(paquete distinto).
+(job `compat-matrix` de `.github/workflows/ci-fleet.yml`, que fija minors:
+dspy 2.6, haystack 2.10, openai 1.40…): next-major es el techo seguro sin
+evidencia de breaking. NOTICED (fuera de scope, no fix): compat fija
+`ollama 0.3` < pin `>=0.4`, y `letta 0.2` (paquete `letta`) vs pin
+`letta-client>=1.0.0` (paquete distinto).
 
 ## Fixtures (FIND-84)
 

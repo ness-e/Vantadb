@@ -4,16 +4,16 @@ Mem0 adapter for [VantaDB](https://github.com/ness-e/Vantadb).
 
 ## Install
 
-> **Not on PyPI yet.** The `vantadb-mem0` package builds and passes
-> `twine check` locally; it will go live with the first `adapters-v*` tag
-> release. Until then, install from source.
+> **Published on PyPI at 0.9.0** (verified live 2026-10-20). The PyPI
+> install pulls the published release; to run against the current tree use
+> the repo-checkout path.
 
 ```bash
-# Today, from a repo checkout
+# From a repo checkout (current tree)
 cd integrations/mem0 && pip install .
 ```
 
-### Install from PyPI (after first release)
+### Install from PyPI
 
 ```bash
 pip install vantadb-mem0
@@ -30,17 +30,25 @@ store = VantaDBVectorStore(
 )
 
 store.add("VantaDB is an embedded vector database written in Rust.", user_id="alice")
-results = store.search("vector database")
+
+# mem0 owns the embedding layer: it computes the dense vector for the query
+# and passes it in — this adapter does not embed. `query_vector` below is the
+# vector mem0 already computed for "vector database".
+query_vector = mem0_embeddings["vector database"]
+results = store.search("vector database", query_vector, top_k=5)
 for r in results:
-    print(r["payload"], r["score"])
+    print(r.payload, r.score)   # OutputData exposes .id / .score / .payload
 ```
 
 ## API
 
-- `add(text, user_id=None, metadata=None)` — store a memory
-- `search(query, k=4)` — search memories
+- `add(text, user_id=None, metadata=None)` — store a memory (embeds internally
+  when an embedding callable is set)
+- `search(query, vectors, top_k=5, filters=None)` — search by a pre-computed
+  dense vector (mem0 supplies the embedding); returns `OutputData` objects
+  (`.id`, `.score`, `.payload`)
 - `delete(key)` — delete a memory by key
-- `list(user_id=None, limit=100)` — list memories
+- `list(filters=None, top_k=100)` — list memories
 
 ## Why VantaDB?
 

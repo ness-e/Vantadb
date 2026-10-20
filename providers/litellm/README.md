@@ -4,11 +4,11 @@ PyO3 cdylib that exposes a `VantaDBLiteLLM` class — a unified embedding provid
 
 ## Install
 
-> **Not on PyPI yet.** The `vantadb-litellm` wheel builds on all release
-> platforms; it goes live with the first `providers-v*` tag release. Until
-> then, build from a repo checkout.
+> **Published on PyPI at 0.9.0** (verified live 2026-10-20). The PyPI
+> install pulls the published release; to build against the current tree use
+> the maturin path below.
 
-### From PyPI (after the first release)
+### From PyPI
 
 ```bash
 pip install vantadb-litellm

@@ -4,16 +4,16 @@ CrewAI Tool adapter for [VantaDB](https://github.com/ness-e/Vantadb).
 
 ## Install
 
-> **Not on PyPI yet.** The `vantadb-crewai` package builds and passes
-> `twine check` locally; it will go live with the first `adapters-v*` tag
-> release. Until then, install from source.
+> **Published on PyPI at 0.9.0** (verified live 2026-10-20). The PyPI
+> install pulls the published release; to run against the current tree use
+> the repo-checkout path.
 
 ```bash
-# Today, from a repo checkout
+# From a repo checkout (current tree)
 cd integrations/crewai && pip install .
 ```
 
-### Install from PyPI (after first release)
+### Install from PyPI
 
 ```bash
 pip install vantadb-crewai
@@ -41,7 +41,7 @@ agent = Agent(
 
 ## API
 
-- `VantaDBTool(name, description, db_path, namespace)` — CrewAI-compatible RAG tool
+- `VantaDBTool(embedding=None, name=..., description=..., *, db_path=..., namespace=..., top_k=...)` — CrewAI-compatible RAG tool
 - `VantaDBMemoryBackend(db_path, namespace)` — `StorageBackend` for unified
   `Memory` (CrewAI ≥1.14): `save/search/delete/update/get_record/list_records/`
   `get_scope_info/list_scopes/list_categories/count/reset` + async

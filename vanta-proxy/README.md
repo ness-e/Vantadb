@@ -13,4 +13,4 @@ vanta-proxy --help
 ```
 
 Copy `config.toml` next to the binary (or point at it), set the upstream API
-key inside, and start. Full reference: `docs/api/PROXY.md`.
+key inside, and start. Full reference: [PROXY.md](../docs/api/PROXY.md).

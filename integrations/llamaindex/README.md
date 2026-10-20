@@ -4,16 +4,16 @@ LlamaIndex `BasePydanticVectorStore` adapter for [VantaDB](https://github.com/ne
 
 ## Install
 
-> **Not on PyPI yet.** The `vantadb-llamaindex` package builds and passes
-> `twine check` locally; it will go live with the first `adapters-v*` tag
-> release. Until then, install from source.
+> **Published on PyPI at 0.9.0** (verified live 2026-10-20). The PyPI
+> install pulls the published release; to run against the current tree use
+> the repo-checkout path.
 
 ```bash
-# Today, from a repo checkout
+# From a repo checkout (current tree)
 cd integrations/llamaindex && pip install .
 ```
 
-### Install from PyPI (after first release)
+### Install from PyPI
 
 ```bash
 pip install vantadb-llamaindex
