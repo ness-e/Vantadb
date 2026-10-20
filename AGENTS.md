@@ -15,3 +15,9 @@ This file exists only for compatibility with agents that look for `AGENTS.md` at
 | `SKILLS-MANIFEST.md` | Full catalog of project skills |
 | `.opencode/rules/README.md` | Normative rules per code area |
 | `docs/dev/workflow/RULES.md` | Durable CI workflow rules (triggers, timeouts, pins, permissions, publish) |
+| `docs/dev/workflow/PUBLISH.md` | **Release runbook**: pre-flight checklist, auth model per registry, publish traps (0.9.0) |
+| `docs/dev/reviews/2026-10-20-release-v0.9.0-postmortem.md` | Post-mortem del release 0.9.0: 7 fallos, causas, arreglos, prevención |
+
+> **Antes de un release** lee el checklist de pre-flight de
+> `docs/dev/workflow/PUBLISH.md`: hay 7 trampas que tumbaron el 0.9.0 (tres
+> publishes fallidos) y ninguna la cazaba un gate.
