@@ -1,7 +1,7 @@
 ---
 title: "ADR-0057: Encryption at rest — envelope-cipher wiring of the core on-disk artifacts (WAL, HNSW, VantaFile, backend-KV)"
 kind: adr
-status: proposed
+status: accepted
 description: "Wires the existing `encryption` feature to the real write paths with per-artifact AEAD envelopes, a wrapped-DEK key hierarchy with rotation, a provably-unique nonce scheme, and a declared no-in-place-migration policy; corrects the false SECURITY.md claim (FIND-407) by making it true, opt-in and bounded."
 tags: [vantadb, architecture, adr, security, encryption, storage, wal, durability]
 created: "2026-10-20"
@@ -9,14 +9,16 @@ created: "2026-10-20"
 
 # ADR-0057: Encryption at rest — envelope-cipher wiring of the core on-disk artifacts (WAL, HNSW, VantaFile, backend-KV)
 
-> **Produced under the owner's decision of 2026-10-20** ("corregir y además cablear la feature
-> encryption"). Status is `proposed`: this ADR records the design and awaits the owner's
-> ratification (Regla 5, `.opencode/AGENTS.md`). It is a **design** — no production code is
-> changed by this document. Implementation plan:
-> [`docs/dev/plans/2026-10-20-wiring-encryption-feature.md`](../../plans/2026-10-20-wiring-encryption-feature.md).
+> **Ratified by the owner on 2026-10-20.** Two decisions: (1) "corregir y ademas cablear la
+> feature `encryption`"; (2) ratification of this design — "Ratifico el ADR-0057 ... y arranco
+> la implementacion por sus 8 waves". Status: `accepted` (Regla 5, `.opencode/AGENTS.md`).
 >
-> Every `file:line` in this document was verified against the worktree at
-> `fix/audit-v090-p1` on 2026-10-20 (see the inventory table in §1.2).
+> This document is the **design**; the implementation follows the plan
+> [`docs/dev/plans/2026-10-20-wiring-encryption-feature.md`](../../plans/2026-10-20-wiring-encryption-feature.md)
+> (W0-W7). The wording of the encryption feature is already corrected in `SECURITY.md`
+> (PR #267); the wiring is what makes that wording true, and W0 adds a gate so it cannot
+> silently drift back (risk R-12).
+>
 
 ## 1. Context and problem statement
 
