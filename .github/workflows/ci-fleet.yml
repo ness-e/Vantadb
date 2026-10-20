@@ -25,6 +25,14 @@ on:
       - 'providers/**'
       - '.github/scripts/verify_pyi.py'
       - '.github/workflows/ci-fleet.yml'
+      # El ruleset de `main` exige el check "Cross-language conformance
+      # (Py/Node/WASM)", que produce este workflow. Con el filtro de paths
+      # anterior, un PR que solo tocara CI/docs nunca lo disparaba, el check
+      # no reportaba nunca y el merge quedaba bloqueado para siempre
+      # (PR #242 y #257, ambos resueltos con bypass de admin). Cubrir los
+      # ficheros de workflow y de release hace que el check reporte siempre.
+      - '.github/workflows/**'
+      - 'release-plz.toml'
   pull_request:
     branches: [main, develop]
     paths:
@@ -42,6 +50,8 @@ on:
       - 'providers/**'
       - '.github/scripts/verify_pyi.py'
       - '.github/workflows/ci-fleet.yml'
+      - '.github/workflows/**'
+      - 'release-plz.toml'
   schedule:
     - cron: '0 3 * * 0'
   workflow_dispatch:
