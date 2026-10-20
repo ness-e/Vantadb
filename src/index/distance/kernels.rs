@@ -12,6 +12,16 @@ pub(crate) type KernelEuclideanSq = fn(&[f32], &[f32]) -> f32;
 pub(crate) type KernelDotProduct = fn(&[f32], &[f32]) -> f32;
 pub(crate) type KernelDotAndNorm = fn(&[f32], &[f32]) -> (f32, f32);
 
+/// FIND-411: score returned when the two vectors have a different dimension.
+///
+/// `0.0` is the **best** possible Euclidean score (identical vectors score
+/// `0.0`), so returning it for a dimension mismatch made a malformed vector
+/// outrank every valid candidate. `NaN` is the sentinel the rest of the
+/// index already understands: `total_cmp_sim` pins it below every finite
+/// score (`src/index/graph/types.rs`) and `search_nearest_with_metric`
+/// filters it out (`src/index/search/nearest.rs`).
+pub(crate) const DIMENSION_MISMATCH_SCORE: f32 = f32::NAN;
+
 pub(crate) struct DistanceKernels {
     pub(crate) euclidean_sq: KernelEuclideanSq,
     pub(crate) dot_product: KernelDotProduct,
@@ -39,7 +49,10 @@ pub(crate) fn select_kernels() -> &'static DistanceKernels {
 /// f32x8 kernel (AVX2 / NEON / scalar fallback).
 #[inline(always)]
 fn f32_dot_and_norm_b_sq_f32x8(a: &[f32], b: &[f32]) -> (f32, f32) {
-    if a.len() != b.len() || a.is_empty() {
+    if a.len() != b.len() {
+        return (DIMENSION_MISMATCH_SCORE, DIMENSION_MISMATCH_SCORE);
+    }
+    if a.is_empty() {
         return (0.0, 0.0);
     }
     use wide::f32x8;
@@ -74,7 +87,10 @@ fn f32_dot_and_norm_b_sq_f32x8(a: &[f32], b: &[f32]) -> (f32, f32) {
 /// when norms are already cached. f32x8 kernel (AVX2 / NEON / scalar fallback).
 #[inline(always)]
 fn f32_dot_product_f32x8(a: &[f32], b: &[f32]) -> f32 {
-    if a.len() != b.len() || a.is_empty() {
+    if a.len() != b.len() {
+        return DIMENSION_MISMATCH_SCORE;
+    }
+    if a.is_empty() {
         return 0.0;
     }
     use wide::f32x8;
@@ -104,7 +120,10 @@ fn f32_dot_product_f32x8(a: &[f32], b: &[f32]) -> f32 {
 /// f32x8 kernel for squared Euclidean distance (AVX2 / NEON / scalar fallback).
 #[inline(always)]
 fn euclidean_distance_sq_f32x8(a: &[f32], b: &[f32]) -> f32 {
-    if a.len() != b.len() || a.is_empty() {
+    if a.len() != b.len() {
+        return DIMENSION_MISMATCH_SCORE;
+    }
+    if a.is_empty() {
         return 0.0;
     }
     use wide::f32x8;
@@ -140,7 +159,10 @@ fn euclidean_distance_sq_f32x8(a: &[f32], b: &[f32]) -> f32 {
 /// Squared Euclidean distance using f32x16 (AVX-512).
 #[inline(always)]
 fn euclidean_distance_sq_f32x16(a: &[f32], b: &[f32]) -> f32 {
-    if a.len() != b.len() || a.is_empty() {
+    if a.len() != b.len() {
+        return DIMENSION_MISMATCH_SCORE;
+    }
+    if a.is_empty() {
         return 0.0;
     }
     use wide::f32x16;
@@ -172,7 +194,10 @@ fn euclidean_distance_sq_f32x16(a: &[f32], b: &[f32]) -> f32 {
 /// Dot product using f32x16 (AVX-512).
 #[inline(always)]
 fn f32_dot_product_f32x16(a: &[f32], b: &[f32]) -> f32 {
-    if a.len() != b.len() || a.is_empty() {
+    if a.len() != b.len() {
+        return DIMENSION_MISMATCH_SCORE;
+    }
+    if a.is_empty() {
         return 0.0;
     }
     use wide::f32x16;
@@ -202,7 +227,10 @@ fn f32_dot_product_f32x16(a: &[f32], b: &[f32]) -> f32 {
 /// Combined dot + norm of `b` using f32x16 (AVX-512).
 #[inline(always)]
 fn f32_dot_and_norm_b_sq_f32x16(a: &[f32], b: &[f32]) -> (f32, f32) {
-    if a.len() != b.len() || a.is_empty() {
+    if a.len() != b.len() {
+        return (DIMENSION_MISMATCH_SCORE, DIMENSION_MISMATCH_SCORE);
+    }
+    if a.is_empty() {
         return (0.0, 0.0);
     }
     use wide::f32x16;
@@ -283,7 +311,11 @@ mod tests {
         let a = vec32(1.0);
         let b = vec16(1.0);
         let d = euclidean_distance_sq_f32x16(&a, &b);
-        assert!(d.abs() < 1e-6, "mismatched should return 0, got {}", d);
+        assert!(
+            d.is_nan(),
+            "FIND-411: mismatched dimensions must score NaN (0.0 was the best possible score), got {}",
+            d
+        );
     }
 
     #[test]
@@ -315,7 +347,11 @@ mod tests {
         let a = vec32(1.0);
         let b = vec16(1.0);
         let dot = f32_dot_product_f32x16(&a, &b);
-        assert!(dot.abs() < 1e-6, "mismatched should return 0, got {}", dot);
+        assert!(
+            dot.is_nan(),
+            "FIND-411: mismatched dimensions must score NaN, got {}",
+            dot
+        );
     }
 
     #[test]
@@ -342,8 +378,33 @@ mod tests {
         let a = vec32(2.0);
         let b = vec16(3.0);
         let (dot, norm_b_sq) = f32_dot_and_norm_b_sq_f32x16(&a, &b);
-        assert!(dot.abs() < 1e-6, "mismatched dot should be 0");
-        assert!(norm_b_sq.abs() < 1e-6, "mismatched norm should be 0");
+        assert!(
+            dot.is_nan() && norm_b_sq.is_nan(),
+            "FIND-411: mismatched dimensions must score NaN, got dot={} norm={}",
+            dot,
+            norm_b_sq
+        );
+    }
+
+    #[test]
+    fn test_f32x8_kernels_mismatched_score_nan() {
+        let a = vec![1.0f32; 8];
+        let b = vec![1.0f32; 4];
+        assert!(
+            euclidean_distance_sq_f32x8(&a, &b).is_nan(),
+            "FIND-411: mismatched dimensions must score NaN"
+        );
+        assert!(
+            f32_dot_product_f32x8(&a, &b).is_nan(),
+            "FIND-411: mismatched dimensions must score NaN"
+        );
+        let (dot, norm_b_sq) = f32_dot_and_norm_b_sq_f32x8(&a, &b);
+        assert!(
+            dot.is_nan() && norm_b_sq.is_nan(),
+            "FIND-411: mismatched dimensions must score NaN, got dot={} norm={}",
+            dot,
+            norm_b_sq
+        );
     }
 
     #[cfg(miri)]

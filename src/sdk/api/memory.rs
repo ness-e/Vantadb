@@ -13,10 +13,10 @@ use super::super::builder::Embedded;
 use super::super::serialization::{
     memory_node_id, memory_record_from_node_include_expired, memory_record_to_node_owned, now_ms,
     record_from_node, validate_confidence_fields, validate_key, validate_metadata,
-    validate_namespace, DERIVED_INDEX_SCHEMA_VERSION, FIELD_CONFIDENCE_CLASS, FIELD_CREATED_AT_MS,
-    FIELD_EXPIRES_AT_MS, FIELD_KEY, FIELD_NAMESPACE, FIELD_PAYLOAD, FIELD_QUARANTINED_AT_MS,
-    FIELD_QUARANTINED_BY, FIELD_QUARANTINE_REASON, FIELD_QUARANTINE_REVIEW_DUE_MS,
-    FIELD_UPDATED_AT_MS, FIELD_VALID_AT_MS, FIELD_VERSION,
+    validate_namespace, validate_vector_dimension, DERIVED_INDEX_SCHEMA_VERSION,
+    FIELD_CONFIDENCE_CLASS, FIELD_CREATED_AT_MS, FIELD_EXPIRES_AT_MS, FIELD_KEY, FIELD_NAMESPACE,
+    FIELD_PAYLOAD, FIELD_QUARANTINED_AT_MS, FIELD_QUARANTINED_BY, FIELD_QUARANTINE_REASON,
+    FIELD_QUARANTINE_REVIEW_DUE_MS, FIELD_UPDATED_AT_MS, FIELD_VALID_AT_MS, FIELD_VERSION,
 };
 use super::super::types::*;
 use super::graph::{LABEL_DERIVED_FROM, LABEL_SUPERSEDED_BY};
@@ -269,6 +269,27 @@ impl Embedded {
             });
         }
         Ok(())
+    }
+
+    /// Dimension of the vectors held by the vector index (`None` = the index
+    /// holds no vector yet).
+    ///
+    /// FIND-411: the index is the authority for the vector dimension — it
+    /// holds vectors of a single dimension, and every write and every query
+    /// vector is validated against it. The index entry point is the node
+    /// that established the dimension (a node without a vector never
+    /// becomes the entry point), so its vector length is the dimension.
+    pub(crate) fn index_vector_dimension(
+        &self,
+        engine: &crate::storage::StorageEngine,
+    ) -> Option<usize> {
+        let index = engine.vec_index();
+        let entry_point = index.entry_point()?;
+        let (_, vector) = index.node_view(entry_point)?;
+        vector
+            .as_f32_slice()
+            .map(|slice| slice.len())
+            .filter(|dim| *dim > 0)
     }
 
     /// Resolve the effective TTL (ms) for a write: an explicit `ttl_ms` wins;
@@ -685,6 +706,21 @@ impl Embedded {
         let _write_guard = self.purge_lock.write();
         let existing =
             self.resolve_existing_for_write_locked(&engine, &input.namespace, &input.key)?;
+        // FIND-411: a vector whose length differs from the index dimension is
+        // rejected BEFORE anything is written — the index would otherwise
+        // score it as a perfect match (distance 0.0) and the write would
+        // leave a half-applied record behind. The dimension of the record
+        // being replaced is used as a fallback when the index entry point
+        // carries no vector.
+        if let Some(vector) = input.vector.as_ref().filter(|v| Self::usable_vector(v)) {
+            let expected = self.index_vector_dimension(&engine).or_else(|| {
+                existing
+                    .as_ref()
+                    .and_then(|record| record.vector.as_ref())
+                    .map(|vector| vector.len())
+            });
+            validate_vector_dimension(expected, vector.len())?;
+        }
         // MEMG-04: quota applies to fresh inserts only — an update of an
         // existing key never counts and is never blocked at the limit.
         if existing.is_none() {
@@ -952,6 +988,18 @@ impl Embedded {
         }
 
         let engine = self.engine_handle()?;
+        // FIND-411: dimension validation is part of the up-front, all-or-nothing
+        // validation (like the namespace/key/metadata shape checks above) — a
+        // batch carrying a vector of the wrong length leaves zero records
+        // behind. The first vector of the batch establishes the dimension when
+        // the index holds none yet.
+        let mut expected_dimension = self.index_vector_dimension(&engine);
+        for input in &inputs {
+            if let Some(vector) = input.vector.as_ref().filter(|v| Self::usable_vector(v)) {
+                validate_vector_dimension(expected_dimension, vector.len())?;
+                expected_dimension.get_or_insert(vector.len());
+            }
+        }
         // MEMG-04: all-or-nothing quota pre-check — rejects before any chunk
         // is written, so an over-quota batch leaves no partial state.
         self.check_batch_namespace_quota(&engine, &inputs)?;
@@ -1465,6 +1513,17 @@ impl Embedded {
         let _write_guard = self.purge_lock.write();
         let previous =
             self.resolve_existing_for_write_locked(&engine, &record.namespace, &record.key)?;
+        // FIND-411: the raw transport carries the vector too — validate its
+        // dimension against the index before anything is written.
+        if let Some(vector) = record.vector.as_ref().filter(|v| Self::usable_vector(v)) {
+            let expected = self.index_vector_dimension(&engine).or_else(|| {
+                previous
+                    .as_ref()
+                    .and_then(|record| record.vector.as_ref())
+                    .map(|vector| vector.len())
+            });
+            validate_vector_dimension(expected, vector.len())?;
+        }
         // MEMG-04: fresh inserts respect the namespace quota on this raw
         // transport too (import restores/imports records through here).
         if previous.is_none() {
@@ -2390,9 +2449,16 @@ impl Embedded {
         let mut batches = 0usize;
         let mut quarantined = 0u64;
         let imported_at_ms = now_ms();
+        // FIND-411: the imported vectors must share the index dimension — the
+        // first one establishes it when the index holds none yet.
+        let mut expected_dimension = self.index_vector_dimension(&engine);
 
         for chunk in records.chunks(commit_interval) {
             for input in chunk {
+                if let Some(vector) = input.vector.as_ref().filter(|v| Self::usable_vector(v)) {
+                    validate_vector_dimension(expected_dimension, vector.len())?;
+                    expected_dimension.get_or_insert(vector.len());
+                }
                 let node_id = memory_node_id(&input.namespace, &input.key);
                 let mut node = UnifiedNode::new(node_id);
                 // Reserved fields (MCP-28): mirror `memory_record_to_node_owned`

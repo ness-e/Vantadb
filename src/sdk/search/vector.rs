@@ -1,5 +1,7 @@
 use super::super::builder::Embedded;
-use super::super::serialization::{matches_memory_filters, record_from_node};
+use super::super::serialization::{
+    matches_memory_filters, record_from_node, validate_vector_dimension,
+};
 use super::super::types::*;
 use crate::cost_estimator::{CostEstimator, FilterStrategy};
 use crate::error::Result;
@@ -72,6 +74,13 @@ impl Embedded {
         }
 
         let engine = self.engine_handle()?;
+
+        // FIND-411: the query vector must match the dimension of the vectors
+        // held by the index. A mismatch used to be scored as a *perfect*
+        // match (the distance kernels returned 0.0 for two vectors of
+        // different lengths), so a malformed query silently returned the
+        // worst candidates as the best ones.
+        validate_vector_dimension(self.index_vector_dimension(&engine), query_vector.len())?;
 
         // ---- Selectivity-based strategy ----
         let strategy = CostEstimator::new(&engine).select_filter_strategy(filters);

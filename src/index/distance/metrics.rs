@@ -17,21 +17,31 @@ pub fn f32_l2_norm(v: &[f32]) -> f32 {
 
 /// Cosine similarity when BOTH inverse norms are pre-cached. Uses pure dot product
 /// and multiplications only — eliminates 100% of division and ~50% of SIMD work.
+///
+/// FIND-411: vectors of different dimensions score `NaN` (the dimension
+/// mismatch sentinel), never `0.0` — a mismatch is not a valid similarity.
 #[inline(always)]
 pub fn cosine_sim_cached_norms(a: &[f32], inv_norm_a: f32, b: &[f32], inv_norm_b: f32) -> f32 {
-    if inv_norm_a < f32::EPSILON || inv_norm_b < f32::EPSILON || a.len() != b.len() || a.is_empty()
-    {
+    if inv_norm_a < f32::EPSILON || inv_norm_b < f32::EPSILON || a.is_empty() {
         return 0.0;
+    }
+    if a.len() != b.len() {
+        return crate::index::distance::kernels::DIMENSION_MISMATCH_SCORE;
     }
     let dot = f32_dot_product(a, b);
     dot * inv_norm_a * inv_norm_b
 }
 
 /// Cosine similarity when `||query||` was already computed for the search hot path.
+///
+/// FIND-411: a dimension mismatch scores `NaN`, not `0.0`.
 #[inline(always)]
 pub fn cosine_sim_with_query_norm(query: &[f32], query_norm: f32, b: &[f32]) -> f32 {
-    if query_norm < f32::EPSILON || query.len() != b.len() || query.is_empty() {
+    if query_norm < f32::EPSILON || query.is_empty() {
         return 0.0;
+    }
+    if query.len() != b.len() {
+        return crate::index::distance::kernels::DIMENSION_MISMATCH_SCORE;
     }
     let (dot, norm_b_sq) = f32_dot_and_norm_b_sq(query, b);
     let norm_b = norm_b_sq.sqrt();
@@ -43,10 +53,15 @@ pub fn cosine_sim_with_query_norm(query: &[f32], query_norm: f32, b: &[f32]) -> 
 }
 
 /// Compute cosine similarity between two f32 vectors without cached norms.
+///
+/// FIND-411: a dimension mismatch scores `NaN`, not `0.0`.
 #[inline(always)]
 pub fn cosine_sim_f32(a: &[f32], b: &[f32]) -> f32 {
-    if a.len() != b.len() || a.is_empty() {
+    if a.is_empty() {
         return 0.0;
+    }
+    if a.len() != b.len() {
+        return crate::index::distance::kernels::DIMENSION_MISMATCH_SCORE;
     }
     let norm_a = f32_l2_norm(a);
     cosine_sim_with_query_norm(a, norm_a, b)
@@ -54,6 +69,10 @@ pub fn cosine_sim_f32(a: &[f32], b: &[f32]) -> f32 {
 
 /// Compute squared Euclidean distance between two f32 vectors.
 /// Cached dispatch: function pointer selected once at init.
+///
+/// FIND-411: vectors of different dimensions score `NaN`. `0.0` is the best
+/// possible Euclidean score (identical vectors), so it must never stand in
+/// for "not comparable".
 #[inline(always)]
 pub fn euclidean_distance_squared_f32(a: &[f32], b: &[f32]) -> f32 {
     (select_kernels().euclidean_sq)(a, b)
@@ -62,6 +81,10 @@ pub fn euclidean_distance_squared_f32(a: &[f32], b: &[f32]) -> f32 {
 /// Compute squared Euclidean distance using cached norms to skip the
 /// per-element subtraction kernel.
 /// euclidean_sq = ||a||² + ||b||² - 2·dot(a,b)
+///
+/// FIND-411: a dimension mismatch scores `NaN`. The check must run **before**
+/// the `.max(0.0)` clamp — `f32::max` returns the non-NaN operand, so a
+/// `NaN` dot product would silently become `0.0` (the best possible score).
 #[inline(always)]
 pub fn euclidean_distance_sq_with_norms(
     a: &[f32],
@@ -69,6 +92,9 @@ pub fn euclidean_distance_sq_with_norms(
     b: &[f32],
     b_norm_sq: f32,
 ) -> f32 {
+    if a.len() != b.len() {
+        return crate::index::distance::kernels::DIMENSION_MISMATCH_SCORE;
+    }
     let dot = f32_dot_product(a, b);
     // AUDREP-28: for nearly-identical vectors FP rounding can make
     // ||a||² + ||b||² - 2·dot slightly negative. Clamp so negative noise
@@ -135,10 +161,52 @@ mod tests {
         let b = vec![1.0, 2.0];
         let d = euclidean_distance_squared_f32(&a, &b);
         assert!(
-            d.abs() < 1e-6,
-            "mismatched lengths should return 0, got {}",
+            d.is_nan(),
+            "FIND-411: mismatched lengths must score NaN (0.0 was the best possible score), got {}",
             d
         );
+    }
+
+    /// FIND-411: the three index paths score a candidate with two different
+    /// Euclidean formulas — the flat scan and the HNSW traversal over the
+    /// vector store use `euclidean_distance_squared_f32`, the HNSW traversal
+    /// over the inline vector data uses `euclidean_distance_sq_with_norms`.
+    /// Both must report a dimension mismatch as `NaN` so the paths agree.
+    #[test]
+    fn test_dimension_mismatch_scores_nan_in_both_euclidean_formulas() {
+        let query = vec![1.0, 0.0, 0.0];
+        let candidate = vec![1.0, 0.0, 0.0, 0.0, 0.0];
+
+        let direct = euclidean_distance_squared_f32(&query, &candidate);
+        let query_norm_sq = f32_l2_norm(&query).powi(2);
+        let candidate_norm_sq = f32_l2_norm(&candidate).powi(2);
+        let with_norms =
+            euclidean_distance_sq_with_norms(&query, query_norm_sq, &candidate, candidate_norm_sq);
+
+        assert!(
+            direct.is_nan(),
+            "the per-element difference kernel must score NaN on a mismatch, got {}",
+            direct
+        );
+        assert!(
+            with_norms.is_nan(),
+            "the cached-norms kernel must score NaN on a mismatch, got {}",
+            with_norms
+        );
+    }
+
+    /// FIND-411: the cosine helpers must report a dimension mismatch as
+    /// `NaN` too — `0.0` is a plausible cosine score (orthogonal vectors) and
+    /// would hide the mismatch.
+    #[test]
+    fn test_dimension_mismatch_scores_nan_in_the_cosine_helpers() {
+        let query = vec![1.0, 0.0, 0.0];
+        let candidate = vec![1.0, 0.0, 0.0, 0.0, 0.0];
+        let norm = f32_l2_norm(&query);
+
+        assert!(cosine_sim_f32(&query, &candidate).is_nan());
+        assert!(cosine_sim_with_query_norm(&query, norm, &candidate).is_nan());
+        assert!(cosine_sim_cached_norms(&query, 1.0 / norm, &candidate, 1.0).is_nan());
     }
 
     #[test]
@@ -241,8 +309,8 @@ mod tests {
         let b = vec![1.0, 2.0];
         let sim = cosine_sim_f32(&a, &b);
         assert!(
-            sim.abs() < 1e-6,
-            "mismatched lengths should return 0, got {}",
+            sim.is_nan(),
+            "FIND-411: mismatched lengths must score NaN (0.0 is a plausible cosine score), got {}",
             sim
         );
     }

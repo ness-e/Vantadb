@@ -121,7 +121,13 @@ impl CPIndex {
                 }
 
                 candidates.push(NodeSim(d, ep));
-                if query_mask.is_all_set() || node.bitset.matches_mask(query_mask) {
+                // FIND-411: a dimension-mismatched candidate scores `NaN`. It
+                // may still be traversed (its neighbours stay reachable) but
+                // it is never a result — and it must not enter the result
+                // heap, where `NodeSimMin` would rank it as the worst entry
+                // and starve the `ef` budget.
+                if !d.is_nan() && (query_mask.is_all_set() || node.bitset.matches_mask(query_mask))
+                {
                     results.push(NodeSimMin(d, ep));
                 }
                 visited.insert(ep);
@@ -293,11 +299,22 @@ impl CPIndex {
                                 continue;
                             }
 
-                            if results.len() < ef || results.peek().is_some_and(|worst| d > worst.0)
+                            // FIND-411: a `NaN` score means the candidate's
+                            // dimension differs from the query. It is pushed
+                            // to the candidate heap (so the graph is still
+                            // traversable through it) but never to the result
+                            // heap — a `NaN` in `NodeSimMin` would rank as
+                            // the worst entry and starve the `ef` budget.
+                            if d.is_nan()
+                                || results.len() < ef
+                                || results.peek().is_some_and(|worst| d > worst.0)
                             {
                                 candidates.push(NodeSim(d, neighbor_id));
-                                if query_mask.is_all_set()
-                                    || neighbor.bitset.matches_mask(query_mask)
+                                // FIND-411: `NaN` = dimension mismatch — the
+                                // neighbour is traversed but never reported.
+                                if !d.is_nan()
+                                    && (query_mask.is_all_set()
+                                        || neighbor.bitset.matches_mask(query_mask))
                                 {
                                     results.push(NodeSimMin(d, neighbor_id));
                                     if results.len() > ef {
@@ -347,15 +364,20 @@ impl CPIndex {
                                                         if !eligible2 {
                                                             continue;
                                                         }
-                                                        if results.len() < ef
+                                                        if d2.is_nan()
+                                                            || results.len() < ef
                                                             || results
                                                                 .peek()
                                                                 .is_some_and(|worst| d2 > worst.0)
                                                         {
                                                             candidates.push(NodeSim(d2, second_id));
-                                                            if second_node
-                                                                .bitset
-                                                                .matches_mask(query_mask)
+                                                            // FIND-411: `NaN` = dimension
+                                                            // mismatch — traversed, never
+                                                            // reported.
+                                                            if !d2.is_nan()
+                                                                && second_node
+                                                                    .bitset
+                                                                    .matches_mask(query_mask)
                                                             {
                                                                 results.push(NodeSimMin(
                                                                     d2, second_id,
