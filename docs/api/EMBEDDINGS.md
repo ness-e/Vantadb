@@ -165,7 +165,7 @@ VANTADB_LOCAL_MODEL=embeddings/models/multilingual-e5-small/onnx
 |-------|---------------------------|
 | **Core HNSW** `src/index/` | consumes vectors; no auto-embed (BYO still works) |
 | **Hybrid** `src/search/` | `query_vector` + `text_query` → RRF; dim must match docs |
-| **SQL** `src/physical_plan/vector.rs` (`PhysicalVectorSearch`) | The IQL vector condition `<field> ~ "hola mundo", min = 0.88` now embeds offline via `LocalOnnxProvider` (was `remote-inference` only → empty). There is **no** `VECTOR_SEARCH(...)` function in the IQL grammar (`src/parser/grammar.rs`) |
+| **SQL** `src/physical_plan/vector.rs` (`PhysicalVectorSearch`) | The IQL vector condition `<field> ~ "hola mundo", min = 0.88` embeds through the provider selected by `VANTADB_EMBEDDING_PROVIDER` (`ollama` / `openai` / `local`); a provider failure is an **error**, not 0 hits (FIND-413). There is **no** `VECTOR_SEARCH(...)` function in the IQL grammar (`src/parser/grammar.rs`) |
 | **vanta-memory L1** | `L1DedupConfig::with_local_provider(Arc<dyn EmbeddingProvider>)` uses `LocalOnnxProvider` instead of hash dim=8 |
 | **MCP** `vantadb-mcp` | `embed_texts { texts: string[], model?: string } -> { embeddings: float[][] }` reuses `embed_batch` |
 | **Python/TS SDK** | BYO-vector remains; `embed-local` is Rust-side (Python can call via `maturin` + bench `benchmarks/embed_bench.py`) |

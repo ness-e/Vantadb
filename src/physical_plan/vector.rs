@@ -6,12 +6,26 @@ use crate::error::Result;
 use crate::node::UnifiedNode;
 use crate::query::PhysicalOperator;
 use crate::storage::StorageEngine;
+use std::sync::Arc;
 
 /// Embeds a query text into a vector (FIND-413).
 ///
 /// Production wiring resolves the env-selected provider; the hook exists so
 /// the failure path is testable without a live provider (no ONNX, no server).
-type QueryEmbedder = Box<dyn Fn(&str) -> Result<Vec<f32>> + Send + Sync>;
+///
+/// The seam mirrors the production contract exactly (see
+/// [`default_query_vector`]), so a test can reproduce any of the three cases:
+///
+/// * `Ok(Some(vec))` — the query was embedded.
+/// * `Ok(None)` — this build has no embedding capability compiled in (neither
+///   `remote-inference` nor `embed-local`): the vector arm stays empty. That is
+///   a build-time fact, not a provider failure.
+/// * `Err(_)` — the provider failed. The error MUST reach the user: a failed
+///   embedding is NOT "0 results".
+///
+/// `Arc` (not `Box`): the planner hands the same embedder to several operators
+/// (join sides, subqueries) without cloning the closure itself.
+pub(crate) type QueryEmbedder = Arc<dyn Fn(&str) -> Result<Option<Vec<f32>>> + Send + Sync>;
 
 /// Embed the query with the env-selected provider (FIND-413).
 ///
@@ -26,17 +40,26 @@ fn default_query_vector(text: &str) -> Result<Option<Vec<f32>>> {
     Ok(Some(crate::llm::embed_query(text)?))
 }
 
+/// One-shot notice for the build without embedding capability (FIND-413).
+///
+/// A vector plan opens once or twice per query and the fact does not change
+/// between queries: warning on every `open()` is noise, not information.
+#[cfg(not(any(feature = "remote-inference", feature = "embed-local")))]
+static NO_EMBEDDING_CAPABILITY_WARNED: std::sync::Once = std::sync::Once::new();
+
 /// Embed the query with the env-selected provider — this build has no
 /// embedding capability compiled in (see the feature-gated variant).
 #[cfg(not(any(feature = "remote-inference", feature = "embed-local")))]
 fn default_query_vector(_text: &str) -> Result<Option<Vec<f32>>> {
     // Not silent: the vector arm is empty because the build cannot embed, and
     // the user must not read that as "the query matched nothing" (FIND-413).
-    tracing::warn!(
-        "vector search without an embedding provider: this build has neither the \
-         `remote-inference` nor the `embed-local` feature — the vector arm is empty \
-         (rebuild with one of them to run semantic search)"
-    );
+    NO_EMBEDDING_CAPABILITY_WARNED.call_once(|| {
+        tracing::warn!(
+            "vector search without an embedding provider: this build has neither the \
+             `remote-inference` nor the `embed-local` feature — the vector arm is empty \
+             (rebuild with one of them to run semantic search)"
+        );
+    });
     Ok(None)
 }
 
@@ -73,6 +96,16 @@ impl<'a> PhysicalVectorSearch<'a> {
             embedder: None,
         }
     }
+
+    /// Inject the query embedder (test seam, FIND-413).
+    ///
+    /// `None` (the default) → the env-selected provider. A test injects
+    /// `Ok(None)` to reproduce "this build has no embedding capability"
+    /// without a live provider.
+    pub(crate) fn with_embedder(mut self, embedder: QueryEmbedder) -> Self {
+        self.embedder = Some(embedder);
+        self
+    }
 }
 
 impl PhysicalOperator for PhysicalVectorSearch<'_> {
@@ -84,7 +117,7 @@ impl PhysicalOperator for PhysicalVectorSearch<'_> {
         // FIND-413: a failed embedding must reach the user as an error — it is
         // NOT "0 results".
         let vector = match &self.embedder {
-            Some(embed) => Some(embed(&self.query_vec_text)?),
+            Some(embed) => embed(&self.query_vec_text)?,
             None => default_query_vector(&self.query_vec_text)?,
         };
 
@@ -154,6 +187,13 @@ impl<'a> PhysicalVectorRefine<'a> {
             embedder: None,
         }
     }
+
+    /// Inject the query embedder (test seam, FIND-413) — see
+    /// [`PhysicalVectorSearch::with_embedder`].
+    pub(crate) fn with_embedder(mut self, embedder: QueryEmbedder) -> Self {
+        self.embedder = Some(embedder);
+        self
+    }
 }
 
 impl PhysicalOperator for PhysicalVectorRefine<'_> {
@@ -164,7 +204,7 @@ impl PhysicalOperator for PhysicalVectorRefine<'_> {
         // FIND-413: same contract as the search operator — the embedding error
         // is propagated, never degraded into "no rows".
         let vector = match &self.embedder {
-            Some(embed) => Some(embed(&self.query_vec_text)?),
+            Some(embed) => embed(&self.query_vec_text)?,
             None => default_query_vector(&self.query_vec_text)?,
         };
         if let Some(vec) = vector {
@@ -210,7 +250,7 @@ mod tests {
     /// Embedding hook that always fails — stands in for a local model that is
     /// not loaded or an inference server that is down (FIND-413).
     fn broken_embedder() -> QueryEmbedder {
-        Box::new(|_text: &str| {
+        Arc::new(|_text: &str| -> Result<Option<Vec<f32>>> {
             Err(Error::Embedding(
                 "local model not loaded: /nonexistent/model.onnx".to_string(),
             ))
@@ -219,7 +259,16 @@ mod tests {
 
     /// Healthy embedding hook — deterministic vector, no network and no ONNX.
     fn healthy_embedder() -> QueryEmbedder {
-        Box::new(|_text: &str| Ok(vec![1.0, 0.0]))
+        Arc::new(|_text: &str| -> Result<Option<Vec<f32>>> { Ok(Some(vec![1.0, 0.0])) })
+    }
+
+    /// Embedding hook for a build with **no embedding capability** (neither
+    /// `remote-inference` nor `embed-local`): the vector arm stays empty.
+    ///
+    /// This is the third case of the contract, and the one the planner tests
+    /// pin: it is a build-time fact, not a provider failure.
+    fn no_capability_embedder() -> QueryEmbedder {
+        Arc::new(|_text: &str| -> Result<Option<Vec<f32>>> { Ok(None) })
     }
 
     fn in_memory_storage() -> (StorageEngine, tempfile::TempDir) {
@@ -304,5 +353,23 @@ mod tests {
             "the error must explain why the embedding failed: {}",
             err
         );
+    }
+
+    // The third case of the contract (FIND-413): a build with no embedding
+    // capability leaves the vector arm empty — that is a build-time fact, not
+    // a provider failure, so it is neither an error nor a "0 hits" answer.
+    #[test]
+    fn f413_vector_search_without_embedding_capability_is_empty_arm() {
+        let (storage, _dir) = in_memory_storage();
+        let mut op = PhysicalVectorSearch::new(&storage, "rust expert".to_string(), 0.5);
+        op.embedder = Some(no_capability_embedder());
+
+        op.open()
+            .expect("a build without embedding capability must not error");
+        assert!(
+            op.next().expect("next").is_none(),
+            "the vector arm is empty: nothing to filter, no error"
+        );
+        op.close().expect("close");
     }
 }

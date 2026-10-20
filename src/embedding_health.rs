@@ -96,8 +96,11 @@ fn health_for(provider: &str, model_dir: &str) -> EmbeddingHealth {
 }
 
 /// Routing mirror of `get_embedding_provider()` (src/llm.rs:57-111).
+///
+/// `pub(crate)`: the INSERT path (`src/executor.rs`) routes the same way to
+/// decide whether a provider vector is real or synthetic (FIND-485).
 #[cfg(feature = "embed-local")]
-fn routes_to_local(provider: &str) -> bool {
+pub(crate) fn routes_to_local(provider: &str) -> bool {
     #[cfg(feature = "remote-inference")]
     {
         !matches!(provider, "openai" | "ollama")
@@ -179,8 +182,11 @@ fn not_applicable(provider: &str, detail: &str) -> EmbeddingHealth {
 /// Mirrors the candidate lists of `try_load_tokenizer` / `load_session_inner`
 /// (`src/llm.rs:272-304`, `src/llm.rs:421-466`), including their one-level scan
 /// over the model dir.
+///
+/// `pub(crate)`: the INSERT path (`src/executor.rs`) uses the same predicate to
+/// decide whether a provider vector is real or synthetic (FIND-485).
 #[cfg(feature = "embed-local")]
-fn model_files_present(dir: &str) -> bool {
+pub(crate) fn model_files_present(dir: &str) -> bool {
     use std::path::{Path, PathBuf};
 
     let base = Path::new(dir);

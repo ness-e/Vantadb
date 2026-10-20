@@ -1348,13 +1348,24 @@ mod tests {
     // y el provider quedaba en strict mode aunque el usuario lo hubiera
     // permitido explícitamente.
     //
-    // El aserto es sobre `allow_dummy` (derivado de `strict_embeddings`) y no
-    // sobre `embed()`: el resultado de `embed()` depende de si el modelo ONNX
-    // está descargado en la máquina (candidatos hardcodeados en
-    // `load_session_inner`), así que no es determinista.
+    // El aserto es sobre el COMPORTAMIENTO observable (no solo sobre el flag
+    // privado `allow_dummy`): con el opt-out, `embed()` debe devolver un
+    // vector (el dummy determinista cuando el modelo ONNX no está cargado),
+    // nunca un error por la política strict.
+    //
+    // La justificación anterior ("el resultado de `embed()` depende de si el
+    // modelo ONNX está descargado, no es determinista") era falsa: lo que el
+    // modelo descarga cambia son los VALORES del vector, no el outcome
+    // `Ok`/`Err` que es lo que la env var controla.
     #[test]
     #[serial_test::serial]
     fn f414_new_honors_allow_dummy_env() {
+        // `VANTADB_STRICT_EMBEDDINGS` tiene PRECEDENCIA sobre el opt-out
+        // (`Config::default().llm_cfg()`): hay que desactivarlo explícitamente
+        // para que la variable probada sea la que manda — si no, este test
+        // falla en una máquina con `VANTADB_STRICT_EMBEDDINGS=true` en el
+        // entorno del proceso.
+        let _strict = EnvGuard::set("VANTADB_STRICT_EMBEDDINGS", "false");
         let _allow = EnvGuard::set("VANTADB_ALLOW_DUMMY_EMBEDDINGS", "true");
 
         let provider = LocalOnnxProvider::new("embeddings/models/find414-missing/onnx")
@@ -1364,10 +1375,19 @@ mod tests {
             provider.allow_dummy,
             "VANTADB_ALLOW_DUMMY_EMBEDDINGS=true must relax the strict policy"
         );
+        assert!(
+            provider.embed("texto").is_ok(),
+            "the opt-out must produce a vector (dummy if the model is missing), not an error"
+        );
     }
 
     // Sin el opt-out, el mismo provider queda en strict mode (default
     // estricto: fail-closed, nunca fallback silencioso a vectores dummy).
+    //
+    // El aserto de comportamiento no puede ser "siempre `Err`": con el modelo
+    // ONNX cargado, strict devuelve el vector REAL (strict prohíbe el
+    // fallback sintético, no el embedding). Lo que strict prohíbe siempre es
+    // entregar el vector determinista: o hay vector real, o hay error.
     #[test]
     #[serial_test::serial]
     fn f414_new_stays_strict_without_opt_out() {
@@ -1380,6 +1400,12 @@ mod tests {
         assert!(
             !provider.allow_dummy,
             "strict embeddings must stay the default (fail-closed)"
+        );
+        let embedded = provider.embed("texto");
+        let synthetic = provider.deterministic_embed("texto");
+        assert!(
+            !embedded.as_ref().is_ok_and(|v| *v == synthetic),
+            "strict must fail closed, never return a synthetic vector"
         );
     }
 

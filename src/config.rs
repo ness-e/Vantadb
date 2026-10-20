@@ -420,7 +420,10 @@ impl LlmCfg {
     /// argument wins over the environment); an empty one keeps the env value.
     // Compiled only where it is used: the local provider (`embed-local` /
     // `remote-inference`) and the unit tests that pin the contract.
-    #[cfg(any(feature = "remote-inference", feature = "embed-local", test))]
+    // `LocalOnnxProvider` (el unico consumidor) es `embed-local`: en un build solo
+    // `remote-inference` esta fn se compilaria sin llamarla y el gate `-D warnings`
+    // (clippy `never_used`) caeria (FIND-414, review adversarial Required #2).
+    #[cfg(any(feature = "embed-local", test))]
     pub(crate) fn for_local_model(model_dir: &str) -> Self {
         let mut cfg = Config::default().llm_cfg();
         if !model_dir.trim().is_empty() {
