@@ -37,6 +37,7 @@ jobs:
   # Build matrix: one job per target platform
   build:
     name: Build ${{ matrix.target }}
+    if: github.actor != 'dependabot[bot]'
     runs-on: ${{ matrix.runs-on }}
     timeout-minutes: 25
     strategy:
@@ -131,6 +132,7 @@ jobs:
   # Test job: runs on Linux to verify the build works
   test:
     name: Tests (vantadb-node)
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: build

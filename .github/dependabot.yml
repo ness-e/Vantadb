@@ -211,5 +211,12 @@ updates:
     labels:
       - "dependencies"
       - "ci"
+    # Cobertura total modo SOLO-ALERTAS (decision owner 2026-10-20): un PR de
+    # Dependabot sobre .github/workflows/** dispara 4-6 workflows (CI: Rust,
+    # GATES: Docs, CI: Fleet, HEAVY, NIGHTLY, RELEASE: NPM) y compite por
+    # runners con el trabajo real. Los bumps de actions se aplican a mano
+    # cuando interese; las alertas de seguridad siguen llegando a la pestana
+    # Security. Mismo criterio que npm/pip/providers.
+    open-pull-requests-limit: 0
 
-# (docker ecosystem entry removed 2026-10-02 — docker support eliminated repo-wide)
+# (docker ecosystem entry removed 2026-10-02 - docker support eliminated repo-wide)

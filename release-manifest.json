@@ -1,5 +1,5 @@
 {
-  "_comment": "Single source of truth for post-release verification (FIND-342). scripts/verify-release.ps1 renders its expected asset/registry list from this file — never hardcode those lists anywhere else. Bump version/tag with each core release; entries that ride other tag namespaces (adapters-v*, providers-v*, node-v*) carry documented_only status instead of a core version.",
+  "_comment": "Single source of truth for post-release verification (FIND-342). scripts/verify-release.ps1 renders its expected asset/registry list from this file — never hardcode those lists anywhere else. Bump version/tag with each core release. The adapters, providers and vantadb-node ride the core release too (commit 3234edb3: the fan-out publishes them with the core tag and sync-workspace-version.mjs keeps their version aligned with the workspace), so they are verified here as well. documented_only is for artifacts that are NOT published by the core release.",
   "version": "0.9.0",
   "tag": "v0.9.0",
   "github": {
@@ -25,21 +25,20 @@
     { "label": "crates.io vantadb", "url_template": "https://crates.io/api/v1/crates/vantadb/{version}" },
     { "label": "PyPI vantadb-py", "url_template": "https://pypi.org/pypi/vantadb-py/{version}/json" },
     { "label": "npm vantadb", "url_template": "https://registry.npmjs.org/vantadb/{version}" },
-    { "label": "npm vantadb-wasm", "url_template": "https://registry.npmjs.org/vantadb-wasm/{version}" }
+    { "label": "npm vantadb-wasm", "url_template": "https://registry.npmjs.org/vantadb-wasm/{version}" },
+    { "label": "PyPI vantadb-langchain", "url_template": "https://pypi.org/pypi/vantadb-langchain/{version}/json" },
+    { "label": "PyPI vantadb-llamaindex", "url_template": "https://pypi.org/pypi/vantadb-llamaindex/{version}/json" },
+    { "label": "PyPI vantadb-mem0", "url_template": "https://pypi.org/pypi/vantadb-mem0/{version}/json" },
+    { "label": "PyPI vantadb-crewai", "url_template": "https://pypi.org/pypi/vantadb-crewai/{version}/json" },
+    { "label": "PyPI vantadb-dspy", "url_template": "https://pypi.org/pypi/vantadb-dspy/{version}/json" },
+    { "label": "PyPI vantadb-haystack", "url_template": "https://pypi.org/pypi/vantadb-haystack/{version}/json" },
+    { "label": "PyPI vantadb-letta", "url_template": "https://pypi.org/pypi/vantadb-letta/{version}/json" },
+    { "label": "PyPI vantadb-litellm", "url_template": "https://pypi.org/pypi/vantadb-litellm/{version}/json" },
+    { "label": "PyPI vantadb-ollama", "url_template": "https://pypi.org/pypi/vantadb-ollama/{version}/json" },
+    { "label": "PyPI vantadb-openai", "url_template": "https://pypi.org/pypi/vantadb-openai/{version}/json" },
+    { "label": "npm vantadb-node", "url_template": "https://registry.npmjs.org/vantadb-node/{version}" }
   ],
   "documented_only": [
-    {
-      "label": "PyPI adapters (7)",
-      "reason": "versioned by adapters-v* tags (own namespace); not gated on the core version — see PUBLISH.md Adapters"
-    },
-    {
-      "label": "PyPI providers (3)",
-      "reason": "versioned by providers-v* tags (own namespace); not gated on the core version — see PUBLISH.md Providers"
-    },
-    {
-      "label": "npm vantadb-node",
-      "reason": "never published (registry 404); version gated by scripts/docs/check-npm-versions.mjs never-published policy — see PUBLISH.md"
-    },
     {
       "label": "crates.io vanta-memory",
       "reason": "on hold in release-plz.toml (DIST-01); excluded from the check"

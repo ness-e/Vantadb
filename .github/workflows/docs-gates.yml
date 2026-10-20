@@ -69,7 +69,7 @@ permissions:
 
 jobs:
   lint-markdown:
-    if: github.event_name != 'schedule'
+    if: github.actor != 'dependabot[bot]' && (github.event_name != 'schedule')
 
     name: Lint Markdown
     runs-on: ubuntu-latest
@@ -82,7 +82,7 @@ jobs:
       - name: Lint Markdown
         run: npx markdownlint-cli2 "docs/**/*.md"
   check-format:
-    if: github.event_name != 'schedule'
+    if: github.actor != 'dependabot[bot]' && (github.event_name != 'schedule')
 
     name: Check Frontmatter
     runs-on: ubuntu-latest
@@ -107,7 +107,7 @@ jobs:
           if [ "$PASS" != "true" ]; then exit 1; fi
           echo "All documents have valid frontmatter."
   check-api-version:
-    if: github.event_name != 'schedule'
+    if: github.actor != 'dependabot[bot]' && (github.event_name != 'schedule')
 
     name: Check API Docs Version
     runs-on: ubuntu-latest
@@ -146,7 +146,7 @@ jobs:
   # published version, so release-npm-61 skipped the publish in a green run
   # (run 37045932895). Pure string comparison, no network, no build.
   check-npm-versions:
-    if: github.event_name != 'schedule'
+    if: github.actor != 'dependabot[bot]' && (github.event_name != 'schedule')
 
     name: Check npm package versions match workspace
     runs-on: ubuntu-latest
@@ -165,7 +165,7 @@ jobs:
         run: node scripts/docs/check-npm-versions.mjs --json
         continue-on-error: true # CATEGORY: INFORMATIONAL - extra detail for a red build; the gate step already failed
   check-frontier:
-    if: github.event_name != 'schedule'
+    if: github.actor != 'dependabot[bot]' && (github.event_name != 'schedule')
 
     name: Check Product Frontier
     runs-on: ubuntu-latest
@@ -178,6 +178,7 @@ jobs:
         run: pwsh -NoProfile -File scripts/validate-frontier.ps1
   docs-links:
     name: Internal links resolve
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -194,6 +195,7 @@ jobs:
         run: node scripts/docs/check-links.mjs
   docs-schema:
     name: Frontmatter schema, kind agreement, orphans
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -208,6 +210,7 @@ jobs:
         run: node scripts/docs/check-docs.mjs --fix-hints
   docs-index:
     name: Generated indexes are current
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -219,6 +222,7 @@ jobs:
         run: node scripts/docs/gen-index.mjs --check
   docs-structure:
     name: No section has lost its body
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -255,6 +259,7 @@ jobs:
         run: node scripts/docs/attribute-structure.mjs
   docs-lint-regression:
     name: Markdownlint does not regress
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 6
     steps:
@@ -289,7 +294,7 @@ jobs:
         run: npx markdownlint-cli2 "**/*.md" 2>&1 | tail -40
         continue-on-error: true # CATEGORY: INFORMATIONAL - advisory sweep across the whole repo, not the docs gate
   api-docs:
-    if: github.event_name != 'schedule'
+    if: github.actor != 'dependabot[bot]' && (github.event_name != 'schedule')
 
     name: Public API surface moves only with documentation
     runs-on: ubuntu-latest
@@ -370,7 +375,7 @@ jobs:
         run: node scripts/docs/check-api-docs.mjs --changed "${{ steps.base.outputs.sha }}..HEAD" --json
         continue-on-error: true # CATEGORY: INFORMATIONAL - extra detail for a red build; the gate step already failed
   doc-examples:
-    if: github.event_name != 'schedule'
+    if: github.actor != 'dependabot[bot]' && (github.event_name != 'schedule')
 
     name: Python examples match the real SDK
     runs-on: ubuntu-latest
@@ -438,7 +443,7 @@ jobs:
   # En pydoclint 0.11 `--check-style` se renombró a `--style` (el comando del
   # plan docs-consolidation quedó viejo); versión pinneada para reproducibilidad.
   python-docstrings:
-    if: github.event_name != 'schedule'
+    if: github.actor != 'dependabot[bot]' && (github.event_name != 'schedule')
 
     name: Python docstrings match signatures (pydoclint)
     runs-on: ubuntu-latest
@@ -453,7 +458,7 @@ jobs:
       - name: Docstrings must match signatures (numpy style)
         run: pydoclint --style=numpy vantadb-python/vantadb_py vantadb-python/vantadb
   docs-secrets:
-    if: github.event_name != 'schedule'
+    if: github.actor != 'dependabot[bot]' && (github.event_name != 'schedule')
 
     name: No credential in published docs
     runs-on: ubuntu-latest
@@ -468,7 +473,7 @@ jobs:
       - name: Scan prose for credential shapes
         run: node scripts/docs/check-secrets.mjs
   docs-secrets-json:
-    if: github.event_name != 'schedule'
+    if: github.actor != 'dependabot[bot]' && (github.event_name != 'schedule')
 
     name: Machine-readable report
     runs-on: ubuntu-latest
@@ -484,7 +489,7 @@ jobs:
       - name: Emit the JSON report
         run: node scripts/docs/check-secrets.mjs --json
   rustdoc:
-    if: github.event_name != 'schedule'
+    if: github.actor != 'dependabot[bot]' && (github.event_name != 'schedule')
 
     name: Generate API reference (rustdoc)
     runs-on: ubuntu-latest
@@ -551,7 +556,7 @@ jobs:
   # ubuntu-latest (medición local en Windows): un fallo platform-specific
   # es finding real, no ruido.
   doctests:
-    if: github.event_name != 'schedule'
+    if: github.actor != 'dependabot[bot]' && (github.event_name != 'schedule')
 
     name: Doc-tests (RUSTDOCFLAGS=-D warnings)
     runs-on: ubuntu-latest
@@ -580,6 +585,7 @@ jobs:
 
   actionlint:
     name: actionlint (workflows lint + inventory gate)
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:

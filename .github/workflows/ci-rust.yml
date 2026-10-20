@@ -49,6 +49,7 @@ permissions:
 jobs:
   fmt:
     name: Format Check
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     concurrency:
@@ -69,6 +70,7 @@ jobs:
 
   clippy:
     name: Clippy Lints
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     concurrency:
@@ -105,7 +107,7 @@ jobs:
     # docs/api/COMPATIBILITY.md. Companion snapshot job: public-api-snapshot.
     name: Semver Checks (public API)
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || github.base_ref == 'main'
+    if: github.actor != 'dependabot[bot]' && (github.ref == 'refs/heads/main' || github.base_ref == 'main')
     timeout-minutes: 30
     concurrency:
       group: semver-${{ github.ref }}
@@ -143,7 +145,7 @@ jobs:
     # docs/api/COMPATIBILITY.md.
     name: Public API Snapshot
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || github.base_ref == 'main'
+    if: github.actor != 'dependabot[bot]' && (github.ref == 'refs/heads/main' || github.base_ref == 'main')
     timeout-minutes: 45
     concurrency:
       group: public-api-${{ github.ref }}
@@ -173,7 +175,7 @@ jobs:
     name: ADR Gate (public API)
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    if: github.event_name == 'pull_request'
+    if: github.actor != 'dependabot[bot]' && (github.event_name == 'pull_request')
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -230,6 +232,7 @@ jobs:
 
   test:
     name: Tests (Linux)
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: [fmt, clippy]
@@ -261,6 +264,7 @@ jobs:
 
   test-windows:
     name: Tests (Windows)
+    if: github.actor != 'dependabot[bot]'
     runs-on: windows-latest
     timeout-minutes: 60
     needs: [fmt, clippy]
@@ -297,6 +301,7 @@ jobs:
 
   test-macos:
     name: Tests (macOS)
+    if: github.actor != 'dependabot[bot]'
     runs-on: macos-latest
     timeout-minutes: 30
     needs: [fmt, clippy]
@@ -330,6 +335,7 @@ jobs:
 
   msrv:
     name: MSRV Check (1.94.1)
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -346,6 +352,7 @@ jobs:
 
   minimal-versions:
     name: Minimal Versions Check (-Zminimal-versions)
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     # CATEGORY: EXPERIMENTAL — nightly-only -Zminimal-versions is unstable.
@@ -365,6 +372,7 @@ jobs:
 
   coverage:
     name: Code Coverage (cargo-llvm-cov)
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: [fmt, clippy]
@@ -444,7 +452,7 @@ jobs:
     # CATEGORY: BEST-EFFORT — WASM is Tier 3 Experimental.
     # Browser tests require wasm-pack + Chrome. Failures are non-blocking.
     continue-on-error: true
-    if: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && contains(github.event.head_commit.modified, 'vantadb-wasm/')) }}
+    if: github.actor != 'dependabot[bot]' && (github.event_name == 'pull_request' || (github.event_name == 'push' && contains(github.event.head_commit.modified, 'vantadb-wasm/')))
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -460,6 +468,7 @@ jobs:
 
   experimental-check:
     name: Experimental Crates Check
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     # CATEGORY: EXPERIMENTAL — server, MCP, WASM, and adapter crates. These
@@ -498,6 +507,7 @@ jobs:
     # (release-binaries) defaults to `-D warnings`; dtolnay/rust-toolchain (used
     # by ./rust-setup) does not — hence the explicit env.
     name: Release Combo (server + allocator, -D warnings)
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: [fmt, clippy]
@@ -519,6 +529,7 @@ jobs:
 
   audit:
     name: Security Audit
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -547,6 +558,7 @@ jobs:
     # desktop/fuzz/providers/node locks). Pinned v2.6.0 via go install;
     # runner Go auto-switches toolchain via GOTOOLCHAIN.
     name: OSV-Scanner
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -569,6 +581,7 @@ jobs:
     # (build.rs usage + #[path] shared harness); this gate fails on any NEW
     # unjustified unused dep. Pinned 0.9.2, --locked for reproducibility.
     name: Unused Deps (cargo-machete)
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -588,6 +601,7 @@ jobs:
 
   miri:
     name: Miri (UB Detection)
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     needs: [fmt, clippy]
@@ -642,6 +656,7 @@ jobs:
 
   deny:
     name: Dependency Policy Check
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -663,6 +678,7 @@ jobs:
 
   sanitizer-asan:
     name: ASan (AddressSanitizer)
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     # CI closure (2026-10-06/07): 45 -> 75 min. FIND-244 (fixed) unblocked the
     # suite; it then progressed into the Heavy Certification set under ASan
@@ -757,6 +773,7 @@ jobs:
 
   sanitizer-tsan:
     name: TSan (ThreadSanitizer)
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     needs: [fmt, clippy]

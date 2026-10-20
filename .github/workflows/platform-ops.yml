@@ -78,7 +78,7 @@ jobs:
       group: opencode-${{ github.event.comment.id }}
       cancel-in-progress: false
 
-    if: (github.event_name == 'issue_comment' || github.event_name == 'pull_request_review_comment') && (contains(github.event.comment.body, ' /oc') || startsWith(github.event.comment.body, '/oc') || contains(github.event.comment.body, ' /opencode') || startsWith(github.event.comment.body, '/opencode'))
+    if: github.actor != 'dependabot[bot]' && ((github.event_name == 'issue_comment' || github.event_name == 'pull_request_review_comment') && (contains(github.event.comment.body, ' /oc') || startsWith(github.event.comment.body, '/oc') || contains(github.event.comment.body, ' /opencode') || startsWith(github.event.comment.body, '/opencode')))
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -182,7 +182,7 @@ jobs:
     # Delegation is the default: without a key this job is skipped (green) —
     # `secrets` is not allowed in job `if:`, so the check lives in `check-key`.
     needs: [check-key]
-    if: needs.check-key.outputs.has_key == 'true'
+    if: github.actor != 'dependabot[bot]' && (needs.check-key.outputs.has_key == 'true')
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
