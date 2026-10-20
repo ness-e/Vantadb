@@ -533,3 +533,31 @@ tags: [vantadb, avance, ops, api, docs, backup, enterprise]
   (37 paths = 37), check-links (0 rotos), check-doc-examples (OK), gen-index --check (al día).
   43 citas `archivo:línea` verificadas contra el símbolo correcto (0 mismatch).
   PR: `docs/docs-tree-and-skills` (#270).
+### D-02: el tipo público de configuración es `Config`, no `VantaConfig`
+- **Fecha:** 2026-10-20
+- **Resultado:** ✅ `src/lib.rs:177` exporta `config::{Config, ...}`; el tipo `VantaConfig` no
+  existe en `src/` (0 ocurrencias) y la referencia normativa de configuración lo usaba en 21
+  sitios, incluidos snippets Rust que no compilaban. `docs/user/operations/CONFIGURATION.md`
+  usa ahora `Config` en todo el documento. Hallazgo de la auditoría profunda v0.9.0 (P1).
+### D-10: `max_blocking_threads` = 2 × `available_parallelism()` (16 es el fallback)
+- **Fecha:** 2026-10-20
+- **Resultado:** ✅ El default documentado era `16`; el real es
+  `available_parallelism().map(|n| n.get() * 2).unwrap_or(16)` (`src/config.rs:1073-1075`).
+  Corregido en `docs/user/operations/CONFIGURATION.md`. Hallazgo de la auditoría profunda
+  v0.9.0 (P1).
+### D-11: `wal_buffer_size` = `None` (no 65536)
+- **Fecha:** 2026-10-20
+- **Resultado:** ✅ El default real es `None` (`src/config.rs:347`); la fila del doc se
+  contradecía a sí misma (la descripción ya decía "`None` = OS default") y el ejemplo JSON
+  traía `65536`. Ambos corregidos en `docs/user/operations/CONFIGURATION.md`. Hallazgo de la
+  auditoría profunda v0.9.0 (P1).
+### D-15: 6 env vars leídas por el código y ausentes de las tablas de configuración
+- **Fecha:** 2026-10-20
+- **Resultado:** ✅ `VANTADB_QUIET` y `VANTADB_SILENT` (`src/hardware/mod.rs`),
+  `VANTADB_PROFILE_PATH` (`src/hardware/mod.rs`, con su cadena de resolución),
+  `VANTADB_SYNC_MODE` (`src/cli_handlers/config.rs`, default `periodic`, leída por la capa
+  `vanta config` y no por `Config::from_env()`), `VANTADB_SCHEDULER_INTERVAL_MS` (default 60 s,
+  `0` desactiva, `vantadb-server/src/scheduler.rs`) y `VANTADB_INGEST_CONFIG` (default
+  `<storage_path>/data/vanta-ingest.toml`, `vantadb-server/src/scheduler.rs`) documentadas en
+  la tabla de runtime de `docs/user/operations/CONFIGURATION.md`. Hallazgo de la auditoría
+  profunda v0.9.0 (P1).
