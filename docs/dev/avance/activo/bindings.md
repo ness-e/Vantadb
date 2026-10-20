@@ -1370,3 +1370,19 @@ everse/created_at_ms (#[serde(default)], back-compat). Contrato: test bindgen wa
   en el espejo. Espejo verificado con SHA-256 sobre 25 ficheros: 0 drift. Los cambios del espejo
   `.opencode/skills/**` se commitearon en `ness-e/configOpencode` (repo aparte).
   PR: `docs/docs-tree-and-skills` (#270).
+
+### FIND-412: `exclude_superseded` se honra en Node/TS (antes solo en WASM)
+- **Fecha:** 2026-10-20
+- **Resultado:** ✅ El flag se aceptaba en la superficie de tipos pero la ruta nativa lo
+  descartaba en silencio: `parse_list_options` y `parse_search_request` de
+  `vantadb-node/src/lib.rs` hardcodeaban `false`, y el wrapper TS de `vantadb-ts` no lo
+  propagaba. Ahora se lee del wire con el helper `get_opt_bool` ya existente (ausente/`null` =>
+  `false`, no-booleano => error), con la misma semántica que el `#[serde(default)]` de WASM y el
+  `TypeError` de Python; default `false` en los tres bindings. Superficie de tipos: `ListOptions`
+  en `vantadb-ts/src/types.ts` y `MemoryListOptions` + `SearchRequest` en el contrato público del
+  paquete node. Tests RED→GREEN contra el motor nativo real (`vantadb-node/tests/find412.test.ts`
+  y `vantadb-ts/src/__tests__/find412.test.ts`, con el backend WASM como referencia de
+  semántica). Suites: node 70/70, TS 359/359, `cargo fmt --check` y `clippy -D warnings` limpios
+  en el rango tocado. Hallazgo nuevo: la superficie WASM sigue sin declarar
+  `exclude_superseded` en `ListOptionsInput` y sin emitir `superseded_by` (`FIND-482`,
+  `FIND-483`).
