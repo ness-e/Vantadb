@@ -139,7 +139,7 @@ tags: [audit, reviews, docs, subagent]
 
 ### D-12 | P1 | version-pin / api-reference
 - **Location:** `docs/api/MCP.md:21`
-- **Claim/Break:** "- The VantaDB CLI (`vanta-cli` — **0.5.0**) installed and on PATH - see [Embedded CLI](../../README.md#embedded-cli) for one-line installers."
+- **Claim/Break:** "- The VantaDB CLI (`vanta-cli` — **0.5.0**) installed and on PATH - see [Embedded CLI](../../../README.md#embedded-cli) for one-line installers."
 - **Reality:** `Cargo.toml:4` — `version = "0.9.0"`. `docs/api/MCP.md:8` — "Current MCP implementation version: 0.9.0".
 - **Why it matters:** A hard prerequisite pinned to a version four releases old, in the "Getting Started → Requirements" list of the MCP reference. A user on 0.5.0 following the doc gets an MCP server whose `tools/list` surface predates WIRE-02, API-04 and the `code_*`/`wiki_*`/`skill_*` families the rest of the document describes.
 - **Fix:** → "(`vanta-cli` — **0.9.0**)" or "≥ 0.9.0".
