@@ -552,6 +552,10 @@ impl CPIndex {
             ivf_built_at_node_count: AtomicUsize::new(node_count as usize),
             scann_index: parking_lot::Mutex::new(None),
             scann_built_at_node_count: AtomicUsize::new(node_count as usize),
+            // FIND-411 (R4): the dimension of a restored index is derived
+            // from the deserialized node set on the first
+            // `vector_dimension()` call (0 = not established yet).
+            vector_dim: AtomicUsize::new(0),
         })
     }
 }
@@ -629,6 +633,7 @@ mod tests {
             ivf_built_at_node_count: AtomicUsize::new(0),
             scann_index: parking_lot::Mutex::new(None),
             scann_built_at_node_count: AtomicUsize::new(0),
+            vector_dim: AtomicUsize::new(0),
         };
         let bytes = index.serialize_to_bytes();
         let deser = CPIndex::deserialize_from_bytes(&bytes, true).unwrap();
@@ -671,6 +676,7 @@ mod tests {
             ivf_built_at_node_count: AtomicUsize::new(0),
             scann_index: parking_lot::Mutex::new(None),
             scann_built_at_node_count: AtomicUsize::new(0),
+            vector_dim: AtomicUsize::new(0),
         };
         let bytes = index.serialize_to_bytes();
         let deser = CPIndex::deserialize_from_bytes(&bytes, true).unwrap();
@@ -716,6 +722,7 @@ mod tests {
             ivf_built_at_node_count: AtomicUsize::new(0),
             scann_index: parking_lot::Mutex::new(None),
             scann_built_at_node_count: AtomicUsize::new(0),
+            vector_dim: AtomicUsize::new(0),
         };
         let bytes = index.serialize_to_bytes();
         let deser = CPIndex::deserialize_from_bytes(&bytes, true).unwrap();
@@ -761,6 +768,7 @@ mod tests {
             ivf_built_at_node_count: AtomicUsize::new(0),
             scann_index: parking_lot::Mutex::new(None),
             scann_built_at_node_count: AtomicUsize::new(0),
+            vector_dim: AtomicUsize::new(0),
         };
         let bytes = index.serialize_to_bytes();
         let deser = CPIndex::deserialize_from_bytes(&bytes, true).unwrap();
@@ -853,6 +861,7 @@ mod tests {
             ivf_built_at_node_count: AtomicUsize::new(0),
             scann_index: parking_lot::Mutex::new(None),
             scann_built_at_node_count: AtomicUsize::new(0),
+            vector_dim: AtomicUsize::new(0),
         };
         let data = index.serialize_to_bytes();
         let deser = CPIndex::deserialize_from_bytes(&data, true).unwrap();
@@ -957,6 +966,7 @@ mod tests {
             ivf_built_at_node_count: AtomicUsize::new(0),
             scann_index: parking_lot::Mutex::new(None),
             scann_built_at_node_count: AtomicUsize::new(0),
+            vector_dim: AtomicUsize::new(0),
         };
         let err = index
             .serialize_to_writer(&mut std::io::Cursor::new(Vec::new()))
@@ -1106,6 +1116,7 @@ mod tests {
             ivf_built_at_node_count: AtomicUsize::new(0),
             scann_index: parking_lot::Mutex::new(None),
             scann_built_at_node_count: AtomicUsize::new(0),
+            vector_dim: AtomicUsize::new(0),
         };
         let bytes = index.serialize_to_bytes();
         let deser = CPIndex::deserialize_from_bytes(&bytes, true).unwrap();
@@ -1150,6 +1161,7 @@ mod tests {
             ivf_built_at_node_count: AtomicUsize::new(0),
             scann_index: parking_lot::Mutex::new(None),
             scann_built_at_node_count: AtomicUsize::new(0),
+            vector_dim: AtomicUsize::new(0),
         };
         let bytes = index.serialize_to_bytes();
         let deser = CPIndex::deserialize_from_bytes(&bytes, true).unwrap();
@@ -1197,6 +1209,7 @@ mod tests {
             ivf_built_at_node_count: AtomicUsize::new(0),
             scann_index: parking_lot::Mutex::new(None),
             scann_built_at_node_count: AtomicUsize::new(0),
+            vector_dim: AtomicUsize::new(0),
         };
         let bytes = index.serialize_to_bytes();
         let deser = CPIndex::deserialize_from_bytes(&bytes, true).unwrap();
@@ -1244,6 +1257,7 @@ mod tests {
             ivf_built_at_node_count: AtomicUsize::new(0),
             scann_index: parking_lot::Mutex::new(None),
             scann_built_at_node_count: AtomicUsize::new(0),
+            vector_dim: AtomicUsize::new(0),
         };
         let bytes = index.serialize_to_bytes();
         let deser = CPIndex::deserialize_from_bytes(&bytes, true).unwrap();

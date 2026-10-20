@@ -169,14 +169,18 @@ pub fn calculate_similarity(
             if let Some(q1) = quantized_query_1bit {
                 rabitq_similarity(q1, b)
             } else {
-                0.0
+                // FIND-411: without a quantized query the candidate is not
+                // comparable — `0.0` is the BEST possible Euclidean score
+                // and would rank it first (the sentinel the index drops).
+                super::kernels::DIMENSION_MISMATCH_SCORE
             }
         }
         VectorRepresentations::Turbo(t) => {
             if let Some((q3, max_abs)) = quantized_query_3bit {
                 turbo_quant_similarity(q3, max_abs, t, 1.0)
             } else {
-                0.0
+                // FIND-411: same as the Binary branch above.
+                super::kernels::DIMENSION_MISMATCH_SCORE
             }
         }
         VectorRepresentations::SQ8(data, scale) => {
@@ -678,8 +682,9 @@ mod tests {
             DistanceMetric::Cosine,
         );
         assert!(
-            sim.abs() < 1e-6,
-            "no quantized query should return 0 for Binary, got {}",
+            sim.is_nan(),
+            "FIND-411: a Binary candidate without a quantized query is not comparable — \
+             it must score NaN, not 0.0 (the best possible Euclidean score), got {}",
             sim
         );
     }
@@ -718,8 +723,9 @@ mod tests {
             DistanceMetric::Cosine,
         );
         assert!(
-            sim.abs() < 1e-6,
-            "no quantized query should return 0 for Turbo, got {}",
+            sim.is_nan(),
+            "FIND-411: a Turbo candidate without a quantized query is not comparable — \
+             it must score NaN, not 0.0 (the best possible Euclidean score), got {}",
             sim
         );
     }

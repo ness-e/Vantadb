@@ -9,6 +9,7 @@
 //! Forgy initialization. No PQ/quantization — IVFFlat only.
 
 use crate::index::distance::f32_slice_similarity;
+use crate::index::graph::total_cmp_sim;
 use crate::node::{DistanceMetric, FilterBitset, VectorRepresentations};
 use rand::seq::SliceRandom;
 use rand::SeedableRng;
@@ -64,24 +65,81 @@ fn node_to_f32_slice(vector: &VectorRepresentations) -> Option<Vec<f32>> {
     vector.as_f32_slice().map(|s| s.to_vec())
 }
 
+/// The most frequent dimension among the entries (`None` when there are none).
+///
+/// Ties are broken by the smallest dimension so the result never depends on
+/// the iteration order of the node map (a DashMap order is not stable).
+fn most_frequent_dimension(entries: &[(u128, FilterBitset, Vec<f32>)]) -> Option<usize> {
+    let mut counts: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
+    for (_, _, vector) in entries {
+        *counts.entry(vector.len()).or_insert(0) += 1;
+    }
+    counts
+        .into_iter()
+        .max_by(|(dim_a, count_a), (dim_b, count_b)| {
+            count_a.cmp(count_b).then_with(|| dim_b.cmp(dim_a))
+        })
+        .map(|(dim, _)| dim)
+}
+
 impl IvfIndex {
     /// Build an IVF index from the nodes in a DashMap.
     ///
-    /// Runs k-means (Forgy init + Lloyd iteration, max 20 iterations,
-    /// convergence at centroid movement < 1e-4) then populates the
-    /// inverted lists.
+    /// The dimension of the index is the most frequent one among the
+    /// entries; entries of a different dimension are dropped.
     pub fn build(
         nodes: &dashmap::DashMap<u128, crate::index::graph::HnswNode>,
         config: &IvfConfig,
+    ) -> Self {
+        Self::build_with_dimension(nodes, config, None)
+    }
+
+    /// Build an IVF index over the entries whose dimension matches
+    /// `dimension` (`None` → the most frequent dimension among the entries).
+    ///
+    /// FIND-411 (R3): a mixed-dimension index used to **panic** while
+    /// accumulating the centroids (`new_centroids[c][d] += val` with
+    /// `d >= dim` → index out of bounds). Entries whose dimension differs
+    /// from the index dimension are dropped instead.
+    pub fn build_with_dimension(
+        nodes: &dashmap::DashMap<u128, crate::index::graph::HnswNode>,
+        config: &IvfConfig,
+        dimension: Option<usize>,
     ) -> Self {
         // Collect all valid vectors
         let mut entries: Vec<(u128, FilterBitset, Vec<f32>)> = Vec::new();
         for r in nodes.iter() {
             let node = r.value();
             if let Some(v) = node_to_f32_slice(&node.vec_data) {
+                // A vector with no components is not a candidate for any
+                // metric — it would also pin the index dimension to 0.
+                if v.is_empty() {
+                    continue;
+                }
                 entries.push((node.id, node.bitset.clone(), v));
             }
         }
+
+        // The dimension of the index: the canonical one when the caller
+        // knows it (the index is the authority for it), else the most
+        // frequent one among the entries.
+        let dim = match dimension {
+            Some(dim) => dim,
+            None => match most_frequent_dimension(&entries) {
+                Some(dim) => dim,
+                None => {
+                    return Self {
+                        centroids: Vec::new(),
+                        inverted_lists: Vec::new(),
+                        config: config.clone(),
+                    };
+                }
+            },
+        };
+        // Drop the entries of a different dimension: the centroids hold
+        // `dim` components and the accumulation below indexes them with the
+        // entry's own dimension.
+        entries.retain(|(_, _, v)| v.len() == dim);
 
         let n = entries.len();
         if n == 0 {
@@ -92,7 +150,6 @@ impl IvfIndex {
             };
         }
 
-        let dim = entries[0].2.len();
         // Clamp nlist to [1, n]
         let nlist = config.nlist.clamp(1, n);
 
@@ -140,7 +197,8 @@ impl IvfIndex {
                 let c = assignments[i];
                 counts[c] += 1;
                 for (d, &val) in vec.iter().enumerate() {
-                    // SAFETY: `d` is bounded by `dim` which matches the centroids.
+                    // The entries were filtered to the index dimension, so
+                    // `d < dim` holds and the centroid has the slot.
                     new_centroids[c][d] += val;
                 }
             }
@@ -239,9 +297,11 @@ impl IvfIndex {
             })
             .collect();
 
-        // Sort by descending similarity
-        centroid_scores
-            .sort_unstable_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        // Sort by descending similarity. FIND-411 (R3): the comparison is
+        // NaN-aware — a centroid whose dimension differs from the query
+        // scores NaN and must not be treated as "equal to everything"
+        // (the old `partial_cmp(..).unwrap_or(Equal)` left it in place).
+        centroid_scores.sort_unstable_by(|a, b| total_cmp_sim(b.1, a.1));
         centroid_scores.truncate(nprobe);
 
         // Scan all entries in the selected inverted lists
@@ -257,8 +317,19 @@ impl IvfIndex {
             }
         }
 
+        // FIND-411 (R3): a candidate whose dimension differs from the query
+        // scores NaN ("not comparable") — drop it instead of letting it
+        // survive the truncation, and apply the same distance-scale
+        // conversion the flat path applies (`finalize_flat_results`) so the
+        // three backends return the same score for the same candidate.
+        results.retain(|(_, score)| !score.is_nan());
+        if metric == DistanceMetric::Euclidean {
+            for entry in results.iter_mut() {
+                entry.1 = crate::index::euclidean_score_from_similarity(entry.1);
+            }
+        }
         // Sort by descending similarity and truncate
-        results.sort_unstable_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        results.sort_unstable_by(|a, b| total_cmp_sim(b.1, a.1));
         results.truncate(top_k);
         results
     }
@@ -991,6 +1062,141 @@ mod tests {
         assert_eq!(results.len(), 10);
         // Top-1 should be near (1,0) which is id=0
         assert_eq!(results[0].0, 0, "closest node to (1,0) should be id=0");
+    }
+
+    // ── FIND-411 (R3): dimension mismatch + score scale ─────────────
+
+    /// An index holding a 3d node (id 1) and a 5d node (id 2).
+    fn mixed_dimension_nodes() -> DashMap<u128, HnswNode> {
+        let nodes = DashMap::new();
+        for (id, vector) in [
+            (1u128, vec![0.0, 1.0, 0.0]),
+            (2u128, vec![1.0, 0.0, 0.0, 0.0, 0.0]),
+        ] {
+            nodes.insert(
+                id,
+                HnswNode {
+                    id,
+                    bitset: FilterBitset::new(),
+                    vec_data: VectorRepresentations::Full(vector),
+                    storage_offset: 0,
+                    inv_cached_norm: 0.0,
+                    norm_sq: 0.0,
+                    flags: 0,
+                    neighbor_lists: Vec::new(),
+                },
+            );
+        }
+        nodes
+    }
+
+    /// FIND-411 (R3.2): a mixed-dimension index used to **panic** while
+    /// accumulating the centroids (`new_centroids[c][d] += val` with
+    /// `d >= dim` → index out of bounds). The entries of another dimension
+    /// are dropped instead.
+    #[test]
+    fn test_ivf_build_drops_the_entries_of_another_dimension() {
+        let nodes = mixed_dimension_nodes();
+        let ivf = IvfIndex::build(
+            &nodes,
+            &IvfConfig {
+                nlist: 2,
+                nprobe: 2,
+                distance_metric: DistanceMetric::Cosine,
+            },
+        );
+
+        let total: usize = ivf.inverted_lists.iter().map(|l| l.len()).sum();
+        assert_eq!(total, 1, "only the entries of the index dimension are kept");
+        for list in &ivf.inverted_lists {
+            for entry in list {
+                assert_eq!(
+                    entry.vector.len(),
+                    3,
+                    "every entry of the IVF must share the index dimension"
+                );
+            }
+        }
+    }
+
+    /// FIND-411 (R3.1): a candidate whose dimension differs from the query
+    /// scores `NaN` — the IVF must drop it instead of letting it survive the
+    /// truncation and reach the caller with a `NaN` score.
+    #[test]
+    fn test_ivf_search_drops_the_dimension_mismatched_candidate() {
+        let nodes = mixed_dimension_nodes();
+        let ivf = IvfIndex::build(
+            &nodes,
+            &IvfConfig {
+                nlist: 1,
+                nprobe: 1,
+                distance_metric: DistanceMetric::Euclidean,
+            },
+        );
+
+        let results = ivf.search(&[1.0, 0.0, 0.0], 5, &FilterBitset::all_set());
+        for &(_, score) in &results {
+            assert!(
+                !score.is_nan(),
+                "the IVF must never return a NaN score to the caller"
+            );
+        }
+        assert!(
+            results.iter().all(|&(id, _)| id == 1),
+            "the 5d node is not a candidate for a 3d query"
+        );
+    }
+
+    /// FIND-411 (R3.3): the IVF must return the same **score scale** as the
+    /// flat scan and the HNSW traversal — a negative distance, not a negative
+    /// squared distance.
+    #[test]
+    fn test_ivf_euclidean_score_uses_the_distance_scale() {
+        let nodes = make_nodes(10);
+        let ivf = IvfIndex::build(
+            &nodes,
+            &IvfConfig {
+                nlist: 2,
+                nprobe: 2,
+                distance_metric: DistanceMetric::Euclidean,
+            },
+        );
+
+        let query = vec![1.0, 0.0];
+        let results = ivf.search(&query, 5, &FilterBitset::all_set());
+        assert!(!results.is_empty());
+
+        // The flat scan over the same corpus, same metric.
+        let mut flat: Vec<(u128, f32)> = nodes
+            .iter()
+            .map(|r| {
+                let node = r.value();
+                let sim = crate::index::distance::f32_slice_similarity(
+                    &query,
+                    None,
+                    node.vec_data.as_f32_slice().expect("full vector"),
+                    DistanceMetric::Euclidean,
+                );
+                (node.id, sim)
+            })
+            .collect();
+        flat.retain(|(_, score)| !score.is_nan());
+        for entry in flat.iter_mut() {
+            entry.1 = crate::index::euclidean_score_from_similarity(entry.1);
+        }
+        flat.sort_unstable_by(|a, b| total_cmp_sim(b.1, a.1));
+        flat.truncate(5);
+
+        assert_eq!(results.len(), flat.len());
+        for (ivf_res, flat_res) in results.iter().zip(flat.iter()) {
+            assert!(
+                (ivf_res.1 - flat_res.1).abs() < 1e-5,
+                "the IVF score {} differs from the flat score {} for id={}",
+                ivf_res.1,
+                flat_res.1,
+                ivf_res.0
+            );
+        }
     }
 
     #[test]

@@ -441,6 +441,17 @@ mod flat_tests {
 mod dimension_mismatch_tests {
     use super::*;
     use crate::index::graph::{CPIndex, HnswConfig};
+    use crate::node::{DiskNodeHeader, NodeFlags};
+
+    /// Tolerance for comparing two Euclidean scores.
+    ///
+    /// FIND-411 (O2): the three index paths score a candidate with
+    /// **different** formulas — the flat scan and the HNSW traversal over the
+    /// vector store use the per-element difference kernel, the HNSW
+    /// traversal over the inline vector data uses the cached-norms identity.
+    /// They are algebraically the same distance, so they must agree within
+    /// the floating-point rounding, not bit-for-bit.
+    const SCORE_TOLERANCE: f32 = 1e-5;
 
     /// Build an index holding one 3d node (id 1) and one 5d node (id 2).
     fn mixed_dimension_index() -> CPIndex {
@@ -508,10 +519,107 @@ mod dimension_mismatch_tests {
             hnsw.iter().map(|r| r.0).collect::<Vec<_>>(),
             "the flat scan and the HNSW traversal must rank the same candidates in the same order"
         );
+        assert_eq!(flat.len(), hnsw.len());
+        for (f, h) in flat.iter().zip(hnsw.iter()) {
+            assert!(
+                (f.1 - h.1).abs() <= SCORE_TOLERANCE,
+                "the flat scan ({}) and the HNSW traversal ({}) must score the same candidate alike",
+                f.1,
+                h.1
+            );
+        }
+    }
+
+    /// Minimal in-memory `VectorStoreRef`: it serves the FULL vectors of the
+    /// index as raw f32 bytes, the way the vector file does.
+    struct TestVectorStore {
+        bytes: Vec<u8>,
+        headers: Vec<(u64, DiskNodeHeader)>,
+    }
+
+    impl crate::index_port::sealed::Sealed for TestVectorStore {}
+
+    impl crate::index_port::VectorStoreRef for TestVectorStore {
+        fn read_header(&self, offset: u64) -> Option<DiskNodeHeader> {
+            self.headers
+                .iter()
+                .find(|(off, _)| *off == offset)
+                .map(|(_, header)| *header)
+        }
+
+        fn mmap_bytes(&self) -> &[u8] {
+            &self.bytes
+        }
+    }
+
+    fn test_store(entries: &[(u128, u64, Vec<f32>)]) -> TestVectorStore {
+        let mut bytes: Vec<u8> = Vec::new();
+        let mut headers = Vec::new();
+        for (id, offset, vector) in entries {
+            let start = bytes.len();
+            for value in vector {
+                bytes.extend_from_slice(&value.to_le_bytes());
+            }
+            let mut header = DiskNodeHeader::new(*id);
+            header.vector_offset = start as u64;
+            header.vector_len = vector.len() as u32;
+            header.flags = NodeFlags::VECTOR_KIND_FULL << NodeFlags::VECTOR_KIND_SHIFT;
+            headers.push((*offset, header));
+        }
+        TestVectorStore { bytes, headers }
+    }
+
+    /// FIND-411 (O2): the HNSW traversal over the **vector store** is the
+    /// third scoring formula (`src/index/search/layer.rs`) — it must agree
+    /// with the flat scan and drop the dimension-mismatched candidate too.
+    #[test]
+    fn the_over_store_path_agrees_with_the_flat_scan() {
+        let index = CPIndex::new_with_config(HnswConfig {
+            distance_metric: DistanceMetric::Euclidean,
+            flat_threshold: None,
+            ..HnswConfig::default()
+        });
+        index
+            .add(
+                1,
+                FilterBitset::new(),
+                VectorRepresentations::Full(vec![0.0, 1.0, 0.0]),
+                0,
+            )
+            .expect("3d node");
+        index
+            .add(
+                2,
+                FilterBitset::new(),
+                VectorRepresentations::Full(vec![1.0, 0.0, 0.0, 0.0, 0.0]),
+                64,
+            )
+            .expect("5d node");
+
+        let store = test_store(&[
+            (1, 0, vec![0.0, 1.0, 0.0]),
+            (2, 64, vec![1.0, 0.0, 0.0, 0.0, 0.0]),
+        ]);
+
+        let query = vec![1.0, 0.0, 0.0];
+        let mask = FilterBitset::all_set();
+
+        let flat = flat_search(&index.nodes, &query, &mask, 5, DistanceMetric::Euclidean);
+        let over_store = index.search_nearest(&query, None, None, &mask, 5, Some(&store));
+
         assert_eq!(
-            flat.iter().map(|r| r.1).collect::<Vec<_>>(),
-            hnsw.iter().map(|r| r.1).collect::<Vec<_>>(),
-            "the flat scan and the HNSW traversal must score the same candidates alike"
+            flat.iter().map(|r| r.0).collect::<Vec<_>>(),
+            over_store.iter().map(|r| r.0).collect::<Vec<_>>(),
+            "the over-store path must rank the same candidates in the same order"
         );
+        assert_eq!(flat.len(), over_store.len());
+        for (f, o) in flat.iter().zip(over_store.iter()) {
+            assert!(
+                (f.1 - o.1).abs() <= SCORE_TOLERANCE,
+                "the flat scan ({}) and the over-store path ({}) must score the same candidate alike",
+                f.1,
+                o.1
+            );
+        }
     }
 }

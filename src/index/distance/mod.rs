@@ -12,6 +12,12 @@ mod metrics;
 pub use mapper::*;
 pub use metrics::*;
 
+/// The "not comparable" sentinel: a candidate whose dimension differs from
+/// the query scores `NaN` instead of a plausible finite value (FIND-411).
+/// Re-exported crate-wide so the alternative backends (IVF, SCANN) can use
+/// the same sentinel the dense kernels use.
+pub(crate) use kernels::DIMENSION_MISMATCH_SCORE;
+
 #[cfg(test)]
 #[allow(missing_docs)]
 mod tests {

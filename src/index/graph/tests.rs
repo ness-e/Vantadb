@@ -6,6 +6,125 @@ use crate::node::ALL_BITSET;
 use std::collections::BinaryHeap;
 use std::sync::atomic::Ordering;
 
+// ── FIND-411 (R4): the canonical vector dimension ──────────────────
+//
+// The dimension of a base is the dimension of the vectors the index holds.
+// It must NOT be derived from the entry point: a quantized entry point
+// (SQ8) carries no `f32` slice, so an entry-point-derived dimension
+// silently resolved to `None` — and the dimension validation was disabled
+// for the whole base.
+
+#[test]
+fn vector_dimension_is_established_by_the_first_vector_written() {
+    let index = CPIndex::new_with_config(HnswConfig {
+        flat_threshold: None,
+        ..HnswConfig::default()
+    });
+    assert_eq!(
+        index.vector_dimension(),
+        None,
+        "an empty index holds no vector"
+    );
+
+    index
+        .add(
+            1,
+            FilterBitset::new(),
+            VectorRepresentations::Full(vec![0.0, 1.0, 0.0]),
+            0,
+        )
+        .expect("3d node");
+    assert_eq!(index.vector_dimension(), Some(3));
+
+    // The dimension of a base never changes.
+    index
+        .add(
+            2,
+            FilterBitset::new(),
+            VectorRepresentations::Full(vec![1.0, 0.0, 0.0, 0.0]),
+            0,
+        )
+        .expect("4d node");
+    assert_eq!(index.vector_dimension(), Some(3));
+}
+
+#[test]
+fn vector_dimension_is_resolved_from_a_quantized_entry_point() {
+    let index = CPIndex::new_with_config(HnswConfig {
+        distance_metric: DistanceMetric::Euclidean,
+        flat_threshold: None,
+        ..HnswConfig::default()
+    });
+
+    // The first node becomes the entry point. It is SQ8: it carries no
+    // `f32` slice, so the old entry-point rule resolved the dimension to
+    // `None` and the validation was silently disabled for the base.
+    let sq8: Box<[i8]> = vec![64i8; 3].into_boxed_slice();
+    index
+        .add(
+            1,
+            FilterBitset::new(),
+            VectorRepresentations::SQ8(sq8, 1.0),
+            0,
+        )
+        .expect("sq8 node");
+    assert_eq!(index.get_entry_point(), Some(1));
+    assert!(
+        index
+            .nodes
+            .get(&1)
+            .expect("node")
+            .vec_data
+            .as_f32_slice()
+            .is_none(),
+        "the SQ8 node carries no f32 slice — the entry-point rule cannot resolve a dimension"
+    );
+
+    assert_eq!(
+        index.vector_dimension(),
+        Some(3),
+        "the dimension must be resolved from the vectors the index holds"
+    );
+}
+
+#[test]
+fn an_emptied_index_adopts_a_new_dimension() {
+    let index = CPIndex::new_with_config(HnswConfig {
+        flat_threshold: None,
+        ..HnswConfig::default()
+    });
+    index
+        .add(
+            1,
+            FilterBitset::new(),
+            VectorRepresentations::Full(vec![0.0, 1.0, 0.0]),
+            0,
+        )
+        .expect("3d node");
+    assert_eq!(index.vector_dimension(), Some(3));
+
+    index.remove_node(1);
+    assert_eq!(
+        index.vector_dimension(),
+        None,
+        "an index that holds no node has no dimension"
+    );
+
+    index
+        .add(
+            2,
+            FilterBitset::new(),
+            VectorRepresentations::Full(vec![1.0, 0.0, 0.0, 0.0]),
+            0,
+        )
+        .expect("4d node");
+    assert_eq!(
+        index.vector_dimension(),
+        Some(4),
+        "a base whose records were all deleted can adopt a new dimension"
+    );
+}
+
 // ── Miri tests for unsafe patterns ──────────────────────────────
 //
 // graph.rs has 3 unsafe patterns: prefetch_mmap_vector (madvise),

@@ -274,6 +274,12 @@ impl IndexPort for CPIndex {
         self.nodes.contains_key(&id)
     }
 
+    fn vector_dimension(&self) -> Option<usize> {
+        // Inherent method wins — deliberate delegation (same pattern as the
+        // neighbouring `contains_node` / `node_count`).
+        self.vector_dimension()
+    }
+
     fn node_count(&self) -> usize {
         self.nodes.len()
     }
@@ -398,7 +404,12 @@ impl IndexPort for CPIndex {
 
     fn remove_node(&self, id: u128) -> bool {
         // Does NOT touch `total_nodes` — legacy pairing (only vacuum decrements).
-        self.nodes.remove(&id).is_some()
+        let removed = self.nodes.remove(&id).is_some();
+        if removed {
+            // FIND-411 (R4): an empty index has no vector dimension.
+            self.forget_vector_dimension_if_empty();
+        }
+        removed
     }
 
     fn add_node(

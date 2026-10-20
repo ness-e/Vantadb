@@ -12,6 +12,8 @@
 //! Simplified SQ8 only — no anisotropic quantization, no PQ, no GPU.
 //! Anisotropic would require per-dataset variance profiling.
 
+use crate::index::distance::DIMENSION_MISMATCH_SCORE;
+use crate::index::graph::total_cmp_sim;
 use crate::node::{DistanceMetric, FilterBitset, VectorRepresentations};
 use std::sync::Mutex;
 
@@ -135,7 +137,9 @@ impl ScannIndex {
         metric: DistanceMetric,
     ) -> f32 {
         if query.len() != code.len() || query.is_empty() {
-            return f32::NEG_INFINITY;
+            // FIND-411: a dimension mismatch is "not comparable", not the
+            // worst possible score — the sentinel the index drops.
+            return DIMENSION_MISMATCH_SCORE;
         }
 
         // Decompress to approximate f32
@@ -178,6 +182,13 @@ impl ScannIndex {
         max_bound: &[f32],
         metric: DistanceMetric,
     ) -> f32 {
+        // FIND-411: a dimension mismatch must not be silently truncated by
+        // the `zip` below (it compared only the leading dimensions) — it is
+        // "not comparable" and scores the mismatch sentinel.
+        if query.len() != code.len() || query.is_empty() {
+            return DIMENSION_MISMATCH_SCORE;
+        }
+
         let approx: Vec<f32> = code
             .iter()
             .zip(min_bound.iter().zip(max_bound.iter()))
@@ -251,9 +262,11 @@ impl crate::index::VecIndex for ScannIndex {
             })
             .collect();
 
-        // Sort by approximate similarity descending
-        approx_results
-            .sort_unstable_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        // Sort by approximate similarity descending. FIND-411 (R3): the
+        // comparison is NaN-aware — a candidate whose dimension differs from
+        // the query scores NaN and is dropped, not ranked.
+        approx_results.retain(|(_, sim, _)| !sim.is_nan());
+        approx_results.sort_unstable_by(|a, b| total_cmp_sim(b.1, a.1));
 
         // Stage 2: Re-rank top candidates with full precision
         let rerank_candidates = &approx_results[..approx_results.len().min(reorder_k)];
@@ -271,8 +284,18 @@ impl crate::index::VecIndex for ScannIndex {
             })
             .collect();
 
-        final_results
-            .sort_unstable_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        // FIND-411 (R3): drop the candidates that are not comparable and
+        // apply the same distance-scale conversion the flat path applies, so
+        // the backends return the same score scale. The VALUE stays
+        // approximate — SCANN re-ranks over the decompressed codebook
+        // vector, which is inherent to the lossy index.
+        final_results.retain(|(_, score)| !score.is_nan());
+        if metric == DistanceMetric::Euclidean {
+            for entry in final_results.iter_mut() {
+                entry.1 = crate::index::euclidean_score_from_similarity(entry.1);
+            }
+        }
+        final_results.sort_unstable_by(|a, b| total_cmp_sim(b.1, a.1));
         final_results.truncate(top_k);
         final_results
     }
@@ -448,6 +471,68 @@ mod tests {
         assert_eq!(results[0].0, 0);
         for &(_, s) in &results {
             assert!(s <= 0.0, "Euclidean <= 0");
+        }
+    }
+
+    /// FIND-411 (R3.4): the SCANN must return the same score **scale** as
+    /// the flat scan and the HNSW traversal — a negative distance, not a
+    /// negative squared distance.
+    #[test]
+    fn test_scann_euclidean_score_uses_the_distance_scale() {
+        let idx = ScannIndex::new(DistanceMetric::Euclidean);
+        let _ = idx.add(
+            0,
+            FilterBitset::new(),
+            VectorRepresentations::Full(vec![0.0, 0.0]),
+            0,
+        );
+        let _ = idx.add(
+            1,
+            FilterBitset::new(),
+            VectorRepresentations::Full(vec![3.0, 4.0]),
+            0,
+        );
+
+        let results = idx.search(&[0.0, 0.0], &ALL_BITSET, 2, None, DistanceMetric::Euclidean);
+        assert_eq!(results.len(), 2);
+        let far = results
+            .iter()
+            .find(|(id, _)| *id == 1)
+            .expect("node 1 is a candidate");
+        assert!(
+            (far.1 - (-5.0)).abs() < 1e-3,
+            "the SCANN Euclidean score must be the distance scale (-5), not the squared \
+             distance (-25), got {}",
+            far.1
+        );
+    }
+
+    /// FIND-411 (R3.4): a query whose dimension differs from the codebook is
+    /// not comparable — the candidate must be dropped, not scored over the
+    /// leading dimensions only.
+    #[test]
+    fn test_scann_drops_the_dimension_mismatched_candidate() {
+        let idx = ScannIndex::new(DistanceMetric::Euclidean);
+        let _ = idx.add(
+            1,
+            FilterBitset::new(),
+            VectorRepresentations::Full(vec![0.0, 1.0, 0.0]),
+            0,
+        );
+
+        let results = idx.search(
+            &[1.0, 0.0, 0.0, 0.0, 0.0],
+            &ALL_BITSET,
+            5,
+            None,
+            DistanceMetric::Euclidean,
+        );
+        assert!(
+            results.is_empty(),
+            "a dimension-mismatched query has no candidates, got {results:?}"
+        );
+        for &(_, s) in &results {
+            assert!(!s.is_nan(), "the SCANN must never return a NaN score");
         }
     }
 
