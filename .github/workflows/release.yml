@@ -121,7 +121,16 @@ jobs:
             git add -A
             NEW_VER=$(node -e 'const fs=require("fs");const m=fs.readFileSync("Cargo.toml","utf8").match(/\[workspace\.package\][\s\S]*?^version\s*=\s*"([^"]+)"/m);console.log(m[1]);')
             git commit -m "chore(release): sync monorepo surface manifests to v${NEW_VER}"
-            git push origin "HEAD:$PR_BRANCH"
+            # The checkout uses persist-credentials: false (RULES: least
+            # privilege), so `git push` has no credentials and dies with
+            # "could not read Username for 'https://github.com'" (run
+            # 39353698789, job 118404027216 - the sync commit was created
+            # but never pushed). release-plz pushes with its own --git-token;
+            # this step does not. Authenticate the push explicitly with the
+            # same token `gh` already uses.
+            AUTH=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
+            git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $AUTH" \
+                push origin "HEAD:$PR_BRANCH"
           else
             echo "All monorepo manifests already synchronized."
           fi
