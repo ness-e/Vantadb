@@ -21,6 +21,37 @@ import { fileURLToPath } from "node:url";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const tmp = mkdtempSync(join(tmpdir(), "vantadb-smoke-"));
 
+// Sync sleep (no async/await: the whole script is synchronous).
+function sleep(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+// The tarball depends on `vantadb-wasm@^X.Y.Z`, which the release publishes
+// seconds before this script runs. npm's semver metadata can lag a version
+// that was just published, and the install then fails with ETARGET
+// ("No matching version found for vantadb-wasm@^0.9.0") — it cost the
+// 0.9.0 publish of the TS package (run 39380169261). Retry with backoff
+// instead of losing the release to a propagation race.
+function installWithRetry(tgz, cwd, attempts = 6) {
+  for (let i = 1; i <= attempts; i++) {
+    try {
+      execSync(`npm install "${tgz}" --no-audit --no-fund --loglevel=error`, {
+        cwd,
+        stdio: "inherit",
+      });
+      return;
+    } catch (err) {
+      if (i === attempts) throw err;
+      const wait = 15 * i;
+      console.warn(
+        `[smoke] npm install failed (intento ${i}/${attempts}); reintento en ${wait}s. ` +
+          `La version recien publicada puede que aun no se haya propagado en el registry.`,
+      );
+      sleep(wait * 1000);
+    }
+  }
+}
+
 let failed = false;
 try {
   // 1. Pack.
@@ -70,10 +101,7 @@ try {
   const app = mkdtempSync(join(tmpdir(), "vantadb-smoke-app-"));
   try {
     writeFileSync(join(app, "package.json"), JSON.stringify({ private: true }));
-    execSync(
-      `npm install "${join(tmp, fixedTgz)}" --no-audit --no-fund --loglevel=error`,
-      { cwd: app, stdio: "inherit" },
-    );
+    installWithRetry(join(tmp, fixedTgz), app);
     console.log("[smoke] tarball installed cleanly");
 
     writeFileSync(
