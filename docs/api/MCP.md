@@ -8,7 +8,7 @@ tags: [vantadb, api]
 
 # VantaDB Model Context Protocol (MCP) Server
 
-Current MCP implementation version: 0.9.0
+Current MCP implementation version: 0.9.1
 
 The VantaDB MCP server (`vantadb-mcp`) exposes the database to LLM agents over the Model Context Protocol. Tool definitions live in `vantadb-mcp/src/handlers/tools.rs` (`handle_tools_list`); per-IDE setup lives in the VantaDB MCP Skill.
 
