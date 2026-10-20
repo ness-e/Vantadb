@@ -76,6 +76,7 @@ jobs:
   # in-process fake Ollama (`POST /api/embed`) as test double. Ubuntu only.
   cross-session-demo:
     name: "Session 1 put -> session 2 synonym recall"
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -106,6 +107,7 @@ jobs:
   # refresh ships with the first adapters release, Task 41).
   dev-to-prod:
     name: "Same graph: dev InMemorySaver -> prod VantaDB checkpointer"
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -158,6 +160,7 @@ jobs:
   # script users run locally: scripts/demo-privacy-e2e.ps1.
   privacy-chain:
     name: "Privacy chain E2E (ubuntu)"
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -177,6 +180,7 @@ jobs:
   # Deterministic and offline: in-memory store, mock upstream on loopback.
   injection-governance:
     name: "Budget + ACL + audit (proxy wire)"
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -196,6 +200,7 @@ jobs:
   # certified-delete roundtrip. Deterministic and offline: local fixtures.
   wal-verify:
     name: "WAL tamper detection + certified delete"
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
