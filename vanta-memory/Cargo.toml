@@ -18,7 +18,7 @@ categories = ["database-implementations"]
 [dependencies]
 # `version` requerido para publicar: crates.io no admite deps path-only (Cargo
 # book, "Local paths in published crates").
-vantadb = { path = "../", version = "0.8.0", default-features = false }
+vantadb = { path = "../", version = "0.9.0", default-features = false }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1.0"
 thiserror = "2"
