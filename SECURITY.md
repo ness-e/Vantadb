@@ -23,7 +23,7 @@ We aim to acknowledge receipt within 48 hours and provide an initial assessment 
 
 ## Security Practices
 
-- **AES-256-GCM at-rest encryption** behind the `encryption` feature flag (`src/crypto.rs`).
+- **AES-256-GCM primitives** behind the `encryption` feature flag (`src/crypto.rs`), used today by the `vanta-proxy` envelope — **the core storage files (WAL, HNSW, VantaFile, backend-KV, snapshots) are not encrypted at rest yet** (`ADR-0057`, `FIND-249`).
 - **Constant-time token comparison** (`subtle::ConstantTimeEq`) for API key auth — no timing side channels.
 - **Path traversal prevention** — all filesystem paths validated via `prevent_path_traversal()`.
 - **Read-only mode** — write operations fail before touching storage when `read_only: true`.
