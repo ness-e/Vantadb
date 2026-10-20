@@ -225,7 +225,7 @@ tags: [audit, reviews, mcp, server, skills, subagent]
 - **Location:** `.opencode/skills/vantadb-mcp/SKILL.md:584-590` (`../../examples/python/{crewai_memory,mem0_integration,autogen_memory,haystack_documentstore,langgraph_checkpoint,semantic_kernel_memory,dspy_retriever}.py`) and `:594` + `:668` (`../../docs/api/MCP.md`)
 - **Claim/Break:** From `.opencode/skills/vantadb-mcp/`, `../../docs/…` resolves to `.opencode/docs/…` and `../../examples/…` to `.opencode/examples/…` — **neither directory exists** (`Test-Path .opencode/docs` → False; `Test-Path .opencode/examples` → False). The same links resolve correctly from the git-tracked `skills/vantadb-mcp/SKILL.md` (repo root), which is why the defect is invisible in review but fatal for the `.opencode/` copy — which is the copy OpenCode loads and the copy a user who copies the skill out of `skills/` inherits.
 - **Why it matters:** The AI-framework integration list (7 links) and the two "for the full contract see MCP.md" pointers are the skill's only pointers to runnable examples and to the canonical repo reference. Every one is a 404 in the loaded copy.
-- **Trigger:** Agent follows `[examples/python/crewai_memory.py](../../examples/python/crewai_memory.py)` → file not found → it either invents an example path or skips the integration.
+- **Trigger:** Agent follows `[examples/python/crewai_memory.py](../../../examples/python/crewai_memory.py)` → file not found → it either invents an example path or skips the integration.
 - **Fix:** Use repo-root-relative paths in the `.opencode/` copy (or ship an absolute/`${CLAUDE_PLUGIN_ROOT}`-style anchor), and/or add a sync step in `scripts/validate-docs-coverage.ps1` that rewrites the `../../` prefix for the `.opencode/` mirror.
 - **Verify:** For each markdown link in `.opencode/skills/vantadb-mcp/SKILL.md`, resolve relative to its own directory and assert existence.
 
@@ -270,7 +270,7 @@ tags: [audit, reviews, mcp, server, skills, subagent]
 - **Verify:** `Select-String -Path .opencode/skills/vantadb-mcp/references/configuration.md -Pattern 'VANTADB_MCP_INJECT_NAMESPACES'` → hit.
 
 ### B14 | P3 | .opencode/skills/vantadb-mcp — the skill calls `docs/api/MCP.md` a "stub" in both directions
-- **Location:** `.opencode/skills/vantadb-mcp/SKILL.md:594` — *"see [docs/api/MCP.md](../../docs/api/MCP.md) (a stub)"*; `.opencode/skills/vantadb-mcp/SKILL.md:668` — *"see [docs/api/MCP.md](../../docs/api/MCP.md) — a stub pointing back to this skill as the source of truth."*
+- **Location:** `.opencode/skills/vantadb-mcp/SKILL.md:594` — *"see [docs/api/MCP.md](../../api/MCP.md) (a stub)"*; `.opencode/skills/vantadb-mcp/SKILL.md:668` — *"see [docs/api/MCP.md](../../api/MCP.md) — a stub pointing back to this skill as the source of truth."*
 - **Claim/Break:** `docs/api/MCP.md` is a 688-line self-contained reference with the tool families, profiles, error-code tables, output budgeting, injection governance, abstention, quarantine and the registry manifest. It does not point back to the skill; it *is* the repo-side authority. The skill's own `SKILL.md:126-127` and `references/api-reference.md:7` simultaneously claim the skill is the "single source of truth" — two documents in the same product each claim authority over the other.
 - **Why it matters:** A user told "MCP.md is a stub" will not check the one repo document that carries the 82-tool family table, the profile table and the `-320xx` code table. (Both are broken links anyway — see B8.)
 - **Trigger:** User reads the skill's "Editor Integration" section and skips MCP.md entirely.
