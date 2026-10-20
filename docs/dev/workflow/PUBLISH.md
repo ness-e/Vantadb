@@ -2,26 +2,78 @@
 title: Workflows — Publish flow per registry
 kind: runbook
 status: active
-description: "Publishing is tokenless (OIDC Trusted Publishing, no PATs). Post-FIND-140"
+description: "Publishing per registry: crates.io via Trusted Publishing (OIDC); PyPI and npm via repo tokens. Traps and pre-flight in the 0.9.0 post-mortem."
 tags: [vantadb, ci, workflows, publish, release]
 ---
 
 # Workflows — Publish flow per registry
 
-Publishing is tokenless (OIDC Trusted Publishing, no PATs). Post-FIND-140
-state. Rollback policy per plan: `git revert` per commit + re-run.
+**Mixed model (2026-10-20):** crates.io publishes via **Trusted Publishing
+(OIDC)**, PyPI and npm via **repo tokens** (`secrets.PYPI_TOKEN`,
+`secrets.NPM_TOKEN`). Tokens are required for a *first* publish of a package
+that does not exist yet (npm staging cannot create packages; crates.io
+Trusted Publishing requires the crate to exist).
+
+> ⚠️ The state of this doc changed with the 0.9.0 release. It previously
+> described publishing as "tokenless (OIDC Trusted Publishing, no PATs)" and a
+> set of tag namespaces (`node-v*`, `adapters-v*`, `providers-v*`) that the
+> fan-out does not use. See
+> [`2026-10-20-release-v0.9.0-postmortem.md`](../reviews/2026-10-20-release-v0.9.0-postmortem.md).
+
+Rollback policy per plan: `git revert` per commit + re-run.
+
+## Pre-flight checklist (obligatoria antes de mergear un release PR)
+
+El release de v0.9.0 fallo **3 veces** por motivos distintos y **ninguno lo
+cazo un gate**. Post-mortem completo (cronologia, causas, arreglos y lo que
+falta): [`2026-10-20-release-v0.9.0-postmortem.md`](../reviews/2026-10-20-release-v0.9.0-postmortem.md).
+
+1. **Los secrets existen y no estan vacios.** `gh secret list`. En
+   `cargo publish` la *presencia* de `CARGO_REGISTRY_TOKEN` **desactiva** el
+   Trusted Publishing aunque este vacia → `"please provide a non-empty token"`.
+   Para crates.io: **OIDC** (la variable **no** debe estar en el `env` del
+   step) o un token con scope de publish. Nunca las dos.
+2. **Un token solo esta verificado si un publish real lo acepta.**
+   `cargo owner --list` **no autentica** (lee el fichero estatico de owners
+   del indice git) y `npm whoami` autentica pero no prueba el scope de
+   publish.
+3. **Un canal que publica un paquete nuevo** necesita token
+   *direct-capable*: el staging de npm no crea paquetes (`E_STAGE_REQUIRED`) y
+   el Trusted Publishing de crates.io exige que el crate ya exista.
+4. **`rust-toolchain.toml` vs `dtolnay/rust-toolchain`:** si el workflow usa un
+   canal distinto del pin del repo, el fichero gana al invocar `cargo`/`pip` y
+   puede colisionar con el binario del toolchain por defecto →
+   `"clippy-preview … detected conflict: 'bin/cargo-clippy'"`. Fijar
+   `RUSTUP_TOOLCHAIN` en el step.
+5. **Un smoke test no debe resolver una version recien publicada** en el mismo
+   run (carrera de propagacion del registry → `ETARGET`). Backoff, no fallo.
+6. **`gh workflow run` sin checkout → `-R "${{ github.repository }}"`.**
+7. **La rama del PR de release empieza por `release-plz-`** si el PR debe
+   disparar la publicacion: `release-plz` solo publica si el ultimo commit de
+   `main` pertenece a un PR cuya rama empieza por `release-plz-`. Mergear desde
+   `develop` deja el release sin disparar.
+8. **Verificacion final:** `pwsh scripts/verify-release.ps1 -Tag v<version>
+   -Smoke` (assets + registries + sha256 + `vanta-cli --version`).
+9. **Higiene post-release:** sincronizar `develop` con `main` (ff-only) para que
+   un `develop → main` futuro no revierta fixes que solo estan en `main`.
 
 ## Chain overview
 
 ```text
 merge develop -> main
   -> release.yml (release-plz: bump, changelog, git tag, crates.io)
-    -> tag v*.*.*      -> wheels-60 (PyPI) + npm-61 (npm wasm+TS) + sbom-64 (SBOM)
-    -> tag node-v*.*.* -> npm-node (npm Node binding)
-    -> tag adapters-v* -> adapters-62 (PyPI adapters)
-    -> tag providers-v* -> release-providers (PyPI providers)
-    -> GitHub Release  -> binaries-63 (binaries)
+    -> tag v*.*.*  -> 7 downstream lanes, TODOS con el MISMO tag core:
+         release-wheels.yml     (PyPI vantadb-py)
+         release-npm-61.yml     (npm vantadb + vantadb-wasm)
+         release-npm-node.yml   (npm vantadb-node)
+         release-adapters.yml   (PyPI, 7 adapters)
+         release-providers.yml  (PyPI, 3 providers)
+         release-sbom.yml       (SBOM)
+         release-binaries.yml   (GitHub Release assets)
 ```
+
+> Los lanes no usan namespaces de tag propias: el fan-out los despacha a todos
+> con `--ref <tag core>` (ver "Cascadas automaticas").
 
 A release is **not complete when published** — it is complete when the
 [post-release verification](#post-release-verification-release-completion-gate)
@@ -42,18 +94,66 @@ Los PRs `develop → main` se mergean con **merge commit** (`gh pr merge --merge
   killed mid-check (run 39324117624, job 118306356063) - do not lower the
   timeout without a fresh measurement.
 
+### Trampa: `CARGO_REGISTRY_TOKEN` no puede existir "de sobra"
+
+Cargo decide entre token y Trusted Publishing (OIDC) por la **PRESENCIA** de la
+variable de entorno, no por su valor. Si el workflow la define y el secret no
+existe, la variable queda **definida y vacía**: cargo la toma como "token
+provisto", se salta el intercambio OIDC y el publish muere con
+
+```
+error: failed to publish vantadb v0.9.0 to registry at https://crates.io
+Caused by: please provide a non-empty token
+```
+
+(pasó en el publish de 0.9.0: run 39368867477, job 118404027216 - el crate
+compiló bien en 2m22s y solo falló al autenticar. v0.8.0 había publicado bien
+justo porque esa línea no estaba.)
+
+Regla: **si defines `CARGO_REGISTRY_TOKEN`, el secret tiene que existir y
+tener valor**. Si prefieres OIDC, quita la línea del todo. Con las dos cosas
+a la vez, el OIDC nunca arranca.
+
+### Modelo de autenticación por canal (2026-10-20)
+
+| Canal | Mecanismo | Secret | Workflow |
+|---|---|---|---|
+| crates.io | **Trusted Publishing (OIDC)** | — (el secret existe, pero **no** va en el `env` del step) | `release.yml` |
+| PyPI (prod) | token | `PYPI_TOKEN` | `release-wheels`, `release-providers`, `release-adapters` |
+| PyPI (test) | token | `TEST_PYPI_TOKEN` | los mismos tres, en el job `publish-testpypi` |
+| npm | token (`NODE_AUTH_TOKEN`) | `NPM_TOKEN` | `release-npm-61`, `release-npm-node` |
+| GitHub (tag/PR) | PAT con fallback | `RELEASE_PLZ_TOKEN` | `release.yml` |
+
+**Por qué crates.io va con OIDC y los demás con token:** el token de crates.io
+disponible devuelve 403 al publicar (`403 Forbidden: authentication failed`,
+run 39377761363), mientras que el Trusted Publishing funcionó para el 0.8.0
+(`trustpub_data.run_id = 37045089945`). En PyPI y npm los tokens **sí**
+autentican y **sí** pueden crear paquetes nuevos (el staging de npm no puede:
+`E_STAGE_REQUIRED`).
+
+**Trampa de verificación:** `cargo owner --list` **no autentica** (lee el
+fichero estático de owners del índice git) - un token "validado" así puede
+seguir dando 403 al publicar. Un token solo está verificado si un publish
+real lo acepta.
+
+Ventaja del token frente a OIDC: sirve igual para el **primer publish** de un
+paquete o crate que aún no existe (`vantadb-node` en npm, `vanta-memory` en
+crates.io), donde Trusted Publishing todavía no puede configurarse.
+
 ## PyPI wheels — `release-wheels.yml`
 
-- Tags `v*.*.*` publish to prod PyPI (`environment: pypi`, OIDC + provenance
-  attestation); `workflow_dispatch` with `publish_testpypi=true` publishes to
-  TestPyPI (`environment: testpypi`).
+- Tags `v*.*.*` publish to prod PyPI (`environment: pypi`, token
+  `PYPI_TOKEN` + provenance attestation); `workflow_dispatch` with
+  `publish_testpypi=true` publishes to TestPyPI (`environment: testpypi`, token
+  `TEST_PYPI_TOKEN`).
 - PRs to `main` touching `src/`, `vantadb-python/`, `Cargo.*` run build +
   smoke only (no publish).
 - Tag namespaces: strict `v*.*.*` (three numeric parts).
 
 ## npm WASM + TS — `release-npm-61.yml`
 
-- Tags `v*.*.*` publish both packages (`environment: npm`, OIDC):
+- Tags `v*.*.*` publish both packages (`environment: npm`, token
+  `NPM_TOKEN` via `NODE_AUTH_TOKEN`):
   `publish-wasm` builds `vantadb-wasm` with wasm-pack, then `publish-ts`
   rewrites the exact wasm version into `vantadb-ts` and publishes `vantadb`.
 - PRs touching `vantadb-wasm/**` or `vantadb-ts/**` run CI only.
@@ -269,42 +369,55 @@ rg -n "^\s*publish = false" --glob "**/Cargo.toml" -g "!target/**" -g "!node_mod
 rg -n "^\[\[package\]\]|^name = |^\s*(release|publish) = " release-plz.toml
 ```
 
-## Cascadas automaticas — fan-out explicito + `RELEASE_PLZ_TOKEN` (PAT, fallback)
+## Cascadas automaticas — cascada implicita por PAT (primaria) + job `fanout` (fallback)
 
-### Primario: job `fanout` en `release.yml` (FIND-342/F1)
+### Primario: cascada implicita por PAT (lo que dispara de verdad)
 
-Tras `release-plz-release`, si hubo release (`releases_created`), un job
-`fanout` dispara por API los 5 lanes sobre el tag publicado
-(`gh workflow run <downstream> --ref <tag>`, tag derivado de los outputs
-`releases`/`releases_created` de `release-plz/action`):
+`release-plz` crea el tag y el release con `RELEASE_PLZ_TOKEN` (fine-grained
+PAT, Contents RW + Pull requests RW sobre `ness-e/Vantadb`) con fallback
+`secrets.RELEASE_PLZ_TOKEN || secrets.GITHUB_TOKEN`. **Con el PAT presente, el
+tag lo crea el usuario, no el bot**: GitHub NO suprime los eventos generados
+por un PAT, asi que el push del tag dispara por si solo los 7 workflows
+tag-triggered, y `release: published` dispara el de binarios. Ademas el Release
+PR gana checks (antes salian 0 por generarse con `GITHUB_TOKEN`).
+
+Verificado en el release 0.9.0: el push del tag `v0.9.0` lanzo los 7 lanes
+(wheels, npm x2, adapters, providers, sbom, binaries) sin que el job `fanout`
+tuviera que hacer nada.
+
+### Fallback: job `fanout` en `release.yml` (FIND-342/F1)
+
+Si el tag se crease con `GITHUB_TOKEN`, GitHub suprime los eventos derivados y
+nadie publicaria. Para ese caso, tras `release-plz-release` (si hubo release,
+`releases_created`), un job `fanout` despacha por API los **7** lanes sobre el
+tag publicado (`gh workflow run <downstream> -R "${{ github.repository }}" --ref
+<tag>`, tag derivado de los outputs `releases`/`releases_created`):
 
 - `release-wheels.yml --ref <tag>` (sin inputs)
 - `release-npm-61.yml --ref <tag> -f package=both` (`package` es requerido)
-- `release-npm-node.yml --ref <tag>` · `release-sbom.yml --ref <tag>` (sin inputs)
+- `release-npm-node.yml --ref <tag> -f publish=true`
+- `release-adapters.yml --ref <tag> -f publish_pypi=true`
+- `release-providers.yml --ref <tag> -f publish_pypi=true`
+- `release-sbom.yml --ref <tag>` (sin inputs)
 - `release-binaries.yml --ref <tag> -f release_tag=<tag>`
+
+El `-R` es **obligatorio**: el job no hace checkout, asi que sin el repo
+explicito `gh` aborta con `fatal: not a git repository` (run 39379695535).
+
+> Con el PAT presente esta cascada es **redundante**: el push del tag ya
+> dispara los 7 lanes y el fan-out los duplica (cada duplicado es un no-op
+> gracias al gate de "version already published", pero quema minutos de
+> runner). Es el precio de cubrir el caso `GITHUB_TOKEN`.
 
 No toca ningun `if:` downstream: cada run corre SOBRE el tag, asi que
 `github.ref` es `refs/tags/v*` dentro de cada lane (wheels/npm/sbom publican
 por su gate de tag; binaries por `inputs.release_tag != ''`; npm-node publica
 por la rama `workflow_dispatch` de su `if:`). pypi/npm siguen detras de su
 `environment:` — el owner aprueba los pending deployments.
-El dispatch se autentica con `RELEASE_PLZ_TOKEN` (misma expresion con fallback
-del archivo); con `GITHUB_TOKEN` el dispatch NO dispara downstreams (GitHub
-suprime eventos derivados), asi que sin PAT el job falla en rojo en vez de
-verde-vacio. Prueba real: proximo release (declarado — sin release no hay
-forma mecanica de probarlo).
 
-### Fallback: cascada implicita por PAT
-
-release-plz crea tags/releases con `GITHUB_TOKEN`; GitHub suprime los eventos
-generados por ese token, asi que los workflows tag-triggered (`v*.*.*`,
-`node-v*.*.*`, `adapters-v*`) y `release: published` (binaries) **no se
-disparan**. Solucion: fine-grained PAT `RELEASE_PLZ_TOKEN` (Contents RW +
-Pull requests RW sobre `ness-e/Vantadb`) guardado como secret del repo.
-`release.yml` lo usa con fallback (`secrets.RELEASE_PLZ_TOKEN ||
-secrets.GITHUB_TOKEN`): con el PAT presente, el tag/release los crea el
-usuario → wheels/PyPI, npm, SBOM y binaries se disparan solos; el Release PR
-ademas gana checks (antes salian 0 por ser GITHUB_TOKEN).
+> Con `GITHUB_TOKEN` el dispatch NO dispara downstreams (GitHub suprime
+> eventos derivados), asi que sin PAT el job falla en rojo en vez de
+> verde-vacio.
 
 ### Fallback manual (PAT ausente/expirado)
 
