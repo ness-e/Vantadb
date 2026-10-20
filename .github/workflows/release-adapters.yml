@@ -50,6 +50,17 @@ jobs:
           toolchain: stable
 
       - name: Install adapter + test deps
+        env:
+          # RUSTUP_TOOLCHAIN: sin esto, cargo lee el `rust-toolchain.toml` de
+          # la raiz (channel 1.95.0, components=[..., clippy, ...]) e intenta
+          # instalar el componente `clippy-preview` de 1.95.0, que choca con
+          # el `bin/cargo-clippy` del toolchain por defecto (stable, instalado
+          # justo antes): "failed to install component
+          # 'clippy-preview-x86_64-unknown-linux-gnu', detected conflict:
+          # 'bin/cargo-clippy'" (run 39380169218). Fijando el toolchain al
+          # que instala el action de arriba, rustup no consulta el fichero
+          # y no hay conflicto.
+          RUSTUP_TOOLCHAIN: stable
         run: |
           python -m pip install --upgrade pip hatchling
           pip install -e vantadb-python
