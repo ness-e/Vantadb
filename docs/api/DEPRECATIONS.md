@@ -17,6 +17,22 @@ this page registers instances, it does not restate the policy:
 
 ## Active deprecations
 
+### `crypto::EncryptionStream` → per-artefact AEAD envelope
+
+- **Surface:** 1 — Rust core SDK
+- **Deprecated in:** v0.9.1 (2026-10-20)
+- **Removal target:** v0.10.0 — ≥ 1 MINOR after deprecation (earliest possible)
+- **Replacement / migration:** `EncryptionStream` frames as
+  `[u32 len][nonce][ct+tag]` — it expresses **no AAD, no slot and no epoch**,
+  so a ciphertext moved to another position would still authenticate
+  (ADR-0057 C-6). At-rest encryption uses
+  `Cipher::encrypt_with_nonce` / `decrypt_with_nonce` with a caller-chosen
+  nonce, plus `crypto::registry::AadBuilder` to bind the ciphertext to its
+  slot. The type is kept (not removed) because `storage::vfile` still exposes
+  it to its own test; it is retired with the VantaFile wave.
+- **Changelog:** [`docs/CHANGELOG.md`](../CHANGELOG.md) § [0.9.1]
+- **Code/doc marker:** `#[deprecated]` attribute in `src/crypto.rs`
+
 ### `VantaHeader` → `Header`
 
 - **Surface:** 1 — Rust core SDK

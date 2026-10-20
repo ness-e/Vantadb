@@ -144,6 +144,11 @@ pub mod sync_ext;
 pub(crate) mod scalar_index;
 /// Storage schema versioning and compatibility checks.
 pub mod schema;
+/// ADR-0057 C-6: `crypto::EncryptionStream` is deprecated (its framing has no
+/// AAD/slot/epoch), but `storage::vfile` still exposes it to its own test
+/// until the VantaFile wave retires it. The allow is scoped to this module
+/// and is removed together with the stream.
+#[allow(deprecated)]
 pub mod storage;
 pub(crate) mod text_index;
 #[cfg(feature = "advanced-tokenizer")]
