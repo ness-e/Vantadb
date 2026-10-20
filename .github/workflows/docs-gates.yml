@@ -237,6 +237,12 @@ jobs:
           node-version: 22
       - name: docs/index.md, ADR index and llms.txt must match the frontmatter
         run: node scripts/docs/gen-index.mjs --check
+      # Gate de no-regresion del claim de cifrado en reposo (ADR-0057 W0, riesgo R-12).
+      # Falla si la doc afirma cifrado en reposo sin el matiz que lo desmiente (el P0
+      # FIND-407 volvio a colarse) o si el cableado ya aterrizo y la doc sigue
+      # diciendo que no lo esta (claim falsa inversa).
+      - name: encryption claim matches the wired state
+        run: node scripts/docs/check-encryption-claim.mjs
   docs-structure:
     name: No section has lost its body
     if: github.actor != 'dependabot[bot]'
