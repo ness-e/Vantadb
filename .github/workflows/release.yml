@@ -184,10 +184,10 @@ jobs:
             exit 1
           fi
           echo "Fanning out on tag $TAG"
-          gh workflow run release-wheels.yml --ref "$TAG"
-          gh workflow run release-npm-61.yml --ref "$TAG" -f package=both
-          gh workflow run release-npm-node.yml --ref "$TAG" -f publish=true
-          gh workflow run release-adapters.yml --ref "$TAG" -f publish_pypi=true
-          gh workflow run release-providers.yml --ref "$TAG" -f publish_pypi=true
-          gh workflow run release-sbom.yml --ref "$TAG"
-          gh workflow run release-binaries.yml --ref "$TAG" -f release_tag="$TAG"
+          gh workflow run release-wheels.yml -R "${{ github.repository }}" --ref "$TAG"
+          gh workflow run release-npm-61.yml -R "${{ github.repository }}" --ref "$TAG" -f package=both
+          gh workflow run release-npm-node.yml -R "${{ github.repository }}" --ref "$TAG" -f publish=true
+          gh workflow run release-adapters.yml -R "${{ github.repository }}" --ref "$TAG" -f publish_pypi=true
+          gh workflow run release-providers.yml -R "${{ github.repository }}" --ref "$TAG" -f publish_pypi=true
+          gh workflow run release-sbom.yml -R "${{ github.repository }}" --ref "$TAG"
+          gh workflow run release-binaries.yml -R "${{ github.repository }}" --ref "$TAG" -f release_tag="$TAG"
