@@ -5,7 +5,7 @@ FIND-73: gate real — compara nombres de params + presencia de defaults
 (stub parseado con `ast` vs runtime con `inspect.signature`), no solo
 `hasattr`. Caza drift tipo PROV-10 (`key` en `store()`).
 
-Invocación CI (.github/workflows/providers-ci.yml): el step exporta
+Invocación CI (.github/workflows/ci-fleet.yml, job `check`): el step exporta
 `PROVIDER=<matrix>` y ejecuta el script directo (bash + pwsh; el viejo
 exec/replace solo funcionaba en bash). En local: `PROVIDER=<name>` igual.
 """

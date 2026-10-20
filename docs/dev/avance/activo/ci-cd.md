@@ -689,3 +689,11 @@ tags: [vantadb, avance, ci, cd, release, github-actions]
 - **Objetivo:** Manifest generado de versiones por superficie
 - **Resultado:** ✅ Version/canal/tag por superficie generados (`SURFACE_MANIFEST.md:37-46`) con gates `version_coherence` y npm anti-skip.
 - **Commit:** f84f7c70
+
+### W5-12: la docstring de `verify_pyi.py` apuntaba a un workflow inexistente
+- **Fecha:** 2026-10-20
+- **Resultado:** ✅ `.github/scripts/verify_pyi.py` documentaba que su invocación de CI era
+  `.github/workflows/providers-ci.yml`, un workflow que no existe (fue consolidado en
+  `ci-fleet.yml`); el gate real corre en `.github/workflows/ci-fleet.yml:468` (job `check`).
+  Docstring corregida. El gate se ejecutaba igual: solo la referencia estaba obsoleta.
+  Hallazgo de la auditoría profunda v0.9.0 (P3, `FIND-461`).
