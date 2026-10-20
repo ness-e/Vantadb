@@ -554,11 +554,11 @@ jobs:
 
       - name: Install osv-scanner (pinned v2.6.0)
         run: |
-          go install github.com/google/osv-scanner/v2/cmd/osv-scanner@v2.6.0
+          mkdir -p "${{ runner.temp }}/bin"
+          curl -sSL "https://github.com/google/osv-scanner/releases/download/v2.6.0/osv-scanner_linux_amd64" -o "${{ runner.temp }}/bin/osv-scanner"
+          echo "ca69b3d3cd08f889a49dc0a383122f71cc528b83803671df5fd874d97485b108  ${{ runner.temp }}/bin/osv-scanner" | sha256sum -c -
+          chmod +x "${{ runner.temp }}/bin/osv-scanner"
           echo "${{ runner.temp }}/bin" >> "$GITHUB_PATH"
-        env:
-          GOTOOLCHAIN: go1.27.0
-          GOBIN: ${{ runner.temp }}/bin
 
       - name: OSV scan (root lockfile)
         run: osv-scanner scan source --lockfile ./Cargo.lock --config ./osv-scanner.toml ./

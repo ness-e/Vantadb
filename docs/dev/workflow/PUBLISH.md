@@ -34,8 +34,13 @@ Los PRs `develop → main` se mergean con **merge commit** (`gh pr merge --merge
 
 - Trigger: `push: branches: [main]` only.
 - `release-plz-release` job: version bump, changelog, tag push, `cargo publish`
-  via OIDC (`id-token: write`). Timeout 30 min, no cancel (`cancel-in-progress: false`).
-- `release-plz-pr` job: opens the Release PR on subsequent pushes.
+  via OIDC (`id-token: write`). Timeout 45 min, no cancel (`cancel-in-progress: false`).
+- `release-plz-pr` job: opens the Release PR on subsequent pushes. Timeout 45 min:
+  `release-plz release-pr` runs cargo-semver-checks, a full cold compile of the
+  workspace + the published baseline (13-23 min depending on cache and runner
+  contention), plus ~4 min to determine the version. At 15 min this job was
+  killed mid-check (run 39324117624, job 118306356063) - do not lower the
+  timeout without a fresh measurement.
 
 ## PyPI wheels — `release-wheels.yml`
 
