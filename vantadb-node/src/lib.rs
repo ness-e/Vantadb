@@ -1460,6 +1460,7 @@ fn parse_list_options(value: Option<&Value>) -> napi::Result<MemoryListOptions> 
     let mut valid_window = None;
     let mut include_quarantined = false;
     let mut min_confidence = None;
+    let mut exclude_superseded = false;
     if let Some(opts) = value {
         let obj = opts
             .as_object()
@@ -1496,6 +1497,10 @@ fn parse_list_options(value: Option<&Value>) -> napi::Result<MemoryListOptions> 
         valid_window = get_opt_valid_window(obj, "valid_window")?;
         include_quarantined = get_opt_bool(obj, "include_quarantined")?;
         min_confidence = opt_min_confidence(obj, "min_confidence")?;
+        // FIND-412: ADR-028 flag — hide records replaced by a newer one.
+        // Same wire name/semantics as WASM (`ListOptions.exclude_superseded`,
+        // `#[serde(default)]` ⇒ false) and Python (`exclude_superseded=False`).
+        exclude_superseded = get_opt_bool(obj, "exclude_superseded")?;
     }
     Ok(MemoryListOptions {
         #[allow(deprecated)]
@@ -1503,7 +1508,7 @@ fn parse_list_options(value: Option<&Value>) -> napi::Result<MemoryListOptions> 
         filter_ops: None,
         limit,
         cursor,
-        exclude_superseded: false,
+        exclude_superseded,
         as_of_ms,
         valid_window,
         include_quarantined,
@@ -1530,7 +1535,10 @@ fn parse_search_request(value: &Value) -> napi::Result<MemorySearchRequest> {
             _ => DistanceMetric::Cosine,
         },
         explain: obj.get("explain").and_then(Value::as_bool).unwrap_or(false),
-        exclude_superseded: false,
+        // FIND-412: ADR-028 flag — hide records replaced by a newer one.
+        // Same wire name/semantics as WASM (`SearchRequest.exclude_superseded`,
+        // `#[serde(default)]` ⇒ false) and Python (`exclude_superseded=False`).
+        exclude_superseded: get_opt_bool(obj, "exclude_superseded")?,
         // SCH-04: opt-in confidence filter (ADR-046 §D2) — finiteness/range
         // validated at the core boundary (`min_confidence` in the error).
         min_confidence: opt_min_confidence(obj, "min_confidence")?,
