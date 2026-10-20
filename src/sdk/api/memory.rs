@@ -274,22 +274,17 @@ impl Embedded {
     /// Dimension of the vectors held by the vector index (`None` = the index
     /// holds no vector yet).
     ///
-    /// FIND-411: the index is the authority for the vector dimension — it
-    /// holds vectors of a single dimension, and every write and every query
-    /// vector is validated against it. The index entry point is the node
-    /// that established the dimension (a node without a vector never
-    /// becomes the entry point), so its vector length is the dimension.
+    /// FIND-411 (R4): the **index** is the authority for the vector dimension
+    /// — it holds vectors of a single dimension, and every write and every
+    /// query vector is validated against it. The rule lives in the core
+    /// (`IndexPort::vector_dimension`) and is shared by every consumer (SDK,
+    /// MCP, server); it does not depend on the entry point, which may be
+    /// quantized to SQ8 and therefore carry no `f32` slice.
     pub(crate) fn index_vector_dimension(
         &self,
         engine: &crate::storage::StorageEngine,
     ) -> Option<usize> {
-        let index = engine.vec_index();
-        let entry_point = index.entry_point()?;
-        let (_, vector) = index.node_view(entry_point)?;
-        vector
-            .as_f32_slice()
-            .map(|slice| slice.len())
-            .filter(|dim| *dim > 0)
+        engine.vec_index().vector_dimension()
     }
 
     /// Resolve the effective TTL (ms) for a write: an explicit `ttl_ms` wins;
@@ -709,16 +704,13 @@ impl Embedded {
         // FIND-411: a vector whose length differs from the index dimension is
         // rejected BEFORE anything is written — the index would otherwise
         // score it as a perfect match (distance 0.0) and the write would
-        // leave a half-applied record behind. The dimension of the record
-        // being replaced is used as a fallback when the index entry point
-        // carries no vector.
+        // leave a half-applied record behind. FIND-411 (O5): the index
+        // dimension is the only authority — the same rule as
+        // `put_batch_inner`. The old fallback to the dimension of the record
+        // being replaced made the same upsert accepted by `put` and rejected
+        // by `put_batch`.
         if let Some(vector) = input.vector.as_ref().filter(|v| Self::usable_vector(v)) {
-            let expected = self.index_vector_dimension(&engine).or_else(|| {
-                existing
-                    .as_ref()
-                    .and_then(|record| record.vector.as_ref())
-                    .map(|vector| vector.len())
-            });
+            let expected = self.index_vector_dimension(&engine);
             validate_vector_dimension(expected, vector.len())?;
         }
         // MEMG-04: quota applies to fresh inserts only — an update of an
@@ -1514,14 +1506,11 @@ impl Embedded {
         let previous =
             self.resolve_existing_for_write_locked(&engine, &record.namespace, &record.key)?;
         // FIND-411: the raw transport carries the vector too — validate its
-        // dimension against the index before anything is written.
+        // dimension against the index before anything is written. FIND-411
+        // (O5): the same rule as `put` and `put_batch_inner` — the index
+        // dimension is the only authority.
         if let Some(vector) = record.vector.as_ref().filter(|v| Self::usable_vector(v)) {
-            let expected = self.index_vector_dimension(&engine).or_else(|| {
-                previous
-                    .as_ref()
-                    .and_then(|record| record.vector.as_ref())
-                    .map(|vector| vector.len())
-            });
+            let expected = self.index_vector_dimension(&engine);
             validate_vector_dimension(expected, vector.len())?;
         }
         // MEMG-04: fresh inserts respect the namespace quota on this raw
@@ -2451,14 +2440,20 @@ impl Embedded {
         let imported_at_ms = now_ms();
         // FIND-411: the imported vectors must share the index dimension — the
         // first one establishes it when the index holds none yet.
+        //
+        // FIND-411 (O4): the whole `Vec` is validated **before** the chunk
+        // loop — the records are already in memory, so a mismatch in chunk N
+        // must not leave chunks 1..N-1 written.
         let mut expected_dimension = self.index_vector_dimension(&engine);
+        for input in &records {
+            if let Some(vector) = input.vector.as_ref().filter(|v| Self::usable_vector(v)) {
+                validate_vector_dimension(expected_dimension, vector.len())?;
+                expected_dimension.get_or_insert(vector.len());
+            }
+        }
 
         for chunk in records.chunks(commit_interval) {
             for input in chunk {
-                if let Some(vector) = input.vector.as_ref().filter(|v| Self::usable_vector(v)) {
-                    validate_vector_dimension(expected_dimension, vector.len())?;
-                    expected_dimension.get_or_insert(vector.len());
-                }
                 let node_id = memory_node_id(&input.namespace, &input.key);
                 let mut node = UnifiedNode::new(node_id);
                 // Reserved fields (MCP-28): mirror `memory_record_to_node_owned`

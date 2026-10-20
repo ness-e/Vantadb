@@ -52,6 +52,13 @@ pub struct CPIndex {
     /// Flat, lock-friendly neighbor list index.
     /// `pub(crate)` because `HnswNeighborIndex` is only `pub(crate)`.
     pub(crate) neighbor_index: crate::index::neighbor_index::HnswNeighborIndex,
+    /// Cached vector dimension of the index (`0` = not established yet).
+    ///
+    /// FIND-411 (R4): a vector index holds vectors of **one** dimension. The
+    /// dimension is established by the first vector written and never changes
+    /// (one dimension per base). It is cached here so the write/search path
+    /// does not scan the whole node set on every call.
+    pub vector_dim: AtomicUsize,
 }
 #[inline]
 pub(crate) fn cached_norms_for_metric(
@@ -89,6 +96,7 @@ impl CPIndex {
             scann_index: parking_lot::Mutex::new(None),
             scann_built_at_node_count: AtomicUsize::new(0),
             neighbor_index: crate::index::neighbor_index::HnswNeighborIndex::new(),
+            vector_dim: AtomicUsize::new(0),
         }
     }
 
@@ -102,6 +110,49 @@ impl CPIndex {
 
     pub fn with_backend(backend: IndexBackend) -> Self {
         Self::init(HnswConfig::default(), backend)
+    }
+
+    /// Dimension of the vectors held by the index (`None` = the index holds
+    /// no vector yet).
+    ///
+    /// FIND-411 (R4): this is the **canonical** rule — the dimension of the
+    /// vectors the index actually holds. It deliberately does NOT depend on
+    /// the entry point: an entry point quantized to SQ8 carries no `f32`
+    /// slice, so an entry-point-derived dimension silently resolves to
+    /// `None` and disables the dimension validation for the whole base.
+    ///
+    /// The value is cached: it is established by the first vector written
+    /// and never changes (one dimension per base). An index populated
+    /// outside the write path (deserialized from disk, rebuilt) derives it
+    /// from the node set on the first call.
+    pub fn vector_dimension(&self) -> Option<usize> {
+        let cached = self.vector_dim.load(Ordering::Relaxed);
+        if cached != 0 {
+            return Some(cached);
+        }
+        let derived = self.nodes.iter().find_map(|r| {
+            let dim = r.value().vec_data.dimensions();
+            (dim > 0).then_some(dim)
+        });
+        if let Some(dim) = derived {
+            self.vector_dim.store(dim, Ordering::Relaxed);
+        }
+        derived
+    }
+
+    /// Record the dimension of a vector written to the index.
+    ///
+    /// The first vector written establishes the dimension of the base; a
+    /// later write of a different dimension is rejected by the SDK before it
+    /// reaches the index.
+    pub(crate) fn note_vector_dimension(&self, vec_data: &VectorRepresentations) {
+        let dim = vec_data.dimensions();
+        if dim == 0 {
+            return;
+        }
+        let _ = self
+            .vector_dim
+            .compare_exchange(0, dim, Ordering::Relaxed, Ordering::Relaxed);
     }
 
     pub fn estimate_memory_bytes(&self) -> usize {
@@ -184,6 +235,16 @@ impl CPIndex {
             self.entry_point.store(new_ep, Ordering::Relaxed);
         }
         self.neighbor_index.remove_node(id);
+        self.forget_vector_dimension_if_empty();
+    }
+
+    /// FIND-411 (R4): an index that no longer holds any node has no vector
+    /// dimension — a base whose records were all deleted can adopt a new one
+    /// (the cached dimension would keep rejecting it).
+    pub(crate) fn forget_vector_dimension_if_empty(&self) {
+        if self.nodes.is_empty() {
+            self.vector_dim.store(0, Ordering::Relaxed);
+        }
     }
 
     #[inline(always)]
@@ -254,6 +315,9 @@ impl CPIndex {
         vec_data: &VectorRepresentations,
         storage_offset: u64,
     ) -> bool {
+        // FIND-411 (R4): the first vector written establishes the dimension
+        // of the base — the index is the authority for it.
+        self.note_vector_dimension(vec_data);
         if let Some(mut node) = self.nodes.get_mut(&id) {
             node.bitset = bitset;
             node.vec_data = vec_data.clone();
@@ -329,6 +393,7 @@ impl CPIndex {
         vec_data: VectorRepresentations,
         storage_offset: u64,
     ) -> Result<(), crate::error::Error> {
+        self.note_vector_dimension(&vec_data);
         let level = self.random_layer();
         let ef_cons = self.config.ef_construction;
 
@@ -508,6 +573,7 @@ impl CPIndex {
         storage_offset: u64,
         level: usize,
     ) -> Result<(), crate::error::Error> {
+        self.note_vector_dimension(&vec_data);
         let ef_cons = self.config.ef_construction;
 
         let (inv_cached_norm, norm_sq) = self.compute_cached_norms(&vec_data);

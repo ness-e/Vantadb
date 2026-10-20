@@ -20,13 +20,15 @@ pub fn f32_l2_norm(v: &[f32]) -> f32 {
 ///
 /// FIND-411: vectors of different dimensions score `NaN` (the dimension
 /// mismatch sentinel), never `0.0` — a mismatch is not a valid similarity.
+/// The length check runs **before** the norm checks: a zero-norm candidate
+/// (or an empty query) of a different dimension is still a mismatch.
 #[inline(always)]
 pub fn cosine_sim_cached_norms(a: &[f32], inv_norm_a: f32, b: &[f32], inv_norm_b: f32) -> f32 {
-    if inv_norm_a < f32::EPSILON || inv_norm_b < f32::EPSILON || a.is_empty() {
-        return 0.0;
-    }
     if a.len() != b.len() {
         return crate::index::distance::kernels::DIMENSION_MISMATCH_SCORE;
+    }
+    if inv_norm_a < f32::EPSILON || inv_norm_b < f32::EPSILON || a.is_empty() {
+        return 0.0;
     }
     let dot = f32_dot_product(a, b);
     dot * inv_norm_a * inv_norm_b
@@ -34,14 +36,15 @@ pub fn cosine_sim_cached_norms(a: &[f32], inv_norm_a: f32, b: &[f32], inv_norm_b
 
 /// Cosine similarity when `||query||` was already computed for the search hot path.
 ///
-/// FIND-411: a dimension mismatch scores `NaN`, not `0.0`.
+/// FIND-411: a dimension mismatch scores `NaN`, not `0.0`. The length check
+/// runs **before** the norm check (see `cosine_sim_cached_norms`).
 #[inline(always)]
 pub fn cosine_sim_with_query_norm(query: &[f32], query_norm: f32, b: &[f32]) -> f32 {
-    if query_norm < f32::EPSILON || query.is_empty() {
-        return 0.0;
-    }
     if query.len() != b.len() {
         return crate::index::distance::kernels::DIMENSION_MISMATCH_SCORE;
+    }
+    if query_norm < f32::EPSILON || query.is_empty() {
+        return 0.0;
     }
     let (dot, norm_b_sq) = f32_dot_and_norm_b_sq(query, b);
     let norm_b = norm_b_sq.sqrt();
@@ -54,14 +57,15 @@ pub fn cosine_sim_with_query_norm(query: &[f32], query_norm: f32, b: &[f32]) -> 
 
 /// Compute cosine similarity between two f32 vectors without cached norms.
 ///
-/// FIND-411: a dimension mismatch scores `NaN`, not `0.0`.
+/// FIND-411: a dimension mismatch scores `NaN`, not `0.0`. The length check
+/// runs **before** the empty check (see `cosine_sim_cached_norms`).
 #[inline(always)]
 pub fn cosine_sim_f32(a: &[f32], b: &[f32]) -> f32 {
-    if a.is_empty() {
-        return 0.0;
-    }
     if a.len() != b.len() {
         return crate::index::distance::kernels::DIMENSION_MISMATCH_SCORE;
+    }
+    if a.is_empty() {
+        return 0.0;
     }
     let norm_a = f32_l2_norm(a);
     cosine_sim_with_query_norm(a, norm_a, b)
@@ -207,6 +211,28 @@ mod tests {
         assert!(cosine_sim_f32(&query, &candidate).is_nan());
         assert!(cosine_sim_with_query_norm(&query, norm, &candidate).is_nan());
         assert!(cosine_sim_cached_norms(&query, 1.0 / norm, &candidate, 1.0).is_nan());
+    }
+
+    /// FIND-411 (O3): the length check must run **before** the norm/empty
+    /// checks — a zero-norm candidate (or an empty query) of a different
+    /// dimension is still a mismatch and must score `NaN`, not `0.0`.
+    #[test]
+    fn test_dimension_mismatch_wins_over_the_zero_norm_check() {
+        let zero_query = vec![0.0, 0.0, 0.0];
+        let candidate = vec![1.0, 0.0, 0.0, 0.0, 0.0];
+
+        assert!(
+            cosine_sim_cached_norms(&zero_query, 0.0, &candidate, 1.0).is_nan(),
+            "a zero-norm candidate of another dimension must score NaN, not 0.0"
+        );
+        assert!(
+            cosine_sim_with_query_norm(&zero_query, 0.0, &candidate).is_nan(),
+            "a zero-norm query of another dimension must score NaN, not 0.0"
+        );
+        assert!(
+            cosine_sim_cached_norms(&[], 1.0, &candidate, 1.0).is_nan(),
+            "an empty query of another dimension must score NaN, not 0.0"
+        );
     }
 
     #[test]

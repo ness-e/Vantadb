@@ -3335,15 +3335,12 @@ fn dim_mismatch_guidance(expected: usize, got: usize) -> String {
 }
 
 fn index_vector_dim(storage: &Arc<StorageEngine>) -> Option<usize> {
-    // F3X: `vec_index()` is `dyn IndexPort` (no `.nodes` field). Walk the
-    // trait's id snapshot + cloned vectors (cold per-request validation path,
-    // not a hot loop). `stored_vector → as_f32_slice` mirrors
-    // `HnswNode::vector_slice` exactly (`vec_data.as_f32_slice()`).
-    let index = storage.vec_index();
-    index
-        .all_node_ids()
-        .into_iter()
-        .find_map(|id| index.stored_vector(id)?.as_f32_slice().map(|v| v.len()))
+    // FIND-411 (R4): the canonical rule lives in the core
+    // (`IndexPort::vector_dimension`) — the dimension of the vectors the
+    // index actually holds, independent of the entry point (a quantized
+    // entry point carries no `f32` slice). The SDK calls the same helper,
+    // so both consumers agree on the dimension of a base.
+    storage.vec_index().vector_dimension()
 }
 
 /// MCP-19: parse one JSON object into a `MemoryInput`, applying the same

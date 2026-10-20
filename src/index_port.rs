@@ -156,6 +156,15 @@ pub trait IndexPort: MmapBackend + sealed::Sealed + Send + Sync {
     fn is_sq8_vector(&self, id: u128) -> Option<bool>;
     /// Presence probe.
     fn contains_node(&self, id: u128) -> bool;
+    /// Dimension of the vectors held by the index (`None` = the index holds
+    /// no vector yet).
+    ///
+    /// FIND-411 (R4): the **canonical** rule for the vector dimension of a
+    /// base — the dimension of the vectors the index actually holds. It is
+    /// deliberately independent of the entry point (a quantized entry point
+    /// carries no `f32` slice) and it is the single source of truth for
+    /// every consumer (SDK, MCP, server).
+    fn vector_dimension(&self) -> Option<usize>;
     /// Number of indexed nodes.
     fn node_count(&self) -> usize;
     /// Whether the index has no nodes.

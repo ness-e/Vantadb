@@ -31,7 +31,14 @@ impl CPIndex {
                 nprobe: 10,
                 distance_metric: self.config.distance_metric,
             };
-            *guard = Some(IvfIndex::build(&self.nodes, &ivf_config));
+            // FIND-411 (R3): the canonical index dimension decides which
+            // entries enter the IVF — a mixed-dimension index used to panic
+            // while accumulating the centroids.
+            *guard = Some(IvfIndex::build_with_dimension(
+                &self.nodes,
+                &ivf_config,
+                self.vector_dimension(),
+            ));
             self.ivf_built_at_node_count
                 .store(node_count, std::sync::atomic::Ordering::Relaxed);
         }

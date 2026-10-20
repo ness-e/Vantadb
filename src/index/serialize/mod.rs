@@ -65,6 +65,7 @@ mod test_util {
             ivf_built_at_node_count: AtomicUsize::new(0),
             scann_index: parking_lot::Mutex::new(None),
             scann_built_at_node_count: AtomicUsize::new(0),
+            vector_dim: AtomicUsize::new(0),
         }
     }
 }
