@@ -2,12 +2,43 @@
 //!
 //! Split out of the monolithic `physical_plan` module (REVIEW-05).
 
-#[cfg(feature = "embed-local")]
-use crate::config::Config;
 use crate::error::Result;
 use crate::node::UnifiedNode;
 use crate::query::PhysicalOperator;
 use crate::storage::StorageEngine;
+
+/// Embeds a query text into a vector (FIND-413).
+///
+/// Production wiring resolves the env-selected provider; the hook exists so
+/// the failure path is testable without a live provider (no ONNX, no server).
+type QueryEmbedder = Box<dyn Fn(&str) -> Result<Vec<f32>> + Send + Sync>;
+
+/// Embed the query with the env-selected provider (FIND-413).
+///
+/// * `Ok(Some(vec))` — the query was embedded.
+/// * `Ok(None)` — this build has no embedding capability compiled in (neither
+///   `remote-inference` nor `embed-local`): the vector arm stays empty. That is
+///   a build-time fact, not a provider failure.
+/// * `Err(_)` — the provider failed. The error MUST reach the user: a failed
+///   embedding is NOT "0 results".
+#[cfg(any(feature = "remote-inference", feature = "embed-local"))]
+fn default_query_vector(text: &str) -> Result<Option<Vec<f32>>> {
+    Ok(Some(crate::llm::embed_query(text)?))
+}
+
+/// Embed the query with the env-selected provider — this build has no
+/// embedding capability compiled in (see the feature-gated variant).
+#[cfg(not(any(feature = "remote-inference", feature = "embed-local")))]
+fn default_query_vector(_text: &str) -> Result<Option<Vec<f32>>> {
+    // Not silent: the vector arm is empty because the build cannot embed, and
+    // the user must not read that as "the query matched nothing" (FIND-413).
+    tracing::warn!(
+        "vector search without an embedding provider: this build has neither the \
+         `remote-inference` nor the `embed-local` feature — the vector arm is empty \
+         (rebuild with one of them to run semantic search)"
+    );
+    Ok(None)
+}
 
 // ─── Physical Vector Search Operator ─────────────────────────
 
@@ -16,7 +47,6 @@ pub struct PhysicalVectorSearch<'a> {
     /// Storage engine reference.
     storage: &'a StorageEngine,
     /// Text query to embed.
-    #[allow(dead_code)]
     query_vec_text: String,
     /// Minimum similarity score threshold.
     min_score: f32,
@@ -26,6 +56,8 @@ pub struct PhysicalVectorSearch<'a> {
     prefetched: Vec<UnifiedNode>,
     /// Current position in the prefetched list.
     cursor: usize,
+    /// Embedding hook (test seam): `None` → the env-selected provider.
+    embedder: Option<QueryEmbedder>,
 }
 
 impl<'a> PhysicalVectorSearch<'a> {
@@ -38,6 +70,7 @@ impl<'a> PhysicalVectorSearch<'a> {
             results: Vec::new(),
             prefetched: Vec::new(),
             cursor: 0,
+            embedder: None,
         }
     }
 }
@@ -48,30 +81,12 @@ impl PhysicalOperator for PhysicalVectorSearch<'_> {
         self.prefetched.clear();
         self.cursor = 0;
 
-        #[allow(unused_mut)]
-        let mut vector: Option<Vec<f32>> = None;
-
-        #[cfg(feature = "remote-inference")]
-        {
-            let provider = crate::llm::get_embedding_provider();
-            if let Ok(vec) = provider.embed_query(&self.query_vec_text) {
-                vector = Some(vec);
-            }
-        }
-
-        #[cfg(feature = "embed-local")]
-        {
-            if vector.is_none() {
-                let cfg = Config::default().llm_cfg();
-                if let Ok(provider) = crate::llm::LocalOnnxProvider::from_llm_cfg(&cfg) {
-                    if let Ok(vec) =
-                        crate::llm::EmbeddingProvider::embed_query(&provider, &self.query_vec_text)
-                    {
-                        vector = Some(vec);
-                    }
-                }
-            }
-        }
+        // FIND-413: a failed embedding must reach the user as an error — it is
+        // NOT "0 results".
+        let vector = match &self.embedder {
+            Some(embed) => Some(embed(&self.query_vec_text)?),
+            None => default_query_vector(&self.query_vec_text)?,
+        };
 
         if let Some(vec) = vector {
             let neighbors = {
@@ -119,12 +134,13 @@ pub struct PhysicalVectorRefine<'a> {
     /// Child operator.
     child: Box<dyn PhysicalOperator + 'a>,
     /// Text query to embed.
-    #[allow(dead_code)]
     query_vec_text: String,
     /// Minimum similarity score.
     min_score: f32,
     /// Embedded query vector.
     query_vector: Option<crate::node::VectorRepresentations>,
+    /// Embedding hook (test seam) — see [`PhysicalVectorSearch::embedder`].
+    embedder: Option<QueryEmbedder>,
 }
 
 impl<'a> PhysicalVectorRefine<'a> {
@@ -135,6 +151,7 @@ impl<'a> PhysicalVectorRefine<'a> {
             query_vec_text: query_text,
             min_score,
             query_vector: None,
+            embedder: None,
         }
     }
 }
@@ -144,26 +161,14 @@ impl PhysicalOperator for PhysicalVectorRefine<'_> {
         self.child.open()?;
         self.query_vector = None;
 
-        #[cfg(feature = "remote-inference")]
-        {
-            let provider = crate::llm::get_embedding_provider();
-            if let Ok(vec) = provider.embed_query(&self.query_vec_text) {
-                self.query_vector = Some(crate::node::VectorRepresentations::Full(vec));
-            }
-        }
-
-        #[cfg(feature = "embed-local")]
-        {
-            if self.query_vector.is_none() {
-                let cfg = Config::default().llm_cfg();
-                if let Ok(provider) = crate::llm::LocalOnnxProvider::from_llm_cfg(&cfg) {
-                    if let Ok(vec) =
-                        crate::llm::EmbeddingProvider::embed_query(&provider, &self.query_vec_text)
-                    {
-                        self.query_vector = Some(crate::node::VectorRepresentations::Full(vec));
-                    }
-                }
-            }
+        // FIND-413: same contract as the search operator — the embedding error
+        // is propagated, never degraded into "no rows".
+        let vector = match &self.embedder {
+            Some(embed) => Some(embed(&self.query_vec_text)?),
+            None => default_query_vector(&self.query_vec_text)?,
+        };
+        if let Some(vec) = vector {
+            self.query_vector = Some(crate::node::VectorRepresentations::Full(vec));
         }
         Ok(())
     }
@@ -187,5 +192,117 @@ impl PhysicalOperator for PhysicalVectorRefine<'_> {
     fn close(&mut self) -> Result<()> {
         self.query_vector = None;
         self.child.close()
+    }
+}
+
+// ─── Tests (FIND-413) ────────────────────────────────────────────────
+
+#[cfg(test)]
+#[allow(missing_docs, clippy::unwrap_used, clippy::expect_used)]
+mod tests {
+    use super::*;
+    use crate::config::Config;
+    use crate::error::Error;
+    use crate::node::{NodeFlags, VectorRepresentations};
+    use crate::storage::BackendKind;
+    use tempfile::tempdir;
+
+    /// Embedding hook that always fails — stands in for a local model that is
+    /// not loaded or an inference server that is down (FIND-413).
+    fn broken_embedder() -> QueryEmbedder {
+        Box::new(|_text: &str| {
+            Err(Error::Embedding(
+                "local model not loaded: /nonexistent/model.onnx".to_string(),
+            ))
+        })
+    }
+
+    /// Healthy embedding hook — deterministic vector, no network and no ONNX.
+    fn healthy_embedder() -> QueryEmbedder {
+        Box::new(|_text: &str| Ok(vec![1.0, 0.0]))
+    }
+
+    fn in_memory_storage() -> (StorageEngine, tempfile::TempDir) {
+        let dir = tempdir().unwrap();
+        let config = Config {
+            backend_kind: BackendKind::InMemory,
+            ..Default::default()
+        };
+        let storage = StorageEngine::open_with_config(dir.path().to_str().unwrap(), Some(config))
+            .expect("open in-memory storage");
+        (storage, dir)
+    }
+
+    // Prove-It (FIND-413): before the fix the operator swallowed the provider
+    // error (`if let Ok(vec) = ...`) and the query returned "no results", so the
+    // user diagnosed "I have no data" instead of "the provider is down".
+    #[test]
+    fn f413_vector_search_propagates_embedding_failure() {
+        let (storage, _dir) = in_memory_storage();
+        let mut op = PhysicalVectorSearch::new(&storage, "rust expert".to_string(), 0.5);
+        op.embedder = Some(broken_embedder());
+
+        let err = op
+            .open()
+            .expect_err("an embedding failure must be an error, not 0 hits");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("local model not loaded"),
+            "the error must explain why the embedding failed: {msg}"
+        );
+    }
+
+    // The good case stays distinguishable: a healthy provider with no match
+    // is 0 hits, not an error.
+    #[test]
+    fn f413_vector_search_healthy_provider_without_match_is_zero_hits() {
+        let (storage, _dir) = in_memory_storage();
+        let mut op = PhysicalVectorSearch::new(&storage, "nothing matches".to_string(), 0.5);
+        op.embedder = Some(healthy_embedder());
+
+        op.open().expect("a healthy provider must not error");
+        assert!(
+            op.next().expect("next").is_none(),
+            "no match → 0 hits, not an error"
+        );
+        op.close().expect("close");
+    }
+
+    // Guards the previous test against being vacuous: with a healthy provider
+    // the vector arm really searches the index.
+    #[test]
+    fn f413_vector_search_healthy_provider_returns_matching_node() {
+        let (storage, _dir) = in_memory_storage();
+        let mut node = UnifiedNode::new(1);
+        node.vector = VectorRepresentations::Full(vec![1.0, 0.0]);
+        node.flags.set(NodeFlags::HAS_VECTOR);
+        storage.insert(&node).unwrap();
+
+        let mut op = PhysicalVectorSearch::new(&storage, "match".to_string(), -10.0);
+        op.embedder = Some(healthy_embedder());
+        op.open().expect("open");
+        let hit = op
+            .next()
+            .expect("next")
+            .expect("the indexed node must match");
+        assert_eq!(hit.id, 1);
+    }
+
+    // The refine operator had the same swallow → same contract.
+    #[test]
+    fn f413_vector_refine_propagates_embedding_failure() {
+        let (storage, _dir) = in_memory_storage();
+        let child = crate::physical_plan::PhysicalScan::new(&storage, "*".to_string());
+        let mut op = PhysicalVectorRefine::new(Box::new(child), "rust expert".to_string(), 0.5);
+        op.embedder = Some(broken_embedder());
+
+        let err = op
+            .open()
+            .expect_err("an embedding failure must be an error, not 0 hits");
+        assert!(
+            err.to_string().contains("local model not loaded"),
+            "the error must explain why the embedding failed: {}",
+            err
+        );
     }
 }

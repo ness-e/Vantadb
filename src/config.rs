@@ -399,6 +399,29 @@ impl Default for LlmCfg {
     }
 }
 
+impl LlmCfg {
+    /// Effective configuration for a local ONNX embedding provider (FIND-414).
+    ///
+    /// Reads the environment through [`Config::default`] — the single source
+    /// the rest of the engine uses — so the provider honors the *real* policy
+    /// (`VANTADB_EMBEDDING_PROVIDER`, `VANTADB_LOCAL_MODEL`,
+    /// `VANTADB_STRICT_EMBEDDINGS`, `VANTADB_ALLOW_DUMMY_EMBEDDINGS`) instead
+    /// of a hardcoded [`LlmCfg::default`].
+    ///
+    /// A non-empty `model_dir` overrides `VANTADB_LOCAL_MODEL` (an explicit
+    /// argument wins over the environment); an empty one keeps the env value.
+    // Compiled only where it is used: the local provider (`embed-local` /
+    // `remote-inference`) and the unit tests that pin the contract.
+    #[cfg(any(feature = "remote-inference", feature = "embed-local", test))]
+    pub(crate) fn for_local_model(model_dir: &str) -> Self {
+        let mut cfg = Config::default().llm_cfg();
+        if !model_dir.trim().is_empty() {
+            cfg.local_model_path = model_dir.to_string();
+        }
+        cfg
+    }
+}
+
 impl Default for EvictionCfg {
     fn default() -> Self {
         Self {
@@ -2524,5 +2547,92 @@ mod tests {
         changed_hot.rate_limit_rpm = hot.rate_limit_rpm + 1;
         assert!(changed_hot.apply_to(&mut target));
         assert_eq!(target.rate_limit_rpm, changed_hot.rate_limit_rpm);
+    }
+
+    // ── FIND-414: la config del provider local se lee del entorno ──
+
+    /// Guarda/restaura una env var (el entorno del proceso es global).
+    struct EnvGuard {
+        key: &'static str,
+        saved: Option<String>,
+    }
+
+    impl EnvGuard {
+        fn set(key: &'static str, value: &str) -> Self {
+            let saved = std::env::var(key).ok();
+            std::env::set_var(key, value);
+            Self { key, saved }
+        }
+
+        fn unset(key: &'static str) -> Self {
+            let saved = std::env::var(key).ok();
+            std::env::remove_var(key);
+            Self { key, saved }
+        }
+    }
+
+    impl Drop for EnvGuard {
+        fn drop(&mut self) {
+            match &self.saved {
+                Some(v) => std::env::set_var(self.key, v),
+                None => std::env::remove_var(self.key),
+            }
+        }
+    }
+
+    // Prove-It (FIND-414): antes del fix, `LocalOnnxProvider::new` construía el
+    // `LlmCfg` desde `LlmCfg::default()` (valores hardcodeados) → las env vars
+    // documentadas no se leían en ningún sitio. El canonical es `VANTADB_*`
+    // (los alias legacy `VANTA_*` se movieron a `Config` en F3C C7).
+    #[test]
+    #[serial_test::serial]
+    fn f414_local_model_cfg_reads_environment() {
+        let _provider = EnvGuard::set("VANTADB_EMBEDDING_PROVIDER", "local");
+        let _model = EnvGuard::set(
+            "VANTADB_LOCAL_MODEL",
+            "C:/models/multilingual-e5-small/onnx",
+        );
+        let _strict = EnvGuard::set("VANTADB_STRICT_EMBEDDINGS", "false");
+
+        let cfg = LlmCfg::for_local_model("");
+
+        assert_eq!(
+            cfg.embedding_provider, "local",
+            "VANTADB_EMBEDDING_PROVIDER must reach the provider config"
+        );
+        assert_eq!(
+            cfg.local_model_path, "C:/models/multilingual-e5-small/onnx",
+            "VANTADB_LOCAL_MODEL must reach the provider config"
+        );
+        assert!(
+            !cfg.strict_embeddings,
+            "VANTADB_STRICT_EMBEDDINGS=false must relax the strict policy"
+        );
+    }
+
+    // El argumento explícito gana sobre el entorno (mismo criterio que el resto
+    // de los overrides por constructor).
+    #[test]
+    #[serial_test::serial]
+    fn f414_local_model_cfg_explicit_dir_overrides_env() {
+        let _model = EnvGuard::set("VANTADB_LOCAL_MODEL", "C:/models/from-env/onnx");
+
+        let cfg = LlmCfg::for_local_model("C:/models/explicit/onnx");
+
+        assert_eq!(cfg.local_model_path, "C:/models/explicit/onnx");
+    }
+
+    // Sin env y sin argumento explícito → el default documentado.
+    #[test]
+    #[serial_test::serial]
+    fn f414_local_model_cfg_falls_back_to_default_model_dir() {
+        let _model = EnvGuard::unset("VANTADB_LOCAL_MODEL");
+
+        let cfg = LlmCfg::for_local_model("");
+
+        assert_eq!(
+            cfg.local_model_path, "embeddings/models/multilingual-e5-small/onnx",
+            "without env and without an explicit dir the documented default applies"
+        );
     }
 }

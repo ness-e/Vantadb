@@ -54,6 +54,49 @@ pub trait EmbeddingProvider: Send + Sync {
 
 // ── Factory ───────────────────────────────────────────────────────────
 
+/// Resolve the effective embedding provider WITHOUT the synthetic fallback.
+///
+/// FIND-413/FIND-414: this is the strict path — a provider that cannot be
+/// built is an error, never a silent dummy-embedding provider. The legacy
+/// [`get_embedding_provider`] keeps its never-fail contract for the callers
+/// that cannot surface an error (MCP tools, auto-embedding on insert).
+#[cfg(all(feature = "remote-inference", feature = "embed-local"))]
+pub(crate) fn try_embedding_provider() -> Result<Box<dyn EmbeddingProvider>> {
+    let cfg = Config::default().llm_cfg();
+    Ok(match cfg.embedding_provider.as_str() {
+        "openai" => Box::new(OpenAIProvider::new(&cfg)) as Box<dyn EmbeddingProvider>,
+        "ollama" => Box::new(OllamaProvider::new(&cfg)),
+        // "local" | "multilingual-e5-small" | anything else → local ONNX.
+        _ => Box::new(LocalOnnxProvider::from_llm_cfg(&cfg)?),
+    })
+}
+
+/// Resolve the effective embedding provider WITHOUT the synthetic fallback.
+#[cfg(all(feature = "remote-inference", not(feature = "embed-local")))]
+pub(crate) fn try_embedding_provider() -> Result<Box<dyn EmbeddingProvider>> {
+    let cfg = Config::default().llm_cfg();
+    Ok(match cfg.embedding_provider.as_str() {
+        "openai" => Box::new(OpenAIProvider::new(&cfg)) as Box<dyn EmbeddingProvider>,
+        _ => Box::new(OllamaProvider::new(&cfg)),
+    })
+}
+
+/// Resolve the effective embedding provider WITHOUT the synthetic fallback.
+#[cfg(all(not(feature = "remote-inference"), feature = "embed-local"))]
+pub(crate) fn try_embedding_provider() -> Result<Box<dyn EmbeddingProvider>> {
+    let cfg = Config::default().llm_cfg();
+    Ok(Box::new(LocalOnnxProvider::from_llm_cfg(&cfg)?))
+}
+
+/// Embed a retrieval query with the effective provider (FIND-413).
+///
+/// Errors are propagated to the caller: a failed embedding is NOT "0 results".
+#[cfg(any(feature = "remote-inference", feature = "embed-local"))]
+pub(crate) fn embed_query(text: &str) -> Result<Vec<f32>> {
+    let provider = try_embedding_provider()?;
+    provider.embed_query(text)
+}
+
 #[cfg(all(feature = "remote-inference", feature = "embed-local"))]
 /// Return the embedding provider selected by `VANTADB_EMBEDDING_PROVIDER`.
 ///
@@ -63,26 +106,10 @@ pub trait EmbeddingProvider: Send + Sync {
 /// | `ollama`| [`OllamaProvider`]                                |
 /// | `local` | [`LocalOnnxProvider`] — requires `embed-local` feature |
 pub fn get_embedding_provider() -> Box<dyn EmbeddingProvider> {
-    let cfg = Config::default().llm_cfg();
-    match cfg.embedding_provider.as_str() {
-        "openai" => Box::new(OpenAIProvider::new(&cfg)),
-        "ollama" => Box::new(OllamaProvider::new(&cfg)),
-        "local" | "multilingual-e5-small" => {
-            let model_dir = cfg.local_model_path;
-            // ponytail: unwrap fallback to deterministic dummy if model missing — keeps CI green without 691MB download
-            Box::new(
-                LocalOnnxProvider::new(&model_dir)
-                    .unwrap_or_else(|_| LocalOnnxProvider::new_dummy(384)),
-            )
-        }
-        _ => {
-            let model_dir = cfg.local_model_path;
-            Box::new(
-                LocalOnnxProvider::new(&model_dir)
-                    .unwrap_or_else(|_| LocalOnnxProvider::new_dummy(384)),
-            )
-        }
-    }
+    // ponytail: legacy never-fail contract — the callers that cannot surface
+    // an error keep a synthetic provider instead of a hard failure. The strict
+    // path is `try_embedding_provider` (used by the vector search operators).
+    try_embedding_provider().unwrap_or_else(|_| Box::new(LocalOnnxProvider::new_dummy(384)))
 }
 
 #[cfg(all(feature = "remote-inference", not(feature = "embed-local")))]
@@ -93,21 +120,15 @@ pub fn get_embedding_provider() -> Box<dyn EmbeddingProvider> {
 /// | `openai`| [`OpenAIProvider`] — requires `VANTADB_OPENAI_API_KEY` |
 /// | _any_   | [`OllamaProvider`] (default)                      |
 pub fn get_embedding_provider() -> Box<dyn EmbeddingProvider> {
-    let cfg = Config::default().llm_cfg();
-    match cfg.embedding_provider.as_str() {
-        "openai" => Box::new(OpenAIProvider::new(&cfg)),
-        _ => Box::new(OllamaProvider::new(&cfg)),
-    }
+    try_embedding_provider()
+        .unwrap_or_else(|_| Box::new(OllamaProvider::new(&Config::default().llm_cfg())))
 }
 
 #[cfg(all(not(feature = "remote-inference"), feature = "embed-local"))]
 /// Return the embedding provider — only `LocalOnnxProvider` available without `remote-inference`.
 pub fn get_embedding_provider() -> Box<dyn EmbeddingProvider> {
-    let cfg = Config::default().llm_cfg();
-    let model_dir = cfg.local_model_path;
-    Box::new(
-        LocalOnnxProvider::new(&model_dir).unwrap_or_else(|_| LocalOnnxProvider::new_dummy(384)),
-    )
+    // ponytail: legacy never-fail contract (see the `remote-inference` variant).
+    try_embedding_provider().unwrap_or_else(|_| Box::new(LocalOnnxProvider::new_dummy(384)))
 }
 
 // ── LocalOnnxProvider (embed-local) ───────────────────────────────────
@@ -185,15 +206,17 @@ impl LocalOnnxProvider {
     ///
     /// `model_dir` should point to the ONNX directory, e.g.
     /// `embeddings/models/multilingual-e5-small/onnx`.
-    /// If files are missing, returns a dummy deterministic provider (384d) so
-    /// tests and CI remain green without downloading 691MB. Real inference
-    /// is used when `model.onnx` + `tokenizer.json` are present and `ort`
-    /// loads successfully.
+    /// The rest of the configuration is read from the environment
+    /// (`VANTADB_EMBEDDING_PROVIDER`, `VANTADB_LOCAL_MODEL`,
+    /// `VANTADB_STRICT_EMBEDDINGS`, `VANTADB_ALLOW_DUMMY_EMBEDDINGS`) — the
+    /// provider must see the real configuration, never a hardcoded default
+    /// (FIND-414). An empty `model_dir` keeps `VANTADB_LOCAL_MODEL`.
+    ///
+    /// If the model files are missing, embedding fails closed in strict mode
+    /// (the default): the caller gets [`Error::Embedding`], never a silent
+    /// synthetic vector.
     pub fn new(model_dir: &str) -> Result<Self> {
-        Self::from_llm_cfg(&crate::config::LlmCfg {
-            local_model_path: model_dir.to_string(),
-            ..Default::default()
-        })
+        Self::from_llm_cfg(&crate::config::LlmCfg::for_local_model(model_dir))
     }
 
     /// Create a new provider from [`LlmCfg`] (uses `local_model_path`).
@@ -1293,6 +1316,83 @@ mod tests {
             .embed("test text")
             .expect("permissive embed");
         assert_eq!(vec.len(), 384);
+    }
+
+    // ── FIND-414: `LocalOnnxProvider::new` lee la configuración real ──
+
+    /// Guarda/restaura una env var (el entorno del proceso es global).
+    struct EnvGuard {
+        key: &'static str,
+        saved: Option<String>,
+    }
+
+    impl EnvGuard {
+        fn set(key: &'static str, value: &str) -> Self {
+            let saved = std::env::var(key).ok();
+            std::env::set_var(key, value);
+            Self { key, saved }
+        }
+    }
+
+    impl Drop for EnvGuard {
+        fn drop(&mut self) {
+            match &self.saved {
+                Some(v) => std::env::set_var(self.key, v),
+                None => std::env::remove_var(self.key),
+            }
+        }
+    }
+
+    // Prove-It (FIND-414): antes del fix, `new()` construía el `LlmCfg` desde
+    // `LlmCfg::default()` → `VANTADB_ALLOW_DUMMY_EMBEDDINGS=true` se ignoraba
+    // y el provider quedaba en strict mode aunque el usuario lo hubiera
+    // permitido explícitamente.
+    //
+    // El aserto es sobre `allow_dummy` (derivado de `strict_embeddings`) y no
+    // sobre `embed()`: el resultado de `embed()` depende de si el modelo ONNX
+    // está descargado en la máquina (candidatos hardcodeados en
+    // `load_session_inner`), así que no es determinista.
+    #[test]
+    #[serial_test::serial]
+    fn f414_new_honors_allow_dummy_env() {
+        let _allow = EnvGuard::set("VANTADB_ALLOW_DUMMY_EMBEDDINGS", "true");
+
+        let provider = LocalOnnxProvider::new("embeddings/models/find414-missing/onnx")
+            .expect("provider build");
+
+        assert!(
+            provider.allow_dummy,
+            "VANTADB_ALLOW_DUMMY_EMBEDDINGS=true must relax the strict policy"
+        );
+    }
+
+    // Sin el opt-out, el mismo provider queda en strict mode (default
+    // estricto: fail-closed, nunca fallback silencioso a vectores dummy).
+    #[test]
+    #[serial_test::serial]
+    fn f414_new_stays_strict_without_opt_out() {
+        let _strict = EnvGuard::set("VANTADB_STRICT_EMBEDDINGS", "true");
+        let _allow = EnvGuard::set("VANTADB_ALLOW_DUMMY_EMBEDDINGS", "false");
+
+        let provider = LocalOnnxProvider::new("embeddings/models/find414-missing/onnx")
+            .expect("provider build");
+
+        assert!(
+            !provider.allow_dummy,
+            "strict embeddings must stay the default (fail-closed)"
+        );
+    }
+
+    // `VANTADB_LOCAL_MODEL` es el modelo efectivo cuando no se pasa uno
+    // explícito.
+    #[test]
+    #[serial_test::serial]
+    fn f414_new_uses_env_model_dir() {
+        let _model = EnvGuard::set("VANTADB_LOCAL_MODEL", "C:/models/find414/onnx");
+
+        let provider = LocalOnnxProvider::new("").expect("provider build");
+
+        assert_eq!(provider.model_dir, "C:/models/find414/onnx");
     }
 }
 

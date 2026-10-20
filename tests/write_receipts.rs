@@ -279,7 +279,9 @@ fn put_certified_rejects_non_finite_floats_before_writing() {
     let db = open_temp_db(&dir);
 
     let mut input = write_input("write", "nan");
-    input.vector = Some(vec![0.5, f32::NAN]);
+    // 3 dims, like the index: the dimension check (FIND-411) runs before the
+    // non-finite check, so a 2-dim vector would be rejected for the wrong reason.
+    input.vector = Some(vec![0.5, f32::NAN, 0.25]);
     let err = db
         .put_certified(input)
         .expect_err("non-finite floats must be rejected");
@@ -314,7 +316,9 @@ fn verify_fails_safe_when_live_record_has_non_finite_floats() {
     // it to `null`, making the content comparison ambiguous — verification
     // must fail safe instead of comparing ambiguous hashes.
     let mut altered = write_input("write", "theta");
-    altered.vector = Some(vec![0.5, f32::INFINITY]);
+    // 3 dims, like the index: the dimension check (FIND-411) rejects a 2-dim
+    // vector before the non-finite one, so the test would fail for the wrong reason.
+    altered.vector = Some(vec![0.5, f32::INFINITY, 0.25]);
     db.put(altered).expect("re-put with non-finite float");
 
     let err = db
