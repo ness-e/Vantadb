@@ -42,9 +42,9 @@ Embeddings come from `nomic-embed-text` over the local Ollama API. Nothing is se
 Each agent gets a namespace in a local VantaDB store. Observations go in with payload, metadata, and the Ollama-produced vector:
 
 ```python
-from vantadb import VantaDB
+from vantadb import Client
 
-db = Client(path="./agent-memory")
+db = Client("./agent-memory")
 db.put(
     namespace="support-agent",
     key="obs-0042",
@@ -59,8 +59,8 @@ Recall is hybrid search — BM25 catches the exact error string, HNSW catches th
 ```python
 hits = db.search(
     namespace="support-agent",
-    text="invoice export timeout",
-    vector=embed("invoice export timeout"),
+    text_query="invoice export timeout",
+    query_vector=embed("invoice export timeout"),
     top_k=5,
 )
 ```

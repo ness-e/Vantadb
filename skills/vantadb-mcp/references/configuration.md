@@ -1,6 +1,6 @@
 # VantaDB Configuration Guide
 
-> Verified against `src/config.rs`. VantaDB is configured exclusively through **environment variables** (`VANTADB_*` / `VANTA_*`) and CLI flags — there is **no `config.json`** and no config file for the engine or the MCP server. All variables have sensible defaults; set only what you need to override.
+> Verified against `src/config.rs`. VantaDB is configured exclusively through **environment variables** (`VANTADB_*`) and CLI flags — there is **no `config.json`** and no config file for the engine or the MCP server. All variables have sensible defaults; set only what you need to override.
 
 ## Storage
 
@@ -14,24 +14,24 @@ export VANTADB_STORAGE_PATH=/custom/path
 
 Default: `vantadb_data` (relative to the working directory).
 
-> Note: the legacy name `VANTADB_PATH` does not exist. The CLI's `--db` flag (env `VANTA_DB`, default `./db`) is separate and only affects `vanta-cli`.
+> Note: the legacy name `VANTADB_PATH` does not exist. The CLI's `--db` flag is a **global** flag whose env is `VANTADB_STORAGE_PATH` (default `./db`, `src/cli.rs`); there is no `VANTA_DB` env var.
 
 > `~` is NOT expanded: `Path::new(db_path)` is used verbatim (`src/cli_handlers/server.rs`, `vantadb-mcp/src/server.rs`). In a shell `~/.vantadb` expands, but MCP clients spawn the server **without a shell** — always use an **absolute path** in client JSON configs (see the `~` warning in `SKILL.md` § Quick Start and `docs/api/MCP.md` § Client configuration).
 
-### VANTA_BACKEND
+### VANTADB_BACKEND
 
 Key-value storage backend. Accepted values: `fjall` (default), `rocksdb`, `memory`.
 
 ```bash
-export VANTA_BACKEND=fjall
+export VANTADB_BACKEND=fjall
 ```
 
-### VANTA_PREFETCH
+### VANTADB_PREFETCH
 
 Mmap vector page prefetch during HNSW search. Accepted: `enabled`, `disabled` (default), `auto`.
 
 ```bash
-export VANTA_PREFETCH=disabled
+export VANTADB_PREFETCH=disabled
 ```
 
 ## Memory & Performance
@@ -124,11 +124,34 @@ Verified against `vantadb-mcp/src/config.rs` (`McpConfig::from_storage`).
 
 ### VANTADB_MCP_PROFILE
 
-Tool surface profile for clients with tool caps (e.g. Cursor ~40 tools). Read once at server startup. Accepted values: `full` (default, 85 tools), `dev` (36: memory + graph + collections + key maintenance + axioms), `memory` (20: core CRUD + search + IQL + collections + capabilities).
+Tool surface profile for clients with tool caps (e.g. Cursor ~40 tools). Read once at server startup (`vantadb-mcp/src/config.rs`). Accepted values:
+
+| Profile | Listed tools | Shape |
+|---------|--------------|-------|
+| `agent` (**default**) | 39 | memory + threads + scenes + context engine + wiki read |
+| `full` | 82 | everything listed (88 defined − 6 absorbed `code_*` projections) |
+| `dev` | 38 | memory + graph + collections + key maintenance + axioms — fits Cursor's ~40-tool cap |
+| `memory` | 22 | core memory CRUD + search + IQL + collections + capabilities |
+
+The default is `agent` (WIRE-02): the `full` surface costs ≈23K tokens of tool schemas per session, so it is opt-in.
 
 ```bash
 export VANTADB_MCP_PROFILE=dev
 ```
+
+### VANTADB_MCP_INJECT_NAMESPACES / VANTADB_MCP_TAINTED_NAMESPACES / VANTADB_MCP_INCLUDE_TAINTED
+
+Injection governance for the memory surfaces (`memory_recall`, `context_assemble`) — VER-04 + MGR-04.
+
+| Variable | Meaning | Default |
+|----------|---------|---------|
+| `VANTADB_MCP_INJECT_NAMESPACES` | Comma-separated namespace **prefixes** the recall may read from (the injection ACL). Empty = allow-all | empty (allow-all) |
+| `VANTADB_MCP_TAINTED_NAMESPACES` | Comma-separated namespace prefixes classified as **tainted**; their content is never injected by default (skipped and audited as denied) | empty (none tainted) |
+| `VANTADB_MCP_INCLUDE_TAINTED` | Explicit opt-in to inject tainted namespaces (`1`/`true`/`yes`). The ACL above still applies | `false` |
+
+### VANTADB_MCP_AUDIT_LOG
+
+Path of the append-only JSONL **injection-audit sink** (VER-04), with rotation. Unset = auditing disabled. Every injection decision (allowed and denied) is recorded there.
 
 ### VANTADB_MCP_BYTE_BUDGET
 
@@ -168,7 +191,7 @@ Optional append-only JSONL audit log of business operations (every put/delete/ex
 
 ## LLM Integration
 
-### VANTA_LLM_URL / VANTA_LLM_MODEL / VANTA_LLM_SUMMARIZE_MODEL
+### VANTADB_LLM_URL / VANTADB_LLM_MODEL / VANTADB_LLM_SUMMARIZE_MODEL
 
 LLM inference endpoint (default `http://localhost:11434`), embedding model (default `all-minilm`), and summarisation model (default `llama3`). Only relevant when the `remote-inference` feature is enabled.
 
@@ -192,7 +215,7 @@ HNSW parameters (`m`, `m_max0`, `ef_construction`, `ef_search`, `ml`, `distance_
 
 ## CLI Flags
 
-The `vanta-cli` binary accepts the global `--db` flag (env `VANTA_DB`, default `./db`) and `--memory-limit`, plus per-subcommand flags. For the MCP server:
+The `vanta-cli` binary accepts the global `--db` flag (env `VANTADB_STORAGE_PATH`, default `./db`) and `--memory-limit`, plus per-subcommand flags. For the MCP server:
 
 ```bash
 vanta-cli server --mcp --db ~/.vantadb

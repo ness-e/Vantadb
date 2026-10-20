@@ -45,7 +45,7 @@ pip install vantadb-py
 
 ```toml
 [dependencies]
-vantadb = "0.5.0"
+vantadb = "0.9"
 ```
 
 ## Quick Start
@@ -773,7 +773,7 @@ def cache_with_vantadb(db, key, compute_fn, ttl_seconds=3600):
 
 ## Version Compatibility
 
-- **Current Version:** 0.5.0
+- **Current Version:** 0.9.0
 - **Rust Minimum:** 1.94.1
 - **Python Minimum:** >=3.11
 - **Platforms:** Linux, macOS (Intel/ARM), Windows

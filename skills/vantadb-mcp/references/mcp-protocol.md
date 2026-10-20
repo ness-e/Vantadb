@@ -4,11 +4,11 @@
 
 The Model Context Protocol (MCP) is a standardized protocol for AI agents to interact with external systems through a JSON-RPC interface over stdio.
 
-This document describes the standard MCP wire protocol as implemented by the VantaDB MCP server (`vantadb-mcp`). The server dispatches exactly these methods: `initialize`, `tools/list`, `tools/call`, `resources/list`, `resources/read`, `prompts/list`, `prompts/get`. The concrete tool list (85 tools: 47 core + 7 skill_* + 8 code_* + 6 wiki_* + 1 context_assemble + 5 scene_* + 6 thread_* + 5 dream_*) is documented in `references/api-reference.md` § "MCP Tools" — the single source of truth.
+This document describes the standard MCP wire protocol as implemented by the VantaDB MCP server (`vantadb-mcp`). The server dispatches exactly these methods: `initialize`, `tools/list`, `tools/call`, `resources/list`, `resources/read`, `prompts/list`, `prompts/get`. The concrete tool list (82 listed / 88 defined: 49 core + 7 skill_* + 3 listed code_* (9 defined) + 6 wiki_* + 1 context_assemble + 5 scene_* + 6 thread_* + 5 dream_*) is documented in `references/api-reference.md` § "MCP Tools" — the single source of truth.
 
 ## Protocol Version
 
-Current version: `2024-11-05`
+Latest stable version: `2025-06-18`. The server also understands `2024-11-05` — `initialize` echoes the requested version back when it is one of the supported ones, and falls forward to the latest otherwise (`vantadb-mcp/src/handlers/initialize.rs`, `LATEST_PROTOCOL_VERSION` / `SUPPORTED_PROTOCOL_VERSIONS`).
 
 ## Connection
 
@@ -36,7 +36,7 @@ Initialize the MCP connection.
   "id": 1,
   "method": "initialize",
   "params": {
-    "protocolVersion": "2024-11-05",
+    "protocolVersion": "2025-06-18",
     "capabilities": {},
     "clientInfo": {
       "name": "client-name",
@@ -52,7 +52,7 @@ Initialize the MCP connection.
   "jsonrpc": "2.0",
   "id": 1,
   "result": {
-    "protocolVersion": "2024-11-05",
+    "protocolVersion": "2025-06-18",
     "serverInfo": {
       "name": "server-name",
       "version": "1.0.0"

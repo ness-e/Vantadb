@@ -1,7 +1,7 @@
 ---
 title: Task SRV-10 — Cifrado server honesto + CI-08/FIND-321
 kind: task
-status: in-progress
+status: in_progress
 wave: 0
 ---
 

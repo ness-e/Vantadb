@@ -16,9 +16,9 @@ before `1.0.0` — and enumerates the public API surfaces covered by the policy.
 
 Until `1.0.0`:
 
-- **MINOR** releases (`0.5.0` → `0.6.0`) **may contain breaking changes**. This follows
+- **MINOR** releases (`0.9.0` → `0.10.0`) **may contain breaking changes**. This follows
   the semver `0.x` convention: the MINOR version acts as the compatibility boundary.
-- **PATCH** releases (`0.6.0` → `0.6.1`) are always backward-compatible: bug fixes,
+- **PATCH** releases (`0.9.0` → `0.9.1`) are always backward-compatible: bug fixes,
   performance improvements, and doc updates only. No API removals, no signature
   changes, no on-disk format changes.
 

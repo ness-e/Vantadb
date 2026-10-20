@@ -528,6 +528,22 @@ cargo check -p vantadb-server --features encryption
 
 ## 8. Verificación global y gates de cierre
 
+**Baseline de la suite en esta rama (2026-10-20, `cargo nextest run -p vantadb --profile audit --lib`):**
+`Summary [1212.463s] 2468 tests run: 2457 passed (30 slow), 10 failed, 1 timed out, 2 skipped`.
+Los 11 fallos son **preexistentes y ajenos al cifrado**, y hay que distinguirlos al interpretar
+cualquier corrida posterior:
+
+| Tipo | Tests | Causa |
+|---|---|---|
+| FAIL real (3) | `index::distance::metrics::tests::test_euclidean_distance_squared_mismatched_length` · `test_cosine_sim_mismatched_length` · `index::distance::mapper::tests::test_sq8_similarity_mismatched_dims_no_panic` | aserción NaN vs 0 en longitudes mismatched — **bug real preexistente** en `src/index/distance/` |
+| ABORT ambiental (7) | `index::search::tests::test_search_nearest_*` (6) + 1 | agotamiento de recursos en Windows: stack-buffer overrun `0xc0000409` (os error 1282) y *paging file too small* (os error 1455) con los binarios de test en paralelo |
+| TIMEOUT (1) | `index::core::tests::concurrent_insert_preserves_hnsw_invariants` (180 s) | saturación de la máquina (los tests de `storage::engine::tests` tardaron 60-85 s cada uno) |
+
+Además, `cargo nextest run -p vantadb --profile audit` (suite completa) **no compila** el target de
+integración `concurrency_parity` (152 errores, cabeza `E0463`) — preexistente en el worktree, a
+verificar por separado. **Ninguno de estos fallos lo introduce el cifrado**; si una wave los
+cambia, es un hallazgo.
+
 **Gate por wave (obligatorio, en este orden):**
 
 ```powershell

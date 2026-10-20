@@ -35,6 +35,17 @@ Authorization: Bearer <VANTADB_API_KEY>
 
 Without an API key (dev mode), requests pass through unauthenticated.
 
+### Three identity levels
+
+| Level | Credential | Notes |
+|-------|-----------|-------|
+| **L1 — transport** | `Authorization: Bearer <token>` | The token is matched against `api_key` / `alt_api_key` (or a JWT via `jwt_secret`). |
+| **L2 — service** | Bearer token mapped to a service principal | Resolved by the auth middleware; authorizes downstream via its principal. |
+| **L3 — user** | Bearer token **plus** `x-vanta-user-key: <user key>` | The key is resolved against the `user` principal (`src/server/state.rs`, `USER_KEY_HEADER`). Resolution is **deny-by-default**: a missing or unknown key fails closed with `401` and the hint `"Provide a valid x-vanta-user-key header."` |
+
+`x-vanta-user-key` is declared as the `userKey` security scheme in
+[`openapi.yaml`](./openapi.yaml) (`components.securitySchemes.userKey`).
+
 ## Multi-tenant (namespace-scoped credentials)
 
 **Tenant model:** a **namespace is a tenant boundary** (the namespace is the
@@ -667,12 +678,41 @@ Appends a role-tagged message (auto-embedded). Body requires `role` and `content
 
 Deletes the thread and its messages.
 
+## MCP proxy (MCP-35)
+
+### `POST /api/v2/mcp/proxy`
+
+MCP-over-HTTP escape hatch. The body is a JSON-RPC request object
+(`{method, params}`); the route forwards the two methods that need storage:
+
+| `method` | Forwarded to | Notes |
+|----------|--------------|-------|
+| `tools/call` | `handle_tools_call` | `params` is `{name, arguments}` |
+| `resources/read` | `handle_resources_read` | `params` is `{uri}` |
+
+Any other method answers `-32601` (`proxy: method not supported: <method>`).
+
+The response envelope is `{success: true, data: <result>}` on success and
+`{success: false, error: {code, message, data}}` on failure.
+
+> **Scope note:** this route lives in the **MCP server's** HTTP router
+> (`vantadb-mcp/src/server.rs`), not in `src/server/router.rs` — which is why
+> `scripts/check_openapi_parity.mjs` (that scans only the core router) does not
+> cover it, and why it has no `openapi.yaml` path entry. It is loopback-only
+> and, when `api_key`/`alt_api_key` is configured, requires a matching
+> `Authorization: Bearer` header (a mismatch answers `401` with `-32005`).
+
 ## Web Console (stable)
 
 ### `GET /dashboard` and `GET /dashboard/{path}`
 
 Web console entry point and static asset fallback for Vanta Studio. Requires starting the
 server with `--dashboard-dir <dir>`; otherwise `/dashboard` responds 404 with a hint.
+
+> **No authentication.** These routes are mounted by `mount_dashboard` **after**
+> the auth middleware (`src/server/router.rs`), so they are **public on
+> loopback** even when `require_auth` guards `/api/v2/*`. `openapi.yaml` declares
+> them with `security: []` on purpose.
 
 > Promoted from experimental to stable 2026-08-25: covered by e2e tests and served as the
 > Vanta Studio admin surface (ADR-0026/ADR-0027).
@@ -890,8 +930,9 @@ refuses to start without a key regardless of host.
 | `PUT` | `/api/v2/skills/{skill_id}` | Bearer (if configured) | Skills | Update skill (optimistic lock) |
 | `PATCH` | `/api/v2/skills/{skill_id}` | Bearer (if configured) | Skills | Patch skill fields |
 | `DELETE` | `/api/v2/skills/{skill_id}` | Bearer (if configured) | Skills | Delete skill and all versions |
-| `GET` | `/dashboard` | Bearer (if configured) | Stable | Web console entry point |
-| `GET` | `/dashboard/{path}` | Bearer (if configured) | Stable | Web console static assets |
+| `GET` | `/dashboard` | None (public on loopback) | Stable | Web console entry point |
+| `GET` | `/dashboard/{path}` | None (public on loopback) | Stable | Web console static assets |
+| `POST` | `/api/v2/mcp/proxy` | Bearer (if configured) | MCP | MCP-over-HTTP proxy to the writer (MCP-35) — see § MCP proxy |
 | `POST` | `/api/v2/conversations` ⚠️ experimental | Bearer (if configured) | Experimental | Conversation turn ingestion |
 
 ## Error responses

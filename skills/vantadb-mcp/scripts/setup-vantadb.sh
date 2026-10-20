@@ -5,8 +5,24 @@
 
 set -e
 
-VANTADB_VERSION="0.5.0"
+# The version is read from the workspace Cargo.toml, never hard-coded: the
+# script installs from the local checkout, so the manifest is the source of
+# truth (a pinned literal goes stale on every release).
 INSTALL_DIR="${HOME}/.vantadb"
+
+# This script lives at <repo>/skills/vantadb-mcp/scripts (and at
+# <repo>/.opencode/skills/vantadb-mcp/scripts in the editor mirror), so the
+# repo root is NOT a fixed number of "dirname" hops away: walk up until the
+# workspace Cargo.toml shows up.
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+VANTADB_REPO="$(dirname "$(dirname "$(dirname "$SCRIPT_DIR")")")"
+while [ ! -f "${VANTADB_REPO}/Cargo.toml" ] && [ "${VANTADB_REPO}" != "/" ] && [ "${VANTADB_REPO}" != "." ]; do
+    VANTADB_REPO="$(dirname "${VANTADB_REPO}")"
+done
+VANTADB_VERSION="unknown"
+if [ -f "${VANTADB_REPO}/Cargo.toml" ]; then
+    VANTADB_VERSION="$(grep -A 20 '^\[workspace\.package\]' "${VANTADB_REPO}/Cargo.toml" | grep -m1 '^version = ' | sed 's/.*"\(.*\)".*/\1/')"
+fi
 
 echo "🚀 Setting up VantaDB MCP server (v${VANTADB_VERSION})..."
 
@@ -18,9 +34,10 @@ else
     echo "📦 Installing vanta-cli from local repository..."
     # Install via cargo from local path if Rust is available
     if command -v cargo &> /dev/null; then
-        # Detect script location to find VantaDB repository
-        SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-        VANTADB_REPO="$(dirname "$(dirname "$(dirname "$SCRIPT_DIR")")")"
+        if [ ! -f "${VANTADB_REPO}/Cargo.toml" ]; then
+            echo "❌ No encuentro el raiz del repo VantaDB (Cargo.toml) desde ${SCRIPT_DIR}"
+            exit 1
+        fi
 
         echo "   Installing from: ${VANTADB_REPO}"
         cargo install --manifest-path "${VANTADB_REPO}/Cargo.toml" --bin vanta-cli

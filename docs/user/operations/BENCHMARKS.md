@@ -17,15 +17,15 @@ This document compiles the certified performance metrics for **VantaDB** at the 
 These results come from the **Stress Protocol** (`tests/certification/stress_protocol.rs`), a 7-block certification suite that validates Recall consistency, scalability, [HNSW](../glosario/hnsw.md) memory consumption, crash persistence, and graph consistency.
 
 > [!NOTE]
-> These metrics are run under the heavy certification suite (`heavy-certification.yml`, job `stress-protocol`) on GitHub-hosted `ubuntu-latest` CI runners with AVX2 vector instruction support. GitHub rotates the underlying runner hardware — treat these values as run-scoped certification output, not a fixed-machine baseline.
+> These metrics are run under the heavy certification suite (`.github/workflows/certification.yml`, job `stress-protocol`) on GitHub-hosted `ubuntu-latest` CI runners with AVX2 vector instruction support. GitHub rotates the underlying runner hardware — treat these values as run-scoped certification output, not a fixed-machine baseline.
 
-**Reproduce (Regla 11):** `cargo test --release --test stress_protocol -- --nocapture --test-threads=1` — same invocation as the `stress-protocol` job in `heavy-certification.yml`.
+**Reproduce (Regla 11):** `cargo test --release --test stress_protocol -- --nocapture --test-threads=1` — same invocation as the `stress-protocol` job in `.github/workflows/certification.yml`.
 
 ### Stress Protocol Summary (Scale: 10K to 100K)
 
 | Metric | Scale / Dataset | Value / Result | Status |
 | :--- | :--- | :--- | :--- |
-| **Recall@10 (Block 1)** | 10K vectors, 128d, Cosine | **0.9560** | ✅ Certified |
+| **Recall@10 (Block 1)** | 50K vectors, 128d, Cosine | **0.9560** | ✅ Certified |
 | **Scaling Recall (10K)** | 10K vectors, 128d | **0.9980** | ✅ Certified |
 | **Scaling Recall (50K)** | 50K vectors, 128d | **1.0000** | ✅ Certified |
 | **Scaling Recall (100K)** | 100K vectors, 128d | **0.9980** | ✅ Certified |
@@ -34,6 +34,18 @@ These results come from the **Stress Protocol** (`tests/certification/stress_pro
 | **p50 Latency (10K)** | [hnsw](../glosario/hnsw.md) Vector Search | **1.2 ms** | ✅ Certified |
 | **p50 Latency (50K)** | [hnsw](../glosario/hnsw.md) Vector Search | **6.1 ms** | ✅ Certified |
 | **Scaling Factor** | Latency growth (10K ➔ 50K) | **4.88x** (Sub-linear) | ✅ Certified |
+
+> **Provenance of the 4.88x factor (Regla 11):** it is the ratio of the *unrounded*
+> p50 values reported by Block 2. The two p50s above are **rounded to one
+> decimal** (1.2 ms and 6.1 ms), and the ratio of those rounded values is
+> 5.08x — the two numbers are consistent, they just come from different
+> precisions. The harness (`tests/certification/stress_protocol.rs`, "BLOCK 2 —
+> SCALING (10K → 50K → 100K)") prints the p50 column in µs; the certified
+> factor is computed before that rounding.
+>
+> **Scale attribution:** Recall@10 comes from **Block 1**, whose harness label
+> is "BLOCK 1 — GROUND TRUTH RECALL (50K/128D)" — the 10K/50K/100K rows come
+> from Block 2 ("SCALING (10K → 50K → 100K)").
 
 ---
 
@@ -195,9 +207,11 @@ This benchmark compares **VantaDB** directly against **LanceDB** and **ChromaDB*
 
 ---
 
-## 8. Embedding Models Comparative Bench (EMB-07) — 9 modelos (8 <=3GB + Qwen3)
+## 8. Embedding Models Comparative Bench (EMB-07) — corrida de 9 modelos (8 <=3GB + Qwen3)
 
-Comparativa **ingest 1k EN+ES, QPS, recall@10, RSS, p50 embed** para los 9 modelos de `embeddings/manifest.json` (3 EN / 3 ES / 3 Combined). Qwen3 solo con `--include-exception` (16 GB, GPU).
+Comparativa **ingest 1k EN+ES, QPS, recall@10, RSS, p50 embed** para los 9 modelos medidos en esa corrida (3 EN / 3 ES / 3 Combined). Qwen3 solo con `--include-exception` (16 GB, GPU).
+
+> **Alcance:** los números de esta tabla son de la corrida del **2026-08-28**, cuando `embeddings/manifest.json` tenía 9 modelos. El manifest actual tiene **10** (`embeddinggemma-2` se añadió después), y `embeddinggemma-2` no aparece en la tabla porque no se midió en esa corrida. Qwen3 fila con `exception` — solo incluida con `--include-exception` (HF only, GPU, `trust_remote_code=True`, Matryoshka 4096→1024). Sin flag, el bench corre hoy **9 modelos** (los 10 del manifest menos la excepción >3 GB; CI-friendly).
 
 * **Fecha**: 2026-08-28 (dummy determinístico, sin descarga ONNX/HF — `benchmarks/embed_bench.py` fallback)
 * **Entorno (Regla 11)**: fallback dummy determinístico — dataset seed 42 + embedding por hash (`sha256`) del texto: sintético por diseño, no depende del CPU; reproducible run-to-run con los comandos de abajo.
@@ -218,7 +232,7 @@ Comparativa **ingest 1k EN+ES, QPS, recall@10, RSS, p50 embed** para los 9 model
 | bge-m3 | 1024 | combined | 59.1 | 2.05 | 1116.8 | 0.84 | 1.000 | 142.7 | 1.000 |
 | qwen3-embedding-8b | 4096 | combined | 49.8 | 8.19 | 432.5 | 2.32 | 1.000 | 247.8 | 1.000 |
 
-> Qwen3 fila con `exception` — solo incluida con `--include-exception` (HF only, GPU, `trust_remote_code=True`, Matryoshka 4096→1024). Sin flag, bench corre 8 modelos (CI-friendly).
+> Qwen3 fila con `exception` — solo incluida con `--include-exception` (HF only, GPU, `trust_remote_code=True`, Matryoshka 4096→1024). Sin flag, el bench corre hoy **9 modelos** (los 10 del manifest menos la excepción >3 GB; CI-friendly).
 
 ### Comando reproducible (Regla 11)
 
@@ -226,10 +240,10 @@ Comparativa **ingest 1k EN+ES, QPS, recall@10, RSS, p50 embed** para los 9 model
 # recomendado (2 modelos, ~5s, sin Qwen3)
 python benchmarks/embed_bench.py --models multilingual-e5-small,bge-m3 --dataset tiny-en-es-1k --output benchmarks/embed_bench_report.json
 
-# 8 modelos CI-friendly (sin excepción >3GB)
+# 9 modelos CI-friendly (sin excepción >3GB)
 python benchmarks/embed_bench.py --models all --skip-exception --dataset tiny-en-es-1k --output benchmarks/embed_bench_report.json
 
-# 9 modelos completo (requiere --include-exception, 16 GB Qwen3)
+# 10 modelos completo (requiere --include-exception, 16 GB Qwen3)
 python benchmarks/embed_bench.py --models all --include-exception --dataset tiny-en-es-1k --output benchmarks/embed_bench_report.json
 
 # offline check-only (sin vantadb ni modelos, dummy determinístico)
@@ -250,7 +264,7 @@ python benchmarks/embed_bench.py --help
 }
 ```
 
-Ver `embeddings/manifest.json` como source-of-truth (rev pinned, dims, ONNX path,langs, licencias, grupos 3/3/3) y `embeddings/verify.py --check` para validación estructural.
+Ver `embeddings/manifest.json` como source-of-truth (rev pinned, dims, ONNX path, langs, licencias, grupos 3/3/4 — el mínimo verificado por `embeddings/verify.py --check` es 3/3/3) y `embeddings/verify.py --check` para validación estructural.
 
 ### Notas de performance (observabilidad)
 

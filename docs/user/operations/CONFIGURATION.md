@@ -39,7 +39,7 @@ All configuration fields available in `VantaConfig` (Rust) and via environment v
 | `pool_acquire_timeout_ms` | `u64` | `5000` | `VANTADB_POOL_ACQUIRE_TIMEOUT_MS` | Timeout acquiring a pool permit before the query fails fast with 503 |
 | `circuit_breaker_failure_threshold` | `u32` | `5` | `VANTADB_CIRCUIT_BREAKER_FAILURE_THRESHOLD` | Consecutive 5xx failures before the circuit breaker opens |
 | `circuit_breaker_open_timeout_secs` | `u64` | `30` | `VANTADB_CIRCUIT_BREAKER_OPEN_TIMEOUT_SECS` | Seconds the breaker stays open before probing half-open |
-| `sync_mode` | `SyncMode` | `Periodic` | — | [wal](../glosario/wal.md) sync: `Always`, `Periodic`, `Never` |
+| `sync_mode` | `SyncMode` | `Periodic` | `VANTADB_SYNC_MODE` (config layer only — see note) | [wal](../glosario/wal.md) sync: `Always`, `Periodic`, `Never`. `VANTADB_SYNC_MODE` is resolved by the `vanta config` layer (`src/cli_handlers/config.rs`, so `vanta config show` reports it and its source), but the embedded engine's `Config::from_env()` does **not** read it — set it programmatically with `Config::with_sync_mode(...)` or through the hot-reload JSON. |
 | `insert_lock_timeout_ms` | `u64` | `5000` | `VANTADB_INSERT_LOCK_TIMEOUT_MS` | [hnsw](../glosario/hnsw.md) insert lock timeout in ms |
 | `file_lock_timeout_ms` | `u64` | `1000` | `VANTADB_FILE_LOCK_TIMEOUT_MS` | .vanta.lock file lock timeout in ms |
 | `api_key` | `Option<String>` | `None` | `VANTADB_API_KEY` | Bearer token for HTTP auth |
