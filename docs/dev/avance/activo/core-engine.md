@@ -897,3 +897,46 @@ s_len‖ns‖key_len‖key‖ver BE) + hooks put/put_batch/delete/purge_expired 
 - **Objetivo:** Clasificacion mecanica de la superficie publica
 - **Resultado:** ✅ Manifest PUBLIC/INTERNAL/EXPERIMENTAL/FROZEN/RETIRED generado por `scripts/docs/gen-surface-manifest.mjs`; task file cerrado.
 - **Commit:** f84f7c70
+### FIND-411: la dimension del vector se valida y los tres backends coinciden
+- **Fecha:** 2026-10-20
+- **Resultado:** ✅ Un vector de otra longitud puntuaba `0.0` — el **mejor** score Euclidean
+  posible — y se colaba por delante de los validos; ademas flat, HNSW e HNSW-inline no
+  coincidian entre si. Ahora `NaN` es el centinela (que el codigo ya entendia via
+  `total_cmp_sim`), el error se lanza en los puntos de entrada (`put`, `put_batch`,
+  `bulk_import`, `put_record_exact` y toda busqueda con `query_vector`) con
+  `Error::DimensionMismatch { expected, got }`, y la dimension del indice tiene **una sola
+  fuente** (`IndexPort::vector_dimension()`), compartida por el SDK y el MCP.
+  **BREAKING** (minor en 0.x): el score Euclidean pasa de `-d^2` a `-d` en los tres backends
+  (ej. `-2.0` -> `-1.4142135`) y el indice admite una sola dimension por base de datos (la
+  regla "un modelo por base de datos" quedo escrita en `docs/api/EMBEDDINGS.md` y en el
+  tutorial 05).
+  Verificacion: 2483/2483 tests del lib, 7/7 de integracion, 171/171 del MCP, clippy y fmt
+  limpios. Reviews adversariales aplicadas: se corrigio un **NaN que llegaba al usuario** y un
+  **panic por indice fuera de rango** en `IvfIndex::build` con dimensiones mezcladas, y se
+  unifico la regla de dimension (habia dos implementaciones divergentes, una en el SDK y otra
+  en el MCP). Huecos que quedan abiertos con fila propia: `FIND-487`, `FIND-488`, `FIND-492`,
+  `FIND-493`, `FIND-494`, `FIND-495`.
+
+### FIND-413 / FIND-414: el fallo de embedding se propaga y el provider lee la configuracion real
+- **Fecha:** 2026-10-20
+- **Resultado:** ✅ La busqueda vectorial IQL se traga el `Err` del embedding (4 sitios
+  `if let Ok(vec) = ...`) y devolvia 0 hits: un provider caido se confundia con "no hay
+  datos". Ahora el error llega al usuario con el motivo, y `LocalOnnxProvider::new` lee la
+  config real del entorno (`VANTADB_EMBEDDING_PROVIDER`, `VANTADB_LOCAL_MODEL`,
+  `VANTADB_STRICT_EMBEDDINGS`, `VANTADB_ALLOW_DUMMY_EMBEDDINGS`) en vez de
+  `LlmCfg::default()` (que los ignoraba).
+  **BREAKING** (minor en 0.x): una busqueda IQL por vector con el provider caido devuelve
+  **error** en vez de 0 hits silenciosos.
+  Al implementarlo se arreglo de paso un **test preexistente roto** (`tests/write_receipts.rs`
+  usaba vectores de 2 dimensiones donde el indice es de 3, asi que la validacion de dimension
+  rechazaba el `put` antes de llegar al comportamiento que el test queria probar; uno
+  reventaba y otro pasaba **por el motivo equivocado**). Y el auto-embedding del INSERT dejo
+  de persistir vectores sinteticos sin marcador (paridad con el path MCP): con el opt-out
+  activo se guardaba un vector 384d sintetico como si fuera real (vecinos falsos, peor que
+  null) — `FIND-485`.
+  La review adversarial obligo ademas a ampliar el seam a `Result<Option<Vec<f32>>>` (los
+  tests del rama vectorial tienen que poder distinguir "sin capacidad de embeddings" de
+  "provider caido" sin tocar la red) y a corregir el test de `FIND-414`, que affirmaba un flag
+  privado en vez del comportamiento.
+  Verificacion: 2524 tests con `--features encryption`, 2483 sin, 14/14 de los tests del
+  contrato, clippy y fmt limpios.
