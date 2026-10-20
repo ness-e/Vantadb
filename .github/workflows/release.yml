@@ -53,17 +53,22 @@ jobs:
           command: release
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN || secrets.GITHUB_TOKEN }}
-          # Publicacion por token de crates.io (no Trusted Publishing).
+          # crates.io publica por TRUSTED PUBLISHING (OIDC), no por token.
           #
-          # OJO: cargo decide entre token y OIDC por la PRESENCIA de esta
-          # variable, no por su valor. Si el secret no existiese, la variable
-          # quedaria definida y VACIA, cargo se saltaria el intercambio OIDC y
-          # el publish fallaria con "please provide a non-empty token" (asi
-          # fallo el publish de 0.9.0: run 39368867477, job 118451918327).
-          # El secret existe y esta verificado (cargo owner --list vantadb
-          # autentica con el), asi que la variable es no-vacia y el token es
-          # el que se usa.
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          # OJO: cargo decide entre token y OIDC por la PRESENCIA de
+          # CARGO_REGISTRY_TOKEN, no por su valor. Si la variable esta
+          # definida -aunque sea vacia- cargo se salta el intercambio OIDC:
+          #   - secret ausente -> variable vacia -> "please provide a non-empty
+          #     token" (run 39368867477, job 118451918327)
+          #   - secret presente pero rechazado por crates.io -> "403 Forbidden:
+          #     authentication failed" (run 39377761363)
+          # Por eso la variable NO se define aqui: el crate `vantadb` tiene el
+          # Trusted Publisher configurado en crates.io y asi publico el 0.8.0
+          # (trustpub_data con run_id 37045089945).
+          #
+          # El secret CARGO_REGISTRY_TOKEN sigue existiendo en el repo para el
+          # primer publish de `vanta-memory`: Trusted Publishing exige que el
+          # crate ya exista en crates.io, asi que ese si necesita token.
 
   release-plz-pr:
     name: Release-plz PR
