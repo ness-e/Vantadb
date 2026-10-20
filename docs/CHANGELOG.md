@@ -14,6 +14,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 
+## [0.9.1](https://github.com/ness-e/Vantadb/compare/v0.9.0...v0.9.1) - 2026-10-20
+
+### Other
+
+- *(backlog)* 16 hallazgos de S1 (CI + release mechanics) al backlog
+- *(backlog)* 59 hallazgos P2/P3 de las waves W0-W10 al backlog (FIND-456..465)
+- *(backlog)* mapa de correspondencia de los 9 hallazgos que ya estaban en el backlog
+- Merge remote-tracking branch 'origin/main' into docs/release-0.9.0-postmortem
+- *(audit)* 141 hallazgos al backlog (Phase 60) + waves W6-W10 y sintesis
+- *(release)* post-mortem del release 0.9.0, checklist de pre-flight y la auditoria profunda
+
 ## [0.9.0](https://github.com/ness-e/Vantadb/compare/v0.8.0...v0.9.0) - 2026-10-20
 
 ### Added
