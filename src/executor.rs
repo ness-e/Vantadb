@@ -99,6 +99,12 @@ fn iql_error_position(input: &str, err: &nom::Err<nom::error::Error<&str>>) -> (
 /// falls back to a generic message — never a misleading specific one.
 fn iql_parse_error_message(err: &nom::Err<nom::error::Error<&str>>) -> String {
     if let nom::Err::Failure(inner) = err {
+        // FIND-518/FIND-519: leftover input after a parsed statement is
+        // rejected by the parser (nom's "there is leftover input" kind).
+        if inner.code == nom::error::ErrorKind::Eof {
+            let trailing: String = inner.input.trim().chars().take(80).collect();
+            return format!("unexpected trailing input after the statement: `{trailing}`");
+        }
         if inner.code == nom::error::ErrorKind::Verify {
             let head = inner.input.trim_start();
             if head.starts_with("AS OF") {
@@ -107,6 +113,11 @@ fn iql_parse_error_message(err: &nom::Err<nom::error::Error<&str>>) -> String {
             if head.starts_with("LIMIT") || head.starts_with("OFFSET") {
                 return "malformed LIMIT/OFFSET clause: expected `LIMIT <n> [OFFSET <m>]`"
                     .to_string();
+            }
+            // FIND-518: the `WHERE` keyword was consumed but the clause does
+            // not parse — the filter is never silently dropped.
+            if head.starts_with("WHERE") {
+                return "malformed WHERE clause: expected at least one condition (`WHERE <cond> [AND <cond>...]`)".to_string();
             }
         }
         if inner.code == nom::error::ErrorKind::Fail {
@@ -304,7 +315,7 @@ impl<'a> Executor<'a> {
         for node in nodes {
             let is_low_confidence_summary =
                 if let Some(crate::node::FieldValue::String(node_type)) =
-                    node.relational.get("type")
+                    node.relational.get(crate::physical_plan::FIELD_TYPE)
                 {
                     node_type == "SemanticSummary" && node.confidence_score() < 0.4
                 } else {
@@ -661,7 +672,7 @@ impl<'a> Executor<'a> {
             if let Some(required_role) = &plan.enforce_role {
                 let mut role_match = false;
                 if let Some(crate::node::FieldValue::String(node_role)) =
-                    node.relational.get("_owner_role")
+                    node.relational.get(crate::physical_plan::FIELD_OWNER_ROLE)
                 {
                     if node_role == required_role {
                         role_match = true;
@@ -913,6 +924,116 @@ mod tests {
         );
         assert_eq!(read_ids(&ex, "SELECT * FROM Ns AS OF 500"), vec![7]);
         assert_eq!(read_ids(&ex, "SELECT * FROM Ns"), vec![7]);
+    }
+
+    // ── execute_hybrid: FIND-552 — la proyeccion no puede anular los
+    // post-filtros (valid-time, confianza, ROLE) ─────────────────────────
+
+    /// FIND-552: `AS OF` debe filtrar aunque la query proyecte campos
+    /// (`FETCH`). La proyeccion borraba `__vanta_valid_at_ms` /
+    /// `__vanta_created_at_ms` y el predicado temporal se degradaba a
+    /// "siempre valido" para todas las filas.
+    #[test]
+    fn as_of_still_filters_when_the_query_projects_fields() {
+        let (storage, _dir) = setup_storage();
+        insert_validity_node(&storage, 1, "Doc", Some(1000), Some(2000));
+        insert_validity_node(&storage, 2, "Doc", Some(3000), None);
+        // Nodo sin metadatos de validez: no esta acotado en el tiempo ⇒
+        // siempre pasa (no se inventa la semantica de un nodo legacy).
+        let mut unscoped = UnifiedNode::new(9);
+        unscoped.set_field("type", FieldValue::String("Doc".to_string()));
+        unscoped.set_field("name", FieldValue::String("legacy".to_string()));
+        storage.insert(&unscoped).expect("insert unscoped node");
+        let ex = Executor::new(&storage);
+
+        // Control: sin proyeccion el filtro temporal ya funciona.
+        assert_eq!(read_ids(&ex, "FROM Doc AS OF 1000"), vec![1, 9]);
+        // Con proyeccion: el filtro temporal debe seguir aplicando.
+        assert_eq!(read_ids(&ex, "FROM Doc AS OF 1000 FETCH name"), vec![1, 9]);
+    }
+
+    /// FIND-552: el filtro arqueologico de confianza (`SemanticSummary` con
+    /// `confidence_score < 0.4`) debe seguir aplicando con proyeccion: la
+    /// proyeccion borraba `type` y el filtro dejasaba de detectar nada.
+    #[test]
+    fn low_confidence_summaries_are_filtered_when_the_query_projects_fields() {
+        let (storage, _dir) = setup_storage();
+        let mut summary = UnifiedNode::new(1);
+        summary.set_field("type", FieldValue::String("SemanticSummary".to_string()));
+        summary.set_field("name", FieldValue::String("resumen".to_string()));
+        summary.confidence_score = 0.1;
+        storage
+            .insert(&summary)
+            .expect("insert low-confidence summary");
+
+        let mut healthy = UnifiedNode::new(2);
+        healthy.set_field("type", FieldValue::String("Doc".to_string()));
+        healthy.set_field("name", FieldValue::String("doc".to_string()));
+        storage.insert(&healthy).expect("insert healthy doc");
+
+        let ex = Executor::new(&storage);
+
+        // Control: sin proyeccion el resumen de baja confianza ya se descarta.
+        assert_eq!(read_ids(&ex, "FROM SemanticSummary"), Vec::<u128>::new());
+        // Con proyeccion: debe seguir descartandose.
+        assert_eq!(
+            read_ids(&ex, "FROM SemanticSummary FETCH name"),
+            Vec::<u128>::new()
+        );
+        // Y el nodo sano no se ve afectado por la proyeccion.
+        assert_eq!(read_ids(&ex, "FROM Doc FETCH name"), vec![2]);
+    }
+
+    /// FIND-552 / FIND-559: la poda por `ROLE` lee `_owner_role`, que la
+    /// proyeccion tambien borraba ⇒ con proyeccion `ROLE` devolvia 0 filas.
+    #[test]
+    fn role_prune_still_applies_when_the_query_projects_fields() {
+        let (storage, _dir) = setup_storage();
+        let mut editor = UnifiedNode::new(1);
+        editor.set_field("type", FieldValue::String("Doc".to_string()));
+        editor.set_field("name", FieldValue::String("a".to_string()));
+        editor.set_field("_owner_role", FieldValue::String("editor".to_string()));
+        storage.insert(&editor).expect("insert editor node");
+
+        let mut viewer = UnifiedNode::new(2);
+        viewer.set_field("type", FieldValue::String("Doc".to_string()));
+        viewer.set_field("name", FieldValue::String("b".to_string()));
+        viewer.set_field("_owner_role", FieldValue::String("viewer".to_string()));
+        storage.insert(&viewer).expect("insert viewer node");
+
+        let ex = Executor::new(&storage);
+
+        // Control: sin proyeccion la poda por rol deja solo al editor.
+        assert_eq!(read_ids(&ex, r#"FROM Doc ROLE "editor""#), vec![1]);
+        // Con proyeccion: la poda debe seguir aplicando.
+        assert_eq!(
+            read_ids(&ex, r#"FROM Doc FETCH name ROLE "editor""#),
+            vec![1]
+        );
+    }
+
+    /// FIND-552 invariant: a query **without** projection is untouched by the
+    /// allowlist — it returns every field, exactly as before the fix.
+    #[test]
+    fn query_without_projection_still_returns_every_field() {
+        let (storage, _dir) = setup_storage();
+        let mut node = UnifiedNode::new(1);
+        node.set_field("type", FieldValue::String("Doc".to_string()));
+        node.set_field("name", FieldValue::String("n".to_string()));
+        node.set_field("secret", FieldValue::String("s".to_string()));
+        storage.insert(&node).expect("insert node");
+        let ex = Executor::new(&storage);
+
+        let rows = match ex.execute_hybrid("FROM Doc").expect("execute") {
+            ExecutionResult::Read(rows) => rows,
+            other => panic!("expected Read, got {other:?}"),
+        };
+        assert_eq!(rows.len(), 1);
+        assert!(
+            rows[0].relational.contains_key("secret"),
+            "no projection ⇒ no field is dropped"
+        );
+        assert!(rows[0].relational.contains_key("name"));
     }
 
     /// SCH-03 review Optional-2: a duplicated `AS OF` is rejected at parse
@@ -1946,6 +2067,54 @@ mod tests {
                 assert_eq!(
                     msg,
                     "aggregation (COUNT/SUM/GROUP BY) is only supported in SELECT queries"
+                );
+            }
+            other => panic!("expected IqlParse, got {other:?}"),
+        }
+    }
+
+    // ── execute_hybrid: FIND-518 / FIND-519 strictness ─────────────
+
+    /// FIND-518: un `WHERE` mal formado es un error de parseo — la query NO
+    /// puede ejecutarse como un escaneo sin filtro (que materializaba todos
+    /// los nodos en RAM antes de filtrar).
+    #[test]
+    fn malformed_where_is_a_parse_error_not_an_unfiltered_scan() {
+        let (storage, _dir) = setup_storage();
+        insert_ranked_node(&storage, 1, 1);
+        let ex = Executor::new(&storage);
+        let err = ex.execute_hybrid("FROM Doc WHERE n =").unwrap_err();
+        match err {
+            Error::IqlParse { msg, line, col } => {
+                assert!(msg.contains("WHERE"), "message must mention WHERE: {msg}");
+                assert_eq!(
+                    (line, col),
+                    (1, 9),
+                    "position must point at the WHERE clause"
+                );
+            }
+            other => panic!("expected IqlParse, got {other:?}"),
+        }
+    }
+
+    /// FIND-519: el trailing input es un error de parseo, no un descarte
+    /// silencioso.
+    #[test]
+    fn trailing_input_is_a_parse_error() {
+        let (storage, _dir) = setup_storage();
+        insert_ranked_node(&storage, 1, 1);
+        let ex = Executor::new(&storage);
+        let err = ex.execute_hybrid("FROM Doc p garbage").unwrap_err();
+        match err {
+            Error::IqlParse { msg, line, col } => {
+                assert!(
+                    msg.contains("trailing"),
+                    "message must mention the trailing input: {msg}"
+                );
+                assert_eq!(
+                    (line, col),
+                    (1, 11),
+                    "position must point at the trailing text"
                 );
             }
             other => panic!("expected IqlParse, got {other:?}"),

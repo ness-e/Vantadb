@@ -24,6 +24,13 @@ pub use filter::{PhysicalFilter, PhysicalTextFilter};
 pub use join::{PhysicalNestedLoopJoin, PhysicalSubqueryFilter};
 pub use offset::PhysicalOffset;
 pub use project::{PhysicalLimit, PhysicalProject};
+
+/// System-metadata field names shared between the projection and the
+/// post-plan filters (FIND-552) — `pub(crate)`: internal contract, so the
+/// public API surface (`tests/api/public-api.txt`) does not change.
+/// `SYSTEM_METADATA_FIELDS` (the allowlist itself) stays private to
+/// `project`, its only consumer.
+pub(crate) use project::{FIELD_OWNER_ROLE, FIELD_TYPE};
 pub use scan::PhysicalScan;
 pub use sort::PhysicalSort;
 pub use vector::{PhysicalVectorRefine, PhysicalVectorSearch};
@@ -546,6 +553,64 @@ mod tests {
         let mut project = PhysicalProject::new(Box::new(child), vec!["a".into()]);
         project.open().unwrap();
         assert!(project.next().unwrap().is_none());
+        project.close().unwrap();
+    }
+
+    /// FIND-552: the projection must keep the **system metadata** that the
+    /// post-plan filters read *after* the plan has run (valid-time `AS OF`,
+    /// the low-confidence `SemanticSummary` filter and the `ROLE` prune) —
+    /// while still dropping the user fields the query did not ask for.
+    #[test]
+    fn test_physical_project_keeps_system_metadata_but_drops_user_fields() {
+        let mut node = UnifiedNode::new(1);
+        node.relational
+            .insert("name".into(), FieldValue::String("n".into()));
+        node.relational
+            .insert("type".into(), FieldValue::String("Doc".into()));
+        node.relational
+            .insert("secret".into(), FieldValue::String("s".into()));
+        node.relational.insert(
+            crate::sdk::serialization::FIELD_VALID_AT_MS.into(),
+            FieldValue::Int(1000),
+        );
+        node.relational.insert(
+            crate::sdk::serialization::FIELD_INVALID_AT_MS.into(),
+            FieldValue::Int(2000),
+        );
+        node.relational.insert(
+            crate::sdk::serialization::FIELD_CREATED_AT_MS.into(),
+            FieldValue::Int(500),
+        );
+        node.relational
+            .insert("_owner_role".into(), FieldValue::String("admin".into()));
+
+        let child = MockScan::new(vec![node]);
+        let mut project = PhysicalProject::new(Box::new(child), vec!["name".into()]);
+        project.open().unwrap();
+        let result = project.next().unwrap().expect("got projected node");
+
+        // Requested field kept, unrequested user field dropped.
+        assert_eq!(
+            result.relational.get("name"),
+            Some(&FieldValue::String("n".into()))
+        );
+        assert!(
+            !result.relational.contains_key("secret"),
+            "user fields the query did not ask for must be dropped"
+        );
+        // System metadata the post-plan filters depend on must survive.
+        for field in [
+            "type",
+            "_owner_role",
+            crate::sdk::serialization::FIELD_VALID_AT_MS,
+            crate::sdk::serialization::FIELD_INVALID_AT_MS,
+            crate::sdk::serialization::FIELD_CREATED_AT_MS,
+        ] {
+            assert!(
+                result.relational.contains_key(field),
+                "system metadata `{field}` must survive the projection"
+            );
+        }
         project.close().unwrap();
     }
 

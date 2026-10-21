@@ -6,6 +6,33 @@ use crate::error::Result;
 use crate::node::UnifiedNode;
 use crate::query::PhysicalOperator;
 
+/// Field holding the node type marker (`"Doc"`, `"SemanticSummary"`, ...).
+pub(crate) const FIELD_TYPE: &str = "type";
+/// Field holding the owner role (read by the `ROLE` prune).
+pub(crate) const FIELD_OWNER_ROLE: &str = "_owner_role";
+
+/// System metadata that survives the projection (FIND-552).
+///
+/// The post-plan filters — valid-time (`AS OF`, SCH-03 / ADR-046 §D3), the
+/// low-confidence `SemanticSummary` filter and the `ROLE` prune — read these
+/// fields **after** the physical plan has run, i.e. after `PhysicalProject`
+/// narrowed the row. Without this allowlist the projection would delete the
+/// very fields those filters depend on and they would silently degrade:
+/// "no metadata ⇒ always valid" / "no `type` ⇒ not a summary" / "no
+/// `_owner_role` ⇒ pruned".
+///
+/// Any new post-plan filter that reads a node field must add that field here.
+///
+/// `pub(crate)`: this is an internal contract between the projection and the
+/// post-plan filters, not public API (`tests/api/public-api.txt` unchanged).
+pub(crate) const SYSTEM_METADATA_FIELDS: &[&str] = &[
+    crate::sdk::serialization::FIELD_VALID_AT_MS,
+    crate::sdk::serialization::FIELD_INVALID_AT_MS,
+    crate::sdk::serialization::FIELD_CREATED_AT_MS,
+    FIELD_TYPE,
+    FIELD_OWNER_ROLE,
+];
+
 // ─── Physical Project Operator ───────────────────────────────
 
 /// Physical project operator that narrows fields on each node.
@@ -34,6 +61,13 @@ impl PhysicalOperator for PhysicalProject<'_> {
             for field in &self.fields {
                 if let Some(val) = node.relational.remove(field) {
                     projected.insert(field.clone(), val);
+                }
+            }
+            // FIND-552: the post-plan filters run *after* this operator, so
+            // the system metadata they read must survive the projection.
+            for field in SYSTEM_METADATA_FIELDS {
+                if let Some(val) = node.relational.remove(*field) {
+                    projected.insert((*field).to_string(), val);
                 }
             }
             node.relational = projected;
