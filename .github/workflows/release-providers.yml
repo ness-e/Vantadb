@@ -264,8 +264,8 @@ jobs:
       # CATEGORY: NON-CRITICAL — attest-build-provenance may fail if OIDC
       # tokens are unavailable (e.g., fork PRs). Does not block publishing.
       - name: Attest build provenance
-        continue-on-error: true
-        uses: actions/attest-build-provenance@78e6cbd37d0ac1a40113c04f2037dacf1ea3f12e # v4.1.1
+        continue-on-error: true # CATEGORY: BEST-EFFORT - la atestacion de procedencia es una senal adicional sobre el publish (que ya valida el artefacto subido); no debe bloquear la publicacion
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
         with:
           subject-path: './dist/*'
 

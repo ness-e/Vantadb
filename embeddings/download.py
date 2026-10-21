@@ -29,6 +29,27 @@ MODELS_DIR = pathlib.Path(__file__).parent / "models"
 # en MODEL_PATTERNS (lista cerrada por modelo, no re-ampliar el global).
 ALLOW_PATTERNS = ["*.json", "*.txt", "tokenizer*", "onnx/*", "*.safetensors"]
 
+# FIND-383: el patron global `onnx/*` arrastra **todas** las variantes ONNX del repo.
+# Para `embeddinggemma-2` eso son 30 ficheros (5 variantes x [model + model.onnx_data] + el
+# encoder de audio) = 5.888 MB, cuando el encoder de texto solo necesita 2 ficheros
+# (`onnx/model.onnx` + `onnx/model.onnx_data` = 1.034 MB). Verificado contra el repo
+# `onnx-community/embeddinggemma-2-ONNX` (2026-10-21): 30 ficheros bajo `onnx/`.
+# La lista por modelo es cerrada (no se re-amplia el global): cada modelo que lo necesite
+# declara aqui sus ficheros exactos.
+MODEL_PATTERNS: dict[str, list[str]] = {
+    # embeddinggemma-2: solo el encoder de texto (el de audio no lo usa el motor).
+    "embeddinggemma-2": [
+        "config.json",
+        "config_sentence_transformers.json",
+        "preprocessor_config.json",
+        "processor_config.json",
+        "tokenizer.json",
+        "tokenizer_config.json",
+        "onnx/model.onnx",
+        "onnx/model.onnx_data",
+    ],
+}
+
 # Override explícito por modelo (lista cerrada, no glob amplio). Vacío hoy:
 # los 9 repos exponen model.safetensors.
 MODEL_PATTERNS: dict[str, list[str]] = {}

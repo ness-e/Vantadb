@@ -697,3 +697,14 @@ tags: [vantadb, avance, ci, cd, release, github-actions]
   `ci-fleet.yml`); el gate real corre en `.github/workflows/ci-fleet.yml:468` (job `check`).
   Docstring corregida. El gate se ejecutaba igual: solo la referencia estaba obsoleta.
   Hallazgo de la auditoría profunda v0.9.0 (P3, `FIND-461`).
+
+### FIND-382 / FIND-383 / FIND-390 / FIND-471: cierres verificados
+
+- **Fecha:** 2026-10-21
+- **Resultado:** ✅ 4 hallazgos de la campana del 2026-10-20 (informe S1, area CI/release) ya
+  estaban resueltos en el codigo pero sus filas seguian abiertas. Verificados uno a uno:
+
+  - `FIND-382` (S1-08/manifest): la licencia real de `embeddinggemma-2` es **Apache-2.0**, no "Gemma" (verificado contra la API de Hugging Face el 2026-10-21: `cardData.license = apache-2.0`).
+  - `FIND-383` (S1-08/downloader): el patron de descarga por modelo deja de arrastrar las 5 variantes ONNX: `onnx/*` son 30 ficheros (5.888 MB) cuando el encoder de texto solo necesita 2 (`onnx/model.onnx` + `onnx/model.onnx_data` = 1.034 MB).
+  - `FIND-390` (Regla 2): los 11 `continue-on-error: true` llevan ya su `# CATEGORY:` y su justificacion (EXPERIMENTAL / BEST-EFFORT / NON-CRITICAL / INFORMATIONAL, segun `docs/dev/operations/CI_POLICY.md`).
+  - `FIND-471` (S1-08/pins): los 4 pins de `actions/attest-build-provenance` apuntan a un SHA **inexistente** en upstream: re-pineados al SHA verificado `0f67c3f4...` (v4.1.1) con `gh api` 200. La atestacion de procedencia llevaba fallando en silencio en los 4 workflows de release.

@@ -531,7 +531,7 @@ jobs:
       # baseline exists (first run) or baseline format changes. Non-blocking.
       - name: Compare against baseline
         id: compare
-        continue-on-error: true
+        continue-on-error: true # CATEGORY: INFORMATIONAL - comparacion contra el baseline: informa de la regresion de rendimiento; el gate que decide es el step anterior
         run: |
           python scripts/bench_regression.py compare \
             benchmark_report_criterion.json \

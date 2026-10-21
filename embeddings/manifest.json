@@ -120,7 +120,7 @@
       "size_hf_mb": 600,
       "onnx": "onnx/model.onnx",
       "langs": ["es", "en", "code", "100+"],
-      "license": "Gemma",
+      "license": "Apache-2.0",
       "group": "combined"
     }
   ]

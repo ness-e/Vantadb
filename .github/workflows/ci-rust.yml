@@ -394,7 +394,7 @@ jobs:
     timeout-minutes: 30
     # CATEGORY: EXPERIMENTAL — nightly-only -Zminimal-versions is unstable.
     # Failure does not indicate a regression in default builds.
-    continue-on-error: true
+    continue-on-error: true # CATEGORY: NON-CRITICAL - senal advisory de resolucion con -Zminimal-versions: puede fallar por versiones no publicadas; no bloquea el merge
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -488,7 +488,7 @@ jobs:
     timeout-minutes: 10
     # CATEGORY: BEST-EFFORT — WASM is Tier 3 Experimental.
     # Browser tests require wasm-pack + Chrome. Failures are non-blocking.
-    continue-on-error: true
+    continue-on-error: true # CATEGORY: EXPERIMENTAL - target wasm (browser) experimental: el gate de WASM no bloquea el PR; el contrato de la API lo fija el gate de docs
     if: github.actor != 'dependabot[bot]' && (github.event_name == 'pull_request' || (github.event_name == 'push' && contains(github.event.head_commit.modified, 'vantadb-wasm/')))
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -693,7 +693,7 @@ jobs:
       # CATEGORY: BEST-EFFORT — TB can flag false-positives; failures reviewed
       # manually, do not gate releases.
       - name: Miri Test (tree borrows - best effort)
-        continue-on-error: true
+        continue-on-error: true # CATEGORY: BEST-EFFORT - Miri es best-effort por diseno (tree borrows): el gate real de UB es el job `miri`, que es required
         run: cargo +nightly miri test --manifest-path Cargo.toml -p vantadb --no-default-features --features "cli,fjall,memmap2,fs2" -- miri
         env:
           MIRI_NO_HOST_FALLBACK: 1
@@ -739,7 +739,7 @@ jobs:
     needs: [fmt, clippy]
     # CATEGORY: BEST-EFFORT — nightly ASan can produce false positives.
     # Failures are reviewed manually. Does not gate releases.
-    continue-on-error: true
+    continue-on-error: true # CATEGORY: NON-CRITICAL - ASan no bloquea el PR: es una senal de seguridad costosa y ruidosa; los required checks siguen siendo fmt, clippy y la matriz de tests
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -828,7 +828,7 @@ jobs:
     needs: [fmt, clippy]
     # CATEGORY: BEST-EFFORT — nightly TSan is unstable.
     # Failures are reviewed manually. Does not gate releases.
-    continue-on-error: true
+    continue-on-error: true # CATEGORY: NON-CRITICAL - TSan no bloquea el PR: es conocido por timeouts en el repo y el trabajo concurrente lo cubre la matriz de tests
     # FIND-227 (2026-10-03): chronic red is documented noise, not a VantaDB
     # race. Evidence (runs 37090029650/565 reports, 37082038794/583): all
     # from the `-p vantadb --lib` binary; families = std/libtest (mpmc
