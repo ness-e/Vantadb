@@ -112,7 +112,7 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
         },
         {
                 "name": "memory_put_batch",
-                "description": "Stores multiple memory records in a single batch operation. Each input carries namespace, key, payload and optional vector/sparse_vector/metadata/expires_at_ms. All-or-nothing: an invalid input fails the whole call before any write. Duplicate keys are UPSERTs (version bumps). Vector dimensions must match the live index. Inputs without 'vector' are auto-embedded in one batch call (EMB-14); without a provider they are stored vectorless with 'fallback:true' + 'warning'.",
+                "description": "Stores multiple memory records in a single batch operation. Each input carries namespace, key, payload and optional vector/sparse_vector/metadata/expires_at_ms. VALIDATION is all-or-nothing: an invalid input (shape, namespace/key, metadata, or a vector dimension that does not match the live index) fails the whole call before any write. The COMMIT is not: records are committed in chunks of 1000, so a failure in a later chunk leaves the earlier chunks committed (there is no rollback). Duplicate keys are UPSERTs (version bumps). Inputs without 'vector' are auto-embedded in one batch call (EMB-14); without a provider they are stored vectorless with 'fallback:true' + 'warning'.",
             "annotations": {
                 "title": "Memory Put Batch",
                 "readOnlyHint": false,

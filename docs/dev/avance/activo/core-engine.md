@@ -1023,3 +1023,73 @@ s_len‖ns‖key_len‖key‖ver BE) + hooks put/put_batch/delete/purge_expired 
 clausula cuyo keyword ya se consumio convierte un error de tipeo en un cambio de significado
 silencioso. Hacer `reject_trailing_input` estricto para todas las statements cierra `FIND-518`,
 `FIND-519`, la mitad de `FIND-525` y `FIND-526` de una vez.
+
+
+## FIND-214 y FIND-221: dos filas del area de indexacion y batch (2026-10-21)
+
+- **Fecha:** 2026-10-21
+- **Resultado:** ✅ una fila ya estaba resuelta en el codigo (verificada) y otra ya no
+  era ambigua (contrato unificado en las tres superficies).
+
+- **FIND-214** (cerrada): la fila decia "ScannIndex: 5 mutex anidados sin orden documentado
+  (riesgo deadlock)" con referencia a `src/index/scann.rs:54-62`. El codigo actual ya lo
+  **consolido**: `ScannInner` es una unica estructura atomica tras **un** `Mutex`, y el
+  propio doc-comment lo dice (`src/index/scann.rs:50-51`: *"consolidated into a single atomic
+  struct to eliminate multi-mutex deadlock risks (FIND-214)"*). La fila seguia abierta desde
+  la auditoria del 2026-09-30.
+- **FIND-221** (reescrita): la ambiguedad del contrato de atomicidad de `put_batch` era real
+  y era la parte P1 de la fila. La **validacion** ya es all-or-nothing (shape,
+  namespace/key, metadata y dimension del vector, antes de escribir nada) y el **commit** es
+  por chunks de 1000 sin rollback. El problema: la **descripcion del tool MCP**
+  (`vantadb-mcp/src/handlers/tools.rs:115`, que es lo que lee un agente) decia
+  "All-or-nothing: an invalid input fails the whole call before any write" y
+  `docs/api/MCP.md:289` decia "a single all-or-nothing batch" — mientras el SDK y
+  `docs/api/PYTHON_SDK.md:215`odian el contrato real (por chunk). Ahora las cuatro
+  superficies dicen lo mismo, con la distincion explicita entre validacion y commit.
+  Lo que queda en la fila es la **atomicidad real del lote** (2PC entre WAL y KV), que
+  necesita soporte del motor.
+
+
+## Auditoria de physical_plan / planner / executor — 20 hallazgos (FIND-552..571, 2026-10-21)
+
+- **Fecha:** 2026-10-21
+- **Resultado:** 🔴 2 de los 12 modulos de `FIND-503` auditados a fondo. Informe:
+  `docs/dev/reviews/audit-physical-plan-20261021.md`. 4 criticos, 5 altos, 7 medios, 4 bajos.
+
+**Los cuatro criticos:**
+
+- **`FIND-552`:** la proyeccion (`FETCH`) elimina los metadatos que necesitan los post-filtros
+  ⇒ `AS OF` deja de filtrar y devuelve nodos **no validos** en el instante pedido (y el filtro
+  de confianza de `SemanticSummary` deja de filtrar). El predicado temporal (SCH-03 / ADR-046 D3)
+  queda anulado sin error.
+- **`FIND-553`:** el path vectorial por defecto **no aplica el scope de entidad** ⇒
+  `FROM Doc WHERE content ~ "x", min = 0.5` devuelve los vecinos mas cercanos de **todo** el
+  store; y la query "equivalente" con un filtro relacional extra scopea (rama refine) ⇒
+  **anadir un filtro redundante cambia el conjunto de filas**.
+- **`FIND-554`:** el CBO puede **eliminar un predicado del `WHERE`** en silencio: la
+  selectividad se estima con poblaciones distintas (KV store vs indice vectorial), sin `clamp`,
+  asi que `sel >= 1.0` descarta el filtro del plan.
+- **`FIND-555`:** la reserva de memoria del governor **no se libera si la ejecucion falla** ⇒
+  ~20 queries fallidas dejan el motor inservible (`Error::ResourceLimit` en toda query
+  posterior, incluidas las de escritura). Con el proveedor de embeddings caido, "provider
+  caido" se convierte en "motor muerto" tras ~20 intentos.
+
+**Ademas (altos):** un `WHERE` con campo cualificado (`p.name`) no matchea nunca (`FIND-556`);
+el subquery con 0 filas deja pasar **todas** las filas (`FIND-557`); el escalar de un subquery
+es el primer campo **alfabetico** (`FIND-558`); la clausula `ROLE` prunea todo sin `_owner_role`,
+una clave que **nadie escribe** (`FIND-559`); y el conmutador entre los dos paths vectoriales
+depende de una estimacion que puede ser `0.0` ⇒ la misma query cambia de path sin que cambien
+los datos (`FIND-560`).
+
+**Y el resto:** materializacion sin cap en el plan (~0,9 GB por `SELECT *` sobre 100k nodos,
+`FIND-561`); la estimacion del governor subestima el pico ~9x (`FIND-562`); solo la ultima
+condicion vectorial del `WHERE` sobrevive al plan (`FIND-563`); el filtro lexico descarta los
+terminos sueltos cuando hay una frase (`FIND-564`); el plan IQL no puede expresar los filtros
+del contrato del SDK (`FIND-565`); el guard de memoria del executor no mide RSS (`FIND-566`);
+N+1 de I/O en los tombstones (`FIND-567`); y 4 bajos (`FIND-568..571`).
+
+**Nota (Ponytail lite):** los 20 hallazgos se reducen a **tres reglas**: (1) un filtro que se
+aplica **fuera** del plan ve un dataset ya proyectado (=> los filtros van dentro del plan, no
+despues); (2) un plan **optimizado** que puede eliminar un predicado necesita que la estimacion
+este acotada y use una sola poblacion; (3) una reserva de recursos debe liberarse en **cualquier**
+salida, no solo en el camino feliz.
