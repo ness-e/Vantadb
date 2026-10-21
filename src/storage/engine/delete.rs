@@ -321,3 +321,133 @@ impl StorageEngine {
         }
     }
 }
+
+// ─── FIND-343: where does the payload of a deleted record survive? ─────
+//
+// A logical `delete` marks the key as deleted; it never erases the bytes the
+// record wrote. The canary below is the probe: it only exists in the payload
+// of this test, so every hit is a copy of the deleted payload.
+//
+// The measurement (plaintext, `--features encryption` off):
+//
+// * `data/vanta.shardN.wal` — the WAL segment: **erased** by the physical
+//   erasure pass (`ShardedWal::redact_erased`, wired into `compact_wal`).
+// * `<db>/N.jnl` — the journal of the LSM backend: **retained** by the
+//   backend itself. Fjall keeps the bytes of a write in its active journal
+//   segment (64 MiB, preallocated) until the segment is rotated (512 MiB of
+//   journal writes) and the LSM has flushed the keyspace. VantaDB cannot
+//   purge it without rewriting the whole database, so the at-rest encryption
+//   is the mitigation (the value is an AEAD envelope: not readable without
+//   the DEK).
+//
+// The measurement (with `--features encryption` and a key): **no hit at
+// all** — neither the WAL nor the journal holds the payload in the clear.
+
+#[cfg(test)]
+#[allow(missing_docs)]
+mod physical_erasure {
+    use crate::config::Config;
+    use crate::sdk::{Embedded, MemoryInput};
+
+    /// The canary: it only exists in the payload of this test.
+    const MARKER: &str = "FIND343-PROBE-payload-debe-desaparecer-7f3a9c1e5b2d4860";
+
+    fn open_db(dir: &std::path::Path, key: Option<String>) -> Embedded {
+        let config = Config {
+            storage_path: dir.to_string_lossy().to_string(),
+            read_only: false,
+            encryption_key: key,
+            ..Default::default()
+        };
+        Embedded::open_with_config(config).expect("open embedded")
+    }
+
+    /// Every file under `dir` (recursively) whose bytes contain `needle`.
+    fn files_containing(dir: &std::path::Path, needle: &[u8]) -> Vec<std::path::PathBuf> {
+        let mut hits = Vec::new();
+        let Ok(entries) = std::fs::read_dir(dir) else {
+            return hits;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                hits.extend(files_containing(&path, needle));
+            } else if let Ok(bytes) = std::fs::read(&path) {
+                if bytes.windows(needle.len()).any(|w| w == needle) {
+                    hits.push(path);
+                }
+            }
+        }
+        hits
+    }
+
+    /// Put the canary, delete it and run the WAL compaction.
+    fn delete_the_canary(dir: &std::path::Path, key: Option<String>) {
+        let db = open_db(dir, key);
+        let mut input = MemoryInput::new("erase", "target", MARKER);
+        input.vector = Some(vec![0.1, 0.2, 0.3]);
+        db.put(input).expect("put");
+        db.delete("erase", "target").expect("delete");
+        // The compaction is what rewrites the WAL segments.
+        db.compact_wal().expect("compact wal");
+        db.flush().expect("flush");
+        db.close().expect("close");
+    }
+
+    /// FIND-343: after the delete + the WAL compaction the payload is **not**
+    /// readable in the WAL segments any more.
+    #[test]
+    fn deleted_payload_is_erased_from_the_wal_segments() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        delete_the_canary(dir.path(), None);
+
+        let hits = files_containing(&dir.path().join("data"), MARKER.as_bytes());
+        assert!(
+            hits.is_empty(),
+            "the deleted payload survived in the WAL segments: {hits:?}"
+        );
+    }
+
+    /// FIND-343: the measurement — **where** the payload of a deleted record
+    /// survives, with and without the at-rest encryption.
+    ///
+    /// The WAL half is erased by the compaction; the LSM journal half is
+    /// retained by the backend (its own WAL) and is only covered by the
+    /// at-rest encryption.
+    #[test]
+    fn measurement_reports_where_the_deleted_payload_survives() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        delete_the_canary(dir.path(), None);
+
+        let wal_hits = files_containing(&dir.path().join("data"), MARKER.as_bytes());
+        let journal_hits: Vec<_> = files_containing(dir.path(), MARKER.as_bytes())
+            .into_iter()
+            .filter(|p| !p.starts_with(dir.path().join("data")))
+            .collect();
+        eprintln!(
+            "FIND-343 measurement (plaintext): wal_hits={:?} journal_hits={:?}",
+            wal_hits, journal_hits
+        );
+        assert!(
+            wal_hits.is_empty(),
+            "the deleted payload survived in the WAL segments: {wal_hits:?}"
+        );
+    }
+
+    /// FIND-343: with the at-rest encryption the payload is **not readable
+    /// anywhere** — neither the WAL nor the LSM journal holds it in the clear.
+    #[cfg(feature = "encryption")]
+    #[test]
+    fn deleted_payload_is_not_readable_anywhere_with_at_rest_encryption() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let key = format!("{:02x}", 0x42).repeat(32);
+        delete_the_canary(dir.path(), Some(key));
+
+        let hits = files_containing(dir.path(), MARKER.as_bytes());
+        eprintln!("FIND-343 measurement (encrypted): hits={hits:?}");
+        assert!(
+            hits.is_empty(),
+            "the deleted payload is readable in the clear: {hits:?}"
+        );
+    }
+}

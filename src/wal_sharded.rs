@@ -629,7 +629,22 @@ impl ShardedWal {
     }
 
     /// Rotate all shards (flush, archive, and start fresh WAL files).
+    ///
+    /// The rotation itself is a re-open of the same segment (the history stays
+    /// in one file so the recovery can replay it), so this is also the place
+    /// where the **physical erasure** of the deleted payloads happens
+    /// (FIND-343): the deleted nodes' records are replaced by payload-free
+    /// tombstones before the segment is re-opened.
+    ///
+    /// The erasure is opportunistic: a failure never fails the rotation (it
+    /// is a privacy improvement, not a durability step).
     pub fn rotate_all(&self) -> Result<()> {
+        if let Err(err) = self.redact_erased() {
+            tracing::warn!(
+                error = %err,
+                "WAL physical erasure skipped: the deleted payloads stay in the segments"
+            );
+        }
         for shard in &self.shards {
             // Hold the lock across sync + swap (AUDREP-15): releasing it between
             // the two lets a concurrent append() land on the old writer after it
@@ -671,6 +686,204 @@ impl ShardedWal {
     pub fn total_record_count(&self) -> u64 {
         self.shards.iter().map(|s| s.lock().record_count()).sum()
     }
+
+    /// Physically erase the payloads of the **deleted** nodes from every WAL
+    /// segment (FIND-343).
+    ///
+    /// A node is *erased* when its **last effective** record in the global
+    /// WAL order is a `Delete`: the node does not exist any more, so the
+    /// payloads its earlier records carry are dead bytes. Every record of
+    /// such a node is replaced by a payload-free tombstone:
+    ///
+    /// * the record **count** does not change, so the `checkpoint_seq`
+    ///   semantics ("the first N records are already applied") stay exact;
+    /// * the replayed **state** does not change: a deleted node is absent
+    ///   with and without the redaction;
+    /// * the VER-01 chain is recomputed over the new frames.
+    ///
+    /// The global order is the one the recovery uses: the records are sorted
+    /// by `(per-shard index, shard index)`, and the per-shard index runs
+    /// across the rotated segments of that shard (oldest first).
+    ///
+    /// "Effective" skips the records of a transaction that was never
+    /// committed: a `Delete` inside an aborted transaction never happened, so
+    /// the node it names is **not** erased.
+    ///
+    /// The pass is opportunistic: an encrypted (v4) segment, a corrupt tail
+    /// and a segment with nothing to redact are left alone.
+    pub(crate) fn redact_erased(&self) -> Result<crate::wal::WalRedactReport> {
+        use crate::wal::{record_node_id, WalRedactReport};
+        use std::collections::HashMap;
+
+        // ponytail: the pass rewrites every segment (O(segment bytes)) and
+        // runs only in `compact_wal` — never in the insert/delete hot path.
+        // The ceiling is the auto-rotate size (256 MiB): a full-size segment
+        // costs one extra copy of itself per compaction. Split the segments
+        // or amortize the rewrite if that ever shows up in a profile.
+
+        // ── 1. Collect the segments of every shard (oldest first) ──
+        let mut segments: Vec<(usize, PathBuf)> = Vec::new();
+        for (i, shard) in self.shards.iter().enumerate() {
+            let live = shard.lock().path().to_path_buf();
+            for archive in rotated_segments(&live) {
+                segments.push((i, archive));
+            }
+            segments.push((i, live));
+        }
+
+        // ── 2. Read the records and compute the erase set ──
+        // `last[id]` = (per-shard index, shard index, is_delete) of the last
+        // **effective** record of that node.
+        let mut last: HashMap<u128, (u64, usize, bool)> = HashMap::new();
+        let mut per_shard_index: HashMap<usize, u64> = HashMap::new();
+        // The fate of every transaction: a record inside a transaction that
+        // never committed never happened. The commit/abort marker can sit in
+        // another segment than the records it closes, so the fates are read
+        // first, over every segment.
+        let mut committed: std::collections::HashSet<u64> = std::collections::HashSet::new();
+        for (_, path) in &segments {
+            let Ok(mut reader) = WalReader::open(path) else {
+                // A segment that cannot be read (an **encrypted** v4 one, or a
+                // foreign file) makes the global order unknowable: the pass
+                // is skipped rather than redacting on a partial view.
+                return Ok(crate::wal::WalRedactReport {
+                    segments: segments.len() as u64,
+                    skipped: Some("a segment is not readable (encrypted or foreign)"),
+                    ..Default::default()
+                });
+            };
+            while let Ok(Some(record)) = reader.next_record() {
+                if let WalRecord::Commit(txn) = record {
+                    committed.insert(txn);
+                }
+            }
+        }
+        for (shard_idx, path) in &segments {
+            let Ok(mut reader) = WalReader::open(path) else {
+                continue;
+            };
+            let base = *per_shard_index.entry(*shard_idx).or_insert(0);
+            let mut index = base;
+            let mut current_txn: Option<u64> = None;
+            while let Ok(Some(record)) = reader.next_record() {
+                let effective = match current_txn {
+                    None => true,
+                    Some(txn) => committed.contains(&txn),
+                };
+                if effective {
+                    if let Some(id) = record_node_id(&record) {
+                        let key = (index, *shard_idx);
+                        let replace = last
+                            .get(&id)
+                            .map(|(i, s, _)| (*i, *s) < key)
+                            .unwrap_or(true);
+                        if replace {
+                            last.insert(
+                                id,
+                                (
+                                    index,
+                                    *shard_idx,
+                                    matches!(record, WalRecord::Delete { .. }),
+                                ),
+                            );
+                        }
+                    }
+                }
+                index += 1;
+                match &record {
+                    WalRecord::Begin(txn) => current_txn = Some(*txn),
+                    WalRecord::Commit(_) | WalRecord::Abort(_) => current_txn = None,
+                    _ => {}
+                }
+            }
+            per_shard_index.insert(*shard_idx, index);
+        }
+
+        let erased: std::collections::HashSet<u128> = last
+            .iter()
+            .filter(|(_, (_, _, is_delete))| *is_delete)
+            .map(|(id, _)| *id)
+            .collect();
+
+        // ── 3. Redact every segment ──
+        let predicate =
+            |record: &WalRecord| record_node_id(record).is_some_and(|id| erased.contains(&id));
+        let mut report = WalRedactReport {
+            segments: segments.len() as u64,
+            ..Default::default()
+        };
+        let live_paths: Vec<PathBuf> = self
+            .shards
+            .iter()
+            .map(|s| s.lock().path().to_path_buf())
+            .collect();
+        for (shard_idx, path) in &segments {
+            let outcome = if live_paths.contains(path) {
+                let mut writer = self.shards[*shard_idx].lock();
+                writer.redact_erased(&predicate)?
+            } else {
+                redact_archived_segment(path, &predicate)?
+            };
+            report.scanned += outcome.scanned;
+            report.redacted += outcome.redacted;
+            report.bytes_before += outcome.bytes_before;
+            report.bytes_after += outcome.bytes_after;
+            if report.skipped.is_none() {
+                report.skipped = outcome.skipped;
+            }
+        }
+        Ok(report)
+    }
+}
+
+/// The rotated segments of a shard, oldest first.
+///
+/// `try_auto_rotate` renames `<shard>.wal` to `<shard>.wal.<millis>`; the
+/// suffix is the rotation timestamp, so the lexicographic order of the
+/// (fixed-width) suffixes is the chronological one.
+fn rotated_segments(live: &Path) -> Vec<PathBuf> {
+    let dir = live.parent().unwrap_or(Path::new("."));
+    let name = live
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let prefix = format!("{name}.");
+    let mut found: Vec<(String, PathBuf)> = Vec::new();
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return Vec::new();
+    };
+    for entry in entries.flatten() {
+        let file_name = entry.file_name().to_string_lossy().into_owned();
+        let Some(suffix) = file_name.strip_prefix(&prefix) else {
+            continue;
+        };
+        if suffix.is_empty() || !suffix.bytes().all(|b| b.is_ascii_digit()) {
+            continue;
+        }
+        found.push((file_name, entry.path()));
+    }
+    found.sort_by(|a, b| a.0.cmp(&b.0));
+    found.into_iter().map(|(_, path)| path).collect()
+}
+
+/// Redact a **rotated** segment (an archive): it is not open by any writer,
+/// so the swap can be done in place.
+fn redact_archived_segment(
+    path: &Path,
+    erased: &dyn Fn(&WalRecord) -> bool,
+) -> Result<crate::wal::SegmentRedact> {
+    use crate::wal::{scratch_path, swap_segment, write_redacted_segment};
+    let tmp = scratch_path(path);
+    let outcome = write_redacted_segment(path, &tmp, erased)?;
+    if outcome.redacted == 0 {
+        let _ = std::fs::remove_file(&tmp);
+        return Ok(outcome);
+    }
+    if let Err(err) = swap_segment(&tmp, path) {
+        let _ = std::fs::remove_file(&tmp);
+        return Err(err);
+    }
+    Ok(outcome)
 }
 
 impl std::fmt::Debug for ShardedWal {
@@ -725,6 +938,102 @@ mod tests {
         } else {
             0
         }
+    }
+
+    // ─── FIND-343: physical erasure of the deleted payloads ──────────
+
+    /// A node whose payload carries the canary.
+    fn node_with_canary(id: u128, canary: &str) -> UnifiedNode {
+        let mut node = UnifiedNode::new(id);
+        node.set_field(
+            "payload",
+            crate::node::FieldValue::String(canary.to_string()),
+        );
+        node
+    }
+
+    /// Whether the file still holds the canary.
+    fn file_contains(path: &Path, canary: &str) -> bool {
+        let bytes = std::fs::read(path).unwrap_or_default();
+        bytes.windows(canary.len()).any(|w| w == canary.as_bytes())
+    }
+
+    /// FIND-343: the payload of a deleted node is erased even when the
+    /// `Insert` and the `Delete` landed in **different shards** — the erase
+    /// set is computed in the global WAL order, not per shard.
+    #[test]
+    fn redact_erased_erases_across_shards() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("vanta.wal");
+        let canary = "FIND343-sharded-canary-7a2f";
+
+        let sw = ShardedWal::new(&path, 2, SyncMode::Periodic).unwrap();
+        sw.append(&WalRecord::Insert(node_with_canary(5, canary)))
+            .unwrap();
+        sw.append(&WalRecord::Delete { id: 5 }).unwrap();
+        sw.flush_all().unwrap();
+        let count_before = sw.total_record_count();
+
+        let shard0 = dir.path().join("vanta.shard0.wal");
+        let shard1 = dir.path().join("vanta.shard1.wal");
+        assert!(
+            file_contains(&shard0, canary),
+            "the Insert must land in shard 0"
+        );
+
+        let report = sw.redact_erased().unwrap();
+        assert_eq!(report.redacted, 1, "one record carries the payload");
+        assert!(
+            !file_contains(&shard0, canary),
+            "the deleted payload survived in shard 0"
+        );
+        assert_eq!(
+            sw.total_record_count(),
+            count_before,
+            "the record count must not change: the checkpoint_seq semantics depend on it"
+        );
+        // The tombstone survives: the node stays deleted after the replay.
+        let mut reader = WalReader::open(&shard1).unwrap();
+        let mut tombstones = Vec::new();
+        while let Some(record) = reader.next_record().unwrap() {
+            if let WalRecord::Delete { id } = record {
+                tombstones.push(id);
+            }
+        }
+        assert_eq!(tombstones, vec![5], "the tombstone must survive");
+    }
+
+    /// FIND-343: the payload is erased from the **rotated** segments too —
+    /// the WAL archives are the ones an attacker reads first.
+    #[test]
+    fn redact_erased_erases_the_rotated_segments() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("vanta.wal");
+        let canary = "FIND343-archive-canary-3e8b";
+
+        // The insert lands in a segment that is then rotated by hand (the
+        // auto-rotate only fires at 256 MiB).
+        {
+            let mut writer = WalWriter::open(&path, SyncMode::Periodic).unwrap();
+            writer
+                .append(&WalRecord::Insert(node_with_canary(6, canary)))
+                .unwrap();
+            writer.sync().unwrap();
+        }
+        let archive = dir.path().join("vanta.wal.1700000000000");
+        std::fs::rename(&path, &archive).unwrap();
+
+        // The live segment carries the tombstone.
+        let sw = ShardedWal::new(&path, 1, SyncMode::Periodic).unwrap();
+        sw.append(&WalRecord::Delete { id: 6 }).unwrap();
+        sw.flush_all().unwrap();
+
+        let report = sw.redact_erased().unwrap();
+        assert_eq!(report.redacted, 1, "one record carries the payload");
+        assert!(
+            !file_contains(&archive, canary),
+            "the deleted payload survived in the rotated segment"
+        );
     }
 
     // ─── Construction ───────────────────────────────────────────
