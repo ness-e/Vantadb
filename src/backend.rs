@@ -56,10 +56,31 @@ pub enum BackendPartition {
 }
 
 impl BackendPartition {
-    /// Returns the RocksDB column family name for this partition.
-    /// Used only by `RocksDbBackend` internally.
-    #[cfg(feature = "rocksdb")]
-    pub(crate) fn cf_name(&self) -> &'static str {
+    /// Every partition, in declaration order.
+    ///
+    /// Only the at-rest encryption wiring needs the full list; the trait
+    /// method that uses it is feature-gated with it.
+    #[cfg(feature = "encryption")]
+    pub(crate) const ALL: [BackendPartition; 10] = [
+        BackendPartition::Default,
+        BackendPartition::TombstoneStorage,
+        BackendPartition::CompressedArchive,
+        BackendPartition::Tombstones,
+        BackendPartition::NamespaceIndex,
+        BackendPartition::PayloadIndex,
+        BackendPartition::TextIndex,
+        BackendPartition::SparseIndex,
+        BackendPartition::InternalMetadata,
+        BackendPartition::Versions,
+    ];
+
+    /// The stable name of this partition.
+    ///
+    /// It is a **public identifier**, not a secret: the backend keys stay in
+    /// cleartext (the text index needs prefix scans per namespace), so the
+    /// name travels in the clear. It is also the RocksDB column family name.
+    #[cfg(any(feature = "encryption", feature = "rocksdb"))]
+    pub(crate) fn partition_name(&self) -> &'static str {
         match self {
             BackendPartition::Default => "default",
             BackendPartition::TombstoneStorage => "tombstone_storage",
@@ -72,6 +93,13 @@ impl BackendPartition {
             BackendPartition::InternalMetadata => "internal_metadata",
             BackendPartition::Versions => "versions",
         }
+    }
+
+    /// Returns the RocksDB column family name for this partition.
+    /// Used only by `RocksDbBackend` internally.
+    #[cfg(feature = "rocksdb")]
+    pub(crate) fn cf_name(&self) -> &'static str {
+        self.partition_name()
     }
 }
 
@@ -268,6 +296,24 @@ pub(crate) trait StorageBackend: Scannable + Send + Sync {
 
     /// Introspect the capabilities of this backend instance.
     fn capabilities(&self) -> BackendCapabilities;
+
+    /// Whether the backend holds **no data at all** (in any partition).
+    ///
+    /// Used by the at-rest encryption wiring to tell a brand-new database
+    /// (which may be encrypted from its first byte) from an existing
+    /// plaintext one (which is never migrated implicitly — ADR-0057 D7).
+    ///
+    /// The default implementation scans every partition; backends with a
+    /// cheap emptiness check override it.
+    #[cfg(feature = "encryption")]
+    fn is_empty(&self) -> Result<bool> {
+        for partition in BackendPartition::ALL {
+            if !self.scan(partition)?.is_empty() {
+                return Ok(false);
+            }
+        }
+        Ok(true)
+    }
 
     /// Access the snapshot role, if supported by this backend.
     ///

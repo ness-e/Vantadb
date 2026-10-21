@@ -213,6 +213,35 @@ impl StorageBackend for FjallBackend {
             kind: crate::backend::BackendKind::Fjall,
         }
     }
+
+    /// Whether the store holds no data at all.
+    ///
+    /// Cheap: every keyspace answers "is it empty?" without materialising
+    /// its entries. Used by the at-rest encryption wiring to tell a
+    /// brand-new database from an existing plaintext one.
+    #[cfg(feature = "encryption")]
+    fn is_empty(&self) -> Result<bool> {
+        for keyspace in [
+            &self.default,
+            &self.tombstone_storage,
+            &self.compressed_archive,
+            &self.tombstones,
+            &self.namespace_index,
+            &self.payload_index,
+            &self.text_index,
+            &self.sparse_index,
+            &self.internal_metadata,
+            &self.versions,
+        ] {
+            let empty = keyspace
+                .is_empty()
+                .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))?;
+            if !empty {
+                return Ok(false);
+            }
+        }
+        Ok(true)
+    }
 }
 
 /// Fjall serves the scan role. Snapshot and compaction roles are NOT

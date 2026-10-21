@@ -30,9 +30,8 @@ fn in_memory_factory(_path: &str, _config: &Config) -> Result<Arc<dyn StorageBac
 fn fjall_factory(path: &str, config: &Config) -> Result<Arc<dyn StorageBackend>> {
     #[cfg(feature = "fjall")]
     {
-        Ok(Arc::new(super::fjall_backend::FjallBackend::open(
-            path, config,
-        )?))
+        let backend = super::fjall_backend::FjallBackend::open(path, config)?;
+        wrap_with_crypto(Arc::new(backend), path, config)
     }
     #[cfg(not(feature = "fjall"))]
     {
@@ -47,9 +46,8 @@ fn fjall_factory(path: &str, config: &Config) -> Result<Arc<dyn StorageBackend>>
 fn rocksdb_factory(path: &str, config: &Config) -> Result<Arc<dyn StorageBackend>> {
     #[cfg(feature = "rocksdb")]
     {
-        Ok(Arc::new(super::rocksdb_backend::RocksDbBackend::open(
-            path, config,
-        )?))
+        let backend = super::rocksdb_backend::RocksDbBackend::open(path, config)?;
+        wrap_with_crypto(Arc::new(backend), path, config)
     }
     #[cfg(not(feature = "rocksdb"))]
     {
@@ -58,6 +56,32 @@ fn rocksdb_factory(path: &str, config: &Config) -> Result<Arc<dyn StorageBackend
             field: "backend_feature".into(),
             reason: "RocksDB backend requires the 'rocksdb' feature".into(),
         })
+    }
+}
+
+/// Wrap the backend with the encrypted-value decorator when a key resolves.
+///
+/// The encryption context is resolved **once**, here at the open, and handed
+/// down to the operations: the hot path takes no new lock (ADR-0057 D5).
+///
+/// Without the `encryption` feature — or without a key — the backend is
+/// returned unchanged and the bytes it writes are byte-identical to the
+/// layout before the at-rest wiring.
+#[cfg(any(feature = "fjall", feature = "rocksdb"))]
+fn wrap_with_crypto(
+    backend: Arc<dyn StorageBackend>,
+    path: &str,
+    config: &Config,
+) -> Result<Arc<dyn StorageBackend>> {
+    #[cfg(feature = "encryption")]
+    {
+        let is_empty = backend.is_empty()?;
+        super::kv_crypto::wrap_backend(backend, path, config, is_empty)
+    }
+    #[cfg(not(feature = "encryption"))]
+    {
+        let _ = (path, config);
+        Ok(backend)
     }
 }
 
