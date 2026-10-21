@@ -6,7 +6,7 @@
 
 Every link below points to the raw Markdown source, not a rendered page. Read the
 page you need; do not read this file end to end. This index covers the
-511 documentation pages; it deliberately omits the 634 task files,
+512 documentation pages; it deliberately omits the 639 task files,
 which are work items rather than documentation. The full inventory of every file
 is in docs/index.md in the repository.
 
@@ -250,6 +250,7 @@ is in docs/index.md in the repository.
 - [Plan de Ejecución: Pre-mercado VantaDB — orden, estabilización y salida](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/plans/2026-10-15-pre-mercado-estabilizacion.md): Campaña pre-mercado: orden, estabilización y salida (12 tasks DO)
 - [Plan de Ejecución: Remediación Pre-Merge de Sistemas, DevX, Estabilidad y Cierre de Backlog](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/plans/2026-10-19-pre-merge-systems-and-ux-remediation.md): Status del Plan: ⬆️ uphill = 0 incógnitas abiertas · ⬇️ downhill = 21 steps de ejecución restantes (6 de 27 completados)
 - [Plan de cableado de la feature `encryption`: cifrado en reposo en los 4 artefactos on-disk](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/plans/2026-10-20-wiring-encryption-feature.md): Cerrar FIND-249 (0/6 superficies on-disk cifradas) dejando el producto con una capability
+- [Plan — cerrar las 6 criticas del backlog (2026-10-21)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/plans/2026-10-21-fix-critical-backlog.md): Plan de ejecucion de las 6 criticas que quedaban abiertas tras la campana del 2026-10-20/21 (FIND-518, FIND-552, FIND-553+554, FIND-343, FIND-517), agrupadas en 5 tasks por area para que ningun par toque los mismos ficheros. Cada task tiene su task file canonico con el contrato verificable.
 - [Prompt de revisión profunda integral de VantaDB (multi-subagente, background)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/plans/2026-10-20-revision-profunda-integral-vantadb.md): Fan-out de subagentes para auditar paquetes, SDKs, bindings, providers, integrations, MCP, server, skills, docs, tests, benchmarks, dev-tools y el harness .opencode/
 - [Upstream PR draft — CrewAI](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/plans/artifacts/mkt-18f-prs/crewai.md): Prereq (bloquea merge upstream): publicar vantadb-crewai en PyPI (tag adapters-v0.5.0)
 - [Upstream PR draft — DSPy](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/plans/artifacts/mkt-18f-prs/dspy.md): Prereq (bloquea merge upstream): publicar vantadb-dspy en PyPI (tag adapters-v0.5.0)
