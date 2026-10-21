@@ -211,10 +211,12 @@ security-and-hardening (cuando el hallazgo es de integridad de datos).
 
 ## Review (P2-01)
 
-- **Reviewer:** (pendiente — agente DISTINTO del implementador; la tarea NO se marca
-  COMPLETED sin este review registrado aqui)
-- **Veredicto:** (pendiente)
-- **Fecha:** (pendiente)
+- **Reviewer:** `vanta-review` (agente DISTINTO del implementador; sesion de
+  revision P2-01 sobre `develop`, 4 tasks)
+- **Veredicto:** ✅ **APTO** — el contrato se cumple y esta verificado mecanicamente.
+  **Ojo: `FIND-559` NO queda cerrada con esta evidencia** (ver R1): solo se resuelve
+  su parte de proyeccion.
+- **Fecha:** 2026-10-21
 - **Checklist para el revisor:**
   1. ¿La allowlist de metadata del sistema en `PhysicalProject` es la decision correcta
      frente a mover los post-filtros dentro del plan (`src/planner.rs` esta excluido de
@@ -281,3 +283,121 @@ security-and-hardening (cuando el hallazgo es de integridad de datos).
     es ahi (fuera del alcance de este task).
   - `src/sdk/serialization/graph_types.rs:102-106` — `unified_to_record` no filtra campos
     `__vanta_`; sin proyeccion ya devolvian todos (no es un cambio de este task).
+
+### Dictamen del revisor (P2-01) — 2026-10-21
+
+**Veredicto: ✅ APTO** (contrato cumplido y verificado con comandos). **Reserva
+importante: `FIND-559` NO queda cerrada con esta evidencia** (R1) — solo se resuelve
+su parte de proyeccion.
+
+#### Evidencia mecanica
+
+| Comando | Resultado |
+|---|---|
+| `cargo nextest run -p vantadb --profile audit --lib -j 2` | **2525 run, 2525 passed, 2 skipped, 0 failed** (1609,9 s) |
+| `cargo nextest run -p vantadb --profile audit --lib -j 2 -E 'test(physical_plan) or test(executor::tests)'` | **126/126 passed** (los 5 tests nuevos incluidos: 4 en `executor::tests`, 1 en `physical_plan::tests`) |
+| 17 targets de integracion de IQL | **98 run, 98 passed, 1 skipped** |
+| `cargo clippy -p vantadb --all-targets -j 2 -- -D warnings` | **exit 0** |
+| `rustfmt --check src/physical_plan/project.rs src/physical_plan/mod.rs src/executor.rs` | **exit 0** |
+| `grep LsmConfig tests/api/public-api.txt` | 0 hits ⇒ la superficie publica no cambia (los 3 consts son `pub(crate)`) ⇒ el golden `public-api.txt` sigue valido sin regenerar |
+
+#### Invariantes verificados
+
+| # | Invariante | Veredicto | Como |
+|---|---|---|---|
+| 1 | un `SELECT *` / `FROM` **sin** `FETCH` devuelve lo mismo que antes | ✅ | en ese camino **no se crea** el operador `Project` (`src/query.rs:373`/`:620` solo lo emiten con proyeccion) ⇒ el camino no se toca; `query_without_projection_still_returns_every_field` PASS + las 3 suites preexistentes de AS OF en verde |
+| 2 | la proyeccion sigue **quitando** los campos de usuario no pedidos | ✅ | `test_physical_project_keeps_system_metadata_but_drops_user_fields` PASS: `secret` eliminado, `name` conservado |
+| 3 | `AS OF` sobre un nodo **sin** metadatos de validez sigue valiendo | ✅ | `as_of_still_filters_when_the_query_projects_fields`: el nodo 9 (sin metadatos) entra en el resultado; la proyeccion no *añade* metadata |
+| 4 | el filtro de confianza solo aplica a `SemanticSummary` | ✅ | `low_confidence_summaries_are_filtered_when_the_query_projects_fields`: el `Doc` sano sobrevive, el `SemanticSummary` de confianza 0,1 se descarta |
+| 5 | la allowlist esta en **un solo sitio** | ✅ | `SYSTEM_METADATA_FIELDS` en `src/physical_plan/project.rs:28-34`; el executor lee `FIELD_TYPE`/`FIELD_OWNER_ROLE` desde ahi (`src/executor.rs:318`, `:675`) ⇒ lista y lecturas no pueden divergir |
+
+#### Checklist del revisor — respuestas
+
+1. **¿Allowlist vs mover los filtros dentro del plan?** → **Allowlist, correcta.** El
+   prune de `ROLE` no es un operador del plan (es una comprobacion dentro de
+   `execute_plan`), asi que "mover los filtros dentro del plan" no lo cubre todo y
+   habria tocado el planner (excluido por trabajo en vuelo). La allowlist es local,
+   aditiva y reversible.
+2. **¿La allowlist esta completa?** → **Si, hoy.** He enumerado **todos** los lectores
+   post-plan de campos relacionales: `src/executor.rs:318` (`type`),
+   `src/executor.rs:362-368` (`__vanta_valid_at_ms` / `__vanta_created_at_ms` /
+   `__vanta_invalid_at_ms`) y `src/executor.rs:675` (`_owner_role`) ⇒ los 3 estan en la
+   allowlist. `__vanta_expires_at_ms` lo leen el GC (`src/gc.rs:502,517`) y el CLI de
+   diagnostics (`src/cli_handlers/diagnostics.rs:497`), **ninguno** post-plan ⇒ no hace
+   falta. `confidence_score` y el estado de cuarentena son campos de la **struct**
+   `UnifiedNode`, no relacionales ⇒ la proyeccion no los destruye.
+3. **¿El delta visible al usuario es aceptable?** → **Si, con una nota.** Una query
+   proyectada devuelve ahora tambien `type` y los `__vanta_*` de la allowlist.
+   **Verificado que no es una fuga nueva**: sin proyeccion ya se devolvian todos los
+   campos (`src/sdk/serialization/graph_types.rs` no filtra), y los campos que si
+   importan (`__vanta_payload`, `__vanta_key`, `__vanta_namespace`) **NO** estan en la
+   allowlist ⇒ la proyeccion sigue eliminandolos. Si el producto quiere que la
+   metadata del sistema no salga al usuario final, el sitio natural es
+   `src/sdk/api/graph.rs:328-333` (ya NOTICED) — decision del owner, no bloqueante.
+4. **¿La invariante 3 esta cubierta?** → **Si**, para el nodo sin metadatos (nodo 9 en
+   el test). El caso "v1 con `__vanta_created_at_ms` pero sin `__vanta_valid_at_ms`" con
+   proyeccion **no** tiene test propio (el que existe,
+   `select_as_of_filters_namespace_scan_records`, va sin proyeccion) → ver O2.
+5. **¿Se respeta el scope?** → **Si.** `git show d18c9be2 --stat` toca
+   `src/physical_plan/{project,mod}.rs`, `src/executor.rs` y docs; **no** toca
+   `src/parser/**`, `src/planner.rs`, `src/physical_plan/vector.rs`,
+   `src/cost_estimator.rs`, `src/wal.rs`, `src/index/**`, `src/crypto*`,
+   `src/storage/**`, `src/config.rs`, `src/lib.rs` ni `benches/**`.
+
+#### Hallazgos (con fix minimo)
+
+- **R1 (Requerido — `FIND-559` NO se cierra con esta evidencia):** la fila `FIND-559`
+  pide **tres** cosas: (i) documentar `_owner_role` en `docs/api/IQL.md`,
+  (ii) tratar "nodo **sin** `_owner_role`" como *pasa* (o como error explicito) y no
+  como *se descarta*, y (iii) un test que fije el comportamiento de un nodo sin la
+  clave. Este commit resuelve **solo (iii)-parcial**: la allowlist preserva
+  `_owner_role`. Verificado:
+  - `docs/api/IQL.md:108` sigue diciendo `| ROLE "<role>" | RBAC owner role filter. |`
+    ⇒ **(i) NO hecho**;
+  - `src/executor.rs:672-684` sigue descartando (`continue`) todo nodo sin
+    `_owner_role` (salvo `required_role == "admin"`) ⇒ **(ii) NO hecho**;
+  - el unico test de `ROLE` (`src/executor.rs:995-1012`) usa dos nodos que **si**
+    llevan `_owner_role` ⇒ no hay test del nodo sin la clave ⇒ **(iii) NO hecho**.
+  ⇒ `FIND-559` **permanece ABIERTA**; lo que se cierra es su parte de proyeccion
+  ("`ROLE` + `FETCH` devolvia 0 filas siempre" → arreglado).
+  *Fix minimo* para cerrar `FIND-559`: una linea en `docs/api/IQL.md:108` (la clave
+  `_owner_role`), una decision en `src/executor.rs:681` (nodo sin clave = pasa o error
+  explicito) y un test que lo fije.
+- **R2 (Opcional, decision del owner) — delta visible:** ver checklist #3. Aceptable;
+  no es una fuga nueva. Si se quiere que la metadata del sistema no salga al usuario,
+  filtrar en `src/sdk/api/graph.rs:328-333` (fuera de alcance de esta task).
+- **O1 (Opcional) — `src/physical_plan/project.rs:24`:** la completitud de la allowlist
+  es una invariante **de proceso** ("cualquier post-filtro nuevo que lea un campo debe
+  anadirlo aqui"), sin ningun test que la fije. He verificado la completitud **a mano**
+  (checklist #2), pero no queda protegida. *Fix minimo*: un test que afirme que todo
+  campo leido por `src/executor.rs` post-plan esta en la allowlist (un `grep` sobre el
+  fuente dentro del test es suficiente).
+- **O2 (Opcional) — cobertura del nodo "v1":** el nodo con `__vanta_created_at_ms` pero
+  sin `__vanta_valid_at_ms` **con proyeccion** no tiene caso explicito (checklist #4 del
+  propio task file). *Fix minimo*: anadir el nodo v1 al test de AS OF.
+- **N1 (Nit, DoD) —** el commit `d18c9be2` incluye `docs/index.md` y `llms.txt`
+  regenerados (por el review W7 de **otro** agente) ⇒ ruido fuera del perimetro de la
+  task. Son ficheros generados ⇒ inocuo.
+- **N2 (Nit, DoD) —** el task file dice que "falta una linea aclarandolo" en
+  `docs/api/IQL.md` y que "lo decide `vanta-docs` o el revisor"; el commit **ya** la
+  anadio (la fila de `FETCH` en `docs/api/IQL.md:105` ahora nombra los 5 campos) ⇒ el
+  task file quedo desactualizado respecto a su propio commit (la decision ya no hace
+  falta: esta tomada y es correcta).
+
+#### Lo que esta bien hecho
+
+- La **allowlist en un solo sitio** con los nombres de campo como consts compartidos
+  (`FIELD_TYPE`, `FIELD_OWNER_ROLE`) ⇒ la lista y las lecturas **no pueden divergir**.
+  Es la forma correcta de arreglar "dos autoridades" y la reason de que la invariante
+  5 sea comprobable de un vistazo.
+- La proyeccion sigue siendo una proyeccion: `node.relational = projected` se mantiene
+  ⇒ los campos de usuario no pedidos **se siguen quitando** (no "dejar de borrar
+  nada", que era la alternativa facil y la que habria sido una fuga).
+- La decision de no tocar el planner (excluido) y de no mover el prune de `ROLE` (que
+  no es un operador) esta bien argumentada y es la de menor radio de impacto.
+- `pub(crate)` en vez de `pub` en los 3 consts: la superficie publica del crate **no**
+  cambia y el golden `tests/api/public-api.txt` sigue valido sin regenerar (verificado).
+- La linea de `docs/api/IQL.md` anadida en el propio commit explica **por que** se
+  conserva la metadata (es la que leen `AS OF`, el filtro de confianza y `ROLE`), que
+  es justo la informacion que un usuario necesita para entender por que `FETCH (name)`
+  devuelve mas campos de los que pidio.

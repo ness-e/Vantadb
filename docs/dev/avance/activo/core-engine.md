@@ -1198,3 +1198,41 @@ realeatorizado en cada `begin_epoch`, un solo allocator por artefacto y el epoch
 antes del primer uso hacen que **no haya reutilizacion de nonce**. El fallo es de *binding de
 posicion* (el `slot` es intra-fichero), no de unicidad de nonce, y su impacto es de
 **integridad**, no de confidencialidad.
+
+
+## Review P2-01 de las 4 tasks de las criticas: veredicto y cierre (2026-10-21)
+
+- **Resultado:** 🟡 **APTO CON RESERVAS** en conjunto. El reviewer (un agente **distinto**
+  del implementador) verifico **mecanicamente** las 4 tasks: 2525/2525 del lib, clippy
+  `-D warnings` 0, fmt limpio, 98 de integracion de IQL, 171/171 del MCP, 75/75 de vitest, 14/14
+  del crate node, recall@10 = 1.0000.
+
+**Cerradas por el veredicto:** `FIND-517` (su reserva era un fichero sin commitear: ya
+commiteado), `FIND-518`, `FIND-519` y `FIND-552`.
+
+**Las 3 correcciones que salio del review:**
+
+- **R1 (FIND-553)** — el scope vectorial decia "replica `scan.rs:73-92`" pero no lo replicaba:
+  el scan es un **OR** (tipo **o** namespace) y el scope comprobaba el tipo primero y
+  **excluia sin mirar el namespace** => las dos ramas de la misma query discrepaban (la clase
+  exacta que la task mata). Corregido: replica el scan exactamente, con su mismo fallback.
+- **R2 (FIND-553)** — el CBO descartaba el predicado `type = <entidad>` sin distinguir **tipo**
+  de **tabla de namespace** (MCP-29): en una tabla de namespace los registros no llevan `type`,
+  asi que el predicado del usuario debe seguir aplicandose. Descartarlo era una **regresion**
+  (devolvia mas filas de las pedidas). Corregido: el CBO **no descarta ningun predicado**.
+- **R1 (FIND-518)** — la estanqueidad global del input no estaba documentada (es un cambio de
+  contrato observable en HTTP/MCP/CLI). Documentada en `docs/api/IQL.md`.
+
+**Lo que el review confirmo de la desviacion de FIND-518** (que era mia): `FROM Doc garbage` **no**
+es trailing input — `garbage` es un `<alias>` documentado (`IQL.md:83,102`) y lo consume el
+lexer como alias; el caso real es `FROM Doc p garbage`. Y `INSERT ... LINK ...` no es sintaxis
+documentada (la arista documentada es `RELATE`).
+
+**2 hallazgos nuevos:** `FIND-596` (el 0.5 de un campo no trackeado voltea la estrategia del SDK
+de PreFilter a PostFilter, y el PostFilter puede devolver menos de `top_k`) y `FIND-597` (las
+dos reservas de 64 MiB que el usuario no puede acotar: el journal de Fjall y el
+`create_in_memory` del motor, que **si** sale en el `memory_limit`).
+
+**Pendiente:** `FIND-559` **sigue abierta** (su fix pedia ademas cambiar el comportamiento del
+nodo sin `_owner_role` —fail-closed vs pasar— y anadir su test: es una decision de producto) y
+`FIND-553`/`554`/`560` quedan abiertas hasta que el test run confirme las correcciones R1/R2.

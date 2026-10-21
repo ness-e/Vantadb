@@ -258,10 +258,12 @@ rustfmt --check (los 5 ficheros de este diff)          -> exit 0
 
 ## Review (P2-01)
 
-- **Reviewer:** (pendiente — agente DISTINTO del implementador; la tarea NO se marca
-  COMPLETED sin este review registrado aqui)
-- **Veredicto:** (pendiente)
-- **Fecha:** (pendiente)
+- **Reviewer:** `vanta-review` (agente DISTINTO del implementador; sesion de
+  revision P2-01 sobre `develop`, 4 tasks)
+- **Veredicto:** 🟡 **APTO CON RESERVAS** — el contrato se cumple y esta verificado
+  mecanicamente; 3 reservas (2 correcciones de codigo estrechas + 1 de documentacion)
+  antes de cerrar la fila.
+- **Fecha:** 2026-10-21
 
 ### Contexto para el reviewer
 
@@ -286,6 +288,100 @@ rustfmt --check (los 5 ficheros de este diff)          -> exit 0
      tiende a post-filtrar).
 - **No tocado a proposito**: `src/index/**`, `src/parser/**`, `src/executor.rs`,
   `src/physical_plan/{project,filter}.rs`, `src/crypto*`, `benches/**`.
+
+### Dictamen del revisor (P2-01) — 2026-10-21
+
+**Veredicto: 🟡 APTO CON RESERVAS.** El contrato de la task esta cumplido y
+verificado con comandos (no con auto-reporte). Las reservas son 3 y estan
+deliberadamente acotadas; ninguna invalida el fix.
+
+#### Evidencia mecanica
+
+| Comando | Resultado |
+|---|---|
+| `cargo nextest run -p vantadb --profile audit --lib -j 2` | **2525 run, 2525 passed, 2 skipped, 0 failed** (1609,9 s) |
+| `cargo nextest run -p vantadb --profile audit --lib -j 2 -E 'test(find553) or test(f554) or test(f560)'` | **7/7 passed** (los 7 tests nuevos: 5 en `planner::tests::find553`, 2 en `cost_estimator::tests`) |
+| `cargo clippy -p vantadb --all-targets -j 2 -- -D warnings` | **exit 0**, sin diagnosticos |
+| `rustfmt --check` sobre los 6 ficheros de este diff | **exit 0** |
+| `cargo test -p vantadb --test hnsw_recall_certification -- --nocapture` | **Recall@10 = 1.0000** (1 passed, 260,5 s) ⇒ invariante 1 verificado en el arbol actual |
+| `git show 59ab1bdb --stat` | 7 ficheros; **no toca `src/index/**`** ⇒ el recall del indice no puede variar por este diff |
+
+#### Invariantes verificados
+
+| Invariante | Veredicto | Como |
+|---|---|---|
+| 1) el recall no baja | ✅ | certificacion `hnsw_recall_certification` => **1.0000**; el diff no toca `src/index/**` |
+| 2) un nodo sin tipo no se rompe ("sin tipo" = "cualquier tipo") | ✅ | `f553_typeless_node_stays_in_scope` PASS |
+| 3) `LIMIT`/`OFFSET` y la paginacion siguen igual | ✅ | por construccion: el scope se aplica DENTRO del operador vectorial, antes de `PhysicalLimit` (`src/planner.rs:486-498`); no se toca la cadena de operadores |
+| 4) el CBO no elimina un predicado salvo el estructuralmente redundante | ✅ | `f554_cbo_keeps_a_filter_whose_estimate_is_one` PASS + `src/planner.rs:329-340` (el unico `continue` es `entity_scope_implies_type`) |
+| 5) filtro redundante => mismas filas | ✅ | `f553_redundant_type_filter_returns_the_same_rows` PASS |
+| 6) el path vectorial devuelve solo nodos de la entidad | ✅ (con la reserva R1) | `f553_vector_path_is_scoped_by_the_entity` PASS |
+| 7) el resultado no depende de un artefacto de stats | ✅ | `f560_result_does_not_depend_on_the_cardinality_stats` PASS |
+
+#### Hallazgos (con fix minimo)
+
+- **R1 (Requerido) — `src/physical_plan/vector.rs:83-99` (`node_in_entity_scope`):** el
+  doc afirma "replica la logica de `scan.rs:73-92`", pero **no la replica**. El scan
+  (`src/physical_plan/scan.rs:73-92`) es un **OR** (`type == entidad` **o**
+  `iql_table_name_for_namespace(ns) == entidad`); el scope vectorial comprueba el
+  `type` **primero** y solo mira el namespace si el nodo **no** tiene `type`
+  (`Some(_) => false` en la linea 86). Un nodo con `type` **y** `__vanta_namespace`
+  (creable por el usuario: `INSERT NODE#1 TYPE X { __vanta_namespace: "ns" }`)
+  entra en el scope **relacional** y sale del **vectorial** ⇒ las dos ramas de la
+  misma query discrepan, que es exactamente la clase de bug que esta task mata.
+  *Fix minimo* (5 lineas): comprobar el namespace con independencia del `type` (OR),
+  igual que el scan; y tratar "sin `type` **y** sin namespace" como "cualquier tipo".
+- **R2 (Requerido) — `src/planner.rs:170-176` (`entity_scope_implies_type`):** descarta
+  el predicado `type = <entidad>` sin distinguir si la entidad es un **tipo** o una
+  **tabla de namespace** (MCP-29: `FROM my_ns` es un scope de namespace, no de tipo).
+  `FROM my_ns WHERE type = "my_ns"` ⇒ el filtro real se descarta y la query devuelve
+  **filas de mas**. Es una **regresion**: pre-fix ese filtro se conservaba (su `sel`
+  era 0, no >= 1,0). *Fix minimo*: no descartar el predicado cuando la entidad pueda ser
+  una tabla de namespace (p. ej. exigir que la entidad aparezca como **valor de `type`**
+  en las stats de cardinalidad; si las stats estan vacias, conservar el predicado).
+- **R3 (Requerido, documentacion) — `src/cost_estimator.rs:134-181`:** el cambio de
+  "campo no trackeado" de 0,0/1,0 a **0,5** no solo afecta a la forma del plan: cambia
+  la estrategia del **SDK de busqueda vectorial** (`select_filter_strategy`,
+  `src/cost_estimator.rs:188-207`) de **PreFilter** a **PostFilter** para cualquier
+  filtro sobre un campo que las stats no trackean. El camino PostFilter puede devolver
+  **menos de `top_k`** resultados: su fallback a fuerza bruta solo se dispara si el
+  resultado queda **vacio** (`src/sdk/search/vector.rs:188`). El task file documenta el
+  cambio de *valor* de la API, pero **no** este efecto sobre la estrategia, y el test que
+  lo detectaba se **modifico** en vez de dejar uno nuevo (`src/sdk/search/tests.rs:743-748`
+  paso de un campo no trackeado a uno trackeado con valor inexistente).
+  *Fix minimo*: (a) documentar el efecto en el task file y en el doc de
+  `select_filter_strategy`, y (b) un test que fije la estrategia para un campo no
+  trackeado; opcionalmente (c) que el fallback a fuerza bruta se dispare tambien cuando
+  `hits.len() < top_k`.
+- **O1 (Opcional) — `src/physical_plan/vector.rs:180`:** el `k` del HNSW esta
+  **hardcoded a 5** y el scope se aplica **despues** del top-k ⇒ `FROM Doc WHERE content ~ "x"`
+  puede devolver **0 filas** en un store con muchos nodos de otro tipo. Ya esta
+  documentado como trade-off en este task file, pero no existe fila de backlog que lo
+  amortigue: la fila que lo cubre es **`FIND-313`** (ventana de candidatos hardcoded).
+  Recomendacion: referenciar `FIND-313` explicitamente como follow-up.
+- **N1 (Nit, DoD) — `src/server/bootstrap.rs:846-853`:** el commit `59ab1bdb` tambien
+  toca este fichero (5 lineas: un test de W6 que exigia citar `FIND-249` en vez de
+  `ADR-0057`). El cambio es correcto, pero **no esta en la tabla "Diff" de este task
+  file** ni en el perimetro declarado ⇒ la evidencia del task file esta incompleta.
+- **N2 (Nit, DoD) — alcance:** el frontmatter y los Metadata de este task file dicen
+  "Incluye FIND-554, **FIND-521** y FIND-560", pero **FIND-521 NO esta resuelto** por
+  este commit (sigue sin normalizar la metrica Euclidean del HNSW frente al coseno del
+  refine, y la forma del plan sigue dependiendo de la estimacion). Ver la fila
+  `FIND-521` del backlog: permanece **abierta**.
+
+#### Lo que esta bien hecho
+
+- La decision de **no** mover los filtros dentro del plan y de tratar la estimacion
+  como lo que es (una estimacion, no una prueba) es la correcta: el CBO ya no puede
+  borrar un predicado por heuristica, y el unico descarte queda justificado por
+  estructura.
+- La honestidad de los trade-offs: el "subconjunto, nunca mas grande" del scope
+  post-top-k y el techo de `stats_population()` estan escritos, con su ceiling y su
+  via de upgrade. Es justo lo que faltaba en las filas del backlog.
+- El renombrado de `optimize_and_compile_eliminates_identity_filter` a
+  `..._keeps_identity_filter`: el nombre ya no afirma el bug.
+- `with_entity(Option<String>)` es **aditivo** (`new` no cambia): la superficie publica
+  del crate no se mueve y el golden `tests/api/public-api.txt` sigue valido.
 
 ## Notas
 - Regla de git: el push requiere instruccion explicita del usuario (AGENTS.md Regla 7).

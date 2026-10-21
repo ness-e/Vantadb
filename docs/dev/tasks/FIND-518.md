@@ -280,10 +280,12 @@ elemento posterior al separador; `ErrorKind::Eof` es el kind de "queda input").
 
 ## Review (P2-01)
 
-- **Reviewer:** (pendiente — agente DISTINTO del implementador; la tarea NO se marca
-  COMPLETED sin este review registrado aqui)
-- **Veredicto:** (pendiente)
-- **Fecha:** (pendiente)
+- **Reviewer:** `vanta-review` (agente DISTINTO del implementador; sesion de
+  revision P2-01 sobre `develop`, 4 tasks)
+- **Veredicto:** ✅ **APTO** — el contrato se cumple y esta verificado mecanicamente en
+  las tres superficies (HTTP/MCP/CLI). 1 seguimiento obligatorio (documentacion de la
+  estanqueidad en `docs/api/IQL.md`) y 1 nit.
+- **Fecha:** 2026-10-21
 
 ### Checklist para el revisor (P2-01)
 
@@ -330,6 +332,120 @@ elemento posterior al separador; `ErrorKind::Eof` es el kind de "queda input").
 - **FIND-529** (cobertura de tests del parser): este task cierra los casos de
   F-01/F-02; siguen sin test el limite de profundidad (`min = nan`, `FIND-522`),
   `FROM NODE#abc` (`FIND-524`) y el limite de profundidad de `SIGUE` (`FIND-523`).
+
+### Dictamen del revisor (P2-01) — 2026-10-21
+
+**Veredicto: ✅ APTO.** El contrato se cumple y esta verificado **con comandos**, no
+con auto-reporte. La **desviacion declarada es CORRECTA** (verificado contra
+`docs/api/IQL.md` y el lexer, abajo). Queda 1 seguimiento de documentacion (declarado
+en el propio task file) y 1 nit.
+
+#### Evidencia mecanica
+
+| Comando | Resultado |
+|---|---|
+| `cargo nextest run -p vantadb --profile audit --lib -j 2` | **2525 run, 2525 passed, 2 skipped, 0 failed** (1609,9 s) ⇒ invariante 1 (ningun statement valido pasa a fallar) |
+| `cargo nextest run -p vantadb --profile audit --lib -j 2 -E 'test(~parser::)'` | **172/172 passed** (los 8 tests nuevos del parser incluidos) |
+| `cargo nextest run -p vantadb --profile audit --lib -j 2 -E 'test(physical_plan) or test(executor::tests)'` | **126/126 passed** (los 2 tests nuevos del executor incluidos) |
+| 17 targets de integracion de IQL (`parser`, `executor`, `openapi_yaml_parity`, `public_api`, `edge_cases`, `time_travel`, `graph`, `integration`, `joins`, `query_result_*`, `structured_api_v2`, `message_thread_test`, `graphrag_test`, `sdk_serialization`, `schema_v2_migration`) | **98 run, 98 passed, 1 skipped** |
+| `cargo nextest run -p vantadb-mcp --profile audit -j 2` (3.ª superficie) | **171/171 passed** |
+| `cargo clippy -p vantadb --all-targets -j 2 -- -D warnings` | **exit 0** |
+| `rustfmt --check src/parser/grammar.rs src/parser/mod.rs src/executor.rs` | **exit 0** |
+
+#### La desviacion (`FROM Doc garbage`): **CORRECTA** — verificado
+
+El task file se aparta del ejemplo literal del contrato. Lo he comprobado contra las
+dos fuentes que el enunciado pide:
+
+- **La doc** (`docs/api/IQL.md`): linea 83 — la gramatica de `FROM` es
+  `FROM <entity> [...] [<alias>] [AS OF <unix-ms>]`; linea 102 —
+  `| <alias> | Target alias for result nodes (defaults to "target"). |`.
+  ⇒ el `<alias>` **esta documentado**.
+- **El parser** (`src/parser/grammar.rs:251`):
+  `let (i, target_alias) = opt(ws(non_keyword_ident))(i)?;` ⇒ el identificador que
+  sigue a la entidad **se consume como alias**.
+- **El lexer** (`src/parser/lexer.rs:41-82`): `RESERVED_KEYWORDS` no contiene
+  `"garbage"` y `non_keyword_ident` = `verify(ident, |s| !RESERVED_KEYWORDS.contains(&s))`
+  ⇒ `"garbage"` **es** un alias valido.
+
+⇒ `FROM Doc garbage` es una statement **valida** con alias `garbage`; el trailing junk
+real es `FROM Doc p garbage`. **Rechazar `FROM Doc garbage` aboliria el `<alias>`
+documentado** ⇒ la desviacion del task file es correcta y el caso real esta fijado por
+test (`test_parse_statement_keeps_the_documented_alias`, que ademas comprueba
+`target_alias == "garbage"`).
+
+**Verificacion adicional** (misma clase de riesgo, no pedida explicitamente):
+- `INSERT ... LINK ...` **no es sintaxis documentada**: `docs/api/IQL.md:287` da la
+  gramatica `INSERT NODE#<id> TYPE <type> { <field>: <value>, ... } [VECTOR [...]]`
+  (sin `LINK`); la arista documentada es `RELATE NODE#<src> --"<label>"--> NODE#<dst>`
+  (linea 316) ⇒ rechazarlo **no** rompe ningun statement valido.
+- `PROFILE KEYWORD` nunca fue valido (los modos son lowercase, `docs/api/IQL.md:61`).
+
+#### Invariantes verificados
+
+| # | Invariante | Veredicto | Como |
+|---|---|---|---|
+| 1 | un statement **valido** no pasa a fallar | ✅ | 2525/2525 del lib + 98/98 de integracion + 171/171 de MCP + el control `test_parse_statement_valid_statements_still_parse` (14 statements) |
+| 2 | el `;` final se sigue tolerando | ✅ | `test_parse_statement_tolerates_trailing_semicolon` (5 grafias) PASS; `reject_trailing_input` solo tolera `;` |
+| 3 | los limites de longitud de query no cambian | ✅ | ningun limite vive en `src/parser/**`; el diff solo cambia la *aceptacion* de input |
+| 4 | nada de panics; todo fallo es un `Error` con mensaje util | ✅ | el parser solo produce `Err::Failure`; los dos mensajes nuevos son estables y las posiciones apuntan al `WHERE` (1,9) y al texto sobrante (1,11) — verificado por los 2 tests de `executor.rs` |
+
+#### Coexistencia con FIND-552 en `src/executor.rs` (checklist explicito)
+
+- Los hunks de las dos tasks **no se solapan**: FIND-518 toca `iql_parse_error_message`
+  (lineas ~99-125) y anade 2 tests al final del modulo; FIND-552 toca
+  `filter_low_confidence_summaries` (linea ~318) y el prune de `ROLE` (linea ~675) y
+  anade 4 tests en mitad del modulo. Los 6 hunks conviven en el arbol actual.
+- **El parser estricto no rompe `execute_query`/`execute_select`**: verificado por los
+  98 tests de integracion + los 126 de `executor::tests` + 171 de MCP, que incluyen
+  los controles preexistentes de `AS OF` duplicado, `LIMIT`/`OFFSET` malformados,
+  `AS OF`/`LIMIT` con agregacion (mensajes y posiciones intactos) y
+  `GROUP BY` en la superficie `FROM` (mensaje especifico conservado, porque el check de
+  `GROUP BY` se mueve **antes** del rechazo generico).
+- `query_is_mutating` (`src/cli_handlers/data.rs:430`) usa el mismo parser: una query
+  malformada ahora da error de parseo ⇒ se clasifica como no-mutante ⇒ **no puede
+  ejecutar** nada (el executor vuelve a parsear y falla) ⇒ sin regresion de seguridad.
+
+#### Hallazgos (con fix minimo)
+
+- **R1 (Requerido, documentacion) — `docs/api/IQL.md`:** la estanqueidad **global** no
+  esta documentada. Hoy la referencia solo dice, en el contexto de agregacion
+  (lineas 214-215), que "a trailing statement terminator (`;`) is tolerated"; no dice
+  que **cualquier** trailing input sea ahora un error de parseo en **todas** las
+  statements. Es un cambio de contrato observable en las **tres** superficies
+  (HTTP/MCP/CLI) ⇒ la doc de referencia debe decirlo. *Fix minimo*: una linea en la
+  seccion de gramatica/estanqueidad ("una statement debe consumirse entera; el `;`
+  final se tolera; cualquier otro resto es un error de parseo").
+- **O1 (Nit) — `src/parser/mod.rs:1707-1712`:** el test existente
+  `test_parse_statement_rejects_trailing_clause_after_pagination` ya no describe el
+  contrato (la regla ya no es "despues de paginacion" sino global). El cambio del
+  assert es correcto; el **nombre** desactualiza. *Fix minimo*: renombrarlo a
+  `test_parse_statement_rejects_trailing_clause`.
+- **O2 (Follow-up, ya declarado) — `FIND-525` (`SIGUE 1..5000000000`) y `FIND-526`
+  (`FROM Doc where x = 1`):** siguen abiertos: son clausulas tragadas por `opt`, no
+  trailing input. Nota positiva: con el fix, `FROM Doc where x = 1` **ya es error de
+  parseo** (el `where` se consume como alias y "x = 1" queda como trailing) ⇒ la
+  consecuencia silenciosa que denunciaba `FIND-526` desaparece, pero la fila sigue
+  abierta por el fondo (el alias en minusculas).
+- **N1 (Nit, DoD) — atomicidad:** el commit `8d7425ab` **no** incluye los hunks de
+  `src/executor.rs` (van en `d18c9be2`, junto con los de FIND-552). Esta anunciado en
+  el mensaje del commit y en el de `d18c9be2`, y el estado final es correcto ⇒
+  aceptable, pero ninguno de los dos commits es atomico **por si solo** (el DoD de
+  nivel Commit de FIND-518 se cumple solo en la union de los dos).
+
+#### Lo que esta bien hecho
+
+- El fix estructural es el correcto: una vez consumido el keyword `WHERE`, la clausula
+  es **obligatoria** (`Err::Failure` en la posicion del keyword), y el `opt` que
+  devolvia `None` ha desaparecido. Ademas se cierra la asimetria de `nom`
+  (`separated_list1` se traga el error del elemento posterior a un separador): dos
+  gramaticas de fallo para el mismo error de tipeo pasan a ser una.
+- El uso de `ErrorKind::Eof` para "queda input" con el resto como `input` del error da
+  una posicion util (linea/columna al texto sobrante) sin inventar un kind.
+- La reordenacion del check de `GROUP BY` **antes** del rechazo generico preserva el
+  mensaje especifico: un fix de estanqueidad no degrada un mensaje de dominio.
+- Los tests no son "existen y pasan": fijan el comportamiento roto (posiciones
+  exactas `(1,9)` y `(1,11)`, alias `garbage`, `;` en 5 grafias, 14 statements validos).
 
 ## Notas
 - Regla de git: el push requiere instruccion explicita del usuario (AGENTS.md Regla 7).
