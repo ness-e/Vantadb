@@ -1,12 +1,14 @@
 ---
 title: "Plan de cableado de la feature `encryption`: cifrado en reposo en los 4 artefactos on-disk"
 kind: plan
-status: proposed
+status: active
 date: "2026-10-20"
 owners: ["vanta-arch (diseño)", "vanta-worker (implementación)", "vanta-audit (unsafe/FFI)", "vanta-chaos (recuperación)"]
 tasks: ["FIND-249", "FIND-407", "FIND-194", "FIND-302"]
 adr: "docs/dev/architecture/adr/ADR-0057-encryption-at-rest.md"
 ---
+
+> **Estado (active):** Activo desde 2026-10-21: el owner ratifico el diseno (ADR-0057, status: accepted) y las waves W0-W4 estan landing (W1 primitivas, W2 WAL v4, W3 VantaFile v3, W4 backend-KV; W5 imagen HNSW en curso). Quedan W6 (activacion, registro unico por proceso, rotacion, documentacion honesta) y W7 (medicion del p99).
 
 # Plan de cableado de la feature `encryption` — cifrado en reposo en los 4 artefactos on-disk independientes
 

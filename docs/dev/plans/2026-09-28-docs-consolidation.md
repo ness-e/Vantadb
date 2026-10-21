@@ -1,8 +1,11 @@
 ---
+status: completed
 title: "Plan de Consolidación Documental — enlaces, metadata, índices y skill"
 kind: plan
 description: documentation-skill → campaign-executor → progreso → writing-plans → systematic-debugging → writing-guidelines
 ---
+
+> **Estado (completed):** Cerrado 2026-10-21: la consolidacion de docs (fuente unica, indices generados, frontmatter canonico) esta terminada y verificada por los gates; el plan ya no tiene tareas abiertas.
 
 # Plan de Consolidación Documental — enlaces, metadata, índices y skill
 
