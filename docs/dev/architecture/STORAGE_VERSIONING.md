@@ -49,12 +49,41 @@ VantaDB persists data across four distinct physical formats, each with its own m
 
 ### Format Inventory
 
-| Format | File(s) | Magic | Current Version | Version Type | Defined In |
-|---|---|---|---|---|---|
-| **VantaFile** | `vector_store.vanta` | `b"VFLE"` | `2` (const `VFILE_VERSION`) | `u16` format_version | `src/storage/vfile.rs` |
-| **Vector Index (HNSW)** | `index.bin` | `b"VNDX"` | `8` (const `VECTOR_INDEX_VERSION`) | `u16` format_version | `src/index/graph.rs` |
-| **WAL** | `wal.log`, segments | `b"VWAL"` | `1` | `u32` (cast from `u16`) | `src/wal.rs` (`WalHeader`) |
-| **Schema** | `.vanta.schema` | `b"VTDBv001"` | `1` | `u32` schema_version | `src/schema.rs` (`StorageHeader`) |
+> **Actualizado 2026-10-21 (ADR-0057, waves W2-W6).** El inventario de abajo
+> estaba obsoleto desde W2: las tres formatos de datos tienen ahora una
+> **variante cifrada** con su propio numero de version. La version
+> **plaintext no ha cambiado** (una base existente sigue siendo byte-identica),
+> pero la version maxima legible si.
+
+| Format | File(s) | Magic | Plaintext Version | Encrypted Version | Max Readable | Defined In |
+|---|---|---|---|---|---|---|
+| **VantaFile** | `data/vstore_L{0..3}.vanta`, `data/vector_store.vanta` | `b"VFLE"` | `2` (const `VFILE_VERSION`) | `3` (const `VFILE_ENCRYPTED_VERSION`) | `VFILE_MAX_READABLE_VERSION` | `src/storage/vfile.rs` |
+| **Vector Index (HNSW)** | `data/vector_index.bin` | `b"VNDX"` | `8` (const `VECTOR_INDEX_VERSION`) | `9` (const `VECTOR_INDEX_ENCRYPTED_VERSION`) | `VECTOR_INDEX_MAX_READABLE_VERSION` | `src/index/graph/types.rs` |
+| **WAL** | `data/vanta.wal`, `data/vanta.shard{N}.wal` | `b"VWAL"` | `3` (const `WAL_FORMAT_VERSION`) | `4` (const `WAL_ENCRYPTED_FORMAT_VERSION`) | `WAL_MAX_READABLE_VERSION` | `src/wal.rs` |
+| **Encryption registry** | `data/encryption.registry` | `b"VANTAREG"` | — (nunca en claro) | `1` (formato del registro) | — | `src/crypto/registry.rs` |
+| **Schema** | `.vanta.schema` | `b"VTDBv001"` | `1` | — | — | `src/schema.rs` (`StorageHeader`) |
+
+### Las variantes cifradas (ADR-0057)
+
+La version del **header** es el **marcador de modo**: el lector decide por
+los bytes del disco, nunca por la configuracion.
+
+| Artefacto | Version cifrada | Forma del envelope |
+|---|---|---|
+| WAL | `4` | `[u32 ct_len][u32 crc32c(ct)][12B nonce][ct ‖ 16B tag][32B prev_hash][32B record_hash]` — por frame; el CRC y la cadena de hashes cubren el **ciphertext**, asi que `vanta-cli verify` sigue funcionando **sin clave** |
+| VantaFile | `3` | `[u32 blob_len][12B nonce][ct ‖ 16B tag]` — por nodo; el AAD liga el blob a su offset |
+| HNSW image | `9` | `[12B nonce][ct ‖ 16B tag]` — un envelope por fichero; el AAD liga la imagen a su ruta relativa |
+| backend KV | (sin version propia) | `[12B nonce][ct ‖ 16B tag]` — por valor; el **registro** es el marcador de modo |
+
+Un build **sin** la feature `encryption` rechaza una base cifrada con un error
+explicito (`EncryptionKeyRequired` / `IncompatibleFormat` con el hint "the
+HNSW image is encrypted"), **nunca** con un error de corrupcion. Y un build
+**con** la feature lee las bases plaintext sin cambios.
+
+Las constantes publicas viven en `src/index/graph/types.rs`
+(`VECTOR_INDEX_ENCRYPTED_VERSION`, `VECTOR_INDEX_MAX_READABLE_VERSION`) y se
+documentan en [`docs/api/STORAGE_FORMATS.md`](../../api/STORAGE_FORMATS.md).
+
 
 ### Text Index (derived)
 

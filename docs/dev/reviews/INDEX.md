@@ -41,6 +41,12 @@ activa y su registro pasa a [`docs/dev/avance/`](../avance/) (el formato no admi
 | `2026-10-18-full-system-audit.md` | Auditoria de sistema completa del 2026-10-18 | Sus hallazgos son los de la campana del 2026-10-20 (los cita por id) |
 | `analisis-externo-2026-10-01.md` | Analisis externo del 2026-10-01 | Sus 2 hallazgos citados (`FIND-221`, `FIND-98`) **estan en el backlog** |
 
+## Notas de wave — cifrado en reposo (ADR-0057)
+
+| Fichero | Qué es |
+|---|---|
+| [`2026-10-21-w6-encryption-activation.md`](2026-10-21-w6-encryption-activation.md) | **W6** — activacion del cifrado en reposo: un contexto y un registro por proceso, deteccion de modo en el open, rotacion de la master key, el snapshot copia el registro y la documentacion honesta (limites, runbook de claves). Incluye lo que **queda abierto** para W7 (la medicion del p99). |
+
 ## Informes del pipeline
 
 | Fichero | Qué es |

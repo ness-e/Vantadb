@@ -292,6 +292,26 @@ pub fn cmd_config_show(db_path: &str, reveal_secrets: bool, json_output: bool) -
             &project_map,
             &user_map,
         ),
+        // ADR-0057 D2: the three master-key sources, in their fixed
+        // precedence (environment → key file → key command).
+        resolve_item(
+            "encryption_key_file",
+            "VANTADB_ENCRYPTION_KEY_FILE",
+            "",
+            false,
+            None,
+            &project_map,
+            &user_map,
+        ),
+        resolve_item(
+            "encryption_key_cmd",
+            "VANTADB_ENCRYPTION_KEY_CMD",
+            "",
+            false,
+            None,
+            &project_map,
+            &user_map,
+        ),
     ];
 
     if json_output {
