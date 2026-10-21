@@ -213,10 +213,12 @@ contrato TS -> regenerated artifacts).
 
 ## Review (P2-01)
 
-- **Reviewer:** (pendiente — agente DISTINTO del implementador; la tarea NO se marca
-  COMPLETED sin este review registrado aqui)
-- **Veredicto:** (pendiente)
-- **Fecha:** (pendiente)
+- **Reviewer:** `vanta-review` (agente DISTINTO del implementador; sesion de
+  revision P2-01 sobre `develop`, 4 tasks)
+- **Veredicto:** 🟡 **APTO CON RESERVAS** — el fix y sus 12 tests estan verificados
+  mecanicamente; la reserva es de nivel **Commit**: falta commitear
+  `vantadb-ts/src/native.ts` (el commit `eb862432` no lo incluye).
+- **Fecha:** 2026-10-21
 - **Checklist para el revisor:**
   1. ¿La decision (b) con default de 1 MiB/segmento esta bien justificada frente a (a) y (c)?
   2. ¿El recorte de la reserva contra `memory_limit` es la politica correcta (o deberia ser
@@ -228,6 +230,77 @@ contrato TS -> regenerated artifacts).
   5. ¿La suite completa (`cargo nextest run -p vantadb --profile audit --lib`) y el clippy del
      crate `vantadb-node` (que ya venia en rojo por `unwrap_used`/`expect_used` en su modulo de
      tests: 23 errores **preexistentes**, 0 anadidos) se aceptan tal cual?
+
+### Dictamen del revisor (P2-01) — 2026-10-21
+
+**Veredicto: 🟡 APTO CON RESERVAS.** El codigo, la decision (b) y los 12 tests estan
+bien y verificados con comandos. La reserva es una y es de nivel **Commit**: el commit
+`eb862432` **no incluye** uno de los ficheros que el propio task file lista.
+
+#### Evidencia mecanica
+
+| Comando | Resultado |
+|---|---|
+| `cargo nextest run -p vantadb --profile audit --lib -j 2 -E 'test(lsm::tests)'` | **6/6 passed** (incluye `fresh_segments_do_not_reserve_64mb` y `open_or_create_honours_initial_segment_bytes`) |
+| `cargo test --lib` en `vantadb-node/` | **14/14 passed** (los 6 `build_config_*` nuevos incluidos) |
+| `npx vitest run tests/find517.test.ts` (en `vantadb-node/`) | **5/5 passed** contra el binario real (motor de verdad, no mock) |
+| `npx vitest run` (suite completa del binding) | **12 ficheros, 75/75 passed** |
+| `cargo clippy -p vantadb --all-targets -j 2 -- -D warnings` | **exit 0** |
+| `cargo clippy --all-targets` en `vantadb-node/` | **22 errores `unwrap_used`/`expect_used`, TODOS preexistentes** (`src/lib.rs:2036-2166`, modulo de tests antiguo) y **0 en los 6 tests nuevos** (usan `panic!`, no `unwrap`/`expect`) ⇒ el checklist #5 se acepta tal cual |
+| `rustfmt --check src/lsm.rs vantadb-node/src/lib.rs` | **exit 0** |
+| `git show eb862432 --stat` | 9 ficheros; **`vantadb-ts/src/native.ts` NO esta** (ver R1) |
+
+#### Verificacion de los invariantes
+
+| # | Invariante | Veredicto | Como |
+|---|---|---|---|
+| 1 | el contrato publico no se rompe (parametro aditivo) | ✅ | `reserve_bytes` es opcional; `Config::default()` no cambia para python/wasm/server/CLI. **Verificado ademas que no hay ruptura de semver**: `LsmConfig` vive en `pub(crate) mod lsm` (`src/lib.rs:123`) ⇒ no es parte de la superficie publica y `tests/api/public-api.txt` no la lista (`grep LsmConfig` => 0 hits) ⇒ el golden no se regenera y no se rompe nada |
+| 2 | la reserva no crece por encima del `memory_limit` | ✅ | recorte en `build_config` (`vantadb-node/src/lib.rs:1417-1428`) + 2 tests unitarios + test de integracion |
+| 3 | el tiempo de connect no empeora | ⚠️ no re-medido | la medicion A/B del implementador (720,0 -> 701,1 ms) no la he re-hecho; el cambio no toca el arranque del motor, solo el tamano del `set_len` inicial |
+| 4 | el `.d.ts`/`.cjs`/`index.js` coherentes con el codigo | ✅ parcial | regenerados (0,8,0 -> 0,9,0) + `reserve_bytes` en el `.d.ts`; el alias `VantaDB` de napi-rs sigue pendiente (`FIND-546`), fuera de alcance |
+| 5 | nada de `unsafe` nuevo | ✅ | 0 `unsafe` anadido; la frontera FFI no se ha tocado |
+| — | la pre-reserva no es load-bearing | ✅ | `should_compact_level` compara el **cursor de escritura** (`src/storage/engine/maintenance.rs`), no el tamano del fichero |
+
+#### Hallazgos (con fix minimo)
+
+- **R1 (Requerido, nivel Commit) — `vantadb-ts/src/native.ts`:** el fichero que expone
+  `NativeConnectOptions.reserve_bytes` (+ su doc) **no esta en el commit `eb862432`**:
+  sigue como modificacion **sin commitear** en el working tree (`git status --short` =>
+  ` M vantadb-ts/src/native.ts`). El task file lo lista en la tabla "Implementacion
+  (step 3)", luego el **commit no es atomico** y el `git diff` no esta limpio (DoD nivel
+  Commit). Efecto: el paquete `vantadb-ts` no expone el parametro aunque el binding de
+  Node si. *Fix minimo*: `git add vantadb-ts/src/native.ts` y commitearlo (amend de
+  `eb862432` o commit atomico aparte).
+- **R2 (Opcional, doc) — `vantadb-node/dts-header.d.ts:47-53`:** "Clamped so the total
+  never exceeds `memory_limit`" se puede leer como una garantia de **memoria**. La
+  reserva es **espacio de direcciones**, no memoria viva (el propio task file lo dice:
+  el RSS de un store vacio ya era ~2,3 MB). *Fix minimo*: una linea que diga que el
+  recorte es una politica conservadora sobre el espacio reservado, no sobre el RSS.
+- **R3 (Follow-up, respuesta al checklist #3) —** los **64 MiB del journal de fjall**
+  (tercero, modulo privado) y los **64 MiB de `create_in_memory`** del motor in-memory
+  (`src/storage/engine/init.rs:85`, heap *committeado* de verdad en `connect(":memory:")`)
+  deben abrir **fila propia**: el segundo si es memoria viva y si sale en ningun
+  `memory_limit` (a diferencia de la reserva de fjall, que es fichero disperso).
+- **O1 (Opcional) — el riesgo principal de bajar el pre-reserva esta verificado:** el
+  `set_len` inicial solo se aplica a ficheros **nuevos o < 64 B**
+  (`src/storage/vfile.rs:407-418`: `if current_size < min_header_size { ... set_len }`)
+  ⇒ **un segmento existente de 64 MiB NO se trunca** al abrir el store con el default
+  nuevo. Sin truncado ni perdida de datos.
+- **N1 (Nit, DoD) —** el task file no menciona la superficie publica (FIND-552 si lo
+  hace). Verificado aqui: no cambia (ver invariante 1).
+
+#### Lo que esta bien hecho
+
+- **Corregir la premisa de la fila en vez de defenderla:** los "320,06 MB" no eran RSS
+  sino espacio reservado, y por eso no aparecian en ningun `memory_limit`. Decirlo
+  (y medir el RSS de verdad) es exactamente el trabajo que hace falta.
+- La decision (b) esta bien argumentada frente a (a) y (c), y el argumento es
+  economico, no ideologico: el problema es el **tamano**, no el **momento**.
+- El recorte contra `memory_limit` con `min(reserve, limit/4)` y el suelo de
+  `STORAGE_ALIGNMENT` cubren el borde (`memory_limit < 256 B`), y esta documentado.
+- Los tests de integracion de vitest corren contra el **motor real** (no mocks) y el
+  binario `.node` de disco contiene las cadenas `reserve_bytes must be a number` /
+  `reserve_bytes must be greater than 0` ⇒ el binario es el **post-fix** (verificado).
 
 ## Notas
 - Regla de git: el push requiere instruccion explicita del usuario (AGENTS.md Regla 7). **Este
