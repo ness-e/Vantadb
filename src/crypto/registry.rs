@@ -270,6 +270,19 @@ impl NonceAllocator {
     }
 }
 
+#[cfg(test)]
+impl NonceAllocator {
+    /// Test-only: force the counter to `value`.
+    ///
+    /// The counter is private to this module, so a test living in another
+    /// module (e.g. the WAL overflow test) cannot reach it. This is the only
+    /// way to exercise the "counter exhausted → new epoch" path from the
+    /// outside without adding a production knob.
+    pub fn set_counter_for_test(&self, value: u32) {
+        self.counter.store(value, Ordering::SeqCst);
+    }
+}
+
 /// One artefact's entry in the registry.
 #[derive(Debug)]
 struct ArtifactEntry {

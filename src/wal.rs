@@ -25,6 +25,35 @@ use crate::node::UnifiedNode;
 ///       until rotation/compaction creates a fresh (v3) segment — no in-place rewrite.
 pub const WAL_FORMAT_VERSION: u16 = 3;
 
+/// Format version of the **encrypted** WAL (ADR-0057 W2).
+///
+/// The encrypted format wraps **every frame** in its own AEAD envelope:
+///
+/// ```text
+/// [u32 ct_len][u32 crc32c(ct)][12B nonce][ct ‖ 16B tag][32B prev_hash][32B record_hash]
+/// ```
+///
+/// * `ct_len` is the length of the AEAD blob (`ciphertext ‖ tag`), `crc` is the
+///   CRC32C of that blob and the hash chain is computed over the **ciphertext**,
+///   so `vanta-cli verify` keeps working **without the key**.
+/// * The marker lives in the **existing cleartext header**
+///   (`WalHeader.base.format_version`), so a reader decides by the bytes on
+///   disk, never by configuration (ADR-0057 D1).
+/// * The version bump happens **only in the encrypted format**: a v3 file
+///   keeps its exact byte layout, and a WAL written without a key is
+///   byte-identical to the one written before this change.
+pub const WAL_ENCRYPTED_FORMAT_VERSION: u16 = 4;
+
+/// The highest WAL format version this build can read.
+///
+/// v4 (the encrypted format) is only readable with the `encryption` feature:
+/// a build without it refuses a v4 file with an explicit message.
+pub const WAL_MAX_READABLE_VERSION: u16 = if cfg!(feature = "encryption") {
+    WAL_ENCRYPTED_FORMAT_VERSION
+} else {
+    WAL_FORMAT_VERSION
+};
+
 /// Format version that introduced the chained frame layout. Files with
 /// `format_version >= WAL_CHAIN_VERSION` carry `prev_hash ‖ record_hash` on
 /// every frame; older files use the legacy `[len][payload][crc]` layout.
@@ -68,6 +97,12 @@ pub fn compute_crc32c(data: &[u8]) -> u32 {
 #[inline]
 pub(crate) fn is_chained(format_version: u16) -> bool {
     format_version >= WAL_CHAIN_VERSION
+}
+
+/// True when `format_version` uses the **encrypted** (v4) frame layout.
+#[inline]
+pub(crate) fn is_encrypted(format_version: u16) -> bool {
+    format_version >= WAL_ENCRYPTED_FORMAT_VERSION
 }
 
 /// Per-record framing overhead for a given format version (0 pre-chain,
@@ -216,10 +251,36 @@ impl WalHeader {
 
         let base = crate::binary_header::Header::deserialize(&bytes[0..16])?;
 
-        // Range-based compatibility check: accepts any format_version ≤ WAL_FORMAT_VERSION
-        // with matching magic. Future-format files (version > current) are rejected;
-        // older files with matching magic are accepted for forward-compatible reads.
-        base.validate_compat(*b"VWAL", WAL_FORMAT_VERSION, "WAL format")?;
+        // The magic first: a file that is not a WAL at all is reported as
+        // such, whatever its version field happens to say.
+        if base.magic != *b"VWAL" {
+            return Err(Error::IncompatibleFormat {
+                expected_magic: *b"VWAL",
+                expected_version: WAL_MAX_READABLE_VERSION,
+                found_magic: base.magic,
+                found_version: base.format_version,
+                hint: format!(
+                    "WAL format: expected magic {:?}, found {:?}",
+                    *b"VWAL", base.magic
+                ),
+            });
+        }
+
+        // A v4 WAL is encrypted: this build can only read it with the
+        // `encryption` feature compiled in. Say so explicitly — an encrypted
+        // database must never be reported as "corrupt" (ADR-0057 D7).
+        if is_encrypted(base.format_version) && !cfg!(feature = "encryption") {
+            return Err(Error::wal_error(
+                "WAL file is encrypted (format v4 or newer) but this build has no 'encryption' feature",
+            ));
+        }
+
+        // Range-based compatibility check: accepts any format_version ≤ the
+        // highest version this build understands, with matching magic.
+        // Future-format files (version > current) are rejected; older files
+        // with matching magic are accepted for forward-compatible reads.
+        // The encrypted format (v4) is readable only with the feature.
+        base.validate_compat(*b"VWAL", WAL_MAX_READABLE_VERSION, "WAL format")?;
 
         // Version 0 WAL was never a valid format — reject explicitly
         if base.format_version < 1 {
@@ -251,6 +312,312 @@ impl WalHeader {
         }
 
         Ok(header)
+    }
+}
+
+// ─── Encryption at rest (ADR-0057 W2) ──────────────────────
+//
+// The WAL is the first artefact wired to the at-rest envelope (ADR-0057
+// §D1–§D5):
+//
+// * **Per frame**, not per file: every frame carries its own AEAD envelope
+//   (`[ct_len][crc][nonce][ct‖tag][prev][record_hash]`).
+// * The **CRC32C covers the ciphertext** and the **hash chain is computed over
+//   the ciphertext** → `vanta-cli verify` keeps working **without the key**
+//   (the AEAD tag, not the CRC, is what detects tampering).
+// * The **AAD** binds the ciphertext to its position — `artifact=WAL,
+//   format_version=4, epoch, slot (the frame ordinal within the file),
+//   plaintext_len` (ADR-0057 D4) — so a frame moved to another ordinal fails
+//   to authenticate.
+// * The **nonce** is `epoch ‖ counter` (ADR-0057 D3): the epoch is random and
+//   persisted **before** the first encryption under it; the counter is a
+//   lock-free `AtomicU32` that never wraps (an exhausted counter allocates a
+//   new epoch).
+// * **No new lock in the hot path**: the nonce comes from one atomic
+//   increment; the registry is touched only when the epoch is rolled (open /
+//   counter exhaustion), never per append.
+//
+// The **slot** (the frame ordinal within its file) is the reason the
+// encryption happens while the writer is held exclusively: the ordinal is the
+// number of frames already written to *that* file, so it is only known under
+// the writer's own lock. ADR-0057 D5 asks for "encrypt before the shard
+// mutex"; that is not reachable with an ordinal-bound AAD, and the deviation
+// is recorded in the wave report (the GCM cost of one small frame is
+// negligible next to its `write`).
+
+#[cfg(feature = "encryption")]
+use crate::crypto::registry::NonceAllocator;
+#[cfg(feature = "encryption")]
+use crate::crypto::{AadBuilder, Artifact, Cipher, CryptoError, KeyRegistry, Nonce};
+#[cfg(feature = "encryption")]
+use parking_lot::Mutex;
+#[cfg(feature = "encryption")]
+use std::sync::Arc;
+
+/// The encryption slot of a WAL writer.
+///
+/// With the `encryption` feature it holds the real [`WalCrypto`]; without it
+/// the slot is uninhabited and every WAL is plaintext (byte-identical to the
+/// pre-encryption layout).
+#[cfg(feature = "encryption")]
+pub(crate) type WalCryptoSlot = WalCrypto;
+#[cfg(not(feature = "encryption"))]
+pub(crate) type WalCryptoSlot = ();
+
+/// The decryption key slot of a WAL reader.
+///
+/// With the `encryption` feature it holds the real [`WalKey`]; without it the
+/// slot is uninhabited and an encrypted WAL cannot be opened at all.
+#[cfg(feature = "encryption")]
+type WalKeySlot = WalKey;
+#[cfg(not(feature = "encryption"))]
+type WalKeySlot = ();
+
+/// The **read side** of an encrypted WAL: the DEK of the `wal` artefact.
+///
+/// Without the `encryption` feature the type is empty — an encrypted WAL
+/// cannot even be opened, so the key is never needed.
+#[cfg(feature = "encryption")]
+#[derive(Clone, Debug)]
+pub struct WalKey {
+    cipher: Cipher,
+}
+
+/// The **read side** of an encrypted WAL (stub without the `encryption`
+/// feature).
+#[cfg(not(feature = "encryption"))]
+#[derive(Debug, Clone, Copy)]
+pub struct WalKey;
+
+#[cfg(feature = "encryption")]
+impl WalKey {
+    /// Open the DEK of the WAL artefact living in `data_dir` (read-only).
+    ///
+    /// The registry holds the wrapped DEKs, so it must already exist: a
+    /// missing registry means the DEK is gone and the database cannot be
+    /// read (ADR-0057 D2 — refuse, never "corrupt").
+    pub fn open(data_dir: &Path, key_material: &[u8]) -> Result<Self> {
+        if !KeyRegistry::path_in(data_dir).exists() {
+            return Err(Error::EncryptionKeyRequired {
+                artifact: Artifact::Wal.as_str().to_string(),
+            });
+        }
+        let registry = KeyRegistry::open_or_create(data_dir, key_material).map_err(crypto_error)?;
+        let dek = registry
+            .dek(Artifact::Wal)
+            .ok_or_else(|| Error::EncryptionKeyRequired {
+                artifact: Artifact::Wal.as_str().to_string(),
+            })?;
+        Ok(Self {
+            cipher: Cipher::new(&dek[..]),
+        })
+    }
+
+    /// The DEK cipher of the artefact.
+    pub fn cipher(&self) -> &Cipher {
+        &self.cipher
+    }
+}
+
+/// The **write side** of an encrypted WAL: the DEK, the nonce allocator and
+/// the registry handle needed to roll the epoch.
+#[cfg(feature = "encryption")]
+#[derive(Clone, Debug)]
+pub struct WalCrypto {
+    /// The read-side key (the DEK of the `wal` artefact).
+    key: WalKey,
+    /// The nonce allocator of the artefact — **shared by every shard**: one DEK
+    /// means one nonce space, and a per-shard counter would reuse nonces.
+    allocator: Arc<NonceAllocator>,
+    /// The registry — locked only to roll the epoch (counter exhaustion).
+    registry: Arc<Mutex<KeyRegistry>>,
+}
+
+#[cfg(feature = "encryption")]
+impl WalCrypto {
+    /// Open (or create) the write context of the WAL artefact in `data_dir`.
+    ///
+    /// Allocates a **fresh epoch** and persists it **before** the first
+    /// encryption under it (ADR-0057 D3).
+    pub fn open(data_dir: &Path, key_material: &[u8]) -> Result<Self> {
+        let mut registry =
+            KeyRegistry::open_or_create(data_dir, key_material).map_err(crypto_error)?;
+        registry.ensure_dek(Artifact::Wal).map_err(crypto_error)?;
+        registry.begin_epoch(Artifact::Wal).map_err(crypto_error)?;
+        let allocator = registry.allocator(Artifact::Wal).cloned().ok_or_else(|| {
+            Error::wal_error("encryption registry has no nonce allocator for the wal artefact")
+        })?;
+        let dek = registry
+            .dek(Artifact::Wal)
+            .ok_or_else(|| Error::EncryptionKeyRequired {
+                artifact: Artifact::Wal.as_str().to_string(),
+            })?;
+        Ok(Self {
+            key: WalKey {
+                cipher: Cipher::new(&dek[..]),
+            },
+            allocator,
+            registry: Arc::new(Mutex::new(registry)),
+        })
+    }
+
+    /// The read-side key of this context.
+    pub fn key(&self) -> WalKey {
+        self.key.clone()
+    }
+
+    /// Build one encrypted frame and return it with the new chain head.
+    ///
+    /// Layout: `[u32 ct_len][u32 crc32c(ct)][12B nonce][ct ‖ 16B tag]
+    /// [32B prev_hash][32B record_hash]`.
+    fn frame(
+        &mut self,
+        payload: &[u8],
+        slot: u64,
+        prev: &[u8; CHAIN_HASH_SIZE],
+    ) -> Result<(Vec<u8>, [u8; CHAIN_HASH_SIZE])> {
+        let nonce = self.next_nonce()?;
+        let aad = AadBuilder::new(Artifact::Wal, WAL_ENCRYPTED_FORMAT_VERSION)
+            .epoch(nonce.epoch())
+            .slot(slot)
+            .plaintext_len(payload.len())
+            .build();
+        // `ct` is the AEAD blob: `ciphertext ‖ 16-byte tag`.
+        let ct = self
+            .key
+            .cipher
+            .encrypt_with_nonce(nonce.as_bytes(), payload, &aad)
+            .map_err(crypto_error)?;
+        let ct_len = ct.len() as u32;
+        let crc = compute_crc32c(&ct);
+        let record_hash = chain_hash_v4(
+            prev,
+            &ct_len.to_le_bytes(),
+            &crc.to_le_bytes(),
+            nonce.as_bytes(),
+            &ct,
+        );
+        let mut frame = Vec::with_capacity(4 + 4 + 12 + ct.len() + CHAIN_FRAME_EXTRA);
+        frame.extend_from_slice(&ct_len.to_le_bytes());
+        frame.extend_from_slice(&crc.to_le_bytes());
+        frame.extend_from_slice(nonce.as_bytes());
+        frame.extend_from_slice(&ct);
+        frame.extend_from_slice(prev);
+        frame.extend_from_slice(&record_hash);
+        Ok((frame, record_hash))
+    }
+
+    /// The next nonce of the artefact.
+    ///
+    /// The counter **never wraps**: when it is exhausted a new epoch is
+    /// allocated (and persisted) instead (ADR-0057 D3).
+    fn next_nonce(&mut self) -> Result<Nonce> {
+        match self.allocator.next() {
+            Ok(nonce) => Ok(nonce),
+            Err(CryptoError::NonceEpochExhausted) => {
+                self.roll_epoch()?;
+                self.allocator.next().map_err(crypto_error)
+            }
+            Err(err) => Err(crypto_error(err)),
+        }
+    }
+
+    /// Roll the nonce epoch: a fresh random epoch, persisted **before** the
+    /// first encryption under it.
+    ///
+    /// When another writer already rolled the epoch (the allocator is shared
+    /// by every shard) its allocator is adopted instead of burning a second
+    /// epoch — the artefact keeps a single, shared nonce sequence.
+    fn roll_epoch(&mut self) -> Result<()> {
+        let registry_arc = self.registry.clone();
+        let mut registry = registry_arc.lock();
+        if let Some(current) = registry.allocator(Artifact::Wal) {
+            if !Arc::ptr_eq(current, &self.allocator) {
+                self.allocator = current.clone();
+                return Ok(());
+            }
+        }
+        registry.begin_epoch(Artifact::Wal).map_err(crypto_error)?;
+        self.allocator = registry.allocator(Artifact::Wal).cloned().ok_or_else(|| {
+            Error::wal_error("encryption registry has no nonce allocator for the wal artefact")
+        })?;
+        Ok(())
+    }
+}
+
+/// Build the WAL encryption context from the configuration, if a key resolves.
+///
+/// Precedence: environment → key file → key command (ADR-0057 D2). Without a
+/// key the WAL stays **plaintext and byte-identical** to the layout before
+/// this change.
+#[cfg(feature = "encryption")]
+pub fn wal_crypto_from_config(
+    data_dir: &Path,
+    config: &crate::config::Config,
+) -> Result<Option<WalCrypto>> {
+    let env_key = config
+        .encryption_key
+        .clone()
+        .or_else(|| std::env::var("VANTADB_ENCRYPTION_KEY").ok());
+    let material = match crate::crypto::resolve_master_key_material(
+        env_key.as_deref(),
+        config.encryption_key_file.as_deref(),
+        config.encryption_key_cmd.as_deref(),
+    ) {
+        Ok(material) => material,
+        Err(CryptoError::KeyNotSet) => return Ok(None),
+        Err(err) => return Err(crypto_error(err)),
+    };
+    Ok(Some(WalCrypto::open(data_dir, &material[..])?))
+}
+
+/// Map a crypto failure onto the crate error surface (ADR-0057 D6).
+#[cfg(feature = "encryption")]
+fn crypto_error(err: CryptoError) -> Error {
+    match err {
+        CryptoError::DecryptionFailed => Error::EncryptionKeyRejected {
+            artifact: Artifact::Wal.as_str().to_string(),
+        },
+        CryptoError::RegistryInvalid(detail) => Error::EncryptionCorrupt {
+            artifact: Artifact::Wal.as_str().to_string(),
+            detail,
+        },
+        other => Error::wal_error(format!("WAL encryption error: {other}")),
+    }
+}
+
+/// `record_hash = SHA-256(prev_hash ‖ ct_len_le ‖ crc_le ‖ nonce ‖ ct)` (v4).
+///
+/// The hash commits to the **ciphertext** (and to the nonce), so the chain
+/// stays verifiable by an operator who has no key (ADR-0057 D5).
+#[cfg(feature = "encryption")]
+fn chain_hash_v4(
+    prev: &[u8; CHAIN_HASH_SIZE],
+    ct_len_le: &[u8],
+    crc_le: &[u8],
+    nonce: &[u8; 12],
+    ct: &[u8],
+) -> [u8; CHAIN_HASH_SIZE] {
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    hasher.update(prev);
+    hasher.update(ct_len_le);
+    hasher.update(crc_le);
+    hasher.update(nonce);
+    hasher.update(ct);
+    hasher.finalize().into()
+}
+
+/// The format version written to a **new** segment.
+///
+/// A writer holding an encryption context writes the encrypted format (v4);
+/// every other writer keeps the plaintext format (v3), whose bytes are
+/// unchanged by this feature.
+fn segment_version_for(encrypted: bool) -> u16 {
+    if encrypted {
+        WAL_ENCRYPTED_FORMAT_VERSION
+    } else {
+        WAL_FORMAT_VERSION
     }
 }
 
@@ -298,6 +665,10 @@ pub struct WalWriter {
     /// Running chain head: the `record_hash` of the last appended record, or
     /// [`CHAIN_GENESIS`] when the file has no records yet (VER-01).
     chain_head: [u8; CHAIN_HASH_SIZE],
+    /// The encryption context — `None` on a plaintext WAL (v3). With the
+    /// `encryption` feature the slot holds the real context; without it the
+    /// slot is uninhabited and every WAL is plaintext.
+    crypto: Option<WalCryptoSlot>,
 }
 
 impl WalWriter {
@@ -316,6 +687,56 @@ impl WalWriter {
         buffer_size: usize,
         flush_threshold: Option<usize>,
     ) -> Result<Self> {
+        Self::open_impl(path, sync_mode, buffer_size, flush_threshold, None)
+    }
+
+    /// Open or create an **encrypted** WAL (format v4, ADR-0057 W2).
+    ///
+    /// The context carries the DEK of the `wal` artefact and the nonce
+    /// allocator shared by every shard of the database.
+    #[cfg(feature = "encryption")]
+    pub fn open_encrypted(
+        path: impl AsRef<Path>,
+        sync_mode: crate::config::SyncMode,
+        crypto: WalCrypto,
+    ) -> Result<Self> {
+        Self::open_encrypted_with_buffer(path, sync_mode, 64 * KIB, None, crypto)
+    }
+
+    /// Open or create an **encrypted** WAL with a configurable buffer size and
+    /// flush threshold.
+    #[cfg(feature = "encryption")]
+    pub fn open_encrypted_with_buffer(
+        path: impl AsRef<Path>,
+        sync_mode: crate::config::SyncMode,
+        buffer_size: usize,
+        flush_threshold: Option<usize>,
+        crypto: WalCrypto,
+    ) -> Result<Self> {
+        Self::open_impl(path, sync_mode, buffer_size, flush_threshold, Some(crypto))
+    }
+
+    /// The format version written to a **new** segment.
+    ///
+    /// A writer holding an encryption context writes the encrypted format
+    /// (v4); every other writer keeps the plaintext format (v3), whose bytes
+    /// are unchanged by this feature.
+    fn segment_version(&self) -> u16 {
+        segment_version_for(self.crypto.is_some())
+    }
+
+    fn open_impl(
+        path: impl AsRef<Path>,
+        sync_mode: crate::config::SyncMode,
+        buffer_size: usize,
+        flush_threshold: Option<usize>,
+        crypto: Option<WalCryptoSlot>,
+    ) -> Result<Self> {
+        // The encryption context of this writer. A plaintext WAL keeps
+        // `None`; an encrypted one keeps the context for the whole life of
+        // the file.
+        #[cfg(feature = "encryption")]
+        let mut crypto = crypto;
         let path = path.as_ref().to_path_buf();
         let mut file = OpenOptions::new()
             .read(true)
@@ -326,7 +747,10 @@ impl WalWriter {
 
         let file_len = file.metadata()?.len();
         let (bytes_written, record_count, format_version, chain_head) = if file_len == 0 {
-            let header = WalHeader::new(WAL_FORMAT_VERSION as u32);
+            // A new segment is encrypted (v4) when a key is configured and
+            // plaintext (v3) otherwise — the plaintext bytes never change.
+            let version = self::segment_version_for(crypto.is_some());
+            let header = WalHeader::new(version as u32);
             file.write_all(&header.serialize())?;
             file.flush()?;
             // POSIX: fsync on the file does NOT make its directory entry durable
@@ -336,12 +760,7 @@ impl WalWriter {
             // sync_data'd can vanish on power loss, losing acknowledged writes.
             // Same pattern as rotate() below and archive.rs (AUDREP-35).
             crate::utils::fs::sync_parent_dir(&path)?;
-            (
-                WalHeader::SIZE as u64,
-                0u64,
-                WAL_FORMAT_VERSION,
-                CHAIN_GENESIS,
-            )
+            (WalHeader::SIZE as u64, 0u64, version, CHAIN_GENESIS)
         } else {
             // Read the existing header
             let mut header_bytes = [0u8; WalHeader::SIZE];
@@ -350,6 +769,38 @@ impl WalWriter {
             let header = WalHeader::deserialize(&header_bytes)?;
             let version = header.base.format_version;
 
+            // An encrypted WAL needs the key: without one the open fails with
+            // an explicit error, never with "corrupt" (ADR-0057 D7).
+            #[cfg(feature = "encryption")]
+            if is_encrypted(version) && crypto.is_none() {
+                return Err(Error::EncryptionKeyRequired {
+                    artifact: Artifact::Wal.as_str().to_string(),
+                });
+            }
+            // A plaintext WAL stays plaintext even when a key is configured:
+            // no mixed mode, no implicit migration (ADR-0057 D1/D7).
+            #[cfg(feature = "encryption")]
+            if !is_encrypted(version) && crypto.is_some() {
+                warn!(
+                    path = %path.display(),
+                    "encryption key configured but this WAL is plaintext; \
+                     continuing in plaintext (no implicit migration)"
+                );
+                crypto = None;
+            }
+
+            #[cfg(feature = "encryption")]
+            let (valid_end, count) = if is_encrypted(version) {
+                let key = crypto.as_ref().map(|c| &c.key).ok_or_else(|| {
+                    Error::EncryptionKeyRequired {
+                        artifact: Artifact::Wal.as_str().to_string(),
+                    }
+                })?;
+                recover_valid_records_v4(&path, file_len, key)?
+            } else {
+                recover_valid_records(&path, file_len, frame_extra_for(version))?
+            };
+            #[cfg(not(feature = "encryption"))]
             let (valid_end, count) =
                 recover_valid_records(&path, file_len, frame_extra_for(version))?;
 
@@ -392,6 +843,7 @@ impl WalWriter {
             max_segment_size: 256 * 1024 * 1024,
             format_version,
             chain_head,
+            crypto,
         })
     }
 
@@ -405,6 +857,26 @@ impl WalWriter {
         });
 
         let payload = postcard::to_allocvec(record).map_err(Error::serialization)?;
+
+        // Encrypted frame (v4): the AEAD envelope replaces the plaintext
+        // payload and the CRC covers the **ciphertext**.
+        #[cfg(feature = "encryption")]
+        if let Some(crypto) = self.crypto.as_mut() {
+            // The slot is the frame's ordinal within this file — the number of
+            // frames already written to it (ADR-0057 D4).
+            let slot = self.record_count;
+            let prev = self.chain_head;
+            let (frame, record_hash) = crypto.frame(&payload, slot, &prev)?;
+            self.writer.write_all(&frame)?;
+            self.chain_head = record_hash;
+            self.bytes_written += frame.len() as u64;
+            self.record_count += 1;
+            self.records_since_sync += 1;
+            self.maybe_sync()?;
+            self.try_auto_rotate()?;
+            return Ok(());
+        }
+
         let len = payload.len() as u32;
         let crc = crc32c(&payload);
 
@@ -444,6 +916,13 @@ impl WalWriter {
             )))
         });
 
+        // Encrypted frames (v4): the whole group is sealed before the single
+        // write, so the critical section only grows with the memcpy.
+        #[cfg(feature = "encryption")]
+        if self.crypto.is_some() {
+            return self.batch_append_encrypted(records);
+        }
+
         let estimated = records.len() * 128;
         let mut buf = Vec::with_capacity(estimated);
         // Reusable serialization buffer: one allocation for the whole batch
@@ -472,6 +951,42 @@ impl WalWriter {
         }
 
         self.writer.write_all(&buf)?;
+        self.bytes_written += buf.len() as u64;
+        self.record_count += records.len() as u64;
+        self.records_since_sync += records.len() as u64;
+
+        self.maybe_sync()?;
+        self.try_auto_rotate()?;
+        Ok(())
+    }
+
+    /// Append a batch of records as **encrypted** frames (v4).
+    ///
+    /// Every frame is sealed before the single write, so the group costs one
+    /// `write_all` — the same shape as the plaintext path.
+    #[cfg(feature = "encryption")]
+    fn batch_append_encrypted(&mut self, records: &[WalRecord]) -> Result<()> {
+        let mut buf = Vec::with_capacity(records.len() * 160);
+        let mut payload = Vec::with_capacity(128);
+        let mut slot = self.record_count;
+        let mut prev = self.chain_head;
+
+        {
+            let crypto = self.crypto.as_mut().ok_or_else(|| {
+                Error::wal_error("WAL writer lost its encryption context mid-batch")
+            })?;
+            for record in records {
+                payload.clear();
+                postcard::to_io(record, &mut payload).map_err(Error::serialization)?;
+                let (frame, record_hash) = crypto.frame(&payload, slot, &prev)?;
+                buf.extend_from_slice(&frame);
+                prev = record_hash;
+                slot += 1;
+            }
+        }
+
+        self.writer.write_all(&buf)?;
+        self.chain_head = prev;
         self.bytes_written += buf.len() as u64;
         self.record_count += records.len() as u64;
         self.records_since_sync += records.len() as u64;
@@ -513,6 +1028,12 @@ impl WalWriter {
         Ok(())
     }
 
+    /// The encryption context of this writer — `None` on a plaintext WAL.
+    #[cfg(feature = "encryption")]
+    pub(crate) fn crypto(&self) -> Option<&WalCrypto> {
+        self.crypto.as_ref()
+    }
+
     /// Return the total bytes written to the WAL (including headers).
     pub fn bytes_written(&self) -> u64 {
         self.bytes_written
@@ -533,6 +1054,9 @@ impl WalWriter {
     pub fn rotate(mut self, sync_mode: crate::config::SyncMode) -> Result<Self> {
         self.sync()?;
         let old_path = self.path.clone();
+        // The encryption context survives the rotation: the fresh segment is
+        // encrypted too (the format is decided by the context, not by luck).
+        let crypto = self.crypto.take();
         drop(self);
 
         let now = web_time::SystemTime::now()
@@ -552,7 +1076,7 @@ impl WalWriter {
         std::fs::rename(&old_path, &archive_path)?;
         crate::utils::fs::sync_parent_dir(&archive_path)?;
 
-        Self::open(&old_path, sync_mode)
+        Self::open_impl(&old_path, sync_mode, 64 * KIB, None, crypto)
     }
 
     /// If bytes_written exceeds max_segment_size, flush + archive current
@@ -595,7 +1119,7 @@ impl WalWriter {
             .truncate(true)
             .open(&old_path)?;
 
-        let header = WalHeader::new(WAL_FORMAT_VERSION as u32);
+        let header = WalHeader::new(self.segment_version() as u32);
         file.write_all(&header.serialize())?;
         // Fresh segment at the original path is a new directory entry — make it
         // durable before any of its appends are (see open_with_buffer).
@@ -607,8 +1131,8 @@ impl WalWriter {
         self.bytes_written = WalHeader::SIZE as u64;
         self.record_count = 0;
         self.records_since_sync = 0;
-        // Fresh segment → fresh chain (VER-01): v3 framing from genesis.
-        self.format_version = WAL_FORMAT_VERSION;
+        // Fresh segment → fresh chain (VER-01): chained framing from genesis.
+        self.format_version = self.segment_version();
         self.chain_head = CHAIN_GENESIS;
 
         Ok(true)
@@ -732,6 +1256,150 @@ fn recover_valid_records(path: &Path, file_len: u64, extra: usize) -> Result<(u6
     }
 
     Ok((valid_bytes_limit, record_count))
+}
+
+// ─── Encrypted frame (v4, ADR-0057 W2) ────────────────────
+
+/// The outcome of inspecting one encrypted frame.
+#[cfg(feature = "encryption")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum EncryptedFrameStatus {
+    /// The frame is intact and its AEAD tag authenticated.
+    Valid,
+    /// The frame is damaged (CRC / length / bounds) — a truncatable tail.
+    Damaged,
+    /// The AEAD tag did not authenticate: wrong key **or** tampering. A hard
+    /// error: the WAL is refused, never truncated.
+    Rejected,
+    /// The file ended before the frame was complete (a crash tail).
+    Incomplete,
+}
+
+/// Fixed bytes of a v4 frame before the ciphertext blob:
+/// `ct_len (4) ‖ crc (4) ‖ nonce (12)`.
+#[cfg(feature = "encryption")]
+const V4_FRAME_PREFIX: u64 = 4 + 4 + 12;
+
+/// The AEAD tag is part of the stored blob, so the blob is never shorter.
+#[cfg(feature = "encryption")]
+const V4_MIN_BLOB: u64 = 16;
+
+/// Read and validate one encrypted frame (v4) at `pos`.
+///
+/// Returns the frame status, its **total on-disk length** (0 when the length
+/// could not be determined) and the decrypted plaintext (empty unless the
+/// frame is [`EncryptedFrameStatus::Valid`]).
+///
+/// The three integrity layers of ADR-0057 D5 are kept apart:
+///
+/// * the **CRC32C over the ciphertext** separates *corrupt* (bit rot) from
+///   *wrong key* — a CRC failure is a truncatable tail;
+/// * the **AEAD tag** authenticates the plaintext — a tag failure is a hard
+///   error (wrong key or tampering), never a truncatable tail;
+/// * the **hash chain** is over the ciphertext and is validated by
+///   `verify_wal_file`, not by the replay path (VER-01 design).
+#[cfg(feature = "encryption")]
+fn read_encrypted_frame<R: Read + Seek>(
+    reader: &mut R,
+    pos: u64,
+    file_len: u64,
+    key: &WalKey,
+    slot: u64,
+) -> Result<(EncryptedFrameStatus, u64, Vec<u8>)> {
+    if reader.seek(SeekFrom::Start(pos)).is_err() {
+        return Ok((EncryptedFrameStatus::Damaged, 0, Vec::new()));
+    }
+    let mut prefix = [0u8; V4_FRAME_PREFIX as usize];
+    if reader.read_exact(&mut prefix).is_err() {
+        return Ok((EncryptedFrameStatus::Incomplete, 0, Vec::new()));
+    }
+    let ct_len = u32::from_le_bytes([prefix[0], prefix[1], prefix[2], prefix[3]]) as u64;
+    let crc = u32::from_le_bytes([prefix[4], prefix[5], prefix[6], prefix[7]]);
+    let mut nonce_bytes = [0u8; 12];
+    nonce_bytes.copy_from_slice(&prefix[8..20]);
+
+    if !(V4_MIN_BLOB..=10_000_000).contains(&ct_len) {
+        return Ok((EncryptedFrameStatus::Damaged, 0, Vec::new()));
+    }
+    let frame_len = V4_FRAME_PREFIX + ct_len + CHAIN_FRAME_EXTRA as u64;
+    if pos + frame_len > file_len {
+        return Ok((EncryptedFrameStatus::Incomplete, frame_len, Vec::new()));
+    }
+
+    let mut ct = vec![0u8; ct_len as usize];
+    if reader.read_exact(&mut ct).is_err() {
+        return Ok((EncryptedFrameStatus::Incomplete, frame_len, Vec::new()));
+    }
+    // The chain tail is read and skipped: the chain is validated by
+    // `verify_wal_file`, never by the replay path (VER-01 design).
+    let mut chain = [0u8; CHAIN_FRAME_EXTRA];
+    if reader.read_exact(&mut chain).is_err() {
+        return Ok((EncryptedFrameStatus::Incomplete, frame_len, Vec::new()));
+    }
+
+    // The CRC covers the ciphertext (ADR-0057 D5).
+    if compute_crc32c(&ct) != crc {
+        return Ok((EncryptedFrameStatus::Damaged, frame_len, Vec::new()));
+    }
+
+    let nonce = Nonce::from_bytes(nonce_bytes);
+    let aad = AadBuilder::new(Artifact::Wal, WAL_ENCRYPTED_FORMAT_VERSION)
+        .epoch(nonce.epoch())
+        .slot(slot)
+        .plaintext_len((ct_len - V4_MIN_BLOB) as usize)
+        .build();
+    let plaintext = match key.cipher.decrypt_with_nonce(nonce.as_bytes(), &ct, &aad) {
+        Ok(plaintext) => plaintext,
+        Err(CryptoError::DecryptionFailed) => {
+            return Ok((EncryptedFrameStatus::Rejected, frame_len, Vec::new()));
+        }
+        Err(err) => return Err(crypto_error(err)),
+    };
+
+    if postcard::from_bytes::<WalRecord>(&plaintext).is_err() {
+        return Ok((EncryptedFrameStatus::Damaged, frame_len, Vec::new()));
+    }
+    Ok((EncryptedFrameStatus::Valid, frame_len, plaintext))
+}
+
+/// Scan an encrypted WAL (v4) to find the end of its valid frames.
+///
+/// Mirrors [`recover_valid_records`] with the encrypted frame layout:
+///
+/// * a frame whose **CRC fails** is a corrupt tail → truncatable (the caller
+///   quarantines and truncates it), exactly like the plaintext path;
+/// * a frame whose **CRC passes but whose AEAD tag fails** is a **hard
+///   error** (wrong key or tampering): the WAL is refused, never truncated —
+///   truncating would silently drop the records that follow;
+/// * a valid frame is counted and the walk continues.
+///
+/// Unlike the plaintext path there is **no scan-forward**: the AAD binds each
+/// frame to its ordinal, so a frame that follows a gap could not be
+/// authenticated anyway.
+#[cfg(feature = "encryption")]
+fn recover_valid_records_v4(path: &Path, file_len: u64, key: &WalKey) -> Result<(u64, usize)> {
+    let mut file = File::open(path)?;
+    let mut offset = WalHeader::SIZE as u64;
+    let mut count = 0usize;
+
+    while offset < file_len {
+        let (status, frame_len, _) =
+            read_encrypted_frame(&mut file, offset, file_len, key, count as u64)?;
+        match status {
+            EncryptedFrameStatus::Valid => {
+                count += 1;
+                offset += frame_len;
+            }
+            EncryptedFrameStatus::Damaged | EncryptedFrameStatus::Incomplete => break,
+            EncryptedFrameStatus::Rejected => {
+                return Err(Error::EncryptionKeyRejected {
+                    artifact: Artifact::Wal.as_str().to_string(),
+                });
+            }
+        }
+    }
+
+    Ok((offset, count))
 }
 
 /// Copy the corrupt trailing bytes `[valid_end, file_len)` of the WAL at
@@ -911,6 +1579,15 @@ pub(crate) fn verify_wal_file(path: &Path) -> Result<WalVerifyReport> {
         }
     };
     let version = header.base.format_version;
+
+    // An encrypted WAL is verified **without the key**: the CRC32C and the
+    // hash chain both cover the ciphertext, so the operator can still check
+    // the integrity of a WAL they cannot decrypt (ADR-0057 D5).
+    #[cfg(feature = "encryption")]
+    if is_encrypted(version) {
+        return verify_wal_file_v4(path, &mut file, file_len);
+    }
+
     let chained = is_chained(version);
     let extra = frame_extra_for(version);
 
@@ -1007,6 +1684,104 @@ pub(crate) fn verify_wal_file(path: &Path) -> Result<WalVerifyReport> {
     Ok(report(version, record, status))
 }
 
+/// Verify an **encrypted** WAL (v4) offline — **without the key**.
+///
+/// The CRC32C and the `prev_hash ‖ record_hash` chain both cover the
+/// **ciphertext**, so an operator without the key still gets the tamper
+/// evidence (reordering, splicing, truncation, bit rot). The AEAD tag — the
+/// layer that proves the *plaintext* — is checked by the replay path, which
+/// does have the key.
+#[cfg(all(any(feature = "cli", test), feature = "encryption"))]
+fn verify_wal_file_v4(path: &Path, file: &mut File, file_len: u64) -> Result<WalVerifyReport> {
+    let report = |records: u64, status: WalVerifyStatus| WalVerifyReport {
+        path: path.to_path_buf(),
+        format_version: WAL_ENCRYPTED_FORMAT_VERSION,
+        records,
+        status,
+    };
+
+    let mut prev = CHAIN_GENESIS;
+    let mut record: u64 = 0;
+    let mut offset: u64 = WalHeader::SIZE as u64;
+
+    let status = loop {
+        if offset == file_len {
+            break WalVerifyStatus::Verified;
+        }
+        // Smallest possible frame: [ct_len][crc][nonce] + tag + chain tail.
+        if file_len - offset < V4_FRAME_PREFIX + V4_MIN_BLOB + CHAIN_FRAME_EXTRA as u64 {
+            break WalVerifyStatus::IncompleteTail { offset };
+        }
+
+        let mut prefix = [0u8; V4_FRAME_PREFIX as usize];
+        if file.read_exact(&mut prefix).is_err() {
+            break WalVerifyStatus::IncompleteTail { offset };
+        }
+        let ct_len = u32::from_le_bytes([prefix[0], prefix[1], prefix[2], prefix[3]]) as u64;
+        let crc = u32::from_le_bytes([prefix[4], prefix[5], prefix[6], prefix[7]]);
+        let mut nonce = [0u8; 12];
+        nonce.copy_from_slice(&prefix[8..20]);
+
+        if !(V4_MIN_BLOB..=10_000_000).contains(&ct_len) {
+            break WalVerifyStatus::Corrupt {
+                offset,
+                record: record + 1,
+                reason: format!("invalid ciphertext length prefix: {ct_len}"),
+            };
+        }
+        let frame_len = V4_FRAME_PREFIX + ct_len + CHAIN_FRAME_EXTRA as u64;
+        if offset + frame_len > file_len {
+            break WalVerifyStatus::IncompleteTail { offset };
+        }
+
+        let mut ct = vec![0u8; ct_len as usize];
+        if file.read_exact(&mut ct).is_err() {
+            break WalVerifyStatus::IncompleteTail { offset };
+        }
+        let mut chain_buf = [0u8; CHAIN_FRAME_EXTRA];
+        if file.read_exact(&mut chain_buf).is_err() {
+            break WalVerifyStatus::IncompleteTail { offset };
+        }
+        let mut stored_prev = [0u8; CHAIN_HASH_SIZE];
+        stored_prev.copy_from_slice(&chain_buf[..CHAIN_HASH_SIZE]);
+        let mut stored_hash = [0u8; CHAIN_HASH_SIZE];
+        stored_hash.copy_from_slice(&chain_buf[CHAIN_HASH_SIZE..]);
+
+        // The CRC covers the ciphertext: it detects bit rot without the key.
+        let computed_crc = compute_crc32c(&ct);
+        if computed_crc != crc {
+            break WalVerifyStatus::Corrupt {
+                offset,
+                record: record + 1,
+                reason: format!("CRC32C mismatch (stored={crc:#x}, computed={computed_crc:#x})"),
+            };
+        }
+        // The chain is over the ciphertext: it detects reordering, splicing
+        // and truncation — still without the key.
+        if stored_prev != prev {
+            break WalVerifyStatus::Tampered {
+                offset,
+                record: record + 1,
+                reason: "chain link broken (record removed, inserted or reordered)".to_string(),
+            };
+        }
+        let computed = chain_hash_v4(&prev, &prefix[0..4], &prefix[4..8], &nonce, &ct);
+        if stored_hash != computed {
+            break WalVerifyStatus::Tampered {
+                offset,
+                record: record + 1,
+                reason: "record content altered (frame hash mismatch)".to_string(),
+            };
+        }
+
+        prev = stored_hash;
+        record += 1;
+        offset += frame_len;
+    };
+
+    Ok(report(record, status))
+}
+
 // ─── WAL Reader ────────────────────────────────────────────
 
 /// Sequential WAL reader for crash recovery.
@@ -1016,11 +1791,34 @@ pub struct WalReader {
     /// Per-frame chain overhead for this file's format version
     /// ([`frame_extra_for`]): 0 for legacy v1/v2, 64 for chained v3+.
     frame_extra: usize,
+    /// True when the file uses the encrypted (v4) frame layout.
+    encrypted: bool,
+    /// The decryption key — `Some` only for an encrypted (v4) WAL.
+    #[cfg(feature = "encryption")]
+    key: Option<WalKey>,
+    /// The ordinal of the next frame — the AAD slot (v4 only).
+    #[cfg(feature = "encryption")]
+    frame_slot: u64,
 }
 
 impl WalReader {
     /// Open a WAL file and validate its header.
+    ///
+    /// An **encrypted** (v4) WAL needs its key: use [`WalReader::open_with_key`].
+    /// Opening one without a key fails with
+    /// [`Error::EncryptionKeyRequired`] — never with a corruption error.
     pub fn open(path: impl AsRef<Path>) -> Result<Self> {
+        Self::open_impl(path, None)
+    }
+
+    /// Open an **encrypted** WAL file (v4) with its decryption key.
+    #[cfg(feature = "encryption")]
+    pub fn open_with_key(path: impl AsRef<Path>, key: WalKey) -> Result<Self> {
+        Self::open_impl(path, Some(key))
+    }
+
+    #[cfg_attr(not(feature = "encryption"), allow(unused_variables))]
+    fn open_impl(path: impl AsRef<Path>, key: Option<WalKeySlot>) -> Result<Self> {
         let mut file = File::open(path)?;
         let file_len = file.metadata()?.len();
 
@@ -1034,16 +1832,33 @@ impl WalReader {
         let mut header_bytes = [0u8; WalHeader::SIZE];
         file.read_exact(&mut header_bytes)?;
         let header = WalHeader::deserialize(&header_bytes)?;
+        let encrypted = is_encrypted(header.base.format_version);
+
+        // An encrypted WAL needs the key: refuse explicitly, never "corrupt".
+        #[cfg(feature = "encryption")]
+        if encrypted && key.is_none() {
+            return Err(Error::EncryptionKeyRequired {
+                artifact: Artifact::Wal.as_str().to_string(),
+            });
+        }
 
         Ok(Self {
             reader: BufReader::with_capacity(64 * KIB, file),
             records_read: 0,
             frame_extra: frame_extra_for(header.base.format_version),
+            encrypted,
+            #[cfg(feature = "encryption")]
+            key,
+            #[cfg(feature = "encryption")]
+            frame_slot: 0,
         })
     }
 
     /// Read next record with Scan-Forward Auto-healing. Returns None at EOF.
     pub fn next_record(&mut self) -> Result<Option<WalRecord>> {
+        if self.encrypted {
+            return self.next_record_encrypted();
+        }
         let file_len = self.reader.get_ref().metadata()?.len();
 
         loop {
@@ -1137,6 +1952,62 @@ impl WalReader {
         }
     }
 
+    /// Read the next record of an **encrypted** WAL (v4).
+    ///
+    /// The frame is decrypted with the AAD rebuilt from the frame's own
+    /// nonce (epoch) and its ordinal (slot), so a frame that was moved to
+    /// another position fails to authenticate.
+    ///
+    /// There is **no scan-forward** on this path: the AAD binds every frame
+    /// to its ordinal, so a frame that follows a gap could not be
+    /// authenticated. A damaged frame ends the replay — the recovery path
+    /// owns the corrupt tail (quarantine + truncate).
+    #[cfg(feature = "encryption")]
+    fn next_record_encrypted(&mut self) -> Result<Option<WalRecord>> {
+        let file_len = self.reader.get_ref().metadata()?.len();
+        let key = self
+            .key
+            .as_ref()
+            .ok_or_else(|| Error::EncryptionKeyRequired {
+                artifact: Artifact::Wal.as_str().to_string(),
+            })?;
+
+        let current_pos = self.reader.stream_position()?;
+        if current_pos >= file_len {
+            return Ok(None);
+        }
+        let (status, _frame_len, plaintext) = read_encrypted_frame(
+            &mut self.reader,
+            current_pos,
+            file_len,
+            key,
+            self.frame_slot,
+        )?;
+        match status {
+            EncryptedFrameStatus::Valid => {
+                let record =
+                    postcard::from_bytes::<WalRecord>(&plaintext).map_err(Error::serialization)?;
+                self.frame_slot += 1;
+                self.records_read += 1;
+                Ok(Some(record))
+            }
+            EncryptedFrameStatus::Rejected => Err(Error::EncryptionKeyRejected {
+                artifact: Artifact::Wal.as_str().to_string(),
+            }),
+            EncryptedFrameStatus::Damaged | EncryptedFrameStatus::Incomplete => Ok(None),
+        }
+    }
+
+    /// Read the next record of an encrypted WAL — unreachable without the
+    /// `encryption` feature (an encrypted WAL is refused at the header), kept
+    /// so the dispatch stays total.
+    #[cfg(not(feature = "encryption"))]
+    fn next_record_encrypted(&mut self) -> Result<Option<WalRecord>> {
+        Err(Error::wal_error(
+            "WAL file is encrypted (format v4) but this build has no 'encryption' feature",
+        ))
+    }
+
     /// Replay all records through a handler function
     pub fn replay_all<F>(&mut self, mut handler: F) -> Result<u64>
     where
@@ -1149,7 +2020,6 @@ impl WalReader {
         }
         Ok(count)
     }
-
     /// Byte offset of the next unread byte (end of the last record returned
     /// by `next_record`). FIND-109: lets salvage truncate exactly after the
     /// K-th *validated* record, even with scan-forward gaps in the file.
@@ -1437,11 +2307,11 @@ mod tests {
                     ..
                 } => {
                     assert_eq!(expected_magic, *b"VWAL");
-                    // WAL v2 (RES-01): expected_version tracks the current format
-                    // version. The test file in this fixture uses v0, so the
-                    // reader should report its CURRENT version (v2) as the
+                    // WAL v2 (RES-01): expected_version tracks the current
+                    // format version. The test file in this fixture uses v0,
+                    // so the reader should report its CURRENT version as the
                     // expected version when rejecting.
-                    assert_eq!(expected_version, WAL_FORMAT_VERSION);
+                    assert_eq!(expected_version, WAL_MAX_READABLE_VERSION);
                 }
                 other => panic!("Expected IncompatibleFormat, got {:?}", other),
             }
@@ -2074,5 +2944,740 @@ mod tests {
             report.records, 2,
             "clean-boundary tail truncation is undetectable (documented limit)"
         );
+    }
+
+    /// W2 gate: **without a key the WAL bytes do not change**.
+    ///
+    /// The frame layout is rebuilt here from scratch (an independent
+    /// implementation of the v3 layout) and compared byte for byte with the
+    /// file the writer produced. The header is compared too, except for its
+    /// creation timestamp, which was always variable.
+    #[test]
+    fn wal_plaintext_path_is_byte_identical_without_key() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("vanta.wal");
+        let records = vec![
+            WalRecord::Insert(UnifiedNode::new(7)),
+            WalRecord::Delete { id: 7 },
+        ];
+
+        {
+            let mut w = WalWriter::open(&path, crate::config::SyncMode::Periodic).unwrap();
+            for record in &records {
+                w.append(record).unwrap();
+            }
+            w.sync().unwrap();
+        }
+
+        let bytes = std::fs::read(&path).unwrap();
+
+        // The header keeps the plaintext format version.
+        let header = WalHeader::deserialize(&bytes[..WalHeader::SIZE]).unwrap();
+        assert_eq!(header.base.format_version, WAL_FORMAT_VERSION);
+        assert_eq!(&bytes[..4], b"VWAL");
+
+        // The frames are the v3 layout, byte for byte:
+        // [len u32 LE][payload][crc u32 LE][prev_hash][record_hash].
+        let mut expected = Vec::new();
+        let mut prev = CHAIN_GENESIS;
+        for record in &records {
+            let payload = postcard::to_allocvec(record).unwrap();
+            let len = payload.len() as u32;
+            let crc = compute_crc32c(&payload);
+            let hash = chain_hash(&prev, &len.to_le_bytes(), &payload, &crc.to_le_bytes());
+            expected.extend_from_slice(&len.to_le_bytes());
+            expected.extend_from_slice(&payload);
+            expected.extend_from_slice(&crc.to_le_bytes());
+            expected.extend_from_slice(&prev);
+            expected.extend_from_slice(&hash);
+            prev = hash;
+        }
+        assert_eq!(
+            &bytes[WalHeader::SIZE..],
+            &expected[..],
+            "the plaintext frame layout must not change"
+        );
+    }
+
+    /// W2 gate, sharded path: **without a key the shard bytes do not
+    /// change** either — the sharded WAL uses the very same frame layout.
+    #[test]
+    fn wal_sharded_plaintext_path_is_byte_identical_without_key() {
+        use crate::wal_sharded::ShardedWal;
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("vanta.wal");
+        let records: Vec<WalRecord> = (1..=8u128)
+            .map(|i| WalRecord::Insert(UnifiedNode::new(i)))
+            .collect();
+
+        {
+            let sw = ShardedWal::new(&path, 4, crate::config::SyncMode::Periodic).unwrap();
+            for record in &records {
+                sw.append(record).unwrap();
+            }
+            sw.flush_all().unwrap();
+        }
+
+        for i in 0..4usize {
+            let shard = dir.path().join(format!("vanta.shard{i}.wal"));
+            let bytes = std::fs::read(&shard).unwrap();
+            let header = WalHeader::deserialize(&bytes[..WalHeader::SIZE]).unwrap();
+            assert_eq!(header.base.format_version, WAL_FORMAT_VERSION);
+
+            // The round-robin gave shard `i` the records `i` and `i + 4`.
+            let mut expected = Vec::new();
+            let mut prev = CHAIN_GENESIS;
+            for record in [records[i].clone(), records[i + 4].clone()] {
+                let payload = postcard::to_allocvec(&record).unwrap();
+                let len = payload.len() as u32;
+                let crc = compute_crc32c(&payload);
+                let hash = chain_hash(&prev, &len.to_le_bytes(), &payload, &crc.to_le_bytes());
+                expected.extend_from_slice(&len.to_le_bytes());
+                expected.extend_from_slice(&payload);
+                expected.extend_from_slice(&crc.to_le_bytes());
+                expected.extend_from_slice(&prev);
+                expected.extend_from_slice(&hash);
+                prev = hash;
+            }
+            assert_eq!(
+                &bytes[WalHeader::SIZE..],
+                &expected[..],
+                "the plaintext frame layout must not change"
+            );
+        }
+    }
+}
+
+// ─── W2: the encrypted WAL (format v4) ─────────────────────
+
+#[cfg(all(test, feature = "encryption"))]
+mod encryption_tests {
+    use super::*;
+    use crate::crypto::Cipher;
+    use crate::node::UnifiedNode;
+    use crate::wal_sharded::ShardedWal;
+
+    /// A 32-byte master key.
+    fn master(seed: u8) -> [u8; 32] {
+        [seed; 32]
+    }
+
+    /// The WAL path inside a data dir.
+    fn wal_path(dir: &Path) -> PathBuf {
+        dir.join("vanta.wal")
+    }
+
+    /// Write `records` into an encrypted WAL and return the file bytes.
+    fn write_encrypted(dir: &Path, seed: u8, records: &[WalRecord]) -> Vec<u8> {
+        let path = wal_path(dir);
+        let crypto = WalCrypto::open(dir, &master(seed)).unwrap();
+        let mut w =
+            WalWriter::open_encrypted(&path, crate::config::SyncMode::Periodic, crypto).unwrap();
+        for record in records {
+            w.append(record).unwrap();
+        }
+        w.sync().unwrap();
+        std::fs::read(&path).unwrap()
+    }
+
+    /// The nonce of every frame of an encrypted WAL.
+    fn v4_nonces(bytes: &[u8]) -> Vec<[u8; 12]> {
+        let mut out = Vec::new();
+        for (start, _) in v4_frames(bytes) {
+            let mut nonce = [0u8; 12];
+            nonce.copy_from_slice(&bytes[start + 8..start + 20]);
+            out.push(nonce);
+        }
+        out
+    }
+
+    /// The byte range of every frame of an encrypted WAL.
+    fn v4_frames(bytes: &[u8]) -> Vec<(usize, usize)> {
+        let mut out = Vec::new();
+        let mut pos = WalHeader::SIZE;
+        while pos + 20 <= bytes.len() {
+            let ct_len = u32::from_le_bytes(bytes[pos..pos + 4].try_into().unwrap()) as usize;
+            let end = pos + 20 + ct_len + CHAIN_FRAME_EXTRA;
+            out.push((pos, end));
+            pos = end;
+        }
+        out
+    }
+
+    /// The error of an operation that must fail.
+    fn err_of<T>(result: Result<T>) -> Error {
+        match result {
+            Ok(_) => panic!("expected an error"),
+            Err(err) => err,
+        }
+    }
+
+    /// The records of a WAL, as their postcard bytes.
+    fn replay_bytes(path: &Path, key: Option<&WalKey>) -> Vec<Vec<u8>> {
+        let mut reader = match key {
+            Some(k) => WalReader::open_with_key(path, k.clone()).unwrap(),
+            None => WalReader::open(path).unwrap(),
+        };
+        let mut out = Vec::new();
+        reader
+            .replay_all(|record| {
+                out.push(postcard::to_allocvec(&record).unwrap());
+                Ok(())
+            })
+            .unwrap();
+        out
+    }
+
+    #[test]
+    fn wal_v4_roundtrip_encrypt_decrypt() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = wal_path(dir.path());
+        let records = vec![
+            WalRecord::Insert(UnifiedNode::new(1)),
+            WalRecord::Insert(UnifiedNode::new(2)),
+            WalRecord::Delete { id: 1 },
+        ];
+        let bytes = write_encrypted(dir.path(), 0x11, &records);
+
+        // The file declares the encrypted format in its cleartext header.
+        let header = WalHeader::deserialize(&bytes[..WalHeader::SIZE]).unwrap();
+        assert_eq!(header.base.format_version, WAL_ENCRYPTED_FORMAT_VERSION);
+
+        // The plaintext never reaches the disk. A canary needs to be long
+        // enough not to appear in random ciphertext by chance: 8 bytes give a
+        // 2^-64 hit per position, while a 2-byte record would be a coin flip.
+        let mut canaries = 0usize;
+        for record in &records {
+            let payload = postcard::to_allocvec(record).unwrap();
+            if payload.len() < 8 {
+                continue;
+            }
+            canaries += 1;
+            assert!(
+                !bytes
+                    .windows(payload.len())
+                    .any(|w| w == payload.as_slice()),
+                "the plaintext payload must not be in the WAL"
+            );
+        }
+        assert!(canaries > 0, "the canary set must not be empty");
+
+        // And it comes back with the key.
+        let key = WalKey::open(dir.path(), &master(0x11)).unwrap();
+        let replayed = replay_bytes(&path, Some(&key));
+        assert_eq!(replayed.len(), 3);
+        for (record, expected) in replayed.iter().zip(records.iter()) {
+            assert_eq!(record, &postcard::to_allocvec(expected).unwrap());
+        }
+    }
+
+    #[test]
+    fn wal_v4_replays_to_the_same_records_as_v3() {
+        let dir = tempfile::tempdir().unwrap();
+        let records: Vec<WalRecord> = (1..=5u128)
+            .map(|i| WalRecord::Insert(UnifiedNode::new(i)))
+            .collect();
+
+        // The plaintext WAL.
+        let plain_path = dir.path().join("plain.wal");
+        {
+            let mut w = WalWriter::open(&plain_path, crate::config::SyncMode::Periodic).unwrap();
+            for record in &records {
+                w.append(record).unwrap();
+            }
+            w.sync().unwrap();
+        }
+        let plain = replay_bytes(&plain_path, None);
+
+        // The encrypted WAL.
+        let crypto = WalCrypto::open(dir.path(), &master(0x12)).unwrap();
+        let enc_path = wal_path(dir.path());
+        {
+            let mut w =
+                WalWriter::open_encrypted(&enc_path, crate::config::SyncMode::Periodic, crypto)
+                    .unwrap();
+            for record in &records {
+                w.append(record).unwrap();
+            }
+            w.sync().unwrap();
+        }
+        let key = WalKey::open(dir.path(), &master(0x12)).unwrap();
+        let encrypted = replay_bytes(&enc_path, Some(&key));
+
+        assert_eq!(plain, encrypted, "the replay must yield the same records");
+        assert_eq!(plain.len(), records.len());
+    }
+
+    #[test]
+    fn wal_v3_file_still_replays_on_a_v4_reader() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = wal_path(dir.path());
+        let records = vec![
+            WalRecord::Insert(UnifiedNode::new(1)),
+            WalRecord::Delete { id: 1 },
+        ];
+        {
+            let mut w = WalWriter::open(&path, crate::config::SyncMode::Periodic).unwrap();
+            for record in &records {
+                w.append(record).unwrap();
+            }
+            w.sync().unwrap();
+        }
+
+        // A v3 file is read exactly as before — no key involved.
+        let bytes = std::fs::read(&path).unwrap();
+        let header = WalHeader::deserialize(&bytes[..WalHeader::SIZE]).unwrap();
+        assert_eq!(header.base.format_version, WAL_FORMAT_VERSION);
+        let replayed = replay_bytes(&path, None);
+        assert_eq!(replayed.len(), 2);
+
+        // And a v3 file opened **with** a key stays plaintext: no mixed mode,
+        // no implicit migration (ADR-0057 D1/D7).
+        let crypto = WalCrypto::open(dir.path(), &master(0x13)).unwrap();
+        let mut w =
+            WalWriter::open_encrypted(&path, crate::config::SyncMode::Periodic, crypto).unwrap();
+        w.append(&WalRecord::Insert(UnifiedNode::new(9))).unwrap();
+        w.sync().unwrap();
+        drop(w);
+
+        let bytes = std::fs::read(&path).unwrap();
+        let header = WalHeader::deserialize(&bytes[..WalHeader::SIZE]).unwrap();
+        assert_eq!(
+            header.base.format_version, WAL_FORMAT_VERSION,
+            "a plaintext WAL must not be upgraded in place"
+        );
+        let key = WalKey::open(dir.path(), &master(0x13)).unwrap();
+        assert_eq!(replay_bytes(&path, Some(&key)).len(), 3);
+    }
+
+    #[test]
+    fn wal_v4_detects_a_corrupted_ciphertext_as_corrupt_tail() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = wal_path(dir.path());
+        let records = vec![
+            WalRecord::Insert(UnifiedNode::new(1)),
+            WalRecord::Insert(UnifiedNode::new(2)),
+            WalRecord::Insert(UnifiedNode::new(3)),
+        ];
+        write_encrypted(dir.path(), 0x21, &records);
+
+        // Corrupt one byte of the **last** frame's ciphertext: the CRC fails,
+        // so the tail is corrupt (truncatable) — not "wrong key".
+        let mut bytes = std::fs::read(&path).unwrap();
+        let frames = v4_frames(&bytes);
+        bytes[frames[2].0 + 20] ^= 0xFF;
+        std::fs::write(&path, &bytes).unwrap();
+
+        // Reopening truncates the corrupt tail and keeps the valid records.
+        let crypto = WalCrypto::open(dir.path(), &master(0x21)).unwrap();
+        let w =
+            WalWriter::open_encrypted(&path, crate::config::SyncMode::Periodic, crypto).unwrap();
+        assert_eq!(w.record_count(), 2, "the corrupt tail must be dropped");
+        drop(w);
+
+        // The tail is quarantined for forensics.
+        let quarantine = PathBuf::from(format!("{}.corrupt", path.display()));
+        assert!(quarantine.exists(), "the corrupt tail must be quarantined");
+
+        // And the surviving records replay fine.
+        let key = WalKey::open(dir.path(), &master(0x21)).unwrap();
+        assert_eq!(replay_bytes(&path, Some(&key)).len(), 2);
+    }
+
+    #[test]
+    fn wal_v4_rejects_a_valid_crc_with_a_wrong_key_as_a_hard_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = wal_path(dir.path());
+        write_encrypted(dir.path(), 0x31, &[WalRecord::Insert(UnifiedNode::new(1))]);
+
+        // (a) The wrong **master** key: the registry's key check refuses it —
+        // and refuses it as "key rejected", never as "corrupt".
+        let err = WalKey::open(dir.path(), &master(0x99)).unwrap_err();
+        assert!(
+            matches!(err, Error::EncryptionKeyRejected { .. }),
+            "got: {err}"
+        );
+
+        // (b) A DEK that does not match the file: the CRC still passes (the
+        // ciphertext bytes are intact) but the AEAD tag fails → a hard error,
+        // not a truncatable tail.
+        let wrong_dek = WalKey {
+            cipher: Cipher::new(&master(0x98)),
+        };
+        let len_before = std::fs::metadata(&path).unwrap().len();
+        let mut reader = WalReader::open_with_key(&path, wrong_dek).unwrap();
+        let err = reader.next_record().unwrap_err();
+        assert!(
+            matches!(err, Error::EncryptionKeyRejected { .. }),
+            "got: {err}"
+        );
+        assert_eq!(
+            std::fs::metadata(&path).unwrap().len(),
+            len_before,
+            "a rejected frame must not truncate the WAL"
+        );
+    }
+
+    #[test]
+    fn wal_v4_without_a_key_fails_with_key_required() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = wal_path(dir.path());
+        write_encrypted(dir.path(), 0x81, &[WalRecord::Insert(UnifiedNode::new(1))]);
+
+        // The file says "encrypted" and there is no key: an explicit error,
+        // never "corrupt" (ADR-0057 D7).
+        let err = err_of(WalReader::open(&path));
+        assert!(
+            matches!(err, Error::EncryptionKeyRequired { .. }),
+            "got: {err}"
+        );
+
+        let err = err_of(WalWriter::open(&path, crate::config::SyncMode::Periodic));
+        assert!(
+            matches!(err, Error::EncryptionKeyRequired { .. }),
+            "got: {err}"
+        );
+    }
+
+    #[test]
+    fn wal_v4_chain_verifies_without_the_key() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = wal_path(dir.path());
+        write_encrypted(
+            dir.path(),
+            0x41,
+            &[
+                WalRecord::Insert(UnifiedNode::new(1)),
+                WalRecord::Insert(UnifiedNode::new(2)),
+            ],
+        );
+
+        // The chain and the CRC cover the ciphertext: the verification works
+        // without the key (ADR-0057 D5).
+        let report = verify_wal_file(&path).unwrap();
+        assert!(
+            matches!(report.status, WalVerifyStatus::Verified),
+            "got: {:?}",
+            report.status
+        );
+        assert_eq!(report.records, 2);
+        assert_eq!(report.format_version, WAL_ENCRYPTED_FORMAT_VERSION);
+    }
+
+    #[test]
+    fn wal_v4_chain_detects_a_reordered_frame() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = wal_path(dir.path());
+        write_encrypted(
+            dir.path(),
+            0x42,
+            &[
+                WalRecord::Insert(UnifiedNode::new(1)),
+                WalRecord::Insert(UnifiedNode::new(2)),
+            ],
+        );
+
+        // Swap the two frames: the chain link of the second frame no longer
+        // matches its predecessor.
+        let bytes = std::fs::read(&path).unwrap();
+        let frames = v4_frames(&bytes);
+        assert_eq!(frames[0].1 - frames[0].0, frames[1].1 - frames[1].0);
+        let (s0, e0) = frames[0];
+        let (s1, e1) = frames[1];
+        let mut swapped = bytes[..s0].to_vec();
+        swapped.extend_from_slice(&bytes[s1..e1]);
+        swapped.extend_from_slice(&bytes[s0..e0]);
+        swapped.extend_from_slice(&bytes[e1..]);
+        std::fs::write(&path, &swapped).unwrap();
+
+        let report = verify_wal_file(&path).unwrap();
+        assert!(
+            matches!(report.status, WalVerifyStatus::Tampered { .. }),
+            "got: {:?}",
+            report.status
+        );
+    }
+
+    #[test]
+    fn wal_v4_frame_cannot_be_moved_to_another_ordinal() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = wal_path(dir.path());
+        write_encrypted(
+            dir.path(),
+            0x43,
+            &[
+                WalRecord::Insert(UnifiedNode::new(1)),
+                WalRecord::Insert(UnifiedNode::new(2)),
+            ],
+        );
+
+        // Swap the two frames: every frame keeps its own ciphertext (so the
+        // CRC still passes) but lands on the other ordinal. The AAD binds the
+        // ciphertext to its ordinal → the AEAD tag fails.
+        let bytes = std::fs::read(&path).unwrap();
+        let frames = v4_frames(&bytes);
+        assert_eq!(frames[0].1 - frames[0].0, frames[1].1 - frames[1].0);
+        let (s0, e0) = frames[0];
+        let (s1, e1) = frames[1];
+        let mut swapped = bytes[..s0].to_vec();
+        swapped.extend_from_slice(&bytes[s1..e1]);
+        swapped.extend_from_slice(&bytes[s0..e0]);
+        swapped.extend_from_slice(&bytes[e1..]);
+        std::fs::write(&path, &swapped).unwrap();
+
+        let key = WalKey::open(dir.path(), &master(0x43)).unwrap();
+        let mut reader = WalReader::open_with_key(&path, key).unwrap();
+        let err = reader.next_record().unwrap_err();
+        assert!(
+            matches!(err, Error::EncryptionKeyRejected { .. }),
+            "a moved frame must not authenticate: got {err}"
+        );
+    }
+
+    #[test]
+    fn wal_v4_nonce_is_unique_across_10000_frames() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = wal_path(dir.path());
+        let crypto = WalCrypto::open(dir.path(), &master(0x51)).unwrap();
+        let mut w =
+            WalWriter::open_encrypted(&path, crate::config::SyncMode::Periodic, crypto).unwrap();
+        for i in 0..10_000u128 {
+            w.append(&WalRecord::Insert(UnifiedNode::new(i))).unwrap();
+        }
+        w.sync().unwrap();
+        drop(w);
+
+        let bytes = std::fs::read(&path).unwrap();
+        let nonces = v4_nonces(&bytes);
+        assert_eq!(nonces.len(), 10_000);
+        let unique: std::collections::HashSet<&[u8; 12]> = nonces.iter().collect();
+        assert_eq!(unique.len(), 10_000, "a nonce repeated");
+    }
+
+    #[test]
+    fn wal_v4_counter_overflow_allocates_a_new_epoch() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = wal_path(dir.path());
+        let crypto = WalCrypto::open(dir.path(), &master(0x52)).unwrap();
+        // Drive the shared counter to the edge: the next allocation must roll
+        // the epoch instead of wrapping (ADR-0057 D3).
+        crypto.allocator.set_counter_for_test(u32::MAX - 1);
+
+        let mut w =
+            WalWriter::open_encrypted(&path, crate::config::SyncMode::Periodic, crypto).unwrap();
+        w.append(&WalRecord::Insert(UnifiedNode::new(1))).unwrap();
+        w.append(&WalRecord::Insert(UnifiedNode::new(2))).unwrap();
+        w.sync().unwrap();
+        drop(w);
+
+        let bytes = std::fs::read(&path).unwrap();
+        let nonces = v4_nonces(&bytes);
+        assert_eq!(nonces.len(), 2);
+        assert_ne!(nonces[0], nonces[1], "the nonce must not repeat");
+        assert_ne!(
+            nonces[0][..8],
+            nonces[1][..8],
+            "the exhausted counter must roll into a new epoch"
+        );
+
+        // And the file still replays: the epoch travels in the nonce.
+        let key = WalKey::open(dir.path(), &master(0x52)).unwrap();
+        assert_eq!(replay_bytes(&path, Some(&key)).len(), 2);
+    }
+
+    #[test]
+    fn wal_v4_survives_a_crash_tail_truncation() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = wal_path(dir.path());
+        write_encrypted(
+            dir.path(),
+            0x61,
+            &[
+                WalRecord::Insert(UnifiedNode::new(1)),
+                WalRecord::Insert(UnifiedNode::new(2)),
+                WalRecord::Insert(UnifiedNode::new(3)),
+            ],
+        );
+
+        // Simulate a crash in the middle of the last frame.
+        let bytes = std::fs::read(&path).unwrap();
+        let frames = v4_frames(&bytes);
+        let cut = frames[2].0 + 10;
+        OpenOptions::new()
+            .write(true)
+            .open(&path)
+            .unwrap()
+            .set_len(cut as u64)
+            .unwrap();
+
+        // Reopening truncates the torn frame and keeps the valid records.
+        let crypto = WalCrypto::open(dir.path(), &master(0x61)).unwrap();
+        let w =
+            WalWriter::open_encrypted(&path, crate::config::SyncMode::Periodic, crypto).unwrap();
+        assert_eq!(w.record_count(), 2, "the torn frame must be dropped");
+        drop(w);
+
+        let key = WalKey::open(dir.path(), &master(0x61)).unwrap();
+        assert_eq!(replay_bytes(&path, Some(&key)).len(), 2);
+    }
+
+    /// The same crash, triggered by the `wal_append_fail` failpoint: the
+    /// append dies and the WAL stays consistent (the valid frames survive).
+    #[cfg(feature = "failpoints")]
+    #[test]
+    fn wal_v4_survives_a_crash_tail_truncation_failpoint() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = wal_path(dir.path());
+        let crypto = WalCrypto::open(dir.path(), &master(0x62)).unwrap();
+        let mut w =
+            WalWriter::open_encrypted(&path, crate::config::SyncMode::Periodic, crypto).unwrap();
+        w.append(&WalRecord::Insert(UnifiedNode::new(1))).unwrap();
+        w.sync().unwrap();
+
+        // Arm the failpoint: the next append dies like a crash.
+        fail::cfg("wal_append_fail", "return").expect("arm wal_append_fail");
+        let err = w
+            .append(&WalRecord::Insert(UnifiedNode::new(2)))
+            .unwrap_err();
+        assert!(
+            err.to_string().contains("Simulated WAL append"),
+            "got: {err}"
+        );
+        // Disarm it: the failpoint is a process-wide setting.
+        fail::cfg("wal_append_fail", "off").expect("disarm wal_append_fail");
+        drop(w);
+
+        // The WAL still replays the frames that were written.
+        let key = WalKey::open(dir.path(), &master(0x62)).unwrap();
+        assert_eq!(replay_bytes(&path, Some(&key)).len(), 1);
+    }
+
+    /// The shipping path reads a WAL segment with a [`WalReader`]: a v4
+    /// segment is readable with the key. The shipper itself is given the key
+    /// in the activation wave (W6) — this test pins the read contract it
+    /// will use.
+    #[test]
+    fn wal_shipping_reads_v4_segments() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = wal_path(dir.path());
+        let records = vec![
+            WalRecord::Insert(UnifiedNode::new(1)),
+            WalRecord::Insert(UnifiedNode::new(2)),
+        ];
+        write_encrypted(dir.path(), 0x71, &records);
+
+        let key = WalKey::open(dir.path(), &master(0x71)).unwrap();
+        let mut reader = WalReader::open_with_key(&path, key).unwrap();
+        let mut shipped = 0u64;
+        while let Some(_record) = reader.next_record().unwrap() {
+            shipped += 1;
+        }
+        assert_eq!(shipped, 2);
+    }
+
+    #[test]
+    fn wal_v4_sharded_roundtrip_encrypt_decrypt() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = wal_path(dir.path());
+        let crypto = WalCrypto::open(dir.path(), &master(0x91)).unwrap();
+        let sw = ShardedWal::new_encrypted(
+            &path,
+            4,
+            crate::config::SyncMode::Periodic,
+            64 * 1024,
+            None,
+            crypto,
+        )
+        .unwrap();
+        for i in 1..=8u128 {
+            sw.append(&WalRecord::Insert(UnifiedNode::new(i))).unwrap();
+        }
+        sw.flush_all().unwrap();
+
+        // Every shard file is the encrypted format and holds no plaintext.
+        for i in 0..4usize {
+            let shard = dir.path().join(format!("vanta.shard{i}.wal"));
+            let bytes = std::fs::read(&shard).unwrap();
+            let header = WalHeader::deserialize(&bytes[..WalHeader::SIZE]).unwrap();
+            assert_eq!(header.base.format_version, WAL_ENCRYPTED_FORMAT_VERSION);
+            let payload = postcard::to_allocvec(&WalRecord::Insert(UnifiedNode::new(1))).unwrap();
+            assert!(
+                payload.len() >= 8,
+                "the canary must be long enough not to match by chance"
+            );
+            assert!(
+                !bytes
+                    .windows(payload.len())
+                    .any(|w| w == payload.as_slice()),
+                "the plaintext payload must not be in the shard"
+            );
+        }
+
+        // The recovery reads them back — the shard readers use the key.
+        let mut recovered = 0u64;
+        sw.recover(0, |_record| {
+            recovered += 1;
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(recovered, 8);
+    }
+
+    #[test]
+    fn wal_v4_sharded_rejects_a_wrong_key() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = wal_path(dir.path());
+        let crypto = WalCrypto::open(dir.path(), &master(0x92)).unwrap();
+        let sw = ShardedWal::new_encrypted(
+            &path,
+            2,
+            crate::config::SyncMode::Periodic,
+            64 * 1024,
+            None,
+            crypto,
+        )
+        .unwrap();
+        sw.append(&WalRecord::Insert(UnifiedNode::new(1))).unwrap();
+        sw.flush_all().unwrap();
+        drop(sw);
+
+        // The wrong master key is refused as "key rejected", never "corrupt".
+        let err = WalCrypto::open(dir.path(), &master(0x93)).unwrap_err();
+        assert!(
+            matches!(err, Error::EncryptionKeyRejected { .. }),
+            "got: {err}"
+        );
+    }
+
+    #[test]
+    fn wal_v4_sharded_nonces_are_unique_across_shards() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = wal_path(dir.path());
+        let crypto = WalCrypto::open(dir.path(), &master(0x94)).unwrap();
+        let sw = ShardedWal::new_encrypted(
+            &path,
+            4,
+            crate::config::SyncMode::Periodic,
+            64 * 1024,
+            None,
+            crypto,
+        )
+        .unwrap();
+        for i in 0..200u128 {
+            sw.append(&WalRecord::Insert(UnifiedNode::new(i))).unwrap();
+        }
+        sw.flush_all().unwrap();
+        drop(sw);
+
+        // The shards share one nonce space: no nonce repeats across them.
+        let mut all = Vec::new();
+        for i in 0..4usize {
+            let shard = dir.path().join(format!("vanta.shard{i}.wal"));
+            all.extend(v4_nonces(&std::fs::read(&shard).unwrap()));
+        }
+        assert_eq!(all.len(), 200);
+        let unique: std::collections::HashSet<&[u8; 12]> = all.iter().collect();
+        assert_eq!(unique.len(), 200, "a nonce repeated across shards");
     }
 }
