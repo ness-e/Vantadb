@@ -275,15 +275,32 @@ pub fn resolve_master_key(
     key_file: Option<&std::path::Path>,
     key_cmd: Option<&str>,
 ) -> Result<Cipher, CryptoError> {
+    let material = resolve_master_key_material(env_key, key_file, key_cmd)?;
+    Ok(Cipher::new(&material))
+}
+
+/// Resolve the master key **material** from the three sources, in the fixed
+/// precedence **environment → key file → key command** (ADR-0057 D2).
+///
+/// Unlike [`resolve_master_key`], this returns the **raw material** (hex
+/// decoded) instead of a [`Cipher`]. The at-rest registry needs the material
+/// itself: it stretches a passphrase **once** with the database salt
+/// (ADR-0057 C-4), and a `Cipher` built from a passphrase has no recoverable
+/// raw key (`raw_key_bytes` refuses it). The material is returned in a
+/// zeroizing holder and is never logged.
+pub fn resolve_master_key_material(
+    env_key: Option<&str>,
+    key_file: Option<&std::path::Path>,
+    key_cmd: Option<&str>,
+) -> Result<Zeroizing<Vec<u8>>, CryptoError> {
     if let Some(encoded) = env_key {
-        let material = decode_hex(encoded)?;
-        return Ok(Cipher::new(&material));
+        return Ok(Zeroizing::new(decode_hex(encoded)?));
     }
     if let Some(path) = key_file {
-        return KeySource::File(path.to_path_buf()).read_cipher();
+        return Ok(Zeroizing::new(read_key_file(path)?));
     }
     if let Some(cmd) = key_cmd {
-        return KeySource::Command(cmd.to_string()).read_cipher();
+        return Ok(Zeroizing::new(run_key_command(cmd)?));
     }
     Err(CryptoError::KeyNotSet)
 }

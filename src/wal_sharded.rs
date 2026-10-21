@@ -375,6 +375,54 @@ impl ShardedWal {
         wal_buffer_size: usize,
         flush_threshold: Option<usize>,
     ) -> Result<Self> {
+        Self::new_impl(
+            base_path,
+            num_shards,
+            sync_mode,
+            wal_buffer_size,
+            flush_threshold,
+            None,
+        )
+    }
+
+    /// Create a new **encrypted** `ShardedWal` (WAL format v4, ADR-0057 W2).
+    ///
+    /// The context is **shared by every shard**: one DEK means one nonce
+    /// space, so a per-shard counter would reuse nonces. Each shard file
+    /// keeps its own frame ordinal (the AAD slot), exactly like the
+    /// monolithic WAL.
+    #[cfg(feature = "encryption")]
+    // The engine wiring that opens the encrypted WAL from the configuration
+    // lands with the activation wave (W6); until then this constructor is
+    // only exercised by the tests of this wave.
+    #[allow(dead_code)]
+    pub fn new_encrypted(
+        base_path: &Path,
+        num_shards: usize,
+        sync_mode: crate::config::SyncMode,
+        wal_buffer_size: usize,
+        flush_threshold: Option<usize>,
+        crypto: crate::wal::WalCrypto,
+    ) -> Result<Self> {
+        Self::new_impl(
+            base_path,
+            num_shards,
+            sync_mode,
+            wal_buffer_size,
+            flush_threshold,
+            Some(crypto),
+        )
+    }
+
+    #[cfg_attr(not(feature = "encryption"), allow(unused_variables))]
+    fn new_impl(
+        base_path: &Path,
+        num_shards: usize,
+        sync_mode: crate::config::SyncMode,
+        wal_buffer_size: usize,
+        flush_threshold: Option<usize>,
+        crypto: Option<crate::wal::WalCryptoSlot>,
+    ) -> Result<Self> {
         // AUDREP-16: reconcile to the layout actually on disk. The requested
         // `num_shards` only applies to a brand-new WAL. Opening an existing WAL
         // with a different shard count used to recover with mismatched shard
@@ -400,12 +448,35 @@ impl ShardedWal {
             } else {
                 base_path.to_path_buf()
             };
-            let writer = WalWriter::open_with_buffer(
-                &shard_path,
-                sync_mode,
-                wal_buffer_size,
-                flush_threshold,
-            )?;
+            let writer = {
+                #[cfg(feature = "encryption")]
+                {
+                    match &crypto {
+                        Some(c) => WalWriter::open_encrypted_with_buffer(
+                            &shard_path,
+                            sync_mode,
+                            wal_buffer_size,
+                            flush_threshold,
+                            c.clone(),
+                        )?,
+                        None => WalWriter::open_with_buffer(
+                            &shard_path,
+                            sync_mode,
+                            wal_buffer_size,
+                            flush_threshold,
+                        )?,
+                    }
+                }
+                #[cfg(not(feature = "encryption"))]
+                {
+                    WalWriter::open_with_buffer(
+                        &shard_path,
+                        sync_mode,
+                        wal_buffer_size,
+                        flush_threshold,
+                    )?
+                }
+            };
             shards.push(Arc::new(Mutex::new(writer)));
         }
 
@@ -478,6 +549,7 @@ impl ShardedWal {
     /// Since records are distributed round-robin across shards, each shard
     /// skips at most `ceil(checkpoint_seq / num_shards)` of its own records,
     /// with the first `checkpoint_seq % num_shards` shards skipping one extra.
+    #[cfg_attr(not(feature = "encryption"), allow(unused_variables))]
     pub fn recover(
         &self,
         checkpoint_seq: u64,
@@ -490,14 +562,25 @@ impl ShardedWal {
         let mut records = Vec::new();
 
         for (i, shard) in self.shards.iter().enumerate() {
-            let path = {
+            let (path, key) = {
                 let guard = shard.lock();
-                guard.path().to_path_buf()
+                #[cfg(feature = "encryption")]
+                let key = guard.crypto().map(|c| c.key());
+                #[cfg(not(feature = "encryption"))]
+                let key = ();
+                (guard.path().to_path_buf(), key)
             };
             if !path.exists() {
                 continue;
             }
-            let mut reader = WalReader::open(&path).map_err(|e| {
+            #[cfg(feature = "encryption")]
+            let reader = match key {
+                Some(k) => WalReader::open_with_key(&path, k),
+                None => WalReader::open(&path),
+            };
+            #[cfg(not(feature = "encryption"))]
+            let reader = WalReader::open(&path);
+            let mut reader = reader.map_err(|e| {
                 Error::wal_error(format!("Failed to open shard {} for recovery: {}", i, e))
             })?;
 
@@ -554,12 +637,32 @@ impl ShardedWal {
             let mut guard = shard.lock();
             let path = guard.path().to_path_buf();
             guard.sync()?;
-            *guard = WalWriter::open_with_buffer(
+            // The fresh segment keeps the encryption context: an encrypted WAL
+            // stays encrypted across a rotation.
+            #[cfg(feature = "encryption")]
+            let writer = match guard.crypto() {
+                Some(c) => WalWriter::open_encrypted_with_buffer(
+                    &path,
+                    self.sync_mode,
+                    self.wal_buffer_size,
+                    self.flush_threshold,
+                    c.clone(),
+                )?,
+                None => WalWriter::open_with_buffer(
+                    &path,
+                    self.sync_mode,
+                    self.wal_buffer_size,
+                    self.flush_threshold,
+                )?,
+            };
+            #[cfg(not(feature = "encryption"))]
+            let writer = WalWriter::open_with_buffer(
                 &path,
                 self.sync_mode,
                 self.wal_buffer_size,
                 self.flush_threshold,
             )?;
+            *guard = writer;
         }
         Ok(())
     }
