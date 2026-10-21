@@ -40,6 +40,29 @@ pub(crate) fn prevent_path_traversal(path: &str) -> Result<()> {
 - Symlink-based traversal (component-level check)
 - Zip-slip style path escapes
 
+## Encryption at Rest (opt-in)
+
+With the `encryption` cargo feature (**not** in `default`) **and** a master key
+configured, the four independent on-disk write paths of the core are encrypted
+with per-artefact AES-256-GCM envelopes: the **WAL** (format v4), the
+**VantaFile** segments (format v3), the **HNSW index image** (format v9) and
+the **backend key-value store** (per value) — and, by transit, the text index
+and the snapshots.
+
+It is **off by default twice**: the feature is not in `default`, and without a
+master key the bytes on disk are byte-identical to a build without the
+feature. An existing plaintext database is **never** migrated implicitly.
+
+- **Fuentes de clave** (precedencia fija): `VANTADB_ENCRYPTION_KEY` →
+  `VANTADB_ENCRYPTION_KEY_FILE` → `VANTADB_ENCRYPTION_KEY_CMD`.
+- **Lo que NO se cifra**: las claves del backend y los tokens del indice de
+  texto, el tamano de los valores, la estructura (conteos, orden, timestamps),
+  y la master key vive en la memoria del proceso.
+- **Perder `data/encryption.registry` pierde la base**: las DEKs viven solo ahi.
+- **Runbook completo** (guardar la key, rotarla, deshacer la rotacion,
+  cifrar una base existente): [`security/KEY_RUNBOOK.md`](security/KEY_RUNBOOK.md).
+- **Diseno**: [`ADR-0057`](../../dev/architecture/adr/ADR-0057-encryption-at-rest.md).
+
 ## TLS Configuration
 
 VantaDB supports TLS 1.2 and 1.3 via the `tls` feature (rustls) in the CLI server.

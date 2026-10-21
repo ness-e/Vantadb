@@ -29,14 +29,24 @@ impl StorageEngine {
     pub fn open_with_config(path: &str, config: Option<Config>) -> Result<Self> {
         let startup_started = Instant::now();
         let config = config.unwrap_or_default();
-        // ENC-01 (FIND-249): activating `encryption` today protects nothing at
-        // rest — silence would read as "encrypted". Say it explicitly.
-        #[cfg(feature = "encryption")]
-        warn_encryption_not_wired(&config);
         let caps = crate::hardware::HardwareCapabilities::global();
         let effective_memory = config.memory_limit.unwrap_or(caps.total_memory);
 
+        // ADR-0057 W6: resolve **one** encryption context for this process,
+        // from the `Config`, and decide the database's mode from the
+        // artefacts themselves. The context is handed down to the four
+        // artefacts (WAL, VantaFile, backend KV, HNSW image): the DEK and the
+        // nonce space belong to the **database**, not to the artefact's file.
+        #[cfg(feature = "encryption")]
+        let mut encryption = DbEncryption::resolve(path, &config)?;
+
         let (lock_file, backend, data_dir) = Self::init_storage(path, &config)?;
+
+        // The backend may have created the registry (a brand-new database
+        // with a key is encrypted from its first byte), so the mode is
+        // decided **again**, now that the registry exists.
+        #[cfg(feature = "encryption")]
+        encryption.after_open(&data_dir)?;
 
         // ADR-0057 W3: the encryption context of the `vfile` artefact. It is
         // resolved **once** here, at open, and handed down to every segment:
@@ -50,7 +60,14 @@ impl StorageEngine {
         let vfile_crypto: crate::storage::vfile_crypto::VFileCryptoSlot = {
             #[cfg(feature = "encryption")]
             {
-                if data_dir.as_os_str().is_empty() {
+                use crate::crypto::registry::Artifact;
+                if data_dir.as_os_str().is_empty()
+                    || encryption.mode != EncryptionMode::Encrypted
+                    || !encryption.encrypted.contains(&Artifact::VantaFile)
+                {
+                    // A plaintext database (or one whose segments were never
+                    // encrypted): the segments stay plaintext, byte-identical
+                    // to the layout before the at-rest wiring.
                     None
                 } else {
                     crate::storage::vfile_crypto::vfile_crypto_from_config(&data_dir, &config)?
@@ -71,16 +88,45 @@ impl StorageEngine {
                 let wal_writer = None;
                 (hnsw, vstore, reg, wal_writer, 0u64, 0u64)
             } else {
-                let (mut hnsw, vector_store, segment_registry) =
-                    Self::init_indexes(&data_dir, &config, caps, effective_memory, vfile_crypto)?;
+                // ADR-0057 W6: the write context of the index image, resolved
+                // at the open (outside every engine lock — ADR-0057 D5).
+                #[cfg(feature = "encryption")]
+                let image_crypto = encryption.hnsw_context(&data_dir)?;
+                #[cfg(not(feature = "encryption"))]
+                let image_crypto: Option<
+                    crate::index::serialize::crypto::HnswImageCryptoContext,
+                > = None;
+                let (mut hnsw, vector_store, segment_registry) = Self::init_indexes(
+                    &data_dir,
+                    &config,
+                    caps,
+                    effective_memory,
+                    vfile_crypto,
+                    image_crypto,
+                )?;
+                // The read side of the WAL: the engine resolved the key
+                // once, so the reader uses the same DEK as the writer.
+                #[cfg(feature = "encryption")]
+                let wal_key_material = encryption.wal_key()?;
+                #[cfg(not(feature = "encryption"))]
+                let wal_key_material: Option<&[u8]> = None;
                 let (wal_replay_ms, wal_records_replayed) = Self::recover_state(
                     &data_dir,
                     &config,
                     backend.as_ref(),
                     &mut *hnsw,
                     &vector_store,
+                    wal_key_material,
                 )?;
-                let wal_writer = crate::storage::wal::init_wal(&data_dir, &config)?;
+                // ADR-0057 W2: the WAL context comes from the **same** one
+                // the engine resolved: one DEK, one nonce space, one
+                // registry for the whole database.
+                let wal_writer = Self::init_wal(
+                    &data_dir,
+                    &config,
+                    #[cfg(feature = "encryption")]
+                    encryption.wal_context(&data_dir)?,
+                )?;
                 (
                     hnsw,
                     vector_store,
@@ -335,12 +381,44 @@ impl StorageEngine {
         Ok((lock_file, backend, data_dir))
     }
 
+    /// Open the write-ahead log, encrypted when the database is encrypted.
+    ///
+    /// ADR-0057 W2: the context is the engine's **one** resolved context, so
+    /// the WAL shares the database's DEK, nonce space and registry with the
+    /// other three artefacts. A plaintext database keeps the plaintext WAL,
+    /// byte-identical to the layout before the at-rest wiring.
+    fn init_wal(
+        data_dir: &Path,
+        config: &Config,
+        #[cfg(feature = "encryption")] crypto: Option<crate::wal::WalCrypto>,
+    ) -> Result<Option<crate::wal_sharded::ShardedWal>> {
+        if config.read_only {
+            return Ok(None);
+        }
+        #[cfg(feature = "encryption")]
+        if let Some(crypto) = crypto {
+            let wal_path = data_dir.join("vanta.wal");
+            return Ok(Some(crate::wal_sharded::ShardedWal::new_encrypted(
+                &wal_path,
+                config.wal_shards,
+                config.sync_mode,
+                config.wal_buffer_size.unwrap_or(64 * 1024),
+                config.flush_threshold,
+                crypto,
+            )?));
+        }
+        crate::storage::wal::init_wal(data_dir, config)
+    }
+
     fn init_indexes(
         data_dir: &Path,
         config: &Config,
         caps: &crate::hardware::HardwareCapabilities,
         effective_memory: u64,
         crypto: crate::storage::vfile_crypto::VFileCryptoSlot,
+        // ADR-0057 W6 / D5: the write context of the index image, resolved
+        // at the open of the engine (outside every engine lock).
+        image_crypto: Option<crate::index::serialize::crypto::HnswImageCryptoContext>,
     ) -> Result<(
         Box<dyn IndexPort>,
         Vec<parking_lot::RwLock<File>>,
@@ -354,7 +432,7 @@ impl StorageEngine {
                 || effective_memory < 16 * GIB);
 
         let mut hnsw: Box<dyn IndexPort> =
-            match crate::index::port_impl::open_index_port(&index_path, use_mmap) {
+            match crate::index::port_impl::open_index_port(&index_path, use_mmap, image_crypto) {
                 Ok(loaded) => {
                     if use_mmap {
                         info!(
@@ -429,8 +507,19 @@ impl StorageEngine {
         backend: &dyn StorageBackend,
         hnsw: &mut dyn IndexPort,
         vector_store: &[parking_lot::RwLock<File>],
+        // ADR-0057 W2: the key of the WAL artefact — an encrypted WAL needs
+        // it to replay; a plaintext WAL ignores it.
+        #[cfg_attr(not(feature = "encryption"), allow(unused_variables))] wal_key: Option<&[u8]>,
     ) -> Result<(u64, u64)> {
         let index_path = data_dir.join("vector_index.bin");
+
+        // The read side of the WAL: the engine resolved the key once, so the
+        // reader uses the same DEK as the writer.
+        #[cfg(feature = "encryption")]
+        let wal_key = match wal_key {
+            Some(material) => Some(crate::wal::WalKey::open(data_dir, material)?),
+            None => None,
+        };
 
         if hnsw.is_empty() {
             // Rebuild from L0 (and eventually all levels) — for now L0 is primary
@@ -511,6 +600,19 @@ impl StorageEngine {
                     if !shard_path.exists() {
                         continue;
                     }
+                    #[cfg(feature = "encryption")]
+                    let mut reader = match &wal_key {
+                        // An encrypted (v4) WAL needs the key; a plaintext
+                        // (v3) one ignores it.
+                        Some(key) => crate::wal::WalReader::open_with_key(&shard_path, key.clone()),
+                        None => crate::wal::WalReader::open(&shard_path),
+                    }
+                    .map_err(|e| {
+                        Error::wal_error(format!(
+                            "Failed to open WAL shard {shard_idx} during recovery: {e}"
+                        ))
+                    })?;
+                    #[cfg(not(feature = "encryption"))]
                     let mut reader = crate::wal::WalReader::open(&shard_path).map_err(|e| {
                         Error::wal_error(format!(
                             "Failed to open WAL shard {shard_idx} during recovery: {e}"
@@ -655,38 +757,344 @@ impl StorageEngine {
     }
 }
 
-/// ENC-01 (FIND-249): the `encryption` feature ships AES-256-GCM primitives.
-///
-/// ADR-0057 wires them artefact by artefact: **W3 encrypts the VantaFile
-/// segments** (a new database created with a key), while the WAL, the HNSW
-/// image, the backend KV, the text index and the snapshots are still
-/// plaintext. Returns the notice the engine must emit at open; `None` when
-/// encryption is not active (no key) or there is nothing at rest to protect
-/// (`InMemory`).
+// ─── ADR-0057 W6: the activation ─────────────────────────────────
+//
+// The engine resolves **one** encryption context per process, from the
+// `Config`, and hands it to the four artefacts. The mode of the database is
+// decided from the artefacts themselves (ADR-0057 D1 rule 2: the reader
+// decides by the bytes on disk, never by the configuration).
+
+/// The encryption mode of a database.
 #[cfg(feature = "encryption")]
-fn encryption_not_wired_notice(config: &Config) -> Option<&'static str> {
-    config.encryption_key.as_ref()?;
-    if matches!(config.backend_kind, BackendKind::InMemory) {
-        return None;
-    }
-    Some(concat!(
-        "encryption is NOT yet wired for every artifact: with the `encryption` ",
-        "feature enabled and an encryption key configured, the WAL, the HNSW ",
-        "index, the backend KV, the text index and the snapshots remain ",
-        "PLAINTEXT. The VantaFile segments (data/vstore_L*.vanta) of a NEW ",
-        "database ARE encrypted, but an existing plaintext database is never ",
-        "migrated. Do not rely on this feature for full at-rest protection yet; ",
-        "use OS/volume-level encryption if you need it today. See FIND-249."
-    ))
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum EncryptionMode {
+    /// No artefact of this database is encrypted: the bytes on disk are the
+    /// plaintext layout.
+    Plaintext,
+    /// At least one artefact is encrypted: the database needs the key.
+    Encrypted,
 }
 
-/// Emit the FIND-249 notice at engine open. Gated by environment: it only
-/// fires when the `encryption` feature is compiled in AND a key is configured
-/// (one notice per activation/open — the condition itself is the gate, no
-/// process-global state).
+/// ADR-0057 W6: the encryption context of one database.
+///
+/// The engine resolves it **once**, at the open, and hands it to the four
+/// artefacts: the DEK and the nonce space belong to the **database**, not to
+/// the artefact's file. The registry behind it is **shared** by the four
+/// artefacts — one in-memory state, one `persist` path (FIND-514).
 #[cfg(feature = "encryption")]
-fn warn_encryption_not_wired(config: &Config) {
-    if let Some(notice) = encryption_not_wired_notice(config) {
-        tracing::warn!("{notice}");
+pub(crate) struct DbEncryption {
+    /// The master key material (zeroizing) — `None` when no key resolved.
+    material: Option<std::sync::Arc<crate::crypto::Zeroizing<Vec<u8>>>>,
+    /// The mode of the database.
+    mode: EncryptionMode,
+    /// The artefacts the registry records as encrypted — the **mode record**
+    /// of the database (ADR-0057 D1 rule 3: no mixed mode).
+    encrypted: std::collections::BTreeSet<crate::crypto::registry::Artifact>,
+    /// The storage root of this database.
+    root: std::path::PathBuf,
+    /// Whether the database is brand new (no artefact on disk yet).
+    new_database: bool,
+    /// Whether the open is read-only: an epoch is never allocated then, and
+    /// the registry is never written.
+    read_only: bool,
+    /// Whether the backend is in-memory: there is nothing at rest, so the
+    /// key is not used and nothing is said about it.
+    in_memory: bool,
+}
+
+#[cfg(feature = "encryption")]
+impl DbEncryption {
+    /// Resolve the context of the database at `path`.
+    ///
+    /// The master key comes from the `Config` first — a programmatic
+    /// `Config::encryption_key` is invisible to the environment, and the
+    /// artefacts that resolve their own context must see the **same** key
+    /// (ADR-0057 D2 lists the environment first, but the engine's decision
+    /// is the authoritative one for the at-rest path).
+    fn resolve(path: &str, config: &Config) -> Result<Self> {
+        let root = Path::new(path);
+        let data_dir = root.join("data");
+        let mode = detect_encryption_mode(&data_dir);
+        let new_database = is_new_database(root, &data_dir);
+
+        let env_key = config
+            .encryption_key
+            .clone()
+            .or_else(|| std::env::var("VANTADB_ENCRYPTION_KEY").ok());
+        let material = match crate::crypto::resolve_master_key_material_strict(
+            env_key.as_deref(),
+            config.encryption_key_file.as_deref(),
+            config.encryption_key_cmd.as_deref(),
+        ) {
+            Ok(material) => Some(std::sync::Arc::new(material)),
+            Err(crate::crypto::CryptoError::KeyNotSet) => None,
+            Err(err) => return Err(crypto_error(err)),
+        };
+
+        // An encrypted database opened without a key: refuse, loudly. The
+        // backend must never be opened in that state — it would hand the
+        // ciphertext back as if it were plaintext (FIND-516).
+        if mode == EncryptionMode::Encrypted && material.is_none() {
+            return Err(Error::EncryptionKeyRequired {
+                artifact: "database".to_string(),
+            });
+        }
+
+        // The decision, registered process-wide: the artefacts that resolve
+        // their own context (the backend, the HNSW image) must use the
+        // engine's key — and must use **no** key when the database stays
+        // plaintext (a plaintext database is never migrated implicitly —
+        // ADR-0057 D7). An in-memory backend has nothing at rest: the key
+        // is not used at all.
+        let in_memory = matches!(config.backend_kind, BackendKind::InMemory);
+        let encrypt = match mode {
+            EncryptionMode::Encrypted => true,
+            EncryptionMode::Plaintext => new_database && material.is_some() && !in_memory,
+        };
+        crate::crypto::register_process_key(root, if encrypt { material.clone() } else { None });
+
+        Ok(Self {
+            material,
+            mode,
+            encrypted: Default::default(),
+            root: root.to_path_buf(),
+            new_database,
+            read_only: config.read_only,
+            in_memory,
+        })
+    }
+
+    /// Re-decide the mode now that the backend is open (it may have created
+    /// the registry of a brand-new database) and record which artefacts are
+    /// encrypted.
+    fn after_open(&mut self, data_dir: &Path) -> Result<()> {
+        self.mode = detect_encryption_mode(data_dir);
+        if self.mode != EncryptionMode::Encrypted {
+            // A plaintext database with a key configured: say it out loud.
+            if self.material.is_some() && !self.in_memory {
+                warn_encryption_not_applied();
+            }
+            return Ok(());
+        }
+        let Some(material) = self.material.as_ref() else {
+            return Err(Error::EncryptionKeyRequired {
+                artifact: "database".to_string(),
+            });
+        };
+        // The registry is the **mode record**: it says which artefacts are
+        // encrypted. A brand-new database gets the four entries, so every
+        // artefact is encrypted from its first byte (ADR-0057 D7). The
+        // entries are created **here**, at open — outside every engine lock
+        // (ADR-0057 D5).
+        let mut registry =
+            crate::crypto::registry::KeyRegistry::open_or_create(data_dir, &material[..])
+                .map_err(crypto_error)?;
+        if self.new_database {
+            for artifact in [
+                crate::crypto::registry::Artifact::Wal,
+                crate::crypto::registry::Artifact::VantaFile,
+                crate::crypto::registry::Artifact::HnswImage,
+                crate::crypto::registry::Artifact::BackendKv,
+            ] {
+                registry.ensure_dek(artifact).map_err(crypto_error)?;
+            }
+        }
+        self.encrypted = registry.artifacts();
+        crate::crypto::register_process_key(&self.root, Some(material.clone()));
+        Ok(())
+    }
+
+    /// The write-side context of the `wal` artefact — `None` for a plaintext
+    /// database.
+    fn wal_context(&self, data_dir: &Path) -> Result<Option<crate::wal::WalCrypto>> {
+        use crate::crypto::registry::Artifact;
+        if self.mode != EncryptionMode::Encrypted || !self.encrypted.contains(&Artifact::Wal) {
+            return Ok(None);
+        }
+        let Some(material) = self.material.as_ref() else {
+            return Ok(None);
+        };
+        Ok(Some(crate::wal::WalCrypto::open(data_dir, &material[..])?))
+    }
+
+    /// The read-side key of the `wal` artefact (the recovery path).
+    fn wal_key(&self) -> Result<Option<&[u8]>> {
+        use crate::crypto::registry::Artifact;
+        if self.mode != EncryptionMode::Encrypted || !self.encrypted.contains(&Artifact::Wal) {
+            return Ok(None);
+        }
+        Ok(self.material.as_ref().map(|material| &material[..]))
+    }
+
+    /// The **write** context of the `hnsw` artefact — `None` for a plaintext
+    /// database.
+    ///
+    /// It is resolved **here**, at the open of the engine, so the nonce epoch
+    /// of the image is allocated (and the registry written) **outside every
+    /// engine lock** (ADR-0057 D5). Without it, the image would resolve its
+    /// context at its first write — which happens under the `insert_lock`.
+    fn hnsw_context(
+        &self,
+        data_dir: &Path,
+    ) -> Result<Option<crate::index::serialize::crypto::HnswImageCryptoContext>> {
+        use crate::crypto::registry::Artifact;
+        if self.mode != EncryptionMode::Encrypted || !self.encrypted.contains(&Artifact::HnswImage)
+        {
+            return Ok(None);
+        }
+        let Some(material) = self.material.as_ref() else {
+            return Ok(None);
+        };
+        let image_path = data_dir.join("vector_index.bin");
+        let identifier = crate::index::serialize::crypto::image_identifier(data_dir, &image_path);
+        let crypto = if self.read_only {
+            crate::index::serialize::crypto::HnswImageCrypto::open_read(
+                data_dir,
+                &material[..],
+                identifier,
+            )?
+        } else {
+            crate::index::serialize::crypto::HnswImageCrypto::open(
+                data_dir,
+                &material[..],
+                identifier,
+            )?
+        };
+        Ok(Some(std::sync::Arc::new(crypto)))
+    }
+}
+
+/// The format version of an on-disk artefact header, if the file exists.
+#[cfg(feature = "encryption")]
+fn header_version(path: &Path) -> Option<u16> {
+    use std::io::Read;
+    let mut file = std::fs::File::open(path).ok()?;
+    let mut head = [0u8; crate::binary_header::Header::SIZE];
+    file.read_exact(&mut head).ok()?;
+    let header = crate::binary_header::Header::deserialize(&head).ok()?;
+    Some(header.format_version)
+}
+
+/// The WAL files of a database (the single-shard one and the shards).
+#[cfg(feature = "encryption")]
+fn wal_paths(data_dir: &Path) -> Vec<std::path::PathBuf> {
+    let mut paths = vec![data_dir.join("vanta.wal")];
+    if let Ok(entries) = std::fs::read_dir(data_dir) {
+        for entry in entries.flatten() {
+            let name = entry.file_name();
+            let name = name.to_string_lossy();
+            if name.starts_with("vanta.shard") && name.ends_with(".wal") {
+                paths.push(entry.path());
+            }
+        }
+    }
+    paths
+}
+
+/// The VantaFile segments of a database (`L0..L3` plus the legacy name).
+#[cfg(feature = "encryption")]
+fn vfile_paths(data_dir: &Path) -> Vec<std::path::PathBuf> {
+    let mut paths: Vec<std::path::PathBuf> = (0..4)
+        .map(|level| data_dir.join(format!("vstore_L{level}.vanta")))
+        .collect();
+    paths.push(data_dir.join("vector_store.vanta"));
+    paths
+}
+
+/// Decide the encryption mode of the database from the artefacts themselves
+/// (ADR-0057 D1 rule 2: the reader decides by the bytes on disk, never by
+/// the configuration).
+#[cfg(feature = "encryption")]
+fn detect_encryption_mode(data_dir: &Path) -> EncryptionMode {
+    // The registry only exists for an encrypted database: it holds the
+    // wrapped DEKs, and it is created only when a key resolved.
+    if crate::crypto::registry::KeyRegistry::path_in(data_dir).exists() {
+        return EncryptionMode::Encrypted;
+    }
+    // The WAL: format v4 is the encrypted one.
+    for path in wal_paths(data_dir) {
+        if header_version(&path).is_some_and(|v| v >= crate::wal::WAL_ENCRYPTED_FORMAT_VERSION) {
+            return EncryptionMode::Encrypted;
+        }
+    }
+    // The VantaFile segments: format v3 is the encrypted one.
+    for path in vfile_paths(data_dir) {
+        if header_version(&path)
+            .is_some_and(|v| v >= crate::storage::vfile::VFILE_ENCRYPTED_VERSION)
+        {
+            return EncryptionMode::Encrypted;
+        }
+    }
+    // The HNSW image: format v9 is the encrypted one.
+    let image = data_dir.join("vector_index.bin");
+    if header_version(&image)
+        .is_some_and(|v| v >= crate::index::graph::VECTOR_INDEX_ENCRYPTED_VERSION)
+    {
+        return EncryptionMode::Encrypted;
+    }
+    EncryptionMode::Plaintext
+}
+
+/// Whether the database is **brand new**: it holds no data at all.
+///
+/// A brand-new database with a key is encrypted from its first byte
+/// (ADR-0057 D7); an existing database — even one that was only *opened* —
+/// stays plaintext: a key never migrates it (no implicit migration, no
+/// mixed mode).
+#[cfg(feature = "encryption")]
+fn is_new_database(root: &Path, data_dir: &Path) -> bool {
+    if crate::crypto::registry::KeyRegistry::path_in(data_dir).exists() {
+        return false;
+    }
+    if wal_paths(data_dir).iter().any(|path| path.exists()) {
+        return false;
+    }
+    if vfile_paths(data_dir).iter().any(|path| path.exists()) {
+        return false;
+    }
+    if data_dir.join("vector_index.bin").exists() {
+        return false;
+    }
+    // The storage root: any file besides the process-local lock means the
+    // database has been opened before (the schema, the backend files).
+    if let Ok(entries) = std::fs::read_dir(root) {
+        for entry in entries.flatten() {
+            let name = entry.file_name();
+            let name = name.to_string_lossy();
+            if name == ".vanta.lock" || entry.path().is_dir() {
+                continue;
+            }
+            return false;
+        }
+    }
+    true
+}
+
+/// ADR-0057 D7: a plaintext database opened with a key configured stays
+/// plaintext — the key is ignored for it, and the mismatch is said out loud.
+#[cfg(feature = "encryption")]
+fn warn_encryption_not_applied() {
+    tracing::warn!(
+        "encryption key configured but this database is PLAINTEXT: the WAL, the \
+         VantaFile segments, the HNSW image and the backend key-value store stay \
+         in cleartext. VantaDB never migrates a database implicitly (ADR-0057 D7) \
+         — to encrypt an existing database, export it and import it into a new \
+         database created with the key configured. The key is ignored for this \
+         database."
+    );
+}
+
+/// Map a crypto failure onto the crate error surface (ADR-0057 D6).
+#[cfg(feature = "encryption")]
+fn crypto_error(err: crate::crypto::CryptoError) -> Error {
+    match err {
+        crate::crypto::CryptoError::DecryptionFailed => Error::EncryptionKeyRejected {
+            artifact: "database".to_string(),
+        },
+        crate::crypto::CryptoError::RegistryInvalid(detail) => Error::EncryptionCorrupt {
+            artifact: "database".to_string(),
+            detail,
+        },
+        other => Error::generic_error(format!("Encryption error: {other}")),
     }
 }

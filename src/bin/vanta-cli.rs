@@ -305,6 +305,18 @@ fn run() -> anyhow::Result<()> {
             }
         },
 
+        Commands::Encryption(cmd) => match cmd {
+            vantadb::cli::EncryptionCommand::Rotate {
+                new_key,
+                new_key_file,
+            } => cli_handlers::cmd_encryption_rotate(
+                &args.db,
+                new_key.as_deref(),
+                new_key_file.as_deref(),
+                args.json,
+            )?,
+        },
+
         Commands::Verify => {
             let code = cli_handlers::cmd_verify(&args.db, args.json)?;
             if code != 0 {

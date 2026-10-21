@@ -18,6 +18,10 @@ mod scalar_index;
 mod stats;
 mod types;
 
+/// ADR-0057 W6: the activation of the at-rest encryption.
+#[cfg(all(feature = "encryption", any(feature = "fjall", feature = "rocksdb")))]
+mod encryption;
+
 // ─── Shared helpers used by all sub-modules ───────────────────
 
 pub(super) fn in_memory_engine() -> StorageEngine {

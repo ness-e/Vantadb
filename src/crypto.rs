@@ -10,17 +10,30 @@
 //! Provides [`Cipher`] for encrypt/decrypt operations and [`EncryptionStream`]
 //! for transparent Read/Write wrapping of storage streams.
 //!
-//! **Scope (honest, 2026-10-20):** these primitives are wired into the
-//! `vanta-proxy` envelope. They are **not** applied to the core storage files
-//! yet (WAL, HNSW, VantaFile, backend-KV, snapshots stay plaintext) — the only
-//! call site of `with_cipher` in `src/` is a test. The wiring is designed in
-//! `ADR-0057` and tracked as `FIND-249`; see `docs/user/operations/CONFIGURATION.md`
-//! (`encryption_key`) for the user-facing statement.
+//! **Scope (2026-10-21, ADR-0057 W6):** with the `encryption` feature
+//! compiled **and** a master key configured, the four independent on-disk
+//! write paths of the core are encrypted at rest with per-artefact AEAD
+//! envelopes: the **WAL** (format v4), the **VantaFile** segments (format
+//! v3), the **HNSW index image** (format v9) and the **backend key-value
+//! store** (per value) — and, by transit, the text index and the snapshots.
+//!
+//! What is **not** covered (the honest limits, see `SECURITY.md`): the
+//! backend's **keys** stay in cleartext, the structural metadata (sizes,
+//! counts, timestamps) stays in cleartext, the master key lives in the
+//! process memory while the database is open, and the encryption registry
+//! must never be separated from the database — losing it loses the data.
+//!
+//! Encryption is **opt-in twice**: the `encryption` cargo feature is not in
+//! `default`, and without a master key the bytes on disk are byte-identical
+//! to a build without the feature. A plaintext database is **never** migrated
+//! implicitly (ADR-0057 D7); see
+//! `docs/user/operations/CONFIGURATION.md` (`encryption_key`) and the runbook
+//! `docs/user/operations/security/KEY_RUNBOOK.md`.
 //!
 //! # At-rest primitives (ADR-0057, wave W1)
 //!
 //! This module also carries the **shared infrastructure** the at-rest wiring
-//! needs, still without touching any storage write path:
+//! needs:
 //!
 //! * [`registry`] — the per-artefact DEK registry (master → KEK → DEK), the
 //!   `epoch ‖ counter` nonce allocator and the AAD builder.
@@ -288,7 +301,46 @@ pub fn resolve_master_key(
 /// (ADR-0057 C-4), and a `Cipher` built from a passphrase has no recoverable
 /// raw key (`raw_key_bytes` refuses it). The material is returned in a
 /// zeroizing holder and is never logged.
+///
+/// # The engine's decision wins (ADR-0057 W6)
+///
+/// The engine resolves **one** master key for the whole process and
+/// registers its decision here (see [`register_process_key`]). When it has,
+/// this function returns that material — and **nothing else**: the four
+/// artefacts must not disagree about which key protects the database, and
+/// the engine is the only one that saw the programmatic
+/// `Config::encryption_key` (ADR-0057 D2 lists the environment first, but
+/// the engine's decision is the authoritative one for the at-rest path).
+/// When the engine registered "no key" (a plaintext database opened with a
+/// key configured), this function reports `KeyNotSet`: a plaintext database
+/// is never migrated implicitly (ADR-0057 D7).
+///
+/// The decision is **per storage root**. When the process holds more than
+/// one database, the decisions are ambiguous and the sources are used
+/// instead — a process that opens two databases with two different keys is
+/// outside the supported contract (one database per process).
 pub fn resolve_master_key_material(
+    env_key: Option<&str>,
+    key_file: Option<&std::path::Path>,
+    key_cmd: Option<&str>,
+) -> Result<Zeroizing<Vec<u8>>, CryptoError> {
+    match process_decision() {
+        // The engine decided: use its material.
+        Some(Some(material)) => return Ok(Zeroizing::new(material.to_vec())),
+        // The engine decided "no key" (a plaintext database).
+        Some(None) => return Err(CryptoError::KeyNotSet),
+        // No decision (or an ambiguous one): resolve from the sources.
+        None => {}
+    }
+    resolve_master_key_material_strict(env_key, key_file, key_cmd)
+}
+
+/// Resolve the master key material **ignoring** the process-wide
+/// registration.
+///
+/// This is what the **engine** uses to resolve the one master key of the
+/// process: it must not read back a registration of its own.
+pub fn resolve_master_key_material_strict(
     env_key: Option<&str>,
     key_file: Option<&std::path::Path>,
     key_cmd: Option<&str>,
@@ -303,6 +355,52 @@ pub fn resolve_master_key_material(
         return Ok(Zeroizing::new(run_key_command(cmd)?));
     }
     Err(CryptoError::KeyNotSet)
+}
+
+/// The engine's decisions, keyed by the storage root.
+///
+/// * the key is present with a material → the engine decided "encrypted";
+/// * the key is present without a material → the engine decided
+///   "plaintext" (the key is ignored for that database).
+static PROCESS_KEYS: std::sync::OnceLock<
+    parking_lot::Mutex<
+        std::collections::HashMap<std::path::PathBuf, Option<std::sync::Arc<Zeroizing<Vec<u8>>>>>,
+    >,
+> = std::sync::OnceLock::new();
+
+/// The table of the engine's decisions.
+fn process_keys() -> &'static parking_lot::Mutex<
+    std::collections::HashMap<std::path::PathBuf, Option<std::sync::Arc<Zeroizing<Vec<u8>>>>>,
+> {
+    PROCESS_KEYS.get_or_init(|| parking_lot::Mutex::new(std::collections::HashMap::new()))
+}
+
+/// Register the engine's decision for the storage root `root`.
+///
+/// `None` means "this database is plaintext": the at-rest artefacts then
+/// resolve **no** key, whatever the environment holds (ADR-0057 D7 — a
+/// plaintext database is never migrated implicitly).
+pub fn register_process_key(
+    root: &std::path::Path,
+    material: Option<std::sync::Arc<Zeroizing<Vec<u8>>>>,
+) {
+    let mut table = process_keys().lock();
+    table.insert(root.to_path_buf(), material);
+}
+
+/// The decision of the process, when it is unambiguous.
+///
+/// `None` — no decision, or more than one database in the process: the
+/// sources are used. `Some(None)` — the engine decided "plaintext".
+/// `Some(Some(material))` — the engine's material.
+fn process_decision() -> Option<Option<std::sync::Arc<Zeroizing<Vec<u8>>>>> {
+    let table = process_keys().lock();
+    if table.len() != 1 {
+        // No decision, or an ambiguous one (several databases in the
+        // process): the sources decide.
+        return None;
+    }
+    table.values().next().cloned()
 }
 
 /// Read the hex master key from a file, enforcing the Unix permission rules
@@ -970,7 +1068,7 @@ impl<S: Read + Write> Read for EncryptionStream<S> {
 /// or odd length. Operates on BYTES (`chunks_exact(2)`) — a multibyte UTF-8
 /// key at an even offset degrades to `InvalidKey`, never a char-boundary
 /// panic at startup (F-01 hardening; env-fed input).
-fn decode_hex(s: &str) -> Result<Vec<u8>, CryptoError> {
+pub(crate) fn decode_hex(s: &str) -> Result<Vec<u8>, CryptoError> {
     let s = s.trim();
     let s = s
         .strip_prefix("0x")

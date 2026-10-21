@@ -763,12 +763,13 @@ fn test_persistence_full_vector_still_roundtrips() {
     }
 }
 
-// ─── ENC-01 (FIND-249): encryption honesty notice ──────────────
+// ─── ADR-0057 W6: the encryption notice ─────────────────────────
 //
-// With the `encryption` feature compiled in AND a key configured, every
-// on-disk artifact is still plaintext (0/6, DUR-02) — the engine must say so
-// at open instead of staying silent. The notice is gated by environment
-// (feature + key) and excluded for the InMemory backend (no at-rest files).
+// The W3-era notice ("encryption is NOT yet wired") is **gone**: the wiring
+// landed. What the engine says now is the opposite one — a **plaintext**
+// database opened with a key configured is said out loud (no implicit
+// migration, ADR-0057 D7). The in-memory backend has nothing at rest, so it
+// stays silent.
 
 #[cfg(feature = "encryption")]
 mod encryption_notice {
@@ -841,7 +842,7 @@ mod encryption_notice {
 
     #[cfg(any(feature = "fjall", feature = "rocksdb"))]
     #[test]
-    fn test_encryption_notice_emitted_when_active() {
+    fn test_encryption_notice_silent_on_an_encrypted_database() {
         let dir = tempfile::tempdir().expect("tempdir");
         let path = dir.path().to_str().unwrap();
         let logged = capture_warnings(|| {
@@ -851,16 +852,12 @@ mod encryption_notice {
             drop(engine);
         });
         assert!(
-            logged.contains("NOT yet wired"),
-            "warning must say encryption is not wired; got: {logged}"
+            !logged.contains("NOT yet wired"),
+            "the wiring landed: the engine must not claim the opposite; got: {logged}"
         );
         assert!(
-            logged.contains("PLAINTEXT"),
-            "warning must say data at rest is plaintext; got: {logged}"
-        );
-        assert!(
-            logged.contains("FIND-249"),
-            "warning must point at FIND-249; got: {logged}"
+            !logged.contains("FIND-249"),
+            "the engine must not report the closed finding; got: {logged}"
         );
     }
 

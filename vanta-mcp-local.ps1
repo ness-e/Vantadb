@@ -63,11 +63,18 @@ if (-not (Test-Path (Join-Path $Model 'model.onnx'))) {
 if (-not $VantaCli) {
     $local = Join-Path $PSScriptRoot 'target/debug/vanta-cli.exe'
     if (Test-Path $local) {
-        # WIN-LOCK: copy binary to temp so running MCP doesn't lock target/debug/vanta-cli.exe
+        # WIN-LOCK: copy binaries to temp so running MCP doesn't lock target/debug/*.exe
+        # `vanta-cli server --mcp` spawns the SIBLING vantadb-server[.exe] next to this
+        # exe (src/cli_handlers/server.rs candidates) — so it must be copied too, both
+        # for sibling resolution and lock protection.
         $mcpDir = Join-Path $env:TEMP 'vanta-mcp-bin'
         New-Item -ItemType Directory -Force -Path $mcpDir | Out-Null
         $mcpExe = Join-Path $mcpDir 'vanta-cli.exe'
         Copy-Item -Path $local -Destination $mcpExe -Force -ErrorAction SilentlyContinue
+        $localServer = Join-Path $PSScriptRoot 'target/debug/vantadb-server.exe'
+        if (Test-Path $localServer) {
+            Copy-Item -Path $localServer -Destination (Join-Path $mcpDir 'vantadb-server.exe') -Force -ErrorAction SilentlyContinue
+        }
         if (Test-Path $mcpExe) {
             $VantaCli = $mcpExe
         } else {

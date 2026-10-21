@@ -129,10 +129,11 @@ fn log_security_mode(config: &Config) {
 /// SRV-10 (FIND-249 frontier): with the `encryption` feature NOT compiled in,
 /// a configured `VANTADB_ENCRYPTION_KEY` is silently ignored — nothing in the
 /// server process consumes it and every on-disk artifact stays plaintext.
-/// The engine notice (ENC-01) is feature-gated, so it can never fire in this
+/// The engine notice is feature-gated, so it can never fire in this
 /// build; this server-side counterpart keeps the operator from mistaking the
 /// key for at-rest protection. When the feature IS compiled, the engine
-/// itself warns at open (`src/storage/engine/init.rs`, ENC-01).
+/// itself decides the mode at open (`src/storage/engine/init.rs`, ADR-0057
+/// W6) and warns when the database stays plaintext.
 #[cfg(not(feature = "encryption"))]
 fn encryption_key_ignored_notice(config: &Config) -> Option<&'static str> {
     use crate::storage::BackendKind;
@@ -146,8 +147,8 @@ fn encryption_key_ignored_notice(config: &Config) -> Option<&'static str> {
         "`encryption` feature: the key is IGNORED and every on-disk artifact ",
         "(WAL, HNSW index, VantaFile segments, backend KV, text index, ",
         "snapshots) remains PLAINTEXT. Do not rely on this key for at-rest ",
-        "protection — use OS/volume-level encryption. Encryption-at-rest ",
-        "wiring is tracked in FIND-249."
+        "protection — use OS/volume-level encryption. The at-rest encryption ",
+        "is opt-in at build time (ADR-0057)."
     ))
 }
 

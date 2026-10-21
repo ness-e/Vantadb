@@ -524,6 +524,13 @@ fn is_mutable_after_snapshot(name: &std::ffi::OsStr) -> bool {
         || name == "vanta.wal.shards" // shard-layout sidecar
         || name == ".wal_ship_marker" // wal-shipping progress marker (rewritten)
         || name == "vector_index.bin" // HNSW image (rewritten by every flush)
+        // ADR-0057 W6: the encryption registry is rewritten on every writable
+        // open (a new nonce epoch). A hard link would let that write mutate
+        // the snapshot through the shared inode — the snapshot's copy of the
+        // registry would then describe epochs the live database never used.
+        // The name is the literal of `crypto::registry::REGISTRY_FILE_NAME`
+        // (the crypto module is feature-gated; this function is not).
+        || name == "encryption.registry"
         // Active WAL shards `vanta.shard<N>.wal`. Rotated archives carry a
         // `.wal.<timestamp>` suffix instead, so they do NOT match here.
         || (name.starts_with("vanta.shard") && name.ends_with(".wal"))

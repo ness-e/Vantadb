@@ -40,14 +40,23 @@
 
 use crate::crypto::{Cipher, CryptoError, Zeroizing};
 use crate::utils::fs::sync_parent_dir;
+use parking_lot::Mutex;
 use rand::RngCore;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock, Weak};
 
 /// File name of the registry inside the storage `data_dir`.
 pub const REGISTRY_FILE_NAME: &str = "encryption.registry";
+
+/// File name of the **previous** registry, left behind by a rotation.
+///
+/// The rotation re-wraps the DEKs (it never re-derives them), so the old
+/// registry is still a valid description of the database as long as the
+/// **old** master key exists: copying it back is a manual rollback
+/// (ADR-0057 §7.2).
+pub const REGISTRY_BACKUP_FILE_NAME: &str = "encryption.registry.bak";
 
 /// Magic bytes at the head of the registry file.
 const REGISTRY_MAGIC: &[u8; 8] = b"VANTAREG";
@@ -296,29 +305,72 @@ struct ArtifactEntry {
     epoch: u64,
 }
 
-/// The per-artefact DEK registry of one database.
+/// The mutable state of one database's registry.
 ///
-/// The registry owns the database salt, the wrapped DEKs and the current nonce
-/// epoch per artefact. It is written atomically (tmp → rename → dir fsync) and
-/// lives **inside** the storage `data_dir`.
-pub struct KeyRegistry {
-    path: PathBuf,
+/// It lives behind a lock and is **shared by every handle** of the same
+/// database (ADR-0057 W6): the four artefacts open the registry
+/// independently, and a `persist` from one of them must never drop the
+/// entries of the others (FIND-514).
+#[derive(Debug)]
+struct RegistryState {
+    /// The database salt (public; domain-separates this database's keys).
     db_salt: [u8; 32],
+    /// The key version the DEKs are wrapped under.
     key_version: u8,
     /// The KEK — derived from the master and the database salt.
     kek: Cipher,
     /// Wrapped sentinel: proves the master key is the right one at open.
     key_check: Vec<u8>,
+    /// The per-artefact entries.
     entries: BTreeMap<Artifact, ArtifactEntry>,
+}
+
+/// The shared, per-process state of one database's registry.
+#[derive(Debug)]
+struct RegistryShared {
+    state: Mutex<RegistryState>,
+}
+
+/// The process-wide table of open registries, keyed by the registry file.
+///
+/// One entry per storage root: every artefact that opens the registry of
+/// the same database gets a handle to the **same** state, so there is one
+/// in-memory registry and one `persist` path per process (ADR-0057 W6,
+/// FIND-514). The entry disappears when the last handle goes away, so a
+/// later open re-reads the file from disk.
+static OPEN_REGISTRIES: OnceLock<Mutex<HashMap<PathBuf, Weak<RegistryShared>>>> = OnceLock::new();
+
+/// The table of open registries.
+fn open_registries() -> &'static Mutex<HashMap<PathBuf, Weak<RegistryShared>>> {
+    OPEN_REGISTRIES.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+/// The per-artefact DEK registry of one database.
+///
+/// The registry owns the database salt, the wrapped DEKs and the current nonce
+/// epoch per artefact. It is written atomically (tmp → rename → dir fsync) and
+/// lives **inside** the storage `data_dir`.
+///
+/// A `KeyRegistry` is a **handle**: the state behind it is shared by every
+/// handle of the same database (ADR-0057 W6), so the four artefacts of one
+/// engine write the same file from the same state — no lost update, one
+/// in-memory registry, one `persist` path.
+pub struct KeyRegistry {
+    path: PathBuf,
+    /// The shared state — one instance per database per process.
+    shared: Arc<RegistryShared>,
+    /// The nonce allocators of this handle. Lock-free reads: the hot path
+    /// must not take a lock (ADR-0057 D5).
     allocators: BTreeMap<Artifact, Arc<NonceAllocator>>,
 }
 
 impl std::fmt::Debug for KeyRegistry {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let state = self.shared.state.lock();
         f.debug_struct("KeyRegistry")
             .field("path", &self.path)
-            .field("key_version", &self.key_version)
-            .field("artifacts", &self.entries.keys().collect::<Vec<_>>())
+            .field("key_version", &state.key_version)
+            .field("artifacts", &state.entries.keys().collect::<Vec<_>>())
             .finish()
     }
 }
@@ -329,12 +381,24 @@ impl KeyRegistry {
         data_dir.join(REGISTRY_FILE_NAME)
     }
 
+    /// Path of the backup the rotation leaves behind.
+    pub fn backup_path_in(data_dir: &Path) -> PathBuf {
+        data_dir.join(REGISTRY_BACKUP_FILE_NAME)
+    }
+
     /// Open the registry of `data_dir`, creating it when it does not exist.
     ///
     /// `key_material` is the material coming from the key source: **32 bytes**
     /// are used as the master key directly; a shorter value is a passphrase
     /// and is stretched **once** with PBKDF2-HMAC-SHA256 and the database salt
     /// (ADR-0057 C-4).
+    ///
+    /// The registry is **shared per database and per process** (ADR-0057
+    /// W6): the four artefacts of an engine open it independently and every
+    /// one of them gets a handle to the **same** in-memory state, so a
+    /// `persist` from one artefact can never drop the entries of another
+    /// (FIND-514). A wrong master key is rejected here — the key check does
+    /// not unwrap — never silently accepted.
     ///
     /// # Errors
     ///
@@ -344,7 +408,54 @@ impl KeyRegistry {
     /// the registry (wrong key **or** tampered registry — indistinguishable).
     pub fn open_or_create(data_dir: &Path, key_material: &[u8]) -> Result<Self, CryptoError> {
         let path = Self::path_in(data_dir);
-        let raw = match std::fs::read(&path) {
+        // The table lock is held across the read: two databases opened at the
+        // same time in one process serialise here. The open is a startup
+        // path (a handful of times per process), so the cost is irrelevant
+        // next to the correctness it buys (one state per database).
+        let mut table = open_registries().lock();
+        if let Some(shared) = table.get(&path).and_then(Weak::upgrade) {
+            // Another handle of this process already opened the registry:
+            // reuse its state instead of reading a stale copy from disk.
+            return Self::from_shared(path, shared, key_material);
+        }
+        let state = Self::read_state(&path, key_material)?;
+        let shared = Arc::new(RegistryShared {
+            state: Mutex::new(state),
+        });
+        table.insert(path.clone(), Arc::downgrade(&shared));
+        let registry = Self::from_shared(path, shared, key_material)?;
+        // A brand-new registry is persisted immediately: the key check must
+        // exist before the first open, so a wrong key is detected then.
+        if registry.is_fresh() {
+            registry.persist()?;
+        }
+        Ok(registry)
+    }
+
+    /// Build a handle over an existing shared state, verifying the material.
+    fn from_shared(
+        path: PathBuf,
+        shared: Arc<RegistryShared>,
+        key_material: &[u8],
+    ) -> Result<Self, CryptoError> {
+        {
+            let state = shared.state.lock();
+            // The key check proves the master key is the right one: a wrong
+            // key cannot unwrap it.
+            let master = master_from_material(key_material, &state.db_salt)?;
+            let kek = Cipher::new(&master[..]).derive_kek(&state.db_salt, state.key_version)?;
+            unwrap_key_check(&kek, &state.key_check, state.key_version)?;
+        }
+        Ok(Self {
+            path,
+            shared,
+            allocators: BTreeMap::new(),
+        })
+    }
+
+    /// Read the registry state from disk (or build a fresh one).
+    fn read_state(path: &Path, key_material: &[u8]) -> Result<RegistryState, CryptoError> {
+        let raw = match std::fs::read(path) {
             Ok(bytes) => Some(bytes),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
             Err(e) => {
@@ -354,39 +465,30 @@ impl KeyRegistry {
                 )))
             }
         };
-
         let file = match raw {
             Some(bytes) => Some(decode(&bytes)?),
             None => None,
         };
-
         let db_salt = match &file {
             Some(f) => f.db_salt,
             None => random_bytes::<32>(),
         };
         let key_version = file.as_ref().map_or(1, |f| f.key_version);
-
         // The master: a raw 32-byte key, or a passphrase stretched once with
         // the database salt.
         let master = master_from_material(key_material, &db_salt)?;
         let kek = Cipher::new(&master[..]).derive_kek(&db_salt, key_version)?;
-
-        let mut registry = KeyRegistry {
-            path,
+        let mut state = RegistryState {
             db_salt,
             key_version,
             kek,
             key_check: Vec::new(),
             entries: BTreeMap::new(),
-            allocators: BTreeMap::new(),
         };
-
         match file {
             Some(f) => {
-                // The key check proves the master key is the right one: a
-                // wrong key cannot unwrap it.
-                registry.key_check = f.key_check;
-                registry.unwrap_key_check()?;
+                state.key_check = f.key_check;
+                unwrap_key_check(&state.kek, &state.key_check, key_version)?;
                 for entry in f.entries {
                     let artifact = Artifact::from_code(entry.artifact).ok_or_else(|| {
                         CryptoError::RegistryInvalid(format!(
@@ -394,8 +496,8 @@ impl KeyRegistry {
                             entry.artifact
                         ))
                     })?;
-                    let dek = unwrap_dek(&registry.kek, &entry.wrapped, artifact, key_version)?;
-                    registry.entries.insert(
+                    let dek = unwrap_dek(&state.kek, &entry.wrapped, artifact, key_version)?;
+                    state.entries.insert(
                         artifact,
                         ArtifactEntry {
                             dek,
@@ -409,21 +511,25 @@ impl KeyRegistry {
             None => {
                 // A fresh registry: create the sentinel that will detect a
                 // wrong key on the next open.
-                registry.key_check = registry.wrap_key_check()?;
-                registry.persist()?;
+                state.key_check = wrap_key_check(&state.kek, key_version)?;
             }
         }
-        Ok(registry)
+        Ok(state)
+    }
+
+    /// Whether this registry was created by this open (no entries yet).
+    fn is_fresh(&self) -> bool {
+        self.shared.state.lock().entries.is_empty()
     }
 
     /// The database salt (public; domain-separates this database's keys).
-    pub fn db_salt(&self) -> &[u8; 32] {
-        &self.db_salt
+    pub fn db_salt(&self) -> [u8; 32] {
+        self.shared.state.lock().db_salt
     }
 
     /// The key version the DEKs are wrapped under.
     pub fn key_version(&self) -> u8 {
-        self.key_version
+        self.shared.state.lock().key_version
     }
 
     /// The path of the registry file.
@@ -431,9 +537,23 @@ impl KeyRegistry {
         &self.path
     }
 
+    /// The artefacts this registry holds a DEK for.
+    ///
+    /// This is the **mode record** of the database (ADR-0057 D1 rule 3): an
+    /// artefact without an entry is plaintext, and it is never migrated
+    /// implicitly.
+    pub fn artifacts(&self) -> std::collections::BTreeSet<Artifact> {
+        self.shared.state.lock().entries.keys().copied().collect()
+    }
+
     /// The DEK of `artifact`, if it already exists.
-    pub fn dek(&self, artifact: Artifact) -> Option<&Zeroizing<[u8; 32]>> {
-        self.entries.get(&artifact).map(|e| &e.dek)
+    pub fn dek(&self, artifact: Artifact) -> Option<Zeroizing<[u8; 32]>> {
+        self.shared
+            .state
+            .lock()
+            .entries
+            .get(&artifact)
+            .map(|e| e.dek.clone())
     }
 
     /// The DEK of `artifact`, creating (and persisting) one when missing.
@@ -441,12 +561,32 @@ impl KeyRegistry {
     /// # Errors
     ///
     /// [`CryptoError::RegistryIo`] when the registry cannot be written.
-    pub fn ensure_dek(&mut self, artifact: Artifact) -> Result<&Zeroizing<[u8; 32]>, CryptoError> {
-        if !self.entries.contains_key(&artifact) {
-            self.ensure_entry(artifact)?;
+    pub fn ensure_dek(&mut self, artifact: Artifact) -> Result<Zeroizing<[u8; 32]>, CryptoError> {
+        let created = {
+            let mut state = self.shared.state.lock();
+            if state.entries.contains_key(&artifact) {
+                false
+            } else {
+                let dek = random_bytes::<32>();
+                let wrapped = wrap_dek(&state.kek, &dek, artifact, state.key_version)?;
+                let mut dek_id = [0u8; DEK_ID_LEN];
+                rand::rng().fill_bytes(&mut dek_id);
+                state.entries.insert(
+                    artifact,
+                    ArtifactEntry {
+                        dek: Zeroizing::new(dek),
+                        wrapped,
+                        dek_id,
+                        epoch: 0,
+                    },
+                );
+                true
+            }
+        };
+        if created {
             self.persist()?;
         }
-        self.entries.get(&artifact).map(|e| &e.dek).ok_or_else(|| {
+        self.dek(artifact).ok_or_else(|| {
             CryptoError::RegistryInvalid(format!("no DEK for {}", artifact.as_str()))
         })
     }
@@ -462,10 +602,28 @@ impl KeyRegistry {
     ///
     /// [`CryptoError::RegistryIo`] when the registry cannot be written.
     pub fn begin_epoch(&mut self, artifact: Artifact) -> Result<u64, CryptoError> {
-        let entry = self.ensure_entry(artifact)?;
-        let epoch = random_bytes::<8>();
-        let epoch = u64::from_be_bytes(epoch);
-        entry.epoch = epoch;
+        let epoch = u64::from_be_bytes(random_bytes::<8>());
+        {
+            let mut state = self.shared.state.lock();
+            if !state.entries.contains_key(&artifact) {
+                let dek = random_bytes::<32>();
+                let wrapped = wrap_dek(&state.kek, &dek, artifact, state.key_version)?;
+                let mut dek_id = [0u8; DEK_ID_LEN];
+                rand::rng().fill_bytes(&mut dek_id);
+                state.entries.insert(
+                    artifact,
+                    ArtifactEntry {
+                        dek: Zeroizing::new(dek),
+                        wrapped,
+                        dek_id,
+                        epoch: 0,
+                    },
+                );
+            }
+            if let Some(entry) = state.entries.get_mut(&artifact) {
+                entry.epoch = epoch;
+            }
+        }
         self.allocators
             .insert(artifact, Arc::new(NonceAllocator::new(artifact, epoch)));
         // The epoch must be durable BEFORE the first encryption under it.
@@ -493,81 +651,81 @@ impl KeyRegistry {
         allocator.next()
     }
 
-    /// Create the in-memory entry of `artifact` (DEK + label) if missing.
-    fn ensure_entry(&mut self, artifact: Artifact) -> Result<&mut ArtifactEntry, CryptoError> {
-        if !self.entries.contains_key(&artifact) {
-            let dek = random_bytes::<32>();
-            let wrapped = self.wrap_dek(&dek, artifact)?;
-            let mut dek_id = [0u8; DEK_ID_LEN];
-            rand::rng().fill_bytes(&mut dek_id);
-            self.entries.insert(
-                artifact,
-                ArtifactEntry {
-                    dek: Zeroizing::new(dek),
-                    wrapped,
-                    dek_id,
-                    epoch: 0,
-                },
-            );
+    /// **Rotate** the master key: re-wrap every DEK under a new KEK.
+    ///
+    /// The DEKs are **not** re-derived — only their wrapping changes — so no
+    /// ciphertext already on disk is invalidated (`FIND-194`). The operation
+    /// is O(number of artefacts) = 4, not O(data).
+    ///
+    /// The previous registry is left as `encryption.registry.bak`: copying it
+    /// back is a manual rollback, possible while the **old** master key still
+    /// exists (ADR-0057 §7.2).
+    ///
+    /// # Errors
+    ///
+    /// [`CryptoError::RegistryIo`] when the registry or its backup cannot be
+    /// written, and [`CryptoError::RegistryInvalid`] when the key version is
+    /// exhausted.
+    pub fn rotate(&mut self, new_material: &[u8]) -> Result<u8, CryptoError> {
+        // The backup first: a crash after this point leaves the old registry
+        // recoverable.
+        if self.path.exists() {
+            let backup = Self::backup_path_in(self.path.parent().unwrap_or(Path::new(".")));
+            std::fs::copy(&self.path, &backup).map_err(|e| {
+                CryptoError::RegistryIo(format!(
+                    "cannot write the registry backup {}: {e}",
+                    backup.display()
+                ))
+            })?;
         }
-        self.entries.get_mut(&artifact).ok_or_else(|| {
-            CryptoError::RegistryInvalid(format!("no DEK for {}", artifact.as_str()))
-        })
+        let new_version = {
+            let mut state = self.shared.state.lock();
+            let new_version = state.key_version.checked_add(1).ok_or_else(|| {
+                CryptoError::RegistryInvalid("the key version is exhausted".into())
+            })?;
+            // The salt is public and stays: only the wrapping changes.
+            let master = master_from_material(new_material, &state.db_salt)?;
+            let new_kek = Cipher::new(&master[..]).derive_kek(&state.db_salt, new_version)?;
+            let artifacts: Vec<Artifact> = state.entries.keys().copied().collect();
+            for artifact in artifacts {
+                let dek = state
+                    .entries
+                    .get(&artifact)
+                    .map(|e| *e.dek)
+                    .ok_or_else(|| {
+                        CryptoError::RegistryInvalid(format!("no DEK for {}", artifact.as_str()))
+                    })?;
+                let wrapped = wrap_dek(&new_kek, &dek, artifact, new_version)?;
+                let mut dek_id = [0u8; DEK_ID_LEN];
+                rand::rng().fill_bytes(&mut dek_id);
+                if let Some(entry) = state.entries.get_mut(&artifact) {
+                    entry.wrapped = wrapped;
+                    // A new label: a re-wrap is detectable.
+                    entry.dek_id = dek_id;
+                }
+            }
+            // The sentinel is re-wrapped too: it must prove the **new** key.
+            state.key_check = wrap_key_check(&new_kek, new_version)?;
+            state.key_version = new_version;
+            state.kek = new_kek;
+            new_version
+        };
+        self.persist()?;
+        Ok(new_version)
     }
 
-    /// Wrap a DEK under the KEK: `nonce(12) ‖ ciphertext ‖ tag(16)`.
-    fn wrap_dek(&self, dek: &[u8; 32], artifact: Artifact) -> Result<Vec<u8>, CryptoError> {
-        let mut nonce = [0u8; 12];
-        rand::rng().fill_bytes(&mut nonce);
-        let aad = dek_aad(artifact, self.key_version);
-        let sealed = self.kek.encrypt_with_nonce(&nonce, dek, &aad)?;
-        let mut wrapped = Vec::with_capacity(nonce.len() + sealed.len());
-        wrapped.extend_from_slice(&nonce);
-        wrapped.extend_from_slice(&sealed);
-        Ok(wrapped)
-    }
-
-    /// Wrap the key-check sentinel: `nonce(12) ‖ ciphertext ‖ tag(16)`.
-    fn wrap_key_check(&self) -> Result<Vec<u8>, CryptoError> {
-        let sentinel = random_bytes::<32>();
-        let mut nonce = [0u8; 12];
-        rand::rng().fill_bytes(&mut nonce);
-        let aad = key_check_aad(self.key_version);
-        let sealed = self.kek.encrypt_with_nonce(&nonce, &sentinel, &aad)?;
-        let mut wrapped = Vec::with_capacity(nonce.len() + sealed.len());
-        wrapped.extend_from_slice(&nonce);
-        wrapped.extend_from_slice(&sealed);
-        Ok(wrapped)
-    }
-
-    /// Verify that the master key unwraps the sentinel.
-    fn unwrap_key_check(&self) -> Result<(), CryptoError> {
-        if self.key_check.len() < 12 + 16 {
-            return Err(CryptoError::RegistryInvalid(
-                "key check sentinel is truncated".into(),
-            ));
-        }
-        let mut nonce = [0u8; 12];
-        nonce.copy_from_slice(&self.key_check[..12]);
-        let aad = key_check_aad(self.key_version);
-        self.kek
-            .decrypt_with_nonce(&nonce, &self.key_check[12..], &aad)
-            .map(|_| ())
-            .map_err(|_| CryptoError::DecryptionFailed)
-    }
-
-    /// Serialize the registry.
-    fn encode(&self) -> Vec<u8> {
+    /// Serialize the registry state.
+    fn encode(state: &RegistryState) -> Vec<u8> {
         let mut out = Vec::with_capacity(256);
         out.extend_from_slice(REGISTRY_MAGIC);
         out.extend_from_slice(&REGISTRY_FORMAT.to_be_bytes());
-        out.push(self.key_version);
+        out.push(state.key_version);
         out.push(0); // reserved
-        out.extend_from_slice(&self.db_salt);
-        out.extend_from_slice(&(self.key_check.len() as u32).to_be_bytes());
-        out.extend_from_slice(&self.key_check);
-        out.extend_from_slice(&(self.entries.len() as u32).to_be_bytes());
-        for (artifact, entry) in &self.entries {
+        out.extend_from_slice(&state.db_salt);
+        out.extend_from_slice(&(state.key_check.len() as u32).to_be_bytes());
+        out.extend_from_slice(&state.key_check);
+        out.extend_from_slice(&(state.entries.len() as u32).to_be_bytes());
+        for (artifact, entry) in &state.entries {
             out.extend_from_slice(&artifact.code().to_be_bytes());
             out.extend_from_slice(&entry.dek_id);
             out.extend_from_slice(&(entry.wrapped.len() as u32).to_be_bytes());
@@ -581,12 +739,12 @@ impl KeyRegistry {
 
     /// Write the registry atomically: tmp file → fsync → rename → dir fsync.
     fn persist(&self) -> Result<(), CryptoError> {
+        let bytes = Self::encode(&self.shared.state.lock());
         if let Some(parent) = self.path.parent() {
             std::fs::create_dir_all(parent).map_err(|e| {
                 CryptoError::RegistryIo(format!("cannot create {}: {e}", parent.display()))
             })?;
         }
-        let bytes = self.encode();
         let tmp_path = self.tmp_path();
         {
             let mut file = std::fs::File::create(&tmp_path).map_err(|e| {
@@ -623,6 +781,51 @@ impl KeyRegistry {
             .unwrap_or_else(|| REGISTRY_FILE_NAME.to_string());
         self.path.with_file_name(format!("{name}.tmp"))
     }
+}
+
+/// Wrap a DEK under `kek`: `nonce(12) ‖ ciphertext ‖ tag(16)`.
+fn wrap_dek(
+    kek: &Cipher,
+    dek: &[u8; 32],
+    artifact: Artifact,
+    key_version: u8,
+) -> Result<Vec<u8>, CryptoError> {
+    let mut nonce = [0u8; 12];
+    rand::rng().fill_bytes(&mut nonce);
+    let aad = dek_aad(artifact, key_version);
+    let sealed = kek.encrypt_with_nonce(&nonce, dek, &aad)?;
+    let mut wrapped = Vec::with_capacity(nonce.len() + sealed.len());
+    wrapped.extend_from_slice(&nonce);
+    wrapped.extend_from_slice(&sealed);
+    Ok(wrapped)
+}
+
+/// Wrap the key-check sentinel: `nonce(12) ‖ ciphertext ‖ tag(16)`.
+fn wrap_key_check(kek: &Cipher, key_version: u8) -> Result<Vec<u8>, CryptoError> {
+    let sentinel = random_bytes::<32>();
+    let mut nonce = [0u8; 12];
+    rand::rng().fill_bytes(&mut nonce);
+    let aad = key_check_aad(key_version);
+    let sealed = kek.encrypt_with_nonce(&nonce, &sentinel, &aad)?;
+    let mut wrapped = Vec::with_capacity(nonce.len() + sealed.len());
+    wrapped.extend_from_slice(&nonce);
+    wrapped.extend_from_slice(&sealed);
+    Ok(wrapped)
+}
+
+/// Verify that the master key unwraps the sentinel.
+fn unwrap_key_check(kek: &Cipher, key_check: &[u8], key_version: u8) -> Result<(), CryptoError> {
+    if key_check.len() < 12 + 16 {
+        return Err(CryptoError::RegistryInvalid(
+            "key check sentinel is truncated".into(),
+        ));
+    }
+    let mut nonce = [0u8; 12];
+    nonce.copy_from_slice(&key_check[..12]);
+    let aad = key_check_aad(key_version);
+    kek.decrypt_with_nonce(&nonce, &key_check[12..], &aad)
+        .map(|_| ())
+        .map_err(|_| CryptoError::DecryptionFailed)
 }
 
 /// AAD of a wrapped DEK: `"vanta-dek-v1" ‖ artifact_id ‖ key_version`.

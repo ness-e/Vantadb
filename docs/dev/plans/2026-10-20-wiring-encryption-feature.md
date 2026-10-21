@@ -378,7 +378,14 @@ cargo nextest run -p vantadb --profile audit --test hnsw_validation --features e
 
 ---
 
-### W6 — Activación, registro, rotación, y documentación honesta (el claim pasa a ser verdad)
+### W6 - Activación, registro, rotación, y documentación honesta (el claim pasa a ser verdad)
+
+**Estado:** ✅ implementada y verificada el 2026-10-21 (nota de la wave:
+`docs/dev/reviews/2026-10-21-w6-encryption-activation.md`). 90 tests de cifrado + los 2493 del
+lib en verde, `clippy -D warnings` limpio con y sin la feature `encryption`, `fmt --check`
+limpio, canario de 6 superficies en verde. **Siguiente:** W7 (medición del p99 y del coste por
+imagen) — ver §5 de la nota de la wave: el bench `canonical_p99` es in-memory y no mide el coste
+at-rest, hacen falta el bench del WAL cifrado y uno nuevo del motor con clave configurada.
 
 **Artefacto:** transverso (los 4) + #5 y #6 por tránsito.
 **Ficheros:** `src/storage/engine/init.rs` (detección de modo en el open, `:324`/`:404`/`:427`) ·

@@ -299,6 +299,10 @@ pub enum Commands {
     #[command(subcommand)]
     Wal(WalCommand),
 
+    /// Manage the at-rest encryption of a database (rotate the master key)
+    #[command(subcommand)]
+    Encryption(EncryptionCommand),
+
     /// Search across multiple namespaces and merge results by score
     SearchMulti {
         /// Comma-separated list of namespaces to search (e.g. "ns1,ns2,ns3")
@@ -502,6 +506,24 @@ pub enum WalCommand {
     },
 }
 
+/// Subcommands for the at-rest encryption of a database (ADR-0057 W6).
+#[derive(Subcommand, Debug, Clone)]
+pub enum EncryptionCommand {
+    /// Rotate the master key: the DEKs are re-wrapped, never re-derived, so
+    /// no ciphertext on disk is invalidated. The previous registry is kept as
+    /// `encryption.registry.bak` for a manual rollback.
+    Rotate {
+        /// The new master key, hex-encoded (32 bytes = 64 hex chars).
+        /// Prefer `--new-key-file`: a key on the command line is visible in
+        /// the process list and in the shell history.
+        #[arg(long, conflicts_with = "new_key_file")]
+        new_key: Option<String>,
+        /// A file holding the new hex master key (the recommended form).
+        #[arg(long)]
+        new_key_file: Option<String>,
+    },
+}
+
 /// Subcommands for purge certificates (VER-02)
 #[derive(Subcommand, Debug, Clone)]
 pub enum CertificateCommand {
@@ -555,6 +577,50 @@ impl From<Shell> for clap_complete::Shell {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// ADR-0057 W6: `encryption rotate` must parse — it is the only way to
+    /// change the master key without invalidating a single ciphertext.
+    #[test]
+    fn encryption_rotate_command_parses() {
+        let hex = "ab".repeat(32);
+        let cli = Cli::try_parse_from([
+            "vanta-cli",
+            "encryption",
+            "rotate",
+            "--new-key",
+            hex.as_str(),
+        ])
+        .expect("`encryption rotate --new-key` must parse");
+        match cli.command {
+            Commands::Encryption(EncryptionCommand::Rotate {
+                new_key,
+                new_key_file,
+            }) => {
+                assert_eq!(new_key.as_deref(), Some(hex.as_str()));
+                assert!(new_key_file.is_none());
+            }
+            other => panic!("expected `encryption rotate`, got {other:?}"),
+        }
+    }
+
+    /// ADR-0057 W6: the two ways of giving the new key are exclusive.
+    #[test]
+    fn encryption_rotate_rejects_both_key_sources() {
+        let err = Cli::try_parse_from([
+            "vanta-cli",
+            "encryption",
+            "rotate",
+            "--new-key",
+            "ab",
+            "--new-key-file",
+            "C:\\keys\\new.key",
+        ])
+        .expect_err("the two key sources must be exclusive");
+        assert!(
+            err.to_string().contains("cannot be used with"),
+            "unexpected error: {err}"
+        );
+    }
 
     /// Regression: `migrate run --format` help must list every accepted format.
     /// The canonical list is `FormatKind` (plus `all`), same as the runtime

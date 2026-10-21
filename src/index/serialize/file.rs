@@ -233,7 +233,11 @@ impl CPIndex {
             path: path.to_path_buf(),
             mmap: None,
         };
-        icrypto::store(&index.crypto, Some(crypto.clone()));
+        // ADR-0057 W6: the **read-only** context is NOT cached in the slot:
+        // the slot holds the *write* context, and a read-only one would make
+        // the first flush fail ("the hnsw encryption context is read-only:
+        // it cannot seal an image"). The write path resolves its own context
+        // on the first write — with the same DEK (the registry holds it).
         info!(
             path = %path.display(),
             node_count = index.nodes.len(),

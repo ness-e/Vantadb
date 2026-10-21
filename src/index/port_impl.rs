@@ -28,8 +28,24 @@ impl crate::index_port::sealed::Sealed for IndexBackend {}
 /// Open an existing index file behind the cycle-breaking handle.
 /// Fresh (never-written) paths fall back to the in-memory/mmap constructors below.
 /// Returns `Box` (unique ownership for the init phase; `Arc::from` shares it after).
-pub(crate) fn open_index_port(path: &Path, use_mmap: bool) -> Result<Box<dyn IndexPort>, Error> {
+///
+/// ADR-0057 W6: `image_crypto` is the **write** context of the index image,
+/// resolved by the engine at the open (ADR-0057 D5). Installing it here means
+/// the image's nonce epoch is allocated — and the encryption registry written
+/// — **outside every engine lock**: without it, the image would resolve its
+/// context at its first write, which happens under the `insert_lock`.
+pub(crate) fn open_index_port(
+    path: &Path,
+    use_mmap: bool,
+    #[cfg_attr(not(feature = "encryption"), allow(unused_variables))] image_crypto: Option<
+        crate::index::serialize::crypto::HnswImageCryptoContext,
+    >,
+) -> Result<Box<dyn IndexPort>, Error> {
     let index = CPIndex::open_index(path, use_mmap)?;
+    #[cfg(feature = "encryption")]
+    if let Some(context) = image_crypto {
+        crate::index::serialize::crypto::store(&index.crypto, Some(context));
+    }
     Ok(Box::new(index))
 }
 

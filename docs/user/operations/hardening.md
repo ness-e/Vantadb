@@ -277,4 +277,4 @@ jq 'select(.namespace=="team-a")' /var/log/vantadb/audit.jsonl
 **Next Steps (Post-v0.5.0):**
 - SRV-06: OIDC/JWT integration (delegated)
 - SRV-09: mTLS for inter-node (distributed mode)
-- Encryption at rest: AES-256-GCM primitives shipped (feature `encryption`) but not wired to storage write paths yet — tracked in FIND-249; use OS/volume encryption today
+- Encryption at rest: **shipped and opt-in** (feature `encryption`, not in `default`) — the WAL, the VantaFile segments, the HNSW image and the backend key-value store are encrypted with per-artefact AEAD envelopes when a master key is configured (`ADR-0057`). It is **off by default**: without the feature *and* a key the bytes are unchanged, so use OS/volume encryption as the complement. The runbook is [`security/KEY_RUNBOOK.md`](security/KEY_RUNBOOK.md).
