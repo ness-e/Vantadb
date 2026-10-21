@@ -51,10 +51,11 @@ y de lectura**.
 
 ### 1.2 Dataset y perfil (los canonicos, no unos propios)
 
-- **Dataset:** seed 42, **100k × 1536d**, generado **exactamente** como
-  `benches/canonical_p99.rs` (`StdRng::seed_from_u64(42)`, `rng.random::<f32>()`).
-  Los 1000 queries son los 1000 primeros vectores de ese mismo stream — igual
-  que en el bench canonico.
+- **Dataset:** seed 42, **100k × 1536d** (protocolo del plan), generado
+  **exactamente** como `benches/canonical_p99.rs` (`StdRng::seed_from_u64(42)`,
+  `rng.random::<f32>()`). Los 1000 queries son los 1000 primeros vectores de
+  ese mismo stream — igual que en el bench canonico. **La corrida publicada
+  fue a 2 000 × 1536d** (§3.1: 100k no se pudo medir en esta maquina).
 - **Perfil:** `benches/common::apply_fixed_profile` (warmup 3 s / measure 5 s,
   confianza 0.95), el mismo de todos los benches de regresion.
 - **Protocolo:** **3 corridas, mediana** (plan §5, W7; Regla 9).
@@ -264,7 +265,8 @@ fsync por registro (1.4137 ms → 1.4211 ms = **+0.5 %**) el cifrado es
 
 | Hueco | Motivo (con el dato) |
 | :--- | :--- |
-| **3 corridas con mediana** (el protocolo del plan) | La maquina la comparten **3 agentes** que compilan el mismo crate a la vez: el lock de artefactos de cargo serializo cada compilacion (la del bench tardo **59 min 57 s** en el perfil `bench`) y una corrida canonica de 100k tarda **~25 min** por invocacion. 6 invocaciones = **~2,5 h** solo de medicion, mas las compilaciones. Se entrega **1 par completo** (P1 + E1) del dataset canonico de 100k x 1536d. |
+| **El dataset canonico de 100k × 1536d** | La maquina la comparten **3 agentes** que compilan el mismo crate a la vez: el lock de artefactos de cargo serializo cada compilacion (la del bench tardo **59 min 57 s** en el perfil `bench`) y una corrida canonica de 100k tarda **~25 min** por invocacion (6 invocaciones = **~2,5 h** solo de medicion, mas las compilaciones). El intento de 100k **murio** con `os error 1450` (recursos insuficientes) durante el `insert` y el de 10k quedó **descartado** por ser E/S-bounded (§3.1). Lo publicado son **3 + 3 corridas (mediana) a 2 000 × 1536d** (§3). |
+| **El p99 de la busqueda como numero de regresion** | El protocolo de §3 da **+71.2 %** y uno identico corrido 1 h 40 min antes da **−14.2 %** (spread intra-variante +56 % a +200 %): el suelo de ruido de esta maquina compartida es del orden del umbral (§3.2). El **gate del 15 % NO queda certificado** — hace falta una maquina dedicada o CI. |
 | **`canonical_p99` re-medido en esta maquina** | `canonical_p99` es **in-memory puro** y **no** mide el cifrado: re-medirlo solo sirve como referencia de escala de la maquina, y su bench imprime su histograma con `println!` (el mismo defecto de buffer que se corrigio aqui). El baseline registrado (2026-09-25) se cita **como baseline registrado**, no como numero de esta maquina. |
 | **RSS pico** | Se **si** midio (muestreado cada 3 s sobre el proceso del bench) durante las corridas; lo que **no** se midio es el RSS del proceso con el **dataset completo de 100k** en paralelo con los otros agentes, porque el pico se produce durante el `insert` y la maquina estaba compartida. |
 | **Coste de CPU del AEAD aislado** (us/frame) | El plan lo daba por **"no medido → no se afirma nada"** (§9 del plan). Esta wave mide el coste **de extremo a extremo** (insert / search / flush / cold), no el coste unitario de un sello GCM: ese numero sigue sin existir y no se afirma. |
