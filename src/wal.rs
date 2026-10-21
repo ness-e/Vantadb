@@ -1139,6 +1139,302 @@ impl WalWriter {
     }
 }
 
+// ─── FIND-343: physical erasure of the deleted payloads ──────────────────
+
+/// The node a WAL record writes, if any.
+///
+/// Only the node-scoped records carry a payload: `Insert` and `Update` hold a
+/// whole [`UnifiedNode`] (the memory payload travels on it), `Delete` is a
+/// bare id. The transaction records carry no node.
+pub(crate) fn record_node_id(record: &WalRecord) -> Option<u128> {
+    match record {
+        WalRecord::Insert(node) => Some(node.id),
+        WalRecord::Update { id, .. } => Some(*id),
+        WalRecord::Delete { id } => Some(*id),
+        _ => None,
+    }
+}
+
+/// The outcome of one redaction pass over a WAL segment.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) struct SegmentRedact {
+    /// Records inspected.
+    pub scanned: u64,
+    /// Records replaced by a payload-free tombstone.
+    pub redacted: u64,
+    /// Segment size before the pass.
+    pub bytes_before: u64,
+    /// Segment size after the pass.
+    pub bytes_after: u64,
+    /// Why the segment was left untouched (empty when it was rewritten).
+    pub skipped: Option<&'static str>,
+}
+
+/// The aggregate outcome of a redaction pass over every WAL segment.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) struct WalRedactReport {
+    /// Segments inspected.
+    pub segments: u64,
+    /// Records inspected.
+    pub scanned: u64,
+    /// Records replaced by a payload-free tombstone.
+    pub redacted: u64,
+    /// Bytes before the pass.
+    pub bytes_before: u64,
+    /// Bytes after the pass.
+    pub bytes_after: u64,
+    /// Why the pass was skipped (empty when it ran).
+    pub skipped: Option<&'static str>,
+}
+
+/// The scratch name used while a segment is rewritten.
+///
+/// The name carries **no** `.wal.` infix: the WAL shipper discovers the
+/// rotated segments with `name.contains(".wal.") && !name.ends_with(".wal")`
+/// and must never pick up a half-written scratch file. A rotated segment is
+/// named `<shard>.wal.<millis>`, hence the **infix** is cut, not just the
+/// extension.
+pub(crate) fn scratch_path(path: &Path) -> PathBuf {
+    let name = path
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_else(|| "wal".to_string());
+    let stem = match name.find(".wal") {
+        Some(idx) => &name[..idx],
+        None => &name[..],
+    };
+    let dir = path.parent().unwrap_or(Path::new("."));
+    dir.join(format!("{stem}.redact-{}.tmp", std::process::id()))
+}
+
+/// Read the on-disk format version of a WAL segment (0 when unreadable).
+fn segment_version(path: &Path) -> u16 {
+    let Ok(mut file) = File::open(path) else {
+        return 0;
+    };
+    let mut head = [0u8; WalHeader::SIZE];
+    if file.read_exact(&mut head).is_err() {
+        return 0;
+    }
+    WalHeader::deserialize(&head)
+        .map(|h| h.base.format_version)
+        .unwrap_or(0)
+}
+
+/// Write one record as a WAL frame, updating the VER-01 chain head.
+///
+/// The frame layout follows the segment's own version: the chained tail
+/// (`prev_hash ‖ record_hash`) is appended from [`WAL_CHAIN_VERSION`] on, the
+/// legacy layout is byte-compatible with it.
+fn write_frame(
+    out: &mut impl Write,
+    record: &WalRecord,
+    chained: bool,
+    prev: &mut [u8; CHAIN_HASH_SIZE],
+) -> Result<()> {
+    let payload = postcard::to_allocvec(record).map_err(Error::serialization)?;
+    let len = payload.len() as u32;
+    let crc = crc32c(&payload);
+    out.write_all(&len.to_le_bytes())?;
+    out.write_all(&payload)?;
+    out.write_all(&crc.to_le_bytes())?;
+    if chained {
+        let record_hash = chain_hash(prev, &len.to_le_bytes(), &payload, &crc.to_le_bytes());
+        out.write_all(prev)?;
+        out.write_all(&record_hash)?;
+        *prev = record_hash;
+    }
+    Ok(())
+}
+
+/// Rewrite a **plaintext** WAL segment into `tmp`, replacing the records of
+/// the erased nodes with payload-free tombstones.
+///
+/// * The record **count** is preserved (a tombstone replaces the record), so
+///   the `checkpoint_seq` semantics — "the first N records are already
+///   applied" — stay exact: the recovery skips the same number of records
+///   before and after the pass.
+/// * The replayed **state** is identical: a node whose last record is a
+///   `Delete` ends up absent with or without the redaction.
+/// * The VER-01 chain is recomputed over the new frames.
+/// * The segment is left untouched when there is nothing to redact, when it is
+///   **encrypted** (v4 — the payload is already ciphertext) or when its tail
+///   is corrupt (the quarantine path owns that case).
+///
+/// The rewrite is **streaming** (one record in flight): a 256 MiB segment
+/// never has to fit in RAM.
+pub(crate) fn write_redacted_segment(
+    src: &Path,
+    tmp: &Path,
+    erased: &dyn Fn(&WalRecord) -> bool,
+) -> Result<SegmentRedact> {
+    let bytes_before = std::fs::metadata(src).map(|m| m.len()).unwrap_or(0);
+    let version = segment_version(src);
+    if version == 0 {
+        return Ok(SegmentRedact {
+            bytes_before,
+            skipped: Some("unreadable header"),
+            ..Default::default()
+        });
+    }
+    if is_encrypted(version) {
+        return Ok(SegmentRedact {
+            bytes_before,
+            skipped: Some("encrypted segment (v4): the payload is already ciphertext"),
+            ..Default::default()
+        });
+    }
+
+    // Pass 1: the tail must be clean. A corrupt tail is the quarantine path's
+    // business — never drop it here.
+    let mut scanned = 0u64;
+    let mut reader = WalReader::open(src)?;
+    while reader.next_record()?.is_some() {
+        scanned += 1;
+    }
+    let consumed = reader.consumed()?;
+    drop(reader);
+    let file_len = std::fs::metadata(src).map(|m| m.len()).unwrap_or(0);
+    if consumed != file_len {
+        return Ok(SegmentRedact {
+            scanned,
+            redacted: 0,
+            bytes_before,
+            bytes_after: bytes_before,
+            skipped: Some("corrupt tail: left to the quarantine path"),
+        });
+    }
+
+    // Pass 2: stream the survivors into the scratch file.
+    let mut reader = WalReader::open(src)?;
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(tmp)?;
+    let mut redacted = 0u64;
+    let mut prev = CHAIN_GENESIS;
+    {
+        let mut out = BufWriter::with_capacity(256 * KIB, &mut file);
+        out.write_all(&WalHeader::new(version as u32).serialize())?;
+        while let Some(record) = reader.next_record()? {
+            let record = if erased(&record) && !matches!(record, WalRecord::Delete { .. }) {
+                match record_node_id(&record) {
+                    Some(id) => {
+                        redacted += 1;
+                        WalRecord::Delete { id }
+                    }
+                    None => record,
+                }
+            } else {
+                record
+            };
+            write_frame(&mut out, &record, is_chained(version), &mut prev)?;
+        }
+        let flushed = out.flush();
+        if let Err(err) = flushed {
+            let _ = std::fs::remove_file(tmp);
+            return Err(Error::Io(err));
+        }
+    }
+    if let Err(err) = file.sync_all() {
+        let _ = std::fs::remove_file(tmp);
+        return Err(Error::Io(err));
+    }
+    let bytes_after = file.metadata().map(|m| m.len()).unwrap_or(bytes_before);
+    drop(file);
+
+    if redacted == 0 {
+        let _ = std::fs::remove_file(tmp);
+        return Ok(SegmentRedact {
+            scanned,
+            redacted: 0,
+            bytes_before,
+            bytes_after: bytes_before,
+            skipped: Some("nothing to redact"),
+        });
+    }
+
+    Ok(SegmentRedact {
+        scanned,
+        redacted,
+        bytes_before,
+        bytes_after,
+        skipped: None,
+    })
+}
+
+/// Swap `tmp` over `path` atomically: the rename is the commit point and the
+/// parent directory is fsync'd so the swap survives a power loss.
+pub(crate) fn swap_segment(tmp: &Path, path: &Path) -> Result<()> {
+    std::fs::rename(tmp, path).map_err(Error::Io)?;
+    crate::utils::fs::sync_parent_dir(path).map_err(Error::Io)?;
+    Ok(())
+}
+
+impl WalWriter {
+    /// Physically erase the payloads of the **deleted** nodes from this
+    /// segment (FIND-343).
+    ///
+    /// The erased records are replaced by payload-free tombstones, so the
+    /// record count — and therefore the `checkpoint_seq` semantics — are
+    /// untouched, and the replayed state is identical.
+    ///
+    /// The pass is **opportunistic**: an encrypted (v4) segment, a corrupt
+    /// tail or a segment with nothing to redact are left alone.
+    pub(crate) fn redact_erased(
+        &mut self,
+        erased: &dyn Fn(&WalRecord) -> bool,
+    ) -> Result<SegmentRedact> {
+        if is_encrypted(self.format_version) {
+            return Ok(SegmentRedact {
+                bytes_before: self.bytes_written,
+                skipped: Some("encrypted segment (v4): the payload is already ciphertext"),
+                ..Default::default()
+            });
+        }
+        // The pass rewrites the whole segment: the pending appends must be on
+        // disk before the records are read.
+        self.sync()?;
+        let path = self.path.clone();
+        let capacity = self.writer.capacity();
+        let tmp = scratch_path(&path);
+        let outcome = write_redacted_segment(&path, &tmp, erased)?;
+        if outcome.redacted == 0 {
+            let _ = std::fs::remove_file(&tmp);
+            return Ok(outcome);
+        }
+        // The rename needs the destination closed (Windows refuses to replace
+        // an open file): detach the handle, swap, then reopen. The
+        // placeholder is a scratch file that is removed right away — it only
+        // exists so the writer owns *some* handle while the swap happens.
+        let placeholder = scratch_path(&path).with_extension("placeholder");
+        let detached = std::mem::replace(
+            &mut self.writer,
+            BufWriter::with_capacity(
+                1,
+                OpenOptions::new()
+                    .write(true)
+                    .create(true)
+                    .truncate(true)
+                    .open(&placeholder)?,
+            ),
+        );
+        drop(detached);
+        let _ = std::fs::remove_file(&placeholder);
+        if let Err(err) = swap_segment(&tmp, &path) {
+            let _ = std::fs::remove_file(&tmp);
+            return Err(err);
+        }
+        // Reopen the segment: the reader re-derives the record count, the
+        // byte count and the chain head from the new file.
+        let reopened =
+            Self::open_impl(&path, self.sync_mode, capacity, self.flush_threshold, None)?;
+        *self = reopened;
+        Ok(outcome)
+    }
+}
+
 // ─── Scan-Forward Helpers ─────────────────────────────────
 
 /// Check whether a valid WAL record exists at `pos` in the given reader.
@@ -1852,6 +2148,15 @@ impl WalReader {
             #[cfg(feature = "encryption")]
             frame_slot: 0,
         })
+    }
+
+    /// How many bytes of the file the reader has consumed.
+    ///
+    /// A reader that stops **before** the end of the file hit a corrupt or
+    /// incomplete tail: the redaction pass uses this to leave such a segment
+    /// alone (the quarantine path owns it).
+    pub(crate) fn consumed(&mut self) -> Result<u64> {
+        Ok(self.reader.stream_position()?)
     }
 
     /// Read next record with Scan-Forward Auto-healing. Returns None at EOF.
@@ -3046,6 +3351,153 @@ mod tests {
                 "the plaintext frame layout must not change"
             );
         }
+    }
+    // ─── FIND-343: physical erasure of the deleted payloads ──────────
+
+    /// A node whose payload carries the canary.
+    fn node_with_canary(id: u128, canary: &str) -> UnifiedNode {
+        let mut node = UnifiedNode::new(id);
+        node.set_field(
+            "payload",
+            crate::node::FieldValue::String(canary.to_string()),
+        );
+        node
+    }
+
+    /// The canary must not survive in the segment any more.
+    fn segment_contains(path: &std::path::Path, canary: &str) -> bool {
+        let bytes = std::fs::read(path).unwrap_or_default();
+        bytes.windows(canary.len()).any(|w| w == canary.as_bytes())
+    }
+
+    /// FIND-343: the payload of a deleted node is physically erased, the
+    /// record **count** is preserved and the chain still verifies.
+    #[test]
+    fn redact_erased_replaces_the_payload_with_a_tombstone() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("vanta.wal");
+        let canary = "FIND343-wal-canary-payload-4b1d";
+
+        let mut writer = WalWriter::open(&path, crate::config::SyncMode::Periodic).unwrap();
+        writer
+            .append(&WalRecord::Insert(node_with_canary(7, canary)))
+            .unwrap();
+        writer.append(&WalRecord::Delete { id: 7 }).unwrap();
+        writer
+            .append(&WalRecord::Insert(node_with_canary(8, "live-payload")))
+            .unwrap();
+        writer.sync().unwrap();
+        let count_before = writer.record_count();
+        assert!(segment_contains(&path, canary));
+
+        let outcome = writer
+            .redact_erased(&|record| matches!(record, WalRecord::Insert(n) if n.id == 7))
+            .unwrap();
+        assert_eq!(outcome.redacted, 1, "the deleted node's record is redacted");
+        assert_eq!(
+            writer.record_count(),
+            count_before,
+            "the record count must not change: the checkpoint_seq semantics depend on it"
+        );
+        assert!(
+            !segment_contains(&path, canary),
+            "the deleted payload survived in the segment"
+        );
+        assert!(
+            segment_contains(&path, "live-payload"),
+            "the payload of a live node must survive"
+        );
+
+        // The chain still verifies after the rewrite (VER-01).
+        let report = verify_wal_file(&path).unwrap();
+        assert!(
+            matches!(&report.status, WalVerifyStatus::Verified),
+            "the rewritten segment must keep a valid chain, got {:?}",
+            report.status
+        );
+        assert_eq!(report.records, count_before);
+    }
+
+    /// FIND-343: a node that was **not** deleted keeps its payload — the
+    /// erasure only touches the deleted nodes.
+    #[test]
+    fn redact_erased_keeps_the_payload_of_a_live_node() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("vanta.wal");
+        let canary = "FIND343-live-canary-9c2e";
+
+        let mut writer = WalWriter::open(&path, crate::config::SyncMode::Periodic).unwrap();
+        writer
+            .append(&WalRecord::Insert(node_with_canary(9, canary)))
+            .unwrap();
+        writer.sync().unwrap();
+
+        let outcome = writer.redact_erased(&|_| false).unwrap();
+        assert_eq!(outcome.redacted, 0);
+        assert!(segment_contains(&path, canary));
+    }
+
+    /// FIND-343: the scratch file of a redaction must never be discovered by
+    /// the WAL shipper (which matches `*.wal.*` and would read a half-written
+    /// file as a segment).
+    #[test]
+    fn redact_scratch_file_is_not_discoverable_by_the_shipper() {
+        for name in ["vanta.wal", "vanta.shard0.wal", "vanta.wal.1700000000000"] {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join(name);
+            let scratch = scratch_path(&path);
+            let file_name = scratch
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .into_owned();
+            let shipper_match = file_name.contains(".wal.") && !file_name.ends_with(".wal");
+            assert!(
+                !shipper_match,
+                "the scratch file '{file_name}' would be shipped as a WAL segment"
+            );
+        }
+    }
+
+    /// FIND-343: the replayed state does not change — a redacted node is
+    /// absent, exactly like the node that was deleted.
+    #[test]
+    fn redact_erased_keeps_the_replayed_state() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("vanta.wal");
+
+        let mut writer = WalWriter::open(&path, crate::config::SyncMode::Periodic).unwrap();
+        writer
+            .append(&WalRecord::Insert(node_with_canary(1, "gone")))
+            .unwrap();
+        writer.append(&WalRecord::Delete { id: 1 }).unwrap();
+        writer
+            .append(&WalRecord::Insert(node_with_canary(2, "kept")))
+            .unwrap();
+        writer.sync().unwrap();
+
+        writer
+            .redact_erased(&|record| matches!(record, WalRecord::Insert(n) if n.id == 1))
+            .unwrap();
+
+        let mut reader = WalReader::open(&path).unwrap();
+        let mut live = std::collections::HashSet::new();
+        while let Some(record) = reader.next_record().unwrap() {
+            match record {
+                WalRecord::Insert(node) => {
+                    live.insert(node.id);
+                }
+                WalRecord::Delete { id } => {
+                    live.remove(&id);
+                }
+                _ => {}
+            }
+        }
+        assert_eq!(
+            live,
+            std::collections::HashSet::from([2u128]),
+            "the replayed state must be identical after the redaction"
+        );
     }
 }
 
