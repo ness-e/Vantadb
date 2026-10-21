@@ -526,7 +526,6 @@ Build-time feature flags in `Cargo.toml`:
 | `arrow` | `arrow` | Apache Arrow IPC support |
 | `rkyv-serialization` | `rkyv` | Zero-copy rkyv archives for HNSW |
 | `failpoints` | `fail` | Fault-injection testing |
-| `encryption` | `aes-gcm`, `ring` | AES-256-GCM primitives (`Cipher`/`EncryptionStream`) for at-rest encryption — **not wired to storage write paths yet**: data at rest remains plaintext and the engine warns at open when the feature and key are both active (on-disk backends; FIND-249). On the HTTP server, enable it via `cargo build -p vantadb-server --features encryption`; without the feature a configured `VANTADB_ENCRYPTION_KEY` is ignored and the HTTP server warns at startup (SRV-10) |
 | `custom-allocator` | `mimalloc` | mimalloc global allocator |
 
 ## 8. OpenTelemetry Tracing Environment

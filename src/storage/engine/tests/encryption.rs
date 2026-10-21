@@ -587,27 +587,112 @@ fn security_md_claim_matches_the_implemented_scope() {
 
 /// The documentation gate: no document may still claim that the core
 /// storage files are **not** encrypted at rest — the wiring landed
+/// The documentation gate: no document may still claim that the core
+/// storage files are **not** encrypted at rest — the wiring landed
 /// (ADR-0057 R-12: the inverse false claim is just as bad).
+///
+/// The gate sweeps **every** Rust source and **every** doc (not a
+/// hand-picked list of three files) looking for *patterns* that assert
+/// the inverse capability, with an explicit exception list.
+///
+/// A gate that only reads three files and two literal strings
+/// certifies nothing: it passed while five public documents (the crate
+/// rustdoc, the `Config` rustdoc, `Config::with_encryption`, the HTTP
+/// API doc and the feature table) still told the reader that no
+/// write path was encrypted.
 #[test]
 fn no_document_still_says_not_encrypted_at_rest_yet() {
+    use std::path::{Path, PathBuf};
+
+    /// Patterns that assert the inverse capability (compared lowercased).
+    const FORBIDDEN: &[&str] = &[
+        "not encrypted at rest yet",
+        "not yet wired",
+        "not yet applied to any storage",
+        "no storage write path",
+        "no cableadas a los write paths",
+        "no hay cifrado at-rest efectivo",
+        "data at rest remains plaintext",
+        "data at rest stays plaintext",
+    ];
+    /// Paths whose text legitimately quotes the historical claim
+    /// (the backlog, the reports and the plans are *history*, not
+    /// current documentation).
+    const EXCEPTED: &[&str] = &[
+        // The test tree quotes the old notices on purpose (it asserts they are gone).
+        "src/storage/engine/tests/",
+        // ADRs are the dated design record: they quote the *then* state.
+        "docs/dev/architecture/adr/",
+        "docs/dev/Backlog.md",
+        "docs/dev/reviews/",
+        "docs/dev/avance/",
+        "docs/dev/plans/",
+        "docs/dev/tasks/",
+        "target/",
+    ];
+
+    fn excepted(rel: &str) -> bool {
+        EXCEPTED
+            .iter()
+            .any(|e| rel.starts_with(e) || rel.contains(e))
+    }
+
+    fn walk(dir: &Path, out: &mut Vec<PathBuf>) {
+        let Ok(entries) = std::fs::read_dir(dir) else {
+            return;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let name = entry.file_name();
+            let name = name.to_string_lossy();
+            if name == "target" || name == ".git" || name == "node_modules" {
+                continue;
+            }
+            if path.is_dir() {
+                walk(&path, out);
+            } else {
+                let ext = path
+                    .extension()
+                    .map(|e| e.to_string_lossy().to_lowercase())
+                    .unwrap_or_default();
+                if ext == "rs" || ext == "md" {
+                    out.push(path);
+                }
+            }
+        }
+    }
+
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
-    for file in [
-        "SECURITY.md",
-        "src/crypto.rs",
-        "docs/user/operations/CONFIGURATION.md",
-    ] {
-        let path = root.join(file);
-        let Ok(text) = std::fs::read_to_string(&path) else {
+    let mut files = Vec::new();
+    for dir in ["src", "docs"] {
+        walk(&root.join(dir), &mut files);
+    }
+    files.push(root.join("SECURITY.md"));
+
+    let mut offenders: Vec<String> = Vec::new();
+    for file in files {
+        let rel = file
+            .strip_prefix(root)
+            .unwrap_or(&file)
+            .to_string_lossy()
+            .replace('\\', "/");
+        if excepted(&rel) {
+            continue;
+        }
+        let Ok(text) = std::fs::read_to_string(&file) else {
             continue;
         };
         let lower = text.to_lowercase();
-        assert!(
-            !lower.contains("not encrypted at rest yet"),
-            "{file} still claims the core storage files are not encrypted at rest"
-        );
-        assert!(
-            !lower.contains("not yet wired"),
-            "{file} still claims the feature is not wired to the storage paths"
-        );
+        for pattern in FORBIDDEN {
+            if lower.contains(pattern) {
+                offenders.push(format!("{rel}: \"{pattern}\""));
+            }
+        }
     }
+    assert!(
+        offenders.is_empty(),
+        "these documents still claim the feature is not wired to the storage \
+                 paths (the inverse false claim is as bad as the original one):\n  - {}",
+        offenders.join("\n  - ")
+    );
 }

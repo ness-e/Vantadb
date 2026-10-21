@@ -79,6 +79,16 @@ pub fn cosine_sim_f32(a: &[f32], b: &[f32]) -> f32 {
 /// for "not comparable".
 #[inline(always)]
 pub fn euclidean_distance_squared_f32(a: &[f32], b: &[f32]) -> f32 {
+    // FIND-411: a dimension mismatch is **not comparable** — it must score the
+    // NaN sentinel, never a finite number. `0.0` was the *best* possible
+    // Euclidean score (distance 0), so a mismatched candidate outranked every
+    // valid one. The two sibling kernels (`cosine_sim_f32` and
+    // `euclidean_distance_sq_with_norms`) already had this guard; this one did
+    // not, so the flat scan and the HNSW traversal could disagree about the
+    // same candidate.
+    if a.len() != b.len() {
+        return crate::index::distance::kernels::DIMENSION_MISMATCH_SCORE;
+    }
     (select_kernels().euclidean_sq)(a, b)
 }
 

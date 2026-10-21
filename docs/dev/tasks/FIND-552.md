@@ -1,3 +1,11 @@
+---
+title: "FIND-552 - La proyeccion (FETCH) destruye los metadatos que necesitan los post-filtros"
+kind: task
+status: active
+description: "Que AS OF y el filtro de confianza se apliquen aunque la query proyecte campos: hoy FETCH (name) anula el filtro valid-time."
+tags: [physical-plan, executor, critica, correctness]
+---
+
 # FIND-552: La proyeccion (FETCH) destruye los metadatos que necesitan los post-filtros
 
 `PhysicalProject::next` **elimina** todo campo no proyectado (`node.relational = projected`). Los filtros temporales se aplican **post-plan** (`executor.rs:257-264` -> `filter_valid_at`) y `node_is_valid_at` lee `__vanta_valid_at_ms` / `__vanta_created_at_ms`; si no estan, `let Some(valid_at) = valid_at else { return true; }` ⇒ **sin metadatos = siempre valido**. Esos dos campos no estan en la lista de proyeccion ⇒ desaparecen ⇒ el predicado temporal se convierte en `true` para todas las filas: `FROM Doc AS OF 1500 FETCH (name)` devuelve nodos **no validos** en t=1500. El filtro valid-time (SCH-03 / ADR-046 D3) queda **anulado sin error ni warning**.

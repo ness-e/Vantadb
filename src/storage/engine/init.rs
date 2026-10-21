@@ -793,7 +793,6 @@ pub(crate) struct DbEncryption {
     /// The storage root of this database.
     root: std::path::PathBuf,
     /// Whether the database is brand new (no artefact on disk yet).
-    new_database: bool,
     /// Whether the open is read-only: an epoch is never allocated then, and
     /// the registry is never written.
     read_only: bool,
@@ -858,7 +857,6 @@ impl DbEncryption {
             mode,
             encrypted: Default::default(),
             root: root.to_path_buf(),
-            new_database,
             read_only: config.read_only,
             in_memory,
         })
@@ -889,15 +887,23 @@ impl DbEncryption {
         let mut registry =
             crate::crypto::registry::KeyRegistry::open_or_create(data_dir, &material[..])
                 .map_err(crypto_error)?;
-        if self.new_database {
-            for artifact in [
-                crate::crypto::registry::Artifact::Wal,
-                crate::crypto::registry::Artifact::VantaFile,
-                crate::crypto::registry::Artifact::HnswImage,
-                crate::crypto::registry::Artifact::BackendKv,
-            ] {
-                registry.ensure_dek(artifact).map_err(crypto_error)?;
-            }
+        // The four DEKs are ensured **whenever the mode is encrypted**, not
+        // only for a brand-new database. A crash between the backend opening
+        // (which creates the registry with a single `BackendKv` entry) and this
+        // point left the registry saying "encrypted" while the WAL, the
+        // segments and the HNSW image were still in plaintext — a silent
+        // mixed mode (ADR-0057 D1 rule 3 forbids it) with no warning.
+        //
+        // `ensure_dek` is a no-op for an artefact that already has an entry
+        // (it returns the existing DEK, it never re-derives one), so this
+        // cannot invalidate a single existing ciphertext.
+        for artifact in [
+            crate::crypto::registry::Artifact::Wal,
+            crate::crypto::registry::Artifact::VantaFile,
+            crate::crypto::registry::Artifact::HnswImage,
+            crate::crypto::registry::Artifact::BackendKv,
+        ] {
+            registry.ensure_dek(artifact).map_err(crypto_error)?;
         }
         self.encrypted = registry.artifacts();
         crate::crypto::register_process_key(&self.root, Some(material.clone()));

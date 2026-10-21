@@ -750,6 +750,22 @@ impl KeyRegistry {
             let mut file = std::fs::File::create(&tmp_path).map_err(|e| {
                 CryptoError::RegistryIo(format!("cannot create {}: {e}", tmp_path.display()))
             })?;
+            // 0600: the registry is **partially secret** (the db_salt, the
+            // wrapped DEKs, the key-check sentinel). With a passphrase-shaped
+            // master key, leaking the salt turns "no key" into an offline
+            // dictionary attack. The repo already requires 0600 for the key
+            // file; the registry gets the same treatment.
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                file.set_permissions(std::fs::Permissions::from_mode(0o600))
+                    .map_err(|e| {
+                        CryptoError::RegistryIo(format!(
+                            "cannot chmod 600 {}: {e}",
+                            tmp_path.display()
+                        ))
+                    })?;
+            }
             use std::io::Write;
             file.write_all(&bytes).map_err(|e| {
                 CryptoError::RegistryIo(format!("cannot write {}: {e}", tmp_path.display()))

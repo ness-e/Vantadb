@@ -52,7 +52,15 @@
 //! engine.close().unwrap();
 //! ```
 
-/// AES-256-GCM primitives for at-rest encryption (not yet wired to storage write paths — data at rest remains plaintext; FIND-249).
+/// AES-256-GCM at-rest encryption (opt-in `encryption` feature).
+///
+/// With a master key configured, the engine encrypts its four on-disk write paths:
+/// the WAL (v4), the VantaFile segments (v3), the backend KV (per-value envelope) and
+/// the HNSW image (whole-file envelope); the text index and the snapshots follow by
+/// transitivity. The mode is decided **from the bytes on disk**, not from the config.
+///
+/// Read [`SECURITY.md`](https://github.com/ness-e/Vantadb/blob/main/SECURITY.md) for the
+/// declared limits (what stays in cleartext, what is lost, and what the key registry is).
 #[cfg(feature = "encryption")]
 pub mod crypto;
 
