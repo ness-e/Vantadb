@@ -136,6 +136,28 @@ fn iql_parse_error_message(err: &nom::Err<nom::error::Error<&str>>) -> String {
     err.to_string()
 }
 
+/// RAII guard that returns the governor's admission reservation on **every**
+/// exit path (FIND-555).
+///
+/// The reservation lives in a **global** counter (`governor::ALLOCATED_BYTES`),
+/// so an early `?` used to leak it: every failed query left its reservation
+/// charged forever. After ~20 failures the counter passed the 2 GiB soft limit
+/// and `check_memory_pressure` rejected **every** subsequent query with
+/// `Error::ResourceLimit` — including writes — leaving the engine unusable
+/// until it was restarted. The old code only freed the budget on the happy
+/// path (and on one explicit early return), which is why the leak survived a
+/// test that only exercised that single early return.
+struct AllocationGuard<'a> {
+    governor: &'a crate::governor::ResourceGovernor,
+    bytes: usize,
+}
+
+impl Drop for AllocationGuard<'_> {
+    fn drop(&mut self) {
+        self.governor.free_allocation(self.bytes);
+    }
+}
+
 /// Query executor that evaluates logical plans against the storage engine.
 pub struct Executor<'a> {
     /// Reference to the storage engine.
@@ -252,7 +274,6 @@ impl<'a> Executor<'a> {
         governor.request_allocation(probe_cost)?;
         Ok(())
     }
-
     /// SELECT path: logical plan → Volcano execution → valid-time filter.
     fn execute_select(&self, select: SelectStatement) -> Result<ExecutionResult> {
         let as_of_ms = select.as_of_ms;
@@ -608,12 +629,18 @@ impl<'a> Executor<'a> {
             .estimate_plan_cost(self.storage, &plan)
             .estimated_bytes;
         governor.request_allocation(estimated_mem_cost)?;
+        // FIND-555: the reservation is global, so it must be returned on
+        // EVERY exit path — the guard does it on drop, including the `?`
+        // early returns below.
+        let _reservation = AllocationGuard {
+            governor: &governor,
+            bytes: estimated_mem_cost,
+        };
 
         // Intercept Conflict# entity scans (governance framework was archived 2024-06)
         for op in &plan.operators {
             if let LogicalOperator::Scan { entity } = op {
                 if entity.starts_with("Conflict#") {
-                    governor.free_allocation(estimated_mem_cost);
                     return Err(Error::Iql(ChainedError::msg(
                         "Conflict# entity scans are not supported (governance framework archived 2024-06).",
                     )));
@@ -649,7 +676,6 @@ impl<'a> Executor<'a> {
         }
 
         physical_op.close()?;
-        governor.free_allocation(estimated_mem_cost);
         Ok(results)
     }
 }
@@ -1643,6 +1669,50 @@ mod tests {
             "admission budget must be freed on the error path"
         );
         ALLOCATED_BYTES.store(0, Ordering::SeqCst);
+    }
+
+    // ── Admission guard (FIND-555): the budget must be returned on EVERY path ──
+
+    /// The reservation lives in a **global** counter, so a failing query that
+    /// does not return it grows the counter until the engine rejects every
+    /// subsequent query — including writes — with `Error::ResourceLimit`.
+    /// The RAII guard is what makes that impossible; this pins its contract.
+    #[test]
+    #[serial_test::serial]
+    fn test_allocation_guard_frees_on_every_exit() {
+        use crate::governor::{ResourceGovernor, ALLOCATED_BYTES};
+        use std::sync::atomic::Ordering as AtomicOrdering;
+
+        let gov = ResourceGovernor::new(2 * GIB, 50);
+        ALLOCATED_BYTES.store(0, AtomicOrdering::SeqCst);
+        gov.request_allocation(4096)
+            .expect("the reservation must be granted");
+
+        {
+            let _reservation = AllocationGuard {
+                governor: &gov,
+                bytes: 4096,
+            };
+            assert!(
+                ALLOCATED_BYTES.load(AtomicOrdering::SeqCst) >= 4096,
+                "the guard must hold the reservation while it is alive"
+            );
+        }
+        assert_eq!(
+            ALLOCATED_BYTES.load(AtomicOrdering::SeqCst),
+            0,
+            "the reservation must be freed when the guard is dropped"
+        );
+
+        // FIND-572: freeing more than was reserved must not wrap the counter
+        // (a wrapped counter rejects every later query with ResourceLimit).
+        gov.free_allocation(4096);
+        assert_eq!(
+            ALLOCATED_BYTES.load(AtomicOrdering::SeqCst),
+            0,
+            "an over-free must saturate at zero, never wrap"
+        );
+        ALLOCATED_BYTES.store(0, AtomicOrdering::SeqCst);
     }
 
     // ── execute_hybrid: aggregations (WIRE-13) ──

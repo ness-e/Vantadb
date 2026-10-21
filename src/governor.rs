@@ -68,8 +68,18 @@ impl ResourceGovernor {
     }
 
     /// Free allocation
+    ///
+    /// **Saturating** (FIND-572): a free that exceeds what is reserved leaves
+    /// the counter at zero instead of wrapping `usize` around. A wrapped
+    /// counter is astronomically large, so every later `request_allocation` is
+    /// rejected with `Error::ResourceLimit` — the engine would refuse every
+    /// query, including writes, until it was restarted. That made any
+    /// imbalance between a reserve and its free (a double free, a free without
+    /// a reserve) a permanent DoS.
     pub fn free_allocation(&self, bytes: usize) {
-        ALLOCATED_BYTES.fetch_sub(bytes, Ordering::SeqCst);
+        let _ = ALLOCATED_BYTES.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |current| {
+            Some(current.saturating_sub(bytes))
+        });
     }
 
     /// Adapts the query plan based on TEMPERATURE
