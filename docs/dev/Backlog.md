@@ -56,7 +56,7 @@ verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-hist
 | **P37** 🎨 Auditoría diseño desktop post-fix | 0 — ✅ 9/9 ejecutadas (DAUD-01..09; cerrada 2026-08-26) | — | ✅ Cerrada |
 | **P38** 🔬 Research huérfanas → tarea | 2 (RES-16 · DEC-02 ICEBOX; DEC-01 resuelta por research — ADR queda en BIZ-09) | ~1 semana | 🟡 Media |
 | **P39–P40/P44** 🔌 Research INV (proxy/server/integrations) | 0 — sin filas pendientes | — | ✅/migrado |
-| **Phase 60** 🔍 Auditoría profunda v0.9.0 | **253** (P0/P1-P2 individuales · 20 lotes P2/P3 · 4 pendientes de release; las filas cerradas van a `docs/dev/avance/`) | ~10–14 semanas | 🔴 P0–P3 | 📥 |
+| **Phase 60** 🔍 Auditoría profunda v0.9.0 | **300** (P0/P1-P2 individuales · 20 lotes P2/P3 · 4 pendientes de release; las filas cerradas van a `docs/dev/avance/`). **+4 auditorías de hueco de cobertura el 2026-10-21**: gramática IQL (`FIND-502`), frontera FFI y bindings (`FIND-504`), physical_plan/planner/executor (`FIND-503`, 2 de 12 módulos) y los 9 adaptadores + skills (`FIND-506`) | ~12–16 semanas | 🔴 P0–P3 | 📥 |
 | **P41** 🧩 INV-vantadb-ts | 3 (TS-10/11/13) | ~1-2 semanas | 🟠/🟡 |
 | **P42** 🧩 INV-vantadb-wasm | 1 (WSM-14) | ~1 semana | 🟠 Alta |
 | **P43** 🌐 Research web | 0 — ⏳ WEB-09 diferida con criterio (2026-11-02; defer registrado) | — | ⏳ Diferida |
