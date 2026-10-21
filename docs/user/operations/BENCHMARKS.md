@@ -1545,6 +1545,12 @@ envelope, porque un AEAD de 24 B no amortiza nada).
 | `always` / 1 000 (fsync por lote) | 411.65 Melem/s | 267.11 Melem/s | **−35.1 %** | 2.31 µs | 3.258 µs | **+0.95 µs** |
 | `always` / 1 (fsync por registro) | 658.68 elem/s | 361.36 elem/s (CI 270–538: ruidoso) | — | 1.4137 ms | 1.4211 ms | **+0.5 %** |
 
+> Trazabilidad: los dos binarios de este bench se compilaron del **mismo
+> `benches/wal_throughput.rs`**; el `src/` paso por el codigo aditivo del
+> borrado fisico del WAL (FIND-343, 0 lineas borradas — no toca
+> `append`/`batch_append`) entre las dos compilaciones, asi que el camino
+> caliente medido es identico en las dos variantes.
+
 **Aqui si hay un numero limpio y reproducible:** el envelope del WAL cuesta
 **≈ +0.6 a +1.2 µs por frame** (el AEAD + el CRC32C y el SHA-256 **sobre el
 ciphertext**, que antes eran sobre el plaintext). Consecuencias:
