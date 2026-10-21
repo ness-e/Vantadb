@@ -1386,3 +1386,63 @@ everse/created_at_ms (#[serde(default)], back-compat). Contrato: test bindgen wa
   en el rango tocado. Hallazgo nuevo: la superficie WASM sigue sin declarar
   `exclude_superseded` en `ListOptionsInput` y sin emitir `superseded_by` (`FIND-482`,
   `FIND-483`).
+
+
+## Auditoria de la frontera FFI y los bindings (FIND-504) — 19 hallazgos nuevos (2026-10-21)
+
+- **Fecha:** 2026-10-21
+- **Resultado:** ✅ el hueco que `FIND-504` declaraba (`vantadb-ffi-core/`, `index.cjs`,
+  `native.ts` completo y `examples/`) queda cerrado. Informe:
+  `docs/dev/reviews/audit-ffi-bindings-20261021.md`.
+
+**Lo que encontro:**
+
+- **La frontera es memoria-segura por construccion:** **cero `unsafe`** en los 3 transportes
+  (napi, wasm, python) — el `grep` de `unsafe {` / `unwrap_unchecked` / `get_unchecked` /
+  `transmute` / `from_raw_parts` da 0 hits. Los problemas no son de corrupcion de memoria.
+- **3 stubs que fabrican datos en vez de fallar** (`FIND-536`, `FIND-537`, `FIND-539`):
+  `metricsPrometheus()` devuelve `vantadb_up 1` constante (el binding no tiene el metodo),
+  `graphShortestPath()` devuelve `[src, tgt]` (un camino de 2 aristas inventado, sea cual sea el
+  real) y `findNodesByLabel()` devuelve `[]` incondicional. El `NativeClientBinding` los
+  **promete** en su interfaz, asi que un consumidor obtiene una respuesta plausible donde deberia
+  haber un error.
+- **`searchMulti` nativa lanza siempre** (`FIND-533`): el guard exige `namespace` no vacio
+  (`guards.ts:217`) y la forma objeto no lo trae; el backend WASM tiene el workaround y el nativo
+  no. El test que lo cubre solo ejercita WASM.
+- **El metadata tiene dos formas segun el backend** (`FIND-532`): el WASM lo serializa como `Map`
+  de ES2015 (el serializer por defecto de `serde_wasm_bindgen`) y el Node como objeto plano, con un
+  unico tipo público `Metadata = Record<string, Value>` para los dos → `rec.metadata.lang` es
+  `undefined` en WASM y `{String:"en"}` en Node, y el guard no lo detecta.
+- **El vector denso acepta un `f64` que desborda a `f32::INFINITY`** (`FIND-535`): el filtro de
+  finitud es a nivel f64 y `1e300` pasa → se persiste un `inf` → la similitud da NaN. El camino
+  **sparse ya se habia corregido para esto** (`vantadb-node/src/lib.rs:1437-1444`) y el core no
+  valida finitud (`usable_vector` solo comprueba "no todos cero").
+- **Posible deadlock en `close()`** (`FIND-534`): `OpGate::drain()` hace `cvar.wait` **dentro** de
+  un `async fn` de napi-rs → bloquea un worker de tokio; con 1 worker, nadie puede pollear la op
+  en vuelo → `count` nunca llega a 0.
+- **Los 6 ejemplos de `vantadb-ts/examples/` importan `{ VantaDB }`, que el paquete no exporta**
+  (`FIND-538`): los 6 son inertes y fallan en la primera linea, y el CI no los ejecuta (el gate de
+  docs solo valida ejemplos Python).
+- **El `.d.ts` del WASM se contradice con el runtime y con el SDK TS** (`FIND-540`, `FIND-541`):
+  `EdgeRecord.target_id` vs el `target` real, `reverse` omitido (es load-bearing para el
+  recorrido direccional), y el metadata descrito como JSON plano cuando en el cable es la forma
+  etiquetada dentro de un `Map`.
+- **El doc canonico del binding esta por debajo del codigo** (`FIND-543`): `NODE_SDK.md` omite 9
+  metodos publicos (incluido `exclude_superseded`, que FIND-412/482/483 introdujeron sin
+  documentar). Ademas afirma una deriva ya corregida (`FIND-544`).
+
+**Ademas:**
+
+- `FIND-482` y `FIND-483` actualizados con el detalle exacto de la auditoria (confirmados).
+- `FIND-509` confirmado en sus **3** partes (sigue abierto): el `.ok()` de `read_header`, el
+  doc-comment obsoleto de `DiskNodeHeader::vector_offset` (→ `FIND-545`) y el `madvise` con la
+  semantica vieja.
+- **La premisa de `FIND-504` sobre `vector_offset` queda invalidada por evidencia:** ningun binding
+  expone el campo (0 hits en `*.{ts,js,cjs,mjs,py,pyi}`). El dano real es de **API publica + docs**,
+  no de FFI. Y la premisa de que "el `.cjs` es el ultimo bloqueo de cadena de suministro" tambien:
+  el `.cjs` **falla ruidosamente** cuando no encuentra el binding (`index.cjs:687-700` → `throw`);
+  el riesgo de fallo silencioso esta en `vantadb-ts/src/native.ts`.
+
+**Nota (Ponytail lite):** la leccion no es de memoria, es que **un stub silencioso es peor que un
+hueco**. Los tres stubs se arreglan con 3 lineas cada uno (lanzar `DbError` de "no soportado en
+este backend") y eliminan de raiz `FIND-536`, `FIND-537` y `FIND-539`.
