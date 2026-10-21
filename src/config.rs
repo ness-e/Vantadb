@@ -943,10 +943,18 @@ pub struct Config {
     /// Optional AES-256-GCM encryption key (hex-encoded 32-byte value).
     ///
     /// Requires the `encryption` feature. Configured via
-    /// `VANTADB_ENCRYPTION_KEY`. **Not yet applied to any storage write
-    /// path:** WAL, HNSW, VantaFile, backend KV, text index and snapshots
-    /// remain plaintext (FIND-249); the engine warns at open when the feature
-    /// and key are both active.
+    /// `VANTADB_ENCRYPTION_KEY` (or the file/command sources; see
+    /// `docs/user/operations/CONFIGURATION.md`).
+    ///
+    /// With the feature and a key both active, the engine encrypts its four
+    /// on-disk write paths (WAL, VantaFile segments, backend KV, HNSW image);
+    /// the text index and the snapshots follow by transitivity. The mode is
+    /// decided from the bytes on disk, and a **new** database created with a
+    /// key is encrypted from the first byte.
+    ///
+    /// An **existing plaintext** database is never migrated in place: the key
+    /// is ignored with a warning (export + import into a new database instead).
+    /// See `SECURITY.md` for the declared limits.
     pub encryption_key: Option<String>,
     /// Path to a file holding the hex-encoded master key.
     ///
@@ -1811,9 +1819,11 @@ impl Config {
     /// Sets the encryption key for at-rest AES-256-GCM encryption.
     ///
     /// The key should be a hex-encoded 32-byte (64 hex char) value.
-    /// Requires the `encryption` feature. Note: the feature ships AES-256-GCM
-    /// primitives but no storage write path is wired yet — data at rest stays
-    /// plaintext (FIND-249) and the engine warns at open.
+    /// Requires the `encryption` feature. With it and a key both active, the
+    /// engine encrypts its four on-disk write paths (WAL, VantaFile segments,
+    /// backend KV, HNSW image). An existing plaintext database is **not**
+    /// migrated in place: the key is ignored with a warning. See
+    /// `SECURITY.md` for the declared limits.
     pub fn with_encryption(mut self, key: String) -> Self {
         self.encryption_key = Some(key);
         self

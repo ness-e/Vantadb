@@ -20,7 +20,10 @@ use crate::error::{Error, Result};
 /// The **current** key comes from the usual sources (environment → key file
 /// → key command); the **new** key comes from `--new-key` / `--new-key-file`.
 #[cfg(feature = "encryption")]
-#[tracing::instrument]
+// `new_key` IS the new master key in hex: it must never reach a span field
+// (the default subscriber prints the span with its fields, and the logs are
+// centralised).
+#[tracing::instrument(skip(new_key, new_key_file))]
 pub fn cmd_encryption_rotate(
     db_path: &str,
     new_key: Option<&str>,
@@ -115,7 +118,10 @@ pub fn cmd_encryption_rotate(
 ///
 /// This build has **no** `encryption` feature: there is nothing to rotate.
 #[cfg(not(feature = "encryption"))]
-#[tracing::instrument]
+// `new_key` IS the new master key in hex: it must never reach a span field
+// (the default subscriber prints the span with its fields, and the logs are
+// centralised).
+#[tracing::instrument(skip(new_key, new_key_file))]
 pub fn cmd_encryption_rotate(
     db_path: &str,
     new_key: Option<&str>,

@@ -1,3 +1,11 @@
+---
+title: "FIND-517 - La pre-reserva de 320 MB al conectar el binding de Node"
+kind: task
+status: active
+description: "Que conectar un store vacio no reserve 320 MB: es el coste dominante de memoria del producto de Ego (VDB-REQ-14)."
+tags: [bindings, node, memoria, critica, ego]
+---
+
 # FIND-517: La pre-reserva de 320 MB al conectar el binding: un store vacio ya ocupa 320,06 MB
 
 Conectar el binding de Node **reserva 320 MB** (5 x 64 MB) antes de que haya datos: un store **vacio** ya ocupa 320,06 MB, y `ConnectOptions` solo expone `read_only` y `memory_limit` ⇒ la reserva **no es parametrizable**. En el producto de Ego cada memoria abierta (proyecto, sesiones, sub-egos) cuesta 320 MB ⇒ es el **coste dominante de memoria del producto**, y no sale en ningun `memory_limit` porque no es memoria viva sino espacio reservado.

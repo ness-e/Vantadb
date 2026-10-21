@@ -1,3 +1,11 @@
+---
+title: "FIND-518 - El WHERE entero de IQL se pierde si la primera condicion no parsea"
+kind: task
+status: active
+description: "Corregir el parser: un WHERE mal formado debe ser un error de parseo, no un escaneo sin filtro. Incluye FIND-519 (el trailing input se descarta en silencio)."
+tags: [parser, iql, critica, correctness]
+---
+
 # FIND-518: El WHERE entero se pierde si la primera condicion no parsea
 
 El parser de IQL envuelve la clausula `WHERE` en `opt(...)`: en `nom`, un `opt` ante `Err::Error` **restaura el input** y devuelve `None`. Con `FROM Doc WHERE n =` (una condicion mal formada) el resultado es `FROM Doc` **sin filtro y sin error**: la query se ejecuta como un escaneo completo y `PhysicalScan::open` materializa todos los nodos en RAM antes de filtrar (viola `memory-budget.md` R-3/R-4). Su hermana `FIND-519` es el mismo patron: el *trailing input* de cualquier statement se descarta en silencio (HTTP, MCP y CLI), asi que `WHERE a = 1, b = 2` aplica un filtro y **pierde el otro**, `min >= 0.88` degrada el brazo vectorial a match lexico, `PROFILE bogus` corre sin perfil e `INSERT ... LINK ...` inserta el nodo sin arista.

@@ -1,3 +1,11 @@
+---
+title: "FIND-553 - El path vectorial no scopea por entidad y el CBO puede eliminar un predicado"
+kind: task
+status: active
+description: "Que la busqueda vectorial respete la entidad consultada y que el CBO no pueda descartar un predicado del WHERE. Incluye FIND-554, FIND-521 y FIND-560."
+tags: [planner, cbo, vector-search, critica, correctness]
+---
+
 # FIND-553: El path vectorial no scopea por entidad y el CBO puede eliminar un predicado
 
 **FIND-553**: en la rama por defecto del path vectorial (`planner.rs:388-401`) se construye `PhysicalVectorSearch::new(storage, query_text, min_score)` **sin la entidad**: no hay `PhysicalScan`, no hay filtro por tipo y la busqueda corre con `ALL_BITSET` sobre todo el indice (top-5 global). `FROM Doc WHERE content ~ "x", min = 0.5` devuelve los vecinos mas cercanos del **store entero**; la query "equivalente" con un filtro relacional extra entra en la rama refine y **si** scopea ⇒ **anadir un filtro redundante cambia el conjunto de filas**.

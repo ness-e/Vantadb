@@ -33,7 +33,11 @@ We aim to acknowledge receipt within 48 hours and provide an initial assessment 
   - The **master key lives in the process memory** while the database is open: this protects the data at rest, **not** against an attacker who can read the process's memory (or who has the key).
   - **Losing `data/encryption.registry` loses the database**: the DEKs only live there. Back it up with the data, never separately from it.
   - There is **no in-place migration**: an existing plaintext database is never migrated implicitly (a key configured on a plaintext database is ignored, with a warning). To encrypt it, export it and import it into a new database created with the key configured.
-  - **wal-shipping egresses plaintext records** to the remote replica: the replica must hold the same DEK, and the transport is outside the "at rest" boundary.
+  - **The replication of an encrypted database does not work**: the WAL shipper cannot read a v4
+  (encrypted) segment, so the shipping cycle **fails and sends nothing** (it does not egress
+  plaintext either). The same for the backup: a backup of an encrypted database is only
+  restorable together with its `data/encryption.registry`. Both are open findings
+  (`FIND-496`, `FIND-507`).
 - **Constant-time token comparison** (`subtle::ConstantTimeEq`) for API key auth — no timing side channels.
 - **Path traversal prevention** — all filesystem paths validated via `prevent_path_traversal()`.
 - **Read-only mode** — write operations fail before touching storage when `read_only: true`.

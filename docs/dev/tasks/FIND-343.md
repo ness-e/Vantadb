@@ -1,3 +1,11 @@
+---
+title: "FIND-343 - Borrado fisico incompleto: el payload sigue legible en el WAL rotado y el journal"
+kind: task
+status: active
+description: "Delimitar y corregir la retencion del payload de un registro borrado: el WAL rotado y el journal de Fjall lo conservan."
+tags: [durabilidad, wal, privacidad, critica]
+---
+
 # FIND-343: Borrado fisico incompleto: el payload sigue legible en el WAL rotado y en el journal Fjall
 
 Tras un `delete` (logico), el **payload** sigue siendo recuperable: en el **WAL rotado** (`vanta.wal.<ts>`, los shards rotados por auto-rotate) y en el **journal de Fjall** (el backend). Es decir: un registro borrado no ha borrado sus bytes, solo ha marcado su clave como borrada. Un atacante con acceso al disco (o un `strings` sobre los ficheros) recupera el contenido.
