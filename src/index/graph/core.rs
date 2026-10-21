@@ -59,6 +59,15 @@ pub struct CPIndex {
     /// (one dimension per base). It is cached here so the write/search path
     /// does not scan the whole node set on every call.
     pub vector_dim: AtomicUsize,
+    /// The encryption context of the `hnsw` artefact (ADR-0057 W5).
+    ///
+    /// Resolved **once** — at the cold start of the image or, for a fresh
+    /// index, at the first write — and then kept for the life of the index:
+    /// the nonce counter lives in it (ADR-0057 D3). `None` means "no key
+    /// resolved": the image stays plaintext, byte-identical to the layout
+    /// before this change.
+    #[cfg_attr(not(feature = "encryption"), allow(dead_code))]
+    pub(crate) crypto: crate::index::serialize::crypto::HnswImageCryptoSlot,
 }
 #[inline]
 pub(crate) fn cached_norms_for_metric(
@@ -97,6 +106,7 @@ impl CPIndex {
             scann_built_at_node_count: AtomicUsize::new(0),
             neighbor_index: crate::index::neighbor_index::HnswNeighborIndex::new(),
             vector_dim: AtomicUsize::new(0),
+            crypto: Default::default(),
         }
     }
 

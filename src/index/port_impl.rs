@@ -92,7 +92,10 @@ impl IndexPort for CPIndex {
     where
         Self: Sized,
     {
-        Self::load_from_file(path, use_mmap).ok_or_else(|| {
+        // ADR-0057 W5: the image's own header decides the mode — a v9 image
+        // without a key is an explicit `EncryptionKeyRequired`, never
+        // "corrupt" (ADR-0057 D7).
+        Self::load_from_file_checked(path, use_mmap)?.ok_or_else(|| {
             Error::Io(std::io::Error::new(
                 std::io::ErrorKind::NotFound,
                 format!("index file missing or unreadable: {}", path.display()),
@@ -135,7 +138,20 @@ impl IndexPort for CPIndex {
         // temp file + mapping, rename into place with no open handles (Windows),
         // re-map the final file and attach it as the live backend. RCU-friendly:
         // builds a NEW index instead of mutating through the shared handle.
-        let data = self.serialize_to_bytes();
+        //
+        // ADR-0057 W5: when the database is encrypted the temp file holds the
+        // **ciphertext** (one AEAD envelope over the whole image) and the new
+        // index is rebuilt from the decrypted payload.
+        #[cfg(feature = "encryption")]
+        let (data, payload) = match self.image_write_crypto(path)? {
+            Some(crypto) => {
+                let (file_bytes, payload) = self.encrypted_image_bytes(&crypto)?;
+                (file_bytes, Some(payload))
+            }
+            None => (self.serialize_to_bytes(), None),
+        };
+        #[cfg(not(feature = "encryption"))]
+        let (data, payload) = (self.serialize_to_bytes(), None::<Vec<u8>>);
         let temp_path = path.with_extension("bin.tmp");
 
         let result = (|| -> std::io::Result<Box<CPIndex>> {
@@ -174,12 +190,26 @@ impl IndexPort for CPIndex {
             // so the mapping size exactly covers the file; `map_mut` validates internally.
             let mapped = unsafe { MmapMut::map_mut(&file)? };
 
-            let mut new_index = CPIndex::deserialize_from_bytes(&data, false)
-                .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))?;
+            let mut new_index = match &payload {
+                // The encrypted image: the payload was decrypted in RAM.
+                Some(payload) => {
+                    CPIndex::deserialize_payload(payload, crate::index::graph::VECTOR_INDEX_VERSION)
+                }
+                // The plaintext image: the bytes are the file's own.
+                None => CPIndex::deserialize_from_bytes(&data, false),
+            }
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))?;
             new_index.backend = IndexBackend::MMapFile {
                 path: path.to_path_buf(),
                 mmap: Some(mapped),
             };
+            // The new index keeps the **same** encryption context: the nonce
+            // sequence of the artefact must not restart (a new epoch per
+            // flush would write the registry on every checkpoint).
+            #[cfg(feature = "encryption")]
+            if let Some(crypto) = crate::index::serialize::crypto::resolved(&self.crypto) {
+                crate::index::serialize::crypto::store(&new_index.crypto, Some(crypto));
+            }
             Ok(Box::new(new_index))
         })();
 

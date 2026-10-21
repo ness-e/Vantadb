@@ -18,8 +18,40 @@ pub(crate) const ENTRY_POINT_NONE: u128 = u128::MAX;
 /// both sides of the storage↔index boundary (F3X; old paths keep working per BND-04).
 pub use crate::index_port::FreshHnswReport;
 pub use crate::node::{DistanceMetric, FilterBitset, VectorRepresentations};
-/// Current HNSW vector index format version.
+/// Current HNSW vector index format version (**plaintext**).
+///
+/// The plaintext version is **not** bumped by the at-rest encryption: an
+/// image written without a key keeps its exact byte layout, forever
+/// (ADR-0057 D1, rule 1). The encrypted format has its own version,
+/// [`VECTOR_INDEX_ENCRYPTED_VERSION`].
 pub const VECTOR_INDEX_VERSION: u16 = 8;
+
+/// Format version of the **encrypted** HNSW image (ADR-0057 W5).
+///
+/// The encrypted image keeps the cleartext `VNDX` header as its **mode
+/// marker** and wraps the whole payload in **one** AEAD envelope:
+///
+/// ```text
+/// [16B header: "VNDX" | 9 | schema_version | timestamp]
+/// [12B nonce]
+/// [ct ‖ 16B tag]
+/// ```
+///
+/// * The marker lives in the **existing cleartext header**, so a reader
+///   decides by the bytes on disk, never by configuration (ADR-0057 D1).
+/// * A v8 image is read exactly as before; a v9 image without a key is an
+///   explicit `EncryptionKeyRequired`, never "corrupt" (ADR-0057 D7).
+pub const VECTOR_INDEX_ENCRYPTED_VERSION: u16 = 9;
+
+/// The highest vector index format version this build can read.
+///
+/// v9 (the encrypted format) is only readable with the `encryption` feature:
+/// a build without it refuses a v9 image with an explicit message.
+pub const VECTOR_INDEX_MAX_READABLE_VERSION: u16 = if cfg!(feature = "encryption") {
+    VECTOR_INDEX_ENCRYPTED_VERSION
+} else {
+    VECTOR_INDEX_VERSION
+};
 
 pub struct HnswNode {
     pub id: u128,

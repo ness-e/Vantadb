@@ -3,6 +3,7 @@
 //! (P2-7 deferred — this module only moves code, never changes format).
 
 mod bytes;
+pub(crate) mod crypto;
 mod file;
 
 #[cfg(test)]
@@ -66,6 +67,7 @@ mod test_util {
             scann_index: parking_lot::Mutex::new(None),
             scann_built_at_node_count: AtomicUsize::new(0),
             vector_dim: AtomicUsize::new(0),
+            crypto: Default::default(),
         }
     }
 }
