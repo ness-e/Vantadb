@@ -61,10 +61,102 @@ pub(crate) fn deserialize_node_payload<T: DeserializeOwned>(
 /// a 4-bit kind field in `flags` (bits 10-13, `NodeFlags::VECTOR_KIND_*`) and a
 /// kind-dependent `vector_len` / payload layout. Legacy files with kind=0 and len>0 are
 /// read as Full for compat (see readers).
+///
+/// In an **encrypted** segment (format v3, ADR-0057 W3) the record is one AEAD
+/// envelope: `[u32 blob_len][12B nonce][ct ‖ 16B tag]`, whose plaintext is
+/// `DiskNodeHeader(64B) ‖ vector payload`. The AAD binds the record to its byte
+/// **offset**, so a record moved to another offset fails to authenticate. A
+/// plaintext segment keeps the exact layout it had before this change.
 pub(crate) fn write_node_to_vstore(vstore: &mut File, node: &UnifiedNode) -> Result<u64> {
+    #[cfg(feature = "encryption")]
+    if vstore.is_encrypted() {
+        return write_node_to_vstore_encrypted(vstore, node);
+    }
     let offset = vstore.write_cursor;
     let header_size = std::mem::size_of::<DiskNodeHeader>() as u64;
     // ADR-032: dispatch payload size / kind from the in-memory representation
+    let (kind, vec_len_u32, payload_len) = vector_layout(node)?;
+    let total_needed = offset + header_size + payload_len;
+    if total_needed > vstore.size {
+        // ponytail: saturating to avoid overflow if size > 2^63 (already past sane limits)
+        let new_size = (vstore.size.saturating_mul(2)).max(total_needed.saturating_add(4096));
+        vstore.grow_to(new_size)?;
+    }
+    let mut header = DiskNodeHeader::new(node.id);
+    header.vector_offset = offset + header_size;
+    header.vector_len = vec_len_u32;
+    header.flags = crate::node::NodeFlags::with_vector_kind(node.flags.0, kind);
+    header.bitset = node.bitset.to_u128();
+    header.confidence_score = node.confidence_score;
+    header.importance = node.importance;
+    header.tier = match node.tier {
+        crate::node::NodeTier::Hot => 1u8,
+        crate::node::NodeTier::Cold => 0u8,
+    };
+    // ERR-029: `edge_count` is a u16 field in the fixed 64-byte DiskNodeHeader.
+    // `as u16` silently truncates, so a node with >65,535 edges used to wrap
+    // (e.g. 65,536 → 0) and corrupt the persisted header. The header layout is
+    // on-disk format; widening the field would break every existing file, so
+    // fail loudly instead of persisting a corrupt count.
+    let edge_count = node.edges.len();
+    if edge_count > u16::MAX as usize {
+        return Err(Error::EdgeCountOverflow {
+            id: node.id,
+            count: edge_count,
+            limit: u16::MAX,
+        });
+    }
+    header.edge_count = edge_count as u16;
+    vstore.write_header(offset, &header)?;
+    if payload_len > 0 {
+        let dst_range =
+            (offset + header_size) as usize..(offset + header_size + payload_len) as usize;
+        let mmap = vstore.mmap_bytes_mut()?;
+        match &node.vector {
+            crate::node::VectorRepresentations::Full(v) => {
+                let vec_bytes = v.as_bytes();
+                mmap[dst_range].copy_from_slice(vec_bytes);
+            }
+            crate::node::VectorRepresentations::Binary(b) => {
+                // SAFETY: &[u64] to &[u8] via raw parts is valid for LE copy; length checked via payload_len
+                let src =
+                    unsafe { std::slice::from_raw_parts(b.as_ptr() as *const u8, b.len() * 8) };
+                mmap[dst_range].copy_from_slice(src);
+            }
+            crate::node::VectorRepresentations::Turbo(t) => {
+                mmap[dst_range].copy_from_slice(t);
+            }
+            crate::node::VectorRepresentations::SQ8(d, scale) => {
+                let n = d.len();
+                // SAFETY: &[i8] to &[u8] is bitwise identical
+                let src = unsafe { std::slice::from_raw_parts(d.as_ptr() as *const u8, n) };
+                mmap[(offset + header_size) as usize..(offset + header_size + n as u64) as usize]
+                    .copy_from_slice(src);
+                mmap[(offset + header_size + n as u64) as usize
+                    ..(offset + header_size + payload_len) as usize]
+                    .copy_from_slice(&scale.to_le_bytes());
+            }
+            crate::node::VectorRepresentations::MmapFull(_) => {
+                if let Some(slice) = node.vector.as_f32_slice() {
+                    let vec_bytes = slice.as_bytes();
+                    mmap[dst_range].copy_from_slice(vec_bytes);
+                }
+            }
+            crate::node::VectorRepresentations::None => {}
+        }
+    }
+    // ponytail: saturating to avoid overflow in 64-byte alignment if total_needed near u64::MAX
+    vstore.write_cursor = total_needed.saturating_add(63) & !63;
+    vstore.save_cursor()?;
+    Ok(offset)
+}
+
+/// The kind, the element count and the payload size of a node's vector.
+///
+/// ADR-032: the payload size and the kind are dispatched from the in-memory
+/// representation. Shared by the plaintext and the encrypted writers so both
+/// formats always agree on the layout.
+fn vector_layout(node: &UnifiedNode) -> Result<(u32, u32, u64)> {
     let (kind, vec_len_u32, payload_len): (u32, u32, u64) = match &node.vector {
         crate::node::VectorRepresentations::Full(v) => {
             let len = v.len();
@@ -150,14 +242,52 @@ pub(crate) fn write_node_to_vstore(vstore: &mut File, node: &UnifiedNode) -> Res
             (crate::node::NodeFlags::VECTOR_KIND_NONE, 0, 0)
         }
     };
-    let total_needed = offset + header_size + payload_len;
-    if total_needed > vstore.size {
-        // ponytail: saturating to avoid overflow if size > 2^63 (already past sane limits)
-        let new_size = (vstore.size.saturating_mul(2)).max(total_needed.saturating_add(4096));
-        vstore.grow_to(new_size)?;
+    Ok((kind, vec_len_u32, payload_len))
+}
+
+/// Materialise the vector payload of a node into a byte buffer.
+///
+/// The encrypted format has no zero-copy path: the payload has to be sealed
+/// into one AEAD envelope, so it is materialised first (this is the
+/// `MmapFull → Full` degradation ADR-0057 §5.2 declares for encrypted
+/// stores).
+#[cfg(feature = "encryption")]
+fn materialize_payload(node: &UnifiedNode) -> Vec<u8> {
+    match &node.vector {
+        crate::node::VectorRepresentations::Full(v) => v.as_bytes().to_vec(),
+        crate::node::VectorRepresentations::Binary(b) => {
+            let mut out = Vec::with_capacity(b.len() * 8);
+            for word in b.iter() {
+                out.extend_from_slice(&word.to_le_bytes());
+            }
+            out
+        }
+        crate::node::VectorRepresentations::Turbo(t) => t.to_vec(),
+        crate::node::VectorRepresentations::SQ8(d, scale) => {
+            let mut out = Vec::with_capacity(d.len() + 4);
+            out.extend(d.iter().map(|&byte| byte as u8));
+            out.extend_from_slice(&scale.to_le_bytes());
+            out
+        }
+        crate::node::VectorRepresentations::MmapFull(_) => match node.vector.as_f32_slice() {
+            Some(slice) => slice.as_bytes().to_vec(),
+            None => Vec::new(),
+        },
+        crate::node::VectorRepresentations::None => Vec::new(),
     }
+}
+
+/// Write a node into an **encrypted** segment (format v3, ADR-0057 W3).
+///
+/// The record is one AEAD envelope whose AAD binds it to its byte offset.
+/// A node without a vector is written as it is in the plaintext format: the
+/// envelope still carries the (empty) payload.
+#[cfg(feature = "encryption")]
+fn write_node_to_vstore_encrypted(vstore: &mut File, node: &UnifiedNode) -> Result<u64> {
+    let offset = vstore.write_cursor;
+    let (kind, vec_len_u32, _payload_len) = vector_layout(node)?;
+    let payload = materialize_payload(node);
     let mut header = DiskNodeHeader::new(node.id);
-    header.vector_offset = offset + header_size;
     header.vector_len = vec_len_u32;
     header.flags = crate::node::NodeFlags::with_vector_kind(node.flags.0, kind);
     header.bitset = node.bitset.to_u128();
@@ -167,11 +297,8 @@ pub(crate) fn write_node_to_vstore(vstore: &mut File, node: &UnifiedNode) -> Res
         crate::node::NodeTier::Hot => 1u8,
         crate::node::NodeTier::Cold => 0u8,
     };
-    // ERR-029: `edge_count` is a u16 field in the fixed 64-byte DiskNodeHeader.
-    // `as u16` silently truncates, so a node with >65,535 edges used to wrap
-    // (e.g. 65,536 → 0) and corrupt the persisted header. The header layout is
-    // on-disk format; widening the field would break every existing file, so
-    // fail loudly instead of persisting a corrupt count.
+    // ERR-029: the edge count is a u16 field — fail loudly instead of
+    // persisting a wrapped count.
     let edge_count = node.edges.len();
     if edge_count > u16::MAX as usize {
         return Err(Error::EdgeCountOverflow {
@@ -181,44 +308,21 @@ pub(crate) fn write_node_to_vstore(vstore: &mut File, node: &UnifiedNode) -> Res
         });
     }
     header.edge_count = edge_count as u16;
-    vstore.write_header(offset, &header)?;
-    if payload_len > 0 {
-        let dst_range =
-            (offset + header_size) as usize..(offset + header_size + payload_len) as usize;
-        let mmap = vstore.mmap_bytes_mut()?;
-        match &node.vector {
-            crate::node::VectorRepresentations::Full(v) => {
-                let vec_bytes = v.as_bytes();
-                mmap[dst_range].copy_from_slice(vec_bytes);
-            }
-            crate::node::VectorRepresentations::Binary(b) => {
-                // SAFETY: &[u64] to &[u8] via raw parts is valid for LE copy; length checked via payload_len
-                let src =
-                    unsafe { std::slice::from_raw_parts(b.as_ptr() as *const u8, b.len() * 8) };
-                mmap[dst_range].copy_from_slice(src);
-            }
-            crate::node::VectorRepresentations::Turbo(t) => {
-                mmap[dst_range].copy_from_slice(t);
-            }
-            crate::node::VectorRepresentations::SQ8(d, scale) => {
-                let n = d.len();
-                // SAFETY: &[i8] to &[u8] is bitwise identical
-                let src = unsafe { std::slice::from_raw_parts(d.as_ptr() as *const u8, n) };
-                mmap[(offset + header_size) as usize..(offset + header_size + n as u64) as usize]
-                    .copy_from_slice(src);
-                mmap[(offset + header_size + n as u64) as usize
-                    ..(offset + header_size + payload_len) as usize]
-                    .copy_from_slice(&scale.to_le_bytes());
-            }
-            crate::node::VectorRepresentations::MmapFull(_) => {
-                if let Some(slice) = node.vector.as_f32_slice() {
-                    let vec_bytes = slice.as_bytes();
-                    mmap[dst_range].copy_from_slice(vec_bytes);
-                }
-            }
-            crate::node::VectorRepresentations::None => {}
-        }
+
+    // The record length is known before sealing: the prefix, the header, the
+    // payload and the AEAD tag. Grow first (same policy as the plaintext
+    // path) so the write never has to remap the segment.
+    let record_len = {
+        use crate::storage::vfile_crypto::{RECORD_PREFIX_LEN, TAG_LEN};
+        (RECORD_PREFIX_LEN + std::mem::size_of::<DiskNodeHeader>() + payload.len() + TAG_LEN) as u64
+    };
+    let total_needed = offset + record_len;
+    if total_needed > vstore.size {
+        // ponytail: saturating to avoid overflow if size > 2^63 (already past sane limits)
+        let new_size = (vstore.size.saturating_mul(2)).max(total_needed.saturating_add(4096));
+        vstore.grow_to(new_size)?;
     }
+    vstore.write_node(offset, &header, &payload)?;
     // ponytail: saturating to avoid overflow in 64-byte alignment if total_needed near u64::MAX
     vstore.write_cursor = total_needed.saturating_add(63) & !63;
     vstore.save_cursor()?;

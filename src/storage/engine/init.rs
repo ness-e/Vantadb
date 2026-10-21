@@ -13,7 +13,7 @@ use crate::index_port::IndexPort;
 use crate::lsm::SegmentLevel;
 use crate::node::LabelIntern;
 use crate::storage::engine::StorageEngine;
-use crate::storage::engine::{BackendKind, FLAG_TOMBSTONE, GIB, MIB};
+use crate::storage::engine::{BackendKind, GIB, MIB};
 use crate::storage::ops;
 #[cfg(unix)]
 use crate::storage::vfile::install_sigbus_handler;
@@ -38,6 +38,30 @@ impl StorageEngine {
 
         let (lock_file, backend, data_dir) = Self::init_storage(path, &config)?;
 
+        // ADR-0057 W3: the encryption context of the `vfile` artefact. It is
+        // resolved **once** here, at open, and handed down to every segment:
+        // the DEK and the nonce space belong to the artefact, not to the file.
+        // Without a key the context is `None` and every segment stays
+        // plaintext (byte-identical to the layout before this change).
+        //
+        // The in-memory backend has no `data_dir` (and nothing at rest): the
+        // context is not resolved for it — the registry must never be written
+        // outside a real storage root.
+        let vfile_crypto: crate::storage::vfile_crypto::VFileCryptoSlot = {
+            #[cfg(feature = "encryption")]
+            {
+                if data_dir.as_os_str().is_empty() {
+                    None
+                } else {
+                    crate::storage::vfile_crypto::vfile_crypto_from_config(&data_dir, &config)?
+                }
+            }
+            #[cfg(not(feature = "encryption"))]
+            {
+                None
+            }
+        };
+
         let (hnsw, vector_store, segment_registry, wal_writer, wal_replay_ms, wal_records_replayed) =
             if matches!(config.backend_kind, BackendKind::InMemory) {
                 let hnsw = crate::index::port_impl::new_in_memory_port();
@@ -48,7 +72,7 @@ impl StorageEngine {
                 (hnsw, vstore, reg, wal_writer, 0u64, 0u64)
             } else {
                 let (mut hnsw, vector_store, segment_registry) =
-                    Self::init_indexes(&data_dir, &config, caps, effective_memory)?;
+                    Self::init_indexes(&data_dir, &config, caps, effective_memory, vfile_crypto)?;
                 let (wal_replay_ms, wal_records_replayed) = Self::recover_state(
                     &data_dir,
                     &config,
@@ -316,6 +340,7 @@ impl StorageEngine {
         config: &Config,
         caps: &crate::hardware::HardwareCapabilities,
         effective_memory: u64,
+        crypto: crate::storage::vfile_crypto::VFileCryptoSlot,
     ) -> Result<(
         Box<dyn IndexPort>,
         Vec<parking_lot::RwLock<File>>,
@@ -373,7 +398,7 @@ impl StorageEngine {
             ] {
                 let path = data_dir.join(level.file_name());
                 if path.exists() {
-                    let vf = File::open_read_only(path.clone())?;
+                    let vf = File::open_with_crypto(path.clone(), 0, true, crypto.clone())?;
                     reg.register(level.as_u8(), level.as_u8(), path);
                     vfs.push(parking_lot::RwLock::new(vf));
                 }
@@ -381,14 +406,18 @@ impl StorageEngine {
             // Fallback: if no levels exist, open legacy path (may fail)
             if vfs.is_empty() {
                 let legacy = data_dir.join("vector_store.vanta");
-                let vf = File::open_read_only(legacy)?;
+                let vf = File::open_with_crypto(legacy, 0, true, crypto.clone())?;
                 let path = data_dir.join(SegmentLevel::L0.file_name());
                 reg.register(0, 0, path);
                 vfs.push(parking_lot::RwLock::new(vf));
             }
             (reg, vfs)
         } else {
-            crate::lsm::SegmentRegistry::open_or_create(data_dir, &config.segment_optimizer)?
+            crate::lsm::SegmentRegistry::open_or_create(
+                data_dir,
+                &config.segment_optimizer,
+                crypto,
+            )?
         };
 
         Ok((hnsw, vfiles, segment_registry))
@@ -585,11 +614,11 @@ impl StorageEngine {
                                 let (seg_id, local_off) = crate::lsm::unpack_offset(packed_offset);
                                 if let Some(vs) = vector_store.get(seg_id as usize) {
                                     let mut vstore = vs.write();
-                                    if let Some(h) = vstore.read_header(local_off) {
-                                        let mut tombstoned = h;
-                                        tombstoned.flags |= FLAG_TOMBSTONE;
-                                        vstore.write_header(local_off, &tombstoned)?;
-                                    }
+                                    // ADR-0057 W3: in an encrypted segment the
+                                    // header lives inside the ciphertext, so
+                                    // the node is re-sealed instead of being
+                                    // patched in place.
+                                    vstore.set_tombstone(local_off, true)?;
                                 }
                             }
                             // PERF-23/28: Remove from HNSW graph to prevent zombie nodes
@@ -626,11 +655,14 @@ impl StorageEngine {
     }
 }
 
-/// ENC-01 (FIND-249): the `encryption` feature ships AES-256-GCM primitives,
-/// but no storage write path uses them — with the feature compiled in and a
-/// key configured, every on-disk artifact is still plaintext. Returns the
-/// notice the engine must emit at open; `None` when encryption is not active
-/// (no key) or there is nothing at rest to protect (`InMemory`).
+/// ENC-01 (FIND-249): the `encryption` feature ships AES-256-GCM primitives.
+///
+/// ADR-0057 wires them artefact by artefact: **W3 encrypts the VantaFile
+/// segments** (a new database created with a key), while the WAL, the HNSW
+/// image, the backend KV, the text index and the snapshots are still
+/// plaintext. Returns the notice the engine must emit at open; `None` when
+/// encryption is not active (no key) or there is nothing at rest to protect
+/// (`InMemory`).
 #[cfg(feature = "encryption")]
 fn encryption_not_wired_notice(config: &Config) -> Option<&'static str> {
     config.encryption_key.as_ref()?;
@@ -638,10 +670,12 @@ fn encryption_not_wired_notice(config: &Config) -> Option<&'static str> {
         return None;
     }
     Some(concat!(
-        "encryption is NOT yet wired: with the `encryption` feature enabled and ",
-        "an encryption key configured, no on-disk artifact is encrypted — WAL, ",
-        "HNSW index, VantaFile segments, backend KV, text index and snapshots ",
-        "remain PLAINTEXT. Do not rely on this feature for at-rest protection; ",
+        "encryption is NOT yet wired for every artifact: with the `encryption` ",
+        "feature enabled and an encryption key configured, the WAL, the HNSW ",
+        "index, the backend KV, the text index and the snapshots remain ",
+        "PLAINTEXT. The VantaFile segments (data/vstore_L*.vanta) of a NEW ",
+        "database ARE encrypted, but an existing plaintext database is never ",
+        "migrated. Do not rely on this feature for full at-rest protection yet; ",
         "use OS/volume-level encryption if you need it today. See FIND-249."
     ))
 }

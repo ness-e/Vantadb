@@ -3,7 +3,7 @@
 use crate::error::{Error, Result};
 use crate::index_port::IndexPort;
 use crate::node::DiskNodeHeader;
-use crate::storage::vfile::{map_readwrite, File};
+use crate::storage::vfile::{map_readwrite, payload_len_for_header, File};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs::OpenOptions;
 use std::path::PathBuf;
@@ -12,31 +12,6 @@ use zerocopy::IntoBytes;
 
 use crate::storage::engine::{FLAG_TOMBSTONE, STORAGE_ALIGNMENT};
 const BFS_QUEUE_CAPACITY: usize = 1024;
-
-/// ADR-032: payload size (un-aligned) for a persisted header.
-fn payload_len_for_header(header: &DiskNodeHeader) -> u64 {
-    let kind = crate::node::NodeFlags::vector_kind(header.flags);
-    // kind==0 is legacy (pre-ADR-032) where FULL vs NONE is distinguished by len
-    if kind == 0 {
-        if header.vector_len == 0 {
-            return 0;
-        } else {
-            return (header.vector_len as u64).checked_mul(4).unwrap_or(0);
-        }
-    }
-    match kind {
-        crate::node::NodeFlags::VECTOR_KIND_NONE => 0,
-        crate::node::NodeFlags::VECTOR_KIND_FULL => {
-            (header.vector_len as u64).checked_mul(4).unwrap_or(0)
-        }
-        crate::node::NodeFlags::VECTOR_KIND_BINARY => {
-            (header.vector_len as u64).checked_mul(8).unwrap_or(0)
-        }
-        crate::node::NodeFlags::VECTOR_KIND_TURBO => header.vector_len as u64,
-        crate::node::NodeFlags::VECTOR_KIND_SQ8 => header.vector_len as u64 + 4,
-        _ => header.vector_len as u64, // unknown future kind: byte count
-    }
-}
 
 /// Rewrite the File with nodes in BFS order, returning the new offset map and file size.
 pub fn compact_layout(
@@ -59,6 +34,13 @@ pub fn compact_layout(
             field: "bfs_order".into(),
             reason: "BFS order is empty — refusing to compact (would destroy the database)".into(),
         });
+    }
+    // An encrypted segment is rewritten **encrypted**: every node is
+    // decrypted, re-sealed at its new offset and written again. A compacted
+    // encrypted segment can never fall back to plaintext (ADR-0057 W3).
+    #[cfg(feature = "encryption")]
+    if vstore.is_encrypted() {
+        return compact_layout_encrypted(vstore, hnsw, bfs_order, header_size);
     }
     let mut new_file_size: u64 = 64;
     for &node_id in bfs_order {
@@ -151,6 +133,122 @@ pub fn compact_layout(
             write_cursor += header_size + vec_size_aligned;
         }
     }
+
+    // AUDREP-04: flush final mmap writes to the OS, then sync + fsync the tmp
+    // file so no unwritten garbage is renamed in as if it were a valid store.
+    tmp_mmap.flush().map_err(Error::Io)?;
+    drop(tmp_mmap);
+    tmp_file.sync_all().map_err(Error::Io)?;
+    std::fs::rename(&tmp_path, &vstore_path).map_err(Error::Io)?;
+    // AUDREP-35: a rename is not durable until its parent dir is fsync'd —
+    // without this, a crash can revert the swap and resurrect the old file.
+    crate::utils::fs::sync_parent_dir(&vstore_path).map_err(Error::Io)?;
+    vstore.replace_backing_file(new_file_size)?;
+    vstore.write_cursor = write_cursor;
+    vstore.save_cursor()?;
+    Ok((new_offset_map, new_file_size))
+}
+
+/// Rewrite an **encrypted** segment (ADR-0057 W3).
+///
+/// Every node is decrypted, re-sealed at its **new** offset (the AAD binds
+/// the record to that offset) and written to the tmp file, which is then
+/// renamed over the segment — the same tmp+rename atomicity the plaintext
+/// path uses. The result is encrypted: a compacted encrypted segment can
+/// never fall back to plaintext.
+#[cfg(feature = "encryption")]
+fn compact_layout_encrypted(
+    vstore: &mut File,
+    hnsw: &dyn IndexPort,
+    bfs_order: &[u128],
+    header_size: u64,
+) -> Result<(HashMap<u128, u64>, u64)> {
+    use crate::storage::vfile::VFILE_ENCRYPTED_VERSION;
+    use crate::storage::vfile_crypto::{RECORD_PREFIX_LEN, TAG_LEN};
+
+    // The size of one encrypted record: the prefix, the header, the payload
+    // and the AEAD tag — rounded to the 64-byte node alignment.
+    let record_len = |payload: u64| -> u64 {
+        let raw = RECORD_PREFIX_LEN as u64 + header_size + payload + TAG_LEN as u64;
+        (raw + 63) & !63
+    };
+
+    let mut new_file_size: u64 = 64;
+    for &node_id in bfs_order {
+        if let Some(offset) = hnsw.storage_offset_of(node_id) {
+            if let Some(old_header) = vstore.read_header(offset) {
+                let payload = payload_len_for_header(&old_header);
+                new_file_size += record_len(payload);
+            }
+        }
+    }
+    new_file_size = (new_file_size + 4095) & !4095;
+
+    let vstore_path = vstore.path.clone();
+    let tmp_filename = format!(
+        "{}.tmp",
+        vstore_path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("vector_store.vanta")
+    );
+    let tmp_path = vstore_path.with_file_name(tmp_filename);
+
+    let tmp_file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(&tmp_path)
+        .map_err(Error::Io)?;
+    tmp_file.set_len(new_file_size).map_err(Error::Io)?;
+
+    // `map_readwrite` carries the (memmap2-only) SAFETY contract: tmp_file is a
+    // valid, open handle with set_len() called beforehand (writable, valid
+    // size); the returned mmap is valid for the file's lifetime.
+    let mut tmp_mmap = map_readwrite(&tmp_file).map_err(Error::Io)?;
+
+    let mut new_offset_map: HashMap<u128, u64> = HashMap::with_capacity(bfs_order.len());
+    let mut write_cursor: u64 = STORAGE_ALIGNMENT;
+
+    for &node_id in bfs_order {
+        let Some(old_offset) = hnsw.storage_offset_of(node_id) else {
+            continue;
+        };
+        let Some(old_header) = vstore.read_header(old_offset) else {
+            continue;
+        };
+        if (old_header.flags & FLAG_TOMBSTONE) != 0 {
+            continue;
+        }
+        let Some(old_node) = vstore.read_node(old_offset)? else {
+            continue;
+        };
+        let new_node_offset = write_cursor;
+        // Re-sealed at the **new** offset: the AAD binds the record to it.
+        let record = vstore.seal_node(new_node_offset, &old_header, &old_node.payload)?;
+        let end = write_cursor + record.len() as u64;
+        if end > new_file_size {
+            tmp_mmap.flush().map_err(Error::Io)?;
+            drop(tmp_mmap);
+            tmp_file.set_len(end + 4096).map_err(Error::Io)?;
+            // `map_readwrite` carries the (memmap2-only) SAFETY contract:
+            // tmp_file was extended via set_len() before this call and the
+            // previous mmap was dropped, so there is no conflicting mapping.
+            tmp_mmap = map_readwrite(&tmp_file).map_err(Error::Io)?;
+        }
+        let start = write_cursor as usize;
+        tmp_mmap[start..start + record.len()].copy_from_slice(&record);
+        new_offset_map.insert(node_id, new_node_offset);
+        write_cursor = (end + 63) & !63;
+    }
+
+    // The tmp file starts zeroed: write the real header, so the compacted
+    // segment keeps the encrypted format. (A zeroed header would make the
+    // next open treat the segment as a fresh **plaintext** one.)
+    let header = crate::binary_header::Header::new(*b"VFLE", VFILE_ENCRYPTED_VERSION, 0);
+    tmp_mmap[0..16].copy_from_slice(&header.serialize());
+    tmp_mmap[16..24].copy_from_slice(&write_cursor.to_le_bytes());
 
     // AUDREP-04: flush final mmap writes to the OS, then sync + fsync the tmp
     // file so no unwritten garbage is renamed in as if it were a valid store.
@@ -260,6 +358,9 @@ pub(crate) fn rebuild_hnsw_from_vstore_with_segment(
                     skipped_tombstones += 1;
                 } else {
                     let kind = crate::node::NodeFlags::vector_kind(header.flags);
+                    // ADR-0057 W3: in an encrypted segment the payload lives
+                    // inside the decrypted node blob, not in the mapping.
+                    let node_bytes = vstore.node_bytes(cursor)?;
                     let vec_data = if kind == 0 {
                         // legacy pre-ADR-032: kind 0 with len>0 is FULL, with len==0 is NONE
                         if header.vector_len == 0 {
@@ -267,10 +368,10 @@ pub(crate) fn rebuild_hnsw_from_vstore_with_segment(
                         } else if let Some(end) = (header.vector_len as u64)
                             .checked_mul(4)
                             .and_then(|b| header.vector_offset.checked_add(b))
-                            .filter(|&end| end <= vstore.size as u64)
+                            .filter(|&end| end <= node_bytes.as_slice().len() as u64)
                         {
                             let start = header.vector_offset as usize;
-                            let slice = &vstore.mmap_bytes()[start..end as usize];
+                            let slice = &node_bytes.as_slice()[start..end as usize];
                             debug_assert_eq!(
                                 slice.as_ptr().align_offset(4),
                                 0,
@@ -297,10 +398,10 @@ pub(crate) fn rebuild_hnsw_from_vstore_with_segment(
                                 } else if let Some(end) = (header.vector_len as u64)
                                     .checked_mul(4)
                                     .and_then(|b| header.vector_offset.checked_add(b))
-                                    .filter(|&end| end <= vstore.size as u64)
+                                    .filter(|&end| end <= node_bytes.as_slice().len() as u64)
                                 {
                                     let start = header.vector_offset as usize;
-                                    let slice = &vstore.mmap_bytes()[start..end as usize];
+                                    let slice = &node_bytes.as_slice()[start..end as usize];
                                     debug_assert_eq!(
                                         slice.as_ptr().align_offset(4),
                                         0,
@@ -326,10 +427,10 @@ pub(crate) fn rebuild_hnsw_from_vstore_with_segment(
                                 } else if let Some(end) = (header.vector_len as u64)
                                     .checked_mul(8)
                                     .and_then(|b| header.vector_offset.checked_add(b))
-                                    .filter(|&end| end <= vstore.size as u64)
+                                    .filter(|&end| end <= node_bytes.as_slice().len() as u64)
                                 {
                                     let start = header.vector_offset as usize;
-                                    let slice = &vstore.mmap_bytes()[start..end as usize];
+                                    let slice = &node_bytes.as_slice()[start..end as usize];
                                     debug_assert_eq!(
                                         slice.as_ptr().align_offset(8),
                                         0,
@@ -354,10 +455,10 @@ pub(crate) fn rebuild_hnsw_from_vstore_with_segment(
                                 } else if let Some(end) = header
                                     .vector_offset
                                     .checked_add(header.vector_len as u64)
-                                    .filter(|&end| end <= vstore.size as u64)
+                                    .filter(|&end| end <= node_bytes.as_slice().len() as u64)
                                 {
                                     let start = header.vector_offset as usize;
-                                    let slice = &vstore.mmap_bytes()[start..end as usize];
+                                    let slice = &node_bytes.as_slice()[start..end as usize];
                                     indexed_vectors += 1;
                                     crate::node::VectorRepresentations::Turbo(
                                         slice.to_vec().into_boxed_slice(),
@@ -372,10 +473,11 @@ pub(crate) fn rebuild_hnsw_from_vstore_with_segment(
                                 } else if let Some(payload_end) = (header.vector_len as u64)
                                     .checked_add(4)
                                     .and_then(|b| header.vector_offset.checked_add(b))
-                                    .filter(|&end| end <= vstore.size as u64)
+                                    .filter(|&end| end <= node_bytes.as_slice().len() as u64)
                                 {
                                     let start = header.vector_offset as usize;
-                                    let payload = &vstore.mmap_bytes()[start..payload_end as usize];
+                                    let payload =
+                                        &node_bytes.as_slice()[start..payload_end as usize];
                                     let n = header.vector_len as usize;
                                     let d_slice = &payload[..n];
                                     let scale_bytes: [u8; 4] =
@@ -415,7 +517,10 @@ pub(crate) fn rebuild_hnsw_from_vstore_with_segment(
                 }
             }
             let payload = payload_len_for_header(&header);
-            cursor += header_size + ((payload + 63) & !63);
+            // ADR-0057 W3: the stride depends on the format — an encrypted
+            // record is the whole envelope, not just the header and the
+            // payload.
+            cursor += vstore.node_stride(header_size, payload);
         } else {
             cursor += STORAGE_ALIGNMENT;
         }

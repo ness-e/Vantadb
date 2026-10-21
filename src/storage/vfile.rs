@@ -21,9 +21,14 @@ use crate::node::DiskNodeHeader;
 use libc;
 use std::fs::{File as StdFile, OpenOptions};
 use std::path::PathBuf;
+#[cfg(feature = "encryption")]
+use std::sync::Arc;
 use zerocopy::{FromBytes, IntoBytes};
 
 use crate::storage::engine::STORAGE_ALIGNMENT;
+#[cfg(feature = "encryption")]
+use crate::storage::vfile_crypto::VFileCrypto;
+use crate::storage::vfile_crypto::VFileCryptoSlot;
 
 // Re-exports preserved from the pre-split single file: public paths
 // (`get_resident_bytes`), crate-internal paths (mmap types, sigbus handler,
@@ -35,11 +40,165 @@ pub(crate) use crate::storage::vfile_mmap::{
     map_readonly, map_readwrite, AlignedBytes, Mmap, MmapMut,
 };
 
-/// Current File format version.
+/// Current **plaintext** File format version.
 /// Version history:
 ///   - v1: initial format
 ///   - v2: migrated (bumped header only, data layout identical to v1)
+///
+/// The plaintext version is **not** bumped by the at-rest encryption: a
+/// segment written without a key keeps its exact byte layout, forever
+/// (ADR-0057 D1, rule 1). The encrypted format has its own version,
+/// [`VFILE_ENCRYPTED_VERSION`].
 pub const VFILE_VERSION: u16 = 2;
+
+/// Format version of the **encrypted** VantaFile (ADR-0057 W3).
+///
+/// The encrypted format wraps **every node record** in its own AEAD
+/// envelope:
+///
+/// ```text
+/// [u32 blob_len][12B nonce][ct ‖ 16B tag]
+/// ```
+///
+/// * `blob_len` is the length of the AEAD blob (`ciphertext ‖ tag`); the
+///   plaintext is `DiskNodeHeader(64B) ‖ vector payload`.
+/// * The marker lives in the **existing cleartext header**
+///   (`Header.format_version`), so a reader decides by the bytes on disk,
+///   never by configuration (ADR-0057 D1).
+/// * A v2 segment is read exactly as before; a v3 segment without a key is
+///   an explicit `EncryptionKeyRequired`, never "corrupt" (ADR-0057 D7).
+pub const VFILE_ENCRYPTED_VERSION: u16 = 3;
+
+/// The highest VantaFile format version this build can read.
+///
+/// v3 (the encrypted format) is only readable with the `encryption` feature:
+/// a build without it refuses a v3 segment with an explicit message.
+pub const VFILE_MAX_READABLE_VERSION: u16 = if cfg!(feature = "encryption") {
+    VFILE_ENCRYPTED_VERSION
+} else {
+    VFILE_VERSION
+};
+
+/// Byte offset of the vector payload **inside** the plaintext blob of an
+/// encrypted record (the `DiskNodeHeader` occupies the first 64 bytes).
+///
+/// In the encrypted format `header.vector_offset` is no longer a file
+/// address: the payload lives inside the AEAD envelope, so the reader
+/// addresses it inside the decrypted blob (ADR-0057 W3).
+#[cfg(feature = "encryption")]
+pub(crate) const ENCRYPTED_PAYLOAD_OFFSET: u64 = 64;
+
+/// The payload size (un-aligned) of a persisted header.
+///
+/// Mirrors the writer in [`crate::storage::ops::write_node_to_vstore`]:
+/// ADR-032 dispatches the payload size from the in-memory representation,
+/// and legacy files with kind=0 and len>0 are read as FULL.
+pub(crate) fn payload_len_for_header(header: &DiskNodeHeader) -> u64 {
+    let kind = crate::node::NodeFlags::vector_kind(header.flags);
+    // kind==0 is legacy (pre-ADR-032) where FULL vs NONE is distinguished by len
+    if kind == 0 {
+        if header.vector_len == 0 {
+            return 0;
+        }
+        return (header.vector_len as u64).checked_mul(4).unwrap_or(0);
+    }
+    match kind {
+        crate::node::NodeFlags::VECTOR_KIND_NONE => 0,
+        crate::node::NodeFlags::VECTOR_KIND_FULL => {
+            (header.vector_len as u64).checked_mul(4).unwrap_or(0)
+        }
+        crate::node::NodeFlags::VECTOR_KIND_BINARY => {
+            (header.vector_len as u64).checked_mul(8).unwrap_or(0)
+        }
+        crate::node::NodeFlags::VECTOR_KIND_TURBO => header.vector_len as u64,
+        crate::node::NodeFlags::VECTOR_KIND_SQ8 => header.vector_len as u64 + 4,
+        _ => header.vector_len as u64, // unknown future kind: byte count
+    }
+}
+
+/// A byte buffer whose base pointer is guaranteed to be **8-byte aligned**.
+///
+/// The engine reads `f32`/`u64` payloads out of the node bytes with
+/// `align_to`, which needs an aligned base: 8 bytes for the `u64` (BINARY)
+/// payloads, 4 for the `f32` (FULL) ones. A `Vec<u8>` is only 1-byte
+/// aligned, so the blob lives in a `Vec<u64>` (whose alignment is 8) and is
+/// viewed as bytes.
+#[cfg(feature = "encryption")]
+pub(crate) struct AlignedBlob {
+    words: Vec<u64>,
+    len: usize,
+}
+
+#[cfg(feature = "encryption")]
+impl std::fmt::Debug for AlignedBlob {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AlignedBlob")
+            .field("len", &self.len)
+            .finish()
+    }
+}
+
+#[cfg(feature = "encryption")]
+impl AlignedBlob {
+    /// Copy `bytes` into an 8-byte aligned buffer.
+    pub(crate) fn from_bytes(bytes: &[u8]) -> Self {
+        let words = vec![0u64; bytes.len().div_ceil(8)];
+        let mut blob = Self {
+            words,
+            len: bytes.len(),
+        };
+        blob.as_mut_slice().copy_from_slice(bytes);
+        blob
+    }
+
+    /// The bytes of the blob.
+    pub(crate) fn as_slice(&self) -> &[u8] {
+        // SAFETY: `align_to` is a transmute of the middle slice's elements.
+        // `u8` has no invalid bit patterns and its alignment (1) is weaker
+        // than the source's (8), so the prefix and the suffix are empty and
+        // the byte view covers the whole buffer.
+        let (_, bytes, _) = unsafe { self.words.align_to::<u8>() };
+        &bytes[..self.len]
+    }
+
+    /// The bytes of the blob, mutably.
+    pub(crate) fn as_mut_slice(&mut self) -> &mut [u8] {
+        // SAFETY: same as `as_slice`, on the mutable variant: `u8` has no
+        // invalid bit patterns and the prefix/suffix are empty.
+        let (_, bytes, _) = unsafe { self.words.align_to_mut::<u8>() };
+        &mut bytes[..self.len]
+    }
+}
+
+/// The bytes a node's vector payload is addressed within.
+///
+/// * **Plaintext segment**: the whole mapping — the payload lives at the
+///   header's `vector_offset`, a *file address*.
+/// * **Encrypted segment**: the decrypted node blob — the payload lives at
+///   the header's `vector_offset`, which is the *in-blob* offset
+///   ([`ENCRYPTED_PAYLOAD_OFFSET`]).
+///
+/// Both variants are 4-byte aligned (the mmap base is page-aligned, the
+/// blob base is 8-byte aligned), so the `f32`/`u64` payload reads keep
+/// working unchanged.
+pub(crate) enum NodeBytes<'a> {
+    /// The whole mapping of a plaintext segment.
+    Mapping(&'a [u8]),
+    /// The decrypted blob of an encrypted node.
+    #[cfg(feature = "encryption")]
+    Blob(Arc<AlignedBlob>),
+}
+
+impl NodeBytes<'_> {
+    /// The bytes the payload is addressed within.
+    pub(crate) fn as_slice(&self) -> &[u8] {
+        match self {
+            NodeBytes::Mapping(bytes) => bytes,
+            #[cfg(feature = "encryption")]
+            NodeBytes::Blob(blob) => blob.as_slice(),
+        }
+    }
+}
 
 /// Sum of resident mmap bytes across the HNSW index and vector store.
 /// Only compiled for tests — production code uses per-File metrics directly.
@@ -120,10 +279,34 @@ pub struct File {
     /// Byte offset for the next write operation.
     pub write_cursor: u64,
     read_only: bool,
+    /// The format version of this segment (2 = plaintext, 3 = encrypted).
+    ///
+    /// Read from the cleartext header, so the reader decides by the bytes
+    /// on disk, never by configuration (ADR-0057 D1).
+    format_version: u16,
+    /// The encryption context of the `vfile` artefact (`None` = plaintext).
+    #[cfg(feature = "encryption")]
+    pub(crate) crypto: Option<Arc<VFileCrypto>>,
+    /// One-entry cache of the last decrypted node (lock-free, `ArcSwap`).
+    ///
+    /// The search path reads the header and then the vector of the **same**
+    /// node: without the cache every candidate would be decrypted twice.
+    #[cfg(feature = "encryption")]
+    decrypted: arc_swap::ArcSwap<Option<Arc<DecryptedNode>>>,
     /// AES-256-GCM cipher for at-rest encryption when the `encryption` feature
     /// is enabled and `VANTADB_ENCRYPTION_KEY` is set.
     #[cfg(feature = "encryption")]
     pub cipher: Option<Cipher>,
+}
+
+/// A decrypted node record kept in the one-entry cache of a [`File`].
+#[cfg(feature = "encryption")]
+#[derive(Debug)]
+struct DecryptedNode {
+    /// The offset the node was read from.
+    offset: u64,
+    /// The decrypted blob (`DiskNodeHeader ‖ payload`).
+    blob: Arc<AlignedBlob>,
 }
 
 // SAFETY: File owns a `File` handle, a `FileMap` (Mmap/MmapMut/AlignedBytes),
@@ -148,6 +331,23 @@ impl File {
         Self::open_with_mode(path, 0, true)
     }
 
+    /// Open or create a File with an **encryption context** (ADR-0057 W3).
+    ///
+    /// The context decides the format of a **fresh** segment: with a key the
+    /// segment is created in the encrypted format (v3), without one it stays
+    /// plaintext (v2) and byte-identical to the layout before this change.
+    /// An **existing** segment keeps its own format: a v2 segment is never
+    /// migrated in place (ADR-0057 D7) and a v3 segment without a key is an
+    /// explicit `EncryptionKeyRequired`.
+    pub(crate) fn open_with_crypto(
+        path: PathBuf,
+        initial_size: u64,
+        read_only: bool,
+        crypto: VFileCryptoSlot,
+    ) -> Result<Self> {
+        Self::open_with_mode_and_crypto(path, initial_size, read_only, crypto)
+    }
+
     /// Create a File backed entirely by in-memory storage (no disk I/O).
     pub fn create_in_memory(initial_size: u64) -> Self {
         let size = initial_size.max(STORAGE_ALIGNMENT);
@@ -170,12 +370,26 @@ impl File {
             size,
             write_cursor: STORAGE_ALIGNMENT,
             read_only: false,
+            format_version: VFILE_VERSION,
+            #[cfg(feature = "encryption")]
+            crypto: None,
+            #[cfg(feature = "encryption")]
+            decrypted: arc_swap::ArcSwap::new(Arc::new(None)),
             #[cfg(feature = "encryption")]
             cipher: None,
         }
     }
 
     fn open_with_mode(path: PathBuf, initial_size: u64, read_only: bool) -> Result<Self> {
+        Self::open_with_mode_and_crypto(path, initial_size, read_only, None)
+    }
+
+    fn open_with_mode_and_crypto(
+        path: PathBuf,
+        initial_size: u64,
+        read_only: bool,
+        crypto: VFileCryptoSlot,
+    ) -> Result<Self> {
         let file = if read_only {
             OpenOptions::new()
                 .read(true)
@@ -211,8 +425,16 @@ impl File {
         } else {
             FileMap::ReadWrite(map_readwrite(&file).map_err(Error::Io)?)
         };
+        // A **fresh** segment takes the format of the context: encrypted (v3)
+        // when a key resolved, plaintext (v2) otherwise. An existing segment
+        // keeps the format its own header declares (ADR-0057 D1/D7).
+        let fresh_version = if crypto.is_some() {
+            VFILE_ENCRYPTED_VERSION
+        } else {
+            VFILE_VERSION
+        };
         if !read_only && current_size >= min_header_size && &mmap.as_slice()[0..4] != b"VFLE" {
-            let header = Header::new(*b"VFLE", VFILE_VERSION, 0);
+            let header = Header::new(*b"VFLE", fresh_version, 0);
             mmap.as_mut_slice()?[0..16].copy_from_slice(&header.serialize());
             mmap.as_mut_slice()?[16..24].copy_from_slice(&STORAGE_ALIGNMENT.to_le_bytes());
             // Zero-fill the remainder of the header block (bytes 24..64) to
@@ -221,7 +443,38 @@ impl File {
             mmap.flush()?;
         }
         let header = Header::deserialize(&mmap.as_slice()[0..16])?;
-        header.validate_compat(*b"VFLE", VFILE_VERSION, "File")?;
+        // An encrypted segment in a build without the `encryption` feature:
+        // say so explicitly — an encrypted database must never be reported as
+        // "corrupt" (ADR-0057 D7).
+        if header.format_version >= VFILE_ENCRYPTED_VERSION && !cfg!(feature = "encryption") {
+            return Err(Error::IncompatibleFormat {
+                expected_magic: *b"VFLE",
+                expected_version: VFILE_MAX_READABLE_VERSION,
+                found_magic: header.magic,
+                found_version: header.format_version,
+                hint: "File is encrypted (format v3 or newer) but this build has no \
+                       'encryption' feature"
+                    .to_string(),
+            });
+        }
+        // An encrypted segment without a key: the operator has to supply one.
+        // Never "corrupt" (ADR-0057 D7).
+        if header.format_version >= VFILE_ENCRYPTED_VERSION && crypto.is_none() {
+            #[cfg(feature = "encryption")]
+            return Err(Error::EncryptionKeyRequired {
+                artifact: crate::storage::vfile_crypto::ARTIFACT.to_string(),
+            });
+            #[cfg(not(feature = "encryption"))]
+            return Err(Error::IncompatibleFormat {
+                expected_magic: *b"VFLE",
+                expected_version: VFILE_MAX_READABLE_VERSION,
+                found_magic: header.magic,
+                found_version: header.format_version,
+                hint: "File is encrypted (format v3 or newer) but no encryption key resolved"
+                    .to_string(),
+            });
+        }
+        header.validate_compat(*b"VFLE", VFILE_MAX_READABLE_VERSION, "File format")?;
         let cursor = u64::from_le_bytes(
             mmap.as_slice()[16..24]
                 .try_into()
@@ -239,6 +492,11 @@ impl File {
             size: current_size,
             write_cursor,
             read_only,
+            format_version: header.format_version,
+            #[cfg(feature = "encryption")]
+            crypto,
+            #[cfg(feature = "encryption")]
+            decrypted: arc_swap::ArcSwap::new(Arc::new(None)),
             #[cfg(feature = "encryption")]
             cipher: None,
         })
@@ -300,6 +558,9 @@ impl File {
             .map_err(Error::Io)?;
         self.file = Some(new_file);
         self.size = new_size;
+        // The whole mapping changed: the decrypted cache is stale.
+        #[cfg(feature = "encryption")]
+        self.decrypted.store(Arc::new(None));
         self.remap_mut()
     }
 
@@ -312,7 +573,28 @@ impl File {
     /// `from_raw_parts` call site (search.rs, archive.rs, engine/ops.rs) — UB
     /// in release. All 7 sites read headers through this function, so the
     /// invariant is enforced in one place.
+    ///
+    /// In an **encrypted** segment the header lives inside the AEAD
+    /// envelope, so it has to be decrypted first. A failure (wrong key,
+    /// tampered blob) is reported as "no header" here; the callers that need
+    /// the distinction use [`File::read_node`], which propagates the error.
     pub fn read_header(&self, offset: u64) -> Option<DiskNodeHeader> {
+        if self.is_encrypted() {
+            #[cfg(feature = "encryption")]
+            {
+                return self
+                    .read_node_encrypted(offset)
+                    .ok()
+                    .flatten()
+                    .map(|node| node.header);
+            }
+            #[cfg(not(feature = "encryption"))]
+            {
+                // Unreachable: a build without the `encryption` feature
+                // refuses to open a v3 segment (the constructor rejects it).
+                return None;
+            }
+        }
         let header_size = std::mem::size_of::<DiskNodeHeader>() as u64;
         let end = offset.checked_add(header_size)?;
         if end > self.size || !offset.is_multiple_of(STORAGE_ALIGNMENT) {
@@ -349,6 +631,119 @@ impl File {
         }
         self.mmap_bytes_mut()?[offset as usize..end as usize].copy_from_slice(header.as_bytes());
         Ok(())
+    }
+
+    /// Whether this segment is encrypted (format v3).
+    ///
+    /// The answer comes from the **bytes on disk** (the cleartext header),
+    /// never from the configuration (ADR-0057 D1).
+    pub fn is_encrypted(&self) -> bool {
+        self.format_version >= VFILE_ENCRYPTED_VERSION
+    }
+
+    /// The distance between two consecutive node records.
+    ///
+    /// * Plaintext: the 64-byte header plus the 64-byte-aligned payload.
+    /// * Encrypted: the record prefix, the header, the payload and the AEAD
+    ///   tag, 64-byte aligned — the whole envelope is the record.
+    pub(crate) fn node_stride(&self, header_size: u64, payload_len: u64) -> u64 {
+        use crate::storage::vfile_crypto::{RECORD_PREFIX_LEN, TAG_LEN};
+        if self.is_encrypted() {
+            let raw = RECORD_PREFIX_LEN as u64 + header_size + payload_len + TAG_LEN as u64;
+            (raw + 63) & !63
+        } else {
+            header_size + ((payload_len + 63) & !63)
+        }
+    }
+
+    /// Set (or clear) the tombstone flag of the node at `offset`.
+    ///
+    /// In an encrypted segment the header lives inside the ciphertext, so the
+    /// node is **re-sealed** with a fresh nonce instead of being patched in
+    /// place. The record keeps its length, so the offsets of the following
+    /// nodes do not move.
+    ///
+    /// Returns `false` when there is no node at `offset`.
+    pub(crate) fn set_tombstone(&mut self, offset: u64, tombstoned: bool) -> Result<bool> {
+        if !self.is_encrypted() {
+            let Some(mut header) = self.read_header(offset) else {
+                return Ok(false);
+            };
+            let was = (header.flags & crate::storage::engine::FLAG_TOMBSTONE) != 0;
+            if was == tombstoned {
+                return Ok(true);
+            }
+            if tombstoned {
+                header.flags |= crate::storage::engine::FLAG_TOMBSTONE;
+            } else {
+                header.flags &= !crate::storage::engine::FLAG_TOMBSTONE;
+            }
+            self.write_header(offset, &header)?;
+            return Ok(true);
+        }
+        #[cfg(feature = "encryption")]
+        {
+            let Some(node) = self.read_node(offset)? else {
+                return Ok(false);
+            };
+            let mut header = node.header;
+            let was = (header.flags & crate::storage::engine::FLAG_TOMBSTONE) != 0;
+            if was == tombstoned {
+                return Ok(true);
+            }
+            if tombstoned {
+                header.flags |= crate::storage::engine::FLAG_TOMBSTONE;
+            } else {
+                header.flags &= !crate::storage::engine::FLAG_TOMBSTONE;
+            }
+            self.write_node(offset, &header, &node.payload)?;
+            Ok(true)
+        }
+        #[cfg(not(feature = "encryption"))]
+        {
+            let _ = (offset, tombstoned);
+            Ok(false)
+        }
+    }
+
+    /// The bytes the vector payload of the node at `offset` is addressed
+    /// within.
+    ///
+    /// * Plaintext segment: the whole mapping — the payload lives at the
+    ///   header's `vector_offset`, a *file address*.
+    /// * Encrypted segment: the decrypted node blob — the payload lives at
+    ///   the header's `vector_offset`, which is the *in-blob* offset
+    ///   ([`ENCRYPTED_PAYLOAD_OFFSET`]).
+    ///
+    /// Both variants are 4-byte aligned, so the `f32`/`u64` payload reads of
+    /// the engine keep working unchanged.
+    pub(crate) fn node_bytes(&self, offset: u64) -> Result<NodeBytes<'_>> {
+        if !self.is_encrypted() {
+            return Ok(NodeBytes::Mapping(self.mmap_bytes()));
+        }
+        #[cfg(feature = "encryption")]
+        {
+            let Some(blob) = self.decrypt_blob(offset)? else {
+                return Err(Error::EncryptionCorrupt {
+                    artifact: crate::storage::vfile_crypto::ARTIFACT.to_string(),
+                    detail: format!("no node record at offset {offset}"),
+                });
+            };
+            Ok(NodeBytes::Blob(blob))
+        }
+        #[cfg(not(feature = "encryption"))]
+        {
+            let _ = offset;
+            Err(Error::IncompatibleFormat {
+                expected_magic: *b"VFLE",
+                expected_version: VFILE_MAX_READABLE_VERSION,
+                found_magic: *b"VFLE",
+                found_version: self.format_version,
+                hint: "File is encrypted (format v3 or newer) but this build has no \
+                       'encryption' feature"
+                    .to_string(),
+            })
+        }
     }
 
     /// Extend the file to the given new size, zero-filling added space.
@@ -463,6 +858,170 @@ impl File {
     }
 }
 
+/// A node record read from a segment: its header and its vector payload.
+#[cfg(feature = "encryption")]
+#[derive(Debug)]
+pub(crate) struct NodeRecord {
+    /// The persisted header.
+    pub header: DiskNodeHeader,
+    /// The vector payload bytes — exactly the bytes the writer persisted
+    /// (the `f32` words, the `u64` words, the raw bytes or the `i8` data
+    /// plus the scale tail, depending on the vector kind).
+    pub payload: Vec<u8>,
+}
+
+/// The encrypted-segment half of [`File`] (ADR-0057 W3).
+///
+/// Every method here needs the `encryption` feature: a build without it
+/// cannot open a v3 segment at all.
+#[cfg(feature = "encryption")]
+impl File {
+    /// Read the node record at `offset`: its header and its vector payload.
+    ///
+    /// The record is decrypted (one AEAD envelope per node) and the payload
+    /// comes out of the plaintext blob.
+    ///
+    /// `Ok(None)` = no node at that offset; `Err` = the record is broken
+    /// (wrong key, tampered ciphertext, truncated blob).
+    pub(crate) fn read_node(&self, offset: u64) -> Result<Option<NodeRecord>> {
+        self.read_node_encrypted(offset)
+    }
+
+    /// Write a node record at `offset` (the header plus the payload).
+    ///
+    /// The whole record is sealed into one AEAD envelope whose AAD binds it
+    /// to `offset`. Returns the length of the record written.
+    pub(crate) fn write_node(
+        &mut self,
+        offset: u64,
+        header: &DiskNodeHeader,
+        payload: &[u8],
+    ) -> Result<u64> {
+        let record = self.seal_node(offset, header, payload)?;
+        let end = offset + record.len() as u64;
+        if end > self.size {
+            self.grow_to(end.max(self.size.saturating_mul(2)))?;
+        }
+        let start = offset as usize;
+        self.mmap_bytes_mut()?[start..start + record.len()].copy_from_slice(&record);
+        // The node at `offset` changed: the decrypted cache must not serve the
+        // previous version of it.
+        self.decrypted.store(Arc::new(None));
+        Ok(record.len() as u64)
+    }
+
+    /// Read the node record of an **encrypted** segment.
+    fn read_node_encrypted(&self, offset: u64) -> Result<Option<NodeRecord>> {
+        let Some(blob) = self.decrypt_blob(offset)? else {
+            return Ok(None);
+        };
+        let bytes = blob.as_slice();
+        let header_size = std::mem::size_of::<DiskNodeHeader>();
+        if bytes.len() < header_size {
+            return Err(Error::EncryptionCorrupt {
+                artifact: crate::storage::vfile_crypto::ARTIFACT.to_string(),
+                detail: format!(
+                    "node record at offset {offset} decrypts to {} bytes, less than the \
+                     {header_size}-byte header",
+                    bytes.len()
+                ),
+            });
+        }
+        let header = DiskNodeHeader::read_from_bytes(&bytes[..header_size]).map_err(|e| {
+            Error::EncryptionCorrupt {
+                artifact: crate::storage::vfile_crypto::ARTIFACT.to_string(),
+                detail: format!("node record at offset {offset} has an invalid header: {e}"),
+            }
+        })?;
+        Ok(Some(NodeRecord {
+            header,
+            payload: bytes[header_size..].to_vec(),
+        }))
+    }
+
+    /// Seal a node record into its AEAD envelope.
+    ///
+    /// The AAD binds the record to `offset` (the **slot**), so a record moved
+    /// to another offset no longer authenticates (ADR-0057 D4).
+    pub(crate) fn seal_node(
+        &self,
+        offset: u64,
+        header: &DiskNodeHeader,
+        payload: &[u8],
+    ) -> Result<Vec<u8>> {
+        let Some(crypto) = self.crypto.as_ref() else {
+            return Err(Error::EncryptionKeyRequired {
+                artifact: crate::storage::vfile_crypto::ARTIFACT.to_string(),
+            });
+        };
+        let mut header = *header;
+        // The payload lives inside the blob: `vector_offset` is the in-blob
+        // offset, not a file address.
+        header.vector_offset = ENCRYPTED_PAYLOAD_OFFSET;
+        let mut plaintext = Vec::with_capacity(ENCRYPTED_PAYLOAD_OFFSET as usize + payload.len());
+        plaintext.extend_from_slice(header.as_bytes());
+        plaintext.extend_from_slice(payload);
+        crypto.seal_node(offset, &plaintext)
+    }
+
+    /// Decrypt the node record at `offset`.
+    ///
+    /// The result is cached (one entry, lock-free): the search path reads the
+    /// header and then the vector of the **same** node, and without the
+    /// cache every candidate would be decrypted twice.
+    fn decrypt_blob(&self, offset: u64) -> Result<Option<Arc<AlignedBlob>>> {
+        let cached = self.decrypted.load();
+        let cached_ref: &Option<Arc<DecryptedNode>> = &cached;
+        if let Some(node) = cached_ref.as_ref() {
+            if node.offset == offset {
+                return Ok(Some(node.blob.clone()));
+            }
+        }
+        let Some(crypto) = self.crypto.as_ref() else {
+            return Err(Error::EncryptionKeyRequired {
+                artifact: crate::storage::vfile_crypto::ARTIFACT.to_string(),
+            });
+        };
+        let record = self.read_record_bytes(offset)?;
+        let plaintext = crypto.open_node(offset, &record)?;
+        let blob = Arc::new(AlignedBlob::from_bytes(&plaintext));
+        self.decrypted.store(Arc::new(Some(Arc::new(DecryptedNode {
+            offset,
+            blob: blob.clone(),
+        }))));
+        Ok(Some(blob))
+    }
+
+    /// The raw bytes of the encrypted record at `offset`:
+    /// `[u32 blob_len][12B nonce][ct ‖ 16B tag]`.
+    fn read_record_bytes(&self, offset: u64) -> Result<Vec<u8>> {
+        use crate::storage::vfile_crypto::{RECORD_PREFIX_LEN, TAG_LEN};
+        let bytes = self.mmap_bytes();
+        let start = offset as usize;
+        if start + RECORD_PREFIX_LEN > bytes.len() {
+            return Err(Error::EncryptionCorrupt {
+                artifact: crate::storage::vfile_crypto::ARTIFACT.to_string(),
+                detail: format!("node record at offset {offset} is truncated"),
+            });
+        }
+        let blob_len = u32::from_le_bytes([
+            bytes[start],
+            bytes[start + 1],
+            bytes[start + 2],
+            bytes[start + 3],
+        ]) as usize;
+        if blob_len < TAG_LEN || start + RECORD_PREFIX_LEN + blob_len > bytes.len() {
+            return Err(Error::EncryptionCorrupt {
+                artifact: crate::storage::vfile_crypto::ARTIFACT.to_string(),
+                detail: format!(
+                    "node record at offset {offset} declares an impossible blob length {blob_len}"
+                ),
+            });
+        }
+        Ok(bytes[start..start + RECORD_PREFIX_LEN + blob_len].to_vec())
+    }
+}
+
 impl crate::index_port::sealed::Sealed for File {}
 
 /// `VectorStoreRef` bridge (F3X): the index consumes the store through the leaf
@@ -476,6 +1035,40 @@ impl crate::index_port::VectorStoreRef for File {
     fn mmap_bytes(&self) -> &[u8] {
         // Same: inherent `File::mmap_bytes`.
         self.mmap_bytes()
+    }
+
+    /// The FULL vector of the node at `offset`.
+    ///
+    /// A plaintext segment keeps the **zero-copy** view of the mapping; an
+    /// encrypted segment materialises the payload (the ciphertext is not a
+    /// `&[f32]` — this is the zero-copy tier that ADR-0057 §5.2 declares
+    /// forfeited for encrypted stores).
+    fn read_full_vector(
+        &self,
+        offset: u64,
+        header: &DiskNodeHeader,
+    ) -> Option<std::borrow::Cow<'_, [f32]>> {
+        if !self.is_encrypted() {
+            return crate::index_port::full_vector_from_bytes(self.mmap_bytes(), header);
+        }
+        #[cfg(feature = "encryption")]
+        {
+            let blob = self.decrypt_blob(offset).ok().flatten()?;
+            let payload = blob.as_slice();
+            let payload = payload.get(ENCRYPTED_PAYLOAD_OFFSET as usize..)?;
+            let len = header.vector_len as usize;
+            let bytes = payload.get(..len.checked_mul(4)?)?;
+            let mut out = Vec::with_capacity(len);
+            for chunk in bytes.chunks_exact(4) {
+                out.push(f32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]));
+            }
+            Some(std::borrow::Cow::Owned(out))
+        }
+        #[cfg(not(feature = "encryption"))]
+        {
+            let _ = (offset, header);
+            None
+        }
     }
 }
 
