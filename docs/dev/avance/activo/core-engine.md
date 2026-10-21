@@ -946,3 +946,22 @@ s_len‖ns‖key_len‖key‖ver BE) + hooks put/put_batch/delete/purge_expired 
 - **Fecha:** 2026-10-20
 - **Resultado:** ✅ 18 filas del backlog seguian marcadas como pendientes cuando su hallazgo **ya estaba corregido**: los agentes de docs y READMEs los arreglaron en los PRs #268 y #270, pero sus filas nunca se cerraron. Se cierran aqui: `FIND-415` (S3-B4), `FIND-416` (S5-B1), `FIND-417` (S5-B2), `FIND-418` (S5-B3), `FIND-419` (S5-B4), `FIND-420` (S5-B6), `FIND-424` (D-05), `FIND-425` (D-06), `FIND-426` (D-07), `FIND-433` (S7-01), `FIND-434` (S7-03), `FIND-435` (S7-04), `FIND-436` (S7-05), `FIND-437` (S7-06), `FIND-438` (S7-07), `FIND-439` (S7-08), `FIND-440` (S7-09), `FIND-441` (S7-10).
   El detalle de cada correccion esta en los informes de la campana y en el changelog `[Unreleased]`.
+
+### FIND-385 / FIND-387 / FIND-408 / FIND-410 / FIND-422 / FIND-423 / FIND-428 / FIND-431 / FIND-427 / FIND-386: cierres por resolucion verificada
+
+- **Fecha:** 2026-10-21
+- **Resultado:** ✅ 10 filas seguian marcadas como pendientes cuando su hallazgo **ya estaba
+  resuelto** (los agentes de docs y READMEs los corrigieron en los PRs #268 y #270, y el fix del
+  changelog en #267). Verificado uno a uno en el repo antes de cerrar:
+
+  - `FIND-385` (S7-02): los 4 badges del README apuntan a `docs-gates.yml` y `platform-ops.yml` (los workflows reales).
+  - `FIND-387` (S3-B10): las 7 citas `archivo:línea` de `docs/api/scores.md` actualizadas y la afirmación de comportamiento falsa corregida (los mapeos son `1-d` y `1-s`).
+  - `FIND-408` (S5-B7): las 2 tools que faltaban (`memory_reinforce`, `memory_verify_certificate`) documentadas en `skills/vantadb-mcp/references/api-reference.md` (que ahora lista las 88 definiciones).
+  - `FIND-410` (D-01b): la entrada del changelog del 0.9.0 ya no afirma 'docs sin claim': describe el estado real.
+  - `FIND-422` (S5-A3): la version del registro MCP en `docs/api/MCP.md` es 0.9.0 (era 0.5.0).
+  - `FIND-423` (D-04): el quickstart esta pineado a 0.9.0 (era 0.8.0).
+  - `FIND-428` (D-09): la cita de `docs/api/MCP.md:198` da 82/88 (era 80/86).
+  - `FIND-431` (D-12): el prerrequisito `vanta-cli` documenta 0.9.0 (era 0.5.0).
+  - `FIND-427`: el texto de la propia fila `FIND-98` ("79 vs 85 tools") corregido a "79 vs 82".
+  - `FIND-386`: la tabla de versiones de `SECURITY.md` estaba congelada en 0.5.x/0.4.x con el crate
+    en 0.9.0 -> ahora 0.9.x activa, 0.8.x y 0.7.x con parches de seguridad.
