@@ -22,11 +22,24 @@
 //!   serialization cost but not the I/O surface this bench measures.
 //! - Latency histogram printed per sample (p50/p95/p99 in microseconds).
 //!
+//! **Encrypted variant (W7 of the encryption plan):** the same source runs
+//! with and without the `encryption` feature; the only difference is the
+//! compiled feature (and, with it, the key):
+//! ```powershell
+//! cargo bench -p vantadb --bench wal_throughput                     # plaintext
+//! cargo bench -p vantadb --bench wal_throughput --features encryption # encrypted
+//! ```
+//! The master key is a **published** bench key (it protects a throwaway
+//! tempdir). The encryption context is built **once**, outside the measured
+//! region: `WalCrypto::open` persists the nonce epoch (a registry write +
+//! fsync) and that is bookkeeping, not the WAL hot path.
+//!
 //! Run:  `cargo bench -p vantadb --bench wal_throughput`
 
 use criterion::measurement::WallTime;
 use criterion::{criterion_group, criterion_main, BenchmarkGroup, Criterion, Throughput};
 use std::hint::black_box;
+use std::path::Path;
 use std::time::{Duration, Instant};
 use tempfile::tempdir;
 use vantadb::config::SyncMode;
@@ -43,6 +56,37 @@ const RECORDS_PER_ITER: u64 = 10_000;
 /// large batches. Plan-mandated: [1, 100, 1_000, 10_000].
 const BATCH_SIZES: &[usize] = &[1, 100, 1_000, 10_000];
 
+/// The encryption context of the WAL — `()` when the feature is compiled out.
+#[cfg(feature = "encryption")]
+type WalCryptoCtx = vantadb::wal::WalCrypto;
+#[cfg(not(feature = "encryption"))]
+type WalCryptoCtx = ();
+
+/// The mode this build measures — part of the criterion group name, so the
+/// two series never overwrite each other.
+#[cfg(feature = "encryption")]
+const MODE: &str = "encrypted";
+#[cfg(not(feature = "encryption"))]
+const MODE: &str = "plaintext";
+
+/// Master key of the bench — 32 raw bytes (AES-256). Published on purpose:
+/// it protects a throwaway tempdir and nothing else.
+#[cfg(feature = "encryption")]
+const BENCH_KEY: [u8; 32] = [0x0f; 32];
+
+/// Open the WAL under test: encrypted when the feature is compiled in and a
+/// context is supplied, plaintext otherwise.
+fn open_writer(path: &Path, sync_mode: SyncMode, crypto: Option<&WalCryptoCtx>) -> WalWriter {
+    #[cfg(feature = "encryption")]
+    if let Some(c) = crypto {
+        return WalWriter::open_encrypted(path, sync_mode, c.clone())
+            .expect("open encrypted WalWriter");
+    }
+    #[cfg(not(feature = "encryption"))]
+    let _ = crypto;
+    WalWriter::open(path, sync_mode).expect("open WalWriter")
+}
+
 /// Nearest-rank percentile over sorted latencies (mirrors `canonical_p99.rs`).
 fn percentile(sorted: &[Duration], q: f64) -> Duration {
     let idx = ((sorted.len() as f64 - 1.0) * q).round() as usize;
@@ -55,10 +99,14 @@ fn percentile(sorted: &[Duration], q: f64) -> Duration {
 ///
 /// `iter_custom` ensures the tempdir (and therefore the WAL file) is recreated
 /// every iteration — so fsync measurements stay cold and comparable.
-fn run_iter(sync_mode: SyncMode, batch_size: usize) -> Vec<Duration> {
+fn run_iter(
+    sync_mode: SyncMode,
+    batch_size: usize,
+    crypto: Option<&WalCryptoCtx>,
+) -> Vec<Duration> {
     let dir = tempdir().expect("tempdir for wal bench");
     let path = dir.path().join("wal_throughput.wal");
-    let mut writer = WalWriter::open(&path, sync_mode).expect("open WalWriter");
+    let mut writer = open_writer(&path, sync_mode, crypto);
 
     let mut latencies: Vec<Duration> = Vec::with_capacity(RECORDS_PER_ITER as usize);
     let mut id_counter: u128 = 0;
@@ -100,7 +148,12 @@ fn run_iter(sync_mode: SyncMode, batch_size: usize) -> Vec<Duration> {
 
 /// Emit a `criterion::Throughput::Elements` benchmark for one
 /// (sync_mode, batch_size) pair.
-fn bench_one(c: &mut Criterion, sync_mode: SyncMode, batch_size: usize) {
+fn bench_one(
+    c: &mut Criterion,
+    sync_mode: SyncMode,
+    batch_size: usize,
+    crypto: Option<&WalCryptoCtx>,
+) {
     let label = format!(
         "{}/batch_{}",
         match sync_mode {
@@ -111,8 +164,10 @@ fn bench_one(c: &mut Criterion, sync_mode: SyncMode, batch_size: usize) {
         batch_size
     );
 
+    // The mode is part of the group name: the plaintext and the encrypted
+    // series are independent (and both survive a criterion re-run).
     let mut group: BenchmarkGroup<'_, WallTime> =
-        c.benchmark_group(format!("wal_throughput/{label}"));
+        c.benchmark_group(format!("wal_throughput/{label}/{MODE}"));
     common::apply_fixed_profile(&mut group);
     group.sample_size(10);
     group.throughput(Throughput::Elements(RECORDS_PER_ITER));
@@ -122,7 +177,7 @@ fn bench_one(c: &mut Criterion, sync_mode: SyncMode, batch_size: usize) {
             let mut total = Duration::ZERO;
             let mut last_latencies: Vec<Duration> = Vec::new();
             for _ in 0..iters {
-                let lats = run_iter(sync_mode, batch_size);
+                let lats = run_iter(sync_mode, batch_size, crypto);
                 total += lats.iter().sum::<Duration>();
                 last_latencies = lats;
             }
@@ -135,8 +190,8 @@ fn bench_one(c: &mut Criterion, sync_mode: SyncMode, batch_size: usize) {
                 let p95 = percentile(&sorted, 0.95);
                 let p99 = percentile(&sorted, 0.99);
                 println!(
-                    "wal_throughput/{label} per-record latencies: p50={:?} p95={:?} p99={:?}",
-                    p50, p95, p99
+                    "wal_throughput/{label}/{} per-record latencies: p50={:?} p95={:?} p99={:?}",
+                    MODE, p50, p95, p99
                 );
             }
             total
@@ -147,9 +202,21 @@ fn bench_one(c: &mut Criterion, sync_mode: SyncMode, batch_size: usize) {
 }
 
 fn bench_wal_throughput(c: &mut Criterion) {
+    // The encryption context is built **once**, outside the measured region:
+    // `WalCrypto::open` persists the nonce epoch (a registry write + fsync),
+    // and that is bookkeeping — not the WAL hot path this bench measures.
+    #[cfg(feature = "encryption")]
+    let registry_dir = tempdir().expect("tempdir for the encryption registry");
+    #[cfg(feature = "encryption")]
+    let crypto = Some(
+        vantadb::wal::WalCrypto::open(registry_dir.path(), &BENCH_KEY).expect("wal crypto context"),
+    );
+    #[cfg(not(feature = "encryption"))]
+    let crypto: Option<()> = None;
+
     for &sync_mode in &[SyncMode::Always, SyncMode::Periodic, SyncMode::Never] {
         for &batch_size in BATCH_SIZES {
-            bench_one(c, sync_mode, batch_size);
+            bench_one(c, sync_mode, batch_size, crypto.as_ref());
         }
     }
 }

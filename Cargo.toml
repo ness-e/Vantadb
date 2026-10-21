@@ -332,6 +332,10 @@ name = "canonical_p99"
 harness = false
 
 [[bench]]
+name = "encrypted_p99"
+harness = false
+
+[[bench]]
 name = "purge_expired"
 harness = false
 
