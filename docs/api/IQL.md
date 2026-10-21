@@ -102,7 +102,7 @@ FROM <entity> [SIGUE <min>..<max> "<label>" [TYPE <type>] [AS <alias>]] [<alias>
 | `<alias>` | Target alias for result nodes (defaults to `"target"`). |
 | `AS OF <unix-ms>` | Valid-time point (SCH-03, ADR-0046 §D3, minimum `IQL_VERSION_MIN_AS_OF` = 2): keep only records valid at that instant (`valid_at_ms <= T < invalid_at_ms`). Accepted after the table spec, before pagination, and at the end of the statement; repeating the clause is a parse error (`AS OF specified more than once`). Graph nodes without validity metadata are never excluded by it. |
 | `WHERE <cond> AND <cond>...` | Filter conditions (see [Conditions](#conditions)). |
-| `FETCH <field1>, <field2>` | Projection: return only these fields. |
+| `FETCH <field1>, <field2>` | Projection: return these fields. The **system metadata** the engine filters on (`__vanta_valid_at_ms`, `__vanta_invalid_at_ms`, `__vanta_created_at_ms`, `type`, `_owner_role`) is kept: it is what `AS OF`, the confidence filter and `ROLE` read, so dropping it would silently disable those filters. |
 | `RANK BY <field> [DESC]` | Sort results by a field (applied before `LIMIT`/`OFFSET`). |
 | `WITH TEMPERATURE <float>` | Query temperature (0.0 = deterministic/exhaustive). |
 | `ROLE "<role>"` | RBAC owner role filter. |

@@ -6,7 +6,7 @@
 
 Every link below points to the raw Markdown source, not a rendered page. Read the
 page you need; do not read this file end to end. This index covers the
-512 documentation pages; it deliberately omits the 639 task files,
+513 documentation pages; it deliberately omits the 639 task files,
 which are work items rather than documentation. The full inventory of every file
 is in docs/index.md in the repository.
 
@@ -440,6 +440,7 @@ is in docs/index.md in the repository.
 - [SDK Gap Audit + Recovery Plan — Recitation](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/avance/historial/sdk-gap-audit-2026-07-28.md): El contenido completo vive en el archivo canónico de docs/progreso/. Este archivo es un mirror de navegación; consulta el canónico para el contenido íntegro
 - [Sintesis de la revision profunda integral de VantaDB (2026-10-20)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/reviews/audit-deep-sintesis-20261020-033416.md): Sintesis de las 11 waves de la revision profunda read-only: tablero por wave, top 20 hallazgos, mapa de cobertura, FODA, rutas de remediacion y veredicto global con estado de preparacion de v0.9.0.
 - [W6 — Activacion del cifrado en reposo: un contexto, un registro, rotacion y documentacion honesta](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/reviews/2026-10-21-w6-encryption-activation.md): Nota de la wave W6 del plan de cableado de la feature `encryption` (ADR-0057): que se implemento, que queda abierto y que se verifico.
+- [W7 — Medicion del coste del cifrado en reposo: p99, flush, cold start y WAL](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/reviews/2026-10-21-w7-cifrado-coste.md): Nota de la wave W7 del plan de cableado de la feature `encryption` (ADR-0057): que se midio, con que comando, en que entorno y que veredicto sale frente al umbral del 15 %.
 - [Archivados de planes — registros de cierre](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/avance/historial/campanas/archivados-planes.md): Notas de archivo
 - [Auditoría Integral 2026-06-19 + correcciones documentales](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/avance/historial/campanas/auditoria-integral-junio.md): Auditoría automatizada de 44 hallazgos ejecutada y resuelta en su totalidad el mismo día. Cada hallazgo fue delegado a un agente especializado para su diagnóstico y corrección
 - [CI/infraestructura junio-julio — AUD-WORK, WASM, TSK, CLI-EPIC](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/avance/historial/campanas/ci-infra-junio-julio.md)
