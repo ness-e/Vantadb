@@ -1,0 +1,2722 @@
+{
+  "generatedAt": "2026-10-21T19:27:47.355Z",
+  "days": 90,
+  "totals": {
+    "npm": {
+      "packages": 4,
+      "day": 19,
+      "week": 36,
+      "month": 1396,
+      "year": 2544
+    },
+    "pypi": {
+      "packages": 11,
+      "day": 1317,
+      "week": 2080,
+      "month": 3840,
+      "year": 5297
+    }
+  },
+  "drift": [],
+  "errors": [],
+  "packages": [
+    {
+      "ecosystem": "npm",
+      "name": "vanta-cli",
+      "dir": null,
+      "note": "CLI publicado fuera de este repo",
+      "dirs": [],
+      "localVersion": null,
+      "latest": "0.1.0",
+      "publishedAt": "2026-04-10T00:20:05.754Z",
+      "createdAt": "2026-04-10T00:20:05.496Z",
+      "downloads": {
+        "day": 0,
+        "week": 1,
+        "month": 4,
+        "year": 230
+      },
+      "series": [
+        {
+          "day": "2026-07-23",
+          "downloads": 0
+        },
+        {
+          "day": "2026-07-24",
+          "downloads": 0
+        },
+        {
+          "day": "2026-07-25",
+          "downloads": 2
+        },
+        {
+          "day": "2026-07-26",
+          "downloads": 0
+        },
+        {
+          "day": "2026-07-27",
+          "downloads": 0
+        },
+        {
+          "day": "2026-07-28",
+          "downloads": 3
+        },
+        {
+          "day": "2026-07-29",
+          "downloads": 0
+        },
+        {
+          "day": "2026-07-30",
+          "downloads": 0
+        },
+        {
+          "day": "2026-07-31",
+          "downloads": 0
+        },
+        {
+          "day": "2026-08-01",
+          "downloads": 0
+        },
+        {
+          "day": "2026-08-02",
+          "downloads": 0
+        },
+        {
+          "day": "2026-08-03",
+          "downloads": 0
+        },
+        {
+          "day": "2026-08-04",
+          "downloads": 0
+        },
+        {
+          "day": "2026-08-05",
+          "downloads": 0
+        },
+        {
+          "day": "2026-08-06",
+          "downloads": 0
+        },
+        {
+          "day": "2026-08-07",
+          "downloads": 2
+        },
+        {
+          "day": "2026-08-08",
+          "downloads": 1
+        },
+        {
+          "day": "2026-08-09",
+          "downloads": 0
+        },
+        {
+          "day": "2026-08-10",
+          "downloads": 0
+        },
+        {
+          "day": "2026-08-11",
+          "downloads": 1
+        },
+        {
+          "day": "2026-08-12",
+          "downloads": 0
+        },
+        {
+          "day": "2026-08-13",
+          "downloads": 1
+        },
+        {
+          "day": "2026-08-14",
+          "downloads": 0
+        },
+        {
+          "day": "2026-08-15",
+          "downloads": 1
+        },
+        {
+          "day": "2026-08-16",
+          "downloads": 0
+        },
+        {
+          "day": "2026-08-17",
+          "downloads": 1
+        },
+        {
+          "day": "2026-08-18",
+          "downloads": 0
+        },
+        {
+          "day": "2026-08-19",
+          "downloads": 0
+        },
+        {
+          "day": "2026-08-20",
+          "downloads": 0
+        },
+        {
+          "day": "2026-08-21",
+          "downloads": 0
+        },
+        {
+          "day": "2026-08-22",
+          "downloads": 0
+        },
+        {
+          "day": "2026-08-23",
+          "downloads": 0
+        },
+        {
+          "day": "2026-08-24",
+          "downloads": 0
+        },
+        {
+          "day": "2026-08-25",
+          "downloads": 0
+        },
+        {
+          "day": "2026-08-26",
+          "downloads": 0
+        },
+        {
+          "day": "2026-08-27",
+          "downloads": 0
+        },
+        {
+          "day": "2026-08-28",
+          "downloads": 0
+        },
+        {
+          "day": "2026-08-29",
+          "downloads": 0
+        },
+        {
+          "day": "2026-08-30",
+          "downloads": 3
+        },
+        {
+          "day": "2026-08-31",
+          "downloads": 1
+        },
+        {
+          "day": "2026-09-01",
+          "downloads": 0
+        },
+        {
+          "day": "2026-09-02",
+          "downloads": 1
+        },
+        {
+          "day": "2026-09-03",
+          "downloads": 0
+        },
+        {
+          "day": "2026-09-04",
+          "downloads": 0
+        },
+        {
+          "day": "2026-09-05",
+          "downloads": 0
+        },
+        {
+          "day": "2026-09-06",
+          "downloads": 0
+        },
+        {
+          "day": "2026-09-07",
+          "downloads": 0
+        },
+        {
+          "day": "2026-09-08",
+          "downloads": 0
+        },
+        {
+          "day": "2026-09-09",
+          "downloads": 0
+        },
+        {
+          "day": "2026-09-10",
+          "downloads": 1
+        },
+        {
+          "day": "2026-09-11",
+          "downloads": 0
+        },
+        {
+          "day": "2026-09-12",
+          "downloads": 1
+        },
+        {
+          "day": "2026-09-13",
+          "downloads": 1
+        },
+        {
+          "day": "2026-09-14",
+          "downloads": 0
+        },
+        {
+          "day": "2026-09-15",
+          "downloads": 0
+        },
+        {
+          "day": "2026-09-16",
+          "downloads": 0
+        },
+        {
+          "day": "2026-09-17",
+          "downloads": 3
+        },
+        {
+          "day": "2026-09-18",
+          "downloads": 0
+        },
+        {
+          "day": "2026-09-19",
+          "downloads": 0
+        },
+        {
+          "day": "2026-09-20",
+          "downloads": 0
+        },
+        {
+          "day": "2026-09-21",
+          "downloads": 0
+        },
+        {
+          "day": "2026-09-22",
+          "downloads": 0
+        },
+        {
+          "day": "2026-09-23",
+          "downloads": 0
+        },
+        {
+          "day": "2026-09-24",
+          "downloads": 0
+        },
+        {
+          "day": "2026-09-25",
+          "downloads": 0
+        },
+        {
+          "day": "2026-09-26",
+          "downloads": 0
+        },
+        {
+          "day": "2026-09-27",
+          "downloads": 0
+        },
+        {
+          "day": "2026-09-28",
+          "downloads": 0
+        },
+        {
+          "day": "2026-09-29",
+          "downloads": 1
+        },
+        {
+          "day": "2026-09-30",
+          "downloads": 0
+        },
+        {
+          "day": "2026-10-01",
+          "downloads": 0
+        },
+        {
+          "day": "2026-10-02",
+          "downloads": 1
+        },
+        {
+          "day": "2026-10-03",
+          "downloads": 1
+        },
+        {
+          "day": "2026-10-04",
+          "downloads": 0
+        },
+        {
+          "day": "2026-10-05",
+          "downloads": 0
+        },
+        {
+          "day": "2026-10-06",
+          "downloads": 0
+        },
+        {
+          "day": "2026-10-07",
+          "downloads": 0
+        },
+        {
+          "day": "2026-10-08",
+          "downloads": 0
+        },
+        {
+          "day": "2026-10-09",
+          "downloads": 0
+        },
+        {
+          "day": "2026-10-10",
+          "downloads": 0
+        },
+        {
+          "day": "2026-10-11",
+          "downloads": 0
+        },
+        {
+          "day": "2026-10-12",
+          "downloads": 0
+        },
+        {
+          "day": "2026-10-13",
+          "downloads": 0
+        },
+        {
+          "day": "2026-10-14",
+          "downloads": 0
+        },
+        {
+          "day": "2026-10-15",
+          "downloads": 0
+        },
+        {
+          "day": "2026-10-16",
+          "downloads": 1
+        },
+        {
+          "day": "2026-10-17",
+          "downloads": 0
+        },
+        {
+          "day": "2026-10-18",
+          "downloads": 0
+        },
+        {
+          "day": "2026-10-19",
+          "downloads": 0
+        },
+        {
+          "day": "2026-10-20",
+          "downloads": 0
+        }
+      ],
+      "releases": [
+        {
+          "version": "0.1.0",
+          "date": "2026-04-10T00:20:05.754Z",
+          "bytes": 60290,
+          "files": 18,
+          "yanked": false
+        }
+      ],
+      "bytes": 60290,
+      "files": 18,
+      "license": null,
+      "requires": null,
+      "dependencies": [
+        "axios",
+        "chalk",
+        "commander",
+        "dotenv",
+        "fs-extra",
+        "inquirer",
+        "ora",
+        "zod"
+      ],
+      "homepage": null,
+      "repository": null
+    },
+    {
+      "ecosystem": "npm",
+      "name": "vantadb",
+      "dir": "vantadb-ts",
+      "dirs": [
+        "vantadb-ts"
+      ],
+      "localVersion": "0.9.0",
+      "latest": "0.9.0",
+      "publishedAt": "2026-10-20T07:00:06.982Z",
+      "createdAt": "2026-07-16T06:34:15.947Z",
+      "downloads": {
+        "day": 10,
+        "week": 23,
+        "month": 594,
+        "year": 1115
+      },
+      "series": [
+        {
+          "day": "2026-07-23",
+          "downloads": 5
+        },
+        {
+          "day": "2026-07-24",
+          "downloads": 3
+        },
+        {
+          "day": "2026-07-25",
+          "downloads": 4
+        },
+        {
+          "day": "2026-07-26",
+          "downloads": 0
+        },
+        {
+          "day": "2026-07-27",
+          "downloads": 3
+        },
+        {
+          "day": "2026-07-28",
+          "downloads": 5
+        },
+        {
+          "day": "2026-07-29",
+          "downloads": 1
+        },
+        {
+          "day": "2026-07-30",
+          "downloads": 0
+        },
+        {
+          "day": "2026-07-31",
+          "downloads": 0
+        },
+        {
+          "day": "2026-08-01",
+          "downloads": 136
+        },
+        {
+          "day": "2026-08-02",
+          "downloads": 13
+        },
+        {
+          "day": "2026-08-03",
+          "downloads": 9
+        },
+        {
+          "day": "2026-08-04",
+          "downloads": 8
+        },
+        {
+          "day": "2026-08-05",
+          "downloads": 6
+        },
+        {
+          "day": "2026-08-06",
+          "downloads": 0
+        },
+        {
+          "day": "2026-08-07",
+          "downloads": 6
+        },
+        {
+          "day": "2026-08-08",
+          "downloads": 1
+        },
+        {
+          "day": "2026-08-09",
+          "downloads": 6
+        },
+        {
+          "day": "2026-08-10",
+          "downloads": 4
+        },
+        {
+          "day": "2026-08-11",
+          "downloads": 4
+        },
+        {
+          "day": "2026-08-12",
+          "downloads": 2
+        },
+        {
+          "day": "2026-08-13",
+          "downloads": 2
+        },
+        {
+          "day": "2026-08-14",
+          "downloads": 0
+        },
+        {
+          "day": "2026-08-15",
+          "downloads": 0
+        },
+        {
+          "day": "2026-08-16",
+          "downloads": 0
+        },
+        {
+          "day": "2026-08-17",
+          "downloads": 4
+        },
+        {
+          "day": "2026-08-18",
+          "downloads": 4
+        },
+        {
+          "day": "2026-08-19",
+          "downloads": 3
+        },
+        {
+          "day": "2026-08-20",
+          "downloads": 3
+        },
+        {
+          "day": "2026-08-21",
+          "downloads": 0
+        },
+        {
+          "day": "2026-08-22",
+          "downloads": 0
+        },
+        {
+          "day": "2026-08-23",
+          "downloads": 0
+        },
+        {
+          "day": "2026-08-24",
+          "downloads": 2
+        },
+        {
+          "day": "2026-08-25",
+          "downloads": 1
+        },
+        {
+          "day": "2026-08-26",
+          "downloads": 2
+        },
+        {
+          "day": "2026-08-27",
+          "downloads": 0
+        },
+        {
+          "day": "2026-08-28",
+          "downloads": 1
+        },
+        {
+          "day": "2026-08-29",
+          "downloads": 1
+        },
+        {
+          "day": "2026-08-30",
+          "downloads": 2
+        },
+        {
+          "day": "2026-08-31",
+          "downloads": 1
+        },
+        {
+          "day": "2026-09-01",
+          "downloads": 2
+        },
+        {
+          "day": "2026-09-02",
+          "downloads": 0
+        },
+        {
+          "day": "2026-09-03",
+          "downloads": 0
+        },
+        {
+          "day": "2026-09-04",
+          "downloads": 1
+        },
+        {
+          "day": "2026-09-05",
+          "downloads": 1
+        },
+        {
+          "day": "2026-09-06",
+          "downloads": 0
+        },
+        {
+          "day": "2026-09-07",
+          "downloads": 0
+        },
+        {
+          "day": "2026-09-08",
+          "downloads": 0
+        },
+        {
+          "day": "2026-09-09",
+          "downloads": 0
+        },
+        {
+          "day": "2026-09-10",
+          "downloads": 2
+        },
+        {
+          "day": "2026-09-11",
+          "downloads": 0
+        },
+        {
+          "day": "2026-09-12",
+          "downloads": 1
+        },
+        {
+          "day": "2026-09-13",
+          "downloads": 3
+        },
+        {
+          "day": "2026-09-14",
+          "downloads": 4
+        },
+        {
+          "day": "2026-09-15",
+          "downloads": 0
+        },
+        {
+          "day": "2026-09-16",
+          "downloads": 0
+        },
+        {
+          "day": "2026-09-17",
+          "downloads": 3
+        },
+        {
+          "day": "2026-09-18",
+          "downloads": 0
+        },
+        {
+          "day": "2026-09-19",
+          "downloads": 0
+        },
+        {
+          "day": "2026-09-20",
+          "downloads": 0
+        },
+        {
+          "day": "2026-09-21",
+          "downloads": 0
+        },
+        {
+          "day": "2026-09-22",
+          "downloads": 1
+        },
+        {
+          "day": "2026-09-23",
+          "downloads": 138
+        },
+        {
+          "day": "2026-09-24",
+          "downloads": 21
+        },
+        {
+          "day": "2026-09-25",
+          "downloads": 143
+        },
+        {
+          "day": "2026-09-26",
+          "downloads": 20
+        },
+        {
+          "day": "2026-09-27",
+          "downloads": 11
+        },
+        {
+          "day": "2026-09-28",
+          "downloads": 9
+        },
+        {
+          "day": "2026-09-29",
+          "downloads": 9
+        },
+        {
+          "day": "2026-09-30",
+          "downloads": 1
+        },
+        {
+          "day": "2026-10-01",
+          "downloads": 4
+        },
+        {
+          "day": "2026-10-02",
+          "downloads": 6
+        },
+        {
+          "day": "2026-10-03",
+          "downloads": 170
+        },
+        {
+          "day": "2026-10-04",
+          "downloads": 13
+        },
+        {
+          "day": "2026-10-05",
+          "downloads": 6
+        },
+        {
+          "day": "2026-10-06",
+          "downloads": 0
+        },
+        {
+          "day": "2026-10-07",
+          "downloads": 4
+        },
+        {
+          "day": "2026-10-08",
+          "downloads": 3
+        },
+        {
+          "day": "2026-10-09",
+          "downloads": 4
+        },
+        {
+          "day": "2026-10-10",
+          "downloads": 0
+        },
+        {
+          "day": "2026-10-11",
+          "downloads": 8
+        },
+        {
+          "day": "2026-10-12",
+          "downloads": 2
+        },
+        {
+          "day": "2026-10-13",
+          "downloads": 0
+        },
+        {
+          "day": "2026-10-14",
+          "downloads": 0
+        },
+        {
+          "day": "2026-10-15",
+          "downloads": 0
+        },
+        {
+          "day": "2026-10-16",
+          "downloads": 4
+        },
+        {
+          "day": "2026-10-17",
+          "downloads": 7
+        },
+        {
+          "day": "2026-10-18",
+          "downloads": 10
+        },
+        {
+          "day": "2026-10-19",
+          "downloads": 0
+        },
+        {
+          "day": "2026-10-20",
+          "downloads": 0
+        }
+      ],
+      "releases": [
+        {
+          "version": "0.3.0",
+          "date": "2026-07-16T06:34:16.149Z",
+          "bytes": 76828,
+          "files": 14,
+          "yanked": false
+        },
+        {
+          "version": "0.4.0",
+          "date": "2026-07-21T03:10:06.509Z",
+          "bytes": 76829,
+          "files": 14,
+          "yanked": false
+        },
+        {
+          "version": "0.5.0",
+          "date": "2026-08-01T17:07:46.469Z",
+          "bytes": 81224,
+          "files": 17,
+          "yanked": false
+        },
+        {
+          "version": "0.6.1",
+          "date": "2026-09-23T17:12:09.608Z",
+          "bytes": 190366,
+          "files": 20,
+          "yanked": false
+        },
+        {
+          "version": "0.7.0",
+          "date": "2026-09-25T15:46:46.460Z",
+          "bytes": 190699,
+          "files": 20,
+          "yanked": false
+        },
+        {
+          "version": "0.8.0",
+          "date": "2026-10-03T01:09:27.999Z",
+          "bytes": 213508,
+          "files": 20,
+          "yanked": false
+        },
+        {
+          "version": "0.9.0",
+          "date": "2026-10-20T07:00:06.982Z",
+          "bytes": 275540,
+          "files": 20,
+          "yanked": false
+        }
+      ],
+      "bytes": 275540,
+      "files": 20,
+      "license": "Apache-2.0",
+      "requires": ">=22.19",
+      "dependencies": [
+        "vantadb-wasm"
+      ],
+      "homepage": "https://vantadb.dev",
+      "repository": "git+https://github.com/ness-e/Vantadb.git"
+    },
+    {
+      "ecosystem": "npm",
+      "name": "vantadb-node",
+      "dir": "vantadb-node",
+      "dirs": [
+        "vantadb-node"
+      ],
+      "localVersion": "0.9.0",
+      "latest": "0.9.0",
+      "publishedAt": "2026-10-20T07:20:44.367Z",
+      "createdAt": "2026-10-20T07:18:32.983Z",
+      "downloads": {
+        "day": 0,
+        "week": 0,
+        "month": 0,
+        "year": 0
+      },
+      "series": [],
+      "releases": [
+        {
+          "version": "0.0.0-stage",
+          "date": "2026-10-20T07:18:32.983Z",
+          "bytes": 334,
+          "files": 2,
+          "yanked": false
+        },
+        {
+          "version": "0.9.0",
+          "date": "2026-10-20T07:20:44.367Z",
+          "bytes": 37353095,
+          "files": 12,
+          "yanked": false
+        }
+      ],
+      "bytes": 37353095,
+      "files": 12,
+      "license": "Apache-2.0",
+      "requires": ">=18",
+      "dependencies": [],
+      "homepage": null,
+      "repository": null
+    },
+    {
+      "ecosystem": "npm",
+      "name": "vantadb-wasm",
+      "dir": "vantadb-wasm",
+      "dirs": [
+        "vantadb-wasm"
+      ],
+      "localVersion": "0.9.0",
+      "latest": "0.9.0",
+      "publishedAt": "2026-10-20T06:36:35.084Z",
+      "createdAt": "2026-07-16T06:29:33.173Z",
+      "downloads": {
+        "day": 9,
+        "week": 12,
+        "month": 798,
+        "year": 1199
+      },
+      "series": [
+        {
+          "day": "2026-07-23",
+          "downloads": 1
+        },
+        {
+          "day": "2026-07-24",
+          "downloads": 1
+        },
+        {
+          "day": "2026-07-25",
+          "downloads": 5
+        },
+        {
+          "day": "2026-07-26",
+          "downloads": 0
+        },
+        {
+          "day": "2026-07-27",
+          "downloads": 0
+        },
+        {
+          "day": "2026-07-28",
+          "downloads": 1
+        },
+        {
+          "day": "2026-07-29",
+          "downloads": 1
+        },
+        {
+          "day": "2026-07-30",
+          "downloads": 0
+        },
+        {
+          "day": "2026-07-31",
+          "downloads": 3
+        },
+        {
+          "day": "2026-08-01",
+          "downloads": 135
+        },
+        {
+          "day": "2026-08-02",
+          "downloads": 14
+        },
+        {
+          "day": "2026-08-03",
+          "downloads": 8
+        },
+        {
+          "day": "2026-08-04",
+          "downloads": 5
+        },
+        {
+          "day": "2026-08-05",
+          "downloads": 4
+        },
+        {
+          "day": "2026-08-06",
+          "downloads": 2
+        },
+        {
+          "day": "2026-08-07",
+          "downloads": 5
+        },
+        {
+          "day": "2026-08-08",
+          "downloads": 1
+        },
+        {
+          "day": "2026-08-09",
+          "downloads": 4
+        },
+        {
+          "day": "2026-08-10",
+          "downloads": 4
+        },
+        {
+          "day": "2026-08-11",
+          "downloads": 3
+        },
+        {
+          "day": "2026-08-12",
+          "downloads": 3
+        },
+        {
+          "day": "2026-08-13",
+          "downloads": 1
+        },
+        {
+          "day": "2026-08-14",
+          "downloads": 0
+        },
+        {
+          "day": "2026-08-15",
+          "downloads": 1
+        },
+        {
+          "day": "2026-08-16",
+          "downloads": 1
+        },
+        {
+          "day": "2026-08-17",
+          "downloads": 2
+        },
+        {
+          "day": "2026-08-18",
+          "downloads": 2
+        },
+        {
+          "day": "2026-08-19",
+          "downloads": 0
+        },
+        {
+          "day": "2026-08-20",
+          "downloads": 0
+        },
+        {
+          "day": "2026-08-21",
+          "downloads": 0
+        },
+        {
+          "day": "2026-08-22",
+          "downloads": 0
+        },
+        {
+          "day": "2026-08-23",
+          "downloads": 0
+        },
+        {
+          "day": "2026-08-24",
+          "downloads": 1
+        },
+        {
+          "day": "2026-08-25",
+          "downloads": 0
+        },
+        {
+          "day": "2026-08-26",
+          "downloads": 2
+        },
+        {
+          "day": "2026-08-27",
+          "downloads": 0
+        },
+        {
+          "day": "2026-08-28",
+          "downloads": 0
+        },
+        {
+          "day": "2026-08-29",
+          "downloads": 0
+        },
+        {
+          "day": "2026-08-30",
+          "downloads": 2
+        },
+        {
+          "day": "2026-08-31",
+          "downloads": 3
+        },
+        {
+          "day": "2026-09-01",
+          "downloads": 1
+        },
+        {
+          "day": "2026-09-02",
+          "downloads": 0
+        },
+        {
+          "day": "2026-09-03",
+          "downloads": 0
+        },
+        {
+          "day": "2026-09-04",
+          "downloads": 0
+        },
+        {
+          "day": "2026-09-05",
+          "downloads": 0
+        },
+        {
+          "day": "2026-09-06",
+          "downloads": 0
+        },
+        {
+          "day": "2026-09-07",
+          "downloads": 0
+        },
+        {
+          "day": "2026-09-08",
+          "downloads": 0
+        },
+        {
+          "day": "2026-09-09",
+          "downloads": 1
+        },
+        {
+          "day": "2026-09-10",
+          "downloads": 2
+        },
+        {
+          "day": "2026-09-11",
+          "downloads": 0
+        },
+        {
+          "day": "2026-09-12",
+          "downloads": 1
+        },
+        {
+          "day": "2026-09-13",
+          "downloads": 2
+        },
+        {
+          "day": "2026-09-14",
+          "downloads": 4
+        },
+        {
+          "day": "2026-09-15",
+          "downloads": 0
+        },
+        {
+          "day": "2026-09-16",
+          "downloads": 0
+        },
+        {
+          "day": "2026-09-17",
+          "downloads": 3
+        },
+        {
+          "day": "2026-09-18",
+          "downloads": 1
+        },
+        {
+          "day": "2026-09-19",
+          "downloads": 0
+        },
+        {
+          "day": "2026-09-20",
+          "downloads": 0
+        },
+        {
+          "day": "2026-09-21",
+          "downloads": 1
+        },
+        {
+          "day": "2026-09-22",
+          "downloads": 157
+        },
+        {
+          "day": "2026-09-23",
+          "downloads": 166
+        },
+        {
+          "day": "2026-09-24",
+          "downloads": 30
+        },
+        {
+          "day": "2026-09-25",
+          "downloads": 138
+        },
+        {
+          "day": "2026-09-26",
+          "downloads": 26
+        },
+        {
+          "day": "2026-09-27",
+          "downloads": 15
+        },
+        {
+          "day": "2026-09-28",
+          "downloads": 5
+        },
+        {
+          "day": "2026-09-29",
+          "downloads": 5
+        },
+        {
+          "day": "2026-09-30",
+          "downloads": 4
+        },
+        {
+          "day": "2026-10-01",
+          "downloads": 2
+        },
+        {
+          "day": "2026-10-02",
+          "downloads": 151
+        },
+        {
+          "day": "2026-10-03",
+          "downloads": 50
+        },
+        {
+          "day": "2026-10-04",
+          "downloads": 16
+        },
+        {
+          "day": "2026-10-05",
+          "downloads": 3
+        },
+        {
+          "day": "2026-10-06",
+          "downloads": 0
+        },
+        {
+          "day": "2026-10-07",
+          "downloads": 4
+        },
+        {
+          "day": "2026-10-08",
+          "downloads": 3
+        },
+        {
+          "day": "2026-10-09",
+          "downloads": 3
+        },
+        {
+          "day": "2026-10-10",
+          "downloads": 0
+        },
+        {
+          "day": "2026-10-11",
+          "downloads": 7
+        },
+        {
+          "day": "2026-10-12",
+          "downloads": 0
+        },
+        {
+          "day": "2026-10-13",
+          "downloads": 0
+        },
+        {
+          "day": "2026-10-14",
+          "downloads": 0
+        },
+        {
+          "day": "2026-10-15",
+          "downloads": 0
+        },
+        {
+          "day": "2026-10-16",
+          "downloads": 1
+        },
+        {
+          "day": "2026-10-17",
+          "downloads": 2
+        },
+        {
+          "day": "2026-10-18",
+          "downloads": 9
+        },
+        {
+          "day": "2026-10-19",
+          "downloads": 0
+        },
+        {
+          "day": "2026-10-20",
+          "downloads": 0
+        }
+      ],
+      "releases": [
+        {
+          "version": "0.3.0",
+          "date": "2026-07-16T06:29:33.382Z",
+          "bytes": 1258887,
+          "files": 5,
+          "yanked": false
+        },
+        {
+          "version": "0.5.0",
+          "date": "2026-08-01T17:06:20.251Z",
+          "bytes": 1227418,
+          "files": 5,
+          "yanked": false
+        },
+        {
+          "version": "0.6.0",
+          "date": "2026-09-22T08:10:47.473Z",
+          "bytes": 1803542,
+          "files": 7,
+          "yanked": true
+        },
+        {
+          "version": "0.6.1",
+          "date": "2026-09-23T07:37:29.283Z",
+          "bytes": 1806293,
+          "files": 8,
+          "yanked": false
+        },
+        {
+          "version": "0.7.0",
+          "date": "2026-09-25T15:41:14.839Z",
+          "bytes": 1806306,
+          "files": 8,
+          "yanked": false
+        },
+        {
+          "version": "0.8.0",
+          "date": "2026-10-02T18:45:18.714Z",
+          "bytes": 1940374,
+          "files": 8,
+          "yanked": false
+        },
+        {
+          "version": "0.9.0",
+          "date": "2026-10-20T06:36:35.084Z",
+          "bytes": 2060202,
+          "files": 9,
+          "yanked": false
+        }
+      ],
+      "bytes": 2060202,
+      "files": 9,
+      "license": "Apache-2.0",
+      "requires": null,
+      "dependencies": [],
+      "homepage": "https://vantadb.dev",
+      "repository": "git+https://github.com/ness-e/Vantadb.git"
+    },
+    {
+      "ecosystem": "pypi",
+      "name": "vantadb-crewai",
+      "dir": "integrations/crewai",
+      "dirs": [
+        "integrations/crewai"
+      ],
+      "localVersion": "0.9.0",
+      "latest": "0.9.0",
+      "publishedAt": "2026-10-20T07:11:14.197160Z",
+      "createdAt": null,
+      "downloads": {
+        "day": 81,
+        "week": 99,
+        "month": 220,
+        "year": 220
+      },
+      "series": [
+        {
+          "day": "2026-10-07",
+          "downloads": 99
+        },
+        {
+          "day": "2026-10-08",
+          "downloads": 12
+        },
+        {
+          "day": "2026-10-09",
+          "downloads": 2
+        },
+        {
+          "day": "2026-10-10",
+          "downloads": 4
+        },
+        {
+          "day": "2026-10-12",
+          "downloads": 4
+        },
+        {
+          "day": "2026-10-14",
+          "downloads": 2
+        },
+        {
+          "day": "2026-10-15",
+          "downloads": 2
+        },
+        {
+          "day": "2026-10-17",
+          "downloads": 4
+        },
+        {
+          "day": "2026-10-18",
+          "downloads": 9
+        },
+        {
+          "day": "2026-10-19",
+          "downloads": 1
+        },
+        {
+          "day": "2026-10-20",
+          "downloads": 81
+        }
+      ],
+      "history": {
+        "from": "2026-10-07",
+        "to": "2026-10-20"
+      },
+      "releases": [
+        {
+          "version": "0.5.0",
+          "date": "2026-10-07T14:51:48.733096Z",
+          "bytes": 10399,
+          "files": 2,
+          "yanked": false
+        },
+        {
+          "version": "0.9.0",
+          "date": "2026-10-20T07:11:14.197160Z",
+          "bytes": 10355,
+          "files": 2,
+          "yanked": false
+        }
+      ],
+      "bytes": 10355,
+      "files": 2,
+      "license": "Apache-2.0",
+      "requires": ">=3.11",
+      "dependencies": [
+        "crewai<2,>=1.14",
+        "vantadb-py<0.10.0,>=0.6.1"
+      ],
+      "homepage": "https://pypi.org/project/vantadb-crewai/",
+      "repository": "https://github.com/ness-e/Vantadb"
+    },
+    {
+      "ecosystem": "pypi",
+      "name": "vantadb-dspy",
+      "dir": "integrations/dspy",
+      "dirs": [
+        "integrations/dspy"
+      ],
+      "localVersion": "0.9.0",
+      "latest": "0.9.0",
+      "publishedAt": "2026-10-20T07:11:15.282810Z",
+      "createdAt": null,
+      "downloads": {
+        "day": 84,
+        "week": 92,
+        "month": 211,
+        "year": 211
+      },
+      "series": [
+        {
+          "day": "2026-10-07",
+          "downloads": 97
+        },
+        {
+          "day": "2026-10-08",
+          "downloads": 12
+        },
+        {
+          "day": "2026-10-10",
+          "downloads": 8
+        },
+        {
+          "day": "2026-10-11",
+          "downloads": 1
+        },
+        {
+          "day": "2026-10-12",
+          "downloads": 1
+        },
+        {
+          "day": "2026-10-14",
+          "downloads": 2
+        },
+        {
+          "day": "2026-10-15",
+          "downloads": 2
+        },
+        {
+          "day": "2026-10-16",
+          "downloads": 1
+        },
+        {
+          "day": "2026-10-18",
+          "downloads": 2
+        },
+        {
+          "day": "2026-10-19",
+          "downloads": 1
+        },
+        {
+          "day": "2026-10-20",
+          "downloads": 84
+        }
+      ],
+      "history": {
+        "from": "2026-10-07",
+        "to": "2026-10-20"
+      },
+      "releases": [
+        {
+          "version": "0.5.0",
+          "date": "2026-10-07T14:51:49.744396Z",
+          "bytes": 5152,
+          "files": 2,
+          "yanked": false
+        },
+        {
+          "version": "0.9.0",
+          "date": "2026-10-20T07:11:15.282810Z",
+          "bytes": 5142,
+          "files": 2,
+          "yanked": false
+        }
+      ],
+      "bytes": 5142,
+      "files": 2,
+      "license": "Apache-2.0",
+      "requires": ">=3.11",
+      "dependencies": [
+        "dspy<3,>=2.6",
+        "vantadb-py<0.10.0,>=0.6.1"
+      ],
+      "homepage": "https://pypi.org/project/vantadb-dspy/",
+      "repository": "https://github.com/ness-e/Vantadb"
+    },
+    {
+      "ecosystem": "pypi",
+      "name": "vantadb-haystack",
+      "dir": "integrations/haystack",
+      "dirs": [
+        "integrations/haystack"
+      ],
+      "localVersion": "0.9.0",
+      "latest": "0.9.0",
+      "publishedAt": "2026-10-20T07:11:16.382814Z",
+      "createdAt": null,
+      "downloads": {
+        "day": 84,
+        "week": 92,
+        "month": 221,
+        "year": 221
+      },
+      "series": [
+        {
+          "day": "2026-10-07",
+          "downloads": 111
+        },
+        {
+          "day": "2026-10-08",
+          "downloads": 12
+        },
+        {
+          "day": "2026-10-10",
+          "downloads": 4
+        },
+        {
+          "day": "2026-10-13",
+          "downloads": 2
+        },
+        {
+          "day": "2026-10-14",
+          "downloads": 2
+        },
+        {
+          "day": "2026-10-15",
+          "downloads": 2
+        },
+        {
+          "day": "2026-10-18",
+          "downloads": 2
+        },
+        {
+          "day": "2026-10-19",
+          "downloads": 2
+        },
+        {
+          "day": "2026-10-20",
+          "downloads": 84
+        }
+      ],
+      "history": {
+        "from": "2026-10-07",
+        "to": "2026-10-20"
+      },
+      "releases": [
+        {
+          "version": "0.5.0",
+          "date": "2026-10-07T14:51:50.699477Z",
+          "bytes": 8855,
+          "files": 2,
+          "yanked": false
+        },
+        {
+          "version": "0.9.0",
+          "date": "2026-10-20T07:11:16.382814Z",
+          "bytes": 8806,
+          "files": 2,
+          "yanked": false
+        }
+      ],
+      "bytes": 8806,
+      "files": 2,
+      "license": "Apache-2.0",
+      "requires": ">=3.11",
+      "dependencies": [
+        "haystack-ai<3,>=2.0",
+        "vantadb-py<0.10.0,>=0.6.1"
+      ],
+      "homepage": "https://pypi.org/project/vantadb-haystack/",
+      "repository": "https://github.com/ness-e/Vantadb"
+    },
+    {
+      "ecosystem": "pypi",
+      "name": "vantadb-langchain",
+      "dir": "integrations/langchain",
+      "dirs": [
+        "integrations/langchain"
+      ],
+      "localVersion": "0.9.0",
+      "latest": "0.9.0",
+      "publishedAt": "2026-10-20T07:11:17.575026Z",
+      "createdAt": null,
+      "downloads": {
+        "day": 85,
+        "week": 99,
+        "month": 221,
+        "year": 221
+      },
+      "series": [
+        {
+          "day": "2026-10-07",
+          "downloads": 100
+        },
+        {
+          "day": "2026-10-08",
+          "downloads": 14
+        },
+        {
+          "day": "2026-10-09",
+          "downloads": 2
+        },
+        {
+          "day": "2026-10-10",
+          "downloads": 3
+        },
+        {
+          "day": "2026-10-12",
+          "downloads": 3
+        },
+        {
+          "day": "2026-10-14",
+          "downloads": 2
+        },
+        {
+          "day": "2026-10-15",
+          "downloads": 2
+        },
+        {
+          "day": "2026-10-17",
+          "downloads": 3
+        },
+        {
+          "day": "2026-10-18",
+          "downloads": 5
+        },
+        {
+          "day": "2026-10-19",
+          "downloads": 2
+        },
+        {
+          "day": "2026-10-20",
+          "downloads": 85
+        }
+      ],
+      "history": {
+        "from": "2026-10-07",
+        "to": "2026-10-20"
+      },
+      "releases": [
+        {
+          "version": "0.5.0",
+          "date": "2026-10-07T14:51:51.787980Z",
+          "bytes": 16151,
+          "files": 2,
+          "yanked": false
+        },
+        {
+          "version": "0.9.0",
+          "date": "2026-10-20T07:11:17.575026Z",
+          "bytes": 16100,
+          "files": 2,
+          "yanked": false
+        }
+      ],
+      "bytes": 16100,
+      "files": 2,
+      "license": "Apache-2.0",
+      "requires": ">=3.11",
+      "dependencies": [
+        "langchain-core<1,>=0.3",
+        "langgraph-checkpoint<5,>=2",
+        "vantadb-py<0.10.0,>=0.6.1"
+      ],
+      "homepage": "https://pypi.org/project/vantadb-langchain/",
+      "repository": "https://github.com/ness-e/Vantadb"
+    },
+    {
+      "ecosystem": "pypi",
+      "name": "vantadb-letta",
+      "dir": "integrations/letta",
+      "dirs": [
+        "integrations/letta"
+      ],
+      "localVersion": "0.9.0",
+      "latest": "0.9.0",
+      "publishedAt": "2026-10-20T07:11:18.985976Z",
+      "createdAt": null,
+      "downloads": {
+        "day": 86,
+        "week": 99,
+        "month": 196,
+        "year": 196
+      },
+      "series": [
+        {
+          "day": "2026-10-08",
+          "downloads": 76
+        },
+        {
+          "day": "2026-10-09",
+          "downloads": 16
+        },
+        {
+          "day": "2026-10-10",
+          "downloads": 3
+        },
+        {
+          "day": "2026-10-11",
+          "downloads": 2
+        },
+        {
+          "day": "2026-10-14",
+          "downloads": 1
+        },
+        {
+          "day": "2026-10-15",
+          "downloads": 6
+        },
+        {
+          "day": "2026-10-16",
+          "downloads": 3
+        },
+        {
+          "day": "2026-10-18",
+          "downloads": 2
+        },
+        {
+          "day": "2026-10-19",
+          "downloads": 1
+        },
+        {
+          "day": "2026-10-20",
+          "downloads": 86
+        }
+      ],
+      "history": {
+        "from": "2026-10-08",
+        "to": "2026-10-20"
+      },
+      "releases": [
+        {
+          "version": "0.5.0",
+          "date": "2026-10-08T15:42:59.674432Z",
+          "bytes": 5334,
+          "files": 2,
+          "yanked": false
+        },
+        {
+          "version": "0.9.0",
+          "date": "2026-10-20T07:11:18.985976Z",
+          "bytes": 5308,
+          "files": 2,
+          "yanked": false
+        }
+      ],
+      "bytes": 5308,
+      "files": 2,
+      "license": "Apache-2.0",
+      "requires": ">=3.11",
+      "dependencies": [
+        "letta-client<2,>=1.0.0",
+        "vantadb-py<0.10.0,>=0.6.1"
+      ],
+      "homepage": "https://pypi.org/project/vantadb-letta/",
+      "repository": "https://github.com/ness-e/Vantadb"
+    },
+    {
+      "ecosystem": "pypi",
+      "name": "vantadb-litellm",
+      "dir": "providers/litellm",
+      "dirs": [
+        "providers/litellm"
+      ],
+      "localVersion": "0.9.0",
+      "latest": "0.9.0",
+      "publishedAt": "2026-10-20T06:37:17.385705Z",
+      "createdAt": null,
+      "downloads": {
+        "day": 160,
+        "week": 328,
+        "month": 328,
+        "year": 328
+      },
+      "series": [
+        {
+          "day": "2026-10-18",
+          "downloads": 139
+        },
+        {
+          "day": "2026-10-19",
+          "downloads": 29
+        },
+        {
+          "day": "2026-10-20",
+          "downloads": 160
+        }
+      ],
+      "history": {
+        "from": "2026-10-18",
+        "to": "2026-10-20"
+      },
+      "releases": [
+        {
+          "version": "0.8.0",
+          "date": "2026-10-18T07:36:16.293252Z",
+          "bytes": 2022184,
+          "files": 4,
+          "yanked": false
+        },
+        {
+          "version": "0.9.0",
+          "date": "2026-10-20T06:37:17.385705Z",
+          "bytes": 2030502,
+          "files": 4,
+          "yanked": false
+        }
+      ],
+      "bytes": 2030502,
+      "files": 4,
+      "license": "Apache-2.0",
+      "requires": ">=3.11",
+      "dependencies": [
+        "litellm<2,>=1.0"
+      ],
+      "homepage": "https://pypi.org/project/vantadb-litellm/",
+      "repository": "https://github.com/ness-e/Vantadb"
+    },
+    {
+      "ecosystem": "pypi",
+      "name": "vantadb-llamaindex",
+      "dir": "integrations/llamaindex",
+      "dirs": [
+        "integrations/llamaindex"
+      ],
+      "localVersion": "0.9.0",
+      "latest": "0.9.0",
+      "publishedAt": "2026-10-20T07:11:19.894863Z",
+      "createdAt": null,
+      "downloads": {
+        "day": 90,
+        "week": 105,
+        "month": 225,
+        "year": 225
+      },
+      "series": [
+        {
+          "day": "2026-10-08",
+          "downloads": 92
+        },
+        {
+          "day": "2026-10-09",
+          "downloads": 15
+        },
+        {
+          "day": "2026-10-10",
+          "downloads": 6
+        },
+        {
+          "day": "2026-10-11",
+          "downloads": 4
+        },
+        {
+          "day": "2026-10-13",
+          "downloads": 3
+        },
+        {
+          "day": "2026-10-15",
+          "downloads": 2
+        },
+        {
+          "day": "2026-10-16",
+          "downloads": 2
+        },
+        {
+          "day": "2026-10-17",
+          "downloads": 5
+        },
+        {
+          "day": "2026-10-18",
+          "downloads": 5
+        },
+        {
+          "day": "2026-10-19",
+          "downloads": 1
+        },
+        {
+          "day": "2026-10-20",
+          "downloads": 90
+        }
+      ],
+      "history": {
+        "from": "2026-10-08",
+        "to": "2026-10-20"
+      },
+      "releases": [
+        {
+          "version": "0.5.0",
+          "date": "2026-10-08T15:43:43.784459Z",
+          "bytes": 8248,
+          "files": 2,
+          "yanked": false
+        },
+        {
+          "version": "0.9.0",
+          "date": "2026-10-20T07:11:19.894863Z",
+          "bytes": 8196,
+          "files": 2,
+          "yanked": false
+        }
+      ],
+      "bytes": 8196,
+      "files": 2,
+      "license": "Apache-2.0",
+      "requires": ">=3.11",
+      "dependencies": [
+        "llama-index-core<1,>=0.12",
+        "vantadb-py<0.10.0,>=0.6.1"
+      ],
+      "homepage": "https://pypi.org/project/vantadb-llamaindex/",
+      "repository": "https://github.com/ness-e/Vantadb"
+    },
+    {
+      "ecosystem": "pypi",
+      "name": "vantadb-mem0",
+      "dir": "integrations/mem0",
+      "dirs": [
+        "integrations/mem0"
+      ],
+      "localVersion": "0.9.0",
+      "latest": "0.9.0",
+      "publishedAt": "2026-10-20T07:11:20.796005Z",
+      "createdAt": null,
+      "downloads": {
+        "day": 85,
+        "week": 93,
+        "month": 202,
+        "year": 202
+      },
+      "series": [
+        {
+          "day": "2026-10-08",
+          "downloads": 85
+        },
+        {
+          "day": "2026-10-09",
+          "downloads": 15
+        },
+        {
+          "day": "2026-10-10",
+          "downloads": 3
+        },
+        {
+          "day": "2026-10-11",
+          "downloads": 4
+        },
+        {
+          "day": "2026-10-13",
+          "downloads": 2
+        },
+        {
+          "day": "2026-10-14",
+          "downloads": 1
+        },
+        {
+          "day": "2026-10-15",
+          "downloads": 2
+        },
+        {
+          "day": "2026-10-16",
+          "downloads": 2
+        },
+        {
+          "day": "2026-10-18",
+          "downloads": 2
+        },
+        {
+          "day": "2026-10-19",
+          "downloads": 1
+        },
+        {
+          "day": "2026-10-20",
+          "downloads": 85
+        }
+      ],
+      "history": {
+        "from": "2026-10-08",
+        "to": "2026-10-20"
+      },
+      "releases": [
+        {
+          "version": "0.5.0",
+          "date": "2026-10-08T15:45:08.340304Z",
+          "bytes": 6945,
+          "files": 2,
+          "yanked": false
+        },
+        {
+          "version": "0.9.0",
+          "date": "2026-10-20T07:11:20.796005Z",
+          "bytes": 6915,
+          "files": 2,
+          "yanked": false
+        }
+      ],
+      "bytes": 6915,
+      "files": 2,
+      "license": "Apache-2.0",
+      "requires": ">=3.11",
+      "dependencies": [
+        "mem0ai<1,>=0.1.0",
+        "vantadb-py<0.10.0,>=0.6.1"
+      ],
+      "homepage": "https://pypi.org/project/vantadb-mem0/",
+      "repository": "https://github.com/ness-e/Vantadb"
+    },
+    {
+      "ecosystem": "pypi",
+      "name": "vantadb-ollama",
+      "dir": "integrations/ollama",
+      "dirs": [
+        "integrations/ollama",
+        "providers/ollama"
+      ],
+      "localVersion": "0.9.0",
+      "latest": "0.9.0",
+      "publishedAt": "2026-10-20T06:37:22.596099Z",
+      "createdAt": null,
+      "downloads": {
+        "day": 157,
+        "week": 332,
+        "month": 332,
+        "year": 332
+      },
+      "series": [
+        {
+          "day": "2026-10-18",
+          "downloads": 150
+        },
+        {
+          "day": "2026-10-19",
+          "downloads": 25
+        },
+        {
+          "day": "2026-10-20",
+          "downloads": 157
+        }
+      ],
+      "history": {
+        "from": "2026-10-18",
+        "to": "2026-10-20"
+      },
+      "releases": [
+        {
+          "version": "0.8.0",
+          "date": "2026-10-18T07:36:22.330804Z",
+          "bytes": 2022737,
+          "files": 4,
+          "yanked": false
+        },
+        {
+          "version": "0.9.0",
+          "date": "2026-10-20T06:37:22.596099Z",
+          "bytes": 2031877,
+          "files": 4,
+          "yanked": false
+        }
+      ],
+      "bytes": 2031877,
+      "files": 4,
+      "license": "Apache-2.0",
+      "requires": ">=3.11",
+      "dependencies": [
+        "ollama<1,>=0.4"
+      ],
+      "homepage": "https://pypi.org/project/vantadb-ollama/",
+      "repository": "https://github.com/ness-e/Vantadb"
+    },
+    {
+      "ecosystem": "pypi",
+      "name": "vantadb-openai",
+      "dir": "integrations/openai",
+      "dirs": [
+        "integrations/openai",
+        "providers/openai"
+      ],
+      "localVersion": "0.9.0",
+      "latest": "0.9.0",
+      "publishedAt": "2026-10-20T06:37:27.676865Z",
+      "createdAt": null,
+      "downloads": {
+        "day": 153,
+        "week": 331,
+        "month": 331,
+        "year": 331
+      },
+      "series": [
+        {
+          "day": "2026-10-18",
+          "downloads": 153
+        },
+        {
+          "day": "2026-10-19",
+          "downloads": 25
+        },
+        {
+          "day": "2026-10-20",
+          "downloads": 153
+        }
+      ],
+      "history": {
+        "from": "2026-10-18",
+        "to": "2026-10-20"
+      },
+      "releases": [
+        {
+          "version": "0.8.0",
+          "date": "2026-10-18T07:36:27.711703Z",
+          "bytes": 2020872,
+          "files": 4,
+          "yanked": false
+        },
+        {
+          "version": "0.9.0",
+          "date": "2026-10-20T06:37:27.676865Z",
+          "bytes": 2030033,
+          "files": 4,
+          "yanked": false
+        }
+      ],
+      "bytes": 2030033,
+      "files": 4,
+      "license": "Apache-2.0",
+      "requires": ">=3.11",
+      "dependencies": [
+        "openai<2,>=1.0"
+      ],
+      "homepage": "https://pypi.org/project/vantadb-openai/",
+      "repository": "https://github.com/ness-e/Vantadb"
+    },
+    {
+      "ecosystem": "pypi",
+      "name": "vantadb-py",
+      "dir": "vantadb-python",
+      "dirs": [
+        "vantadb-python"
+      ],
+      "localVersion": "0.9.0",
+      "latest": "0.9.0",
+      "publishedAt": "2026-10-20T06:40:40.769044Z",
+      "createdAt": null,
+      "downloads": {
+        "day": 252,
+        "week": 410,
+        "month": 1353,
+        "year": 2810
+      },
+      "series": [
+        {
+          "day": "2026-05-25",
+          "downloads": 347
+        },
+        {
+          "day": "2026-05-26",
+          "downloads": 34
+        },
+        {
+          "day": "2026-05-27",
+          "downloads": 33
+        },
+        {
+          "day": "2026-05-28",
+          "downloads": 18
+        },
+        {
+          "day": "2026-05-29",
+          "downloads": 21
+        },
+        {
+          "day": "2026-05-30",
+          "downloads": 12
+        },
+        {
+          "day": "2026-06-02",
+          "downloads": 12
+        },
+        {
+          "day": "2026-06-03",
+          "downloads": 9
+        },
+        {
+          "day": "2026-06-04",
+          "downloads": 6
+        },
+        {
+          "day": "2026-06-05",
+          "downloads": 15
+        },
+        {
+          "day": "2026-06-06",
+          "downloads": 19
+        },
+        {
+          "day": "2026-06-07",
+          "downloads": 9
+        },
+        {
+          "day": "2026-06-08",
+          "downloads": 2
+        },
+        {
+          "day": "2026-06-10",
+          "downloads": 4
+        },
+        {
+          "day": "2026-06-11",
+          "downloads": 1
+        },
+        {
+          "day": "2026-06-12",
+          "downloads": 2
+        },
+        {
+          "day": "2026-06-13",
+          "downloads": 1
+        },
+        {
+          "day": "2026-06-16",
+          "downloads": 5
+        },
+        {
+          "day": "2026-06-18",
+          "downloads": 1
+        },
+        {
+          "day": "2026-06-19",
+          "downloads": 3
+        },
+        {
+          "day": "2026-06-21",
+          "downloads": 3
+        },
+        {
+          "day": "2026-06-22",
+          "downloads": 125
+        },
+        {
+          "day": "2026-06-23",
+          "downloads": 9
+        },
+        {
+          "day": "2026-06-24",
+          "downloads": 4
+        },
+        {
+          "day": "2026-06-25",
+          "downloads": 6
+        },
+        {
+          "day": "2026-06-26",
+          "downloads": 2
+        },
+        {
+          "day": "2026-06-27",
+          "downloads": 6
+        },
+        {
+          "day": "2026-06-29",
+          "downloads": 3
+        },
+        {
+          "day": "2026-06-30",
+          "downloads": 9
+        },
+        {
+          "day": "2026-07-01",
+          "downloads": 2
+        },
+        {
+          "day": "2026-07-03",
+          "downloads": 3
+        },
+        {
+          "day": "2026-07-04",
+          "downloads": 2
+        },
+        {
+          "day": "2026-07-05",
+          "downloads": 3
+        },
+        {
+          "day": "2026-07-07",
+          "downloads": 12
+        },
+        {
+          "day": "2026-07-09",
+          "downloads": 4
+        },
+        {
+          "day": "2026-07-10",
+          "downloads": 12
+        },
+        {
+          "day": "2026-07-11",
+          "downloads": 3
+        },
+        {
+          "day": "2026-07-13",
+          "downloads": 107
+        },
+        {
+          "day": "2026-07-14",
+          "downloads": 13
+        },
+        {
+          "day": "2026-07-15",
+          "downloads": 4
+        },
+        {
+          "day": "2026-07-17",
+          "downloads": 6
+        },
+        {
+          "day": "2026-07-18",
+          "downloads": 2
+        },
+        {
+          "day": "2026-07-19",
+          "downloads": 7
+        },
+        {
+          "day": "2026-07-21",
+          "downloads": 137
+        },
+        {
+          "day": "2026-07-22",
+          "downloads": 11
+        },
+        {
+          "day": "2026-07-23",
+          "downloads": 4
+        },
+        {
+          "day": "2026-07-25",
+          "downloads": 7
+        },
+        {
+          "day": "2026-07-26",
+          "downloads": 7
+        },
+        {
+          "day": "2026-07-28",
+          "downloads": 2
+        },
+        {
+          "day": "2026-07-30",
+          "downloads": 3
+        },
+        {
+          "day": "2026-07-31",
+          "downloads": 6
+        },
+        {
+          "day": "2026-08-01",
+          "downloads": 104
+        },
+        {
+          "day": "2026-08-02",
+          "downloads": 13
+        },
+        {
+          "day": "2026-08-03",
+          "downloads": 3
+        },
+        {
+          "day": "2026-08-04",
+          "downloads": 18
+        },
+        {
+          "day": "2026-08-06",
+          "downloads": 7
+        },
+        {
+          "day": "2026-08-07",
+          "downloads": 2
+        },
+        {
+          "day": "2026-08-08",
+          "downloads": 5
+        },
+        {
+          "day": "2026-08-09",
+          "downloads": 22
+        },
+        {
+          "day": "2026-08-10",
+          "downloads": 10
+        },
+        {
+          "day": "2026-08-12",
+          "downloads": 1
+        },
+        {
+          "day": "2026-08-15",
+          "downloads": 9
+        },
+        {
+          "day": "2026-08-16",
+          "downloads": 4
+        },
+        {
+          "day": "2026-08-18",
+          "downloads": 4
+        },
+        {
+          "day": "2026-08-21",
+          "downloads": 12
+        },
+        {
+          "day": "2026-08-23",
+          "downloads": 23
+        },
+        {
+          "day": "2026-08-27",
+          "downloads": 21
+        },
+        {
+          "day": "2026-08-28",
+          "downloads": 1
+        },
+        {
+          "day": "2026-08-30",
+          "downloads": 3
+        },
+        {
+          "day": "2026-08-31",
+          "downloads": 25
+        },
+        {
+          "day": "2026-09-04",
+          "downloads": 9
+        },
+        {
+          "day": "2026-09-06",
+          "downloads": 3
+        },
+        {
+          "day": "2026-09-07",
+          "downloads": 5
+        },
+        {
+          "day": "2026-09-08",
+          "downloads": 7
+        },
+        {
+          "day": "2026-09-12",
+          "downloads": 6
+        },
+        {
+          "day": "2026-09-13",
+          "downloads": 3
+        },
+        {
+          "day": "2026-09-14",
+          "downloads": 4
+        },
+        {
+          "day": "2026-09-18",
+          "downloads": 3
+        },
+        {
+          "day": "2026-09-19",
+          "downloads": 20
+        },
+        {
+          "day": "2026-09-20",
+          "downloads": 32
+        },
+        {
+          "day": "2026-09-21",
+          "downloads": 11
+        },
+        {
+          "day": "2026-09-22",
+          "downloads": 40
+        },
+        {
+          "day": "2026-09-23",
+          "downloads": 150
+        },
+        {
+          "day": "2026-09-24",
+          "downloads": 56
+        },
+        {
+          "day": "2026-09-25",
+          "downloads": 162
+        },
+        {
+          "day": "2026-09-26",
+          "downloads": 36
+        },
+        {
+          "day": "2026-09-27",
+          "downloads": 46
+        },
+        {
+          "day": "2026-09-28",
+          "downloads": 6
+        },
+        {
+          "day": "2026-09-29",
+          "downloads": 5
+        },
+        {
+          "day": "2026-09-30",
+          "downloads": 3
+        },
+        {
+          "day": "2026-10-01",
+          "downloads": 10
+        },
+        {
+          "day": "2026-10-02",
+          "downloads": 193
+        },
+        {
+          "day": "2026-10-03",
+          "downloads": 21
+        },
+        {
+          "day": "2026-10-04",
+          "downloads": 28
+        },
+        {
+          "day": "2026-10-05",
+          "downloads": 9
+        },
+        {
+          "day": "2026-10-06",
+          "downloads": 23
+        },
+        {
+          "day": "2026-10-07",
+          "downloads": 46
+        },
+        {
+          "day": "2026-10-08",
+          "downloads": 42
+        },
+        {
+          "day": "2026-10-09",
+          "downloads": 23
+        },
+        {
+          "day": "2026-10-10",
+          "downloads": 7
+        },
+        {
+          "day": "2026-10-11",
+          "downloads": 21
+        },
+        {
+          "day": "2026-10-13",
+          "downloads": 5
+        },
+        {
+          "day": "2026-10-14",
+          "downloads": 1
+        },
+        {
+          "day": "2026-10-15",
+          "downloads": 3
+        },
+        {
+          "day": "2026-10-17",
+          "downloads": 1
+        },
+        {
+          "day": "2026-10-18",
+          "downloads": 53
+        },
+        {
+          "day": "2026-10-19",
+          "downloads": 100
+        },
+        {
+          "day": "2026-10-20",
+          "downloads": 252
+        }
+      ],
+      "history": {
+        "from": "2026-05-25",
+        "to": "2026-10-20"
+      },
+      "releases": [
+        {
+          "version": "0.1.2",
+          "date": "2026-05-25T19:22:08.016108Z",
+          "bytes": 4714416,
+          "files": 3,
+          "yanked": false
+        },
+        {
+          "version": "0.1.3",
+          "date": "2026-05-25T19:38:16.953077Z",
+          "bytes": 4714290,
+          "files": 3,
+          "yanked": false
+        },
+        {
+          "version": "0.1.4",
+          "date": "2026-05-25T20:32:05.475187Z",
+          "bytes": 4714492,
+          "files": 3,
+          "yanked": false
+        },
+        {
+          "version": "0.1.5",
+          "date": "2026-06-22T06:56:30.048033Z",
+          "bytes": 1694291,
+          "files": 3,
+          "yanked": false
+        },
+        {
+          "version": "0.2.0",
+          "date": "2026-07-13T09:15:03.659179Z",
+          "bytes": 1844614,
+          "files": 3,
+          "yanked": false
+        },
+        {
+          "version": "0.4.0",
+          "date": "2026-07-21T03:03:28.320401Z",
+          "bytes": 1867702,
+          "files": 3,
+          "yanked": false
+        },
+        {
+          "version": "0.5.0",
+          "date": "2026-08-01T17:01:40.484344Z",
+          "bytes": 2113415,
+          "files": 3,
+          "yanked": false
+        },
+        {
+          "version": "0.6.1",
+          "date": "2026-09-23T17:29:51.970614Z",
+          "bytes": 2367106,
+          "files": 4,
+          "yanked": false
+        },
+        {
+          "version": "0.7.0",
+          "date": "2026-09-25T15:37:59.868369Z",
+          "bytes": 2366147,
+          "files": 4,
+          "yanked": false
+        },
+        {
+          "version": "0.8.0",
+          "date": "2026-10-02T18:42:03.802376Z",
+          "bytes": 2492799,
+          "files": 4,
+          "yanked": false
+        },
+        {
+          "version": "0.9.0",
+          "date": "2026-10-20T06:40:40.769044Z",
+          "bytes": 2733548,
+          "files": 4,
+          "yanked": false
+        }
+      ],
+      "bytes": 2733548,
+      "files": 4,
+      "license": "Apache-2.0",
+      "requires": ">=3.11",
+      "dependencies": [],
+      "homepage": "https://pypi.org/project/vantadb-py/",
+      "repository": "https://github.com/ness-e/Vantadb"
+    }
+  ]
+}
