@@ -1115,3 +1115,35 @@ salida, no solo en el camino feliz.
 angulos — una reserva global que se libera a mano en un solo camino. El guard RAII hace
 imposible olvidarse (y de paso hace imposible el doble free), y la resta saturante hace que
 un error de contabilidad no pueda matar el motor.
+
+
+## W6 cerrada: el cifrado en reposo pasa a ser verdad (FIND-194/249/514/516)
+
+- **Fecha:** 2026-10-21
+- **Resultado:** ✅ W6 (activacion, registro unico, rotacion y documentacion honesta) implementada
+  y verificada. Nota de la wave: `docs/dev/reviews/2026-10-21-w6-encryption-activation.md`.
+
+- `FIND-194` (W6/rotacion): la rotacion **no** invalida envelopes: `vanta-cli encryption rotate --new-key-file` re-envuelve cada DEK con la KEK nueva (**no** re-deriva: las DEKs son las mismas) ⇒ ningun ciphertext deja de descifrar. Ademas el `.bak` del registro permite el rollback manual mientras la master key vieja siga existiendo, y la operacion es O(artefactos)=4, no O(datos).
+- `FIND-249` (W6/activacion): la feature `encryption` ya esta **cableada de punta a punta**: el motor resuelve una master key y un modo **desde los bytes** del disco en el open, y reparte el contexto a los 4 artefactos (WAL v4, VantaFile v3, backend-KV e imagen HNSW v9). Una base creada con clave se cifra **desde el primer byte**; una base existente **nunca** se migra (plaintext + aviso, ADR D7). Verificacion: 90 tests de cifrado + los 2493 del lib en verde, `clippy -D warnings` limpio con y sin la feature, y el canario de 6 superficies (`tests/encryption_canary.rs`) en verde.
+- `FIND-514` (W6/registro): `KeyRegistry` pasa de valor a **handle** sobre `Arc<Mutex<RegistryState>>` con una **tabla por proceso** (path → `Weak`): los 4 artefactos que abren el registro de la misma base obtienen el **mismo** estado ⇒ una sola instancia en memoria, un solo `persist`, **cero lost update** (el `persist` serializa el estado compartido actual, no la copia obsoleta de quien llama).
+- `FIND-516` (W6/activacion): una base cifrada abierta sin clave devuelve `Error::EncryptionKeyRequired` **antes de abrir el backend** (el motor decide el modo en el open) ⇒ nunca se devuelve el ciphertext como si fuera plano. Y una base **plaintext** con clave configurada se queda en plaintext con **aviso** (la clave se ignora, ADR D7: no hay migracion in-place).
+
+**Verificacion de W6:** 90 tests de cifrado/registro/rotacion + los **2493** del lib en verde
+(`cargo nextest run -p vantadb --profile audit --lib`), `clippy --all-targets -- -D warnings`
+limpio con y sin la feature `encryption`, `fmt --check` limpio, y el **canario de 6 superficies**
+(`tests/encryption_canary.rs`) en verde.
+
+**Siguen abiertos tras W6 (declarados por la propia wave):** `FIND-496` (el shipper de WAL no
+lee segmentos v4 ⇒ la replicacion de bases cifradas no funciona), `FIND-498` (el WAL sigue
+cifrando dentro del lock del shard, desviacion del ADR D5) y `FIND-507` (el backup/restore no
+conoce el registro ⇒ restaurar una base cifrada en otra maquina no tiene camino).
+
+**Lo que W7 tiene que medir (y el plan que hay que corregir):** el bench `canonical_p99` es
+**in-memory** (`CPIndex` puro, sin I/O) ⇒ mediria lo mismo con y sin cifrado y **no** vale para
+el coste at-rest. Hacen falta (a) el bench del WAL cifrado, (b) uno **nuevo** del motor con clave
+configurada (seed 42, 100k x 1536d, el perfil de `benches/common/mod.rs`, 3 corridas y mediana),
+(c) el **flush** (la imagen se reescribe entera: GCM sobre el indice completo) y (d) el **cold
+start** (descifrar la imagen entera: se pierde el mmap zero-copy). Umbral: el p99 cifrado no debe
+empeorar mas de un **15 %** sobre el baseline (`BENCHMARKS.md:380`: p50 2.2388 / p95 4.248 /
+**p99 4.9987 ms**, 2026-09-25), y todos los numeros a `BENCHMARKS.md` con comando + entorno +
+fecha (Regla 11).
