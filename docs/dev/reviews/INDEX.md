@@ -33,6 +33,14 @@ aparece en la columna *Relaciones* de la fila del backlog
 activa y su registro pasa a [`docs/dev/avance/`](../avance/) (el formato no admite
 `✅ Completada` en tablas activas).
 
+## Auditorias anteriores (con su estado actual)
+
+| Fichero | Qué es | Estado de sus hallazgos |
+|---|---|---|
+| `audit-full-20261017-multiagent.md` | Auditoria multiagente del 2026-10-17 (8 hallazgos `D2-FIND-01..08`) | **Los 8 addressed** (verificado en el codigo el 2026-10-21): el bypass de auth con solo `jwt_secret` (el middleware lo declara, `src/server/middleware.rs`: "FIND-346: If jwt_secret IS configured, enforce Bearer auth even when api_key is None"), la lectura/escritura arbitraria de ficheros por `/api/v2/export` e `/import` (`validate_http_export_import_path` antes de usar la ruta), el `unreachable!()` alcanzable (eliminado), el feature `reqwest/blocking` (eliminado) y el bloqueo de workers Tokio (`spawn_blocking`). Sus ids (`FIND-346/347/355/356/365/366/375/376`) **no** llegaron a ser filas del backlog: la numeracion quedo repartida entre la sesion que los resolvio y la de esta campana. |
+| `2026-10-18-full-system-audit.md` | Auditoria de sistema completa del 2026-10-18 | Sus hallazgos son los de la campana del 2026-10-20 (los cita por id) |
+| `analisis-externo-2026-10-01.md` | Analisis externo del 2026-10-01 | Sus 2 hallazgos citados (`FIND-221`, `FIND-98`) **estan en el backlog** |
+
 ## Informes del pipeline
 
 | Fichero | Qué es |

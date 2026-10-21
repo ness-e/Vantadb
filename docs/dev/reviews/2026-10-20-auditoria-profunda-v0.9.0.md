@@ -307,14 +307,14 @@ El patrón dominante del repo es **deriva documental**: 60+ afirmaciones concret
 
 Ledger completo con evidencia `ruta:línea` en **el ledger de hallazgos**. Resumen por bloque:
 
-### 4.1 P2 — 60 hallazgos
+### 4.1 P2 — 59 hallazgos
 
 | Bloque | IDs | Count | Núcleo |
 |---|---|---|---|
 | Núcleo Rust | VDB-02..VDB-05 | 4 | escala de score Euclidean divergente por backend; bitset truncado a u32; WAL escribe registros >10 MB que el lector descarta; `MAX_K` sin clampear en el SDK → `Vec::with_capacity(top_k)` |
 | Bindings | S3-A2..S3-A8 | 7 | `__all__` divergente; API de módulo fantasma; mapa de excepciones; resultados fabricados en TS; sparse descartado en WASM; gaps de capacidades en Node |
 | Embeddings | S3-B3, B5..B11 | 8 | hint de recuperación inútil; `embed_texts` error duro en un camino y fallback en otro; nombre de modelo hardcodeado; health check satisfecho por otro modelo; benchmark que no infiere; brazo IQL limitado a 5 candidatos; `VECTOR_SEARCH()` inexistente; endpoint Ollama equivocado |
-| MCP + Server | S5-A1..A8 | 8 | heading MCP.md que contradice su cuerpo; `thread_*` sin documentar; claim de `data.code` falso en 5 factories; 9 schemas de respuesta que no coinciden con el wire; `/dashboard` documentado como autenticado pero público; ruta HTTP viva no documentada |
+| MCP + Server | S5-A1..A3, A5..A8 | 7 | heading MCP.md que contradice su cuerpo; `thread_*` sin documentar; claim de `data.code` falso en 5 factories; 9 schemas de respuesta que no coinciden con el wire; `/dashboard` documentado como autenticado pero público; ruta HTTP viva no documentada |
 | Skills usuario | S5-B5, B7..B10, B13 | 6 | env var `VANTA_DB` inexistente; api-reference omite 11 tools; 9 enlaces rotos; versión de protocolo MCP equivocada; setup script con `VANTADB_VERSION="0.5.0"`; 4 env vars MCP sin documentar |
 | Docs | D-16..D-20 | 5 | flag `--allow-dummy-embeddings` inexistente; ejemplo `vantadb.VantaDB`; "2h" vs `timeout-minutes: 180`; `VANTADB_SYNC_MODE` ausente; ADR dice "dense-only" con sparse nativo |
 | READMEs | S7-14..S7-28 | 15 | `src/sdk.rs` inexistente; anchors Quick Links rotos; sección North Star ausente en ES; definición de North Star divergente; flags del wizard ausentes en ES; `VantaDB` vs `Client`; `new Client()` con constructor privado; Node 18 vs `engines >=22.19`; `vantadb_python/` vs `vantadb_py/`; ADR-041 vs ADR-0047; firmas inexistentes en haystack/mem0/crewai; `cursor` vs `next_cursor`; `Config` no existe en Python |
@@ -398,10 +398,23 @@ backlog `FIND-410`.
 | 11 · CI/release | Media (orquestador) | Ver §5.2. |
 | 12 · Release 0.9.0 en vuelo | Media-alta (orquestador) | Los 9 commits, línea por línea; los mecanismos de publish, el guard de dependabot (verificado: aplicado **solo** a jobs no-publicadores), el sync de manifiestos (ejecutado y verde), el manifest de 15 registries, `semver_check` en `release-plz.toml:43` (sí vigente — es el veto real, a diferencia del job de CI), el path OIDC→token de crates.io, el fan-out de 7 workflows y sus inputs (`publish`, `package`, `publish_pypi` — todos existen). |
 
-### 5.4 Limitaciones de la auditoría
+### 5.4 Limitaciones de la auditoría (estado a 2026-10-21)
 
-- **`cargo` no está en PATH** en este entorno → ningún hallazgo fue confirmado por compilador, `clippy`, `nextest` o `cargo semver-checks`. Todos los hallazgos de código son source-level con línea exacta. Los hallazgos de build/test quedan **NO VERIFICADOS por ejecución**.
-- **Los 3 subagentes sin informe (S1, S4, S8) no se relanzaron** por instrucción explícita; sus áreas están marcadas como no cubiertas en profundidad.
-- **Red usada con moderación:** 12 peticiones PyPI (7 adaptadores + 3 providers + `vantadb-py` + `vantadb`) y 2 `gh api` de lectura (rulesets). Todo lo demás es local.
-- **No se ejecutó `scripts/verify-release.ps1`** (escribe informe y hace polling de registries post-release).
-- **No se construyó ningún crate**; los conteos de tools se obtuvieron por extracción estática sobre el código fuente, contrastados contra el propio test del repo (`vantadb-mcp/tests/mcp_tests.rs:4961`).
+> **Actualizado 2026-10-21.** Las tres limitaciones de la corrida original ya no aplican:
+> `cargo` **sí** está disponible (`~/.cargo/bin`, 1.95.0 + nextest 0.9.133) y todos los hallazgos
+> de esta campaña se han confirmado con compilador, `clippy`, `nextest` y `cargo fmt`; **S1 y S4
+> sí entregaron** su informe (losRaw están versionados en `docs/dev/reviews/audit-subagent-s1..s7-*.md`)
+> y **W0 cubrió el harness** que S8 no llegó a auditar. La cobertura real es **11/11 waves + 7
+> subagentes** (§5.3 y el indice de esta carpeta).
+>
+> Limitaciones que **siguen vigentes**:
+>
+> - Los 12 modulos del core listados como "no cubiertos en profundidad" en §5.3 **siguen sin
+>   auditar** (dos de ellos los esta tocando la tanda de cifrado en reposo): filas
+>   `FIND-502`..`FIND-506` del backlog.
+> - La campana fue **read-only sobre el codigo**: no ejecuto el gate de release
+>   (`scripts/verify-release.ps1` escribe un informe y hace polling de registries) ni los
+>   benchmarks de coste; el p99 canonico lo mide la wave W7 del plan de cifrado.
+> - **Verificacion adversarial de un solo autor**: la wave W10 la ejecuto el propio
+>   orquestador, sin un contexto limpio independiente. Lo suple la review con contexto fresco
+>   (`vanta-review`) que se aplico a los cambios de correctitud de esta campana.
