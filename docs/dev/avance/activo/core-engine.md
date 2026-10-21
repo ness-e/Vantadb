@@ -1161,3 +1161,40 @@ fecha (Regla 11).
 **Lo que queda del claim:** solo la **medicion** (W7): el claim de rendimiento (que el cifrado no
 empeore el p99 mas de un 15 %) todavia no esta medido, asi que el doc ya es honesto sobre lo que
 el producto hace, pero el **coste** todavia no esta acuantado.
+
+
+## Revision P2-01 del cifrado en reposo: veredicto y 9 hallazgos (FIND-585..593)
+
+- **Fecha:** 2026-10-21
+- **Resultado:** 🟡 **APTO CON RESERVAS** (el veredicto de la review con contexto fresco). La
+  ingenieria y el diseno criptografico son defendibles; lo que no estaba bien es que la feature
+  afirmaba en su propia superficie publica lo contrario de lo que hace, y que existia un camino
+  (multi-base) en el que una base plaintext se cifraba a medias sin aviso.
+
+**Lo que se corrigio en el mismo commit (H-1, H-2, M-1, M-3, M-6):**
+- Las **5 claims inversas** reescritas (el rustdoc del crate, el de `Config`, el de
+  `Config::with_encryption`, la limitacion de `HTTP_API.md` y la fila de `FEATURES.md`).
+- El **gate de doc**, que leia 3 ficheros y buscaba 2 frases literales (pasaba en verde con 5
+  documentos afirmaando lo contrario) ⇒ ahora barre `src/**` + `docs/**` con 8 patrones y una
+  lista de excepciones explicita. Al reforzarlo cazo **2 claims mas** que la review no listo.
+- La **viñeta del wal-shipping** (decia que el shipping egresa en claro; en realidad el ciclo
+  **falla y no envia nada**) + los limites del backup.
+- El **modo mixto silencioso** por crash entre el open del backend y `after_open` (las 4 DEK se
+  rigen siempre que el modo sea cifrado).
+- Los **permisos 0600** del registro (contiene el salt y un oraculo de clave) y el
+  **`skip(new_key)`** del span de tracing (la master key se iba a stderr).
+- El **guard de longitud** de `euclidean_distance_squared_f32` (un vector de otra dimension
+  puntuaba 0.0 = el mejor score Euclidean posible).
+
+**Lo que queda abierto (FIND-585..593, 9 filas):** el modo mixto multi-base (critica), el AAD
+que ata el offset y no el fichero (=> un ciphertext reubicado entre ficheros hermanos autentica:
+integridad rota sin clave), la rotacion que se pierde en silencio si la base esta abierta, la
+master key en el `Debug` de `Config` y via argv, la decision de modo fail-open, Miri sin la
+feature `encryption` + la alineacion de los `from_raw_parts` solo con `debug_assert`, el canario
+vacio en 2 de sus 6 superficies, y 8 hallazgos P3 agrupados.
+
+**El nonce NO es el hallazgo mas grave:** el esquema `epoch||counter` con epoch aleatorio
+realeatorizado en cada `begin_epoch`, un solo allocator por artefacto y el epoch persistido
+antes del primer uso hacen que **no haya reutilizacion de nonce**. El fallo es de *binding de
+posicion* (el `slot` es intra-fichero), no de unicidad de nonce, y su impacto es de
+**integridad**, no de confidencialidad.
