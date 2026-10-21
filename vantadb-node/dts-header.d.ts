@@ -44,6 +44,14 @@ export type VantaMetadata = Record<string, VantaValue>
 export interface ConnectOptions {
   read_only?: boolean
   memory_limit?: number
+  /**
+   * Bytes pre-reserved per LSM segment. A store owns 4 segments (L0..L3),
+   * so the address space reserved up front is `4 * reserve_bytes`.
+   *
+   * Default: 1 MiB per segment (4 MiB per store). Clamped so the total
+   * never exceeds `memory_limit`.
+   */
+  reserve_bytes?: number
 }
 
 /** Input accepted by `put()` and `putBatch()`. */

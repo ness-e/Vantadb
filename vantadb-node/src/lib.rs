@@ -235,7 +235,14 @@ impl VantaDB {
     /// `path` may be a filesystem directory (persistent, fjall backend) or
     /// `":memory:"` for a non-persistent in-memory database.
     ///
-    /// `options` (optional): `{ read_only?: boolean, memory_limit?: number }`.
+    /// `options` (optional): `{ read_only?: boolean, memory_limit?: number,
+    /// reserve_bytes?: number }`.
+    ///
+    /// `reserve_bytes` is the size of ONE pre-reserved LSM segment (a store
+    /// owns 4: L0..L3), so the store reserves `4 * reserve_bytes` up front.
+    /// Default: 1 MiB per segment (4 MiB per store). It is clamped so the
+    /// total never exceeds `memory_limit` (FIND-517: the reserve used to be
+    /// a hidden 64 MiB per level — 256 MiB per empty store).
     #[napi(factory)]
     pub async fn connect(
         path: String,
@@ -1369,6 +1376,11 @@ where
         .map_err(map_err)
 }
 
+/// Number of LSM segments (levels L0..L3) a store owns. Each one is a
+/// separate file with its own pre-reserved address space, so the total
+/// reserve of a store is `LSM_SEGMENT_COUNT * reserve_bytes` (FIND-517).
+const LSM_SEGMENT_COUNT: u64 = 4;
+
 fn build_config(path: &str, options: Option<&Value>) -> napi::Result<Config> {
     let mut config = Config {
         storage_path: path.to_string(),
@@ -1394,6 +1406,28 @@ fn build_config(path: &str, options: Option<&Value>) -> napi::Result<Config> {
                 .as_u64()
                 .ok_or_else(|| Error::from_reason("memory_limit must be a number"))?;
             config.memory_limit = (value > 0).then_some(value);
+        }
+        // FIND-517: the pre-reserve of the LSM segments is now a knob
+        // instead of a hidden 64 MiB per level. `reserve_bytes` is the size
+        // of ONE segment (a store has 4), so the store reserves
+        // `4 * reserve_bytes` up front.
+        if let Some(reserve) = obj.get("reserve_bytes") {
+            let value = reserve
+                .as_u64()
+                .ok_or_else(|| Error::from_reason("reserve_bytes must be a number"))?;
+            if value == 0 {
+                return Err(Error::from_reason("reserve_bytes must be greater than 0"));
+            }
+            config.segment_optimizer.lsm.initial_segment_bytes = value;
+        }
+    }
+    // FIND-517: the reserve is covered by `memory_limit` — the user must
+    // never end up with a pre-reservation larger than the memory budget it
+    // declared. Clamp per segment so the total (`4 * per_segment`) fits.
+    if let Some(limit) = config.memory_limit {
+        let per_segment = limit / LSM_SEGMENT_COUNT;
+        if config.segment_optimizer.lsm.initial_segment_bytes > per_segment {
+            config.segment_optimizer.lsm.initial_segment_bytes = per_segment;
         }
     }
     Ok(config)
@@ -1901,6 +1935,90 @@ fn parse_index_method(method: &str) -> napi::Result<IndexType> {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    /// FIND-517: `ConnectOptions.reserve_bytes` reaches the LSM segment
+    /// pre-reserve, and the reserve stays inside the caller's
+    /// `memory_limit` (the reserve is not "free" memory).
+    #[test]
+    fn build_config_maps_reserve_bytes_to_the_segment_pre_reserve() {
+        let opts = json!({ "reserve_bytes": 2 * 1024 * 1024 });
+        let Ok(config) = build_config("/tmp/find517", Some(&opts)) else {
+            panic!("config builds");
+        };
+        assert_eq!(
+            config.segment_optimizer.lsm.initial_segment_bytes,
+            2 * 1024 * 1024
+        );
+    }
+
+    /// FIND-517: the default pre-reserve is the low one (1 MiB per segment
+    /// => 4 MiB per store), not the historical 64 MiB per segment.
+    #[test]
+    fn build_config_defaults_to_a_low_pre_reserve() {
+        let Ok(config) = build_config("/tmp/find517", None) else {
+            panic!("config builds");
+        };
+        assert_eq!(
+            config.segment_optimizer.lsm.initial_segment_bytes,
+            1024 * 1024,
+            "an empty store must not reserve 64 MiB per segment"
+        );
+    }
+
+    /// FIND-517: the reserve is covered by `memory_limit` — 4 segments x
+    /// per-segment size must fit in the declared budget.
+    #[test]
+    fn build_config_clamps_the_reserve_to_the_memory_limit() {
+        let opts = json!({ "reserve_bytes": 64 * 1024 * 1024, "memory_limit": 8 * 1024 * 1024 });
+        let Ok(config) = build_config("/tmp/find517", Some(&opts)) else {
+            panic!("config builds");
+        };
+        let per_segment = config.segment_optimizer.lsm.initial_segment_bytes;
+        assert!(
+            per_segment * LSM_SEGMENT_COUNT <= 8 * 1024 * 1024,
+            "reserve {per_segment} x {LSM_SEGMENT_COUNT} exceeds the 8 MiB memory_limit"
+        );
+        assert_eq!(per_segment, 2 * 1024 * 1024);
+    }
+
+    /// FIND-517: the default reserve is clamped too — a small
+    /// `memory_limit` must not leave a 4 MiB reservation behind.
+    #[test]
+    fn build_config_clamps_the_default_reserve_to_the_memory_limit() {
+        let opts = json!({ "memory_limit": 1024 * 1024 });
+        let Ok(config) = build_config("/tmp/find517", Some(&opts)) else {
+            panic!("config builds");
+        };
+        let per_segment = config.segment_optimizer.lsm.initial_segment_bytes;
+        assert!(
+            per_segment * LSM_SEGMENT_COUNT <= 1024 * 1024,
+            "default reserve {per_segment} x {LSM_SEGMENT_COUNT} exceeds the 1 MiB memory_limit"
+        );
+    }
+
+    /// FIND-517: `reserve_bytes` is validated at the trust boundary.
+    #[test]
+    fn build_config_rejects_a_zero_reserve() {
+        let opts = json!({ "reserve_bytes": 0 });
+        let Err(err) = build_config("/tmp/find517", Some(&opts)) else {
+            panic!("zero reserve must be rejected");
+        };
+        assert!(err.reason.contains("greater than 0"), "got: {}", err.reason);
+    }
+
+    /// FIND-517: `reserve_bytes` must be an integer number of bytes.
+    #[test]
+    fn build_config_rejects_a_non_numeric_reserve() {
+        let opts = json!({ "reserve_bytes": "big" });
+        let Err(err) = build_config("/tmp/find517", Some(&opts)) else {
+            panic!("non-numeric reserve must be rejected");
+        };
+        assert!(
+            err.reason.contains("must be a number"),
+            "got: {}",
+            err.reason
+        );
+    }
 
     /// Mirrors the JSON shape the TypeScript side emits for `Value`. We
     /// don't load the `.node` binary in these tests — they exercise the pure

@@ -44,6 +44,14 @@ export type VantaMetadata = Record<string, VantaValue>
 export interface ConnectOptions {
   read_only?: boolean
   memory_limit?: number
+  /**
+   * Bytes pre-reserved per LSM segment. A store owns 4 segments (L0..L3),
+   * so the address space reserved up front is `4 * reserve_bytes`.
+   *
+   * Default: 1 MiB per segment (4 MiB per store). Clamped so the total
+   * never exceeds `memory_limit`.
+   */
+  reserve_bytes?: number
 }
 
 /** Input accepted by `put()` and `putBatch()`. */
@@ -392,7 +400,14 @@ export declare class VantaDb {
    * `path` may be a filesystem directory (persistent, fjall backend) or
    * `":memory:"` for a non-persistent in-memory database.
    *
-   * `options` (optional): `{ read_only?: boolean, memory_limit?: number }`.
+   * `options` (optional): `{ read_only?: boolean, memory_limit?: number,
+   * reserve_bytes?: number }`.
+   *
+   * `reserve_bytes` is the size of ONE pre-reserved LSM segment (a store
+   * owns 4: L0..L3), so the store reserves `4 * reserve_bytes` up front.
+   * Default: 1 MiB per segment (4 MiB per store). It is clamped so the
+   * total never exceeds `memory_limit` (FIND-517: the reserve used to be
+   * a hidden 64 MiB per level — 256 MiB per empty store).
    */
   static connect(path: string, options?: ConnectOptions): Promise<VantaDb>
   /**

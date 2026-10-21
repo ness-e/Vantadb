@@ -122,18 +122,24 @@ impl SegmentRegistry {
 
     /// Open or create multi-level Files for levels L0..=L3.
     ///
-    /// Detects legacy `vector_store.vanta` and renames to `vstore_L0.vanta`.
-    /// Pre-allocates all 4 LSM levels so `compact_level()` never needs to
-    /// grow `vector_store` dynamically (no `unsafe` needed).
+    /// Creates the 4 LSM levels so `compact_level()` never needs to grow
+    /// `vector_store` dynamically (no `unsafe` needed).
     /// Returns `(Self, Vec<RwLock<File>>)` with a File per level.
     ///
     /// `crypto` is the encryption context of the `vfile` artefact
     /// (ADR-0057 W3): it is the **same** context for every level, because
     /// the DEK and the nonce space belong to the artefact, not to the file.
     /// `None` keeps every segment plaintext.
+    ///
+    /// FIND-517: the initial size of a **fresh** segment comes from
+    /// `config.lsm.initial_segment_bytes` (1 MiB by default) instead of the
+    /// old hardcoded 64 MiB. An empty store used to reserve 4 x 64 MiB of
+    /// address space up front. Existing segments keep their size: only a
+    /// file that does not exist yet (or is still smaller than the header)
+    /// is sized here.
     pub fn open_or_create(
         data_dir: &std::path::Path,
-        _config: &crate::storage::engine::SegmentOptimizerConfig,
+        config: &crate::storage::engine::SegmentOptimizerConfig,
         crypto: crate::storage::vfile_crypto::VFileCryptoSlot,
     ) -> crate::error::Result<(Self, Vec<parking_lot::RwLock<crate::storage::vfile::File>>)> {
         let mut registry = Self::new();
@@ -150,8 +156,15 @@ impl SegmentRegistry {
             );
         }
 
-        // Pre-allocate all 4 levels: L0 (hot), L1 (warm), L2 (cold), L3 (archive).
-        // Each File starts empty; unused levels cost only a file handle + mmap header.
+        // FIND-517: the floor is the segment header (64 bytes) — a segment
+        // smaller than that cannot hold the VFLE header + write cursor.
+        let initial_size = config
+            .lsm
+            .initial_segment_bytes
+            .max(crate::storage::engine::STORAGE_ALIGNMENT);
+
+        // Create the 4 levels: L0 (hot), L1 (warm), L2 (cold), L3 (archive).
+        // Unused levels cost a file handle + an mmap of `initial_size`.
         for level in &[
             SegmentLevel::L0,
             SegmentLevel::L1,
@@ -161,7 +174,7 @@ impl SegmentRegistry {
             let path = data_dir.join(level.file_name());
             let vf = crate::storage::vfile::File::open_with_crypto(
                 path.clone(),
-                64 * 1024 * 1024,
+                initial_size,
                 false,
                 crypto.clone(),
             )?;
@@ -264,6 +277,20 @@ pub struct LsmConfig {
     pub l2_tombstone_threshold: f32,
     pub l3_tombstone_threshold: f32,
     pub min_segment_size: u64,
+    /// Initial size of a **freshly created** segment, in bytes (FIND-517).
+    ///
+    /// Every level (L0..L3) owns one segment file, so the address space a
+    /// store reserves when it opens is `4 * initial_segment_bytes`. This used
+    /// to be a hardcoded 64 MiB per level, which made an **empty** store
+    /// reserve 256 MiB before a single record was written (the Node binding
+    /// added fjall's own 64 MiB journal on top: 320 MiB per open store, the
+    /// dominant memory cost of the Ego product).
+    ///
+    /// Segments grow on demand (`File::grow_to` doubles the file), so a small
+    /// value only costs a few extra `set_len`+remap cycles. The compaction
+    /// thresholds (`l0_max_size` and friends) are unaffected: they are
+    /// compared against the **logical** write cursor, not the file size.
+    pub initial_segment_bytes: u64,
     /// Tier promotion policy (hot/warm/cold/archive).
     pub tier: TierPolicyConfig,
 }
@@ -280,6 +307,8 @@ impl Default for LsmConfig {
             l2_tombstone_threshold: 0.10,
             l3_tombstone_threshold: 0.05,
             min_segment_size: 64 * 1024, // 64 KB
+            // FIND-517: 1 MiB per level => 4 MiB per store (was 64 MiB/level).
+            initial_segment_bytes: 1024 * 1024, // 1 MiB
             tier: TierPolicyConfig::default(),
         }
     }
@@ -330,5 +359,74 @@ mod tests {
         assert_eq!(SegmentLevel::from_u8(4), None);
         assert_eq!(SegmentLevel::L0.as_u8(), 0);
         assert_eq!(SegmentLevel::L1.file_name(), "vstore_L1.vanta");
+    }
+
+    /// FIND-517: an **empty** store must not pre-reserve 64 MB per level.
+    ///
+    /// Before the fix, `open_or_create` hardcoded `64 * 1024 * 1024` as the
+    /// initial size of every segment: opening a store with zero records
+    /// reserved 4 x 64 MiB of address space (256 MiB) up front. The Node
+    /// binding added fjall's own 64 MiB journal on top (320 MiB per open
+    /// store) — the dominant memory cost of the Ego product.
+    ///
+    /// The segments grow on demand (`File::grow_to` doubles the file), so a
+    /// small initial size costs a handful of extra `set_len`+remap cycles
+    /// and nothing else.
+    #[test]
+    fn fresh_segments_do_not_reserve_64mb() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let config = crate::storage::engine::SegmentOptimizerConfig::default();
+
+        let (registry, vfiles) = SegmentRegistry::open_or_create(dir.path(), &config, None)
+            .expect("open_or_create succeeds");
+        assert_eq!(vfiles.len(), 4, "one file per LSM level");
+        assert_eq!(registry.len(), 4, "one registry entry per LSM level");
+
+        for level in [
+            SegmentLevel::L0,
+            SegmentLevel::L1,
+            SegmentLevel::L2,
+            SegmentLevel::L3,
+        ] {
+            let path = dir.path().join(level.file_name());
+            let len = std::fs::metadata(&path).expect("segment file exists").len();
+            assert!(
+                len <= 4 * 1024 * 1024,
+                "FIND-517: {} reserves {len} bytes on an empty store; \
+                 the pre-reserve must stay in the low-MB range",
+                level.file_name()
+            );
+        }
+    }
+
+    /// FIND-517: the initial size of a fresh segment is **configurable**.
+    ///
+    /// The knob exists so a binding can expose it (`ConnectOptions`
+    /// in the Node binding) and so the reserve can be covered by the
+    /// caller's `memory_limit`.
+    #[test]
+    fn open_or_create_honours_initial_segment_bytes() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let mut config = crate::storage::engine::SegmentOptimizerConfig::default();
+        config.lsm.initial_segment_bytes = 512 * 1024;
+
+        let (_registry, _vfiles) = SegmentRegistry::open_or_create(dir.path(), &config, None)
+            .expect("open_or_create succeeds");
+
+        for level in [
+            SegmentLevel::L0,
+            SegmentLevel::L1,
+            SegmentLevel::L2,
+            SegmentLevel::L3,
+        ] {
+            let path = dir.path().join(level.file_name());
+            let len = std::fs::metadata(&path).expect("segment file exists").len();
+            assert_eq!(
+                len,
+                512 * 1024,
+                "{} must honour lsm.initial_segment_bytes",
+                level.file_name()
+            );
+        }
     }
 }
