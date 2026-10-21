@@ -1707,9 +1707,10 @@ mod tests {
         // A trailing statement terminator is tolerated (lenient, same as
         // non-paginated statements).
         assert!(parse_statement("FROM Doc LIMIT 5;").is_ok());
-        // Boundary of this fix: statements WITHOUT pagination keep the legacy
-        // trailing-input behavior (still tracked as FIND-312).
-        assert!(parse_statement("FROM Doc garbage").is_ok());
+        // FIND-518/FIND-519: the trailing-input rejection is now strict for
+        // EVERY statement (not only the paginated/aggregated ones).
+        assert!(parse_statement("FROM Doc p garbage").is_err());
+        assert!(parse_statement("FROM Doc WHERE a = 1, b = 2").is_err());
     }
 
     #[test]
@@ -1893,6 +1894,126 @@ mod tests {
     fn test_autocomplete_suggests_group_keyword() {
         let out = autocomplete_prefix("GRO");
         assert!(out.contains(&"GROUP".to_string()), "got {out:?}");
+    }
+
+    // ─── FIND-518: WHERE mal formado + trailing input ───────────
+
+    /// FIND-518: un `WHERE` mal formado es un **error de parseo** — nunca una
+    /// consulta sin filtro. Antes el `opt(...)` alrededor de la clausula
+    /// devolvia `None` (en `nom`, un `opt` ante `Err::Error` restaura el
+    /// input) y el `WHERE` entero se descartaba como trailing input: la query
+    /// se ejecutaba como un escaneo completo sin filtro.
+    #[test]
+    fn test_parse_query_rejects_malformed_where_clause() {
+        assert!(parse_query("FROM Doc WHERE n =").is_err());
+        assert!(parse_query("FROM Doc WHERE").is_err());
+        assert!(parse_query("FROM Doc WHERE n = AND m = 2").is_err());
+        // El `AND` cuya condicion no parsea no puede dejar el resto como
+        // trailing input: el filtro se perderia entero.
+        assert!(parse_query("FROM Doc WHERE a = 1 AND b =").is_err());
+        assert!(parse_query("MATCH Doc WHERE n =").is_err());
+    }
+
+    /// FIND-518: el mismo contrato en la superficie `SELECT`.
+    #[test]
+    fn test_parse_select_rejects_malformed_where_clause() {
+        assert!(parse_statement("SELECT * FROM Doc WHERE n =").is_err());
+        assert!(parse_statement("SELECT * FROM Doc WHERE").is_err());
+        assert!(parse_statement("SELECT * FROM Doc WHERE a = 1 AND b =").is_err());
+    }
+
+    /// FIND-518/FIND-519: a nivel de statement, un `WHERE` mal formado y el
+    /// trailing input son errores de parseo.
+    #[test]
+    fn test_parse_statement_rejects_malformed_where_clause() {
+        assert!(parse_statement("FROM Doc WHERE n =").is_err());
+        assert!(parse_statement("FROM Doc WHERE a = 1, b = 2").is_err());
+        assert!(parse_statement("SELECT * FROM Doc WHERE a = 1, b = 2").is_err());
+    }
+
+    /// FIND-312 subcase: trailing INTERNO en subquery — el `WHERE` interno
+    /// rompe el `)` del caller, el fallback del subquery deja el `WHERE`
+    /// entero como trailing input y la query se ejecutaba sin filtro.
+    #[test]
+    fn test_parse_statement_rejects_trailing_input_inside_a_subquery() {
+        assert!(parse_statement(
+            "SELECT * FROM t WHERE x > (SELECT COUNT(*) FROM u GROUP BY g WHERE y = 1)"
+        )
+        .is_err());
+        // Control: el subquery bien formado sigue parseando.
+        assert!(
+            parse_statement("SELECT * FROM t WHERE x > (SELECT * FROM u)").is_ok(),
+            "a well-formed subquery must keep parsing"
+        );
+    }
+
+    /// FIND-519: el trailing input de cualquier statement se descartaba en
+    /// silencio (se aplicaba un filtro y se perdia el otro, `PROFILE bogus`
+    /// corria sin perfil, `INSERT ... LINK ...` inserta el nodo sin arista).
+    /// Casos de la auditoria de la gramatica IQL (2026-10-21, F-02).
+    #[test]
+    fn test_parse_statement_rejects_trailing_input_on_every_statement() {
+        // Trailing junk detras de un statement ya parseado.
+        assert!(parse_statement("FROM Doc p garbage").is_err());
+        assert!(parse_statement("SELECT * FROM Doc p garbage").is_err());
+        // La coma no es separador de condiciones (solo `AND`): la segunda
+        // condicion se perdia en silencio.
+        assert!(parse_statement("FROM Doc WHERE a = 1, b = 2").is_err());
+        // El brazo vectorial caia a match lexico cuando el `min` no parseaba.
+        assert!(parse_statement(r#"FROM Doc WHERE bio ~ "x", min >= 0.88"#).is_err());
+        assert!(parse_statement(r#"FROM Doc WHERE bio ~ "x", minimum = 0.5"#).is_err());
+        // `PROFILE bogus` / `PROFILE KEYWORD` (los modos son lowercase).
+        assert!(parse_statement("FROM Doc PROFILE bogus").is_err());
+        assert!(parse_statement("FROM Doc PROFILE KEYWORD").is_err());
+        // El nodo se insertaba sin arista.
+        assert!(parse_statement("INSERT NODE#1 TYPE N { a: 1 } LINK NODE#2").is_err());
+        assert!(parse_statement("DELETE NODE#1 garbage").is_err());
+        assert!(parse_statement("UPDATE NODE#1 SET a = 1 garbage").is_err());
+    }
+
+    /// Control: el `<alias>` de la superficie `FROM`/`MATCH` es una feature
+    /// documentada (`docs/api/IQL.md`), asi que `FROM Doc garbage` es una
+    /// statement VALIDA con alias `garbage` — no trailing input. El trailing
+    /// junk real es lo que va detras de un alias explicito.
+    #[test]
+    fn test_parse_statement_keeps_the_documented_alias() {
+        let (_, stmt) = parse_statement("FROM Doc garbage").unwrap();
+        match stmt {
+            Statement::Query(q) => assert_eq!(q.target_alias, "garbage"),
+            other => panic!("expected Query, got {other:?}"),
+        }
+    }
+
+    /// El `;` final (REPL/CLI) se sigue tolerando en todas las statements.
+    #[test]
+    fn test_parse_statement_tolerates_trailing_semicolon() {
+        assert!(parse_statement("FROM Doc;").is_ok());
+        assert!(parse_statement("FROM Doc WHERE n = 1;").is_ok());
+        assert!(parse_statement("SELECT * FROM Doc;").is_ok());
+        assert!(parse_statement("DELETE NODE#1;").is_ok());
+        assert!(parse_statement("  FROM Doc ;  ").is_ok());
+    }
+
+    /// Control: un statement valido no puede pasar a fallar.
+    #[test]
+    fn test_parse_statement_valid_statements_still_parse() {
+        for q in [
+            "FROM Doc",
+            "FROM Doc WHERE n = 1",
+            "FROM Doc WHERE a = 1 AND b = 2",
+            "FROM Doc WHERE n > 1 FETCH name RANK BY score DESC",
+            "FROM Doc LIMIT 5 OFFSET 2",
+            "FROM Doc AS OF 42",
+            "FROM Doc PROFILE hybrid rrf_k 20 candidate_k 64",
+            "SELECT * FROM Doc WHERE n = 1",
+            "SELECT COUNT(*) FROM Doc GROUP BY c",
+            "INSERT NODE#1 TYPE N { a: 1 }",
+            "UPDATE NODE#1 SET a = 1",
+            "DELETE NODE#1",
+            r#"RELATE NODE#1 --"amigo"--> NODE#2"#,
+        ] {
+            assert!(parse_statement(q).is_ok(), "must parse: {q}");
+        }
     }
 
     #[test]

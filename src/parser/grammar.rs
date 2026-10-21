@@ -192,6 +192,55 @@ fn parse_pagination(i: &str) -> IResult<&str, (Option<usize>, Option<usize>)> {
     Ok((i, (limit, offset)))
 }
 
+/// Parse the optional `WHERE <item> AND <item>...` clause.
+///
+/// Strictness (same rule as `AS OF` / `LIMIT`): once the `WHERE` keyword is
+/// consumed, at least one item is required and every item must parse — a
+/// malformed condition is a **parse error**, never a silent drop of the whole
+/// filter (FIND-518). The clause used to be wrapped in `opt(...)`: in `nom` an
+/// `opt` restores the input on `Err::Error` and returns `None`, so
+/// `FROM Doc WHERE n =` parsed as a bare `FROM Doc` and the query ran as an
+/// unfiltered scan (`PhysicalScan::open` materialized every node in RAM).
+///
+/// `keyword_at` is the position of the keyword itself (after the leading
+/// whitespace) so the failure points at the clause, not at the statement.
+fn parse_where_clause<'a, T, P>(input: &'a str, item: P) -> IResult<&'a str, Option<Vec<T>>>
+where
+    P: FnMut(&'a str) -> IResult<&'a str, T>,
+{
+    let keyword_at = input.trim_start();
+    let (rest, _) = match ws(tag::<&str, &str, nom::error::Error<&str>>("WHERE"))(input) {
+        Ok(parsed) => parsed,
+        // No `WHERE` clause: the input is left untouched.
+        Err(nom::Err::Error(_)) => return Ok((input, None)),
+        Err(e) => return Err(e),
+    };
+
+    let malformed = || {
+        nom::Err::Failure(nom::error::Error::new(
+            keyword_at,
+            nom::error::ErrorKind::Verify,
+        ))
+    };
+
+    let (rest, items) =
+        match separated_list1(ws(tag::<&str, &str, nom::error::Error<&str>>("AND")), item)(rest) {
+            Ok(parsed) => parsed,
+            // The first condition does not parse: the clause is malformed.
+            Err(nom::Err::Error(_)) => return Err(malformed()),
+            Err(e) => return Err(e),
+        };
+
+    // `separated_list1` stops at an `AND` whose condition does not parse and
+    // leaves the malformed tail in the remainder — that is a malformed WHERE
+    // clause, not trailing input.
+    if ws(tag::<&str, &str, nom::error::Error<&str>>("AND"))(rest).is_ok() {
+        return Err(malformed());
+    }
+
+    Ok((rest, Some(items)))
+}
+
 /// Parse a `FROM`/`MATCH` query statement.
 pub fn parse_query(i: &str) -> IResult<&str, Query> {
     let (i, _) = ws(alt((tag("FROM"), tag("MATCH"))))(i)?;
@@ -204,10 +253,7 @@ pub fn parse_query(i: &str) -> IResult<&str, Query> {
 
     let (i, as_of_early) = parse_as_of_clause(i)?;
 
-    let (i, where_clause) = opt(tuple((
-        ws(tag("WHERE")),
-        separated_list1(ws(tag("AND")), parse_condition),
-    )))(i)?;
+    let (i, where_clause) = parse_where_clause(i, parse_condition)?;
 
     let (i, fetch) = opt(tuple((
         ws(tag("FETCH")),
@@ -248,7 +294,7 @@ pub fn parse_query(i: &str) -> IResult<&str, Query> {
             from_entity,
             traversal,
             target_alias,
-            where_clause: where_clause.map(|(_, conds)| conds),
+            where_clause,
             fetch: fetch.map(|(_, f)| f),
             rank_by: rank_by.map(|(_, f, d)| RankBy {
                 field: f,
@@ -611,10 +657,7 @@ pub fn parse_select(i: &str) -> IResult<&str, SelectStatement> {
     };
 
     // WHERE clause with mixed regular and subquery conditions
-    let (i, where_items) = opt(tuple((
-        ws(tag("WHERE")),
-        separated_list1(ws(tag("AND")), parse_where_item),
-    )))(i)?;
+    let (i, where_items) = parse_where_clause(i, parse_where_item)?;
 
     // `GROUP BY <field>` (WIRE-13): single group key, SQL position (after
     // WHERE, before the tail clauses). Multi-field (`GROUP BY a, b`) is
@@ -690,7 +733,7 @@ pub fn parse_select(i: &str) -> IResult<&str, SelectStatement> {
 
     // Split where_items into regular conditions and subquery conditions
     let (where_conds, subq_conds) = match where_items {
-        Some((_, items)) => {
+        Some(items) => {
             let mut conds = Vec::new();
             let mut subqs = Vec::new();
             for item in items {
@@ -723,30 +766,29 @@ pub fn parse_select(i: &str) -> IResult<&str, SelectStatement> {
 
 // ─── Entry Point ───────────────────────────────────────────────
 
-/// WIRE-12/WIRE-13 strictness: once a statement is "strict" — `LIMIT`/`OFFSET`
-/// consumed (WIRE-12) or an aggregation `SELECT` (WIRE-13, `aggregates`
-/// non-empty) — a non-empty remainder is a parse error. Without this, a clause
-/// written after the strict surface (`FROM x LIMIT 5 WHERE ...`,
-/// `SELECT COUNT(*) FROM x GROUP BY g WHERE ...`) would be left as trailing
-/// input and silently ignored by the executor (FIND-312 class), returning
-/// results *without* the trailing clause — more misleading than the pre-feature
-/// loud failure. Applied at the statement entry point (not inside
-/// `parse_select`) so subqueries — where the caller consumes the closing `)` —
-/// keep parsing. A trailing statement terminator (`;`) is tolerated, matching
-/// the lenient behavior of non-paginated statements.
-fn reject_trailing_input<'a>(
-    rest: &'a str,
-    stmt: &Statement,
-) -> Result<(), nom::Err<nom::error::Error<&'a str>>> {
-    let strict = match stmt {
-        Statement::Query(q) => q.limit.is_some() || q.offset.is_some(),
-        Statement::Select(s) => s.limit.is_some() || s.offset.is_some() || !s.aggregates.is_empty(),
-        _ => false,
-    };
-    if strict && !rest.trim().trim_end_matches(';').trim().is_empty() {
+/// Strictness: a statement is fully consumed or it is a parse error.
+///
+/// Once a statement is parsed, any leftover input is rejected — the only
+/// tolerated remainder is a statement terminator (`;`, used by the REPL and
+/// the CLI). Without this, a clause written after the parsed surface
+/// (`FROM x LIMIT 5 WHERE ...`, `SELECT COUNT(*) FROM x GROUP BY g WHERE ...`,
+/// `FROM Doc WHERE a = 1, b = 2`, `PROFILE bogus`, `INSERT ... LINK ...`) was
+/// left as trailing input and silently ignored by the executor (FIND-312 /
+/// FIND-518 / FIND-519 class): the query ran *without* the clause, which is
+/// more misleading than the pre-feature loud failure.
+///
+/// Applied at the statement entry point (not inside `parse_select`) so
+/// subqueries — where the caller consumes the closing `)` — keep parsing.
+///
+/// The failure is reported with `ErrorKind::Eof` (nom's "there is leftover
+/// input" kind) so the executor can map it to a stable message distinct from
+/// the clause-level failures (`Verify` / `Fail`).
+fn reject_trailing_input(rest: &str) -> Result<(), nom::Err<nom::error::Error<&str>>> {
+    let trailing = rest.trim();
+    if !trailing.trim_end_matches(';').trim().is_empty() {
         return Err(nom::Err::Failure(nom::error::Error::new(
-            rest,
-            nom::error::ErrorKind::Verify,
+            rest.trim_start(),
+            nom::error::ErrorKind::Eof,
         )));
     }
     Ok(())
@@ -763,17 +805,18 @@ pub fn parse_statement(i: &str) -> IResult<&str, Statement> {
         map(parse_select, Statement::Select), // Must be before parse_query (SELECT would match as alias)
         map(parse_query, Statement::Query),
     ))(i)?;
-    reject_trailing_input(rest, &stmt)?;
     // WIRE-13: `GROUP BY` is a SELECT surface — on FROM/MATCH it would become
     // silently ignored trailing input (FIND-312 class) and return ungrouped
     // rows. Fail loud with a stable message (mapped in
-    // `Executor::iql_parse_error_message`).
+    // `Executor::iql_parse_error_message`). Checked before the generic
+    // trailing-input rejection so the message stays the specific one.
     if matches!(stmt, Statement::Query(_)) && rest.trim_start().starts_with("GROUP") {
         return Err(nom::Err::Failure(nom::error::Error::new(
             i,
             nom::error::ErrorKind::Fail,
         )));
     }
+    reject_trailing_input(rest)?;
     Ok((rest, stmt))
 }
 
