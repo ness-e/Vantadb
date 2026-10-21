@@ -307,6 +307,27 @@ impl StorageBackend for RocksDbBackend {
     fn as_compactable(&self) -> Option<&dyn Compactable> {
         Some(self)
     }
+
+    /// Whether the store holds no data at all.
+    ///
+    /// Cheap: one iterator step per column family, without materialising the
+    /// entries. Used by the at-rest encryption wiring to tell a brand-new
+    /// database from an existing plaintext one.
+    #[cfg(feature = "encryption")]
+    fn is_empty(&self) -> Result<bool> {
+        for partition in BackendPartition::ALL {
+            let cf = self.cf_handle(partition)?;
+            if self
+                .db
+                .iterator_cf(&cf, rocksdb::IteratorMode::Start)
+                .next()
+                .is_some()
+            {
+                return Ok(false);
+            }
+        }
+        Ok(true)
+    }
 }
 
 /// RocksDB serves the scan role like every backend.
