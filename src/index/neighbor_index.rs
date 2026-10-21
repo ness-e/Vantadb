@@ -411,7 +411,11 @@ mod tests {
         buf.clear();
         buf.push(99);
         assert!(!idx.get_neighbors_into(999, 0, &mut buf));
-        assert_eq!(buf.as_slice(), &[99], "the buffer must be untouched on absent");
+        assert_eq!(
+            buf.as_slice(),
+            &[99],
+            "the buffer must be untouched on absent"
+        );
     }
 
     #[test]

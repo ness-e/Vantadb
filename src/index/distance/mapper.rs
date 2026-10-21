@@ -523,7 +523,7 @@ mod tests {
         // `NaN` is not comparable in either direction, so the ranking is done
         // by the index, not by the caller: every consumer drops NaN scores
         // (`nearest.rs` `retain(|ns| !ns.0.is_nan())` and `flat.rs`
-       // `retain(|(_, score)| !score.is_nan())`), so a vectorless candidate can
+        // `retain(|(_, score)| !score.is_nan())`), so a vectorless candidate can
         // never reach a result set. What this test pins is that the valid
         // candidate still carries a usable score.
         assert!(
