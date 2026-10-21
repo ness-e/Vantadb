@@ -6,7 +6,7 @@
 
 Every link below points to the raw Markdown source, not a rendered page. Read the
 page you need; do not read this file end to end. This index covers the
-513 documentation pages; it deliberately omits the 639 task files,
+514 documentation pages; it deliberately omits the 639 task files,
 which are work items rather than documentation. The full inventory of every file
 is in docs/index.md in the repository.
 
@@ -420,6 +420,7 @@ is in docs/index.md in the repository.
 - [Deep audit W7 - Benchmarks and market research](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/reviews/audit-deep-w7-benchmarks-20261020-033416.md): Auditoria de los 23 benches Rust + 21 ficheros en benchmarks/ + evals + datasets, y research de mercado con URLs: que benchmarkea hoy el sector, que publica cada competidor y que benchmarks unicos deberia construir VantaDB.
 - [Deep audit W8 - Tooling and periphery](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/reviews/audit-deep-w8-tooling-20261020-033416.md): Auditoria read-only de dev-tools/, scripts/, examples/, Formula/, integrations/, providers/, skills/, .github/workflows/ y artefactos del repo: portabilidad, idempotencia, exit codes, duplicados y gates de CI.
 - [Deep audit W9 - Cross-cutting: security, concurrency, memory, API contract](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/reviews/audit-deep-w9-crosscutting-20261020-033416.md): Auditoria transversal de VantaDB: unsafe/UB, concurrencia y orden de locks, presupuesto de memoria, contrato de API y semver, paridad de scores entre SDKs y gates que fallan de forma incorrecta.
+- [Envelope por pagina en el VantaFile cifrado (FIND-598) + orden de ataque de FIND-585..591 + brief de FIND-559](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/reviews/2026-10-21-encryption-envelope-por-pagina.md): Diseno, sin implementar, del paso del envelope del VantaFile cifrado de por nodo a por pagina con cache LRU de paginas descifradas; el orden de ataque de los 7 hallazgos de cifrado que siguen abiertos; y el brief de decision de la clausula ROLE para el owner.
 - [Fuentes Vivas — Catálogo de Carpetas Externas](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/avance/fuentes-vivas.md): Propietario del pipeline: campaign-server.mjs (MCP), prompts pipeline-full.md/plan.md. Los plan files son el estado de ejecución vivo del sistema de tareas; pipeline-run.md busca el más reciente por defecto. NO mover
 - [General Progress of VantaDB Project](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/avance/historial/snapshot-2026-08-03.md): VantaDB is a vector database in Rust focused on high performance, hybrid HNSW, GraphRAG, CLIP and Python/LLM ecosystem
 - [General Progress of VantaDB Project](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/avance/historial/snapshot-2026-08-07.md): VantaDB es una base de datos vectorial en Rust enfocada en alto rendimiento, HNSW híbrido, GraphRAG, CLIP y el ecosistema Python/LLM
