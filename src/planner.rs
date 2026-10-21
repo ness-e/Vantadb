@@ -155,26 +155,6 @@ impl crate::query::PhysicalOperator for PhysicalRrfFusion<'_> {
     }
 }
 
-/// Does the entity scope of the plan already imply this predicate?
-///
-/// FIND-553: `FROM Doc` scopes the rows to the `Doc` type, so
-/// `WHERE type = "Doc"` is a no-op. Dropping it keeps the plan — and
-/// therefore the row set — identical to the same query without the
-/// redundant predicate, and keeps the estimate from flipping the plan shape
-/// (the two queries would otherwise take different branches and return
-/// different rows).
-///
-/// Only a type scope can imply a type predicate: `*` and `Entity#id` are not
-/// type scopes, and a JOIN plan applies its filters after the join, where
-/// the rows come from both sides.
-fn entity_scope_implies_type(entity: &str, field: &str, op: &RelOp, value: &FieldValue) -> bool {
-    entity != "*"
-        && !entity.contains('#')
-        && field == "type"
-        && matches!(op, RelOp::Eq)
-        && matches!(value, FieldValue::String(v) if v == entity)
-}
-
 // ── Cost-Based Optimizer (CBO) & Volcano Compiler ─────────────────────────
 
 /// Optimise a logical plan and compile it into a physical operator.
@@ -327,14 +307,11 @@ fn optimize_and_compile_with<'a>(
     let mut joint_selectivity = 1.0f32;
     let mut sorted_filters = Vec::with_capacity(with_sel.len());
     for (sel, field, rel_op, value) in with_sel {
-        if !has_join && entity_scope_implies_type(&entity, &field, &rel_op, &value) {
-            tracing::debug!(
-                "CBO: `{}` is implied by the entity scope of `{}` — dropped",
-                field,
-                entity
-            );
-            continue;
-        }
+        // FIND-554 (revision P2-01, R2): the CBO **never** drops a predicate.
+        // `type = <entity>` looked "implied" by the scope, but the entity can
+        // also be a **namespace table** (MCP-29), whose records carry no
+        // `type` at all: dropping the user's predicate there returned **more**
+        // rows than the query asked for.
         joint_selectivity *= sel;
         sorted_filters.push((field, rel_op, value));
     }
@@ -771,8 +748,11 @@ mod tests {
             node
         }
 
-        /// A node with NO `type` field and no namespace: it is not "of
-        /// another type" (FIND-553 invariant: "sin tipo" = "cualquier tipo").
+        /// A node with NO `type` field and no namespace.
+        ///
+        /// The scope is an **OR** (type **or** namespace) exactly as the
+        /// scan's is, so a node with neither is **out of every scope** — the
+        /// same fallback as `scan.rs:94` (revision P2-01, R1).
         fn typeless_node(id: u128) -> UnifiedNode {
             let mut node = UnifiedNode::new(id);
             node.relational
@@ -854,9 +834,13 @@ mod tests {
             );
         }
 
-        /// FIND-553: adding a REDUNDANT relational filter must not change
-        /// the row set. `FROM Doc WHERE content ~ "x"` and
-        /// `FROM Doc WHERE content ~ "x", type = "Doc"` are the same query.
+        /// FIND-553: adding a relational filter that matches the scope must
+        /// not change the row set. `FROM Doc WHERE content ~ "x"` and
+        /// `FROM Doc WHERE content ~ "x", type = "Doc"` return the same rows.
+        ///
+        /// The filter is **applied** (the CBO never drops a predicate —
+        /// revision P2-01, R2); it just does not remove anything here,
+        /// because the node it matches is the one the scope already admits.
         #[test]
         fn f553_redundant_type_filter_returns_the_same_rows() {
             let (storage, _dir) = in_memory_storage();
@@ -900,11 +884,11 @@ mod tests {
             );
         }
 
-        /// FIND-553 invariant: a node with NO type is not "of another type" —
-        /// the scope treats it as "any type" ("sin tipo" = "cualquier
-        /// tipo"), so the query of a typeless node does not break.
+        /// FIND-553 (revision P2-01, R1): the vector scope must **replicate**
+        /// the scan's: an **OR** of `type` and namespace, and a node with
+        /// neither is **out of the scope** (the scan excludes it too).
         #[test]
-        fn f553_typeless_node_stays_in_scope() {
+        fn f553_typeless_node_is_out_of_scope() {
             let (storage, _dir) = in_memory_storage();
             storage.insert(&typeless_node(1)).unwrap();
             storage.insert(&node_with_type(2, "Note")).unwrap();
@@ -922,8 +906,41 @@ mod tests {
 
             assert_eq!(
                 ids,
+                Vec::<u128>::new(),
+                "a node with neither a type nor a namespace is out of every scope (the scan excludes it too)"
+            );
+        }
+
+        /// FIND-553 (revision P2-01, R1): a node whose `type` does **not**
+        /// match the entity but whose **namespace** does must be admitted —
+        /// the scan admits it (the scope is an OR), so the vector path has to
+        /// agree. Checking the type first and excluding on a mismatch made
+        /// the two paths of the same query return different rows.
+        #[test]
+        fn f553_namespace_match_admits_a_node_with_another_type() {
+            let (storage, _dir) = in_memory_storage();
+            let mut node = node_with_type(1, "Note");
+            node.relational.insert(
+                crate::sdk::serialization::FIELD_NAMESPACE.into(),
+                FieldValue::String("doc".into()),
+            );
+            storage.insert(&node).unwrap();
+
+            let ids = run(
+                &storage,
+                vec![
+                    LogicalOperator::Scan {
+                        entity: "doc".into(),
+                    },
+                    vector_search(),
+                    LogicalOperator::Limit { top_k: 5 },
+                ],
+            );
+
+            assert_eq!(
+                ids,
                 vec![1],
-                "a node with no type belongs to any type scope"
+                "a node whose namespace maps to the entity's table must be in scope, exactly as in the scan path"
             );
         }
 

@@ -80,24 +80,27 @@ pub(crate) fn node_in_entity_scope(node: &UnifiedNode, entity: &str) -> bool {
     if entity == "*" || entity.contains('#') {
         return true;
     }
-    match node.relational.get("type") {
-        Some(crate::node::FieldValue::String(t)) => t == entity,
-        // A `type` of another shape is not a type match.
-        Some(_) => false,
-        None => match node
-            .relational
-            .get(crate::sdk::serialization::FIELD_NAMESPACE)
-        {
-            // MCP-29: a namespace table — the namespace decides (as in the scan).
-            Some(crate::node::FieldValue::String(ns)) => {
-                crate::sdk::serialization::iql_table_name_for_namespace(ns) == entity
-            }
-            Some(_) => false,
-            // FIND-553 invariant: no `type` and no namespace → the node is not
-            // of another type → it belongs to any type scope.
-            None => true,
-        },
+    // The scope is an **OR**, exactly as in `scan.rs:73-94`: a node belongs to
+    // the scope when its `type` is the entity **or** when its namespace maps to
+    // the entity's table name (MCP-29). Checking the type first and
+    // returning false on a mismatch made the two paths of the same query
+    // disagree (a node with a `type` that does not match but a namespace
+    // that does was admitted by the scan and dropped by the vector path).
+    if let Some(crate::node::FieldValue::String(t)) = node.relational.get("type") {
+        if t == entity {
+            return true;
+        }
     }
+    if let Some(crate::node::FieldValue::String(ns)) = node
+        .relational
+        .get(crate::sdk::serialization::FIELD_NAMESPACE)
+    {
+        // MCP-29: a namespace table — the namespace decides (as in the scan).
+        return crate::sdk::serialization::iql_table_name_for_namespace(ns) == entity;
+    }
+    // Neither a `type` nor a namespace: the node is not in the scope — the
+    // same fallback as the scan.
+    false
 }
 
 /// Physical vector search operator using HNSW index.
