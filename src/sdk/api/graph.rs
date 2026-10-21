@@ -289,10 +289,7 @@ impl Embedded {
                 // holds vectors of ONE dimension, so a record with a vector of
                 // another length would be restored and then dropped at query
                 // time (invisible to search, no error).
-                validate_vector_dimension(
-                    engine.hnsw.load().vector_dimension(),
-                    vector.len(),
-                )?;
+                validate_vector_dimension(engine.hnsw.load().vector_dimension(), vector.len())?;
                 node.vector = VectorRepresentations::Full(vector);
                 node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
             }
