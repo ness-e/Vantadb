@@ -262,7 +262,8 @@ cargo run --features embed-local --bin vanta-cli -- --help
 VANTADB_EMBEDDING_PROVIDER=local VANTADB_LOCAL_MODEL=embeddings/models/multilingual-e5-small/onnx \
   cargo run --features embed-local --bin vanta-cli -- put --db ./quickstart_data --namespace agent/main --key hello --payload "hola mundo"
 
-# 3. SQL auto-embed now works offline: VECTOR_SEARCH('hola mundo') → LocalOnnxProvider
+# 3. SQL auto-embed now works offline: IQL vector condition `<campo> ~ "hola mundo", min = 0.88` → LocalOnnxProvider
+#    (IQL no tiene `VECTOR_SEARCH(...)`: la condición vectorial es el operador `~` con umbral `min`)
 # 4. Verify without downloading (CI-friendly)
 python embeddings/verify.py --check
 ```

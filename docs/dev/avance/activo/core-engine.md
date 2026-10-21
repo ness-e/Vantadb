@@ -965,3 +965,61 @@ s_len‖ns‖key_len‖key‖ver BE) + hooks put/put_batch/delete/purge_expired 
   - `FIND-427`: el texto de la propia fila `FIND-98` ("79 vs 85 tools") corregido a "79 vs 82".
   - `FIND-386`: la tabla de versiones de `SECURITY.md` estaba congelada en 0.5.x/0.4.x con el crate
     en 0.9.0 -> ahora 0.9.x activa, 0.8.x y 0.7.x con parches de seguridad.
+
+
+## Auditoria de la gramatica IQL (FIND-502) — 13 hallazgos nuevos (2026-10-21)
+
+- **Fecha:** 2026-10-21
+- **Resultado:** ✅ el hueco de cobertura que `FIND-502` declaraba (`src/parser/` nunca auditado
+  en profundidad) queda cerrado con una auditoria de solo lectura de la gramatica, el lexer y su
+  contrato con el planner y el executor. Informe: `docs/dev/reviews/audit-grammar-iql-20261021.md`.
+
+**Lo que encontro (verificado con `archivo:linea`, y contra la fuente de `nom 7.1.3`):**
+
+- **`FIND-518` (critica):** si la **primera** condicion del `WHERE` no parsea, el `opt(...)` del
+  `WHERE` la traga, restaura el input y la query se ejecuta **sin filtro ni error** (escaneo
+  completo). El `PhysicalScan::open` materializa todos los nodos en RAM antes de filtrar, asi que
+  el fallo escala a agotamiento de memoria. Traza: `src/parser/grammar.rs:207-210` ->
+  `nom::opt` ante `Err::Error` **restaura el input** -> `src/executor.rs:217-218`.
+- **`FIND-519` (alta):** el trailing input se descarta en silencio en las tres superficies
+  (HTTP, MCP, CLI). Casos reales: `WHERE a = 1, b = 2` aplica un filtro y **pierde el otro**;
+  `min >= 0.88` degrada el brazo vectorial a match lexico; `PROFILE bogus` corre sin perfil;
+  `INSERT ... LINK ...` inserta el nodo **sin arista**.
+- **`FIND-520` (alta):** el operador `~` tiene **dos** semanticas (vectorial con `min`, lexico sin
+  el) y `docs/api/IQL.md` solo documenta una: `WHERE texto ~ "x"` creyendo semantica vectorial
+  hace una contencion lexica de frase; sobre un campo `Int` da **siempre 0 filas sin error**.
+- **`FIND-521` (alta):** la misma expresion IQL devuelve **filas distintas** segun la estimacion de
+  selectividad del CBO (dos paths vectoriales: refine por fuerza bruta vs HNSW), y con metrica
+  Euclidean el `min` **no matchea nada** (el espacio de score no esta documentado).
+- **`FIND-522` (alta):** `min = nan` / `min = inf` se aceptan -> 0 resultados silenciosos (el mismo
+  sintoma que corrigio `FIND-413`, por otra via).
+- **`FIND-523` (alta, DoS):** recursion **sin limite** en subqueries anidados -> stack overflow con
+  una query de ~1 MiB (el cap del MCP), que tumba el server y todas las peticiones en vuelo.
+- **`FIND-524` (media):** `FROM NODE#abc` devuelve **un nodo arbitrario de toda la base**, sin error.
+- **`FIND-525` (media):** `SIGUE 1..5000000000` se descarta en silencio -> la query pasa a ser un
+  escaneo **sin traversia**.
+- **`FIND-526` (media):** una keyword en minuscula se consume como alias -> `FROM Doc where x = 1`
+  devuelve **todos** los `Doc` (la doc afirma que es error de parseo).
+- **`FIND-527` (media):** `PROFILE candidate_k` se parsea y se **ignora** en el path IQL, pero la
+  doc lo llama "candidate budget".
+- **`FIND-528` (media):** el mensaje de error de parseo embebe el input crudo -> una query de 1 MiB
+  devuelve un error de ~1 MiB (amplificacion de payload).
+- **`FIND-529` (baja):** los tests **fijan como esperado** los silent-drops: no hay ningun test del
+  contractual de `WHERE` mal formado, trailing input, `min = nan` ni limite de profundidad.
+- **`FIND-530` (alta):** `docs/api/HTTP_API.md` documenta dos formas de IQL que **no parsean**
+  (`UPDATE NODE#<id> VECTOR [...]` y `RELATE <a> -> <b> AS <label>`).
+- **`FIND-531` (media):** `docs/api/IQL.md` describe seis semanticas que el codigo no tiene.
+
+**Ademas:**
+
+- `FIND-312` (trailing input) sube de 🟡 Media a 🟠 Alta: la auditoria lo confirma en las tres
+  superficies y descubre la variante peor (`FIND-518`).
+- `FIND-313` (ventana de candidatos hardcoded) sube de 🟢 Baja a 🟠 Alta: el tope **no escala con el
+  `LIMIT`** y el segundo path del planner **no lo tiene**.
+- `docs/user/QUICKSTART.md:265` (que seguia con `VECTOR_SEARCH('hola mundo')`, una funcion que no
+  existe en ningun lenguaje del repo) corregido a la forma real: `<campo> ~ "hola mundo", min = 0.88`.
+
+**Nota (Ponytail lite):** el 80 % de esto se reduce a **una regla**: `opt(...)` alrededor de una
+clausula cuyo keyword ya se consumio convierte un error de tipeo en un cambio de significado
+silencioso. Hacer `reject_trailing_input` estricto para todas las statements cierra `FIND-518`,
+`FIND-519`, la mitad de `FIND-525` y `FIND-526` de una vez.
