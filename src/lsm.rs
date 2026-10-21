@@ -126,9 +126,15 @@ impl SegmentRegistry {
     /// Pre-allocates all 4 LSM levels so `compact_level()` never needs to
     /// grow `vector_store` dynamically (no `unsafe` needed).
     /// Returns `(Self, Vec<RwLock<File>>)` with a File per level.
+    ///
+    /// `crypto` is the encryption context of the `vfile` artefact
+    /// (ADR-0057 W3): it is the **same** context for every level, because
+    /// the DEK and the nonce space belong to the artefact, not to the file.
+    /// `None` keeps every segment plaintext.
     pub fn open_or_create(
         data_dir: &std::path::Path,
         _config: &crate::storage::engine::SegmentOptimizerConfig,
+        crypto: crate::storage::vfile_crypto::VFileCryptoSlot,
     ) -> crate::error::Result<(Self, Vec<parking_lot::RwLock<crate::storage::vfile::File>>)> {
         let mut registry = Self::new();
         let mut vfiles: Vec<parking_lot::RwLock<crate::storage::vfile::File>> = Vec::new();
@@ -153,7 +159,12 @@ impl SegmentRegistry {
             SegmentLevel::L3,
         ] {
             let path = data_dir.join(level.file_name());
-            let vf = crate::storage::vfile::File::open(path.clone(), 64 * 1024 * 1024)?;
+            let vf = crate::storage::vfile::File::open_with_crypto(
+                path.clone(),
+                64 * 1024 * 1024,
+                false,
+                crypto.clone(),
+            )?;
             registry.register(level.as_u8(), level.as_u8(), path);
             vfiles.push(parking_lot::RwLock::new(vf));
         }

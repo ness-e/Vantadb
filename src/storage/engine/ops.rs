@@ -286,19 +286,23 @@ impl StorageEngine {
                     continue;
                 }
 
+                // ADR-0057 W3: in an encrypted segment the payload lives inside
+                // the decrypted node blob, not in the mapping.
+                let node_bytes = vstore.node_bytes(local_off)?;
+
                 let Some(vec_len_bytes) = (header.vector_len as u64).checked_mul(4) else {
                     continue;
                 };
                 let Some(vec_end) = header.vector_offset.checked_add(vec_len_bytes) else {
                     continue;
                 };
-                if vec_end > vstore.mmap_bytes().len() as u64 {
+                if vec_end > node_bytes.as_slice().len() as u64 {
                     continue;
                 }
                 let vec_start = header.vector_offset as usize;
                 let vec_end = vec_end as usize;
 
-                let vec_bytes = &vstore.mmap_bytes()[vec_start..vec_end];
+                let vec_bytes = &node_bytes.as_slice()[vec_start..vec_end];
                 debug_assert_eq!(
                     vec_bytes.as_ptr().align_offset(4),
                     0,

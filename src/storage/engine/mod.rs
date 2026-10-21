@@ -8,7 +8,7 @@ mod cache;
 mod delete;
 mod get;
 mod init;
-mod insert;
+pub(crate) mod insert;
 mod maintenance;
 mod ops;
 mod partition;

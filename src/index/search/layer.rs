@@ -76,28 +76,16 @@ impl CPIndex {
                         profile.record_vfile_entry(node.storage_offset);
                         profile.start_compute();
                         let result = if let Some(header) = node_header {
-                            if let Some(vec_end) = (header.vector_len as u64)
-                                .checked_mul(4)
-                                .and_then(|b| header.vector_offset.checked_add(b))
-                                .filter(|&end| end <= vs.mmap_bytes().len() as u64)
-                                .map(|end| end as usize)
-                            {
-                                let vec_start = header.vector_offset as usize;
-                                let vec_data = &vs.mmap_bytes()[vec_start..vec_end];
-                                // SAFETY: same as before — bounds + align + copy
-                                debug_assert_eq!(
-                                    vec_data.as_ptr().align_offset(4),
-                                    0,
-                                    "f32 vector must be 4-byte aligned"
-                                );
-                                let (_, f32_vec, _) = unsafe { vec_data.align_to::<f32>() };
-                                if f32_vec.len() != header.vector_len as usize {
-                                    0.0
-                                } else {
-                                    metric_score(f32_vec, node.inv_cached_norm)
+                            // ADR-0057 W3: the store answers with the FULL
+                            // vector of the node — a borrowed view of the
+                            // mapping in a plaintext segment, the decrypted
+                            // payload in an encrypted one (the ciphertext is
+                            // not a `&[f32]`).
+                            match vs.read_full_vector(node.storage_offset, &header) {
+                                Some(f32_vec) if f32_vec.len() == header.vector_len as usize => {
+                                    metric_score(&f32_vec, node.inv_cached_norm)
                                 }
-                            } else {
-                                0.0
+                                _ => 0.0,
                             }
                         } else {
                             0.0
@@ -249,28 +237,16 @@ impl CPIndex {
                                     profile.record_vfile_candidate(neighbor.storage_offset);
                                     profile.start_compute();
                                     let result = if let Some(h) = node_header {
-                                        if let Some(vec_end) = (h.vector_len as u64)
-                                            .checked_mul(4)
-                                            .and_then(|b| h.vector_offset.checked_add(b))
-                                            .filter(|&end| end <= vs.mmap_bytes().len() as u64)
-                                            .map(|end| end as usize)
-                                        {
-                                            let vec_start = h.vector_offset as usize;
-                                            let v_data = &vs.mmap_bytes()[vec_start..vec_end];
-                                            // SAFETY: same as entry point
-                                            debug_assert_eq!(
-                                                v_data.as_ptr().align_offset(4),
-                                                0,
-                                                "f32 neighbor vector must be 4-byte aligned"
-                                            );
-                                            let (_, f32_v, _) = unsafe { v_data.align_to::<f32>() };
-                                            if f32_v.len() != h.vector_len as usize {
-                                                0.0
-                                            } else {
-                                                metric_score(f32_v, neighbor.inv_cached_norm)
+                                        // ADR-0057 W3: the store answers with
+                                        // the FULL vector of the node — a
+                                        // borrowed view of the mapping in a
+                                        // plaintext segment, the decrypted
+                                        // payload in an encrypted one.
+                                        match vs.read_full_vector(neighbor.storage_offset, &h) {
+                                            Some(f32_v) if f32_v.len() == h.vector_len as usize => {
+                                                metric_score(&f32_v, neighbor.inv_cached_norm)
                                             }
-                                        } else {
-                                            0.0
+                                            _ => 0.0,
                                         }
                                     } else {
                                         0.0

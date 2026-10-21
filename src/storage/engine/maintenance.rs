@@ -272,29 +272,34 @@ impl StorageEngine {
         if offset > 0 {
             let (seg_id, local_off) = crate::lsm::unpack_offset(offset);
             let vstore = self.vector_store[seg_id as usize].read();
-            let mmap = vstore.mmap_bytes();
-            let vector_size = match &persisted.vector {
-                VectorRepresentations::Full(v) => v.len() * 4,
-                VectorRepresentations::MmapFull(mmap_opt) => {
-                    mmap_opt.as_ref().map_or(0, |m| m.len() / 4)
-                }
-                VectorRepresentations::Binary(b) => b.len() * 8,
-                VectorRepresentations::Turbo(t) => t.len(),
-                VectorRepresentations::SQ8(d, _) => d.len() + 4,
-                VectorRepresentations::None => 0,
-            };
-            let vector_size_aligned = (vector_size + 63) & !63;
-            let offset_usize = local_off as usize;
-            if offset_usize + vector_size_aligned <= mmap.len() && vector_size_aligned > 0 {
-                // SAFETY: the bounds check above guarantees the range is within
-                // the mmap region. `release_mmap_vector` expects the caller to
-                // ensure this (per its own `# Safety` doc).
-                unsafe {
-                    crate::storage::vfile::release_mmap_vector(
-                        mmap.as_ptr(),
-                        offset_usize,
-                        vector_size_aligned,
-                    );
+            // ADR-0057 W3: in an encrypted segment the payload is not at
+            // `local_off` in the mapping (it lives inside the AEAD
+            // envelope), so the page-release hint does not apply.
+            if !vstore.is_encrypted() {
+                let mmap = vstore.mmap_bytes();
+                let vector_size = match &persisted.vector {
+                    VectorRepresentations::Full(v) => v.len() * 4,
+                    VectorRepresentations::MmapFull(mmap_opt) => {
+                        mmap_opt.as_ref().map_or(0, |m| m.len() / 4)
+                    }
+                    VectorRepresentations::Binary(b) => b.len() * 8,
+                    VectorRepresentations::Turbo(t) => t.len(),
+                    VectorRepresentations::SQ8(d, _) => d.len() + 4,
+                    VectorRepresentations::None => 0,
+                };
+                let vector_size_aligned = (vector_size + 63) & !63;
+                let offset_usize = local_off as usize;
+                if offset_usize + vector_size_aligned <= mmap.len() && vector_size_aligned > 0 {
+                    // SAFETY: the bounds check above guarantees the range is within
+                    // the mmap region. `release_mmap_vector` expects the caller to
+                    // ensure this (per its own `# Safety` doc).
+                    unsafe {
+                        crate::storage::vfile::release_mmap_vector(
+                            mmap.as_ptr(),
+                            offset_usize,
+                            vector_size_aligned,
+                        );
+                    }
                 }
             }
         }

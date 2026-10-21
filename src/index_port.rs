@@ -10,6 +10,7 @@
 //! Plain-data index types (`IndexType`, `FreshHnswReport`) live here so both sides
 //! name the leaf instead of each other (re-exported at their old paths for compat).
 
+use std::borrow::Cow;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
@@ -74,6 +75,42 @@ pub trait VectorStoreRef: Send + Sync {
     fn read_header(&self, offset: u64) -> Option<DiskNodeHeader>;
     /// Whole backing mapping (search rescans it for disk-resident vectors).
     fn mmap_bytes(&self) -> &[u8];
+    /// The **FULL** vector payload of the node at `offset`, as `f32`s.
+    ///
+    /// A plaintext store answers with a **borrowed** view of the mapping
+    /// (zero-copy). An encrypted store materialises the payload instead: the
+    /// ciphertext is not a `&[f32]`, so the zero-copy tier is forfeited
+    /// there (ADR-0057 §5.2).
+    ///
+    /// `None` = the node has no readable FULL vector at that offset.
+    fn read_full_vector(&self, offset: u64, header: &DiskNodeHeader) -> Option<Cow<'_, [f32]>> {
+        let _ = offset;
+        full_vector_from_bytes(self.mmap_bytes(), header)
+    }
+}
+
+/// The FULL vector payload of a node, read out of a plaintext mapping.
+///
+/// The payload lives at `header.vector_offset` and holds `vector_len` `f32`
+/// words. The mapping base is page-aligned and `vector_offset` is 4-byte
+/// aligned (the central guard of `File::read_header`), so the words can be
+/// viewed in place — zero-copy.
+pub fn full_vector_from_bytes<'a>(
+    bytes: &'a [u8],
+    header: &DiskNodeHeader,
+) -> Option<Cow<'a, [f32]>> {
+    let start = header.vector_offset as usize;
+    let end = start.checked_add((header.vector_len as usize).checked_mul(4)?)?;
+    let slice = bytes.get(start..end)?;
+    // SAFETY: `align_to` is a transmute of the middle slice's elements. Every
+    // bit pattern is a valid `f32`, and the middle slice is by construction
+    // 4-byte aligned (the mapping base is page-aligned and `vector_offset` is
+    // 4-byte aligned — the central guard of `File::read_header`).
+    let (_, words, _) = unsafe { slice.align_to::<f32>() };
+    if words.len() != header.vector_len as usize {
+        return None;
+    }
+    Some(Cow::Borrowed(words))
 }
 
 /// Mmap role behind which the `storage::vfile` calls in `graph/types.rs` hide (B2/B3).

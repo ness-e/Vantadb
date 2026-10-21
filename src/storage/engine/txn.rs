@@ -463,17 +463,17 @@ impl StorageEngine {
         ) {
             // P4: tombstone on KV failure ΓÇö re-acquire the guard only for this fix-up
             let mut vstore = self.vstore0()?;
-            if let Some(mut hdr) = vstore.read_header(local_off) {
-                hdr.flags |= FLAG_TOMBSTONE;
-                if let Err(te) = vstore.write_header(local_off, &hdr) {
-                    tracing::error!(
-                        node_id = %node.id,
-                        offset = local_off,
-                        put_error = %e,
-                        header_error = %te,
-                        "failed to write tombstone header after KV put failure"
-                    );
-                }
+            // ADR-0057 W3: in an encrypted segment the header lives inside the
+            // ciphertext, so the node is re-sealed instead of being patched
+            // in place.
+            if let Err(te) = vstore.set_tombstone(local_off, true) {
+                tracing::error!(
+                    node_id = %node.id,
+                    offset = local_off,
+                    put_error = %e,
+                    header_error = %te,
+                    "failed to write tombstone header after KV put failure"
+                );
             }
             return Err(e);
         }
@@ -554,6 +554,10 @@ impl StorageEngine {
             return Ok(None);
         }
 
+        // ADR-0057 W3: in an encrypted segment the payload lives inside the
+        // decrypted node blob, not in the mapping.
+        let node_bytes = vstore.node_bytes(local_off)?;
+
         let kind = crate::node::NodeFlags::vector_kind(header.flags);
         let vector = if kind == 0 {
             if header.vector_len == 0 {
@@ -565,11 +569,11 @@ impl StorageEngine {
                 let Some(vec_end) = header.vector_offset.checked_add(vec_len_bytes) else {
                     return Ok(None);
                 };
-                if vec_end > vstore.mmap_bytes().len() as u64 {
+                if vec_end > node_bytes.as_slice().len() as u64 {
                     return Ok(None);
                 }
                 let vec_start = header.vector_offset as usize;
-                let slice = &vstore.mmap_bytes()[vec_start..vec_end as usize];
+                let slice = &node_bytes.as_slice()[vec_start..vec_end as usize];
                 let f32_vec: Vec<f32> = slice
                     .chunks_exact(4)
                     .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
@@ -585,12 +589,12 @@ impl StorageEngine {
                     let Some(vec_end) = header.vector_offset.checked_add(vec_len_bytes) else {
                         return Ok(None);
                     };
-                    if vec_end > vstore.mmap_bytes().len() as u64 {
+                    if vec_end > node_bytes.as_slice().len() as u64 {
                         return Ok(None);
                     }
                     let vec_start = header.vector_offset as usize;
                     let vec_end = vec_end as usize;
-                    let vec_bytes = &vstore.mmap_bytes()[vec_start..vec_end];
+                    let vec_bytes = &node_bytes.as_slice()[vec_start..vec_end];
                     let f32_vec: Vec<f32> = vec_bytes
                         .chunks_exact(4)
                         .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
@@ -604,11 +608,11 @@ impl StorageEngine {
                     let Some(vec_end) = header.vector_offset.checked_add(vec_len_bytes) else {
                         return Ok(None);
                     };
-                    if vec_end > vstore.mmap_bytes().len() as u64 {
+                    if vec_end > node_bytes.as_slice().len() as u64 {
                         return Ok(None);
                     }
                     let vec_start = header.vector_offset as usize;
-                    let slice = &vstore.mmap_bytes()[vec_start..vec_end as usize];
+                    let slice = &node_bytes.as_slice()[vec_start..vec_end as usize];
                     let (_, u64_slice, _) = unsafe { slice.align_to::<u64>() };
                     if u64_slice.len() != header.vector_len as usize {
                         return Ok(None);
@@ -620,23 +624,23 @@ impl StorageEngine {
                     else {
                         return Ok(None);
                     };
-                    if vec_end > vstore.mmap_bytes().len() as u64 {
+                    if vec_end > node_bytes.as_slice().len() as u64 {
                         return Ok(None);
                     }
                     let vec_start = header.vector_offset as usize;
-                    let slice = &vstore.mmap_bytes()[vec_start..vec_end as usize];
+                    let slice = &node_bytes.as_slice()[vec_start..vec_end as usize];
                     VectorRepresentations::Turbo(slice.to_vec().into_boxed_slice())
                 }
                 crate::node::NodeFlags::VECTOR_KIND_SQ8 => {
                     let Some(payload_end) = (header.vector_len as u64)
                         .checked_add(4)
                         .and_then(|b| header.vector_offset.checked_add(b))
-                        .filter(|&end| end <= vstore.mmap_bytes().len() as u64)
+                        .filter(|&end| end <= node_bytes.as_slice().len() as u64)
                     else {
                         return Ok(None);
                     };
                     let vec_start = header.vector_offset as usize;
-                    let payload = &vstore.mmap_bytes()[vec_start..payload_end as usize];
+                    let payload = &node_bytes.as_slice()[vec_start..payload_end as usize];
                     let n = header.vector_len as usize;
                     let scale = f32::from_le_bytes(payload[n..n + 4].try_into().unwrap_or([0; 4]));
                     if !scale.is_finite() {

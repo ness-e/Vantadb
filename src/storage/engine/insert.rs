@@ -128,11 +128,9 @@ pub(crate) fn tombstone_offset(
     batch_error: &crate::error::Error,
 ) {
     let (_seg_id, local_off) = crate::lsm::unpack_offset(packed);
-    let Some(mut hdr) = vstore.read_header(local_off) else {
-        return;
-    };
-    hdr.flags |= FLAG_TOMBSTONE;
-    if let Err(te) = vstore.write_header(local_off, &hdr) {
+    // ADR-0057 W3: in an encrypted segment the header lives inside the
+    // ciphertext, so the node is re-sealed instead of being patched in place.
+    if let Err(te) = vstore.set_tombstone(local_off, true) {
         tracing::error!(
             offset = local_off,
             batch_error = %batch_error,
