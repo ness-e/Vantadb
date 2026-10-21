@@ -7,7 +7,9 @@
 //! Extracted from `sdk::api` (REVIEW-12, 2026-08-30).
 
 use super::super::builder::Embedded;
-use super::super::serialization::{record_from_node, validate_key, validate_namespace};
+use super::super::serialization::{
+    record_from_node, validate_key, validate_namespace, validate_vector_dimension,
+};
 use super::super::types::*;
 use crate::error::Result;
 
@@ -32,6 +34,13 @@ impl Embedded {
                     .into(),
             ));
         }
+        // FIND-487: a query vector whose length differs from the index's is a
+        // **caller mistake**, not "nothing matched". Without this check the
+        // mismatch produced zero candidates (the NaN sentinel drops them), so
+        // the caller read an empty result set as a successful search that
+        // found nothing. The index holds vectors of ONE dimension
+        // (`vector_dimension` is the canonical rule, FIND-411).
+        validate_vector_dimension(hnsw.vector_dimension(), vector.len())?;
         let results = {
             // ponytail: search reads from L0 only. Multi-level search
             // will need a segment-merged view.

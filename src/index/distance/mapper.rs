@@ -156,6 +156,12 @@ fn sq8_similarity(
 /// `NaN` is what the index already uses to mean "not a candidate":
 /// `total_cmp_sim` pins it below every finite score and
 /// `search_nearest_with_metric` filters it out of the result set.
+///
+/// FIND-493: the same sentinel is used for the two cases where the candidate
+/// has **no comparable vector at all** (`VectorRepresentations::None` and a
+/// `MmapFull` whose slice cannot be reinterpreted). `0.0` would be the *best*
+/// possible Euclidean score and would rank a vectorless node above every
+/// valid candidate.
 pub fn calculate_similarity(
     raw_query: &[f32],
     query_norm: Option<f32>,
@@ -198,10 +204,12 @@ pub fn calculate_similarity(
         },
         VectorRepresentations::MmapFull(_) => {
             // `as_f32_slice` reinterprets `u8*` → `&[f32]` safely via `align_to`
-            // (REVIEW-15); `None` (misaligned or invalid len) → 0.0, matching
-            // the old bounds check, instead of a raw `from_raw_parts` cast (UB).
+            // (REVIEW-15); `None` (misaligned or invalid len) means the vector
+            // is NOT comparable — the NaN sentinel, not `0.0`: `0.0` is the
+            // BEST possible Euclidean score and would rank this candidate
+            // first (FIND-493).
             let Some(slice) = node_vec.as_f32_slice() else {
-                return 0.0;
+                return super::kernels::DIMENSION_MISMATCH_SCORE;
             };
             match metric {
                 DistanceMetric::Cosine => match query_norm {
@@ -212,7 +220,12 @@ pub fn calculate_similarity(
                 DistanceMetric::SparseDot => 0.0,
             }
         }
-        VectorRepresentations::None => 0.0,
+        // A node with no vector is not a candidate: it cannot be similar to
+        // anything. `0.0` would be the BEST possible Euclidean score and would
+        // rank it above every valid candidate (FIND-493) — the NaN sentinel is
+        // what the index already uses for "not comparable" (the index drops
+        // NaN scores and `total_cmp_sim` pins them below every finite one).
+        VectorRepresentations::None => super::kernels::DIMENSION_MISMATCH_SCORE,
     }
 }
 
@@ -475,10 +488,53 @@ mod tests {
             &VectorRepresentations::None,
             DistanceMetric::Cosine,
         );
+        // FIND-493: a node with no vector is NOT a candidate. `0.0` was the
+        // best possible Euclidean score and ranked it first.
         assert!(
-            sim.abs() < 1e-6,
-            "None representation should return 0, got {}",
+            sim.is_nan(),
+            "None representation should return the NaN sentinel, got {}",
             sim
+        );
+    }
+
+    /// A vectorless node must never outrank a valid one: under Euclidean the
+    /// old `0.0` was a *perfect* score. This pins the ranking, not just the
+    /// value.
+    #[test]
+    fn test_vectorless_node_never_outranks_a_valid_one() {
+        let q = vec![1.0, 0.0];
+        let none_score = calculate_similarity(
+            &q,
+            None,
+            None,
+            None,
+            &VectorRepresentations::None,
+            DistanceMetric::Euclidean,
+        );
+        let valid_score = calculate_similarity(
+            &q,
+            None,
+            None,
+            None,
+            &VectorRepresentations::Full(vec![3.0, 4.0]),
+            DistanceMetric::Euclidean,
+        );
+        assert!(none_score.is_nan(), "the vectorless node must be NaN");
+        // `NaN` is not comparable in either direction, so the ranking is done
+        // by the index, not by the caller: every consumer drops NaN scores
+        // (`nearest.rs` `retain(|ns| !ns.0.is_nan())` and `flat.rs`
+       // `retain(|(_, score)| !score.is_nan())`), so a vectorless candidate can
+        // never reach a result set. What this test pins is that the valid
+        // candidate still carries a usable score.
+        assert!(
+            valid_score.is_finite(),
+            "the valid candidate must carry a finite score, got {}",
+            valid_score
+        );
+        assert!(
+            valid_score < 0.0,
+            "under Euclidean the valid candidate scores a negative distance, got {}",
+            valid_score
         );
     }
 
@@ -743,8 +799,9 @@ mod tests {
             DistanceMetric::Cosine,
         );
         assert!(
-            sim.abs() < 1e-6,
-            "MmapFull(None) should return 0, got {}",
+            sim.is_nan(),
+            "FIND-493: MmapFull(None) is not comparable — it must score NaN, \
+             not 0.0 (the best possible Euclidean score), got {}",
             sim
         );
     }
@@ -914,7 +971,7 @@ mod tests {
                 &VectorRepresentations::None,
                 DistanceMetric::Cosine,
             );
-            assert_eq!(s5, 0.0, "None(size={})", size);
+            assert!(s5.is_nan(), "None(size={}) must be the NaN sentinel", size);
 
             // MmapFull(None) — reaches the MmapFull arm but returns before unsafe
             let s6 = calculate_similarity(
@@ -925,7 +982,11 @@ mod tests {
                 &VectorRepresentations::MmapFull(None),
                 DistanceMetric::Cosine,
             );
-            assert_eq!(s6, 0.0, "MmapFull(None)(size={})", size);
+            assert!(
+                s6.is_nan(),
+                "MmapFull(None)(size={}) must be the NaN sentinel",
+                size
+            );
         }
     }
 }

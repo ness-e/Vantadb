@@ -15,7 +15,7 @@ use crate::backend::BackendPartition;
 use crate::error::{Error, Result};
 use crate::executor::Executor;
 use crate::node::{FieldValue, UnifiedNode, VectorRepresentations};
-use crate::sdk::serialization::now_ms;
+use crate::sdk::serialization::{now_ms, validate_vector_dimension};
 
 /// MEMG-03 canonical lineage labels: edge `superseded_by` runs old → new
 /// (mirrors `MemoryRecord::superseded_by`); edge `derived_from` runs
@@ -42,6 +42,12 @@ impl Embedded {
         }
 
         if let Some(vector) = input.vector.filter(|v| Self::usable_vector(v)) {
+            // FIND-488: the index holds vectors of ONE dimension. A vector of
+            // another length was accepted and then silently dropped at query
+            // time (the NaN sentinel), so the node was invisible to search
+            // without any error. Reject it at the entry point, like the
+            // memory path does (FIND-411).
+            validate_vector_dimension(engine.hnsw.load().vector_dimension(), vector.len())?;
             node.vector = VectorRepresentations::Full(vector);
             node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
         }
@@ -279,6 +285,14 @@ impl Embedded {
                 node.set_field(&key, value.into());
             }
             if let Some(vector) = record.vector.filter(|v| Self::usable_vector(v)) {
+                // FIND-488: same rule as `insert_node` — the restored index
+                // holds vectors of ONE dimension, so a record with a vector of
+                // another length would be restored and then dropped at query
+                // time (invisible to search, no error).
+                validate_vector_dimension(
+                    engine.hnsw.load().vector_dimension(),
+                    vector.len(),
+                )?;
                 node.vector = VectorRepresentations::Full(vector);
                 node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
             }

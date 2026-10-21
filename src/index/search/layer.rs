@@ -3,7 +3,7 @@
 use ahash::RandomState;
 use std::collections::BinaryHeap;
 
-use super::pool::give_nl;
+use super::pool::{give_nl, take_nl};
 use super::profile::SearchProfile;
 use crate::index::distance::{
     cosine_sim_cached_norms, euclidean_distance_squared_f32, f32_slice_similarity,
@@ -152,10 +152,22 @@ impl CPIndex {
             };
             let neighbors = match neighbors {
                 Some(c) => Some(c),
-                None => self
-                    .neighbor_index
-                    .get_neighbors(cand_id, layer)
-                    .map(std::borrow::Cow::Owned),
+                None => {
+                    // E2: take the neighbor buffer from the per-thread pool
+                    // instead of allocating a fresh one. The pool used to be
+                    // write-only (nothing ever took from it), so the O(M)
+                    // allocation this fallback pays was paid on every access
+                    // and the pooled buffers were dead weight.
+                    let mut buf = take_nl();
+                    if self
+                        .neighbor_index
+                        .get_neighbors_into(cand_id, layer, &mut buf)
+                    {
+                        Some(std::borrow::Cow::Owned(buf))
+                    } else {
+                        None
+                    }
+                }
             };
 
             if let Some(neighbors_list) = neighbors {
@@ -315,9 +327,19 @@ impl CPIndex {
                                                 .filter(|l| !l.is_empty())
                                                 .map(std::borrow::Cow::Borrowed)
                                                 .or_else(|| {
-                                                    self.neighbor_index
-                                                        .get_neighbors(neighbor_id, layer)
-                                                        .map(std::borrow::Cow::Owned)
+                                                    // E2: same pool as the main
+                                                    // fallback path (the buffer is
+                                                    // returned to the pool below).
+                                                    let mut buf = take_nl();
+                                                    if self.neighbor_index.get_neighbors_into(
+                                                        neighbor_id,
+                                                        layer,
+                                                        &mut buf,
+                                                    ) {
+                                                        Some(std::borrow::Cow::Owned(buf))
+                                                    } else {
+                                                        None
+                                                    }
                                                 });
                                         if let Some(second_list) = second_hop {
                                             let budget = ef.saturating_sub(results.len()).max(16);

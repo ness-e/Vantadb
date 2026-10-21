@@ -12,7 +12,6 @@ thread_local! {
 
 /// Extrae un `NeighborVec` reciclado del pool del hilo actual o aloca uno nuevo si está vacío.
 #[inline]
-#[allow(dead_code)] // Reason: utility companion to give_nl for recycling buffers and unit tests
 pub(super) fn take_nl() -> NeighborVec {
     NL_POOL
         .with(|pool| pool.borrow_mut().pop())

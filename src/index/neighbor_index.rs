@@ -76,6 +76,28 @@ impl HnswNeighborIndex {
         self.lists.get(&(id, layer)).map(|v| v.clone())
     }
 
+    /// Read a layer's neighbor list into a caller-provided buffer.
+    ///
+    /// Same data as `get_neighbors`, but without handing out a fresh owned copy:
+    /// the caller supplies the buffer, so the O(M) allocation of this fallback
+    /// path is paid once per *buffer* instead of once per access (ERR-045).
+    /// The search path recycles those buffers through the per-thread pool
+    /// (`search::pool`), which is why the pool needs a reader: without one it
+    /// only ever accumulated buffers that nobody took.
+    ///
+    /// Returns `false` when the node has no such layer (the buffer is left
+    /// untouched so the caller can return it to the pool).
+    pub fn get_neighbors_into(&self, id: u128, layer: usize, out: &mut NeighborVec) -> bool {
+        match self.lists.get(&(id, layer)) {
+            Some(v) => {
+                out.clear();
+                out.extend_from_slice(&v);
+                true
+            }
+            None => false,
+        }
+    }
+
     /// Read a layer's neighbor list by reference (no clone).
     ///
     /// For read-only consumers (BFS traversal, stats, validation, cache
@@ -363,6 +385,33 @@ mod tests {
 
         let counter_sum: u32 = idx.inbound.iter().map(|r| *r).sum();
         assert_eq!(counter_sum, total_edges, "sum of inbound != total edges");
+    }
+
+    /// `get_neighbors_into` must fill the caller's buffer with exactly the same
+    /// data `get_neighbors` hands out, must reuse the buffer's capacity (that is
+    /// the whole point of the per-thread pool) and must report "absent" without
+    /// touching the buffer.
+    #[test]
+    fn get_neighbors_into_fills_caller_buffer() {
+        let idx = HnswNeighborIndex::new();
+        idx.allocate(7, 2);
+        assert!(idx.add_neighbor(7, 0, 11));
+        assert!(idx.add_neighbor(7, 0, 12));
+
+        let mut buf: NeighborVec = NeighborVec::new();
+        assert!(idx.get_neighbors_into(7, 0, &mut buf));
+        assert_eq!(buf.as_slice(), &[11, 12]);
+        assert_eq!(buf, idx.get_neighbors(7, 0).unwrap());
+
+        // Layer 1 exists but has no neighbors yet: "present but empty".
+        assert!(idx.get_neighbors_into(7, 1, &mut buf));
+        assert!(buf.is_empty());
+
+        // A node that does not exist must report false and leave the buffer as-is.
+        buf.clear();
+        buf.push(99);
+        assert!(!idx.get_neighbors_into(999, 0, &mut buf));
+        assert_eq!(buf.as_slice(), &[99], "the buffer must be untouched on absent");
     }
 
     #[test]

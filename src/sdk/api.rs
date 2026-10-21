@@ -110,6 +110,62 @@ mod tests {
         assert!(hits.is_empty());
     }
 
+    /// FIND-487: a query vector whose length differs from the index's is a
+    /// caller mistake, not "nothing matched" — it used to return an empty
+    /// result set (the mismatch candidates are dropped by the NaN sentinel),
+    /// so the caller read it as a successful search that found nothing.
+    #[test]
+    fn test_search_vector_rejects_wrong_dimension() {
+        let db = make_embedded(false);
+        db.insert_node(NodeInput {
+            id: 1,
+            content: Some("hello".into()),
+            vector: Some(vec![1.0, 0.0, 0.0, 0.0]),
+            fields: Fields::new(),
+        })
+        .expect("insert a 4-dim node");
+
+        let err = db.search_vector(&[1.0, 0.0], 5).unwrap_err();
+        match err {
+            Error::DimensionMismatch { expected, got } => {
+                assert_eq!(expected, 4, "the index holds 4-dim vectors");
+                assert_eq!(got, 2, "the query vector has 2 dims");
+            }
+            other => panic!("expected DimensionMismatch, got {other:?}"),
+        }
+    }
+
+    /// FIND-488: inserting a vector of a dimension the index does not hold is
+    /// rejected at the entry point. It used to be accepted and then silently
+    /// dropped at query time, so the node was invisible to search.
+    #[test]
+    fn test_insert_node_rejects_wrong_dimension() {
+        let db = make_embedded(false);
+        db.insert_node(NodeInput {
+            id: 1,
+            content: Some("first".into()),
+            vector: Some(vec![1.0, 0.0, 0.0, 0.0]),
+            fields: Fields::new(),
+        })
+        .expect("insert a 4-dim node");
+
+        let err = db
+            .insert_node(NodeInput {
+                id: 2,
+                content: Some("second".into()),
+                vector: Some(vec![1.0, 0.0]),
+                fields: Fields::new(),
+            })
+            .unwrap_err();
+        match err {
+            Error::DimensionMismatch { expected, got } => {
+                assert_eq!(expected, 4, "the index holds 4-dim vectors");
+                assert_eq!(got, 2, "the inserted vector has 2 dims");
+            }
+            other => panic!("expected DimensionMismatch, got {other:?}"),
+        }
+    }
+
     #[test]
     fn test_insert_node_no_engine() {
         let db = make_embedded(false);
