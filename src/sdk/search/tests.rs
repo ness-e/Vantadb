@@ -743,8 +743,10 @@ fn test_select_filter_strategy_highly_selective() {
     // For a more selective test let's query a very rare value.
     // With only 2 records, "red" has freq 1 and total_nodes = 2, so sel = 0.5.
     // That's > 0.1 → PostFilter + 0.01.  Let's use a value that doesn't exist.
-    // Non-existent value → selectivity 0.0 → PreFilter.
-    filters.insert("nonexistent".into(), Value::String("nope".into()));
+    // Non-existent value of a TRACKED field → selectivity 0.0 → PreFilter.
+    // (FIND-554: an untracked FIELD is UNKNOWN — 0.5 — not 0.0; a tracked
+    // field with a value the stats do not hold matches nothing → 0.0.)
+    filters.insert("color".into(), Value::String("nope".into()));
     let strategy = CostEstimator::new(&engine).select_filter_strategy(&filters);
     assert_eq!(
         strategy,

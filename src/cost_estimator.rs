@@ -15,6 +15,7 @@ use crate::node::FieldValue;
 use crate::query::{LogicalOperator, LogicalPlan, RelOp};
 use crate::sdk::types::MemoryMetadata;
 use crate::storage::StorageEngine;
+use std::collections::HashMap;
 
 /// Selectivity threshold below which **PreFilter** is chosen:
 /// scan metadata → build bitset → brute-force vector search on the small subset.
@@ -36,6 +37,26 @@ const DEFAULT_EMBEDDING_DIMS: usize = 128;
 /// inverted-file (clustering) index wins on latency. Only consulted when the
 /// engine has no explicit non-HNSW `index_type` configured.
 const IVF_NODE_THRESHOLD: usize = 10_000;
+
+/// Population (in RECORDS) the cardinality stats represent.
+///
+/// FIND-554: the numerator of a selectivity estimate (`freq`) counts
+/// KV-store records, so the denominator must count records too. The old
+/// denominator was `hnsw.node_count()` — the VECTOR INDEX population, a
+/// different set (an index that was never recovered, a store whose records
+/// are not all indexed) — so the ratio could exceed 1.0.
+///
+/// The population is the largest per-field population: the field present on
+/// the most records is the closest proxy for the table size (a field carried
+/// by every record has exactly the table population). `0` when the stats are
+/// empty — the population is then unknown.
+fn stats_population(stats: &HashMap<String, HashMap<String, usize>>) -> usize {
+    stats
+        .values()
+        .map(|value_map| value_map.values().sum::<usize>())
+        .max()
+        .unwrap_or(0)
+}
 
 /// Estimated cost of a single logical operator.
 #[derive(Debug, Clone, Copy)]
@@ -95,39 +116,23 @@ impl<'a> CostEstimator<'a> {
     /// cardinality statistics.
     ///
     /// COMP-028: implementation of `StorageEngine::get_estimated_selectivity`
-    /// (src/storage/engine/stats.rs), which delegates here. Logic is a 1:1 move
-    /// — the heuristic itself is unchanged.
+    /// (src/storage/engine/stats.rs), which delegates here.
+    ///
+    /// FIND-554: the numerator (`freq`) counts KV-store RECORDS and the
+    /// denominator must count the SAME population. The old denominator was
+    /// `hnsw.node_count()` — the VECTOR INDEX population, a different (and
+    /// usually smaller) set — so the ratio could exceed 1.0 and the CBO
+    /// dropped the predicate from the plan. The denominator is now the
+    /// population the cardinality stats represent, and the result is clamped
+    /// to [0, 1].
+    ///
+    /// FIND-554 / FIND-560: a field the stats do not track is UNKNOWN
+    /// (0.5). It used to be 0.0 for `Eq`, which collapsed the joint
+    /// selectivity to 0 and flipped the plan shape — the result of a query
+    /// then depended on an internal artifact.
     pub(crate) fn selectivity(&self, field: &str, op: &RelOp, value: &FieldValue) -> f32 {
         let stats = self.storage.cache.cardinality_stats.read();
-        let total_nodes = self.storage.hnsw.load().node_count();
-        if total_nodes == 0 {
-            let val_keys = value.to_cardinality_keys();
-            let val_key = val_keys
-                .first()
-                .cloned()
-                .unwrap_or_else(|| "null".to_string());
-            if let Some(val_map) = stats.get(field) {
-                let freq = *val_map.get(&val_key).unwrap_or(&0);
-                return match op {
-                    RelOp::Eq => {
-                        if freq > 0 {
-                            1.0
-                        } else {
-                            0.0
-                        }
-                    }
-                    RelOp::Neq => {
-                        if freq > 0 {
-                            0.0
-                        } else {
-                            1.0
-                        }
-                    }
-                    _ => 0.5,
-                };
-            }
-            return 1.0;
-        }
+        let population = stats_population(&stats);
 
         let val_keys = value.to_cardinality_keys();
         let val_key = val_keys
@@ -135,38 +140,45 @@ impl<'a> CostEstimator<'a> {
             .cloned()
             .unwrap_or_else(|| "null".to_string());
 
-        if let Some(val_map) = stats.get(field) {
-            let freq = *val_map.get(&val_key).unwrap_or(&0) as f32;
+        let Some(val_map) = stats.get(field) else {
+            // The field is not tracked → UNKNOWN (0.5): not 0.0 (which made
+            // the joint selectivity collapse to 0) and not 1.0 (which claimed
+            // "matches everything" and made the CBO drop the predicate).
+            return 0.5;
+        };
 
-            match op {
-                RelOp::Eq => {
-                    if freq > 0.0 {
-                        freq / total_nodes as f32
-                    } else if val_map.len() >= 100 {
-                        1.0 / total_nodes.max(1) as f32
-                    } else {
-                        0.0
-                    }
+        let freq = *val_map.get(&val_key).unwrap_or(&0) as f32;
+        // `population` is the largest per-field population, so it is >= the
+        // population of this field; `max(1)` only guards the division.
+        let eq_sel = match op {
+            RelOp::Eq => {
+                if freq > 0.0 {
+                    freq / population.max(1) as f32
+                } else if val_map.len() >= 100 {
+                    // The value map is truncated (100 distinct values max):
+                    // the value may exist but is not tracked → rare, not absent.
+                    1.0 / population.max(1) as f32
+                } else {
+                    // The field is tracked and the value is absent → matches
+                    // nothing (precise: the stats know every value it holds).
+                    0.0
                 }
-                RelOp::Neq => {
-                    let eq_sel = if freq > 0.0 {
-                        freq / total_nodes as f32
-                    } else if val_map.len() >= 100 {
-                        1.0 / total_nodes.max(1) as f32
-                    } else {
-                        0.0
-                    };
-                    1.0 - eq_sel
-                }
-                RelOp::Gt | RelOp::Gte | RelOp::Lt | RelOp::Lte => 0.33,
             }
-        } else {
-            match op {
-                RelOp::Eq => 0.0,
-                RelOp::Neq => 1.0,
-                _ => 0.5,
+            RelOp::Neq => {
+                let eq = if freq > 0.0 {
+                    freq / population.max(1) as f32
+                } else if val_map.len() >= 100 {
+                    1.0 / population.max(1) as f32
+                } else {
+                    0.0
+                };
+                1.0 - eq
             }
-        }
+            RelOp::Gt | RelOp::Gte | RelOp::Lt | RelOp::Lte => 0.33,
+        };
+        // FIND-554: a selectivity is a probability. The estimate is fed to a
+        // product of selectivities, so a value above 1.0 would inflate it.
+        eq_sel.clamp(0.0, 1.0)
     }
 
     /// Estimate the joint selectivity of all query filters against the
@@ -554,6 +566,61 @@ mod tests {
         assert_eq!(
             CostEstimator::new(&engine).select_index_strategy(),
             IndexType::Ivf
+        );
+    }
+
+    // ── FIND-554 / FIND-560: the selectivity estimate ──────────────────────
+
+    /// FIND-554: the estimate must be a probability AND must not depend on
+    /// the VECTOR INDEX population — the index and the store the stats
+    /// describe are different sets. Before the fix the denominator was
+    /// `hnsw.node_count()` while the numerator counted store records, so
+    /// the ratio could exceed 1.0 and the CBO dropped the predicate.
+    #[test]
+    fn f554_selectivity_is_bounded_and_ignores_the_index_population() {
+        let engine = in_memory_engine();
+        for i in 0..10 {
+            engine.insert(&node_with_color(i, "red")).expect("insert");
+        }
+        // The index holds 1 node while the store holds 10.
+        engine.hnsw.store(std::sync::Arc::new(index_with_n(
+            1,
+            crate::index::graph::HnswConfig::default(),
+        )));
+
+        let est = CostEstimator::new(&engine);
+        let sel = est.selectivity("color", &RelOp::Eq, &FieldValue::String("red".into()));
+
+        assert!(
+            (0.0..=1.0).contains(&sel),
+            "selectivity must be a probability, got {sel}"
+        );
+        assert_eq!(
+            sel, 1.0,
+            "10 of 10 records are red → selectivity 1.0 (population of the stats)"
+        );
+    }
+
+    /// FIND-554 / FIND-560: a field the stats do not track is UNKNOWN
+    /// (0.5) — not 0.0 (which collapsed the joint selectivity to 0 and
+    /// flipped the plan shape) and not 1.0 (which claimed "matches
+    /// everything").
+    #[test]
+    fn f554_untracked_field_is_unknown() {
+        let engine = in_memory_engine();
+        engine.insert(&node_with_color(0, "red")).expect("insert");
+
+        let est = CostEstimator::new(&engine);
+        let eq = est.selectivity("untracked", &RelOp::Eq, &FieldValue::String("x".into()));
+        let neq = est.selectivity("untracked", &RelOp::Neq, &FieldValue::String("x".into()));
+
+        assert_eq!(
+            eq, 0.5,
+            "an untracked field is unknown, not 0.0 and not 1.0"
+        );
+        assert_eq!(
+            neq, 0.5,
+            "an untracked field is unknown, not 0.0 and not 1.0"
         );
     }
 }

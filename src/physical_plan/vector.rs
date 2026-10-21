@@ -65,6 +65,41 @@ fn default_query_vector(_text: &str) -> Result<Option<Vec<f32>>> {
 
 // ─── Physical Vector Search Operator ─────────────────────────
 
+/// Does `node` belong to the entity scope of `entity`?
+///
+/// Mirrors the scope of [`PhysicalScan`](crate::physical_plan::PhysicalScan)
+/// (`scan.rs:73-92`): the entity names a TYPE (`FROM Doc`), a namespace
+/// table (`FROM my_ns`, MCP-29) or a node id (`FROM Doc#42`).
+///
+/// FIND-553: a node with **no** `type` field is not "of another type" — the
+/// scope treats it as "any type" ("sin tipo" = "cualquier tipo"). Without
+/// that, a store whose records carry no `type` would silently return zero
+/// rows from the vector path while the scan path returned them. A node that
+/// carries a namespace is still scoped by it (namespace isolation).
+pub(crate) fn node_in_entity_scope(node: &UnifiedNode, entity: &str) -> bool {
+    if entity == "*" || entity.contains('#') {
+        return true;
+    }
+    match node.relational.get("type") {
+        Some(crate::node::FieldValue::String(t)) => t == entity,
+        // A `type` of another shape is not a type match.
+        Some(_) => false,
+        None => match node
+            .relational
+            .get(crate::sdk::serialization::FIELD_NAMESPACE)
+        {
+            // MCP-29: a namespace table — the namespace decides (as in the scan).
+            Some(crate::node::FieldValue::String(ns)) => {
+                crate::sdk::serialization::iql_table_name_for_namespace(ns) == entity
+            }
+            Some(_) => false,
+            // FIND-553 invariant: no `type` and no namespace → the node is not
+            // of another type → it belongs to any type scope.
+            None => true,
+        },
+    }
+}
+
 /// Physical vector search operator using HNSW index.
 pub struct PhysicalVectorSearch<'a> {
     /// Storage engine reference.
@@ -73,6 +108,12 @@ pub struct PhysicalVectorSearch<'a> {
     query_vec_text: String,
     /// Minimum similarity score threshold.
     min_score: f32,
+    /// Entity scope of the search (FIND-553).
+    ///
+    /// The HNSW search runs over the WHOLE index, so without a scope the
+    /// operator returned the neighbours of the entire store. `None` = no
+    /// scope (every indexed row).
+    entity: Option<String>,
     /// Result node IDs from HNSW search.
     results: Vec<u128>,
     /// Pre-fetched nodes.
@@ -90,11 +131,22 @@ impl<'a> PhysicalVectorSearch<'a> {
             storage,
             query_vec_text: query_text,
             min_score,
+            entity: None,
             results: Vec::new(),
             prefetched: Vec::new(),
             cursor: 0,
             embedder: None,
         }
+    }
+
+    /// Scope the search to an entity (FIND-553).
+    ///
+    /// `None` → no scope (every indexed row, the historical behaviour).
+    /// `Some(entity)` → only the rows of that entity are returned; see
+    /// [`node_in_entity_scope`].
+    pub fn with_entity(mut self, entity: Option<String>) -> Self {
+        self.entity = entity;
+        self
     }
 
     /// Inject the query embedder (test seam, FIND-413).
@@ -146,6 +198,20 @@ impl PhysicalOperator for PhysicalVectorSearch<'_> {
 
             if self.storage.is_deleted(node.id)? {
                 continue;
+            }
+
+            // FIND-553: the vector arm is scoped by the queried entity. The
+            // scope is applied AFTER the top-k truncation, so the scoped row
+            // set is always a SUBSET of the unscoped one (never bigger).
+            //
+            // ponytail: a filtered ANN search (top-k within the entity)
+            // would need per-node label bitsets in the index — the bitsets
+            // are never populated on insert (see sdk/search/vector.rs), so
+            // the mask path rejects every candidate.
+            if let Some(entity) = &self.entity {
+                if !node_in_entity_scope(node, entity) {
+                    continue;
+                }
             }
 
             return Ok(Some(node.clone()));
