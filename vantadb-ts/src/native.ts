@@ -40,11 +40,15 @@ import type {
  *
  * Mirrors the subset of `VantaConfig` that matters for the native backend:
  * `read_only` opens the database without write access, `memory_limit` caps the
- * engine memory budget (bytes).
+ * engine memory budget (bytes), and `reserve_bytes` sets the pre-reserved
+ * size of ONE LSM segment (a store owns 4, so the store reserves
+ * `4 * reserve_bytes` up front; default 1 MiB per segment). The reserve is
+ * clamped so it never exceeds `memory_limit`.
  */
 export interface NativeConnectOptions {
   read_only?: boolean;
   memory_limit?: number;
+  reserve_bytes?: number;
 }
 
 /**
@@ -317,7 +321,7 @@ export class NativeVantaDB implements NativeClientBinding {
    *
    * @param path - Filesystem path for persistent storage, or `":memory:"` for
    *   in-memory. Defaults to `":memory:"`.
-   * @param options - Optional `{ read_only?, memory_limit? }`.
+   * @param options - Optional `{ read_only?, memory_limit?, reserve_bytes? }`.
    * @returns A new NativeVantaDB instance.
    * @throws {DbError} If the native binding is unavailable for this platform
    *   or the engine fails to open.
