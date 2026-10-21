@@ -1236,3 +1236,45 @@ dos reservas de 64 MiB que el usuario no puede acotar: el journal de Fjall y el
 **Pendiente:** `FIND-559` **sigue abierta** (su fix pedia ademas cambiar el comportamiento del
 nodo sin `_owner_role` —fail-closed vs pasar— y anadir su test: es una decision de producto) y
 `FIND-553`/`554`/`560` quedan abiertas hasta que el test run confirme las correcciones R1/R2.
+
+
+## Auditoria de los 10 modulos restantes del core: FIND-503 CERRADA (FIND-599..608, 36 hallazgos)
+
+- **Fecha:** 2026-10-21
+- **Resultado:** ✅ `FIND-503` (los 12 modulos del core sin auditar en profundidad) queda **cerrada**:
+  2 los cubrio la auditoria de `physical_plan`/`planner`/`executor` y estos 10 la de este ciclo
+  (graphrag, agentic, shred, skills.rs, tui, metrics, serialization, utils, hardware, backends,
+  bin). 36 hallazgos: **8 altos, 18 medios, 10 bajos**; 0 criticos (no hay corrupcion de memoria
+  explotable: lo peor es perdida silenciosa de mensajes/datos y un panic del TUI).
+
+**Los 8 altos, por lo que el usuario los nota:**
+
+- **`FIND-599`**: `send_message` **pierde mensajes** con dos escritores concurrentes sobre el
+  mismo hilo (read-modify-write sin lock; el `insert_lock` del motor solo cubre la escritura
+  individual).
+- **`FIND-600`**: el indice de threads es **un unico blob JSON** con read-modify-write sin lock =>
+  un hilo creado puede **desaparecer del indice para siempre** (invisible e inmortal).
+- **`FIND-601`**: escribir un caracter **no-ASCII** en el REPL del TUI hace `panic` (el cursor
+  cuenta bytes y `String::insert` exige limites de caracter).
+- **`FIND-602`**: el TUI **deja el terminal en modo raw** si cualquier operacion falla => la shell
+  del usuario se queda sin eco (el unico fallo que no se sabe recuperar).
+- **`FIND-603`**: el Dashboard **materializa todos los nodos del motor en el hilo de la UI**, y lo
+  repite 4 veces por segundo si la base esta vacia (la cache usa `0` como centinela).
+- **`FIND-604`**: el fast path "shredded" devuelve **0 resultados** cuando el filtro es una lista,
+  un DateTime o un Null (el store solo guarda escalares) => **el mismo filtro da filas distintas
+  segun el camino**, y el camino depende de la selectividad *estimada*.
+- **`FIND-605`**: el "lock optimista" de las skills **no es atomico** => dos escrituras
+  concurrentes con el mismo `expected_version` se pierden en silencio, con un `Ok` falso (y el
+  doc del modulo afirma justo lo contrario).
+- **`FIND-606`**: el block cache de RocksDB se dimensiona como el **45 % de la RAM del host** sin
+  cap, en paralelo a las otras dos reservas del motor (viola `memory-budget.md` R-3/R-4).
+
+**De paso**: **`FIND-403`** (5 modulos sin cobertura de tests) queda **parcialmente invalidado**:
+los cuatro citados (tui, utils, shred, skills) **si** tienen tests unitarios inline; lo que sigue
+siendo cierto es que **ninguno tiene test de integracion** en `tests/` => la fila se reescribe
+como "cobertura de integracion cero", no "cero tests".
+
+**Nota (Ponytail lite):** la mitad de los altos son el mismo patron: un read-modify-write sin
+lock en un `Embedded` que es `Clone + Send + Sync` y que sirve peticiones en paralelo (los hilos,
+el indice de hilos y el lock de las skills). Un `Arc<Mutex<()>>` por area —como el `merge_lock` que
+el propio SDK ya usa— los arregla a los tres.
