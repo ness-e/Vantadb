@@ -218,7 +218,7 @@ jobs:
 
       - name: Export session index for viewer replay (best-effort)
         # CATEGORY: BEST-EFFORT — internal session layout may change across ocr versions; evidence is ocr-result.json
-        continue-on-error: true
+        continue-on-error: true # CATEGORY: BEST-EFFORT - el indice de sesiones es un extra para el visor: si falla, el replay no tiene indice pero nada mas se rompe
         run: ocr session list --json > ocr-sessions.json || echo '[]' > ocr-sessions.json
 
       - name: Upload full-review evidence
