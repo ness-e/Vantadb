@@ -428,7 +428,11 @@ fn test_selectivity_empty_engine() {
         &crate::query::RelOp::Eq,
         &crate::node::FieldValue::String("val".to_string()),
     );
-    assert_eq!(sel, 1.0);
+    // FIND-554 / FIND-560: with no tracked field the estimate is UNKNOWN
+    // (0.5) — not 1.0 ("matches everything", which made the CBO drop the
+    // predicate) and not 0.0 (which collapsed the joint selectivity to 0
+    // and flipped the plan shape).
+    assert_eq!(sel, 0.5);
 }
 
 #[test]
@@ -521,7 +525,8 @@ fn test_selectivity_unknown_field_empty_engine() {
         &crate::query::RelOp::Eq,
         &crate::node::FieldValue::String("x".to_string()),
     );
-    assert_eq!(sel, 1.0);
+    // FIND-554 / FIND-560: an untracked field is UNKNOWN (0.5).
+    assert_eq!(sel, 0.5);
 }
 
 #[test]
@@ -538,13 +543,17 @@ fn test_selectivity_unknown_field_with_data() {
         &crate::query::RelOp::Eq,
         &crate::node::FieldValue::String("x".to_string()),
     );
-    assert_eq!(sel_eq, 0.0);
+    // FIND-554 / FIND-560: an untracked field is UNKNOWN (0.5) for every
+    // operator — 0.0 collapsed the joint selectivity to 0 (the plan shape
+    // then depended on an internal artifact) and 1.0 made the CBO drop the
+    // predicate.
+    assert_eq!(sel_eq, 0.5);
     let sel_neq = engine.get_estimated_selectivity(
         "nonexistent",
         &crate::query::RelOp::Neq,
         &crate::node::FieldValue::String("x".to_string()),
     );
-    assert_eq!(sel_neq, 1.0);
+    assert_eq!(sel_neq, 0.5);
 }
 
 #[test]

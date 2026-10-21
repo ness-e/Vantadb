@@ -155,6 +155,26 @@ impl crate::query::PhysicalOperator for PhysicalRrfFusion<'_> {
     }
 }
 
+/// Does the entity scope of the plan already imply this predicate?
+///
+/// FIND-553: `FROM Doc` scopes the rows to the `Doc` type, so
+/// `WHERE type = "Doc"` is a no-op. Dropping it keeps the plan — and
+/// therefore the row set — identical to the same query without the
+/// redundant predicate, and keeps the estimate from flipping the plan shape
+/// (the two queries would otherwise take different branches and return
+/// different rows).
+///
+/// Only a type scope can imply a type predicate: `*` and `Entity#id` are not
+/// type scopes, and a JOIN plan applies its filters after the join, where
+/// the rows come from both sides.
+fn entity_scope_implies_type(entity: &str, field: &str, op: &RelOp, value: &FieldValue) -> bool {
+    entity != "*"
+        && !entity.contains('#')
+        && field == "type"
+        && matches!(op, RelOp::Eq)
+        && matches!(value, FieldValue::String(v) if v == entity)
+}
+
 // ── Cost-Based Optimizer (CBO) & Volcano Compiler ─────────────────────────
 
 /// Optimise a logical plan and compile it into a physical operator.
@@ -283,7 +303,14 @@ fn optimize_and_compile_with<'a>(
         }
     }
 
-    // ---- CBO filter reordering and elimination ----
+    // ---- CBO filter reordering (FIND-554) ----
+    //
+    // The ESTIMATE never removes a predicate from the plan. The estimate
+    // comes from internal statistics — a different population than the rows
+    // the query scans — so "sel >= 1.0" is an estimate, not a proof: a
+    // filter whose value was present in the data used to vanish from the
+    // plan, and the result of the query then depended on an internal
+    // artifact (FIND-554).
     let mut with_sel: Vec<(f32, String, RelOp, FieldValue)> = relational_filters
         .drain(..)
         .map(|(f, op, v)| {
@@ -293,11 +320,19 @@ fn optimize_and_compile_with<'a>(
         .collect();
     with_sel.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
 
+    // A predicate the entity scope already implies is a NO-OP: it must not
+    // shape the plan (the same query with and without it must return the
+    // same rows — FIND-553) and it must not be applied either (applying it
+    // would drop the typeless nodes the scope admits).
     let mut joint_selectivity = 1.0f32;
     let mut sorted_filters = Vec::with_capacity(with_sel.len());
     for (sel, field, rel_op, value) in with_sel {
-        if sel >= 1.0 {
-            tracing::debug!("CBO: eliminated identity filter on {}", field);
+        if !has_join && entity_scope_implies_type(&entity, &field, &rel_op, &value) {
+            tracing::debug!(
+                "CBO: `{}` is implied by the entity scope of `{}` — dropped",
+                field,
+                entity
+            );
             continue;
         }
         joint_selectivity *= sel;
@@ -341,8 +376,11 @@ fn optimize_and_compile_with<'a>(
         // proven vector-then-filter path below is byte-identical.
         let fuse_rrf = plan.search_profile.is_some() && !text_matches.is_empty();
         if fuse_rrf {
+            // FIND-553: the vector arm is scoped by the queried entity too —
+            // the fusion is a UNION, an out-of-scope node would leak into it.
             let mut vector_arm_op =
-                crate::physical_plan::PhysicalVectorSearch::new(storage, query_text, min_score);
+                crate::physical_plan::PhysicalVectorSearch::new(storage, query_text, min_score)
+                    .with_entity(Some(entity.clone()));
             if let Some(e) = &embedder {
                 vector_arm_op = vector_arm_op.with_embedder(e.clone());
             }
@@ -386,8 +424,12 @@ fn optimize_and_compile_with<'a>(
             }
             Box::new(refine_op)
         } else {
+            // FIND-553: the vector arm is scoped by the queried entity — the
+            // search runs over the whole index, so without the scope it
+            // returned the neighbours of the ENTIRE store.
             let mut vs_search =
-                crate::physical_plan::PhysicalVectorSearch::new(storage, query_text, min_score);
+                crate::physical_plan::PhysicalVectorSearch::new(storage, query_text, min_score)
+                    .with_entity(Some(entity.clone()));
             if let Some(e) = &embedder {
                 vs_search = vs_search.with_embedder(e.clone());
             }
@@ -627,10 +669,11 @@ mod tests {
     }
 
     #[test]
-    fn optimize_and_compile_eliminates_identity_filter() {
-        // CBO Rule 2: a filter with selectivity ≈ 1.0 should be skipped.
-        // Insert one node; a filter on `type = doc` matches all rows
-        // (selectivity = 1/1 = 1.0) → the optimizer should eliminate it.
+    fn optimize_and_compile_keeps_identity_filter() {
+        // FIND-554: the CBO no longer eliminates a predicate because its
+        // ESTIMATED selectivity is ≈ 1.0 — the estimate is not a proof. The
+        // filter is kept in the plan; the row set is unchanged (the single
+        // node matches it).
         use crate::config::Config;
         use crate::node::{FieldValue, UnifiedNode};
         use crate::query::RelOp;
@@ -670,12 +713,296 @@ mod tests {
         let result = op.next().unwrap();
         assert!(
             result.is_some(),
-            "identity filter eliminated: node should still be returned"
+            "the kept identity filter still matches: the node must be returned"
         );
         assert_eq!(result.unwrap().id, 42);
         // No more rows
         assert!(op.next().unwrap().is_none());
         op.close().unwrap();
+    }
+
+    /// FIND-553 / FIND-554 / FIND-560 — the CBO and the vector-path scope.
+    ///
+    /// The invariant under test: the row set of a query must not depend on
+    /// an internal artifact (the vector index population, the cardinality
+    /// stats) and must not depend on whether a REDUNDANT predicate is
+    /// present.
+    mod find553 {
+        use super::*;
+        use crate::config::Config;
+        use crate::node::{FieldValue, NodeFlags, UnifiedNode, VectorRepresentations};
+        use crate::query::{LogicalOperator, LogicalPlan, RelOp};
+        use crate::storage::{BackendKind, StorageEngine};
+        use std::sync::Arc;
+        use tempfile::tempdir;
+
+        fn in_memory_storage() -> (StorageEngine, tempfile::TempDir) {
+            let dir = tempdir().unwrap();
+            let config = Config {
+                backend_kind: BackendKind::InMemory,
+                ..Default::default()
+            };
+            let storage =
+                StorageEngine::open_with_config(dir.path().to_str().unwrap(), Some(config))
+                    .expect("Failed to open StorageEngine");
+            (storage, dir)
+        }
+
+        /// Embedder seam: every query text maps to the same unit vector, so
+        /// the HNSW ranks the candidates by their type, not by their vector.
+        fn fixed_embedder() -> crate::physical_plan::QueryEmbedder {
+            Arc::new(|_text: &str| -> crate::error::Result<Option<Vec<f32>>> {
+                Ok(Some(vec![1.0, 0.0]))
+            })
+        }
+
+        /// A node with a `type`, a `content` and a `tier`, plus a vector so
+        /// the HNSW can find it.
+        fn node_with_type(id: u128, type_name: &str) -> UnifiedNode {
+            let mut node = UnifiedNode::new(id);
+            node.relational
+                .insert("type".into(), FieldValue::String(type_name.into()));
+            node.relational
+                .insert("content".into(), FieldValue::String("hello".into()));
+            node.relational
+                .insert("tier".into(), FieldValue::String("hot".into()));
+            node.vector = VectorRepresentations::Full(vec![1.0, 0.0]);
+            node.flags.set(NodeFlags::HAS_VECTOR);
+            node
+        }
+
+        /// A node with NO `type` field and no namespace: it is not "of
+        /// another type" (FIND-553 invariant: "sin tipo" = "cualquier tipo").
+        fn typeless_node(id: u128) -> UnifiedNode {
+            let mut node = UnifiedNode::new(id);
+            node.relational
+                .insert("content".into(), FieldValue::String("hello".into()));
+            node.vector = VectorRepresentations::Full(vec![1.0, 0.0]);
+            node.flags.set(NodeFlags::HAS_VECTOR);
+            node
+        }
+
+        /// An EMPTY vector index: the index population and the store
+        /// population are different sets (FIND-554) — a store opened without
+        /// its vector index, for instance.
+        fn empty_index() -> Box<dyn crate::index_port::IndexPort> {
+            Box::new(crate::index::graph::CPIndex::new_with_config(
+                crate::index::graph::HnswConfig::default(),
+            ))
+        }
+
+        fn drain(op: &mut dyn crate::query::PhysicalOperator) -> Vec<u128> {
+            let mut ids = Vec::new();
+            while let Some(node) = op.next().unwrap() {
+                ids.push(node.id);
+            }
+            ids
+        }
+
+        fn plan_of(operators: Vec<LogicalOperator>) -> LogicalPlan {
+            LogicalPlan {
+                operators,
+                temperature: 0.0,
+                enforce_role: None,
+                search_profile: None,
+            }
+        }
+
+        fn run(storage: &StorageEngine, operators: Vec<LogicalOperator>) -> Vec<u128> {
+            let plan = plan_of(operators);
+            let mut op =
+                optimize_and_compile_with(&plan, storage, Some(fixed_embedder())).expect("compile");
+            op.open().expect("open");
+            let ids = drain(op.as_mut());
+            op.close().expect("close");
+            ids
+        }
+
+        fn vector_search() -> LogicalOperator {
+            LogicalOperator::VectorSearch {
+                field: "content".into(),
+                query_vec: "x".into(),
+                min_score: -10.0,
+            }
+        }
+
+        /// FIND-553: the vector path must return ONLY the nodes of the
+        /// queried entity. Before the fix the search ran with `ALL_BITSET`
+        /// over the whole index, so `FROM Doc` returned the neighbours of the
+        /// ENTIRE store.
+        #[test]
+        fn f553_vector_path_is_scoped_by_the_entity() {
+            let (storage, _dir) = in_memory_storage();
+            storage.insert(&node_with_type(1, "Doc")).unwrap();
+            storage.insert(&node_with_type(2, "Note")).unwrap();
+
+            let ids = run(
+                &storage,
+                vec![
+                    LogicalOperator::Scan {
+                        entity: "Doc".into(),
+                    },
+                    vector_search(),
+                    LogicalOperator::Limit { top_k: 5 },
+                ],
+            );
+
+            assert_eq!(
+                ids,
+                vec![1],
+                "the vector path must not return a node of another type"
+            );
+        }
+
+        /// FIND-553: adding a REDUNDANT relational filter must not change
+        /// the row set. `FROM Doc WHERE content ~ "x"` and
+        /// `FROM Doc WHERE content ~ "x", type = "Doc"` are the same query.
+        #[test]
+        fn f553_redundant_type_filter_returns_the_same_rows() {
+            let (storage, _dir) = in_memory_storage();
+            storage.insert(&node_with_type(1, "Doc")).unwrap();
+            storage.insert(&node_with_type(2, "Note")).unwrap();
+
+            let without = run(
+                &storage,
+                vec![
+                    LogicalOperator::Scan {
+                        entity: "Doc".into(),
+                    },
+                    vector_search(),
+                    LogicalOperator::Limit { top_k: 5 },
+                ],
+            );
+            let with = run(
+                &storage,
+                vec![
+                    LogicalOperator::Scan {
+                        entity: "Doc".into(),
+                    },
+                    LogicalOperator::FilterRelational {
+                        field: "type".into(),
+                        op: RelOp::Eq,
+                        value: FieldValue::String("Doc".into()),
+                    },
+                    vector_search(),
+                    LogicalOperator::Limit { top_k: 5 },
+                ],
+            );
+
+            // Sorted: the ANN tie order is not part of the contract.
+            let mut without = without;
+            let mut with = with;
+            without.sort_unstable();
+            with.sort_unstable();
+            assert_eq!(
+                without, with,
+                "a redundant predicate must not change the row set"
+            );
+        }
+
+        /// FIND-553 invariant: a node with NO type is not "of another type" —
+        /// the scope treats it as "any type" ("sin tipo" = "cualquier
+        /// tipo"), so the query of a typeless node does not break.
+        #[test]
+        fn f553_typeless_node_stays_in_scope() {
+            let (storage, _dir) = in_memory_storage();
+            storage.insert(&typeless_node(1)).unwrap();
+            storage.insert(&node_with_type(2, "Note")).unwrap();
+
+            let ids = run(
+                &storage,
+                vec![
+                    LogicalOperator::Scan {
+                        entity: "Doc".into(),
+                    },
+                    vector_search(),
+                    LogicalOperator::Limit { top_k: 5 },
+                ],
+            );
+
+            assert_eq!(
+                ids,
+                vec![1],
+                "a node with no type belongs to any type scope"
+            );
+        }
+
+        /// FIND-554: the CBO must not drop a predicate because its ESTIMATED
+        /// selectivity is >= 1.0. The estimate comes from internal
+        /// statistics — a different population than the rows the query scans
+        /// — so "sel == 1.0" is an estimate, not a proof.
+        #[test]
+        fn f554_cbo_keeps_a_filter_whose_estimate_is_one() {
+            let (storage, _dir) = in_memory_storage();
+            for i in 0..10u128 {
+                let type_name = if i == 0 { "doc" } else { "note" };
+                let mut node = node_with_type(i + 1, type_name);
+                // Hot tier → the record is served from the volatile cache, so
+                // it stays readable even with an empty vector index.
+                node.tier = crate::node::NodeTier::Hot;
+                storage.insert(&node).unwrap();
+            }
+            // The vector index is a DIFFERENT population than the store: it
+            // holds no node while the store holds ten (an index that was
+            // never recovered, for instance).
+            storage.hnsw.store(Arc::new(empty_index()));
+
+            let ids = run(
+                &storage,
+                vec![
+                    LogicalOperator::Scan { entity: "*".into() },
+                    LogicalOperator::FilterRelational {
+                        field: "type".into(),
+                        op: RelOp::Eq,
+                        value: FieldValue::String("doc".into()),
+                    },
+                ],
+            );
+
+            assert_eq!(
+                ids,
+                vec![1],
+                "the predicate must survive the CBO: only the `doc` row matches"
+            );
+        }
+
+        /// FIND-560: the result of a query must not depend on an internal
+        /// statistics artifact. The same query, run with and without the
+        /// cardinality stats, returns the SAME rows.
+        #[test]
+        fn f560_result_does_not_depend_on_the_cardinality_stats() {
+            let (storage, _dir) = in_memory_storage();
+            for i in 0..8u128 {
+                storage.insert(&node_with_type(i + 1, "Doc")).unwrap();
+            }
+            let operators = vec![
+                LogicalOperator::Scan { entity: "*".into() },
+                LogicalOperator::FilterRelational {
+                    field: "tier".into(),
+                    op: RelOp::Eq,
+                    value: FieldValue::String("hot".into()),
+                },
+                vector_search(),
+                LogicalOperator::Limit { top_k: 5 },
+            ];
+
+            let with_stats = run(&storage, operators.clone());
+
+            // Drop the internal artifact: the field is no longer tracked.
+            storage.cache.cardinality_stats.write().clear();
+
+            let without_stats = run(&storage, operators);
+
+            // Sorted: the ANN tie order is not part of the contract.
+            let mut with_stats = with_stats;
+            let mut without_stats = without_stats;
+            with_stats.sort_unstable();
+            without_stats.sort_unstable();
+            assert_eq!(
+                with_stats, without_stats,
+                "the row set must not depend on the cardinality stats"
+            );
+        }
     }
 
     #[test]

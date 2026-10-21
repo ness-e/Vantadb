@@ -846,8 +846,9 @@ mod tests {
                 "notice must say data at rest is plaintext; got: {notice}"
             );
             assert!(
-                notice.contains("FIND-249"),
-                "notice must point at FIND-249; got: {notice}"
+                notice.contains("ADR-0057"),
+                "notice must point at the design that governs the feature (ADR-0057); \
+                 got: {notice}"
             );
         }
 
