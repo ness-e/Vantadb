@@ -33,6 +33,20 @@ aparece en la columna *Relaciones* de la fila del backlog
 activa y su registro pasa a [`docs/dev/avance/`](../avance/) (el formato no admite
 `✅ Completada` en tablas activas).
 
+
+## Auditorias de hueco de cobertura - 2026-10-21
+
+Cuatro auditorias de solo lectura que cierran los huecos que la campana del 2026-10-20 declaro
+(`FIND-502`, `FIND-504`, `FIND-503` parcial y `FIND-506`). Sin `cargo`/`npm`: lo no ejecutado va
+marcado como sospechado en cada informe.
+
+| Fichero | Que es |
+|---|---|
+| [`audit-grammar-iql-20261021.md`](audit-grammar-iql-20261021.md) | **Gramatica IQL** (`src/parser/`): 14 hallazgos (1 critico) - el `WHERE` entero se pierde si la primera condicion no parsea, el trailing input se descarta en silencio, `~` tiene dos semanticas, recursion sin limite en subqueries |
+| [`audit-ffi-bindings-20261021.md`](audit-ffi-bindings-20261021.md) | **Frontera FFI y bindings**: 19 hallazgos (7 High) - la frontera es memoria-segura por construccion, pero 3 stubs fabrican datos (`metricsPrometheus`, `graphShortestPath`, `findNodesByLabel`) y `searchMulti` lanza siempre |
+| [`audit-physical-plan-20261021.md`](audit-physical-plan-20261021.md) | **physical_plan / planner / executor**: 20 hallazgos (4 criticos) - la proyeccion `FETCH` anula el filtro `AS OF`, el path vectorial no scopea por entidad, el CBO puede eliminar un predicado y la reserva del governor se fuga si la query falla |
+| [`audit-adapters-skills-20261021.md`](audit-adapters-skills-20261021.md) | **Los 9 adaptadores y las skills**: 37 hallazgos (10 High) - 5 ejemplos de la skill reventan, el MCP no expone `exclude_superseded`, los 9 README prometen BM25 y ninguno lo cumple |
+
 ## Auditorias anteriores (con su estado actual)
 
 | Fichero | Qué es | Estado de sus hallazgos |
