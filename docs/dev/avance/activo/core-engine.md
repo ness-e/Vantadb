@@ -940,3 +940,9 @@ s_len‖ns‖key_len‖key‖ver BE) + hooks put/put_batch/delete/purge_expired 
   privado en vez del comportamiento.
   Verificacion: 2524 tests con `--features encryption`, 2483 sin, 14/14 de los tests del
   contrato, clippy y fmt limpios.
+
+### Cierre de filas ya arregladas (auditoria de docs y READMEs)
+
+- **Fecha:** 2026-10-20
+- **Resultado:** ✅ 18 filas del backlog seguian marcadas como pendientes cuando su hallazgo **ya estaba corregido**: los agentes de docs y READMEs los arreglaron en los PRs #268 y #270, pero sus filas nunca se cerraron. Se cierran aqui: `FIND-415` (S3-B4), `FIND-416` (S5-B1), `FIND-417` (S5-B2), `FIND-418` (S5-B3), `FIND-419` (S5-B4), `FIND-420` (S5-B6), `FIND-424` (D-05), `FIND-425` (D-06), `FIND-426` (D-07), `FIND-433` (S7-01), `FIND-434` (S7-03), `FIND-435` (S7-04), `FIND-436` (S7-05), `FIND-437` (S7-06), `FIND-438` (S7-07), `FIND-439` (S7-08), `FIND-440` (S7-09), `FIND-441` (S7-10).
+  El detalle de cada correccion esta en los informes de la campana y en el changelog `[Unreleased]`.
