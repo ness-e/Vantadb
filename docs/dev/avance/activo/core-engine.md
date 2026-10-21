@@ -1147,3 +1147,17 @@ start** (descifrar la imagen entera: se pierde el mmap zero-copy). Umbral: el p9
 empeorar mas de un **15 %** sobre el baseline (`BENCHMARKS.md:380`: p50 2.2388 / p95 4.248 /
 **p99 4.9987 ms**, 2026-09-25), y todos los numeros a `BENCHMARKS.md` con comando + entorno +
 fecha (Regla 11).
+
+
+## El claim del cifrado en reposo pasa a ser verdad (FIND-407, FIND-501)
+
+- **Fecha:** 2026-10-21
+- **Resultado:** ✅ las dos filas que exigian "corregir el doc **Y** cablear la feature" quedan
+  resueltas con W6 (no solo el texto).
+
+- `FIND-407` (W6/claim): resuelto por W6 **en las dos mitades** que exigia la decision del owner: (1) el doc —`SECURITY.md` esta enmendado hacia delante con los **limites declarados** (las claves del backend y los tokens del indice de texto siguen en claro, el registro guarda DEKs envueltas y nunca la master key, el tamano de los valores se filtra, la master key vive en la memoria del proceso, perder el registro pierde la base, no hay migracion in-place, wal-shipping saca registros en claro); (2) el **cableado** —la feature `encryption` ya enciende los 4 puntos de escritura (WAL v4, VantaFile v3, backend-KV e imagen HNSW v9) con la decision de modo tomada **desde los bytes** del disco. Evidencia: 90 tests de cifrado + los 2493 del lib en verde, `clippy -D warnings` limpio con y sin la feature, y el **canario de 6 superficies** (`tests/encryption_canary.rs`) que verifica que un payload conocido **no** aparece en claro en ningun artefacto (WAL, shards, rotados, imagen del indice, segmentos, journal, SSTs y snapshots).
+- `FIND-501` (W6/activacion): el motor **ya decide el modo por base** y el WAL se abre y se recupera con la **misma** DEK que el resto de artefactos (`init_wal` → `ShardedWal::new_encrypted`, `recover_state` → `WalReader::open_with_key`): una base con clave tiene el WAL, los segmentos, el backend y la imagen **en el mismo modo** — ya no hay estados distintos. El canario comprueba que el WAL (`data/vanta.wal`, `data/vanta.shard{0..N}.wal` y los rotados `.<ts>`) no contiene el payload en claro.
+
+**Lo que queda del claim:** solo la **medicion** (W7): el claim de rendimiento (que el cifrado no
+empeore el p99 mas de un 15 %) todavia no esta medido, asi que el doc ya es honesto sobre lo que
+el producto hace, pero el **coste** todavia no esta acuantado.
