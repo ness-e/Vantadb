@@ -1446,3 +1446,44 @@ everse/created_at_ms (#[serde(default)], back-compat). Contrato: test bindgen wa
 **Nota (Ponytail lite):** la leccion no es de memoria, es que **un stub silencioso es peor que un
 hueco**. Los tres stubs se arreglan con 3 lineas cada uno (lanzar `DbError` de "no soportado en
 este backend") y eliminan de raiz `FIND-536`, `FIND-537` y `FIND-539`.
+
+
+## Auditoria de los 9 adaptadores y las skills (FIND-506) — 37 hallazgos (2026-10-21)
+
+- **Fecha:** 2026-10-21
+- **Resultado:** ✅ el gap de `FIND-506` (los 9 adaptadores y las skills sin pase de API publica)
+  queda cerrado: 10 High, 16 Medium, 11 Low y 4 sospechas -> filas `FIND-573..584`
+  (P0/P1 uno a uno, P2/P3 agrupados por area, segun la convencion del repo).
+  Informe: `docs/dev/reviews/audit-adapters-skills-20261021.md`.
+
+**Lo que encontro:**
+
+- **La skill `vantadb` es lo que un agente copia literalmente, y 5 de sus ejemplos fallan:**
+  `put_batch` con dos firmas inexistentes (`TypeError`), `metrics['mmap_resident_pages']` (un
+  `KeyError`), `r['record']['payload']` sobre un `SearchHit` (`TypeError`), el import de
+  `llama_index.embeddings.openai` que no se puede resolver con lo que se instala
+  (`ModuleNotFoundError`) y **el instalador que falla siempre aunque la instalacion haya sido
+  correcta** (`vantadb.__version__()` en vez del atributo → el script dice "la instalacion
+  fallo" cuando se instalo bien) → `FIND-573..576`.
+- **El MCP tiene `exclude_superseded` cableado a `false`** en 5 sitios mientras la skill lo
+  promete ⇒ un cliente MCP **no puede** ocultar los registros supersedidos, y los 4 bindings si
+  pueden ⇒ mismo corpus, distinto numero de filas (`FIND-577`).
+- **El camino batch de Python pierde 6 parametros** que el camino single si expone, y el
+  dataclass ni los declara (`FIND-578`).
+- **El adaptador de mem0 acepta `filters` y los ignora** ⇒ mem0 pide "estos recuerdos" y recibe
+  todos (`FIND-579`).
+- **Los 9 README prometen "vectors + BM25 text search out of the box" y ninguno lo cumple** por
+  defecto (2 lo tienen opt-in, 7 no pasan el texto) (`FIND-580`).
+- **4 quickstarts construyen una herramienta que no busca**: listan los primeros k ignorando la
+  query (en dspy, solo 4) (`FIND-581`).
+- **16 P2 + 11 P3 + 4 sospechas** agrupados por area en `FIND-582..584`, con los dos hallazgos de
+  gobernanza destacados: `integrations/**` sigue **fuera** de los `paths:` de `ci-fleet.yml` y
+  `docs-gates.yml` (el `AUD-01` del postmortem, P1 y nunca cerrado ⇒ los tests de los 7
+  adaptadores publicados no corren en un PR que solo toque adapters) y el
+  `SURFACE_MANIFEST.md` no tiene fila para ninguno de los 9 paquetes.
+
+**Nota (Ponytail lite):** la clase de bug dominante no es que algo falle, es que **algo
+funcione y devuelva otra cosa**: `exclude_superseded` (MCP ❌ vs bindings ✅), los 6 parametros
+del camino batch, `filters` en mem0, y el score (crudo vs clampeado vs filtrado por
+`min_score` en espacio de similitud). Eso es lo que hace que un agente no pueda confiar en el
+resultado aunque el codigo "funcione".
