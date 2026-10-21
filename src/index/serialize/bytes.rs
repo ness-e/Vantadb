@@ -24,11 +24,25 @@ impl CPIndex {
 
     pub fn serialize_to_writer(&self, w: &mut impl Write) -> std::io::Result<()> {
         let header = crate::binary_header::Header::new(*b"VNDX", VECTOR_INDEX_VERSION, 0);
-        let mut pos = 0usize;
+        w.write_all(&header.serialize())?;
+        self.serialize_payload(w, crate::binary_header::Header::SIZE)
+    }
 
-        let hdr = header.serialize();
-        w.write_all(&hdr)?;
-        pos += hdr.len();
+    /// Serialize the **payload** of the image — everything after the 16-byte
+    /// cleartext header.
+    ///
+    /// `start_pos` is the byte offset the payload starts at **inside the
+    /// file** (16): the `f32` payloads are 4-byte aligned relative to the
+    /// file start, and the alignment must not depend on whether the payload
+    /// is written in cleartext or sealed into an AEAD envelope (ADR-0057
+    /// W5). 16 is a multiple of 4, so the padding of a standalone payload is
+    /// the same as the padding of the payload inside the file.
+    pub(crate) fn serialize_payload(
+        &self,
+        w: &mut impl Write,
+        start_pos: usize,
+    ) -> std::io::Result<()> {
+        let mut pos = start_pos;
 
         let max_layer_bytes = (self.max_layer.load(Ordering::Acquire) as u64).to_le_bytes();
         w.write_all(&max_layer_bytes)?;
@@ -227,6 +241,20 @@ impl CPIndex {
         Ok(())
     }
 
+    /// The **payload** of the image as bytes — everything after the 16-byte
+    /// cleartext header.
+    ///
+    /// This is the plaintext the encrypted image (v9) seals into its single
+    /// AEAD envelope (ADR-0057 W5).
+    #[cfg(feature = "encryption")]
+    pub(crate) fn serialize_payload_to_bytes(&self) -> Vec<u8> {
+        let mut buf = Vec::with_capacity(self.nodes.len() * 256 + 128);
+        // INVARIANT (B2b, cat. (b)): `Write` on a `Vec` is infallible.
+        self.serialize_payload(&mut buf, crate::binary_header::Header::SIZE)
+            .expect("Vec::write cannot fail");
+        buf
+    }
+
     /// Deserialize a CPIndex from raw bytes.
     ///
     /// The deserialized structures are always owned (`postcard::from_bytes`
@@ -237,11 +265,70 @@ impl CPIndex {
     pub fn deserialize_from_bytes(data: &[u8], _force_copy: bool) -> std::io::Result<Self> {
         use std::io::{Error, ErrorKind};
 
+        if data.len() < crate::binary_header::Header::SIZE + 8 {
+            return Err(Error::new(ErrorKind::InvalidData, "Index file too small"));
+        }
+
+        let header = match crate::binary_header::Header::deserialize(
+            &data[..crate::binary_header::Header::SIZE],
+        ) {
+            Ok(h) => h,
+            Err(e) => {
+                return Err(Error::new(
+                    ErrorKind::InvalidData,
+                    format!("Failed to parse binary header: {:?}", e),
+                ))
+            }
+        };
+
+        if header.magic != *b"VNDX" {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                format!("Index format mismatch: magic {:?}", header.magic),
+            ));
+        }
+        if header.format_version == crate::index::graph::VECTOR_INDEX_ENCRYPTED_VERSION {
+            // The encrypted image carries its payload inside an AEAD
+            // envelope: it must be opened with the encryption context, not
+            // parsed as a plaintext file (ADR-0057 W5).
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                format!(
+                    "Index image is encrypted (format v{}): it must be \
+                     decrypted before it can be parsed",
+                    header.format_version
+                ),
+            ));
+        }
+        if let Err(e) = header.validate_compat(
+            *b"VNDX",
+            crate::index::graph::VECTOR_INDEX_MAX_READABLE_VERSION,
+            "Index format mismatch",
+        ) {
+            return Err(Error::new(ErrorKind::InvalidData, format!("{}", e)));
+        }
+
+        Self::deserialize_payload(
+            &data[crate::binary_header::Header::SIZE..],
+            header.format_version,
+        )
+    }
+
+    /// Deserialize the **payload** of an image — the bytes after the 16-byte
+    /// cleartext header.
+    ///
+    /// `version` is the format version of the payload layout (the encrypted
+    /// image carries a **plaintext** v8 payload inside its envelope).
+    pub(crate) fn deserialize_payload(data: &[u8], version: u16) -> std::io::Result<Self> {
+        use std::io::{Error, ErrorKind};
+
         use crate::index::graph::{HnswConfig, ENTRY_POINT_NONE};
         use dashmap::DashMap;
         use portable_atomic::AtomicU128;
 
         use std::sync::atomic::{AtomicU64, AtomicUsize};
+
+        let version = version as u32;
 
         #[inline]
         fn take_bytes<'a>(
@@ -294,32 +381,17 @@ impl CPIndex {
             })?))
         }
 
-        if data.len() < crate::binary_header::Header::SIZE + 8 {
-            return Err(Error::new(ErrorKind::InvalidData, "Index file too small"));
+        if data.len() < 8 {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                "Index payload too small",
+            ));
         }
 
+        // The payload starts at byte 16 of the file. 16 is a multiple of 4,
+        // so the 4-byte alignment of the `f32` payloads is the same whether
+        // the payload is read from the file or from a decrypted envelope.
         let mut pos = 0;
-
-        let header = match crate::binary_header::Header::deserialize(
-            &data[pos..pos + crate::binary_header::Header::SIZE],
-        ) {
-            Ok(h) => h,
-            Err(e) => {
-                return Err(Error::new(
-                    ErrorKind::InvalidData,
-                    format!("Failed to parse binary header: {:?}", e),
-                ))
-            }
-        };
-        pos += crate::binary_header::Header::SIZE;
-
-        if let Err(e) =
-            header.validate_compat(*b"VNDX", VECTOR_INDEX_VERSION, "Index format mismatch")
-        {
-            return Err(Error::new(ErrorKind::InvalidData, format!("{}", e)));
-        }
-
-        let version = header.format_version as u32;
 
         let max_layer = read_le_u64(data, &mut pos, "max_layer")? as usize;
 
@@ -556,6 +628,7 @@ impl CPIndex {
             // from the deserialized node set on the first
             // `vector_dimension()` call (0 = not established yet).
             vector_dim: AtomicUsize::new(0),
+            crypto: Default::default(),
         })
     }
 }
@@ -634,6 +707,7 @@ mod tests {
             scann_index: parking_lot::Mutex::new(None),
             scann_built_at_node_count: AtomicUsize::new(0),
             vector_dim: AtomicUsize::new(0),
+            crypto: Default::default(),
         };
         let bytes = index.serialize_to_bytes();
         let deser = CPIndex::deserialize_from_bytes(&bytes, true).unwrap();
@@ -677,6 +751,7 @@ mod tests {
             scann_index: parking_lot::Mutex::new(None),
             scann_built_at_node_count: AtomicUsize::new(0),
             vector_dim: AtomicUsize::new(0),
+            crypto: Default::default(),
         };
         let bytes = index.serialize_to_bytes();
         let deser = CPIndex::deserialize_from_bytes(&bytes, true).unwrap();
@@ -723,6 +798,7 @@ mod tests {
             scann_index: parking_lot::Mutex::new(None),
             scann_built_at_node_count: AtomicUsize::new(0),
             vector_dim: AtomicUsize::new(0),
+            crypto: Default::default(),
         };
         let bytes = index.serialize_to_bytes();
         let deser = CPIndex::deserialize_from_bytes(&bytes, true).unwrap();
@@ -769,6 +845,7 @@ mod tests {
             scann_index: parking_lot::Mutex::new(None),
             scann_built_at_node_count: AtomicUsize::new(0),
             vector_dim: AtomicUsize::new(0),
+            crypto: Default::default(),
         };
         let bytes = index.serialize_to_bytes();
         let deser = CPIndex::deserialize_from_bytes(&bytes, true).unwrap();
@@ -862,6 +939,7 @@ mod tests {
             scann_index: parking_lot::Mutex::new(None),
             scann_built_at_node_count: AtomicUsize::new(0),
             vector_dim: AtomicUsize::new(0),
+            crypto: Default::default(),
         };
         let data = index.serialize_to_bytes();
         let deser = CPIndex::deserialize_from_bytes(&data, true).unwrap();
@@ -967,6 +1045,7 @@ mod tests {
             scann_index: parking_lot::Mutex::new(None),
             scann_built_at_node_count: AtomicUsize::new(0),
             vector_dim: AtomicUsize::new(0),
+            crypto: Default::default(),
         };
         let err = index
             .serialize_to_writer(&mut std::io::Cursor::new(Vec::new()))
@@ -1117,6 +1196,7 @@ mod tests {
             scann_index: parking_lot::Mutex::new(None),
             scann_built_at_node_count: AtomicUsize::new(0),
             vector_dim: AtomicUsize::new(0),
+            crypto: Default::default(),
         };
         let bytes = index.serialize_to_bytes();
         let deser = CPIndex::deserialize_from_bytes(&bytes, true).unwrap();
@@ -1162,6 +1242,7 @@ mod tests {
             scann_index: parking_lot::Mutex::new(None),
             scann_built_at_node_count: AtomicUsize::new(0),
             vector_dim: AtomicUsize::new(0),
+            crypto: Default::default(),
         };
         let bytes = index.serialize_to_bytes();
         let deser = CPIndex::deserialize_from_bytes(&bytes, true).unwrap();
@@ -1210,6 +1291,7 @@ mod tests {
             scann_index: parking_lot::Mutex::new(None),
             scann_built_at_node_count: AtomicUsize::new(0),
             vector_dim: AtomicUsize::new(0),
+            crypto: Default::default(),
         };
         let bytes = index.serialize_to_bytes();
         let deser = CPIndex::deserialize_from_bytes(&bytes, true).unwrap();
@@ -1258,6 +1340,7 @@ mod tests {
             scann_index: parking_lot::Mutex::new(None),
             scann_built_at_node_count: AtomicUsize::new(0),
             vector_dim: AtomicUsize::new(0),
+            crypto: Default::default(),
         };
         let bytes = index.serialize_to_bytes();
         let deser = CPIndex::deserialize_from_bytes(&bytes, true).unwrap();

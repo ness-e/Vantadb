@@ -35,7 +35,7 @@ use crate::crypto::{Cipher, CryptoError, Nonce};
 use parking_lot::Mutex;
 #[cfg(feature = "encryption")]
 use std::path::Path;
-#[cfg(feature = "encryption")]
+// `Arc` is needed in both builds: the no-feature slot is `Option<Arc<()>>` (see below).
 use std::sync::Arc;
 
 /// The artefact id used in the error messages of this module.
@@ -47,10 +47,15 @@ pub(crate) const ARTIFACT: &str = "vfile";
 /// With the `encryption` feature it holds the real [`VFileCrypto`]; without
 /// it the slot is uninhabited and every segment stays plaintext
 /// (byte-identical to the layout before this change).
+///
+/// The no-feature variant is `Option<Arc<()>>` and not `Option<()>` on purpose:
+/// `Option<()>` is `Copy`, so the `.clone()` calls at the call sites would trip
+/// clippy's `clone_on_copy` under `-D warnings` **only** in the build without
+/// the feature (which is exactly the build the closing gate runs).
 #[cfg(feature = "encryption")]
 pub(crate) type VFileCryptoSlot = Option<Arc<VFileCrypto>>;
 #[cfg(not(feature = "encryption"))]
-pub(crate) type VFileCryptoSlot = Option<()>;
+pub(crate) type VFileCryptoSlot = Option<Arc<()>>;
 
 /// The **write side** of an encrypted VantaFile: the DEK of the `vfile`
 /// artefact, the shared nonce allocator and the registry handle needed to
