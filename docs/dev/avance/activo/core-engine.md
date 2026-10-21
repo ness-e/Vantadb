@@ -1093,3 +1093,25 @@ aplica **fuera** del plan ve un dataset ya proyectado (=> los filtros van dentro
 despues); (2) un plan **optimizado** que puede eliminar un predicado necesita que la estimacion
 este acotada y use una sola poblacion; (3) una reserva de recursos debe liberarse en **cualquier**
 salida, no solo en el camino feliz.
+
+
+## FIND-555 y FIND-572: la reserva de memoria del governor (2026-10-21)
+
+- **Fecha:** 2026-10-21
+- **Resultado:** ✅ el critico `FIND-555` (la fuga que dejaba el motor inservible tras ~20
+  queries fallidas) y el `FIND-572` (el underflow del mismo contador), ambos verificados con
+  `cargo test --lib executor::` (52 verdes) y `governor::` (25 verdes).
+
+- `FIND-555` (auditoria-executor/QP-04): la reserva de memoria del governor vivia en un contador **global** (`ALLOCATED_BYTES`) y solo se liberaba en el camino feliz: cualquiera de los cuatro `?` previos (`optimize_and_compile`, `physical_op.open`, `physical_op.next`, `physical_op.close`) retornaba **sin liberar**. Cada query fallida dejaba su reserva cobrada para siempre: con `AVG_NODE_BYTES = 1024` y 100k nodos, ~20 queries fallidas llevaban el contador por encima de 2 GiB y `check_memory_pressure` rechazaba **toda** query posterior, incluidas las de escritura. Con el proveedor de embeddings caido, 'provider caido' se convertia en 'motor muerto' tras ~20 intentos. Corregido con un guard RAII (`AllocationGuard`) que devuelve la reserva en **cualquier** salida; los dos `free_allocation` explicitos se eliminan. Tests: `test_allocation_guard_frees_on_every_exit` y el end-to-end `test_execute_plan_frees_admission_on_error` (que antes solo cubria el unico early-return que tenia el `free` a mano).
+
+- **FIND-572** (nuevo, descubierto durante el fix): `free_allocation` hacia
+  `ALLOCATED_BYTES.fetch_sub(bytes)` sin saturar: liberar mas de lo reservado hace que el
+  `usize` **de la vuelta** y el contador pasa a ~1.8e19 ⇒ todo `request_allocation` posterior
+  rechaza la query con `Error::ResourceLimit` (incluidas las escrituras) hasta reiniciar. Es
+  un DoS permanente silencioso, y cualquier imbalance (doble free, free sin reserva, panic
+  entre la reserva y el free) lo dispara. Corregido con resta saturante.
+
+**Nota (Ponytail lite):** los dos fallos son la misma linea de codigo vista desde dos
+angulos — una reserva global que se libera a mano en un solo camino. El guard RAII hace
+imposible olvidarse (y de paso hace imposible el doble free), y la resta saturante hace que
+un error de contabilidad no pueda matar el motor.
