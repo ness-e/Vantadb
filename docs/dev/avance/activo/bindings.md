@@ -182,7 +182,7 @@ tags: [vantadb, avance, bindings, python, wasm, typescript, mcp, adapters]
 
 ### MOD-07: Notifications JSON-RPC sin `id` aceptadas (handshake clientes estrictos)
 - **Fecha:** 2026-08-23
-- **Fuente:** Plan `docs/dev/plans/2026-08-23-backlog-triage.md` (Wave 1) · Backlog · mcp.md H1
+- **Fuente:** Plan `2026-08-23-backlog-triage` (Wave 1) · Backlog · mcp.md H1
 - **Resultado:** ✅ `RpcRequest.id` requerido rechazaba notificaciones (`notifications/initialized`, `notifications/cancelled`) con -32700 espurio. Fix: `#[serde(default, deserialize_with = keep_explicit_null)] id: Option<Value>` + routing en `serve_lines` — notification → log + drop SIN respuesta (JSON-RPC 2.0 §4.1); `"id": null` explícito sigue siendo request. Loop extraído a `serve_lines<R, W>` genérica + `write_json` genérica para testabilidad con duplex pipes. TDD: RED reprodujo el bug exacto; 4 tests nuevos de wire-format. Tests MCP 37/37 ✅; fmt+clippy `-D warnings` ✅. Commit `4cb3abec`. (ver `.opencode/skills/campaign-executor/tasks/MOD-07.md`)
 
 ### P22-MCP: Certificación del MCP server vs skill `vantadb-mcp` (14 tareas, 2026-08-17)
@@ -292,7 +292,7 @@ everse/created_at_ms (#[serde(default)], back-compat). Contrato: test bindgen wa
 
 ### MOD-11: Nits MCP server H4-H8 (2026-08-25)
 - **Fecha:** 2026-08-25
-- **Plan:** `docs/dev/plans/2026-08-25-batch-colaterales-deuda-desktop.md` (Task 6, Wave 2)
+- **Plan:** `2026-08-25-batch-colaterales-deuda-desktop` (Task 6, Wave 2)
 - **Objetivo:** Resolver los 5 nits del review P32 sobre el MCP server.
 - **Resultado:** OK - H4: `search_semantic` clampa `k` contra `config.max_top_k` (misma cap que `search_memory`; antes un k gigante materializaba todo el HNSW) + test `test_mcp_search_semantic_clamps_k`. H5: timeout de `spawn_blocking` no cancela el trabajo (tokio no aborta blocking tasks) — documentado como limitacion en server.rs y SKILL.md (no forzado: CancellationToken cooperativo seria invasivo/riesgo regresion). H6: `total_bytes` de `collection_stats` documentado como estimacion deliberada (Debug-len de metadata). H7: `namespace://` usa `config.default_list_limit` en vez de hardcode 100; paginacion via `memory_list` documentada. H8: nota threat model LLM06 en SKILL.md Security (bulk_import_file/wiki_ingest rutas host arbitrarias + tools destructivas ungated). Verify: `cargo test -p vantadb-mcp --test mcp_tests` 72/72, fmt 0, clippy -D warnings 0, check 0, docs x2 hash SAME DF1A68FA. Sin commit (regla batch: lo commitea el lead). Commit sugerido: `fix(mcp): MOD-11 nits H4-H8 - clamp k, docs threat model`.
 
@@ -435,7 +435,7 @@ everse/created_at_ms (#[serde(default)], back-compat). Contrato: test bindgen wa
 - **Fecha:** 2026-08-29
 - **Plan:** `docs/dev/plans/2026-08-29-full-backlog-parallel.md` Task W10-2 (Wave 10) · P41 · `vanta-worker`
 - **Objetivo:** El `.d.ts` generado por `wasm-pack` para `vantadb-wasm/pkg` tiene casi todo `any` (limitación de wasm-bindgen 0.2 con JsValue). Patrón DuckDB-WASM/sqlite-wasm-http: hand-written encima del glue. Paquete npm usable desde TypeScript sin wrapper layer.
-- **Origen:** research H-10 en `docs/dev/reviews/archive/research-vantadb-wasm-20260825.md`; docstring en la header del hand-written explica el patrón.
+- **Origen:** research H-10 en Notion › Reviews 2026 › `research-vantadb-wasm-20260825.md` (https://app.notion.com/p/401d04459756803ab32bc3af85dcdecd); docstring en la header del hand-written explica el patrón.
 - **Archivos tocados:**
   - `vantadb-wasm/src/vantadb_wasm.d.ts` (nuevo, 35,478 bytes) — fuente hand-written: `InitInput`/`InitOutput`/`SyncInitInput` con `unknown` en FFI slots; 21 interfaces de dominio (`VantaConfigInput`, `MemoryRecord`, `MemoryRecordInput`, `SearchRequestInput`, `SearchHit`, `MetadataFilter`, `MetadataFilterItem`, `FilterOp`, `ListPage`, `NodeRecord`, `EdgeRecord`, `VantaCapabilities`, `OperationalMetrics`, `ImportReport`, `ExportReport`, `RebuildReport`, `AuditReport`, `GraphTraversalFilter`, `GraphDegreeEntry`, `IqlResult`, `SparseVector`); clase `VantaDB` con las 43 funciones públicas tipadas contra `lib.rs:296-1852`; `initSync`/`__wbg_init`.
   - `dev-tools/build-wasm-types.mjs` (nuevo) — script Node.js ESM (cross-platform) que reemplaza `pkg/vantadb_wasm.d.ts` con el hand-written. Soporta `--check` (CI gate: falla si `pkg/` no está en sync). Idempotente (escribir encima del mismo contenido es no-op).
@@ -481,31 +481,31 @@ everse/created_at_ms (#[serde(default)], back-compat). Contrato: test bindgen wa
 
 ### TS-02: Fix _native async wrapper — vantadb-ts/src/native.ts:89
 - **Fecha:** 2026-08-27
-- **Plan:** `docs/dev/plans/2026-08-25-research-vantadb-ts-quickwins.md` (Wave 0)
+- **Plan:** `2026-08-25-research-vantadb-ts-quickwins` (Wave 0)
 - **Objetivo:** Convertir `_native` a `async` con `try { return await fn(); } catch` para envolver rechazos async en `VantaError`.
 - **Resultado:** ✅ `vantadb-ts/src/native.ts:149` `private async _native<T>(method: string, fn: () => Promise<T> | T): Promise<T> { try { return await fn(); } catch... }` + `normalizeMetadataForNative` para tipado strict. Test `vantadb-ts/src/__tests__/native-error.test.ts` 3 casos (async rejection, sync throw, passthrough). `npm run build` y `npx vitest run` 264 passed. Commits `01bcfac0`, `d5faa5e4`.
 
 ### TS-05: Preservar engines:{node:">=22.12"} en tarball
 - **Fecha:** 2026-08-27
-- **Plan:** `docs/dev/plans/2026-08-25-research-vantadb-ts-quickwins.md` (Wave 0)
+- **Plan:** `2026-08-25-research-vantadb-ts-quickwins` (Wave 0)
 - **Objetivo:** Engines advisory no perdido en publish; guard en workflow + tarball.
 - **Resultado:** ✅ `vantadb-ts/package.json:6-8` engines presente; `npm pack` tarball preserva engines (verificado `tar -xzO | grep engines`); workflow `.github/workflows/release-npm-61.yml:195-201` guard TS-05; hardening en `vantadb-ts/scripts/smoke-pack.mjs` verifica `manifest.engines.node`. Commit `886df465`.
 
 ### TS-06: Gate CI para tests TS (Fast Gate)
 - **Fecha:** 2026-08-27
-- **Plan:** `docs/dev/plans/2026-08-25-research-vantadb-ts-quickwins.md` (Wave 1)
+- **Plan:** `2026-08-25-research-vantadb-ts-quickwins` (Wave 1)
 - **Objetivo:** Job CI Fast Gate (<5min) `npm ci && npm run build && npx vitest run` en cada PR/push.
 - **Resultado:** ✅ ` .github/workflows/release-npm-61.yml:tests` ya cumple — 26s medido (ci 5.6s + build 2.6s + vitest 13.8s) <<5min, `pull_request` + `push` con paths filter, sin `continue-on-error`. Documentado en `docs/dev/operations/CI_POLICY.md:279`. Commit `970536b1`.
 
 ### TS-08: CDN ESM jsDelivr vs esm.sh verificado
 - **Fecha:** 2026-08-27
-- **Plan:** `docs/dev/plans/2026-08-25-research-vantadb-ts-quickwins.md` (Wave 1)
+- **Plan:** `2026-08-25-research-vantadb-ts-quickwins` (Wave 1)
 - **Objetivo:** Verificar empíricamente si `cdn.jsdelivr.net/npm/vantadb@latest/+esm` funciona (wasm glue `import *.wasm`).
 - **Resultado:** ✅ `vantadb-wasm/pkg/vantadb_wasm.js:2` bundler target `import * as wasm from "./vantadb_wasm_bg.wasm"` → Rollup failure en jsDelivr (curl `cdn.jsdelivr.net/npm/vantadb-wasm@0.5.0/+esm` stub `Failed to bundle using Rollup`); `esm.sh/vantadb@latest` ✅ inlines wasm como base64. Documentado en `vantadb-ts/README.md:98-114` tabla + `docs/api/WASM_PERSISTENCE.md:129` hardening. Commit `4e912000`.
 
 ### TS-07: Smoke-test tarball pack→install→quickstart
 - **Fecha:** 2026-08-27
-- **Plan:** `docs/dev/plans/2026-08-25-research-vantadb-ts-quickwins.md` (Wave 2)
+- **Plan:** `2026-08-25-research-vantadb-ts-quickwins` (Wave 2)
 - **Objetivo:** Script `smoke-pack.mjs` wired en release antes de publish.
 - **Resultado:** ✅ `vantadb-ts/scripts/smoke-pack.mjs` 106 líneas: `npm pack --pack-destination` → `tar -xzf` + engines check + rewrite `file:`→`^WASM_VER` → `npm pack` fixed → `mkdtemp app` → `npm install tgz` → `quickstart.mjs` (`VantaDB.create` + `put` + `get` + `close` → `SMOKE OK`) → `rmSync` cleanup; wired en `release-npm-61.yml:203-207` después de build/rewrite/TS-05 y antes de `Check if version already published`; `node scripts/smoke-pack.mjs` PASSED (5.2s). Commit `d5faa5e4`.
 

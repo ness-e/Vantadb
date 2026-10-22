@@ -118,5 +118,5 @@ Estos hallazgos de los reportes ya fueron implementados por commits posteriores 
 ## 5. Notas
 
 - **Working tree sucio (62 cambios)** sin commit: incluye fixes de integrations (crewai/langchain/etc.), vantadb-node (tests/bench/dts), vantadb-wasm (opfs/idb/worker), web (e2e + layouts). Conviene commitearlos y relanzar `/audit full` para cobertura completa (la última audit completa fue 2026-08-25 03:10 PASS 7.3/10).
-- Los hallazgos de `errors-found.md` (ERR-*) y `stabilization-report.md` son históricos (2026-08-08 / 07-18) y ya están trackeados en el Backlog P15/P13; no requieren re-acción salvo lo señalado.
+- Los hallazgos de `errors-found.md` (ERR-*) y `stabilization-report.md` (ambos en Notion › «Reviews 2026») son históricos (2026-08-08 / 07-18) y ya están trackeados en el Backlog P15/P13; no requieren re-acción salvo lo señalado.
 - `command-system-audit` (consolidación /audit→unified-review, /build→/pipeline) es una **propuesta de proceso** sin ejecutar — no es deuda de producto; decidir si aplicar.

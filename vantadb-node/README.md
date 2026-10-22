@@ -13,7 +13,7 @@ VantaDB native Node.js bindings via [napi-rs](https://napi.rs) — persistent em
 > **Estado 2026-10-20:** publicado en npm (`vantadb-node@0.9.0`, verificado live
 > contra el registry). La instalación desde source sigue siendo válida para
 > trabajar contra el árbol actual. Ver
-> `docs/dev/reviews/archive/research-vantadb-node-20260825.md` para el plan de
+> Notion › Reviews 2026 › `research-vantadb-node-20260825.md` (https://app.notion.com/p/401d04459756803ab32bc3af85dcdecd) para el plan de
 > distribución y `docs/dev/avance/activo/ci-cd.md` §TS-12 para la checklist
 > del publish humano.
 

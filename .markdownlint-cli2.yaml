@@ -36,6 +36,5 @@ ignores:
   # change rendered content, so it is scoped out like docs/archive)
   - "docs/dev/research/archive/**"
   - "docs/dev/plans/archive/**"
-  - "docs/dev/reviews/archive/**"
   # Generated benchmark output, not hand-written docs
   - "docs/user/benchmarks/_run_stdout.md"
