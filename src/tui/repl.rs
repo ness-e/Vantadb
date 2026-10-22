@@ -48,6 +48,25 @@ impl ReplState {
         }
     }
 
+    /// Byte offset of the character at `char_idx`.
+    ///
+    /// The cursor is a **character** index, not a byte offset (FIND-601):
+    /// `String::insert`/`remove` panic when the index is not on a character
+    /// boundary, and a byte-based cursor lands in the middle of a multibyte
+    /// character — the next keystroke panicked the TUI.
+    fn byte_index(&self, char_idx: usize) -> usize {
+        self.input_line
+            .char_indices()
+            .nth(char_idx)
+            .map(|(i, _)| i)
+            .unwrap_or(self.input_line.len())
+    }
+
+    /// Number of characters in the input line.
+    fn char_len(&self) -> usize {
+        self.input_line.chars().count()
+    }
+
     /// Execute the current input line as a query.
     pub fn execute(&mut self) {
         let input = self.input_line.trim().to_string();
@@ -205,20 +224,26 @@ pub fn handle_repl_key(state: &mut ReplState, key: crossterm::event::KeyCode) ->
             true
         }
         crossterm::event::KeyCode::Char(c) => {
-            state.input_line.insert(state.cursor_pos, c);
+            let at = state.byte_index(state.cursor_pos);
+            state.input_line.insert(at, c);
             state.cursor_pos += 1;
             true
         }
         crossterm::event::KeyCode::Backspace => {
             if state.cursor_pos > 0 {
+                // Delete the whole character before the cursor (not one byte).
+                let end = state.byte_index(state.cursor_pos);
+                let start = state.byte_index(state.cursor_pos - 1);
+                state.input_line.replace_range(start..end, "");
                 state.cursor_pos -= 1;
-                state.input_line.remove(state.cursor_pos);
             }
             true
         }
         crossterm::event::KeyCode::Delete => {
-            if state.cursor_pos < state.input_line.len() {
-                state.input_line.remove(state.cursor_pos);
+            if state.cursor_pos < state.char_len() {
+                let start = state.byte_index(state.cursor_pos);
+                let end = state.byte_index(state.cursor_pos + 1);
+                state.input_line.replace_range(start..end, "");
             }
             true
         }
@@ -227,7 +252,7 @@ pub fn handle_repl_key(state: &mut ReplState, key: crossterm::event::KeyCode) ->
             true
         }
         crossterm::event::KeyCode::Right => {
-            if state.cursor_pos < state.input_line.len() {
+            if state.cursor_pos < state.char_len() {
                 state.cursor_pos += 1;
             }
             true
@@ -237,7 +262,7 @@ pub fn handle_repl_key(state: &mut ReplState, key: crossterm::event::KeyCode) ->
             if *pos > 0 {
                 *pos -= 1;
                 state.input_line = state.history[*pos].clone();
-                state.cursor_pos = state.input_line.len();
+                state.cursor_pos = state.char_len();
             }
             true
         }
@@ -250,7 +275,7 @@ pub fn handle_repl_key(state: &mut ReplState, key: crossterm::event::KeyCode) ->
                     state.history_pos = None;
                     state.input_line.clear();
                 }
-                state.cursor_pos = state.input_line.len();
+                state.cursor_pos = state.char_len();
             }
             true
         }
@@ -267,7 +292,7 @@ pub fn handle_repl_key(state: &mut ReplState, key: crossterm::event::KeyCode) ->
             true
         }
         crossterm::event::KeyCode::End => {
-            state.cursor_pos = state.input_line.len();
+            state.cursor_pos = state.char_len();
             true
         }
         _ => false,
@@ -352,7 +377,8 @@ pub fn render_repl(frame: &mut Frame, state: &mut ReplState) {
 
     // Place cursor at correct position
     frame.set_cursor_position(Position::new(
-        // x: after ">>> " prefix + cursor position
+        // x: after ">>> " prefix + the characters before the cursor
+        // (the cursor is a character index, not a byte offset — FIND-601).
         (input_prefix.len() + state.cursor_pos) as u16,
         // y: last line of input area
         chunks[2].y + 1,
@@ -363,7 +389,9 @@ pub fn render_repl(frame: &mut Frame, state: &mut ReplState) {
 mod tests {
     use std::sync::Arc;
 
-    use super::ReplState;
+    use crossterm::event::KeyCode;
+
+    use super::{handle_repl_key, ReplState};
     use crate::backend::BackendKind;
     use crate::config::Config;
     use crate::storage::StorageEngine;
@@ -434,6 +462,39 @@ mod tests {
             out.iter().any(|l| l.contains("1 result")),
             "INSERT must be visible to SELECT in the same session, got: {out:?}"
         );
+    }
+
+    // FIND-601: a multibyte character must not panic the REPL. The cursor
+    // counts bytes, so after a 2-byte character it points into the middle of
+    // it and the next `String::insert`/`remove` panics ("byte index N is not
+    // a char boundary") — which, with FIND-602, leaves the shell broken.
+    #[test]
+    fn repl_handles_multibyte_characters_without_panicking() {
+        let engine = inmemory_engine(false);
+        let mut state = ReplState::new(engine);
+
+        handle_repl_key(&mut state, KeyCode::Char('ñ'));
+        handle_repl_key(&mut state, KeyCode::Char('a'));
+        assert_eq!(state.input_line, "ña");
+        // The cursor is a **character** index, not a byte offset.
+        assert_eq!(state.cursor_pos, 2);
+
+        // Backspace removes the whole character, not one byte.
+        handle_repl_key(&mut state, KeyCode::Backspace);
+        assert_eq!(state.input_line, "ñ");
+        assert_eq!(state.cursor_pos, 1);
+
+        // Left/Right move by characters too.
+        handle_repl_key(&mut state, KeyCode::Left);
+        assert_eq!(state.cursor_pos, 0);
+        handle_repl_key(&mut state, KeyCode::Right);
+        assert_eq!(state.cursor_pos, 1);
+
+        // Delete removes the character under the cursor.
+        handle_repl_key(&mut state, KeyCode::Char('x'));
+        handle_repl_key(&mut state, KeyCode::Home);
+        handle_repl_key(&mut state, KeyCode::Delete);
+        assert_eq!(state.input_line, "x");
     }
 
     // FIND-117 (caracterización, pasa antes/después): reads y stats siguen

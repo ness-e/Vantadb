@@ -1327,3 +1327,64 @@ el propio SDK ya usa— los arregla a los tres.
   `FIND-552` (la allowlist de metadata del sistema incluye `_owner_role`, asi que con `FETCH` el
   prune **vuelve a filtrar** en vez de devolver 0 filas siempre). Esta task es la otra mitad: la
   semantica del nodo sin etiqueta y **el silencio**.
+
+## FIND-599/600/601/602: los P0 de la auditoria del core - mensajes que desaparecen y la shell rota (2026-10-21)
+
+- **Fecha:** 2026-10-21
+- **Resultado:** los 4 P0 de la auditoria de los 10 modulos restantes del core, cada uno con un
+  test que lo fija (RED antes del fix). Sin API publica nueva, sin commits (los hace el
+  orquestador).
+
+- **FIND-599** (`send_message` pierde mensajes con dos escritores concurrentes): el
+  read-modify-write de la lista de mensajes (`get -> load_messages -> push -> insert`) no tenia
+  lock: el `insert_lock` del motor solo cubre la escritura individual, asi que dos `thread_send`
+  simultaneos leian la misma lista y el segundo `insert` **borraba el primer mensaje** sin error.
+  Fix: `thread_message_lock: Arc<Mutex<()>>` en `Embedded` (el mismo patron y el mismo motivo
+  documentado que `merge_lock`/`supersede_lock`: *the engine's `insert_lock` only covers the
+  individual write, not the SDK-level read + check*), pasado a cada `ThreadStore` via
+  `ThreadStore::with_shared_locks` (`pub(crate)`). El lock **serializa, no rechaza** => ningun
+  llamador ve errores nuevos. Ojo al detalle: el SDK construye un `ThreadStore` por llamada, asi
+  que un lock *dentro* del store no serializaria nada - de ahi el lock en el handle.
+
+- **FIND-600** (el indice de threads es un blob JSON con read-modify-write sin lock): dos
+  `create_thread` concurrentes leian el mismo array y el segundo `save` **pisa** el id del primero:
+  el nodo del hilo si queda en el storage, pero el indice no lo lista => el hilo desaparece de
+  `list_threads` y el purge nunca lo alcanza (invisible e inmortal). Fix: `thread_index_lock`
+  (mismo patron) alrededor del `load -> push -> save`; el rebuild de `purge_expired_threads` toma
+  el mismo lock del load al save (los helpers internos no vuelven a tomarlo => sin deadlock).
+
+- **FIND-601** (un caracter no-ASCII en el REPL hacia `panic`): `cursor_pos` contaba **bytes**, asi
+  que tras un caracter multibyte el cursor caia en mitad del caracter y el siguiente
+  `String::insert`/`remove` reventaba (`assertion failed: self.is_char_boundary(idx)`) - y, con
+  FIND-602, dejaba la shell rota. Fix: el cursor es un **indice de caracter**; `ReplState::byte_index`
+  traduce con `char_indices().nth(n)` y las ediciones usan `replace_range` sobre limites de
+  caracter (Backspace borra el caracter entero, no un byte). El render usa el indice de caracter
+  para la columna del cursor.
+
+- **FIND-602** (el TUI deja el terminal en modo raw si algo falla): `ratatui::restore()` +
+  `disable_raw_mode()` estaban **solo** en el camino feliz; el hook de panic de `ratatui::init()` no
+  cubre el retorno por `?`, asi que cualquier error de E/S en el loop dejaba la shell del usuario
+  sin eco y sin saltos de linea. Fix: un guard con `Drop` (`TerminalGuard`) que restaura el
+  terminal; el event loop se extrajo a `tui_event_loop` y `run_tui` lo envuelve en
+  `with_terminal_restore`, de modo que el restore corre en el camino feliz, en el error y en el
+  panic. (Unico delta observable: `run_tui` ya no propaga un error de `disable_raw_mode()` del
+  camino feliz - el restore es best-effort por diseno, tiene que poder correr desde `Drop`.)
+
+- **Contrato (verificado):** 4 tests nuevos, todos en RED antes del fix:
+  `agentic::thread::tests::concurrent_send_message_keeps_both_messages` (RED: `got 20 of 40`),
+  `agentic::thread::tests::concurrent_create_thread_keeps_both_threads_in_the_index` (RED:
+  `thread ... vanished from the index`),
+  `tui::repl::tests::repl_handles_multibyte_characters_without_panicking` (RED: panic de
+  `is_char_boundary`) y `tui::tests::tui_restores_the_terminal_when_the_loop_fails` (RED: *the
+  terminal must be restored on the error path*). Los dos del TUI necesitan `--features tui` (el
+  modulo `tui` esta tras esa feature). Gates: `cargo fmt --all -- --check` exit 0 en los 4
+  archivos del diff, `cargo clippy -p vantadb --all-targets -- -D warnings` exit 0 (features del
+  gate y `--features tui`), `cargo nextest run -p vantadb --profile audit --lib -j 2` -> 2533
+  passed / 2 skipped, la misma suite con `--features tui` -> 2540 passed / 2 skipped, y
+  `cargo nextest run -p vantadb --profile audit --test message_thread_test` -> 6 passed.
+  Task: `docs/dev/tasks/FIND-599-602-p0.md` (review P2-01 pendiente de un agente distinto).
+- **Nota (Ponytail lite):** un `Arc<Mutex<()>>` por area (mensajes / indice) y nada mas: no hay
+  framework de locks, no hay striping, no hay timeout - los locks de `ThreadStore` serializan
+  (esperan), nunca rechazan. El indice de threads sigue siendo un `Vec<u128>` sin cap reescrito
+  entero en cada create/delete (O(N) por operacion): eso es la mejora a medio plazo que propone el
+  backlog, no este fix.
