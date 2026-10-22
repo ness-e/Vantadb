@@ -1753,6 +1753,42 @@ criterion promedia **10 000 queries**. **El grupo de criterion es el estimador
 que se puede publicar como número de regresión; el `p99` de una pasada no lo
 es, en esta caja.**
 
+##### Diagnóstico: el mismo par **con la cache LRU caliente** (`ENCRYPTED_P99_WARMUP=1`)
+
+El `p99` de la pasada medida se mide sobre **una sola pasada** de 1000 queries en
+proceso recién abierto ⇒ la cache LRU del cifrado **arranca fría** y se va
+llenando durante la propia medición ⇒ el p99 cae en esa rampa. Para separar el
+**efecto de la rampa** del **coste en estado estable** se relanzó el mismo par
+con `ENCRYPTED_P99_WARMUP=1` (una pasada **descartada** que calienta la cache
+y el page cache antes de la medida):
+
+| Métrica (con la cache caliente) | Sin cifrar (PW) | Cifrado (EW) | Δ | Umbral 15 % |
+| :--- | ---: | ---: | ---: | :--- |
+| search p50 (ms) | 10.7231 | 11.7189 | **+9,3 %** | **dentro** |
+| search p95 (ms) | 13.3119 | 15.0464 | **+13,0 %** | **dentro** |
+| **search p99** (ms) | 18.9204 | 24.7219 | **+30,7 %** | **superado** (A) |
+| `insert` (s) | 688,1 | 533,1 | −22,5 % | dentro (ruido) |
+| `flush` (s) | 1,079 | 0,931 | −13,7 % | dentro (ruido) |
+| `cold start` (s) | 2,334 | 2,323 | −0,5 % | dentro (ruido) |
+
+**Lo que dice este par**: en **estado estable** (la cache LRU ya caliente, que es
+el régimen de un proceso de larga vida — el caso real de una memoria de agente)
+**el p50 y el p95 del cifrado caen dentro del umbral del 15 %** (+9,3 % y
++13,0 %): el 1 AEAD por candidato **sí** se amortiza con la cache. **Pero el p99
+sigue fuera** (+30,7 %, y el test de bandas da A) `18,9204 × 1,15 = 21,76 <
+24,7219`): **la cola** —las queries que caen en nodos que la cache todavia no
+tiene— es la que no se amortiza. **El gate del plan es sobre el p99 ⇒ no se
+cierra ni en caliente.**
+
+> ⚠️ **Este par es un DIAGNÓSTICO, no una certificación**: su corrida en claro
+> dio `ram_bound=EXCEEDED` (p50 10,72 ms > 8 ms) porque la máquina estaba en su
+> peor momento de presión de memoria de la sesión (commit charge **38,12 GB
+> sobre un límite de 37,57 GB** al empezar). Por eso **no se publica como
+> resultado** y solo se cita como lectura de dirección. Además, el grupo de
+> criterion de **PW no es utilizable**: al fallar el assert de `ram_bound` el
+> bench no llega al grupo de criterion y el `estimates.json` que el driver copia
+> es el de la corrida anterior (`target/f598-post/PW.criterion.json` = el de E3).
+
 ##### Qué compra el Paso 0 y qué no compra
 
 Comparando **el mismo estimador** (grupo de criterion) antes y después del Paso 0:
