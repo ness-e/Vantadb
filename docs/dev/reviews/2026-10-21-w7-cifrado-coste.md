@@ -265,7 +265,7 @@ fsync por registro (1.4137 ms → 1.4211 ms = **+0.5 %**) el cifrado es
 
 | Hueco | Motivo (con el dato) |
 | :--- | :--- |
-| **El dataset canonico de 100k × 1536d** | La maquina la comparten **3 agentes** que compilan el mismo crate a la vez: el lock de artefactos de cargo serializo cada compilacion (la del bench tardo **59 min 57 s** en el perfil `bench`) y una corrida canonica de 100k tarda **~25 min** por invocacion (6 invocaciones = **~2,5 h** solo de medicion, mas las compilaciones). El intento de 100k **murio** con `os error 1450` (recursos insuficientes) durante el `insert` y el de 10k quedó **descartado** por ser E/S-bounded (§3.1). Lo publicado son **3 + 3 corridas (mediana) a 2 000 × 1536d** (§3). |
+| **El dataset canonico de 100k × 1536d** | La maquina la comparten **3 agentes** que compilan el mismo crate a la vez: el lock de artefactos de cargo serializo cada compilacion (la del bench tardo **59 min 57 s** en el perfil `bench`) y una corrida canonica de 100k tarda **~25 min** por invocacion (6 invocaciones = **~2,5 h** solo de medicion, mas las compilaciones). El intento de 100k **murio** con `os error 1450` (recursos insuficientes) durante el `insert` y el de 10k quedó **descartado** por ser E/S-bounded (§3.1). Lo publicado son **3 + 3 corridas (mediana) a 2 000 × 1536d** (§3). **Actualizacion (segunda corrida de W7):** el 100k se volvio a intentar **tres veces** y murio por el **commit charge** (los artefactos on-disk se mapean en memoria: ~1,9 GB) - ver **S6.1**; y se anadio la corrida en el **regimen HNSW** de **25 000 x 1536d** (**S7**), la escala mas pequena en la que la busqueda **descifra** de verdad (por encima de `flat_threshold` = 10 000). |
 | **El p99 de la busqueda como numero de regresion** | El protocolo de §3 da **+71.2 %** y uno identico corrido 1 h 40 min antes da **−14.2 %** (spread intra-variante +56 % a +200 %): el suelo de ruido de esta maquina compartida es del orden del umbral (§3.2). El **gate del 15 % NO queda certificado** — hace falta una maquina dedicada o CI. |
 | **`canonical_p99` re-medido en esta maquina** | `canonical_p99` es **in-memory puro** y **no** mide el cifrado: re-medirlo solo sirve como referencia de escala de la maquina, y su bench imprime su histograma con `println!` (el mismo defecto de buffer que se corrigio aqui). El baseline registrado (2026-09-25) se cita **como baseline registrado**, no como numero de esta maquina. |
 | **RSS pico** | Se **si** midio (muestreado cada 3 s sobre el proceso del bench) durante las corridas; lo que **no** se midio es el RSS del proceso con el **dataset completo de 100k** en paralelo con los otros agentes, porque el pico se produce durante el `insert` y la maquina estaba compartida. |
@@ -279,3 +279,120 @@ fsync por registro (1.4137 ms → 1.4211 ms = **+0.5 %**) el cifrado es
 - Los **dos defects del bench** (auto-verificacion debil, corrida vacia que podia publicar numero, `println!` que se perdia al morir el proceso) estan **corregidos** en `benches/encrypted_p99.rs`.
 
 ---
+
+## 6. La escala decide si la busqueda toca el ciphertext (y por que el p99 de §3 no puede leerse como "el coste del cifrado")
+
+> **Seccion anadida por la segunda corrida de W7** (la que si pudo lanzar la
+> escala **canonica** del plan). No sustituye a §3: la **corrige**.
+
+El motor cambia de camino de busqueda segun `flat_threshold`
+(`Config::default()` = **10 000**, `src/config.rs:359`; instalado en el indice
+en `src/storage/engine/init.rs:462`; la decision, en
+`src/index/search/neighbors.rs:57` — `nodes.len() <= threshold`):
+
+| Escala | Camino | De donde sale el vector | ¿Toca el ciphertext? |
+| :--- | :--- | :--- | :--- |
+| **≤ 10 000** | `flat_search` (`src/index/flat.rs:11`) | `node.vec_data`, **la copia en memoria**; el `vector_store` se recibe y se **ignora** (`src/index/flat.rs:122`) | **NO** |
+| **> 10 000** | HNSW (`search_layer`) | `vs.read_full_vector(node.storage_offset, &header)` (`src/index/search/layer.rs:84`, `:257`) | **SI** — un AEAD + una materializacion **por candidato visitado** |
+
+**A 2 000 × 1536d la busqueda es un flat scan sobre las copias en memoria: no
+lee ni un byte del vstore y no descifra nada.** El `p99` de §3 (plaintext
+6.4655 ms / cifrado 11.0673 ms, **+71.2 %**) **no puede** ser el coste del
+cifrado en la busqueda: es ruido — y §3.2 lo ve (spread +56 % a +200 %, y un
+protocolo identico con el **signo contrario**: −14.2 %). Lo que §3 **si** mide
+bien es todo lo demas: el `insert` (escribe WAL + vstore + imagen), el `flush`
+(rescribe la imagen) y el `cold start` (descifra la imagen y el WAL entero).
+
+**La escala que responde a la pregunta del plan es la canonica** (100k × 1536d:
+HNSW con `ef_search = 100`, donde solo se descifran los candidatos visitados).
+§7 es esa corrida.
+
+### 6.1 El intento de 100 000 × 1536d: por que no se pudo (con el dato)
+
+Se lanzo **tres veces** el dataset canonico (100k × 1536d) con los binarios de
+esta sesion, y las tres veces **murieron sin dejar numero**:
+
+| Corrida | Que paso |
+| :--- | :--- |
+| 14:52-15:16 | El `insert` **completo** (el tempdir llego a ~1 GB: vstore 512 MB + 4 shards de WAL + el journal) y el grupo de criterion llego a imprimir; el proceso **murio al final** (`exit = -1`) y, como Rust vacia `stdout` al salir, **los numeros se perdieron** (esta es la razon del `report()` a fichero de §2.2). |
+| 17:28-18:15 | El proceso murio **durante el `insert`**: el **commit charge** de Windows estaba al limite (**27,3 GB de 35,8 GB**, con los 3 agentes compilando y el escritorio abierto) y el motor no conseguia reservar. |
+| 18:13-19:00 | El `insert` avanzo a **865 MB** en 46 min, pero el **commit charge subio a 34,9 GB de 35,8 GB**: al falta **0,9 GB** para la imagen HNSW (614 MB) + su `mmap` + el WAL, la corrida no podia terminar. Se paro a mano. |
+
+Conclusion **con el dato, no con unaopinion**: en esta maquina compartida el
+dataset canonico del plan **no es medible** — no por el tamano del dataset en si
+(el `insert` de 100k **si** cabe en disco: 1,9 GB), sino porque los **artefactos
+on-disk se mapean en memoria** (vstore + WAL + imagen HNSW ≈ 1,9 GB de commit
+charge) y el commit charge de la maquina esta consumido por **otros procesos**
+(no por la base de datos: 3 agentes de compilacion + el escritorio).
+
+**La escala que si es medible y que si responde a la pregunta** es la **mas
+pequeña del regimen HNSW**: por encima de `flat_threshold` (10 000) y por
+debajo de lo que cabe en el commit charge. §7 es esa corrida.
+
+---
+
+## 7. La corrida en el regimen HNSW: 25 000 × 1536d (2026-10-21 19:00-19:36)
+
+**Entorno:** Windows 11 Pro (10.0.26200) · i5-1235U (10c/12t) · 31,78 GB RAM ·
+rustc 1.95.0 · perfil `bench` (= `release`: `opt-level 3`, `lto = "thin"`,
+`codegen-units = 1`) + `debug = 1` · commit `4fb9f024` · `Config::default()`
+(Fjall, `flat_threshold = 10 000`) + `with_encryption(<hex 32 B>)` +
+`with_flush_threshold(1000)` · **los dos binarios de la misma compilacion** (el
+mismo `src`: hash del diff verificado antes y despues) · auto-verificaciones
+activas: `mode=plaintext wal_version=Some(3)` / `mode=encrypted
+wal_version=Some(4)`, `hits=10` en las 2 corridas.
+
+**Comando:**
+
+```powershell
+$env:ENCRYPTED_P99_SCALE = "25000"; $env:ENCRYPTED_P99_RUNS = "1"
+$env:ENCRYPTED_P99_OUT   = "<fichero>"   # el bench vuelca sus numeros aqui, linea a linea
+target\release\deps\encrypted_p99-<hash>.exe    # sin cifrar
+target\release\deps\encrypted_p99-<hash>.exe    # con cifrar (--features encryption)
+```
+
+| Métrica | Sin cifrar | Con cifrado | Δ | Umbral 15 % |
+| :--- | ---: | ---: | ---: | :--- |
+| `insert` 25 000 nodos (s) | 1256.801 | 657.752 | −47.7 % | dentro (ruido de orden) |
+| search p50 (ms) | 11.8805 | 58.0212 | **+388.4 %** | **superado** |
+| search p95 (ms) | 18.0528 | 94.3983 | **+422.9 %** | **superado** |
+| **search p99 (ms)** | **32.5670** | **121.8929** | **+274.3 %** | **superado** |
+| `flush` — imagen HNSW entera (s) | 1.648 | 1.576 | −4.4 % | dentro |
+| `cold start` (s) | 2.733 | 3.273 | **+19.8 %** | **superado** |
+| RSS pico del proceso (MB) | 436 | 445 | +2.1 % | dentro | 
+
+> **Protocolo: 1 corrida por variante, no la mediana de 3.** La 2.ª repeticion (pareja intercalada) se lanzo y **murio durante el `insert`** por el mismo *commit charge* (§6.1). Con una sola corrida por variante, esta tabla es **una medicion, no una mediana**: por eso lleva el ruido de la maquina dentro y **no** debe publicarse como gate de regresion.
+
+### 7.1 Lectura
+
+1. **El umbral se supera con creces en el p99 (+274 %)** → **señal de diseño**.
+2. **El numero esta inflado por la maquina y no se debe publicar como "el
+   coste del cifrado"**: el *commit charge* estaba al limite (27-35,8 GB de
+   35,8 GB) y el camino cifrado **reserva memoria** (3 buffers por candidato)
+   mientras el claro **no**. La medida de cuanto ruido tiene esta maquina la da
+   la fila del `insert`: **−47.7 %** entre dos corridas de la misma maquina
+   (la cifrada fue la segunda). Un numero con este suelo de ruido **no puede
+   ser un gate de regresion**: hace falta una maquina dedicada o CI.
+3. **Lo que NO depende de la maquina** (estructural, y por tanto la senal de
+   diseno): el envelope del VantaFile es **por nodo**; el store cifrado **no
+   puede devolver una vista prestada** (`Cow::Owned` en vez de `Cow::Borrowed`,
+   `src/index_port.rs:86` + `src/storage/vfile.rs:1046`); y la cache de
+   descifrado es de **una sola entrada** (`src/storage/vfile.rs:290`), asi que
+   el recorrido HNSW **no acierta nunca**: **1 AEAD + 3 reservas + 3 copias de
+   6 KB por candidato visitado**. Con `ef_search = 100` son **decenas o
+   cientos de descifrados por query**.
+4. **El `flush` no se vio afectado** (−4.4 %): el envelope de la imagen HNSW
+   es **un** AEAD sobre ~150 MiB → el coste es proporcional al **tamano**, no
+   al numero de operaciones. El `cold start` **si** (+19.8 %): descifra la
+   imagen y el WAL enteros.
+5. **El cambio de diseno** (ya disenado en `FIND-598`): envelope del VantaFile
+   **por pagina** (64 KiB) **+ cache de paginas descifradas (LRU)** → el
+   descifrado se amortiza sobre los ~10 nodos de la pagina y vuelve el
+   zero-copy. Para la imagen HNSW: envelope por pagina → el arranque en frio
+   descifra solo las paginas que toca (o en paralelo). Para el WAL: truncarlo
+   en el checkpoint (que `flush()` ya escribe) elimina el descifrado de todo el
+   WAL en cada `open`.
+
+---
+
+

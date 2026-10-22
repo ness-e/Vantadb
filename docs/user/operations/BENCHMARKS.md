@@ -1603,6 +1603,131 @@ ciphertext**, que antes eran sobre el plaintext). Consecuencias:
 
 ---
 
+#### 22.3.5 Correccion de lectura: **la escala decide si la busqueda toca el ciphertext**
+
+> Esto **no** es una objecion a §22.3.2: es la razon por la que el `p99` de esa
+> tabla **no puede** leerse como "el coste del cifrado en la busqueda", y por la
+> que el gate del 15 % no se puede cerrar **ni a favor ni en contra** con ella.
+
+El motor cambia de camino de busqueda segun `flat_threshold`
+(`Config::default()` = **10 000**, `src/config.rs:359`; el motor lo instala en
+el indice en `src/storage/engine/init.rs:462`; la decision esta en
+`src/index/search/neighbors.rs:57` — `nodes.len() <= threshold`):
+
+| Escala | Camino de busqueda | De donde sale el vector | ¿Toca el ciphertext? |
+| :--- | :--- | :--- | :--- |
+| **≤ 10 000** | `flat_search` (`src/index/flat.rs:11`) | `node.vec_data`, **la copia en memoria** (el `vector_store` se recibe y se **ignora**, `src/index/flat.rs:122`) | **NO** |
+| **> 10 000** | HNSW (`search_layer`) | `vs.read_full_vector(node.storage_offset, &header)` (`src/index/search/layer.rs:84` y `:257`) | **SI** — un AEAD + una materializacion **por candidato visitado** |
+
+Consecuencia directa: **a 2 000 × 1536d la busqueda es un flat scan sobre las
+copias en memoria: no lee ni un byte del vstore, y por lo tanto **no descifra
+nada**.** El delta de ±71 % / −14 % que mide §22.3.2 **no puede ser el coste del
+cifrado en la busqueda** — es ruido (y el propio §22.3.2 lo ve: spread de
++56 % a +200 % y un protocolo identico con el signo contrario). Lo que §22.3.2
+**si** mide bien es todo lo que no es la busqueda: el `insert` (que escribe el
+WAL, el vstore y la imagen), el `flush` y el `cold start` (que si descifran).
+
+**La escala que responde a la pregunta del plan tiene que estar en el regimen
+HNSW.** El plan pide **100 000 × 1536d**; en esta maquina el dataset canonico
+**no se pudo medir** (§22.3.5.1, abajo: el *commit charge* no da para los
+artefactos mapeados), asi que la medicion publicada es a la **escala mas
+pequeña del regimen HNSW** — **25 000 × 1536d** — que es la **peor caso
+razonable**: a menor escala, el HNSW visita **menos** nodos por query pero el
+coste de descifrado por candidato es el mismo, asi que el delta relativo **no
+crece** al subir a 100k (el coste de descifrado es el mismo en terminos
+absolutos y el denominador —el recorrido HNSW— crece). El p99 **absoluto** si
+es comparable con el de §11 solo a la escala canonica; el **delta** es lo que
+se transporta.
+
+##### 22.3.5.1 El regimen HNSW: 25 000 × 1536d (la escala mas pequena que descifra)
+
+**Por que 25 000 y no 100 000.** El dataset canonico del plan (100k × 1536d) **se
+intento tres veces** en esta maquina y **murio las tres veces sin dejar numero**:
+los artefactos on-disk se **mapean en memoria** (vstore + WAL + imagen HNSW ≈
+**1,9 GB** de commit charge) y el **commit charge** de la maquina estaba
+consumido por otros procesos (**27,3 → 34,9 GB de 35,8 GB**; el `insert` de
+100k **si** cabia en disco — 1,9 GB — pero no en el *commit charge*). La
+**escala minima que responde a la pregunta** es la **mas pequena del regimen
+HNSW**: por encima de `flat_threshold` (10 000) —donde la busqueda **si**
+descifra— y por debajo de lo que cabe en el commit charge.
+
+**Corrida del 2026-10-21 19:00-19:36** (Windows 11 Pro · i5-1235U 10c/12t ·
+31,78 GB RAM · rustc 1.95.0 · perfil `bench` = release + `debug = 1` · commit
+`4fb9f024` · `Config::default()` (Fjall, `flat_threshold = 10 000`) +
+`with_encryption(<hex 32 B>)` + `with_flush_threshold(1000)` · **binarios de la
+misma compilacion** (mismo `src`), auto-verificaciones activas:
+`mode=plaintext wal_version=Some(3)` / `mode=encrypted wal_version=Some(4)`,
+`hits=10` en las 2 corridas):
+
+```powershell
+$env:ENCRYPTED_P99_SCALE = "25000"; $env:ENCRYPTED_P99_RUNS = "1"
+$env:ENCRYPTED_P99_OUT = "<fichero>"   # el bench vuelca sus numeros aqui
+target\release\deps\encrypted_p99-<hash>.exe   # sin cifrar / con cifrar
+```
+
+| Métrica | Sin cifrar | Con cifrado | Δ | Umbral 15 % |
+| :--- | ---: | ---: | ---: | :--- |
+| `insert` 25 000 nodos (s) | 1256.801 | 657.752 | −47.7 % | dentro (ruido de orden: la corrida cifrada fue la segunda) |
+| search p50 (ms) | 11.8805 | 58.0212 | **+388.4 %** | **superado** |
+| search p95 (ms) | 18.0528 | 94.3983 | **+422.9 %** | **superado** |
+| **search p99 (ms)** | **32.5670** | **121.8929** | **+274.3 %** | **superado** |
+| `flush` — reescribe la imagen HNSW (s) | 1.648 | 1.576 | −4.4 % | dentro |
+| `cold start` — cerrar + reabrir (s) | 2.733 | 3.273 | **+19.8 %** | **superado** |
+| RSS pico del proceso (MB) | 436 | 445 | +2.1 % | dentro |
+
+> **Protocolo: 1 corrida por variante, no la mediana de 3.** La 2.ª repeticion
+> (pareja intercalada) se lanzo y **murio durante el `insert`** por el mismo
+> *commit charge* (§6.1 de la nota de la wave). Con **una** corrida por
+> variante, la tabla es **una medicion, no una mediana**: por eso el veredicto
+> de arriba lleva el ruido de la maquina dentro y **no** debe publicarse como
+> gate de regresion (ver la nota de abajo).
+
+**El umbral del 15 % se supera con creces en el p99 de la busqueda (+274 %)** y
+eso **es una señal de diseño**, no ruido que se pueda absorber:
+
+- el `insert` **cifrado fue más rápido** (−47.7 %): eso **no** es el cifrado,
+  es el **orden** (la corrida cifrada fue la segunda, con la maquina menos
+  cargada) — y es la medida de cuanto **ruido** tiene esta maquina;
+- el `flush` **no** sevio afectado (−4.4 %): el envelope de la imagen HNSW es
+  **un** AEAD sobre ~150 MiB, y ahi el coste es **proporcional al tamano**, no al
+  numero de operaciones;
+- el `cold start` **si** se vio (+19.8 %): descifra la imagen y el WAL enteros;
+- el **p99 de la busqueda** es el que se desborda, y lo hace **en el regimen
+  HNSW**, donde la busqueda **lee el vector del vstore**: un **AEAD + una
+  materializacion por candidato visitado** (`src/index/search/layer.rs:84`).
+
+**Cuanto de ese +274 % es crypto y cuanto es la maquina.** La cifra **esta
+inflada** y no se debe publicar como "el coste del cifrado": el *commit charge*
+de la maquina estaba al limite durante la corrida, y el camino cifrado
+**reserva memoria** (3 buffers por candidato) mientras que el claro **no**; en
+esa situacion la pagina nueva cuesta mas de lo que cuesta un descifrado. Lo que
+**si** es estructural y **no** depende de la maquina: el envelope del VantaFile
+es **por nodo**, el store cifrado **no puede devolver una vista prestada**
+(`Cow::Owned` en vez de `Cow::Borrowed`, `src/index_port.rs:86` y
+`src/storage/vfile.rs:1046`) y la cache de descifrado es de **una sola
+entrada** (`src/storage/vfile.rs:290`), asi que **el recorrido HNSW no
+acierta nunca**: **1 AEAD + 3 reservas + 3 copias de 6 KB por candidato
+visitado**. Con `ef_search = 100` eso son **decenas o cientos de descifrados
+por query**.
+
+**El cambio de diseno** (el que nombra el plan y que ya quedo disenado en
+`FIND-598`): **bajar la granularidad del envelope del VantaFile de "por nodo" a
+"por pagina"** (p. ej. 64 KiB) **y anadir una cache de paginas descifradas
+(LRU)**: el descifrado se amortiza sobre los ~10 nodos de la pagina y la pagina
+cacheada se vuelve a leer **sin copia** (vuelve el zero-copy que ADR-0057 §5.2
+declara forfeitado). Para la **imagen HNSW** (un AEAD sobre el indice entero),
+un envelope por pagina permitiria descifrar en el arranque en frio solo las
+paginas que hacen falta, o en paralelo. Para el **WAL**, truncarlo en el
+checkpoint (que `flush()` ya escribe) eliminaria el descifrado de todo el WAL
+en cada `open`.
+
+> **La medicion que certify el numero** (para publicarlo como gate de
+> regresion) necesita una **maquina dedicada o CI**: aqui el suelo de ruido
+> (ver el `insert` de la fila anterior: −47.7 % entre dos corridas de la misma
+> maquina) es del **orden del propio umbral**.
+
+---
+
 ## Planificado 2026-09-24 — sin números aún (Regla 11)
 
 > Estas mediciones están **programadas** (filas P52 del Backlog). Mientras no existan resultados, no citar como comparativa.

@@ -146,7 +146,7 @@ el `insert_lock`.
 | 2 | **El shipper de WAL no puede leer segmentos v4** (`FIND-496`): el replication de una base cifrada no funciona. | La replicacion de bases cifradas no es soportada | `src/wal_shipping.rs` |
 | 3 | **El backup/restore no conoce el registro** (`FIND-507`): restaurar una base cifrada sin su registro la deja ilegible. | El backup debe llevar el registro (documentado en el runbook) | `src/cli_handlers/backup.rs` |
 | 4 | **La decision por proceso es ambigua con varias bases**: con dos bases abiertas en el mismo proceso, la decision registrada no se aplica y los artefactos que resuelven su propio contexto usan las fuentes. | Multi-base en un proceso con claves distintas: la imagen HNSW no ve la key programatica | `src/crypto.rs` (`process_decision`) |
-| 5 | **El coste no esta medido** (W7): el p99 canonico cifrado y el coste por imagen no tienen numero. | El umbral del 15 % del ADR sigue sin verificar | `benches/canonical_p99.rs` |
+| 5 | ~~**El coste no esta medido** (W7)~~ → **cerrado por W7 (2026-10-21)**: el p99 cifrado y el coste por imagen **tienen numero**, con comando, entorno y fecha, en `docs/user/operations/BENCHMARKS.md` §22 (nota de la wave: `docs/dev/reviews/2026-10-21-w7-cifrado-coste.md`). El **gate del 15 %** queda **medido pero no certificado** en esta maquina compartida (el suelo de ruido del p99 es del orden del umbral) — y el **cambio de diseno** que lo resolveria (envelope del VantaFile **por pagina** en vez de por nodo + cache de paginas descifradas) quedo **disenado**, no implementado (ADR-0057 §R-3). | El umbral del 15 % del ADR: **medido, no certificable aqui**; el resto de huecos de W6 siguen abiertos | `benches/encrypted_p99.rs`, `benches/wal_throughput.rs`, `docs/user/operations/BENCHMARKS.md` §22 |
 
 ---
 
@@ -163,3 +163,34 @@ cargo fmt --check
 
 La salida literal de la corrida esta en el informe de la wave (el ejecutor lo
 commitea).
+
+### 5.1 Continuacion: W7 (el coste del cifrado, medido)
+
+W6 dejo abierto el **hueco 5** de §4 ("el coste no esta medido"). **W7 lo
+cerro con numero** (2026-10-21):
+
+- **Publicacion:** `docs/user/operations/BENCHMARKS.md` **§22** (comandos,
+  entorno, fecha y delta de cada cifra) · nota de la wave:
+  `docs/dev/reviews/2026-10-21-w7-cifrado-coste.md`.
+- **Que midio:** el motor **real** (WAL + VantaFile + backend-KV + imagen HNSW)
+  con la feature `encryption` encendida y clave valida, en el regimen **HNSW**
+  (25 000 x 1536d) — donde la busqueda **si** descifra; el WAL por frame; el
+  `flush` (la imagen HNSW entera) y el `cold start`.
+- **Veredicto:** el **p99 de la busqueda se dispara** (el envelope del
+  VantaFile es **por nodo**: 1 AEAD + 3 reservas + 3 copias de 6 KB **por
+  candidato visitado**, y la cache de descifrado es de **una sola entrada**,
+  asi que el recorrido HNSW no acierta nunca) → **senal de diseno**, con el
+  cambio propuesto ya disenado en `FIND-598` (envelope **por pagina** + cache
+  de paginas descifradas). El **cold start** tambien se ve afectado
+  (descifra la imagen y el WAL enteros). El `flush` **no**.
+- **Honestidad del numero:** la maquina compartida no permite certificarlo
+  (el suelo de ruido del p99 es del orden del propio umbral) → el numero se
+  publica **con su delta y sus condiciones**, no como gate de regresion. El
+  **gate del 15 %** del plan queda **medido y no certificable aqui**: hace
+  falta una maquina dedicada o CI.
+- **Benches:** `benches/encrypted_p99.rs` (nuevo, con auto-verificaciones:
+  la cabecera del WAL en disco dice v3/v4, y la busqueda tiene que devolver
+  hits o la corrida falla) y `benches/wal_throughput.rs` (variante cifrada).
+  El bench **vuelca sus numeros a un fichero** (`ENCRYPTED_P99_OUT`) porque
+  Rust vacia `stdout` al salir: una corrida muerta se llevaba los numeros
+  atras.
