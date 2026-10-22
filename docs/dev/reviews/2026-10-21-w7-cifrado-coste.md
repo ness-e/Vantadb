@@ -12,10 +12,10 @@ created: "2026-10-21"
 > **Wave:** W7 del plan
 > [`2026-10-20-wiring-encryption-feature.md`](../plans/2026-10-20-wiring-encryption-feature.md).
 > **Design:** [`ADR-0057`](../architecture/adr/ADR-0057-encryption-at-rest.md).
-> **Estado:** medida y **certificada** (2026-10-21, segunda medicion). Los numeros
-> publicados viven en
-> [`BENCHMARKS.md`](../../user/operations/BENCHMARKS.md) §22; esta nota es el
-> metodo y la lectura.
+> **Estado:** medida y **certificada** (2026-10-21, segunda medicion) y **re-medida
+> post-Paso 0** (2026-10-21/22, §6). Los numeros publicados viven en
+> [`BENCHMARKS.md`](../../user/operations/BENCHMARKS.md) §22 (pre-Paso 0) y **§22.4**
+> (post-Paso 0); esta nota es el metodo y la lectura.
 
 W6 encendio la feature: los **4 puntos de escritura independientes** (WAL v4,
 VantaFile v3, backend-KV, imagen HNSW v9) cifran, y el canario de 6 superficies
@@ -29,6 +29,15 @@ cifrado en reposo. W7 lo mide.
 > claras, sin solapamiento. **Es una señal de diseño**, no ruido: la causa es la
 > **granularidad del envelope del VantaFile** (§4.1). El `insert` y el `flush`
 > **no** empeoran (dentro del ruido).
+>
+> **Post-Paso 0 (§6):** el gate **sigue SUPERADO**, pero con un sobrecoste
+> **mucho menor** — **+43,2 %** en el p99 (mediana de 3+3 intercaladas, maquina en
+> silencio) frente al **+390,6 %** del par en calma pre-Paso 0 (la comparacion
+> like-for-like). El "Paso 0" (`6edc635f`: 5 → 3 copias por candidato y cache de 1
+> entrada → LRU) abarato el cifrado **~3,5x** (−69,8 % en el p99) y **no movio el
+> claro** (+3,6 %, dentro del ruido) ⇒ bajo el sobrecoste relativo de +390,6 % a
+> +43,2 %, pero **sigue faltando el envelope por pagina** (que implica un
+> **breaking change del trait publico `VectorStoreRef`**).
 
 ---
 
@@ -402,5 +411,163 @@ E/S y no el cifrado.
 - La **causa del ruido del intento anterior** (procesos zombis, no "la maquina
   compartida") queda **documentada**, con los PIDs, los procesos y el efecto
   (LNK1104 + contencion).
+
+---
+
+## 6. La re-medicion **post-Paso 0** (2026-10-21/22)
+
+> **Que es esta seccion.** §3 midio el gate del plan (ADR-0057 §6) sobre el codigo
+> **anterior al "Paso 0"**. Esta seccion es la **re-medicion** del mismo gate sobre el codigo
+> **post-Paso 0** (`6edc635f`, 2026-10-21 22:10: las 5 copias por candidato pasan a **3** y la
+> cache de **1** entrada a una **LRU acotada**), que es el estado que el gate tiene que evaluar
+> hoy. Mismo bench, misma maquina, misma escala, mismo dataset y **el mismo criterio de
+> decision** que §3.2 (fijado **antes** de ver los numeros).
+> Los numeros completos (comando, entorno y fecha) estan en
+> [`BENCHMARKS.md`](../../user/operations/BENCHMARKS.md) **§22.4**.
+
+### 6.1 Comandos y entorno (Regla 11)
+
+```powershell
+$env:ENCRYPTED_P99_SCALE  = "25000"
+$env:ENCRYPTED_P99_RUNS   = "1"     # una corrida por invocacion; 6 invocaciones intercaladas
+$env:ENCRYPTED_P99_WARMUP = "0"
+$env:ENCRYPTED_P99_OUT    = "target\find598\<TAG>.results.txt"
+
+# 6 invocaciones intercaladas (P1, E1, P2, E2, P3, E3):
+target\find598\encrypted_p99_plain.exe --bench     # P1, P2, P3  (sha256 06FEC524...)
+target\find598\encrypted_p99_enc.exe   --bench     # E1, E2, E3  (sha256 1D941139...)
+```
+
+| Campo | Valor |
+| :--- | :--- |
+| Fecha | **2026-10-21 23:26:02 → 2026-10-22 01:19:21** (6 invocaciones intercaladas) |
+| OS / CPU / RAM | Windows 11 Pro (10.0.26200) · i5-1235U (10c/12t) · 31,78 GB (**12,0-12,7 GB libres** en las 6 corridas) |
+| Commit charge | 28,2-30,4 / 35,78 GB (**78,8 % → 84,3 %**) |
+| Ruido | **0 compilaciones** y **0 benches ajenos** en las 6 corridas publicadas (§6.6) |
+| Toolchain / perfil | rustc 1.95.0 / cargo 1.95.0 · `bench` = `release` + `debug = 1` |
+| Dataset / perfil de medicion | seed 42, **25 000 × 1536d**, 1000 queries, `top_k = 10` · `apply_fixed_profile` (warmup 3 s / measure 5 s, confianza 0,95) |
+| Protocolo | **3 corridas por variante, intercaladas** (P1, E1, P2, E2, P3, E3) |
+| Commit | `da2ba860` (`develop`); el **ultimo** commit que toca `src/`/`benches/` es **`6edc635f` (el Paso 0, 22:10)** ⇒ **las dos variantes son post-Paso 0** |
+| Binarios | claro `sha256 06FEC524…` (22:23) · cifrado `sha256 1D941139…` (22:33), compilados **despues** del Paso 0 ⇒ difieren **solo** en la feature |
+| Auto-verificaciones | `wal_version=Some(3)` (claro) / `Some(4)` (cifrado), `hits=10` en las 6, `exit_code=0` en las 6 |
+
+### 6.2 Resultados
+
+| Métrica | Sin cifrar (min/med/max) | Cifrado (min/med/max) | Δ mediana | Gate 15 % |
+| :--- | :---: | :---: | ---: | :--- |
+| search p50 (ms) | 6,2507 / **6,5512** / 6,8745 | 9,7346 / **9,8823** / 12,7497 | **+50,8 %** | superado |
+| search p95 (ms) | 11,0806 / **11,5981** / 12,4428 | 15,1451 / **15,9925** / 18,8520 | **+37,9 %** | superado |
+| **search p99 (ms)** | 14,8142 / **16,3662** / 16,7699 | 22,0183 / **23,4357** / 30,3764 | **+43,2 %** | **SUPERADO** |
+| insert 25 000 nodos (s) | 380,4 / **392,8** / 402,2 | 398,0 / **435,4** / 659,9 | +10,8 % | dentro (ruido) |
+| flush — imagen HNSW (s) | 0,713 / **0,733** / 1,281 | 0,752 / **0,804** / 0,876 | +9,7 % | dentro (ruido) |
+| cold start (s) | 1,257 / **1,433** / 2,407 | 1,769 / **1,771** / 1,965 | +23,6 % | superado |
+
+La **segunda medicion independiente** del bench (el grupo de **criterion**, sobre el motor
+**reabierto**, con su CI) confirma: medianas **7 354,5 ms** sin cifrar vs **10 739,9 ms**
+cifrados ⇒ **+46,0 %**, con CIs que **no se solapan** (el CI mas alto en claro, 8 386,8, queda
+por debajo del mas bajo en cifrado, 10 196,6). Es el mismo estimador (**media** de criterion) que
+usa la tabla de §3, para que las dos series sean comparables.
+
+### 6.3 Veredicto: **A) GATE SUPERADO**, concluyente
+
+- **A) gate superado** si `max(claro) × 1,15 < min(cifrado)`
+  → **16,7699 × 1,15 = 19,2854 < 22,0183 ⇒ VERDADERO**;
+- B) gate cumplido si `max(cifrado) < min(claro) × 1,15` → 30,3764 < 17,0363 ⇒ falso.
+
+Delta por par intercalado (p99): **+31,3 %**, **+58,2 %**, **+85,6 %** — los tres por encima
+del 15 %. **El veredicto no depende de la corrida mas lenta**: E3 (la cifrada, con la fase de
+`insert` mas lenta: 659,9 s) **no cambia ni la mediana cifrada** (la fija E2) **ni el test de
+bandas** (que usa `min(cifrado)`, lo fija E1); y su numero de criterion (10 739,9 ms) es
+normal (E1 10 801,0 / E2 10 580,4). Las 3 corridas **en claro** pasan el criterio de
+publicabilidad del propio bench (`ram_bound=ok`: p50 por debajo del limite de 8 ms).
+
+### 6.4 Que movio el Paso 0 (y por que el +190,3 % de §3 **no** es una base comparable)
+
+Las 6 corridas de §3 cubren **dos estados de maquina**: **P1 y E1 corrieron bajo presion de
+memoria** (P1 baja a **7,22 GB libres / 95,1 % de commit**; E1 arranca con 8,20 GB / 90,2 %) y
+de P2 en adelante la maquina esta en calma. El `insert` cae de forma monotone (1045 → 795 →
+742 s) porque la maquina se **descomprime**. El **veredicto** de §3 no cambia (bandas sin
+solapamiento, los 3 pares con el mismo signo), pero **su cifra (+190,3 %) mezcla una corrida en
+claro medida bajo presion** (P1) **con una cifrada medida en calma** (E2) ⇒ no es comparable
+como base.
+
+La comparacion **"like for like"** es el **par en calma** pre-Paso 0 (P3/E3) contra el set
+post-Paso 0 completo:
+
+| Métrica (p99) | pre-Paso 0, par en calma (P3/E3) | post-Paso 0 (mediana de 3+3) | que movio el Paso 0 |
+| :--- | ---: | ---: | :--- |
+| claro | 15,7945 ms | 16,3662 ms | **+3,6 %** ⇒ dentro del ruido: el camino en claro **no** lo toca el Paso 0 |
+| cifrado | 77,4924 ms | 23,4357 ms | **−69,8 %** |
+| Δ | **+390,6 %** | **+43,2 %** | — |
+| criterion (medias) | 9 689,7 vs 40 409,9 ms = **+317,0 %** | 7 354,5 vs 10 739,9 ms = **+46,0 %** | — |
+
+**En una frase:** el Paso 0 abarato el **cifrado** ~3,5x (p99 −69,8 %; criterion −73,4 %) y
+**no movio el claro en el p99** (+3,6 %, dentro del ruido) ⇒ el **sobrecoste relativo** bajo de
+**+390,6 %** a **+43,2 %** (un factor **9**), pero **sigue siendo ~2,9x el umbral del 15 %**.
+
+> El criterion (medicion **de bloque**: las 1000 queries en una sola iteracion) si se movio mas
+> en el lado claro (9 689,7 → 7 354,5 ms, **−24,1 %**) que el p99 por query: es mas sensible al
+> estado de la maquina. Por eso **la comparacion del gate se hace sobre el p99**, que es la
+> metrica del umbral de ADR-0057 §6.
+
+### 6.5 Lo que el Paso 0 quito y lo que queda
+
+**Quito** (de 5 a **3** copias por candidato en cache fria; **1** con la cache caliente): (1) la
+copia del **ciphertext** a un `Vec` — ahora se **presta** del mapping (`read_record_bytes` →
+`&[u8]`, `src/storage/vfile.rs:1180`); (2) la copia del **payload entero** para sacar los 64 B
+de cabecera — `read_header` parsea **in situ**; (3) el bucle byte a byte de `read_full_vector`
+→ `align_to::<f32>()` + `to_vec()` (un `memcpy`); (4) la cache de descifrado, de **1 entrada** a
+una **LRU acotada** (`clamp(memory_limit/16, 16 MiB, 256 MiB)` por segmento) ⇒ un candidato
+caliente cuesta **0 AEAD** y **1 copia**.
+
+**Queda** (3 copias por candidato, cache fria), y **no** se quita sin cambiar el formato **o** la
+API publica:
+
+1. **1 AEAD por candidato** — el envelope del VantaFile es **por nodo** (`seal_node`,
+   `src/storage/vfile_crypto.rs:1121`);
+2. la copia del plaintext al **buffer alineado** (`AlignedBlob::from_bytes`);
+3. la copia de los `words` al `Vec<f32>` — **estructural en el trait publico**:
+   `VectorStoreRef::read_full_vector` devuelve `Option<Cow<'_, [f32]>>` con la vida atada a
+   `&self` (`src/index_port.rs:86`), asi que **no puede expresar una vista prestada de una
+   entrada de cache que se puede expulsar** (el propio codigo lo dice:
+   `src/storage/vfile.rs:1276-1279`).
+
+⇒ Lo que queda es **1 AEAD + 2 copias de ~6 KB por candidato**, y con `ef_search = 100` son
+~100 candidatos **por query**: **el 1 AEAD explica el resto del sobrecoste**.
+
+⇒ **El envelope por pagina** (p. ej. 64 KiB) + una cache LRU de paginas descifradas es
+**necesario** (amortiza el AEAD sobre los ~10 nodos de la pagina y devuelve el zero-copy), y
+para devolver el zero-copy **el trait publico `VectorStoreRef` tiene que cambiar** ⇒ es un
+**breaking change de la API publica**. Diseno:
+`docs/dev/architecture/design/2026-10-21-encryption-envelope-per-page.md` (commit `3c1c863`);
+revision: `docs/dev/reviews/2026-10-21-encryption-envelope-por-pagina.md`. **La decision es del
+owner; aqui solo queda dicho con el numero.**
+
+### 6.6 Las corridas descartadas (y por que el set publicado es certificable)
+
+| corridas | ventana | que paso |
+| :--- | :--- | :--- |
+| P1/E1/P2 (intento 0) | 22:49-23:19 | la fase de busqueda de la corrida cifrada se solapo con un `wal_throughput` **ajeno** (23:08:34-23:13:57) ⇒ descartadas |
+| P3/E3 (intento 1) | 00:00-00:23 | una **sesion de medicion paralela** (`target/find598-mine`, **binarios byte-identicos**) midio en la misma maquina ⇒ P3 **no paso el criterio de publicabilidad del propio bench** (p50 en claro 11,8942 ms > 8 ms, `exit 101`) y E3 salio degradada (p99 41,2512 ms) |
+| P3/E3 (intento 2) | 00:28-00:47 | la sesion paralela **volvio a arrancar** (00:37) ⇒ P3 fallo por el mismo criterio (p50 8,5209 ms > 8 ms, `exit 101`) y E3 salio degradada (p99 34,2305 ms) |
+| **P3/E3 (publicadas)** | 00:57-01:19 | maquina en calma (12,3-12,5 GB libres, commit 78,8-81,2 % al empezar), **0 benches ajenos** ⇒ **P3 `ram_bound=ok`**, E3 `exit 0` |
+
+El criterio aplicado es el del **propio bench** (`benches/encrypted_p99.rs:463`): una corrida
+cuyo **p50 en claro** supera `ENCRYPTED_P99_MAX_P50_MS` (8 ms) **no publica numero**. Ninguna de
+las 6 corridas publicadas lo incumple, y el criterio de decision (bandas) se aplico sobre el set
+publicado **sin excluir ninguna corrida**.
+
+### 6.7 Que cambia en el veredicto de la wave
+
+- **El gate sigue SUPERADO**, pero con un sobrecoste **mucho menor**: **+43,2 %** (p99, mediana
+  de 3+3 intercaladas, maquina en silencio) frente al **+190,3 %** publicado — y frente al
+  **+390,6 %** del par en calma pre-Paso 0, que es la comparacion like-for-like.
+- **El paso que faltaba (el envelope por pagina) sigue haciendo falta**: el Paso 0 abarato el
+  cifrado, pero **no** lo llevo al 15 % ⇒ sigue faltando el **1 AEAD por candidato** (que solo
+  se quita cambiando la granularidad del envelope) y con el **zero-copy** de vuelta ⇒ **que
+  implica el breaking change del trait publico `VectorStoreRef`**.
+- El `insert` (+10,8 %) y el `flush` (+9,7 %) **siguen dentro del ruido**: ahi manda la E/S.
+- El claim "el cifrado en reposo no cuesta nada" **sigue cerrado como falso**, y el claim "cuesta
+  un 30 %" queda sustituido por **+43,2 %** en el p99 de la busqueda.
 
 ---
