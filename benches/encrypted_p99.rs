@@ -22,15 +22,29 @@
 //! depends on the environment. With the feature compiled out, the field is
 //! simply ignored and the database stays plaintext (byte-identical path).
 //!
-//! **Dataset:** the canonical one — seed 42, 100k × 1536d — drawn exactly
-//! like `benches/canonical_p99.rs` (`StdRng::seed_from_u64(42)`), so the
-//! numbers are comparable with the canonical baseline. The vectors are
+//! **Dataset:** the canonical one — seed 42, 1536d — drawn exactly like
+//! `benches/canonical_p99.rs` (`StdRng::seed_from_u64(42)`). The vectors are
 //! streamed (one chunk at a time) instead of held all at once: the values
 //! are identical, the RSS is not inflated by the bench itself.
 //!
+//! **The default scale is 25 000** (`ENCRYPTED_P99_SCALE` overrides it): it
+//! is the **smallest scale of the HNSW regime**, and the regime is what
+//! answers the question. Below `flat_threshold` (10 000) the search is a
+//! flat scan over the in-memory copies: it never reads the vstore and it
+//! never decrypts anything (BENCHMARKS.md §22.3.5). The canonical 100k
+//! scale does not fit in the commit charge of a shared machine (it died
+//! three times with `os error 1450`).
+//!
+//! **The "the working set still fits in RAM" criterion** (`ram_bound` in the
+//! output): if the **plaintext** variant's p50 explodes against the
+//! canonical p50, the search is reading the vstore **from the disk** and
+//! the run measures the I/O of the machine, not the cost of the
+//! encryption. The plaintext run then **fails** instead of publishing a
+//! number (the limit is `ENCRYPTED_P99_MAX_P50_MS`, default 8 ms).
+//!
 //! **Phases** (each one timed):
 //!
-//! 1. `insert` — 100k nodes with a 1536d vector into a real engine
+//! 1. `insert` — `n` nodes with a 1536d vector into a real engine
 //!    (Fjall backend + WAL + vstore, on a tempdir).
 //! 2. `search` — 1000 queries through `engine.hnsw` **plus the vstore** (the
 //!    engine reads the candidate vectors from the store: a zero-copy mmap
@@ -64,10 +78,40 @@ use vantadb::storage::StorageEngine;
 mod common;
 
 const DIM: usize = 1536;
-const N_VECTORS: usize = 100_000;
+
+/// The default scale of the bench: **25 000 × 1536d**.
+///
+/// It is the smallest scale of the **HNSW regime** (`flat_threshold` =
+/// 10 000 ⇒ above it the search reads the vector from the vstore and
+/// **decrypts** it, which is the whole point of this bench). The canonical
+/// 100k scale does not fit in the commit charge of a shared machine
+/// (BENCHMARKS.md §22.3.5.1). `ENCRYPTED_P99_SCALE` overrides it.
+const N_VECTORS: usize = 25_000;
 const N_QUERIES: usize = 1_000;
 const TOP_K: usize = 10;
 const SEED: u64 = 42;
+
+/// The canonical p50 of the search (BENCHMARKS.md §11, `canonical_p99`):
+/// **2.2388 ms** for a 100k **in-memory** index.
+///
+/// It is the reference of the "the working set still fits in RAM"
+/// criterion: the plaintext variant reads the vstore through the mmap, so
+/// a p50 that explodes against this number means the reads are hitting the
+/// **disk** — the run would measure the I/O of the machine, not the cost
+/// of the encryption.
+const CANONICAL_P50_MS: f64 = 2.2388;
+
+/// The p50 above which the run is considered I/O-bound (not publishable).
+///
+/// 8 ms = 3.5 × the canonical p50. The 10k run of W7 measured 8-14 ms with
+/// the working set out of RAM and was discarded for it (BENCHMARKS.md
+/// §22.3.1); the same floor catches it here.
+fn max_p50_ms() -> f64 {
+    std::env::var("ENCRYPTED_P99_MAX_P50_MS")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(8.0)
+}
 
 /// Master key of the bench — 32 raw bytes, hex-encoded (AES-256).
 ///
@@ -391,18 +435,38 @@ fn bench_encrypted_p99(c: &mut Criterion) {
     let mut p99s: Vec<Duration> = metrics.iter().map(|m| m.search_p99).collect();
     let mut flushes: Vec<Duration> = metrics.iter().map(|m| m.flush).collect();
     let mut colds: Vec<Duration> = metrics.iter().map(|m| m.cold).collect();
+    let p50_ms = median(&mut p50s).as_secs_f64() * 1000.0;
+    // The "the working set still fits in RAM" criterion (see the module
+    // doc): the **plaintext** variant is the reference — if its p50
+    // explodes against the canonical one, the search is reading the vstore
+    // from the disk and the run measures the I/O of the machine.
+    let ram_bound = if p50_ms > max_p50_ms() {
+        "EXCEEDED"
+    } else {
+        "ok"
+    };
     report(&format!(
         "encrypted_p99 MEDIAN mode={mode} wal_version={wal_version:?} n={n} runs={runs} insert_s={:.3} \
          search_p50_ms={:.4} search_p95_ms={:.4} search_p99_ms={:.4} flush_s={:.3} cold_s={:.3} \
-         hits={}",
+         hits={} ram_bound={ram_bound} p50_limit_ms={:.1} canonical_p50_ms={CANONICAL_P50_MS}",
         median(&mut inserts).as_secs_f64(),
-        median(&mut p50s).as_secs_f64() * 1000.0,
+        p50_ms,
         median(&mut p95s).as_secs_f64() * 1000.0,
         median(&mut p99s).as_secs_f64() * 1000.0,
         median(&mut flushes).as_secs_f64(),
         median(&mut colds).as_secs_f64(),
         metrics.iter().map(|m| m.hits).min().unwrap_or(0),
+        max_p50_ms(),
     ));
+    // A run whose plaintext reference is I/O-bound does not publish a
+    // number: it would measure the disk, not the encryption.
+    assert!(
+        mode != "plaintext" || ram_bound == "ok",
+        "the plaintext variant's p50 is {p50_ms:.4} ms (limit {:.1} ms, canonical \
+         {CANONICAL_P50_MS} ms): the working set is not in RAM, so this run measures the \
+         I/O of the machine and NOT the cost of the encryption — it is not publishable",
+        max_p50_ms(),
+    );
 
     // ---- criterion: the search loop on the reopened engine ----
     let mut group = c.benchmark_group("encrypted_p99");

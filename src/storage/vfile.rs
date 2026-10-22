@@ -88,6 +88,187 @@ pub const VFILE_MAX_READABLE_VERSION: u16 = if cfg!(feature = "encryption") {
 #[cfg(feature = "encryption")]
 pub(crate) const ENCRYPTED_PAYLOAD_OFFSET: u64 = 64;
 
+// ─── The decrypted-node cache (FIND-598 · Paso 0) ───────────────────────
+//
+// The envelope of the VantaFile is **per node** (`seal_node`), so every
+// candidate the HNSW traversal visits costs one AEAD. The cache of
+// decrypted nodes is what makes the second visit free: it used to hold
+// **one** entry (the last decrypted node), so the traversal — which visits
+// a *different* node on every step — never hit it.
+//
+// The cache is bounded (rule 4 of `.opencode/rules/memory-budget.md`: every
+// resident structure declares a cap) and it hands out `Arc<AlignedBlob>`:
+// the consumer that cloned the `Arc` keeps the plaintext alive even when
+// the cache evicts (or replaces) the entry.
+
+/// The process-wide effective memory limit (bytes) used to size the
+/// decrypted-node cache of every segment.
+///
+/// `0` = "not configured": the total RAM of the machine is used instead.
+/// The storage engine sets it at open with the **effective** limit
+/// (`config.memory_limit` or the total RAM), so the cache stays a fraction
+/// of the budget the operator declared.
+#[cfg(feature = "encryption")]
+static DECRYPT_CACHE_MEMORY_LIMIT: std::sync::atomic::AtomicU64 =
+    std::sync::atomic::AtomicU64::new(0);
+
+/// The minimum byte budget of the decrypted-node cache of one segment.
+#[cfg(feature = "encryption")]
+const MIN_DECRYPT_CACHE_BUDGET: u64 = 16 * 1024 * 1024;
+
+/// The maximum byte budget of the decrypted-node cache of one segment.
+#[cfg(feature = "encryption")]
+const MAX_DECRYPT_CACHE_BUDGET: u64 = 256 * 1024 * 1024;
+
+/// The nominal size of a cached node, used to derive the **entry** cap of
+/// the LRU from the byte budget (the byte budget is the real bound; this
+/// one only keeps the LRU from growing without a ceiling of its own).
+#[cfg(feature = "encryption")]
+const NOMINAL_NODE_BYTES: u64 = 4096;
+
+/// Declare the effective memory limit used to size the decrypted-node
+/// cache of every segment.
+///
+/// Called by the storage engine at open. Process-wide: the last open wins
+/// (the process already shares one key registry and one nonce space).
+#[cfg(feature = "encryption")]
+pub(crate) fn set_decrypt_cache_memory_limit(bytes: u64) {
+    DECRYPT_CACHE_MEMORY_LIMIT.store(bytes, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// No-op without the `encryption` feature: there is no decrypted cache.
+#[cfg(not(feature = "encryption"))]
+pub(crate) fn set_decrypt_cache_memory_limit(_bytes: u64) {}
+
+/// The byte budget of the decrypted-node cache of **one** segment.
+///
+/// The cache is a *fraction* of the effective memory limit: the HNSW index
+/// is 100 % RAM-resident (rule 1 of `.opencode/rules/memory-budget.md`) and
+/// the cache is not the only consumer of the memory. The engine opens at
+/// most 4 segments (L0..L3), so the worst case is 4 × this budget.
+#[cfg(feature = "encryption")]
+fn decrypt_cache_budget() -> u64 {
+    let declared = DECRYPT_CACHE_MEMORY_LIMIT.load(std::sync::atomic::Ordering::Relaxed);
+    let limit = if declared == 0 {
+        crate::hardware::HardwareCapabilities::global().total_memory
+    } else {
+        declared
+    };
+    (limit / 16).clamp(MIN_DECRYPT_CACHE_BUDGET, MAX_DECRYPT_CACHE_BUDGET)
+}
+
+/// The bounded cache of decrypted nodes of an encrypted segment.
+#[cfg(feature = "encryption")]
+struct DecryptCache {
+    /// The decrypted blobs, keyed by the offset of their node.
+    entries: lru::LruCache<u64, Arc<AlignedBlob>>,
+    /// The bytes currently held by `entries`.
+    bytes: u64,
+    /// The byte budget (`decrypt_cache_budget`).
+    budget: u64,
+}
+
+#[cfg(feature = "encryption")]
+impl DecryptCache {
+    fn new(budget: u64) -> Self {
+        let cap = std::num::NonZeroUsize::new((budget / NOMINAL_NODE_BYTES) as usize)
+            .unwrap_or(std::num::NonZeroUsize::MIN);
+        Self {
+            entries: lru::LruCache::new(cap),
+            bytes: 0,
+            budget,
+        }
+    }
+
+    /// The decrypted blob of `offset`, if it is cached.
+    ///
+    /// A hit refreshes the recency: the entry becomes the most recently
+    /// used one, so the eviction takes the coldest node first.
+    fn get(&mut self, offset: u64) -> Option<Arc<AlignedBlob>> {
+        self.entries.get(&offset).cloned()
+    }
+
+    /// Cache the decrypted blob of `offset`.
+    ///
+    /// The budget is enforced by evicting the least recently used entries;
+    /// a read never fails because of the cache.
+    fn insert(&mut self, offset: u64, blob: Arc<AlignedBlob>) {
+        let size = blob.len() as u64;
+        if let Some((_, replaced)) = self.entries.push(offset, blob) {
+            self.bytes = self.bytes.saturating_sub(replaced.len() as u64);
+        }
+        self.bytes += size;
+        while self.bytes > self.budget {
+            match self.entries.pop_lru() {
+                Some((_, evicted)) => {
+                    self.bytes = self.bytes.saturating_sub(evicted.len() as u64);
+                }
+                None => break,
+            }
+        }
+    }
+
+    /// Drop the entry of `offset` (its plaintext changed on disk).
+    fn invalidate(&mut self, offset: u64) {
+        if let Some(replaced) = self.entries.pop(&offset) {
+            self.bytes = self.bytes.saturating_sub(replaced.len() as u64);
+        }
+    }
+
+    /// Drop every entry (the whole segment was replaced).
+    fn clear(&mut self) {
+        self.entries.clear();
+        self.bytes = 0;
+    }
+}
+
+/// The copies the encrypted read path performs (test-only instrumentation).
+///
+/// FIND-598 is justified by a **count**, not by an opinion: this probe
+/// counts the copies of the node payload that the encrypted read path
+/// performs, so the test can pin the number (5 before the Paso 0, 3 after).
+#[cfg(all(test, feature = "encryption"))]
+pub(crate) mod copy_probe {
+    use std::cell::Cell;
+
+    thread_local! {
+        /// The number of copy operations.
+        static COPIES: Cell<u64> = const { Cell::new(0) };
+        /// The total number of bytes copied.
+        static BYTES: Cell<u64> = const { Cell::new(0) };
+    }
+
+    /// Record one copy of `bytes` bytes.
+    ///
+    /// The counters are **thread-local**: the test runner runs the tests in
+    /// parallel and a global counter would mix their numbers.
+    pub(crate) fn record(bytes: usize) {
+        COPIES.with(|c| c.set(c.get() + 1));
+        BYTES.with(|b| b.set(b.get() + bytes as u64));
+    }
+
+    /// Reset the counters.
+    pub(crate) fn reset() {
+        COPIES.with(|c| c.set(0));
+        BYTES.with(|b| b.set(0));
+    }
+
+    /// The `(copies, bytes)` counted so far.
+    pub(crate) fn snapshot() -> (u64, u64) {
+        (COPIES.with(|c| c.get()), BYTES.with(|b| b.get()))
+    }
+}
+
+/// Record a copy of the node payload (no-op outside the test build).
+#[cfg(feature = "encryption")]
+#[inline]
+fn count_copy(bytes: usize) {
+    #[cfg(test)]
+    copy_probe::record(bytes);
+    #[cfg(not(test))]
+    let _ = bytes;
+}
+
 /// The payload size (un-aligned) of a persisted header.
 ///
 /// Mirrors the writer in [`crate::storage::ops::write_node_to_vstore`]:
@@ -148,6 +329,7 @@ impl AlignedBlob {
             len: bytes.len(),
         };
         blob.as_mut_slice().copy_from_slice(bytes);
+        count_copy(bytes.len());
         blob
     }
 
@@ -159,6 +341,11 @@ impl AlignedBlob {
         // the byte view covers the whole buffer.
         let (_, bytes, _) = unsafe { self.words.align_to::<u8>() };
         &bytes[..self.len]
+    }
+
+    /// The length of the blob in bytes.
+    pub(crate) fn len(&self) -> usize {
+        self.len
     }
 
     /// The bytes of the blob, mutably.
@@ -287,35 +474,27 @@ pub struct File {
     /// The encryption context of the `vfile` artefact (`None` = plaintext).
     #[cfg(feature = "encryption")]
     pub(crate) crypto: Option<Arc<VFileCrypto>>,
-    /// One-entry cache of the last decrypted node (lock-free, `ArcSwap`).
+    /// The bounded cache of decrypted nodes (FIND-598 · Paso 0).
     ///
-    /// The search path reads the header and then the vector of the **same**
-    /// node: without the cache every candidate would be decrypted twice.
+    /// It replaces the one-entry cache that lived here before: the HNSW
+    /// traversal visits a *different* node on every step, so a one-entry
+    /// cache never hit and **every** candidate paid a full AEAD.
     #[cfg(feature = "encryption")]
-    decrypted: arc_swap::ArcSwap<Option<Arc<DecryptedNode>>>,
+    decrypted: parking_lot::Mutex<DecryptCache>,
     /// AES-256-GCM cipher for at-rest encryption when the `encryption` feature
     /// is enabled and `VANTADB_ENCRYPTION_KEY` is set.
     #[cfg(feature = "encryption")]
     pub cipher: Option<Cipher>,
 }
 
-/// A decrypted node record kept in the one-entry cache of a [`File`].
-#[cfg(feature = "encryption")]
-#[derive(Debug)]
-struct DecryptedNode {
-    /// The offset the node was read from.
-    offset: u64,
-    /// The decrypted blob (`DiskNodeHeader ‖ payload`).
-    blob: Arc<AlignedBlob>,
-}
-
 // SAFETY: File owns a `File` handle, a `FileMap` (Mmap/MmapMut/AlignedBytes),
 // a `PathBuf`, and an `AtomicBool` — all of which are `Send`. The mmap pointers
 // are managed by the memmap2 crate or the in-memory/shim buffers (AlignedBytes,
 // `unsafe impl Send + Sync` above), all `Send + Sync`. The cipher field (behind
-// `#[cfg(feature = "encryption")]`) is Send by construction. No mutable aliasing
-// crosses threads because all mutations go through `&mut self` or the storage
-// engine's locks.
+// `#[cfg(feature = "encryption")]`) is Send by construction, and so is the
+// decrypted-node cache (a `Mutex` over an `LruCache` of `Arc<AlignedBlob>`). No
+// mutable aliasing crosses threads because all mutations go through `&mut self`
+// or the storage engine's locks.
 unsafe impl Send for File {}
 // SAFETY: same reasoning — all fields are Sync-safe, and the engine serializes
 // read-write access through `RwLock<File>`.
@@ -374,7 +553,7 @@ impl File {
             #[cfg(feature = "encryption")]
             crypto: None,
             #[cfg(feature = "encryption")]
-            decrypted: arc_swap::ArcSwap::new(Arc::new(None)),
+            decrypted: parking_lot::Mutex::new(DecryptCache::new(decrypt_cache_budget())),
             #[cfg(feature = "encryption")]
             cipher: None,
         }
@@ -496,7 +675,7 @@ impl File {
             #[cfg(feature = "encryption")]
             crypto,
             #[cfg(feature = "encryption")]
-            decrypted: arc_swap::ArcSwap::new(Arc::new(None)),
+            decrypted: parking_lot::Mutex::new(DecryptCache::new(decrypt_cache_budget())),
             #[cfg(feature = "encryption")]
             cipher: None,
         })
@@ -560,7 +739,7 @@ impl File {
         self.size = new_size;
         // The whole mapping changed: the decrypted cache is stale.
         #[cfg(feature = "encryption")]
-        self.decrypted.store(Arc::new(None));
+        self.decrypted.lock().clear();
         self.remap_mut()
     }
 
@@ -582,11 +761,7 @@ impl File {
         if self.is_encrypted() {
             #[cfg(feature = "encryption")]
             {
-                return self
-                    .read_node_encrypted(offset)
-                    .ok()
-                    .flatten()
-                    .map(|node| node.header);
+                return self.read_header_encrypted(offset).ok().flatten();
             }
             #[cfg(not(feature = "encryption"))]
             {
@@ -904,10 +1079,24 @@ impl File {
         }
         let start = offset as usize;
         self.mmap_bytes_mut()?[start..start + record.len()].copy_from_slice(&record);
-        // The node at `offset` changed: the decrypted cache must not serve the
-        // previous version of it.
-        self.decrypted.store(Arc::new(None));
+        // The node at `offset` changed: its decrypted blob must not be served
+        // from the cache any more.
+        self.decrypted.lock().invalidate(offset);
         Ok(record.len() as u64)
+    }
+
+    /// Read the header of the node record of an **encrypted** segment.
+    ///
+    /// The header lives inside the AEAD envelope, so the record has to be
+    /// decrypted first — but the **payload is not copied**: the header is
+    /// parsed in place out of the decrypted blob. FIND-598 (Paso 0): this
+    /// path used to materialise the whole 6 KB payload to read 64 bytes of
+    /// header.
+    fn read_header_encrypted(&self, offset: u64) -> Result<Option<DiskNodeHeader>> {
+        let Some(blob) = self.decrypt_blob(offset)? else {
+            return Ok(None);
+        };
+        Ok(Some(header_from_blob(&blob, offset)?))
     }
 
     /// Read the node record of an **encrypted** segment.
@@ -915,28 +1104,14 @@ impl File {
         let Some(blob) = self.decrypt_blob(offset)? else {
             return Ok(None);
         };
-        let bytes = blob.as_slice();
+        let header = header_from_blob(&blob, offset)?;
         let header_size = std::mem::size_of::<DiskNodeHeader>();
-        if bytes.len() < header_size {
-            return Err(Error::EncryptionCorrupt {
-                artifact: crate::storage::vfile_crypto::ARTIFACT.to_string(),
-                detail: format!(
-                    "node record at offset {offset} decrypts to {} bytes, less than the \
-                     {header_size}-byte header",
-                    bytes.len()
-                ),
-            });
-        }
-        let header = DiskNodeHeader::read_from_bytes(&bytes[..header_size]).map_err(|e| {
-            Error::EncryptionCorrupt {
-                artifact: crate::storage::vfile_crypto::ARTIFACT.to_string(),
-                detail: format!("node record at offset {offset} has an invalid header: {e}"),
-            }
-        })?;
-        Ok(Some(NodeRecord {
-            header,
-            payload: bytes[header_size..].to_vec(),
-        }))
+        // The payload is materialised: the caller owns it (the tombstone
+        // write re-seals the node with it). This is **not** the read path of
+        // the search (`read_header` + `read_full_vector`).
+        let payload = blob.as_slice()[header_size..].to_vec();
+        count_copy(payload.len());
+        Ok(Some(NodeRecord { header, payload }))
     }
 
     /// Seal a node record into its AEAD envelope.
@@ -966,35 +1141,43 @@ impl File {
 
     /// Decrypt the node record at `offset`.
     ///
-    /// The result is cached (one entry, lock-free): the search path reads the
-    /// header and then the vector of the **same** node, and without the
-    /// cache every candidate would be decrypted twice.
+    /// The result is cached (a bounded LRU of decrypted nodes): the search
+    /// path reads the header and then the vector of the **same** node, and
+    /// the traversal visits the same nodes again on the next query — without
+    /// the cache every candidate would be decrypted twice.
+    ///
+    /// The AEAD runs **outside** the cache lock: the critical section is a
+    /// hash lookup, never the cipher.
     fn decrypt_blob(&self, offset: u64) -> Result<Option<Arc<AlignedBlob>>> {
-        let cached = self.decrypted.load();
-        let cached_ref: &Option<Arc<DecryptedNode>> = &cached;
-        if let Some(node) = cached_ref.as_ref() {
-            if node.offset == offset {
-                return Ok(Some(node.blob.clone()));
-            }
+        // Fast path: the node is already decrypted.
+        if let Some(blob) = self.decrypted.lock().get(offset) {
+            return Ok(Some(blob));
         }
         let Some(crypto) = self.crypto.as_ref() else {
             return Err(Error::EncryptionKeyRequired {
                 artifact: crate::storage::vfile_crypto::ARTIFACT.to_string(),
             });
         };
+        // The ciphertext is read **in place** out of the mapping: no copy.
         let record = self.read_record_bytes(offset)?;
-        let plaintext = crypto.open_node(offset, &record)?;
+        let plaintext = crypto.open_node(offset, record)?;
+        // The AEAD writes the plaintext into a fresh buffer: 1 copy.
+        count_copy(plaintext.len());
+        // The plaintext is copied into the 8-byte aligned buffer: 1 copy.
         let blob = Arc::new(AlignedBlob::from_bytes(&plaintext));
-        self.decrypted.store(Arc::new(Some(Arc::new(DecryptedNode {
-            offset,
-            blob: blob.clone(),
-        }))));
+        // The consumer keeps its own `Arc`: an eviction (or a write) of the
+        // entry never invalidates the buffer the consumer is looking at.
+        self.decrypted.lock().insert(offset, blob.clone());
         Ok(Some(blob))
     }
 
     /// The raw bytes of the encrypted record at `offset`:
     /// `[u32 blob_len][12B nonce][ct ‖ 16B tag]`.
-    fn read_record_bytes(&self, offset: u64) -> Result<Vec<u8>> {
+    ///
+    /// The bytes are **borrowed from the mapping**: the AEAD only reads them,
+    /// so there is no reason to copy the ciphertext out first (FIND-598,
+    /// Paso 0).
+    fn read_record_bytes(&self, offset: u64) -> Result<&[u8]> {
         use crate::storage::vfile_crypto::{RECORD_PREFIX_LEN, TAG_LEN};
         let bytes = self.mmap_bytes();
         let start = offset as usize;
@@ -1018,8 +1201,29 @@ impl File {
                 ),
             });
         }
-        Ok(bytes[start..start + RECORD_PREFIX_LEN + blob_len].to_vec())
+        Ok(&bytes[start..start + RECORD_PREFIX_LEN + blob_len])
     }
+}
+
+/// The `DiskNodeHeader` of a decrypted node blob.
+#[cfg(feature = "encryption")]
+fn header_from_blob(blob: &AlignedBlob, offset: u64) -> Result<DiskNodeHeader> {
+    let bytes = blob.as_slice();
+    let header_size = std::mem::size_of::<DiskNodeHeader>();
+    if bytes.len() < header_size {
+        return Err(Error::EncryptionCorrupt {
+            artifact: crate::storage::vfile_crypto::ARTIFACT.to_string(),
+            detail: format!(
+                "node record at offset {offset} decrypts to {} bytes, less than the \
+                 {header_size}-byte header",
+                bytes.len()
+            ),
+        });
+    }
+    DiskNodeHeader::read_from_bytes(&bytes[..header_size]).map_err(|e| Error::EncryptionCorrupt {
+        artifact: crate::storage::vfile_crypto::ARTIFACT.to_string(),
+        detail: format!("node record at offset {offset} has an invalid header: {e}"),
+    })
 }
 
 impl crate::index_port::sealed::Sealed for File {}
@@ -1058,10 +1262,23 @@ impl crate::index_port::VectorStoreRef for File {
             let payload = payload.get(ENCRYPTED_PAYLOAD_OFFSET as usize..)?;
             let len = header.vector_len as usize;
             let bytes = payload.get(..len.checked_mul(4)?)?;
-            let mut out = Vec::with_capacity(len);
-            for chunk in bytes.chunks_exact(4) {
-                out.push(f32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]));
+            // SAFETY: `align_to` is a transmute of the middle slice's
+            // elements. Every bit pattern is a valid `f32`. The base of the
+            // blob is 8-byte aligned (it lives in a `Vec<u64>`) and the
+            // payload starts at `ENCRYPTED_PAYLOAD_OFFSET` (64), a multiple
+            // of 4 ⇒ the slice is 4-byte aligned ⇒ the prefix and the suffix
+            // are empty. Same pattern as the plaintext path
+            // (`crate::index_port::full_vector_from_bytes`).
+            let (_, words, _) = unsafe { bytes.align_to::<f32>() };
+            if words.len() != len {
+                return None;
             }
+            // The words cannot be borrowed: the trait's lifetime is tied to
+            // `&self` and the cache may evict the blob. They are
+            // materialised — with a `memcpy`, not with the byte-by-byte loop
+            // this path used to run (FIND-598, Paso 0).
+            let out = words.to_vec();
+            count_copy(out.len() * 4);
             Some(std::borrow::Cow::Owned(out))
         }
         #[cfg(not(feature = "encryption"))]
@@ -1551,5 +1768,296 @@ mod tests {
         let mut out = vec![0u8; payload.len()];
         reader.read_exact(&mut out).unwrap();
         assert_eq!(&out, payload);
+    }
+}
+
+// ─── FIND-598 (Paso 0): the encrypted read path ─────────────────────────
+
+#[cfg(all(test, feature = "encryption"))]
+#[allow(missing_docs)]
+mod encryption_tests {
+    use super::*;
+    use crate::index::CPIndex;
+    use crate::index_port::VectorStoreRef;
+    use crate::node::{FilterBitset, NodeFlags, UnifiedNode, VectorRepresentations, ALL_BITSET};
+    use crate::storage::ops::write_node_to_vstore;
+    use crate::storage::vfile_crypto::VFileCrypto;
+
+    /// A node with a FULL vector.
+    fn node(id: u128, vector: Vec<f32>) -> UnifiedNode {
+        let mut node = UnifiedNode::new(id);
+        node.vector = VectorRepresentations::Full(vector);
+        node.flags.set(NodeFlags::HAS_VECTOR);
+        node
+    }
+
+    /// The vectors of the search tests.
+    ///
+    /// Their cosines with the query `[1, 0, 0]` are **distinct** (1.0,
+    /// ~0.994, 0.8, 0.0, -1.0), so the expected order of the results is
+    /// unambiguous — no tie to break.
+    fn vectors() -> Vec<Vec<f32>> {
+        vec![
+            vec![1.0, 0.0, 0.0],
+            vec![0.9, 0.1, 0.0],
+            vec![0.8, 0.6, 0.0],
+            vec![0.0, 1.0, 0.0],
+            vec![-1.0, 0.0, 0.0],
+        ]
+    }
+
+    /// A segment with the given vectors written to it, plus the index that
+    /// points at them.
+    ///
+    /// `encrypted` picks the format: a keyed segment is v3 (encrypted), a
+    /// plain one is v2 — the **same plaintext** in both cases.
+    fn segment(
+        dir: &std::path::Path,
+        name: &str,
+        vectors: &[Vec<f32>],
+        encrypted: bool,
+    ) -> (File, CPIndex, Vec<u64>) {
+        let crypto = if encrypted {
+            Some(Arc::new(
+                VFileCrypto::open(dir, &[0x11; 32]).expect("the encryption registry"),
+            ))
+        } else {
+            None
+        };
+        let path = dir.join(name);
+        let mut file =
+            File::open_with_crypto(path, 64 * 1024, false, crypto).expect("the segment opens");
+        let index = CPIndex::new();
+        let mut offsets = Vec::with_capacity(vectors.len());
+        for (i, vector) in vectors.iter().enumerate() {
+            let id = i as u128 + 1;
+            let offset = write_node_to_vstore(&mut file, &node(id, vector.clone())).expect("write");
+            index
+                .add(
+                    id,
+                    FilterBitset::new(),
+                    VectorRepresentations::Full(vector.clone()),
+                    offset,
+                )
+                .expect("non-zero norm");
+            offsets.push(offset);
+        }
+        (file, index, offsets)
+    }
+
+    /// The `f32` words of a decrypted node blob (the payload is at
+    /// `ENCRYPTED_PAYLOAD_OFFSET`).
+    fn words_of(blob: &AlignedBlob, len: usize) -> Vec<f32> {
+        let bytes = &blob.as_slice()[ENCRYPTED_PAYLOAD_OFFSET as usize..];
+        bytes[..len * 4]
+            .chunks_exact(4)
+            .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+            .collect()
+    }
+
+    /// The **pre-Paso 0** read path, replicated so the copies it did can be
+    /// **measured** with the same probe.
+    ///
+    /// It is the original code, verbatim (`read_record_bytes` copying the
+    /// ciphertext out of the mapping, the payload of `read_header` copied
+    /// to reach 64 bytes of header, and the `f32` words rebuilt byte by
+    /// byte). The Paso 0 removed two of the five copies; this helper is the
+    /// "before" of the measurement the test pins.
+    fn legacy_read(file: &File, offset: u64) -> Result<(DiskNodeHeader, Vec<f32>)> {
+        use crate::storage::vfile_crypto::RECORD_PREFIX_LEN;
+        // 1) the ciphertext is copied out of the mapping.
+        let bytes = file.mmap_bytes();
+        let start = offset as usize;
+        let blob_len = u32::from_le_bytes([
+            bytes[start],
+            bytes[start + 1],
+            bytes[start + 2],
+            bytes[start + 3],
+        ]) as usize;
+        let record = bytes[start..start + RECORD_PREFIX_LEN + blob_len].to_vec();
+        count_copy(record.len());
+        // 2) the AEAD writes the plaintext into a fresh buffer.
+        let crypto = file
+            .crypto
+            .as_ref()
+            .ok_or_else(|| Error::EncryptionKeyRequired {
+                artifact: crate::storage::vfile_crypto::ARTIFACT.to_string(),
+            })?;
+        let plaintext = crypto.open_node(offset, &record)?;
+        count_copy(plaintext.len());
+        // 3) the plaintext is copied into the aligned buffer.
+        let blob = AlignedBlob::from_bytes(&plaintext);
+        let header = header_from_blob(&blob, offset)?;
+        // 4) the payload is copied to reach the 64 bytes of header.
+        let header_size = std::mem::size_of::<DiskNodeHeader>();
+        let payload = blob.as_slice()[header_size..].to_vec();
+        count_copy(payload.len());
+        // 5) the `f32` words are rebuilt byte by byte.
+        let mut out = Vec::with_capacity(header.vector_len as usize);
+        for chunk in payload.chunks_exact(4) {
+            out.push(f32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]));
+        }
+        count_copy(out.len() * 4);
+        Ok((header, out))
+    }
+
+    /// FIND-598 (Paso 0): the fix must not change **what** a search returns.
+    ///
+    /// The encrypted segment returns the same ids, in the same order, with
+    /// the same scores as the plaintext one — and the same before and after
+    /// the cache is warm (the cache must not change the result either).
+    #[test]
+    fn encrypted_search_returns_the_same_ids_order_and_scores() {
+        let dir = tempfile::tempdir().unwrap();
+        let vectors = vectors();
+        let query = vec![1.0, 0.0, 0.0];
+
+        // The reference: the same content in a plaintext segment.
+        let (plain, plain_index, _) = segment(dir.path(), "plain.vanta", &vectors, false);
+        let expected = plain_index.search_nearest(&query, None, None, &ALL_BITSET, 3, Some(&plain));
+
+        // The same content, encrypted.
+        let (enc, enc_index, _) = segment(dir.path(), "enc.vanta", &vectors, true);
+        // Cold: every candidate is decrypted on the spot.
+        let cold = enc_index.search_nearest(&query, None, None, &ALL_BITSET, 3, Some(&enc));
+        // Warm: the same nodes come from the cache.
+        let warm = enc_index.search_nearest(&query, None, None, &ALL_BITSET, 3, Some(&enc));
+
+        assert_eq!(expected.len(), 3, "the search returns 3 neighbours");
+        // The ids, in the order: the exact match first, then the closest ones.
+        let ids: Vec<u128> = expected.iter().map(|(id, _)| *id).collect();
+        assert_eq!(ids, vec![1, 2, 3], "the same ids, in the same order");
+        // The scores: the exact match scores 1.0 and the rest decrease.
+        assert!(
+            (expected[0].1 - 1.0).abs() < 1e-6,
+            "the exact match scores 1.0"
+        );
+        assert!(
+            expected[0].1 > expected[1].1 && expected[1].1 > expected[2].1,
+            "the scores are ordered: {expected:?}"
+        );
+
+        // The encrypted path returns the same thing.
+        assert_eq!(cold.len(), expected.len());
+        for (plain_hit, enc_hit) in expected.iter().zip(cold.iter()) {
+            assert_eq!(plain_hit.0, enc_hit.0, "the same id");
+            assert!(
+                (plain_hit.1 - enc_hit.1).abs() < 1e-6,
+                "the same score: {} vs {}",
+                plain_hit.1,
+                enc_hit.1
+            );
+        }
+        // And the cache does not change it.
+        assert_eq!(cold, warm, "the cache must not change the result");
+    }
+
+    /// FIND-598 (Paso 0): the cache must never hand out a buffer that dies
+    /// while the consumer is looking at it.
+    ///
+    /// The consumer owns an `Arc` of the decrypted blob: when the cache
+    /// replaces the entry (a write invalidates it) the consumer's buffer is
+    /// still alive and unchanged — and the cache serves the **new**
+    /// plaintext, not the stale one.
+    #[test]
+    fn decrypt_cache_never_hands_out_a_dangling_buffer() {
+        let dir = tempfile::tempdir().unwrap();
+        let (mut file, _index, offsets) = segment(dir.path(), "enc.vanta", &vectors(), true);
+        let offset = offsets[0];
+
+        // The consumer takes the decrypted blob (its own `Arc`).
+        let held = file
+            .decrypt_blob(offset)
+            .expect("the node decrypts")
+            .expect("the node is there");
+        assert_eq!(words_of(&held, 3), vec![1.0, 0.0, 0.0]);
+
+        // The node is rewritten with a different vector of the **same
+        // length** (the record keeps its length: the offsets of the
+        // following nodes do not move).
+        let header = file.read_header(offset).expect("header");
+        let new_payload: Vec<u8> = [-1.0f32, 0.0, 0.0]
+            .iter()
+            .flat_map(|v| v.to_le_bytes())
+            .collect();
+        file.write_node(offset, &header, &new_payload)
+            .expect("the node is rewritten");
+
+        // The cache was invalidated: it serves the NEW plaintext.
+        let fresh = file
+            .decrypt_blob(offset)
+            .expect("the node decrypts")
+            .expect("the node is there");
+        assert_eq!(
+            words_of(&fresh, 3),
+            vec![-1.0, 0.0, 0.0],
+            "the cache must not serve the stale plaintext"
+        );
+
+        // The buffer the consumer was holding is still alive and unchanged.
+        assert_eq!(
+            words_of(&held, 3),
+            vec![1.0, 0.0, 0.0],
+            "the consumer's buffer must stay valid after the cache replaced the entry"
+        );
+    }
+
+    /// FIND-598 (Paso 0): the number of copies of the node payload in the
+    /// encrypted read path is **pinned**, before and after.
+    ///
+    /// It was **5** before the fix (the ciphertext out of the mapping, the
+    /// AEAD output, the aligned blob, the payload of `read_header` and the
+    /// `f32` words). It is **3** now: the ciphertext is read in place, the
+    /// header is parsed in place, and the `f32` words are a `memcpy`.
+    ///
+    /// Both numbers are **measured with the same probe**: the "before" is
+    /// the original code, replicated verbatim in `legacy_read`.
+    #[test]
+    fn encrypted_read_path_copies_are_pinned() {
+        let dir = tempfile::tempdir().unwrap();
+        let (file, _index, offsets) = segment(dir.path(), "enc.vanta", &vectors(), true);
+        let offset = offsets[0];
+        // 64 bytes of header + 12 bytes of payload.
+        const PLAINTEXT: u64 = 76;
+        const WORDS: u64 = 12;
+
+        // ── Before: the pre-Paso 0 path ──
+        copy_probe::reset();
+        let (legacy_header, legacy_vector) = legacy_read(&file, offset).expect("the legacy read");
+        assert_eq!(legacy_header.vector_len, 3);
+        assert_eq!(legacy_vector, vec![1.0, 0.0, 0.0]);
+        let (copies, bytes) = copy_probe::snapshot();
+        assert_eq!(
+            copies, 5,
+            "the pre-Paso 0 path copied the payload 5 times (ciphertext, AEAD output, \
+             aligned blob, read_header payload, f32 words)"
+        );
+        assert_eq!(bytes, (PLAINTEXT + 32) + PLAINTEXT * 2 + WORDS * 2);
+
+        // ── After: cold (the node is not cached) ──
+        file.decrypted.lock().clear();
+        copy_probe::reset();
+        let header = file.read_header(offset).expect("header");
+        let vector = file
+            .read_full_vector(offset, &header)
+            .expect("the vector is readable");
+        assert_eq!(vector.len(), 3);
+        let (copies, bytes) = copy_probe::snapshot();
+        assert_eq!(
+            copies, 3,
+            "the encrypted read path copies the payload 3 times (AEAD output, \
+             aligned blob, f32 words)"
+        );
+        assert_eq!(bytes, PLAINTEXT * 2 + WORDS);
+
+        // ── After: warm (the node comes from the cache) ──
+        copy_probe::reset();
+        let header = file.read_header(offset).expect("header");
+        let _ = file
+            .read_full_vector(offset, &header)
+            .expect("the vector is readable");
+        let (copies, bytes) = copy_probe::snapshot();
+        assert_eq!(copies, 1, "a cache hit copies only the `f32` words");
+        assert_eq!(bytes, WORDS);
     }
 }

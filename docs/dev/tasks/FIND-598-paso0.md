@@ -13,7 +13,10 @@ tags: [cifrado, rendimiento, vfile, mmap, zero-copy, decision-owner]
   (`docs/dev/reviews/2026-10-21-encryption-envelope-por-pagina.md`) + la decision del owner del
   2026-10-21 ("Paso 0 y re-medir").
 - **Rama:** `develop` · **Repo:** `C:\Users\Eros\VantaDB Proyect\VantaDB`
-- **Estado:** ⬜ PENDING
+- **Estado:** 🟡 **EN CURSO** — el Paso 0 está **implementado y verificado** (steps 1-4 y 6);
+  falta el **step 5 (la re-medición)**, que **no se puede lanzar en esta máquina** (el archivo
+  de paginación son 8 MB ⇒ dos compilaciones simultáneas fallan con `os error 1455`, y hay
+  otros agentes compilando ⇒ la medición sería ruido). El comando exacto queda anotado abajo.
 - **Decision del owner (2026-10-21):** **Paso 0 y re-medir** (el envelope por pagina, con su
   breaking change del trait publico `VectorStoreRef`, solo si el Paso 0 no cierra el gap).
 
@@ -79,9 +82,9 @@ son las que bloquean el fix:
 | Campo recitation (MCP) | ← fuente en este task file |
 |------------------------|----------------------------|
 | `activeGoal` | Encabezado `# FIND-598` |
-| `lastAction` | (se actualiza en cada step) |
-| `result` | ⬜ PENDING |
-| `nextAction` | Step 1 |
+| `lastAction` | Step 6 — el fix, los tests, la verificacion y la actualizacion de `FIND-598` en el backlog estan hechos; el **step 5 (la re-medicion) queda pendiente** |
+| `result` | 🟡 EN CURSO — el Paso 0 esta implementado: **5 → 3 copias** del payload por candidato (medido) y **1** con la cache caliente; el bench queda listo para la re-medicion |
+| `nextAction` | Step 5 — lanzar el `cargo bench -p vantadb --bench encrypted_p99` (variante cifrada) con la maquina en silencio (el comando exacto esta en "## La re-medicion pendiente") |
 | `contract` | `## Contrato` + `## Invariantes de dominio` |
 | `nextTask` | (siguiente del plan) |
 
@@ -132,35 +135,182 @@ no introduzir capas).
 
 | Eje | Contador |
 |-----|----------|
-| Incógnitas abiertas (uphill) | 2 (el reparto de copias y el tope de dimension) |
-| Pendientes de ejecución (downhill) | 6 |
-| % completado | 0% |
+| Incógnitas abiertas (uphill) | **0** — el reparto de copias está **medido** (5 → 3, y 1 con la cache caliente); el tope de dimension del vector sigue **sin** resolver (no lo necesita el Paso 0: no cambia el formato) |
+| Pendientes de ejecución (downhill) | **1** — la re-medicion (step 5) |
+| % completado | **83 %** (5 de 6 steps; el que falta es una medicion, no codigo) |
 
 ## Steps
 
-1. **Medir el reparto de copias** (no suponerlo): contar las copias del payload de un nodo en el
-   path cifrado (perfil o contador temporal) y **verificar** cuales sobran. Dejar el numero en el
-   informe.
-2. **Test primero**: un test que fije que el resultado de una busqueda (ids, orden y scores) **no
-   cambia** con el fix, y otro que fije que la cache **no** devuelve un buffer caducado (que el
-   consumidor pueda usar el vector despues de que la cache lo haya reemplazado).
-3. **Fix**: (a) `read_header` cifrado que **no** copie el payload entero (leer solo la cabecera del
-   blob descifrado, o cachear la cabecera por pagina); (b) `read_full_vector` con `align_to::<f32>()`
-   en vez del bucle `chunks_exact(4)`; (c) cache de nodos descifrados con cap derivado del
-   `memory_limit`, invalidada por escritura, y con el `Arc` poseido por el consumidor.
-4. **Verificar**: fmt, clippy `-D warnings`, la suite del lib completa, los tests nuevos, y el
-   golden `tests/api/public-api.txt` **sin regenerar** (la API publica no cambia).
-5. **Re-medir**: `cargo bench -p vantadb --bench encrypted_p99` (variante cifrada) con la maquina en
-   silencio y la escala mas alta que quepa ⇒ comparar el delta con la medicion de W7 y **publicar
-   el numero** en `docs/user/operations/BENCHMARKS.md` §22 y en la nota de W7, con comando,
-   entorno y fecha.
-6. **Actualizar `FIND-598`** con el resultado y **anadir la entrada de avance**.
+1. ✅ **Medir el reparto de copias** (no suponerlo): contando las copias del payload de un nodo
+   en el path cifrado y **verificando** cuales sobran. El numero esta en
+   "## Resultado del Paso 0 (2026-10-21)" y lo **fija un test**
+   (`encrypted_read_path_copies_are_pinned`): **5 → 3** (y **1** con la cache caliente).
+2. ✅ **Test primero**: `encrypted_search_returns_the_same_ids_order_and_scores` (los ids, el
+   orden y los scores **no cambian**: el cifrado devuelve lo mismo que el claro, y la cache
+   tampoco cambia el resultado) y `decrypt_cache_never_hands_out_a_dangling_buffer` (el `Arc`
+   del consumidor sobrevive a que la cache reemplace la entrada, y la cache sirve el plaintext
+   **nuevo**, no el viejo).
+3. ✅ **Fix**: (a) `read_header` cifrado que **no** copia el payload (parsea la cabecera del blob
+   descifrado, `header_from_blob`); (b) `read_full_vector` con `align_to::<f32>()` en vez del
+   bucle `chunks_exact(4)`; (c) cache de nodos descifrados con **cap derivado del
+   `memory_limit`**, invalidada por escritura, y con el `Arc` poseido por el consumidor. De
+   paso: el ciphertext se **presta** del mapping (ya no se copia a un `Vec`).
+4. ✅ **Verificar**: `cargo fmt --check` verde, `cargo clippy --all-targets -- -D warnings`
+   verde (con y sin la feature `encryption`), `cargo nextest run -p vantadb --profile audit
+   --lib` verde (2533 tests sin la feature, 2645 con ella) y el golden
+   `tests/api/public-api.txt` **sin regenerar** (la API publica no cambia: todo lo nuevo es
+   `pub(crate)`).
+5. ⏳ **Re-medir**: `cargo bench -p vantadb --bench encrypted_p99` (variante cifrada) con la
+   maquina en silencio ⇒ comparar el delta con la medicion de W7 y **publicar el numero** en
+   `docs/user/operations/BENCHMARKS.md` §22 y en la nota de W7, con comando, entorno y fecha.
+   **Pendiente**: no se puede lanzar en esta maquina (ver "## La re-medicion pendiente").
+6. ✅ **Actualizar `FIND-598`** con el resultado y **añadir la entrada de avance**.
+
+## Resultado del Paso 0 (2026-10-21)
+
+### Las copias del payload: **medidas**, no supuestas
+
+Un **probe** (contadores *thread-local*, solo en el build de test:
+`src/storage/vfile.rs::copy_probe`) cuenta las copias que hace el path de lectura cifrado, y
+un test las **fija** (`encrypted_read_path_copies_are_pinned`):
+
+| Path | Copias del payload | Bytes copiados (nodo de 3 dims) |
+|---|---:|---:|
+| **Antes** (el codigo pre-Paso 0, replicado verbatim en el test) | **5** | 284 |
+| **Despues**, cache **fria** (1 AEAD) | **3** | 164 |
+| **Despues**, cache **caliente** (0 AEAD) | **1** | 12 |
+
+Las 5 de antes eran (con su `archivo:linea` en el codigo de HEAD):
+
+| # | Copia | Sitio (pre-Paso 0) | Por que sobra / por que se queda |
+|---|---|---|---|
+| 1 | el **ciphertext** del mapping a un `Vec` | `read_record_bytes` (`vfile.rs:997-1022`) | **ELIMINADA**: el AEAD solo lo lee ⇒ se **presta** del mapping (`read_record_bytes` devuelve `&[u8]`) |
+| 2 | el **plaintext** que escribe el AEAD | `open_node` (`vfile_crypto.rs:198-227`) | **se queda**: es la salida del AEAD. Eliminarla exija un `decrypt_into` en `src/crypto.rs` (ver mas abajo) |
+| 3 | el plaintext al **buffer alineado** | `AlignedBlob::from_bytes` (`vfile.rs:144-152`) | **se queda**: el buffer alineado a 8 B es el invariante de `align_to` (payloads `u64` BINARY) |
+| 4 | el **payload** entero para sacar 64 B de cabecera | `read_node_encrypted` (`vfile.rs:938`) | **ELIMINADA**: `read_header` cifrado parsea la cabecera **en sitio** (`header_from_blob`) |
+| 5 | los **words `f32`**, byte a byte | `read_full_vector` (`vfile.rs:1061-1065`) | **se queda, pero como `memcpy`**: `align_to::<f32>()` + `to_vec()` (el bucle `chunks_exact(4)` eran 1536 iteraciones por candidato) |
+
+**El contrato pedia 5 → 2; el resultado medido es 5 → 3.** La copia que sobra (la **2**, la
+salida del AEAD) solo se puede quitar con un `decrypt_into` en `src/crypto.rs` (el
+`AeadInPlace::decrypt_in_place_detached` de `aes-gcm` escribiria el plaintext **en el buffer
+alineado**, fusionando las copias 2 y 3 ⇒ 2 copias). **No se ha hecho aqui**: `src/crypto.rs`
+lo tocan FIND-585/590/587 en este mismo ciclo, y el cambio es una API nueva de `Cipher`
+(`pub(crate)`, la superficie publica no cambia) que merece su propio PR. **Medido, no
+supuesto** ⇒ lo que queda es **1 AEAD + 3 copias** por candidato en cache fria y **0 AEAD +
+1 copia** en cache caliente.
+
+### Lo que cambio (3 ficheros)
+
+| Fichero | Cambio | Por que |
+|---|---|---|
+| `src/storage/vfile.rs` | (a) `read_header` cifrado sin copiar el payload · (b) `read_full_vector` con `align_to::<f32>()` · (c) `read_record_bytes` **presta** el ciphertext · (d) cache de nodos descifrados **acotada** (LRU por bytes) en vez de la de **una** entrada | el **1 AEAD por candidato** del envelope por nodo + las 2 copias sobrantes |
+| `src/storage/engine/init.rs` | **1 linea**: `set_decrypt_cache_memory_limit(effective_memory)` | el cap de la cache se deriva del `memory_limit` (regla 4 de `memory-budget.md`) |
+| `benches/encrypted_p99.rs` | escala por defecto **25 000** (el regimen HNSW, el que descifra) + el criterio de **"cabe en RAM"** (`ram_bound`) | que la re-medicion sea publicable o no lo sea |
+
+### La cache (el invariante (d))
+
+* **Cap real, derivado del `memory_limit`**: `clamp(memory_limit_efectivo / 16, 16 MiB, 256 MiB)`
+  **por segmento** (el motor abre hasta 4: L0..L3 ⇒ el peor caso es 4 × el cap). El limite
+  efectivo es `config.memory_limit` o la RAM total, el mismo que usa el resto del motor
+  (`init.rs:33`).
+* **Invalidacion por escritura**: `write_node` invalida **su** entrada (`invalidate(offset)`);
+  `replace_backing_file` (la compaction) invalida **todas** (`clear()`). `grow_to`/`remap_mut`
+  **no** invalidan: el contenido de los registros sellados no cambia.
+* **El `Arc` lo posee el consumidor**: la cache guarda `Arc<AlignedBlob>` y el consumidor
+  clona el `Arc` ⇒ cuando la cache expulsa (o reemplaza) la entrada, **el buffer que el
+  consumidor esta mirando sigue vivo**. Sin referencias colgantes. Lo fija
+  `decrypt_cache_never_hands_out_a_dangling_buffer`.
+* **El AEAD corre FUERA del lock**: la seccion critica es una busqueda en el LRU, jamas el
+  cifrado ⇒ el lock no se puede contentionar (§3.4 del diseno).
+
+### Los tests nuevos (3, en `src/storage/vfile.rs`)
+
+| Test | Qué fija |
+|---|---|
+| `encrypted_read_path_copies_are_pinned` | el **numero de copias** (5 → 3 → 1) con el probe: la regresion queda fijada, no la opinion |
+| `encrypted_search_returns_the_same_ids_order_and_scores` | el resultado de la busqueda **no cambia**: los mismos ids (1, 2, 3), en el mismo orden, con los mismos scores que el segmento **en claro**; y la cache caliente tampoco lo cambia |
+| `decrypt_cache_never_hands_out_a_dangling_buffer` | la cache **no** devuelve un buffer caducado: el `Arc` del consumidor sobrevive a que la cache reemplace la entrada, y la cache sirve el plaintext **nuevo** |
+
+### La re-medicion pendiente (step 5) — el comando exacto
+
+> **NO se lanzo en esta maquina**: el archivo de paginacion son 8 MB ⇒ dos compilaciones
+> simultaneas fallan con `os error 1455`, y hay otros agentes compilando ⇒ el p99 seria ruido.
+> Cuando la maquina este **en silencio**:
+
+```powershell
+$env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"
+
+# Las dos variantes del motor con clave (mismo binario fuente, feature distinta):
+cargo build -p vantadb --profile bench --bench encrypted_p99 -j 2
+cargo build -p vantadb --profile bench --bench encrypted_p99 --features encryption -j 2
+
+# Medicion: 3 corridas por variante, intercaladas (P1, E1, P2, E2, P3, E3).
+$env:ENCRYPTED_P99_SCALE = "25000"    # el regimen HNSW: el que descifra de verdad
+$env:ENCRYPTED_P99_RUNS  = "1"         # una corrida por invocacion; 3 invocaciones por variante
+$env:ENCRYPTED_P99_OUT   = "target/find-598-paso0-<variante>.txt"
+target\release\deps\encrypted_p99-<hash>.exe     # sin cifrar
+target\release\deps\encrypted_p99-<hash>.exe     # con cifrar (--features encryption)
+```
+
+* El **criterio de "cabe en RAM"** ya esta en el bench: la linea `MEDIAN` imprime
+  `ram_bound=ok|EXCEEDED` y **la variante clara falla** si su p50 supera los 8 ms
+  (`ENCRYPTED_P99_MAX_P50_MS`, el canonico es 2.2388 ms) ⇒ una corrida con el working set
+  fuera de RAM **no publica numero** (mide el disco, no el cifrado).
+* El numero a comparar es el de la tabla de **25 000 × 1536d** de
+  `docs/user/operations/BENCHMARKS.md` §22.3.5.1: p50 11.8805 → 58.0212 ms (+388,4 %),
+  **p99 32.5670 → 121.8929 ms (+274,3 %)**.
+* Al publicar: el numero, el comando, el entorno y la fecha (Regla 11), en §22 y en la nota de
+  W7.
+
+### La lectura: ¿basta el Paso 0 o hace falta el envelope por pagina?
+
+**El Paso 0 quita trabajo real, pero el envelope por nodo sigue siendo el techo.** El
+razonamiento, con los numeros:
+
+1. El envelope del VantaFile es **por nodo** ⇒ **1 AEAD por candidato visitado** es
+   **estructural**: el Paso 0 no lo puede quitar (solo lo amortiza con la cache, y la cache
+   acierta por **revisita**, no por proximidad ⇒ su hit rate depende de la distribucion de las
+   queries, no de la granularidad del envelope).
+2. Lo que el Paso 0 quita son **2 de las 5 copias** y el **bucle de 1536 iteraciones** por
+   candidato ⇒ el **coste por candidato** baja, pero el **numero de candidatos** no.
+3. El **zero-copy sigue perdido**: `read_full_vector` devuelve `Cow::Owned` porque el
+   `Cow<'_, [f32]>` del trait publico `VectorStoreRef` (`src/index_port.rs:86`) esta atado a
+   `&self` ⇒ **devolver una vista prestada de una cache exige cambiar el trait** (el
+   envelope por pagina lo hace ⇒ breaking change de API). El Paso 0 **no** toca el trait
+   (por eso el golden de la API publica sigue valido).
+4. ⇒ **La conclusion honesta:** el Paso 0 es **la mitad barata** y hay que **medir** si
+   cierra el gap; si el p99 sigue por encima del 15 %, el **envelope por pagina hace falta**
+   (es lo que amortiza el AEAD sobre ~10 nodos y devuelve el zero-copy). El owner ya lo sabe;
+   esta task no lo decide: lo decide el numero del step 5.
 
 ## Review (P2-01)
 
 - **Reviewer:** (pendiente — agente DISTINTO del implementador)
 - **Veredicto:** (pendiente)
 - **Fecha:** (pendiente)
+- **Que hay que revisar (la checklist del reviewer, no un auto-veredicto):**
+  1. **El numero de copias**: ¿el probe cuenta lo que dice contar? (5 antes / 3 despues / 1 con
+     la cache caliente). El "antes" es el codigo pre-Paso 0 replicado en el test
+     (`legacy_read`): si el reviewer lo considera una reimplementacion no fiel, el "antes" hay
+     que medirlo sobre el codigo de HEAD (instrumentado) en vez de sobre la replica.
+  2. **La cache**: el cap (`clamp(memory_limit/16, 16 MiB, 256 MiB)` por segmento ⇒ hasta 4 ×
+     el cap con los 4 segmentos L0..L3), la invalidacion (por escritura y por
+     `replace_backing_file`), y que el `Arc` del consumidor no pueda caducar.
+  3. **La concurrencia** (Regla 8): el PR toca `parking_lot` ⇒ **auditoria de deadlocks y data
+     races obligatoria** antes de cerrar (`vanta-chaos` + `vanta-review`). El lock del LRU es una
+     **hoja** (no se llama a nadie con el lock tomado) y el AEAD corre **fuera** del lock.
+  4. **La seguridad**: la cache mantiene **plaintext en RAM** (hasta 256 MiB por segmento). El
+     limite ya declarado en `SECURITY.md:33` ("the master key lives in the process memory")
+     cubre el caso; el reviewer debe decidir si hace falta una viñeta mas para el plaintext
+     descifrado cacheado (el diseno del envelope por pagina ya la exige, §3.6 del diseno).
+  5. **El `cargo fmt` paso por los ficheros de otros agentes** (`src/tui/*`, `src/agentic/*`):
+     es solo reformateo, pero el orchestrator debe revisarlo al commitear.
+  6. **El golden de la API publica** ya estaba **rojo en HEAD** (la wave de cifrado anadio
+     superficie publica sin regenerarlo: `cli::Commands::Encryption`, `Config::encryption_key_*`,
+     `VFILE_ENCRYPTED_VERSION`, `WalKey`, `read_full_vector`...). El cambio de esta task anade
+     **0** lineas a la superficie publica (todo lo nuevo es `pub(crate)`) ⇒ el golden **no** lo
+     regenera esta task, pero **alguien lo tiene que regenerar** (hallazgo aparte, no de esta
+     task).
 
 ## Notas
 
@@ -169,3 +319,20 @@ no introduzir capas).
   ficheros.
 - Si al final hay que tocar el trait publico `VectorStoreRef` (o el `.d.ts` de los bindings), eso
   **ya no es el Paso 0**: es el envelope por pagina ⇒ para, documenta y escala la decision al owner.
+- **Lo que esta task NO tocó** (y por que):
+  - `src/index_port.rs` — **no hizo falta tocarlo**: el Paso 0 no cambia el trait
+    (`read_full_vector` sigue devolviendo `Option<Cow<'_, [f32]>>`). El **zero-copy** del camino
+    cifrado sigue perdido, y recuperarlo **exige** el cambio del trait ⇒ es envelope por pagina.
+  - `src/index/search/layer.rs` — **no hizo falta tocarlo**: los dos call sites
+    (`layer.rs:84` y `:257`) ya pasan por `read_full_vector` y no cambian de semantica.
+  - `src/crypto.rs` — el `decrypt_into` (la 3.ª copia) **no** se ha hecho: lo tocan
+    FIND-585/590/587 en este mismo ciclo, y es una API nueva de `Cipher` que merece su propio PR.
+  - `src/storage/vfile_crypto.rs` — ni el envelope ni el AAD se tocan (eso es FIND-586 y el
+    envelope por pagina).
+- **NOTICED BUT NOT TOUCHING:** el `cargo fmt -p vantadb` reformateo tambien los ficheros de
+  otros agentes en el arbol (`src/tui/*`, `src/agentic/*`): es **solo reformateo**, pero el
+  orchestrator debe revisarlo al commitear.
+- **NOTICED BUT NOT TOUCHING:** el golden `tests/api/public-api.txt` **ya estaba desfasado en
+  HEAD** (la wave de cifrado anadio superficie publica sin regenerarlo). Regenerarlo aqui
+  mezclaria el API de otros agentes en el diff de esta task ⇒ **no** se regenero; queda
+  apuntado en la checklist del reviewer.
