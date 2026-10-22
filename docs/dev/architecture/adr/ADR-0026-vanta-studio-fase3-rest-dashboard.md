@@ -9,7 +9,7 @@ tags: [vantadb, architecture, rest, http, dashboard, web, embedded]
 # ADR-0026: Vanta Studio Fase 3 — REST completo del SDK + dashboard embebido
 
 > Decisión documentada al cerrar la Fase 3 de Vanta Studio (plan
-> `docs/dev/plans/2026-08-18-vanta-studio-fase3.md`, campaña `9d4f2b8e-7c1a-4e6f-9d3b-5a8c2f7e1d60`).
+> `2026-08-18-vanta-studio-fase3`, campaña `9d4f2b8e-7c1a-4e6f-9d3b-5a8c2f7e1d60`).
 > Decisiones del usuario 2026-08-19: **D11** (REST completo) y **D12** (local-first
 > sin auth en loopback).
 
@@ -60,7 +60,7 @@ tags: [vantadb, architecture, rest, http, dashboard, web, embedded]
 
 ## Referencias
 
-- Plan: `docs/dev/plans/2026-08-18-vanta-studio-fase3.md` (7 tareas WEB-00..06, 4 waves).
+- Plan: `2026-08-18-vanta-studio-fase3` (7 tareas WEB-00..06, 4 waves).
 - Commits: `0cccd326` (WEB-00), `c81bc23a` (WEB-01), `c856b3bd` (WEB-02),
   `62d63377` (WEB-03), `8b2bc14f` (WEB-04), `42d2b26a` (WEB-05), `583dad9a` (WEB-06).
 - Task files: `.opencode/skills/campaign-executor/tasks/WEB-00..06.md`.

@@ -9,7 +9,7 @@ tags: [vantadb, architecture]
 # VantaDB Module Boundaries
 
 > **Status:** Accepted · **Date:** 2026-09-13 · **Task:** C2A1
-> (`docs/dev/plans/2026-09-13-cleanCA-fase2.md`, Wave 0, Task A1)
+> (`2026-09-13-cleanCA-fase2`, Wave 0, Task A1)
 > **Inputs:** M1 baseline (`docs/dev/tasks/C2M1.md`) · Config decision data
 > (`docs/dev/tasks/C2D0.md`) · Full architecture: `ARCHITECTURE.md`
 >
@@ -274,7 +274,7 @@ never big-bang; stable code is not touched.
 
 ## 7. References
 
-- Plan: `docs/dev/plans/2026-09-13-cleanCA-fase2.md` (Wave 0 · A1 · §Fase 3)
+- Plan: `2026-09-13-cleanCA-fase2` (Wave 0 · A1 · §Fase 3)
 - Metrics: `docs/dev/tasks/C2M1.md` (+ `docs/dev/reviews/dsm-baseline.json`,
   `coupling-baseline.json`, `acyclic-baseline.txt`)
 - Config decision data: `docs/dev/tasks/C2D0.md` (human decision pending)

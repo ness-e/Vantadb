@@ -108,7 +108,7 @@ Ver plan.md § Reglas del gate + Paso 0 Verificación de Realidad (codegraph_exp
 - **Esfuerzo:** 🟢 1h
 - **Prioridad:** 🟡 Media
 - **Archivos clave:** `dev-tools/verify.ps1:67-79`, `docs/dev/operations/CI_POLICY.md` (taxonomía RESOURCE-GUARD)
-- **Verificación real:** **YA COMPLETADO en campaña anterior** `2026-08-25-batch-core-fixes-research.md` (Task 6). `CI_POLICY.md` ya tiene sección "Fast Gate Test Exclusions" (líneas ~76-100) con las 3 exclusiones RESOURCE-GUARD documentadas + referencia a 55 exclusiones estructurales de nextest.toml. Task file `.opencode/skills/campaign-executor/tasks/FIND-22.md` existe con estado ✅ COMPLETED (ver Context Save Point: `last_reviewed` → 2026-08-25, `validate-docs-coverage.ps1` → 0 gaps). Backlog triage actual marcó incorrectamente como pendiente.
+- **Verificación real:** **YA COMPLETADO en campaña anterior** `2026-08-25-batch-core-fixes-research` (Task 6). `CI_POLICY.md` ya tiene sección "Fast Gate Test Exclusions" (líneas ~76-100) con las 3 exclusiones RESOURCE-GUARD documentadas + referencia a 55 exclusiones estructurales de nextest.toml. Task file `.opencode/skills/campaign-executor/tasks/FIND-22.md` existe con estado ✅ COMPLETED (ver Context Save Point: `last_reviewed` → 2026-08-25, `validate-docs-coverage.ps1` → 0 gaps). Backlog triage actual marcó incorrectamente como pendiente.
 - **Gate Justificación:** Ya resuelto — mover a SKIP para no duplicar trabajo.
 - **Gate Result:** ❌ SKIP
 - **Contrato:** `Select-String -Path "docs/dev/operations/CI_POLICY.md" -Pattern "Fast Gate Test Exclusions" | Measure-Object | Select-Object Count` >= 1

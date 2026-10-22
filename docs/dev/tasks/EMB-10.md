@@ -6,7 +6,7 @@ description: "Objetivo: producir un binario vanta-cli con el motor ONNX adentro 
 
 # EMB-10 — build con embed-local (+remote-inference) + runtime-switchable + cat test
 
-> **Plan:** `docs/dev/plans/2026-09-16-embeddings-auto.md` (Wave0, Gate raíz)
+> **Plan:** `2026-09-16-embeddings-auto` (Wave0, Gate raíz)
 > **Estado:** ⏳ IN PROGRESS
 > **Appetite:** 1d · 🟡 · 🔴 Alta
 > **Branch/Commit:** develop / `feat: EMB-10`

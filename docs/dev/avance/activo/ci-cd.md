@@ -197,7 +197,7 @@ tags: [vantadb, avance, ci, cd, release, github-actions]
 
 ### STABLE-00: Checklist y ADR de promoción a default-members (gate 100% estable)
 - **Fecha:** 2026-08-27
-- **Plan:** `docs/dev/plans/2026-08-27-backlog-pipeline.md` Task 7 · P47 · `vanta-docs`
+- **Plan:** `2026-08-27-backlog-pipeline` Task 7 · P47 · `vanta-docs`
 - **Objetivo:** Sin ADR de criterios no hay definición de "100% estable" → promoción ad-hoc sin trace; `Cargo.toml:636` deja `server/mcp/wasm/memory/proxy` fuera del Fast Gate.
 - **Resultado:** ✅ `docs/dev/architecture/adr/ADR-0031-default-members-promotion.md` (nuevo, 205L) `status: proposed`: Context (Cargo:636), §1 tabla 10 checks (check/fmt/clippy, nextest/vitest, deny, docs-coverage, workflow timeout/continue-on-error, cargo package, wasm-pack/wasm32, napi 7-target, verify <5min, ADR reversible) en 3 corridas limpias, §2 cost table per crate (vantadb ~22s / python 12s / vanta-memory 36s / vanta-proxy 32s / server 21s / mcp 6.7s / wasm 3.6s / ts ~26s / node 8s), §3 Reversibilidad 1 línea `git revert Cargo.toml:636`, §4 Question to Owner A (<5 hard) vs B (<5 soft → ~8min) pending `Owner:___ Date:___ Choice:[ ]A [ ]B` (bloquea STABLE-09). `docs/dev/operations/CI_POLICY.md` §Promotion to default-members añadida (4 hits ADR-0031, 6 hits default-members, 10 checks). Verify: fmt ✅ + clippy ✅ + docs-coverage 0 gaps. Commit `fa5f04f0`.
 - **Gates:** D: no-disparado (docs-only) · V: no-disparado · C: no-disparado

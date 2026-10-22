@@ -6,7 +6,7 @@ description: "Archivos leídos completos: App.css (60L), index.css (794L), Works
 
 # DAUD-LIMPI — Grupo limpieza desktop post-fix (DAUD-03..08)
 
-> **Plan:** `docs/dev/plans/2026-08-25-batch-desktop-ux-core.md` (Task 3, Wave 2)
+> **Plan:** `2026-08-25-batch-desktop-ux-core` (Task 3, Wave 2)
 > **Estado:** ⏳ IN PROGRESS
 > **Esfuerzo:** 🟢 · **Contrato:** `cd desktop && npm run build` exit 0 + `npx vitest run` pasa + grep utilidades muertas = 0 usos confirmado; stash@{0} dropeado (verify diff vs worktree = 0)
 

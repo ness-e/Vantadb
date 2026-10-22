@@ -25,7 +25,7 @@ tags: [vantadb, avance, core, engine, storage, wal, hnsw, acid]
 ### MEM-01..21 (+08a/08b, 34, 35): Campaña P27 completa — F1-F4
 - **Fecha:** 2026-08-18 → 2026-08-20
 - **Objetivo:** Port de TDAM a VantaDB — search profile por request (IQL `PROFILE`), entidades entity_* + RBAC allow-only, auth 3 capas + audit JSONL, skills multi-versión + tools MCP, y crate nuevo `vanta-memory/` (L0 capture → L1 extract/dedup → L2 escenas → L3 persona → recall 3 modos → offload → gateway), LLM-driven vía trait host-neutral `LlmRunner` con degradación LLM-free (Principio 4).
-- **Resultado:** ✅ 24/24 tareas. Suite final 361/361 tests en vanta-memory; fmt/clippy `-D warnings` limpios. Registro completo: `docs/progreso/campanas/p27-memory-engine.md` (split GOV-D2). Plan: `docs/dev/plans/archive/2026-08-18-vanta-memory.md`.
+- **Resultado:** ✅ 24/24 tareas. Suite final 361/361 tests en vanta-memory; fmt/clippy `-D warnings` limpios. Registro completo: `docs/progreso/campanas/p27-memory-engine.md` (split GOV-D2). Plan: `2026-08-18-vanta-memory`.
 - **Ids:** `MEM-01`..`MEM-21`, `MEM-34`, `MEM-35`
 
 ---
@@ -319,17 +319,17 @@ s_len‖ns‖key_len‖key‖ver BE) + hooks put/put_batch/delete/purge_expired 
 
 ### REVIEW-09: Latch `saturated` monotónico en cache_warmer — warming vuelve a aprender tras decay
 - **Fecha:** 2026-08-23
-- **Fuente:** Plan `docs/dev/plans/2026-08-23-backlog-triage.md` (Wave 1) · Backlog · review-full-20260822 H09-CODE-001
+- **Fuente:** Plan `2026-08-23-backlog-triage` (Wave 1) · Backlog · review-full-20260822 H09-CODE-001
 - **Resultado:** ✅ `record_co_access` seteaba `saturated=true` al cruzar `max_pairs` pero `decay()` reducía la tabla sin resetearlo → en servers long-running el warmer quedaba en refresh-only para siempre. Fix: `decay()` levanta el latch cuando el post-decay total < `max_pairs` (≤1 transición por cruce; sin thrashing verificado con decays que mantienen post-total ≥ cap). TDD: RED reprodujo el bug, 2 tests nuevos (ciclo completo + no-thrash), módulo 11/11. Verify full: fmt ✅ · clippy `-D warnings` ✅ · nextest audit workspace 2714/2714 ✅. Review P2-01 (vanta-review) aprobó tras corregir doc deshonesta del campo `saturated`. Commit `8b8924b3`. (ver `.opencode/skills/campaign-executor/tasks/REVIEW-09.md`)
 
 ### REVIEW-14: Keys cortas en version_history devuelven error de corrupción sin panic — unwraps frágiles eliminados
 - **Fecha:** 2026-08-23
-- **Fuente:** Plan `docs/dev/plans/2026-08-23-backlog-triage.md` (Wave 2) · Backlog · review-full-20260822 H09-CODE-005
+- **Fuente:** Plan `2026-08-23-backlog-triage` (Wave 2) · Backlog · review-full-20260822 H09-CODE-005
 - **Resultado:** ✅ DISCOVERY reclasificó el hallazgo: el slice frágil de `version_history.rs:283` era test-only (ningún path de producción parsee keys del partition Versions) y `VantaError::Corrupt` no existe (clase corrupción del codebase = `BackendError`; añadir variante rompería matches exhaustivos de bindings P2-6). Fix real: helper `version_from_key()` (`Result<u64>`, `BackendError` si key <8B — key corta solo puede venir del store, nunca de input de usuario) + validación en `versions()` como defensa ante store corrupto + test nuevo (len 0..7 → error tipado, boundary 8B OK). explain.rs: 3 unwraps estructurales eliminados bindeando `Some(query_sparse)` en los patterns (Keyword nullifica la Option, no solo un bool — semántica idéntica arm-por-arm). Siblings con mismo patrón (mod.rs/debug_ops.rs) derivados a FIND-27. Verify full: fmt ✅ · clippy `-p vantadb -D warnings` ✅ · nextest `-p vantadb` 2051/2051 ✅. Commit `4044a588`. (ver `.opencode/skills/campaign-executor/tasks/REVIEW-14.md`)
 
 ### MOD-01: WAL escrito ANTES de validar — insert/update rechazado resucita datos tras restart
 - **Fecha:** 2026-08-23
-- **Fuente:** Plan `docs/dev/plans/2026-08-23-backlog-triage.md` (Wave 1) · Backlog · core.md H-1 · cross-modulos F-1 (expuesto vía WASM)
+- **Fuente:** Plan `2026-08-23-backlog-triage` (Wave 1) · Backlog · core.md H-1 · cross-modulos F-1 (expuesto vía WASM)
 - **Resultado:** ✅ Los 3 mutadores de `InMemoryEngine` escribían al WAL antes de validar: una op rechazada quedaba loggeada y el replay (`with_wal`) la aplicaba incondicionalmente como upsert — duplicado rechazado pisaba el payload original y update sobre nodo eliminado lo recreaba tras reopen. Fix: orden validate→WAL→apply bajo UNA sección crítica `nodes.write()` en insert/update/delete (double-checked descartado: deja ventana TOCTOU no retractable en append-only). Discovery mapeó TODOS los write paths: StorageEngine/batch/bulk/txn no violan el invariante (upsert por diseño, guards previos al WAL, buffer solo commitea validado) — H-1 vivía solo en el motor legacy. TDD: RED reprodujo ambas resurrecciones mecánicamente, 4 tests de durabilidad nuevos (reject×2 + flujo legítimo×2 con reopen), GREEN 4/4. Verify full: fmt ✅ · clippy workspace `-D warnings` ✅ · nextest `-p vantadb` 2049/2049 ✅ · audit workspace 2718/2718 ✅ · docs coverage 0 gaps ✅. Commit `18fd2c80`. (ver `.opencode/skills/campaign-executor/tasks/MOD-01.md`)
 
 ### FIND-27: Provider Ollama postea a endpoint legacy /api/embeddings - fix a /api/embed (2026-08-24)
@@ -349,19 +349,19 @@ s_len‖ns‖key_len‖key‖ver BE) + hooks put/put_batch/delete/purge_expired 
 
 ### FIND-25: create_snapshot con quiesce (flush ERR-010) + recorrido recursivo de data_dir (2026-08-25)
 - **Fecha:** 2026-08-25
-- **Plan:** `docs/dev/plans/2026-08-25-batch-backup-restore-chain.md` (Task 1/3, cadena secuencial)
+- **Plan:** `2026-08-25-batch-backup-restore-chain` (Task 1/3, cadena secuencial)
 - **Resultado:** OK - (1) Quiesce: create_snapshot llama self.flush() antes del imageado en ambas variantes cfg (guard read_only; mismo patron que rebuild_vector_index/compact_layout_bfs: flush ANTES de tomar insert_lock, lock no reentrante) -> el conjunto imageado es mutuamente consistente en un punto unico en el tiempo. (2) Recorrido recursivo: helper mirror_data_dir() excluye el subdir snapshots/ (dentro de data_dir, evita snapshots/snapshots/) y mirror_file() unifica hard_link (unix) / copy (windows-wasm). (3) Layout real documentado: data_dir solo tiene archivos top-level (vstore_L0..L3.vanta, vector_index.bin, vanta.wal); el backend KV vive FUERA (escalado como FIND-33). Trade-off performance documentado en docstring (flush agrega costo, correctness>speed). Test de regresion test_snapshot_consistent_under_concurrent_writes (4 writers concurrentes + reopen + asserts anti-torn). Nota RED honesta: pre-fix pasaba en Windows via replay total del WAL (checkpoint_seq no se copia al snapshot) - el tear real era conjunto-inconsistente index/vstore en la variante copy. Verify: cargo nextest run -p vantadb snapshot --ignore-default-filter 6/6 PASS + 13 unit PASS + fmt PASS + clippy -D warnings PASS. Sin commit (lead verifica). Colateral: FIND-33 creado.
 
 ### FIND-37: Eliminar `query_sparse.unwrap()` panickable en dispatcher híbrido (2026-08-27)
 - **Fecha:** 2026-08-27
-- **Plan:** `docs/dev/plans/2026-08-27-backlog-pipeline.md` Task 1 (Wave 0) · `vanta-worker`
+- **Plan:** `2026-08-27-backlog-pipeline` Task 1 (Wave 0) · `vanta-worker`
 - **Resultado:** ✅ Dispatcher híbrido (`VantaEmbedded::search_impl`) asumía `Some` en 6 sitios vía `query_sparse.as_ref().unwrap()` (líneas 207,240,265,315,346,369) — request sin sparse dispara panic en prod (hot path). Fix: reemplazar `has_sparse: bool` + unwrap por `query_sparse: Option<&SparseVector>` filtrada `!is_empty` + match `Some(qs)` (pattern de `explain.rs` REVIEW-14 / `hybrid.rs:36`). También 3 sites en `debug_ops.rs` (288,335,374) mismo patrón. `hybrid_search` ahora recibe `Option` filtrado. Semántica preservada: sparse None/empty → fallback silencioso a text-only/vector-only (no ValidationError). Verify: `rg query_sparse.*unwrap src/sdk/search/mod.rs` → 0 ✅ · `rg src/sdk/search/` → 0 ✅ · `cargo check -p vantadb` ✅ · `cargo nextest -E 'test(search)'` 157 passed ✅ · `cargo fmt --check` ✅ · pre-commit hook clippy ✅. Commit `bd7c2691` `fix(search): FIND-37 eliminate query_sparse.unwrap panics`. Sin deuda neta (saldo negativo: 9 panics eliminados).
 - **Archivos:** `src/sdk/search/mod.rs`, `src/sdk/search/debug_ops.rs`
 - **Contrato:** `cargo nextest run -p vantadb --profile audit -E 'test(search)'` ✅ + `rg -n "query_sparse.*unwrap" src/sdk/search/mod.rs` → 0 + `cargo clippy -p vantadb --all-targets --all-features -- -D warnings` sin nuevos warnings
 
 ### FIND-39: ScalarIndex.remove sin test — cobertura engine-level (2026-08-27)
 - **Fecha:** 2026-08-27
-- **Plan:** `docs/dev/plans/2026-08-27-backlog-pipeline.md` Wave 1 #11 · `vanta-worker` — Origen codegraph-20260827-143245 Fase 10 (score 0.98, 0 hits en storage/engine/tests)
+- **Plan:** `2026-08-27-backlog-pipeline` Wave 1 #11 · `vanta-worker` — Origen codegraph-20260827-143245 Fase 10 (score 0.98, 0 hits en storage/engine/tests)
 - **Resultado:** ✅ Añadido `test_scalar_remove` en `src/storage/engine/tests/scalar_index.rs` (93L, engine-level): direct `ScalarIndex` API (insert 2 reds → remove 1 → 1 left, no-op missing field/value/id, cross-field isolation, remove last) + wiring engine (insert alpha → overwrite beta → alpha cleared, delete → cleared). Registrado en `src/storage/engine/tests/mod.rs` (`mod scalar_index;`). Unit tests preexistentes en `src/scalar_index.rs` (test_scalar_index_remove etc.) ya cubrían happy path pero no el wiring engine; gap cerrado a nivel integración.
 - **Archivos:** `src/storage/engine/tests/scalar_index.rs` (nuevo), `src/storage/engine/tests/mod.rs`
 - **Contrato:** `cargo nextest run -p vantadb scalar_index --profile audit` → 15 passed (incl. test_scalar_remove) ✅ + `cargo nextest list --profile audit` 2069 → 2070 (+1) + `rg -n "pub fn remove" src/scalar_index.rs` → 2 ✅ + `cargo nextest run -p vantadb -E 'test(storage::engine)'` 306 passed ✅ + `cargo fmt --check` ✅ + `cargo clippy` ✅ + `validate-docs-coverage` 0 gaps ✅
@@ -371,7 +371,7 @@ s_len‖ns‖key_len‖key‖ver BE) + hooks put/put_batch/delete/purge_expired 
 
 ### FIND-34: Ciclo WAL Writer — DAG documentado + edge tests recovery/quarantine (2026-08-27)
 - **Fecha:** 2026-08-27
-- **Plan:** `docs/dev/plans/2026-08-27-backlog-v2.md` Task 1 (Wave 0) · `vanta-worker` — Origen codegraph-20260827-143245 Fase 1 (4 nodos `open↔open_with_buffer↔recover↔quarantine` reportado como ciclo High)
+- **Plan:** `2026-08-27-backlog-v2` Task 1 (Wave 0) · `vanta-worker` — Origen codegraph-20260827-143245 Fase 1 (4 nodos `open↔open_with_buffer↔recover↔quarantine` reportado como ciclo High)
 - **Resultado:** ✅ DAG verificado (grep 0 back-edge: `recover`/`quarantine` leaves, solo callers en `open_with_buffer`), falso positivo Leiden co-localización documentado. Doc header `src/wal.rs:178-193` con diagrama DAG + ponytail ceiling. Tests: `test_recover_mid_file_corruption_scan_forward_recovers_tail` (16B garbage mid + raw framing valid tail → scan-forward 3/3) + `test_quarantine_rotates_when_corrupt_exists` (`.corrupt` → `.corrupt.1` rotation sin overwrite). Cobertura: `test_wal_auto_healing_and_recovery` + `test_corrupt_wal_tail_is_quarantined` preexistentes + 2 nuevos.
 - **Archivos:** `src/wal.rs` (doc DAG 15L + 2 tests ~80L; `recover_valid_records` def 545, `quarantine_corrupt_tail` def 592, 1 def c/u)
 - **Contrato:** `cargo nextest run -p vantadb --profile audit -E 'test(wal)'` → 62 passed (60→62, 2009 skipped, 6.08s) ✅ + `rg -n "quarantine_corrupt_tail|recover_valid_records" src/wal.rs` → 1 def c/u con cobertura ✅ + `cargo check -p vantadb` ✅ + `cargo clippy -p vantadb --all-targets --all-features -- -D warnings` 0 ✅ + `cargo fmt --check` ✅ + `validate-docs-coverage` 0 gaps ✅ + doc `src/wal.rs:178-193` justifica `codegraph_explore "wal cycle FIND-34"` como DAG (no SCC)
@@ -382,7 +382,7 @@ s_len‖ns‖key_len‖key‖ver BE) + hooks put/put_batch/delete/purge_expired 
 
 ### FIND-35: Ciclo StorageEngine get/prefetch — SCC intencional 2 nodos justificado + PrefetchGuard (2026-08-27)
 - **Fecha:** 2026-08-27
-- **Plan:** `docs/dev/plans/2026-08-27-backlog-v2.md` Task 2 (Wave 0) · `vanta-worker` — Origen codegraph-20260827-143245 Fase 1 (2 nodos `StorageEngine.get ↔ prefetch_related` reportado como ciclo)
+- **Plan:** `2026-08-27-backlog-v2` Task 2 (Wave 0) · `vanta-worker` — Origen codegraph-20260827-143245 Fase 1 (2 nodos `StorageEngine.get ↔ prefetch_related` reportado como ciclo)
 - **Resultado:** ✅ SCC intencional verificado (OLD-20 co-access prefetch) + bounded single-level por `PrefetchGuard` (`thread_local! Cell<bool>` + RAII Drop unwind-safe, MCP-15). Doc header `src/storage/engine/get.rs:1-21` justifica SCC operacional DAG + ponytail ceiling + invariante sync-only. Guard previene SO en par mutuo uncached A↔B (get→prefetch→get→prefetch→…). Cover: `test_get_prefetch_does_not_recurse_forever` (cold-tier A↔B, 3 co-access) + 2 cache tests + 6 prefetch config/warmer.
 - **Archivos:** `src/storage/engine/get.rs` (doc header `//!` 18L, `PrefetchGuard` 31-45, `get` 50-207, `prefetch_related` 228-257)
 - **Contrato:** `cargo nextest run -p vantadb -E 'test(prefetch) or test(get_cache)'` → 8 passed (regex `/prefetch|get.*cache/` → 10 passed) ✅ + `rg -n "PrefetchGuard" src/storage/engine/get.rs` → 5 hits ✅ + `cargo check -p vantadb` ✅ + `cargo clippy -p vantadb --all-targets --all-features -- -D warnings` 0 ✅ + `cargo fmt --check` ✅ + doc `src/storage/engine/get.rs:1-21` justifica `codegraph_explore "StorageEngine get prefetch"` como SCC intencional single-level (no bug)
@@ -412,9 +412,9 @@ s_len‖ns‖key_len‖key‖ver BE) + hooks put/put_batch/delete/purge_expired 
 ### FIND-36: Cross-crate NativeConnection ↔ RocksDbBackend — frontera documentada, falso positivo Leiden (2026-08-27)
 
 - **Fecha:** 2026-08-27
-- **Plan:** `docs/dev/plans/2026-08-27-backlog-v2.md` Task 3 (Wave 1) · `vanta-arch` — Origen codegraph-20260827-143245 Fase 1 (3 ciclos get/put/delete `desktop/src-tauri/src/connections/native.rs ↔ src/backends/rocksdb_backend.rs`)
+- **Plan:** `2026-08-27-backlog-v2` Task 3 (Wave 1) · `vanta-arch` — Origen codegraph-20260827-143245 Fase 1 (3 ciclos get/put/delete `desktop/src-tauri/src/connections/native.rs ↔ src/backends/rocksdb_backend.rs`)
 - **Resultado:** ✅ Falso positivo verificado + frontera documentada. DISCOVERY `rg` 0 `use`-imports cruzados (RocksDbBackend no importa `desktop`/`tauri`/`NativeConnection`; NativeConnection no importa `RocksDbBackend`/`StorageBackend`), DAG `NativeConnection (desktop, isolated workspace [members=["."]] — `vantadb = {path="../.."}`) → `VantaEmbedded` → `StorageEngine` → `StorageBackend (pub(crate) Send+Sync, src/backend.rs)` → `RocksDbBackend (pub(crate), src/backends/rocksdb_backend.rs:22)` — 0 back-edge. Los 3 "ciclos" son colisión de nombres get/put/delete + clustering Leiden de verbos CRUD, no SCC CALLS. Workspaces aislados (`cargo check -p vantadb` invariant, `cargo tree` sin `vantadb-desktop`). Frontera ya correcta: `StorageBackend` pub(crate) + `BackendKind::RocksDb/Fjall/InMemory` + `VantaConfig.storage_path` (desktop nunca conoce `BackendPartition`/cf names). Doc headers: `src/backends/rocksdb_backend.rs:1-22` + `desktop/src-tauri/src/connections/native.rs:1-20` con diagrama DAG + ponytail ceiling + verificación `cargo check 0 cycles` + cross-ref mutua.
-- **Archivos:** `src/backends/rocksdb_backend.rs` (header `//!` 15L, DAG + falso positivo + ponytail), `desktop/src-tauri/src/connections/native.rs` (header `//!` 12L, DAG + ponytail), `docs/dev/plans/2026-08-27-backlog-v2.md` Task 3 → ✅ COMPLETED + recitation FIND-36, `docs/dev/Backlog.md` FIND-36 eliminado
+- **Archivos:** `src/backends/rocksdb_backend.rs` (header `//!` 15L, DAG + falso positivo + ponytail), `desktop/src-tauri/src/connections/native.rs` (header `//!` 12L, DAG + ponytail), `2026-08-27-backlog-v2` Task 3 → ✅ COMPLETED + recitation FIND-36, `docs/dev/Backlog.md` FIND-36 eliminado
 - **Contrato:** `cargo check -p vantadb --all-targets` 0.65s ✅ + `cargo check -p vantadb --all-targets --all-features` 37.55s ✅ + `cargo clippy -p vantadb --all-targets --all-features -- -D warnings` 0 ✅ + `cargo fmt --check` 0 ✅ + `rg` 0 use-imports cruzados ✅ + doc headers justifican `codegraph_explore "NativeConnection RocksDbBackend"` 0 ciclos o frontera documentada (rama ADR) — headers cumplen segunda rama sin ADR separado
 - **Commit:** `fix: FIND-36 — Cross-crate NativeConnection↔RocksDbBackend frontier doc (false-positive Leiden, DAG justified)`
 - **Gates:** D: no-disparado (no symbols públicos nuevos, blast radius 2 archivos + backend.rs existente, ≤10) · V: no-disparado (verify dual cargo check 1er intento) · C: no-disparado (doc only, no API change, `StorageBackend` intacto, workspaces aislados)
@@ -472,7 +472,7 @@ s_len‖ns‖key_len‖key‖ver BE) + hooks put/put_batch/delete/purge_expired 
 
 ## Phase11 — Embeddings Local-First (2026-08-28) — 9/9 ✅
 
-> Plan `docs/dev/plans/2026-08-28-embeddings-local.md` · commits `2c185021`→`d24eeb1c` · `embeddings/` + feature `embed-local` (Regla 5: embeddings BYO-vector → local-first). Tabla modelos: 3 EN / 3 ES / 3 Combined (8 ≤3GB + Qwen3 16GB excepción).
+> Plan `2026-08-28-embeddings-local` · commits `2c185021`→`d24eeb1c` · `embeddings/` + feature `embed-local` (Regla 5: embeddings BYO-vector → local-first). Tabla modelos: 3 EN / 3 ES / 3 Combined (8 ≤3GB + Qwen3 16GB excepción).
 
 ### EMB-01: Infra `embeddings/` + manifest + download/verify
 - **Fecha:** 2026-08-28 — **Objetivo:** crear `embeddings/manifest.json` (9 rev pinned) + `download.py`/`verify.py` + `.gitignore` `/embeddings/models/` — **Resultado:** ✅ — **Commit:** `2c185021`

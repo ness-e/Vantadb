@@ -7,7 +7,7 @@ description: "Hallazgo gate 2 (nextest): .config/nextest.toml default-filter exc
 # STABLE-04 — Validar vantadb-mcp (gates 1-6 + test-mcp.py)
 
 ## Metadata
-- **Plan file:** `docs/dev/plans/2026-09-04-durability-release-readiness.md` (Task 7, Wave 2)
+- **Plan file:** `2026-09-04-durability-release-readiness` (Task 7, Wave 2)
 - **Campaign ID:** a6f16be4-a2a2-44eb-bfdb-1a84a4b573cf
 - **Creado:** 2026-09-05 (DISCOVERY pipeline-full)
 - **Estado:** ⏳ IN PROGRESS (DISCOVERY ✅, gates en ejecución)
@@ -41,7 +41,7 @@ description: "Hallazgo gate 2 (nextest): .config/nextest.toml default-filter exc
 | Implicaciones | Solo validación + fix metadata `Cargo.toml` si gate 6 falla (reversible). No toca `src/wal.rs`, `src/vector/`, `src/storage/`. No publica (`publish=false` intacto). Security: superficie LLM-facing (threat model en SKILL.md § Threat Model LLM06) — pero validate-only no cambia código, FASE SECURITY = checklist de lectura, sin cambios de deps → sin `cargo audit` extra |
 
 ## Impacto mapeado (Regla 0)
-- **Archivos leídos completos (antes de cualquier edit):** `vantadb-mcp/Cargo.toml` (32L — publish=false, deps vantadb path+cli+server, vanta-memory path, tokio/serde/axum; features embed-local/remote-inference), `vantadb-mcp/tests/` (11 files, tamaños listados), `skills/vantadb-mcp/scripts/test-mcp.py` (171L — 4 checks), `skills/vantadb-mcp/SKILL.md` (599L — 79 tools), `docs/dev/Backlog.md:618-641` (contrato P47 10 checks + fila STABLE-04), `.config/nextest.toml` (default-filter excluye mcp_tests), `docs/dev/plans/2026-09-04-durability-release-readiness.md` Task 7, `.opencode/skills/campaign-executor/tasks/STABLE-03.md` (precedente gates), `vantadb-mcp/src/server.rs` (vía codegraph: serve_lines/proxy/config/metrics), `vantadb-mcp/src/handlers/initialize.rs` (vía grep: protocolo)
+- **Archivos leídos completos (antes de cualquier edit):** `vantadb-mcp/Cargo.toml` (32L — publish=false, deps vantadb path+cli+server, vanta-memory path, tokio/serde/axum; features embed-local/remote-inference), `vantadb-mcp/tests/` (11 files, tamaños listados), `skills/vantadb-mcp/scripts/test-mcp.py` (171L — 4 checks), `skills/vantadb-mcp/SKILL.md` (599L — 79 tools), `docs/dev/Backlog.md:618-641` (contrato P47 10 checks + fila STABLE-04), `.config/nextest.toml` (default-filter excluye mcp_tests), `2026-09-04-durability-release-readiness` Task 7, `.opencode/skills/campaign-executor/tasks/STABLE-03.md` (precedente gates), `vantadb-mcp/src/server.rs` (vía codegraph: serve_lines/proxy/config/metrics), `vantadb-mcp/src/handlers/initialize.rs` (vía grep: protocolo)
 - **Referencias hacia dentro:** `vantadb-mcp` → `vantadb` (cli+server) + `vanta-memory` + tokio runtime; `tools.rs` 154KB (79 tools); `server.rs` serve_lines/serve_lines_proxy
 - **Referencias entrantes:** `vantadb-server` (path dep) + `vanta-cli server --mcp` + CI experimental-check + heavy-cert mcp_tests + skill test-mcp.py
 - **Veredicto impacto:** validación pura salvo gate 6 metadata. `Cargo.toml` ya usa solo path deps sin `version=` — gate 6 puede PRE-fallar como en STABLE-01/03 (`dependency vantadb does not specify a version`); fix previsto idéntico (`version="0.5.0"` en path deps, `version.workspace=true` descartado por invalid type map). Si gate 6 pasa sin fix → cero edits → sin commit.

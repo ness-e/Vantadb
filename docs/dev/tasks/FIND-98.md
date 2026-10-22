@@ -8,7 +8,7 @@ description: "Objetivo: el binario que usa el usuario (C:/Users/Eros/.cargo/bin/
 
 > **Estado:** 🟡 STOP — lock Windows persistente (2/2 en retry), re-DEFER vigente; rebuild con motor COMPLETO y verificado en fuente (87 + `fallback:false`)
 > **Fecha ejecución:** 2026-09-18 · **Retry:** 2026-09-19 · **Ruta:** vanta-worker · **Branch:** develop
-> **Plan:** `docs/dev/plans/2026-09-18-cierre-mvp.md` (Wave0) → retry por `docs/dev/plans/2026-09-19-publicacion.md` Task 1 (alcance corregido por smoke: rebuild con `embed-local`, no basta copiar)
+> **Plan:** `2026-09-18-cierre-mvp` (Wave0) → retry por `2026-09-19-publicacion` Task 1 (alcance corregido por smoke: rebuild con `embed-local`, no basta copiar)
 > **SDP:** `campaign-executor` · `source-driven-development` · `doubt-driven-development` · `incremental-implementation` · `test-driven-development` · `context-engineering` · `systematic-debugging` · `shipping-and-launch` (8 total; `frontend-ui-engineering`/`api-and-interface-design` del scoring descartadas por irrelevantes al slice — distribución binaria, sin UI ni API nueva)
 
 ## 1. TAREA
@@ -120,7 +120,7 @@ GATES_EVALUADOS: P:no|heredado-Gate-P-2026-09-18 D:no|distribucion-sin-codigo V:
 SKILLS_CARGADAS: campaign-executor, source-driven-development, doubt-driven-development, incremental-implementation, test-driven-development, context-engineering, systematic-debugging, shipping-and-launch (+ progreso)
 ```
 
-## 11. RETRY 2026-09-19 (plan `2026-09-19-publicacion.md` Task 1 — alcance corregido)
+## 11. RETRY 2026-09-19 (plan `2026-09-19-publicacion` Task 1 — alcance corregido)
 
 **Cambio de alcance vs intento 2026-09-18:** el smoke E2E probó que copiar no basta — hay que compilar la feature. Contrato retry: rebuild `cargo build --bin vanta-cli --bin vantadb-server --features embed-local -j 2` (flags a verificar contra EMB-10 en DISCOVERY) + reinstall del par + instalado 87 + `initialize` OK + `embed_texts` `fallback:false` (ORT 1.30); lock → STOP sin forzar.
 

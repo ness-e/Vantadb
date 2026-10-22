@@ -11,7 +11,7 @@ tags: [vantadb, architecture]
 > **Status:** Proposed — **not implemented**.
 > **Date:** 2026-08-11
 > **Scope:** Design/documentation only. No harness code changes.
-> **Source:** `docs/dev/research/2026-08-10-agent-engineering/agent-03-orchestration.md` §7.2-7.4 · REPORTE-FINAL §3.4-4 (L375) · plan `docs/dev/plans/archive/2026-08-11-residuo-consolidado.md` Task 24.
+> **Source:** `docs/dev/research/2026-08-10-agent-engineering/agent-03-orchestration.md` §7.2-7.4 · REPORTE-FINAL §3.4-4 (L375) · plan `2026-08-11-residuo-consolidado` Task 24.
 > **Backlog:** `docs/dev/Backlog.md` §P17 → `TSYS-12`.
 
 ## 1. Context

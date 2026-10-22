@@ -124,7 +124,7 @@ tags: [vantadb, avance, web, frontend, seo, docs-site]
 
 ## ERR-WEB-01 — Toast por código de error + catch sin silenciar (2026-09-02)
 
-- **Fuente:** Plan `docs/dev/plans/2026-09-02-error-observability-excellence.md` Task 7 (Wave 3) · Task file `.opencode/skills/campaign-executor/tasks/ERR-WEB-01.md`
+- **Fuente:** Plan `2026-09-02-error-observability-excellence` Task 7 (Wave 3) · Task file `.opencode/skills/campaign-executor/tasks/ERR-WEB-01.md`
 - **Resultado:** ✅ `toastError(error)` en `web/src/components/vanta/toast.tsx` mapea `error.code` → claves `errors.VANTADB_*` (10 ES + 10 EN en `dictionaries.ts`, códigos canónicos de vantadb-ts) con fallback `toast.error` + message en dev; duck-type porque la app no importa `vantadb` (WASM vive en iframe sandbox). `catch {}` de `code-playground.tsx:174` → `console.error` + `toastError` en el catch de `run()`; `copy-utils.ts` → `console.warn` con justificación de degradación intencional. Contrato: `catch {}`=0 · `VANTADB_`=22 · build exit 0 · lint 0 errors · Playwright 2 passed. **Commit:** `10cc9671`
 
 ## RES-12 — Touch targets ≥44px con hit-area invisible (2026-09-03)
@@ -134,7 +134,7 @@ tags: [vantadb, avance, web, frontend, seo, docs-site]
 
 ## WEB-02 — Tablas p50/p99 públicas con cita + sección JS/WASM §15 (2026-09-07)
 
-- **Fuente:** Plan `docs/dev/plans/2026-09-07-backlog-triage.md` Task 7 (Wave2) · Task file `docs/dev/tasks/WEB-02.md`
+- **Fuente:** Plan `2026-09-07-backlog-triage` Task 7 (Wave2) · Task file `docs/dev/tasks/WEB-02.md`
 - **Resultado:** ✅ Step 1 (WIP sub-agente recuperado): citas Source visibles BENCH01 (§2 + comando) y SIFT1M (§5). Step 2 (lead): const `JS_BENCH` en `vanta-data.ts` + sección §03 (tabla p50/p95/p99 verbatim §15: insert 667.61/1065.11/1453.48 · search_vector 3.84/10.97/14.28 · search_hybrid 184.04/377.25/447.18) + Source §15 con reproduce + fecha; renumber §03→§04/§04→§05. Contrato: adjetivos hype 0 · assets gato existen (WEB-03 sin acción) · tsc 0 · eslint 0 · `npm run build` exit 0.
 
 ## BLOG-CTA — CTAs + metadata serie blogs + posts 6-7 drafts (2026-09-09)

@@ -8,7 +8,7 @@ tags: [spec, producto]
 
 # Spec: MVP — VantaDB como memoria automática en agentes de código
 
-> **Para qué es este archivo:** es el contrato del plan `docs/dev/plans/2026-09-17-mvp-memoria-agentes.md`. Dice QUÉ se va a construir, POR QUÉ (el problema que resuelve), CÓMO se verifica y QUÉ NO entra. Se lee antes de ejecutar cualquier tarea del plan y se actualiza si una decisión cambia. **Para qué se utiliza:** los sub-agentes lo usan como fuente de verdad (objetivo, límites, criterios de éxito) para no desviarse; el owner lo usa para auditar alcance.
+> **Para qué es este archivo:** es el contrato del plan `2026-09-17-mvp-memoria-agentes`. Dice QUÉ se va a construir, POR QUÉ (el problema que resuelve), CÓMO se verifica y QUÉ NO entra. Se lee antes de ejecutar cualquier tarea del plan y se actualiza si una decisión cambia. **Para qué se utiliza:** los sub-agentes lo usan como fuente de verdad (objetivo, límites, criterios de éxito) para no desviarse; el owner lo usa para auditar alcance.
 
 ## Objective
 
@@ -96,7 +96,7 @@ Convenciones del repo (Rust: `?`+`Result`, sin `unwrap` en prod, clippy `-D warn
 | 7 | Dummy solo con flag / dim bloquea+guía | ✅ Q4/Q5 embeddings-auto |
 | 8 | OCR: delegation default sin key; full solo nocturno con key | ✅ research 2026-09-17 |
 
-## Alcance cierre-mvp (plan `2026-09-18-cierre-mvp.md`, Gate P 2026-09-18)
+## Alcance cierre-mvp (plan `2026-09-18-cierre-mvp`, Gate P 2026-09-18)
 
 - **IMPL-112 (ingesta real):** la fuente de verdad es la spec `docs/dev/tasks/FIND-112.md` (trait `LlmRunner` reutilizado, matriz local+ollama/openai, TOML+env secrets-solo-env, gates G0–G4, 10 tests nombrados). S1 local primero; S2 solo si S1 sale sin fricción (Gate V si friccionó).
 - **S4/S6b (aprobación/programador):** diseño primero en `FIND-110-spec` / `FIND-113-spec` (cero código); ship solo con dueño defendible, si no re-DEFER honesto.

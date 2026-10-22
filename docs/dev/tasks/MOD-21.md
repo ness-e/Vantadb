@@ -6,7 +6,7 @@ description: Archivos leídos completos
 
 # MOD-21 — Nits agrupados Python (python.md de P32)
 
-- **Plan:** `docs/dev/plans/2026-08-25-batch-colaterales-deuda-desktop.md` (Task 7)
+- **Plan:** `2026-08-25-batch-colaterales-deuda-desktop` (Task 7)
 - **Estado:** ⬜ PENDING
 - **Appetite:** max 2h · **Esfuerzo:** 🟢 · **Prioridad:** 🟢
 - **Archivos clave:** `vantadb-python/src/convert.rs:36-147`, `vantadb-python/src/lib.rs` (graph_bfs), `dist/`

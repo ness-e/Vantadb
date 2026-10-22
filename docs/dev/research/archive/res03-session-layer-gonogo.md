@@ -7,7 +7,7 @@ description: "Cognee-inspired 4-phase session-layer roadmap — (1) session cach
 
 # RES-03 — Session Layer for VantaDB MCP: Go/No-Go Analysis (DEC-01)
 
-> Date: 2026-08-25 · Source task: Backlog DEC-01 / plan 2026-08-25-batch-core-fixes-research.md Task 9
+> Date: 2026-08-25 · Source task: Backlog DEC-01 / plan 2026-08-25-batch-core-fixes-research Task 9
 > Origin of DEC-01: `docs/dev/research/COGNEE_EVALUATION.md` §8 (ADR sketches) + §9 (5 open questions)
 > Status: EVIDENCE DOC — final decision belongs to the owner (Regla 5, ADR is human-authored)
 

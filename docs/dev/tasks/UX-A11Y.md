@@ -6,7 +6,7 @@ description: "Veredicto global: cambios aditivos de accesibilidad sobre 14 archi
 
 # UX-A11Y — UX-02 + UX-03 + UX-04 + UX-06 + UX-07 + UX-08 (grupo a11y desktop)
 
-> **Campaign:** 6a6c322a-6a6a-4d17-9b34-3166181cbc4a · **Plan:** docs/dev/plans/2026-08-25-batch-desktop-ux-core.md
+> **Campaign:** 6a6c322a-6a6a-4d17-9b34-3166181cbc4a · **Plan:** 2026-08-25-batch-desktop-ux-core
 > **Estado:** ⏳ IN PROGRESS · **Effort:** 🟡 · **Prioridad:** 🟡
 > **Contrato:** `cd desktop && npm run build` exit 0 + `npx vitest run` pasa; keyboard: Enter/Espacio abre Inspector desde grid; focus trap conectado en ambos modales; contraste texto-neon ≥4.5:1 (o token accent-text); tabs ARIA con tablist + flechas
 > **NO COMMIT** — el lead verifica mecánico y commitea por tarea.

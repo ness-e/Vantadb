@@ -13,7 +13,7 @@ tags: [vantadb, architecture]
 > **Scope:** Design/documentation only. No chaos runner code is implemented by
 > this document; it defines the scenarios, expectations, and execution strategy
 > a future runner must implement.
-> **Source:** `docs/dev/research/2026-08-10-agent-engineering/REPORTE-FINAL.md` §3.3-24 (FALTA #24) · plan `docs/dev/plans/archive/2026-08-11-residuo-consolidado.md` Task 19.
+> **Source:** `docs/dev/research/2026-08-10-agent-engineering/REPORTE-FINAL.md` §3.3-24 (FALTA #24) · plan `2026-08-11-residuo-consolidado` Task 19.
 > **Backlog:** `docs/dev/Backlog.md` §P17 → `TSYS-06`.
 
 ## 1. Context

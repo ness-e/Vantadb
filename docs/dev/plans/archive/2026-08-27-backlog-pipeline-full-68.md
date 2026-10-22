@@ -53,7 +53,7 @@ description: O para ejecutar la primera tarea
 
 | # | Task ID | Título | Ruta | Contrato verificable | Esfuerzo | Prio |
 |---|---------|--------|------|---------------------|----------|------|
-| 14 | MEM-01..38 | Vanta Memory Engine TDAM (orden F1-F7) | `vanta-worker` | Plan `docs/dev/plans/2026-08-18-vanta-memory.md` ejecutado; 38 tareas → progreso | 🔴 8-12s | 🔴 |
+| 14 | MEM-01..38 | Vanta Memory Engine TDAM (orden F1-F7) | `vanta-worker` | Plan `2026-08-18-vanta-memory` ejecutado; 38 tareas → progreso | 🔴 8-12s | 🔴 |
 | 15 | FIND-44 | Sin ADRs registrados — crear ADR inicial | `vanta-arch` | ADR creado en `docs/dev/architecture/adr/` con PURPOSE, STACK, ARCHITECTURE, PATTERNS, TRADEOFFS, PHILOSOPHY | 🟢 | 🔴 |
 
 ### Wave 3 — MCP/HTTP Exposure (puede iniciar en paralelo con Wave 1-2)
@@ -68,7 +68,7 @@ description: O para ejecutar la primera tarea
 
 | # | Task ID | Título | Ruta | Contrato verificable | Esfuerzo | Prio |
 |---|---------|--------|------|---------------------|----------|------|
-| 19 | GOV (30 tareas) | Gobernanza Documental Wave B (Show HN blocker) | `vanta-docs` | Plan `docs/dev/plans/2026-08-22-doc-governance-plan.md` ejecutado; 29✅ 1⬛ | ~6d | 🔴 |
+| 19 | GOV (30 tareas) | Gobernanza Documental Wave B (Show HN blocker) | `vanta-docs` | Plan `2026-08-22-doc-governance-plan` ejecutado; 29✅ 1⬛ | ~6d | 🔴 |
 | 20 | P38 (17 items) | Research huérfanas → tarea (RES-01..15, DEC-01/02) | `vanta-research` + `vanta-worker` | Cada RES/DEC con task file + evidencia contra código | ~2-3s | 🟡 |
 | 21 | RES-01 | ACID Phase 4a: WAL v2 con `WalRecord::Prepare` | `vanta-arch` | WAL_FORMAT_VERSION=2 + Prepare record + acceptance criteria por fase | 🟡 | 🔴 |
 | 22 | RES-02 | Separar binario `chaos_failpoints` + `crash_kill_recovery.rs` | `vanta-chaos` | Binario separado + test kill real a mitad de escritura | 🟡 | 🔴 |

@@ -6,7 +6,7 @@ description: "Contrato del slice: autoconsolidate(db, sessionkey, turns) determi
 
 # MCP-41 — Memoria conversacional auto-consolidada (DISCOVERY-first)
 
-> **Plan:** `docs/dev/plans/2026-09-10-code.md` Task 17 · **Campaign:** 2c3d4e5f-6a7b-8c9d-0e1f-2a3b4c5d6e01
+> **Plan:** `2026-09-10-code` Task 17 · **Campaign:** 2c3d4e5f-6a7b-8c9d-0e1f-2a3b4c5d6e01
 > **Ruta:** vanta-arch (diseño) → vanta-worker (slice) · **Estado:** ⏳ IN PROGRESS
 > **Rama:** `develop` (verificado `git branch --show-current`)
 > **SDP:** campaign-executor, spec-driven-development, interview-me, idea-refine,

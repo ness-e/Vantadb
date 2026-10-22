@@ -6,7 +6,7 @@ description: "Objetivo: cerrar el resto pendiente de SHOW-05: decidir mover-vs-r
 
 # SHOW-05 (resto) — decisión `vantadb-ts/examples` + referencia en README/QUICKSTART
 
-> **Plan:** `docs/dev/plans/2026-09-18-cierre-mvp.md` (Task 9, Wave2 última — ÚLTIMA del plan)
+> **Plan:** `2026-09-18-cierre-mvp` (Task 9, Wave2 última — ÚLTIMA del plan)
 > **Campaign:** c578fd8c-1bee-45a8-b036-2f7b00262828 · **Branch:** develop · **Appetite:** max 1h
 > **Estado:** 🟢 DISCOVERY completo → EJECUCIÓN (1 step tiny, docs-only)
 > **Commit:** `docs: SHOW-05 — ...` (selectivo: README.md + docs/user/QUICKSTART.md + este file). NO PUSH.

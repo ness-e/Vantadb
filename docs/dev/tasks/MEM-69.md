@@ -7,7 +7,7 @@ description: cargo test -p vanta-memory 0 failed + test batch agrupa split+dedup
 # MEM-69: Batch extracción costo-reducida
 
 ## Metadata
-- **Plan file:** docs/dev/plans/2026-09-10-code.md
+- **Plan file:** 2026-09-10-code
 - **Fuente:** plan file Task 2 (Wave0 con PRX-02 y DESKTOP-40-slice2, disjuntos)
 - **Esfuerzo:** 🟡 1d
 - **Prioridad:** 🟢 Media
@@ -129,7 +129,7 @@ description: cargo test -p vanta-memory 0 failed + test batch agrupa split+dedup
 - **Estado:** ✅ DONE (2026-09-10: suite `cargo test -p vanta-memory --tests -j 2` 0 failed en todos los targets incl. lib 328 + l1_batch 7; clippy `--all-targets --all-features -D warnings` 0; `cargo fmt --check` limpio. Nota: `cargo test` a jobs default crashea rustc 1.95 con STATUS_STACK_BUFFER_OVERRUN en targets ajenos — flake de toolchain, con `-j 2` todo verde)
 
 ### Step 5: CLOSE — commit + sync plan + progreso
-- **Archivos:** SOLO `docs/dev/tasks/MEM-69.md`, `vanta-memory/tests/l1_batch.rs`, `vanta-memory/src/core/record/l1_batch.rs`, `l1_extractor.rs`, `l1_dedup.rs`, `l1_parser.rs`, `record/mod.rs` (NO stagear: `opencode.jsonc`, `.opencode`, `desktop/src-tauri/Cargo.lock`, `Investigacion-plan.md`, `docs/dev/plans/2026-09-10-code.md` es del plan — actualizar estado Task 2 inline SÍ está permitido por pipeline-full)
+- **Archivos:** SOLO `docs/dev/tasks/MEM-69.md`, `vanta-memory/tests/l1_batch.rs`, `vanta-memory/src/core/record/l1_batch.rs`, `l1_extractor.rs`, `l1_dedup.rs`, `l1_parser.rs`, `record/mod.rs` (NO stagear: `opencode.jsonc`, `.opencode`, `desktop/src-tauri/Cargo.lock`, `Investigacion-plan.md`, `2026-09-10-code` es del plan — actualizar estado Task 2 inline SÍ está permitido por pipeline-full)
 - **Acción:** `git add` selectivo + `git commit -m "feat: MEM-69 — batch extracción costo-reducida (split+dedup en 1 llamada)"` + actualizar plan file Task 2 → ✅ + `skill progreso`
 - **Verify:** `git log --oneline -1` + `git status --short` sin restos propios
 - **Estado:** ✅ DONE (2026-09-10: commit `d5ad0e45` con 7 archivos propios; hooks pre-commit fmt+clippy verdes; resto ajeno PRX-02/desktop/opencode intacto en worktree)

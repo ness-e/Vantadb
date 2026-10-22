@@ -247,7 +247,7 @@ Plan `2026-09-10-code` (+budget) archivado: 19/19 ✅ en 7 waves paralelas (MAX 
 
 ## Archivo 2026-09-10: plan fixes compilación + Desktop + Providers (43707934)
 
-Plan `docs/dev/plans/archive/2026-09-10-fixes.md` (+budget) archivado: 6/6 ✅ en 3 waves secuenciales, 0 failed. Patrón verify-first dominante: 3/6 cerradas cero-código (FIND-MCP-001 bug pre-fixado 43e0779e, ISSUE-TS-001 premisa stale vitest 280/280, PROV-openai serie PROV ya vigente check+offline+fmt verde); 3/6 con código real (FIND-20 window_state.rs, FIND-21 AppContextMenu in-app, DESKTOP-40 slice 1 i18n Settings). Avance: bindings (ISSUE-TS-001, PROV-openai). `campaign_verify_cmd` bug exit -1 persiste → bash directa (4to reporte). Lock churn providers/* standalone revertido, no stageado. WIP ajeno intacto en todos los cierres.
+Plan `2026-09-10-fixes` (+budget) archivado: 6/6 ✅ en 3 waves secuenciales, 0 failed. Patrón verify-first dominante: 3/6 cerradas cero-código (FIND-MCP-001 bug pre-fixado 43e0779e, ISSUE-TS-001 premisa stale vitest 280/280, PROV-openai serie PROV ya vigente check+offline+fmt verde); 3/6 con código real (FIND-20 window_state.rs, FIND-21 AppContextMenu in-app, DESKTOP-40 slice 1 i18n Settings). Avance: bindings (ISSUE-TS-001, PROV-openai). `campaign_verify_cmd` bug exit -1 persiste → bash directa (4to reporte). Lock churn providers/* standalone revertido, no stageado. WIP ajeno intacto en todos los cierres.
 
 **Retrospectiva Start/Stop/Continue:**
 - **Start:** verify-first antes de tocar código (3 fixes fantasma evitados); DISCOVERY completo cuando task file falta.
@@ -260,12 +260,12 @@ Plan `docs/dev/plans/archive/2026-09-10-fixes.md` (+budget) archivado: 6/6 ✅ e
 - **Plan:** 2026-09-10-anti-stutter (+ .budget.json) - 7/7 COMPLETED (AST-001...007).
 - **Retrospectiva:** Start: just verify tras cada rename (caza usos downstream en AST-002, no AST-007). Stop: asumir aliases ⇒ cero churn (-D warnings los vuelve errores); asumir rg-cero literal sin scoped-contract. Continue: mapa unico + verify mecanico + triage con evidencia + recitation.
 ## Archivo plan 2026-09-11-anti-stutter-cierre (2026-09-11)
-- **Plan:** docs/dev/plans/archive/2026-09-11-anti-stutter-cierre.md (+ .budget.json) - 4/4 COMPLETED (AST-008/009/010/011, Wave 1 + Wave 2).
+- **Plan:** 2026-09-11-anti-stutter-cierre (+ .budget.json) - 4/4 COMPLETED (AST-008/009/010/011, Wave 1 + Wave 2).
 - **Retrospectiva:** Start: scoped-contract en vez de rg literal (el literal 129 era 100% prosa/wire/dueno-ajeno; el scoped 0/0/0/0/0 si es gate). Stop: dejar avance al orquestador (AST-008/009/010 llegaron a AST-011 sin registro; el cierre tuvo que registrar 4). Continue: triage deny con owner/expiry (patron AST-007 reutilizado sin cambios) + verify-full tras cada borrado + recitation canonica.
 - **Accion medible:** registrar avance en el mismo commit del task (no diferido): m/ma: tasks con avance diferido/total = 3/4 esta campana -> objetivo 0 en la proxima.
 
 ## Archivo plan 2026-09-13-cleanCA-fase2 (2026-09-13)
-- **Plan:** docs/dev/plans/archive/2026-09-13-cleanCA-fase2.md - 18/18 COMPLETED (M1,C1,D0,A1,S1,S7,M2,S2,S5,S3,T1,T2,T3,S3b,C2,A2,M3,S6).
+- **Plan:** 2026-09-13-cleanCA-fase2 - 18/18 COMPLETED (M1,C1,D0,A1,S1,S7,M2,S2,S5,S3,T1,T2,T3,S3b,C2,A2,M3,S6).
 - **Retrospectiva:** Start: verificar estado real por git+task files antes de despachar. Stop: re-despachar sin git log previo; copiar repos como sandbox. Continue: waves por DAG + adaptador 10 + commit atomico + verify del lead.
 - **Accion medible:** sincronizar estados PENDING→COMPLETED al commitear (metrica: 0 divergencias plan-vs-git; baseline: 19 etiquetas stale en este cierre).
 - **DEFER hecho despues:** S6 (DEFER-activo → GO humano → c2cdbf3e) + S3-slice2 CacheLayer (deuda → C2S3b → 836aece3). Sigue DEFER: reorg fisica (gate Fase 3). Futuro: S-split-config (D0 B+B).
@@ -287,7 +287,7 @@ Plan `docs/dev/plans/archive/2026-09-10-fixes.md` (+budget) archivado: 6/6 ✅ e
 - **Accion medible:** 0 lectores legacy funcionales (`rg VANTA_`→solo comentarios); metrica: `rg "env::var" src/ --glob '!src/config.rs'` = solo excepciones documentadas.
 
 ## Archivo plan 2026-09-15-find-correcciones (2026-09-16)
-- **Plan:** docs/dev/plans/archive/2026-09-15-find-correcciones.md - 31/31 COMPLETED (Wave0-9: 90/91/64, 63/65/88, 79/78/70, 87/73/71, 77/82/83, 67/68/81, 66/75/69, 84/85/80, 74/86/72, 92/93/94/95; +plan-adjust Wave9 2026-09-16; SKIP FIND-76 → backlog-history).
+- **Plan:** 2026-09-15-find-correcciones - 31/31 COMPLETED (Wave0-9: 90/91/64, 63/65/88, 79/78/70, 87/73/71, 77/82/83, 67/68/81, 66/75/69, 84/85/80, 74/86/72, 92/93/94/95; +plan-adjust Wave9 2026-09-16; SKIP FIND-76 → backlog-history).
 - **Retrospectiva:** Start: re-verificar cada claim del reporte contra código actual antes de despachar (10 re-scopes con evidencia evitaron fixes ciegos) + Gate D vía `question` para símbolos públicos (FIND-86 A/A/B). Stop: asumir que el task file existe (Wave3-9 partieron de cero) + commitear Backlog desde sub-agentes en paralelo (race → migración masiva al final). Continue: waves paralelas MAX 3 por DAG + review P2-01 con corridas propias + checkpoint `pipeline-state.json` por wave + Paso 0c (references+Notion) desde Wave8.
 - **Accion medible:** tasa de completado primer intento 31/31 con 2 resumes (rate-limit FIND-84/94, SARL RESUME misma sesión, 0 trabajo perdido); metrica: resumes/total = 2/31 (6%); baseline North Star >90% primer intento ✅ (94% sin resume).
 
@@ -297,7 +297,7 @@ Plan `docs/dev/plans/archive/2026-09-10-fixes.md` (+budget) archivado: 6/6 ✅ e
 - **Accion medible:** bins STALE detectados/rebuilds = 1/1; metrica: 11/11 COMPLETO sin recovery (0 resumes); baseline North Star >90% primer intento ✅ (100%).
 
 ## Archivo plan 2026-09-17-mvp-memoria-agentes (2026-09-17)
-- **Plan:** docs/dev/plans/archive/2026-09-17-mvp-memoria-agentes.md - 8/8 COMPLETED (Wave0: FIND-100/SHOW-04/FIND-107; Wave1: FIND-103; Wave2: FIND-104/FIND-106; Wave3: FIND-105/FIND-108; +P2-01 3 reviews + follow-ups 25109073). DEFER-ratificado -> FIND-110/111/112/113; Gate C -> FIND-114/115; pendiente externo: FIND-109 (WAL salvage, Alta).
+- **Plan:** 2026-09-17-mvp-memoria-agentes - 8/8 COMPLETED (Wave0: FIND-100/SHOW-04/FIND-107; Wave1: FIND-103; Wave2: FIND-104/FIND-106; Wave3: FIND-105/FIND-108; +P2-01 3 reviews + follow-ups 25109073). DEFER-ratificado -> FIND-110/111/112/113; Gate C -> FIND-114/115; pendiente externo: FIND-109 (WAL salvage, Alta).
 - **Retrospectiva:** Start: prompts de delegacion con DETALLE OBLIGATORIO 10 bloques (7/8 al primer intento) + SARL RESUME misma-sesion (rescato FIND-100 rate-limit y FIND-108 aborto, 0 trabajo perdido). Stop: `--no-verify` por reflejo (revertido a commit con hook verde) + waves que comparten archivos de conteo global (colision FIND-100xFIND-107 en hook). Continue: P2-01 por area en paralelo (12 hallazgos reales, 1 changes-required legitimo) + staging selectivo + WIP ajeno intocable.
 - **Accion medible:** hallazgos P2-01 Media-por-tarea 12/8 = 1.5 -> objetivo <=0.5 anadiendo self-check del revisor (globs existen, secrets solo-env, comentarios paralelos) al prompt de delegacion.
 
@@ -321,12 +321,12 @@ Plan `docs/dev/plans/archive/2026-09-10-fixes.md` (+budget) archivado: 6/6 ✅ e
 - **Accion medible:** rate-fails 0% (0/8) baseline secuencial+backoff; mantener.
 
 ## Archivo plan 2026-09-19-cierre-total (2026-09-19)
-- **Plan:** docs/dev/plans/archive/2026-09-19-cierre-total.md - Wave A (FIND-133 triage+ADR-0044 · CODEX-130/131/132 · FIND-128 ADR-fix) + Wave B (FIND-129 4 merges · WIN-flaky fix · P2-01 approve). Backlog −6, avance 4 dominios. Deuda: bump 0.6.0 en main, #180 a main, Lote1b/2, ruleset↔triggers, Vercel owner-side.
+- **Plan:** 2026-09-19-cierre-total - Wave A (FIND-133 triage+ADR-0044 · CODEX-130/131/132 · FIND-128 ADR-fix) + Wave B (FIND-129 4 merges · WIN-flaky fix · P2-01 approve). Backlog −6, avance 4 dominios. Deuda: bump 0.6.0 en main, #180 a main, Lote1b/2, ruleset↔triggers, Vercel owner-side.
 - **Retrospectiva:** Start: waves disjuntas + paralelo ×3 sin colisiones. Stop: python -c en pwsh. Continue: verify lead + P2-01 batch + transcripción.
 - **Accion medible:** duplicados push-vs-PR mismo SHA como detector de flakies; mantener.
 
 ## Archivo plan 2026-09-19-publicacion (2026-09-19)
-- **Plan:** docs/dev/plans/archive/2026-09-19-publicacion.md - EXE-03-prep kit Fase A + P2-01 lead-docs approve. Deuda: ejecución humana del gate (owner-side).
+- **Plan:** 2026-09-19-publicacion - EXE-03-prep kit Fase A + P2-01 lead-docs approve. Deuda: ejecución humana del gate (owner-side).
 
 ## Arco docs/user-dev + tooling (2026-09-23/24)
 - **Plan:** estabilizacion-total Fase 1 C-02/C-06/C-10/R-05 + #1-#16 docs/tooling (16 frentes, subagentes caidos por gate provider, ejecucion directa lead).
@@ -372,7 +372,7 @@ Plan `docs/dev/plans/archive/2026-09-10-fixes.md` (+budget) archivado: 6/6 ✅ e
 - **Mitigación:** backups `git bundle` (HARD-03) contra pérdida de commits locales.
 
 ### Plan post-release 0.8.0 archivado — 10/10 completadas (2026-10-03)
-- **Acción:** archivado `docs/dev/plans/archive/2026-10-02-post-release-0.8.0.md` (+ budget). 10/10 completadas · 0 fallidas · retrospectiva Start/Stop/Continue + acción medible en el plan archivado.
+- **Acción:** archivado `2026-10-02-post-release-0.8.0` (+ budget). 10/10 completadas · 0 fallidas · retrospectiva Start/Stop/Continue + acción medible en el plan archivado.
 - **Registro:** 7 filas `FIND-225..232` migradas del Backlog a `avance/activo/ci-cd.md` (FIND-228/230/231/232) + `avance/auditoria/seguridad.md` (FIND-225/226/227). Verificación post-push en vivo: perf-bench `37102010279` success + contrato dedupe FIND-228 confirmado.
 
 ## Verificacion del backlog contra HEAD (2026-10-18)

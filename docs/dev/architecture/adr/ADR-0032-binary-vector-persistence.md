@@ -160,6 +160,6 @@ Se mantiene `prefetch` tamaño por `payload_len`.
 - `src/index/serialize/bytes.rs:151-179` serialización HNSW ya multi-typed
 - `src/storage/archive.rs:237-284` rebuild previo solo `Full`
 - `src/storage/engine/get.rs:167-227` get + rescue Binary
-- Plan `docs/dev/plans/2026-08-27-backlog-v2.md` Task 4 CORE-01 (contrato: `rg vector_len.*0` 0 + nextest + ADR)
+- Plan `2026-08-27-backlog-v2` Task 4 CORE-01 (contrato: `rg vector_len.*0` 0 + nextest + ADR)
 - ADR-0019 sparse persisted format (precedente: `ListFloat` sin bump, legacy compat con String)
 

@@ -74,6 +74,6 @@ Los usuarios necesitan ajustar la fusión híbrida por consulta/namespace: hoy `
 ## Context Save Point
 
 - Branch: `develop`. Worktree con cambios de sesión previa (task files stale + plan file) — respetar, no pisar.
-- Plan file: `docs/dev/plans/2026-08-18-vanta-memory.md`; MEM-01 ⏳ EN PROGRESO.
+- Plan file: `2026-08-18-vanta-memory`; MEM-01 ⏳ EN PROGRESO.
 - Detección: `rust` (checks arriba). Workflow: `feature-add` (spec → implement → verify → review → accept).
 - Resultado a devolver: bloque RESULTADO (✅/🟡/❌/⚠️ + STEPS_OK + PROXIMO_STEP + COMMIT_HASH + VERIFY_CONTRATO + BLOQUEO).

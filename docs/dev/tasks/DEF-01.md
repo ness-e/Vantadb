@@ -30,7 +30,7 @@ description: "SPEC/README/VISION declaran la MISMA jerarquía (1 núcleo + 3 pue
 ## Impacto mapeado (Regla 0)
 
 - **Archivos leídos (completos):** `SPEC.md` (122L) · `README.md` (434L) · `docs/dev/vision/VISION.md` (278L) · `docs/dev/strategy/ROADMAP.md` (485L) · `docs/dev/strategy/VantaDB_Manual_Estrategico_Unificado.md` (header/contexto)
-- **Archivos referenciados hacia dentro (imports/dependencias):** `README_ES.md` (espejo ES del README) · `VISION.md` frontmatter `related: GO_TO_MARKET.md, VANTADB-PRO-FEATURES.md` · `SPEC.md` citado por planes MVP (`2026-09-17-mvp-memoria-agentes.md`)
+- **Archivos referenciados hacia dentro (imports/dependencias):** `README_ES.md` (espejo ES del README) · `VISION.md` frontmatter `related: GO_TO_MARKET.md, VANTADB-PRO-FEATURES.md` · `SPEC.md` citado por planes MVP (`2026-09-17-mvp-memoria-agentes`)
 - **Archivos que referencian a los editados (referencias entrantes):** README es entry point público (badges + docs index) · SPEC es fuente de verdad de sub-agentes del MVP · VISION relacionada con GO_TO_MARKET/COMPARISON
 - **Veredicto impacto:** **medio** — cambia posicionamiento en 3 docs públicos; se rompe si README y SPEC siguen diciendo targets distintos (R4); README_ES requiere paridad si cambia el EN.
 

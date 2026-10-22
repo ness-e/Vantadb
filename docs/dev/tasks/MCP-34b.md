@@ -7,7 +7,7 @@ description: "Estado: ⏳ IN PROGRESS"
 # MCP-34b — snapshot_restore core + SDK + MCP tool
 
 **Estado:** ⏳ IN PROGRESS
-**Plan:** docs/dev/plans/2026-08-25-batch-backup-restore-chain.md (Task 2)
+**Plan:** 2026-08-25-batch-backup-restore-chain (Task 2)
 **Diseño fuente:** docs/dev/research/res02-backup-restore.md §2a / §3 S2-S5
 **Prerrequisito:** FIND-25 ✅ (quiesce via flush + mirror recursivo excluyendo snapshots/)
 

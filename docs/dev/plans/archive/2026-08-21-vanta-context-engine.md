@@ -11,7 +11,7 @@ description: "Objetivo: la killer feature de contexto (research 05): assemble(ms
 > **Inicio:** 2026-08-21
 > **Estado:** ✅ COMPLETADO (9/9 tareas — F5)
 > **Fuente:** `docs/dev/Backlog.md` filas MEM-22..24, 37..42 + `docs/dev/research/tdam/05-offload.md` + `SYNTHESIS.md` §2.2/§3 + auditoría post-P27 (2026-08-21) + decisiones del usuario (2026-08-21)
-> **Predecesor:** `docs/dev/plans/archive/2026-08-18-vanta-memory.md` (P27, F1-F4 ✅ 24/24 — crate vanta-memory con L0/L1/L2/L3/recall/offload-cursor/gateway, suite 364/364)
+> **Predecesor:** `2026-08-18-vanta-memory` (P27, F1-F4 ✅ 24/24 — crate vanta-memory con L0/L1/L2/L3/recall/offload-cursor/gateway, suite 364/364)
 > **Modo:** waves por dependencias — Wave 0 (fundaciones independientes) → Wave 1 (MEM-22 núcleo) → Wave 2 (consumidores de MEM-22) → Wave 3 (gate docs).
 
 ## Resumen

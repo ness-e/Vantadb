@@ -6,7 +6,7 @@ kind: task
 # FIND-60 — 49 warnings rustdoc a cero
 
 - **Estado:** ⏳ IN PROGRESS
-- **Plan:** `docs/dev/plans/2026-09-07-backlog-triage.md` (Task 3, Wave0)
+- **Plan:** `2026-09-07-backlog-triage` (Task 3, Wave0)
 - **Tipo detectado:** Rust core (docs-only, mecánico)
 - **SDP:** discover_skills_v2 BUILD + grep SKILLS-MANIFEST keywords `rustdoc/docs/api/sdk` → `documentation-and-adrs` (cargada), `api-and-interface-design` (en lista v2, no cargada — ponytail: sin cambio de API, no aplica). **SKILLS_CARGADAS: ponytail (full, siempre), documentation-and-adrs**
 - **Contrato:** `cargo doc --no-deps -p vantadb -p vantadb_py 2>&1 | grep -c warning` → 0; `cargo doc --no-deps -D warnings -p vantadb` exit 0

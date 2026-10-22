@@ -2,7 +2,7 @@
 title: "ADR-0038: WAL fsync-batching opt-in (group-commit)"
 kind: adr
 status: proposed
-description: "Proposed — spec only (FUT-12-spec, plan 2026-09-04-durability-release-readiness.md Task 9)"
+description: "Proposed — spec only (FUT-12-spec, plan 2026-09-04-durability-release-readiness Task 9)"
 tags: [vantadb, architecture, adr, wal, durability, fsync, batch, group-commit]
 created: "2026-09-05"
 ---
@@ -11,7 +11,7 @@ created: "2026-09-05"
 
 ## Status
 
-**Proposed** — spec only (`FUT-12-spec`, plan `2026-09-04-durability-release-readiness.md` Task 9).
+**Proposed** — spec only (`FUT-12-spec`, plan `2026-09-04-durability-release-readiness` Task 9).
 Becomes `accepted` when the implementation lands with the §Acceptance evidence
 (≥10× bench + bounded loss-window test + `wal_resilience`/`chaos_integrity` green).
 Supersedes nothing; extends `DRV-015` Phase 1 (group commit) from roadmap to buildable spec

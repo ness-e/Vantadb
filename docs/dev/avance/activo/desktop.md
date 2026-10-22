@@ -295,7 +295,7 @@ tags: [vantadb, avance, desktop, tauri, rust, frontend]
 
 ### P37 — Auditoría diseño desktop post-fix (DAUD-01..09, H-13) — 9/9 ✅
 - **Fecha:** 2026-08-26
-- **Plan:** `docs/dev/plans/2026-08-25-research-desktop-quickwins.md` Wave1 Task5 (DESKTOP-QW5)
+- **Plan:** `2026-08-25-research-desktop-quickwins` Wave1 Task5 (DESKTOP-QW5)
 - **Resultado:** ✅ 9/9 DAUD verificadas como Hecho y archivadas del Backlog (stale cleanup). Detalle por DAUD:
   - **DAUD-01** (E2E-VISUAL, 🟡): verificación visual runtime FIX-D1 (theme flipping sin marco crema) — guard Playwright `daud01-temas.spec.ts` + `flujo-critico.spec.ts` + `playwright.config.ts` — commit `480935a7` ✅
   - **DAUD-02** (FILTROS activo, 🟢): decisión owner `filterActive` (reglas>0, no `showFilters`) — aplicada en `WorkspaceShell.tsx:295` `filterActive=ruleGroup.rules.length>0` + `aria-pressed` + `bg-foreground` — commit `ad0f34b1` (DESKTOP-QW4, H-14) ✅ — cerrada 2026-08-25
@@ -311,37 +311,37 @@ tags: [vantadb, avance, desktop, tauri, rust, frontend]
 
 ### DESKTOP-QW6: CSP mínima localhost+https remoto (H-01)
 - **Fecha:** 2026-08-27
-- **Plan:** `docs/dev/plans/2026-08-25-research-desktop-quickwins.md` Wave2 Task6 (DESKTOP-QW6)
+- **Plan:** `2026-08-25-research-desktop-quickwins` Wave2 Task6 (DESKTOP-QW6)
 - **Resultado:** ✅ CSP ya mínima desde a7ed0d22 (`default-src 'self'` + `connect-src ipc+127.0.0.1`) refinada con `http://localhost:* ws://localhost:* https://*` en prod+dev (2 líneas `connect-src` en `tauri.conf.json:27,33`) para ProxyDashboard fetch a localhost/https remoto; `ServerClient` reqwest no CSP. Build 21.18s (2863 modules) + tests 69/69 (18.55s) + cargo check 26.30s + fmt verde.
 - **Ids:** `DESKTOP-QW6`
 
 ### DESKTOP-QW7: Rename namespace preserva sparse_vector (H-04)
 - **Fecha:** 2026-08-27
-- **Plan:** `docs/dev/plans/2026-08-25-research-desktop-quickwins.md` Wave2 Task7 (DESKTOP-QW7)
+- **Plan:** `2026-08-25-research-desktop-quickwins` Wave2 Task7 (DESKTOP-QW7)
 - **Resultado:** ✅ Auditoría end-to-end H-04: `vanta.ts` IngestItem/MemoryRecord `sparse_vector` + `types.rs` DTOs `Option<HashMap<u32,f32>>` + `undo.ts` renameNamespace `ingestBatch(map{...,sparse_vector:r.sparse_vector??undefined})` + restore/undo `vantaPut` idem (4 hits) — ya en a7ed0d22; test `undo.test.ts:165-197` fija forward+undo con `{0:0.5,5:1.25}` (ingestBatch+ vantaPut asserts). Audit-only (Step2 SKIPPED, 0 líneas, ponytail). Build 13.05s (2863 modules) + tests 69/69 (23.54s) + cargo check 0.57s + fmt verde. Commit 0692855e.
 - **Ids:** `DESKTOP-QW7`
 
 ### DESKTOP-QW8: Sincronizar versión desktop con release-plz (H-11)
 - **Fecha:** 2026-08-27
-- **Plan:** `docs/dev/plans/2026-08-25-research-desktop-quickwins.md` Wave3 Task8 (DESKTOP-QW8)
+- **Plan:** `2026-08-25-research-desktop-quickwins` Wave3 Task8 (DESKTOP-QW8)
 - **Resultado:** ✅ Triple 0.1.0 sync `desktop/package.json:4` + `tauri.conf.json:4` + `src-tauri/Cargo.toml:3` vs workspace 0.5.0 aislado (desktop no miembro root) → decisión EXCLUDE documentada `release-plz.toml:34-48` `[[package]] name="vantadb-desktop" release=false` + comentario H-11 aislado. Build 16.45s (2863 modules) + tests 69/69 (22.30s) + cargo check 0.75s + fmt verde.
 - **Ids:** `DESKTOP-QW8`
 
 ### DESKTOP-QW9: Baseline medido de recursos del app (H-15)
 - **Fecha:** 2026-08-27
-- **Plan:** `docs/dev/plans/2026-08-25-research-desktop-quickwins.md` Wave3 Task9 (DESKTOP-QW9)
+- **Plan:** `2026-08-25-research-desktop-quickwins` Wave3 Task9 (DESKTOP-QW9)
 - **Resultado:** ✅ `docs/user/operations/BENCHMARKS.md` §9 Desktop 100 líneas: Build Timing wall 24.59s / vite 14.54s / 2863 modules + Bundle 2.71MB (2510KB JS 37% GraphLens 944KB, 69KB CSS, 195.9KB fonts, 665KB gzip) + Chunks >500KB warning + Env i5-1235U 31.8GB Win11 Node24 vite7.3.6 tsc5.8.3 + Provenance Regla 11 comandos reproducibles + DESKTOP-01 superseded flagged + Tauri startup/RAM pending con pasos documentados. Build 22.97s vite verde + validate-docs 0 gaps + check-avance 1038/1038 + fmt verde.
 - **Ids:** `DESKTOP-QW9`
 
 ### DESKTOP-QW10: E2E desktop multi-perfil + proxy dashboard mock (H-07)
 - **Fecha:** 2026-08-27
-- **Plan:** `docs/dev/plans/2026-08-25-research-desktop-quickwins.md` Wave3 Task10 (DESKTOP-QW10)
+- **Plan:** `2026-08-25-research-desktop-quickwins` Wave3 Task10 (DESKTOP-QW10)
 - **Resultado:** ✅ 2 specs E2E + 1 smoke manual: `multi-perfil.spec.ts` 193L 4 tests (health BM25·HNSW·RRF embedded vivo, Settings defaults topK/mode/lang persist tras reload, localStorage vanta.connections.v1 native+server Bearer round-trip, sanitize corrupto) + `proxy-dashboard.spec.ts` 210L 5 tests (sin proxy PROXY hidden palette, CONECTAR form mock, dashboard mock sessions 9m/4m + expirado + writeback 2 + rate_limit 60/min 5 ok, degraded 99 fail-open, cambiar URL limpia) con `page.route("**/snapshot", MOCK)` + TTL far-future 600s/300s ponytail + strict locators .first/dd exact; `SMOKE-MANUAL.md` 83L GraphLens 3D + SpaceLens UMAP checklist visual; infra `cargo build --bin vanta-cli --features server` 16MB 9m13s + dist-web 11-13s rebuild + binary port 8091 health; verify `npm --prefix desktop run build` 10.35s 2863 modules + `npm --prefix desktop test` 69/69 + `cargo fmt --check` + `npx playwright test --config desktop/playwright.config.ts` 12/12 45.4s (4 specs: flujo-critico, daud01-temas, multi-perfil, proxy-dashboard) + via desktop binary same; disk 120GB free WMI. Commit 34d72585.
 - **Ids:** `DESKTOP-QW10`
 
 ### ERR-DESK-01: mem_err preserva errores tipados del core (Wave 3)
 - **Fecha:** 2026-09-02
-- **Plan:** `docs/dev/plans/2026-09-02-error-observability-excellence.md` Task 6 (ERR-DESK-01)
+- **Plan:** `2026-09-02-error-observability-excellence` Task 6 (ERR-DESK-01)
 - **Resultado:** `mem_err` (commands/memory.rs:91) ya no colapsa errores del core a `Native(String)`: recorre la cadena `source()` (L0Error/RecallError/SceneError/PersonaError/GenLogError/KnowledgeError retienen `Vanta(#[from] vantadb::VantaError)`, verificado en DISCOVERY) y mapea via `VantaError::from_core` nuevo en error.rs: DatabaseBusy-Lock, IoError-Lo, resto Domain{code: e.code(), message} (codigo canonic? VANTADB_* post-ERR-CORE-01 sobrevive el wire Tauri serde). Sweep: map_core_error duplicados en connections/native.rs y commands/connection.rs delegan al mapeo unico. El Http{kind,status} de server.rs fue verificado NO-degradado (los comandos memory son ruta embedded; server devuelve Http directo). Verificacion mecanica: grep Native(e.to_string==0, cargo check --all-targets 0, cargo test 102 passed/0 failed (87 lib + 15 integration, -j 1 por OOM de link tauri en paralelo), clippy -D warnings 0, fmt crate verde. Colateral: fix bloqueante preexistente tests/server_connection_real.rs +sparse_vector:None (campo H-04); fmt drift preexistente del crate aislado (no miembro workspace raiz). RED observado antes del fix: Native("Node not found: 7"). Commit 6bdc2c5d (7 files).
 - **Ids:** `ERR-DESK-01`
 

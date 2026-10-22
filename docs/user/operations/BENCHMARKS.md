@@ -1454,7 +1454,6 @@ target\release\deps\wal_throughput-<hash>.exe --bench
 > `--bench` (criterion 0.8.2, `lib.rs:958`): sin el flag, `test_mode = true` → **1
 > iteracion, sin perfil, sin estimaciones**. Y PowerShell reenvia el `--` al binario
 > nativo, lo que rompe el parseo de clap: el flag se pasa **directo**, sin separador.
-
 > **Por que `cargo build --profile bench --bench <t>` y no `cargo bench`:** `cargo bench`
 > construye tambien los **binarios** del paquete, y el link LTO de `vanta-cli` se queda
 > **sin memoria** (`rustc-LLVM ERROR: out of memory`) en una maquina compartida. El
@@ -1608,6 +1607,214 @@ la mediana sola.
 > comparable** con la de §22.4: la mediana en claro la fija P1 (medida bajo
 > presion) y la mediana cifrada la fija E2 (medida en calma). La comparacion
 > "like for like" es el **par en calma P3/E3** (+390,6 %): §22.4.3.
+
+#### 22.3.2.2 La re-medición **post-Paso 0** (2026-10-22): el gate del 15 % **sigue superado**
+
+> **Qué es esto y qué relación tiene con §22.3.2 y con §22.4.** §22.3.2 mide
+> el estado de código **anterior** al "Paso 0" (`6edc635f`: 5 → 3 copias del
+> payload por candidato y la cache de 1 entrada → LRU acotada por bytes). Esta
+> subsección y **§22.4** son las dos **re-mediciones post-Paso 0** del gate,
+> hechas en **sesiones independientes** (y con los **mismos binarios**:
+> `sha256 06FEC524…` / `1D941139…`). Los dos veredictos **coinciden**
+> (A) gate superado), y por eso la conclusión no depende de una sola serie.
+> La diferencia entre las dos series es **de método**: §22.4 tiene las **3+3
+> corridas** con las 3 en claro publicables; esta serie Sufrió la degradación de
+> memoria de su sesión y publica **2 de 3** en claro, por lo que su número
+> publicable es el del **grupo de criterion** (el estimador con CI) y no el `p99`
+> de la pasada medida.
+
+**Comando** (Regla 11) — los dos binarios del **mismo `src`** (hash del árbol de
+fuentes verificado idéntico antes y después de las dos compilaciones:
+`SRC_SHA256=8F6082F82D8F8B142DF1EE03117AB1E4702106D4FAB756661293921AA6ADDEFC`):
+
+```powershell
+$env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"
+
+cargo build -p vantadb --profile bench --bench encrypted_p99 -j 2
+cargo build -p vantadb --profile bench --bench encrypted_p99 --features encryption -j 2
+
+# Medición: 3 corridas POR VARIANTE, INTERCALADAS (P1, E1, P2, E2, P3, E3);
+# una invocación = una corrida (el bench vuelca sus números línea a línea).
+$env:ENCRYPTED_P99_SCALE  = "25000"
+$env:ENCRYPTED_P99_RUNS   = "1"
+$env:ENCRYPTED_P99_WARMUP = "0"        # mismo método que canonical_p99
+$env:ENCRYPTED_P99_OUT    = "target\f598-post\<tag>.results.txt"
+
+target\f598-post\encrypted_p99_plain.exe --bench   # sin cifrar
+target\f598-post\encrypted_p99_enc.exe   --bench   # con cifrar (--features encryption)
+```
+
+**Entorno** (Regla 11):
+
+| Campo | Valor |
+| :--- | :--- |
+| Fecha | **2026-10-22**, 01:27:02 → 03:10:02 (5 corridas publicables) |
+| OS | Windows 11 Pro (10.0.26200) |
+| CPU | 12th Gen Intel Core i5-1235U (10c/12t) |
+| RAM | 31.78 GB — **12,63 GB libres al empezar, 8,58 GB al terminar** (la sesión se degradó: el *commit charge* subió de 28,1 GB a 33,3 GB, 79 % → 88 %) |
+| Toolchain | rustc 1.95.0 / cargo 1.95.0 (`x86_64-pc-windows-msvc`) |
+| Perfil | `bench` = `release` (`opt-level 3`, `lto = "thin"`, `codegen-units = 1`) + `debug = 1` |
+| Dataset | seed 42, **25 000 × 1536d** (`StdRng::seed_from_u64(42)`); 1000 queries, `top_k = 10` |
+| Commit | `c1851c85` (contiene el Paso 0 `6edc635f`); `src/`, `benches/` y `Cargo.toml` idénticos entre las dos compilaciones |
+| Binarios | claro `sha256 06FEC524…` · cifrado `sha256 1D941139…` — **los dos del mismo `src`**, la única diferencia es la feature |
+| Config | `Config::default()` (backend **Fjall**, `flat_threshold = 10000`) + `with_encryption(<hex 32 B>)` + `with_flush_threshold(1000)` |
+| Auto-verificaciones | `mode=plaintext wal_version=Some(3)` / `mode=encrypted wal_version=Some(4)`, `hits=10` en las 5 corridas |
+
+##### La escala: 25 000 × 1536d (y por qué 15 000 no sirve)
+
+**25 000 es la escala de referencia de W7** y la **más pequeña del régimen HNSW**:
+por encima de `flat_threshold` (10 000) la búsqueda **lee el vector del vstore y
+descifra** (`src/index/search/neighbors.rs:57`); a 10 000 o menos es un barrido
+plano que **no toca el ciphertext** ⇒ no puede medir el coste del cifrado. Por
+eso la escala de reserva de **10 000 es inválida** para esta comparación.
+
+**La caja dejó de sostener los 25 000 a mitad de la sesión**: el `p50` de la
+variante **clara** —el criterio de "cabe en RAM" del bench— subió de 7,05 ms
+(01:27) a 9,74–11,37 ms (03:00–03:10), por encima del límite de 8 ms
+(`ENCRYPTED_P99_MAX_P50_MS`). Se probó **bajando a 15 000 × 1536d** y la corrida
+en claro salió **aún peor** (`p50` 11,94 ms, `p99` 78,17 ms, `ram_bound=EXCEEDED`):
+el problema no era el tamaño del *working set* sino la **presión de memoria de
+la máquina** (commit charge al 91,5 %, 7,6 GB libres), que hace que el mmap
+vaya a disco. **Se publica, por tanto, a 25 000** (la escala de referencia) y
+**el descarte de 15 000 queda documentado** (`target/f598-post-15k/P1.results.txt`).
+
+##### Resultados — la pasada medida (1 × 1000 queries, la métrica del plan)
+
+| Métrica | Sin cifrar (min / **med** / max) | Cifrado (min / **med** / max) | Δ mediana | Spread claro | Spread cifrado | Umbral 15 % |
+| :--- | :---: | :---: | ---: | ---: | ---: | :--- |
+| **search p50** (ms) | 7.0527 / **7.3787** / 7.7047 | 10.2331 / **11.7812** / 14.1960 | **+59,7 %** | +9 % | +39 % | **superado** |
+| **search p95** (ms) | 9.4975 / **10.9053** / 12.3130 | 12.7310 / **15.9504** / 23.9401 | **+46,3 %** | +30 % | +88 % | superado |
+| **search p99** (ms) | 11.4618 / **16.7590** / 22.0561 | 15.3712 / **20.5646** / 36.5360 | **+22,7 %** | **+92 %** | **+138 %** | superado |
+| `insert` 25 000 nodos (s) | 395.8 / **477.0** / 558.1 | 432.6 / **514.2** / 765.2 | +7,8 % | +41 % | +77 % | dentro (ruido) |
+| `flush` (reescribe la imagen HNSW) (s) | 0.974 / **0.996** / 1.018 | 0.875 / **0.898** / 1.136 | −9,8 % | +5 % | +30 % | dentro (ruido) |
+| `cold start` (cerrar + reabrir) (s) | 1.649 / **1.7045** / 1.760 | 2.261 / **2.3260** / 5.658 | **+36,5 %** | +7 % | +150 % | **superado** |
+
+> **n = 2 en claro, n = 3 en cifrado.** La tercera corrida en claro (P2) se
+> **descartó**: dio `ram_bound=EXCEEDED` en sus **tres** intentos (p50 8,98 /
+> 11,37 / 9,74 ms, los tres por encima del límite de 8 ms) ⇒ su `p99` (30,83 /
+> 86,40 / 21,63 ms) mide la E/S de la máquina, no el cifrado, y **no se publica**
+> (el protocolo: *"no publiques un número de una corrida que midió disco"*). Sus
+> tres resultados quedan en `target/f598-post/P2-attempt1-DISCARDED.results.txt`
+> y `P2.results.txt` (intento 3). La mediana en claro de la tabla es la media
+> de las **dos** corridas publicables.
+
+##### Resultados — el grupo de **criterion** (10 × 1000 queries, motor reabierto)
+
+Es la **segunda medición del bench**, independiente de la anterior: las mismas
+1000 queries, sobre el motor **reabierto**, con 10 muestras y su **intervalo de
+confianza al 95 %**. Es el estimador **robusto** (10 000 queries por corrida),
+mientras que el `p99` de la pasada medida es **un solo estadístico de orden** de
+1000 muestras ⇒ en esta caja su dispersión (+92 % / +138 %) es del orden del
+propio efecto.
+
+| Corrida | criterion (1000 queries, motor reabierto) | CI 95 % |
+| :--- | ---: | :--- |
+| P1 (claro) | 9 246,9 ms | [8 703,2 · 9 786,1] |
+| P3 (claro) | 7 215,9 ms | [6 771,4 · 7 686,8] |
+| E1 (cifrado) | 13 101,6 ms | [10 769,5 · 15 561,3] |
+| E2 (cifrado) | 11 988,9 ms | [11 042,6 · 12 810,8] |
+| E3 (cifrado) | 16 753,4 ms | [15 649,2 · 18 005,1] |
+
+**Medianas: 8 231,4 ms en claro vs 13 101,6 ms cifrados ⇒ +59,2 %**, y las
+**bandas no se solapan** (el máximo de la banda clara, 9 786,1 ms, es menor que
+el mínimo de la cifrada, 11 042,6 ms).
+
+##### El veredicto (criterio fijado **antes** de ver los números)
+
+Regla de bandas, la misma que fijó la certificación de §22.3.2: **A)** el gate
+está superado si `max(claro) × 1,15 < min(cifrado)`; **B)** el gate se cumple
+si `max(cifrado) < min(claro) × 1,15`; **C)** si no, no es concluyente.
+
+- **Sobre el grupo de criterion (el estimador con CI): A) GATE SUPERADO.**
+  `max(claro) × 1,15 = 9 246,9 × 1,15 = 10 633,9 < min(cifrado) = 11 988,9` ⇒
+  **verdadero**: las tres corridas cifradas son **más de un 15 % peores** que las
+  dos claras, **con los intervalos de confianza sin solapar**.
+- **Sobre la pasada medida (el `p99` literal del plan): C) no concluyente**, y
+  el motivo **no es el cifrado**: la banda en claro va de 11,46 a 22,06 ms
+  (+92 %) porque la caja se degradó a lo largo de la sesión (RAM libre
+  12,63 → 8,58 GB, commit charge 79 % → 88 %). Un solo estadístico de orden
+  sobre 1000 muestras no puede certificar un umbral del 15 % en esta máquina.
+
+**Por pares intercalados** (cada par corrió **back-to-back**, así que la deriva
+de la caja le afecta a los dos por igual — es la comparación inmune a la deriva):
+
+| Par (horario) | Δ p99 (pasada medida) | Δ criterion (10 × 1000 q) |
+| :--- | ---: | ---: |
+| P1 01:27 → E1 01:38 | **+34,1 %** | **+41,7 %** |
+| E2 01:55 → P3 02:17 | −6,8 % | **+66,1 %** |
+| E3 02:28 → P2 (descartada) | n/a | n/a |
+
+El primer par coincide en las dos mediciones (+34 % / +42 %). El segundo par es
+donde las dos mediciones **discrepan**: la pasada medida da −6,8 % y el grupo de
+criterion +66,1 %. La explicación es estadística, no criptográfica: el `p99` de
+**una** pasada es un orden estadístico de 1000 muestras (y en el segundo par el
+`p99` en claro, 22,06 ms, es un outlier de la cola), mientras que el grupo de
+criterion promedia **10 000 queries**. **El grupo de criterion es el estimador
+que se puede publicar como número de regresión; el `p99` de una pasada no lo
+es, en esta caja.**
+
+##### Qué compra el Paso 0 y qué no compra
+
+Comparando **el mismo estimador** (grupo de criterion) antes y después del Paso 0:
+
+| Estado del código | criterion, claro | criterion, cifrado | Δ | Veredicto |
+| :--- | ---: | ---: | ---: | :--- |
+| **Antes** del Paso 0 (§22.3.2, 2026-10-21 19:59-22:21) | 14 453,1 ms | 57 257,6 ms | **+296,1 %** | A) gate superado |
+| **Después** del Paso 0 (esta sección, 2026-10-22) | 8 231,4 ms | 13 101,6 ms | **+59,2 %** | A) gate superado |
+| **Después** del Paso 0 (§22.4, serie independiente) | 7 354,5 ms | 10 739,9 ms | **+46,0 %** | A) gate superado |
+
+> ⚠️ **La fila "antes" no es una base *like-for-like***: las 6 corridas de
+> §22.3.2 cubren **dos estados de máquina** (su P1 y su E1 corrieron bajo presión
+> de memoria: 7,22 GB libres y 95,1 % de commit) ⇒ su mediana mezcla una corrida
+> en clara medida bajo presión con una cifrada medida en calma, y **subestima**
+> el coste relativo pre-Paso 0. La comparación *like-for-like* es la del **par en
+> calma** de la sesión pre-Paso 0 contra el set post-Paso 0 completo:
+> **+390,6 % → +43,2 %** en el p99 (§22.4.3). **Las tres filas de la tabla
+> apuntan al mismo sitio**: el gate está superado antes y después del Paso 0.
+
+**El Paso 0 quita una quinta parte del sobrecoste** (+296 % → +59 %) — es real y
+medible: 2 de las 5 copias del payload por candidato desaparecen, el bucle de
+1536 iteraciones pasa a `memcpy`, y la cache pasa de 1 entrada a una LRU acotada
+por bytes con el `Arc` en manos del consumidor. **Pero el gate del 15 % sigue
+superado por un factor ~4**, y la razón **es estructural, no de ruido**:
+
+1. El envelope del VantaFile es **por nodo** (`src/storage/vfile_crypto.rs::seal_node`)
+   ⇒ **1 AEAD por candidato visitado** es el mínimo posible sin cambiar el
+   formato en disco. El Paso 0 **no puede** quitarlo: la cache amortiza la
+   **revisita**, no la **proximidad**.
+2. Con `ef_search = 100` el recorrido HNSW visita ~100 candidatos por query ⇒
+   ~100 AEAD y ~100 materializaciones de 6 KB por query en el peor caso.
+3. El **zero-copy sigue perdido**: el `Cow<'_, [f32]>` del trait público
+   `VectorStoreRef` (`src/index_port.rs:86`) está atado a `&self` ⇒ no puede
+   transportar la guarda de eviction de la cache, y el vector cifrado se
+   materializa siempre en un `Vec` (`Cow::Owned`).
+
+⇒ **El envelope por página (64 KiB) + cache LRU de páginas descifradas sigue
+siendo necesario** para cerrar el gate: es la única forma de amortizar el AEAD
+sobre los ~10 nodos de la página **y** de devolver la vista prestada (vuelve el
+zero-copy). **Es un breaking change del trait público `VectorStoreRef`** ⇒ no es
+una decisión de implementación: es una decisión del owner. El diseño está
+especificado en `docs/dev/architecture/design/2026-10-21-encryption-envelope-per-page.md`.
+
+> **Lo que esta medición NO cierra.** El `p99` de la **pasada medida** sigue
+> sin ser certificable en esta caja (la banda en claro tiene un +92 % de
+> dispersión por la degradación de memoria de la sesión). El número publicable
+> es el del grupo de criterion (+59,2 %, bandas sin solapar). Un **gate de
+> regresión en CI** necesitaría un bench corto y estable (el **coste por frame
+> del WAL**, §22.3.3, +0,6 a +1,2 µs, sí lo es), no este.
+> **Salvedades de la sesión (Regla 11).** (a) Una **sesión agente concurrente**
+> ejecutó el mismo protocolo en la **misma máquina** a la vez que ésta: su
+> *watchdog* (`target/find598/watchdog_parallel.ps1`) mató 3 de las corridas
+> de la primera serie de esta sesión (que quedan transcritas con su procedencia
+> en `target/f598-post/PROVENANCE-first-sequence.txt`); la serie publicada es la
+> **aislada** (`target/f598-post`: directorio de resultados, `TEMP`, `CRITERION_HOME`
+> y copias de los binarios propios). (b) La máquina se **degradó** a lo largo de
+> la sesión (12,63 → 8,58 GB libres; commit charge 79 % → 88 %): por eso la
+> tercera corrida en claro no superó el criterio de "cabe en RAM" en ninguno de
+> sus tres intentos. (c) Las dos sesiones de este §22 (la de §22.3.2 y esta) no
+> son la misma sesión de medición ⇒ **sus valores absolutos no son comparables**
+> (misma escala y mismo dataset, distinto estado de la caja); **el delta sí**, porque
+> las dos miden el mismo bench, la misma máquina y el mismo dataset.
 
 #### 22.3.3 WAL (`benches/wal_throughput.rs`) — coste por frame
 

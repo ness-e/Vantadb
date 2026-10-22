@@ -6,7 +6,7 @@ description: "Crear docs/dev/workflow/RULES.md (nuevo) + refresh docs/dev/operat
 
 # FIND-144 — Durable workflow rules + CI_POLICY refresh + AGENTS pointer
 
-> **Plan:** `docs/dev/plans/2026-09-21-workflows-repair.md` (Wave 5, tras FIND-143)
+> **Plan:** `2026-09-21-workflows-repair` (Wave 5, tras FIND-143)
 > **Type:** docs (campaign_detect_task_type: Documentation)
 > **SDP:** documentation-and-adrs (curada; keywordMapped) + writing-guidelines (base) — resto lifecycle (frontend-ui, api-design, TDD, doubt, source, context) N/A docs-only. Keywords: [docs, rules, markdownlint, policy]. Phase BUILD.
 > **Estado:** ⬜ PENDING → ⏳ IN PROGRESS (S1)

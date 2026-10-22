@@ -568,7 +568,7 @@ last-synced: 2026-09-02T02:45
 
 #### GOV-C2 — Backlog ↔ campañas P29/P30/P31 + MEM-43
 - **Descripción:** fila MEM-43 ✅ hash a0bcb112 + secciones P29/P30 cerradas puntero archive + P31 8 tasks activas + contador coherente
-- **Archivos clave:** `docs/dev/Backlog.md:703-705`, `docs/dev/plans/archive/*p29*/*p30*`, `docs/dev/plans/2026-08-22-vanta-final-cierre.md`
+- **Archivos clave:** `docs/dev/Backlog.md:703-705`, `docs/dev/plans/archive/*p29*/*p30*`, `2026-08-22-vanta-final-cierre`
 - **Gate Justificación:** SYNC-03 single source of truth roto
 - **Contrato:** `Select-String -Path "docs/dev/Backlog.md" -Pattern "MEM-43.*✅" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/GOV-C2.md`

@@ -70,14 +70,14 @@ Métrica verify retries/tarea: **16/18 tareas (89%) pasaron el verify del lead a
 - **Estado:** ⏳ PENDING
 
 ### Task 3: DOC-03 — Fase 0 en registro canónico + plan F0 archivado + hash F1 corregido
-- **Archivos clave:** `docs/progreso/README.md` (sección Detalle), `docs/dev/avance/activo/desktop.md`, `docs/dev/plans/2026-08-18-vanta-studio-fase0.md` → mover a `docs/dev/plans/archive/`, `docs/dev/plans/archive/2026-08-18-vanta-studio-fase1.md` (L5)
+- **Archivos clave:** `docs/progreso/README.md` (sección Detalle), `docs/dev/avance/activo/desktop.md`, `2026-08-18-vanta-studio-fase0` → mover a `docs/dev/plans/archive/`, `2026-08-18-vanta-studio-fase1` (L5)
 - **Gate Justificación:** dictamen cross-check — Fase 0 ausente del registro canónico (solo VS-02 tiene entrada en progreso, 14 tareas HECHO sin entradas); plan F0 nunca archivado; plan F1 L5 cita commit inexistente `9c27f5e9` (cierre real `4c26b285`).
 - **Contrato:** agregar entradas VS-00..18 + VS-CORE-01..03 de Fase 0 a progreso/README (formato existente, con commits reales — verificar con `git log`); espejar en desktop.md; mover plan F0 a archive/ + entrada "Planes archivados" + retrospectiva (patrón F1/F2/F3); corregir hash en plan F1 (o anotar errata).
 - **Verificación:** `git cat-file -t 4c26b285` OK; `rg -c "VS-0" docs/progreso/README.md` sube; plan F0 en archive/.
 - **Estado:** ⏳ PENDING
 
 ### Task 4: DOC-04 — Cabeceras/estados stale restantes
-- **Archivos clave:** `docs/progreso/README.md` (cabecera L5/L11/L21 fecha ~2026-08-02/~95% vs contenido 2026-08-19; L630 comentario muerto "movido a ARCHIVO_HISTORICO.md"), `docs/dev/plans/archive/2026-08-18-vanta-studio-fase3.md` (L102 WEB-06 ⏳ PENDING vs header 7/7; L5 "7 commits" lista 8 hashes), `docs/dev/avance/activo/desktop.md` (header "Fase 1" agrupa Fase 2)
+- **Archivos clave:** `docs/progreso/README.md` (cabecera L5/L11/L21 fecha ~2026-08-02/~95% vs contenido 2026-08-19; L630 comentario muerto "movido a ARCHIVO_HISTORICO.md"), `2026-08-18-vanta-studio-fase3` (L102 WEB-06 ⏳ PENDING vs header 7/7; L5 "7 commits" lista 8 hashes), `docs/dev/avance/activo/desktop.md` (header "Fase 1" agrupa Fase 2)
 - **Gate Justificación:** dictamen cross-check media — cabeceras desactualizadas contradicen contenido y confunden cualquier lectura futura.
 - **Contrato:** corregir fecha/estado en cabeceras de progreso/README; marcar WEB-06 ✅ (commit 583dad9a) en plan F3 archivado + conteo de commits correcto; corregir header desktop.md; eliminar comentario muerto L630.
 - **Verificación:** lectura visual: cabeceras coherentes con contenido; `rg "2026-08-02" docs/progreso/README.md` sin hits en cabecera.

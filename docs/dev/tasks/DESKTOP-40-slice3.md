@@ -6,7 +6,7 @@ description: "Patrón slices 1-2 (trusted, b64cbb30/bbdeae17): tt(lang, key, fal
 
 # DESKTOP-40-slice3 — i18n lentes/paneles desktop
 
-- **Plan:** `docs/dev/plans/2026-09-10-code.md` (Task 3 DEFER) · **Backlog:** `docs/dev/Backlog.md` fila `DESKTOP-40-slice3`
+- **Plan:** `2026-09-10-code` (Task 3 DEFER) · **Backlog:** `docs/dev/Backlog.md` fila `DESKTOP-40-slice3`
 - **Estado:** ⏳ IN PROGRESS · **Rama:** `develop` (verificada paso 0)
 - **Contrato:** lentes + paneles restantes migrados a `tt()/tp()` + `npm run build` desktop 0 errores + `npx tsc --noEmit` exit 0 + `npx vitest run src/i18n` verdes
 - **Appetite:** max 2d · **Commit:** conventional con task ID (`feat(desktop): ... (DESKTOP-40-slice3)`)
@@ -97,4 +97,4 @@ Blast radius por slice ≤3 archivos, sin hot path, sin API pública nueva, cont
 
 ## Deuda / WIP ajeno (NO TOCAR)
 
-`M opencode.jsonc`, `M .opencode`, `M desktop/src-tauri/Cargo.lock`, `D docs/dev/plans/2026-09-10-code.md`, `?? Investigacion-plan.md` — ajenos. Commit SOLO archivos del slice.
+`M opencode.jsonc`, `M .opencode`, `M desktop/src-tauri/Cargo.lock`, `D 2026-09-10-code`, `?? Investigacion-plan.md` — ajenos. Commit SOLO archivos del slice.

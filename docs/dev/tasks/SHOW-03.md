@@ -6,7 +6,7 @@ description: "Objetivo: prototipo estrella RAG-sobre-PDFs 100% local (subir PDF 
 
 # SHOW-03 — prototipo estrella RAG-sobre-PDFs (100% local)
 
-> **Plan:** `docs/dev/plans/2026-09-19-publicacion.md` (Wave1, primera en secuencia) · **Ruta:** vanta-worker
+> **Plan:** `2026-09-19-publicacion` (Wave1, primera en secuencia) · **Ruta:** vanta-worker
 > **Appetite/Branch/Commit:** 3d / develop / `feat: SHOW-03 — ...` · **Estado:** ⏳ IN PROGRESS
 > **SDP:** test-driven-development · systematic-debugging · documentation-and-adrs · incremental-implementation · context-engineering · source-driven-development · doubt-driven-development · api-and-interface-design (SDP v2 BUILD, §5)
 

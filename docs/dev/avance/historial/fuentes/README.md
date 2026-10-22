@@ -58,7 +58,7 @@ VantaDB es una base de datos vectorial en Rust enfocada en alto rendimiento, HNS
 
 ---
 
-### Campaña P32 Bindings SDK completada 2026-08-22 - 4/4 tareas (plan `2026-08-22-vantadb-bindings-sdk.md`)
+### Campaña P32 Bindings SDK completada 2026-08-22 - 4/4 tareas (plan `2026-08-22-vantadb-bindings-sdk`)
 
 **MEM-36 pagada:** sub-clientes por dominio en TS y Python con backward-compat 100%. Suites: TS **246/246** (17 nuevos), Python **105 passed** (16 nuevos), docs coverage 0 gaps.
 
@@ -71,7 +71,7 @@ VantaDB es una base de datos vectorial en Rust enfocada en alto rendimiento, HNS
 
 **Deudas colaterales nuevas en Backlog:** BND-01 LinkError wasm pkg snippet idb.rs (pre-existente, dueño arch) · BND-02 drift types.ts↔pkg topological_sort.
 
-### Campaña P31 Cierre Final completada 2026-08-22 - 8/8 tareas (plan `2026-08-22-vanta-final-cierre.md`)
+### Campaña P31 Cierre Final completada 2026-08-22 - 8/8 tareas (plan `2026-08-22-vanta-final-cierre`)
 
 **El port TDAM queda al 100% funcional y semántico.** Suites: vanta-memory **472/472**, vanta-proxy 52/52, vantadb-mcp 30/30, workspace completo 2568+.
 
