@@ -97,7 +97,7 @@ measurement; rebuild `pkg/` before quoting for release.)
   - `vantadb-wasm` (browser bindings): **232/week · 764/month**.
   - `vantadb` (TypeScript SDK): **210/week · 548/month**.
   - Context: H-21 measured **187/month** for the binding over 2026-07-26→08-24
-    (`docs/dev/reviews/archive/research-vantadb-wasm-20260825.md`) — the monthly
+    (Notion › Reviews 2026 › `research-vantadb-wasm-20260825.md`, https://app.notion.com/p/401d04459756803ab32bc3af85dcdecd) - the monthly
     figure has grown ~4× since; npm counts include CI/mirror traffic, so treat
     them as a trend signal, not a user count.
 
@@ -115,7 +115,7 @@ measurement; rebuild `pkg/` before quoting for release.)
 - **No performance winner is declared.** Nobody in this niche publishes a
   reproducible public JS/WASM benchmark (research §53; our JS/WASM path has
   zero published numbers, H-11). The qualitative matrix is in
-  `docs/dev/reviews/archive/research-vantadb-ts-20260825.md` §3 (verified 2026-08-25).
+  Notion › Reviews 2026 › `research-vantadb-ts-20260825.md` §3 (https://app.notion.com/p/401d04459756803ab32bc3af85dcdecd, verified 2026-08-25).
 
 ---
 

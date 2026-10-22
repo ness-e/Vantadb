@@ -31,20 +31,16 @@ tags: [vantadb, avance, index, live-sources, plans, audit-reports, reviews]
 
 **Propietario del pipeline:** `dev-tools/audit-all.ps1` (`$ReportDir`), prompt `audit-full.md` (escribe `audit-<mode>-<timestamp>.md`), skill `unified-review` (`/review`, reportes `review-<mode>-<timestamp>.md`). Unificado: `/audit` ≡ `/review` (alias legacy) escriben en `docs/dev/reviews/`. `audit-full-2025-07-27.md` (antes `vantadb-audit-report.md`) es el reporte estático multi-agente principal — archivado 2026-08-09 al estar 100% procesado (P13 AUDREP).
 
-| Archivo | Líneas | Tipo |
+| Fichero | Líneas | Tipo |
 |---|---|---|
-| `review-full-2026-07-27-0309.md` | 457 | Review completo |
-| `review-certify-2026-08-05-2025.md` | 74 | Certify reciente |
-| `review-full-2026-08-05-t1545.md` | 53 | Review rápido |
-| `audit-full-20260808-002617.md` | — | Audit completo vigente |
+| Notion › [«Reviews 2026»](https://app.notion.com/p/401d04459756803ab32bc3af85dcdecd) | 45 | Reports del pipeline migrados a Notion (uno por review, con el análisis de vigencia a 2026-10-22) |
 | `2026-10-20-auditoria-profunda-v0.9.0.md` | 407 | **Auditoría exhaustiva del árbol v0.9.0** (informe consolidado: veredicto por área, P0/P1 con fix, cobertura) |
 | `2026-10-20-auditoria-profunda-v0.9.0-ledger.md` | 165 | **Ledger de los 141 hallazgos** de esa campaña (id, severidad, área, ubicación) |
 | `2026-10-20-release-v0.9.0-postmortem.md` | 302 | **Post-mortem del release v0.9.0** (7 fallos, causa raíz, checklist de pre-flight) |
 | `audit-deep-w0..w10-*.md` + `audit-deep-sintesis-*.md` | 13 | Campaña 11 waves: informe por wave + síntesis global |
 | `audit-subagent-s1..s7-*.md` | 7 | Informes crudos de los 7 subagentes (evidencia por área) |
 | `INDEX.md` | — | Índice de esta carpeta: qué informe es cuál |
-| `archive/review.md` | 61 | Archivado |
-| `archive/` (14 files) | — | Audits/reviews superados pre-unificación + `audit-full-2025-07-27.md` |
+| Notion › [«Reviews 2026»](https://app.notion.com/p/401d04459756803ab32bc3af85dcdecd) | 45 | Los reports archivados (incluido `review.md` y `audit-full-2025-07-27.md`) ya no viven en el repo: se conservan en Notion |
 
 ## 4. `docs/dev/research/` — Investigaciones
 

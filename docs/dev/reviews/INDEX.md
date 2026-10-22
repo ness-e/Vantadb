@@ -65,8 +65,5 @@ marcado como sospechado en cada informe.
 
 | Fichero | Qué es |
 |---|---|
-| `audit-full-20260808-002617.md` | Audit completo vigente del pipeline |
-| `review-full-2026-07-27-0309.md` | Review completo |
-| `review-certify-2026-08-05-2025.md` | Certify reciente |
-| `review-full-2026-08-05-t1545.md` | Review rápido |
-| `archive/` | Audits y reviews superados (pre-unificación) |
+| Notion › [«Reviews 2026»](https://app.notion.com/p/401d04459756803ab32bc3af85dcdecd) | Los 45 reports históricos del pipeline (`audit-full-20260808-002617.md`, `review-full-2026-07-27-0309.md`, `review-certify-2026-08-05-2025.md`, `review-full-2026-08-05-t1545.md` y 41 más): ya no están en el repo, se conservan en Notion con el análisis de vigencia de cada uno |
+| `archive/` | Audits y reviews superados (pre-unificación) — ya no están en el repo: se conservan en Notion › [«Reviews 2026»](https://app.notion.com/p/401d04459756803ab32bc3af85dcdecd), una página por review con el análisis de vigencia |

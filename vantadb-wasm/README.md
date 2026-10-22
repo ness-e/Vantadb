@@ -329,7 +329,7 @@ demonstrates a measured reduction without regressions.
 - [`vantadb-wasm/demo/`](https://github.com/ness-e/Vantadb/tree/main/vantadb-wasm/demo) — browser AI agent demo (Transformers.js + OPFS)
 - `vantadb-ts/README.md` §"WASM bundle & lazy loading" — runtime-specific recipes
 - `docs/user/QUICKSTART.md` §7 "Optional: Local Embeddings" — full walkthrough
-- `docs/dev/research/research-vantadb-wasm-20260825.md` §H-17 — origin ticket
+- Notion › Reviews 2026 › `research-vantadb-wasm-20260825.md` §H-17 - origin ticket (https://app.notion.com/p/401d04459756803ab32bc3af85dcdecd)
 - `docs/dev/_templates/adr.md` — format reference for any future ADR on lazy-loading strategy
 
 ---

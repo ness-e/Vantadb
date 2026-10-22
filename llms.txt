@@ -6,7 +6,7 @@
 
 Every link below points to the raw Markdown source, not a rendered page. Read the
 page you need; do not read this file end to end. This index covers the
-514 documentation pages; it deliberately omits the 180 task files,
+514 documentation pages; it deliberately omits the 153 task files,
 which are work items rather than documentation. The full inventory of every file
 is in docs/index.md in the repository.
 
@@ -239,7 +239,7 @@ is in docs/index.md in the repository.
 - [Workflows — Inventory (20 active)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/workflow/README.md): Per-workflow detail pages live next to this index (ci-gate.md,
 - [reports](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/reports/index.md): Section index.
 - [specs](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/specs/index.md): Section index.
-- [Reviews archivados (2026-08-26)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/reviews/README.md): Estos 30 reportes son snapshots históricos de auditorías/reviews/investigaciones
+- [Reviews archivados (2026-08-26) — migrados a Notion](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/reviews/README.md): Los 45 reports archivados se conservan en Notion (página "Reviews 2026"), con el análisis de vigencia de cada uno
 - [The mdBook layer (retired 2026-09-29)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/user/book/README.md): Why docs/user/book/ was deleted, what survives, and what to do if it comes back
 
 ## Plans
@@ -309,7 +309,7 @@ is in docs/index.md in the repository.
 - [07 — Archivos Esenciales del Repo y Contrato de Fiabilidad First-Run](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/validacion/07-repo-esencial-y-fiabilidad-first-run.md): Fecha: 2026-08-25 · Agente: G (auditoría release/producto) · Alcance: estado actual del repo vs checklist de lanzamiento público + definición del contrato \"lo que NO debe fallar jamás\" para un evaluador nuevo
 - [ADR-XXX: {{title}}](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/_templates/adr.md): Explain the context, background, and the problem we are trying to solve
 - [AGENT-01 — Fundamentos y Mejores Prácticas de Agentes Efectivos](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/2026-08-10-agent-engineering/agent-01-fundaments.md): Fuente: #1 (Anthropic Building Effective Agents)
-- [Active Backlog — VantaDB](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/Backlog.md): Hallazgos >= medium derivados de reportes de auditoría. Fuente: docs/dev/reviews/audit-full-20260812-231204.md (2026-08-12)
+- [Active Backlog — VantaDB](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/Backlog.md): Hallazgos >= medium derivados de reportes de auditoría. Fuente: Notion/Reviews 2026/audit-full-20260812-231204.md (2026-08-12)
 - [Agente-03 — Orquestación y Colaboración Multi-Agente (Orquestador + Sub-agentes)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/2026-08-10-agent-engineering/agent-03-orchestration.md): La orquestación multi-agente (patrón orchestrator-workers) es el mecanismo por el
 - [Backlog Futuro (I+D v3.0+)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/backlog-futuro.md): Diferidos tras el freeze del backlog (ROADMAP R5). Ideas preservadas durante la limpieza de documentación histórica (2026-08-04). Sin spec ni prioridad — I+D especulativa para hardware restrictivo / post product-market fit
 - [Backlog Notion — tareas sobre páginas VantaDB Docs](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/backlog-notion.md)

@@ -156,7 +156,7 @@ Los archivos de `docs/dev/avance/activo/` **se actualizan al cierre de cada camp
 - **Contexto:** 4 pérdidas de trazabilidad en el programa INV-* 2026-08-25 (MOD-22..24, MOD-25..28, MOD-41..45, MOD-46..50): hallazgos "derivados al Backlog" en la prosa de reports pero sin fila creada — violación repetida del invariant progreso (nada se elimina del Backlog sin completar o archivar).
 - **Regla dura:** derivar un hallazgo = crear la fila en `docs/dev/Backlog.md` EN EL MISMO commit donde se registra la derivación. Prohibido dejar la derivación solo en prosa de reports/informes.
 - **Chequeo mecánico:** Trigger 4 de `progreso` incluye grep de IDs citados en `docs/dev/reviews/*.md` (apéndices H-NN, MOD-\*, derivaciones) vs filas reales en Backlog/historial; IDs huérfanos = hallazgo REC-\* inmediato.
-- **Origen:** decisión HITL `/research synthesis` Q8 (sesión 2026-08-26); ref: `docs/dev/reviews/research-bindings-synthesis-20260825.md` §3.
+- **Origen:** decisión HITL `/research synthesis` Q8 (sesión 2026-08-26); ref: `Notion/Reviews 2026/research-bindings-synthesis-20260825.md` §3.
 
 ## Cierre ejecución INV-DECIDE — waves quick-wins completas (2026-08-26)
 - **Ejecución:** 9 planes de los aprobados, 2 waves paralelas por directorios disjuntos, 9 sub-agentes vanta-worker. Commits: `2754c783` providers · `4ffb833b` python (+PY-03) · `a7ed0d22` desktop (CSP+sparse_vector) · `c141c1ce` ts (gate CI+smoke) · `f72a0cc0` server (SRV-01/02) · `53f080e5` wasm (QW-1..5) · `96e143ec` integrations (QW-1..8) · `a86c7e4e` node (BND-11/12/13+bench) · `9d6758f6` web (WEB-03..09). Lead verificó: cargo check ×9 crates + workspace completo ✅, build web ✅, suites vitest/wasm-pack/pytest/npm test según agente.
@@ -194,7 +194,7 @@ Los archivos de `docs/dev/avance/activo/` **se actualizan al cierre de cada camp
 
 ## Archivo 2026-09-02: campaña error-observability (20260902-error-observability)
 
-Plan docs/dev/plans/archive/2026-09-02-error-observability-excellence.md archivado con retrospectiva: 9/9 ✅ (4 waves, MAX_CONCURRENT=3, 89% first-try — único retry por fallo de infra uv_spawn, no de diseño). Contrato unificado VANTADB_* (10 códigos) core→WASM/Node/TS→Python/providers→MCP(-320xx)→Desktop→Web. Follow-ups: FIND-52/53/54 + sanitización 500.
+Plan 2026-09-02-error-observability-excellence archivado con retrospectiva: 9/9 ✅ (4 waves, MAX_CONCURRENT=3, 89% first-try — único retry por fallo de infra uv_spawn, no de diseño). Contrato unificado VANTADB_* (10 códigos) core→WASM/Node/TS→Python/providers→MCP(-320xx)→Desktop→Web. Follow-ups: FIND-52/53/54 + sanitización 500.
 
 
 ## Archivo 2026-09-03: campana alta-prioridad-paralelo (20260902-alta-prioridad-paralelo)
@@ -225,7 +225,7 @@ Plan `docs/dev/plans/archive/2026-09-08-backlog.md` (+budget) archivado: 9/10 �
 
 ## Archivo 2026-09-09 (noche): campana backlog carryover+desbloqueos+proxy-w2 (0a5c1fb8)
 
-Plan `docs/dev/plans/archive/2026-09-09-backlog.md` (+budget) archivado: 6/6 ✅ en 2 waves secuenciales, 0 failed. Backlog: -5 filas (STABLE-09, TS-12, MEM-68, PRX-05, PRX-12) + PRX-09 re-scopeada a slice 2 (semántico/TTL/LRU). P47 cerrada (STABLE-09 subset `[., python, memory, server, mcp]` 546dabd1). Avance: ci-cd (STABLE-09, TS-12), vanta-memory (MEM-68), vanta-proxy.md nuevo (PRX-05/12), operaciones (PRX-09 slice 1). check-avance-coverage 1038/1038 (100%). 2 aborts de lanzamiento recuperados con RETRY fresco sin pérdida (TS-12, PRX-12); PRX-12 pedida como RESUME pero sin task_id → fresco (lección: abort pre-creación no deja sesión).
+Plan `2026-09-09-backlog` (+budget) archivado: 6/6 ✅ en 2 waves secuenciales, 0 failed. Backlog: -5 filas (STABLE-09, TS-12, MEM-68, PRX-05, PRX-12) + PRX-09 re-scopeada a slice 2 (semántico/TTL/LRU). P47 cerrada (STABLE-09 subset `[., python, memory, server, mcp]` 546dabd1). Avance: ci-cd (STABLE-09, TS-12), vanta-memory (MEM-68), vanta-proxy.md nuevo (PRX-05/12), operaciones (PRX-09 slice 1). check-avance-coverage 1038/1038 (100%). 2 aborts de lanzamiento recuperados con RETRY fresco sin pérdida (TS-12, PRX-12); PRX-12 pedida como RESUME pero sin task_id → fresco (lección: abort pre-creación no deja sesión).
 
 **Retrospectiva Start/Stop/Continue:**
 - **Start:** secuencial directo + prompts pipeline-full completos (6/6 primer intento efectivo tras retries).
@@ -236,7 +236,7 @@ Plan `docs/dev/plans/archive/2026-09-09-backlog.md` (+budget) archivado: 6/6 ✅
 
 ## Archivo 2026-09-10: campana codigo 19 DO (2c3d4e5f)
 
-Plan `docs/dev/plans/archive/2026-09-10-code.md` (+budget) archivado: 19/19 ✅ en 7 waves paralelas (MAX 3) + W6 secuencial interno, 0 failed. Backlog: -17 filas + PRX-09-slice2/PRX-11-slice2/DESKTOP-40-slice3 re-scopeadas. Avance: operaciones (proxy ×8), vanta-memory (MEM-69/70, MCP-41), desktop (D40s2, D42, D45), bindings (PROV-11, INTG-01/02). check-avance-coverage 1038/1038 (100%). Deudas: deny advisories pre-existente (SRV-06 RSA+lru), validate-docs-coverage roto (parse L58), lock stale providers, rustc 1.95 crash paralelo (usar -j 2), aux = nombre DOS reservado.
+Plan `2026-09-10-code` (+budget) archivado: 19/19 ✅ en 7 waves paralelas (MAX 3) + W6 secuencial interno, 0 failed. Backlog: -17 filas + PRX-09-slice2/PRX-11-slice2/DESKTOP-40-slice3 re-scopeadas. Avance: operaciones (proxy ×8), vanta-memory (MEM-69/70, MCP-41), desktop (D40s2, D42, D45), bindings (PROV-11, INTG-01/02). check-avance-coverage 1038/1038 (100%). Deudas: deny advisories pre-existente (SRV-06 RSA+lru), validate-docs-coverage roto (parse L58), lock stale providers, rustc 1.95 crash paralelo (usar -j 2), aux = nombre DOS reservado.
 
 **Retrospectiva Start/Stop/Continue:**
 - **Start:** waves paralelas reales ×3 con archivos disjuntos (tras 2 aborts iniciales, el runner las aceptó); SARL RESUME efectivo ×3 (PRX-02 commit, MCP-41 commit, PRX-10 retomó parcial S1/S2 del abort).
@@ -257,7 +257,7 @@ Plan `docs/dev/plans/archive/2026-09-10-fixes.md` (+budget) archivado: 6/6 ✅ e
 
 
 ## Archivo plan 2026-09-10-anti-stutter (2026-09-11)
-- **Plan:** docs/dev/plans/archive/2026-09-10-anti-stutter.md (+ .budget.json) - 7/7 COMPLETED (AST-001...007).
+- **Plan:** 2026-09-10-anti-stutter (+ .budget.json) - 7/7 COMPLETED (AST-001...007).
 - **Retrospectiva:** Start: just verify tras cada rename (caza usos downstream en AST-002, no AST-007). Stop: asumir aliases ⇒ cero churn (-D warnings los vuelve errores); asumir rg-cero literal sin scoped-contract. Continue: mapa unico + verify mecanico + triage con evidencia + recitation.
 ## Archivo plan 2026-09-11-anti-stutter-cierre (2026-09-11)
 - **Plan:** docs/dev/plans/archive/2026-09-11-anti-stutter-cierre.md (+ .budget.json) - 4/4 COMPLETED (AST-008/009/010/011, Wave 1 + Wave 2).
@@ -271,7 +271,7 @@ Plan `docs/dev/plans/archive/2026-09-10-fixes.md` (+budget) archivado: 6/6 ✅ e
 - **DEFER hecho despues:** S6 (DEFER-activo → GO humano → c2cdbf3e) + S3-slice2 CacheLayer (deuda → C2S3b → 836aece3). Sigue DEFER: reorg fisica (gate Fase 3). Futuro: S-split-config (D0 B+B).
 
 ## Archivo plan 2026-09-13-cleanCA-fase3 (2026-09-14)
-- **Plan:** docs/dev/plans/archive/2026-09-13-cleanCA-fase3.md - 4/4 COMPLETED (F3G,F3X,F3C,F3B; diseno-primero + Gates V: Q-F3X-impl A/ADR-0042, Q-F3C B/B/A).
+- **Plan:** 2026-09-13-cleanCA-fase3 - 4/4 COMPLETED (F3G,F3X,F3C,F3B; diseno-primero + Gates V: Q-F3X-impl A/ADR-0042, Q-F3C B/B/A).
 - **Retrospectiva:** Start: Gate V ante muros (F3X pub-sigs). Stop: asumir diseno intacto (F3X-H2, F3C-vistas). Continue: diseno-primero + review P2-01 pre-commit.
 - **Accion medible:** HALLAZGO + Gate V ante divergencia diseno→impl (metrica: 0 divergencias no registradas).
 - **DEFER ahora cotizable:** reorg fisica (gate 4/4). Futuro: firma ADR-0043 + revisit FIND-89.
@@ -282,7 +282,7 @@ Plan `docs/dev/plans/archive/2026-09-10-fixes.md` (+budget) archivado: 6/6 ✅ e
 - **Efecto:** ADR-0043 firmado por vanta-lead articulando decisiones humanas D0-B+B y F3C-Q1=B/Q2=B/Q3=A; la regla sigue vigente en el compartido.
 
 ## Archivo plan 2026-09-14-find89-env-consolidation (2026-09-14)
-- **Plan:** docs/dev/plans/archive/2026-09-14-find89-env-consolidation.md - 1/1 COMPLETED (FIND-89, slices S1→S2→S3→S4 + fix clippy; review P2-01 vanta-audit ✅ approve).
+- **Plan:** 2026-09-14-find89-env-consolidation - 1/1 COMPLETED (FIND-89, slices S1→S2→S3→S4 + fix clippy; review P2-01 vanta-audit ✅ approve).
 - **Retrospectiva:** Start: reconocimiento con `rg` antes de heredar listas (ADR-0043 decía 12, reales 7). Stop: `Default` impls delegando a shims deprecated `from_env` (rompe `clippy -D warnings`; fix 410b9b57). Continue: slices verticales compilables + tabla var→campo en task file + review de agente distinto con corridas propias.
 - **Accion medible:** 0 lectores legacy funcionales (`rg VANTA_`→solo comentarios); metrica: `rg "env::var" src/ --glob '!src/config.rs'` = solo excepciones documentadas.
 
@@ -292,7 +292,7 @@ Plan `docs/dev/plans/archive/2026-09-10-fixes.md` (+budget) archivado: 6/6 ✅ e
 - **Accion medible:** tasa de completado primer intento 31/31 con 2 resumes (rate-limit FIND-84/94, SARL RESUME misma sesión, 0 trabajo perdido); metrica: resumes/total = 2/31 (6%); baseline North Star >90% primer intento ✅ (94% sin resume).
 
 ## Archivo plan 2026-09-16-embeddings-auto (2026-09-16)
-- **Plan:** docs/dev/plans/archive/2026-09-16-embeddings-auto.md - 11/11 COMPLETED (Wave0: EMB-10; Wave1: EMB-11/12; Wave2: EMB-13/16/18; Wave3: EMB-14; Wave4: EMB-15/17; Wave5: EMB-19/20; FIND-99 épica cerrada por EMB-13+14; HALLAZGOS → FIND-100/101/102).
+- **Plan:** 2026-09-16-embeddings-auto - 11/11 COMPLETED (Wave0: EMB-10; Wave1: EMB-11/12; Wave2: EMB-13/16/18; Wave3: EMB-14; Wave4: EMB-15/17; Wave5: EMB-19/20; FIND-99 épica cerrada por EMB-13+14; HALLAZGOS → FIND-100/101/102).
 - **Retrospectiva:** Start: re-verificar claims contra código actual (binario sin motor, `_model` ignorado) + Gate D vía `question` para superficie pública + rebuild de verificación antes de dar e2e por verde (STALE tras Wave2-4 cazado en EMB-19). Stop: asumir binario instalado == fuente (56 vs 79 tools) + Backlog desde sub-agentes en paralelo (race → migración al cierre). Continue: waves MAX 3 por DAG + review P2-01 con corridas propias + task files como estado durable + Paso 0c desde el inicio.
 - **Accion medible:** bins STALE detectados/rebuilds = 1/1; metrica: 11/11 COMPLETO sin recovery (0 resumes); baseline North Star >90% primer intento ✅ (100%).
 
@@ -307,7 +307,7 @@ Plan `docs/dev/plans/archive/2026-09-10-fixes.md` (+budget) archivado: 6/6 ✅ e
 - **Accion medible:** rate-fails 4/13 lanzamientos (31%) -> secuencial-desde-inicio tras primer rate-limit, objetivo 0% proximo plan.
 
 ## Archivo plan 2026-09-18-cierre-mvp (2026-09-18)
-- **Plan:** docs/dev/plans/archive/2026-09-18-cierre-mvp.md - 9/9 COMPLETED (Wave0: FIND-98 re-DEFER lock / 110-spec / 113-spec; Wave1: IMPL-112-S1 / FIND-116 / FIND-119; Wave2: IMPL-112-S2 / FIND-117 / SHOW-05; +P2-01 3 reviews approve + SPEC alcance). Gate C -> FIND-118 (remocion alias 0.6.0, nueva). MVP CERRADO: IMPL-112 matriz completa + S4/S6b disenados + parity documentado + consistencia.
+- **Plan:** 2026-09-18-cierre-mvp - 9/9 COMPLETED (Wave0: FIND-98 re-DEFER lock / 110-spec / 113-spec; Wave1: IMPL-112-S1 / FIND-116 / FIND-119; Wave2: IMPL-112-S2 / FIND-117 / SHOW-05; +P2-01 3 reviews approve + SPEC alcance). Gate C -> FIND-118 (remocion alias 0.6.0, nueva). MVP CERRADO: IMPL-112 matriz completa + S4/S6b disenados + parity documentado + consistencia.
 - **Retrospectiva:** Start: secuencial-desde-inicio (0/12 rate-fails vs 4/13 anterior) + veredicto friccion explicito como Gate V S1->S2. Stop: burst paralelo inicial con free-tier limitado. Continue: P2-01 batch por area + spec-first uphill + verify lead por tarea.
 - **Accion medible:** rate-fails 0% (0/12) nueva baseline con secuencial+backoff-2min; mantener en proximos planes.
 
