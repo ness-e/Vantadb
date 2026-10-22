@@ -33,7 +33,12 @@ We aim to acknowledge receipt within 48 hours and provide an initial assessment 
   - The **master key lives in the process memory** while the database is open: this protects the data at rest, **not** against an attacker who can read the process's memory (or who has the key).
   - **Losing `data/encryption.registry` loses the database**: the DEKs only live there. Back it up with the data, never separately from it.
   - There is **no in-place migration**: an existing plaintext database is never migrated implicitly (a key configured on a plaintext database is ignored, with a warning). To encrypt it, export it and import it into a new database created with the key configured.
-  - **The replication of an encrypted database does not work**: the WAL shipper cannot read a v4
+  - **El descifrado deja plaintext en la memoria del proceso** (hasta 4 x 256 MiB segun
+  el `memory_limit`): el texto plano de un nodo descifrado vive en el heap y **no se borra**
+  al ser expulsado de la cache. El cifrado protege el **disco**, no la memoria del proceso:
+  un volcado de memoria (core dump) de un proceso con la clave cargada expone el
+  plaintext. Ver `FIND-618`.
+- **The replication of an encrypted database does not work**: the WAL shipper cannot read a v4
   (encrypted) segment, so the shipping cycle **fails and sends nothing** (it does not egress
   plaintext either). The same for the backup: a backup of an encrypted database is only
   restorable together with its `data/encryption.registry`. Both are open findings
