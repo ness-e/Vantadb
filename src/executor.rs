@@ -169,6 +169,36 @@ impl Drop for AllocationGuard<'_> {
     }
 }
 
+/// The diagnostic the `ROLE` prune emits when it prunes **every** record the
+/// plan produced (FIND-559).
+///
+/// `None` when the prune was partial, and `None` when the plan produced
+/// nothing at all: a partial prune is ordinary filtering, and an empty plan
+/// says nothing about the prune — that is a **different** case (the `AS OF`
+/// filter, which runs *after* the plan, emptying the result).
+///
+/// Informative only: the caller logs it. It never becomes an `Error` and it
+/// never changes the result set.
+fn role_prune_notice(
+    required_role: &str,
+    scanned: usize,
+    pruned: usize,
+    untagged: usize,
+) -> Option<String> {
+    if scanned == 0 || pruned < scanned {
+        return None;
+    }
+    let cause = if untagged == pruned {
+        "none of them carries the '_owner_role' field".to_string()
+    } else {
+        format!("none of them carries the role '{required_role}'")
+    };
+    Some(format!(
+        "ROLE '{required_role}' pruned {pruned} of {scanned} scanned records: {cause}. \
+         Tag the records with '_owner_role' in their metadata or drop the clause."
+    ))
+}
+
 /// Query executor that evaluates logical plans against the storage engine.
 pub struct Executor<'a> {
     /// Reference to the storage engine.
@@ -663,6 +693,11 @@ impl<'a> Executor<'a> {
         let mut physical_op = crate::planner::optimize_and_compile(&plan, self.storage)?;
 
         let mut results = Vec::new();
+        // FIND-559: bookkeeping of the `ROLE` prune. The prune keeps its
+        // fail-closed semantics (a record without `_owner_role` is discarded);
+        // these counters only exist so the executor can explain an empty
+        // result. Zero cost when the plan carries no `ROLE`.
+        let (mut role_scanned, mut role_pruned, mut role_untagged) = (0usize, 0usize, 0usize);
         physical_op.open()?;
 
         while let Some(node) = physical_op.next()? {
@@ -670,15 +705,19 @@ impl<'a> Executor<'a> {
 
             // Agented RBAC (Role-Based Access Control) Graph pruning
             if let Some(required_role) = &plan.enforce_role {
-                let mut role_match = false;
-                if let Some(crate::node::FieldValue::String(node_role)) =
-                    node.relational.get(crate::physical_plan::FIELD_OWNER_ROLE)
-                {
-                    if node_role == required_role {
-                        role_match = true;
-                    }
-                }
+                role_scanned += 1;
+                let owner_role = node.relational.get(crate::physical_plan::FIELD_OWNER_ROLE);
+                let role_match = matches!(
+                    owner_role,
+                    Some(crate::node::FieldValue::String(node_role)) if node_role == required_role
+                );
                 if !role_match && required_role != "admin" {
+                    // FIND-559: count what the prune discards (once per
+                    // query, never once per record).
+                    role_pruned += 1;
+                    if owner_role.is_none() {
+                        role_untagged += 1;
+                    }
                     continue; // Prune branch (Sub-graph isolation enforced)
                 }
             }
@@ -687,6 +726,21 @@ impl<'a> Executor<'a> {
         }
 
         physical_op.close()?;
+
+        // FIND-559: **one** notice per query, and only when the `ROLE` prune
+        // ate every record the plan produced — the case that used to return
+        // zero rows with no hint of why. Informative: it is not an `Error`
+        // and it does not change the result. A plan that produced nothing
+        // says nothing about the prune (that is the `AS OF` case, which runs
+        // after the plan).
+        if let Some(required_role) = &plan.enforce_role {
+            if let Some(notice) =
+                role_prune_notice(required_role, role_scanned, role_pruned, role_untagged)
+            {
+                tracing::warn!("{notice}");
+            }
+        }
+
         Ok(results)
     }
 }
@@ -1009,6 +1063,178 @@ mod tests {
         assert_eq!(
             read_ids(&ex, r#"FROM Doc FETCH name ROLE "editor""#),
             vec![1]
+        );
+    }
+
+    // ── FIND-559: la poda de `ROLE` es fail-closed, pero avisa ──
+
+    /// Captures the WARN-level tracing output produced by `f`.
+    ///
+    /// The `ROLE` prune reports through `tracing::warn!` (informative: never
+    /// an `Error`, never a change of the result), so the notice is only
+    /// observable in the log.
+    fn capture_warnings<F: FnOnce()>(f: F) -> String {
+        use std::io::Write;
+        use std::sync::{Arc, Mutex};
+
+        #[derive(Clone, Default)]
+        struct CaptureWriter(Arc<Mutex<Vec<u8>>>);
+
+        impl Write for CaptureWriter {
+            fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+                self.0
+                    .lock()
+                    .expect("capture buffer")
+                    .extend_from_slice(buf);
+                Ok(buf.len())
+            }
+            fn flush(&mut self) -> std::io::Result<()> {
+                Ok(())
+            }
+        }
+
+        impl<'a> tracing_subscriber::fmt::MakeWriter<'a> for CaptureWriter {
+            type Writer = CaptureWriter;
+            fn make_writer(&'a self) -> Self::Writer {
+                self.clone()
+            }
+        }
+
+        let sink = CaptureWriter::default();
+        let subscriber = tracing_subscriber::fmt()
+            .with_writer(sink.clone())
+            .with_max_level(tracing::Level::WARN)
+            .with_ansi(false)
+            .finish();
+        tracing::subscriber::with_default(subscriber, f);
+        let bytes = sink.0.lock().expect("capture buffer").clone();
+        String::from_utf8_lossy(&bytes).into_owned()
+    }
+
+    /// FIND-559: a record without `_owner_role` is **pruned** (fail-closed) —
+    /// the owner's decision of 2026-10-21 keeps that semantics. What changes
+    /// is only the silence around it, never the rows.
+    #[test]
+    fn role_prune_keeps_the_fail_closed_result() {
+        let (storage, _dir) = setup_storage();
+        let mut tagged = UnifiedNode::new(1);
+        tagged.set_field("type", FieldValue::String("Doc".to_string()));
+        tagged.set_field("_owner_role", FieldValue::String("user".to_string()));
+        storage.insert(&tagged).expect("insert tagged node");
+
+        let mut untagged = UnifiedNode::new(2);
+        untagged.set_field("type", FieldValue::String("Doc".to_string()));
+        storage.insert(&untagged).expect("insert untagged node");
+
+        let ex = Executor::new(&storage);
+
+        // The tagged record is visible; the untagged one is pruned.
+        assert_eq!(read_ids(&ex, r#"FROM Doc ROLE "user""#), vec![1]);
+    }
+
+    /// FIND-559: when the `ROLE` prune eats **every** scanned record the
+    /// executor says so — once per query, with the counts and the field that
+    /// is missing. Without the notice, `ROLE "user"` over an untagged
+    /// database returned zero rows with no hint of why.
+    #[test]
+    fn role_prune_warns_once_when_it_prunes_every_scanned_record() {
+        let (storage, _dir) = setup_storage();
+        for id in 1..=3u128 {
+            let mut node = UnifiedNode::new(id);
+            node.set_field("type", FieldValue::String("Doc".to_string()));
+            storage.insert(&node).expect("insert untagged node");
+        }
+
+        let ex = Executor::new(&storage);
+        let warnings = capture_warnings(|| {
+            let ids = read_ids(&ex, r#"FROM Doc ROLE "user""#);
+            assert!(ids.is_empty(), "the fail-closed prune still holds");
+        });
+
+        assert!(
+            warnings.contains("_owner_role"),
+            "the notice must name the missing field: {warnings}"
+        );
+        assert!(
+            warnings.contains("pruned 3 of 3"),
+            "the notice must carry the counts: {warnings}"
+        );
+        assert_eq!(
+            warnings.matches("pruned").count(),
+            1,
+            "the notice is emitted once per query, not once per record: {warnings}"
+        );
+    }
+
+    /// FIND-559: a **partial** prune is ordinary filtering, not a diagnostic —
+    /// no notice.
+    #[test]
+    fn role_prune_does_not_warn_when_it_prunes_only_part_of_the_records() {
+        let (storage, _dir) = setup_storage();
+        let mut tagged = UnifiedNode::new(1);
+        tagged.set_field("type", FieldValue::String("Doc".to_string()));
+        tagged.set_field("_owner_role", FieldValue::String("user".to_string()));
+        storage.insert(&tagged).expect("insert tagged node");
+
+        let mut untagged = UnifiedNode::new(2);
+        untagged.set_field("type", FieldValue::String("Doc".to_string()));
+        storage.insert(&untagged).expect("insert untagged node");
+
+        let ex = Executor::new(&storage);
+        let warnings = capture_warnings(|| {
+            let ids = read_ids(&ex, r#"FROM Doc ROLE "user""#);
+            assert_eq!(ids, vec![1]);
+        });
+
+        assert!(
+            !warnings.contains("_owner_role"),
+            "a partial prune is not a diagnostic: {warnings}"
+        );
+    }
+
+    /// FIND-559: a query **without** `ROLE` never prunes ⇒ no notice (and no
+    /// overhead on that path).
+    #[test]
+    fn role_prune_does_not_warn_without_a_role_clause() {
+        let (storage, _dir) = setup_storage();
+        let mut node = UnifiedNode::new(1);
+        node.set_field("type", FieldValue::String("Doc".to_string()));
+        storage.insert(&node).expect("insert untagged node");
+
+        let ex = Executor::new(&storage);
+        let warnings = capture_warnings(|| {
+            let ids = read_ids(&ex, "FROM Doc");
+            assert_eq!(ids, vec![1]);
+        });
+
+        assert!(
+            !warnings.contains("_owner_role"),
+            "no ROLE clause ⇒ no prune ⇒ no notice: {warnings}"
+        );
+    }
+
+    /// FIND-559: the notice policy itself — the notice exists **only** when
+    /// the prune ate 100 % of the records the plan produced.
+    ///
+    /// `scanned == 0` is the case where the plan produced nothing (an empty
+    /// scan, a `WHERE` that matched nothing): there is nothing to say about
+    /// the `ROLE` prune, and it is a different case from the `AS OF` filter
+    /// emptying the result (that one runs *after* the plan).
+    #[test]
+    fn role_prune_notice_policy() {
+        // 100 % pruned ⇒ notice.
+        let notice = super::role_prune_notice("user", 3, 3, 3)
+            .expect("a prune that ate everything must be reported");
+        assert!(notice.contains("_owner_role"), "notice: {notice}");
+        // Partial prune ⇒ no notice.
+        assert!(
+            super::role_prune_notice("user", 3, 1, 1).is_none(),
+            "a partial prune is not a diagnostic"
+        );
+        // Nothing scanned ⇒ no notice.
+        assert!(
+            super::role_prune_notice("user", 0, 0, 0).is_none(),
+            "an empty plan says nothing about the prune"
         );
     }
 

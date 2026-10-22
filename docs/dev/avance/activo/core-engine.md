@@ -1278,3 +1278,52 @@ como "cobertura de integracion cero", no "cero tests".
 lock en un `Embedded` que es `Clone + Send + Sync` y que sirve peticiones en paralelo (los hilos,
 el indice de hilos y el lock de las skills). Un `Arc<Mutex<()>>` por area —como el `merge_lock` que
 el propio SDK ya usa— los arregla a los tres.
+
+
+## FIND-559: la clausula `ROLE` - fail-closed, pero sin silencio (2026-10-21)
+
+- **Fecha:** 2026-10-21
+- **Resultado:** OK la poda de `ROLE` **sigue siendo fail-closed** (la decision del owner del
+  2026-10-21 fue "fail-closed + aviso"): lo que cambia es que **el conjunto de filas no cambia** y
+  ahora el motor **dice por que** una consulta devuelve 0 filas.
+
+- **El problema:** la clausula `ROLE` poda todo nodo sin el campo `_owner_role` (el prune del
+  post-plan en `src/executor.rs`) y **nadie escribe ese campo** (`grep _owner_role` en `src/` no
+  encuentra ningun escritor, solo un benchmark) -> `ROLE "user"` sobre una base cuyos registros
+  nunca se etiquetaron devolvia **0 filas sin error ni aviso**: el patron de `FIND-413` (resultado
+  vacio silencioso), sin ninguna pista de que la poda fue el motivo.
+
+- **Lo que se ha anadido (observabilidad, no semantica):**
+  1. **Un contador** de lo que la poda descarta (`role_scanned` / `role_pruned` / `role_untagged`),
+     y
+  2. **un aviso informativo por consulta** -**nunca** por nodo- cuando la poda se come el **100 %**
+     de los candidatos: `"ROLE 'user' pruned 3 of 3 scanned records: none of them carries the
+     '_owner_role' field. Tag the records with '_owner_role' in their metadata or drop the
+     clause."`. Va por `tracing::warn!` (el idiom del repo para "avisado, nunca silencioso"), asi
+     que **no** es un `Error` y **no** cambia el resultado: un plan que no lleva `ROLE` no paga
+     nada (los contadores solo se tocan dentro de la rama del prune).
+  3. **La distincion con el filtro de `AS OF`:** el filtro de valid-time corre **despues** del
+     plan (`execute_query`/`execute_select` -> `filter_valid_at`), luego no puede disparar el
+     aviso; y un plan que no produjo candidatos (escaneo vacio) tampoco avisa: solo avisa la poda
+     que se comio todo lo que el plan le dio.
+- **Documentacion:** `docs/api/IQL.md` - la fila de `ROLE` y una nota nueva usan la **variante A
+  (fail-closed)** del brief de `docs/dev/reviews/2026-10-21-encryption-envelope-por-pagina.md` 6.4,
+  **verbatim**: el campo `_owner_role` (de donde sale la etiqueta), el fail-closed ("returns **no
+  rows** ... this is the intended behaviour, not an error") y el remedio (etiquetar o quitar la
+  clausula).
+- **Contrato (verificado):** 5 tests nuevos en `src/executor.rs` (RED #1 compile: la politica de
+  aviso no existia; RED #2 comportamental: el aviso no existia) - `role_prune_keeps_the_fail_closed_result`,
+  `role_prune_warns_once_when_it_prunes_every_scanned_record` (una vez por consulta, con los
+  contadores), `role_prune_does_not_warn_when_it_prunes_only_part_of_the_records`,
+  `role_prune_does_not_warn_without_a_role_clause`, `role_prune_notice_policy` - mas
+  `cargo fmt --all -- --check` exit 0, `cargo clippy -p vantadb --all-targets -- -D warnings` exit 0
+  y `cargo nextest run -p vantadb --profile audit --lib` -> 2532 passed / 2 skipped (1 timeout de
+  carga en `index::core::tests::concurrent_insert_preserves_hnsw_invariants`, **ajeno**: pasa en
+  aislamiento en 82,9 s). Sin commits (los hace el orquestador).
+- **Nota (Ponytail lite):** el aviso va por el log y no por un campo nuevo en `ExecutionResult`:
+  tocar la superficie publica habria roto el contrato que la task promete no romper. El "por que"
+  del fail-closed cabe en **una linea de log** y en **tres contadores**.
+- **Colateral (ya resuelto en otra task):** la mitad de proyeccion de `FIND-559` la cerro
+  `FIND-552` (la allowlist de metadata del sistema incluye `_owner_role`, asi que con `FETCH` el
+  prune **vuelve a filtrar** en vez de devolver 0 filas siempre). Esta task es la otra mitad: la
+  semantica del nodo sin etiqueta y **el silencio**.
