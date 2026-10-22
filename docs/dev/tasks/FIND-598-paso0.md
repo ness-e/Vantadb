@@ -19,7 +19,7 @@ tags: [cifrado, rendimiento, vfile, mmap, zero-copy, decision-owner]
   silencio, post-Paso 0) ⇒ **el envelope por página hace falta** y es un **breaking change del
   trait público `VectorStoreRef`** ⇒ **la decisión es del owner**. Números y método:
   `docs/user/operations/BENCHMARKS.md` §22.4 y
-  `docs/dev/reviews/2026-10-21-w7-cifrado-coste.md` §6.
+  `docs/dev/reviews/2026-10-21-w7-cifrado-coste.md` §7 (y §6 para la segunda serie).
   **Una segunda serie post-Paso 0, independiente** (2026-10-22 01:27-03:10, **los
   mismos binarios**: `sha256 06FEC524…` / `1D941139…`) confirma el veredicto: el
   **grupo de criterion** (10 × 1000 queries, CI 95 % sin solapar) da **+59,2 %**

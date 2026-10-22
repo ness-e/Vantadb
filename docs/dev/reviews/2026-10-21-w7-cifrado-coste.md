@@ -427,11 +427,11 @@ E/S y no el cifrado.
 >
 > **Hay una segunda serie post-Paso 0, independiente de esta** (sesion y
 > calibracion distintas, **los mismos binarios**): `BENCHMARKS.md` **§22.4**, que
-> si pudo publicar las **3+3** corridas. **Los dos veredictos coinciden** (A) gate
-> superado), asi que la conclusion no depende de una sola serie; lo que las
-> diferencia es el metodo (§22.4 usa el `p99` de la pasada medida; esta sesion
-> Sufrio la degradacion de memoria de su maquina y publica el **grupo de
-> criterion**, el estimador con intervalo de confianza).
+> si pudo publicar las **3+3** corridas, y **§7** de esta misma nota. **Los dos
+> veredictos coinciden** (A) gate superado), asi que la conclusion no depende de
+> una sola serie; lo que las diferencia es el metodo (§7 usa el `p99` de la
+> pasada medida; esta sesion sufrio la degradacion de memoria de su maquina y
+> publica el **grupo de criterion**, el estimador con intervalo de confianza).
 
 **Comando** (los dos binarios del **mismo `src`**; hash del arbol de fuentes
 identico antes y despues de las dos compilaciones: `SRC_SHA256=8F6082F8…`;
@@ -548,7 +548,43 @@ change del trait publico `VectorStoreRef`** ⇒ no es una decision de
 implementacion, es una decision del owner. El diseno esta especificado en
 `docs/dev/architecture/design/2026-10-21-encryption-envelope-per-page.md`.
 
-### 6.4 Lo que esta medicion **no** cierra, y por que
+### 6.5 Diagnostico: el mismo par **con la cache LRU caliente** (`ENCRYPTED_P99_WARMUP=1`)
+
+El `p99` de la pasada medida se mide sobre **una sola pasada** de 1000 queries en
+proceso recien abierto ⇒ la cache LRU del cifrado **arranca fria** y se va
+llenando durante la propia medicion ⇒ el p99 cae en esa rampa. Para separar el
+**efecto de la rampa** del **coste en estado estable** se relanzo el mismo par
+con `ENCRYPTED_P99_WARMUP=1` (una pasada **descartada** que calienta la cache
+y el page cache antes de la medida):
+
+| Métrica (cache caliente) | Sin cifrar (PW) | Cifrado (EW) | Δ | Umbral 15 % |
+| :--- | ---: | ---: | ---: | :--- |
+| search p50 (ms) | 10,7231 | 11,7189 | **+9,3 %** | **dentro** |
+| search p95 (ms) | 13,3119 | 15,0464 | **+13,0 %** | **dentro** |
+| **search p99** (ms) | 18,9204 | 24,7219 | **+30,7 %** | **superado** (A) |
+| insert (s) | 688,1 | 533,1 | −22,5 % | dentro (ruido) |
+| flush (s) | 1,079 | 0,931 | −13,7 % | dentro (ruido) |
+| cold start (s) | 2,334 | 2,323 | −0,5 % | dentro (ruido) |
+
+**Lo que dice este par**: en **estado estable** (la cache LRU ya caliente —el
+regimen de un proceso de larga vida, que es el caso real de una memoria de
+agente—) **el p50 y el p95 del cifrado caen dentro del umbral del 15 %**
+(+9,3 % y +13,0 %): el 1 AEAD por candidato **si** se amortiza con la cache.
+**Pero el p99 sigue fuera** (+30,7 %; test de bandas A) `18,9204 x 1,15 =
+21,76 < 24,7219`): **la cola** —las queries que caen en nodos que la cache
+todavia no tiene— es la que no se amortiza. **El gate del plan es sobre el p99
+⇒ no se cierra ni en caliente.**
+
+> **Este par es un DIAGNOSTICO, no una certificacion**: su corrida en claro dio
+> `ram_bound=EXCEEDED` (p50 10,72 ms > 8 ms) porque la maquina estaba en su
+> peor momento de presion de memoria de la sesion (commit charge **38,12 GB
+> sobre un limite de 37,57 GB** al empezar). Por eso **no se publica como
+> resultado**: solo se cita como lectura de direccion. Ademas, el grupo de
+> criterion de **PW no es utilizable**: al fallar el assert de `ram_bound` el
+> bench no llega al grupo de criterion, y el `estimates.json` que el driver copia
+> es el de la corrida anterior (`target/f598-post/PW.criterion.json` = el de E3).
+
+### 6.6 Lo que esta medicion **no** cierra, y por que
 
 - **La tercera corrida en claro no se pudo publicar.** El criterio de "cabe en
   RAM" del bench (`ram_bound`, `p50` en claro <= 8 ms) dio **EXCEEDED en los
@@ -572,7 +608,7 @@ implementacion, es una decision del owner. El diseno esta especificado en
 
 ---
 
-## 6. La re-medicion **post-Paso 0** (2026-10-21/22)
+## 7. La re-medicion **post-Paso 0** (2026-10-21/22)
 
 > **Que es esta seccion.** §3 midio el gate del plan (ADR-0057 §6) sobre el codigo
 > **anterior al "Paso 0"**. Esta seccion es la **re-medicion** del mismo gate sobre el codigo
@@ -583,7 +619,7 @@ implementacion, es una decision del owner. El diseno esta especificado en
 > Los numeros completos (comando, entorno y fecha) estan en
 > [`BENCHMARKS.md`](../../user/operations/BENCHMARKS.md) **§22.4**.
 
-### 6.1 Comandos y entorno (Regla 11)
+### 7.1 Comandos y entorno (Regla 11)
 
 ```powershell
 $env:ENCRYPTED_P99_SCALE  = "25000"
@@ -601,7 +637,7 @@ target\find598\encrypted_p99_enc.exe   --bench     # E1, E2, E3  (sha256 1D94113
 | Fecha | **2026-10-21 23:26:02 → 2026-10-22 01:19:21** (6 invocaciones intercaladas) |
 | OS / CPU / RAM | Windows 11 Pro (10.0.26200) · i5-1235U (10c/12t) · 31,78 GB (**12,0-12,7 GB libres** en las 6 corridas) |
 | Commit charge | 28,2-30,4 / 35,78 GB (**78,8 % → 84,3 %**) |
-| Ruido | **0 compilaciones** y **0 benches ajenos** en las 6 corridas publicadas (§6.6) |
+| Ruido | **0 compilaciones** y **0 benches ajenos** en las 6 corridas publicadas (§7.6) |
 | Toolchain / perfil | rustc 1.95.0 / cargo 1.95.0 · `bench` = `release` + `debug = 1` |
 | Dataset / perfil de medicion | seed 42, **25 000 × 1536d**, 1000 queries, `top_k = 10` · `apply_fixed_profile` (warmup 3 s / measure 5 s, confianza 0,95) |
 | Protocolo | **3 corridas por variante, intercaladas** (P1, E1, P2, E2, P3, E3) |
@@ -609,7 +645,7 @@ target\find598\encrypted_p99_enc.exe   --bench     # E1, E2, E3  (sha256 1D94113
 | Binarios | claro `sha256 06FEC524…` (22:23) · cifrado `sha256 1D941139…` (22:33), compilados **despues** del Paso 0 ⇒ difieren **solo** en la feature |
 | Auto-verificaciones | `wal_version=Some(3)` (claro) / `Some(4)` (cifrado), `hits=10` en las 6, `exit_code=0` en las 6 |
 
-### 6.2 Resultados
+### 7.2 Resultados
 
 | Métrica | Sin cifrar (min/med/max) | Cifrado (min/med/max) | Δ mediana | Gate 15 % |
 | :--- | :---: | :---: | ---: | :--- |
@@ -626,7 +662,7 @@ cifrados ⇒ **+46,0 %**, con CIs que **no se solapan** (el CI mas alto en claro
 por debajo del mas bajo en cifrado, 10 196,6). Es el mismo estimador (**media** de criterion) que
 usa la tabla de §3, para que las dos series sean comparables.
 
-### 6.3 Veredicto: **A) GATE SUPERADO**, concluyente
+### 7.3 Veredicto: **A) GATE SUPERADO**, concluyente
 
 - **A) gate superado** si `max(claro) × 1,15 < min(cifrado)`
   → **16,7699 × 1,15 = 19,2854 < 22,0183 ⇒ VERDADERO**;
@@ -639,7 +675,7 @@ bandas** (que usa `min(cifrado)`, lo fija E1); y su numero de criterion (10 739,
 normal (E1 10 801,0 / E2 10 580,4). Las 3 corridas **en claro** pasan el criterio de
 publicabilidad del propio bench (`ram_bound=ok`: p50 por debajo del limite de 8 ms).
 
-### 6.4 Que movio el Paso 0 (y por que el +190,3 % de §3 **no** es una base comparable)
+### 7.4 Que movio el Paso 0 (y por que el +190,3 % de §3 **no** es una base comparable)
 
 Las 6 corridas de §3 cubren **dos estados de maquina**: **P1 y E1 corrieron bajo presion de
 memoria** (P1 baja a **7,22 GB libres / 95,1 % de commit**; E1 arranca con 8,20 GB / 90,2 %) y
@@ -668,7 +704,7 @@ post-Paso 0 completo:
 > estado de la maquina. Por eso **la comparacion del gate se hace sobre el p99**, que es la
 > metrica del umbral de ADR-0057 §6.
 
-### 6.5 Lo que el Paso 0 quito y lo que queda
+### 7.5 Lo que el Paso 0 quito y lo que queda
 
 **Quito** (de 5 a **3** copias por candidato en cache fria; **1** con la cache caliente): (1) la
 copia del **ciphertext** a un `Vec` — ahora se **presta** del mapping (`read_record_bytes` →
@@ -701,7 +737,7 @@ para devolver el zero-copy **el trait publico `VectorStoreRef` tiene que cambiar
 revision: `docs/dev/reviews/2026-10-21-encryption-envelope-por-pagina.md`. **La decision es del
 owner; aqui solo queda dicho con el numero.**
 
-### 6.6 Las corridas descartadas (y por que el set publicado es certificable)
+### 7.6 Las corridas descartadas (y por que el set publicado es certificable)
 
 | corridas | ventana | que paso |
 | :--- | :--- | :--- |
@@ -715,7 +751,7 @@ cuyo **p50 en claro** supera `ENCRYPTED_P99_MAX_P50_MS` (8 ms) **no publica nume
 las 6 corridas publicadas lo incumple, y el criterio de decision (bandas) se aplico sobre el set
 publicado **sin excluir ninguna corrida**.
 
-### 6.7 Que cambia en el veredicto de la wave
+### 7.7 Que cambia en el veredicto de la wave
 
 - **El gate sigue SUPERADO**, pero con un sobrecoste **mucho menor**: **+43,2 %** (p99, mediana
   de 3+3 intercaladas, maquina en silencio) frente al **+190,3 %** publicado — y frente al
