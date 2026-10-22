@@ -31,7 +31,7 @@ Estado del código que encuadra la decisión (verificado en HEAD):
   (captura L0 + enqueue L1) + `run_bridge_pass`
   (`vanta-memory/src/services/conversation_hook.rs:36-107`), gancho `conversation_trigger`
   (`src/server/state.rs:96,134`), y `conversation_trigger: None` en el arranque
-  (`src/server/bootstrap.rs:332`). Residual [MEM-55](../../tasks/complete/MEM-55.md):
+  (`src/server/bootstrap.rs:332`). Residual MEM-55 (task file eliminado en la limpieza de COMPLETED):
   "el wiring (con runner configurado) es decisión de host post-release".
 - El Scope Budget (DEF-07) ya listó al server como host prospecto: "Only core-adjacent role:
   prospective host of the `vanta-memory` scheduler (`src/server/bootstrap.rs:332`, WIRE-01) —
@@ -184,7 +184,7 @@ wiring esté verde.
 
 - Decisión delegada: owner 2026-10-01 ("Que vanta-arch decida con un ADR corto").
 - Tarea origen: WIRE-01 (commit `679c75a9`) · residual
-  [MEM-55](../../tasks/complete/MEM-55.md) · diseño previo del owner-scheduler MCP:
+  MEM-55 (task file eliminado en la limpieza de COMPLETED) · diseño previo del owner-scheduler MCP:
   [FIND-113-spec](../../tasks/FIND-113-spec.md).
 - Scope Budget / identidad: [EXPERIMENTAL_FEATURES.md](../../../user/operations/EXPERIMENTAL_FEATURES.md):22-52
   · master roadmap `docs/dev/plans/2026-09-26-master-roadmap.md`.
