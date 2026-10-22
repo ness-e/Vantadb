@@ -31,6 +31,11 @@ impl StorageEngine {
         let config = config.unwrap_or_default();
         let caps = crate::hardware::HardwareCapabilities::global();
         let effective_memory = config.memory_limit.unwrap_or(caps.total_memory);
+        // FIND-598 (Paso 0): the decrypted-node cache of every segment is
+        // sized from the **effective** memory limit (the budget the operator
+        // declared, or the total RAM). Rule 4 of `memory-budget.md`: a
+        // resident structure declares its cap.
+        crate::storage::vfile::set_decrypt_cache_memory_limit(effective_memory);
 
         // ADR-0057 W6: resolve **one** encryption context for this process,
         // from the `Config`, and decide the database's mode from the
