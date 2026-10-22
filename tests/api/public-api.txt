@@ -615,6 +615,7 @@ pub vantadb::cli::Commands::DeleteByFilter::namespace: alloc::string::String
 pub vantadb::cli::Commands::Doctor
 pub vantadb::cli::Commands::Doctor::fix: bool
 pub vantadb::cli::Commands::Doctor::force: bool
+pub vantadb::cli::Commands::Encryption(vantadb::cli::EncryptionCommand)
 pub vantadb::cli::Commands::Export
 pub vantadb::cli::Commands::Export::format: vantadb::cli::ExportFormat
 pub vantadb::cli::Commands::Export::namespace: core::option::Option<alloc::string::String>
@@ -736,6 +737,30 @@ impl core::marker::Unpin for vantadb::cli::ConfigCommand
 impl core::marker::UnsafeUnpin for vantadb::cli::ConfigCommand
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::cli::ConfigCommand
 impl core::panic::unwind_safe::UnwindSafe for vantadb::cli::ConfigCommand
+pub enum vantadb::cli::EncryptionCommand
+pub vantadb::cli::EncryptionCommand::Rotate
+pub vantadb::cli::EncryptionCommand::Rotate::new_key: core::option::Option<alloc::string::String>
+pub vantadb::cli::EncryptionCommand::Rotate::new_key_file: core::option::Option<alloc::string::String>
+impl clap_builder::derive::FromArgMatches for vantadb::cli::EncryptionCommand
+pub fn vantadb::cli::EncryptionCommand::from_arg_matches(&clap_builder::parser::matches::arg_matches::ArgMatches) -> core::result::Result<Self, clap_builder::Error>
+pub fn vantadb::cli::EncryptionCommand::from_arg_matches_mut(&mut clap_builder::parser::matches::arg_matches::ArgMatches) -> core::result::Result<Self, clap_builder::Error>
+pub fn vantadb::cli::EncryptionCommand::update_from_arg_matches(&mut self, &clap_builder::parser::matches::arg_matches::ArgMatches) -> core::result::Result<(), clap_builder::Error>
+pub fn vantadb::cli::EncryptionCommand::update_from_arg_matches_mut<'b>(&mut self, &mut clap_builder::parser::matches::arg_matches::ArgMatches) -> core::result::Result<(), clap_builder::Error>
+impl clap_builder::derive::Subcommand for vantadb::cli::EncryptionCommand
+pub fn vantadb::cli::EncryptionCommand::augment_subcommands<'b>(clap_builder::builder::command::Command) -> clap_builder::builder::command::Command
+pub fn vantadb::cli::EncryptionCommand::augment_subcommands_for_update<'b>(clap_builder::builder::command::Command) -> clap_builder::builder::command::Command
+pub fn vantadb::cli::EncryptionCommand::has_subcommand(&str) -> bool
+impl core::clone::Clone for vantadb::cli::EncryptionCommand
+pub fn vantadb::cli::EncryptionCommand::clone(&self) -> Self
+impl core::fmt::Debug for vantadb::cli::EncryptionCommand
+pub fn vantadb::cli::EncryptionCommand::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Freeze for vantadb::cli::EncryptionCommand
+impl core::marker::Send for vantadb::cli::EncryptionCommand
+impl core::marker::Sync for vantadb::cli::EncryptionCommand
+impl core::marker::Unpin for vantadb::cli::EncryptionCommand
+impl core::marker::UnsafeUnpin for vantadb::cli::EncryptionCommand
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::cli::EncryptionCommand
+impl core::panic::unwind_safe::UnwindSafe for vantadb::cli::EncryptionCommand
 pub enum vantadb::cli::ExportFormat
 pub vantadb::cli::ExportFormat::Jsonl
 pub vantadb::cli::ExportFormat::Md
@@ -1124,6 +1149,8 @@ impl core::panic::unwind_safe::UnwindSafe for vantadb::cli_handlers::DoctorOptio
 pub fn vantadb::cli_handlers::diagnostics::cmd_doctor(&str, vantadb::cli_handlers::DoctorOptions, bool) -> vantadb::error::Result<()>
 pub fn vantadb::cli_handlers::diagnostics::cmd_inspect(&str, &str, &str, bool, bool) -> vantadb::error::Result<()>
 pub fn vantadb::cli_handlers::diagnostics::cmd_stats(&str, bool, bool) -> vantadb::error::Result<()>
+pub mod vantadb::cli_handlers::encryption
+pub fn vantadb::cli_handlers::encryption::cmd_encryption_rotate(&str, core::option::Option<&str>, core::option::Option<&str>, bool) -> vantadb::error::Result<()>
 pub mod vantadb::cli_handlers::export_md
 pub const vantadb::cli_handlers::export_md::MD_EXPORT_SCHEMA_VERSION: u32
 pub fn vantadb::cli_handlers::export_md::cmd_export_md(&str, core::option::Option<&str>, &str, bool) -> vantadb::error::Result<()>
@@ -1414,6 +1441,7 @@ pub fn vantadb::cli_handlers::cmd_delete(&str, &str, &str, bool, bool) -> vantad
 pub fn vantadb::cli_handlers::cmd_delete_by_filter(&str, &str, &str, bool, bool) -> vantadb::error::Result<()>
 pub fn vantadb::cli_handlers::cmd_delete_certified(&str, &str, &str, core::option::Option<&str>, bool, bool) -> vantadb::error::Result<()>
 pub fn vantadb::cli_handlers::cmd_doctor(&str, vantadb::cli_handlers::DoctorOptions, bool) -> vantadb::error::Result<()>
+pub fn vantadb::cli_handlers::cmd_encryption_rotate(&str, core::option::Option<&str>, core::option::Option<&str>, bool) -> vantadb::error::Result<()>
 pub fn vantadb::cli_handlers::cmd_export(&str, core::option::Option<&str>, &str, bool) -> vantadb::error::Result<()>
 pub fn vantadb::cli_handlers::cmd_export_md(&str, core::option::Option<&str>, &str, bool) -> vantadb::error::Result<()>
 pub fn vantadb::cli_handlers::cmd_get(&str, &str, &str, bool, bool) -> vantadb::error::Result<()>
@@ -1555,6 +1583,8 @@ pub vantadb::config::Config::confidence_threshold: core::option::Option<f32>
 pub vantadb::config::Config::dashboard_dir: core::option::Option<std::path::PathBuf>
 pub vantadb::config::Config::embedding_provider: alloc::string::String
 pub vantadb::config::Config::encryption_key: core::option::Option<alloc::string::String>
+pub vantadb::config::Config::encryption_key_cmd: core::option::Option<alloc::string::String>
+pub vantadb::config::Config::encryption_key_file: core::option::Option<std::path::PathBuf>
 pub vantadb::config::Config::eviction_ratio: f64
 pub vantadb::config::Config::eviction_weight_confidence: f64
 pub vantadb::config::Config::eviction_weight_hits: f64
@@ -1625,6 +1655,8 @@ pub fn vantadb::config::Config::with_backend(self, vantadb::BackendKind) -> Self
 pub fn vantadb::config::Config::with_batch_size(self, usize) -> Self
 pub fn vantadb::config::Config::with_bulk_commit_interval(self, usize) -> Self
 pub fn vantadb::config::Config::with_encryption(self, alloc::string::String) -> Self
+pub fn vantadb::config::Config::with_encryption_key_cmd(self, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn vantadb::config::Config::with_encryption_key_file(self, impl core::convert::Into<std::path::PathBuf>) -> Self
 pub fn vantadb::config::Config::with_eviction_ratio(self, f64) -> Self
 pub fn vantadb::config::Config::with_eviction_weights(self, f64, f64, f64, f64) -> Self
 pub fn vantadb::config::Config::with_flat_threshold(self, core::option::Option<usize>) -> Self
@@ -1872,6 +1904,8 @@ pub vantadb::config::StorageCfg::backend_kind: vantadb::BackendKind
 pub vantadb::config::StorageCfg::backup_dir: core::option::Option<std::path::PathBuf>
 pub vantadb::config::StorageCfg::bulk_commit_interval: core::option::Option<usize>
 pub vantadb::config::StorageCfg::encryption_key: core::option::Option<alloc::string::String>
+pub vantadb::config::StorageCfg::encryption_key_cmd: core::option::Option<alloc::string::String>
+pub vantadb::config::StorageCfg::encryption_key_file: core::option::Option<std::path::PathBuf>
 pub vantadb::config::StorageCfg::export_base_dir: core::option::Option<std::path::PathBuf>
 pub vantadb::config::StorageCfg::flat_threshold: core::option::Option<usize>
 pub vantadb::config::StorageCfg::flush_threshold: core::option::Option<usize>
@@ -2730,6 +2764,7 @@ pub fn vantadb::error::Error::backend_error(impl core::convert::Into<alloc::stri
 pub fn vantadb::error::Error::backup_error(impl core::convert::Into<alloc::string::String>) -> Self
 pub fn vantadb::error::Error::backup_error_sourced(impl core::fmt::Display, impl core::error::Error + core::marker::Send + core::marker::Sync + 'static) -> Self
 pub fn vantadb::error::Error::code(&self) -> &'static str
+pub fn vantadb::error::Error::dimension_mismatch(usize, usize) -> Self
 pub fn vantadb::error::Error::generic_error(impl core::convert::Into<alloc::string::String>) -> Self
 pub fn vantadb::error::Error::generic_error_sourced(impl core::fmt::Display, impl core::error::Error + core::marker::Send + core::marker::Sync + 'static) -> Self
 pub fn vantadb::error::Error::is_retriable(&self) -> bool
@@ -3230,6 +3265,7 @@ pub vantadb::index::ivf::IvfIndex::config: vantadb::index::ivf::IvfConfig
 pub vantadb::index::ivf::IvfIndex::inverted_lists: alloc::vec::Vec<alloc::vec::Vec<vantadb::index::ivf::IvfEntry>>
 impl vantadb::index::ivf::IvfIndex
 pub fn vantadb::index::ivf::IvfIndex::build(&dashmap::DashMap<u128, vantadb::index::HnswNode>, &vantadb::index::ivf::IvfConfig) -> Self
+pub fn vantadb::index::ivf::IvfIndex::build_with_dimension(&dashmap::DashMap<u128, vantadb::index::HnswNode>, &vantadb::index::ivf::IvfConfig, core::option::Option<usize>) -> Self
 pub fn vantadb::index::ivf::IvfIndex::deserialize_from_bytes(&[u8]) -> core::option::Option<Self>
 pub fn vantadb::index::ivf::IvfIndex::search(&self, &[f32], usize, &vantadb::index::FilterBitset) -> alloc::vec::Vec<(u128, f32)>
 pub fn vantadb::index::ivf::IvfIndex::serialize_to_bytes(&self) -> alloc::vec::Vec<u8>
@@ -3367,6 +3403,7 @@ pub vantadb::index::CPIndex::nodes: dashmap::DashMap<u128, vantadb::index::HnswN
 pub vantadb::index::CPIndex::scann_built_at_node_count: core::sync::atomic::AtomicUsize
 pub vantadb::index::CPIndex::scann_index: parking_lot::mutex::Mutex<core::option::Option<vantadb::index::scann::ScannIndex>>
 pub vantadb::index::CPIndex::total_nodes: core::sync::atomic::AtomicU64
+pub vantadb::index::CPIndex::vector_dim: core::sync::atomic::AtomicUsize
 impl vantadb::index::CPIndex
 pub fn vantadb::index::CPIndex::add(&self, u128, vantadb::index::FilterBitset, vantadb::VectorRepresentations, u64) -> core::result::Result<(), vantadb::error::Error>
 pub fn vantadb::index::CPIndex::add_with_level(&self, u128, vantadb::index::FilterBitset, vantadb::VectorRepresentations, u64, usize) -> core::result::Result<(), vantadb::error::Error>
@@ -3378,6 +3415,7 @@ pub fn vantadb::index::CPIndex::new_with_config(vantadb::index::HnswConfig) -> S
 pub fn vantadb::index::CPIndex::remove_node(&self, u128)
 pub fn vantadb::index::CPIndex::repair_orphan_links(&self) -> vantadb::index_port::FreshHnswReport
 pub fn vantadb::index::CPIndex::set_entry_point(&self, u128)
+pub fn vantadb::index::CPIndex::vector_dimension(&self) -> core::option::Option<usize>
 pub fn vantadb::index::CPIndex::with_backend(vantadb::index::IndexBackend) -> Self
 impl vantadb::index::CPIndex
 pub fn vantadb::index::CPIndex::deserialize_from_bytes(&[u8], bool) -> core::io::error::Result<Self>
@@ -3385,6 +3423,7 @@ pub fn vantadb::index::CPIndex::serialize_to_bytes(&self) -> alloc::vec::Vec<u8>
 pub fn vantadb::index::CPIndex::serialize_to_writer(&self, &mut impl core::io::write::Write) -> core::io::error::Result<()>
 impl vantadb::index::CPIndex
 pub fn vantadb::index::CPIndex::load_from_file(&std::path::Path, bool) -> core::option::Option<Self>
+pub fn vantadb::index::CPIndex::load_from_file_checked(&std::path::Path, bool) -> vantadb::error::Result<core::option::Option<Self>>
 pub fn vantadb::index::CPIndex::persist_to_file(&self, &std::path::Path) -> core::io::error::Result<()>
 pub fn vantadb::index::CPIndex::sync_to_mmap(&mut self) -> core::io::error::Result<()>
 impl vantadb::index::CPIndex
@@ -3435,6 +3474,7 @@ pub fn vantadb::index::CPIndex::storage_offset_of(&self, u128) -> core::option::
 pub fn vantadb::index::CPIndex::stored_vector(&self, u128) -> core::option::Option<vantadb::VectorRepresentations>
 pub fn vantadb::index::CPIndex::total_nodes(&self) -> u64
 pub fn vantadb::index::CPIndex::validate_index(&self) -> core::result::Result<(), alloc::vec::Vec<alloc::string::String>>
+pub fn vantadb::index::CPIndex::vector_dimension(&self) -> core::option::Option<usize>
 impl vantadb::index_port::MmapBackend for vantadb::index::CPIndex
 pub fn vantadb::index::CPIndex::is_mmap(&self) -> bool
 pub fn vantadb::index::CPIndex::mmap_path(&self) -> core::option::Option<&std::path::Path>
@@ -3561,6 +3601,8 @@ impl core::marker::Unpin for vantadb::index::MetricMapper
 impl core::marker::UnsafeUnpin for vantadb::index::MetricMapper
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::index::MetricMapper
 impl core::panic::unwind_safe::UnwindSafe for vantadb::index::MetricMapper
+pub const vantadb::index::VECTOR_INDEX_ENCRYPTED_VERSION: u16
+pub const vantadb::index::VECTOR_INDEX_MAX_READABLE_VERSION: u16
 pub const vantadb::index::VECTOR_INDEX_VERSION: u16
 pub fn vantadb::index::calculate_similarity(&[f32], core::option::Option<f32>, core::option::Option<&[u64]>, core::option::Option<(&[u8], f32)>, &vantadb::VectorRepresentations, vantadb::DistanceMetric) -> f32
 pub fn vantadb::index::cosine_sim_cached_norms(&[f32], f32, &[f32], f32) -> f32
@@ -3568,6 +3610,7 @@ pub fn vantadb::index::cosine_sim_f32(&[f32], &[f32]) -> f32
 pub fn vantadb::index::cosine_sim_with_query_norm(&[f32], f32, &[f32]) -> f32
 pub fn vantadb::index::euclidean_distance_sq_with_norms(&[f32], f32, &[f32], f32) -> f32
 pub fn vantadb::index::euclidean_distance_squared_f32(&[f32], &[f32]) -> f32
+pub fn vantadb::index::euclidean_score_from_similarity(f32) -> f32
 pub fn vantadb::index::f32_l2_norm(&[f32]) -> f32
 pub fn vantadb::index::random_layer_from_config<R: rand::rng::Rng>(&vantadb::index::HnswConfig, &mut R) -> usize
 pub fn vantadb::index::set_prefetch_mode(vantadb::config::PrefetchMode)
@@ -3661,6 +3704,7 @@ pub fn vantadb::index_port::IndexPort::storage_offset_of(&self, u128) -> core::o
 pub fn vantadb::index_port::IndexPort::stored_vector(&self, u128) -> core::option::Option<vantadb::VectorRepresentations>
 pub fn vantadb::index_port::IndexPort::total_nodes(&self) -> u64
 pub fn vantadb::index_port::IndexPort::validate_index(&self) -> core::result::Result<(), alloc::vec::Vec<alloc::string::String>>
+pub fn vantadb::index_port::IndexPort::vector_dimension(&self) -> core::option::Option<usize>
 impl vantadb::index_port::IndexPort for vantadb::index::CPIndex
 pub fn vantadb::index::CPIndex::add_node(&self, u128, vantadb::index::FilterBitset, vantadb::VectorRepresentations, u64) -> core::result::Result<(), vantadb::error::Error>
 pub fn vantadb::index::CPIndex::add_node_with_level(&self, u128, vantadb::index::FilterBitset, vantadb::VectorRepresentations, u64, usize) -> core::result::Result<(), vantadb::error::Error>
@@ -3701,6 +3745,7 @@ pub fn vantadb::index::CPIndex::storage_offset_of(&self, u128) -> core::option::
 pub fn vantadb::index::CPIndex::stored_vector(&self, u128) -> core::option::Option<vantadb::VectorRepresentations>
 pub fn vantadb::index::CPIndex::total_nodes(&self) -> u64
 pub fn vantadb::index::CPIndex::validate_index(&self) -> core::result::Result<(), alloc::vec::Vec<alloc::string::String>>
+pub fn vantadb::index::CPIndex::vector_dimension(&self) -> core::option::Option<usize>
 pub trait vantadb::index_port::MmapBackend: sealed::Sealed + core::marker::Send + core::marker::Sync
 pub fn vantadb::index_port::MmapBackend::is_mmap(&self) -> bool
 pub fn vantadb::index_port::MmapBackend::mmap_path(&self) -> core::option::Option<&std::path::Path>
@@ -3718,10 +3763,13 @@ pub fn vantadb::index::IndexBackend::mmap_resident_bytes(&self) -> core::option:
 pub fn vantadb::index::IndexBackend::sync_to_mmap(&mut self) -> core::io::error::Result<()>
 pub trait vantadb::index_port::VectorStoreRef: core::marker::Send + core::marker::Sync
 pub fn vantadb::index_port::VectorStoreRef::mmap_bytes(&self) -> &[u8]
+pub fn vantadb::index_port::VectorStoreRef::read_full_vector(&self, u64, &vantadb::node::DiskNodeHeader) -> core::option::Option<alloc::borrow::Cow<'_, [f32]>>
 pub fn vantadb::index_port::VectorStoreRef::read_header(&self, u64) -> core::option::Option<vantadb::node::DiskNodeHeader>
 impl vantadb::index_port::VectorStoreRef for vantadb::storage::vfile::File
 pub fn vantadb::storage::vfile::File::mmap_bytes(&self) -> &[u8]
+pub fn vantadb::storage::vfile::File::read_full_vector(&self, u64, &vantadb::node::DiskNodeHeader) -> core::option::Option<alloc::borrow::Cow<'_, [f32]>>
 pub fn vantadb::storage::vfile::File::read_header(&self, u64) -> core::option::Option<vantadb::node::DiskNodeHeader>
+pub fn vantadb::index_port::full_vector_from_bytes<'a>(&'a [u8], &vantadb::node::DiskNodeHeader) -> core::option::Option<alloc::borrow::Cow<'a, [f32]>>
 pub mod vantadb::integrations
 pub struct vantadb::integrations::OllamaGenerateRequest
 pub vantadb::integrations::OllamaGenerateRequest::model: alloc::string::String
@@ -4785,6 +4833,7 @@ impl<'a> !core::panic::unwind_safe::UnwindSafe for vantadb::physical_plan::Physi
 pub struct vantadb::physical_plan::PhysicalVectorSearch<'a>
 impl<'a> vantadb::physical_plan::PhysicalVectorSearch<'a>
 pub fn vantadb::physical_plan::PhysicalVectorSearch<'a>::new(&'a vantadb::storage::StorageEngine, alloc::string::String, f32) -> Self
+pub fn vantadb::physical_plan::PhysicalVectorSearch<'a>::with_entity(self, core::option::Option<alloc::string::String>) -> Self
 impl vantadb::query::PhysicalOperator for vantadb::physical_plan::PhysicalVectorSearch<'_>
 pub fn vantadb::physical_plan::PhysicalVectorSearch<'_>::close(&mut self) -> vantadb::error::Result<()>
 pub fn vantadb::physical_plan::PhysicalVectorSearch<'_>::next(&mut self) -> vantadb::error::Result<core::option::Option<vantadb::UnifiedNode>>
@@ -7440,6 +7489,7 @@ impl vantadb::storage::vfile::File
 pub fn vantadb::storage::vfile::File::create_in_memory(u64) -> Self
 pub fn vantadb::storage::vfile::File::flush(&self) -> vantadb::error::Result<()>
 pub fn vantadb::storage::vfile::File::grow_to(&mut self, u64) -> vantadb::error::Result<()>
+pub fn vantadb::storage::vfile::File::is_encrypted(&self) -> bool
 pub fn vantadb::storage::vfile::File::mmap_bytes(&self) -> &[u8]
 pub fn vantadb::storage::vfile::File::mmap_bytes_mut(&mut self) -> vantadb::error::Result<&mut [u8]>
 pub fn vantadb::storage::vfile::File::mmap_resident_bytes(&self) -> core::option::Option<u64>
@@ -7453,12 +7503,15 @@ impl core::marker::Send for vantadb::storage::vfile::File
 impl core::marker::Sync for vantadb::storage::vfile::File
 impl vantadb::index_port::VectorStoreRef for vantadb::storage::vfile::File
 pub fn vantadb::storage::vfile::File::mmap_bytes(&self) -> &[u8]
+pub fn vantadb::storage::vfile::File::read_full_vector(&self, u64, &vantadb::node::DiskNodeHeader) -> core::option::Option<alloc::borrow::Cow<'_, [f32]>>
 pub fn vantadb::storage::vfile::File::read_header(&self, u64) -> core::option::Option<vantadb::node::DiskNodeHeader>
 impl core::marker::Freeze for vantadb::storage::vfile::File
 impl core::marker::Unpin for vantadb::storage::vfile::File
 impl core::marker::UnsafeUnpin for vantadb::storage::vfile::File
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::storage::vfile::File
 impl core::panic::unwind_safe::UnwindSafe for vantadb::storage::vfile::File
+pub const vantadb::storage::vfile::VFILE_ENCRYPTED_VERSION: u16
+pub const vantadb::storage::vfile::VFILE_MAX_READABLE_VERSION: u16
 pub const vantadb::storage::vfile::VFILE_VERSION: u16
 pub fn vantadb::storage::vfile::get_resident_bytes(*const u8, usize) -> core::option::Option<u64>
 pub fn vantadb::storage::vfile::get_resident_bytes_impl(*const u8, usize) -> core::option::Option<u64>
@@ -8031,6 +8084,19 @@ impl core::marker::Unpin for vantadb::wal::WalHeader
 impl core::marker::UnsafeUnpin for vantadb::wal::WalHeader
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::wal::WalHeader
 impl core::panic::unwind_safe::UnwindSafe for vantadb::wal::WalHeader
+pub struct vantadb::wal::WalKey
+impl core::clone::Clone for vantadb::wal::WalKey
+pub fn vantadb::wal::WalKey::clone(&self) -> Self
+impl core::fmt::Debug for vantadb::wal::WalKey
+pub fn vantadb::wal::WalKey::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vantadb::wal::WalKey
+impl core::marker::Freeze for vantadb::wal::WalKey
+impl core::marker::Send for vantadb::wal::WalKey
+impl core::marker::Sync for vantadb::wal::WalKey
+impl core::marker::Unpin for vantadb::wal::WalKey
+impl core::marker::UnsafeUnpin for vantadb::wal::WalKey
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::wal::WalKey
+impl core::panic::unwind_safe::UnwindSafe for vantadb::wal::WalKey
 pub struct vantadb::wal::WalReader
 impl vantadb::wal::WalReader
 pub fn vantadb::wal::WalReader::next_record(&mut self) -> vantadb::error::Result<core::option::Option<vantadb::wal::WalRecord>>
@@ -8063,7 +8129,9 @@ impl core::marker::Unpin for vantadb::wal::WalWriter
 impl core::marker::UnsafeUnpin for vantadb::wal::WalWriter
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::wal::WalWriter
 impl core::panic::unwind_safe::UnwindSafe for vantadb::wal::WalWriter
+pub const vantadb::wal::WAL_ENCRYPTED_FORMAT_VERSION: u16
 pub const vantadb::wal::WAL_FORMAT_VERSION: u16
+pub const vantadb::wal::WAL_MAX_READABLE_VERSION: u16
 pub const vantadb::wal::WAL_POSTCARD_VERSION: u16
 pub fn vantadb::wal::compute_crc32c(&[u8]) -> u32
 pub mod vantadb::wiki
@@ -8602,6 +8670,7 @@ pub fn vantadb::error::Error::backend_error(impl core::convert::Into<alloc::stri
 pub fn vantadb::error::Error::backup_error(impl core::convert::Into<alloc::string::String>) -> Self
 pub fn vantadb::error::Error::backup_error_sourced(impl core::fmt::Display, impl core::error::Error + core::marker::Send + core::marker::Sync + 'static) -> Self
 pub fn vantadb::error::Error::code(&self) -> &'static str
+pub fn vantadb::error::Error::dimension_mismatch(usize, usize) -> Self
 pub fn vantadb::error::Error::generic_error(impl core::convert::Into<alloc::string::String>) -> Self
 pub fn vantadb::error::Error::generic_error_sourced(impl core::fmt::Display, impl core::error::Error + core::marker::Send + core::marker::Sync + 'static) -> Self
 pub fn vantadb::error::Error::is_retriable(&self) -> bool
@@ -9057,6 +9126,8 @@ pub vantadb::Config::confidence_threshold: core::option::Option<f32>
 pub vantadb::Config::dashboard_dir: core::option::Option<std::path::PathBuf>
 pub vantadb::Config::embedding_provider: alloc::string::String
 pub vantadb::Config::encryption_key: core::option::Option<alloc::string::String>
+pub vantadb::Config::encryption_key_cmd: core::option::Option<alloc::string::String>
+pub vantadb::Config::encryption_key_file: core::option::Option<std::path::PathBuf>
 pub vantadb::Config::eviction_ratio: f64
 pub vantadb::Config::eviction_weight_confidence: f64
 pub vantadb::Config::eviction_weight_hits: f64
@@ -9127,6 +9198,8 @@ pub fn vantadb::config::Config::with_backend(self, vantadb::BackendKind) -> Self
 pub fn vantadb::config::Config::with_batch_size(self, usize) -> Self
 pub fn vantadb::config::Config::with_bulk_commit_interval(self, usize) -> Self
 pub fn vantadb::config::Config::with_encryption(self, alloc::string::String) -> Self
+pub fn vantadb::config::Config::with_encryption_key_cmd(self, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn vantadb::config::Config::with_encryption_key_file(self, impl core::convert::Into<std::path::PathBuf>) -> Self
 pub fn vantadb::config::Config::with_eviction_ratio(self, f64) -> Self
 pub fn vantadb::config::Config::with_eviction_weights(self, f64, f64, f64, f64) -> Self
 pub fn vantadb::config::Config::with_flat_threshold(self, core::option::Option<usize>) -> Self
