@@ -13,10 +13,13 @@ tags: [cifrado, rendimiento, vfile, mmap, zero-copy, decision-owner]
   (`docs/dev/reviews/2026-10-21-encryption-envelope-por-pagina.md`) + la decision del owner del
   2026-10-21 ("Paso 0 y re-medir").
 - **Rama:** `develop` · **Repo:** `C:\Users\Eros\VantaDB Proyect\VantaDB`
-- **Estado:** 🟡 **EN CURSO** — el Paso 0 está **implementado y verificado** (steps 1-4 y 6);
-  falta el **step 5 (la re-medición)**, que **no se puede lanzar en esta máquina** (el archivo
-  de paginación son 8 MB ⇒ dos compilaciones simultáneas fallan con `os error 1455`, y hay
-  otros agentes compilando ⇒ la medición sería ruido). El comando exacto queda anotado abajo.
+- **Estado:** 🟢 **CERRADO** — el Paso 0 está **implementado y verificado** (steps 1-4 y 6) y el
+  **step 5 (la re-medición) está hecho** (2026-10-21/22): el gate del plan **sigue SUPERADO**,
+  pero con un sobrecoste **mucho menor** (**+43,2 %** en el p99, 3+3 intercaladas, maquina en
+  silencio, post-Paso 0) ⇒ **el envelope por página hace falta** y es un **breaking change del
+  trait público `VectorStoreRef`** ⇒ **la decisión es del owner**. Números y método:
+  `docs/user/operations/BENCHMARKS.md` §22.4 y
+  `docs/dev/reviews/2026-10-21-w7-cifrado-coste.md` §6.
 - **Decision del owner (2026-10-21):** **Paso 0 y re-medir** (el envelope por pagina, con su
   breaking change del trait publico `VectorStoreRef`, solo si el Paso 0 no cierra el gap).
 
@@ -82,9 +85,9 @@ son las que bloquean el fix:
 | Campo recitation (MCP) | ← fuente en este task file |
 |------------------------|----------------------------|
 | `activeGoal` | Encabezado `# FIND-598` |
-| `lastAction` | Step 6 — el fix, los tests, la verificacion y la actualizacion de `FIND-598` en el backlog estan hechos; el **step 5 (la re-medicion) queda pendiente** |
-| `result` | 🟡 EN CURSO — el Paso 0 esta implementado: **5 → 3 copias** del payload por candidato (medido) y **1** con la cache caliente; el bench queda listo para la re-medicion |
-| `nextAction` | Step 5 — lanzar el `cargo bench -p vantadb --bench encrypted_p99` (variante cifrada) con la maquina en silencio (el comando exacto esta en "## La re-medicion pendiente") |
+| `lastAction` | Step 5 — **hecho** (2026-10-21/22): la re-medición post-Paso 0, publicada (BENCHMARKS.md §22.4, nota de W7 §6) y el `FIND-598` del backlog actualizado |
+| `result` | 🟢 CERRADO — el Paso 0 quitó 2 de las 5 copias por candidato (medido: 5 → 3, 1 con la cache caliente) y la re-medición da **+43,2 %** en el p99 (vs **+390,6 %** del par en calma pre-Paso 0): el gate **sigue SUPERADO** ⇒ **falta el envelope por página** (breaking change de `VectorStoreRef`) ⇒ decisión del owner |
+| `nextAction` | Decisión del owner sobre el envelope por página (`docs/dev/architecture/design/2026-10-21-encryption-envelope-per-page.md`, commit `3c1c863`) |
 | `contract` | `## Contrato` + `## Invariantes de dominio` |
 | `nextTask` | (siguiente del plan) |
 
@@ -136,8 +139,8 @@ no introduzir capas).
 | Eje | Contador |
 |-----|----------|
 | Incógnitas abiertas (uphill) | **0** — el reparto de copias está **medido** (5 → 3, y 1 con la cache caliente); el tope de dimension del vector sigue **sin** resolver (no lo necesita el Paso 0: no cambia el formato) |
-| Pendientes de ejecución (downhill) | **1** — la re-medicion (step 5) |
-| % completado | **83 %** (5 de 6 steps; el que falta es una medicion, no codigo) |
+| Pendientes de ejecución (downhill) | **0** — la re-medición (step 5) está **hecha** (2026-10-21/22) |
+| % completado | **100 %** (6 de 6 steps) |
 
 ## Steps
 
@@ -160,10 +163,13 @@ no introduzir capas).
    --lib` verde (2533 tests sin la feature, 2645 con ella) y el golden
    `tests/api/public-api.txt` **sin regenerar** (la API publica no cambia: todo lo nuevo es
    `pub(crate)`).
-5. ⏳ **Re-medir**: `cargo bench -p vantadb --bench encrypted_p99` (variante cifrada) con la
+5. ✅ **Re-medir**: `cargo bench -p vantadb --bench encrypted_p99` (variante cifrada) con la
    maquina en silencio ⇒ comparar el delta con la medicion de W7 y **publicar el numero** en
    `docs/user/operations/BENCHMARKS.md` §22 y en la nota de W7, con comando, entorno y fecha.
-   **Pendiente**: no se puede lanzar en esta maquina (ver "## La re-medicion pendiente").
+   **Hecho (2026-10-21/22)**: 3+3 corridas **intercaladas** a 25 000 × 1536d, maquina en
+   silencio, binarios **post-Paso 0** ⇒ **+43,2 %** en el p99 (mediana), veredicto
+   **A) GATE SUPERADO** (`max(claro) × 1,15 = 19,29 ms < min(cifrado) = 22,02 ms`).
+   Publicado en `BENCHMARKS.md` **§22.4** y en la nota de W7 **§6**.
 6. ✅ **Actualizar `FIND-598`** con el resultado y **añadir la entrada de avance**.
 
 ## Resultado del Paso 0 (2026-10-21)
@@ -231,11 +237,14 @@ supuesto** ⇒ lo que queda es **1 AEAD + 3 copias** por candidato en cache fria
 | `encrypted_search_returns_the_same_ids_order_and_scores` | el resultado de la busqueda **no cambia**: los mismos ids (1, 2, 3), en el mismo orden, con los mismos scores que el segmento **en claro**; y la cache caliente tampoco lo cambia |
 | `decrypt_cache_never_hands_out_a_dangling_buffer` | la cache **no** devuelve un buffer caducado: el `Arc` del consumidor sobrevive a que la cache reemplace la entrada, y la cache sirve el plaintext **nuevo** |
 
-### La re-medicion pendiente (step 5) — el comando exacto
+### La re-medicion post-Paso 0 (step 5) — el comando y el resultado
 
-> **NO se lanzo en esta maquina**: el archivo de paginacion son 8 MB ⇒ dos compilaciones
-> simultaneas fallan con `os error 1455`, y hay otros agentes compilando ⇒ el p99 seria ruido.
-> Cuando la maquina este **en silencio**:
+> **Hecha (2026-10-21/22).** 3+3 corridas **intercaladas** (P1, E1, P2, E2, P3, E3) a
+> 25 000 × 1536d, con los binarios **post-Paso 0** (compilados a las 22:23 y 22:33, despues del
+> commit `6edc635f` de las 22:10) y la maquina **en silencio**. Publicada en
+> `docs/user/operations/BENCHMARKS.md` **§22.4** y en la nota de W7 **§6**.
+> La medicion de este task file se hizo con el driver `target/find598/run_find598.ps1` (6
+> invocaciones, una por corrida) sobre los binarios de `target/find598/`.
 
 ```powershell
 $env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"
@@ -262,6 +271,30 @@ target\release\deps\encrypted_p99-<hash>.exe     # con cifrar (--features encryp
 * Al publicar: el numero, el comando, el entorno y la fecha (Regla 11), en §22 y en la nota de
   W7.
 
+#### El resultado (2026-10-21/22)
+
+| Métrica (p99) | pre-Paso 0, par en calma (P3/E3) | post-Paso 0 (3+3, mediana) | que movio el Paso 0 |
+| :--- | ---: | ---: | :--- |
+| claro | 15,7945 ms | 16,3662 ms | **+3,6 %** ⇒ dentro del ruido: el camino en claro **no** lo toca el Paso 0 |
+| cifrado | 77,4924 ms | 23,4357 ms | **−69,8 %** |
+| Δ | **+390,6 %** | **+43,2 %** | — |
+| criterion (medias, motor reabierto) | 9 689,7 vs 40 409,9 ms = **+317,0 %** | 7 354,5 vs 10 739,9 ms = **+46,0 %** | — |
+
+**Veredicto: A) GATE SUPERADO** — `max(claro) × 1,15 = 19,2854 ms < min(cifrado) = 22,0183 ms`
+(criterio fijado antes de ver los numeros). Delta por par intercalado: **+31,3 % / +58,2 % /
++85,6 %**.
+
+> **El +190,3 % de la medicion de W7 no es una base comparable**: las 6 corridas de W7 cubren
+> **dos estados de maquina** (P1 y E1 corrieron con la maquina bajo presion de memoria: P1 baja
+> a 7,22 GB libres / 95,1 % de commit) ⇒ su mediana en claro viene de una corrida medida bajo
+> presion y su mediana cifrada de una medida en calma. La comparacion "like for like" es el
+> **par en calma** (P3/E3, **+390,6 %**).
+
+⇒ **El Paso 0 abarato el cifrado ~3,5x, pero NO cerro el gap**: el sobrecoste sigue en **+43,2 %**
+(umbral 15 %) ⇒ **el envelope por pagina hace falta** ⇒ y devolver el zero-copy **exige cambiar
+el trait publico `VectorStoreRef`** ⇒ **breaking change de API publica**. **La decision es del
+owner**; aqui queda dicho con el numero.
+
 ### La lectura: ¿basta el Paso 0 o hace falta el envelope por pagina?
 
 **El Paso 0 quita trabajo real, pero el envelope por nodo sigue siendo el techo.** El
@@ -282,6 +315,10 @@ razonamiento, con los numeros:
    cierra el gap; si el p99 sigue por encima del 15 %, el **envelope por pagina hace falta**
    (es lo que amortiza el AEAD sobre ~10 nodos y devuelve el zero-copy). El owner ya lo sabe;
    esta task no lo decide: lo decide el numero del step 5.
+5. ⇒ **La condicion se cumplio (step 5, 2026-10-22):** el p99 sigue por encima del 15 %
+   (**+43,2 %** frente a **+390,6 %** pre-Paso 0) ⇒ **el envelope por pagina hace falta**, y
+   con el **zero-copy** de vuelta ⇒ **breaking change del trait publico `VectorStoreRef`**.
+   Esta task **no lo decide**: lo decide el owner.
 
 ## Review (P2-01)
 
