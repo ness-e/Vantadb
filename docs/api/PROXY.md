@@ -334,7 +334,7 @@ On shutdown the proxy drains pending L0 writes (10 s grace) before exiting
 ## Keeping this page in sync
 
 This page diverges from the code within a month if untended (pre-mortem).
-Full checklist in [`docs/dev/tasks/FIND-68.md`](../dev/tasks/FIND-68.md)
+Full checklist in `docs/dev/tasks/FIND-68.md` (task file eliminado en la limpieza de COMPLETED)
 (§ Checklist anti-drift); the mechanical check is:
 
 ```powershell
