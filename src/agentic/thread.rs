@@ -9,6 +9,7 @@ use crate::error::{ChainedError, Error, Result};
 use crate::gc::GcWorker;
 use crate::node::{FieldValue, UnifiedNode};
 use crate::storage::StorageEngine;
+use parking_lot::Mutex;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -150,15 +151,26 @@ fn generate_id() -> u128 {
 pub struct ThreadStore<'a> {
     engine: &'a StorageEngine,
     clock: Arc<dyn Clock>,
+    /// Serializes the message read-modify-write (FIND-599): the engine's
+    /// `insert_lock` only covers the individual write, not the read + append,
+    /// so two concurrent senders read the same message list and the second
+    /// insert drops the first message. Shared across the stores of a database
+    /// via `Arc` (same pattern as the SDK's `merge_lock`).
+    message_lock: Arc<Mutex<()>>,
+    /// Serializes the thread-index read-modify-write (FIND-600): the index is
+    /// a single JSON blob, so two concurrent creators read the same id list
+    /// and the second save drops the first thread id.
+    index_lock: Arc<Mutex<()>>,
 }
 
 impl<'a> ThreadStore<'a> {
     /// Wrap a storage engine reference (wall-time clock).
+    ///
+    /// The store owns its locks, so a **single** store serializes its own
+    /// read-modify-writes. Stores that share a database must share the locks
+    /// too — the SDK does it with the crate-internal `with_shared_locks`.
     pub fn new(engine: &'a StorageEngine) -> Self {
-        Self {
-            engine,
-            clock: Arc::new(SystemClock),
-        }
+        Self::with_shared_locks(engine, Arc::new(Mutex::new(())), Arc::new(Mutex::new(())))
     }
 
     /// Wrap a storage engine reference with an explicit [`Clock`].
@@ -166,7 +178,31 @@ impl<'a> ThreadStore<'a> {
     /// Tests pass `Arc::new(ManualClock::new(..))` to expire TTLs by
     /// advancing virtual time instead of sleeping.
     pub fn with_clock(engine: &'a StorageEngine, clock: Arc<dyn Clock>) -> Self {
-        Self { engine, clock }
+        Self {
+            engine,
+            clock,
+            message_lock: Arc::new(Mutex::new(())),
+            index_lock: Arc::new(Mutex::new(())),
+        }
+    }
+
+    /// Wrap a storage engine reference with locks shared with the other
+    /// stores over the same database (wall-time clock).
+    ///
+    /// The SDK builds one store per call, so a store's own locks would not
+    /// serialize anything: the handle shares its locks with every store it
+    /// builds (FIND-599/FIND-600).
+    pub(crate) fn with_shared_locks(
+        engine: &'a StorageEngine,
+        message_lock: Arc<Mutex<()>>,
+        index_lock: Arc<Mutex<()>>,
+    ) -> Self {
+        Self {
+            engine,
+            clock: Arc::new(SystemClock),
+            message_lock,
+            index_lock,
+        }
     }
 
     /// Create a new thread.
@@ -224,6 +260,11 @@ impl<'a> ThreadStore<'a> {
         metadata: HashMap<String, String>,
         gc: Option<&mut GcWorker<'a>>,
     ) -> Result<()> {
+        // FIND-599: serialize the whole read-modify-write. The engine's
+        // `insert_lock` only covers the individual write, so without this
+        // guard two senders read the same list and the second insert drops
+        // the first message.
+        let _guard = self.message_lock.lock();
         let now = self.clock.now_secs();
         let mut node = self
             .engine
@@ -290,6 +331,9 @@ impl<'a> ThreadStore<'a> {
     ///
     /// Returns the number of threads purged.
     pub fn purge_expired_threads(&self) -> Result<usize> {
+        // FIND-600: the rebuild rewrites the whole index, so the lock is held
+        // from the load to the save (the helpers below do not lock again).
+        let _guard = self.index_lock.lock();
         let now = self.clock.now_secs();
         let ids = self.load_thread_ids()?;
         let mut purged = 0;
@@ -392,6 +436,9 @@ impl<'a> ThreadStore<'a> {
     }
 
     fn add_thread_id(&self, id: u128) -> Result<()> {
+        // FIND-600: the index is one JSON blob, so load -> push -> save has to
+        // be atomic or the second save drops the first id.
+        let _guard = self.index_lock.lock();
         let mut ids = self.load_thread_ids()?;
         if !ids.contains(&id) {
             ids.push(id);
@@ -401,6 +448,7 @@ impl<'a> ThreadStore<'a> {
     }
 
     fn remove_thread_id(&self, id: u128) -> Result<()> {
+        let _guard = self.index_lock.lock();
         let mut ids = self.load_thread_ids()?;
         ids.retain(|&i| i != id);
         self.save_thread_ids(&ids)
@@ -412,4 +460,128 @@ fn now_ms() -> u64 {
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_millis() as u64
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::backend::BackendKind;
+    use crate::config::Config;
+    use crate::sdk::Embedded;
+    use std::collections::HashSet;
+    use std::sync::Barrier;
+
+    /// In-memory [`Embedded`] handle — the same handle the MCP server and the
+    /// SDK hand out (`Clone + Send + Sync`, requests served in parallel).
+    fn embedded() -> Embedded {
+        Embedded::open_with_config(Config {
+            storage_path: ":memory:".into(),
+            backend_kind: BackendKind::InMemory,
+            ..Default::default()
+        })
+        .expect("open embedded")
+    }
+
+    /// FIND-599: two concurrent `send_message` calls on the same thread must
+    /// leave **both** messages. The message list is a read-modify-write
+    /// (`get -> load_messages -> push -> insert`) and the engine's
+    /// `insert_lock` only covers the individual write, so without a lock
+    /// both writers read the same list and the second insert drops the first
+    /// message — silently, with no error.
+    #[test]
+    fn concurrent_send_message_keeps_both_messages() {
+        const MESSAGES: usize = 20;
+        let db = embedded();
+        let thread_id = db.create_thread("concurrent", None).expect("create thread");
+
+        let barrier = Arc::new(Barrier::new(2));
+        let handles: Vec<_> = (0..2)
+            .map(|worker| {
+                let db = db.clone();
+                let barrier = barrier.clone();
+                std::thread::spawn(move || {
+                    for i in 0..MESSAGES {
+                        // Align both writers right before the read-modify-write.
+                        barrier.wait();
+                        // Padding widens the read-modify-write window so the
+                        // race is observable instead of a coin flip.
+                        let content = format!("w{worker}-m{i}-{}", "x".repeat(512));
+                        db.send_message(thread_id, "user", &content)
+                            .expect("send message");
+                    }
+                })
+            })
+            .collect();
+        for handle in handles {
+            handle.join().expect("join writer");
+        }
+
+        let thread = db
+            .get_thread(thread_id)
+            .expect("get thread")
+            .expect("thread exists");
+        assert_eq!(
+            thread.messages.len(),
+            MESSAGES * 2,
+            "both writers' messages must survive (got {} of {})",
+            thread.messages.len(),
+            MESSAGES * 2
+        );
+    }
+
+    /// FIND-600: two concurrent `create_thread` calls must leave **both**
+    /// threads in the index. The index is a single JSON blob in
+    /// `InternalMetadata`, so its read-modify-write (`load -> push -> save`)
+    /// has to be serialized: otherwise the second save overwrites the first
+    /// id and the thread becomes invisible in `list_threads` (and immortal:
+    /// the purge only walks the index).
+    #[test]
+    fn concurrent_create_thread_keeps_both_threads_in_the_index() {
+        const THREADS: usize = 20;
+        let db = embedded();
+        // Pre-populate the index: the read-modify-write window grows with the
+        // index size, so the race shows up reliably.
+        for i in 0..50 {
+            db.create_thread(&format!("pre-{i}"), None)
+                .expect("create pre thread");
+        }
+
+        let barrier = Arc::new(Barrier::new(2));
+        let handles: Vec<_> = (0..2)
+            .map(|worker| {
+                let db = db.clone();
+                let barrier = barrier.clone();
+                std::thread::spawn(move || {
+                    let mut ids = Vec::new();
+                    for i in 0..THREADS {
+                        barrier.wait();
+                        ids.push(
+                            db.create_thread(&format!("w{worker}-{i}"), None)
+                                .expect("create thread"),
+                        );
+                    }
+                    ids
+                })
+            })
+            .collect();
+        let mut created = Vec::new();
+        for handle in handles {
+            created.extend(handle.join().expect("join creator"));
+        }
+
+        let listed: HashSet<u128> = db
+            .list_threads(1000, 0)
+            .expect("list threads")
+            .iter()
+            .map(|t| t.thread_id)
+            .collect();
+        for id in &created {
+            assert!(
+                listed.contains(id),
+                "thread {id} vanished from the index (index holds {} of {} created ids)",
+                listed.len(),
+                created.len()
+            );
+        }
+    }
 }

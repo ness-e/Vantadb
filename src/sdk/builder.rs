@@ -44,6 +44,20 @@ pub struct Embedded {
     /// ponytail: global write serialization per handle - correctness first
     /// (DUR-03 r3); per-key striped locks only if write throughput demands it.
     pub(crate) purge_lock: Arc<RwLock<()>>,
+    /// Serializes the thread message read-modify-write (FIND-599): the
+    /// engine's `insert_lock` only covers the individual write, not the read +
+    /// append, so two concurrent `send_message` calls read the same message
+    /// list and the second insert drops the first message. Shared across
+    /// clones via `Arc` (same rationale as `merge_lock`).
+    /// ponytail: one lock per area (messages / thread index) - thread writes
+    /// are not a hot path; striped locks only if contention ever matters.
+    pub(crate) thread_message_lock: Arc<Mutex<()>>,
+    /// Serializes the thread-index read-modify-write (FIND-600): the index is
+    /// a single JSON blob in `InternalMetadata`, so two concurrent
+    /// `create_thread` calls read the same id list and the second save drops
+    /// the first thread id (the thread then disappears from `list_threads`
+    /// and the purge never reaches it). Shared across clones via `Arc`.
+    pub(crate) thread_index_lock: Arc<Mutex<()>>,
 }
 
 impl std::fmt::Debug for Embedded {
@@ -69,6 +83,8 @@ impl Embedded {
             supersede_lock: Arc::new(Mutex::new(())),
             merge_lock: Arc::new(Mutex::new(())),
             purge_lock: Arc::new(RwLock::new(())),
+            thread_message_lock: Arc::new(Mutex::new(())),
+            thread_index_lock: Arc::new(Mutex::new(())),
         }
     }
 
@@ -174,6 +190,8 @@ impl Embedded {
             supersede_lock: Arc::new(Mutex::new(())),
             merge_lock: Arc::new(Mutex::new(())),
             purge_lock: Arc::new(RwLock::new(())),
+            thread_message_lock: Arc::new(Mutex::new(())),
+            thread_index_lock: Arc::new(Mutex::new(())),
         };
         if !embedded.config.read_only {
             embedded.ensure_indexes_current()?;
@@ -213,6 +231,8 @@ impl Embedded {
             supersede_lock: Arc::new(Mutex::new(())),
             merge_lock: Arc::new(Mutex::new(())),
             purge_lock: Arc::new(RwLock::new(())),
+            thread_message_lock: Arc::new(Mutex::new(())),
+            thread_index_lock: Arc::new(Mutex::new(())),
         }
     }
 
@@ -232,12 +252,26 @@ impl Embedded {
 
     // ── Agentic Threads ──
 
+    /// Builds a [`ThreadStore`] that shares this handle's thread locks.
+    ///
+    /// The SDK builds one store per call, so a store's own locks would not
+    /// serialize anything: sharing them makes concurrent callers (the MCP
+    /// server serves requests in parallel) serialize their read-modify-write
+    /// instead of losing updates (FIND-599/FIND-600).
+    fn thread_store<'e>(&self, engine: &'e StorageEngine) -> ThreadStore<'e> {
+        ThreadStore::with_shared_locks(
+            engine,
+            self.thread_message_lock.clone(),
+            self.thread_index_lock.clone(),
+        )
+    }
+
     /// Create a new conversation thread.
     ///
     /// Returns the thread's numeric ID. Pass `ttl_secs` for auto-expiry.
     pub fn create_thread(&self, title: &str, ttl_secs: Option<u64>) -> Result<u128> {
         let engine = self.engine_handle()?;
-        let store = ThreadStore::new(&engine);
+        let store = self.thread_store(&engine);
         store.create(
             CreateThread {
                 title,
@@ -251,14 +285,14 @@ impl Embedded {
     /// Append a message to a thread.
     pub fn send_message(&self, thread_id: u128, role: &str, content: &str) -> Result<()> {
         let engine = self.engine_handle()?;
-        let store = ThreadStore::new(&engine);
+        let store = self.thread_store(&engine);
         store.send_message(thread_id, role, content, HashMap::new(), None)
     }
 
     /// Retrieve a thread by its ID.
     pub fn get_thread(&self, thread_id: u128) -> Result<Option<crate::agentic::MessageThread>> {
         let engine = self.engine_handle()?;
-        let store = ThreadStore::new(&engine);
+        let store = self.thread_store(&engine);
         store.get(thread_id)
     }
 
@@ -269,14 +303,14 @@ impl Embedded {
         offset: usize,
     ) -> Result<Vec<crate::agentic::MessageThread>> {
         let engine = self.engine_handle()?;
-        let store = ThreadStore::new(&engine);
+        let store = self.thread_store(&engine);
         store.list(limit, offset)
     }
 
     /// Delete a thread by its ID.
     pub fn delete_thread(&self, thread_id: u128) -> Result<()> {
         let engine = self.engine_handle()?;
-        let store = ThreadStore::new(&engine);
+        let store = self.thread_store(&engine);
         store.delete(thread_id)
     }
 
@@ -285,7 +319,7 @@ impl Embedded {
     /// Returns the number of threads removed.
     pub fn purge_expired_threads(&self) -> Result<usize> {
         let engine = self.engine_handle()?;
-        let store = ThreadStore::new(&engine);
+        let store = self.thread_store(&engine);
         store.purge_expired_threads()
     }
 
