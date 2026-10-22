@@ -1427,101 +1427,145 @@ Retrieval **quality** on a real text corpus: **`recall@k` against human relevanc
 ```powershell
 $env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"
 
-# Las dos variantes del motor con clave (mismo binario fuente, feature distinta):
-cargo build -p vantadb --profile bench --bench encrypted_p99 -j 2
-cargo build -p vantadb --profile bench --bench encrypted_p99 --features encryption -j 2
+# 1) Compilar SOLO el target del bench, UNA variante cada vez, -j 1
+#    (dos compilaciones simultaneas revientan: el pagefile son 8 MB -> os error 1455)
+cargo build -p vantadb --profile bench --bench encrypted_p99 -j 1
+cargo build -p vantadb --profile bench --bench encrypted_p99 --features encryption -j 1
 
-# Medición (3 corridas, mediana) — el bench imprime la mediana de las 3:
-$env:ENCRYPTED_P99_SCALE = "100000"   # 100k x 1536d, seed 42
-$env:ENCRYPTED_P99_RUNS  = "3"
-target\release\deps\encrypted_p99-<hash>.exe     # sin cifrar
-target\release\deps\encrypted_p99-<hash>.exe     # con cifrar (--features encryption)
+# 2) Medir: 3 corridas POR VARIANTE, INTERCALADAS (P1, E1, P2, E2, P3, E3)
+#    -> una invocacion = una corrida (el bench escribe sus numeros en
+#       ENCRYPTED_P99_OUT linea a linea, asi una corrida muerta deja su rastro)
+$env:ENCRYPTED_P99_SCALE  = "25000"                    # escala medida (ver 22.3.1)
+$env:ENCRYPTED_P99_RUNS   = "1"
+$env:ENCRYPTED_P99_WARMUP = "0"                        # mismo metodo que canonical_p99
+$env:ENCRYPTED_P99_OUT    = "target\w7-cert\P1.results.txt"
 
-# WAL (3 modos de sync x 4 tamanos de lote):
-cargo build -p vantadb --profile bench --bench wal_throughput -j 2
-cargo build -p vantadb --profile bench --bench wal_throughput --features encryption -j 2
+target\release\deps\encrypted_p99-<hash>.exe --bench    # sin cifrar
+target\release\deps\encrypted_p99-<hash>.exe --bench    # con cifrar (--features encryption)
+
+# 3) WAL (3 modos de sync x 4 tamanos de lote):
+cargo build -p vantadb --profile bench --bench wal_throughput -j 1
+cargo build -p vantadb --profile bench --bench wal_throughput --features encryption -j 1
+target\release\deps\wal_throughput-<hash>.exe --bench
+target\release\deps\wal_throughput-<hash>.exe --bench
 ```
 
-> **Por qué `cargo build --profile bench --bench <t>` y no `cargo bench`:** `cargo bench`
-> construye también los **binarios** del paquete, y el link LTO de `vanta-cli` se queda
+> **Por que `--bench`, y sin `--`:** criterion decide su modo por el flag
+> `--bench` (criterion 0.8.2, `lib.rs:958`): sin el flag, `test_mode = true` → **1
+> iteracion, sin perfil, sin estimaciones**. Y PowerShell reenvia el `--` al binario
+> nativo, lo que rompe el parseo de clap: el flag se pasa **directo**, sin separador.
+
+> **Por que `cargo build --profile bench --bench <t>` y no `cargo bench`:** `cargo bench`
+> construye tambien los **binarios** del paquete, y el link LTO de `vanta-cli` se queda
 > **sin memoria** (`rustc-LLVM ERROR: out of memory`) en una maquina compartida. El
-> comando de arriba usa **el mismo perfil** (`bench` = `release` + `debug = 1`) y construye
-> **solo** el target del bench. La medicion se lanza sobre el binario, sin el lock de
-> artefactos de cargo.
+> comando de arriba usa **el mismo perfil** (`bench` = `release` + `debug = 1`). La medicion
+> se lanza sobre el binario, sin el lock de artefactos de cargo.
 
 ### 22.2 Entorno (Regla 11)
 
 | Campo | Valor |
 | :--- | :--- |
-| Fecha | **2026-10-21** |
+| Fecha | **2026-10-21**, 19:59:07 → 22:21 (6 invocaciones intercaladas) |
 | OS | Windows 11 Pro (10.0.26200) |
 | CPU | 12th Gen Intel Core i5-1235U (10c/12t) |
-| RAM | 31.78 GB (≈8 GB libres durante la corrida; **3 agentes** compilando en paralelo) |
+| RAM | 31.78 GB (32.6 GiB utiles) — **12.33 GB libres al empezar**, **11.57 GB libres al terminar** |
+| Commit charge | **28.29 / 35.78 GB (79,1 %) al empezar** → **29.34 / 35.78 GB (82,0 %) al terminar** (el limite subio a 37.79 GB durante P1: Windows expandio el pagefile) |
+| Disco C: | 18.33 GB libres al empezar → 20.59 GB al terminar (el tempdir del bench se borra entre invocaciones) |
+| Ruido | **0 procesos de compilacion y 0 procesos de bench** durante toda la medicion (ver §22.3.1: el intento anterior estaba contaminado por procesos zombis) |
 | Toolchain | rustc 1.95.0 / cargo 1.95.0 (`x86_64-pc-windows-msvc`) |
 | Perfil | `bench` = `release` (`opt-level 3`, `lto = "thin"`, `codegen-units = 1`) + `debug = 1` |
-| Dataset | seed 42, **2 000 × 1536d** (la escala del plan, 100k, **no** cabe en esta maquina — ver §22.3.1), `StdRng::seed_from_u64(42)` (identico a `benches/canonical_p99.rs`) |
-| Perfil de medicion | `benches/common::apply_fixed_profile` (warmup 3 s / measure 5 s, confianza 0.95) |
-| Protocolo | **3 corridas, mediana**; variantes **intercaladas** (P1, E1, P2, E2, P3, E3) |
-| Commit | `796f9b06` (`develop`) + el worktree sucio de los agentes concurrentes (parser/planner/physical_plan/wal) |
-| Config | `Config::default()` (backend **Fjall**, `sync_mode = Periodic`) + `with_encryption(<hex 32 B>)` + `with_flush_threshold(1000)` |
+| Dataset | seed 42, **25 000 × 1536d**, `StdRng::seed_from_u64(42)` (identico a `benches/canonical_p99.rs`); 1000 queries, `top_k = 10` |
+| Perfil de medicion | `benches/common::apply_fixed_profile` (warmup 3 s / measure 5 s, confianza 0.95, `sample_size(10)`) |
+| Protocolo | **3 corridas por variante, mediana**; variantes **intercaladas** (P1, E1, P2, E2, P3, E3); una invocacion = una corrida |
+| Commit | `4fb9f02` (`develop`); `src/`, `benches/` y `Cargo.toml` **identicos** entre las dos compilaciones (verificado: `git diff` del arbol de fuentes vacio y los commits intermedios del bot son **solo de docs**) |
+| **Estado del codigo medido** | **anterior al "Paso 0"** (`6edc635f`, 22:10: del 2026-10-21, que reduce las copias por candidato de 5 a 3 y la cache de 1 entrada a LRU). Los dos binarios se construyeron a las **18:26** y **19:45**, antes de ese commit, y **ningun commit toco `src/` entre las 18:00 y las 20:00** ⇒ las dos variantes difieren **solo** en la feature. **La cifra publicada es la del estado que evalua el gate del plan**; la re-medicion *post*-Paso 0 queda pendiente (`docs/dev/tasks/FIND-598-paso0.md`) |
+| Binarios | claro `sha256 AF7F2EA3…` (`encrypted_p99-6d1dc71414ddeff9.exe`, 6.38 MB) · cifrado `sha256 AE24C825…` (`encrypted_p99-62f8977607dfeae8.exe`, 6.70 MB). **Los dos compilados desde el mismo arbol**, la unica diferencia es la feature |
+| Config | `Config::default()` (backend **Fjall**, `sync_mode = Periodic`, `flat_threshold = 10000`) + `with_encryption(<hex 32 B>)` + `with_flush_threshold(1000)` |
 | Clave | **Fuente 1 de 3** de la precedencia (ADR-0057 D2): `Config::encryption_key` programatica → `VANTADB_ENCRYPTION_KEY` → `…_KEY_FILE` → `…_KEY_CMD`. En la maquina de medicion no hay ninguna variable `VANTADB_*` seteada |
 
 ### 22.3 Resultados
 
-#### 22.3.1 La escala medida (y por que no es la del plan)
+#### 22.3.1 La escala medida: 25 000 × 1536d, y por que no es la del plan
 
-El dataset del plan (**100k × 1536d**) **no se pudo medir en esta maquina**: con
-tres agentes compilando en paralelo, el *commit charge* de Windows estaba al
-limite y el motor **fallaba con `os error 1450` ("recursos insuficientes")**
-durante el `insert` (Fjall), y la corrida de 10k × 1536d (artifacts: WAL
-~62 MB + vstore ~61 MB + imagen HNSW ~61 MB) ya consumia **todo** el
-working set: el p50 de la busqueda subia a **8-14 ms** (frente a los
-**2.24 ms** del bench canonico *in-memory* de 100k), o sea que la medicion
-media la E/S de la maquina, no el coste del cifrado. La corrida de 10k se
-**descarto** por eso (el spread entre corridas fue de **±56 %** en el p99
-plaintext: 15.83 / 20.78 / 41.15 ms).
+La escala del plan es **100 000 × 1536d**. En esta maquina **cabe** (el intento
+anterior murio con `os error 1450` por culpa del *commit charge* al limite con
+3 agentes compilando; aqui no habia ninguno), pero **no es affordable con el
+protocolo completo**: el `insert` de 100k mide **~35-40 min por invocacion** y
+el grupo de criterion del bench son 1000 queries × 10 muestras (≈ 10-20 min
+mas) ⇒ **~6 h** para las 6 invocaciones intercaladas, y las 6 son las que
+exige el plan (3 corridas por variante, mediana).
 
-La medicion publicada es a **2 000 × 1536d** (los mismos vectores, seed 42, la
-misma construccion que `benches/canonical_p99.rs`): a esa escala los artifacts
-caben en el page cache y la medicion es de **CPU**, que es lo que el cifrado
-cambia. **Los deltas son comparables entre variantes** (misma maquina, mismos
-binarios, misma sesion, intercalados); los **valores absolutos no** son
-comparables con §11 (4.9987 ms), porque son otro bench, otra escala y otra
-maquina.
+La escala medida es **25 000 × 1536d**, y la eleccion **no es arbitraria**:
+
+1. **25 000 > `flat_threshold` (10 000) ⇒ el indice usa el camino HNSW (ANN), el
+   mismo que ejercita el dataset canonico de 100k.** El motor enruta a
+   **barrido plano (fuerza bruta)** cuando `nodes.len() <= flat_threshold`
+   (`src/index/search/neighbors.rs:57`, `use_flat_search`), y
+   `Config::default()` fija ese umbral en **10 000** (`src/config.rs:359`), que
+   `StorageEngine::open` propaga al indice (`src/storage/engine/init.rs:462`).
+   **Por tanto 10 000 y 5 000 —las dos escalas de reserva que se habían
+   propuesto— son invalidas para esta comparacion**: miden un barrido sobre
+   *todos* los vectores, que es otro workload, no el camino ANN que mide el
+   dataset canonico. Lo mismo invalida las cifras de **2 000 × 1536d** publicadas
+   anteriormente en esta seccion (estaban en el regimen plano).
+2. **Los artifacts caben en el page cache** (~450 MB: WAL + vstore + imagen
+   HNSW) ⇒ la medicion es de **CPU**, que es lo que el cifrado cambia, no de la
+   E/S de la maquina.
+3. **En el regimen HNSW el coste por query del cifrado lo fija `ef_search`**
+   (los candidatos que visita el recorrido), **no `n`**: el coste del
+   descifrado por candidato es el mismo a 25k y a 100k, ⇒ **el delta del
+   regimen HNSW no puede colapsar a 0** al subir a 100k. Lo que **no** se ha
+   medido es su **valor exacto** a la escala canonica (§22.3.5).
+
+La comparacion valida es **cifrado vs claro en el mismo bench, la misma maquina
+y la misma escala**. El baseline de **§11 (p99 4,9987 ms, 2026-09-25)** es el
+bench **in-memory** (`canonical_p99`): con y sin la feature `encryption` mediria
+**exactamente lo mismo**, asi que **no puede servir de umbral del coste
+at-rest** y **no se compara** con las cifras de aqui.
 
 #### 22.3.2 Motor real (`benches/encrypted_p99.rs`) — 3 corridas, mediana
 
-`n = 2 000 × 1536d`, seed 42, `Config::default()` (Fjall) + `flush_threshold=1000`
+`n = 25 000 × 1536d`, seed 42, `Config::default()` (Fjall) + `flush_threshold=1000`
 + `with_encryption(<hex 32 B>)`; variantes **intercaladas** (P1, E1, P2, E2, P3, E3).
-Corrida del 2026-10-21 16:43-16:51 (binarios con las auto-verificaciones activas:
-`mode=plaintext wal_version=Some(3)` / `mode=encrypted wal_version=Some(4)`,
-`hits=10` en las 6 corridas).
+Corrida del **2026-10-21 19:59-22:21** (binarios con las auto-verificaciones
+activas: `mode=plaintext wal_version=Some(3)` / `mode=encrypted wal_version=Some(4)`,
+`hits=10` en las 6 corridas, las 6 con `exit_code=0`).
 
-| Métrica | Sin cifrar | Cifrado | Δ | Umbral 15 % |
-| :--- | ---: | ---: | ---: | :--- |
-| **search p50** (ms) | **2.3750** | **2.8442** | **+19.8 %** | **superado** |
-| **search p95** (ms) | **5.0552** | **7.6095** | **+50.5 %** | **superado** |
-| **search p99** (ms) | **6.4655** | **11.0673** | **+71.2 %** | **superado** |
-| `insert` 2 000 nodos (s) | 24.225 | 26.427 | +9.1 % | dentro |
-| `flush` (reescribe la imagen HNSW) (s) | 0.103 | 0.111 | +7.8 % | dentro |
-| `cold start` (cerrar + reabrir) (s) | 0.274 | 0.394 | **+43.8 %** | **superado** |
+| Métrica | Sin cifrar (min / **med** / max) | Cifrado (min / **med** / max) | Δ mediana | Spread claro | Spread cifrado | Umbral 15 % |
+| :--- | :---: | :---: | ---: | ---: | ---: | :--- |
+| **search p50** (ms) | 6.8135 / **13.2733** / 16.9805 | 35.3191 / **53.0399** / 63.3524 | **+299,6 %** | +149 % | +79 % | superado |
+| **search p95** (ms) | 12.0319 / **20.2060** / 29.2015 | 57.9409 / **85.3295** / 116.3134 | **+322,3 %** | +143 % | +101 % | superado |
+| **search p99** (ms) | 15.7945 / **40.5614** / 41.1132 | 77.4924 / **117.7418** / 192.2276 | **+190,3 %** | +160 % | +148 % | **SUPERADO** |
+| `insert` 25 000 nodos (s) | 742.1 / **795.4** / 1044.7 | 452.8 / **805.0** / 1599.1 | +1,2 % | +41 % | +253 % | dentro (ruido) |
+| `flush` (reescribe la imagen HNSW) (s) | 0.833 / **1.509** / 2.990 | 1.185 / **1.418** / 1.681 | −6,0 % | +259 % | +42 % | dentro (ruido) |
+| `cold start` (cerrar + reabrir) (s) | 1.760 / **2.675** / 4.850 | 2.664 / **3.940** / 7.341 | **+47,3 %** | +176 % | +176 % | superado |
 
-**El umbral del 15 % se supera en el p99 (+71 %) — y eso es una señal de
-diseño, no algo que se pueda absorber en silencio.** Pero el número **no es
-estable** en esta maquina: el spread entre corridas de la **misma** variante
-(p99 cifrado: 7.49 / 11.07 / 21.64 ms) es del **+200 %**, y un protocolo
-**identico** corrido 1 h 40 min antes (15:03-15:07, mismos parametros, los
-mismos vectores) dio el **signo contrario**: p99 cifrado 12.20 ms vs plaintext
-14.22 ms (**−14.2 %**). Es decir: **la mediana de este protocolo dice +71 % y
-la mediana del otro dice −14 %** → el suelo de ruido de la medicion es del
-mismo orden que el umbral, y **esta maquina (compartida, con el commit charge
-al limite) no puede certificar el 15 %**. Lo que si queda establecido:
+**El gate del 15 % queda SUPERADO en el p99: +190,3 % — y el veredicto es
+concluyente, no un artefacto de ruido.** El criterio de decision se fijo
+**antes** de ver los numeros (banda de las 3 corridas de cada variante, sin
+supuestos estadisticos):
 
-- la **direccion** del efecto (el cifrado **no** es gratis) la corroboran dos
-  mediciones aisladas y reproducibles: el **WAL** (§22.3.3, +0.8 µs por frame)
-  y el **cold start** (+43.8 %, que descifra la imagen HNSW entera);
-- el **p99 de la busqueda** necesita una medicion en una maquina dedicada (o
-  en CI) antes de poder publicarse como numero de regresion.
+- **A) gate superado** si `max(claro) × 1,15 < min(cifrado)` → **41,1132 × 1,15 = 47,28 < 77,4924 ⇒ VERDADERO**;
+  es decir, **las 3 corridas cifradas son mas de un 15 % peores que las 3 claras**;
+- B) gate cumplido si `max(cifrado) < min(claro) × 1,15` → **192,23 < 18,16 ⇒ falso**.
+
+El delta por par intercalado (P1/E1, P2/E2, P3/E3) es **+373,9 %**, **+186,4 %**
+y **+390,6 %**: los tres pares, con la deriva de la maquina repartida entre las
+dos variantes, apuntan al mismo signo y a un orden de magnitud muy por encima
+del umbral. La segunda medicion independiente (el grupo de criterion del bench,
+que corre sobre el motor **reabierto** y con su propio intervalo de confianza)
+**confirma** el resultado y **sus intervalos no se solapan**:
+
+| Invocacion | criterion (1000 queries, motor reabierto) | CI 95 % |
+| :--- | ---: | :--- |
+| P1 | 18 758,9 ms | [17 878,6 · 19 792,2] |
+| E1 | 59 935,8 ms | [59 386,1 · 60 416,4] |
+| P2 | 14 453,1 ms | [13 697,2 · 15 155,1] |
+| E2 | 57 257,6 ms | [56 163,9 · 58 296,5] |
+| P3 | 9 689,7 ms | [8 445,6 · 11 235,3] |
+| E3 | 40 409,9 ms | [38 749,8 · 42 028,7] |
+
+(medianas: 14 453,1 ms sin cifrar vs 57 257,6 ms cifrados ⇒ **+296,1 %**.)
 
 > Las corridas incluyen las **auto-verificaciones** del bench: la cabecera del
 > WAL **en disco** dice v3 (claro) o v4 (cifrado) — no solo la presencia del
@@ -1529,85 +1573,143 @@ al limite) no puede certificar el 15 %**. Lo que si queda establecido:
 > busqueda tiene que devolver hits (`hits=10` en las 6 corridas) o la corrida
 > falla en vez de publicar un p99 rapido y falso.
 
+#### 22.3.2.1 Por que esta medicion **si** es certificable (y la anterior no)
+
+El intento anterior quedo invalidado por **ruido**, no por el cifrado. La causa
+concreta no era "la maquina compartida" en abstracto, sino **dos procesos
+zombis** que nadie cerro:
+
+1. una corrida de 100k del intento anterior (`w7-meas.ps1`) **siguio viva**
+   41 min despues de que su sesion terminara, con 2 009 s de CPU quemados y
+   613 MB de working set, y **bloqueaba el enlazado** del binario (LNK1104:
+   `no se puede abrir el archivo ...encrypted_p99-...exe`);
+2. una segunda medicion (`w7-25k.ps1`, escala 25 000) **arranco en paralelo**
+   de esta, con lo que las dos contendian por CPU y disco.
+
+Ambas se detuvieron antes de medir, y a partir de ahi la maquina estuvo
+**realmente en silencio**: 0 procesos de compilacion, 0 procesos de bench,
+12,33 GB de RAM libres y commit charge al 79,1 %. El spread intra-variante que
+queda (+148 % en el p99 cifrado) es **deriva termica/de cache** de la sesion, no
+competencia: el `insert` de las 6 corridas cae de forma monotone (1045 → 795 →
+742 s en claro) porque la maquina se **calienta** a lo largo de las 2,5 h, y esa
+deriva afecta a **las dos variantes por igual** gracias al intercalado. Por eso
+el veredicto se apoya en el **solapamiento de las bandas** (criterio A) y no en
+la mediana sola.
+
 #### 22.3.3 WAL (`benches/wal_throughput.rs`) — coste por frame
 
-Celdas representativas del barrido de 3 SyncMode × 4 tamanos de lote
-(criterion en modo benchmark: 18 muestras por celda, `apply_fixed_profile`).
-Registros de **~24 B** (`WalRecord::Insert(UnifiedNode::new(id))` — el registro
-**mas pequeño** que se puede escribir: el **peor caso** para el coste del
-envelope, porque un AEAD de 24 B no amortiza nada).
+**Medicion limpia, back-to-back** (2026-10-21 **23:05-23:14**, las dos
+variantes una detras de otra, los **mismos binarios pre-Paso 0** del motor;
+`wal_throughput` con criterion en modo benchmark: 10 muestras por celda,
+`apply_fixed_profile`). Registros de **~24 B**
+(`WalRecord::Insert(UnifiedNode::new(id))` — el registro **mas pequeño** que se
+puede escribir: el **peor caso** para el coste del envelope, porque un AEAD de
+24 B no amortiza nada). **Aviso de trazabilidad:** desde las 23:10 corria **en
+paralelo un bench ajeno** (`encrypted_p99_plain`, de otra sesion), asi que
+esta ventana **no** es tan silenciosa como la del motor (§22.3.2); por eso las
+cifras del camino bufferizado se **corroboran** con el barrido independiente de
+las 22:21-22:47 y la celda de fsync **queda descartada** (tres mediciones
+incompatibles, ver abajo).
 
-| Celda (sync/lote) | Throughput sin cifrar | Throughput cifrado | Δ | p50/registro sin cifrar | p50/registro cifrado | Δ |
+Cifras por **registro** (el histograma p50 que imprime el propio bench) y
+**throughput** de la celda (criterion):
+
+| Celda (sync/lote) | p50/registro sin cifrar | p50/registro cifrado | Δ coste | Throughput sin cifrar | Throughput cifrado | Δ thrpt |
 | :--- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `never` / 1 (bufferizado) | 525.93 Kelem/s | 322.88 Kelem/s | **−38.6 %** | 1.1 µs | 1.7 µs | **+0.6 µs** |
-| `never` / 1 000 (bufferizado) | 867.06 Melem/s | 427.52 Melem/s | **−50.7 %** | 640 ns | 1.799 µs | **+1.16 µs** |
-| `periodic` / 1 000 | 496.67 Melem/s | 302.04 Melem/s | **−39.2 %** | 2.015 µs | 3.166 µs | **+1.15 µs** |
-| `always` / 1 000 (fsync por lote) | 411.65 Melem/s | 267.11 Melem/s | **−35.1 %** | 2.31 µs | 3.258 µs | **+0.95 µs** |
-| `always` / 1 (fsync por registro) | 658.68 elem/s | 361.36 elem/s (CI 270–538: ruidoso) | — | 1.4137 ms | 1.4211 ms | **+0.5 %** |
+| `never` / 1 (bufferizado) | 900 ns | 1,10 µs | **+0,20 µs** | 896,0 Kelem/s | 562,4 Kelem/s | **−37,2 %** |
+| `never` / 100 | 410 ns | 1,117 µs | **+0,71 µs** | 152,2 Melem/s | 69,1 Melem/s | −54,6 % |
+| `never` / 1 000 | 949 ns | 1,124 µs | +0,18 µs | 1,480 Gelem/s | 715,8 Melem/s | −51,6 % |
+| `never` / 10 000 | 778 ns | 1,05 µs | +0,27 µs | 13,592 Gelem/s | 6,816 Gelem/s | −49,9 % |
+| `always` / 1 (fsync por registro) | 1,3597 ms | 1,9633 ms | +0,60 ms | 674,5 elem/s | 622,1 elem/s | **−7,8 %** |
+| `always` / 100 | 13,33 µs | 44,71 µs | +31,4 µs | 6,450 Melem/s | 2,280 Melem/s | −64,7 % |
+| `always` / 1 000 | 1,569 µs | 3,929 µs | +2,36 µs | 517,1 Melem/s | 220,5 Melem/s | −57,4 % |
+| `always` / 10 000 | 895 ns | 1,54 µs | +0,65 µs | 10,904 Gelem/s | 5,336 Gelem/s | −51,1 % |
 
-> Trazabilidad: los dos binarios de este bench se compilaron del **mismo
-> `benches/wal_throughput.rs`**; el `src/` paso por el codigo aditivo del
-> borrado fisico del WAL (FIND-343, 0 lineas borradas — no toca
-> `append`/`batch_append`) entre las dos compilaciones, asi que el camino
-> caliente medido es identico en las dos variantes.
+**El numero limpio: el envelope del WAL cuesta ≈ +0,14 a +0,71 µs por frame**
+(el AEAD + el CRC32C y el SHA-256 de la cadena **sobre el ciphertext**, que
+antes eran sobre el plaintext). Con un registro de 24 B eso es **−37 % a
+−55 % de throughput**; con un registro real de ~6 KB (un nodo con vector) el
+coste relativo es una fraccion mucho menor. Este delta **se reproduce entre
+corridas** y es el unico numero del WAL que se publica como cifra de
+referencia.
 
-**Aqui si hay un numero limpio y reproducible:** el envelope del WAL cuesta
-**≈ +0.6 a +1.2 µs por frame** (el AEAD + el CRC32C y el SHA-256 **sobre el
-ciphertext**, que antes eran sobre el plaintext). Consecuencias:
+**El camino de fsync NO es publicable tal cual, y se dice por que.** En la
+celda `always/1` (fsync por registro) el delta medido fue **−7,8 %** en la
+medicion limpia, pero **−68,1 %** en el barrido completo de 12 celdas
+(22:21-22:47) y **−1,5 %** en una repetition aislada posterior: **tres
+mediciones del mismo par dan tres numeros que no concuerdan** ⇒ la celda
+**queda descartada** (es el mismo modo de fallo que invalidaba el intento
+anterior: ruido de E/S). Lo que **si** es solido y explica por que la celda
+es fragil: el frame cifrado ocupa **~124 B frente a los ~32 B** del frame en
+claro (4x: nonce + tag + CRC32C + SHA-256 de la cadena) ⇒ en un camino
+dominado por el `FlushFileBuffers` de Windows, ese **4x de bytes se paga** en
+el flush. **Por tanto el WAL cifrado en el camino de durabilidad es mas caro
+de lo que sugiere el coste unitario del AEAD, y su cuantificacion no es
+estable en esta maquina**: queda como pregunta abierta, no como cifra.
 
-- en el camino **bufferizado** (`never`), el cifrado **se ve mucho**: −39 % a
-  −51 % de throughput, porque un registro de 24 B no amortiza un AEAD (con
-  un registro real de ~6 KB — un nodo con vector — el mismo coste por frame
-  es una fraccion mucho menor);
-- en el camino de **durabilidad** (`always` con fsync por registro), la
-  latencia por registro va de **1.4137 ms a 1.4211 ms = +0.5 %**: el cifrado
-  es **invisible** (el fsync de Windows domina). El throughput de esa celda
-  sale peor en cifrado pero con un intervalo de confianza que se solapa
-  ([270, 538] elem/s) → es ruido del fsync, no un efecto del cifrado.
+**Y el WAL, en cualquier caso, no es el cuello de botella del motor**: el
+`insert` medido (§22.3.2) sale **+1,2 %** (dentro del ruido), porque ahi manda
+la E/S, no el cifrado. El problema real es el **camino de lectura** de la
+busqueda (§22.3.4).
 
 #### 22.3.4 Lectura (el cuello de botella y el cambio de diseno)
-
-1. **El coste del cifrado en el camino de escritura existe y es medible**
-   (+0.8 µs/frame en el WAL; +2 AEAD de 6 KB por nodo en el VantaFile), pero
-   **queda enterrado bajo el fsync** en el camino de durabilidad.
-2. **El riesgo de verdad esta en el camino de lectura**, y es estructural, no
-   de CPU: el envelope del VantaFile es **por nodo**
+1. **El problema es el camino de lectura, y es estructural, no de CPU.** El
+   envelope del VantaFile es **por nodo**
    (`src/storage/vfile_crypto.rs::seal_node`), asi que el store cifrado
    **no puede devolver una vista prestada** del `mmap` — el plaintext es
    `Cow::Borrowed` sobre el mapping (`src/index_port.rs:86`), el cifrado tiene
-   que **materializar**: `read_record_bytes` copia el ciphertext del mapping a
-   un `Vec`, `open_node` lo descifra en otro `Vec` y `AlignedBlob` lo copia
-   otra vez a un buffer alineado — **3 allocaciones + 3 copias de 6 KB + 1 AEAD
-   por candidato** que visita el recorrido HNSW. El cero-copy se pierde (limite
-   ya declarado en ADR-0057 §5.2).
-3. **El cambio de diseno que haria falta** (si el p99 medido en una maquina
-   dedicada llega a pasar del 15 %): **bajar la granularidad del envelope del
-   VantaFile de "por nodo" a "por pagina"** (p. ej. 64 KiB) **y anadir una cache
-   de paginas descifradas** (LRU). Con envelope por pagina, el descifrado se
-   amortiza sobre los ~10 nodos de la pagina y la pagina descifrada cacheada
-   se vuelve a leer **sin copia** (vuelve el cero-copy). Para la **imagen
-   HNSW** (un unico AEAD sobre el indice entero) el cold start tiene que
-   descifrar la imagen **completa** — con envelope por pagina, el arranque en
-   frio podria descifrar solo las paginas que toca, o descifrarlas en
-   paralelo. Y para el **WAL**, `recover_valid_records_v4` valida **todos** los
-   frames en cada open (descifra el WAL entero): truncar el WAL en el
-   checkpoint (que ya se escribe en `flush()`) eliminate ese coste.
-4. **Lo que NO se midio** y por que: (a) el dataset de 100k del plan — la
-   maquina no lo sostiene (§22.3.1); (b) el `p99` canonico *in-memory* de
-   §11 en esta maquina — el bench canonico construye 100k × 1536 en RAM y no
-   cabe junto al resto del trabajo en paralelo; (c) el **cold start** con la
-   base ya abierta y sin `flush()` (la replay del WAL) — no hay API publica
-   para "cerrar y reabrir sin checkpoint" y no se quiere anadir una.
-
-
-
----
-
+   que **materializar**, y lo hace **varias** veces por candidato:
+   `read_record_bytes` copia el ciphertext del mapping a un `Vec`
+   (`src/storage/vfile.rs:997`), `open_node` lo descifra en otro `Vec`
+   (`src/storage/vfile_crypto.rs:198`), `AlignedBlob::from_bytes` lo copia
+   una tercera vez a un buffer alineado, `read_full_vector` reconstruye el
+   `Vec<f32>` y `read_header` parseaba la cabecera copiando el payload
+   entero. Un probe del **Paso 0** los midio en **5 copias por candidato** en
+   cache fria (**1** con la cache caliente) y los reduzco a **3**: el
+   ciphertext **se presta** del mapping, `read_header` parsea la cabecera *in
+   situ*, `read_full_vector` paso de un bucle de 1536 iteraciones a un
+   `memcpy` (`align_to::<f32>()`), y la cache de **una** entrada paso a una
+   **LRU acotada** (`clamp(memory_limit/16, 16 MiB, 256 MiB)` por segmento,
+   invalidada por escritura). **Lo que NO se puede quitar sin cambiar el
+   formato es el 1 AEAD por candidato** (el envelope por nodo) ⇒ hace falta el
+   **envelope por pagina** (que ademas es la unica forma de devolver el
+   zero-copy, porque el `Cow<'_, [f32]>` del trait publico atado a `&self` no
+   puede expresar una vista prestada de una cache). Con `ef_search = 100` son
+   ~100 candidatos **por query**, y por eso el p99 se va.
+2. **El camino de escritura no se penaliza**: el `insert` (+1,2 %) y el `flush`
+   (−6,0 %) quedan **dentro del ruido** — ahi manda la E/S del WAL y del
+   vstore, y el coste del envelope (µs) se pierde. El `flush` es **un** AEAD
+   sobre ~150 MiB (la imagen HNSW entera): ahi el coste es **proporcional al
+   tamaño**, no al numero de operaciones. El **cold start** (+47,3 %) si paga:
+   descifra la **imagen HNSW entera** en cada open (sin mmap zero-copy), y el
+   WAL se **valida entero** en cada open (`recover_valid_records_v4` descifra
+   todos los frames).
+3. **El cambio de diseno que hace falta** (el gate del plan ya lo anticipaba:
+   *"superarlo es una señal de diseño, no algo que se absorba en silencio"*):
+   **bajar la granularidad del envelope del VantaFile de "por nodo" a "por
+   pagina"** (p. ej. 64 KiB) **y anadir una cache de paginas descifradas**
+   (LRU). Con envelope por pagina el descifrado se amortiza sobre los ~10
+   nodos de la pagina, y la pagina descifrada cacheada se vuelve a leer **sin
+   copia** (vuelve el zero-copy). Para la **imagen HNSW**, un envelope por
+   pagina permite descifrar en el arranque en frio solo las paginas que
+   tocan, o descifrarlas en paralelo. Y para el **WAL**, truncarlo en el
+   checkpoint (que `flush()` ya escribe) elimina el descifrado de todo el WAL
+   en cada open. El diseño esta **ya especificado** en
+   `docs/dev/architecture/design/2026-10-21-encryption-envelope-per-page.md`
+   (commit `3c1c863`).
+4. **Lo que NO se midio** y por que: (a) el dataset de **100k** del plan — cabe
+   en RAM, pero el `insert` mide **~35-40 min por invocacion** y el grupo de
+   criterion son 1000 queries × 10 muestras, o sea **~6 h** para el protocolo
+   3+3 completo (§22.3.1): es una limitacion de **tiempo de maquina**, no de
+   metodo; (b) el `p99` canonico *in-memory* de §11 en esta maquina — el bench
+   canonico construye 100k × 1536 en RAM y no cabe junto al resto del trabajo
+   en paralelo; (c) el **cold start** con la base ya abierta y sin `flush()`
+   (la replay del WAL) — no hay API publica para "cerrar y reabrir sin
+   checkpoint" y no se quiere anadir una.
 #### 22.3.5 Correccion de lectura: **la escala decide si la busqueda toca el ciphertext**
-
-> Esto **no** es una objecion a §22.3.2: es la razon por la que el `p99` de esa
-> tabla **no puede** leerse como "el coste del cifrado en la busqueda", y por la
-> que el gate del 15 % no se puede cerrar **ni a favor ni en contra** con ella.
+> Esta subseccion es la que explica **por que** la escala decide el resultado.
+> La medicion **certificada** es la de **§22.3.2** (3+3 intercaladas, maquina en
+> silencio); aqui va el mecanismo, con `file:line`.
 
 El motor cambia de camino de busqueda segun `flat_threshold`
 (`Config::default()` = **10 000**, `src/config.rs:359`; el motor lo instala en
@@ -1619,113 +1721,55 @@ el indice en `src/storage/engine/init.rs:462`; la decision esta en
 | **≤ 10 000** | `flat_search` (`src/index/flat.rs:11`) | `node.vec_data`, **la copia en memoria** (el `vector_store` se recibe y se **ignora**, `src/index/flat.rs:122`) | **NO** |
 | **> 10 000** | HNSW (`search_layer`) | `vs.read_full_vector(node.storage_offset, &header)` (`src/index/search/layer.rs:84` y `:257`) | **SI** — un AEAD + una materializacion **por candidato visitado** |
 
-Consecuencia directa: **a 2 000 × 1536d la busqueda es un flat scan sobre las
-copias en memoria: no lee ni un byte del vstore, y por lo tanto **no descifra
-nada**.** El delta de ±71 % / −14 % que mide §22.3.2 **no puede ser el coste del
-cifrado en la busqueda** — es ruido (y el propio §22.3.2 lo ve: spread de
-+56 % a +200 % y un protocolo identico con el signo contrario). Lo que §22.3.2
-**si** mide bien es todo lo que no es la busqueda: el `insert` (que escribe el
-WAL, el vstore y la imagen), el `flush` y el `cold start` (que si descifran).
+Consecuencia directa: **a 2 000 × 1536d (y a 10 000, y a 5 000) la busqueda es
+un flat scan sobre las copias en memoria: no lee ni un byte del vstore, y por lo
+tanto no descifra nada.** El delta de ±71 % / −14 % que media la tabla anterior
+**no puede ser el coste del cifrado en la busqueda** — es ruido (y asi lo veia
+la propia seccion: spread de +56 % a +200 % y un protocolo identico con el signo
+contrario). Lo que esa tabla **si** media bien es todo lo que no es la
+busqueda: el `insert` (que escribe el WAL, el vstore y la imagen), el `flush` y
+el `cold start` (que si descifran).
 
 **La escala que responde a la pregunta del plan tiene que estar en el regimen
-HNSW.** El plan pide **100 000 × 1536d**; en esta maquina el dataset canonico
-**no se pudo medir** (§22.3.5.1, abajo: el *commit charge* no da para los
-artefactos mapeados), asi que la medicion publicada es a la **escala mas
-pequeña del regimen HNSW** — **25 000 × 1536d** — que es la **peor caso
-razonable**: a menor escala, el HNSW visita **menos** nodos por query pero el
-coste de descifrado por candidato es el mismo, asi que el delta relativo **no
-crece** al subir a 100k (el coste de descifrado es el mismo en terminos
-absolutos y el denominador —el recorrido HNSW— crece). El p99 **absoluto** si
-es comparable con el de §11 solo a la escala canonica; el **delta** es lo que
-se transporta.
+HNSW**, y la mas pequena de ese regimen es **25 000 × 1536d**: por encima de
+`flat_threshold` (10 000) —donde la busqueda **si** descifra— y por debajo de
+lo que cabe con comodidad en el commit charge y en el **tiempo de maquina**
+(§22.3.1). Ahi el p99 cifrado sale ya **~3-4x** el claro.
 
-##### 22.3.5.1 El regimen HNSW: 25 000 × 1536d (la escala mas pequena que descifra)
+> **Lo que se puede afirmar (y lo que no) sobre el dataset canonico de 100k:**
+> el coste de descifrado **por candidato** no depende de `n`, y el coste en claro
+> **por candidato** tampoco ⇒ **el delta del regimen HNSW no puede colapsar a 0**
+> al subir a 100k. Lo que **no** se ha medido es su **valor exacto** a esa
+> escala: repetir el protocolo 3+3 a 100k son ~6 h de maquina (§22.3.1), y las
+> cifras de §22.3.2 son a 25 000.
 
-**Por que 25 000 y no 100 000.** El dataset canonico del plan (100k × 1536d) **se
-intento tres veces** en esta maquina y **murio las tres veces sin dejar numero**:
-los artefactos on-disk se **mapean en memoria** (vstore + WAL + imagen HNSW ≈
-**1,9 GB** de commit charge) y el **commit charge** de la maquina estaba
-consumido por otros procesos (**27,3 → 34,9 GB de 35,8 GB**; el `insert` de
-100k **si** cabia en disco — 1,9 GB — pero no en el *commit charge*). La
-**escala minima que responde a la pregunta** es la **mas pequena del regimen
-HNSW**: por encima de `flat_threshold` (10 000) —donde la busqueda **si**
-descifra— y por debajo de lo que cabe en el commit charge.
+### 22.3.5.1 La medicion intermedia de 19:00-19:36 (1+1) queda **sustituida** por la de §22.3.2
 
-**Corrida del 2026-10-21 19:00-19:36** (Windows 11 Pro · i5-1235U 10c/12t ·
-31,78 GB RAM · rustc 1.95.0 · perfil `bench` = release + `debug = 1` · commit
-`4fb9f024` · `Config::default()` (Fjall, `flat_threshold = 10 000`) +
-`with_encryption(<hex 32 B>)` + `with_flush_threshold(1000)` · **binarios de la
-misma compilacion** (mismo `src`), auto-verificaciones activas:
-`mode=plaintext wal_version=Some(3)` / `mode=encrypted wal_version=Some(4)`,
-`hits=10` en las 2 corridas):
+Hubo una medicion intermedia de **1 corrida por variante** a 25 000 (19:00-19:36
+del 2026-10-21) que publico un **+274,3 %** en el p99. **No se publica como
+numero de referencia**: se sustituye por la de §22.3.2 (3+3 intercaladas,
+maquina en silencio) por tres razones:
 
-```powershell
-$env:ENCRYPTED_P99_SCALE = "25000"; $env:ENCRYPTED_P99_RUNS = "1"
-$env:ENCRYPTED_P99_OUT = "<fichero>"   # el bench vuelca sus numeros aqui
-target\release\deps\encrypted_p99-<hash>.exe   # sin cifrar / con cifrar
-```
+1. **Protocolo insuficiente**: con **una** corrida por variante la tabla es
+   **una medicion, no una mediana**; el propio `insert` de esa corrida salia
+   **−47,7 %** cifrado que en claro (el orden de las corridas, no el cifrado),
+   o sea que el ruido de la maquina era **del orden del propio efecto**;
+2. **Contaminacion**: esa corrida **coexistio con una compilacion en paralelo**
+   (`rustc` + link LTO de `vanta-cli` durante los mismos 36 min), asi que la
+   medicion no es atribuible al cifrado;
+3. **El veredicto no cambia**: el protocolo 3+3 de §22.3.2 da **+190,3 %** en
+   el p99, **con el mismo signo** y con las bandas de las dos variantes **sin
+   solapamiento** (§22.3.2).
 
-| Métrica | Sin cifrar | Con cifrado | Δ | Umbral 15 % |
-| :--- | ---: | ---: | ---: | :--- |
-| `insert` 25 000 nodos (s) | 1256.801 | 657.752 | −47.7 % | dentro (ruido de orden: la corrida cifrada fue la segunda) |
-| search p50 (ms) | 11.8805 | 58.0212 | **+388.4 %** | **superado** |
-| search p95 (ms) | 18.0528 | 94.3983 | **+422.9 %** | **superado** |
-| **search p99 (ms)** | **32.5670** | **121.8929** | **+274.3 %** | **superado** |
-| `flush` — reescribe la imagen HNSW (s) | 1.648 | 1.576 | −4.4 % | dentro |
-| `cold start` — cerrar + reabrir (s) | 2.733 | 3.273 | **+19.8 %** | **superado** |
-| RSS pico del proceso (MB) | 436 | 445 | +2.1 % | dentro |
+### 22.3.5.2 Lo que queda pendiente para un **gate de regresion** en CI
 
-> **Protocolo: 1 corrida por variante, no la mediana de 3.** La 2.ª repeticion
-> (pareja intercalada) se lanzo y **murio durante el `insert`** por el mismo
-> *commit charge* (§6.1 de la nota de la wave). Con **una** corrida por
-> variante, la tabla es **una medicion, no una mediana**: por eso el veredicto
-> de arriba lleva el ruido de la maquina dentro y **no** debe publicarse como
-> gate de regresion (ver la nota de abajo).
-
-**El umbral del 15 % se supera con creces en el p99 de la busqueda (+274 %)** y
-eso **es una señal de diseño**, no ruido que se pueda absorber:
-
-- el `insert` **cifrado fue más rápido** (−47.7 %): eso **no** es el cifrado,
-  es el **orden** (la corrida cifrada fue la segunda, con la maquina menos
-  cargada) — y es la medida de cuanto **ruido** tiene esta maquina;
-- el `flush` **no** sevio afectado (−4.4 %): el envelope de la imagen HNSW es
-  **un** AEAD sobre ~150 MiB, y ahi el coste es **proporcional al tamano**, no al
-  numero de operaciones;
-- el `cold start` **si** se vio (+19.8 %): descifra la imagen y el WAL enteros;
-- el **p99 de la busqueda** es el que se desborda, y lo hace **en el regimen
-  HNSW**, donde la busqueda **lee el vector del vstore**: un **AEAD + una
-  materializacion por candidato visitado** (`src/index/search/layer.rs:84`).
-
-**Cuanto de ese +274 % es crypto y cuanto es la maquina.** La cifra **esta
-inflada** y no se debe publicar como "el coste del cifrado": el *commit charge*
-de la maquina estaba al limite durante la corrida, y el camino cifrado
-**reserva memoria** (3 buffers por candidato) mientras que el claro **no**; en
-esa situacion la pagina nueva cuesta mas de lo que cuesta un descifrado. Lo que
-**si** es estructural y **no** depende de la maquina: el envelope del VantaFile
-es **por nodo**, el store cifrado **no puede devolver una vista prestada**
-(`Cow::Owned` en vez de `Cow::Borrowed`, `src/index_port.rs:86` y
-`src/storage/vfile.rs:1046`) y la cache de descifrado es de **una sola
-entrada** (`src/storage/vfile.rs:290`), asi que **el recorrido HNSW no
-acierta nunca**: **1 AEAD + 3 reservas + 3 copias de 6 KB por candidato
-visitado**. Con `ef_search = 100` eso son **decenas o cientos de descifrados
-por query**.
-
-**El cambio de diseno** (el que nombra el plan y que ya quedo disenado en
-`FIND-598`): **bajar la granularidad del envelope del VantaFile de "por nodo" a
-"por pagina"** (p. ej. 64 KiB) **y anadir una cache de paginas descifradas
-(LRU)**: el descifrado se amortiza sobre los ~10 nodos de la pagina y la pagina
-cacheada se vuelve a leer **sin copia** (vuelve el zero-copy que ADR-0057 §5.2
-declara forfeitado). Para la **imagen HNSW** (un AEAD sobre el indice entero),
-un envelope por pagina permitiria descifrar en el arranque en frio solo las
-paginas que hacen falta, o en paralelo. Para el **WAL**, truncarlo en el
-checkpoint (que `flush()` ya escribe) eliminaria el descifrado de todo el WAL
-en cada `open`.
-
-> **La medicion que certify el numero** (para publicarlo como gate de
-> regresion) necesita una **maquina dedicada o CI**: aqui el suelo de ruido
-> (ver el `insert` de la fila anterior: −47.7 % entre dos corridas de la misma
-> maquina) es del **orden del propio umbral**.
-
+El **veredicto** del gate del plan (15 %) ya esta cerrado y es **concluyente**
+(§22.3.2). Lo que **no** es un gate de regresion automatico es el **p99 de la
+busqueda** de esta medicion: 25 000 × 1536d son **~15-20 min por invocacion**,
+que no cabe en un job de CI. El gate de regresion que si es reproducible y
+barato es el **coste por frame del WAL** (§22.3.3, +0,6 a +1,2 µs); y tras el
+cambio de diseño del envelope por pagina (§22.3.4) habra que **re-medir** el
+p99 para comprobar que baja del 15 %.
 ---
 
 ## Planificado 2026-09-24 — sin números aún (Regla 11)
