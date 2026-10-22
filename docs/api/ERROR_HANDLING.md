@@ -456,7 +456,7 @@ with HTTP status codes `400 / 404 / 409 / 422 / 429 / 500`. Mapping from
 - `src/error.rs` — canonical Rust definition
 - `vantadb-ts/src/errors.ts` — TypeScript canonical
 - `vantadb-mcp/src/error.rs` — MCP canonical
-- Plan `docs/dev/plans/2026-09-02-error-observability-excellence.md` — task lineage
+- Plan `2026-09-02-error-observability-excellence` — task lineage
 
 ## Changelog
 

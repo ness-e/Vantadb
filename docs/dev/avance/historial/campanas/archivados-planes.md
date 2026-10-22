@@ -15,7 +15,7 @@ tags: [vantadb, avance, campana]
 
 | Fecha | Plan | Estado | Ubicación |
 |-------|------|--------|-----------|
-| 2026-08-09 | Backlog Pipeline P15/P16 (49 tasks: ERR, FEAT, RELEASE, PERF, COV, DOC) | ✅ 49/49 (Task 50 COM-02/03 humana ⬜) | `docs/dev/plans/archive/2026-08-09-backlog-pipeline.md` |
+| 2026-08-09 | Backlog Pipeline P15/P16 (49 tasks: ERR, FEAT, RELEASE, PERF, COV, DOC) | ✅ 49/49 (Task 50 COM-02/03 humana ⬜) | `2026-08-09-backlog-pipeline` |
 | 2026-08-08 | Consola Administrativa Desktop (ADMIN-01..09 + DESKTOP-20) | ✅ 10/10 | `docs/dev/plans/archive/2026-08-08-admin-console.md` |
 | 2026-08-06 | Open Core VantaDB + Pro/Enterprise (licenciamiento) | ✅ 16/18 (F0 decisiones humanas respondidas, Task 17 verify parcial, Task 18 commit ✅) | `docs/dev/plans/archive/2026-08-06-oc-vantadb-pro.md` |
 | 2026-08-06 | Desktop MVP (DESKTOP-02..11) | ✅ 10/10 | `docs/dev/plans/archive/2026-08-06-desktop-mvp.md` |
@@ -31,23 +31,23 @@ tags: [vantadb, avance, campana]
 - **Launch Web:** las 5 DO verificadas en disco (competitive-table, WASM playground, migrate-from-vectara, blog×3, pricing alineado) + página va más allá del alcance (`/latency`, `/cost`, `/storage` añadidas después).
 - Budget files movidos junto a su plan.
 
-### Archivados 2026-08-11 — 5 planes task-system consolidados (plan `2026-08-11-residuo-consolidado.md` Task 5)
+### Archivados 2026-08-11 — 5 planes task-system consolidados (plan `2026-08-11-residuo-consolidado` Task 5)
 
 | Fecha | Plan | Estado | Ubicación |
 |-------|------|--------|-----------|
 | 2026-08-10 | Agent-Engineering Gaps (familia A del task-system) | ✅ cerrado | `docs/dev/plans/archive/2026-08-10-agent-engineering-gaps.md` |
-| 2026-08-10 | P0 Harness primitivo (EVAL-01..04, tasks 1-4) | ✅ cerrado | `docs/dev/plans/archive/2026-08-10-p0-harness.md` |
-| 2026-08-10 | P1 Process Discipline (P1-01..07) | ✅ cerrado | `docs/dev/plans/archive/2026-08-10-p1-process-discipline.md` |
+| 2026-08-10 | P0 Harness primitivo (EVAL-01..04, tasks 1-4) | ✅ cerrado | `2026-08-10-p0-harness` |
+| 2026-08-10 | P1 Process Discipline (P1-01..07) | ✅ cerrado | `2026-08-10-p1-process-discipline` |
 | 2026-08-10 | P2/P3 Structural Quality (P2-01..08, P3-04..08) | ✅ cerrado | `docs/dev/plans/archive/2026-08-10-p2-p3-structural-quality.md` |
 | 2026-08-10 | P3 Remaining Fallas (P3-rem) | ✅ cerrado | `docs/dev/plans/archive/2026-08-10-p3-remaining-fallas.md` |
 
-**Notas de archivo:** los 5 planes estaban íntegramente entregados y verificados con commits reales; los marcadores `PENDING` detectados por grep eran texto de cabecera de tabla/contrato, no tareas sin ejecutar. Commits de cierre: agent-engineering-gaps `887d0f14`, p0-harness `0592695f`, p1-process-discipline `f85c8b0d`, p2/p3-structural-quality `350e9725`, p3-remaining-fallas `724b355c` (+ estado fin `cfc7ada9`). Refs vivas actualizadas: `docs/dev/operations/CI_POLICY.md` (Task P2-06 → ruta archivada) y `docs/dev/plans/archive/2026-08-10-docs-task-system-consolidation.md` (Task 13). Los reportes `dora.md`/`northstar.md` regeneran rutas al re-correr los evals.
+**Notas de archivo:** los 5 planes estaban íntegramente entregados y verificados con commits reales; los marcadores `PENDING` detectados por grep eran texto de cabecera de tabla/contrato, no tareas sin ejecutar. Commits de cierre: agent-engineering-gaps `887d0f14`, p0-harness `0592695f`, p1-process-discipline `f85c8b0d`, p2/p3-structural-quality `350e9725`, p3-remaining-fallas `724b355c` (+ estado fin `cfc7ada9`). Refs vivas actualizadas: `docs/dev/operations/CI_POLICY.md` (Task P2-06 → ruta archivada) y `2026-08-10-docs-task-system-consolidation` (Task 13). Los reportes `dora.md`/`northstar.md` regeneran rutas al re-correr los evals.
 
 ### Cerrado y archivado 2026-08-11 — residual-hardening, docs-task-system-consolidation, residuo-consolidado
 
 > **Dedup GOV-D2 (2026-08-22):** las secciones "Archivados 2026-08-11 (cierre)" y "Cerrado y archivado 2026-08-11 - residuo-consolidado" del monolito original reportaban el mismo evento y fueron fusionadas en esta única sección (hechos únicos de ambas conservados).
 
-Los 3 planes activos restantes quedaron 100% completados (26/26, 16/16, 24/24 DO) y fueron movidos a docs/dev/plans/archive/ junto a sus budget. Rutas: docs/dev/plans/archive/2026-08-09-residual-hardening.md, docs/dev/plans/archive/2026-08-10-docs-task-system-consolidation.md, docs/dev/plans/archive/2026-08-11-residuo-consolidado.md.
+Los 3 planes activos restantes quedaron 100% completados (26/26, 16/16, 24/24 DO) y fueron movidos a docs/dev/plans/archive/ junto a sus budget. Rutas: 2026-08-09-residual-hardening, 2026-08-10-docs-task-system-consolidation, 2026-08-11-residuo-consolidado.
 
 | Familia | Tasks | Resultado |
 |---------|-------|-----------|

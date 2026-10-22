@@ -4,7 +4,7 @@ kind: research
 status: "DRAFT - research output, pending human ADR (Regla 5)"
 description: "Should VantaDB move from the current single-phase commit point ([Begin + ops + Commit]"
 date: "2026-08-25"
-task: RES-01 / docs/dev/plans/2026-08-25-batch-core-fixes-research.md
+task: RES-01 / 2026-08-25-batch-core-fixes-research
 ---
 
 # RES-01: WAL v2 with `WalRecord::Prepare` — Analysis and Implementation Plan

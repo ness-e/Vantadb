@@ -6,7 +6,7 @@ description: src/sdk/types.rs (head + re-exports) · src/metrics/core/snapshot.r
 
 # FIND-133 — Semver Checks rojo (develop vs crates.io 0.5.0): triage + veredicto
 
-> **Plan:** `docs/dev/plans/2026-09-19-cierre-total.md` (Wave A, archivos disjuntos con CODEX + FIND-128 — no tocar los suyos)
+> **Plan:** `2026-09-19-cierre-total` (Wave A, archivos disjuntos con CODEX + FIND-128 — no tocar los suyos)
 > **Estado:** 🟡 INCOMPLETO (triage completo, verde bloqueado por mecánica de versión — ver Step 5)
 > **Gate P:** owner aprobó "Hacerlo pasar" (2026-09-19). Gates D/V/C vía question (sin tool → motivo registrado).
 > **Contrato:** `cargo semver-checks -p vantadb` verde local + cada breaking con veredicto

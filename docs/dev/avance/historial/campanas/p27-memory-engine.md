@@ -10,7 +10,7 @@ tags: [vantadb, avance, campana]
 
 > **Migrado desde** `docs/progreso/README.md` (split GOV-D2, 2026-08-22). Contenido histórico sin cambios salvo dedup indicado.
 
-### Campaña P27 Vanta Memory Engine completada 2026-08-20 - 24/24 tareas F1-F4 (plan `2026-08-18-vanta-memory.md`)
+### Campaña P27 Vanta Memory Engine completada 2026-08-20 - 24/24 tareas F1-F4 (plan `2026-08-18-vanta-memory`)
 
 Cierre de campaña: **MEM-01..21 (+08a/08b, 34, 35) completadas** entre 2026-08-18 y 2026-08-20. Crate nuevo `vanta-memory/` (LLM-driven, publish=false) + integración core/server/MCP. Suite final: **361/361 tests** (`cargo nextest run -p vanta-memory`), fmt/clippy `-D warnings` limpios.
 
@@ -21,9 +21,9 @@ Cierre de campaña: **MEM-01..21 (+08a/08b, 34, 35) completadas** entre 2026-08-
 
 **Retrospectiva (D2):** Start: verify mecánico del lead tras cada sub-agente (atrapó corrupción del plan file en 11/12 tareas). Stop: confiar en el bloque RESULTADO sin verificar worktree. Continue: SARL RESUME misma sesión — recuperó 5 tareas detenidas en silencio sin perder trabajo. Acción medida: tasa de primer-intento de sub-agentes vanta-worker 6/12 (50%) → investigar prompt/cutoff de contexto antes de la próxima campaña (baseline: >90% objetivo RULES.md).
 
-**Plan archivado:** `docs/dev/plans/archive/2026-08-18-vanta-memory.md` — 24/24 completadas.
+**Plan archivado:** `2026-08-18-vanta-memory` — 24/24 completadas.
 ### MEM-21: F4 Tools MCP scene_read/list/query (gateway knowledge handlers)
-- **Fuente:** Plan `docs/dev/plans/2026-08-18-vanta-memory.md` (Task 24)
+- **Fuente:** Plan `2026-08-18-vanta-memory` (Task 24)
 - **Fecha:** 2026-08-20
 - **Objetivo:** Capa de entrada tipada (request/response serde) para las tools MCP `scene_read` / `scene_list` / `scene_query` sobre el store de escenas (MEM-12/MEM-15); un server MCP la expondrá después.
 - **Resultado:** ✅ `vanta-memory/src/gateway/knowledge_handlers.rs` (nuevo): 3 handlers puros + `KnowledgeError` (`#[non_exhaustive]`) + tipos wire snake_case. Soft-delete respetado (read→NotFound, list/query excluidos, MEM-14); query LLM-free vía `overlap_score`/`significant_terms` reutilizados de l1_reader; validación boundary (`validate_scene_name`, session/keyword no vacíos). Wiring en `gateway/mod.rs`; `read_blocks` → pub(crate) (1 token). 10 tests D19 nuevos; suite vanta-memory 361 ✅; fmt+clippy -D warnings ✅. Commit pendiente del lead.

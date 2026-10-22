@@ -20,6 +20,14 @@ tags: [cifrado, rendimiento, vfile, mmap, zero-copy, decision-owner]
   trait público `VectorStoreRef`** ⇒ **la decisión es del owner**. Números y método:
   `docs/user/operations/BENCHMARKS.md` §22.4 y
   `docs/dev/reviews/2026-10-21-w7-cifrado-coste.md` §6.
+  **Una segunda serie post-Paso 0, independiente** (2026-10-22 01:27-03:10, **los
+  mismos binarios**: `sha256 06FEC524…` / `1D941139…`) confirma el veredicto: el
+  **grupo de criterion** (10 × 1000 queries, CI 95 % sin solapar) da **+59,2 %**
+  ⇒ **A) gate superado**, y su `p99` de la pasada medida (+22,7 %) da **C) no
+  concluyente** porque la máquina se degradó a lo largo de la sesión (su p50 en
+  claro subió de 7,05 a 9,74-11,37 ms ⇒ 2 de 3 corridas en claro no superaron el
+  criterio de "cabe en RAM" y se descartaron). Números y método:
+  `docs/user/operations/BENCHMARKS.md` §22.3.2.2.
 - **Decision del owner (2026-10-21):** **Paso 0 y re-medir** (el envelope por pagina, con su
   breaking change del trait publico `VectorStoreRef`, solo si el Paso 0 no cierra el gap).
 

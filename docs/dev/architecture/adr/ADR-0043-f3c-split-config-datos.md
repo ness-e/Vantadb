@@ -12,7 +12,7 @@ created: "2026-09-14"
 > **Excepción a Regla 5 (orden explícita del owner 2026-09-14):** las secciones
 > Contexto/Decisión/Consecuencias las redactó vanta-lead articulando las decisiones
 > humanas tomadas vía `question` (D0 B+B + F3C Q1=B/Q2=B/Q3=A). Ver `docs/dev/avance/meta.md`.
-> Diseño canónico: `docs/dev/tasks/F3C.md`. Plan: `docs/dev/plans/2026-09-13-cleanCA-fase3.md`.
+> Diseño canónico: `docs/dev/tasks/F3C.md`. Plan: `2026-09-13-cleanCA-fase3`.
 
 ## Contexto
 

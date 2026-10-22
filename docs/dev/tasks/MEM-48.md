@@ -1,12 +1,12 @@
 ---
 title: MEM-48 — Compresión consume scores L1 reales
 kind: task
-description: "Plan: docs/dev/plans/2026-08-22-vanta-final-cierre.md · Task 6 · Estado inicial ⬜ PENDING"
+description: "Plan: 2026-08-22-vanta-final-cierre · Task 6 · Estado inicial ⬜ PENDING"
 ---
 
 # MEM-48 — Compresión consume scores L1 reales
 
-**Plan:** `docs/dev/plans/2026-08-22-vanta-final-cierre.md` · Task 6 · Estado inicial ⬜ PENDING
+**Plan:** `2026-08-22-vanta-final-cierre` · Task 6 · Estado inicial ⬜ PENDING
 **Crate:** vanta-memory · **Ruta:** vanta-worker · Independiente
 
 ## Objetivo

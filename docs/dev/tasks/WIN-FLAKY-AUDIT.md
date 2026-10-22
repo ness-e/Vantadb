@@ -6,7 +6,7 @@ description: "SDP: campaign-executor, frontend-ui-engineering, source-driven-dev
 
 # WIN-FLAKY-AUDIT — Test flaky solo-Windows `filters_by_namespace_op_and_outcome`
 
-> **Plan:** `docs/dev/plans/2026-09-19-cierre-total.md` (Wave B) · **Tipo:** bug-fix (desktop) · **Estado:** IN PROGRESS
+> **Plan:** `2026-09-19-cierre-total` (Wave B) · **Tipo:** bug-fix (desktop) · **Estado:** IN PROGRESS
 
 ## Contrato
 - **Objetivo:** causa raíz + fix determinista del flaky `commands::audit::tests::filters_by_namespace_op_and_outcome` (`desktop/src-tauri/src/commands/audit.rs:127`).

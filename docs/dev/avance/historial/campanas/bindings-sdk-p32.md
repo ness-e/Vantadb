@@ -10,7 +10,7 @@ tags: [vantadb, avance, campana]
 
 > **Migrado desde** `docs/progreso/README.md` (split GOV-D2, 2026-08-22). Contenido histórico sin cambios salvo dedup indicado.
 
-### Campaña P32 Bindings SDK completada 2026-08-22 - 4/4 tareas (plan `2026-08-22-vantadb-bindings-sdk.md`)
+### Campaña P32 Bindings SDK completada 2026-08-22 - 4/4 tareas (plan `2026-08-22-vantadb-bindings-sdk`)
 
 **MEM-36 pagada:** sub-clientes por dominio en TS y Python con backward-compat 100%. Suites: TS **246/246** (17 nuevos), Python **105 passed** (16 nuevos), docs coverage 0 gaps.
 

@@ -9,7 +9,7 @@ description: "Renumeración documentada: el análisis post-investigación propus
 
 > **Inicio:** 2026-09-24
 > **Estado:** 📘 READY-TO-EXECUTE — plan creado; la ejecución de P52–P56 arranca al cerrar la estabilización EST (plan `2026-09-24-estabilizacion-pendiente.md`) y la Estandarización 11 APIs (Phase 51), que tienen precedencia.
-> **⚠️ Formato:** este plan es ROADMAP (no formato estándar de `/pipeline run` — `### Task N: ID` + Appetite/Contrato). Para ejecutar: `/pipeline task <ID>` por fila (VER-xx/SCH-xx/ICP-xx/DEF-xx/WIRE-xx/EST-xx viven en `Backlog.md` P52–P57) o generar un plan de ejecución estándar por wave (patrón `2026-09-24-api-ejecucion.md`). **No usar `/pipeline run` sin argumento**: el auto-detect elige el plan más reciente y este no es parseable por `campaign_get_next_task`.
+> **⚠️ Formato:** este plan es ROADMAP (no formato estándar de `/pipeline run` — `### Task N: ID` + Appetite/Contrato). Para ejecutar: `/pipeline task <ID>` por fila (VER-xx/SCH-xx/ICP-xx/DEF-xx/WIRE-xx/EST-xx viven en `Backlog.md` P52–P57) o generar un plan de ejecución estándar por wave (patrón `2026-09-24-api-ejecucion`). **No usar `/pipeline run` sin argumento**: el auto-detect elige el plan más reciente y este no es parseable por `campaign_get_next_task`.
 > **Fuente:** investigación integral 2026-09-24 (2 informes module-by-module + arquitectura/producto/competencia + investigación web de 17 sistemas de memoria y 10 BDs multi-modelo) + investigación de definición de producto (`docs/dev/research/product-definition-gap-2026-09-24.md`) + estado verificado del repo (`develop` @ 2026-09-24, 0.7.0 en workspace).
 > **Backlog:** `docs/dev/Backlog.md` P52 (VER-01..09), P53 (SCH-01..08), P54 (ICP-01..03), P55 (DEF-01..08), P56 (WIRE-01..10) + `Backlog-negocio.md` BIZ-10..13 + `backlog-notion.md` N-12..N-17.
 > **Reglas:** Regla 11 (nada afirmado sin fuente reproducible) · P2-01 review antes de cerrar cada wave · `/progreso` al cerrar cada fila · breaking changes ilimitados pre-lanzamiento (`feat!:`) con todo funcional al final del release · MCP local (`vanta-mcp-local.ps1`/`opencode.jsonc`) se refresca ante cualquier cambio de tools.
@@ -33,7 +33,7 @@ description: "Renumeración documentada: el análisis post-investigación propus
 |---|---|---|
 | Estabilización pre-0.7.0 (EST-01..12) | FASE 1 commiteada (`bcd62115`); falta EST-03 (propuesta owner), EST-05 verificación verde, FASE 2 (CodeQL EST-06/07/08), FASE 3 (EST-10/11), EST-12 (merge PR #222 + tag + publish — owner) | `docs/dev/plans/2026-09-24-estabilizacion-pendiente.md` |
 | Estandarización 11 APIs (API-01..09) | Phase 51 del Backlog; waves W0–W8; precedencia sobre superficies nuevas | `docs/dev/plans/2026-09-24-api-estandarizacion.md` + `docs/dev/tasks/API-STD-15.md` |
-| Harness `.opencode/` (FIND-148..151) | ✅ cerrado 2026-09-24 (residual FIND-152) | `docs/dev/plans/2026-09-24-harness-gaps.md` |
+| Harness `.opencode/` (FIND-148..151) | ✅ cerrado 2026-09-24 (residual FIND-152) | `2026-09-24-harness-gaps` |
 | P49 (MGR-01..25 research) | Pendiente (puerta a v0.7/v1.0) | `docs/dev/Backlog.md` §Phase 49 |
 | P50 (EXE-01..10) | Pendiente (EXE-02 se ejecuta vía VER-09; EXE-03 = gate de anuncio) | `docs/dev/Backlog.md` §Phase 50 |
 | Backlog técnico | 79 abiertas de 109 filas + 38 nuevas de este plan = 117 de 147 | `docs/dev/Backlog.md` |
@@ -224,7 +224,7 @@ Cada track incluye: one-pager comercial (consume BIZ-05), entrada en `COMPARISON
 - Mercado (resumen): Mem0 (mem0.ai/research; Dream) · Zep/Graphiti (arXiv 2501.13956) · Letta (letta.com/blog/benchmarking-ai-agent-memory) · LangMem · Cognee (COGX) · MemOS (arXiv 2505.22101) · MIRIX (arXiv 2507.07957) · ReMe · A-MEM (arXiv 2502.12110) · MemMachine (arXiv 2604.04853) · Qdrant Edge (qdrant.tech/edge).
 - Benchmarks: LoCoMo (arXiv 2402.17753; auditoría Penfield Labs) · LongMemEval (arXiv 2410.10813) · BEAM (ICLR 2026) · DolphinBench.
 - Seguridad: AgentPoison (NeurIPS 2024) · MINJA (arXiv 2503.03704) · unlearning surveys (arXiv 2405.07406).
-- Planes vigentes: `2026-09-24-estabilizacion-pendiente.md`, `2026-09-24-api-estandarizacion.md`, `2026-09-24-harness-gaps.md`.
+- Planes vigentes: `2026-09-24-estabilizacion-pendiente.md`, `2026-09-24-api-estandarizacion.md`, `2026-09-24-harness-gaps`.
 
 ---
 

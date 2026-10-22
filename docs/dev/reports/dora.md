@@ -254,8 +254,8 @@ tags: [vantadb, reports, dora, flow-metrics]
 | REV-012 | other | task | 2026-07-31 (mtime) | 2026-07-31 | 2026-07-31 (mtime) | 0.0 | 0.0 |
 | REVIEW-04 | other | task | 2026-08-12 | 2026-08-12 | 2026-08-12 | 0.0 | 0.0 |
 | REVIEW-05 | other | task | 2026-08-12 | 2026-08-12 | 2026-08-12 | 0.0 | 0.0 |
-| SDKB-01 | other | 2026-08-22-vantadb-bindings-sdk.md | 2026-08-22 (mtime) | 2026-08-22 | 2026-08-22 (mtime) | 0.0 | 0.0 |
-| SDKB-02 | other | 2026-08-22-vantadb-bindings-sdk.md | 2026-08-22 (mtime) | 2026-08-22 | 2026-08-22 (mtime) | 0.0 | 0.0 |
+| SDKB-01 | other | 2026-08-22-vantadb-bindings-sdk | 2026-08-22 (mtime) | 2026-08-22 | 2026-08-22 (mtime) | 0.0 | 0.0 |
+| SDKB-02 | other | 2026-08-22-vantadb-bindings-sdk | 2026-08-22 (mtime) | 2026-08-22 | 2026-08-22 (mtime) | 0.0 | 0.0 |
 | SKL-01 | other | task | 2026-08-17 | 2026-08-17 | 2026-08-17 | 0.0 | 0.0 |
 | SKL-02 | other | task | 2026-08-17 | 2026-08-17 | 2026-08-17 | 0.0 | 0.0 |
 | SKL-03 | other | task | 2026-08-17 | 2026-08-17 | 2026-08-17 | 0.0 | 0.0 |
@@ -389,7 +389,7 @@ tags: [vantadb, reports, dora, flow-metrics]
 | 2026-08-18-vanta-studio-fase3.budget.json (inicio —) | 3 | 0 | 0 | 1 | 0 | -1.0 |
 | 2026-08-19-web-design-audit.md (inicio 2026-08-19) | 9 | 9 | 0 | 0 | 0 | — |
 | 2026-08-22-vantadb-bindings-sdk.budget.json (inicio —) | 1 | 0 | 0 | 1 | 0 | 0.0 |
-| 2026-08-22-vantadb-bindings-sdk.md (inicio 2026-08-22) | 4 | 2 | 0 | 2 | 0 | 0.0 |
+| 2026-08-22-vantadb-bindings-sdk (inicio 2026-08-22) | 4 | 2 | 0 | 2 | 0 | 0.0 |
 
 ### Sin plan file (task files sueltos)
 

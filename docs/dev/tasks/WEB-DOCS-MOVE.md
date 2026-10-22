@@ -6,7 +6,7 @@ description: "definition-of-done.md, SPEC.md (contexto), gate-docs.yml, check-av
 
 # WEB-DOCS-MOVE — Mover docs históricas web a Vantadb-web + reescribir refs vivas
 
-> **Plan:** `docs/dev/plans/2026-09-20-estabilizacion-total.md` Fase 2 (decisión owner 2026-09-22)
+> **Plan:** `2026-09-20-estabilizacion-total` Fase 2 (decisión owner 2026-09-22)
 > **Tipo:** docs (campaign_detect_task_type) · **Estado:** ⏳ IN PROGRESS
 > **SDP:** documentation-and-adrs, writing-guidelines (cargadas) + base campaign-executor/writing-plans/progreso (auto)
 > **Destino:** `C:\Users\Eros\VantaDB Proyect\web\docs\history\` + índice `README.md`

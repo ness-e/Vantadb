@@ -63,7 +63,7 @@ tags: [vantadb, avance, campana]
 
 
 ### AUD-020: Tests HTTP auth/RBAC/rate-limit en vantadb-server
-- **Fuente:** Plan 2026-08-09-residual-hardening.md Task 23
+- **Fuente:** Plan 2026-08-09-residual-hardening Task 23
 - **Fecha:** 2026-08-11
 - **Objetivo:** Arreglar 9 tests HTTP rotos por ERR-027 (query inválido → 400) y añadir cobertura de auth/RBAC/rate-limit.
 - **Resultado:** ✅ cargo test -p vantadb-server --test server = 19/19 pass (15 originales + 4 RBAC). Commits: `90f85d9f` (tests), `24a15cdf` (fmt drift pre-existente en src/sdk/api.rs).

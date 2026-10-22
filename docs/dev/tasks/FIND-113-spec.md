@@ -8,7 +8,7 @@ description: "Objetivo: producir el diseño del dueño del scheduler S6b que fal
 
 ## Metadata
 
-- **Plan file:** `docs/dev/plans/2026-09-18-cierre-mvp.md` (Task 3, Wave0 tercera en secuencia)
+- **Plan file:** `2026-09-18-cierre-mvp` (Task 3, Wave0 tercera en secuencia)
 - **Fuente:** `docs/dev/tasks/FIND-113.md` (re-DEFER fundado 2026-09-18: 0 productor, daemon prohibido, MEM-65 intacto) + Gate Justificación del plan (espejo FIND-110-spec; cierra el par S4/S6b en diseño)
 - **Esfuerzo:** 🟡 1d (appetite plan) · **Prioridad:** 🟡 Media
 - **Tipo:** spec-first docs-only (cero código; auto-detect `docs`, ver Dependencias para el matiz)
@@ -62,7 +62,7 @@ description: "Objetivo: producir el diseño del dueño del scheduler S6b que fal
 - `.opencode/references/definition-of-done.md` (standing checklist + DoD VantaDB + v1 baseline)
 - `.opencode/commands/pipeline.md` (vía `pipeline-full.md` exacto — este prompt)
 - `SPEC.md` raíz (§ Alcance cierre-mvp: "S4/S6b diseño primero en FIND-110-spec/FIND-113-spec (cero código); ship solo con dueño defendible, si no re-DEFER honesto")
-- `docs/dev/plans/2026-09-18-cierre-mvp.md` Task 3 (solo recitation/contrato — el plan file no se edita desde la tarea)
+- `2026-09-18-cierre-mvp` Task 3 (solo recitation/contrato — el plan file no se edita desde la tarea)
 - **Tabla Spec:** LA SPEC MISMA (este archivo: tabla de decisiones Phase 1b + diseño + gates; no hay tabla por-tool porque no se shippea herramienta alguna en esta tarea)
 
 **Prohibidos (NO tocados — verificación en `git status` al cierre):**

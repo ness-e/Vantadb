@@ -5,7 +5,7 @@ kind: task
 
 # DESKTOP-45 — Bench app + specs E2E (recortado)
 
-> **Plan:** `docs/dev/plans/2026-09-10-code.md` (Task 12, Wave3) · **Estado:** ⏳ IN PROGRESS
+> **Plan:** `2026-09-10-code` (Task 12, Wave3) · **Estado:** ⏳ IN PROGRESS
 > **Ruta:** vanta-worker · **Appetite:** max 1d · **Tipo:** docs (e2e specs + bench doc)
 > **Contrato:** specs E2E proxy/graph/space lenses (+ Playwright) + intento bench documentado (si app no corre: evidencia + DEFER H-15)
 > **SDP:** playwright-cli, incremental-implementation, test-driven-development, context-engineering (+ base campaign-executor, progreso) · keywords: desktop/e2e/benchmarks · discover v2 BUILD 8 skills (frontend-ui-engineering, api-and-interface-design, source-driven-development, doubt-driven-development scored — solo se cargan las 4 aplicables al slice)

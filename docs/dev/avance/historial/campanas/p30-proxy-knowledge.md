@@ -10,7 +10,7 @@ tags: [vantadb, avance, campana]
 
 > **Migrado desde** `docs/progreso/README.md` (split GOV-D2, 2026-08-22). Contenido histórico sin cambios salvo dedup indicado.
 
-### Campaña P30 Vanta Proxy + Knowledge completada 2026-08-21 - 9/9 tareas F6+F7 (plan `2026-08-21-vanta-proxy-knowledge.md`)
+### Campaña P30 Vanta Proxy + Knowledge completada 2026-08-21 - 9/9 tareas F6+F7 (plan `2026-08-21-vanta-proxy-knowledge`)
 
 Cierre del roadmap TDAM: **F6 vanta-proxy** (binario transparente 3 protocolos wire) + **F7 knowledge** (wiki state machine + ingest + 12 tools MCP query-only). Suites finales: vanta-proxy **52/52**, vantadb-mcp **29/29**, vanta-memory **453/453**, core wiki **24/24** — fmt/clippy `-D warnings` limpios, docs coverage 0 gaps.
 
@@ -23,9 +23,9 @@ Cierre del roadmap TDAM: **F6 vanta-proxy** (binario transparente 3 protocolos w
 
 **Retrospectiva (D2):** Start: decisiones cerradas antes de delegar + verify mecánico por tarea. Stop: RESUME genérico — el que funciona lleva feedback exacto del fallo. Continue: SARL por escalones; primer-intento sub-agentes mejoró vs P29 (~22% → ~44% con decisiones cerradas), aún bajo objetivo 90%. Acción medida: investigar cutoff de contexto de vanta-worker ANTES de la campaña bindings (MEM-36).
 
-**Plan archivado:** `docs/dev/plans/archive/2026-08-21-vanta-proxy-knowledge.md` — 9/9 completadas. Roadmap TDAM F1-F7 COMPLETO (P27+P29+P30 = 42 tareas).
+**Plan archivado:** `2026-08-21-vanta-proxy-knowledge` — 9/9 completadas. Roadmap TDAM F1-F7 COMPLETO (P27+P29+P30 = 42 tareas).
 
-### Campaña P30 Vanta Proxy + Knowledge en ejecución 2026-08-21 - Wave 0 (plan `2026-08-21-vanta-proxy-knowledge.md`)
+### Campaña P30 Vanta Proxy + Knowledge en ejecución 2026-08-21 - Wave 0 (plan `2026-08-21-vanta-proxy-knowledge`)
 
 - **MEM-32** MCP tools code_* query-only (8 tools sobre graphrag propio + `src/graph.rs`, D28) ✅ commit `70048abf` — nextest 22/22, fmt/clippy `-D warnings` limpios.
 - **MEM-28** F7 Wiki store + state machine pending→ready en core (`src/wiki/{mod,state,store}.rs` + wiring `lib.rs`) ✅ código verificado: patrón InternalMetadata (EntityStore/SceneNodeStore D4), CAS por estado con `version` optimista, `run_id` por build, re-ingest → `ExecutionConflict` (409-equivalente), sync_error truncado 500 chars, páginas gestionadas `locked:true` con cascade delete y dedup por path canónico type+title. Tests D19 11/11 (`cargo nextest run -p vantadb wiki::`), fmt/clippy `-D warnings` exit 0, `cargo check` de vanta-memory y vantadb-mcp sin regresión. Commit pendiente del lead.

@@ -134,7 +134,7 @@ Sin huecos encontrados en el flujo: cada rama de error tiene salida tipada (502/
 
 ## 7. Completudes vs plan P27 F6 (segunda iteración)
 
-Verificado contra `docs/dev/plans/archive/2026-08-21-vanta-proxy-knowledge.md`:
+Verificado contra `2026-08-21-vanta-proxy-knowledge`:
 
 | Ítem | Estado plan | Estado código | ¿Falta legítima? |
 |---|---|---|---|

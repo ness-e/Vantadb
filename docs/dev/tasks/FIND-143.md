@@ -8,7 +8,7 @@ description: "Crear docs/dev/workflow/README.md (inventario 27 + nota 28→27), 
 
 ## Metadata
 
-- **Plan file:** docs/dev/plans/2026-09-21-workflows-repair.md (Wave 4)
+- **Plan file:** 2026-09-21-workflows-repair (Wave 4)
 - **Fuente:** auditoria 28/28 + FIND-128 matriz + FIND-137/139/140/141/146 (estado post-waves)
 - **Esfuerzo:** 🟢 2h
 - **Prioridad:** 🟢 Baja (docs, tras codigo estable)
@@ -31,7 +31,7 @@ description: "Crear docs/dev/workflow/README.md (inventario 27 + nota 28→27), 
 
 ## Impacto mapeado (Regla 0)
 
-- **Archivos leidos (completos):** `docs/dev/plans/2026-09-21-workflows-repair.md` (plan Wave 4), `docs/dev/tasks/FIND-128.md` (matriz 28 + propuesta dedup), `.opencode/rules/README.md` (formato reglas), `.opencode/rules/release-ci.md` (completo), `docs/dev/workflow/ci-gate.md` + `release-wheels-60.md` + `release-npm-61.md` (formato vecino/frontmatter), `.markdownlint-cli2.yaml` (reglas), `scripts/validate-docs-coverage.ps1` (alcance)
+- **Archivos leidos (completos):** `2026-09-21-workflows-repair` (plan Wave 4), `docs/dev/tasks/FIND-128.md` (matriz 28 + propuesta dedup), `.opencode/rules/README.md` (formato reglas), `.opencode/rules/release-ci.md` (completo), `docs/dev/workflow/ci-gate.md` + `release-wheels-60.md` + `release-npm-61.md` (formato vecino/frontmatter), `.markdownlint-cli2.yaml` (reglas), `scripts/validate-docs-coverage.ps1` (alcance)
 - **Triggers `on:` de 27 workflows:** extraidos via script python (read-only, sin edits YAML)
 - **Archivos que referencian a los creados:** ninguno aun (nuevos); FIND-144 referenciara despues
 - **Veredicto impacto:** nulo en runtime — 5 markdown nuevos + este task file; `docs/dev/workflow/*.md` vecinos intactos

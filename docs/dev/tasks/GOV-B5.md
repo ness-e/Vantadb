@@ -1,12 +1,12 @@
 ---
 title: "Task: GOV-B5 — HTTP_API.md completo"
 kind: task
-description: "Plan: docs/dev/plans/2026-08-22-doc-governance-plan.md (Task 13)"
+description: "Plan: 2026-08-22-doc-governance-plan (Task 13)"
 ---
 
 # Task: GOV-B5 — HTTP_API.md completo
 
-**Plan:** docs/dev/plans/2026-08-22-doc-governance-plan.md (Task 13)
+**Plan:** 2026-08-22-doc-governance-plan (Task 13)
 **Archivos clave:** `docs/api/HTTP_API.md` (reescritura); `docs/api/openapi.yaml` (READ-ONLY, spec formal de GOV-B4: 35 paths); `src/cli_server.rs` (read-only)
 **Estado inicial:** ⬜ PENDING
 

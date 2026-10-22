@@ -6,7 +6,7 @@ description: "1 solo workflow rustdoc (ci-rustdoc.yml survivor), 0 referencias r
 
 # FIND-137 — Unificar rustdocs caníbales (`ci-rustdoc.yml` vs `rustdoc-70.yml`) en uno solo
 
-> **Plan:** `docs/dev/plans/2026-09-21-workflows-repair.md` Wave 1 (paralelo ×3 disjunto: 137/138/139; este task solo toca sus 3 archivos).
+> **Plan:** `2026-09-21-workflows-repair` Wave 1 (paralelo ×3 disjunto: 137/138/139; este task solo toca sus 3 archivos).
 > **Estado:** ⬜ PENDING → IN PROGRESS (discovery + survivor-edit + git rm + verify + commit; NO PUSH)
 > **Appetite:** 1h · **Esfuerzo:** 🟢 · **Prioridad:** 🟢
 > **Branch:** `develop` · **Commit:** `ci: FIND-137 — ...` (solo tras verify mecánico; solo archivos propios: survivor + task file; el eliminado va vía `git rm`)
@@ -19,7 +19,7 @@ description: "1 solo workflow rustdoc (ci-rustdoc.yml survivor), 0 referencias r
 
 ## Metadata
 
-- **Plan file:** `docs/dev/plans/2026-09-21-workflows-repair.md`
+- **Plan file:** `2026-09-21-workflows-repair`
 - **Fuente:** Backlog `FIND-137` (:229) + plan Wave 1
 - **Esfuerzo:** 🟢 1h · **Prioridad:** 🟢 · **Tipo:** CI/YAML (devops)
 - **Turns estimados:** 5-10

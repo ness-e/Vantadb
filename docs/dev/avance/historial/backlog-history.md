@@ -200,7 +200,7 @@ Filas completadas NO viven más en el Backlog: se eliminan al completar y su reg
 
 ## Limpieza DAUD 2026-08-26 (DESKTOP-QW5, H-13)
 
-> **Origen:** `docs/dev/plans/2026-08-25-research-desktop-quickwins.md` Wave1 Task5 (DESKTOP-QW5). **Motivo:** filas DAUD-01..09 en P37 marcadas ✅ Hecho/Cerrada pero aún presentes en `docs/dev/Backlog.md` como stale — fixes ya aplicados en commits `3c53d8b2`, `480935a7`, `b865c625`; DAUD-02 resuelta por `ad0f34b1` (DESKTOP-QW4); DAUD-08 stash `06aa1a86` consumida por `b865c625` (actual stash `2fc26b26`).
+> **Origen:** `2026-08-25-research-desktop-quickwins` Wave1 Task5 (DESKTOP-QW5). **Motivo:** filas DAUD-01..09 en P37 marcadas ✅ Hecho/Cerrada pero aún presentes en `docs/dev/Backlog.md` como stale — fixes ya aplicados en commits `3c53d8b2`, `480935a7`, `b865c625`; DAUD-02 resuelta por `ad0f34b1` (DESKTOP-QW4); DAUD-08 stash `06aa1a86` consumida por `b865c625` (actual stash `2fc26b26`).
 > **Acción:** eliminadas 9 filas `| \`DAUD-01..09\`` de `docs/dev/Backlog.md` P37 + colapso P37 a `0 — ✅ 9/9 ejecutadas` (Exec Summary 118→109 activas, `last_reviewed` 2026-08-26). Registro de dominio en `docs/dev/avance/activo/desktop.md` §P37 + este historial. Plan quickwins Wave1 5/5.
 
 | ID | Destino | Commit/evidencia |
@@ -241,7 +241,7 @@ Filas completadas NO viven más en el Backlog: se eliminan al completar y su reg
 
 ### FIND-37 — dispatcher híbrido sparse unwrap (2026-08-27)
 
-> **Origen:** `codegraph-20260827-143245` Fase 9, plan `docs/dev/plans/2026-08-27-backlog-pipeline.md` Task 1 (Wave 0). Gap verificado: 6 unwraps en `src/sdk/search/mod.rs:207,240,265,315,346,369` + 3 en `debug_ops.rs:288,335,374` — `has_sparse` bool garantizaba Some en teoría pero violaba `clippy::unwrap_used` y era panickable en prod si request sin sparse llegaba a hybrid.
+> **Origen:** `codegraph-20260827-143245` Fase 9, plan `2026-08-27-backlog-pipeline` Task 1 (Wave 0). Gap verificado: 6 unwraps en `src/sdk/search/mod.rs:207,240,265,315,346,369` + 3 en `debug_ops.rs:288,335,374` — `has_sparse` bool garantizaba Some en teoría pero violaba `clippy::unwrap_used` y era panickable en prod si request sin sparse llegaba a hybrid.
 
 | ID | Destino | Commit/evidencia |
 |---|---|---|

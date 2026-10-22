@@ -6,7 +6,7 @@ description: "TitleBar, SplashScreen, HelpPanel, NamespaceDialog, App fallback, 
 
 # DESKTOP-40-slice2 — i18n resto UI desktop (shell chrome)
 
-- **Plan:** `docs/dev/plans/2026-09-10-code.md` (Task 3) · **Campaign:** 2c3d4e5f-6a7b-8c9d-0e1f-2a3b4c5d6e01
+- **Plan:** `2026-09-10-code` (Task 3) · **Campaign:** 2c3d4e5f-6a7b-8c9d-0e1f-2a3b4c5d6e01
 - **Estado:** ⏳ IN PROGRESS · **Rama:** `develop` (verificada al inicio)
 - **Contrato:** pantallas migradas a `tt()` + `npm run build` 0 + tsc 0 + vitest i18n verdes
 - **Scope slice2 (acotado pantalla-por-pantalla):** shell chrome ONLY — `WorkspaceShell` (sidebar/topbar/notices/filtros),

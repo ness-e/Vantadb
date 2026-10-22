@@ -8,7 +8,7 @@ description: "Objetivo: producir el diseño lifecycle de la bandeja de aprobaci�
 
 ## Metadata
 
-- **Plan file:** `docs/dev/plans/2026-09-18-cierre-mvp.md` (Task 2, Wave0, segunda en secuencia)
+- **Plan file:** `2026-09-18-cierre-mvp` (Task 2, Wave0, segunda en secuencia)
 - **Fuente:** `docs/dev/tasks/FIND-110.md` (re-DEFER fundado 2026-09-17: 5 evidencias + motivo) + Gate Justificación del plan (espejo FIND-112: la spec convierte el re-DEFER en slice mecánico futuro)
 - **Esfuerzo:** 🟡 1d (appetite plan) · **Prioridad:** 🟡 Media
 - **Tipo:** spec-first docs-only (cero código; auto-detect `docs`, ver Dependencias para el matiz)
@@ -49,7 +49,7 @@ description: "Objetivo: producir el diseño lifecycle de la bandeja de aprobaci�
 - `.opencode/rules/core-engine.md` (R-1–R-5) + `.opencode/rules/api-contract.md` R-8 (glue, lectura completa) — citadas donde aplican
 - `.opencode/references/definition-of-done.md` (standing checklist + DoD VantaDB)
 - `SPEC.md` raíz (§ Alcance cierre-mvp: "S4/S6b diseño primero en FIND-110-spec/FIND-113-spec (cero código); ship solo con dueño defendible, si no re-DEFER honesto")
-- `docs/dev/plans/2026-09-18-cierre-mvp.md` Task 2 (solo recitation/contrato — el plan file no se edita desde la tarea)
+- `2026-09-18-cierre-mvp` Task 2 (solo recitation/contrato — el plan file no se edita desde la tarea)
 
 **Prohibidos (no tocados ni leídos más allá de lo citado):** `src/`, `vanta-memory/src/` (salvo los 2 archivos de lectura de arriba), `skills/`, `examples/`, `scripts/`, `reparacion.bat`, `.opencode`, `Justfile`, `ocr-*`, `completions/*`, `desktop/src-tauri/Cargo.lock`, stash@{0} GOV-C4, `docs/dev/Backlog.md` (edición del lead), plan file (solo recitation), `C:/Users/Eros/.vantadb*`, `docs/dev/tasks/FIND-98.md` (FIND-98, no tocar), WIP ajeno en `git status` (`completions/`, `.opencode`, `docs/dev/Backlog.md` modificados).
 

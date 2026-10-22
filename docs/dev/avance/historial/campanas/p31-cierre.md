@@ -10,7 +10,7 @@ tags: [vantadb, avance, campana]
 
 > **Migrado desde** `docs/progreso/README.md` (split GOV-D2, 2026-08-22). Contenido histórico sin cambios salvo dedup indicado.
 
-### Campaña P31 Cierre Final completada 2026-08-22 - 8/8 tareas (plan `2026-08-22-vanta-final-cierre.md`)
+### Campaña P31 Cierre Final completada 2026-08-22 - 8/8 tareas (plan `2026-08-22-vanta-final-cierre`)
 
 **El port TDAM queda al 100% funcional y semántico.** Suites: vanta-memory **472/472**, vanta-proxy 52/52, vantadb-mcp 30/30, workspace completo 2568+.
 

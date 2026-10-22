@@ -6,7 +6,7 @@ description: "Objetivo: demo agente-con-memoria = prueba de aceptación viva del
 
 # SHOW-04 — demo agente-con-memoria (prueba de aceptación viva del MVP)
 
-> **Plan:** `docs/dev/plans/2026-09-17-mvp-memoria-agentes.md` (Wave0, Task 3) · **Campaign:** b2ece025-e9d3-4f8b-835d-1d0143a86b66
+> **Plan:** `2026-09-17-mvp-memoria-agentes` (Wave0, Task 3) · **Campaign:** b2ece025-e9d3-4f8b-835d-1d0143a86b66
 > **Ruta:** vanta-worker · **Branch:** develop · **Commit:** `feat: SHOW-04 — ...` (NO PUSH) · **Appetite:** 3d
 > **Estado:** ⬜ PENDING → ⏳ IN PROGRESS (esta sesión)
 

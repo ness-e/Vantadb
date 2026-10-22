@@ -5,7 +5,7 @@ kind: task
 
 # DOC-SYNC-01 — Sincronizar descripciones stales del Backlog
 
-- **Plan:** `docs/dev/plans/2026-09-07-cleanup-gates.md` Task 3
+- **Plan:** `2026-09-07-cleanup-gates` Task 3
 - **Estado:** ⏳ IN PROGRESS → ✅ al verificar
 - **Branch:** develop (no commitear — cierre sin commit por orden del run)
 - **Scope:** SOLO `docs/dev/Backlog.md` (2 textos). NO tocar plan file, ni archivos de STABLE-05/GOV-TK2.
@@ -25,7 +25,7 @@ kind: task
 
 ## Impacto mapeado (Regla 0)
 
-- **Archivos leídos completos:** `docs/dev/Backlog.md:1-80` (header) + `docs/dev/Backlog.md:600-629` (fila STABLE-06) + `docs/dev/tasks/STABLE-06.md` (medición 278/278) + `docs/dev/avance/activo/ci-cd.md:292` (278/278) + `docs/dev/plans/2026-09-07-cleanup-gates.md` Task 3.
+- **Archivos leídos completos:** `docs/dev/Backlog.md:1-80` (header) + `docs/dev/Backlog.md:600-629` (fila STABLE-06) + `docs/dev/tasks/STABLE-06.md` (medición 278/278) + `docs/dev/avance/activo/ci-cd.md:292` (278/278) + `2026-09-07-cleanup-gates` Task 3.
 - **Referencias hacia dentro:** Backlog header referenciado por triages/planes; fila STABLE-06 referenciada por plan 2026-09-04 (Task 6) y task STABLE-06.md.
 - **Referencias entrantes:** plan 2026-09-07 Task 3 apunta a estos 2 textos; ningún código importa estos textos.
 - **Veredicto:** impacto nulo en código — 2 ediciones de texto en 1 archivo md. Reversible (revert de 2 líneas).

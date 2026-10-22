@@ -123,7 +123,7 @@ Verificado contra `services/pipeline_worker.rs` + `e2e_flow.rs` (6 tests). El or
 
 ## 6. Completudes vs plan P27 F7 (segunda iteración)
 
-Verificado contra `docs/dev/plans/archive/2026-08-18-vanta-memory.md` (tabla DEFER/SKIP) y `2026-08-21-vanta-proxy-knowledge.md`:
+Verificado contra `2026-08-18-vanta-memory` (tabla DEFER/SKIP) y `2026-08-21-vanta-proxy-knowledge`:
 
 | Ítem | Estado plan | Estado código | ¿Falta legítima? |
 |---|---|---|---|
