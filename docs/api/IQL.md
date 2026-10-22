@@ -116,10 +116,16 @@ FROM <entity> [SIGUE <min>..<max> "<label>" [TYPE <type>] [AS <alias>]] [<alias>
 | `FETCH <field1>, <field2>` | Projection: return these fields. The **system metadata** the engine filters on (`__vanta_valid_at_ms`, `__vanta_invalid_at_ms`, `__vanta_created_at_ms`, `type`, `_owner_role`) is kept: it is what `AS OF`, the confidence filter and `ROLE` read, so dropping it would silently disable those filters. |
 | `RANK BY <field> [DESC]` | Sort results by a field (applied before `LIMIT`/`OFFSET`). |
 | `WITH TEMPERATURE <float>` | Query temperature (0.0 = deterministic/exhaustive). |
-| `ROLE "<role>"` | RBAC owner role filter. The record must carry an `_owner_role` field equal to the role (a record **without** that field is **pruned**: the filter is fail-closed, so a base whose records were never tagged with a role returns no rows for any `ROLE` clause). The field is part of the `metadata` of the record. |
+| `ROLE "<role>"` | RBAC owner role filter. The record must carry an `_owner_role` field equal to the role. A record **without** that field is **pruned**: the filter is **fail-closed**, so it never widens the visible set. A database whose records were never tagged with a role therefore returns **no rows** for any `ROLE` clause except `"admin"` — this is the intended behaviour, not an error. When the clause prunes **every** scanned record, the engine emits a diagnostic naming the missing `_owner_role` field; tag the records (it is part of the record's `metadata`) or drop the clause. The field survives `FETCH` projection. |
 | `PROFILE keyword\|vector\|hybrid [rrf_k <n>] [candidate_k <n>]` | Search profile: fusion mode + RRF k + candidate budget (MEM-01). `rrf_k` / `candidate_k` default to the core constants when omitted. |
 | `LIMIT <n>` | Result cap (minimum `IQL_VERSION_MIN_PAGINATION` = 3): keep at most `n` rows after filters/ranking. `LIMIT 0` returns an empty result. See [Pagination](#pagination-limit--offset). |
 | `OFFSET <m>` | Skip the first `m` rows of the result (minimum `IQL_VERSION_MIN_PAGINATION` = 3). Must follow `LIMIT` when both are present — the reversed order (`OFFSET` then `LIMIT`) is a parse error. See [Pagination](#pagination-limit--offset). |
+
+> **`ROLE` is fail-closed.** A record that does not carry `_owner_role` is
+> **pruned** for every role except `"admin"`. On a database whose records were
+> never tagged, `ROLE "user"` returns **no rows** — the filter is a gate, not
+> a filter. Tag the records with `_owner_role` in their `metadata`, or drop the
+> clause.
 
 > **`AS OF` is valid time, not transaction time.** It answers "what did the
 > record say was true at T" (the valid-time axis). Transaction-time travel is

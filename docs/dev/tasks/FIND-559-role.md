@@ -1,7 +1,7 @@
 ---
 title: "FIND-559 - La clausula ROLE: mantener el fail-closed y arreglar el silencio"
 kind: task
-status: active
+status: review
 description: "Decidir el comportamiento de la poda de ROLE y hacerlo visible: contar los nodos podados, avisar cuando la poda se come el 100 % del resultado y documentar el campo _owner_role. Decision del owner (2026-10-21): fail-closed + aviso."
 tags: [iql, rbac, rol, documentacion, decision-owner]
 ---
@@ -11,7 +11,7 @@ tags: [iql, rbac, rol, documentacion, decision-owner]
 - **Origen:** `docs/dev/Backlog.md` (`FIND-559`) + la decision del owner del 2026-10-21
   ("fail-closed + aviso") + el brief de `docs/dev/reviews/2026-10-21-encryption-envelope-por-pagina.md`.
 - **Rama:** `develop` · **Repo:** `C:\Users\Eros\VantaDB Proyect\VantaDB`
-- **Estado:** ⬜ PENDING
+- **Estado:** 🟡 EN REVISION (implementado y verificado; falta la review P2-01 de otro agente)
 - **Decision del owner (2026-10-21):** **mantener el fail-closed** (un nodo sin `_owner_role` se poda) y
   **arreglar el silencio**: contar los podados y avisar cuando la poda se come el 100 % del
   resultado, mas documentar `_owner_role`.
@@ -21,7 +21,7 @@ tags: [iql, rbac, rol, documentacion, decision-owner]
 | Dirección | Módulos |
 |-----------|---------|
 | Callers | el path IQL de `src/executor.rs` (`execute_plan`, el prune de `ROLE`), la CLI, el MCP, los bindings |
-| Callees | `src/executor.rs:634-646` (el prune actual) |
+| Callees | `src/executor.rs:672-684` (el prune actual, antes de este task) |
 | Implicaciones | el **resultado** no cambia (la poda se mantiene) ⇒ **no hay ruptura de contrato**; lo que se anade es observabilidad y documentacion |
 
 ## Impacto mapeado (Regla 0)
@@ -66,15 +66,18 @@ N/A — no es feature-add ni simbolos publicos nuevos. La semantica de la poda *
 | Campo recitation (MCP) | ← fuente en este task file |
 |------------------------|----------------------------|
 | `activeGoal` | Encabezado `# FIND-559` |
-| `lastAction` | (se actualiza en cada step) |
-| `result` | ⬜ PENDING |
-| `nextAction` | Step 1 |
+| `lastAction` | Step 5 (verificacion) — 5 tests nuevos en verde, `fmt` y `clippy -D warnings` limpios, suite del lib verde (1 timeout de carga, ajeno) |
+| `result` | ✅ IMPLEMENTADO — la poda **sigue fail-closed** (el resultado no cambia) + **un aviso informativo por consulta** cuando la poda se come el 100 % de los candidatos + `docs/api/IQL.md` documenta `_owner_role` y la semantica fail-closed |
+| `nextAction` | Review P2-01 (agente DISTINTO del implementador) |
 | `contract` | `## Contrato` + `## Invariantes de dominio` |
 | `nextTask` | (siguiente del plan) |
 
 ## Deuda técnica (Regla 6 — MUST)
 
-Sin deuda.
+Sin deuda. La unica simplificacion (documentada en `## Notas`, con su `ponytail:`) es el **canal**
+del aviso: va por `tracing::warn!` y no por un campo nuevo en la superficie publica. Techo
+conocido: si algun dia hace falta llevar el aviso al cliente HTTP/MCP, el camino es un campo
+nuevo en el resultado — no convertirlo en un `Error`.
 
 ## Definition of Done (contrato multi-nivel — P2-08)
 
@@ -93,8 +96,8 @@ anadir el aviso) + code-simplification (un contador y un aviso, no un framework 
 
 ## Investigation Notes
 
-- El prune actual (`src/executor.rs:634-646`) descarta todo nodo sin `_owner_role` salvo
-  `required_role == "admin"`. **Nadie escribe ese campo**: `grep _owner_role` en `src/` no encuentra
+- El prune actual (`src/executor.rs:672-684` antes de este task) descarta todo nodo sin
+  `_owner_role` salvo `required_role == "admin"`. **Nadie escribe ese campo**: `grep _owner_role` en `src/` no encuentra
   ningun escritor (solo un benchmark, `benches/high_density.rs:113`); los registros de memoria solo
   lo llevan si el usuario lo pone a mano en el `metadata` (`src/sdk/serialization/mod.rs:621-623`).
 - El caso que mas duele: una base cuyos registros nunca se etiquetaron ⇒ `ROLE "user"` devuelve
@@ -112,32 +115,109 @@ anadir el aviso) + code-simplification (un contador y un aviso, no un framework 
 | Eje | Contador |
 |-----|----------|
 | Incógnitas abiertas (uphill) | 0 |
-| Pendientes de ejecución (downhill) | 4 |
-| % completado | 0% |
+| Pendientes de ejecución (downhill) | 0 (4/4 steps completados) + review P2-01 |
+| % completado | 100% |
 
 ## Steps
 
-1. **Verificar la evidencia**: confirmar que el prune actual descarta sin avisar y que nadie
-   escribe `_owner_role` (leer `src/executor.rs:634-646` y el `grep`).
-2. **Test primero**: (a) un test que fije que el **resultado** no cambia (la poda se mantiene);
-   (b) un test que fije que el aviso aparece cuando la poda se come el 100 %; (c) un test que fije
-   que **no** hay aviso cuando la poda es parcial; (d) un test que fije que no hay aviso sin
-   `ROLE` en el plan. Deben **fallar** (b) y (c) antes del fix.
-3. **Fix**: contar los nodos podados por el prune de `ROLE` y emitir **un** aviso por consulta
-   cuando el total podado cubra el total de candidatos (el 100 %), sin convertirlo en error.
-4. **Documentar** `docs/api/IQL.md` con la variante fail-closed del texto del brief, y anotar el
-   enlace al runbook de claves si aplica.
-5. **Verificar**: fmt, clippy `-D warnings`, la suite del lib completa y los 4 tests nuevos en
-   verde; y **anadir la entrada de avance** en `docs/dev/avance/activo/core-engine.md`.
+1. ✅ **Verificar la evidencia**: confirmada. El prune actual (`src/executor.rs:672-684`, antes
+   de este task) descarta todo nodo sin `_owner_role` salvo `required_role == "admin"`, **sin
+   avisar**; y `grep _owner_role src/` no encuentra **ningun escritor** (solo el benchmark
+   `benches/high_density.rs:113` y los tests) ⇒ `ROLE "user"` sobre una base sin etiquetar
+   devuelve **0 filas sin decir por que**.
+2. ✅ **Test primero** (RED→GREEN en 2 slices): 5 tests nuevos (4 de contrato + 1 de politica).
+   - **RED #1 (compile)**: `role_prune_notice_policy` no compila (`cannot find function
+     role_prune_notice in module super`) ⇒ la politica de aviso no existia.
+   - **RED #2 (comportamental)**: con la politica implementada pero **sin** el cableado en el
+     executor, `role_prune_warns_once_when_it_prunes_every_scanned_record` **FALLA** con
+     `the notice must name the missing field:` (log capturado vacio) ⇒ el aviso no existia.
+   - **Nota honesta**: (c) "no hay aviso con poda parcial" y (d) "no hay aviso sin `ROLE`" **no
+     pueden fallar antes del fix** (una asercion de "no hay aviso" es trivialmente cierta
+     mientras no exista el aviso): son **guardas** contra una implementacion ingenua que avise en
+     cada poda. El RED de la rama "poda parcial ⇒ sin aviso" vive en el test de politica
+     (`role_prune_notice_policy`), que si fallo (RED #1).
+3. ✅ **Fix**: contadores de la poda en `execute_plan` (`role_scanned` / `role_pruned` /
+   `role_untagged`) + **un** `tracing::warn!` por consulta cuando `pruned == scanned` (y
+   `scanned > 0`). El aviso **no** es un `Error` y **no** cambia el resultado: la poda sigue
+   siendo fail-closed (fail-closed + aviso, la decision del owner del 2026-10-21).
+4. ✅ **Documentar** `docs/api/IQL.md`: fila de la tabla de componentes reemplazada por la
+   **variante A (fail-closed)** del brief, verbatim, + la nota nueva debajo de la tabla. No
+   aplica runbook de claves (esta task no toca el cifrado).
+5. ✅ **Verificar**: `cargo fmt --all -- --check` **exit 0**; `cargo clippy -p vantadb
+   --all-targets -- -D warnings` **exit 0**; suite del lib `cargo nextest run -p vantadb
+   --profile audit --lib` → **2533 tests: 2532 passed, 2 skipped, 1 timeout**
+   (`index::core::tests::concurrent_insert_preserves_hnsw_invariants`: test de stress de
+   concurrencia **ajeno a este task**, pasa en aislamiento en 82,9 s; el timeout es de **carga**
+   de la maquina — hay otros agentes compilando en paralelo); los 6 tests de `role_prune` en
+   verde. Entrada de avance anadida en `docs/dev/avance/activo/core-engine.md`.
+
+## Tests nuevos (5)
+
+Todos en `src/executor.rs` (`mod tests`):
+
+| Test | Que fija |
+|---|---|
+| `role_prune_keeps_the_fail_closed_result` | (a) el **resultado no cambia**: el nodo etiquetado se ve, el sin etiquetar se poda |
+| `role_prune_warns_once_when_it_prunes_every_scanned_record` | (b) el aviso aparece con la poda al 100 % (con los contadores `pruned 3 of 3` y el campo `_owner_role`) y se emite **una sola vez** por consulta, no una por nodo |
+| `role_prune_does_not_warn_when_it_prunes_only_part_of_the_records` | (c) **no** hay aviso con la poda parcial |
+| `role_prune_does_not_warn_without_a_role_clause` | (d) **no** hay aviso sin `ROLE` en el plan |
+| `role_prune_notice_policy` | la politica del aviso: 100 % ⇒ aviso; parcial ⇒ nada; plan vacio ⇒ nada (el caso del filtro de `AS OF`, que corre **despues** del plan) |
+
+El aviso se observa por el log (`tracing::warn!`), capturado con un `tracing_subscriber::fmt`
+con `MakeWriter` propio (mismo patron que `src/storage/engine/tests/encryption.rs`).
+
+## Invariantes: verificados
+
+| # | Invariante | Como se verifica |
+|---|---|---|
+| a | el **resultado** de una query con `ROLE` no cambia | `role_prune_keeps_the_fail_closed_result` + el test preexistente `role_prune_still_applies_when_the_query_projects_fields` (FIND-552) siguen verdes; el prune se limito a **contar**, la condicion de poda es la misma |
+| b | el aviso **no** es un `Error` ni cambia el resultado | el aviso es un `tracing::warn!` (log); `execute_plan` sigue devolviendo `Ok(results)` con las mismas filas; los tests (b)/(c)/(d) comprueban las filas **y** el log a la vez |
+| c | **una vez por consulta**, no por nodo | el aviso se emite **despues** del bucle, con los contadores acumulados; `role_prune_warns_once_when_it_prunes_every_scanned_record` asserta `matches("pruned").count() == 1` con 3 registros podados |
+| d | el aviso distingue "la poda se comio todo" de "el filtro de `AS OF` se comio todo" | el filtro de `AS OF` (`filter_valid_at`) corre **despues** del plan (`execute_query`/`execute_select`), asi que no puede disparar el aviso; y `role_prune_notice_policy` fija que `scanned == 0` (plan vacio) ⇒ sin aviso. El mensaje nombra la clausula `ROLE` y el campo `_owner_role` |
+| e | nada de `unsafe` | el cambio no introduce `unsafe` (ni lo toca) |
+| f | el camino **sin** `ROLE` no se toca | los 3 contadores solo se incrementan dentro del `if let Some(required_role) = &plan.enforce_role`; sin `ROLE` el camino es identico al de antes (0 iteraciones extra, 0 Formateo) |
+
 
 ## Review (P2-01)
 
 - **Reviewer:** (pendiente — agente DISTINTO del implementador)
 - **Veredicto:** (pendiente)
 - **Fecha:** (pendiente)
+- **Checklist para el revisor:**
+  1. ¿La **semantica de la poda** sigue siendo fail-closed? (La decision del owner del
+     2026-10-21 es "fail-closed + aviso": el aviso **no** puede cambiar el conjunto de filas.)
+     Verificar en `src/executor.rs` que la condicion de poda es la misma que antes y que solo se
+     **conto**.
+  2. ¿El aviso es **informativo** (un `tracing::warn!`) y no un `Error`? ¿Se puede convertir en
+     un error por el camino de `execute_plan`?
+  3. ¿Se emite **una vez por consulta** y no por nodo? (El aviso sale despues del bucle.)
+  4. ¿El aviso **distingue** el caso de la poda al 100 % del caso del filtro de `AS OF` al 100 %
+     (que corre despues del plan)?
+  5. ¿El camino **sin** `ROLE` sigue sin sobrecarga (0 contadores tocados)?
+  6. ¿El texto de `docs/api/IQL.md` es la **variante A (fail-closed)** del brief, verbatim?
+  7. ¿El scope respetado el del task? Solo se han tocado `src/executor.rs` y
+     `docs/api/IQL.md` (+ este task file y `docs/dev/avance/activo/core-engine.md`).
+     `src/agentic/**`, `src/tui/**`, `src/physical_plan/**`, `src/planner.rs`, `src/crypto*`,
+     `src/storage/**`, `benches/**` **no** se han tocado.
 
 ## Notas
 
 - `src/executor.rs` lo comparten otras tasks de este ciclo: **releelo antes de editar** y limita el
   cambio al prune de `ROLE` y sus contadores.
 - No cambies la semantica de la poda: la decision del owner es fail-closed + aviso.
+- **Regla de git:** este agente **NO hace commits** (los hace el orquestador); el push requiere
+  instruccion explicita del owner (AGENTS.md Regla 7).
+- **Ficheros tocados por este task:** `src/executor.rs` (la poda + sus contadores + el aviso + 5
+  tests), `docs/api/IQL.md` (variante A del brief), este task file y
+  `docs/dev/avance/activo/core-engine.md`. Nada mas.
+- **Ponytail (lite):** el aviso va por `tracing::warn!` — el idiom del repo para "avisado, nunca
+  silencioso" (el mismo patron que uso FIND-485 para el vector sintetico) — en vez de un canal
+  nuevo de avisos: tocar la superficie publica (`ExecutionResult`) habria roto el contrato que
+  este task promete no romper. `ponytail:` la granularidad del aviso (una linea de log por
+  consulta) es la unica que el brief pide; si algun dia hace falta llevar el aviso al cliente
+  HTTP/MCP, el camino es un campo nuevo en el resultado, no un `Error`.
+- **Ojo con el reparto de trabajo en el arbol:** durante la sesion, `src/storage/vfile.rs`,
+  `src/sdk/builder.rs`, `src/agentic/thread.rs`, `src/tui/**` y `src/storage/engine/init.rs`
+  cambiaron bajo los pies (otros agentes de este ciclo). El `fmt`/`clippy`/`nextest` de esta task
+  se re-verificaron **con el arbol ya estable**; el unico rojo que queda (el timeout de
+  `index::core::tests::concurrent_insert_preserves_hnsw_invariants`) es de **carga** y es ajeno.
