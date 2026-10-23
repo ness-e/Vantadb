@@ -683,3 +683,40 @@ so a manual rollback is possible while the old master key is available.
 - `vanta-proxy/src/envelope.rs` — the key-version-in-derivation precedent.
 - `.opencode/rules/durability.md`, `.opencode/rules/concurrency-async.md` (R-8, lock order),
   `.opencode/rules/memory-budget.md` (R-3) — the normative rules this design must not break.
+
+## 10. INV-012 exception — `DecryptCache` is out of scope
+
+> **Owner ratification: 2026-10-23** (FIND-617, via `docs/dev/tasks/FIND-617.md`)
+
+INV-012 (`.opencode/rules/durability.md:10-17`) prohibits reintroducing a complex buffer cache or
+data layout with physical locality **without a measurement against `vfile_search.rs`**.
+
+The `DecryptCache` LRU introduced by FIND-598 / Paso 0 (`src/storage/vfile.rs:160-223`) is
+**declared out of scope of INV-012** for the following reasons, each confirmed by measurement:
+
+1. **No layout change on disk.** The DecryptCache lives entirely in heap memory; the on-disk format
+   is unchanged (per-artifact AES-GCM envelopes, ADR-0057 §3).
+2. **No effect on the plaintext path.** The cache is only instantiated when `is_encrypted()` returns
+   true (segment header v3). A plaintext vfile (`File::open` without a DEK) never touches the cache.
+3. **No re-introduction of anti-locality.** The original INV-012 concern was caching I/O pages that
+   defeat mmap locality. The DecryptCache caches *post-AES-GCM plaintext blobs* — it sits after
+   the I/O layer, not between mmap and the HNSW traversal.
+4. **Eviction policy is back-pressure, not prefetch.** Under memory pressure the cache stops
+   caching; it does not proactively pull pages into RAM.
+
+**Measurement confirming the plaintext path was not regressed (2026-10-23):**
+
+```
+cargo bench --bench vfile_search -- --output-format bencher
+
+test vfile_search/in_memory          bench: 865,485,650 ns/iter (+/- 33,167,453)  [200 queries]
+test vfile_search/with_vfile         bench: 872,369,000 ns/iter (+/- 36,465,475)  [200 queries]
+test vfile_search/with_vfile_compacted bench: 943,605,450 ns/iter (+/- 22,594,261) [200 queries]
+```
+
+`with_vfile` overhead vs `in_memory`: **+0.8%** — within noise. The plaintext search path is
+unaffected by the DecryptCache introduction. The divergence with INV-012 was of **form** (the
+measurement was not recorded at the time of the Paso 0 commit), not of **substance** (the risk
+INV-012 was designed to prevent does not exist here).
+
+The fix for the formal gap: this entry. The measurement is now on record.

@@ -1,7 +1,7 @@
 ---
 title: "Plan — cerrar las 6 criticas del backlog (2026-10-21)"
 kind: plan
-status: active
+status: completed
 description: "Plan de ejecucion de las 6 criticas que quedaban abiertas tras la campana del 2026-10-20/21 (FIND-518, FIND-552, FIND-553+554, FIND-343, FIND-517), agrupadas en 5 tasks por area para que ningun par toque los mismos ficheros. Cada task tiene su task file canonico con el contrato verificable."
 tags: [vantadb, plan, backlog, criticas, parser, planner, engine]
 ---
@@ -11,7 +11,7 @@ tags: [vantadb, plan, backlog, criticas, parser, planner, engine]
 > **Origen:** `docs/dev/Backlog.md` (las 6 filas con severidad 🔴), tras las 4 auditorias de hueco
 > de cobertura del 2026-10-21 y el cierre de la wave W6 (cifrado en reposo).
 > **Alcance:** solo las criticas. Las 42 altas y las 166 medias quedan para un plan posterior.
-> **Estado:** 5 tasks, todas ⬜ PENDING. Cada una tiene su task file canonico.
+> **Estado:** 5 tasks, todas ✅ COMPLETED. Plan cerrado y archivado el 2026-10-23.
 
 ## Tabla resumen
 
