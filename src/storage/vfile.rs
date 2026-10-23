@@ -14,7 +14,7 @@
 
 use crate::binary_header::Header;
 #[cfg(feature = "encryption")]
-use crate::crypto::{Cipher, EncryptionStream};
+use crate::crypto::{Cipher, EncryptionStream, Zeroize};
 use crate::error::{Error, Result};
 use crate::node::DiskNodeHeader;
 #[cfg(unix)]
@@ -354,6 +354,27 @@ impl AlignedBlob {
         // invalid bit patterns and the prefix/suffix are empty.
         let (_, bytes, _) = unsafe { self.words.align_to_mut::<u8>() };
         &mut bytes[..self.len]
+    }
+}
+
+#[cfg(feature = "encryption")]
+impl Zeroize for AlignedBlob {
+    fn zeroize(&mut self) {
+        self.as_mut_slice().zeroize();
+    }
+}
+
+#[cfg(feature = "encryption")]
+impl Drop for AlignedBlob {
+    /// Zeroize the plaintext bytes on drop (ADR-0057 C-5 / FIND-618).
+    ///
+    /// The `DecryptCache` LRU evicts entries as `Arc<AlignedBlob>`. When the
+    /// last `Arc` is dropped the plaintext must not linger in the heap where
+    /// a core dump or a subsequent allocation could read it.  The wipe runs
+    /// through the byte view of `words` so that `black_box` prevents the
+    /// compiler from optimising it away as a dead store.
+    fn drop(&mut self) {
+        self.zeroize();
     }
 }
 
@@ -2059,5 +2080,19 @@ mod encryption_tests {
         let (copies, bytes) = copy_probe::snapshot();
         assert_eq!(copies, 1, "a cache hit copies only the `f32` words");
         assert_eq!(bytes, WORDS);
+    }
+
+    /// FIND-618: `AlignedBlob` implements `Zeroize` and its `Drop` implementation
+    /// zeroes out memory so that decrypted plaintext does not linger in heap.
+    #[test]
+    fn aligned_blob_zeroizes_plaintext() {
+        let payload = b"super_secret_decrypted_vector_data_12345678";
+        let mut blob = AlignedBlob::from_bytes(payload);
+        assert_eq!(blob.as_slice(), payload);
+        assert!(blob.words.iter().any(|&w| w != 0));
+
+        blob.zeroize();
+        assert!(blob.as_slice().iter().all(|&b| b == 0));
+        assert!(blob.words.iter().all(|&w| w == 0));
     }
 }
