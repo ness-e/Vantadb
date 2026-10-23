@@ -30,7 +30,7 @@ use crate::error::{Error, Result};
 #[cfg(feature = "encryption")]
 use crate::crypto::registry::{AadBuilder, Artifact, KeyRegistry, NonceAllocator};
 #[cfg(feature = "encryption")]
-use crate::crypto::{Cipher, CryptoError, Nonce};
+use crate::crypto::{Cipher, CryptoError, Nonce, Zeroizing};
 #[cfg(feature = "encryption")]
 use parking_lot::Mutex;
 #[cfg(feature = "encryption")]
@@ -189,13 +189,18 @@ impl VFileCrypto {
 
     /// Open a node record: the plaintext `DiskNodeHeader ‖ payload`.
     ///
+    /// The returned buffer is wrapped in [`Zeroizing`] so its bytes are wiped
+    /// on drop (ADR-0057 C-5 / FIND-618): the AEAD output is the only copy of
+    /// the plaintext before it is copied into the `AlignedBlob`; releasing it
+    /// without wiping would leave the plaintext in the heap.
+    ///
     /// # Errors
     ///
     /// [`Error::EncryptionCorrupt`] when the record is structurally broken
     /// (truncated, impossible length) and [`Error::EncryptionKeyRejected`]
     /// when the AEAD tag does not authenticate (wrong key **or** tampered
     /// ciphertext — a single tag cannot tell them apart).
-    pub(crate) fn open_node(&self, offset: u64, record: &[u8]) -> Result<Vec<u8>> {
+    pub(crate) fn open_node(&self, offset: u64, record: &[u8]) -> Result<Zeroizing<Vec<u8>>> {
         if record.len() < RECORD_PREFIX_LEN + TAG_LEN {
             return Err(corrupt(format!(
                 "node record at offset {offset} is truncated ({} bytes)",
@@ -221,6 +226,7 @@ impl VFileCrypto {
         .build();
         self.cipher
             .decrypt_with_nonce(&nonce, ct, &aad)
+            .map(Zeroizing::new)
             .map_err(|_| Error::EncryptionKeyRejected {
                 artifact: ARTIFACT.to_string(),
             })
@@ -808,5 +814,23 @@ mod tests {
             &expected[16..],
             "the cursor, the node header and the payload must be byte-identical"
         );
+    }
+
+    /// FIND-618: `open_node` returns `Zeroizing<Vec<u8>>` so that AEAD-decrypted
+    /// plaintext is safely wiped upon drop.
+    #[test]
+    fn vfile_v3_open_node_returns_zeroizing_plaintext() {
+        use crate::crypto::Zeroize;
+        let dir = tempfile::tempdir().unwrap();
+        let crypto = VFileCrypto::open(dir.path(), &material(0x42)).expect("crypto");
+        let payload = b"critical_plaintext_data_must_be_zeroized";
+        let record = crypto.seal_node(64, payload).expect("seal");
+
+        let mut opened = crypto.open_node(64, &record).expect("open_node");
+        assert_eq!(&*opened, payload);
+
+        // Explicitly zeroize to verify Zeroize trait behavior
+        opened.zeroize();
+        assert!(opened.iter().all(|&b| b == 0));
     }
 }
