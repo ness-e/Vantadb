@@ -17,11 +17,11 @@ tags: [vantadb, plan, backlog, criticas, parser, planner, engine]
 
 | # | Task | Fila(s) | Área | Ficheros | Agente | Estado |
 |---|------|---------|------|----------|--------|--------|
-| 1 | `FIND-518` | FIND-518 🔴 + FIND-519 🟠 | Parser de IQL | `src/parser/**`, `src/executor.rs` | vanta-worker | ⬜ PENDING |
-| 2 | `FIND-552` | FIND-552 🔴 | physical_plan (proyección) | `src/physical_plan/project.rs`, `src/executor.rs` | vanta-worker | ⬜ PENDING |
-| 3 | `FIND-553` | FIND-553 🔴 + FIND-554 🔴 (+FIND-521/560 🟠) | planner + CBO + vector | `src/planner.rs`, `src/physical_plan/vector.rs`, `src/cost_estimator.rs` | vanta-engine | ⬜ PENDING |
-| 4 | `FIND-343` | FIND-343 🔴 | Durabilidad (borrado físico) | `src/wal*.rs`, `src/backends/**`, `src/storage/archive.rs` | vanta-worker | ⬜ PENDING |
-| 5 | `FIND-517` | FIND-517 🔴 | Binding de Node (reserva) | `vantadb-node/**`, `src/index/**` | vanta-worker | ⬜ PENDING |
+| 1 | `FIND-518` | FIND-518 🔴 + FIND-519 🟠 | Parser de IQL | `src/parser/**`, `src/executor.rs` | vanta-worker | ✅ COMPLETED (8d7425ab, P2-01 APTO, a09de3e0) |
+| 2 | `FIND-552` | FIND-552 🔴 | physical_plan (proyección) | `src/physical_plan/project.rs`, `src/executor.rs` | vanta-worker | ✅ COMPLETED (d18c9be2, P2-01 APTO, a09de3e0) |
+| 3 | `FIND-553` | FIND-553 🔴 + FIND-554 🔴 (+FIND-560 🟠) | planner + CBO + vector | `src/planner.rs`, `src/physical_plan/vector.rs`, `src/cost_estimator.rs` | vanta-engine | ✅ COMPLETED (59ab1bdb, R1/R2 en 71ba652b; FIND-521 sigue abierta) |
+| 4 | `FIND-343` | FIND-343 🔴 | Durabilidad (borrado físico) | `src/wal*.rs`, `src/backends/**`, `src/storage/archive.rs` | vanta-worker | 🟡 PARCIAL (mitad WAL implementada en 16eafbbe; journal LSM Fjall documentado) |
+| 5 | `FIND-517` | FIND-517 🔴 | Binding de Node (reserva) | `vantadb-node/**`, `src/index/**` | vanta-worker | ✅ COMPLETED (P2-01 APTO, a09de3e0) |
 
 **Por qué 5 tasks y no 6**: FIND-553 y FIND-554 tocan los mismos ficheros del planner (el fix de
 uno es el código del otro) ⇒ van en la misma task, en orden. FIND-518 arrastra a su hermana

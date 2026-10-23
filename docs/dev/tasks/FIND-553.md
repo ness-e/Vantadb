@@ -1,7 +1,7 @@
 ---
 title: "FIND-553 - El path vectorial no scopea por entidad y el CBO puede eliminar un predicado"
 kind: task
-status: active
+status: completed
 description: "Que la busqueda vectorial respete la entidad consultada y que el CBO no pueda descartar un predicado del WHERE. Incluye FIND-554, FIND-521 y FIND-560."
 tags: [planner, cbo, vector-search, critica, correctness]
 ---
@@ -23,7 +23,7 @@ Los dos son del mismo modulo (`src/planner.rs`) y el fix de uno toca el codigo d
 - **Turns estimados:** 8-12
 - **Creado:** 2026-10-21T12:00
 - **last-synced:** 2026-10-21T21:40
-- **Estado:** 🟡 IN PROGRESS (implementado y verificado; review P2-01 pendiente)
+- **Estado:** ✅ COMPLETADA (implementada en 59ab1bdb, R1/R2 corregidos en 71ba652b, 2526 tests verdes, recall 1.0000, cerrada y purgada del backlog)
 - **Incógnitas (uphill):** 0 abiertas
 - **Pendientes (downhill):** 0 steps de ejecución restantes (6/6 hechos)
 

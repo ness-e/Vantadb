@@ -36,7 +36,7 @@ y privacidad**, y su alcance hay que delimitar antes de codificar.
 - **Turns estimados:** 8-12
 - **Creado:** 2026-10-21T12:00
 - **last-synced:** 2026-10-21T20:10
-- **Estado:** 🟡 EN REVISION (implementado y verificado; falta la review P2-01 de otro agente)
+- **Estado:** 🟡 PARCIAL (mitad WAL implementada en 16eafbbe y verificada con 9 tests; purga física en journal LSM Fjall retenida y documentada)
 - **Incógnitas (uphill):** 0 abiertas
 - **Pendientes (downhill):** 0 steps de ejecución (6/6 hechos) - queda el gate P2-01
 

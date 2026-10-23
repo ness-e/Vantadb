@@ -1,7 +1,7 @@
 ---
 title: "FIND-518 - El WHERE entero de IQL se pierde si la primera condicion no parsea"
 kind: task
-status: review
+status: completed
 description: "Corregir el parser: un WHERE mal formado debe ser un error de parseo, no un escaneo sin filtro. Incluye FIND-519 (el trailing input se descarta en silencio)."
 tags: [parser, iql, critica, correctness]
 ---
@@ -25,7 +25,7 @@ El parser de IQL envuelve la clausula `WHERE` en `opt(...)`: en `nom`, un `opt` 
 - **Turns estimados:** 6-8
 - **Creado:** 2026-10-21T12:00
 - **last-synced:** 2026-10-21T18:40
-- **Estado:** 🟡 EN REVISION (implementado y verificado; falta la review P2-01 de otro agente)
+- **Estado:** ✅ COMPLETADA (implementada en 8d7425ab, verificada con 2525 tests verdes, review P2-01 APTO en d5a8d4bc, fila purgada en a09de3e0)
 - **Incógnitas (uphill):** 0 abiertas
 - **Pendientes (downhill):** 0 steps de ejecución (4/4 hechos) — queda el gate P2-01
 
