@@ -1,4 +1,4 @@
-﻿---
+---
 title: "Plan de cableado de la feature `encryption`: cifrado en reposo en los 4 artefactos on-disk"
 kind: plan
 status: completed
