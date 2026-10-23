@@ -123,14 +123,37 @@ impl StorageEngine {
         Ok(())
     }
 
-    /// Compact the WAL: flush all data, archive the current WAL file
-    /// and start a fresh WAL.
+    /// Compact the WAL: flush all data, archive the current WAL file,
+    /// start a fresh WAL, and (FIND-343) trigger backend physical erasure
+    /// if the backend implements the `Compactable` role.
+    ///
+    /// The backend compaction step is **best-effort and non-fatal**: if it
+    /// fails, a warning is logged but `compact_wal` still returns `Ok(())`.
+    /// This preserves the existing durability contract while adding the
+    /// physical-erasure privacy guarantee on backends that support it (Fjall).
     #[tracing::instrument(skip(self), level = "info", err)]
     pub fn compact_wal(&self) -> Result<()> {
         self.flush()?;
 
         if let Some(ref sharded) = self.wal {
             sharded.rotate_all()?;
+        }
+
+        // FIND-343: Physical erasure — purge backend journal (best-effort).
+        // Fjall retains deleted KV bytes in its internal journal (`0.jnl`)
+        // until its own GC runs. We cannot force that GC, so we trigger an
+        // atomic keyspace rewrite via the `Compactable` role which produces a
+        // fresh journal containing only live data. A compaction failure does
+        // NOT abort compact_wal (privacy improvement, not a durability gate).
+        if let Some(compactable) = self.backend.as_compactable() {
+            match compactable.compact() {
+                Ok(true) => tracing::info!("compact_wal: backend compaction complete"),
+                Ok(false) => tracing::debug!("compact_wal: backend compaction skipped (no-op)"),
+                Err(e) => tracing::warn!(
+                    error = %e,
+                    "compact_wal: backend compaction failed (non-fatal)"
+                ),
+            }
         }
 
         let zero: [u8; 8] = 0u64.to_le_bytes();
