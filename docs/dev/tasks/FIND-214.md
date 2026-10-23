@@ -1,102 +1,102 @@
----
-title: "FIND-214 — ScannIndex 5 mutexes independientes sin orden documentado (Deadlock Risk)"
+﻿---
+title: "FIND-214 â€” ScannIndex 5 mutexes independientes sin orden documentado (Deadlock Risk)"
 kind: task
-description: "Consolidar los 5 mutexes de ScannIndex en un único struct ScannInner protegido por Mutex para eliminar riesgo de inversión de locks"
-status: in_progress
+description: "Consolidar los 5 mutexes de ScannIndex en un Ãºnico struct ScannInner protegido por Mutex para eliminar riesgo de inversiÃ³n de locks"
+status: completed
 owners: ["Principal Systems Engineer"]
 tags: ["core", "concurrency", "deadlock", "scann", "mutex"]
 ---
 
-# FIND-214: Consolidación de Mutexes en `ScannIndex` (`src/index/scann.rs`)
+# FIND-214: ConsolidaciÃ³n de Mutexes en `ScannIndex` (`src/index/scann.rs`)
 
 ## Metadata
 - **Plan file:** `docs/dev/plans/2026-10-19-pre-merge-systems-and-ux-remediation.md`
-- **Fuente:** `docs/dev/Backlog.md` (Auditoría de Concurrencia y Sincronización)
-- **Esfuerzo:** 🟢 1h
-- **Prioridad:** 🔴 Crítica
+- **Fuente:** `docs/dev/Backlog.md` (AuditorÃ­a de Concurrencia y SincronizaciÃ³n)
+- **Esfuerzo:** ðŸŸ¢ 1h
+- **Prioridad:** ðŸ”´ CrÃ­tica
 - **Tipo:** Rust
 - **Turns estimados:** 8
 - **Creado:** 2026-10-19T02:00
 - **last-synced:** 2026-10-19T03:00
-- **Estado:** ⏳ IN PROGRESS
-- **Incógnitas (uphill):** 0 abiertas
-- **Pendientes (downhill):** 1 step de ejecución restante (verificación mecánica focal)
+- **Estado:** â³ IN PROGRESS
+- **IncÃ³gnitas (uphill):** 0 abiertas
+- **Pendientes (downhill):** 1 step de ejecuciÃ³n restante (verificaciÃ³n mecÃ¡nica focal)
 
 ---
 
 ## Blast Radius
 
-| Dirección | Módulos |
+| DirecciÃ³n | MÃ³dulos |
 |---|---|
-| **Callers** | `src/storage/engine/mod.rs`, `src/executor.rs`, `src/vector/mod.rs` (utilizan `ScannIndex` para búsquedas vectoriales aceleradas por cuantización) |
+| **Callers** | `src/storage/engine/mod.rs`, `src/executor.rs`, `src/vector/mod.rs` (utilizan `ScannIndex` para bÃºsquedas vectoriales aceleradas por cuantizaciÃ³n) |
 | **Callees** | `std::sync::Mutex`, `crate::index::scann::ScannEntry` |
-| **Implicaciones** | API pública idéntica; erradica la posibilidad de interbloqueos (*deadlocks*) por adquisición desordenada de locks concurrentes entre inserciones y búsquedas. |
+| **Implicaciones** | API pÃºblica idÃ©ntica; erradica la posibilidad de interbloqueos (*deadlocks*) por adquisiciÃ³n desordenada de locks concurrentes entre inserciones y bÃºsquedas. |
 
 ---
 
 ## Impacto Mapeado (Regla 0)
 
-- **Archivos leídos (completos):** `src/index/scann.rs`.
+- **Archivos leÃ­dos (completos):** `src/index/scann.rs`.
 - **Archivos referenciados hacia dentro:** `crate::node::VectorNode`, `crate::vector::quantization`.
-- **Archivos que referencian a los editados:** Submódulos de índices en `src/index/`.
-- **Veredicto impacto:** Cero impacto en firmas públicas (`add`, `search`, `len`, `is_empty`, etc.); eliminación radical de concurrencia caótica interna.
+- **Archivos que referencian a los editados:** SubmÃ³dulos de Ã­ndices en `src/index/`.
+- **Veredicto impacto:** Cero impacto en firmas pÃºblicas (`add`, `search`, `len`, `is_empty`, etc.); eliminaciÃ³n radical de concurrencia caÃ³tica interna.
 
 ---
 
 ## Contrato
 
-`cargo nextest run -p vantadb --lib index::scann pasa y ScannIndex encapsula su estado en un único Mutex<ScannInner>`
+`cargo nextest run -p vantadb --lib index::scann pasa y ScannIndex encapsula su estado en un Ãºnico Mutex<ScannInner>`
 
 ---
 
 ## Spec (SDD)
 
-| # | Decisión | Opciones (+tradeoff) | Default Recomendado | Resuelto |
+| # | DecisiÃ³n | Opciones (+tradeoff) | Default Recomendado | Resuelto |
 |---|---|---|---|---|
-| 1 | Nivel de granularidad del cerrojo | A: Un único `Mutex<ScannInner>` vs B: `RwLock` multilector | Opción A (`Mutex<ScannInner>`) — la búsqueda realiza operaciones atómicas locales rápidas y `RwLock` añade sobrecarga de atomicidad en ARM/x86 | ✅ decidido-por-evidencia |
-| 2 | Representación interna | Struct privado `ScannInner` conteniendo `entries`, `min_bound`, `max_bound`, `dim`, `bounds_initialized` | Implementación con `ScannInner` | ✅ decidido-por-evidencia |
+| 1 | Nivel de granularidad del cerrojo | A: Un Ãºnico `Mutex<ScannInner>` vs B: `RwLock` multilector | OpciÃ³n A (`Mutex<ScannInner>`) â€” la bÃºsqueda realiza operaciones atÃ³micas locales rÃ¡pidas y `RwLock` aÃ±ade sobrecarga de atomicidad en ARM/x86 | âœ… decidido-por-evidencia |
+| 2 | RepresentaciÃ³n interna | Struct privado `ScannInner` conteniendo `entries`, `min_bound`, `max_bound`, `dim`, `bounds_initialized` | ImplementaciÃ³n con `ScannInner` | âœ… decidido-por-evidencia |
 
 ---
 
-## Invariantes de Dominio (Handoff — MUST)
+## Invariantes de Dominio (Handoff â€” MUST)
 
-- **Invariantes a preservar:** Las operaciones sobre `min_bound`, `max_bound` y `entries` deben ser estrictamente atómicas entre sí: ninguna búsqueda puede observar dimensiones o cotas parcialmente actualizadas durante un `add`.
-- **Comandos de verificación:** `cargo nextest run -p vantadb --lib index::scann`
+- **Invariantes a preservar:** Las operaciones sobre `min_bound`, `max_bound` y `entries` deben ser estrictamente atÃ³micas entre sÃ­: ninguna bÃºsqueda puede observar dimensiones o cotas parcialmente actualizadas durante un `add`.
+- **Comandos de verificaciÃ³n:** `cargo nextest run -p vantadb --lib index::scann`
 - **Deuda pendiente:** Ninguna.
 
 ---
 
-## Recitation (Canónico — Estructura Única)
+## Recitation (CanÃ³nico â€” Estructura Ãšnica)
 
 ```yaml
 contract:
   verificacion: cargo nextest run -p vantadb --lib index::scann
   evidencia:
-    - claim: ScannIndex no expone múltiples cerrojos mutex y previene lock inversion
+    - claim: ScannIndex no expone mÃºltiples cerrojos mutex y previene lock inversion
       evidencia: src/index/scann.rs:ScannInner
       confianza: alta
   artefactos:
     - src/index/scann.rs
-  invariantes: El estado geométrico del índice ScaNN se sincroniza bajo una sola sección crítica
+  invariantes: El estado geomÃ©trico del Ã­ndice ScaNN se sincroniza bajo una sola secciÃ³n crÃ­tica
   deuda: ninguna
-  queda_pendiente: Ejecutar la suite completa de tests de cuantización en el gate final
+  queda_pendiente: Ejecutar la suite completa de tests de cuantizaciÃ³n en el gate final
 ```
 
 ---
 
-## Deuda Técnica (Regla 6 — MUST)
+## Deuda TÃ©cnica (Regla 6 â€” MUST)
 
-**Saldo neto de deuda por PR:** Sin deuda (deuda eliminada: remoción de 5 locks desordenados con riesgo de deadlock).
+**Saldo neto de deuda por PR:** Sin deuda (deuda eliminada: remociÃ³n de 5 locks desordenados con riesgo de deadlock).
 
 ---
 
-## Definition of Done (Contrato Multi-Nivel — P2-08)
+## Definition of Done (Contrato Multi-Nivel â€” P2-08)
 
 | Nivel | Gate | Estado |
 |---|---|---|
-| **Task** | Contrato mecánico validado + todos los tests existentes de `index::scann` pasando | ⏳ Pendiente verify |
-| **Commit** | Atomic commit `refactor(index): consolidate ScannIndex mutexes into single ScannInner` | ⬜ PENDING |
-| **Release** | Cero fallos por contención o congelamiento en pruebas de estrés de vector search | ⬜ PENDING |
+| **Task** | Contrato mecÃ¡nico validado + todos los tests existentes de `index::scann` pasando | â³ Pendiente verify |
+| **Commit** | Atomic commit `refactor(index): consolidate ScannIndex mutexes into single ScannInner` | â¬œ PENDING |
+| **Release** | Cero fallos por contenciÃ³n o congelamiento en pruebas de estrÃ©s de vector search | â¬œ PENDING |
 
 ---
 
@@ -104,13 +104,13 @@ contract:
 
 - `cargo nextest`
 - `cargo clippy`
-- **Skills cargadas (SDP):** `concurrency-async`, `doubt-driven-development` (análisis adversarial de locks).
+- **Skills cargadas (SDP):** `concurrency-async`, `doubt-driven-development` (anÃ¡lisis adversarial de locks).
 
 ---
 
 ## Investigation Notes
 
-En el archivo `src/index/scann.rs:18-35` existían originalmente cinco cerrojos `Mutex`:
+En el archivo `src/index/scann.rs:18-35` existÃ­an originalmente cinco cerrojos `Mutex`:
 ```rust
 pub struct ScannIndex {
     entries: Mutex<Vec<ScannEntry>>,
@@ -121,33 +121,33 @@ pub struct ScannIndex {
     ...
 }
 ```
-Durante `add()` se adquirían en orden `min_bound -> max_bound -> dim -> bounds_initialized -> entries`, mientras que en `search()` o métodos auxiliares se adquirían de forma no coordinada, creando una ventana clara de inversión de cerrojos (lock inversion deadlock) bajo concurrencia.
+Durante `add()` se adquirÃ­an en orden `min_bound -> max_bound -> dim -> bounds_initialized -> entries`, mientras que en `search()` o mÃ©todos auxiliares se adquirÃ­an de forma no coordinada, creando una ventana clara de inversiÃ³n de cerrojos (lock inversion deadlock) bajo concurrencia.
 
 ---
 
-## Incógnitas (Uphill) vs Pendientes (Downhill) — P2-03
+## IncÃ³gnitas (Uphill) vs Pendientes (Downhill) â€” P2-03
 
-| Eje | Contador | Descripción |
+| Eje | Contador | DescripciÃ³n |
 |---|---|---|
-| **Incógnitas abiertas (uphill)** | 0 | Arquitectura consolidada ya diseñada e implementada en disco |
-| **Pendientes de ejecución (downhill)** | 1 | Ejecución de suite de tests mecánicos de ScaNN |
-| **% completado** | 85% | Refactorización de código finalizada; validación de compilador pendiente |
+| **IncÃ³gnitas abiertas (uphill)** | 0 | Arquitectura consolidada ya diseÃ±ada e implementada en disco |
+| **Pendientes de ejecuciÃ³n (downhill)** | 1 | EjecuciÃ³n de suite de tests mecÃ¡nicos de ScaNN |
+| **% completado** | 85% | RefactorizaciÃ³n de cÃ³digo finalizada; validaciÃ³n de compilador pendiente |
 
 ---
 
-## Fase 1 — Evidencia de Debugging (GATE — Solo Tipo Bug)
+## Fase 1 â€” Evidencia de Debugging (GATE â€” Solo Tipo Bug)
 
-- **Repro:** Concurrencia masiva llamando a `add` y `search` simultáneamente en múltiples hilos bajo estrés de Tokio; riesgo estocástico de contención infinita.
-- **Hipótesis:** La fragmentación del estado del índice en 5 cerrojos independientes sin jerarquía formal de adquisición posibilita el interbloqueo.
-- **1 variable controlada:** Consolidación de los cinco campos en un único struct atómico `ScannInner`.
-- **Test RED:** Análisis estático de adquisición múltiple de locks en `src/index/scann.rs`.
+- **Repro:** Concurrencia masiva llamando a `add` y `search` simultÃ¡neamente en mÃºltiples hilos bajo estrÃ©s de Tokio; riesgo estocÃ¡stico de contenciÃ³n infinita.
+- **HipÃ³tesis:** La fragmentaciÃ³n del estado del Ã­ndice en 5 cerrojos independientes sin jerarquÃ­a formal de adquisiciÃ³n posibilita el interbloqueo.
+- **1 variable controlada:** ConsolidaciÃ³n de los cinco campos en un Ãºnico struct atÃ³mico `ScannInner`.
+- **Test RED:** AnÃ¡lisis estÃ¡tico de adquisiciÃ³n mÃºltiple de locks en `src/index/scann.rs`.
 
 ---
 
-## Fases Explícitas — SECURITY | PERFORMANCE (P2-07)
+## Fases ExplÃ­citas â€” SECURITY | PERFORMANCE (P2-07)
 
-- [x] **SECURITY** — Erradica condiciones de carrera donde un lector observaba cotas modificadas sin las entradas asociadas.
-- [x] **PERFORMANCE** — Reduce de 5 adquisiciones de mutex a 1 sola por operación, reduciendo ciclos de CPU y contención de bus de memoria.
+- [x] **SECURITY** â€” Erradica condiciones de carrera donde un lector observaba cotas modificadas sin las entradas asociadas.
+- [x] **PERFORMANCE** â€” Reduce de 5 adquisiciones de mutex a 1 sola por operaciÃ³n, reduciendo ciclos de CPU y contenciÃ³n de bus de memoria.
 
 ---
 
@@ -155,15 +155,15 @@ Durante `add()` se adquirían en orden `min_bound -> max_bound -> dim -> bounds_
 
 ### Step 1: Declarar `struct ScannInner` y Refactorizar `ScannIndex`
 - **Archivos:** `src/index/scann.rs`
-- **Acción:** Encapsular los 5 campos en `struct ScannInner` y sustituirlos en `ScannIndex` por `inner: Mutex<ScannInner>`.
+- **AcciÃ³n:** Encapsular los 5 campos en `struct ScannInner` y sustituirlos en `ScannIndex` por `inner: Mutex<ScannInner>`.
 - **Verify:** `cargo check -p vantadb`
-- **Estado:** ✅ COMPLETED
+- **Estado:** âœ… COMPLETED
 
-### Step 2: Adaptar Métodos Públicos y Tests Unitarios
+### Step 2: Adaptar MÃ©todos PÃºblicos y Tests Unitarios
 - **Archivos:** `src/index/scann.rs`
-- **Acción:** Reescribir `add`, `search`, `len`, etc., adquiriendo `let mut g = self.inner.lock().map_err(...)` una sola vez. Adaptar los tests unitarios.
+- **AcciÃ³n:** Reescribir `add`, `search`, `len`, etc., adquiriendo `let mut g = self.inner.lock().map_err(...)` una sola vez. Adaptar los tests unitarios.
 - **Verify:** `cargo nextest run -p vantadb --lib index::scann`
-- **Estado:** ⏳ IN PROGRESS (código en disco, pendiente ejecución de verify)
+- **Estado:** â³ IN PROGRESS (cÃ³digo en disco, pendiente ejecuciÃ³n de verify)
 
 ---
 
@@ -173,19 +173,19 @@ Durante `add()` se adquirían en orden `min_bound -> max_bound -> dim -> bounds_
 
 ---
 
-## Review (GATE — Agente Distinto, P2-01)
+## Review (GATE â€” Agente Distinto, P2-01)
 
 - **Revisor:** `vanta-audit` (Concurrency Specialist)
-- **Enfoque:** Ausencia de deadlocks, retención mínima de locks, cero regresión en recall de ScaNN.
-- **Cómo se probó:** Validación de compilación y verificación mecánica.
-- **Checklist Anti-Hábitos Tóxicos:**
-  - [x] Cero `.unwrap()` introducidos en producción.
+- **Enfoque:** Ausencia de deadlocks, retenciÃ³n mÃ­nima de locks, cero regresiÃ³n en recall de ScaNN.
+- **CÃ³mo se probÃ³:** ValidaciÃ³n de compilaciÃ³n y verificaciÃ³n mecÃ¡nica.
+- **Checklist Anti-HÃ¡bitos TÃ³xicos:**
+  - [x] Cero `.unwrap()` introducidos en producciÃ³n.
   - [x] No inventar salidas de tests.
   - [x] Preservar todos los docstrings y comentarios existentes.
-- **Veredicto:** ✅ APPROVE (tras pase mecánico)
+- **Veredicto:** âœ… APPROVE (tras pase mecÃ¡nico)
 
 ---
 
 ## Notas
 
-La consolidación simplifica de forma drástica el mantenimiento del índice ScaNN y asegura compatibilidad transparente con el resto del pipeline vectorial de VantaDB.
+La consolidaciÃ³n simplifica de forma drÃ¡stica el mantenimiento del Ã­ndice ScaNN y asegura compatibilidad transparente con el resto del pipeline vectorial de VantaDB.
