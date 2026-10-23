@@ -1,7 +1,7 @@
 ---
 title: "FIND-517 - La pre-reserva de 320 MB al conectar el binding de Node"
 kind: task
-status: review
+status: completed
 description: "Que conectar un store vacio no reserve 320 MB: es el coste dominante de memoria del producto de Ego (VBD-REQ-14)."
 tags: [bindings, node, memoria, critica, ego]
 ---
@@ -23,7 +23,7 @@ Los tres fixes posibles (del informe): (a) **modo lazy**: no reservar hasta que 
 - **Turns estimados:** 6-9
 - **Creado:** 2026-10-21T12:00
 - **last-synced:** 2026-10-21T14:20
-- **Estado:** 🟡 EN REVISION (implementado y verificado; falta la review P2-01 de otro agente)
+- **Estado:** ✅ COMPLETADA (implementada, review P2-01 APTO en d5a8d4bc, cerrada y purgada en a09de3e0)
 - **Incógnitas (uphill):** 0 abiertas
 - **Pendientes (downhill):** 0 steps de ejecución restantes (5/5 completados) + review P2-01
 

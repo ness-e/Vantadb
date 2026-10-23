@@ -1,7 +1,7 @@
 ---
 title: "FIND-552 - La proyeccion (FETCH) destruye los metadatos que necesitan los post-filtros"
 kind: task
-status: review
+status: completed
 description: "Que AS OF y el filtro de confianza se apliquen aunque la query proyecte campos: hoy FETCH (name) anula el filtro valid-time."
 tags: [physical-plan, executor, critica, correctness]
 ---
@@ -23,7 +23,7 @@ Ojo con `FIND-559` (la clausula `ROLE` lee `_owner_role`, que la proyeccion tamb
 - **Turns estimados:** 5-7
 - **Creado:** 2026-10-21T12:00
 - **last-synced:** 2026-10-21T12:00
-- **Estado:** 🟡 EN REVISION (implementado y verificado; falta la review P2-01 de otro agente)
+- **Estado:** ✅ COMPLETADA (implementada en d18c9be2, verificada con 2525 tests verdes, review P2-01 APTO en d5a8d4bc, fila purgada en a09de3e0)
 - **Incógnitas (uphill):** 0 abiertas
 - **Pendientes (downhill):** 0 steps de ejecución restantes (4/4 completados) + review P2-01
 
