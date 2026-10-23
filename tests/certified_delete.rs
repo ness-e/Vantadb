@@ -238,25 +238,18 @@ fn certified_delete_not_found_is_honest_not_silent() {
     db.close().expect("close");
 }
 
-/// H-1 (review VER-02): a **claimless** certificate — every surface claim
-/// omitted — with a **recomputed** integrity hash must still fail
-/// verification while residues are live. Verification is not claim-driven:
-/// the canonical surface inventory is validated before any verdict.
-/// EGO-16: auditoría de borrado físico — tras delete + vacuum + merge +
-/// WAL-compact + flush + close, ningún byte del payload puede seguir
+/// EGO-16 / FIND-343: auditoría de borrado físico — tras delete + vacuum +
+/// merge + WAL-compact + flush + close, ningún byte del payload puede seguir
 /// legible en el directorio de datos.
 ///
-/// Estado 2026-10-16: IGNORADO porque FALLA por diseño actual (evidencia
-/// abajo) — el fix exige rediseño Engine (el WAL es commit point + cadena
-/// VER-01; borrar historia rompe recovery) y sale del boundary worker.
-/// Corre en jobs de certificación/auditoría (`--ignored`), no en Fast Gate.
+/// Implementado en FIND-343 (2026-10-23): `FjallBackend` ahora implementa
+/// `Compactable` mediante reescritura atómica de keyspaces. `compact_wal()`
+/// delega en `Compactable::compact()` tras rotar el WAL, produciendo un
+/// journal fresco (`0.jnl`) sin rastro de los datos eliminados.
+/// El WAL rotado sigue siendo descartado por `rotate_all()`.
 ///
-/// Evidencia (FIND-343): payload legible en `data/vanta.shard0.wal`
-/// (`compact_wal` rota, no borra — `maintenance.rs:129`) y en `0.jnl`
-/// (journal Fjall conserva el KV hasta su propio GC). El certificado
-/// (`delete_certified`) sigue garantizando 0 residuos a nivel API.
+/// Corre en Fast Gate y en jobs de certificación/auditoría.
 #[test]
-#[ignore = "EGO-16: borrado físico pendiente de Engine (payload sobrevive en WAL rotado + journal Fjall); ver FIND en Backlog"]
 fn physical_erasure_no_payload_bytes_after_full_maintenance() {
     use vantadb::PipelineMode;
 
