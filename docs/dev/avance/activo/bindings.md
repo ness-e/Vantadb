@@ -1337,7 +1337,7 @@ everse/created_at_ms (#[serde(default)], back-compat). Contrato: test bindgen wa
 ### EGO-15: Poda de grado en `graphragSearch` (`max_degree_per_node`)
 - **Fecha:** 2026-10-19
 - **Objetivo:** Poda por grado para evitar abanico combinatorio de lecturas en nodos centrales
-- **Resultado:** ✅ Campo `max_degree_per_node` agregado en `GraphRagOptions` y aplicado durante la expansión en `src/graphrag/expand.rs:77` y `src/graphrag/pipeline.rs:13,106`.
+- **Resultado:** ⚠️ Parcial (re-verificado 2026-10-22) — Campo `max_degree_per_node` + `min_edge_weight` agregado en `GraphRagPipeline` (no en `GraphRagOptions`, que no existe) y aplicado durante la expansión en `src/graphrag/expand.rs:77` y `src/graphrag/pipeline.rs:13,106`; 2 tests verdes (`tests/graphrag_test.rs:286,346`). **No es alcanzable desde `graphragSearch`**: el pipeline por defecto usa `usize::MAX` (sin cap, `pipeline.rs:70`) y ninguna superficie lo expone. Además el sustrato sembrado solo por la API de grafo da 0 seeds (`find_seeds` → `embedded.search` sobre el índice de memoria) ⇒ 0 nodos / 0 aristas. La fila sigue viva en el Backlog con el alcance residual.
 
 ### FIND-448: 26 hallazgos P2/P3 de los READMEs (raíz + sub-paquetes)
 - **Fecha:** 2026-10-20
