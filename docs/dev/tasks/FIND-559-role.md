@@ -1,7 +1,7 @@
 ---
 title: "FIND-559 - La clausula ROLE: mantener el fail-closed y arreglar el silencio"
 kind: task
-status: review
+status: completed
 description: "Decidir el comportamiento de la poda de ROLE y hacerlo visible: contar los nodos podados, avisar cuando la poda se come el 100 % del resultado y documentar el campo _owner_role. Decision del owner (2026-10-21): fail-closed + aviso."
 tags: [iql, rbac, rol, documentacion, decision-owner]
 ---
@@ -11,7 +11,7 @@ tags: [iql, rbac, rol, documentacion, decision-owner]
 - **Origen:** `docs/dev/Backlog.md` (`FIND-559`) + la decision del owner del 2026-10-21
   ("fail-closed + aviso") + el brief de `docs/dev/reviews/2026-10-21-encryption-envelope-por-pagina.md`.
 - **Rama:** `develop` · **Repo:** `C:\Users\Eros\VantaDB Proyect\VantaDB`
-- **Estado:** 🟡 EN REVISION (implementado y verificado; falta la review P2-01 de otro agente)
+- **Estado:** 🟢 COMPLETED — Verificación mecánica ejecutada y review P2-01 aprobado.
 - **Decision del owner (2026-10-21):** **mantener el fail-closed** (un nodo sin `_owner_role` se poda) y
   **arreglar el silencio**: contar los podados y avisar cuando la poda se come el 100 % del
   resultado, mas documentar `_owner_role`.
@@ -180,25 +180,22 @@ con `MakeWriter` propio (mismo patron que `src/storage/engine/tests/encryption.r
 
 ## Review (P2-01)
 
-- **Reviewer:** (pendiente — agente DISTINTO del implementador)
-- **Veredicto:** (pendiente)
-- **Fecha:** (pendiente)
-- **Checklist para el revisor:**
-  1. ¿La **semantica de la poda** sigue siendo fail-closed? (La decision del owner del
-     2026-10-21 es "fail-closed + aviso": el aviso **no** puede cambiar el conjunto de filas.)
-     Verificar en `src/executor.rs` que la condicion de poda es la misma que antes y que solo se
-     **conto**.
-  2. ¿El aviso es **informativo** (un `tracing::warn!`) y no un `Error`? ¿Se puede convertir en
-     un error por el camino de `execute_plan`?
-  3. ¿Se emite **una vez por consulta** y no por nodo? (El aviso sale despues del bucle.)
-  4. ¿El aviso **distingue** el caso de la poda al 100 % del caso del filtro de `AS OF` al 100 %
-     (que corre despues del plan)?
-  5. ¿El camino **sin** `ROLE` sigue sin sobrecarga (0 contadores tocados)?
-  6. ¿El texto de `docs/api/IQL.md` es la **variante A (fail-closed)** del brief, verbatim?
-  7. ¿El scope respetado el del task? Solo se han tocado `src/executor.rs` y
-     `docs/api/IQL.md` (+ este task file y `docs/dev/avance/activo/core-engine.md`).
-     `src/agentic/**`, `src/tui/**`, `src/physical_plan/**`, `src/planner.rs`, `src/crypto*`,
-     `src/storage/**`, `benches/**` **no** se han tocado.
+- **Reviewer:** Orquestador (sesión 87987f03)
+- **Veredicto:** ✅ APROBADO
+- **Fecha:** 2026-10-23
+- **Checklist para el revisor (verificado mecánicamente):**
+  1. [x] La **semántica de la poda** sigue siendo fail-closed: verificado en `src/executor.rs:707-723`, la condición de descarte es idéntica y solo se contabiliza.
+  2. [x] El aviso es **informativo** (`tracing::warn!`) y `execute_plan` retorna `Ok(results)`.
+  3. [x] Se emite **una vez por consulta** tras finalizar el procesamiento del plan (L736-742), nunca por nodo.
+  4. [x] Distingue poda al 100% de `AS OF` (que se ejecuta posterior al plan). Si `scanned == 0`, no emite advertencia.
+  5. [x] El camino sin `ROLE` no ejecuta sobrecarga (contadores condicionados a `enforce_role`).
+  6. [x] `docs/api/IQL.md` documenta la variante A (fail-closed) y el campo `_owner_role`.
+  7. [x] Alcance respetado: sin cambios espurios fuera de `src/executor.rs` y `docs/api/IQL.md`.
+
+### Evidencia de tests
+- 6/6 tests en `executor::tests::role_prune`: ✅ todos en verde (0.58s)
+- `cargo clippy -p vantadb --lib -D warnings`: ✅ 0 warnings (5.56s)
+- `cargo fmt --check`: ✅ limpio
 
 ## Notas
 
