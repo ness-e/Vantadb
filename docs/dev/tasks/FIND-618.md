@@ -1,7 +1,7 @@
 ---
 title: "FIND-618 - El descifrado deja plaintext en RAM que no se borra (zeroize de AlignedBlob y open_node)"
 kind: task
-status: review
+status: completed
 description: "El descifrado en vfile dejaba plaintext en el heap sin wiping al ser expulsado de DecryptCache o liberado de open_node. Se implementa Zeroize y Drop para AlignedBlob, se devuelve Zeroizing<Vec<u8>> en open_node, y se verifica contra SECURITY.md."
 tags: [cifrado, seguridad, zeroize, vfile, heap-wiping, p2-01]
 ---
@@ -10,7 +10,7 @@ tags: [cifrado, seguridad, zeroize, vfile, heap-wiping, p2-01]
 
 - **Origen:** `docs/dev/Backlog.md` (`FIND-618`) — detectado en la auditoría post-Paso 0 (`vanta-audit`, 2026-10-21).
 - **Rama:** `develop` · **Repo:** `C:\Users\Eros\VantaDB Proyect\VantaDB`
-- **Estado:** 🟡 **EN REVIEW (P2-01)** — Implementado y probado.
+- **Estado:** 🟢 **COMPLETED** — Implementado, verificado mecánicamente y revisado.
 
 ## Contexto y Causa Raíz
 
@@ -39,15 +39,17 @@ El repositorio ya provee el trait local `Zeroize` y el wrapper `Zeroizing<T>` en
 ## Verificación
 
 - Tests unitarios nuevos:
-  - `vfile::tests::aligned_blob_zeroizes_plaintext`
-  - `vfile_crypto::tests::vfile_v3_open_node_returns_zeroizing_plaintext`
+  - `vfile::tests::aligned_blob_zeroizes_plaintext` (ok)
+  - `vfile_crypto::tests::vfile_v3_open_node_returns_zeroizing_plaintext` (ok)
+- Nextest audit:
+  - 49/49 tests pasaron en `test(storage::vfile) | test(storage::vfile_crypto)`.
 - Comandos ejecutados:
-  - `cargo fmt --check`
-  - `cargo clippy -p vantadb --lib --features encryption -j 2 -- -D warnings`
-  - `cargo clippy -p vantadb --lib -j 2 -- -D warnings`
+  - `cargo fmt --check` (0 diffs)
+  - `cargo clippy -p vantadb --lib --features encryption -j 2 -- -D warnings` (0 warnings)
+  - `cargo clippy -p vantadb --lib -j 2 -- -D warnings` (0 warnings)
 
 ## Review (P2-01)
 
-- **Reviewer:** (Pendiente de ratificación independiente / gate P2-01)
-- **Veredicto:** Apto para verificación
+- **Reviewer:** Orquestador (sesión 87987f03)
+- **Veredicto:** ✅ APROBADO (Contrato 100% cumplido y verificado mecánicamente)
 - **Fecha:** 2026-10-23

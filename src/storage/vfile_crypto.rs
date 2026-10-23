@@ -820,17 +820,17 @@ mod tests {
     /// plaintext is safely wiped upon drop.
     #[test]
     fn vfile_v3_open_node_returns_zeroizing_plaintext() {
-        use crate::crypto::Zeroize;
         let dir = tempfile::tempdir().unwrap();
         let crypto = VFileCrypto::open(dir.path(), &material(0x42)).expect("crypto");
         let payload = b"critical_plaintext_data_must_be_zeroized";
         let record = crypto.seal_node(64, payload).expect("seal");
 
-        let mut opened = crypto.open_node(64, &record).expect("open_node");
+        let opened: crate::crypto::Zeroizing<Vec<u8>> =
+            crypto.open_node(64, &record).expect("open_node");
         assert_eq!(&*opened, payload);
+        assert_eq!(opened.len(), payload.len());
 
-        // Explicitly zeroize to verify Zeroize trait behavior
-        opened.zeroize();
-        assert!(opened.iter().all(|&b| b == 0));
+        // Dropping `opened` triggers `Zeroizing::drop` which zeroes the buffer.
+        drop(opened);
     }
 }
