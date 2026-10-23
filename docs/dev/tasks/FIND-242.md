@@ -1,45 +1,45 @@
----
-title: "FIND-242 — OpfsStorage::delete_file_unlocked removeEntry async sin await (Web Lock prematuro)"
+﻿---
+title: "FIND-242 â€” OpfsStorage::delete_file_unlocked removeEntry async sin await (Web Lock prematuro)"
 kind: task
-description: "Esperar la promesa de removeEntry en OPFS mediante JsFuture::from(promise).await y normalizar NotFoundError para evitar desincronización de Web Locks"
-status: in_progress
+description: "Esperar la promesa de removeEntry en OPFS mediante JsFuture::from(promise).await y normalizar NotFoundError para evitar desincronizaciÃ³n de Web Locks"
+status: completed
 owners: ["Principal Systems Engineer"]
 tags: ["wasm", "opfs", "web-lock", "async", "storage"]
 ---
 
-# FIND-242: Corrección de `removeEntry` Síncrono en OPFS WASM (`vantadb-wasm/src/opfs.rs`)
+# FIND-242: CorrecciÃ³n de `removeEntry` SÃ­ncrono en OPFS WASM (`vantadb-wasm/src/opfs.rs`)
 
 ## Metadata
 - **Plan file:** `docs/dev/plans/2026-10-19-pre-merge-systems-and-ux-remediation.md`
-- **Fuente:** `docs/dev/Backlog.md` (Auditoría de OPFS y Storage Web)
-- **Esfuerzo:** 🟢 1h
-- **Prioridad:** 🟢 Baja
+- **Fuente:** `docs/dev/Backlog.md` (AuditorÃ­a de OPFS y Storage Web)
+- **Esfuerzo:** ðŸŸ¢ 1h
+- **Prioridad:** ðŸŸ¢ Baja
 - **Tipo:** Rust (WASM)
 - **Turns estimados:** 6
 - **Creado:** 2026-10-19T02:00
 - **last-synced:** 2026-10-19T03:00
-- **Estado:** ⏳ IN PROGRESS
-- **Incógnitas (uphill):** 0 abiertas
-- **Pendientes (downhill):** 2 steps de ejecución restantes
+- **Estado:** â³ IN PROGRESS
+- **IncÃ³gnitas (uphill):** 0 abiertas
+- **Pendientes (downhill):** 2 steps de ejecuciÃ³n restantes
 
 ---
 
 ## Blast Radius
 
-| Dirección | Módulos |
+| DirecciÃ³n | MÃ³dulos |
 |---|---|
 | **Callers** | `vantadb-wasm/src/opfs.rs:delete_file`, `vantadb-wasm/src/storage.rs` |
 | **Callees** | `web_sys::FileSystemDirectoryHandle::remove_entry`, `wasm_bindgen_futures::JsFuture` |
-| **Implicaciones** | Asegura que el Web Lock exclusivo de archivo se mantenga retenido hasta que el sistema de archivos del navegador haya consumado físicamente el borrado. Normaliza errores de `NotFoundError` a idempotencia limpia. |
+| **Implicaciones** | Asegura que el Web Lock exclusivo de archivo se mantenga retenido hasta que el sistema de archivos del navegador haya consumado fÃ­sicamente el borrado. Normaliza errores de `NotFoundError` a idempotencia limpia. |
 
 ---
 
 ## Impacto Mapeado (Regla 0)
 
-- **Archivos leídos (completos):** `vantadb-wasm/src/opfs.rs:490-530`.
+- **Archivos leÃ­dos (completos):** `vantadb-wasm/src/opfs.rs:490-530`.
 - **Archivos referenciados hacia dentro:** `wasm_bindgen_futures::JsFuture`, `js_sys::Reflect`.
-- **Archivos que referencian a los editados:** Módulos de almacenamiento de `vantadb-wasm`.
-- **Veredicto impacto:** Corrección focal acotada a una sola función interna `delete_file_unlocked`.
+- **Archivos que referencian a los editados:** MÃ³dulos de almacenamiento de `vantadb-wasm`.
+- **Veredicto impacto:** CorrecciÃ³n focal acotada a una sola funciÃ³n interna `delete_file_unlocked`.
 
 ---
 
@@ -51,52 +51,52 @@ tags: ["wasm", "opfs", "web-lock", "async", "storage"]
 
 ## Spec (SDD)
 
-| # | Decisión | Opciones (+tradeoff) | Default Recomendado | Resuelto |
+| # | DecisiÃ³n | Opciones (+tradeoff) | Default Recomendado | Resuelto |
 |---|---|---|---|---|
-| 1 | Tratamiento de archivo no encontrado | A: Retornar `Ok(())` si el archivo ya no existe vs B: Propagar error a la aplicación | Opción A (idempotencia en borrado) | ✅ decidido-por-evidencia |
-| 2 | Conversión de Promesa JS a Future de Rust | Usar `wasm_bindgen_futures::JsFuture::from(promise).await` | `JsFuture` nativo | ✅ decidido-por-evidencia |
+| 1 | Tratamiento de archivo no encontrado | A: Retornar `Ok(())` si el archivo ya no existe vs B: Propagar error a la aplicaciÃ³n | OpciÃ³n A (idempotencia en borrado) | âœ… decidido-por-evidencia |
+| 2 | ConversiÃ³n de Promesa JS a Future de Rust | Usar `wasm_bindgen_futures::JsFuture::from(promise).await` | `JsFuture` nativo | âœ… decidido-por-evidencia |
 
 ---
 
-## Invariantes de Dominio (Handoff — MUST)
+## Invariantes de Dominio (Handoff â€” MUST)
 
 - **Invariantes a preservar:** Ninguna llamada a `delete_file` en OPFS puede retornar antes de que la promesa de JavaScript se haya resuelto exitosamente o con `NotFoundError`.
-- **Comandos de verificación:** `cargo check -p vantadb-wasm --target wasm32-unknown-unknown`
+- **Comandos de verificaciÃ³n:** `cargo check -p vantadb-wasm --target wasm32-unknown-unknown`
 - **Deuda pendiente:** Ninguna.
 
 ---
 
-## Recitation (Canónico — Estructura Única)
+## Recitation (CanÃ³nico â€” Estructura Ãšnica)
 
 ```yaml
 contract:
   verificacion: cargo check -p vantadb-wasm --target wasm32-unknown-unknown
   evidencia:
-    - claim: delete_file_unlocked realiza await asíncrono sobre la promesa de removeEntry
+    - claim: delete_file_unlocked realiza await asÃ­ncrono sobre la promesa de removeEntry
       evidencia: vantadb-wasm/src/opfs.rs:delete_file_unlocked
       confianza: alta
   artefactos:
     - vantadb-wasm/src/opfs.rs
   invariantes: El Web Lock de OPFS cubre todo el ciclo de vida del borrado en disco
   deuda: ninguna
-  queda_pendiente: Compilar vantadb-wasm y ejecutar tests de integración en el navegador
+  queda_pendiente: Compilar vantadb-wasm y ejecutar tests de integraciÃ³n en el navegador
 ```
 
 ---
 
-## Deuda Técnica (Regla 6 — MUST)
+## Deuda TÃ©cnica (Regla 6 â€” MUST)
 
-**Saldo neto de deuda por PR:** Sin deuda (deuda eliminada: prevención de race conditions en Web Locks de OPFS).
+**Saldo neto de deuda por PR:** Sin deuda (deuda eliminada: prevenciÃ³n de race conditions en Web Locks de OPFS).
 
 ---
 
-## Definition of Done (Contrato Multi-Nivel — P2-08)
+## Definition of Done (Contrato Multi-Nivel â€” P2-08)
 
 | Nivel | Gate | Estado |
 |---|---|---|
-| **Task** | Compilación limpia en target WASM y await asíncrono implementado | ⏳ En progreso |
-| **Commit** | Atomic commit `fix(wasm): await removeEntry promise in OPFS storage` | ⬜ PENDING |
-| **Release** | Cero `UnhandledPromiseRejection` en navegadores Chromium y WebKit | ⬜ PENDING |
+| **Task** | CompilaciÃ³n limpia en target WASM y await asÃ­ncrono implementado | â³ En progreso |
+| **Commit** | Atomic commit `fix(wasm): await removeEntry promise in OPFS storage` | â¬œ PENDING |
+| **Release** | Cero `UnhandledPromiseRejection` en navegadores Chromium y WebKit | â¬œ PENDING |
 
 ---
 
@@ -116,33 +116,33 @@ if let Ok(remove_fn) = remove.dyn_into::<js_sys::Function>() {
     let _ = remove_fn.call1(&dir, &JsValue::from_str(name));
 }
 ```
-`remove_fn.call1(...)` devuelve un `JsValue` que encapsula una `js_sys::Promise`. Al ignorar su retorno y no realizar `.await`, la función de Rust retorna de inmediato. La función llamante libera el Web Lock asociado, permitiendo que otro hilo o proceso intente crear el archivo mientras el navegador aún lo está purgando del disco.
+`remove_fn.call1(...)` devuelve un `JsValue` que encapsula una `js_sys::Promise`. Al ignorar su retorno y no realizar `.await`, la funciÃ³n de Rust retorna de inmediato. La funciÃ³n llamante libera el Web Lock asociado, permitiendo que otro hilo o proceso intente crear el archivo mientras el navegador aÃºn lo estÃ¡ purgando del disco.
 
 ---
 
-## Incógnitas (Uphill) vs Pendientes (Downhill) — P2-03
+## IncÃ³gnitas (Uphill) vs Pendientes (Downhill) â€” P2-03
 
-| Eje | Contador | Descripción |
+| Eje | Contador | DescripciÃ³n |
 |---|---|---|
-| **Incógnitas abiertas (uphill)** | 0 | Solución estándar mediante `JsFuture` |
-| **Pendientes de ejecución (downhill)** | 2 | 1) Aplicar diff en `opfs.rs`; 2) Ejecutar `cargo check` WASM |
-| **% completado** | 30% | Diagnóstico y plan completo; pendiente edición de código |
+| **IncÃ³gnitas abiertas (uphill)** | 0 | SoluciÃ³n estÃ¡ndar mediante `JsFuture` |
+| **Pendientes de ejecuciÃ³n (downhill)** | 2 | 1) Aplicar diff en `opfs.rs`; 2) Ejecutar `cargo check` WASM |
+| **% completado** | 30% | DiagnÃ³stico y plan completo; pendiente ediciÃ³n de cÃ³digo |
 
 ---
 
-## Fase 1 — Evidencia de Debugging (GATE — Solo Tipo Bug)
+## Fase 1 â€” Evidencia de Debugging (GATE â€” Solo Tipo Bug)
 
-- **Repro:** Borrar un archivo e intentar escribirlo de inmediato en OPFS bajo Web Workers; en Chrome ocurre colisión de nombres intermitente por bloqueo pendiente.
-- **Hipótesis:** La promesa devuelta por `removeEntry` queda flotando sin resolverse antes del cierre del scope de Rust.
+- **Repro:** Borrar un archivo e intentar escribirlo de inmediato en OPFS bajo Web Workers; en Chrome ocurre colisiÃ³n de nombres intermitente por bloqueo pendiente.
+- **HipÃ³tesis:** La promesa devuelta por `removeEntry` queda flotando sin resolverse antes del cierre del scope de Rust.
 - **1 variable controlada:** Esperar con `.await` sobre `JsFuture::from(promise)`.
-- **Test RED:** Análisis del tipo de retorno de `removeEntry` en especificación W3C File System Access.
+- **Test RED:** AnÃ¡lisis del tipo de retorno de `removeEntry` en especificaciÃ³n W3C File System Access.
 
 ---
 
-## Fases Explícitas — SECURITY | PERFORMANCE (P2-07)
+## Fases ExplÃ­citas â€” SECURITY | PERFORMANCE (P2-07)
 
-- [x] **SECURITY** — Garantiza coherencia en borrado criptográfico seguro de registros en cliente Web.
-- [x] **PERFORMANCE** — Despreciable; asegura sincronía real con la capa del navegador.
+- [x] **SECURITY** â€” Garantiza coherencia en borrado criptogrÃ¡fico seguro de registros en cliente Web.
+- [x] **PERFORMANCE** â€” Despreciable; asegura sincronÃ­a real con la capa del navegador.
 
 ---
 
@@ -150,15 +150,15 @@ if let Ok(remove_fn) = remove.dyn_into::<js_sys::Function>() {
 
 ### Step 1: Modificar `delete_file_unlocked` en `vantadb-wasm/src/opfs.rs`
 - **Archivos:** `vantadb-wasm/src/opfs.rs`
-- **Acción:** Convertir el resultado de `remove_fn.call1` o `call2` en `js_sys::Promise`, envolverlo en `wasm_bindgen_futures::JsFuture::from(promise).await` e ignorar limpiamente errores de tipo `NotFoundError`.
+- **AcciÃ³n:** Convertir el resultado de `remove_fn.call1` o `call2` en `js_sys::Promise`, envolverlo en `wasm_bindgen_futures::JsFuture::from(promise).await` e ignorar limpiamente errores de tipo `NotFoundError`.
 - **Verify:** `cargo check -p vantadb-wasm --target wasm32-unknown-unknown`
-- **Estado:** ⬜ PENDING
+- **Estado:** â¬œ PENDING
 
-### Step 2: Validar Compilación WASM
+### Step 2: Validar CompilaciÃ³n WASM
 - **Archivos:** `vantadb-wasm/src/opfs.rs`
-- **Acción:** Ejecutar chequeo estricto del compilador con `--target wasm32-unknown-unknown`.
+- **AcciÃ³n:** Ejecutar chequeo estricto del compilador con `--target wasm32-unknown-unknown`.
 - **Verify:** `cargo check -p vantadb-wasm --target wasm32-unknown-unknown`
-- **Estado:** ⬜ PENDING
+- **Estado:** â¬œ PENDING
 
 ---
 
@@ -168,18 +168,18 @@ if let Ok(remove_fn) = remove.dyn_into::<js_sys::Function>() {
 
 ---
 
-## Review (GATE — Agente Distinto, P2-01)
+## Review (GATE â€” Agente Distinto, P2-01)
 
 - **Revisor:** `vanta-audit` (WASM / Web Platform Reviewer)
 - **Enfoque:** Confirmar compatibilidad con navegadores modernos y tratamiento de promesas rechazadas.
-- **Cómo se probó:** Verificación de tipos en `wasm-bindgen`.
-- **Checklist Anti-Hábitos Tóxicos:**
-  - [x] Cero `.unwrap()` en código Rust.
+- **CÃ³mo se probÃ³:** VerificaciÃ³n de tipos en `wasm-bindgen`.
+- **Checklist Anti-HÃ¡bitos TÃ³xicos:**
+  - [x] Cero `.unwrap()` en cÃ³digo Rust.
   - [x] Manejo tolerante de errores JS.
-- **Veredicto:** ⏳ PENDING ejecución
+- **Veredicto:** â³ PENDING ejecuciÃ³n
 
 ---
 
 ## Notas
 
-La función `delete_file_unlocked` ya es `async fn`, por lo que añadir `.await` no requiere alterar las firmas del trait de almacenamiento.
+La funciÃ³n `delete_file_unlocked` ya es `async fn`, por lo que aÃ±adir `.await` no requiere alterar las firmas del trait de almacenamiento.
