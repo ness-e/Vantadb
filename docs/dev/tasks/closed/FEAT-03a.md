@@ -1,4 +1,5 @@
 ---
+status: completed
 title: "FEAT-03a — Consolidación asistida: UI (candidatos + diff visible + superseded_by)"
 kind: task
 description: "Nueva surface/lente de consolidación: detectar candidatos duplicados/superados por similitud (search kNN), diff visible entre pares, sugerencia \"superado por\" → escribir metadata supersededby en el record superado (put/ingest). MVP..."

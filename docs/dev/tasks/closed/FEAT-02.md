@@ -1,4 +1,5 @@
 ---
+status: completed
 title: FEAT-02 — Superficie Índices/salud (placeholder de VS-03 → real)
 kind: task
 description: "Surface ÍNDICES real: counts por namespace (REST-05), dims, hnswnodescount, LSM/WAL status (si el core lo expone — verificar; si no, exponer wrapper mínimo), salud (health endpoint); charts simples (reuso de patterns ScoreBars..."
