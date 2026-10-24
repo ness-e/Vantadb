@@ -1,4 +1,5 @@
 ---
+status: completed
 title: "FEAT-03b — Consolidación asistida: core decay (contrato + diseño)"
 kind: task
 description: "Definir el diseño y contrato del decay automático en el core (dominio vanta-arch/vanta-engine; el plan lo marca como \"task core separada con contrato\"). NO implementar — entregar el diseño + contrato + ADR para que vanta-worker..."

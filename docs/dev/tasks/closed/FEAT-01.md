@@ -1,4 +1,5 @@
 ---
+status: completed
 title: FEAT-01 — Slider de pesos híbridos BM25/vector en RETRIEVAL
 kind: task
 description: "Verificar si search/hybridsearch acepta alpha/pesos (BM25 vs vector); si no, exponerlo (core aditivo si es trivial, sino REST wrapper). UI: slider (0=BM25 puro, 1=vector puro, default=RRF/50) en barra RETRIEVAL; ScoreBars reflejan el..."
