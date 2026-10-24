@@ -1,4 +1,5 @@
 ---
+status: completed
 title: MEM-48 — Compresión consume scores L1 reales
 kind: task
 description: "Plan: 2026-08-22-vanta-final-cierre · Task 6 · Estado inicial ⬜ PENDING"

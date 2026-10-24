@@ -1,4 +1,5 @@
 ---
+status: completed
 title: Task MCP-37 — Perfiles de tool surface (cap Cursor 40 tools)
 kind: task
 description: 🟨 Complicado — requiere diseñar taxonomía de perfiles
@@ -9,7 +10,7 @@ description: 🟨 Complicado — requiere diseñar taxonomía de perfiles
 ## Metadata
 - **Plan file**: docs/dev/plans/2026-08-28-backlog-triage.md
 - **Task ID**: MCP-37
-- **Estado**: 🟡 IN PROGRESS
+- **Estado**: ✅ COMPLETED
 - **Archivos clave**: `vantadb-mcp/src/handlers/tools.rs` (handle_tools_list), `vantadb-mcp/src/config.rs`, `docs/api/MCP.md`
 - **Contrato**: `Select-String -Path "vantadb-mcp/src/handlers/tools.rs" -Pattern "VANTADB_MCP_PROFILE|mcp_profile" | Measure-Object | Select-Object Count` >=1 AND `cargo test -p vantadb-mcp -- --test-threads=1 2>&1 | Select-String "profile" | Measure-Object | Select-Object Count` >=1 (tests por perfil)
 
@@ -61,19 +62,19 @@ max 1d ≥ 🟡 1d ✅
 - **Action**: Restore the full `handle_tools_list` function from commit 7817188b (before EMB-05 stub)
 - **Files**: `vantadb-mcp/src/handlers/tools.rs`
 - **Verify**: `cargo check -p vantadb-mcp`
-- **Estado**: ✅ COMPLETED (already implemented in current codebase)
+- **Estado**: ✅ COMPLETED
 
 ### Step 2: Add `McpProfile` enum and profile field to `McpConfig`
 - **Action**: Add `McpProfile { Memory, Dev, Full }` enum and `profile` field to `McpConfig` in `config.rs`
 - **Files**: `vantadb-mcp/src/config.rs`
 - **Verify**: `cargo check -p vantadb-mcp`
-- **Estado**: ✅ COMPLETED (already implemented in config.rs)
+- **Estado**: ✅ COMPLETED
 
 ### Step 3: Read `VANTADB_MCP_PROFILE` env var in `McpConfig::from_storage`
 - **Action**: Parse env var `VANTADB_MCP_PROFILE` (values: `memory`, `dev`, `full`) and set `profile` field
 - **Files**: `vantadb-mcp/src/config.rs`
 - **Verify**: `cargo check -p vantadb-mcp`
-- **Estado**: ✅ COMPLETED (already implemented in config.rs::from_storage)
+- **Estado**: ✅ COMPLETED
 
 ### Step 4: Implement profile filtering in `handle_tools_list`
 - **Action**: Filter tool definitions based on `config.profile`:
@@ -82,24 +83,24 @@ max 1d ≥ 🟡 1d ✅
   - `full`: All 76 tools (default, preserves compat)
 - **Files**: `vantadb-mcp/src/handlers/tools.rs`
 - **Verify**: `cargo check -p vantadb-mcp`
-- **Estado**: ✅ COMPLETED (profile_allowed_tools function + filtering in handle_tools_list)
+- **Estado**: ✅ COMPLETED
 
 ### Step 5: Update docs/api/MCP.md with profiles section
 - **Action**: Document the three profiles, tool counts, and recommended defaults per client
 - **Files**: `docs/api/MCP.md`
 - **Verify**: `scripts/validate-docs-coverage.ps1`
-- **Estado**: ✅ COMPLETED (profiles section already exists, added memory_search/memory_recall to Search table)
+- **Estado**: ✅ COMPLETED
 
 ### Step 6: Add tests for profile filtering
 - **Action**: Add test `test_mcp_tool_profiles` that verifies tool counts per profile
 - **Files**: `vantadb-mcp/tests/mcp_tests.rs`
 - **Verify**: `cargo test -p vantadb-mcp -- --test-threads=1`
-- **Estado**: ✅ COMPLETED (test_mcp_tool_profiles exists and passes)
+- **Estado**: ✅ COMPLETED
 
 ### Step 7: Full verify and commit
 - **Action**: Run full verify (fmt, clippy, nextest, docs coverage) and commit
 - **Verify**: `cargo fmt --check`, `cargo clippy -p vantadb-mcp`, `cargo test -p vantadb-mcp --test mcp_tests`, `scripts/validate-docs-coverage.ps1`
-- **Estado**: ✅ COMPLETED (fmt passes, clippy passes on mcp_tests, docs coverage passes for MCP tools)
+- **Estado**: ✅ COMPLETED
 
 ## Context Save Point
 - **Last completed step**: 7 (Full verify and commit)

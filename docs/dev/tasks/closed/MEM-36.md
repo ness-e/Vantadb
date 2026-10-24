@@ -1,4 +1,5 @@
 ---
+status: completed
 title: "MEM-36 (META-TAREA): Crear el plan de campaña Bindings SDK — sub-clientes por dominio"
 kind: task
 description: "A partir de esta spec, producir el plan ejecutable de la campaña que exponga sub-clientes por dominio en los SDKs TS y Python, manteniendo 100% backward-compat"
@@ -11,7 +12,7 @@ description: "A partir de esta spec, producir el plan ejecutable de la campaña 
 - **Tipo:** Planning/spec (NO código) — **Ruta: vanta-lead** (pipeline)
 - **Esfuerzo:** 🟢 | **Prioridad:** 🟡
 - **Creado:** 2026-08-22
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Entregable ÚNICO:** `docs/dev/plans/<FECHA>-vantadb-bindings-sdk.md` — plan completo de la campaña de bindings, con sus tareas listas para `/pipeline run`
 
 ## Objetivo

@@ -1,4 +1,5 @@
 ---
+status: completed
 title: "MOD-16 — Suite pytest default rota (66 failed: RSS acumulado sin teardown)"
 kind: task
 description: "pytest -q en vantadb-python/tests/ exit 0 (suite default completa verde), con"
@@ -49,5 +50,5 @@ Fixture autouse function-scoped en `tests/conftest.py` nuevo:
 (ninguno todavía — llenar en Step 2 si aplica)
 
 ## Context Save Point
-- Estado: DISCOVERY completo, implementación no iniciada.
+- Estado: ✅ COMPLETED
 - Comando repro: `& ".venv\Scripts\python.exe" -m pytest -q` desde `vantadb-python/`.

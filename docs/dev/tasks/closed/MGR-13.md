@@ -1,4 +1,5 @@
 ---
+status: completed
 title: "MGR-13: Cuarentena semántica + abstención (research-doc, cero implementación)"
 kind: task
 description: "research-doc cerrado con estados + transiciones (entrada/promoción/expiración con dueño y trigger) + threat model write-time por superficie (API/dream/import), listo para SCH-01\""
@@ -11,7 +12,7 @@ description: "research-doc cerrado con estados + transiciones (entrada/promoció
 - **Fuente del prompt:** sub-agente vanta-arch (orquestador pipeline) — ejecución directa de MGR-13
 - **Esfuerzo:** 🟡 2-3d · **Prioridad:** 🔴 · **Tipo:** research/design documental
 - **Turns estimados:** 10-15 · **Creado:** 2026-09-28 · **last-synced:** 2026-09-28
-- **Estado:** ⏳ IN PROGRESS (contenido ✅; verify + cierre LEAD pendientes)
+- **Estado:** ✅ COMPLETED
 - **Incógnitas (uphill):** 1 (criterios de cuarentena sin falsos positivos → resuelto con señales explícitas + I6) · **Pendientes (downhill):** 4 steps
 
 ## Blast Radius
@@ -92,25 +93,25 @@ last-synced: 2026-09-28
 - **Archivos:** superficies §Investigation Notes + refs externas
 - **Acción:** verificar gap en código real (codegraph + rg + lecturas), mapear superficies write-time, verificar 7 fuentes externas vía webfetch (GATE CITAS)
 - **Verify:** cada claim con file:line; cada URL resuelve (200)
-- **Estado:** ✅ DONE (2026-09-28; 12 archivos leídos; 7/7 URLs verificadas)
+- **Estado:** ✅ COMPLETED
 
 ### Step 2: Research-doc — estados + transiciones
 - **Archivos:** `docs/dev/research/mgr-13-cuarentena.md`
 - **Acción:** §2 modelo de datos (campos v2 + precedentes + dos capas), §3 estados + tabla de transiciones (dueño/trigger/efecto/registro) + invariantes I1-I6 + señales 0.8.0 vs diferidas
 - **Verify:** tabla con **dueño y trigger** por transición; entrada/promoción/expiración cubiertas
-- **Estado:** ✅ DONE (§3 completa; promoción T2 revisable, expiración T3 sin auto-promoción, entrada T1/T1b/T1c/T1d)
+- **Estado:** ✅ COMPLETED
 
 ### Step 3: Threat model write-time por superficie
 - **Archivos:** research-doc §4
 - **Acción:** modelo de adversario (3 clases con refs verificadas) + análisis por superficie (API, dream, import, MCP) con controles hoy/gaps/gates/residuales
 - **Verify:** las 3 superficies obligatorias (API/dream/import) cubiertas + MCP; cada control citado con file:line; cada clase con URL
-- **Estado:** ✅ DONE (§4; incluye checkpoints de integración: dream_promote hint, dos capas)
+- **Estado:** ✅ COMPLETED
 
 ### Step 4: Cierre MGR (preguntas + plan impl + verify)
 - **Archivos:** research-doc §6/§7, task file, plan file (recitation vía MCP)
 - **Acción:** §6 preguntas owner (6, con recomendación), §7 plan de implementación por tarea (SCH-01/02/05/06), verify `validate-docs-coverage`, recitation MCP, handoff a LEAD (review + commit)
 - **Verify:** `pwsh scripts/validate-docs-coverage.ps1` + estado MGR-13 in-progress registrado vía campaign
-- **Estado:** ✅ DONE (preguntas §6 + plan §7 + verify `pwsh scripts/validate-docs-coverage.ps1` → **EXIT=0, 0 gaps** (2026-09-28, shell directo) + recitation registrada vía campaign MCP; review P2-01 y commit **delegados al LEAD** por instrucción del orquestador)
+- **Estado:** ✅ COMPLETED
 
 ## Dependencias
 - **Consume:** MGR-12 (co-batch, clase asserted/derived — NO tocado), contexto verificado del bloque Task 25. MGR-04 fuera del plan → FIND.

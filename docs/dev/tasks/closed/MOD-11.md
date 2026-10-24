@@ -1,4 +1,5 @@
 ---
+status: completed
 title: MOD-11 — Nits agrupados MCP server (mcp.md H4-H8 de P32)
 kind: task
 description: Archivos leídos completos
@@ -7,7 +8,7 @@ description: Archivos leídos completos
 # MOD-11 — Nits agrupados MCP server (mcp.md H4-H8 de P32)
 
 - **Plan:** `2026-08-25-batch-colaterales-deuda-desktop` Task 6
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Esfuerzo:** 🟢 | **Prioridad:** 🟢 | **Appetite:** 2h
 - **Contrato:** `cargo test -p vantadb-mcp --test mcp_tests` pasa; k clamp aplicado; docs ×2 hash SAME
 - **Cynefin:** 🟦 obvio

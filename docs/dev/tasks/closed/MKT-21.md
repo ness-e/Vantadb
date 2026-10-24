@@ -1,4 +1,5 @@
 ---
+status: completed
 title: MKT-21 (ex MKT-18i) — Compose multi-servicio Ollama + VantaDB (+ AnythingLLM verificado)
 kind: task
 description: "Plan: docs/dev/plans/2026-09-03-quality-gtm-wave.md · Wave1 · Ruta: vanta-worker · Estado: ⏳ IN PROGRESS (claim server bloqueado por tareas ajenas ERR-TS-01/GOV-TK9 — se ejecuta por asignación explícita, handoff al orquestador)"

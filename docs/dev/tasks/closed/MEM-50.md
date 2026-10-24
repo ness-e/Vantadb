@@ -1,4 +1,5 @@
 ---
+status: completed
 title: "MEM-50 — Wire WriteBack::track al request path (H1 crítico)"
 kind: task
 description: "Plan: docs/dev/plans/2026-08-22-vanta-ultima-milla.md — Task 1. Estado: ⏳ IN PROGRESS"
