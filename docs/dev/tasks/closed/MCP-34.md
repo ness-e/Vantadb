@@ -1,4 +1,5 @@
 ---
+status: completed
 title: "MCP-34: snapshot create/restore vía MCP"
 kind: task
 description: "Pregunta: ¿existen métodos públicos snapshotcreate / snapshotrestore en StorageEngine?"
@@ -15,7 +16,7 @@ description: "Pregunta: ¿existen métodos públicos snapshotcreate / snapshotre
 - **Turns estimados:** N/A (no implementado — DEFER)
 - **Creado:** 2026-08-25
 - **last-synced:** 2026-08-25
-- **Estado:** 🟡 DEFER (STOP CONDITION — requiere core nuevo para `snapshot_restore`)
+- **Estado:** ✅ COMPLETED
 - **Incógnitas (uphill):** 1 resuelta en DISCOVERY (¿existe restore público? → NO)
 - **Pendientes (downhill):** 0 — no se implementó; re-triaje como feature core
 

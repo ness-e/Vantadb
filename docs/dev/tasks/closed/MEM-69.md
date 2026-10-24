@@ -1,4 +1,5 @@
 ---
+status: completed
 title: "MEM-69: Batch extracción costo-reducida"
 kind: task
 description: cargo test -p vanta-memory 0 failed + test batch agrupa split+dedup en 1 llamada ✅ + quality gate intacto + clippy 0
@@ -15,7 +16,7 @@ description: cargo test -p vanta-memory 0 failed + test batch agrupa split+dedup
 - **Turns estimados:** 15-20
 - **Creado:** 2026-09-10T00:00
 - **last-synced:** 2026-09-10T00:00
-- **Estado:** ⏳ IN PROGRESS
+- **Estado:** ✅ COMPLETED
 - **Incógnitas (uphill):** 0 (verificación real del plan: `batch_dedup` + `PendingMemory` + `ScriptedRunner` existen)
 - **Pendientes (downhill):** 5 steps de ejecución restantes
 
@@ -108,31 +109,31 @@ description: cargo test -p vanta-memory 0 failed + test batch agrupa split+dedup
 - **Archivos:** `vanta-memory/tests/l1_batch.rs` (nuevo, ~150L, patrón `CapturingRunner` de `tests/l1_extractor.rs`)
 - **Acción:** escribir tests que FALLAN (símbolo `extract_dedup_batch` aún no existe): (a) batch con mensajes + existentes → exactamente 1 llamada; (b) solo ruido → 0 llamadas + success; (c) comparativo split-vs-batch: mismas memorias + mismas acciones con runner scriptado por `task_id`; (d) fallo runner → `success:false`; (e) `dedup` ausente/malformado → `store` fallback
 - **Verify:** `cargo test -p vanta-memory --test l1_batch` falla por símbolo inexistente (RED válido)
-- **Estado:** ✅ DONE (RED confirmado 2026-09-10: `E0432 unresolved imports extract_dedup_batch/EXTRACT_DEDUP_TASK_ID`; test file 379L heredado del intento previo + 1 ajuste metadata `{}` en cierre)
+- **Estado:** ✅ COMPLETED
 
 ### Step 2: GREEN — split helper + visibility (l1_extractor.rs, l1_parser.rs, l1_dedup.rs)
 - **Archivos:** `vanta-memory/src/core/record/l1_extractor.rs` (+`pub(crate) fn split_messages`, refactor mínimo de `extract_l1_segments`), `vanta-memory/src/offload/local_llm/parsers/l1_parser.rs` (`memory_from_value` → `pub(crate)`), `vanta-memory/src/core/record/l1_dedup.rs` (`decision_from_value` → `pub(crate)`)
 - **Acción:** cambios mínimos aditivos; refactor usa el helper (mismo comportamiento)
 - **Verify:** `cargo check -p vanta-memory` + `cargo test -p vanta-memory --test l1_extractor --test l1_dedup` verdes (sin regresión)
-- **Estado:** ✅ DONE (heredado del intento previo: `split_messages` pub(crate) + refactor idéntico + 2 visibility pub(crate); verificado sin regresión en suite final 0 failed)
+- **Estado:** ✅ COMPLETED
 
 ### Step 3: GREEN — módulo l1_batch.rs (prompt + 1 llamada + parse)
 - **Archivos:** `vanta-memory/src/core/record/l1_batch.rs` (nuevo, ~200L), `vanta-memory/src/core/record/mod.rs` (2 líneas re-export)
 - **Acción:** `EXTRACT_DEDUP_TASK_ID`, `extract_dedup_system_prompt`, `format_extract_dedup_prompt`, `parse_batch_response`, `extract_dedup_batch`
 - **Verify:** `cargo test -p vanta-memory --test l1_batch` verde
-- **Estado:** ✅ DONE (2026-09-10: `l1_batch.rs` ~260L + re-export 4L en `mod.rs`; 7/7 tests verdes; fixes clippy `manual_contains`+`clone_on_copy`+fmt)
+- **Estado:** ✅ COMPLETED
 
 ### Step 4: VERIFY full — suite + clippy + fmt
 - **Archivos:** (ninguno — verificación)
 - **Acción:** `cargo test -p vanta-memory` 0 failed + `cargo clippy -p vanta-memory --all-targets --all-features -- -D warnings` 0 + `cargo fmt --check` limpio (bash directa si `campaign_verify_cmd` falla con exit -1, precedente del plan)
 - **Verify:** los 3 comandos verdes
-- **Estado:** ✅ DONE (2026-09-10: suite `cargo test -p vanta-memory --tests -j 2` 0 failed en todos los targets incl. lib 328 + l1_batch 7; clippy `--all-targets --all-features -D warnings` 0; `cargo fmt --check` limpio. Nota: `cargo test` a jobs default crashea rustc 1.95 con STATUS_STACK_BUFFER_OVERRUN en targets ajenos — flake de toolchain, con `-j 2` todo verde)
+- **Estado:** ✅ COMPLETED
 
 ### Step 5: CLOSE — commit + sync plan + progreso
 - **Archivos:** SOLO `docs/dev/tasks/MEM-69.md`, `vanta-memory/tests/l1_batch.rs`, `vanta-memory/src/core/record/l1_batch.rs`, `l1_extractor.rs`, `l1_dedup.rs`, `l1_parser.rs`, `record/mod.rs` (NO stagear: `opencode.jsonc`, `.opencode`, `desktop/src-tauri/Cargo.lock`, `Investigacion-plan.md`, `2026-09-10-code` es del plan — actualizar estado Task 2 inline SÍ está permitido por pipeline-full)
 - **Acción:** `git add` selectivo + `git commit -m "feat: MEM-69 — batch extracción costo-reducida (split+dedup en 1 llamada)"` + actualizar plan file Task 2 → ✅ + `skill progreso`
 - **Verify:** `git log --oneline -1` + `git status --short` sin restos propios
-- **Estado:** ✅ DONE (2026-09-10: commit `d5ad0e45` con 7 archivos propios; hooks pre-commit fmt+clippy verdes; resto ajeno PRX-02/desktop/opencode intacto en worktree)
+- **Estado:** ✅ COMPLETED
 
 ## Dependencias
 - Wave0 paralelo MAX 3: PRX-02 + DESKTOP-40-slice2 (archivos disjuntos — sin coordinación necesaria)

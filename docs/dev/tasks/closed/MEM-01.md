@@ -1,7 +1,7 @@
 ---
 title: SearchProfileConfig per namespace (core) + cláusula IQL profile
 kind: task
-status: pending
+status: completed
 description: "Los usuarios necesitan ajustar la fusión híbrida por consulta/namespace: hoy RRFK=60 y hybridcandidatebudget son constantes globales en src/planner.rs. El report ya expone rrfk (D20) pero hardcodea la constante. Se agrega un perfil de..."
 id: MEM-01
 campaign: vanta-memory

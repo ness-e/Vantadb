@@ -1,4 +1,5 @@
 ---
+status: completed
 title: "MEM-53: Desktop IPC commands para pipeline vanta-memory (H4)"
 kind: task
 description: Archivos leídos completos
@@ -10,7 +11,7 @@ description: Archivos leídos completos
 - **Plan file:** docs/dev/plans/2026-08-22-vanta-ultima-milla.md (Task 8)
 - **Creado:** 2026-08-22T12:00
 - **last-synced:** 2026-08-22T12:00
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ## Impacto mapeado (Regla 0)
 Archivos leídos completos:
@@ -44,17 +45,17 @@ Verify: `cargo check -p vantadb-desktop --all-targets && cargo nextest run -p va
 - **Archivos:** `Cargo.toml`, `connections/trait.rs`, `connections/native.rs`, `connections/manager.rs`
 - **Acción:** dep vanta-memory; trait default `as_native()`; accessor `db()`; `ConnectionManager::active_embedded()`
 - **Verify:** `cargo check -p vantadb-desktop` ✅
-- **Estado:** ✅ DONE
+- **Estado:** ✅ COMPLETED
 
 ### Step 2: commands/memory.rs — 7 comandos + tests
 - **Archivos:** `commands/memory.rs`, `commands/mod.rs`, `lib.rs`
 - **Acción:** memory_capture/recall/persona_get/scenes_list/scene_current/skills_list/wiki_status; ProgressTracker en AppState; registro en invoke_handler; tests roundtrip (12)
 - **Verify:** `cargo nextest run -p vantadb-desktop` ✅ 85/85
-- **Estado:** ✅ DONE
+- **Estado:** ✅ COMPLETED
 
 ### Step 3: Verify full + cierre
 - **Verify:** fmt --check ✅ · clippy --all-targets ✅ (0 warnings) · nextest ✅ · cargo audit ✅ (0 vulnerabilidades)
-- **Estado:** ✅ DONE
+- **Estado:** ✅ COMPLETED
 
 ## Dependencias
 - Ninguna (independiente)

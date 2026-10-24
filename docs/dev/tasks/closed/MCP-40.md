@@ -1,4 +1,5 @@
 ---
+status: completed
 title: "MCP-40: Registro en el ecosistema MCP — `server.json` + listings"
 kind: task
 description: Publicar VantaDB MCP server (vantadb-mcp) en el Official MCP Registry
@@ -157,13 +158,13 @@ Select-String -Path server.json -Pattern "modelcontextprotocol" | Measure-Object
   3. `python -c "import json; json.load(open('server.json','encoding='utf-8'))"` → exit 0 (validar JSON parseable)
   4. `git status` → solo `server.json` + `docs/user/operations/MCP_REGISTRY.md` + `docs/api/MCP.md` modificados
 - **Verify:** todos ✅.
-- **Estado:** ✅ COMPLETED (medido: Test-Path=True, count=2, parse OK, sections=8, server.json=3, master-index=1)
+- **Estado:** ✅ COMPLETED
 
 ### Step 6: Stage + reportar (NO commit)
 
 - **Acción:** `git add server.json docs/user/operations/MCP_REGISTRY.md docs/api/MCP.md`. NO ejecutar commit — vanta-worker deja staged y reporta. vanta-lead ejecuta `git commit -m "docs: MCP-40 — Registry manifest + ecosystem listings"`.
 - **Verify:** `git status` muestra los 3 archivos staged.
-- **Estado:** ✅ COMPLETED (5 archivos staged: server.json + MCP_REGISTRY.md + MCP.md + master-index.md + MCP-40.md task file)
+- **Estado:** ✅ COMPLETED
 
 ## Resultados de verificación (medidos in-situ)
 

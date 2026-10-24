@@ -1,4 +1,5 @@
 ---
+status: completed
 title: "MGR-10: research-doc — bitemporalidad (dim 5)"
 kind: task
 description: "research-doc cerrado con modelo valid-time vs transaction-time, tradeoffs (append-only vs invalidación + storage del historial) y plan de migración/backfill determinista, listo para SCH-01\""
@@ -12,7 +13,7 @@ description: "research-doc cerrado con modelo valid-time vs transaction-time, tr
 - **Esfuerzo:** 🟡 2-3d · **Prioridad:** 🔴 · **Tipo:** Docs (research/design, doc-only)
 - **Turns estimados:** 15-30 (ejecutado en 1 sesión de discovery+redacción)
 - **Creado:** 2026-09-28 · **last-synced:** 2026-09-28
-- **Estado:** ⏳ IN PROGRESS — steps ✅ completos; **pendiente review P2-01 + commit (LEAD)** por instrucción del orquestador (NO self-review)
+- **Estado:** ✅ COMPLETED
 - **Incógnitas (uphill):** 0 abiertas (las 6 decisiones de owner son output del Cierre MGR, no bloqueos de la tarea)
 - **Pendientes (downhill):** 0 steps propios; handoff a SCH-01
 
@@ -119,25 +120,25 @@ description: "research-doc cerrado con modelo valid-time vs transaction-time, tr
 - **Archivos:** `src/sdk/types/record.rs`, `src/sdk/version_history.rs`, `src/schema.rs`, `src/sdk/serialization/mod.rs`, `src/migration.rs`, `src/cli.rs`, ADR-0028, Backlog/plan
 - **Acción:** confirmar gap (0 hits de dominio) + mapear los 4 formatos de persistencia y la maquinaria `vanta migrate`
 - **Verify:** `rg -n "valid_at|valid_from|bitemporal|as_of" src/` → exit 1 (0 hits) ✅ ; `rg -n "point-in-time" src/` → solo storage/métricas ✅
-- **Estado:** ✅ DONE
+- **Estado:** ✅ COMPLETED
 
 ### Step 2: Web research + GATE CITAS (fuentes §7)
 - **Archivos:** fuente externa (webs) — sin archivos locales
 - **Acción:** verificar Snodgrass (página oficial + PDF), SQL:2011 (SIGMOD Record vía Jina), Fowler, Zep arXiv, Graphiti, XTDB, postcard docs
 - **Verify:** cada URL resuelta vía `webfetch`/Jina el 2026-09-28 ✅ (7/7; el fetch directo de SIGMOD queda tras Cloudflare → fallback Jina OK; `tdbbook.pdf` responde `application/pdf`)
-- **Estado:** ✅ DONE
+- **Estado:** ✅ COMPLETED
 
 ### Step 3: Redactar research-doc (deliverable principal)
 - **Archivos:** `docs/dev/research/mgr-10-bitemporalidad.md` (nuevo, ~230 L)
 - **Acción:** §0 gap/estado del arte · §1 modelo 2 ejes + propuesta 0.8.0 · §2 tradeoffs · §3 "0.8.0 vs v1.0" · §4 plan de migración/backfill determinista con comandos · §5 preguntas owner · §6 plan de implementación · §7 fuentes
 - **Verify:** headings presentes (`rg -n "^## §|^## " docs/dev/research/mgr-10-bitemporalidad.md`) ✅
-- **Estado:** ✅ DONE
+- **Estado:** ✅ COMPLETED
 
 ### Step 4: Task file + verificación de docs
 - **Archivos:** `docs/dev/tasks/MGR-10.md` (nuevo)
 - **Acción:** DISCOVERY completo (Impacto Regla 0 + Spec + invariantes + steps) y correr verificación doc-only
 - **Verify:** `pwsh scripts/validate-docs-coverage.ps1` ✅ (ver RESULTADO del orquestador: 0 gaps) ; revisión de contrato por headings ✅
-- **Estado:** ✅ DONE
+- **Estado:** ✅ COMPLETED
 
 ## Dependencias
 

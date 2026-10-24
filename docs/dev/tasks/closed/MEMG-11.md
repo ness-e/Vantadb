@@ -1,4 +1,5 @@
 ---
+status: completed
 title: "TASK MEMG-11: Adopción del motor core en vanta-memory (recall híbrido + escritura batch)"
 kind: task
 ---
@@ -14,7 +15,7 @@ kind: task
 - **Turns estimados:** 30-60 (multi-sesión)
 - **Creado:** 2026-10-05
 - **last-synced:** 2026-10-05
-- **Estado:** ⏳ IN PROGRESS (reservada como taskId `39` en el campaign server)
+- **Estado:** ✅ COMPLETED
 - **Incógnitas (uphill):** 0 abiertas (paridad dual-pool resuelta en DISCOVERY con test; mecanismo de escritura resuelto por medición: fix core + migración incondicional)
 - **Pendientes (downhill):** 3 steps (3-5): cierre del A/B (canonical_p99 run limpio), verify full scoped + OCR, review P2-01 + commit
 
@@ -181,7 +182,7 @@ Comando: `cargo bench -p vantadb --bench canonical_p99 -- search_1000_queries_15
 - **Archivos:** `docs/dev/tasks/MEMG-11.md` (§Review)
 - **Acción:** fork `vanta-review` con el diff (paths `vanta-memory/**` = tier Fast según tabla HARD-02; 🔴 → fresh review igual); registrar veredicto; commit **LOCAL** `feat(memory):` (⛔ nunca push).
 - **Verify:** veredicto registrado + `git status` limpio de WIP ajeno (opencode.jsonc/master plan NO stageados)
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ## Dependencias
 - MEMG-01 (✅ `10b35b41`), MEMG-02 (✅ `fcc17ca7`/`782e111d`) — archivos frescos desde HEAD antes de tocar.

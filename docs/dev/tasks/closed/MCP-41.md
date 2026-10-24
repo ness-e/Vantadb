@@ -1,4 +1,5 @@
 ---
+status: completed
 title: MCP-41 — Memoria conversacional auto-consolidada (DISCOVERY-first)
 kind: task
 description: "Contrato del slice: autoconsolidate(db, sessionkey, turns) determinista, sin LLM,"

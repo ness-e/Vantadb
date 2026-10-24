@@ -1,4 +1,5 @@
 ---
+status: completed
 title: "TASK-MEM-59: Recall MCP público"
 kind: task
 description: "El worktree tiene cambios parciales en src/cli.rs, src/clihandlers/mod.rs,"
@@ -10,7 +11,7 @@ description: "El worktree tiene cambios parciales en src/cli.rs, src/clihandlers
 - **Plan file:** docs/dev/plans/2026-08-29-full-backlog-parallel.md (W20-1)
 - **Creado:** 2026-08-30
 - **last-synced:** 2026-08-30
-- **Estado:** ⬜ PENDING (código listo; vanta-worker NO hace commit — queda a vanta-lead)
+- **Estado:** ✅ COMPLETED
 - **Tipo:** feature-add (nuevos símbolos públicos en MCP surface)
 - **Cynefin:** 🟨 Complicado
 - **Source Gap:** research-wave2 vanta-memory-20260825 gap #4
@@ -160,7 +161,7 @@ Select-String -Path "vantadb-mcp/src/handlers/tools.rs" -Pattern "memory_recall|
   - `memory_recall` con annotations readOnlyHint/destructiveHint/idempotentHint/openWorldHint
   - `memory_search` con misma firma que `search_memory` (alias)
 - **Verify:** `cargo check -p vantadb-mcp`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Step 2: Dispatch arms en handle_tools_call
 - **Archivos:** `vantadb-mcp/src/handlers/tools.rs`
@@ -168,13 +169,13 @@ Select-String -Path "vantadb-mcp/src/handlers/tools.rs" -Pattern "memory_recall|
   - `"memory_recall"` → `perform_auto_recall(...)` + serializar resultado
   - `"memory_search"` → delega a la lógica de `search_memory` (DRY: extraigo a fn helper)
 - **Verify:** `cargo check -p vantadb-mcp`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Step 3: Profile gating
 - **Archivos:** `vantadb-mcp/src/handlers/tools.rs` `profile_allowed_tools`
 - **Acción:** agregar `"memory_recall"` y `"memory_search"` al array `memory_tools` (línea ~956)
 - **Verify:** `rg "memory_recall" handlers/tools.rs` >= 3 hits
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Step 4: Tests
 - **Archivos:** `vantadb-mcp/src/handlers/tools.rs` (módulo `#[cfg(test)]`)
@@ -183,11 +184,11 @@ Select-String -Path "vantadb-mcp/src/handlers/tools.rs" -Pattern "memory_recall|
   - `recall_rejects_empty_query`
   - `search_alias_dispatches_to_search_memory`
 - **Verify:** `cargo nextest run -p vantadb-mcp`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Step 5: Verify + handoff
 - **Acción:** verify mecánico completo + commit
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ## Reglas del proyecto (must-not violar)
 

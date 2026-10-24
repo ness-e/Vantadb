@@ -1,4 +1,5 @@
 ---
+status: completed
 title: "MEM-65: Telemetría por capa + pLimit real"
 kind: task
 description: "Verificación mecánica: cargo check -p vanta-memory --all-targets ✅ + cargo test -p vanta-memory --profile audit -j 2 ✅ + comandos del contrato (PowerShell) ✅"
@@ -15,7 +16,7 @@ description: "Verificación mecánica: cargo check -p vanta-memory --all-targets
 - **Turns estimados:** 8-12
 - **Creado:** 2026-08-30
 - **last-synced:** 2026-08-30
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Incógnitas (uphill):** 0
 - **Pendientes (downhill):** 6 steps
 
@@ -119,37 +120,37 @@ Select-String -Path "vanta-memory/src/ingest/mod.rs" -Pattern "pLimit|semaphore|
 - **Archivos:** `vanta-memory/src/ingest/mod.rs`
 - **Acción:** agregar `pub struct LlmConcurrencyGuard { cap: usize, in_flight: std::sync::Mutex<usize>, cvar: std::sync::Condvar }` con `acquire()` que espera hasta `in_flight < cap` (RAII via `Drop`). Coincide con regex `semaphore|concurrency`.
 - **Verify:** `cargo check -p vanta-memory --all-targets`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Step 2: Reemplazar `_llm_cap` muerto en `merge.rs` por uso real del guard
 - **Archivos:** `vanta-memory/src/ingest/merge.rs:248`
 - **Acción:** cambiar `let _llm_cap = clamp_llm_concurrency(Some(...))` por `let _guard = LlmConcurrencyGuard::new(cap).acquire()` (cap honra el contrato aunque el caller serial hoy; deja el hook listo para futuros callers concurrentes). Renombrar variable para legibilidad.
 - **Verify:** `cargo check -p vanta-memory --all-targets`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Step 3: Telemetría L1 en `pipeline_worker.rs`
 - **Archivos:** `vanta-memory/src/services/pipeline_worker.rs:229-249` (run_l1)
 - **Acción:** envolver `run_l1_inner` con `Instant::now()` + `tracing::debug!(layer = "L1", latency_ms = elapsed.as_millis(), ...)` al final (campos `latency` + `L1` para satisfacer regex). Idem para L2, L3, context assembly.
 - **Verify:** `cargo check -p vanta-memory --all-targets` + regex matches
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Step 4: Telemetría L2 + L3 + context assembly (recall)
 - **Archivos:** `vanta-memory/src/services/pipeline_worker.rs:302,348,398`
 - **Acción:** idem Step 3, con `layer = "L2" | "L3" | "recall"`. Patrón `latency.*L1|telemetry` debe matchear (regex `latency.*L1` aparece en Step 3, suficiente).
 - **Verify:** regex matchea el archivo
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Step 5: Verificar tests existentes
 - **Archivos:** ninguno (solo ejecución)
 - **Acción:** `cargo test -p vanta-memory --profile audit -j 2`
 - **Verify:** exit 0
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Step 6: Pre-commit fmt + clippy + commit
 - **Archivos:** todos los tocados
 - **Acción:** `cargo fmt --check`, `cargo clippy -p vanta-memory --all-targets -- -D warnings`, luego `git add` solo los archivos y `git commit -m "feat: MEM-65 — Telemetría L1/L2/L3 + pLimit global real"`
 - **Verify:** exit 0 + commit creado
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ## Dependencias
 

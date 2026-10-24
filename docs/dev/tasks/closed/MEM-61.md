@@ -1,4 +1,5 @@
 ---
+status: completed
 title: "TASK-MEM-61: Dreaming consolidación idle (sleep-time tiering)"
 kind: task
 description: "runl1/runl2/runl3, lock/retry/dead-letter"
@@ -11,7 +12,7 @@ description: "runl1/runl2/runl3, lock/retry/dead-letter"
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-61.md`
 - **Creado:** 2026-08-30T00:00 (W19-SOLO)
 - **last-synced:** 2026-08-30T00:00
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Tipo:** feature-add (nuevo módulo + integración test)
 - **Dominio:** core memory pipeline (vanta-memory crate)
 - **Prioridad:** 🟠 Media-Alta
@@ -119,7 +120,7 @@ cargo fmt --check -p vanta-memory                           # 0 diffs
   todavía (stubs `unimplemented!()` con docs). 4 funciones `pub fn` con signature
   pero body minimal. `pub use` los tipos en `core/dream/mod.rs`.
 - **Verify:** `cargo check -p vanta-memory` 0 errors
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Step 2: detect_idle + merge_duplicates (LLM-free, pure logic)
 - **Archivos:** mismo `mod.rs`
@@ -127,7 +128,7 @@ cargo fmt --check -p vanta-memory                           # 0 diffs
   y `merge_duplicates(records: Vec<MemoryRecord>) -> Vec<DuplicateGroup>` (shingle hash
   por `scene_name + lower(content)`). Unit tests inline.
 - **Verify:** `cargo test -p vanta-memory --lib dream:: 2>&1 | Select-String "ok" | Measure-Object Count >= 6`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Step 3: resolve_contradictions (reusa MEM-60) + normalize_relative_dates
 - **Archivos:** mismo `mod.rs`
@@ -138,7 +139,7 @@ cargo fmt --check -p vanta-memory                           # 0 diffs
   en `metadata.activity_start_time` y reemplaza por absoluto ISO-8601. Unit tests
   inline.
 - **Verify:** `cargo test -p vanta-memory --lib dream:: 2>&1 | Select-String "ok" | Measure-Object Count >= 12`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Step 4: Dreamer trait + MockDreamer (test extension point)
 - **Archivos:** mismo `mod.rs`
@@ -148,7 +149,7 @@ cargo fmt --check -p vanta-memory                           # 0 diffs
   1 contradicción + 1 fecha relativa → retorna records consolidados. Esto valida
   que el trait es extensible sin acoplar a reqwest.
 - **Verify:** `cargo test -p vanta-memory --lib dream:: 2>&1 | Select-String "ok" | Measure-Object Count >= 15`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Step 5: store layer (read l1/<session> + write dream/<session>/<run_id>)
 - **Archivos:** mismo `mod.rs`
@@ -161,7 +162,7 @@ cargo fmt --check -p vanta-memory                           # 0 diffs
   Namespace: `dream/<sanitized_session>/<run_id>`. **NUNCA** escribe a
   `l1/<sanitized_session>` (asserted by code comment + unit test).
 - **Verify:** `cargo test -p vanta-memory --lib dream:: 2>&1 | Select-String "ok" | Measure-Object Count >= 20`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Step 6: integration test `tests/dreaming.rs` (contrato del plan)
 - **Archivos:** nuevo `vanta-memory/tests/dreaming.rs`
@@ -175,14 +176,14 @@ cargo fmt --check -p vanta-memory                           # 0 diffs
   — write record con `metadata.activity_start_time: "ayer"`, run con anchor,
   verify metadata absolutizado en el dream namespace.
 - **Verify:** `cargo test -p vanta-memory --test dreaming 2>&1 | Select-String "ok|PASS" | Measure-Object Count >= 4`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Step 7: gate Regla 0 — entry en core/mod.rs
 - **Archivos:** `vanta-memory/src/core/mod.rs`
 - **Acción:** agregar `pub mod dream;` después de `pub mod memory_generation_log;`
   (línea 49-50).
 - **Verify:** `cargo check -p vanta-memory` 0 errors
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Step 8: verify full (fmt + clippy + nextest)
 - **Archivos:** —
@@ -190,14 +191,14 @@ cargo fmt --check -p vanta-memory                           # 0 diffs
   `cargo clippy -p vanta-memory --all-targets -- -D warnings`,
   `cargo nextest run -p vanta-memory --profile audit --build-jobs 2`.
 - **Verify:** 0 warnings, 0 diffs, todos los tests pre-existentes + nuevos pasan.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Step 9: commit (vanta-engine NO hace commit — staged para vanta-lead)
 - **Archivos:** todos los nuevos/modificados
 - **Acción:** `git add` selectivo, NO commit (per regla de rol). Actualizar plan
   file + skill progreso + devolver RESULTADO.
 - **Verify:** `git status` muestra solo archivos esperados staged.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ## Dependencias
 - **MEM-60** (heat + decay + contradiction) — REUSA `mark_contradiction` (lifecycle.rs:86).
