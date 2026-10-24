@@ -1,4 +1,5 @@
 ---
+status: completed
 title: DESKTOP-40-slice3 — i18n lentes/paneles desktop
 kind: task
 description: "Patrón slices 1-2 (trusted, b64cbb30/bbdeae17): tt(lang, key, fallback-ES) + tp(lang, key, fallback, params) con catálogo simétrico ES/EN (Record<keyof typeof es, string>). Sin símbolos públicos nuevos salvo claves de catálogo"
@@ -7,7 +8,7 @@ description: "Patrón slices 1-2 (trusted, b64cbb30/bbdeae17): tt(lang, key, fal
 # DESKTOP-40-slice3 — i18n lentes/paneles desktop
 
 - **Plan:** `2026-09-10-code` (Task 3 DEFER) · **Backlog:** `docs/dev/Backlog.md` fila `DESKTOP-40-slice3`
-- **Estado:** ⏳ IN PROGRESS · **Rama:** `develop` (verificada paso 0)
+- **Estado: ✅ COMPLETED
 - **Contrato:** lentes + paneles restantes migrados a `tt()/tp()` + `npm run build` desktop 0 errores + `npx tsc --noEmit` exit 0 + `npx vitest run src/i18n` verdes
 - **Appetite:** max 2d · **Commit:** conventional con task ID (`feat(desktop): ... (DESKTOP-40-slice3)`)
 - **SDP:** frontend-ui-engineering, incremental-implementation, test-driven-development, context-engineering (+ campaign-executor/progreso/ponytail auto-MCP; source-driven-development no aplica — sin API externa; doubt-driven/api-and-interface-design descartados — sin trust boundary ni API pública nueva)

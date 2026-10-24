@@ -1,11 +1,12 @@
 ---
+status: completed
 title: DESKTOP-42 — Bundles macOS/Linux + CI matrix
 kind: task
 ---
 
 # DESKTOP-42 — Bundles macOS/Linux + CI matrix
 
-> **Plan:** `2026-09-10-code` (Task 6, Wave1) · **Estado:** ⏳ IN PROGRESS
+> **Plan:** `2026-09-10-code` (Task 6, Wave1) · **Estado: ✅ COMPLETED
 > **Ruta:** vanta-worker · **Appetite:** max 2d · **Tipo:** devops (CI/CD)
 > **Contrato:** targets dmg+AppImage/deb en config + job CI por SO verde (o documentado) + build local del target primario
 > **SDP:** ci-cd-and-automation, source-driven-development, incremental-implementation, context-engineering (+ base campaign-executor, progreso, doubt-driven-development)

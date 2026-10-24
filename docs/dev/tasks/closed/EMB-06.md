@@ -35,7 +35,7 @@ description: "src/physicalplan.rs:224 PhysicalVectorSearch::open y :739 Physical
   - cargo test -p vantadb --test parser --features embed-local (si existe) o cargo test --lib
 
 ## State
-- status: in-progress
+- status: completed
 - activeGoal: Step 1 ACT
 - lastAction: PLAN completado — archivos leídos, patrón factory LocalOnnxProvider validado
 - nextAction: Edit src/physical_plan.rs — añadir cfg embed-local branches

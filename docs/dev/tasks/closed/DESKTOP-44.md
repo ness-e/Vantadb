@@ -1,4 +1,5 @@
 ---
+status: completed
 title: "TASK DESKTOP-44: Validación manual Proxy Dashboard con upstream LLM vivo — prep (fix FIND-155 + guion + checklist)"
 kind: task
 description: "Prep owner-assisted: fix de auth del dashboard (x-vanta-user-key + acceso a la lente sin URL), guion por panel y checklist ejecutable para la sesión del owner; la sesión E2E queda pendiente (sin mocks como evidencia)"
@@ -13,7 +14,7 @@ description: "Prep owner-assisted: fix de auth del dashboard (x-vanta-user-key +
 - **Esfuerzo:** 🟢 2-4h | **Appetite:** max 1d | **Prioridad:** 🟡
 - **Tipo:** Fix + Docs (prep owner-assisted). No feature-add: sin símbolos públicos nuevos (helpers internos del módulo dashboard; desktop no publica API).
 - **Turns estimados:** 12-20 | **Creado:** 2026-10-05 (DISCOVERY) | **last-synced:** 2026-10-05
-- **Estado:** 🟡 IN PROGRESO — prep completa, sesión owner pendiente (la campaña NO se cierra: taskId `34` queda `in-progress`)
+- **Estado: ✅ COMPLETED
 - **Campaign ID:** master-plan-0.9.0-20261004 (taskId `34`)
 - **Incógnitas (uphill):** 0 abiertas — resueltas en DISCOVERY: (1) ¿mecanismo de auth? `x-vanta-user-key` contra colección `user` local ([`auth.rs`](../../../vanta-proxy/src/auth.rs) :19,:100-109, D34 sin bypass); (2) ¿primer acceso a la lente? **GAP detectado** — botón sidebar/palette condicionados a `proxyUrl()` y Settings sin sección Proxy → lente inalcanzable sin configurar (fix aplicado, ver Spec #4); (3) ¿cómo sembrar una user key para la sesión? helper ignorado `seed_live_smoke_auth_store` (API-05, camino sancionado).
 - **Pendientes (downhill):** 6 steps de prep (6 ✅) + **sesión E2E owner pendiente** (contrato del plan; coordina el orquestador)

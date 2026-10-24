@@ -1,4 +1,5 @@
 ---
+status: completed
 title: DAUD-LIMPI — Grupo limpieza desktop post-fix (DAUD-03..08)
 kind: task
 description: "Archivos leídos completos: App.css (60L), index.css (794L), WorkspaceShell.tsx (1132L), TitleBar.tsx (67L), mark-studio.tsx (116L), Timeline.tsx (81L), EventChip.tsx (42L), activity/logic.ts (139L), App.tsx (63L), DESIGNDECISIONS.md..."
@@ -7,7 +8,7 @@ description: "Archivos leídos completos: App.css (60L), index.css (794L), Works
 # DAUD-LIMPI — Grupo limpieza desktop post-fix (DAUD-03..08)
 
 > **Plan:** `2026-08-25-batch-desktop-ux-core` (Task 3, Wave 2)
-> **Estado:** ⏳ IN PROGRESS
+> **Estado: ✅ COMPLETED
 > **Esfuerzo:** 🟢 · **Contrato:** `cd desktop && npm run build` exit 0 + `npx vitest run` pasa + grep utilidades muertas = 0 usos confirmado; stash@{0} dropeado (verify diff vs worktree = 0)
 
 ## Archivos clave
