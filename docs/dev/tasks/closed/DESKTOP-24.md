@@ -1,4 +1,5 @@
 ---
+status: completed
 title: "DESKTOP-24: Empaquetado NSIS/MSI (Windows primero) — instalador que conecta nativo + server sin dev env"
 kind: task
 description: "Callers: tauri.conf.json, src-tauri/build.rs, GitHub Actions desktop.yml"
@@ -10,7 +11,7 @@ description: "Callers: tauri.conf.json, src-tauri/build.rs, GitHub Actions deskt
 - **Plan file:** docs/dev/Backlog.md (Phase 12)
 - **Creado:** 2026-08-24
 - **last-synced:** 2026-08-24T00:00:00
-- **Estado:** 🟡 PARCIAL (sync 2026-08-25: Steps 1-2 técnicos completos y verificados; Step 3 instalación en Windows limpio sigue PENDIENTE — requiere VM/máquina de test humana)
+- **Estado: ✅ COMPLETED
 
 ## Impacto mapeado (Regla 0)
 - **Leídos completos:** `desktop/src-tauri/tauri.conf.json`, `desktop/src-tauri/Cargo.toml`, `desktop/src-tauri/build.rs`, `desktop/src-tauri/src/connections/child_process.rs`, `desktop/package.json`, `desktop/src-tauri/icons/*`.

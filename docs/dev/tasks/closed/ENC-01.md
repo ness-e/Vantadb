@@ -1,4 +1,5 @@
 ---
+status: completed
 title: "TASK ENC-01: Cifrado honesto: aviso al activar + docs (FIND-249 parte 1)"
 kind: task
 description: "Warning accionable al activar la feature `encryption` + `VANTADB_ENCRYPTION_KEY` (0/6 artefactos on-disk cifrados, DUR-02) + docs sin ambigüedad + test que fija el aviso. Cableado completo: FIND-249"
@@ -15,7 +16,7 @@ description: "Warning accionable al activar la feature `encryption` + `VANTADB_E
 - **Tipo:** Mixto (Rust core + Docs)
 - **Turns estimados:** 8-12
 - **Creado:** 2026-10-04T14:07Z | **last-synced:** 2026-10-04T14:45Z
-- **Estado:** ⏳ IN PROGRESS (cierre en curso)
+- **Estado: ✅ COMPLETED
 - **Incógnitas (uphill):** 0 — punto de activación identificado (`StorageEngine::open_with_config`), mecanismo anti-ruido decidido (gating por entorno), wording fijado con pre-mortem #3
 - **Pendientes (downhill):** 0 steps (4/4 ✅; resta commit de cierre + registro)
 - **Campaign ID:** master-plan-0.9.0-20261004

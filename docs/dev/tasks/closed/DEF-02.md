@@ -1,4 +1,5 @@
 ---
+status: completed
 title: "DEF-02: `EXPERIMENTAL_FEATURES.md` regenerado a 0.7.0 + categorías labs"
 kind: task
 description: "cada fila verificada contra código/feature real (evidencia file:line o comando) Y versión 0.7.0 declarada Y categorías labs explícitas Y 0 claims sin respaldo (Regla 11) — pwsh scripts/validate-docs-coverage.ps1 exit 0 (= 0 gaps) Y npx..."
@@ -12,7 +13,7 @@ description: "cada fila verificada contra código/feature real (evidencia file:l
 - **Esfuerzo:** 🟡 2-3d · **Prioridad:** 🟠 · **Tipo:** Docs
 - **Turns estimados:** 15-30
 - **Creado:** 2026-09-26 · **last-synced:** 2026-09-27
-- **Estado:** ⏳ IN PROGRESS — steps 4/4 ✅ + contrato ✅; P2-01 fresh review + commit: LEAD
+- **Estado: ✅ COMPLETED
 - **Incógnitas (uphill):** 0 abiertas (barrido de verificación, sin decisiones abiertas) · **Pendientes (downhill):** 0 steps
 
 ## Blast Radius

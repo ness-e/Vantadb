@@ -1,7 +1,7 @@
 ---
 title: "DIST-19 — Fachada VantaCognitiveAPI en vantadb-node + scopes + Electron CI"
 kind: task
-status: active
+status: completed
 description: "Exponer vanta-memory in-process en vantadb-node (sustituye subprocess MCP stdio en desktop Ego)"
 tags: [napi, memory, electron]
 ---
@@ -83,4 +83,4 @@ Veredicto: cambio aditivo puro (métodos nuevos + workflow nuevo + test nuevo). 
 ## Review S4-S8 (Gate P2-01 final)
 - **Revisor:** vanta-review, sesión distinta al implementador (veredicto 2026-10-16, re-ejecución: vitest 10/10 + 69/69, fmt/clippy, check-docs, diff scoped).
 - **Veredicto:** ✅ APPROVE DIST-19 — S4 AbortHandle justificado por compilador, S5 suite verde, S6 aditivo, S7 proposed sin enforcement, S8 byte-idéntico. Follow-ups con dueño: S9 diseño, S2b harness Ego, Regla 8 completa (chaos/review), serialization 241/241 por lectura (timeout build).
-- **Estado:** ✅ COMPLETED (S4-S8; S9/S2b/Regla-8 como follow-ups registrados).
+- **Estado: ✅ COMPLETED

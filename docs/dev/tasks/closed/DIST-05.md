@@ -1,4 +1,5 @@
 ---
+status: completed
 title: "TASK DIST-05: Assets del release + verificación post-release real (fix del 404)"
 kind: task
 description: "Flujo post-release con verificación ejecutable de artefactos (script + workflow + gate en PUBLISH.md) + install.ps1 parametrizado/verificado contra los assets reales (+ fix compat Windows PowerShell 5.1)"
@@ -12,7 +13,7 @@ description: "Flujo post-release con verificación ejecutable de artefactos (scr
 - **Fuente:** Backlog `DIST-05` (H-011) — zip Windows de v0.7.0 → 404 live verificado
 - **Esfuerzo:** 🟢 4h | **Appetite:** max 1d | **Prioridad:** 🟠
 - **Tipo:** Release/CI (script + workflow + docs; sin lógica Rust)
-- **Creado:** 2026-10-04 | **Estado:** ⏳ IN PROGRESS (steps 6/6 ejecutados; review P2-01 + commit en curso)
+- **Creado:** 2026-10-04 | **Estado: ✅ COMPLETED
 - **Campaign ID:** master-plan-0.9.0-20261004
 - **Ejecutor:** vanta-lead (dominio release/CI)
 - **Incógnitas (uphill):** 0 (resueltas en DISCOVERY — ver Investigation Notes)

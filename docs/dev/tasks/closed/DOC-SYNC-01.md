@@ -1,4 +1,5 @@
 ---
+status: completed
 title: DOC-SYNC-01 — Sincronizar descripciones stales del Backlog
 kind: task
 ---
@@ -6,7 +7,7 @@ kind: task
 # DOC-SYNC-01 — Sincronizar descripciones stales del Backlog
 
 - **Plan:** `2026-09-07-cleanup-gates` Task 3
-- **Estado:** ⏳ IN PROGRESS → ✅ al verificar
+- **Estado: ✅ COMPLETED
 - **Branch:** develop (no commitear — cierre sin commit por orden del run)
 - **Scope:** SOLO `docs/dev/Backlog.md` (2 textos). NO tocar plan file, ni archivos de STABLE-05/GOV-TK2.
 

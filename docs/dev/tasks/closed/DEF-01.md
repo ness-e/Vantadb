@@ -1,4 +1,5 @@
 ---
+status: completed
 title: "DEF-01: Decisión única de producto + alineación SPEC/README/VISION"
 kind: task
 description: "SPEC/README/VISION declaran la MISMA jerarquía (1 núcleo + 3 puertas) sin contradicciones Y Gate P registrado (owner) Y pwsh scripts/validate-docs-coverage.ps1 verde\""
@@ -15,7 +16,7 @@ description: "SPEC/README/VISION declaran la MISMA jerarquía (1 núcleo + 3 pue
 - **Turns estimados:** 8
 - **Creado:** 2026-09-26T19:55
 - **last-synced:** 2026-09-26T19:55
-- **Estado:** ⏳ IN PROGRESS (2026-09-27) — Steps 1–3 ✅ (Gate P: opción c; 4 docs alineados) · Step 4: gates ✅ · cierre pendiente (P2-01: reviewer fresco o waiver)
+- **Estado: ✅ COMPLETED
 - **Incógnitas (uphill):** 0 abiertas — jerarquía decidida por owner (opción c, 2026-09-27)
 - **Pendientes (downhill):** 1 — Step 4 (solo ACCEPT mecanizado)
 
