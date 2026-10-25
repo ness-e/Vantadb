@@ -12,7 +12,7 @@ description: "Canonical index of the VantaDB documentation corpus."
      Grouped by kind, then by status, then by title.
      Source of truth: the frontmatter of the files listed below. -->
 
-649 documents. This page is generated from frontmatter, so it cannot fall behind the tree. If a document is missing here, its `kind` or `description` is missing.
+648 documents. This page is generated from frontmatter, so it cannot fall behind the tree. If a document is missing here, its `kind` or `description` is missing.
 
 ## Top level (3)
 
@@ -72,7 +72,7 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [Write receipts (VER-10) — attestation of writes](./api/WRITE_RECEIPTS.md)                    | reference | Verifiable write receipts emitted by put_certified (Rust SDK): content binding (sha256), VER-01 chain reference, canonical surfaces and declared limits; point-in-time verification via schema, integrity hash and live re-scan                            |
 | [vanta-proxy Reference (Endpoints, Opt-in Features, Config)](./api/PROXY.md)                  | reference | vanta-proxy is a transparent LLM wire proxy: by default it forwards bytes                                                                                                                                                                                  |
 
-## Internal / contributor (479)
+## Internal / contributor (478)
 
 ### Architecture decision records — 61
 
@@ -219,7 +219,7 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [Análisis Integral de Sistemas, Experiencia de Usuario y Ciclo de Vida: VantaDB](./dev/reports/2026-10-19-systems-and-ux-analysis.md) | report | Autor: Principal Systems Engineer & Critical Architecture Review                                      |
 | [DORA Flow Metrics Report](./dev/reports/dora.md)                                                                                     | report | Δt promedio (solo fallos reales, exit ≠ -1): 0.6h sobre 21 pares (17 espurios excluidos del promedio) |
 
-### Research — 61
+### Research — 60
 
 | Document                                                                                                                                                                               | Kind     | Summary                                                                                                                                                                                                                                                                                                 |
 | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -234,7 +234,6 @@ description: "Canonical index of the VantaDB documentation corpus."
 | [Backlog Notion — tareas sobre páginas VantaDB Docs](./dev/backlog-notion.md)                                                                                                          | research | _—_                                                                                                                                                                                                                                                                                                     |
 | [Backlog de Negocio — VantaDB](./dev/Backlog-negocio.md)                                                                                                                               | research | _—_                                                                                                                                                                                                                                                                                                     |
 | [Bases de Datos Embebidas/Vectoriales: Modelos de Negocio Reales](./dev/research/validacion/02-bases-datos-embebidas-modelos-negocio.md)                                               | research | Investigación de mercado para VantaDB · Fecha: 2026-08-25 · Agente: vanta-research (B) · Verificación: páginas oficiales de pricing extraídas el día de la fecha salvo indicación                                                                                                                       |
-| [Benchmark Framework Evaluation — `divan` vs `criterion` (2026-08-30)](./dev/research/bench-framework-evaluation-2026-08-30.md)                                                        | research | divan 0.1.21 is NOT introduced into the VantaDB workspace. criterion 0.8 already covers                                                                                                                                                                                                                 |
 | [Brecha de definición de producto (revisión definición vs repo shippeado, 2026-09-24)](./dev/research/product-definition-gap-2026-09-24.md)                                            | research | EXPERIMENTALFEATURES.md se declara para \\"v0.1.x\\" (lastreviewed: 2026-07-01) mientras el changelog está en 0.7.0. Claims falsos verificados                                                                                                                                                          |
 | [Competidores: Memoria para Agentes de IA — Mapeo de Mercado](./dev/research/validacion/01-competidores-memoria-agentes-ia.md)                                                         | research | Fecha: 2026-08-25 (datos verificados en vivo el 25-08-2026 UTC) · Autor: vanta-research (Agente A) · Confianza marcada por dato                                                                                                                                                                         |
 | [Concurrency Testing — `loom` Evaluation (2026-08-30)](./dev/research/concurrency-testing-2026-08-30.md)                                                                               | research | loom is NOT introduced into the VantaDB workspace. The current concurrency test suite                                                                                                                                                                                                                   |

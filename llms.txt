@@ -6,7 +6,7 @@
 
 Every link below points to the raw Markdown source, not a rendered page. Read the
 page you need; do not read this file end to end. This index covers the
-494 documentation pages; it deliberately omits the 155 task files,
+493 documentation pages; it deliberately omits the 155 task files,
 which are work items rather than documentation. The full inventory of every file
 is in docs/index.md in the repository.
 
@@ -307,7 +307,6 @@ is in docs/index.md in the repository.
 - [Backlog Notion — tareas sobre páginas VantaDB Docs](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/backlog-notion.md)
 - [Backlog de Negocio — VantaDB](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/Backlog-negocio.md)
 - [Bases de Datos Embebidas/Vectoriales: Modelos de Negocio Reales](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/validacion/02-bases-datos-embebidas-modelos-negocio.md): Investigación de mercado para VantaDB · Fecha: 2026-08-25 · Agente: vanta-research (B) · Verificación: páginas oficiales de pricing extraídas el día de la fecha salvo indicación
-- [Benchmark Framework Evaluation — `divan` vs `criterion` (2026-08-30)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/bench-framework-evaluation-2026-08-30.md): divan 0.1.21 is NOT introduced into the VantaDB workspace. criterion 0.8 already covers
 - [Brecha de definición de producto (revisión definición vs repo shippeado, 2026-09-24)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/product-definition-gap-2026-09-24.md): EXPERIMENTALFEATURES.md se declara para \"v0.1.x\" (lastreviewed: 2026-07-01) mientras el changelog está en 0.7.0. Claims falsos verificados
 - [Competidores: Memoria para Agentes de IA — Mapeo de Mercado](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/validacion/01-competidores-memoria-agentes-ia.md): Fecha: 2026-08-25 (datos verificados en vivo el 25-08-2026 UTC) · Autor: vanta-research (Agente A) · Confianza marcada por dato
 - [Concurrency Testing — `loom` Evaluation (2026-08-30)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/concurrency-testing-2026-08-30.md): loom is NOT introduced into the VantaDB workspace. The current concurrency test suite
