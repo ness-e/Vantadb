@@ -1,5 +1,5 @@
 //! L1 extraction response parser — turns the LLM's JSON array of scene
-//! segments into typed [`SceneSegment`]s (port of TDAM
+//! segments into typed [`SceneSegment`]s (autonomous memory pipeline
 //! `l1-extractor.ts:parseExtractionResult` + `normalizeType`).
 //!
 //! Tolerant by design: a malformed item or an unknown/legacy type drops only
@@ -17,7 +17,7 @@ const DEFAULT_SCENE: &str = "unknown-scene";
 ///
 /// Returns an empty vec when no JSON array can be recovered. On the first
 /// failure a targeted repair of bare `"priority"` scalars is attempted
-/// (TDAM `repairExtractionJson`), so one bad scalar doesn't drop the batch.
+/// (Vanta memory engine `repairExtractionJson`), so one bad scalar doesn't drop the batch.
 pub fn parse_l1_extraction(raw: &str) -> Vec<SceneSegment> {
     let items = match extract_json::<Vec<Value>>(raw) {
         Some(items) => items,
@@ -62,7 +62,7 @@ pub fn parse_l1_extraction(raw: &str) -> Vec<SceneSegment> {
 }
 
 /// Repair a bare identifier in a `"priority"` value — e.g. `"priority": sheet`
-/// — replacing it with the default `50` (port of TDAM
+/// — replacing it with the default `50` (autonomous memory pipeline
 /// `l1-extractor.ts:repairExtractionJson`, 592-598; string-aware instead of
 /// regex so string values and nested occurrences are untouched).
 fn repair_priority_scalars(raw: &str) -> String {
@@ -128,7 +128,7 @@ fn repair_priority_scalars(raw: &str) -> String {
 }
 
 /// Normalize a raw LLM type string against [`MemoryType`], folding legacy
-/// aliases (TDAM `l1-extractor.ts:728-737`).
+/// aliases (Vanta memory engine `l1-extractor.ts:728-737`).
 pub fn normalize_type(raw: &str) -> Option<MemoryType> {
     match raw.trim().to_ascii_lowercase().as_str() {
         "persona" | "preference" => Some(MemoryType::Persona),
@@ -268,7 +268,7 @@ mod tests {
 
     #[test]
     fn bare_priority_identifier_repaired_not_dropped() {
-        // "priority": sheet is invalid JSON; the batch must survive (TDAM
+        // "priority": sheet is invalid JSON; the batch must survive (Vanta memory engine
         // repairExtractionJson) and the memory keeps the default priority.
         let raw = r#"[{"scene_name": "s", "message_ids": [], "memories": [
           {"content": "good one", "type": "episodic", "priority": sheet}

@@ -1,6 +1,6 @@
 //! L1 two-phase dedup pipeline (MEM-11).
 //!
-//! Port of TDAM `core/record/l1-dedup.ts` (2 phases, no literal copy):
+//! Autonomous memory pipeline `core/record/l1-dedup.ts` (2 phases, no literal copy):
 //! 1. **Phase 1 — candidate recall (LLM-free):** for each new memory, recall a
 //!    top-k pool of existing records via keyword overlap (see `l1_reader`).
 //! 2. **Phase 2 — batch LLM judgment:** ONE `LlmRunner` call judges every new

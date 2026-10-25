@@ -1,10 +1,10 @@
 //! Gateway knowledge handlers: typed request/response layer for the MCP
 //! scene tools `scene_read` / `scene_list` / `scene_query` (MEM-21, F4).
 //!
-//! Port of TDAM `MC/gateway/knowledge-handlers.ts` adapted to the record
+//! Autonomous memory pipeline `MC/gateway/knowledge-handlers.ts` adapted to the record
 //! store: there is no HTTP router here — these are pure handlers over
 //! [`crate::core::scene::scene_index`] that a future MCP server wraps. The
-//! TDAM pattern (validate input → store method → typed envelope) maps to
+//! Vanta memory engine pattern (validate input → store method → typed envelope) maps to
 //! (boundary validation → scene_index call → `Result<Response, KnowledgeError>`).
 //!
 //! Soft-delete contract (MEM-14): deleted scenes are invisible through this
@@ -28,7 +28,7 @@ use crate::core::scene::scene_index::{get_scene, list_scenes, read_blocks, Scene
 use crate::core::scene::scene_tools::{validate_scene_name, SceneToolError};
 
 /// Default result budget of [`scene_query`] when the request omits `top_k`
-/// (TDAM recall `maxResults` default).
+/// (Vanta memory engine recall `maxResults` default).
 pub const DEFAULT_QUERY_TOP_K: usize = 5;
 
 /// Errors surfaced by the gateway knowledge handlers.
@@ -43,7 +43,7 @@ pub enum KnowledgeError {
     #[error("invalid knowledge request: {0}")]
     Invalid(String),
     /// The requested scene does not exist (or is soft-deleted — indistinguishable
-    /// by design, parity with the TDAM 404 envelope).
+    /// by design, parity with the Vanta memory engine 404 envelope).
     #[error("scene not found: {0}")]
     NotFound(String),
 }

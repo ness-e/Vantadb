@@ -1,7 +1,7 @@
 //! Skill Review Agent system prompt (MEM-17, F4) — v2 capture-first taxonomy.
 //!
-//! Rewritten in English from TDAM `MC/core/skill/prompts/skill-review-prompt.ts`
-//! (198L). The TDAM original drives a tool-calling review agent; this port
+//! Rewritten in English from Vanta memory engine `MC/core/skill/prompts/skill-review-prompt.ts`
+//! (198L). The Vanta memory engine original drives a tool-calling review agent; this port
 //! restates the same philosophy for a pure-text JSON output contract (the
 //! crate's [`crate::core::abstractions::LlmRunner`] has no tool loop):
 //!

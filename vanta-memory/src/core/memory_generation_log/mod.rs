@@ -9,7 +9,7 @@
 //! `tracing::warn!` — a logging failure can never fail a memory generation.
 //! Growth is capped per session (keep-recent) in [`store::try_record`].
 //!
-//! Design source: TDAM `core/memory-generation-log/{types,store,best-effort}.ts`
+//! Design source: Vanta memory engine `core/memory-generation-log/{types,store,best-effort}.ts`
 //! (277L), reduced to the fields the contract requires
 //! ({layer, status, anchor_id, session, ts} + optional error).
 

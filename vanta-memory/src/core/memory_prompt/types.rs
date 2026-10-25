@@ -1,7 +1,7 @@
 //! Data contracts for the memory-prompt layer (custom strategy prompts that
 //! tune how the agent treats L1/L2/L3 memory content).
 //!
-//! Source: TDAM `MC/core/memory-prompt/types.ts` (reference only — ids are
+//! Source: Vanta memory engine `MC/core/memory-prompt/types.ts` (reference only — ids are
 //! deterministic sanitized strings here, no crypto hash, no new deps).
 
 use serde::{Deserialize, Serialize};
@@ -9,7 +9,7 @@ use thiserror::Error;
 
 use crate::core::conversation::sanitize_component;
 
-/// Which pipeline layer a custom strategy tunes (TDAM `MemoryPromptLayer`).
+/// Which pipeline layer a custom strategy tunes (Vanta memory engine `MemoryPromptLayer`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MemoryPromptLayer {
@@ -32,7 +32,7 @@ impl MemoryPromptLayer {
     }
 }
 
-/// Resolution scope of a prompt (TDAM `MemoryPromptSource`).
+/// Resolution scope of a prompt (Vanta memory engine `MemoryPromptSource`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MemoryPromptSource {
@@ -50,7 +50,7 @@ pub enum PromptStatus {
     Deleting,
 }
 
-/// A custom strategy prompt (TDAM `MemoryPromptRecord`, persisted shape).
+/// A custom strategy prompt (Vanta memory engine `MemoryPromptRecord`, persisted shape).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub struct MemoryPromptRecord {
@@ -64,7 +64,7 @@ pub struct MemoryPromptRecord {
     pub updated_at_ms: u64,
 }
 
-/// Binding of a prompt to a resolution target (TDAM
+/// Binding of a prompt to a resolution target (Vanta memory engine
 /// `MemoryPromptSettingRecord`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -97,7 +97,7 @@ pub struct ResolvedMemoryPrompt {
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum MemoryPromptError {
-    /// An agent-scoped setting was requested without a team id (TDAM throws
+    /// An agent-scoped setting was requested without a team id (Vanta memory engine throws
     /// `teamId is required for an agent prompt setting`).
     #[error("team id is required for an agent prompt setting")]
     AgentRequiresTeam,
@@ -106,7 +106,7 @@ pub enum MemoryPromptError {
     Vanta(#[from] vantadb::error::Error),
 }
 
-/// Deterministic setting id for a target + layer. TDAM hashes the target with
+/// Deterministic setting id for a target + layer. Vanta memory engine hashes the target with
 /// sha256; here the sanitized concatenation is enough (ids are not
 /// security-sensitive and no new dependency is allowed).
 pub fn build_memory_prompt_setting_id(

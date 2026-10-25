@@ -562,15 +562,15 @@ pub struct OperationalMetrics {
     pub jemalloc_mapped_bytes: Option<u64>,
     /// Bytes in retained pages by jemalloc, if available.
     pub jemalloc_retained_bytes: Option<u64>,
-    /// L1 extraction latency in milliseconds (last observed; TDAM metric-tracking-l1).
+    /// L1 extraction latency in milliseconds (last observed; Vanta memory engine metric-tracking-l1).
     pub l1_extraction_latency_ms: u64,
     /// L1 dedup latency in milliseconds (last observed).
     pub l1_dedup_latency_ms: u64,
-    /// L2 extraction latency in milliseconds (last observed; TDAM metric-tracking-l2).
+    /// L2 extraction latency in milliseconds (last observed; Vanta memory engine metric-tracking-l2).
     pub l2_extraction_latency_ms: u64,
     /// L2 LLM call duration in milliseconds (last observed).
     pub l2_llm_duration_ms: u64,
-    /// L3 generation latency in milliseconds (last observed; TDAM metric-tracking-l3).
+    /// L3 generation latency in milliseconds (last observed; Vanta memory engine metric-tracking-l3).
     pub l3_generation_latency_ms: u64,
     /// Persona context length before L3 update.
     pub persona_length_before: u64,
@@ -582,7 +582,7 @@ pub struct OperationalMetrics {
     pub recall_hit_count: u64,
     /// Best recall hit score scaled by 10_000 (basis points; 10_000 == 1.0).
     pub recall_top_score: u64,
-    /// Recall query latency in milliseconds (last observed; TDAM metric-tracking-recall).
+    /// Recall query latency in milliseconds (last observed; Vanta memory engine metric-tracking-recall).
     pub recall_latency_ms: u64,
     /// Recall strategy code used by the last query: 0=skipped, 1=keyword, 2=embedding, 3=hybrid.
     pub recall_strategy: u64,

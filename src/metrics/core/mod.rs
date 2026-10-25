@@ -520,9 +520,9 @@ pub fn record_memory_breakdown(
     set_gauge!(VOLATILE_CACHE_CAP_BYTES, cache_cap_bytes);
 }
 
-/// Recall strategy code for `record_recall` (TDAM `metric-tracking-recall`).
+/// Recall strategy code for `record_recall` (Vanta memory engine `metric-tracking-recall`).
 ///
-/// Codes match the TDAM wire contract: 0=skipped, 1=keyword, 2=embedding, 3=hybrid.
+/// Codes match the Vanta memory engine wire contract: 0=skipped, 1=keyword, 2=embedding, 3=hybrid.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u64)]
 pub enum RecallStrategy {
@@ -543,7 +543,7 @@ impl RecallStrategy {
     }
 }
 
-/// Record L1 extraction latency (TDAM metric-tracking-l1).
+/// Record L1 extraction latency (Vanta memory engine metric-tracking-l1).
 pub fn record_l1_extraction(latency_ms: u64) {
     LAST_L1_EXTRACTION_LATENCY_MS.fetch_max(latency_ms, Ordering::Relaxed);
 }
@@ -553,7 +553,7 @@ pub fn record_l1_dedup(latency_ms: u64) {
     LAST_L1_DEDUP_LATENCY_MS.fetch_max(latency_ms, Ordering::Relaxed);
 }
 
-/// Record L2 extraction latency (TDAM metric-tracking-l2).
+/// Record L2 extraction latency (Vanta memory engine metric-tracking-l2).
 pub fn record_l2_extraction(latency_ms: u64) {
     LAST_L2_EXTRACTION_LATENCY_MS.fetch_max(latency_ms, Ordering::Relaxed);
 }
@@ -563,7 +563,7 @@ pub fn record_l2_llm(duration_ms: u64) {
     LAST_L2_LLM_DURATION_MS.fetch_max(duration_ms, Ordering::Relaxed);
 }
 
-/// Record L3 generation latency (TDAM metric-tracking-l3).
+/// Record L3 generation latency (Vanta memory engine metric-tracking-l3).
 pub fn record_l3_generation(latency_ms: u64) {
     LAST_L3_GENERATION_LATENCY_MS.fetch_max(latency_ms, Ordering::Relaxed);
 }
@@ -575,7 +575,7 @@ pub fn record_persona(length_before: u64, length_after: u64, drift_ratio_bps: u6
     LAST_PERSONA_DRIFT_RATIO.store(drift_ratio_bps, Ordering::Relaxed);
 }
 
-/// Record a recall query result (TDAM metric-tracking-recall).
+/// Record a recall query result (Vanta memory engine metric-tracking-recall).
 ///
 /// `top_score_bps` is the best hit score scaled by 10_000 (10_000 == 1.0).
 pub fn record_recall(hit: bool, top_score_bps: u64, latency_ms: u64, strategy: RecallStrategy) {

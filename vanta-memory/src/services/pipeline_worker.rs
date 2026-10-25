@@ -1,4 +1,4 @@
-//! Pipeline worker (port of TDAM `MC/services/pipeline-worker.ts`, single
+//! Pipeline worker (autonomous memory pipeline `MC/services/pipeline-worker.ts`, single
 //! process — MEM-16).
 //!
 //! Consumes prioritized tasks from the state backend, serializes per-session
@@ -12,7 +12,7 @@
 //! with counters tracked in the
 //! [`Checkpoint`](crate::utils::checkpoint::Checkpoint).
 //!
-//! Not ported from TDAM: Prometheus metrics (single-process scope).
+//! Not ported from Vanta memory engine: Prometheus metrics (single-process scope).
 //! Multi-worker pending recovery (`claimStaleTasks`) IS ported (MEM-66):
 //! see [`PipelineWorker::reclaim_stale`] and the claim API on
 //! [`LocalStateBackend`](crate::utils::local_backend::LocalStateBackend).

@@ -7,14 +7,14 @@
 //!
 //! There is no denormalized `scene_index.json`: the records ARE the source
 //! of truth and [`list_scenes`] derives the index entries by listing (avoids
-//! the TDAM write-sync bug, `scene-index.ts:63-84`).
+//! the Vanta memory engine write-sync bug, `scene-index.ts:63-84`).
 //!
 //! Semantics (documented in `core::abstractions::SceneMeta`): CREATE sets
 //! `heat = 1`, UPDATE bumps `heat = old + 1` and refreshes `updated` while
 //! preserving `created`. The MERGE branch (`heat = sum + 1`) belongs to the
 //! L2 strategy (MEM-14).
 //!
-//! Source: `docs/dev/research/tdam/02-scene-persona.md` §53 (TDAM
+//! Source: `docs/api/VANTA_MEMORY.md02-scene-persona.md` §53 (Vanta memory engine
 //! `scene-index.ts`).
 
 use thiserror::Error;
@@ -76,7 +76,7 @@ pub fn upsert_scene(
 /// Mark a scene block as soft-deleted (MEM-14): sets `deleted: true` and
 /// replaces the content with [`SOFT_DELETE_MARKER`][crate::core::scene::scene_format::SOFT_DELETE_MARKER],
 /// preserving the META contract (`created`/`updated`/`summary`/`heat` — parity
-/// with the TDAM cleanup that never touches META).
+/// with the Vanta memory engine cleanup that never touches META).
 ///
 /// Idempotent: a missing scene returns `Ok(None)`; an already-deleted scene
 /// returns the existing block unchanged. Returns the written block on success.

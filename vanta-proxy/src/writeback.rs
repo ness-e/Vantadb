@@ -1,6 +1,6 @@
 //! L0 write-back: fire-and-forget tracking + retry + graceful flush.
 //!
-//! TDAM parity (`pending-writes.ts`): streaming responses cannot await the
+//! specification parity (`pending-writes.ts`): streaming responses cannot await the
 //! L0 write, so writes run detached with bounded retry (3 attempts,
 //! 500ms→1s→2s backoff — `withL0Retry`). A write that exhausts its retries
 //! lands in a pending queue persisted to disk; a graceful shutdown
@@ -49,7 +49,7 @@ impl WriteBack {
         }
     }
 
-    /// Fire-and-forget tracked write (TDAM `trackWrite` + `withL0Retry`):
+    /// Fire-and-forget tracked write (Vanta memory engine `trackWrite` + `withL0Retry`):
     /// spawns a task running `job` with 3 attempts and exponential backoff
     /// (500ms→1s→2s). On final failure the job is queued for the shutdown
     /// flush and its label persisted to disk.
@@ -223,7 +223,7 @@ impl WriteBack {
     }
 }
 
-/// Bounded exponential-backoff retry (TDAM `withL0Retry`): `attempts`
+/// Bounded exponential-backoff retry (Vanta memory engine `withL0Retry`): `attempts`
 /// attempts, sleeping `base_ms << i` between them (500→1000→2000 by
 /// default). Every failure is retried — callers pass only retryable work.
 pub async fn with_l0_retry<F, Fut>(mut f: F, attempts: u32, base_ms: u64) -> Result<(), String>
@@ -358,7 +358,7 @@ mod tests {
     }
 
     #[test]
-    fn default_backoff_schedule_matches_tdam_500_1000_2000() {
+    fn default_backoff_schedule_matches_standard_schedule() {
         // Contract check without waiting: base<<i for i=0..2.
         assert_eq!(
             [0u64, 1, 2].map(|i| DEFAULT_BASE_MS << i),

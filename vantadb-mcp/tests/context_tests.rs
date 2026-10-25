@@ -246,7 +246,7 @@ fn test_context_assemble_compacts_large_history_under_budget() {
     let (_dir, storage) = setup_storage();
     // 30 turns of ~200 words each ≈ far above the budget. The LAST TWO
     // messages are tiny because the engine protects them (min_keep = 2,
-    // TDAM parity): when the protected tail alone exceeds the budget the
+    // specification parity): when the protected tail alone exceeds the budget the
     // engine deliberately returns over budget (engine.rs cursor guarantee),
     // so a fitting tail is what makes "≤ budget" the correct expectation.
     let mut messages: Vec<Value> = (0..28)

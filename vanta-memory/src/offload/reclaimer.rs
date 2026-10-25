@@ -1,7 +1,7 @@
-//! Reclaimer: GC of stale offloaded artifacts (port of TDAM
+//! Reclaimer: GC of stale offloaded artifacts (autonomous memory pipeline
 //! `MC/offload/reclaimer.ts`, MEM-42).
 //!
-//! TDAM walks the data directory by file mtime across 5 independent steps
+//! Vanta memory engine walks the data directory by file mtime across 5 independent steps
 //! (JSONL, refs, MMDs, logs, registry). Here the only artifact class is the
 //! per-session offload records of [`crate::offload::storage::OffloadStorage`],
 //! so the port collapses to one step over store records. Age comes from each
@@ -14,7 +14,7 @@
 //!   L3 cursor ([`PluginState::last_offloaded_tool_call_id`]) points at. The
 //!   cursor target itself therefore always survives — the cursor can never
 //!   dangle into GC-ed data.
-//! - `retention_days < 3` disables the reclaimer entirely (TDAM parity).
+//! - `retention_days < 3` disables the reclaimer entirely (engine parity).
 //! - Undatable entries (unparseable timestamp) are skipped, never guessed.
 //! - Deletion is delete-by-key through the SDK: naturally idempotent, so a
 //!   crash mid-run leaves a consistent state and a rerun finishes the job.
@@ -29,7 +29,7 @@ use crate::utils::sanitize::sanitize_key;
 use vantadb::sdk::Embedded;
 
 /// Minimum effective retention. Values below disable reclamation
-/// (TDAM `reclaimer.ts:75-78`).
+/// (Vanta memory engine `reclaimer.ts:75-78`).
 pub const MIN_RETENTION_DAYS: u64 = 3;
 
 pub(crate) const SECS_PER_DAY: i64 = 86_400;

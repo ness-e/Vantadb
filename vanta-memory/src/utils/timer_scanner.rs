@@ -1,7 +1,7 @@
-//! `TimerScanner` (port of TDAM `MC/services/timer-scanner.ts`, pull-based —
+//! `TimerScanner` (autonomous memory pipeline `MC/services/timer-scanner.ts`, pull-based —
 //! MEM-16).
 //!
-//! TDAM runs a background interval that polls Redis for expired timers. Here
+//! Vanta memory engine runs a background interval that polls Redis for expired timers. Here
 //! the owner calls [`TimerScanner::run_once`] whenever it wants due timers
 //! dispatched (worker loop tick, test step). With a [`FakeClock`] this makes
 //! timer firing fully deterministic.

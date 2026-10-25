@@ -1,10 +1,10 @@
-//! Wiki ingest (MEM-30 — TDAM `engines/wiki/ingest-v2` port, merge stage).
+//! Wiki ingest (MEM-30 — Vanta memory engine `engines/wiki/ingest-v2` port, merge stage).
 //!
 //! Pipeline: scan local sources → chunk → extract candidate pages →
 //! **serial** per-page merge → persist via the core [`vantadb::wiki::WikiStore`].
 //!
 //! Concurrency decision (D1: sync crate): merges run **serially per page** —
-//! TDAM's `commitCandidates` also iterates pages serially; its `pLimit(5)`
+//! Vanta memory engine's `commitCandidates` also iterates pages serially; its `pLimit(5)`
 //! exists only because multiple *sources* are extracted concurrently in JS.
 //! The configurable global LLM limit ([`IngestConfig::global_llm_concurrency`],
 //! default 5, clamped 1..=20) is an upper bound honored trivially by the
@@ -26,7 +26,7 @@ pub mod worker;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-/// Paths never overwritten by ingest candidates (TDAM ingest-v2/index.ts:69-75).
+/// Paths never overwritten by ingest candidates (Vanta memory engine ingest-v2/index.ts:69-75).
 /// These structural files are managed by the wiki itself.
 pub const STRUCTURAL_FILES: [&str; 5] = [
     "wiki/index.md",
@@ -36,7 +36,7 @@ pub const STRUCTURAL_FILES: [&str; 5] = [
     "wiki/overview.md",
 ];
 
-/// Default global LLM concurrency for extract+merge calls (TDAM config.ts:105).
+/// Default global LLM concurrency for extract+merge calls (Vanta memory engine config.ts:105).
 pub const DEFAULT_GLOBAL_LLM_CONCURRENCY: usize = 5;
 
 /// Errors surfaced by the wiki ingest pipeline.
@@ -58,7 +58,7 @@ pub enum IngestError {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IngestConfig {
     /// Global cap on concurrent LLM calls (extract + merge). Default 5,
-    /// always clamped to 1..=20 on construction (TDAM config.ts:104-107).
+    /// always clamped to 1..=20 on construction (Vanta memory engine config.ts:104-107).
     pub global_llm_concurrency: usize,
     /// Per-chunk target size in characters (core chunker default 12_000).
     pub chunk_target_chars: usize,
@@ -86,7 +86,7 @@ impl IngestConfig {
     }
 }
 
-/// Clamp an optional raw concurrency value into 1..=20 (TDAM config.ts:104-107:
+/// Clamp an optional raw concurrency value into 1..=20 (Vanta memory engine config.ts:104-107:
 /// default 5 when unset/invalid). The configured limit bounds merge calls;
 /// with the serial worker it is an enforced ceiling of one call at a time.
 pub fn clamp_llm_concurrency(raw: Option<usize>) -> usize {
@@ -98,7 +98,7 @@ pub fn clamp_llm_concurrency(raw: Option<usize>) -> usize {
 
 // ── minimal YAML frontmatter ──
 
-/// Parsed frontmatter of a wiki page (subset TDAM actually relies on:
+/// Parsed frontmatter of a wiki page (subset Vanta memory engine actually relies on:
 /// string scalars + `sources` list + `locked` flag).
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Frontmatter {
@@ -184,7 +184,7 @@ pub fn parse_frontmatter(content: &str) -> (Frontmatter, &str) {
     (fm, body)
 }
 
-/// Rebuild a page from frontmatter + body (TDAM buildPage parity).
+/// Rebuild a page from frontmatter + body (Vanta memory engine buildPage parity).
 pub fn build_page(fm: &Frontmatter, body: &str) -> String {
     let mut out = String::from("---\n");
     let mut wrote_keys: Vec<&str> = Vec::new();
@@ -226,7 +226,7 @@ pub fn build_page(fm: &Frontmatter, body: &str) -> String {
 }
 
 /// Force the `sources` frontmatter list to contain `source_name`
-/// (TDAM ensureSources :368-375). Idempotent.
+/// (Vanta memory engine ensureSources :368-375). Idempotent.
 pub fn ensure_sources(content: &str, source_name: &str) -> String {
     let (mut fm, body) = parse_frontmatter(content);
     if fm.sources.iter().any(|s| s == source_name) {

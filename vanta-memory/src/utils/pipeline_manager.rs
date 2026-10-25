@@ -1,4 +1,4 @@
-//! `MemoryPipelineManager` (port of TDAM `MC/utils/pipeline-manager.ts`,
+//! `MemoryPipelineManager` (autonomous memory pipeline `MC/utils/pipeline-manager.ts`,
 //! in-process variant — MEM-16).
 //!
 //! Owns the capture → L1 trigger flow: buffers messages, applies the warm-up
@@ -6,7 +6,7 @@
 //! enqueues an L1 task when the threshold fires or arms an idle timer so quiet
 //! sessions still flush. All deadlines go through the injected [`Clock`].
 //!
-//! Not ported from TDAM: stale-session GC and pending-session recovery
+//! Not ported from Vanta memory engine: stale-session GC and pending-session recovery
 //! (single-process scope; revisit with a second backend).
 
 use crate::core::state::{TaskKind, TaskPayload};

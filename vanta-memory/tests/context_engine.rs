@@ -1,7 +1,7 @@
 // ponytail: blanket allow - unwraps with documented invariants; documented per-call.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Contract tests D19 for MEM-22 (context engine assemble + mild/aggressive
-//! cascade). Source: plan file Task 5 contract, TDAM refs @97f9465.
+//! cascade). Source: plan file Task 5 contract, Vanta memory engine refs @97f9465.
 //!
 //! (a) ratio < 0.5 → skip untouched · (b) mild cascade top-score, pairs whole
 //! · (c) summary>original guard reverts · (d) aggressive one-shot +

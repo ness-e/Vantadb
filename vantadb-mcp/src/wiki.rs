@@ -17,12 +17,12 @@
 //! | `wiki_search` | `list_pages()` + local BM25-style scan+rank | pages are
 //!   serde records in the `InternalMetadata` partition, invisible to the
 //!   core's memory-record text_index; MEM-30 built no separate index →
-//!   scan+rank (k1=1.5, b=0.75), title terms weighted ×5 (TDAM
+//!   scan+rank (k1=1.5, b=0.75), title terms weighted ×5 (Vanta memory engine
 //!   manager.ts:381-391 parity). NO SQLite FTS5. |
 //! | `wiki_read` | `get_page()` | `locked:true` surfaced as visible metadata |
 //! | `wiki_list` | `list_pages()` | ordered by canonical path |
 //! | `wiki_graph` | BFS multi-hop over `[[wikilink]]` edges extracted from
-//!   page content, hard cap 200 visited nodes (TDAM graph-search.ts:38) | |
+//!   page content, hard cap 200 visited nodes (Vanta memory engine graph-search.ts:38) | |
 
 use crate::config::McpConfig;
 use crate::error::McpError;
@@ -39,7 +39,7 @@ use vanta_memory::ingest::IngestConfig;
 use vantadb::storage::StorageEngine;
 use vantadb::wiki::{WikiState, WikiStore};
 
-/// Hard cap on visited nodes for `wiki_graph` (TDAM graph-search.ts:38).
+/// Hard cap on visited nodes for `wiki_graph` (Vanta memory engine graph-search.ts:38).
 const GRAPH_MAX_NODES: usize = 200;
 /// Default hop depth for `wiki_graph`.
 const GRAPH_DEFAULT_HOPS: usize = 2;
@@ -537,7 +537,7 @@ pub fn ingest_status(storage: &Arc<StorageEngine>, run_id: &str) -> Result<Value
 
 const K1: f32 = 1.5;
 const B: f32 = 0.75;
-/// Title-term weight ×5 (TDAM manager.ts:381-391 parity).
+/// Title-term weight ×5 (Vanta memory engine manager.ts:381-391 parity).
 const TITLE_WEIGHT: f32 = 5.0;
 
 fn tokens(text: &str) -> Vec<String> {
@@ -650,7 +650,7 @@ fn resolve_link<'a>(by_title: &HashMap<String, &'a str>, link: &str) -> Option<&
 }
 
 /// Multi-hop BFS from `root_path` over wikilink edges, visiting at most
-/// `GRAPH_MAX_NODES` nodes (TDAM graph-search.ts:38 DEFAULT_MAX_NODES=200).
+/// `GRAPH_MAX_NODES` nodes (Vanta memory engine graph-search.ts:38 DEFAULT_MAX_NODES=200).
 fn bfs_graph(pages: &[vantadb::wiki::WikiPage], root_path: &str, max_hops: usize) -> Value {
     let by_title: HashMap<String, &str> = pages
         .iter()

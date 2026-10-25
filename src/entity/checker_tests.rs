@@ -428,14 +428,14 @@ fn action_str_roundtrip() {
 }
 
 #[test]
-fn visibility_matches_tdam_values() {
+fn visibility_matches_canonical_values() {
     assert_eq!(Visibility::Private.as_str(), "private");
     assert_eq!(Visibility::Restricted.as_str(), "restricted");
     assert_eq!(Visibility::Task.as_str(), "task");
 }
 
 #[test]
-fn team_role_str_matches_tdam_values() {
+fn team_role_str_matches_canonical_values() {
     assert_eq!(TeamRole::Admin.as_str(), "admin");
     assert_eq!(TeamRole::Member.as_str(), "member");
     assert_eq!(TeamRole::Reviewer.as_str(), "reviewer");

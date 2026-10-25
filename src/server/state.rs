@@ -302,7 +302,7 @@ pub enum AuthIdentity {
     /// Bare valid Bearer token — transport-level identity (L1 only).
     Transport,
     /// L2: valid Bearer + `x-vanta-service-id` — service credential
-    /// (admin-level, TDAM `Bearer + n` semantics).
+    /// (admin-level, Vanta memory engine `Bearer + n` semantics).
     Service { service_id: String },
     /// L3: valid Bearer + `x-vanta-user-key` resolved against the `user`
     /// entity collection — the caller is a known user.
@@ -317,10 +317,10 @@ pub enum AuthIdentity {
 /// servers appear.
 pub const AUTH_ENTITY_NS: &str = "default";
 
-/// L3 header carrying the caller's user key (TDAM `x-tdai-user-key` port).
+/// L3 header carrying the caller's user key (Vanta memory engine `x-tdai-user-key` port).
 pub(crate) const USER_KEY_HEADER: &str = "x-vanta-user-key";
 
-/// L2 header carrying the service/instance id (TDAM `x-tdai-service-id` port).
+/// L2 header carrying the service/instance id (Vanta memory engine `x-tdai-service-id` port).
 pub(crate) const SERVICE_ID_HEADER: &str = "x-vanta-service-id";
 
 /// Request tracing headers, first match wins (SRV-02).

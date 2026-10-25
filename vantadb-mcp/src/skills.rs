@@ -1,6 +1,6 @@
 //! MCP tool handlers for the `skill_*` tools (MEM-07).
 //!
-//! Six review-agent tools ported from TDAM's `skill-tools.ts` (referencia
+//! Six review-agent tools ported from Vanta memory engine's `skill-tools.ts` (referencia
 //! 97f9465): `skill_list`, `skill_view`, `skill_create`, `skill_update`,
 //! `skill_patch`, `skill_files_write`. All persistence goes through the core
 //! [`vantadb::skills::SkillStore`] (D13 — the MCP layer is a thin wrapper, no
@@ -12,7 +12,7 @@
 //! Security model (FASE SECURITY): the embedded stdio server has no HTTP auth
 //! layer, so the caller declares its identity via the `owner_agent` argument.
 //! Ownership is enforced on every read/write; a mismatch responds *identically*
-//! to a missing skill (not-found), never leaking existence — mirroring TDAM's
+//! to a missing skill (not-found), never leaking existence — mirroring Vanta memory engine's
 //! `assertTeamMatch` → `SKILL_NOT_FOUND` behavior.
 
 use crate::config::McpConfig;
@@ -134,7 +134,7 @@ pub(crate) fn skill_tool_definitions() -> Vec<Value> {
         }),
         json!({
             "name": "skill_patch",
-            "description": "Substring replacement in a skill's content (TDAM-compatible). Requires expected_version; use replace_all when the string occurs more than once.",
+            "description": "Substring replacement in a skill's content (standard specification). Requires expected_version; use replace_all when the string occurs more than once.",
             "annotations": {
                 "title": "Skill Patch",
                 "readOnlyHint": false,
@@ -664,7 +664,7 @@ fn skill_files_write(
 }
 
 /// Reject resource paths that could escape the skill's file namespace: empty,
-/// absolute (`/`, `C:\`), null bytes, or `..` segments — port of TDAM
+/// absolute (`/`, `C:\`), null bytes, or `..` segments — port of specification
 /// `assertPath`.
 fn assert_file_path(path: &str) -> Result<(), Value> {
     if path.is_empty() {

@@ -1,6 +1,6 @@
 //! Session resolution + local state machine (D26).
 //!
-//! sessionKey comes from the first present header alias (TDAM
+//! sessionKey comes from the first present header alias (Vanta memory engine
 //! `session-key.ts:9-19` order). The local form state machine progresses
 //! monotonically `team → agent → task`, validating each target entity against
 //! the local entity_* collections. Pending states (team/agent) expire after a
@@ -21,7 +21,7 @@ use crate::error::ProxyError;
 /// Header aliases consulted in order; first present wins (D26).
 ///
 /// `x-vanta-session` (PRX-01) is the proxy's own explicit trigger and takes
-/// top priority; the TDAM parity order below it is unchanged.
+/// top priority; the specification parity order below it is unchanged.
 pub const SESSION_HEADER_ALIASES: [&str; 6] = [
     "x-vanta-session",
     "x-conversation-id",
@@ -31,7 +31,7 @@ pub const SESSION_HEADER_ALIASES: [&str; 6] = [
     "x-thread-id",
 ];
 
-/// TTL for pending states only (TDAM `store.ts:31,116` — 30 min).
+/// TTL for pending states only (Vanta memory engine `store.ts:31,116` — 30 min).
 pub const PENDING_TTL_MS: u64 = 30 * 60 * 1000;
 
 /// Hard cap on live sessions (PRX-08 S3): the store was unbounded.

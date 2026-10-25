@@ -1,9 +1,9 @@
-//! Archive store + trigger (MEM-17) — port of TDAM
+//! Archive store + trigger (MEM-17) — autonomous memory pipeline
 //! `conversation-add/{buffer-storage,trigger-service,prepare-archive}.ts`,
 //! consolidated: persistence is VantaDB records (Principio 2), never COS
 //! JSONL; the Redis tasks-mutex collapses to single-record read-modify-write.
 //!
-//! **Ordering invariant** (TDAM incident 2026-07-20): the archive record is
+//! **Ordering invariant** (Vanta memory engine incident 2026-07-20): the archive record is
 //! written BEFORE the task entry. A worker only ever sees a task whose
 //! archive already exists — a slow/failed archive write can never strand a
 //! ghost task pointing at nothing.
@@ -72,7 +72,7 @@ pub fn tasks_namespace(session_id: &str) -> String {
 
 /// Assemble the archive payload: compress tool payloads, then apply the
 /// oversize fallback when the combined buffer still exceeds the chunk budget
-/// (TDAM `prepareArchivePayload`; oversize only fires on the compress path).
+/// (Vanta memory engine `prepareArchivePayload`; oversize only fires on the compress path).
 pub fn prepare_archive_payload(
     existing: &[SkillMessage],
     incoming: &[SkillMessage],
@@ -193,7 +193,7 @@ impl<'a> ArchiveStore<'a> {
     }
 }
 
-/// Trigger one archive (TDAM `SkillTriggerService.archive`, §7.4 order):
+/// Trigger one archive (Vanta memory engine `SkillTriggerService.archive`, §7.4 order):
 /// ① derive ids → ② write archive FIRST → ③ register the task entry.
 ///
 /// `task_id` is deterministic per trigger instant

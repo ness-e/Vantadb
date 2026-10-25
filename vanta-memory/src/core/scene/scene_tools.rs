@@ -2,7 +2,7 @@
 //! (MEM-13, F4).
 //!
 //! This is the TOOL layer the L2 LLM strategy (MEM-14) operates through. The
-//! TDAM original runs an LLM agent whose tools are sandboxed to the
+//! Vanta memory engine original runs an LLM agent whose tools are sandboxed to the
 //! `scene_blocks/` directory: system files (checkpoint, scene index, persona)
 //! are physically invisible to it and it has no `exec` tool
 //! (`scene-extractor.ts:7-9`, `:300`). The sandbox translates to a record
@@ -10,19 +10,19 @@
 //!
 //! - **Session confinement** — no tool accepts a namespace. Every operation
 //!   derives `scene/<session>` through [`scene_index`] (the namespace is as
-//!   invisible to the caller as TDAM's system files).
+//!   invisible to the caller as Vanta memory engine's system files).
 //! - **No destructive tool** — there is no delete; the L2 soft-delete
 //!   strategy belongs to MEM-14.
 //! - **Boundary validation** — the caller (an LLM, or any host) is untrusted
 //!   input (OWASP LLM05): scene names are checked for emptiness/NUL/size and
-//!   content is capped, mirroring the TDAM write-tool parameter validation
+//!   content is capped, mirroring the Vanta memory engine write-tool parameter validation
 //!   that rejects empty/whitespace-only content (`scene-extractor.ts:302`).
 //! - **No exec analog** — tools are pure store operations.
 //!
 //! There is no agent loop here and no UPDATE>MERGE>CREATE strategy decision:
 //! this layer exposes the primitives; MEM-14 decides, MEM-16 orchestrates.
 //!
-//! Source: `docs/dev/research/tdam/02-scene-persona.md` + TDAM
+//! Source: `docs/api/VANTA_MEMORY.md02-scene-persona.md` + Vanta memory engine
 //! `scene-extractor.ts` (604).
 
 use serde::{Deserialize, Serialize};
@@ -236,7 +236,7 @@ pub(crate) fn validate_text(
     Ok(())
 }
 
-/// Rejects empty/whitespace-only content, mirroring the TDAM write-tool
+/// Rejects empty/whitespace-only content, mirroring the Vanta memory engine write-tool
 /// validation that prevents the LLM from "deleting" a file by writing
 /// whitespace (`scene-extractor.ts:302`).
 pub(crate) fn validate_content(content: &str) -> Result<(), SceneToolError> {

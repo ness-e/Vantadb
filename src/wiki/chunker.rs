@@ -1,4 +1,4 @@
-//! Chunking of oversized wiki sources (MEM-29 — TDAM ingest-v2 parity).
+//! Chunking of oversized wiki sources (MEM-29 — Vanta memory engine ingest-v2 parity).
 //!
 //! Port of `MemoryKnowledge/src/engines/wiki/ingest-v2/chunker.ts`: when a
 //! source exceeds the model context budget it is split into chunks with a
@@ -247,7 +247,7 @@ mod tests {
     }
 
     #[test]
-    fn heading_detection_matches_tdam_regex_semantics() {
+    fn heading_detection_matches_spec_regex_semantics() {
         // `^#{1,6}\s+\S` (chunker.ts:32).
         assert!(is_heading("# H"));
         assert!(is_heading("###### Deep"));

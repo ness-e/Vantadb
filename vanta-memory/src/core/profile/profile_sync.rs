@@ -1,6 +1,6 @@
 //! Profile sync (MEM-18): team+agent scoping of L2/L3 profile content.
 //!
-//! TDAM `MC/core/profile/profile-sync.ts` syncs `persona.md` / scene blocks
+//! Vanta memory engine `MC/core/profile/profile-sync.ts` syncs `persona.md` / scene blocks
 //! between a local fs and remote stores with MD5 verification. In
 //! vanta-memory everything already lives in VantaDB (Principio 2), so the
 //! exercised core is: the isolation scope (`team:{t}|agent:{a}`), an
@@ -15,11 +15,11 @@ use crate::core::persona::persona_generator::{get_persona, PersonaError};
 use crate::core::scene::scene_navigation::strip_scene_navigation;
 use vantadb::sdk::{Embedded, MemoryInput, MemoryMetadata};
 
-/// Scope used when no isolation is provided (TDAM `DEFAULT_PROFILE_SCOPE`).
+/// Scope used when no isolation is provided (Vanta memory engine `DEFAULT_PROFILE_SCOPE`).
 pub const DEFAULT_PROFILE_SCOPE: &str = "global";
 
 /// Team+agent isolation for L2/L3 profiles. User/session/task dimensions are
-/// intentionally excluded (TDAM parity): one team's agent memory accumulates
+/// intentionally excluded (engine parity): one team's agent memory accumulates
 /// across sessions and users.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProfileIsolation {
@@ -36,13 +36,13 @@ impl Default for ProfileIsolation {
     }
 }
 
-/// Build the scope string `team:{t}|agent:{a}` (TDAM
+/// Build the scope string `team:{t}|agent:{a}` (Vanta memory engine
 /// `buildProfileIsolationScope`).
 pub fn build_profile_isolation_scope(iso: &ProfileIsolation) -> String {
     format!("team:{}|agent:{}", iso.team_id, iso.agent_id)
 }
 
-/// Parse a scope string back into an isolation (TDAM
+/// Parse a scope string back into an isolation (Vanta memory engine
 /// `parseProfileIsolationScope`). Returns `None` on malformed input.
 pub fn parse_profile_isolation_scope(scope: &str) -> Option<ProfileIsolation> {
     let mut team = None;
@@ -73,7 +73,7 @@ const PERSONA_KEY: &str = "persona";
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub struct ScopedPersonaRecord {
-    /// Persona body with the scene navigation stripped (TDAM stores the
+    /// Persona body with the scene navigation stripped (Vanta memory engine stores the
     /// stripped body; recall re-attaches fresh navigation per turn).
     pub content: String,
     pub synced_at_ms: u64,
@@ -107,7 +107,7 @@ pub struct PersonaSyncOutcome {
 /// re-running with unchanged content does NOT rewrite the record (string
 /// equality — no hash needed when both sides live in the same store).
 ///
-/// MD5-mismatch safety of TDAM translates here to: a malformed existing
+/// MD5-mismatch safety of Vanta memory engine translates here to: a malformed existing
 /// record is simply overwritten by the verified session persona — local data
 /// loss is impossible because the source of truth is never deleted.
 pub fn sync_persona_to_scope(

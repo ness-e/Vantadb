@@ -1,4 +1,4 @@
-//! Resolve which custom memory strategy applies to a target (TDAM
+//! Resolve which custom memory strategy applies to a target (Vanta memory engine
 //! `MC/core/memory-prompt/resolver.ts`): candidate chain agent → team →
 //! instance, first active match wins.
 
@@ -32,7 +32,7 @@ pub fn resolve_memory_prompt(
     store: &dyn MemoryPromptStore,
     target: ResolveTarget<'_>,
 ) -> Result<Option<ResolvedMemoryPrompt>, MemoryPromptError> {
-    // Candidate chain (TDAM `candidates()`): agent needs team+agent.
+    // Candidate chain (Vanta memory engine `candidates()`): agent needs team+agent.
     let mut candidates: Vec<(MemoryPromptSource, Option<&str>, Option<&str>)> = Vec::new();
     if let (Some(team), Some(agent)) = (target.team_id, target.agent_id) {
         candidates.push((MemoryPromptSource::Agent, Some(team), Some(agent)));
@@ -67,7 +67,7 @@ pub fn resolve_memory_prompt(
     Ok(None)
 }
 
-/// Exact-match validation of a setting against its candidate slot (TDAM
+/// Exact-match validation of a setting against its candidate slot (Vanta memory engine
 /// resolver's field checks).
 fn setting_matches(
     setting: &MemoryPromptSettingRecord,

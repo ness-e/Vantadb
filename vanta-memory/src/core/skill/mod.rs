@@ -1,6 +1,6 @@
 //! Skill extraction + conversation-add pipeline (MEM-17, F4).
 //!
-//! Port of TDAM `MC/core/skill/skill-extractor.ts` (587) +
+//! Autonomous memory pipeline `MC/core/skill/skill-extractor.ts` (587) +
 //! `MC/core/skill/conversation-add/*` + prompts, reduced to the functional
 //! core a single-process Rust pipeline exercises (see task file MEM-17.md for
 //! the documented ponytail deviations: no Redis queue/worker-pool/wire —

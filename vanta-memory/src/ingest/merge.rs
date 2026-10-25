@@ -1,4 +1,4 @@
-//! Candidate parsing + serial per-page merge (MEM-30 — TDAM `file-protocol.ts`
+//! Candidate parsing + serial per-page merge (MEM-30 — Vanta memory engine `file-protocol.ts`
 //! and `merge.ts` port).
 //!
 //! [`commit`] is the heart of the contract: candidates aggregated by relPath,
@@ -13,7 +13,7 @@ use crate::ingest::{
     STRUCTURAL_FILES,
 };
 
-/// One candidate page produced by extraction (TDAM ParsedFile).
+/// One candidate page produced by extraction (Vanta memory engine ParsedFile).
 #[derive(Debug, Clone, PartialEq)]
 pub struct CandidatePage {
     /// Normalized wiki-relative path (`wiki/...`, forward slashes).
@@ -22,7 +22,7 @@ pub struct CandidatePage {
     pub content: String,
 }
 
-/// Outcome of a single merge decision (TDAM MergeDecision).
+/// Outcome of a single merge decision (Vanta memory engine MergeDecision).
 #[derive(Debug, Clone, PartialEq)]
 pub enum MergeDecision {
     /// Replace the page with this content.
@@ -31,7 +31,7 @@ pub enum MergeDecision {
     Skip(String),
 }
 
-/// Report of a commit pass over all candidates (TDAM CommitResult parity).
+/// Report of a commit pass over all candidates (Vanta memory engine CommitResult parity).
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct CommitReport {
     /// relPaths whose final content was written.
@@ -49,7 +49,7 @@ pub struct MergeEntryError {
 }
 
 /// Normalize an LLM-provided wiki path or return `None` when unsafe
-/// (TDAM normalizeWikiPath): forward slashes, no absolute/drive paths,
+/// (Vanta memory engine normalizeWikiPath): forward slashes, no absolute/drive paths,
 /// no `.` / `..` segments, must live under `wiki/`.
 pub fn normalize_wiki_path(raw: &str) -> Option<String> {
     let trimmed = raw.trim().replace('\\', "/");
@@ -82,7 +82,7 @@ pub fn normalize_wiki_path(raw: &str) -> Option<String> {
 }
 
 /// Parse `<<<FILE path="...">>> ... <<<END>>>` blocks out of LLM output
-/// (TDAM parseFileBlocks). Malformed blocks are skipped silently —
+/// (Vanta memory engine parseFileBlocks). Malformed blocks are skipped silently —
 /// warnings are not part of the Rust contract surface.
 pub fn parse_file_blocks(text: &str) -> Vec<CandidatePage> {
     let mut files = Vec::new();
@@ -126,7 +126,7 @@ fn find_file_open(text: &str) -> Option<(String, usize)> {
 }
 
 /// Merge one candidate entry into the page currently stored at `rel_path`
-/// (TDAM mergePage). Deterministic fallback without an LLM runner (P4):
+/// (Vanta memory engine mergePage). Deterministic fallback without an LLM runner (P4):
 /// new pages are written verbatim (no LLM needed), existing pages needing a
 /// real merge are skipped with a documented reason.
 ///
@@ -138,7 +138,7 @@ pub fn merge_page<R: LlmRunner>(
     runner: Option<&R>,
     full_rewrite_max_chars: usize,
 ) -> MergeDecision {
-    // New page: write verbatim — no LLM needed (TDAM mergePage short-circuit).
+    // New page: write verbatim — no LLM needed (Vanta memory engine mergePage short-circuit).
     let Some(existing) = existing_content else {
         return MergeDecision::Write(candidate_content.to_string());
     };
@@ -225,7 +225,7 @@ pub fn aggregate_by_rel_path(
     by_page
 }
 
-/// Serial commit pass (TDAM commitCandidates :211-283):
+/// Serial commit pass (Vanta memory engine commitCandidates :211-283):
 /// - pages merged in aggregation order, **one at a time**;
 /// - the global LLM limit from `config` bounds concurrency (serial worker ⇒
 ///   ceiling of 1 in-flight call; limit kept configurable for future pools);

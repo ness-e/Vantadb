@@ -1,6 +1,6 @@
 //! Host-neutral LLM runner abstraction (D1: sync base + optional async).
 //!
-//! Mirrors the TDAM `LLMRunner` contract (`MemoryCore/src/core/types.ts:170-191`)
+//! Mirrors the Vanta memory engine `LLMRunner` contract (`MemoryCore/src/core/types.ts:170-191`)
 //! reimplemented in Rust: the pipeline (L1 extract, L1 dedup, L2 scene, L3
 //! persona) depends on this trait — never on a concrete host. The crate ships
 //! no LLM runtime; with `llm-driver` off (default) every LLM-dependent path
@@ -12,7 +12,7 @@ use thiserror::Error;
 
 /// Parameters for a single LLM execution.
 ///
-/// Source: TDAM `LLMRunParams` (`core/types.ts:64-135`) — reduced to the
+/// Source: Vanta memory engine `LLMRunParams` (`core/types.ts:64-135`) — reduced to the
 /// host-neutral core the pipeline actually consumes. Tool-call loops (L2/L3
 /// sandboxed read/write/edit) are added by MEM-13/14 on top of this struct.
 #[derive(Debug, Clone)]

@@ -1,4 +1,4 @@
-//! Claude Code client adapter (MEM-57, TDAM parity:
+//! Claude Code client adapter (MEM-57, specification parity:
 //! `agent-adapters/claude-code.ts` → `common/cc-request-classifier.ts` +
 //! `common/user-text-extractor.ts`).
 //!
@@ -7,7 +7,7 @@
 //!    (injection, mem interception, L0 capture) can route accordingly.
 //! 2. Extract the text the user actually typed from a user-message content.
 //!
-//! Classification evidence (TDAM: CC source reverse-engineering + packet
+//! Classification evidence (Vanta memory engine: CC source reverse-engineering + packet
 //! captures, `2026-07-30-cc-request-routing-plan.md`):
 //! - MAIN: `cache_control` marker on `messages[n-1]` (incl. single-message).
 //! - FORK: marker on `messages[n-2]` — forked agents force
@@ -50,7 +50,7 @@ pub fn find_last_cache_control_index(messages: &[Value]) -> Option<usize> {
     })
 }
 
-/// Classify a parsed Anthropic `/v1/messages` body (TDAM `classifyCcRequest`).
+/// Classify a parsed Anthropic `/v1/messages` body (Vanta memory engine `classifyCcRequest`).
 ///
 /// Defensive narrowing throughout: unknown/malformed bodies fall back to
 /// [`CcRequestKind::Main`].
@@ -87,7 +87,7 @@ pub fn classify_cc_request(body: &Value) -> CcRequestKind {
 }
 
 /// Text the user actually typed in a user-message `content`
-/// (TDAM `extractLastUserText`): string content is itself; array content is
+/// (Vanta memory engine `extractLastUserText`): string content is itself; array content is
 /// scanned BACKWARDS for the last `{"type":"text","text":string}` block.
 ///
 /// CC prepends `<system-reminder>` metadata blocks before the real input, so

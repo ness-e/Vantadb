@@ -1,7 +1,7 @@
-//! Persistent per-session offload state (port of TDAM
+//! Persistent per-session offload state (autonomous memory pipeline
 //! `MC/offload/state-manager.ts`, MEM-20).
 //!
-//! TDAM keeps an in-memory [`PluginState`] mirrored to a per-agent
+//! Vanta memory engine keeps an in-memory [`PluginState`] mirrored to a per-agent
 //! `state.json`. Here the single source of truth is the VantaDB store: the
 //! state is one JSON record under `offload_state/<session>` keyed `__state`
 //! (same pattern as the L0 cursor of MEM-09). A missing or corrupt record
@@ -43,7 +43,7 @@ impl OffloadStateManager {
     }
 
     /// Load the persisted state for a session. Missing record → default
-    /// state; corrupt payload → default state with a warning (mirrors TDAM's
+    /// state; corrupt payload → default state with a warning (mirrors Vanta memory engine's
     /// `readStateFile` catch-and-default).
     pub fn load_state(&self, session_id: &str) -> Result<PluginState, OffloadError> {
         let ns = state_namespace(session_id);

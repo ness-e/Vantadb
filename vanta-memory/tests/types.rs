@@ -45,7 +45,7 @@ fn memory_record_roundtrip() {
 
 #[test]
 fn dedup_decision_parse_from_llm_wire() {
-    // Shape emitted by the L1 conflict-detection prompt (TDAM l1-dedup.ts).
+    // Shape emitted by the L1 conflict-detection prompt (Vanta memory engine l1-dedup.ts).
     let wire = r#"[
         {"record_id":"m_2","action":"merge","target_ids":["m_old"],"merged_content":"both","merged_priority":70},
         {"record_id":"m_3","action":"skip","target_ids":[]}

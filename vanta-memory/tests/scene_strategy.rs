@@ -46,7 +46,7 @@ fn live_names(db: &Embedded) -> Vec<String> {
         .collect()
 }
 
-// ── emptyExtraction (TDAM scene-extractor.ts:509-516) ──
+// ── emptyExtraction (Vanta memory engine scene-extractor.ts:509-516) ──
 
 #[test]
 fn empty_batch_never_touches_store() {

@@ -1,7 +1,7 @@
 //! Skill listing prompt boilerplate (MEM-17, F4) — frames the
 //! `<available_skills>` block injected into agent system prompts.
 //!
-//! Rewritten in English from TDAM `MC/core/skill/prompts/skill-listing-prompt.ts`
+//! Rewritten in English from Vanta memory engine `MC/core/skill/prompts/skill-listing-prompt.ts`
 //! (Principio 7: restated, not translated verbatim — wording kept close to the
 //! design-doc source so host integrations stay interchangeable).
 

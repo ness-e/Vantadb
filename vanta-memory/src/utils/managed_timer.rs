@@ -1,7 +1,7 @@
-//! Injectable clock + [`ManagedTimer`] (port of TDAM
+//! Injectable clock + [`ManagedTimer`] (autonomous memory pipeline
 //! `MC/utils/managed-timer.ts`, reimplemented pull-based — MEM-16).
 //!
-//! Divergence from TDAM: there is no `setTimeout`. A timer records a deadline
+//! Divergence from Vanta memory engine: there is no `setTimeout`. A timer records a deadline
 //! plus its callback and fires when the owner polls it (directly via
 //! [`ManagedTimer::poll`] or through the [`crate::utils::timer_scanner`]).
 //! This keeps the whole orchestration synchronous, thread-free and — with the
@@ -59,7 +59,7 @@ impl Clock for FakeClock {
 /// A named, single-slot lifecycle-managed timer.
 ///
 /// The callback fires at most once per schedule; `poll`/`flush` consume it.
-/// The optional `destroyed` guard mirrors TDAM: natural expiry skips the
+/// The optional `destroyed` guard mirrors Vanta memory engine: natural expiry skips the
 /// callback when the owner is torn down, while `flush` intentionally ignores
 /// the guard (shutdown must drain pending work).
 pub struct ManagedTimer<'a, C: Clock> {
@@ -100,7 +100,7 @@ impl<'a, C: Clock> ManagedTimer<'a, C> {
         self.callback = Some(callback);
     }
 
-    /// Downward-only reschedule (TDAM L2 pattern): only moves the deadline if
+    /// Downward-only reschedule (Vanta memory engine L2 pattern): only moves the deadline if
     /// `epoch_ms` is earlier than the current one. Returns whether the timer
     /// was (re)set.
     pub fn try_advance_to(&mut self, epoch_ms: u64, callback: Box<dyn FnOnce()>) -> bool {

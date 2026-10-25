@@ -1,6 +1,6 @@
 //! OpenClaw-style host LLM runner — the port of the host contract.
 //!
-//! Mirrors TDAM `OpenClawLLMRunner` (`adapters/openclaw/llm-runner.ts`): a
+//! Mirrors Vanta memory engine `OpenClawLLMRunner` (`adapters/openclaw/llm-runner.ts`): a
 //! thin bridge that delegates [`LlmRunner::run`] to the host's embedded-agent
 //! mechanism. VantaDB does **not** depend on real OpenClaw — the port shape is
 //! [`OpenClawHost`]; a concrete host implementation is provided by the
@@ -11,7 +11,7 @@ use crate::core::abstractions::{LlmError, LlmRunParams, LlmRunner};
 
 /// The OpenClaw-style host capability the runner delegates to.
 ///
-/// This is the "port" side of the host adapter (TDAM's
+/// This is the "port" side of the host adapter (Vanta memory engine's
 /// `EmbeddedAgentRuntimeLike` / `runEmbeddedPiAgent`): run an embedded agent
 /// with the given prompt/system and return its text output. Implementations
 /// are host-specific and live outside this crate.

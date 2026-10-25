@@ -1,4 +1,4 @@
-//! Router assembly (TDAM parity: server.ts:307,312 — primary agent-prefixed routes).
+//! Router assembly (specification parity: server.ts:307,312 — primary agent-prefixed routes).
 //!
 //! Every wire handler runs the MEM-26 pipeline BEFORE forwarding:
 //! auth (D34) → session (D26) → inject (D29) → forward.

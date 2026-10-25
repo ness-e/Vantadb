@@ -6,7 +6,7 @@
 //! closed by the Lead): the META contract [`SceneMeta`] is reused — no
 //! Mermaid.
 //!
-//! Dedup: TDAM `mmd-injector.ts:372-374` fingerprints content as
+//! Dedup: Vanta memory engine `mmd-injector.ts:372-374` fingerprints content as
 //! `{len}:{first 64 chars}`; saving an active MMD with the same fingerprint
 //! as the stored one is a no-op. Budget: content is capped at
 //! [`MAX_MMD_CONTENT_CHARS`] (char-boundary safe) on save.
@@ -17,11 +17,11 @@ use crate::core::abstractions::SceneMeta;
 use crate::utils::sanitize::{sanitize_component, sanitize_key};
 use vantadb::sdk::{Embedded, MemoryInput};
 
-/// Content ceiling in chars (TDAM ~1300-token guard ≈ 4000 chars at 3
+/// Content ceiling in chars (Vanta memory engine ~1300-token guard ≈ 4000 chars at 3
 /// chars/token). Enforced on save via char-boundary-safe truncation.
 pub const MAX_MMD_CONTENT_CHARS: usize = 4000;
 
-/// Prefix length of the dedup fingerprint (TDAM `mmd-injector.ts:372-374`).
+/// Prefix length of the dedup fingerprint (Vanta memory engine `mmd-injector.ts:372-374`).
 const FINGERPRINT_PREFIX_CHARS: usize = 64;
 
 /// Active-record key inside `mmd/<session>/active`.
@@ -37,7 +37,7 @@ pub struct TaskMemory {
     pub content: String,
 }
 
-/// Dedup fingerprint `{len}:{first 64 chars}` (TDAM parity).
+/// Dedup fingerprint `{len}:{first 64 chars}` (engine parity).
 pub fn fingerprint(content: &str) -> String {
     let prefix: String = content.chars().take(FINGERPRINT_PREFIX_CHARS).collect();
     format!("{}:{prefix}", content.chars().count())

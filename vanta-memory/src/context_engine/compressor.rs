@@ -1,7 +1,7 @@
 //! Compaction primitives: message fingerprinting, replaceability scoring,
 //! and the aggressive-boundary re-application guard.
 //!
-//! Port of TDAM `offload/index.ts` (`simpleHash` :115-129,
+//! Autonomous memory pipeline `offload/index.ts` (`simpleHash` :115-129,
 //! `_msgFingerprint` role+200-chars) and the replaceability score semantics
 //! of `offload/types.ts:28` (score 0-10, higher = a summary can replace it
 //! better). The L1 LLM score is substituted by a deterministic heuristic —
@@ -20,16 +20,16 @@ use std::collections::HashMap;
 use crate::context_engine::types::{ChatMessage, ChatRole};
 use crate::core::abstractions::MemoryRecord;
 
-/// Max replacements per mild pass (TDAM MIN_COUNT, llm-input-l3.ts:113).
+/// Max replacements per mild pass (Vanta memory engine MIN_COUNT, llm-input-l3.ts:113).
 pub const MIN_REPLACEMENTS_PER_PASS: usize = 10;
-/// Starting cascade threshold (TDAM INITIAL_THRESHOLD).
+/// Starting cascade threshold (Vanta memory engine INITIAL_THRESHOLD).
 pub const INITIAL_THRESHOLD: u8 = 7;
-/// Lowest cascade threshold (TDAM FLOOR_THRESHOLD).
+/// Lowest cascade threshold (Vanta memory engine FLOOR_THRESHOLD).
 pub const FLOOR_THRESHOLD: u8 = 1;
-/// Chars of content included in the boundary fingerprint (TDAM :121-129).
+/// Chars of content included in the boundary fingerprint (Vanta memory engine :121-129).
 pub const FINGERPRINT_CHARS: usize = 200;
 
-/// Port of TDAM `simpleHash` (32-bit, `(hash << 5) - hash + char`).
+/// Autonomous memory pipeline `simpleHash` (32-bit, `(hash << 5) - hash + char`).
 fn simple_hash(s: &str) -> i32 {
     let mut hash: i32 = 0;
     for ch in s.chars() {
@@ -50,7 +50,7 @@ fn role_tag(role: ChatRole) -> &'static str {
 
 /// Boundary fingerprint: `simpleHash("role:{first 200 chars}")`. Two messages
 /// with equal role and equal first-200-chars content collide by design
-/// (TDAM parity); collisions only cause a conservative extra head-delete.
+/// (engine parity); collisions only cause a conservative extra head-delete.
 pub fn msg_fingerprint(msg: &ChatMessage) -> i32 {
     let head: String = msg.content.chars().take(FINGERPRINT_CHARS).collect();
     simple_hash(&format!("{}:{head}", role_tag(msg.role)))
@@ -123,7 +123,7 @@ pub fn score_message(
 
 /// Marks where an aggressive one-shot cut happened, so the same head-delete
 /// can be re-applied idempotently when the full history is rebuilt
-/// (TDAM `_lastAggressiveBoundary`, state-manager.ts:96-101).
+/// (Vanta memory engine `_lastAggressiveBoundary`, state-manager.ts:96-101).
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct AggressiveBoundary {
     /// Number of leading messages removed by the cut.

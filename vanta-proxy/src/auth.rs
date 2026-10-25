@@ -15,7 +15,7 @@ use vantadb::storage::StorageEngine;
 
 use crate::error::ProxyError;
 
-/// Header carrying the caller's user key (TDAM `x-tdai-user-key` port).
+/// Header carrying the caller's user key (Vanta memory engine `x-tdai-user-key` port).
 pub const USER_KEY_HEADER: &str = "x-vanta-user-key";
 
 /// Namespace holding auth entities (MEM-05 parity: fixed `"default"`).

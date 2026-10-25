@@ -1,6 +1,6 @@
 //! Skill prompts (MEM-17, F4) — review agent + listing boilerplate.
 //!
-//! Rewritten in English from TDAM `MC/core/skill/prompts/*` (Principio 7).
+//! Rewritten in English from Vanta memory engine `MC/core/skill/prompts/*` (Principio 7).
 
 pub mod skill_listing_prompt;
 pub mod skill_review_prompt;

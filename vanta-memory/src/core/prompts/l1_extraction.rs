@@ -1,6 +1,6 @@
 //! L1 extraction prompts (MEM-10).
 //!
-//! Reimplemented in English from the TDAM extraction principles — scene
+//! Reimplemented in English from the Vanta memory engine extraction principles — scene
 //! segmentation + core-memory extraction in one LLM call — for a host-neutral
 //! pipeline. Two families: [`PromptMode::Chat`] (persona/episodic/instruction)
 //! and [`PromptMode::Code`] (work_* types, team/tool contexts).
@@ -8,7 +8,7 @@
 use crate::core::conversation::L0Message;
 
 /// Extraction prompt family: chat-mode (persona/episodic/instruction) vs
-/// work/team mode (work_* types). Mirrors TDAM `MemoryPromptMode`.
+/// work/team mode (work_* types). Mirrors Vanta memory engine `MemoryPromptMode`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum PromptMode {
     #[default]

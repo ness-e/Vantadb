@@ -23,7 +23,7 @@ pub enum Protocol {
     Responses,
 }
 
-/// L0/L1 tools exposed to the model (TDAM README:28 — L0/L1 as tools).
+/// L0/L1 tools exposed to the model (Vanta memory engine README:28 — L0/L1 as tools).
 const TOOL_SPECS: [(&str, &str); 2] = [
     (
         "vanta_memory_capture",

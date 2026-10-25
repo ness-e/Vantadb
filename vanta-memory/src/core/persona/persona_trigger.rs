@@ -1,6 +1,6 @@
 //! Persona trigger: decides whether to regenerate the persona (MEM-15, F4).
 //!
-//! LLM-free heuristics implementing the five TDAM trigger conditions
+//! LLM-free heuristics implementing the five Vanta memory engine trigger conditions
 //! (`persona-trigger.ts:35-96`) as a pure function: the checkpoint counters
 //! (`scenes_processed`, `memories_since_last_persona`, …) are INPUTS here —
 //! reading them from the persistent checkpoint is MEM-16 orchestration.
@@ -10,7 +10,7 @@
 //! P1 explicit request > P2 cold start > P2 recovery > P3 first scene >
 //! P4 memory-count threshold.
 //!
-//! Source: `docs/dev/research/tdam/02-scene-persona.md` §41.
+//! Source: `docs/api/VANTA_MEMORY.md02-scene-persona.md` §41.
 
 use crate::core::abstractions::PersonaTriggerPriority;
 
@@ -46,7 +46,7 @@ pub struct TriggerResult {
     pub reason: String,
 }
 
-/// Evaluate the TDAM trigger priorities for one generation decision.
+/// Evaluate the Vanta memory engine trigger priorities for one generation decision.
 ///
 /// Pure and deterministic: same input + interval → same result (D19).
 pub fn evaluate_persona_trigger(

@@ -1,6 +1,6 @@
 //! MMD context injection into a chat history (MEM-24).
 //!
-//! Port of TDAM `mmd-injector.ts` (inject path): the active task memory is
+//! Autonomous memory pipeline `mmd-injector.ts` (inject path): the active task memory is
 //! inserted as one system message right after the leading protected prefix
 //! (system prompt), wrapped in `<current_task_context>` tags and marked
 //! `_mmdContextMessage`. The insertion point is always a

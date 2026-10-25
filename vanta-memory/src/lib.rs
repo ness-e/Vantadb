@@ -7,7 +7,7 @@
 //! assert_eq!(vanta_memory::name(), "vanta-memory");
 //! ```
 //!
-//! Port of the TDAM memory architecture (`docs/dev/research/tdam/`) reimplemented
+//! Port of the Vanta memory engine memory architecture (`docs/api/VANTA_MEMORY.md`) reimplemented
 //! in Rust over the existing VantaDB stack. All persistence lives in the
 //! VantaDB store (nodes, `InternalMetadata` partitions, text index, HNSW,
 //! core graph) — never external storage.
