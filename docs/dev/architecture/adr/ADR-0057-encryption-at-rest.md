@@ -14,7 +14,7 @@ created: "2026-10-20"
 > la implementacion por sus 8 waves". Status: `accepted` (Regla 5, `.opencode/AGENTS.md`).
 >
 > This document is the **design**; the implementation follows the plan
-> [`docs/dev/plans/2026-10-20-wiring-encryption-feature.md`](../../plans/2026-10-20-wiring-encryption-feature.md)
+> `docs/dev/plans/2026-10-20-wiring-encryption-feature.md`
 > (W0-W7). The wording of the encryption feature is already corrected in `SECURITY.md`
 > (PR #267); the wiring is what makes that wording true, and W0 adds a gate so it cannot
 > silently drift back (risk R-12).
@@ -663,7 +663,7 @@ so a manual rollback is possible while the old master key is available.
 
 ## 9. Related
 
-- [Plan de implementación por waves](../../plans/2026-10-20-wiring-encryption-feature.md) — the
+- Plan de implementación por waves (`docs/dev/plans/2026-10-20-wiring-encryption-feature.md`) — the
   wave breakdown, the per-wave gates and the verification commands.
 - Commit `c0e63d4e` (this branch, 2026-10-20) — the **honest negative** already published:
   `SECURITY.md:26`, the `src/crypto.rs` module doc and `docs/CHANGELOG.md`. This ADR is the

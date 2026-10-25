@@ -23,10 +23,10 @@ specific failure mode:
 
 | Layer | Role | Durability mechanism |
 |---|---|---|
-| **[wal](../glosario/wal.md)** (`vanta.shard{0..N-1}.wal`) | Ordered journal of every mutation (round-robin across N shards) | [crc32c](../glosario/crc32c.md) per record, sort-based multi-shard replay, optional per-write `fsync` |
-| **Backend KV** ([fjall](../glosario/fjall.md)) | Relational fields, metadata, internal indexes | Fjall's own journal (LSM crash consistency), `PersistMode::SyncAll` on flush |
-| **Vector store** (`vector_store.vanta`) | Dense vector storage ([mmap](../glosario/mmap.md)) | `msync` on flush, atomic RCU rename |
-| **[hnsw](../glosario/hnsw.md) index** (`vector_index.bin`) | In-memory vector index | Atomic RCU persist to `.bin` on flush |
+| **WAL** (`vanta.shard{0..N-1}.wal`) | Ordered journal of every mutation (round-robin across N shards) | CRC32C per record, sort-based multi-shard replay, optional per-write `fsync` |
+| **Backend KV** (Fjall) | Relational fields, metadata, internal indexes | Fjall's own journal (LSM crash consistency), `PersistMode::SyncAll` on flush |
+| **Vector store** (`vector_store.vanta`) | Dense vector storage (mmap) | `msync` on flush, atomic RCU rename |
+| **HNSW index** (`vector_index.bin`) | In-memory vector index | Atomic RCU persist to `.bin` on flush |
 
 The write path is: **WAL first, then data, then indexes**. If the process
 crashes mid-write, the WAL contains the mutation and replay restores it.
@@ -48,7 +48,7 @@ All four steps must succeed for the mutation to be considered committed.
 If step 1 fails (e.g. disk full), the mutation is rejected at the
 application level — no partial state is written.
 
-The WAL record carries a **[CRC32C](../glosario/crc32c.md) checksum** of its serialized payload.
+The WAL record carries a **CRC32C checksum** of its serialized payload.
 In `SyncMode::Always`, an `fdatasync` is issued after every `append()`.
 In `Periodic` mode (default), the OS page cache batches writes.
 
@@ -71,10 +71,10 @@ flush()
 
 At the end of a successful `flush()`, the system guarantees:
 
-- All relational data is in the KV backend ([Fjall](../glosario/fjall.md) SSTs)
-- All vectors are in `vector_store.vanta` (flushed from [mmap](../glosario/mmap.md))
-- The [HNSW](../glosario/hnsw.md) index is on disk as `vector_index.bin`
-- `checkpoint_seq` records how many [WAL](../glosario/wal.md) entries are already flushed
+- All relational data is in the KV backend (Fjall SSTs)
+- All vectors are in `vector_store.vanta` (flushed from mmap)
+- The HNSW index is on disk as `vector_index.bin`
+- `checkpoint_seq` records how many WAL entries are already flushed
 
 ### checkpoint_seq
 

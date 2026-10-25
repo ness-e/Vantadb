@@ -292,7 +292,7 @@ persistent store and sets `ORT_DYLIB_PATH` for the current session (run it in
 the same terminal that launches your client or MCP):
 
 ```powershell
-pwsh setup-embeddings.ps1
+pwsh scripts/setup-embeddings.ps1
 ```
 
 Then verify the wiring offline (no download, no network; both commands must

@@ -25,7 +25,7 @@
   <br>
 
   <a href="https://discord.gg/g8nqB3NtXt"><img src="https://img.shields.io/badge/Discord-VantaDB_Community-5865F2?logo=discord&logoColor=white" alt="Discord"></a>
-  <a href="https://colab.research.google.com/github/ness-e/Vantadb/blob/develop/examples/colab/vantadb_quickstart.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open in Colab"></a>
+  <a href="https://colab.research.google.com/github/ness-e/Vantadb/blob/main/examples/colab/vantadb_quickstart.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open in Colab"></a>
 </div>
 
 <div align="center">
@@ -51,11 +51,9 @@ VantaDB is a local-first, embedded memory engine for AI agents. **One product, f
 | Follow a tutorial | [Tutorials](docs/user/tutorials/) |
 | Run runnable examples | [Demo + Colab](examples/README.md) · [TypeScript](vantadb-ts/examples/) |
 | Read the FAQ | [FAQ](docs/user/FAQ.md) |
-| Read the blog | [Blog Posts](docs/user/blog/) |
 | Read architecture docs | [Documentation](#documentation) |
 | Contribute safely | [CONTRIBUTING.md](CONTRIBUTING.md) |
 | Report a vulnerability | [SECURITY.md](SECURITY.md) |
-| Get support | [SUPPORT.md](SUPPORT.md) |
 
 ---
 
@@ -96,7 +94,7 @@ For Rust-native integration, add the crate to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-vantadb = { git = "https://github.com/ness-e/Vantadb" }
+vantadb = "0.9"
 ```
 
 ---
@@ -291,7 +289,7 @@ Download and install the CLI binary instantly in a single command without compil
 > published `.sha256` release asset before piping it to a shell.
 >
 > **What happens next:** the installer chains to the interactive setup wizard
-> (`setup-embeddings.ps1`), which asks **which modules to enable** — motor,
+> (`scripts/setup-embeddings.ps1`), which asks **which modules to enable** — motor,
 > MCP, server, proxy, desktop viewer, embeddings, providers (each with a
 > declared state: installable or frozen; desktop is a frozen viewer).
 > Scripted selection: `--modules mcp,embeddings` (sh) /
@@ -458,12 +456,9 @@ Results are printed to the console and written to `vanta_benchmark_report.json` 
 | [Experimental Features](docs/user/operations/EXPERIMENTAL_FEATURES.md) | Production, optional, experimental, and deferred surface classification. |
 | [CI Policy](docs/dev/operations/CI_POLICY.md) | Continuous integration strategy, profiles, and certification gates. |
 | [Benchmarks](docs/user/operations/BENCHMARKS.md) | Performance benchmark methodology and results. |
-| [Changelog](docs/CHANGELOG.md) | Version history and release notes. |
+| [Changelog](CHANGELOG.md) | Version history and release notes. |
 | [Deep Audit (2026-10-20)](docs/dev/reviews/2026-10-20-auditoria-profunda-v0.9.0.md) | Exhaustive self-review of the v0.9.0 tree: 141 findings with per-area coverage, the fix for each, and the limits of the verification. |
 | [v0.9.0 Release Post-Mortem](docs/dev/reviews/2026-10-20-release-v0.9.0-postmortem.md) | The 7 failures that cost the v0.9.0 release, their root causes, and the pre-flight checklist that prevents a repeat. |
-| [Blog: Hybrid Search](docs/user/blog/how_hybrid_search_works.md) | How BM25 + HNSW + RRF work together in VantaDB's query engine. |
-| [Blog: SQLite for AI Agents](docs/user/blog/sqlite_for_ai_agents.md) | Benchmarks and architecture decisions behind VantaDB's LSM storage. |
-| [Blog: Why I Built VantaDB](docs/user/blog/why_i_built.md) | The motivation for a local memory engine for AI agents in Rust. |
 
 ---
 

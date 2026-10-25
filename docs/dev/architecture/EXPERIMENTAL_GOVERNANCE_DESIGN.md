@@ -283,6 +283,6 @@ All governance actions (block, resolve, purge, slash) should write to an append-
 
 ## See Also
 
-- [Backlog](../Backlog.md) — `GOV-01`: Rediseño de governance (Phase 5, Q4 2026)
+- Backlog — `GOV-01`: Rediseño de governance (Phase 5, Q4 2026)
 - [LISP_ANALYSIS](./LISP_ANALYSIS.md) — Capabilities from the deleted LISP experiment that influenced governance design
-- [ROADMAP.md](../strategy/ROADMAP.md) — Phase 5 definition and timeline
+- `ROADMAP.md` — Phase 5 definition and timeline

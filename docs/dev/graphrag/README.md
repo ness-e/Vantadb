@@ -329,7 +329,7 @@ for r in results:
 ## Related Documentation
 
 - [Architecture Overview](../architecture/ARCHITECTURE.md) — Core design principles
-- [How Hybrid Search Works](../../user/blog/how_hybrid_search_works.md) — BM25 + HNSW deep dive
+- How Hybrid Search Works — BM25 + HNSW deep dive
 - [Python SDK Guide](../../api/PYTHON_SDK.md) — Complete SDK reference
 - [Model Context Protocol (MCP)](../../api/MCP.md) — AI agent integration
 - [IQL Reference](../../api/IQL.md) — Graph-constrained query language

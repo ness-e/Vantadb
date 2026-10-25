@@ -26,7 +26,7 @@ Estado del código que encuadra la decisión (verificado en HEAD):
   (`vanta-memory/src/utils/timer_scanner.rs:1-7`); `PipelineWorker::run_once` / `reclaim_stale`
   (`vanta-memory/src/services/pipeline_worker.rs:232,251`); `AutoSyncScheduler::tick`
   (`vanta-memory/src/ingest/auto_sync.rs:4`). Cero drivers de fondo y cero callers productivos
-  fuera de `vanta-memory` (evidencia consolidada en [FIND-113-spec](../../tasks/FIND-113-spec.md)).
+  fuera de `vanta-memory` (evidencia consolidada en `FIND-113-spec`).
 - El puente de captura del server **existe y no está cableado**: `HttpCaptureBridge`
   (captura L0 + enqueue L1) + `run_bridge_pass`
   (`vanta-memory/src/services/conversation_hook.rs:36-107`), gancho `conversation_trigger`
@@ -185,7 +185,7 @@ wiring esté verde.
 - Decisión delegada: owner 2026-10-01 ("Que vanta-arch decida con un ADR corto").
 - Tarea origen: WIRE-01 (commit `679c75a9`) · residual
   MEM-55 (task file eliminado en la limpieza de COMPLETED) · diseño previo del owner-scheduler MCP:
-  [FIND-113-spec](../../tasks/FIND-113-spec.md).
+  `FIND-113-spec`.
 - Scope Budget / identidad: [EXPERIMENTAL_FEATURES.md](../../../user/operations/EXPERIMENTAL_FEATURES.md):22-52
   · master roadmap `docs/dev/plans/2026-09-26-master-roadmap.md`.
 - Contrato del crate: [VANTA_MEMORY.md](../../../api/VANTA_MEMORY.md) §Operational modules.

@@ -8,7 +8,7 @@ tags: [vantadb, mcp]
 
 # VantaDB for AI IDEs — persistent project memory over MCP
 
-Your AI IDE forgets. A new chat starts blank, `CLAUDE.md` is a static snapshot, and the context you built yesterday is gone. VantaDB is a local-first memory engine that plugs into the IDEs you already use through a single **Model Context Protocol (MCP) server**: it stores notes, decisions and conversation turns, and hands them back through hybrid search ([BM25](glosario/bm25.md) + dense vectors fused with RRF) when a new session starts.
+Your AI IDE forgets. A new chat starts blank, `CLAUDE.md` is a static snapshot, and the context you built yesterday is gone. VantaDB is a local-first memory engine that plugs into the IDEs you already use through a single **Model Context Protocol (MCP) server**: it stores notes, decisions and conversation turns, and hands them back through hybrid search (BM25 + dense vectors fused with RRF) when a new session starts.
 
 One integration, many clients. Claude Code, Cursor, VS Code, OpenCode, OpenClaw, Devin and Antigravity all speak MCP — per-editor setup lives in [EDITOR_INTEGRATIONS.md](operations/EDITOR_INTEGRATIONS.md); the server reference in [docs/api/MCP.md](../api/MCP.md).
 
@@ -66,7 +66,7 @@ Deterministic hooks wire `memory_recall` into each session: recall on session st
 |---------|--------|----------|
 | MCP server over stdio, tool profiles | ✅ | `vanta-cli server --mcp` — [MCP.md](../api/MCP.md) |
 | Hooks for 4 clients | ✅ schema-tested offline | [hooks/README.md](../../skills/vantadb-mcp/assets/hooks/README.md) + `test-hooks.ps1` |
-| Desktop memory viewer (Memory Lens) | ✅ in the desktop app | [desktop/README.md](../../feature-freez/desktop/README.md) |
+| Desktop memory viewer (Memory Lens) | ✅ in the desktop app | `desktop/README.md` |
 | Cross-session recall demo | ✅ PR-blocking in CI | [demo_ai_ides.rs](../../vantadb-mcp/tests/demo_ai_ides.rs) · [demo-acceptance.yml](../../.github/workflows/demo-acceptance.yml) |
 | North Star metric (put+search per 7 days) | ✅ proxy-side | [north_star_metric.py](../../scripts/north_star_metric.py) · [PROXY.md § North Star](../api/PROXY.md) |
 

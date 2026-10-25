@@ -30,7 +30,6 @@
 # workflows as jobs. Origin -> job table (no job lost, none killed):
 #   arch-metrics-informational.yml        -> arch-metrics
 #   bench-canonical-p99-informational.yml -> toolchain-check + bench-informational
-#   lurkr-informational.yml               -> lurkr
 #   ocr-delegate.yml                      -> ocr-delegate
 # Event gating (Fast Gate / Heavy split preserved):
 # - Heavy jobs (ci-gate call + 7 certification jobs) run ONLY on
@@ -64,7 +63,6 @@ on:
       - 'Cargo.lock'
       - '.opencode/**'
       - 'evals/agent/**'
-      - '.lurkr-baseline.json'
       - '.github/workflows/nightly.yml'
   workflow_dispatch:
 
@@ -515,51 +513,6 @@ jobs:
             benchmark_report_canonical_p99.json
             bench_comparison_canonical_p99.json
           retention-days: 30
-
-  # Origin: lurkr-informational.yml. Lurkr agent-capability scan -
-  # INFORMATIONAL ONLY (FIND-151, Rule 17 ratchet). Never blocks:
-  # continue-on-error + NO --fail-on (review-only mode). Baseline:
-  # `.lurkr-baseline.json` (1 FP grandfathered). Pins: lurkr 0.4.0 (PyPI).
-  # NOTE (stale policy, NOT changed here): header says promotion to mandatory
-  # gate (`--fail-on high`) on 2026-10-08 if 0 new false positives — that date
-  # passed; the promotion decision belongs to the owner, not this consolidation.
-  lurkr:
-    name: Lurkr capability scan
-    # CI-08: PR/dispatch only — never on the daily schedule (see header).
-    if: github.actor != 'dependabot[bot]' && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch')
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    continue-on-error: true # CATEGORY: INFORMATIONAL (hasta 2026-10-08, ver header)
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: "3.12"
-
-      - name: Install lurkr (pinned)
-        run: pip install "lurkr==0.4.0"
-
-      - name: Scan .opencode (review-only, baseline)
-        run: |
-          if [ ! -d .opencode ]; then
-            echo ".opencode ausente en este checkout (repo separado configOpencode, ignorado en VantaDB) - scan omitido"
-            exit 0
-          fi
-          cp .lurkr-baseline.json .opencode/.lurkr-baseline.json
-          lurkr scan --path .opencode \
-            --baseline .lurkr-baseline.json \
-            --output lurkr-report.json
-          python3 -c "import json;d=json.load(open('lurkr-report.json'));print('new findings:',d['summary']['total'])"
-
-      - name: Agent eval (10 golden cases, offline)
-        run: python3 evals/agent/run_eval.py --offline
-
-      - name: Upload reports
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: lurkr-eval
-          path: lurkr-report.json
 
   # Origin: ocr-delegate.yml. OCR Delegation Spec - INFORMATIONAL ONLY.
   # Never blocks: every step carries continue-on-error (tagged CATEGORY). Publishes

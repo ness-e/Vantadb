@@ -15,7 +15,7 @@ A **write receipt** is a JSON document emitted by a certified write. It binds th
 | Surface | How |
 |---|---|
 | Rust SDK | `Embedded::put_certified(input) -> Result<(MemoryRecord, WriteReceipt)>` |
-| CLI / MCP | follow-up (tracked in the [Backlog](../dev/Backlog.md) as FIND-308) |
+| CLI / MCP | follow-up (tracked in the Backlog as FIND-308) |
 
 ## What a receipt contains
 
@@ -77,7 +77,7 @@ Every receipt lists its limits; the summary:
 - **Not bound to a database instance** — verification matches `namespace`/`key` against whichever database is opened.
 - **Expired records read as absent** — the read path treats a passed deadline as gone; verification reports it as not present.
 - **Audit logs** — write events (namespace/key) survive in the audit JSONL until retention drops them.
-- **The WAL frame is not cited by hash** — `append` does not expose its per-frame `record_hash` to the write path today (upgrade path tracked in the [Backlog](../dev/Backlog.md) as FIND-307); the chain reference plus the content binding are the equivalent evidence.
+- **The WAL frame is not cited by hash** — `append` does not expose its per-frame `record_hash` to the write path today (upgrade path tracked in the Backlog as FIND-307); the chain reference plus the content binding are the equivalent evidence.
 
 ## Example
 

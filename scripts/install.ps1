@@ -28,7 +28,7 @@ $ErrorActionPreference = "Stop"
 
 if (-not $installDir) { $installDir = "$HOME\.vanta\bin" }
 $binaryName = "vanta-cli.exe"
-$wizardFile = "setup-embeddings.ps1"
+$wizardFile = "scripts/setup-embeddings.ps1"
 
 if ($DryRun) {
     Write-Host "[dry-run] install.ps1 -DryRun: no changes, no network." -ForegroundColor Cyan

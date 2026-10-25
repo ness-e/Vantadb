@@ -62,7 +62,7 @@ if hits:
     )
     print(f"Snippet: {snippet}")
 ```
-*Note: For more details on search execution, see [Hybrid Search](../user/glosario/hybrid-search.md).*
+*Note: For more details on search execution, see Hybrid Search.*
 
 ## Import name
 

@@ -13,7 +13,7 @@ tags: [vantadb, surface, release]
 > Status per surface is declared once in `STATUS_OVERRIDES` inside the generator;
 > versions, members, publish flags and release-plz overrides are derived mechanically.
 > Consolidates (by reference, never by copy) the binding taxonomy, the DIST-06 crate table, and the release taxonomy:
-> [BINDINGS_NAMESPACES.md](./BINDINGS_NAMESPACES.md) · [PUBLISH.md (DIST-06, tag namespaces)](../dev/workflow/PUBLISH.md) · taxonomy in `.opencode/AGENTS.md`.
+> [BINDINGS_NAMESPACES.md](./BINDINGS_NAMESPACES.md) · `docs/dev/workflow/PUBLISH.md` (DIST-06, tag namespaces) · taxonomy in `.opencode/AGENTS.md`.
 > This manifest does not resolve Backlog-vs-ADR-vs-code contradictions — it makes them detectable (deviations become `FIND-*` rows).
 
 ## Surfaces
@@ -24,7 +24,7 @@ tags: [vantadb, surface, release]
 | `vantadb-python` | `vantadb_py` | 0.9.0 (workspace) | **PUBLIC** | `publish = false` (non-crates.io channel) | `v*.*.*` (wheels-60 → PyPI `vantadb-py`) | PyPI `vantadb-py` wheels (`release-wheels-60.yml`); `publish = false` (PyO3 cdylib — PyPI is the product channel) |
 | `vantadb-server` | `vantadb-server` | 0.9.0 (workspace) | **PUBLIC** | `publish = false` (non-crates.io channel) | GitHub Release assets (binaries-63) | GitHub Release binaries, 5 targets (`release-binaries.yml`); `publish = false` (binary product, not a crate) |
 | `vantadb-mcp` | `vantadb-mcp` | 0.9.0 (workspace) | **INTERNAL** | `publish = false` (non-crates.io channel) | transitive via server binaries | library embedded in `vantadb-server` (`--mcp`); no independent distribution |
-| `vantadb-wasm` | `vantadb-wasm` | 0.9.0 (workspace) | **PUBLIC** | release-plz `release = false` | `v*.*.*` (npm-61) | npm `vantadb-wasm` via wasm-pack (`release-npm-61.yml`); release-plz `release = false` (npm channel, not crates.io) |
+| `vantadb-wasm` | `vantadb-wasm` | 0.9.0 (workspace) | **PUBLIC** | release-plz `release = false` | `v*.*.*` (npm-61) | npm `vantadb-wasm` via wasm-pack (`release-npm-wasm.yml`); release-plz `release = false` (npm channel, not crates.io) |
 | `vantadb-ffi-core` | `vantadb-ffi-core` | 0.9.0 (workspace) | **INTERNAL** | `publish = false` (non-crates.io channel) | none (compiled into bindings) | std-only FFI leaf shared by node/python/wasm; zero external consumers (dependency-only crate) |
 | `vanta-memory` | `vanta-memory` | 0.9.0 (workspace) | **EXPERIMENTAL** | release-plz `release = false` | `v*.*.*` (held — DIST-01) | DIST-01 hold: manifest publishable, release-plz `release = false` until Trusted Publishing bootstrap (owner) |
 | `vanta-proxy` | `vanta-proxy` | 0.9.0 (workspace) | **FROZEN** | `publish = false` (non-crates.io channel) | none until 1.0 (frozen) | Freeze List until 1.0 (DIST-18 re-scoped); source build only, no publish |
@@ -60,5 +60,5 @@ Gates: `node scripts/docs/check-npm-versions.mjs` (npm) + `tests/version_coheren
 | Task state (pending) | `docs/dev/Backlog.md` + `docs/dev/tasks/` |
 | Architecture decisions | `docs/dev/architecture/adr/` (immutable once accepted) |
 | Completed work | `docs/dev/avance/` (per-domain registry) |
-| Changelog | `docs/CHANGELOG.md` (release-plz owned; never hand-edited) |
+| Changelog | `CHANGELOG.md` (release-plz owned; never hand-edited) |
 | SDK serialization compat | `tests/sdk_serialization.rs` |

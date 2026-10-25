@@ -52,7 +52,7 @@ const AUTHORITY = [
   ['Task state (pending)', '`docs/dev/Backlog.md` + `docs/dev/tasks/`'],
   ['Architecture decisions', '`docs/dev/architecture/adr/` (immutable once accepted)'],
   ['Completed work', '`docs/dev/avance/` (per-domain registry)'],
-  ['Changelog', '`docs/CHANGELOG.md` (release-plz owned; never hand-edited)'],
+  ['Changelog', '`CHANGELOG.md` (release-plz owned; never hand-edited)'],
   ['SDK serialization compat', '`tests/sdk_serialization.rs`'],
 ];
 
@@ -62,7 +62,7 @@ const AUTHORITY = [
 
 const STATUS_OVERRIDES = {
   '.': ['PUBLIC', 'crates.io via release-plz (`release.yml`); the only crates.io-published crate'],
-  'vantadb-wasm': ['PUBLIC', 'npm `vantadb-wasm` via wasm-pack (`release-npm-61.yml`); release-plz `release = false` (npm channel, not crates.io)'],
+  'vantadb-wasm': ['PUBLIC', 'npm `vantadb-wasm` via wasm-pack (`release-npm-wasm.yml`); release-plz `release = false` (npm channel, not crates.io)'],
   'vanta-memory': ['EXPERIMENTAL', 'DIST-01 hold: manifest publishable, release-plz `release = false` until Trusted Publishing bootstrap (owner)'],
   'vantadb-python': ['PUBLIC', 'PyPI `vantadb-py` wheels (`release-wheels-60.yml`); `publish = false` (PyO3 cdylib — PyPI is the product channel)'],
   'vantadb-node': ['EXPERIMENTAL', 'npm `vantadb-node` planned, never published (registry 404, 2026-10-03); `release-npm-node.yml` on `node-v*` tags'],
@@ -278,7 +278,7 @@ function render({ workspace, rows, versions }) {
   L.push('> Status per surface is declared once in `STATUS_OVERRIDES` inside the generator;');
   L.push('> versions, members, publish flags and release-plz overrides are derived mechanically.');
   L.push('> Consolidates (by reference, never by copy) the binding taxonomy, the DIST-06 crate table, and the release taxonomy:');
-  L.push('> [BINDINGS_NAMESPACES.md](./BINDINGS_NAMESPACES.md) · [PUBLISH.md (DIST-06, tag namespaces)](../dev/workflow/PUBLISH.md) · taxonomy in `.opencode/AGENTS.md`.');
+  L.push('> [BINDINGS_NAMESPACES.md](./BINDINGS_NAMESPACES.md) · `docs/dev/workflow/PUBLISH.md` (DIST-06, tag namespaces) · taxonomy in `.opencode/AGENTS.md`.');
   L.push('> This manifest does not resolve Backlog-vs-ADR-vs-code contradictions — it makes them detectable (deviations become `FIND-*` rows).');
   L.push('');
   L.push('## Surfaces');

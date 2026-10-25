@@ -16,7 +16,7 @@ Accepted.
 
 ## Context
 
-As an open-source embedded vector database, VantaDB requires a formal governance structure. See [Community Governance & SLA Policy](../../operations/COMMUNITY_GOVERNANCE.md) for the current operational policy.
+As an open-source embedded vector database, VantaDB requires a formal governance structure. See Community Governance & SLA Policy for the current operational policy.
 
 This ADR captures the decision rationale behind the governance model.
 

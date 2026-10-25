@@ -78,7 +78,7 @@ fn assert_degraded_notice(embedding: &serde_json::Value) {
         "fallback: true",
         "deterministic dummy embeddings",
         "NOT semantic",
-        "setup-embeddings.ps1",
+        "scripts/setup-embeddings.ps1",
         "embeddings/verify.py --check",
     ] {
         assert!(

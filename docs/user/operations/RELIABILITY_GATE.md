@@ -90,7 +90,7 @@ if __name__ == "__main__":
 ### 1.4 Acceptance Thresholds (Gating)
 
 1. **RSS Drift < 10%** measured between memory stabilization at minute 5 (after warm-up) and the end at minute 30.
-2. **Fragmentation Coherence**: Logical [HNSW](../glosario/hnsw.md) memory (`hnsw_logical_bytes`) and mapped physical resident memory (`mmap_resident_bytes`) must reflect RAM stability, without exponential growth or divergent global process RSS.
+2. **Fragmentation Coherence**: Logical HNSW memory (`hnsw_logical_bytes`) and mapped physical resident memory (`mmap_resident_bytes`) must reflect RAM stability, without exponential growth or divergent global process RSS.
 
 ---
 

@@ -9,7 +9,7 @@ created: "2026-10-06"
 
 # ADR-0056: Object storage path — snapshot-level first, segment-level on the Pro/Cloud trigger, native backend deferred
 
-> **Produced under the plan 0.9.0 Task 65 contract (STRAT-05)** — research + spec + documented decision, no implementation. Status is `proposed`: it records the evidence-backed path and awaits the owner's ratification (Regla 5, `AGENTS.md`). Evidence: [research doc](../../research/strat-05-object-storage.md).
+> **Produced under the plan 0.9.0 Task 65 contract (STRAT-05)** — research + spec + documented decision, no implementation. Status is `proposed`: it records the evidence-backed path and awaits the owner's ratification (Regla 5, `AGENTS.md`). Evidence: research doc (STRAT-05).
 
 ## Context and problem statement
 
@@ -59,7 +59,7 @@ Boundary declaration (no re-litigation): the 2026 verdict stands ("no native S3 
 
 ## Related
 
-- [Research: STRAT-05 object storage path](../../research/strat-05-object-storage.md) — evidence, precedents, cost model, sources (16 fetch-verified 2026-10-06).
+- Research: STRAT-05 object storage path — evidence, precedents, cost model, sources (16 fetch-verified 2026-10-06).
 - ADR-0004 / ADR-0020 — storage backend selection and default (unchanged).
 - `docs/dev/Backlog-negocio.md:103` (BIZ-14) — the implementation item this decision feeds.
 - `docs/dev/archive/research-old/feature-verdicts-2026.md` — prior verdict this ADR confirms and refines.

@@ -30,7 +30,7 @@ this page registers instances, it does not restate the policy:
   nonce, plus `crypto::registry::AadBuilder` to bind the ciphertext to its
   slot. The type is kept (not removed) because `storage::vfile` still exposes
   it to its own test; it is retired with the VantaFile wave.
-- **Changelog:** [`docs/CHANGELOG.md`](../CHANGELOG.md) § [0.9.1]
+- **Changelog:** [`CHANGELOG.md`](../../CHANGELOG.md) § [0.9.1]
 - **Code/doc marker:** `#[deprecated]` attribute in `src/crypto.rs`
 
 ### `VantaHeader` → `Header`
@@ -41,7 +41,7 @@ this page registers instances, it does not restate the policy:
 - **Replacement / migration:** use `Header`; `VantaHeader` remains a
   `#[deprecated(since = "0.8.0")]` type alias, so existing code keeps
   compiling during the window
-- **Changelog:** [`docs/CHANGELOG.md`](../CHANGELOG.md) § [0.8.0]
+- **Changelog:** [`CHANGELOG.md`](../../CHANGELOG.md) § [0.8.0]
 - **Code/doc marker:** `#[deprecated]` attribute in `src/binary_header.rs`
 
 > Until v0.7.0 (updated 2026-09-27) no public API item was deprecated on any of
@@ -55,7 +55,7 @@ this page registers instances, it does not restate the policy:
 - **Deprecated in:** v0.X.0 (YYYY-MM-DD)
 - **Removal target:** v0.Y.0 — ≥ 1 MINOR after deprecation (earliest possible)
 - **Replacement / migration:** <what consumers should do instead>
-- **Changelog:** [`docs/CHANGELOG.md`](../CHANGELOG.md) § [0.X.0]
+- **Changelog:** [`CHANGELOG.md`](../../CHANGELOG.md) § [0.X.0]
 - **Code/doc marker:** <deprecation attribute / doc note / release-note marker>
 
 ## Process

@@ -98,7 +98,7 @@ for (const rel of docs) {
 // ------------------------------------------------------------------- helpers
 
 /**
- * A document directly under docs/ has no section. `docs/CHANGELOG.md` is not a
+ * A document directly under docs/ has no section. `CHANGELOG.md` is not a
  * section called "CHANGELOG.md" -- it is a root document.
  */
 const sectionOf = (r) => {
