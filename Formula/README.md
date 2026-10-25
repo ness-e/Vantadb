@@ -5,8 +5,8 @@ A [Homebrew](https://brew.sh) tap for installing VantaDB CLI tools.
 ## Usage
 
 ```bash
-# Add the tap
-brew tap ness-e/Vantadb
+# Add the tap (this repo carries the formula in Formula/)
+brew tap ness-e/vantadb https://github.com/ness-e/Vantadb
 
 # Install the VantaDB CLI
 brew install vantadb
