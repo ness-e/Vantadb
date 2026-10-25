@@ -1,7 +1,7 @@
-//! `LocalStateBackend` — in-process pipeline state backend (port of TDAM
+//! `LocalStateBackend` — in-process pipeline state backend (autonomous memory pipeline
 //! `MC/core/state/local-backend.ts`, reimplemented in Rust — MEM-16).
 //!
-//! Replaces the TDAM Redis backend with plain process-local maps (Principio 7:
+//! Replaces the Vanta memory engine Redis backend with plain process-local maps (Principio 7:
 //! no Redis). Buffers, session states, timers, the prioritized task queue and
 //! TTL locks all live behind one mutex; every deadline comparison goes through
 //! an injected [`Clock`] so tests are deterministic.

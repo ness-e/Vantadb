@@ -1,11 +1,11 @@
 //! L2 scene extraction prompts (MEM-14, F4).
 //!
-//! REWRITTEN in English from the TDAM scene-extraction principles (Principio
-//! 7: reescribir, no traducir — the TDAM originals are Chinese). Two families
+//! REWRITTEN in English from the Vanta memory engine scene-extraction principles (Principio
+//! 7: reescribir, no traducir — the Vanta memory engine originals are Chinese). Two families
 //! via the existing [`PromptMode`]: chat-mode (persona/episodic/instruction
 //! scenes) and work/team mode (work_* types).
 //!
-//! Documented divergence: TDAM runs an LLM agent whose output is *tool calls*
+//! Documented divergence: Vanta memory engine runs an LLM agent whose output is *tool calls*
 //! against the sandboxed scene tools; this port emits a **JSON contract** of
 //! scene decisions `[{scene_name, summary, content, merge_sources}]` that the
 //! deterministic strategy layer ([`crate::core::scene::scene_extractor`])

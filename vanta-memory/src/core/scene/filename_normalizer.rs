@@ -1,23 +1,23 @@
 //! Scene name normalizer (MEM-14, F4).
 //!
 //! Defensive engineering layer that runs *after* the L2 LLM emits scene names
-//! and *before* any block is written (TDAM `filename-normalizer.ts` — port
+//! and *before* any block is written (Vanta memory engine `filename-normalizer.ts` — port
 //! WITHOUT the `.md` extension: the record store has no filesystem).
 //!
 //! Even though the prompt forbids spaces and punctuation, LLMs occasionally
 //! produce names like `Daily Rhythm in Shanghai`. Such names break Markdown
 //! navigation refs, shell tools, and URL/path encoding consumers. This module
-//! canonicalizes them to the TDAM allowed set: ASCII alphanumerics, CJK
+//! canonicalizes them to the Vanta memory engine allowed set: ASCII alphanumerics, CJK
 //! ideographs, hyphen, underscore, dot.
 //!
 //! This also resolves the MEM-12 key-collision debt: `sanitize_key` maps `/`
 //! to `_`, so `a/b` and `a_b` used to collide as keys. The normalizer strips
-//! `/` (TDAM drop list), so `a/b` → `ab` ≠ `a_b` — no collision.
+//! `/` (Vanta memory engine drop list), so `a/b` → `ab` ≠ `a_b` — no collision.
 //!
-//! Source: `docs/dev/research/tdam/02-scene-persona.md` + TDAM
+//! Source: `docs/api/VANTA_MEMORY.md02-scene-persona.md` + Vanta memory engine
 //! `filename-normalizer.ts` (195).
 
-/// Characters dropped from scene names (TDAM drop list: quotes, brackets,
+/// Characters dropped from scene names (Vanta memory engine drop list: quotes, brackets,
 /// punctuation known to break shells/markdown).
 fn is_drop_char(ch: char) -> bool {
     matches!(
@@ -54,7 +54,7 @@ fn is_drop_char(ch: char) -> bool {
 }
 
 fn is_whitespace(ch: char) -> bool {
-    // Space, tab, NBSP, full-width space (TDAM `\s\u00A0\u3000`), plus CR/LF.
+    // Space, tab, NBSP, full-width space (Vanta memory engine `\s\u00A0\u3000`), plus CR/LF.
     matches!(ch, ' ' | '\t' | '\u{00A0}' | '\u{3000}' | '\r' | '\n')
 }
 
@@ -64,9 +64,9 @@ fn is_separator(ch: char) -> bool {
 
 /// Normalize a single scene name to its canonical form.
 ///
-/// Rules (TDAM `normalizeSceneFilename` minus the `.md` extension and minus
+/// Rules (Vanta memory engine `normalizeSceneFilename` minus the `.md` extension and minus
 /// the directory-component strip — the record store has no filesystem paths,
-/// so a `/` is just a character in the TDAM drop list, not a path separator):
+/// so a `/` is just a character in the Vanta memory engine drop list, not a path separator):
 /// - Whitespace runs (spaces, tabs, NBSP, full-width space) → single hyphen.
 /// - Strip quotes, brackets, and ASCII punctuation that breaks shell/markdown
 ///   (including `/` and `\`).

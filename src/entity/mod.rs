@@ -235,7 +235,7 @@ impl EntityRepository for EntityStore<'_> {
     }
 }
 
-// ── ID generation (port of TDAM `utils/id-generator.ts`) ──
+// ── ID generation (port of specification `utils/id-generator.ts`) ──
 
 const ID_CHARS: &[u8] = b"abcdefghijklmnopqrstuvwxyz0123456789";
 const ID_BASE: u64 = 36;

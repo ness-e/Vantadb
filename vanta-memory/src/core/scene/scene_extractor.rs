@@ -1,7 +1,7 @@
 //! L2 scene extraction strategy (MEM-14, F4) — UPDATE>MERGE>CREATE + heat +
 //! soft-delete.
 //!
-//! TDAM leaves the strategy decision to the LLM agent via sandboxed tools
+//! Vanta memory engine leaves the strategy decision to the LLM agent via sandboxed tools
 //! (`scene-extraction.ts` Phase 2: UPDATE preferred > MERGE > CREATE last
 //! resort). This port separates the **decision** ([`decide_strategy`], pure,
 //! D19-testable) from the **execution** ([`apply_strategy`]): the LLM emits
@@ -18,10 +18,10 @@
 //! - Soft-delete marks the block (flag + `[DELETED]` marker content); nothing
 //!   is ever physically removed (recoverable via `get_scene`).
 //!
-//! `emptyExtraction` (TDAM `scene-extractor.ts:509-516`): an empty batch — or
+//! `emptyExtraction` (Vanta memory engine `scene-extractor.ts:509-516`): an empty batch — or
 //! a failed LLM run (Principio 4) — never overwrites the store.
 //!
-//! Source: `docs/dev/research/tdam/02-scene-persona.md` + TDAM
+//! Source: `docs/api/VANTA_MEMORY.md02-scene-persona.md` + Vanta memory engine
 //! `scene-extractor.ts` (604) + `scene-extraction.ts` (572).
 
 use serde::{Deserialize, Serialize};
@@ -63,7 +63,7 @@ pub struct SceneExtraction {
     pub merge_sources: Vec<String>,
 }
 
-/// Input memory for an L2 extraction run (TDAM `extract()` L141 parity).
+/// Input memory for an L2 extraction run (Vanta memory engine `extract()` L141 parity).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SceneMemoryInput {
     /// Memory record ID.
@@ -167,7 +167,7 @@ pub fn decide_strategy(
     let name = normalize_scene_name(&extraction.scene_name);
     let live: Vec<&str> = existing.iter().map(|e| e.filename.as_str()).collect();
 
-    // Marker content → soft-delete (TDAM: writing [DELETED] deletes a file).
+    // Marker content → soft-delete (Vanta memory engine: writing [DELETED] deletes a file).
     if extraction.content.trim() == "[DELETED]" {
         return if live.contains(&name.as_str()) {
             SceneStrategy::SoftDelete { scene_name: name }
@@ -180,7 +180,7 @@ pub fn decide_strategy(
     if extraction.content.trim().is_empty() {
         return SceneStrategy::Skip;
     }
-    // Name match → UPDATE is the default strategy (TDAM: prefer UPDATE over
+    // Name match → UPDATE is the default strategy (Vanta memory engine: prefer UPDATE over
     // CREATE when in doubt).
     if live.contains(&name.as_str()) {
         return SceneStrategy::Update { scene_name: name };
@@ -252,7 +252,7 @@ pub fn apply_strategy(
             validate_text("summary", &extraction.summary, MAX_SUMMARY_BYTES)?;
             validate_content(&extraction.content)?;
 
-            // Heat = target_heat + Σ(source_heat) + 1 (TDAM: sum of all
+            // Heat = target_heat + Σ(source_heat) + 1 (Vanta memory engine: sum of all
             // related blocks + 1), saturating so an overflow never panics.
             let target = get_scene(db, session_key, scene_name)?;
             let mut heat = 0u32;
@@ -279,7 +279,7 @@ pub fn apply_strategy(
             let block = SceneBlock::new(scene_name.clone(), meta, extraction.content.clone());
             write_scene_block(db, session_key, &block)?;
 
-            // TDAM order: write the target first, then soft-delete sources — a
+            // Vanta memory engine order: write the target first, then soft-delete sources — a
             // source-delete failure leaves the merged target intact (no loss).
             for source in sources {
                 soft_delete_scene(db, session_key, source)?;
@@ -311,7 +311,7 @@ pub fn apply_strategy(
 /// Run a batch of scene extractions against a session (LLM-free entry point).
 ///
 /// An empty batch is `emptyExtraction`: it returns `empty_extraction: true`
-/// and never touches the store (TDAM parity — an empty extraction must not
+/// and never touches the store (engine parity — an empty extraction must not
 /// overwrite the scene index).
 pub fn extract_scenes(
     db: &vantadb::sdk::Embedded,
@@ -516,7 +516,7 @@ mod tests {
 
     #[test]
     fn merge_into_existing_target_is_not_update() {
-        // Target name exists → UPDATE wins over MERGE (TDAM default).
+        // Target name exists → UPDATE wins over MERGE (Vanta memory engine default).
         let existing = vec![entry("merged", 7), entry("a", 2)];
         let mut extraction = extraction("merged", "content");
         extraction.merge_sources = vec!["a".into()];

@@ -1,15 +1,15 @@
-//! Pipeline state types (port of TDAM `MC/core/state/types.ts`, reimplemented
+//! Pipeline state types (autonomous memory pipeline `MC/core/state/types.ts`, reimplemented
 //! in Rust — MEM-16).
 //!
 //! These are the data contracts shared by [`crate::utils::local_backend`],
-//! the pipeline managers and [`crate::services::pipeline_worker`]. The TDAM
+//! the pipeline managers and [`crate::services::pipeline_worker`]. The Vanta memory engine
 //! `IStateBackend` trait is intentionally NOT ported: there is exactly one
 //! backend (local, in-process) — Redis is banned by Principio 7. Extract a
 //! trait when a second backend actually exists.
 
 use serde::{Deserialize, Serialize};
 
-/// Per-session pipeline state managed by the managers (TDAM
+/// Per-session pipeline state managed by the managers (Vanta memory engine
 /// `PipelineSessionState`).
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -31,7 +31,7 @@ pub struct PipelineSessionState {
     pub l2_last_extraction_time: String,
 }
 
-/// Pipeline task kinds. Offload variants of the TDAM `TaskPayload.type` are
+/// Pipeline task kinds. Offload variants of the Vanta memory engine `TaskPayload.type` are
 /// not ported (offload orchestration is F6+, deferred).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "UPPERCASE")]
@@ -69,7 +69,7 @@ pub struct TaskPayload {
     pub attempts: u32,
 }
 
-/// A timer registered in the backend (TDAM `TimerEntry`; the instance-id
+/// A timer registered in the backend (Vanta memory engine `TimerEntry`; the instance-id
 /// routing field is not needed in-process).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

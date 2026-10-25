@@ -1,8 +1,8 @@
 //! In-process rate limiter (D24: no Redis, D35: default 60 req/min).
 //!
-//! Sliding window of 60s keyed by `space_id×model` (TDAM parity:
+//! Sliding window of 60s keyed by `space_id×model` (specification parity:
 //! redis-store.ts:324-326 bucket dimension). Thread-safe via a single Mutex
-//! over the window map; fail-open when the mechanism is degraded (TDAM
+//! over the window map; fail-open when the mechanism is degraded (Vanta memory engine
 //! guard.ts:40-51): degraded → allow + warn log, never block the wire.
 
 use std::collections::{HashMap, VecDeque};
@@ -15,7 +15,7 @@ use axum::http::{HeaderMap, StatusCode};
 use axum::response::IntoResponse;
 use serde_json::json;
 
-/// Sliding window size (TDAM parity).
+/// Sliding window size (canonical specification).
 pub const WINDOW_MS: u64 = 60_000;
 
 /// Hard cap on tracked buckets (PRX-08 S4): the map was unbounded.
@@ -37,7 +37,7 @@ struct Bucket {
 pub struct RateLimiter {
     limit: u32,
     window_ms: u64,
-    /// Conscience flag (D24/TDAM guard.ts): true → allow everything + warn.
+    /// Conscience flag (D24/Vanta memory engine guard.ts): true → allow everything + warn.
     degraded: AtomicBool,
     buckets: Mutex<HashMap<String, Bucket>>,
     /// Total 429 decisions ever returned (monotonic, `/snapshot` telemetry).
@@ -219,7 +219,7 @@ fn header_value(value: &str) -> axum::http::HeaderValue {
 }
 
 /// Build the 429 response with `Retry-After` + `x-ratelimit-*` headers
-/// (TDAM parity: guard.ts:111-121).
+/// (specification parity: guard.ts:111-121).
 pub fn limited_response(
     space_id: &str,
     model: &str,

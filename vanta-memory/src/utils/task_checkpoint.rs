@@ -3,7 +3,7 @@
 //! A **task checkpoint** tracks one host task across steps so a new instance
 //! can resume after an interruption without repeating completed steps. It is
 //! deliberately a separate domain from the pipeline checkpoint
-//! ([`super::checkpoint`], TDAM `Checkpoint`): separate types, separate
+//! ([`super::checkpoint`], Vanta memory engine `Checkpoint`): separate types, separate
 //! namespace (`task_checkpoints`, never `pipeline_checkpoint`), no shared
 //! fields. The pipeline checkpoint tracks cursors/counters of the L0→L3
 //! pipeline; this module tracks `step` + partial results of a host task.

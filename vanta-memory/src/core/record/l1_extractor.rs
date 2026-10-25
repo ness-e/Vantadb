@@ -1,6 +1,6 @@
 //! L1 memory extraction (MEM-10): split + one LLM call + tolerant parse.
 //!
-//! Port of TDAM `MemoryCore/src/core/record/l1-extractor.ts` reimplemented in
+//! Autonomous memory pipeline `MemoryCore/src/core/record/l1-extractor.ts` reimplemented in
 //! Rust. Pipeline:
 //! 1. Quality-gate the L0 messages (strict L1 filter).
 //! 2. Split into background (older, context-only) + new (recent, extractable).
@@ -22,7 +22,7 @@ use crate::core::prompts::l1_extraction::{
 };
 use crate::offload::local_llm::parsers::l1_parser::parse_l1_extraction;
 
-/// Configuration for one L1 extraction run (TDAM defaults).
+/// Configuration for one L1 extraction run (Vanta memory engine defaults).
 #[derive(Debug, Clone)]
 pub struct L1ExtractorConfig {
     /// Max NEW messages sent to the LLM in one call (default 10).
@@ -154,7 +154,7 @@ pub fn extract_l1_segments<R: LlmRunner>(
     )
 }
 
-/// Strict L1 quality gate (port of TDAM `sanitize.ts:shouldExtractL1`).
+/// Strict L1 quality gate (autonomous memory pipeline `sanitize.ts:shouldExtractL1`).
 /// Rejects structural noise, slash commands, and pure-symbol content that
 /// could never become a meaningful memory. L0 captures everything; L1 keeps
 /// only what the extractor should see.
@@ -163,7 +163,7 @@ pub(crate) fn should_extract_l1(text: &str) -> bool {
     if trimmed.is_empty() {
         return false;
     }
-    // Framework-injected noise messages (TDAM `isFrameworkNoise`, sanitize.ts:233-255).
+    // Framework-injected noise messages (Vanta memory engine `isFrameworkNoise`, sanitize.ts:233-255).
     if is_framework_noise(trimmed) {
         return false;
     }
@@ -188,7 +188,7 @@ pub(crate) fn should_extract_l1(text: &str) -> bool {
 
 /// Framework-injected noise that should never be captured: bootstrap
 /// placeholders, session-reset instructions, session-start acks and
-/// memory-flush acks (port of TDAM `sanitize.ts:isFrameworkNoise`, 233-255).
+/// memory-flush acks (autonomous memory pipeline `sanitize.ts:isFrameworkNoise`, 233-255).
 pub(crate) fn is_framework_noise(t: &str) -> bool {
     // Google turn-order bootstrap placeholder.
     if t == "(session bootstrap)" {
@@ -264,7 +264,7 @@ mod tests {
 
     #[test]
     fn quality_gate_accepts_similar_content() {
-        // Same noise marker *embedded* (not at start) is kept — TDAM matches
+        // Same noise marker *embedded* (not at start) is kept — Vanta memory engine matches
         // exact/prefix, not substring.
         assert!(should_extract_l1(
             "note: A new session was started via /new"

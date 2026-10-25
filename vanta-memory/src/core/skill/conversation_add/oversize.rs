@@ -1,6 +1,6 @@
 //! SkillOversizeStrategy (MEM-17) — last-resort split for oversized buffers.
 //!
-//! Port of TDAM `conversation-add/oversize-strategy.ts`: when the compressed
+//! Autonomous memory pipeline `conversation-add/oversize-strategy.ts`: when the compressed
 //! buffer still exceeds `chunk_max_bytes`, keep messages from the head up to
 //! `head_keep_bytes` and from the tail up to `tail_keep_bytes` (always at
 //! least one message each side), replacing the omitted middle with a single
@@ -8,7 +8,7 @@
 
 use super::compressor::SkillMessage;
 
-/// Oversize tuning (TDAM defaults: 80KB chunk, 20KB head/tail).
+/// Oversize tuning (Vanta memory engine defaults: 80KB chunk, 20KB head/tail).
 #[derive(Debug, Clone)]
 pub struct OversizeOptions {
     pub chunk_max_bytes: usize,
@@ -40,7 +40,7 @@ fn total_bytes(msgs: &[SkillMessage]) -> usize {
     msgs.iter().map(message_bytes).sum()
 }
 
-/// Apply the oversize strategy (TDAM `applyOversizeStrategy`).
+/// Apply the oversize strategy (Vanta memory engine `applyOversizeStrategy`).
 pub fn apply_oversize_strategy(
     messages: &[SkillMessage],
     opts: &OversizeOptions,
@@ -153,7 +153,7 @@ mod tests {
 
     #[test]
     fn head_and_tail_always_keep_at_least_one_message_each() {
-        // ponytail ceiling (TDAM parity): when head+tail cover EVERY message
+        // ponytail ceiling (engine parity): when head+tail cover EVERY message
         // (e.g. two giant messages), nothing is omitted → passthrough. The
         // strategy never fabricates an empty middle.
         let giant = msg(&"y".repeat(50_000));

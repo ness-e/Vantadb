@@ -1,10 +1,10 @@
 //! Persona generator: first/incremental L3 generation over the record store
 //! (MEM-15, F4).
 //!
-//! Port of TDAM `persona-generator.ts` (304) adapted to VantaDB (Principio
+//! Autonomous memory pipeline `persona-generator.ts` (304) adapted to VantaDB (Principio
 //! 2): there is no `persona.md` file — the persona lives as a JSON record
 //! under the `persona/<session>` namespace and the document body keeps the
-//! navigation appended exactly like the TDAM file did.
+//! navigation appended exactly like the Vanta memory engine file did.
 //!
 //! Flow (`generate_persona`, generic over `R: LlmRunner` because the trait
 //! is not dyn-compatible):
@@ -23,7 +23,7 @@
 //! output returns `success: false` and writes NOTHING — a stored persona is
 //! never lost or corrupted by a bad LLM run.
 //!
-//! Source: `docs/dev/research/tdam/02-scene-persona.md` §26 + TDAM
+//! Source: `docs/api/VANTA_MEMORY.md02-scene-persona.md` §26 + Vanta memory engine
 //! `persona-generator.ts` + `utils/sanitize.ts:288-294`.
 
 use serde::{Deserialize, Serialize};
@@ -44,7 +44,7 @@ use crate::core::scene::scene_navigation::{generate_scene_navigation, strip_scen
 pub const PERSONA_KEY: &str = "persona.md";
 
 /// XML section boundaries whose tags are escaped before persisting (port of
-/// TDAM `utils/sanitize.ts:288-294` — only injection boundaries, never all
+/// Vanta memory engine `utils/sanitize.ts:288-294` — only injection boundaries, never all
 /// angle brackets, so legitimate markdown survives).
 const INJECTION_BOUNDARIES: [&str; 7] = [
     "user-persona",
@@ -114,7 +114,7 @@ pub fn persona_namespace(session_key: &str) -> String {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub struct PersonaRecord {
-    /// Full document: persona body + appended scene navigation (TDAM
+    /// Full document: persona body + appended scene navigation (Vanta memory engine
     /// `persona.md` parity).
     pub content: String,
     /// Mode of the generation that produced this record.
@@ -270,7 +270,7 @@ fn generate_persona_inner<R: LlmRunner>(
         PersonaMode::First
     };
 
-    // Skip: no changes and a persona already exists (TDAM L143-146).
+    // Skip: no changes and a persona already exists (Vanta memory engine L143-146).
     if existing.is_some() && changed.is_empty() {
         return PersonaGenerationResult {
             success: true,
@@ -340,7 +340,7 @@ fn generate_persona_inner<R: LlmRunner>(
         ));
     }
 
-    // Append fresh navigation over the FULL live index (TDAM L249-250).
+    // Append fresh navigation over the FULL live index (Vanta memory engine L249-250).
     let nav = generate_scene_navigation(&entries);
     let content = if nav.is_empty() {
         body

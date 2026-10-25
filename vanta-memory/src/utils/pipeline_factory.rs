@@ -1,8 +1,8 @@
-//! Pipeline factory (port of TDAM `MC/utils/pipeline-factory.ts`, minimal —
+//! Pipeline factory (autonomous memory pipeline `MC/utils/pipeline-factory.ts`, minimal —
 //! MEM-16).
 //!
 //! Builds the local orchestration trio (backend + manager + worker) from one
-//! config with an injected clock. TDAM's 1200-line factory selects remote
+//! config with an injected clock. Vanta memory engine's 1200-line factory selects remote
 //! backends, Redis hash-tag layouts and multi-instance routing — none of that
 //! exists here (Principio 7); it reappears only when a second backend does.
 

@@ -1,4 +1,4 @@
-//! Tolerant JSON parsing for LLM responses (port of TDAM
+//! Tolerant JSON parsing for LLM responses (autonomous memory pipeline
 //! `offload/local-llm/parsers/json-utils.ts` + `sanitizeJsonForParse`).
 //!
 //! LLMs frequently wrap JSON in markdown code fences, surround it with prose,
@@ -11,7 +11,7 @@ use serde::de::DeserializeOwned;
 /// Parse `raw` as JSON `T`, tolerating code fences, surrounding prose,
 /// trailing commas and unescaped control characters inside strings.
 ///
-/// Strategy order (cheapest first, TDAM json-utils.ts:12-57):
+/// Strategy order (cheapest first, Vanta memory engine json-utils.ts:12-57):
 /// 1. Direct parse.
 /// 2. Markdown code fence (```json … ```).
 /// 3. First `{`/`[` … last `}`/`]` slice.
@@ -54,7 +54,7 @@ pub fn extract_json<T: DeserializeOwned>(raw: &str) -> Option<T> {
 }
 
 /// Escape unescaped control characters (U+0000–U+001F) inside JSON string
-/// literals so the JSON parses (port of TDAM `sanitizeJsonForParse`,
+/// literals so the JSON parses (autonomous memory pipeline `sanitizeJsonForParse`,
 /// sanitize.ts:316-334). String-aware: escape sequences and `"` boundaries are
 /// respected; structural whitespace outside strings is untouched.
 pub fn sanitize_json_for_parse(s: &str) -> String {
@@ -71,7 +71,7 @@ pub fn sanitize_json_for_parse(s: &str) -> String {
 }
 
 /// Walk a JSON text and escape U+0000–U+001F that appear inside string
-/// literals. Already-escaped sequences are copied verbatim (TDAM
+/// literals. Already-escaped sequences are copied verbatim (Vanta memory engine
 /// `escapeControlCharsInJsonStrings`, sanitize.ts:345-405).
 fn escape_control_chars_in_json_strings(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
@@ -240,7 +240,7 @@ mod tests {
 
     #[test]
     fn control_chars_inside_strings_escaped() {
-        // Raw newline + tab inside a string value must be escaped (TDAM sanitize.ts).
+        // Raw newline + tab inside a string value must be escaped (Vanta memory engine sanitize.ts).
         let v = parse("{\"a\": \"line1\nline2\tend\"}").expect("control chars escaped");
         assert_eq!(v["a"], "line1\nline2\tend");
     }

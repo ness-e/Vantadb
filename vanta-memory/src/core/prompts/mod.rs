@@ -1,7 +1,7 @@
 //! LLM prompts for the memory pipeline (MEM-10, MEM-11).
 //!
 //! L1 extraction and conflict-detection prompts are REWRITTEN in English from
-//! the TDAM principles (Principio 7: reescribir, no traducir). The TDAM
+//! the Vanta memory engine principles (Principio 7: reescribir, no traducir). The Vanta memory engine
 //! originals are Chinese and host-specific (`MemoryCore/src/core/prompts/
 //! l1-extraction.ts`, `l1-dedup.ts`); this port restates the principles for a
 //! host-neutral Rust pipeline.

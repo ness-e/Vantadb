@@ -1,9 +1,9 @@
-//! `mem:` in-band commands intercepted before forwarding (D33, TDAM parity:
+//! `mem:` in-band commands intercepted before forwarding (D33, specification parity:
 //! `mem-command/parser.ts`). Disabled by default; enabled via config, a turn
 //! whose last user message starts with `mem:` is answered locally instead of
 //! reaching the upstream LLM.
 //!
-//! Known commands (TDAM `KNOWN_COMMANDS`, index.ts:24):
+//! Known commands (Vanta memory engine `KNOWN_COMMANDS`, index.ts:24):
 //! - `mem:sync`           — refresh session memory
 //! - `mem:create-skill …` — create a skill from the given prompt
 //! - `mem:help`           — command reference
@@ -27,7 +27,7 @@ pub const SKILLS_NAMESPACE: &str = "proxy-skills";
 /// records (same upsert-collision rationale as capture's `TURN_SEQ`).
 static SKILL_SEQ: AtomicU64 = AtomicU64::new(0);
 
-/// The three TDAM commands this proxy understands (D33).
+/// The three Vanta memory engine commands this proxy understands (D33).
 pub const KNOWN_COMMANDS: [&str; 3] = ["sync", "create-skill", "help"];
 
 /// A parsed `mem:` command.
@@ -76,7 +76,7 @@ pub(crate) fn extract_text(content: &Value) -> Option<String> {
     }
 }
 
-/// Classify already-extracted user text (TDAM `parseCommandFromText`).
+/// Classify already-extracted user text (Vanta memory engine `parseCommandFromText`).
 pub fn parse_text(text: &str) -> Option<MemCommand> {
     let trimmed = text.trim();
     if !trimmed.to_ascii_lowercase().starts_with("mem:") {
@@ -171,7 +171,7 @@ pub fn execute(memory: &Embedded, session_key: &str, cmd: &MemCommand) -> String
     }
 }
 
-/// Build the local HTTP response for an intercepted command. Unlike TDAM's
+/// Build the local HTTP response for an intercepted command. Unlike Vanta memory engine's
 /// protocol-specific builders, this returns a plain JSON envelope on every
 /// wire protocol — clients read `message`.
 pub fn respond(message: &str) -> Response<Body> {
@@ -240,7 +240,7 @@ mod tests {
 
     #[test]
     fn strict_args_and_non_commands_pass_through() {
-        // help/sync with trailing prose = ordinary conversation (TDAM parity).
+        // help/sync with trailing prose = ordinary conversation (canonical specification).
         assert_eq!(parse_text("mem:help what is rust"), None);
         assert_eq!(parse_text("mem:sync now please"), None);
         // Not a command at all.
@@ -311,7 +311,7 @@ mod tests {
     }
 
     #[test]
-    fn known_commands_constant_matches_tdam_trio() {
+    fn known_commands_constant_matches_canonical_trio() {
         assert_eq!(KNOWN_COMMANDS, ["sync", "create-skill", "help"]);
     }
 

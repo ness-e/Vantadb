@@ -1,4 +1,4 @@
-//! Ingest progress channel (MEM-31 — TDAM `engines/wiki/manager.ts:110-121`
+//! Ingest progress channel (MEM-31 — Vanta memory engine `engines/wiki/manager.ts:110-121`
 //! port, D32: internal channel + polling, **no HTTP**).
 //!
 //! The worker reports [`IngestProgress`] snapshots into a shared
@@ -17,17 +17,17 @@ use std::sync::{Arc, Mutex};
 use serde::{Deserialize, Serialize};
 
 /// Minimum interval between same-phase progress emissions
-/// (TDAM manager.ts:110 `PROGRESS_THROTTLE_MS = 500`).
+/// (Vanta memory engine manager.ts:110 `PROGRESS_THROTTLE_MS = 500`).
 pub const PROGRESS_THROTTLE_MS: u64 = 500;
 
-/// Summary text limit (TDAM callback.ts:129 asks the LLM for ≤100 chars).
+/// Summary text limit (Vanta memory engine callback.ts:129 asks the LLM for ≤100 chars).
 pub const SUMMARY_MAX_CHARS: usize = 100;
 
-/// Page-list cap for summary generation (TDAM callback.ts:140 `.slice(0, 20)`).
+/// Page-list cap for summary generation (Vanta memory engine callback.ts:140 `.slice(0, 20)`).
 pub const SUMMARY_MAX_PAGES: usize = 20;
 
-/// Build phase of an ingest run (TDAM manager.ts:110-121). `Done`/`Failed`
-/// are terminal states appended locally (TDAM maps them to wiki status).
+/// Build phase of an ingest run (Vanta memory engine manager.ts:110-121). `Done`/`Failed`
+/// are terminal states appended locally (Vanta memory engine maps them to wiki status).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum IngestPhase {
@@ -86,14 +86,14 @@ impl IngestProgress {
     }
 }
 
-/// Truncate a generated wiki summary to the TDAM limit (`≤100` chars,
+/// Truncate a generated wiki summary to the Vanta memory engine limit (`≤100` chars,
 /// char-boundary safe).
 pub fn truncate_summary(summary: &str) -> String {
     summary.chars().take(SUMMARY_MAX_CHARS).collect()
 }
 
 /// Cap a page list for summary generation to `SUMMARY_MAX_PAGES` entries
-/// (TDAM callback.ts:140 `.slice(0, 20)`).
+/// (Vanta memory engine callback.ts:140 `.slice(0, 20)`).
 pub fn cap_summary_pages<T>(pages: &[T]) -> &[T] {
     &pages[..pages.len().min(SUMMARY_MAX_PAGES)]
 }
@@ -135,7 +135,7 @@ impl ProgressTracker {
 
     /// Report progress (throttled). Returns `true` when stored.
     ///
-    /// Throttle policy (TDAM manager.ts:117-121): a phase change always
+    /// Throttle policy (Vanta memory engine manager.ts:117-121): a phase change always
     /// emits; within one phase only monotonic percent increases emit, and
     /// only after [`PROGRESS_THROTTLE_MS`] — except extracting ≥90%, which
     /// bypasses the interval so the panel sees completion approaching.
@@ -253,7 +253,7 @@ mod tests {
 
         // Monotonic guard: regression or equal percent never re-emits.
         assert!(!t.update_progress_at(prog(IngestPhase::Extracting, 70), 1500));
-        // Near-extract-end bypass (TDAM manager.ts:120-121).
+        // Near-extract-end bypass (Vanta memory engine manager.ts:120-121).
         assert!(t.update_progress_at(prog(IngestPhase::Extracting, 90), 600));
     }
 
@@ -267,7 +267,7 @@ mod tests {
         assert!(t.update_progress_at(prog(IngestPhase::Done, 100), 3));
     }
 
-    // ── (c) summary truncado a límites TDAM ──
+    // ── (c) summary truncado a límites Vanta memory engine ──
 
     #[test]
     fn summary_truncated_to_100_chars_and_pages_capped_to_20() {

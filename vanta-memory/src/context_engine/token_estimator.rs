@@ -1,6 +1,6 @@
 //! Deterministic token estimation and emergency context truncation.
 //!
-//! Port of TDAM `fast-token-estimate.ts` + `emergencyCompress`
+//! Autonomous memory pipeline `fast-token-estimate.ts` + `emergencyCompress`
 //! (`offload/hooks/llm-input-l3.ts`), with the tool-call-pair guard from
 //! `offload/mmd-injector.ts:231`.
 //!
@@ -18,7 +18,7 @@ use crate::context_engine::types::{
 const TRUNCATION_MARKER: &str = "…[truncated]";
 
 /// Emergency ceiling for a single message's content, in characters
-/// (TDAM ~600-token guard ≈ 2000 chars at 3 chars/token).
+/// (Vanta memory engine ~600-token guard ≈ 2000 chars at 3 chars/token).
 const MAX_CONTENT_CHARS: usize = 2000;
 
 /// Deterministic token estimator: `chars / chars_per_token`.
@@ -60,7 +60,7 @@ impl TokenEstimator {
         (text.chars().count() / self.chars_per_token) as u64
     }
 
-    /// Parity with TDAM `extractLlmVisibleText`: role line + content.
+    /// Parity with Vanta memory engine `extractLlmVisibleText`: role line + content.
     pub fn estimate_message(&self, msg: &ChatMessage) -> u64 {
         let role = serde_json::to_string(&msg.role).unwrap_or_default();
         self.estimate_tokens(&format!("{role}\n{}", msg.content))

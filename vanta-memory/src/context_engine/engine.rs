@@ -1,7 +1,7 @@
 //! Context assembly: ratio gate → mild score cascade → aggressive one-shot
 //! → emergency fallback. LLM-free, deterministic.
 //!
-//! Port of TDAM `offload-client/context-engine.ts` (`assemble` :445-482,
+//! Autonomous memory pipeline `offload-client/context-engine.ts` (`assemble` :445-482,
 //! ratio < compaction_ratio skip), `offload/hooks/llm-input-l3.ts`
 //! (`compressByScoreCascade` :402-576, guard summary>original :530-538,
 //! `aggressiveCompressUntilBelowThreshold` :667-751) and the boundary
@@ -32,9 +32,9 @@ use crate::context_engine::types::{
 /// Tunables of [`assemble`].
 #[derive(Debug, Clone)]
 pub struct AssembleConfig {
-    /// Skip compaction when `tokens / budget` is below this (TDAM 0.5).
+    /// Skip compaction when `tokens / budget` is below this (Vanta memory engine 0.5).
     pub compaction_ratio: f64,
-    /// Final messages never touched by any pass (TDAM MIN_KEEP = 2).
+    /// Final messages never touched by any pass (Vanta memory engine MIN_KEEP = 2).
     pub min_keep: usize,
 }
 
@@ -365,7 +365,7 @@ fn unit_score(
 }
 
 /// Replaces one message's content with a stub, unless the stub would be as
-/// long as the original (TDAM guard llm-input-l3.ts:530-538 — revert).
+/// long as the original (Vanta memory engine guard llm-input-l3.ts:530-538 — revert).
 /// Returns the full original content when the replacement happened.
 fn stub_message(msg: &mut ChatMessage) -> Option<String> {
     let original = std::mem::take(&mut msg.content);
@@ -466,11 +466,11 @@ fn mild_cascade(
 
 /// Aggressive one-shot: delete leading whole units (single splice) until the
 /// remaining history fits `budget`. Never eats into the protected prefix,
-/// the last User message, or the final `min_keep` messages. Enforces TDAM's
+/// the last User message, or the final `min_keep` messages. Enforces Vanta memory engine's
 /// minimum-delete rule (~20% of the history) so the pass is worth its cost.
 ///
 /// Units are atomic, so no orphaned tool_results can exist past the cut —
-/// the TDAM orphan-extension step (:655-660) is subsumed by `build_units`.
+/// the Vanta memory engine orphan-extension step (:655-660) is subsumed by `build_units`.
 fn aggressive_one_shot(
     msgs: Vec<ChatMessage>,
     budget: u64,
@@ -510,7 +510,7 @@ fn aggressive_one_shot(
         cut_unit += 1;
     }
 
-    // Minimum-delete rule (TDAM :648-651): delete at least ~20% of messages.
+    // Minimum-delete rule (Vanta memory engine :648-651): delete at least ~20% of messages.
     let deleted_so_far: usize = starts.get(cut_unit).copied().unwrap_or(total);
     let min_delete = total.saturating_mul(20).saturating_add(99) / 100;
     if deleted_so_far < min_delete {

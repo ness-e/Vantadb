@@ -90,7 +90,7 @@ fn prepare_payload_compresses_and_reports_flags() {
     assert!(prepared.used_compress);
     assert!(!prepared.used_oversize);
 
-    // Non-compress path never triggers oversize (TDAM parity).
+    // Non-compress path never triggers oversize (engine parity).
     let plain = prepare_archive_payload(
         &[],
         &[SkillMessage::new("user", "y".repeat(9_999))],

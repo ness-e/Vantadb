@@ -1,4 +1,4 @@
-//! Parsers for local-LLM JSON output (port of TDAM
+//! Parsers for local-LLM JSON output (autonomous memory pipeline
 //! `offload/local-llm/parsers/`).
 
 /// Generic JSON extraction/repair utilities for raw LLM responses.

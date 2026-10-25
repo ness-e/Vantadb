@@ -1,6 +1,6 @@
 //! Versioned skill store (agent skills / memory skills).
 //!
-//! Port of TDAM `skill-store.ts` + `skill-versioning.ts` onto the entity
+//! Port of specification `skill-store.ts` + `skill-versioning.ts` onto the entity
 //! pattern (D4, plan vanta-memory) — no new storage, no FTS/vec index.
 //!
 //! Layout (all in the `InternalMetadata` partition, `skills` namespace):
@@ -17,7 +17,7 @@
 //! same task and the batch commit is atomic, so a stale `expected_version`
 //! fails with [`Error::ExecutionConflict`] before any write lands.
 //!
-//! `content_hash` is FNV-1a 64-bit (hex) over the content only, mirroring TDAM
+//! `content_hash` is FNV-1a 64-bit (hex) over the content only, mirroring Vanta memory engine
 //! `computeContentHash` — deliberately non-cryptographic: it exists for
 //! idempotency detection, not integrity.
 
@@ -314,7 +314,7 @@ impl<'a> SkillStore<'a> {
     }
 
     /// Delete expired non-head versions of a skill, keeping the
-    /// [`KEEP_RECENT`] most-recent non-head versions (port of TDAM
+    /// [`KEEP_RECENT`] most-recent non-head versions (port of specification
     /// `cleanupExpiredVersionsForSkill`). Returns the number of versions
     /// deleted. The head is never deleted by TTL.
     pub fn cleanup_expired_versions(&self, skill_id: &str, now: u64) -> Result<usize> {
@@ -584,7 +584,7 @@ fn bool_field(entity: &Entity, name: &str) -> Result<bool> {
 ///
 /// Stable across runs and platforms (unlike `std::hash::DefaultHasher`),
 /// dependency-free, WASM-safe. Non-cryptographic by design — used only for
-/// idempotency detection, mirroring TDAM's MD5 role.
+/// idempotency detection, mirroring Vanta memory engine's MD5 role.
 fn fnv1a_64(input: &str) -> String {
     let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
     for byte in input.as_bytes() {

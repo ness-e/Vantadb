@@ -1,15 +1,15 @@
 //! SkillMessageCompressor (MEM-17) — compress oversized tool payloads before
 //! they enter the skill buffer.
 //!
-//! Port of TDAM `conversation-add/message-compressor.ts`: only
+//! Autonomous memory pipeline `conversation-add/message-compressor.ts`: only
 //! `tool_call`/`tool_result` are compressible; user/assistant/system never
 //! are. Content over the byte threshold keeps head + tail with a placeholder.
-//! Slicing is char-boundary safe (TDAM tolerated U+FFFD on raw Buffer slices;
+//! Slicing is char-boundary safe (Vanta memory engine tolerated U+FFFD on raw Buffer slices;
 //! Rust makes the correct behaviour free).
 
 use serde::{Deserialize, Serialize};
 
-/// Compression tuning (TDAM defaults).
+/// Compression tuning (Vanta memory engine defaults).
 #[derive(Debug, Clone)]
 pub struct CompressOptions {
     /// Tool messages whose content exceeds this many bytes get compressed.
@@ -20,14 +20,14 @@ pub struct CompressOptions {
     pub tail_bytes: usize,
 }
 
-/// TDAM `DEFAULT_COMPRESS_OPTIONS`.
+/// Vanta memory engine `DEFAULT_COMPRESS_OPTIONS`.
 pub const COMPRESS_DEFAULTS: CompressOptions = CompressOptions {
     tool_content_threshold_bytes: 2_048,
     head_bytes: 1_024,
     tail_bytes: 1_024,
 };
 
-/// One buffered conversation message (role + content; roles use the TDAM set:
+/// One buffered conversation message (role + content; roles use the Vanta memory engine set:
 /// `user` | `assistant` | `tool_call` | `tool_result` | `system`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SkillMessage {

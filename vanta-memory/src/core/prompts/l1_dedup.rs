@@ -1,6 +1,6 @@
 //! L1 conflict-detection prompts (MEM-11).
 //!
-//! Reimplemented in English from the TDAM conflict-detection principles
+//! Reimplemented in English from the Vanta memory engine conflict-detection principles
 //! (`MemoryCore/src/core/prompts/l1-dedup.ts`) — single batch LLM call that
 //! judges every new memory against its candidate pool and returns one
 //! `DedupDecision` per new memory (`store|update|merge|skip`).
@@ -40,7 +40,7 @@ pub fn format_batch_conflict_prompt(matches: &[CandidateMatch]) -> String {
     }
 
     // Unified candidate pool, deduped by record_id so the LLM reuses ids
-    // across memories (TDAM l1-dedup.ts:158-194 builds the same pool).
+    // across memories (Vanta memory engine l1-dedup.ts:158-194 builds the same pool).
     let mut pool: Vec<&MemoryRecord> = Vec::new();
     let mut seen: Vec<&str> = Vec::new();
     for m in matches {

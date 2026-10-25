@@ -1,17 +1,17 @@
 //! Data contracts for the memory pipeline (L0 → L3).
 //!
 //! Field names use the **snake_case JSON wire contract** that the L1/L2/L3
-//! LLM prompts emit (e.g. `record_id`, `target_ids`, `scene_name` — see TDAM
+//! LLM prompts emit (e.g. `record_id`, `target_ids`, `scene_name` — see Vanta memory engine
 //! `l1-dedup.ts:parseBatchResult` and `l1-extractor.ts`). Persisting these
 //! records goes through the VantaDB store (nodes + metadata), never a foreign
 //! JSONL format.
 //!
-//! Source of truth for the shapes (TDAM clone, reference only):
+//! Source of truth for the shapes (Vanta memory engine clone, reference only):
 //! - `MemoryCore/src/core/record/l1-writer.ts` — `MemoryRecord`,
 //!   `ExtractedMemory`, `MemoryType`, `DedupDecision`
 //! - `MemoryCore/src/core/record/l1-extractor.ts` — `L1ExtractionResult`,
 //!   `SceneSegment`
-//! - `docs/dev/research/tdam/02-scene-persona.md` §33, §41, §52-53 — scene META,
+//! - `docs/api/VANTA_MEMORY.md02-scene-persona.md` §33, §41, §52-53 — scene META,
 //!   persona modes/triggers.
 
 use serde::{Deserialize, Serialize};
@@ -19,7 +19,7 @@ use serde_json::Value;
 
 /// L1 memory types: chat-mode legacy types + code/work-mode team types.
 ///
-/// Source: TDAM `l1-writer.ts:31-38` (7 types).
+/// Source: Vanta memory engine `l1-writer.ts:31-38` (7 types).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MemoryType {
@@ -41,7 +41,7 @@ pub enum MemoryType {
 
 /// A memory as extracted by the LLM, **before** dedup / persistence.
 ///
-/// Matches the output of the L1 extraction prompt (TDAM `l1-writer.ts:104-112`).
+/// Matches the output of the L1 extraction prompt (Vanta memory engine `l1-writer.ts:104-112`).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub struct ExtractedMemory {
@@ -64,7 +64,7 @@ pub struct ExtractedMemory {
 
 /// A persisted memory record (L1).
 ///
-/// Source: TDAM `l1-writer.ts:55-98`. VantaDB persists these as store nodes;
+/// Source: Vanta memory engine `l1-writer.ts:55-98`. VantaDB persists these as store nodes;
 /// this struct is the in-memory / wire contract.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -139,7 +139,7 @@ fn default_heat() -> u32 {
 
 /// Dedup action decided by the L1 conflict-detection LLM call.
 ///
-/// Source: TDAM `l1-writer.ts:114`, `l1-dedup.ts:350` (`store|update|merge|skip`).
+/// Source: Vanta memory engine `l1-writer.ts:114`, `l1-dedup.ts:350` (`store|update|merge|skip`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DedupAction {
@@ -155,7 +155,7 @@ pub enum DedupAction {
 
 /// Batch dedup decision — one per new memory (L1).
 ///
-/// Source: TDAM `l1-writer.ts:123-137` + `l1-dedup.ts:368-376` parse shape.
+/// Source: Vanta memory engine `l1-writer.ts:123-137` + `l1-dedup.ts:368-376` parse shape.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub struct DedupDecision {
@@ -188,7 +188,7 @@ pub struct DedupDecision {
 
 /// Result of running L1 extraction on a conversation batch.
 ///
-/// Source: TDAM `l1-extractor.ts:64-77`.
+/// Source: Vanta memory engine `l1-extractor.ts:64-77`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub struct L1ExtractionResult {
@@ -212,7 +212,7 @@ pub struct L1ExtractionResult {
 /// A scene segment produced by L1 extraction: groups a set of messages and
 /// their memories under one scene name (L2 grouping input).
 ///
-/// Source: `docs/dev/research/tdam/02-scene-persona.md` §33 (TDAM
+/// Source: `docs/api/VANTA_MEMORY.md02-scene-persona.md` §33 (Vanta memory engine
 /// `l1-extractor.ts:52-62`).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -229,7 +229,7 @@ pub struct SceneSegment {
 /// The L2 scene META contract — stable anchor for the scene node in the core
 /// graph (LLM-free L2 fallback).
 ///
-/// Source: `docs/dev/research/tdam/02-scene-persona.md` §52 (TDAM
+/// Source: `docs/api/VANTA_MEMORY.md02-scene-persona.md` §52 (Vanta memory engine
 /// `scene-format.ts:18-48`, `-----META-START-----` block).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -246,7 +246,7 @@ pub struct SceneMeta {
 
 /// One entry of the scene index (`scene_index.json` equivalent).
 ///
-/// Source: `docs/dev/research/tdam/02-scene-persona.md` §53 (TDAM
+/// Source: `docs/api/VANTA_MEMORY.md02-scene-persona.md` §53 (Vanta memory engine
 /// `scene-index.ts:9-15`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -265,8 +265,8 @@ pub struct SceneIndexEntry {
 
 /// L3 persona generation modes.
 ///
-/// Source: `docs/dev/research/tdam/02-scene-persona.md` §26 (modos
-/// first/incremental; TDAM `persona-generator.ts`).
+/// Source: `docs/api/VANTA_MEMORY.md02-scene-persona.md` §26 (modos
+/// first/incremental; Vanta memory engine `persona-generator.ts`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PersonaMode {
@@ -278,7 +278,7 @@ pub enum PersonaMode {
 
 /// L3 persona trigger priorities (highest wins).
 ///
-/// Source: `docs/dev/research/tdam/02-scene-persona.md` §41 (TDAM
+/// Source: `docs/api/VANTA_MEMORY.md02-scene-persona.md` §41 (Vanta memory engine
 /// `persona-trigger.ts:35-96`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

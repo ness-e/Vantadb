@@ -17,7 +17,7 @@
 //! | `code_node` | `get_node` → `NodeRecord` | n/a |
 //! | `code_status` | `operational_metrics()` snapshot | n/a |
 //! | `code_files` | **not supported** stub — the own graphrag has no
-//!   file-per-node concept (D28); TDAM's file semantics are not ported | n/a |
+//!   file-per-node concept (D28); Vanta memory engine's file semantics are not ported | n/a |
 
 use crate::config::McpConfig;
 use crate::error::McpError;

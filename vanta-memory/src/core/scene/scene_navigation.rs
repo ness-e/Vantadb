@@ -1,25 +1,25 @@
 //! Scene navigation: summary index appended to the persona document
 //! (MEM-15, F4).
 //!
-//! Port of TDAM `scene-navigation.ts` (76) adapted to the record store:
+//! Autonomous memory pipeline `scene-navigation.ts` (76) adapted to the record store:
 //! there are no file paths — a scene's "location" is its name under the
 //! `scene/<session>` namespace, so the navigation lists scene names and the
 //! host loads them via memory recall/search instead of a read tool.
 //!
-//! [`NAV_HEADER`] is byte-identical to the TDAM header so
+//! [`NAV_HEADER`] is byte-identical to the Vanta memory engine header so
 //! [`strip_scene_navigation`] removes exactly what [`generate_scene_navigation`]
 //! appends (and anything an LLM copied from it).
 //!
-//! Source: `docs/dev/research/tdam/02-scene-persona.md` §52-53.
+//! Source: `docs/api/VANTA_MEMORY.md02-scene-persona.md` §52-53.
 
 use crate::core::abstractions::SceneIndexEntry;
 
-/// Header of the navigation section (TDAM parity — strip depends on it).
+/// Header of the navigation section (engine parity — strip depends on it).
 pub const NAV_HEADER: &str = "---\n## Scene Navigation";
 
 /// Build the fire-emoji string for a heat value (visual priority cue).
 ///
-/// Thresholds are the TDAM ones (`scene-navigation.ts:26-33`).
+/// Thresholds are the Vanta memory engine ones (`scene-navigation.ts:26-33`).
 pub fn heat_emoji(heat: u32) -> &'static str {
     match heat {
         h if h >= 1000 => " 🔥🔥🔥🔥🔥",
@@ -116,7 +116,7 @@ mod tests {
     }
 
     #[test]
-    fn heat_emoji_thresholds_match_tdam() {
+    fn heat_emoji_thresholds_match_spec() {
         assert_eq!(heat_emoji(0), "");
         assert_eq!(heat_emoji(49), "");
         assert_eq!(heat_emoji(50), " 🔥");

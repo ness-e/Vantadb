@@ -1,6 +1,6 @@
 //! Seed input schema and validation (MEM-39).
 //!
-//! Deliberate deviation from TDAM `core/seed/input.ts`: that schema imports
+//! Deliberate deviation from Vanta memory engine `core/seed/input.ts`: that schema imports
 //! full conversation transcripts (sessions/rounds/messages) and is coupled to
 //! the OpenClaw host capture format. Our scope is **skills + initial persona
 //! only** (host-specific seeds are out of scope per plan P29 Task 4), so this

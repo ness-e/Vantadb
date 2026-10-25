@@ -1,4 +1,4 @@
-//! Conversation→skill pipeline (MEM-17) — port of TDAM
+//! Conversation→skill pipeline (MEM-17) — autonomous memory pipeline
 //! `MC/core/skill/conversation-add/*` consolidated (see task file MEM-17.md
 //! for the documented deviations: no Redis queue/pool/wire; VantaDB records
 //! instead of COS JSONL).

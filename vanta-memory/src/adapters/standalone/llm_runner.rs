@@ -1,6 +1,6 @@
 //! Standalone LLM runner — no host required.
 //!
-//! Mirrors TDAM `StandaloneLLMRunner` (`adapters/standalone/llm-runner.ts`):
+//! Mirrors Vanta memory engine `StandaloneLLMRunner` (`adapters/standalone/llm-runner.ts`):
 //! direct OpenAI-compatible HTTP calls (`/chat/completions`) for the
 //! host-less scenario. Pure-text tasks only (L1 extract, L1 dedup, L2 scene,
 //! L3 persona) — the tool-call loop (L2/L3 sandboxed read/write/edit) is
@@ -17,7 +17,7 @@ use crate::core::abstractions::{LlmError, LlmRunParams, LlmRunner};
 
 /// Configuration for an OpenAI-compatible endpoint.
 ///
-/// Source: TDAM `StandaloneLLMConfig` (`adapters/standalone/llm-runner.ts:80-103`)
+/// Source: Vanta memory engine `StandaloneLLMConfig` (`adapters/standalone/llm-runner.ts:80-103`)
 /// reduced to the host-neutral core.
 #[derive(Debug, Clone)]
 pub struct LlmConfig {

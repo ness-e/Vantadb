@@ -1,11 +1,11 @@
 //! SkillConversationExtractWorker (MEM-17) — single-shot consumption of one
 //! archived task.
 //!
-//! Port of TDAM `conversation-add/extract-worker.ts` `runOnce` reduced to the
+//! Autonomous memory pipeline `conversation-add/extract-worker.ts` `runOnce` reduced to the
 //! single-process core (no Redis BRPOP/locks — dispatch is MEM-16's
 //! [`crate::services::pipeline_worker::PipelineWorker`]). Preserved semantics:
 //! - **Ghost check**: a task whose archive is missing is dropped, never
-//!   extracted from nothing (TDAM §④).
+//!   extracted from nothing (Vanta memory engine §④).
 //! - **Idempotent re-consumption**: a `done` task short-circuits.
 //! - **Principio 4**: an LLM failure leaves the task `pending` (retryable) —
 //!   the archive data is never lost and the sink never sees partial output.
@@ -54,7 +54,7 @@ pub fn run_skill_extract_once<R: LlmRunner>(
         return Ok(SkillWorkerOutcome::AlreadyDone);
     }
 
-    // Ghost check: no archive → drop the task (TDAM §④).
+    // Ghost check: no archive → drop the task (Vanta memory engine §④).
     let Some(messages) = store.read_archive(session_id, &entry.archive_key)? else {
         store.set_task_status(&entry, "dropped")?;
         return Ok(SkillWorkerOutcome::GhostDropped);

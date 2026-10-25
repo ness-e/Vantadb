@@ -1,6 +1,6 @@
 //! Consolidated text sanitization for the memory pipeline (capture & recall).
 //!
-//! Port of TDAM `MC/src/utils/sanitize.ts` (MEM-19). Helpers that already
+//! Autonomous memory pipeline `MC/src/utils/sanitize.ts` (MEM-19). Helpers that already
 //! lived in the crate are re-exported here (delegation only — never moved,
 //! callers stay untouched); the pieces that did not exist yet
 //! ([`sanitize_text`], [`should_capture_l0`], [`looks_like_prompt_injection`])
@@ -31,14 +31,14 @@ pub(crate) use crate::offload::local_llm::parsers::json_utils::{
 };
 
 /// Clean text for the memory pipeline: remove injected tags, metadata,
-/// timestamps, media markers and base64 image data (port of TDAM
+/// timestamps, media markers and base64 image data (autonomous memory pipeline
 /// `sanitizeText`, sanitize.ts:12-77). Used by both capture (L0 recording)
 /// and recall (query cleaning) paths.
 ///
-/// Deviations from TDAM (documented, regex-free): trailing-whitespace
+/// Deviations from Vanta memory engine (documented, regex-free): trailing-whitespace
 /// consumption after removed constructs covers spaces/tabs but not newlines;
 /// the legacy session-fence rule matches any ```` ```json ```` fence whose
-/// body contains `"session` (TDAM additionally required `{`…`}` braces).
+/// body contains `"session` (Vanta memory engine additionally required `{`…`}` braces).
 pub fn sanitize_text(text: &str) -> String {
     let mut cleaned = text.to_string();
 
@@ -75,7 +75,7 @@ pub fn sanitize_text(text: &str) -> String {
     normalize_whitespace(&cleaned)
 }
 
-/// Permissive L0 capture filter (port of TDAM `sanitize.ts:shouldCaptureL0`):
+/// Permissive L0 capture filter (autonomous memory pipeline `sanitize.ts:shouldCaptureL0`):
 /// rejects only structurally useless input — empty text, framework noise,
 /// slash commands. Content-quality gates live in [`should_extract_l1`].
 pub fn should_capture_l0(text: &str) -> bool {
@@ -91,12 +91,12 @@ pub fn should_capture_l0(text: &str) -> bool {
 
 /// Detect likely prompt-injection / jailbreak attempts.
 ///
-/// Documented SUBSET of the 16 TDAM patterns (`sanitize.ts:180-209`) — the
+/// Documented SUBSET of the 16 Vanta memory engine patterns (`sanitize.ts:180-209`) — the
 /// high-signal ones expressible without a regex crate: instruction override,
 /// role hijack, system-prompt probing, XML/tag injection against our context
 /// boundaries, tool-invocation tricks, and two Chinese variants. Whitespace
 /// is normalized before matching to defeat trivial obfuscation. Not wired
-/// into [`should_extract_l1`] — TDAM keeps it disabled there too
+/// into [`should_extract_l1`] — Vanta memory engine keeps it disabled there too
 /// (sanitize.ts:153).
 pub fn looks_like_prompt_injection(text: &str) -> bool {
     let normalized = text.split_whitespace().collect::<Vec<_>>().join(" ");

@@ -1,8 +1,8 @@
 //! `after_tool_call` hook — decides whether a finished tool call's payload
-//! is worth offloading (port of the decision core of TDAM
+//! is worth offloading (port of the decision core of Vanta memory engine
 //! `MC/offload/hooks/after-tool-call.ts`, MEM-20).
 //!
-//! TDAM buffers every pair and lets an LLM (L1) summarize it later; the L3
+//! Vanta memory engine buffers every pair and lets an LLM (L1) summarize it later; the L3
 //! compression loop then replaces in-context results with those summaries.
 //! The LLM-free equivalent here: when the serialized result exceeds a size
 //! threshold, persist an [`OffloadEntry`] whose `summary` is a deterministic

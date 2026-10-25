@@ -1,9 +1,9 @@
-//! Wiki lifecycle states (TDAM `wiki-service.ts:5-7` parity).
+//! Wiki lifecycle states (Vanta memory engine `wiki-service.ts:5-7` parity).
 //!
 //! State machine: `pending → processing → ready | failed`. A build failure
 //! stores a truncated (`sync_error ≤500 chars`) reason. Re-ingest requests
 //! are rejected while the wiki is `pending` or `processing` — the 409-busy
-//! semantics of TDAM (`wiki-service.ts:272-288`) map to
+//! semantics of Vanta memory engine (`wiki-service.ts:272-288`) map to
 //! [`Error::ExecutionConflict`] here.
 
 use serde::{Deserialize, Serialize};
@@ -40,7 +40,7 @@ impl fmt::Display for WikiState {
 
 impl WikiState {
     /// Whether a build is queued or running — further ingest requests must
-    /// be rejected (TDAM busy semantics, wiki-service.ts:272-288).
+    /// be rejected (Vanta memory engine busy semantics, wiki-service.ts:272-288).
     pub fn is_busy(self) -> bool {
         matches!(self, WikiState::Pending | WikiState::Processing)
     }

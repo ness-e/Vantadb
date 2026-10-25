@@ -139,7 +139,7 @@ impl AutoCaptureHook {
 }
 
 /// Sanitize a message for L0: trim, enforce minimum length, and optionally
-/// strip fenced code blocks (assistant messages only — TDAM does the same).
+/// strip fenced code blocks (assistant messages only — Vanta memory engine does the same).
 /// Returns `None` when the message should be filtered out.
 fn sanitize_content(
     content: &str,

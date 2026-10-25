@@ -6,9 +6,9 @@ use serde::Deserialize;
 
 use crate::error::ProxyError;
 
-/// Default forward timeout in seconds (TDAM parity: config.ts:10 — 600_000 ms).
+/// Default forward timeout in seconds (specification parity: config.ts:10 — 600_000 ms).
 pub const DEFAULT_FORWARD_TIMEOUT_SECS: u64 = 600;
-/// Default listen port (TDAM parity).
+/// Default listen port (canonical specification).
 pub const DEFAULT_PORT: u16 = 8096;
 
 /// Top-level proxy configuration.
@@ -25,7 +25,7 @@ pub struct ProxyConfig {
     pub upstreams: Vec<UpstreamConfig>,
     /// Local auth/session store (D25/D34).
     pub auth: AuthConfig,
-    /// In-band `mem:` commands (D33) — disabled by default (TDAM parity).
+    /// In-band `mem:` commands (D33) — disabled by default (canonical specification).
     pub mem_command: MemCommandConfig,
     /// L0 write-back persistence settings.
     pub writeback: WritebackConfig,
@@ -133,7 +133,7 @@ impl Default for InjectionConfig {
 }
 
 /// In-band `mem:` command interception (D33). Disabled by default so the
-/// wire stays a transparent proxy unless explicitly opted in (TDAM parity).
+/// wire stays a transparent proxy unless explicitly opted in (canonical specification).
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default)]
 pub struct MemCommandConfig {
@@ -349,7 +349,7 @@ pub struct UpstreamConfig {
     /// If non-empty, overrides the `Authorization` header sent upstream;
     /// otherwise the incoming header is passed through verbatim.
     pub api_key: String,
-    /// Total forward timeout in seconds (D31/TDAM: default 600).
+    /// Total forward timeout in seconds (D31/Vanta memory engine: default 600).
     pub forward_timeout_secs: u64,
     /// Model IDs served by `GET /v1/models` (PRX-05: derived from config,
     /// never hardcoded — a stale list breaks the Claude Code picker).

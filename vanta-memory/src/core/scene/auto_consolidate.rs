@@ -14,7 +14,7 @@
 //! one live scene per non-empty turn, named after its top significant terms
 //! (sorted for determinism; `significant_terms` iterates a `HashSet`) with a
 //! `turn-{index}` fallback. Same turns re-consolidated hit UPDATE (heat +1,
-//! TDAM parity: prefer UPDATE over CREATE). No `merge_sources` are ever
+//! engine parity: prefer UPDATE over CREATE). No `merge_sources` are ever
 //! emitted — overlap judgement needs an LLM (follow-up: MCP `scene_consolidate`
 //! design in ADR-040).
 

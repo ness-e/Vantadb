@@ -3,11 +3,11 @@
 //! [`PermissionChecker`](crate::entity::checker::PermissionChecker) decide si un usuario puede actuar sobre un *asset*
 //! leyendo las entidades `entity_*` (MEM-03) con semántica **allow-only**: si
 //! no existe una regla que permita explícitamente la acción → denegar. Port del
-//! algoritmo de TDAM `metadata/service/permission-checker.ts` (172 líneas
+//! algoritmo de Vanta memory engine `metadata/service/permission-checker.ts` (172 líneas
 //! reales; la contradicción SYNTHESIS "96 vs ~40" se resolvió contra el clon
 //! @ `97f9465` — la fuente de verdad es el archivo, no el reporte).
 //!
-//! Cadena de decisión (orden importa, port fiel del TDAM):
+//! Cadena de decisión (orden importa, port fiel del Vanta memory engine):
 //! resource → owner → membership → visibility → role-default → ACL → deny.
 //!
 //! Convención de collections/keys (consumidores: MEM-05 auth 3 capas, MEM-07
@@ -31,7 +31,7 @@ use crate::node::FieldValue;
 
 // ── Types ──
 
-/// Acción evaluada por el checker (port de `Permission` TDAM).
+/// Acción evaluada por el checker (port de `Permission` Vanta memory engine).
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Action {
@@ -42,7 +42,7 @@ pub enum Action {
     Use,
 }
 
-/// Visibilidad de un asset (port de `AssetVisibility` TDAM).
+/// Visibilidad de un asset (port de `AssetVisibility` Vanta memory engine).
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Visibility {
@@ -53,7 +53,7 @@ pub enum Visibility {
     Task,
 }
 
-/// Rol de un miembro de equipo (port de `TeamRole` TDAM).
+/// Rol de un miembro de equipo (port de `TeamRole` Vanta memory engine).
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TeamRole {
@@ -66,7 +66,7 @@ pub enum TeamRole {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PermDecision {
     pub allowed: bool,
-    /// Razón de la decisión (paridad TDAM): `owner`, `role_default:<role>`,
+    /// Razón de la decisión (paridad Vanta memory engine): `owner`, `role_default:<role>`,
     /// `acl`, o motivo de denegación (`asset_not_available`,
     /// `not_team_member`, `visibility_restricted`, `no_permission`).
     pub reason: String,
@@ -263,7 +263,7 @@ struct Member {
     active: bool,
 }
 
-/// Defaults por rol (código, paridad TDAM: admin → 4 acciones, resto → read).
+/// Defaults por rol (código, paridad Vanta memory engine: admin → 4 acciones, resto → read).
 fn role_default_covers(role: TeamRole, action: Action) -> bool {
     match role {
         TeamRole::Admin => matches!(
@@ -275,7 +275,7 @@ fn role_default_covers(role: TeamRole, action: Action) -> bool {
 }
 
 impl Action {
-    /// Wire value of the action (parity with TDAM `Permission` strings).
+    /// Wire value of the action (parity with Vanta memory engine `Permission` strings).
     pub fn as_str(&self) -> &'static str {
         match self {
             Action::Read => "read",
@@ -288,7 +288,7 @@ impl Action {
 }
 
 impl TeamRole {
-    /// Wire value of the role (parity with TDAM `TeamRole` strings).
+    /// Wire value of the role (parity with Vanta memory engine `TeamRole` strings).
     pub fn as_str(&self) -> &'static str {
         match self {
             TeamRole::Admin => "admin",
@@ -299,7 +299,7 @@ impl TeamRole {
 }
 
 impl Visibility {
-    /// Wire value of the visibility (parity with TDAM `AssetVisibility` strings).
+    /// Wire value of the visibility (parity with Vanta memory engine `AssetVisibility` strings).
     pub fn as_str(&self) -> &'static str {
         match self {
             Visibility::Private => "private",

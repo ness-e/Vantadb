@@ -1,7 +1,7 @@
-//! Checkpoint manager (port of TDAM `MC/utils/checkpoint.ts`, reimplemented
+//! Checkpoint manager (autonomous memory pipeline `MC/utils/checkpoint.ts`, reimplemented
 //! over the VantaDB store — MEM-16).
 //!
-//! TDAM persists a JSON file with per-file promise locks and optional
+//! Vanta memory engine persists a JSON file with per-file promise locks and optional
 //! distributed locks. Here persistence is the VantaDB store itself
 //! (Principio 2): one JSON record under namespace `pipeline_checkpoint`.
 //! Single-record read-modify-write keeps mutations atomic in-process.
@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use crate::core::conversation::{sanitize_component, sanitize_key};
 use crate::core::state::PipelineSessionState;
 
-/// Per-session runner state (TDAM `RunnerSessionState`).
+/// Per-session runner state (Vanta memory engine `RunnerSessionState`).
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub struct RunnerSessionState {
@@ -28,7 +28,7 @@ pub struct RunnerSessionState {
     pub last_scene_name: String,
 }
 
-/// Global pipeline checkpoint (TDAM `Checkpoint`).
+/// Global pipeline checkpoint (Vanta memory engine `Checkpoint`).
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub struct Checkpoint {
@@ -116,7 +116,7 @@ impl<'a> CheckpointManager<'a> {
         Ok(checkpoint)
     }
 
-    /// Record a persona generation and reset its counters (TDAM
+    /// Record a persona generation and reset its counters (Vanta memory engine
     /// `markPersonaGenerated`).
     pub fn mark_persona_generated(
         &self,
@@ -180,7 +180,7 @@ impl<'a> CheckpointManager<'a> {
             .unwrap_or_default()
     }
 
-    /// Merge manager-owned per-session states into the checkpoint (TDAM
+    /// Merge manager-owned per-session states into the checkpoint (Vanta memory engine
     /// `mergePipelineStates`; only these fields are touched).
     pub fn merge_pipeline_states(
         &self,

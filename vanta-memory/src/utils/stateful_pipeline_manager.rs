@@ -1,11 +1,11 @@
-//! `StatefulPipelineManager` (port of TDAM
+//! `StatefulPipelineManager` (autonomous memory pipeline
 //! `MC/utils/stateful-pipeline-manager.ts` — MEM-16).
 //!
 //! Same capture → L1 trigger contract as [`super::pipeline_manager::
 //! MemoryPipelineManager`], but every mutation flows through the state
 //! backend's atomic operations and is mirrored into the persistent
 //! [`Checkpoint`](crate::utils::checkpoint::Checkpoint) via an optional
-//! persister callback — the shape TDAM uses so a remote backend can replace
+//! persister callback — the shape Vanta memory engine uses so a remote backend can replace
 //! the local one without touching callers.
 
 use crate::core::state::{TaskKind, TaskPayload};

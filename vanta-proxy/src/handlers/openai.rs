@@ -1,4 +1,4 @@
-//! OpenAI Chat Completions wire handler (TDAM parity: server.ts:312).
+//! OpenAI Chat Completions wire handler (specification parity: server.ts:312).
 
 use axum::extract::{Path, State};
 use axum::http::HeaderMap;

@@ -1,11 +1,11 @@
 //! L3 persona generation prompts (MEM-15, F4).
 //!
-//! REWRITTEN in English from the TDAM persona-generation principles
-//! (Principio 7: reescribir, no traducir — the TDAM originals are Chinese).
+//! REWRITTEN in English from the Vanta memory engine persona-generation principles
+//! (Principio 7: reescribir, no traducir — the Vanta memory engine originals are Chinese).
 //! Two families via the existing [`PromptMode`]: chat (user persona,
 //! four-layer deep scan) and work/team (operating doctrine).
 //!
-//! Documented divergence: TDAM runs an LLM agent that writes `persona.md`
+//! Documented divergence: Vanta memory engine runs an LLM agent that writes `persona.md`
 //! via sandboxed write/edit tools; this port emits a **JSON contract**
 //! `{"persona": "<full markdown document>"}` that the deterministic layer
 //! ([`crate::core::persona::persona_generator`]) validates, escapes and
@@ -14,11 +14,11 @@
 use crate::core::abstractions::PersonaMode;
 use crate::core::prompts::l1_extraction::PromptMode;
 
-/// Hard character limit of the persona body in chat mode (TDAM system prompt:
+/// Hard character limit of the persona body in chat mode (Vanta memory engine system prompt:
 /// "persona.md must not exceed 2000 characters").
 pub const MAX_PERSONA_CHARS_CHAT: usize = 2000;
 
-/// Hard character limit of the doctrine body in work mode (TDAM: "no more
+/// Hard character limit of the doctrine body in work mode (Vanta memory engine: "no more
 /// than 1200 characters").
 pub const MAX_PERSONA_CHARS_WORK: usize = 1200;
 

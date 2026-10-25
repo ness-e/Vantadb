@@ -1,8 +1,8 @@
 //! SkillCoreSink (MEM-17) — persists extracted skill candidates.
 //!
-//! Port of TDAM `conversation-add/skill-core-sink.ts` with the contract its
+//! Autonomous memory pipeline `conversation-add/skill-core-sink.ts` with the contract its
 //! doc comment demands: **"Must be idempotent (client retries may cause a
-//! task to be extracted multiple times)."** TDAM's sink was a no-op asset
+//! task to be extracted multiple times)."** Vanta memory engine's sink was a no-op asset
 //! register because its extractor wrote through tool calls; this port's
 //! pure-text extractor only *emits* candidates, so the sink IS the writer.
 //!

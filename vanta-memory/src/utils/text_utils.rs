@@ -1,9 +1,9 @@
 //! Shared text utilities: code-point-safe truncation and recent-unique
-//! selection (port of TDAM `MC/utils/text-utils.ts` plus the truncation that
+//! selection (autonomous memory pipeline `MC/utils/text-utils.ts` plus the truncation that
 //! previously lived privately in `core/hooks/auto_recall.rs`).
 //!
 //! All slicing is by code points (`char`s), never bytes — UTF-8 safe by
-//! construction (TDAM's surrogate-pair-safe slicing parity).
+//! construction (Vanta memory engine's surrogate-pair-safe slicing parity).
 
 /// Take the first `max_chars` code points of `s`.
 pub fn truncate_chars(s: &str, max_chars: usize) -> String {
@@ -25,7 +25,7 @@ pub fn truncate_with_suffix(s: &str, max_chars: usize, suffix: &str) -> String {
 }
 
 /// Up to `max` most recent unique texts, original order preserved
-/// (port of TDAM `sanitize.ts:pickRecentUnique`).
+/// (autonomous memory pipeline `sanitize.ts:pickRecentUnique`).
 pub fn pick_recent_unique(texts: &[impl AsRef<str>], max: usize) -> Vec<String> {
     let mut seen = std::collections::HashSet::new();
     let mut picked: Vec<String> = Vec::new();

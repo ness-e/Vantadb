@@ -51,7 +51,7 @@ async fn main() -> Result<(), ProxyError> {
         .await
         .map_err(|e| ProxyError::Forward(format!("serve: {e}")))?;
 
-    // Graceful flush (TDAM index.ts:154-169): drain pending L0 writes on
+    // Graceful flush (Vanta memory engine index.ts:154-169): drain pending L0 writes on
     // SIGTERM/SIGINT before exit.
     let remaining = writeback.flush(std::time::Duration::from_secs(10)).await;
     tracing::info!(remaining, "vanta-proxy stopped");

@@ -1,7 +1,7 @@
 //! Data contracts for context offload.
 //!
 //! Scope for MEM-08b: only what the F4 cursor task (MEM-20) consumes —
-//! `OffloadEntry`, `ToolPair` and `PluginState` (TDAM `offload/types.ts`,
+//! `OffloadEntry`, `ToolPair` and `PluginState` (Vanta memory engine `offload/types.ts`,
 //! reference only). The MMD / L1.5 / compaction contracts
 //! (`MmdMetadata`, `MmdNode`, `TaskJudgment`, `L15Boundary`) land in F5
 //! (MEM-22..24) next to their consumers — not invented ahead of need.
@@ -9,10 +9,10 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-/// A single offloaded tool call/result summary (one line of TDAM's
+/// A single offloaded tool call/result summary (one line of Vanta memory engine's
 /// `offload.jsonl`; in VantaDB it maps to store records).
 ///
-/// Source: TDAM `offload/types.ts:13-30`.
+/// Source: Vanta memory engine `offload/types.ts:13-30`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub struct OffloadEntry {
@@ -41,7 +41,7 @@ pub struct OffloadEntry {
 /// A buffered tool call + result pair waiting to be processed by L1
 /// (produced by the after-tool-call hook).
 ///
-/// Source: TDAM `offload/types.ts:33-41`.
+/// Source: Vanta memory engine `offload/types.ts:33-41`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub struct ToolPair {
@@ -68,7 +68,7 @@ pub struct ToolPair {
 /// The [`Self::last_offloaded_tool_call_id`] cursor marks how far the compact
 /// context has summarized — the core of the MEM-20 cursor task.
 ///
-/// Source: TDAM `offload/types.ts:44-57`.
+/// Source: Vanta memory engine `offload/types.ts:44-57`.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub struct PluginState {

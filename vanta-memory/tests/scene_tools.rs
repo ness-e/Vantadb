@@ -136,7 +136,7 @@ fn oversized_content_is_invalid() {
 #[test]
 fn empty_or_whitespace_content_is_invalid() {
     let db = open_db();
-    // Mirrors the TDAM write-tool validation: empty/whitespace-only content
+    // Implements write-tool validation: empty/whitespace-only content
     // cannot be written, so the LLM cannot "delete" via a blank write.
     for bad in ["", "   ", "\n\t"] {
         let err = write_scene_tool(&db, SESSION, SCENE, "s", bad).expect_err("empty content");

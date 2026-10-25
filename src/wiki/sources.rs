@@ -5,7 +5,7 @@
 //!   inside the canonicalized root (`starts_with`) — symlink escapes and
 //!   `..`-crafted paths are rejected/skipped.
 //! - **SOURCE_CHAR_BUDGET**: at most [`SOURCE_CHAR_BUDGET`] characters of
-//!   source content are returned per scan (TDAM ingest-v2/index.ts:78); the
+//!   source content are returned per scan (Vanta memory engine ingest-v2/index.ts:78); the
 //!   file that crosses the budget is truncated to fit.
 //! - Non-`.md`, unreadable or non-UTF-8 files are skipped with a trace log
 //!   (pre-mortem: binary files mixed into the tree).
@@ -18,7 +18,7 @@ use std::path::{Path, PathBuf};
 
 use crate::error::{Error, Result};
 
-/// Total character budget for scanned sources (TDAM ingest-v2/index.ts:78).
+/// Total character budget for scanned sources (Vanta memory engine ingest-v2/index.ts:78).
 pub const SOURCE_CHAR_BUDGET: usize = 28_000;
 
 /// One discovered markdown source.

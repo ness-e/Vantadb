@@ -13,7 +13,7 @@ use super::SYNC_ERROR_MAX_CHARS;
 /// A wiki space lifecycle record.
 ///
 /// `run_id` identifies the active/last build (one per transition into
-/// `processing`, TDAM wiki-service.ts:1026); `version` is bumped on every
+/// `processing`, Vanta memory engine wiki-service.ts:1026); `version` is bumped on every
 /// write so consumers can detect concurrent modification (MEM-06 optimistic
 /// lock convention).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -32,7 +32,7 @@ pub struct Wiki {
 /// A managed wiki page, addressed by canonical path.
 ///
 /// Managed pages are always `locked: true` — external writers must not edit
-/// them (TDAM frontmatter injection, wiki-service.ts:1164-1183).
+/// them (Vanta memory engine frontmatter injection, wiki-service.ts:1164-1183).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct WikiPage {
     pub namespace: String,
@@ -103,7 +103,7 @@ impl<'a> WikiStore<'a> {
     }
 
     /// Delete a wiki and cascade-delete every managed page. Returns `true`
-    /// when the wiki existed (TDAM cascade delete, wiki-service.ts:827-859).
+    /// when the wiki existed (Vanta memory engine cascade delete, wiki-service.ts:827-859).
     // ponytail: read-then-batch-delete without cross-key txn; single-process
     // callers (D27 worker único). Upgrade path: engine-level batch atomicity.
     pub fn delete(&self, namespace: &str, slug: &str) -> Result<bool> {
@@ -140,7 +140,7 @@ impl<'a> WikiStore<'a> {
 impl WikiStore<'_> {
     /// Request a (re-)ingest: `ready|failed → pending`. Rejected with
     /// [`Error::ExecutionConflict`] while a build is queued/running
-    /// (TDAM 409-busy, wiki-service.ts:272-288).
+    /// (Vanta memory engine 409-busy, wiki-service.ts:272-288).
     pub fn request_ingest(&self, namespace: &str, slug: &str) -> Result<Wiki> {
         validate_scope(namespace, slug)?;
         let mut wiki = require(self.engine, namespace, slug)?;
@@ -157,7 +157,7 @@ impl WikiStore<'_> {
     }
 
     /// Begin the queued build: `pending → processing`, assigning a fresh
-    /// `run_id` (one per build, TDAM wiki-service.ts:1026). Any other source
+    /// `run_id` (one per build, Vanta memory engine wiki-service.ts:1026). Any other source
     /// state is rejected.
     pub fn begin_processing(&self, namespace: &str, slug: &str) -> Result<Wiki> {
         validate_scope(namespace, slug)?;
@@ -238,7 +238,7 @@ fn expect_processing(wiki: &Wiki, namespace: &str, slug: &str, run_id: &str) -> 
     }
 }
 
-/// Fresh build id (`wikirun-{ts}{rand}`, base36) — no new dependency; TDAM
+/// Fresh build id (`wikirun-{ts}{rand}`, base36) — no new dependency; Vanta memory engine
 /// uses randomUUID but only uniqueness-per-build matters here.
 fn new_run_id() -> String {
     crate::entity::generate_id("wikirun")
@@ -247,7 +247,7 @@ fn new_run_id() -> String {
 // ── managed pages ──
 
 /// Canonical page path from type + title (dedup key): lowercased title
-/// slugified into `wiki/{type}/{slug}.md` (TDAM wiki-service.ts:392-410).
+/// slugified into `wiki/{type}/{slug}.md` (Vanta memory engine wiki-service.ts:392-410).
 pub fn canonical_path(page_type: &str, title: &str) -> String {
     let slug: String = title
         .chars()

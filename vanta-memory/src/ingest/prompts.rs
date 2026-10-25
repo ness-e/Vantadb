@@ -1,11 +1,11 @@
-//! Ingest prompts (MEM-30, P7: English). Port of TDAM
+//! Ingest prompts (MEM-30, P7: English). Autonomous memory pipeline
 //! `ingest-v2/prompts.ts` (generation, one-stage) and `merge.ts`
 //! (`MERGE_SYSTEM` / `APPEND_SYSTEM`), trimmed to what the Rust pipeline uses.
 
 use crate::ingest::Frontmatter;
 
 /// System prompt for the extraction stage: the model reads one source chunk
-/// and emits candidate pages using the FILE protocol (TDAM buildGeneratePrompt).
+/// and emits candidate pages using the FILE protocol (Vanta memory engine buildGeneratePrompt).
 pub fn extraction_system_prompt(purpose: &str) -> String {
     format!(
         "You are a knowledge base writer. Read the provided source document and write \
@@ -46,7 +46,7 @@ pub fn extraction_user_prompt(
     )
 }
 
-/// System prompt for full-page merge (TDAM MERGE_SYSTEM, merge.ts).
+/// System prompt for full-page merge (Vanta memory engine MERGE_SYSTEM, merge.ts).
 pub const MERGE_SYSTEM: &str = "You are a knowledge base maintainer. Merge two markdown pages on the same topic into one.
 Merge principles:
 - Preserve facts from the old page that still hold true - do not lose information.
@@ -57,7 +57,7 @@ Merge principles:
 - Output the complete merged page directly (including frontmatter) - no extra commentary, no FILE blocks.";
 
 /// System prompt for append merge of oversized pages
-/// (TDAM APPEND_SYSTEM, merge.ts): new material goes into a section,
+/// (Vanta memory engine APPEND_SYSTEM, merge.ts): new material goes into a section,
 /// never a full rewrite.
 pub const APPEND_SYSTEM: &str =
     "You are a knowledge base maintainer. Given an [existing page body] and [new material],
@@ -93,7 +93,7 @@ pub fn merge_prompts(
 }
 
 /// Format the existing-pages list used inside extraction prompts
-/// (`- [type] relPath - title` lines, TDAM formatExistingPages).
+/// (`- [type] relPath - title` lines, Vanta memory engine formatExistingPages).
 pub fn format_existing_pages(pages: &[(String, Frontmatter)]) -> Vec<String> {
     pages
         .iter()

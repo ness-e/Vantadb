@@ -173,7 +173,7 @@ fn scene_write_edit_reject_bad_params() {
     .expect_err("missing content");
     assert_eq!(err["code"], -32602, "JSON-RPC invalid params");
 
-    // Whitespace-only content → domain error as content (TDAM guard).
+    // Whitespace-only content → domain error as content (Vanta memory engine guard).
     let res = call(
         "scene_write",
         json!({"session_key": "s", "scene_name": "n", "summary": "sum", "content": "   "}),

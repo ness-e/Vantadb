@@ -1,4 +1,4 @@
-//! Anthropic Messages wire handler (TDAM parity: server.ts:307).
+//! Anthropic Messages wire handler (specification parity: server.ts:307).
 
 use axum::extract::{Path, State};
 use axum::http::HeaderMap;

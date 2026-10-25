@@ -1,14 +1,14 @@
 //! SkillExtractor (MEM-17, F4) — transcript → skill candidates via LLM review.
 //!
-//! Port of TDAM `MC/core/skill/skill-extractor.ts` reduced to the pure-text
+//! Autonomous memory pipeline `MC/core/skill/skill-extractor.ts` reduced to the pure-text
 //! JSON contract of [`crate::core::abstractions::LlmRunner`] (no tool loop —
 //! documented deviation; the deterministic layer validates everything the LLM
 //! emits, same trust boundary as L1/L2/L3).
 //!
-//! Key TDAM mechanics preserved:
+//! Key Vanta memory engine mechanics preserved:
 //! - **Transcript markers**: turns wrapped in non-natural `<<past-{role}>>`
 //!   tags + a final `<<end-of-transcript>>` anchor. `[user]`-style prefixes
-//!   are native chat-completion role signals and invite role-capture (TDAM
+//!   are native chat-completion role signals and invite role-capture (Vanta memory engine
 //!   trace f546ab8c: 1235 tokens of main-conversation continuation, zero tool
 //!   calls). The odd tags break that reflex.
 //! - **Head-tail truncation** with an explicit `[truncated N chars]` marker.
@@ -25,7 +25,7 @@ use crate::core::skill::prompts::SKILL_REVIEW_PROMPT;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExtractMessage {
     /// `user` | `assistant` | `tool_call` | `tool_result` | `system`.
-    /// Unknown roles degrade to `user` (TDAM `toExtractMessages`).
+    /// Unknown roles degrade to `user` (Vanta memory engine `toExtractMessages`).
     pub role: String,
     pub content: String,
 }
@@ -62,7 +62,7 @@ pub struct SkillSummary {
     pub description: String,
 }
 
-/// Extractor tuning (TDAM constructor defaults).
+/// Extractor tuning (Vanta memory engine constructor defaults).
 #[derive(Debug, Clone)]
 pub struct SkillExtractorConfig {
     /// Transcript head-tail truncation: chars kept from the start.
@@ -93,7 +93,7 @@ pub struct SkillExtractionResult {
     pub error: Option<String>,
 }
 
-/// Serialize messages into the marked transcript (TDAM `formatTranscript`).
+/// Serialize messages into the marked transcript (Vanta memory engine `formatTranscript`).
 pub fn format_transcript(messages: &[ExtractMessage]) -> String {
     let body = messages
         .iter()
@@ -106,7 +106,7 @@ and respond only per the output contract in the system prompt."
     )
 }
 
-/// Head-tail truncation with an explicit omission marker (TDAM
+/// Head-tail truncation with an explicit omission marker (Vanta memory engine
 /// `truncateHeadTail`). Char-based (Rust `char`s, not UTF-16 units).
 pub fn truncate_head_tail(s: &str, head_chars: usize, tail_chars: usize) -> String {
     let total = s.chars().count();
@@ -121,7 +121,7 @@ pub fn truncate_head_tail(s: &str, head_chars: usize, tail_chars: usize) -> Stri
     )
 }
 
-/// Validate a generated BM25 keyword query (TDAM `sanitizeGeneratedQuery`):
+/// Validate a generated BM25 keyword query (Vanta memory engine `sanitizeGeneratedQuery`):
 /// first non-empty line only, punctuation and FTS5 reserved words stripped,
 /// whitespace collapsed, capped at 120 chars. Empty output = nothing found.
 pub fn sanitize_generated_query(raw: &str) -> String {
@@ -172,7 +172,7 @@ fn format_skill_line(name: &str, description: &str) -> String {
 }
 
 /// Prefix block listing existing skills so the reviewer prefers update/patch
-/// over duplicate creates (TDAM full/recent blocks consolidated: this port
+/// over duplicate creates (Vanta memory engine full/recent blocks consolidated: this port
 /// always knows the exact list it is given, so one honest rendering covers
 /// both — the caller passes what it has and the total).
 pub fn render_skills_block(items: &[SkillSummary], total: usize) -> String {
@@ -320,7 +320,7 @@ mod tests {
 
     #[test]
     fn query_sanitizer_strips_punctuation_and_reserved_words() {
-        // First non-empty line only (TDAM parity).
+        // First non-empty line only (engine parity).
         let q = sanitize_generated_query("k8s, crashloop! AND deploy OR \"backoff\"\nmore");
         assert_eq!(q, "k8s crashloop deploy backoff");
     }

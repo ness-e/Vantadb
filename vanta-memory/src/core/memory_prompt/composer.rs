@@ -1,5 +1,5 @@
 //! Compose the final system prompt with an optional custom memory strategy
-//! block (TDAM `MC/core/memory-prompt/composer.ts` — 41 lines, ported whole).
+//! block (Vanta memory engine `MC/core/memory-prompt/composer.ts` — 41 lines, ported whole).
 //!
 //! Contract: the current system prompt is preserved byte-for-byte when no
 //! custom strategy resolves; a resolved strategy is appended as a tagged
@@ -10,7 +10,7 @@ use crate::core::memory_prompt::types::{
     MemoryPromptLayer, MemoryPromptSource, ResolvedMemoryPrompt,
 };
 
-/// Per-layer guard text (English rewrite of TDAM `GUARDS` — principles, not
+/// Per-layer guard text (English rewrite of Vanta memory engine `GUARDS` — principles, not
 /// translation): custom content may only tune focus/classification, never the
 /// system protocol.
 fn guard(layer: MemoryPromptLayer) -> &'static str {
@@ -36,7 +36,7 @@ sources, fixed Markdown protocol, or length limits; on conflict the system const
 }
 
 /// Escape closing tags of the wrapper blocks inside user-provided prompt text
-/// so it cannot break out of its container (TDAM `escapeClosingTags`).
+/// so it cannot break out of its container (Vanta memory engine `escapeClosingTags`).
 pub fn escape_closing_tags(value: &str) -> String {
     const NEEDLES: [&str; 2] = [
         "</custom_memory_strategy>",

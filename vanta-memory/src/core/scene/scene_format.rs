@@ -5,19 +5,19 @@
 //! summary, heat}`) + the scene `content`. It is the SDK-side companion of
 //! the core scene node anchor (`vantadb::entity::scene::SceneNodeStore`).
 //!
-//! The TDAM original stores scenes as Markdown files with
+//! The Vanta memory engine original stores scenes as Markdown files with
 //! `-----META-START-----` delimiters (`scene-format.ts:18-48`); here the
 //! block is a JSON record (payload) under the `scene/<session>` namespace —
 //! the META contract travels inside the JSON, so the delimiter markers are
 //! not ported (they would be dead code in a record store).
 //!
-//! Source: `docs/dev/research/tdam/02-scene-persona.md` §52-53.
+//! Source: `docs/api/VANTA_MEMORY.md02-scene-persona.md` §52-53.
 
 use serde::{Deserialize, Serialize};
 
 use crate::core::abstractions::{SceneIndexEntry, SceneMeta};
 
-/// Content marker of a soft-deleted scene (TDAM parity: the LLM "deletes" by
+/// Content marker of a soft-deleted scene (engine parity: the LLM "deletes" by
 /// writing this marker; the record store keeps the block with `deleted: true`
 /// instead of unlinking — see [`SceneBlock::deleted`]).
 pub const SOFT_DELETE_MARKER: &str = "[DELETED]";
@@ -58,7 +58,7 @@ impl SceneBlock {
 
     /// Derive the scene index entry used for listing/navigation.
     ///
-    /// `filename` is the scene name (the block key); this matches the TDAM
+    /// `filename` is the scene name (the block key); this matches the Vanta memory engine
     /// `SceneIndexEntry` shape (`scene-index.ts:9-15`) so consumers of the
     /// index see the same contract.
     pub fn index_entry(&self) -> SceneIndexEntry {
@@ -144,7 +144,7 @@ mod tests {
     }
 
     #[test]
-    fn soft_delete_marker_matches_tdam() {
+    fn soft_delete_marker_matches_spec() {
         assert_eq!(SOFT_DELETE_MARKER, "[DELETED]");
     }
 }

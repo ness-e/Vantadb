@@ -199,7 +199,7 @@ fn xml_injection_boundaries_are_escaped_in_stored_content() {
 }
 
 #[test]
-fn navigation_roundtrip_matches_tdam_header() {
+fn navigation_roundtrip_matches_canonical_header() {
     let nav = generate_scene_navigation(&[vanta_memory::core::abstractions::SceneIndexEntry {
         filename: "scene-a".into(),
         summary: "summary".into(),

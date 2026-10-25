@@ -1,4 +1,4 @@
-//! Scheduled wiki re-ingest (MEM-45 — D40: port of TDAM
+//! Scheduled wiki re-ingest (MEM-45 — D40: autonomous memory pipeline
 //! `MemoryKnowledge/src/store/auto-sync-scheduler.ts`).
 //!
 //! Pull-based (zero threads): the owner polls [`AutoSyncScheduler::tick`] from

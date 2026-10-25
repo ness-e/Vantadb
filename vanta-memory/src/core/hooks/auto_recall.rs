@@ -1,7 +1,7 @@
 //! Auto-recall hook (MEM-18): injects relevant L1 memories + persona + scene
 //! navigation into the agent context before it starts processing.
 //!
-//! Split (TDAM `auto-recall.ts` prompt-cache parity):
+//! Split (Vanta memory engine `auto-recall.ts` prompt-cache parity):
 //! - [`RecallResult::prepend_context`] — L1 relevant memories, dynamic
 //!   per-turn, prepended to the user prompt.
 //! - [`RecallResult::append_system_context`] — persona + scene navigation +
@@ -9,7 +9,7 @@
 //!   cache-friendly providers can reuse the region.
 //!
 //! Three recall modes ([`RecallMode`]): `keyword`, `embedding`, `hybrid`
-//! (TDAM strategy names). Since MEM-47 the embedding/hybrid modes actually
+//! (Vanta memory engine strategy names). Since MEM-47 the embedding/hybrid modes actually
 //! run when the caller passes an [`crate::core::record::l1_writer::EmbedFn`]
 //! hook AND the pool carries vectors (D38 dual-pool ranking): records with a
 //! usable vector rank by cosine similarity, records without one keep the
@@ -245,7 +245,7 @@ pub struct RecallResult {
     pub governance: RecallGovernance,
 }
 
-/// Recall search mode. Names match TDAM `cfg.recall.strategy`.
+/// Recall search mode. Names match Vanta memory engine `cfg.recall.strategy`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RecallMode {
@@ -288,7 +288,7 @@ pub enum RecallScope {
     /// Only the current session's L1 records.
     Session,
     /// Current session + other sessions of the same agent (default: memory
-    /// accumulates across sessions of one agent, TDAM de-facto behavior,
+    /// accumulates across sessions of one agent, Vanta memory engine de-facto behavior,
     /// without its cross-agent leak).
     #[default]
     Agent,
@@ -296,21 +296,21 @@ pub enum RecallScope {
     Team,
 }
 
-/// Configuration for the auto-recall hook (TDAM `cfg.recall` subset).
+/// Configuration for the auto-recall hook (Vanta memory engine `cfg.recall` subset).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RecallConfig {
-    /// Search strategy (default: hybrid, TDAM default).
+    /// Search strategy (default: hybrid, Vanta memory engine default).
     pub mode: RecallMode,
     /// Cross-session scope of the L1 recall pool (default: agent, D22).
     pub scope: RecallScope,
-    /// Maximum memories injected per turn (TDAM `maxResults`, default 5).
+    /// Maximum memories injected per turn (Vanta memory engine `maxResults`, default 5).
     pub max_results: usize,
     /// Minimum shared-term score for a record to be recalled (analog of the
-    /// TDAM BM25 `scoreThreshold`; our scores are overlap counts).
+    /// Vanta memory engine BM25 `scoreThreshold`; our scores are overlap counts).
     pub min_overlap: usize,
-    /// Per-memory char budget before truncation (TDAM `maxCharsPerMemory`).
+    /// Per-memory char budget before truncation (Vanta memory engine `maxCharsPerMemory`).
     pub max_chars_per_memory: Option<usize>,
-    /// Total char budget across all recalled lines (TDAM
+    /// Total char budget across all recalled lines (Vanta memory engine
     /// `maxTotalRecallChars`).
     pub max_total_recall_chars: Option<usize>,
     /// MEMG-11: opt-in — rank the L1 pool with the core hybrid search
@@ -368,7 +368,7 @@ impl From<L1Error> for RecallError {
 
 /// Static guide appended to the stable context so the agent knows how to
 /// retrieve deeper information when the injected snippets are not enough
-/// (English rewrite of TDAM `MEMORY_TOOLS_GUIDE`; tool names land with the
+/// (English rewrite of Vanta memory engine `MEMORY_TOOLS_GUIDE`; tool names land with the
 /// MCP tools of MEM-19/20).
 pub const MEMORY_TOOLS_GUIDE: &str = "<memory-tools-guide>\n\
 When the memory snippets above are not enough to answer, actively search for more:\n\n\
@@ -382,7 +382,7 @@ searches, the information is not in memory — answer with what you have.\n\
 /// Run one auto-recall pass over an open embedded database.
 ///
 /// Empty `user_text` skips the memory search but still injects persona and
-/// scene navigation (TDAM parity). When neither memories nor persona nor
+/// scene navigation (engine parity). When neither memories nor persona nor
 /// scenes yield content, returns `Ok(None)` — never an empty block.
 ///
 /// Allow-all convenience wrapper over [`perform_auto_recall_governed`]
@@ -1017,7 +1017,7 @@ fn search_records_core(
     Ok((budgeted, semantic_ran))
 }
 
-/// Format one record as a rich natural-language line (TDAM
+/// Format one record as a rich natural-language line (Vanta memory engine
 /// `formatMemoryLine`): `- [type|scene] content (activity time: ...)`.
 fn format_memory_line(record: &MemoryRecord) -> String {
     let memory_type =
@@ -1058,10 +1058,10 @@ fn metadata_time(record: &MemoryRecord, key: &str) -> Option<String> {
 const MIN_TRUNCATED_LINE_CHARS: usize = 40;
 const TRUNCATION_SUFFIX: &str = "...";
 
-/// Apply the per-memory and total char budgets (TDAM `applyRecallBudget`):
+/// Apply the per-memory and total char budgets (Vanta memory engine `applyRecallBudget`):
 /// truncate lines to `max_chars_per_memory`, then drop/truncate to fit
 /// `max_total_recall_chars`. Char-boundary-safe (Rust `char`s are code
-/// points, matching TDAM's surrogate-pair-safe slicing).
+/// points, matching Vanta memory engine's surrogate-pair-safe slicing).
 fn apply_recall_budget(lines: Vec<String>, config: &RecallConfig) -> Vec<String> {
     let per_memory = normalize_budget(config.max_chars_per_memory);
     let total = normalize_budget(config.max_total_recall_chars);
@@ -1095,7 +1095,7 @@ fn apply_recall_budget(lines: Vec<String>, config: &RecallConfig) -> Vec<String>
     budgeted
 }
 
-/// `None` for missing/non-positive budgets (TDAM `normalizeBudgetLimit`).
+/// `None` for missing/non-positive budgets (Vanta memory engine `normalizeBudgetLimit`).
 fn normalize_budget(value: Option<usize>) -> Option<usize> {
     value.filter(|v| *v > 0)
 }
