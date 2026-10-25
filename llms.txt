@@ -6,7 +6,7 @@
 
 Every link below points to the raw Markdown source, not a rendered page. Read the
 page you need; do not read this file end to end. This index covers the
-458 documentation pages; it deliberately omits the 155 task files,
+449 documentation pages; it deliberately omits the 155 task files,
 which are work items rather than documentation. The full inventory of every file
 is in docs/index.md in the repository.
 
@@ -295,25 +295,16 @@ is in docs/index.md in the repository.
 
 ## Research
 
-- [05 — Validación Adversarial de Auditorías y Análisis Internos](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/validacion/05-validacion-auditorias-internas.md): Fecha de validación: 2026-08-25
-- [06 — Inventario de docs/ internos y estado real del producto](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/validacion/06-inventario-docs-internos-estado-producto.md): Fecha: 2026-08-25 · Fuente: lectura directa de docs/ + contraste con código (src/sdk/api.rs, src/graphrag/pipeline.rs, vantadb-python/src/lib.rs, desktop/src/transport.ts)
-- [07 — Archivos Esenciales del Repo y Contrato de Fiabilidad First-Run](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/validacion/07-repo-esencial-y-fiabilidad-first-run.md): Fecha: 2026-08-25 · Agente: G (auditoría release/producto) · Alcance: estado actual del repo vs checklist de lanzamiento público + definición del contrato \"lo que NO debe fallar jamás\" para un evaluador nuevo
 - [ADR-XXX: {{title}}](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/_templates/adr.md): Explain the context, background, and the problem we are trying to solve
 - [Active Backlog â€” VantaDB](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/Backlog.md): title: Active Backlog â€” VantaDB
 - [Backlog Futuro (I+D v3.0+)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/backlog-futuro.md): Diferidos tras el freeze del backlog (ROADMAP R5). Ideas preservadas durante la limpieza de documentación histórica (2026-08-04). Sin spec ni prioridad — I+D especulativa para hardware restrictivo / post product-market fit
 - [Backlog Notion — tareas sobre páginas VantaDB Docs](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/backlog-notion.md)
 - [Backlog de Negocio — VantaDB](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/Backlog-negocio.md)
-- [Bases de Datos Embebidas/Vectoriales: Modelos de Negocio Reales](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/validacion/02-bases-datos-embebidas-modelos-negocio.md): Investigación de mercado para VantaDB · Fecha: 2026-08-25 · Agente: vanta-research (B) · Verificación: páginas oficiales de pricing extraídas el día de la fecha salvo indicación
-- [Competidores: Memoria para Agentes de IA — Mapeo de Mercado](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/validacion/01-competidores-memoria-agentes-ia.md): Fecha: 2026-08-25 (datos verificados en vivo el 25-08-2026 UTC) · Autor: vanta-research (Agente A) · Confianza marcada por dato
 - [Gate Fase A — kit del tester (stranger-test + checklist todo-SÍ)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/FASE-A.md): Copiar este bloque por persona (fuente: Investigacion-plan.md:20-24, ampliada)
-- [Licenciamiento OSS y Monetización Open-Core para VantaDB](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/validacion/03-licenciamiento-y-monetizacion-open-core.md): Fecha: 2026-08-25 · Autor: Agente C (research delegada) · Estado: investigación completa; requiere revisión legal profesional antes del anuncio público
-- [Monetización Local-First Sin Nube y Sin Capital — Corrección de la Estrategia v1](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/validacion/08-monetizacion-local-first-sin-capital.md): Fecha: 2026-08-25 · Autor: vanta-lead (corrección post-feedback) · Reemplaza a: las recomendaciones de monetización de validacion/02, validacion/03 y validacion/00-SINTESIS-EJECUTIVA.md
 - [Preservado antes del borrado 2026-10-09 23:56](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/historial/borrada-2026-10-10.md): Registro de cambios locales preservados antes de la limpieza de worktree del 2026-10-09
 - [VantaDB Master Index](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/master-index.md): Full listing in Operations Master Index
 - [VantaDB — Bug Workflow](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/references/bug-workflow.md): Disparador: el bug rompe el build (cargo check/clippy/nextest falla en masa),
 - [VantaDB — Cómo Leer Failures de Nextest](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/references/reading-nextest-output.md): Interpretación
-- [VantaDB — Playbook de Marketing, Branding y Go-To-Market (primeros 1.000 usuarios)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/validacion/04-marketing-branding-gtm-playbook.md): Fecha: 2026-08-25 · Autor: Agente D (research GTM) · Presupuesto: ~cero (founder-led)
-- [VantaDB — Síntesis Ejecutiva Final v2: Competencia, Monetización Sin Nube y Estrategia de Producto](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/validacion/00-SINTESIS-EJECUTIVA2.md): Fecha: 2026-08-25 · v2 — corrige y reemplaza a validacion/00-SINTESIS-EJECUTIVA.md
 - [VantaDB — Troubleshooting](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/references/troubleshooting.md): Comandos exactos
 - [VantaDB — Verified Numbers Registry](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/references/verified-numbers.md): Números canónicos del repo (para material público y docs) con el comando exacto que los verifica. Regla del owner 2026-10-01 — ningún número se publica sin estar acá o verificarse con su comando.
 - [WASM Crash and Durability Model](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/wasm/CRASH_MODEL.md): Differential persistence changes when work happens, not the durability model. These gaps are tracked in WASMSTANDALONE.md (\"Known limits (verified)\")
