@@ -45,6 +45,10 @@ $cargoDir = Join-Path ([Environment]::GetFolderPath("UserProfile")) ".cargo\bin"
 if ((Test-Path $cargoDir) -and ($env:PATH -notlike "*$cargoDir*")) {
     $env:PATH = "$cargoDir;$env:PATH"
 }
+$winApps = Join-Path $env:LOCALAPPDATA "Microsoft\WindowsApps"
+if ((Test-Path $winApps) -and ($env:PATH -notlike "*$winApps*")) {
+    $env:PATH = "$winApps;$env:PATH"
+}
 
 $SysInfo = Get-CimInstance Win32_ComputerSystem -ErrorAction SilentlyContinue
 $TotalRAM = if ($SysInfo.TotalPhysicalMemory) { [math]::Round($SysInfo.TotalPhysicalMemory / 1GB) } else { 2 }
@@ -64,7 +68,10 @@ $pass = 0; $fail = 0
 
 function run($name, [string[]]$cmd) {
     Write-Host "  ${name}..." -ForegroundColor Yellow -NoNewline
+    $prevEAP = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
     $output = & $cmd[0] $cmd[1..($cmd.Length - 1)] 2>&1
+    $ErrorActionPreference = $prevEAP
     if ($LASTEXITCODE -eq 0) { Write-Host " ok" -ForegroundColor Green; $Script:pass++ }
     else { Write-Host " FAIL" -ForegroundColor Red; $Script:fail++; Write-Host $output -ForegroundColor Red; throw "step failed" }
 }

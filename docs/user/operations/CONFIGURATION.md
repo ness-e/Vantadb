@@ -460,6 +460,7 @@ vanta-cli namespace list --db ./vanta_data
 vanta-cli namespace info --db ./vanta_data agent/main
 vanta-cli server --http --port 8080 --db ./vanta_data
 vanta-cli tui --db ./vanta_data  # requires `--features tui` build; not in default binaries
+vanta-cli key rotate --db ./vanta_data --old-key-env VANTA_OLD_KEY --new-key-env VANTA_NEW_KEY
 vanta-cli completions --shell powershell
 ```
 

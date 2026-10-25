@@ -331,7 +331,10 @@ mod tests {
             "notice: {notice}"
         );
         assert!(notice.contains("NOT semantic"), "notice: {notice}");
-        assert!(notice.contains("scripts/setup-embeddings.ps1"), "notice: {notice}");
+        assert!(
+            notice.contains("scripts/setup-embeddings.ps1"),
+            "notice: {notice}"
+        );
         assert!(
             notice.contains("embeddings/verify.py --check"),
             "notice: {notice}"
@@ -352,7 +355,10 @@ mod tests {
         let notice = health.notice.expect("degraded status must carry a notice");
         assert!(notice.contains("fallback: true"), "notice: {notice}");
         assert!(notice.contains("ONNX Runtime unusable"), "notice: {notice}");
-        assert!(notice.contains("scripts/setup-embeddings.ps1"), "notice: {notice}");
+        assert!(
+            notice.contains("scripts/setup-embeddings.ps1"),
+            "notice: {notice}"
+        );
     }
 
     // Setup sano → sin aviso (no false alarms).
