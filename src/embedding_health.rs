@@ -3,7 +3,7 @@
 //! Contract: `docs/dev/strategy/DISTRIBUTION.md` §7 and `docs/specs/SPEC.md` L74 —
 //! "fallback avisado (`fallback: true`), nunca silencioso". This module is the
 //! single probe behind every *status* surface (CLI `status`, MCP
-//! `capabilities`, the `setup-embeddings.ps1` live test) so the notice text is
+//! `capabilities`, the `scripts/setup-embeddings.ps1` live test) so the notice text is
 //! never duplicated per binding.
 //!
 //! Both documented triggers are covered:
@@ -31,7 +31,7 @@ use crate::config::Config;
 
 /// Remedy printed with every degraded notice (DISTRIBUTION §7).
 pub const REMEDY: &str =
-    "pwsh setup-embeddings.ps1, then verify: python embeddings/verify.py --check";
+    "pwsh scripts/setup-embeddings.ps1, then verify: python embeddings/verify.py --check";
 
 /// Snapshot of the local-embedding setup, shaped for status surfaces.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -331,7 +331,7 @@ mod tests {
             "notice: {notice}"
         );
         assert!(notice.contains("NOT semantic"), "notice: {notice}");
-        assert!(notice.contains("setup-embeddings.ps1"), "notice: {notice}");
+        assert!(notice.contains("scripts/setup-embeddings.ps1"), "notice: {notice}");
         assert!(
             notice.contains("embeddings/verify.py --check"),
             "notice: {notice}"
@@ -352,7 +352,7 @@ mod tests {
         let notice = health.notice.expect("degraded status must carry a notice");
         assert!(notice.contains("fallback: true"), "notice: {notice}");
         assert!(notice.contains("ONNX Runtime unusable"), "notice: {notice}");
-        assert!(notice.contains("setup-embeddings.ps1"), "notice: {notice}");
+        assert!(notice.contains("scripts/setup-embeddings.ps1"), "notice: {notice}");
     }
 
     // Setup sano → sin aviso (no false alarms).

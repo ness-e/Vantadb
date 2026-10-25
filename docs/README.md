@@ -15,7 +15,7 @@ This directory (`docs/`) is the root of the project's Obsidian vault. All docume
 
 ## Main Index
 
-The primary entry point to all documentation is the [master-index](dev/master-index.md) (Master Index), which organizes the content into:
+The primary entry point to all documentation is the `master-index` (Master Index), which organizes the content into:
 
 - **MPTS** — Complete technical specification (architecture, SDK, operations, roadmap, glossary)
 - **End Users** — Quickstart, migration guides, case studies, technical articles, GraphRAG
@@ -28,9 +28,9 @@ The primary entry point to all documentation is the [master-index](dev/master-in
 | Path | Description |
 |------|-------------|
 | [user/](user/QUICKSTART.md) | End-user docs: quickstart, tutorials, FAQ, blog, operations, benchmarks, book, desktop, discord |
-| [dev/](dev/Backlog.md) | Contributor docs: plans, tasks, avance, research, reviews, architecture, strategy, workflow |
+| `dev/` | Contributor docs: plans, tasks, avance, research, reviews, architecture, strategy, workflow |
 | [api/](api/EMBEDDED_SDK.md) | Python and Rust SDK reference (stable path — consumed by CI version check) |
-| [CHANGELOG.md](CHANGELOG.md) | Project changelog (stable path — consumed by release-plz) |
+| [CHANGELOG.md](../CHANGELOG.md) | Project changelog (stable path — consumed by release-plz) |
 | [README.md](README.md) | This overview file |
 
 ## Conventions

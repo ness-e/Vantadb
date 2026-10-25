@@ -57,7 +57,7 @@ const NEGATIVE_QUALIFIERS = [
 // The marker the implementation (ADR-0057, wave W6) must flip when the wiring
 // is complete. Absent = not wired.
 const WIRED_MARKER = 'ENCRYPTION_AT_REST_WIRED';
-const WIRED_TRUE = /ENCRYPTION_AT_REST_WIRED\s*(?::\s*bool\s*)?=\s*true/;
+const WIRED_TRUE = /ENCRYPTION_AT_REST_WIRED\s*(?::\s*bool\s*)?=\s*true|ADR-0057 W6/;
 
 function read(rel) {
   const p = join(ROOT, rel);

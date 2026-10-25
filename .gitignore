@@ -69,7 +69,6 @@ quickstart_memory.py
 .vanta_profile
 .env
 .env.*
-!.env.tokens.example
 !.env.example
 
 # Datasets / local assets (READMEs stay tracked: release-plz rejects
@@ -275,3 +274,27 @@ docs/dev/reviews/dsm-baseline.json
 
 # Local-only agent tooling (C-01: untracked from git, stays on disk)
 .opencode/
+.codegraph/
+.opencodereview/
+codegraph.json
+opencode.jsonc
+vanta-mcp-local.ps1
+SKILLS-MANIFEST.md
+AGENTS.md
+.lurkr-baseline.json
+.env.tokens.example
+notion_backup_batches/
+docs/dev/Backlog.md
+docs/dev/backlog-notion.md
+docs/dev/Backlog-negocio.md
+docs/dev/backlog-futuro.md
+docs/dev/FASE-A.md
+docs/dev/master-index.md
+docs/dev/tasks/
+docs/dev/reviews/
+docs/dev/research/
+docs/dev/reports/
+docs/dev/plans/
+docs/dev/avance/
+docs/dev/workflow/
+docs/dev/strategy/

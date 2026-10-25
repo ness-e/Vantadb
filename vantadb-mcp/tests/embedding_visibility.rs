@@ -64,7 +64,7 @@ fn def08_capabilities_reports_degraded_embeddings_notice() {
     for needle in [
         "fallback: true",
         "deterministic dummy embeddings",
-        "setup-embeddings.ps1",
+        "scripts/setup-embeddings.ps1",
         "embeddings/verify.py --check",
     ] {
         assert!(

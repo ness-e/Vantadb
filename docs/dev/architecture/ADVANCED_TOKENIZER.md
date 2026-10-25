@@ -212,5 +212,5 @@ Potential future improvements:
 ## References
 
 - [Tantivy Documentation](https://docs.rs/tantivy/)
-- [BM25 Algorithm](../../user/glosario/bm25.md)
+- BM25 Algorithm
 - [Stemming Algorithms](https://en.wikipedia.org/wiki/Stemming)

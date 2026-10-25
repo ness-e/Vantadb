@@ -124,5 +124,5 @@ Implementing recursive LISP in the Rust engine was the wrong architecture. Push 
 ## See Also
 
 - [EXPERIMENTAL_GOVERNANCE_DESIGN](./EXPERIMENTAL_GOVERNANCE_DESIGN.md) — Governance was the companion system to LISP
-- [Backlog](../Backlog.md) — GOV-01 governance redesign, Phase 5 IQL enhancements
-- [ROADMAP.md](../strategy/ROADMAP.md) — Query Language decision deferred to Phase 5
+- Backlog — GOV-01 governance redesign, Phase 5 IQL enhancements
+- `ROADMAP.md` — Query Language decision deferred to Phase 5

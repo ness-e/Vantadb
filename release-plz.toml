@@ -47,7 +47,7 @@ changelog_update = true
 
 [[package]]
 name = "vantadb"
-changelog_path = "docs/CHANGELOG.md"
+changelog_path = "CHANGELOG.md"
 
 [[package]]
 name = "vantadb-wasm"
@@ -85,7 +85,7 @@ release = false
 # Changelog header — must stay byte-compatible with the docs frontmatter
 # (scripts/docs/check-docs.mjs gates on title+kind): release-plz rewrites
 # everything above `## [Unreleased]`, so the frontmatter must live here
-# (otherwise the next release strips it from docs/CHANGELOG.md).
+# (otherwise the next release strips it from CHANGELOG.md).
 [changelog]
 header = """---
 title: Changelog

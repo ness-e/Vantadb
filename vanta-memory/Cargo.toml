@@ -6,7 +6,6 @@ rust-version.workspace = true
 description = "VantaDB Memory Engine: four-layer (L0-L3) LLM-driven memory pipeline (host-neutral autonomous memory pipeline)"
 license = "Apache-2.0"
 repository = "https://github.com/ness-e/Vantadb"
-homepage = "https://vantadb.dev"
 documentation = "https://docs.rs/vanta-memory"
 keywords = ["memory", "llm", "agents", "embedded", "database"]
 categories = ["database-implementations"]

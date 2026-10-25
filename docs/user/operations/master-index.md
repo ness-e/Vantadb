@@ -18,7 +18,7 @@ tags: [vantadb, operations, master-index, catalog]
 
 | File | Description |
 |------|-------------|
-| [AGENT_INSTRUCTIONS.md](AGENT_INSTRUCTIONS.md) | Instructions for AI agents working in this repo |
+| `AGENT_INSTRUCTIONS.md` | Instructions for AI agents working in this repo |
 | [CONFIGURATION.md](CONFIGURATION.md) | System configuration reference |
 | [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) | Deployment procedures and checklist |
 | [EDITOR_INTEGRATIONS.md](EDITOR_INTEGRATIONS.md) | Editor/IDE integration setup |
@@ -51,9 +51,9 @@ tags: [vantadb, operations, master-index, catalog]
 
 | File | Description |
 |------|-------------|
-| [COMMUNITY_GOVERNANCE.md](../../dev/operations/COMMUNITY_GOVERNANCE.md) | Community guidelines and governance model |
+| `COMMUNITY_GOVERNANCE.md` | Community guidelines and governance model |
 | [EXPERIMENTAL_FEATURES.md](EXPERIMENTAL_FEATURES.md) | Experimental features documentation |
-| [PUBLIC_ISSUE_DRAFTS.md](../../dev/operations/PUBLIC_ISSUE_DRAFTS.md) | Public issue draft templates |
+| `PUBLIC_ISSUE_DRAFTS.md` | Public issue draft templates |
 | [SECURITY.md](SECURITY.md) | Security policies and procedures |
 | [hardening.md](hardening.md) | Security hardening guide for VantaDB Server (production) |
 
@@ -63,21 +63,21 @@ tags: [vantadb, operations, master-index, catalog]
 |------|-------------|
 | [CI_POLICY.md](../../dev/operations/CI_POLICY.md) | Continuous integration policies |
 | [FUZZING.md](../../dev/operations/FUZZING.md) | Fuzzing setup and results |
-| [REPO_CHECKLIST.md](../../dev/operations/REPO_CHECKLIST.md) | Repository maintenance checklist |
+| `REPO_CHECKLIST.md` | Repository maintenance checklist |
 | [TEST_MAP.md](../../dev/operations/TEST_MAP.md) | Test map: qué suite correr por cambio (cifra canónica de tests) |
 | [chaos-testing.md](../../dev/operations/chaos-testing.md) | Chaos/failpoint testing guide (failpoint paths vigentes) |
-| [ci-cd-guide.md](../../dev/operations/ci-cd-guide.md) | CI/CD setup and operations guide |
+| `ci-cd-guide.md` | CI/CD setup and operations guide |
 
 ## 6. Programs & Registry (6)
 
 | File | Description |
 |------|-------------|
 | [MCP_REGISTRY.md](MCP_REGISTRY.md) | MCP server.json manifest + registry submission state (MCP-40) |
-| [PILOT_PROGRAM.md](../../dev/operations/PILOT_PROGRAM.md) | Pilot program documentation |
+| `PILOT_PROGRAM.md` | Pilot program documentation |
 | [PYTHON_RELEASE_POLICY.md](PYTHON_RELEASE_POLICY.md) | Python SDK release policy |
-| [pilot-agreement-template.md](../../dev/operations/pilot-agreement-template.md) | Pilot program agreement template |
-| [pilot-feedback-template.md](../../dev/operations/pilot-feedback-template.md) | Pilot feedback collection template |
-| [pilot-onboarding-checklist.md](../../dev/operations/pilot-onboarding-checklist.md) | Pilot onboarding checklist |
+| `pilot-agreement-template.md` | Pilot program agreement template |
+| `pilot-feedback-template.md` | Pilot feedback collection template |
+| `pilot-onboarding-checklist.md` | Pilot onboarding checklist |
 
 ## Self-index
 
@@ -89,7 +89,7 @@ tags: [vantadb, operations, master-index, catalog]
 
 | File | Description |
 |------|-------------|
-| [EXTRACCION-DOC-OLD-2026-08-05.md](../../dev/archive/EXTRACCION-DOC-OLD-2026-08-05.md) | Extracción de documentación legacy (2026-08-05) |
-| [legacy-docs-investigacion-2026-07-16.md](../../dev/archive/legacy-docs-investigacion-2026-07-16.md) | Docs legacy de investigación (2026-07-16) |
+| `EXTRACCION-DOC-OLD-2026-08-05.md` | Extracción de documentación legacy (2026-08-05) |
+| `legacy-docs-investigacion-2026-07-16.md` | Docs legacy de investigación (2026-07-16) |
 
 > Optional: `docs/dev/backlog-futuro.md` vive suelto en la raíz de `docs/` (no archivado); plan Open Core archivado en `docs/dev/plans/archive/2026-08-06-oc-vantadb-pro.md`.

@@ -74,7 +74,29 @@ export const isArchive = (rel) => ARCHIVE_RE.test(rel);
  */
 export function buildTargetSet() {
   const files = new Set();
-  const dirs = new Set();
+  const dirs = new Set(['']);
+  try {
+    const tracked = execFileSync('git', ['ls-files', '-z'], { cwd: ROOT, encoding: 'utf8' });
+    const untracked = execFileSync(
+      'git',
+      ['ls-files', '--others', '--exclude-standard', '-z'],
+      { cwd: ROOT, encoding: 'utf8' },
+    );
+    const all = [...tracked.split('\0'), ...untracked.split('\0')].filter(Boolean);
+    for (const r of all) {
+      files.add(r);
+      if (r.endsWith('.md')) files.add(r.replace(/\.md$/i, ''));
+      const parts = r.split('/');
+      for (let i = 1; i < parts.length; i++) {
+        const d = parts.slice(0, i).join('/');
+        dirs.add(d);
+        files.add(d);
+      }
+    }
+    return { files, dirs };
+  } catch {
+    // Fallback if git is unavailable
+  }
   const skip = new Set(['.git', 'node_modules', 'target', '.obsidian', '_site', 'dist', '.next', 'vendor']);
   (function walk(dir, depth) {
     if (depth > 8) return; // bound the walk; docs never nest this deep

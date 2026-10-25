@@ -19,7 +19,7 @@ set -e
 
 INSTALL_DIR="$HOME/.vanta/bin"
 BINARY_NAME="vanta-cli"
-WIZARD_FILE="setup-embeddings.ps1"
+WIZARD_FILE="scripts/setup-embeddings.ps1"
 
 DRY_RUN=0
 WITH_WIZARD=1
@@ -195,6 +195,7 @@ else
   if [ "$WIZARD_NONINTERACTIVE" = "1" ]; then WIZARD_ARGS="-NonInteractive"; else WIZARD_ARGS=""; fi
   if [ -n "$MODULES" ]; then WIZARD_ARGS="$WIZARD_ARGS -Modules $MODULES"; fi
   if command -v pwsh >/dev/null 2>&1 \
+    && mkdir -p "$(dirname "$TMPDIR/$WIZARD_FILE")" \
     && curl -sL -f --ssl-reqd -o "$TMPDIR/$WIZARD_FILE" "$WIZARD_URL" \
     && pwsh -NoProfile -File "$TMPDIR/$WIZARD_FILE" $WIZARD_ARGS; then
     echo "✅ Wizard completed"

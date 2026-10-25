@@ -76,7 +76,7 @@ const ALLOW_MISSING_PKG = ARGS.has('--allow-missing-package');
  * measured count as its budget: the job of a budget is to hold the line at
  * today's damage while the count goes DOWN, and to fail a PR that ADDS drift
  * immediately. Measured 2026-09-29 against vantadb 0.7.0: 1, the single entry
- * `docs/user/blog/ollama_vantadb_local_memory.md:45` -> `from vantadb import
+ * `docs/user/QUICKSTART.md:45` -> `from vantadb import
  * VantaDB` (the class AST-010 removed in 0.6.0).
  *
  * It is NOT a tolerance for "documentation is roughly right". Lower it to 0 the

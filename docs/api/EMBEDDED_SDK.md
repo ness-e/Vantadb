@@ -8,7 +8,7 @@ tags: [vantadb, api]
 
 # Embedded SDK Reference
 
-> Core Rust SDK struct `Embedded` — the primary entry point for all embedded database operations. Used directly in Rust and exposed via [PyO3](../user/glosario/pyo3.md) (Python), wasm-bindgen (TypeScript), and [MCP](./MCP.md).
+> Core Rust SDK struct `Embedded` — the primary entry point for all embedded database operations. Used directly in Rust and exposed via PyO3 (Python), wasm-bindgen (TypeScript), and [MCP](./MCP.md).
 >
 > **Naming (ADR-0047 anti-stutter):** canonical names are `Embedded`, `Config`,
 > `MemoryRecord`, `SearchHit`, `Error`, `MemoryInput`, `MemoryFilter`. Legacy
@@ -79,7 +79,7 @@ CRUD operations for persistent memory records identified by `(namespace, key)` p
 | `count(namespace, filter)` | Count memory records in a namespace, optionally filtered by metadata. Returns `u64`. Filter uses `MemoryFilter` (equality + operators). `None` counts all records |
 | `list(namespace, options)` | List records in a namespace with cursor pagination. Returns `MemoryListPage` |
 | `list_namespaces()` | List all namespaces. Returns `Vec<String>` |
-| `search(request: MemorySearchRequest)` | [hybrid-search](../user/glosario/hybrid-search.md) (vector + lexical) search. Returns `Vec<MemorySearchHit>` |
+| `search(request: MemorySearchRequest)` | Hybrid search (vector + lexical) search. Returns `Vec<MemorySearchHit>` |
 | `search_page(request: MemorySearchRequest)` | Same pipeline as `search` with cursor-based pagination (WIRE-08). Returns `MemorySearchPage { hits, next_cursor, abstained, abstention_reason }`: `next_cursor` is `Some` only when the page is full (`hits.len() == top_k`); a short page is the last page. `abstained`/`abstention_reason` carry the selective-abstention signal (ADR-0046 §D2, SCH-07) when the configured `confidence_threshold` empties the page. Resume by passing the token back in `MemorySearchRequest::cursor` — the next page returns hits after the last returned hit's identity in the current ranking. Resume is **best-effort, not a snapshot**: a hit returned in a previous page can be returned again (or skipped) when interleaved writes reorder its rank across the anchor (BM25/IDF are recalculated corpus-wide on every write); writes that rank *before* the anchor are never duplicated. The token is bound to the request's plan fingerprint (mismatch → `SEARCH_CURSOR_INVALID`) and to the current process; pagination is rejected with `mmr`/`group_by`. See [SEARCH_PARITY](./SEARCH_PARITY.md) for the Milvus/Qdrant mapping |
 | `search_with_method(request, method)` | Same as `search` with an explicit index backend override for the dense-vector portion: `Some(IndexType::Ivf)` / `Some(IndexType::Scann)` / `Some(IndexType::Flat)` / `Some(IndexType::Hnsw)`. `None` (default) keeps automatic engine routing untouched; the shared engine config is never mutated (thread-safe, per-search override) |
 | `search_page_with_method(request, method)` | SCH-07: the page-shaped mirror of `search_with_method` — same hits as `search_with_method` plus the `MemorySearchPage` envelope (`next_cursor`, `abstained`, `abstention_reason`). Used by page-shaped transports (MCP `search_with_method`) so the abstention signal is never dropped at the `Vec` edge |
@@ -180,7 +180,7 @@ pub struct MemorySearchRequest {
 }
 ```
 
-*Note: Lexical search uses the [BM25](../user/glosario/bm25.md) algorithm.*
+*Note: Lexical search uses the BM25 algorithm.*
 
 #### v2 search options (ADR-0046, SCH-03/04/05)
 
@@ -415,7 +415,7 @@ Low-level operations on the node-graph model (numeric node IDs, edges, graph tra
 | `graph_accumulator_add(acc, node_id, delta)` | Atomically add `delta` to the accumulator for `node_id`. Returns the previous value |
 | `graph_accumulator_get(acc, node_id)` | Get the current value for `node_id`. Returns `Option<f64>` |
 | `graph_accumulator_snapshot(acc)` | Capture a consistent snapshot of all accumulator values. Returns `HashMap<u128, f64>` |
-| `search_vector(vector, top_k)` | Pure [hnsw](../user/glosario/hnsw.md) vector search. Returns `Vec<SearchHit>` |
+| `search_vector(vector, top_k)` | Pure HNSW vector search. Returns `Vec<SearchHit>` |
 | `query(iql_query)` | Execute IQL query string. Returns `QueryResult` |
 | `vacuum()` | Purge tombstoned nodes from the HNSW index. Returns a `VacuumReport` with counts and timing |
 | `pipeline(mode)` | Run the segment optimizer pipeline (vacuum → merge → reindex). Each phase is logged independently; a phase failure does not abort subsequent phases |
@@ -585,14 +585,14 @@ per `(owner_agent, name)` while a head exists. Content is stored as-is
 
 | Method | Description |
 |--------|-------------|
-| `flush()` | Flush [wal](../user/glosario/wal.md) + [hnsw](../user/glosario/hnsw.md) to disk for durability |
-| `compact_wal()` | Archive [wal](../user/glosario/wal.md) file and start fresh |
-| `vacuum()` | Purge tombstoned nodes from the [hnsw](../user/glosario/hnsw.md) index. Returns a `VacuumReport` with counts and timing |
+| `flush()` | Flush WAL + HNSW to disk for durability |
+| `compact_wal()` | Archive WAL file and start fresh |
+| `vacuum()` | Purge tombstoned nodes from the HNSW index. Returns a `VacuumReport` with counts and timing |
 | `pipeline()` | Run the segment optimizer pipeline (vacuum → merge → reindex). Each phase is logged independently; a phase failure does not abort subsequent phases |
 | `optimizer_config()` | Return the current segment optimizer configuration |
 | `set_optimizer_config(config)` | Override the segment optimizer configuration. Takes effect on the next pipeline invocation |
 | `purge_expired()` | Delete TTL-expired records. Returns count purged |
-| `rebuild_index()` | Rebuild ANN ([hnsw](../user/glosario/hnsw.md)), derived, and text indexes. Returns `IndexRebuildReport` |
+| `rebuild_index()` | Rebuild ANN (HNSW), derived, and text indexes. Returns `IndexRebuildReport` |
 | `reindex_hnsw_from_text(namespace, page_size)` | Rebuild the vector index from text records using cursor-based pagination (`page_size` default 1000, max 1000). Safe alternative to unbounded enumeration |
 | `compact_layout()` | BFS-order physical compaction of vector store. Returns nodes compacted |
 

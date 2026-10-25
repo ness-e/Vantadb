@@ -13,7 +13,7 @@ engine, VantaDB enforces a split Continuous Integration architecture.
 
 ## CI Workflow Inventory
 
-VantaDB has **20 active workflow files** in `.github/workflows/` (2026-10-16: 19 + `electron-node.yml` DIST-19 S1; antes `publish-mcp-registry.yml` FIND-344; CI-08 había dejado 40 → 18). Each workflow is documented below. See `docs/dev/workflow/README.md` (inventory) and `docs/dev/workflow/TRIGGERS.md` (trigger matrix - source of truth is each file's `on:` block; matrix covers 20/20 files, verified 2026-10-16).
+VantaDB has **18 active workflow files** in `.github/workflows/`. Each workflow is documented below. See `docs/dev/workflow/README.md` (inventory) and `docs/dev/workflow/TRIGGERS.md` (trigger matrix - source of truth is each file's `on:` block; matrix covers active files).
 
 ### Local Verification Scripts — Rutas Canónicas
 
@@ -222,7 +222,7 @@ Excluded (stay in `experimental-check`, non-default): `vanta-proxy` — heaviest
 Rust compile, Heavy wall time documented STABLE-02 + ADR-0031 §2 cost table;
 `vantadb-wasm` — `wasm32`/`wasm-pack`/`binaryen` toolchain extra, Tier 3
 (`wasm-test` BEST-EFFORT `continue-on-error`). `ts`/`node` never enter
-`default-members` (npm packages; equivalent gate `release-npm-61.yml`).
+`default-members` (npm packages; equivalent gate `release-npm-wasm.yml`).
 
 Subset measurement 2026-09-09, Windows MSVC box (same host class as STABLE-08):
 `cargo check` (default-members) cold 132s ✅; `cargo nextest run --profile audit`
@@ -288,13 +288,13 @@ default-members = [
 
 **`cargo nextest` expanded cost (all crates, `--workspace`):** `cargo nextest run --profile audit --workspace --build-jobs 2` warm 234.9s already includes `vanta-memory` 473 tests + `vantadb-server` 42 + `vantadb-mcp` 62 + `vantadb-wasm` + root suite. Cold would be + clippy compile time (>600s) sharing target, so total pipeline cold >800s if measured fully cold.
 
-**`web` gate (`release-npm-61.yml:tests`, `npm ci + tsc --noEmit + vitest run`):**
+**`web` gate (`release-npm-wasm.yml:tests`, `npm ci + tsc --noEmit + vitest run`):**
 
 | Job | Warm | Cold (`npm ci` fresh) |
 |-----|------|-----------------------|
 | `npm ci --prefix web` | 70.47s | 70.47s (cold includes download; sccache not applicable) |
 | `npx tsc --noEmit` | 13.98s | 13.98s |
-| `npx vitest run` (264 tests per `release-npm-61.yml` 27s) | 18.98s (measured) | 18.98s |
+| `npx vitest run` (264 tests per `release-npm-wasm.yml` 27s) | 18.98s (measured) | 18.98s |
 | **Total web `tests`** | **~103s (1.72m)** | ~103s | Fast <5 |
 
 **3 corridas `cargo clean` + `npm ci` sin flaky (STABLE-01/03 gates 1-6 already 0 failed):** Runs 1-3 above (verify_changed cold/warm/warm + just verify warm 2.5s/10.7s/234.9s + web 103s) all 0 failed, 0 flaky (nextest 473/473 vanta-memory, 42/42 server, deny ok, fmt ok, clippy -D warnings 0). Heavy gate is **not** flaky — deterministic cold compile time, not test instability.
@@ -505,17 +505,12 @@ CodeQL analysis for Rust. Runs on push/PR to `main` and weekly. Triggers via `wo
 LibFuzzer corpus + regression via `cargo fuzz`. Scheduled weekly (Monday 06:00 UTC), PRs touching
 `src/**`/fuzz paths, or `workflow_dispatch`.
 
-### 7. Performance Benchmarks (`perf-bench.yml`)
-
-Python integration performance benchmarks. Triggered on push to `main`+`develop` touching core or
-Python paths, or via `workflow_dispatch` with configurable vector/queries/dim inputs.
-
-### 8. Nightly Benchmarks (`heavy-bench-nightly.yml`)
+### 7. Nightly Benchmarks (`heavy-bench-nightly.yml`)
 
 Nightly benchmark regression suite (daily CRON 02:00 plus `workflow_dispatch`, PRs touching bench paths). Runs light benchmarks
 and heavy benchmarks across multiple package scopes.
 
-### 9. Python Wheel Build & Publish (`release-wheels.yml`)
+### 8. Python Wheel Build & Publish (`release-wheels.yml`)
 
 Builds the Python SDK on Linux (x86_64 and aarch64 cross via maturin-action's manylinux_2_28
 cross container), macOS, and Windows with `maturin`, installs the generated wheel
@@ -524,13 +519,13 @@ cross wheel is validated by its platform tag and the PyPI install verify job). M
 through an explicit workflow input and the `TEST_PYPI_API_TOKEN` secret. Production PyPI
 publication and signing remain deferred.
 
-### 10. Release Workflows
+### 9. Release Workflows
 
 | Workflow | File | Trigger |
 |----------|------|---------|
 | Release Automation | `release.yml` | Push to `main` — `release-plz` auto-version, changelog, tag, publish |
 | Python Wheels | `release-wheels.yml` | Tag `v*.*.*`, `pull_request` to `main` (paths src/python), or `workflow_dispatch` |
-| NPM Publish (WASM+TS) | `release-npm-61.yml` | Tag `v*.*.*`, `pull_request` (paths wasm/ts), or `workflow_dispatch` — includes Fast Gate job `tests` (`npm ci && npm run build && npx vitest run`, measured 27s <5min, no `continue-on-error`, PR+tags gate per TS-06) |
+| NPM Publish (WASM+TS) | `release-npm-wasm.yml` | Tag `v*.*.*`, `pull_request` (paths wasm/ts), or `workflow_dispatch` — includes Fast Gate job `tests` (`npm ci && npm run build && npx vitest run`, measured 27s <5min, no `continue-on-error`, PR+tags gate per TS-06) |
 | NPM Publish (Node) | `release-npm-node.yml` | Tag `node-v*.*.*`, `pull_request` (paths node), or `workflow_dispatch` |
 | PyPI Adapters | `release-adapters.yml` | Tag `adapters-v*.*.*` or `workflow_dispatch` (TestPyPI) |
 | Binary Builds | `release-binaries.yml` | Release published or `workflow_dispatch` |

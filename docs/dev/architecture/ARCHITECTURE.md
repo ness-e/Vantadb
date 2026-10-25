@@ -30,7 +30,7 @@ VantaDB is an **embedded library**, not a service. The core (`vantadb`) has zero
 │  └────────────────────────────────────┘ │
 └─────────────────────────────────────────┘
 ```
-*Components:* [WAL](../../user/glosario/wal.md), [HNSW](../../user/glosario/hnsw.md)
+*Components:* WAL, HNSW
 
 ### 2. Canonical Data + Derived Indexes
 
@@ -47,23 +47,23 @@ Derived Indexes (Rebuildable):
 ├── BM25 (lexical search)
 └── Payload indexes (structured filters)
 ```
-*Derived Indexes:* [HNSW](../../user/glosario/hnsw.md), [BM25](../../user/glosario/bm25.md)
+*Derived Indexes:* HNSW, BM25
 
 ### 3. Zero-Cost Abstractions
 
 Rust enables high-level abstractions with zero runtime overhead:
 - **Traits** for static polymorphism
-- **Zero-copy** where possible ([mmap](../../user/glosario/mmap.md))
-- **[SIMD](../../user/glosario/simd.md)** for vector operations
+- **Zero-copy** where possible (mmap)
+- **SIMD** for vector operations
 
 ### 4. Durability Before Performance
 
 Write path order — NEVER acknowledge before fsync:
 
-1. Append mutation to [WAL](../../user/glosario/wal.md)
-2. fsync() the [WAL](../../user/glosario/wal.md) ← **DURABILITY GUARANTEED**
-3. Apply to storage backend ([Fjall](../../user/glosario/fjall.md)/[RocksDB](../../user/glosario/rocksdb.md))
-4. Update derived indexes ([HNSW](../../user/glosario/hnsw.md), [BM25](../../user/glosario/bm25.md))
+1. Append mutation to WAL
+2. fsync() the WAL ← **DURABILITY GUARANTEED**
+3. Apply to storage backend (Fjall/RocksDB)
+4. Update derived indexes (HNSW, BM25)
 5. ACK to client
 
 ---
@@ -155,9 +155,9 @@ have unequal record counts.
 
 ---
 
-## Storage Backend: [Fjall](../../user/glosario/fjall.md) vs [RocksDB](../../user/glosario/rocksdb.md)
+## Storage Backend: Fjall vs RocksDB
 
-| Feature | [fjall](../../user/glosario/fjall.md) (Default) | [rocksdb](../../user/glosario/rocksdb.md) (Fallback) |
+| Feature | fjall (Default) | rocksdb (Fallback) |
 |---------|-----------------|-------------------|
 | Language | 100% Rust | C++ (C bindings) |
 | Build Time | ~30s | ~5-10min |
@@ -235,7 +235,7 @@ Client: db.put("doc1", vector, text, metadata)
            ▼
       ACK to client
 ```
-*Backend and indexes details:* [Fjall](../../user/glosario/fjall.md), [HNSW](../../user/glosario/hnsw.md), [BM25](../../user/glosario/bm25.md)
+*Backend and indexes details:* Fjall, HNSW, BM25
 
 ### Hybrid Search Path
 

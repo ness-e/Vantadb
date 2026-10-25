@@ -25,7 +25,7 @@
   <br>
 
   <a href="https://discord.gg/g8nqB3NtXt"><img src="https://img.shields.io/badge/Discord-VantaDB_Community-5865F2?logo=discord&logoColor=white" alt="Discord"></a>
-  <a href="https://colab.research.google.com/github/ness-e/Vantadb/blob/develop/examples/colab/vantadb_quickstart.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open in Colab"></a>
+  <a href="https://colab.research.google.com/github/ness-e/Vantadb/blob/main/examples/colab/vantadb_quickstart.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open in Colab"></a>
 </div>
 
 <div align="center">
@@ -48,11 +48,9 @@ VantaDB es un motor de memoria embebido, local-first, diseñado para agentes de 
 | Seguir un tutorial | [Tutoriales](docs/user/tutorials/) |
 | Ejecutar ejemplos ejecutables | [Demo + Colab](examples/README.md) · [TypeScript](vantadb-ts/examples/) |
 | Leer las FAQ | [FAQ](docs/user/FAQ.md) |
-| Leer el blog | [Entradas del blog](docs/user/blog/) |
 | Leer la documentación de arquitectura | [Documentación](#documentación) |
 | Contribuir de forma segura | [CONTRIBUTING.md](CONTRIBUTING.md) |
 | Reportar una vulnerabilidad | [SECURITY.md](SECURITY.md) |
-| Obtener soporte | [SUPPORT.md](SUPPORT.md) |
 
 ---
 
@@ -95,7 +93,7 @@ Para integración nativa con Rust, añade el crate a tu `Cargo.toml`:
 
 ```toml
 [dependencies]
-vantadb = { git = "https://github.com/ness-e/Vantadb" }
+vantadb = "0.9"
 ```
 
 ---
@@ -291,7 +289,7 @@ Descarga e instala el binario de la CLI al instante en un solo comando, sin comp
 > `.sha256` publicado en el release antes de pasarlo a un shell.
 >
 > **Qué ocurre después:** el instalador encadena al wizard interactivo de setup
-> (`setup-embeddings.ps1`), que pregunta **qué módulos habilitar** — motor,
+> (`scripts/setup-embeddings.ps1`), que pregunta **qué módulos habilitar** — motor,
 > MCP, server, proxy, visor de escritorio, embeddings, providers (cada uno con
 > un estado declarado: instalable o congelado; el escritorio es un visor
 > congelado).
@@ -459,10 +457,7 @@ Los resultados se imprimen en la consola y se escriben en `vanta_benchmark_repor
 | [Funcionalidades experimentales](docs/user/operations/EXPERIMENTAL_FEATURES.md) | Clasificación de superficie de producción, opcional, experimental y diferida. |
 | [Política de CI](docs/dev/operations/CI_POLICY.md) | Estrategia de integración continua, perfiles y puertas de certificación. |
 | [Benchmarks](docs/user/operations/BENCHMARKS.md) | Metodología y resultados del benchmark de rendimiento. |
-| [Changelog](docs/CHANGELOG.md) | Historial de versiones y notas de lanzamiento. |
-| [Blog: Cómo funciona la búsqueda híbrida](docs/user/blog/how_hybrid_search_works.md) | Cómo funcionan juntos BM25 + HNSW + RRF en el motor de consultas de VantaDB. |
-| [Blog: SQLite para agentes de IA](docs/user/blog/sqlite_for_ai_agents.md) | Benchmarks y decisiones de arquitectura detrás del almacenamiento LSM de VantaDB. |
-| [Blog: Por qué construí VantaDB](docs/user/blog/why_i_built.md) | La motivación de un motor de memoria local para agentes de IA en Rust. |
+| [Changelog](CHANGELOG.md) | Historial de versiones y notas de lanzamiento. |
 
 ---
 

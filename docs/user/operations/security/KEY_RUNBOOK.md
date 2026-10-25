@@ -173,7 +173,7 @@ El probe de canario (un test de integracion del repo,
 ## 7. Referencias
 
 - ADR: [`ADR-0057`](../../../dev/architecture/adr/ADR-0057-encryption-at-rest.md)
-- Plan de cableado: [`2026-10-20-wiring-encryption-feature.md`](../../../dev/plans/2026-10-20-wiring-encryption-feature.md)
+- Plan de cableado: `2026-10-20-wiring-encryption-feature.md`
 - Claim publica: [`SECURITY.md`](../../../../SECURITY.md)
 - Configuracion: [`CONFIGURATION.md`](../CONFIGURATION.md)
 - Backup y restauracion: [`BACKUP_POLICY.md`](../BACKUP_POLICY.md),
