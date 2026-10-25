@@ -40,6 +40,15 @@ ignore = [
     # Owner: vanta-lead
     # Expiry: 2027-06-01
     "RUSTSEC-2024-0449",
+
+    # RUSTSEC-2026-0387 (crypto-bigint 0.5.5, timing variability):
+    # Pulled transitively via jsonwebtoken 11.1.0 -> p256/p384 -> elliptic-curve 0.13.8.
+    # Same triage as RUSTSEC-2023-0071: VantaDB pins Algorithm::HS256 (HMAC) in
+    # src/server/jwt.rs and never invokes ECDSA/P-256/P-384 private-key operations.
+    # Upstream elliptic-curve 0.13 pins crypto-bigint 0.5 (no semver-compatible upgrade).
+    # Owner: vanta-lead
+    # Expiry: 2027-06-01
+    "RUSTSEC-2026-0387",
 ]
 
 [licenses]

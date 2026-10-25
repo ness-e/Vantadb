@@ -933,6 +933,10 @@ which can change without a major bump. The HTTP error envelopes in
 - `Error::Schema(String)` — schema-related error
 - `Error::DatabaseBusy(String)` — database locked by another process
 - `Error::NoVectorForKey(String)` — a record exists but does not carry a vector, so vector-based operations (e.g. `similar_to_key`) cannot proceed
+- `Error::EncryptionKeyRequired` — encrypted database opened without supplying a master key (`ADR-0057`)
+- `Error::EncryptionKeyRejected` — supplied master key failed authentication tag verification (`ADR-0057`)
+- `Error::EncryptionCorrupt(String)` — encrypted envelope or ciphertext is malformed or tampered (`ADR-0057`)
+- `Error::EncryptionUnsupported(String)` — encrypted database opened by a build compiled without `--features encryption` (`ADR-0057`)
 - `Error::Generic(ChainedError)` — generic catch-all error
 
 ### `is_retriable()` — retry classification
