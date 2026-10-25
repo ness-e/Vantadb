@@ -6,7 +6,7 @@
 
 Every link below points to the raw Markdown source, not a rendered page. Read the
 page you need; do not read this file end to end. This index covers the
-495 documentation pages; it deliberately omits the 155 task files,
+494 documentation pages; it deliberately omits the 155 task files,
 which are work items rather than documentation. The full inventory of every file
 is in docs/index.md in the repository.
 
@@ -321,7 +321,6 @@ is in docs/index.md in the repository.
 - [Heap-Usage Testing — `dhat` 0.3.3 Evaluation (2026-08-30)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/dhat-evaluation-2026-08-30.md): dhat 0.3.3 is NOT introduced into the VantaDB workspace. The workspace has no
 - [Herramientas desktop de administración de bases de datos](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/human-facing-db-ui/02-desktop-db-tools/RESEARCH.md): Tras analizar 15+ herramientas (DBAs relacionales, GUI NoSQL, navegadores de grafos, exploradores de almacenamiento y herramientas de memoria para IA), los patrones dominantes y transferibles son
 - [Ingeniería de Software End-to-End: Prácticas y Referencias](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/2026-08-10-agent-engineering/eng-01-software.md): El ciclo de vida completo de una feature, desde que se concibe hasta que se mantiene, tiene las siguientes fases
-- [Instalador interactivo y personalizado (RES-17)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/installer-personalizado/RESEARCH.md): Benchmark multi-fuente de instaladores interactivos (rustup, ollama, Docker, VS Code, uv, cargo-dist, Homebrew, conda, winget, Tauri/NSIS, Inno Setup, MSI, Python) y recomendación de arquitectura para el instalador v2 de VantaDB: selector de módulos, resolución de binarios/dependencias/config por plataforma, roadmap por fases y riesgos. Alimenta DX-12
 - [Licenciamiento OSS y Monetización Open-Core para VantaDB](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/validacion/03-licenciamiento-y-monetizacion-open-core.md): Fecha: 2026-08-25 · Autor: Agente C (research delegada) · Estado: investigación completa; requiere revisión legal profesional antes del anuncio público
 - [MEMG-14 — Marco 2.0: núcleo + extensiones (reformulación del marco 8/6/10/PI)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/memg-14-marco-2.0.md): Marco reformulado 'núcleo + extensiones' (7 sub-decisiones a-g), respaldo de dims/áreas/ámbitos en repo, validaciones externas y cadencia anual; detalle Notion citado por página
 - [MEMG-18 — Multimodalidad: decisión + spec (extensión transversal vs 9ª dimensión)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/memg-18-multimodalidad.md): Decisión documentada (extensión de modalidad transversal, no 9ª dimensión) + spec mínima anclada en payload/vector/MemoryExportLine + trigger refinado con evidencia 2026; sin implementación
