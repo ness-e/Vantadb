@@ -6,7 +6,7 @@
 
 Every link below points to the raw Markdown source, not a rendered page. Read the
 page you need; do not read this file end to end. This index covers the
-496 documentation pages; it deliberately omits the 155 task files,
+495 documentation pages; it deliberately omits the 155 task files,
 which are work items rather than documentation. The full inventory of every file
 is in docs/index.md in the repository.
 
@@ -315,7 +315,6 @@ is in docs/index.md in the repository.
 - [ENG-02 · Ingeniería de sistemas, resolución de problemas complejos y debugging sistemático](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/2026-08-10-agent-engineering/eng-02-systems.md): El pensamiento sistémico trata el sistema como un todo interconectado, no como partes aisladas. Fuente: Meadows / Thinking in Systems (PDF de referencia pública)
 - [ENG-03 — ENTREGA DE PROYECTOS, PLANIFICACIÓN, RIESGO Y META-TRABAJO](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/2026-08-10-agent-engineering/eng-03-project.md): Fecha: 2026-08-10
 - [Ejecución de Tareas Paso a Paso y Loop de Trabajo](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/2026-08-10-agent-engineering/agent-02-task-execution.md): Fecha: 2026-08-10 · Lote: 2026-08-10-agent-engineering · Agente: agent-02
-- [Estrategia de Documentación — Investigación Exhaustiva del Ecosistema 2026](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/docs-strategy/01-ecosystem-2026.md): El modelo que ya tienes es el correcto. No lo migres
 - [GAP-01 · Análisis de brechas del sistema de tareas de VantaDB vs. mejores prácticas de agentes IA](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/2026-08-10-agent-engineering/gap-01-agents.md): Nota de citado: todas las referencias son archivo:línea. Donde una sección de investigación no se pudo leer completa (ver §8), se cita con el rango del índice visible y se marca \"según índice\"
 - [GAP-02: Sistema de Tareas Automático vs Buenas Prácticas de Ingeniería](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/research/2026-08-10-agent-engineering/gap-02-engineering.md): El análisis se ejecutó a partir de la definición de cada práctica como un juicio verificable: \"¿el documento declara la práctica Y el pipeline la enforceda mecánicamente?\" La distinción declarado/enforced recorre todo el reporte y...
 - [Gate Fase A — kit del tester (stranger-test + checklist todo-SÍ)](https://raw.githubusercontent.com/ness-e/Vantadb/main/docs/dev/FASE-A.md): Copiar este bloque por persona (fuente: Investigacion-plan.md:20-24, ampliada)
