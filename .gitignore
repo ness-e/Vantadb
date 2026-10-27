@@ -1,55 +1,47 @@
-# Test database artifacts (large binary fixtures)
-**/test_load_db_*/
-vantadb-python/test_load_db_4cbc46ae/
-vantadb-ts/test_load_db*/
-.env.local
-.env.example
-# Rust build artifacts
-target/
+# ================================================================
+# VantaDB — .gitignore (ordenado por secciones, 2026-10-27)
+# ----------------------------------------------------------------
+# El ORDEN solo importa para las negaciones (!): cada bloque `!`
+# debe ir DESPUES de la regla que excepciona. No separar pares
+# regla/negacion de su bloque.
+# OJO: gitignore NO admite comentarios inline. Todo `#` va en
+# linea propia; `patron # texto` rompe el patron.
+# Verificado: 105 rutas ignoradas, 0 trackeadas-ignoradas,
+# fuente critica no ignorada (ver NOTA FINAL).
+# ================================================================
+
+# ── 1. Rust / Cargo ─────────────────────────────────────────
+# **/target/ cubre target/ raiz + crates + providers/*
 **/target/
 debug/
 release/
 *.rs.bk
+# AMPLIO: cualquier ruta con test_sdk
 **/test_sdk*/
-**/docs/snapshots/
-docs/user/book/book/
-/snapshots/
-test_smoke/
-# Local database instances and logs
-todo.md
-*.log
-*.db
-*.rdb
-/data/*
-!/data/README.md
-/vanta_data/
-/vantadb_data/
-/rocksdb_data/
-/vanta_snapshots/
-vanta_certification.json
-vanta_benchmark_report.json
-build_logs/
-high_density_bench_db/
-benches_db/
-tests_graph_db/
-tests_server_db/
-/test/
-benchmarks/data_comp_bench/
-benchmarks/data_bench_db/
-job_log.txt
+# simbolos Windows (maturin/napi)
+*.pdb
+.cargo/*
+!.cargo/config.toml
+!.cargo/audit.toml
+# Fuzz lockfile — intencionalmente ignorado.
+# Decision: fuzz/ es secundario; el churn del lockfile mete ruido.
+# Revisar si builds fuzz reproducibles pasan a ser requisito de CI.
+fuzz/Cargo.lock
+# Outputs de release locales (no publicados)
+vanta-server-rc*.exe
+vanta-server-rc*.exe.sha256
 
-# Python bindings and general Python artifacts
+# ── 2. Python ───────────────────────────────────────────────
 *.abi3.so
 *.pyd
-vantadb-python/target/
 .release-venv/
 *.py[cod]
 **/__pycache__/
 **/.pytest_cache/
-**/.venv/
-**/venv/
 **/.mypy_cache/
 **/.ruff_cache/
+**/.venv/
+**/venv/
 **/build/
 **/dist/
 **/*.egg-info/
@@ -57,39 +49,173 @@ vantadb-python/target/
 **/.coverage
 **/htmlcov/
 **/.cache/
+
+# ── 3. Node / TS / WASM ─────────────────────────────────────
+# cubre ts/, node/, .opencode/, integrations/
+**/node_modules/
+# artefactos `npm pack` (no son fuente)
+*.tgz
+# addons napi-rs (`npm run build` los regenera)
+vantadb-node/*.node
+
+# ── 4. DBs locales, fixtures de test y estado runtime ───────
+# !!! PATRONES AMPLIOS heredados (no anadir mas; preferir rutas
+# explicitas). `*db/` obliga las negaciones de abajo: tanto
+# `skills/vantadb/` como `vantadb-python/vantadb/` terminan en "db".
+**/test_load_db_*/
+vantadb-python/test_load_db_4cbc46ae/
+vantadb-ts/test_load_db*/
+*.db
+*.rdb
+vanta.db*
+/data/*
+!/data/README.md
+/vanta_data/
+/vantadb_data/
+/rocksdb_data/
+/vanta_snapshots/
+benchmarks/data_comp_bench/
+benchmarks/data_bench_db/
+high_density_bench_db/
+benches_db/
+tests_graph_db/
+tests_server_db/
+# runtime local (320MB+)
+my_agent_memory/
+vantadb-python/test_vanta_db/
+vantadb-python/test_path_dummy/
+vantadb-python/probe_lock_db/
+test_vanta_db*/
+vanta_data*/
+vantadb_data*/
+test_smoke/
+/test/
 /_test_import/
 /_test_async/
 /_test_listfmt/
-# Quickstart local artifacts
-quickstart_data/
-quickstart-agent-main.jsonl
-quickstart_memory.py
+# raiz; sin / inicial a proposito (heredado)
+vector_index.bin
+.vantadb-mcp/
+dev.pid
+apruba/
+release_test/
+# AMPLIO: cualquier dir terminado en db
+*db/
+# NEGACION OBLIGATORIA (termina en "db")
+!skills/vantadb/
+!vantadb-python/vantadb/
+# AMPLIO: cualquier dir tests_*/test_*
+# (ej. vantadb-ts/test_perf_15_16_db_*/)
+tests_*/
+test_*/
 
-# Local profiles and secrets
+# ── 5. Datasets, embeddings y fixtures grandes ───────────────
+# READMEs y manifiestos se mantienen trackeados: release-plz
+# rechaza archivos trackeados-pero-ignorados como worktree sucio.
+datasets/*
+!datasets/README.md
+/embeddings/models/
+embeddings/models/**
+/embeddings/*.onnx
+/embeddings/*.safetensors
+embeddings/**/*.bin
+!embeddings/README.md
+!embeddings/manifest.json
+!embeddings/manifest.lock
+!embeddings/download.py
+!embeddings/verify.py
+# Fixtures de ejemplo (se regeneran con el ejemplo graphrag,
+# ver examples/rust/graphrag.rs)
+/examples_graph_data/
+
+# ── 6. Secrets, env y perfiles ──────────────────────────────
+# sin / inicial: aplica a cualquier nivel
 .vanta_profile
 .env
 .env.*
 !.env.example
+.env.local
 
-# Datasets / local assets (READMEs stay tracked: release-plz rejects
-# tracked-but-ignored files as dirty worktree)
-datasets/*
-!datasets/README.md
+# ── 7. Logs, reportes, coverage y screenshots ───────────────
+*.log
+job_log.txt
+# AMPLIO (heredado)
+job*_logs/
+# AMPLIO: cualquier dir terminado en logs
+*logs/
+build_logs/
+validation_logs/
+# traces runtime raiz (campanas)
+traces/
+# sin / inicial: aplica a cualquier nivel
+vanta_certification.json
+vanta_benchmark_report.json
+benchmarks/embed_bench_report*.json
+benchmarks/vanta_benchmark_report.json
+benchmarks/competitive_data/
+benchmarks/beir_recall_report*.json
+benchmarks/datasets/
+evals/memory_bench_report.json
+evals/memory_harness_report*.json
+evals/runners/report_h2h_*.json
+lcov.info
+*.profraw
+vantadb-ts/coverage/
+clippy_output.txt
+# sin / inicial: cubre e2e/screenshots/
+screenshots/
+*.page-*.png
+/architecture.png
+/engine.png
+/engine-mobile.png
+/homepage.png
 
-# Local agent memory DB (runtime artifact, 320MB+)
-my_agent_memory/
+# ── 8. Snapshots y artefactos de test ────────────────────────
+**/docs/snapshots/
+docs/user/book/book/
+/snapshots/
+ghost_out/
+Cargo_test.toml
+**/Cargo_test.toml
+.playwright-mcp/
+.playwright-cli/
 
-# Enforcement runtime log (appended per verify call)
-.opencode/task-system/enforcement/verify-log.jsonl
-vanta-server-rc*.exe
-vanta-server-rc*.exe.sha256
-
-# IDE / OS / Agent artifacts
+# ── 9. IDE / OS / vault / backups ───────────────────────────
 .vscode/
 .idea/
 .DS_Store
 Thumbs.db
 .devin/
+.obsidian/
+# canvas de VS Code
+*.canvas
+# solo directorios (heredado)
+*_BACKUP_*/
+
+# ── 10. Agent tooling local C-01 (untracked, queda en disco) ─
+# Todo .opencode/ esta ignorado: las reglas finas que habia para
+# subrutas (verify-log, opencode-loop, traces, budgets, sessions,
+# review-deep/tmp) eran redundantes y se eliminaron en el ordenado.
+.opencode/
+.codegraph/
+.opencodereview/
+codegraph.json
+opencode.jsonc
+vanta-mcp-local.ps1
+SKILLS-MANIFEST.md
+AGENTS.md
+.lurkr-baseline.json
+.env.tokens
+# OJO: el .example tambien queda untracked (C-01)
+.env.tokens.example
+notion_backup_batches/
+# scratch local
+.understand-anything/
+# indice regenerable (snapshot team opcional)
+.codebase-memory/
+# TODO .agents/ ignorado salvo allowlist fragil —
+# cada skill nueva exige editar esto. Considerar trackear
+# .agents/skills/ completo en su lugar.
 .agents/*
 !.agents/skills
 .agents/skills/*
@@ -124,166 +250,12 @@ Thumbs.db
 !.agents/skills/using-agent-skills/
 !.agents/agents/
 !.agents/references/
-.cargo/*
-!.cargo/config.toml
-!.cargo/audit.toml
-
-# Local Python test database and virtual environments
-vantadb-python/test_vanta_db/
-vantadb-python/test_path_dummy/
-vantadb-python/probe_lock_db/
-test_vanta_db*/
-vanta_data*/
-vantadb_data*/
-vanta.db*
-
-# Local development environments, tests, and temporary logs
-apruba/
-release_test/
-validation_logs/
-job*_logs/
-*logs/
-*db/
-!skills/vantadb/
-!vantadb-python/vantadb/
-tests_*/
-test_*/
-
-# Local run artifacts and scratch scripts
-chaos_results.json
-payload.json
-test_gil.py
-
-# Windows debug symbols
-*.pdb
-
-# Node.js / TypeScript
-node_modules/
-vantadb-ts/node_modules/
-**/node_modules/
-
-# Coverage reports
-lcov.info
-*.profraw
-vantadb-ts/coverage/
-
-# Obsidian vault config
-.obsidian/
-
-# Backups
-*_BACKUP_*/
-
-# Fuzz lockfile — intentionally ignored.
-# Decision: fuzz/ is a secondary concern; lockfile churn adds PR noise.
-# Revisit if reproducible fuzz builds become a CI requirement.
-fuzz/Cargo.lock
-
-# Vector index binary
-vector_index.bin
-
-# Test artifacts
-ghost_out/
-Cargo_test.toml
-**/Cargo_test.toml
-.playwright-mcp/
-.playwright-cli/
-
-# Understand-Anything (local scratch)
-.understand-anything/
-
-# codebase-memory-mcp index artifact (regenerable; optional team-share snapshot)
-.codebase-memory/
-
-# OpenCode loop session artifacts
-.opencode/opencode-loop/
-
-# VS Code canvas files
-*.canvas
-
-# Local VantaDB runtime artifacts
-.vantadb-mcp/
-dev.pid
-
-# Visual review screenshots & reports
-screenshots/
-*.page-*.png
-/architecture.png
-/engine.png
-/engine-mobile.png
-/homepage.png
-
-clippy_output.txt
-
-langchain-vantadb/
-llama-index-vector-stores-vantadb/
-
-# Review-deep temporary scorecards
-.opencode/skills/review-deep/tmp/
-
-# Campaign executor runtime traces
-traces/
-.opencode/task-system/traces/*.jsonl
-
-# Campaign executor session artifacts
-.opencode/task-system/traces/active-model.json
-.opencode/task-system/traces/metrics.json
-
-# Campaign executor budget state (auto-generated)
-.opencode/task-system/mcp/*.budget.json
 .github/workflows-dl/
-
-# embeddings — local models (lazy download, ~22GB total if all 9 × ONNX+HF)
-# keep manifests, ignore weights
-/embeddings/models/
-embeddings/models/**
-/embeddings/*.onnx
-/embeddings/*.safetensors
-embeddings/**/*.bin
-!embeddings/README.md
-!embeddings/manifest.json
-!embeddings/manifest.lock
-!embeddings/download.py
-!embeddings/verify.py
-
-# Benchmark reports (reproducible via benchmarks/embed_bench.py)
-benchmarks/embed_bench_report*.json
-benchmarks/vanta_benchmark_report.json
-benchmarks/competitive_data/
-benchmarks/beir_recall_report*.json
-benchmarks/datasets/
-evals/memory_bench_report.json
-evals/memory_harness_report*.json
-evals/runners/report_h2h_*.json
-
-# Random build artifacts
-*.rar
-
-# Example graph data (large local fixtures)
-/examples_graph_data/
-# napi-rs compiled native addons (regenerated by `npm run build`)
-vantadb-node/*.node
-vantadb-node/node_modules/
-# npm pack artifacts (los deja `npm pack` al publicar; no son fuente)
-*.tgz
-
-# Task-system runtime state (auto-generated)
-.opencode/task-system/enforcement/sessions/
 docs/dev/plans/*.budget.json
-
 docs/dev/reviews/dsm-baseline.json
-
-# Local-only agent tooling (C-01: untracked from git, stays on disk)
-.opencode/
-.codegraph/
-.opencodereview/
-codegraph.json
-opencode.jsonc
-vanta-mcp-local.ps1
-SKILLS-MANIFEST.md
-AGENTS.md
-.lurkr-baseline.json
-.env.tokens.example
-notion_backup_batches/
+# Scratch de docs/dev (trabajo local del agente): lista explicita
+# fragil — cada archivo nuevo exige editar esto. Considerar
+# `docs/dev/*` + allowlist de lo trackeado en su lugar.
 docs/dev/Backlog.md
 docs/dev/backlog-notion.md
 docs/dev/Backlog-negocio.md
@@ -298,3 +270,34 @@ docs/dev/plans/
 docs/dev/avance/
 docs/dev/workflow/
 docs/dev/strategy/
+
+# ── 11. Miscelaneos con flag ────────────────────────────────
+# FLAG: sin / inicial, tambien ignora docs/user/discord/todo.md
+# (quiza no intencional)
+todo.md
+quickstart_data/
+quickstart-agent-main.jsonl
+# FLAG: nombre generico ignorado globalmente
+quickstart_memory.py
+# FLAG: idem
+chaos_results.json
+# FLAG: idem
+payload.json
+# FLAG: idem
+test_gil.py
+*.rar
+# FLAG: sin comentario en original (clones legacy?)
+langchain-vantadb/
+llama-index-vector-stores-vantadb/
+
+# NOTA FINAL — verificacion tras reordenar (2026-10-27):
+#   git status --ignored --porcelain | ? {$_ -match '^!!'}  -> 105 rutas
+#   git ls-files -c -i --exclude-standard                 -> 0 (nada
+#     trackeado ignorado)
+#   git check-ignore src/lib.rs Cargo.toml tests/cli_tests.rs
+#     docs/index.md skills/vantadb/SKILL.md                 -> vacio (OK)
+rcelain | ? {$_ -match '^!!'}  -> 105 rutas
+#   git ls-files -c -i --exclude-standard                 -> 0 (nada
+#     trackeado ignorado)
+#   git check-ignore src/lib.rs Cargo.toml tests/cli_tests.rs
+#     docs/index.md skills/vantadb/SKILL.md                 -> vacio (OK)
