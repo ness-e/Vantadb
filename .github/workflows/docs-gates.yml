@@ -34,7 +34,7 @@ on:
       - 'Cargo.lock'
       - 'README.md'
       - 'llms.txt'
-      - '.markdownlint-cli2.yaml'
+      - '.github/markdownlint-cli2.yaml'
   pull_request:
     branches: [main, develop]
     paths:
@@ -55,7 +55,7 @@ on:
       - 'Cargo.lock'
       - 'README.md'
       - 'llms.txt'
-      - '.markdownlint-cli2.yaml'
+      - '.github/markdownlint-cli2.yaml'
   schedule:
     - cron: '23 7 * * 1'
   workflow_dispatch:
@@ -80,7 +80,7 @@ jobs:
         with:
           node-version: 22
       - name: Lint Markdown
-        run: npx markdownlint-cli2 "docs/**/*.md"
+        run: npx markdownlint-cli2 --config .github/markdownlint-cli2.yaml "docs/**/*.md"
   check-format:
     if: github.actor != 'dependabot[bot]' && (github.event_name != 'schedule')
 
@@ -299,7 +299,7 @@ jobs:
       # to hold than a rule set; markdownlint's own --fix is deliberately not
       # used, because these files are hand-written prose.
       - name: Lint
-        run: npx markdownlint-cli2 "docs/**/*.md" 2>&1 | tee /tmp/lint.txt || true
+        run: npx markdownlint-cli2 --config .github/markdownlint-cli2.yaml "docs/**/*.md" 2>&1 | tee /tmp/lint.txt || true
       - name: Fail if the error count exceeds the recorded baseline
         env:
           BASELINE: '0'
@@ -314,7 +314,7 @@ jobs:
           fi
       - name: Weekly full-repo lint (informational, never blocks)
         if: github.event_name == 'schedule'
-        run: npx markdownlint-cli2 "**/*.md" 2>&1 | tail -40
+        run: npx markdownlint-cli2 --config .github/markdownlint-cli2.yaml "**/*.md" 2>&1 | tail -40
         continue-on-error: true # CATEGORY: INFORMATIONAL - advisory sweep across the whole repo, not the docs gate
   api-docs:
     if: github.actor != 'dependabot[bot]' && (github.event_name != 'schedule')

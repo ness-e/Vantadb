@@ -1,5 +1,5 @@
 #!/bin/sh
-# VantaDB pre-commit — SHIM hacia .pre-commit-config.yaml (sistema único, FIND-339)
+# VantaDB pre-commit — SHIM hacia .githooks/pre-commit-config.yaml (sistema único, FIND-339)
 # Instalación: git config core.hooksPath .githooks  (NO ejecutar `pre-commit install`:
 # escribiría en .git/hooks, ignorado bajo core.hooksPath).
 # Con `pre-commit` instalado delega todos los gates deterministas (fmt, clippy,
@@ -16,8 +16,8 @@ cd "$REPO_ROOT"
 FAILED=0
 
 if command -v pre-commit >/dev/null 2>&1; then
-    echo "pre-commit: running .pre-commit-config.yaml gates..."
-    if pre-commit run --show-diff-on-failure "$@"; then
+    echo "pre-commit: running .githooks/pre-commit-config.yaml gates..."
+    if pre-commit run --config "$REPO_ROOT/.githooks/pre-commit-config.yaml" --show-diff-on-failure "$@"; then
         echo "pre-commit: gates passed."
     else
         FAILED=1

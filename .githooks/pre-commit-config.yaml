@@ -3,7 +3,8 @@
 # los hooks corren vía `git config core.hooksPath .githooks`, cuyo pre-commit
 # delega a `pre-commit run`. `pre-commit install` escribiría en .git/hooks,
 # ignorado bajo core.hooksPath, y los gates de Python/JS/docs nunca correrían.
-# Actualizar revs: pre-commit autoupdate
+# Actualizar revs: pre-commit autoupdate --config .githooks/pre-commit-config.yaml
+# (config fuera de la raiz: todo uso manual exige -c/--config)
 # Sistema único: este archivo define TODOS los gates deterministas del stage
 # pre-commit. El stage pre-push sigue nativo en .githooks/pre-push (barrera SIPP).
 # CI-01: gate para formatters — cada hook está scoped a su lenguaje/directorio.
@@ -53,6 +54,7 @@ repos:
     rev: v0.23.2
     hooks:
       - id: markdownlint-cli2
+        args: ['--config', '.github/markdownlint-cli2.yaml']
         # Mismo scope que CI (`docs/**/*.md` en gate-docs-21.yml) pero
         # filtrado por staged files. NO --fix: hook es gate, no formatter.
         files: '^docs/.*\.mdx?$'

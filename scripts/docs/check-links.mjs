@@ -89,7 +89,7 @@ const WIKILINK_BUDGET = Number(
  */
 
 // Frozen history is never repaired, so it is not part of the gate. Same
-// rationale as the .markdownlint-cli2.yaml `ignores` block.
+// rationale as the .github/markdownlint-cli2.yaml `ignores` block.
 const ARCHIVE_RE = /(^|\/)(archive|target|node_modules|\.obsidian)(\/|$)/;
 const SKIP_DIR = new Set(['.obsidian', 'node_modules']);
 
