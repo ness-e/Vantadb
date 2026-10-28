@@ -52,11 +52,5 @@ ignore = [
     # Mirror of deny.toml [advisories] triage (2026-10-25).
     "RUSTSEC-2026-0387",
 
-    # RUSTSEC-2026-0391/0398/0403/0410 (zstd stack via tantivy 0.26.2).
-    # Mirror of deny.toml [advisories] triage (2026-10-28): temporary ignores,
-    # expire 2027-01-26, tracked to a tantivy upgrade with fixed zstd.
-    "RUSTSEC-2026-0391",
-    "RUSTSEC-2026-0398",
-    "RUSTSEC-2026-0403",
-    "RUSTSEC-2026-0410",
+    # Removal: zstd stack fixed by tantivy 0.27.0 (zstd 0.14.3 / safe 8.2.0 / sys 2.1.2) — ignores dropped.
 ]

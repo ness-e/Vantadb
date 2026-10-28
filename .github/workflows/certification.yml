@@ -525,7 +525,7 @@ jobs:
         run: |
           python scripts/bench_regression.py extract \
             --criterion-root target/criterion \
-            --output benchmark_report_criterion.json
+            --output metricas/benchmark_report_criterion.json
 
       # CATEGORY: INFORMATIONAL — regression comparison may fail when no
       # baseline exists (first run) or baseline format changes. Non-blocking.
@@ -534,9 +534,9 @@ jobs:
         continue-on-error: true # CATEGORY: INFORMATIONAL - comparacion contra el baseline: informa de la regresion de rendimiento; el gate que decide es el step anterior
         run: |
           python scripts/bench_regression.py compare \
-            benchmark_report_criterion.json \
+            metricas/benchmark_report_criterion.json \
             --format json \
-            --output bench_comparison_result.json \
+            --output metricas/bench_comparison_result.json \
             --fail-on-regression
         env:
           GITHUB_SHA: ${{ github.sha }}
@@ -544,8 +544,8 @@ jobs:
       - name: Detect regressions
         id: check_regression
         run: |
-          if [ -f bench_comparison_result.json ]; then
-            HAS_REG=$(python -c "import json; print(json.load(open('bench_comparison_result.json'))['has_regression'])")
+          if [ -f metricas/bench_comparison_result.json ]; then
+            HAS_REG=$(python -c "import json; print(json.load(open('metricas/bench_comparison_result.json'))['has_regression'])")
             echo "has_regression=$HAS_REG" >> "$GITHUB_OUTPUT"
             echo "Regression detected: $HAS_REG"
           else
@@ -558,7 +558,7 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const report = JSON.parse(fs.readFileSync('bench_comparison_result.json', 'utf8'));
+            const report = JSON.parse(fs.readFileSync('metricas/bench_comparison_result.json', 'utf8'));
             const markdown = fs.readFileSync('nightly_hnsw_results.txt', 'utf8').slice(0, 500)
               + '\n...\n*(truncated — see workflow artifacts for full logs)*';
 
@@ -615,8 +615,8 @@ jobs:
           name: nightly-benchmark-results
           path: |
             nightly_*_results.txt
-            benchmark_report_criterion.json
-            bench_comparison_result.json
+            metricas/benchmark_report_criterion.json
+            metricas/bench_comparison_result.json
           retention-days: 30
 
       # AUD-030: promote tonight's clean run to the new baseline so the
@@ -626,7 +626,7 @@ jobs:
       - name: Update and commit baseline (nightly only)
         if: github.event_name == 'schedule' && steps.check_regression.outputs.has_regression != 'True'
         run: |
-          python scripts/bench_regression.py update-baseline benchmark_report_criterion.json
+          python scripts/bench_regression.py update-baseline metricas/benchmark_report_criterion.json
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add benchmarks/criterion_baseline.json

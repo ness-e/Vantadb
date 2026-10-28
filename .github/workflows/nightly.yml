@@ -433,7 +433,7 @@ jobs:
         run: |
           python scripts/bench_regression.py extract \
             --criterion-root target/criterion \
-            --output benchmark_report_canonical_p99.json
+            --output metricas/benchmark_report_canonical_p99.json
 
       # CATEGORY: INFORMATIONAL - compare may fail with no baseline or format
       # drift. Non-blocking by design.
@@ -443,9 +443,9 @@ jobs:
         continue-on-error: true # CATEGORY: INFORMATIONAL
         run: |
           python scripts/bench_regression.py compare \
-            benchmark_report_canonical_p99.json \
+            metricas/benchmark_report_canonical_p99.json \
             --format json \
-            --output bench_comparison_canonical_p99.json \
+            --output metricas/bench_comparison_canonical_p99.json \
             --fail-on-regression
         env:
           GITHUB_SHA: ${{ github.sha }}
@@ -458,7 +458,7 @@ jobs:
           script: |
             const fs = require('fs');
             let cmp = null;
-            try { cmp = JSON.parse(fs.readFileSync('bench_comparison_canonical_p99.json', 'utf8')); }
+            try { cmp = JSON.parse(fs.readFileSync('metricas/bench_comparison_canonical_p99.json', 'utf8')); }
             catch (e) { console.log('No comparison report - skipping finding.'); return; }
             if (!cmp.has_regression) { console.log('No regression - nothing to file.'); return; }
             let numbers = '';
@@ -512,8 +512,8 @@ jobs:
           name: canonical-p99-results
           path: |
             canonical_p99_results.txt
-            benchmark_report_canonical_p99.json
-            bench_comparison_canonical_p99.json
+            metricas/benchmark_report_canonical_p99.json
+            metricas/bench_comparison_canonical_p99.json
           retention-days: 30
 
   # Origin: ocr-delegate.yml. OCR Delegation Spec - INFORMATIONAL ONLY.

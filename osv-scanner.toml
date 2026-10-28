@@ -39,43 +39,6 @@ reason = "Mirror of deny.toml triage: transitive via tantivy only; direct lru 0.
 # index files, no cross-request contexts. Fix needs tantivy with zstd >= 0.14.3.
 # Owner: vanta-lead.
 [[IgnoredVulns]]
-id = "RUSTSEC-2026-0391"
-ignoreUntil = "2027-01-26T00:00:00Z"
-reason = "Mirror of deny.toml triage: self-index decompression only, no cross-tenant contexts. Tracked tantivy upgrade with zstd >= 0.14.3. Owner: vanta-lead."
-
-# RUSTSEC-2026-0398 (zstd-safe 7.2.4, Seekable::decompress set_len overflow).
-# Mirror of deny.toml triage (2026-10-28): seekable path not reachable with
-# attacker-controlled offsets. Fix needs zstd-safe >= 8.2.0 via tantivy.
-# Owner: vanta-lead.
-[[IgnoredVulns]]
-id = "RUSTSEC-2026-0398"
-ignoreUntil = "2027-01-26T00:00:00Z"
-reason = "Mirror of deny.toml triage: seekable path unreachable, no attacker offsets. Tracked tantivy upgrade with zstd-safe >= 8.2.0. Owner: vanta-lead."
-
-# RUSTSEC-2026-0403 (zstd-safe 7.2.4, legacy-frame uninit memory via stream writer).
-# Mirror of deny.toml triage (2026-10-28): no external archives decompressed.
-# Fix needs zstd-safe >= 8.2.0 via tantivy. Owner: vanta-lead.
-[[IgnoredVulns]]
-id = "RUSTSEC-2026-0403"
-ignoreUntil = "2027-01-26T00:00:00Z"
-reason = "Mirror of deny.toml triage: trusted local indexes only. Tracked tantivy upgrade with zstd-safe >= 8.2.0. Owner: vanta-lead."
-
-# RUSTSEC-2026-0410 (zstd-sys 2.0.16, wasm32 allocator shim - sandbox-contained).
-# Mirror of deny.toml triage (2026-10-28). Fix needs zstd-sys >= 2.1.2 via tantivy.
-# Owner: vanta-lead.
-[[IgnoredVulns]]
-id = "RUSTSEC-2026-0410"
-ignoreUntil = "2027-01-26T00:00:00Z"
-reason = "Mirror of deny.toml triage: wasm-only, sandbox-contained. Tracked tantivy upgrade with zstd-sys >= 2.1.2. Owner: vanta-lead."
-
-# NOTE: RUSTSEC-2024-0429 (glib, desktop-lock only) is intentionally NOT listed:
-# this config applies to ./Cargo.lock only (no propagation) and the root lock
-# has 0 glib hits (see audit.toml VULN-C1). An unused ignore would be noise.
-# RUSTSEC-2026-0387 (crypto-bigint 0.5.5, timing variability — transitive via
-# jsonwebtoken 11.1.0 -> p256/p384 -> elliptic-curve 0.13.8; VantaDB only uses HS256 HMAC).
-# Mirror of deny.toml + .cargo/audit.toml triage (was missing here: OSV-only coverage gap).
-# Owner: vanta-lead.
-[[IgnoredVulns]]
 id = "RUSTSEC-2026-0387"
 ignoreUntil = "2027-01-26T00:00:00Z"
 reason = "Mirror of deny.toml triage: HS256-only, no EC private-key ops. Tracked jsonwebtoken upgrade (also drops rsa/p256/p384/sha2-0.10/digest-0.10/block-buffer-0.10 chains). Owner: vanta-lead."
@@ -95,52 +58,3 @@ reason = "No panicking callbacks into digest compress path; internal hashing onl
 # chain as 0391/0398/0403/0410, same fix: zstd-safe >= 8.2.0 via tantivy upgrade).
 # VantaDB decompresses only its own index files; no attacker-driven contexts/offsets/dicts.
 # Owner: vanta-lead. Expiry shared with the batch: 2027-01-26.
-[[IgnoredVulns]]
-id = "RUSTSEC-2026-0395"
-ignoreUntil = "2027-01-26T00:00:00Z"
-reason = "Mirror of deny.toml batch triage (Use-after-free with `CParameter::StableInBuffer`): trusted local indexes only. Tracked tantivy upgrade with zstd-safe >= 8.2.0. Owner: vanta-lead."
-
-[[IgnoredVulns]]
-id = "RUSTSEC-2026-0396"
-ignoreUntil = "2027-01-26T00:00:00Z"
-reason = "Mirror of deny.toml batch triage (`Seekable` reads a NULL or out-of-bounds seek table): trusted local indexes only. Tracked tantivy upgrade with zstd-safe >= 8.2.0. Owner: vanta-lead."
-
-[[IgnoredVulns]]
-id = "RUSTSEC-2026-0397"
-ignoreUntil = "2027-01-26T00:00:00Z"
-reason = "Mirror of deny.toml batch triage (`OutBuffer::around_pos` exposes uninitialized memory): trusted local indexes only. Tracked tantivy upgrade with zstd-safe >= 8.2.0. Owner: vanta-lead."
-
-[[IgnoredVulns]]
-id = "RUSTSEC-2026-0399"
-ignoreUntil = "2027-01-26T00:00:00Z"
-reason = "Mirror of deny.toml batch triage (Use-after-free through `init_using_cdict` and `init_using_ddict`): trusted local indexes only. Tracked tantivy upgrade with zstd-safe >= 8.2.0. Owner: vanta-lead."
-
-[[IgnoredVulns]]
-id = "RUSTSEC-2026-0400"
-ignoreUntil = "2027-01-26T00:00:00Z"
-reason = "Mirror of deny.toml batch triage (Use-after-free of a dictionary after a one-shot call on an open stream): trusted local indexes only. Tracked tantivy upgrade with zstd-safe >= 8.2.0. Owner: vanta-lead."
-
-[[IgnoredVulns]]
-id = "RUSTSEC-2026-0401"
-ignoreUntil = "2027-01-26T00:00:00Z"
-reason = "Mirror of deny.toml batch triage (Out-of-bounds read in `train_from_buffer` when sample sizes overflow): trusted local indexes only. Tracked tantivy upgrade with zstd-safe >= 8.2.0. Owner: vanta-lead."
-
-[[IgnoredVulns]]
-id = "RUSTSEC-2026-0402"
-ignoreUntil = "2027-01-26T00:00:00Z"
-reason = "Mirror of deny.toml batch triage (Heap buffer overflow in `CCtx::try_clone` on a multithreaded context): trusted local indexes only. Tracked tantivy upgrade with zstd-safe >= 8.2.0. Owner: vanta-lead."
-
-[[IgnoredVulns]]
-id = "RUSTSEC-2026-0404"
-ignoreUntil = "2027-01-26T00:00:00Z"
-reason = "Mirror of deny.toml batch triage (Double free in `DCtx::try_clone`): trusted local indexes only. Tracked tantivy upgrade with zstd-safe >= 8.2.0. Owner: vanta-lead."
-
-[[IgnoredVulns]]
-id = "RUSTSEC-2026-0405"
-ignoreUntil = "2027-01-26T00:00:00Z"
-reason = "Mirror of deny.toml batch triage (Out-of-bounds read with an out-of-range `InBuffer::pos`): trusted local indexes only. Tracked tantivy upgrade with zstd-safe >= 8.2.0. Owner: vanta-lead."
-
-[[IgnoredVulns]]
-id = "RUSTSEC-2026-0406"
-ignoreUntil = "2027-01-26T00:00:00Z"
-reason = "Mirror of deny.toml batch triage (Use-after-free when changing a multithreaded context with an unfinished frame): trusted local indexes only. Tracked tantivy upgrade with zstd-safe >= 8.2.0. Owner: vanta-lead."
