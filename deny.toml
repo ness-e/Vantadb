@@ -49,6 +49,47 @@ ignore = [
     # Owner: vanta-lead
     # Expiry: 2027-06-01
     "RUSTSEC-2026-0387",
+
+    # RUSTSEC-2026-0391 (zstd 0.13.3, abandoned-stream context leak):
+    # Pulled via tantivy 0.26.2 (lexical search, src/text_index.rs) -> zstd.
+    # A reused context can leak buffered plaintext across streams; VantaDB only
+    # decompresses its own index files, never per-user request contexts, so the
+    # cross-tenant disclosure scenario is not reachable. Fix needs tantivy to
+    # bump zstd >= 0.14.3 (pinned ^0.13, `cargo update -p zstd` cannot cross it).
+    # Owner: vanta-lead
+    # Expiry: 2027-01-26
+    # Tracked: upgrade tantivy to a release with zstd >= 0.14.3, then drop.
+    "RUSTSEC-2026-0391",
+
+    # RUSTSEC-2026-0398 (zstd-safe 7.2.4, Seekable::decompress set_len overflow):
+    # Same tantivy chain as above. Only reachable through the `seekable` feature
+    # with an attacker-chosen offset; VantaDB never seeks archives by external
+    # input. Fix needs zstd-safe >= 8.2.0 via a tantivy upgrade.
+    # Owner: vanta-lead
+    # Expiry: 2027-01-26
+    # Tracked: upgrade tantivy to a release with zstd-safe >= 8.2.0, then drop.
+    "RUSTSEC-2026-0398",
+
+    # RUSTSEC-2026-0403 (zstd-safe 7.2.4, legacy-frame uninit memory):
+    # Same tantivy chain. Trigger is a 5-6 byte corrupt legacy frame through the
+    # stream-writer decoder; VantaDB writes and reads its own index files, it
+    # does not decompress external archives. Fix needs zstd-safe >= 8.2.0 via
+    # a tantivy upgrade.
+    # Owner: vanta-lead
+    # Expiry: 2027-01-26
+    # Tracked: upgrade tantivy to a release with zstd-safe >= 8.2.0, then drop.
+    "RUSTSEC-2026-0403",
+
+    # RUSTSEC-2026-0410 (zstd-sys 2.0.16, wasm32 allocator shim):
+    # Same tantivy chain. wasm32-only: allocation failure corrupts the module's
+    # own linear memory (stays inside the sandbox). VantaDB ships a wasm target
+    # (vantadb-wasm), so it applies in principle, but impact is sandbox-contained
+    # and requires memory exhaustion. Fix needs zstd-sys >= 2.1.2 via a tantivy
+    # upgrade.
+    # Owner: vanta-lead
+    # Expiry: 2027-01-26
+    # Tracked: upgrade tantivy to a release with zstd-sys >= 2.1.2, then drop.
+    "RUSTSEC-2026-0410",
 ]
 
 [licenses]
