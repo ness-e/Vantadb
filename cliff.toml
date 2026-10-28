@@ -54,8 +54,10 @@ commit_parsers = [
   { message = ".*", group = " Other", default_scope = "core" },
 ]
 
-# Paths whose commits are excluded from the changelog (ruta real de histórico/archivo)
+# Paths whose commits are excluded from the changelog. Applies to full
+# regeneration from history (release-plz appends incrementally per release).
+# NOTE: docs/dev/avance/historial/ is untracked today (local-only scratch),
+# but it has tracked history, so the exclusion still matters on regen.
 exclude_paths = [
-  "docs/dev/archive/",
   "docs/dev/avance/historial/",
 ]

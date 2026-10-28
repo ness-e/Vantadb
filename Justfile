@@ -112,9 +112,10 @@ python-setup:
 python-test:
     pwsh -NoProfile -File dev-tools/scripts/validate_python_sdk.ps1
 
-# Generate changelog
+# Generate changelog (manual escape hatch; releases own CHANGELOG.md via release-plz,
+# which reads cliff.toml for grouping/template)
 changelog:
-    git-cliff -o docs/CHANGELOG.md
+    git-cliff -o CHANGELOG.md
 
 # Full CI suite (what CI runs)
 ci: fmt clippy test deny audit-cargo
