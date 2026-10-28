@@ -39,14 +39,16 @@ repos:
       - id: ruff-format
         files: '^vantadb-python/.*\.pyi?$'
 
-  # ── Web (web/) — usa .prettierrc.json de la raíz (printWidth 100) ────────
+  # ── JS/TS/JSON (repo) — usa .prettierrc.json de la raíz (printWidth 100) ───
+  # Scope: todo el codigo JS/TS/CSS/JSON salvo generados y vendors.
+  # El `web/` original no existe en este repo (era scope muerto).
   - repo: https://github.com/pre-commit/mirrors-prettier
     # Prettier version. Mirror archivado pero funcional para uso estándar.
     rev: v3.1.0
     hooks:
       - id: prettier
-        files: '^web/.*\.(js|jsx|ts|tsx|css|scss|json|md|mdx)$'
-        exclude: '^web/(\.next|node_modules)/|^web/package-lock\.json$'
+        files: '\.(mjs|cjs|js|jsx|ts|tsx|mts|cts|css|scss|json|jsonc)$'
+        exclude: '(^|/)(node_modules|dist|build|pkg|coverage|\.next)/|package-lock\.json$'
 
   # ── Docs (docs/) — mirror local de gate-docs-21.yml ──────────────────────
   - repo: https://github.com/DavidAnson/markdownlint-cli2
