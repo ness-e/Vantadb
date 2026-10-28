@@ -116,7 +116,7 @@ indicatif = { version = "0.18", optional = true }
 console = { version = "0.16", optional = true }
 clap = { version = "4.4", features = ["derive", "env"], optional = true }
 clap_complete = { version = "4.4", optional = true }
-toml = { version = "0.8", optional = true }
+toml = { version = "1.1", optional = true }
 # ERR-CORE-02: anyhow es SOLO para los bins (src/bin/*), nunca para src/lib.
 # Gated tras `cli` (vanta-cli required-features=["cli"]) para no gravar a los
 # consumidores de la librería.
