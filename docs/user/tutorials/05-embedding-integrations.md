@@ -121,7 +121,7 @@ python -m py_compile embeddings/download.py && python embeddings/download.py --h
 python embeddings/verify.py --check
 cargo check -p vantadb --features embed-local
 cargo test --features embed-local -- llm::tests::local_embed_multilingual  # 384, self>0.99, multi>0.60
-python benchmarks/embed_bench.py --models multilingual-e5-small,bge-m3 --dataset tiny-en-es-1k --output benchmarks/embed_bench_report.json
+python benchmarks/embed_bench.py --models multilingual-e5-small,bge-m3 --dataset tiny-en-es-1k --output metricas/embeddings/embed_bench_report.json
 ```
 
 See also `embeddings/README.md`, `docs/api/EMBEDDINGS.md`, `docs/user/operations/BENCHMARKS.md` §8, `embeddings/manifest.json`.

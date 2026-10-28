@@ -31,7 +31,7 @@ python evals/runners/head_to_head.py --systems vantadb,mem0 \
 # para comparativas (10/tipo = 60 preguntas cubre los 6 tipos).
 ```
 
-Reports: `evals/runners/report_h2h_<label>_<system>.json` (gitignored — regenerar con
+Reports: `metricas/memoria/report_h2h_<label>_<system>.json` (gitignored — regenerar con
 los comandos de arriba; la fuente citable es BENCHMARKS §19 + comando + sha256).
 
 ## Protocolo (pineado — verificá contra docs antes de correr)

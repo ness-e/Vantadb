@@ -12,7 +12,7 @@ Comando reproducible (Regla 11):
   python benchmarks/embed_bench.py --models all --include-exception --dataset tiny-en-es-1k
 
 Outputs:
-  benchmarks/embed_bench_report.json  (gitignored, schema por modelo)
+  metricas/embeddings/embed_bench_report.json  (gitignored, schema por modelo)
   stdout tabla markdown (para BENCHMARKS.md)
 
 # ponytail: dummy determinístico cuando no hay onnx/HF ni vantadb; techo = recall sintético ~1.0
@@ -41,7 +41,8 @@ except Exception:
     pass
 
 MANIFEST = pathlib.Path(__file__).parent.parent / "embeddings" / "manifest.json"
-DEFAULT_OUTPUT = pathlib.Path(__file__).parent / "embed_bench_report.json"
+REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
+DEFAULT_OUTPUT = REPO_ROOT / "metricas" / "embeddings" / "embed_bench_report.json"
 
 # ── utils ──────────────────────────────────────────────────────────────────
 

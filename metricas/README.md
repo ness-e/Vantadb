@@ -10,13 +10,10 @@ nextest`, `benchmarks/` y `evals/` para harnesses ad-hoc multilingües);
 
 | Carpeta | Quién escribe | Qué contiene |
 |---|---|---|
-| `certificacion/` | `tests/common/mod.rs` (`VantaHarness`) | `vanta_certification.json`: sidecar de los tests de `tests/certification/` (correctitud + tiempos + memoria por bloque) |
-| `hnsw/` | benches HNSW (`hnsw_pure`, `hnsw_recall_ef`, …) | reportes de recall/latencia/ef |
-| `grafo/` | benches y tests de grafo/GDS | recorridos, pagerank, centralidad |
-| `query/` | benches de búsqueda (`hybrid_queries`, …) | latencias, RRF, perfiles |
-| `temporal/` | tests de bordes temporales | ventanas, compat |
-| `gobierno/` | governor, GC, memoria (`memory_budget`, …) | presupuestos, GC, telemetría |
-| `embeddings/` | `benchmarks/embed_bench.py`, `evals/` | calidad de embeddings, beir |
+| `certificacion/` | `tests/common/mod.rs` (`VantaHarness`, default `VANTA_CERT_REPORT`) | `vanta_certification.json`: sidecar de `tests/certification/*` (correctitud + tiempos + memoria por bloque) |
+| `benchmarks/` | `benchmarks/vantadb_local_bench.py` (`--output`, default aquí) | `vanta_benchmark_report.json`: throughput/latencias del bench local. Lo lee `benchmarks/update_markdown.py` (fallback) para la tabla de `docs/user/operations/BENCHMARKS.md` |
+| `embeddings/` | `benchmarks/embed_bench.py` (`--output`, default aquí) | `embed_bench_report.json`: recall/QPS/RSS/p50 por modelo |
+| `memoria/` | `evals/memory_bench.py`, `evals/memory_harness.py` (`--output`), `evals/runners/head_to_head.py` (nombre fijo `report_h2h_<label>_<system>.json`) | reportes de harness y head-to-head de memoria |
 
 ## Convención (obligatoria para harnesses nuevos)
 

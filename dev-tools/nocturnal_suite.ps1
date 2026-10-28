@@ -63,7 +63,7 @@ try {
     Write-Header "2. VantaDB Python SDK Benchmark (10K / 128d / 1000 q)"
     $PythonExe = ".venv\Scripts\python.exe"
     if (Test-Path $PythonExe) {
-        Run-Command "Python Benchmark Suite" @($PythonExe, "benchmarks/vantadb_local_bench.py", "--size", "10000", "--dim", "128", "--queries", "1000", "--output", "benchmarks/vanta_benchmark_report.json")
+        Run-Command "Python Benchmark Suite" @($PythonExe, "benchmarks/vantadb_local_bench.py", "--size", "10000", "--dim", "128", "--queries", "1000", "--output", "metricas/benchmarks/vanta_benchmark_report.json")
     } else {
         Write-Host "WARNING: Python virtual environment not found at $PythonExe." -ForegroundColor Yellow
         Add-Content -Path $LogFile -Value "WARNING: Python venv not found at $PythonExe. Skipping Python benchmark."

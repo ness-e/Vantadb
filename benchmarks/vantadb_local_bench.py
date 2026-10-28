@@ -244,7 +244,7 @@ if __name__ == "__main__":
     parser.add_argument("--top-k", type=int, default=10, help="Number of neighbors to retrieve")
     parser.add_argument("--queries", type=int, default=1000, help="Number of queries to perform")
     parser.add_argument("--db-path", type=str, default="./benchmarks/data_bench_db", help="Database storage path")
-    parser.add_argument("--output", type=str, default="benchmarks/vanta_benchmark_report.json", help="Output JSON path")
+    parser.add_argument("--output", type=str, default="metricas/benchmarks/vanta_benchmark_report.json", help="Output JSON path")
 
     args = parser.parse_args()
     run_benchmark(

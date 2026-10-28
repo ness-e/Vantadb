@@ -85,9 +85,9 @@ Dataset: **synthetic random unit vectors, 10,000 × 128d, `top_k=10`** — gener
 | RAM | 31.78 GB |
 | Runtime | Python 3.11.9 (`.venv`) · `vantadb-py` 0.7.0 (release build, editable) |
 | Dataset | Synthetic random unit vectors, 10,000 × 128d, `top_k=10` — generated in-process, unseeded |
-| Command | `.venv/Scripts/python benchmarks/vantadb_local_bench.py --size 10000 --dim 128 --queries 1000 --output benchmarks/vanta_benchmark_report.json` |
+| Command | `.venv/Scripts/python benchmarks/vantadb_local_bench.py --size 10000 --dim 128 --queries 1000 --output metricas/benchmarks/vanta_benchmark_report.json` |
 
-The report JSON (`benchmarks/vanta_benchmark_report.json`) is gitignored and machine-local — the table above is the published record of this run.
+The report JSON (`metricas/benchmarks/vanta_benchmark_report.json`) is gitignored and machine-local — the table above is the published record of this run.
 
 ### Retired series — CI run 2026-08-12 (pre-SIMD)
 
@@ -112,10 +112,10 @@ To reproduce these performance measurements locally and verify behavior on your 
 maturin develop --manifest-path vantadb-python/Cargo.toml --release
 
 # 2. Run the parameterized benchmark suite
-.venv/Scripts/python benchmarks/vantadb_local_bench.py --size 10000 --dim 128 --queries 1000 --output benchmarks/vanta_benchmark_report.json
+.venv/Scripts/python benchmarks/vantadb_local_bench.py --size 10000 --dim 128 --queries 1000 --output metricas/benchmarks/vanta_benchmark_report.json
 ```
 
-This script will export a detailed report (gitignored, machine-local — regenerate with the command above) to `benchmarks/vanta_benchmark_report.json`.
+This script will export a detailed report (gitignored, machine-local — regenerate with the command above) to `metricas/benchmarks/vanta_benchmark_report.json`.
 
 ---
 
@@ -238,16 +238,16 @@ Comparativa **ingest 1k EN+ES, QPS, recall@10, RSS, p50 embed** para los 9 model
 
 ```bash
 # recomendado (2 modelos, ~5s, sin Qwen3)
-python benchmarks/embed_bench.py --models multilingual-e5-small,bge-m3 --dataset tiny-en-es-1k --output benchmarks/embed_bench_report.json
+python benchmarks/embed_bench.py --models multilingual-e5-small,bge-m3 --dataset tiny-en-es-1k --output metricas/embeddings/embed_bench_report.json
 
 # 9 modelos CI-friendly (sin excepción >3GB)
-python benchmarks/embed_bench.py --models all --skip-exception --dataset tiny-en-es-1k --output benchmarks/embed_bench_report.json
+python benchmarks/embed_bench.py --models all --skip-exception --dataset tiny-en-es-1k --output metricas/embeddings/embed_bench_report.json
 
 # 10 modelos completo (requiere --include-exception, 16 GB Qwen3)
-python benchmarks/embed_bench.py --models all --include-exception --dataset tiny-en-es-1k --output benchmarks/embed_bench_report.json
+python benchmarks/embed_bench.py --models all --include-exception --dataset tiny-en-es-1k --output metricas/embeddings/embed_bench_report.json
 
 # offline check-only (sin vantadb ni modelos, dummy determinístico)
-python benchmarks/embed_bench.py --models multilingual-e5-small --dataset tiny-en-es-1k --size 100 --no-vantadb --output benchmarks/embed_bench_report.json
+python benchmarks/embed_bench.py --models multilingual-e5-small --dataset tiny-en-es-1k --size 100 --no-vantadb --output metricas/embeddings/embed_bench_report.json
 
 # ayuda
 python benchmarks/embed_bench.py --help
@@ -255,7 +255,7 @@ python benchmarks/embed_bench.py --help
 
 ### Reporte JSON
 
-`benchmarks/embed_bench_report.json` (gitignored) — schema por modelo:
+`metricas/embeddings/embed_bench_report.json` (gitignored) — schema por modelo:
 
 ```json
 {
@@ -1057,7 +1057,7 @@ se reporta lo medido en esta maquina, no absolutos universales (pre-mortem Fallo
 >
 > **Reproduce (Regla 11):**
 > ```bash
-> python evals/memory_bench.py --sessions 20 --turns 16 --queries 40 --top-k 5 --output evals/memory_bench_report.json
+> python evals/memory_bench.py --sessions 20 --turns 16 --queries 40 --top-k 5 --output metricas/memoria/memory_bench_report.json
 > # smoke offline/CI (sin vantadb):
 > python evals/memory_bench.py --sessions 4 --turns 8 --queries 8 --no-vantadb
 > ```
@@ -1089,8 +1089,8 @@ se reporta lo medido en esta maquina, no absolutos universales (pre-mortem Fallo
 | CPU | Intel64 Family 6 Model 154, 12 logical |
 | RAM | 31.78 GB |
 | Runtime | Python 3.14.7 |
-| Comando | `python evals/memory_bench.py --sessions 20 --turns 16 --queries 40 --top-k 5 --no-vantadb --output evals/memory_bench_report.json` |
-| Reporte JSON | `evals/memory_bench_report.json` (gitignored — regenerar con el comando) |
+| Comando | `python evals/memory_bench.py --sessions 20 --turns 16 --queries 40 --top-k 5 --no-vantadb --output metricas/memoria/memory_bench_report.json` |
+| Reporte JSON | `metricas/memoria/memory_bench_report.json` (gitignored — regenerar con el comando) |
 
 ### Entregado (VER-08, 2026-09-29 — detalle en §19)
 
@@ -1205,7 +1205,7 @@ python evals/data/fetch_longmemeval_subset.py            # verifies the sha256 o
 python evals/memory_harness.py --data datasets/longmemeval/longmemeval_s_cleaned.json --label s-full-500q
 python evals/memory_harness.py --label subset-5q         # committed 5-question sub-sample (offline smoke)
 ```
-Reports: `evals/memory_harness_report*.json` (gitignored — regenerate with the commands).
+Reports: `metricas/memoria/memory_harness_report*.json` (gitignored — regenerate with the commands).
 
 ### Results — full split, run 2026-09-30 (n=500: 470 non-abstention + 30 abstention, top_k=5)
 
@@ -1318,7 +1318,7 @@ the §19 full-500 headline (different slice, same metric); (4) mem0-raw embeds l
 sessions through a 512-token model (internal truncation — declared); (5) query latency is
 single-threaded, local, machine-load sensitive; (6) Zep and Letta were **not run** on this
 slice — dispositions (no API key / architectural mismatch) live in `evals/runners/README.md`
-with FINDs for the owner. Reports: `evals/runners/report_h2h_h2h-strat10_{vantadb,mem0}.json`
+with FINDs for the owner. Reports: `metricas/memoria/report_h2h_h2h-strat10_{vantadb,mem0}.json`
 (gitignored — regenerate with the command above).
 
 ---

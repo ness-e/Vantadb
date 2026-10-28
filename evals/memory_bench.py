@@ -33,7 +33,8 @@ try:
 except Exception:
     pass
 
-DEFAULT_OUTPUT = pathlib.Path(__file__).parent / "memory_bench_report.json"
+REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
+DEFAULT_OUTPUT = REPO_ROOT / "metricas" / "memoria" / "memory_bench_report.json"
 SEED = 42
 TOPICS = ["launch plan", "budget review", "hiring", "roadmap", "infra migration", "support tickets"]
 
@@ -173,7 +174,9 @@ def main() -> None:
     args = ap.parse_args()
 
     res = run(args)
-    pathlib.Path(args.output).write_text(json.dumps(res, indent=2), encoding="utf-8")
+    out_path = pathlib.Path(args.output)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(json.dumps(res, indent=2), encoding="utf-8")
     m = res["meta"]
     print(f"| backend | dataset | docs | queries | recall@{m['top_k']} | ingest QPS | q p50 (ms) | q p99 (ms) |")
     print("|---|---|---|---|---|---|---|---|")

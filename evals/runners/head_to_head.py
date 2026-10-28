@@ -13,7 +13,7 @@ Commands (Regla 11):
     python evals/runners/head_to_head.py --systems vantadb,mem0 \
         --data datasets/longmemeval/longmemeval_s_cleaned.json --label h2h-full500
 
-Reports: `evals/runners/report_h2h_<label>_<system>.json` (gitignored — regenerate
+Reports: `metricas/memoria/report_h2h_<label>_<system>.json` (gitignored — regenerate
 with the commands above; BENCHMARKS.md §19 is the committed record of the runs).
 """
 from __future__ import annotations
@@ -27,6 +27,7 @@ import sys
 import types
 
 HERE = pathlib.Path(__file__).parent
+REPO_ROOT = HERE.resolve().parents[1]
 EVALS = HERE.parent
 sys.path.insert(0, str(EVALS))  # memory_harness lives in evals/
 sys.path.insert(0, str(HERE))  # adapters lives here
@@ -173,7 +174,8 @@ def run_systems(args) -> int:
             store.config_summary() if hasattr(store, "config_summary") else {"system": system}
         )
         _calibration_note(report)
-        out = HERE / f"report_h2h_{label}_{system}.json"
+        out = REPO_ROOT / "metricas" / "memoria" / f"report_h2h_{label}_{system}.json"
+        out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(json.dumps(report, indent=2), encoding="utf-8")
         print(_md_row(report))
         print(f"  JSON: {out}", file=sys.stderr)

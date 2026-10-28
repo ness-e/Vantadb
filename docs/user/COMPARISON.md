@@ -84,7 +84,7 @@ From [BENCHMARKS.md §2](operations/BENCHMARKS.md#-2-sdk-operations-performance-
 
 ```bash
 maturin develop --manifest-path vantadb-python/Cargo.toml --release
-.venv/Scripts/python benchmarks/vantadb_local_bench.py --size 10000 --dim 128 --queries 1000 --output benchmarks/vanta_benchmark_report.json
+.venv/Scripts/python benchmarks/vantadb_local_bench.py --size 10000 --dim 128 --queries 1000 --output metricas/benchmarks/vanta_benchmark_report.json
 ```
 
 ### 2.3 Batch vs sequential search (Python, GIL released)

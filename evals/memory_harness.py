@@ -65,8 +65,9 @@ except ImportError:  # package-style import (evals.memory_harness)
     from evals.calibration import calibrate as calibration_report  # type: ignore
 
 HERE = pathlib.Path(__file__).parent
+REPO_ROOT = HERE.resolve().parent
 DEFAULT_DATA = HERE / "data" / "longmemeval_s_subset.json"
-DEFAULT_OUTPUT = HERE / "memory_harness_report.json"
+DEFAULT_OUTPUT = REPO_ROOT / "metricas" / "memoria" / "memory_harness_report.json"
 TOP_K = 5
 ABSTENTION_TAU_PCTL = 0.05  # abstention proxy: 5th percentile of evidence scores
 
@@ -549,6 +550,7 @@ def main() -> int:
     }
 
     out = pathlib.Path(args.output)
+    out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(report, indent=2), encoding="utf-8")
     print(_markdown(report))
     print(f"\nJSON: {out}", file=sys.stderr)

@@ -16,7 +16,7 @@ END_MARKER = "<!-- BENCHMARK_METRICS_END -->"
 def main():
     results_path = RESULTS_FILE
     if not os.path.exists(results_path):
-        fallback_path = "benchmarks/vanta_benchmark_report.json"
+        fallback_path = "metricas/benchmarks/vanta_benchmark_report.json"
         if os.path.exists(fallback_path):
             results_path = fallback_path
         else:
