@@ -106,4 +106,4 @@ these is 1.0 work:
 - [`VERSIONING.md`](VERSIONING.md) — policy, 11 surfaces, release mechanics.
 - [`DEPRECATIONS.md`](DEPRECATIONS.md) — deprecation registry.
 - [`UPGRADE.md`](../user/operations/UPGRADE.md) — per-version migration guide.
-- [`CONTRIBUTING.md`](../../CONTRIBUTING.md) — release workflow (release-plz + git-cliff).
+- [`CONTRIBUTING.md`](../../.github/CONTRIBUTING.md) — release workflow (release-plz + git-cliff).

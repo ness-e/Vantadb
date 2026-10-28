@@ -14,7 +14,7 @@ created: "2026-10-21"
 > registro, y que queda **fuera** del cifrado.
 >
 > **Diseno:** [`ADR-0057`](../../../dev/architecture/adr/ADR-0057-encryption-at-rest.md).
-> **Claim publica:** [`SECURITY.md`](../../../../SECURITY.md).
+> **Claim publica:** [`SECURITY.md`](../../../../.github/SECURITY.md).
 
 ---
 
@@ -174,7 +174,7 @@ El probe de canario (un test de integracion del repo,
 
 - ADR: [`ADR-0057`](../../../dev/architecture/adr/ADR-0057-encryption-at-rest.md)
 - Plan de cableado: `2026-10-20-wiring-encryption-feature.md`
-- Claim publica: [`SECURITY.md`](../../../../SECURITY.md)
+- Claim publica: [`SECURITY.md`](../../../../.github/SECURITY.md)
 - Configuracion: [`CONFIGURATION.md`](../CONFIGURATION.md)
 - Backup y restauracion: [`BACKUP_POLICY.md`](../BACKUP_POLICY.md),
   [`BACKUP_RESTORE.md`](../BACKUP_RESTORE.md)

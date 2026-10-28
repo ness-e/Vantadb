@@ -114,5 +114,5 @@ The contracts above are checked mechanically, not by convention:
 Version bumps, tags, and changelog entries are produced automatically by
 [release-plz](https://release-plz.github.io/) + [git-cliff](https://git-cliff.org/)
 from Conventional Commits. See the *Release Workflow* section of
-[`CONTRIBUTING.md`](../../CONTRIBUTING.md) for the full flow, and
+[`CONTRIBUTING.md`](../../.github/CONTRIBUTING.md) for the full flow, and
 [`docs/user/operations/UPGRADE.md`](../user/operations/UPGRADE.md) for consumer upgrade guidance.
