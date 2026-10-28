@@ -251,7 +251,7 @@ indicatif = "0.18"
 serial_test = "4.0"
 serde_json = "1.0"
 tower = { version = "0.5", features = ["util"] }
-serde_yaml = "0.9.34"
+serde-saphyr = "2"
 insta = "1.48"
 # HARD-01: public API snapshot rails (tests/api/public_api.rs). Version family
 # must stay aligned with the cargo-public-api CLI used to read the snapshot.

@@ -44,12 +44,19 @@ ignore = [
 
     # (removed RUSTSEC-2026-0176/0177 — pyo3 0.29.0 is past the vulnerable range)
 
-    # RUSTSEC-2024-0449 (unsafe-libyaml 0.2.11, unmaintained — dev-only via serde_yaml).
-    # Mirror of deny.toml [advisories] triage (FIND-351, 2026-10-17).
-    "RUSTSEC-2024-0449",
+    # (removed RUSTSEC-2024-0449 — serde_yaml replaced by serde-saphyr in the
+    # parity test, unsafe-libyaml left the graph; mirror of deny.toml removal.)
 
     # RUSTSEC-2026-0387 (crypto-bigint 0.5.5, timing variability — transitive via
     # jsonwebtoken 11.1.0 -> p256/p384 -> elliptic-curve 0.13.8; VantaDB only uses HS256 HMAC).
     # Mirror of deny.toml [advisories] triage (2026-10-25).
     "RUSTSEC-2026-0387",
+
+    # RUSTSEC-2026-0391/0398/0403/0410 (zstd stack via tantivy 0.26.2).
+    # Mirror of deny.toml [advisories] triage (2026-10-28): temporary ignores,
+    # expire 2027-01-26, tracked to a tantivy upgrade with fixed zstd.
+    "RUSTSEC-2026-0391",
+    "RUSTSEC-2026-0398",
+    "RUSTSEC-2026-0403",
+    "RUSTSEC-2026-0410",
 ]

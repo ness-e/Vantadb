@@ -8,7 +8,7 @@
 
 #[cfg(test)]
 mod openapi_yaml_parity {
-    use serde_yaml::Value;
+    use serde_json::Value;
     use std::fs;
     use vantadb::parser::parse_statement;
     use vantadb::query::Condition;
@@ -18,7 +18,7 @@ mod openapi_yaml_parity {
     fn load_openapi() -> Value {
         let yaml_content =
             fs::read_to_string("docs/api/openapi.yaml").expect("Failed to read openapi.yaml");
-        serde_yaml::from_str(&yaml_content).expect("Failed to parse openapi.yaml")
+        serde_saphyr::from_str(&yaml_content).expect("Failed to parse openapi.yaml")
     }
 
     #[test]
@@ -173,7 +173,7 @@ mod openapi_yaml_parity {
         let schema = &openapi["components"]["requestBodies"]["GraphBfsDfsBody"]["content"]
             ["application/json"]["schema"];
         let required: Vec<&str> = schema["required"]
-            .as_sequence()
+            .as_array()
             .unwrap()
             .iter()
             .map(|v| v.as_str().unwrap())
@@ -191,7 +191,7 @@ mod openapi_yaml_parity {
             "roots must be NUMERIC (u128 JSON numbers — strings are rejected with 400)"
         );
         let direction_enum: Vec<&str> = schema["properties"]["direction"]["enum"]
-            .as_sequence()
+            .as_array()
             .unwrap()
             .iter()
             .map(|v| v.as_str().unwrap())
@@ -303,9 +303,9 @@ mod openapi_yaml_parity {
     /// `string` + nullable (never a number / different type).
     fn assert_next_cursor_single_type(value: &Value, ctx: &str) {
         match value {
-            Value::Mapping(map) => {
+            Value::Object(map) => {
                 for (k, v) in map {
-                    if k.as_str() == Some("next_cursor") {
+                    if k == "next_cursor" {
                         assert_eq!(
                             v["type"].as_str(),
                             Some("string"),
@@ -320,7 +320,7 @@ mod openapi_yaml_parity {
                     assert_next_cursor_single_type(v, ctx);
                 }
             }
-            Value::Sequence(seq) => {
+            Value::Array(seq) => {
                 for item in seq {
                     assert_next_cursor_single_type(item, ctx);
                 }
@@ -332,7 +332,7 @@ mod openapi_yaml_parity {
     /// Assert the yaml documents a page response with a cursor + has_more.
     fn assert_page_schema(openapi: &Value, schema_name: &str, collection: &str) {
         let schema = &openapi["components"]["schemas"][schema_name];
-        assert!(schema.is_mapping(), "page schema {schema_name} must exist");
+        assert!(schema.is_object(), "page schema {schema_name} must exist");
         assert_eq!(
             schema["properties"]["next_cursor"]["type"].as_str(),
             Some("string"),
@@ -344,7 +344,7 @@ mod openapi_yaml_parity {
             "{schema_name}.has_more must be a boolean"
         );
         assert!(
-            schema["properties"][collection].is_mapping(),
+            schema["properties"][collection].is_object(),
             "{schema_name} must carry the `{collection}` collection"
         );
     }
@@ -353,7 +353,7 @@ mod openapi_yaml_parity {
     fn assert_created_status(openapi: &Value, path: &str, method: &str) {
         let responses = &openapi["paths"][path][method]["responses"];
         assert!(
-            responses["201"].is_mapping(),
+            responses["201"].is_object(),
             "{method} {path} must document 201 Created"
         );
         assert!(
@@ -381,31 +381,31 @@ mod openapi_yaml_parity {
         );
 
         // New maintenance sub-resources (plural nouns, no verbs).
-        assert!(openapi["paths"]["/api/v2/maintenance/expired-records"]["delete"].is_mapping());
-        assert!(openapi["paths"]["/api/v2/maintenance/compactions"]["post"].is_mapping());
-        assert!(openapi["paths"]["/api/v2/maintenance/flushes"]["post"].is_mapping());
-        assert!(openapi["paths"]["/api/v2/maintenance/index-rebuilds"]["post"].is_mapping());
+        assert!(openapi["paths"]["/api/v2/maintenance/expired-records"]["delete"].is_object());
+        assert!(openapi["paths"]["/api/v2/maintenance/compactions"]["post"].is_object());
+        assert!(openapi["paths"]["/api/v2/maintenance/flushes"]["post"].is_object());
+        assert!(openapi["paths"]["/api/v2/maintenance/index-rebuilds"]["post"].is_object());
 
         // Conversation turn ingestion under /api/v2.
-        assert!(openapi["paths"]["/api/v2/conversations"]["post"].is_mapping());
+        assert!(openapi["paths"]["/api/v2/conversations"]["post"].is_object());
 
         // Skills collection serves GET (listing) + POST (create).
-        assert!(openapi["paths"]["/api/v2/skills"]["get"].is_mapping());
-        assert!(openapi["paths"]["/api/v2/skills"]["post"].is_mapping());
+        assert!(openapi["paths"]["/api/v2/skills"]["get"].is_object());
+        assert!(openapi["paths"]["/api/v2/skills"]["post"].is_object());
 
         // Thread messages live in a sub-resource; /threads/{id} keeps GET+DELETE.
-        assert!(openapi["paths"]["/api/v2/threads/{id}/messages"]["post"].is_mapping());
+        assert!(openapi["paths"]["/api/v2/threads/{id}/messages"]["post"].is_object());
         assert!(
             openapi["paths"]["/api/v2/threads/{id}"]["post"].is_null(),
             "POST /threads/{{id}} must migrate to /threads/{{id}}/messages"
         );
-        assert!(openapi["paths"]["/api/v2/threads/{id}"]["get"].is_mapping());
-        assert!(openapi["paths"]["/api/v2/threads/{id}"]["delete"].is_mapping());
+        assert!(openapi["paths"]["/api/v2/threads/{id}"]["get"].is_object());
+        assert!(openapi["paths"]["/api/v2/threads/{id}"]["delete"].is_object());
 
         // `/api/v2` total: every documented path is versioned except the
         // documented exceptions (liveness/metrics probes + UI).
-        for (path, _) in openapi["paths"].as_mapping().unwrap() {
-            let path = path.as_str().unwrap();
+        for (path, _) in openapi["paths"].as_object().unwrap() {
+            let path = path.as_str();
             let allowed_unversioned = ["/health", "/metrics", "/dashboard", "/dashboard/{path}"];
             assert!(
                 path.starts_with("/api/v2/") || allowed_unversioned.contains(&path),
@@ -442,7 +442,7 @@ mod openapi_yaml_parity {
         // Cursor request params are strings (opaque tokens), never integers.
         for path in ["/api/v2/list", "/api/v2/audit", "/api/v2/threads"] {
             let params = openapi["paths"][path]["get"]["parameters"]
-                .as_sequence()
+                .as_array()
                 .unwrap();
             let cursor = params
                 .iter()
@@ -484,7 +484,7 @@ mod openapi_yaml_parity {
         assert!(input.ttl_ms.is_none());
 
         let required: Vec<&str> = openapi["components"]["schemas"]["RecordInput"]["required"]
-            .as_sequence()
+            .as_array()
             .unwrap()
             .iter()
             .map(|v| v.as_str().unwrap())
@@ -520,7 +520,7 @@ mod openapi_yaml_parity {
         // variants (src/node/vector_data.rs): Cosine | Euclidean | SparseDot.
         let enum_values: Vec<&str> = openapi["components"]["schemas"]["SearchPageRequest"]
             ["properties"]["distance_metric"]["enum"]
-            .as_sequence()
+            .as_array()
             .unwrap()
             .iter()
             .map(|v| v.as_str().unwrap())
@@ -533,7 +533,7 @@ mod openapi_yaml_parity {
 
         // Drift 5: every tag used by an operation is declared.
         let declared: Vec<&str> = openapi["tags"]
-            .as_sequence()
+            .as_array()
             .unwrap()
             .iter()
             .map(|t| t["name"].as_str().unwrap())
@@ -543,10 +543,10 @@ mod openapi_yaml_parity {
             "tag `Skills` must be declared in the top-level tags list"
         );
         // ... and no operation may use a tag that is not declared.
-        for (path, ops) in openapi["paths"].as_mapping().unwrap() {
-            let path = path.as_str().unwrap();
-            for (_, op) in ops.as_mapping().unwrap() {
-                if let Some(tags) = op["tags"].as_sequence() {
+        for (path, ops) in openapi["paths"].as_object().unwrap() {
+            let path = path.as_str();
+            for (_, op) in ops.as_object().unwrap() {
+                if let Some(tags) = op["tags"].as_array() {
                     for tag in tags {
                         let tag = tag.as_str().unwrap();
                         assert!(

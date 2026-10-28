@@ -33,13 +33,9 @@ ignore = [
     # 0.18.4 (>= patched 0.18.2); 0.16.4 remains only transitively via tantivy 0.26.1.
     # Re-add only if deny fires it again (e.g. tantivy still pinning lru ^0.16).
 
-    # RUSTSEC-2024-0449 (unsafe-libyaml 0.2.11, unmaintained):
-    # FIND-351 triage (2026-10-17): pulled exclusively via dev-dependency serde_yaml
-    # 0.9.34+deprecated (used only by tests/api/openapi_yaml_parity.rs on trusted
-    # repo-local docs/api/openapi.yaml). Zero production/runtime reachability.
-    # Owner: vanta-lead
-    # Expiry: 2027-06-01
-    "RUSTSEC-2024-0449",
+    # Removal 2026-10-28: serde_yaml replaced by serde-saphyr in the parity
+    # test (only consumer) — unsafe-libyaml left the dependency graph, so this
+    # ignore would report advisory-not-detected. Re-add only if it reappears.
 
     # RUSTSEC-2026-0387 (crypto-bigint 0.5.5, timing variability):
     # Pulled transitively via jsonwebtoken 11.1.0 -> p256/p384 -> elliptic-curve 0.13.8.
