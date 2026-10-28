@@ -10,9 +10,7 @@ import os
 import shutil
 
 import pytest
-
 import vantadb_py as vanta
-
 
 TEST_DB_PATH = "./test_typed_errors_db"
 

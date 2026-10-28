@@ -7,8 +7,8 @@ pins the read surfaces promised by the slice: ``get`` (``Record``),
 ``list`` (``ListResult`` records) and ``search`` (``SearchHit``).
 """
 
-import vantadb_py as vanta
 import pytest
+import vantadb_py as vanta
 
 
 def _db():

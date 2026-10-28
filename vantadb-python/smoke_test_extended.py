@@ -1,6 +1,7 @@
-import vantadb as vanta
 import os
 import shutil
+
+import vantadb as vanta
 
 DB_PATH = "./test_vanta_db_extended"
 

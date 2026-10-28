@@ -5,16 +5,16 @@ These cover the source-installed PyO3 binding and namespace-scoped memory API.
 IQL/LISP/DQL is not part of the v0.1.x MVP boundary.
 """
 
+import glob
 import os
-import time
 import shutil
+import time
+from typing import ClassVar
+
 import pytest
 
 # The module name matches [lib] name in Cargo.toml
 import vantadb_py as vanta
-
-
-import glob
 
 TEST_DB_PATH = "./test_sdk_db"
 
@@ -225,7 +225,7 @@ class TestVectorSearch:
 class TestU128NodeIds:
     """ERR-023: Node IDs >= 2^64 must round-trip intact (core ids are u128)."""
 
-    BIG_IDS = [
+    BIG_IDS: ClassVar[list[int]] = [
         2**64 + 1,  # 18446744073709551617 — beyond u64 range
         2**128 - 1,  # max u128 — 340282366920938463463374607431768211455
     ]
@@ -479,7 +479,7 @@ class TestPersistentMemoryApi:
         """delete_by_filter() must reject an empty filter to prevent full-namespace deletion."""
         db = vanta.Client(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
         db.put("agent/main", "a", "alpha", metadata={"category": "task"})
-        with pytest.raises(Exception):
+        with pytest.raises(vanta.ValidationError):
             db.delete_by_filter("agent/main", {})
 
     def test_similar_to_key(self):
@@ -1039,6 +1039,7 @@ class TestArrayInterfaceMemorySafety:
     def test_asarray_survives_pyclass_drop(self):
         """ndarray must keep its data after the Vector is dropped."""
         import gc
+
         import numpy as np
 
         vv = vanta.Vector([1.0, 2.0, 3.0, 4.0])
@@ -1062,6 +1063,7 @@ class TestArrayInterfaceMemorySafety:
     def test_asarray_survives_setstate_mutation(self):
         """ndarray must keep its data when __setstate__ swaps the buffer."""
         import gc
+
         import numpy as np
 
         vv = vanta.Vector([5.0, 6.0, 7.0, 8.0])
@@ -1093,6 +1095,7 @@ class TestArrayInterfaceMemorySafety:
         survives the wrapper being dropped.
         """
         import gc
+
         import numpy as np
 
         db = vanta.Client(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
@@ -1568,9 +1571,7 @@ class TestAsyncClient:
                     f"hardware_profile should expose memory telemetry, got {list(hw.keys())}"
                 )
 
-                assert repr(db).startswith("AsyncClient"), (
-                    f"unexpected repr: {repr(db)}"
-                )
+                assert repr(db).startswith("AsyncClient"), f"unexpected repr: {db!r}"
 
         asyncio.run(run())
 
@@ -1735,7 +1736,7 @@ class TestWALCompaction:
         ro = vanta.Client(path, read_only=True, memory_limit_bytes=128 * 1024 * 1024)
         import pytest
 
-        with pytest.raises(Exception):
+        with pytest.raises(vanta.ValidationError):
             ro.compact_wal()
         ro.close()
 
@@ -1767,7 +1768,7 @@ class TestTTL:
         """Records with past TTL should be invisible on read."""
         db = vanta.Client(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
         # ttl_ms=1 means expires in 1ms — by the time we read, it's gone
-        record = db.put("ns", "k", "gone", ttl_ms=1)
+        db.put("ns", "k", "gone", ttl_ms=1)
         _wait_until(lambda: db.memory.get("ns", "k") is None, timeout=10.0)
         assert db.memory.get("ns", "k") is None, (
             "expired record should not be retrievable"
@@ -1872,7 +1873,7 @@ class TestPutBatchRaw:
 
         db = vanta.Client(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
         vectors = np.array([[1.0, 0.0], [0.0, 1.0]], dtype=np.float32)
-        with pytest.raises(Exception):
+        with pytest.raises(ValueError):
             db.put_batch_raw(vectors, ["only_one_key"])
 
 

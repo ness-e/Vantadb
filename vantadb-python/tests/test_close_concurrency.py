@@ -15,7 +15,6 @@ import threading
 import time
 
 import pytest
-
 import vantadb_py
 
 CLOSE_TIMEOUT_SECONDS = 30
@@ -29,7 +28,9 @@ def _worker_loop(db, stop, errors, i):
         try:
             db.put("stress", key, "x" * 256)
             db.memory.get("stress", key)
-        except Exception as exc:
+        # Worker-thread errors can't propagate (the thread would die silent),
+        # so the broad catch + explicit re-report is the pattern, not a smell.
+        except Exception as exc:  # noqa: BLE001
             # Races against the durability barrier are expected once
             # close() starts; anything else is a real failure.
             if "closing" not in str(exc).lower():
@@ -61,7 +62,8 @@ def test_close_concurrent_stress(tmp_path):
     def closer():
         try:
             db.close()
-        except Exception as exc:  # pragma: no cover - only on real breakage
+        # Same worker-thread rationale as _worker_loop: report, don't die silent.
+        except Exception as exc:  # noqa: BLE001  # pragma: no cover - only on real breakage
             errors.append(exc)
         finally:
             closed.set()

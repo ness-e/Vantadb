@@ -10,7 +10,6 @@ Run: ``python -m pytest tests/test_graphrag.py -q`` (after ``maturin develop``).
 from __future__ import annotations
 
 import pytest
-
 from vantadb_py import Client, ValidationError
 
 

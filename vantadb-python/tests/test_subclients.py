@@ -13,10 +13,7 @@ node-level ops (``id: u128``, graph domain) — the naming hazard is
 resolved by delegation (``db.memory.get``), never by magic overloads.
 """
 
-import os
-
 import pytest
-
 import vantadb_py as vanta
 
 

@@ -11,7 +11,6 @@ import tempfile
 from pathlib import Path
 
 import pytest
-
 from vantadb_py import Client
 from vantadb_py.migrate import migrate_from_chroma, migrate_from_lancedb
 

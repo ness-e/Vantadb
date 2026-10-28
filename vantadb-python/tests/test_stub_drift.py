@@ -235,7 +235,7 @@ def test_subclient_stubs_match_native_subclients():
 def test_put_batch_return_type_is_typed_not_dict():
     """Regression guard for the put_batch/put_batch_raw type fix: the native
     methods return Record objects, not dicts."""
-    stub = _parse_stub(PKG / "vantadb_py.pyi")
+    _parse_stub(PKG / "vantadb_py.pyi")
     for name in ("put_batch", "put_batch_raw"):
         ret = None
         tree = ast.parse((PKG / "vantadb_py.pyi").read_text(encoding="utf-8"))

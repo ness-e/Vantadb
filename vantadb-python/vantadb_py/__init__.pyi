@@ -10,53 +10,50 @@ re-declaring native classes.
 ``__all__`` transitively, so it needs no stub of its own.
 """
 
-from __future__ import annotations
-
-from typing import Any
+from typing import Any, Self
 
 from .vantadb_py import (
     BusyError,
     Client,
     ConflictError,
     CorruptError,
+    Error,
+    ListResult,
     NotFoundError,
     NoVectorError,
+    Record,
     ResourceLimitError,
+    SearchHit,
     StorageError,
     TimeoutError,
     UnsupportedError,
-    Error,
     ValidationError,
-    ListResult,
-    Record,
-    SearchHit,
     Vector,
     __version__,
     connect,
-    memory_node_id,
 )
 
 # AST-010: rename nativo completo — sin puentes legacy.
 
 __all__ = [
-    "Client",
     "AsyncClient",
-    "ListResult",
-    "Record",
-    "SearchHit",
-    "Vector",
-    "SearchRequest",
-    "Error",
-    "NotFoundError",
-    "ValidationError",
-    "CorruptError",
-    "StorageError",
-    "ConflictError",
-    "UnsupportedError",
-    "ResourceLimitError",
     "BusyError",
+    "Client",
+    "ConflictError",
+    "CorruptError",
+    "Error",
+    "ListResult",
     "NoVectorError",
+    "NotFoundError",
+    "Record",
+    "ResourceLimitError",
+    "SearchHit",
+    "SearchRequest",
+    "StorageError",
     "TimeoutError",
+    "UnsupportedError",
+    "ValidationError",
+    "Vector",
     "__version__",
     "connect",
     "error_to_dict",
@@ -65,7 +62,6 @@ __all__ = [
 def error_to_dict(exc: BaseException) -> dict[str, Any]:
     """Serialize a VantaDB error to a plain dict mirroring TS ``toJSON()``
     (``docs/api/ERROR_HANDLING.md`` §5.2): name/code/message/retriable/hint."""
-    ...
 
 class SearchRequest:
     """Full search request for batch searches.
@@ -98,7 +94,6 @@ class SearchRequest:
     ) -> None: ...
     def asdict(self) -> dict:
         """Return this request as a plain dict (for non-dataclass callers)."""
-        ...
 
 class AsyncMemoryClient:
     """Async view over ``db.memory`` (AST-012: short names, no surname)."""
@@ -119,7 +114,6 @@ class AsyncMemoryClient:
         min_confidence: float | None = None,
     ) -> ListResult: ...
     async def delete(self, namespace: str, key: str) -> bool: ...
-    def __repr__(self) -> str: ...
 
 class AsyncClient:
     """Async wrapper around ``Client``.
@@ -129,8 +123,8 @@ class AsyncClient:
     """
 
     def __init__(self, *args: Any, max_concurrency: int = 4, **kwargs: Any) -> None: ...
-    async def __aenter__(self) -> AsyncClient: ...
-    async def __aexit__(self, *exc: Any) -> None: ...
+    async def __aenter__(self) -> Self: ...
+    async def __aexit__(self, *exc: object) -> None: ...
     async def search(
         self,
         namespace: str,
@@ -303,4 +297,3 @@ class AsyncClient:
         distance_metric: str | None = None,
         query_sparse: dict | None = None,
     ) -> dict: ...
-    def __repr__(self) -> str: ...

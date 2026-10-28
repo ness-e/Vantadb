@@ -9,8 +9,8 @@ SDK. ADR-046 §D2/§D3/§D5.
 
 import json
 
-import vantadb_py as vanta
 import pytest
+import vantadb_py as vanta
 
 
 def _db():

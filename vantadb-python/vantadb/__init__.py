@@ -12,17 +12,17 @@ import warnings
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore", DeprecationWarning)
-    from vantadb_py import *  # noqa: F401,F403 — re-export the public API
-    from vantadb_py import __version__  # noqa: F401
+    from vantadb_py import *
+    from vantadb_py import __version__
 
 __all__ = [
-    "Client",
     "AsyncClient",
+    "Client",
     "ListResult",
     "Record",
     "SearchHit",
-    "Vector",
     "SearchRequest",
+    "Vector",
     "__version__",
     "connect",
 ]

@@ -42,6 +42,7 @@ def _run_fresh_interpreter(mode: str) -> None:
         timeout=120,
         encoding="utf-8",
         errors="replace",
+        check=False,  # returncode asserted explicitly below
     )
     assert proc.returncode == 0 and "OK" in proc.stdout, (
         f"[{mode}] failed\nstdout: {proc.stdout}\nstderr: {proc.stderr}"

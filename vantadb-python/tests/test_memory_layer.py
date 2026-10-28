@@ -15,7 +15,6 @@ import asyncio
 import json
 
 import pytest
-
 import vantadb as vanta
 
 

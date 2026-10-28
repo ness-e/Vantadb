@@ -4,16 +4,15 @@ These tests verify the engine handles concurrent operations, large batches,
 memory pressure, and sustained throughput without crashing or degrading.
 """
 
-import os
 import gc
-import time
-import uuid
+import glob
+import os
 import shutil
 import threading
-import glob
+import time
+import uuid
 
 import pytest
-
 import vantadb_py as vanta
 
 TEST_DB_PATH = "./test_load_db"
@@ -51,7 +50,8 @@ class TestConcurrentOperations:
                     db.insert_node(
                         i, content=f"vector_{i}", vector=[float(i % 10)] * 128
                     )
-            except Exception as e:
+            # Cross-thread errors can't propagate; collect-and-assert is the pattern.
+            except Exception as e:  # noqa: BLE001
                 with lock:
                     errors.append(e)
 
@@ -80,7 +80,8 @@ class TestConcurrentOperations:
             try:
                 for i in range(start, start + count):
                     db.insert_node(i, content=f"node_{i}", vector=[float(i % 10)] * 64)
-            except Exception as e:
+            # Same cross-thread rationale as above.
+            except Exception as e:  # noqa: BLE001
                 with lock:
                     errors.append(e)
 

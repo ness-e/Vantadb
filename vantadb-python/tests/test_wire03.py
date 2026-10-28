@@ -12,10 +12,9 @@ RED esperado antes de implementar: ``put(sparse_vector=…)`` y
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
-
 import vantadb_py
 
 NS = "wire03"
@@ -93,19 +92,17 @@ def test_sparse_query_rejects_non_numeric_weight():
 
 
 def _seed_timeline(db) -> None:
-    db.put(NS, "old", "a", metadata={"when": datetime(2026, 1, 1, tzinfo=timezone.utc)})
-    db.put(NS, "mid", "b", metadata={"when": datetime(2026, 6, 1, tzinfo=timezone.utc)})
-    db.put(
-        NS, "new", "c", metadata={"when": datetime(2026, 12, 1, tzinfo=timezone.utc)}
-    )
+    db.put(NS, "old", "a", metadata={"when": datetime(2026, 1, 1, tzinfo=UTC)})
+    db.put(NS, "mid", "b", metadata={"when": datetime(2026, 6, 1, tzinfo=UTC)})
+    db.put(NS, "new", "c", metadata={"when": datetime(2026, 12, 1, tzinfo=UTC)})
 
 
 def test_advanced_filter_datetime_range_count():
     """Range datetime [jun, dic) = 1 — misma forma que el test espejo TS."""
     db = _client()
     _seed_timeline(db)
-    lo = datetime(2026, 6, 1, tzinfo=timezone.utc)
-    hi = datetime(2026, 12, 1, tzinfo=timezone.utc)
+    lo = datetime(2026, 6, 1, tzinfo=UTC)
+    hi = datetime(2026, 12, 1, tzinfo=UTC)
 
     assert db.count(NS, {"when": {"$gte": lo, "$lt": hi}}) == 1
 
@@ -113,8 +110,8 @@ def test_advanced_filter_datetime_range_count():
 def test_advanced_filter_datetime_range_delete():
     db = _client()
     _seed_timeline(db)
-    lo = datetime(2026, 6, 1, tzinfo=timezone.utc)
-    hi = datetime(2026, 12, 1, tzinfo=timezone.utc)
+    lo = datetime(2026, 6, 1, tzinfo=UTC)
+    hi = datetime(2026, 12, 1, tzinfo=UTC)
 
     deleted = db.delete_by_filter(NS, {"when": {"$gte": lo, "$lt": hi}})
 

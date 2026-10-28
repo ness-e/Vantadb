@@ -10,6 +10,7 @@ scenarios unique to PERF-15/PERF-16.
 import os
 import shutil
 import uuid
+
 import numpy as np
 import pytest
 import vantadb_py as vanta

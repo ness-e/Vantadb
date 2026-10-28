@@ -1,7 +1,5 @@
 """Type stubs for the ``vantadb`` canonical import package."""
 
-from __future__ import annotations
-
 from vantadb_py import (
     AsyncClient,
     Client,
@@ -16,13 +14,13 @@ from vantadb_py import (
 )
 
 __all__ = [
-    "Client",
     "AsyncClient",
+    "Client",
     "ListResult",
     "Record",
     "SearchHit",
-    "Vector",
     "SearchRequest",
+    "Vector",
     "__version__",
     "connect",
     "memory_node_id",

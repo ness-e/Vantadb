@@ -16,8 +16,6 @@ from __future__ import annotations
 
 import inspect
 
-import pytest
-
 import vantadb as vanta
 import vantadb_py.vantadb_py as _native
 

@@ -27,7 +27,6 @@ Two things happen here:
 import os
 
 import pytest
-
 import vantadb_py
 
 _MIN_TEST_MEMORY_LIMIT = (
@@ -41,7 +40,9 @@ _BY_PATH = {}  # abspath -> instance, for file-backed handles only
 def _close_quietly(db):
     try:
         db.close()  # idempotent on the Rust side; teardown must never mask test results
-    except Exception:
+    # Teardown helper: close() failures here must never fail/abort the suite
+    # (a stale lock would cascade into dozens of unrelated failures).
+    except Exception:  # noqa: BLE001, S110
         pass
 
 
