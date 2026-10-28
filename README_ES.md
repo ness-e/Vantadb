@@ -49,7 +49,7 @@ VantaDB es un motor de memoria embebido, local-first, diseñado para agentes de 
 | Ejecutar ejemplos ejecutables | [Demo + Colab](examples/README.md) · [TypeScript](vantadb-ts/examples/) |
 | Leer las FAQ | [FAQ](docs/user/FAQ.md) |
 | Leer la documentación de arquitectura | [Documentación](#documentación) |
-| Contribuir de forma segura | [CONTRIBUTING.md](CONTRIBUTING.md) |
+| Contribuir de forma segura | [CONTRIBUTING.md](.github/CONTRIBUTING.md) |
 | Reportar una vulnerabilidad | [SECURITY.md](SECURITY.md) |
 
 ---
@@ -463,7 +463,7 @@ Los resultados se imprimen en la consola y se escriben en `vanta_benchmark_repor
 
 ## Contribución y Seguridad
 
-- Las contribuciones deben seguir [CONTRIBUTING.md](CONTRIBUTING.md).
+- Las contribuciones deben seguir [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md).
 
 ---
 

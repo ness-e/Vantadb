@@ -52,7 +52,7 @@ VantaDB is a local-first, embedded memory engine for AI agents. **One product, f
 | Run runnable examples | [Demo + Colab](examples/README.md) · [TypeScript](vantadb-ts/examples/) |
 | Read the FAQ | [FAQ](docs/user/FAQ.md) |
 | Read architecture docs | [Documentation](#documentation) |
-| Contribute safely | [CONTRIBUTING.md](CONTRIBUTING.md) |
+| Contribute safely | [CONTRIBUTING.md](.github/CONTRIBUTING.md) |
 | Report a vulnerability | [SECURITY.md](SECURITY.md) |
 
 ---
@@ -464,7 +464,7 @@ Results are printed to the console and written to `vanta_benchmark_report.json` 
 
 ## Contributing & Security
 
-- Contributions must follow [CONTRIBUTING.md](CONTRIBUTING.md).
+- Contributions must follow [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md).
 
 ---
 
